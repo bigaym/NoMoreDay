@@ -1,0 +1,271 @@
+import websocket # type: ignore
+import uuid
+import json
+import urllib.request
+import urllib.parse
+import random
+import sys
+import os
+import argparse
+import requests # type: ignore
+import subprocess
+import time
+
+SERVER_ADDRESS = "127.0.0.1:8188"
+CLIENT_ID = str(uuid.uuid4())
+COMFYUI_PATH = r"D:\\Program Files\\ComfyUI_windows_portable\\run_nvidia_gpu.bat"
+
+# Force no proxy for localhost to avoid port 7890 issues
+os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+
+def is_server_running():
+    try:
+        requests.get(f"http://{SERVER_ADDRESS}", timeout=1)
+        return True
+    except requests.RequestException:
+        # Catches ConnectionError, Timeout, etc.
+        return False
+
+def start_comfyui():
+    print(f"ComfyUI not found at {SERVER_ADDRESS}. Starting it now...")
+    if not os.path.exists(COMFYUI_PATH):
+        print(f"Error: Could not find ComfyUI start script at: {COMFYUI_PATH}")
+        sys.exit(1)
+    
+    # Extract the directory of the batch file to set as CWD
+    comfyui_dir = os.path.dirname(COMFYUI_PATH)
+    
+    # Start ComfyUI in a new independent console window.
+    # We use 'start' to detach it. '/D' sets the working directory.
+    # The first quoted argument to 'start' is the window title (required if path is quoted).
+    cmd = f'start "ComfyUI" /D "{comfyui_dir}" "{COMFYUI_PATH}"'
+    subprocess.Popen(cmd, shell=True)
+    
+    print("Waiting for ComfyUI to initialize (this may take 10-20 seconds)...")
+    for i in range(30):
+        if is_server_running():
+            print("ComfyUI is Online!")
+            return
+        time.sleep(1)
+        print(".", end="", flush=True)
+    
+    print("\nError: Timed out waiting for ComfyUI to start.")
+    sys.exit(1)
+
+# Standard Text-to-Image Workflow for ComfyUI
+# Node IDs: 
+# 3: KSampler, 4: Checkpoint, 6: Positive Prompt, 7: Negative Prompt, 
+# 8: VAE Decode, 9: Save Image, 5: Empty Latent
+def get_default_workflow():
+    return {
+        "3": {
+            "inputs": {
+                "seed": random.randint(1, 1000000000),
+                "steps": 25,
+                "cfg": 7.5,
+                "sampler_name": "euler",
+                "scheduler": "normal",
+                "denoise": 1,
+                "model": ["4", 0],
+                "positive": ["6", 0],
+                "negative": ["7", 0],
+                "latent_image": ["5", 0]
+            },
+            "class_type": "KSampler"
+        },
+        "4": {
+            "inputs": {
+                "ckpt_name": "sd_xl_base_1.0.safetensors" 
+            },
+            "class_type": "CheckpointLoaderSimple"
+        },
+        "5": {
+            "inputs": {
+                "width": 1024,
+                "height": 1024,
+                "batch_size": 1
+            },
+            "class_type": "EmptyLatentImage"
+        },
+        "6": {
+            "inputs": {
+                "text": "masterpiece, best quality, 2d game sprite, high detail, white background",
+                "clip": ["4", 1]
+            },
+            "class_type": "CLIPTextEncode"
+        },
+        "7": {
+            "inputs": {
+                "text": "blur, noise, photo, realistic, 3d, text, watermark, background",
+                "clip": ["4", 1]
+            },
+            "class_type": "CLIPTextEncode"
+        },
+        "8": {
+            "inputs": {
+                "samples": ["3", 0],
+                "vae": ["4", 2]
+            },
+            "class_type": "VAEDecode"
+        },
+        "9": {
+            "inputs": {
+                "images": ["8", 0],
+                "filename_prefix": "NoMoreDay_Asset"
+            },
+            "class_type": "SaveImage"
+        }
+    }
+
+def get_available_models():
+    try:
+        response = requests.get(f"http://{SERVER_ADDRESS}/object_info/CheckpointLoaderSimple")
+        if response.status_code == 200:
+            data = response.json()
+            # print("Debug - Model Info:", json.dumps(data, indent=2)) 
+            models = data['CheckpointLoaderSimple']['input']['required']['ckpt_name'][0]
+            if not models:
+                 print("Warning: ComfyUI reports no Checkpoints available!")
+            return models
+    except Exception as e:
+        print(f"Error fetching models: {e}")
+    return []
+
+def queue_prompt(prompt_workflow):
+    p = {"prompt": prompt_workflow, "client_id": CLIENT_ID}
+    data = json.dumps(p).encode('utf-8')
+    req = urllib.request.Request(f"http://{SERVER_ADDRESS}/prompt", data=data)
+    try:
+        return json.loads(urllib.request.urlopen(req).read())
+    except urllib.error.HTTPError as e:
+        print(f"HTTP Error {e.code}: {e.reason}")
+        print("Server Response:", e.read().decode('utf-8'))
+        raise e
+
+def get_image(filename, subfolder, folder_type):
+    data = {"filename": filename, "subfolder": subfolder, "type": folder_type}
+    url_values = urllib.parse.urlencode(data)
+    with urllib.request.urlopen(f"http://{SERVER_ADDRESS}/view?{url_values}") as response:
+        return response.read()
+
+def get_history(prompt_id):
+    with urllib.request.urlopen(f"http://{SERVER_ADDRESS}/history/{prompt_id}") as response:
+        return json.loads(response.read())
+
+import io
+from PIL import Image
+import rembg
+
+...
+
+def get_images(ws, prompt, output_dir, file_prefix, remove_bg=True):
+    prompt_id = queue_prompt(prompt)['prompt_id']
+    print(f"Step 1: Prompt Queued (ID: {prompt_id})... waiting for generation.")
+    
+    current_images = []
+    
+    while True:
+        out = ws.recv()
+        if isinstance(out, str):
+            message = json.loads(out)
+            if message['type'] == 'executing':
+                data = message['data']
+                if data['node'] is None and data['prompt_id'] == prompt_id:
+                    break # Execution is done
+        else:
+            continue
+
+    history = get_history(prompt_id)[prompt_id]
+    for node_id in history['outputs']:
+        node_output = history['outputs'][node_id]
+        if 'images' in node_output:
+            for image in node_output['images']:
+                img_data = get_image(image['filename'], image['subfolder'], image['type'])
+                
+                # Post-processing: Background Removal
+                if remove_bg:
+                    print(f"Step 2: Removing background for {image['filename']}...")
+                    input_image = Image.open(io.BytesIO(img_data))
+                    output_image = rembg.remove(input_image)
+                    
+                    filename = f"{file_prefix}_{image['filename']}"
+                    if not filename.lower().endswith(".png"):
+                        filename += ".png"
+                    
+                    file_path = os.path.join(output_dir, filename)
+                    output_image.save(file_path, "PNG")
+                else:
+                    filename = f"{file_prefix}_{image['filename']}"
+                    file_path = os.path.join(output_dir, filename)
+                    with open(file_path, "wb") as f:
+                        f.write(img_data)
+                
+                print(f"Step 3: Asset Saved -> {file_path}")
+                current_images.append(file_path)
+
+    return current_images
+
+def main():
+    parser = argparse.ArgumentParser(description="NoMoreDay Asset Generator")
+    parser.add_argument("--prompt", type=str, required=True, help="Positive prompt for the asset")
+    parser.add_argument("--negative", type=str, default="blur, low quality, 3d render, text, background", help="Negative prompt")
+    parser.add_argument("--width", type=int, default=1024, help="Width of the sprite")
+    parser.add_argument("--height", type=int, default=1024, help="Height of the sprite")
+    parser.add_argument("--name", type=str, default="asset", help="Output filename prefix")
+    parser.add_argument("--no-remove-bg", action="store_true", help="Disable automatic background removal")
+    
+    args = parser.parse_args()
+
+    # 1. Connect (Auto-start if needed)
+    if not is_server_running():
+        start_comfyui()
+
+    print(f"Connecting to ComfyUI at {SERVER_ADDRESS}...")
+    try:
+        ws = websocket.WebSocket()
+        ws.connect(f"ws://{SERVER_ADDRESS}/ws?clientId={CLIENT_ID}")
+    except Exception as e:
+        print(f"Error connecting to ComfyUI: {e}")
+        print("Please ensure ComfyUI is running and the address is correct.")
+        return
+
+    # 2. Setup Workflow
+    workflow = get_default_workflow()
+    
+    # Auto-select the first available model if default isn't found
+    available_models = get_available_models()
+    if available_models:
+        # Prefer SDXL if available, otherwise v1-5, otherwise pick the first one
+        selected_model = available_models[0]
+        # First priority: SDXL
+        for model in available_models:
+            if "sd_xl" in model.lower():
+                selected_model = model
+                break
+        else:
+            # Second priority: SD 1.5
+            for model in available_models:
+                if "v1-5" in model:
+                    selected_model = model
+                    break
+        
+        workflow["4"]["inputs"]["ckpt_name"] = selected_model
+        print(f"Using Model: {selected_model}")
+    
+    # Update Prompts
+    workflow["6"]["inputs"]["text"] = f"{args.prompt}, white background, isolated, 2d game sprite"
+    workflow["7"]["inputs"]["text"] = args.negative
+    workflow["5"]["inputs"]["width"] = args.width
+    workflow["5"]["inputs"]["height"] = args.height
+
+    # 3. Generate
+    output_path = os.path.abspath(os.path.join("assets", "textures"))
+    if not os.path.exists(output_path):
+        os.makedirs(output_path)
+
+    get_images(ws, workflow, output_path, args.name, not args.no_remove_bg)
+    ws.close()
+    print("Generation Complete.")
+
+if __name__ == "__main__":
+    main()

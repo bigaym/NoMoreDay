@@ -1,0 +1,34 @@
+# Build artifacts
+build/
+bin/
+lib/
+*.exe
+*.dll
+*.a
+*.o
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# IDE/Editor
+.vscode/
+.idea/
+*.sln
+*.vcxproj
+*.vcxproj.user
+.vs/
+
+# Python / AI
+__pycache__/
+*.pyc
+venv/
+.env
+
+# Logs
+*.log
+logs/
+
+# Gemini
+.gemini/
