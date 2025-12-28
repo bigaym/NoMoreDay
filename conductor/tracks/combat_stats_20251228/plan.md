@@ -20,5 +20,5 @@
 - [x] Task: Integrate `StatsSystem` with `InventoryComponent` to apply item stats
 
 ## Phase 4: Integration & Validation
-- [~] Task: Benchmark `StatsSystem` update loop with 10,000 entities
-- [ ] Task: Validate no memory allocations occur during `Update()`
+- [x] Task: Benchmark `StatsSystem` update loop with 10,000 entities (48cc9bc)
+- [x] Task: Validate no memory allocations occur during `Update()` (48cc9bc)
