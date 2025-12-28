@@ -1,0 +1,6 @@
+Task: Phase 3 Completion
+Changes:
+- Defined ModifierSource.
+- Implemented item affix to stat modifier conversion in StatsSystem.
+- Verified additive/multiplicative stacking and equipment stats application with tests.
+Why: Enable complex character builds via gear and skills.
