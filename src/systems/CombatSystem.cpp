@@ -180,3 +180,40 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
         }
     }
 }
+
+float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, const NoMoreDay::CombatStats& defender, float baseDamage, NoMoreDay::DamageType type) {
+    using namespace NoMoreDay;
+
+    // 1. Apply Attacker Multipliers
+    // Formula: Base * (1 + Multiplier)
+    // Note: damage_multipliers are already 1.0 based. e.g. 1.1 for +10%
+    float damage = baseDamage * attacker.damage_multipliers[(int)type];
+
+    // 2. Mitigation
+    float mitigation = 0.0f;
+
+    if (type == DamageType::Physical) {
+        // Armor Reduction
+        // Formula: Reduction = Armor / (Armor + 100)
+        // This is a placeholder constant. In real RPGs it scales with level usually.
+        float armor = defender.armor;
+        // Apply Pen? 
+        // armor -= attacker.armor_pen; 
+        if (armor < 0) armor = 0;
+        
+        if (armor > 0) {
+            mitigation = armor / (armor + 100.0f);
+        }
+    } else {
+        // Elemental Resistance
+        float res = defender.resistances[(int)type];
+        // Hard Cap at 75%
+        if (res > 0.75f) res = 0.75f;
+        mitigation = res;
+    }
+
+    // 3. Final Calculation
+    damage *= (1.0f - mitigation);
+
+    return std::max(0.0f, damage);
+}
