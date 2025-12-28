@@ -1,0 +1,6 @@
+Task: Create CombatSystem test suite & Implement CalculateDamage
+Changes:
+- Added tests/CombatSystemTest.cpp covering armor mitigation and resistance.
+- Implemented CombatSystem::CalculateDamage in src/systems/CombatSystem.cpp.
+- Updated tests/CMakeLists.txt.
+Why: Core damage math needed for combat logic.
