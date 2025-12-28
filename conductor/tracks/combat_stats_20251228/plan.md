@@ -1,0 +1,22 @@
+# Track Plan: Refine Core Combat and Stats System
+
+## Phase 1: Core Stats Architecture
+- [ ] Task: Define `Stats` component and `StatModifier` structure in `src/components/Stats.hpp`
+- [ ] Task: Create `StatsSystem` test suite (`tests/StatsSystemTest.cpp`)
+- [ ] Task: Implement `StatsSystem::Recalculate` to derive secondary stats from primary attributes
+- [ ] Task: Refactor `StatsSystem` to ensure SIMD compatibility (alignment)
+
+## Phase 2: Damage Calculation Pipeline
+- [ ] Task: Define `DamageEvent` and `DamageType` enums in `src/components/Combat.hpp`
+- [ ] Task: Create `CombatSystem` test suite covering mitigation and resistance formulas
+- [ ] Task: Implement `CombatSystem::CalculateDamage` with support for Armor and Resistances
+- [ ] Task: Implement `CombatSystem::ApplyDamage` to modify Health components
+
+## Phase 3: Affix & Modifier Integration
+- [ ] Task: Define `ModifierSource` (Item, Skill, Buff)
+- [ ] Task: Test stacking rules (Additive vs Multiplicative) for Stat Modifiers
+- [ ] Task: Integrate `StatsSystem` with `InventoryComponent` to apply item stats
+
+## Phase 4: Integration & Validation
+- [ ] Task: Benchmark `StatsSystem` update loop with 10,000 entities
+- [ ] Task: Validate no memory allocations occur during `Update()`
