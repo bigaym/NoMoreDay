@@ -1,12 +1,18 @@
 #pragma once
-#include <entt/entt.hpp>
+#include <entt/entity/registry.hpp>
 
 namespace NoMoreDay {
 
 class StatsSystem {
 public:
-    // Core update logic:
-    // PrimaryStats + WeaponComponent -> CombatStats -> HealthComponent
+    /**
+     * @brief Recalculates all combat stats for a specific entity based on primary stats and modifiers.
+     */
+    static void Recalculate(entt::registry& registry, entt::entity entity);
+
+    /**
+     * @brief System update: recalculates stats for all entities with StatsDirty tag.
+     */
     static void update(entt::registry& registry);
 };
 

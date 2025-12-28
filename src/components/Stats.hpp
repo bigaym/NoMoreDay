@@ -121,4 +121,35 @@ struct CombatStats {
 // Tag component to request a stats recalculation
 struct StatsDirty {};
 
+// --- New Definitions for Modifiers ---
+
+enum class StatType : uint8_t {
+    Strength,
+    Dexterity,
+    Intelligence,
+    Vitality,
+    MaxHealth,
+    MaxMana,
+    MoveSpeed,
+    Armor,
+    Count
+};
+
+enum class ModifierMode : uint8_t {
+    Flat,           // Adds to base (e.g., +10 HP)
+    PercentAdd,     // Adds to multiplier (e.g., +10% HP)
+    PercentMult     // Multiplies the final result (e.g., x1.2 damage)
+};
+
+struct StatModifier {
+    StatType type;
+    ModifierMode mode;
+    float value;
+    uint32_t source_id = 0; // Optional: to track where the mod came from
+};
+
+struct ModifierList {
+    std::vector<StatModifier> modifiers;
+};
+
 } // namespace NoMoreDay

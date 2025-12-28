@@ -82,6 +82,10 @@ endif()
 
 # --- Output & Assets ---
 
+# --- Tests ---
+enable_testing()
+add_subdirectory(tests)
+
 # 1. Set Output Directory to build/bin
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set_target_properties(NoMoreDay PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
