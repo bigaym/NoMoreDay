@@ -114,7 +114,7 @@ struct alignas(32) CombatStats {
     // --- 冒险与其它 (Adventure & Misc) ---
     float pickup_range = 50.0f;           // 自动拾取范围
     float gold_bonus = 0.0f;              // 金币获取加成
-    float exp_bonus = 0.0f;               // 经验获取加成
+    float experience_gain_mult = 0.0f;    // 经验获取加成
     float damage_reduction = 0.0f;        // 全局伤害减免 % (稀有属性)
 };
 
