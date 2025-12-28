@@ -1,0 +1,1 @@
+Task: Define DamageEvent and DamageType enums\nSummary: Created src/components/Combat.hpp with DamageEvent and DamageQueue structs. DamageType is reused from Stats.hpp.
