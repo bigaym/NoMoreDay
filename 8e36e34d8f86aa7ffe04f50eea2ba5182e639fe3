@@ -1,0 +1,7 @@
+Task: Develop the right-click contextual menu system for items, including Discard, Use, and Equip/Unequip options.
+Changes:
+- Added state tracking for the contextual menu in UISystem.
+- Implemented DrawContextMenu with clickable options for 穿戴/卸载 (Equip/Unequip), 使用 (Use), and 丢弃 (Discard).
+- Integrated right-click triggers in inventory and equipment slots.
+- Implemented core logic for equipping, un-equipping, consuming, and destroying items via the menu.
+Why: To provide players with a standard ARPG interaction model for detailed item management beyond simple drag-and-drop.
