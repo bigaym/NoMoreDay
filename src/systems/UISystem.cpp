@@ -25,6 +25,7 @@ entt::entity UISystem::m_draggedItem = entt::null;
 bool UISystem::m_isDraggingFromInventory = false;
 int UISystem::m_dragSourceInventoryIndex = -1;
 EquipmentSlot UISystem::m_dragSourceEquipmentSlot = EquipmentSlot::None;
+entt::entity UISystem::m_hoveredItem = entt::null;
 
 // --- 小地图专用静态资源 (无需修改头文件) ---
 static Texture2D s_minimapTexture = { 0 };
@@ -135,6 +136,8 @@ void UISystem::Update(entt::registry& registry) {
 }
 
 void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager) {
+    m_hoveredItem = entt::null; // 每帧重置悬停项
+
     if (m_showInventory) {
         DrawInventoryAndEquipment(registry);
     }
@@ -142,11 +145,16 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager) 
     DrawMinimap(registry, levelManager);
 
     // 角色面板 (仅当开启且存在玩家时绘制)
-    if (!m_showCharacterPanel) return;
+    if (m_showCharacterPanel) {
+        auto view = registry.view<PlayerTag>();
+        if (view.begin() != view.end()) {
+            DrawCharacterPanel(registry, view.front());
+        }
+    }
 
-    auto view = registry.view<PlayerTag>();
-    if (view.begin() != view.end()) {
-        DrawCharacterPanel(registry, view.front());
+    // 最后绘制悬停提示 (Tooltip)
+    if (m_hoveredItem != entt::null && registry.valid(m_hoveredItem)) {
+        DrawTooltip(registry, m_hoveredItem);
     }
 }
 
@@ -295,6 +303,143 @@ void UISystem::DrawStatRow(const char* label, const char* value, float x, float&
     y += fontSize + 5.0f;
 }
 
+void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
+    auto* itemComp = registry.try_get<ItemComponent>(item);
+    if (!itemComp) return;
+
+    // --- 1. 准备文本内容 ---
+    std::string name = itemComp->name;
+    std::string rarityText;
+    switch (itemComp->rarity) {
+        case Rarity::Common: rarityText = "普通"; break;
+        case Rarity::Magic: rarityText = "魔法"; break;
+        case Rarity::Rare: rarityText = "稀有"; break;
+        case Rarity::Uncommon: rarityText = "不凡"; break;
+        case Rarity::Set: rarityText = "套装"; break;
+        case Rarity::Epic: rarityText = "史诗"; break;
+        case Rarity::Legendary: rarityText = "传奇"; break;
+        case Rarity::Mythic: rarityText = "神话"; break;
+    }
+
+    std::string typeText;
+    switch (itemComp->type) {
+        case ItemType::Weapon: typeText = "武器"; break;
+        case ItemType::Armor: typeText = "护甲"; break;
+        case ItemType::Consumable: typeText = "消耗品"; break;
+        case ItemType::Material: typeText = "材料"; break;
+        case ItemType::Quest: typeText = "任务物品"; break;
+    }
+
+    std::string slotText;
+    switch (itemComp->slot) {
+        case EquipmentSlot::Head: slotText = "头部"; break;
+        case EquipmentSlot::Shoulder: slotText = "肩部"; break;
+        case EquipmentSlot::Chest: slotText = "胸部"; break;
+        case EquipmentSlot::Hands: slotText = "手部"; break;
+        case EquipmentSlot::Legs: slotText = "腿部"; break;
+        case EquipmentSlot::Feet: slotText = "脚部"; break;
+        case EquipmentSlot::Neck: slotText = "项链"; break;
+        case EquipmentSlot::Ring1:
+        case EquipmentSlot::Ring2: slotText = "手指"; break;
+        case EquipmentSlot::MainHand: slotText = "主手"; break;
+        case EquipmentSlot::OffHand: slotText = "副手"; break;
+        default: break;
+    }
+
+    std::vector<std::string> lines;
+    if (!slotText.empty()) {
+        lines.push_back(std::format("{} - {}", typeText, slotText));
+    } else {
+        lines.push_back(typeText);
+    }
+
+    // 基础属性
+    if (itemComp->attack > 0) lines.push_back(std::format("攻击力: {:.0f}", itemComp->attack));
+    if (itemComp->defense > 0) lines.push_back(std::format("防御力: {:.0f}", itemComp->defense));
+
+    // 词缀
+    for (const auto& affix : itemComp->implicits) {
+        lines.push_back(GetAffixDescription(affix) + " (固有)");
+    }
+    for (const auto& affix : itemComp->affixes) {
+        lines.push_back(GetAffixDescription(affix));
+    }
+
+    // 潜力
+    if (itemComp->forgingPotential > 0) {
+        lines.push_back(std::format("锻造潜力: {}", itemComp->forgingPotential));
+    }
+
+    // 描述
+    if (!itemComp->description.empty()) {
+        lines.push_back(""); // 空行
+        lines.push_back(itemComp->description);
+    }
+
+    // --- 2. 计算尺寸 ---
+    float padding = 15.0f;
+    float titleFontSize = 22.0f;
+    float bodyFontSize = 18.0f;
+    float width = 280.0f;
+    float height = padding * 2;
+
+    // 标题高度
+    height += titleFontSize + 5.0f;
+    // 稀有度文本高度
+    height += bodyFontSize + 10.0f;
+    
+    // 内容行高度
+    for (const auto& line : lines) {
+        if (line.empty()) height += 10.0f;
+        else height += bodyFontSize + 4.0f;
+    }
+
+    // --- 3. 确定绘制位置 (避免超出屏幕) ---
+    Vector2 mPos = GetMousePosition();
+    float x = mPos.x + 20.0f;
+    float y = mPos.y + 20.0f;
+
+    if (x + width > (float)GetScreenWidth()) x = mPos.x - width - 10.0f;
+    if (y + height > (float)GetScreenHeight()) y = mPos.y - height - 10.0f;
+
+    // --- 4. 绘制 ---
+    Color rarityColor = GetRarityColor(itemComp->rarity);
+
+    // 背景
+    DrawRectangleRec({x, y, width, height}, Fade(BLACK, 0.95f));
+    DrawRectangleLinesEx({x, y, width, height}, 2.0f, rarityColor);
+    DrawRectangleLinesEx({x, y, width, height}, 1.0f, DARKGRAY);
+
+    float curY = y + padding;
+
+    // 标题 (名称)
+    DrawTextUI(name.c_str(), x + padding, curY, titleFontSize, rarityColor);
+    curY += titleFontSize + 5.0f;
+
+    // 稀有度
+    DrawTextUI(rarityText.c_str(), x + padding, curY, bodyFontSize - 2, rarityColor);
+    curY += bodyFontSize + 5.0f;
+
+    DrawLine(x + padding, curY, x + width - padding, curY, Fade(rarityColor, 0.3f));
+    curY += 10.0f;
+
+    // 内容行
+    for (const auto& line : lines) {
+        if (line.empty()) {
+            curY += 10.0f;
+            continue;
+        }
+        
+        Color textColor = WHITE;
+        if (line.find("(固有)") != std::string::npos) textColor = SKYBLUE;
+        else if (line.find("锻造潜力") != std::string::npos) textColor = ORANGE;
+        else if (line.find("攻击力") != std::string::npos || line.find("防御力") != std::string::npos) textColor = LIGHTGRAY;
+        
+        DrawTextUI(line.c_str(), x + padding, curY, bodyFontSize, textColor);
+        curY += bodyFontSize + 4.0f;
+    }
+}
+
 void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
     auto playerView = registry.view<PlayerTag>();
     if (playerView.begin() == playerView.end()) return;
@@ -353,6 +498,11 @@ void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
 
         bool isHovered = CheckCollisionPointRec(GetMousePosition(), {x, y, slotSize, slotSize});
         
+        // 设置悬停物品
+        if (isHovered && item != entt::null && m_draggedItem == entt::null) {
+            m_hoveredItem = item;
+        }
+
         // --- 拖拽交互 (装备槽) ---
         if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
             m_draggedItem = item;
@@ -440,6 +590,11 @@ void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
 
                 bool isHovered = CheckCollisionPointRec(GetMousePosition(), {x, y, slotSize, slotSize});
                 
+                // 设置悬停物品
+                if (isHovered && item != entt::null && m_draggedItem == entt::null) {
+                    m_hoveredItem = item;
+                }
+
                 // --- 拖拽交互 (背包槽) ---
                 if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
                     m_draggedItem = item;

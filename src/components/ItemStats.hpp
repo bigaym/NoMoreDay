@@ -65,19 +65,48 @@ struct Affix {
 inline std::string GetAffixDescription(const Affix& affix) {
     std::string text = "+";
     text += std::to_string((int)affix.value); // Simplify for now
-    if (affix.type == AffixType::CritChance || affix.type == AffixType::AttackSpeed) text += "%";
+    
+    // Percent signs are handled in the switch cases for better control
     
     switch (affix.type) {
         case AffixType::Strength: text += " Strength"; break;
         case AffixType::Dexterity: text += " Dexterity"; break;
         case AffixType::Intelligence: text += " Intelligence"; break;
         case AffixType::Vitality: text += " Vitality"; break;
+        
         case AffixType::FlatPhysicalDamage: text += " Physical Dmg"; break;
         case AffixType::FlatFireDamage: text += " Fire Dmg"; break;
+        case AffixType::FlatColdDamage: text += " Cold Dmg"; break;
+        case AffixType::FlatLightningDamage: text += " Lightning Dmg"; break;
+        case AffixType::FlatPoisonDamage: text += " Poison Dmg"; break;
+        case AffixType::FlatShadowDamage: text += " Shadow Dmg"; break;
+
         case AffixType::PercentPhysicalDamage: text += "% Increased Physical Dmg"; break;
+        case AffixType::PercentFireDamage: text += "% Increased Fire Dmg"; break;
+        case AffixType::PercentColdDamage: text += "% Increased Cold Dmg"; break;
+        case AffixType::PercentLightningDamage: text += "% Increased Lightning Dmg"; break;
+        case AffixType::PercentPoisonDamage: text += "% Increased Poison Dmg"; break;
+        case AffixType::PercentShadowDamage: text += "% Increased Shadow Dmg"; break;
+
+        case AffixType::CritChance: text += "% Crit Chance"; break;
+        case AffixType::CritDamage: text += "% Crit Damage"; break;
+        case AffixType::AttackSpeed: text += "% Attack Speed"; break;
+        case AffixType::CastSpeed: text += "% Cast Speed"; break;
+
+        case AffixType::FlatArmor: text += " Armor"; break;
         case AffixType::FlatHealth: text += " Health"; break;
+        case AffixType::FlatMana: text += " Mana"; break;
+        
+        case AffixType::ResistAll: text += "% All Resistances"; break;
+        case AffixType::ResistFire: text += "% Fire Resistance"; break;
+        case AffixType::ResistCold: text += "% Cold Resistance"; break;
+        case AffixType::ResistLightning: text += "% Lightning Resistance"; break;
+        case AffixType::ResistPoison: text += "% Poison Resistance"; break;
+        case AffixType::ResistShadow: text += "% Shadow Resistance"; break;
+
         case AffixType::MoveSpeed: text += "% Move Speed"; break;
-        // ... add others as needed
+        case AffixType::CooldownReduction: text += "% Cooldown Reduction"; break;
+        
         default: text += " Stat"; break;
     }
     return text;

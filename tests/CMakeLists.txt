@@ -128,3 +128,19 @@ target_link_libraries(UISystemTest PRIVATE spdlog::spdlog raylib)
 if(WIN32)
     target_compile_definitions(UISystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
+
+add_executable(ItemStatsTest 
+    ItemStatsTest.cpp
+)
+target_include_directories(ItemStatsTest PRIVATE 
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party/entt/src
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+    ${CMAKE_SOURCE_DIR}/third_party/spdlog/include
+    ${CMAKE_SOURCE_DIR}/third_party/taskflow
+    ${CMAKE_SOURCE_DIR}/third_party/raylib/src
+)
+target_link_libraries(ItemStatsTest PRIVATE spdlog::spdlog)
+if(WIN32)
+    target_compile_definitions(ItemStatsTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()
