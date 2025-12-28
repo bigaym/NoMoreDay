@@ -1,0 +1,7 @@
+Task: Implement rendering logic for items dropped on the ground, displaying full name with rarity-bound color.
+Changes:
+- Modified UISystem to make font and rarity colors accessible.
+- Updated RenderSystem to draw labels for items and gold in world space.
+- Item labels include full name and rarity-bound color with a background box.
+- Gold labels include amount and 金币 text.
+Why: To allow players to easily identify dropped loot on the ground without having to pick it up first.
