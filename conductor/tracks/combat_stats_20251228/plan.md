@@ -12,8 +12,10 @@
 - [x] Task: Implement `CombatSystem::CalculateDamage` with support for Armor and Resistances (f621b8b)
 - [x] Task: Implement `CombatSystem::ApplyDamage` to modify Health components (265e03d)
 
+## Phase 2 Checkpoint: Damage Calculation Pipeline [checkpoint: 265e03d]
+
 ## Phase 3: Affix & Modifier Integration
-- [ ] Task: Define `ModifierSource` (Item, Skill, Buff)
+- [~] Task: Define `ModifierSource` (Item, Skill, Buff)
 - [ ] Task: Test stacking rules (Additive vs Multiplicative) for Stat Modifiers
 - [ ] Task: Integrate `StatsSystem` with `InventoryComponent` to apply item stats
 
