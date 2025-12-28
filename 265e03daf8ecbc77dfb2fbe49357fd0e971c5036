@@ -1,0 +1,6 @@
+Task: Implement CombatSystem::ApplyDamage
+Changes:
+- Added ApplyDamage to CombatSystem handling health reduction and kill credit.
+- Refactored CombatSystem::update to use ApplyDamage.
+- Added test case for ApplyDamage.
+Why: Centralize damage application logic.
