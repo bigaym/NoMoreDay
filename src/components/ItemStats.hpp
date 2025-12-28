@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include "raylib.h"
 #include "Stats.hpp"
 
 namespace NoMoreDay {
@@ -110,6 +111,52 @@ inline std::string GetAffixDescription(const Affix& affix) {
         default: text += " Stat"; break;
     }
     return text;
+}
+
+// Zero-allocation version using Raylib's TextFormat (Internal pool of buffers)
+inline const char* GetAffixDescriptionRef(const Affix& affix) {
+    float val = affix.value;
+    switch (affix.type) {
+        case AffixType::Strength: return TextFormat("+%.0f 力量", val);
+        case AffixType::Dexterity: return TextFormat("+%.0f 敏捷", val);
+        case AffixType::Intelligence: return TextFormat("+%.0f 智力", val);
+        case AffixType::Vitality: return TextFormat("+%.0f 体质", val);
+        case AffixType::FlatHealth: return TextFormat("+%.0f 生命", val);
+        case AffixType::FlatMana: return TextFormat("+%.0f 法力", val);
+        
+        case AffixType::FlatPhysicalDamage: return TextFormat("+%.0f 物理伤害", val);
+        case AffixType::FlatFireDamage: return TextFormat("+%.0f 火焰伤害", val);
+        case AffixType::FlatColdDamage: return TextFormat("+%.0f 冰霜伤害", val);
+        case AffixType::FlatLightningDamage: return TextFormat("+%.0f 闪电伤害", val);
+        case AffixType::FlatPoisonDamage: return TextFormat("+%.0f 毒素伤害", val);
+        case AffixType::FlatShadowDamage: return TextFormat("+%.0f 暗影伤害", val);
+
+        case AffixType::PercentPhysicalDamage: return TextFormat("+%.0f%% 物理伤害", val);
+        case AffixType::PercentFireDamage: return TextFormat("+%.0f%% 火焰伤害", val);
+        case AffixType::PercentColdDamage: return TextFormat("+%.0f%% 冰霜伤害", val);
+        case AffixType::PercentLightningDamage: return TextFormat("+%.0f%% 闪电伤害", val);
+        case AffixType::PercentPoisonDamage: return TextFormat("+%.0f%% 毒素伤害", val);
+        case AffixType::PercentShadowDamage: return TextFormat("+%.0f%% 暗影伤害", val);
+
+        case AffixType::CritChance: return TextFormat("+%.1f%% 暴击率", val);
+        case AffixType::CritDamage: return TextFormat("+%.1f%% 暴击伤害", val);
+        case AffixType::AttackSpeed: return TextFormat("+%.0f%% 攻击速度", val);
+        case AffixType::CastSpeed: return TextFormat("+%.0f%% 施法速度", val);
+
+        case AffixType::FlatArmor: return TextFormat("+%.0f 护甲", val);
+        case AffixType::PercentArmor: return TextFormat("+%.0f%% 护甲", val);
+        case AffixType::ResistAll: return TextFormat("+%.0f%% 全抗性", val);
+        case AffixType::ResistFire: return TextFormat("+%.0f%% 火焰抗性", val);
+        case AffixType::ResistCold: return TextFormat("+%.0f%% 冰霜抗性", val);
+        case AffixType::ResistLightning: return TextFormat("+%.0f%% 闪电抗性", val);
+        case AffixType::ResistPoison: return TextFormat("+%.0f%% 毒素抗性", val);
+        case AffixType::ResistShadow: return TextFormat("+%.0f%% 暗影抗性", val);
+
+        case AffixType::MoveSpeed: return TextFormat("+%.0f%% 移动速度", val);
+        case AffixType::CooldownReduction: return TextFormat("+%.0f%% 冷却缩减", val);
+        
+        default: return TextFormat("+%.1f 属性", val);
+    }
 }
 
 } // namespace NoMoreDay

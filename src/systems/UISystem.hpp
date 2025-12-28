@@ -10,8 +10,9 @@ class UISystem {
 public:
     static void Initialize(ResourceManager& resourceManager);
     static void Shutdown();
-    static void Update(entt::registry& registry);
+    static void Update(entt::registry& registry, const LevelManager& levelManager);
     static void Draw(entt::registry& registry, const LevelManager& levelManager);
+    static void Benchmark(entt::registry& registry, const LevelManager& levelManager, int frames = 100);
     static Font GetFont() { return m_font; }
     static Color GetRarityColor(NoMoreDay::Rarity rarity);
 
@@ -27,6 +28,11 @@ private:
     static NoMoreDay::EquipmentSlot m_dragSourceEquipmentSlot;
 
     static entt::entity m_hoveredItem;
+    static std::vector<const char*> s_tooltipLines;
+    static int s_bufferPoolIndex;
+    static char s_textBufferPool[16][128];
+    static bool s_minimapDirty;
+    static int s_minimapExploredCount;
 
     // 右键菜单状态
     static bool m_showContextMenu;

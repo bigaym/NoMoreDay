@@ -29,6 +29,11 @@ bool UISystem::m_isDraggingFromInventory = false;
 int UISystem::m_dragSourceInventoryIndex = -1;
 EquipmentSlot UISystem::m_dragSourceEquipmentSlot = EquipmentSlot::None;
 entt::entity UISystem::m_hoveredItem = entt::null;
+std::vector<const char*> UISystem::s_tooltipLines;
+int UISystem::s_bufferPoolIndex = 0;
+char UISystem::s_textBufferPool[16][128];
+bool UISystem::s_minimapDirty = true;
+int UISystem::s_minimapExploredCount = 0;
 
 bool UISystem::m_showContextMenu = false;
 entt::entity UISystem::m_contextMenuItem = entt::null;
@@ -158,13 +163,11 @@ void UISystem::DrawTextScaled(const char* text, float x, float y, float fontSize
     }
 }
 
-void UISystem::Update(entt::registry& registry) {
+void UISystem::Update(entt::registry& registry, const LevelManager& levelManager) {
     // 如果右键菜单开启，点击其他地方关闭
     if (m_showContextMenu) {
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
-            // 这里我们先检查是否点击了菜单区域，如果是 DrawContextMenu 内部会处理点击
-            // 但如果点击了外面，这里简单的延时关闭或逻辑控制
-            // 实际上更好的做法是在 DrawContextMenu 里判断，或者在这之后重置
+            // ...
         }
     }
 
@@ -216,6 +219,11 @@ void UISystem::Update(entt::registry& registry) {
             }
         }
     }
+
+    // 调试：性能测试
+    if (IsKeyPressed(KEY_F4)) {
+        Benchmark(registry, levelManager, 1000);
+    }
 }
 
 void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager) {
@@ -246,6 +254,17 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager) 
     }
 }
 
+void UISystem::Benchmark(entt::registry& registry, const LevelManager& levelManager, int frames) {
+    double totalTime = 0;
+    for (int i = 0; i < frames; ++i) {
+        double start = GetTime();
+        // 仅测量逻辑准备时间（注意：在渲染循环外调用可能有副作用，仅用于粗略对比）
+        Draw(registry, levelManager); 
+        totalTime += (GetTime() - start);
+    }
+    LOG_INFO("UISystem Benchmark: Avg Draw Time (CPU logic): {:.6f} ms", (totalTime / (double)frames) * 1000.0);
+}
+
 void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player) {
     // --- 1. 面板背景 ---
     const float panelW = 420.0f;
@@ -268,7 +287,6 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     float currentY = panelY + 70.0f;
 
     // --- 2. 角色概览 (头像 & 等级) ---
-    // 尝试获取 Sprite 和 PlayerStats
     const auto* sprite = registry.try_get<SpriteComponent>(player);
     const auto* pStats = registry.try_get<PlayerStats>(player);
 
@@ -276,7 +294,6 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     float avatarSize = 80.0f;
     DrawRectangleLines(panelX + padding, currentY, avatarSize, avatarSize, LIGHTGRAY);
     if (sprite && sprite->texture.id > 0) {
-        // 简单缩放绘制纹理到头像框
         Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
         Rectangle dest = {panelX + padding, currentY, avatarSize, avatarSize};
         DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, WHITE);
@@ -287,8 +304,8 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     // 绘制等级信息
     float infoX = panelX + padding + avatarSize + 20.0f;
     if (pStats) {
-        DrawTextUI(std::format("等级 {}", pStats->level).c_str(), infoX, currentY + 10, 24, GOLD);
-        DrawTextUI(std::format("经验: {:.0f}", pStats->current_xp).c_str(), infoX, currentY + 40, 16, LIGHTGRAY);
+        DrawTextUI(TextFormat("等级 %d", pStats->level), infoX, currentY + 10, 24, GOLD);
+        DrawTextUI(TextFormat("经验: %.0f", pStats->current_xp), infoX, currentY + 40, 16, LIGHTGRAY);
     } else {
         DrawTextUI("等级 ??", infoX, currentY + 10, 24, GRAY);
     }
@@ -308,11 +325,10 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     float col1X = panelX + padding;
     float col2X = panelX + panelW / 2.0f + padding;
 
-    // 使用 18.0f 字体大小 (原为默认 20.0f)
-    DrawStatRow("力量", std::format("{:.0f}", primStats->strength).c_str(), col1X, currentY, 150, 18.0f);
-    DrawStatRow("敏捷", std::format("{:.0f}", primStats->dexterity).c_str(), col1X, currentY, 150, 18.0f);
-    DrawStatRow("智力", std::format("{:.0f}", primStats->intelligence).c_str(), col1X, currentY, 150, 18.0f);
-    DrawStatRow("体能", std::format("{:.0f}", primStats->vitality).c_str(), col1X, currentY, 150, 18.0f);
+    DrawStatRow("力量", TextFormat("%.0f", primStats->strength), col1X, currentY, 150, 18.0f);
+    DrawStatRow("敏捷", TextFormat("%.0f", primStats->dexterity), col1X, currentY, 150, 18.0f);
+    DrawStatRow("智力", TextFormat("%.0f", primStats->intelligence), col1X, currentY, 150, 18.0f);
+    DrawStatRow("体能", TextFormat("%.0f", primStats->vitality), col1X, currentY, 150, 18.0f);
 
     currentY += 20.0f;
     DrawLine(panelX + padding, currentY, panelX + panelW - padding, currentY, GRAY);
@@ -322,25 +338,23 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     DrawTextUI("战斗属性", panelX + padding, currentY, 20, RED);
     currentY += 25.0f;
 
-    // 重置 Y 坐标用于双列布局
     float combatStartY = currentY;
     
     // 左列：进攻
     float leftY = combatStartY;
-    DrawStatRow("伤害", std::format("{:.0f}-{:.0f}", combatStats->min_weapon_damage, combatStats->max_weapon_damage).c_str(), col1X, leftY, 150);
-    DrawStatRow("攻速", std::format("{:.2f}", combatStats->attack_speed).c_str(), col1X, leftY, 150);
-    DrawStatRow("暴击率", std::format("{:.1f}%", combatStats->crit_chance * 100.0f).c_str(), col1X, leftY, 150);
-    DrawStatRow("暴击伤害", std::format("{:.0f}%", combatStats->crit_damage * 100.0f).c_str(), col1X, leftY, 150);
-    // 显示综合冷却效率 (这里简单显示回复速度，或者你可以计算最终系数)
-    DrawStatRow("冷却回复", std::format("{:.0f}%", combatStats->cooldown_recovery_speed * 100.0f).c_str(), col1X, leftY, 150);
+    DrawStatRow("伤害", TextFormat("%.0f-%.0f", combatStats->min_weapon_damage, combatStats->max_weapon_damage), col1X, leftY, 150);
+    DrawStatRow("攻速", TextFormat("%.2f", combatStats->attack_speed), col1X, leftY, 150);
+    DrawStatRow("暴击率", TextFormat("%.1f%%", combatStats->crit_chance * 100.0f), col1X, leftY, 150);
+    DrawStatRow("暴击伤害", TextFormat("%.0f%%", combatStats->crit_damage * 100.0f), col1X, leftY, 150);
+    DrawStatRow("冷却回复", TextFormat("%.0f%%", combatStats->cooldown_recovery_speed * 100.0f), col1X, leftY, 150);
 
     // 右列：防御 & 状态
     float rightY = combatStartY;
-    DrawStatRow("生命值", std::format("{:.0f}/{:.0f}", combatStats->health, combatStats->max_health).c_str(), col2X, rightY, 150);
-    DrawStatRow("护甲", std::format("{:.0f}", combatStats->armor).c_str(), col2X, rightY, 150);
-    DrawStatRow("闪避", std::format("{:.1f}%", combatStats->dodge_chance * 100.0f).c_str(), col2X, rightY, 150);
-    DrawStatRow("移动速度", std::format("{:.0f}", combatStats->move_speed).c_str(), col2X, rightY, 150);
-    DrawStatRow("生命回复", std::format("{:.1f}/s", combatStats->health_regen).c_str(), col2X, rightY, 150);
+    DrawStatRow("生命值", TextFormat("%.0f/%.0f", combatStats->health, combatStats->max_health), col2X, rightY, 150);
+    DrawStatRow("护甲", TextFormat("%.0f", combatStats->armor), col2X, rightY, 150);
+    DrawStatRow("闪避", TextFormat("%.1f%%", combatStats->dodge_chance * 100.0f), col2X, rightY, 150);
+    DrawStatRow("移动速度", TextFormat("%.0f", combatStats->move_speed), col2X, rightY, 150);
+    DrawStatRow("生命回复", TextFormat("%.1f/s", combatStats->health_regen), col2X, rightY, 150);
 
     currentY = std::max(leftY, rightY) + 20.0f;
     DrawLine(panelX + padding, currentY, panelX + panelW - padding, currentY, GRAY);
@@ -363,18 +377,12 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     float resX = panelX + padding;
     for (const auto& res : resList) {
         float val = combatStats->resistances[res.index];
-        
-        // 绘制抗性条背景
         DrawRectangle(resX, currentY, 60, 10, Fade(BLACK, 0.5f));
-        // 绘制抗性值条
         float barWidth = std::clamp(val, 0.0f, 1.0f) * 60.0f;
         DrawRectangle(resX, currentY, barWidth, 10, res.color);
-        
-        // 文字
         DrawTextUI(res.name, resX, currentY + 12, 10, LIGHTGRAY);
-        DrawTextUI(std::format("{:.0f}%", val * 100.0f).c_str(), resX, currentY + 24, 10, WHITE);
-
-        resX += 70.0f; // 间距
+        DrawTextUI(TextFormat("%.0f%%", val * 100.0f), resX, currentY + 24, 10, WHITE);
+        resX += 70.0f; 
     }
 }
 
@@ -405,9 +413,17 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
     auto* itemComp = registry.try_get<ItemComponent>(item);
     if (!itemComp) return;
 
-    // --- 1. 准备文本内容 ---
-    std::string name = itemComp->name;
-    std::string rarityText;
+    // --- 1. 准备文本内容 (Zero-allocation using static vector and buffer pool) ---
+    s_tooltipLines.clear();
+    s_bufferPoolIndex = 0;
+
+    auto getNextBuffer = [&]() -> char* {
+        char* buf = s_textBufferPool[s_bufferPoolIndex];
+        s_bufferPoolIndex = (s_bufferPoolIndex + 1) % 16;
+        return buf;
+    };
+
+    const char* rarityText = "未知";
     switch (itemComp->rarity) {
         case Rarity::Common: rarityText = "普通"; break;
         case Rarity::Magic: rarityText = "魔法"; break;
@@ -419,7 +435,7 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
         case Rarity::Mythic: rarityText = "神话"; break;
     }
 
-    std::string typeText;
+    const char* typeText = "物品";
     switch (itemComp->type) {
         case ItemType::Weapon: typeText = "武器"; break;
         case ItemType::Armor: typeText = "护甲"; break;
@@ -428,7 +444,7 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
         case ItemType::Quest: typeText = "任务物品"; break;
     }
 
-    std::string slotText;
+    const char* slotText = nullptr;
     switch (itemComp->slot) {
         case EquipmentSlot::Head: slotText = "头部"; break;
         case EquipmentSlot::Shoulder: slotText = "肩部"; break;
@@ -444,34 +460,35 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
         default: break;
     }
 
-    std::vector<std::string> lines;
-    if (!slotText.empty()) {
-        lines.push_back(std::format("{} - {}", typeText, slotText));
+    if (slotText) {
+        s_tooltipLines.push_back(TextFormat("%s - %s", typeText, slotText));
     } else {
-        lines.push_back(typeText);
+        s_tooltipLines.push_back(typeText);
     }
 
     // 基础属性
-    if (itemComp->attack > 0) lines.push_back(std::format("攻击力: {:.0f}", itemComp->attack));
-    if (itemComp->defense > 0) lines.push_back(std::format("防御力: {:.0f}", itemComp->defense));
+    if (itemComp->attack > 0) s_tooltipLines.push_back(TextFormat("攻击力: %.0f", itemComp->attack));
+    if (itemComp->defense > 0) s_tooltipLines.push_back(TextFormat("防御力: %.0f", itemComp->defense));
 
     // 词缀
     for (const auto& affix : itemComp->implicits) {
-        lines.push_back(GetAffixDescription(affix) + " (固有)");
+        char* buf = getNextBuffer();
+        snprintf(buf, 128, "%s (固有)", GetAffixDescriptionRef(affix));
+        s_tooltipLines.push_back(buf);
     }
     for (const auto& affix : itemComp->affixes) {
-        lines.push_back(GetAffixDescription(affix));
+        s_tooltipLines.push_back(GetAffixDescriptionRef(affix));
     }
 
     // 潜力
     if (itemComp->forgingPotential > 0) {
-        lines.push_back(std::format("锻造潜力: {}", itemComp->forgingPotential));
+        s_tooltipLines.push_back(TextFormat("锻造潜力: %d", itemComp->forgingPotential));
     }
 
-    // 描述
+    // 描述 (简单处理，暂不分行)
     if (!itemComp->description.empty()) {
-        lines.push_back(""); // 空行
-        lines.push_back(itemComp->description);
+        s_tooltipLines.push_back(""); // 空行
+        s_tooltipLines.push_back(itemComp->description.c_str());
     }
 
     // --- 2. 计算尺寸 (动态适应内容) ---
@@ -482,19 +499,19 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
     float maxWidth = 400.0f;
     float calculatedWidth = minWidth;
 
-    auto measureWidth = [&](const std::string& text, float fontSize) {
-        if (IsFontReady(m_font)) return MeasureTextEx(m_font, text.c_str(), fontSize, 1.0f).x;
-        return (float)MeasureText(text.c_str(), (int)fontSize);
+    auto measureWidth = [&](const char* text, float fontSize) {
+        if (IsFontReady(m_font)) return MeasureTextEx(m_font, text, fontSize, 1.0f).x;
+        return (float)MeasureText(text, (int)fontSize);
     };
 
     // 检查名称宽度
-    calculatedWidth = std::max(calculatedWidth, measureWidth(name, titleFontSize));
+    calculatedWidth = std::max(calculatedWidth, measureWidth(itemComp->name.c_str(), titleFontSize));
     // 检查稀有度宽度
     calculatedWidth = std::max(calculatedWidth, measureWidth(rarityText, bodyFontSize - 2));
     
     // 检查每一行内容的宽度
-    for (const auto& line : lines) {
-        if (!line.empty()) {
+    for (const char* line : s_tooltipLines) {
+        if (line && line[0] != '\0') {
             calculatedWidth = std::max(calculatedWidth, measureWidth(line, bodyFontSize));
         }
     }
@@ -503,18 +520,15 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
     float finalWidth = std::min(calculatedWidth + padding * 2, maxWidth);
     
     float height = padding * 2;
-    // 标题高度
-    height += titleFontSize + 5.0f;
-    // 稀有度文本高度
-    height += bodyFontSize + 10.0f;
+    height += titleFontSize + 5.0f; // 标题高度
+    height += bodyFontSize + 10.0f; // 稀有度文本高度
     
-    // 内容行高度
-    for (const auto& line : lines) {
-        if (line.empty()) height += 10.0f;
+    for (const char* line : s_tooltipLines) {
+        if (!line || line[0] == '\0') height += 10.0f;
         else height += bodyFontSize + 4.0f;
     }
 
-    // --- 3. 确定绘制位置 (避免超出屏幕) ---
+    // --- 3. 确定绘制位置 ---
     Vector2 mPos = GetMousePosition();
     float x = mPos.x + 20.0f;
     float y = mPos.y + 20.0f;
@@ -524,39 +538,33 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
 
     // --- 4. 绘制 ---
     Color rarityColor = GetRarityColor(itemComp->rarity);
-
-    // 背景
     DrawRectangleRec({x, y, finalWidth, height}, Fade(BLACK, 0.95f));
     DrawRectangleLinesEx({x, y, finalWidth, height}, 2.0f, rarityColor);
     DrawRectangleLinesEx({x, y, finalWidth, height}, 1.0f, DARKGRAY);
 
     float curY = y + padding;
-
-    // 标题 (名称) - 如果还是太长就缩放
-    DrawTextScaled(name.c_str(), x + padding, curY, titleFontSize, finalWidth - padding * 2, rarityColor);
+    DrawTextScaled(itemComp->name.c_str(), x + padding, curY, titleFontSize, finalWidth - padding * 2, rarityColor);
     curY += titleFontSize + 5.0f;
 
-    // 稀有度
-    DrawTextUI(rarityText.c_str(), x + padding, curY, bodyFontSize - 2, rarityColor);
+    DrawTextUI(rarityText, x + padding, curY, bodyFontSize - 2, rarityColor);
     curY += bodyFontSize + 5.0f;
 
     DrawLine(x + padding, curY, x + finalWidth - padding, curY, Fade(rarityColor, 0.3f));
     curY += 10.0f;
 
-    // 内容行
-    for (const auto& line : lines) {
-        if (line.empty()) {
+    for (const char* line : s_tooltipLines) {
+        if (!line || line[0] == '\0') {
             curY += 10.0f;
             continue;
         }
         
         Color textColor = WHITE;
-        if (line.find("(固有)") != std::string::npos) textColor = SKYBLUE;
-        else if (line.find("锻造潜力") != std::string::npos) textColor = ORANGE;
-        else if (line.find("攻击力") != std::string::npos || line.find("防御力") != std::string::npos) textColor = LIGHTGRAY;
+        // 使用 strstr 避免 std::string 比较
+        if (strstr(line, "(固有)")) textColor = SKYBLUE;
+        else if (strstr(line, "锻造潜力")) textColor = ORANGE;
+        else if (strstr(line, "攻击力") || strstr(line, "防御力")) textColor = LIGHTGRAY;
         
-        // 同样对内容行进行缩放保护
-        DrawTextScaled(line.c_str(), x + padding, curY, bodyFontSize, finalWidth - padding * 2, textColor);
+        DrawTextScaled(line, x + padding, curY, bodyFontSize, finalWidth - padding * 2, textColor);
         curY += bodyFontSize + 4.0f;
     }
 }
@@ -1010,7 +1018,7 @@ void UISystem::DrawMinimap(entt::registry& registry, const LevelManager& levelMa
     // 计算缩放比例：地图框大小 / (视野直径)
     float scale = mapSize / (float)(viewRadius * 2);
 
-    // --- 3. 纹理更新与绘制 (Texture Update & Draw) ---
+    // --- 3. 纹理更新与绘制 ---
     
     // 初始化或重建纹理 (如果尺寸变化或未加载)
     if (s_minimapTexture.id == 0 || s_minimapW != gridW || s_minimapH != gridH) {
@@ -1021,32 +1029,47 @@ void UISystem::DrawMinimap(entt::registry& registry, const LevelManager& levelMa
         Image img = GenImageColor(gridW, gridH, BLACK);
         s_minimapTexture = LoadTextureFromImage(img);
         UnloadImage(img);
-        SetTextureFilter(s_minimapTexture, TEXTURE_FILTER_POINT); // 保持像素清晰
+        SetTextureFilter(s_minimapTexture, TEXTURE_FILTER_POINT);
         LOG_INFO("Minimap texture initialized: {}x{}", gridW, gridH);
+        s_minimapDirty = true;
     }
 
-    // 更新像素数据
-    int exploredCount = 0; // 统计已探索格子数
-    for (int gy = 0; gy < gridH; ++gy) {
-        for (int gx = 0; gx < gridW; ++gx) {
-            int index = gy * gridW + gx;
-            Color c = BLACK;
+    // 仅在数据可能变化时更新纹理 (简单起见每 5 帧检查一次，或者依赖外部触发)
+    // 这里我们先保留每帧检查逻辑，但仅在像素真正变化时标记 Dirty
+    static int frameCounter = 0;
+    if (frameCounter++ % 10 == 0) {
+        s_minimapExploredCount = 0;
+        bool changed = false;
+        for (int gy = 0; gy < gridH; ++gy) {
+            for (int gx = 0; gx < gridW; ++gx) {
+                int index = gy * gridW + gx;
+                Color oldC = s_minimapPixels[index];
+                Color c = BLACK;
 
-            bool isExplored = fog.isExplored(gx, gy);
-            if (isExplored) exploredCount++;
+                bool isExplored = fog.isExplored(gx, gy);
+                if (isExplored) s_minimapExploredCount++;
 
-            if (isExplored || s_debugRevealMap) {
-                bool isVisible = s_debugRevealMap ? true : fog.isVisible(gx, gy);
-                if (map.isWalkable(gx, gy)) {
-                    c = isVisible ? Color{180, 180, 180, 255} : Color{80, 80, 80, 255};
-                } else {
-                    c = isVisible ? Color{100, 100, 100, 255} : Color{40, 40, 40, 255};
+                if (isExplored || s_debugRevealMap) {
+                    bool isVisible = s_debugRevealMap ? true : fog.isVisible(gx, gy);
+                    if (map.isWalkable(gx, gy)) {
+                        c = isVisible ? Color{180, 180, 180, 255} : Color{80, 80, 80, 255};
+                    } else {
+                        c = isVisible ? Color{100, 100, 100, 255} : Color{40, 40, 40, 255};
+                    }
+                }
+                if (c.r != oldC.r || c.g != oldC.g || c.b != oldC.b) {
+                    s_minimapPixels[index] = c;
+                    changed = true;
                 }
             }
-            s_minimapPixels[index] = c;
         }
+        if (changed) s_minimapDirty = true;
     }
-    UpdateTexture(s_minimapTexture, s_minimapPixels.data());
+
+    if (s_minimapDirty) {
+        UpdateTexture(s_minimapTexture, s_minimapPixels.data());
+        s_minimapDirty = false;
+    }
 
     // 调试日志 (每 5 秒一次，帮助定位全黑问题)
     static double lastLogTime = 0;
@@ -1055,7 +1078,7 @@ void UISystem::DrawMinimap(entt::registry& registry, const LevelManager& levelMa
         bool pExplored = fog.isExplored(playerGx, playerGy);
         bool pVisible = fog.isVisible(playerGx, playerGy);
         LOG_INFO("[Minimap Debug] Player Raw: ({:.1f}, {:.1f}) -> Grid: ({}, {}), Explored: {}, TotalExplored: {}, TextureID: {}", 
-                 playerPos.x, playerPos.y, playerGx, playerGy, pExplored, exploredCount, s_minimapTexture.id);
+                 playerPos.x, playerPos.y, playerGx, playerGy, pExplored, s_minimapExploredCount, s_minimapTexture.id);
     }
 
     // 绘制纹理部分

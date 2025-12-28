@@ -148,7 +148,7 @@ void Game::update(float dt) {
 
     // 3. Process Input
     InputSystem::update(m_registry);
-    UISystem::Update(m_registry);
+    UISystem::Update(m_registry, *m_levelManager);
     
     // 3. Apply Player Input to Velocity & Update Camera
     auto playerView2 = m_registry.view<PlayerTag, InputComponent, Velocity, Position, DashComponent>();
