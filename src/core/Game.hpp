@@ -4,6 +4,8 @@
 #include "raylib.h"
 #include "ResourceManager.hpp"
 #include "../systems/SpatialGrid.hpp"
+#include "../components/AIComponent.hpp"
+#include "LevelManager.hpp"
 
 class Game {
 public:
@@ -36,6 +38,12 @@ private:
     tf::Executor m_executor;
     tf::Taskflow m_taskflow;
 
+    // Cache for physics entities to avoid per-frame allocation
+    std::vector<entt::entity> m_physicsEntities;
+
     // Resources
     ResourceManager m_resourceManager;
+    
+    // Level Management
+    std::unique_ptr<LevelManager> m_levelManager;
 };

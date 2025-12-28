@@ -27,6 +27,8 @@ void EnemySpawnSystem::initializeLevel(int width, int height, const MapSystem& m
     m_mapHeight = height;
     m_spawnData.clear();
     
+    LOG_INFO("EnemySpawnSystem: Initializing level for biome '{}'", biome);
+
     // 清理旧纹理
     for (auto& [type, texture] : m_raceTextures) {
         UnloadTexture(texture);
@@ -51,7 +53,12 @@ void EnemySpawnSystem::initializeLevel(int width, int height, const MapSystem& m
     // 加载本关卡所需种族的纹理
     for (int raceType : availableRaces) {
         EnemyRace raceDef(static_cast<EnemyRace::Type>(raceType));
-        m_raceTextures[raceType] = LoadTexture(raceDef.texturePath.c_str());
+        Texture2D tex = LoadTexture(raceDef.texturePath.c_str());
+        if (tex.id == 0) {
+            LOG_ERROR("EnemySpawnSystem: Failed to load texture for race {} at '{}'", raceType, raceDef.texturePath);
+        } else {
+            m_raceTextures[raceType] = tex;
+        }
     }
     
     // 2. 群聚生成 (Cluster Spawning)
@@ -100,6 +107,7 @@ void EnemySpawnSystem::initializeLevel(int width, int height, const MapSystem& m
                 data.isAlive = false;
                 data.entityId = entt::null;
                 data.enemyType = race;
+                data.allowRespawn = false; // 默认不重生
                 
                 m_spawnData.push_back(data);
             }
@@ -117,143 +125,59 @@ void EnemySpawnSystem::updateEnemySpawning(const Position& playerPos, entt::regi
         
         if (!data.isAlive) {
             // 尝试生成：如果在激活范围内
+            // 只有当允许重生 或者 这是一个从未生成过的点（这里有点歧义，
+            // 既然 isAlive 初始为 false，我们需要区分 "从未生成" 和 "已死"。
+            // 简单起见，我们假设 data 在初始化时就是为了生成的。
+            // 为了实现 "死后不复活"，我们需要一个状态标记它"已经死过"。
+            // 但 data 结构里目前没有 "hasDied"。
+            // 然而，如果 allowRespawn 为 false，我们只希望它生成一次。
+            // 可是 m_spawnData 是预生成的点。
+            // 让我们加一个 flag "hasSpawned" 或者利用 entityId?
+            // 不，entityId 被重置了。
+            // 让我们假设：如果不允许重生，那么当它死的时候，我们应该把它从 spawnData 移除，
+            // 或者标记一个 permanentDead 标志。
+            // 为了最小化改动，我们在它死的时候检查 allowRespawn。
+            // 如果 allowRespawn 为 false，我们在这里就不做任何事？
+            // 不，这里是生成逻辑。如果它死了 (isAlive=false)，我们怎么知道它是刚初始化还没生，还是已经死过了？
+            // 我们需要一个 extra flag "hasBeenKilled"。
+            
+            // 修正策略：在 Entity 死亡被检测到时 (else 分支)，如果 allowRespawn 为 false，
+            // 我们就将这个 spawn point 标记为永久失效。
+            // 我们可以重用 enemyType = -1 或者增加一个 bool enabled = true;
+            
+            // 让我们修改 updateEnemySpawning 的逻辑：
+            // 如果 data.enemyType == -1，跳过。
+            if (data.enemyType == -1) continue;
+
             if (distSq < m_activationDistance * m_activationDistance) {
-                spawnEnemy(registry, data);
+                 spawnEnemy(registry, data);
             }
         } else {
+            // Check if entity is still valid (might have been killed by player)
+            if (!registry.valid(data.entityId)) {
+                data.isAlive = false;
+                data.entityId = entt::null;
+                
+                // 核心修改：如果不允许重生，标记该生成点失效
+                if (!data.allowRespawn) {
+                    LOG_DEBUG("EnemySpawnSystem: Spawn point at ({:.1f}, {:.1f}) permanently disabled", data.position.x, data.position.y);
+                    data.enemyType = -1; // Mark as permanently dead/disabled
+                }
+                
+                continue; 
+            }
+
             // 尝试销毁：如果超出销毁范围
             if (distSq > m_deactivationDistance * m_deactivationDistance) {
-                // 检查实体是否还存在（可能已经被打死了）
-                if (registry.valid(data.entityId)) {
-                    despawnEnemy(registry, data);
-                } else {
-                    // 已经被打死，标记为不再生成 (或者你可以选择重生逻辑)
-                    // 这里我们简单地让它保持"活着"状态但ID无效，或者重置？
-                    // 如果是Roguelike，通常死了就死了。
-                    // 为了简单，我们从 spawnData 中移除它？或者标记为永久死亡。
-                    // 这里暂时不做处理，假设死了就不再管理
-                }
-            }
-        }
-    }
-}
-
-void EnemySpawnSystem::updateEnemyBehavior(float dt, const Position& playerPos, entt::registry& registry) {
-    // 获取 MapSystem (假设通过某种方式可以访问，或者我们需要传入 LevelManager)
-    // 由于接口限制，我们这里假设 Game 循环中已经更新了 MapSystem 的流场
-    // 并且我们需要在这里访问 MapSystem。
-    // 临时方案：通过 registry 的 context 获取，或者修改函数签名传入 MapSystem&
-    // 为了不破坏现有结构，我们假设调用者会传入 MapSystem，这里先修改函数签名
-    // 但由于头文件限制，我们只能在 Game.cpp 调用时传入。
-    // 让我们修改 updateEnemyBehavior 的实现，使其包含移动逻辑。
-    
-    auto view = registry.view<const Position, const EnemyStateComponent, AIComponent, HealthComponent>();
-    auto velView = registry.view<Velocity>(); // 需要写入速度
-    
-    // 我们需要访问 MapSystem 来获取流场。
-    // 由于 EnemySpawnSystem 没有持有 MapSystem 的引用，我们需要在 initializeLevel 时保存它吗？
-    // initializeLevel 传入了 const MapSystem&，我们可以保存一个指针。
-    // 但为了安全，最好在 update 时传入。
-    // 这里我们假设 m_mapSystemPtr 是在 initializeLevel 中保存的。
-    
-    for (auto entity : view) {
-        // 使用引用获取 Position，以便在传送时修改 (需要非 const 引用，但 view 默认给 const)
-        // 所以我们需要用 registry.get<Position> 或者 replace
-        const auto& pos = view.get<Position>(entity); 
-        const auto& state = view.get<EnemyStateComponent>(entity);
-        auto& ai = view.get<AIComponent>(entity);
-        auto& health = view.get<HealthComponent>(entity);
-        
-        // 获取速度组件 (如果存在)
-        Velocity* vel = registry.try_get<Velocity>(entity);
-
-        float dx = pos.x - playerPos.x;
-        float dy = pos.y - playerPos.y;
-        float distSq = dx*dx + dy*dy;
-        
-        // 仇恨范围 (使用 deactivationRange 作为脱战距离)
-        float leashRangeSq = state.deactivationRange * state.deactivationRange;
-        // 强制重置范围 (2倍脱战距离)
-        float hardResetRangeSq = leashRangeSq * 4.0f; // (range * 2)^2 = range^2 * 4
-        // 激活范围
-        float wakeUpRangeSq = state.activationRange * state.activationRange;
-
-        // 1. 距离过远：强制传送回出生点并休眠
-        if (distSq > hardResetRangeSq) {
-            // 传送回出生点
-            registry.replace<Position>(entity, ai.patrolStart);
-            
-            // 重置状态为 IDLE
-            ai.aiType = AIType::IDLE;
-            ai.target = entt::null;
-            
-            // 停止移动
-            if (vel) {
-                vel->vx = 0.0f;
-                vel->vy = 0.0f;
-            }
-            
-            // 瞬间回满血
-            health.current = health.max;
-        }
-        // 2. 超出脱战距离：放弃追击，开始回血
-        else if (distSq > leashRangeSq) {
-            // 如果处于攻击或追击状态，强制脱战并返回巡逻
-            if (ai.aiType == AIType::CHASE || ai.aiType == AIType::ATTACK) {
-                ai.aiType = AIType::PATROL;
-                ai.target = entt::null;
-            }
-            
-            // 脱战状态下回血 (直到 95%)
-            if (health.current < health.max * 0.95f) {
-                health.current += health.max * 0.10f * dt;
-                if (health.current > health.max) health.current = health.max;
-            }
-        }
-        // 3. 进入激活范围：唤醒怪物
-        else if (distSq < wakeUpRangeSq) {
-            if (ai.aiType == AIType::IDLE) {
-                ai.aiType = AIType::PATROL;
-            }
-        }
-        
-        // --- 移动逻辑 (基于流场和寻路) ---
-        // 只有非 IDLE 状态才移动
-        if (vel && m_mapSystemPtr && ai.aiType != AIType::IDLE) {
-            if (ai.aiType == AIType::CHASE) {
-                // 使用流场 (Black Magic)
-                Vector2 flow = m_mapSystemPtr->getFlowDirection(pos);
-                if (flow.x != 0 || flow.y != 0) {
-                    vel->vx = flow.x * ai.speed;
-                    vel->vy = flow.y * ai.speed;
-                } else {
-                    // 如果流场无效（例如在墙里），简单的直线追踪
-                    float dist = std::sqrt(distSq);
-                    if (dist > 0) {
-                        vel->vx = -(dx / dist) * ai.speed;
-                        vel->vy = -(dy / dist) * ai.speed;
-                    }
-                }
-            } else if (ai.aiType == AIType::PATROL) {
-                // 使用 A* 返回巡逻点
-                Position nextStep = m_mapSystemPtr->getPathNextStep(pos, ai.patrolEnd);
-                float pdx = nextStep.x - pos.x;
-                float pdy = nextStep.y - pos.y;
-                float pdist = std::sqrt(pdx*pdx + pdy*pdy);
-                
-                if (pdist > 1.0f) {
-                    vel->vx = (pdx / pdist) * ai.speed * 0.5f; // 巡逻速度较慢
-                    vel->vy = (pdy / pdist) * ai.speed * 0.5f;
-                } else {
-                    // 到达目标，停止或选择新点 (这里简化为停止)
-                    vel->vx = 0; vel->vy = 0;
-                }
+                despawnEnemy(registry, data);
             }
         }
     }
 }
 
 void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data) {
+    // LOG_TRACE("EnemySpawnSystem: Spawning enemy type {} at ({:.1f}, {:.1f})", data.enemyType, data.position.x, data.position.y);
+
     auto entity = registry.create();
     
     // 基础组件
@@ -319,6 +243,8 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
 }
 
 void EnemySpawnSystem::despawnEnemy(entt::registry& registry, EnemySpawnData& data) {
+    LOG_TRACE("EnemySpawnSystem: Despawning enemy entity {} (out of range)", (uint32_t)data.entityId);
+
     if (registry.valid(data.entityId)) {
         registry.destroy(data.entityId);
     }

@@ -2,6 +2,15 @@
 
 #include "raylib.h"
 
+// Game World Constants
+namespace WorldConstants {
+    constexpr int WORLD_WIDTH = 5000;
+    constexpr int WORLD_HEIGHT = 5000;
+    constexpr float GRID_CELL_SIZE = 32.0f;
+    constexpr int GRID_COLS = WORLD_WIDTH / (int)GRID_CELL_SIZE + 1;
+    constexpr int GRID_ROWS = WORLD_HEIGHT / (int)GRID_CELL_SIZE + 1;
+}
+
 // Basic Transform Component
 struct Position {
     float x;
@@ -40,6 +49,11 @@ struct InputComponent {
 struct HealthComponent {
     float current;
     float max;
+};
+
+// Vision/Sight Component
+struct VisionComponent {
+    float radius;
 };
 
 // Simple Melee Weapon Definition

@@ -3,12 +3,13 @@
 #include "../components/AIComponent.hpp"
 #include "../components/Common.hpp"
 #include "SpatialGrid.hpp"
+#include "MapSystem.hpp"
 #include <cmath>
 
 class AISystem {
 public:
     // 更新所有AI实体
-    static void update(entt::registry& registry, systems::SpatialHashGrid& grid, const Position& playerPos, float dt);
+    static void update(entt::registry& registry, systems::SpatialHashGrid& grid, const MapSystem& mapSystem, const Position& playerPos, float dt);
     
 private:
     static float distance(const Position& a, const Position& b);
@@ -25,7 +26,8 @@ private:
                               entt::entity entity, 
                               AIComponent& ai, 
                               Position& pos, 
-                              Velocity& vel, 
+                              Velocity& vel,
+                              const MapSystem& mapSystem,
                               const Position& playerPos, 
                               float dt);
 };

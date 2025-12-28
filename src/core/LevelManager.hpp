@@ -43,8 +43,11 @@ public:
     
     // 获取系统引用
     MapSystem& getMapSystem() { return *m_mapSystem; }
+    const MapSystem& getMapSystem() const { return *m_mapSystem; }
     EnemySpawnSystem& getEnemySystem() { return *m_enemySystem; }
+    const EnemySpawnSystem& getEnemySystem() const { return *m_enemySystem; }
     FogOfWarSystem& getFogSystem() { return *m_fogSystem; }
+    const FogOfWarSystem& getFogSystem() const { return *m_fogSystem; }
     
     // 获取当前关卡信息
     const std::string& getCurrentBiome() const { return m_currentBiome; }

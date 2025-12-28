@@ -6,7 +6,9 @@ LevelManager::LevelManager()
 }
 
 LevelManager::~LevelManager() {
+    LOG_INFO("Shutting down LevelManager...");
     cleanup();
+    LOG_INFO("LevelManager shutdown completed");
 }
 
 void LevelManager::initialize() {
@@ -18,6 +20,7 @@ void LevelManager::initialize() {
 }
 
 void LevelManager::loadNewLevel(const std::string& biome, int width, int height) {
+    LOG_INFO("Loading new level with biome: {}, dimensions: {}x{}", biome, width, height);
     cleanup();
     
     m_currentBiome = biome;
@@ -28,7 +31,7 @@ void LevelManager::loadNewLevel(const std::string& biome, int width, int height)
     // 生成关卡
     generateLevel(biome, width, height);
     
-    LOG_INFO("Loaded new level: {} ({}, {})", biome, width, height);
+    LOG_INFO("Successfully loaded new level: {} ({}, {})", biome, width, height);
 }
 
 void LevelManager::update(float dt, entt::registry& registry, const Position& playerPos) {
@@ -37,10 +40,13 @@ void LevelManager::update(float dt, entt::registry& registry, const Position& pl
         float viewRadius = 200.0f; // 默认值
         // 尝试从玩家实体获取视野组件
         auto view = registry.view<const PlayerTag, const VisionComponent>();
+        if (view.begin() == view.end()) {
+            LOG_WARN("No player entity with VisionComponent found during level update");
+        }
         for (auto [entity, vision] : view.each()) {
             viewRadius = vision.radius;
         }
-        m_fogSystem->updateVisibility(playerPos, viewRadius); 
+        m_fogSystem->updateVisibility(playerPos, viewRadius);
         
         // 同步可见性到 MapSystem (确保渲染正确)
         int w = m_mapSystem->getWidth();
@@ -53,9 +59,8 @@ void LevelManager::update(float dt, entt::registry& registry, const Position& pl
 
          // 更新敌人生成状态
          m_enemySystem->updateEnemySpawning(playerPos, registry);
-         
-         // 更新敌人行为 (仇恨、回血)
-         m_enemySystem->updateEnemyBehavior(dt, playerPos, registry);
+    } else {
+        LOG_ERROR("LevelManager systems not properly initialized during update");
     }
 }
 
@@ -74,6 +79,7 @@ void LevelManager::cleanup() {
 }
 
 void LevelManager::generateLevel(const std::string& biome, int width, int height) {
+    LOG_DEBUG("Generating level with biome: {}, size: {}x{}", biome, width, height);
     if (m_mapSystem) {
         m_mapSystem->generateMap(width, height, biome);
         
@@ -83,7 +89,9 @@ void LevelManager::generateLevel(const std::string& biome, int width, int height
         // 初始化敌人生成系统
         m_enemySystem->initializeLevel(width, height, *m_mapSystem, biome);
         
-        LOG_INFO("Generated level with biome: {}, size: {}x{}", biome, width, height);
+        LOG_INFO("Successfully generated level with biome: {}, size: {}x{}", biome, width, height);
+    } else {
+        LOG_ERROR("MapSystem not initialized when generating level: {}", biome);
     }
 }
 

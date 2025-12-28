@@ -2,13 +2,17 @@
 #include "../tools/Logger.hpp"
 
 ResourceManager::~ResourceManager() {
+    LOG_INFO("Shutting down ResourceManager...");
     unloadAll();
+    LOG_INFO("ResourceManager shutdown completed");
 }
 
 Texture2D ResourceManager::loadTexture(entt::id_type id, const std::string& path) {
+    LOG_TRACE("Loading texture with ID: {}, path: {}", id, path);
     // Check if already loaded
-    if (m_textures.find(id) != m_textures.end()) {
-        return m_textures[id];
+    if (auto it = m_textures.find(id); it != m_textures.end()) {
+        LOG_DEBUG("Texture already loaded, returning cached texture (ID: {})", id);
+        return it->second;
     }
 
     if (!FileExists(path.c_str())) {
@@ -17,23 +21,33 @@ Texture2D ResourceManager::loadTexture(entt::id_type id, const std::string& path
     }
 
     Texture2D tex = LoadTexture(path.c_str());
-    m_textures[id] = tex;
+    if (tex.id == 0) {
+        LOG_ERROR("ResourceManager: Failed to load texture from '{}', invalid texture ID", path);
+        return { 0 };
+    }
+    m_textures.emplace(id, tex);
     // Note: We can't log the string 'name' easily unless we store it, but path is sufficient.
     LOG_INFO("ResourceManager: Loaded texture (ID: {}) from '{}'", id, path);
     return tex;
 }
 
 Texture2D ResourceManager::getTexture(entt::id_type id) {
-    if (m_textures.find(id) != m_textures.end()) {
-        return m_textures[id];
+    LOG_TRACE("Getting texture with ID: {}", id);
+    if (auto it = m_textures.find(id); it != m_textures.end()) {
+        LOG_DEBUG("Found texture in cache (ID: {})", id);
+        return it->second;
     }
     LOG_WARN("ResourceManager: Texture ID {} not found!", id);
     return { 0 };
 }
 
 void ResourceManager::unloadAll() {
+    LOG_DEBUG("Unloading all textures, count: {}", m_textures.size());
     for (auto& [id, tex] : m_textures) {
-        UnloadTexture(tex);
+        if (tex.id != 0) {
+            UnloadTexture(tex);
+            LOG_TRACE("Unloaded texture with ID: {}", id);
+        }
     }
     m_textures.clear();
     LOG_INFO("ResourceManager: All resources unloaded.");

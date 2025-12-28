@@ -1,44 +1,77 @@
 # NoMoreDay
 
-NoMoreDay是一款使用C++开发的游戏项目，采用ECS架构设计，专注于核心战斗系统和丰富的游戏体验。
+**NoMoreDay** 是一款基于 **C++20** 开发的高性能 **2D 暗黑Like (Diablo-like) Roguelite ARPG**。
+项目旨在通过数据导向设计 (Data-Oriented Design) 和 ECS 架构，在普通硬件上实现同屏 **10,000+** 单位的实时战斗，呈现末日尸潮的压迫感与深度的装备驱动体验。
 
-## 项目特点
+---
 
-- **ECS架构**: 采用Entity-Component-System架构模式，提供灵活的游戏对象管理系统
-- **核心战斗系统**: 包含完整的战斗机制和角色设计
-- **资源管理系统**: 集成的资源管理和加载系统
-- **现代化C++**: 使用现代C++特性进行开发
+## 🌌 游戏愿景 (Vision)
 
-## 技术架构
+- **风格**: 末日 (Apocalyptic)、异界 (Other-worldly)、暗黑幻想 (Dark Fantasy)。
+- **核心体验**:
+    - **海量尸潮**: 利用 Boids 群集算法与空间哈希，模拟成千上万怪物的流体般运动。
+    - **深度构建 (Build)**: 结合暗黑类的装备词缀系统与 Roguelite 的随机技能选择。
+    - **硬核战斗**: 双摇杆射击 (Twin-Stick) 操作，强调走位与技能释放时机。
 
-项目包含以下核心系统：
-- 输入系统 (InputSystem)
-- 渲染系统 (RenderSystem) 
-- 物理系统 (PhysicsSystem)
-- 战斗系统 (CombatSystem)
-- 资源管理系统 (ResourceManager)
-- 空间网格系统 (SpatialGrid)
+## ⚔️ 核心玩法 (Gameplay)
 
-## 文件结构
+### 1. 战斗与探索
+- **双摇杆操作**: WASD 移动，鼠标/右摇杆瞄准，快节奏的动作体验。
+- **动态地图**: 基于改进型细胞自动机生成的随机地牢，配合战争迷雾系统。
+- **怪物生态**: 7大种族（亡灵、异魔等），具备协同 AI（坦克阻挡、射手风筝、辅助治疗）。
 
-```
+### 2. 物品与成长 (Itemization & Progression)
+- **装备驱动**: 
+    - 丰富的词缀系统 (Prefix/Suffix)。
+    - **稀有度分级**: 从普通到神话，包含独特的暗金装备 (Uniques)。
+    - **工艺系统**: 符文之语 (Runewords) 与 锻造潜能 (Forging Potential)。
+- **技能体系**: 武器决定主动技能，升级获取随机被动天赋 (Roguelite)。
+
+### 3. 终局玩法 (Endgame)
+- **避难所 (Sanctuary)**: 局外成长中心，升级铁匠铺、秘术师与仓库。
+- **虚空星图 (The Void Atlas)**: 类似 PoE 的异界图鉴，通过增加“腐化值”挑战更高难度的地图词缀。
+
+---
+
+## 🛠 技术架构 (Technical Architecture)
+
+本项目采用 **混合架构 (Hybrid Architecture)**，核心为高性能 ECS。
+
+### 核心技术栈
+| 模块 | 选型 | 说明 |
+| :--- | :--- | :--- |
+| **语言标准** | **C++20** | Modules, Concepts, Coroutines. |
+| **ECS 框架** | **EnTT** | 业界最快的 C++ ECS 库，保证数据局部性。 |
+| **并发调度** | **Taskflow** | 基于 DAG 的任务并行化，榨干多核 CPU 性能。 |
+| **渲染后端** | **Raylib** | 轻量级 OpenGL 抽象，支持 Instancing 批量渲染。 |
+| **内存管理** | **mimalloc** | 微软高性能内存分配器，消除多线程锁竞争。 |
+| **SIMD 加速** | **xsimd** | 向量化数学运算，用于物理碰撞检测。 |
+
+---
+
+## 📂 目录结构 (Project Structure)
+
+```text
 NoMoreDay/
-├── src/                    # 源代码
-│   ├── core/              # 核心系统
-│   ├── systems/           # ECS系统
-│   ├── components/        # 组件定义
-│   └── tools/             # 工具类
-├── assets/                # 游戏资源
-│   ├── textures/          # 纹理资源
+├── assets/                 # 游戏资源 (纹理、音频、配置)
+│   └── textures/           # 自动管线生成的透明背景素材
+├── scripts/                # 工具脚本 (Python AI 资产生成管线)
+├── 设计文档/               # 详细的游戏设计与架构文档
+│   ├── 开发计划与任务追踪.md
+│   ├── 战斗系统与属性设计.md
+│   ├── 怪物和AI设计.md
 │   └── ...
-├── scripts/               # 脚本工具
-├── 设计文档/              # 项目设计文档
-└── CMakeLists.txt         # 构建配置
+├── src/                    # C++ 源代码
+│   ├── core/               # 基础设施 (Application, ResourceManager)
+│   ├── components/         # ECS 组件定义 (POD Types)
+│   ├── systems/            # ECS 系统逻辑 (无状态)
+│   └── utils/              # 通用工具库
+└── CMakeLists.txt          # CMake 构建配置
 ```
 
 ## 构建要求
 
-- C++17或更高版本
+- C++20或更高版本
 - CMake 3.10或更高版本
 - 支持的平台: Windows, Linux, macOS
 

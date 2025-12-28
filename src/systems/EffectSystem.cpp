@@ -3,6 +3,8 @@
 #include "../components/Common.hpp"
 
 void EffectSystem::update(entt::registry& registry, float dt) {
+    // LOG_TRACE("EffectSystem::update: Processing visual effects");
+
     // 1. 更新伤害飘字
     auto viewDamage = registry.view<DamagePopup, Position>();
     for(auto entity : viewDamage) {
@@ -12,6 +14,7 @@ void EffectSystem::update(entt::registry& registry, float dt) {
         // 更新计时器
         popup.timer += dt;
         if (popup.timer >= popup.lifeTime) {
+            LOG_TRACE("EffectSystem: Destroying damage popup entity {}", (uint32_t)entity);
             registry.destroy(entity);
             continue;
         }
@@ -31,6 +34,7 @@ void EffectSystem::update(entt::registry& registry, float dt) {
         
         effect.timer += dt;
         if (effect.timer >= effect.lifeTime) {
+            LOG_TRACE("EffectSystem: Destroying attack effect entity {}", (uint32_t)entity);
             registry.destroy(entity);
         }
     }

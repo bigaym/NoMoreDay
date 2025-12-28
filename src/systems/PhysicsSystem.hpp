@@ -5,11 +5,14 @@
 
 class PhysicsSystem {
 public:
-    // Update logic for a single entity (thread-safe, for parallel execution)
-    // Added: entity ID (to avoid self-collision) and SpatialGrid (for neighbor query)
-    static void updateEntity(entt::entity entity, Position& pos, Velocity& vel, 
-                             systems::SpatialHashGrid& grid, const entt::registry& registry,
-                             float dt, int screenWidth, int screenHeight);
+    // Phase 1: 解决碰撞与计算受力 (线程安全: 读 Position, 写 Velocity)
+    static void resolveCollisions(entt::entity entity, const Position& pos, Velocity& vel, 
+                                systems::SpatialHashGrid& grid, const entt::registry& registry,
+                                float dt);
+
+    // Phase 2: 位置积分与边界处理 (线程安全: 读 Velocity, 写 Position)
+    static void updatePosition(entt::entity entity, Position& pos, Velocity& vel, 
+                             float dt, int worldWidth, int worldHeight);
 
     // Update all entities sequentially (fallback or simple usage)
     static void updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight);

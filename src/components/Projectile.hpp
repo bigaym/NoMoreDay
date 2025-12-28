@@ -1,0 +1,26 @@
+#pragma once
+#include "Stats.hpp"
+#include "Common.hpp"
+
+namespace NoMoreDay {
+
+// Projectile Component
+// Represents a flying object that carries damage stats (Snapshot)
+struct Projectile {
+    // Snapshot of the attacker's stats at the moment of firing.
+    // This ensures that if the attacker changes stats (e.g. equipment change, buff expiry)
+    // while the projectile is in flight, the projectile's damage remains consistent.
+    CombatStats snapshot;
+    
+    // Who fired this? (Entity ID) - Useful for kill credit, friendly fire checks
+    entt::entity owner = entt::null;
+    
+    // Mechanics
+    float lifeTime = 5.0f; // Max flight time
+    float speed = 500.0f;
+    float radius = 5.0f;   // Hitbox size
+    bool pierce = false;   // Does it pass through enemies?
+    int pierceCount = 0;   // How many enemies can it hit?
+};
+
+} // namespace NoMoreDay

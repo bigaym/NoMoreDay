@@ -37,7 +37,6 @@ void FogOfWarSystem::updateVisibility(const Position& playerPos, float viewRadiu
     if (m_width == 0 || m_height == 0) return;
     
     // 转换像素坐标到网格坐标 (假设瓦片大小为 10.0f)
-    const float TILE_SIZE = 10.0f;
     
     // 计算玩家周围的可见区域
     int playerGridX = static_cast<int>(playerPos.x / TILE_SIZE);
@@ -71,7 +70,7 @@ void FogOfWarSystem::updateVisibility(const Position& playerPos, float viewRadiu
 
 void FogOfWarSystem::renderFog() const {
     if (m_textureValid && m_fogTexture.id != 0) {
-        float scale = 10.0f;
+        float scale = TILE_SIZE;
         float mapPixelW = m_width * scale;
         float mapPixelH = m_height * scale;
 

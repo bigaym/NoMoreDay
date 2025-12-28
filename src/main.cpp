@@ -7,7 +7,7 @@ int main() {
     
     // Create Game Instance
     // Using a pointer or stack? Stack is fine for Game class.
-    Game game(1280, 720, "NoMoreDay - High Performance ECS");
+    Game game(1920, 1080, "NoMoreDay - High Performance ECS");
     
     // Run Loop
     game.run();

@@ -2,6 +2,8 @@
 build/
 bin/
 lib/
+memory/
+third_party/
 *.exe
 *.dll
 *.a
@@ -32,3 +34,4 @@ logs/
 
 # Gemini
 .gemini/
+AGENT*.md

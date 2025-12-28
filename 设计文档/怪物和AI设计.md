@@ -1,4 +1,4 @@
-# 2D 暗黑Like Roguelite RPG - 怪物与AI设计 V0.1
+# 2D 暗黑Like Roguelite RPG - 怪物与AI设计 V0.2
 
 ## 1. 设计哲学 (Design Philosophy)
 
@@ -44,6 +44,12 @@
 - **特性**：属性均衡，会使用战术（如逃跑喝药）。
 - **AI倾向**：只有这个种族拥有“治疗者”和“指挥官”角色。
 
+### 2.5 构装体 (Constructs)
+
+- **风格**：古代石像、魔法机甲。
+- **特性**：极高的物理防御，免疫流血/毒素/恐惧，但移动缓慢。
+- **AI倾向**：死守特定区域，不会深追玩家。
+
 ## 3. 怪物职业/行为模板 (Archetypes & AI)
 
 这是AI编程的核心。每一类职业对应一个状态机（FSM）。
@@ -83,9 +89,45 @@
   - `Ambush`：平时隐身或在屏幕外等待。
   - `Dash`：当玩家背对它或在大招冷却好时，瞬间突进到玩家身边。
 
-## 4. 怪物属性系统 (Attribute System)
+### 3.5 支援者 (Support / Healer)
 
-### 4.1 基础属性
+- **代表怪物**：萨满、死灵法师、邪教牧师。
+- **属性**：极低血量，高仇恨值。
+- **AI逻辑**：
+  - `Heal`：自动寻找范围内血量最低的友军进行治疗。
+  - `Buff`：为友军提供护盾或狂暴（攻速提升）状态。
+  - `Coward`：一旦玩家靠近，立即寻找最近的“坦克”单位躲避其后。
+
+### 3.6 控制者 (Controller / Caster)
+
+- **代表怪物**：冰霜法师、藤蔓怪。
+- **属性**：中等血量，远程。
+- **AI逻辑**：
+  - `Zone Control`：向玩家移动路径前方释放持续伤害区域（AOE）。
+  - `Debuff`：施放减速、定身或致盲技能，辅助其他怪物输出。
+
+## 4. 高级战术与协同 (Advanced Tactics & Synergy)
+
+单纯的数值堆砌没有意义，怪物之间的配合才是难度的来源。
+
+### 4.1 攻击预警 (Telegraphing)
+为了保证公平性，高伤害技能必须有视觉提示：
+- **蓄力闪光**：重击前怪物模型变白或闪烁 0.5秒。
+- **弹道线**：狙击类敌人在开火前显示一条红色的激光瞄准线。
+- **地面指示器**：AOE 技能落地前，地面显示红色圆圈或矩形警告区域。
+
+### 4.2 仇恨机制 (Aggro System)
+- **视线检测 (Line of Sight)**：怪物只能发现前方扇形区域或极近距离的玩家。
+- **仇恨传递 (Chain Aggro)**：当一个怪物发现玩家并发出吼叫时，周围半径 R 内的所有同阵营怪物同时进入战斗状态。
+- **动态仇恨**：通常优先攻击最近的目标，但如果远程单位（如支援者）受到伤害，坦克类怪物会尝试切换目标来保护支援者。
+
+### 4.3 经典协同组合
+- **盾墙推进**：坦克在前举盾吸收弹道，射手在后方输出。
+- **自爆诱饵**：快速的炮灰冲向玩家限制走位，变异怪趁机接近自爆。
+
+## 5. 怪物属性系统 (Attribute System)
+
+### 5.1 基础属性
 
 1. **HP (生命值)**：`Base_HP * Level_Multiplier * Rarity_Mod`
 2. **Atk (攻击力)**：决定造成的基础伤害。
@@ -94,33 +136,64 @@
 5. **AtkSpd (攻击速度)**：攻击间隔。
 6. **Range (射程)**：近战通常为 50-80px，远程为 400-800px。
 
-### 4.2 动态难度等级 (Scaling)
+### 5.2 动态难度等级 (Scaling)
 
 怪物的强度随**地图等级 (Map Level)** 成长。建议采用指数或线性增长公式。
 
 - 公式参考：
-
-  
-
   $$Stats = Base \times (1 + 0.1 \times (Level - 1))^{1.5}$$
-
-  
-
   （这意味着每10级怪物属性翻倍不止，迫使玩家更新装备）
 
-### 4.3 怪物稀有度 (Monster Rarity)
+### 5.3 怪物阶级与稀有度 (Monster Hierarchy & Rarity)
 
-通过给普通怪添加“词缀 (Affix)”来生成精英怪。
+为了丰富战斗节奏，怪物被划分为 7 个层级，每个层级在 AI、属性和掉落上都有显著差异。
 
-1. **普通 (Normal)**：白名，无特殊能力。
-2. **精英 (Elite/Champion)**：蓝名/黄名。
-   - 体积 x 1.5
-   - 血量 x 3, 伤害 x 1.5
-   - **拥有 1-2 个随机词缀**。
-3. **首领 (Boss)**：红名。
-   - 拥有独立AI和技能组，不共用通用模板。
+1. **普通 (Normal)**
+   - **标识**：白名，无特效。
+   - **定位**：填充战场的炮灰，依靠数量压制。
+   - **AI**：使用基础行为模板。
 
-### 4.4 词缀库示例 (Affix Pool)
+2. **队长 (Captain)**
+   - **标识**：白名，体型略大 (+20%)，脚下有光环圈。
+   - **定位**：小队指挥官，通常带领 5-10 只普通怪。
+   - **特性**：拥有 **指挥光环 (Command Aura)**，使周围友军 攻击速度/移动速度 +20%。优先击杀目标。
+
+3. **精英 (Elite)**
+   - **标识**：蓝名/黄名，模型发光。
+   - **定位**：单体强敌，玩家需要走位应对。
+   - **特性**：
+     - 全属性大幅提升 (HP x3, Atk x1.5)。
+     - **随机词缀**：拥有 1-2 个随机词缀（如：*熔火*、*护盾*、*瞬移*）。
+
+4. **变异 (Mutant)**
+   - **标识**：紫名，身体扭曲或有粒子溢出效果。
+   - **定位**：高风险高回报的特殊单位，通常由环境污染产生。
+   - **特性**：
+     - **极端属性**：例如“攻击力 x5 但 HP 为 1”或“移动速度极快但会持续掉血”。
+     - **亡语 (Deathrattle)**：死亡时触发剧烈爆炸、分裂成小怪或留下一滩毒液。
+
+5. **头目 (Mini-Boss)**
+   - **标识**：橙名，独特的模型或配色，有固定名称（如“屠夫·格拉特”）。
+   - **定位**：把守关键路口、宝箱或传送门的守门人。
+   - **特性**：
+     - 拥有 1 个**固有技能**（如：钩子、震地）。
+     - 免疫控制效果（眩晕/击退）。
+
+6. **首领 (Act Boss)**
+   - **标识**：红名，巨大的血条显示在屏幕上方。
+   - **定位**：关卡最终挑战。
+   - **特性**：
+     - **多阶段 (Phases)**：血量降至 50% 时改变攻击模式或地形。
+     - **技能组**：拥有 3-4 个复杂技能，需要背板。
+
+7. **领主 (Lord)**
+   - **标识**：暗金名，体型占据半个屏幕。
+   - **定位**：游戏终局目标或隐藏挑战。
+   - **特性**：
+     - **全屏判定**：技能覆盖范围极大。
+     - **规则修改**：出场时改变环境规则（如：全图持续掉血、禁止回血等）。
+
+### 5.4 词缀库示例 (Affix Pool)
 
 - **迅捷 (Fast)**：移动速度 +50%。
 - **强壮 (Tanky)**：生命值 +100%。
@@ -128,75 +201,22 @@
 - **冰霜 (Frozen)**：攻击使玩家减速。
 - **熔火 (Molten)**：行走留下一条伤害火径。
 - **护盾 (Shielding)**：给周围友军提供无敌光环（优先击杀目标）。
+- **复仇 (Avenger)**：周围每死亡一个友军，自身体型变大，攻击力提升。
+- **链接 (Link)**：与附近的怪物共享生命值（分摊伤害）。
 
-## 5. C++20 架构实现思路
+## 6. 技术架构实现概念 (Technical Implementation Concepts)
 
-### 5.1 组件设计 (ECS Components)
+### 6.1 组件化设计 (Component Composition)
 
-利用 `Entt` 库，我们可以这样拆分怪物：
+在 ECS 架构下，怪物不是一个类，而是一组数据的集合。
 
-```
-// 1. 身份组件
-struct MonsterInfo {
-    RaceID race;
-    ArchetypeID type;
-    int level;
-};
+- **身份组件**：存储种族 ID、职业 ID、等级。
+- **数值组件**：存储 HP、攻击力、防御力、移动速度。
+- **AI状态组件**：存储当前状态（空闲、追逐、攻击）、反应计时器、当前目标 ID。
+- **技能组件**：存储冷却时间、技能数据配置。
 
-// 2. 属性组件 (数值)
-struct CombatStats {
-    float hp, max_hp;
-    float attack_power;
-    float defense;
-    float move_speed;
-    float attack_range;
-};
+### 6.2 逻辑驱动 (Logic Driver)
 
-// 3. 状态机组件 (AI逻辑核心)
-struct AIState {
-    enum class State { Idle, Chase, Attack, Flee, Patrol };
-    State current_state;
-    float reaction_timer; // 反应延迟，模拟不同怪物的呆滞程度
-    EntityID target;      // 当前仇恨目标（通常是玩家）
-};
-
-// 4. 技能/行为组件 (可选)
-struct AbilityComponent {
-    float cooldown_timer;
-    // 使用 std::variant 存储不同的技能数据
-    std::variant<MeleeAttackData, ProjectileData, TeleportData> ability_data;
-};
-```
-
-### 5.2 行为树 vs 状态机 (Behavior Tree vs FSM)
-
-- 对于成千上万的怪物，建议使用**简化的有限状态机 (Simple FSM)**。
-
-- 逻辑写在 `MonsterSystem` 中：
-
-  ```
-  void UpdateMonsterAI(Registry& reg, float dt) {
-      auto view = reg.view<AIState, CombatStats, Transform, PhysicsBody>();
-  
-      for(auto entity : view) {
-          // 1. 检查距离 (Sensing)
-          float dist_to_player = CalculateDistance(entity, player);
-  
-          // 2. 状态转换 (Transition)
-          switch(ai.current_state) {
-              case Idle:
-                  if (dist_to_player < aggro_range) ai.current_state = Chase;
-                  break;
-              case Chase:
-                  if (dist_to_player <= stats.attack_range) ai.current_state = Attack;
-                  break;
-              // ...
-          }
-  
-          // 3. 执行行为 (Action)
-          if (ai.current_state == Chase) {
-              MoveTowards(entity, player_pos, stats.move_speed);
-          }
-      }
-  }
-  ```
+- **无状态系统**：`AISystem` 不存储任何数据，它只遍历拥有 `AIState` 的实体。
+- **批量处理**：利用 SIMD 或并行计算，一次性更新所有怪物的状态转换。
+- **空间查询**：利用空间哈希网格（Spatial Hash Grid）快速查询“周围有哪些友军”来实现光环效果，避免 $O(N^2)$ 的全图遍历。

@@ -14,6 +14,7 @@ struct EnemySpawnData {
     int enemyType;     // 简单起见，0=Skeleton, 1=Demon
     bool isAlive;      // 当前是否已生成实体
     entt::entity entityId; // 对应的实体ID
+    bool allowRespawn = false; // 是否允许重生
 };
 
 class EnemySpawnSystem {
@@ -23,7 +24,6 @@ private:
     int m_mapHeight;
     std::map<int, Texture2D> m_raceTextures;
     std::mt19937 m_gen;
-    const MapSystem* m_mapSystemPtr = nullptr; // 保存地图引用用于寻路
     
     // 生成参数
     float m_activationDistance = 600.0f;  // 进入此范围生成
@@ -38,9 +38,6 @@ public:
     
     // 每帧更新：检查距离，生成或销毁敌人
     void updateEnemySpawning(const Position& playerPos, entt::registry& registry);
-    
-    // 更新敌人行为状态 (仇恨管理、回血)
-    void updateEnemyBehavior(float dt, const Position& playerPos, entt::registry& registry);
     
 private:
     // 具体的生成逻辑

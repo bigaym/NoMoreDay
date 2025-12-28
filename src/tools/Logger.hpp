@@ -31,6 +31,7 @@ private:
 // Usage: LOG_INFO("Message with param: {}", 42);
 
 #define LOG_TRACE(...)    ::tools::Logger::GetCoreLogger()->trace(__VA_ARGS__)
+#define LOG_DEBUG(...)    ::tools::Logger::GetCoreLogger()->debug(__VA_ARGS__)
 #define LOG_INFO(...)     ::tools::Logger::GetCoreLogger()->info(__VA_ARGS__)
 #define LOG_WARN(...)     ::tools::Logger::GetCoreLogger()->warn(__VA_ARGS__)
 #define LOG_ERROR(...)    ::tools::Logger::GetCoreLogger()->error(__VA_ARGS__)

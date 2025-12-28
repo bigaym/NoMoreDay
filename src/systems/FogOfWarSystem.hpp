@@ -19,6 +19,7 @@ private:
     static constexpr int VISIBILITY_VISIBLE = 2;
 
 public:
+    static constexpr float TILE_SIZE = 10.0f;
     FogOfWarSystem();
     ~FogOfWarSystem();
     

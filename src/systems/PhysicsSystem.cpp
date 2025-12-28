@@ -1,31 +1,12 @@
 #include "PhysicsSystem.hpp"
 #include <cmath>
+#include <algorithm>
 
-void PhysicsSystem::updateEntity(entt::entity entity, Position& pos, Velocity& vel, 
-                                 systems::SpatialHashGrid& grid, const entt::registry& registry,
-                                 float dt, int screenWidth, int screenHeight) {
-    // 1. Movement Integration
-    pos.x += vel.vx * dt;
-    pos.y += vel.vy * dt;
+void PhysicsSystem::resolveCollisions(entt::entity entity, const Position& pos, Velocity& vel, 
+                                    systems::SpatialHashGrid& grid, const entt::registry& registry,
+                                    float dt) {
+    // LOG_TRACE("PhysicsSystem: Resolving collisions for entity {}", (uint32_t)entity);  // 日志太频繁
 
-    // 2. Boundary Collision
-    if (pos.x < 0) {
-        pos.x = 0;
-        vel.vx *= -1;
-    } else if (pos.x > (float)screenWidth) {
-        pos.x = (float)screenWidth;
-        vel.vx *= -1;
-    }
-
-    if (pos.y < 0) {
-        pos.y = 0;
-        vel.vy *= -1;
-    } else if (pos.y > (float)screenHeight) {
-        pos.y = (float)screenHeight;
-        vel.vy *= -1;
-    }
-
-    // 3. Separation (Soft Collision) via Spatial Grid
     // Parameters
     const float entityRadius = 5.0f; 
     const float separationDist = entityRadius * 2.0f; // 10.0f
@@ -38,9 +19,8 @@ void PhysicsSystem::updateEntity(entt::entity entity, Position& pos, Velocity& v
     grid.query(pos, searchRadius, [&](entt::entity neighbor) {
         if (neighbor == entity) return;
 
-        // Note: For extreme performance, we might want to store positions in the grid 
-        // or use a SoA layout, but getting from registry is standard ECS.
         if (!registry.valid(neighbor)) return;
+        // 只读访问邻居位置，确保线程安全
         const auto& nPos = registry.get<Position>(neighbor);
 
         float dx = pos.x - nPos.x;
@@ -56,20 +36,43 @@ void PhysicsSystem::updateEntity(entt::entity entity, Position& pos, Velocity& v
             float forceX = (dx / dist) * overlap * repulsionStrength;
             float forceY = (dy / dist) * overlap * repulsionStrength;
 
-            // Apply to velocity (mass = 1)
+            // 只更新速度，不修改位置
             vel.vx += forceX * dt;
             vel.vy += forceY * dt;
         }
     });
 }
 
+void PhysicsSystem::updatePosition(entt::entity entity, Position& pos, Velocity& vel, 
+                                 float dt, int worldWidth, int worldHeight) {
+    // LOG_TRACE("PhysicsSystem: Updating position for entity {}", (uint32_t)entity); // 频率太高
+
+    // 1. Movement Integration
+    pos.x += vel.vx * dt;
+    pos.y += vel.vy * dt;
+
+    // 2. Boundary Collision - Use std::clamp and bounce
+    if (pos.x < 0) {
+        pos.x = 0;
+        vel.vx *= -1;
+    } else if (pos.x > (float)worldWidth) {
+        pos.x = (float)worldWidth;
+        vel.vx *= -1;
+    }
+
+    if (pos.y < 0) {
+        pos.y = 0;
+        vel.vy *= -1;
+    } else if (pos.y > (float)worldHeight) {
+        pos.y = (float)worldHeight;
+        vel.vy *= -1;
+    }
+}
+
 void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight) {
     // Fallback: No collision (grid required)
     auto view = registry.view<Position, Velocity>();
-    view.each([dt, screenWidth, screenHeight](auto& pos, auto& vel) {
-        // Just move
-        pos.x += vel.vx * dt;
-        pos.y += vel.vy * dt;
-        // ... boundary checks skipped for brevity in fallback
+    view.each([dt, screenWidth, screenHeight](auto entity, auto& pos, auto& vel) {
+        updatePosition(entity, pos, vel, dt, screenWidth, screenHeight);
     });
 }

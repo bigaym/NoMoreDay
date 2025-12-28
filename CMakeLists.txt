@@ -7,56 +7,47 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # --- External Dependencies ---
 
-# 1. Spdlog (FetchContent - Shared Library)
-# Switched from local header-only to FetchContent to enable DLL build
-include(FetchContent)
+# 1. Spdlog
 set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/spdlog)
 
-FetchContent_Declare(
-    spdlog
-    URL https://github.com/gabime/spdlog/archive/refs/tags/v1.12.0.tar.gz
-)
-FetchContent_MakeAvailable(spdlog)
-
-# 2. Raylib (FetchContent)
+# 2. Raylib
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES    OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE) # Build as Dynamic Library (DLL)
+add_subdirectory(third_party/raylib)
 
-FetchContent_Declare(
-    raylib
-    URL https://github.com/raysan5/raylib/archive/refs/tags/5.0.tar.gz
-)
-FetchContent_MakeAvailable(raylib)
+# 3. EnTT
+add_subdirectory(third_party/entt)
 
-# 3. EnTT (FetchContent)
-# Header-only, no dynamic lib needed.
-FetchContent_Declare(
-    entt
-    URL https://github.com/skypjack/entt/archive/refs/tags/v3.13.0.tar.gz
-)
-FetchContent_MakeAvailable(entt)
-
-# 4. Taskflow (FetchContent)
-# Header-only, no dynamic lib needed.
+# 4. Taskflow
 set(TF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(TF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-FetchContent_Declare(
-    taskflow
-    URL https://github.com/taskflow/taskflow/archive/refs/tags/v3.6.0.tar.gz
-)
-FetchContent_MakeAvailable(taskflow)
+add_subdirectory(third_party/taskflow)
+
+# 5. nlohmann/json
 
 # --- Main Executable ---
-add_executable(NoMoreDay 
+add_executable(NoMoreDay
     src/main.cpp
     src/core/Game.cpp
     src/core/ResourceManager.cpp
+    src/core/LevelManager.cpp
+    src/core/ItemFactory.cpp
     src/systems/PhysicsSystem.cpp
     src/systems/RenderSystem.cpp
     src/systems/InputSystem.cpp
     src/systems/CombatSystem.cpp
+    src/systems/StatsSystem.cpp
+    src/systems/CraftingSystem.cpp
+    src/systems/AISystem.cpp
+    src/systems/MapSystem.cpp
+    src/systems/EnemySpawnSystem.cpp
+    src/systems/FogOfWarSystem.cpp
+    src/systems/EffectSystem.cpp
+    src/systems/EnemyBehavior.cpp
+    src/systems/UISystem.cpp
     src/tools/Logger.cpp
 )
 
@@ -72,17 +63,21 @@ target_link_libraries(NoMoreDay
     Taskflow
 )
 
+# Header-only libraries include paths
+target_include_directories(NoMoreDay PRIVATE third_party/json/include)
+
 if(WIN32)
     # Add windows specific libs
     target_link_libraries(NoMoreDay PRIVATE winmm kernel32 opengl32 gdi32 user32 shell32)
     
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        target_compile_options(NoMoreDay PRIVATE "-Wa,-mbig-obj")
+        # -Wno-stringop-overflow: Suppress false positives from spdlog/fmt in GCC 13/14
+        target_compile_options(NoMoreDay PRIVATE "-Wa,-mbig-obj" "-Wno-stringop-overflow")
         # STRIP symbols in Release mode to drastically reduce size
         target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:-s>)
     endif()
     
-    target_compile_definitions(NoMoreDay PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER)
+    target_compile_definitions(NoMoreDay PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
 
 # --- Output & Assets ---
