@@ -1,0 +1,8 @@
+Task: Replace placeholder item visuals with actual AI-generated texture assets.
+Changes:
+- Updated AssetRegistry.hpp with correct paths for AI-generated textures (Weapon, Player, Skeleton, etc.).
+- Implemented AssetLoadingSystem::GetTexture to allow global access to loaded textures.
+- Updated Game::init to preload essential item and character textures.
+- Modified ItemFactory to assign SpriteComponent with the corresponding AI-generated texture when creating weapons.
+Files: src/core/AssetRegistry.hpp, src/core/AssetLoadingSystem.cpp/hpp, src/core/Game.cpp, src/core/ItemFactory.cpp, tests/CMakeLists.txt.
+Why: To replace text-based placeholders with visual icons for items in the inventory and on the ground, enhancing the game's visual quality.
