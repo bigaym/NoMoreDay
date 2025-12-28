@@ -177,3 +177,23 @@ target_compile_definitions(RenderSystemTest PRIVATE TEST_HEADLESS)
 if(WIN32)
     target_compile_definitions(RenderSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
+
+add_executable(AssetLoadingSystemTest 
+    AssetLoadingSystemTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/AssetLoadingSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ResourceManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
+)
+target_include_directories(AssetLoadingSystemTest PRIVATE 
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party/entt/src
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+    ${CMAKE_SOURCE_DIR}/third_party/spdlog/include
+    ${CMAKE_SOURCE_DIR}/third_party/taskflow
+    ${CMAKE_SOURCE_DIR}/third_party/raylib/src
+)
+target_link_libraries(AssetLoadingSystemTest PRIVATE spdlog::spdlog raylib)
+target_compile_definitions(AssetLoadingSystemTest PRIVATE TEST_HEADLESS)
+if(WIN32)
+    target_compile_definitions(AssetLoadingSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()
