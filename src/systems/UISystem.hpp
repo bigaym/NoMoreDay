@@ -2,12 +2,13 @@
 #include <entt/entt.hpp>
 #include "raylib.h"
 #include "../components/ItemComponent.hpp"
+#include "../core/ResourceManager.hpp"
 
 class LevelManager; // 前置声明，避免循环依赖
 
 class UISystem {
 public:
-    static void Initialize();
+    static void Initialize(ResourceManager& resourceManager);
     static void Shutdown();
     static void Update(entt::registry& registry);
     static void Draw(entt::registry& registry, const LevelManager& levelManager);
@@ -46,5 +47,6 @@ private:
     
     // 内部辅助：使用自定义字体绘制文本
     static void DrawTextUI(const char* text, float x, float y, float fontSize, Color color);
+    static void DrawTextScaled(const char* text, float x, float y, float fontSize, float maxWidth, Color color);
     static const char* GetShortItemTypeName(const NoMoreDay::ItemComponent& item);
 };

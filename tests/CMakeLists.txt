@@ -114,6 +114,8 @@ add_executable(UISystemTest
     ${CMAKE_SOURCE_DIR}/src/systems/XPAwardingSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/MapSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/FogOfWarSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ResourceManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/AssetLoadingSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
 )
 target_include_directories(UISystemTest PRIVATE 
@@ -125,6 +127,7 @@ target_include_directories(UISystemTest PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/raylib/src
 )
 target_link_libraries(UISystemTest PRIVATE spdlog::spdlog raylib)
+target_compile_definitions(UISystemTest PRIVATE TEST_HEADLESS)
 if(WIN32)
     target_compile_definitions(UISystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
@@ -153,6 +156,8 @@ add_executable(RenderSystemTest
     ${CMAKE_SOURCE_DIR}/src/systems/XPAwardingSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/MapSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/systems/FogOfWarSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ResourceManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/AssetLoadingSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
 )
 target_include_directories(RenderSystemTest PRIVATE 
@@ -164,6 +169,7 @@ target_include_directories(RenderSystemTest PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/raylib/src
 )
 target_link_libraries(RenderSystemTest PRIVATE spdlog::spdlog raylib)
+target_compile_definitions(RenderSystemTest PRIVATE TEST_HEADLESS)
 if(WIN32)
     target_compile_definitions(RenderSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()

@@ -51,7 +51,7 @@ void Game::init() {
     m_levelManager->loadNewLevel("cave", WorldConstants::WORLD_WIDTH / 10, WorldConstants::WORLD_HEIGHT / 10);
     
     NoMoreDay::ItemFactory::initialize();
-    UISystem::Initialize();
+    UISystem::Initialize(m_resourceManager);
     
     LOG_DEBUG("Managers initialized, loading player texture...");
     // 2. Load Resources via Manager (Compile-time IDs)

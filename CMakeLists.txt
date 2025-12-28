@@ -35,6 +35,7 @@ add_executable(NoMoreDay
     src/core/ResourceManager.cpp
     src/core/LevelManager.cpp
     src/core/ItemFactory.cpp
+    src/core/AssetLoadingSystem.cpp
     src/systems/PhysicsSystem.cpp
     src/systems/RenderSystem.cpp
     src/systems/InputSystem.cpp

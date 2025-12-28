@@ -8,6 +8,8 @@
 #include "../core/LevelManager.hpp"
 #include "../systems/FogOfWarSystem.hpp"
 #include "../systems/ProgressionSystem.hpp"
+#include "../core/AssetLoadingSystem.hpp"
+#include "../core/UIAssetRegistry.hpp"
 // 假设 LevelManager.hpp 包含了 MapSystem 的定义，如果报错则需要显式包含 MapSystem.hpp
 #include "raylib.h"
 #include "../tools/Logger.hpp"
@@ -16,6 +18,7 @@
 #include <vector>
 
 using namespace NoMoreDay;
+using namespace entt::literals;
 
 bool UISystem::m_showCharacterPanel = false;
 bool UISystem::m_showInventory = false;
@@ -41,58 +44,82 @@ static int s_minimapH = 0;
 static std::vector<Color> s_minimapPixels;
 static bool s_debugRevealMap = false; // 调试：强制显示全图
 
-void UISystem::Initialize() {
-    // 尝试加载系统宋体 (Windows)
-    // 优先尝试宋体，其次尝试微软雅黑
-    const char* fontPaths[] = {
-        "assets/fonts/simsun.ttc", // 优先检查项目资源目录
+void UISystem::Initialize(ResourceManager& resourceManager) {
+    AssetLoadingSystem::Initialize(resourceManager);
+
+#ifdef TEST_HEADLESS
+    LOG_INFO("UISystem: Headless mode, skipping font loading.");
+    m_font = GetFontDefault();
+    return;
+#endif
+
+    // 1. 使用 UIAssetRegistry 中定义的资源
+    const auto& mainFont = assets::ui::fonts::Main_Chinese;
+    
+    // 尝试加载 UIAssetRegistry 中定义的路径
+    if (FileExists(mainFont.path.data())) {
+        LOG_INFO("UISystem: Loading main font from registry: {}", mainFont.path);
+        
+        std::vector<int> codepoints;
+        for (int i = 32; i <= 126; ++i) codepoints.push_back(i);
+        for (int i = 0x3000; i <= 0x303F; ++i) codepoints.push_back(i);
+        for (int i = 0x4E00; i <= 0x9FFF; ++i) codepoints.push_back(i);
+
+        m_font = resourceManager.loadFont(mainFont.id, std::string(mainFont.path), mainFont.defaultSize, codepoints.data(), (int)codepoints.size());
+        
+        if (m_font.texture.id != 0) {
+            LOG_INFO("UISystem: Main font loaded successfully. ID: {}", mainFont.id);
+            SetTextureFilter(m_font.texture, TEXTURE_FILTER_BILINEAR);
+            return;
+        }
+    }
+
+    // 2. 如果 Registry 路径失败，尝试备选路径 (保持向后兼容/鲁棒性)
+    const char* fallbackPaths[] = {
         "C:/Windows/Fonts/simsun.ttc",
         "C:/Windows/Fonts/msyh.ttc",
         "C:/Windows/Fonts/simhei.ttf"
     };
 
-    // 生成码点列表 (Codepoints)
-    // 包含: ASCII + CJK标点 + CJK统一汉字 (常用中文范围)
     std::vector<int> codepoints;
-    // ASCII (32-126)
     for (int i = 32; i <= 126; ++i) codepoints.push_back(i);
-    // CJK Symbols and Punctuation (0x3000-0x303F)
     for (int i = 0x3000; i <= 0x303F; ++i) codepoints.push_back(i);
-    // CJK Unified Ideographs (0x4E00-0x9FFF) - 约2万字
     for (int i = 0x4E00; i <= 0x9FFF; ++i) codepoints.push_back(i);
 
     bool loaded = false;
-    for (const char* path : fontPaths) {
+    for (const char* path : fallbackPaths) {
         if (FileExists(path)) {
-            LOG_INFO("Attempting to load font: {}", path);
-            m_font = LoadFontEx(path, 24, codepoints.data(), (int)codepoints.size());
+            LOG_INFO("UISystem: Attempting to load fallback font: {}", path);
+            
+            // 使用路径哈希作为 ID，确保不同路径不会冲突
+            entt::id_type fontId = entt::hashed_string(path);
+            m_font = resourceManager.loadFont(fontId, path, 24, codepoints.data(), (int)codepoints.size());
             
             if (m_font.texture.id != 0) {
-                LOG_INFO("Font loaded successfully from {}. Texture ID: {}", path, m_font.texture.id);
+                LOG_INFO("UISystem: Fallback font loaded successfully. Texture ID: {}", m_font.texture.id);
                 SetTextureFilter(m_font.texture, TEXTURE_FILTER_BILINEAR);
                 loaded = true;
                 break;
-            } else {
-                LOG_ERROR("Failed to load font texture from {}", path);
             }
         }
     }
 
     if (!loaded) {
-        LOG_WARN("No suitable Chinese font found. Falling back to default font.");
+        LOG_WARN("UISystem: No suitable Chinese font found. Falling back to default font.");
         m_font = GetFontDefault();
     }
 }
 
 void UISystem::Shutdown() {
-    if (IsFontReady(m_font)) {
-        UnloadFont(m_font);
-    }
+    // 字体由 ResourceManager 卸载，UISystem 只需要重置引用
+    m_font = { 0 };
+
     // 清理小地图纹理
     if (s_minimapTexture.id != 0) {
         UnloadTexture(s_minimapTexture);
         s_minimapTexture.id = 0;
     }
+    AssetLoadingSystem::Shutdown();
 }
 
 void UISystem::DrawTextUI(const char* text, float x, float y, float fontSize, Color color) {
@@ -102,6 +129,32 @@ void UISystem::DrawTextUI(const char* text, float x, float y, float fontSize, Co
     } else {
         // 回退到默认绘制
         DrawText(text, (int)x, (int)y, (int)fontSize, color);
+    }
+}
+
+void UISystem::DrawTextScaled(const char* text, float x, float y, float fontSize, float maxWidth, Color color) {
+    if (!text || text[0] == '\0') return;
+
+    float currentWidth = 0.0f;
+    if (IsFontReady(m_font)) {
+        currentWidth = MeasureTextEx(m_font, text, fontSize, 1.0f).x;
+    } else {
+        currentWidth = (float)MeasureText(text, (int)fontSize);
+    }
+
+    if (currentWidth > maxWidth && maxWidth > 0) {
+        float scale = maxWidth / currentWidth;
+        float scaledFontSize = fontSize * scale;
+        // 垂直居中微调，保持基线一致性（简单处理：向下偏移一点点）
+        float yOffset = (fontSize - scaledFontSize) * 0.5f;
+        
+        if (IsFontReady(m_font)) {
+            DrawTextEx(m_font, text, { x, y + yOffset }, scaledFontSize, 1.0f, color);
+        } else {
+            DrawText(text, (int)x, (int)(y + yOffset), (int)scaledFontSize, color);
+        }
+    } else {
+        DrawTextUI(text, x, y, fontSize, color);
     }
 }
 
@@ -326,7 +379,9 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
 }
 
 void UISystem::DrawStatRow(const char* label, const char* value, float x, float& y, float width, float fontSize) {
-    DrawTextUI(label, x, y, fontSize, LIGHTGRAY);
+    float labelMaxWidth = width * 0.6f; // 标签最多占 60% 宽度
+    DrawTextScaled(label, x, y, fontSize, labelMaxWidth, LIGHTGRAY);
+    
     // 右对齐数值
     float textWidth = 0.0f;
     if (IsFontReady(m_font)) {
@@ -334,7 +389,15 @@ void UISystem::DrawStatRow(const char* label, const char* value, float x, float&
     } else {
         textWidth = (float)MeasureText(value, (int)fontSize);
     }
-    DrawTextUI(value, x + width - textWidth, y, fontSize, WHITE);
+    
+    // 如果数值太宽，也进行缩放
+    float valueMaxWidth = width - labelMaxWidth - 5.0f;
+    if (textWidth > valueMaxWidth) {
+        DrawTextScaled(value, x + width - valueMaxWidth, y, fontSize, valueMaxWidth, WHITE);
+    } else {
+        DrawTextUI(value, x + width - textWidth, y, fontSize, WHITE);
+    }
+    
     y += fontSize + 5.0f;
 }
 
@@ -411,13 +474,35 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
         lines.push_back(itemComp->description);
     }
 
-    // --- 2. 计算尺寸 ---
+    // --- 2. 计算尺寸 (动态适应内容) ---
     float padding = 15.0f;
     float titleFontSize = 22.0f;
     float bodyFontSize = 18.0f;
-    float width = 280.0f;
-    float height = padding * 2;
+    float minWidth = 200.0f;
+    float maxWidth = 400.0f;
+    float calculatedWidth = minWidth;
 
+    auto measureWidth = [&](const std::string& text, float fontSize) {
+        if (IsFontReady(m_font)) return MeasureTextEx(m_font, text.c_str(), fontSize, 1.0f).x;
+        return (float)MeasureText(text.c_str(), (int)fontSize);
+    };
+
+    // 检查名称宽度
+    calculatedWidth = std::max(calculatedWidth, measureWidth(name, titleFontSize));
+    // 检查稀有度宽度
+    calculatedWidth = std::max(calculatedWidth, measureWidth(rarityText, bodyFontSize - 2));
+    
+    // 检查每一行内容的宽度
+    for (const auto& line : lines) {
+        if (!line.empty()) {
+            calculatedWidth = std::max(calculatedWidth, measureWidth(line, bodyFontSize));
+        }
+    }
+
+    // 应用内边距并限制在 maxWidth 以内
+    float finalWidth = std::min(calculatedWidth + padding * 2, maxWidth);
+    
+    float height = padding * 2;
     // 标题高度
     height += titleFontSize + 5.0f;
     // 稀有度文本高度
@@ -434,28 +519,28 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
     float x = mPos.x + 20.0f;
     float y = mPos.y + 20.0f;
 
-    if (x + width > (float)GetScreenWidth()) x = mPos.x - width - 10.0f;
+    if (x + finalWidth > (float)GetScreenWidth()) x = mPos.x - finalWidth - 10.0f;
     if (y + height > (float)GetScreenHeight()) y = mPos.y - height - 10.0f;
 
     // --- 4. 绘制 ---
     Color rarityColor = GetRarityColor(itemComp->rarity);
 
     // 背景
-    DrawRectangleRec({x, y, width, height}, Fade(BLACK, 0.95f));
-    DrawRectangleLinesEx({x, y, width, height}, 2.0f, rarityColor);
-    DrawRectangleLinesEx({x, y, width, height}, 1.0f, DARKGRAY);
+    DrawRectangleRec({x, y, finalWidth, height}, Fade(BLACK, 0.95f));
+    DrawRectangleLinesEx({x, y, finalWidth, height}, 2.0f, rarityColor);
+    DrawRectangleLinesEx({x, y, finalWidth, height}, 1.0f, DARKGRAY);
 
     float curY = y + padding;
 
-    // 标题 (名称)
-    DrawTextUI(name.c_str(), x + padding, curY, titleFontSize, rarityColor);
+    // 标题 (名称) - 如果还是太长就缩放
+    DrawTextScaled(name.c_str(), x + padding, curY, titleFontSize, finalWidth - padding * 2, rarityColor);
     curY += titleFontSize + 5.0f;
 
     // 稀有度
     DrawTextUI(rarityText.c_str(), x + padding, curY, bodyFontSize - 2, rarityColor);
     curY += bodyFontSize + 5.0f;
 
-    DrawLine(x + padding, curY, x + width - padding, curY, Fade(rarityColor, 0.3f));
+    DrawLine(x + padding, curY, x + finalWidth - padding, curY, Fade(rarityColor, 0.3f));
     curY += 10.0f;
 
     // 内容行
@@ -470,7 +555,8 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
         else if (line.find("锻造潜力") != std::string::npos) textColor = ORANGE;
         else if (line.find("攻击力") != std::string::npos || line.find("防御力") != std::string::npos) textColor = LIGHTGRAY;
         
-        DrawTextUI(line.c_str(), x + padding, curY, bodyFontSize, textColor);
+        // 同样对内容行进行缩放保护
+        DrawTextScaled(line.c_str(), x + padding, curY, bodyFontSize, finalWidth - padding * 2, textColor);
         curY += bodyFontSize + 4.0f;
     }
 }

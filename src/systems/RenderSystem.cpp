@@ -3,6 +3,7 @@
 #include "../components/Common.hpp"
 #include "../components/EffectComponent.hpp"
 #include "../components/ItemComponent.hpp"
+#include "../core/AssetLoadingSystem.hpp"
 #include <string>
 
 void RenderSystem::render(entt::registry& registry) {

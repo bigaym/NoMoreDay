@@ -16,8 +16,15 @@ public:
     // Gets an already loaded texture. Returns empty texture if not found.
     Texture2D getTexture(entt::id_type id);
 
+    // Loads a font from disk if not already loaded
+    Font loadFont(entt::id_type id, const std::string& path, int fontSize, int* codepoints = nullptr, int codepointCount = 0);
+
+    // Gets an already loaded font
+    Font getFont(entt::id_type id);
+
     void unloadAll();
 
 private:
     std::unordered_map<entt::id_type, Texture2D> m_textures;
+    std::unordered_map<entt::id_type, Font> m_fonts;
 };
