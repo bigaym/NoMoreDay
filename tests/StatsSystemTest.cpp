@@ -34,4 +34,20 @@ TEST_CASE("Stats recalculation") {
     
     // 200 (from vitality) + 50 (flat mod) = 250
     CHECK(combat.max_health == 250.0f);
+
+    // Test PercentAdd mod
+    mod_list.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentAdd, 10.0f}); // +10%
+    StatsSystem::Recalculate(registry, entity);
+    
+    // Formula: (Base + Flat) * (1 + PercentAdd)
+    // (100 base + 100 from vit + 50 flat) * (1 + 0.1) = 250 * 1.1 = 275
+    CHECK(combat.max_health == 275.0f);
+
+    // Test PercentMult mod
+    mod_list.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentMult, 20.0f}); // x1.2
+    StatsSystem::Recalculate(registry, entity);
+    
+    // Formula: (Base + Flat) * (1 + PercentAdd) * (1 + PercentMult)
+    // 275 * 1.2 = 330
+    CHECK(combat.max_health == 330.0f);
 }

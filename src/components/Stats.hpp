@@ -32,7 +32,7 @@ constexpr const char* GetDamageTypeName(DamageType type) {
 // 2. 基础属性 (Primary Stats)
 // 来源：升级加点、装备白字
 // 作用：经过公式计算转化为 CombatStats
-struct PrimaryStats {
+struct alignas(32) PrimaryStats {
     float strength = 0.0f;      // -> 增加护甲, 物理伤害等
     float dexterity = 0.0f;     // -> 增加闪避, 暴击率等
     float intelligence = 0.0f;  // -> 增加全抗性, 元素伤害，最大蓝量等
@@ -42,7 +42,7 @@ struct PrimaryStats {
 // 3. 战斗属性 (Combat Stats) - "Baked" Data
 // 这是战斗系统直接读取的最终面板。
 // 所有的 Buff、装备词缀、天赋加成都在 StatsSystem 中计算并“烘焙”进这里。
-struct CombatStats {
+struct alignas(32) CombatStats {
     // --- 生存资源 ---
     float health = 100.0f;
     float max_health = 100.0f;
