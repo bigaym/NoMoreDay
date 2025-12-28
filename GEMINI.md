@@ -23,6 +23,7 @@
 - **语言标准**：C++20 (Modules, Concepts, Coroutines)。
 - **渲染/引擎**：**Raylib** (用于图形、窗口和输入)。
 - **核心架构**：**EnTT (ECS)** - 用于实体管理和数据局部性。
+- **空间索引**：**SpatialHashGrid** (用于高效碰撞检测和邻居查询)。
 - **并行计算**：**Taskflow** (用于基于 DAG 的任务并行化)。
 - **内存管理**：**mimalloc** (优化分配效率)。
 - **计算优化**：**xsimd** (针对物理/粒子系统的 SIMD 加速)。
@@ -75,6 +76,10 @@
 - **性能第一**：主循环中严禁内存分配。
 - **数据优先**：组件（Component）必须是 POD 结构体；系统（System）必须是无状态的逻辑处理器。
 - **并发安全**：利用 Taskflow 处理复杂的任务依赖。
+- **关键架构模式**：
+  - **循环顺序**：Input → Player Movement → AI → Combat → Spatial Grid Rebuild → Physics。
+  - **组件依赖**：物理处理需 `Position` + `Velocity`；渲染需 `Position` + `Color`/`Sprite`。
+  - **延迟容忍**：战斗系统使用上一帧的空间网格（允许1帧延迟）。
 
 ### 4. C++20 最佳实践 (Style Guide)
 
