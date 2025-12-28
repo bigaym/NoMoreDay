@@ -6,25 +6,25 @@
 
 class InventorySystem {
 public:
-    // Creates a new item entity in the world (dropped on ground)
+    // 在世界中创建一个新的物品实体（掉落在地上）
     static entt::entity createItem(entt::registry& registry, const ItemComponent& itemData, float x, float y);
     
-    // Adds an item (entity) to an inventory. 
-    // Removes Position/Sprite components from the item to "hide" it.
-    // Returns true if successful.
+    // 将物品（实体）添加到背包中。
+    // 从物品中移除 Position/Sprite 组件以“隐藏”它。
+    // 成功则返回 true。
     static bool pickUpItem(entt::registry& registry, entt::entity character, entt::entity item);
     
-    // Removes an item from inventory and places it back in the world.
+    // 从背包中移除物品并将其放回世界。
     static bool dropItem(entt::registry& registry, entt::entity character, entt::entity item);
     
-    // Equips an item from inventory to the correct slot.
-    // Swaps if slot is occupied.
+    // 将物品从背包装备到正确的槽位。
+    // 如果槽位被占用，则进行交换。
     static bool equipItem(entt::registry& registry, entt::entity character, entt::entity item);
     
-    // Unequips an item and puts it back in inventory.
+    // 卸下物品并将其放回背包。
     static bool unequipItem(entt::registry& registry, entt::entity character, EquipmentSlot slot);
     
-    // Basic management
+    // 基本管理
     static bool hasItem(entt::registry& registry, entt::entity character, uint32_t itemId);
     static int getItemCount(entt::registry& registry, entt::entity character, uint32_t itemId);
 };

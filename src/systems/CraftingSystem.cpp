@@ -22,8 +22,8 @@ CraftingResult CraftingSystem::upgradeAffix(ItemComponent& item, int affixIndex)
     
     auto& affix = item.affixes[affixIndex];
     
-    // Check Limits
-    if (affix.tier >= 5) { // Craftable Max T5
+    // 检查限制
+    if (affix.tier >= 5) { // 可打造的最大等级 T5
         LOG_DEBUG("Crafting: Affix '{}' on item '{}' is already max tier (5)", affix.name, item.name);
         return CraftingResult::MaxTierReached;
     }
@@ -37,17 +37,17 @@ CraftingResult CraftingSystem::upgradeAffix(ItemComponent& item, int affixIndex)
     int finalCost = std::min(cost, item.forgingPotential);
     item.forgingPotential -= finalCost;
     
-    LOG_INFO("Crafting: Upgrading affix '{}' on '{}'. Cost: {} potential", affix.name, item.name, finalCost);
+    LOG_INFO("打造: 正在升级物品 '{}' 上的词缀 '{}'。消耗: {} 潜力", item.name, affix.name, finalCost);
 
-    // Upgrade: Re-generate purely based on Type and New Tier
+    // 升级: 纯粹基于类型和新等级重新生成
     int newTier = affix.tier + 1;
     Affix newAffix = ItemFactory::createAffix(affix.type, newTier);
     
-    // Preserve position (Prefix/Suffix) just in case logic differs, though Type usually dictates it.
-    // In our system, Type dictates Prefix/Suffix in fillAffixDetails.
-    // So we just replace it.
+    // 保留位置 (前缀/后缀)，以防逻辑不同，尽管类型通常决定了它。
+    // 在我们的系统中，类型在 fillAffixDetails 中决定了前缀/后缀。
+    // 所以我们直接替换它。
     
-    // Copy over needed fields (CreateAffix handles value, tier, name, isPrefix)
+    // 复制所需字段 (CreateAffix 处理值、等级、名称、isPrefix)
     affix = newAffix;
     
     return CraftingResult::Success;
@@ -59,7 +59,7 @@ CraftingResult CraftingSystem::addAffix(ItemComponent& item, AffixType type, boo
         return CraftingResult::NoPotential;
     }
     
-    // Check Slots
+    // 检查槽位
     int currentPrefix = 0;
     int currentSuffix = 0;
     for(const auto& a : item.affixes) {
@@ -75,25 +75,25 @@ CraftingResult CraftingSystem::addAffix(ItemComponent& item, AffixType type, boo
         return CraftingResult::SlotFull;
     }
     
-    // Calculate Cost
+    // 计算消耗
     int cost = calculatePotentialCost(1);
     int finalCost = std::min(cost, item.forgingPotential);
     item.forgingPotential -= finalCost;
     
-    LOG_INFO("Crafting: Adding new {} to '{}'. Cost: {} potential", isPrefix ? "prefix" : "suffix", item.name, finalCost);
+    LOG_INFO("打造: 正在为物品 '{}' 添加新的 {}。消耗: {} 潜力", item.name, isPrefix ? "前缀" : "后缀", finalCost);
 
-    // Add Affix - Tier 1
+    // 添加词缀 - 等级 1
     Affix newAffix = ItemFactory::createAffix(type, 1);
-    // Force isPrefix to match requested? 
-    // Usually Type dictates it. If user requests Prefix but picks "Strength" (Suffix), what happens?
-    // Our createAffix sets isPrefix based on Type.
-    // So we should verify if the generated affix matches the requested slot.
+    // 强制 isPrefix 与请求匹配吗？
+    // 通常类型决定了它。如果用户请求前缀但选择了“力量”（后缀），会发生什么？
+    // 我们的 createAffix 根据类型设置 isPrefix。
+    // 所以我们应该验证生成的词缀是否与请求的槽位匹配。
     if (newAffix.isPrefix != isPrefix) {
-        // In a real UI, we filter types by slot so this won't happen.
-        // For backend safety, we could reject or just accept the Type's nature.
-        // Let's accept the Type's nature.
-        // Re-check slot limits based on ACTUAL type nature?
-        // Simpler: Just trust createAffix.
+        // 在真实的 UI 中，我们按槽位过滤类型，所以这不会发生。
+        // 为了后端安全，我们可以拒绝或仅仅接受类型的性质。
+        // 让我们接受类型的性质。
+        // 根据实际类型性质重新检查槽位限制吗？
+        // 更简单：只信任 createAffix。
     }
     
     item.affixes.push_back(newAffix);
@@ -102,7 +102,7 @@ CraftingResult CraftingSystem::addAffix(ItemComponent& item, AffixType type, boo
 }
 
 CraftingResult CraftingSystem::chaosAffix(ItemComponent& item, int affixIndex) {
-    // 1. Check basic constraints (Pot, Index)
+    // 1. 检查基本约束 (潜力, 索引)
     if (affixIndex < 0 || affixIndex >= item.affixes.size()) {
         LOG_ERROR("Crafting Chaos: Invalid index {}", affixIndex);
         return CraftingResult::Failure;
@@ -118,21 +118,21 @@ CraftingResult CraftingSystem::chaosAffix(ItemComponent& item, int affixIndex) {
         return CraftingResult::MaxTierReached;
     }
 
-    // 2. Cost
+    // 2. 消耗
     int cost = calculatePotentialCost(oldAffix.tier + 1);
     int finalCost = std::min(cost, item.forgingPotential);
     item.forgingPotential -= finalCost;
 
-    LOG_INFO("Crafting Chaos: Rerolling affix '{}' on '{}'. Cost: {}", oldAffix.name, item.name, finalCost);
+    LOG_INFO("打造混沌: 正在重铸物品 '{}' 上的词缀 '{}'。消耗: {}", item.name, oldAffix.name, finalCost);
 
-    // 3. Chaos Logic: New Type, Tier + 1
+    // 3. 混沌逻辑: 新类型，等级 + 1
     int targetTier = oldAffix.tier + 1;
     bool targetPrefix = oldAffix.isPrefix;
     
-    // We need a random type that fits this slot and position.
-    // Use ItemFactory::generateRandomAffix as a helper to find a valid Type.
-    // We pass a dummy level (e.g. 50) to get a valid roll.
-    // Loop a few times to ensure we get the right Position (Prefix/Suffix).
+    // 我们需要一个适合此槽位和位置的随机类型。
+    // 使用 ItemFactory::generateRandomAffix 作为助手来查找有效类型。
+    // 我们传递一个虚拟等级 (例如 50) 来获得有效掷骰。
+    // 循环几次以确保我们获得正确的位置 (前缀/后缀)。
     Affix tempCandidate;
     bool found = false;
     for(int i=0; i<10; ++i) {
@@ -144,14 +144,14 @@ CraftingResult CraftingSystem::chaosAffix(ItemComponent& item, int affixIndex) {
     }
     
     if (!found) {
-        // Fallback: Just upgrade existing if we can't find a swap (Should rare occur)
-        LOG_WARN("Crafting Chaos: Could not find new valid type for '{}', falling back to upgrade", item.name);
+        // 回退: 如果找不到替换，则只升级现有词缀 (这种情况应该很少发生)
+        LOG_WARN("打造混沌: 无法为 '{}' 找到新的有效类型，回退到升级", item.name);
         oldAffix = ItemFactory::createAffix(oldAffix.type, targetTier);
         oldAffix.name = "Chaotic " + oldAffix.name;
         return CraftingResult::Success;
     }
     
-    // Apply the new type with the target Tier
+    // 应用新类型和目标等级
     oldAffix = ItemFactory::createAffix(tempCandidate.type, targetTier);
     oldAffix.name = "Chaotic " + oldAffix.name;
 

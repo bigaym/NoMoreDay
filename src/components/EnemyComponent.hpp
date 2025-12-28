@@ -16,7 +16,7 @@ struct EnemyRace {
         CULTIST = 3 
     };
     Type raceType;
-    float baseHP, baseDamage, baseSpeed;
+    float baseHP, baseDamage, baseSpeed, baseXP;
     std::vector<std::string> resistances;
     std::string texturePath;  // 资源路径
     
@@ -26,6 +26,7 @@ struct EnemyRace {
                 baseHP = 30.0f;
                 baseDamage = 15.0f;
                 baseSpeed = 50.0f;
+                baseXP = 10.0f;
                 resistances = {"bleed", "poison"};
                 texturePath = "assets/textures/characters/skeleton.png";
                 break;
@@ -33,6 +34,7 @@ struct EnemyRace {
                 baseHP = 40.0f;
                 baseDamage = 25.0f;
                 baseSpeed = 80.0f;
+                baseXP = 25.0f;
                 resistances = {"fire", "dark"};
                 texturePath = "assets/textures/characters/demon.png";
                 break;
@@ -40,6 +42,7 @@ struct EnemyRace {
                 baseHP = 25.0f;
                 baseDamage = 20.0f;
                 baseSpeed = 120.0f;
+                baseXP = 15.0f;
                 resistances = {"slow", "stun"};
                 texturePath = "assets/textures/characters/corrupted_beast.png";
                 break;
@@ -47,6 +50,7 @@ struct EnemyRace {
                 baseHP = 35.0f;
                 baseDamage = 20.0f;
                 baseSpeed = 70.0f;
+                baseXP = 12.0f;
                 resistances = {"magic"};
                 texturePath = "assets/textures/characters/cultist.png";
                 break;
@@ -83,10 +87,10 @@ struct EnemyArchetype {
     }
     
     // AI行为实现 - 声明为静态函数指针
-    static void FodderBehavior(entt::registry& reg, entt::entity entity, float dt);
-    static void TankBehavior(entt::registry& reg, entt::entity entity, float dt);
-    static void RangerBehavior(entt::registry& reg, entt::entity entity, float dt);
-    static void AssassinBehavior(entt::registry& reg, entt::entity entity, float dt);
+    static void FodderBehavior(entt::registry& reg, entt::entity entity, float dt) {}
+    static void TankBehavior(entt::registry& reg, entt::entity entity, float dt) {}
+    static void RangerBehavior(entt::registry& reg, entt::entity entity, float dt) {}
+    static void AssassinBehavior(entt::registry& reg, entt::entity entity, float dt) {}
 };
 
 // 敌人状态组件（扩展AIComponent）
@@ -100,6 +104,7 @@ struct EnemyStateComponent {
     float stateTimer;
     float activationRange;
     float deactivationRange;
+    int level;
     
     // AI状态
     enum class AIState : uint8_t { IDLE, CHASE, ATTACK, FLEE, PATROL, STUNNED };
@@ -109,7 +114,7 @@ struct EnemyStateComponent {
                        EnemyArchetype::Type arch = EnemyArchetype::FODDER)
         : raceType(race), archetypeType(arch), detectionRange(150.0f), 
           attackRange(50.0f), speed(100.0f), target(entt::null), 
-          stateTimer(0.0f), activationRange(500.0f), deactivationRange(600.0f),
+          stateTimer(0.0f), activationRange(500.0f), deactivationRange(600.0f), level(1),
           aiState(AIState::IDLE) {
         
         // 根据种族和职业设置初始参数

@@ -8,22 +8,22 @@ namespace NoMoreDay {
 
 class ItemFactory {
 public:
-    // Initialize random seed, load configs (if any)
+    // 初始化随机种子，加载配置（如果有）
     static void initialize();
 
-    // Create a completely random item based on level
+    // 根据等级创建一个完全随机的物品
     static entt::entity createRandomLoot(entt::registry& registry, int level, float magicFind = 0.0f);
 
-    // Create a specific item type with random stats
+    // 创建一个具有随机属性的特定物品类型
     static entt::entity createWeapon(entt::registry& registry, int level, Rarity rarity);
     static entt::entity createArmor(entt::registry& registry, int level, Rarity rarity, EquipmentSlot slot);
 
     static Affix generateRandomAffix(int level, bool isPrefix, EquipmentSlot slot);
     
-    // Deterministic generation for Crafting
+    // 用于打造的确定性生成
     static Affix createAffix(AffixType type, int tier);
 
-    // --- Loot Pool Management ---
+    // --- 掉落池管理 ---
     static void addLootPool(uint32_t id, const LootPool& pool);
     static const LootPool* getLootPool(uint32_t id);
 

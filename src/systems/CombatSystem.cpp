@@ -4,61 +4,72 @@
 #include "../components/EffectComponent.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/Stats.hpp"
+#include "../components/EnemyComponent.hpp"
 
 void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
-    // LOG_TRACE("CombatSystem::update: Processing combat logic");
+    // LOG_TRACE("CombatSystem::update: 处理战斗逻辑");
 
-    auto view = registry.view<PlayerTag, InputComponent, WeaponComponent, Position>();
+    // 不再强制要求 WeaponComponent
+    auto view = registry.view<PlayerTag, InputComponent, Position>();
     
-    // Iterate over all players (usually just one)
+    // 遍历所有玩家（通常只有一个）
     for (auto entity : view) {
         auto& input = view.get<InputComponent>(entity);
-        auto& weapon = view.get<WeaponComponent>(entity);
         const auto& pos = view.get<Position>(entity);
 
-        // Get Stats if available
-        const NoMoreDay::CombatStats* stats = nullptr;
-        if (registry.all_of<NoMoreDay::CombatStats>(entity)) {
-            stats = &registry.get<NoMoreDay::CombatStats>(entity);
-        }
+        // 获取组件指针
+        auto* weapon = registry.try_get<WeaponComponent>(entity);
+        auto* attackState = registry.try_get<NoMoreDay::AttackState>(entity);
+        const auto* stats = registry.try_get<NoMoreDay::CombatStats>(entity);
 
-        // 1. Handle Cooldown
-        // If stats are available, cooldown might be affected by attack_speed
-        float cooldown = weapon.cooldown;
-        if (stats) {
-            // Speed 2.0 -> Cooldown / 2.0
-            // Guard against 0 or negative speed
-            if (stats->attack_speed > 0.01f) {
-                cooldown /= stats->attack_speed;
+        // 确定战斗参数
+        float currentCooldownTimer = 0.0f;
+        float maxCooldown = 1.0f;
+        float range = 50.0f;
+        float knockback = 0.0f;
+        float baseDamage = 0.0f;
+
+        if (attackState) {
+            // 新系统路径
+            currentCooldownTimer = attackState->cooldownTimer;
+            maxCooldown = attackState->baseAttackInterval;
+            if (stats) {
+                if (stats->attack_speed > 0.01f) maxCooldown /= stats->attack_speed;
+                range = (stats->cast_range > 0.1f) ? stats->cast_range : 60.0f; // 默认范围
+                knockback = stats->knockback;
             }
+        } else if (weapon) {
+            // 遗留系统路径
+            currentCooldownTimer = weapon->cooldownTimer;
+            maxCooldown = weapon->cooldown;
+            if (stats && stats->attack_speed > 0.01f) maxCooldown /= stats->attack_speed;
+            range = weapon->range;
+            knockback = weapon->knockback;
+            baseDamage = weapon->damage;
+        } else {
+            // 无法攻击
+            continue;
         }
 
-        if (weapon.cooldownTimer > 0.0f) {
-            weapon.cooldownTimer -= dt;
-        }
+        // 更新冷却
+        if (currentCooldownTimer > 0.0f) currentCooldownTimer -= dt;
 
-        // 2. Process Attack
-        if (input.attack && weapon.cooldownTimer <= 0.0f) {
-            // Reset Cooldown (using the calculated effective cooldown)
-            LOG_DEBUG("Player {} initiating attack. Effective Cooldown: {:.2f}s", (uint32_t)entity, cooldown);
+        // 2. 处理攻击
+        if (input.attack && currentCooldownTimer <= 0.0f) {
+            // 重置冷却时间（使用计算出的有效冷却时间）
+            LOG_DEBUG("玩家 {} 发起攻击。有效冷却时间: {:.2f}s", (uint32_t)entity, maxCooldown);
 
-            // Note: weapon.cooldownTimer tracks time remaining. 
-            // If we change max cooldown dynamically, it's fine for the reset.
-            weapon.cooldownTimer = cooldown;
+            currentCooldownTimer = maxCooldown;
 
-            // Calculate Aim Direction (Player -> Mouse)
+            // 计算瞄准方向（玩家 -> 鼠标）
             Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
             float dx = mouseWorld.x - pos.x;
             float dy = mouseWorld.y - pos.y;
             float len = std::sqrt(dx*dx + dy*dy);
             
-            // Normalized Direction
+            // 归一化方向
             float dirX = (len > 0) ? dx / len : 1.0f;
             float dirY = (len > 0) ? dy / len : 0.0f;
-
-            // Define Hitbox Center (Slightly in front of player)
-            // Use stats range if available, else weapon range
-            float range = stats ? stats->cast_range : weapon.range;
 
             // --- 生成攻击特效 (挥剑轨迹) ---
             auto effectEntity = registry.create();
@@ -74,10 +85,11 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
             effect.color = GOLD; // 剑光颜色
             registry.emplace<AttackEffect>(effectEntity, effect);
 
-            // 3. Query Grid for targets
-            // 以玩家为圆心，攻击距离为半径进行查询
+            // 3. 查询网格中的目标
+            // 以玩家为中心，攻击距离为半径进行查询
+            bool hitAny = false;
             grid.query({pos.x, pos.y}, range, [&](entt::entity target) {
-                if (target == entity) return; // Don't hit self
+                if (target == entity) return; // 不要击中自己
 
                 // Validate Target (must have Position)
                 if (!registry.valid(target) || !registry.all_of<Position>(target)) return;
@@ -94,38 +106,54 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                     float aimAngle = std::atan2(dirY, dirX);
                     float angleDiff = std::abs(angleToTarget - aimAngle);
                     if (angleDiff > PI) angleDiff = 2.0f * PI - angleDiff;
-
+                    
                     if (angleDiff <= (120.0f * 0.5f) * (PI / 180.0f)) {
                         // HIT CONFIRMED
+                        hitAny = true;
                     
                     LOG_DEBUG("Hit confirmed on target {}", (uint32_t)target);
                     // Apply Knockback
                     if (registry.all_of<Velocity>(target)) {
                         auto& tVel = registry.get<Velocity>(target);
-                        tVel.vx += dirX * weapon.knockback;
-                        tVel.vy += dirY * weapon.knockback;
+                        tVel.vx += dirX * knockback;
+                        tVel.vy += dirY * knockback;
                     }
 
-                    // Calculate Final Damage
-                    float finalDamage = weapon.damage;
+                    // 计算最终伤害
+                    float totalDamage = 0.0f;
                     bool isCrit = false;
 
+                    // 1. 计算物理伤害 (武器基础 + 附加物理点伤)
+                    float physBase = (stats && stats->max_weapon_damage > 0.1f) 
+                        ? (stats->min_weapon_damage + (stats->max_weapon_damage - stats->min_weapon_damage) * ((float)GetRandomValue(0, 1000) / 1000.0f))
+                        : baseDamage;
+                    
+                    if (stats) physBase += stats->flat_damage[(int)NoMoreDay::DamageType::Physical];
+                    totalDamage += CalculateDamage(stats ? *stats : NoMoreDay::CombatStats{}, 
+                                                 registry.get_or_emplace<NoMoreDay::CombatStats>(target), 
+                                                 physBase, NoMoreDay::DamageType::Physical);
+
+                    LOG_TRACE("Combat: BasePhys={:.1f}, FinalDmg={:.1f}, Target={}", 
+                        physBase, totalDamage, (uint32_t)target);
+
+                    // 2. 计算其他元素伤害 (来自装备的附加点伤)
                     if (stats) {
-                        // 1. Base: Random(Min, Max)
-                        float minD = stats->min_weapon_damage;
-                        float maxD = stats->max_weapon_damage;
-                        // Simple Random float
-                        float randFactor = (float)GetRandomValue(0, 1000) / 1000.0f;
-                        finalDamage = minD + (maxD - minD) * randFactor;
-                        
-                        // 2. Multipliers (Physical for now)
-                        finalDamage *= stats->damage_multipliers[(int)NoMoreDay::DamageType::Physical];
-                        
-                        // 3. Crit
+                        for (int i = 1; i < (int)NoMoreDay::DamageType::Count; ++i) {
+                            if (stats->flat_damage[i] > 0.01f) {
+                                totalDamage += CalculateDamage(*stats, registry.get_or_emplace<NoMoreDay::CombatStats>(target), 
+                                                             stats->flat_damage[i], (NoMoreDay::DamageType)i);
+                            }
+                        }
+                    }
+
+                    float finalDamage = totalDamage;
+
+                    // 3. 暴击判定 (作用于最终总伤害)
+                    if (registry.all_of<NoMoreDay::CombatStats>(target)) {
                         float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
                         if (roll < stats->crit_chance) {
                             isCrit = true;
-                            finalDamage *= stats->crit_damage;
+                            finalDamage *= (stats->crit_damage > 0.1f ? stats->crit_damage : 1.5f);
                         }
                     }
 
@@ -133,19 +161,19 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                     if (registry.all_of<HealthComponent>(target)) {
                         // Cache position for popup as target might be destroyed
                         float popupX = tPos.x;
-                        float popupY = tPos.y - 20.0f;
+                        float popupY = tPos.y - 20.0f; // 弹出位置
 
-                        // Apply Damage Logic (This handles Health reduction and Death)
+                        // 应用伤害逻辑（这会处理生命值减少和死亡）
                         bool targetDead = ApplyDamage(registry, target, finalDamage, entity);
-                        LOG_DEBUG("Applied {:.1f} damage to {} (Crit: {}, Dead: {})", finalDamage, (uint32_t)target, isCrit, targetDead);
+                        LOG_DEBUG("对 {} 造成 {:.1f} 伤害 (暴击: {}, 死亡: {})", (uint32_t)target, finalDamage, isCrit, targetDead);
 
                         // --- 生成伤害飘字 ---
                         auto popupEntity = registry.create();
                         registry.emplace<Position>(popupEntity, popupX, popupY);
                         
                         DamagePopup popup;
-                        popup.damage = finalDamage;
-                        popup.timer = 0.0f;
+                        popup.damage = finalDamage; // 伤害值
+                        popup.timer = 0.0f; // 计时器
                         popup.lifeTime = 0.8f;
                         popup.velX = (float)(GetRandomValue(-20, 20)); // 随机水平漂移
                         popup.velY = -100.0f; // 向上飘
@@ -153,13 +181,13 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                         // Color coding
                         if (isCrit) {
                             popup.color = RED;
-                            popup.lifeTime = 1.0f; // Crit lingers longer
+                            popup.lifeTime = 1.0f; // 暴击持续时间更长
                         } else {
                             popup.color = WHITE;
                         }
                         
                         registry.emplace<DamagePopup>(popupEntity, popup);
-                    } else {
+                    } else { // 如果目标没有生命值组件
                         LOG_LIMITED_WARN(1.0f, "Target {} hit but has no HealthComponent", (uint32_t)target);
                         // For particles/props without health, maybe just destroy or knockback?
                         // For now, let's just knock them back hard.
@@ -167,7 +195,15 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                 }
             } // Close angleDiff
             });
+
+            if (!hitAny) {
+                LOG_TRACE("攻击未命中任何目标（查询半径: {:.1f}）", range);
+            }
         }
+
+        // 写回冷却时间
+        if (attackState) attackState->cooldownTimer = currentCooldownTimer;
+        if (weapon) weapon->cooldownTimer = currentCooldownTimer;
     }
 }
 
@@ -175,13 +211,14 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
     using namespace NoMoreDay;
 
     // 1. Apply Attacker Multipliers
-    // Formula: Base * (1 + Multiplier)
-    // Note: damage_multipliers are already 1.0 based. e.g. 1.1 for +10%
-    float damage = baseDamage * attacker.damage_multipliers[(int)type];
+    // 公式：基础伤害 * (1 + 乘数)
+    // 修复：如果倍率为0（未初始化），则视为1.0，防止伤害归零
+    float multiplier = attacker.damage_multipliers[(int)type];
+    float damage = baseDamage * (multiplier > 0.001f ? multiplier : 1.0f);
 
     // 2. Mitigation
     float mitigation = 0.0f;
-
+    
     if (type == DamageType::Physical) {
         // Armor Reduction
         // Formula: Reduction = Armor / (Armor + 100)
@@ -194,7 +231,7 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
         if (armor > 0) {
             mitigation = armor / (armor + 100.0f);
         }
-    } else {
+    } else { // 元素抗性
         // Elemental Resistance
         float res = defender.resistances[(int)type];
         // Hard Cap at 75%
@@ -219,14 +256,14 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
     if (hp.current <= 0) {
         LOG_INFO("Entity {} destroyed", (uint32_t)target);
         
-        // Handle Kill Credit
+        // 处理击杀奖励
         if (registry.valid(attacker) && registry.all_of<PlayerStats>(attacker)) {
             auto& playerStats = registry.get<PlayerStats>(attacker);
             playerStats.killCount++;
             LOG_TRACE("Player {} kill count: {}", (uint32_t)attacker, playerStats.killCount);
         }
-        
-        // Mark the entity as killed for XP awarding and other post-death processing
+
+        // 标记实体为已击杀，用于经验奖励和其他死亡后处理
         registry.emplace<KilledTag>(target, attacker);
 
         // registry.destroy(target); // Defer actual destruction to XPAwardingSystem or similar

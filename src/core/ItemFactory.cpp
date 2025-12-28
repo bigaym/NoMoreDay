@@ -16,20 +16,20 @@ static std::mt19937 g_rng;
 std::map<uint32_t, LootPool> ItemFactory::s_lootPools;
 
 void ItemFactory::initialize() {
-    std::random_device rd;
-    g_rng.seed(rd());
+ std::random_device rd;
+ g_rng.seed(rd());
 
-    // Initialize Global Pool (ID 0)
-    LootPool globalPool;
-    globalPool.name = "Global Pool";
-    globalPool.entries = {
-        { LootEntryType::Item, 0, 1, 1, 10.0f }, // Random Item
-        { LootEntryType::Gold, 0, 5, 20, 90.0f } // Gold
-    };
-    globalPool.totalWeight = 100.0f;
-    s_lootPools[0] = globalPool;
+ // 初始化全局掉落池 (ID 0)
+ LootPool globalPool;
+ globalPool.name = "全局掉落池";
+ globalPool.entries = {
+ { LootEntryType::Item, 0, 1, 1, 10.0f }, // 随机物品
+ { LootEntryType::Gold, 0, 5, 20, 90.0f } // 金币
+ };
+ globalPool.totalWeight = 100.0f;
+ s_lootPools[0] = globalPool;
 
-    LOG_INFO("ItemFactory initialized with Global Loot Pool.");
+ LOG_INFO("ItemFactory 已使用全局掉落池初始化。");
 }
 
 // ... existing code ...
@@ -48,7 +48,7 @@ const LootPool* ItemFactory::getLootPool(uint32_t id) {
 }
 
 // -----------------------------------------------------------------------------
-// Base Item Definitions (Internal Database)
+// 基础物品定义 (内部数据库)
 // -----------------------------------------------------------------------------
 struct BaseItemDef {
     std::string name;
@@ -85,23 +85,23 @@ static const BaseItemDef& selectBaseItem(const std::vector<BaseItemDef>& db, int
 }
 
 Rarity ItemFactory::rollRarity(float magicFind) {
-    int roll = std::uniform_int_distribution<>(0, 10000)(g_rng);
-    int mfBoost = (int)(magicFind * 10);
-    LOG_TRACE("Rolling rarity with magicFind: {}, roll: {}, mfBoost: {}", magicFind, roll, mfBoost);
-    if (roll > 9500 - mfBoost) {
-        LOG_DEBUG("Rolled Legendary rarity");
-        return Rarity::Legendary;
-    }
-    if (roll > 8000 - mfBoost) {
-        LOG_DEBUG("Rolled Rare rarity");
-        return Rarity::Rare;
-    }
-    if (roll > 5000 - mfBoost) {
-        LOG_DEBUG("Rolled Magic rarity");
-        return Rarity::Magic;
-    }
-    LOG_DEBUG("Rolled Common rarity");
-    return Rarity::Common;
+ int roll = std::uniform_int_distribution<>(0, 10000)(g_rng);
+ int mfBoost = (int)(magicFind * 10);
+ LOG_TRACE("根据魔法寻宝率 {} 掷骰稀有度，骰子结果: {}，魔法寻宝加成: {}", magicFind, roll, mfBoost);
+ if (roll > 9500 - mfBoost) {
+ LOG_DEBUG("掷出传奇稀有度");
+ return Rarity::Legendary;
+ }
+ if (roll > 8000 - mfBoost) {
+ LOG_DEBUG("掷出稀有稀有度");
+ return Rarity::Rare;
+ }
+ if (roll > 5000 - mfBoost) {
+ LOG_DEBUG("掷出魔法稀有度");
+ return Rarity::Magic;
+ }
+ LOG_DEBUG("掷出普通稀有度");
+ return Rarity::Common;
 }
 
 // -----------------------------------------------------------------------------
@@ -122,51 +122,51 @@ static void fillAffixDetails(Affix& affix, AffixType type, int tier) {
         case AffixType::Intelligence:
         case AffixType::Vitality:
             affix.value = rollVal(3.0f, 2.0f);
-            affix.name = "of Power";
-            affix.isPrefix = false; // Suffix
+            affix.name = "力量";
+            affix.isPrefix = false; // 后缀
             break;
         case AffixType::FlatHealth:
             affix.value = rollVal(10.0f, 5.0f);
-            affix.name = "Stalwart";
-            affix.isPrefix = true; // Prefix
+            affix.name = "坚韧的";
+            affix.isPrefix = true; // 前缀
             break;
         case AffixType::FlatMana:
             affix.value = rollVal(8.0f, 4.0f);
-            affix.name = "Mystic";
+            affix.name = "神秘的";
             affix.isPrefix = true;
             break;
         case AffixType::PercentPhysicalDamage:
         case AffixType::PercentFireDamage:
         case AffixType::PercentLightningDamage:
             affix.value = rollVal(5.0f, 3.0f);
-            affix.name = "Cruel";
+            affix.name = "残酷的";
             affix.isPrefix = true;
             break;
         case AffixType::FlatPhysicalDamage:
         case AffixType::FlatFireDamage:
              affix.value = rollVal(2.0f, 2.0f);
-             affix.name = "Sharp";
+             affix.name = "锋利的";
              affix.isPrefix = true;
              break;
         case AffixType::CritChance:
             affix.value = 1.0f + (scale * 0.8f); 
-            affix.name = "Deadly";
-            affix.isPrefix = false; // Suffix usually
+            affix.name = "致命的";
+            affix.isPrefix = false; // 通常是后缀
             break;
         case AffixType::MoveSpeed:
             affix.value = 5.0f + (scale * 2.0f); 
-            affix.name = "Fleet";
+            affix.name = "迅捷的";
             affix.isPrefix = false; 
             break;
         case AffixType::AttackSpeed:
             affix.value = 5.0f + (scale * 1.5f); 
-            affix.name = "Quick";
+            affix.name = "快速的";
             affix.isPrefix = false;
             break;
         case AffixType::FlatArmor:
         case AffixType::PercentArmor:
             affix.value = rollVal(10.0f, 5.0f);
-            affix.name = "Reinforced";
+            affix.name = "强化的";
             affix.isPrefix = true;
             break;
         case AffixType::ResistAll:
@@ -174,7 +174,7 @@ static void fillAffixDetails(Affix& affix, AffixType type, int tier) {
         case AffixType::ResistCold:
         case AffixType::ResistLightning:
             affix.value = rollVal(5.0f, 3.0f);
-            affix.name = "Warded";
+            affix.name = "守护的";
             affix.isPrefix = false;
             break;
         default:
@@ -191,11 +191,11 @@ Affix ItemFactory::createAffix(AffixType type, int tier) {
 }
 
 Affix ItemFactory::generateRandomAffix(int level, bool isPrefix, EquipmentSlot slot) {
-    // 1. Pick Type Candidates based on Slot and Position
+    // 1. 根据槽位和位置选择词缀类型候选
     std::vector<AffixType> candidates;
 
     if (isPrefix) {
-        // --- PREFIXES ---
+        // --- 前缀 ---
         if (slot == EquipmentSlot::MainHand || slot == EquipmentSlot::OffHand) {
              candidates = { 
                 AffixType::FlatPhysicalDamage, AffixType::FlatFireDamage,
@@ -214,7 +214,7 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix, EquipmentSlot s
              };
         }
     } else {
-        // --- SUFFIXES ---
+        // --- 后缀 ---
         candidates = { 
             AffixType::Strength, AffixType::Dexterity, 
             AffixType::Intelligence, AffixType::Vitality,
@@ -239,7 +239,7 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix, EquipmentSlot s
     std::uniform_int_distribution<> dist(0, candidates.size() - 1);
     AffixType type = candidates[dist(g_rng)];
     
-    // 2. Determine Tier
+    // 2. 确定词缀等级
     int maxTier = std::min(7, (level / 8) + 1);
     int minTier = std::max(1, maxTier - 2);
     int tier = std::uniform_int_distribution<>(minTier, maxTier)(g_rng);
@@ -268,22 +268,43 @@ void ItemFactory::rollAffixes(ItemComponent& item, int level) {
         }
     }
 
-    for(int i=0; i<prefixCount; ++i) item.affixes.push_back(generateRandomAffix(level, true, item.slot));
-    for(int i=0; i<suffixCount; ++i) item.affixes.push_back(generateRandomAffix(level, false, item.slot));
+    // 记录已有的词缀类型以避免重复
+    std::vector<AffixType> existingTypes;
+    for(const auto& aff : item.implicits) existingTypes.push_back(aff.type);
+
+    auto addUniqueAffix = [&](bool isPrefix) {
+        for(int attempt=0; attempt<20; ++attempt) {
+            Affix aff = generateRandomAffix(level, isPrefix, item.slot);
+            bool duplicate = false;
+            for(auto t : existingTypes) if(t == aff.type) { duplicate = true; break; }
+            
+            if(!duplicate) {
+                item.affixes.push_back(aff);
+                existingTypes.push_back(aff.type);
+                return;
+            }
+        }
+        LOG_WARN("ItemFactory: Failed to generate unique affix for item {} (Prefix: {})", item.name, isPrefix);
+    };
+
+    for(int i=0; i<prefixCount; ++i) addUniqueAffix(true);
+    for(int i=0; i<suffixCount; ++i) addUniqueAffix(false);
+    
+    LOG_DEBUG("ItemFactory: Generated {} affixes for {}", item.affixes.size(), item.name);
 }
 
 // -----------------------------------------------------------------------------
-// Creation Methods (Same as before)
+// 创建方法 (与之前相同)
 // -----------------------------------------------------------------------------
 entt::entity ItemFactory::createRandomLoot(entt::registry& registry, int level, float magicFind) {
-    LOG_DEBUG("Creating random loot with level: {}, magicFind: {}", level, magicFind);
+    LOG_DEBUG("创建随机掉落物，等级: {}，魔法寻宝率: {}", level, magicFind);
     Rarity rarity = rollRarity(magicFind);
     entt::entity result;
     if (std::uniform_int_distribution<>(0, 1)(g_rng) == 0) {
-        LOG_DEBUG("Rolling for weapon");
+        LOG_DEBUG("正在生成武器");
         result = createWeapon(registry, level, rarity);
     } else {
-        LOG_DEBUG("Rolling for armor");
+        LOG_DEBUG("正在生成护甲");
         EquipmentSlot slot = (EquipmentSlot)std::uniform_int_distribution<>(3, 8)(g_rng);
         result = createArmor(registry, level, rarity, slot);
     }

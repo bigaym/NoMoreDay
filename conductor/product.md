@@ -19,3 +19,4 @@ To create an immersive, performance-driven ARPG experience where players face ov
 - **Procedural Map Generation:** A dynamic dungeon system ensuring that no two runs feel the same, promoting infinite replayability.
 - **Massive Scale Combat:** A high-performance damage engine supporting Physical, Elemental (Fire, Cold, Lightning), and Eldritch (Poison, Void) damage types, optimized for 10,000+ entities with zero-allocation update loops.
 - **Deep Build Economy:** A focus on crafting, rune words, and forging potential to allow for endgame "god-tier" character creation.
+- **Dynamic UI & Inventory:** A highly responsive, zero-allocation UI system for managing complex equipment (11 slots) and unlimited materials, with full support for Chinese localization and dynamic text scaling.

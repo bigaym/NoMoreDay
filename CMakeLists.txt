@@ -115,3 +115,13 @@ add_custom_command(TARGET NoMoreDay POST_BUILD
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
     COMMENT "Copying dependency DLLs..."
 )
+
+# Set compile output encoding to UTF-8
+if(MSVC)
+    target_compile_options(NoMoreDay PRIVATE /utf-8)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # For GCC on Windows, ensure console output is UTF-8
+    target_compile_definitions(NoMoreDay PRIVATE "_WIN32_WINNT=0x0600" "UNICODE" "_UNICODE")
+endif()

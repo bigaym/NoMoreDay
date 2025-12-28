@@ -6,21 +6,21 @@
 
 namespace NoMoreDay {
 
-// Component for Entities that can hold items (Player, Chests, Mobs)
+// 可以持有物品的实体组件 (玩家, 箱子, 怪物)
 struct InventoryComponent {
-    // Items are stored as entities. 
-    // When in inventory, they should NOT have Position/Sprite components (or be disabled/hidden).
+    // 物品以实体形式存储。
+    // 当物品在背包中时，它们不应拥有 Position/Sprite 组件 (或应被禁用/隐藏)。
     std::vector<entt::entity> items;
     int capacity = 40;
     
-    bool isFull() const {
+    bool isFull() const { // 背包是否已满
         return items.size() >= capacity;
     }
 };
 
-// Component for Entities that can equip items (Player)
+// 可以装备物品的实体组件 (玩家)
 struct EquipmentComponent {
-    // Index corresponds to EquipmentSlot enum
+    // 索引对应 EquipmentSlot 枚举
     std::array<entt::entity, (size_t)EquipmentSlot::Count> slots;
 
     EquipmentComponent() {

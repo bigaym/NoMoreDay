@@ -3,7 +3,7 @@
 #include "raylib.h"
 #include <entt/entt.hpp>
 
-// Game World Constants
+// 游戏世界常量
 namespace WorldConstants {
     constexpr int WORLD_WIDTH = 5000;
     constexpr int WORLD_HEIGHT = 5000;
@@ -12,7 +12,7 @@ namespace WorldConstants {
     constexpr int GRID_ROWS = WORLD_HEIGHT / (int)GRID_CELL_SIZE + 1;
 }
 
-// Basic Transform Component
+// 基础变换组件
 struct Position {
     float x;
     float y;
@@ -23,7 +23,7 @@ struct Velocity {
     float vy;
 };
 
-// Visual Components
+// 视觉组件
 struct ColorComponent {
     Color color;
 };
@@ -31,54 +31,54 @@ struct ColorComponent {
 struct SpriteComponent {
     Texture2D texture;
     float scale;
-    // float rotation; // Future extension
-    // Rectangle sourceRect; // Future for spritesheets
+    // float rotation; // 未来扩展
+    // Rectangle sourceRect; // 未来用于精灵图
 };
 
-// Tag to identify the player entity
+// 用于标识玩家实体的标签
 struct PlayerTag {};
 
-// Stores raw input state for an entity
+// 存储实体的原始输入状态
 struct InputComponent {
-    float moveX; // -1.0 to 1.0
-    float moveY; // -1.0 to 1.0
+    float moveX; // -1.0 到 1.0
+    float moveY; // -1.0 到 1.0
     bool attack;
     bool dash;
 };
 
-// Combat Stats
+// 战斗属性
 struct HealthComponent {
     float current;
     float max;
 };
 
-// Vision/Sight Component
+// 视野组件
 struct VisionComponent {
     float radius;
 };
 
-// Simple Melee Weapon Definition
+// 简单的近战武器定义
 struct WeaponComponent {
     float damage;
-    float range;          // Attack radius
-    float cooldown;       // Seconds between attacks
-    float knockback;      // Force applied to target
+    float range;          // 攻击半径
+    float cooldown;       // 两次攻击之间的秒数
+    float knockback;      // 施加到目标的击退力
     
-    // Internal State
-    float cooldownTimer;  // 0.0f means ready
+    // 内部状态
+    float cooldownTimer;  // 0.0f 表示就绪
 };
 
-// Tag component for entities that have just been killed
+// 刚被击杀实体的标签组件
 
 struct KilledTag {
 
-    entt::entity killer; // The entity that delivered the killing blow
+    entt::entity killer; // 造成致命一击的实体
 
 };
 
 
 
-// Loot components
+// 掉落组件
 
 struct GoldComponent {
 

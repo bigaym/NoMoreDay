@@ -34,4 +34,5 @@ logs/
 
 # Gemini
 .gemini/
-AGENT*.md
+AGENT*.
+.roo/

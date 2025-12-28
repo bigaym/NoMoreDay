@@ -8,8 +8,8 @@ namespace NoMoreDay {
 
 float ProgressionSystem::CalculateRequiredXP(int level) {
     if (level <= 0) return 100.0f;
-    // Exponential curve: 100 * (level ^ 1.5)
-    // Round to nearest integer for cleaner numbers
+    // 指数曲线: 100 * (等级 ^ 1.5)
+    // 四舍五入到最近的整数以获得更整洁的数字
     return std::floor(100.0f * std::pow(static_cast<float>(level), 1.5f));
 }
 
@@ -17,10 +17,10 @@ float ProgressionSystem::CalculateAwardedXP(int playerLevel, int monsterLevel, f
     float multiplier = 1.0f;
     if (playerLevel > monsterLevel) {
         float levelDifference = static_cast<float>(playerLevel - monsterLevel);
-        // 10% reduction per level difference, minimum 10% of base XP
+        // 每级差距减少10%，最低为基础经验的10%
         multiplier = std::max(0.1f, 1.0f - levelDifference * 0.1f);
     }
-    // No bonus for lower player level (higher monster level) as per spec focus on reduction.
+    // 根据规范，不为较低玩家等级（较高怪物等级）提供奖励，重点在于减少。
     return baseXP * multiplier;
 }
 
@@ -30,11 +30,11 @@ void ProgressionSystem::AddExperience(entt::registry& registry, entt::entity ent
     auto& stats = registry.get<PlayerStats>(entity);
     stats.current_xp += amount;
 
-    // Check for level ups (loop to handle multiple levels at once)
+    // 检查升级（循环处理同时升级多级）
     while (stats.current_xp >= stats.required_xp) {
         stats.current_xp -= stats.required_xp;
         LevelUp(registry, entity);
-        // Refresh required XP for the new level
+        // 刷新新等级所需的经验
         stats.required_xp = CalculateRequiredXP(stats.level);
     }
 }
@@ -45,23 +45,24 @@ void ProgressionSystem::LevelUp(entt::registry& registry, entt::entity entity) {
     auto& stats = registry.get<PlayerStats>(entity);
     stats.level++;
     
-    // Update PlayerLevel component if it exists
+    // 如果存在 PlayerLevel 组件，则更新
     if (auto* levelComp = registry.try_get<PlayerLevel>(entity)) {
         levelComp->value = stats.level;
     }
 
-    // Award Points
+    // 奖励点数
     stats.available_attribute_points += 5;
     stats.available_skill_points += 1;
 
-    // Baseline Stat Growth
+    // 基础属性增长
     if (auto* primStats = registry.try_get<PrimaryStats>(entity)) {
-        primStats->strength += 2.0f;
-        primStats->dexterity += 1.0f;
-        primStats->intelligence += 1.0f;
-        primStats->vitality += 2.0f;
+        // 移除自动属性增长，改为由玩家手动分配
+        // primStats->strength += 2.0f;
+        // primStats->dexterity += 1.0f;
+        // primStats->intelligence += 1.0f;
+        // primStats->vitality += 2.0f;
         
-        // Mark stats as dirty to trigger recalculation of CombatStats
+        // 标记属性为脏，以触发 CombatStats 的重新计算
         registry.get_or_emplace<StatsDirty>(entity);
     }
 }
@@ -79,7 +80,7 @@ bool ProgressionSystem::AllocateAttribute(entt::registry& registry, entt::entity
         case StatType::Dexterity:    primStats.dexterity += 1.0f; break;
         case StatType::Intelligence: primStats.intelligence += 1.0f; break;
         case StatType::Vitality:     primStats.vitality += 1.0f; break;
-        default: return false; // Other stats can't be directly allocated
+        default: return false; // 其他属性不能直接分配
     }
 
     stats.available_attribute_points--;
@@ -93,7 +94,7 @@ bool ProgressionSystem::AllocateSkillPoint(entt::registry& registry, entt::entit
     auto& stats = registry.get<PlayerStats>(entity);
     if (stats.available_skill_points <= 0) return false;
 
-    // Currently just decrements the point as Skill Tree is out of scope
+    // 目前仅减少点数，因为技能树超出了范围
     stats.available_skill_points--;
     return true;
 }

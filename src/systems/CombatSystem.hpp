@@ -11,18 +11,18 @@
 
 class CombatSystem {
 public:
-    // Processes attack inputs, manages cooldowns, and resolves hits
+    // 处理攻击输入、管理冷却时间并解决命中
     static void update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt);
 
     /**
-     * @brief Calculates final damage after mitigation.
+     * @brief 计算减伤后的最终伤害。
      */
     static float CalculateDamage(const NoMoreDay::CombatStats& attacker, const NoMoreDay::CombatStats& defender, float baseDamage, NoMoreDay::DamageType type);
 
     /**
-     * @brief Applies damage to an entity, handling Health reduction and potential death.
-     * @param attacker Optional entity that caused the damage (for kill credit).
-     * @return true if the entity died (health <= 0), false otherwise.
+     * @brief 对实体施加伤害，处理生命值减少和潜在的死亡。
+     * @param attacker 造成伤害的可选实体（用于击杀奖励）。
+     * @return 如果实体死亡（生命值 <= 0）则返回 true，否则返回 false。
      */
     static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null);
 };

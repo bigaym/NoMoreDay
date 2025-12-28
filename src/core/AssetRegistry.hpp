@@ -12,10 +12,10 @@ namespace assets {
     };
 
     namespace textures {
-        // Weapons
+        // 武器
         constexpr TextureAsset Weapon_Sword = { "weapon_sword"_hs, "assets/textures/weapons/weapon_sword_fantasy_01.png" };
         
-        // Characters
+        // 角色
         constexpr TextureAsset Player_Warrior = { "player_warrior"_hs, "assets/textures/characters/player_warrior.png" };
         constexpr TextureAsset Skeleton = { "skeleton"_hs, "assets/textures/characters/skeleton.png" };
         constexpr TextureAsset Cultist = { "cultist"_hs, "assets/textures/characters/cultist.png" };

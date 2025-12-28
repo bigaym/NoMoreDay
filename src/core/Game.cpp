@@ -26,10 +26,13 @@ Game::Game(int width, int height, const char* title)
       m_spatialGrid(WorldConstants::GRID_COLS, WorldConstants::GRID_ROWS, WorldConstants::GRID_CELL_SIZE),
       m_levelManager(std::make_unique<LevelManager>()) {
     
+    system("chcp 65001 > nul"); // 设置控制台为 UTF-8 编码
+    // 游戏初始化，设置窗口尺寸和标题
     LOG_INFO("Initializing Game with dimensions: {}x{}, title: {}", width, height, title);
     // Raylib Init
     InitWindow(m_screenWidth, m_screenHeight, m_title);
     InitAudioDevice(); // Initialize Audio System
+    SetExitKey(0); // 禁用 ESC 键退出游戏，由 InputSystem/UISystem 处理
     SetTargetFPS(60);
     
     LOG_DEBUG("Game window initialized");
@@ -38,7 +41,7 @@ Game::Game(int width, int height, const char* title)
 
 Game::~Game() {
     LOG_INFO("Shutting down Game...");
-    cleanup();
+    cleanup(); // 清理游戏资源
     CloseAudioDevice(); // Close Audio System
     CloseWindow();
     LOG_INFO("Game shutdown completed");
@@ -46,10 +49,10 @@ Game::~Game() {
 
 void Game::init() {
     LOG_INFO("Initializing Game systems...");
-    // 1. Initialize Managers
+    // 1. 初始化管理器
     m_levelManager->initialize();
     m_levelManager->loadNewLevel("cave", WorldConstants::WORLD_WIDTH / 10, WorldConstants::WORLD_HEIGHT / 10);
-    
+    // 初始化物品工厂和UI系统
     NoMoreDay::ItemFactory::initialize();
     UISystem::Initialize(m_resourceManager);
     
@@ -57,7 +60,7 @@ void Game::init() {
     // 2. Load Resources via Manager (Compile-time IDs)
     const auto& playerAsset = assets::textures::Player_Warrior;
     Texture2D playerTexture = m_resourceManager.loadTexture(playerAsset.id, std::string(playerAsset.path));
-    
+    // 加载其他必要纹理
     // Load other essential textures
     m_resourceManager.loadTexture(assets::textures::Weapon_Sword.id, std::string(assets::textures::Weapon_Sword.path));
     m_resourceManager.loadTexture(assets::textures::Skeleton.id, std::string(assets::textures::Skeleton.path));
@@ -65,7 +68,7 @@ void Game::init() {
     m_resourceManager.loadTexture(assets::textures::Demon.id, std::string(assets::textures::Demon.path));
     m_resourceManager.loadTexture(assets::textures::Corrupted_Beast.id, std::string(assets::textures::Corrupted_Beast.path));
 
-    // 3. Spawn Player
+    // 3. 生成玩家
     auto player = m_registry.create();
     LOG_DEBUG("Created player entity with ID: {}", (uint32_t)player);
     m_registry.emplace<Position>(player, (float)m_screenWidth / 2.0f, (float)m_screenHeight / 2.0f);
@@ -77,12 +80,12 @@ void Game::init() {
     m_registry.emplace<NoMoreDay::PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f); // 初始基础属性 (Str, Dex, Int, Vit)
     m_registry.emplace<NoMoreDay::CombatStats>(player); // 初始战斗属性 (使用默认值)
     m_registry.emplace<VisionComponent>(player, 300.0f); // 初始视野半径
+    m_registry.emplace<NoMoreDay::StatsDirty>(player); // 初始标记为脏，强制第一帧烘焙
     m_registry.emplace<DashComponent>(player); // 冲刺组件
-    m_registry.emplace<NoMoreDay::InventoryComponent>(player); // Init Inventory (default 40 slots)
-    m_registry.emplace<NoMoreDay::EquipmentComponent>(player); // Init Equipment slots
-    
-    // Legacy Weapon Component (Kept for compatibility, but StatsSystem prefers Equipment)
-    m_registry.emplace<WeaponComponent>(player, 10.0f, 60.0f, 0.15f, 1500.0f, 0.0f);
+    m_registry.emplace<NoMoreDay::InventoryComponent>(player); // 初始化背包 (默认40格)
+    m_registry.emplace<NoMoreDay::EquipmentComponent>(player); // 初始化装备槽
+    m_registry.emplace<NoMoreDay::AttackState>(player); // 新的攻击状态组件
+
     m_registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
 
     LOG_DEBUG("Creating test equipment...");
@@ -90,15 +93,14 @@ void Game::init() {
     // Create a Legendary Weapon for testing
     auto sword = NoMoreDay::ItemFactory::createWeapon(m_registry, 10, NoMoreDay::Rarity::Legendary);
     LOG_DEBUG("Created test weapon with entity ID: {}", (uint32_t)sword);
-    
-    // Equip it
+    // 装备它
     auto& equip = m_registry.get<NoMoreDay::EquipmentComponent>(player);
     equip.set(NoMoreDay::EquipmentSlot::MainHand, sword);
     LOG_DEBUG("Equipped weapon to player");
     // ----------------------
 
     if (playerTexture.id > 0) {
-        // Character is big (1024x1024), scale down to ~100px
+        // 角色纹理较大 (1024x1024)，缩小到约100像素
         m_registry.emplace<SpriteComponent>(player, playerTexture, 0.1f);
         LOG_DEBUG("Assigned sprite component to player");
     } else {
@@ -106,8 +108,7 @@ void Game::init() {
     }
 
     LOG_INFO("Taskflow initialized with {} workers", std::thread::hardware_concurrency());
-
-    // 4. Init Camera
+    // 4. 初始化相机
     m_camera = { 0 };
     m_camera.zoom = 1.0f;
     m_camera.offset = { (float)m_screenWidth / 2.0f, (float)m_screenHeight / 2.0f };
@@ -118,7 +119,7 @@ void Game::init() {
 
 void Game::update(float dt) {
     // LOG_TRACE("Game update started with dt: {}", dt);
-    // Get player position for AI system
+    // 获取玩家位置供AI系统使用
     Position playerPos{0, 0};
     auto playerView = m_registry.view<PlayerTag, Position>();
     auto playerBegin = playerView.begin();
@@ -130,20 +131,20 @@ void Game::update(float dt) {
         LOG_WARN("No player entity found in registry during update");
     }
 
-    // 1. Update Level Manager (Map, Enemies, Fog of War)
+    // 1. 更新关卡管理器 (地图, 敌人, 战争迷雾)
     m_levelManager->update(dt, m_registry, playerPos);
     
-    // 更新流场 (Black Magic for Pathfinding)
+    // 更新流场 (寻路黑科技)
     m_levelManager->getMapSystem().updateFlowField(playerPos);
 
-    // 2. Stats System (Bake Attributes)
-    // Must run before CombatSystem so we have fresh stats
+    // 2. 属性系统 (烘焙属性)
+    // 必须在战斗系统之前运行，以确保属性是最新的
     NoMoreDay::StatsSystem::update(m_registry);
 
-    // DropSystem processes killed entities and generates loot BEFORE they are destroyed or XP awarded
+    // 掉落系统在实体被销毁或获得经验之前处理被击杀的实体并生成掉落物
     NoMoreDay::DropSystem::update(m_registry);
 
-    // XPAwardingSystem processes killed entities and awards XP
+    // 经验奖励系统处理被击杀的实体并奖励经验
     NoMoreDay::XPAwardingSystem::update(m_registry);
 
     // 3. Process Input
@@ -162,7 +163,7 @@ void Game::update(float dt) {
         auto& dash = playerView2.get<DashComponent>(entity);
         
         // 确保 Space 键能触发冲刺 (如果 InputSystem 未处理)
-        if (IsKeyPressed(KEY_SPACE)) input.dash = true;
+        if (IsKeyPressed(KEY_SPACE)) input.dash = true; // 如果按下空格键，则冲刺
 
         // --- Dash Cooldown & Charges ---
         if (dash.charges < dash.maxCharges) {
@@ -178,7 +179,7 @@ void Game::update(float dt) {
                 }
             }
         }
-        // UI Flash Timer
+        // UI闪烁计时器
         if (dash.uiFlash) {
             dash.uiFlashTimer -= dt;
             if (dash.uiFlashTimer <= 0.0f) dash.uiFlash = false;
@@ -191,7 +192,7 @@ void Game::update(float dt) {
             dash.dashTimer = dash.dashDuration;
             LOG_DEBUG("Dash activated, remaining charges: {}", dash.charges);
             
-            // 确定冲刺方向：如果有输入则按输入方向，否则按鼠标方向
+            // 确定冲刺方向：如果有输入则按输入方向，否则按鼠标方向。
             float len = std::sqrt(input.moveX * input.moveX + input.moveY * input.moveY);
             if (len > 0.1f) {
                 dash.dirX = input.moveX / len;
@@ -209,7 +210,7 @@ void Game::update(float dt) {
                 }
             }
             
-            // 如果刚开始冷却（满充能使用了一次），启动计时器
+            // 如果刚开始冷却（满充能使用了一次），则启动计时器
             if (dash.charges == dash.maxCharges - 1 && dash.cooldownTimer <= 0.0f) {
                 dash.cooldownTimer = dash.cooldownDuration;
             }
@@ -227,47 +228,48 @@ void Game::update(float dt) {
                 LOG_DEBUG("Dash ended");
             }
         } else {
-            // Normal Movement
+            // 普通移动
             float speed = 300.0f;
             vel.vx = input.moveX * speed;
             vel.vy = input.moveY * speed;
         }
 
-        // Camera Follow (Smooth Lerp)
+        // 摄像机跟随 (平滑插值)
         float lerpSpeed = 5.0f;
         m_camera.target.x += (pos.x - m_camera.target.x) * lerpSpeed * dt;
         m_camera.target.y += (pos.y - m_camera.target.y) * lerpSpeed * dt;
     }
 
-    // 4. AI System (Update enemy behaviors)
+    // 提前重建空间网格，确保 AI 和战斗系统使用当前帧的位置
+    auto gridView = m_registry.view<Position, Velocity>();
+    m_spatialGrid.rebuild(gridView, m_registry);
+
+    // 4. AI系统 (更新敌人行为)
     AISystem::update(m_registry, m_spatialGrid, m_levelManager->getMapSystem(), playerPos, dt);
 
-    // 5. Combat System (Process Attacks)
-    // Note: We run this BEFORE rebuilding the grid, because if entities die, we want them gone.
-    // However, Combat needs the Grid to find targets. So it uses the Grid from LAST frame.
-    // This is acceptable latency (16ms).
+    // 5. 战斗系统 (处理攻击)
+    // 注意：我们在此之前重建网格，因为如果实体死亡，我们希望它们消失。
+    // 然而，战斗系统需要网格来寻找目标。因此它使用上一帧的网格。
+    // 这种延迟 (16ms) 是可以接受的。
     CombatSystem::update(m_registry, m_spatialGrid, m_camera, dt);
 
-    // 6. Effect System (Update visual effects)
+    // 6. 特效系统 (更新视觉效果)
     EffectSystem::update(m_registry, dt);
 
-    // 7. Rebuild Spatial Grid
-    auto view = m_registry.view<Position, Velocity>();
-    m_spatialGrid.rebuild(view, m_registry);
-
     // 8. Parallel Physics Execution
-    m_taskflow.clear();
+    auto view = m_registry.view<Position, Velocity>();
+    m_taskflow.clear(); // 清除任务流
     
-    // Collect entities (reuse vector)
+    // 收集实体 (复用向量)
     m_physicsEntities.clear();
     m_physicsEntities.reserve(view.size_hint());
     for(auto entity : view) m_physicsEntities.push_back(entity);
 
-    // Use a larger world boundary (e.g., 5000x5000) so entities don't bounce at screen edges
+    // 使用更大的世界边界 (例如，5000x5000)，这样实体就不会在屏幕边缘反弹
     int worldSizeW = WorldConstants::WORLD_WIDTH;
     int worldSizeH = WorldConstants::WORLD_HEIGHT;
 
-    // Phase 1: Resolve Collisions (Read Pos, Write Vel)
+    // 阶段1: 解决碰撞 (读取位置，写入速度)
     auto resolveTask = m_taskflow.for_each(m_physicsEntities.begin(), m_physicsEntities.end(),
         [this, dt](entt::entity entity) {
             const auto& pos = m_registry.get<Position>(entity);
@@ -275,11 +277,11 @@ void Game::update(float dt) {
             PhysicsSystem::resolveCollisions(entity, pos, vel, m_spatialGrid, m_registry, dt);
             
             // Map Collision (Obstacles) - Absorb kinetic energy (no bounce)
+            // 地图碰撞 (障碍物) - 吸收动能 (无反弹)
             if (m_levelManager) {
                 const auto& map = m_levelManager->getMapSystem();
                 const float TILE_SIZE = 10.0f;
-                const float RADIUS = 4.0f; // Small collision radius for navigation
-
+                const float RADIUS = 4.0f; // 用于导航的小碰撞半径
                 // 1. X-Axis Collision Prediction
                 float nextX = pos.x + vel.vx * dt;
                 int tileX_left = static_cast<int>((nextX - RADIUS) / TILE_SIZE);
@@ -289,7 +291,7 @@ void Game::update(float dt) {
 
                 if (!map.isWalkable(tileX_left, tileY_top) || !map.isWalkable(tileX_left, tileY_bottom) ||
                     !map.isWalkable(tileX_right, tileY_top) || !map.isWalkable(tileX_right, tileY_bottom)) {
-                    vel.vx = 0; // Stop X movement
+                    vel.vx = 0; // 停止X轴移动
                     // LOG_TRACE("Collision detected, stopping X movement for entity: {}", (uint32_t)entity); // 频率过高
                 }
 
@@ -302,7 +304,7 @@ void Game::update(float dt) {
 
                 if (!map.isWalkable(tileX_left_curr, tileY_next_top) || !map.isWalkable(tileX_right_curr, tileY_next_top) ||
                     !map.isWalkable(tileX_left_curr, tileY_next_bottom) || !map.isWalkable(tileX_right_curr, tileY_next_bottom)) {
-                    vel.vy = 0; // Stop Y movement
+                    vel.vy = 0; // 停止Y轴移动
                     // LOG_TRACE("Collision detected, stopping Y movement for entity: {}", (uint32_t)entity);  // 频率过高
                 }
             }
@@ -316,26 +318,26 @@ void Game::update(float dt) {
             PhysicsSystem::updatePosition(entity, pos, vel, dt, worldSizeW, worldSizeH);
         });
 
-    // Ensure Phase 1 completes before Phase 2
+    // 确保阶段1在阶段2之前完成
     resolveTask.precede(updateTask);
 
     m_executor.run(m_taskflow).wait();
     // LOG_TRACE("Game update completed");
 }
 
-void Game::render() {
+void Game::render() { // 渲染
     BeginDrawing();
     ClearBackground(RAYWHITE);
     
     BeginMode2D(m_camera);
-        // Draw World Grid for visual reference
+        // 绘制世界网格作为视觉参考
         const int gridSize = 100;
         const int worldWidth = WorldConstants::WORLD_WIDTH;
         const int worldHeight = WorldConstants::WORLD_HEIGHT;
         for(int x = 0; x <= worldWidth; x += gridSize) DrawLine(x, 0, x, worldHeight, LIGHTGRAY);
         for(int y = 0; y <= worldHeight; y += gridSize) DrawLine(0, y, worldWidth, y, LIGHTGRAY);
 
-        // 1. Render Map (Floor/Walls)
+        // 1. 渲染地图 (地板/墙壁)
         m_levelManager->render(m_camera);
 
         // 2. Render Entities (Player, Enemies)
@@ -345,7 +347,7 @@ void Game::render() {
         m_levelManager->getFogSystem().renderFog();
     EndMode2D();
     
-    // Render UI (Screen Space)
+    // 渲染UI (屏幕空间)
     // Draw Character Panel (C key)
     UISystem::Draw(m_registry, *m_levelManager);
     
@@ -360,7 +362,7 @@ void Game::run() {
     
     const float fixedDt = 1.0f / 60.0f;
     float accumulator = 0.0f;
-
+    // 游戏主循环
     while (!WindowShouldClose()) {
         float frameTime = GetFrameTime();
         // LOG_TRACE("Frame time: {}", frameTime);
@@ -383,7 +385,7 @@ void Game::run() {
 }
 
 void Game::cleanup() {
-    LOG_INFO("Starting Game cleanup...");
+    LOG_INFO("开始游戏清理...");
     UISystem::Shutdown();
     m_levelManager->cleanup();
     m_resourceManager.unloadAll();

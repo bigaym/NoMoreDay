@@ -1,6 +1,7 @@
 add_executable(StatsSystemTest 
     StatsSystemTest.cpp 
     ${CMAKE_SOURCE_DIR}/src/systems/StatsSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
 )
 target_include_directories(StatsSystemTest PRIVATE 
     ${CMAKE_SOURCE_DIR}/src
@@ -36,6 +37,7 @@ endif()
 add_executable(StatsBenchmark 
     StatsBenchmark.cpp 
     ${CMAKE_SOURCE_DIR}/src/systems/StatsSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
 )
 target_include_directories(StatsBenchmark PRIVATE 
     ${CMAKE_SOURCE_DIR}/src

@@ -5,9 +5,9 @@ namespace NoMoreDay {
 
 class XPAwardingSystem {
 public:
-    /**
-     * @brief Processes killed entities and awards experience to players.
-     * @param registry The EnTT registry.
+    /*
+     * @brief 处理被击杀的实体并向玩家奖励经验。
+     * @param registry EnTT 注册表。
      */
     static void update(entt::registry& registry);
 };

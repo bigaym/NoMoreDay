@@ -10,12 +10,12 @@ namespace assets::ui {
     };
 
     namespace textures {
-        // UI Icons and Backgrounds
+        // UI 图标和背景
         constexpr assets::TextureAsset Inventory_Slot = { "ui_inv_slot"_hs, "assets/textures/ui/slot_background.png" };
         constexpr assets::TextureAsset Equipment_Slot = { "ui_equip_slot"_hs, "assets/textures/ui/equip_slot_background.png" };
         constexpr assets::TextureAsset Panel_Background = { "ui_panel_bg"_hs, "assets/textures/ui/panel_background.png" };
         
-        // Context Menu
+        // 上下文菜单
         constexpr assets::TextureAsset Context_Menu_BG = { "ui_context_bg"_hs, "assets/textures/ui/context_menu_bg.png" };
     }
 

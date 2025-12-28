@@ -42,6 +42,11 @@ bool UISystem::m_isContextFromInventory = false;
 int UISystem::m_contextSourceInventoryIndex = -1;
 EquipmentSlot UISystem::m_contextSourceEquipmentSlot = EquipmentSlot::None;
 
+// --- 角色面板状态 ---
+static int s_activeCharTab = 0; // 0: 攻击, 1: 防御, 2: 召唤, 3: 其他
+static float s_charPanelScroll = 0.0f;
+static float s_lastContentHeight = 0.0f;
+
 // --- 小地图专用静态资源 (无需修改头文件) ---
 static Texture2D s_minimapTexture = { 0 };
 static int s_minimapW = 0;
@@ -174,10 +179,22 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
     // 切换角色面板显示
     if (IsKeyPressed(KEY_C)) {
         m_showCharacterPanel = !m_showCharacterPanel;
+        // 关闭面板时重置临时加点
+        if (!m_showCharacterPanel) {
+            auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end()) {
+                auto& ui = registry.get_or_emplace<AttributeUIComponent>(view.front());
+                ui.tempStr = 0; ui.tempDex = 0; ui.tempInt = 0; ui.tempVit = 0;
+                ui.showConfirmPopup = false;
+            }
+        }
         m_showContextMenu = false;
     }
     // 切换背包显示
     if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_ESCAPE)) {
+        // 如果有确认弹窗，ESC先关闭弹窗
+        // 这里逻辑稍微复杂，放在下面统一处理
+        
         if (m_showInventory) {
             m_showInventory = false;
             m_showContextMenu = false;
@@ -187,10 +204,25 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
     }
     
     if (IsKeyPressed(KEY_ESCAPE)) {
-        if (m_showContextMenu) {
+        // 优先处理确认弹窗
+        bool popupHandled = false;
+        if (m_showCharacterPanel) {
+            auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end()) {
+                auto& ui = registry.get_or_emplace<AttributeUIComponent>(view.front());
+                if (ui.showConfirmPopup) {
+                    ui.showConfirmPopup = false;
+                    popupHandled = true;
+                }
+            }
+        }
+
+        if (!popupHandled) {
+            if (m_showContextMenu) {
             m_showContextMenu = false;
-        } else {
+            } else {
             m_showCharacterPanel = false;
+            }
         }
     }
     // 调试：切换小地图全开
@@ -288,7 +320,7 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
 
     // --- 2. 角色概览 (头像 & 等级) ---
     const auto* sprite = registry.try_get<SpriteComponent>(player);
-    const auto* pStats = registry.try_get<PlayerStats>(player);
+    auto* pStats = registry.try_get<PlayerStats>(player);
 
     // 绘制头像 (缩略图)
     float avatarSize = 80.0f;
@@ -315,74 +347,280 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     // 获取属性组件
     const auto* primStats = registry.try_get<PrimaryStats>(player);
     const auto* combatStats = registry.try_get<CombatStats>(player);
+    auto& attrUI = registry.get_or_emplace<AttributeUIComponent>(player);
 
-    if (!primStats || !combatStats) return;
+    if (!primStats || !combatStats || !pStats) return;
 
     // --- 3. 基础属性 (Primary Stats) ---
     DrawTextUI("基础属性", panelX + padding, currentY, 20, YELLOW);
+    
+    // 计算剩余点数
+    int totalTemp = attrUI.tempStr + attrUI.tempDex + attrUI.tempInt + attrUI.tempVit;
+    int remainingPoints = pStats->available_attribute_points - totalTemp;
+    
+    // 显示可用点数
+    const char* pointsText = TextFormat("可用点数: %d", remainingPoints);
+    float pointsWidth = MeasureTextEx(m_font, pointsText, 18, 1.0f).x;
+    DrawTextUI(pointsText, panelX + panelW - padding - pointsWidth, currentY + 2, 18, remainingPoints > 0 ? GREEN : LIGHTGRAY);
+
     currentY += 25.0f;
     
     float col1X = panelX + padding;
-    float col2X = panelX + panelW / 2.0f + padding;
+    // float col2X = panelX + panelW / 2.0f + padding; // 暂时不用双列，给按钮留空间
 
-    DrawStatRow("力量", TextFormat("%.0f", primStats->strength), col1X, currentY, 150, 18.0f);
-    DrawStatRow("敏捷", TextFormat("%.0f", primStats->dexterity), col1X, currentY, 150, 18.0f);
-    DrawStatRow("智力", TextFormat("%.0f", primStats->intelligence), col1X, currentY, 150, 18.0f);
-    DrawStatRow("体能", TextFormat("%.0f", primStats->vitality), col1X, currentY, 150, 18.0f);
-
-    currentY += 20.0f;
-    DrawLine(panelX + padding, currentY, panelX + panelW - padding, currentY, GRAY);
-    currentY += 20.0f;
-
-    // --- 4. 战斗属性 (Combat Stats) ---
-    DrawTextUI("战斗属性", panelX + padding, currentY, 20, RED);
-    currentY += 25.0f;
-
-    float combatStartY = currentY;
-    
-    // 左列：进攻
-    float leftY = combatStartY;
-    DrawStatRow("伤害", TextFormat("%.0f-%.0f", combatStats->min_weapon_damage, combatStats->max_weapon_damage), col1X, leftY, 150);
-    DrawStatRow("攻速", TextFormat("%.2f", combatStats->attack_speed), col1X, leftY, 150);
-    DrawStatRow("暴击率", TextFormat("%.1f%%", combatStats->crit_chance * 100.0f), col1X, leftY, 150);
-    DrawStatRow("暴击伤害", TextFormat("%.0f%%", combatStats->crit_damage * 100.0f), col1X, leftY, 150);
-    DrawStatRow("冷却回复", TextFormat("%.0f%%", combatStats->cooldown_recovery_speed * 100.0f), col1X, leftY, 150);
-
-    // 右列：防御 & 状态
-    float rightY = combatStartY;
-    DrawStatRow("生命值", TextFormat("%.0f/%.0f", combatStats->health, combatStats->max_health), col2X, rightY, 150);
-    DrawStatRow("护甲", TextFormat("%.0f", combatStats->armor), col2X, rightY, 150);
-    DrawStatRow("闪避", TextFormat("%.1f%%", combatStats->dodge_chance * 100.0f), col2X, rightY, 150);
-    DrawStatRow("移动速度", TextFormat("%.0f", combatStats->move_speed), col2X, rightY, 150);
-    DrawStatRow("生命回复", TextFormat("%.1f/s", combatStats->health_regen), col2X, rightY, 150);
-
-    currentY = std::max(leftY, rightY) + 20.0f;
-    DrawLine(panelX + padding, currentY, panelX + panelW - padding, currentY, GRAY);
-    currentY += 20.0f;
-
-    // --- 5. 抗性 (Resistances) ---
-    DrawTextUI("抗性", panelX + padding, currentY, 20, SKYBLUE);
-    currentY += 25.0f;
-
-    struct ResInfo { const char* name; Color color; int index; };
-    ResInfo resList[] = {
-        {"火焰", ORANGE, (int)DamageType::Fire},
-        {"冰霜", SKYBLUE, (int)DamageType::Cold},
-        {"闪电", YELLOW, (int)DamageType::Lightning},
-        {"毒素", LIME, (int)DamageType::Poison},
-        {"暗影", PURPLE, (int)DamageType::Shadow},
-        {"物理", BEIGE, (int)DamageType::Physical}
+    // 简单的按钮辅助函数
+    auto DrawBtn = [&](float bx, float by, const char* txt) -> bool {
+        float size = 20.0f;
+        Rectangle r = {bx, by, size, size};
+        bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
+        bool clicked = hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+        DrawRectangleRec(r, hovered ? LIGHTGRAY : DARKGRAY);
+        DrawRectangleLinesEx(r, 1.0f, WHITE);
+        float tw = MeasureTextEx(m_font, txt, 16, 1.0f).x;
+        DrawTextUI(txt, bx + (size-tw)/2, by + 2, 16, WHITE);
+        return clicked;
     };
 
-    float resX = panelX + padding;
-    for (const auto& res : resList) {
-        float val = combatStats->resistances[res.index];
-        DrawRectangle(resX, currentY, 60, 10, Fade(BLACK, 0.5f));
-        float barWidth = std::clamp(val, 0.0f, 1.0f) * 60.0f;
-        DrawRectangle(resX, currentY, barWidth, 10, res.color);
-        DrawTextUI(res.name, resX, currentY + 12, 10, LIGHTGRAY);
-        DrawTextUI(TextFormat("%.0f%%", val * 100.0f), resX, currentY + 24, 10, WHITE);
-        resX += 70.0f; 
+    auto DrawAttrRow = [&](const char* label, float baseVal, int& tempVal, float& y) {
+        float rowH = 24.0f;
+        DrawTextUI(label, col1X, y, 18, LIGHTGRAY);
+        
+        float finalVal = baseVal + tempVal;
+        const char* valStr = (tempVal > 0) ? TextFormat("%.0f (+%d)", finalVal, tempVal) : TextFormat("%.0f", finalVal);
+        Color valColor = (tempVal > 0) ? GREEN : WHITE;
+        DrawTextUI(valStr, col1X + 80, y, 18, valColor);
+
+        // 按钮
+        float btnX = col1X + 200.0f;
+        if (tempVal > 0) {
+            if (DrawBtn(btnX, y, "-")) tempVal--;
+        }
+        if (remainingPoints > 0) {
+            if (DrawBtn(btnX + 25, y, "+")) tempVal++;
+        }
+        
+        y += rowH + 5.0f;
+    };
+
+    DrawAttrRow("力量", primStats->strength, attrUI.tempStr, currentY);
+    DrawAttrRow("敏捷", primStats->dexterity, attrUI.tempDex, currentY);
+    DrawAttrRow("智力", primStats->intelligence, attrUI.tempInt, currentY);
+    DrawAttrRow("体能", primStats->vitality, attrUI.tempVit, currentY);
+
+    currentY += 15.0f;
+    DrawLine(panelX + padding, currentY, panelX + panelW - padding, currentY, GRAY);
+    currentY += 10.0f;
+
+    // --- 4. 标签页 (Tabs) ---
+    const char* tabNames[] = { "攻击", "防御", "召唤", "其他" };
+    int tabCount = 4;
+    float tabW = (panelW - padding * 2) / tabCount;
+    float tabH = 30.0f;
+
+    for (int i = 0; i < tabCount; ++i) {
+        float tx = panelX + padding + i * tabW;
+        Rectangle tabRect = { tx, currentY, tabW, tabH };
+        bool isSelected = (s_activeCharTab == i);
+        bool isHovered = CheckCollisionPointRec(GetMousePosition(), tabRect);
+
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && isHovered) {
+            s_activeCharTab = i;
+            s_charPanelScroll = 0.0f; // 切换标签重置滚动
+        }
+
+        DrawRectangleRec(tabRect, isSelected ? Fade(GOLD, 0.3f) : (isHovered ? Fade(WHITE, 0.1f) : Fade(BLACK, 0.5f)));
+        DrawRectangleLinesEx(tabRect, 1.0f, isSelected ? GOLD : DARKGRAY);
+
+        float textW = 0;
+        if (IsFontReady(m_font)) textW = MeasureTextEx(m_font, tabNames[i], 18, 1.0f).x;
+        else textW = (float)MeasureText(tabNames[i], 18);
+        
+        DrawTextUI(tabNames[i], tx + (tabW - textW) / 2, currentY + 6, 18, isSelected ? WHITE : GRAY);
+    }
+    currentY += tabH + 5.0f;
+
+    // --- 5. 可滚动内容区域 ---
+    float contentH = panelY + panelH - currentY - padding - (totalTemp > 0 ? 40.0f : 0.0f); // 留出确认按钮空间
+    Rectangle viewRect = { panelX + padding, currentY, panelW - padding * 2, contentH };
+
+    // 处理滚动
+    if (CheckCollisionPointRec(GetMousePosition(), viewRect)) {
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0) {
+            s_charPanelScroll += wheel * 20.0f;
+        }
+    }
+
+    // 限制滚动范围
+    if (s_charPanelScroll > 0) s_charPanelScroll = 0;
+    if (s_lastContentHeight > viewRect.height) {
+        float minScroll = viewRect.height - s_lastContentHeight;
+        if (s_charPanelScroll < minScroll) s_charPanelScroll = minScroll;
+    } else {
+        s_charPanelScroll = 0;
+    }
+
+    BeginScissorMode((int)viewRect.x, (int)viewRect.y, (int)viewRect.width, (int)viewRect.height);
+
+    float startY = currentY + s_charPanelScroll;
+    float y = startY;
+    float rowX = panelX + padding + 5.0f;
+    float rowW = viewRect.width - 10.0f;
+
+    if (s_activeCharTab == 0) { // --- 攻击标签 ---
+        // 计算显示用的有效伤害
+        float physMult = combatStats->damage_multipliers[(int)DamageType::Physical];
+        float flatPhys = combatStats->flat_damage[(int)DamageType::Physical];
+        float dispMin = (combatStats->min_weapon_damage + flatPhys) * physMult;
+        float dispMax = (combatStats->max_weapon_damage + flatPhys) * physMult;
+
+        DrawStatRow("面板伤害", TextFormat("%.0f-%.0f", dispMin, dispMax), rowX, y, rowW);
+        DrawStatRow("攻击速度", TextFormat("%.2f", combatStats->attack_speed), rowX, y, rowW);
+        DrawStatRow("暴击几率", TextFormat("%.1f%%", combatStats->crit_chance * 100.0f), rowX, y, rowW);
+        DrawStatRow("暴击伤害", TextFormat("%.0f%%", combatStats->crit_damage * 100.0f), rowX, y, rowW);
+        DrawStatRow("冷却回复", TextFormat("%.0f%%", combatStats->cooldown_recovery_speed * 100.0f), rowX, y, rowW);
+        DrawStatRow("护甲穿透", TextFormat("%.0f", combatStats->armor_pen), rowX, y, rowW);
+        DrawStatRow("击退力度", TextFormat("%.0f", combatStats->knockback), rowX, y, rowW);
+
+        y += 10.0f;
+        DrawTextUI("属性伤害加成", rowX, y, 18, ORANGE);
+        y += 25.0f;
+
+        for (int i = 0; i < (int)DamageType::Count; ++i) {
+            float flat = combatStats->flat_damage[i];
+            float mult = combatStats->damage_multipliers[i];
+            if (flat > 0 || mult > 1.0f) {
+                const char* typeName = GetDamageTypeName((DamageType)i);
+                DrawStatRow(typeName, TextFormat("+%.0f / +%.0f%%", flat, (mult - 1.0f) * 100.0f), rowX, y, rowW);
+            }
+        }
+
+    } else if (s_activeCharTab == 1) { // --- 防御标签 ---
+        DrawStatRow("生命值", TextFormat("%.0f / %.0f", combatStats->health, combatStats->max_health), rowX, y, rowW);
+        DrawStatRow("生命回复", TextFormat("%.1f /秒", combatStats->health_regen), rowX, y, rowW);
+        DrawStatRow("护甲", TextFormat("%.0f", combatStats->armor), rowX, y, rowW);
+        DrawStatRow("闪避几率", TextFormat("%.1f%%", combatStats->dodge_chance * 100.0f), rowX, y, rowW);
+        DrawStatRow("格挡几率", TextFormat("%.1f%%", combatStats->block_chance * 100.0f), rowX, y, rowW);
+        
+        y += 10.0f;
+        DrawTextUI("抗性", rowX, y, 18, SKYBLUE);
+        y += 25.0f;
+
+        struct ResInfo { const char* name; Color color; int index; };
+        ResInfo resList[] = {
+            {"火焰抗性", ORANGE, (int)DamageType::Fire},
+            {"冰霜抗性", SKYBLUE, (int)DamageType::Cold},
+            {"闪电抗性", YELLOW, (int)DamageType::Lightning},
+            {"毒素抗性", LIME, (int)DamageType::Poison},
+            {"暗影抗性", PURPLE, (int)DamageType::Shadow},
+            {"物理抗性", BEIGE, (int)DamageType::Physical}
+        };
+
+        for (const auto& res : resList) {
+            float val = combatStats->resistances[res.index];
+            // 绘制抗性条
+            DrawTextUI(res.name, rowX, y, 16, LIGHTGRAY);
+            DrawTextUI(TextFormat("%.0f%%", val * 100.0f), rowX + rowW - 50, y, 16, WHITE);
+            y += 20.0f;
+            
+            DrawRectangle(rowX, y, rowW, 6, Fade(BLACK, 0.5f));
+            DrawRectangle(rowX, y, std::clamp(val, 0.0f, 0.75f) / 0.75f * rowW, 6, res.color); // 假设75%满抗
+            y += 15.0f;
+        }
+
+    } else if (s_activeCharTab == 2) { // --- 召唤标签 ---
+        DrawTextUI("召唤物系统开发中...", rowX, y, 20, GRAY);
+        y += 30.0f;
+
+    } else if (s_activeCharTab == 3) { // --- 其他标签 ---
+        DrawStatRow("移动速度", TextFormat("%.0f", combatStats->move_speed), rowX, y, rowW);
+        DrawStatRow("魔法寻宝", TextFormat("%.0f%%", combatStats->magic_find * 100.0f), rowX, y, rowW);
+        DrawStatRow("金币加成", TextFormat("%.0f%%", combatStats->gold_bonus * 100.0f), rowX, y, rowW);
+        DrawStatRow("经验加成", TextFormat("%.0f%%", combatStats->experience_gain_mult * 100.0f), rowX, y, rowW);
+    }
+
+    s_lastContentHeight = y - startY;
+    EndScissorMode();
+
+    // --- 6. 确认/重置按钮 (如果有临时加点) ---
+    if (totalTemp > 0) {
+        float btnY = panelY + panelH - 45.0f;
+        float btnW = 100.0f;
+        float btnH = 30.0f;
+        float btnX_Confirm = panelX + panelW - padding - btnW;
+        float btnX_Reset = btnX_Confirm - btnW - 10.0f;
+
+        // 确认按钮
+        Rectangle confirmRect = {btnX_Confirm, btnY, btnW, btnH};
+        bool hConfirm = CheckCollisionPointRec(GetMousePosition(), confirmRect);
+        if (hConfirm && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            attrUI.showConfirmPopup = true;
+        }
+        DrawRectangleRec(confirmRect, hConfirm ? GREEN : DARKGREEN);
+        DrawRectangleLinesEx(confirmRect, 1.0f, WHITE);
+        DrawTextUI("确认加点", btnX_Confirm + 15, btnY + 6, 18, WHITE);
+
+        // 重置按钮
+        Rectangle resetRect = {btnX_Reset, btnY, btnW, btnH};
+        bool hReset = CheckCollisionPointRec(GetMousePosition(), resetRect);
+        if (hReset && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            attrUI.tempStr = 0; attrUI.tempDex = 0; attrUI.tempInt = 0; attrUI.tempVit = 0;
+        }
+        DrawRectangleRec(resetRect, hReset ? RED : MAROON);
+        DrawRectangleLinesEx(resetRect, 1.0f, WHITE);
+        DrawTextUI("重置", btnX_Reset + 30, btnY + 6, 18, WHITE);
+    }
+
+    // --- 7. 确认弹窗 ---
+    if (attrUI.showConfirmPopup) {
+        // 遮罩
+        DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Fade(BLACK, 0.5f));
+        
+        float popW = 300.0f;
+        float popH = 150.0f;
+        float popX = (GetScreenWidth() - popW) / 2.0f;
+        float popY = (GetScreenHeight() - popH) / 2.0f;
+        
+        DrawRectangle(popX, popY, popW, popH, DARKGRAY);
+        DrawRectangleLines(popX, popY, popW, popH, GOLD);
+        
+        DrawTextUI("确定要分配这些属性点吗?", popX + 40, popY + 40, 20, WHITE);
+        
+        // 简单的按钮绘制逻辑复用 (因为没有引入 RayGui)
+        Rectangle yesRect = {popX + 40, popY + 90, 80, 30};
+        if (CheckCollisionPointRec(GetMousePosition(), yesRect)) {
+            DrawRectangleRec(yesRect, LIGHTGRAY);
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                 auto& mutPrim = registry.get<PrimaryStats>(player);
+                 auto& mutPStats = registry.get<PlayerStats>(player);
+                 mutPrim.strength += attrUI.tempStr;
+                 mutPrim.dexterity += attrUI.tempDex;
+                 mutPrim.intelligence += attrUI.tempInt;
+                 mutPrim.vitality += attrUI.tempVit;
+                 mutPStats.available_attribute_points -= totalTemp;
+                 
+                 attrUI.tempStr = 0; attrUI.tempDex = 0; attrUI.tempInt = 0; attrUI.tempVit = 0;
+                 attrUI.showConfirmPopup = false;
+                 registry.get_or_emplace<StatsDirty>(player);
+            }
+        } else {
+            DrawRectangleRec(yesRect, GRAY);
+        }
+        DrawRectangleLinesEx(yesRect, 1.0f, WHITE);
+        DrawTextUI("确定", yesRect.x + 20, yesRect.y + 5, 18, WHITE);
+
+        // 取消
+        Rectangle noRect = {popX + 180, popY + 90, 80, 30};
+        if (CheckCollisionPointRec(GetMousePosition(), noRect)) {
+            DrawRectangleRec(noRect, LIGHTGRAY);
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                attrUI.showConfirmPopup = false;
+            }
+        } else {
+            DrawRectangleRec(noRect, GRAY);
+        }
+        DrawRectangleLinesEx(noRect, 1.0f, WHITE);
+        DrawTextUI("取消", noRect.x + 20, noRect.y + 5, 18, WHITE);
     }
 }
 
@@ -461,14 +699,24 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
     }
 
     if (slotText) {
-        s_tooltipLines.push_back(TextFormat("%s - %s", typeText, slotText));
+        char* buf = getNextBuffer();
+        snprintf(buf, 128, "%s - %s", typeText, slotText);
+        s_tooltipLines.push_back(buf);
     } else {
         s_tooltipLines.push_back(typeText);
     }
 
     // 基础属性
-    if (itemComp->attack > 0) s_tooltipLines.push_back(TextFormat("攻击力: %.0f", itemComp->attack));
-    if (itemComp->defense > 0) s_tooltipLines.push_back(TextFormat("防御力: %.0f", itemComp->defense));
+    if (itemComp->attack > 0) {
+        char* buf = getNextBuffer();
+        snprintf(buf, 128, "攻击力: %.0f", itemComp->attack);
+        s_tooltipLines.push_back(buf);
+    }
+    if (itemComp->defense > 0) {
+        char* buf = getNextBuffer();
+        snprintf(buf, 128, "防御力: %.0f", itemComp->defense);
+        s_tooltipLines.push_back(buf);
+    }
 
     // 词缀
     for (const auto& affix : itemComp->implicits) {
@@ -477,12 +725,22 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
         s_tooltipLines.push_back(buf);
     }
     for (const auto& affix : itemComp->affixes) {
-        s_tooltipLines.push_back(GetAffixDescriptionRef(affix));
+        char* buf = getNextBuffer();
+        // 必须拷贝，因为 GetAffixDescriptionRef 返回的是 Raylib 的临时静态缓冲
+        snprintf(buf, 128, "%s", GetAffixDescriptionRef(affix));
+        s_tooltipLines.push_back(buf);
     }
 
     // 潜力
     if (itemComp->forgingPotential > 0) {
-        s_tooltipLines.push_back(TextFormat("锻造潜力: %d", itemComp->forgingPotential));
+        char* buf = getNextBuffer();
+        snprintf(buf, 128, "锻造潜力: %d", itemComp->forgingPotential);
+        s_tooltipLines.push_back(buf);
+    }
+    if (itemComp->legendaryPotential > 0) {
+        char* buf = getNextBuffer();
+        snprintf(buf, 128, "传奇潜力: %d", itemComp->legendaryPotential);
+        s_tooltipLines.push_back(buf);
     }
 
     // 描述 (简单处理，暂不分行)
@@ -633,6 +891,7 @@ void UISystem::DrawContextMenu(entt::registry& registry) {
                 } else {
                     inv->items.erase(inv->items.begin() + m_contextSourceInventoryIndex);
                 }
+                registry.get_or_emplace<StatsDirty>(player);
             }
         });
     } else {
@@ -640,6 +899,7 @@ void UISystem::DrawContextMenu(entt::registry& registry) {
             if (inv && !inv->isFull()) {
                 inv->items.push_back(m_contextMenuItem);
                 equip->set(m_contextSourceEquipmentSlot, entt::null);
+                registry.get_or_emplace<StatsDirty>(player);
             }
         });
     }
@@ -665,6 +925,7 @@ void UISystem::DrawContextMenu(entt::registry& registry) {
             inv->items.erase(inv->items.begin() + m_contextSourceInventoryIndex);
         } else {
             equip->set(m_contextSourceEquipmentSlot, entt::null);
+            registry.get_or_emplace<StatsDirty>(player);
         }
         // TODO: 在地上生成掉落物，或者直接销毁
         registry.destroy(m_contextMenuItem);
@@ -769,6 +1030,7 @@ void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
                     equip->set(m_dragSourceEquipmentSlot, oldEquip);
                 }
                 m_draggedItem = entt::null;
+                registry.get_or_emplace<StatsDirty>(player);
             }
         }
 
@@ -859,6 +1121,7 @@ void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
                         equip->set(m_dragSourceEquipmentSlot, entt::null);
                         inv->items.push_back(m_draggedItem);
                         // 如果指定位置有东西，那逻辑就复杂了，暂时只支持 push_back
+                        registry.get_or_emplace<StatsDirty>(player);
                     }
                     m_draggedItem = entt::null;
                 }

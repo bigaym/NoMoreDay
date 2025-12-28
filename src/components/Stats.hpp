@@ -49,6 +49,12 @@ struct alignas(32) CombatStats {
     float mana = 100.0f;
     float max_mana = 100.0f;
 
+    // --- 有效属性 (用于 UI 显示) ---
+    float effective_strength = 0.0f;
+    float effective_dexterity = 0.0f;
+    float effective_intelligence = 0.0f;
+    float effective_vitality = 0.0f;
+
     // --- 进攻面板 ---
     
     // A. 武器基础伤害 (Base Weapon Damage)
@@ -74,6 +80,7 @@ struct alignas(32) CombatStats {
     float attack_speed = 1.0f;      // 攻击频率倍率
     float cast_speed = 1.0f;        // 施法速度
     float armor_pen = 0.0f;         // 护甲穿透 (固定值或百分比，视设计而定)
+    float knockback = 0.0f;         // 击退力度
 
     // --- 防御面板 ---
     
@@ -117,44 +124,43 @@ struct alignas(32) CombatStats {
     float experience_gain_mult = 0.0f;    // 经验获取加成
     float damage_reduction = 0.0f;        // 全局伤害减免 % (稀有属性)
 };
-
-// Tag component to request a stats recalculation
+// 请求重新计算属性的标签组件
 struct StatsDirty {};
 
-// --- New Definitions for Modifiers ---
+// --- 修饰符的新定义 ---
 
 enum class StatType : uint8_t {
     Strength,
     Dexterity,
     Intelligence,
     Vitality,
-    MaxHealth,
-    MaxMana,
-    MoveSpeed,
-    Armor,
+    MaxHealth,  // 最大生命值
+    MaxMana,    // 最大法力值
+    MoveSpeed,  // 移动速度
+    Armor,      // 护甲
     Count
 };
 
 enum class ModifierMode : uint8_t {
-    Flat,           // Adds to base (e.g., +10 HP)
-    PercentAdd,     // Adds to multiplier (e.g., +10% HP)
-    PercentMult     // Multiplies the final result (e.g., x1.2 damage)
+    Flat,           // 添加到基础值 (例如, +10 生命值)
+    PercentAdd,     // 添加到乘数 (例如, +10% 生命值)
+    PercentMult     // 乘以最终结果 (例如, x1.2 伤害)
 };
 
 enum class ModifierSource : uint8_t {
-    Base,       // Intrinsic to the entity or base attributes
-    Item,       // From equipment
-    Skill,      // From passive or active skills
-    Buff,       // Temporary effects
-    Environment // Zone modifiers etc.
+    Base,       // 实体固有或基础属性
+    Item,       // 来自装备
+    Skill,      // 来自被动或主动技能
+    Buff,       // 临时效果
+    Environment // 区域修饰符等
 };
 
 struct StatModifier {
     StatType type;
     ModifierMode mode;
     float value;
-    ModifierSource source = ModifierSource::Base;
-    uint32_t source_id = 0; // Optional: to track specific item/skill ID
+    ModifierSource source = ModifierSource::Base; // 修饰符来源
+    uint32_t source_id = 0; // 可选: 用于追踪特定的物品/技能ID
 };
 
 struct ModifierList {

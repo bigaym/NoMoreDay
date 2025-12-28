@@ -17,7 +17,7 @@ void DropSystem::update(entt::registry& registry) {
     for (auto entity : view) {
         const auto& killedTag = view.get<KilledTag>(entity);
         GenerateDrops(registry, killedTag.killer, entity);
-    }
+    } // 遍历所有被击杀的实体
 }
 
 void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, entt::entity victim) {
@@ -26,7 +26,7 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
     const auto& table = registry.get<DropTableComponent>(victim);
     const auto& pos = registry.get<Position>(victim);
 
-    // Get Player Stats for MF and Gold Bonus
+    // 获取玩家的魔法寻宝率和金币加成
     float mf = 0.0f;
     float goldBonus = 0.0f;
     int playerLevel = 1;
@@ -44,18 +44,18 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
 
     const LootPool* pool = ItemFactory::getLootPool(table.poolId);
     if (!pool) {
-        // Fallback to global pool if specific pool not found
+        // 如果未找到特定掉落池，则回退到全局掉落池
         pool = ItemFactory::getLootPool(0);
     }
 
     if (!pool || pool->entries.empty()) return;
 
-    // Determine number of rolls
+    // 确定掷骰次数
     std::uniform_int_distribution<int> rollDist(table.minRolls, table.maxRolls);
     int rolls = rollDist(g_drop_rng);
 
     for (int i = 0; i < rolls; ++i) {
-        // Check drop chance
+        // 检查掉落几率
         std::uniform_real_distribution<float> chanceDist(0.0f, 1.0f);
         if (chanceDist(g_drop_rng) > table.dropChance) continue;
 
@@ -63,19 +63,19 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
         std::uniform_real_distribution<float> weightDist(0.0f, pool->totalWeight);
         float roll = weightDist(g_drop_rng);
         float currentWeight = 0.0f;
-
+        
         for (const auto& entry : pool->entries) {
             currentWeight += entry.weight;
             if (roll <= currentWeight) {
-                // Generate Loot
+                // 生成掉落物
                 if (entry.type == LootEntryType::Item) {
                     auto item = ItemFactory::createRandomLoot(registry, playerLevel, mf);
                     registry.emplace_or_replace<Position>(item, pos.x, pos.y);
                     LOG_DEBUG("DropSystem: Dropped item at ({}, {})", pos.x, pos.y);
                 } else if (entry.type == LootEntryType::Gold) {
                     std::uniform_int_distribution<uint32_t> amountDist(entry.minAmount, entry.maxAmount);
-                    uint32_t amount = amountDist(g_drop_rng);
-                    amount = (uint32_t)((float)amount * (1.0f + goldBonus));
+                    uint32_t amount = amountDist(g_drop_rng); // 随机金币数量
+                    amount = (uint32_t)((float)amount * (1.0f + goldBonus)); // 应用金币加成
 
                     if (amount > 0) {
                         auto gold = registry.create();

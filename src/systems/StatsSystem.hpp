@@ -5,14 +5,12 @@ namespace NoMoreDay {
 
 class StatsSystem {
 public:
-    /**
-     * @brief Recalculates all combat stats for a specific entity based on primary stats and modifiers.
-     */
+    // @brief 根据主要属性和修饰符重新计算特定实体的所有战斗属性。
+    //
     static void Recalculate(entt::registry& registry, entt::entity entity);
 
-    /**
-     * @brief System update: recalculates stats for all entities with StatsDirty tag.
-     */
+    // @brief 系统更新：为所有带有 StatsDirty 标签的实体重新计算属性。
+    //
     static void update(entt::registry& registry);
 };
 

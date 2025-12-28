@@ -6,13 +6,13 @@ namespace NoMoreDay {
 class DropSystem {
 public:
     /**
-     * @brief Processes killed entities and generates loot based on their DropTableComponent.
+     * @brief 处理被击杀的实体并根据其 DropTableComponent 生成掉落物。
      */
     static void update(entt::registry& registry);
 
     /**
-     * @brief Core logic to calculate drops for a specific entity.
-     * Can be called independently for testing or special events.
+     * @brief 计算特定实体掉落物的核心逻辑。
+     * 可独立调用用于测试或特殊事件。
      */
     static void GenerateDrops(entt::registry& registry, entt::entity killer, entt::entity victim);
 };

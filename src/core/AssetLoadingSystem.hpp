@@ -10,13 +10,13 @@ class AssetLoadingSystem {
 public:
     static void Initialize(ResourceManager& resourceManager);
     
-    // Loads a font and stores it for UI use
+    // 加载字体并存储以供UI使用
     static Font LoadUIFont(const std::string& path, int fontSize);
     
-    // Loads a UI texture and returns its ID
+    // 加载UI纹理并返回其ID
     static Texture2D LoadUITexture(entt::id_type id, const std::string& path);
 
-    // Gets a texture by ID if it's already loaded
+    // 如果已加载，则通过ID获取纹理
     static Texture2D GetTexture(entt::id_type id);
 
     static void Shutdown();

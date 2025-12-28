@@ -9,35 +9,35 @@ namespace NoMoreDay {
 enum class AffixType : uint8_t {
     // Primary Stats
     Strength,
-    Dexterity,
+    Dexterity, // 敏捷
     Intelligence,
-    Vitality,
+    Vitality, // 体质
 
     // Offensive
-    FlatPhysicalDamage,
-    FlatFireDamage,
-    FlatColdDamage,
-    FlatLightningDamage,
-    FlatPoisonDamage,
-    FlatShadowDamage,
+    FlatPhysicalDamage, // 基础物理伤害
+    FlatFireDamage,     // 基础火焰伤害
+    FlatColdDamage,     // 基础冰霜伤害
+    FlatLightningDamage,// 基础闪电伤害
+    FlatPoisonDamage,   // 基础毒素伤害
+    FlatShadowDamage,   // 基础暗影伤害
     
-    PercentPhysicalDamage,
-    PercentFireDamage,
-    PercentColdDamage,
-    PercentLightningDamage,
-    PercentPoisonDamage,
-    PercentShadowDamage,
+    PercentPhysicalDamage,  // 百分比物理伤害
+    PercentFireDamage,      // 百分比火焰伤害
+    PercentColdDamage,      // 百分比冰霜伤害
+    PercentLightningDamage, // 百分比闪电伤害
+    PercentPoisonDamage,    // 百分比毒素伤害
+    PercentShadowDamage,    // 百分比暗影伤害
 
-    CritChance,
-    CritDamage,
-    AttackSpeed,
-    CastSpeed,
+    CritChance, // 暴击几率
+    CritDamage, // 暴击伤害
+    AttackSpeed,// 攻击速度
+    CastSpeed,  // 施法速度
 
     // Defensive
-    FlatArmor,
-    PercentArmor,
-    FlatHealth,
-    PercentHealth,
+    FlatArmor,      // 基础护甲
+    PercentArmor,   // 百分比护甲
+    FlatHealth,     // 基础生命值
+    PercentHealth,  // 百分比生命值
     FlatMana,
     ResistAll,
     ResistFire,
@@ -47,19 +47,19 @@ enum class AffixType : uint8_t {
     ResistShadow,
 
     // Utility
-    MoveSpeed,
-    CooldownReduction,
+    MoveSpeed,          // 移动速度
+    CooldownReduction,  // 冷却缩减
     
     Count
 };
 
 struct Affix {
     AffixType type;
-    float value;
-    int tier; // 1 to 7 (T1 is lowest usually, or T7 is lowest? Design says T6 is Exalted, usually higher tier # is better in ARPGs like LE)
-              // Let's assume T1 = Low, T7 = High/Godly.
-    bool isPrefix; // true = Prefix, false = Suffix
-    std::string name; // Cached name for UI, e.g. "of the Bear" or "Burning"
+    float value; // 词缀值
+    int tier;    // 词缀等级 (1到7，通常T1最低，T7最高/神级)
+                 // 假设 T1 = 低，T7 = 高/神级。
+    bool isPrefix; // true = 前缀, false = 后缀
+    std::string name; // 用于UI显示的缓存名称，例如 "of the Bear" 或 "Burning"
 };
 
 // Returns a human readable string for the affix, e.g. "+10 Strength"
@@ -67,48 +67,48 @@ inline std::string GetAffixDescription(const Affix& affix) {
     std::string text = "+";
     text += std::to_string((int)affix.value); // Simplify for now
     
-    // Percent signs are handled in the switch cases for better control
+    // 百分号在switch语句中处理，以便更好地控制
     
     switch (affix.type) {
-        case AffixType::Strength: text += " Strength"; break;
-        case AffixType::Dexterity: text += " Dexterity"; break;
-        case AffixType::Intelligence: text += " Intelligence"; break;
-        case AffixType::Vitality: text += " Vitality"; break;
+        case AffixType::Strength: text += " 力量"; break;
+        case AffixType::Dexterity: text += " 敏捷"; break;
+        case AffixType::Intelligence: text += " 智力"; break;
+        case AffixType::Vitality: text += " 体质"; break;
         
-        case AffixType::FlatPhysicalDamage: text += " Physical Dmg"; break;
-        case AffixType::FlatFireDamage: text += " Fire Dmg"; break;
-        case AffixType::FlatColdDamage: text += " Cold Dmg"; break;
-        case AffixType::FlatLightningDamage: text += " Lightning Dmg"; break;
-        case AffixType::FlatPoisonDamage: text += " Poison Dmg"; break;
-        case AffixType::FlatShadowDamage: text += " Shadow Dmg"; break;
+        case AffixType::FlatPhysicalDamage: text += " 物理伤害"; break;
+        case AffixType::FlatFireDamage: text += " 火焰伤害"; break;
+        case AffixType::FlatColdDamage: text += " 冰霜伤害"; break;
+        case AffixType::FlatLightningDamage: text += " 闪电伤害"; break;
+        case AffixType::FlatPoisonDamage: text += " 毒素伤害"; break;
+        case AffixType::FlatShadowDamage: text += " 暗影伤害"; break;
 
-        case AffixType::PercentPhysicalDamage: text += "% Increased Physical Dmg"; break;
-        case AffixType::PercentFireDamage: text += "% Increased Fire Dmg"; break;
-        case AffixType::PercentColdDamage: text += "% Increased Cold Dmg"; break;
-        case AffixType::PercentLightningDamage: text += "% Increased Lightning Dmg"; break;
-        case AffixType::PercentPoisonDamage: text += "% Increased Poison Dmg"; break;
-        case AffixType::PercentShadowDamage: text += "% Increased Shadow Dmg"; break;
+        case AffixType::PercentPhysicalDamage: text += "% 物理伤害"; break;
+        case AffixType::PercentFireDamage: text += "% 火焰伤害"; break;
+        case AffixType::PercentColdDamage: text += "% 冰霜伤害"; break;
+        case AffixType::PercentLightningDamage: text += "% 闪电伤害"; break;
+        case AffixType::PercentPoisonDamage: text += "% 毒素伤害"; break;
+        case AffixType::PercentShadowDamage: text += "% 暗影伤害"; break;
 
-        case AffixType::CritChance: text += "% Crit Chance"; break;
-        case AffixType::CritDamage: text += "% Crit Damage"; break;
-        case AffixType::AttackSpeed: text += "% Attack Speed"; break;
-        case AffixType::CastSpeed: text += "% Cast Speed"; break;
+        case AffixType::CritChance: text += "% 暴击率"; break;
+        case AffixType::CritDamage: text += "% 暴击伤害"; break;
+        case AffixType::AttackSpeed: text += "% 攻击速度"; break;
+        case AffixType::CastSpeed: text += "% 施法速度"; break;
 
-        case AffixType::FlatArmor: text += " Armor"; break;
-        case AffixType::FlatHealth: text += " Health"; break;
-        case AffixType::FlatMana: text += " Mana"; break;
+        case AffixType::FlatArmor: text += " 护甲"; break;
+        case AffixType::FlatHealth: text += " 生命"; break;
+        case AffixType::FlatMana: text += " 法力"; break;
         
-        case AffixType::ResistAll: text += "% All Resistances"; break;
-        case AffixType::ResistFire: text += "% Fire Resistance"; break;
-        case AffixType::ResistCold: text += "% Cold Resistance"; break;
-        case AffixType::ResistLightning: text += "% Lightning Resistance"; break;
-        case AffixType::ResistPoison: text += "% Poison Resistance"; break;
-        case AffixType::ResistShadow: text += "% Shadow Resistance"; break;
+        case AffixType::ResistAll: text += "% 全抗性"; break;
+        case AffixType::ResistFire: text += "% 火焰抗性"; break;
+        case AffixType::ResistCold: text += "% 冰霜抗性"; break;
+        case AffixType::ResistLightning: text += "% 闪电抗性"; break;
+        case AffixType::ResistPoison: text += "% 毒素抗性"; break;
+        case AffixType::ResistShadow: text += "% 暗影抗性"; break;
 
-        case AffixType::MoveSpeed: text += "% Move Speed"; break;
-        case AffixType::CooldownReduction: text += "% Cooldown Reduction"; break;
+        case AffixType::MoveSpeed: text += "% 移动速度"; break;
+        case AffixType::CooldownReduction: text += "% 冷却缩减"; break;
         
-        default: text += " Stat"; break;
+        default: text += " 属性"; break;
     }
     return text;
 }

@@ -9,17 +9,17 @@ public:
     ResourceManager() = default;
     ~ResourceManager();
 
-    // Loads a texture from disk if not already loaded. 
-    // Usage: loadTexture("sword"_hs, "path/...")
+    // 如果尚未加载，则从磁盘加载纹理。
+    // 用法: loadTexture("sword"_hs, "path/...")
     Texture2D loadTexture(entt::id_type id, const std::string& path);
     
-    // Gets an already loaded texture. Returns empty texture if not found.
+    // 获取已加载的纹理。如果未找到，则返回空纹理。
     Texture2D getTexture(entt::id_type id);
 
-    // Loads a font from disk if not already loaded
+    // 如果尚未加载，则从磁盘加载字体
     Font loadFont(entt::id_type id, const std::string& path, int fontSize, int* codepoints = nullptr, int codepointCount = 0);
 
-    // Gets an already loaded font
+    // 获取已加载的字体
     Font getFont(entt::id_type id);
 
     void unloadAll();
