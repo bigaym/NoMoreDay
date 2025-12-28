@@ -11,12 +11,12 @@
 - [x] Task: Implement the core logic for click-to-equip/unequip functionality. [f82a1b9]
 - [x] Task: Conductor - User Manual Verification 'UI Core Structure and Base Functionality' (Protocol in workflow.md) [g82a1b9]
 
-## Phase 2: Item Information Display and Contextual Actions
+## Phase 2: Item Information Display and Contextual Actions [checkpoint: e83b463]
 - [x] Task: Implement a robust tooltip system to display detailed item information on hover. [dc94f1c]
 - [x] Task: Implement rendering logic for items dropped on the ground, displaying full name with rarity-bound color. [d8b6699]
 - [x] Task: Implement rendering logic for items in inventory/equipment slots, displaying shortened type with rarity-bound color. [9fa304f]
 - [x] Task: Develop the right-click contextual menu system for items, including "Discard," "Use," and "Equip/Unequip" options. [8e36e34]
-- [ ] Task: Conductor - User Manual Verification 'Item Information Display and Contextual Actions' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Item Information Display and Contextual Actions' (Protocol in workflow.md) [e83b463]
 
 ## Phase 3: Asset Integration and Localization
 - [ ] Task: Develop the `AssetLoadingSystem` to handle dynamic loading of UI assets (textures, fonts).
