@@ -27,6 +27,14 @@ private:
 
     static entt::entity m_hoveredItem;
 
+    // 右键菜单状态
+    static bool m_showContextMenu;
+    static entt::entity m_contextMenuItem;
+    static Vector2 m_contextMenuPos;
+    static bool m_isContextFromInventory;
+    static int m_contextSourceInventoryIndex;
+    static NoMoreDay::EquipmentSlot m_contextSourceEquipmentSlot;
+
     static void DrawCharacterPanel(entt::registry& registry, entt::entity player);
     static void DrawInventoryAndEquipment(entt::registry& registry);
     static void DrawSlot(entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel = nullptr, bool highlighted = false);
@@ -34,6 +42,7 @@ private:
     // 辅助函数：绘制属性行
     static void DrawStatRow(const char* label, const char* value, float x, float& y, float width, float fontSize = 20.0f);
     static void DrawTooltip(entt::registry& registry, entt::entity item);
+    static void DrawContextMenu(entt::registry& registry);
     
     // 内部辅助：使用自定义字体绘制文本
     static void DrawTextUI(const char* text, float x, float y, float fontSize, Color color);

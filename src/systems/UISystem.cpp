@@ -27,6 +27,13 @@ int UISystem::m_dragSourceInventoryIndex = -1;
 EquipmentSlot UISystem::m_dragSourceEquipmentSlot = EquipmentSlot::None;
 entt::entity UISystem::m_hoveredItem = entt::null;
 
+bool UISystem::m_showContextMenu = false;
+entt::entity UISystem::m_contextMenuItem = entt::null;
+Vector2 UISystem::m_contextMenuPos = { 0, 0 };
+bool UISystem::m_isContextFromInventory = false;
+int UISystem::m_contextSourceInventoryIndex = -1;
+EquipmentSlot UISystem::m_contextSourceEquipmentSlot = EquipmentSlot::None;
+
 // --- 小地图专用静态资源 (无需修改头文件) ---
 static Texture2D s_minimapTexture = { 0 };
 static int s_minimapW = 0;
@@ -99,13 +106,36 @@ void UISystem::DrawTextUI(const char* text, float x, float y, float fontSize, Co
 }
 
 void UISystem::Update(entt::registry& registry) {
+    // 如果右键菜单开启，点击其他地方关闭
+    if (m_showContextMenu) {
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+            // 这里我们先检查是否点击了菜单区域，如果是 DrawContextMenu 内部会处理点击
+            // 但如果点击了外面，这里简单的延时关闭或逻辑控制
+            // 实际上更好的做法是在 DrawContextMenu 里判断，或者在这之后重置
+        }
+    }
+
     // 切换角色面板显示
     if (IsKeyPressed(KEY_C)) {
         m_showCharacterPanel = !m_showCharacterPanel;
+        m_showContextMenu = false;
     }
     // 切换背包显示
-    if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB)) {
-        m_showInventory = !m_showInventory;
+    if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB) || IsKeyPressed(KEY_ESCAPE)) {
+        if (m_showInventory) {
+            m_showInventory = false;
+            m_showContextMenu = false;
+        } else {
+            m_showInventory = true;
+        }
+    }
+    
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        if (m_showContextMenu) {
+            m_showContextMenu = false;
+        } else {
+            m_showCharacterPanel = false;
+        }
     }
     // 调试：切换小地图全开
     if (IsKeyPressed(KEY_F1)) {
@@ -155,6 +185,11 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager) 
     // 最后绘制悬停提示 (Tooltip)
     if (m_hoveredItem != entt::null && registry.valid(m_hoveredItem)) {
         DrawTooltip(registry, m_hoveredItem);
+    }
+
+    // 绘制右键菜单
+    if (m_showContextMenu) {
+        DrawContextMenu(registry);
     }
 }
 
@@ -440,6 +475,108 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
     }
 }
 
+void UISystem::DrawContextMenu(entt::registry& registry) {
+    auto* itemComp = registry.try_get<ItemComponent>(m_contextMenuItem);
+    if (!itemComp) {
+        m_showContextMenu = false;
+        return;
+    }
+
+    float width = 120.0f;
+    float optionHeight = 30.0f;
+    int numOptions = 3;
+    float height = numOptions * (optionHeight + 2.0f) + 10.0f;
+
+    float x = m_contextMenuPos.x;
+    float y = m_contextMenuPos.y;
+
+    if (x + width > (float)GetScreenWidth()) x = m_contextMenuPos.x - width;
+    if (y + height > (float)GetScreenHeight()) y = m_contextMenuPos.y - height;
+
+    // 如果点击菜单外部，关闭菜单
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !CheckCollisionPointRec(GetMousePosition(), {x, y, width, height})) {
+        m_showContextMenu = false;
+        return;
+    }
+
+    // 绘制背景
+    DrawRectangleRec({x, y, width, height}, Fade(BLACK, 0.95f));
+    DrawRectangleLinesEx({x, y, width, height}, 1.0f, GOLD);
+
+    // 获取玩家组件 (用于操作)
+    auto playerView = registry.view<PlayerTag>();
+    if (playerView.begin() == playerView.end()) return;
+    auto player = playerView.front();
+    auto* inv = registry.try_get<InventoryComponent>(player);
+    auto* equip = registry.try_get<EquipmentComponent>(player);
+
+    float curY = y + 5.0f;
+    auto drawOption = [&](const char* label, bool enabled, std::function<void()> action) {
+        Rectangle optRec = { x + 5, curY, width - 10, optionHeight };
+        bool hovered = enabled && CheckCollisionPointRec(GetMousePosition(), optRec);
+        
+        if (hovered) {
+            DrawRectangleRec(optRec, Fade(GOLD, 0.3f));
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                action();
+                m_showContextMenu = false;
+            }
+        }
+        
+        DrawTextUI(label, optRec.x + 10, optRec.y + 5, 18, enabled ? (hovered ? YELLOW : WHITE) : GRAY);
+        curY += optionHeight + 2.0f;
+    };
+
+    // 选项 1: 穿戴/卸载
+    if (m_isContextFromInventory) {
+        bool canEquip = itemComp->slot != EquipmentSlot::None;
+        drawOption("穿戴", canEquip, [&]() {
+            if (equip) {
+                entt::entity oldEquip = equip->get(itemComp->slot);
+                equip->set(itemComp->slot, m_contextMenuItem);
+                if (oldEquip != entt::null) {
+                    inv->items[m_contextSourceInventoryIndex] = oldEquip;
+                } else {
+                    inv->items.erase(inv->items.begin() + m_contextSourceInventoryIndex);
+                }
+            }
+        });
+    } else {
+        drawOption("卸载", true, [&]() {
+            if (inv && !inv->isFull()) {
+                inv->items.push_back(m_contextMenuItem);
+                equip->set(m_contextSourceEquipmentSlot, entt::null);
+            }
+        });
+    }
+
+    // 选项 2: 使用 (消耗品)
+    bool isConsumable = itemComp->type == ItemType::Consumable;
+    drawOption("使用", isConsumable, [&]() {
+        // TODO: 应用消耗品效果
+        itemComp->quantity--;
+        if (itemComp->quantity <= 0) {
+            if (m_isContextFromInventory) {
+                inv->items.erase(inv->items.begin() + m_contextSourceInventoryIndex);
+            } else {
+                equip->set(m_contextSourceEquipmentSlot, entt::null);
+            }
+            registry.destroy(m_contextMenuItem);
+        }
+    });
+
+    // 选项 3: 丢弃
+    drawOption("丢弃", true, [&]() {
+        if (m_isContextFromInventory) {
+            inv->items.erase(inv->items.begin() + m_contextSourceInventoryIndex);
+        } else {
+            equip->set(m_contextSourceEquipmentSlot, entt::null);
+        }
+        // TODO: 在地上生成掉落物，或者直接销毁
+        registry.destroy(m_contextMenuItem);
+    });
+}
+
 void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
     auto playerView = registry.view<PlayerTag>();
     if (playerView.begin() == playerView.end()) return;
@@ -510,12 +647,13 @@ void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
             m_dragSourceEquipmentSlot = slotType;
         }
 
-        // --- 右键卸载 (装备槽) ---
-        if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null && inv) {
-            if (!inv->isFull()) {
-                inv->items.push_back(item);
-                equip->set(slotType, entt::null);
-            }
+        // --- 右键菜单 (装备槽) ---
+        if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
+            m_showContextMenu = true;
+            m_contextMenuItem = item;
+            m_contextMenuPos = GetMousePosition();
+            m_isContextFromInventory = false;
+            m_contextSourceEquipmentSlot = slotType;
         }
         
         if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && m_draggedItem != entt::null) {
@@ -602,19 +740,13 @@ void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
                     m_dragSourceInventoryIndex = index;
                 }
 
-                // --- 右键穿戴 (背包槽) ---
-                if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null && equip) {
-                    auto* itemComp = registry.try_get<ItemComponent>(item);
-                    if (itemComp && itemComp->slot != EquipmentSlot::None) {
-                        // 穿戴
-                        entt::entity oldEquip = equip->get(itemComp->slot);
-                        equip->set(itemComp->slot, item);
-                        if (oldEquip != entt::null) {
-                            inv->items[index] = oldEquip;
-                        } else {
-                            inv->items.erase(inv->items.begin() + index);
-                        }
-                    }
+                // --- 右键菜单 (背包槽) ---
+                if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
+                    m_showContextMenu = true;
+                    m_contextMenuItem = item;
+                    m_contextMenuPos = GetMousePosition();
+                    m_isContextFromInventory = true;
+                    m_contextSourceInventoryIndex = index;
                 }
 
                 if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && m_draggedItem != entt::null) {
