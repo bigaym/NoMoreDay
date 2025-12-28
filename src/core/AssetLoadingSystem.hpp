@@ -16,6 +16,9 @@ public:
     // Loads a UI texture and returns its ID
     static Texture2D LoadUITexture(entt::id_type id, const std::string& path);
 
+    // Gets a texture by ID if it's already loaded
+    static Texture2D GetTexture(entt::id_type id);
+
     static void Shutdown();
 
 private:

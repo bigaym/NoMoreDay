@@ -30,6 +30,14 @@ Texture2D AssetLoadingSystem::LoadUITexture(entt::id_type id, const std::string&
     return m_resourceManager->loadTexture(id, path);
 }
 
+Texture2D AssetLoadingSystem::GetTexture(entt::id_type id) {
+    if (!m_resourceManager) {
+        LOG_ERROR("AssetLoadingSystem: Not initialized!");
+        return { 0 };
+    }
+    return m_resourceManager->getTexture(id);
+}
+
 void AssetLoadingSystem::Shutdown() {
     m_resourceManager = nullptr;
     m_loadedFonts.clear();

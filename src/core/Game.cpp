@@ -58,6 +58,13 @@ void Game::init() {
     const auto& playerAsset = assets::textures::Player_Warrior;
     Texture2D playerTexture = m_resourceManager.loadTexture(playerAsset.id, std::string(playerAsset.path));
     
+    // Load other essential textures
+    m_resourceManager.loadTexture(assets::textures::Weapon_Sword.id, std::string(assets::textures::Weapon_Sword.path));
+    m_resourceManager.loadTexture(assets::textures::Skeleton.id, std::string(assets::textures::Skeleton.path));
+    m_resourceManager.loadTexture(assets::textures::Cultist.id, std::string(assets::textures::Cultist.path));
+    m_resourceManager.loadTexture(assets::textures::Demon.id, std::string(assets::textures::Demon.path));
+    m_resourceManager.loadTexture(assets::textures::Corrupted_Beast.id, std::string(assets::textures::Corrupted_Beast.path));
+
     // 3. Spawn Player
     auto player = m_registry.create();
     LOG_DEBUG("Created player entity with ID: {}", (uint32_t)player);

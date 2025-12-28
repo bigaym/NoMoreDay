@@ -73,6 +73,8 @@ add_executable(DropSystemTest
     DropSystemTest.cpp 
     ${CMAKE_SOURCE_DIR}/src/systems/DropSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/core/ItemFactory.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ResourceManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/AssetLoadingSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
 )
 target_include_directories(DropSystemTest PRIVATE 
@@ -92,6 +94,8 @@ add_executable(DropSystemBenchmark
     DropSystemBenchmark.cpp 
     ${CMAKE_SOURCE_DIR}/src/systems/DropSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/core/ItemFactory.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ResourceManager.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/AssetLoadingSystem.cpp
     ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
 )
 target_include_directories(DropSystemBenchmark PRIVATE 

@@ -4,6 +4,9 @@
 #include <map>
 #include <vector>
 #include "../tools/Logger.hpp"
+#include "AssetLoadingSystem.hpp"
+#include "AssetRegistry.hpp"
+#include "../components/Common.hpp"
 
 namespace NoMoreDay {
 
@@ -325,6 +328,18 @@ entt::entity ItemFactory::createWeapon(entt::registry& registry, int level, Rari
 
     rollAffixes(item, level);
     registry.emplace<ItemComponent>(entity, item);
+
+    // Assign Sprite based on item type/name
+    if (item.type == ItemType::Weapon) {
+        // Currently we only have one sword texture
+        Texture2D tex = AssetLoadingSystem::GetTexture(assets::textures::Weapon_Sword.id);
+        if (tex.id > 0) {
+            // Weapon textures are usually 1024x1024, scale down to ~40px for UI/World
+            registry.emplace<SpriteComponent>(entity, tex, 0.05f);
+            LOG_DEBUG("Assigned weapon sprite to entity: {}", (uint32_t)entity);
+        }
+    }
+
     LOG_DEBUG("Weapon created with entity ID: {}", (uint32_t)entity);
     return entity;
 }
