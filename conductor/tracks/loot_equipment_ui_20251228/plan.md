@@ -12,7 +12,7 @@
 - [x] Task: Conductor - User Manual Verification 'UI Core Structure and Base Functionality' (Protocol in workflow.md) [g82a1b9]
 
 ## Phase 2: Item Information Display and Contextual Actions
-- [~] Task: Implement a robust tooltip system to display detailed item information on hover.
+- [x] Task: Implement a robust tooltip system to display detailed item information on hover. [dc94f1c]
 - [ ] Task: Implement rendering logic for items dropped on the ground, displaying full name with rarity-bound color.
 - [ ] Task: Implement rendering logic for items in inventory/equipment slots, displaying shortened type with rarity-bound color.
 - [ ] Task: Develop the right-click contextual menu system for items, including "Discard," "Use," and "Equip/Unequip" options.
