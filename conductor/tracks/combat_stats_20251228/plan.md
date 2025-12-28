@@ -4,7 +4,7 @@
 - [x] Task: Define `Stats` component and `StatModifier` structure in `src/components/Stats.hpp` (364bd5a)
 - [x] Task: Create `StatsSystem` test suite (`tests/StatsSystemTest.cpp`) (364bd5a)
 - [x] Task: Implement `StatsSystem::Recalculate` to derive secondary stats from primary attributes (364bd5a)
-- [ ] Task: Refactor `StatsSystem` to ensure SIMD compatibility (alignment)
+- [x] Task: Refactor `StatsSystem` to ensure SIMD compatibility (alignment) (3fb88aa)
 
 ## Phase 2: Damage Calculation Pipeline
 - [ ] Task: Define `DamageEvent` and `DamageType` enums in `src/components/Combat.hpp`
