@@ -32,3 +32,20 @@ target_link_libraries(CombatSystemTest PRIVATE spdlog::spdlog raylib)
 if(WIN32)
     target_compile_definitions(CombatSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
+
+add_executable(StatsBenchmark 
+    StatsBenchmark.cpp 
+    ${CMAKE_SOURCE_DIR}/src/systems/StatsSystem.cpp
+)
+target_include_directories(StatsBenchmark PRIVATE 
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party/entt/src
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+    ${CMAKE_SOURCE_DIR}/third_party/spdlog/include
+    ${CMAKE_SOURCE_DIR}/third_party/taskflow
+    ${CMAKE_SOURCE_DIR}/third_party/raylib/src
+)
+target_link_libraries(StatsBenchmark PRIVATE spdlog::spdlog)
+if(WIN32)
+    target_compile_definitions(StatsBenchmark PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()

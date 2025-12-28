@@ -14,7 +14,7 @@
 
 ## Phase 2 Checkpoint: Damage Calculation Pipeline [checkpoint: 265e03d]
 
-## Phase 3: Affix & Modifier Integration [checkpoint: pending]
+## Phase 3: Affix & Modifier Integration [checkpoint: ae8aaef]
 - [x] Task: Define `ModifierSource` (Item, Skill, Buff)
 - [x] Task: Test stacking rules (Additive vs Multiplicative) for Stat Modifiers
 - [x] Task: Integrate `StatsSystem` with `InventoryComponent` to apply item stats

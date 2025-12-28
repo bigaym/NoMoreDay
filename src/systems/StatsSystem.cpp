@@ -6,7 +6,7 @@
 #include "../components/ItemStats.hpp"
 #include <algorithm>
 #include <vector>
-#include <map>
+#include <array>
 
 namespace NoMoreDay {
 
@@ -35,9 +35,9 @@ static void resetCombatStats(CombatStats& combat) {
     combat.damage_multipliers.fill(1.0f);
 }
 
-// Helper to apply a generic StatModifier to the calculation map
-static void ApplyStatModifier(std::map<StatType, StatCalculation>& calcs, StatType type, ModifierMode mode, float value) {
-    auto& c = calcs[type];
+// Helper to apply a generic StatModifier to the calculation array
+static void ApplyStatModifier(std::array<StatCalculation, static_cast<size_t>(StatType::Count)>& calcs, StatType type, ModifierMode mode, float value) {
+    auto& c = calcs[static_cast<size_t>(type)];
     switch (mode) {
         case ModifierMode::Flat:
             c.flat += value;
@@ -52,7 +52,7 @@ static void ApplyStatModifier(std::map<StatType, StatCalculation>& calcs, StatTy
 }
 
 // Helper to convert AffixType to StatType and apply it
-static void ApplyAffix(std::map<StatType, StatCalculation>& calcs, const Affix& affix) {
+static void ApplyAffix(std::array<StatCalculation, static_cast<size_t>(StatType::Count)>& calcs, const Affix& affix) {
     switch (affix.type) {
         case AffixType::Strength:
             ApplyStatModifier(calcs, StatType::Strength, ModifierMode::Flat, affix.value);
@@ -84,7 +84,6 @@ static void ApplyAffix(std::map<StatType, StatCalculation>& calcs, const Affix& 
         case AffixType::MoveSpeed:
             ApplyStatModifier(calcs, StatType::MoveSpeed, ModifierMode::PercentAdd, affix.value);
             break;
-        // TODO: Handle Damage Affixes (need to expand StatType or handle separately)
         default:
             break;
     }
@@ -94,53 +93,41 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     if (!registry.all_of<CombatStats>(entity)) return;
 
     auto& combat = registry.get<CombatStats>(entity);
-    resetCombatStats(combat); // Ensure we start fresh
+    resetCombatStats(combat); 
     
-    // Use a map to accumulate different stat types
-    std::map<StatType, StatCalculation> calcs;
+    std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs;
     
     // Initialize with defaults
-    calcs[StatType::MaxHealth].base = 100.0f;
-    calcs[StatType::MaxMana].base = 100.0f;
-    calcs[StatType::MoveSpeed].base = 300.0f;
-    calcs[StatType::Armor].base = 0.0f;
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base = 100.0f;
+    calcs[static_cast<size_t>(StatType::MaxMana)].base = 100.0f;
+    calcs[static_cast<size_t>(StatType::MoveSpeed)].base = 300.0f;
+    calcs[static_cast<size_t>(StatType::Armor)].base = 0.0f;
 
-    // 0. Base Stats from PrimaryStats Component (Base Values)
+    // 0. Base Stats from PrimaryStats Component
     if (registry.all_of<PrimaryStats>(entity)) {
         const auto& primary = registry.get<PrimaryStats>(entity);
-        calcs[StatType::Strength].base = primary.strength;
-        calcs[StatType::Dexterity].base = primary.dexterity;
-        calcs[StatType::Intelligence].base = primary.intelligence;
-        calcs[StatType::Vitality].base = primary.vitality;
+        calcs[static_cast<size_t>(StatType::Strength)].base = primary.strength;
+        calcs[static_cast<size_t>(StatType::Dexterity)].base = primary.dexterity;
+        calcs[static_cast<size_t>(StatType::Intelligence)].base = primary.intelligence;
+        calcs[static_cast<size_t>(StatType::Vitality)].base = primary.vitality;
     }
 
-    // 1. Process Equipment (adds to Primary Stats and Secondary Stats)
+    // 1. Process Equipment
     if (registry.all_of<EquipmentComponent>(entity)) {
         const auto& equipment = registry.get<EquipmentComponent>(entity);
         for (const auto& itemEntity : equipment.slots) {
             if (registry.valid(itemEntity) && registry.all_of<ItemComponent>(itemEntity)) {
                 const auto& item = registry.get<ItemComponent>(itemEntity);
-                
-                // Implicits
-                for (const auto& affix : item.implicits) {
-                    ApplyAffix(calcs, affix);
-                }
-                
-                // Explicits
-                for (const auto& affix : item.affixes) {
-                    ApplyAffix(calcs, affix);
-                }
-                
-                // Base Item Stats (Weapon Damage, Armor)
+                for (const auto& affix : item.implicits) ApplyAffix(calcs, affix);
+                for (const auto& affix : item.affixes) ApplyAffix(calcs, affix);
                 if (item.defense > 0) {
                     ApplyStatModifier(calcs, StatType::Armor, ModifierMode::Flat, item.defense);
                 }
-                // Weapon damage usually handled separately or via specific StatType
             }
         }
     }
 
-    // 2. Accumulate Generic Modifiers (Buffs, Passives)
+    // 2. Accumulate Generic Modifiers
     if (registry.all_of<ModifierList>(entity)) {
         const auto& list = registry.get<ModifierList>(entity);
         for (const auto& mod : list.modifiers) {
@@ -148,27 +135,21 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         }
     }
 
-    // 3. Resolve Primary Stats first (as they affect secondary)
-    float str = calcs[StatType::Strength].Result();
-    float dex = calcs[StatType::Dexterity].Result();
-    float intel = calcs[StatType::Intelligence].Result();
-    float vit = calcs[StatType::Vitality].Result();
+    // 3. Resolve Primary Stats
+    float str = calcs[static_cast<size_t>(StatType::Strength)].Result();
+    float dex = calcs[static_cast<size_t>(StatType::Dexterity)].Result();
+    float vit = calcs[static_cast<size_t>(StatType::Vitality)].Result();
 
-    // 4. Apply Primary Stat Scaling to Secondary Bases
-    // Strength -> Armor
-    calcs[StatType::Armor].base += str * 1.0f;
-    // Vitality -> HP
-    calcs[StatType::MaxHealth].base += vit * 10.0f;
-    // Intelligence -> Mana
-    calcs[StatType::MaxMana].base += intel * 2.0f;
+    // 4. Apply Primary Stat Scaling
+    calcs[static_cast<size_t>(StatType::Armor)].base += str * 1.0f;
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base += vit * 10.0f;
+    calcs[static_cast<size_t>(StatType::MaxMana)].base += calcs[static_cast<size_t>(StatType::Intelligence)].Result() * 2.0f;
 
     // 5. Finalize Secondary Stats
-    combat.max_health = calcs[StatType::MaxHealth].Result();
-    combat.max_mana = calcs[StatType::MaxMana].Result();
-    combat.armor = calcs[StatType::Armor].Result();
-    combat.move_speed = calcs[StatType::MoveSpeed].Result();
-
-    // Handle derived stats that didn't go through the calc map (Direct formula)
+    combat.max_health = calcs[static_cast<size_t>(StatType::MaxHealth)].Result();
+    combat.max_mana = calcs[static_cast<size_t>(StatType::MaxMana)].Result();
+    combat.armor = calcs[static_cast<size_t>(StatType::Armor)].Result();
+    combat.move_speed = calcs[static_cast<size_t>(StatType::MoveSpeed)].Result();
     combat.crit_chance = 0.05f + dex * 0.001f;
 }
 
