@@ -1,0 +1,4 @@
+Task: UI Core Structure and Base Functionality
+Changes: Redesigned UISystem for combined Inventory/Equipment window, implemented 11 slots, inventory grid, tabs, drag-and-drop, and right-click interactions.
+Files: src/systems/UISystem.cpp, src/systems/UISystem.hpp, tests/UISystemTest.cpp
+Why: To provide the foundation for player item management and equipment system.
