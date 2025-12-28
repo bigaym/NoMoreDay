@@ -1,6 +1,8 @@
 #include "RenderSystem.hpp"
+#include "UISystem.hpp"
 #include "../components/Common.hpp"
 #include "../components/EffectComponent.hpp"
+#include "../components/ItemComponent.hpp"
 #include <string>
 
 void RenderSystem::render(entt::registry& registry) {
@@ -61,5 +63,50 @@ void RenderSystem::render(entt::registry& registry) {
         // 简单的阴影效果
         DrawText(text, (int)pos.x + 1, (int)pos.y + 1, fontSize, Fade(BLACK, alpha));
         DrawText(text, (int)pos.x, (int)pos.y, fontSize, color);
+    });
+
+    // 5. Draw World Labels for Items and Gold
+    Font font = UISystem::GetFont();
+
+    // Items
+    auto itemView = registry.view<const Position, const NoMoreDay::ItemComponent>();
+    itemView.each([&font](const auto& pos, const auto& item) {
+        Color rarityColor = UISystem::GetRarityColor(item.rarity);
+        const char* name = item.name.c_str();
+        int fontSize = 18;
+        float spacing = 1.0f;
+        
+        Vector2 textSize = MeasureTextEx(font, name, (float)fontSize, spacing);
+        Vector2 textPos = { pos.x - textSize.x / 2.0f, pos.y - 30.0f }; // Above the item
+
+        // Draw background box for readability
+        DrawRectangleRec({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, Fade(BLACK, 0.6f));
+        DrawRectangleLinesEx({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, 1.0f, Fade(rarityColor, 0.5f));
+
+        if (IsFontReady(font)) {
+            DrawTextEx(font, name, textPos, (float)fontSize, spacing, rarityColor);
+        } else {
+            DrawText(name, (int)textPos.x, (int)textPos.y, fontSize, rarityColor);
+        }
+    });
+
+    // Gold
+    auto goldView = registry.view<const Position, const GoldComponent>();
+    goldView.each([&font](const auto& pos, const auto& gold) {
+        const char* text = TextFormat("%d 金币", gold.amount);
+        int fontSize = 16;
+        float spacing = 1.0f;
+        Color goldColor = GOLD;
+
+        Vector2 textSize = MeasureTextEx(font, text, (float)fontSize, spacing);
+        Vector2 textPos = { pos.x - textSize.x / 2.0f, pos.y - 25.0f };
+
+        DrawRectangleRec({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, Fade(BLACK, 0.6f));
+        
+        if (IsFontReady(font)) {
+            DrawTextEx(font, text, textPos, (float)fontSize, spacing, goldColor);
+        } else {
+            DrawText(text, (int)textPos.x, (int)textPos.y, fontSize, goldColor);
+        }
     });
 }

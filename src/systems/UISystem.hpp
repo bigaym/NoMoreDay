@@ -11,6 +11,8 @@ public:
     static void Shutdown();
     static void Update(entt::registry& registry);
     static void Draw(entt::registry& registry, const LevelManager& levelManager);
+    static Font GetFont() { return m_font; }
+    static Color GetRarityColor(NoMoreDay::Rarity rarity);
 
 private:
     static bool m_showCharacterPanel;
@@ -35,5 +37,4 @@ private:
     
     // 内部辅助：使用自定义字体绘制文本
     static void DrawTextUI(const char* text, float x, float y, float fontSize, Color color);
-    static Color GetRarityColor(NoMoreDay::Rarity rarity);
 };
