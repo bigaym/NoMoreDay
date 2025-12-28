@@ -131,26 +131,17 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
 
                     // Apply Damage
                     if (registry.all_of<HealthComponent>(target)) {
-                        auto& hp = registry.get<HealthComponent>(target);
-                        LOG_DEBUG("Applying {:.1f} damage to {} (Crit: {})", finalDamage, (uint32_t)target, isCrit);
-                        hp.current -= finalDamage;
-                        
-                        // Death Logic
-                        if (hp.current <= 0) {
-                            LOG_INFO("Entity {} destroyed by player {}", (uint32_t)target, (uint32_t)entity);
-                            registry.destroy(target);
-                            
-                            // Increment Player Kill Count
-                            if (registry.all_of<PlayerStats>(entity)) {
-                                registry.get<PlayerStats>(entity).killCount++;
-                                LOG_TRACE("Player {} kill count: {}", (uint32_t)entity, registry.get<PlayerStats>(entity).killCount);
-                            }
-                        }
+                        // Cache position for popup as target might be destroyed
+                        float popupX = tPos.x;
+                        float popupY = tPos.y - 20.0f;
+
+                        // Apply Damage Logic (This handles Health reduction and Death)
+                        bool targetDead = ApplyDamage(registry, target, finalDamage, entity);
+                        LOG_DEBUG("Applied {:.1f} damage to {} (Crit: {}, Dead: {})", finalDamage, (uint32_t)target, isCrit, targetDead);
 
                         // --- 生成伤害飘字 ---
                         auto popupEntity = registry.create();
-                        // 从目标位置稍微偏移一点
-                        registry.emplace<Position>(popupEntity, tPos.x, tPos.y - 20.0f);
+                        registry.emplace<Position>(popupEntity, popupX, popupY);
                         
                         DamagePopup popup;
                         popup.damage = finalDamage;
@@ -163,7 +154,6 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                         if (isCrit) {
                             popup.color = RED;
                             popup.lifeTime = 1.0f; // Crit lingers longer
-                            // Could scale text size if supported by RenderSystem
                         } else {
                             popup.color = WHITE;
                         }
@@ -174,8 +164,8 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                         // For particles/props without health, maybe just destroy or knockback?
                         // For now, let's just knock them back hard.
                     }
-                    }
                 }
+            } // Close angleDiff
             });
         }
     }
@@ -216,4 +206,28 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
     damage *= (1.0f - mitigation);
 
     return std::max(0.0f, damage);
+}
+
+bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker) {
+    if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) {
+        return false;
+    }
+
+    auto& hp = registry.get<HealthComponent>(target);
+    hp.current -= amount;
+
+    if (hp.current <= 0) {
+        LOG_INFO("Entity {} destroyed", (uint32_t)target);
+        
+        // Handle Kill Credit
+        if (registry.valid(attacker) && registry.all_of<PlayerStats>(attacker)) {
+            registry.get<PlayerStats>(attacker).killCount++;
+            LOG_TRACE("Player {} kill count: {}", (uint32_t)attacker, registry.get<PlayerStats>(attacker).killCount);
+        }
+
+        registry.destroy(target);
+        return true;
+    }
+
+    return false;
 }

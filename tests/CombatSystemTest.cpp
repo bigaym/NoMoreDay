@@ -80,3 +80,30 @@ TEST_CASE("Damage Calculation - Resistance") {
     // Assuming hard cap at 75% for now, so reduction is 75%, dmg is 25.
     CHECK(damage == doctest::Approx(25.0f));
 }
+
+TEST_CASE("CombatSystem - ApplyDamage") {
+    entt::registry registry;
+    auto entity = registry.create();
+    
+    // Setup Health
+    HealthComponent health;
+    health.max = 100.0f;
+    health.current = 100.0f;
+    registry.emplace<HealthComponent>(entity, health);
+
+    // Apply non-fatal damage
+    bool dead = CombatSystem::ApplyDamage(registry, entity, 30.0f);
+    CHECK(dead == false);
+    CHECK(registry.get<HealthComponent>(entity).current == doctest::Approx(70.0f));
+
+    // Apply fatal damage
+    dead = CombatSystem::ApplyDamage(registry, entity, 80.0f);
+    CHECK(dead == true);
+    // Entity is destroyed, so we cannot check health component anymore
+    // CHECK(registry.get<HealthComponent>(entity).current <= 0.0f);
+    
+    // Verify entity might be destroyed or marked? 
+    // The implementation might destroy it immediately.
+    // If destroy() is called, registry.valid(entity) should be false.
+    CHECK(registry.valid(entity) == false);
+}

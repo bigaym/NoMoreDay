@@ -16,4 +16,11 @@ public:
      * @brief Calculates final damage after mitigation.
      */
     static float CalculateDamage(const NoMoreDay::CombatStats& attacker, const NoMoreDay::CombatStats& defender, float baseDamage, NoMoreDay::DamageType type);
+
+    /**
+     * @brief Applies damage to an entity, handling Health reduction and potential death.
+     * @param attacker Optional entity that caused the damage (for kill credit).
+     * @return true if the entity died (health <= 0), false otherwise.
+     */
+    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null);
 };
