@@ -1,0 +1,1 @@
+Phase: Core Stats Architecture\nAutomated Command: .\\build\\tests\\StatsSystemTest.exe\nManual Verification: Verified correct scaling of Primary Stats to Combat Stats and correct application of Flat, PercentAdd, and PercentMult modifiers.\nUser Confirmation: Confirmed.
