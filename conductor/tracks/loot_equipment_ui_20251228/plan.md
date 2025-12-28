@@ -15,7 +15,7 @@
 - [x] Task: Implement a robust tooltip system to display detailed item information on hover. [dc94f1c]
 - [x] Task: Implement rendering logic for items dropped on the ground, displaying full name with rarity-bound color. [d8b6699]
 - [x] Task: Implement rendering logic for items in inventory/equipment slots, displaying shortened type with rarity-bound color. [9fa304f]
-- [~] Task: Develop the right-click contextual menu system for items, including "Discard," "Use," and "Equip/Unequip" options.
+- [x] Task: Develop the right-click contextual menu system for items, including "Discard," "Use," and "Equip/Unequip" options. [8e36e34]
 - [ ] Task: Conductor - User Manual Verification 'Item Information Display and Contextual Actions' (Protocol in workflow.md)
 
 ## Phase 3: Asset Integration and Localization
