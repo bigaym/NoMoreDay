@@ -144,3 +144,26 @@ target_link_libraries(ItemStatsTest PRIVATE spdlog::spdlog)
 if(WIN32)
     target_compile_definitions(ItemStatsTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
+
+add_executable(RenderSystemTest 
+    RenderSystemTest.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/RenderSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/UISystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/ProgressionSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/XPAwardingSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/MapSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/systems/FogOfWarSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
+)
+target_include_directories(RenderSystemTest PRIVATE 
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party/entt/src
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+    ${CMAKE_SOURCE_DIR}/third_party/spdlog/include
+    ${CMAKE_SOURCE_DIR}/third_party/taskflow
+    ${CMAKE_SOURCE_DIR}/third_party/raylib/src
+)
+target_link_libraries(RenderSystemTest PRIVATE spdlog::spdlog raylib)
+if(WIN32)
+    target_compile_definitions(RenderSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()
