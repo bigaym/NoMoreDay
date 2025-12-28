@@ -141,11 +141,20 @@ enum class ModifierMode : uint8_t {
     PercentMult     // Multiplies the final result (e.g., x1.2 damage)
 };
 
+enum class ModifierSource : uint8_t {
+    Base,       // Intrinsic to the entity or base attributes
+    Item,       // From equipment
+    Skill,      // From passive or active skills
+    Buff,       // Temporary effects
+    Environment // Zone modifiers etc.
+};
+
 struct StatModifier {
     StatType type;
     ModifierMode mode;
     float value;
-    uint32_t source_id = 0; // Optional: to track where the mod came from
+    ModifierSource source = ModifierSource::Base;
+    uint32_t source_id = 0; // Optional: to track specific item/skill ID
 };
 
 struct ModifierList {

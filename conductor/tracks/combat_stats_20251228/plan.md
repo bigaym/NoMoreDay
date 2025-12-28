@@ -14,11 +14,11 @@
 
 ## Phase 2 Checkpoint: Damage Calculation Pipeline [checkpoint: 265e03d]
 
-## Phase 3: Affix & Modifier Integration
-- [~] Task: Define `ModifierSource` (Item, Skill, Buff)
-- [ ] Task: Test stacking rules (Additive vs Multiplicative) for Stat Modifiers
-- [ ] Task: Integrate `StatsSystem` with `InventoryComponent` to apply item stats
+## Phase 3: Affix & Modifier Integration [checkpoint: pending]
+- [x] Task: Define `ModifierSource` (Item, Skill, Buff)
+- [x] Task: Test stacking rules (Additive vs Multiplicative) for Stat Modifiers
+- [x] Task: Integrate `StatsSystem` with `InventoryComponent` to apply item stats
 
 ## Phase 4: Integration & Validation
-- [ ] Task: Benchmark `StatsSystem` update loop with 10,000 entities
+- [~] Task: Benchmark `StatsSystem` update loop with 10,000 entities
 - [ ] Task: Validate no memory allocations occur during `Update()`
