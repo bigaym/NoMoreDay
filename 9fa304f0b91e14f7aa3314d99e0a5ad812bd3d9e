@@ -1,0 +1,6 @@
+Task: Implement rendering logic for items in inventory/equipment slots, displaying shortened type with rarity-bound color.
+Changes:
+- Added GetShortItemTypeName to UISystem to map item types and slots to short Chinese characters (e.g., 剑, 头, 胸).
+- Updated DrawSlot to use the shortened name when a texture is not present.
+- Centered the shortened name text within the slot.
+Why: To provide visual identification of items in the inventory/equipment grid even when specific icons are missing, while respecting space constraints.
