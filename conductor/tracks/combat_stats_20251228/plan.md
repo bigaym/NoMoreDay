@@ -1,9 +1,9 @@
 # Track Plan: Refine Core Combat and Stats System
 
 ## Phase 1: Core Stats Architecture
-- [ ] Task: Define `Stats` component and `StatModifier` structure in `src/components/Stats.hpp`
-- [ ] Task: Create `StatsSystem` test suite (`tests/StatsSystemTest.cpp`)
-- [ ] Task: Implement `StatsSystem::Recalculate` to derive secondary stats from primary attributes
+- [x] Task: Define `Stats` component and `StatModifier` structure in `src/components/Stats.hpp` (364bd5a)
+- [x] Task: Create `StatsSystem` test suite (`tests/StatsSystemTest.cpp`) (364bd5a)
+- [x] Task: Implement `StatsSystem::Recalculate` to derive secondary stats from primary attributes (364bd5a)
 - [ ] Task: Refactor `StatsSystem` to ensure SIMD compatibility (alignment)
 
 ## Phase 2: Damage Calculation Pipeline
