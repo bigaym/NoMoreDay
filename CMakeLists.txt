@@ -48,6 +48,9 @@ add_executable(NoMoreDay
     src/systems/EffectSystem.cpp
     src/systems/EnemyBehavior.cpp
     src/systems/UISystem.cpp
+    src/systems/ProgressionSystem.cpp
+    src/systems/XPAwardingSystem.cpp
+    src/systems/DropSystem.cpp
     src/tools/Logger.cpp
 )
 

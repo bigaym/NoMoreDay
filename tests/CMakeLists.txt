@@ -68,3 +68,41 @@ target_link_libraries(ProgressionSystemTest PRIVATE spdlog::spdlog)
 if(WIN32)
     target_compile_definitions(ProgressionSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
+
+add_executable(DropSystemTest 
+    DropSystemTest.cpp 
+    ${CMAKE_SOURCE_DIR}/src/systems/DropSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ItemFactory.cpp
+    ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
+)
+target_include_directories(DropSystemTest PRIVATE 
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party/entt/src
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+    ${CMAKE_SOURCE_DIR}/third_party/spdlog/include
+    ${CMAKE_SOURCE_DIR}/third_party/taskflow
+    ${CMAKE_SOURCE_DIR}/third_party/raylib/src
+)
+target_link_libraries(DropSystemTest PRIVATE spdlog::spdlog raylib)
+if(WIN32)
+    target_compile_definitions(DropSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()
+
+add_executable(DropSystemBenchmark 
+    DropSystemBenchmark.cpp 
+    ${CMAKE_SOURCE_DIR}/src/systems/DropSystem.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/ItemFactory.cpp
+    ${CMAKE_SOURCE_DIR}/src/tools/Logger.cpp
+)
+target_include_directories(DropSystemBenchmark PRIVATE 
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/third_party/entt/src
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+    ${CMAKE_SOURCE_DIR}/third_party/spdlog/include
+    ${CMAKE_SOURCE_DIR}/third_party/taskflow
+    ${CMAKE_SOURCE_DIR}/third_party/raylib/src
+)
+target_link_libraries(DropSystemBenchmark PRIVATE spdlog::spdlog raylib)
+if(WIN32)
+    target_compile_definitions(DropSystemBenchmark PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()

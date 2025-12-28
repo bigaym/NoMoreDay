@@ -4,6 +4,8 @@
 #include <cstdint>
 #include "ItemStats.hpp"
 
+namespace NoMoreDay {
+
 enum class ItemType {
     Weapon,
     Armor,
@@ -72,3 +74,41 @@ struct ItemComponent {
     // Description
     std::string description;
 };
+
+// --- Loot & Drop System Components ---
+
+enum class LootEntryType {
+    Item,
+    Gold,
+    SubTable
+};
+
+struct LootEntry {
+    LootEntryType type;
+    uint32_t id;      // Item ID (Base Item Type)
+    uint32_t minAmount = 1;
+    uint32_t maxAmount = 1;
+    float weight = 1.0f;
+};
+
+/**
+ * @brief A collection of possible drops with associated weights.
+ * Not usually a component, but a resource managed by AssetRegistry/ItemFactory.
+ */
+struct LootPool {
+    std::string name;
+    std::vector<LootEntry> entries;
+    float totalWeight = 0.0f;
+};
+
+/**
+ * @brief Component attached to enemies to define what they drop.
+ */
+struct DropTableComponent {
+    uint32_t poolId = 0;     // ID for the specific LootPool (0 = Global)
+    float dropChance = 1.0f; // Chance to drop any loot (0.0 to 1.0)
+    int minRolls = 1;        // Minimum number of times to roll on the pool
+    int maxRolls = 1;        // Maximum number of times to roll on the pool
+};
+
+} // namespace NoMoreDay

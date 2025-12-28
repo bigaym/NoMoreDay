@@ -10,10 +10,38 @@ namespace NoMoreDay {
 // Simple Random Helper
 static std::mt19937 g_rng;
 
+std::map<uint32_t, LootPool> ItemFactory::s_lootPools;
+
 void ItemFactory::initialize() {
     std::random_device rd;
     g_rng.seed(rd());
-    LOG_INFO("ItemFactory initialized.");
+
+    // Initialize Global Pool (ID 0)
+    LootPool globalPool;
+    globalPool.name = "Global Pool";
+    globalPool.entries = {
+        { LootEntryType::Item, 0, 1, 1, 10.0f }, // Random Item
+        { LootEntryType::Gold, 0, 5, 20, 90.0f } // Gold
+    };
+    globalPool.totalWeight = 100.0f;
+    s_lootPools[0] = globalPool;
+
+    LOG_INFO("ItemFactory initialized with Global Loot Pool.");
+}
+
+// ... existing code ...
+
+void ItemFactory::addLootPool(uint32_t id, const LootPool& pool) {
+    s_lootPools[id] = pool;
+    float total = 0.0f;
+    for (const auto& entry : pool.entries) total += entry.weight;
+    s_lootPools[id].totalWeight = total;
+}
+
+const LootPool* ItemFactory::getLootPool(uint32_t id) {
+    auto it = s_lootPools.find(id);
+    if (it != s_lootPools.end()) return &it->second;
+    return nullptr;
 }
 
 // -----------------------------------------------------------------------------

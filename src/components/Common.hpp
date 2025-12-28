@@ -1,6 +1,7 @@
 #pragma once
 
 #include "raylib.h"
+#include <entt/entt.hpp>
 
 // Game World Constants
 namespace WorldConstants {
@@ -65,4 +66,22 @@ struct WeaponComponent {
     
     // Internal State
     float cooldownTimer;  // 0.0f means ready
+};
+
+// Tag component for entities that have just been killed
+
+struct KilledTag {
+
+    entt::entity killer; // The entity that delivered the killing blow
+
+};
+
+
+
+// Loot components
+
+struct GoldComponent {
+
+    uint32_t amount;
+
 };

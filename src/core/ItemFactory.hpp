@@ -23,9 +23,15 @@ public:
     // Deterministic generation for Crafting
     static Affix createAffix(AffixType type, int tier);
 
+    // --- Loot Pool Management ---
+    static void addLootPool(uint32_t id, const LootPool& pool);
+    static const LootPool* getLootPool(uint32_t id);
+
 private:
     static Rarity rollRarity(float magicFind);
     static void rollAffixes(ItemComponent& item, int level);
+
+    static std::map<uint32_t, LootPool> s_lootPools;
 };
 
 } // namespace NoMoreDay

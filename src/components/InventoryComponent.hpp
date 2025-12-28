@@ -4,6 +4,8 @@
 #include <entt/entt.hpp>
 #include "ItemComponent.hpp"
 
+namespace NoMoreDay {
+
 // Component for Entities that can hold items (Player, Chests, Mobs)
 struct InventoryComponent {
     // Items are stored as entities. 
@@ -26,12 +28,14 @@ struct EquipmentComponent {
     }
     
     entt::entity get(EquipmentSlot slot) const {
-        if (slot == EquipmentSlot::None || slot >= EquipmentSlot::Count) return entt::null;
+        if (slot == EquipmentSlot::None || (size_t)slot >= (size_t)EquipmentSlot::Count) return entt::null;
         return slots[(size_t)slot];
     }
     
     void set(EquipmentSlot slot, entt::entity item) {
-        if (slot == EquipmentSlot::None || slot >= EquipmentSlot::Count) return;
+        if (slot == EquipmentSlot::None || (size_t)slot >= (size_t)EquipmentSlot::Count) return;
         slots[(size_t)slot] = item;
     }
 };
+
+} // namespace NoMoreDay

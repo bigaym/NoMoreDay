@@ -9,6 +9,7 @@
 #include "../systems/AISystem.hpp"
 #include "../systems/EffectSystem.hpp"
 #include "../systems/UISystem.hpp"
+#include "../systems/DropSystem.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/InventoryComponent.hpp"
 #include "../components/Stats.hpp"
@@ -64,13 +65,14 @@ void Game::init() {
     m_registry.emplace<Velocity>(player, 0.0f, 0.0f);
     m_registry.emplace<PlayerTag>(player);
     m_registry.emplace<InputComponent>(player);
+    m_registry.emplace<PlayerLevel>(player); // 初始化等级
     m_registry.emplace<PlayerStats>(player); // 初始化统计数据
     m_registry.emplace<NoMoreDay::PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f); // 初始基础属性 (Str, Dex, Int, Vit)
     m_registry.emplace<NoMoreDay::CombatStats>(player); // 初始战斗属性 (使用默认值)
     m_registry.emplace<VisionComponent>(player, 300.0f); // 初始视野半径
     m_registry.emplace<DashComponent>(player); // 冲刺组件
-    m_registry.emplace<InventoryComponent>(player); // Init Inventory (default 40 slots)
-    m_registry.emplace<EquipmentComponent>(player); // Init Equipment slots
+    m_registry.emplace<NoMoreDay::InventoryComponent>(player); // Init Inventory (default 40 slots)
+    m_registry.emplace<NoMoreDay::EquipmentComponent>(player); // Init Equipment slots
     
     // Legacy Weapon Component (Kept for compatibility, but StatsSystem prefers Equipment)
     m_registry.emplace<WeaponComponent>(player, 10.0f, 60.0f, 0.15f, 1500.0f, 0.0f);
@@ -79,12 +81,12 @@ void Game::init() {
     LOG_DEBUG("Creating test equipment...");
     // --- TEST EQUIPMENT (Generated via Factory) ---
     // Create a Legendary Weapon for testing
-    auto sword = NoMoreDay::ItemFactory::createWeapon(m_registry, 10, Rarity::Legendary);
+    auto sword = NoMoreDay::ItemFactory::createWeapon(m_registry, 10, NoMoreDay::Rarity::Legendary);
     LOG_DEBUG("Created test weapon with entity ID: {}", (uint32_t)sword);
     
     // Equip it
-    auto& equip = m_registry.get<EquipmentComponent>(player);
-    equip.set(EquipmentSlot::MainHand, sword);
+    auto& equip = m_registry.get<NoMoreDay::EquipmentComponent>(player);
+    equip.set(NoMoreDay::EquipmentSlot::MainHand, sword);
     LOG_DEBUG("Equipped weapon to player");
     // ----------------------
 
@@ -130,6 +132,12 @@ void Game::update(float dt) {
     // 2. Stats System (Bake Attributes)
     // Must run before CombatSystem so we have fresh stats
     NoMoreDay::StatsSystem::update(m_registry);
+
+    // DropSystem processes killed entities and generates loot BEFORE they are destroyed or XP awarded
+    NoMoreDay::DropSystem::update(m_registry);
+
+    // XPAwardingSystem processes killed entities and awards XP
+    NoMoreDay::XPAwardingSystem::update(m_registry);
 
     // 3. Process Input
     InputSystem::update(m_registry);
