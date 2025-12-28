@@ -6,6 +6,7 @@
 #include "../systems/SpatialGrid.hpp"
 #include "../components/AIComponent.hpp"
 #include "LevelManager.hpp"
+#include "../systems/XPAwardingSystem.hpp"
 
 class Game {
 public:

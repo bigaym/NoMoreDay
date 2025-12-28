@@ -19,53 +19,35 @@ All tasks follow a strict lifecycle:
 
 2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
 
-3. **Write Failing Tests (Red Phase):**
-   - Create a new test file for the feature or bug fix.
-   - Write one or more unit tests that clearly define the expected behavior and acceptance criteria for the task.
-   - **CRITICAL:** Run the tests and confirm that they fail as expected. This is the "Red" phase of TDD. Do not proceed until you have failing tests.
+3. **Implement Logic:** Write the application code and logic as defined in the `plan.md`. Ensure the implementation adheres to the project's tech stack and design pillars.
 
-4. **Implement to Pass Tests (Green Phase):**
-   - Write the minimum amount of application code necessary to make the failing tests pass.
-   - Run the test suite again and confirm that all tests now pass. This is the "Green" phase.
+4. **Build and Compile:** Run the project's build scripts (e.g., CMake). Resolve all compilation errors and warnings to ensure the game builds successfully.
 
-5. **Refactor (Optional but Recommended):**
-   - With the safety of passing tests, refactor the implementation code and the test code to improve clarity, remove duplication, and enhance performance without changing the external behavior.
-   - Rerun tests to ensure they still pass after refactoring.
+5. **Test Development & Resolution:**
+   - **Functional Tests:** Write tests to verify the correctness of the new logic.
+   - **Performance Tests:** Write tests to ensure the changes meet performance benchmarks (e.g., entity update timings).
+   - **Modular Organization:** Maintain test modules via dedicated header files to ensure clean separation and reusability.
+   - **Resolve Issues:** Fix any bugs or performance regressions identified during this testing phase.
 
-6. **Verify Coverage:** Run coverage reports using the project's chosen tools. For example, in a Python project, this might look like:
-   ```bash
-   pytest --cov=app --cov-report=html
-   ```
-   Target: >80% coverage for new code. The specific tools and commands will vary by language and framework.
+6. **Iterate:** Repeat steps 3 through 5 for the remaining tasks in the plan until all tasks are ready for completion.
 
-7. **Document Deviations:** If implementation differs from tech stack:
-   - **STOP** implementation
-   - Update `tech-stack.md` with new design
-   - Add dated note explaining the change
-   - Resume implementation
+7. **Pre-commit Testing:** Before committing, run the entire test suite (functional and performance) one final time to ensure no regressions were introduced and all tests pass.
 
-8. **Commit Code Changes:**
+8. **Commit and Push:**
    - Stage all code changes related to the task.
-   - Propose a clear, concise commit message e.g, `feat(ui): Create basic HTML structure for calculator`.
-   - Perform the commit.
-
-9. **Attach Task Summary with Git Notes:**
-   - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%H"`).
-   - **Step 9.2: Draft Note Content:** Create a detailed summary for the completed task. This should include the task name, a summary of changes, a list of all created/modified files, and the core "why" for
- the change.
-   - **Step 9.3: Attach Note:** Use the `git notes` command to attach the summary to the commit.
+   - Commit the changes with a clear, concise message.
+   - **Attach Task Summary:**
+     - Get the commit hash: `git log -1 --format="%H"`.
+     - Create a summary (task name, changes, files, "why").
+     - Attach via git notes: `git notes add -m "<summary>" <commit_hash>`.
+   - **Update Plan:**
+     - Mark the task as complete `[x]` in `plan.md` and append the short SHA.
+     - Commit the `plan.md` update: `conductor(plan): Mark task '<TASK>' as complete`.
+   - **Push:** Push the commits and notes to the remote repository:
      ```bash
-     # The note content from the previous step is passed via the -m flag.
-     git notes add -m "<note content>" <commit_hash>
+     git push origin <branch_name>
+     git push origin refs/notes/*
      ```
-
-10. **Get and Record Task Commit SHA:**
-    - **Step 10.1: Update Plan:** Read `plan.md`, find the line for the completed task, update its status from `[~]` to `[x]`, and append the first 7 characters of the *just-completed commit's* commit hash.
-    - **Step 10.2: Write Plan:** Write the updated content back to `plan.md`.
-
-11. **Commit Plan Update:**
-    - **Action:** Stage the modified `plan.md` file.
-    - **Action:** Commit this change with a descriptive message (e.g., `conductor(plan): Mark task 'Create user model' as complete`).
 
 ### Phase Completion Verification and Checkpointing Protocol
 

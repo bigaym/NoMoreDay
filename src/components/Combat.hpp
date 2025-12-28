@@ -1,6 +1,8 @@
 #pragma once
 #include "Stats.hpp"
 #include <cstdint>
+#include <vector>
+#include <entt/entity/entity.hpp>
 
 namespace NoMoreDay {
 

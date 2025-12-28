@@ -4,6 +4,8 @@
 #include "../src/components/Combat.hpp"
 #include "../src/systems/CombatSystem.hpp"
 #include "../src/tools/Logger.hpp"
+#include "../src/components/Common.hpp" // For KilledTag
+#include "../src/components/PlayerState.hpp" // For PlayerStats
 
 using namespace NoMoreDay;
 
@@ -99,11 +101,9 @@ TEST_CASE("CombatSystem - ApplyDamage") {
     // Apply fatal damage
     dead = CombatSystem::ApplyDamage(registry, entity, 80.0f);
     CHECK(dead == true);
-    // Entity is destroyed, so we cannot check health component anymore
-    // CHECK(registry.get<HealthComponent>(entity).current <= 0.0f);
     
-    // Verify entity might be destroyed or marked? 
-    // The implementation might destroy it immediately.
-    // If destroy() is called, registry.valid(entity) should be false.
-    CHECK(registry.valid(entity) == false);
+    // Entity should still be valid because destruction is deferred to XPAwardingSystem
+    CHECK(registry.valid(entity) == true);
+    // Entity should have KilledTag
+    CHECK(registry.all_of<KilledTag>(entity) == true);
 }

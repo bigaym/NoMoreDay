@@ -33,10 +33,25 @@ TEST_CASE("ItemStats - Affix Descriptions") {
         CHECK(GetAffixDescription(affix) == "+50 Health");
     }
 
-    SUBCASE("Utility") {
+    SUBCASE("Damage Affixes") {
         Affix affix;
-        affix.type = AffixType::MoveSpeed;
-        affix.value = 12.0f;
-        CHECK(GetAffixDescription(affix) == "+12% Move Speed");
+        affix.type = AffixType::FlatFireDamage;
+        affix.value = 20.0f;
+        CHECK(GetAffixDescription(affix) == "+20 Fire Dmg");
+
+        affix.type = AffixType::PercentPhysicalDamage;
+        affix.value = 35.0f;
+        CHECK(GetAffixDescription(affix) == "+35% Increased Physical Dmg");
+    }
+
+    SUBCASE("Resistances") {
+        Affix affix;
+        affix.type = AffixType::ResistAll;
+        affix.value = 10.0f;
+        CHECK(GetAffixDescription(affix) == "+10% All Resistances");
+
+        affix.type = AffixType::ResistLightning;
+        affix.value = 25.0f;
+        CHECK(GetAffixDescription(affix) == "+25% Lightning Resistance");
     }
 }

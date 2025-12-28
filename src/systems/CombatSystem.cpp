@@ -3,7 +3,7 @@
 #include "../tools/Logger.hpp"
 #include "../components/EffectComponent.hpp"
 #include "../components/PlayerState.hpp"
-#include "../components/Stats.hpp" // Added include
+#include "../components/Stats.hpp"
 
 void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
     // LOG_TRACE("CombatSystem::update: Processing combat logic");
@@ -221,11 +221,15 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
         
         // Handle Kill Credit
         if (registry.valid(attacker) && registry.all_of<PlayerStats>(attacker)) {
-            registry.get<PlayerStats>(attacker).killCount++;
-            LOG_TRACE("Player {} kill count: {}", (uint32_t)attacker, registry.get<PlayerStats>(attacker).killCount);
+            auto& playerStats = registry.get<PlayerStats>(attacker);
+            playerStats.killCount++;
+            LOG_TRACE("Player {} kill count: {}", (uint32_t)attacker, playerStats.killCount);
         }
+        
+        // Mark the entity as killed for XP awarding and other post-death processing
+        registry.emplace<KilledTag>(target, attacker);
 
-        registry.destroy(target);
+        // registry.destroy(target); // Defer actual destruction to XPAwardingSystem or similar
         return true;
     }
 
