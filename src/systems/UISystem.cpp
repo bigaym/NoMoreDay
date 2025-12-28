@@ -682,9 +682,16 @@ void UISystem::DrawSlot(entt::registry& registry, float x, float y, float size, 
                 Rectangle dest = {x + 4, y + 4, size - 8, size - 8};
                 DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, WHITE);
             } else {
-                // 无图标则绘制简短名称
-                const char* shortName = itemComp->name.c_str(); // 暂时用全名
-                DrawTextUI(shortName, x + 5, y + size/2 - 5, 12, rarityColor);
+                // 无图标则绘制简短名称 (Task 3)
+                const char* shortName = GetShortItemTypeName(*itemComp);
+                float fontSize = 16.0f;
+                Vector2 textSize = { 0, 0 };
+                if (IsFontReady(m_font)) {
+                    textSize = MeasureTextEx(m_font, shortName, fontSize, 1.0f);
+                } else {
+                    textSize = { (float)MeasureText(shortName, (int)fontSize), fontSize };
+                }
+                DrawTextUI(shortName, x + (size - textSize.x) / 2.0f, y + (size - textSize.y) / 2.0f, fontSize, rarityColor);
             }
 
             // 绘制数量 (如果堆叠)
@@ -713,6 +720,39 @@ Color UISystem::GetRarityColor(Rarity rarity) {
         case Rarity::Mythic:    return RED;
         default:                return WHITE;
     }
+}
+
+const char* UISystem::GetShortItemTypeName(const NoMoreDay::ItemComponent& item) {
+    if (item.type == ItemType::Weapon) {
+        // 简单判断武器类型
+        if (item.name.find("剑") != std::string::npos || item.name.find("Sword") != std::string::npos) return "剑";
+        if (item.name.find("斧") != std::string::npos || item.name.find("Axe") != std::string::npos) return "斧";
+        if (item.name.find("匕") != std::string::npos || item.name.find("Dagger") != std::string::npos) return "匕";
+        if (item.name.find("杖") != std::string::npos || item.name.find("Staff") != std::string::npos) return "杖";
+        if (item.name.find("弓") != std::string::npos || item.name.find("Bow") != std::string::npos) return "弓";
+        return "武";
+    }
+
+    if (item.type == ItemType::Armor) {
+        switch (item.slot) {
+            case EquipmentSlot::Head: return "头";
+            case EquipmentSlot::Shoulder: return "肩";
+            case EquipmentSlot::Chest: return "胸";
+            case EquipmentSlot::Hands: return "手";
+            case EquipmentSlot::Legs: return "腿";
+            case EquipmentSlot::Feet: return "鞋";
+            case EquipmentSlot::Neck: return "项";
+            case EquipmentSlot::Ring1:
+            case EquipmentSlot::Ring2: return "戒";
+            default: return "甲";
+        }
+    }
+
+    if (item.type == ItemType::Consumable) return "耗";
+    if (item.type == ItemType::Material) return "料";
+    if (item.type == ItemType::Quest) return "任";
+
+    return "项";
 }
 
 void UISystem::DrawMinimap(entt::registry& registry, const LevelManager& levelManager) {

@@ -37,4 +37,5 @@ private:
     
     // 内部辅助：使用自定义字体绘制文本
     static void DrawTextUI(const char* text, float x, float y, float fontSize, Color color);
+    static const char* GetShortItemTypeName(const NoMoreDay::ItemComponent& item);
 };
