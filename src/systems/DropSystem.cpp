@@ -42,6 +42,22 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
         }
     }
 
+    // --- 临时测试机制：必掉金币 (100%) ---
+    // TODO: 测试完成后移除或降低几率
+    {
+        std::uniform_int_distribution<uint32_t> testGoldDist(10, 50);
+        uint32_t amount = testGoldDist(g_drop_rng);
+        amount = (uint32_t)((float)amount * (1.0f + goldBonus));
+        
+        if (amount > 0) {
+            auto gold = registry.create();
+            // 稍微偏移一点位置，避免重叠
+            registry.emplace<Position>(gold, pos.x + 5.0f, pos.y + 5.0f);
+            registry.emplace<GoldComponent>(gold, amount);
+            LOG_DEBUG("DropSystem: [TEST] Guaranteed drop {} gold at ({}, {})", amount, pos.x, pos.y);
+        }
+    }
+
     const LootPool* pool = ItemFactory::getLootPool(table.poolId);
     if (!pool) {
         // 如果未找到特定掉落池，则回退到全局掉落池

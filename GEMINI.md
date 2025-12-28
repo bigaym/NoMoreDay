@@ -28,6 +28,32 @@
 - **计算优化**：**xsimd** (针对物理/粒子系统的 SIMD 加速)。
 - **辅助库**：**spdlog** (日志), **nlohmann/json** (序列化)。
 
+### 已实现系统模块 (Implemented Systems)
+
+- **核心交互**:
+  - `InputSystem`: 处理玩家输入映射。
+  - `PhysicsSystem`: 处理基于网格的碰撞解决和运动积分。
+  - `RenderSystem`: 负责世界渲染（精灵、特效、光柱）。
+  - `UISystem`: 复杂的 UI 管理（背包、装备、小地图、右键菜单、悬停提示）。
+
+- **RPG 数值与成长**:
+  - `StatsSystem`: 负责从基础属性、装备词缀和修饰符重新计算 `CombatStats`。
+  - `ProgressionSystem`: 处理经验获取、升级和属性点分配。
+  - `InventorySystem`: 物品的拾取、丢弃、装备、堆叠和背包整理。
+  - `CraftingSystem`: 词缀升级、添加和混沌重铸逻辑。
+
+- **战斗与生存**:
+  - `CombatSystem`: 攻击判定、伤害计算（护甲/抗性）、死亡处理。
+  - `AISystem`: 状态机 AI（巡逻、追击、攻击、逃跑），集成流场寻路。
+  - `EffectSystem`: 管理伤害飘字和攻击特效的生命周期。
+
+- **世界与生态**:
+  - `MapSystem`: 洞穴生成（元胞自动机）、流场计算（Flow Field Pathfinding）。
+  - `FogOfWarSystem`: 战争迷雾的可见性计算和纹理更新。
+  - `EnemySpawnSystem`: 基于群聚和生物群系的怪物生成与销毁。
+  - `DropSystem`: 掉落物生成（基于 LootTable 和 MF）。
+  - `XPAwardingSystem`: 击杀经验奖励结算。
+
 ## 🛠 行为准则与互动规则
 
 ### 1. 初始咨询与阶段感知

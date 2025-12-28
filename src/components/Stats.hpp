@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
+#include <nlohmann/json.hpp>
 
 namespace NoMoreDay {
 
@@ -38,6 +39,7 @@ struct alignas(32) PrimaryStats {
     float intelligence = 0.0f;  // -> 增加全抗性, 元素伤害，最大蓝量等
     float vitality = 0.0f;      // -> 增加最大生命值等
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrimaryStats, strength, dexterity, intelligence, vitality)
 
 // 3. 战斗属性 (Combat Stats) - "Baked" Data
 // 这是战斗系统直接读取的最终面板。
@@ -124,6 +126,14 @@ struct alignas(32) CombatStats {
     float experience_gain_mult = 0.0f;    // 经验获取加成
     float damage_reduction = 0.0f;        // 全局伤害减免 % (稀有属性)
 };
+
+// 定义 CombatStats 的 JSON 序列化
+// 注意：我们只序列化关键属性以减少文件大小，或者序列化所有属性以保证精确恢复。
+// 这里为了演示，我们序列化核心生存属性。
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CombatStats, 
+    health, max_health, mana, max_mana, 
+    min_weapon_damage, max_weapon_damage, crit_chance, crit_damage, armor, move_speed)
+
 // 请求重新计算属性的标签组件
 struct StatsDirty {};
 
@@ -155,6 +165,16 @@ enum class ModifierSource : uint8_t {
     Environment // 区域修饰符等
 };
 
+// 为枚举提供简单的序列化支持 (转为底层整数)
+inline void to_json(nlohmann::json& j, const StatType& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, StatType& e) { e = static_cast<StatType>(j.get<uint8_t>()); }
+
+inline void to_json(nlohmann::json& j, const ModifierMode& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, ModifierMode& e) { e = static_cast<ModifierMode>(j.get<uint8_t>()); }
+
+inline void to_json(nlohmann::json& j, const ModifierSource& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, ModifierSource& e) { e = static_cast<ModifierSource>(j.get<uint8_t>()); }
+
 struct StatModifier {
     StatType type;
     ModifierMode mode;
@@ -162,9 +182,11 @@ struct StatModifier {
     ModifierSource source = ModifierSource::Base; // 修饰符来源
     uint32_t source_id = 0; // 可选: 用于追踪特定的物品/技能ID
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StatModifier, type, mode, value, source, source_id)
 
 struct ModifierList {
     std::vector<StatModifier> modifiers;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModifierList, modifiers)
 
 } // namespace NoMoreDay

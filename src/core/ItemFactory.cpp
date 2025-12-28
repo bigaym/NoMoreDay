@@ -400,4 +400,58 @@ entt::entity ItemFactory::createArmor(entt::registry& registry, int level, Rarit
     return entity;
 }
 
+entt::entity ItemFactory::createBag(entt::registry& registry, int level, Rarity rarity) {
+    auto entity = registry.create();
+    ItemComponent item;
+    item.type = ItemType::Bag;
+    item.rarity = rarity;
+    item.slot = EquipmentSlot::None;
+    item.id = std::uniform_int_distribution<>(5000, 5999)(g_rng);
+    
+    // 基础容量
+    // 修改：每个背包现在提供一个完整的页面 (56格)
+    int baseCap = 56;
+    
+    // 稀有度加成 (可选：也许稀有背包提供更多页？目前保持一致)
+    // if (rarity >= Rarity::Magic) baseCap += 0;
+
+    item.name = (rarity == Rarity::Common ? "亚麻背包" : "魔法背包");
+    item.bagCapacity = baseCap;
+    item.description = "增加一个背包页面 (" + std::to_string(baseCap) + " 格)。";
+
+    registry.emplace<ItemComponent>(entity, item);
+    // TODO: 添加 SpriteComponent
+    return entity;
+}
+
+entt::entity ItemFactory::createPotion(entt::registry& registry, int type, int quantity) {
+    auto entity = registry.create();
+    ItemComponent item;
+    item.type = ItemType::Consumable;
+    item.rarity = Rarity::Common;
+    item.quantity = quantity;
+    item.maxStack = 99; // 药水可堆叠
+    item.slot = EquipmentSlot::None;
+    
+    if (type == 0) {
+        item.id = 101; // ID 约定: 101 红药水
+        item.name = "生命药水";
+        item.description = "使用: 恢复 50 点生命值";
+        item.value = 10;
+        registry.emplace<ColorComponent>(entity, RED); // 地面显示红色
+    } else {
+        item.id = 102; // ID 约定: 102 蓝药水
+        item.name = "法力药水";
+        item.description = "使用: 恢复 50 点法力值";
+        item.value = 10;
+        registry.emplace<ColorComponent>(entity, BLUE); // 地面显示蓝色
+    }
+    
+    // TODO: 如果有药水图标，在此处添加 SpriteComponent
+    // registry.emplace<SpriteComponent>(entity, potionTexture, 1.0f);
+
+    registry.emplace<ItemComponent>(entity, item);
+    return entity;
+}
+
 } // namespace NoMoreDay

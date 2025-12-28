@@ -18,6 +18,12 @@ public:
     static entt::entity createWeapon(entt::registry& registry, int level, Rarity rarity);
     static entt::entity createArmor(entt::registry& registry, int level, Rarity rarity, EquipmentSlot slot);
 
+    // 创建背包容器
+    static entt::entity createBag(entt::registry& registry, int level, Rarity rarity);
+
+    // 创建药水 (0: 生命药水, 1: 法力药水)
+    static entt::entity createPotion(entt::registry& registry, int type, int quantity = 1);
+
     static Affix generateRandomAffix(int level, bool isPrefix, EquipmentSlot slot);
     
     // 用于打造的确定性生成

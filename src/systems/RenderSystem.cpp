@@ -5,6 +5,7 @@
 #include "../components/ItemComponent.hpp"
 #include "../core/AssetLoadingSystem.hpp"
 #include <string>
+#include <cmath>
 
 void RenderSystem::render(entt::registry& registry) {
     // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
@@ -72,6 +73,37 @@ void RenderSystem::render(entt::registry& registry) {
     auto itemView = registry.view<const Position, const NoMoreDay::ItemComponent>();
     itemView.each([&font](const auto& pos, const auto& item) {
         Color rarityColor = UISystem::GetRarityColor(item.rarity);
+        
+        // --- 光柱特效 (Rare及以上) ---
+        // 仅对稀有(Rare)及更高品质的物品显示光柱，方便远处识别
+        if (item.rarity >= NoMoreDay::Rarity::Rare) {
+            float time = (float)GetTime();
+            // 呼吸效果 (Alpha 0.3 ~ 0.6)
+            float alpha = 0.45f + 0.15f * std::sin(time * 3.0f);
+            
+            float beamHeight = 120.0f; // 光柱高度
+            float beamWidth = 24.0f;   // 光柱宽度
+            
+            // 颜色渐变：底部实色 -> 顶部透明
+            Color colBottom = rarityColor;
+            colBottom.a = (unsigned char)(255 * alpha);
+            Color colTop = rarityColor;
+            colTop.a = 0;
+            
+            // 绘制光柱 (从下往上渐变)
+            // 坐标为左上角，所以 y = pos.y - height 让底部对齐物体
+            DrawRectangleGradientV((int)(pos.x - beamWidth * 0.5f), (int)(pos.y - beamHeight), 
+                                   (int)beamWidth, (int)beamHeight, colTop, colBottom);
+            
+            // 底部光晕
+            DrawCircleGradient((int)pos.x, (int)pos.y, beamWidth * 0.8f, colBottom, Fade(colBottom, 0.0f));
+            
+            // 核心高亮 (更细更亮，增加立体感)
+            Color coreCol = WHITE;
+            coreCol.a = (unsigned char)(255 * alpha * 0.8f);
+            DrawRectangleGradientV((int)(pos.x - 2), (int)(pos.y - beamHeight), 4, (int)beamHeight, Fade(WHITE, 0.0f), coreCol);
+        }
+
         const char* name = item.name.c_str();
         int fontSize = 18;
         float spacing = 1.0f;

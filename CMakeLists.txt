@@ -28,9 +28,9 @@ add_subdirectory(third_party/taskflow)
 
 # 5. nlohmann/json
 
-# --- Main Executable ---
-add_executable(NoMoreDay
-    src/main.cpp
+# --- Core Library (Static) ---
+# 将核心逻辑打包为静态库，供游戏主程序和测试程序共同链接
+add_library(NoMoreDayCore STATIC
     src/core/Game.cpp
     src/core/ResourceManager.cpp
     src/core/LevelManager.cpp
@@ -49,18 +49,22 @@ add_executable(NoMoreDay
     src/systems/EffectSystem.cpp
     src/systems/EnemyBehavior.cpp
     src/systems/UISystem.cpp
+    src/systems/UICharacter.cpp
+    src/systems/UIInventory.cpp
+    src/systems/UIMinimap.cpp
     src/systems/ProgressionSystem.cpp
     src/systems/XPAwardingSystem.cpp
     src/systems/DropSystem.cpp
     src/tools/Logger.cpp
+    src/systems/InventorySystem.cpp
 )
 
 # Enable Precompiled Headers
-target_precompile_headers(NoMoreDay PRIVATE src/pch.hpp)
+target_precompile_headers(NoMoreDayCore PRIVATE src/pch.hpp)
 
 # Link dependencies
-target_link_libraries(NoMoreDay 
-    PRIVATE 
+target_link_libraries(NoMoreDayCore 
+    PUBLIC 
     raylib 
     spdlog::spdlog 
     EnTT::EnTT 
@@ -68,20 +72,30 @@ target_link_libraries(NoMoreDay
 )
 
 # Header-only libraries include paths
-target_include_directories(NoMoreDay PRIVATE third_party/json/include)
+target_include_directories(NoMoreDayCore PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    third_party/json/include
+)
 
 if(WIN32)
     # Add windows specific libs
-    target_link_libraries(NoMoreDay PRIVATE winmm kernel32 opengl32 gdi32 user32 shell32)
+    target_link_libraries(NoMoreDayCore PUBLIC winmm kernel32 opengl32 gdi32 user32 shell32)
     
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         # -Wno-stringop-overflow: Suppress false positives from spdlog/fmt in GCC 13/14
-        target_compile_options(NoMoreDay PRIVATE "-Wa,-mbig-obj" "-Wno-stringop-overflow")
-        # STRIP symbols in Release mode to drastically reduce size
-        target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:-s>)
+        target_compile_options(NoMoreDayCore PRIVATE "-Wa,-mbig-obj" "-Wno-stringop-overflow")
     endif()
     
-    target_compile_definitions(NoMoreDay PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+    target_compile_definitions(NoMoreDayCore PUBLIC WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()
+
+# --- Main Executable ---
+add_executable(NoMoreDay src/main.cpp)
+target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
+
+if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # STRIP symbols in Release mode to drastically reduce size
+    target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:-s>)
 endif()
 
 # --- Output & Assets ---

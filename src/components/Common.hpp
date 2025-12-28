@@ -2,6 +2,7 @@
 
 #include "raylib.h"
 #include <entt/entt.hpp>
+#include <nlohmann/json.hpp>
 
 // 游戏世界常量
 namespace WorldConstants {
@@ -17,11 +18,13 @@ struct Position {
     float x;
     float y;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Position, x, y)
 
 struct Velocity {
     float vx;
     float vy;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Velocity, vx, vy)
 
 // 视觉组件
 struct ColorComponent {
@@ -51,11 +54,13 @@ struct HealthComponent {
     float current;
     float max;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HealthComponent, current, max)
 
 // 视野组件
 struct VisionComponent {
     float radius;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(VisionComponent, radius)
 
 // 简单的近战武器定义
 struct WeaponComponent {
@@ -67,6 +72,7 @@ struct WeaponComponent {
     // 内部状态
     float cooldownTimer;  // 0.0f 表示就绪
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WeaponComponent, damage, range, cooldown, knockback, cooldownTimer)
 
 // 刚被击杀实体的标签组件
 
@@ -85,3 +91,16 @@ struct GoldComponent {
     uint32_t amount;
 
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GoldComponent, amount)
+
+// 资源 ID 组件 (用于持久化纹理引用)
+struct TextureIDComponent {
+    uint32_t id;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TextureIDComponent, id)
+
+// 定义 IDComponent (用于持久化唯一标识)
+struct IDComponent {
+    uint64_t uuid;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(IDComponent, uuid)

@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <string>
 #include "raylib.h"
+#include <nlohmann/json.hpp>
 #include "Stats.hpp"
 
 namespace NoMoreDay {
@@ -53,6 +54,10 @@ enum class AffixType : uint8_t {
     Count
 };
 
+// 为枚举提供简单的序列化支持 (转为底层整数)
+inline void to_json(nlohmann::json& j, const AffixType& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, AffixType& e) { e = static_cast<AffixType>(j.get<uint8_t>()); }
+
 struct Affix {
     AffixType type;
     float value; // 词缀值
@@ -61,6 +66,7 @@ struct Affix {
     bool isPrefix; // true = 前缀, false = 后缀
     std::string name; // 用于UI显示的缓存名称，例如 "of the Bear" 或 "Burning"
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Affix, type, value, tier, isPrefix, name)
 
 // Returns a human readable string for the affix, e.g. "+10 Strength"
 inline std::string GetAffixDescription(const Affix& affix) {

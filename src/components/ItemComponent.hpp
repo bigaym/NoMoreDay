@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <nlohmann/json.hpp>
 #include "ItemStats.hpp"
 
 namespace NoMoreDay {
@@ -11,8 +12,13 @@ enum class ItemType {
     Armor,
     Consumable,
     Material,
-    Quest
+    Quest,
+    Bag
 };
+
+// 为枚举提供简单的序列化支持 (转为底层整数)
+inline void to_json(nlohmann::json& j, const ItemType& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, ItemType& e) { e = static_cast<ItemType>(j.get<uint8_t>()); }
 
 // 装备槽位枚举
 enum class EquipmentSlot {
@@ -31,6 +37,10 @@ enum class EquipmentSlot {
     Count // For array sizing
 };
 
+// 为枚举提供简单的序列化支持 (转为底层整数)
+inline void to_json(nlohmann::json& j, const EquipmentSlot& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, EquipmentSlot& e) { e = static_cast<EquipmentSlot>(j.get<uint8_t>()); }
+
 // 物品稀有度枚举
 enum class Rarity {
     Common,
@@ -42,6 +52,10 @@ enum class Rarity {
     Legendary,
     Mythic
 };
+
+// 为枚举提供简单的序列化支持 (转为底层整数)
+inline void to_json(nlohmann::json& j, const Rarity& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, Rarity& e) { e = static_cast<Rarity>(j.get<uint8_t>()); }
 
 // 标记实体为物品的组件
 struct ItemComponent {
@@ -58,6 +72,7 @@ struct ItemComponent {
     // 基础属性
     float attack = 0.0f;  // 基础武器伤害 (仅武器)
     float defense = 0.0f; // 基础护甲防御 (仅护甲)
+    int bagCapacity = 0;  // 背包扩容量 (仅背包)
 
     // --- 打造与属性 ---
     int forgingPotential = 0; // 打造潜力 (打造时消耗)
@@ -75,6 +90,8 @@ struct ItemComponent {
     // Description
     std::string description;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, forgingPotential, legendaryPotential, implicits, affixes, description)
+
 
 // 掉落物条目类型
 enum class LootEntryType {

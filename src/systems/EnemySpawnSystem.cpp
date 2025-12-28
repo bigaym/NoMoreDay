@@ -2,7 +2,9 @@
 #include "../components/EnemyComponent.hpp"
 #include "../components/AIComponent.hpp"
 #include "../components/PlayerState.hpp" // For stats if needed
+#include "../components/ItemComponent.hpp"
 #include "../tools/Logger.hpp"
+#include "../utils/UUID.hpp"
 #include <random>
 #include <algorithm>
 #include <cmath>
@@ -183,6 +185,11 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
     // 基础组件
     registry.emplace<Position>(entity, data.position.x, data.position.y);
     registry.emplace<Velocity>(entity, 0.0f, 0.0f);
+    // 核心修复：为怪物添加 UUID 和 TextureID，确保其掉落物和视觉效果在读档后能被正确处理
+    registry.emplace<IDComponent>(entity, NoMoreDay::Utils::UUID::generate());
+    if (m_raceTextures.count(data.enemyType)) {
+        registry.emplace<TextureIDComponent>(entity, m_raceTextures[data.enemyType].id);
+    }
     registry.emplace<EnemyTag>(entity);
     
     EnemyRace::Type race = static_cast<EnemyRace::Type>(data.enemyType);
@@ -194,24 +201,28 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
             registry.emplace<HealthComponent>(entity, 30.0f, 30.0f);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 150.0f, 40.0f, 50.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
+            registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.25f, 1, 1); // 25% 几率掉落，使用全局池(ID 0)
             break;
         case EnemyRace::DEMON:
             registry.emplace<EnemyStateComponent>(entity, EnemyRace::DEMON, EnemyArchetype::TANK);
             registry.emplace<HealthComponent>(entity, 60.0f, 60.0f);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 200.0f, 50.0f, 70.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
+            registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.45f, 1, 2); // 45% 几率掉落，可能掉落2件
             break;
         case EnemyRace::CORRUPTED:
             registry.emplace<EnemyStateComponent>(entity, EnemyRace::CORRUPTED, EnemyArchetype::ASSASSIN);
             registry.emplace<HealthComponent>(entity, 25.0f, 25.0f);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 250.0f, 60.0f, 100.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
+            registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.30f, 1, 1); // 30% 几率掉落
             break;
         case EnemyRace::CULTIST:
             registry.emplace<EnemyStateComponent>(entity, EnemyRace::CULTIST, EnemyArchetype::RANGER);
             registry.emplace<HealthComponent>(entity, 35.0f, 35.0f);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 180.0f, 30.0f, 60.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
+            registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.35f, 1, 1); // 35% 几率掉落
             break;
     }
     

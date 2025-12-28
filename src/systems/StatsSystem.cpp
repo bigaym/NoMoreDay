@@ -145,8 +145,31 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                             case AffixType::CritChance:  totalCritChance += affix.value / 100.0f; break;
                             case AffixType::CritDamage:  totalCritDamage += affix.value / 100.0f; break;
                             case AffixType::AttackSpeed: totalAttackSpeed += affix.value / 100.0f; break;
+                            
+                            // 基础点伤 (Flat Damage)
                             case AffixType::FlatPhysicalDamage: combat.flat_damage[(int)DamageType::Physical] += affix.value; break;
+                            case AffixType::FlatFireDamage:     combat.flat_damage[(int)DamageType::Fire] += affix.value; break;
+                            case AffixType::FlatColdDamage:     combat.flat_damage[(int)DamageType::Cold] += affix.value; break;
+                            case AffixType::FlatLightningDamage:combat.flat_damage[(int)DamageType::Lightning] += affix.value; break;
+                            case AffixType::FlatPoisonDamage:   combat.flat_damage[(int)DamageType::Poison] += affix.value; break;
+                            case AffixType::FlatShadowDamage:   combat.flat_damage[(int)DamageType::Shadow] += affix.value; break;
+
+                            // 百分比伤害 (Percent Damage)
                             case AffixType::PercentPhysicalDamage: combat.damage_multipliers[(int)DamageType::Physical] += affix.value / 100.0f; break;
+                            case AffixType::PercentFireDamage:     combat.damage_multipliers[(int)DamageType::Fire] += affix.value / 100.0f; break;
+                            case AffixType::PercentColdDamage:     combat.damage_multipliers[(int)DamageType::Cold] += affix.value / 100.0f; break;
+                            case AffixType::PercentLightningDamage:combat.damage_multipliers[(int)DamageType::Lightning] += affix.value / 100.0f; break;
+                            case AffixType::PercentPoisonDamage:   combat.damage_multipliers[(int)DamageType::Poison] += affix.value / 100.0f; break;
+                            case AffixType::PercentShadowDamage:   combat.damage_multipliers[(int)DamageType::Shadow] += affix.value / 100.0f; break;
+
+                            // 抗性 (Resistances)
+                            case AffixType::ResistAll:       for(auto& r : combat.resistances) r += affix.value / 100.0f; break;
+                            case AffixType::ResistFire:      combat.resistances[(int)DamageType::Fire] += affix.value / 100.0f; break;
+                            case AffixType::ResistCold:      combat.resistances[(int)DamageType::Cold] += affix.value / 100.0f; break;
+                            case AffixType::ResistLightning: combat.resistances[(int)DamageType::Lightning] += affix.value / 100.0f; break;
+                            case AffixType::ResistPoison:    combat.resistances[(int)DamageType::Poison] += affix.value / 100.0f; break;
+                            case AffixType::ResistShadow:    combat.resistances[(int)DamageType::Shadow] += affix.value / 100.0f; break;
+
                             default: break;
                         }
                     }

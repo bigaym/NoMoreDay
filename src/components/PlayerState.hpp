@@ -1,11 +1,15 @@
 #pragma once
+#include <cstdint>
+#include <nlohmann/json.hpp>
 
 struct PlayerLevel {
     int value = 1;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PlayerLevel, value)
 
 struct PlayerStats {
-    int killCount = 0; // 击杀计数
+    uint64_t killCount = 0; // 击杀计数
+    uint64_t deathCount = 0; // 死亡计数 (预留)
     int level = 1; // 等级
     float current_xp = 0.0f; // 当前经验值
     float required_xp = 100.0f; // 升级所需经验值
@@ -18,6 +22,7 @@ struct PlayerStats {
     int base_intelligence = 10;
     int base_vitality = 10;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PlayerStats, killCount, deathCount, level, current_xp, required_xp, available_attribute_points, available_skill_points, base_strength, base_dexterity, base_intelligence, base_vitality)
 
 // 冲刺技能组件
 struct DashComponent {
@@ -37,6 +42,7 @@ struct DashComponent {
     bool uiFlash = false; // UI闪烁
     float uiFlashTimer = 0.0f; // UI闪烁计时器
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DashComponent, cooldownTimer, cooldownDuration, charges, maxCharges, isDashing, dashTimer, dashDuration, dashSpeed, dirX, dirY, uiFlash, uiFlashTimer)
 
 // 属性分配 UI 状态组件
 struct AttributeUIComponent {

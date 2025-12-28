@@ -12,6 +12,8 @@
 #include "../systems/DropSystem.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/InventoryComponent.hpp"
+#include "../systems/SerializationSystem.hpp"
+#include "../systems/InventorySystem.hpp"
 #include "../components/Stats.hpp"
 #include "../utils/Parallel.hpp"
 #include "../systems/FogOfWarSystem.hpp"
@@ -19,6 +21,7 @@
 #include "AssetRegistry.hpp"
 #include "LevelManager.hpp"
 #include "ItemFactory.hpp"
+#include "../utils/UUID.hpp"
 #include <random>
 
 Game::Game(int width, int height, const char* title)
@@ -72,6 +75,7 @@ void Game::init() {
     auto player = m_registry.create();
     LOG_DEBUG("Created player entity with ID: {}", (uint32_t)player);
     m_registry.emplace<Position>(player, (float)m_screenWidth / 2.0f, (float)m_screenHeight / 2.0f);
+    m_registry.emplace<IDComponent>(player, NoMoreDay::Utils::UUID::from("Player")); // 使用确定性 UUID
     m_registry.emplace<Velocity>(player, 0.0f, 0.0f);
     m_registry.emplace<PlayerTag>(player);
     m_registry.emplace<InputComponent>(player);
@@ -87,17 +91,34 @@ void Game::init() {
     m_registry.emplace<NoMoreDay::AttackState>(player); // 新的攻击状态组件
 
     m_registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
+    m_registry.emplace<TextureIDComponent>(player, playerAsset.id); // 记录纹理ID以便存档恢复
 
     LOG_DEBUG("Creating test equipment...");
     // --- TEST EQUIPMENT (Generated via Factory) ---
     // Create a Legendary Weapon for testing
     auto sword = NoMoreDay::ItemFactory::createWeapon(m_registry, 10, NoMoreDay::Rarity::Legendary);
+    m_registry.emplace_or_replace<IDComponent>(sword, NoMoreDay::Utils::UUID::generate()); // 随机 UUID
+    m_registry.emplace<TextureIDComponent>(sword, assets::textures::Weapon_Sword.id); // 添加纹理ID以支持存档恢复
     LOG_DEBUG("Created test weapon with entity ID: {}", (uint32_t)sword);
     // 装备它
     auto& equip = m_registry.get<NoMoreDay::EquipmentComponent>(player);
     equip.set(NoMoreDay::EquipmentSlot::MainHand, sword);
     LOG_DEBUG("Equipped weapon to player");
     // ----------------------
+
+    // --- 初始药水验证 ---
+    auto& inv = m_registry.get<NoMoreDay::InventoryComponent>(player);
+    auto redPot = NoMoreDay::ItemFactory::createPotion(m_registry, 0, 10); // 10个红药水
+    m_registry.emplace_or_replace<IDComponent>(redPot, NoMoreDay::Utils::UUID::generate()); // 随机 UUID
+    // 注意：这里假设药水也有对应的 TextureID，如果 ItemFactory 没有自动添加，需要在此处添加
+    // m_registry.emplace<TextureIDComponent>(redPot, assets::textures::Potion_Red.id); 
+    inv.items.push_back(redPot);
+    
+    auto bluePot = NoMoreDay::ItemFactory::createPotion(m_registry, 1, 10); // 10个蓝药水
+    m_registry.emplace_or_replace<IDComponent>(bluePot, NoMoreDay::Utils::UUID::generate()); // 随机 UUID
+    // m_registry.emplace<TextureIDComponent>(bluePot, assets::textures::Potion_Blue.id);
+    inv.items.push_back(bluePot);
+    LOG_DEBUG("Added 10 Red Potions and 10 Blue Potions to inventory");
 
     if (playerTexture.id > 0) {
         // 角色纹理较大 (1024x1024)，缩小到约100像素
@@ -147,9 +168,28 @@ void Game::update(float dt) {
     // 经验奖励系统处理被击杀的实体并奖励经验
     NoMoreDay::XPAwardingSystem::update(m_registry);
 
+    // 物品/金币吸附系统
+    InventorySystem::update(m_registry, dt);
+
     // 3. Process Input
     InputSystem::update(m_registry);
     UISystem::Update(m_registry, *m_levelManager);
+    
+    // 处理存档/读档，并检查是否刚刚完成了读档
+    if (SerializationSystem::Update(m_registry)) {
+        LOG_INFO("Save loaded, restoring visual assets...");
+        // 读档后修复：遍历所有带有 TextureID 的实体，重新加载 SpriteComponent
+        auto view = m_registry.view<TextureIDComponent>();
+        for (auto entity : view) {
+            const auto& texComp = view.get<TextureIDComponent>(entity);
+            // 假设 ResourceManager 缓存了纹理，可以直接通过 ID 获取
+            // 注意：这里假设 loadTexture 对于已存在的 ID 会直接返回缓存的纹理
+            // 如果 ResourceManager 不支持空路径重载，你可能需要扩展它或使用 getTexture(id)
+            Texture2D tex = m_resourceManager.loadTexture(texComp.id, ""); 
+            m_registry.emplace_or_replace<SpriteComponent>(entity, tex, 0.1f); // 注意：缩放比例可能需要保存，这里暂时硬编码
+        }
+        // 强制刷新一次空间网格
+    }
     
     // 3. Apply Player Input to Velocity & Update Camera
     auto playerView2 = m_registry.view<PlayerTag, InputComponent, Velocity, Position, DashComponent>();
@@ -349,7 +389,8 @@ void Game::render() { // 渲染
     
     // 渲染UI (屏幕空间)
     // Draw Character Panel (C key)
-    UISystem::Draw(m_registry, *m_levelManager);
+    UISystem::Draw(m_registry, *m_levelManager, m_camera);
+    SerializationSystem::DrawUI();
     
     DrawFPS(10, 10);
     // DrawText("WASD to Move", 10, 40, 20, DARKGRAY);
