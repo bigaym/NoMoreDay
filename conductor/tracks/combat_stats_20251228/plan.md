@@ -7,7 +7,7 @@
 - [x] Task: Refactor `StatsSystem` to ensure SIMD compatibility (alignment) (3fb88aa)
 
 ## Phase 2: Damage Calculation Pipeline
-- [ ] Task: Define `DamageEvent` and `DamageType` enums in `src/components/Combat.hpp`
+- [x] Task: Define `DamageEvent` and `DamageType` enums in `src/components/Combat.hpp` (9c4f567)
 - [ ] Task: Create `CombatSystem` test suite covering mitigation and resistance formulas
 - [ ] Task: Implement `CombatSystem::CalculateDamage` with support for Armor and Resistances
 - [ ] Task: Implement `CombatSystem::ApplyDamage` to modify Health components
