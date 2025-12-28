@@ -1,6 +1,6 @@
 # UI Inventory and Equipment Slot System - Implementation Plan
 
-## Phase 1: UI Core Structure and Base Functionality
+## Phase 1: UI Core Structure and Base Functionality [checkpoint: 5888e37]
 - [x] Task: Set up basic UI rendering loop and window within the Raylib context. [b82c35a]
 - [x] Task: Design and implement the main inventory/equipment window layout. [c9d2e1a]
 - [x] Task: Define and render the 11 equipment slots on the left panel. [c9d2e1a]
