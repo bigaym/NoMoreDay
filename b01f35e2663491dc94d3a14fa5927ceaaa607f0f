@@ -1,0 +1,8 @@
+Task: Integrate dynamic text scaling and layout adjustments to accommodate Chinese characters efficiently.
+Changes:
+- Implemented UISystem::DrawTextScaled to automatically scale text to fit a maximum width.
+- Updated DrawStatRow to use DrawTextScaled, preventing overlap between labels and values.
+- Refactored DrawTooltip to dynamically calculate its width based on content and apply scaling to long lines.
+- Improved Chinese character support by ensuring consistent baseline and scaling.
+Files: src/systems/UISystem.hpp, src/systems/UISystem.cpp, src/core/AssetLoadingSystem.cpp/hpp, src/core/UIAssetRegistry.hpp, src/core/ResourceManager.cpp/hpp, src/core/Game.cpp.
+Why: To ensure the UI remains readable and aesthetically pleasing when displaying Chinese text of varying lengths, especially in item tooltips and stat panels.
