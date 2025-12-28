@@ -1,0 +1,8 @@
+Task: Implement a robust tooltip system to display detailed item information on hover.
+Changes:
+- Added m_hoveredItem to UISystem to track the currently hovered item.
+- Implemented DrawTooltip in UISystem with support for item name, rarity, type, slot, stats, and affixes.
+- Extended GetAffixDescription in ItemStats.hpp to support all AffixType values.
+- Added ItemStatsTest.cpp to verify affix description formatting.
+- Integrated tooltip rendering into the UISystem::Draw loop.
+Why: To provide players with detailed information about items in their inventory and equipment slots.
