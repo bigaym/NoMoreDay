@@ -1,0 +1,9 @@
+Task: Refinement and Performance Optimization.
+Changes:
+- Eliminated per-frame heap allocations in UISystem by replacing std::string/std::format with TextFormat and static buffer pools.
+- Optimized DrawMinimap to use a dirty-flag system, only updating the GPU texture when data changes (every 10 frames max).
+- Updated ItemStats.hpp with a zero-allocation GetAffixDescriptionRef function.
+- Implemented a UI Benchmark utility (F4 hotkey) to measure CPU logic time.
+- Improved overall CPU efficiency by reducing redundant drawing calculations.
+Files: src/systems/UISystem.cpp/hpp, src/core/Game.cpp, src/components/ItemStats.hpp.
+Why: To ensure the UI system remains high-performance even with complex layouts and many items, adhering to the project's performance-first principles.
