@@ -1,6 +1,6 @@
 # Track Plan: Refine Core Combat and Stats System
 
-## Phase 1: Core Stats Architecture
+## Phase 1: Core Stats Architecture [checkpoint: 5474e52]
 - [x] Task: Define `Stats` component and `StatModifier` structure in `src/components/Stats.hpp` (364bd5a)
 - [x] Task: Create `StatsSystem` test suite (`tests/StatsSystemTest.cpp`) (364bd5a)
 - [x] Task: Implement `StatsSystem::Recalculate` to derive secondary stats from primary attributes (364bd5a)
