@@ -3,8 +3,11 @@
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/AIComponent.hpp"
+#include "../components/ItemComponent.hpp"
+#include "../components/InventoryComponent.hpp"
 #include "../core/LevelManager.hpp"
 #include "../systems/FogOfWarSystem.hpp"
+#include "../systems/ProgressionSystem.hpp"
 // 假设 LevelManager.hpp 包含了 MapSystem 的定义，如果报错则需要显式包含 MapSystem.hpp
 #include "raylib.h"
 #include "../tools/Logger.hpp"
@@ -17,6 +20,11 @@ using namespace NoMoreDay;
 bool UISystem::m_showCharacterPanel = false;
 bool UISystem::m_showInventory = false;
 Font UISystem::m_font = { 0 };
+
+entt::entity UISystem::m_draggedItem = entt::null;
+bool UISystem::m_isDraggingFromInventory = false;
+int UISystem::m_dragSourceInventoryIndex = -1;
+EquipmentSlot UISystem::m_dragSourceEquipmentSlot = EquipmentSlot::None;
 
 // --- 小地图专用静态资源 (无需修改头文件) ---
 static Texture2D s_minimapTexture = { 0 };
@@ -103,11 +111,32 @@ void UISystem::Update(entt::registry& registry) {
         s_debugRevealMap = !s_debugRevealMap;
         LOG_INFO("Minimap Debug Reveal: {}", s_debugRevealMap ? "ON" : "OFF");
     }
+
+    // 调试：增加经验
+    if (IsKeyPressed(KEY_F2)) {
+        auto view = registry.view<PlayerTag>();
+        for (auto entity : view) {
+            NoMoreDay::ProgressionSystem::AddExperience(registry, entity, 100.0f);
+            LOG_INFO("Debug: Awarded 100 XP to player");
+        }
+    }
+
+    // 调试：分配力量属性
+    if (IsKeyPressed(KEY_F3)) {
+        auto view = registry.view<PlayerTag>();
+        for (auto entity : view) {
+            if (NoMoreDay::ProgressionSystem::AllocateAttribute(registry, entity, StatType::Strength)) {
+                LOG_INFO("Debug: Allocated 1 point to Strength");
+            } else {
+                LOG_WARN("Debug: Failed to allocate point (maybe none available?)");
+            }
+        }
+    }
 }
 
 void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager) {
     if (m_showInventory) {
-        DrawInventory(registry);
+        DrawInventoryAndEquipment(registry);
     }
 
     DrawMinimap(registry, levelManager);
@@ -163,7 +192,7 @@ void UISystem::DrawCharacterPanel(entt::registry& registry, entt::entity player)
     float infoX = panelX + padding + avatarSize + 20.0f;
     if (pStats) {
         DrawTextUI(std::format("等级 {}", pStats->level).c_str(), infoX, currentY + 10, 24, GOLD);
-        DrawTextUI(std::format("经验: {:.0f}", pStats->experience).c_str(), infoX, currentY + 40, 16, LIGHTGRAY);
+        DrawTextUI(std::format("经验: {:.0f}", pStats->current_xp).c_str(), infoX, currentY + 40, 16, LIGHTGRAY);
     } else {
         DrawTextUI("等级 ??", infoX, currentY + 10, 24, GRAY);
     }
@@ -266,39 +295,268 @@ void UISystem::DrawStatRow(const char* label, const char* value, float x, float&
     y += fontSize + 5.0f;
 }
 
-void UISystem::DrawInventory(entt::registry& registry) {
-    const float panelW = 350.0f;
-    const float panelH = 500.0f;
-    const float margin = 20.0f;
+void UISystem::DrawInventoryAndEquipment(entt::registry& registry) {
+    auto playerView = registry.view<PlayerTag>();
+    if (playerView.begin() == playerView.end()) return;
+    auto player = playerView.front();
+
+    auto* inv = registry.try_get<InventoryComponent>(player);
+    auto* equip = registry.try_get<EquipmentComponent>(player);
+
+    const float panelW = 840.0f;
+    const float panelH = 650.0f;
     
-    // 锚定右侧居中 (Right-Center Anchor)
-    const float panelX = (float)GetScreenWidth() - panelW - margin;
+    const float panelX = ((float)GetScreenWidth() - panelW) / 2.0f;
     const float panelY = ((float)GetScreenHeight() - panelH) / 2.0f;
     const float padding = 20.0f;
 
-    // 背景
-    DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.85f));
-    DrawRectangleLinesEx({panelX, panelY, panelW, panelH}, 2.0f, GOLD);
+    // 1. 背景与边框
+    DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.92f));
+    DrawRectangleLinesEx({panelX, panelY, panelW, panelH}, 3.0f, DARKGRAY);
+    DrawRectangleLinesEx({panelX, panelY, panelW, panelH}, 1.0f, GOLD);
 
-    // 标题
-    DrawTextUI("背包", panelX + padding, panelY + padding, 24, WHITE);
-    DrawTextUI("按 'I' 关闭", panelX + panelW - 100, panelY + padding + 5, 18, LIGHTGRAY);
+    // 2. 标题栏
+    DrawRectangle(panelX, panelY, panelW, 40, Fade(GRAY, 0.2f));
+    DrawTextUI("角色物品栏 & 装备", panelX + padding, panelY + 8, 24, GOLD);
+    DrawTextUI("按 'I' 或 'ESC' 关闭", panelX + panelW - 180, panelY + 12, 16, LIGHTGRAY);
 
-    // 绘制网格 (示例：5列 x 8行)
-    const int cols = 5;
-    const int rows = 8;
-    const float cellSize = 50.0f;
-    const float gap = 10.0f;
+    // --- 左侧：装备区 (Equipment) ---
+    float equipX = panelX + padding;
+    float equipY = panelY + 60.0f;
+    float equipW = 320.0f;
     
-    float startX = panelX + (panelW - (cols * cellSize + (cols - 1) * gap)) / 2.0f;
-    float startY = panelY + 60.0f;
+    DrawRectangleRounded({equipX, equipY, equipW, panelH - 80}, 0.05f, 4, Fade(WHITE, 0.05f));
+    DrawTextUI("装备槽位", equipX + 10, equipY + 10, 20, YELLOW);
+    
+    // 装备槽位配置 (按规格说明顺序)
+    struct SlotDef { const char* label; EquipmentSlot slot; };
+    static const SlotDef slotDefs[] = {
+        {"头盔", EquipmentSlot::Head}, {"护肩", EquipmentSlot::Shoulder},
+        {"胸甲", EquipmentSlot::Chest}, {"手套", EquipmentSlot::Hands},
+        {"护腿", EquipmentSlot::Legs}, {"靴子", EquipmentSlot::Feet},
+        {"项链", EquipmentSlot::Neck}, {"戒指 1", EquipmentSlot::Ring1},
+        {"戒指 2", EquipmentSlot::Ring2}, {"主手武器", EquipmentSlot::MainHand},
+        {"副手武器", EquipmentSlot::OffHand}
+    };
 
-    for (int r = 0; r < rows; ++r) {
-        for (int c = 0; c < cols; ++c) {
-            float x = startX + c * (cellSize + gap);
-            float y = startY + r * (cellSize + gap);
-            DrawRectangleLines(x, y, cellSize, cellSize, Fade(LIGHTGRAY, 0.3f));
+    float slotSize = 54.0f;
+    float slotGap = 12.0f;
+    float startX = equipX + 20.0f;
+    float startY = equipY + 45.0f;
+
+    for (int i = 0; i < 11; ++i) {
+        float x = startX + (i % 2) * (slotSize + 80.0f); // 两列布局
+        float y = startY + (i / 2) * (slotSize + slotGap);
+        
+        EquipmentSlot slotType = slotDefs[i].slot;
+        entt::entity item = (equip) ? equip->get(slotType) : entt::null;
+
+        bool isHovered = CheckCollisionPointRec(GetMousePosition(), {x, y, slotSize, slotSize});
+        
+        // --- 拖拽交互 (装备槽) ---
+        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
+            m_draggedItem = item;
+            m_isDraggingFromInventory = false;
+            m_dragSourceEquipmentSlot = slotType;
         }
+
+        // --- 右键卸载 (装备槽) ---
+        if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null && inv) {
+            if (!inv->isFull()) {
+                inv->items.push_back(item);
+                equip->set(slotType, entt::null);
+            }
+        }
+        
+        if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && m_draggedItem != entt::null) {
+            // 尝试放入该装备槽 (需校验槽位类型)
+            auto* dragItemComp = registry.try_get<ItemComponent>(m_draggedItem);
+            if (dragItemComp && dragItemComp->slot == slotType) {
+                if (m_isDraggingFromInventory && inv) {
+                    // 从背包 -> 装备 (交换)
+                    entt::entity oldEquip = equip->get(slotType);
+                    equip->set(slotType, m_draggedItem);
+                    inv->items[m_dragSourceInventoryIndex] = oldEquip;
+                    if (oldEquip == entt::null) {
+                        inv->items.erase(inv->items.begin() + m_dragSourceInventoryIndex);
+                    }
+                } else if (!m_isDraggingFromInventory) {
+                    // 装备 -> 装备 (交换)
+                    entt::entity oldEquip = equip->get(slotType);
+                    equip->set(slotType, m_draggedItem);
+                    equip->set(m_dragSourceEquipmentSlot, oldEquip);
+                }
+                m_draggedItem = entt::null;
+            }
+        }
+
+        DrawSlot(registry, x, y, slotSize, (m_draggedItem == item) ? entt::null : item, slotDefs[i].label, isHovered);
+        
+        // 绘制槽位名称文本 (在槽位右侧)
+        DrawTextUI(slotDefs[i].label, x + slotSize + 5, y + slotSize/2 - 8, 14, isHovered ? WHITE : GRAY);
+    }
+
+    // --- 中间：垂直分割线 ---
+    DrawLineEx({panelX + 355, panelY + 60}, {panelX + 355, panelY + panelH - padding}, 2.0f, DARKGRAY);
+
+    // --- 右侧：背包区 (Inventory) ---
+    float invX = panelX + 375.0f;
+    float invY = panelY + 60.0f;
+    float invW = panelW - (invX - panelX) - padding;
+
+    // 标签页 (Tabs)
+    static int currentTab = 0; // 0: 物品, 1: 材料
+    const char* tabs[] = { " 物品 ", " 材料 " };
+    for (int i = 0; i < 2; ++i) {
+        float tabW = 80.0f;
+        float tabX = invX + i * (tabW + 5);
+        Rectangle tabRec = { tabX, invY, tabW, 30 };
+        
+        bool hovered = CheckCollisionPointRec(GetMousePosition(), tabRec);
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && hovered) currentTab = i;
+        
+        DrawRectangleRec(tabRec, (currentTab == i) ? DARKGRAY : (hovered ? GRAY : BLACK));
+        DrawRectangleLinesEx(tabRec, 1.0f, (currentTab == i) ? GOLD : DARKGRAY);
+        DrawTextUI(tabs[i], tabX + 15, invY + 5, 18, (currentTab == i) ? WHITE : LIGHTGRAY);
+    }
+
+    // 背包内容背景
+    DrawRectangleRounded({invX, invY + 30, invW, panelH - 110}, 0.05f, 4, Fade(WHITE, 0.05f));
+    
+    if (currentTab == 0) {
+        // 绘制物品网格 (Task 4)
+        const int cols = 7;
+        const int rows = 8;
+        float gridStartX = invX + 15.0f;
+        float gridStartY = invY + 45.0f;
+
+        for (int r = 0; r < rows; ++r) {
+            for (int c = 0; c < cols; ++c) {
+                int index = r * cols + c;
+                float x = gridStartX + c * (slotSize + 6.0f);
+                float y = gridStartY + r * (slotSize + 6.0f);
+                
+                entt::entity item = (inv && index < (int)inv->items.size()) ? inv->items[index] : entt::null;
+
+                bool isHovered = CheckCollisionPointRec(GetMousePosition(), {x, y, slotSize, slotSize});
+                
+                // --- 拖拽交互 (背包槽) ---
+                if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
+                    m_draggedItem = item;
+                    m_isDraggingFromInventory = true;
+                    m_dragSourceInventoryIndex = index;
+                }
+
+                // --- 右键穿戴 (背包槽) ---
+                if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null && equip) {
+                    auto* itemComp = registry.try_get<ItemComponent>(item);
+                    if (itemComp && itemComp->slot != EquipmentSlot::None) {
+                        // 穿戴
+                        entt::entity oldEquip = equip->get(itemComp->slot);
+                        equip->set(itemComp->slot, item);
+                        if (oldEquip != entt::null) {
+                            inv->items[index] = oldEquip;
+                        } else {
+                            inv->items.erase(inv->items.begin() + index);
+                        }
+                    }
+                }
+
+                if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && m_draggedItem != entt::null) {
+                    if (m_isDraggingFromInventory && inv) {
+                        // 背包 -> 背包 (交换/移动)
+                        if (index < (int)inv->items.size()) {
+                            std::swap(inv->items[m_dragSourceInventoryIndex], inv->items[index]);
+                        } else {
+                            // 移到空白位置 (简单追加或按索引，目前InventoryComponent是vector)
+                            // 这里简化逻辑：如果是空白格，就把源位置清空并放到最后，或者如果是在列表范围内则交换
+                            // 实际上当前 InventoryComponent 使用的是 vector，不存储 null。
+                        }
+                    } else if (!m_isDraggingFromInventory && inv && equip) {
+                        // 装备 -> 背包
+                        // 卸下装备到指定位置或末尾
+                        equip->set(m_dragSourceEquipmentSlot, entt::null);
+                        inv->items.push_back(m_draggedItem);
+                        // 如果指定位置有东西，那逻辑就复杂了，暂时只支持 push_back
+                    }
+                    m_draggedItem = entt::null;
+                }
+
+                DrawSlot(registry, x, y, slotSize, (m_draggedItem == item) ? entt::null : item, nullptr, isHovered);
+            }
+        }
+    } else {
+        // 绘制材料列表 (Task 5)
+        DrawTextUI("暂无材料...", invX + 20, invY + 60, 20, GRAY);
+    }
+
+    // --- 绘制拖拽中的物体 (Phantom Icon) ---
+    if (m_draggedItem != entt::null) {
+        Vector2 mPos = GetMousePosition();
+        DrawSlot(registry, mPos.x - slotSize/2, mPos.y - slotSize/2, slotSize, m_draggedItem, nullptr, true);
+        
+        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            // 如果释放时没有被消费（说明没落在槽位上），则取消拖拽
+            m_draggedItem = entt::null;
+        }
+    }
+}
+
+void UISystem::DrawSlot(entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel, bool highlighted) {
+    Rectangle rec = { x, y, size, size };
+    
+    // 背景
+    DrawRectangleRec(rec, highlighted ? Fade(YELLOW, 0.2f) : Fade(BLACK, 0.5f));
+    
+    // 边框
+    DrawRectangleLinesEx(rec, 1.0f, highlighted ? GOLD : GRAY);
+    
+    // 如果有物品
+    if (item != entt::null && registry.valid(item)) {
+        auto* itemComp = registry.try_get<ItemComponent>(item);
+        auto* sprite = registry.try_get<SpriteComponent>(item);
+
+        if (itemComp) {
+            // 绘制品质边框
+            Color rarityColor = GetRarityColor(itemComp->rarity);
+            DrawRectangleLinesEx(rec, 2.0f, rarityColor);
+
+            // 绘制物品图标 (如果有)
+            if (sprite && sprite->texture.id > 0) {
+                Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
+                Rectangle dest = {x + 4, y + 4, size - 8, size - 8};
+                DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, WHITE);
+            } else {
+                // 无图标则绘制简短名称
+                const char* shortName = itemComp->name.c_str(); // 暂时用全名
+                DrawTextUI(shortName, x + 5, y + size/2 - 5, 12, rarityColor);
+            }
+
+            // 绘制数量 (如果堆叠)
+            if (itemComp->quantity > 1) {
+                DrawTextUI(std::to_string(itemComp->quantity).c_str(), x + size - 15, y + size - 15, 12, WHITE);
+            }
+        }
+    } else if (defaultLabel) {
+        // 绘制占位符文字
+        // DrawTextUI(defaultLabel, x + 5, y + size/2 - 5, 10, DARKGRAY);
+    }
+    
+    // 内阴影效果
+    DrawRectangleLinesEx({x+1, y+1, size-2, size-2}, 1.0f, Fade(BLACK, 0.3f));
+}
+
+Color UISystem::GetRarityColor(Rarity rarity) {
+    switch (rarity) {
+        case Rarity::Common:    return LIGHTGRAY;
+        case Rarity::Magic:     return SKYBLUE;
+        case Rarity::Rare:      return YELLOW;
+        case Rarity::Uncommon:  return LIME;
+        case Rarity::Set:       return GREEN;
+        case Rarity::Epic:      return PURPLE;
+        case Rarity::Legendary: return ORANGE;
+        case Rarity::Mythic:    return RED;
+        default:                return WHITE;
     }
 }
 
