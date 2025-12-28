@@ -10,7 +10,7 @@
 - [x] Task: Define `DamageEvent` and `DamageType` enums in `src/components/Combat.hpp` (9c4f567)
 - [x] Task: Create `CombatSystem` test suite covering mitigation and resistance formulas (f621b8b)
 - [x] Task: Implement `CombatSystem::CalculateDamage` with support for Armor and Resistances (f621b8b)
-- [~] Task: Implement `CombatSystem::ApplyDamage` to modify Health components
+- [x] Task: Implement `CombatSystem::ApplyDamage` to modify Health components (265e03d)
 
 ## Phase 3: Affix & Modifier Integration
 - [ ] Task: Define `ModifierSource` (Item, Skill, Buff)
