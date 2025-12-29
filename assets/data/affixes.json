@@ -1,0 +1,1081 @@
+[
+    {
+        "id": "strength",
+        "type": 0,
+        "nameTemplate": "Strength",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 3.0,
+                "maxValue": 5.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 6.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 9.0,
+                "maxValue": 11.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 12.0,
+                "maxValue": 14.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 15.0,
+                "maxValue": 17.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 18.0,
+                "maxValue": 20.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 21.0,
+                "maxValue": 23.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "weapon",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "dexterity",
+        "type": 1,
+        "nameTemplate": "Dexterity",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 3.0,
+                "maxValue": 5.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 6.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 9.0,
+                "maxValue": 11.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 12.0,
+                "maxValue": 14.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 15.0,
+                "maxValue": 17.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 18.0,
+                "maxValue": 20.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 21.0,
+                "maxValue": 23.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "weapon",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "intelligence",
+        "type": 2,
+        "nameTemplate": "Intelligence",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 3.0,
+                "maxValue": 5.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 6.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 9.0,
+                "maxValue": 11.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 12.0,
+                "maxValue": 14.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 15.0,
+                "maxValue": 17.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 18.0,
+                "maxValue": 20.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 21.0,
+                "maxValue": 23.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "weapon",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "vitality",
+        "type": 3,
+        "nameTemplate": "Vitality",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 3.0,
+                "maxValue": 5.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 6.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 9.0,
+                "maxValue": 11.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 12.0,
+                "maxValue": 14.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 15.0,
+                "maxValue": 17.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 18.0,
+                "maxValue": 20.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 21.0,
+                "maxValue": 23.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "weapon",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "crit_chance",
+        "type": 16,
+        "nameTemplate": "Deadly",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 1.8,
+                "maxValue": 1.8
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 2.6,
+                "maxValue": 2.6
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 3.4,
+                "maxValue": 3.4
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 4.2,
+                "maxValue": 4.2
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 5.0,
+                "maxValue": 5.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 5.8,
+                "maxValue": 5.8
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 6.6,
+                "maxValue": 6.6
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "gloves",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "attack_speed",
+        "type": 18,
+        "nameTemplate": "Rapid",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 6.5,
+                "maxValue": 6.5
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 8.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 9.5,
+                "maxValue": 9.5
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 11.0,
+                "maxValue": 11.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 12.5,
+                "maxValue": 12.5
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 14.0,
+                "maxValue": 14.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 15.5,
+                "maxValue": 15.5
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "gloves"
+        ]
+    },
+    {
+        "id": "move_speed",
+        "type": 34,
+        "nameTemplate": "Quick",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 7.0,
+                "maxValue": 7.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 9.0,
+                "maxValue": 9.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 11.0,
+                "maxValue": 11.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 13.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 15.0,
+                "maxValue": 15.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 17.0,
+                "maxValue": 17.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 19.0,
+                "maxValue": 19.0
+            }
+        ],
+        "allowedTags": [
+            "boots"
+        ]
+    },
+    {
+        "id": "resist_all",
+        "type": 26,
+        "nameTemplate": "Prismatic",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 20.0,
+                "maxValue": 23.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 30.0,
+                "maxValue": 33.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 35.0,
+                "maxValue": 38.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "resist_fire",
+        "type": 27,
+        "nameTemplate": "Fire Res",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 20.0,
+                "maxValue": 23.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 30.0,
+                "maxValue": 33.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 35.0,
+                "maxValue": 38.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "resist_cold",
+        "type": 28,
+        "nameTemplate": "Cold Res",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 20.0,
+                "maxValue": 23.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 30.0,
+                "maxValue": 33.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 35.0,
+                "maxValue": 38.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "resist_lightning",
+        "type": 29,
+        "nameTemplate": "Light Res",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 20.0,
+                "maxValue": 23.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 30.0,
+                "maxValue": 33.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 35.0,
+                "maxValue": 38.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "flat_health",
+        "type": 23,
+        "nameTemplate": "Vigorous",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 10.0,
+                "maxValue": 15.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 20.0,
+                "maxValue": 25.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 30.0,
+                "maxValue": 35.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 40.0,
+                "maxValue": 45.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 50.0,
+                "maxValue": 55.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 60.0,
+                "maxValue": 65.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 70.0,
+                "maxValue": 75.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "flat_mana",
+        "type": 25,
+        "nameTemplate": "Mystic",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 8.0,
+                "maxValue": 12.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 16.0,
+                "maxValue": 20.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 24.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 32.0,
+                "maxValue": 36.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 40.0,
+                "maxValue": 44.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 48.0,
+                "maxValue": 52.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 56.0,
+                "maxValue": 60.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "flat_phys",
+        "type": 4,
+        "nameTemplate": "Sharp",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 2.0,
+                "maxValue": 4.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 4.0,
+                "maxValue": 6.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 6.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 8.0,
+                "maxValue": 10.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 10.0,
+                "maxValue": 12.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 12.0,
+                "maxValue": 14.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 14.0,
+                "maxValue": 16.0
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "flat_fire",
+        "type": 5,
+        "nameTemplate": "Burning",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 2.0,
+                "maxValue": 4.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 4.0,
+                "maxValue": 6.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 6.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 8.0,
+                "maxValue": 10.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 10.0,
+                "maxValue": 12.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 12.0,
+                "maxValue": 14.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 14.0,
+                "maxValue": 16.0
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "pct_phys",
+        "type": 10,
+        "nameTemplate": "Cruel",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 20.0,
+                "maxValue": 23.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 30.0,
+                "maxValue": 33.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 35.0,
+                "maxValue": 38.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ]
+    },
+    {
+        "id": "pct_fire",
+        "type": 11,
+        "nameTemplate": "Fiery",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 20.0,
+                "maxValue": 23.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 30.0,
+                "maxValue": 33.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 35.0,
+                "maxValue": 38.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ]
+    },
+    {
+        "id": "pct_light",
+        "type": 13,
+        "nameTemplate": "Shocking",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 20.0,
+                "maxValue": 23.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 28.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 30.0,
+                "maxValue": 33.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 35.0,
+                "maxValue": 38.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ]
+    },
+    {
+        "id": "flat_armor",
+        "type": 21,
+        "nameTemplate": "Reinforced",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 10.0,
+                "maxValue": 15.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 20.0,
+                "maxValue": 25.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 30.0,
+                "maxValue": 35.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 40.0,
+                "maxValue": 45.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 50.0,
+                "maxValue": 55.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 60.0,
+                "maxValue": 65.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 70.0,
+                "maxValue": 75.0
+            }
+        ],
+        "allowedTags": [
+            "armor"
+        ]
+    },
+    {
+        "id": "pct_armor",
+        "type": 22,
+        "nameTemplate": "Hardened",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 10.0,
+                "maxValue": 15.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 20.0,
+                "maxValue": 25.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 30.0,
+                "maxValue": 35.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 40.0,
+                "maxValue": 45.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 50.0,
+                "maxValue": 55.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 60.0,
+                "maxValue": 65.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 70.0,
+                "maxValue": 75.0
+            }
+        ],
+        "allowedTags": [
+            "armor"
+        ]
+    }
+]
