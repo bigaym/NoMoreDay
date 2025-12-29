@@ -23,7 +23,13 @@ public:
     FogOfWarSystem();
     ~FogOfWarSystem();
     
-    // 初始化系统
+    // 初始化系统数据 (CPU Safe)
+    void initData(int width, int height);
+    
+    // 初始化纹理资源 (Main Thread / GPU Only)
+    void initTexture();
+
+    // Legacy initialize (calls both)
     void initialize(int width, int height);
     
     // 更新可见性（基于玩家位置和视野半径）

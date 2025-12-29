@@ -12,26 +12,56 @@ LevelManager::~LevelManager() {
 }
 
 void LevelManager::initialize() {
-    m_mapSystem = std::make_unique<MapSystem>();
-    m_enemySystem = std::make_unique<EnemySpawnSystem>();
-    m_fogSystem = std::make_unique<FogOfWarSystem>();
-    
-    LOG_INFO("LevelManager initialized");
+    // This is now just a placeholder or for empty init
+    // Real init happens in activateLevel
+    LOG_INFO("LevelManager initialized (empty state)");
 }
 
 void LevelManager::loadNewLevel(const std::string& biome, int width, int height) {
-    LOG_INFO("Loading new level with biome: {}, dimensions: {}x{}", biome, width, height);
-    cleanup();
+    LOG_INFO("Loading new level synchronously: {} ({}x{})", biome, width, height);
+    auto data = prepareLevel(biome, width, height);
+    activateLevel(std::move(data));
+}
+
+LevelManager::LevelData LevelManager::prepareLevel(const std::string& biome, int width, int height) {
+    LOG_INFO("Preparing level data for: {} ({}x{})", biome, width, height);
     
-    m_currentBiome = biome;
+    LevelData data;
+    data.biome = biome;
+    data.width = width;
+    data.height = height;
     
-    // 初始化系统
-    initialize();
+    data.map = std::make_unique<MapSystem>();
+    data.enemy = std::make_unique<EnemySpawnSystem>();
+    data.fog = std::make_unique<FogOfWarSystem>();
     
-    // 生成关卡
-    generateLevel(biome, width, height);
+    // CPU Generation
+    data.map->generateMap(width, height, biome);
+    data.fog->initData(width, height);
+    data.enemy->initData(width, height, *data.map, biome);
     
-    LOG_INFO("Successfully loaded new level: {} ({}, {})", biome, width, height);
+    return data;
+}
+
+void LevelManager::activateLevel(LevelData&& data) {
+    LOG_INFO("Activating level: {} ({}x{})", data.biome, data.width, data.height);
+    
+    cleanup(); // Clean old level (including GPU textures)
+    
+    m_mapSystem = std::move(data.map);
+    m_enemySystem = std::move(data.enemy);
+    m_fogSystem = std::move(data.fog);
+    m_currentBiome = data.biome;
+    
+    // GPU Initialization (Must be on Main Thread)
+    if (m_fogSystem) {
+        m_fogSystem->initTexture();
+    }
+    if (m_enemySystem) {
+        m_enemySystem->initTextures();
+    }
+    
+    LOG_INFO("Level activated successfully");
 }
 
 void LevelManager::update(float dt, entt::registry& registry, const Position& playerPos) {
@@ -41,7 +71,7 @@ void LevelManager::update(float dt, entt::registry& registry, const Position& pl
         // 尝试从玩家实体获取视野组件
         auto view = registry.view<const PlayerTag, const VisionComponent>();
         if (view.begin() == view.end()) {
-            LOG_WARN("No player entity with VisionComponent found during level update");
+             // It's possible player died or not spawned yet
         }
         for (auto [entity, vision] : view.each()) {
             viewRadius = vision.radius;
@@ -59,9 +89,7 @@ void LevelManager::update(float dt, entt::registry& registry, const Position& pl
 
          // 更新敌人生成状态
          m_enemySystem->updateEnemySpawning(playerPos, registry);
-    } else {
-        LOG_ERROR("LevelManager systems not properly initialized during update");
-    }
+    } 
 }
 
 void LevelManager::render(const Camera2D& camera) {
@@ -79,29 +107,13 @@ void LevelManager::cleanup() {
 }
 
 void LevelManager::generateLevel(const std::string& biome, int width, int height) {
-    LOG_DEBUG("Generating level with biome: {}, size: {}x{}", biome, width, height);
-    if (m_mapSystem) {
-        m_mapSystem->generateMap(width, height, biome);
-        
-        // 初始化战争迷雾系统
-        m_fogSystem->initialize(width, height);
-        
-        // 初始化敌人生成系统
-        m_enemySystem->initializeLevel(width, height, *m_mapSystem, biome);
-        
-        LOG_INFO("Successfully generated level with biome: {}, size: {}x{}", biome, width, height);
-    } else {
-        LOG_ERROR("MapSystem not initialized when generating level: {}", biome);
-    }
+   // Legacy / Unused in new flow
+   // Kept to satisfy header declaration if I didn't remove it from header private section?
+   // I didn't remove it from header private section yet.
+   // But I can leave it empty or implementing via prepare/activate
+   loadNewLevel(biome, width, height);
 }
 
 void LevelManager::setLevelParameters(const std::string& biome) {
-    // 根据生物群系设置关卡参数
-    if (biome == "cave") {
-        // 洞穴关卡参数
-    } else if (biome == "dungeon") {
-        // 地牢关卡参数
-    } else if (biome == "demon" || biome == "hell") {
-        // 恶魔/地狱关卡参数
-    }
+    // Unused currently
 }

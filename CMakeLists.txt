@@ -36,6 +36,18 @@ add_library(NoMoreDayCore STATIC
     src/core/LevelManager.cpp
     src/core/ItemFactory.cpp
     src/core/AssetLoadingSystem.cpp
+    src/core/StateManager.cpp
+    src/core/UIRenderer.cpp
+    src/states/GameplayState.cpp
+    src/states/GameplayState.hpp
+    src/states/InventoryState.cpp
+    src/states/InventoryState.hpp
+    src/states/MainMenuState.cpp
+    src/states/MainMenuState.hpp
+    src/states/PauseState.cpp
+    src/states/PauseState.hpp
+    src/states/LoadingState.cpp
+    src/states/LoadingState.hpp
     src/systems/PhysicsSystem.cpp
     src/systems/RenderSystem.cpp
     src/systems/InputSystem.cpp

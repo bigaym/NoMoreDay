@@ -23,6 +23,7 @@ private:
     int m_mapWidth;
     int m_mapHeight;
     std::map<int, Texture2D> m_raceTextures;
+    std::vector<int> m_pendingRaces;
     std::mt19937 m_gen;
     
     // 生成参数
@@ -33,10 +34,14 @@ public:
     EnemySpawnSystem();
     ~EnemySpawnSystem();
     
-    // 初始化关卡敌人数据
+    // 初始化关卡 (Legacy)
     void initializeLevel(int width, int height, const MapSystem& mapSystem, const std::string& biome);
     
-    // 每帧更新：检查距离，生成或销毁敌人
+    // Async Loading Support
+    void initData(int width, int height, const MapSystem& mapSystem, const std::string& biome);
+    void initTextures();
+    
+    // 更新生成/销毁逻辑
     void updateEnemySpawning(const Position& playerPos, entt::registry& registry);
     
 private:

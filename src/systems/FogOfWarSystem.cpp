@@ -14,23 +14,28 @@ FogOfWarSystem::~FogOfWarSystem() {
 }
 
 void FogOfWarSystem::initialize(int width, int height) {
+    initData(width, height);
+    initTexture();
+}
+
+void FogOfWarSystem::initData(int width, int height) {
     m_width = width;
     m_height = height;
-    
-    // 初始化可见性网格
     m_visibilityGrid.assign(width * height, VISIBILITY_UNEXPLORED);
-    
-    // 创建雾纹理
+    // Texture logic moved to initTexture
+}
+
+void FogOfWarSystem::initTexture() {
     if (m_textureValid && m_fogTexture.id != 0) {
         UnloadTexture(m_fogTexture);
     }
     
-    Image fogImage = GenImageColor(width, height, BLACK);
+    Image fogImage = GenImageColor(m_width, m_height, BLACK);
     m_fogTexture = LoadTextureFromImage(fogImage);
     UnloadImage(fogImage);
     m_textureValid = true;
     
-    LOG_INFO("Initialized fog of war system for {}x{} map", width, height);
+    LOG_INFO("Initialized fog of war texture for {}x{} map", m_width, m_height);
 }
 
 void FogOfWarSystem::updateVisibility(const Position& playerPos, float viewRadius) {

@@ -1,0 +1,34 @@
+#pragma once
+
+#include "../core/State.hpp"
+#include <raylib.h>
+#include <string>
+
+namespace NoMoreDay {
+
+    class PauseState : public IState {
+    public:
+        PauseState(StateManager& manager, SharedContext& context);
+        virtual ~PauseState() = default;
+
+        void OnEnter() override;
+        void OnExit() override;
+
+        bool OnUpdate(float dt) override;
+        void OnRender() override;
+
+    private:
+        struct Button {
+            Rectangle bounds;
+            std::string text;
+            bool hovered;
+        };
+
+        void DrawButton(const Button& btn);
+        bool IsButtonClicked(const Button& btn);
+
+        Button m_resumeButton;
+        Button m_menuButton;
+    };
+
+}

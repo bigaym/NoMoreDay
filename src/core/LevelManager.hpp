@@ -20,17 +20,32 @@ private:
     static constexpr int DEFAULT_MAP_WIDTH = 128;
     static constexpr int DEFAULT_MAP_HEIGHT = 128;
 
+    
 public:
+    struct LevelData {
+        std::unique_ptr<MapSystem> map;
+        std::unique_ptr<EnemySpawnSystem> enemy;
+        std::unique_ptr<FogOfWarSystem> fog;
+        std::string biome;
+        int width, height;
+    };
     LevelManager();
     ~LevelManager();
     
     // 初始化关卡管理器
     void initialize();
     
-    // 加载新关卡
+    // 加载新关卡 (Synchronous legacy wrapper)
     void loadNewLevel(const std::string& biome = "cave", 
                      int width = DEFAULT_MAP_WIDTH, 
                      int height = DEFAULT_MAP_HEIGHT);
+
+    // Async Loading Support
+    // 1. Prepare data (Thread Safe, CPU Only)
+    LevelData prepareLevel(const std::string& biome, int width, int height);
+    
+    // 2. Activate prepared level (Main Thread, GPU Init)
+    void activateLevel(LevelData&& data);
     
     // 更新关卡系统
     void update(float dt, entt::registry& registry, const Position& playerPos);
