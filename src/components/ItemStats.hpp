@@ -33,6 +33,7 @@ enum class AffixType : uint8_t {
     CritDamage, // 暴击伤害
     AttackSpeed,// 攻击速度
     CastSpeed,  // 施法速度
+    Accuracy,   // 命中率
 
     // Defensive
     FlatArmor,      // 基础护甲
@@ -46,10 +47,14 @@ enum class AffixType : uint8_t {
     ResistLightning,
     ResistPoison,
     ResistShadow,
+    Thorns,         // 荆棘
+    DamageReduction,// 伤害减免
 
     // Utility
     MoveSpeed,          // 移动速度
     CooldownReduction,  // 冷却缩减
+    LifeSteal,          // 生命偷取
+    LifeOnHit,          // 击中回复
     
     Count
 };
@@ -99,6 +104,7 @@ inline std::string GetAffixDescription(const Affix& affix) {
         case AffixType::CritDamage: text += "% 暴击伤害"; break;
         case AffixType::AttackSpeed: text += "% 攻击速度"; break;
         case AffixType::CastSpeed: text += "% 施法速度"; break;
+        case AffixType::Accuracy: text += "% 命中率"; break;
 
         case AffixType::FlatArmor: text += " 护甲"; break;
         case AffixType::FlatHealth: text += " 生命"; break;
@@ -111,8 +117,14 @@ inline std::string GetAffixDescription(const Affix& affix) {
         case AffixType::ResistPoison: text += "% 毒素抗性"; break;
         case AffixType::ResistShadow: text += "% 暗影抗性"; break;
 
+        case AffixType::Thorns: text += " 荆棘伤害"; break;
+        case AffixType::DamageReduction: text += "% 伤害减免"; break;
+
         case AffixType::MoveSpeed: text += "% 移动速度"; break;
         case AffixType::CooldownReduction: text += "% 冷却缩减"; break;
+
+        case AffixType::LifeSteal: text += "% 生命偷取"; break;
+        case AffixType::LifeOnHit: text += " 击中回复"; break;
         
         default: text += " 属性"; break;
     }
@@ -148,6 +160,7 @@ inline const char* GetAffixDescriptionRef(const Affix& affix) {
         case AffixType::CritDamage: return TextFormat("+%.1f%% 暴击伤害", val);
         case AffixType::AttackSpeed: return TextFormat("+%.0f%% 攻击速度", val);
         case AffixType::CastSpeed: return TextFormat("+%.0f%% 施法速度", val);
+        case AffixType::Accuracy: return TextFormat("+%.0f%% 命中率", val);
 
         case AffixType::FlatArmor: return TextFormat("+%.0f 护甲", val);
         case AffixType::PercentArmor: return TextFormat("+%.0f%% 护甲", val);
@@ -158,8 +171,14 @@ inline const char* GetAffixDescriptionRef(const Affix& affix) {
         case AffixType::ResistPoison: return TextFormat("+%.0f%% 毒素抗性", val);
         case AffixType::ResistShadow: return TextFormat("+%.0f%% 暗影抗性", val);
 
+        case AffixType::Thorns: return TextFormat("+%.0f 荆棘伤害", val);
+        case AffixType::DamageReduction: return TextFormat("+%.0f%% 伤害减免", val);
+
         case AffixType::MoveSpeed: return TextFormat("+%.0f%% 移动速度", val);
         case AffixType::CooldownReduction: return TextFormat("+%.0f%% 冷却缩减", val);
+
+        case AffixType::LifeSteal: return TextFormat("+%.1f%% 生命偷取", val);
+        case AffixType::LifeOnHit: return TextFormat("+%.1f 击中回复", val);
         
         default: return TextFormat("+%.1f 属性", val);
     }

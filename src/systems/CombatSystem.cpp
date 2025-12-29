@@ -110,6 +110,87 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                     if (angleDiff <= (120.0f * 0.5f) * (PI / 180.0f)) {
                         // HIT CONFIRMED
                         hitAny = true;
+
+                        // --- 命中判定 (Accuracy/Miss Check) ---
+                        // 如果命中率 < 1.0，则有几率未命中
+                        if (stats && stats->accuracy < 1.0f) {
+                            float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
+                            if (roll > stats->accuracy) {
+                                LOG_DEBUG("Attack missed target {}", (uint32_t)target);
+                                if (registry.all_of<Position>(target)) {
+                                    const auto& tPos = registry.get<Position>(target);
+                                    auto popupEntity = registry.create();
+                                    registry.emplace<Position>(popupEntity, tPos.x, tPos.y - 20.0f);
+                                    
+                                    DamagePopup popup;
+                                    popup.damage = 0;
+                                    popup.timer = 0.0f;
+                                    popup.lifeTime = 0.8f;
+                                    popup.velX = (float)(GetRandomValue(-10, 10));
+                                    popup.velY = -80.0f;
+                                    popup.color = LIGHTGRAY; // 未命中颜色
+                                    popup.isMiss = true;
+                                    registry.emplace<DamagePopup>(popupEntity, popup);
+                                }
+                                return; // 未命中，跳过后续所有判定
+                            }
+                        }
+
+                        // --- 闪避判定 (Dodge Check) ---
+                        bool isDodged = false;
+                        if (registry.all_of<NoMoreDay::CombatStats>(target)) {
+                            const auto& targetStats = registry.get<NoMoreDay::CombatStats>(target);
+                            // 判定是否闪避 (不免疫持续伤害，如果目前持续伤害的机制还没实现则注释预留)
+                            // TODO: Future DoT (Damage over Time) logic should bypass this check.
+                            if (targetStats.dodge_chance > 0.0f) {
+                                // 计算有效闪避率：目标闪避 - (攻击者命中 - 100%)
+                                // 例如：目标闪避 30%，攻击者命中 120% -> 有效闪避 10%
+                                float attackerAccuracy = stats ? stats->accuracy : 1.0f;
+                                float effectiveDodge = targetStats.dodge_chance - (attackerAccuracy - 1.0f);
+                                if (effectiveDodge < 0.0f) effectiveDodge = 0.0f;
+
+                                float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
+                                if (roll < effectiveDodge) {
+                                    isDodged = true;
+                                }
+                            }
+                        }
+
+                        if (isDodged) {
+                            LOG_DEBUG("Target {} dodged the attack", (uint32_t)target);
+                            if (registry.all_of<Position>(target)) {
+                                const auto& tPos = registry.get<Position>(target);
+                                auto popupEntity = registry.create();
+                                registry.emplace<Position>(popupEntity, tPos.x, tPos.y - 20.0f);
+                                
+                                DamagePopup popup;
+                                popup.damage = 0;
+                                popup.timer = 0.0f;
+                                popup.lifeTime = 0.8f;
+                                popup.velX = (float)(GetRandomValue(-10, 10));
+                                popup.velY = -80.0f;
+                                popup.color = SKYBLUE; // 闪避颜色
+                                popup.isDodge = true;
+                                
+                                registry.emplace<DamagePopup>(popupEntity, popup);
+                            }
+                            return; // 闪避成功，跳过击退和伤害计算
+                        }
+
+                        // --- 格挡判定 (Block Check) ---
+                        bool isBlocked = false;
+                        float blockedAmount = 0.0f;
+                        if (registry.all_of<NoMoreDay::CombatStats>(target)) {
+                            const auto& targetStats = registry.get<NoMoreDay::CombatStats>(target);
+                            if (targetStats.block_chance > 0.0f) {
+                                float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
+                                if (roll < targetStats.block_chance) {
+                                    isBlocked = true;
+                                    blockedAmount = targetStats.block_amount;
+                                    LOG_DEBUG("Target {} blocked attack", (uint32_t)target);
+                                }
+                            }
+                        }
                     
                     LOG_DEBUG("Hit confirmed on target {}", (uint32_t)target);
                     // Apply Knockback
@@ -148,6 +229,13 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
 
                     float finalDamage = totalDamage;
 
+                    // Apply Block Reduction
+                    // Formula: Reduction = BlockAmount / (BlockAmount + 100)
+                    if (isBlocked) {
+                        float blockMitigation = blockedAmount / (blockedAmount + 100.0f);
+                        finalDamage *= (1.0f - blockMitigation);
+                    }
+
                     // 3. 暴击判定 (作用于最终总伤害)
                     if (registry.all_of<NoMoreDay::CombatStats>(target)) {
                         float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
@@ -167,6 +255,30 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                         bool targetDead = ApplyDamage(registry, target, finalDamage, entity);
                         LOG_DEBUG("对 {} 造成 {:.1f} 伤害 (暴击: {}, 死亡: {})", (uint32_t)target, finalDamage, isCrit, targetDead);
 
+                        // --- 荆棘伤害 (Thorns) ---
+                        if (!targetDead && registry.all_of<NoMoreDay::CombatStats>(target)) {
+                            const auto& tStats = registry.get<NoMoreDay::CombatStats>(target);
+                            if (tStats.thorns > 0.0f) {
+                                // 反伤给攻击者
+                                ApplyDamage(registry, entity, tStats.thorns, target);
+                                LOG_TRACE("Thorns: Entity {} took {:.1f} damage", (uint32_t)entity, tStats.thorns);
+                            }
+                        }
+
+                        // --- 生命偷取 & 击中回复 ---
+                        if (stats && registry.all_of<HealthComponent>(entity)) {
+                            float healAmount = 0.0f;
+                            if (stats->life_on_hit > 0.0f) healAmount += stats->life_on_hit;
+                            if (stats->life_steal > 0.0f) healAmount += finalDamage * stats->life_steal;
+
+                            if (healAmount > 0.0f) {
+                                auto& attackerHp = registry.get<HealthComponent>(entity);
+                                attackerHp.current += healAmount;
+                                if (attackerHp.current > attackerHp.max) attackerHp.current = attackerHp.max;
+                                // 可选：在这里添加治疗飘字或特效
+                            }
+                        }
+
                         // --- 生成伤害飘字 ---
                         auto popupEntity = registry.create();
                         registry.emplace<Position>(popupEntity, popupX, popupY);
@@ -177,10 +289,15 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                         popup.lifeTime = 0.8f;
                         popup.velX = (float)(GetRandomValue(-20, 20)); // 随机水平漂移
                         popup.velY = -100.0f; // 向上飘
+                        popup.isBlock = isBlocked;
+                        popup.isCrit = isCrit;
                         
                         // Color coding
-                        if (isCrit) {
-                            popup.color = RED;
+                        if (isBlocked) {
+                            popup.color = GRAY; // 格挡显示为灰色
+                            popup.lifeTime = 1.0f;
+                        } else if (isCrit) {
+                            popup.color = ORANGE; // 暴击显示为橙黄色
                             popup.lifeTime = 1.0f; // 暴击持续时间更长
                         } else {
                             popup.color = WHITE;
@@ -222,10 +339,7 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
     if (type == DamageType::Physical) {
         // Armor Reduction
         // Formula: Reduction = Armor / (Armor + 100)
-        // This is a placeholder constant. In real RPGs it scales with level usually.
-        float armor = defender.armor;
-        // Apply Pen? 
-        // armor -= attacker.armor_pen; 
+        float armor = defender.armor - attacker.armor_pen;
         if (armor < 0) armor = 0;
         
         if (armor > 0) {
@@ -241,6 +355,13 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
 
     // 3. Final Calculation
     damage *= (1.0f - mitigation);
+
+    // 4. Global Damage Reduction
+    if (defender.damage_reduction > 0.0f) {
+        float reduction = defender.damage_reduction;
+        if (reduction > 0.90f) reduction = 0.90f; // Hard Cap 90%
+        damage *= (1.0f - reduction);
+    }
 
     return std::max(0.0f, damage);
 }

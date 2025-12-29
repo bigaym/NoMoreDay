@@ -11,6 +11,10 @@ struct DamagePopup {
     float velX;
     float velY;
     Color color;
+    bool isDodge = false; // 是否为闪避
+    bool isBlock = false; // 是否为格挡
+    bool isMiss = false;  // 是否未命中
+    bool isCrit = false;  // 是否为暴击
 };
 
 // 攻击特效 (如挥剑轨迹)

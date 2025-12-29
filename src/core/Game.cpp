@@ -205,6 +205,14 @@ void Game::update(float dt) {
         // 确保 Space 键能触发冲刺 (如果 InputSystem 未处理)
         if (IsKeyPressed(KEY_SPACE)) input.dash = true; // 如果按下空格键，则冲刺
 
+        // 计算有效冷却时间 (应用冷却缩减)
+        float effectiveCooldown = dash.cooldownDuration;
+        if (m_registry.all_of<NoMoreDay::CombatStats>(entity)) {
+            float cdr = m_registry.get<NoMoreDay::CombatStats>(entity).cooldown_reduction;
+            if (cdr > 0.75f) cdr = 0.75f; // Cap at 75%
+            effectiveCooldown *= (1.0f - cdr);
+        }
+
         // --- Dash Cooldown & Charges ---
         if (dash.charges < dash.maxCharges) {
             dash.cooldownTimer -= dt;
@@ -215,7 +223,7 @@ void Game::update(float dt) {
                 LOG_DEBUG("Dash charge restored, current charges: {}", dash.charges);
                 // 如果还没满，重置计时器
                 if (dash.charges < dash.maxCharges) {
-                    dash.cooldownTimer = dash.cooldownDuration;
+                    dash.cooldownTimer = effectiveCooldown;
                 }
             }
         }
@@ -252,7 +260,7 @@ void Game::update(float dt) {
             
             // 如果刚开始冷却（满充能使用了一次），则启动计时器
             if (dash.charges == dash.maxCharges - 1 && dash.cooldownTimer <= 0.0f) {
-                dash.cooldownTimer = dash.cooldownDuration;
+                dash.cooldownTimer = effectiveCooldown;
             }
         }
 
@@ -270,6 +278,9 @@ void Game::update(float dt) {
         } else {
             // 普通移动
             float speed = 300.0f;
+            if (m_registry.all_of<NoMoreDay::CombatStats>(entity)) {
+                speed = m_registry.get<NoMoreDay::CombatStats>(entity).move_speed;
+            }
             vel.vx = input.moveX * speed;
             vel.vy = input.moveY * speed;
         }

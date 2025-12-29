@@ -10,6 +10,7 @@ namespace NoMoreDay {
 enum class ItemType {
     Weapon,
     Armor,
+    Shield,
     Consumable,
     Material,
     Quest,
@@ -57,6 +58,13 @@ enum class Rarity {
 inline void to_json(nlohmann::json& j, const Rarity& e) { j = static_cast<uint8_t>(e); }
 inline void from_json(const nlohmann::json& j, Rarity& e) { e = static_cast<Rarity>(j.get<uint8_t>()); }
 
+// 套装奖励定义
+struct SetBonus {
+    int requiredCount; // 激活此奖励所需的套装件数
+    std::vector<NoMoreDay::Affix> bonuses; // 奖励的词缀列表
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SetBonus, requiredCount, bonuses)
+
 // 标记实体为物品的组件
 struct ItemComponent {
     uint32_t id;          // 物品的数据库/配置ID
@@ -73,6 +81,11 @@ struct ItemComponent {
     float attack = 0.0f;  // 基础武器伤害 (仅武器)
     float defense = 0.0f; // 基础护甲防御 (仅护甲)
     int bagCapacity = 0;  // 背包扩容量 (仅背包)
+    bool isTwoHanded = false; // 是否为双手武器
+    
+    // --- 套装属性 ---
+    std::string setName; // 套装名称 (例如 "Immortal King")
+    std::vector<SetBonus> setBonuses; // 套装奖励定义 (通常每件同名套装物品都携带一份相同的定义)
 
     // --- 打造与属性 ---
     int forgingPotential = 0; // 打造潜力 (打造时消耗)
@@ -90,7 +103,7 @@ struct ItemComponent {
     // Description
     std::string description;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, forgingPotential, legendaryPotential, implicits, affixes, description)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, isTwoHanded, setName, setBonuses, forgingPotential, legendaryPotential, implicits, affixes, description)
 
 
 // 掉落物条目类型

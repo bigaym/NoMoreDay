@@ -250,7 +250,7 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
 // --- 绘图辅助函数 ---
 
 void UISystem::DrawTextUI(const char* text, float x, float y, float fontSize, Color color) {
-    if (IsFontReady(m_font)) {
+    if (IsFontValid(m_font)) {
         DrawTextEx(m_font, text, { x, y }, fontSize, 1.0f, color);
     } else {
         DrawText(text, (int)x, (int)y, (int)fontSize, color);
@@ -259,13 +259,13 @@ void UISystem::DrawTextUI(const char* text, float x, float y, float fontSize, Co
 
 void UISystem::DrawTextScaled(const char* text, float x, float y, float fontSize, float maxWidth, Color color) {
     if (!text || text[0] == '\0') return;
-    float currentWidth = IsFontReady(m_font) ? MeasureTextEx(m_font, text, fontSize, 1.0f).x : (float)MeasureText(text, (int)fontSize);
+    float currentWidth = IsFontValid(m_font) ? MeasureTextEx(m_font, text, fontSize, 1.0f).x : (float)MeasureText(text, (int)fontSize);
 
     if (currentWidth > maxWidth && maxWidth > 0) {
         float scale = maxWidth / currentWidth;
         float scaledFontSize = fontSize * scale;
         float yOffset = (fontSize - scaledFontSize) * 0.5f;
-        if (IsFontReady(m_font)) DrawTextEx(m_font, text, { x, y + yOffset }, scaledFontSize, 1.0f, color);
+        if (IsFontValid(m_font)) DrawTextEx(m_font, text, { x, y + yOffset }, scaledFontSize, 1.0f, color);
         else DrawText(text, (int)x, (int)(y + yOffset), (int)scaledFontSize, color);
     } else {
         DrawTextUI(text, x, y, fontSize, color);
@@ -292,7 +292,7 @@ void UISystem::DrawSlot(entt::registry& registry, float x, float y, float size, 
             } else {
                 const char* shortName = GetShortItemTypeName(*itemComp);
                 float fontSize = 16.0f;
-                Vector2 textSize = IsFontReady(m_font) ? MeasureTextEx(m_font, shortName, fontSize, 1.0f) : Vector2{(float)MeasureText(shortName, (int)fontSize), fontSize};
+                Vector2 textSize = IsFontValid(m_font) ? MeasureTextEx(m_font, shortName, fontSize, 1.0f) : Vector2{(float)MeasureText(shortName, (int)fontSize), fontSize};
                 DrawTextUI(shortName, x + (size - textSize.x) / 2.0f, y + (size - textSize.y) / 2.0f, fontSize, rarityColor);
             }
 
@@ -352,13 +352,13 @@ void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
     
     float maxW = 0.0f;
     // 标题宽度
-    Vector2 titleDim = IsFontReady(m_font) ? MeasureTextEx(m_font, itemComp->name.c_str(), titleSize, 1.0f) : Vector2{(float)MeasureText(itemComp->name.c_str(), (int)titleSize), titleSize};
+    Vector2 titleDim = IsFontValid(m_font) ? MeasureTextEx(m_font, itemComp->name.c_str(), titleSize, 1.0f) : Vector2{(float)MeasureText(itemComp->name.c_str(), (int)titleSize), titleSize};
     maxW = std::max(maxW, titleDim.x);
     
     // 内容宽度
     for (const auto& line : lines) {
         if (line == "---" || line == " ") continue;
-        float w = IsFontReady(m_font) ? MeasureTextEx(m_font, line.c_str(), fontSize, 1.0f).x : (float)MeasureText(line.c_str(), (int)fontSize);
+        float w = IsFontValid(m_font) ? MeasureTextEx(m_font, line.c_str(), fontSize, 1.0f).x : (float)MeasureText(line.c_str(), (int)fontSize);
         maxW = std::max(maxW, w);
     }
     

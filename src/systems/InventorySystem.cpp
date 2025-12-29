@@ -235,6 +235,30 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
         return false;
     }
 
+    // --- 双手武器逻辑 ---
+    // 1. 如果装备的是双手武器 (主手)，必须先卸下副手物品
+    if (slot == EquipmentSlot::MainHand && itemComp->isTwoHanded) {
+        if (registry.valid(equipment->get(EquipmentSlot::OffHand))) {
+            if (!unequipItem(registry, character, EquipmentSlot::OffHand)) {
+                LOG_WARN("背包: 无法装备双手武器 - 副手卸下失败 (背包已满?)");
+                return false;
+            }
+        }
+    }
+    // 2. 如果装备的是副手物品，必须检查主手是否为双手武器
+    if (slot == EquipmentSlot::OffHand) {
+        entt::entity mhItem = equipment->get(EquipmentSlot::MainHand);
+        if (registry.valid(mhItem)) {
+            auto* mhComp = registry.try_get<ItemComponent>(mhItem);
+            if (mhComp && mhComp->isTwoHanded) {
+                if (!unequipItem(registry, character, EquipmentSlot::MainHand)) {
+                    LOG_WARN("背包: 无法装备副手 - 双手武器卸下失败 (背包已满?)");
+                    return false;
+                }
+            }
+        }
+    }
+
     // 检查槽位是否被占用
     entt::entity currentEquipped = equipment->get(slot);
     if (registry.valid(currentEquipped))

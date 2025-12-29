@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <vector>
 #include <array>
+#include <unordered_map>
 namespace NoMoreDay {
 
 struct StatCalculation {
@@ -30,10 +31,29 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.crit_damage = 1.50f;
     combat.attack_speed = 1.0f;
     combat.cast_speed = 1.0f;
+    combat.accuracy = 0.97f;
     combat.knockback = 0.0f;
     combat.resistances.fill(0.0f);
     combat.flat_damage.fill(0.0f);
     combat.damage_multipliers.fill(1.0f);
+    
+    // Reset other stats to ensure no "sticky" values
+    combat.damage_reduction = 0.0f;
+    combat.thorns = 0.0f;
+    combat.life_steal = 0.0f;
+    combat.life_on_hit = 0.0f;
+    combat.cooldown_reduction = 0.0f;
+    combat.resource_cost_reduction = 0.0f;
+    combat.cast_range = 0.0f;
+    combat.area_scale = 1.0f;
+    combat.projectile_speed = 1.0f;
+    combat.duration_scale = 1.0f;
+    combat.block_chance = 0.0f;
+    combat.block_amount = 0.0f;
+    combat.dodge_chance = 0.0f;
+    combat.gold_bonus = 0.0f;
+    combat.experience_gain_mult = 0.0f;
+    combat.pickup_range = 50.0f; // Default
 }
 
 // 辅助函数：将通用 StatModifier 应用到计算数组
@@ -118,7 +138,66 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     float totalCritChance = 0.0f;
     float totalCritDamage = 0.0f;
     float totalAttackSpeed = 0.0f;
+    float totalAccuracy = 0.0f;
+    
+    float mainHandAttack = 0.0f;
     bool hasMainHandWeapon = false;
+    bool isTwoHanded = false;
+    float offHandAttack = 0.0f;
+    bool hasOffHandWeapon = false;
+
+    // 定义处理词缀的 Lambda，供物品和套装奖励复用
+    auto processAffixes = [&](const std::vector<Affix>& affixes) {
+        for (const auto& affix : affixes) {
+            ApplyAffix(calcs, affix);
+            
+            // 处理 ApplyAffix 中未涵盖的进攻性词缀
+            switch (affix.type) {
+                case AffixType::CritChance:  totalCritChance += affix.value / 100.0f; break;
+                case AffixType::CritDamage:  totalCritDamage += affix.value / 100.0f; break;
+                case AffixType::AttackSpeed: totalAttackSpeed += affix.value / 100.0f; break;
+                case AffixType::Accuracy:    totalAccuracy += affix.value / 100.0f; break;
+                
+                // 基础点伤 (Flat Damage)
+                case AffixType::FlatPhysicalDamage: combat.flat_damage[(int)DamageType::Physical] += affix.value; break;
+                case AffixType::FlatFireDamage:     combat.flat_damage[(int)DamageType::Fire] += affix.value; break;
+                case AffixType::FlatColdDamage:     combat.flat_damage[(int)DamageType::Cold] += affix.value; break;
+                case AffixType::FlatLightningDamage:combat.flat_damage[(int)DamageType::Lightning] += affix.value; break;
+                case AffixType::FlatPoisonDamage:   combat.flat_damage[(int)DamageType::Poison] += affix.value; break;
+                case AffixType::FlatShadowDamage:   combat.flat_damage[(int)DamageType::Shadow] += affix.value; break;
+
+                // 百分比伤害 (Percent Damage)
+                case AffixType::PercentPhysicalDamage: combat.damage_multipliers[(int)DamageType::Physical] += affix.value / 100.0f; break;
+                case AffixType::PercentFireDamage:     combat.damage_multipliers[(int)DamageType::Fire] += affix.value / 100.0f; break;
+                case AffixType::PercentColdDamage:     combat.damage_multipliers[(int)DamageType::Cold] += affix.value / 100.0f; break;
+                case AffixType::PercentLightningDamage:combat.damage_multipliers[(int)DamageType::Lightning] += affix.value / 100.0f; break;
+                case AffixType::PercentPoisonDamage:   combat.damage_multipliers[(int)DamageType::Poison] += affix.value / 100.0f; break;
+                case AffixType::PercentShadowDamage:   combat.damage_multipliers[(int)DamageType::Shadow] += affix.value / 100.0f; break;
+
+                // 抗性 (Resistances)
+                case AffixType::ResistAll:       for(auto& r : combat.resistances) r += affix.value / 100.0f; break;
+                case AffixType::ResistFire:      combat.resistances[(int)DamageType::Fire] += affix.value / 100.0f; break;
+                case AffixType::ResistCold:      combat.resistances[(int)DamageType::Cold] += affix.value / 100.0f; break;
+                case AffixType::ResistLightning: combat.resistances[(int)DamageType::Lightning] += affix.value / 100.0f; break;
+                case AffixType::ResistPoison:    combat.resistances[(int)DamageType::Poison] += affix.value / 100.0f; break;
+                case AffixType::ResistShadow:    combat.resistances[(int)DamageType::Shadow] += affix.value / 100.0f; break;
+
+                // 回复 (Recovery)
+                case AffixType::LifeSteal:       combat.life_steal += affix.value / 100.0f; break;
+                case AffixType::LifeOnHit:       combat.life_on_hit += affix.value; break;
+
+                // 新增属性
+                case AffixType::Thorns:          combat.thorns += affix.value; break;
+                case AffixType::DamageReduction: combat.damage_reduction += affix.value / 100.0f; break;
+                case AffixType::CooldownReduction: combat.cooldown_reduction += affix.value / 100.0f; break;
+
+                default: break;
+            }
+        }
+    };
+
+    std::unordered_map<std::string, int> setCounts;
+    std::unordered_map<std::string, const std::vector<SetBonus>*> setDefinitions;
 
     // 1. 处理装备
     if (registry.all_of<EquipmentComponent>(entity)) {
@@ -127,53 +206,17 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
             if (registry.valid(itemEntity) && registry.all_of<ItemComponent>(itemEntity)) {
                 const auto& item = registry.get<ItemComponent>(itemEntity);
 
-                // 提取武器基础伤害 (仅限主手)
-                // 这解决了伤害一直维持在 25 左右的问题
-                if (item.slot == EquipmentSlot::MainHand && item.attack > 0) {
-                    combat.min_weapon_damage = item.attack * 0.9f; 
-                    combat.max_weapon_damage = item.attack * 1.1f;
-                    hasMainHandWeapon = true;
-                }
-
-                // 处理词缀 (包括固有词缀和随机词缀)
-                auto processAffixes = [&](const std::vector<Affix>& affixes) {
-                    for (const auto& affix : affixes) {
-                        ApplyAffix(calcs, affix);
-                        
-                        // 处理 ApplyAffix 中未涵盖的进攻性词缀
-                        switch (affix.type) {
-                            case AffixType::CritChance:  totalCritChance += affix.value / 100.0f; break;
-                            case AffixType::CritDamage:  totalCritDamage += affix.value / 100.0f; break;
-                            case AffixType::AttackSpeed: totalAttackSpeed += affix.value / 100.0f; break;
-                            
-                            // 基础点伤 (Flat Damage)
-                            case AffixType::FlatPhysicalDamage: combat.flat_damage[(int)DamageType::Physical] += affix.value; break;
-                            case AffixType::FlatFireDamage:     combat.flat_damage[(int)DamageType::Fire] += affix.value; break;
-                            case AffixType::FlatColdDamage:     combat.flat_damage[(int)DamageType::Cold] += affix.value; break;
-                            case AffixType::FlatLightningDamage:combat.flat_damage[(int)DamageType::Lightning] += affix.value; break;
-                            case AffixType::FlatPoisonDamage:   combat.flat_damage[(int)DamageType::Poison] += affix.value; break;
-                            case AffixType::FlatShadowDamage:   combat.flat_damage[(int)DamageType::Shadow] += affix.value; break;
-
-                            // 百分比伤害 (Percent Damage)
-                            case AffixType::PercentPhysicalDamage: combat.damage_multipliers[(int)DamageType::Physical] += affix.value / 100.0f; break;
-                            case AffixType::PercentFireDamage:     combat.damage_multipliers[(int)DamageType::Fire] += affix.value / 100.0f; break;
-                            case AffixType::PercentColdDamage:     combat.damage_multipliers[(int)DamageType::Cold] += affix.value / 100.0f; break;
-                            case AffixType::PercentLightningDamage:combat.damage_multipliers[(int)DamageType::Lightning] += affix.value / 100.0f; break;
-                            case AffixType::PercentPoisonDamage:   combat.damage_multipliers[(int)DamageType::Poison] += affix.value / 100.0f; break;
-                            case AffixType::PercentShadowDamage:   combat.damage_multipliers[(int)DamageType::Shadow] += affix.value / 100.0f; break;
-
-                            // 抗性 (Resistances)
-                            case AffixType::ResistAll:       for(auto& r : combat.resistances) r += affix.value / 100.0f; break;
-                            case AffixType::ResistFire:      combat.resistances[(int)DamageType::Fire] += affix.value / 100.0f; break;
-                            case AffixType::ResistCold:      combat.resistances[(int)DamageType::Cold] += affix.value / 100.0f; break;
-                            case AffixType::ResistLightning: combat.resistances[(int)DamageType::Lightning] += affix.value / 100.0f; break;
-                            case AffixType::ResistPoison:    combat.resistances[(int)DamageType::Poison] += affix.value / 100.0f; break;
-                            case AffixType::ResistShadow:    combat.resistances[(int)DamageType::Shadow] += affix.value / 100.0f; break;
-
-                            default: break;
-                        }
+                // 提取武器基础伤害
+                if (item.type == ItemType::Weapon && item.attack > 0) {
+                    if (item.slot == EquipmentSlot::MainHand) {
+                        mainHandAttack = item.attack;
+                        hasMainHandWeapon = true;
+                        if (item.isTwoHanded) isTwoHanded = true;
+                    } else if (item.slot == EquipmentSlot::OffHand) {
+                        offHandAttack = item.attack;
+                        hasOffHandWeapon = true;
                     }
-                };
+                }
 
                 processAffixes(item.implicits);
                 processAffixes(item.affixes);
@@ -181,12 +224,59 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 if (item.defense > 0) {
                     ApplyStatModifier(calcs, StatType::Armor, ModifierMode::Flat, item.defense);
                 }
+
+                // 盾牌逻辑：增加格挡几率和格挡值
+                if (item.type == ItemType::Shield) {
+                    combat.block_chance += 0.20f; // 基础 20% 格挡几率
+                    combat.block_amount += item.defense; // 使用防御值作为格挡减免值
+                }
+
+                // 统计套装
+                if (item.rarity == Rarity::Set && !item.setName.empty()) {
+                    setCounts[item.setName]++;
+                    // 缓存套装定义 (假设同名套装的定义是一致的，取第一个遇到的即可)
+                    if (setDefinitions.find(item.setName) == setDefinitions.end()) {
+                        setDefinitions[item.setName] = &item.setBonuses;
+                    }
+                }
             }
         }
     }
 
-    // 处理空手情况：如果未装备主手武器，使用 WeaponComponent 的默认值
-    if (!hasMainHandWeapon) {
+    // 应用套装奖励
+    for (const auto& [setName, count] : setCounts) {
+        const auto* bonuses = setDefinitions[setName];
+        if (bonuses) {
+            for (const auto& sb : *bonuses) {
+                if (count >= sb.requiredCount) {
+                    processAffixes(sb.bonuses);
+                }
+            }
+        }
+    }
+
+    // 计算最终武器伤害
+    if (hasMainHandWeapon) {
+        if (hasOffHandWeapon) {
+            // 双持 (Dual Wielding)
+            // 逻辑：平均伤害 + 15% 攻速奖励
+            float avgAttack = (mainHandAttack + offHandAttack) * 0.5f;
+            combat.min_weapon_damage = avgAttack * 0.9f;
+            combat.max_weapon_damage = avgAttack * 1.1f;
+            totalAttackSpeed += 0.15f;
+        } else {
+            // 单持主手
+            combat.min_weapon_damage = mainHandAttack * 0.9f;
+            combat.max_weapon_damage = mainHandAttack * 1.1f;
+
+            // 双手武器奖励：额外 25% 基础伤害
+            if (isTwoHanded) {
+                combat.min_weapon_damage *= 1.25f;
+                combat.max_weapon_damage *= 1.25f;
+            }
+        }
+    } else {
+        // 处理空手情况：如果未装备主手武器，使用 WeaponComponent 的默认值
         // 如果是玩家（有装备栏），给予合理的空手伤害
         if (registry.all_of<EquipmentComponent>(entity)) {
             combat.min_weapon_damage = 2.0f;
@@ -241,6 +331,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.crit_chance = 0.05f + (dex * 0.002f) + totalCritChance; // 基础5% + 敏捷加成 + 装备
     combat.crit_damage = 1.50f + totalCritDamage;
     combat.attack_speed = 1.0f + totalAttackSpeed;
+    combat.accuracy = 0.97f + totalAccuracy + (dex * 0.001f); // 基础97% + 装备 + 敏捷加成(每点0.1%)
     combat.knockback += str * 0.5f; // 力量增加击退
 
     LOG_INFO("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 

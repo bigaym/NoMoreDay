@@ -59,8 +59,19 @@ void RenderSystem::render(entt::registry& registry) {
         Color color = popup.color;
         color.a = (unsigned char)(255 * alpha);
         // 绘制文字 - 使用 TextFormat 避免 std::string 分配 // Draw text - Use TextFormat to avoid std::string allocation
-        const char* text = TextFormat("%d", (int)popup.damage);
+        const char* text;
+        if (popup.isDodge) {
+            text = "闪避";
+        } else if (popup.isMiss) {
+            text = "未命中";
+        } else if (popup.isBlock) {
+            text = TextFormat("格挡 %d", (int)popup.damage);
+        } else {
+            text = TextFormat("%d", (int)popup.damage);
+        }
+
         int fontSize = 20;
+        if (popup.isCrit) fontSize = 24; // 暴击字体更大
         // 简单的阴影效果 // Simple shadow effect
         DrawText(text, (int)pos.x + 1, (int)pos.y + 1, fontSize, Fade(BLACK, alpha));
         DrawText(text, (int)pos.x, (int)pos.y, fontSize, color);
@@ -114,7 +125,7 @@ void RenderSystem::render(entt::registry& registry) {
         DrawRectangleRec({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, Fade(BLACK, 0.6f));
         DrawRectangleLinesEx({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, 1.0f, Fade(rarityColor, 0.5f));
 
-        if (IsFontReady(font)) {
+        if (IsFontValid(font)) {
             DrawTextEx(font, name, textPos, (float)fontSize, spacing, rarityColor);
         } else {
             DrawText(name, (int)textPos.x, (int)textPos.y, fontSize, rarityColor);
@@ -134,7 +145,7 @@ void RenderSystem::render(entt::registry& registry) {
 
         DrawRectangleRec({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, Fade(BLACK, 0.6f));
         
-        if (IsFontReady(font)) {
+        if (IsFontValid(font)) {
             DrawTextEx(font, text, textPos, (float)fontSize, spacing, goldColor);
         } else {
             DrawText(text, (int)textPos.x, (int)textPos.y, fontSize, goldColor);

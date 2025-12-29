@@ -52,7 +52,7 @@ TEST_CASE("ProgressionSystem - Experience Gain and Level Up") {
     auto player = registry.create();
     
     registry.emplace<PlayerLevel>(player, 1);
-    registry.emplace<PlayerStats>(player, 0, 1, 0.0f, 100.0f, 0, 0);
+    registry.emplace<PlayerStats>(player, 0ULL, 0ULL, 1, 0.0f, 100.0f, 0, 0, 10, 10, 10, 10);
     registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
     
     // 1. Gain some XP (not enough to level up)
@@ -92,7 +92,7 @@ TEST_CASE("ProgressionSystem - Multi-Level Up") {
     auto player = registry.create();
     
     registry.emplace<PlayerLevel>(player, 1);
-    registry.emplace<PlayerStats>(player, 0, 1, 0.0f, 100.0f, 0, 0);
+    registry.emplace<PlayerStats>(player, 0ULL, 0ULL, 1, 0.0f, 100.0f, 0, 0);
     registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
     
     // Add massive XP to jump multiple levels
@@ -112,7 +112,7 @@ TEST_CASE("ProgressionSystem - Point Allocation") {
     entt::registry registry;
     auto player = registry.create();
     
-    registry.emplace<PlayerStats>(player, 0, 1, 0.0f, 100.0f, 5, 1);
+    registry.emplace<PlayerStats>(player, 0ULL, 0ULL, 1, 0.0f, 100.0f, 5, 1);
     registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
     
     // Allocate 2 points to Strength
@@ -170,7 +170,7 @@ TEST_CASE("XPAwardingSystem - Award XP on Kill") {
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
     registry.emplace<PlayerLevel>(player, 1);
-    registry.emplace<PlayerStats>(player, 0, 1, 0.0f, 100.0f, 0, 0);
+    registry.emplace<PlayerStats>(player, 0ULL, 0ULL, 1, 0.0f, 100.0f, 0, 0);
     registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
     registry.emplace<CombatStats>(player); // No bonus mult
     
@@ -191,5 +191,3 @@ TEST_CASE("XPAwardingSystem - Award XP on Kill") {
     // Verify enemy is destroyed
     CHECK(!registry.valid(enemy));
 }
-
-
