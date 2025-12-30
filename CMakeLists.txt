@@ -35,6 +35,7 @@ add_library(NoMoreDayCore STATIC
     src/core/ResourceManager.cpp
     src/core/LevelManager.cpp
     src/core/ItemFactory.cpp
+    src/core/LootFilter.cpp
     src/core/AssetLoadingSystem.cpp
     src/core/StateManager.cpp
     src/core/UIRenderer.cpp

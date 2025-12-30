@@ -1,5 +1,6 @@
 #include "LoadingState.hpp"
 #include "../core/StateManager.hpp"
+#include "../systems/UISystem.hpp" // Include UISystem
 #include <cmath>
 
 namespace NoMoreDay {
@@ -58,9 +59,15 @@ namespace NoMoreDay {
         int screenHeight = GetScreenHeight();
 
         // Draw Spinner or Text
-        int fontSize = 40;
-        int textWidth = MeasureText(m_loadingText.c_str(), fontSize);
-        DrawText(m_loadingText.c_str(), (screenWidth - textWidth) / 2, screenHeight / 2 - fontSize / 2, fontSize, RAYWHITE);
+        Font font = UISystem::GetFont();
+        float fontSize = 40.0f;
+        float textWidth = IsFontValid(font) ? MeasureTextEx(font, m_loadingText.c_str(), fontSize, 1.0f).x : (float)MeasureText(m_loadingText.c_str(), (int)fontSize);
+        
+        if (IsFontValid(font)) {
+            DrawTextEx(font, m_loadingText.c_str(), { (screenWidth - textWidth) / 2.0f, screenHeight / 2.0f - fontSize / 2.0f }, fontSize, 1.0f, RAYWHITE);
+        } else {
+            DrawText(m_loadingText.c_str(), (int)(screenWidth - textWidth) / 2, (int)(screenHeight / 2 - fontSize / 2), (int)fontSize, RAYWHITE);
+        }
 
         // Optional: Draw spinning rect
         float time = (float)GetTime();

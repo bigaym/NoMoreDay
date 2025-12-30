@@ -3,30 +3,49 @@
 #include <algorithm>
 #include <string>
 #include <cstdio>
+#include <cmath> // For std::max
 
 namespace NoMoreDay {
 
+    static float s_uiScale = 1.0f;
+
+    void UIRenderer::SetScale(float scale) {
+        s_uiScale = scale;
+    }
+
+    float UIRenderer::GetScale() {
+        return s_uiScale;
+    }
+
     void UIRenderer::DrawTextUI(const Font& font, const char* text, float x, float y, float fontSize, Color color) {
+        float scaledSize = fontSize * s_uiScale;
+        Vector2 pos = { x * s_uiScale, y * s_uiScale };
+
         if (IsFontValid(font)) {
-            DrawTextEx(font, text, { x, y }, fontSize, 1.0f, color);
+            DrawTextEx(font, text, pos, scaledSize, 1.0f * s_uiScale, color);
         } else {
-            DrawText(text, (int)x, (int)y, (int)fontSize, color);
+            DrawText(text, (int)pos.x, (int)pos.y, (int)scaledSize, color);
         }
     }
 
     void UIRenderer::DrawTextScaled(const Font& font, const char* text, float x, float y, float fontSize, float maxWidth, Color color) {
         if (!text || text[0] == '\0') return;
-        float currentWidth = IsFontValid(font) ? MeasureTextEx(font, text, fontSize, 1.0f).x : (float)MeasureText(text, (int)fontSize);
+        
+        // Measure in Logic Space first to determine scaling factor relative to maxWidth
+        float logicWidth = IsFontValid(font) ? MeasureTextEx(font, text, fontSize, 1.0f).x : (float)MeasureText(text, (int)fontSize);
+        
+        // If Logic Width exceeds Max Width (Logic), we scale down the FONT SIZE
+        float finalFontSize = fontSize;
+        float yOffset = 0.0f;
 
-        if (currentWidth > maxWidth && maxWidth > 0) {
-            float scale = maxWidth / currentWidth;
-            float scaledFontSize = fontSize * scale;
-            float yOffset = (fontSize - scaledFontSize) * 0.5f;
-            if (IsFontValid(font)) DrawTextEx(font, text, { x, y + yOffset }, scaledFontSize, 1.0f, color);
-            else DrawText(text, (int)x, (int)(y + yOffset), (int)scaledFontSize, color);
-        } else {
-            DrawTextUI(font, text, x, y, fontSize, color);
+        if (logicWidth > maxWidth && maxWidth > 0) {
+            float scale = maxWidth / logicWidth;
+            finalFontSize = fontSize * scale;
+            yOffset = (fontSize - finalFontSize) * 0.5f;
         }
+
+        // Now Apply Global Scale to everything
+        DrawTextUI(font, text, x, y + yOffset, finalFontSize, color);
     }
 
     Color UIRenderer::GetRarityColor(Rarity rarity) {
@@ -52,9 +71,13 @@ namespace NoMoreDay {
     }
 
     void UIRenderer::DrawSlot(const Font& font, entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel, bool highlighted, bool isLocked) {
-        Rectangle rec = { x, y, size, size };
+        float sx = x * s_uiScale;
+        float sy = y * s_uiScale;
+        float sSize = size * s_uiScale;
+
+        Rectangle rec = { sx, sy, sSize, sSize };
         DrawRectangleRec(rec, highlighted ? Fade(YELLOW, 0.2f) : (isLocked ? Fade(BLACK, 0.8f) : Fade(BLACK, 0.5f)));
-        DrawRectangleLinesEx(rec, 1.0f, highlighted ? GOLD : GRAY);
+        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, highlighted ? GOLD : GRAY);
         
         if (item != entt::null && registry.valid(item)) {
             auto* itemComp = registry.try_get<ItemComponent>(item);
@@ -62,17 +85,23 @@ namespace NoMoreDay {
 
             if (itemComp) {
                 Color rarityColor = GetRarityColor(itemComp->rarity);
-                DrawRectangleLinesEx(rec, 2.0f, rarityColor);
+                DrawRectangleLinesEx(rec, 2.0f * s_uiScale, rarityColor);
 
                 if (sprite && sprite->texture.id > 0) {
                     Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
-                    Rectangle dest = {x + 4, y + 4, size - 8, size - 8};
+                    // Padding 4px in logic space -> 4 * scale
+                    float pad = 4.0f * s_uiScale;
+                    Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
                     DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, WHITE);
                 } else {
                     const char* shortName = GetShortItemTypeName(*itemComp);
-                    float fontSize = 16.0f;
-                    Vector2 textSize = IsFontValid(font) ? MeasureTextEx(font, shortName, fontSize, 1.0f) : Vector2{(float)MeasureText(shortName, (int)fontSize), fontSize};
-                    DrawTextUI(font, shortName, x + (size - textSize.x) / 2.0f, y + (size - textSize.y) / 2.0f, fontSize, rarityColor);
+                    float fontSize = 16.0f; 
+                    // Centering calculation needs to happen in Logic Space or Screen Space?
+                    // Let's do Screen Space for precision.
+                    float scaledFontSize = fontSize * s_uiScale;
+                    Vector2 textSize = IsFontValid(font) ? MeasureTextEx(font, shortName, scaledFontSize, 1.0f * s_uiScale) : Vector2{(float)MeasureText(shortName, (int)scaledFontSize), scaledFontSize};
+                    
+                    DrawTextUI(font, shortName, x + (size - textSize.x/s_uiScale) / 2.0f, y + (size - textSize.y/s_uiScale) / 2.0f, fontSize, rarityColor);
                 }
 
                 if (itemComp->quantity > 1) {
@@ -80,15 +109,14 @@ namespace NoMoreDay {
                 }
             }
         } else if (defaultLabel) {
-             // Optional: Draw default label if slot is empty (e.g. "Head")
-             // Not implementing for now to match original exactly, but added parameter for future.
+             // Optional
         }
         
         if (isLocked) {
-            DrawLine(x + size * 0.3f, y + size * 0.3f, x + size * 0.7f, y + size * 0.7f, Fade(GRAY, 0.5f));
-            DrawLine(x + size * 0.7f, y + size * 0.3f, x + size * 0.3f, y + size * 0.7f, Fade(GRAY, 0.5f));
+            DrawLineEx({sx + sSize * 0.3f, sy + sSize * 0.3f}, {sx + sSize * 0.7f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(GRAY, 0.5f));
+            DrawLineEx({sx + sSize * 0.7f, sy + sSize * 0.3f}, {sx + sSize * 0.3f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(GRAY, 0.5f));
         }
-        DrawRectangleLinesEx({x+1, y+1, size-2, size-2}, 1.0f, Fade(BLACK, 0.3f));
+        DrawRectangleLinesEx({sx+1.0f*s_uiScale, sy+1.0f*s_uiScale, sSize-2.0f*s_uiScale, sSize-2.0f*s_uiScale}, 1.0f * s_uiScale, Fade(BLACK, 0.3f));
     }
 
     void UIRenderer::DrawTooltip(const Font& font, entt::registry& registry, entt::entity item) {
@@ -98,39 +126,33 @@ namespace NoMoreDay {
         // 1. Prepare Data
         std::vector<std::string> lines;
         
-        // Basic Stats
         if (itemComp->attack > 0) lines.push_back(TextFormat("攻击力: %.0f", itemComp->attack));
         if (itemComp->defense > 0) lines.push_back(TextFormat("护甲: %.0f", itemComp->defense));
         if (itemComp->bagCapacity > 0) lines.push_back(TextFormat("容量: %d 格", itemComp->bagCapacity));
         
-        // Implicits
-        for (const auto& aff : itemComp->implicits) {
-            lines.push_back(GetAffixDescription(aff));
-        }
-        
-        // Separator
-        if ((!lines.empty()) && !itemComp->affixes.empty()) {
-            lines.push_back("---");
-        }
-
-        // Explicit Affixes
-        for (const auto& aff : itemComp->affixes) {
-            lines.push_back(GetAffixDescription(aff));
-        }
-
-        // Description
+        for (const auto& aff : itemComp->implicits) lines.push_back(GetAffixDescription(aff));
+        if ((!lines.empty()) && !itemComp->affixes.empty()) lines.push_back("---");
+        for (const auto& aff : itemComp->affixes) lines.push_back(GetAffixDescription(aff));
         if (!itemComp->description.empty()) {
             if (!lines.empty()) lines.push_back(" "); 
             lines.push_back(itemComp->description);
         }
         
-        // 2. Calculate Dimensions
+        // 2. Calculate Dimensions (Logic Space)
         float fontSize = 18.0f;
         float titleSize = 22.0f;
         float padding = 10.0f;
         float lineHeight = fontSize + 4.0f;
         
         float maxW = 0.0f;
+        
+        // Measure Logic Widths (using unscaled font size for logic calc)
+        // Raylib MeasureTextEx needs Font Size.
+        // We can measure with Scaled Size and divide by Scale, OR measure with Base Size.
+        // MeasureTextEx scales internally if we pass font.baseSize.
+        // Best to use MeasureTextEx(font, text, fontSize, 1.0f) * s_uiScale? No.
+        // We want logic width.
+        // MeasureTextEx returns pixel width for that fontSize.
         
         Vector2 titleDim = IsFontValid(font) ? MeasureTextEx(font, itemComp->name.c_str(), titleSize, 1.0f) : Vector2{(float)MeasureText(itemComp->name.c_str(), (int)titleSize), titleSize};
         maxW = std::max(maxW, titleDim.x);
@@ -144,29 +166,56 @@ namespace NoMoreDay {
         float w = maxW + padding * 2;
         float h = padding * 2 + titleSize + 5.0f + lines.size() * lineHeight;
 
-        Vector2 m = GetMousePosition();
-        float x = m.x + 15;
-        float y = m.y + 15;
+        // Mouse Pos is Screen Space. Convert to Logic Space?
+        // Actually, Tooltip follows Mouse. Mouse is Screen Space.
+        // If we draw Tooltip in Screen Space, we don't scale X/Y relative to 0,0.
+        // BUT, the content of tooltip (text, box size) SHOULD be scaled.
+        // So:
+        // x, y (Origin) = Mouse Pos (Screen Pixels).
+        // w, h (Size) = Logic Size * Scale.
         
-        if (x + w > GetScreenWidth()) x -= (w + 20);
-        if (y + h > GetScreenHeight()) y -= (h + 20);
+        Vector2 m = GetMousePosition(); // Screen Space
+        // We want to offset tooltip from mouse.
+        float x = m.x + 15 * s_uiScale;
+        float y = m.y + 15 * s_uiScale;
+        
+        float sW = w * s_uiScale;
+        float sH = h * s_uiScale;
 
-        // 3. Draw
-        DrawRectangle(x, y, w, h, Fade(BLACK, 0.9f));
-        DrawRectangleLines(x, y, w, h, GetRarityColor(itemComp->rarity));
+        if (x + sW > GetScreenWidth()) x -= (sW + 20 * s_uiScale);
+        if (y + sH > GetScreenHeight()) y -= (sH + 20 * s_uiScale);
+
+        // Draw Rectangle (Direct Screen Space coordinates)
+        DrawRectangle((int)x, (int)y, (int)sW, (int)sH, Fade(BLACK, 0.9f));
+        DrawRectangleLinesEx({x, y, sW, sH}, 1.0f * s_uiScale, GetRarityColor(itemComp->rarity));
         
-        DrawTextUI(font, itemComp->name.c_str(), x + padding, y + padding, titleSize, GetRarityColor(itemComp->rarity));
+        // Draw Text (We need a version of DrawTextUI that takes Screen coordinates but scales Size)
+        // Or just use DrawTextUI and pass (x/scale, y/scale)? No, that's weird.
+        // Let's use internal drawing for Tooltip since it's "Screen Space Overlay".
         
-        float curY = y + padding + titleSize + 5.0f;
+        auto DrawTextScreen = [&](const char* t, float sx, float sy, float size, Color c) {
+            float sSize = size * s_uiScale;
+             if (IsFontValid(font)) {
+                DrawTextEx(font, t, { sx, sy }, sSize, 1.0f * s_uiScale, c);
+            } else {
+                DrawText(t, (int)sx, (int)sy, (int)sSize, c);
+            }
+        };
+
+        DrawTextScreen(itemComp->name.c_str(), x + padding * s_uiScale, y + padding * s_uiScale, titleSize, GetRarityColor(itemComp->rarity));
+        
+        float curSY = y + (padding + titleSize + 5.0f) * s_uiScale;
+        float sLineHeight = lineHeight * s_uiScale;
+
         for (const auto& line : lines) {
             if (line == "---") {
-                DrawLine(x + padding, curY + lineHeight/2, x + w - padding, curY + lineHeight/2, GRAY);
+                DrawLineEx({x + padding*s_uiScale, curSY + sLineHeight/2}, {x + sW - padding*s_uiScale, curSY + sLineHeight/2}, 1.0f*s_uiScale, GRAY);
             } else if (line != " ") {
                 Color c = WHITE;
                 if (line.find("+") == 0) c = GREEN; 
-                DrawTextUI(font, line.c_str(), x + padding, curY, fontSize, c);
+                DrawTextScreen(line.c_str(), x + padding*s_uiScale, curSY, fontSize, c);
             }
-            curY += lineHeight;
+            curSY += sLineHeight;
         }
     }
 
@@ -176,10 +225,7 @@ namespace NoMoreDay {
             return;
         }
 
-        auto view = registry.view<PlayerTag>();
-        if (view.begin() == view.end()) return;
-        entt::entity player = view.front();
-
+        // Logic Sizes
         float w = 140; 
         float h = 0;
         float btnH = 30;
@@ -195,32 +241,49 @@ namespace NoMoreDay {
         btnCount++; // Cancel
 
         h = btnCount * btnH + 10;
-        float x = uiContext.contextMenuPos.x;
-        float y = uiContext.contextMenuPos.y;
+        
+        // Context Menu Pos is likely SCREEN coordinates (from Mouse Click).
+        // Check UISystem::OpenContextMenu. It calls GetMousePosition().
+        // So contextMenuPos is Screen Space.
+        
+        float sx = uiContext.contextMenuPos.x;
+        float sy = uiContext.contextMenuPos.y;
+        float sw = w * s_uiScale;
+        float sh = h * s_uiScale;
+        float sBtnH = btnH * s_uiScale;
 
-        DrawRectangle(x, y, w, h, Fade(BLACK, 0.95f));
-        DrawRectangleLines(x, y, w, h, GOLD);
+        DrawRectangle(sx, sy, sw, sh, Fade(BLACK, 0.95f));
+        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f*s_uiScale, GOLD);
 
-        float curY = y + 5;
+        float curSY = sy + 5 * s_uiScale;
 
         auto DrawMenuBtn = [&](const char* text) -> bool {
-            Rectangle r = {x + 5, curY, w - 10, btnH - 2};
+            Rectangle r = {sx + 5*s_uiScale, curSY, sw - 10*s_uiScale, sBtnH - 2*s_uiScale};
             bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
             if (hovered) DrawRectangleRec(r, Fade(GOLD, 0.3f));
-            DrawTextUI(font, text, x + 15, curY + 5, 18, hovered ? WHITE : LIGHTGRAY);
-            curY += btnH;
+            
+            float sSize = 18 * s_uiScale;
+             if (IsFontValid(font)) {
+                DrawTextEx(font, text, { sx + 15*s_uiScale, curSY + 5*s_uiScale }, sSize, 1.0f * s_uiScale, hovered ? WHITE : LIGHTGRAY);
+            } else {
+                DrawText(text, (int)(sx + 15*s_uiScale), (int)(curSY + 5*s_uiScale), (int)sSize, hovered ? WHITE : LIGHTGRAY);
+            }
+            
+            curSY += sBtnH;
             return hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
         };
 
         if (showEquip) {
-            if (DrawMenuBtn("装备 / 使用")) {
-                InventorySystem::equipItem(registry, player, uiContext.contextMenuItem);
+            auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end() && DrawMenuBtn("装备 / 使用")) {
+                InventorySystem::equipItem(registry, view.front(), uiContext.contextMenuItem);
                 uiContext.showContextMenu = false;
             }
         }
         if (showUnequip) {
-            if (DrawMenuBtn("卸下")) {
-                if (!InventorySystem::unequipItem(registry, player, uiContext.contextSourceEquipmentSlot)) {
+             auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end() && DrawMenuBtn("卸下")) {
+                if (!InventorySystem::unequipItem(registry, view.front(), uiContext.contextSourceEquipmentSlot)) {
                     uiContext.showMessageBox = true;
                     snprintf(uiContext.messageBoxText, 64, "背包已满！无法卸下装备。");
                     uiContext.messageBoxTimer = 2.0f;
@@ -229,8 +292,9 @@ namespace NoMoreDay {
             }
         }
         if (showDrop) {
-            if (DrawMenuBtn("丢弃")) {
-                InventorySystem::dropItem(registry, player, uiContext.contextMenuItem);
+             auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end() && DrawMenuBtn("丢弃")) {
+                InventorySystem::dropItem(registry, view.front(), uiContext.contextMenuItem);
                 uiContext.showContextMenu = false;
             }
         }
@@ -239,7 +303,7 @@ namespace NoMoreDay {
         }
         
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            if (!CheckCollisionPointRec(GetMousePosition(), {x, y, w, h})) {
+            if (!CheckCollisionPointRec(GetMousePosition(), {sx, sy, sw, sh})) {
                 uiContext.showContextMenu = false;
             }
         }
@@ -250,19 +314,33 @@ namespace NoMoreDay {
         
         const char* text = uiContext.messageBoxText;
         float fontSize = 20;
-        int textW = MeasureText(text, (int)fontSize); // Fallback measurement for box width estimation
+        int textW = MeasureText(text, (int)fontSize); 
         if (IsFontValid(font)) {
             textW = (int)MeasureTextEx(font, text, fontSize, 1.0f).x;
         }
         
         float w = textW + 60.0f;
         float h = 50.0f;
-        float x = (GetScreenWidth() - w) / 2.0f;
-        float y = (GetScreenHeight() - h) / 2.0f;
         
-        DrawRectangle((int)x, (int)y, (int)w, (int)h, Fade(BLACK, 0.9f));
-        DrawRectangleLines((int)x, (int)y, (int)w, (int)h, RED);
-        DrawTextUI(font, text, x + 30, y + 15, fontSize, WHITE);
+        // Centered on Screen
+        // We can do this in Screen Space directly.
+        float screenW = (float)GetScreenWidth();
+        float screenH = (float)GetScreenHeight();
+        
+        float sw = w * s_uiScale;
+        float sh = h * s_uiScale;
+        float sx = (screenW - sw) / 2.0f;
+        float sy = (screenH - sh) / 2.0f;
+        
+        DrawRectangle((int)sx, (int)sy, (int)sw, (int)sh, Fade(BLACK, 0.9f));
+        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, RED);
+        
+        float sSize = fontSize * s_uiScale;
+        if (IsFontValid(font)) {
+            DrawTextEx(font, text, { sx + 30*s_uiScale, sy + 15*s_uiScale }, sSize, 1.0f * s_uiScale, WHITE);
+        } else {
+             DrawText(text, (int)(sx + 30*s_uiScale), (int)(sy + 15*s_uiScale), (int)sSize, WHITE);
+        }
     }
 
 }

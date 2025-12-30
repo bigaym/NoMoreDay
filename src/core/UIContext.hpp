@@ -8,6 +8,9 @@ namespace NoMoreDay {
     struct UIContext {
         // Global Font Resource
         Font globalFont = { 0 };
+        
+        // UI Scale
+        float scaleFactor = 1.0f;
 
         // State Flags
         bool showCharacterPanel = false;

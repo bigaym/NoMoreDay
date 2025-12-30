@@ -14,6 +14,7 @@ public:
     static void initialize();
 
     static void loadAffixDefinitions(const std::string& path);
+    static void loadLootPools(const std::string& path);
 
     // 根据等级创建一个完全随机的物品
     static entt::entity createRandomLoot(entt::registry& registry, int level, float magicFind = 0.0f);

@@ -63,6 +63,12 @@ void Logger::Shutdown() {
 }
 
 std::shared_ptr<spdlog::logger>& Logger::GetCoreLogger() {
+    if (!s_CoreLogger) {
+        // Fallback to a simple console logger if not initialized
+        // This prevents crashes in tests or early boot
+        s_CoreLogger = spdlog::stdout_color_mt("NMD_FALLBACK");
+        s_CoreLogger->set_level(spdlog::level::trace);
+    }
     return s_CoreLogger;
 }
 

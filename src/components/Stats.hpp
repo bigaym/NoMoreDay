@@ -176,6 +176,30 @@ namespace NoMoreDay
         MaxMana,   // 最大法力值
         MoveSpeed, // 移动速度
         Armor,     // 护甲
+        
+        // Offensive
+        PhysicalDamage,
+        FireDamage,
+        ColdDamage,
+        LightningDamage,
+        PoisonDamage,
+        ShadowDamage,
+        
+        CritChance,
+        CritDamage,
+        AttackSpeed,
+        CastSpeed,
+        Accuracy,
+
+        // Defensive
+        ResistPhysical,
+        ResistFire,
+        ResistCold,
+        ResistLightning,
+        ResistPoison,
+        ResistShadow,
+        ResistAll,
+
         Count
     };
 

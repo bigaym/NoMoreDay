@@ -9,6 +9,10 @@ namespace NoMoreDay {
 
     class UIRenderer {
     public:
+        // Scaling
+        static void SetScale(float scale);
+        static float GetScale();
+
         // Text Helpers
         static void DrawTextUI(const Font& font, const char* text, float x, float y, float fontSize, Color color);
         static void DrawTextScaled(const Font& font, const char* text, float x, float y, float fontSize, float maxWidth, Color color);

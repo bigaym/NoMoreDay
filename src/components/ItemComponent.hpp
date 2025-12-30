@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <entt/entt.hpp>
 #include "ItemStats.hpp"
+#include "../core/LootTable.hpp"
 
 namespace NoMoreDay {
 
@@ -106,31 +107,6 @@ struct ItemComponent {
     std::string description;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, isTwoHanded, setName, setBonuses, forgingPotential, legendaryPotential, implicits, affixes, socketCount, sockets, description)
-
-
-// 掉落物条目类型
-enum class LootEntryType {
-    Item,
-    Gold,
-    SubTable
-};
-
-// 掉落物条目定义
-struct LootEntry {
-    LootEntryType type;     // 掉落物类型
-    uint32_t id;            // 物品ID (基础物品类型)
-    uint32_t minAmount = 1; // 最小数量
-    uint32_t maxAmount = 1; // 最大数量
-    float weight = 1.0f;    // 掉落权重
-};
-
-
-// 掉落池：包含一组可能的掉落物及其权重。通常不是组件，而是由AssetRegistry/ItemFactory管理的资源。
-struct LootPool {
-    std::string name;
-    std::vector<LootEntry> entries;
-    float totalWeight = 0.0f;
-};
 
 /**
  * @brief 附加到敌人实体上，定义其掉落物的组件。

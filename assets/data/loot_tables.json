@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "name": "Goblin Loot",
+    "entries": [
+      { "type": 0, "id": 0, "minAmount": 1, "maxAmount": 1, "weight": 10.0 },
+      { "type": 1, "id": 0, "minAmount": 1, "maxAmount": 5, "weight": 90.0 }
+    ]
+  },
+  {
+    "id": 2,
+    "name": "Elite Loot",
+    "entries": [
+      { "type": 0, "id": 0, "minAmount": 1, "maxAmount": 2, "weight": 50.0 },
+      { "type": 1, "id": 0, "minAmount": 10, "maxAmount": 50, "weight": 50.0 }
+    ]
+  }
+]

@@ -58,37 +58,37 @@
 
 ## Phase 4: Drop System Core
 
-- [ ] Task: Design and implement loot table data structures.
-  - [ ] Sub-task: Create `LootTable.hpp` to define possible drops, rarity, and weights.
-  - [ ] Sub-task: Implement data loading for loot tables (e.g., from JSON files).
-- [ ] Task: Integrate `XPAwardingSystem` with loot generation.
-  - [ ] Sub-task: Modify `XPAwardingSystem` or create a new `LootGenerationSystem` to trigger loot drops upon enemy death.
-- [ ] Task: Implement monster level and rarity influence on drops.
-  - [ ] Sub-task: Adjust drop quality (affix tiers, item rarity) based on monster level.
-  - [ ] Sub-task: Implement logic for rare monsters to drop from specific loot tables.
-- [ ] Task: Implement Player Magic Find (MF) influence.
-  - [ ] Sub-task: Add a `MagicFindComponent` to the player.
-  - [ ] Sub-task: Modify drop logic to increase rarity chances based on player MF.
-- [ ] Task: Implement Area Level influence.
-  - [ ] Sub-task: Implement a mechanism to pass current area level to drop system.
-  - [ ] Sub-task: Adjust drop quality based on area level.
-- [ ] Task: Write Unit Tests for Drop System.
-  - [ ] Sub-task: Test loot table parsing and item selection.
-  - [ ] Sub-task: Test monster level, MF, and area level influence on drop quality and rarity distribution.
-- [ ] Task: Conductor - User Manual Verification 'Drop System Core' (Protocol in workflow.md)
+- [x] Task: Design and implement loot table data structures.
+  - [x] Sub-task: Create `LootTable.hpp` to define possible drops, rarity, and weights.
+  - [x] Sub-task: Implement data loading for loot tables (e.g., from JSON files).
+- [x] Task: Integrate `XPAwardingSystem` with loot generation.
+  - [x] Sub-task: Modify `XPAwardingSystem` or create a new `LootGenerationSystem` to trigger loot drops upon enemy death. (Integrated into `DropSystem`).
+- [x] Task: Implement monster level and rarity influence on drops.
+  - [x] Sub-task: Adjust drop quality (affix tiers, item rarity) based on monster level.
+  - [x] Sub-task: Implement logic for rare monsters to drop from specific loot tables.
+- [x] Task: Implement Player Magic Find (MF) influence.
+  - [x] Sub-task: Add a `MagicFindComponent` to the player.
+  - [x] Sub-task: Modify drop logic to increase rarity chances based on player MF.
+- [x] Task: Implement Area Level influence.
+  - [x] Sub-task: Implement a mechanism to pass current area level to drop system.
+  - [x] Sub-task: Adjust drop quality based on area level.
+- [x] Task: Write Unit Tests for Drop System.
+  - [x] Sub-task: Test loot table parsing and item selection.
+  - [x] Sub-task: Test monster level, MF, and area level influence on drop quality and rarity distribution.
+- [x] Task: Conductor - User Manual Verification 'Drop System Core' (Protocol in workflow.md)
 
 ## Phase 5: Loot Filter
 
-- [ ] Task: Design and implement loot filter data structure and configuration.
-  - [ ] Sub-task: Define rules for filtering (e.g., by rarity, item type, specific affixes).
-  - [ ] Sub-task: Implement persistence for player-defined loot filter rules.
-- [ ] Task: Implement visual filtering and automatic ignoring/deconstruction.
-  - [ ] Sub-task: Develop logic to hide or visually highlight items based on filter rules.
-  - [ ] Sub-task: Implement automatic ignoring or deconstruction of filtered items.
-- [ ] Task: Integrate Loot Filter with `RenderSystem` and `DropSystem`.
-  - [ ] Sub-task: Modify `RenderSystem` to apply visual filter rules.
-  - [ ] Sub-task: Modify `DropSystem` to apply automatic ignoring/deconstruction.
-- [ ] Task: Write Unit Tests for Loot Filter.
-  - [ ] Sub-task: Test loot filter rule parsing and application.
-  - [ ] Sub-task: Test visual filtering and automatic item handling.
-- [ ] Task: Conductor - User Manual Verification 'Loot Filter' (Protocol in workflow.md)
+- [x] Task: Design and implement loot filter data structure and configuration.
+  - [x] Sub-task: Define rules for filtering (e.g., by rarity, item type, specific affixes).
+  - [x] Sub-task: Implement persistence for player-defined loot filter rules.
+- [x] Task: Implement visual filtering and automatic ignoring/deconstruction.
+  - [x] Sub-task: Develop logic to hide or visually highlight items based on filter rules.
+  - [x] Sub-task: Implement automatic ignoring or deconstruction of filtered items. (Implemented as visibility control and interaction blocking).
+- [x] Task: Integrate Loot Filter with `RenderSystem` and `DropSystem`.
+  - [x] Sub-task: Modify `RenderSystem` to apply visual filter rules.
+  - [x] Sub-task: Modify `DropSystem` to apply automatic ignoring/deconstruction.
+- [x] Task: Write Unit Tests for Loot Filter.
+  - [x] Sub-task: Test loot filter rule parsing and application.
+  - [x] Sub-task: Test visual filtering and automatic item handling.
+- [x] Task: Conductor - User Manual Verification 'Loot Filter' (Protocol in workflow.md)

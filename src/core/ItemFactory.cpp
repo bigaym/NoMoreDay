@@ -9,6 +9,7 @@
 #include "AssetLoadingSystem.hpp"
 #include "AssetRegistry.hpp"
 #include "../components/Common.hpp"
+#include "LootFilter.hpp"
 
 namespace NoMoreDay {
 
@@ -25,17 +26,11 @@ void ItemFactory::initialize() {
  // 加载词缀定义
  loadAffixDefinitions("assets/data/affixes.json");
 
- // 初始化全局掉落池 (ID 0)
- LootPool globalPool;
- globalPool.name = "全局掉落池";
- globalPool.entries = {
- { LootEntryType::Item, 0, 1, 1, 10.0f }, // 随机物品
- { LootEntryType::Gold, 0, 5, 20, 90.0f } // 金币
- };
- globalPool.totalWeight = 100.0f;
- s_lootPools[0] = globalPool;
+ // 加载掉落池定义
+ loadLootPools("assets/data/loot_tables.json");
 
- LOG_INFO("ItemFactory 已使用全局掉落池初始化。");
+ // 加载掉落过滤器
+ LootFilter::load("assets/data/loot_filters/default.json");
 }
 
 void ItemFactory::loadAffixDefinitions(const std::string& path) {
@@ -52,6 +47,27 @@ void ItemFactory::loadAffixDefinitions(const std::string& path) {
         LOG_INFO("ItemFactory: 成功加载了 {} 个词缀定义。", s_affixDefinitions.size());
     } catch (const std::exception& e) {
         LOG_ERROR("ItemFactory: 解析词缀定义文件时出错: {}", e.what());
+    }
+}
+
+void ItemFactory::loadLootPools(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        LOG_ERROR("ItemFactory: 无法打开掉落池定义文件: {}", path);
+        return;
+    }
+
+    try {
+        nlohmann::json j;
+        file >> j;
+        std::vector<LootPool> pools = j.get<std::vector<LootPool>>();
+        for (auto& pool : pools) {
+            pool.calculateTotalWeight();
+            s_lootPools[pool.id] = pool;
+        }
+        LOG_INFO("ItemFactory: 成功加载了 {} 个掉落池定义。", pools.size());
+    } catch (const std::exception& e) {
+        LOG_ERROR("ItemFactory: 解析掉落池定义文件时出错: {}", e.what());
     }
 }
 

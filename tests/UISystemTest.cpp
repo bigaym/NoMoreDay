@@ -37,6 +37,17 @@ TEST_CASE("UISystem - Rarity Colors") {
             CHECK(UISystem::GetRarityColor(Rarity::Mythic).b == RED.b);
         }
 
+        SUBCASE("UIRenderer Scaling") {
+            UIRenderer::SetScale(1.0f);
+            CHECK(UIRenderer::GetScale() == doctest::Approx(1.0f));
+
+            UIRenderer::SetScale(0.5f);
+            CHECK(UIRenderer::GetScale() == doctest::Approx(0.5f));
+            
+            UIRenderer::SetScale(2.0f);
+            CHECK(UIRenderer::GetScale() == doctest::Approx(2.0f));
+        }
+
         tools::Logger::Shutdown();
     } catch (const std::exception& e) {
         fprintf(stderr, "Exception in test: %s\n", e.what());

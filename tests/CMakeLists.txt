@@ -132,3 +132,14 @@ target_link_libraries(ItemModificationTest PRIVATE NoMoreDayCore)
 if(WIN32)
     target_compile_definitions(ItemModificationTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
+
+add_executable(LootFilterTest 
+    LootFilterTest.cpp
+)
+target_include_directories(LootFilterTest PRIVATE 
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+)
+target_link_libraries(LootFilterTest PRIVATE NoMoreDayCore)
+if(WIN32)
+    target_compile_definitions(LootFilterTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()

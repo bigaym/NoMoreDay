@@ -1,0 +1,23 @@
+{
+  "name": "Default Filter",
+  "description": "Basic filter for testing.",
+  "rules": [
+    {
+      "name": "Highlight Legendaries",
+      "action": "EMPHASIZE",
+      "color": [255, 215, 0, 255],
+      "scale": 1.2,
+      "conditions": {
+        "min_rarity": "LEGENDARY"
+      }
+    },
+    {
+      "name": "Hide Low Level Trash",
+      "action": "HIDE",
+      "conditions": {
+        "max_rarity": "COMMON",
+        "min_level": 5
+      }
+    }
+  ]
+}

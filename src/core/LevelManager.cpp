@@ -17,19 +17,20 @@ void LevelManager::initialize() {
     LOG_INFO("LevelManager initialized (empty state)");
 }
 
-void LevelManager::loadNewLevel(const std::string& biome, int width, int height) {
-    LOG_INFO("Loading new level synchronously: {} ({}x{})", biome, width, height);
-    auto data = prepareLevel(biome, width, height);
+void LevelManager::loadNewLevel(const std::string& biome, int width, int height, int level) {
+    LOG_INFO("Loading new level synchronously: {} ({}x{}) Level: {}", biome, width, height, level);
+    auto data = prepareLevel(biome, width, height, level);
     activateLevel(std::move(data));
 }
 
-LevelManager::LevelData LevelManager::prepareLevel(const std::string& biome, int width, int height) {
-    LOG_INFO("Preparing level data for: {} ({}x{})", biome, width, height);
+LevelManager::LevelData LevelManager::prepareLevel(const std::string& biome, int width, int height, int level) {
+    LOG_INFO("Preparing level data for: {} ({}x{}) Level: {}", biome, width, height, level);
     
     LevelData data;
     data.biome = biome;
     data.width = width;
     data.height = height;
+    data.level = level;
     
     data.map = std::make_unique<MapSystem>();
     data.enemy = std::make_unique<EnemySpawnSystem>();
@@ -44,7 +45,7 @@ LevelManager::LevelData LevelManager::prepareLevel(const std::string& biome, int
 }
 
 void LevelManager::activateLevel(LevelData&& data) {
-    LOG_INFO("Activating level: {} ({}x{})", data.biome, data.width, data.height);
+    LOG_INFO("Activating level: {} ({}x{}) Level: {}", data.biome, data.width, data.height, data.level);
     
     cleanup(); // Clean old level (including GPU textures)
     
@@ -52,6 +53,7 @@ void LevelManager::activateLevel(LevelData&& data) {
     m_enemySystem = std::move(data.enemy);
     m_fogSystem = std::move(data.fog);
     m_currentBiome = data.biome;
+    m_currentLevel = data.level;
     
     // GPU Initialization (Must be on Main Thread)
     if (m_fogSystem) {

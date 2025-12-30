@@ -4,6 +4,7 @@
 #include "../components/EffectComponent.hpp"
 #include "../components/ItemComponent.hpp"
 #include "../core/AssetLoadingSystem.hpp"
+#include "../core/LootFilter.hpp"
 #include <string>
 #include <cmath>
 
@@ -48,8 +49,10 @@ void RenderSystem::render(entt::registry& registry) {
     });
 
     // 4. 绘制伤害飘字
+    Font font = UISystem::GetFont(); // Move font retrieval up
+    
     auto popupView = registry.view<const Position, const DamagePopup>();
-    popupView.each([](const auto& pos, const auto& popup) {
+    popupView.each([&font](const auto& pos, const auto& popup) {
         float alpha = 1.0f;
         // 后半段生命周期淡出 // Fade out during the second half of its lifetime
         if (popup.timer > popup.lifeTime * 0.5f) {
@@ -70,30 +73,49 @@ void RenderSystem::render(entt::registry& registry) {
             text = TextFormat("%d", (int)popup.damage);
         }
 
-        int fontSize = 20;
-        if (popup.isCrit) fontSize = 24; // 暴击字体更大
-        // 简单的阴影效果 // Simple shadow effect
-        DrawText(text, (int)pos.x + 1, (int)pos.y + 1, fontSize, Fade(BLACK, alpha));
-        DrawText(text, (int)pos.x, (int)pos.y, fontSize, color);
+        float fontSize = 20.0f;
+        if (popup.isCrit) fontSize = 24.0f; // 暴击字体更大
+        
+        if (IsFontValid(font)) {
+            DrawTextEx(font, text, { pos.x + 1, pos.y + 1 }, fontSize, 1.0f, Fade(BLACK, alpha));
+            DrawTextEx(font, text, { pos.x, pos.y }, fontSize, 1.0f, color);
+        } else {
+            DrawText(text, (int)pos.x + 1, (int)pos.y + 1, (int)fontSize, Fade(BLACK, alpha));
+            DrawText(text, (int)pos.x, (int)pos.y, (int)fontSize, color);
+        }
     });
 
     // 5. 绘制物品和金币的世界标签
-    Font font = UISystem::GetFont();
+    // Font font = UISystem::GetFont(); // Already retrieved
 
     // 物品
     auto itemView = registry.view<const Position, const NoMoreDay::ItemComponent>();
-    itemView.each([&font](const auto& pos, const auto& item) {
+    itemView.each([&registry, &font](const auto entity, const auto& pos, const auto& item) {
         Color rarityColor = UISystem::GetRarityColor(item.rarity);
+        float scale = 1.0f;
+        bool emphasized = false;
+
+        // Apply Loot Filter Result
+        const auto* filterResult = registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
+        if (filterResult) {
+            if (!filterResult->visible) return; // Skip rendering entirely
+            
+            if (filterResult->scale > 1.0f) {
+                scale = filterResult->scale;
+                emphasized = true;
+                rarityColor = filterResult->color; // Use emphasize color
+            }
+        }
         
-        // --- 光柱特效 (Rare及以上) ---
+        // --- 光柱特效 (Rare及以上 或 被过滤器高亮) ---
         // 仅对稀有(Rare)及更高品质的物品显示光柱，方便远处识别
-        if (item.rarity >= NoMoreDay::Rarity::Rare) {
+        if (item.rarity >= NoMoreDay::Rarity::Rare || emphasized) {
             float time = (float)GetTime();
             // 呼吸效果 (Alpha 0.3 ~ 0.6)
             float alpha = 0.45f + 0.15f * std::sin(time * 3.0f);
             
-            float beamHeight = 120.0f; // 光柱高度
-            float beamWidth = 24.0f;   // 光柱宽度
+            float beamHeight = 120.0f * scale; // 光柱高度
+            float beamWidth = 24.0f * scale;   // 光柱宽度
             
             // 颜色渐变：底部实色 -> 顶部透明
             Color colBottom = rarityColor;
@@ -112,14 +134,14 @@ void RenderSystem::render(entt::registry& registry) {
             // 核心高亮 (更细更亮，增加立体感)
             Color coreCol = WHITE;
             coreCol.a = (unsigned char)(255 * alpha * 0.8f);
-            DrawRectangleGradientV((int)(pos.x - 2), (int)(pos.y - beamHeight), 4, (int)beamHeight, Fade(WHITE, 0.0f), coreCol);
+            DrawRectangleGradientV((int)(pos.x - 2 * scale), (int)(pos.y - beamHeight), (int)(4 * scale), (int)beamHeight, Fade(WHITE, 0.0f), coreCol);
         }
 
         const char* name = item.name.c_str();
-        int fontSize = 18;
+        int fontSize = (int)(18 * scale);
         float spacing = 1.0f;
         Vector2 textSize = MeasureTextEx(font, name, (float)fontSize, spacing);
-        Vector2 textPos = { pos.x - textSize.x / 2.0f, pos.y - 30.0f }; // 物品上方
+        Vector2 textPos = { pos.x - textSize.x / 2.0f, pos.y - 30.0f * scale }; // 物品上方
 
         // 绘制背景框以提高可读性 // Draw background box for readability
         DrawRectangleRec({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, Fade(BLACK, 0.6f));

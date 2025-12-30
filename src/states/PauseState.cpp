@@ -1,6 +1,7 @@
 #include "PauseState.hpp"
 #include "MainMenuState.hpp"
 #include "../core/StateManager.hpp"
+#include "../systems/UISystem.hpp" // Include UISystem
 #include <raylib.h>
 
 namespace NoMoreDay {
@@ -42,8 +43,18 @@ namespace NoMoreDay {
     void PauseState::OnRender() {
         // Draw overlay
         DrawRectangle(0, 0, GetScreenWidth(), GetScreenHeight(), Color{ 0, 0, 0, 150 });
+        
+        Font font = UISystem::GetFont();
+        const char* text = "PAUSED";
+        float fontSize = 40.0f;
+        
+        float textWidth = IsFontValid(font) ? MeasureTextEx(font, text, fontSize, 1.0f).x : (float)MeasureText(text, (int)fontSize);
 
-        DrawText("PAUSED", GetScreenWidth() / 2 - MeasureText("PAUSED", 40) / 2, GetScreenHeight() * 0.3f, 40, RAYWHITE);
+        if (IsFontValid(font)) {
+            DrawTextEx(font, text, { (GetScreenWidth() - textWidth) / 2.0f, GetScreenHeight() * 0.3f }, fontSize, 1.0f, RAYWHITE);
+        } else {
+            DrawText(text, (int)(GetScreenWidth() - textWidth) / 2, (int)(GetScreenHeight() * 0.3f), (int)fontSize, RAYWHITE);
+        }
 
         DrawButton(m_resumeButton);
         DrawButton(m_menuButton);
@@ -56,12 +67,20 @@ namespace NoMoreDay {
         DrawRectangleRec(btn.bounds, baseColor);
         DrawRectangleLinesEx(btn.bounds, 2, btn.hovered ? YELLOW : LIGHTGRAY);
 
-        int fontSize = 20;
-        int textWidth = MeasureText(btn.text.c_str(), fontSize);
-        DrawText(btn.text.c_str(), 
-                 (int)(btn.bounds.x + (btn.bounds.width - textWidth) / 2), 
-                 (int)(btn.bounds.y + (btn.bounds.height - fontSize) / 2), 
-                 fontSize, textColor);
+        Font font = UISystem::GetFont();
+        float fontSize = 20.0f;
+        float textWidth = IsFontValid(font) ? MeasureTextEx(font, btn.text.c_str(), fontSize, 1.0f).x : (float)MeasureText(btn.text.c_str(), (int)fontSize);
+        
+        Vector2 textPos = {
+            btn.bounds.x + (btn.bounds.width - textWidth) / 2.0f,
+            btn.bounds.y + (btn.bounds.height - fontSize) / 2.0f
+        };
+        
+        if (IsFontValid(font)) {
+            DrawTextEx(font, btn.text.c_str(), textPos, fontSize, 1.0f, textColor);
+        } else {
+            DrawText(btn.text.c_str(), (int)textPos.x, (int)textPos.y, (int)fontSize, textColor);
+        }
     }
 
     bool PauseState::IsButtonClicked(const Button& btn) {

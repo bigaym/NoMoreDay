@@ -82,19 +82,47 @@ TEST_CASE("Affix System Integration Test") {
     }
     
     SUBCASE("Affix Generation Constraints") {
-        // This test relies on ItemFactory having loaded definitions.
-        // We will manually add a definition to ItemFactory for testing if possible, 
-        // but since s_affixDefinitions is private, we depend on what's loaded.
+        // Test level-based tiering
+        // For Strength (ID: strength), T1 is level 1, T2 is level 11, etc.
         
-        // Let's test generateRandomAffix behavior assuming definitions are loaded.
-        // If definitions are empty, it returns Strength + 1 fallback.
+        // Level 5: Should be T1
+        Affix aff1 = ItemFactory::generateRandomAffix(5, false, EquipmentSlot::Chest);
+        CHECK(aff1.tier == 1);
         
-        Affix aff = ItemFactory::generateRandomAffix(10, true, EquipmentSlot::MainHand);
-        CHECK(aff.value > 0.0f);
-        
-        // Verify it respects isPrefix
-        // Note: The fallback might not respect it if candidates are empty, but logic tries to find candidates.
-        // If real data is loaded, we should get a valid prefix.
+        // Level 25: Should be T3 or lower (Wait, my logic selects HIGHEST available tier)
+        // Level 25 has T3 (minLevel 21) available.
+        Affix aff2 = ItemFactory::generateRandomAffix(25, false, EquipmentSlot::Chest);
+        CHECK(aff2.tier == 3);
+
+        // Level 100: Should be T7 (max)
+        Affix aff3 = ItemFactory::generateRandomAffix(100, false, EquipmentSlot::Chest);
+        CHECK(aff3.tier == 7);
+    }
+
+    SUBCASE("Tag-based filtering") {
+        // Boots should only get "boots" or "armor" tagged affixes
+        // Move Speed (ID: move_speed) is tagged "boots"
+        // Let's see if we can get it.
+        bool foundMoveSpeed = false;
+        for (int i = 0; i < 50; ++i) {
+            Affix aff = ItemFactory::generateRandomAffix(50, false, EquipmentSlot::Feet);
+            if (aff.type == AffixType::MoveSpeed) {
+                foundMoveSpeed = true;
+                break;
+            }
+        }
+        CHECK(foundMoveSpeed);
+
+        // Chest should NEVER get Move Speed (it's tagged "boots" only in JSON)
+        bool foundInvalid = false;
+        for (int i = 0; i < 50; ++i) {
+            Affix aff = ItemFactory::generateRandomAffix(50, false, EquipmentSlot::Chest);
+            if (aff.type == AffixType::MoveSpeed) {
+                foundInvalid = true;
+                break;
+            }
+        }
+        CHECK_FALSE(foundInvalid);
     }
     
     SUBCASE("ModifierList Application") {

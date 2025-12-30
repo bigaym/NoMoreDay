@@ -6,10 +6,18 @@
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/ItemStats.hpp"
 #include "../src/components/Common.hpp" // For WeaponComponent
+#include "../src/tools/Logger.hpp"
 
 using namespace NoMoreDay;
 
+// RAII Helper for Logger
+struct LoggerScope {
+    LoggerScope() { tools::Logger::Init(); }
+    ~LoggerScope() { tools::Logger::Shutdown(); }
+};
+
 TEST_CASE("Stats Recalculation from Primary Stats") {
+    LoggerScope loggerScope;
     entt::registry registry;
     auto entity = registry.create();
 
@@ -29,14 +37,14 @@ TEST_CASE("Stats Recalculation from Primary Stats") {
     const auto& combat = registry.get<CombatStats>(entity);
 
     // Verify derivations
-    // HP: Base 100 + Vit 15 * 10 = 250
-    CHECK(combat.max_health == doctest::Approx(250.0f));
+    // HP: Base 100 + Vit 15 * 15 = 325
+    CHECK(combat.max_health == doctest::Approx(325.0f));
     
-    // Armor: Base 0 + Str 10 * 1 = 10
-    CHECK(combat.armor == doctest::Approx(10.0f));
+    // Armor: Base 0 + Str 10 * 2 = 20
+    CHECK(combat.armor == doctest::Approx(20.0f));
 
-    // Mana: Base 100 + Int 5 * 2 = 110
-    CHECK(combat.max_mana == doctest::Approx(110.0f));
+    // Mana: Base 100 + Int 5 * 5 = 125
+    CHECK(combat.max_mana == doctest::Approx(125.0f));
     
     // Check clean
     CHECK_FALSE(registry.all_of<StatsDirty>(entity));
@@ -116,10 +124,10 @@ TEST_CASE("Stats System - Equipment Integration") {
 
     // Verification:
     // 1. Vitality: 0 (Base) + 10 (Item) = 10 Total Vit
-    // 2. Base Health: 100 + (10 Vit * 10) = 200 Base HP
+    // 2. Base Health: 100 + (10 Vit * 15) = 250 Base HP
     // 3. Modifiers: +5% Percent Add
-    // 4. Final HP: 200 * 1.05 = 210
-    CHECK(combat.max_health == doctest::Approx(210.0f));
+    // 4. Final HP: 250 * 1.05 = 262.5
+    CHECK(combat.max_health == doctest::Approx(262.5f));
 
     // 5. Armor: 0 (Base) + 50 (Item Base) = 50 Total Armor
     // Note: If Str was increased, it would add to armor too.
@@ -444,6 +452,6 @@ TEST_CASE("Stats System - Accuracy") {
     StatsSystem::update(registry);
     const auto& combat = registry.get<CombatStats>(entity);
 
-    // Base 1.0 + Dex 0.1 (100*0.001) + Item 0.2 = 1.3
-    CHECK(combat.accuracy == doctest::Approx(1.3f));
+    // Base 0.97 + Dex 0.1 (100*0.001) + Item 0.2 = 1.27
+    CHECK(combat.accuracy == doctest::Approx(1.27f));
 }

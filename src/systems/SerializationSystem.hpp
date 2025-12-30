@@ -16,6 +16,7 @@
 #include "../components/InventoryComponent.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/AIComponent.hpp"
+#include "UISystem.hpp" // Include UISystem
 
 // 定义 Concept：检查类型 T 是否支持 nlohmann/json 序列化
 template<typename T>
@@ -62,27 +63,32 @@ public:
 
     static void DrawUI() {
         if (m_notificationTimer > 0.0f && !m_notificationText.empty()) {
-            const int fontSize = 20;
-            const int padding = 10;
+            Font font = UISystem::GetFont();
+            const float fontSize = 20.0f;
+            const float padding = 10.0f;
             
-            int textWidth = MeasureText(m_notificationText.c_str(), fontSize);
-            int screenWidth = GetScreenWidth();
-            int screenHeight = GetScreenHeight();
+            float textWidth = IsFontValid(font) ? MeasureTextEx(font, m_notificationText.c_str(), fontSize, 1.0f).x : (float)MeasureText(m_notificationText.c_str(), (int)fontSize);
+            float screenWidth = (float)GetScreenWidth();
+            float screenHeight = (float)GetScreenHeight();
             
             // 计算右下角位置
-            int x = screenWidth - textWidth - padding * 2;
-            int y = screenHeight - fontSize - padding * 2;
+            float x = screenWidth - textWidth - padding * 2;
+            float y = screenHeight - fontSize - padding * 2;
             
             // 绘制半透明背景
-            DrawRectangle(x - padding, y - padding/2, textWidth + padding * 2, fontSize + padding, Fade(BLACK, 0.7f));
+            DrawRectangle((int)(x - padding), (int)(y - padding/2), (int)(textWidth + padding * 2), (int)(fontSize + padding), Fade(BLACK, 0.7f));
             
             // 绘制文本
-            DrawText(m_notificationText.c_str(), x, y, fontSize, WHITE);
+            if (IsFontValid(font)) {
+                DrawTextEx(font, m_notificationText.c_str(), { x, y }, fontSize, 1.0f, WHITE);
+            } else {
+                DrawText(m_notificationText.c_str(), (int)x, (int)y, (int)fontSize, WHITE);
+            }
 
             // 如果正在处理中（Pending 状态），绘制一个简单的旋转图标
             if (m_pendingAction != ActionState::None) {
                 float time = (float)GetTime();
-                Vector2 iconCenter = { (float)x - 20, (float)y + fontSize / 2.0f };
+                Vector2 iconCenter = { x - 20, y + fontSize / 2.0f };
                 
                 // 绘制旋转的小圆圈
                 DrawCircleLines((int)iconCenter.x, (int)iconCenter.y, 8, WHITE);

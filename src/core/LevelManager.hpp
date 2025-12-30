@@ -27,7 +27,7 @@ public:
         std::unique_ptr<EnemySpawnSystem> enemy;
         std::unique_ptr<FogOfWarSystem> fog;
         std::string biome;
-        int width, height;
+        int width, height, level;
     };
     LevelManager();
     ~LevelManager();
@@ -38,11 +38,12 @@ public:
     // 加载新关卡 (Synchronous legacy wrapper)
     void loadNewLevel(const std::string& biome = "cave", 
                      int width = DEFAULT_MAP_WIDTH, 
-                     int height = DEFAULT_MAP_HEIGHT);
+                     int height = DEFAULT_MAP_HEIGHT,
+                     int level = 1);
 
     // Async Loading Support
     // 1. Prepare data (Thread Safe, CPU Only)
-    LevelData prepareLevel(const std::string& biome, int width, int height);
+    LevelData prepareLevel(const std::string& biome, int width, int height, int level);
     
     // 2. Activate prepared level (Main Thread, GPU Init)
     void activateLevel(LevelData&& data);

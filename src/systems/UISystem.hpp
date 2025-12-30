@@ -34,6 +34,9 @@ public:
     static void OpenContextMenu(entt::entity item, bool fromInv, int invIdx, NoMoreDay::EquipmentSlot slot);
     static void DrawQuantityPopup(entt::registry& registry);
 
+    // --- Helpers ---
+    static Vector2 GetMousePositionLogic();
+
 private:
     // Internal helpers
     static void DrawTooltip(entt::registry& registry, entt::entity item);

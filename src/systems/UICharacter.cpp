@@ -3,6 +3,7 @@
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
+#include "../core/UIRenderer.hpp" // Ensure UIRenderer is visible
 #include "raylib.h"
 #include <algorithm>
 #include <cmath>
@@ -19,21 +20,36 @@ void UICharacter::Draw(entt::registry& registry) {
     if (view.begin() == view.end()) return;
     entt::entity player = view.front();
 
-    // --- 1. 面板背景 ---
+    // Scaling Factor
+    float scale = UIRenderer::GetScale();
+
+    // Logic Mouse Position
+    Vector2 mousePos = UISystem::GetMousePositionLogic();
+
+    // --- 1. 面板背景 (Logic Coords) ---
     const float panelW = 420.0f;
     const float panelH = 580.0f;
     const float margin = 20.0f;
     
-    // 锚定左下角 (Bottom-Left Anchor)
+    // 锚定左下角 (Bottom-Left Anchor in Logic Space)
+    // Use UI_REF_HEIGHT instead of GetScreenHeight for logic layout
     const float panelX = margin;
-    const float panelY = (float)GetScreenHeight() - panelH - margin;
+    const float panelY = UI_REF_HEIGHT - panelH - margin;
     const float padding = 20.0f;
 
-    // 半透明黑色背景 + 边框
-    DrawRectangle(panelX, panelY, panelW, panelH, Fade(BLACK, 0.85f));
-    DrawRectangleLinesEx({panelX, panelY, panelW, panelH}, 2.0f, GOLD);
+    // Helpers for scaled drawing
+    auto DrawRectScaled = [&](float x, float y, float w, float h, Color c) {
+        DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), c);
+    };
+    auto DrawRectLinesScaled = [&](Rectangle rec, float thick, Color c) {
+        DrawRectangleLinesEx({rec.x*scale, rec.y*scale, rec.width*scale, rec.height*scale}, thick*scale, c);
+    };
 
-    // 标题
+    // 半透明黑色背景 + 边框
+    DrawRectScaled(panelX, panelY, panelW, panelH, Fade(BLACK, 0.85f));
+    DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 2.0f, GOLD);
+
+    // 标题 (UISystem handles text scaling internally, pass Logic Coords)
     UISystem::DrawTextUI("角色属性", panelX + padding, panelY + padding, 30, WHITE);
     UISystem::DrawTextUI("按 'C' 关闭", panelX + panelW - 100, panelY + padding + 10, 18, LIGHTGRAY);
 
@@ -45,10 +61,11 @@ void UICharacter::Draw(entt::registry& registry) {
 
     // 绘制头像 (缩略图)
     float avatarSize = 80.0f;
-    DrawRectangleLines(panelX + padding, currentY, avatarSize, avatarSize, LIGHTGRAY);
+    DrawRectLinesScaled({panelX + padding, currentY, avatarSize, avatarSize}, 1.0f, LIGHTGRAY);
+    
     if (sprite && sprite->texture.id > 0) {
         Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
-        Rectangle dest = {panelX + padding, currentY, avatarSize, avatarSize};
+        Rectangle dest = {(panelX + padding)*scale, currentY*scale, avatarSize*scale, avatarSize*scale};
         DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, WHITE);
     } else {
         UISystem::DrawTextUI("?", panelX + padding + 30, currentY + 20, 40, GRAY);
@@ -81,7 +98,6 @@ void UICharacter::Draw(entt::registry& registry) {
     
     // 显示可用点数
     const char* pointsText = TextFormat("可用点数: %d", remainingPoints);
-    float pointsWidth = 0; // 简化计算
     UISystem::DrawTextUI(pointsText, panelX + panelW - padding - 120, currentY + 2, 18, remainingPoints > 0 ? GREEN : LIGHTGRAY);
 
     currentY += 25.0f;
@@ -90,11 +106,17 @@ void UICharacter::Draw(entt::registry& registry) {
     auto DrawBtn = [&](float bx, float by, const char* txt) -> bool {
         float size = 20.0f;
         Rectangle r = {bx, by, size, size};
-        bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
+        // Use logic mouse pos for interaction
+        bool hovered = CheckCollisionPointRec(mousePos, r);
         bool clicked = hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
-        DrawRectangleRec(r, hovered ? LIGHTGRAY : DARKGRAY);
-        DrawRectangleLinesEx(r, 1.0f, WHITE);
-        float tw = MeasureText(txt, 16);
+        
+        // Use scaled drawing
+        DrawRectScaled(bx, by, size, size, hovered ? LIGHTGRAY : DARKGRAY);
+        DrawRectLinesScaled(r, 1.0f, WHITE);
+        
+        float tw = MeasureText(txt, 16); // Logic width estimation (using default font for logic calc)
+        // Better to center based on actual draw call? UIRenderer doesn't expose text width calculation for logic space easily without font.
+        // Approximate centering is fine for +/- buttons.
         UISystem::DrawTextUI(txt, bx + (size-tw)/2, by + 2, 16, WHITE);
         return clicked;
     };
@@ -124,7 +146,8 @@ void UICharacter::Draw(entt::registry& registry) {
     DrawAttrRow("体能", primStats->vitality, attrUI.tempVit, currentY);
 
     currentY += 15.0f;
-    DrawLine(panelX + padding, currentY, panelX + panelW - padding, currentY, GRAY);
+    // Scaled Line
+    DrawLineEx({(panelX + padding)*scale, currentY*scale}, {(panelX + panelW - padding)*scale, currentY*scale}, 1.0f*scale, GRAY);
     currentY += 10.0f;
 
     // --- 4. 标签页 (Tabs) ---
@@ -137,15 +160,15 @@ void UICharacter::Draw(entt::registry& registry) {
         float tx = panelX + padding + i * tabW;
         Rectangle tabRect = { tx, currentY, tabW, tabH };
         bool isSelected = (s_activeCharTab == i);
-        bool isHovered = CheckCollisionPointRec(GetMousePosition(), tabRect);
+        bool isHovered = CheckCollisionPointRec(mousePos, tabRect);
 
         if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && isHovered) {
             s_activeCharTab = i;
             s_charPanelScroll = 0.0f;
         }
 
-        DrawRectangleRec(tabRect, isSelected ? Fade(GOLD, 0.3f) : (isHovered ? Fade(WHITE, 0.1f) : Fade(BLACK, 0.5f)));
-        DrawRectangleLinesEx(tabRect, 1.0f, isSelected ? GOLD : DARKGRAY);
+        DrawRectScaled(tabRect.x, tabRect.y, tabRect.width, tabRect.height, isSelected ? Fade(GOLD, 0.3f) : (isHovered ? Fade(WHITE, 0.1f) : Fade(BLACK, 0.5f)));
+        DrawRectLinesScaled(tabRect, 1.0f, isSelected ? GOLD : DARKGRAY);
         UISystem::DrawTextUI(tabNames[i], tx + 10, currentY + 6, 18, isSelected ? WHITE : GRAY);
     }
     currentY += tabH + 5.0f;
@@ -154,7 +177,7 @@ void UICharacter::Draw(entt::registry& registry) {
     float contentH = panelY + panelH - currentY - padding - (totalTemp > 0 ? 40.0f : 0.0f);
     Rectangle viewRect = { panelX + padding, currentY, panelW - padding * 2, contentH };
 
-    if (CheckCollisionPointRec(GetMousePosition(), viewRect)) {
+    if (CheckCollisionPointRec(mousePos, viewRect)) {
         float wheel = GetMouseWheelMove();
         if (wheel != 0) s_charPanelScroll += wheel * 20.0f;
     }
@@ -166,7 +189,9 @@ void UICharacter::Draw(entt::registry& registry) {
         s_charPanelScroll = 0;
     }
 
-    BeginScissorMode((int)viewRect.x, (int)viewRect.y, (int)viewRect.width, (int)viewRect.height);
+    // BeginScissorMode takes Screen Coords and Size (Pixels)
+    BeginScissorMode((int)(viewRect.x * scale), (int)(viewRect.y * scale), (int)(viewRect.width * scale), (int)(viewRect.height * scale));
+    
     float startY = currentY + s_charPanelScroll;
     float y = startY;
     float rowX = panelX + padding + 5.0f;
@@ -292,10 +317,10 @@ void UICharacter::Draw(entt::registry& registry) {
     if (totalTemp > 0) {
         float btnY = panelY + panelH - 45.0f;
         Rectangle confirmRect = {panelX + panelW - padding - 100, btnY, 100, 30};
-        if (CheckCollisionPointRec(GetMousePosition(), confirmRect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if (CheckCollisionPointRec(mousePos, confirmRect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             attrUI.showConfirmPopup = true;
         }
-        DrawRectangleRec(confirmRect, GREEN);
+        DrawRectScaled(confirmRect.x, confirmRect.y, confirmRect.width, confirmRect.height, GREEN);
         UISystem::DrawTextUI("确认加点", confirmRect.x + 15, confirmRect.y + 6, 18, BLACK);
     }
 }
@@ -304,9 +329,19 @@ void UICharacter::DrawStatRow(const char* label, const char* value, float x, flo
     float labelMaxWidth = width * 0.6f;
     UISystem::DrawTextScaled(label, x, y, fontSize, labelMaxWidth, LIGHTGRAY);
     
-    float textWidth = (float)MeasureText(value, (int)fontSize); // 简化，实际应使用 Font
+    // We assume MeasureText works for estimation or we should use font measure if possible.
+    // UISystem::DrawTextScaled handles logic, so we can let it handle value fitting too.
+    // But we need to right-align value.
+    // To right align correctly in scaled UI, we need the logic width of the text.
+    // UIRenderer doesn't easily expose logic width without font access.
+    // But since `DrawTextScaled` does logic width check internally, we can approximate alignment
+    // or just left-align the value after the label?
+    // Original code did right alignment.
+    
+    float textWidth = (float)MeasureText(value, (int)fontSize); // This is unscaled logic width estimation
     float valueMaxWidth = width - labelMaxWidth - 5.0f;
     
+    // Pass to DrawTextUI/Scaled
     if (textWidth > valueMaxWidth) {
         UISystem::DrawTextScaled(value, x + width - valueMaxWidth, y, fontSize, valueMaxWidth, WHITE);
     } else {

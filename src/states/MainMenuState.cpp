@@ -3,6 +3,7 @@
 #include "LoadingState.hpp"
 #include "../core/StateManager.hpp"
 #include "../core/LevelManager.hpp"
+#include "../systems/UISystem.hpp" // Include UISystem
 #include <raylib.h>
 #include <memory>
 #include <thread> // For sleep simulation if desired
@@ -50,7 +51,7 @@ namespace NoMoreDay {
                 [levelMgr, levelData]() {
                     // Simulate a bit of load time to show off the screen (optional)
                     // std::this_thread::sleep_for(std::chrono::milliseconds(500));
-                    *levelData = levelMgr->prepareLevel("cave", 128, 128);
+                    *levelData = levelMgr->prepareLevel("cave", 128, 128, 1);
                 },
                 [levelMgr, levelData](StateManager& mgr) {
                     levelMgr->activateLevel(std::move(*levelData));
@@ -67,20 +68,31 @@ namespace NoMoreDay {
 
     void MainMenuState::OnRender() {
         ClearBackground(BLACK);
+        Font font = UISystem::GetFont();
 
         // Draw Title
         const char* title = "NOMOREDAY";
-        int fontSize = 80;
-        int titleWidth = MeasureText(title, fontSize);
-        DrawText(title, (GetScreenWidth() - titleWidth) / 2, GetScreenHeight() * 0.2f, fontSize, 
-                 Fade(RED, m_titleOpacity));
+        float fontSize = 80.0f;
+        float titleWidth = IsFontValid(font) ? MeasureTextEx(font, title, fontSize, 1.0f).x : (float)MeasureText(title, (int)fontSize);
+        
+        if (IsFontValid(font)) {
+            DrawTextEx(font, title, { (GetScreenWidth() - titleWidth) / 2.0f, GetScreenHeight() * 0.2f }, fontSize, 1.0f, Fade(RED, m_titleOpacity));
+        } else {
+            DrawText(title, (int)(GetScreenWidth() - titleWidth) / 2, (int)(GetScreenHeight() * 0.2f), (int)fontSize, Fade(RED, m_titleOpacity));
+        }
 
         // Draw Buttons
         DrawButton(m_startButton);
         DrawButton(m_exitButton);
 
         // Version Info
-        DrawText("v0.1 Alpha - State Manager Demo", 10, GetScreenHeight() - 25, 20, DARKGRAY);
+        const char* ver = "v0.1 Alpha - State Manager Demo";
+        float verSize = 20.0f;
+        if (IsFontValid(font)) {
+            DrawTextEx(font, ver, { 10.0f, GetScreenHeight() - 25.0f }, verSize, 1.0f, DARKGRAY);
+        } else {
+            DrawText(ver, 10, GetScreenHeight() - 25, (int)verSize, DARKGRAY);
+        }
     }
 
     void MainMenuState::DrawButton(const Button& btn) {
@@ -90,12 +102,20 @@ namespace NoMoreDay {
         DrawRectangleRec(btn.bounds, baseColor);
         DrawRectangleLinesEx(btn.bounds, 2, btn.hovered ? RED : LIGHTGRAY);
 
-        int fontSize = 20;
-        int textWidth = MeasureText(btn.text.c_str(), fontSize);
-        DrawText(btn.text.c_str(), 
-                 (int)(btn.bounds.x + (btn.bounds.width - textWidth) / 2), 
-                 (int)(btn.bounds.y + (btn.bounds.height - fontSize) / 2), 
-                 fontSize, textColor);
+        Font font = UISystem::GetFont();
+        float fontSize = 20.0f;
+        float textWidth = IsFontValid(font) ? MeasureTextEx(font, btn.text.c_str(), fontSize, 1.0f).x : (float)MeasureText(btn.text.c_str(), (int)fontSize);
+        
+        Vector2 textPos = {
+            btn.bounds.x + (btn.bounds.width - textWidth) / 2.0f,
+            btn.bounds.y + (btn.bounds.height - fontSize) / 2.0f
+        };
+        
+        if (IsFontValid(font)) {
+            DrawTextEx(font, btn.text.c_str(), textPos, fontSize, 1.0f, textColor);
+        } else {
+            DrawText(btn.text.c_str(), (int)textPos.x, (int)textPos.y, (int)fontSize, textColor);
+        }
     }
 
     bool MainMenuState::IsButtonClicked(const Button& btn) {
