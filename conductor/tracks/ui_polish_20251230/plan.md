@@ -37,15 +37,15 @@
 - [x] Task: 优化物品拾取、掉落、装备时的视觉特效。 1a53e45
   - [x] Sub-task: 设计并实现物品生成、消失时的粒子效果或光效。
   - [x] Sub-task: 更新 `DropSystem`、`InventorySystem` 和 `RenderSystem`，集成这些特效。
-- [ ] Task: 增强伤害数字与状态提示的飘字动画。
-  - [ ] Sub-task: 优化 `EffectSystem` 中的飘字逻辑，增加更丰富的动画效果（如浮动、渐隐、暴击特殊显示）。
-  - [ ] Sub-task: 改进飘字队列管理，防止信息堆积过快导致混乱。
+- [x] Task: 增强伤害数字与状态提示的飘字动画。 b2d2637
+  - [x] Sub-task: 优化 `EffectSystem` 中的飘字逻辑，增加更丰富的动画效果（如浮动、渐隐、暴击特殊显示）。
+  - [x] Sub-task: 改进飘字队列管理，防止信息堆积过快导致混乱。
 - [ ] Task: 统一 UI 主题配色和纹理风格。
   - [ ] Sub-task: 确定一套符合游戏世界观的 UI 配色方案和纹理素材。
   - [ ] Sub-task: 更新 `UIRenderer` 及相关 UI 模块的绘制，应用新的配色和纹理。
-- [~] Task: 编写物品与信息提示视觉测试。
+- [x] Task: 编写物品与信息提示视觉测试。 b2d2637
   - [x] Sub-task: 模拟物品掉落和拾取，测试特效的正确性。
-  - [ ] Sub-task: 模拟战斗和状态变化，测试飘字动画和显示效果。
+  - [x] Sub-task: 模拟战斗和状态变化，测试飘字动画和显示效果。
 - [ ] Task: Conductor - User Manual Verification '物品与信息提示视觉增强' (Protocol in workflow.md)
 
 ## Phase 4: 布局与用户体验优化 (Layout & UX Refinements)
