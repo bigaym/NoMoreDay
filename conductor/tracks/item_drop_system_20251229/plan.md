@@ -54,7 +54,7 @@
 - [x] Task: Write Unit Tests for Item Modification Systems.
   - [x] Sub-task: Test refinement logic and stat rerolling.
   - [x] Sub-task: Test socketing and rune application/removal.
-- [ ] Task: Conductor - User Manual Verification 'Item Modification Systems' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Item Modification Systems' (Protocol in workflow.md) [checkpoint: 6343cb4]
 
 ## Phase 4: Drop System Core
 
