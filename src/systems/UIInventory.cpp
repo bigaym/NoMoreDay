@@ -5,6 +5,7 @@
 #include "../components/ItemComponent.hpp"
 #include "../components/PlayerState.hpp"
 #include "InventorySystem.hpp"
+#include "../core/UIRenderer.hpp"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>
@@ -43,11 +44,11 @@ void UIInventory::Draw(entt::registry& registry) {
     if (!inv) return;
 
     // Use Reference Resolution for Layout
-    const float panelW = 840.0f;
-    const float panelH = 650.0f;
+    const float panelW = 900.0f; // Wider for better spacing
+    const float panelH = 700.0f;
     const float panelX = (UI_REF_WIDTH - panelW) / 2.0f;
     const float panelY = (UI_REF_HEIGHT - panelH) / 2.0f;
-    const float padding = 20.0f;
+    const float padding = 30.0f;
 
     // Use Logic Mouse Position
     Vector2 mousePos = UISystem::GetMousePositionLogic();
@@ -55,6 +56,8 @@ void UIInventory::Draw(entt::registry& registry) {
 
     // Scale helper
     float scale = UIRenderer::GetScale();
+    auto& theme = UIRenderer::GetTheme();
+    Font font = UISystem::GetFont();
     
     auto DrawRectScaled = [&](float x, float y, float w, float h, Color c) {
         DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), Fade(c, alpha));
@@ -68,23 +71,26 @@ void UIInventory::Draw(entt::registry& registry) {
         DrawLineEx({start.x*scale, start.y*scale}, {end.x*scale, end.y*scale}, thick*scale, Fade(c, alpha));
     };
 
-    // 背景
-    DrawRectScaled(panelX, panelY, panelW, panelH, DARKGRAY); // Fixed base color for bg
-    DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 3.0f, DARKGRAY);
-    DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 1.0f, GOLD);
+    // 背景 (Background)
+    DrawRectScaled(panelX, panelY, panelW, panelH, theme.panelBackground);
+    DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 1.0f, theme.panelBorder);
+    // Top border accent
+    DrawLineScaled({panelX, panelY}, {panelX + panelW, panelY}, 2.0f, theme.panelBorderHighlight);
 
-    // 标题
-    DrawRectScaled(panelX, panelY, panelW, 40, GRAY);
-    UISystem::DrawTextUI("角色物品栏 & 装备", panelX + padding, panelY + 8, 24, GOLD, alpha);
-    UISystem::DrawTextUI("按 'I' 或 'ESC' 关闭", panelX + panelW - 180, panelY + 12, 16, LIGHTGRAY, alpha);
+    // 标题 (Header)
+    UIRenderer::DrawTextUI(font, "角色物品栏 & 装备", panelX + padding, panelY + 20, 28, theme.textHighlight, alpha);
+    UIRenderer::DrawTextUI(font, "按 'I' 或 'ESC' 关闭", panelX + panelW - 200, panelY + 28, 18, theme.textSecondary, alpha);
 
-    // --- 装备区 ---
+    // --- 装备区 (Equipment Area) ---
     float equipX = panelX + padding;
-    float equipY = panelY + 60.0f;
-    float equipW = 320.0f;
+    float equipY = panelY + 80.0f;
+    float equipW = 340.0f;
+    float equipH = panelH - 110.0f;
     
-    DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, (panelH - 80)*scale}, 0.05f, 4, Fade(WHITE, 0.05f * alpha));
-    UISystem::DrawTextUI("装备槽位", equipX + 10, equipY + 10, 20, YELLOW, alpha);
+    DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, Fade(theme.slotBackground, 0.5f * alpha));
+    DrawRectangleRoundedLines({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
+    
+    UIRenderer::DrawTextUI(font, "装备槽位", equipX + 15, equipY + 15, 22, theme.textPrimary, alpha);
 
     struct SlotDef { const char* label; EquipmentSlot slot; };
     static const SlotDef slotDefs[] = {
@@ -96,15 +102,15 @@ void UIInventory::Draw(entt::registry& registry) {
         {"副手武器", EquipmentSlot::OffHand}
     };
 
-    float equipSlotSize = 50.0f;
-    float slotGap = 12.0f;
-    float startX = equipX + 20.0f;
-    float startY = equipY + 45.0f;
+    float equipSlotSize = 56.0f;
+    float slotGap = 20.0f;
+    float startX = equipX + 30.0f;
+    float startY = equipY + 60.0f;
 
     float dt = GetFrameTime();
 
     for (int i = 0; i < 11; ++i) {
-        float x = startX + (i % 2) * (equipSlotSize + 80.0f);
+        float x = startX + (i % 2) * (equipSlotSize + 110.0f); // Wider spacing for labels
         float y = startY + (i / 2) * (equipSlotSize + slotGap);
         
         EquipmentSlot slotType = slotDefs[i].slot;
@@ -156,28 +162,29 @@ void UIInventory::Draw(entt::registry& registry) {
             }
         }
 
-        UISystem::DrawSlot(registry, x - offset, y - offset, equipSlotSize * slotScale, (UISystem::State.draggedItem == item) ? entt::null : item, slotDefs[i].label, isHovered, false, alpha);
-        UISystem::DrawTextUI(slotDefs[i].label, x + equipSlotSize + 5, y + equipSlotSize/2 - 8, 14, isHovered ? WHITE : GRAY, alpha);
+        UIRenderer::DrawSlot(font, registry, x - offset, y - offset, equipSlotSize * slotScale, (UISystem::State.draggedItem == item) ? entt::null : item, slotDefs[i].label, isHovered, false, alpha);
+        UIRenderer::DrawTextUI(font, slotDefs[i].label, x + equipSlotSize + 10, y + equipSlotSize/2 - 8, 16, isHovered ? theme.textPrimary : theme.textSecondary, alpha);
     }
 
     // 分割线
-    DrawLineScaled({panelX + 355, panelY + 60}, {panelX + 355, panelY + panelH - padding}, 2.0f, DARKGRAY);
+    DrawLineScaled({panelX + 400, panelY + 80}, {panelX + 400, panelY + panelH - padding}, 1.0f, theme.panelBorder);
 
-    // --- 背包区 ---
-    float invX = panelX + 375.0f;
-    float invY = panelY + 60.0f;
+    // --- 背包区 (Inventory Area) ---
+    float invX = panelX + 420.0f;
+    float invY = panelY + 80.0f;
     float invW = panelW - (invX - panelX) - padding;
-    float invSlotSize = 44.0f;
+    float invSlotSize = 48.0f;
 
     // 标签页 (简化)
-    UISystem::DrawTextUI("物品", invX + 15, invY + 5, 18, WHITE, alpha);
+    UIRenderer::DrawTextUI(font, "物品背包", invX + 5, invY - 25, 22, theme.textHighlight, alpha);
 
-    DrawRectangleRounded({invX*scale, (invY + 30)*scale, invW*scale, (panelH - 110)*scale}, 0.05f, 4, Fade(WHITE, 0.05f * alpha));
+    DrawRectangleRounded({invX*scale, invY*scale, invW*scale, (panelH - 150)*scale}, 0.02f, 4, Fade(theme.slotBackground, 0.3f * alpha));
+    DrawRectangleRoundedLines({invX*scale, invY*scale, invW*scale, (panelH - 150)*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
 
     int totalCapacity = inv ? inv->capacity : 20;
     if (inv && inv->items.size() < (size_t)totalCapacity) inv->items.resize(totalCapacity, entt::null);
 
-    const int cols = 7;
+    const int cols = 8; // Increased columns
     const int rows = 8;
     const int pageSize = cols * rows;
     int totalPages = (totalCapacity + pageSize - 1) / pageSize;
@@ -185,7 +192,7 @@ void UIInventory::Draw(entt::registry& registry) {
     if (m_inventoryPage >= totalPages) m_inventoryPage = totalPages - 1;
 
     float gridStartX = invX + 15.0f;
-    float gridStartY = invY + 45.0f;
+    float gridStartY = invY + 15.0f;
 
     for (int r = 0; r < rows; ++r) {
         for (int c = 0; c < cols; ++c) {
@@ -199,10 +206,7 @@ void UIInventory::Draw(entt::registry& registry) {
             bool isLocked = overallIndex >= totalCapacity;
 
             // Update Animation
-            auto& anim = UISystem::State.inventorySlotAnims[index]; // Use page-relative index for anim persistence? Or global?
-            // Actually, better use a global index or just the visible index if it's the same size.
-            // Since pageSize is 56, and we initialized 100, we can just use overallIndex if it's < 100.
-            // But let's use index (0-55) for visible slots to have persistent hover across pages or just clean mapping.
+            auto& anim = UISystem::State.inventorySlotAnims[index];
             float target = (isHovered && !isLocked) ? 1.0f : 0.0f;
             anim.hoverValue += (target - anim.hoverValue) * 15.0f * dt;
             float slotScale = 1.0f + anim.hoverValue * 0.1f;
@@ -251,50 +255,56 @@ void UIInventory::Draw(entt::registry& registry) {
                 UISystem::State.draggedItem = entt::null;
             }
 
-            UISystem::DrawSlot(registry, x - offset, y - offset, invSlotSize * slotScale, (UISystem::State.draggedItem == item) ? entt::null : item, nullptr, isHovered && !isLocked, isLocked, alpha);
+            UIRenderer::DrawSlot(font, registry, x - offset, y - offset, invSlotSize * slotScale, (UISystem::State.draggedItem == item) ? entt::null : item, nullptr, isHovered && !isLocked, isLocked, alpha);
         }
     }
 
-    // 底部控制栏
-    float bottomBarY = invY + panelH - 50.0f;
+    // 底部控制栏 (Bottom Controls)
+    float bottomBarY = invY + (panelH - 150.0f) + 15.0f;
     
     // 分页
     if (totalPages > 1) {
         const char* pageText = TextFormat("第 %d / %d 页", m_inventoryPage + 1, totalPages);
-        UISystem::DrawTextUI(pageText, invX + invW / 2 - 40, bottomBarY + 5, 18, WHITE, alpha);
+        UIRenderer::DrawTextUI(font, pageText, invX + invW / 2 - 40, bottomBarY + 5, 18, theme.textPrimary, alpha);
         
         if (m_inventoryPage > 0) {
-            DrawRectScaled(invX + invW/2 - 80, bottomBarY, 30, 30, DARKGRAY);
-            UISystem::DrawTextUI("<", invX + invW/2 - 70, bottomBarY + 5, 18, WHITE, alpha);
-            if (CheckCollisionPointRec(mousePos, {invX + invW/2 - 80, bottomBarY, 30, 30}) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_inventoryPage--;
+            Rectangle btn = {invX + invW/2 - 90, bottomBarY, 32, 32};
+            bool h = CheckCollisionPointRec(mousePos, btn);
+            DrawRectScaled(btn.x, btn.y, btn.width, btn.height, h ? theme.buttonHover : theme.buttonNormal);
+            DrawRectLinesScaled(btn, 1.0f, theme.panelBorder);
+            UIRenderer::DrawTextUI(font, "<", btn.x + 10, btn.y + 4, 20, theme.textPrimary, alpha);
+            if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_inventoryPage--;
         }
         if (m_inventoryPage < totalPages - 1) {
-            DrawRectScaled(invX + invW/2 + 50, bottomBarY, 30, 30, DARKGRAY);
-            UISystem::DrawTextUI(">", invX + invW/2 + 60, bottomBarY + 5, 18, WHITE, alpha);
-            if (CheckCollisionPointRec(mousePos, {invX + invW/2 + 50, bottomBarY, 30, 30}) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_inventoryPage++;
+            Rectangle btn = {invX + invW/2 + 60, bottomBarY, 32, 32};
+            bool h = CheckCollisionPointRec(mousePos, btn);
+            DrawRectScaled(btn.x, btn.y, btn.width, btn.height, h ? theme.buttonHover : theme.buttonNormal);
+            DrawRectLinesScaled(btn, 1.0f, theme.panelBorder);
+            UIRenderer::DrawTextUI(font, ">", btn.x + 12, btn.y + 4, 20, theme.textPrimary, alpha);
+            if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_inventoryPage++;
         }
     }
 
     // 金币
-    UISystem::DrawTextUI(TextFormat("金币: %d", inv->gold), invX + 15, bottomBarY + 5, 20, GOLD, alpha);
+    UIRenderer::DrawTextUI(font, TextFormat("金币: %d", inv->gold), invX + 15, bottomBarY + 5, 20, theme.textHighlight, alpha);
 
     // 整理按钮
-    Rectangle sortBtnRec = {invX + invW - 115, bottomBarY, 100, 30};
+    Rectangle sortBtnRec = {invX + invW - 120, bottomBarY, 100, 32};
     bool sortHover = CheckCollisionPointRec(mousePos, sortBtnRec);
-    DrawRectScaled(sortBtnRec.x, sortBtnRec.y, sortBtnRec.width, sortBtnRec.height, sortHover ? GOLD : DARKGRAY);
-    DrawRectLinesScaled(sortBtnRec, 1.0f, WHITE);
-    UISystem::DrawTextUI("整理背包", sortBtnRec.x + 15, sortBtnRec.y + 5, 18, WHITE, alpha);
+    DrawRectScaled(sortBtnRec.x, sortBtnRec.y, sortBtnRec.width, sortBtnRec.height, sortHover ? theme.buttonHover : theme.buttonNormal);
+    DrawRectLinesScaled(sortBtnRec, 1.0f, theme.panelBorder);
+    UIRenderer::DrawTextUI(font, "整理背包", sortBtnRec.x + 15, sortBtnRec.y + 6, 18, theme.textPrimary, alpha);
     if (sortHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         InventorySystem::organize(registry, player);
     }
 
     // 背包扩展槽 (Bag Slots)
-    float bagSlotsY = invY + 500.0f;
-    float bagSlotSize = 38.0f;
-    UISystem::DrawTextUI("背包栏", invX + 15, bagSlotsY - 20, 16, YELLOW, alpha);
+    float bagSlotsY = bottomBarY + 50.0f;
+    float bagSlotSize = 42.0f;
+    UIRenderer::DrawTextUI(font, "背包栏", invX + 15, bagSlotsY - 25, 18, theme.textSecondary, alpha);
 
     for (int i = 0; i < 4; ++i) {
-        float x = invX + 15.0f + i * (bagSlotSize + 10.0f);
+        float x = invX + 15.0f + i * (bagSlotSize + 15.0f);
         float y = bagSlotsY;
         entt::entity bagItem = (i < inv->bag_slots.size()) ? inv->bag_slots[i] : entt::null;
         bool isHovered = CheckCollisionPointRec(mousePos, {x, y, bagSlotSize, bagSlotSize});
@@ -355,6 +365,6 @@ void UIInventory::Draw(entt::registry& registry) {
             }
         }
 
-        UISystem::DrawSlot(registry, x - offset, y - offset, bagSlotSize * slotScale, (UISystem::State.draggedItem == bagItem) ? entt::null : bagItem, "背包", isHovered, false, alpha);
+        UIRenderer::DrawSlot(font, registry, x - offset, y - offset, bagSlotSize * slotScale, (UISystem::State.draggedItem == bagItem) ? entt::null : bagItem, "背包", isHovered, false, alpha);
     }
 }
