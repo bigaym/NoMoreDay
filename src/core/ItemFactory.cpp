@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <map>
 #include <vector>
+#include <fstream>
+#include <nlohmann/json.hpp>
 #include "../tools/Logger.hpp"
 #include "AssetLoadingSystem.hpp"
 #include "AssetRegistry.hpp"
@@ -14,10 +16,14 @@ namespace NoMoreDay {
 static std::mt19937 g_rng;
 
 std::map<uint32_t, LootPool> ItemFactory::s_lootPools;
+std::vector<AffixDefinition> ItemFactory::s_affixDefinitions;
 
 void ItemFactory::initialize() {
  std::random_device rd;
  g_rng.seed(rd());
+
+ // 加载词缀定义
+ loadAffixDefinitions("assets/data/affixes.json");
 
  // 初始化全局掉落池 (ID 0)
  LootPool globalPool;
@@ -30,6 +36,23 @@ void ItemFactory::initialize() {
  s_lootPools[0] = globalPool;
 
  LOG_INFO("ItemFactory 已使用全局掉落池初始化。");
+}
+
+void ItemFactory::loadAffixDefinitions(const std::string& path) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        LOG_ERROR("ItemFactory: 无法打开词缀定义文件: {}", path);
+        return;
+    }
+
+    try {
+        nlohmann::json j;
+        file >> j;
+        s_affixDefinitions = j.get<std::vector<AffixDefinition>>();
+        LOG_INFO("ItemFactory: 成功加载了 {} 个词缀定义。", s_affixDefinitions.size());
+    } catch (const std::exception& e) {
+        LOG_ERROR("ItemFactory: 解析词缀定义文件时出错: {}", e.what());
+    }
 }
 
 // ... existing code ...
@@ -190,61 +213,125 @@ Affix ItemFactory::createAffix(AffixType type, int tier) {
     return affix;
 }
 
-Affix ItemFactory::generateRandomAffix(int level, bool isPrefix, EquipmentSlot slot) {
-    // 1. 根据槽位和位置选择词缀类型候选
-    std::vector<AffixType> candidates;
-
-    if (isPrefix) {
-        // --- 前缀 ---
-        if (slot == EquipmentSlot::MainHand || slot == EquipmentSlot::OffHand) {
-             candidates = { 
-                AffixType::FlatPhysicalDamage, AffixType::FlatFireDamage,
-                AffixType::PercentPhysicalDamage, AffixType::PercentFireDamage,
-                AffixType::PercentLightningDamage 
-             };
-        } else if (slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2 || slot == EquipmentSlot::Neck) {
-             candidates = { 
-                AffixType::FlatPhysicalDamage, AffixType::FlatFireDamage,
-                AffixType::PercentPhysicalDamage, AffixType::FlatMana
-             };
-        } else {
-             candidates = { 
-                AffixType::FlatHealth, AffixType::FlatMana, 
-                AffixType::PercentArmor, AffixType::FlatArmor
-             };
-        }
-    } else {
-        // --- 后缀 ---
-        candidates = { 
-            AffixType::Strength, AffixType::Dexterity, 
-            AffixType::Intelligence, AffixType::Vitality,
-            AffixType::ResistFire, AffixType::ResistCold, AffixType::ResistLightning
-        };
-        if (slot == EquipmentSlot::MainHand) {
-            candidates.push_back(AffixType::AttackSpeed);
-            candidates.push_back(AffixType::CritChance);
-            candidates.push_back(AffixType::CritDamage);
-        } else if (slot == EquipmentSlot::Feet) {
-            candidates.push_back(AffixType::MoveSpeed);
-        } else if (slot == EquipmentSlot::Hands) {
-            candidates.push_back(AffixType::AttackSpeed);
-        } else if (slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2 || slot == EquipmentSlot::Neck) {
-             candidates.push_back(AffixType::CastSpeed);
-             candidates.push_back(AffixType::CritChance);
+std::pair<float, float> ItemFactory::getAffixRange(AffixType type, int tier) {
+    for (const auto& def : s_affixDefinitions) {
+        if (def.type == type) {
+            for (const auto& t : def.tiers) {
+                if (t.tier == tier) {
+                    return { t.minValue, t.maxValue };
+                }
+            }
         }
     }
+    
+    // Fallback if not found in definitions (maybe it was from fillAffixDetails)
+    // For now, return a wide range or zero
+    return { 0.0f, 0.0f };
+}
 
-    if (candidates.empty()) candidates.push_back(AffixType::Strength);
+std::pair<float, float> ItemFactory::getBaseStatRange(const ItemComponent& item) {
+    if (item.type == ItemType::Weapon) {
+        for (const auto& base : WEAPON_BASES) {
+            if (item.name.find(base.name) != std::string::npos) {
+                return { base.baseStatMin, base.baseStatMax };
+            }
+        }
+    } else if (item.type == ItemType::Armor) {
+        for (const auto& base : ARMOR_BASES) {
+            if (item.name.find(base.name) != std::string::npos) {
+                return { base.baseStatMin, base.baseStatMax };
+            }
+        }
+    }
+    return { 0.0f, 0.0f };
+}
 
+Affix ItemFactory::generateRandomAffix(int level, bool isPrefix, EquipmentSlot slot) {
+    if (s_affixDefinitions.empty()) {
+        LOG_WARN("ItemFactory: 词缀定义为空，使用回退生成。");
+        Affix fallback;
+        fallback.type = AffixType::Strength;
+        fallback.value = (float)level;
+        fallback.tier = 1;
+        fallback.isPrefix = isPrefix;
+        fallback.name = "Fallback";
+        return fallback;
+    }
+
+    // 1. 确定槽位对应的标签
+    std::vector<std::string> slotTags;
+    switch (slot) {
+        case EquipmentSlot::MainHand: slotTags = {"weapon"}; break;
+        case EquipmentSlot::OffHand:  slotTags = {"weapon", "armor"}; break; // 盾牌或副手
+        case EquipmentSlot::Head:
+        case EquipmentSlot::Shoulder:
+        case EquipmentSlot::Chest:
+        case EquipmentSlot::Legs:     slotTags = {"armor"}; break;
+        case EquipmentSlot::Hands:    slotTags = {"armor", "gloves"}; break;
+        case EquipmentSlot::Feet:     slotTags = {"armor", "boots"}; break;
+        case EquipmentSlot::Neck:
+        case EquipmentSlot::Ring1:
+        case EquipmentSlot::Ring2:    slotTags = {"jewelry"}; break;
+        default: slotTags = {"misc"}; break;
+    }
+
+    // 2. 筛选符合条件的词缀定义
+    std::vector<const AffixDefinition*> candidates;
+    for (const auto& def : s_affixDefinitions) {
+        if (def.isPrefix != isPrefix) continue;
+
+        // 检查标签是否匹配
+        bool tagMatch = false;
+        for (const auto& sTag : slotTags) {
+            for (const auto& aTag : def.allowedTags) {
+                if (sTag == aTag) { tagMatch = true; break; }
+            }
+            if (tagMatch) break;
+        }
+        if (!tagMatch) continue;
+
+        // 检查等级是否符合 (至少有 T1 可用)
+        if (def.tiers.empty() || def.tiers[0].minLevel > level) continue;
+
+        candidates.push_back(&def);
+    }
+
+    if (candidates.empty()) {
+        // 如果没有符合标签的词缀，尝试放宽条件或返回基础词缀
+        return createAffix(AffixType::Strength, 1);
+    }
+
+    // 3. 随机选择一个定义
     std::uniform_int_distribution<> dist(0, candidates.size() - 1);
-    AffixType type = candidates[dist(g_rng)];
+    const AffixDefinition* selectedDef = candidates[dist(g_rng)];
+
+    // 4. 选择合适的等级 (Tier)
+    // 选择 minLevel <= itemLevel 的最高等级
+    int bestTierIdx = 0;
+    for (int i = 0; i < (int)selectedDef->tiers.size(); ++i) {
+        if (selectedDef->tiers[i].minLevel <= level) {
+            bestTierIdx = i;
+        } else {
+            break;
+        }
+    }
     
-    // 2. 确定词缀等级
-    int maxTier = std::min(7, (level / 8) + 1);
-    int minTier = std::max(1, maxTier - 2);
-    int tier = std::uniform_int_distribution<>(minTier, maxTier)(g_rng);
+    const auto& tier = selectedDef->tiers[bestTierIdx];
+
+    // 5. 生成最终词缀
+    Affix result;
+    result.type = selectedDef->type;
+    result.tier = tier.tier;
+    result.isPrefix = selectedDef->isPrefix;
+    result.name = selectedDef->nameTemplate;
     
-    return createAffix(type, tier);
+    if (tier.maxValue > tier.minValue) {
+        result.value = std::uniform_real_distribution<float>(tier.minValue, tier.maxValue)(g_rng);
+    } else {
+        result.value = tier.minValue;
+    }
+
+    return result;
 }
 
 void ItemFactory::rollAffixes(ItemComponent& item, int level) {

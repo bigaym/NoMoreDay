@@ -110,3 +110,25 @@ target_compile_definitions(AssetLoadingSystemTest PRIVATE TEST_HEADLESS)
 if(WIN32)
     target_compile_definitions(AssetLoadingSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
+
+add_executable(AffixSystemTest 
+    AffixSystemTest.cpp
+)
+target_include_directories(AffixSystemTest PRIVATE 
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+)
+target_link_libraries(AffixSystemTest PRIVATE NoMoreDayCore)
+if(WIN32)
+    target_compile_definitions(AffixSystemTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()
+
+add_executable(ItemModificationTest 
+    ItemModificationTest.cpp
+)
+target_include_directories(ItemModificationTest PRIVATE 
+    ${CMAKE_SOURCE_DIR}/third_party/doctest
+)
+target_link_libraries(ItemModificationTest PRIVATE NoMoreDayCore)
+if(WIN32)
+    target_compile_definitions(ItemModificationTest PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()

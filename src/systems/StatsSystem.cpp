@@ -105,7 +105,57 @@ static void ApplyAffix(std::array<StatCalculation, static_cast<size_t>(StatType:
         case AffixType::MoveSpeed:
             ApplyStatModifier(calcs, StatType::MoveSpeed, ModifierMode::PercentAdd, affix.value);
             break;
-        // 进攻性词缀（如百分比伤害）通常直接操作 CombatStats，或在此处增加新的 StatType
+        case AffixType::CritChance:
+            ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::CritDamage:
+            ApplyStatModifier(calcs, StatType::CritDamage, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::AttackSpeed:
+            ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::CastSpeed:
+            ApplyStatModifier(calcs, StatType::CastSpeed, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::Accuracy:
+            ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::PercentPhysicalDamage:
+            ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::PercentFireDamage:
+            ApplyStatModifier(calcs, StatType::FireDamage, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::PercentColdDamage:
+            ApplyStatModifier(calcs, StatType::ColdDamage, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::PercentLightningDamage:
+            ApplyStatModifier(calcs, StatType::LightningDamage, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::PercentPoisonDamage:
+            ApplyStatModifier(calcs, StatType::PoisonDamage, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::PercentShadowDamage:
+            ApplyStatModifier(calcs, StatType::ShadowDamage, ModifierMode::PercentAdd, affix.value);
+            break;
+        case AffixType::ResistFire:
+            ApplyStatModifier(calcs, StatType::ResistFire, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::ResistCold:
+            ApplyStatModifier(calcs, StatType::ResistCold, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::ResistLightning:
+            ApplyStatModifier(calcs, StatType::ResistLightning, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::ResistPoison:
+            ApplyStatModifier(calcs, StatType::ResistPoison, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::ResistShadow:
+            ApplyStatModifier(calcs, StatType::ResistShadow, ModifierMode::Flat, affix.value);
+            break;
+        case AffixType::ResistAll:
+            ApplyStatModifier(calcs, StatType::ResistAll, ModifierMode::Flat, affix.value);
+            break;
         default:
             break;
     }
@@ -124,6 +174,17 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     calcs[static_cast<size_t>(StatType::MaxMana)].base = 100.0f;
     calcs[static_cast<size_t>(StatType::MoveSpeed)].base = 300.0f;
     calcs[static_cast<size_t>(StatType::Armor)].base = 0.0f;
+    
+    calcs[static_cast<size_t>(StatType::CritChance)].base = 5.0f; // 5%
+    calcs[static_cast<size_t>(StatType::CritDamage)].base = 150.0f; // 150%
+    calcs[static_cast<size_t>(StatType::AttackSpeed)].base = 100.0f; // 100%
+    calcs[static_cast<size_t>(StatType::CastSpeed)].base = 100.0f;
+    calcs[static_cast<size_t>(StatType::Accuracy)].base = 97.0f; // 97%
+
+    // 伤害乘数默认为 100% (1.0)
+    for (int i = 0; i < 6; ++i) {
+        calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].base = 100.0f;
+    }
 
     // 0. 来自 PrimaryStats 组件的基础属性
     if (registry.all_of<PrimaryStats>(entity)) {
@@ -134,12 +195,6 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         calcs[static_cast<size_t>(StatType::Vitality)].base = primary.vitality;
     }
 
-    // 临时存储进攻性加成，用于最后汇总到 combat 结构中
-    float totalCritChance = 0.0f;
-    float totalCritDamage = 0.0f;
-    float totalAttackSpeed = 0.0f;
-    float totalAccuracy = 0.0f;
-    
     float mainHandAttack = 0.0f;
     bool hasMainHandWeapon = false;
     bool isTwoHanded = false;
@@ -151,14 +206,9 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         for (const auto& affix : affixes) {
             ApplyAffix(calcs, affix);
             
-            // 处理 ApplyAffix 中未涵盖的进攻性词缀
+            // 处理 ApplyAffix 中未涵盖的特殊词缀
             switch (affix.type) {
-                case AffixType::CritChance:  totalCritChance += affix.value / 100.0f; break;
-                case AffixType::CritDamage:  totalCritDamage += affix.value / 100.0f; break;
-                case AffixType::AttackSpeed: totalAttackSpeed += affix.value / 100.0f; break;
-                case AffixType::Accuracy:    totalAccuracy += affix.value / 100.0f; break;
-                
-                // 基础点伤 (Flat Damage)
+                // 基础点伤 (Flat Damage) - 目前 StatType 不处理点伤基数，保持原样
                 case AffixType::FlatPhysicalDamage: combat.flat_damage[(int)DamageType::Physical] += affix.value; break;
                 case AffixType::FlatFireDamage:     combat.flat_damage[(int)DamageType::Fire] += affix.value; break;
                 case AffixType::FlatColdDamage:     combat.flat_damage[(int)DamageType::Cold] += affix.value; break;
@@ -166,27 +216,11 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 case AffixType::FlatPoisonDamage:   combat.flat_damage[(int)DamageType::Poison] += affix.value; break;
                 case AffixType::FlatShadowDamage:   combat.flat_damage[(int)DamageType::Shadow] += affix.value; break;
 
-                // 百分比伤害 (Percent Damage)
-                case AffixType::PercentPhysicalDamage: combat.damage_multipliers[(int)DamageType::Physical] += affix.value / 100.0f; break;
-                case AffixType::PercentFireDamage:     combat.damage_multipliers[(int)DamageType::Fire] += affix.value / 100.0f; break;
-                case AffixType::PercentColdDamage:     combat.damage_multipliers[(int)DamageType::Cold] += affix.value / 100.0f; break;
-                case AffixType::PercentLightningDamage:combat.damage_multipliers[(int)DamageType::Lightning] += affix.value / 100.0f; break;
-                case AffixType::PercentPoisonDamage:   combat.damage_multipliers[(int)DamageType::Poison] += affix.value / 100.0f; break;
-                case AffixType::PercentShadowDamage:   combat.damage_multipliers[(int)DamageType::Shadow] += affix.value / 100.0f; break;
-
-                // 抗性 (Resistances)
-                case AffixType::ResistAll:       for(auto& r : combat.resistances) r += affix.value / 100.0f; break;
-                case AffixType::ResistFire:      combat.resistances[(int)DamageType::Fire] += affix.value / 100.0f; break;
-                case AffixType::ResistCold:      combat.resistances[(int)DamageType::Cold] += affix.value / 100.0f; break;
-                case AffixType::ResistLightning: combat.resistances[(int)DamageType::Lightning] += affix.value / 100.0f; break;
-                case AffixType::ResistPoison:    combat.resistances[(int)DamageType::Poison] += affix.value / 100.0f; break;
-                case AffixType::ResistShadow:    combat.resistances[(int)DamageType::Shadow] += affix.value / 100.0f; break;
-
                 // 回复 (Recovery)
                 case AffixType::LifeSteal:       combat.life_steal += affix.value / 100.0f; break;
                 case AffixType::LifeOnHit:       combat.life_on_hit += affix.value; break;
 
-                // 新增属性
+                // 其他特殊词缀
                 case AffixType::Thorns:          combat.thorns += affix.value; break;
                 case AffixType::DamageReduction: combat.damage_reduction += affix.value / 100.0f; break;
                 case AffixType::CooldownReduction: combat.cooldown_reduction += affix.value / 100.0f; break;
@@ -220,6 +254,21 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
                 processAffixes(item.implicits);
                 processAffixes(item.affixes);
+
+                // 处理插槽中的符文
+                for (auto runeEntity : item.sockets) {
+                    if (registry.valid(runeEntity) && registry.all_of<RuneComponent>(runeEntity)) {
+                        const auto& rune = registry.get<RuneComponent>(runeEntity);
+                        // 根据物品槽位选择效果
+                        if (item.type == ItemType::Weapon) {
+                            processAffixes(rune.weaponEffects);
+                        } else if (item.slot == EquipmentSlot::Neck || item.slot == EquipmentSlot::Ring1 || item.slot == EquipmentSlot::Ring2) {
+                            processAffixes(rune.jewelryEffects);
+                        } else {
+                            processAffixes(rune.armorEffects);
+                        }
+                    }
+                }
 
                 if (item.defense > 0) {
                     ApplyStatModifier(calcs, StatType::Armor, ModifierMode::Flat, item.defense);
@@ -263,7 +312,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
             float avgAttack = (mainHandAttack + offHandAttack) * 0.5f;
             combat.min_weapon_damage = avgAttack * 0.9f;
             combat.max_weapon_damage = avgAttack * 1.1f;
-            totalAttackSpeed += 0.15f;
+            ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd, 15.0f);
         } else {
             // 单持主手
             combat.min_weapon_damage = mainHandAttack * 0.9f;
@@ -320,7 +369,11 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     calcs[static_cast<size_t>(StatType::MaxMana)].base += intel * 5.0f;
 
     // 属性对伤害的加成
-    combat.damage_multipliers[(int)DamageType::Physical] += str * 0.01f; // 1力 = 1% 物理伤害
+    ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd, str * 1.0f); // 1力 = 1% 物理伤害
+    
+    // 敏捷加成
+    ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat, dex * 0.2f); // 1敏 = 0.2% 暴击率
+    ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat, dex * 0.1f); // 1敏 = 0.1% 命中
 
     // 5. 最终确定次要属性
     combat.max_health = calcs[static_cast<size_t>(StatType::MaxHealth)].Result();
@@ -328,10 +381,23 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.armor = calcs[static_cast<size_t>(StatType::Armor)].Result();
     combat.move_speed = calcs[static_cast<size_t>(StatType::MoveSpeed)].Result();
     
-    combat.crit_chance = 0.05f + (dex * 0.002f) + totalCritChance; // 基础5% + 敏捷加成 + 装备
-    combat.crit_damage = 1.50f + totalCritDamage;
-    combat.attack_speed = 1.0f + totalAttackSpeed;
-    combat.accuracy = 0.97f + totalAccuracy + (dex * 0.001f); // 基础97% + 装备 + 敏捷加成(每点0.1%)
+    combat.crit_chance = calcs[static_cast<size_t>(StatType::CritChance)].Result() / 100.0f;
+    combat.crit_damage = calcs[static_cast<size_t>(StatType::CritDamage)].Result() / 100.0f;
+    combat.attack_speed = calcs[static_cast<size_t>(StatType::AttackSpeed)].Result() / 100.0f;
+    combat.cast_speed = calcs[static_cast<size_t>(StatType::CastSpeed)].Result() / 100.0f;
+    combat.accuracy = calcs[static_cast<size_t>(StatType::Accuracy)].Result() / 100.0f;
+
+    // 伤害乘数
+    for (int i = 0; i < 6; ++i) {
+        combat.damage_multipliers[i] = calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].Result() / 100.0f;
+    }
+
+    // 抗性
+    float resAll = calcs[static_cast<size_t>(StatType::ResistAll)].Result();
+    for (int i = 0; i < 6; ++i) {
+        combat.resistances[i] = (calcs[static_cast<size_t>(StatType::ResistPhysical) + i].Result() + resAll) / 100.0f;
+    }
+
     combat.knockback += str * 0.5f; // 力量增加击退
 
     LOG_INFO("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 

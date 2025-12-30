@@ -158,4 +158,124 @@ CraftingResult CraftingSystem::chaosAffix(ItemComponent& item, int affixIndex) {
     return CraftingResult::Success;
 }
 
+CraftingResult CraftingSystem::refineAffixValues(ItemComponent& item, int affixIndex) {
+    if (affixIndex < 0 || affixIndex >= item.affixes.size()) {
+        return CraftingResult::Failure;
+    }
+    if (item.forgingPotential <= 0) {
+        return CraftingResult::NoPotential;
+    }
+
+    auto& affix = item.affixes[affixIndex];
+    auto range = ItemFactory::getAffixRange(affix.type, affix.tier);
+
+    if (range.first == 0.0f && range.second == 0.0f) {
+        LOG_WARN("Crafting: No range found for affix type {} tier {}", (int)affix.type, affix.tier);
+        return CraftingResult::Failure;
+    }
+
+    // 消耗潜力 (洗练消耗较低)
+    int cost = 1 + affix.tier; 
+    int finalCost = std::min(cost, item.forgingPotential);
+    item.forgingPotential -= finalCost;
+
+    static std::mt19937 rng(std::random_device{}());
+    float newValue = std::uniform_real_distribution<float>(range.first, range.second)(rng);
+    
+    LOG_INFO("打造洗练: 物品 '{}' 的词缀 '{}' 从 {:.1f} 变为 {:.1f}", item.name, affix.name, affix.value, newValue);
+    affix.value = newValue;
+
+    return CraftingResult::Success;
+}
+
+CraftingResult CraftingSystem::refineBaseStats(ItemComponent& item) {
+    if (item.forgingPotential <= 0) {
+        return CraftingResult::NoPotential;
+    }
+
+    auto range = ItemFactory::getBaseStatRange(item);
+    if (range.first == 0.0f && range.second == 0.0f) {
+        LOG_WARN("Crafting: No base stat range found for item '{}'", item.name);
+        return CraftingResult::Failure;
+    }
+
+    // 消耗潜力
+    int cost = 5; 
+    int finalCost = std::min(cost, item.forgingPotential);
+    item.forgingPotential -= finalCost;
+
+    static std::mt19937 rng(std::random_device{}());
+    float newValue = std::uniform_real_distribution<float>(range.first, range.second)(rng);
+
+    if (item.type == ItemType::Weapon) {
+        LOG_INFO("打造洗练: 武器 '{}' 攻击力从 {:.1f} 变为 {:.1f}", item.name, item.attack, newValue);
+        item.attack = newValue;
+    } else if (item.type == ItemType::Armor) {
+        LOG_INFO("打造洗练: 护甲 '{}' 防御力从 {:.1f} 变为 {:.1f}", item.name, item.defense, newValue);
+        item.defense = newValue;
+    }
+
+    return CraftingResult::Success;
+}
+
+CraftingResult CraftingSystem::socketRune(entt::registry& registry, entt::entity itemEntity, entt::entity runeEntity, int socketIndex) {
+    if (!registry.valid(itemEntity) || !registry.valid(runeEntity)) {
+        return CraftingResult::Failure;
+    }
+
+    auto& item = registry.get<ItemComponent>(itemEntity);
+    if (!registry.all_of<RuneComponent>(runeEntity)) {
+        LOG_WARN("Crafting: Entity {} is not a rune", (uint32_t)runeEntity);
+        return CraftingResult::MaterialMissing;
+    }
+
+    if (socketIndex < 0 || socketIndex >= item.socketCount) {
+        LOG_WARN("Crafting: Invalid socket index {} for item '{}'", socketIndex, item.name);
+        return CraftingResult::Failure;
+    }
+
+    if (item.sockets.size() < (size_t)item.socketCount) {
+        item.sockets.resize(item.socketCount, entt::null);
+    }
+
+    if (item.sockets[socketIndex] != entt::null) {
+        LOG_WARN("Crafting: Socket {} already occupied in item '{}'", socketIndex, item.name);
+        return CraftingResult::SlotFull;
+    }
+
+    item.sockets[socketIndex] = runeEntity;
+    LOG_INFO("打造插槽: 将符文放入物品 '{}' 的第 {} 个插槽", item.name, socketIndex);
+
+    return CraftingResult::Success;
+}
+
+CraftingResult CraftingSystem::unsocketRune(entt::registry& registry, entt::entity itemEntity, int socketIndex) {
+    if (!registry.valid(itemEntity)) return CraftingResult::Failure;
+
+    auto& item = registry.get<ItemComponent>(itemEntity);
+    if (socketIndex < 0 || socketIndex >= (int)item.sockets.size()) {
+        return CraftingResult::Failure;
+    }
+
+    if (item.sockets[socketIndex] == entt::null) {
+        return CraftingResult::Failure;
+    }
+
+    entt::entity runeEntity = item.sockets[socketIndex];
+    item.sockets[socketIndex] = entt::null;
+    
+    LOG_INFO("打造插槽: 从物品 '{}' 的第 {} 个插槽移除符文", item.name, socketIndex);
+
+    return CraftingResult::Success;
+}
+
+CraftingResult CraftingSystem::fuseItems(ItemComponent& baseItem, ItemComponent& fodderItem) {
+    LOG_INFO("打造融合: 尝试将物品 '{}' 与 '{}' 融合 (当前为占位实现)", baseItem.name, fodderItem.name);
+    // 基础逻辑占位: 消耗潜力，不改变属性
+    if (baseItem.forgingPotential <= 0) return CraftingResult::NoPotential;
+    
+    baseItem.forgingPotential -= std::min(10, baseItem.forgingPotential);
+    return CraftingResult::Success;
+}
+
 } // namespace NoMoreDay

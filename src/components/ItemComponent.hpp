@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdint>
 #include <nlohmann/json.hpp>
+#include <entt/entt.hpp>
 #include "ItemStats.hpp"
 
 namespace NoMoreDay {
@@ -97,13 +98,14 @@ struct ItemComponent {
     // 显性词缀 (随机生成或打造的属性)
     std::vector<NoMoreDay::Affix> affixes; 
     
-    // 插槽 (未来)
-    // std::vector<entt::entity> sockets; 
+    // 插槽
+    int socketCount = 0;
+    std::vector<entt::entity> sockets; 
     
     // Description
     std::string description;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, isTwoHanded, setName, setBonuses, forgingPotential, legendaryPotential, implicits, affixes, description)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, isTwoHanded, setName, setBonuses, forgingPotential, legendaryPotential, implicits, affixes, socketCount, sockets, description)
 
 
 // 掉落物条目类型

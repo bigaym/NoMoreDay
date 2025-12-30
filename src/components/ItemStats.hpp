@@ -73,6 +73,26 @@ struct Affix {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Affix, type, value, tier, isPrefix, name)
 
+// --- NEW DEFINITIONS FOR DATA LOADING ---
+
+struct AffixTier {
+    int tier; // 1 to 7
+    int minLevel; // Required item level
+    float minValue;
+    float maxValue;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AffixTier, tier, minLevel, minValue, maxValue)
+
+struct AffixDefinition {
+    std::string id;
+    AffixType type;
+    std::string nameTemplate; // e.g. "of the Bear" or "Strong"
+    bool isPrefix;
+    std::vector<AffixTier> tiers;
+    std::vector<std::string> allowedTags; // e.g. "weapon", "armor"
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AffixDefinition, id, type, nameTemplate, isPrefix, tiers, allowedTags)
+
 // Returns a human readable string for the affix, e.g. "+10 Strength"
 inline std::string GetAffixDescription(const Affix& affix) {
     std::string text = "+";
@@ -183,5 +203,13 @@ inline const char* GetAffixDescriptionRef(const Affix& affix) {
         default: return TextFormat("+%.1f 属性", val);
     }
 }
+
+// 符文组件: 标记物品为符文，并定义其在不同装备上的效果
+struct RuneComponent {
+    std::vector<Affix> weaponEffects;
+    std::vector<Affix> armorEffects;
+    std::vector<Affix> jewelryEffects;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(RuneComponent, weaponEffects, armorEffects, jewelryEffects)
 
 } // namespace NoMoreDay
