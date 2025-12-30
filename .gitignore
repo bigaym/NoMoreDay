@@ -36,3 +36,4 @@ logs/
 .gemini/
 AGENT*.
 .roo/
+scripts/assets/

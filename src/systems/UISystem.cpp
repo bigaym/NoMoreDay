@@ -200,7 +200,7 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
         if (view.begin() != view.end()) {
             auto bag = ItemFactory::createBag(registry, 1, Rarity::Common);
             registry.get<ItemComponent>(bag).name = "破烂的背包";
-            registry.get<ItemComponent>(bag).bagCapacity = 8;
+            registry.get<ItemComponent>(bag).bagCapacity = 40;
             InventorySystem::pickUpItem(registry, view.front(), bag);
             s_hasGivenTestItems = true;
         }
@@ -319,9 +319,10 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     // Dragging Phantom
     if (State.draggedItem != entt::null) {
         Vector2 mPos = GetMousePositionLogic(); // Logic Space
-        float size = 44.0f; // Logic Size
+        float size = 64.0f; // Logic Size - Increased from 44.0f for better visibility
         // DrawSlot scales input X/Y/Size. We pass Logic Coords.
-        UIRenderer::DrawSlot(State.globalFont, registry, mPos.x - size/2, mPos.y - size/2, size, State.draggedItem, nullptr, true);
+        // Subtracting half the size to center the icon on the mouse tip.
+        UIRenderer::DrawSlot(State.globalFont, registry, mPos.x - size * 0.5f, mPos.y - size * 0.5f, size, State.draggedItem, nullptr, true);
         
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
             State.draggedItem = entt::null; // Release

@@ -241,7 +241,9 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                     // 3. 暴击判定 (作用于最终总伤害)
                     if (registry.all_of<NoMoreDay::CombatStats>(target)) {
                         float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
-                        if (roll < stats->crit_chance) {
+                        // 应用暴击率上限
+                        float effectiveCrit = std::min(stats->crit_chance, NoMoreDay::GameConstants::CRIT_CHANCE_CAP);
+                        if (roll < effectiveCrit) {
                             isCrit = true;
                             finalDamage *= (stats->crit_damage > 0.1f ? stats->crit_damage : 1.5f);
                         }

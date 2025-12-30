@@ -9,17 +9,31 @@ namespace NoMoreDay {
 
 // 可以持有物品的实体组件 (玩家, 箱子, 怪物)
 struct InventoryComponent {
+    static constexpr int BASE_CAPACITY = 40;
+    static constexpr int MAX_BAG_SLOTS = 4;
+
     // 物品以实体形式存储。
-    // 当物品在背包中时，它们不应拥有 Position/Sprite 组件 (或应被禁用/隐藏)。
     std::vector<entt::entity> items;
-    std::vector<entt::entity> bag_slots; // 背包扩展槽
-    int capacity = 40;
+    std::array<entt::entity, MAX_BAG_SLOTS> bag_slots; // 背包扩展槽
+    
+    int capacity = BASE_CAPACITY;
     int gold = 0; // 当前持有的金币数量
     float potionCooldown = 0.0f; // 药水冷却时间 (秒)
     float sortCooldown = 0.0f;   // 整理冷却时间 (秒)
     
+    // UI Scroll state
+    float scrollOffset = 0.0f;
+    
+    InventoryComponent() {
+        bag_slots.fill(entt::null);
+        items.resize(BASE_CAPACITY, entt::null);
+    }
+    
     bool isFull() const { // 背包是否已满
-        return items.size() >= capacity;
+        for (auto entity : items) {
+            if (entity == entt::null) return false;
+        }
+        return true;
     }
 };
 

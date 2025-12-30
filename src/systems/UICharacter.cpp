@@ -28,6 +28,36 @@ void UICharacter::DrawStatRow(const char* label, const char* value, float x, flo
     y += fontSize + 8.0f; // Increased spacing
 }
 
+// 辅助函数：绘制带上限检查的属性行
+static void DrawCappedStatRow(const char* label, float currentVal, float cap, bool isPercent, float x, float& y, float width, float fontSize, float alpha) {
+    auto& theme = UIRenderer::GetTheme();
+    Font font = UISystem::GetFont();
+    
+    UIRenderer::DrawTextScaled(font, label, x, y, fontSize, width * 0.6f, theme.textSecondary, alpha);
+    
+    bool isOverCap = (currentVal > cap);
+    float displayVal = isOverCap ? cap : currentVal;
+    
+    char buffer[64];
+    if (isPercent) {
+        if (isOverCap) {
+            sprintf(buffer, "%.0f%% (%.0f%%)", displayVal * 100.0f, currentVal * 100.0f);
+        } else {
+            sprintf(buffer, "%.1f%%", currentVal * 100.0f);
+        }
+    } else {
+        if (isOverCap) {
+            sprintf(buffer, "%.0f (%.0f)", displayVal, currentVal);
+        } else {
+            sprintf(buffer, "%.0f", currentVal);
+        }
+    }
+
+    float valWidth = IsFontValid(font) ? MeasureTextEx(font, buffer, fontSize, 1.0f).x : (float)MeasureText(buffer, (int)fontSize);
+    UIRenderer::DrawTextUI(font, buffer, x + width - valWidth, y, fontSize, isOverCap ? theme.success : theme.textPrimary, alpha);
+    y += fontSize + 8.0f;
+}
+
 void UICharacter::Draw(entt::registry& registry) {
     auto view = registry.view<PlayerTag>();
     if (view.begin() == view.end()) return;
@@ -44,7 +74,7 @@ void UICharacter::Draw(entt::registry& registry) {
 
     // --- 1. 面板背景 (Logic Coords) ---
     const float panelW = 450.0f; // Widened slightly
-    const float panelH = 650.0f; // Heightened for better spacing
+    const float panelH = 780.0f; // Heightened for better spacing
     const float margin = 40.0f;  // Increased margin from screen edge
     
     // 锚定左侧居中 (Center Left Anchor)
@@ -91,14 +121,28 @@ void UICharacter::Draw(entt::registry& registry) {
 
     float infoX = panelX + padding + avatarSize + 25.0f;
     if (pStats) {
-        UIRenderer::DrawTextUI(font, TextFormat("等级 %d", pStats->level), infoX, currentY + 10, 26, theme.textPrimary, alpha);
+        bool isMaxLevel = (pStats->level >= 100);
+        UIRenderer::DrawTextUI(font, TextFormat("等级 %d", pStats->level), infoX, currentY + 10, 26, isMaxLevel ? theme.textHighlight : theme.textPrimary, alpha);
+        
         // XP Bar Background
         DrawRectScaled(infoX, currentY + 50, 200, 12, theme.slotBackground);
+        
         // XP Bar Fill
-        float xpRatio = (float)pStats->current_xp / 1000.0f; // Todo: Proper Max XP formula
+        float xpRatio = 0.0f;
+        if (isMaxLevel) {
+            xpRatio = 1.0f;
+        } else if (pStats->required_xp > 0) {
+            xpRatio = (float)pStats->current_xp / pStats->required_xp;
+        }
         if (xpRatio > 1.0f) xpRatio = 1.0f;
-        DrawRectScaled(infoX, currentY + 50, 200 * xpRatio, 12, theme.success); // Use success color for XP
-        UIRenderer::DrawTextUI(font, TextFormat("XP: %.0f", pStats->current_xp), infoX, currentY + 65, 16, theme.textSecondary, alpha);
+        
+        DrawRectScaled(infoX, currentY + 50, 200 * xpRatio, 12, isMaxLevel ? theme.textHighlight : theme.success);
+        
+        if (isMaxLevel) {
+            UIRenderer::DrawTextUI(font, "MAX LEVEL", infoX, currentY + 65, 16, theme.textHighlight, alpha);
+        } else {
+            UIRenderer::DrawTextUI(font, TextFormat("XP: %.0f / %.0f", pStats->current_xp, pStats->required_xp), infoX, currentY + 65, 16, theme.textSecondary, alpha);
+        }
     } else {
         UIRenderer::DrawTextUI(font, "等级 ??", infoX, currentY + 10, 26, theme.textSecondary, alpha);
     }
@@ -203,28 +247,65 @@ void UICharacter::Draw(entt::registry& registry) {
     float rowW = (viewRect.width - 20.0f); // Adjusted width
 
     if (s_activeCharTab == 0) {
-        UIRenderer::DrawTextUI(font, "面板伤害", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        UIRenderer::DrawTextUI(font, "攻击基础", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
         float flatPhys = combatStats->flat_damage[(int)DamageType::Physical];
         float physMult = combatStats->damage_multipliers[(int)DamageType::Physical];
-        DrawStatRow("物理伤害", TextFormat("%.0f-%.0f", (combatStats->min_weapon_damage+flatPhys)*physMult, (combatStats->max_weapon_damage+flatPhys)*physMult), rowX, y, rowW, 20.0f, alpha);
-        
-        y += 15.0f; UIRenderer::DrawTextUI(font, "伤害加成详情", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
-        auto DrawDmgB = [&](DamageType t, const char* n) { DrawStatRow(TextFormat("%s加成", n), TextFormat("%.0f / +%.0f%%", combatStats->flat_damage[(int)t], (combatStats->damage_multipliers[(int)t]-1.0f)*100.0f), rowX, y, rowW, 20.0f, alpha); };
-        DrawDmgB(DamageType::Physical, "物理"); DrawDmgB(DamageType::Fire, "火焰"); DrawDmgB(DamageType::Cold, "冰霜");
+        DrawStatRow("物理伤害", TextFormat("%.0f - %.0f", (combatStats->min_weapon_damage + flatPhys) * physMult, (combatStats->max_weapon_damage + flatPhys) * physMult), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("攻击速度", TextFormat("%.2f", combatStats->attack_speed), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("命中率", TextFormat("%.0f%%", combatStats->accuracy * 100.0f), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("暴击几率", TextFormat("%.1f%%", combatStats->crit_chance * 100.0f), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("暴击伤害", TextFormat("%.0f%%", combatStats->crit_damage * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("护甲穿透", TextFormat("%.0f", combatStats->armor_pen), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("施法速度", TextFormat("%.2f", combatStats->cast_speed), rowX, y, rowW, 20.0f, alpha);
+
+        y += 15.0f; UIRenderer::DrawTextUI(font, "附加点伤", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        auto DrawFlat = [&](DamageType t, const char* n) { 
+            if (combatStats->flat_damage[(int)t] > 0)
+                DrawStatRow(n, TextFormat("+%.0f", combatStats->flat_damage[(int)t]), rowX, y, rowW, 20.0f, alpha); 
+        };
+        DrawFlat(DamageType::Fire, "附加火焰"); DrawFlat(DamageType::Cold, "附加冰霜"); DrawFlat(DamageType::Lightning, "附加闪电");
+        DrawFlat(DamageType::Poison, "附加毒素"); DrawFlat(DamageType::Shadow, "附加暗影");
+
+        y += 15.0f; UIRenderer::DrawTextUI(font, "伤害增益", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        auto DrawMult = [&](DamageType t, const char* n) { 
+            DrawStatRow(n, TextFormat("+%.0f%%", (combatStats->damage_multipliers[(int)t] - 1.0f) * 100.0f), rowX, y, rowW, 20.0f, alpha); 
+        };
+        DrawMult(DamageType::Physical, "物理加成"); DrawMult(DamageType::Fire, "火焰加成"); DrawMult(DamageType::Cold, "冰霜加成");
+        DrawMult(DamageType::Lightning, "闪电加成"); DrawMult(DamageType::Poison, "毒素加成"); DrawMult(DamageType::Shadow, "暗影加成");
+
     } else if (s_activeCharTab == 1) {
-        UIRenderer::DrawTextUI(font, "生存", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        UIRenderer::DrawTextUI(font, "防御基础", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
         DrawStatRow("生命值", TextFormat("%.0f / %.0f", combatStats->health, combatStats->max_health), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("法力值", TextFormat("%.0f / %.0f", combatStats->mana, combatStats->max_mana), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("护甲", TextFormat("%.0f", combatStats->armor), rowX, y, rowW, 20.0f, alpha);
-        DrawStatRow("火焰抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Fire] * 100.0f), rowX, y, rowW, 20.0f, alpha);
-        DrawStatRow("冰霜抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Cold] * 100.0f), rowX, y, rowW, 20.0f, alpha);
-        DrawStatRow("闪电抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Lightning] * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("闪避几率", TextFormat("%.1f%%", combatStats->dodge_chance * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("格挡几率", TextFormat("%.1f%%", combatStats->block_chance * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("格挡减免", TextFormat("%.0f", combatStats->block_amount), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("全局减伤", TextFormat("%.1f%%", combatStats->damage_reduction * 100.0f), rowX, y, rowW, 20.0f, alpha);
+
+        y += 15.0f; UIRenderer::DrawTextUI(font, "元素抗性", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        auto DrawRes = [&](DamageType t, const char* n) { 
+            DrawStatRow(n, TextFormat("%.0f%%", combatStats->resistances[(int)t] * 100.0f), rowX, y, rowW, 20.0f, alpha); 
+        };
+        DrawRes(DamageType::Physical, "物理抗性"); DrawRes(DamageType::Fire, "火焰抗性"); DrawRes(DamageType::Cold, "冰霜抗性");
+        DrawRes(DamageType::Lightning, "闪电抗性"); DrawRes(DamageType::Poison, "毒素抗性"); DrawRes(DamageType::Shadow, "暗影抗性");
+
     } else if (s_activeCharTab == 3) {
-        UIRenderer::DrawTextUI(font, "综合", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        UIRenderer::DrawTextUI(font, "回复与辅助", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        DrawStatRow("生命回复", TextFormat("%.1f /秒", combatStats->health_regen), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("法力回复", TextFormat("%.1f /秒", combatStats->mana_regen), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("生命吸取", TextFormat("%.1f%%", combatStats->life_steal * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("击回生命", TextFormat("%.0f", combatStats->life_on_hit), rowX, y, rowW, 20.0f, alpha);
+        
+        y += 15.0f; UIRenderer::DrawTextUI(font, "综合属性", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
         DrawStatRow("移动速度", TextFormat("%.0f", combatStats->move_speed), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("魔法寻宝", TextFormat("%.0f%%", combatStats->magic_find * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("冷却缩减", TextFormat("%.0f%%", combatStats->cooldown_reduction * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("拾取范围", TextFormat("%.0f", combatStats->pickup_range), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("金币加成", TextFormat("%.0f%%", combatStats->gold_bonus * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("经验加成", TextFormat("%.0f%%", combatStats->experience_gain_mult * 100.0f), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("荆棘伤害", TextFormat("%.0f", combatStats->thorns), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("技能范围", TextFormat("%.0f%%", combatStats->area_scale * 100.0f), rowX, y, rowW, 20.0f, alpha);
     }
 
     s_lastContentHeight = y - startY;

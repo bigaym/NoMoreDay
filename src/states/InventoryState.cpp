@@ -90,13 +90,6 @@ namespace NoMoreDay {
             UIRenderer::DrawMessageBox(UISystem::State.globalFont, UISystem::State);
         }
 
-        // Dragged Item Phantom
-        if (UISystem::State.draggedItem != entt::null) {
-            Vector2 mPos = GetMousePosition();
-            float size = 44.0f;
-            UIRenderer::DrawSlot(UISystem::State.globalFont, registry, mPos.x - size/2, mPos.y - size/2, size, UISystem::State.draggedItem, nullptr, true);
-        }
-        
         // Reset hovered item for next frame (Standard IMGUI pattern)
         // Note: UISystem::Draw did this at start of frame. 
         // We should do it here or let UIInventory::Draw handle it?

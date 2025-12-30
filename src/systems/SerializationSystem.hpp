@@ -311,21 +311,34 @@ private:
         inv.capacity = invJson.value("capacity", 40);
         inv.gold = invJson.value("gold", 0);
         
-        // 恢复物品
+        // 恢复物品列表 (保持索引位置)
         if (invJson.contains("items")) {
+            inv.items.clear();
             for (uint64_t uuid : invJson["items"]) {
                 if (uuid != 0 && uuidMap.count(uuid)) {
                     inv.items.push_back(uuidMap.at(uuid));
+                } else {
+                    inv.items.push_back(entt::null);
                 }
             }
         }
         
-        // 恢复背包槽
+        // 确保 items 大小正确
+        if ((int)inv.items.size() < inv.capacity) {
+            inv.items.resize(inv.capacity, entt::null);
+        }
+        
+        // 恢复背包槽 (std::array)
         if (invJson.contains("bag_slots")) {
+            inv.bag_slots.fill(entt::null);
+            size_t idx = 0;
             for (uint64_t uuid : invJson["bag_slots"]) {
-                if (uuid != 0 && uuidMap.count(uuid)) {
-                    inv.bag_slots.push_back(uuidMap.at(uuid));
+                if (idx < inv.bag_slots.size()) {
+                    if (uuid != 0 && uuidMap.count(uuid)) {
+                        inv.bag_slots[idx] = uuidMap.at(uuid);
+                    }
                 }
+                idx++;
             }
         }
     }

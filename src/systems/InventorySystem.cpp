@@ -396,6 +396,64 @@ bool InventorySystem::unequipItem(entt::registry &registry, entt::entity charact
     return true;
 }
 
+bool InventorySystem::useItem(entt::registry& registry, entt::entity character, entt::entity item) {
+    auto* itemComp = registry.try_get<ItemComponent>(item);
+    auto* stats = registry.try_get<CombatStats>(character);
+    auto* inv = registry.try_get<InventoryComponent>(character);
+
+    if (!itemComp || !stats || !inv) return false;
+
+    // 只有消耗品可以“使用”
+    if (itemComp->type != ItemType::Consumable) return false;
+
+    // 检查药水全局冷却
+    if (inv->potionCooldown > 0.0f) {
+        LOG_WARN("药水冷却中... ({:.1f}s)", inv->potionCooldown);
+        return false;
+    }
+
+    bool effectApplied = false;
+
+    // 根据物品 ID 处理效果 (匹配 ItemFactory 中的 ID)
+    if (itemComp->id == 101) { // 生命药水
+        if (stats->health >= stats->max_health) {
+             LOG_INFO("生命值已满，无需使用生命药水。");
+             return false;
+        }
+        stats->health = std::min(stats->max_health, stats->health + 50.0f);
+        effectApplied = true;
+        LOG_INFO("使用了生命药水，恢复 50 点生命值。当前: {:.0f}/{:.0f}", stats->health, stats->max_health);
+    } else if (itemComp->id == 102) { // 法力药水
+        if (stats->mana >= stats->max_mana) {
+             LOG_INFO("法力值已满，无需使用法力药水。");
+             return false;
+        }
+        stats->mana = std::min(stats->max_mana, stats->mana + 50.0f);
+        effectApplied = true;
+        LOG_INFO("使用了法力药水，恢复 50 点法力值。当前: {:.0f}/{:.0f}", stats->mana, stats->max_mana);
+    }
+
+    if (effectApplied) {
+        // 设置药水冷却 (例如 1 秒)
+        inv->potionCooldown = 1.0f;
+
+        // 减少数量或销毁
+        if (itemComp->quantity > 1) {
+            itemComp->quantity--;
+        } else {
+            // 从背包向量中移除
+            auto it = std::find(inv->items.begin(), inv->items.end(), item);
+            if (it != inv->items.end()) {
+                *it = entt::null;
+            }
+            registry.destroy(item);
+        }
+        return true;
+    }
+
+    return false;
+}
+
 bool InventorySystem::equipBag(entt::registry &registry, entt::entity character, entt::entity bagItem, int slotIndex)
 {
     auto *inv = registry.try_get<InventoryComponent>(character);
@@ -403,15 +461,9 @@ bool InventorySystem::equipBag(entt::registry &registry, entt::entity character,
 
     if (!inv || !itemComp || itemComp->type != ItemType::Bag)
         return false;
-    // 假设最大支持 4 个背包槽
-    if (slotIndex < 0 || slotIndex >= 4)
+    
+    if (slotIndex < 0 || slotIndex >= InventoryComponent::MAX_BAG_SLOTS)
         return false;
-
-    // 确保容器足够大
-    if (inv->bag_slots.size() <= (size_t)slotIndex)
-    {
-        inv->bag_slots.resize(slotIndex + 1, entt::null);
-    }
 
     // 如果槽位已有背包，先卸下
     if (registry.valid(inv->bag_slots[slotIndex]))
@@ -420,7 +472,7 @@ bool InventorySystem::equipBag(entt::registry &registry, entt::entity character,
             return false;
     }
 
-    // 从物品列表中移除该实体
+    // 从物品列表中移除该实体 (如果它在背包里)
     auto it = std::find(inv->items.begin(), inv->items.end(), bagItem);
     if (it != inv->items.end())
     {
@@ -434,31 +486,56 @@ bool InventorySystem::equipBag(entt::registry &registry, entt::entity character,
     return true;
 }
 
-bool InventorySystem::unequipBag(entt::registry &registry, entt::entity character, int slotIndex)
+bool InventorySystem::unequipBag(entt::registry &registry, entt::entity character, int slotIndex, bool putBackInInventory)
 {
     auto *inv = registry.try_get<InventoryComponent>(character);
-    if (!inv || slotIndex < 0 || slotIndex >= (int)inv->bag_slots.size())
+    if (!inv || slotIndex < 0 || slotIndex >= InventoryComponent::MAX_BAG_SLOTS)
         return false;
 
     entt::entity bagItem = inv->bag_slots[slotIndex];
     if (!registry.valid(bagItem))
         return false;
 
+    auto* bagComp = registry.try_get<ItemComponent>(bagItem);
+    if (!bagComp) return false;
+
+    // --- 严谨的卸下检查 ---
+    // 1. 计算新容量
+    int newCapacity = inv->capacity - bagComp->bagCapacity;
+    
+    // 2. 统计当前实际持有的物品总数 (不含 null)
+    int occupiedCount = 0;
+    for (auto entity : inv->items) {
+        if (registry.valid(entity)) occupiedCount++;
+    }
+    
+    // 3. 如果物品总数超过了减小后的容量，则禁止卸下
+    // 如果我们是要放回背包，我们需要多留一个空位给背包本身
+    int requiredCapacity = occupiedCount + (putBackInInventory ? 1 : 0);
+    if (requiredCapacity > newCapacity) {
+        LOG_WARN("背包: 无法卸下背包！当前物品总数 ({}) 超过了卸下后的容量 ({})。", requiredCapacity, newCapacity);
+        return false;
+    }
+
+    // 4. 执行卸下
     inv->bag_slots[slotIndex] = entt::null;
 
-    // 放回背包
-    bool placed = false;
-    for (auto &slot : inv->items)
-    {
-        if (slot == entt::null)
-        {
-            slot = bagItem;
-            placed = true;
-            break;
-        }
+    // 将物品紧凑化到数组前端，以确保 resize(newCapacity) 不会截断有效物品
+    std::vector<entt::entity> activeItems;
+    activeItems.reserve(requiredCapacity);
+    for (auto entity : inv->items) {
+        if (registry.valid(entity)) activeItems.push_back(entity);
     }
-    if (!placed)
-        inv->items.push_back(bagItem); // 溢出处理
+    
+    if (putBackInInventory) {
+        activeItems.push_back(bagItem);
+    }
+
+    // 重填 items
+    inv->items.assign(newCapacity, entt::null);
+    for (size_t i = 0; i < activeItems.size() && i < (size_t)newCapacity; ++i) {
+        inv->items[i] = activeItems[i];
+    }
 
     recalculateCapacity(registry, character);
     LOG_INFO("背包: 从槽位 {} 卸下了背包", slotIndex);
@@ -471,7 +548,7 @@ void InventorySystem::recalculateCapacity(entt::registry &registry, entt::entity
     if (!inv)
         return;
 
-    int total = 56; // 基础容量 (1页 = 7x8 = 56格)
+    int total = InventoryComponent::BASE_CAPACITY;
     for (auto entity : inv->bag_slots)
     {
         if (registry.valid(entity))
@@ -484,10 +561,10 @@ void InventorySystem::recalculateCapacity(entt::registry &registry, entt::entity
     }
     inv->capacity = total;
 
-    // 调整背包大小以匹配容量 (填充 null)
-    // 注意：如果容量减小（卸下背包），resize 会截断多余的物品，这符合预期（或者需要额外的掉落逻辑）
-    // 这里我们强制调整大小以匹配当前页数配置
-    inv->items.resize(total, entt::null);
+    // 调整背包大小以匹配容量
+    if ((int)inv->items.size() != total) {
+        inv->items.resize(total, entt::null);
+    }
 }
 
 bool InventorySystem::hasItem(entt::registry &registry, entt::entity character, uint32_t itemId)

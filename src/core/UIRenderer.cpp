@@ -206,15 +206,32 @@ namespace NoMoreDay {
             return;
         }
 
+        auto* itemComp = registry.try_get<ItemComponent>(uiContext.contextMenuItem);
+        if (!itemComp) {
+            uiContext.showContextMenu = false;
+            return;
+        }
+
         float w = 180.0f; // Wider
         float btnH = 36.0f; // Taller buttons
         int btnCount = 0;
 
-        bool showEquip = uiContext.isContextFromInventory; 
+        bool showEquip = false;
+        bool showUse = false;
+        if (uiContext.isContextFromInventory) {
+            if (itemComp->type == ItemType::Weapon || itemComp->type == ItemType::Armor || 
+                itemComp->type == ItemType::Shield || itemComp->type == ItemType::Bag) {
+                showEquip = true;
+            } else if (itemComp->type == ItemType::Consumable) {
+                showUse = true;
+            }
+        }
+
         bool showUnequip = !uiContext.isContextFromInventory && uiContext.contextSourceEquipmentSlot != EquipmentSlot::None;
         bool showDrop = true;
 
         if (showEquip) btnCount++;
+        if (showUse) btnCount++;
         if (showUnequip) btnCount++;
         if (showDrop) btnCount++;
         btnCount++; // Cancel
@@ -265,8 +282,32 @@ namespace NoMoreDay {
 
         if (showEquip) {
             auto view = registry.view<PlayerTag>();
-            if (view.begin() != view.end() && DrawMenuBtn("装备 / 使用")) {
-                InventorySystem::equipItem(registry, view.front(), uiContext.contextMenuItem);
+            if (view.begin() != view.end() && DrawMenuBtn("装备")) {
+                entt::entity player = view.front();
+                if (itemComp->type == ItemType::Bag) {
+                    auto* inv = registry.try_get<InventoryComponent>(player);
+                    if (inv) {
+                        int emptySlot = -1;
+                        for (int i = 0; i < InventoryComponent::MAX_BAG_SLOTS; ++i) {
+                            if (!registry.valid(inv->bag_slots[i])) { emptySlot = i; break; }
+                        }
+                        if (emptySlot != -1) {
+                            InventorySystem::equipBag(registry, player, uiContext.contextMenuItem, emptySlot);
+                        } else {
+                            // No empty slot, swap with first? Or show message.
+                            InventorySystem::equipBag(registry, player, uiContext.contextMenuItem, 0);
+                        }
+                    }
+                } else {
+                    InventorySystem::equipItem(registry, player, uiContext.contextMenuItem);
+                }
+                uiContext.showContextMenu = false;
+            }
+        }
+        if (showUse) {
+            auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end() && DrawMenuBtn("使用")) {
+                InventorySystem::useItem(registry, view.front(), uiContext.contextMenuItem);
                 uiContext.showContextMenu = false;
             }
         }

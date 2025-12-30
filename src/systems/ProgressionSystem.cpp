@@ -28,12 +28,20 @@ void ProgressionSystem::AddExperience(entt::registry& registry, entt::entity ent
     if (!registry.all_of<PlayerStats>(entity)) return;
 
     auto& stats = registry.get<PlayerStats>(entity);
+    if (stats.level >= MAX_LEVEL) return;
+
     stats.current_xp += amount;
 
     // 检查升级（循环处理同时升级多级）
-    while (stats.current_xp >= stats.required_xp) {
+    while (stats.level < MAX_LEVEL && stats.current_xp >= stats.required_xp) {
         stats.current_xp -= stats.required_xp;
         LevelUp(registry, entity);
+        
+        if (stats.level >= MAX_LEVEL) {
+            stats.current_xp = 0; // 满级后清空经验
+            stats.required_xp = 0; // 满级不再有需求
+            break;
+        }
         // 刷新新等级所需的经验
         stats.required_xp = CalculateRequiredXP(stats.level);
     }
@@ -43,6 +51,8 @@ void ProgressionSystem::LevelUp(entt::registry& registry, entt::entity entity) {
     if (!registry.all_of<PlayerStats>(entity)) return;
 
     auto& stats = registry.get<PlayerStats>(entity);
+    if (stats.level >= MAX_LEVEL) return;
+
     stats.level++;
     
     // 如果存在 PlayerLevel 组件，则更新

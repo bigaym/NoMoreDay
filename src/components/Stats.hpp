@@ -6,7 +6,29 @@
 namespace NoMoreDay
 {
 
+    // --- 游戏平衡性常量 (Attribute Caps) ---
+    namespace GameConstants
+    {
+        static constexpr int MAX_LEVEL = 100;
+
+        // 生存上限
+        static constexpr float RESISTANCE_CAP = 0.75f;          // 基础抗性上限 75%
+        static constexpr float MAX_RESISTANCE_HARD_CAP = 0.90f; // 即使有增加上限的装备，绝对上限为 90%
+        static constexpr float DODGE_CAP = 0.75f;               // 闪避上限 75%
+        static constexpr float BLOCK_CAP = 0.75f;               // 格挡上限 75%
+        static constexpr float GLOBAL_DR_CAP = 0.90f;           // 全局减伤上限 90%
+
+        // 进攻与效能上限
+        static constexpr float CRIT_CHANCE_CAP = 1.00f;  // 暴击率上限 100%
+        static constexpr float CDR_CAP = 0.75f;          // 冷却缩减上限 75%
+        static constexpr float ATTACK_SPEED_CAP = 10.0f; // 攻击速度上限 (每秒10次)
+
+        // 移动
+        static constexpr float MOVE_SPEED_CAP = 1000.0f; // 移动速度上限
+    }
+
     // 1. 伤害类型定义
+
     // 使用枚举作为数组索引，方便 SIMD 优化和统一计算
     enum class DamageType : uint8_t
     {

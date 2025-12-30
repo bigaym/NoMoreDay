@@ -6,6 +6,8 @@ namespace NoMoreDay {
 
 class ProgressionSystem {
 public:
+    static constexpr int MAX_LEVEL = 100;
+
     /**
      * @brief 计算特定等级所需的经验值。
      */

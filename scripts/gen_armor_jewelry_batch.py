@@ -21,16 +21,16 @@ def generate_armor_assets():
 
     # 2. 沿用 10 种风格/元素主题，保持游戏视觉一致性
     themes = [
-        {"name": "iron",     "prompt": "worn iron, steel, realistic, mercenary style, heavy metal"},
-        {"name": "fire",     "prompt": "burning, magma cracks, lava, ember, charred, fire magic"},
-        {"name": "ice",      "prompt": "frozen, crystalline ice, frost aura, blue mist, winter"},
-        {"name": "lightning","prompt": "crackling electricity, thunder, blue sparks, storm energy"},
-        {"name": "poison",   "prompt": "dripping venom, green acid, snake motifs, toxic"},
-        {"name": "necrotic", "prompt": "bone, skull, green ghostly flame, undead, death magic"},
-        {"name": "holy",     "prompt": "gold, divine light, angel wings, pristine, paladin"},
-        {"name": "void",     "prompt": "dark matter, purple galaxy, cosmic stars, eldritch horror"},
-        {"name": "nature",   "prompt": "wooden, vines, leaves, blooming flowers, druid"},
-        {"name": "arcane",   "prompt": "glowing runes, floating crystals, pink and blue magic, sorcery"}
+        {"name": "iron",     "prompt": "Damascus steel, intricate engraving, polished silver, knightly, heavy metal"},
+        {"name": "fire",     "prompt": "Molten obsidian, flowing lava, burning ember, charred rock, volcanic energy"},
+        {"name": "ice",      "prompt": "Translucent glacial crystal, frost rime, frozen aura, winter chill, jagged ice shards"},
+        {"name": "lightning","prompt": "Storm-forged metal, crackling blue lightning, voltaic arcs, thunder energy, electrified"},
+        {"name": "poison",   "prompt": "Corroded metal, dripping venom, serpent scales, toxic green glow, acid burns"},
+        {"name": "necrotic", "prompt": "Bleached bone, spectral ghost flames, soul trap, shadowy mist, grim dark fantasy"},
+        {"name": "holy",     "prompt": "Polished gold, platinum filigree, divine radiance, angel wings motif, celestial light"},
+        {"name": "void",     "prompt": "Dark matter, swirling galaxy, purple nebula, eldritch stars, cosmic abyss"},
+        {"name": "nature",   "prompt": "Ancient oak wood, emerald leaves, glowing moss, druidic vines, forest spirit"},
+        {"name": "arcane",   "prompt": "Floating mana shards, glowing runes, arcane geometry, pink and cyan magic, sorcery"}
     ]
 
     # 针对防具的负面提示词优化：严禁出现人体部位

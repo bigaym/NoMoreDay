@@ -31,9 +31,12 @@ public:
     // 卸下物品并将其放回背包。
     static bool unequipItem(entt::registry& registry, entt::entity character, NoMoreDay::EquipmentSlot slot);
     
+    // 使用物品 (消耗品)
+    static bool useItem(entt::registry& registry, entt::entity character, entt::entity item);
+
     // --- 背包扩展管理 ---
     static bool equipBag(entt::registry& registry, entt::entity character, entt::entity bagItem, int slotIndex);
-    static bool unequipBag(entt::registry& registry, entt::entity character, int slotIndex);
+    static bool unequipBag(entt::registry& registry, entt::entity character, int slotIndex, bool putBackInInventory = true);
     static void recalculateCapacity(entt::registry& registry, entt::entity character);
 
     // 基本管理
