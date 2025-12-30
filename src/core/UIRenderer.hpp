@@ -7,8 +7,30 @@
 
 namespace NoMoreDay {
 
+    struct UITheme {
+        Color panelBackground = { 20, 20, 25, 240 }; // Dark Blue-Gray
+        Color panelBorder = { 60, 60, 70, 255 };     // Dark Gray
+        Color panelBorderHighlight = { 200, 170, 50, 255 }; // Gold
+        Color slotBackground = { 10, 10, 15, 200 };
+        
+        Color textPrimary = { 245, 245, 245, 255 };
+        Color textSecondary = { 180, 180, 180, 255 };
+        Color textHighlight = { 255, 215, 0, 255 };
+        
+        Color buttonNormal = { 40, 40, 50, 255 };
+        Color buttonHover = { 60, 60, 80, 255 };
+        Color buttonPress = { 30, 30, 40, 255 };
+        
+        Color danger = { 200, 50, 50, 255 };
+        Color success = { 50, 200, 50, 255 };
+    };
+
     class UIRenderer {
     public:
+        // Theme
+        static UITheme& GetTheme();
+        static void SetTheme(const UITheme& theme);
+
         // Scaling
         static void SetScale(float scale);
         static float GetScale();

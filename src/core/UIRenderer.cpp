@@ -8,6 +8,15 @@
 namespace NoMoreDay {
 
     static float s_uiScale = 1.0f;
+    static UITheme s_theme;
+
+    void UIRenderer::SetTheme(const UITheme& theme) {
+        s_theme = theme;
+    }
+
+    UITheme& UIRenderer::GetTheme() {
+        return s_theme;
+    }
 
     void UIRenderer::SetScale(float scale) {
         s_uiScale = scale;
@@ -74,8 +83,15 @@ namespace NoMoreDay {
         float sSize = size * s_uiScale;
 
         Rectangle rec = { sx, sy, sSize, sSize };
-        DrawRectangleRec(rec, highlighted ? Fade(YELLOW, 0.2f * alpha) : (isLocked ? Fade(BLACK, 0.8f * alpha) : Fade(BLACK, 0.5f * alpha)));
-        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, Fade(highlighted ? GOLD : GRAY, alpha));
+        // Background
+        Color bg = highlighted ? Fade(s_theme.panelBorderHighlight, 0.2f) : s_theme.slotBackground;
+        if (isLocked) bg = Fade(BLACK, 0.8f); // Locked slots darker
+        
+        DrawRectangleRec(rec, Fade(bg, alpha));
+        
+        // Border
+        Color border = highlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder;
+        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, Fade(border, alpha));
         
         if (item != entt::null && registry.valid(item)) {
             auto* itemComp = registry.try_get<ItemComponent>(item);
@@ -83,6 +99,7 @@ namespace NoMoreDay {
 
             if (itemComp) {
                 Color rarityColor = GetRarityColor(itemComp->rarity);
+                // Rarity Border
                 DrawRectangleLinesEx(rec, 2.0f * s_uiScale, Fade(rarityColor, alpha));
 
                 if (sprite && sprite->texture.id > 0) {
@@ -100,15 +117,16 @@ namespace NoMoreDay {
                 }
 
                 if (itemComp->quantity > 1) {
-                    DrawTextUI(font, std::to_string(itemComp->quantity).c_str(), x + size - 15, y + size - 15, 12, WHITE, alpha);
+                    DrawTextUI(font, std::to_string(itemComp->quantity).c_str(), x + size - 15, y + size - 15, 12, s_theme.textPrimary, alpha);
                 }
             }
         } 
         
         if (isLocked) {
-            DrawLineEx({sx + sSize * 0.3f, sy + sSize * 0.3f}, {sx + sSize * 0.7f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(GRAY, 0.5f * alpha));
-            DrawLineEx({sx + sSize * 0.7f, sy + sSize * 0.3f}, {sx + sSize * 0.3f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(GRAY, 0.5f * alpha));
+            DrawLineEx({sx + sSize * 0.3f, sy + sSize * 0.3f}, {sx + sSize * 0.7f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, 0.5f * alpha));
+            DrawLineEx({sx + sSize * 0.7f, sy + sSize * 0.3f}, {sx + sSize * 0.3f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, 0.5f * alpha));
         }
+        // Inner shadow
         DrawRectangleLinesEx({sx+1.0f*s_uiScale, sy+1.0f*s_uiScale, sSize-2.0f*s_uiScale, sSize-2.0f*s_uiScale}, 1.0f * s_uiScale, Fade(BLACK, 0.3f * alpha));
     }
 
@@ -154,7 +172,7 @@ namespace NoMoreDay {
         if (x + sW > GetScreenWidth()) x -= (sW + 20 * s_uiScale);
         if (y + sH > GetScreenHeight()) y -= (sH + 20 * s_uiScale);
 
-        DrawRectangle((int)x, (int)y, (int)sW, (int)sH, Fade(BLACK, 0.9f * alpha));
+        DrawRectangle((int)x, (int)y, (int)sW, (int)sH, Fade(s_theme.panelBackground, 0.95f * alpha));
         DrawRectangleLinesEx({x, y, sW, sH}, 1.0f * s_uiScale, Fade(GetRarityColor(itemComp->rarity), alpha));
         
         auto DrawTextScreen = [&](const char* t, float sx, float sy, float size, Color c) {
@@ -172,10 +190,10 @@ namespace NoMoreDay {
 
         for (const auto& line : lines) {
             if (line == "---") {
-                DrawLineEx({x + padding*s_uiScale, curSY + sLineHeight/2}, {x + sW - padding*s_uiScale, curSY + sLineHeight/2}, 1.0f*s_uiScale, Fade(GRAY, alpha));
+                DrawLineEx({x + padding*s_uiScale, curSY + sLineHeight/2}, {x + sW - padding*s_uiScale, curSY + sLineHeight/2}, 1.0f*s_uiScale, Fade(s_theme.panelBorder, alpha));
             } else if (line != " ") {
-                Color c = WHITE;
-                if (line.find("+") == 0) c = GREEN; 
+                Color c = s_theme.textPrimary;
+                if (line.find("+") == 0) c = s_theme.success; 
                 DrawTextScreen(line.c_str(), x + padding*s_uiScale, curSY, fontSize, c);
             }
             curSY += sLineHeight;
@@ -210,21 +228,21 @@ namespace NoMoreDay {
         float sh = h * s_uiScale;
         float sBtnH = btnH * s_uiScale;
 
-        DrawRectangle(sx, sy, sw, sh, Fade(BLACK, 0.95f * alpha));
-        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f*s_uiScale, Fade(GOLD, alpha));
+        DrawRectangle(sx, sy, sw, sh, Fade(s_theme.panelBackground, 0.95f * alpha));
+        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f*s_uiScale, Fade(s_theme.panelBorderHighlight, alpha));
 
         float curSY = sy + 5 * s_uiScale;
 
         auto DrawMenuBtn = [&](const char* text) -> bool {
             Rectangle r = {sx + 5*s_uiScale, curSY, sw - 10*s_uiScale, sBtnH - 2*s_uiScale};
             bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
-            if (hovered) DrawRectangleRec(r, Fade(GOLD, 0.3f * alpha));
+            if (hovered) DrawRectangleRec(r, Fade(s_theme.buttonHover, 0.3f * alpha));
             
             float sSize = 18 * s_uiScale;
              if (IsFontValid(font)) {
-                DrawTextEx(font, text, { sx + 15*s_uiScale, curSY + 5*s_uiScale }, sSize, 1.0f * s_uiScale, Fade(hovered ? WHITE : LIGHTGRAY, alpha));
+                DrawTextEx(font, text, { sx + 15*s_uiScale, curSY + 5*s_uiScale }, sSize, 1.0f * s_uiScale, Fade(hovered ? s_theme.textHighlight : s_theme.textSecondary, alpha));
             } else {
-                DrawText(text, (int)(sx + 15*s_uiScale), (int)(curSY + 5*s_uiScale), (int)sSize, Fade(hovered ? WHITE : LIGHTGRAY, alpha));
+                DrawText(text, (int)(sx + 15*s_uiScale), (int)(curSY + 5*s_uiScale), (int)sSize, Fade(hovered ? s_theme.textHighlight : s_theme.textSecondary, alpha));
             }
             
             curSY += sBtnH;
@@ -286,14 +304,14 @@ namespace NoMoreDay {
         float sx = (screenW - sw) / 2.0f;
         float sy = (screenH - sh) / 2.0f;
         
-        DrawRectangle((int)sx, (int)sy, (int)sw, (int)sh, Fade(BLACK, 0.9f * alpha));
-        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, Fade(RED, alpha));
+        DrawRectangle((int)sx, (int)sy, (int)sw, (int)sh, Fade(s_theme.panelBackground, 0.9f * alpha));
+        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, Fade(s_theme.danger, alpha));
         
         float sSize = fontSize * s_uiScale;
         if (IsFontValid(font)) {
-            DrawTextEx(font, text, { sx + 30*s_uiScale, sy + 15*s_uiScale }, sSize, 1.0f * s_uiScale, Fade(WHITE, alpha));
+            DrawTextEx(font, text, { sx + 30*s_uiScale, sy + 15*s_uiScale }, sSize, 1.0f * s_uiScale, Fade(s_theme.textPrimary, alpha));
         } else {
-             DrawText(text, (int)(sx + 30*s_uiScale), (int)(sy + 15*s_uiScale), (int)sSize, Fade(WHITE, alpha));
+             DrawText(text, (int)(sx + 30*s_uiScale), (int)(sy + 15*s_uiScale), (int)sSize, Fade(s_theme.textPrimary, alpha));
         }
     }
 
