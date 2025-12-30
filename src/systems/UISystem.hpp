@@ -26,9 +26,9 @@ public:
     static Color GetRarityColor(NoMoreDay::Rarity rarity) { return NoMoreDay::UIRenderer::GetRarityColor(rarity); }
 
     // --- Drawing Helpers (Delegated to UIRenderer) ---
-    static void DrawSlot(entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel = nullptr, bool highlighted = false, bool isLocked = false);
-    static void DrawTextUI(const char* text, float x, float y, float fontSize, Color color);
-    static void DrawTextScaled(const char* text, float x, float y, float fontSize, float maxWidth, Color color);
+    static void DrawSlot(entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel = nullptr, bool highlighted = false, bool isLocked = false, float alpha = 1.0f);
+    static void DrawTextUI(const char* text, float x, float y, float fontSize, Color color, float alpha = 1.0f);
+    static void DrawTextScaled(const char* text, float x, float y, float fontSize, float maxWidth, Color color, float alpha = 1.0f);
     
     // --- Interaction ---
     static void OpenContextMenu(entt::entity item, bool fromInv, int invIdx, NoMoreDay::EquipmentSlot slot);

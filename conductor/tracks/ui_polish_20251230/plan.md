@@ -19,18 +19,18 @@
 
 ## Phase 2: 交互反馈与动画系统 (Interaction Feedback & Animation System)
 
-- [~] Task: 设计并实现通用的 UI 动画组件和系统。
-  - [ ] Sub-task: 调研并选择合适的动画实现方案（例如，基于时间插值）。
-  - [ ] Sub-task: 创建 `UIAnimationComponent` 和 `UIAnimationSystem`，用于管理 UI 元素的动画状态（位移、缩放、透明度等）。
-- [ ] Task: 实施交互元素的动画反馈。
-  - [ ] Sub-task: 为所有按钮、图标等交互元素添加悬停、点击时的缩放、颜色变化或位移动画。
-  - [ ] Sub-task: 更新 `UIRenderer`，使其能够响应 `UIAnimationComponent` 来绘制动画效果。
-- [ ] Task: 界面开关过渡动画。
-  - [ ] Sub-task: 为主要的 UI 面板（如背包、角色面板）实现打开/关闭时的渐入/渐出或滑动动画。
-- [ ] Task: 编写交互反馈与动画测试。
-  - [ ] Sub-task: 扩展 `UITests.cpp`，测试按钮悬停/点击动画的触发和效果。
-  - [ ] Sub-task: 测试界面开关动画的平滑性和持续时间。
-- [ ] Task: Conductor - User Manual Verification '交互反馈与动画系统' (Protocol in workflow.md)
+- [x] Task: 设计并实现通用的 UI 动画组件和系统。
+  - [x] Sub-task: 调研并选择合适的动画实现方案（例如，基于时间插值）。
+  - [x] Sub-task: 创建 `UIAnimationComponent` 和 `UIAnimationSystem`，用于管理 UI 元素的动画状态（位移、缩放、透明度等）。
+- [x] Task: 实施交互元素的动画反馈。
+  - [x] Sub-task: 为所有按钮、图标等交互元素添加悬停、点击时的缩放、颜色变化或位移动画。
+  - [x] Sub-task: 更新 `UIRenderer`，使其能够响应 `UIAnimationComponent` (或参数化 alpha/scale) 来绘制动画效果。
+- [x] Task: 界面开关过渡动画。
+  - [x] Sub-task: 为主要的 UI 面板（如背包、角色面板）实现打开/关闭时的渐入/渐出或滑动动画。
+- [x] Task: 编写交互反馈与动画测试。
+  - [x] Sub-task: 扩展 `UITests.cpp` (UISystemTest.cpp)，测试按钮悬停/点击动画的触发和效果。
+  - [x] Sub-task: 测试界面开关动画的平滑性和持续时间。
+- [x] Task: Conductor - User Manual Verification '交互反馈与动画系统' (Protocol in workflow.md)
 
 ## Phase 3: 物品与信息提示视觉增强 (Item & Info Prompt Visual Enhancement)
 

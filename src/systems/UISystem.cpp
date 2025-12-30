@@ -2,10 +2,12 @@
 #include "UIInventory.hpp"
 #include "UICharacter.hpp"
 #include "UIMinimap.hpp"
+#include "UIAnimationSystem.hpp" // Include UIAnimationSystem
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/InventoryComponent.hpp"
+#include "../components/UIAnimationComponent.hpp"
 #include "../core/LevelManager.hpp"
 #include "../systems/InventorySystem.hpp"
 #include "../systems/ProgressionSystem.hpp"
@@ -29,6 +31,11 @@ static bool s_hasGivenTestItems = false;
 
 void UISystem::Initialize(ResourceManager& resourceManager) {
     AssetLoadingSystem::Initialize(resourceManager);
+    
+    // Initialize Animations
+    State.inventorySlotAnims.assign(100, {0.0f, 1.0f}); // Assume max 100 slots for now
+    State.equipmentSlotAnims.assign(15, {0.0f, 1.0f});
+    State.bagSlotAnims.assign(4, {0.0f, 1.0f});
 
 #ifdef TEST_HEADLESS
     LOG_INFO("UISystem: Headless mode, skipping font loading.");
@@ -86,6 +93,19 @@ Vector2 UISystem::GetMousePositionLogic() {
 // --- Main Loop ---
 
 void UISystem::Update(entt::registry& registry, const LevelManager& levelManager) {
+    float dt = GetFrameTime();
+    
+    // 0. Update Animation System
+    UIAnimationSystem::Update(registry, dt);
+
+    // Transition Panel Alphas
+    float alphaSpeed = 6.0f; 
+    if (State.showInventory) State.inventoryAlpha = std::min(1.0f, State.inventoryAlpha + dt * alphaSpeed);
+    else State.inventoryAlpha = std::max(0.0f, State.inventoryAlpha - dt * alphaSpeed);
+    
+    if (State.showCharacterPanel) State.characterPanelAlpha = std::min(1.0f, State.characterPanelAlpha + dt * alphaSpeed);
+    else State.characterPanelAlpha = std::max(0.0f, State.characterPanelAlpha - dt * alphaSpeed);
+
     // 1. Global Hotkeys
     
     // Character Panel (C)
@@ -163,9 +183,9 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     State.hoveredItem = entt::null;
 
     // 1. Draw Subsystems (Passed logic coordinates will be scaled by UIRenderer)
-    if (State.showInventory) UIInventory::Draw(registry);
+    if (State.inventoryAlpha > 0.0f) UIInventory::Draw(registry);
     UIMinimap::Draw(registry, levelManager);
-    if (State.showCharacterPanel) UICharacter::Draw(registry);
+    if (State.characterPanelAlpha > 0.0f) UICharacter::Draw(registry);
 
     // 2. Ground Interaction
     if (State.hoveredItem == entt::null) {
@@ -247,16 +267,16 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
 
 // --- Delegate to UIRenderer ---
 
-void UISystem::DrawSlot(entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel, bool highlighted, bool isLocked) {
-    UIRenderer::DrawSlot(State.globalFont, registry, x, y, size, item, defaultLabel, highlighted, isLocked);
+void UISystem::DrawSlot(entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel, bool highlighted, bool isLocked, float alpha) {
+    UIRenderer::DrawSlot(State.globalFont, registry, x, y, size, item, defaultLabel, highlighted, isLocked, alpha);
 }
 
-void UISystem::DrawTextUI(const char* text, float x, float y, float fontSize, Color color) {
-    UIRenderer::DrawTextUI(State.globalFont, text, x, y, fontSize, color);
+void UISystem::DrawTextUI(const char* text, float x, float y, float fontSize, Color color, float alpha) {
+    UIRenderer::DrawTextUI(State.globalFont, text, x, y, fontSize, color, alpha);
 }
 
-void UISystem::DrawTextScaled(const char* text, float x, float y, float fontSize, float maxWidth, Color color) {
-    UIRenderer::DrawTextScaled(State.globalFont, text, x, y, fontSize, maxWidth, color);
+void UISystem::DrawTextScaled(const char* text, float x, float y, float fontSize, float maxWidth, Color color, float alpha) {
+    UIRenderer::DrawTextScaled(State.globalFont, text, x, y, fontSize, maxWidth, color, alpha);
 }
 
 void UISystem::OpenContextMenu(entt::entity item, bool fromInv, int invIdx, NoMoreDay::EquipmentSlot slot) {
@@ -269,15 +289,15 @@ void UISystem::OpenContextMenu(entt::entity item, bool fromInv, int invIdx, NoMo
 }
 
 void UISystem::DrawContextMenu(entt::registry& registry) {
-    UIRenderer::DrawContextMenu(State.globalFont, State, registry);
+    UIRenderer::DrawContextMenu(State.globalFont, State, registry, 1.0f); // Context menu usually immediate? Or use global alpha if needed.
 }
 
 void UISystem::DrawTooltip(entt::registry& registry, entt::entity item) {
-    UIRenderer::DrawTooltip(State.globalFont, registry, item);
+    UIRenderer::DrawTooltip(State.globalFont, registry, item, 1.0f);
 }
 
 void UISystem::DrawMessageBox() {
-    UIRenderer::DrawMessageBox(State.globalFont, State);
+    UIRenderer::DrawMessageBox(State.globalFont, State, 1.0f);
 }
 
 void UISystem::DrawQuantityPopup(entt::registry& registry) {

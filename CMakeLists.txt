@@ -54,6 +54,9 @@ add_library(NoMoreDayCore STATIC
     src/systems/InputSystem.cpp
     src/systems/CombatSystem.cpp
     src/systems/StatsSystem.cpp
+    src/systems/UIAnimationSystem.cpp
+    src/systems/UICharacter.cpp
+    src/systems/UICommon.cpp
     src/systems/CraftingSystem.cpp
     src/systems/AISystem.cpp
     src/systems/MapSystem.cpp

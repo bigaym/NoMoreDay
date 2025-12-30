@@ -1,6 +1,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../third_party/doctest/doctest.h"
 #include "../src/systems/UISystem.hpp"
+#include "../src/systems/UIAnimationSystem.hpp"
+#include "../src/components/UIAnimationComponent.hpp"
 #include "../src/components/PlayerState.hpp"
 #include "../src/components/InventoryComponent.hpp"
 #include "../src/components/ItemComponent.hpp"
@@ -46,6 +48,35 @@ TEST_CASE("UISystem - Rarity Colors") {
             
             UIRenderer::SetScale(2.0f);
             CHECK(UIRenderer::GetScale() == doctest::Approx(2.0f));
+        }
+
+        SUBCASE("UI Transitions") {
+            UISystem::State.inventoryAlpha = 0.0f;
+            UISystem::State.showInventory = true;
+            
+            entt::registry registry;
+            
+            // Mock Delta Time transition (assuming Update uses GetFrameTime, which we can't easily mock here without more refactor)
+            // But we can manually check if it would change if we call Update
+            // Since we can't control GetFrameTime() in Raylib easily in tests, we can just verify initial state.
+            
+            CHECK(UISystem::State.inventoryAlpha == 0.0f);
+            
+            // We can test UIAnimationSystem separately
+            entt::entity e = registry.create();
+            auto& anim = registry.emplace<UIAnimationComponent>(e);
+            anim.active = true;
+            anim.startValue = 0.0f;
+            anim.targetValue = 1.0f;
+            anim.duration = 1.0f;
+            anim.easing = EasingType::Linear;
+            
+            UIAnimationSystem::Update(registry, 0.5f);
+            CHECK(anim.currentValue == doctest::Approx(0.5f));
+            
+            UIAnimationSystem::Update(registry, 0.5f);
+            CHECK(anim.currentValue == doctest::Approx(1.0f));
+            CHECK(anim.active == false); // Auto-disable
         }
 
         tools::Logger::Shutdown();

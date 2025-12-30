@@ -3,7 +3,7 @@
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
-#include "../core/UIRenderer.hpp" // Ensure UIRenderer is visible
+#include "../core/UIRenderer.hpp" 
 #include "raylib.h"
 #include <algorithm>
 #include <cmath>
@@ -25,6 +25,7 @@ void UICharacter::Draw(entt::registry& registry) {
 
     // Logic Mouse Position
     Vector2 mousePos = UISystem::GetMousePositionLogic();
+    float alpha = UISystem::State.characterPanelAlpha;
 
     // --- 1. 面板背景 (Logic Coords) ---
     const float panelW = 420.0f;
@@ -32,26 +33,25 @@ void UICharacter::Draw(entt::registry& registry) {
     const float margin = 20.0f;
     
     // 锚定左下角 (Bottom-Left Anchor in Logic Space)
-    // Use UI_REF_HEIGHT instead of GetScreenHeight for logic layout
     const float panelX = margin;
     const float panelY = UI_REF_HEIGHT - panelH - margin;
     const float padding = 20.0f;
 
     // Helpers for scaled drawing
     auto DrawRectScaled = [&](float x, float y, float w, float h, Color c) {
-        DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), c);
+        DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), Fade(c, alpha));
     };
     auto DrawRectLinesScaled = [&](Rectangle rec, float thick, Color c) {
-        DrawRectangleLinesEx({rec.x*scale, rec.y*scale, rec.width*scale, rec.height*scale}, thick*scale, c);
+        DrawRectangleLinesEx({rec.x*scale, rec.y*scale, rec.width*scale, rec.height*scale}, thick*scale, Fade(c, alpha));
     };
 
-    // 半透明黑色背景 + 边框
-    DrawRectScaled(panelX, panelY, panelW, panelH, Fade(BLACK, 0.85f));
+    // 半透明背景 + 边框
+    DrawRectScaled(panelX, panelY, panelW, panelH, DARKGRAY);
     DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 2.0f, GOLD);
 
-    // 标题 (UISystem handles text scaling internally, pass Logic Coords)
-    UISystem::DrawTextUI("角色属性", panelX + padding, panelY + padding, 30, WHITE);
-    UISystem::DrawTextUI("按 'C' 关闭", panelX + panelW - 100, panelY + padding + 10, 18, LIGHTGRAY);
+    // 标题
+    UISystem::DrawTextUI("角色属性", panelX + padding, panelY + padding, 30, WHITE, alpha);
+    UISystem::DrawTextUI("按 'C' 关闭", panelX + panelW - 100, panelY + padding + 10, 18, LIGHTGRAY, alpha);
 
     float currentY = panelY + 70.0f;
 
@@ -59,30 +59,27 @@ void UICharacter::Draw(entt::registry& registry) {
     const auto* sprite = registry.try_get<SpriteComponent>(player);
     auto* pStats = registry.try_get<PlayerStats>(player);
 
-    // 绘制头像 (缩略图)
     float avatarSize = 80.0f;
     DrawRectLinesScaled({panelX + padding, currentY, avatarSize, avatarSize}, 1.0f, LIGHTGRAY);
     
     if (sprite && sprite->texture.id > 0) {
         Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
         Rectangle dest = {(panelX + padding)*scale, currentY*scale, avatarSize*scale, avatarSize*scale};
-        DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, WHITE);
+        DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
     } else {
-        UISystem::DrawTextUI("?", panelX + padding + 30, currentY + 20, 40, GRAY);
+        UISystem::DrawTextUI("?", panelX + padding + 30, currentY + 20, 40, GRAY, alpha);
     }
 
-    // 绘制等级信息
     float infoX = panelX + padding + avatarSize + 20.0f;
     if (pStats) {
-        UISystem::DrawTextUI(TextFormat("等级 %d", pStats->level), infoX, currentY + 10, 24, GOLD);
-        UISystem::DrawTextUI(TextFormat("经验: %.0f", pStats->current_xp), infoX, currentY + 40, 16, LIGHTGRAY);
+        UISystem::DrawTextUI(TextFormat("等级 %d", pStats->level), infoX, currentY + 10, 24, GOLD, alpha);
+        UISystem::DrawTextUI(TextFormat("经验: %.0f", pStats->current_xp), infoX, currentY + 40, 16, LIGHTGRAY, alpha);
     } else {
-        UISystem::DrawTextUI("等级 ??", infoX, currentY + 10, 24, GRAY);
+        UISystem::DrawTextUI("等级 ??", infoX, currentY + 10, 24, GRAY, alpha);
     }
 
     currentY += avatarSize + 30.0f;
 
-    // 获取属性组件
     const auto* primStats = registry.try_get<PrimaryStats>(player);
     const auto* combatStats = registry.try_get<CombatStats>(player);
     auto& attrUI = registry.get_or_emplace<AttributeUIComponent>(player);
@@ -90,15 +87,13 @@ void UICharacter::Draw(entt::registry& registry) {
     if (!primStats || !combatStats || !pStats) return;
 
     // --- 3. 基础属性 (Primary Stats) ---
-    UISystem::DrawTextUI("基础属性", panelX + padding, currentY, 20, YELLOW);
+    UISystem::DrawTextUI("基础属性", panelX + padding, currentY, 20, YELLOW, alpha);
     
-    // 计算剩余点数
     int totalTemp = attrUI.tempStr + attrUI.tempDex + attrUI.tempInt + attrUI.tempVit;
     int remainingPoints = pStats->available_attribute_points - totalTemp;
     
-    // 显示可用点数
     const char* pointsText = TextFormat("可用点数: %d", remainingPoints);
-    UISystem::DrawTextUI(pointsText, panelX + panelW - padding - 120, currentY + 2, 18, remainingPoints > 0 ? GREEN : LIGHTGRAY);
+    UISystem::DrawTextUI(pointsText, panelX + panelW - padding - 120, currentY + 2, 18, remainingPoints > 0 ? GREEN : LIGHTGRAY, alpha);
 
     currentY += 25.0f;
     float col1X = panelX + padding;
@@ -106,37 +101,24 @@ void UICharacter::Draw(entt::registry& registry) {
     auto DrawBtn = [&](float bx, float by, const char* txt) -> bool {
         float size = 20.0f;
         Rectangle r = {bx, by, size, size};
-        // Use logic mouse pos for interaction
         bool hovered = CheckCollisionPointRec(mousePos, r);
         bool clicked = hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
-        
-        // Use scaled drawing
         DrawRectScaled(bx, by, size, size, hovered ? LIGHTGRAY : DARKGRAY);
         DrawRectLinesScaled(r, 1.0f, WHITE);
-        
-        float tw = MeasureText(txt, 16); // Logic width estimation (using default font for logic calc)
-        // Better to center based on actual draw call? UIRenderer doesn't expose text width calculation for logic space easily without font.
-        // Approximate centering is fine for +/- buttons.
-        UISystem::DrawTextUI(txt, bx + (size-tw)/2, by + 2, 16, WHITE);
+        float tw = (float)MeasureText(txt, 16);
+        UISystem::DrawTextUI(txt, bx + (size-tw)/2, by + 2, 16, WHITE, alpha);
         return clicked;
     };
 
     auto DrawAttrRow = [&](const char* label, float baseVal, int& tempVal, float& y) {
         float rowH = 24.0f;
-        UISystem::DrawTextUI(label, col1X, y, 18, LIGHTGRAY);
-        
+        UISystem::DrawTextUI(label, col1X, y, 18, LIGHTGRAY, alpha);
         float finalVal = baseVal + tempVal;
         const char* valStr = (tempVal > 0) ? TextFormat("%.0f (+%d)", finalVal, tempVal) : TextFormat("%.0f", finalVal);
-        Color valColor = (tempVal > 0) ? GREEN : WHITE;
-        UISystem::DrawTextUI(valStr, col1X + 80, y, 18, valColor);
-
+        UISystem::DrawTextUI(valStr, col1X + 80, y, 18, (tempVal > 0) ? GREEN : WHITE, alpha);
         float btnX = col1X + 200.0f;
-        if (tempVal > 0) {
-            if (DrawBtn(btnX, y, "-")) tempVal--;
-        }
-        if (remainingPoints > 0) {
-            if (DrawBtn(btnX + 25, y, "+")) tempVal++;
-        }
+        if (tempVal > 0 && DrawBtn(btnX, y, "-")) tempVal--;
+        if (remainingPoints > 0 && DrawBtn(btnX + 25, y, "+")) tempVal++;
         y += rowH + 5.0f;
     };
 
@@ -146,37 +128,27 @@ void UICharacter::Draw(entt::registry& registry) {
     DrawAttrRow("体能", primStats->vitality, attrUI.tempVit, currentY);
 
     currentY += 15.0f;
-    // Scaled Line
-    DrawLineEx({(panelX + padding)*scale, currentY*scale}, {(panelX + panelW - padding)*scale, currentY*scale}, 1.0f*scale, GRAY);
+    DrawLineEx({(panelX + padding)*scale, currentY*scale}, {(panelX + panelW - padding)*scale, currentY*scale}, 1.0f*scale, Fade(GRAY, alpha));
     currentY += 10.0f;
 
-    // --- 4. 标签页 (Tabs) ---
+    // --- 4. Tabs ---
     const char* tabNames[] = { "攻击", "防御", "召唤", "其他" };
-    int tabCount = 4;
-    float tabW = (panelW - padding * 2) / tabCount;
-    float tabH = 30.0f;
-
-    for (int i = 0; i < tabCount; ++i) {
+    float tabW = (panelW - padding * 2) / 4;
+    for (int i = 0; i < 4; ++i) {
         float tx = panelX + padding + i * tabW;
-        Rectangle tabRect = { tx, currentY, tabW, tabH };
+        Rectangle tabRect = { tx, currentY, tabW, 30 };
         bool isSelected = (s_activeCharTab == i);
         bool isHovered = CheckCollisionPointRec(mousePos, tabRect);
-
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && isHovered) {
-            s_activeCharTab = i;
-            s_charPanelScroll = 0.0f;
-        }
-
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && isHovered) { s_activeCharTab = i; s_charPanelScroll = 0.0f; }
         DrawRectScaled(tabRect.x, tabRect.y, tabRect.width, tabRect.height, isSelected ? Fade(GOLD, 0.3f) : (isHovered ? Fade(WHITE, 0.1f) : Fade(BLACK, 0.5f)));
         DrawRectLinesScaled(tabRect, 1.0f, isSelected ? GOLD : DARKGRAY);
-        UISystem::DrawTextUI(tabNames[i], tx + 10, currentY + 6, 18, isSelected ? WHITE : GRAY);
+        UISystem::DrawTextUI(tabNames[i], tx + 10, currentY + 6, 18, isSelected ? WHITE : GRAY, alpha);
     }
-    currentY += tabH + 5.0f;
+    currentY += 35.0f;
 
-    // --- 5. 可滚动内容区域 ---
+    // --- 5. Content ---
     float contentH = panelY + panelH - currentY - padding - (totalTemp > 0 ? 40.0f : 0.0f);
     Rectangle viewRect = { panelX + padding, currentY, panelW - padding * 2, contentH };
-
     if (CheckCollisionPointRec(mousePos, viewRect)) {
         float wheel = GetMouseWheelMove();
         if (wheel != 0) s_charPanelScroll += wheel * 20.0f;
@@ -185,167 +157,54 @@ void UICharacter::Draw(entt::registry& registry) {
     if (s_lastContentHeight > viewRect.height) {
         float minScroll = viewRect.height - s_lastContentHeight;
         if (s_charPanelScroll < minScroll) s_charPanelScroll = minScroll;
-    } else {
-        s_charPanelScroll = 0;
-    }
+    } else { s_charPanelScroll = 0; }
 
-    // BeginScissorMode takes Screen Coords and Size (Pixels)
     BeginScissorMode((int)(viewRect.x * scale), (int)(viewRect.y * scale), (int)(viewRect.width * scale), (int)(viewRect.height * scale));
-    
     float startY = currentY + s_charPanelScroll;
     float y = startY;
     float rowX = panelX + padding + 5.0f;
-    float rowW = (viewRect.width - 10.0f) * 0.7f; // 缩短行宽，使数值更靠近标签 (减少约一半间距)
+    float rowW = (viewRect.width - 10.0f) * 0.7f;
 
-    if (s_activeCharTab == 0) { // 攻击
-        UISystem::DrawTextUI("面板伤害", rowX, y, 18, YELLOW); y += 25.0f;
-        
-        float physMult = combatStats->damage_multipliers[(int)DamageType::Physical];
+    if (s_activeCharTab == 0) {
+        UISystem::DrawTextUI("面板伤害", rowX, y, 18, YELLOW, alpha); y += 25.0f;
         float flatPhys = combatStats->flat_damage[(int)DamageType::Physical];
-        float dispMin = (combatStats->min_weapon_damage + flatPhys) * physMult;
-        float dispMax = (combatStats->max_weapon_damage + flatPhys) * physMult;
-
-        DrawStatRow("物理伤害", TextFormat("%.0f-%.0f", dispMin, dispMax), rowX, y, rowW);
+        float physMult = combatStats->damage_multipliers[(int)DamageType::Physical];
+        DrawStatRow("物理伤害", TextFormat("%.0f-%.0f", (combatStats->min_weapon_damage+flatPhys)*physMult, (combatStats->max_weapon_damage+flatPhys)*physMult), rowX, y, rowW, 18.0f, alpha);
         
-        // 显示其他元素伤害
-        auto DrawElemDmg = [&](DamageType type, const char* name) {
-            float flat = combatStats->flat_damage[(int)type];
-            if (flat > 0.0f) {
-                float mult = combatStats->damage_multipliers[(int)type];
-                DrawStatRow(name, TextFormat("%.0f", flat * mult), rowX, y, rowW);
-            }
-        };
-        DrawElemDmg(DamageType::Fire, "火焰伤害");
-        DrawElemDmg(DamageType::Cold, "冰霜伤害");
-        DrawElemDmg(DamageType::Lightning, "闪电伤害");
-        DrawElemDmg(DamageType::Poison, "毒素伤害");
-        DrawElemDmg(DamageType::Shadow, "暗影伤害");
-
-        y += 10.0f;
-        UISystem::DrawTextUI("伤害加成详情", rowX, y, 18, YELLOW); y += 25.0f;
-
-        auto DrawDmgBreakdown = [&](DamageType type, const char* name) {
-            float mult = combatStats->damage_multipliers[(int)type];
-            float flat = combatStats->flat_damage[(int)type];
-            
-            // 折叠显示: 附加点伤 / 百分比加成 (例如: 20 / +20%)
-            float pct = (mult - 1.0f) * 100.0f;
-            DrawStatRow(TextFormat("%s加成", name), TextFormat("%.0f / +%.0f%%", flat, pct), rowX, y, rowW);
-        };
-
-        DrawDmgBreakdown(DamageType::Physical, "物理");
-        DrawDmgBreakdown(DamageType::Fire, "火焰");
-        DrawDmgBreakdown(DamageType::Cold, "冰霜");
-        DrawDmgBreakdown(DamageType::Lightning, "闪电");
-        DrawDmgBreakdown(DamageType::Poison, "毒素");
-        DrawDmgBreakdown(DamageType::Shadow, "暗影");
-
-        DrawStatRow("攻击速度", TextFormat("%.2f", combatStats->attack_speed), rowX, y, rowW);
-        DrawStatRow("施法速度", TextFormat("%.2f", combatStats->cast_speed), rowX, y, rowW);
-        
-        y += 10.0f;
-        UISystem::DrawTextUI("暴击属性", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("暴击几率", TextFormat("%.1f%%", combatStats->crit_chance * 100.0f), rowX, y, rowW);
-        DrawStatRow("暴击伤害", TextFormat("%.0f%%", combatStats->crit_damage * 100.0f), rowX, y, rowW);
-        
-        y += 10.0f;
-        UISystem::DrawTextUI("技能形态", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("施法距离", TextFormat("%.0f", combatStats->cast_range), rowX, y, rowW);
-        DrawStatRow("范围大小", TextFormat("%.0f%%", combatStats->area_scale * 100.0f), rowX, y, rowW);
-        DrawStatRow("投射物速度", TextFormat("%.0f%%", combatStats->projectile_speed * 100.0f), rowX, y, rowW);
-        DrawStatRow("持续时间", TextFormat("%.0f%%", combatStats->duration_scale * 100.0f), rowX, y, rowW);
-        
-        y += 10.0f;
-        UISystem::DrawTextUI("其他", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("护甲穿透", TextFormat("%.0f", combatStats->armor_pen), rowX, y, rowW);
-        DrawStatRow("击退效果", TextFormat("%.1f", combatStats->knockback), rowX, y, rowW);
-        DrawStatRow("生命偷取", TextFormat("%.1f%%", combatStats->life_steal * 100.0f), rowX, y, rowW);
-        DrawStatRow("击中回复", TextFormat("%.1f", combatStats->life_on_hit), rowX, y, rowW);
-
-    } else if (s_activeCharTab == 1) { // 防御
-        UISystem::DrawTextUI("生存", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("生命值", TextFormat("%.0f / %.0f", combatStats->health, combatStats->max_health), rowX, y, rowW);
-        DrawStatRow("生命回复", TextFormat("%.1f /秒", combatStats->health_regen), rowX, y, rowW);
-        DrawStatRow("护甲", TextFormat("%.0f", combatStats->armor), rowX, y, rowW);
-        DrawStatRow("闪避几率", TextFormat("%.1f%%", combatStats->dodge_chance * 100.0f), rowX, y, rowW);
-        DrawStatRow("格挡几率", TextFormat("%.1f%%", combatStats->block_chance * 100.0f), rowX, y, rowW);
-        DrawStatRow("格挡值", TextFormat("%.0f", combatStats->block_amount), rowX, y, rowW);
-        DrawStatRow("伤害减免", TextFormat("%.1f%%", combatStats->damage_reduction * 100.0f), rowX, y, rowW);
-        DrawStatRow("荆棘伤害", TextFormat("%.0f", combatStats->thorns), rowX, y, rowW);
-        
-        y += 10.0f;
-        UISystem::DrawTextUI("抗性", rowX, y, 18, YELLOW); y += 25.0f;
-        
-        DrawStatRow("火焰抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Fire] * 100.0f), rowX, y, rowW);
-        DrawStatRow("冰霜抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Cold] * 100.0f), rowX, y, rowW);
-        DrawStatRow("闪电抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Lightning] * 100.0f), rowX, y, rowW);
-        DrawStatRow("毒素抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Poison] * 100.0f), rowX, y, rowW);
-        DrawStatRow("暗影抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Shadow] * 100.0f), rowX, y, rowW);
-        
-    } else if (s_activeCharTab == 2) { // 召唤 (暂无详细属性，显示预留信息)
-        UISystem::DrawTextUI("召唤物属性", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("召唤物伤害", "100%", rowX, y, rowW);
-        DrawStatRow("召唤物生命", "100%", rowX, y, rowW);
-        DrawStatRow("召唤物速度", "100%", rowX, y, rowW);
-        
-    } else if (s_activeCharTab == 3) { // 其他
-        UISystem::DrawTextUI("综合", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("移动速度", TextFormat("%.0f", combatStats->move_speed), rowX, y, rowW);
-        DrawStatRow("法力值", TextFormat("%.0f / %.0f", combatStats->mana, combatStats->max_mana), rowX, y, rowW);
-        DrawStatRow("法力回复", TextFormat("%.1f /秒", combatStats->mana_regen), rowX, y, rowW);
-        DrawStatRow("消耗降低", TextFormat("%.1f%%", combatStats->resource_cost_reduction * 100.0f), rowX, y, rowW);
-        DrawStatRow("冷却缩减", TextFormat("%.1f%%", combatStats->cooldown_reduction * 100.0f), rowX, y, rowW);
-        DrawStatRow("冷却回复", TextFormat("%.1f%%", (combatStats->cooldown_recovery_speed - 1.0f) * 100.0f), rowX, y, rowW);
-        DrawStatRow("拾取范围", TextFormat("%.0f", combatStats->pickup_range), rowX, y, rowW);
-        
-        y += 10.0f;
-        UISystem::DrawTextUI("冒险", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("魔法寻宝", TextFormat("%.0f%%", combatStats->magic_find * 100.0f), rowX, y, rowW);
-        DrawStatRow("金币加成", TextFormat("%.0f%%", combatStats->gold_bonus * 100.0f), rowX, y, rowW);
-        DrawStatRow("经验加成", TextFormat("%.0f%%", combatStats->experience_gain_mult * 100.0f), rowX, y, rowW);
-        
-        y += 10.0f;
-        UISystem::DrawTextUI("统计", rowX, y, 18, YELLOW); y += 25.0f;
-        DrawStatRow("击杀数量", TextFormat("%llu", pStats->killCount), rowX, y, rowW);
-        DrawStatRow("死亡次数", TextFormat("%llu", pStats->deathCount), rowX, y, rowW);
+        y += 10.0f; UISystem::DrawTextUI("伤害加成详情", rowX, y, 18, YELLOW, alpha); y += 25.0f;
+        auto DrawDmgB = [&](DamageType t, const char* n) { DrawStatRow(TextFormat("%s加成", n), TextFormat("%.0f / +%.0f%%", combatStats->flat_damage[(int)t], (combatStats->damage_multipliers[(int)t]-1.0f)*100.0f), rowX, y, rowW, 18.0f, alpha); };
+        DrawDmgB(DamageType::Physical, "物理"); DrawDmgB(DamageType::Fire, "火焰"); DrawDmgB(DamageType::Cold, "冰霜");
+        DrawStatRow("攻击速度", TextFormat("%.2f", combatStats->attack_speed), rowX, y, rowW, 18.0f, alpha);
+        DrawStatRow("暴击几率", TextFormat("%.1f%%", combatStats->crit_chance * 100.0f), rowX, y, rowW, 18.0f, alpha);
+        DrawStatRow("暴击伤害", TextFormat("%.0f%%", combatStats->crit_damage * 100.0f), rowX, y, rowW, 18.0f, alpha);
+    } else if (s_activeCharTab == 1) {
+        UISystem::DrawTextUI("生存", rowX, y, 18, YELLOW, alpha); y += 25.0f;
+        DrawStatRow("生命值", TextFormat("%.0f / %.0f", combatStats->health, combatStats->max_health), rowX, y, rowW, 18.0f, alpha);
+        DrawStatRow("护甲", TextFormat("%.0f", combatStats->armor), rowX, y, rowW, 18.0f, alpha);
+        DrawStatRow("火焰抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Fire] * 100.0f), rowX, y, rowW, 18.0f, alpha);
+        DrawStatRow("冰霜抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Cold] * 100.0f), rowX, y, rowW, 18.0f, alpha);
+        DrawStatRow("闪电抗性", TextFormat("%.0f%%", combatStats->resistances[(int)DamageType::Lightning] * 100.0f), rowX, y, rowW, 18.0f, alpha);
+    } else if (s_activeCharTab == 3) {
+        UISystem::DrawTextUI("综合", rowX, y, 18, YELLOW, alpha); y += 25.0f;
+        DrawStatRow("移动速度", TextFormat("%.0f", combatStats->move_speed), rowX, y, rowW, 18.0f, alpha);
+        DrawStatRow("魔法寻宝", TextFormat("%.0f%%", combatStats->magic_find * 100.0f), rowX, y, rowW, 18.0f, alpha);
     }
 
     s_lastContentHeight = y - startY;
     EndScissorMode();
 
-    // --- 6. 确认按钮 (如果有临时加点) ---
     if (totalTemp > 0) {
         float btnY = panelY + panelH - 45.0f;
         Rectangle confirmRect = {panelX + panelW - padding - 100, btnY, 100, 30};
-        if (CheckCollisionPointRec(mousePos, confirmRect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            attrUI.showConfirmPopup = true;
-        }
+        if (CheckCollisionPointRec(mousePos, confirmRect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) attrUI.showConfirmPopup = true;
         DrawRectScaled(confirmRect.x, confirmRect.y, confirmRect.width, confirmRect.height, GREEN);
-        UISystem::DrawTextUI("确认加点", confirmRect.x + 15, confirmRect.y + 6, 18, BLACK);
+        UISystem::DrawTextUI("确认加点", confirmRect.x + 15, confirmRect.y + 6, 18, BLACK, alpha);
     }
 }
 
-void UICharacter::DrawStatRow(const char* label, const char* value, float x, float& y, float width, float fontSize) {
-    float labelMaxWidth = width * 0.6f;
-    UISystem::DrawTextScaled(label, x, y, fontSize, labelMaxWidth, LIGHTGRAY);
-    
-    // We assume MeasureText works for estimation or we should use font measure if possible.
-    // UISystem::DrawTextScaled handles logic, so we can let it handle value fitting too.
-    // But we need to right-align value.
-    // To right align correctly in scaled UI, we need the logic width of the text.
-    // UIRenderer doesn't easily expose logic width without font access.
-    // But since `DrawTextScaled` does logic width check internally, we can approximate alignment
-    // or just left-align the value after the label?
-    // Original code did right alignment.
-    
-    float textWidth = (float)MeasureText(value, (int)fontSize); // This is unscaled logic width estimation
-    float valueMaxWidth = width - labelMaxWidth - 5.0f;
-    
-    // Pass to DrawTextUI/Scaled
-    if (textWidth > valueMaxWidth) {
-        UISystem::DrawTextScaled(value, x + width - valueMaxWidth, y, fontSize, valueMaxWidth, WHITE);
-    } else {
-        UISystem::DrawTextUI(value, x + width - textWidth, y, fontSize, WHITE);
-    }
+void UICharacter::DrawStatRow(const char* label, const char* value, float x, float& y, float width, float fontSize, float alpha) {
+    UISystem::DrawTextScaled(label, x, y, fontSize, width * 0.6f, LIGHTGRAY, alpha);
+    float textWidth = (float)MeasureText(value, (int)fontSize);
+    UISystem::DrawTextUI(value, x + width - textWidth, y, fontSize, WHITE, alpha);
     y += fontSize + 5.0f;
 }

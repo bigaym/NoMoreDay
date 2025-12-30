@@ -51,52 +51,40 @@ void UIInventory::Draw(entt::registry& registry) {
 
     // Use Logic Mouse Position
     Vector2 mousePos = UISystem::GetMousePositionLogic();
+    float alpha = UISystem::State.inventoryAlpha;
 
-    // 背景 (Pass Logic Coords -> UIRenderer scales them)
-    // Note: DrawRectangle is Raylib. We need UIRenderer helper or use scaled coords manually if using Raylib raw.
-    // UIRenderer doesn't expose DrawRectangle helper except DrawSlot.
-    // We should probably add DrawRect helpers to UIRenderer or manually scale here?
-    // MANUAL SCALING FOR SHAPES NOT IN UIRENDERER:
-    // Actually, UISystem::Draw delegates to UIRenderer for Slots and Text.
-    // But UIInventory calls DrawRectangle directly.
-    // This implies UIInventory calculates Screen Coords?
-    // PREVIOUSLY: UIInventory used GetScreenWidth. So it was Screen Coords.
-    // NOW: We want it to use Ref Coords, and scale them.
-    
-    // We need to scale these manually if we call Raylib functions directly.
+    // Scale helper
     float scale = UIRenderer::GetScale();
     
     auto DrawRectScaled = [&](float x, float y, float w, float h, Color c) {
-        DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), c);
+        DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), Fade(c, alpha));
     };
     
     auto DrawRectLinesScaled = [&](Rectangle rec, float thick, Color c) {
-        DrawRectangleLinesEx({rec.x*scale, rec.y*scale, rec.width*scale, rec.height*scale}, thick*scale, c);
+        DrawRectangleLinesEx({rec.x*scale, rec.y*scale, rec.width*scale, rec.height*scale}, thick*scale, Fade(c, alpha));
     };
     
     auto DrawLineScaled = [&](Vector2 start, Vector2 end, float thick, Color c) {
-        DrawLineEx({start.x*scale, start.y*scale}, {end.x*scale, end.y*scale}, thick*scale, c);
+        DrawLineEx({start.x*scale, start.y*scale}, {end.x*scale, end.y*scale}, thick*scale, Fade(c, alpha));
     };
 
     // 背景
-    DrawRectScaled(panelX, panelY, panelW, panelH, Fade(BLACK, 0.92f));
+    DrawRectScaled(panelX, panelY, panelW, panelH, DARKGRAY); // Fixed base color for bg
     DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 3.0f, DARKGRAY);
     DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 1.0f, GOLD);
 
     // 标题
-    DrawRectScaled(panelX, panelY, panelW, 40, Fade(GRAY, 0.2f));
-    UISystem::DrawTextUI("角色物品栏 & 装备", panelX + padding, panelY + 8, 24, GOLD);
-    UISystem::DrawTextUI("按 'I' 或 'ESC' 关闭", panelX + panelW - 180, panelY + 12, 16, LIGHTGRAY);
+    DrawRectScaled(panelX, panelY, panelW, 40, GRAY);
+    UISystem::DrawTextUI("角色物品栏 & 装备", panelX + padding, panelY + 8, 24, GOLD, alpha);
+    UISystem::DrawTextUI("按 'I' 或 'ESC' 关闭", panelX + panelW - 180, panelY + 12, 16, LIGHTGRAY, alpha);
 
     // --- 装备区 ---
     float equipX = panelX + padding;
     float equipY = panelY + 60.0f;
     float equipW = 320.0f;
     
-    // Rounded Rect is tricky. Raylib DrawRectangleRounded takes param.
-    // DrawRectangleRounded({x*scale, ...}, roundness, seg, color);
-    DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, (panelH - 80)*scale}, 0.05f, 4, Fade(WHITE, 0.05f));
-    UISystem::DrawTextUI("装备槽位", equipX + 10, equipY + 10, 20, YELLOW);
+    DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, (panelH - 80)*scale}, 0.05f, 4, Fade(WHITE, 0.05f * alpha));
+    UISystem::DrawTextUI("装备槽位", equipX + 10, equipY + 10, 20, YELLOW, alpha);
 
     struct SlotDef { const char* label; EquipmentSlot slot; };
     static const SlotDef slotDefs[] = {
@@ -113,6 +101,8 @@ void UIInventory::Draw(entt::registry& registry) {
     float startX = equipX + 20.0f;
     float startY = equipY + 45.0f;
 
+    float dt = GetFrameTime();
+
     for (int i = 0; i < 11; ++i) {
         float x = startX + (i % 2) * (equipSlotSize + 80.0f);
         float y = startY + (i / 2) * (equipSlotSize + slotGap);
@@ -122,6 +112,13 @@ void UIInventory::Draw(entt::registry& registry) {
         
         // Interaction Check in Logic Space
         bool isHovered = CheckCollisionPointRec(mousePos, {x, y, equipSlotSize, equipSlotSize});
+
+        // Update Animation
+        auto& anim = UISystem::State.equipmentSlotAnims[i];
+        float target = isHovered ? 1.0f : 0.0f;
+        anim.hoverValue += (target - anim.hoverValue) * 15.0f * dt;
+        float slotScale = 1.0f + anim.hoverValue * 0.08f;
+        float offset = (equipSlotSize * (slotScale - 1.0f)) / 2.0f;
 
         // 交互逻辑
         if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
@@ -159,8 +156,8 @@ void UIInventory::Draw(entt::registry& registry) {
             }
         }
 
-        UISystem::DrawSlot(registry, x, y, equipSlotSize, (UISystem::State.draggedItem == item) ? entt::null : item, slotDefs[i].label, isHovered);
-        UISystem::DrawTextUI(slotDefs[i].label, x + equipSlotSize + 5, y + equipSlotSize/2 - 8, 14, isHovered ? WHITE : GRAY);
+        UISystem::DrawSlot(registry, x - offset, y - offset, equipSlotSize * slotScale, (UISystem::State.draggedItem == item) ? entt::null : item, slotDefs[i].label, isHovered, false, alpha);
+        UISystem::DrawTextUI(slotDefs[i].label, x + equipSlotSize + 5, y + equipSlotSize/2 - 8, 14, isHovered ? WHITE : GRAY, alpha);
     }
 
     // 分割线
@@ -173,9 +170,9 @@ void UIInventory::Draw(entt::registry& registry) {
     float invSlotSize = 44.0f;
 
     // 标签页 (简化)
-    UISystem::DrawTextUI("物品", invX + 15, invY + 5, 18, WHITE);
+    UISystem::DrawTextUI("物品", invX + 15, invY + 5, 18, WHITE, alpha);
 
-    DrawRectangleRounded({invX*scale, (invY + 30)*scale, invW*scale, (panelH - 110)*scale}, 0.05f, 4, Fade(WHITE, 0.05f));
+    DrawRectangleRounded({invX*scale, (invY + 30)*scale, invW*scale, (panelH - 110)*scale}, 0.05f, 4, Fade(WHITE, 0.05f * alpha));
 
     int totalCapacity = inv ? inv->capacity : 20;
     if (inv && inv->items.size() < (size_t)totalCapacity) inv->items.resize(totalCapacity, entt::null);
@@ -199,6 +196,17 @@ void UIInventory::Draw(entt::registry& registry) {
             
             entt::entity item = (inv && overallIndex < (int)inv->items.size()) ? inv->items[overallIndex] : entt::null;
             bool isHovered = CheckCollisionPointRec(mousePos, {x, y, invSlotSize, invSlotSize});
+            bool isLocked = overallIndex >= totalCapacity;
+
+            // Update Animation
+            auto& anim = UISystem::State.inventorySlotAnims[index]; // Use page-relative index for anim persistence? Or global?
+            // Actually, better use a global index or just the visible index if it's the same size.
+            // Since pageSize is 56, and we initialized 100, we can just use overallIndex if it's < 100.
+            // But let's use index (0-55) for visible slots to have persistent hover across pages or just clean mapping.
+            float target = (isHovered && !isLocked) ? 1.0f : 0.0f;
+            anim.hoverValue += (target - anim.hoverValue) * 15.0f * dt;
+            float slotScale = 1.0f + anim.hoverValue * 0.1f;
+            float offset = (invSlotSize * (slotScale - 1.0f)) / 2.0f;
 
             if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
                 UISystem::State.hoveredItem = item;
@@ -243,8 +251,7 @@ void UIInventory::Draw(entt::registry& registry) {
                 UISystem::State.draggedItem = entt::null;
             }
 
-            bool isLocked = overallIndex >= totalCapacity;
-            UISystem::DrawSlot(registry, x, y, invSlotSize, (UISystem::State.draggedItem == item) ? entt::null : item, nullptr, isHovered && !isLocked, isLocked);
+            UISystem::DrawSlot(registry, x - offset, y - offset, invSlotSize * slotScale, (UISystem::State.draggedItem == item) ? entt::null : item, nullptr, isHovered && !isLocked, isLocked, alpha);
         }
     }
 
@@ -254,29 +261,29 @@ void UIInventory::Draw(entt::registry& registry) {
     // 分页
     if (totalPages > 1) {
         const char* pageText = TextFormat("第 %d / %d 页", m_inventoryPage + 1, totalPages);
-        UISystem::DrawTextUI(pageText, invX + invW / 2 - 40, bottomBarY + 5, 18, WHITE);
+        UISystem::DrawTextUI(pageText, invX + invW / 2 - 40, bottomBarY + 5, 18, WHITE, alpha);
         
         if (m_inventoryPage > 0) {
             DrawRectScaled(invX + invW/2 - 80, bottomBarY, 30, 30, DARKGRAY);
-            UISystem::DrawTextUI("<", invX + invW/2 - 70, bottomBarY + 5, 18, WHITE);
+            UISystem::DrawTextUI("<", invX + invW/2 - 70, bottomBarY + 5, 18, WHITE, alpha);
             if (CheckCollisionPointRec(mousePos, {invX + invW/2 - 80, bottomBarY, 30, 30}) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_inventoryPage--;
         }
         if (m_inventoryPage < totalPages - 1) {
             DrawRectScaled(invX + invW/2 + 50, bottomBarY, 30, 30, DARKGRAY);
-            UISystem::DrawTextUI(">", invX + invW/2 + 60, bottomBarY + 5, 18, WHITE);
+            UISystem::DrawTextUI(">", invX + invW/2 + 60, bottomBarY + 5, 18, WHITE, alpha);
             if (CheckCollisionPointRec(mousePos, {invX + invW/2 + 50, bottomBarY, 30, 30}) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_inventoryPage++;
         }
     }
 
     // 金币
-    UISystem::DrawTextUI(TextFormat("金币: %d", inv->gold), invX + 15, bottomBarY + 5, 20, GOLD);
+    UISystem::DrawTextUI(TextFormat("金币: %d", inv->gold), invX + 15, bottomBarY + 5, 20, GOLD, alpha);
 
     // 整理按钮
     Rectangle sortBtnRec = {invX + invW - 115, bottomBarY, 100, 30};
     bool sortHover = CheckCollisionPointRec(mousePos, sortBtnRec);
     DrawRectScaled(sortBtnRec.x, sortBtnRec.y, sortBtnRec.width, sortBtnRec.height, sortHover ? GOLD : DARKGRAY);
     DrawRectLinesScaled(sortBtnRec, 1.0f, WHITE);
-    UISystem::DrawTextUI("整理背包", sortBtnRec.x + 15, sortBtnRec.y + 5, 18, WHITE);
+    UISystem::DrawTextUI("整理背包", sortBtnRec.x + 15, sortBtnRec.y + 5, 18, WHITE, alpha);
     if (sortHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         InventorySystem::organize(registry, player);
     }
@@ -284,13 +291,20 @@ void UIInventory::Draw(entt::registry& registry) {
     // 背包扩展槽 (Bag Slots)
     float bagSlotsY = invY + 500.0f;
     float bagSlotSize = 38.0f;
-    UISystem::DrawTextUI("背包栏", invX + 15, bagSlotsY - 20, 16, YELLOW);
+    UISystem::DrawTextUI("背包栏", invX + 15, bagSlotsY - 20, 16, YELLOW, alpha);
 
     for (int i = 0; i < 4; ++i) {
         float x = invX + 15.0f + i * (bagSlotSize + 10.0f);
         float y = bagSlotsY;
         entt::entity bagItem = (i < inv->bag_slots.size()) ? inv->bag_slots[i] : entt::null;
         bool isHovered = CheckCollisionPointRec(mousePos, {x, y, bagSlotSize, bagSlotSize});
+
+        // Update Animation
+        auto& anim = UISystem::State.bagSlotAnims[i];
+        float target = isHovered ? 1.0f : 0.0f;
+        anim.hoverValue += (target - anim.hoverValue) * 15.0f * dt;
+        float slotScale = 1.0f + anim.hoverValue * 0.1f;
+        float offset = (bagSlotSize * (slotScale - 1.0f)) / 2.0f;
 
         if (isHovered && bagItem != entt::null && UISystem::State.draggedItem == entt::null) {
             UISystem::State.hoveredItem = bagItem;
@@ -341,6 +355,6 @@ void UIInventory::Draw(entt::registry& registry) {
             }
         }
 
-        UISystem::DrawSlot(registry, x, y, bagSlotSize, (UISystem::State.draggedItem == bagItem) ? entt::null : bagItem, "背包", isHovered, false);
+        UISystem::DrawSlot(registry, x - offset, y - offset, bagSlotSize * slotScale, (UISystem::State.draggedItem == bagItem) ? entt::null : bagItem, "背包", isHovered, false, alpha);
     }
 }

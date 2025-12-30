@@ -14,7 +14,11 @@ namespace NoMoreDay {
 
         // State Flags
         bool showCharacterPanel = false;
+        float characterPanelAlpha = 0.0f; // New
+        
         bool showInventory = false;
+        float inventoryAlpha = 0.0f; // New
+        
         bool showContextMenu = false;
 
         // Drag & Drop State
@@ -26,6 +30,15 @@ namespace NoMoreDay {
 
         // Interaction State
         entt::entity hoveredItem = entt::null;
+
+        // Interaction Alphas/Scales
+        struct ElementAnim {
+            float hoverValue = 0.0f; // 0 to 1
+            float scale = 1.0f;
+        };
+        std::vector<ElementAnim> inventorySlotAnims;
+        std::vector<ElementAnim> equipmentSlotAnims;
+        std::vector<ElementAnim> bagSlotAnims;
 
         // Message Box (Simple global overlay)
         bool showMessageBox = false;
