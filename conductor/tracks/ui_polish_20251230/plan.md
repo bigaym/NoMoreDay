@@ -1,6 +1,6 @@
 ﻿# Plan: UI 界面优化与交互增强
 
-## Phase 1: 基础架构与通用优化 (Core Architecture & General Optimizations)
+## Phase 1: 基础架构与通用优化 (Core Architecture & General Optimizations) [checkpoint: 28a8c6a]
 
 - [x] Task: 评估现有 UI 框架和渲染器 (`UISystem`, `UIRenderer`) 的可扩展性。
   - [x] Sub-task: 分析 `UISystem.cpp` 和 `UIRenderer.cpp`，识别可重构或优化的区域。
