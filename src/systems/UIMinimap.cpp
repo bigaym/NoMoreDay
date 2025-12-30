@@ -31,39 +31,6 @@ void UIMinimap::ToggleDebugReveal() {
     LOG_INFO("Minimap Debug Reveal: {}", s_debugRevealMap ? "ON" : "OFF");
 }
 
-#include "UIMinimap.hpp"
-#include "UISystem.hpp"
-#include "../components/Common.hpp"
-#include "../components/AIComponent.hpp"
-#include "../core/LevelManager.hpp"
-#include "../core/UIRenderer.hpp"
-#include "FogOfWarSystem.hpp"
-#include "raylib.h"
-#include "../tools/Logger.hpp"
-#include <vector>
-
-using namespace NoMoreDay;
-
-static Texture2D s_minimapTexture = { 0 };
-static int s_minimapW = 0;
-static int s_minimapH = 0;
-static std::vector<Color> s_minimapPixels;
-static bool s_debugRevealMap = false;
-static bool s_minimapDirty = true;
-
-void UIMinimap::Cleanup() {
-    if (s_minimapTexture.id != 0) {
-        UnloadTexture(s_minimapTexture);
-        s_minimapTexture.id = 0;
-    }
-}
-
-void UIMinimap::ToggleDebugReveal() {
-    s_debugRevealMap = !s_debugRevealMap;
-    s_minimapDirty = true;
-    LOG_INFO("Minimap Debug Reveal: {}", s_debugRevealMap ? "ON" : "OFF");
-}
-
 void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager) {
     const auto& map = levelManager.getMapSystem();
     const auto& fog = levelManager.getFogSystem();

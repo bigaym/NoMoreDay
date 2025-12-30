@@ -88,7 +88,7 @@ void UIInventory::Draw(entt::registry& registry) {
     float equipH = panelH - 110.0f;
     
     DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, Fade(theme.slotBackground, 0.5f * alpha));
-    DrawRectangleRoundedLines({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
+    DrawRectangleRoundedLinesEx({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
     
     UIRenderer::DrawTextUI(font, "装备槽位", equipX + 15, equipY + 15, 22, theme.textPrimary, alpha);
 
@@ -188,7 +188,7 @@ void UIInventory::Draw(entt::registry& registry) {
     UIRenderer::DrawTextUI(font, "物品背包", invX + 5, invY - 25, 22, theme.textHighlight, alpha);
 
     DrawRectangleRounded({invX*scale, invY*scale, invW*scale, (panelH - 150)*scale}, 0.02f, 4, Fade(theme.slotBackground, 0.3f * alpha));
-    DrawRectangleRoundedLines({invX*scale, invY*scale, invW*scale, (panelH - 150)*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
+    DrawRectangleRoundedLinesEx({invX*scale, invY*scale, invW*scale, (panelH - 150)*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
 
     int totalCapacity = inv ? inv->capacity : 20;
     if (inv && inv->items.size() < (size_t)totalCapacity) inv->items.resize(totalCapacity, entt::null);
