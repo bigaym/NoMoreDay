@@ -48,6 +48,62 @@ void RenderSystem::render(entt::registry& registry) {
         DrawCircleSectorLines({pos.x, pos.y}, effect.range, startAngle, endAngle, 10, color);
     });
 
+    // 3.5. 绘制通用视觉特效 (Visual Effects)
+    auto visualEffectView = registry.view<const Position, const VisualEffect>();
+    visualEffectView.each([](const auto& pos, const auto& effect) {
+        float lifeRatio = effect.timer / effect.lifeTime;
+        
+        // 简单的线性插值
+        float currentScale = effect.startScale + (effect.endScale - effect.startScale) * lifeRatio;
+        
+        // 透明度淡出 (最后 30% 时间快速淡出)
+        float alpha = 1.0f;
+        if (lifeRatio > 0.7f) {
+            alpha = 1.0f - ((lifeRatio - 0.7f) / 0.3f);
+        }
+        
+        Color color = effect.color;
+        color.a = (unsigned char)(255 * alpha);
+
+        switch (effect.type) {
+            case VisualEffectType::Pickup: {
+                // 扩散的圆环 (Expanding Ring)
+                // DrawRing(center, innerRadius, outerRadius, startAngle, endAngle, segments, color)
+                float radius = currentScale * 30.0f;
+                float thickness = 2.0f + (1.0f - lifeRatio) * 3.0f; // 初始厚，逐渐变细
+                DrawRing({pos.x, pos.y}, radius, radius + thickness, 0, 360, 32, color);
+                break;
+            }
+            case VisualEffectType::DropPillar: {
+                // 瞬间光柱 (Transient Pillar) - 掉落瞬间的闪光
+                float height = effect.param1 > 0 ? effect.param1 : 150.0f;
+                float width = 30.0f * (1.0f - lifeRatio); // 逐渐变细
+                
+                // 核心亮光
+                DrawRectangleGradientV((int)(pos.x - width/2), (int)(pos.y - height), (int)width, (int)height, Fade(WHITE, 0.0f), color);
+                // 底部光晕
+                DrawCircleGradient((int)pos.x, (int)pos.y, width, color, Fade(color, 0.0f));
+                break;
+            }
+            case VisualEffectType::GoldSparkle: {
+                // 闪烁星星 (Sparkle)
+                // 旋转效果
+                float rotation = lifeRatio * 180.0f;
+                DrawPoly({pos.x, pos.y}, 4, 15.0f * currentScale, rotation, color);
+                DrawPoly({pos.x, pos.y}, 4, 8.0f * currentScale, -rotation, WHITE); // 内部亮白
+                break;
+            }
+            case VisualEffectType::LevelUp: {
+                 // 升级特效 (围绕角色的光旋)
+                 // TODO: 实现更复杂的升级特效
+                 DrawRing({pos.x, pos.y}, 40.0f, 45.0f, lifeRatio * 360.0f, lifeRatio * 360.0f + 180.0f, 16, color);
+                 break;
+            }
+            default:
+                break;
+        }
+    });
+
     // 4. 绘制伤害飘字
     Font font = UISystem::GetFont(); // Move font retrieval up
     

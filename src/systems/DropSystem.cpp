@@ -1,6 +1,7 @@
 #include "DropSystem.hpp"
 #include "../components/Common.hpp"
 #include "../components/ItemComponent.hpp"
+#include "../components/EffectComponent.hpp"
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/EnemyComponent.hpp"
@@ -92,6 +93,27 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
                     auto item = ItemFactory::createRandomLoot(registry, dropLevel, mf + rarityMFBoost);
                     registry.emplace_or_replace<Position>(item, pos.x, pos.y);
                     
+                    // Spawn Visual Effect
+                    auto effect = registry.create();
+                    registry.emplace<Position>(effect, pos.x, pos.y);
+                    VisualEffect vEffect;
+                    vEffect.type = VisualEffectType::DropPillar;
+                    vEffect.lifeTime = 0.5f;
+                    vEffect.startScale = 0.2f;
+                    vEffect.endScale = 1.0f;
+                    vEffect.color = WHITE;
+                    
+                    if (registry.all_of<ItemComponent>(item)) {
+                        const auto& ic = registry.get<ItemComponent>(item);
+                        switch(ic.rarity) {
+                            case Rarity::Magic: vEffect.color = SKYBLUE; break;
+                            case Rarity::Rare: vEffect.color = YELLOW; break;
+                            case Rarity::Legendary: vEffect.color = ORANGE; vEffect.lifeTime = 1.0f; vEffect.endScale = 1.5f; break;
+                            default: vEffect.color = WHITE; break;
+                        }
+                    }
+                    registry.emplace<VisualEffect>(effect, vEffect);
+
                     // Apply Loot Filter
                     if (registry.all_of<ItemComponent>(item)) {
                         const auto& itemComp = registry.get<ItemComponent>(item);
@@ -101,17 +123,18 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
                         
                         if (action.type == FilterActionType::HIDE) {
                             result.visible = false;
-                            // Optionally remove position to prevent pickup? 
-                            // Or handle in RenderSystem/PickupSystem.
-                            // For now, just mark invisible.
                         } else if (action.type == FilterActionType::EMPHASIZE) {
                             if (action.colorOverride.has_value()) {
                                 result.color = action.colorOverride.value();
                             } else {
-                                result.color = RED; // Default emphasize color if not specified
+                                result.color = RED;
                             }
                             result.scale = action.scale;
                             result.showOnMinimap = action.minimapIcon;
+                            
+                            // 过滤器高亮时，特效颜色也跟随
+                            registry.get<VisualEffect>(effect).color = result.color;
+                            registry.get<VisualEffect>(effect).lifeTime = 1.2f; // 更持久
                         }
                     }
 
@@ -125,6 +148,16 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
                         auto gold = registry.create();
                         registry.emplace<Position>(gold, pos.x, pos.y);
                         registry.emplace<GoldComponent>(gold, amount);
+                        
+                        // Spawn Gold Effect
+                        auto effect = registry.create();
+                        registry.emplace<Position>(effect, pos.x, pos.y);
+                        VisualEffect vEffect;
+                        vEffect.type = VisualEffectType::GoldSparkle;
+                        vEffect.lifeTime = 0.4f;
+                        vEffect.color = GOLD;
+                        registry.emplace<VisualEffect>(effect, vEffect);
+
                         LOG_DEBUG("DropSystem: Dropped {} gold at ({}, {})", amount, pos.x, pos.y);
                     }
                 }

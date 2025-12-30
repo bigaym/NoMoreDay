@@ -38,4 +38,16 @@ void EffectSystem::update(entt::registry& registry, float dt) {
             registry.destroy(entity);
         }
     }
+
+    // 3. 更新通用视觉特效
+    auto viewVisual = registry.view<VisualEffect>();
+    for(auto entity : viewVisual) {
+        auto& effect = viewVisual.get<VisualEffect>(entity);
+        
+        effect.timer += dt;
+        if (effect.timer >= effect.lifeTime) {
+             // 简单的淡出或结束逻辑，这里直接销毁
+             registry.destroy(entity);
+        }
+    }
 }

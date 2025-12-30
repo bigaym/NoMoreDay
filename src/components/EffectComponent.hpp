@@ -26,3 +26,24 @@ struct AttackEffect {
     float arcAngle; // 扇形角度
     Color color;
 };
+
+enum class VisualEffectType {
+    None,
+    Pickup,       // 拾取时的扩散圆圈
+    DropPillar,   // 掉落时的光柱
+    GoldSparkle,  // 金币拾取的闪光
+    LevelUp       // 升级时的特效
+};
+
+struct VisualEffect {
+    VisualEffectType type = VisualEffectType::None;
+    float timer = 0.0f;
+    float lifeTime = 1.0f;
+    float startScale = 0.5f;
+    float endScale = 1.5f;
+    Color color = WHITE;
+    
+    // 额外的属性，根据类型不同有不同含义
+    // 例如 Pickup 的扩散半径，DropPillar 的高度等
+    float param1 = 0.0f; 
+};

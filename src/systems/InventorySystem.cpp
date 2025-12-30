@@ -1,6 +1,7 @@
 #include "InventorySystem.hpp"
 #include "../tools/Logger.hpp"
 #include "../components/Stats.hpp"
+#include "../components/EffectComponent.hpp"
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -60,6 +61,26 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
 
                 if (itemComp->quantity <= 0)
                 {
+                    // Visual Effect
+                    if (registry.all_of<Position>(item)) {
+                        const auto& pos = registry.get<Position>(item);
+                        auto effect = registry.create();
+                        registry.emplace<Position>(effect, pos.x, pos.y);
+                        VisualEffect vEffect;
+                        vEffect.type = VisualEffectType::Pickup;
+                        vEffect.lifeTime = 0.3f;
+                        vEffect.color = WHITE;
+                        if (existingItem) {
+                             switch(existingItem->rarity) {
+                                 case Rarity::Magic: vEffect.color = SKYBLUE; break;
+                                 case Rarity::Rare: vEffect.color = YELLOW; break;
+                                 case Rarity::Legendary: vEffect.color = ORANGE; break;
+                                 default: vEffect.color = WHITE; break;
+                            }
+                        }
+                        registry.emplace<VisualEffect>(effect, vEffect);
+                    }
+
                     // 全部合并完成，销毁地面实体
                     registry.destroy(item);
                     return true;
@@ -96,6 +117,27 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
     }
 
     // 移除世界组件
+    if (registry.all_of<Position>(item)) {
+        const auto& pos = registry.get<Position>(item);
+        
+        // Visual Effect
+        auto effect = registry.create();
+        registry.emplace<Position>(effect, pos.x, pos.y);
+        VisualEffect vEffect;
+        vEffect.type = VisualEffectType::Pickup;
+        vEffect.lifeTime = 0.3f;
+        vEffect.color = WHITE;
+        if (itemComp) {
+            switch(itemComp->rarity) {
+                 case Rarity::Magic: vEffect.color = SKYBLUE; break;
+                 case Rarity::Rare: vEffect.color = YELLOW; break;
+                 case Rarity::Legendary: vEffect.color = ORANGE; break;
+                 default: vEffect.color = WHITE; break;
+            }
+        }
+        registry.emplace<VisualEffect>(effect, vEffect);
+    }
+
     registry.remove<Position>(item);
     if (registry.any_of<SpriteComponent>(item))
     {
@@ -658,6 +700,15 @@ void InventorySystem::update(entt::registry &registry, float dt)
                         inventory.gold = std::numeric_limits<int>::max();
                     else
                         inventory.gold = (int)newGold;
+
+                    // Visual Effect
+                    auto effect = registry.create();
+                    registry.emplace<Position>(effect, goldPos.x, goldPos.y);
+                    VisualEffect vEffect;
+                    vEffect.type = VisualEffectType::GoldSparkle;
+                    vEffect.lifeTime = 0.3f;
+                    vEffect.color = GOLD;
+                    registry.emplace<VisualEffect>(effect, vEffect);
 
                     LOG_DEBUG("InventorySystem: Picked up {} gold. Total: {}", goldComp.amount, inventory.gold);
                     registry.destroy(goldEntity);
