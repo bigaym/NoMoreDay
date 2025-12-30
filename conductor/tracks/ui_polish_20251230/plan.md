@@ -32,7 +32,7 @@
   - [x] Sub-task: 测试界面开关动画的平滑性和持续时间。
 - [x] Task: Conductor - User Manual Verification '交互反馈与动画系统' (Protocol in workflow.md)
 
-## Phase 3: 物品与信息提示视觉增强 (Item & Info Prompt Visual Enhancement)
+## Phase 3: 物品与信息提示视觉增强 (Item & Info Prompt Visual Enhancement) [checkpoint: a221222]
 
 - [x] Task: 优化物品拾取、掉落、装备时的视觉特效。 1a53e45
   - [x] Sub-task: 设计并实现物品生成、消失时的粒子效果或光效。
