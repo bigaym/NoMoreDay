@@ -127,6 +127,49 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
         UIInventory::Toggle();
     }
 
+    // Quick Sort (Z)
+    if (IsKeyPressed(KEY_Z)) {
+        auto playerView = registry.view<PlayerTag>();
+        if (playerView.begin() != playerView.end()) {
+            InventorySystem::organize(registry, playerView.front());
+        }
+    }
+
+    // Quick Pickup (F)
+    if (IsKeyPressed(KEY_F)) {
+        auto playerView = registry.view<PlayerTag, Position>();
+        if (playerView.begin() != playerView.end()) {
+            auto playerEntity = playerView.front();
+            const auto& pPos = playerView.get<Position>(playerEntity);
+            
+            auto groundItemView = registry.view<ItemComponent, Position>();
+            entt::entity nearestItem = entt::null;
+            float nearestDistSq = 150.0f * 150.0f; // Max pickup range
+
+            for (auto entity : groundItemView) {
+                const auto& iPos = groundItemView.get<Position>(entity);
+                float dx = iPos.x - pPos.x;
+                float dy = iPos.y - pPos.y;
+                float distSq = dx*dx + dy*dy;
+                
+                if (distSq < nearestDistSq) {
+                    nearestDistSq = distSq;
+                    nearestItem = entity;
+                }
+            }
+            
+            if (nearestItem != entt::null) {
+                if (InventorySystem::pickUpItem(registry, playerEntity, nearestItem)) {
+                    // Success
+                } else {
+                    State.showMessageBox = true;
+                    snprintf(State.messageBoxText, 64, "背包已满");
+                    State.messageBoxTimer = 1.5f;
+                }
+            }
+        }
+    }
+
     // ESC Handling
     if (IsKeyPressed(KEY_ESCAPE)) {
         if (State.showQuantityPopup) {
@@ -202,6 +245,8 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
             playerPos2D = {p.x, p.y};
         }
 
+        Font font = GetFont();
+
         for (auto entity : groundItemView) {
             const auto* filterResult = registry.try_get<LootFilterResultComponent>(entity);
             if (filterResult && !filterResult->visible && !altHeld) {
@@ -209,21 +254,40 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
             }
 
             const auto& pos = groundItemView.get<Position>(entity);
+            const auto& item = groundItemView.get<ItemComponent>(entity);
+
             Vector2 screenPos = GetWorldToScreen2D({pos.x, pos.y}, camera); // Screen Space
             Vector2 screenPosLogic = { screenPos.x / scale, screenPos.y / scale }; // Logic Space
 
-            // Interaction Radius: 30.0f in Logic Space
-            if (CheckCollisionPointCircle(mouseLogicPos, screenPosLogic, 30.0f)) {
+            // Calculate Label Rectangle in Logic Space
+            float labelScale = 1.0f;
+            if (filterResult) labelScale = filterResult->scale;
+            float fontSize = 18.0f * labelScale;
+            Vector2 textSize = IsFontValid(font) ? MeasureTextEx(font, item.name.c_str(), fontSize, 1.0f) : Vector2{(float)MeasureText(item.name.c_str(), (int)fontSize), fontSize};
+            
+            Rectangle labelRect = { 
+                screenPosLogic.x - (textSize.x / 2.0f) - 4, 
+                screenPosLogic.y - 30.0f * labelScale - textSize.y - 2, 
+                textSize.x + 8, 
+                textSize.y + 4 
+            };
+
+            // Interaction Check: Circle around item OR the Label Rectangle
+            bool hovered = CheckCollisionPointCircle(mouseLogicPos, screenPosLogic, 30.0f) || 
+                           CheckCollisionPointRec(mouseLogicPos, labelRect);
+
+            if (hovered) {
                 State.hoveredItem = entity;
                 
-                DrawCircleLines((int)screenPos.x, (int)screenPos.y, 30.0f * scale, Fade(GREEN, 0.6f));
+                // Visual Highlight for the label
+                DrawRectangleLinesEx({labelRect.x * scale, labelRect.y * scale, labelRect.width * scale, labelRect.height * scale}, 1.0f * scale, Fade(WHITE, 0.8f));
                 
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && playerEntity != entt::null) {
                     float dx = pos.x - playerPos2D.x;
                     float dy = pos.y - playerPos2D.y;
                     float distSq = dx*dx + dy*dy;
 
-                    if (distSq <= 150.0f * 150.0f) {
+                    if (distSq <= 180.0f * 180.0f) { // Slightly increased pickup range for convenience
                         if (InventorySystem::pickUpItem(registry, playerEntity, entity)) {
                             State.hoveredItem = entt::null;
                         } else {

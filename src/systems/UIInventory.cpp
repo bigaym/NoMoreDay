@@ -131,7 +131,16 @@ void UIInventory::Draw(entt::registry& registry) {
             UISystem::State.hoveredItem = item;
         }
 
-        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
+        // Quick Unequip (Shift + Click)
+        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT) && item != entt::null) {
+            if (!InventorySystem::unequipItem(registry, player, slotType)) {
+                UISystem::State.showMessageBox = true;
+                snprintf(UISystem::State.messageBoxText, 64, "背包已满");
+                UISystem::State.messageBoxTimer = 1.5f;
+            }
+        }
+        // Drag Start
+        else if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
             UISystem::State.draggedItem = item;
             UISystem::State.isDraggingFromInventory = false;
             UISystem::State.dragSourceBagSlotIndex = -1;
@@ -212,11 +221,27 @@ void UIInventory::Draw(entt::registry& registry) {
             float slotScale = 1.0f + anim.hoverValue * 0.1f;
             float offset = (invSlotSize * (slotScale - 1.0f)) / 2.0f;
 
+            // Interaction Logic
             if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
                 UISystem::State.hoveredItem = item;
             }
 
-            if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
+            // Quick Move/Equip (Shift + Click)
+            if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT) && item != entt::null) {
+                // Attempt to equip
+                if (equip) {
+                    if (InventorySystem::equipItem(registry, player, item)) {
+                        // Success - sound effect?
+                    } else {
+                        // Fail - maybe show error?
+                        UISystem::State.showMessageBox = true;
+                        snprintf(UISystem::State.messageBoxText, 64, "无法装备或槽位不匹配");
+                        UISystem::State.messageBoxTimer = 1.5f;
+                    }
+                }
+            }
+            // Drag Start
+            else if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
                 UISystem::State.draggedItem = item;
                 UISystem::State.isDraggingFromInventory = true;
                 UISystem::State.dragSourceInventoryIndex = overallIndex;

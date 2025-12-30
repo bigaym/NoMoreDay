@@ -206,9 +206,8 @@ namespace NoMoreDay {
             return;
         }
 
-        float w = 140; 
-        float h = 0;
-        float btnH = 30;
+        float w = 180.0f; // Wider
+        float btnH = 36.0f; // Taller buttons
         int btnCount = 0;
 
         bool showEquip = uiContext.isContextFromInventory; 
@@ -220,7 +219,7 @@ namespace NoMoreDay {
         if (showDrop) btnCount++;
         btnCount++; // Cancel
 
-        h = btnCount * btnH + 10;
+        float h = btnCount * btnH + 20.0f; // Extra padding
         
         float sx = uiContext.contextMenuPos.x;
         float sy = uiContext.contextMenuPos.y;
@@ -228,25 +227,40 @@ namespace NoMoreDay {
         float sh = h * s_uiScale;
         float sBtnH = btnH * s_uiScale;
 
-        DrawRectangle(sx, sy, sw, sh, Fade(s_theme.panelBackground, 0.95f * alpha));
-        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f*s_uiScale, Fade(s_theme.panelBorderHighlight, alpha));
+        // Ensure it stays within screen bounds
+        if (sx + sw > GetScreenWidth()) sx -= sw;
+        if (sy + sh > GetScreenHeight()) sy -= sh;
 
-        float curSY = sy + 5 * s_uiScale;
+        // Background & Border
+        DrawRectangle(sx, sy, sw, sh, Fade(s_theme.panelBackground, 0.98f * alpha));
+        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, alpha));
+        // Accent line
+        DrawLineEx({sx, sy}, {sx + sw, sy}, 2.0f * s_uiScale, Fade(s_theme.panelBorderHighlight, alpha));
 
-        auto DrawMenuBtn = [&](const char* text) -> bool {
-            Rectangle r = {sx + 5*s_uiScale, curSY, sw - 10*s_uiScale, sBtnH - 2*s_uiScale};
+        float curSY = sy + 10.0f * s_uiScale;
+
+        auto DrawMenuBtn = [&](const char* text, Color textColor = WHITE) -> bool {
+            Rectangle r = {sx + 5.0f * s_uiScale, curSY, sw - 10.0f * s_uiScale, sBtnH};
             bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
-            if (hovered) DrawRectangleRec(r, Fade(s_theme.buttonHover, 0.3f * alpha));
+            bool pressed = hovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
             
-            float sSize = 18 * s_uiScale;
-             if (IsFontValid(font)) {
-                DrawTextEx(font, text, { sx + 15*s_uiScale, curSY + 5*s_uiScale }, sSize, 1.0f * s_uiScale, Fade(hovered ? s_theme.textHighlight : s_theme.textSecondary, alpha));
+            if (hovered) {
+                Color bg = pressed ? s_theme.buttonPress : s_theme.buttonHover;
+                DrawRectangleRec(r, Fade(bg, 0.5f * alpha));
+                DrawRectangleLinesEx(r, 1.0f * s_uiScale, Fade(s_theme.panelBorder, 0.5f * alpha));
+            }
+            
+            float sSize = 18.0f * s_uiScale;
+            if (IsFontValid(font)) {
+                Vector2 textSize = MeasureTextEx(font, text, sSize, 1.0f);
+                DrawTextEx(font, text, { sx + (sw - textSize.x) / 2.0f, curSY + (sBtnH - textSize.y) / 2.0f }, sSize, 1.0f * s_uiScale, Fade(hovered ? s_theme.textHighlight : textColor, alpha));
             } else {
-                DrawText(text, (int)(sx + 15*s_uiScale), (int)(curSY + 5*s_uiScale), (int)sSize, Fade(hovered ? s_theme.textHighlight : s_theme.textSecondary, alpha));
+                int textW = MeasureText(text, (int)sSize);
+                DrawText(text, (int)(sx + (sw - textW) / 2.0f), (int)(curSY + (sBtnH - sSize) / 2.0f), (int)sSize, Fade(hovered ? s_theme.textHighlight : textColor, alpha));
             }
             
             curSY += sBtnH;
-            return hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+            return hovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON);
         };
 
         if (showEquip) {
@@ -269,16 +283,23 @@ namespace NoMoreDay {
         }
         if (showDrop) {
              auto view = registry.view<PlayerTag>();
-            if (view.begin() != view.end() && DrawMenuBtn("丢弃")) {
+            if (view.begin() != view.end() && DrawMenuBtn("丢弃", s_theme.danger)) {
                 InventorySystem::dropItem(registry, view.front(), uiContext.contextMenuItem);
                 uiContext.showContextMenu = false;
             }
         }
-        if (DrawMenuBtn("取消")) {
+        
+        // Separator before cancel if there were buttons
+        if (btnCount > 1) {
+             DrawLineEx({sx + 10*s_uiScale, curSY + 2*s_uiScale}, {sx + sw - 10*s_uiScale, curSY + 2*s_uiScale}, 1.0f*s_uiScale, Fade(s_theme.panelBorder, 0.3f*alpha));
+             curSY += 5*s_uiScale;
+        }
+
+        if (DrawMenuBtn("取消", s_theme.textSecondary)) {
             uiContext.showContextMenu = false;
         }
         
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) || IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
             if (!CheckCollisionPointRec(GetMousePosition(), {sx, sy, sw, sh})) {
                 uiContext.showContextMenu = false;
             }
