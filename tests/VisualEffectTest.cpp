@@ -9,6 +9,7 @@
 #include "../src/components/InventoryComponent.hpp"
 #include "../src/systems/DropSystem.hpp"
 #include "../src/systems/InventorySystem.hpp"
+#include "../src/systems/EffectSystem.hpp"
 #include "../src/core/ItemFactory.hpp"
 #include "../src/tools/Logger.hpp"
 #include <entt/entity/registry.hpp>
@@ -130,5 +131,43 @@ TEST_CASE("Visual Effect Tests") {
             }
         }
         CHECK(effectCount > 0);
+    }
+
+    SUBCASE("Damage Popup Animation") {
+        registry.clear();
+        auto entity = registry.create();
+        registry.emplace<Position>(entity, 0.0f, 0.0f);
+        
+        DamagePopup popup;
+        popup.damage = 10;
+        popup.timer = 0.0f;
+        popup.lifeTime = 1.0f;
+        popup.velX = 0;
+        popup.velY = 0;
+        popup.isCrit = true; // Test Crit logic
+        popup.currentScale = 0.0f;
+        
+        registry.emplace<DamagePopup>(entity, popup);
+        
+        // Include EffectSystem to update it
+        // Note: EffectSystem is a class or namespace? 
+        // In source, it's a class with static method update? No, usually struct with method.
+        // Let's check EffectSystem.hpp.
+        // Assuming EffectSystem::update(registry, dt)
+        
+        // Update for 0.1s
+        EffectSystem::update(registry, 0.1f);
+        
+        // Check scale
+        const auto& p = registry.get<DamagePopup>(entity);
+        // At 0.1s, Crit scale should be > 0.5f (start)
+        CHECK(p.currentScale > 0.5f);
+        CHECK(p.timer == doctest::Approx(0.1f));
+        
+        // Update more to exceed lifetime
+        EffectSystem::update(registry, 1.0f);
+        
+        // Entity should be destroyed
+        CHECK(registry.valid(entity) == false);
     }
 }

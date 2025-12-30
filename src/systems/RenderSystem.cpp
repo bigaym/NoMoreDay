@@ -129,14 +129,22 @@ void RenderSystem::render(entt::registry& registry) {
             text = TextFormat("%d", (int)popup.damage);
         }
 
-        float fontSize = 20.0f;
-        if (popup.isCrit) fontSize = 24.0f; // 暴击字体更大
+        float baseSize = 20.0f;
+        if (popup.isCrit) baseSize = 24.0f; // 暴击基础字体更大
+        
+        float fontSize = baseSize * popup.currentScale;
+        
+        // 居中偏移 (根据缩放后的尺寸)
+        // 简单估算：每个字符宽度约为 fontSize/2
+        // float textWidth = (float)strlen(text) * (fontSize / 2.0f);
+        // Vector2 offset = { textWidth / 2.0f, fontSize / 2.0f };
+        // 暂时不改 Pos，保持原点在左上角 (或者由 EffectSystem 控制 offset)
         
         if (IsFontValid(font)) {
-            DrawTextEx(font, text, { pos.x + 1, pos.y + 1 }, fontSize, 1.0f, Fade(BLACK, alpha));
+            DrawTextEx(font, text, { pos.x + 2, pos.y + 2 }, fontSize, 1.0f, Fade(BLACK, alpha));
             DrawTextEx(font, text, { pos.x, pos.y }, fontSize, 1.0f, color);
         } else {
-            DrawText(text, (int)pos.x + 1, (int)pos.y + 1, (int)fontSize, Fade(BLACK, alpha));
+            DrawText(text, (int)pos.x + 2, (int)pos.y + 2, (int)fontSize, Fade(BLACK, alpha));
             DrawText(text, (int)pos.x, (int)pos.y, (int)fontSize, color);
         }
     });

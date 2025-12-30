@@ -15,6 +15,9 @@ struct DamagePopup {
     bool isBlock = false; // 是否为格挡
     bool isMiss = false;  // 是否未命中
     bool isCrit = false;  // 是否为暴击
+    
+    // Animation state
+    float currentScale = 1.0f;
 };
 
 // 攻击特效 (如挥剑轨迹)

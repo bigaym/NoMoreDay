@@ -120,7 +120,8 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                                 if (registry.all_of<Position>(target)) {
                                     const auto& tPos = registry.get<Position>(target);
                                     auto popupEntity = registry.create();
-                                    registry.emplace<Position>(popupEntity, tPos.x, tPos.y - 20.0f);
+                                    // Add random offset to prevent overlap
+                                    registry.emplace<Position>(popupEntity, tPos.x + GetRandomValue(-15, 15), tPos.y - 20.0f + GetRandomValue(-10, 5));
                                     
                                     DamagePopup popup;
                                     popup.damage = 0;
@@ -161,7 +162,8 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                             if (registry.all_of<Position>(target)) {
                                 const auto& tPos = registry.get<Position>(target);
                                 auto popupEntity = registry.create();
-                                registry.emplace<Position>(popupEntity, tPos.x, tPos.y - 20.0f);
+                                // Add random offset
+                                registry.emplace<Position>(popupEntity, tPos.x + GetRandomValue(-15, 15), tPos.y - 20.0f + GetRandomValue(-10, 5));
                                 
                                 DamagePopup popup;
                                 popup.damage = 0;
@@ -281,7 +283,8 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
 
                         // --- 生成伤害飘字 ---
                         auto popupEntity = registry.create();
-                        registry.emplace<Position>(popupEntity, popupX, popupY);
+                        // Add random offset to prevent overlap
+                        registry.emplace<Position>(popupEntity, popupX + GetRandomValue(-15, 15), popupY + GetRandomValue(-10, 5));
                         
                         DamagePopup popup;
                         popup.damage = finalDamage; // 伤害值

@@ -18,13 +18,41 @@ void EffectSystem::update(entt::registry& registry, float dt) {
             registry.destroy(entity);
             continue;
         }
+        
+        // --- Animation Logic ---
+        
+        // Scale animation (Pop effect)
+        if (popup.isCrit) {
+            // Crit: Pop big, then settle (弹性效果)
+            if (popup.timer < 0.15f) {
+                // 0 -> 0.15s: 0.5 -> 1.8
+                popup.currentScale = 0.5f + (popup.timer / 0.15f) * 1.3f;
+            } else if (popup.timer < 0.3f) {
+                // 0.15 -> 0.3s: 1.8 -> 1.2
+                float t = (popup.timer - 0.15f) / 0.15f;
+                popup.currentScale = 1.8f - t * 0.6f;
+            } else {
+                popup.currentScale = 1.2f;
+            }
+        } else {
+            // Normal: Slight pop
+            if (popup.timer < 0.1f) {
+                popup.currentScale = 0.5f + (popup.timer / 0.1f) * 0.5f;
+            } else {
+                popup.currentScale = 1.0f;
+            }
+        }
 
-        // 向上浮动
+        // Movement Physics
         pos.x += popup.velX * dt;
         pos.y += popup.velY * dt;
         
-        // 简单的重力/阻力效果 (可选)
-        popup.velY += 50.0f * dt; // 慢慢减缓上升速度
+        // Gravity (slow down upward movement, eventually fall)
+        // 假设 velY 初始为负值 (向上)
+        popup.velY += 200.0f * dt; 
+        
+        // Drag on X
+        popup.velX *= (1.0f - 3.0f * dt);
     }
 
     // 2. 更新攻击特效
