@@ -1,6 +1,7 @@
 #include "InputSystem.hpp"
 #include "../components/Common.hpp"
 #include "raylib.h"
+#include "UISystem.hpp" // For UI state check
 
 void InputSystem::update(entt::registry& registry) {
     auto view = registry.view<PlayerTag, InputComponent>();
@@ -19,8 +20,19 @@ void InputSystem::update(entt::registry& registry) {
         if (IsKeyDown(KEY_D)) input.moveX += 1.0f;
         
         // 动作
-        input.attack = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
-        input.dash = IsKeyDown(KEY_LEFT_SHIFT);
+        // Only allow mouse actions if not hovering over UI
+        if (!UISystem::State.isMouseOverUI) {
+            input.attack = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+            // Only allow dash towards mouse if not over UI, OR if using keyboard
+            // Note: Dash logic in GameplayState handles direction.
+            // But triggering dash via Shift is keyboard. 
+            // Triggering via mouse might be right click (not implemented here yet).
+            // Usually Shift is Dash.
+            input.dash = IsKeyDown(KEY_LEFT_SHIFT);
+        } else {
+            input.attack = false;
+            input.dash = IsKeyDown(KEY_LEFT_SHIFT); // Allow keyboard dash even if mouse over UI (standard ARPG behavior)
+        }
 
         // 归一化向量以保持对角线移动的一致性
         if (input.moveX != 0 || input.moveY != 0) {

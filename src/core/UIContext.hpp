@@ -13,6 +13,7 @@ namespace NoMoreDay {
         float scaleFactor = 1.0f;
 
         // State Flags
+        bool isMouseOverUI = false; // Tracks if mouse is over any UI element
         bool showCharacterPanel = false;
         float characterPanelAlpha = 0.0f; // New
         

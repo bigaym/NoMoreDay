@@ -55,21 +55,31 @@ void UIInventory::Draw(entt::registry& registry) {
     Vector2 mousePos = UISystem::GetMousePositionLogic();
     float alpha = UISystem::State.inventoryAlpha;
 
+    // Check if mouse is over UI Panel (Background)
+    if (CheckCollisionPointRec(mousePos, {panelX, panelY, panelW, panelH})) {
+        UISystem::State.isMouseOverUI = true;
+    }
+
     // Scale helper
     float scale = UIRenderer::GetScale();
     auto& theme = UIRenderer::GetTheme();
     Font font = UISystem::GetFont();
     
+    // Helper to apply alpha correctly (Multiply alpha, instead of overwrite)
+    auto ApplyAlpha = [&](Color c, float a) -> Color {
+        return { c.r, c.g, c.b, (unsigned char)((float)c.a * a) };
+    };
+
     auto DrawRectScaled = [&](float x, float y, float w, float h, Color c) {
-        DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), Fade(c, alpha));
+        DrawRectangle((int)(x*scale), (int)(y*scale), (int)(w*scale), (int)(h*scale), ApplyAlpha(c, alpha));
     };
     
     auto DrawRectLinesScaled = [&](Rectangle rec, float thick, Color c) {
-        DrawRectangleLinesEx({rec.x*scale, rec.y*scale, rec.width*scale, rec.height*scale}, thick*scale, Fade(c, alpha));
+        DrawRectangleLinesEx({rec.x*scale, rec.y*scale, rec.width*scale, rec.height*scale}, thick*scale, ApplyAlpha(c, alpha));
     };
     
     auto DrawLineScaled = [&](Vector2 start, Vector2 end, float thick, Color c) {
-        DrawLineEx({start.x*scale, start.y*scale}, {end.x*scale, end.y*scale}, thick*scale, Fade(c, alpha));
+        DrawLineEx({start.x*scale, start.y*scale}, {end.x*scale, end.y*scale}, thick*scale, ApplyAlpha(c, alpha));
     };
 
     // 背景 (Background)
@@ -87,8 +97,12 @@ void UIInventory::Draw(entt::registry& registry) {
     float equipW = 340.0f;
     float equipH = panelH - 110.0f;
     
-    DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, Fade(theme.slotBackground, 0.5f * alpha));
-    DrawRectangleRoundedLinesEx({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
+    // Note: Fade overwrites alpha, so we manually apply our factor if we want to combine.
+    // However, slotBackground has alpha 200. We want 0.5 * 200 * alpha.
+    Color equipBg = theme.slotBackground;
+    equipBg.a = (unsigned char)(equipBg.a * 0.5f);
+    DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, ApplyAlpha(equipBg, alpha));
+    DrawRectangleRoundedLinesEx({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, 1.0f*scale, ApplyAlpha(theme.panelBorder, alpha));
     
     UIRenderer::DrawTextUI(font, "装备槽位", equipX + 15, equipY + 15, 22, theme.textPrimary, alpha);
 
@@ -176,8 +190,11 @@ void UIInventory::Draw(entt::registry& registry) {
     float invSlotGap = 5.0f;
 
     UIRenderer::DrawTextUI(font, "物品背包", invX + 5, invY - 25, 22, theme.textHighlight, alpha);
-    DrawRectangleRounded({invX*scale, invY*scale, invW*scale, invH*scale}, 0.02f, 4, Fade(theme.slotBackground, 0.3f * alpha));
-    DrawRectangleRoundedLinesEx({invX*scale, invY*scale, invW*scale, invH*scale}, 0.02f, 4, 1.0f*scale, Fade(theme.panelBorder, alpha));
+    
+    Color invBg = theme.slotBackground;
+    invBg.a = (unsigned char)(invBg.a * 0.3f);
+    DrawRectangleRounded({invX*scale, invY*scale, invW*scale, invH*scale}, 0.02f, 4, ApplyAlpha(invBg, alpha));
+    DrawRectangleRoundedLinesEx({invX*scale, invY*scale, invW*scale, invH*scale}, 0.02f, 4, 1.0f*scale, ApplyAlpha(theme.panelBorder, alpha));
 
     // 同步 items 向量大小，确保所有拾取的物品（如药水）都能被遍历到
     if ((int)inv->items.size() < inv->capacity) {

@@ -52,7 +52,7 @@ namespace NoMoreDay {
         
         UIInventory::Update(registry);
 
-        return false; // Block updates for states below (Gameplay paused)
+        return true; // Allow updates for states below (Gameplay NO LONGER paused)
     }
 
     void InventoryState::OnRender() {

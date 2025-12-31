@@ -18,16 +18,17 @@ void AssetLoadingSystem::LoadAllEquipment() {
         return;
     }
 
-    LOG_INFO("Loading equipment assets...");
+    LOG_INFO("Registering equipment assets (Lazy Load)...");
     int count = 0;
 
     auto load = [&](const auto& assets) {
         for (const auto& asset : assets) {
-            m_resourceManager->loadTexture(asset.id, std::string(asset.path));
+            m_resourceManager->registerTexture(asset.id, std::string(asset.path));
             count++;
         }
     };
 
+    // 加载所有装备资产
     using namespace assets::equipment;
     load(amulet::All);
     load(axe::All);
@@ -48,7 +49,7 @@ void AssetLoadingSystem::LoadAllEquipment() {
     load(sword::All);
     load(wand::All);
 
-    LOG_INFO("Loaded {} equipment assets.", count);
+    LOG_INFO("Registered {} equipment assets.", count);
 }
 
 Font AssetLoadingSystem::LoadUIFont(const std::string& path, int fontSize) {

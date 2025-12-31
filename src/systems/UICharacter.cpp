@@ -149,7 +149,7 @@ void UICharacter::Draw(entt::registry& registry) {
 
     currentY += avatarSize + 30.0f;
 
-    const auto* primStats = registry.try_get<PrimaryStats>(player);
+    auto* primStats = registry.try_get<PrimaryStats>(player);
     const auto* combatStats = registry.try_get<CombatStats>(player);
     auto& attrUI = registry.get_or_emplace<AttributeUIComponent>(player);
 
@@ -184,14 +184,15 @@ void UICharacter::Draw(entt::registry& registry) {
         return clicked;
     };
 
-    auto DrawAttrRow = [&](const char* label, float baseVal, int& tempVal, float& y) {
+    auto DrawAttrRow = [&](const char* label, float baseVal, float effectiveVal, int& tempVal, float& y) {
         float rowH = 28.0f;
         UIRenderer::DrawTextUI(font, label, col1X, y + 4, 20, theme.textSecondary, alpha);
         
-        float finalVal = baseVal + tempVal;
-        const char* valStr = (tempVal > 0) ? TextFormat("%.0f (+%d)", finalVal, tempVal) : TextFormat("%.0f", finalVal);
+        // Display effective value (which includes equipment)
+        float displayVal = effectiveVal + tempVal;
+        const char* valStr = (tempVal > 0) ? TextFormat("%.0f (+%d)", displayVal, tempVal) : TextFormat("%.0f", displayVal);
         
-        UIRenderer::DrawTextUI(font, valStr, col1X + 100, y + 4, 20, (tempVal > 0) ? theme.success : theme.textPrimary, alpha);
+        UIRenderer::DrawTextUI(font, valStr, col1X + 100, y + 4, 20, (tempVal > 0 || effectiveVal > baseVal) ? theme.success : theme.textPrimary, alpha);
         
         float btnX = col1X + 260.0f;
         if (tempVal > 0 && DrawBtn(btnX, y, "-")) tempVal--;
@@ -199,10 +200,10 @@ void UICharacter::Draw(entt::registry& registry) {
         y += rowH + 8.0f;
     };
 
-    DrawAttrRow("力量", primStats->strength, attrUI.tempStr, currentY);
-    DrawAttrRow("敏捷", primStats->dexterity, attrUI.tempDex, currentY);
-    DrawAttrRow("智力", primStats->intelligence, attrUI.tempInt, currentY);
-    DrawAttrRow("体能", primStats->vitality, attrUI.tempVit, currentY);
+    DrawAttrRow("力量", primStats->strength, combatStats->effective_strength, attrUI.tempStr, currentY);
+    DrawAttrRow("敏捷", primStats->dexterity, combatStats->effective_dexterity, attrUI.tempDex, currentY);
+    DrawAttrRow("智力", primStats->intelligence, combatStats->effective_intelligence, attrUI.tempInt, currentY);
+    DrawAttrRow("体能", primStats->vitality, combatStats->effective_vitality, attrUI.tempVit, currentY);
 
     currentY += 20.0f;
     DrawLineEx({(panelX + padding)*scale, currentY*scale}, {(panelX + panelW - padding)*scale, currentY*scale}, 1.0f*scale, Fade(theme.panelBorder, alpha));
@@ -258,20 +259,26 @@ void UICharacter::Draw(entt::registry& registry) {
         DrawStatRow("护甲穿透", TextFormat("%.0f", combatStats->armor_pen), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("施法速度", TextFormat("%.2f", combatStats->cast_speed), rowX, y, rowW, 20.0f, alpha);
 
-        y += 15.0f; UIRenderer::DrawTextUI(font, "附加点伤", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
-        auto DrawFlat = [&](DamageType t, const char* n) { 
-            if (combatStats->flat_damage[(int)t] > 0)
-                DrawStatRow(n, TextFormat("+%.0f", combatStats->flat_damage[(int)t]), rowX, y, rowW, 20.0f, alpha); 
+        y += 15.0f; UIRenderer::DrawTextUI(font, "伤害构成 (点伤 / 增益)", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
+        auto DrawDamageRow = [&](DamageType t, const char* n) { 
+            float flat = combatStats->flat_damage[(int)t];
+            
+            // 物理伤害特殊处理：加上武器基础平均伤害
+            if (t == DamageType::Physical) {
+                float avgWeapon = (combatStats->min_weapon_damage + combatStats->max_weapon_damage) * 0.5f;
+                flat += avgWeapon;
+            }
+            
+            float mult = (combatStats->damage_multipliers[(int)t] - 1.0f) * 100.0f;
+            DrawStatRow(n, TextFormat("%.0f / +%.0f%%", flat, mult), rowX, y, rowW, 20.0f, alpha); 
         };
-        DrawFlat(DamageType::Fire, "附加火焰"); DrawFlat(DamageType::Cold, "附加冰霜"); DrawFlat(DamageType::Lightning, "附加闪电");
-        DrawFlat(DamageType::Poison, "附加毒素"); DrawFlat(DamageType::Shadow, "附加暗影");
-
-        y += 15.0f; UIRenderer::DrawTextUI(font, "伤害增益", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
-        auto DrawMult = [&](DamageType t, const char* n) { 
-            DrawStatRow(n, TextFormat("+%.0f%%", (combatStats->damage_multipliers[(int)t] - 1.0f) * 100.0f), rowX, y, rowW, 20.0f, alpha); 
-        };
-        DrawMult(DamageType::Physical, "物理加成"); DrawMult(DamageType::Fire, "火焰加成"); DrawMult(DamageType::Cold, "冰霜加成");
-        DrawMult(DamageType::Lightning, "闪电加成"); DrawMult(DamageType::Poison, "毒素加成"); DrawMult(DamageType::Shadow, "暗影加成");
+        
+        DrawDamageRow(DamageType::Physical, "物理伤害");
+        DrawDamageRow(DamageType::Fire, "火焰伤害"); 
+        DrawDamageRow(DamageType::Cold, "冰霜伤害"); 
+        DrawDamageRow(DamageType::Lightning, "闪电伤害");
+        DrawDamageRow(DamageType::Poison, "毒素伤害"); 
+        DrawDamageRow(DamageType::Shadow, "暗影伤害");
 
     } else if (s_activeCharTab == 1) {
         UIRenderer::DrawTextUI(font, "防御基础", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
@@ -323,5 +330,61 @@ void UICharacter::Draw(entt::registry& registry) {
         
         float tw = IsFontValid(font) ? MeasureTextEx(font, "确认加点", 20, 1.0f).x : (float)MeasureText("确认加点", 20);
         UIRenderer::DrawTextUI(font, "确认加点", confirmRect.x + (confirmRect.width-tw)/2, confirmRect.y + 8, 20, theme.textPrimary, alpha);
+    }
+
+    // --- 6. 确认弹窗 (Confirmation Popup) ---
+    if (attrUI.showConfirmPopup) {
+        // 全屏半透明遮罩
+        DrawRectScaled(0, 0, UI_REF_WIDTH, UI_REF_HEIGHT, {0, 0, 0, 180});
+        
+        float pw = 320.0f;
+        float ph = 180.0f;
+        float px = (UI_REF_WIDTH - pw) / 2.0f;
+        float py = (UI_REF_HEIGHT - ph) / 2.0f;
+        
+        DrawRectScaled(px, py, pw, ph, theme.panelBackground);
+        DrawRectLinesScaled({px, py, pw, ph}, 2.0f, theme.textHighlight);
+        
+        UIRenderer::DrawTextUI(font, "确认分配属性点吗?", px + 45, py + 40, 22, theme.textPrimary, alpha);
+        
+        // 按钮
+        float btnW = 100.0f;
+        float btnH = 36.0f;
+        float btnY = py + 110.0f;
+        
+        // 确认按钮
+        Rectangle yesRect = {px + 40, btnY, btnW, btnH};
+        bool yesHover = CheckCollisionPointRec(mousePos, yesRect);
+        DrawRectScaled(yesRect.x, yesRect.y, yesRect.width, yesRect.height, yesHover ? theme.success : Fade(theme.success, 0.6f));
+        DrawRectLinesScaled(yesRect, 1.0f, theme.panelBorder);
+        UIRenderer::DrawTextUI(font, "确认", yesRect.x + 30, yesRect.y + 8, 20, theme.textPrimary, alpha);
+        
+        if (yesHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            // 应用点数
+            primStats->strength += attrUI.tempStr;
+            primStats->dexterity += attrUI.tempDex;
+            primStats->intelligence += attrUI.tempInt;
+            primStats->vitality += attrUI.tempVit;
+            
+            pStats->available_attribute_points -= totalTemp;
+            
+            // 重置临时点数
+            attrUI.tempStr = attrUI.tempDex = attrUI.tempInt = attrUI.tempVit = 0;
+            attrUI.showConfirmPopup = false;
+            
+            // 标记脏数据以重新计算
+            registry.get_or_emplace<StatsDirty>(player);
+        }
+        
+        // 取消按钮
+        Rectangle noRect = {px + pw - btnW - 40, btnY, btnW, btnH};
+        bool noHover = CheckCollisionPointRec(mousePos, noRect);
+        DrawRectScaled(noRect.x, noRect.y, noRect.width, noRect.height, noHover ? theme.buttonHover : theme.buttonNormal);
+        DrawRectLinesScaled(noRect, 1.0f, theme.panelBorder);
+        UIRenderer::DrawTextUI(font, "取消", noRect.x + 30, noRect.y + 8, 20, theme.textPrimary, alpha);
+        
+        if (noHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            attrUI.showConfirmPopup = false;
+        }
     }
 }

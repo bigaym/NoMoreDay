@@ -31,12 +31,23 @@ Texture2D ResourceManager::loadTexture(entt::id_type id, const std::string& path
     return tex;
 }
 
+void ResourceManager::registerTexture(entt::id_type id, const std::string& path) {
+    m_texturePaths[id] = path;
+}
+
 Texture2D ResourceManager::getTexture(entt::id_type id) { // 获取纹理
  LOG_TRACE("正在获取纹理，ID: {}", id);
     if (auto it = m_textures.find(id); it != m_textures.end()) {
  LOG_DEBUG("在缓存中找到纹理 (ID: {})", id);
         return it->second;
     }
+
+    // 检查是否已注册路径 (按需加载)
+    if (auto it = m_texturePaths.find(id); it != m_texturePaths.end()) {
+        LOG_DEBUG("触发按需加载纹理 (ID: {})", id);
+        return loadTexture(id, it->second);
+    }
+
  LOG_WARN("ResourceManager: 未找到纹理ID {}！", id);
     return { 0 };
 }
@@ -87,6 +98,7 @@ void ResourceManager::unloadAll() { // 卸载所有资源
         }
     }
     m_textures.clear();
+    m_texturePaths.clear();
 
  LOG_DEBUG("正在卸载所有字体，数量: {}", m_fonts.size());
     for (auto& [id, font] : m_fonts) {

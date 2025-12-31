@@ -13,6 +13,9 @@ public:
     // 用法: loadTexture("sword"_hs, "path/...")
     Texture2D loadTexture(entt::id_type id, const std::string& path);
     
+    // 注册纹理路径以便按需加载 (Lazy Loading)
+    void registerTexture(entt::id_type id, const std::string& path);
+
     // 获取已加载的纹理。如果未找到，则返回空纹理。
     Texture2D getTexture(entt::id_type id);
 
@@ -26,5 +29,6 @@ public:
 
 private:
     std::unordered_map<entt::id_type, Texture2D> m_textures;
+    std::unordered_map<entt::id_type, std::string> m_texturePaths; // 用于按需加载的路径注册表
     std::unordered_map<entt::id_type, Font> m_fonts;
 };

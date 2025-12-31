@@ -140,7 +140,7 @@ namespace NoMoreDay {
         auto& registry = *m_context->registry;
         
         // 0. State Transition Input
-        if (IsKeyReleased(KEY_I)) {
+        if (IsKeyPressed(KEY_I)) {
             m_stateManager->PushState<InventoryState>();
         }
         

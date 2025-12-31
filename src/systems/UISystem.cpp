@@ -222,6 +222,7 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     State.scaleFactor = scale;
     UIRenderer::SetScale(scale);
     
+    State.isMouseOverUI = false;
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     State.hoveredItem = entt::null;
 

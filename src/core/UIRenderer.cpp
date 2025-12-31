@@ -78,21 +78,84 @@ namespace NoMoreDay {
         return "物";
     }
 
+    const char* UIRenderer::GetItemCategoryString(const ItemComponent& item) {
+        if (item.type == ItemType::Bag) return "背包";
+        if (item.type == ItemType::Consumable) return "消耗品";
+        if (item.type == ItemType::Material) return "材料";
+        
+        if (item.type == ItemType::Weapon) {
+            if (item.isTwoHanded) return "双手武器";
+            return "单手武器";
+        }
+        
+        if (item.type == ItemType::Armor || item.type == ItemType::Shield) {
+            switch (item.slot) {
+                case EquipmentSlot::Head: return "头盔";
+                case EquipmentSlot::Shoulder: return "护肩";
+                case EquipmentSlot::Chest: return "胸甲";
+                case EquipmentSlot::Hands: return "手套";
+                case EquipmentSlot::Legs: return "护腿";
+                case EquipmentSlot::Feet: return "鞋子";
+                case EquipmentSlot::Neck: return "项链";
+                case EquipmentSlot::Ring1:
+                case EquipmentSlot::Ring2: return "戒指";
+                case EquipmentSlot::OffHand: return "副手";
+                default: return "装备";
+            }
+        }
+        return "物品";
+    }
+
     void UIRenderer::DrawSlot(const Font& font, entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel, bool highlighted, bool isLocked, float alpha) {
         float sx = x * s_uiScale;
         float sy = y * s_uiScale;
         float sSize = size * s_uiScale;
 
         Rectangle rec = { sx, sy, sSize, sSize };
+        
+        auto ApplyAlpha = [&](Color c, float a) -> Color {
+            return { c.r, c.g, c.b, (unsigned char)((float)c.a * a) };
+        };
+
         // Background
-        Color bg = highlighted ? Fade(s_theme.panelBorderHighlight, 0.2f) : s_theme.slotBackground;
-        if (isLocked) bg = Fade(BLACK, 0.8f); // Locked slots darker
+        Color bg = highlighted ? ApplyAlpha(s_theme.panelBorderHighlight, 0.2f) : s_theme.slotBackground;
+        if (isLocked) bg = ApplyAlpha(BLACK, 0.8f); // Locked slots darker
         
-        DrawRectangleRec(rec, Fade(bg, alpha));
+        DrawRectangleRec(rec, ApplyAlpha(bg, alpha));
         
-        // Border
+        // 1. Sunken Bevel Effect
+        
+        // Inner Top Shadow
+        DrawLineEx({sx, sy}, {sx + sSize, sy}, 2.0f * s_uiScale, ApplyAlpha(BLACK, 0.5f * alpha));
+        // Inner Left Shadow
+        DrawLineEx({sx, sy}, {sx, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(BLACK, 0.5f * alpha));
+        
+        // Inner Bottom Highlight (Subtle)
+        DrawLineEx({sx, sy + sSize}, {sx + sSize, sy + sSize}, 1.0f * s_uiScale, ApplyAlpha(WHITE, 0.1f * alpha));
+        // Inner Right Highlight (Subtle)
+        DrawLineEx({sx + sSize, sy}, {sx + sSize, sy + sSize}, 1.0f * s_uiScale, ApplyAlpha(WHITE, 0.1f * alpha));
+
+        // 2. Corner Accents (Decorative)
+        float cornerLen = 6.0f * s_uiScale;
+        Color cornerColor = highlighted ? s_theme.panelBorderHighlight : ApplyAlpha(s_theme.panelBorder, 0.6f);
+        
+        // Top-Left
+        DrawLineEx({sx, sy}, {sx + cornerLen, sy}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
+        DrawLineEx({sx, sy}, {sx, sy + cornerLen}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
+        // Top-Right
+        DrawLineEx({sx + sSize - cornerLen, sy}, {sx + sSize, sy}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
+        DrawLineEx({sx + sSize, sy}, {sx + sSize, sy + cornerLen}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
+        // Bottom-Left
+        DrawLineEx({sx, sy + sSize}, {sx + cornerLen, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
+        DrawLineEx({sx, sy + sSize - cornerLen}, {sx, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha)); 
+        
+        // Bottom-Right
+        DrawLineEx({sx + sSize - cornerLen, sy + sSize}, {sx + sSize, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
+        DrawLineEx({sx + sSize, sy + sSize - cornerLen}, {sx + sSize, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
+
+        // Border (Standard)
         Color border = highlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder;
-        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, Fade(border, alpha));
+        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(border, alpha));
         
         if (item != entt::null && registry.valid(item)) {
             auto* itemComp = registry.try_get<ItemComponent>(item);
@@ -101,7 +164,7 @@ namespace NoMoreDay {
             if (itemComp) {
                 Color rarityColor = GetRarityColor(itemComp->rarity);
                 // Rarity Border
-                DrawRectangleLinesEx(rec, 2.0f * s_uiScale, Fade(rarityColor, alpha));
+                DrawRectangleLinesEx(rec, 2.0f * s_uiScale, ApplyAlpha(rarityColor, alpha));
 
                 bool textureDrawn = false;
 
@@ -112,7 +175,7 @@ namespace NoMoreDay {
                         Rectangle source = {0, 0, (float)tex.width, (float)tex.height};
                         float pad = 4.0f * s_uiScale;
                         Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
-                        DrawTexturePro(tex, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
+                        DrawTexturePro(tex, source, dest, {0, 0}, 0.0f, ApplyAlpha(WHITE, alpha));
                         textureDrawn = true;
                     }
                 }
@@ -122,7 +185,7 @@ namespace NoMoreDay {
                     Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
                     float pad = 4.0f * s_uiScale;
                     Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
-                    DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
+                    DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, ApplyAlpha(WHITE, alpha));
                     textureDrawn = true;
                 } 
                 
@@ -143,11 +206,11 @@ namespace NoMoreDay {
         } 
         
         if (isLocked) {
-            DrawLineEx({sx + sSize * 0.3f, sy + sSize * 0.3f}, {sx + sSize * 0.7f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, 0.5f * alpha));
-            DrawLineEx({sx + sSize * 0.7f, sy + sSize * 0.3f}, {sx + sSize * 0.3f, sy + sSize * 0.7f}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, 0.5f * alpha));
+            DrawLineEx({sx + sSize * 0.3f, sy + sSize * 0.3f}, {sx + sSize * 0.7f, sy + sSize * 0.7f}, 1.0f * s_uiScale, ApplyAlpha(s_theme.panelBorder, 0.5f * alpha));
+            DrawLineEx({sx + sSize * 0.7f, sy + sSize * 0.3f}, {sx + sSize * 0.3f, sy + sSize * 0.7f}, 1.0f * s_uiScale, ApplyAlpha(s_theme.panelBorder, 0.5f * alpha));
         }
         // Inner shadow
-        DrawRectangleLinesEx({sx+1.0f*s_uiScale, sy+1.0f*s_uiScale, sSize-2.0f*s_uiScale, sSize-2.0f*s_uiScale}, 1.0f * s_uiScale, Fade(BLACK, 0.3f * alpha));
+        DrawRectangleLinesEx({sx+1.0f*s_uiScale, sy+1.0f*s_uiScale, sSize-2.0f*s_uiScale, sSize-2.0f*s_uiScale}, 1.0f * s_uiScale, ApplyAlpha(BLACK, 0.3f * alpha));
     }
 
     void UIRenderer::DrawTooltip(const Font& font, entt::registry& registry, entt::entity item, float alpha) {
@@ -155,6 +218,8 @@ namespace NoMoreDay {
         if (!itemComp) return;
 
         std::vector<std::string> lines;
+        lines.push_back(GetItemCategoryString(*itemComp)); // Add item category line
+        
         if (itemComp->attack > 0) lines.push_back(TextFormat("攻击力: %.0f", itemComp->attack));
         if (itemComp->defense > 0) lines.push_back(TextFormat("护甲: %.0f", itemComp->defense));
         if (itemComp->bagCapacity > 0) lines.push_back(TextFormat("容量: %d 格", itemComp->bagCapacity));
@@ -208,15 +273,21 @@ namespace NoMoreDay {
         float curSY = y + (padding + titleSize + 5.0f) * s_uiScale;
         float sLineHeight = lineHeight * s_uiScale;
 
+        bool firstLine = true;
         for (const auto& line : lines) {
             if (line == "---") {
                 DrawLineEx({x + padding*s_uiScale, curSY + sLineHeight/2}, {x + sW - padding*s_uiScale, curSY + sLineHeight/2}, 1.0f*s_uiScale, Fade(s_theme.panelBorder, alpha));
             } else if (line != " ") {
                 Color c = s_theme.textPrimary;
-                if (line.find("+") == 0) c = s_theme.success; 
+                if (firstLine) {
+                    c = s_theme.textSecondary; // Category line is secondary color
+                } else if (line.find("+") == 0) {
+                    c = s_theme.success;
+                }
                 DrawTextScreen(line.c_str(), x + padding*s_uiScale, curSY, fontSize, c);
             }
             curSY += sLineHeight;
+            firstLine = false;
         }
     }
 
