@@ -41,23 +41,7 @@ struct InventoryComponent {
 // NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(InventoryComponent, items, capacity, gold) // 移除宏，改为手动在 SerializationSystem 中处理
 
 // 可以装备物品的实体组件 (玩家)
-struct EquipmentComponent {
-    // 索引对应 EquipmentSlot 枚举
-    std::array<entt::entity, (size_t)EquipmentSlot::Count> slots;
+// EquipmentComponent is defined in EquipmentComponent.hpp
 
-    EquipmentComponent() {
-        slots.fill(entt::null);
-    }
-    
-    entt::entity get(EquipmentSlot slot) const {
-        if (slot == EquipmentSlot::None || (size_t)slot >= (size_t)EquipmentSlot::Count) return entt::null;
-        return slots[(size_t)slot];
-    }
-    
-    void set(EquipmentSlot slot, entt::entity item) {
-        if (slot == EquipmentSlot::None || (size_t)slot >= (size_t)EquipmentSlot::Count) return;
-        slots[(size_t)slot] = item;
-    }
-};
 
 } // namespace NoMoreDay

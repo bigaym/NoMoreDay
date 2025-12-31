@@ -4,6 +4,7 @@
 #include "../tools/Logger.hpp"
 #include "../systems/UISystem.hpp"
 #include "../core/ItemFactory.hpp"
+#include "../core/AssetLoadingSystem.hpp"
 
 Game::Game(int width, int height, const char* title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title),
@@ -44,6 +45,7 @@ void Game::init() {
     // Global Static Inits
     NoMoreDay::ItemFactory::initialize();
     UISystem::Initialize(m_resourceManager);
+    NoMoreDay::AssetLoadingSystem::LoadAllEquipment();
     
     // Push Initial State
     LOG_INFO("Pushing MainMenuState...");

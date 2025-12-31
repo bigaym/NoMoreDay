@@ -1,6 +1,8 @@
 #include "InventorySystem.hpp"
 #include "../tools/Logger.hpp"
 #include "../components/Stats.hpp"
+#include "../components/Common.hpp"
+#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "../components/EffectComponent.hpp"
 #include <cmath>
 #include <limits>

@@ -2,6 +2,7 @@
 
 #include "../src/core/AssetLoadingSystem.hpp"
 #include "../src/core/ResourceManager.hpp"
+#include "../src/core/EquipmentAssetRegistry.hpp" // Added
 #include <raylib.h> // For Font, Texture2D
 #include "TestCommon.hpp" // Added
 
@@ -33,6 +34,14 @@ TEST_CASE("AssetLoadingSystem - Initialization and Management") {
         CHECK(tex.id == 0);
         
         AssetLoadingSystem::Shutdown();
+    }
+
+    SUBCASE("Load All Equipment (Smoke Test)") {
+        // Skipped in headless environment because it requires OpenGL context for 397 textures
+        // AssetLoadingSystem::Initialize(resourceManager);
+        // auto id = assets::equipment::amulet::amulet_0.id;
+        // Texture2D tex = AssetLoadingSystem::GetTexture(id);
+        // AssetLoadingSystem::Shutdown();
     }
 
     // tools::Logger::Shutdown(); // Removed

@@ -3,6 +3,7 @@
 #include "../components/Stats.hpp"
 #include "../components/Common.hpp"
 #include "../components/InventoryComponent.hpp"
+#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "../components/ItemComponent.hpp"
 #include "../components/ItemStats.hpp"
 #include <algorithm>

@@ -36,4 +36,5 @@ logs/
 .gemini/
 AGENT*.
 .roo/
-scripts/assets/
+scripts/assets
+# assets/textures

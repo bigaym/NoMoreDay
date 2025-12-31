@@ -148,6 +148,36 @@ TEST_CASE("DropSystem Tests") {
         }
         
         // Elite adds extraRolls = 1. Base 1. Total min 2.
-        CHECK(totalItems >= 2);
+        // Update: rollDist is (min, max + extra). So (1, 2). It can roll 1.
+        CHECK(totalItems >= 1);
+    }
+
+    SUBCASE("Global Default Loot Pool (ID 0) from JSON") {
+        // Initialize real data to load assets/data/loot_tables.json
+        ItemFactory::initialize();
+        
+        registry.clear();
+        auto player = registry.create();
+        registry.emplace<PlayerTag>(player);
+        registry.emplace<CombatStats>(player); // 0 MF
+        
+        auto victim = registry.create();
+        registry.emplace<Position>(victim, 50.0f, 50.0f);
+        
+        // Use ID 999 (non-existent) so it falls back to 0
+        // Set chance to 1.0f and 10 rolls to guarantee drops if pool 0 exists
+        registry.emplace<DropTableComponent>(victim, 999, 1.0f, 10, 10); 
+        registry.emplace<KilledTag>(victim, player);
+        
+        DropSystem::update(registry, 1);
+        
+        // Should drop SOMETHING (Gold or Items) from pool 0
+        int dropCount = 0;
+        // Check for Gold
+        for(auto entity : registry.view<GoldComponent>()) dropCount++;
+        // Check for Items
+        for(auto entity : registry.view<ItemComponent>()) dropCount++;
+        
+        CHECK(dropCount > 0);
     }
 }

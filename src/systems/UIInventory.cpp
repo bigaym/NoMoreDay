@@ -4,6 +4,7 @@
 #include "../components/InventoryComponent.hpp"
 #include "../components/ItemComponent.hpp"
 #include "../components/PlayerState.hpp"
+#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "InventorySystem.hpp"
 #include "../core/UIRenderer.hpp"
 #include "raylib.h"

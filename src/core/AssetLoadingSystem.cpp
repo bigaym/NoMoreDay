@@ -1,5 +1,6 @@
 #include "AssetLoadingSystem.hpp"
 #include "../tools/Logger.hpp"
+#include "EquipmentAssetRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -9,6 +10,45 @@ std::vector<Font> AssetLoadingSystem::m_loadedFonts;
 void AssetLoadingSystem::Initialize(ResourceManager& resourceManager) {
     m_resourceManager = &resourceManager;
     LOG_INFO("AssetLoadingSystem 已初始化。");
+}
+
+void AssetLoadingSystem::LoadAllEquipment() {
+    if (!m_resourceManager) {
+        LOG_ERROR("AssetLoadingSystem: Not initialized!");
+        return;
+    }
+
+    LOG_INFO("Loading equipment assets...");
+    int count = 0;
+
+    auto load = [&](const auto& assets) {
+        for (const auto& asset : assets) {
+            m_resourceManager->loadTexture(asset.id, std::string(asset.path));
+            count++;
+        }
+    };
+
+    using namespace assets::equipment;
+    load(amulet::All);
+    load(axe::All);
+    load(boots::All);
+    load(chest::All);
+    load(dagger::All);
+    load(gauntlets::All);
+    load(greatsword::All);
+    load(grimoire::All);
+    load(hammer::All);
+    load(helmet::All);
+    load(leggings::All);
+    load(orb::All);
+    load(pauldrons::All);
+    load(ring::All);
+    load(shield::All);
+    load(staff::All);
+    load(sword::All);
+    load(wand::All);
+
+    LOG_INFO("Loaded {} equipment assets.", count);
 }
 
 Font AssetLoadingSystem::LoadUIFont(const std::string& path, int fontSize) {

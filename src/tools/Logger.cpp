@@ -21,7 +21,7 @@ void Logger::Init() {
     // Sink 1: Console (Color)
     // 接收器 1：控制台（彩色）
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    consoleSink->set_level(spdlog::level::trace);
+    consoleSink->set_level(spdlog::level::info); // 控制台接收 info 及以上级别日志
     // Pattern: [Time] [LoggerName] [Level] Message
     // 模式：[时间] [日志器名称] [级别] 消息
     consoleSink->set_pattern("%^[%T] %n: %v%$"); 

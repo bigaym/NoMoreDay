@@ -1,5 +1,6 @@
 #include "UIRenderer.hpp"
 #include "../systems/InventorySystem.hpp" // For context menu actions
+#include "AssetLoadingSystem.hpp"
 #include <algorithm>
 #include <string>
 #include <cstdio>
@@ -102,12 +103,31 @@ namespace NoMoreDay {
                 // Rarity Border
                 DrawRectangleLinesEx(rec, 2.0f * s_uiScale, Fade(rarityColor, alpha));
 
-                if (sprite && sprite->texture.id > 0) {
+                bool textureDrawn = false;
+
+                // 1. Try textureId from ItemComponent (Preferred)
+                if (itemComp->textureId != 0) {
+                    Texture2D tex = AssetLoadingSystem::GetTexture(itemComp->textureId);
+                    if (tex.id > 0) {
+                        Rectangle source = {0, 0, (float)tex.width, (float)tex.height};
+                        float pad = 4.0f * s_uiScale;
+                        Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
+                        DrawTexturePro(tex, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
+                        textureDrawn = true;
+                    }
+                }
+
+                // 2. Try SpriteComponent (Legacy/World Entities)
+                if (!textureDrawn && sprite && sprite->texture.id > 0) {
                     Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
                     float pad = 4.0f * s_uiScale;
                     Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
                     DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
-                } else {
+                    textureDrawn = true;
+                } 
+                
+                // 3. Fallback to Text
+                if (!textureDrawn) {
                     const char* shortName = GetShortItemTypeName(*itemComp);
                     float fontSize = 16.0f; 
                     float scaledFontSize = fontSize * s_uiScale;

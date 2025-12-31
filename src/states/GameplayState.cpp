@@ -29,6 +29,7 @@
 #include "../components/Common.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/InventoryComponent.hpp"
+#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "../components/Stats.hpp"
 #include "../utils/UUID.hpp"
 #include "../tools/Logger.hpp"

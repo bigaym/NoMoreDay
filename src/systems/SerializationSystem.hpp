@@ -14,6 +14,7 @@
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
 #include "../components/InventoryComponent.hpp"
+#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "../components/PlayerState.hpp"
 #include "../components/AIComponent.hpp"
 #include "UISystem.hpp" // Include UISystem

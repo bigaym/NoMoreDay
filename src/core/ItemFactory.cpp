@@ -8,6 +8,7 @@
 #include "../tools/Logger.hpp"
 #include "AssetLoadingSystem.hpp"
 #include "AssetRegistry.hpp"
+#include "EquipmentAssetRegistry.hpp"
 #include "../components/Common.hpp"
 #include "LootFilter.hpp"
 
@@ -15,6 +16,50 @@ namespace NoMoreDay {
 
 // Simple Random Helper
 static std::mt19937 g_rng;
+
+// Helper to pick a random texture ID from a compile-time array
+template<typename T, size_t N>
+static entt::id_type pickRandomAsset(const std::array<T, N>& assets) {
+    if (N == 0) return 0;
+    std::uniform_int_distribution<size_t> dist(0, N - 1);
+    return assets[dist(g_rng)].id;
+}
+
+static entt::id_type getRandomTextureForType(ItemType type, EquipmentSlot slot, const std::string& name) {
+    using namespace assets::equipment;
+
+    if (type == ItemType::Armor) {
+        switch (slot) {
+            case EquipmentSlot::Head:     return pickRandomAsset(helmet::All);
+            case EquipmentSlot::Chest:    return pickRandomAsset(chest::All);
+            case EquipmentSlot::Shoulder: return pickRandomAsset(pauldrons::All);
+            case EquipmentSlot::Hands:    return pickRandomAsset(gauntlets::All);
+            case EquipmentSlot::Legs:     return pickRandomAsset(leggings::All);
+            case EquipmentSlot::Feet:     return pickRandomAsset(boots::All);
+            case EquipmentSlot::OffHand:  return pickRandomAsset(shield::All); // Shield as armor offhand
+            default: break;
+        }
+    } else if (type == ItemType::Weapon) {
+        // Heuristic based on name
+        if (name.find("Claymore") != std::string::npos) return pickRandomAsset(greatsword::All);
+        if (name.find("Dagger") != std::string::npos) return pickRandomAsset(dagger::All);
+        if (name.find("Axe") != std::string::npos) return pickRandomAsset(axe::All);
+        if (name.find("Hammer") != std::string::npos) return pickRandomAsset(hammer::All);
+        if (name.find("Staff") != std::string::npos) return pickRandomAsset(staff::All);
+        if (name.find("Wand") != std::string::npos) return pickRandomAsset(wand::All);
+        
+        // Default to sword if unspecified or generic
+        return pickRandomAsset(sword::All);
+    } else if (type == ItemType::Shield) {
+        return pickRandomAsset(shield::All);
+    } 
+
+    // Jewelry
+    if (slot == EquipmentSlot::Neck) return pickRandomAsset(amulet::All);
+    if (slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2) return pickRandomAsset(ring::All);
+
+    return 0;
+}
 
 std::map<uint32_t, LootPool> ItemFactory::s_lootPools;
 std::vector<AffixDefinition> ItemFactory::s_affixDefinitions;
@@ -450,17 +495,25 @@ entt::entity ItemFactory::createWeapon(entt::registry& registry, int level, Rari
         LOG_DEBUG("Created common/magic weapon: {}", item.name);
     }
 
+    // Assign random texture
+    item.textureId = getRandomTextureForType(item.type, item.slot, item.name);
+
     rollAffixes(item, level);
     registry.emplace<ItemComponent>(entity, item);
 
-    // Assign Sprite based on item type/name
-    if (item.type == ItemType::Weapon) {
-        // Currently we only have one sword texture
+    // Assign Sprite based on item type/name (Legacy/World)
+    // Use textureId if available
+    if (item.textureId != 0) {
+        Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
+        if (tex.id > 0) {
+            registry.emplace<SpriteComponent>(entity, tex, 0.05f);
+            LOG_DEBUG("Assigned weapon sprite (ID: {}) to entity: {}", item.textureId, (uint32_t)entity);
+        }
+    } else if (item.type == ItemType::Weapon) {
+        // Fallback
         Texture2D tex = AssetLoadingSystem::GetTexture(assets::textures::Weapon_Sword.id);
         if (tex.id > 0) {
-            // Weapon textures are usually 1024x1024, scale down to ~40px for UI/World
             registry.emplace<SpriteComponent>(entity, tex, 0.05f);
-            LOG_DEBUG("Assigned weapon sprite to entity: {}", (uint32_t)entity);
         }
     }
 
@@ -497,8 +550,20 @@ entt::entity ItemFactory::createArmor(entt::registry& registry, int level, Rarit
         LOG_DEBUG("Created common/magic/rare armor: {}", item.name);
     }
 
+    // Assign random texture
+    item.textureId = getRandomTextureForType(item.type, item.slot, item.name);
+
     rollAffixes(item, level);
     registry.emplace<ItemComponent>(entity, item);
+    
+    // Assign Sprite for World (Dropped Item)
+    if (item.textureId != 0) {
+        Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
+        if (tex.id > 0) {
+            registry.emplace<SpriteComponent>(entity, tex, 0.05f);
+        }
+    }
+
     LOG_DEBUG("Armor created with entity ID: {}", (uint32_t)entity);
     return entity;
 }

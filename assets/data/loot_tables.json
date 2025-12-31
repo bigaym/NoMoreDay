@@ -1,5 +1,13 @@
 [
   {
+    "id": 0,
+    "name": "Global Default",
+    "entries": [
+      { "type": 0, "id": 0, "minAmount": 1, "maxAmount": 1, "weight": 60.0 },
+      { "type": 1, "id": 0, "minAmount": 5, "maxAmount": 20, "weight": 40.0 }
+    ]
+  },
+  {
     "id": 1,
     "name": "Goblin Loot",
     "entries": [

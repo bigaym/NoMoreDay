@@ -8,93 +8,110 @@
 #include <entt/entt.hpp>
 
 // 敌人种族定义
-struct EnemyRace {
-    enum Type : uint8_t { 
-        UNDEAD = 0, 
-        DEMON = 1, 
-        CORRUPTED = 2, 
-        CULTIST = 3 
+struct EnemyRace
+{
+    enum Type : uint8_t
+    {
+        UNDEAD = 0,    // 不死生物
+        DEMON = 1,     // 恶魔
+        CORRUPTED = 2, // 堕落生物
+        CULTIST = 3,   // 邪教徒
+        ElVES = 4,     // 精灵
+        BEAST = 5,     // 兽人
+        GOBLIN = 6,    // 哥布林
+        DRAGONKIN = 7, // 龙裔
+        MACHINE = 8,   // 机械生命体
+        ELEMENTAL = 9, // 元素生物
+        SLIME = 10,    // 史莱姆
+        ANIMAL = 11    // 野兽
     };
     Type raceType;
     float baseHP, baseDamage, baseSpeed, baseXP;
     std::vector<std::string> resistances;
-    std::string texturePath;  // 资源路径
-    
-    EnemyRace(Type type = UNDEAD) : raceType(type) {
-        switch(type) {
-            case UNDEAD:
-                baseHP = 30.0f;
-                baseDamage = 15.0f;
-                baseSpeed = 50.0f;
-                baseXP = 10.0f;
-                resistances = {"bleed", "poison"};
-                texturePath = "assets/textures/characters/skeleton.png";
-                break;
-            case DEMON:
-                baseHP = 40.0f;
-                baseDamage = 25.0f;
-                baseSpeed = 80.0f;
-                baseXP = 25.0f;
-                resistances = {"fire", "dark"};
-                texturePath = "assets/textures/characters/demon.png";
-                break;
-            case CORRUPTED:
-                baseHP = 25.0f;
-                baseDamage = 20.0f;
-                baseSpeed = 120.0f;
-                baseXP = 15.0f;
-                resistances = {"slow", "stun"};
-                texturePath = "assets/textures/characters/corrupted_beast.png";
-                break;
-            case CULTIST:
-                baseHP = 35.0f;
-                baseDamage = 20.0f;
-                baseSpeed = 70.0f;
-                baseXP = 12.0f;
-                resistances = {"magic"};
-                texturePath = "assets/textures/characters/cultist.png";
-                break;
+    std::string texturePath; // 资源路径
+
+    EnemyRace(Type type = UNDEAD) : raceType(type)
+    {
+        switch (type)
+        {
+        case UNDEAD:
+            baseHP = 30.0f;
+            baseDamage = 15.0f;
+            baseSpeed = 50.0f;
+            baseXP = 10.0f;
+            resistances = {"bleed", "poison"};
+            texturePath = "assets/textures/monster/skeleton_0.png";
+            break;
+        case DEMON:
+            baseHP = 40.0f;
+            baseDamage = 25.0f;
+            baseSpeed = 80.0f;
+            baseXP = 25.0f;
+            resistances = {"fire", "dark"};
+            texturePath = "assets/textures/monster/demon_0.png";
+            break;
+        case CORRUPTED:
+            baseHP = 25.0f;
+            baseDamage = 20.0f;
+            baseSpeed = 120.0f;
+            baseXP = 15.0f;
+            resistances = {"slow", "stun"};
+            texturePath = "assets/textures/monster/warcraft_0.png";
+            break;
+        case CULTIST:
+            baseHP = 35.0f;
+            baseDamage = 20.0f;
+            baseSpeed = 70.0f;
+            baseXP = 12.0f;
+            resistances = {"magic"};
+            texturePath = "assets/textures/monster/cultist_0.png";
+            break;
         }
     }
 };
 
 // 敌人职业/行为模板
-struct EnemyArchetype {
-    enum Type : uint8_t { 
-        FODDER = 0, 
-        TANK = 1, 
-        RANGER = 2, 
-        ASSASSIN = 3 
+struct EnemyArchetype
+{
+    enum Type : uint8_t
+    {
+        FODDER = 0,
+        TANK = 1,
+        RANGER = 2,
+        ASSASSIN = 3
     };
     Type archetypeType;
-    std::function<void(entt::registry&, entt::entity, float)> aiBehavior;
-    
-    EnemyArchetype(Type type = FODDER) : archetypeType(type) {
-        switch(type) {
-            case FODDER:
-                aiBehavior = &FodderBehavior;
-                break;
-            case TANK:
-                aiBehavior = &TankBehavior;
-                break;
-            case RANGER:
-                aiBehavior = &RangerBehavior;
-                break;
-            case ASSASSIN:
-                aiBehavior = &AssassinBehavior;
-                break;
+    std::function<void(entt::registry &, entt::entity, float)> aiBehavior;
+
+    EnemyArchetype(Type type = FODDER) : archetypeType(type)
+    {
+        switch (type)
+        {
+        case FODDER:
+            aiBehavior = &FodderBehavior;
+            break;
+        case TANK:
+            aiBehavior = &TankBehavior;
+            break;
+        case RANGER:
+            aiBehavior = &RangerBehavior;
+            break;
+        case ASSASSIN:
+            aiBehavior = &AssassinBehavior;
+            break;
         }
     }
-    
+
     // AI行为实现 - 声明为静态函数指针
-    static void FodderBehavior(entt::registry& reg, entt::entity entity, float dt) {}
-    static void TankBehavior(entt::registry& reg, entt::entity entity, float dt) {}
-    static void RangerBehavior(entt::registry& reg, entt::entity entity, float dt) {}
-    static void AssassinBehavior(entt::registry& reg, entt::entity entity, float dt) {}
+    static void FodderBehavior(entt::registry &reg, entt::entity entity, float dt) {}
+    static void TankBehavior(entt::registry &reg, entt::entity entity, float dt) {}
+    static void RangerBehavior(entt::registry &reg, entt::entity entity, float dt) {}
+    static void AssassinBehavior(entt::registry &reg, entt::entity entity, float dt) {}
 };
 
 // 敌人状态组件（扩展AIComponent）
-struct EnemyStateComponent {
+struct EnemyStateComponent
+{
     EnemyRace::Type raceType;
     EnemyArchetype::Type archetypeType;
     float detectionRange;
@@ -105,76 +122,94 @@ struct EnemyStateComponent {
     float activationRange;
     float deactivationRange;
     int level;
-    
+
     // AI状态
-    enum class AIState : uint8_t { IDLE, CHASE, ATTACK, FLEE, PATROL, STUNNED };
+    enum class AIState : uint8_t
+    {
+        IDLE,
+        CHASE,
+        ATTACK,
+        FLEE,
+        PATROL,
+        STUNNED
+    };
     AIState aiState;
-    
-    EnemyStateComponent(EnemyRace::Type race = EnemyRace::UNDEAD, 
-                       EnemyArchetype::Type arch = EnemyArchetype::FODDER)
-        : raceType(race), archetypeType(arch), detectionRange(150.0f), 
-          attackRange(50.0f), speed(100.0f), target(entt::null), 
+
+    EnemyStateComponent(EnemyRace::Type race = EnemyRace::UNDEAD,
+                        EnemyArchetype::Type arch = EnemyArchetype::FODDER)
+        : raceType(race), archetypeType(arch), detectionRange(150.0f),
+          attackRange(50.0f), speed(100.0f), target(entt::null),
           stateTimer(0.0f), activationRange(500.0f), deactivationRange(600.0f), level(1),
-          aiState(AIState::IDLE) {
-        
+          aiState(AIState::IDLE)
+    {
+
         // 根据种族和职业设置初始参数
         EnemyRace raceDef(race);
         EnemyArchetype archDef(arch);
-        
+
         speed = raceDef.baseSpeed;
-        switch(arch) {
-            case EnemyArchetype::FODDER:
-                detectionRange = 100.0f;
-                attackRange = 30.0f;
-                break;
-            case EnemyArchetype::TANK:
-                detectionRange = 120.0f;
-                attackRange = 40.0f;
-                break;
-            case EnemyArchetype::RANGER:
-                detectionRange = 300.0f;
-                attackRange = 250.0f;
-                break;
-            case EnemyArchetype::ASSASSIN:
-                detectionRange = 200.0f;
-                attackRange = 35.0f;
-                break;
+        switch (arch)
+        {
+        case EnemyArchetype::FODDER:
+            detectionRange = 100.0f;
+            attackRange = 30.0f;
+            break;
+        case EnemyArchetype::TANK:
+            detectionRange = 120.0f;
+            attackRange = 40.0f;
+            break;
+        case EnemyArchetype::RANGER:
+            detectionRange = 300.0f;
+            attackRange = 250.0f;
+            break;
+        case EnemyArchetype::ASSASSIN:
+            detectionRange = 200.0f;
+            attackRange = 35.0f;
+            break;
         }
     }
 };
 
 // 群聚信息组件
-struct ClusterComponent {
+struct ClusterComponent
+{
     uint8_t clusterID;
     bool isClusterLeader;
-    
-    ClusterComponent(uint8_t id = 0, bool isLeader = false) 
+
+    ClusterComponent(uint8_t id = 0, bool isLeader = false)
         : clusterID(id), isClusterLeader(isLeader) {}
 };
 
 // 休眠标记组件
-struct DormantComponent {
-    size_t spawnDataIndex;    // 指向EnemySpawnSystem中的数据
-    bool isFromSpawnData;     // 标记是否从休眠数据激活
-    
-    DormantComponent(size_t index = 0, bool fromData = false) 
+struct DormantComponent
+{
+    size_t spawnDataIndex; // 指向EnemySpawnSystem中的数据
+    bool isFromSpawnData;  // 标记是否从休眠数据激活
+
+    DormantComponent(size_t index = 0, bool fromData = false)
         : spawnDataIndex(index), isFromSpawnData(fromData) {}
 };
 
 // 稀有度组件
-struct EnemyRarityComponent {
-    enum Type : uint8_t { 
-        NORMAL = 0, 
-        ELITE = 1, 
-        BOSS = 2 
+struct EnemyRarityComponent
+{
+    enum Type : uint8_t
+    {
+        NORMAL = 0,
+        ELITE = 1,
+        BOSS = 2
     };
     Type rarity;
-    std::vector<std::string> affixes;  // 词缀
-    
-    EnemyRarityComponent(Type r = NORMAL) : rarity(r) {
-        if (rarity == ELITE) {
-            affixes = {"Fast", "Tanky"};  // 示例词缀
-        } else if (rarity == BOSS) {
+    std::vector<std::string> affixes; // 词缀
+
+    EnemyRarityComponent(Type r = NORMAL) : rarity(r)
+    {
+        if (rarity == ELITE)
+        {
+            affixes = {"Fast", "Tanky"}; // 示例词缀
+        }
+        else if (rarity == BOSS)
+        {
             affixes = {"Fast", "Tanky", "Vampiric"};
         }
     }

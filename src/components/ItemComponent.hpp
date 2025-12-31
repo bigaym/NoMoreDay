@@ -103,10 +103,13 @@ struct ItemComponent {
     int socketCount = 0;
     std::vector<entt::entity> sockets; 
     
+    // 资源ID (用于图标)
+    entt::id_type textureId = 0;
+
     // Description
     std::string description;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, isTwoHanded, setName, setBonuses, forgingPotential, legendaryPotential, implicits, affixes, socketCount, sockets, description)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity, quantity, maxStack, value, attack, defense, bagCapacity, isTwoHanded, setName, setBonuses, forgingPotential, legendaryPotential, implicits, affixes, socketCount, sockets, description, textureId)
 
 /**
  * @brief 附加到敌人实体上，定义其掉落物的组件。

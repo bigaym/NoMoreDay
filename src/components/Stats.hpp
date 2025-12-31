@@ -137,7 +137,7 @@ namespace NoMoreDay
         float life_steal = 0.0f;   // 吸血 %
         float life_on_hit = 0.0f;  // 击回
         float thorns = 0.0f;       // 荆棘伤害 (反伤)
-        float magic_find = 0.0f;   // 魔法寻宝率
+        float magic_find = 4.0f;   // 魔法寻宝率
 
         // --- 技能效率 (Skill Efficiency) ---
         // 最终冷却 = (基础冷却 / cooldown_recovery_speed) * (1.0 - cooldown_reduction)
