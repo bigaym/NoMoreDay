@@ -1,23 +1,15 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/components/Stats.hpp"
 #include "../src/systems/StatsSystem.hpp"
 #include "../src/components/InventoryComponent.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/ItemStats.hpp"
 #include "../src/components/Common.hpp" // For WeaponComponent
-#include "../src/tools/Logger.hpp"
-
-using namespace NoMoreDay;
-
-// RAII Helper for Logger
-struct LoggerScope {
-    LoggerScope() { tools::Logger::Init(); }
-    ~LoggerScope() { tools::Logger::Shutdown(); }
-};
+#include <entt/entt.hpp>
+#include "TestCommon.hpp"
 
 TEST_CASE("Stats Recalculation from Primary Stats") {
-    LoggerScope loggerScope;
     entt::registry registry;
     auto entity = registry.create();
 

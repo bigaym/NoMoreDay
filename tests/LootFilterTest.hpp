@@ -1,11 +1,10 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/core/LootFilter.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include <fstream>
 #include <cstdio>
-
-using namespace NoMoreDay;
+#include <string> // For std::string
 
 // Helper to write a temp filter file
 void writeTempFilter(const std::string& filename, const std::string& content) {

@@ -1,33 +1,14 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../third_party/doctest/doctest.h"
-#include "../src/components/Stats.hpp"
+#pragma once
+
 #include "../src/components/Stats.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/EquipmentComponent.hpp"
 #include "../src/systems/StatsSystem.hpp"
 #include "../src/core/ItemFactory.hpp"
-#include "../src/tools/Logger.hpp" // Include Logger
 #include <entt/entt.hpp>
-#include <vector>
-
-using namespace NoMoreDay;
-
-// RAII Helper for Logger
-struct LoggerScope {
-    LoggerScope() { tools::Logger::Init(); }
-    ~LoggerScope() { tools::Logger::Shutdown(); }
-};
+#include "TestCommon.hpp"
 
 TEST_CASE("Affix System Integration Test") {
-    LoggerScope loggerScope; // Initialize Logger
-
-    // 1. Initialize ItemFactory with test data
-    // We can't easily inject mock data into ItemFactory static methods unless we overwrite the file or add a method to inject.
-    // However, ItemFactory::initialize loads from assets/data/affixes.json.
-    // We can assume the file exists or call loadAffixDefinitions manually with a test file if needed.
-    // For now, let's try to use the real file or generate affixes manually for testing StatsSystem.
-    
-    // Check if we can load definitions
     ItemFactory::loadAffixDefinitions("assets/data/affixes.json");
     
     entt::registry registry;

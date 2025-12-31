@@ -1,6 +1,5 @@
-#define DOCTEST_CONFIG_IMPLEMENT
-#define DOCTEST_CONFIG_SUPER_FAST_ASSERTS
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/Common.hpp"
 #include "../src/components/Stats.hpp"
@@ -8,26 +7,8 @@
 #include "../src/core/ItemFactory.hpp"
 #include "../src/systems/DropSystem.hpp"
 #include "../src/components/EnemyComponent.hpp"
-#include "../src/tools/Logger.hpp"
-#include <entt/entity/registry.hpp>
-
-using namespace NoMoreDay;
-
-int main(int argc, char** argv) {
-    try {
-        tools::Logger::Init();
-        ItemFactory::initialize();
-    } catch (const std::exception& e) {
-        printf("Init failed: %s\n", e.what());
-        return 1;
-    }
-
-    doctest::Context context;
-    context.applyCommandLine(argc, argv);
-    int res = context.run();
-    tools::Logger::Shutdown();
-    return res;
-}
+#include <entt/entt.hpp>
+#include "TestCommon.hpp"
 
 TEST_CASE("DropSystem Tests") {
     entt::registry registry;
@@ -170,4 +151,3 @@ TEST_CASE("DropSystem Tests") {
         CHECK(totalItems >= 2);
     }
 }
-

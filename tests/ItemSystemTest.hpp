@@ -1,9 +1,7 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "doctest.h"
-#include "components/ItemComponent.hpp"
-#include <nlohmann/json.hpp>
+#pragma once
 
-using namespace NoMoreDay;
+#include "../src/components/ItemComponent.hpp"
+#include <nlohmann/json.hpp>
 
 TEST_CASE("ItemComponent Serialization") {
     ItemComponent item;

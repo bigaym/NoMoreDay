@@ -1,39 +1,15 @@
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/components/Stats.hpp"
 #include "../src/components/Combat.hpp"
 #include "../src/systems/CombatSystem.hpp"
-#include "../src/tools/Logger.hpp"
 #include "../src/components/Common.hpp" // For KilledTag
 #include "../src/components/PlayerState.hpp" // For PlayerStats
-
-using namespace NoMoreDay;
-
-int main(int argc, char** argv) {
-    printf("Starting main...\n");
-    try {
-        tools::Logger::Init();
-        printf("Logger initialized.\n");
-    } catch (const std::exception& e) {
-        printf("Logger Init failed: %s\n", e.what());
-        return 1;
-    }
-
-    doctest::Context context;
-    context.applyCommandLine(argc, argv);
-
-    int res = context.run();
-
-    tools::Logger::Shutdown();
-
-    if (context.shouldExit()) 
-        return res;
-    
-    return res;
-}
+#include <entt/entt.hpp>
+#include "TestCommon.hpp"
 
 TEST_CASE("Damage Calculation - Armor Mitigation") {
-    printf("Test started\n");
+
     CombatStats attacker;
     CombatStats defender;
     
@@ -57,6 +33,7 @@ TEST_CASE("Damage Calculation - Armor Mitigation") {
 }
 
 TEST_CASE("Damage Calculation - Resistance") {
+
     CombatStats attacker;
     CombatStats defender;
     
@@ -84,6 +61,7 @@ TEST_CASE("Damage Calculation - Resistance") {
 }
 
 TEST_CASE("CombatSystem - ApplyDamage") {
+
     entt::registry registry;
     auto entity = registry.create();
     

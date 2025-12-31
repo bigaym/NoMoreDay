@@ -1,6 +1,5 @@
-#define DOCTEST_CONFIG_IMPLEMENT
-#define DOCTEST_CONFIG_SUPER_FAST_ASSERTS
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/components/EffectComponent.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/Common.hpp"
@@ -11,26 +10,8 @@
 #include "../src/systems/InventorySystem.hpp"
 #include "../src/systems/EffectSystem.hpp"
 #include "../src/core/ItemFactory.hpp"
-#include "../src/tools/Logger.hpp"
-#include <entt/entity/registry.hpp>
-
-using namespace NoMoreDay;
-
-int main(int argc, char** argv) {
-    try {
-        tools::Logger::Init();
-        ItemFactory::initialize();
-    } catch (const std::exception& e) {
-        printf("Init failed: %s\n", e.what());
-        return 1;
-    }
-
-    doctest::Context context;
-    context.applyCommandLine(argc, argv);
-    int res = context.run();
-    tools::Logger::Shutdown();
-    return res;
-}
+#include <entt/entt.hpp>
+#include "TestCommon.hpp"
 
 TEST_CASE("Visual Effect Tests") {
     entt::registry registry;

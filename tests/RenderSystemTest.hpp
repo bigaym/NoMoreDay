@@ -1,7 +1,7 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/systems/RenderSystem.hpp"
-#include <entt/entity/registry.hpp>
+#include <entt/entt.hpp>
 
 TEST_CASE("RenderSystem - Basic Setup") {
     // RenderSystem is mostly visual and depends on Raylib's internal state.

@@ -1,26 +1,15 @@
-#define DOCTEST_CONFIG_IMPLEMENT
-#include "doctest.h"
-#include "components/EquipmentComponent.hpp"
-#include "components/ItemComponent.hpp"
-#include "components/InventoryComponent.hpp"
-#include "components/Stats.hpp"
-#include "systems/InventorySystem.hpp"
-#include "tools/Logger.hpp"
+#pragma once
+
+#include "../src/components/EquipmentComponent.hpp"
+#include "../src/components/ItemComponent.hpp"
+#include "../src/components/InventoryComponent.hpp"
+#include "../src/components/Stats.hpp"
+#include "../src/systems/InventorySystem.hpp"
 #include <entt/entt.hpp>
-
-int main(int argc, char** argv) {
-    tools::Logger::Init();
-    doctest::Context context;
-    context.applyCommandLine(argc, argv);
-    int res = context.run();
-    tools::Logger::Shutdown();
-    if(context.shouldExit()) return res;
-    return res;
-}
-
-using namespace NoMoreDay;
+#include "TestCommon.hpp"
 
 TEST_CASE("EquipmentComponent Initialization") {
+
     EquipmentComponent eq;
     for (int i = 1; i < static_cast<int>(EquipmentSlot::Count); ++i) {
         CHECK(eq.Get(static_cast<EquipmentSlot>(i)) == entt::entity{entt::null});
@@ -28,6 +17,7 @@ TEST_CASE("EquipmentComponent Initialization") {
 }
 
 TEST_CASE("EquipmentComponent Direct Set/Get") {
+
     entt::registry registry;
     EquipmentComponent eq;
     
@@ -47,6 +37,7 @@ TEST_CASE("EquipmentComponent Direct Set/Get") {
 }
 
 TEST_CASE("InventorySystem Equip Logic") {
+
     entt::registry registry;
     entt::entity player = registry.create();
     
@@ -95,4 +86,3 @@ TEST_CASE("InventorySystem Equip Logic") {
     CHECK(foundInInv);
     CHECK(equip.Get(EquipmentSlot::MainHand) == entt::entity{entt::null});
 }
-

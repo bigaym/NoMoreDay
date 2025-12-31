@@ -1,13 +1,11 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/core/AssetLoadingSystem.hpp"
 #include "../src/core/ResourceManager.hpp"
-#include "../src/tools/Logger.hpp"
-
-using namespace NoMoreDay;
+#include <raylib.h> // For Font, Texture2D
+#include "TestCommon.hpp" // Added
 
 TEST_CASE("AssetLoadingSystem - Initialization and Management") {
-    tools::Logger::Init();
     ResourceManager resourceManager;
     
     SUBCASE("Initialization") {
@@ -37,5 +35,5 @@ TEST_CASE("AssetLoadingSystem - Initialization and Management") {
         AssetLoadingSystem::Shutdown();
     }
 
-    tools::Logger::Shutdown();
+    // tools::Logger::Shutdown(); // Removed
 }

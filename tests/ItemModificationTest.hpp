@@ -1,24 +1,16 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/components/Stats.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/ItemStats.hpp"
 #include "../src/systems/CraftingSystem.hpp"
 #include "../src/systems/StatsSystem.hpp"
 #include "../src/core/ItemFactory.hpp"
-#include "../src/tools/Logger.hpp"
 #include "../src/components/EquipmentComponent.hpp"
 #include <entt/entt.hpp>
-
-using namespace NoMoreDay;
-
-struct LoggerScope {
-    LoggerScope() { tools::Logger::Init(); }
-    ~LoggerScope() { tools::Logger::Shutdown(); }
-};
+#include "TestCommon.hpp"
 
 TEST_CASE("Item Modification System Test") {
-    LoggerScope loggerScope;
     ItemFactory::initialize();
     entt::registry registry;
 

@@ -1,35 +1,11 @@
-#define DOCTEST_CONFIG_IMPLEMENT
-#define DOCTEST_CONFIG_SUPER_FAST_ASSERTS
-#include "../third_party/doctest/doctest.h"
+#pragma once
+
 #include "../src/components/PlayerState.hpp"
 #include "../src/components/Stats.hpp"
 #include "../src/components/Common.hpp" // For KilledTag
 #include "../src/systems/ProgressionSystem.hpp"
 #include "../src/systems/XPAwardingSystem.hpp" // For XPAwardingSystem
-#include "../src/tools/Logger.hpp"
-#include <entt/entity/registry.hpp>
-
-using namespace NoMoreDay;
-
-int main(int argc, char** argv) {
-    try {
-        tools::Logger::Init();
-    } catch (const std::exception& e) {
-        printf("Logger Init failed: %s\n", e.what());
-        return 1;
-    }
-
-    doctest::Context context;
-    context.applyCommandLine(argc, argv);
-
-    int res = context.run();
-
-    tools::Logger::Shutdown();
-
-    return res;
-}
-
-using namespace NoMoreDay;
+#include <entt/entt.hpp>
 
 TEST_CASE("ProgressionSystem - XP Scaling") {
     // Level 1 should be 100 (baseline)
@@ -79,9 +55,9 @@ TEST_CASE("ProgressionSystem - Experience Gain and Level Up") {
     CHECK(updatedStats.available_attribute_points == 5);
     CHECK(updatedStats.available_skill_points == 1);
     
-    // Stat growth (example: +2 to all stats)
-    CHECK(primStats.strength > 10.0f);
-    CHECK(primStats.vitality > 10.0f);
+    // Auto stat growth was removed in favor of manual allocation
+    // CHECK(primStats.strength > 10.0f);
+    // CHECK(primStats.vitality > 10.0f);
     
     // Required XP for level 2 should be updated
     CHECK(updatedStats.required_xp == doctest::Approx(ProgressionSystem::CalculateRequiredXP(2)));
