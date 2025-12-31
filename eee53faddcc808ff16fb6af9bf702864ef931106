@@ -1,0 +1,9 @@
+Task: Test Case Reorganization
+Changes:
+- Consolidated all subsystem tests into a single runner (tests/main.cpp).
+- Migrated test logic from .cpp files to .hpp files.
+- Deleted redundant standalone test .cpp files.
+- Updated CMakeLists.txt to manage the new structure.
+- Verified all 34 test cases pass after reorganization.
+- Fixed localization issues in ItemStatsTest.hpp.
+Why: To improve maintainability and simplify test execution.
