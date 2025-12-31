@@ -1,7 +1,7 @@
 #pragma once
 #include <entt/entt.hpp>
 #include "../components/ItemComponent.hpp"
-#include "../components/AffixComponent.hpp"
+#include "../components/Stats.hpp"
 #include <vector>
 #include <string>
 #include <map>

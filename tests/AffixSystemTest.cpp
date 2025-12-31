@@ -1,7 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "../third_party/doctest/doctest.h"
 #include "../src/components/Stats.hpp"
-#include "../src/components/AffixComponent.hpp"
+#include "../src/components/Stats.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/EquipmentComponent.hpp"
 #include "../src/systems/StatsSystem.hpp"
