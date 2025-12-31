@@ -1,11 +1,13 @@
 # 项目结构文档
 
 ## 项目概述
+
 NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏项目，使用 C++ 和 raylib 图形库开发。项目遵循现代游戏开发实践，采用组件化设计和并行处理技术。
 
 ## 项目目录结构
 
 ### 根目录文件
+
 - **.gitignore**: Git 版本控制忽略文件配置
 - **AGENTS.md**: 项目编码规则和代理工作指导
 - **build.bat**: Windows 平台构建批处理脚本
@@ -15,15 +17,18 @@ NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏项�
 - **test_output.txt**: 测试输出日志文件
 
 ### assets/ - 游戏资源目录
+
 资源文件目录，包含游戏所需的所有图像、音频和数据文件
 
 #### assets/data/ - 游戏数据文件
+
 - **affixes.json**: 词缀系统数据配置文件，定义各种词缀属性
 - **loot_tables.json**: 掉落表配置文件，定义物品掉落规则
 - **loot_filters/** - 掉落过滤器配置目录
   - **default.json**: 默认掉落过滤器配置
 
 #### assets/textures/ - 游戏纹理资源
+
 - **characters/** - 角色纹理
   - **corrupted_beast.png**: 堕落野兽角色纹理
   - **cultist.png**: 邪教徒角色纹理
@@ -36,6 +41,7 @@ NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏项�
   - **weapon_sword_fantasy_01.png**: 幻想剑武器纹理
 
 ### conductor/ - 项目管理和开发工具
+
 - **product-guidelines.md**: 产品开发指南
 - **product.md**: 产品规格说明
 - **setup_state.json**: 开发环境设置状态
@@ -46,9 +52,11 @@ NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏项�
 - **code_styleguides/** - 代码风格指南
 
 ### plans/ - 项目规划文档
+
 - **scene_generation_architecture.md**: 场景生成架构设计文档
 
 ### scripts/ - 项目脚本工具
+
 - **asset_gen.py**: 资源生成脚本
 - **gen_affix_data.py**: 词缀数据生成脚本
 - **gen_armor_jewelry_batch.py**: 装备珠宝批量生成脚本
@@ -56,18 +64,23 @@ NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏项�
 - **save_load_memory.py**: 记忆保存和加载脚本
 
 ### src/ - 源代码目录
+
 主要游戏逻辑和系统实现
 
 #### src/main.cpp - 程序入口点
+
 C++ 程序的主入口函数，初始化游戏引擎并启动主循环。
 
 #### src/pch.hpp - 预编译头文件
+
 预编译头文件，包含常用的系统头文件以提高编译速度。
 
 #### src/README.md - 源码目录说明
+
 源代码目录的说明文档。
 
 #### src/components/ - 组件定义目录
+
 ECS 架构中的组件定义，每个组件代表实体的一个属性或状态
 
 - **AffixComponent.hpp**: 词缀组件定义，包含词缀属性和效果数据
@@ -87,6 +100,7 @@ ECS 架构中的组件定义，每个组件代表实体的一个属性或状态
 - **UIAnimationComponent.hpp**: UI 动画组件定义，处理界面动画效果
 
 #### src/core/ - 核心系统目录
+
 游戏核心系统和基础架构
 
 - **Application.hpp**: 应用程序类定义，管理整个游戏应用的生命周期
@@ -114,6 +128,7 @@ ECS 架构中的组件定义，每个组件代表实体的一个属性或状态
 - **UIRenderer.hpp**: UI 渲染器接口定义，负责渲染用户界面
 
 #### src/states/ - 游戏状态目录
+
 不同游戏状态的实现
 
 - **GameplayState.cpp**: 游戏状态实现
@@ -128,6 +143,7 @@ ECS 架构中的组件定义，每个组件代表实体的一个属性或状态
 - **PauseState.hpp**: 暂停状态接口定义，处理游戏暂停逻辑
 
 #### src/systems/ - 游戏系统目录
+
 ECS 架构中的系统实现，处理特定类型的组件
 
 - **AISystem.cpp**: AI 系统实现
@@ -165,7 +181,6 @@ ECS 架构中的系统实现，处理特定类型的组件
 - **UIAnimationSystem.hpp**: UI 动画系统接口定义，处理界面动画效果
 - **UICharacter.cpp**: 角色界面系统实现
 - **UICharacter.hpp**: 角色界面系统接口定义，处理角色属性界面
-- **UICommon.cpp**: 通用 UI 系统实现
 - **UICommon.hpp**: 通用 UI 系统接口定义，提供基础 UI 功能
 - **UIInventory.cpp**: 背包界面系统实现
 - **UIInventory.hpp**: 背包界面系统接口定义，处理背包界面显示
@@ -177,15 +192,18 @@ ECS 架构中的系统实现，处理特定类型的组件
 - **XPAwardingSystem.hpp**: 经验奖励系统接口定义，处理经验获取和等级提升
 
 #### src/tools/ - 工具类目录
+
 - **Logger.cpp**: 日志记录器实现
 - **Logger.hpp**: 日志记录器接口定义，提供统一的日志记录功能
 
 #### src/utils/ - 工具函数目录
+
 - **Parallel.hpp**: 并行处理工具定义，提供并行计算支持
 - **Tilemask.hpp**: 瓷砖掩码工具定义，用于地图处理
 - **UUID.hpp**: 唯一标识符工具定义，生成唯一 ID
 
 ### tests/ - 测试目录
+
 - **AffixSystemTest.cpp**: 词缀系统测试
 - **AssetLoadingSystemTest.cpp**: 资源加载系统测试
 - **CMakeLists.txt**: 测试模块的 CMake 配置
@@ -203,6 +221,7 @@ ECS 架构中的系统实现，处理特定类型的组件
 - **StatsSystemTest.cpp**: 属性系统测试
 
 ### 设计文档/ - 设计文档目录
+
 - **地图和敌人刷新机制.md**: 地图生成和敌人刷新机制设计文档
 - **怪物和AI设计.md**: 怪物和 AI 行为设计文档
 - **核心战斗与角色设计.md**: 核心战斗系统和角色设计文档
@@ -217,24 +236,31 @@ ECS 架构中的系统实现，处理特定类型的组件
 ## 项目架构特点
 
 ### ECS 架构
+
 项目采用 EnTT 库实现的 ECS (Entity-Component-System) 架构，具有以下特点：
+
 - 组件 (Components)：数据容器，存储实体的属性
 - 系统 (Systems)：处理特定组件的逻辑
 - 实体 (Entities)：唯一标识符，由组件组成
 
 ### 并行处理
+
 使用 Taskflow 库实现并行处理，提高性能关键系统(如物理系统)的执行效率。
 
 ### 空间网格
+
 使用空间网格(SpatialGrid)进行高效的碰撞检测和邻居查询，优化战斗和物理系统性能。
 
 ### 资源管理
+
 统一的资源管理系统，负责游戏资源的加载、缓存和管理，确保资源的有效利用。
 
 ### 状态管理
+
 基于状态机的游戏状态管理，支持主菜单、游戏、暂停等不同游戏状态的切换。
 
 ## 关键依赖
+
 - raylib: 2D/3D 图形库
 - EnTT: ECS 架构库
 - Taskflow: 并行计算库

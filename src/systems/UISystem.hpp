@@ -11,7 +11,6 @@ class LevelManager;
 class UISystem {
 public:
     // --- Public State ---
-    // Now using UIContext (aliased as UIState_t in UICommon.hpp)
     static NoMoreDay::UIContext State;
 
     // --- Lifecycle ---

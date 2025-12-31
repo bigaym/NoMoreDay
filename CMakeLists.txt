@@ -56,16 +56,14 @@ add_library(NoMoreDayCore STATIC
     src/systems/StatsSystem.cpp
     src/systems/UIAnimationSystem.cpp
     src/systems/UICharacter.cpp
-    src/systems/UICommon.cpp
     src/systems/CraftingSystem.cpp
     src/systems/AISystem.cpp
     src/systems/MapSystem.cpp
     src/systems/EnemySpawnSystem.cpp
     src/systems/FogOfWarSystem.cpp
     src/systems/EffectSystem.cpp
-    src/systems/EnemyBehavior.cpp
+    # src/systems/EnemyBehavior.cpp
     src/systems/UISystem.cpp
-    src/systems/UICharacter.cpp
     src/systems/UIInventory.cpp
     src/systems/UIMinimap.cpp
     src/systems/ProgressionSystem.cpp
