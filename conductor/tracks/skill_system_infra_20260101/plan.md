@@ -20,7 +20,7 @@
 - [x] **任务 2.4**：编写单元测试验证 `DamagePool` 的合并与清除逻辑。 [c745968]
 - [ ] Task: Conductor - User Manual Verification '阶段 2：数据结构' (Protocol in workflow.md)
 
-## 阶段 3：伤害计算流水线实现 (Damage Pipeline Implementation)
+## 阶段 3：伤害计算流水线实现 (Damage Pipeline Implementation) [checkpoint: 9113f13]
 *目标：实现五步伤害计算算法。*
 
 - [x] **任务 3.1**：实现 `DamagePipeline` 类的骨架，并集成到 `CombatSystem` 中（或作为独立工具类）。 [e64405c]
