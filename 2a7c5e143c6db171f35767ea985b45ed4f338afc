@@ -1,0 +1,4 @@
+Task: Generate Tag Registry
+Changes: Added python script to generate C++ tag enum from JSON. Committed generated header.
+Files: scripts/gen_tags.py, src/core/TagRegistry.hpp
+Why: To automate tag maintenance.
