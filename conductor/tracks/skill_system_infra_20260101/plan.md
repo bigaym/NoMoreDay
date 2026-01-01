@@ -1,6 +1,6 @@
 # 实施计划 (plan.md) - 职业与技能系统基础设施
 
-## 阶段 1：标签注册表与自动化工具 (Tag Registry & Automation)
+## 阶段 1：标签注册表与自动化工具 (Tag Registry & Automation) [checkpoint: 0d72ec2]
 *目标：建立基于位掩码的标签系统，并通过 Python 脚本实现自动化维护。*
 
 - [x] **任务 1.1**：创建 `assets/data/tags.json` 定义基础标签（物理、火焰、近战、投射物等）。 [7b90b7d]
