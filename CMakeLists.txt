@@ -28,6 +28,22 @@ add_subdirectory(third_party/taskflow)
 
 # 5. nlohmann/json
 
+# --- Tag Generation ---
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(TAG_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen_tags.py")
+set(TAG_JSON "${CMAKE_CURRENT_SOURCE_DIR}/assets/data/tags.json")
+set(TAG_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/core/TagRegistry.hpp")
+
+add_custom_command(
+    OUTPUT ${TAG_HEADER}
+    COMMAND Python3::Interpreter ${TAG_SCRIPT}
+    DEPENDS ${TAG_SCRIPT} ${TAG_JSON}
+    COMMENT "Generating TagRegistry.hpp from tags.json..."
+)
+
+add_custom_target(GenerateTags DEPENDS ${TAG_HEADER})
+
 # --- Core Library (Static) ---
 # 将核心逻辑打包为静态库，供游戏主程序和测试程序共同链接
 add_library(NoMoreDayCore STATIC
@@ -72,6 +88,8 @@ add_library(NoMoreDayCore STATIC
     src/tools/Logger.cpp
     src/systems/InventorySystem.cpp
 )
+
+add_dependencies(NoMoreDayCore GenerateTags)
 
 # Enable Precompiled Headers
 target_precompile_headers(NoMoreDayCore PRIVATE src/pch.hpp)
