@@ -4,7 +4,8 @@
 *目标：建立基于位掩码的标签系统，并通过 Python 脚本实现自动化维护。*
 
 - [x] **任务 1.1**：创建 `assets/data/tags.json` 定义基础标签（物理、火焰、近战、投射物等）。 [7b90b7d]
-- [ ] **任务 1.2**：编写 `scripts/gen_tags.py` 脚本，将 JSON 转换为 C++ 头文件（生成 `enum class Tag : uint64_t` 和反射名称）。
+- [x] **任务 1.2**：编写 `scripts/gen_tags.py` 脚本，将 JSON 转换为 C++ 头文件（生成 `enum class Tag : uint64_t` 和反射名称）。 [2a7c5e1]
+- [~] **任务 1.3**：在 CMake 中配置该脚本的自动调用，并集成生成的头文件到项目中。
 - [ ] **任务 1.3**：在 CMake 中配置该脚本的自动调用，并集成生成的头文件到项目中。
 - [ ] **任务 1.4**：编写 `TagSystemTest.hpp`，验证位掩码匹配和字符串转换逻辑。
 - [ ] Task: Conductor - User Manual Verification '阶段 1：标签注册表' (Protocol in workflow.md)
