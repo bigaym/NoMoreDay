@@ -14,7 +14,7 @@
 - [x] Task: Node Status Colors: Render nodes differently based on status (Activated, Available, Locked).
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Node Interaction & Information' (Protocol in workflow.md)
 
-## Phase 3: Connections & Activation Logic [checkpoint: pending]
+## Phase 3: Connections & Activation Logic [checkpoint: 70b8848]
 - [x] Task: Connection Line Rendering: Draw lines between nodes with status-aware coloring.
 - [x] Task: Point Counter HUD: Add a talent point display to the UI.
 - [x] Task: Activation Integration: Connect UI clicks to `AstrolabeSystem::activate_node` and trigger visual feedback.
