@@ -14,10 +14,10 @@
 ## 阶段 2：数据结构与修饰符定义 (Data Structures & Modifiers)
 *目标：定义伤害池和多层修饰符的数据模型。*
 
-- [ ] **任务 2.1**：实现 `DamagePool` 结构体，使用固定数组存储多类型点伤，并提供标签过滤方法。
-- [ ] **任务 2.2**：定义 `DamageModifier` 结构体，支持 `Convert`, `GainExtra`, `Increased`, `More` 等操作类型。
-- [ ] **任务 2.3**：实现 `SkillModifierComponent` 和 `GlobalModifierComponent` 用于 ECS 实体存储。
-- [ ] **任务 2.4**：编写单元测试验证 `DamagePool` 的合并与清除逻辑。
+- [x] **任务 2.1**：实现 `DamagePool` 结构体，使用固定数组存储多类型点伤，并提供标签过滤方法。 [c745968]
+- [x] **任务 2.2**：定义 `DamageModifier` 结构体，支持 `Convert`, `GainExtra`, `Increased`, `More` 等操作类型。 [c745968]
+- [x] **任务 2.3**：实现 `SkillModifierComponent` 和 `GlobalModifierComponent` 用于 ECS 实体存储。 [c745968]
+- [x] **任务 2.4**：编写单元测试验证 `DamagePool` 的合并与清除逻辑。 [c745968]
 - [ ] Task: Conductor - User Manual Verification '阶段 2：数据结构' (Protocol in workflow.md)
 
 ## 阶段 3：伤害计算流水线实现 (Damage Pipeline Implementation)
