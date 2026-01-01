@@ -1,0 +1,4 @@
+Task: Configure CMake
+Changes: Added custom command to run gen_tags.py in CMakeLists.txt.
+Files: CMakeLists.txt
+Why: To ensure tag header is always up-to-date.
