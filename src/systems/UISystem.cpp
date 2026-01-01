@@ -2,6 +2,7 @@
 #include "UIInventory.hpp"
 #include "UICharacter.hpp"
 #include "UIMinimap.hpp"
+#include "UIAstrolabe.hpp" // Include UIAstrolabe
 #include "UIAnimationSystem.hpp" // Include UIAnimationSystem
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
@@ -135,6 +136,19 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
         }
     }
 
+    // Astrolabe (N)
+    if (IsKeyPressed(KEY_N)) {
+        auto view = registry.view<PlayerTag>();
+        if (view.begin() != view.end()) {
+            UIAstrolabe::Toggle(registry, view.front());
+            if (UIAstrolabe::IsVisible(registry, view.front())) {
+                State.showInventory = false;
+                State.showCharacterPanel = false;
+                State.showContextMenu = false;
+            }
+        }
+    }
+
     // Quick Pickup (F)
     if (IsKeyPressed(KEY_F)) {
         auto playerView = registry.view<PlayerTag, Position>();
@@ -205,6 +219,14 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
             State.showContextMenu = false;
         } else if (State.showInventory) {
             UIInventory::Toggle();
+        } else {
+            // Check if Astrolabe is open
+            auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end()) {
+                if (UIAstrolabe::IsVisible(registry, view.front())) {
+                    UIAstrolabe::Toggle(registry, view.front());
+                }
+            }
         }
     }
 
@@ -223,6 +245,7 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
     }
     
     UIInventory::Update(registry);
+    UIAstrolabe::Update(registry);
 
     if (State.showMessageBox) {
         State.messageBoxTimer -= GetFrameTime();
@@ -246,6 +269,7 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     if (State.inventoryAlpha > 0.0f) UIInventory::Draw(registry);
     UIMinimap::Draw(registry, levelManager);
     if (State.characterPanelAlpha > 0.0f) UICharacter::Draw(registry);
+    UIAstrolabe::Draw(registry);
 
     // 2. Ground Interaction
     if (State.hoveredItem == entt::null) {

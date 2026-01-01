@@ -82,6 +82,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/UISystem.cpp
     src/systems/AstrolabeSystem.cpp
     src/systems/UIInventory.cpp
+    src/systems/UIAstrolabe.cpp
     src/systems/UIMinimap.cpp
     src/systems/ProgressionSystem.cpp
     src/systems/XPAwardingSystem.cpp

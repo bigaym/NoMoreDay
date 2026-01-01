@@ -23,6 +23,7 @@ using namespace NoMoreDay;
 #include "AstrolabeSystemTest.hpp"
 #include "SkillSystemTest.hpp"
 #include "DamagePipelineTest.hpp"
+#include "AstrolabeUITest.hpp"
 
 int main(int argc, char** argv) {
     doctest::Context context;
