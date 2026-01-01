@@ -1,11 +1,11 @@
 # Plan: Astrolabe UI Implementation
 
-## Phase 1: UI Overlay & Camera Framework
+## Phase 1: UI Overlay & Camera Framework [checkpoint: 767c1ac]
 - [x] Task: Implement `AstrolabeUI` component/class to manage UI state and visibility.
 - [x] Task: Add hotkey logic in `InputSystem` or `GameplayState` to toggle the Astrolabe UI.
 - [x] Task: Implement a 2D camera system within the UI to support Panning and Zooming.
 - [x] Task: Basic Node Rendering: Draw simple shapes for nodes at their JSON-defined coordinates.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: UI Overlay & Camera Framework' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: UI Overlay & Camera Framework' (Protocol in workflow.md)
 
 ## Phase 2: Node Interaction & Information
 - [ ] Task: Implement Mouse Picking: Detect which node is being hovered/clicked in world-space.
