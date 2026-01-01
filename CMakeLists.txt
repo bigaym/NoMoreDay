@@ -146,13 +146,15 @@ set_target_properties(NoMoreDay PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BIN
 
 # 2. Copy Assets Folder (Robust Cross-Platform)
 # Symlinks on Windows via CMake can be flaky due to permissions or shell differences.
-# copy_directory is safe and effective for this scale.
-add_custom_command(TARGET NoMoreDay POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/assets"
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets"
-    COMMENT "Copying assets to output directory..."
-)
+# copy_directory is safe and effective for this scale.   
+
+# 手动创建软链接
+# add_custom_command(TARGET NoMoreDay POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy_directory
+#     "${CMAKE_SOURCE_DIR}/assets"
+#     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets"
+#     COMMENT "Copying assets to output directory..."
+# )
 
 # 3. Copy Dependency DLLs to Output Directory
 # Use generator expressions to locate the DLL files automatically.
