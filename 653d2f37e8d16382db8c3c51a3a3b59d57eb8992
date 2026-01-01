@@ -1,0 +1,4 @@
+Task: Damage Pipeline Implementation
+Changes: Implemented full conversion logic with tag inheritance and multiplier application.
+Files: src/systems/DamagePipeline.cpp, tests/DamagePipelineTest.hpp
+Why: Core mechanic for complex skill damage calculations.
