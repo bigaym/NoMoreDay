@@ -28,6 +28,7 @@
 - **内存管理**：**mimalloc** (优化分配效率)。
 - **计算优化**：**xsimd** (针对物理/粒子系统的 SIMD 加速)。
 - **辅助库**：**spdlog** (日志), **nlohmann/json** (序列化)。
+- **开发平台**：目前使用Windows的VS code开发+gcc 14编译。 
 
 ### 已实现系统模块 (Implemented Systems)
 
@@ -47,6 +48,7 @@
   - `CombatSystem`: 攻击判定、伤害计算（护甲/抗性）、死亡处理。
   - `AISystem`: 状态机 AI（巡逻、追击、攻击、逃跑），集成流场寻路。
   - `EffectSystem`: 管理伤害飘字和攻击特效的生命周期。
+  - `RegenerationSystem`: 负责生命值与法力值的随时间自然恢复，并同步最大值。
 
 - **世界与生态**:
   - `MapSystem`: 洞穴生成（元胞自动机）、流场计算（Flow Field Pathfinding）。

@@ -37,6 +37,7 @@ enum class EquipmentSlot {
     Neck,
     Ring1,
     Ring2,
+    Ring, // 通用戒指槽位 (用于物品属性，不用于装备栏索引)
     Count // For array sizing
 };
 

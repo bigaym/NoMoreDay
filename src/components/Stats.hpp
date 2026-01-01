@@ -147,8 +147,8 @@ namespace NoMoreDay
         float cast_range = 0.0f;              // 施法距离加成
 
         // --- 持续回复 (Regeneration) ---
-        float health_regen = 0.0f;     // 每秒生命回复 (Flat)
-        float mana_regen = 0.0f;       // 每秒法力回复 (Flat)
+        float health_regen = 1.0f;     // 每秒生命回复 (Flat)
+        float mana_regen = 1.0f;       // 每秒法力回复 (Flat)
         float health_regen_pct = 0.0f; // 生命回复加成 %
         float mana_regen_pct = 0.0f;   // 法力回复加成 %
 

@@ -50,6 +50,12 @@ enum class AffixType : uint8_t {
     Thorns,         // 荆棘
     DamageReduction,// 伤害减免
 
+    // Recovery
+    HealthRegen,        // 生命回复 (Flat)
+    ManaRegen,          // 法力回复 (Flat)
+    PercentHealthRegen, // 生命回复加成 %
+    PercentManaRegen,   // 法力回复加成 %
+
     // Utility
     MoveSpeed,          // 移动速度
     CooldownReduction,  // 冷却缩减
@@ -140,6 +146,11 @@ inline std::string GetAffixDescription(const Affix& affix) {
         case AffixType::Thorns: text += " 荆棘伤害"; break;
         case AffixType::DamageReduction: text += "% 伤害减免"; break;
 
+        case AffixType::HealthRegen: text += " 生命回复"; break;
+        case AffixType::ManaRegen: text += " 法力回复"; break;
+        case AffixType::PercentHealthRegen: text += "% 生命回复"; break;
+        case AffixType::PercentManaRegen: text += "% 法力回复"; break;
+
         case AffixType::MoveSpeed: text += "% 移动速度"; break;
         case AffixType::CooldownReduction: text += "% 冷却缩减"; break;
 
@@ -193,6 +204,11 @@ inline const char* GetAffixDescriptionRef(const Affix& affix) {
 
         case AffixType::Thorns: return TextFormat("+%.0f 荆棘伤害", val);
         case AffixType::DamageReduction: return TextFormat("+%.0f%% 伤害减免", val);
+
+        case AffixType::HealthRegen: return TextFormat("+%.1f 生命回复", val);
+        case AffixType::ManaRegen: return TextFormat("+%.1f 法力回复", val);
+        case AffixType::PercentHealthRegen: return TextFormat("+%.0f%% 生命回复", val);
+        case AffixType::PercentManaRegen: return TextFormat("+%.0f%% 法力回复", val);
 
         case AffixType::MoveSpeed: return TextFormat("+%.0f%% 移动速度", val);
         case AffixType::CooldownReduction: return TextFormat("+%.0f%% 冷却缩减", val);

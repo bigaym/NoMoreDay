@@ -162,7 +162,8 @@ void UIInventory::Draw(entt::registry& registry) {
 
         if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
             auto* dragItemComp = registry.try_get<ItemComponent>(UISystem::State.draggedItem);
-            if (dragItemComp && dragItemComp->slot == slotType) {
+            // 允许匹配的槽位，或者通用的 Ring 放入 Ring1/Ring2
+            if (dragItemComp && (dragItemComp->slot == slotType || (dragItemComp->slot == EquipmentSlot::Ring && (slotType == EquipmentSlot::Ring1 || slotType == EquipmentSlot::Ring2)))) {
                 if (UISystem::State.isDraggingFromInventory && inv) {
                     entt::entity oldEquip = equip->get(slotType);
                     equip->set(slotType, UISystem::State.draggedItem);

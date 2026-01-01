@@ -2,7 +2,7 @@
     {
         "id": "strength",
         "type": 0,
-        "nameTemplate": "Strength",
+        "nameTemplate": "力量",
         "isPrefix": false,
         "tiers": [
             {
@@ -57,7 +57,7 @@
     {
         "id": "dexterity",
         "type": 1,
-        "nameTemplate": "Dexterity",
+        "nameTemplate": "敏捷",
         "isPrefix": false,
         "tiers": [
             {
@@ -112,7 +112,7 @@
     {
         "id": "intelligence",
         "type": 2,
-        "nameTemplate": "Intelligence",
+        "nameTemplate": "智力",
         "isPrefix": false,
         "tiers": [
             {
@@ -167,7 +167,7 @@
     {
         "id": "vitality",
         "type": 3,
-        "nameTemplate": "Vitality",
+        "nameTemplate": "活力",
         "isPrefix": false,
         "tiers": [
             {
@@ -222,7 +222,7 @@
     {
         "id": "crit_chance",
         "type": 16,
-        "nameTemplate": "Deadly",
+        "nameTemplate": "致命的",
         "isPrefix": false,
         "tiers": [
             {
@@ -277,7 +277,7 @@
     {
         "id": "attack_speed",
         "type": 18,
-        "nameTemplate": "Rapid",
+        "nameTemplate": "急速的",
         "isPrefix": false,
         "tiers": [
             {
@@ -331,7 +331,7 @@
     {
         "id": "move_speed",
         "type": 34,
-        "nameTemplate": "Quick",
+        "nameTemplate": "迅捷的",
         "isPrefix": false,
         "tiers": [
             {
@@ -384,7 +384,7 @@
     {
         "id": "resist_all",
         "type": 26,
-        "nameTemplate": "Prismatic",
+        "nameTemplate": "全抗的",
         "isPrefix": false,
         "tiers": [
             {
@@ -438,7 +438,7 @@
     {
         "id": "resist_fire",
         "type": 27,
-        "nameTemplate": "Fire Res",
+        "nameTemplate": "耐火的",
         "isPrefix": false,
         "tiers": [
             {
@@ -492,7 +492,7 @@
     {
         "id": "resist_cold",
         "type": 28,
-        "nameTemplate": "Cold Res",
+        "nameTemplate": "耐寒的",
         "isPrefix": false,
         "tiers": [
             {
@@ -546,7 +546,7 @@
     {
         "id": "resist_lightning",
         "type": 29,
-        "nameTemplate": "Light Res",
+        "nameTemplate": "耐电的",
         "isPrefix": false,
         "tiers": [
             {
@@ -600,7 +600,7 @@
     {
         "id": "flat_health",
         "type": 23,
-        "nameTemplate": "Vigorous",
+        "nameTemplate": "强壮的",
         "isPrefix": true,
         "tiers": [
             {
@@ -654,7 +654,7 @@
     {
         "id": "flat_mana",
         "type": 25,
-        "nameTemplate": "Mystic",
+        "nameTemplate": "神秘的",
         "isPrefix": true,
         "tiers": [
             {
@@ -708,7 +708,7 @@
     {
         "id": "flat_phys",
         "type": 4,
-        "nameTemplate": "Sharp",
+        "nameTemplate": "锋利的",
         "isPrefix": true,
         "tiers": [
             {
@@ -762,7 +762,7 @@
     {
         "id": "flat_fire",
         "type": 5,
-        "nameTemplate": "Burning",
+        "nameTemplate": "燃烧的",
         "isPrefix": true,
         "tiers": [
             {
@@ -816,7 +816,7 @@
     {
         "id": "pct_phys",
         "type": 10,
-        "nameTemplate": "Cruel",
+        "nameTemplate": "残酷的",
         "isPrefix": true,
         "tiers": [
             {
@@ -869,7 +869,7 @@
     {
         "id": "pct_fire",
         "type": 11,
-        "nameTemplate": "Fiery",
+        "nameTemplate": "炽热的",
         "isPrefix": true,
         "tiers": [
             {
@@ -922,7 +922,7 @@
     {
         "id": "pct_light",
         "type": 13,
-        "nameTemplate": "Shocking",
+        "nameTemplate": "雷击的",
         "isPrefix": true,
         "tiers": [
             {
@@ -975,7 +975,7 @@
     {
         "id": "flat_armor",
         "type": 21,
-        "nameTemplate": "Reinforced",
+        "nameTemplate": "加固的",
         "isPrefix": true,
         "tiers": [
             {
@@ -1028,7 +1028,7 @@
     {
         "id": "pct_armor",
         "type": 22,
-        "nameTemplate": "Hardened",
+        "nameTemplate": "硬化的",
         "isPrefix": true,
         "tiers": [
             {

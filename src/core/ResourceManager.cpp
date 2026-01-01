@@ -27,7 +27,7 @@ Texture2D ResourceManager::loadTexture(entt::id_type id, const std::string& path
     }
     m_textures.emplace(id, tex);
     // Note: We can't log the string 'name' easily unless we store it, but path is sufficient.
-    LOG_INFO("ResourceManager: Loaded texture (ID: {}) from '{}'", id, path);
+    LOG_TRACE("ResourceManager: Loaded texture (ID: {}) from '{}'", id, path);
     return tex;
 }
 

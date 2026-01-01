@@ -38,7 +38,7 @@ TEST_CASE("Item Modification System Test") {
     SUBCASE("Refinement: Base Stats") {
         ItemComponent item;
         item.type = ItemType::Weapon;
-        item.name = "Rusty Sword"; // Valid base name in ItemFactory
+        item.name = "锈蚀铁剑"; // Valid base name in ItemFactory
         item.attack = 1.0f;
         item.forgingPotential = 50;
         

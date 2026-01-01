@@ -55,6 +55,12 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.gold_bonus = 0.0f;
     combat.experience_gain_mult = 0.0f;
     combat.pickup_range = 50.0f; // Default
+
+    // Reset regeneration values
+    combat.health_regen = 1.0f;
+    combat.mana_regen = 1.0f;
+    combat.health_regen_pct = 0.0f;
+    combat.mana_regen_pct = 0.0f;
 }
 
 // 辅助函数：将通用 StatModifier 应用到计算数组
@@ -202,7 +208,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     float offHandAttack = 0.0f;
     bool hasOffHandWeapon = false;
 
-    // 定义处理词缀的 Lambda，供物品和套装奖励复用
+    // 定义处理词缀的 Lambda，供物品 and 套装奖励复用
     auto processAffixes = [&](const std::vector<Affix>& affixes) {
         for (const auto& affix : affixes) {
             ApplyAffix(calcs, affix);
@@ -220,6 +226,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 // 回复 (Recovery)
                 case AffixType::LifeSteal:       combat.life_steal += affix.value / 100.0f; break;
                 case AffixType::LifeOnHit:       combat.life_on_hit += affix.value; break;
+                case AffixType::HealthRegen:     combat.health_regen += affix.value; break;
+                case AffixType::ManaRegen:       combat.mana_regen += affix.value; break;
+                case AffixType::PercentHealthRegen: combat.health_regen_pct += affix.value / 100.0f; break;
+                case AffixType::PercentManaRegen:   combat.mana_regen_pct += affix.value / 100.0f; break;
 
                 // 其他特殊词缀
                 case AffixType::Thorns:          combat.thorns += affix.value; break;
@@ -368,6 +378,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     calcs[static_cast<size_t>(StatType::Armor)].base += str * 2.0f; // 1力 = 2护甲
     calcs[static_cast<size_t>(StatType::MaxHealth)].base += vit * 15.0f; // 1体 = 15血
     calcs[static_cast<size_t>(StatType::MaxMana)].base += intel * 5.0f;
+    
+    // 回复缩放 (Regeneration Scaling)
+    combat.health_regen += vit * 0.2f;   // 1体 = 0.2 生命回复/秒
+    combat.mana_regen += intel * 0.2f;  // 1智 = 0.2 法力回复/秒
 
     // 属性对伤害的加成
     ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd, str * 1.0f); // 1力 = 1% 物理伤害
@@ -400,6 +414,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     }
 
     combat.knockback += str * 0.5f; // 力量增加击退
+
+    // Finalize Regeneration (Apply Pct)
+    combat.health_regen *= (1.0f + combat.health_regen_pct);
+    combat.mana_regen *= (1.0f + combat.mana_regen_pct);
 
     LOG_INFO("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
         (uint32_t)entity, combat.min_weapon_damage, combat.max_weapon_damage, 

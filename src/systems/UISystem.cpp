@@ -143,8 +143,8 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
             const auto& pPos = playerView.get<Position>(playerEntity);
             
             auto groundItemView = registry.view<ItemComponent, Position>();
-            entt::entity nearestItem = entt::null;
-            float nearestDistSq = 150.0f * 150.0f; // Max pickup range
+            float pickupRangeSq = 200.0f * 200.0f; // Max pickup range (Increased)
+            std::vector<entt::entity> itemsToPick;
 
             for (auto entity : groundItemView) {
                 const auto& iPos = groundItemView.get<Position>(entity);
@@ -152,20 +152,36 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
                 float dy = iPos.y - pPos.y;
                 float distSq = dx*dx + dy*dy;
                 
-                if (distSq < nearestDistSq) {
-                    nearestDistSq = distSq;
-                    nearestItem = entity;
+                if (distSq < pickupRangeSq) {
+                    itemsToPick.push_back(entity);
                 }
             }
             
-            if (nearestItem != entt::null) {
-                if (InventorySystem::pickUpItem(registry, playerEntity, nearestItem)) {
-                    // Success
-                } else {
-                    State.showMessageBox = true;
-                    snprintf(State.messageBoxText, 64, "背包已满");
-                    State.messageBoxTimer = 1.5f;
+            bool anyPicked = false;
+            bool anyFailed = false;
+            int attemptCount = 0;
+            int successCount = 0;
+
+            for (auto item : itemsToPick) {
+                if (registry.valid(item)) {
+                    attemptCount++;
+                    if (InventorySystem::pickUpItem(registry, playerEntity, item)) {
+                        anyPicked = true;
+                        successCount++;
+                    } else {
+                        anyFailed = true;
+                    }
                 }
+            }
+            
+            if (attemptCount > 0) {
+                LOG_INFO("批量拾取: 范围内的物品 {}, 成功拾取 {}", attemptCount, successCount);
+            }
+
+            if (anyFailed && !anyPicked) {
+                State.showMessageBox = true;
+                snprintf(State.messageBoxText, 64, "背包已满");
+                State.messageBoxTimer = 1.5f;
             }
         }
     }

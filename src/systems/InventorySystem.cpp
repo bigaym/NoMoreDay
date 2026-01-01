@@ -273,6 +273,18 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
     }
 
     EquipmentSlot slot = itemComp->slot;
+
+    // 自动分配戒指槽位
+    if (slot == EquipmentSlot::Ring) {
+        if (equipment->get(EquipmentSlot::Ring1) == entt::null) {
+            slot = EquipmentSlot::Ring1;
+        } else if (equipment->get(EquipmentSlot::Ring2) == entt::null) {
+            slot = EquipmentSlot::Ring2;
+        } else {
+            slot = EquipmentSlot::Ring1; // 默认替换戒指1
+        }
+    }
+
     if (slot == EquipmentSlot::None)
     {
         LOG_WARN("背包: 无法装备物品 '{}' - 无效槽位", itemComp->name);

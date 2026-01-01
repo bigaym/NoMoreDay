@@ -24,6 +24,7 @@
 #include "../systems/InventorySystem.hpp"
 #include "../systems/SerializationSystem.hpp"
 #include "../systems/FogOfWarSystem.hpp"
+#include "../systems/RegenerationSystem.hpp"
 
 // Components
 #include "../components/Common.hpp"
@@ -159,6 +160,7 @@ namespace NoMoreDay {
         m_context->levelManager->update(dt, registry, playerPos);
         m_context->levelManager->getMapSystem().updateFlowField(playerPos);
         StatsSystem::update(registry);
+        RegenerationSystem::update(registry, dt);
         DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);

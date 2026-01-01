@@ -41,12 +41,12 @@ static entt::id_type getRandomTextureForType(ItemType type, EquipmentSlot slot, 
         }
     } else if (type == ItemType::Weapon) {
         // Heuristic based on name
-        if (name.find("Claymore") != std::string::npos) return pickRandomAsset(greatsword::All);
-        if (name.find("Dagger") != std::string::npos) return pickRandomAsset(dagger::All);
-        if (name.find("Axe") != std::string::npos) return pickRandomAsset(axe::All);
-        if (name.find("Hammer") != std::string::npos) return pickRandomAsset(hammer::All);
-        if (name.find("Staff") != std::string::npos) return pickRandomAsset(staff::All);
-        if (name.find("Wand") != std::string::npos) return pickRandomAsset(wand::All);
+        if (name.find("大剑") != std::string::npos || name.find("Claymore") != std::string::npos) return pickRandomAsset(greatsword::All);
+        if (name.find("匕首") != std::string::npos || name.find("Dagger") != std::string::npos) return pickRandomAsset(dagger::All);
+        if (name.find("斧") != std::string::npos || name.find("Axe") != std::string::npos) return pickRandomAsset(axe::All);
+        if (name.find("锤") != std::string::npos || name.find("Hammer") != std::string::npos) return pickRandomAsset(hammer::All);
+        if (name.find("法杖") != std::string::npos || name.find("Staff") != std::string::npos) return pickRandomAsset(staff::All);
+        if (name.find("魔杖") != std::string::npos || name.find("Wand") != std::string::npos) return pickRandomAsset(wand::All);
         
         // Default to sword if unspecified or generic
         return pickRandomAsset(sword::All);
@@ -56,7 +56,7 @@ static entt::id_type getRandomTextureForType(ItemType type, EquipmentSlot slot, 
 
     // Jewelry
     if (slot == EquipmentSlot::Neck) return pickRandomAsset(amulet::All);
-    if (slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2) return pickRandomAsset(ring::All);
+    if (slot == EquipmentSlot::Ring || slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2) return pickRandomAsset(ring::All);
 
     return 0;
 }
@@ -142,21 +142,143 @@ struct BaseItemDef {
     AffixType implicitType; 
 };
 
-static const std::vector<BaseItemDef> WEAPON_BASES = {
-    {"Rusty Sword",      1,  5.0f,  8.0f,  AffixType::PercentPhysicalDamage},
-    {"Iron Longsword",   10, 12.0f, 18.0f, AffixType::PercentPhysicalDamage},
-    {"Steel Claymore",   25, 25.0f, 35.0f, AffixType::CritChance},
-    {"Mithril Blade",    45, 45.0f, 60.0f, AffixType::AttackSpeed},
-    {"Crystal Saber",    60, 70.0f, 90.0f, AffixType::PercentFireDamage},
-    {"Demon Edge",       75, 100.0f,130.0f,AffixType::CritDamage}
+// --- 武器基底定义 ---
+
+static const std::vector<BaseItemDef> WEAPON_SWORD_BASES = {
+    {"锈蚀铁剑", 1, 5.0f, 8.0f, AffixType::PercentPhysicalDamage},
+    {"精铁长剑", 10, 12.0f, 18.0f, AffixType::PercentPhysicalDamage},
+    {"骑士阔剑", 25, 25.0f, 35.0f, AffixType::CritChance},
+    {"秘银长剑", 45, 45.0f, 60.0f, AffixType::AttackSpeed},
+    {"符文剑", 60, 70.0f, 90.0f, AffixType::PercentFireDamage},
+    {"龙牙剑", 75, 100.0f, 130.0f, AffixType::CritDamage}
 };
 
-static const std::vector<BaseItemDef> ARMOR_BASES = {
-    {"Tattered Robe",    1,  2.0f,  5.0f,  AffixType::FlatMana},
-    {"Leather Tunic",    10, 8.0f,  12.0f, AffixType::FlatHealth},
-    {"Chainmail",        25, 20.0f, 30.0f, AffixType::ResistAll},
-    {"Plate Mail",       45, 40.0f, 55.0f, AffixType::PercentArmor},
-    {"Dragon Scale",     70, 70.0f, 90.0f, AffixType::FlatHealth}
+static const std::vector<BaseItemDef> WEAPON_AXE_BASES = {
+    {"伐木斧", 1, 6.0f, 10.0f, AffixType::FlatPhysicalDamage},
+    {"铁手斧", 10, 14.0f, 20.0f, AffixType::FlatPhysicalDamage},
+    {"战斗斧", 25, 28.0f, 38.0f, AffixType::CritDamage},
+    {"狂战士斧", 45, 50.0f, 65.0f, AffixType::PercentPhysicalDamage},
+    {"斩首斧", 60, 75.0f, 95.0f, AffixType::LifeSteal},
+    {"毁灭者", 75, 110.0f, 140.0f, AffixType::CritDamage}
+};
+
+static const std::vector<BaseItemDef> WEAPON_DAGGER_BASES = {
+    {"磨损匕首", 1, 3.0f, 6.0f, AffixType::CritChance},
+    {"猎人短刀", 10, 8.0f, 14.0f, AffixType::CritChance},
+    {"刺客匕首", 25, 18.0f, 26.0f, AffixType::CritDamage},
+    {"锯齿刃", 45, 35.0f, 48.0f, AffixType::FlatPoisonDamage},
+    {"幽冥匕首", 60, 55.0f, 75.0f, AffixType::PercentPoisonDamage},
+    {"龙骨匕首", 75, 80.0f, 100.0f, AffixType::CritChance}
+};
+
+static const std::vector<BaseItemDef> WEAPON_HAMMER_BASES = {
+    {"木锤", 1, 7.0f, 11.0f, AffixType::FlatPhysicalDamage},
+    {"铁战锤", 10, 16.0f, 24.0f, AffixType::PercentPhysicalDamage},
+    {"碎骨锤", 25, 32.0f, 45.0f, AffixType::PercentPhysicalDamage},
+    {"重型战锤", 45, 55.0f, 75.0f, AffixType::FlatLightningDamage},
+    {"雷神之锤", 60, 85.0f, 110.0f, AffixType::PercentLightningDamage},
+    {"泰坦之锤", 75, 120.0f, 160.0f, AffixType::PercentPhysicalDamage}
+};
+
+static const std::vector<BaseItemDef> WEAPON_GREATSWORD_BASES = {
+    {"训练大剑", 1, 8.0f, 12.0f, AffixType::PercentPhysicalDamage},
+    {"铁大剑", 10, 18.0f, 26.0f, AffixType::PercentPhysicalDamage},
+    {"巨剑", 25, 35.0f, 50.0f, AffixType::FlatPhysicalDamage},
+    {"斩马刀", 45, 60.0f, 80.0f, AffixType::CritDamage},
+    {"处刑者", 60, 90.0f, 120.0f, AffixType::LifeOnHit},
+    {"诸神黄昏", 75, 130.0f, 170.0f, AffixType::PercentPhysicalDamage}
+};
+
+static const std::vector<BaseItemDef> WEAPON_STAFF_BASES = {
+    {"枯木法杖", 1, 4.0f, 8.0f, AffixType::FlatMana},
+    {"橡木法杖", 10, 10.0f, 16.0f, AffixType::PercentFireDamage},
+    {"宝石法杖", 25, 22.0f, 32.0f, AffixType::PercentColdDamage},
+    {"元素法杖", 45, 40.0f, 55.0f, AffixType::ResistAll},
+    {"贤者法杖", 60, 65.0f, 85.0f, AffixType::PercentLightningDamage},
+    {"世界树枝", 75, 95.0f, 125.0f, AffixType::Intelligence}
+};
+
+static const std::vector<BaseItemDef> WEAPON_WAND_BASES = {
+    {"学徒魔杖", 1, 3.0f, 7.0f, AffixType::FlatMana},
+    {"骨魔杖", 10, 9.0f, 15.0f, AffixType::FlatShadowDamage},
+    {"水晶魔杖", 25, 20.0f, 30.0f, AffixType::PercentShadowDamage},
+    {"秘法魔杖", 45, 38.0f, 52.0f, AffixType::CastSpeed},
+    {"虚空魔杖", 60, 60.0f, 80.0f, AffixType::PercentShadowDamage},
+    {"星辰魔杖", 75, 90.0f, 115.0f, AffixType::Intelligence}
+};
+
+// --- 防具基底定义 ---
+
+static const std::vector<BaseItemDef> ARMOR_HEAD_BASES = {
+    {"皮帽", 1, 2.0f, 4.0f, AffixType::FlatMana},
+    {"铁盔", 10, 6.0f, 10.0f, AffixType::FlatHealth},
+    {"骑士头盔", 25, 15.0f, 22.0f, AffixType::FlatArmor},
+    {"统帅头盔", 45, 30.0f, 40.0f, AffixType::PercentArmor},
+    {"龙盔", 60, 50.0f, 70.0f, AffixType::Vitality}
+};
+
+static const std::vector<BaseItemDef> ARMOR_CHEST_BASES = {
+    {"破旧法袍", 1, 3.0f, 6.0f, AffixType::FlatMana},
+    {"硬皮上衣", 10, 10.0f, 15.0f, AffixType::FlatHealth},
+    {"锁子甲", 25, 25.0f, 35.0f, AffixType::ResistAll},
+    {"板甲", 45, 50.0f, 65.0f, AffixType::PercentArmor},
+    {"龙鳞甲", 70, 80.0f, 100.0f, AffixType::FlatHealth}
+};
+
+static const std::vector<BaseItemDef> ARMOR_SHOULDER_BASES = {
+    {"皮护肩", 1, 2.0f, 4.0f, AffixType::FlatHealth},
+    {"铁护肩", 10, 5.0f, 9.0f, AffixType::Strength},
+    {"钢护肩", 25, 12.0f, 18.0f, AffixType::FlatArmor},
+    {"刺客护肩", 45, 25.0f, 35.0f, AffixType::Dexterity},
+    {"泰坦护肩", 60, 45.0f, 60.0f, AffixType::PercentArmor}
+};
+
+static const std::vector<BaseItemDef> ARMOR_HANDS_BASES = {
+    {"皮手套", 1, 1.0f, 3.0f, AffixType::AttackSpeed},
+    {"铁手套", 10, 4.0f, 7.0f, AffixType::FlatArmor},
+    {"钢手套", 25, 10.0f, 15.0f, AffixType::CritChance},
+    {"符文手套", 45, 20.0f, 30.0f, AffixType::CastSpeed},
+    {"龙爪手套", 60, 35.0f, 50.0f, AffixType::CritDamage}
+};
+
+static const std::vector<BaseItemDef> ARMOR_LEGS_BASES = {
+    {"布裤", 1, 2.0f, 4.0f, AffixType::MoveSpeed},
+    {"皮护腿", 10, 6.0f, 10.0f, AffixType::FlatHealth},
+    {"锁甲护腿", 25, 15.0f, 22.0f, AffixType::FlatArmor},
+    {"板甲护腿", 45, 30.0f, 42.0f, AffixType::PercentArmor},
+    {"龙鳞护腿", 60, 55.0f, 75.0f, AffixType::Vitality}
+};
+
+static const std::vector<BaseItemDef> ARMOR_FEET_BASES = {
+    {"破旧靴子", 1, 1.0f, 3.0f, AffixType::MoveSpeed},
+    {"皮靴", 10, 4.0f, 8.0f, AffixType::MoveSpeed},
+    {"铁靴", 25, 10.0f, 16.0f, AffixType::FlatArmor},
+    {"战靴", 45, 22.0f, 32.0f, AffixType::Strength},
+    {"飞翼靴", 60, 40.0f, 55.0f, AffixType::MoveSpeed}
+};
+
+static const std::vector<BaseItemDef> ARMOR_OFFHAND_BASES = {
+    {"圆盾", 1, 5.0f, 10.0f, AffixType::FlatArmor},
+    {"鸢盾", 10, 15.0f, 25.0f, AffixType::FlatHealth},
+    {"塔盾", 25, 35.0f, 50.0f, AffixType::ResistAll},
+    {"圣盾", 45, 60.0f, 80.0f, AffixType::PercentArmor},
+    {"埃癸斯", 60, 90.0f, 120.0f, AffixType::DamageReduction}
+};
+
+static const std::vector<BaseItemDef> JEWELRY_NECK_BASES = {
+    {"铜项链", 1, 0.0f, 0.0f, AffixType::FlatHealth},
+    {"银项链", 15, 0.0f, 0.0f, AffixType::ResistCold},
+    {"金项链", 30, 0.0f, 0.0f, AffixType::ResistFire},
+    {"红宝石项链", 50, 0.0f, 0.0f, AffixType::FlatFireDamage},
+    {"龙骨项链", 70, 0.0f, 0.0f, AffixType::CritDamage}
+};
+
+static const std::vector<BaseItemDef> JEWELRY_RING_BASES = {
+    {"铁戒指", 1, 0.0f, 0.0f, AffixType::FlatHealth},
+    {"银戒指", 15, 0.0f, 0.0f, AffixType::ResistLightning},
+    {"金戒指", 30, 0.0f, 0.0f, AffixType::ResistAll},
+    {"蓝宝石戒指", 50, 0.0f, 0.0f, AffixType::FlatMana},
+    {"钻石戒指", 70, 0.0f, 0.0f, AffixType::CritChance}
 };
 
 static const BaseItemDef& selectBaseItem(const std::vector<BaseItemDef>& db, int level) {
@@ -263,7 +385,7 @@ static void fillAffixDetails(Affix& affix, AffixType type, int tier) {
             break;
         default:
             affix.value = rollVal(5.0f, 0.0f);
-            affix.name = "Enhanced";
+            affix.name = "强化";
             break;
     }
 }
@@ -290,19 +412,41 @@ std::pair<float, float> ItemFactory::getAffixRange(AffixType type, int tier) {
     return { 0.0f, 0.0f };
 }
 
+// 辅助函数：在所有基底列表中查找匹配名称的基底
+static const BaseItemDef* findBaseByName(const std::string& name) {
+    auto check = [&](const std::vector<BaseItemDef>& list) -> const BaseItemDef* {
+        for (const auto& base : list) {
+            if (name.find(base.name) != std::string::npos) return &base;
+        }
+        return nullptr;
+    };
+
+    if (auto* p = check(WEAPON_SWORD_BASES)) return p;
+    if (auto* p = check(WEAPON_AXE_BASES)) return p;
+    if (auto* p = check(WEAPON_DAGGER_BASES)) return p;
+    if (auto* p = check(WEAPON_HAMMER_BASES)) return p;
+    if (auto* p = check(WEAPON_GREATSWORD_BASES)) return p;
+    if (auto* p = check(WEAPON_STAFF_BASES)) return p;
+    if (auto* p = check(WEAPON_WAND_BASES)) return p;
+    
+    if (auto* p = check(ARMOR_HEAD_BASES)) return p;
+    if (auto* p = check(ARMOR_CHEST_BASES)) return p;
+    if (auto* p = check(ARMOR_SHOULDER_BASES)) return p;
+    if (auto* p = check(ARMOR_HANDS_BASES)) return p;
+    if (auto* p = check(ARMOR_LEGS_BASES)) return p;
+    if (auto* p = check(ARMOR_FEET_BASES)) return p;
+    if (auto* p = check(ARMOR_OFFHAND_BASES)) return p;
+    
+    if (auto* p = check(JEWELRY_NECK_BASES)) return p;
+    if (auto* p = check(JEWELRY_RING_BASES)) return p;
+
+    return nullptr;
+}
+
 std::pair<float, float> ItemFactory::getBaseStatRange(const ItemComponent& item) {
-    if (item.type == ItemType::Weapon) {
-        for (const auto& base : WEAPON_BASES) {
-            if (item.name.find(base.name) != std::string::npos) {
-                return { base.baseStatMin, base.baseStatMax };
-            }
-        }
-    } else if (item.type == ItemType::Armor) {
-        for (const auto& base : ARMOR_BASES) {
-            if (item.name.find(base.name) != std::string::npos) {
-                return { base.baseStatMin, base.baseStatMax };
-            }
-        }
+    const BaseItemDef* base = findBaseByName(item.name);
+    if (base) {
+        return { base->baseStatMin, base->baseStatMax };
     }
     return { 0.0f, 0.0f };
 }
@@ -448,12 +592,27 @@ entt::entity ItemFactory::createRandomLoot(entt::registry& registry, int level, 
     LOG_DEBUG("创建随机掉落物，等级: {}，魔法寻宝率: {}", level, magicFind);
     Rarity rarity = rollRarity(magicFind);
     entt::entity result;
-    if (std::uniform_int_distribution<>(0, 1)(g_rng) == 0) {
+    if (std::uniform_int_distribution<>(0, 2)(g_rng) == 0) {
         LOG_DEBUG("正在生成武器");
         result = createWeapon(registry, level, rarity);
     } else {
-        LOG_DEBUG("正在生成护甲");
-        EquipmentSlot slot = (EquipmentSlot)std::uniform_int_distribution<>(3, 8)(g_rng);
+        LOG_DEBUG("正在生成护甲/首饰");
+        
+        // 定义有效的随机槽位列表 (使用通用 Ring，排除 Ring1/Ring2)
+        static const std::vector<EquipmentSlot> validSlots = {
+            EquipmentSlot::OffHand,
+            EquipmentSlot::Head,
+            EquipmentSlot::Shoulder,
+            EquipmentSlot::Chest,
+            EquipmentSlot::Hands,
+            EquipmentSlot::Legs,
+            EquipmentSlot::Feet,
+            EquipmentSlot::Neck,
+            EquipmentSlot::Ring
+        };
+        
+        int idx = std::uniform_int_distribution<>(0, (int)validSlots.size() - 1)(g_rng);
+        EquipmentSlot slot = validSlots[idx];
         result = createArmor(registry, level, rarity, slot);
     }
     LOG_DEBUG("Created random loot entity: {}", (uint32_t)result);
@@ -469,7 +628,20 @@ entt::entity ItemFactory::createWeapon(entt::registry& registry, int level, Rari
     item.rarity = rarity;
     item.id = std::uniform_int_distribution<>(1000, 9999)(g_rng);
     
-    const auto& base = selectBaseItem(WEAPON_BASES, level);
+    // 随机选择武器类型
+    const std::vector<BaseItemDef>* baseList = &WEAPON_SWORD_BASES;
+    int typeRoll = std::uniform_int_distribution<>(0, 6)(g_rng);
+    switch (typeRoll) {
+        case 0: baseList = &WEAPON_SWORD_BASES; break;
+        case 1: baseList = &WEAPON_AXE_BASES; break;
+        case 2: baseList = &WEAPON_DAGGER_BASES; break;
+        case 3: baseList = &WEAPON_HAMMER_BASES; break;
+        case 4: baseList = &WEAPON_GREATSWORD_BASES; break;
+        case 5: baseList = &WEAPON_STAFF_BASES; break;
+        case 6: baseList = &WEAPON_WAND_BASES; break;
+    }
+
+    const auto& base = selectBaseItem(*baseList, level);
     item.name = base.name;
     LOG_DEBUG("Selected base weapon: {}", base.name);
     
@@ -480,16 +652,16 @@ entt::entity ItemFactory::createWeapon(entt::registry& registry, int level, Rari
     item.implicits.push_back(createAffix(base.implicitType, 1)); // Implicit usually unscaled or custom? Assume T1 for now
     item.implicits.back().value = std::uniform_real_distribution<>(5.0f, 15.0f)(g_rng) + (level * 0.5f);
     item.implicits.back().tier = 0;
-    item.implicits.back().name = "Implicit";
+    item.implicits.back().name = "固有";
 
     item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
     
     if (rarity == Rarity::Legendary) {
-        item.name = "Ancient " + item.name;
+        item.name = "远古 " + item.name;
         item.legendaryPotential = std::uniform_int_distribution<>(1, 4)(g_rng);
         LOG_DEBUG("Created legendary weapon: {}", item.name);
     } else if (rarity == Rarity::Rare) {
-        item.name = "Rare " + item.name;
+        item.name = "稀有 " + item.name;
         LOG_DEBUG("Created rare weapon: {}", item.name);
     } else {
         LOG_DEBUG("Created common/magic weapon: {}", item.name);
@@ -530,7 +702,24 @@ entt::entity ItemFactory::createArmor(entt::registry& registry, int level, Rarit
     item.rarity = rarity;
     item.id = std::uniform_int_distribution<>(1000, 9999)(g_rng);
     
-    const auto& base = selectBaseItem(ARMOR_BASES, level);
+    // 根据槽位选择正确的基底列表
+    const std::vector<BaseItemDef>* baseList = &ARMOR_CHEST_BASES;
+    switch (slot) {
+        case EquipmentSlot::Head:     baseList = &ARMOR_HEAD_BASES; break;
+        case EquipmentSlot::Chest:    baseList = &ARMOR_CHEST_BASES; break;
+        case EquipmentSlot::Shoulder: baseList = &ARMOR_SHOULDER_BASES; break;
+        case EquipmentSlot::Hands:    baseList = &ARMOR_HANDS_BASES; break;
+        case EquipmentSlot::Legs:     baseList = &ARMOR_LEGS_BASES; break;
+        case EquipmentSlot::Feet:     baseList = &ARMOR_FEET_BASES; break;
+        case EquipmentSlot::OffHand:  baseList = &ARMOR_OFFHAND_BASES; break;
+        case EquipmentSlot::Neck:     baseList = &JEWELRY_NECK_BASES; break;
+        case EquipmentSlot::Ring:     baseList = &JEWELRY_RING_BASES; break;
+        case EquipmentSlot::Ring1:
+        case EquipmentSlot::Ring2:    baseList = &JEWELRY_RING_BASES; break;
+        default: break; // 默认为胸甲
+    }
+
+    const auto& base = selectBaseItem(*baseList, level);
     item.name = base.name;
     LOG_DEBUG("Selected base armor: {}", base.name);
     
@@ -543,11 +732,11 @@ entt::entity ItemFactory::createArmor(entt::registry& registry, int level, Rarit
     item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
 
     if (rarity == Rarity::Legendary) {
-        item.name = "Legendary " + item.name;
+        item.name = "传奇 " + item.name;
         item.legendaryPotential = std::uniform_int_distribution<>(1, 3)(g_rng);
-        LOG_DEBUG("Created legendary armor: {}", item.name);
+        LOG_DEBUG("Created legendary armor/jewelry: {}", item.name);
     } else {
-        LOG_DEBUG("Created common/magic/rare armor: {}", item.name);
+        LOG_DEBUG("Created common/magic/rare armor/jewelry: {}", item.name);
     }
 
     // Assign random texture
@@ -560,7 +749,12 @@ entt::entity ItemFactory::createArmor(entt::registry& registry, int level, Rarit
     if (item.textureId != 0) {
         Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
         if (tex.id > 0) {
-            registry.emplace<SpriteComponent>(entity, tex, 0.05f);
+            float scale = 0.05f;
+            // 针对首饰使用更大的缩放比例 (假设首饰贴图较小，如128x128)
+            if (slot == EquipmentSlot::Neck || slot == EquipmentSlot::Ring || slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2) {
+                scale = 0.40f; 
+            }
+            registry.emplace<SpriteComponent>(entity, tex, scale);
         }
     }
 

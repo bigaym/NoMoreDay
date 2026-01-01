@@ -97,8 +97,9 @@ namespace NoMoreDay {
                 case EquipmentSlot::Legs: return "护腿";
                 case EquipmentSlot::Feet: return "鞋子";
                 case EquipmentSlot::Neck: return "项链";
-                case EquipmentSlot::Ring1:
-                case EquipmentSlot::Ring2: return "戒指";
+                case EquipmentSlot::Ring: return "戒指";
+                // case EquipmentSlot::Ring1:
+                // case EquipmentSlot::Ring2: return "戒指";
                 case EquipmentSlot::OffHand: return "副手";
                 default: return "装备";
             }
