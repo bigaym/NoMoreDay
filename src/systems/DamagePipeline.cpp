@@ -2,8 +2,36 @@
 #include <algorithm>
 #include <cmath>
 #include <bit>
+#include "spdlog/spdlog.h"
+#include <array>
 
 namespace NoMoreDay {
+
+// Simple fixed-capacity vector helper to avoid allocations
+template<typename T, size_t N>
+struct FixedVector {
+    std::array<T, N> data;
+    size_t size = 0;
+
+    void push_back(const T& value) {
+        if (size < N) {
+            data[size++] = value;
+        } else {
+            spdlog::warn("FixedVector overflow! Capacity: {}", N);
+        }
+    }
+
+    T& operator[](size_t index) { return data[index]; }
+    const T& operator[](size_t index) const { return data[index]; }
+    
+    T* begin() { return data.data(); }
+    T* end() { return data.data() + size; }
+    const T* begin() const { return data.data(); }
+    const T* end() const { return data.data() + size; }
+    
+    bool empty() const { return size == 0; }
+    void clear() { size = 0; }
+};
 
 DamageResult DamagePipeline::Calculate(
     entt::registry& registry,
@@ -12,13 +40,9 @@ DamageResult DamagePipeline::Calculate(
     const DamagePool& base_pool,
     Tag hit_tags
 ) {
-    // 1. Collect Modifiers
-    std::vector<DamageModifier> all_mods;
+    // Optimization: Access modifiers directly instead of copying to a vector
+    auto* global_mods = registry.try_get<GlobalModifierComponent>(attacker);
     
-    if (auto* global = registry.try_get<GlobalModifierComponent>(attacker)) {
-        all_mods.insert(all_mods.end(), global->modifiers.begin(), global->modifiers.end());
-    }
-
     const auto& attacker_stats = registry.get<CombatStats>(attacker);
     const auto& defender_stats = registry.get<CombatStats>(defender);
 
@@ -28,7 +52,8 @@ DamageResult DamagePipeline::Calculate(
         Tag tags;
         Tag final_type;
     };
-    std::vector<Instance> instances; 
+    
+    FixedVector<Instance, 64> instances;
     
     for (int i = 0; i < 16; ++i) {
         if (base_pool.values[i] > 0.0f) {
@@ -38,23 +63,24 @@ DamageResult DamagePipeline::Calculate(
     }
 
     // 2. Conversion & Gain Extra
-    // Order: Physical (0), Lightning (3), Cold (2), Fire (1), Shadow (5), Poison (4)
     std::array<int, 6> order = {0, 3, 2, 1, 5, 4}; 
 
     for (int type_idx : order) {
         Tag current_source_type = static_cast<Tag>(1ULL << type_idx);
         
-        std::vector<const DamageModifier*> conv_mods;
-        std::vector<const DamageModifier*> gain_mods;
+        FixedVector<const DamageModifier*, 32> conv_mods;
+        FixedVector<const DamageModifier*, 32> gain_mods;
         float total_conv_pct = 0.0f;
 
-        for (const auto& mod : all_mods) {
-            if (mod.source_tag == current_source_type) {
-                if (mod.type == ModifierType::Convert && mod.target_tag != Tag::None) {
-                    conv_mods.push_back(&mod);
-                    total_conv_pct += mod.value;
-                } else if (mod.type == ModifierType::GainExtra && mod.target_tag != Tag::None) {
-                    gain_mods.push_back(&mod);
+        if (global_mods) {
+            for (const auto& mod : global_mods->modifiers) {
+                if (mod.source_tag == current_source_type) {
+                    if (mod.type == ModifierType::Convert && mod.target_tag != Tag::None) {
+                        conv_mods.push_back(&mod);
+                        total_conv_pct += mod.value;
+                    } else if (mod.type == ModifierType::GainExtra && mod.target_tag != Tag::None) {
+                        gain_mods.push_back(&mod);
+                    }
                 }
             }
         }
@@ -66,7 +92,7 @@ DamageResult DamagePipeline::Calculate(
             conv_scale = 1.0f / total_conv_pct;
         }
 
-        size_t current_count = instances.size();
+        size_t current_count = instances.size;
         for (size_t i = 0; i < current_count; ++i) {
             if (instances[i].final_type == current_source_type) {
                 float original_amount = instances[i].amount;
@@ -100,19 +126,22 @@ DamageResult DamagePipeline::Calculate(
     DamageResult result;
     float total_final_damage = 0.0f;
 
-    for (auto& inst : instances) {
+    for (size_t i = 0; i < instances.size; ++i) {
+        auto& inst = instances[i];
         if (inst.amount <= 0.0f) continue;
 
         float increased = 0.0f;
         float more = 1.0f;
 
-        for (const auto& mod : all_mods) {
-            if (mod.type == ModifierType::Increased || mod.type == ModifierType::More) {
-                if (HasTag(inst.tags, mod.source_tag)) {
-                    if (mod.type == ModifierType::Increased) {
-                        increased += mod.value;
-                    } else {
-                        more *= (1.0f + mod.value);
+        if (global_mods) {
+            for (const auto& mod : global_mods->modifiers) {
+                if (mod.type == ModifierType::Increased || mod.type == ModifierType::More) {
+                    if (HasTag(inst.tags, mod.source_tag)) {
+                        if (mod.type == ModifierType::Increased) {
+                            increased += mod.value;
+                        } else {
+                            more *= (1.0f + mod.value);
+                        }
                     }
                 }
             }
@@ -121,12 +150,8 @@ DamageResult DamagePipeline::Calculate(
         inst.amount *= (1.0f + increased) * more;
 
         // 5. Final Settlement (Crit & Defense)
-        // Apply Crit (roll once per hit, for now we can assume it's passed via tags or rolled here)
         float crit_mult = 1.0f;
         if (HasTag(inst.tags, Tag::Hit) && !HasTag(inst.tags, Tag::DamageOverTime)) {
-             // In a real scenario, is_crit should be rolled once for the entire Calculate call
-             // to ensure all instances crit or none crit.
-             // We'll use a placeholder or assume attacker_stats are used.
              if (HasTag(hit_tags, Tag::Critical)) {
                  crit_mult = attacker_stats.crit_damage;
                  result.is_crit = true;

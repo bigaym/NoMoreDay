@@ -15,7 +15,7 @@
 
 ## Tooling & Automation
 - **Build System:** CMake (3.20+)
-- **Asset Pipeline:** Python 3.10+ scripts for AI-driven image generation (ComfyUI/SDXL) and automated C++ header generation for asset registries.
+- **Asset Pipeline:** Python 3.10+ scripts for AI-driven image generation (ComfyUI/SDXL), automated C++ header generation for asset registries, and dynamic Tag Registry generation from JSON definitions.
 - **Versioning:** Git
 
 ## Performance Constraints

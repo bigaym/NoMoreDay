@@ -1,0 +1,61 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "name_key": "astrolabe.node.str_1",
+      "desc_key": "astrolabe.node.str_1.desc",
+      "type": 0,
+      "prerequisites": [],
+      "modifiers": [
+        {
+          "type": 0,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 1
+        }
+      ],
+      "x": 0.0,
+      "y": 100.0,
+      "icon_id": "icon_str"
+    },
+    {
+      "id": 2,
+      "name_key": "astrolabe.node.dex_1",
+      "desc_key": "astrolabe.node.dex_1.desc",
+      "type": 0,
+      "prerequisites": [1],
+      "modifiers": [
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 2
+        }
+      ],
+      "x": 86.6,
+      "y": 50.0,
+      "icon_id": "icon_dex"
+    },
+    {
+      "id": 100,
+      "name_key": "astrolabe.node.phys_keystone",
+      "desc_key": "astrolabe.node.phys_keystone.desc",
+      "type": 2,
+      "prerequisites": [2],
+      "modifiers": [
+        {
+          "type": 8,
+          "mode": 2,
+          "value": 0.2,
+          "source": 2,
+          "source_id": 100
+        }
+      ],
+      "x": 0.0,
+      "y": 200.0,
+      "icon_id": "icon_phys_keystone"
+    }
+  ]
+}

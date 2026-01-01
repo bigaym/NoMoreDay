@@ -19,6 +19,7 @@ using namespace NoMoreDay;
 #include "StatsSystemTest.hpp"
 #include "AssetLoadingSystemTest.hpp"
 #include "TagSystemTest.hpp"
+#include "AstrolabeRegistryTest.hpp"
 #include "SkillSystemTest.hpp"
 #include "DamagePipelineTest.hpp"
 

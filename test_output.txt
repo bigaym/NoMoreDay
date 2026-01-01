@@ -1,3 +1,0 @@
-[11:09:08] NMD: XP System: Player 0 gained 15.0 XP from target 103 (Lvl 1)
-[11:09:08] NMD: XP System: Player 0 gained 15.0 XP from target 55 (Lvl 1)
-[11:09:08] NMD: StatsSystem: Recalculated for entity 0. Dmg: 8.5-10.4, Str: 13.5, HP: 250.0

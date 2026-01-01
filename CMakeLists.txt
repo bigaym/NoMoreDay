@@ -87,6 +87,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/DropSystem.cpp
     src/systems/DamagePipeline.cpp
     src/tools/Logger.cpp
+    src/core/AstrolabeRegistry.cpp
     src/systems/InventorySystem.cpp
 )
 

@@ -33,7 +33,7 @@
 ## 阶段 4：性能优化与回归测试 (Optimization & Final Verification)
 *目标：确保零分配性能并完成全系统集成。*
 
-- [ ] **任务 4.1**：对 `DamagePipeline` 进行性能剖析，确保核心循环中无动态内存分配。
-- [ ] **任务 4.2**：运行所有现有的战斗测试（CombatSystemTest），确保新系统引入后无功能倒退。
-- [ ] **任务 4.3**：更新项目文档，记录标签定义规则和流水线计算逻辑。
-- [ ] Task: Conductor - User Manual Verification '阶段 4：最终验收' (Protocol in workflow.md)
+- [x] **任务 4.1**：对 `DamagePipeline` 进行性能剖析，确保核心循环中无动态内存分配。 [SKIP_SHA]
+- [x] **任务 4.2**：运行所有现有的战斗测试（CombatSystemTest），确保新系统引入后无功能倒退。 [SKIP_SHA]
+- [x] **任务 4.3**：更新项目文档，记录标签定义规则和流水线计算逻辑。 [SKIP_SHA]
+- [x] Task: Conductor - User Manual Verification '阶段 4：最终验收' (Protocol in workflow.md)
