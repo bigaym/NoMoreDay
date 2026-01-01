@@ -62,6 +62,10 @@ void Game::init() {
 void Game::run() {
     LOG_INFO("Starting Game Loop...");
     
+    // // 手动创建一个崩溃点以测试崩溃处理
+    // int* p = nullptr;
+    // *p = 10;
+
     const float fixedDt = 1.0f / 60.0f;
     float accumulator = 0.0f;
 

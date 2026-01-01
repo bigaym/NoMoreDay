@@ -89,6 +89,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/DropSystem.cpp
     src/systems/DamagePipeline.cpp
     src/tools/Logger.cpp
+    src/tools/CrashHandler.cpp
     src/core/AstrolabeRegistry.cpp
     src/systems/InventorySystem.cpp
 )
@@ -115,7 +116,7 @@ target_include_directories(NoMoreDayCore PUBLIC
 
 if(WIN32)
     # Add windows specific libs
-    target_link_libraries(NoMoreDayCore PUBLIC winmm kernel32 opengl32 gdi32 user32 shell32)
+    target_link_libraries(NoMoreDayCore PUBLIC winmm kernel32 opengl32 gdi32 user32 shell32 dbghelp)
     
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         # -Wno-stringop-overflow: Suppress false positives from spdlog/fmt in GCC 13/14
