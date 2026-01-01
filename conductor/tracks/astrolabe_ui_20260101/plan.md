@@ -7,7 +7,7 @@
 - [x] Task: Basic Node Rendering: Draw simple shapes for nodes at their JSON-defined coordinates.
 - [x] Task: Conductor - User Manual Verification 'Phase 1: UI Overlay & Camera Framework' (Protocol in workflow.md)
 
-## Phase 2: Node Interaction & Information
+## Phase 2: Node Interaction & Information [checkpoint: d408bf8]
 - [x] Task: Implement Mouse Picking: Detect which node is being hovered/clicked in world-space.
 - [x] Task: Hover Tooltips: Create a dynamic tooltip that displays node metadata and localized strings.
 - [x] Task: Visual Styling: Update node rendering to distinguish between Minor, Major, and Keystone nodes.
