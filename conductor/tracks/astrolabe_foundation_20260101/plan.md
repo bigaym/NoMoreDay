@@ -1,11 +1,11 @@
 # Plan: Astrolabe System - Phase 1 Foundation
 
-## Phase 1: Data Infrastructure & Registry
-- [ ] Task: Define `AstrolabeNode` data structures in `src/components/Progression.hpp` (or similar).
-- [ ] Task: Create `src/core/AstrolabeRegistry.hpp` and `.cpp` for loading and managing node metadata.
-- [ ] Task: Implement JSON parsing for `assets/data/astrolabe.json` using `nlohmann/json`.
-- [ ] Task: Create a basic `assets/data/astrolabe.json` with a few test nodes (Minor, Major).
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Data Infrastructure' (Protocol in workflow.md)
+## Phase 1: Data Infrastructure & Registry [checkpoint: b0a76ba]
+- [x] Task: Define `AstrolabeNode` data structures in `src/components/Progression.hpp` (or similar). [b0a76ba]
+- [x] Task: Create `src/core/AstrolabeRegistry.hpp` and `.cpp` for loading and managing node metadata. [b0a76ba]
+- [x] Task: Implement JSON parsing for `assets/data/astrolabe.json` using `nlohmann/json`. [b0a76ba]
+- [x] Task: Create a basic `assets/data/astrolabe.json` with a few test nodes (Minor, Major). [b0a76ba]
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Data Infrastructure' (Protocol in workflow.md) [b0a76ba]
 
 ## Phase 2: ECS Components & Logic
 - [ ] Task: Implement `AstrolabeComponent` to store activated node IDs and available talent points.
