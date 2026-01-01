@@ -1,0 +1,4 @@
+Task: Damage Pipeline Skeleton
+Changes: Created DamagePipeline class with 5-step skeleton. Integrated into build.
+Files: src/systems/DamagePipeline.hpp, src/systems/DamagePipeline.cpp, CMakeLists.txt
+Why: Implementation of the core damage calculation algorithm.
