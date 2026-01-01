@@ -15,7 +15,7 @@ public:
     
     // 注册纹理路径以便按需加载 (Lazy Loading)
     void registerTexture(entt::id_type id, const std::string& path);
-
+ 
     // 获取已加载的纹理。如果未找到，则返回空纹理。
     Texture2D getTexture(entt::id_type id);
 
