@@ -1,0 +1,4 @@
+Task: Tag System Tests
+Changes: Added TagSystemTest.hpp and included it in main test runner.
+Files: tests/TagSystemTest.hpp, tests/main.cpp
+Why: Verified correct bitmask operations and string conversion.
