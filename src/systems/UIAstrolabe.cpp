@@ -4,6 +4,7 @@
 #include "../components/Common.hpp" // For PlayerTag
 #include "../core/UIRenderer.hpp"
 #include "../systems/UISystem.hpp"
+#include "../systems/AstrolabeSystem.hpp" // Added include
 #include "../core/AstrolabeRegistry.hpp" // Include Registry
 #include "raylib.h"
 #include "raymath.h" // For Vector2 operations
@@ -73,6 +74,12 @@ void UIAstrolabe::Update(entt::registry& registry) {
                 // Check distance in world space (size is also world space units here)
                 if (CheckCollisionPointCircle(mouseWorld, Vector2{node.x, node.y}, baseSize)) {
                     ui.hoveredNodeId = node.id;
+                    
+                    // Activation Logic (Left Click)
+                    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                        AstrolabeSystem::activate_node(registry, entity, node.id);
+                    }
+                    
                     break;
                 }
             }
@@ -109,6 +116,8 @@ void UIAstrolabe::Draw(entt::registry& registry) {
         };
 
         // Draw Connections first (Lines)
+        auto* astroComp = registry.try_get<AstrolabeComponent>(entity);
+        
         for (const auto& pair : nodes) {
             const auto& node = pair.second;
             Vector2 startPos = { node.x, node.y };
@@ -127,7 +136,31 @@ void UIAstrolabe::Draw(entt::registry& registry) {
                 if (it != nodes.end()) {
                     Vector2 endPos = { it->second.x, it->second.y };
                     Vector2 screenEnd = WorldToScreen(endPos);
-                    DrawLineEx(screenStart, screenEnd, 2.0f * ui.zoom, Fade(DARKGRAY, ui.alpha));
+                    
+                    Color lineColor = DARKGRAY;
+                    
+                    // Determine connection color
+                    // 1. If both nodes are activated -> Bright/Golden
+                    // 2. If parent is activated but child is not -> Dimmed/Available path
+                    // 3. Else -> Dark
+                    
+                    bool childActive = false;
+                    bool parentActive = false;
+                    
+                    if (astroComp) {
+                        childActive = astroComp->activated_nodes.contains(node.id);
+                        parentActive = astroComp->activated_nodes.contains(parentId);
+                    }
+                    
+                    if (childActive && parentActive) {
+                         lineColor = Fade(GOLD, 0.8f);
+                    } else if (parentActive) {
+                        lineColor = Fade(GRAY, 0.5f);
+                    } else {
+                        lineColor = Fade(DARKGRAY, 0.3f);
+                    }
+                    
+                    DrawLineEx(screenStart, screenEnd, 2.0f * ui.zoom, Fade(lineColor, ui.alpha));
                 }
             }
         }
@@ -381,7 +414,7 @@ void UIAstrolabe::Draw(entt::registry& registry) {
         // 4. UI Overlay (Points, Close Button)
         UISystem::DrawTextUI("Astrolabe", 20, 20, 30, WHITE, ui.alpha);
         
-        auto* astroComp = registry.try_get<AstrolabeComponent>(entity);
+        // auto* astroComp = registry.try_get<AstrolabeComponent>(entity); // Already declared above
         if (astroComp) {
             UISystem::DrawTextUI(TextFormat("Points: %d", astroComp->available_points), 20, 60, 24, GOLD, ui.alpha);
         }

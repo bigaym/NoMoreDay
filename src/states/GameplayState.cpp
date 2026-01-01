@@ -31,6 +31,7 @@
 #include "../components/PlayerState.hpp"
 #include "../components/InventoryComponent.hpp"
 #include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "../components/Progression.hpp" // For AstrolabeComponent
 #include "../components/Stats.hpp"
 #include "../utils/UUID.hpp"
 #include "../tools/Logger.hpp"
@@ -104,6 +105,10 @@ namespace NoMoreDay {
         registry.emplace<AttackState>(player);
         registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
         registry.emplace<TextureIDComponent>(player, playerAsset.id);
+        
+        // Astrolabe
+        auto& astro = registry.emplace<AstrolabeComponent>(player);
+        astro.available_points = 5; // Start with 5 points for testing
 
         // Test Equipment
         auto sword = ItemFactory::createWeapon(registry, 10, Rarity::Legendary);

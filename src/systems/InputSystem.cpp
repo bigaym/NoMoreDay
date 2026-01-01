@@ -1,12 +1,29 @@
 #include "InputSystem.hpp"
 #include "../components/Common.hpp"
+#include "../components/AstrolabeUIComponent.hpp"
 #include "raylib.h"
 #include "UISystem.hpp" // For UI state check
+#include "UIAstrolabe.hpp"
+
+using namespace NoMoreDay;
 
 void InputSystem::update(entt::registry& registry) {
     auto view = registry.view<PlayerTag, InputComponent>();
     
     for (auto entity : view) {
+        // Check if Astrolabe is open
+        if (UIAstrolabe::IsVisible(registry, entity)) {
+            // Block all input if Astrolabe UI is fully open
+            // We might allow closing via ESC/N (handled in UISystem::Update)
+            // But movement/attack should be blocked.
+            auto& input = view.get<InputComponent>(entity);
+            input.moveX = 0;
+            input.moveY = 0;
+            input.attack = false;
+            input.dash = false;
+            continue;
+        }
+
         auto& input = view.get<InputComponent>(entity);
         
         // 重置
