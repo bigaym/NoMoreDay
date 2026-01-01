@@ -20,6 +20,7 @@ using namespace NoMoreDay;
 #include "AssetLoadingSystemTest.hpp"
 #include "TagSystemTest.hpp"
 #include "SkillSystemTest.hpp"
+#include "DamagePipelineTest.hpp"
 
 int main(int argc, char** argv) {
     doctest::Context context;
