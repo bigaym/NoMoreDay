@@ -85,6 +85,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/ProgressionSystem.cpp
     src/systems/XPAwardingSystem.cpp
     src/systems/DropSystem.cpp
+    src/systems/DamagePipeline.cpp
     src/tools/Logger.cpp
     src/systems/InventorySystem.cpp
 )
