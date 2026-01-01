@@ -18,6 +18,7 @@ using namespace NoMoreDay;
 #include "RenderSystemTest.hpp"
 #include "StatsSystemTest.hpp"
 #include "AssetLoadingSystemTest.hpp"
+#include "TagSystemTest.hpp"
 
 int main(int argc, char** argv) {
     doctest::Context context;
