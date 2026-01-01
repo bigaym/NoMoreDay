@@ -11,7 +11,7 @@
 - [ ] **任务 1.4**：编写 `TagSystemTest.hpp`，验证位掩码匹配和字符串转换逻辑。
 - [ ] Task: Conductor - User Manual Verification '阶段 1：标签注册表' (Protocol in workflow.md)
 
-## 阶段 2：数据结构与修饰符定义 (Data Structures & Modifiers)
+## 阶段 2：数据结构与修饰符定义 (Data Structures & Modifiers) [checkpoint: c387ce8]
 *目标：定义伤害池和多层修饰符的数据模型。*
 
 - [x] **任务 2.1**：实现 `DamagePool` 结构体，使用固定数组存储多类型点伤，并提供标签过滤方法。 [c745968]
