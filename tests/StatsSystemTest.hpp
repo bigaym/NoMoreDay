@@ -5,6 +5,7 @@
 #include "../src/components/InventoryComponent.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/ItemStats.hpp"
+#include "../src/components/Progression.hpp"
 #include "../src/components/Common.hpp" // For WeaponComponent
 #include <entt/entt.hpp>
 #include "TestCommon.hpp"
@@ -446,4 +447,104 @@ TEST_CASE("Stats System - Accuracy") {
 
     // Base 0.97 + Dex 0.1 (100*0.001) + Item 0.2 = 1.27
     CHECK(combat.accuracy == doctest::Approx(1.27f));
+}
+
+TEST_CASE("Stats System - Sword Heart Mechanic") {
+    entt::registry registry;
+    auto entity = registry.create();
+    registry.emplace<CombatStats>(entity);
+    registry.emplace<PrimaryStats>(entity);
+    registry.emplace<StatsDirty>(entity);
+    
+    // Add Sword Heart Trait
+    registry.emplace<NoMoreDay::SwordHeartComponent>(entity);
+
+    SUBCASE("Active: Sword Main Hand, Empty Off Hand") {
+        auto sword = registry.create();
+        ItemComponent item;
+        item.type = ItemType::Weapon;
+        item.slot = EquipmentSlot::MainHand;
+        item.attack = 100.0f;
+        registry.emplace<ItemComponent>(sword, item);
+
+        EquipmentComponent equip;
+        equip.set(EquipmentSlot::MainHand, sword);
+        // OffHand is None (0)
+        registry.emplace<EquipmentComponent>(entity, equip);
+
+        StatsSystem::update(registry);
+        const auto& combat = registry.get<CombatStats>(entity);
+
+        // 1. Damage: Base (90-110) * 1.5
+        // Min = 90 * 1.5 = 135
+        // Max = 110 * 1.5 = 165
+        CHECK(combat.min_weapon_damage == doctest::Approx(135.0f));
+        CHECK(combat.max_weapon_damage == doctest::Approx(165.0f));
+
+        // 2. Block Chance: Base 0 + 0.20
+        CHECK(combat.block_chance == doctest::Approx(0.20f));
+    }
+
+    SUBCASE("Inactive: Dual Wielding") {
+        auto sword1 = registry.create();
+        ItemComponent item1;
+        item1.type = ItemType::Weapon;
+        item1.slot = EquipmentSlot::MainHand;
+        item1.attack = 100.0f;
+        registry.emplace<ItemComponent>(sword1, item1);
+
+        auto sword2 = registry.create();
+        ItemComponent item2;
+        item2.type = ItemType::Weapon;
+        item2.slot = EquipmentSlot::OffHand;
+        item2.attack = 100.0f;
+        registry.emplace<ItemComponent>(sword2, item2);
+
+        EquipmentComponent equip;
+        equip.set(EquipmentSlot::MainHand, sword1);
+        equip.set(EquipmentSlot::OffHand, sword2);
+        registry.emplace<EquipmentComponent>(entity, equip);
+
+        StatsSystem::update(registry);
+        const auto& combat = registry.get<CombatStats>(entity);
+
+        // Dual Wield Logic: Avg 100 -> Min 90, Max 110 (No 1.5x Multiplier)
+        CHECK(combat.min_weapon_damage == doctest::Approx(90.0f));
+        CHECK(combat.max_weapon_damage == doctest::Approx(110.0f));
+        
+        // Block Chance: 0 (No Shield, No Sword Heart bonus)
+        CHECK(combat.block_chance == doctest::Approx(0.0f));
+    }
+
+    SUBCASE("Inactive: Sword + Shield") {
+        auto sword = registry.create();
+        ItemComponent item1;
+        item1.type = ItemType::Weapon;
+        item1.slot = EquipmentSlot::MainHand;
+        item1.attack = 100.0f;
+        registry.emplace<ItemComponent>(sword, item1);
+
+        auto shield = registry.create();
+        ItemComponent item2;
+        item2.type = ItemType::Shield;
+        item2.slot = EquipmentSlot::OffHand;
+        item2.defense = 50.0f;
+        registry.emplace<ItemComponent>(shield, item2);
+
+        EquipmentComponent equip;
+        equip.set(EquipmentSlot::MainHand, sword);
+        equip.set(EquipmentSlot::OffHand, shield);
+        registry.emplace<EquipmentComponent>(entity, equip);
+
+        StatsSystem::update(registry);
+        const auto& combat = registry.get<CombatStats>(entity);
+
+        // Normal 1H Damage: 90-110
+        CHECK(combat.min_weapon_damage == doctest::Approx(90.0f));
+        
+        // Shield Block: 20% Base (from Shield logic in StatsSystem)
+        // Sword Heart Block (+20%) should NOT apply.
+        // Total = 0.20
+        CHECK(combat.block_chance == doctest::Approx(0.20f));
+    }
 }

@@ -7,6 +7,17 @@
 
 namespace NoMoreDay {
 
+static void handle_node_effect(entt::registry& registry, entt::entity entity, const AstrolabeNodeEffect& effect) {
+    switch (effect.type) {
+        case AstrolabeEffectType::GrantComponent:
+            if (effect.value == "SwordHeart") {
+                registry.get_or_emplace<SwordHeartComponent>(entity);
+                LOG_INFO("AstrolabeSystem: Entity {} granted SwordHeart trait", (uint32_t)entity);
+            }
+            break;
+    }
+}
+
 bool AstrolabeSystem::can_activate(entt::registry& registry, entt::entity entity, uint32_t node_id) {
     auto* astrolabe = registry.try_get<AstrolabeComponent>(entity);
     if (!astrolabe) return false;
@@ -42,6 +53,14 @@ bool AstrolabeSystem::activate_node(entt::registry& registry, entt::entity entit
     auto& astrolabe = registry.get<AstrolabeComponent>(entity);
     astrolabe.activated_nodes.insert(node_id);
     astrolabe.available_points--;
+
+    // Handle special effects
+    const auto* node = AstrolabeRegistry::Get().GetNode(node_id);
+    if (node) {
+        for (const auto& effect : node->effects) {
+            handle_node_effect(registry, entity, effect);
+        }
+    }
 
     // Mark stats as dirty to trigger recalculation
     registry.emplace_or_replace<StatsDirty>(entity);

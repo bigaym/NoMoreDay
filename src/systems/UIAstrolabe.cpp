@@ -75,14 +75,63 @@ void UIAstrolabe::Update(entt::registry& registry) {
                 if (CheckCollisionPointCircle(mouseWorld, Vector2{node.x, node.y}, baseSize)) {
                     ui.hoveredNodeId = node.id;
                     
-                    // Activation Logic (Left Click)
+                    // Planning/Refund Logic (Left Click)
                     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                        AstrolabeSystem::activate_node(registry, entity, node.id);
+                        auto* astroComp = registry.try_get<AstrolabeComponent>(entity);
+                        if (astroComp) {
+                            if (ui.isRefundMode) {
+                                // Refund Logic
+                                if (astroComp->activated_nodes.contains(node.id)) {
+                                    // Check if it's a leaf node (not a prerequisite for any other activated node)
+                                    bool isPrereq = false;
+                                    for (const auto& otherPair : nodes) {
+                                        if (astroComp->activated_nodes.contains(otherPair.first)) {
+                                            for (uint32_t prereqId : otherPair.second.prerequisites) {
+                                                if (prereqId == node.id) {
+                                                    isPrereq = true;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        if (isPrereq) break;
+                                    }
+                                    
+                                    if (!isPrereq) {
+                                        astroComp->activated_nodes.erase(node.id);
+                                        astroComp->available_points++;
+                                        registry.get_or_emplace<StatsDirty>(entity);
+                                        // If it was granting a component, we should ideally remove it too.
+                                        // But removing components safely is complex (what if it came from multiple sources?).
+                                        // For now, let's just log it or skip component removal for MVP.
+                                        LOG_INFO("AstrolabeSystem: Entity {} refunded node {}", (uint32_t)entity, node.id);
+                                    }
+                                }
+                            } else if (!astroComp->activated_nodes.contains(node.id)) {
+                                // Planning Logic (Same as before)
+                                if (ui.plannedNodes.contains(node.id)) {
+                                    ui.plannedNodes.erase(node.id);
+                                } else {
+                                    bool reachable = node.prerequisites.empty();
+                                    for (uint32_t pId : node.prerequisites) {
+                                        if (astroComp->activated_nodes.contains(pId) || ui.plannedNodes.contains(pId)) {
+                                            reachable = true;
+                                            break;
+                                        }
+                                    }
+                                    if (reachable) ui.plannedNodes.insert(node.id);
+                                }
+                            }
+                        }
                     }
                     
                     break;
                 }
             }
+
+            // --- Button Interaction ---
+            // We'll define button regions in screen space later in Draw, 
+            // but for simple prototype, let's just handle them here if mouse is in a fixed corner.
+            // Actually, better to use Raylib's UI pattern or just check mouse in Draw.
         }
 
         // Allow closing with ESC if open
@@ -146,6 +195,8 @@ void UIAstrolabe::Draw(entt::registry& registry) {
                     
                     bool childActive = false;
                     bool parentActive = false;
+                    bool childPlanned = ui.plannedNodes.contains(node.id);
+                    bool parentPlanned = ui.plannedNodes.contains(parentId);
                     
                     if (astroComp) {
                         childActive = astroComp->activated_nodes.contains(node.id);
@@ -154,7 +205,10 @@ void UIAstrolabe::Draw(entt::registry& registry) {
                     
                     if (childActive && parentActive) {
                          lineColor = Fade(GOLD, 0.8f);
-                    } else if (parentActive) {
+                    } else if ((childActive || childPlanned) && (parentActive || parentPlanned)) {
+                        // Planned path
+                        lineColor = Fade(GOLD, 0.4f);
+                    } else if (parentActive || parentPlanned) {
                         lineColor = Fade(GRAY, 0.5f);
                     } else {
                         lineColor = Fade(DARKGRAY, 0.3f);
@@ -179,13 +233,14 @@ void UIAstrolabe::Draw(entt::registry& registry) {
             
             // Determine Status
             bool isActivated = false;
+            bool isPlanned = ui.plannedNodes.contains(node.id);
             bool isAvailable = true;
             
             auto* astroComp = registry.try_get<AstrolabeComponent>(entity);
             if (astroComp) {
                 isActivated = astroComp->activated_nodes.contains(node.id);
                 for (uint32_t prereqId : node.prerequisites) {
-                    if (!astroComp->activated_nodes.contains(prereqId)) {
+                    if (!astroComp->activated_nodes.contains(prereqId) && !ui.plannedNodes.contains(prereqId)) {
                         isAvailable = false;
                         break;
                     }
@@ -211,7 +266,9 @@ void UIAstrolabe::Draw(entt::registry& registry) {
 
             if (isActivated) {
                 // Bright/Glowing
-                // For now, just keep color or make it brighter
+            } else if (isPlanned) {
+                // Ghostly/Pulsing Gold
+                nodeColor = Fade(GOLD, 0.7f + 0.3f * sinf(GetTime() * 5.0f));
             } else if (isAvailable) {
                 // Dimmer version of the color
                 nodeColor = Fade(nodeColor, 0.4f);
@@ -229,7 +286,7 @@ void UIAstrolabe::Draw(entt::registry& registry) {
 
             // Draw
             DrawCircleV(screenPos, size, Fade(nodeColor, ui.alpha));
-            DrawCircleLines(screenPos.x, screenPos.y, size, Fade(isActivated ? WHITE : nodeColor, ui.alpha));
+            DrawCircleLines(screenPos.x, screenPos.y, size, Fade(isActivated || isPlanned ? WHITE : nodeColor, ui.alpha));
             
             // Text for debugging (ID)
             if (ui.zoom > 0.8f) {
@@ -411,12 +468,74 @@ void UIAstrolabe::Draw(entt::registry& registry) {
             }
         }
 
-        // 4. UI Overlay (Points, Close Button)
+        // 4. UI Overlay (Points, Buttons)
         UISystem::DrawTextUI("Astrolabe", 20, 20, 30, WHITE, ui.alpha);
         
-        // auto* astroComp = registry.try_get<AstrolabeComponent>(entity); // Already declared above
         if (astroComp) {
             UISystem::DrawTextUI(TextFormat("Points: %d", astroComp->available_points), 20, 60, 24, GOLD, ui.alpha);
+            
+            // Pending Points Counter
+            if (!ui.plannedNodes.empty()) {
+                UISystem::DrawTextUI(TextFormat("Pending: %d", (int)ui.plannedNodes.size()), 20, 90, 20, ORANGE, ui.alpha);
+                
+                // Confirm/Reset Buttons
+                float bx = 20.0f;
+                float by = screenH - 80.0f;
+                float bw = 120.0f;
+                float bh = 40.0f;
+                
+                Rectangle confirmRec = { bx, by, bw, bh };
+                Rectangle resetRec = { bx + bw + 20.0f, by, bw, bh };
+                
+                Vector2 mPos = GetMousePosition();
+                
+                // Confirm Button
+                bool confirmHover = CheckCollisionPointRec(mPos, confirmRec);
+                DrawRectangleRounded(confirmRec, 0.2f, 8, Fade(confirmHover ? GREEN : DARKGREEN, ui.alpha));
+                UISystem::DrawTextUI("CONFIRM", bx + 20, by + 10, 20, WHITE, ui.alpha);
+                
+                if (confirmHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    // Activate all planned nodes in order (if possible)
+                    // Simple approach: Keep activating until no more can be activated
+                    bool changed = true;
+                    while (changed) {
+                        changed = false;
+                        for (auto it = ui.plannedNodes.begin(); it != ui.plannedNodes.end(); ) {
+                            uint32_t nodeId = *it;
+                            if (AstrolabeSystem::activate_node(registry, entity, nodeId)) {
+                                it = ui.plannedNodes.erase(it);
+                                changed = true;
+                            } else {
+                                ++it;
+                            }
+                        }
+                    }
+                }
+                
+                // Reset Button
+                bool resetHover = CheckCollisionPointRec(mPos, resetRec);
+                DrawRectangleRounded(resetRec, 0.2f, 8, Fade(resetHover ? RED : MAROON, ui.alpha));
+                UISystem::DrawTextUI("RESET", bx + bw + 20.0f + 35, by + 10, 20, WHITE, ui.alpha);
+                
+                if (resetHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    ui.plannedNodes.clear();
+                }
+            }
+
+            // Refund Mode Toggle
+            float rx = screenW - 160.0f;
+            float ry = 20.0f;
+            float rw = 140.0f;
+            float rh = 40.0f;
+            Rectangle refundRec = { rx, ry, rw, rh };
+            bool refundHover = CheckCollisionPointRec(GetMousePosition(), refundRec);
+            DrawRectangleRounded(refundRec, 0.2f, 8, Fade(ui.isRefundMode ? RED : DARKGRAY, ui.alpha));
+            UISystem::DrawTextUI(ui.isRefundMode ? "REFUNDING" : "REFUND MODE", rx + 15, ry + 10, 18, WHITE, ui.alpha);
+            
+            if (refundHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                ui.isRefundMode = !ui.isRefundMode;
+                if (ui.isRefundMode) ui.plannedNodes.clear(); // Clear planning when entering refund mode
+            }
         }
     }
 }

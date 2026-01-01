@@ -1,5 +1,7 @@
 #pragma once
 #include "raylib.h"
+#include <set>
+#include <cstdint>
 
 namespace NoMoreDay {
 
@@ -15,6 +17,10 @@ struct AstrolabeUIComponent {
     int hoveredNodeId = -1;
     bool isDragging = false;
     Vector2 lastMousePos = { 0.0f, 0.0f };
+
+    // Planning Mode
+    std::set<uint32_t> plannedNodes;
+    bool isRefundMode = false;
 };
 
 }

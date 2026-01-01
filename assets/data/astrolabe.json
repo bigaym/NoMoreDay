@@ -1,61 +1,205 @@
 {
   "nodes": [
     {
-      "id": 1,
-      "name_key": "astrolabe.node.str_1",
-      "desc_key": "astrolabe.node.str_1.desc",
+      "id": 0,
+      "name_key": "起源",
+      "desc_key": "修行之路的起点。(全属性 +1)",
       "type": 0,
       "prerequisites": [],
       "modifiers": [
-        {
-          "type": 0,
-          "mode": 0,
-          "value": 5.0,
-          "source": 2,
-          "source_id": 1
-        }
+        { "type": 0, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 },
+        { "type": 1, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 },
+        { "type": 2, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 },
+        { "type": 3, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 }
       ],
+      "effects": [],
       "x": 0.0,
-      "y": 100.0,
-      "icon_id": "icon_str"
+      "y": 0.0,
+      "icon_id": "icon_origin"
     },
     {
-      "id": 2,
-      "name_key": "astrolabe.node.dex_1",
-      "desc_key": "astrolabe.node.dex_1.desc",
+      "id": 1,
+      "name_key": "剑术修炼 I",
+      "desc_key": "+5 敏捷",
       "type": 0,
-      "prerequisites": [1],
+      "prerequisites": [0],
       "modifiers": [
-        {
-          "type": 1,
-          "mode": 0,
-          "value": 5.0,
-          "source": 2,
-          "source_id": 2
-        }
+        { "type": 1, "mode": 0, "value": 5.0, "source": 2, "source_id": 1 }
       ],
-      "x": 86.6,
-      "y": 50.0,
+      "effects": [],
+      "x": -40.0,
+      "y": 40.0,
       "icon_id": "icon_dex"
     },
     {
-      "id": 100,
-      "name_key": "astrolabe.node.phys_keystone",
-      "desc_key": "astrolabe.node.phys_keystone.desc",
-      "type": 2,
+      "id": 2,
+      "name_key": "剑术修炼 II",
+      "desc_key": "+2% 攻击速度",
+      "type": 0,
+      "prerequisites": [1],
+      "modifiers": [
+        { "type": 18, "mode": 1, "value": 2.0, "source": 2, "source_id": 2 }
+      ],
+      "effects": [],
+      "x": -80.0,
+      "y": 80.0,
+      "icon_id": "icon_as"
+    },
+    {
+      "id": 3,
+      "name_key": "剑术修炼 III",
+      "desc_key": "+10 命中值",
+      "type": 0,
       "prerequisites": [2],
       "modifiers": [
-        {
-          "type": 8,
-          "mode": 2,
-          "value": 0.2,
-          "source": 2,
-          "source_id": 100
-        }
+        { "type": 20, "mode": 0, "value": 10.0, "source": 2, "source_id": 3 }
       ],
+      "effects": [],
+      "x": -120.0,
+      "y": 120.0,
+      "icon_id": "icon_acc"
+    },
+    {
+      "id": 4,
+      "name_key": "剑心通明",
+      "desc_key": "[基石] 解锁剑心通明特质。单手持剑且副手为空时，获得50%额外伤害加成与20%格挡几率。",
+      "type": 2,
+      "prerequisites": [3],
+      "modifiers": [],
+      "effects": [
+        { "type": 0, "value": "SwordHeart" }
+      ],
+      "x": -160.0,
+      "y": 160.0,
+      "icon_id": "icon_sword_heart"
+    },
+    {
+      "id": 5,
+      "name_key": "精准",
+      "desc_key": "+2% 暴击率",
+      "type": 0,
+      "prerequisites": [2],
+      "modifiers": [
+        { "type": 16, "mode": 0, "value": 2.0, "source": 2, "source_id": 5 }
+      ],
+      "effects": [],
+      "x": -120.0,
+      "y": 40.0,
+      "icon_id": "icon_crit"
+    },
+    {
+      "id": 10,
+      "name_key": "冥想 I",
+      "desc_key": "+5 智力",
+      "type": 0,
+      "prerequisites": [0],
+      "modifiers": [
+        { "type": 2, "mode": 0, "value": 5.0, "source": 2, "source_id": 10 }
+      ],
+      "effects": [],
+      "x": 40.0,
+      "y": 40.0,
+      "icon_id": "icon_int"
+    },
+    {
+      "id": 11,
+      "name_key": "冥想 II",
+      "desc_key": "+5% 物理伤害",
+      "type": 0,
+      "prerequisites": [10],
+      "modifiers": [
+        { "type": 8, "mode": 1, "value": 5.0, "source": 2, "source_id": 11 }
+      ],
+      "effects": [],
+      "x": 80.0,
+      "y": 80.0,
+      "icon_id": "icon_phys"
+    },
+    {
+      "id": 12,
+      "name_key": "气动",
+      "desc_key": "[核心] +10% 移动速度, +2 法力回复",
+      "type": 1,
+      "prerequisites": [11],
+      "modifiers": [
+        { "type": 6, "mode": 1, "value": 10.0, "source": 2, "source_id": 12 }
+      ],
+      "effects": [],
+      "x": 120.0,
+      "y": 120.0,
+      "icon_id": "icon_speed"
+    },
+    {
+      "id": 13,
+      "name_key": "元素剑气",
+      "desc_key": "+5% 元素伤害 (火焰, 冰霜, 闪电)",
+      "type": 0,
+      "prerequisites": [11],
+      "modifiers": [
+        { "type": 9, "mode": 1, "value": 5.0, "source": 2, "source_id": 13 },
+        { "type": 10, "mode": 1, "value": 5.0, "source": 2, "source_id": 13 },
+        { "type": 11, "mode": 1, "value": 5.0, "source": 2, "source_id": 13 }
+      ],
+      "effects": [],
+      "x": 120.0,
+      "y": 40.0,
+      "icon_id": "icon_elemental"
+    },
+    {
+      "id": 20,
+      "name_key": "强体 I",
+      "desc_key": "+5 体质",
+      "type": 0,
+      "prerequisites": [0],
+      "modifiers": [
+        { "type": 3, "mode": 0, "value": 5.0, "source": 2, "source_id": 20 }
+      ],
+      "effects": [],
       "x": 0.0,
-      "y": 200.0,
-      "icon_id": "icon_phys_keystone"
+      "y": 60.0,
+      "icon_id": "icon_vit"
+    },
+    {
+      "id": 21,
+      "name_key": "坚韧",
+      "desc_key": "+20 生命值",
+      "type": 0,
+      "prerequisites": [20],
+      "modifiers": [
+        { "type": 4, "mode": 0, "value": 20.0, "source": 2, "source_id": 21 }
+      ],
+      "effects": [],
+      "x": 0.0,
+      "y": 120.0,
+      "icon_id": "icon_hp"
+    },
+    {
+      "id": 22,
+      "name_key": "钢筋铁骨",
+      "desc_key": "+10 护甲",
+      "type": 0,
+      "prerequisites": [21],
+      "modifiers": [
+        { "type": 7, "mode": 0, "value": 10.0, "source": 2, "source_id": 22 }
+      ],
+      "effects": [],
+      "x": 0.0,
+      "y": 180.0,
+      "icon_id": "icon_armor"
+    },
+    {
+      "id": 30,
+      "name_key": "灵敏",
+      "desc_key": "+5 敏捷",
+      "type": 0,
+      "prerequisites": [0],
+      "modifiers": [
+        { "type": 1, "mode": 0, "value": 5.0, "source": 2, "source_id": 30 }
+      ],
+      "effects": [],
+      "x": 40.0,
+      "y": -40.0,
+      "icon_id": "icon_dex"
     }
   ]
 }

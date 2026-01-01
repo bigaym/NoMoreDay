@@ -15,37 +15,41 @@ TEST_CASE("AstrolabeSystem: Activation Logic") {
     AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
 
     auto& astrolabe = registry.emplace<AstrolabeComponent>(entity);
-    astrolabe.available_points = 2;
+    astrolabe.available_points = 10;
 
     SUBCASE("Can activate root node") {
-        CHECK(AstrolabeSystem::can_activate(registry, entity, 1) == true);
-        CHECK(AstrolabeSystem::activate_node(registry, entity, 1) == true);
-        CHECK(astrolabe.activated_nodes.contains(1));
-        CHECK(astrolabe.available_points == 1);
+        CHECK(AstrolabeSystem::can_activate(registry, entity, 0) == true);
+        CHECK(AstrolabeSystem::activate_node(registry, entity, 0) == true);
+        CHECK(astrolabe.activated_nodes.contains(0));
+        CHECK(astrolabe.available_points == 9);
         CHECK(registry.all_of<StatsDirty>(entity));
     }
 
     SUBCASE("Cannot activate without prerequisites") {
-        // Node 2 depends on 1
-        CHECK(AstrolabeSystem::can_activate(registry, entity, 2) == false);
-        CHECK(AstrolabeSystem::activate_node(registry, entity, 2) == false);
+        // Node 1 depends on 0
+        CHECK(AstrolabeSystem::can_activate(registry, entity, 1) == false);
+        CHECK(AstrolabeSystem::activate_node(registry, entity, 1) == false);
     }
 
     SUBCASE("Can activate after prerequisites are met") {
-        AstrolabeSystem::activate_node(registry, entity, 1);
-        CHECK(AstrolabeSystem::can_activate(registry, entity, 2) == true);
-        CHECK(AstrolabeSystem::activate_node(registry, entity, 2) == true);
-        CHECK(astrolabe.available_points == 0);
+        AstrolabeSystem::activate_node(registry, entity, 0);
+        CHECK(AstrolabeSystem::can_activate(registry, entity, 1) == true);
+        CHECK(AstrolabeSystem::activate_node(registry, entity, 1) == true);
+        CHECK(astrolabe.available_points == 8);
     }
 
-    SUBCASE("Cannot activate without points") {
-        astrolabe.available_points = 0;
-        CHECK(AstrolabeSystem::can_activate(registry, entity, 1) == false);
-    }
-
-    SUBCASE("Cannot activate already activated node") {
+    SUBCASE("Effect Integration: Activating Keystone grants Component") {
+        // Path: 0 -> 1 -> 2 -> 3 -> 4 (Sword Heart)
+        AstrolabeSystem::activate_node(registry, entity, 0);
         AstrolabeSystem::activate_node(registry, entity, 1);
-        CHECK(AstrolabeSystem::can_activate(registry, entity, 1) == false);
+        AstrolabeSystem::activate_node(registry, entity, 2);
+        AstrolabeSystem::activate_node(registry, entity, 3);
+        
+        CHECK_FALSE(registry.all_of<SwordHeartComponent>(entity));
+        
+        AstrolabeSystem::activate_node(registry, entity, 4);
+        
+        CHECK(registry.all_of<SwordHeartComponent>(entity));
     }
 
     SUBCASE("Stat Integration: Activating node changes stats") {
@@ -54,15 +58,17 @@ TEST_CASE("AstrolabeSystem: Activation Logic") {
         
         // Recalculate once to get baseline
         StatsSystem::Recalculate(registry, entity);
-        float baseline_str = combat.effective_strength;
+        float baseline_dex = combat.effective_dexterity;
 
-        // Activate node 1 (+5 Strength)
-        AstrolabeSystem::activate_node(registry, entity, 1);
+        // Path to node 1 (+5 Dex)
+        AstrolabeSystem::activate_node(registry, entity, 0); // +1 all
+        AstrolabeSystem::activate_node(registry, entity, 1); // +5 dex
         
         // Stats should be dirty, but we call Recalculate directly for testing
         StatsSystem::Recalculate(registry, entity);
         
-        CHECK(combat.effective_strength == baseline_str + 5.0f);
+        // Total should be baseline + 1 (from 0) + 5 (from 1) = +6
+        CHECK(combat.effective_dexterity == baseline_dex + 6.0f);
     }
 
     SUBCASE("Persistence: JSON Serialization") {

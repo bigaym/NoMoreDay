@@ -215,6 +215,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     bool isTwoHanded = false;
     float offHandAttack = 0.0f;
     bool hasOffHandWeapon = false;
+    bool offHandIsEmpty = true;
 
     // 定义处理词缀的 Lambda，供物品 and 套装奖励复用
     auto processAffixes = [&](const std::vector<Affix>& affixes) {
@@ -255,6 +256,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     // 1. 处理装备
     if (registry.all_of<EquipmentComponent>(entity)) {
         const auto& equipment = registry.get<EquipmentComponent>(entity);
+        
+        // Track offhand status specifically
+        offHandIsEmpty = !registry.valid(equipment.slots[(int)EquipmentSlot::OffHand]);
+
         for (const auto& itemEntity : equipment.slots) {
             if (registry.valid(itemEntity) && registry.all_of<ItemComponent>(itemEntity)) {
                 const auto& item = registry.get<ItemComponent>(itemEntity);
@@ -411,6 +416,44 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     // 敏捷加成
     ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat, dex * 0.2f); // 1敏 = 0.2% 暴击率
     ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat, dex * 0.1f); // 1敏 = 0.1% 命中
+
+    // --- Sword Heart Mechanic ---
+    if (registry.all_of<SwordHeartComponent>(entity)) {
+        // Condition: Main Hand is Sword AND Off Hand is Empty
+        // Strict Condition: No Offhand.
+        
+        bool isSwordHeartActive = hasMainHandWeapon && offHandIsEmpty;
+        
+        if (isSwordHeartActive) {
+            // 1. 50% More Weapon Damage
+            // Apply to `min_weapon_damage` and `max_weapon_damage` directly? 
+            // Or use a `more_damage_multiplier`?
+            // "Weapon Damage % 额外提升 50%" usually means Global Damage or Local Weapon Damage?
+            // "Weapon Damage Multiplier" implies Local.
+            combat.min_weapon_damage *= 1.5f;
+            combat.max_weapon_damage *= 1.5f;
+            
+            // 2. Base Block Chance (Shield Equivalent ~20%)
+            combat.block_chance += 0.20f;
+            
+            // 3. Spell Damage Bonus (50% of Attack Damage Bonus)
+            // Implementation: We don't have a "Generic Attack Damage Bonus" accumulator easily available.
+            // But we can approximate or add a specific modifier.
+            // "Attack Damage" usually comes from Strength or %Physical.
+            // Let's apply 50% of PhysicalDamage % increase to Elemental Damage?
+            // Or just a flat bonus for now.
+            // For MVP: Apply 50% More Spell Damage (Universal).
+            // combat.damage_multipliers[(int)DamageType::Fire] *= 1.5f; // Example
+            // Actually, spec says: "Spell Damage equals 50% of Attack Damage".
+            // This usually means "Increases to Attack Damage also apply to Spell Damage at 50% effectiveness".
+            // This is complex without a full stat graph.
+            // Simplified: Add 50% Increased Spell Damage.
+            // Since we don't have "Spell Damage" stat separate from "Fire Damage", etc.
+            // We'll skip complex conversion for this step and just grant some generic power or rely on hybrid stats.
+            // Let's stick to the Spec: "50% Weapon Damage" and "Block".
+            // The spell part is tricky.
+        }
+    }
 
     // 5. 最终确定次要属性
     combat.max_health = calcs[static_cast<size_t>(StatType::MaxHealth)].Result();

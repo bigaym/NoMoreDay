@@ -1,5 +1,6 @@
 #include "ProgressionSystem.hpp"
 #include "../components/PlayerState.hpp"
+#include "../components/Progression.hpp"
 #include "../components/Stats.hpp"
 #include <cmath>
 #include <algorithm>
@@ -63,6 +64,11 @@ void ProgressionSystem::LevelUp(entt::registry& registry, entt::entity entity) {
     // 奖励点数
     stats.available_attribute_points += 5;
     stats.available_skill_points += 1;
+    
+    // 奖励星盘点数 (Astrolabe points)
+    if (auto* astro = registry.try_get<AstrolabeComponent>(entity)) {
+        astro->available_points += 1;
+    }
 
     // 基础属性增长
     if (auto* primStats = registry.try_get<PrimaryStats>(entity)) {
