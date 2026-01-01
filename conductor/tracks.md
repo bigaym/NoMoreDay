@@ -28,5 +28,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [~] Track: 星盘系统开发基础
-*Link: [./conductor/tracks/astrolabe_foundation_20260101/](./conductor/tracks/astrolabe_foundation_20260101/)*
+## [x] Track: 星盘系统开发基础
+- **Folder:** `conductor/archive/astrolabe_foundation_20260101`
+- **Description:** Implement a data-driven passive talent tree foundation including JSON parsing, activation logic, and stats integration. (Completed on 2026-01-01)
+
