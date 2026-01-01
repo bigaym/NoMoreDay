@@ -6,6 +6,8 @@
 #include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "../components/ItemComponent.hpp"
 #include "../components/ItemStats.hpp"
+#include "../components/Progression.hpp"
+#include "../core/AstrolabeRegistry.hpp"
 #include <algorithm>
 #include <vector>
 #include <array>
@@ -365,6 +367,20 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         const auto& list = registry.get<ModifierList>(entity);
         for (const auto& mod : list.modifiers) {
             ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+        }
+    }
+
+    // 2.5 处理星盘天赋 (Astrolabe Nodes)
+    if (registry.all_of<AstrolabeComponent>(entity)) {
+        const auto& astrolabe = registry.get<AstrolabeComponent>(entity);
+        const auto& registry_instance = AstrolabeRegistry::Get();
+        for (uint32_t node_id : astrolabe.activated_nodes) {
+            const auto* node = registry_instance.GetNode(node_id);
+            if (node) {
+                for (const auto& mod : node->modifiers) {
+                    ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+                }
+            }
         }
     }
 

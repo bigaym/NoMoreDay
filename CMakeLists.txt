@@ -80,6 +80,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/EffectSystem.cpp
     # src/systems/EnemyBehavior.cpp
     src/systems/UISystem.cpp
+    src/systems/AstrolabeSystem.cpp
     src/systems/UIInventory.cpp
     src/systems/UIMinimap.cpp
     src/systems/ProgressionSystem.cpp

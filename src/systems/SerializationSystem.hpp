@@ -15,6 +15,7 @@
 #include "../components/Stats.hpp"
 #include "../components/InventoryComponent.hpp"
 #include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "../components/Progression.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/AIComponent.hpp"
 #include "UISystem.hpp" // Include UISystem
@@ -151,6 +152,7 @@ public:
             
             TrySerialize<PlayerLevel>(registry, entity, entityJson, "PlayerLevel");
             TrySerialize<PlayerStats>(registry, entity, entityJson, "PlayerStats");
+            TrySerialize<NoMoreDay::AstrolabeComponent>(registry, entity, entityJson, "Astrolabe");
             TrySerialize<DashComponent>(registry, entity, entityJson, "Dash");
             
             // 特殊处理包含 Entity 引用的组件
@@ -229,6 +231,7 @@ public:
 
             TryDeserialize<PlayerLevel>(registry, entity, entityJson, "PlayerLevel");
             TryDeserialize<PlayerStats>(registry, entity, entityJson, "PlayerStats");
+            TryDeserialize<NoMoreDay::AstrolabeComponent>(registry, entity, entityJson, "Astrolabe");
             TryDeserialize<DashComponent>(registry, entity, entityJson, "Dash");
             
             DeserializeInventory(registry, entity, entityJson, uuidMap);

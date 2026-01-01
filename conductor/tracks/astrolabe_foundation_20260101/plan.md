@@ -8,8 +8,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Data Infrastructure' (Protocol in workflow.md) [b0a76ba]
 
 ## Phase 2: ECS Components & Logic
-- [ ] Task: Implement `AstrolabeComponent` to store activated node IDs and available talent points.
-- [ ] Task: Create `src/systems/AstrolabeSystem.hpp` and `.cpp` to handle activation logic.
+- [x] Task: Implement `AstrolabeComponent` to store activated node IDs and available talent points. [f63fe3e]
+- [~] Task: Create `src/systems/AstrolabeSystem.hpp` and `.cpp` to handle activation logic.
 - [ ] Task: Implement `AstrolabeSystem::can_activate(entity, node_id)` validation (points, prerequisites).
 - [ ] Task: Implement `AstrolabeSystem::activate_node(entity, node_id)` and integrate "Dirty Flag" for stats refresh.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: ECS Components & Logic' (Protocol in workflow.md)
