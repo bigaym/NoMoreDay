@@ -25,7 +25,7 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
         // 确定战斗参数
         float currentCooldownTimer = 0.0f;
         float maxCooldown = 1.0f;
-        float range = 50.0f;
+        float range = 100.0f;
         float knockback = 0.0f;
         float baseDamage = 0.0f;
 

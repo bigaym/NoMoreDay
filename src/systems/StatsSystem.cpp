@@ -94,6 +94,12 @@ static void ApplyAffix(std::array<StatCalculation, static_cast<size_t>(StatType:
         case AffixType::Vitality:
             ApplyStatModifier(calcs, StatType::Vitality, ModifierMode::Flat, affix.value);
             break;
+        case AffixType::AllAttributes:
+            ApplyStatModifier(calcs, StatType::Strength, ModifierMode::Flat, affix.value);
+            ApplyStatModifier(calcs, StatType::Dexterity, ModifierMode::Flat, affix.value);
+            ApplyStatModifier(calcs, StatType::Intelligence, ModifierMode::Flat, affix.value);
+            ApplyStatModifier(calcs, StatType::Vitality, ModifierMode::Flat, affix.value);
+            break;
         case AffixType::FlatHealth:
             ApplyStatModifier(calcs, StatType::MaxHealth, ModifierMode::Flat, affix.value);
             break;

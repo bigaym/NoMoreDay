@@ -2,7 +2,7 @@
     {
         "id": "strength",
         "type": 0,
-        "nameTemplate": "力量",
+        "nameTemplate": "Strength",
         "isPrefix": false,
         "tiers": [
             {
@@ -57,7 +57,7 @@
     {
         "id": "dexterity",
         "type": 1,
-        "nameTemplate": "敏捷",
+        "nameTemplate": "Dexterity",
         "isPrefix": false,
         "tiers": [
             {
@@ -112,7 +112,7 @@
     {
         "id": "intelligence",
         "type": 2,
-        "nameTemplate": "智力",
+        "nameTemplate": "Intelligence",
         "isPrefix": false,
         "tiers": [
             {
@@ -167,7 +167,7 @@
     {
         "id": "vitality",
         "type": 3,
-        "nameTemplate": "活力",
+        "nameTemplate": "Vitality",
         "isPrefix": false,
         "tiers": [
             {
@@ -220,9 +220,63 @@
         ]
     },
     {
+        "id": "all_stats",
+        "type": 4,
+        "nameTemplate": "Balanced",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 2.0,
+                "maxValue": 3.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 4.0,
+                "maxValue": 5.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 6.0,
+                "maxValue": 7.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 8.0,
+                "maxValue": 9.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 10.0,
+                "maxValue": 11.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 12.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 14.0,
+                "maxValue": 15.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
         "id": "crit_chance",
-        "type": 16,
-        "nameTemplate": "致命的",
+        "type": 17,
+        "nameTemplate": "Deadly",
         "isPrefix": false,
         "tiers": [
             {
@@ -276,8 +330,8 @@
     },
     {
         "id": "attack_speed",
-        "type": 18,
-        "nameTemplate": "急速的",
+        "type": 19,
+        "nameTemplate": "Rapid",
         "isPrefix": false,
         "tiers": [
             {
@@ -330,8 +384,8 @@
     },
     {
         "id": "move_speed",
-        "type": 34,
-        "nameTemplate": "迅捷的",
+        "type": 39,
+        "nameTemplate": "Quick",
         "isPrefix": false,
         "tiers": [
             {
@@ -383,8 +437,8 @@
     },
     {
         "id": "resist_all",
-        "type": 26,
-        "nameTemplate": "全抗的",
+        "type": 27,
+        "nameTemplate": "Prismatic",
         "isPrefix": false,
         "tiers": [
             {
@@ -437,8 +491,8 @@
     },
     {
         "id": "resist_fire",
-        "type": 27,
-        "nameTemplate": "耐火的",
+        "type": 28,
+        "nameTemplate": "Fire Res",
         "isPrefix": false,
         "tiers": [
             {
@@ -491,8 +545,8 @@
     },
     {
         "id": "resist_cold",
-        "type": 28,
-        "nameTemplate": "耐寒的",
+        "type": 29,
+        "nameTemplate": "Cold Res",
         "isPrefix": false,
         "tiers": [
             {
@@ -545,8 +599,8 @@
     },
     {
         "id": "resist_lightning",
-        "type": 29,
-        "nameTemplate": "耐电的",
+        "type": 30,
+        "nameTemplate": "Light Res",
         "isPrefix": false,
         "tiers": [
             {
@@ -599,8 +653,8 @@
     },
     {
         "id": "flat_health",
-        "type": 23,
-        "nameTemplate": "强壮的",
+        "type": 24,
+        "nameTemplate": "Vigorous",
         "isPrefix": true,
         "tiers": [
             {
@@ -653,8 +707,8 @@
     },
     {
         "id": "flat_mana",
-        "type": 25,
-        "nameTemplate": "神秘的",
+        "type": 26,
+        "nameTemplate": "Mystic",
         "isPrefix": true,
         "tiers": [
             {
@@ -707,8 +761,8 @@
     },
     {
         "id": "flat_phys",
-        "type": 4,
-        "nameTemplate": "锋利的",
+        "type": 5,
+        "nameTemplate": "Sharp",
         "isPrefix": true,
         "tiers": [
             {
@@ -761,8 +815,8 @@
     },
     {
         "id": "flat_fire",
-        "type": 5,
-        "nameTemplate": "燃烧的",
+        "type": 6,
+        "nameTemplate": "Burning",
         "isPrefix": true,
         "tiers": [
             {
@@ -815,8 +869,8 @@
     },
     {
         "id": "pct_phys",
-        "type": 10,
-        "nameTemplate": "残酷的",
+        "type": 11,
+        "nameTemplate": "Cruel",
         "isPrefix": true,
         "tiers": [
             {
@@ -868,8 +922,8 @@
     },
     {
         "id": "pct_fire",
-        "type": 11,
-        "nameTemplate": "炽热的",
+        "type": 12,
+        "nameTemplate": "Fiery",
         "isPrefix": true,
         "tiers": [
             {
@@ -921,8 +975,8 @@
     },
     {
         "id": "pct_light",
-        "type": 13,
-        "nameTemplate": "雷击的",
+        "type": 14,
+        "nameTemplate": "Shocking",
         "isPrefix": true,
         "tiers": [
             {
@@ -974,8 +1028,8 @@
     },
     {
         "id": "flat_armor",
-        "type": 21,
-        "nameTemplate": "加固的",
+        "type": 22,
+        "nameTemplate": "Reinforced",
         "isPrefix": true,
         "tiers": [
             {
@@ -1027,8 +1081,8 @@
     },
     {
         "id": "pct_armor",
-        "type": 22,
-        "nameTemplate": "硬化的",
+        "type": 23,
+        "nameTemplate": "Hardened",
         "isPrefix": true,
         "tiers": [
             {
@@ -1076,6 +1130,222 @@
         ],
         "allowedTags": [
             "armor"
+        ]
+    },
+    {
+        "id": "health_regen",
+        "type": 35,
+        "nameTemplate": "Regenerating",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 0.5,
+                "maxValue": 1.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 1.0,
+                "maxValue": 1.5
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 1.5,
+                "maxValue": 2.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 2.0,
+                "maxValue": 2.5
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 2.5,
+                "maxValue": 3.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 3.0,
+                "maxValue": 3.5
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 3.5,
+                "maxValue": 4.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "mana_regen",
+        "type": 36,
+        "nameTemplate": "Flowing",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 0.5,
+                "maxValue": 1.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 1.0,
+                "maxValue": 1.5
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 1.5,
+                "maxValue": 2.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 2.0,
+                "maxValue": 2.5
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 2.5,
+                "maxValue": 3.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 3.0,
+                "maxValue": 3.5
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 3.5,
+                "maxValue": 4.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "pct_health_regen",
+        "type": 37,
+        "nameTemplate": "Vitalizing",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 10.0,
+                "maxValue": 15.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 20.0,
+                "maxValue": 25.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 30.0,
+                "maxValue": 35.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 40.0,
+                "maxValue": 45.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 50.0,
+                "maxValue": 55.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 60.0,
+                "maxValue": 65.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 70.0,
+                "maxValue": 75.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "pct_mana_regen",
+        "type": 38,
+        "nameTemplate": "Spiritual",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 10.0,
+                "maxValue": 15.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 11,
+                "minValue": 20.0,
+                "maxValue": 25.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 21,
+                "minValue": 30.0,
+                "maxValue": 35.0
+            },
+            {
+                "tier": 4,
+                "minLevel": 31,
+                "minValue": 40.0,
+                "maxValue": 45.0
+            },
+            {
+                "tier": 5,
+                "minLevel": 41,
+                "minValue": 50.0,
+                "maxValue": 55.0
+            },
+            {
+                "tier": 6,
+                "minLevel": 51,
+                "minValue": 60.0,
+                "maxValue": 65.0
+            },
+            {
+                "tier": 7,
+                "minLevel": 61,
+                "minValue": 70.0,
+                "maxValue": 75.0
+            }
+        ],
+        "allowedTags": [
+            "armor",
+            "jewelry"
         ]
     }
 ]

@@ -13,6 +13,7 @@ enum class AffixType : uint8_t {
     Dexterity, // 敏捷
     Intelligence,
     Vitality, // 体质
+    AllAttributes, // 所有属性
 
     // Offensive
     FlatPhysicalDamage, // 基础物理伤害
@@ -99,9 +100,34 @@ struct AffixDefinition {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AffixDefinition, id, type, nameTemplate, isPrefix, tiers, allowedTags)
 
-// Returns a human readable string for the affix, e.g. "+10 Strength"
-inline std::string GetAffixDescription(const Affix& affix) {
-    std::string text = "+";
+// Helper to determine if an affix is a primary stat
+inline bool IsPrimaryStat(AffixType type) {
+    return type == AffixType::Strength || type == AffixType::Dexterity || 
+           type == AffixType::Intelligence || type == AffixType::Vitality || 
+           type == AffixType::AllAttributes;
+}
+
+// Get color for affix tier
+inline Color GetAffixTierColor(int tier) {
+    switch (tier) {
+        case 1: return GRAY;
+        case 2: return WHITE;
+        case 3: return GREEN;
+        case 4: return BLUE;
+        case 5: return YELLOW;
+        case 6: return PURPLE;
+        case 7: return RED;
+        default: return WHITE;
+    }
+}
+
+// Returns a human readable string for the affix, e.g. "[T1] +10 Strength"
+inline std::string GetAffixDescription(const Affix& affix, bool showTier = true) {
+    std::string text = "";
+    if (showTier) {
+        text += "[T" + std::to_string(affix.tier) + "] ";
+    }
+    text += "+";
     text += std::to_string((int)affix.value); // Simplify for now
     
     // 百分号在switch语句中处理，以便更好地控制
@@ -111,6 +137,7 @@ inline std::string GetAffixDescription(const Affix& affix) {
         case AffixType::Dexterity: text += " 敏捷"; break;
         case AffixType::Intelligence: text += " 智力"; break;
         case AffixType::Vitality: text += " 体质"; break;
+        case AffixType::AllAttributes: text += " 所有属性"; break;
         
         case AffixType::FlatPhysicalDamage: text += " 物理伤害"; break;
         case AffixType::FlatFireDamage: text += " 火焰伤害"; break;
@@ -163,60 +190,66 @@ inline std::string GetAffixDescription(const Affix& affix) {
 }
 
 // Zero-allocation version using Raylib's TextFormat (Internal pool of buffers)
-inline const char* GetAffixDescriptionRef(const Affix& affix) {
+inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier = true) {
     float val = affix.value;
+    int tier = affix.tier;
+    
+    const char* prefix = showTier ? TextFormat("[T%d] ", tier) : "";
+    
     switch (affix.type) {
-        case AffixType::Strength: return TextFormat("+%.0f 力量", val);
-        case AffixType::Dexterity: return TextFormat("+%.0f 敏捷", val);
-        case AffixType::Intelligence: return TextFormat("+%.0f 智力", val);
-        case AffixType::Vitality: return TextFormat("+%.0f 体质", val);
-        case AffixType::FlatHealth: return TextFormat("+%.0f 生命", val);
-        case AffixType::FlatMana: return TextFormat("+%.0f 法力", val);
+        case AffixType::Strength: return TextFormat("%s+%.0f 力量", prefix, val);
+        case AffixType::Dexterity: return TextFormat("%s+%.0f 敏捷", prefix, val);
+        case AffixType::Intelligence: return TextFormat("%s+%.0f 智力", prefix, val);
+        case AffixType::Vitality: return TextFormat("%s+%.0f 体质", prefix, val);
+        case AffixType::AllAttributes: return TextFormat("%s+%.0f 所有属性", prefix, val);
         
-        case AffixType::FlatPhysicalDamage: return TextFormat("+%.0f 物理伤害", val);
-        case AffixType::FlatFireDamage: return TextFormat("+%.0f 火焰伤害", val);
-        case AffixType::FlatColdDamage: return TextFormat("+%.0f 冰霜伤害", val);
-        case AffixType::FlatLightningDamage: return TextFormat("+%.0f 闪电伤害", val);
-        case AffixType::FlatPoisonDamage: return TextFormat("+%.0f 毒素伤害", val);
-        case AffixType::FlatShadowDamage: return TextFormat("+%.0f 暗影伤害", val);
-
-        case AffixType::PercentPhysicalDamage: return TextFormat("+%.0f%% 物理伤害", val);
-        case AffixType::PercentFireDamage: return TextFormat("+%.0f%% 火焰伤害", val);
-        case AffixType::PercentColdDamage: return TextFormat("+%.0f%% 冰霜伤害", val);
-        case AffixType::PercentLightningDamage: return TextFormat("+%.0f%% 闪电伤害", val);
-        case AffixType::PercentPoisonDamage: return TextFormat("+%.0f%% 毒素伤害", val);
-        case AffixType::PercentShadowDamage: return TextFormat("+%.0f%% 暗影伤害", val);
-
-        case AffixType::CritChance: return TextFormat("+%.1f%% 暴击率", val);
-        case AffixType::CritDamage: return TextFormat("+%.1f%% 暴击伤害", val);
-        case AffixType::AttackSpeed: return TextFormat("+%.0f%% 攻击速度", val);
-        case AffixType::CastSpeed: return TextFormat("+%.0f%% 施法速度", val);
-        case AffixType::Accuracy: return TextFormat("+%.0f%% 命中率", val);
-
-        case AffixType::FlatArmor: return TextFormat("+%.0f 护甲", val);
-        case AffixType::PercentArmor: return TextFormat("+%.0f%% 护甲", val);
-        case AffixType::ResistAll: return TextFormat("+%.0f%% 全抗性", val);
-        case AffixType::ResistFire: return TextFormat("+%.0f%% 火焰抗性", val);
-        case AffixType::ResistCold: return TextFormat("+%.0f%% 冰霜抗性", val);
-        case AffixType::ResistLightning: return TextFormat("+%.0f%% 闪电抗性", val);
-        case AffixType::ResistPoison: return TextFormat("+%.0f%% 毒素抗性", val);
-        case AffixType::ResistShadow: return TextFormat("+%.0f%% 暗影抗性", val);
-
-        case AffixType::Thorns: return TextFormat("+%.0f 荆棘伤害", val);
-        case AffixType::DamageReduction: return TextFormat("+%.0f%% 伤害减免", val);
-
-        case AffixType::HealthRegen: return TextFormat("+%.1f 生命回复", val);
-        case AffixType::ManaRegen: return TextFormat("+%.1f 法力回复", val);
-        case AffixType::PercentHealthRegen: return TextFormat("+%.0f%% 生命回复", val);
-        case AffixType::PercentManaRegen: return TextFormat("+%.0f%% 法力回复", val);
-
-        case AffixType::MoveSpeed: return TextFormat("+%.0f%% 移动速度", val);
-        case AffixType::CooldownReduction: return TextFormat("+%.0f%% 冷却缩减", val);
-
-        case AffixType::LifeSteal: return TextFormat("+%.1f%% 生命偷取", val);
-        case AffixType::LifeOnHit: return TextFormat("+%.1f 击中回复", val);
+        case AffixType::FlatHealth: return TextFormat("%s+%.0f 生命", prefix, tier, val);
+        case AffixType::FlatMana: return TextFormat("%s+%.0f 法力", prefix, tier, val);
         
-        default: return TextFormat("+%.1f 属性", val);
+        case AffixType::FlatPhysicalDamage: return TextFormat("%s+%.0f 物理伤害", prefix, val);
+        case AffixType::FlatFireDamage: return TextFormat("%s+%.0f 火焰伤害", prefix, val);
+        case AffixType::FlatColdDamage: return TextFormat("%s+%.0f 冰霜伤害", prefix, val);
+        case AffixType::FlatLightningDamage: return TextFormat("%s+%.0f 闪电伤害", prefix, val);
+        case AffixType::FlatPoisonDamage: return TextFormat("%s+%.0f 毒素伤害", prefix, val);
+        case AffixType::FlatShadowDamage: return TextFormat("%s+%.0f 暗影伤害", prefix, val);
+
+        case AffixType::PercentPhysicalDamage: return TextFormat("%s+%.0f%% 物理伤害", prefix, val);
+        case AffixType::PercentFireDamage: return TextFormat("%s+%.0f%% 火焰伤害", prefix, val);
+        case AffixType::PercentColdDamage: return TextFormat("%s+%.0f%% 冰霜伤害", prefix, val);
+        case AffixType::PercentLightningDamage: return TextFormat("%s+%.0f%% 闪电伤害", prefix, val);
+        case AffixType::PercentPoisonDamage: return TextFormat("%s+%.0f%% 毒素伤害", prefix, val);
+        case AffixType::PercentShadowDamage: return TextFormat("%s+%.0f%% 暗影伤害", prefix, val);
+
+        case AffixType::CritChance: return TextFormat("%s+%.1f%% 暴击率", prefix, val);
+        case AffixType::CritDamage: return TextFormat("%s+%.1f%% 暴击伤害", prefix, val);
+        case AffixType::AttackSpeed: return TextFormat("%s+%.0f%% 攻击速度", prefix, val);
+        case AffixType::CastSpeed: return TextFormat("%s+%.0f%% 施法速度", prefix, val);
+        case AffixType::Accuracy: return TextFormat("%s+%.0f%% 命中率", prefix, val);
+
+        case AffixType::FlatArmor: return TextFormat("%s+%.0f 护甲", prefix, val);
+        case AffixType::PercentArmor: return TextFormat("%s+%.0f%% 护甲", prefix, val);
+        case AffixType::ResistAll: return TextFormat("%s+%.0f%% 全抗性", prefix, val);
+        case AffixType::ResistFire: return TextFormat("%s+%.0f%% 火焰抗性", prefix, val);
+        case AffixType::ResistCold: return TextFormat("%s+%.0f%% 冰霜抗性", prefix, val);
+        case AffixType::ResistLightning: return TextFormat("%s+%.0f%% 闪电抗性", prefix, val);
+        case AffixType::ResistPoison: return TextFormat("%s+%.0f%% 毒素抗性", prefix, val);
+        case AffixType::ResistShadow: return TextFormat("%s+%.0f%% 暗影抗性", prefix, val);
+
+        case AffixType::Thorns: return TextFormat("%s+%.0f 荆棘伤害", prefix, val);
+        case AffixType::DamageReduction: return TextFormat("%s+%.0f%% 伤害减免", prefix, val);
+
+        case AffixType::HealthRegen: return TextFormat("%s+%.1f 生命回复", prefix, val);
+        case AffixType::ManaRegen: return TextFormat("%s+%.1f 法力回复", prefix, val);
+        case AffixType::PercentHealthRegen: return TextFormat("%s+%.0f%% 生命回复", prefix, val);
+        case AffixType::PercentManaRegen: return TextFormat("%s+%.0f%% 法力回复", prefix, val);
+
+        case AffixType::MoveSpeed: return TextFormat("%s+%.0f%% 移动速度", prefix, val);
+        case AffixType::CooldownReduction: return TextFormat("%s+%.0f%% 冷却缩减", prefix, val);
+
+        case AffixType::LifeSteal: return TextFormat("%s+%.1f%% 生命偷取", prefix, val);
+        case AffixType::LifeOnHit: return TextFormat("%s+%.1f 击中回复", prefix, val);
+        
+        default: return TextFormat("%s+%.1f 属性", prefix, val);
     }
 }
 

@@ -43,7 +43,7 @@ public:
                     static float logTimer = 0.0f;
                     logTimer += dt;
                     if (logTimer > 1.0f) {
-                        LOG_INFO("Player Regen: HP {:.1f}/{:.1f} (+{:.1f}/s), Mana {:.1f}/{:.1f} (+{:.1f}/s)", 
+                        LOG_TRACE("Player Regen: HP {:.1f}/{:.1f} (+{:.1f}/s), Mana {:.1f}/{:.1f} (+{:.1f}/s)", 
                             hp.current, hp.max, effectiveHealthRegen,
                             stats.mana, stats.max_mana, effectiveManaRegen);
                         logTimer = 0.0f;

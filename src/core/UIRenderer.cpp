@@ -218,18 +218,36 @@ namespace NoMoreDay {
         auto* itemComp = registry.try_get<ItemComponent>(item);
         if (!itemComp) return;
 
-        std::vector<std::string> lines;
-        lines.push_back(GetItemCategoryString(*itemComp)); // Add item category line
+        struct TooltipLine {
+            std::string text;
+            Color color;
+            bool isSeparator = false;
+        };
+
+        std::vector<TooltipLine> lines;
+        lines.push_back({ GetItemCategoryString(*itemComp), s_theme.textSecondary });
         
-        if (itemComp->attack > 0) lines.push_back(TextFormat("攻击力: %.0f", itemComp->attack));
-        if (itemComp->defense > 0) lines.push_back(TextFormat("护甲: %.0f", itemComp->defense));
-        if (itemComp->bagCapacity > 0) lines.push_back(TextFormat("容量: %d 格", itemComp->bagCapacity));
-        for (const auto& aff : itemComp->implicits) lines.push_back(GetAffixDescription(aff));
-        if ((!lines.empty()) && !itemComp->affixes.empty()) lines.push_back("---");
-        for (const auto& aff : itemComp->affixes) lines.push_back(GetAffixDescription(aff));
+        if (itemComp->attack > 0) lines.push_back({ TextFormat("攻击力: %.0f", itemComp->attack), s_theme.textPrimary });
+        if (itemComp->defense > 0) lines.push_back({ TextFormat("护甲: %.0f", itemComp->defense), s_theme.textPrimary });
+        if (itemComp->bagCapacity > 0) lines.push_back({ TextFormat("容量: %d 格", itemComp->bagCapacity), s_theme.textPrimary });
+        
+        // Implicits (Base Stats) - Hide [Tx] text
+        for (const auto& aff : itemComp->implicits) {
+            lines.push_back({ GetAffixDescription(aff, false), GetAffixTierColor(aff.tier) });
+        }
+
+        if ((itemComp->attack > 0 || itemComp->defense > 0 || !itemComp->implicits.empty()) && !itemComp->affixes.empty()) {
+            lines.push_back({ "---", WHITE, true });
+        }
+
+        // Affixes (Random Mods) - Show [Tx] text
+        for (const auto& aff : itemComp->affixes) {
+            lines.push_back({ GetAffixDescription(aff, true), GetAffixTierColor(aff.tier) });
+        }
+
         if (!itemComp->description.empty()) {
-            if (!lines.empty()) lines.push_back(" "); 
-            lines.push_back(itemComp->description);
+            lines.push_back({ " ", WHITE }); // Spacer
+            lines.push_back({ itemComp->description, s_theme.textPrimary });
         }
         
         float fontSize = 18.0f;
@@ -241,8 +259,8 @@ namespace NoMoreDay {
         Vector2 titleDim = IsFontValid(font) ? MeasureTextEx(font, itemComp->name.c_str(), titleSize, 1.0f) : Vector2{(float)MeasureText(itemComp->name.c_str(), (int)titleSize), titleSize};
         maxW = std::max(maxW, titleDim.x);
         for (const auto& line : lines) {
-            if (line == "---" || line == " ") continue;
-            float w = IsFontValid(font) ? MeasureTextEx(font, line.c_str(), fontSize, 1.0f).x : (float)MeasureText(line.c_str(), (int)fontSize);
+            if (line.isSeparator || line.text == " ") continue;
+            float w = IsFontValid(font) ? MeasureTextEx(font, line.text.c_str(), fontSize, 1.0f).x : (float)MeasureText(line.text.c_str(), (int)fontSize);
             maxW = std::max(maxW, w);
         }
         
@@ -274,21 +292,13 @@ namespace NoMoreDay {
         float curSY = y + (padding + titleSize + 5.0f) * s_uiScale;
         float sLineHeight = lineHeight * s_uiScale;
 
-        bool firstLine = true;
         for (const auto& line : lines) {
-            if (line == "---") {
+            if (line.isSeparator) {
                 DrawLineEx({x + padding*s_uiScale, curSY + sLineHeight/2}, {x + sW - padding*s_uiScale, curSY + sLineHeight/2}, 1.0f*s_uiScale, Fade(s_theme.panelBorder, alpha));
-            } else if (line != " ") {
-                Color c = s_theme.textPrimary;
-                if (firstLine) {
-                    c = s_theme.textSecondary; // Category line is secondary color
-                } else if (line.find("+") == 0) {
-                    c = s_theme.success;
-                }
-                DrawTextScreen(line.c_str(), x + padding*s_uiScale, curSY, fontSize, c);
+            } else if (line.text != " ") {
+                DrawTextScreen(line.text.c_str(), x + padding*s_uiScale, curSY, fontSize, line.color);
             }
             curSY += sLineHeight;
-            firstLine = false;
         }
     }
 

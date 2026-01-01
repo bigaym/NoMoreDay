@@ -1,16 +1,24 @@
 import json
 import os
 
-# Enum mapping (Must match AffixType in C++)
+# Enum mapping (Must match AffixType in C++ exactly)
+# Manual sync with ItemStats.hpp enum order
 AffixType = {
     "Strength": 0, "Dexterity": 1, "Intelligence": 2, "Vitality": 3,
-    "FlatPhysicalDamage": 4, "FlatFireDamage": 5, "FlatColdDamage": 6, "FlatLightningDamage": 7, "FlatPoisonDamage": 8, "FlatShadowDamage": 9,
-    "PercentPhysicalDamage": 10, "PercentFireDamage": 11, "PercentColdDamage": 12, "PercentLightningDamage": 13, "PercentPoisonDamage": 14, "PercentShadowDamage": 15,
-    "CritChance": 16, "CritDamage": 17, "AttackSpeed": 18, "CastSpeed": 19, "Accuracy": 20,
-    "FlatArmor": 21, "PercentArmor": 22, "FlatHealth": 23, "PercentHealth": 24, "FlatMana": 25,
-    "ResistAll": 26, "ResistFire": 27, "ResistCold": 28, "ResistLightning": 29, "ResistPoison": 30, "ResistShadow": 31,
-    "Thorns": 32, "DamageReduction": 33,
-    "MoveSpeed": 34, "CooldownReduction": 35, "LifeSteal": 36, "LifeOnHit": 37
+    "AllAttributes": 4,
+    
+    "FlatPhysicalDamage": 5, "FlatFireDamage": 6, "FlatColdDamage": 7, "FlatLightningDamage": 8, "FlatPoisonDamage": 9, "FlatShadowDamage": 10,
+    "PercentPhysicalDamage": 11, "PercentFireDamage": 12, "PercentColdDamage": 13, "PercentLightningDamage": 14, "PercentPoisonDamage": 15, "PercentShadowDamage": 16,
+    
+    "CritChance": 17, "CritDamage": 18, "AttackSpeed": 19, "CastSpeed": 20, "Accuracy": 21,
+    
+    "FlatArmor": 22, "PercentArmor": 23, "FlatHealth": 24, "PercentHealth": 25, "FlatMana": 26,
+    "ResistAll": 27, "ResistFire": 28, "ResistCold": 29, "ResistLightning": 30, "ResistPoison": 31, "ResistShadow": 32,
+    "Thorns": 33, "DamageReduction": 34,
+    
+    "HealthRegen": 35, "ManaRegen": 36, "PercentHealthRegen": 37, "PercentManaRegen": 38,
+    
+    "MoveSpeed": 39, "CooldownReduction": 40, "LifeSteal": 41, "LifeOnHit": 42
 }
 
 definitions = []
@@ -18,30 +26,27 @@ definitions = []
 def add_def(name_id, type_name, name_template, is_prefix, base_val, scale_val, variance, tags):
     tiers = []
     for t in range(1, 8):
-        # Linear scaling logic from C++: (base * scale) + random(0, variance)
-        # Here we define min/max for the tier
-        # Original: (base * tier) + [0, variance]
-        # But wait, original code was: value = rollVal(base, variance)
-        # rollVal = (base * scale) + random(0, variance)
-        # So min = base * tier, max = base * tier + variance
-        
-        # But MoveSpeed was: 5.0 + (tier * 2.0)
-        # So min = 5 + 2*t
-        
-        # Let's support "linear" mode vs "base" mode
-        
         min_v = 0
         max_v = 0
         
         if name_id == "move_speed":
             min_v = 5.0 + (t * 2.0)
-            max_v = min_v # No variance in original code?
+            max_v = min_v
         elif name_id == "crit_chance":
             min_v = 1.0 + (t * 0.8)
             max_v = min_v
         elif name_id == "attack_speed":
             min_v = 5.0 + (t * 1.5)
             max_v = min_v
+        elif name_id == "all_stats":
+            min_v = 2.0 * t
+            max_v = min_v + 1.0
+        elif name_id in ["health_regen", "mana_regen"]:
+            min_v = 0.5 * t
+            max_v = min_v + 0.5
+        elif name_id in ["pct_health_regen", "pct_mana_regen"]:
+            min_v = 10.0 * t
+            max_v = min_v + 5.0
         else:
             min_v = base_val * t
             max_v = min_v + variance
@@ -67,6 +72,7 @@ add_def("strength", "Strength", "Strength", False, 3.0, 0, 2.0, ["armor", "weapo
 add_def("dexterity", "Dexterity", "Dexterity", False, 3.0, 0, 2.0, ["armor", "weapon", "jewelry"])
 add_def("intelligence", "Intelligence", "Intelligence", False, 3.0, 0, 2.0, ["armor", "weapon", "jewelry"])
 add_def("vitality", "Vitality", "Vitality", False, 3.0, 0, 2.0, ["armor", "weapon", "jewelry"])
+add_def("all_stats", "AllAttributes", "Balanced", False, 0, 0, 0, ["armor", "jewelry"])
 
 add_def("crit_chance", "CritChance", "Deadly", False, 0, 0, 0, ["weapon", "gloves", "jewelry"])
 add_def("attack_speed", "AttackSpeed", "Rapid", False, 0, 0, 0, ["weapon", "gloves"])
@@ -90,6 +96,11 @@ add_def("pct_light", "PercentLightningDamage", "Shocking", True, 5.0, 0, 3.0, ["
 
 add_def("flat_armor", "FlatArmor", "Reinforced", True, 10.0, 0, 5.0, ["armor"])
 add_def("pct_armor", "PercentArmor", "Hardened", True, 10.0, 0, 5.0, ["armor"])
+
+add_def("health_regen", "HealthRegen", "Regenerating", True, 0, 0, 0, ["armor", "jewelry"])
+add_def("mana_regen", "ManaRegen", "Flowing", True, 0, 0, 0, ["armor", "jewelry"])
+add_def("pct_health_regen", "PercentHealthRegen", "Vitalizing", True, 0, 0, 0, ["armor", "jewelry"])
+add_def("pct_mana_regen", "PercentManaRegen", "Spiritual", True, 0, 0, 0, ["armor", "jewelry"])
 
 # Output
 with open("assets/data/affixes.json", "w") as f:
