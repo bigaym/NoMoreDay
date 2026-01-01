@@ -1,0 +1,4 @@
+Task: Create tags.json
+Changes: Added assets/data/tags.json with damage types matching Stats.hpp.
+Files: assets/data/tags.json
+Why: To establish a data-driven tag system for the damage pipeline.
