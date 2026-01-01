@@ -10,24 +10,6 @@
 
 using namespace NoMoreDay;
 
-void UIAstrolabe::Toggle(entt::registry& registry, entt::entity player) {
-    auto* ui = registry.try_get<AstrolabeUIComponent>(player);
-    if (!ui) {
-        registry.emplace<AstrolabeUIComponent>(player);
-        ui = registry.try_get<AstrolabeUIComponent>(player);
-        // Initialize view
-        ui->zoom = 1.0f;
-        ui->offset = { 0.0f, 0.0f };
-    }
-    
-    ui->isOpen = !ui->isOpen;
-}
-
-bool UIAstrolabe::IsVisible(entt::registry& registry, entt::entity player) {
-    auto* ui = registry.try_get<AstrolabeUIComponent>(player);
-    return ui && ui->isOpen;
-}
-
 void UIAstrolabe::Update(entt::registry& registry) {
     auto view = registry.view<PlayerTag, AstrolabeUIComponent>();
     for (auto entity : view) {

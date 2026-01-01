@@ -49,5 +49,5 @@ TEST_CASE("ItemFactory Texture Assignment") {
 TEST_CASE("EquipmentSlot Enum") {
     CHECK(static_cast<int>(EquipmentSlot::None) == 0);
     CHECK(static_cast<int>(EquipmentSlot::Ring2) == 11);
-    CHECK(static_cast<int>(EquipmentSlot::Count) == 12);
+    CHECK(static_cast<int>(EquipmentSlot::Count) == 13);
 }
