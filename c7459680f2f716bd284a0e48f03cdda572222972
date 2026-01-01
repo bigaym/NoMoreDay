@@ -1,0 +1,4 @@
+Task: Phase 2 Data Structures
+Changes: Implemented DamagePool, DamageModifier, SkillModifierComponent, and GlobalModifierComponent. Added tests.
+Files: src/components/SkillSystem.hpp, tests/SkillSystemTest.hpp
+Why: Foundation for the damage calculation pipeline.
