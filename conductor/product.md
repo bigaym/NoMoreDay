@@ -16,6 +16,7 @@ To create an immersive, performance-driven ARPG experience where players face ov
 
 ## Key Features
 - **Complex Skill Trees:** Extensive and interlocking passive/active skill trees that allow players to fine-tune their combat style and complement their gear choices.
+- **Concentric Astrolabe System:** A data-driven passive talent tree with a concentric layout, allowing for deep character specialization through Minor, Major, and Keystone nodes.
 - **Procedural Map Generation:** A dynamic dungeon system ensuring that no two runs feel the same, promoting infinite replayability.
 - **Massive Scale Combat:** A high-performance, tag-driven damage engine supporting a 5-step calculation pipeline (Base, Conversion, Increased, More, Settle). It handles complex damage conversions (e.g., Physical to Fire) and applies multi-layered modifiers for Physical, Elemental, and Eldritch damage types, optimized for 10,000+ entities with zero-allocation update loops.
 - **Deep Build Economy:** A focus on crafting, rune words, and forging potential to allow for endgame "god-tier" character creation.
