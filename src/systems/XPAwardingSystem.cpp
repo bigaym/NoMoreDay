@@ -5,14 +5,23 @@
 #include "../components/EnemyComponent.hpp"
 #include "ProgressionSystem.hpp"
 #include "../tools/Logger.hpp"
+#include <vector>
 
 namespace NoMoreDay {
 
 void XPAwardingSystem::update(entt::registry& registry) {
     auto view = registry.view<KilledTag>();
 
-    for (auto entity : view) {
-        const auto& killedTag = view.get<KilledTag>(entity);
+    // 1. 收集实体以避免迭代器失效 (Crash Fix: 0xC0000005)
+    // 直接在 View 遍历中调用 registry.destroy() 即使是反向迭代也可能导致底层存储访问冲突
+    std::vector<entt::entity> entities;
+    entities.reserve(view.size());
+    for (auto entity : view) entities.push_back(entity);
+
+    for (auto entity : entities) {
+        if (!registry.valid(entity)) continue;
+
+        const auto& killedTag = registry.get<KilledTag>(entity);
         entt::entity killer = killedTag.killer;
 
         // 确保击杀者有效且是玩家
@@ -60,9 +69,7 @@ void XPAwardingSystem::update(entt::registry& registry) {
             }
         }
         
-        // 移除 KilledTag，因为它已被处理
-        registry.remove<KilledTag>(entity);
-        // 在经验值和其他死亡后处理完成后销毁实体
+        // 销毁实体 (会自动移除所有组件，包括 KilledTag)
         registry.destroy(entity);
     }
 }

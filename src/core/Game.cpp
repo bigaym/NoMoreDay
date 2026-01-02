@@ -3,9 +3,11 @@
 #include "../states/GameplayState.hpp"
 #include "../tools/Logger.hpp"
 #include "../systems/UISystem.hpp"
+#include "../systems/SkillSystem.hpp"
 #include "../core/ItemFactory.hpp"
 #include "../core/AssetLoadingSystem.hpp"
 #include "../core/AstrolabeRegistry.hpp"
+#include "../core/SkillRegistry.hpp"
 
 Game::Game(int width, int height, const char* title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title),
@@ -48,6 +50,8 @@ void Game::init() {
     UISystem::Initialize(m_resourceManager);
     NoMoreDay::AssetLoadingSystem::LoadAllEquipment();
     NoMoreDay::AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
+    NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    NoMoreDay::SkillSystem::InitHooks();
     
     // Push Initial State
     LOG_INFO("Pushing MainMenuState...");
@@ -96,14 +100,17 @@ void Game::run() {
 }
 
 void Game::cleanup() {
-    // Clear States first
+    // 核心修复：在销毁状态（及其拥有的系统）之前，先清理注册表。
+    // 这可以确保在注册表被清空时，任何来自系统的 on_destroy 信号监听器仍然有效。
+    // 如果顺序颠倒，当 registry.clear() 触发信号时，监听器可能已经是一个悬挂指针，导致崩溃。
+    m_registry.clear();
+
+    // 现在可以安全地清理状态了
     if (m_stateManager) {
-        // StateManager destructor handles stack clearing
         m_stateManager.reset(); 
     }
     
     UISystem::Shutdown();
     if (m_levelManager) m_levelManager->cleanup();
     m_resourceManager.unloadAll();
-    m_registry.clear();
 }

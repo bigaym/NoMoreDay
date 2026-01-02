@@ -24,7 +24,7 @@ TEST_CASE("Damage Pipeline Logic") {
         global_mods.modifiers.push_back({Tag::Physical, Tag::None, 0.5f, ModifierType::Increased}); // +50% Inc Phys
         global_mods.modifiers.push_back({Tag::Physical, Tag::None, 0.2f, ModifierType::More});      // x1.2 More Phys
         
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, base, Tag::Hit | Tag::Melee);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, base, Tag::Hit | Tag::Melee);
         
         // Calculation: 100 * (1 + 0.5) * (1.2) = 100 * 1.5 * 1.2 = 180
         CHECK(result.total_damage == doctest::Approx(180.0f));
@@ -39,11 +39,11 @@ TEST_CASE("Damage Pipeline Logic") {
         global_mods.modifiers.push_back({Tag::Spell, Tag::None, 1.0f, ModifierType::Increased}); // +100% Inc Spell (should not apply)
         
         // Test Melee hit
-        auto result_melee = DamagePipeline::Calculate(registry, attacker, defender, base, Tag::Hit | Tag::Melee);
+        auto result_melee = DamagePipeline::Calculate(registry, attacker, defender, 0, base, Tag::Hit | Tag::Melee);
         CHECK(result_melee.total_damage == doctest::Approx(150.0f));
         
         // Test Projectile hit (should not get Melee bonus)
-        auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, base, Tag::Hit | Tag::Projectile);
+        auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, 0, base, Tag::Hit | Tag::Projectile);
         CHECK(result_proj.total_damage == doctest::Approx(100.0f));
     }
 
@@ -62,7 +62,7 @@ TEST_CASE("Damage Pipeline Logic") {
         // +100% Inc Fire
         global_mods.modifiers.push_back({Tag::Fire, Tag::None, 1.0f, ModifierType::Increased});
         
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, base, Tag::Hit);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, base, Tag::Hit);
         
         CHECK(result.total_damage == doctest::Approx(250.0f));
     }
@@ -74,12 +74,12 @@ TEST_CASE("Damage Pipeline Logic") {
         a_stats.crit_damage = 2.0f; // 200% crit damage
         
         // Non-crit
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, base, Tag::Hit);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, base, Tag::Hit);
         CHECK(result.total_damage == 100.0f);
         CHECK_FALSE(result.is_crit);
         
         // Crit (triggered by Tag::Critical for now)
-        auto result_crit = DamagePipeline::Calculate(registry, attacker, defender, base, Tag::Hit | Tag::Critical);
+        auto result_crit = DamagePipeline::Calculate(registry, attacker, defender, 0, base, Tag::Hit | Tag::Critical);
         CHECK(result_crit.total_damage == 200.0f);
         CHECK(result_crit.is_crit);
     }

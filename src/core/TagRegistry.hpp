@@ -86,3 +86,9 @@ constexpr std::string_view GetTagName(Tag tag) {
 }
 
 } // namespace NoMoreDay
+
+#include <nlohmann/json.hpp>
+namespace NoMoreDay {
+    inline void to_json(nlohmann::json& j, const Tag& t) { j = static_cast<uint64_t>(t); }
+    inline void from_json(const nlohmann::json& j, Tag& t) { t = static_cast<Tag>(j.get<uint64_t>()); }
+}

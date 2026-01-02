@@ -1,0 +1,8 @@
+{
+  "track_id": "skill_system_sword_cultivator_20260102",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-01-02T10:00:00Z",
+  "updated_at": "2026-01-02T10:00:00Z",
+  "description": "根据设计文档，以剑修为核心，规划并实现技能系统，同时加强与星盘被动系统的标签驱动联动。"
+}

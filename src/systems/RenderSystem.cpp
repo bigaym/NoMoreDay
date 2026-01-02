@@ -3,8 +3,11 @@
 #include "../components/Common.hpp"
 #include "../components/EffectComponent.hpp"
 #include "../components/ItemComponent.hpp"
+#include "../components/Projectile.hpp" // For Projectile visualization
+#include "../components/SkillSystem.hpp"
 #include "../core/AssetLoadingSystem.hpp"
 #include "../core/LootFilter.hpp"
+#include "raymath.h"
 #include <string>
 #include <cmath>
 
@@ -23,11 +26,43 @@ void RenderSystem::render(entt::registry& registry) {
         DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
     });
 
-    // 2. 绘制圆形 (具有 Position 和 ColorComponent，但没有 SpriteComponent 的实体)
+    // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent，但没有 SpriteComponent)
     auto pixelView = registry.view<const Position, const ColorComponent>(entt::exclude<SpriteComponent>);
-    pixelView.each([](const auto& pos, const auto& col) {
-        DrawCircle((int)pos.x, (int)pos.y, 8.0f, col.color); // 绘制圆形
-    });
+    for (auto entity : pixelView) {
+        const auto& pos = pixelView.get<Position>(entity);
+        const auto& col = pixelView.get<ColorComponent>(entity);
+        
+        // 如果是投射物，绘制成剑气波形状
+        if (auto* proj = registry.try_get<NoMoreDay::Projectile>(entity)) {
+            if (auto* vel = registry.try_get<Velocity>(entity)) {
+                // Raylib's DrawCircleSector starts 0 at 3 o'clock (Right) and goes clockwise.
+                // atan2f also starts 0 at 3 o'clock (Right) in screen coordinates (Y down).
+                float angle = atan2f(vel->vy, vel->vx) * (180.0f / PI);
+                
+                // 绘制一个弧形表示剑气
+                float arcRange = proj->radius * 1.5f;
+                float arcWidth = 60.0f; // Default (Rending Wave)
+                
+                // Skill specific adjustments
+                uint32_t skill_id = 0;
+                if (auto* skillComp = registry.try_get<NoMoreDay::SkillComponent>(entity)) {
+                    skill_id = skillComp->skill_id;
+                }
+                
+                if (skill_id == 1) arcWidth = 90.0f; // Flowing Thrust is wider
+                
+                DrawCircleSector({pos.x, pos.y}, arcRange, angle - arcWidth/2, angle + arcWidth/2, 8, Fade(col.color, 0.6f));
+                DrawCircleSectorLines({pos.x, pos.y}, arcRange, angle - arcWidth/2, angle + arcWidth/2, 8, col.color);
+                
+                // 添加一个明亮的核心
+                DrawCircleSector({pos.x, pos.y}, arcRange * 0.4f, angle - arcWidth/3, angle + arcWidth/3, 6, WHITE);
+            } else {
+                DrawCircle((int)pos.x, (int)pos.y, proj->radius, col.color);
+            }
+        } else {
+            DrawCircle((int)pos.x, (int)pos.y, 8.0f, col.color);
+        }
+    }
 
     // 3. 绘制攻击特效 (挥剑轨迹)
     auto effectView = registry.view<const Position, const AttackEffect>();
@@ -129,22 +164,17 @@ void RenderSystem::render(entt::registry& registry) {
             text = TextFormat("%d", (int)popup.damage);
         }
 
-        float baseSize = 20.0f;
-        if (popup.isCrit) baseSize = 24.0f; // 暴击基础字体更大
+        float baseSize = 28.0f; // Increased from 20
+        if (popup.isCrit) baseSize = 36.0f; // Increased from 24
         
         float fontSize = baseSize * popup.currentScale;
         
-        // 居中偏移 (根据缩放后的尺寸)
-        // 简单估算：每个字符宽度约为 fontSize/2
-        // float textWidth = (float)strlen(text) * (fontSize / 2.0f);
-        // Vector2 offset = { textWidth / 2.0f, fontSize / 2.0f };
-        // 暂时不改 Pos，保持原点在左上角 (或者由 EffectSystem 控制 offset)
-        
+        // 增加阴影或边框效果
         if (IsFontValid(font)) {
-            DrawTextEx(font, text, { pos.x + 2, pos.y + 2 }, fontSize, 1.0f, Fade(BLACK, alpha));
+            DrawTextEx(font, text, { pos.x + 2, pos.y + 2 }, fontSize, 1.0f, Fade(BLACK, alpha * 0.8f));
             DrawTextEx(font, text, { pos.x, pos.y }, fontSize, 1.0f, color);
         } else {
-            DrawText(text, (int)pos.x + 2, (int)pos.y + 2, (int)fontSize, Fade(BLACK, alpha));
+            DrawText(text, (int)pos.x + 2, (int)pos.y + 2, (int)fontSize, Fade(BLACK, alpha * 0.8f));
             DrawText(text, (int)pos.x, (int)pos.y, (int)fontSize, color);
         }
     });

@@ -1,0 +1,26 @@
+{
+  "skills": [
+    {
+      "id": 1,
+      "name_key": "流云刺",
+      "desc_key": "向目标突刺，造成物理伤害。若命中目标，回复少量法力。",
+      "mana_cost": 5.0,
+      "cooldown": 0.0,
+      "tags": ["Physical", "Melee", "Attack", "Movement", "Hit"],
+      "base_damage": 10.0,
+      "weapon_damage_mult": 1.2,
+      "added_damage_effectiveness": 1.0
+    },
+    {
+      "id": 2,
+      "name_key": "裂空斩",
+      "desc_key": "挥动剑气攻击前方敌人，穿透目标。",
+      "mana_cost": 15.0,
+      "cooldown": 2.0,
+      "tags": ["Physical", "Projectile", "Attack", "Hit"],
+      "base_damage": 25.0,
+      "weapon_damage_mult": 1.5,
+      "added_damage_effectiveness": 1.2
+    }
+  ]
+}

@@ -54,18 +54,18 @@ TEST_CASE("Stats Modifier Stacking Rules") {
     
     ModifierList mods;
     // 1. Flat: +50 HP -> Base becomes 150
-    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::Flat, 50.0f, ModifierSource::Item});
+    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::Flat, 50.0f, Tag::None, ModifierSource::Item});
     
     // 2. PercentAdd: +10% and +20% -> Total +30%
     // Formula: (Base + Flat) * (1 + Sum(PercentAdd))
     // 150 * 1.3 = 195
-    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentAdd, 10.0f, ModifierSource::Skill});
-    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentAdd, 20.0f, ModifierSource::Buff});
+    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentAdd, 10.0f, Tag::None, ModifierSource::Skill});
+    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentAdd, 20.0f, Tag::None, ModifierSource::Buff});
 
     // 3. PercentMult: x1.5 (50% more)
     // Formula: Result * Product(PercentMult)
     // 195 * 1.5 = 292.5
-    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentMult, 50.0f, ModifierSource::Buff});
+    mods.modifiers.push_back({StatType::MaxHealth, ModifierMode::PercentMult, 50.0f, Tag::None, ModifierSource::Buff});
 
     registry.emplace<ModifierList>(entity, mods);
     registry.emplace<StatsDirty>(entity);
@@ -483,6 +483,31 @@ TEST_CASE("Stats System - Sword Heart Mechanic") {
 
         // 2. Block Chance: Base 0 + 0.20
         CHECK(combat.block_chance == doctest::Approx(0.20f));
+    }
+
+    SUBCASE("Active: Spell Damage Bonus") {
+        auto sword = registry.create();
+        ItemComponent item;
+        item.type = ItemType::Weapon;
+        item.slot = EquipmentSlot::MainHand;
+        item.attack = 100.0f;
+        
+        // Add +100% Physical Damage from item
+        item.affixes.push_back({AffixType::PercentPhysicalDamage, 100.0f, 1, false, "+100% Phys"});
+        registry.emplace<ItemComponent>(sword, item);
+
+        EquipmentComponent equip;
+        equip.set(EquipmentSlot::MainHand, sword);
+        registry.emplace<EquipmentComponent>(entity, equip);
+
+        StatsSystem::update(registry);
+        const auto& combat = registry.get<CombatStats>(entity);
+
+        // Phys multiplier: Base 1.0 + Item 1.0 = 2.0
+        CHECK(combat.damage_multipliers[(int)DamageType::Physical] == doctest::Approx(2.0f));
+        
+        // Spell (Fire) multiplier: Base 1.0 + (Phys Inc 1.0 * 0.5) = 1.5
+        CHECK(combat.damage_multipliers[(int)DamageType::Fire] == doctest::Approx(1.5f));
     }
 
     SUBCASE("Inactive: Dual Wielding") {

@@ -4,10 +4,11 @@
 #include "raylib.h"
 #include "UISystem.hpp" // For UI state check
 #include "UIAstrolabe.hpp"
+#include "SkillSystem.hpp"
 
 using namespace NoMoreDay;
 
-void InputSystem::update(entt::registry& registry) {
+void InputSystem::update(entt::registry& registry, const Camera2D& camera) {
     auto view = registry.view<PlayerTag, InputComponent>();
     
     for (auto entity : view) {
@@ -46,6 +47,15 @@ void InputSystem::update(entt::registry& registry) {
             // Triggering via mouse might be right click (not implemented here yet).
             // Usually Shift is Dash.
             input.dash = IsKeyDown(KEY_LEFT_SHIFT);
+
+            Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
+
+            // Skills
+            if (IsKeyPressed(KEY_Q)) SkillSystem::TryCast(registry, entity, 0, mouseWorld);
+            if (IsKeyPressed(KEY_W)) SkillSystem::TryCast(registry, entity, 1, mouseWorld);
+            if (IsKeyPressed(KEY_E)) SkillSystem::TryCast(registry, entity, 2, mouseWorld);
+            if (IsKeyPressed(KEY_R)) SkillSystem::TryCast(registry, entity, 3, mouseWorld);
+            if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) SkillSystem::TryCast(registry, entity, 4, mouseWorld);
         } else {
             input.attack = false;
             input.dash = IsKeyDown(KEY_LEFT_SHIFT); // Allow keyboard dash even if mouse over UI (standard ARPG behavior)

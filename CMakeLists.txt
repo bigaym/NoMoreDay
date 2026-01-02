@@ -66,6 +66,7 @@ add_library(NoMoreDayCore STATIC
     src/states/LoadingState.cpp
     src/states/LoadingState.hpp
     src/systems/PhysicsSystem.cpp
+    src/systems/ProjectileSystem.cpp
     src/systems/RenderSystem.cpp
     src/systems/InputSystem.cpp
     src/systems/CombatSystem.cpp
@@ -81,6 +82,7 @@ add_library(NoMoreDayCore STATIC
     # src/systems/EnemyBehavior.cpp
     src/systems/UISystem.cpp
     src/systems/AstrolabeSystem.cpp
+    src/systems/SkillSystem.cpp
     src/systems/UIInventory.cpp
     src/systems/UIAstrolabe.cpp
     src/systems/UIMinimap.cpp
@@ -91,6 +93,7 @@ add_library(NoMoreDayCore STATIC
     src/tools/Logger.cpp
     src/tools/CrashHandler.cpp
     src/core/AstrolabeRegistry.cpp
+    src/core/SkillRegistry.cpp
     src/systems/InventorySystem.cpp
 )
 
@@ -132,7 +135,7 @@ target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
 
 if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     # STRIP symbols in Release mode to drastically reduce size
-    target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:-s>)
+    # target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:-s>)
 endif()
 
 # --- Output & Assets ---

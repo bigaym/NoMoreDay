@@ -20,7 +20,8 @@ bool AstrolabeRegistry::Load(const std::string& path) {
         if (data.contains("nodes") && data["nodes"].is_array()) {
             for (const auto& node_json : data["nodes"]) {
                 AstrolabeNode node = node_json.get<AstrolabeNode>();
-                nodes[node.id] = std::move(node);
+                uint32_t id = node.id; // 提取 ID，避免对求值顺序的依赖，提高可读性
+                nodes[id] = std::move(node);
             }
         }
 

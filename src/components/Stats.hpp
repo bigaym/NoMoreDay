@@ -2,6 +2,7 @@
 #include <array>
 #include <cstdint>
 #include <nlohmann/json.hpp>
+#include "../core/TagRegistry.hpp"
 
 namespace NoMoreDay
 {
@@ -136,6 +137,7 @@ namespace NoMoreDay
         float move_speed = 300.0f; // 移动速度 (pixels/sec)
         float life_steal = 0.0f;   // 吸血 %
         float life_on_hit = 0.0f;  // 击回
+        float mana_on_hit = 0.0f;  // 蓝回
         float thorns = 0.0f;       // 荆棘伤害 (反伤)
         float magic_find = 4.0f;   // 魔法寻宝率
 
@@ -175,7 +177,7 @@ namespace NoMoreDay
                                        armor, dodge_chance,
                                        resistances,
                                        block_chance, block_amount,
-                                       move_speed, life_steal, life_on_hit, thorns, magic_find,
+                                       move_speed, life_steal, life_on_hit, mana_on_hit, thorns, magic_find,
                                        cooldown_recovery_speed, cooldown_reduction, resource_cost_reduction, cast_range,
                                        health_regen, mana_regen, health_regen_pct, mana_regen_pct,
                                        area_scale, projectile_speed, duration_scale,
@@ -212,6 +214,7 @@ namespace NoMoreDay
         AttackSpeed,
         CastSpeed,
         Accuracy,
+        ManaOnHit,
 
         // Defensive
         ResistPhysical,
@@ -256,10 +259,22 @@ namespace NoMoreDay
         StatType type;
         ModifierMode mode;
         float value;
+        Tag required_tags = Tag::None;                 // 只有当查询携带这些标签时，该修饰符才生效
         ModifierSource source = ModifierSource::Base; // 修饰符来源
         uint32_t source_id = 0;                       // 可选: 用于追踪特定的物品/技能ID
     };
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StatModifier, type, mode, value, source, source_id)
+
+    inline void to_json(nlohmann::json& j, const StatModifier& m) {
+        j = nlohmann::json{{"type", m.type}, {"mode", m.mode}, {"value", m.value}, {"required_tags", m.required_tags}, {"source", m.source}, {"source_id", m.source_id}};
+    }
+    inline void from_json(const nlohmann::json& j, StatModifier& m) {
+        j.at("type").get_to(m.type);
+        j.at("mode").get_to(m.mode);
+        j.at("value").get_to(m.value);
+        if (j.contains("required_tags")) j.at("required_tags").get_to(m.required_tags); else m.required_tags = Tag::None;
+        if (j.contains("source")) j.at("source").get_to(m.source); else m.source = ModifierSource::Base;
+        if (j.contains("source_id")) j.at("source_id").get_to(m.source_id); else m.source_id = 0;
+    }
 
     struct ModifierList
     {

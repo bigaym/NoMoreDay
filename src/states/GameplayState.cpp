@@ -22,6 +22,8 @@
 #include "../systems/DropSystem.hpp"
 #include "../systems/XPAwardingSystem.hpp"
 #include "../systems/InventorySystem.hpp"
+#include "../systems/SkillSystem.hpp"
+#include "../systems/ProjectileSystem.hpp"
 #include "../systems/SerializationSystem.hpp"
 #include "../systems/FogOfWarSystem.hpp"
 #include "../systems/RegenerationSystem.hpp"
@@ -116,6 +118,16 @@ namespace NoMoreDay {
         registry.emplace<TextureIDComponent>(sword, assets::textures::Weapon_Sword.id);
         registry.get<EquipmentComponent>(player).set(EquipmentSlot::MainHand, sword);
 
+        // Skill Setup
+        auto& active = registry.emplace<ActiveSkillsComponent>(player);
+        active.slots[0].id = 1; // Q -> Flowing Thrust
+        active.slots[4].id = 2; // RMB -> Rending Wave
+        
+        // Ensure some mana
+        auto& stats = registry.get<CombatStats>(player);
+        stats.mana = 100.0f;
+        stats.max_mana = 100.0f;
+
         // Test Potions
         auto& inv = registry.get<InventoryComponent>(player);
         auto redPot = ItemFactory::createPotion(registry, 0, 10);
@@ -169,9 +181,11 @@ namespace NoMoreDay {
         DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);
+        SkillSystem::Update(registry, dt);
+        ProjectileSystem::Update(registry, m_spatialGrid, dt);
         
         // 2. Input
-        InputSystem::update(registry);
+        InputSystem::update(registry, m_camera);
         // Note: UISystem::Update was here in Game.cpp. 
         // Now UISystem::Update handles "Global Keys" like 'C' for char panel.
         // We should probably keep it, but it might conflict with InventoryState if logic is duplicated.
@@ -355,7 +369,11 @@ namespace NoMoreDay {
             [this, dt, &registry](entt::entity entity) {
                 const auto& pos = registry.get<Position>(entity);
                 auto& vel = registry.get<Velocity>(entity);
-                PhysicsSystem::resolveCollisions(entity, pos, vel, m_spatialGrid, registry, dt);
+
+                // Only resolve collisions for solid game entities (Players and Enemies)
+                if (registry.any_of<PlayerTag, EnemyTag>(entity)) {
+                    PhysicsSystem::resolveCollisions(entity, pos, vel, m_spatialGrid, registry, dt);
+                }
                 
                 // Map Collision
                 const auto& map = m_context->levelManager->getMapSystem();

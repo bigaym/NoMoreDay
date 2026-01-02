@@ -4,6 +4,8 @@
 #include <bit>
 #include "spdlog/spdlog.h"
 #include <array>
+#include "../core/SkillRegistry.hpp"
+#include "StatsSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -37,14 +39,22 @@ DamageResult DamagePipeline::Calculate(
     entt::registry& registry,
     entt::entity attacker,
     entt::entity defender,
+    uint32_t skill_id,
     const DamagePool& base_pool,
-    Tag hit_tags
+    Tag additional_tags
 ) {
+    const auto* skill_data = SkillRegistry::Get().GetSkill(skill_id);
+    Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
+    Tag combined_hit_tags = skill_tags | additional_tags;
+
     // Optimization: Access modifiers directly instead of copying to a vector
     auto* global_mods = registry.try_get<GlobalModifierComponent>(attacker);
     
-    const auto& attacker_stats = registry.get<CombatStats>(attacker);
-    const auto& defender_stats = registry.get<CombatStats>(defender);
+    auto* attacker_stats = registry.try_get<CombatStats>(attacker);
+    auto* defender_stats = registry.try_get<CombatStats>(defender);
+
+    // Default stats if missing
+    CombatStats default_stats;
 
     // Initial Instances from Base Pool
     struct Instance {
@@ -55,14 +65,41 @@ DamageResult DamagePipeline::Calculate(
     
     FixedVector<Instance, 64> instances;
     
+    // 1. Add instances from provided base_pool
     for (int i = 0; i < 16; ++i) {
         if (base_pool.values[i] > 0.0f) {
             Tag type_tag = static_cast<Tag>(1ULL << i);
-            instances.push_back({base_pool.values[i], type_tag | hit_tags, type_tag});
+            instances.push_back({base_pool.values[i], type_tag | combined_hit_tags, type_tag});
+        }
+    }
+
+    // 2. Add Skill Base Damage
+    if (skill_data) {
+        // Calculate Weapon Damage part
+        float min_w = attacker_stats ? attacker_stats->min_weapon_damage : 0.0f;
+        float max_w = attacker_stats ? attacker_stats->max_weapon_damage : 0.0f;
+        float weapon_avg = (min_w + max_w) * 0.5f;
+        
+        float base_dmg = skill_data->base_damage + (weapon_avg * skill_data->weapon_damage_mult);
+        
+        // Find the primary damage type of the skill
+        Tag primary_type = Tag::Physical;
+        for (int i = 0; i < 6; ++i) {
+            Tag t = static_cast<Tag>(1ULL << i);
+            if (HasTag(skill_data->tags, t)) {
+                primary_type = t;
+                break;
+            }
+        }
+
+        if (base_dmg > 0.0f) {
+            instances.push_back({base_dmg, primary_type | combined_hit_tags, primary_type});
         }
     }
 
     // 2. Conversion & Gain Extra
+    // (Ordering: Phys -> Lightning -> Cold -> Fire -> Chaos -> Void) 
+    // Simplified order: 0-5
     std::array<int, 6> order = {0, 3, 2, 1, 5, 4}; 
 
     for (int type_idx : order) {
@@ -122,7 +159,7 @@ DamageResult DamagePipeline::Calculate(
         }
     }
 
-    // 3 & 4. Apply Multipliers
+    // 3 & 4. Apply Multipliers (Dynamic via StatsSystem)
     DamageResult result;
     float total_final_damage = 0.0f;
 
@@ -130,30 +167,25 @@ DamageResult DamagePipeline::Calculate(
         auto& inst = instances[i];
         if (inst.amount <= 0.0f) continue;
 
-        float increased = 0.0f;
-        float more = 1.0f;
-
-        if (global_mods) {
-            for (const auto& mod : global_mods->modifiers) {
-                if (mod.type == ModifierType::Increased || mod.type == ModifierType::More) {
-                    if (HasTag(inst.tags, mod.source_tag)) {
-                        if (mod.type == ModifierType::Increased) {
-                            increased += mod.value;
-                        } else {
-                            more *= (1.0f + mod.value);
-                        }
-                    }
-                }
-            }
+        StatType dmg_stat = StatType::PhysicalDamage;
+        switch (inst.final_type) {
+            case Tag::Physical: dmg_stat = StatType::PhysicalDamage; break;
+            case Tag::Fire:     dmg_stat = StatType::FireDamage; break;
+            case Tag::Cold:     dmg_stat = StatType::ColdDamage; break;
+            case Tag::Lightning: dmg_stat = StatType::LightningDamage; break;
+            case Tag::Poison:    dmg_stat = StatType::PoisonDamage; break;
+            case Tag::Shadow:    dmg_stat = StatType::ShadowDamage; break;
+            default: break;
         }
 
-        inst.amount *= (1.0f + increased) * more;
+        float multiplier_pct = StatsSystem::GetStatWithTags(registry, attacker, dmg_stat, inst.tags);
+        inst.amount *= (multiplier_pct / 100.0f);
 
         // 5. Final Settlement (Crit & Defense)
         float crit_mult = 1.0f;
         if (HasTag(inst.tags, Tag::Hit) && !HasTag(inst.tags, Tag::DamageOverTime)) {
-             if (HasTag(hit_tags, Tag::Critical)) {
-                 crit_mult = attacker_stats.crit_damage;
+             if (HasTag(additional_tags, Tag::Critical)) {
+                 crit_mult = attacker_stats ? attacker_stats->crit_damage : 1.5f;
                  result.is_crit = true;
              }
         }
@@ -162,10 +194,16 @@ DamageResult DamagePipeline::Calculate(
         int type_idx = std::countr_zero(static_cast<uint64_t>(inst.final_type));
         float res = 0.0f;
         if (type_idx < 6) {
-            res = defender_stats.resistances[type_idx];
+            res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
         }
         
         float damage_after_res = inst.amount * (1.0f - res);
+        
+        // Global DR
+        if (defender_stats && defender_stats->damage_reduction > 0.0f) {
+            damage_after_res *= (1.0f - std::min(0.9f, defender_stats->damage_reduction));
+        }
+
         total_final_damage += damage_after_res;
         
         if (type_idx < 16) {

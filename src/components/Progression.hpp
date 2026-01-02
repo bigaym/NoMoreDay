@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <set>
 #include "Stats.hpp"
+#include "SkillSystem.hpp"
 #include <nlohmann/json.hpp>
 
 namespace NoMoreDay {
@@ -41,6 +42,7 @@ namespace NoMoreDay {
         
         std::vector<uint32_t> prerequisites;
         std::vector<StatModifier> modifiers;
+        std::vector<DamageModifier> damage_modifiers; // 用于转换和独立增伤
         std::vector<AstrolabeNodeEffect> effects;
         
         float x = 0.0f;
@@ -56,7 +58,27 @@ namespace NoMoreDay {
         t = static_cast<AstrolabeNodeType>(j.get<uint8_t>());
     }
 
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AstrolabeNode, id, name_key, desc_key, type, prerequisites, modifiers, effects, x, y, icon_id)
+    inline void to_json(nlohmann::json& j, const AstrolabeNode& n) {
+        j = nlohmann::json{
+            {"id", n.id}, {"name_key", n.name_key}, {"desc_key", n.desc_key}, {"type", n.type},
+            {"prerequisites", n.prerequisites}, {"modifiers", n.modifiers}, 
+            {"damage_modifiers", n.damage_modifiers}, {"effects", n.effects},
+            {"x", n.x}, {"y", n.y}, {"icon_id", n.icon_id}
+        };
+    }
+    inline void from_json(const nlohmann::json& j, AstrolabeNode& n) {
+        j.at("id").get_to(n.id);
+        j.at("name_key").get_to(n.name_key);
+        j.at("desc_key").get_to(n.desc_key);
+        j.at("type").get_to(n.type);
+        j.at("prerequisites").get_to(n.prerequisites);
+        j.at("modifiers").get_to(n.modifiers);
+        if (j.contains("damage_modifiers")) j.at("damage_modifiers").get_to(n.damage_modifiers);
+        j.at("effects").get_to(n.effects);
+        j.at("x").get_to(n.x);
+        j.at("y").get_to(n.y);
+        j.at("icon_id").get_to(n.icon_id);
+    }
 
     struct AstrolabeComponent {
         std::set<uint32_t> activated_nodes;

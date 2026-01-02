@@ -163,6 +163,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
         registry.emplace<TextureIDComponent>(entity, m_raceTextures[data.enemyType].id);
     }
     registry.emplace<EnemyTag>(entity);
+    registry.emplace<NoMoreDay::CombatStats>(entity); // Default stats
     
     EnemyRace::Type race = static_cast<EnemyRace::Type>(data.enemyType);
     

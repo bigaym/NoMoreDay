@@ -45,6 +45,7 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.thorns = 0.0f;
     combat.life_steal = 0.0f;
     combat.life_on_hit = 0.0f;
+    combat.mana_on_hit = 0.0f;
     combat.cooldown_reduction = 0.0f;
     combat.resource_cost_reduction = 0.0f;
     combat.cast_range = 0.0f;
@@ -65,9 +66,8 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.mana_regen_pct = 0.0f;
 }
 
-// 辅助函数：将通用 StatModifier 应用到计算数组
-static void ApplyStatModifier(std::array<StatCalculation, static_cast<size_t>(StatType::Count)>& calcs, StatType type, ModifierMode mode, float value) {
-    auto& c = calcs[static_cast<size_t>(type)];
+// 辅助函数：将通用 StatModifier 应用到计算结构
+static void ApplyStatCalculation(StatCalculation& c, ModifierMode mode, float value) {
     switch (mode) {
         case ModifierMode::Flat:
             c.flat += value;
@@ -79,6 +79,11 @@ static void ApplyStatModifier(std::array<StatCalculation, static_cast<size_t>(St
             c.percent_mult *= (1.0f + value / 100.0f);
             break;
     }
+}
+
+// 辅助函数：将通用 StatModifier 应用到计算数组
+static void ApplyStatModifier(std::array<StatCalculation, static_cast<size_t>(StatType::Count)>& calcs, StatType type, ModifierMode mode, float value) {
+    ApplyStatCalculation(calcs[static_cast<size_t>(type)], mode, value);
 }
 
 // 辅助函数：将 AffixType 转换为 StatType 并应用它
@@ -182,6 +187,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     auto& combat = registry.get<CombatStats>(entity);
     resetCombatStats(combat); 
     
+    // Prepare GlobalModifierComponent for DamagePipeline
+    auto& global_mods = registry.get_or_emplace<GlobalModifierComponent>(entity);
+    global_mods.modifiers.clear();
+
     std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs; // 初始化计算数组
     
     // 使用默认值初始化
@@ -235,6 +244,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 // 回复 (Recovery)
                 case AffixType::LifeSteal:       combat.life_steal += affix.value / 100.0f; break;
                 case AffixType::LifeOnHit:       combat.life_on_hit += affix.value; break;
+                case AffixType::ManaOnHit:       combat.mana_on_hit += affix.value; break;
                 case AffixType::HealthRegen:     combat.health_regen += affix.value; break;
                 case AffixType::ManaRegen:       combat.mana_regen += affix.value; break;
                 case AffixType::PercentHealthRegen: combat.health_regen_pct += affix.value / 100.0f; break;
@@ -371,7 +381,9 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     if (registry.all_of<ModifierList>(entity)) {
         const auto& list = registry.get<ModifierList>(entity);
         for (const auto& mod : list.modifiers) {
-            ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+            if (mod.required_tags == Tag::None) {
+                ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+            }
         }
     }
 
@@ -383,7 +395,13 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
             const auto* node = registry_instance.GetNode(node_id);
             if (node) {
                 for (const auto& mod : node->modifiers) {
-                    ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+                    if (mod.required_tags == Tag::None) {
+                        ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+                    }
+                }
+                // Bake DamageModifiers for Pipeline
+                for (const auto& dmod : node->damage_modifiers) {
+                    global_mods.modifiers.push_back(dmod);
                 }
             }
         }
@@ -419,17 +437,12 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
     // --- Sword Heart Mechanic ---
     if (registry.all_of<SwordHeartComponent>(entity)) {
-        // Condition: Main Hand is Sword AND Off Hand is Empty
-        // Strict Condition: No Offhand.
-        
+        // Condition: Main Hand is Weapon AND Off Hand is Empty
+        // TODO: In the future, check if Main Hand is specifically a "Sword" tag
         bool isSwordHeartActive = hasMainHandWeapon && offHandIsEmpty;
         
         if (isSwordHeartActive) {
             // 1. 50% More Weapon Damage
-            // Apply to `min_weapon_damage` and `max_weapon_damage` directly? 
-            // Or use a `more_damage_multiplier`?
-            // "Weapon Damage % 额外提升 50%" usually means Global Damage or Local Weapon Damage?
-            // "Weapon Damage Multiplier" implies Local.
             combat.min_weapon_damage *= 1.5f;
             combat.max_weapon_damage *= 1.5f;
             
@@ -437,21 +450,16 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
             combat.block_chance += 0.20f;
             
             // 3. Spell Damage Bonus (50% of Attack Damage Bonus)
-            // Implementation: We don't have a "Generic Attack Damage Bonus" accumulator easily available.
-            // But we can approximate or add a specific modifier.
-            // "Attack Damage" usually comes from Strength or %Physical.
-            // Let's apply 50% of PhysicalDamage % increase to Elemental Damage?
-            // Or just a flat bonus for now.
-            // For MVP: Apply 50% More Spell Damage (Universal).
-            // combat.damage_multipliers[(int)DamageType::Fire] *= 1.5f; // Example
-            // Actually, spec says: "Spell Damage equals 50% of Attack Damage".
-            // This usually means "Increases to Attack Damage also apply to Spell Damage at 50% effectiveness".
-            // This is complex without a full stat graph.
-            // Simplified: Add 50% Increased Spell Damage.
-            // Since we don't have "Spell Damage" stat separate from "Fire Damage", etc.
-            // We'll skip complex conversion for this step and just grant some generic power or rely on hybrid stats.
-            // Let's stick to the Spec: "50% Weapon Damage" and "Block".
-            // The spell part is tricky.
+            // Get the physical damage % increase (which represents "Attack Damage" for Blade Ascendant)
+            float phys_inc = calcs[static_cast<size_t>(StatType::PhysicalDamage)].percent_add;
+            float spell_bonus = phys_inc * 0.5f;
+            
+            // Apply to all elemental/shadow/poison types (Spell types)
+            for (int i = 1; i < 6; ++i) {
+                calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].percent_add += spell_bonus;
+            }
+            
+            LOG_DEBUG("Sword Heart active: +50% Weapon Dmg, +20% Block, +{:.1f}% Spell Dmg", spell_bonus * 100.0f);
         }
     }
 
@@ -466,6 +474,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.attack_speed = calcs[static_cast<size_t>(StatType::AttackSpeed)].Result() / 100.0f;
     combat.cast_speed = calcs[static_cast<size_t>(StatType::CastSpeed)].Result() / 100.0f;
     combat.accuracy = calcs[static_cast<size_t>(StatType::Accuracy)].Result() / 100.0f;
+    combat.mana_on_hit = calcs[static_cast<size_t>(StatType::ManaOnHit)].Result();
 
     // 伤害乘数
     for (int i = 0; i < 6; ++i) {
@@ -487,6 +496,60 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     LOG_INFO("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
         (uint32_t)entity, combat.min_weapon_damage, combat.max_weapon_damage, 
         str, combat.max_health);
+}
+
+float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags) {
+    auto* combat = registry.try_get<CombatStats>(entity);
+    if (!combat) return 0.0f;
+
+    StatCalculation dynamic_calc;
+    
+    // 1. 获取 CombatStats 中已烘焙的基础值或百分比值
+    switch (type) {
+        case StatType::PhysicalDamage: dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[0]; break;
+        case StatType::FireDamage:     dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[1]; break;
+        case StatType::ColdDamage:     dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[2]; break;
+        case StatType::LightningDamage: dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[3]; break;
+        case StatType::PoisonDamage:    dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[4]; break;
+        case StatType::ShadowDamage:    dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[5]; break;
+        
+        case StatType::CritChance:    dynamic_calc.base = combat->crit_chance * 100.0f; break;
+        case StatType::CritDamage:    dynamic_calc.base = combat->crit_damage * 100.0f; break;
+        case StatType::AttackSpeed:   dynamic_calc.base = combat->attack_speed * 100.0f; break;
+        case StatType::CastSpeed:     dynamic_calc.base = combat->cast_speed * 100.0f; break;
+        case StatType::Accuracy:      dynamic_calc.base = combat->accuracy * 100.0f; break;
+        case StatType::ManaOnHit:     dynamic_calc.base = combat->mana_on_hit; break;
+        case StatType::MoveSpeed:     dynamic_calc.base = combat->move_speed; break;
+        case StatType::Armor:         dynamic_calc.base = combat->armor; break;
+        case StatType::MaxHealth:     dynamic_calc.base = combat->max_health; break;
+        case StatType::MaxMana:       dynamic_calc.base = combat->max_mana; break;
+
+        default: break;
+    }
+
+    // 2. 累加动态标签修饰符
+    auto apply_if_tags_match = [&](const std::vector<StatModifier>& modifiers) {
+        for (const auto& mod : modifiers) {
+            if (mod.type == type && (mod.required_tags == Tag::None || HasTag(tags, mod.required_tags))) {
+                ApplyStatCalculation(dynamic_calc, mod.mode, mod.value);
+            }
+        }
+    };
+
+    if (auto* list = registry.try_get<ModifierList>(entity)) {
+        apply_if_tags_match(list->modifiers);
+    }
+
+    if (auto* astrolabe = registry.try_get<AstrolabeComponent>(entity)) {
+        const auto& reg = AstrolabeRegistry::Get();
+        for (uint32_t node_id : astrolabe->activated_nodes) {
+            if (const auto* node = reg.GetNode(node_id)) {
+                apply_if_tags_match(node->modifiers);
+            }
+        }
+    }
+
+    return dynamic_calc.Result();
 }
 
 void StatsSystem::update(entt::registry& registry) {

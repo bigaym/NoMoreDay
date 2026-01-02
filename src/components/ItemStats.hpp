@@ -62,6 +62,7 @@ enum class AffixType : uint8_t {
     CooldownReduction,  // 冷却缩减
     LifeSteal,          // 生命偷取
     LifeOnHit,          // 击中回复
+    ManaOnHit,          // 击中回蓝
     
     Count
 };
@@ -183,6 +184,7 @@ inline std::string GetAffixDescription(const Affix& affix, bool showTier = true)
 
         case AffixType::LifeSteal: text += "% 生命偷取"; break;
         case AffixType::LifeOnHit: text += " 击中回复"; break;
+        case AffixType::ManaOnHit: text += " 击中回蓝"; break;
         
         default: text += " 属性"; break;
     }
@@ -248,6 +250,7 @@ inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier = tr
 
         case AffixType::LifeSteal: return TextFormat("%s+%.1f%% 生命偷取", prefix, val);
         case AffixType::LifeOnHit: return TextFormat("%s+%.1f 击中回复", prefix, val);
+        case AffixType::ManaOnHit: return TextFormat("%s+%.1f 击中回蓝", prefix, val);
         
         default: return TextFormat("%s+%.1f 属性", prefix, val);
     }

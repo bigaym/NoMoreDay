@@ -17,18 +17,19 @@ public:
     /**
      * @brief Executes the 5-step damage calculation.
      * 
-     * @param skill_id The entity representing the skill (contains SkillModifierComponent)
-     * @param attacker The entity performing the attack (contains GlobalModifierComponent, CombatStats)
-     * @param defender The entity receiving the damage (contains CombatStats)
+     * @param attacker The entity performing the attack
+     * @param defender The entity receiving the damage
+     * @param skill_id The ID of the skill being used (to look up base tags/mods)
      * @param base_pool The initial flat damage from the skill/weapon.
-     * @param tags The tags associated with this specific hit (e.g., Melee, Spell, Hit)
+     * @param additional_tags Extra tags from the specific hit (e.g., Critical, Hit)
      */
     static DamageResult Calculate(
         entt::registry& registry,
         entt::entity attacker,
         entt::entity defender,
+        uint32_t skill_id,
         const DamagePool& base_pool,
-        Tag hit_tags
+        Tag additional_tags = Tag::None
     );
 
 private:

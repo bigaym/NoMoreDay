@@ -3,6 +3,7 @@
 #include <vector>
 #include <cstdint>
 #include "core/TagRegistry.hpp"
+#include "raylib.h"
 
 namespace NoMoreDay {
 
@@ -54,6 +55,9 @@ enum class ModifierType : uint8_t {
     GainExtra,      // Gain X% of A as extra B
 };
 
+inline void to_json(nlohmann::json& j, const ModifierType& e) { j = static_cast<uint8_t>(e); }
+inline void from_json(const nlohmann::json& j, ModifierType& e) { e = static_cast<ModifierType>(j.get<uint8_t>()); }
+
 /**
  * @brief DamageModifier defines how a damage value is modified.
  */
@@ -63,6 +67,8 @@ struct DamageModifier {
     float value = 0.0f;
     ModifierType type = ModifierType::Flat;
 };
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DamageModifier, source_tag, target_tag, value, type)
 
 /**
  * @brief Component for skills to store their specific modifiers.
@@ -76,6 +82,71 @@ struct SkillModifierComponent {
  */
 struct GlobalModifierComponent {
     std::vector<DamageModifier> modifiers;
+};
+
+/**
+ * @brief Represents an active skill slot.
+ */
+struct SkillSlot {
+    uint32_t id = 0;
+    float cooldown = 0.0f;
+};
+
+/**
+ * @brief Attached to entities (players) that can use active skills.
+ */
+struct ActiveSkillsComponent {
+    std::array<SkillSlot, 5> slots; // Q, W, E, R, RMB
+};
+
+/**
+ * @brief Identifies an entity as a skill execution instance (e.g., a projectile or area effect).
+ */
+struct SkillComponent {
+    uint32_t skill_id = 0;
+    entt::entity owner = entt::null;
+};
+
+/**
+ * @brief Marker for skills cast by shadow/afterimage instead of player.
+ */
+struct ShadowCastTag {};
+
+/**
+ * @brief Marker for the shadow entity itself.
+ */
+struct ShadowEntityTag {};
+
+struct ShadowLifetime {
+    float remaining = 1.0f;
+};
+
+/**
+ * @brief Simple animation state for entities (players/NPCs).
+ */
+enum class EntityAnimState : uint8_t {
+    Idle,
+    Move,
+    SkillWindup,
+    SkillCasting,
+    SkillRecovery,
+    Hurt,
+    Dead
+};
+
+struct AnimationStateComponent {
+    EntityAnimState state = EntityAnimState::Idle;
+    float state_timer = 0.0f;
+};
+
+/**
+ * @brief Blade Ascendant specific resource.
+ */
+struct SwordIntentComponent {
+    int stacks = 0;
+    int max_stacks = 10;
+    float decay_timer = 0.0f;
+    float decay_interval = 2.0f; // Start decaying after 2s of no gain
 };
 
 } // namespace NoMoreDay

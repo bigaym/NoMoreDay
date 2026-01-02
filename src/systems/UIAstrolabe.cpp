@@ -104,6 +104,8 @@ void UIAstrolabe::Update(entt::registry& registry) {
                                         // But removing components safely is complex (what if it came from multiple sources?).
                                         // For now, let's just log it or skip component removal for MVP.
                                         LOG_INFO("AstrolabeSystem: Entity {} refunded node {}", (uint32_t)entity, node.id);
+                                    } else {
+                                        LOG_WARN("Cannot refund node {}: It is required by other active nodes.", node.id);
                                     }
                                 }
                             } else if (!astroComp->activated_nodes.contains(node.id)) {
@@ -125,6 +127,38 @@ void UIAstrolabe::Update(entt::registry& registry) {
                     }
                     
                     break;
+                }
+            }
+
+            // 验证规划节点 (清理悬空节点)
+            // 如果父节点被退点或取消规划，子规划节点应自动移除
+            auto* astroComp = registry.try_get<AstrolabeComponent>(entity);
+            if (astroComp) {
+                bool changed = true;
+                while (changed) {
+                    changed = false;
+                    for (auto it = ui.plannedNodes.begin(); it != ui.plannedNodes.end(); ) {
+                        uint32_t pid = *it;
+                        const auto* pNode = AstrolabeRegistry::Get().GetNode(pid);
+                        if (!pNode) { it = ui.plannedNodes.erase(it); changed = true; continue; }
+                        
+                        if (pNode->prerequisites.empty()) { ++it; continue; } // 根节点总是有效的
+                        
+                        bool reachable = false;
+                        for (uint32_t parentId : pNode->prerequisites) {
+                            if (astroComp->activated_nodes.contains(parentId) || ui.plannedNodes.contains(parentId)) {
+                                reachable = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!reachable) {
+                            it = ui.plannedNodes.erase(it);
+                            changed = true;
+                        } else {
+                            ++it;
+                        }
+                    }
                 }
             }
 
@@ -320,17 +354,12 @@ void UIAstrolabe::Draw(entt::registry& registry) {
                 // Since we don't have a complex text engine, we'll implement a basic "DrawTextWrapped" style measurement.
                 
                 auto MeasureWrapped = [&](const char* text, float fontSize, float maxW) -> Vector2 {
-                    if (!fontValid) return { (float)MeasureText(text, (int)fontSize), fontSize };
-                    
-                    // Raylib doesn't expose a "MeasureTextRec" easily without modification.
-                    // We will use a simple approximation: Width is min(textWidth, maxW).
-                    // Height is ceil(textWidth / maxW) * lineHeight.
-                    // This is rough for CJK but acceptable for prototype.
-                    Vector2 rawSize = MeasureTextEx(font, text, fontSize, 1.0f);
-                    if (rawSize.x <= maxW) return rawSize;
-                    
-                    float lines = std::ceil(rawSize.x / maxW);
-                    return { maxW, lines * (fontSize + lineSpacing) }; 
+                    // This is a placeholder. The actual wrapping logic below determines the final layout.
+                    // We just need a rough estimate for the box size.
+                    Vector2 rawSize = fontValid ? MeasureTextEx(font, text, fontSize, 1.0f) : Vector2{(float)MeasureText(text, (int)fontSize), fontSize};
+                    if (rawSize.x <= maxW) return rawSize;                    
+                    float lines = std::ceil(rawSize.x / maxW); // Estimate number of lines
+                    return { maxW, lines * (fontSize + lineSpacing) };
                 };
 
                 Vector2 descDim = MeasureWrapped(descText.c_str(), descSize, maxWidth - padding * 2);
@@ -339,21 +368,21 @@ void UIAstrolabe::Draw(entt::registry& registry) {
                 Color statusColor = GREEN;
                 const char* statusText = "";
                 bool showStatus = false;
-                
+
                 auto* astroComp = registry.try_get<AstrolabeComponent>(entity);
                 if (astroComp && !astroComp->activated_nodes.contains(node->id)) {
                     showStatus = true;
                     statusText = "Click to Activate";
                     bool canActivate = true;
                     for (uint32_t pId : node->prerequisites) {
-                        if (!astroComp->activated_nodes.contains(pId)) {
+                        if (!astroComp->activated_nodes.contains(pId) && !ui.plannedNodes.contains(pId)) {
                             canActivate = false;
                             break;
                         }
                     }
                     if (!canActivate) {
                         statusText = "Locked (Requirements not met)";
-                        statusColor = RED;
+                        statusColor = ORANGE;
                     } else if (astroComp->available_points <= 0) {
                         statusText = "No points available";
                         statusColor = ORANGE;
@@ -427,23 +456,23 @@ void UIAstrolabe::Draw(entt::registry& registry) {
                      
                      std::string finalDesc;
                      float lineW = 0;
-                     for (size_t i = 0; i < descText.length(); ) {
-                         // Decode UTF8 char
-                         int codepoint;
-                         int bytes = GetCodepointNext(&descText[i], &codepoint);
-                         const char* charStr = &descText[i];
+                     const char* textPtr = descText.c_str();
+                     while (*textPtr) {
+                         int bytes = 0;
+                         int codepoint = GetCodepoint(textPtr, &bytes);
+                         if (bytes <= 0) bytes = 1; // 安全回退，防止死循环
                          
                          // Check width
-                         float charW = MeasureTextEx(font, TextSubtext(charStr, 0, bytes), descSize, 1.0f).x;
+                         float charW = MeasureTextEx(font, TextSubtext(textPtr, 0, bytes), descSize, 1.0f).x;
                          
                          if (lineW + charW > maxWidth - padding * 2) {
                              finalDesc += '\n';
                              lineW = 0;
                          }
                          
-                         finalDesc.append(charStr, bytes);
+                         finalDesc.append(textPtr, bytes);
                          lineW += charW;
-                         i += bytes;
+                         textPtr += bytes;
                      }
                      
                      DrawTextEx(font, finalDesc.c_str(), Vector2{tx + padding, currY}, descSize, 1.0f, Fade(GRAY, ui.alpha));
