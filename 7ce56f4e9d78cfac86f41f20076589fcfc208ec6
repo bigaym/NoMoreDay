@@ -1,0 +1,9 @@
+Task: Implement PortalSystem and SceneManager for level transitions.
+Changes:
+- Created SceneManager to handle level transitions, fading, and async loading.
+- Created PortalSystem to detect player interaction with portals and request transitions.
+- Added PortalComponent to MapComponent.hpp.
+- Updated MapSystem to generate STAIRS_DOWN tiles.
+- Updated SceneManager to spawn PortalComponent on STAIRS_DOWN tiles.
+- Integrated SceneManager and PortalSystem into Game and GameplayState.
+- Fixed missing Chinese font loading by initializing UISystem in Game::init.
