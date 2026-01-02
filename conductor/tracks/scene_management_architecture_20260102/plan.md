@@ -2,8 +2,8 @@
 
 ## Phase 1: Data-Driven Biomes & LevelManager Refactor
 - [x] Task: Define `BiomeConfig` struct and `BiomeRegistry` to load environment data from `assets/data/biomes.json`. (e57d6b7)
-- [ ] Task: Update `LevelManager` to accept a `BiomeConfig` and generate levels based on biome-specific tiles and spawn rules.
-- [ ] Task: Create `LocalLevelTag` and `PersistentTag` components to manage entity lifecycles.
+- [x] Task: Update `LevelManager` to accept a `BiomeConfig` and generate levels based on biome-specific tiles and spawn rules. (b9d917d)
+- [x] Task: Create `LocalLevelTag` and `PersistentTag` components to manage entity lifecycles. (b9d917d)
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Data-Driven Biomes' (Protocol in workflow.md)
 
 ## Phase 2: Portal System & Transition Logic
