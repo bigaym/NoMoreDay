@@ -28,30 +28,26 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [x] Track: ĞÇÅÌÏµÍ³¿ª·¢»ù´¡
+## [x] Track: æ˜Ÿç›˜ç³»ç»ŸåŸºç¡€ (Astrolabe Foundation)
 - **Folder:** conductor/archive/astrolabe_foundation_20260101
 - **Description:** Implement a data-driven passive talent tree foundation including JSON parsing, activation logic, and stats integration. (Completed on 2026-01-01)
 
 ---
 
-## [x] Track: ½£ĞŞºËĞÄ¼¼ÄÜÏµÍ³ÓëĞÇÅÌÁª¶¯
+## [x] Track: å‰‘ä¿®æ ¸å¿ƒæŠ€èƒ½ç³»ç»Ÿ (Sword Cultivator Skill System)
 - **Folder:** conductor/archive/skill_system_sword_cultivator_20260102
 - **Description:** Implement active skills, tag-aware scaling, sword intent, shadow casting, and Sword Heart integration. (Completed on 2026-01-02)
 
 ---
 
-## [ ] Track: Astrolabe UI 9pç»å¥Š^
-*Link: [./conductor/tracks/astrolabe_ui_20260101/](./conductor/tracks/astrolabe_ui_20260101/)*
-
-
-
+## [x] Track: æŠ€èƒ½ UI ä¸ Buff æ˜¾ç¤ºç³»ç»Ÿ (Skill UI & Buff System)
+- **Folder:** conductor/archive/skill_ui_buff_system_20260102
+- **Description:** Implement skill hotbar with cooldowns, dynamic tooltips with Astrolabe integration, and a comprehensive Buff/Debuff display system. (Completed on 2026-01-02)
 
 ---
 
-## [x] Track: Astrolabe Expansion: Sword Cultivator Foundation (Completed on 2026-01-01)
-*Link: [./conductor/tracks/astrolabe_sword_cultivator_20260101/](./conductor/tracks/astrolabe_sword_cultivator_20260101/)*
+## [x] Track: Astrolabe UI
+- **Folder:** conductor/archive/astrolabe_ui_20260101
+- **Description:** Implement the interactive concentric UI for the talent tree, including zooming, panning, and planning mode. (Completed on 2026-01-02)
 
 ---
-
-## [~] Track: ¼¼ÄÜ UI Óë Buff ÏÔÊ¾ÏµÍ³
-*Link: [./conductor/tracks/skill_ui_buff_system_20260102/](./conductor/tracks/skill_ui_buff_system_20260102/)*

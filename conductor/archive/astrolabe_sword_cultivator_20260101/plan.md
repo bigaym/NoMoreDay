@@ -12,14 +12,14 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Mechanics - The Sword Heart (Basic)' (Protocol in workflow.md)
 
 ## Phase 2: Data - Sword Cultivator Node Definition
-- [ ] Task: Update `assets/data/astrolabe.json` to include the starting nodes for the Sword Cultivator path.
-    - [ ] Node: "Sword Heart" (Keystone) - Grants the `SwordHeartComponent` (Need mechanism to grant components via Astrolabe).
-    - [ ] Node: "Sword Training" (Minor) - +Physical Damage, +Attack Speed.
-    - [ ] Node: "Flowing Qi" (Major) - +Movement Speed, +Mana Regen.
-- [ ] Task: Update `AstrolabeSystem` to handle special node effects (like granting components).
-    - [ ] Current system only applies `StatModifier`. Need a way to trigger logic/add components.
-    - [ ] Proposal: Add `effects` list to `AstrolabeNode` (e.g., `{"type": "GrantComponent", "component": "SwordHeart"}`).
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Data - Sword Cultivator Node Definition' (Protocol in workflow.md)
+- [x] Task: Update `assets/data/astrolabe.json` to include the starting nodes for the Sword Cultivator path.
+    - [x] Node: "Sword Heart" (Keystone) - Grants the `SwordHeartComponent` (Need mechanism to grant components via Astrolabe).
+    - [x] Node: "Sword Training" (Minor) - +Physical Damage, +Attack Speed.
+    - [x] Node: "Flowing Qi" (Major) - +Movement Speed, +Mana Regen.
+- [x] Task: Update `AstrolabeSystem` to handle special node effects (like granting components).
+    - [x] Current system only applies `StatModifier`. Need a way to trigger logic/add components.
+    - [x] Proposal: Add `effects` list to `AstrolabeNode` (e.g., `{"type": "GrantComponent", "component": "SwordHeart"}`).
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Data - Sword Cultivator Node Definition' (Protocol in workflow.md)
 
 ## Phase 3: UI Polish & Planning Mode [checkpoint: 832cf10]
 - [x] Task: Implement "Planning Mode" state in `AstrolabeUIComponent`.

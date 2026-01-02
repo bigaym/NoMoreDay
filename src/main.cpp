@@ -7,12 +7,14 @@ int main() {
     tools::Logger::Init();
     LOG_INFO("Initializing NoMoreDay Engine...");
     
-    // Create Game Instance
-    // Using a pointer or stack? Stack is fine for Game class.
-    Game game(2560, 1440, "NoMoreDay - High Performance ECS");
-    
-    // Run Loop
-    game.run();
+    {
+        // 确保 Game 对象在 Logger::Shutdown 之前析构
+        // Create Game Instance
+        Game game(2560, 1440, "NoMoreDay - High Performance ECS");
+        
+        // Run Loop
+        game.run();
+    }
 
     LOG_INFO("Engine Shutdown.");
     tools::Logger::Shutdown();

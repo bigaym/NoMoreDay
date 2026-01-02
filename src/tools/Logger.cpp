@@ -26,7 +26,7 @@ void Logger::Init() {
 
     // Sink 1: Console (Color)
     auto consoleSink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    consoleSink->set_level(spdlog::level::info);
+    consoleSink->set_level(spdlog::level::debug);
     consoleSink->set_pattern("%^[%T] %n: %v%$"); 
     sinks.push_back(consoleSink);
 
@@ -54,6 +54,10 @@ void Logger::Init() {
 }
 
 void Logger::Shutdown() {
+    if (s_CoreLogger) {
+        s_CoreLogger->flush();
+        s_CoreLogger.reset(); // 释放 shared_ptr，配合 GetCoreLogger 的 fallback 机制
+    }
     spdlog::shutdown();
 }
 

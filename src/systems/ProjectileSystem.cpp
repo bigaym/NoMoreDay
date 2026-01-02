@@ -15,6 +15,13 @@ namespace NoMoreDay {
 void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt) {
     auto view = registry.view<Position, Velocity, Projectile>();
     
+    // 用于延迟创建伤害飘字的数据结构，避免在 grid.query 回调中直接修改注册表
+    struct PopupInfo {
+        Position pos;
+        DamagePopup popup;
+    };
+    std::vector<PopupInfo> popupsToCreate;
+
     std::vector<entt::entity> to_destroy;
 
     for (auto entity : view) {
@@ -82,15 +89,13 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 CombatSystem::ApplyDamage(registry, target, finalDamage, proj.owner);
                 
                 // Spawn Damage Popup
-                auto popupEntity = registry.create();
-                registry.emplace<Position>(popupEntity, tPos.x + GetRandomValue(-10, 10), tPos.y - 20.0f);
-                
                 DamagePopup popup;
                 popup.damage = finalDamage;
                 popup.lifeTime = 0.8f;
                 popup.velY = -60.0f;
                 popup.color = WHITE;
-                registry.emplace<DamagePopup>(popupEntity, popup);
+                
+                popupsToCreate.push_back({{tPos.x + GetRandomValue(-10, 10), tPos.y - 20.0f}, popup});
 
                 // Trigger Skill Hit interactions
                 SkillSystem::OnSkillHit(registry, proj.owner, target, skill_id, hit_tags);
@@ -113,6 +118,13 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
 
     for (auto entity : to_destroy) {
         if (registry.valid(entity)) registry.destroy(entity);
+    }
+
+    // 批量创建伤害飘字实体
+    for (const auto& info : popupsToCreate) {
+        auto popupEntity = registry.create();
+        registry.emplace<Position>(popupEntity, info.pos);
+        registry.emplace<DamagePopup>(popupEntity, info.popup);
     }
 }
 

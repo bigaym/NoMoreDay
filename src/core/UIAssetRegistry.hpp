@@ -17,6 +17,10 @@ namespace assets::ui {
         
         // 上下文菜单
         constexpr assets::TextureAsset Context_Menu_BG = { "ui_context_bg"_hs, "assets/textures/ui/context_menu_bg.png" };
+
+        // 技能图标
+        constexpr assets::TextureAsset Skill_Icon_1 = { "ui_skill_icon_1"_hs, "assets/textures/ui/icons/skill_icon_1.png" };
+        constexpr assets::TextureAsset Skill_Icon_2 = { "ui_skill_icon_2"_hs, "assets/textures/ui/icons/skill_icon_2.png" };
     }
 
     namespace fonts {

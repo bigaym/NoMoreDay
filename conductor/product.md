@@ -30,7 +30,9 @@ To create an immersive, performance-driven ARPG experience where players face ov
 
     - **Sword Heart Keystone:** A powerful passive that drastically increases weapon damage and grants block chance when wielding a sword single-handedly.
 
-- **Procedural Map Generation:** A dynamic dungeon system ensuring that no two runs feel the same, promoting infinite replayability.
+- **Multi-Biome Persistent World:** A data-driven level management system that allows seamless transitions between different environments (e.g., Safe Towns and Hostile Dungeons) via an interactive portal system. Features include biome-specific generation rules, entity lifecycle persistence, and async level preparation for smooth loading.
+
+- **Procedural Map Generation:** A dynamic dungeon system utilizing cellular automata and Perlin noise to ensure that no two runs feel the same, promoting infinite replayability.
 
 - **Massive Scale Combat:** A high-performance, tag-driven damage engine supporting a 5-step calculation pipeline (Base, Conversion, Increased, More, Settle). It handles complex damage conversions (e.g., Physical to Fire) and applies multi-layered modifiers for Physical, Elemental, and Eldritch damage types, optimized for 10,000+ entities with zero-allocation update loops.
 

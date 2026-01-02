@@ -535,7 +535,7 @@ void UISystem::DrawSkillHotbar(entt::registry& registry) {
         NoMoreDay::UIRenderer::DrawSkillSlot(State.globalFont, x, y, slotSize, 
                                  icon, labels[i], cooldownRatio, manaCost, 
                                  slot.current_charges, maxCharges,
-                                 hasEnoughMana, isHovered, 1.0f);
+                                 hasEnoughMana, isHovered, 0.8f);
     }
 }
 
@@ -587,7 +587,7 @@ void UISystem::DrawBuffs(entt::registry& registry) {
         }
 
         NoMoreDay::UIRenderer::DrawBuffIcon(State.globalFont, x, y, iconSize,
-                                 icon, iconText, ratio, effect.stacks, isDebuff, 1.0f);
+                                 icon, iconText, ratio, effect.stacks, isDebuff, 0.8f);
         
         if (CheckCollisionPointRec(GetMousePositionLogic(), { x, y, iconSize, iconSize })) {
             State.hoveredBuffIdx = i;
