@@ -24,6 +24,7 @@ using namespace NoMoreDay;
 #include "SkillSystemTest.hpp"
 #include "DamagePipelineTest.hpp"
 #include "AstrolabeUITest.hpp"
+#include "BuffComponentTest.hpp"
 
 int main(int argc, char** argv) {
     doctest::Context context;
