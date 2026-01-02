@@ -1,0 +1,6 @@
+Task: Integration & Persistence Tests.
+Changes:
+- Created PersistenceTest.hpp to verify player state survival and local entity clearing.
+- Verified Town biome as a safe zone (no enemies).
+- Verified Cave biome as hostile zone (enemies spawned).
+- Confirmed transition flow: Request -> Fade -> Load -> Apply -> Fade.
