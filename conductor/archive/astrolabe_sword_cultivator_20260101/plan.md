@@ -8,8 +8,8 @@
     - [x] If true: Apply 50% Weapon Damage Multiplier (More).
     - [x] If true: Add Block Chance (Base 20% + 0.5% per level?).
     - [x] If true: Add "Spell Damage equals 50% of Attack Damage" logic (Requires new StatType or conversion logic in `StatsSystem` or `DamagePipeline`).
-- [~] Task: Create a test case in `StatsSystemTest` to verify "Sword Heart" bonuses are applied correctly.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Mechanics - The Sword Heart (Basic)' (Protocol in workflow.md)
+- [x] Task: Create a test case in StatsSystemTest to verify "Sword Heart" bonuses are applied correctly.
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Mechanics - The Sword Heart (Basic)' (Protocol in workflow.md)
 
 ## Phase 2: Data - Sword Cultivator Node Definition
 - [ ] Task: Update `assets/data/astrolabe.json` to include the starting nodes for the Sword Cultivator path.
