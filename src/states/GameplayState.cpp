@@ -147,11 +147,7 @@ namespace NoMoreDay {
     void GameplayState::OnExit() {
         LOG_INFO("Exiting GameplayState...");
         // Cleanup logic if needed. 
-        // Note: We might not want to clear registry if we just Pop to MainMenu but want to resume?
-        // But typically Gameplay exit means Game Over or Return to Menu.
-        // For now, Game cleanup handles global registry clear. 
-        // Here we could clear entities if we want to ensure fresh state on re-enter.
-        m_context->registry->clear();
+        // Note: Game::cleanup will handle the global registry clear.
     }
 
     bool GameplayState::OnUpdate(float dt) {

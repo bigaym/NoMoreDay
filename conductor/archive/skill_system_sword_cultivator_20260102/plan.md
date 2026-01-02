@@ -21,15 +21,15 @@
 - [x] Task: 编写测试：验证拥有不同标签的技能是否能正确享受星盘中的对应加成
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Tag-Aware Stats & Pipeline' (Protocol in workflow.md)
 
-## Phase 4: 剑修专属机制：剑意与影子施法 (Special Mechanics)
+## Phase 4: 剑修专属机制：剑意与影子施法 (Special Mechanics) [checkpoint: 6e6fde6]
 - [x] Task: 实现 `SwordIntentComponent` 及其积累/衰减系统
 - [x] Task: 实现 `ShadowCasting` 框架：支持创建临时的残影实体执行技能逻辑
 - [x] Task: 实现“击中回蓝” (Mana on Hit) 组件与结算逻辑
 - [x] Task: 实现关键天赋 `SwordHeart` (剑心通明) 的属性倍率修正逻辑
 - [x] Task: 编写测试：验证剑意堆叠数值和影子施法的实体生命周期管理
-- [~] Task: Conductor - User Manual Verification 'Phase 4: Special Mechanics' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Special Mechanics' (Protocol in workflow.md)
 
-## Phase 5: 原型技能开发与综合测试 (Prototype Skills & Verification)
+## Phase 5: 原型技能开发与综合测试 (Prototype Skills & Verification) [checkpoint: 6e6fde6]
 - [x] Task: C++ 实现“流云刺”钩子逻辑（位移量、击中判定）
 - [x] Task: C++ 实现“裂空斩”钩子逻辑（剑气投射物生成）
 - [x] Task: 集成测试：在游戏主循环中验证完整战斗链路（技能 -> 标签加成 -> 伤害输出 -> resource 恢复）

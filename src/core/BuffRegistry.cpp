@@ -27,6 +27,10 @@ void BuffRegistry::Initialize() {
     registry[BuffType::Bleed] = { "血", RED, "Bleeding", "Taking physical damage over time." };
 }
 
+void BuffRegistry::Shutdown() {
+    registry.clear();
+}
+
 const BuffVisualData& BuffRegistry::GetVisualData(BuffType type) {
     if (registry.find(type) != registry.end()) {
         return registry[type];

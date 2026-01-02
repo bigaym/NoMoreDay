@@ -16,6 +16,7 @@ struct BuffVisualData {
 class BuffRegistry {
 public:
     static void Initialize();
+    static void Shutdown();
     static const BuffVisualData& GetVisualData(BuffType type);
 
 private:

@@ -102,17 +102,20 @@ void Game::run() {
 }
 
 void Game::cleanup() {
-    // 核心修复：在销毁状态（及其拥有的系统）之前，先清理注册表。
-    // 这可以确保在注册表被清空时，任何来自系统的 on_destroy 信号监听器仍然有效。
-    // 如果顺序颠倒，当 registry.clear() 触发信号时，监听器可能已经是一个悬挂指针，导致崩溃。
-    m_registry.clear();
+    LOG_INFO("Cleaning up game systems...");
 
-    // 现在可以安全地清理状态了
+    // 1. 先清理状态管理器，这会触发各状态的 OnExit，确保系统在注册表还在时安全关闭
     if (m_stateManager) {
         m_stateManager.reset(); 
     }
+
+    // 2. 清理注册表中的所有实体
+    m_registry.clear();
     
+    // 3. 关闭各单例和资源管理器
     UISystem::Shutdown();
+    NoMoreDay::BuffRegistry::Shutdown();
+
     if (m_levelManager) m_levelManager->cleanup();
     m_resourceManager.unloadAll();
 }
