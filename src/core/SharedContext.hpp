@@ -5,6 +5,7 @@
 
 class ResourceManager;
 class LevelManager;
+namespace NoMoreDay { class SceneManager; }
 
 namespace NoMoreDay {
 
@@ -12,6 +13,7 @@ namespace NoMoreDay {
         entt::registry* registry = nullptr;
         ResourceManager* resources = nullptr;
         LevelManager* levelManager = nullptr;
+        SceneManager* sceneManager = nullptr;
         tf::Executor* executor = nullptr;
         // Window* window; // Raylib uses global state mostly, add if wrapper exists
     };

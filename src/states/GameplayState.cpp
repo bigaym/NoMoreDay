@@ -27,6 +27,10 @@
 #include "../systems/SerializationSystem.hpp"
 #include "../systems/FogOfWarSystem.hpp"
 #include "../systems/RegenerationSystem.hpp"
+#include "../systems/PortalSystem.hpp"
+#include "../core/SceneManager.hpp"
+
+#include "../components/AIComponent.hpp"
 
 // Components
 #include "../components/Common.hpp"
@@ -154,6 +158,15 @@ namespace NoMoreDay {
     bool GameplayState::OnUpdate(float dt) {
         auto& registry = *m_context->registry;
         
+        // 0. Update SceneManager (Transitions)
+        if (m_context->sceneManager) {
+            m_context->sceneManager->Update(dt);
+            if (m_context->sceneManager->IsTransitioning()) {
+                // If we are loading, we might want to skip some logic, 
+                // but let's keep it simple and just let SceneManager handle the overlay.
+            }
+        }
+
         // 0. State Transition Input
         if (IsKeyPressed(KEY_I)) {
             m_stateManager->PushState<InventoryState>();
@@ -173,6 +186,12 @@ namespace NoMoreDay {
         // 1. Level & Systems
         m_context->levelManager->update(dt, registry, playerPos);
         m_context->levelManager->getMapSystem().updateFlowField(playerPos);
+        
+        if (m_context->sceneManager) {
+            PortalSystem portalSystem(*m_context->sceneManager);
+            portalSystem.Update(registry, dt);
+        }
+
         StatsSystem::UpdateBuffs(registry, dt);
         StatsSystem::update(registry);
         RegenerationSystem::update(registry, dt);
@@ -501,12 +520,11 @@ namespace NoMoreDay {
         bool wasInv = UISystem::State.showInventory;
         UISystem::State.showInventory = false;
         UISystem::Draw(registry, *m_context->levelManager, m_camera);
-        UISystem::State.showInventory = wasInv;
         
-        // Serialization UI
-        SerializationSystem::DrawUI();
-        
-        DrawFPS(10, 10);
+        // Scene Transition Overlay
+        if (m_context->sceneManager) {
+            m_context->sceneManager->RenderOverlay();
+        }
     }
 
 }

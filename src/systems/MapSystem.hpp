@@ -32,6 +32,7 @@ private:
     void SmoothIteration(const std::vector<Tile>& src, std::vector<Tile>& dst, int w, int h);
     void ApplyBoundaries(std::vector<Tile>& grid, int w, int h);
     void GenerateObstacles(std::vector<Tile>& grid, int w, int h, uint32_t seed);
+    void PlaceExits(std::vector<Tile>& grid, int w, int h, uint32_t seed);
 };
 
 class MapSystem {

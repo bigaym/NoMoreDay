@@ -47,8 +47,30 @@ MapGenerator::MapData CaveMapGenerator::Generate(int width, int height, uint32_t
 
     // 4. 边界处理
     ApplyBoundaries(map.grid, width, height);
+    
+    // 5. Place Exits
+    PlaceExits(map.grid, width, height, seed);
 
     return map;
+}
+
+void CaveMapGenerator::PlaceExits(std::vector<Tile>& grid, int w, int h, uint32_t seed) {
+    std::mt19937 gen(seed);
+    std::uniform_int_distribution<int> xDist(1, w - 2);
+    std::uniform_int_distribution<int> yDist(1, h - 2);
+    
+    // Place Stairs Down (Exit)
+    // Find a floor tile that is not too close to the center (0,0 is top left, but spawn is usually middle? SceneManager uses center)
+    // Actually let's just pick a random floor tile.
+    
+    for (int attempt = 0; attempt < 1000; ++attempt) {
+        int x = xDist(gen);
+        int y = yDist(gen);
+        if (grid[y * w + x].type == Tile::Type::FLOOR) {
+            grid[y * w + x].type = Tile::Type::STAIRS_DOWN;
+            break;
+        }
+    }
 }
 
 void CaveMapGenerator::SmoothIteration(const std::vector<Tile>& src, std::vector<Tile>& dst, int w, int h) {
@@ -150,6 +172,7 @@ void MapSystem::render(const Camera2D& camera) const {
                 Color color = BLACK;
                 if (type == Tile::Type::FLOOR) color = biome.floorColor;
                 else if (type == Tile::Type::WALL) color = biome.wallColor;
+                else if (type == Tile::Type::STAIRS_DOWN) color = RED; // Temporary
                 
                 // 如果只是已探索但当前不可见，变暗
                 if (!isVisible(x, y)) {

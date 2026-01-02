@@ -52,3 +52,12 @@ struct MapGenerationParams {
         : width(w), height(h), wallProbability(prob), 
           smoothIterations(iterations), connectivityThreshold(threshold) {}
 };
+
+// 传送门组件
+struct PortalComponent {
+    std::string targetBiome;
+    int targetLevel = 1; 
+    std::string targetEntranceId = "start"; 
+    bool isOneWay = false;
+    bool isActive = true;
+};

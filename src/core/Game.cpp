@@ -30,6 +30,10 @@ Game::Game(int width, int height, const char* title)
     m_context.levelManager = m_levelManager.get();
     m_context.executor = &m_executor;
 
+    // Init SceneManager
+    m_sceneManager = std::make_unique<NoMoreDay::SceneManager>(*m_levelManager, m_registry);
+    m_context.sceneManager = m_sceneManager.get();
+
     // Init StateManager
     m_stateManager = std::make_unique<NoMoreDay::StateManager>(m_context);
 
@@ -57,6 +61,9 @@ void Game::init() {
     NoMoreDay::ItemFactory::initialize();
     NoMoreDay::ItemFactory::loadAffixDefinitions("assets/data/affixes.json");
     
+    // Initialize UI System (Loads Fonts)
+    UISystem::Initialize(m_resourceManager);
+
     // Push Initial State
     LOG_INFO("Pushing MainMenuState...");
     m_stateManager->PushState<NoMoreDay::MainMenuState>();
