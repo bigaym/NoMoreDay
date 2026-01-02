@@ -94,6 +94,7 @@ add_library(NoMoreDayCore STATIC
     src/tools/CrashHandler.cpp
     src/core/AstrolabeRegistry.cpp
     src/core/SkillRegistry.cpp
+    src/core/BuffRegistry.cpp
     src/systems/InventorySystem.cpp
 )
 

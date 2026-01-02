@@ -8,6 +8,7 @@
 #include "../core/AssetLoadingSystem.hpp"
 #include "../core/AstrolabeRegistry.hpp"
 #include "../core/SkillRegistry.hpp"
+#include "../core/BuffRegistry.hpp"
 
 Game::Game(int width, int height, const char* title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title),
@@ -51,6 +52,7 @@ void Game::init() {
     NoMoreDay::AssetLoadingSystem::LoadAllEquipment();
     NoMoreDay::AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
     NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    NoMoreDay::BuffRegistry::Initialize();
     NoMoreDay::SkillSystem::InitHooks();
     
     // Push Initial State
