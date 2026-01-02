@@ -1,10 +1,16 @@
 #include "UIRenderer.hpp"
-#include "../systems/InventorySystem.hpp" // For context menu actions
+#include "AstrolabeRegistry.hpp"
 #include "AssetLoadingSystem.hpp"
+#include "SkillRegistry.hpp"
+#include "BuffRegistry.hpp"
+#include "../systems/InventorySystem.hpp" 
+#include "../systems/DamagePipeline.hpp"
+#include "../systems/StatsSystem.hpp"
+#include "../components/Progression.hpp"
 #include <algorithm>
 #include <string>
 #include <cstdio>
-#include <cmath> // For std::max
+#include <cmath> 
 
 namespace NoMoreDay {
 
@@ -56,7 +62,7 @@ namespace NoMoreDay {
         DrawTextUI(font, text, x, y + yOffset, finalFontSize, color, alpha);
     }
 
-    Color UIRenderer::GetRarityColor(Rarity rarity) {
+    Color UIRenderer::GetRarityColor(NoMoreDay::Rarity rarity) {
         switch (rarity) {
             case Rarity::Common:    return LIGHTGRAY;
             case Rarity::Magic:     return SKYBLUE;
@@ -98,8 +104,6 @@ namespace NoMoreDay {
                 case EquipmentSlot::Feet: return "鞋子";
                 case EquipmentSlot::Neck: return "项链";
                 case EquipmentSlot::Ring: return "戒指";
-                // case EquipmentSlot::Ring1:
-                // case EquipmentSlot::Ring2: return "戒指";
                 case EquipmentSlot::OffHand: return "副手";
                 default: return "装备";
             }
@@ -120,84 +124,35 @@ namespace NoMoreDay {
 
         // Background
         Color bg = highlighted ? ApplyAlpha(s_theme.panelBorderHighlight, 0.2f) : s_theme.slotBackground;
-        if (isLocked) bg = ApplyAlpha(BLACK, 0.8f); // Locked slots darker
+        if (isLocked) bg = ApplyAlpha(BLACK, 0.8f); 
         
         DrawRectangleRec(rec, ApplyAlpha(bg, alpha));
         
-        // 1. Sunken Bevel Effect
-        
-        // Inner Top Shadow
+        // Bevel Effect
         DrawLineEx({sx, sy}, {sx + sSize, sy}, 2.0f * s_uiScale, ApplyAlpha(BLACK, 0.5f * alpha));
-        // Inner Left Shadow
         DrawLineEx({sx, sy}, {sx, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(BLACK, 0.5f * alpha));
-        
-        // Inner Bottom Highlight (Subtle)
         DrawLineEx({sx, sy + sSize}, {sx + sSize, sy + sSize}, 1.0f * s_uiScale, ApplyAlpha(WHITE, 0.1f * alpha));
-        // Inner Right Highlight (Subtle)
         DrawLineEx({sx + sSize, sy}, {sx + sSize, sy + sSize}, 1.0f * s_uiScale, ApplyAlpha(WHITE, 0.1f * alpha));
 
-        // 2. Corner Accents (Decorative)
-        float cornerLen = 6.0f * s_uiScale;
-        Color cornerColor = highlighted ? s_theme.panelBorderHighlight : ApplyAlpha(s_theme.panelBorder, 0.6f);
-        
-        // Top-Left
-        DrawLineEx({sx, sy}, {sx + cornerLen, sy}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
-        DrawLineEx({sx, sy}, {sx, sy + cornerLen}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
-        // Top-Right
-        DrawLineEx({sx + sSize - cornerLen, sy}, {sx + sSize, sy}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
-        DrawLineEx({sx + sSize, sy}, {sx + sSize, sy + cornerLen}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
-        // Bottom-Left
-        DrawLineEx({sx, sy + sSize}, {sx + cornerLen, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
-        DrawLineEx({sx, sy + sSize - cornerLen}, {sx, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha)); 
-        
-        // Bottom-Right
-        DrawLineEx({sx + sSize - cornerLen, sy + sSize}, {sx + sSize, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
-        DrawLineEx({sx + sSize, sy + sSize - cornerLen}, {sx + sSize, sy + sSize}, 2.0f * s_uiScale, ApplyAlpha(cornerColor, alpha));
-
-        // Border (Standard)
+        // Border
         Color border = highlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder;
         DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(border, alpha));
         
         if (item != entt::null && registry.valid(item)) {
             auto* itemComp = registry.try_get<ItemComponent>(item);
-            auto* sprite = registry.try_get<SpriteComponent>(item);
-
             if (itemComp) {
                 Color rarityColor = GetRarityColor(itemComp->rarity);
-                // Rarity Border
                 DrawRectangleLinesEx(rec, 2.0f * s_uiScale, ApplyAlpha(rarityColor, alpha));
 
-                bool textureDrawn = false;
-
-                // 1. Try textureId from ItemComponent (Preferred)
-                if (itemComp->textureId != 0) {
-                    Texture2D tex = AssetLoadingSystem::GetTexture(itemComp->textureId);
-                    if (tex.id > 0) {
-                        Rectangle source = {0, 0, (float)tex.width, (float)tex.height};
-                        float pad = 4.0f * s_uiScale;
-                        Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
-                        DrawTexturePro(tex, source, dest, {0, 0}, 0.0f, ApplyAlpha(WHITE, alpha));
-                        textureDrawn = true;
-                    }
-                }
-
-                // 2. Try SpriteComponent (Legacy/World Entities)
-                if (!textureDrawn && sprite && sprite->texture.id > 0) {
-                    Rectangle source = {0, 0, (float)sprite->texture.width, (float)sprite->texture.height};
+                Texture2D tex = AssetLoadingSystem::GetTexture(itemComp->textureId);
+                if (tex.id > 0) {
+                    Rectangle source = {0, 0, (float)tex.width, (float)tex.height};
                     float pad = 4.0f * s_uiScale;
                     Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
-                    DrawTexturePro(sprite->texture, source, dest, {0, 0}, 0.0f, ApplyAlpha(WHITE, alpha));
-                    textureDrawn = true;
-                } 
-                
-                // 3. Fallback to Text
-                if (!textureDrawn) {
+                    DrawTexturePro(tex, source, dest, {0, 0}, 0.0f, ApplyAlpha(WHITE, alpha));
+                } else {
                     const char* shortName = GetShortItemTypeName(*itemComp);
-                    float fontSize = 16.0f; 
-                    float scaledFontSize = fontSize * s_uiScale;
-                    Vector2 textSize = IsFontValid(font) ? MeasureTextEx(font, shortName, scaledFontSize, 1.0f * s_uiScale) : Vector2{(float)MeasureText(shortName, (int)scaledFontSize), scaledFontSize};
-                    
-                    DrawTextUI(font, shortName, x + (size - textSize.x/s_uiScale) / 2.0f, y + (size - textSize.y/s_uiScale) / 2.0f, fontSize, rarityColor, alpha);
+                    DrawTextUI(font, shortName, x + 10, y + 10, 16, rarityColor, alpha);
                 }
 
                 if (itemComp->quantity > 1) {
@@ -205,33 +160,126 @@ namespace NoMoreDay {
                 }
             }
         } 
+    }
+
+    void UIRenderer::DrawSkillSlot(const Font& font, float x, float y, float size, 
+                                 Texture2D icon, const char* keyLabel, 
+                                 float cooldownRatio, float manaCost, 
+                                 int charges, int maxCharges,
+                                 bool hasEnoughMana, bool isHighlighted, float alpha) {
+        float sx = x * s_uiScale;
+        float sy = y * s_uiScale;
+        float sSize = size * s_uiScale;
+
+        Rectangle rec = { sx, sy, sSize, sSize };
         
-        if (isLocked) {
-            DrawLineEx({sx + sSize * 0.3f, sy + sSize * 0.3f}, {sx + sSize * 0.7f, sy + sSize * 0.7f}, 1.0f * s_uiScale, ApplyAlpha(s_theme.panelBorder, 0.5f * alpha));
-            DrawLineEx({sx + sSize * 0.7f, sy + sSize * 0.3f}, {sx + sSize * 0.3f, sy + sSize * 0.7f}, 1.0f * s_uiScale, ApplyAlpha(s_theme.panelBorder, 0.5f * alpha));
+        auto ApplyAlpha = [&](Color c, float a) -> Color {
+            return { c.r, c.g, c.b, (unsigned char)((float)c.a * a) };
+        };
+
+        DrawRectangleRec(rec, ApplyAlpha(isHighlighted ? ApplyAlpha(s_theme.panelBorderHighlight, 0.2f) : s_theme.slotBackground, alpha));
+        
+        if (icon.id > 0) {
+            Rectangle source = {0, 0, (float)icon.width, (float)icon.height};
+            float pad = 4.0f * s_uiScale;
+            Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
+            
+            Color iconColor = WHITE;
+            if (!hasEnoughMana) iconColor = { 50, 50, 200, 255 }; 
+            else if (cooldownRatio > 0 && charges == 0) iconColor = ApplyAlpha(GRAY, 0.8f);
+            
+            DrawTexturePro(icon, source, dest, {0, 0}, 0.0f, ApplyAlpha(iconColor, alpha));
         }
-        // Inner shadow
-        DrawRectangleLinesEx({sx+1.0f*s_uiScale, sy+1.0f*s_uiScale, sSize-2.0f*s_uiScale, sSize-2.0f*s_uiScale}, 1.0f * s_uiScale, ApplyAlpha(BLACK, 0.3f * alpha));
+
+        if (cooldownRatio > 0.0f && charges == 0) {
+            float startAngle = -90.0f;
+            float endAngle = startAngle + (cooldownRatio * 360.0f);
+            DrawCircleSector({sx + sSize/2, sy + sSize/2}, sSize/2, startAngle, endAngle, 32, ApplyAlpha(BLACK, 0.6f * alpha));
+        }
+
+        if (keyLabel) DrawTextUI(font, keyLabel, x + 4, y + 4, 14, ApplyAlpha(s_theme.textSecondary, alpha));
+
+        if (manaCost > 0) {
+            char manaStr[16];
+            snprintf(manaStr, 16, "%.0f", manaCost);
+            DrawTextUI(font, manaStr, x + 4, y + size - 16, 12, ApplyAlpha(SKYBLUE, alpha));
+        }
+
+        if (maxCharges > 1) {
+            char chargeStr[16];
+            snprintf(chargeStr, 16, "%d", charges);
+            DrawTextUI(font, chargeStr, x + size - 14, y + size - 16, 14, ApplyAlpha(WHITE, alpha));
+        }
+
+        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(isHighlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder, alpha));
+    }
+
+    void UIRenderer::DrawBuffIcon(const Font& font, float x, float y, float size,
+                                 Texture2D icon, const char* text, float durationRatio, int stacks,
+                                 bool isDebuff, float alpha) {
+        float sx = x * s_uiScale;
+        float sy = y * s_uiScale;
+        float sSize = size * s_uiScale;
+
+        auto ApplyAlpha = [&](Color c, float a) -> Color {
+            return { c.r, c.g, c.b, (unsigned char)((float)c.a * a) };
+        };
+
+        Rectangle rec = { sx, sy, sSize, sSize };
+        DrawRectangleRec(rec, ApplyAlpha(s_theme.slotBackground, alpha));
+
+        if (icon.id > 0) {
+            Rectangle source = { 0, 0, (float)icon.width, (float)icon.height };
+            float pad = 2.0f * s_uiScale;
+            Rectangle dest = { sx + pad, sy + pad, sSize - pad * 2, sSize - pad * 2 };
+            DrawTexturePro(icon, source, dest, { 0, 0 }, 0.0f, ApplyAlpha(WHITE, alpha));
+        } else if (text && text[0] != '\0') {
+            float fontSize = 16.0f;
+            float sFontSize = fontSize * s_uiScale;
+            Vector2 textSize = IsFontValid(font) ? MeasureTextEx(font, text, sFontSize, 1.0f) : Vector2{(float)MeasureText(text, (int)sFontSize), sFontSize};
+            DrawTextUI(font, text, x + (size - textSize.x / s_uiScale) / 2.0f, y + (size - textSize.y / s_uiScale) / 2.0f, fontSize, ApplyAlpha(isDebuff ? RED : GREEN, alpha));
+        } else {
+            DrawRectangleRec(rec, ApplyAlpha(isDebuff ? RED : GREEN, 0.3f * alpha));
+        }
+
+        if (durationRatio > 0.0f) {
+            float startAngle = -90.0f;
+            float endAngle = startAngle + (durationRatio * 360.0f);
+            // Draw a semi-transparent ring instead of sector for cleaner look
+            DrawRing({sx + sSize/2, sy + sSize/2}, sSize/2 - 2.0f*s_uiScale, sSize/2, startAngle, endAngle, 16, ApplyAlpha(isDebuff ? RED : YELLOW, 0.4f * alpha));
+        }
+
+        if (stacks > 1) {
+            char stackStr[16];
+            snprintf(stackStr, 16, "%d", stacks);
+            DrawTextUI(font, stackStr, x + size - 12, y + size - 12, 12, ApplyAlpha(WHITE, alpha));
+        }
+
+        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(isDebuff ? RED : s_theme.panelBorder, alpha));
     }
 
     void UIRenderer::DrawTooltip(const Font& font, entt::registry& registry, entt::entity item, float alpha) {
+        if (!IsWindowReady()) return;
         auto* itemComp = registry.try_get<ItemComponent>(item);
         if (!itemComp) return;
-
-        struct TooltipLine {
-            std::string text;
-            Color color;
-            bool isSeparator = false;
-        };
 
         std::vector<TooltipLine> lines;
         lines.push_back({ GetItemCategoryString(*itemComp), s_theme.textSecondary });
         
-        if (itemComp->attack > 0) lines.push_back({ TextFormat("攻击力: %.0f", itemComp->attack), s_theme.textPrimary });
-        if (itemComp->defense > 0) lines.push_back({ TextFormat("护甲: %.0f", itemComp->defense), s_theme.textPrimary });
-        if (itemComp->bagCapacity > 0) lines.push_back({ TextFormat("容量: %d 格", itemComp->bagCapacity), s_theme.textPrimary });
+        char buffer[128];
+        if (itemComp->attack > 0) {
+            snprintf(buffer, sizeof(buffer), "攻击力: %.0f", itemComp->attack);
+            lines.push_back({ buffer, s_theme.textPrimary });
+        }
+        if (itemComp->defense > 0) {
+            snprintf(buffer, sizeof(buffer), "护甲: %.0f", itemComp->defense);
+            lines.push_back({ buffer, s_theme.textPrimary });
+        }
+        if (itemComp->bagCapacity > 0) {
+            snprintf(buffer, sizeof(buffer), "容量: %d 格", itemComp->bagCapacity);
+            lines.push_back({ buffer, s_theme.textPrimary });
+        }
         
-        // Implicits (Base Stats) - Hide [Tx] text
         for (const auto& aff : itemComp->implicits) {
             lines.push_back({ GetAffixDescription(aff, false), GetAffixTierColor(aff.tier) });
         }
@@ -240,13 +288,12 @@ namespace NoMoreDay {
             lines.push_back({ "---", WHITE, true });
         }
 
-        // Affixes (Random Mods) - Show [Tx] text
         for (const auto& aff : itemComp->affixes) {
             lines.push_back({ GetAffixDescription(aff, true), GetAffixTierColor(aff.tier) });
         }
 
         if (!itemComp->description.empty()) {
-            lines.push_back({ " ", WHITE }); // Spacer
+            lines.push_back({ " ", WHITE }); 
             lines.push_back({ itemComp->description, s_theme.textPrimary });
         }
         
@@ -273,32 +320,277 @@ namespace NoMoreDay {
         float sW = w * s_uiScale;
         float sH = h * s_uiScale;
 
-        if (x + sW > GetScreenWidth()) x -= (sW + 20 * s_uiScale);
-        if (y + sH > GetScreenHeight()) y -= (sH + 20 * s_uiScale);
+        if (IsWindowReady()) {
+            if (x + sW > (float)GetScreenWidth()) x -= (sW + 20 * s_uiScale);
+            if (y + sH > (float)GetScreenHeight()) y -= (sH + 20 * s_uiScale);
+        }
 
         DrawRectangle((int)x, (int)y, (int)sW, (int)sH, Fade(s_theme.panelBackground, 0.95f * alpha));
         DrawRectangleLinesEx({x, y, sW, sH}, 1.0f * s_uiScale, Fade(GetRarityColor(itemComp->rarity), alpha));
         
-        auto DrawTextScreen = [&](const char* t, float sx, float sy, float size, Color c) {
-            float sSize = size * s_uiScale;
-             if (IsFontValid(font)) {
-                DrawTextEx(font, t, { sx, sy }, sSize, 1.0f * s_uiScale, Fade(c, alpha));
-            } else {
-                DrawText(t, (int)sx, (int)sy, (int)sSize, Fade(c, alpha));
-            }
-        };
-
-        DrawTextScreen(itemComp->name.c_str(), x + padding * s_uiScale, y + padding * s_uiScale, titleSize, GetRarityColor(itemComp->rarity));
+        DrawTextUI(font, itemComp->name.c_str(), (x + padding * s_uiScale) / s_uiScale, (y + padding * s_uiScale) / s_uiScale, titleSize, GetRarityColor(itemComp->rarity), alpha);
         float curSY = y + (padding + titleSize + 5.0f) * s_uiScale;
-        float sLineHeight = lineHeight * s_uiScale;
 
         for (const auto& line : lines) {
             if (line.isSeparator) {
-                DrawLineEx({x + padding*s_uiScale, curSY + sLineHeight/2}, {x + sW - padding*s_uiScale, curSY + sLineHeight/2}, 1.0f*s_uiScale, Fade(s_theme.panelBorder, alpha));
+                DrawLineEx({x + padding*s_uiScale, curSY + lineHeight*s_uiScale/2}, {x + sW - padding*s_uiScale, curSY + lineHeight*s_uiScale/2}, 1.0f*s_uiScale, Fade(s_theme.panelBorder, alpha));
             } else if (line.text != " ") {
-                DrawTextScreen(line.text.c_str(), x + padding*s_uiScale, curSY, fontSize, line.color);
+                DrawTextUI(font, line.text.c_str(), (x + padding*s_uiScale)/s_uiScale, curSY/s_uiScale, fontSize, line.color, alpha);
             }
-            curSY += sLineHeight;
+            curSY += lineHeight * s_uiScale;
+        }
+    }
+
+    std::vector<UIRenderer::TooltipLine> UIRenderer::GetSkillTooltipLines(entt::registry& registry, uint32_t skillId) {
+        const auto* skill = SkillRegistry::Get().GetSkill(skillId);
+        if (!skill) return {};
+
+        std::vector<TooltipLine> lines;
+        lines.push_back({ skill->name_key, YELLOW });
+
+        float minDmg = 0, maxDmg = 0;
+        float astroIncBonus = 0.0f;
+        float astroMoreBonus = 1.0f;
+        
+        auto playerView = registry.view<PlayerTag, CombatStats>();
+        if (playerView.begin() != playerView.end()) {
+            entt::entity player = playerView.front();
+            const auto& stats = playerView.get<CombatStats>(player);
+            
+            float avgWeapon = (stats.min_weapon_damage + stats.max_weapon_damage) * 0.5f;
+            DamagePool pool;
+            pool.Add(Tag::Physical, avgWeapon * skill->weapon_damage_mult + skill->base_damage);
+            
+            auto result = DamagePipeline::Calculate(registry, player, entt::null, skillId, pool, Tag::Hit);
+            minDmg = result.total_damage * 0.9f;
+            maxDmg = result.total_damage * 1.1f;
+
+            if (auto* astro = registry.try_get<AstrolabeComponent>(player)) {
+                Tag primary_type = Tag::Physical;
+                for (int i = 0; i < 6; ++i) {
+                    Tag t = static_cast<Tag>(1ULL << i);
+                    if (HasTag(skill->tags, t)) {
+                        primary_type = t;
+                        break;
+                    }
+                }
+
+                StatType dmg_stat = StatType::PhysicalDamage;
+                switch (primary_type) {
+                    case Tag::Physical:  dmg_stat = StatType::PhysicalDamage; break;
+                    case Tag::Fire:      dmg_stat = StatType::FireDamage; break;
+                    case Tag::Cold:      dmg_stat = StatType::ColdDamage; break;
+                    case Tag::Lightning: dmg_stat = StatType::LightningDamage; break;
+                    case Tag::Poison:    dmg_stat = StatType::PoisonDamage; break;
+                    case Tag::Shadow:    dmg_stat = StatType::ShadowDamage; break;
+                    default: break;
+                }
+
+                const auto& reg = AstrolabeRegistry::Get();
+                for (uint32_t node_id : astro->activated_nodes) {
+                    if (const auto* node = reg.GetNode(node_id)) {
+                        for (const auto& mod : node->modifiers) {
+                            if (mod.type == dmg_stat && (mod.required_tags == Tag::None || HasTag(skill->tags, mod.required_tags))) {
+                                if (mod.mode == ModifierMode::PercentAdd) {
+                                    astroIncBonus += mod.value;
+                                } else if (mod.mode == ModifierMode::PercentMult) {
+                                    astroMoreBonus *= (1.0f + mod.value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        char buffer[128];
+        if (minDmg > 0) {
+            snprintf(buffer, sizeof(buffer), "预估伤害: %.0f - %.0f", minDmg, maxDmg);
+            lines.push_back({ buffer, SKYBLUE });
+        }
+
+        if (astroIncBonus > 0.0f) {
+            snprintf(buffer, sizeof(buffer), "星盘伤害增加: +%.0f%% (Increased)", astroIncBonus * 100.0f);
+            lines.push_back({ buffer, LIME });
+        }
+
+        if (astroMoreBonus > 1.0f) {
+            snprintf(buffer, sizeof(buffer), "星盘总伤害额外: +%.0f%% (More)", (astroMoreBonus - 1.0f) * 100.0f);
+            lines.push_back({ buffer, ORANGE });
+        }
+
+        snprintf(buffer, sizeof(buffer), "法力消耗: %.0f", skill->mana_cost);
+        lines.push_back({ buffer, s_theme.textSecondary });
+
+        if (skill->cooldown > 0) {
+            snprintf(buffer, sizeof(buffer), "冷却时间: %.1fs", skill->cooldown);
+            lines.push_back({ buffer, s_theme.textSecondary });
+        }
+
+        lines.push_back({ " ", WHITE });
+        lines.push_back({ skill->desc_key, s_theme.textPrimary });
+
+        return lines;
+    }
+
+    void UIRenderer::DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha) {
+        std::vector<TooltipLine> lines = GetSkillTooltipLines(registry, skillId);
+        if (lines.empty()) return;
+
+        float padding = 10.0f;
+        float titleSize = 22.0f;
+        float fontSize = 18.0f;
+        float descSize = 16.0f;
+
+        float maxW = 320.0f; 
+        
+        // Dynamic height calculation
+        float h = padding * 2;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            float size = (i == 0) ? titleSize : fontSize;
+            if (i >= lines.size() - 1) size = descSize; // Description is last
+            h += (size + 4);
+        }
+
+        Vector2 m = { 0, 0 };
+        int screenW = 800;
+        int screenH = 600;
+
+        if (IsWindowReady()) {
+            m = GetMousePosition();
+            screenW = GetScreenWidth();
+            screenH = GetScreenHeight();
+        }
+
+        float x = m.x + 15 * s_uiScale;
+        float y = m.y + 15 * s_uiScale;
+        float sw = (maxW + padding * 2) * s_uiScale;
+        float sh = h * s_uiScale;
+
+        if (x + sw > (float)screenW) x -= (sw + 20 * s_uiScale);
+        if (y + sh > (float)screenH) y -= (sh + 20 * s_uiScale);
+
+        DrawRectangle((int)x, (int)y, (int)sw, (int)sh, Fade(s_theme.panelBackground, 0.95f * alpha));
+        DrawRectangleLinesEx({x, y, sw, sh}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, alpha));
+
+        float curSY = y + padding * s_uiScale;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            float size = (i == 0) ? titleSize : fontSize;
+            if (i >= lines.size() - 1) size = descSize;
+
+            if (lines[i].text != " ") {
+                DrawTextScaled(font, lines[i].text.c_str(), (x + padding * s_uiScale) / s_uiScale, curSY / s_uiScale, size, maxW, lines[i].color, alpha);
+            }
+            curSY += (size + 4) * s_uiScale;
+        }
+    }
+
+    static std::string GetStatModifierDescription(const StatModifier& mod) {
+        char buffer[128];
+        const char* sign = mod.value >= 0 ? "+" : "";
+        const char* suffix = "";
+        float displayValue = mod.value;
+
+        if (mod.mode == ModifierMode::PercentAdd) {
+            suffix = "%";
+        } else if (mod.mode == ModifierMode::PercentMult) {
+            sign = "x";
+            displayValue = 1.0f + mod.value;
+            suffix = "";
+        }
+
+        const char* statName = "属性";
+        switch (mod.type) {
+            case StatType::Strength: statName = "力量"; break;
+            case StatType::Dexterity: statName = "敏捷"; break;
+            case StatType::Intelligence: statName = "智力"; break;
+            case StatType::Vitality: statName = "体质"; break;
+            case StatType::MaxHealth: statName = "最大生命值"; break;
+            case StatType::MaxMana: statName = "最大法力值"; break;
+            case StatType::MoveSpeed: statName = "移动速度"; break;
+            case StatType::Armor: statName = "护甲"; break;
+            case StatType::PhysicalDamage: statName = "物理伤害"; break;
+            case StatType::FireDamage: statName = "火焰伤害"; break;
+            case StatType::ColdDamage: statName = "冰霜伤害"; break;
+            case StatType::LightningDamage: statName = "闪电伤害"; break;
+            case StatType::PoisonDamage: statName = "毒素伤害"; break;
+            case StatType::ShadowDamage: statName = "暗影伤害"; break;
+            case StatType::CritChance: statName = "暴击率"; break;
+            case StatType::CritDamage: statName = "暴击伤害"; break;
+            case StatType::AttackSpeed: statName = "攻击速度"; break;
+            case StatType::CastSpeed: statName = "施法速度"; break;
+            case StatType::Accuracy: statName = "命中率"; break;
+            case StatType::ManaOnHit: statName = "击中回蓝"; break;
+            case StatType::ResistPhysical: statName = "物理抗性"; break;
+            case StatType::ResistFire: statName = "火焰抗性"; break;
+            case StatType::ResistCold: statName = "冰霜抗性"; break;
+            case StatType::ResistLightning: statName = "闪电抗性"; break;
+            case StatType::ResistPoison: statName = "毒素抗性"; break;
+            case StatType::ResistShadow: statName = "暗影抗性"; break;
+            case StatType::ResistAll: statName = "全抗性"; break;
+            default: break;
+        }
+
+        if (mod.mode == ModifierMode::PercentMult) {
+            snprintf(buffer, sizeof(buffer), "%s%.2f %s", sign, displayValue, statName);
+        } else {
+            snprintf(buffer, sizeof(buffer), "%s%.0f%s %s", sign, displayValue, suffix, statName);
+        }
+        return std::string(buffer);
+    }
+
+    void UIRenderer::DrawBuffTooltip(const Font& font, const BuffEffect& effect, float alpha) {
+        const auto& visual = BuffRegistry::GetVisualData(effect.type);
+        if (visual.name == "Unknown") return;
+
+        std::vector<TooltipLine> lines;
+        
+        Color titleColor = visual.is_debuff ? RED : GREEN;
+        std::string title = visual.name;
+        if (effect.stacks > 1) title += TextFormat(" (x%d)", effect.stacks);
+        lines.push_back({ title, titleColor });
+
+        lines.push_back({ visual.description, s_theme.textPrimary });
+
+        for (const auto& mod : effect.modifiers) {
+            lines.push_back({ GetStatModifierDescription(mod), titleColor });
+        }
+
+        if (effect.duration > 0 && effect.remaining < 3600.0f) {
+            char timeBuf[64];
+            snprintf(timeBuf, sizeof(timeBuf), "剩余时间: %.1fs", effect.remaining);
+            lines.push_back({ timeBuf, s_theme.textSecondary });
+        }
+
+        float padding = 10.0f;
+        float fontSize = 16.0f;
+        float titleSize = 18.0f;
+
+        float maxW = 220.0f;
+        float h = padding * 2;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            h += (i == 0 ? titleSize : fontSize) + 4;
+        }
+
+        Vector2 m = GetMousePosition();
+        float x = m.x + 15 * s_uiScale;
+        float y = m.y + 15 * s_uiScale;
+        float sw = (maxW + padding * 2) * s_uiScale;
+        float sh = h * s_uiScale;
+
+        if (IsWindowReady()) {
+            if (x + sw > (float)GetScreenWidth()) x -= (sw + 20 * s_uiScale);
+            if (y + sh > (float)GetScreenHeight()) y -= (sh + 20 * s_uiScale);
+        }
+
+        DrawRectangle((int)x, (int)y, (int)sw, (int)sh, Fade(s_theme.panelBackground, 0.95f * alpha));
+        DrawRectangleLinesEx({x, y, sw, sh}, 1.0f * s_uiScale, Fade(titleColor, alpha));
+
+        float curSY = y + padding * s_uiScale;
+        for (size_t i = 0; i < lines.size(); ++i) {
+            float size = (i == 0) ? titleSize : fontSize;
+            DrawTextScaled(font, lines[i].text.c_str(), (x + padding * s_uiScale) / s_uiScale, curSY / s_uiScale, size, maxW, lines[i].color, alpha);
+            curSY += (size + 4) * s_uiScale;
         }
     }
 
@@ -314,8 +606,8 @@ namespace NoMoreDay {
             return;
         }
 
-        float w = 180.0f; // Wider
-        float btnH = 36.0f; // Taller buttons
+        float w = 180.0f; 
+        float btnH = 36.0f; 
         int btnCount = 0;
 
         bool showEquip = false;
@@ -336,9 +628,9 @@ namespace NoMoreDay {
         if (showUse) btnCount++;
         if (showUnequip) btnCount++;
         if (showDrop) btnCount++;
-        btnCount++; // Cancel
+        btnCount++; 
 
-        float h = btnCount * btnH + 20.0f; // Extra padding
+        float h = btnCount * btnH + 20.0f; 
         
         float sx = uiContext.contextMenuPos.x;
         float sy = uiContext.contextMenuPos.y;
@@ -346,14 +638,11 @@ namespace NoMoreDay {
         float sh = h * s_uiScale;
         float sBtnH = btnH * s_uiScale;
 
-        // Ensure it stays within screen bounds
-        if (sx + sw > GetScreenWidth()) sx -= sw;
-        if (sy + sh > GetScreenHeight()) sy -= sh;
+        if (sx + sw > (float)GetScreenWidth()) sx -= sw;
+        if (sy + sh > (float)GetScreenHeight()) sy -= sh;
 
-        // Background & Border
         DrawRectangle(sx, sy, sw, sh, Fade(s_theme.panelBackground, 0.98f * alpha));
         DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, alpha));
-        // Accent line
         DrawLineEx({sx, sy}, {sx + sw, sy}, 2.0f * s_uiScale, Fade(s_theme.panelBorderHighlight, alpha));
 
         float curSY = sy + 10.0f * s_uiScale;
@@ -396,7 +685,6 @@ namespace NoMoreDay {
                         if (emptySlot != -1) {
                             InventorySystem::equipBag(registry, player, uiContext.contextMenuItem, emptySlot);
                         } else {
-                            // No empty slot, swap with first? Or show message.
                             InventorySystem::equipBag(registry, player, uiContext.contextMenuItem, 0);
                         }
                     }
@@ -432,7 +720,6 @@ namespace NoMoreDay {
             }
         }
         
-        // Separator before cancel if there were buttons
         if (btnCount > 1) {
              DrawLineEx({sx + 10*s_uiScale, curSY + 2*s_uiScale}, {sx + sw - 10*s_uiScale, curSY + 2*s_uiScale}, 1.0f*s_uiScale, Fade(s_theme.panelBorder, 0.3f*alpha));
              curSY += 5*s_uiScale;
@@ -454,29 +741,19 @@ namespace NoMoreDay {
         
         const char* text = uiContext.messageBoxText;
         float fontSize = 20;
-        int textW = MeasureText(text, (int)fontSize); 
-        if (IsFontValid(font)) {
-            textW = (int)MeasureTextEx(font, text, fontSize, 1.0f).x;
-        }
+        int textW = IsFontValid(font) ? (int)MeasureTextEx(font, text, fontSize * s_uiScale, 1.0f).x : MeasureText(text, (int)(fontSize * s_uiScale));
         
-        float w = textW + 60.0f;
+        float w = (textW / s_uiScale) + 60.0f;
         float h = 50.0f;
-        float screenW = (float)GetScreenWidth();
-        float screenH = (float)GetScreenHeight();
         float sw = w * s_uiScale;
         float sh = h * s_uiScale;
-        float sx = (screenW - sw) / 2.0f;
-        float sy = (screenH - sh) / 2.0f;
+        float sx = ((float)GetScreenWidth() - sw) / 2.0f;
+        float sy = ((float)GetScreenHeight() - sh) / 2.0f;
         
         DrawRectangle((int)sx, (int)sy, (int)sw, (int)sh, Fade(s_theme.panelBackground, 0.9f * alpha));
         DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, Fade(s_theme.danger, alpha));
         
-        float sSize = fontSize * s_uiScale;
-        if (IsFontValid(font)) {
-            DrawTextEx(font, text, { sx + 30*s_uiScale, sy + 15*s_uiScale }, sSize, 1.0f * s_uiScale, Fade(s_theme.textPrimary, alpha));
-        } else {
-             DrawText(text, (int)(sx + 30*s_uiScale), (int)(sy + 15*s_uiScale), (int)sSize, Fade(s_theme.textPrimary, alpha));
-        }
+        DrawTextUI(font, text, (sx + 30*s_uiScale)/s_uiScale, (sy + 15*s_uiScale)/s_uiScale, fontSize, s_theme.textPrimary, alpha);
     }
 
-}
+} // namespace NoMoreDay

@@ -3,6 +3,7 @@
 #include "../components/PlayerState.hpp"
 #include "../components/Stats.hpp"
 #include "../components/EnemyComponent.hpp"
+#include "../components/Buff.hpp"
 #include "ProgressionSystem.hpp"
 #include "../tools/Logger.hpp"
 #include <vector>
@@ -65,6 +66,22 @@ void XPAwardingSystem::update(entt::registry& registry) {
                     ProgressionSystem::AddExperience(registry, killer, xpAmount);
                     LOG_INFO("XP System: Player {} gained {:.1f} XP from target {} (Lvl {})", 
                         (uint32_t)killer, xpAmount, (uint32_t)entity, targetLevel);
+
+                    // Add Bloodlust Buff
+                    auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(killer);
+                    BuffEffect bl;
+                    bl.id = "bloodlust";
+                    bl.name = "嗜血";
+                    bl.description = "击杀后获得，提升攻速";
+                    bl.type = BuffType::Bloodlust;
+                    bl.duration = 5.0f;
+                    bl.remaining = 5.0f;
+                    bl.stacks = 1;
+                    bl.max_stacks = 5;
+                    bl.is_debuff = false;
+                    bl.modifiers.push_back({ NoMoreDay::StatType::AttackSpeed, NoMoreDay::ModifierMode::PercentAdd, 5.0f }); // +5% Attack Speed per stack
+                    effects.AddOrRefresh(bl);
+                    registry.get_or_emplace<StatsDirty>(killer);
                 }
             }
         }

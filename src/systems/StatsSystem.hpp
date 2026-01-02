@@ -18,6 +18,9 @@ public:
     // @brief 系统更新：为所有带有 StatsDirty 标签的实体重新计算属性。
     //
     static void update(entt::registry& registry);
+
+    // @brief 更新所有实体的活跃 Buff 生命周期。
+    static void UpdateBuffs(entt::registry& registry, float dt);
 };
 
 } // namespace NoMoreDay

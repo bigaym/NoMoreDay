@@ -9,7 +9,9 @@
       "tags": ["Physical", "Melee", "Attack", "Movement", "Hit"],
       "base_damage": 10.0,
       "weapon_damage_mult": 1.2,
-      "added_damage_effectiveness": 1.0
+      "added_damage_effectiveness": 1.0,
+      "charge_count": 1,
+      "icon_id": 0
     },
     {
       "id": 2,
@@ -20,7 +22,9 @@
       "tags": ["Physical", "Projectile", "Attack", "Hit"],
       "base_damage": 25.0,
       "weapon_damage_mult": 1.5,
-      "added_damage_effectiveness": 1.2
+      "added_damage_effectiveness": 1.2,
+      "charge_count": 3,
+      "icon_id": 0
     }
   ]
 }

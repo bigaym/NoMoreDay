@@ -1,35 +1,42 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "doctest.h"
 #include "TestCommon.hpp"
+#include <raylib.h>
 
 using namespace NoMoreDay;
 
-#include "ProgressionSystemTest.hpp"
-#include "AffixSystemTest.hpp"
-#include "VisualEffectTest.hpp"
-#include "UISystemTest.hpp"
-#include "CombatSystemTest.hpp"
-#include "DropSystemTest.hpp"
-#include "EquipmentSystemTest.hpp"
-#include "ItemModificationTest.hpp"
-#include "ItemStatsTest.hpp"
-#include "ItemSystemTest.hpp"
-#include "LootFilterTest.hpp"
-#include "RenderSystemTest.hpp"
 #include "StatsSystemTest.hpp"
-#include "AssetLoadingSystemTest.hpp"
-#include "TagSystemTest.hpp"
+#include "ItemSystemTest.hpp"
+#include "ItemStatsTest.hpp"
+#include "ItemModificationTest.hpp"
+#include "EquipmentSystemTest.hpp"
+#include "DropSystemTest.hpp"
+#include "LootFilterTest.hpp"
+#include "ProgressionSystemTest.hpp"
+#include "CombatSystemTest.hpp"
+#include "DamagePipelineTest.hpp"
+#include "SkillSystemTest.hpp"
+#include "BuffRegistryTest.hpp"
+#include "BuffComponentTest.hpp"
 #include "AstrolabeRegistryTest.hpp"
 #include "AstrolabeSystemTest.hpp"
-#include "SkillSystemTest.hpp"
-#include "DamagePipelineTest.hpp"
 #include "AstrolabeUITest.hpp"
-#include "BuffComponentTest.hpp"
-#include "BuffRegistryTest.hpp"
+#include "UISystemTest.hpp"
+#include "RenderSystemTest.hpp"
+#include "AssetLoadingSystemTest.hpp"
+#include "TagSystemTest.hpp"
+#include "VisualEffectTest.hpp"
+#include "AffixSystemTest.hpp"
 
 int main(int argc, char** argv) {
+    // Some Raylib functions require a window context even if not drawing
+    InitWindow(100, 100, "Headless Tests");
+    SetTargetFPS(60);
+
     doctest::Context context;
     context.applyCommandLine(argc, argv);
-    return context.run();
-}
+    int res = context.run();
 
+    CloseWindow();
+    return res;
+}

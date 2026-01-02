@@ -11,6 +11,7 @@ struct BuffVisualData {
     Color border_color;
     std::string name;
     std::string description;
+    bool is_debuff = false;
 };
 
 class BuffRegistry {

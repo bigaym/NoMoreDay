@@ -9,6 +9,10 @@
 #include "../components/PlayerState.hpp"
 #include "../components/InventoryComponent.hpp"
 #include "../components/UIAnimationComponent.hpp"
+#include "../components/SkillSystem.hpp"
+#include "../components/Buff.hpp"
+#include "../core/SkillRegistry.hpp"
+#include "../core/BuffRegistry.hpp"
 #include "../core/LevelManager.hpp"
 #include "../systems/InventorySystem.hpp"
 #include "../systems/ProgressionSystem.hpp"
@@ -240,6 +244,48 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
             registry.get<ItemComponent>(bag).name = "破烂的背包";
             registry.get<ItemComponent>(bag).bagCapacity = 40;
             InventorySystem::pickUpItem(registry, view.front(), bag);
+            
+            // Test Skills
+            auto& active = registry.get_or_emplace<ActiveSkillsComponent>(view.front());
+            active.slots[0] = { 1, 0.0f, 1 }; // Skill 1: 1 charge
+            active.slots[1] = { 2, 0.0f, 3 }; // Skill 2: 3 charges
+            
+            // Skill 2 in JSON has 2s cooldown. Let's make it have 3 charges for testing
+            // Actually I should update the JSON or the component after loading.
+            // For now, I'll just set it to 1/1.
+            
+            // Test Buff
+            auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(view.front());
+            effects.effects.clear();
+            
+            // Power Boost: +10% Phys Damage per stack
+            BuffEffect pb;
+            pb.id = "test_power"; pb.name = "力量爆发"; pb.description = "提升攻击力";
+            pb.type = BuffType::PowerBoost; pb.duration = 30.0f; pb.remaining = 30.0f;
+            pb.stacks = 3; pb.max_stacks = 10; pb.is_debuff = false;
+            pb.modifiers.push_back({ StatType::PhysicalDamage, ModifierMode::PercentAdd, 10.0f });
+            effects.AddOrRefresh(pb);
+
+            // Speed Up: +20% Move Speed
+            BuffEffect spd;
+            spd.id = "test_speed"; spd.name = "疾风步"; spd.description = "提升移动速度";
+            spd.type = BuffType::SpeedUp; spd.duration = 15.0f; spd.remaining = 15.0f;
+            spd.stacks = 1; spd.max_stacks = 1; spd.is_debuff = false;
+            spd.modifiers.push_back({ StatType::MoveSpeed, ModifierMode::PercentAdd, 20.0f });
+            effects.AddOrRefresh(spd);
+
+            // Stun: -100% Move Speed
+            BuffEffect stn;
+            stn.id = "test_stun"; stn.name = "眩晕"; stn.description = "无法行动";
+            stn.type = BuffType::Stun; stn.duration = 2.0f; stn.remaining = 2.0f;
+            stn.stacks = 1; stn.max_stacks = 1; stn.is_debuff = true;
+            stn.modifiers.push_back({ StatType::MoveSpeed, ModifierMode::PercentAdd, -100.0f });
+            effects.AddOrRefresh(stn);
+
+            // Poison: Just a visual debuff for now
+            effects.effects.push_back({ "test_poison", "剧毒", "持续受到伤害", BuffType::Poison, 5.0f, 5.0f, 10, 10, true });
+            
+            registry.emplace_or_replace<StatsDirty>(view.front());
             s_hasGivenTestItems = true;
         }
     }
@@ -264,17 +310,24 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     State.isMouseOverUI = false;
     SetMouseCursor(MOUSE_CURSOR_DEFAULT);
     State.hoveredItem = entt::null;
+    State.hoveredSkillSlot = -1;
+    State.hoveredBuffIdx = -1;
 
     // 1. Draw Subsystems (Passed logic coordinates will be scaled by UIRenderer)
-    if (State.inventoryAlpha > 0.0f) UIInventory::Draw(registry);
     UIMinimap::Draw(registry, levelManager);
+    if (State.inventoryAlpha > 0.0f) UIInventory::Draw(registry);
     if (State.characterPanelAlpha > 0.0f) UICharacter::Draw(registry);
     UIAstrolabe::Draw(registry);
 
-    // 2. Ground Interaction
+    // 2. HUD (Always on top of panels if requested, or keep HUD accessible)
+    DrawSkillHotbar(registry);
+    DrawBuffs(registry);
+
+    // 3. Ground Interaction highlights (drawn below overlays)
     if (State.hoveredItem == entt::null) {
+        // ... (rest of ground interaction logic remains same, just highlighting)
         auto groundItemView = registry.view<ItemComponent, Position>();
-        Vector2 mouseLogicPos = GetMousePositionLogic(); // Logic Space
+        Vector2 mouseLogicPos = GetMousePositionLogic(); 
         bool altHeld = IsKeyDown(KEY_LEFT_ALT);
         
         Vector2 playerPos2D = {0, 0};
@@ -297,10 +350,9 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
             const auto& pos = groundItemView.get<Position>(entity);
             const auto& item = groundItemView.get<ItemComponent>(entity);
 
-            Vector2 screenPos = GetWorldToScreen2D({pos.x, pos.y}, camera); // Screen Space
-            Vector2 screenPosLogic = { screenPos.x / scale, screenPos.y / scale }; // Logic Space
+            Vector2 screenPos = GetWorldToScreen2D({pos.x, pos.y}, camera); 
+            Vector2 screenPosLogic = { screenPos.x / scale, screenPos.y / scale }; 
 
-            // Calculate Label Rectangle in Logic Space
             float labelScale = 1.0f;
             if (filterResult) labelScale = filterResult->scale;
             float fontSize = 18.0f * labelScale;
@@ -313,14 +365,11 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
                 textSize.y + 4 
             };
 
-            // Interaction Check: Circle around item OR the Label Rectangle
             bool hovered = CheckCollisionPointCircle(mouseLogicPos, screenPosLogic, 30.0f) || 
                            CheckCollisionPointRec(mouseLogicPos, labelRect);
 
             if (hovered) {
                 State.hoveredItem = entity;
-                
-                // Visual Highlight for the label
                 DrawRectangleLinesEx({labelRect.x * scale, labelRect.y * scale, labelRect.width * scale, labelRect.height * scale}, 1.0f * scale, Fade(WHITE, 0.8f));
                 
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && playerEntity != entt::null) {
@@ -328,7 +377,7 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
                     float dy = pos.y - playerPos2D.y;
                     float distSq = dx*dx + dy*dy;
 
-                    if (distSq <= 180.0f * 180.0f) { // Slightly increased pickup range for convenience
+                    if (distSq <= 180.0f * 180.0f) { 
                         if (InventorySystem::pickUpItem(registry, playerEntity, entity)) {
                             State.hoveredItem = entt::null;
                         } else {
@@ -347,10 +396,27 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
         }
     }
 
-    // 3. Global Overlays
+    // 4. Overlays (Drawn LAST to be on very top)
     if (State.hoveredItem != entt::null && registry.valid(State.hoveredItem)) {
         SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
         DrawTooltip(registry, State.hoveredItem);
+    } else if (State.hoveredSkillSlot != -1) {
+        auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
+        if (view.begin() != view.end()) {
+            const auto& active = view.get<ActiveSkillsComponent>(view.front());
+            uint32_t skillId = active.slots[State.hoveredSkillSlot].id;
+            if (skillId != 0) {
+                UIRenderer::DrawSkillTooltip(State.globalFont, registry, skillId, 1.0f);
+            }
+        }
+    } else if (State.hoveredBuffIdx != -1) {
+        auto view = registry.view<PlayerTag, ActiveEffectsComponent>();
+        if (view.begin() != view.end()) {
+            const auto& effects = view.get<ActiveEffectsComponent>(view.front());
+            if (State.hoveredBuffIdx < (int)effects.effects.size()) {
+                UIRenderer::DrawBuffTooltip(State.globalFont, effects.effects[State.hoveredBuffIdx], 1.0f);
+            }
+        }
     }
 
     if (State.showContextMenu) DrawContextMenu(registry);
@@ -359,14 +425,12 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
 
     // Dragging Phantom
     if (State.draggedItem != entt::null) {
-        Vector2 mPos = GetMousePositionLogic(); // Logic Space
-        float size = 64.0f; // Logic Size - Increased from 44.0f for better visibility
-        // DrawSlot scales input X/Y/Size. We pass Logic Coords.
-        // Subtracting half the size to center the icon on the mouse tip.
+        Vector2 mPos = GetMousePositionLogic(); 
+        float size = 64.0f; 
         UIRenderer::DrawSlot(State.globalFont, registry, mPos.x - size * 0.5f, mPos.y - size * 0.5f, size, State.draggedItem, nullptr, true);
         
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            State.draggedItem = entt::null; // Release
+            State.draggedItem = entt::null; 
         }
     }
 }
@@ -413,6 +477,122 @@ void UISystem::DrawQuantityPopup(entt::registry& registry) {
          DrawRectangle((int)x, (int)y, 200, 100, DARKGRAY);
          DrawText("Quantity Popup (TODO)", (int)(x+10), (int)(y+10), 20, WHITE);
          if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) State.showQuantityPopup = false;
+    }
+}
+
+void UISystem::DrawSkillHotbar(entt::registry& registry) {
+    auto view = registry.view<PlayerTag, ActiveSkillsComponent, CombatStats>();
+    if (view.begin() == view.end()) return;
+
+    entt::entity player = view.front();
+    const auto& active = view.get<ActiveSkillsComponent>(player);
+    const auto& stats = view.get<CombatStats>(player);
+
+    float slotSize = 54.0f;
+    float padding = 8.0f;
+    float totalW = (slotSize * 5) + (padding * 4);
+    
+    // Logic Position: Bottom Center
+    float startX = (UI_REF_WIDTH - totalW) / 2.0f;
+    float startY = UI_REF_HEIGHT - slotSize - 20.0f;
+
+    const char* labels[] = { "Q", "W", "E", "R", "RMB" };
+
+    for (int i = 0; i < 5; ++i) {
+        const auto& slot = active.slots[i];
+        float x = startX + i * (slotSize + padding);
+        float y = startY;
+
+        Texture2D icon = { 0 };
+        float cooldownRatio = 0.0f;
+        float manaCost = 0.0f;
+        int maxCharges = 1;
+        bool hasEnoughMana = true;
+
+        if (slot.id != 0) {
+            const auto* skillData = SkillRegistry::Get().GetSkill(slot.id);
+            if (skillData) {
+                if (skillData->icon_id != 0) {
+                    icon = AssetLoadingSystem::GetTexture(skillData->icon_id);
+                }
+                
+                manaCost = skillData->mana_cost;
+                maxCharges = skillData->max_charges;
+                hasEnoughMana = stats.mana >= manaCost;
+                
+                if (skillData->cooldown > 0) {
+                    cooldownRatio = std::clamp(slot.cooldown / skillData->cooldown, 0.0f, 1.0f);
+                }
+            }
+        }
+
+        bool isHovered = CheckCollisionPointRec(GetMousePositionLogic(), { x, y, slotSize, slotSize });
+        if (isHovered) {
+            State.hoveredSkillSlot = i;
+            State.isMouseOverUI = true;
+        }
+
+        NoMoreDay::UIRenderer::DrawSkillSlot(State.globalFont, x, y, slotSize, 
+                                 icon, labels[i], cooldownRatio, manaCost, 
+                                 slot.current_charges, maxCharges,
+                                 hasEnoughMana, isHovered, 1.0f);
+    }
+}
+
+void UISystem::DrawBuffs(entt::registry& registry) {
+    auto view = registry.view<PlayerTag, ActiveEffectsComponent>();
+    if (view.begin() == view.end()) return;
+
+    entt::entity player = view.front();
+    const auto& effects = view.get<ActiveEffectsComponent>(player);
+    if (effects.effects.empty()) return;
+
+    // Hotbar Metrics (Sync with DrawSkillHotbar)
+    float slotSize = 54.0f;
+    float slotPadding = 8.0f;
+    float hotbarW = (slotSize * 5) + (slotPadding * 4);
+    float hotbarStartX = (UI_REF_WIDTH - hotbarW) / 2.0f;
+    float hotbarStartY = UI_REF_HEIGHT - slotSize - 20.0f;
+
+    // Buff Metrics
+    float iconSize = 36.0f; 
+    float padding = 4.0f;
+    int maxPerRow = (int)std::floor((hotbarW + padding) / (iconSize + padding));
+    if (maxPerRow < 1) maxPerRow = 1;
+
+    int totalBuffs = (int)effects.effects.size();
+
+    for (int i = 0; i < totalBuffs; ++i) {
+        // row 0 is bottom-most row (closest to hotbar)
+        int row = i / maxPerRow;
+        int col = i % maxPerRow;
+        
+        float x = hotbarStartX + col * (iconSize + padding);
+        // Calculate y going upwards from hotbarStartY
+        float y = hotbarStartY - 10.0f - (row + 1) * (iconSize + padding);
+
+        const auto& effect = effects.effects[i];
+        const auto& visual = BuffRegistry::GetVisualData(effect.type);
+        Texture2D icon = { 0 };
+        const char* iconText = visual.icon_text.c_str();
+        bool isDebuff = visual.is_debuff;
+
+        if (visual.name != "Unknown") {
+            // Placeholder: real icon lookup would go here
+        }
+
+        float ratio = 0.0f;
+        if (effect.duration > 0) {
+            ratio = std::clamp(effect.remaining / effect.duration, 0.0f, 1.0f);
+        }
+
+        NoMoreDay::UIRenderer::DrawBuffIcon(State.globalFont, x, y, iconSize,
+                                 icon, iconText, ratio, effect.stacks, isDebuff, 1.0f);
+        
+        if (CheckCollisionPointRec(GetMousePositionLogic(), { x, y, iconSize, iconSize })) {
+            State.hoveredBuffIdx = i;
+            State.isMouseOverUI = true;
+        }
     }
 }
 

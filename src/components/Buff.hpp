@@ -1,9 +1,12 @@
-﻿#pragma once
+#pragma once
 #include <vector>
 #include <string>
 #include <unordered_map>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
+#include "Stats.hpp"
+
+namespace NoMoreDay {
 
 // Enum for Buff/Debuff types to map to icons
 enum class BuffType {
@@ -14,6 +17,7 @@ enum class BuffType {
     SpeedUp,
     CritRateUp,
     CritDamageUp,
+    PowerBoost, // Added for consistency with my test code
     
     // Attribute Debuffs
     AttackDown,
@@ -30,7 +34,9 @@ enum class BuffType {
     // Special
     SwordIntent,  // 剑意
     Shield,       // 护盾
-    Invincible    // 无敌
+    Invincible,   // 无敌
+    Bloodlust,    // 嗜血
+    Hurt          // 受伤
 };
 
 struct BuffEffect {
@@ -45,6 +51,8 @@ struct BuffEffect {
     int max_stacks;             // Max stack count
     
     bool is_debuff;             // True if it's a debuff (Red border), false for buff (Green/Gold)
+    
+    std::vector<StatModifier> modifiers; // Modifiers applied by this buff
     
     // Optional: Source entity ID for attribution
     entt::entity source = entt::null;
@@ -93,3 +101,4 @@ struct ActiveEffectsComponent {
     }
 };
 
+} // namespace NoMoreDay

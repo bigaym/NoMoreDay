@@ -90,6 +90,7 @@ struct GlobalModifierComponent {
 struct SkillSlot {
     uint32_t id = 0;
     float cooldown = 0.0f;
+    int current_charges = 0;
 };
 
 /**

@@ -9,7 +9,7 @@ TEST_CASE("BuffRegistry Lookups") {
     SUBCASE("Retrieves known buffs correctly") {
         auto& data = NoMoreDay::BuffRegistry::GetVisualData(BuffType::AttackUp);
         CHECK(data.icon_text == "攻 ↑");
-        CHECK(data.name == "Attack Up");
+        CHECK(data.name == "攻击提升");
         CHECK(data.border_color.r == GREEN.r);
         CHECK(data.border_color.g == GREEN.g);
         CHECK(data.border_color.b == GREEN.b);

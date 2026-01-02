@@ -31,6 +31,8 @@ namespace NoMoreDay {
 
         // Interaction State
         entt::entity hoveredItem = entt::null;
+        int hoveredSkillSlot = -1; // 0-4
+        int hoveredBuffIdx = -1;
 
         // Interaction Alphas/Scales
         struct ElementAnim {

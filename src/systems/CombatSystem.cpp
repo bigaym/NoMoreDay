@@ -5,6 +5,7 @@
 #include "../components/PlayerState.hpp"
 #include "../components/Stats.hpp"
 #include "../components/EnemyComponent.hpp"
+#include "../components/Buff.hpp"
 
 void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
     // LOG_TRACE("CombatSystem::update: 处理战斗逻辑");
@@ -378,6 +379,24 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
 
     auto& hp = registry.get<HealthComponent>(target);
     hp.current -= amount;
+
+    // Apply Hurt Debuff
+    if (hp.current > 0) {
+        auto& effects = registry.get_or_emplace<NoMoreDay::ActiveEffectsComponent>(target);
+        NoMoreDay::BuffEffect hurt;
+        hurt.id = "hurt";
+        hurt.name = "受伤";
+        hurt.description = "受到伤害，防御降低";
+        hurt.type = NoMoreDay::BuffType::Hurt;
+        hurt.duration = 2.0f;
+        hurt.remaining = 2.0f;
+        hurt.stacks = 1;
+        hurt.max_stacks = 3;
+        hurt.is_debuff = true;
+        hurt.modifiers.push_back({ NoMoreDay::StatType::Armor, NoMoreDay::ModifierMode::PercentAdd, -10.0f }); // -10% Armor per stack
+        effects.AddOrRefresh(hurt);
+        registry.get_or_emplace<NoMoreDay::StatsDirty>(target);
+    }
 
     if (hp.current <= 0) {
         LOG_INFO("Entity {} destroyed", (uint32_t)target);

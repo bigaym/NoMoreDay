@@ -206,9 +206,25 @@ void SkillSystem::UpdateCooldowns(entt::registry& registry, float dt) {
     for (auto entity : view) {
         auto& active = view.get<ActiveSkillsComponent>(entity);
         for (auto& slot : active.slots) {
-            if (slot.cooldown > 0.0f) {
+            if (slot.id == 0) continue;
+            
+            const auto* data = SkillRegistry::Get().GetSkill(slot.id);
+            if (!data) continue;
+
+            if (slot.current_charges < data->max_charges) {
                 slot.cooldown -= dt;
-                if (slot.cooldown < 0.0f) slot.cooldown = 0.0f;
+                if (slot.cooldown <= 0.0f) {
+                    slot.current_charges++;
+                    if (slot.current_charges < data->max_charges) {
+                        // Restart cooldown for next charge
+                        auto* stats = registry.try_get<CombatStats>(entity);
+                        float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
+                        float cdr = stats ? stats->cooldown_reduction : 0.0f;
+                        slot.cooldown = (data->cooldown / recovery) * (1.0f - cdr);
+                    } else {
+                        slot.cooldown = 0.0f;
+                    }
+                }
             }
         }
     }
@@ -282,8 +298,8 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     const auto* data = SkillRegistry::Get().GetSkill(slot.id);
     if (!data) return false;
 
-    // 1. Check Cooldown
-    if (slot.cooldown > 0.0f) return false;
+    // 1. Check Charges and Cooldown
+    if (slot.current_charges <= 0) return false;
 
     // 2. Check Resources (Mana)
     auto* stats = registry.try_get<CombatStats>(entity);
@@ -293,10 +309,13 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
         stats->mana -= cost;
     }
 
-    // 3. Set Cooldown
-    float cdr = stats ? stats->cooldown_reduction : 0.0f;
-    float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
-    slot.cooldown = (data->cooldown / recovery) * (1.0f - cdr);
+    // 3. Consume Charge and Start Cooldown if not already running
+    if (slot.current_charges == data->max_charges) {
+        float cdr = stats ? stats->cooldown_reduction : 0.0f;
+        float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
+        slot.cooldown = (data->cooldown / recovery) * (1.0f - cdr);
+    }
+    slot.current_charges--;
 
     // 4. Create Execution Entity
     auto exec_ent = registry.create();

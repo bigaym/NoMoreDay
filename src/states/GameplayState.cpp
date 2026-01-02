@@ -172,6 +172,7 @@ namespace NoMoreDay {
         // 1. Level & Systems
         m_context->levelManager->update(dt, registry, playerPos);
         m_context->levelManager->getMapSystem().updateFlowField(playerPos);
+        StatsSystem::UpdateBuffs(registry, dt);
         StatsSystem::update(registry);
         RegenerationSystem::update(registry, dt);
         DropSystem::update(registry, m_context->levelManager->getCurrentLevel());

@@ -1,14 +1,15 @@
 #pragma once
-
-#include "../src/components/Stats.hpp"
+#include "TestCommon.hpp"
 #include "../src/systems/StatsSystem.hpp"
-#include "../src/components/InventoryComponent.hpp"
+#include "../src/components/Stats.hpp"
+#include "../src/components/Common.hpp"
+#include "../src/components/EquipmentComponent.hpp"
 #include "../src/components/ItemComponent.hpp"
 #include "../src/components/ItemStats.hpp"
+#include "../src/core/ItemFactory.hpp"
+#include "../src/core/AstrolabeRegistry.hpp"
 #include "../src/components/Progression.hpp"
-#include "../src/components/Common.hpp" // For WeaponComponent
-#include <entt/entt.hpp>
-#include "TestCommon.hpp"
+
 
 TEST_CASE("Stats Recalculation from Primary Stats") {
     entt::registry registry;

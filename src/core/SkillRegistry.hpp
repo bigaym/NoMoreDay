@@ -17,6 +17,7 @@ struct SkillData {
     float weapon_damage_mult;
     float added_damage_effectiveness;
     int max_charges = 1;
+    uint32_t icon_id = 0;
 };
 
 class SkillRegistry {

@@ -7,6 +7,7 @@
 #include "../components/ItemComponent.hpp"
 #include "../components/ItemStats.hpp"
 #include "../components/Progression.hpp"
+#include "../components/Buff.hpp"
 #include "../core/AstrolabeRegistry.hpp"
 #include <algorithm>
 #include <vector>
@@ -387,6 +388,19 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         }
     }
 
+    // 2.1 处理活跃 Buff (Active Buffs)
+    if (registry.all_of<ActiveEffectsComponent>(entity)) {
+        const auto& effects = registry.get<ActiveEffectsComponent>(entity);
+        for (const auto& effect : effects.effects) {
+            for (const auto& mod : effect.modifiers) {
+                if (mod.required_tags == Tag::None) {
+                    // Buffs multiply their effect by stack count
+                    ApplyStatModifier(calcs, mod.type, mod.mode, mod.value * effect.stacks);
+                }
+            }
+        }
+    }
+
     // 2.5 处理星盘天赋 (Astrolabe Nodes)
     if (registry.all_of<AstrolabeComponent>(entity)) {
         const auto& astrolabe = registry.get<AstrolabeComponent>(entity);
@@ -558,6 +572,20 @@ void StatsSystem::update(entt::registry& registry) {
         Recalculate(registry, entity);
     }
     registry.clear<StatsDirty>();
+}
+
+void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
+    auto view = registry.view<ActiveEffectsComponent>();
+    for (auto entity : view) {
+        auto& effects = view.get<ActiveEffectsComponent>(entity);
+        size_t before = effects.effects.size();
+        
+        effects.Update(dt);
+        
+        if (effects.effects.size() != before) {
+            registry.get_or_emplace<StatsDirty>(entity);
+        }
+    }
 }
 
 } // namespace NoMoreDay

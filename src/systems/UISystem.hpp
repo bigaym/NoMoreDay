@@ -17,8 +17,10 @@ public:
     static void Initialize(ResourceManager& resourceManager);
     static void Shutdown();
     static void Update(entt::registry& registry, const LevelManager& levelManager);
-    static void Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera);
-    static void Benchmark(entt::registry& registry, const LevelManager& levelManager, int frames = 100);
+        static void Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera);
+        static void DrawSkillHotbar(entt::registry& registry);
+        static void DrawBuffs(entt::registry& registry);
+        static void Benchmark(entt::registry& registry, const LevelManager& levelManager, int frames);
     
     // --- Resource Access ---
     static Font GetFont() { return State.globalFont; }
