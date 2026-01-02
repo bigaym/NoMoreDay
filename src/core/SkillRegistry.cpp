@@ -70,6 +70,7 @@ void SkillRegistry::LoadFromJson(const std::string& path) {
         data.base_damage = item.value("base_damage", 0.0f);
         data.weapon_damage_mult = item.value("weapon_damage_mult", 1.0f);
         data.added_damage_effectiveness = item.value("added_damage_effectiveness", 1.0f);
+        data.max_charges = item.value("charge_count", 1);
 
         skills_[data.id] = data;
     }

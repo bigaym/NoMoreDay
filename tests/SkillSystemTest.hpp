@@ -15,6 +15,7 @@ TEST_CASE("SkillSystem: Registry Loading") {
         CHECK(HasTag(skill->tags, Tag::Physical));
         CHECK(HasTag(skill->tags, Tag::Melee));
         CHECK(HasTag(skill->tags, Tag::Movement));
+        CHECK(skill->max_charges == 1);
     }
 
     SUBCASE("Load Rending Wave") {
