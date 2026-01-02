@@ -9,10 +9,11 @@
 #include "../core/AstrolabeRegistry.hpp"
 #include "../core/SkillRegistry.hpp"
 #include "../core/BuffRegistry.hpp"
+#include "../core/BiomeRegistry.hpp"
+#include "../components/AstrolabeUIComponent.hpp"
 
 Game::Game(int width, int height, const char* title)
-    : m_screenWidth(width), m_screenHeight(height), m_title(title),
-      m_levelManager(std::make_unique<LevelManager>()) {
+    : m_screenWidth(width), m_screenHeight(height), m_title(title) {
     
     system("chcp 65001 > nul"); 
     LOG_INFO("Initializing Game with dimensions: {}x{}, title: {}", width, height, title);
@@ -23,6 +24,7 @@ Game::Game(int width, int height, const char* title)
     SetTargetFPS(60);
     
     // Fill Context
+    m_levelManager = std::make_unique<LevelManager>();
     m_context.registry = &m_registry;
     m_context.resources = &m_resourceManager;
     m_context.levelManager = m_levelManager.get();
@@ -47,13 +49,13 @@ void Game::init() {
     LOG_INFO("Initializing Game systems...");
     
     // Global Static Inits
-    NoMoreDay::ItemFactory::initialize();
-    UISystem::Initialize(m_resourceManager);
-    NoMoreDay::AssetLoadingSystem::LoadAllEquipment();
     NoMoreDay::AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
     NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
-    NoMoreDay::BuffRegistry::Initialize();
-    NoMoreDay::SkillSystem::InitHooks();
+    NoMoreDay::BuffRegistry::Initialize(); // BuffRegistry is static and uses Initialize
+    NoMoreDay::BiomeRegistry::Get().LoadFromJSON("assets/data/biomes.json");
+    
+    NoMoreDay::ItemFactory::initialize();
+    NoMoreDay::ItemFactory::loadAffixDefinitions("assets/data/affixes.json");
     
     // Push Initial State
     LOG_INFO("Pushing MainMenuState...");
@@ -104,18 +106,36 @@ void Game::run() {
 void Game::cleanup() {
     LOG_INFO("Cleaning up game systems...");
 
-    // 1. 先清理状态管理器，这会触发各状态的 OnExit，确保系统在注册表还在时安全关闭
+    // 0. 强制等待所有后台异步任务完成
+    // 这是防止内存损坏的关键。必须确保没有任何 Taskflow 任务在后台修改 Registry。
+    m_executor.wait_for_all();
+
+    // 1. 彻底销毁状态管理器。
+    // 这会触发当前所有 State 的 OnExit() 和析构函数。
+    // 必须在清理注册表之前完成，因为 State 可能持有对 Registry 的信号连接。
     if (m_stateManager) {
         m_stateManager.reset(); 
     }
 
-    // 2. 清理注册表中的所有实体
-    m_registry.clear();
-    
-    // 3. 关闭各单例和资源管理器
+    // 2. 彻底销毁关卡管理器。
+    if (m_levelManager) {
+        m_levelManager->cleanup();
+        m_levelManager.reset();
+    }
+
+    // 3. 关闭静态系统。
     UISystem::Shutdown();
     NoMoreDay::BuffRegistry::Shutdown();
 
-    if (m_levelManager) m_levelManager->cleanup();
+    // 4. 清理注册表实体。
+    // 如果此处依然崩溃，请检查 SwordHeartComponent 是否有手动连接的 on_destroy 信号未断开。
+    m_registry.on_destroy<NoMoreDay::AstrolabeUIComponent>().disconnect(); // 安全起见，断开相关信号
+    LOG_DEBUG("Final registry clear...");    
+
+    m_registry.clear(); 
+    
+    // 5. 卸载资源。
     m_resourceManager.unloadAll();
+    
+    LOG_INFO("Cleanup finished successfully.");
 }

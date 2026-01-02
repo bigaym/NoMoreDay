@@ -19,6 +19,7 @@ using namespace NoMoreDay;
 #include "BuffRegistryTest.hpp"
 #include "BuffComponentTest.hpp"
 #include "AstrolabeRegistryTest.hpp"
+#include "BiomeRegistryTest.hpp"
 #include "AstrolabeSystemTest.hpp"
 #include "AstrolabeUITest.hpp"
 #include "UISystemTest.hpp"

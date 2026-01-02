@@ -95,6 +95,7 @@ add_library(NoMoreDayCore STATIC
     src/core/AstrolabeRegistry.cpp
     src/core/SkillRegistry.cpp
     src/core/BuffRegistry.cpp
+    src/core/BiomeRegistry.cpp
     src/systems/InventorySystem.cpp
 )
 
