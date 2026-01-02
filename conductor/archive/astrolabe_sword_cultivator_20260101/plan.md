@@ -1,6 +1,6 @@
 # Plan: Astrolabe Expansion - Sword Cultivator Foundation
 
-## Phase 1: Mechanics - The Sword Heart (Basic)
+## Phase 1: Mechanics - The Sword Heart (Basic) [checkpoint: 7167cf8]
 - [x] Task: Create `SwordHeartComponent` to tag Sword Cultivators.
 - [x] Task: Update `StatsSystem::Recalculate` to implement "Sword Heart" logic:
     - [x] Check if `SwordHeartComponent` exists.
