@@ -21,13 +21,13 @@ public:
     virtual ~MapGenerator() = default;
     
     // 纯虚函数：生成地图逻辑
-    virtual MapData Generate(int width, int height, uint32_t seed) = 0;
+    virtual MapData Generate(int width, int height, uint32_t seed, float wallProb, int iterations) = 0;
 };
 
 // 具体实现：洞穴生成器
 class CaveMapGenerator : public MapGenerator {
 public:
-    MapData Generate(int width, int height, uint32_t seed) override;
+    MapData Generate(int width, int height, uint32_t seed, float wallProb, int iterations) override;
 private:
     void SmoothIteration(const std::vector<Tile>& src, std::vector<Tile>& dst, int w, int h);
     void ApplyBoundaries(std::vector<Tile>& grid, int w, int h);
@@ -60,6 +60,7 @@ private:
     MapData m_mapData;
     Texture2D m_fogTexture;
     bool m_fogTextureValid = false;
+    std::string m_currentBiomeId = "cave";
     
     // 编译期常量
     static constexpr int SMOOTH_ITERATIONS = 5;

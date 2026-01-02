@@ -94,6 +94,7 @@ namespace NoMoreDay {
         registry.emplace<IDComponent>(player, Utils::UUID::from("Player"));
         registry.emplace<Velocity>(player, 0.0f, 0.0f);
         registry.emplace<PlayerTag>(player);
+        registry.emplace<PersistentTag>(player);
         registry.emplace<InputComponent>(player);
         registry.emplace<PlayerLevel>(player);
         registry.emplace<PlayerStats>(player);

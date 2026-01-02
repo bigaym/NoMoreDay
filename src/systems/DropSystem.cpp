@@ -92,10 +92,12 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
                 if (entry.type == LootEntryType::Item) {
                     auto item = ItemFactory::createRandomLoot(registry, dropLevel, mf + rarityMFBoost);
                     registry.emplace_or_replace<Position>(item, pos.x, pos.y);
+                    registry.emplace<LocalLevelTag>(item);
                     
                     // Spawn Visual Effect
                     auto effect = registry.create();
                     registry.emplace<Position>(effect, pos.x, pos.y);
+                    registry.emplace<LocalLevelTag>(effect);
                     VisualEffect vEffect;
                     vEffect.type = VisualEffectType::DropPillar;
                     vEffect.lifeTime = 0.5f;

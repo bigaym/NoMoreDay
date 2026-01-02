@@ -1,4 +1,5 @@
 #include "MapSystem.hpp"
+#include "../core/BiomeRegistry.hpp"
 #include <queue>
 #include <algorithm>
 #include <cmath>
@@ -15,29 +16,29 @@ MapSystem::~MapSystem() {
 
 // --- CaveMapGenerator Implementation ---
 
-MapGenerator::MapData CaveMapGenerator::Generate(int width, int height, uint32_t seed) {
+MapGenerator::MapData CaveMapGenerator::Generate(int width, int height, uint32_t seed, float wallProb, int iterations) {
     MapData map{width, height};
     map.grid.resize(width * height);
 
     std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
-    // 1. 初始化：调整密度以获得更开阔的空间 (目标 ~80% 可行走)
+    // 1. 初始化
     for (auto& tile : map.grid) {
-        tile.type = (dist(gen) < 0.35f) ? Tile::Type::WALL : Tile::Type::FLOOR;
+        tile.type = (dist(gen) < wallProb) ? Tile::Type::WALL : Tile::Type::FLOOR;
     }
 
     // 辅助 buffer
     std::vector<Tile> buffer = map.grid;
 
     // 2. 平滑迭代 (双缓冲)
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < iterations; ++i) {
         auto& src = (i % 2 == 0) ? map.grid : buffer;
         auto& dst = (i % 2 == 0) ? buffer : map.grid;
         SmoothIteration(src, dst, width, height);
     }
 
-    if (5 % 2 != 0) {
+    if (iterations % 2 != 0) {
         map.grid = std::move(buffer);
     }
 
@@ -102,7 +103,8 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile>& grid, int w, int h, 
 void MapSystem::generateCaveMap(int width, int height) {
     // 使用具体的生成器实例
     CaveMapGenerator generator;
-    auto mapData = generator.Generate(width, height, 42); // 使用固定种子或随机种子
+    const auto& biome = NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
+    auto mapData = generator.Generate(width, height, 42, biome.wallProbability, biome.smoothIterations); // 使用固定种子或随机种子
     
     m_mapData.width = mapData.width;
     m_mapData.height = mapData.height;
@@ -114,7 +116,7 @@ void MapSystem::generateCaveMap(int width, int height) {
 }
 
 void MapSystem::generateMap(int width, int height, const std::string& biome) {
-    // 目前只实现了洞穴生成，未来可根据 biome 扩展
+    m_currentBiomeId = biome;
     generateCaveMap(width, height);
 }
 
@@ -138,14 +140,16 @@ void MapSystem::render(const Camera2D& camera) const {
     endX = std::min(m_mapData.width, endX);
     endY = std::min(m_mapData.height, endY);
 
+    const auto& biome = NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
+
     for (int y = startY; y < endY; ++y) {
         for (int x = startX; x < endX; ++x) {
             // 只渲染可见或已探索的区域
             if (isExplored(x, y)) {
                 Tile::Type type = getTileType(x, y);
                 Color color = BLACK;
-                if (type == Tile::Type::FLOOR) color = DARKBROWN;
-                else if (type == Tile::Type::WALL) color = DARKGRAY;
+                if (type == Tile::Type::FLOOR) color = biome.floorColor;
+                else if (type == Tile::Type::WALL) color = biome.wallColor;
                 
                 // 如果只是已探索但当前不可见，变暗
                 if (!isVisible(x, y)) {

@@ -45,6 +45,7 @@ void SkillSystem::InitHooks() {
 
         // 2. Spawn a "Thrust" projectile that moves with the dash
         auto proj_ent = registry.create();
+        registry.emplace<LocalLevelTag>(proj_ent);
         registry.emplace<Position>(proj_ent, pos->x, pos->y);
         registry.emplace<Velocity>(proj_ent, dir.x * speed, dir.y * speed);
         registry.emplace<ColorComponent>(proj_ent, SKYBLUE); // Visual
@@ -76,6 +77,7 @@ void SkillSystem::InitHooks() {
             Vector2 dir = Vector2Rotate(baseDir, angle);
             
             auto proj_ent = registry.create();
+            registry.emplace<LocalLevelTag>(proj_ent);
             registry.emplace<Position>(proj_ent, pos->x, pos->y);
             registry.emplace<Velocity>(proj_ent, dir.x * 600.0f, dir.y * 600.0f);
             registry.emplace<ColorComponent>(proj_ent, GOLD); // Visual
@@ -113,6 +115,7 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
 
     // 1. Create Shadow Entity
     auto shadow = registry.create();
+    registry.emplace<LocalLevelTag>(shadow);
     registry.emplace<ShadowEntityTag>(shadow);
     registry.emplace<Position>(shadow, position.x, position.y);
     registry.emplace<AnimationStateComponent>(shadow);
@@ -120,6 +123,7 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
 
     // 2. Create Skill Execution tied to Shadow
     auto exec_ent = registry.create();
+    registry.emplace<LocalLevelTag>(exec_ent);
     auto& exec = registry.emplace<SkillExecution>(exec_ent);
     exec.skill_id = skill_id;
     exec.owner = shadow; // The shadow is the visual actor

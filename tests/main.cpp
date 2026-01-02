@@ -24,6 +24,7 @@ using namespace NoMoreDay;
 #include "AstrolabeUITest.hpp"
 #include "UISystemTest.hpp"
 #include "RenderSystemTest.hpp"
+#include "LevelManagerTest.hpp"
 #include "AssetLoadingSystemTest.hpp"
 #include "TagSystemTest.hpp"
 #include "VisualEffectTest.hpp"

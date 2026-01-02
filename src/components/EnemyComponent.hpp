@@ -66,6 +66,22 @@ struct EnemyRace
             resistances = {"magic"};
             texturePath = "assets/textures/monster/cultist_0.png";
             break;
+        case GOBLIN:
+            baseHP = 20.0f;
+            baseDamage = 10.0f;
+            baseSpeed = 100.0f;
+            baseXP = 8.0f;
+            resistances = {};
+            texturePath = "assets/textures/monster/goblin_0.png";
+            break;
+        case SLIME:
+            baseHP = 15.0f;
+            baseDamage = 5.0f;
+            baseSpeed = 40.0f;
+            baseXP = 5.0f;
+            resistances = {"physical"};
+            texturePath = "assets/textures/monster/slime_0.png";
+            break;
         }
     }
 };

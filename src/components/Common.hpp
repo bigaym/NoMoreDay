@@ -93,6 +93,12 @@ struct GoldComponent {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GoldComponent, amount)
 
+// 持久化标签：跨关卡保留 (如：玩家、核心UI)
+struct PersistentTag {};
+
+// 本地关卡标签：切换关卡时销毁 (如：敌人、掉落物、投射物)
+struct LocalLevelTag {};
+
 // 资源 ID 组件 (用于持久化纹理引用)
 struct TextureIDComponent {
     uint32_t id;

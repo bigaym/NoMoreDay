@@ -1,4 +1,5 @@
 #include "EnemySpawnSystem.hpp"
+#include "../core/BiomeRegistry.hpp"
 #include "../components/EnemyComponent.hpp"
 #include "../components/AIComponent.hpp"
 #include "../components/PlayerState.hpp" // For stats if needed
@@ -28,30 +29,44 @@ void EnemySpawnSystem::initializeLevel(int width, int height, const MapSystem& m
     initTextures();
 }
 
-void EnemySpawnSystem::initData(int width, int height, const MapSystem& mapSystem, const std::string& biome) {
+void EnemySpawnSystem::initData(int width, int height, const MapSystem& mapSystem, const std::string& biomeId) {
     m_mapWidth = width;
     m_mapHeight = height;
     m_spawnData.clear();
     m_pendingRaces.clear();
     
-    LOG_INFO("EnemySpawnSystem: Initializing level data for biome '{}'", biome);
+    LOG_INFO("EnemySpawnSystem: Initializing level data for biome '{}'", biomeId);
+
+    const auto& biomeConfig = NoMoreDay::BiomeRegistry::Get().GetBiome(biomeId);
+    if (biomeConfig.isSafeZone) {
+        LOG_INFO("Safe zone detected, no enemies will be spawned.");
+        return;
+    }
 
     // 1. 种族池逻辑
     std::vector<int> availableRaces;
-    if (biome == "demon" || biome == "hell") {
-        availableRaces = { EnemyRace::DEMON, EnemyRace::CULTIST };
+    if (biomeConfig.enemyPool.empty()) {
+        // Default pool if none specified
+        availableRaces = { EnemyRace::UNDEAD, EnemyRace::DEMON };
     } else {
-        std::vector<int> allRaces = { EnemyRace::UNDEAD, EnemyRace::DEMON, EnemyRace::CORRUPTED, EnemyRace::CULTIST };
-        std::shuffle(allRaces.begin(), allRaces.end(), m_gen);
-        availableRaces.push_back(allRaces[0]);
-        availableRaces.push_back(allRaces[1]);
+        for (const auto& raceName : biomeConfig.enemyPool) {
+            if (raceName == "undead" || raceName == "skeleton") availableRaces.push_back(EnemyRace::UNDEAD);
+            else if (raceName == "demon") availableRaces.push_back(EnemyRace::DEMON);
+            else if (raceName == "corrupted") availableRaces.push_back(EnemyRace::CORRUPTED);
+            else if (raceName == "cultist") availableRaces.push_back(EnemyRace::CULTIST);
+            else if (raceName == "goblin") availableRaces.push_back(EnemyRace::GOBLIN);
+            else if (raceName == "slime") availableRaces.push_back(EnemyRace::SLIME);
+        }
     }
     
     m_pendingRaces = availableRaces; // Store for texture loading
 
     // 2. 群聚生成
-    int clusterCount = (width * height) / 800;
-    if (clusterCount < 1) clusterCount = 1;
+    int clusterCount = (width * height) / 1000; // 稍微降低密度
+    if (biomeConfig.maxEnemies > 0) {
+        clusterCount = std::min(clusterCount, biomeConfig.maxEnemies / 4);
+    }
+    if (clusterCount < 1 && biomeConfig.maxEnemies > 0) clusterCount = 1;
     
     std::uniform_int_distribution<int> xDist(2, width - 3);
     std::uniform_int_distribution<int> yDist(2, height - 3);
@@ -158,6 +173,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
     registry.emplace<Position>(entity, data.position.x, data.position.y);
     registry.emplace<Velocity>(entity, 0.0f, 0.0f);
     registry.emplace<IDComponent>(entity, NoMoreDay::Utils::UUID::generate());
+    registry.emplace<LocalLevelTag>(entity);
     
     if (m_raceTextures.count(data.enemyType)) {
         registry.emplace<TextureIDComponent>(entity, m_raceTextures[data.enemyType].id);
@@ -195,6 +211,20 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
             registry.emplace<AIComponent>(entity, AIType::PATROL, 180.0f, 30.0f, 60.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.35f, 1, 1);
+            break;
+        case EnemyRace::GOBLIN:
+            registry.emplace<EnemyStateComponent>(entity, EnemyRace::GOBLIN, EnemyArchetype::FODDER);
+            registry.emplace<HealthComponent>(entity, 20.0f, 20.0f);
+            registry.emplace<AIComponent>(entity, AIType::PATROL, 120.0f, 40.0f, 60.0f);
+            registry.emplace<ColorComponent>(entity, GREEN);
+            registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.20f, 1, 1);
+            break;
+        case EnemyRace::SLIME:
+            registry.emplace<EnemyStateComponent>(entity, EnemyRace::SLIME, EnemyArchetype::FODDER);
+            registry.emplace<HealthComponent>(entity, 15.0f, 15.0f);
+            registry.emplace<AIComponent>(entity, AIType::PATROL, 80.0f, 20.0f, 30.0f);
+            registry.emplace<ColorComponent>(entity, LIME);
+            registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.15f, 1, 1);
             break;
     }
     
