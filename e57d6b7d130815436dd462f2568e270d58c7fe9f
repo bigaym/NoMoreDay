@@ -1,0 +1,8 @@
+Task: Define BiomeConfig struct and BiomeRegistry to load environment data from assets/data/biomes.json.
+Changes:
+- Created BiomeConfig struct and BiomeRegistry class.
+- Added assets/data/biomes.json with 'town' and 'cave' biomes.
+- Integrated BiomeRegistry into Game initialization.
+- Added unit tests for BiomeRegistry.
+- Fixed inconsistent registry naming in Game.cpp.
+- Created assets/data/buffs.json to satisfy BuffRegistry requirements.
