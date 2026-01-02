@@ -1,0 +1,9 @@
+Task: Update LevelManager to accept a BiomeConfig and generate levels based on biome-specific tiles and spawn rules.
+Changes:
+- Updated MapSystem to support BiomeConfig and biome-specific colors.
+- Refactored MapGenerator to accept wall probability and iterations from BiomeConfig.
+- Updated EnemySpawnSystem to use biome-specific enemy pools and safe zone logic.
+- Added GOBLIN and SLIME support to EnemyRace and EnemySpawnSystem.
+- Introduced PersistentTag and LocalLevelTag for entity lifecycle management.
+- Tagged Player as Persistent; tagged enemies, projectiles, items, and effects as Local.
+- Added LevelManagerTest to verify biome loading.
