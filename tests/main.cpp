@@ -27,6 +27,7 @@ using namespace NoMoreDay;
 #include "LevelManagerTest.hpp"
 #include "AssetLoadingSystemTest.hpp"
 #include "PortalSystemTest.hpp"
+#include "PersistenceTest.hpp"
 #include "TagSystemTest.hpp"
 #include "VisualEffectTest.hpp"
 #include "AffixSystemTest.hpp"
