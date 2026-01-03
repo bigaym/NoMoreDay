@@ -33,4 +33,4 @@
 - [x] Task: Integrate talent modifications into `CombatSystem` (e.g., skill behavior changes).
 - [x] Task: Ensure skill specialization and talent data are correctly serialized/deserialized in `PersistenceTest`.
 - [x] Task: Visual polish: UI animations for spending points and switching views.
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Integration & Polish' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Integration & Polish' (Protocol in workflow.md)
