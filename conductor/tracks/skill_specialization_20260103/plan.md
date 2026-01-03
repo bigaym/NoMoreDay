@@ -1,6 +1,6 @@
 # Plan: Skill Management & Specialization System Implementation
 
-## Phase 1: Infrastructure & Data Models
+## Phase 1: Infrastructure & Data Models [checkpoint: cbb43f7]
 - [x] Task: Define `SkillTree` and `TalentNode` data structures in `SkillSystem.hpp`. f3ee4e0
 - [x] Task: Update `ActiveSkillsComponent` to include specialization state and talent point allocation. f3ee4e0
 - [x] Task: Implement `SkillRegistry` extension to load talent tree definitions from `assets/data/skills.json`. ec810f1
