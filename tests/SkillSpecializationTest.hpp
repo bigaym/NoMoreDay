@@ -49,3 +49,59 @@ TEST_CASE("SkillSpecialization: Data Structures") {
         CHECK(deserialized.specialized_slots[0].allocated_points.at(101) == 2);
     }
 }
+
+#include "../src/core/SkillRegistry.hpp"
+#include <fstream>
+#include <cstdio>
+
+TEST_CASE("SkillSpecialization: Registry Loading") {
+    // Create a temporary JSON file
+    std::string path = "temp_skills_test.json";
+    std::ofstream out(path);
+    out << R"({
+        "skills": [
+            {
+                "id": 999,
+                "name_key": "Test Skill",
+                "talent_tree": [
+                    {
+                        "id": 1,
+                        "name_key": "Talent 1",
+                        "desc_key": "Desc 1",
+                        "max_points": 5,
+                        "x": 0.0,
+                        "y": 0.0,
+                        "stat_modifiers": [
+                            {
+                                "type": 0,
+                                "mode": 1,
+                                "value": 10.0
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    })";
+    out.close();
+
+    auto& registry = NoMoreDay::SkillRegistry::Get();
+    registry.LoadFromJson(path);
+
+    SUBCASE("Tree Loading") {
+        const auto* tree = registry.GetSkillTree(999);
+        REQUIRE(tree != nullptr);
+        CHECK(tree->skill_id == 999);
+        CHECK(tree->nodes.size() == 1);
+        CHECK(tree->nodes.count(1) == 1);
+        
+        const auto& node = tree->nodes.at(1);
+        CHECK(node.name_key == "Talent 1");
+        CHECK(node.max_points == 5);
+        CHECK(node.stat_modifiers.size() == 1);
+        CHECK(node.stat_modifiers[0].value == 10.0f);
+    }
+    
+    // Cleanup
+    std::remove(path.c_str());
+}

@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "TagRegistry.hpp"
+#include "../components/SkillSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -26,11 +27,13 @@ public:
     
     void LoadFromJson(const std::string& path);
     const SkillData* GetSkill(uint32_t id) const;
+    const SkillTreeDefinition* GetSkillTree(uint32_t skill_id) const;
     const std::unordered_map<uint32_t, SkillData>& GetAllSkills() const { return skills_; }
 
 private:
     SkillRegistry() = default;
     std::unordered_map<uint32_t, SkillData> skills_;
+    std::unordered_map<uint32_t, SkillTreeDefinition> skill_trees_;
 };
 
 }
