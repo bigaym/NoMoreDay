@@ -260,7 +260,6 @@ void SkillSystem::Update(entt::registry& registry, float dt) {
 }
 
 void SkillSystem::RegisterEffect(uint32_t skill_id, CastCallback callback) {
-    LOG_INFO("Registering effect for skill {}", skill_id);
     s_skill_callbacks[skill_id] = callback;
 }
 
@@ -308,7 +307,7 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
     }
 
     registry.emplace<ShadowCastTag>(exec_ent);
-    LOG_INFO("Shadow at ({:.1f}, {:.1f}) casting skill: {}", position.x, position.y, data->name_key);
+    LOG_INFO("Shadow casting skill: {}", data->name_key);
     return true;
 }
 
@@ -319,12 +318,9 @@ void SkillSystem::UpdateSwordIntent(entt::registry& registry, float dt) {
         if (intent.stacks > 0) {
             intent.decay_timer += dt;
             if (intent.decay_timer >= intent.decay_interval) {
-                float over = intent.decay_timer - intent.decay_interval;
-                if (over >= 0.5f) {
-                    intent.stacks--;
-                    intent.decay_timer = intent.decay_interval;
-                    LOG_DEBUG("Entity {} Sword Intent decayed to {}", (uint32_t)entity, intent.stacks);
-                }
+                intent.stacks--;
+                intent.decay_timer = 0.0f;
+                LOG_DEBUG("Entity {} Sword Intent decayed to {}", (uint32_t)entity, intent.stacks);
             }
         } else {
             intent.decay_timer = 0.0f;
@@ -397,27 +393,20 @@ void SkillSystem::UpdateCooldowns(entt::registry& registry, float dt) {
 
 void SkillSystem::UpdateStates(entt::registry& registry, float dt) {
     auto view = registry.view<SkillExecution>();
-    if (view.begin() == view.end()) return;
-
     for (auto entity : view) {
         auto& exec = view.get<SkillExecution>(entity);
         exec.timer -= dt;
-        // LOG_TRACE("Skill {} in state {} timer {:.3f}", exec.skill_id, (int)exec.state, exec.timer);
 
         if (exec.timer <= 0.0f) {
             switch (exec.state) {
                 case SkillState::Preparing:
-                    LOG_INFO("Skill {} on entity {} transitioning from Preparing to Casting (timer reached 0)", exec.skill_id, (uint32_t)entity);
                     for (auto& hook : s_pre_cast_hooks) {
                         hook(registry, entity, exec);
                     }
                     exec.state = SkillState::Casting;
                     exec.timer = 0.05f; 
                     if (s_skill_callbacks.contains(exec.skill_id)) {
-                        LOG_INFO("Triggering callback for skill {}", exec.skill_id);
                         s_skill_callbacks[exec.skill_id](registry, entity, exec);
-                    } else {
-                        LOG_WARN("No callback found for skill {}", exec.skill_id);
                     }
                     break;
                 case SkillState::Casting:
