@@ -2,8 +2,9 @@
 #include "UIInventory.hpp"
 #include "UICharacter.hpp"
 #include "UIMinimap.hpp"
-#include "UIAstrolabe.hpp" // Include UIAstrolabe
-#include "UIAnimationSystem.hpp" // Include UIAnimationSystem
+#include "UIAstrolabe.hpp" 
+#include "UIAnimationSystem.hpp"
+#include "UISkillHub.hpp" // ADDED
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
@@ -343,6 +344,12 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     if (State.inventoryAlpha > 0.0f) UIInventory::Draw(registry);
     if (State.characterPanelAlpha > 0.0f) UICharacter::Draw(registry);
     UIAstrolabe::Draw(registry);
+    
+    // Skill Tree Hub
+    auto playerView = registry.view<PlayerTag>();
+    if (playerView.begin() != playerView.end()) {
+        UISkillHub::Draw(registry, playerView.front());
+    }
 
     // 2. HUD (Always on top of panels if requested, or keep HUD accessible)
     DrawSkillHotbar(registry);
