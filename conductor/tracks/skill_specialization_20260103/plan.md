@@ -13,12 +13,12 @@
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic & Progression' (Protocol in workflow.md)
 
 ## Phase 3: UI - Central Hub (Hotkey: S)
-- [ ] Task: Register 'S' key in `InputSystem` to toggle the Skill Management Interface.
-- [ ] Task: Implement `UISkillHub` component in `UISystem.cpp`:
+- [x] Task: Register 'S' key in `InputSystem` to toggle the Skill Management Interface. ed0cc50
+- [x] Task: Implement `UISkillHub` component in `UISystem.cpp`: e479aed
     - Display 5 specialization slots.
     - Display a grid of all available skills.
     - Implement drag-and-drop or click logic to assign/unassign specialized skills.
-- [ ] Task: Add skill tooltips with tags and base stats.
+- [~] Task: Add skill tooltips with tags and base stats.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: UI - Central Hub' (Protocol in workflow.md)
 
 ## Phase 4: UI - Talent Trees
