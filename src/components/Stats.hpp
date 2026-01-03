@@ -231,6 +231,17 @@ namespace NoMoreDay
 
         ProjectileCount, // 投射物数量
         AreaScale,       // 范围大小
+        ProjectileSpeed, // 投射物速度
+        DurationScale,   // 持续时间乘区
+
+        DodgeChance, // 闪避率
+        BlockChance, // 格挡几率
+        LifeSteal,   // 吸血 %
+        LifeOnHit,   // 击回
+        HealthRegen, // 生命回复
+        ManaRegen,   // 法力回复
+        Thorns,      // 荆棘
+        MagicFind,   // 掉率
 
         Count
     };

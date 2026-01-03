@@ -16,6 +16,7 @@ using namespace NoMoreDay;
 #include "CombatSystemTest.hpp"
 #include "DamagePipelineTest.hpp"
 #include "SkillSystemTest.hpp"
+#include "SkillLoadVerificationTest.hpp"
 #include "SkillHookTest.hpp"
 #include "SkillModifierTest.hpp"
 #include "SkillSpecializationTest.hpp"

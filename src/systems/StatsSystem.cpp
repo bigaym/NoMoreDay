@@ -214,6 +214,19 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     calcs[static_cast<size_t>(StatType::AttackSpeed)].base = 100.0f; // 100%
     calcs[static_cast<size_t>(StatType::CastSpeed)].base = 100.0f;
     calcs[static_cast<size_t>(StatType::Accuracy)].base = 97.0f; // 97%
+    
+    calcs[static_cast<size_t>(StatType::ProjectileSpeed)].base = 100.0f;
+    calcs[static_cast<size_t>(StatType::DurationScale)].base = 100.0f;
+    calcs[static_cast<size_t>(StatType::AreaScale)].base = 100.0f;
+    
+    calcs[static_cast<size_t>(StatType::DodgeChance)].base = 0.0f;
+    calcs[static_cast<size_t>(StatType::BlockChance)].base = 0.0f;
+    calcs[static_cast<size_t>(StatType::LifeSteal)].base = 0.0f;
+    calcs[static_cast<size_t>(StatType::LifeOnHit)].base = 0.0f;
+    calcs[static_cast<size_t>(StatType::HealthRegen)].base = 1.0f;
+    calcs[static_cast<size_t>(StatType::ManaRegen)].base = 1.0f;
+    calcs[static_cast<size_t>(StatType::Thorns)].base = 0.0f;
+    calcs[static_cast<size_t>(StatType::MagicFind)].base = 4.0f;
 
     // 伤害乘数默认为 100% (1.0)
     for (int i = 0; i < 6; ++i) {
@@ -564,6 +577,19 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.mana_on_hit = calcs[static_cast<size_t>(StatType::ManaOnHit)].Result();
     combat.cooldown_reduction = calcs[static_cast<size_t>(StatType::CooldownReduction)].Result() / 100.0f;
     combat.resource_cost_reduction = calcs[static_cast<size_t>(StatType::ResourceCostReduction)].Result() / 100.0f;
+    
+    combat.projectile_speed = calcs[static_cast<size_t>(StatType::ProjectileSpeed)].Result() / 100.0f;
+    combat.duration_scale = calcs[static_cast<size_t>(StatType::DurationScale)].Result() / 100.0f;
+    combat.area_scale = calcs[static_cast<size_t>(StatType::AreaScale)].Result() / 100.0f;
+    
+    combat.dodge_chance = calcs[static_cast<size_t>(StatType::DodgeChance)].Result() / 100.0f;
+    combat.block_chance += calcs[static_cast<size_t>(StatType::BlockChance)].Result() / 100.0f; // += because of shield base
+    combat.life_steal += calcs[static_cast<size_t>(StatType::LifeSteal)].Result() / 100.0f;
+    combat.life_on_hit += calcs[static_cast<size_t>(StatType::LifeOnHit)].Result();
+    combat.health_regen += calcs[static_cast<size_t>(StatType::HealthRegen)].Result() - 1.0f; // -1.0 because base is 1.0
+    combat.mana_regen += calcs[static_cast<size_t>(StatType::ManaRegen)].Result() - 1.0f;
+    combat.thorns += calcs[static_cast<size_t>(StatType::Thorns)].Result();
+    combat.magic_find = calcs[static_cast<size_t>(StatType::MagicFind)].Result();
 
     // 伤害乘数
     for (int i = 0; i < 6; ++i) {
@@ -628,6 +654,16 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
             else dynamic_calc.base = 0.0f; 
             break;
         case StatType::AreaScale:       dynamic_calc.base = combat->area_scale * 100.0f; break;
+        case StatType::ProjectileSpeed: dynamic_calc.base = combat->projectile_speed * 100.0f; break;
+        case StatType::DurationScale:   dynamic_calc.base = combat->duration_scale * 100.0f; break;
+        case StatType::DodgeChance:     dynamic_calc.base = combat->dodge_chance * 100.0f; break;
+        case StatType::BlockChance:     dynamic_calc.base = combat->block_chance * 100.0f; break;
+        case StatType::LifeSteal:       dynamic_calc.base = combat->life_steal * 100.0f; break;
+        case StatType::LifeOnHit:       dynamic_calc.base = combat->life_on_hit; break;
+        case StatType::HealthRegen:     dynamic_calc.base = combat->health_regen; break;
+        case StatType::ManaRegen:       dynamic_calc.base = combat->mana_regen; break;
+        case StatType::Thorns:          dynamic_calc.base = combat->thorns; break;
+        case StatType::MagicFind:       dynamic_calc.base = combat->magic_find; break;
 
         default: break;
     }
