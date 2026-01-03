@@ -81,6 +81,8 @@ add_library(NoMoreDayCore STATIC
     src/systems/EffectSystem.cpp
     # src/systems/EnemyBehavior.cpp
     src/systems/UISystem.cpp
+    src/systems/UISkillHub.cpp
+    src/systems/UISkillTalentTree.cpp
     src/systems/AstrolabeSystem.cpp
     src/systems/SkillSystem.cpp
     src/systems/UIInventory.cpp

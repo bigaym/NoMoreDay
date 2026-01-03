@@ -540,6 +540,8 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
         case StatType::MaxMana:       dynamic_calc.base = combat->max_mana; break;
         case StatType::CooldownReduction: dynamic_calc.base = combat->cooldown_reduction * 100.0f; break;
         case StatType::ResourceCostReduction: dynamic_calc.base = combat->resource_cost_reduction * 100.0f; break;
+        case StatType::ProjectileCount: dynamic_calc.base = 0.0f; break; // Skill base projectiles handled in hook
+        case StatType::AreaScale:       dynamic_calc.base = combat->area_scale * 100.0f; break;
 
         default: break;
     }

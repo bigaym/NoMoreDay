@@ -117,6 +117,9 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
     if (State.showCharacterPanel) State.characterPanelAlpha = std::min(1.0f, State.characterPanelAlpha + dt * alphaSpeed);
     else State.characterPanelAlpha = std::max(0.0f, State.characterPanelAlpha - dt * alphaSpeed);
 
+    if (State.showSkillTree) State.skillTreeAlpha = std::min(1.0f, State.skillTreeAlpha + dt * alphaSpeed);
+    else State.skillTreeAlpha = std::max(0.0f, State.skillTreeAlpha - dt * alphaSpeed);
+
     // 1. Global Hotkeys
     
     // Character Panel (C)

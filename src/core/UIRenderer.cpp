@@ -448,7 +448,7 @@ namespace NoMoreDay {
         return lines;
     }
 
-    void UIRenderer::DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha) {
+    void UIRenderer::DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha, bool forceDraw) {
         std::vector<TooltipLine> lines = GetSkillTooltipLines(registry, skillId);
         if (lines.empty()) return;
 

@@ -13,7 +13,9 @@ namespace NoMoreDay {
 
 void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     auto& state = UISystem::State;
-    if (!state.showSkillTree) return;
+    if (state.skillTreeAlpha <= 0.0f) return;
+
+    float alpha = state.skillTreeAlpha;
 
     // --- Metrics ---
     float screenW = (float)GetScreenWidth();
@@ -24,11 +26,11 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     float startY = (screenH - panelH) / 2.0f;
 
     // Draw Background
-    DrawRectangleRec({startX, startY, panelW, panelH}, Fade(BLACK, 0.9f));
-    DrawRectangleLinesEx({startX, startY, panelW, panelH}, 2.0f, DARKGRAY);
+    DrawRectangleRec({startX, startY, panelW, panelH}, Fade(BLACK, 0.9f * alpha));
+    DrawRectangleLinesEx({startX, startY, panelW, panelH}, 2.0f, Fade(DARKGRAY, alpha));
 
     // Draw Title
-    UISystem::DrawTextUI("技能专精", startX + 20, startY + 20, 30, WHITE);
+    UISystem::DrawTextUI("技能专精", startX + 20, startY + 20, 30, WHITE, alpha);
 
     // --- Specialization Slots (Top Row) ---
     auto* active = registry.try_get<ActiveSkillsComponent>(player);
@@ -45,8 +47,8 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
         Rectangle slotRect = {x, y, slotSize, slotSize};
 
         // Draw Slot BG
-        DrawRectangleRec(slotRect, Fade(DARKGRAY, 0.5f));
-        DrawRectangleLinesEx(slotRect, 2.0f, LIGHTGRAY);
+        DrawRectangleRec(slotRect, Fade(DARKGRAY, 0.5f * alpha));
+        DrawRectangleLinesEx(slotRect, 2.0f, Fade(LIGHTGRAY, alpha));
 
         uint32_t skillId = active->specialized_slots[i].skill_id;
         
@@ -55,15 +57,15 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             const auto* skill = SkillRegistry::Get().GetSkill(skillId);
             if (skill && skill->icon_id != 0) {
                 Texture2D icon = AssetLoadingSystem::GetTexture(skill->icon_id);
-                DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, slotRect, {0, 0}, 0.0f, WHITE);
+                DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, slotRect, {0, 0}, 0.0f, Fade(WHITE, alpha));
             }
         } else {
-            UISystem::DrawTextUI("Empty", x + 10, y + 30, 16, GRAY);
+            UISystem::DrawTextUI("Empty", x + 10, y + 30, 16, GRAY, alpha);
         }
 
         // Handle Click (Unassign or Open Tree)
         if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
-            DrawRectangleRec(slotRect, Fade(WHITE, 0.2f));
+            DrawRectangleRec(slotRect, Fade(WHITE, 0.2f * alpha));
             if (skillId != 0) {
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     state.selectedSkillId = skillId; // Enter Talent Tree view
@@ -82,7 +84,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     float gridStartY = slotsStartY + slotSize + 50.0f * state.scaleFactor;
     float gridW = panelW - 100.0f * state.scaleFactor;
     
-    UISystem::DrawTextUI("可用技能", gridStartX, gridStartY - 30, 24, LIGHTGRAY);
+    UISystem::DrawTextUI("可用技能", gridStartX, gridStartY - 30, 24, LIGHTGRAY, alpha);
 
     const auto& allSkills = SkillRegistry::Get().GetAllSkills();
     int col = 0;
@@ -110,27 +112,27 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
         if (skill.icon_id != 0) icon = AssetLoadingSystem::GetTexture(skill.icon_id);
         
         if (icon.id != 0) {
-            DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, skillRect, {0, 0}, 0.0f, isSpecialized ? Fade(WHITE, 0.5f) : WHITE);
+            DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, skillRect, {0, 0}, 0.0f, isSpecialized ? Fade(WHITE, 0.5f * alpha) : Fade(WHITE, alpha));
         } else {
-            DrawRectangleRec(skillRect, DARKGRAY);
-            UISystem::DrawTextUI(skill.name_key.c_str(), x, y, 14, WHITE);
+            DrawRectangleRec(skillRect, Fade(DARKGRAY, alpha));
+            UISystem::DrawTextUI(skill.name_key.c_str(), x, y, 14, WHITE, alpha);
         }
         
-        DrawRectangleLinesEx(skillRect, 1.0f, GRAY);
+        DrawRectangleLinesEx(skillRect, 1.0f, Fade(GRAY, alpha));
 
         if (isSpecialized) {
             // Draw "Equipped" indicator
-            UISystem::DrawTextUI("已专精", x, y + gridSize - 16, 14, GREEN);
+            UISystem::DrawTextUI("已专精", x, y + gridSize - 16, 14, GREEN, alpha);
         }
 
         // Handle Click (Assign)
         if (CheckCollisionPointRec(GetMousePosition(), skillRect)) {
-            DrawRectangleRec(skillRect, Fade(WHITE, 0.2f));
+            DrawRectangleRec(skillRect, Fade(WHITE, 0.2f * alpha));
             
             // Tooltip
             state.hoveredSkillSlot = -1; // Override hotbar hover
             // Force draw tooltip immediately
-            UIRenderer::DrawSkillTooltip(state.globalFont, registry, id, 1.0f, true); 
+            UIRenderer::DrawSkillTooltip(state.globalFont, registry, id, alpha, true); 
 
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !isSpecialized) {
                 // Find first empty slot
@@ -155,7 +157,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     // Points Display
     char buf[64];
     snprintf(buf, 64, "可用专精点数: %d", active->available_talent_points);
-    UISystem::DrawTextUI(buf, startX + panelW - 200, startY + 20, 20, GOLD);
+    UISystem::DrawTextUI(buf, startX + panelW - 200, startY + 20, 20, GOLD, alpha);
 }
 
 } // namespace NoMoreDay

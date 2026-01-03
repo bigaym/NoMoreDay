@@ -35,6 +35,11 @@ TEST_CASE("Persistence - Player State survival across transitions") {
     auto& inv = registry.emplace<InventoryComponent>(player);
     // Add a dummy item if needed, for now just checking component exists
     
+    auto& active = registry.emplace<ActiveSkillsComponent>(player);
+    active.available_talent_points = 10;
+    active.specialized_slots[0].skill_id = 1;
+    active.specialized_slots[0].allocated_points[101] = 3;
+    
     // 3. Initial Load (Cave)
     sceneManager.RequestTransition("cave", 1);
     
@@ -98,4 +103,9 @@ TEST_CASE("Persistence - Player State survival across transitions") {
     CHECK_FALSE(registry.valid(localEnt)); // Local entity should be destroyed
     CHECK(registry.valid(player));         // Player should still be there
     CHECK(registry.get<ActiveEffectsComponent>(player).effects.size() == 1);
+    
+    auto& pActive = registry.get<ActiveSkillsComponent>(player);
+    CHECK(pActive.available_talent_points == 10);
+    CHECK(pActive.specialized_slots[0].skill_id == 1);
+    CHECK(pActive.specialized_slots[0].allocated_points.at(101) == 3);
 }

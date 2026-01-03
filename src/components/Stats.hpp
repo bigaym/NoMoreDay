@@ -227,6 +227,9 @@ namespace NoMoreDay
 
         CooldownReduction,
         ResourceCostReduction,
+        
+        ProjectileCount,
+        AreaScale,
 
         Count
     };

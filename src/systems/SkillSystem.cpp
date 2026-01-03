@@ -70,10 +70,23 @@ void SkillSystem::InitHooks() {
         auto* stats = registry.try_get<CombatStats>(owner);
         if (!pos || !stats) return;
 
+        const auto* skillData = SkillRegistry::Get().GetSkill(skill_id);
+        Tag skillTags = skillData ? skillData->tags : Tag::None;
+
         Vector2 baseDir = Vector2Normalize(Vector2Subtract(target_pos, {pos->x, pos->y}));
 
-        float angles[] = {-0.3f, 0.0f, 0.3f}; // Widened fan
-        for (float angle : angles) {
+        // Base 3 projectiles
+        int baseCount = 3;
+        // Add projectiles from talents
+        int extraProj = (int)StatsSystem::GetStatWithTags(registry, owner, StatType::ProjectileCount, skillTags, skill_id);
+        int totalCount = baseCount + extraProj;
+
+        float spread = 0.6f; // Total fan angle in radians
+        float startAngle = -spread / 2.0f;
+        float angleStep = totalCount > 1 ? spread / (totalCount - 1) : 0.0f;
+
+        for (int i = 0; i < totalCount; ++i) {
+            float angle = startAngle + i * angleStep;
             Vector2 dir = Vector2Rotate(baseDir, angle);
             
             auto proj_ent = registry.create();
@@ -94,7 +107,7 @@ void SkillSystem::InitHooks() {
             registry.emplace<SkillComponent>(proj_ent, skill_id, owner);
         }
 
-        LOG_INFO("Rending Wave fired 3 projectiles from entity {}", (uint32_t)owner);
+        LOG_INFO("Rending Wave fired {} projectiles from entity {}", totalCount, (uint32_t)owner);
     });
 }
 

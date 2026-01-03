@@ -58,7 +58,7 @@ namespace NoMoreDay {
                                  bool isDebuff, float alpha = 1.0f);
 
         static void DrawTooltip(const Font& font, entt::registry& registry, entt::entity item, float alpha = 1.0f);
-        static void DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha = 1.0f);
+        static void DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha = 1.0f, bool forceDraw = false);
         static void DrawBuffTooltip(const Font& font, const BuffEffect& effect, float alpha = 1.0f);
         static void DrawContextMenu(const Font& font, UIContext& uiContext, entt::registry& registry, float alpha = 1.0f);
         static void DrawMessageBox(const Font& font, UIContext& uiContext, float alpha = 1.0f);
