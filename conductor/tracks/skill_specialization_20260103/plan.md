@@ -7,9 +7,9 @@
 - [ ] Task: Conductor - User Manual Verification ' Phase 1: Infrastructure & Data Models' (Protocol in workflow.md)
 
 ## Phase 2: Core Logic & Progression
-- [ ] Task: Implement `SkillSystem::AddTalentPoint` logic with validation (available points, prerequisites).
-- [ ] Task: Update `ProgressionSystem` to award Skill Specialization points on character level-up (starting with 1 at Level 1).
-- [ ] Task: Create `SkillEffectSystem` hooks to apply talent modifications to actual combat skills (e.g., damage multipliers, cooldown reduction).
+- [x] Task: Implement `SkillSystem::AddTalentPoint` logic with validation (available points, prerequisites). 366207e
+- [x] Task: Update `ProgressionSystem` to award Skill Specialization points on character level-up (starting with 1 at Level 1). 366207e
+- [x] Task: Create `SkillEffectSystem` hooks to apply talent modifications to actual combat skills (e.g., damage multipliers, cooldown reduction). 366207e
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic & Progression' (Protocol in workflow.md)
 
 ## Phase 3: UI - Central Hub (Hotkey: S)
