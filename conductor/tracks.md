@@ -51,3 +51,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Description:** Implement the interactive concentric UI for the talent tree, including zooming, panning, and planning mode. (Completed on 2026-01-02)
 
 ---
+
+## [x] Track: 技能管理与专精系统 (S按键)
+*Link: [./conductor/tracks/skill_specialization_20260103/](./conductor/tracks/skill_specialization_20260103/)*
