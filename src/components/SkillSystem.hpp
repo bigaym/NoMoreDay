@@ -234,6 +234,7 @@ struct SkillSnapshot {
     Vector2 position = {0, 0};
     Vector2 target_pos = {0, 0};
     CombatStats stats; // Snapshot of owner's stats at time of creation
+    bool is_empowered = false;
 };
 
 /**

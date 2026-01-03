@@ -25,11 +25,13 @@ struct SkillExecution {
     // Optional snapshot for shadow casts or delayed effects
     bool has_snapshot = false;
     SkillSnapshot snapshot;
+
+    bool is_empowered = false;
 };
 
 class SkillSystem {
 public:
-    using CastCallback = std::function<void(entt::registry&, entt::entity, uint32_t, Vector2)>;
+    using CastCallback = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
     using SkillHook = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
 
     static void Update(entt::registry& registry, float dt);

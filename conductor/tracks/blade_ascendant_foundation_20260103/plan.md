@@ -29,13 +29,14 @@ This plan outlines the architectural changes needed to support advanced Blade As
 ## Phase 3: Sword Intent & Empowered Logic
 **Goal:** Integrate the class-specific resource with the new hook system.
 
-- [ ] **Task 1: Empowered Cast Hook**
-    - [ ] Implement a specific `SwordIntentHook` that checks `SwordIntentComponent` for 10 stacks.
-    - [ ] Logic: If stacks == 10, set `isEmpowered = true` on `SkillExecution` and reset stacks to 0.
-    - [ ] Register this hook in the `SkillSystem` during player initialization.
-- [ ] **Task 2: Verification**
-    - [ ] Write a test case in `ProgressionSystemTest.hpp` (or a new file) to verify stack consumption and the "Empowered" flag state.
-- [ ] **Task 3: Conductor - User Manual Verification 'Empowered Logic' (Protocol in workflow.md)**
+- [x] **Task 1: Empowered Cast Hook** [f2e3b2a]
+    - [x] Implement a specific `SwordIntentHook` that checks `SwordIntentComponent` for 10 stacks.
+    - [x] Logic: If stacks == 10, set `is_empowered = true` on `SkillExecution` and reset stacks to 0.
+    - [x] Register this hook in the `SkillSystem` during player initialization.
+- [x] **Task 2: Verification** [f2e3b2a]
+    - [x] Write a test case in `SwordIntentTest.hpp` to verify stack consumption and the "Empowered" flag state.
+- [x] **Task 3: Conductor - User Manual Verification 'Empowered Logic' (Protocol in workflow.md)}
+
 
 ## Phase 4: Movement Stance (Sword Riding)
 **Goal:** Implement the foundation for enhanced movement and "Stance" transitions.

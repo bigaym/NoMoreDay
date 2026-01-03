@@ -20,6 +20,7 @@ using namespace NoMoreDay;
 #include "SkillModifierTest.hpp"
 #include "SkillSpecializationTest.hpp"
 #include "ShadowSystemTest.hpp"
+#include "SwordIntentTest.hpp"
 #include "BuffRegistryTest.hpp"
 #include "BuffComponentTest.hpp"
 #include "AstrolabeRegistryTest.hpp"

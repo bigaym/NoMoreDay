@@ -158,7 +158,7 @@ TEST_CASE("SkillSystem: Execution Logic") {
 
     SUBCASE("State Machine & Callback") {
         bool effect_triggered = false;
-        SkillSystem::RegisterEffect(1, [&](entt::registry&, entt::entity, uint32_t, Vector2) {
+        SkillSystem::RegisterEffect(1, [&](entt::registry&, entt::entity, SkillExecution&) {
             effect_triggered = true;
         });
 

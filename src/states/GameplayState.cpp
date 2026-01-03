@@ -146,6 +146,7 @@ namespace NoMoreDay {
         registry.emplace<AttackState>(player);
         registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
         registry.emplace<TextureIDComponent>(player, playerAsset.id);
+        registry.emplace<SwordIntentComponent>(player);
         
         // Astrolabe
         auto& astro = registry.emplace<AstrolabeComponent>(player);
@@ -213,6 +214,41 @@ namespace NoMoreDay {
         
         if (IsKeyReleased(KEY_ESCAPE)) {
             m_stateManager->PushState<PauseState>();
+        }
+
+        // Debug: Spawn Shadow (K)
+        if (IsKeyPressed(KEY_K)) {
+            auto playerView = registry.view<PlayerTag, Position, CombatStats>();
+            if (playerView.begin() != playerView.end()) {
+                auto entity = playerView.front();
+                auto& pos = playerView.get<Position>(entity);
+                auto& stats = playerView.get<CombatStats>(entity);
+                Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), m_camera);
+                
+                SkillSnapshot snapshot;
+                snapshot.skill_id = 1; // Flowing Thrust
+                snapshot.position = {pos.x, pos.y};
+                snapshot.target_pos = mousePos;
+                snapshot.stats = stats;
+
+                auto shadow = registry.create();
+                registry.emplace<LocalLevelTag>(shadow);
+                registry.emplace<ShadowComponent>(shadow, snapshot, 0.0f, 1.0f);
+                registry.emplace<Position>(shadow, pos.x, pos.y);
+                registry.emplace<AnimationStateComponent>(shadow);
+                LOG_INFO("Debug: Spawned shadow at ({:.1f}, {:.1f})", pos.x, pos.y);
+            }
+        }
+
+        // Debug: Grant Sword Intent (J)
+        if (IsKeyPressed(KEY_J)) {
+            auto playerView = registry.view<PlayerTag, SwordIntentComponent>();
+            if (playerView.begin() != playerView.end()) {
+                auto entity = playerView.front();
+                auto& intent = playerView.get<SwordIntentComponent>(entity);
+                intent.stacks = 10;
+                LOG_INFO("Debug: Sword Intent set to 10 for player");
+            }
         }
 
         // Get Player Pos

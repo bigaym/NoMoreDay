@@ -93,7 +93,13 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
 
                 // Calculate Damage via Pipeline
                 DamagePool base;
-                auto result = DamagePipeline::Calculate(registry, proj.owner, target, skill_id, base, hit_tags, entity);
+                // If the projectile has its own CombatStats (snapshot), use it as the source of truth for damage calculation
+                entt::entity damage_attacker = proj.owner;
+                if (registry.all_of<CombatStats>(entity)) {
+                    damage_attacker = entity;
+                }
+                
+                auto result = DamagePipeline::Calculate(registry, damage_attacker, target, skill_id, base, hit_tags, entity);
                 
                 float finalDamage = result.total_damage;
                 if (finalDamage <= 0.0f) finalDamage = 5.0f; // Minimum damage for prototype feedback

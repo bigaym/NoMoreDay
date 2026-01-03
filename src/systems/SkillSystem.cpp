@@ -19,15 +19,34 @@ static std::vector<SkillSystem::SkillHook> s_pre_cast_hooks;
 static std::vector<SkillSystem::SkillHook> s_post_cast_hooks;
 
 void SkillSystem::InitHooks() {
+    // 1. Sword Intent & Empowered Logic
+    AddPreCastHook([](entt::registry& registry, entt::entity execution_ent, SkillExecution& exec) {
+        // SkillExecution is usually attached to the caster entity directly in current implementation
+        // But let's check both the execution_ent and exec.owner
+        entt::entity caster = exec.owner;
+        if (!registry.valid(caster)) return;
+
+        // Skip shadow casts for stack consumption (they use the empowered flag from the snapshot if implemented later)
+        if (registry.any_of<ShadowCastTag>(execution_ent)) return;
+
+        if (auto* intent = registry.try_get<SwordIntentComponent>(caster)) {
+            if (intent->stacks >= intent->max_stacks) {
+                exec.is_empowered = true;
+                intent->stacks = 0;
+                LOG_INFO("Skill {} empowered by Sword Intent for entity {}", exec.skill_id, (uint32_t)caster);
+            }
+        }
+    });
+
     // ID 1: Flowing Thrust (流云刺)
-    RegisterEffect(1, [](entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 target_pos) {
+    RegisterEffect(1, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
         auto* pos = registry.try_get<Position>(owner);
         auto* stats = registry.try_get<CombatStats>(owner);
         auto* dash = registry.try_get<DashComponent>(owner);
         if (!pos) return;
 
         // 1. Dash towards target
-        Vector2 dir = Vector2Normalize(Vector2Subtract(target_pos, {pos->x, pos->y}));
+        Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
         float speed = 1200.0f;
 
         // Apply burst velocity to owner
@@ -59,27 +78,43 @@ void SkillSystem::InitHooks() {
         proj.radius = 45.0f;   // Increased from 30
         proj.pierce = true;
         proj.pierceCount = 99; 
-        if (stats) proj.snapshot = *stats;
+        
+        if (stats) {
+            proj.snapshot = *stats;
+            // Empowered: 50% more damage
+            if (exec.is_empowered) {
+                for (auto& mult : proj.snapshot.damage_multipliers) mult *= 1.5f;
+                LOG_INFO("Empowered Flowing Thrust spawned with 1.5x damage");
+            }
+            // Emplace the snapshot onto the entity so DamagePipeline can find it
+            registry.emplace<CombatStats>(proj_ent, proj.snapshot);
+        }
 
-        registry.emplace<SkillComponent>(proj_ent, skill_id, owner);
+        registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
 
         LOG_INFO("Flowing Thrust executed by entity {}", (uint32_t)owner);
     });
 
     // ID 2: Rending Wave (裂空斩)
-    RegisterEffect(2, [](entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 target_pos) {
+    RegisterEffect(2, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
         auto* pos = registry.try_get<Position>(owner);
         auto* stats = registry.try_get<CombatStats>(owner);
         if (!pos || !stats) return;
 
-        const auto* skillData = SkillRegistry::Get().GetSkill(skill_id);
+        const auto* skillData = SkillRegistry::Get().GetSkill(exec.skill_id);
         Tag skillTags = skillData ? skillData->tags : Tag::None;
 
-        Vector2 baseDir = Vector2Normalize(Vector2Subtract(target_pos, {pos->x, pos->y}));
+        Vector2 baseDir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
 
         // Get total projectiles. Base is 1, plus modifiers from talents.
-        int totalCount = (int)StatsSystem::GetStatWithTags(registry, owner, StatType::ProjectileCount, skillTags, skill_id);
+        int totalCount = (int)StatsSystem::GetStatWithTags(registry, owner, StatType::ProjectileCount, skillTags, exec.skill_id);
         if (totalCount < 1) totalCount = 1; 
+
+        // Empowered: Double projectiles
+        if (exec.is_empowered) {
+            totalCount *= 2;
+            LOG_INFO("Empowered Rending Wave: Double projectiles!");
+        }
 
         float spread = 0.4f; // Total fan angle in radians
         float startAngle = (totalCount > 1) ? -spread / 2.0f : 0.0f; // Center if only 1
@@ -104,7 +139,12 @@ void SkillSystem::InitHooks() {
             proj.pierceCount = 99; // True piercing as requested
             proj.snapshot = *stats;
 
-            registry.emplace<SkillComponent>(proj_ent, skill_id, owner);
+            if (exec.is_empowered) {
+                for (auto& mult : proj.snapshot.damage_multipliers) mult *= 1.5f;
+            }
+            registry.emplace<CombatStats>(proj_ent, proj.snapshot);
+
+            registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
         }
 
         LOG_INFO("Rending Wave fired {} projectiles from entity {}", totalCount, (uint32_t)owner);
@@ -163,6 +203,7 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
     if (auto* sc = registry.try_get<ShadowComponent>(owner)) {
         exec.has_snapshot = true;
         exec.snapshot = sc->snapshot;
+        exec.is_empowered = sc->snapshot.is_empowered;
         
         // Also ensure the shadow entity has CombatStats for the callback to find
         registry.emplace_or_replace<CombatStats>(shadow, sc->snapshot.stats);
@@ -267,7 +308,7 @@ void SkillSystem::UpdateStates(entt::registry& registry, float dt) {
                     
                     // Trigger effect
                     if (s_skill_callbacks.contains(exec.skill_id)) {
-                        s_skill_callbacks[exec.skill_id](registry, entity, exec.skill_id, exec.target_pos);
+                        s_skill_callbacks[exec.skill_id](registry, entity, exec);
                     }
                     break;
                 case SkillState::Casting:
