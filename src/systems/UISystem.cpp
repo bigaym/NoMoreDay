@@ -4,7 +4,8 @@
 #include "UIMinimap.hpp"
 #include "UIAstrolabe.hpp" 
 #include "UIAnimationSystem.hpp"
-#include "UISkillHub.hpp" // ADDED
+#include "UISkillHub.hpp"
+#include "UISkillTalentTree.hpp" // ADDED
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
@@ -173,6 +174,8 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
                     UIAstrolabe::Toggle(registry, view.front());
                 }
             }
+        } else {
+            State.selectedSkillId = 0; // Reset view
         }
     }
 
@@ -348,7 +351,14 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     // Skill Tree Hub
     auto playerView = registry.view<PlayerTag>();
     if (playerView.begin() != playerView.end()) {
-        UISkillHub::Draw(registry, playerView.front());
+        entt::entity player = playerView.front();
+        if (State.showSkillTree) {
+            if (State.selectedSkillId == 0) {
+                UISkillHub::Draw(registry, player);
+            } else {
+                UISkillTalentTree::Draw(registry, player, State.selectedSkillId);
+            }
+        }
     }
 
     // 2. HUD (Always on top of panels if requested, or keep HUD accessible)

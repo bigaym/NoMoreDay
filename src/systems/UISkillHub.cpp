@@ -61,15 +61,18 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             UISystem::DrawTextUI("Empty", x + 10, y + 30, 16, GRAY);
         }
 
-        // Handle Click (Unassign)
+        // Handle Click (Unassign or Open Tree)
         if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
             DrawRectangleRec(slotRect, Fade(WHITE, 0.2f));
-            if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && skillId != 0) {
-                active->specialized_slots[i].skill_id = 0;
-                active->specialized_slots[i].allocated_points.clear();
-                // Refund points (simplified for now: refund all invested points)
-                // TODO: Need to track total invested points per slot to refund correctly
-                LOG_INFO("Unassigned skill from slot {}", i);
+            if (skillId != 0) {
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    state.selectedSkillId = skillId; // Enter Talent Tree view
+                }
+                if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+                    active->specialized_slots[i].skill_id = 0;
+                    active->specialized_slots[i].allocated_points.clear();
+                    LOG_INFO("Unassigned skill from slot {}", i);
+                }
             }
         }
     }

@@ -21,6 +21,7 @@ namespace NoMoreDay {
         float inventoryAlpha = 0.0f; // New
         
         bool showSkillTree = false; // New: Skill Specialization UI (Hotkey: S)
+        uint32_t selectedSkillId = 0; // Skill currently being viewed in talent tree
 
         bool showContextMenu = false;
 
