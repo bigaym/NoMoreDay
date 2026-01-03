@@ -107,3 +107,16 @@ graph TD
 - **方案 B (Event Bus)**: UI 发送 `EquipEvent`，由 `InventorySystem` (ECS System) 监听并处理。
 
 **建议采用方案 A**，因为 UI 操作本质上就是数据的变更，直接操作 Registry 符合 ECS 模式，只要逻辑封装得当（例如使用 `ItemFactory` 或 helper 函数）。
+
+## 6. 实际实现状态 (Current Implementation Status)
+
+根据代码分析，当前项目已经实现了部分UI系统重构方案：
+
+- **UIRenderer** 已经实现：`src/core/UIRenderer.hpp/cpp` 文件中包含了通用绘图功能，如 `DrawSlot`, `DrawTextUI`, `DrawTooltip` 等。
+- **InventoryState** 已经实现：`src/states/InventoryState.hpp/cpp` 文件中实现了专门的背包状态管理。
+- **UIContext** 已经实现：`src/core/UIContext.hpp` 文件中定义了共享的UI数据结构。
+- **状态驱动** 已经实现：通过 `StateManager` 管理不同的UI状态，如 `InventoryState` 位于栈顶时会拦截输入并暂停底层游戏逻辑。
+- **服务化** 已经实现：`UIRenderer` 作为无状态的工具库被各个UI组件和状态使用。
+- **InventorySystem** 已经实现：`src/systems/InventorySystem.hpp/cpp` 文件中包含了完整的背包管理逻辑，包括拾取、丢弃、装备、卸下等功能。
+
+当前的UI系统已经按照设计文档中的方案进行了重构，实现了从传统的静态单例模式到基于状态机的现代化架构的转变。
