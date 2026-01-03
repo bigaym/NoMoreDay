@@ -1,0 +1,1 @@
+Registered 'S' key in UISystem to toggle State.showSkillTree. Updated InputSystem to block player movement/skills when Skill Tree is visible. Added IsSkillTreeVisible helper to UISystem.
