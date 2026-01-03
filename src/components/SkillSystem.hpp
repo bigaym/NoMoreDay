@@ -158,15 +158,33 @@ struct GlobalModifierComponent {
  */
 struct SpecializedSkill {
     uint32_t skill_id = 0;
+    int bonus_levels = 0; // Extra points from equipment
     std::unordered_map<uint32_t, int> allocated_points; // node_id -> points invested
+
+    int GetPointsSpent() const {
+        int total = 0;
+        for (auto const& [id, pts] : allocated_points) {
+            total += pts;
+        }
+        return total;
+    }
+
+    int GetMaxPoints() const {
+        return 20 + bonus_levels;
+    }
 };
 
 inline void to_json(nlohmann::json& j, const SpecializedSkill& s) {
-    j = nlohmann::json{{"skill_id", s.skill_id}, {"allocated_points", s.allocated_points}};
+    j = nlohmann::json{
+        {"skill_id", s.skill_id}, 
+        {"bonus_levels", s.bonus_levels},
+        {"allocated_points", s.allocated_points}
+    };
 }
 
 inline void from_json(const nlohmann::json& j, SpecializedSkill& s) {
     j.at("skill_id").get_to(s.skill_id);
+    if (j.contains("bonus_levels")) j.at("bonus_levels").get_to(s.bonus_levels);
     if (j.contains("allocated_points")) j.at("allocated_points").get_to(s.allocated_points);
 }
 

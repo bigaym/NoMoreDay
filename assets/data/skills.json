@@ -19,11 +19,24 @@
           },
           { 
               "id": 101, "name_key": "破风", "desc_key": "增加攻击范围", "max_points": 3, "x": -1.0, "y": -2.0, "prerequisites": [100],
-              "stat_modifiers": [ { "type": 29, "mode": 1, "value": 15.0 } ]
+              "stat_modifiers": [ { "type": 31, "mode": 1, "value": 15.0 } ]
           },
           { 
               "id": 102, "name_key": "迅捷", "desc_key": "减少冷却时间", "max_points": 3, "x": 1.0, "y": -2.0, "prerequisites": [100],
-              "stat_modifiers": [ { "type": 27, "mode": 1, "value": 10.0 } ]
+              "stat_modifiers": [ { "type": 28, "mode": 1, "value": 10.0 } ]
+          },
+          { 
+              "id": 110, "name_key": "贯日", "desc_key": "攻击现在穿透所有敌人。", "max_points": 1, "x": -2.0, "y": -3.0, "prerequisites": [101]
+          },
+          { 
+              "id": 120, "name_key": "留影", "desc_key": "释放后在起点留下一个“残影”，0.5s 后再次冲刺。", "max_points": 1, "x": -1.0, "y": -3.0, "prerequisites": [101]
+          },
+          { 
+              "id": 130, "name_key": "弱点感知", "desc_key": "增加对满血敌人的暴击率。", "max_points": 5, "x": 1.0, "y": -3.0, "prerequisites": [102],
+              "stat_modifiers": [ { "type": 14, "mode": 1, "value": 10.0 } ]
+          },
+          { 
+              "id": 140, "name_key": "寒霜刺", "desc_key": "100% 物理伤害转为冰霜伤害。", "max_points": 1, "x": 2.0, "y": -3.0, "prerequisites": [102]
           }
       ]
     },
@@ -47,6 +60,19 @@
           { 
               "id": 201, "name_key": "破甲", "desc_key": "增加物理穿透", "max_points": 5, "x": 0.0, "y": -2.0, "prerequisites": [200],
               "stat_modifiers": [ { "type": 20, "mode": 0, "value": 10.0 } ]
+          },
+          { 
+              "id": 210, "name_key": "碎裂之刃", "desc_key": "剑气命中或到达终点时分裂。", "max_points": 1, "x": -1.0, "y": -3.0, "prerequisites": [201]
+          },
+          { 
+              "id": 220, "name_key": "回旋剑意", "desc_key": "剑气飞至最大距离后折返。", "max_points": 1, "x": 1.0, "y": -3.0, "prerequisites": [201]
+          },
+          { 
+              "id": 230, "name_key": "意气风发", "desc_key": "每层剑意增加伤害。", "max_points": 5, "x": 0.0, "y": -4.0, "prerequisites": [210, 220],
+              "stat_modifiers": [ { "type": 8, "mode": 1, "value": 5.0 } ]
+          },
+          { 
+              "id": 240, "name_key": "雷霆转炉", "desc_key": "100% 物理伤害转为闪电伤害。", "max_points": 1, "x": 2.0, "y": -2.0, "prerequisites": [200]
           }
       ]
     }

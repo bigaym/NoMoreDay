@@ -416,6 +416,13 @@ bool SkillSystem::AddTalentPoint(entt::registry& registry, entt::entity entity, 
         return false;
     }
 
+    // 2.5 Check per-skill point limit (20 + bonus_levels)
+    if (specialized->GetPointsSpent() >= specialized->GetMaxPoints()) {
+        LOG_WARN("Cannot add talent point: Skill {} has reached max points ({}/{})", 
+            skill_id, specialized->GetPointsSpent(), specialized->GetMaxPoints());
+        return false;
+    }
+
     // 3. Get tree definition
     const auto* tree = SkillRegistry::Get().GetSkillTree(skill_id);
     if (!tree) return false;

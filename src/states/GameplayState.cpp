@@ -168,7 +168,7 @@ namespace NoMoreDay {
         // IMPORTANT: Link skills to specialized slots so talents can be tracked
         active.specialized_slots[0].skill_id = 1;
         active.specialized_slots[1].skill_id = 2;
-        active.available_talent_points = 10; // Give 10 points for testing
+        active.available_talent_points = 49; // Give 49 points for testing
         
         // Ensure some mana
         auto& stats = registry.get<CombatStats>(player);

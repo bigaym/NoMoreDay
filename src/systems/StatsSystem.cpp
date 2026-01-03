@@ -190,6 +190,13 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     auto& combat = registry.get<CombatStats>(entity);
     resetCombatStats(combat); 
     
+    // 0.5 Reset Skill Bonus Levels
+    if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+        for (auto& specialized : active->specialized_slots) {
+            specialized.bonus_levels = 0;
+        }
+    }
+
     // Prepare GlobalModifierComponent for DamagePipeline
     auto& global_mods = registry.get_or_emplace<GlobalModifierComponent>(entity);
     global_mods.modifiers.clear();
@@ -266,6 +273,32 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 case AffixType::Thorns:          combat.thorns += affix.value; break;
                 case AffixType::DamageReduction: combat.damage_reduction += affix.value / 100.0f; break;
                 case AffixType::CooldownReduction: combat.cooldown_reduction += affix.value / 100.0f; break;
+
+                // Skill Levels
+                case AffixType::PlusAllSkills: {
+                    if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+                        for (auto& specialized : active->specialized_slots) {
+                            if (specialized.skill_id != 0) specialized.bonus_levels += (int)affix.value;
+                        }
+                    }
+                    break;
+                }
+                case AffixType::PlusFlowingThrust: {
+                    if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+                        for (auto& specialized : active->specialized_slots) {
+                            if (specialized.skill_id == 1) specialized.bonus_levels += (int)affix.value;
+                        }
+                    }
+                    break;
+                }
+                case AffixType::PlusRendingWave: {
+                    if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+                        for (auto& specialized : active->specialized_slots) {
+                            if (specialized.skill_id == 2) specialized.bonus_levels += (int)affix.value;
+                        }
+                    }
+                    break;
+                }
 
                 default: break;
             }
