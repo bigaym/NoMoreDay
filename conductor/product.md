@@ -28,7 +28,11 @@ To create an immersive, performance-driven ARPG experience where players face ov
 
     - **Sword Intent:** A stackable buff system that rewards continuous melee aggression.
 
-    - **Shadow Casting:** The ability to create ephemeral shadows that echo skill executions.
+    - **Shadow Echo System:** A lightweight "Ghost" mechanism that creates ephemeral shadows to echo skill executions with snapshot-based attributes and independent timers.
+
+    - **Empowered Skill Hooks:** A robust pre/post-cast hook system that enables dynamic skill behavior, such as consuming 10 stacks of Sword Intent to trigger "Empowered" versions of skills with increased damage or modified properties.
+
+    - **Movement Stances:** Implementation of continuous movement states like "Sword Riding," which grant significant mobility bonuses (e.g., +100% speed) after a 2-second wind-up period, cancelled by taking damage or stopping.
 
     - **Sword Heart Keystone:** A powerful passive that drastically increases weapon damage and grants block chance when wielding a sword single-handedly.
 
