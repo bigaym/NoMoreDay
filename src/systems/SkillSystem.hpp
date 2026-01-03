@@ -53,6 +53,11 @@ public:
      */
     static void OnSkillHit(entt::registry& registry, entt::entity attacker, entt::entity target, uint32_t skill_id, Tag hit_tags);
 
+    /**
+     * @brief Allocate a talent point to a specific skill's talent node.
+     */
+    static bool AddTalentPoint(entt::registry& registry, entt::entity entity, uint32_t skill_id, uint32_t node_id);
+
 private:
     static void UpdateCooldowns(entt::registry& registry, float dt);
     static void UpdateStates(entt::registry& registry, float dt);

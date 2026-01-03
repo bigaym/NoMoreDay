@@ -225,6 +225,9 @@ namespace NoMoreDay
         ResistShadow,
         ResistAll,
 
+        CooldownReduction,
+        ResourceCostReduction,
+
         Count
     };
 

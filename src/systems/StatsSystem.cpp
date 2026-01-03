@@ -3,12 +3,13 @@
 #include "../components/Stats.hpp"
 #include "../components/Common.hpp"
 #include "../components/InventoryComponent.hpp"
-#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "../components/EquipmentComponent.hpp"
 #include "../components/ItemComponent.hpp"
 #include "../components/ItemStats.hpp"
 #include "../components/Progression.hpp"
 #include "../components/Buff.hpp"
 #include "../core/AstrolabeRegistry.hpp"
+#include "../core/SkillRegistry.hpp"
 #include <algorithm>
 #include <vector>
 #include <array>
@@ -512,7 +513,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         str, combat.max_health);
 }
 
-float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags) {
+float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags, uint32_t skill_id) {
     auto* combat = registry.try_get<CombatStats>(entity);
     if (!combat) return 0.0f;
 
@@ -537,15 +538,22 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
         case StatType::Armor:         dynamic_calc.base = combat->armor; break;
         case StatType::MaxHealth:     dynamic_calc.base = combat->max_health; break;
         case StatType::MaxMana:       dynamic_calc.base = combat->max_mana; break;
+        case StatType::CooldownReduction: dynamic_calc.base = combat->cooldown_reduction * 100.0f; break;
+        case StatType::ResourceCostReduction: dynamic_calc.base = combat->resource_cost_reduction * 100.0f; break;
 
         default: break;
     }
 
     // 2. 累加动态标签修饰符
-    auto apply_if_tags_match = [&](const std::vector<StatModifier>& modifiers) {
+    auto apply_if_tags_match = [&](const std::vector<StatModifier>& modifiers, float scale = 1.0f) {
         for (const auto& mod : modifiers) {
-            if (mod.type == type && (mod.required_tags == Tag::None || HasTag(tags, mod.required_tags))) {
-                ApplyStatCalculation(dynamic_calc, mod.mode, mod.value);
+            if (mod.type == type) {
+                bool tags_match = (mod.required_tags == Tag::None || HasTag(tags, mod.required_tags));
+                if (tags_match) {
+                    ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
+                } else {
+                    LOG_DEBUG("GetStatWithTags: Tags mismatch for stat {}. Required: {}, Have: {}", (int)type, (uint64_t)mod.required_tags, (uint64_t)tags);
+                }
             }
         }
     };
@@ -559,6 +567,26 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
         for (uint32_t node_id : astrolabe->activated_nodes) {
             if (const auto* node = reg.GetNode(node_id)) {
                 apply_if_tags_match(node->modifiers);
+            }
+        }
+    }
+
+    // 3. 处理技能专精天赋 (Skill Specialization Talents)
+    if (skill_id != 0) {
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+            for (const auto& specialized : active->specialized_slots) {
+                if (specialized.skill_id == skill_id) {
+                    const auto* tree = SkillRegistry::Get().GetSkillTree(skill_id);
+                    if (tree) {
+                        for (auto [node_id, pts] : specialized.allocated_points) {
+                            auto node_it = tree->nodes.find(node_id);
+                            if (node_it != tree->nodes.end()) {
+                                apply_if_tags_match(node_it->second.stat_modifiers, static_cast<float>(pts));
+                            }
+                        }
+                    }
+                    break;
+                }
             }
         }
     }

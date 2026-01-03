@@ -178,8 +178,35 @@ DamageResult DamagePipeline::Calculate(
             default: break;
         }
 
-        float multiplier_pct = StatsSystem::GetStatWithTags(registry, attacker, dmg_stat, inst.tags);
+        float multiplier_pct = StatsSystem::GetStatWithTags(registry, attacker, dmg_stat, inst.tags, skill_id);
         inst.amount *= (multiplier_pct / 100.0f);
+
+        // --- NEW: Apply Talent-Specific Damage Modifiers (Convert, More) ---
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+            for (const auto& specialized : active->specialized_slots) {
+                if (specialized.skill_id == skill_id) {
+                    const auto* tree = SkillRegistry::Get().GetSkillTree(skill_id);
+                    if (tree) {
+                        for (auto [node_id, pts] : specialized.allocated_points) {
+                            auto node_it = tree->nodes.find(node_id);
+                            if (node_it != tree->nodes.end()) {
+                                const auto& node = node_it->second;
+                                for (const auto& dmod : node.damage_modifiers) {
+                                    if (dmod.source_tag == Tag::None || HasTag(inst.tags, dmod.source_tag)) {
+                                        float value = dmod.value * pts;
+                                        if (dmod.type == ModifierType::More) {
+                                            inst.amount *= (1.0f + value);
+                                        }
+                                        // TODO: Conversion in talents might need to be handled earlier in the pipeline if we want complex chaining
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
 
         // 5. Final Settlement (Crit & Defense)
         float crit_mult = 1.0f;

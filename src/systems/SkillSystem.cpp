@@ -223,8 +223,8 @@ void SkillSystem::UpdateCooldowns(entt::registry& registry, float dt) {
                         // Restart cooldown for next charge
                         auto* stats = registry.try_get<CombatStats>(entity);
                         float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
-                        float cdr = stats ? stats->cooldown_reduction : 0.0f;
-                        slot.cooldown = (data->cooldown / recovery) * (1.0f - cdr);
+                        float cdr = StatsSystem::GetStatWithTags(registry, entity, StatType::CooldownReduction, data->tags, slot.id) / 100.0f;
+                        slot.cooldown = (data->cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
                     } else {
                         slot.cooldown = 0.0f;
                     }
@@ -308,16 +308,17 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     // 2. Check Resources (Mana)
     auto* stats = registry.try_get<CombatStats>(entity);
     if (stats) {
-        float cost = data->mana_cost * (1.0f - stats->resource_cost_reduction);
+        float rcr = StatsSystem::GetStatWithTags(registry, entity, StatType::ResourceCostReduction, data->tags, slot.id) / 100.0f;
+        float cost = data->mana_cost * (1.0f - std::min(0.9f, rcr));
         if (stats->mana < cost) return false;
         stats->mana -= cost;
     }
 
     // 3. Consume Charge and Start Cooldown if not already running
     if (slot.current_charges == data->max_charges) {
-        float cdr = stats ? stats->cooldown_reduction : 0.0f;
+        float cdr = StatsSystem::GetStatWithTags(registry, entity, StatType::CooldownReduction, data->tags, slot.id) / 100.0f;
         float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
-        slot.cooldown = (data->cooldown / recovery) * (1.0f - cdr);
+        slot.cooldown = (data->cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
     }
     slot.current_charges--;
 
@@ -332,6 +333,67 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     exec.target_pos = target_pos;
 
     LOG_INFO("Entity {} started casting skill: {}", (uint32_t)entity, data->name_key);
+
+    return true;
+}
+
+bool SkillSystem::AddTalentPoint(entt::registry& registry, entt::entity entity, uint32_t skill_id, uint32_t node_id) {
+    auto* active = registry.try_get<ActiveSkillsComponent>(entity);
+    if (!active) return false;
+
+    // 1. Check if skill is specialized
+    SpecializedSkill* specialized = nullptr;
+    for (auto& slot : active->specialized_slots) {
+        if (slot.skill_id == skill_id) {
+            specialized = &slot;
+            break;
+        }
+    }
+    if (!specialized) {
+        LOG_WARN("Cannot add talent point: Skill {} is not specialized for entity {}", skill_id, (uint32_t)entity);
+        return false;
+    }
+
+    // 2. Check points availability
+    if (active->available_talent_points <= 0) {
+        LOG_WARN("Cannot add talent point: No points available for entity {}", (uint32_t)entity);
+        return false;
+    }
+
+    // 3. Get tree definition
+    const auto* tree = SkillRegistry::Get().GetSkillTree(skill_id);
+    if (!tree) return false;
+
+    auto node_it = tree->nodes.find(node_id);
+    if (node_it == tree->nodes.end()) return false;
+    const auto& node = node_it->second;
+
+    // 4. Check max points
+    int current_pts = specialized->allocated_points.contains(node_id) ? specialized->allocated_points.at(node_id) : 0;
+    if (current_pts >= node.max_points) {
+        LOG_WARN("Cannot add talent point: Node {} already at max ({}/{})", node_id, current_pts, node.max_points);
+        return false;
+    }
+
+    // 5. Check prerequisites
+    for (uint32_t pre_id : node.prerequisites) {
+        int pre_pts = specialized->allocated_points.contains(pre_id) ? specialized->allocated_points.at(pre_id) : 0;
+        // Assume 1 point is enough to satisfy prerequisite
+        if (pre_pts <= 0) {
+            LOG_WARN("Cannot add talent point: Prerequisite {} not met for node {}", pre_id, node_id);
+            return false;
+        }
+    }
+
+    // 6. Apply
+    active->available_talent_points--;
+    specialized->allocated_points[node_id] = current_pts + 1;
+    
+    // Mark stats dirty so global stat modifiers from talents are recalculated
+    registry.get_or_emplace<StatsDirty>(entity);
+
+    LOG_INFO("Entity {} spent talent point on Skill {} -> Node {} ({}/{})", 
+        (uint32_t)entity, skill_id, node_id, specialized->allocated_points[node_id], node.max_points);
 
     return true;
 }

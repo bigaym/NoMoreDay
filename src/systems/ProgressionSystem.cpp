@@ -70,6 +70,11 @@ void ProgressionSystem::LevelUp(entt::registry& registry, entt::entity entity) {
         astro->available_points += 1;
     }
 
+    // 奖励技能专精点数 (Skill Specialization points)
+    if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+        active->available_talent_points += 1;
+    }
+
     // 基础属性增长
     if (auto* primStats = registry.try_get<PrimaryStats>(entity)) {
         // 移除自动属性增长，改为由玩家手动分配
