@@ -1,0 +1,1 @@
+Implemented SkillRegistry::GetSkillTree and JSON parsing for talent_tree. Verified with SkillSpecializationTest:Registry Loading.
