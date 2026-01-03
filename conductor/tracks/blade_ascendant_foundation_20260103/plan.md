@@ -5,10 +5,10 @@ This plan outlines the architectural changes needed to support advanced Blade As
 ## Phase 1: Skill Infrastructure (Hooks & Modifiers)
 **Goal:** Implement the "hooks" and component-driven modifier system to allow skills to be dynamic and specialized.
 
-- [ ] **Task 1: Implement Skill Logic Hooks**
-    - [ ] Add `PreCastHook` and `PostCastHook` function pointers or event handlers to the `SkillSystem`.
-    - [ ] Update `SkillSystem.cpp` to trigger `PreCast` during the `Preparing` state and `PostCast` during the `Settle` or `End` state.
-    - [ ] Create `SkillHookTest.hpp` to verify hooks are called at the correct state transitions.
+- [x] **Task 1: Implement Skill Logic Hooks** [91eae6b]
+    - [x] Add `PreCastHook` and `PostCastHook` function pointers or event handlers to the `SkillSystem`.
+    - [x] Update `SkillSystem.cpp` to trigger `PreCast` during the `Preparing` state and `PostCast` during the `Settle` or `End` state.
+    - [x] Create `SkillHookTest.hpp` to verify hooks are called at the correct state transitions.
 - [ ] **Task 2: Component-Based Modifier System**
     - [ ] Define a generic `SkillModifierComponent` that can hold a collection of modifiers (Damage Inc/More, Conversion, etc.).
     - [ ] Update `DamagePipeline` to iterate through any `SkillModifierComponent` attached to the `DamageEvent` or `Projectile`.
