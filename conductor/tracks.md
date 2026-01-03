@@ -61,3 +61,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [x] Track: Skill Management & Specialization System
 - **Folder:** conductor/archive/skill_specialization_20260103
 - **Description:** Implement a comprehensive Skill Management Interface (Hotkey: 'S') including 5 specialization slots, unique talent trees for skills, and point allocation. (Completed on 2026-01-03)
+
+---
+
+## [ ] Track: Sword Cultivator Foundation Expansion
+*Link: [./conductor/tracks/blade_ascendant_foundation_20260103/](./conductor/tracks/blade_ascendant_foundation_20260103/)*

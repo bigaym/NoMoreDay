@@ -47,12 +47,15 @@
   - `StatsSystem`: 负责从基础属性、装备词缀和修饰符重新计算 `CombatStats`。
   - `ProgressionSystem`: 处理经验获取、升级和属性点分配。
   - `InventorySystem`: 物品的拾取、丢弃、装备、堆叠和背包整理。
-  - `CraftingSystem`: 词缀升级、添加和混沌重铸逻辑。
+  - `CraftingSystem`: 词缀升级、添加和混沌重铸逻辑（含完整交互 UI）。
+  - `AstrolabeSystem`: 同心圆辐射状天赋星盘，支持动态缩放、路径规划与属性烘焙。
+  - `SkillSystem`: 包含 5 个专精槽位、独立技能天赋树、标签驱动伤害管道及影子施法机制。
 
 - **战斗与生存**:
   - `CombatSystem`: 攻击判定、伤害计算（护甲/抗性）、死亡处理。
   - `AISystem`: 状态机 AI（巡逻、追击、攻击、逃跑），集成流场寻路。
-  - `EffectSystem`: 管理状态效果 (Buff/Debuff) 与视觉特效生命周期。
+  - `EffectSystem`: 管理视觉特效生命周期。
+  - `BuffSystem`: 完善的状态效果 (Buff/Debuff) 显示与逻辑处理系统。
 
 - **世界与生态**:
   - `MapSystem`: 洞穴生成（元胞自动机）、流场计算（Flow Field Pathfinding）。

@@ -51,8 +51,9 @@
 ### ✅ 已实现系统 (Implemented Systems)
 
 - **核心交互**: `InputSystem`, `PhysicsSystem` (Grid-based), `RenderSystem`, `UISystem` (背包/小地图).
-- **RPG 数值**: `StatsSystem` (属性/词缀), `ProgressionSystem` (升级), `InventorySystem`, `CraftingSystem`.
-- **战斗与生存**: `CombatSystem` (伤害/抗性), `AISystem` (状态机/流场), `EffectSystem`.
+- **RPG 数值与成长**: `StatsSystem` (属性/词缀), `ProgressionSystem` (升级), `InventorySystem`, `CraftingSystem` (含 UI), `AstrolabeSystem` (星盘天赋).
+- **技能与专精**: `SkillSystem` (5个专精位、独立技能树、标签驱动伤害管道)、影子施法机制。
+- **战斗与生存**: `CombatSystem` (伤害/抗性), `AISystem` (状态机/流场), `EffectSystem`, `BuffSystem` (状态显示).
 - **世界与生态**: `MapSystem` (元胞自动机), `FogOfWarSystem`, `EnemySpawnSystem`, `DropSystem`.
 
 ---
