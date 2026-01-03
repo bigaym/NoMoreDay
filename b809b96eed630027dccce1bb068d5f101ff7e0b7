@@ -1,0 +1,1 @@
+Task: Update assets/data/skills.json and core infra for remaining 7 skills. Changes: Added 7 trees, unique ID verification, expanded StatType. Files: skills.json, Stats.hpp, StatsSystem.cpp, tests.
