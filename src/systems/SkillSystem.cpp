@@ -15,6 +15,8 @@
 namespace NoMoreDay {
 
 static std::map<uint32_t, SkillSystem::CastCallback> s_skill_callbacks;
+static std::vector<SkillSystem::SkillHook> s_pre_cast_hooks;
+static std::vector<SkillSystem::SkillHook> s_post_cast_hooks;
 
 void SkillSystem::InitHooks() {
     // ID 1: Flowing Thrust (流云刺)
@@ -118,6 +120,19 @@ void SkillSystem::Update(entt::registry& registry, float dt) {
 
 void SkillSystem::RegisterEffect(uint32_t skill_id, CastCallback callback) {
     s_skill_callbacks[skill_id] = callback;
+}
+
+void SkillSystem::AddPreCastHook(SkillHook hook) {
+    s_pre_cast_hooks.push_back(hook);
+}
+
+void SkillSystem::AddPostCastHook(SkillHook hook) {
+    s_post_cast_hooks.push_back(hook);
+}
+
+void SkillSystem::ClearHooks() {
+    s_pre_cast_hooks.clear();
+    s_post_cast_hooks.clear();
 }
 
 bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 position, Vector2 target_pos) {
@@ -254,6 +269,11 @@ void SkillSystem::UpdateStates(entt::registry& registry, float dt) {
         if (exec.timer <= 0.0f) {
             switch (exec.state) {
                 case SkillState::Preparing:
+                    // Trigger PreCast Hooks
+                    for (auto& hook : s_pre_cast_hooks) {
+                        hook(registry, entity, exec);
+                    }
+
                     exec.state = SkillState::Casting;
                     exec.timer = 0.05f; // Short cast duration for prototype
                     
@@ -265,6 +285,11 @@ void SkillSystem::UpdateStates(entt::registry& registry, float dt) {
                 case SkillState::Casting:
                     exec.state = SkillState::Settle;
                     exec.timer = 0.1f; // Recovery duration
+
+                    // Trigger PostCast Hooks
+                    for (auto& hook : s_post_cast_hooks) {
+                        hook(registry, entity, exec);
+                    }
                     break;
                 case SkillState::Settle:
                     // Reset owner to idle if not moving

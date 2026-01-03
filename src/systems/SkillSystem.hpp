@@ -25,6 +25,7 @@ struct SkillExecution {
 class SkillSystem {
 public:
     using CastCallback = std::function<void(entt::registry&, entt::entity, uint32_t, Vector2)>;
+    using SkillHook = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
 
     static void Update(entt::registry& registry, float dt);
     
@@ -42,6 +43,21 @@ public:
      * @brief Register a callback for a specific skill ID.
      */
     static void RegisterEffect(uint32_t skill_id, CastCallback callback);
+
+    /**
+     * @brief Register a hook called before the skill effect is triggered (during Preparing state).
+     */
+    static void AddPreCastHook(SkillHook hook);
+
+    /**
+     * @brief Register a hook called after the skill effect is triggered or finishes.
+     */
+    static void AddPostCastHook(SkillHook hook);
+
+    /**
+     * @brief Clear all registered hooks (mainly for testing).
+     */
+    static void ClearHooks();
 
     /**
      * @brief Initialize default skill hooks (Flowing Thrust, etc.).
