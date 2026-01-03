@@ -129,8 +129,8 @@ void AISystem::updateAIEntity(entt::registry& registry,
                 vel.vx = 0; vel.vy = 0;
             } else if (distToNext > 0.1f) {
                 // 移动向下一步
-                vel.vx = (dx / distToNext) * ai.speed * 0.5f; // 巡逻速度慢
-                vel.vy = (dy / distToNext) * ai.speed * 0.5f;
+                vel.vx = (dx / distToNext) * ai.speed * 0.33f; // 巡逻速度慢 (1/3)
+                vel.vy = (dy / distToNext) * ai.speed * 0.33f;
             }
 
             // 检查是否有目标进入检测范围

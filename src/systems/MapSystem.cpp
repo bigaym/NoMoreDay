@@ -5,7 +5,7 @@
 #include <cmath>
 #include <limits>
 
-MapSystem::MapSystem() : m_gen(42) {
+MapSystem::MapSystem() : m_gen(std::random_device{}()) {
 }
 
 MapSystem::~MapSystem() {
@@ -23,9 +23,9 @@ MapGenerator::MapData CaveMapGenerator::Generate(int width, int height, uint32_t
     std::mt19937 gen(seed);
     std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
-    // 1. 初始化
+    // 1. 初始化：进一步降低环境噪音 (0.10 -> 0.05)，确保留白更多
     for (auto& tile : map.grid) {
-        tile.type = (dist(gen) < wallProb) ? Tile::Type::WALL : Tile::Type::FLOOR;
+        tile.type = (dist(gen) < 0.05f) ? Tile::Type::WALL : Tile::Type::FLOOR;
     }
 
     // 辅助 buffer
@@ -42,14 +42,17 @@ MapGenerator::MapData CaveMapGenerator::Generate(int width, int height, uint32_t
         map.grid = std::move(buffer);
     }
 
-    // 3. 生成障碍物 (使用 Perlin Noise 生成纹路/矿脉结构)
-    GenerateObstacles(map.grid, width, height, seed);
+    // 3. 生成障碍物 (使用种子生长法)
+    GenerateObstacles(map.grid, width, height, gen());
 
     // 4. 边界处理
     ApplyBoundaries(map.grid, width, height);
     
-    // 5. Place Exits
-    PlaceExits(map.grid, width, height, seed);
+    // 5. 确保 100% 连通性 (防止大块障碍物切断路径)
+    EnsureConnectivity(map.grid, width, height);
+    
+    // 6. Place Exits
+    PlaceExits(map.grid, width, height, gen());
 
     return map;
 }
@@ -59,10 +62,25 @@ void CaveMapGenerator::PlaceExits(std::vector<Tile>& grid, int w, int h, uint32_
     std::uniform_int_distribution<int> xDist(1, w - 2);
     std::uniform_int_distribution<int> yDist(1, h - 2);
     
-    // Place Stairs Down (Exit)
-    // Find a floor tile that is not too close to the center (0,0 is top left, but spawn is usually middle? SceneManager uses center)
-    // Actually let's just pick a random floor tile.
-    
+    // 1. Place Start point (STAIRS_UP) near center
+    int cx = w / 2;
+    int cy = h / 2;
+    bool startPlaced = false;
+    for (int r = 0; r < 20 && !startPlaced; r++) {
+        for (int dx = -r; dx <= r; dx++) {
+            for (int dy = -r; dy <= r; dy++) {
+                int idx = (cy + dy) * w + (cx + dx);
+                if (grid[idx].type == Tile::Type::FLOOR) {
+                    grid[idx].type = Tile::Type::STAIRS_UP;
+                    startPlaced = true;
+                    break;
+                }
+            }
+            if (startPlaced) break;
+        }
+    }
+
+    // 2. Place Stairs Down (Exit)
     for (int attempt = 0; attempt < 1000; ++attempt) {
         int x = xDist(gen);
         int y = yDist(gen);
@@ -104,20 +122,167 @@ void CaveMapGenerator::ApplyBoundaries(std::vector<Tile>& grid, int w, int h) {
 }
 
 void CaveMapGenerator::GenerateObstacles(std::vector<Tile>& grid, int w, int h, uint32_t seed) {
-    // 使用 Perlin Noise 生成连续的障碍物结构 (纹路)
-    // scale 4.0f 适合生成较大的连通块
-    Image noiseImg = GenImagePerlinNoise(w, h, seed % 1000, seed / 1000, 4.0f);
-    Color* pixels = LoadImageColors(noiseImg);
+    std::mt19937 gen(seed);
+    std::uniform_int_distribution<int> xDist(5, w - 6);
+    std::uniform_int_distribution<int> yDist(5, h - 6);
+    std::uniform_int_distribution<int> sizeDist(100, 400); // 调整每个岩块的目标面积为 100~400
     
-    for (int i = 0; i < w * h; ++i) {
-        // 只在地板上生成障碍物，且只在噪声值较高(>180)的区域生成，形成斑块或纹路
-        if (grid[i].type == Tile::Type::FLOOR && pixels[i].r > 180) {
-            grid[i].type = Tile::Type::WALL;
+    // 1. 确定岩块数量 (减少为原来的一半)
+    int numRocks = (w * h) / 1200; // 原来是 600
+    if (numRocks < 10) numRocks = 12; // 原来是 25
+
+    // 2. 生成巨型岩块种子
+    for (int i = 0; i < numRocks; ++i) {
+        int cx = xDist(gen);
+        int cy = yDist(gen);
+        int targetArea = sizeDist(gen);
+        int currentArea = 0;
+
+        // 使用 BFS 方式扩张“岩体”
+        std::queue<int> q;
+        q.push(cy * w + cx);
+        std::vector<int> rockTiles;
+        
+        while (!q.empty() && currentArea < targetArea) {
+            int curr = q.front();
+            q.pop();
+            
+            if (grid[curr].type == Tile::Type::WALL) continue;
+            
+            grid[curr].type = Tile::Type::WALL;
+            rockTiles.push_back(curr);
+            currentArea++;
+
+            int x = curr % w;
+            int y = curr / w;
+
+            // 向四周扩张，加入一点随机性以产生不规则形状
+            const int dx[] = {0, 0, 1, -1};
+            const int dy[] = {1, -1, 0, 0};
+            for (int d = 0; d < 4; ++d) {
+                int nx = x + dx[d];
+                int ny = y + dy[d];
+                if (nx >= 2 && nx < w - 2 && ny >= 2 && ny < h - 2) {
+                    std::uniform_int_distribution<int> chance(0, 100);
+                    if (chance(gen) < 85) { // 85% 扩张概率，保证紧凑
+                        q.push(ny * w + nx);
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. 强力平滑 (4次) 让岩块边缘圆润且合并临近块
+    for (int i = 0; i < 4; ++i) {
+        std::vector<Tile> src = grid;
+        SmoothIteration(src, grid, w, h);
+    }
+
+    // 4. 清理残留的极小岛屿 (面积小于 80 的碎片直接移除)
+    RemoveSmallRegions(grid, w, h, 80, Tile::Type::WALL, Tile::Type::FLOOR);
+    
+    // 5. 填充大岩块内部的小孔洞
+    RemoveSmallRegions(grid, w, h, 40, Tile::Type::FLOOR, Tile::Type::WALL);
+}
+
+void CaveMapGenerator::RemoveSmallRegions(std::vector<Tile>& grid, int w, int h, int threshold, Tile::Type typeToRemove, Tile::Type fillType) {
+    std::vector<bool> visited(w * h, false);
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int idx = y * w + x;
+            if (grid[idx].type == typeToRemove && !visited[idx]) {
+                // BFS 扫描连通区域
+                std::vector<int> component;
+                std::queue<int> q;
+                q.push(idx);
+                visited[idx] = true;
+                
+                while (!q.empty()) {
+                    int curr = q.front();
+                    q.pop();
+                    component.push_back(curr);
+                    
+                    int cx = curr % w;
+                    int cy = curr / w;
+                    
+                    const int dx[] = {0, 0, 1, -1};
+                    const int dy[] = {1, -1, 0, 0};
+                    for (int i = 0; i < 4; ++i) {
+                        int nx = cx + dx[i];
+                        int ny = cy + dy[i];
+                        if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                            int nIdx = ny * w + nx;
+                            if (grid[nIdx].type == typeToRemove && !visited[nIdx]) {
+                                visited[nIdx] = true;
+                                q.push(nIdx);
+                            }
+                        }
+                    }
+                }
+                
+                // 如果面积过小，抹平
+                if (component.size() < (size_t)threshold) {
+                    for (int i : component) {
+                        grid[i].type = fillType;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void CaveMapGenerator::EnsureConnectivity(std::vector<Tile>& grid, int w, int h) {
+    // 找到最大的可行走区域，将其余不可达的可行走区域全部填成墙
+    std::vector<bool> visited(w * h, false);
+    std::vector<int> bestRegion;
+    
+    for (int y = 0; y < h; ++y) {
+        for (int x = 0; x < w; ++x) {
+            int idx = y * w + x;
+            if (grid[idx].type != Tile::Type::WALL && !visited[idx]) {
+                std::vector<int> currentRegion;
+                std::queue<int> q;
+                q.push(idx);
+                visited[idx] = true;
+                
+                while (!q.empty()) {
+                    int curr = q.front();
+                    q.pop();
+                    currentRegion.push_back(curr);
+                    
+                    int cx = curr % w;
+                    int cy = curr / w;
+                    const int dx[] = {0, 0, 1, -1};
+                    const int dy[] = {1, -1, 0, 0};
+                    for (int i = 0; i < 4; ++i) {
+                        int nx = cx + dx[i];
+                        int ny = cy + dy[i];
+                        if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
+                            int nIdx = ny * w + nx;
+                            if (grid[nIdx].type != Tile::Type::WALL && !visited[nIdx]) {
+                                visited[nIdx] = true;
+                                q.push(nIdx);
+                            }
+                        }
+                    }
+                }
+                
+                if (currentRegion.size() > bestRegion.size()) {
+                    bestRegion = std::move(currentRegion);
+                }
+            }
         }
     }
     
-    UnloadImageColors(pixels);
-    UnloadImage(noiseImg);
+    // 将非最大区域的 FLOOR 全部填成墙，保证 100% 连通性
+    std::vector<bool> isBest(w * h, false);
+    for (int idx : bestRegion) isBest[idx] = true;
+    
+    for (int i = 0; i < w * h; ++i) {
+        if (grid[i].type != Tile::Type::WALL && !isBest[i]) {
+            grid[i].type = Tile::Type::WALL;
+        }
+    }
 }
 
 // --- MapSystem Implementation ---
@@ -126,7 +291,7 @@ void MapSystem::generateCaveMap(int width, int height) {
     // 使用具体的生成器实例
     CaveMapGenerator generator;
     const auto& biome = NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
-    auto mapData = generator.Generate(width, height, 42, biome.wallProbability, biome.smoothIterations); // 使用固定种子或随机种子
+    auto mapData = generator.Generate(width, height, m_gen(), biome.wallProbability, biome.smoothIterations); // 使用随机种子
     
     m_mapData.width = mapData.width;
     m_mapData.height = mapData.height;
@@ -172,7 +337,8 @@ void MapSystem::render(const Camera2D& camera) const {
                 Color color = BLACK;
                 if (type == Tile::Type::FLOOR) color = biome.floorColor;
                 else if (type == Tile::Type::WALL) color = biome.wallColor;
-                else if (type == Tile::Type::STAIRS_DOWN) color = RED; // Temporary
+                else if (type == Tile::Type::STAIRS_DOWN) color = RED; 
+                else if (type == Tile::Type::STAIRS_UP) color = biome.floorColor; 
                 
                 // 如果只是已探索但当前不可见，变暗
                 if (!isVisible(x, y)) {

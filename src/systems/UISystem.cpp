@@ -249,6 +249,7 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
             auto& active = registry.get_or_emplace<ActiveSkillsComponent>(view.front());
             active.slots[0] = { 1, 0.0f, 1 }; // Skill 1: 1 charge
             active.slots[1] = { 2, 0.0f, 3 }; // Skill 2: 3 charges
+            active.slots[4] = { 2, 0.0f, 3 }; // Skill 2: Also on RMB for testing
             
             // Skill 2 in JSON has 2s cooldown. Let's make it have 3 charges for testing
             // Actually I should update the JSON or the component after loading.

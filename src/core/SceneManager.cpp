@@ -90,9 +90,14 @@ void SceneManager::ApplyLoadedLevel() {
     int w = mapSystem.getWidth();
     int h = mapSystem.getHeight();
     
+    float spawnX = (float)WorldConstants::WORLD_WIDTH / 2.0f;
+    float spawnY = (float)WorldConstants::WORLD_HEIGHT / 2.0f;
+    bool spawnFound = false;
+
     for (int y = 0; y < h; ++y) {
         for (int x = 0; x < w; ++x) {
-            if (mapSystem.getTileType(x, y) == Tile::Type::STAIRS_DOWN) {
+            Tile::Type type = mapSystem.getTileType(x, y);
+            if (type == Tile::Type::STAIRS_DOWN) {
                 auto portal = m_registry.create();
                 m_registry.emplace<LocalLevelTag>(portal);
                 m_registry.emplace<Position>(portal, x * 10.0f + 5.0f, y * 10.0f + 5.0f);
@@ -109,32 +114,33 @@ void SceneManager::ApplyLoadedLevel() {
                 }
                 m_registry.emplace<PortalComponent>(portal, pc);
             }
+            else if (type == Tile::Type::STAIRS_UP && !spawnFound) {
+                spawnX = x * 10.0f + 5.0f;
+                spawnY = y * 10.0f + 5.0f;
+                spawnFound = true;
+            }
         }
     }
 
     // Reposition Persistent Entities (Player)
-    float spawnX = (float)WorldConstants::WORLD_WIDTH / 2.0f;
-    float spawnY = (float)WorldConstants::WORLD_HEIGHT / 2.0f;
-    
-    // Attempt to find a floor tile if map system is available
-    const auto& map = m_levelManager.getMapSystem();
-    
-    // Simple spiral search for walkable tile from center
-    int centerX = (int)(spawnX / 10.0f);
-    int centerY = (int)(spawnY / 10.0f);
-    
-    bool found = false;
-    for (int r = 0; r < 20 && !found; r++) {
-        for (int dx = -r; dx <= r; dx++) {
-            for (int dy = -r; dy <= r; dy++) {
-                if (map.isWalkable(centerX + dx, centerY + dy)) {
-                    spawnX = (centerX + dx) * 10.0f + 5.0f;
-                    spawnY = (centerY + dy) * 10.0f + 5.0f;
-                    found = true;
-                    break;
+    if (!spawnFound) {
+        // Attempt to find a floor tile if no STAIRS_UP found
+        int centerX = (int)(spawnX / 10.0f);
+        int centerY = (int)(spawnY / 10.0f);
+        
+        bool found = false;
+        for (int r = 0; r < 50 && !found; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dy = -r; dy <= r; dy++) {
+                    if (mapSystem.isWalkable(centerX + dx, centerY + dy)) {
+                        spawnX = (centerX + dx) * 10.0f + 5.0f;
+                        spawnY = (centerY + dy) * 10.0f + 5.0f;
+                        found = true;
+                        break;
+                    }
                 }
+                if (found) break;
             }
-            if (found) break;
         }
     }
     

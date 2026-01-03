@@ -16,10 +16,10 @@
             "name": "幽暗洞穴 (Dark Cave)",
             "floorColor": [60, 40, 30, 255],
             "wallColor": [40, 40, 40, 255],
-            "wallProbability": 0.45,
+            "wallProbability": 0.38,
             "smoothIterations": 5,
             "enemyPool": ["slime", "goblin"],
-            "maxEnemies": 50,
+            "maxEnemies": 500,
             "isSafeZone": false
         }
     ]

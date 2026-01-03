@@ -61,17 +61,17 @@ void EnemySpawnSystem::initData(int width, int height, const MapSystem& mapSyste
     
     m_pendingRaces = availableRaces; // Store for texture loading
 
-    // 2. 群聚生成
-    int clusterCount = (width * height) / 1000; // 稍微降低密度
+    // 2. 群聚生成 - 大幅增加密度 (5~10倍)
+    int clusterCount = (width * height) / 200; // 原来是 1000, 现在是 5倍密度
     if (biomeConfig.maxEnemies > 0) {
-        clusterCount = std::min(clusterCount, biomeConfig.maxEnemies / 4);
+        // 允许生成更多，限制在 maxEnemies 范围内
+        clusterCount = std::min(clusterCount, biomeConfig.maxEnemies / 5);
     }
     if (clusterCount < 1 && biomeConfig.maxEnemies > 0) clusterCount = 1;
     
     std::uniform_int_distribution<int> xDist(2, width - 3);
     std::uniform_int_distribution<int> yDist(2, height - 3);
-    std::uniform_int_distribution<int> countDist(3, 6); 
-    
+    std::uniform_int_distribution<int> countDist(5, 12); // 每群 5-12 只 (原来 3-6)
     for (int i = 0; i < clusterCount; ++i) {
         int cx, cy;
         bool foundCenter = false;

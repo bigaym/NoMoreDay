@@ -33,6 +33,8 @@ private:
     void ApplyBoundaries(std::vector<Tile>& grid, int w, int h);
     void GenerateObstacles(std::vector<Tile>& grid, int w, int h, uint32_t seed);
     void PlaceExits(std::vector<Tile>& grid, int w, int h, uint32_t seed);
+    void RemoveSmallRegions(std::vector<Tile>& grid, int w, int h, int threshold, Tile::Type typeToRemove, Tile::Type fillType);
+    void EnsureConnectivity(std::vector<Tile>& grid, int w, int h);
 };
 
 class MapSystem {

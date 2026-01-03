@@ -91,8 +91,41 @@ namespace NoMoreDay {
         auto player = registry.create();
         LOG_DEBUG("Created player entity with ID: {}", (uint32_t)player);
         
-        float startX = (float)GetScreenWidth() / 2.0f;
-        float startY = (float)GetScreenHeight() / 2.0f;
+        float startX = (float)WorldConstants::WORLD_WIDTH / 2.0f;
+        float startY = (float)WorldConstants::WORLD_HEIGHT / 2.0f;
+
+        // Use Map System to find a safe spawn (STAIRS_UP or nearest walkable)
+        const auto& map = m_context->levelManager->getMapSystem();
+        bool spawnFound = false;
+        for (int y = 0; y < map.getHeight(); y++) {
+            for (int x = 0; x < map.getWidth(); x++) {
+                if (map.getTileType(x, y) == Tile::Type::STAIRS_UP) {
+                    startX = x * 10.0f + 5.0f;
+                    startY = y * 10.0f + 5.0f;
+                    spawnFound = true;
+                    break;
+                }
+            }
+            if (spawnFound) break;
+        }
+
+        if (!spawnFound) {
+            int cx = (int)(startX / 10.0f);
+            int cy = (int)(startY / 10.0f);
+            for (int r = 0; r < 50 && !spawnFound; r++) {
+                for (int dx = -r; dx <= r; dx++) {
+                    for (int dy = -r; dy <= r; dy++) {
+                        if (map.isWalkable(cx + dx, cy + dy)) {
+                            startX = (cx + dx) * 10.0f + 5.0f;
+                            startY = (cy + dy) * 10.0f + 5.0f;
+                            spawnFound = true;
+                            break;
+                        }
+                    }
+                    if (spawnFound) break;
+                }
+            }
+        }
 
         registry.emplace<Position>(player, startX, startY);
         registry.emplace<IDComponent>(player, Utils::UUID::from("Player"));

@@ -37,7 +37,7 @@ struct EnemyRace
         case UNDEAD:
             baseHP = 30.0f;
             baseDamage = 15.0f;
-            baseSpeed = 50.0f;
+            baseSpeed = 180.0f; // 接近 200
             baseXP = 10.0f;
             resistances = {"bleed", "poison"};
             texturePath = "assets/textures/monster/skeleton_0.png";
@@ -45,7 +45,7 @@ struct EnemyRace
         case DEMON:
             baseHP = 40.0f;
             baseDamage = 25.0f;
-            baseSpeed = 80.0f;
+            baseSpeed = 200.0f; // 目标 200
             baseXP = 25.0f;
             resistances = {"fire", "dark"};
             texturePath = "assets/textures/monster/demon_0.png";
@@ -53,7 +53,7 @@ struct EnemyRace
         case CORRUPTED:
             baseHP = 25.0f;
             baseDamage = 20.0f;
-            baseSpeed = 120.0f;
+            baseSpeed = 220.0f; // 稍快
             baseXP = 15.0f;
             resistances = {"slow", "stun"};
             texturePath = "assets/textures/monster/warcraft_0.png";
@@ -61,7 +61,7 @@ struct EnemyRace
         case CULTIST:
             baseHP = 35.0f;
             baseDamage = 20.0f;
-            baseSpeed = 70.0f;
+            baseSpeed = 190.0f;
             baseXP = 12.0f;
             resistances = {"magic"};
             texturePath = "assets/textures/monster/cultist_0.png";
@@ -69,7 +69,7 @@ struct EnemyRace
         case GOBLIN:
             baseHP = 20.0f;
             baseDamage = 10.0f;
-            baseSpeed = 100.0f;
+            baseSpeed = 210.0f;
             baseXP = 8.0f;
             resistances = {};
             texturePath = "assets/textures/monster/goblin_0.png";
@@ -77,7 +77,7 @@ struct EnemyRace
         case SLIME:
             baseHP = 15.0f;
             baseDamage = 5.0f;
-            baseSpeed = 40.0f;
+            baseSpeed = 150.0f; // 史莱姆稍慢
             baseXP = 5.0f;
             resistances = {"physical"};
             texturePath = "assets/textures/monster/slime_0.png";

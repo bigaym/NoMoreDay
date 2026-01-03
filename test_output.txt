@@ -1,25 +1,11 @@
-========================================
-!!! 捕获到程序崩溃 !!!
-========================================
-异常类型: Access Violation (非法内存访问) (0xC0000005)
-崩溃地址: 0x00007ff7c3b388b6
-[CrashHandler] 增强型 Minidump 已写入: crashes/crash_2026-01-02_18-03-04.dmp
-
---- Stack Trace (副本回溯) ---
-[0] 0x7FF7C3B388B6 : entt::basic_sigh_mixin<entt::basic_storage<NoMoreDay::AttackState, entt::entity, std::allocator<NoMoreDay::AttackState>, void>, entt::basic_registry<entt::entity, std::allocator<entt::entity> > >::pop + 0x206
-    at F:\NoMoreDay\third_party\entt\src\entt\entity\mixin.hpp:46
-[1] 0x7FF7C3B277ED : entt::basic_registry<entt::entity, std::allocator<entt::entity> >::assure<HealthComponent> + 0xbd
-    at D:\mingw64\include\c++\14.2.0\bits\stl_vector.h:99
-[2] 0x7FF7C3A39157 : NoMoreDay::StateManager::ProcessPendingChanges + 0x107
-    at F:\NoMoreDay\src\core\StateManager.cpp:89
-[3] 0x7FF7C3A39354 : NoMoreDay::StateManager::Update + 0x14
-    at D:\mingw64\include\c++\14.2.0\bits\stl_iterator.h:1067
-[4] 0x7FF7C3A027EC : Game::run + 0xdc
-    at F:\NoMoreDay\src\core\Game.cpp:85
-[5] 0x7FF7C3B944C6 : NoMoreDay::ItemFactory::createArmor + 0x16f206
-    at F:\NoMoreDay\src\core\ItemFactory.cpp:763
-[6] 0x7FF7C3A01340 : public_all + 0x340
-[7] 0x7FF7C3A01146 : public_all + 0x146
-[8] 0x7FFDEFA27374 : BaseThreadInitThunk + 0x14
-[9] 0x7FFDF1A3CC91 : RtlUserThreadStart + 0x21
-========================================
+[00:16:29] NMD: Level activated successfully
+[00:16:29] NMD: Created player entity with ID: 0
+[00:16:29] NMD: Creating weapon with level: 10, rarity: 6
+[00:16:29] NMD: Selected base weapon: 铁手斧
+[00:16:29] NMD: Created legendary weapon: 远古 铁手斧
+[00:16:29] NMD: ItemFactory: Generated 1 affixes for 远古 铁手斧
+[00:16:29] NMD: ResourceManager: 未找到纹理ID 3766928343！
+[00:16:29] NMD: Weapon created with entity ID: 1
+[00:16:29] NMD: 在缓存中找到纹理 (ID: 476608897)
+[00:16:29] NMD: StatsSystem: Recalculated for entity 0. Dmg: 15.1-18.4, Str: 10.0, HP: 250.0
+[00:16:29] NMD: 背包: 角色 0 拾取了物品 '破烂的背包' (30)

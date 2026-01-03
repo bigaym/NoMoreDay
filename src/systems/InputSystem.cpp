@@ -47,8 +47,8 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
         if (!UISystem::State.isMouseOverUI)
         {
 
-            // 在鼠标左键点击时设置移动目标
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
+            // 在鼠标左键按下或按住时更新移动目标
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
             {
                 s_movementTarget = GetScreenToWorld2D(GetMousePosition(), camera);
                 s_hasMovementTarget = true;

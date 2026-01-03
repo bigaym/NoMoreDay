@@ -55,6 +55,7 @@ void Game::init() {
     // Global Static Inits
     NoMoreDay::AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
     NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    NoMoreDay::SkillSystem::InitHooks();
     NoMoreDay::BuffRegistry::Initialize(); // BuffRegistry is static and uses Initialize
     NoMoreDay::BiomeRegistry::Get().LoadFromJSON("assets/data/biomes.json");
     
