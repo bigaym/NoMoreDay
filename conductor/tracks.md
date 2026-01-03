@@ -52,5 +52,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [x] Track: 技能管理与专精系统 (S按键)
-*Link: [./conductor/tracks/skill_specialization_20260103/](./conductor/tracks/skill_specialization_20260103/)*
+## [~] Track: Crafting System UI
+*Link: [./conductor/tracks/crafting_ui_20260103/](./conductor/tracks/crafting_ui_20260103/)*
