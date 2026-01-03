@@ -1,0 +1,8 @@
+{
+  "track_id": "blade_ascendant_specialization_20260103",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-01-03T22:40:00Z",
+  "updated_at": "2026-01-03T22:40:00Z",
+  "description": "Implement the specialization talent trees and unique mechanics for the remaining 7 active skills of the Blade Ascendant class."
+}

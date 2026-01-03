@@ -69,3 +69,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Description:** Implement advanced Blade Ascendant mechanics: Skill Hooks, Lightweight Shadow System, Sword Intent empowerment, and Movement Stances. (Completed on 2026-01-03)
 
 ---
+
+---
+
+- [x] Skill Specialization Trees (Flowing Thrust & Rending Wave) (skill_spec_trees_20260103) - *Completed 2026-01-03*
+
+---
+
+## [~] Track: Blade Ascendant Skill Specialization (Remaining 7 Skills)
+*Link: [./conductor/tracks/blade_ascendant_specialization_20260103/](./conductor/tracks/blade_ascendant_specialization_20260103/)*
