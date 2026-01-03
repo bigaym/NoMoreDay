@@ -422,6 +422,35 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         }
     }
 
+    // 2.6 处理技能专精天赋 (Skill Specialization Talents)
+    if (registry.all_of<ActiveSkillsComponent>(entity)) {
+        const auto& active = registry.get<ActiveSkillsComponent>(entity);
+        const auto& skill_registry = SkillRegistry::Get();
+        for (const auto& specialized : active.specialized_slots) {
+            if (specialized.skill_id == 0) continue;
+            const auto* tree = skill_registry.GetSkillTree(specialized.skill_id);
+            if (!tree) continue;
+
+            for (auto [node_id, pts] : specialized.allocated_points) {
+                auto node_it = tree->nodes.find(node_id);
+                if (node_it != tree->nodes.end()) {
+                    const auto& node = node_it->second;
+                    for (const auto& mod : node.stat_modifiers) {
+                        if (mod.required_tags == Tag::None) {
+                            // Skill-specific talent modifiers should NOT be baked globally.
+                            // They are applied dynamically via GetStatWithTags(skill_id).
+                            // ApplyStatModifier(calcs, mod.type, mod.mode, mod.value * pts);
+                        }
+                    }
+                    // Global DamageModifiers from skill talents
+                    for (const auto& dmod : node.damage_modifiers) {
+                        global_mods.modifiers.push_back(dmod);
+                    }
+                }
+            }
+        }
+    }
+
     // 3. 解析主要属性
     float str = calcs[static_cast<size_t>(StatType::Strength)].Result();
     float dex = calcs[static_cast<size_t>(StatType::Dexterity)].Result();
@@ -490,6 +519,8 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.cast_speed = calcs[static_cast<size_t>(StatType::CastSpeed)].Result() / 100.0f;
     combat.accuracy = calcs[static_cast<size_t>(StatType::Accuracy)].Result() / 100.0f;
     combat.mana_on_hit = calcs[static_cast<size_t>(StatType::ManaOnHit)].Result();
+    combat.cooldown_reduction = calcs[static_cast<size_t>(StatType::CooldownReduction)].Result() / 100.0f;
+    combat.resource_cost_reduction = calcs[static_cast<size_t>(StatType::ResourceCostReduction)].Result() / 100.0f;
 
     // 伤害乘数
     for (int i = 0; i < 6; ++i) {
@@ -594,36 +625,21 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
                     found_specialized = true;
                     const auto* tree = SkillRegistry::Get().GetSkillTree(skill_id);
                     if (tree) {
-                        if (specialized.allocated_points.empty()) {
-                            LOG_DEBUG("GetStatWithTags: No points allocated for skill {}", skill_id);
-                        }
                         for (auto [node_id, pts] : specialized.allocated_points) {
                             auto node_it = tree->nodes.find(node_id);
                             if (node_it != tree->nodes.end()) {
-                                LOG_DEBUG("GetStatWithTags: Skill {} Node {} has {} pts. Applying modifiers...", skill_id, node_id, pts);
                                 apply_if_tags_match(node_it->second.stat_modifiers, static_cast<float>(pts));
                             }
                         }
-                    } else {
-                        LOG_WARN("GetStatWithTags: Skill {} has no talent tree definition!", skill_id);
                     }
                     break;
                 }
-            }
-            if (!found_specialized) {
-                LOG_DEBUG("GetStatWithTags: Skill {} not found in specialized_slots of entity {}", skill_id, (uint32_t)entity);
             }
         }
     }
 
     float result = dynamic_calc.Result();
     
-    // Debug logging for specific stats to help verify talent application
-    if ((type == StatType::ProjectileCount || type == StatType::ArmorPenetration) && (result > 0.0f || dynamic_calc.base > 0.0f)) {
-        LOG_DEBUG("GetStatWithTags: Stat {} result: {:.1f} (Base: {:.1f}, Flat: {:.1f}, Skill ID: {})", 
-            (int)type, result, dynamic_calc.base, dynamic_calc.flat, skill_id);
-    }
-
     return result;
 }
 

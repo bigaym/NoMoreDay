@@ -27,7 +27,7 @@ TEST_CASE("BiomeRegistry - Loading from JSON") {
         CHECK(cave.id == "cave");
         CHECK(cave.name == "幽暗洞穴 (Dark Cave)");
         CHECK(cave.isSafeZone == false);
-        CHECK(cave.maxEnemies == 50);
+        CHECK(cave.maxEnemies == 500);
         CHECK(cave.enemyPool.size() >= 2);
     }
     

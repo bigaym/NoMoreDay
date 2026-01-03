@@ -13,17 +13,17 @@ This plan outlines the architectural changes needed to support advanced Blade As
     - [x] Define a generic `SkillModifierComponent` that can hold a collection of modifiers (Damage Inc/More, Conversion, etc.).
     - [x] Update `DamagePipeline` to iterate through any `SkillModifierComponent` attached to the `DamageEvent` or `Projectile`.
     - [x] Write `SkillModifierTest.hpp` to verify that attached modifiers correctly change damage output.
-- [ ] **Task 3: Conductor - User Manual Verification 'Skill Infrastructure' (Protocol in workflow.md)**
+- [x] **Task 3: Conductor - User Manual Verification 'Skill Infrastructure' (Protocol in workflow.md)**
 
 ## Phase 2: Lightweight Shadow System
 **Goal:** Create the "Ghost" echo mechanism for skill repetition without the overhead of full combat entities.
 
-- [ ] **Task 1: Define Shadow Architecture**
-    - [ ] Implement `ShadowComponent` and a `SkillSnapshot` struct (storing SkillID, position, direction, and base power).
-    - [ ] Create the `ShadowSystem` that processes entities with `ShadowComponent`, handling their lifetime and execution.
-- [ ] **Task 2: Implement Shadow Execution Logic**
-    - [ ] Ensure `ShadowSystem` can trigger visual effects and create "one-off" `DamageEvent` entities based on the snapshot.
-    - [ ] Create `ShadowSystemTest.hpp` to verify shadows spawn, execute their snapshot, and clean themselves up.
+- [x] **Task 1: Define Shadow Architecture** [4cb6784]
+    - [x] Implement `ShadowComponent` and a `SkillSnapshot` struct (storing SkillID, position, direction, and base power).
+    - [x] Create the `ShadowSystem` that processes entities with `ShadowComponent`, handling their lifetime and execution.
+- [x] **Task 2: Implement Shadow Execution Logic** [4cb6784]
+    - [x] Ensure `ShadowSystem` can trigger visual effects and create "one-off" `DamageEvent` entities based on the snapshot.
+    - [x] Create `ShadowSystemTest.hpp` to verify shadows spawn, execute their snapshot, and clean themselves up.
 - [ ] **Task 3: Conductor - User Manual Verification 'Shadow System' (Protocol in workflow.md)**
 
 ## Phase 3: Sword Intent & Empowered Logic

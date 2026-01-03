@@ -64,5 +64,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Sword Cultivator Foundation Expansion
+## [~] Track: Sword Cultivator Foundation Expansion
 *Link: [./conductor/tracks/blade_ascendant_foundation_20260103/](./conductor/tracks/blade_ascendant_foundation_20260103/)*

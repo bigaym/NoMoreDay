@@ -318,21 +318,23 @@ TEST_CASE("SkillSpecialization: Talent Damage Modification") {
 
                                                     "talent_tree": [
 
-                                                        { 
+                                                                                                                { 
 
-                                                            "id": 20, "name_key": "CDR", "desc_key": "D", "max_points": 5,
+                                                                                                                    "id": 20, "name_key": "CDR", "desc_key": "D", "max_points": 5,
 
-                                                            "stat_modifiers": [ { "type": 27, "mode": 0, "value": 10.0 } ] 
+                                                                                                                    "stat_modifiers": [ { "type": 28, "mode": 0, "value": 10.0 } ] 
 
-                                                        },
+                                                                                                                },
 
-                                                        {
+                                                                                                                {
 
-                                                            "id": 21, "name_key": "RCR", "desc_key": "D", "max_points": 5,
+                                                                                                                    "id": 21, "name_key": "RCR", "desc_key": "D", "max_points": 5,
 
-                                                            "stat_modifiers": [ { "type": 28, "mode": 0, "value": 20.0 } ]
+                                                                                                                    "stat_modifiers": [ { "type": 29, "mode": 0, "value": 20.0 } ]
 
-                                                        }
+                                                                                                                }
+
+                                                        
 
                                                     ]
 
@@ -360,33 +362,67 @@ TEST_CASE("SkillSpecialization: Talent Damage Modification") {
 
     
 
-        SUBCASE("CDR Allocation") {
-
-            NoMoreDay::SkillSystem::AddTalentPoint(registry, player, 1, 20); // 10% CDR
-
-            NoMoreDay::SkillSystem::TryCast(registry, player, 0);
-
-            // 10s * (1 - 0.1) = 9s
-
-            CHECK(active.slots[0].cooldown == doctest::Approx(9.0f));
-
-        }
+                SUBCASE("CDR Allocation") {
 
     
 
-        SUBCASE("RCR Allocation") {
+                    NoMoreDay::SkillSystem::AddTalentPoint(registry, player, 1, 20); // 10% CDR
 
-            NoMoreDay::SkillSystem::AddTalentPoint(registry, player, 1, 21); // 20% RCR
+    
 
-            stats.mana = 100.0f;
+                    NoMoreDay::StatsSystem::Recalculate(registry, player);
 
-            NoMoreDay::SkillSystem::TryCast(registry, player, 0);
+    
 
-            // Cost 20 * (1 - 0.2) = 16. Mana 100 - 16 = 84
+                    NoMoreDay::SkillSystem::TryCast(registry, player, 0);
 
-            CHECK(stats.mana == doctest::Approx(84.0f));
+    
 
-        }
+                    // 10s * (1 - 0.1) = 9s
+
+    
+
+                    CHECK(active.slots[0].cooldown == doctest::Approx(9.0f));
+
+    
+
+                }
+
+    
+
+        
+
+    
+
+                SUBCASE("RCR Allocation") {
+
+    
+
+                    NoMoreDay::SkillSystem::AddTalentPoint(registry, player, 1, 21); // 20% RCR
+
+    
+
+                    NoMoreDay::StatsSystem::Recalculate(registry, player);
+
+    
+
+                    stats.mana = 100.0f;
+
+    
+
+                    NoMoreDay::SkillSystem::TryCast(registry, player, 0);
+
+    
+
+                    // Cost 20 * (1 - 0.2) = 16. Mana 100 - 16 = 84
+
+    
+
+                    CHECK(stats.mana == doctest::Approx(84.0f));
+
+    
+
+                }
 
     
 
