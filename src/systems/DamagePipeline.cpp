@@ -41,7 +41,8 @@ DamageResult DamagePipeline::Calculate(
     entt::entity defender,
     uint32_t skill_id,
     const DamagePool& base_pool,
-    Tag additional_tags
+    Tag additional_tags,
+    entt::entity source_entity
 ) {
     const auto* skill_data = SkillRegistry::Get().GetSkill(skill_id);
     Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
@@ -122,6 +123,22 @@ DamageResult DamagePipeline::Calculate(
             }
         }
 
+        // --- NEW: Also check source_entity for conversion/gain ---
+        if (registry.valid(source_entity)) {
+            if (auto* skillMods = registry.try_get<SkillModifierComponent>(source_entity)) {
+                for (const auto& mod : skillMods->damage_modifiers) {
+                    if (mod.source_tag == current_source_type) {
+                        if (mod.type == ModifierType::Convert && mod.target_tag != Tag::None) {
+                            conv_mods.push_back(&mod);
+                            total_conv_pct += mod.value;
+                        } else if (mod.type == ModifierType::GainExtra && mod.target_tag != Tag::None) {
+                            gain_mods.push_back(&mod);
+                        }
+                    }
+                }
+            }
+        }
+
         if (conv_mods.empty() && gain_mods.empty()) continue;
 
         float conv_scale = 1.0f;
@@ -178,7 +195,7 @@ DamageResult DamagePipeline::Calculate(
             default: break;
         }
 
-        float multiplier_pct = StatsSystem::GetStatWithTags(registry, attacker, dmg_stat, inst.tags, skill_id);
+        float multiplier_pct = StatsSystem::GetStatWithTags(registry, attacker, dmg_stat, inst.tags, skill_id, source_entity);
         inst.amount *= (multiplier_pct / 100.0f);
 
         // --- NEW: Apply Talent-Specific Damage Modifiers (Convert, More) ---
@@ -208,6 +225,19 @@ DamageResult DamagePipeline::Calculate(
             }
         }
 
+        // --- NEW: Apply Skill-Specific Damage Modifiers from Source Entity (More) ---
+        if (registry.valid(source_entity)) {
+            if (auto* skillMods = registry.try_get<SkillModifierComponent>(source_entity)) {
+                for (const auto& dmod : skillMods->damage_modifiers) {
+                    if (dmod.source_tag == Tag::None || HasTag(inst.tags, dmod.source_tag)) {
+                        if (dmod.type == ModifierType::More) {
+                            inst.amount *= (1.0f + dmod.value);
+                        }
+                    }
+                }
+            }
+        }
+
         // 5. Final Settlement (Crit & Defense)
         float crit_mult = 1.0f;
         if (HasTag(inst.tags, Tag::Hit) && !HasTag(inst.tags, Tag::DamageOverTime)) {
@@ -230,7 +260,7 @@ DamageResult DamagePipeline::Calculate(
         if (inst.final_type == Tag::Physical && defender_stats) {
             float armor = defender_stats->armor;
             // Retrieve attacker's Flat Armor Penetration
-            float pen = StatsSystem::GetStatWithTags(registry, attacker, StatType::ArmorPenetration, inst.tags, skill_id);
+            float pen = StatsSystem::GetStatWithTags(registry, attacker, StatType::ArmorPenetration, inst.tags, skill_id, source_entity);
             float effective_armor = armor - pen;
             
             float armor_multiplier = 1.0f;

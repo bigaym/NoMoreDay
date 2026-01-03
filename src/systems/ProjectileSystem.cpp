@@ -93,7 +93,7 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
 
                 // Calculate Damage via Pipeline
                 DamagePool base;
-                auto result = DamagePipeline::Calculate(registry, proj.owner, target, skill_id, base, hit_tags);
+                auto result = DamagePipeline::Calculate(registry, proj.owner, target, skill_id, base, hit_tags, entity);
                 
                 float finalDamage = result.total_damage;
                 if (finalDamage <= 0.0f) finalDamage = 5.0f; // Minimum damage for prototype feedback

@@ -142,7 +142,8 @@ inline void from_json(const nlohmann::json& j, SkillTreeDefinition& t) {
  * @brief Component for skills to store their specific modifiers.
  */
 struct SkillModifierComponent {
-    std::vector<DamageModifier> modifiers;
+    std::vector<StatModifier> stat_modifiers;
+    std::vector<DamageModifier> damage_modifiers;
 };
 
 /**
@@ -213,13 +214,12 @@ inline void from_json(const nlohmann::json& j, ActiveSkillsComponent& c) {
     if (j.contains("available_talent_points")) j.at("available_talent_points").get_to(c.available_talent_points);
 }
 
-/**
- * @brief Identifies an entity as a skill execution instance (e.g., a projectile or area effect).
- */
 struct SkillComponent {
-    uint32_t skill_id = 0;
-    entt::entity owner = entt::null;
+    uint32_t skill_id;
+    entt::entity owner;
 };
+
+// ---星盘相关组件---
 
 /**
  * @brief Marker for skills cast by shadow/afterimage instead of player.

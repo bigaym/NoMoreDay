@@ -22,6 +22,7 @@ public:
      * @param skill_id The ID of the skill being used (to look up base tags/mods)
      * @param base_pool The initial flat damage from the skill/weapon.
      * @param additional_tags Extra tags from the specific hit (e.g., Critical, Hit)
+     * @param source_entity The entity representing the skill execution (e.g., Projectile, Shadow)
      */
     static DamageResult Calculate(
         entt::registry& registry,
@@ -29,7 +30,8 @@ public:
         entt::entity defender,
         uint32_t skill_id,
         const DamagePool& base_pool,
-        Tag additional_tags = Tag::None
+        Tag additional_tags = Tag::None,
+        entt::entity source_entity = entt::null
     );
 
 private:

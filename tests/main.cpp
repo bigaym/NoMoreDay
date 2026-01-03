@@ -17,6 +17,7 @@ using namespace NoMoreDay;
 #include "DamagePipelineTest.hpp"
 #include "SkillSystemTest.hpp"
 #include "SkillHookTest.hpp"
+#include "SkillModifierTest.hpp"
 #include "SkillSpecializationTest.hpp"
 #include "BuffRegistryTest.hpp"
 #include "BuffComponentTest.hpp"

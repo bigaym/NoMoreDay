@@ -13,7 +13,7 @@ public:
 
     // @brief 获取考虑了特定标签后的最终属性值。
     // 会自动结合 CombatStats 中的基础值与动态标签修饰符。
-    static float GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags, uint32_t skill_id = 0);
+    static float GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags, uint32_t skill_id = 0, entt::entity source_entity = entt::null);
 
     // @brief 系统更新：为所有带有 StatsDirty 标签的实体重新计算属性。
     //

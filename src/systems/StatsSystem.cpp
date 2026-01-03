@@ -513,7 +513,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         str, combat.max_health);
 }
 
-float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags, uint32_t skill_id) {
+float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags, uint32_t skill_id, entt::entity source_entity) {
     auto* combat = registry.try_get<CombatStats>(entity);
     if (!combat) return 0.0f;
 
@@ -575,6 +575,13 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
             if (const auto* node = reg.GetNode(node_id)) {
                 apply_if_tags_match(node->modifiers);
             }
+        }
+    }
+
+    // 2.2 处理源实体修饰符 (SkillModifierComponent on source_entity)
+    if (registry.valid(source_entity)) {
+        if (auto* skillMods = registry.try_get<SkillModifierComponent>(source_entity)) {
+            apply_if_tags_match(skillMods->stat_modifiers);
         }
     }
 
