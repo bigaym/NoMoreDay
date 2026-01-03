@@ -427,6 +427,21 @@ namespace NoMoreDay {
             lines.push_back({ buffer, s_theme.textSecondary });
         }
 
+        // --- NEW: Tags Display ---
+        std::string tagStr = "标签: ";
+        bool firstTag = true;
+        for (int i = 0; i < 64; ++i) { // Check all 64 bits
+            Tag t = static_cast<Tag>(1ULL << i);
+            if (HasTag(skill->tags, t)) {
+                if (!firstTag) tagStr += ", ";
+                tagStr += std::string(GetTagName(t));
+                firstTag = false;
+            }
+        }
+        if (!firstTag) { // Only add if tags exist
+            lines.push_back({ tagStr, GRAY });
+        }
+
         lines.push_back({ " ", WHITE });
         lines.push_back({ skill->desc_key, s_theme.textPrimary });
 

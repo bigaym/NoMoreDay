@@ -126,9 +126,8 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             
             // Tooltip
             state.hoveredSkillSlot = -1; // Override hotbar hover
-            // We need a way to force tooltip render for arbitrary skill ID
-            // For now, let's just use the UIRenderer helper directly in the next frame or immediately
-            UIRenderer::DrawSkillTooltip(state.globalFont, registry, id, 1.0f, true); // Force Draw
+            // Force draw tooltip immediately
+            UIRenderer::DrawSkillTooltip(state.globalFont, registry, id, 1.0f, true); 
 
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !isSpecialized) {
                 // Find first empty slot
