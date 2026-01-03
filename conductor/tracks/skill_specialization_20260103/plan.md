@@ -18,7 +18,7 @@
     - Display 5 specialization slots.
     - Display a grid of all available skills.
     - Implement drag-and-drop or click logic to assign/unassign specialized skills.
-- [~] Task: Add skill tooltips with tags and base stats.
+- [x] Task: Add skill tooltips with tags and base stats. 57b7739
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: UI - Central Hub' (Protocol in workflow.md)
 
 ## Phase 4: UI - Talent Trees
