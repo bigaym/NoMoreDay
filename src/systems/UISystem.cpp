@@ -6,6 +6,7 @@
 #include "UIAnimationSystem.hpp"
 #include "UISkillHub.hpp"
 #include "UISkillTalentTree.hpp" // ADDED
+#include "UICrafting.hpp" // ADDED
 #include "../components/Common.hpp"
 #include "../components/Stats.hpp"
 #include "../components/PlayerState.hpp"
@@ -324,6 +325,14 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
     
     UIInventory::Update(registry);
     UIAstrolabe::Update(registry);
+    UICrafting::Update(registry); // ADDED
+
+    if (IsKeyPressed(KEY_K)) {
+        UICrafting::Toggle();
+        if (UICrafting::IsVisible()) {
+            State.showInventory = true; // Open inventory to drag items
+        }
+    }
 
     if (State.showMessageBox) {
         State.messageBoxTimer -= GetFrameTime();
@@ -350,6 +359,7 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     if (State.inventoryAlpha > 0.0f) UIInventory::Draw(registry);
     if (State.characterPanelAlpha > 0.0f) UICharacter::Draw(registry);
     UIAstrolabe::Draw(registry);
+    UICrafting::Draw(registry); // ADDED
     
     // Skill Tree Hub
     auto playerView = registry.view<PlayerTag>();

@@ -83,6 +83,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/UISystem.cpp
     src/systems/UISkillHub.cpp
     src/systems/UISkillTalentTree.cpp
+    src/systems/UICrafting.cpp
     src/systems/AstrolabeSystem.cpp
     src/systems/SkillSystem.cpp
     src/systems/UIInventory.cpp

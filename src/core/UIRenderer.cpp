@@ -4,6 +4,7 @@
 #include "SkillRegistry.hpp"
 #include "BuffRegistry.hpp"
 #include "../systems/InventorySystem.hpp" 
+#include "../systems/UICrafting.hpp" // ADDED
 #include "../systems/DamagePipeline.hpp"
 #include "../systems/StatsSystem.hpp"
 #include "../components/Progression.hpp"
@@ -638,10 +639,17 @@ namespace NoMoreDay {
 
         bool showUnequip = !uiContext.isContextFromInventory && uiContext.contextSourceEquipmentSlot != EquipmentSlot::None;
         bool showDrop = true;
+        bool showCraft = false;
+
+        if (itemComp->type == ItemType::Weapon || itemComp->type == ItemType::Armor || 
+            itemComp->type == ItemType::Shield || itemComp->type == ItemType::Jewelry) {
+            showCraft = true;
+        }
 
         if (showEquip) btnCount++;
         if (showUse) btnCount++;
         if (showUnequip) btnCount++;
+        if (showCraft) btnCount++; // Add Craft count
         if (showDrop) btnCount++;
         btnCount++; 
 
@@ -724,6 +732,12 @@ namespace NoMoreDay {
                     snprintf(uiContext.messageBoxText, 64, "背包已满！无法卸下装备。");
                     uiContext.messageBoxTimer = 2.0f;
                 }
+                uiContext.showContextMenu = false;
+            }
+        }
+        if (showCraft) {
+            if (DrawMenuBtn("打造", GOLD)) {
+                UICrafting::SetTargetItem(uiContext.contextMenuItem);
                 uiContext.showContextMenu = false;
             }
         }

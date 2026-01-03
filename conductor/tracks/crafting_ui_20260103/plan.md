@@ -11,20 +11,20 @@ Implement the user interface for the Crafting System, allowing players to upgrad
 ## Plan
 
 ### Phase 1: Infrastructure & Serialization Fixes
-- [ ] Task: Add `ActiveSkillsComponent` and `ActiveEffectsComponent` to `SerializationSystem` to ensure game state is fully saveable before adding more state.
-- [ ] Task: Create `UICrafting.hpp` and `UICrafting.cpp` structure.
-- [ ] Task: Register `UICrafting` in `UISystem`.
+- [x] Task: Add `ActiveSkillsComponent` and `ActiveEffectsComponent` to `SerializationSystem` to ensure game state is fully saveable before adding more state.
+- [x] Task: Create `UICrafting.hpp` and `UICrafting.cpp` structure.
+- [x] Task: Register `UICrafting` in `UISystem`.
 
 ### Phase 2: UI Layout
-- [ ] Task: Implement `UICrafting::Draw` with a slot for the target item.
-- [ ] Task: Display item details (affixes, tiers, ranges) in the crafting panel.
-- [ ] Task: Display "Forging Potential" prominently.
+- [x] Task: Implement `UICrafting::Draw` with a slot for the target item.
+- [x] Task: Display item details (affixes, tiers, ranges) in the crafting panel.
+- [x] Task: Display "Forging Potential" prominently.
 
 ### Phase 3: Crafting Interactions
-- [ ] Task: Implement buttons for each affix to "Upgrade" (if potential allows).
-- [ ] Task: Implement "Add Affix" functionality (Prefix/Suffix slot selection).
-- [ ] Task: Implement "Chaos" (Reroll) and "Refine" (Values) actions.
-- [ ] Task: Connect UI actions to `CraftingSystem` logic.
+- [x] Task: Implement buttons for each affix to "Upgrade" (if potential allows).
+- [x] Task: Implement "Add Affix" functionality (Prefix/Suffix slot selection).
+- [x] Task: Implement "Chaos" (Reroll) and "Refine" (Values) actions.
+- [x] Task: Connect UI actions to `CraftingSystem` logic.
 
 ### Phase 4: Feedback & Polish
 - [ ] Task: Add sound effects or visual feedback on crafting success/failure.

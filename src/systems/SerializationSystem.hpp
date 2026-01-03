@@ -15,6 +15,8 @@
 #include "../components/Stats.hpp"
 #include "../components/InventoryComponent.hpp"
 #include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "../components/SkillSystem.hpp"
+#include "../components/Buff.hpp"
 #include "../components/Progression.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/AIComponent.hpp"
@@ -154,6 +156,8 @@ public:
             TrySerialize<PlayerStats>(registry, entity, entityJson, "PlayerStats");
             TrySerialize<NoMoreDay::AstrolabeComponent>(registry, entity, entityJson, "Astrolabe");
             TrySerialize<DashComponent>(registry, entity, entityJson, "Dash");
+            TrySerialize<NoMoreDay::ActiveSkillsComponent>(registry, entity, entityJson, "ActiveSkills");
+            TrySerialize<NoMoreDay::ActiveEffectsComponent>(registry, entity, entityJson, "ActiveEffects");
             
             // 特殊处理包含 Entity 引用的组件
             SerializeInventory(registry, entity, entityJson);
@@ -233,6 +237,8 @@ public:
             TryDeserialize<PlayerStats>(registry, entity, entityJson, "PlayerStats");
             TryDeserialize<NoMoreDay::AstrolabeComponent>(registry, entity, entityJson, "Astrolabe");
             TryDeserialize<DashComponent>(registry, entity, entityJson, "Dash");
+            TryDeserialize<NoMoreDay::ActiveSkillsComponent>(registry, entity, entityJson, "ActiveSkills");
+            TryDeserialize<NoMoreDay::ActiveEffectsComponent>(registry, entity, entityJson, "ActiveEffects");
             
             DeserializeInventory(registry, entity, entityJson, uuidMap);
             DeserializeEquipment(registry, entity, entityJson, uuidMap);
