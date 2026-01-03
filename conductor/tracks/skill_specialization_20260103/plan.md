@@ -22,11 +22,11 @@
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: UI - Central Hub' (Protocol in workflow.md)
 
 ## Phase 4: UI - Talent Trees
-- [ ] Task: Implement `UISkillTalentTree` view:
+- [x] Task: Implement `UISkillTalentTree` view: a8a5325
     - Render a node-link diagram for the selected specialized skill.
     - Show node status (Locked, Available, Maxed).
     - Handle point spending and visual feedback.
-- [ ] Task: Implement navigation between the Central Hub and specific Talent Trees.
+- [x] Task: Implement navigation between the Central Hub and specific Talent Trees. a8a5325
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: UI - Talent Trees' (Protocol in workflow.md)
 
 ## Phase 5: Integration & Polish
