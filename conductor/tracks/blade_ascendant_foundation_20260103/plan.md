@@ -15,7 +15,7 @@ This plan outlines the architectural changes needed to support advanced Blade As
     - [x] Write `SkillModifierTest.hpp` to verify that attached modifiers correctly change damage output.
 - [x] **Task 3: Conductor - User Manual Verification 'Skill Infrastructure' (Protocol in workflow.md)**
 
-## Phase 2: Lightweight Shadow System
+## Phase 2: Lightweight Shadow System [checkpoint: f2e3b2a]
 **Goal:** Create the "Ghost" echo mechanism for skill repetition without the overhead of full combat entities.
 
 - [x] **Task 1: Define Shadow Architecture** [4cb6784]
