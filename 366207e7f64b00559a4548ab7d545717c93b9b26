@@ -1,0 +1,1 @@
+Implemented SkillSystem::AddTalentPoint. Updated ProgressionSystem to award points. Integrated talent modifiers into DamagePipeline and SkillSystem via StatsSystem::GetStatWithTags(..., skill_id). Verified with extensive tests for Damage, CDR, and RCR talents.
