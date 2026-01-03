@@ -218,58 +218,6 @@ namespace NoMoreDay {
             m_stateManager->PushState<PauseState>();
         }
 
-        // Debug: Spawn Shadow (K)
-        if (IsKeyPressed(KEY_K)) {
-            auto playerView = registry.view<PlayerTag, Position, CombatStats>();
-            if (playerView.begin() != playerView.end()) {
-                auto entity = playerView.front();
-                auto& pos = playerView.get<Position>(entity);
-                auto& stats = playerView.get<CombatStats>(entity);
-                Vector2 mousePos = GetScreenToWorld2D(GetMousePosition(), m_camera);
-                
-                SkillSnapshot snapshot;
-                snapshot.skill_id = 1; // Flowing Thrust
-                snapshot.position = {pos.x, pos.y};
-                snapshot.target_pos = mousePos;
-                snapshot.stats = stats;
-
-                auto shadow = registry.create();
-                registry.emplace<LocalLevelTag>(shadow);
-                registry.emplace<ShadowComponent>(shadow, snapshot, 0.0f, 1.0f);
-                registry.emplace<Position>(shadow, pos.x, pos.y);
-                registry.emplace<AnimationStateComponent>(shadow);
-                LOG_INFO("Debug: Spawned shadow at ({:.1f}, {:.1f})", pos.x, pos.y);
-            }
-        }
-
-        // Debug: Grant Sword Intent (J)
-        if (IsKeyPressed(KEY_J)) {
-            auto playerView = registry.view<PlayerTag, SwordIntentComponent>();
-            if (playerView.begin() != playerView.end()) {
-                auto entity = playerView.front();
-                auto& intent = playerView.get<SwordIntentComponent>(entity);
-                intent.stacks = 10;
-                LOG_INFO("Debug: Sword Intent set to 10 for player");
-            }
-        }
-
-        // Debug: Add Sword Riding Speed Modifier (L)
-        if (IsKeyPressed(KEY_L)) {
-            auto playerView = registry.view<PlayerTag>();
-            if (playerView.begin() != playerView.end()) {
-                auto entity = playerView.front();
-                auto& list = registry.get_or_emplace<ModifierList>(entity);
-                list.modifiers.push_back({
-                    StatType::MoveSpeed,
-                    ModifierMode::PercentAdd,
-                    100.0f,
-                    Tag::SwordRiding
-                });
-                registry.get_or_emplace<StatsDirty>(entity);
-                LOG_INFO("Debug: Added +100% Move Speed during Sword Riding to player");
-            }
-        }
-
         // Get Player Pos
         Position playerPos{0, 0};
         auto playerView = registry.view<PlayerTag, Position>();

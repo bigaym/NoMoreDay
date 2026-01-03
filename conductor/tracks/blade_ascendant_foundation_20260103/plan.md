@@ -52,7 +52,7 @@ This plan outlines the architectural changes needed to support advanced Blade As
 ## Phase 5: Final Integration
 **Goal:** Ensure all foundational pieces work together seamlessly.
 
-- [ ] **Task 1: Integration Test**
+- [~] **Task 1: Integration Test**
     - [ ] Create a complex test scenario: Player uses an empowered skill -> triggers a shadow echo -> moves to enter sword riding stance.
 - [ ] **Task 2: Performance Benchmarking**
     - [ ] Verify that spawning 50+ shadows simultaneously does not drop FPS (use a stress test component).

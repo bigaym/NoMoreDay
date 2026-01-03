@@ -22,6 +22,8 @@ using namespace NoMoreDay;
 #include "ShadowSystemTest.hpp"
 #include "SwordIntentTest.hpp"
 #include "MovementStanceTest.hpp"
+#include "FinalIntegrationTest.hpp"
+#include "ShadowPerformanceTest.hpp"
 #include "BuffRegistryTest.hpp"
 #include "BuffComponentTest.hpp"
 #include "AstrolabeRegistryTest.hpp"
