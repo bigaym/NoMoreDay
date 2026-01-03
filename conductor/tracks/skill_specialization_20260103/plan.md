@@ -3,7 +3,7 @@
 ## Phase 1: Infrastructure & Data Models
 - [x] Task: Define `SkillTree` and `TalentNode` data structures in `SkillSystem.hpp`. f3ee4e0
 - [x] Task: Update `ActiveSkillsComponent` to include specialization state and talent point allocation. f3ee4e0
-- [ ] Task: Implement `SkillRegistry` extension to load talent tree definitions from `assets/data/skills.json`.
+- [x] Task: Implement `SkillRegistry` extension to load talent tree definitions from `assets/data/skills.json`. ec810f1
 - [ ] Task: Conductor - User Manual Verification ' Phase 1: Infrastructure & Data Models' (Protocol in workflow.md)
 
 ## Phase 2: Core Logic & Progression
