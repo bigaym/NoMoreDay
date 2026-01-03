@@ -21,7 +21,7 @@
 - [x] Task: Add skill tooltips with tags and base stats. 57b7739
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: UI - Central Hub' (Protocol in workflow.md)
 
-## Phase 4: UI - Talent Trees
+## Phase 4: UI - Talent Trees [checkpoint: d6ca591]
 - [x] Task: Implement `UISkillTalentTree` view: a8a5325
     - Render a node-link diagram for the selected specialized skill.
     - Show node status (Locked, Available, Maxed).
