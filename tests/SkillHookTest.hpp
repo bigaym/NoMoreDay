@@ -10,6 +10,7 @@ TEST_CASE("SkillSystem: Logic Hooks") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::ClearHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -29,7 +30,7 @@ TEST_CASE("SkillSystem: Logic Hooks") {
         CHECK(SkillSystem::TryCast(registry, player, 0));
         
         // Update to trigger transition from Preparing to Casting
-        SkillSystem::Update(registry, 0.11f); 
+        SkillSystem::Update(registry, grid, 0.11f); 
         CHECK(pre_called);
     }
 
@@ -44,8 +45,8 @@ TEST_CASE("SkillSystem: Logic Hooks") {
         CHECK(SkillSystem::TryCast(registry, player, 0));
         
         // Preparing (0.1s) -> Casting (0.05s) -> Settle
-        SkillSystem::Update(registry, 0.11f); // To Casting
-        SkillSystem::Update(registry, 0.06f); // To Settle
+        SkillSystem::Update(registry, grid, 0.11f); // To Casting
+        SkillSystem::Update(registry, grid, 0.06f); // To Settle
         
         CHECK(post_called);
     }
@@ -56,7 +57,7 @@ TEST_CASE("SkillSystem: Logic Hooks") {
         SkillSystem::AddPreCastHook([&](entt::registry&, entt::entity, SkillExecution&) { count++; });
 
         CHECK(SkillSystem::TryCast(registry, player, 0));
-        SkillSystem::Update(registry, 0.11f);
+        SkillSystem::Update(registry, grid, 0.11f);
         CHECK(count == 2);
     }
 }

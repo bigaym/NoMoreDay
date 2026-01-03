@@ -1,8 +1,40 @@
 #include "PhysicsSystem.hpp"
 #include "../components/Projectile.hpp"
+#include "../components/Common.hpp"
+#include "../components/EnemyComponent.hpp"
+#include "../components/AIComponent.hpp"
 #include "raymath.h"
 #include <cmath>
 #include <algorithm>
+
+void PhysicsSystem::ProjectilePullLogic(entt::registry& registry, systems::SpatialHashGrid& grid, float dt) {
+    using namespace NoMoreDay;
+    auto view = registry.view<Projectile, Position>();
+    for (auto entity : view) {
+        auto& proj = view.get<Projectile>(entity);
+        if (!proj.hasPull) continue;
+
+        auto& pos = view.get<Position>(entity);
+        float pullRadius = proj.radius * 3.0f; // Larger than hit radius
+
+        grid.query(pos, pullRadius, [&](entt::entity target) {
+            if (target == proj.owner || target == entity) return;
+            if (!registry.valid(target) || !registry.all_of<Velocity, Position>(target)) return;
+            
+            // Only pull enemies or dynamic entities, don't pull other projectiles usually
+            // but let's assume if it has Velocity and Position we can pull it for now.
+            // Check if it's an enemy
+            if (!registry.any_of<EnemyTag>(target)) return;
+
+            auto& tPos = registry.get<Position>(target);
+            auto& tVel = registry.get<Velocity>(target);
+
+            Vector2 dir = Vector2Normalize(Vector2Subtract({pos.x, pos.y}, {tPos.x, tPos.y}));
+            tVel.vx += dir.x * proj.pullStrength * dt;
+            tVel.vy += dir.y * proj.pullStrength * dt;
+        });
+    }
+}
 
 void PhysicsSystem::resolveCollisions(entt::entity entity, const Position& pos, Velocity& vel, 
  systems::SpatialHashGrid& grid, const entt::registry& registry,
@@ -71,10 +103,14 @@ void PhysicsSystem::updatePosition(entt::entity entity, Position& pos, Velocity&
     }
 }
 
-void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight) {
+void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, systems::SpatialHashGrid& grid) {
     using namespace NoMoreDay;
 
+    // 0. Projectile Pull (Pre-move)
+    PhysicsSystem::ProjectilePullLogic(registry, grid, dt);
+
     // 1. Handle Special Behaviors (Boomerang)
+
     auto boomView = registry.view<BoomerangComponent, Position, Velocity>();
     for (auto entity : boomView) {
         auto& bc = boomView.get<BoomerangComponent>(entity);

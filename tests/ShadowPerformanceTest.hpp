@@ -11,6 +11,7 @@ using namespace NoMoreDay;
 
 TEST_CASE("Shadow System: Performance Stress Test") {
     entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
     
     // Spawn 100 shadows
     for (int i = 0; i < 100; ++i) {
@@ -27,7 +28,7 @@ TEST_CASE("Shadow System: Performance Stress Test") {
     // Update for 100 frames
     for (int frame = 0; frame < 100; ++frame) {
         ShadowSystem::Update(registry, 0.016f);
-        SkillSystem::Update(registry, 0.016f);
+        SkillSystem::Update(registry, grid, 0.016f);
     }
 
     auto end = std::chrono::high_resolution_clock::now();

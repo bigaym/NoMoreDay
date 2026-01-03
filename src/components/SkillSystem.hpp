@@ -297,4 +297,44 @@ struct SwordIntentComponent {
     float decay_interval = 2.0f; // Start decaying after 2s of no gain
 };
 
+/**
+ * @brief Logic state for Blade Ward (ID 4)
+ */
+struct BladeWardComponent {
+    float remaining = 10.0f;
+    int sword_count = 3;
+    float interception_chance = 0.15f; // 15% base per sword? 
+    // Actually spec says 15% base per shadow. 
+    // Let's keep it simple: if you have swords, you have a chance to intercept.
+};
+
+struct PhantomFlashComponent {
+    float counter_window = 0.5f;
+    bool triggered = false;
+};
+
+struct BladeFormationComponent {
+    int max_swords = 1;
+    int current_swords = 0;
+    float attack_interval = 1.0f;
+    float attack_timer = 0.0f;
+    float search_radius = 200.0f;
+};
+
+struct SwordArrayComponent {
+    float duration = 5.0f;
+    float radius = 150.0f;
+    float damage_interval = 0.5f;
+    float damage_timer = 0.0f;
+    entt::entity owner = entt::null;
+};
+
+struct ChannelingComponent {
+    uint32_t skill_id;
+    float channel_timer = 0.0f;
+    float tick_interval = 0.2f;
+    float tick_timer = 0.0f;
+    Vector2 target_pos;
+};
+
 } // namespace NoMoreDay

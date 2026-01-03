@@ -11,18 +11,7 @@ void ShadowSystem::Update(entt::registry& registry, float dt) {
     for (auto entity : view) {
         auto& shadow = view.get<ShadowComponent>(entity);
         
-        // 1. Trigger skill if delay is up
-        if (!shadow.triggered) {
-            shadow.delay -= dt;
-            if (shadow.delay <= 0.0f) {
-                // Note: We use the snapshot stats for damage calculation if needed.
-                // For now, SkillSystem::ShadowCast handles the execution logic.
-                SkillSystem::ShadowCast(registry, entity, shadow.snapshot.skill_id, shadow.snapshot.position, shadow.snapshot.target_pos);
-                shadow.triggered = true;
-            }
-        }
-
-        // 2. Update lifetime
+        // Lifetime updated in SkillSystem::Update or here
         shadow.lifetime -= dt;
         if (shadow.lifetime <= 0.0f) {
             // Check if shadow is still casting anything

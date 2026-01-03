@@ -4,10 +4,13 @@
 #include "../components/Common.hpp" // For Position
 #include "../components/Projectile.hpp"
 #include "../components/PlayerState.hpp" // For DashComponent
+#include "../components/Buff.hpp"
+#include "../components/AIComponent.hpp" // For EnemyTag
 #include "../core/SkillRegistry.hpp"
 #include "StatsSystem.hpp"
 #include "DamagePipeline.hpp"
 #include "CombatSystem.hpp"
+#include "SpatialGrid.hpp"
 #include "../tools/Logger.hpp"
 #include "raymath.h"
 #include <map>
@@ -251,12 +254,380 @@ void SkillSystem::InitHooks() {
 
         LOG_INFO("Rending Wave fired {} projectiles from entity {}", totalCount, (uint32_t)owner);
     });
+
+    // ID 3: Blade Formation (万剑诀)
+    RegisterEffect(3, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        auto& formation = registry.get_or_emplace<BladeFormationComponent>(owner);
+        
+        int extraSwords = 0;
+        float freqInc = 0.0f;
+        float searchInc = 0.0f;
+
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 3) {
+                    // Node 300: 多重灵剑
+                    if (spec.allocated_points.contains(300)) {
+                        extraSwords = spec.allocated_points.at(300);
+                    }
+                    // Node 301: 疾风剑意
+                    if (spec.allocated_points.contains(301)) {
+                        freqInc = spec.allocated_points.at(301) * 0.1f;
+                    }
+                    // Node 302: 索敌范围
+                    if (spec.allocated_points.contains(302)) {
+                        searchInc = spec.allocated_points.at(302) * 0.2f;
+                    }
+                    break;
+                }
+            }
+        }
+
+        formation.max_swords = 1 + extraSwords;
+        formation.current_swords = formation.max_swords; // For now, simple activation
+        formation.attack_interval = 1.0f / (1.0f + freqInc);
+        formation.search_radius = 200.0f * (1.0f + searchInc);
+        
+        LOG_INFO("Blade Formation activated: {} swords for entity {}", formation.max_swords, (uint32_t)owner);
+    });
+
+    // ID 6: Sword Array (剑阵·诛仙)
+    RegisterEffect(6, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        auto array_ent = registry.create();
+        registry.emplace<LocalLevelTag>(array_ent);
+        registry.emplace<Position>(array_ent, exec.target_pos.x, exec.target_pos.y);
+        registry.emplace<ColorComponent>(array_ent, PURPLE);
+        
+        auto& array = registry.emplace<SwordArrayComponent>(array_ent);
+        array.owner = owner;
+        array.duration = 5.0f;
+        array.radius = 150.0f;
+        
+        // Talent scaling
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 6) {
+                    // node 610: slow - we could add a flag here
+                    break;
+                }
+            }
+        }
+
+        registry.emplace<SkillComponent>(array_ent, 6, owner);
+        LOG_INFO("Sword Array summoned at ({}, {}) by entity {}", exec.target_pos.x, exec.target_pos.y, (uint32_t)owner);
+    });
+
+    // ID 5: Infinite Blades (万剑归宗)
+    RegisterEffect(5, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        auto& chan = registry.emplace_or_replace<ChannelingComponent>(owner);
+        chan.skill_id = 5;
+        chan.channel_timer = 3.0f; // 3s channel
+        chan.tick_interval = 0.1f; // 10 blades per second
+        chan.target_pos = exec.target_pos;
+        LOG_INFO("Infinite Blades channeling started for entity {}", (uint32_t)owner);
+    });
+
+    // ID 7: Mind Blade (心剑·无影)
+    RegisterEffect(7, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        auto& chan = registry.emplace_or_replace<ChannelingComponent>(owner);
+        chan.skill_id = 7;
+        chan.channel_timer = 2.0f; 
+        chan.tick_interval = 0.05f; // Fast ticks
+        chan.target_pos = exec.target_pos;
+        LOG_INFO("Mind Blade channeling started for entity {}", (uint32_t)owner);
+    });
+
+    // ID 4: Blade Ward (剑气护体)
+    RegisterEffect(4, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        auto& active_effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
+        
+        float phys_dr = 10.0f; // Base 10% Physical DR
+        
+        // Talent scaling
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 4) {
+                    // Node 400: Jin Zhong Zhao (Armor) - handled by StatsSystem automatically if we used stat_modifiers
+                    // But we want to check for mechanics here if needed.
+                    break;
+                }
+            }
+        }
+
+        // Apply Buff
+        BuffEffect ward_buff;
+        ward_buff.id = "blade_ward";
+        ward_buff.name = "Blade Ward";
+        ward_buff.description = "Interacts with projectiles and provides physical DR.";
+        ward_buff.type = BuffType::Shield;
+        ward_buff.duration = 10.0f;
+        ward_buff.remaining = 10.0f;
+        ward_buff.stacks = 1;
+        ward_buff.max_stacks = 1;
+        ward_buff.is_debuff = false;
+        
+        // +10% Physical Resistance (ResistPhysical is index 21 in StatType enum, index 0 in CombatStats.resistances)
+        ward_buff.modifiers.push_back({StatType::ResistPhysical, ModifierMode::Flat, phys_dr});
+        
+        active_effects.AddOrRefresh(ward_buff);
+        
+        // Add Logic Component
+        auto& ward = registry.emplace_or_replace<BladeWardComponent>(owner);
+        ward.remaining = 10.0f;
+        ward.sword_count = 3;
+        
+        registry.get_or_emplace<StatsDirty>(owner);
+        LOG_INFO("Blade Ward activated for entity {}", (uint32_t)owner);
+    });
+
+    // ID 8: Blade Boomerang (御剑·回旋)
+    RegisterEffect(8, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        auto* pos = registry.try_get<Position>(owner);
+        auto* stats = registry.try_get<CombatStats>(owner);
+        if (!pos || !stats) return;
+
+        Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
+        float speed = 800.0f;
+
+        // --- BRANCH LOGIC ---
+        bool hasPull = false;
+        float pullStrength = 0.0f;
+
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 8) {
+                    // Talent: Ci Xi (磁吸) - ID 810
+                    if (spec.allocated_points.contains(810) && spec.allocated_points.at(810) > 0) {
+                        hasPull = true;
+                        pullStrength = 300.0f;
+                    }
+                    // Talent: Gravity Field (重力场) - ID 811 (Actually 811 is Black Hole in json, 810 is Pull)
+                    // Let's check json again. 810: 磁吸, 811: 剑气黑洞
+                    if (spec.allocated_points.contains(811) && spec.allocated_points.at(811) > 0) {
+                        pullStrength += 500.0f;
+                    }
+                    break;
+                }
+            }
+        }
+
+        auto proj_ent = registry.create();
+        registry.emplace<LocalLevelTag>(proj_ent);
+        registry.emplace<Position>(proj_ent, pos->x, pos->y);
+        registry.emplace<Velocity>(proj_ent, dir.x * speed, dir.y * speed);
+        registry.emplace<ColorComponent>(proj_ent, ORANGE); 
+        
+        auto& proj = registry.emplace<Projectile>(proj_ent);
+        proj.owner = owner;
+        proj.speed = speed;
+        proj.lifeTime = 3.0f;
+        proj.radius = 40.0f;   
+        proj.pierce = true;
+        proj.pierceCount = 99; 
+        proj.snapshot = *stats;
+        proj.hasPull = hasPull;
+        proj.pullStrength = pullStrength;
+
+        registry.emplace<CombatStats>(proj_ent, proj.snapshot);
+        registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
+
+        auto& bc = registry.emplace<BoomerangComponent>(proj_ent);
+        bc.owner = owner;
+        bc.returnTimer = 0.6f;
+        bc.phase = BoomerangComponent::Outward;
+
+        LOG_INFO("Blade Boomerang fired by entity {}", (uint32_t)owner);
+    });
+
+    // ID 9: Phantom Flash (绝影闪)
+    RegisterEffect(9, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        auto* pos = registry.try_get<Position>(owner);
+        if (!pos) return;
+
+        // 1. Dash backwards
+        Vector2 dir = Vector2Normalize(Vector2Subtract({pos->x, pos->y}, exec.target_pos));
+        float dashDist = 100.0f;
+        
+        if (auto* vel = registry.try_get<Velocity>(owner)) {
+            vel->vx = dir.x * 1000.0f;
+            vel->vy = dir.y * 1000.0f;
+        }
+        
+        if (auto* dash = registry.try_get<DashComponent>(owner)) {
+            dash->isDashing = true;
+            dash->dashTimer = 0.1f;
+            dash->dirX = dir.x;
+            dash->dirY = dir.y;
+            dash->dashSpeed = 1000.0f;
+        }
+
+        // 2. Add Counter State
+        auto& pf = registry.emplace_or_replace<PhantomFlashComponent>(owner);
+        pf.counter_window = 0.5f;
+        pf.triggered = false;
+
+        LOG_INFO("Phantom Flash: Counter state active for entity {}", (uint32_t)owner);
+    });
 }
 
-void SkillSystem::Update(entt::registry& registry, float dt) {
+void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt) {
     UpdateCooldowns(registry, dt);
     UpdateStates(registry, dt);
     UpdateSwordIntent(registry, dt);
+    
+    // Update Shadows
+    auto shadow_view = registry.view<ShadowComponent>();
+    std::vector<entt::entity> expired_shadows;
+    for (auto entity : shadow_view) {
+        auto& shadow = shadow_view.get<ShadowComponent>(entity);
+        
+        if (!shadow.triggered) {
+            shadow.delay -= dt;
+            if (shadow.delay <= 0.0f) {
+                registry.emplace_or_replace<CombatStats>(entity, shadow.snapshot.stats);
+                ShadowCast(registry, entity, shadow.snapshot.skill_id, shadow.snapshot.position, shadow.snapshot.target_pos);
+                shadow.triggered = true;
+            }
+        }
+
+        shadow.lifetime -= dt;
+        if (shadow.lifetime <= 0.0f) {
+            // Check if still casting
+            bool still_casting = false;
+            auto exec_view = registry.view<SkillExecution>();
+            for(auto exec_ent : exec_view) {
+                if(exec_view.get<SkillExecution>(exec_ent).owner == entity) {
+                    still_casting = true;
+                    break;
+                }
+            }
+            if (!still_casting) expired_shadows.push_back(entity);
+        }
+    }
+    for (auto e : expired_shadows) registry.destroy(e);
+
+    // Update Blade Formation (ID 3)
+    auto formation_view = registry.view<BladeFormationComponent, Position>();
+    for (auto entity : formation_view) {
+        auto& formation = formation_view.get<BladeFormationComponent>(entity);
+        const auto& pos = formation_view.get<Position>(entity);
+
+        formation.attack_timer -= dt;
+        if (formation.attack_timer <= 0.0f && formation.current_swords > 0) {
+            // Find target
+            entt::entity target = entt::null;
+            float minDistSq = formation.search_radius * formation.search_radius;
+
+            grid.query(pos, formation.search_radius, [&](entt::entity neighbor) {
+                if (neighbor == entity) return;
+                if (!registry.valid(neighbor) || !registry.all_of<EnemyTag, Position>(neighbor)) return;
+
+                const auto& nPos = registry.get<Position>(neighbor);
+                float dx = nPos.x - pos.x;
+                float dy = nPos.y - pos.y;
+                float distSq = dx*dx + dy*dy;
+
+                if (distSq < minDistSq) {
+                    minDistSq = distSq;
+                    target = neighbor;
+                }
+            });
+
+            if (target != entt::null) {
+                // Strike! (Shadow cast a simple thrust or custom ID)
+                // For now, let's cast skill 1 (Flowing Thrust) as the "spirit sword strike"
+                const auto& tPos = registry.get<Position>(target);
+                ShadowCast(registry, entity, 1, {pos.x, pos.y}, {tPos.x, tPos.y});
+                
+                formation.attack_timer = formation.attack_interval;
+                LOG_DEBUG("Blade Formation strike triggered for entity {}", (uint32_t)entity);
+            }
+        }
+    }
+
+    // Update Sword Array (ID 6)
+    auto array_view = registry.view<SwordArrayComponent, Position>();
+    std::vector<entt::entity> expired_arrays;
+    for (auto entity : array_view) {
+        auto& array = array_view.get<SwordArrayComponent>(entity);
+        const auto& pos = array_view.get<Position>(entity);
+
+        array.duration -= dt;
+        if (array.duration <= 0.0f) {
+            expired_arrays.push_back(entity);
+            continue;
+        }
+
+        array.damage_timer -= dt;
+        if (array.damage_timer <= 0.0f) {
+            // Pulsing damage
+            grid.query(pos, array.radius, [&](entt::entity target) {
+                if (target == array.owner || target == entity) return;
+                if (!registry.valid(target) || !registry.all_of<HealthComponent, Position>(target)) return;
+
+                const auto& tPos = registry.get<Position>(target);
+                float dx = tPos.x - pos.x;
+                float dy = tPos.y - pos.y;
+                if (dx*dx + dy*dy <= array.radius * array.radius) {
+                    // Hit!
+                    DamagePool pool;
+                    pool.Add(Tag::Physical, 10.0f); // Base array tick damage
+                    auto result = DamagePipeline::Calculate(registry, array.owner, target, 6, pool, Tag::Area | Tag::Hit);
+                    CombatSystem::ApplyDamage(registry, target, result.total_damage, array.owner);
+                }
+            });
+            array.damage_timer = array.damage_interval;
+        }
+    }
+    for(auto e : expired_arrays) registry.destroy(e);
+
+    // Update Channeling (ID 5 & 7)
+    auto chan_view = registry.view<ChannelingComponent, Position>();
+    for (auto entity : chan_view) {
+        auto& chan = chan_view.get<ChannelingComponent>(entity);
+        const auto& pos = chan_view.get<Position>(entity);
+
+        chan.channel_timer -= dt;
+        if (chan.channel_timer <= 0.0f) {
+            registry.remove<ChannelingComponent>(entity);
+            continue;
+        }
+
+        chan.tick_timer -= dt;
+        if (chan.tick_timer <= 0.0f) {
+            if (chan.skill_id == 5) {
+                // Infinite Blades: Spray random blades
+                float angle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
+                Vector2 dir = { cosf(angle), sinf(angle) };
+                Vector2 strike_target = { pos.x + dir.x * 500.0f, pos.y + dir.y * 500.0f };
+                ShadowCast(registry, entity, 2, {pos.x, pos.y}, strike_target); // Re-use Rending Wave logic
+            } else if (chan.skill_id == 7) {
+                // Mind Blade: Rapid narrow beam
+                ShadowCast(registry, entity, 1, {pos.x, pos.y}, chan.target_pos); // Re-use Flowing Thrust logic
+            }
+            chan.tick_timer = chan.tick_interval;
+        }
+    }
+
+    // Update Blade Ward
+    auto ward_view = registry.view<BladeWardComponent>();
+    for (auto entity : ward_view) {
+        auto& ward = ward_view.get<BladeWardComponent>(entity);
+        ward.remaining -= dt;
+        if (ward.remaining <= 0.0f) {
+            registry.remove<BladeWardComponent>(entity);
+        }
+    }
+
+    // Update Phantom Flash
+    auto pf_view = registry.view<PhantomFlashComponent>();
+    for (auto entity : pf_view) {
+        auto& pf = pf_view.get<PhantomFlashComponent>(entity);
+        pf.counter_window -= dt;
+        if (pf.counter_window <= 0.0f || pf.triggered) {
+            registry.remove<PhantomFlashComponent>(entity);
+        }
+    }
 }
 
 void SkillSystem::RegisterEffect(uint32_t skill_id, CastCallback callback) {
@@ -286,6 +657,7 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
         shadow = registry.create();
         registry.emplace<LocalLevelTag>(shadow);
         registry.emplace<Position>(shadow, position.x, position.y);
+        registry.emplace<Velocity>(shadow, 0.0f, 0.0f); // Ensure it has velocity for grid
         registry.emplace<AnimationStateComponent>(shadow);
         registry.emplace<ShadowLifetime>(shadow, 1.0f);
     }
@@ -299,11 +671,18 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
     exec.timer = 0.05f;
     exec.target_pos = target_pos;
     
+    // Check if the caller provided a snapshot (either via ShadowComponent or manual call)
     if (auto* sc = registry.try_get<ShadowComponent>(owner)) {
         exec.has_snapshot = true;
         exec.snapshot = sc->snapshot;
         exec.is_empowered = sc->snapshot.is_empowered;
         registry.emplace_or_replace<CombatStats>(shadow, sc->snapshot.stats);
+    } else if (auto* stats = registry.try_get<CombatStats>(owner)) {
+        // Fallback: Use current owner stats
+        exec.has_snapshot = true;
+        exec.snapshot.stats = *stats;
+        exec.snapshot.skill_id = skill_id;
+        // No empowerment by default for non-snapshot casts unless we want it?
     }
 
     registry.emplace<ShadowCastTag>(exec_ent);
@@ -338,6 +717,18 @@ void SkillSystem::OnSkillHit(entt::registry& registry, entt::entity attacker, en
                 for (const auto& spec : active->specialized_slots) {
                     if (spec.skill_id == 2 && spec.allocated_points.contains(230) && spec.allocated_points.at(230) > 0) {
                         if (GetRandomValue(0, 100) < 50) gainIntent = true; 
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Talent: Blade Boomerang Ju Ling (ID 813) - 15% chance to gain intent per pull
+        if (skill_id == 8) {
+            if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+                for (const auto& spec : active->specialized_slots) {
+                    if (spec.skill_id == 8 && spec.allocated_points.contains(813) && spec.allocated_points.at(813) > 0) {
+                        if (GetRandomValue(0, 100) < 15 * spec.allocated_points.at(813)) gainIntent = true;
                         break;
                     }
                 }

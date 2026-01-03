@@ -5,6 +5,8 @@
 #include "../core/TagRegistry.hpp"
 #include "../components/SkillSystem.hpp"
 
+namespace systems { class SpatialHashGrid; }
+
 namespace NoMoreDay {
 
 enum class SkillState : uint8_t {
@@ -34,7 +36,7 @@ public:
     using CastCallback = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
     using SkillHook = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
 
-    static void Update(entt::registry& registry, float dt);
+    static void Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt);
     
     /**
      * @brief Attempt to cast a skill from a specific slot.

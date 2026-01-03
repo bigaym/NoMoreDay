@@ -223,6 +223,7 @@
           {"id": 802, "name_key": "幻影回旋", "desc_key": "终极：额外掷出两柄侧翼飞剑。", "max_points": 1, "x": 2.5, "y": 0.0, "prerequisites": [801]},
           {"id": 810, "name_key": "磁吸", "desc_key": "折返时将敌人拉向玩家", "max_points": 1, "x": 0.0, "y": 1.2, "prerequisites": [800]},
           {"id": 811, "name_key": "剑气黑洞", "desc_key": "终极：折返点产生强力吸附。", "max_points": 1, "x": 0.0, "y": 2.5, "prerequisites": [810]},
+          {"id": 813, "name_key": "聚灵", "desc_key": "每牵引一个敌人有15%几率获得1层剑意。", "max_points": 3, "x": 1.2, "y": 1.2, "prerequisites": [810]},
           {"id": 820, "name_key": "绞杀", "desc_key": "最远点停留并造成多次切割", "max_points": 3, "x": -1.2, "y": 0.0, "prerequisites": [800]},
           {"id": 821, "name_key": "绝影切割", "desc_key": "终极：停留期间攻击频率大幅增加。", "max_points": 1, "x": -2.5, "y": 0.0, "prerequisites": [820]}
       ]

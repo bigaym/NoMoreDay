@@ -6,7 +6,9 @@
 #include "../components/Stats.hpp"
 #include "../components/EnemyComponent.hpp"
 #include "../components/Buff.hpp"
+#include "../components/SkillSystem.hpp"
 #include "MovementStanceSystem.hpp"
+#include "SkillSystem.hpp"
 
 void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
     // LOG_TRACE("CombatSystem::update: 处理战斗逻辑");
@@ -315,6 +317,32 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
 bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker) {
     if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) {
         return false;
+    }
+
+    // --- Phantom Flash Riposte ---
+    if (auto* pf = registry.try_get<NoMoreDay::PhantomFlashComponent>(target)) {
+        if (!pf->triggered) {
+            pf->triggered = true;
+            LOG_INFO("Phantom Flash triggered! Riposte on entity {}", (uint32_t)attacker);
+            
+            if (registry.valid(attacker) && registry.all_of<Position>(attacker)) {
+                const auto& aPos = registry.get<Position>(attacker);
+                const auto& tPos = registry.get<Position>(target);
+                
+                // Teleport behind attacker (approx)
+                Vector2 dir = Vector2Normalize(Vector2Subtract({tPos.x, tPos.y}, {aPos.x, aPos.y}));
+                Vector2 ripostePos = Vector2Add({aPos.x, aPos.y}, Vector2Scale(dir, 20.0f));
+                
+                auto& targetPosComp = registry.get<Position>(target);
+                targetPosComp.x = ripostePos.x;
+                targetPosComp.y = ripostePos.y;
+
+                // Shadow Riposte (Cast Flowing Thrust ID 1 as riposte)
+                NoMoreDay::SkillSystem::ShadowCast(registry, target, 1, ripostePos, {aPos.x, aPos.y});
+            }
+            
+            return false; // Damage blocked
+        }
     }
 
     // Interrupt movement stance on damage

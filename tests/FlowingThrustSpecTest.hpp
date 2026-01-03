@@ -14,6 +14,7 @@ TEST_CASE("FlowingThrust: Branch A - Guan Ri (Pierce & Reset)") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -30,7 +31,7 @@ TEST_CASE("FlowingThrust: Branch A - Guan Ri (Pierce & Reset)") {
         
         SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
         // Run state machine to spawn projectile
-        for(int i=0; i<10; ++i) SkillSystem::Update(registry, 0.02f);
+        for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
         
         auto view = registry.view<Projectile>();
         REQUIRE(view.begin() != view.end());
@@ -57,6 +58,7 @@ TEST_CASE("FlowingThrust: Branch B - Liu Ying (Shadow Echo)") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -74,7 +76,7 @@ TEST_CASE("FlowingThrust: Branch B - Liu Ying (Shadow Echo)") {
     
     // Run state machine to reach Casting phase where shadow is spawned
     for(int i=0; i<10; ++i) {
-        SkillSystem::Update(registry, 0.02f);
+        SkillSystem::Update(registry, grid, 0.02f);
     }
     
     // Check if shadow was created
@@ -120,6 +122,7 @@ TEST_CASE("FlowingThrust: Branch D - Frost Thrust") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -133,7 +136,7 @@ TEST_CASE("FlowingThrust: Branch D - Frost Thrust") {
 
     SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
     // Run state machine
-    for(int i=0; i<10; ++i) SkillSystem::Update(registry, 0.02f);
+    for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
     
     auto view = registry.view<Projectile, SkillModifierComponent>();
     REQUIRE(view.begin() != view.end());

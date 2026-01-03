@@ -81,6 +81,17 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
             float distSq = dx*dx + dy*dy;
 
             if (distSq <= check_radius * check_radius) {
+                // --- Interception Check ---
+                if (auto* ward = registry.try_get<BladeWardComponent>(target)) {
+                    // Base chance 15% per sword (3 swords default = 45%)
+                    float chance = ward->sword_count * ward->interception_chance;
+                    if ((float)GetRandomValue(0, 1000) / 1000.0f < chance) {
+                        LOG_INFO("Projectile intercepted by Blade Ward on entity {}", (uint32_t)target);
+                        hit = true; 
+                        return; // Stop processing this target
+                    }
+                }
+
                 // Hit confirmed
                 proj.hitEntities.push_back(target); // Record the hit
                 

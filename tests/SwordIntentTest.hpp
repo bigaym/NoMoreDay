@@ -13,6 +13,7 @@ TEST_CASE("Sword Intent: Empowered Logic") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -33,7 +34,7 @@ TEST_CASE("Sword Intent: Empowered Logic") {
         CHECK(exec.is_empowered == false);
         
         // Trigger PreCastHook
-        SkillSystem::Update(registry, 0.11f); 
+        SkillSystem::Update(registry, grid, 0.11f); 
         CHECK(exec.is_empowered == false);
         CHECK(intent.stacks == 5);
     }
@@ -43,7 +44,7 @@ TEST_CASE("Sword Intent: Empowered Logic") {
         CHECK(SkillSystem::TryCast(registry, player, 0));
         
         // Trigger PreCastHook
-        SkillSystem::Update(registry, 0.11f); 
+        SkillSystem::Update(registry, grid, 0.11f); 
         
         auto exec_view = registry.view<SkillExecution>();
         auto& exec = exec_view.get<SkillExecution>(exec_view.front());
@@ -59,7 +60,7 @@ TEST_CASE("Sword Intent: Empowered Logic") {
         SkillSystem::ShadowCast(registry, player, 1, {0,0}, {0,0});
         
         // SkillSystem::Update will trigger PreCastHook
-        SkillSystem::Update(registry, 0.1f);
+        SkillSystem::Update(registry, grid, 0.1f);
         
         CHECK(intent.stacks == 10); // Should still be 10
         

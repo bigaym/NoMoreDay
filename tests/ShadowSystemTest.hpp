@@ -57,10 +57,25 @@ TEST_CASE("Shadow System: Basic Lifecycle") {
     }
     CHECK(exec_found == true);
 
-    // 4. Update SkillSystem to process the cast
-    SkillSystem::Update(registry, 0.1f); // Preparing -> Casting
-    SkillSystem::Update(registry, 0.1f); // Casting -> Settle
-    SkillSystem::Update(registry, 0.1f); // Settle -> Removed
+    SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    auto player2 = registry.create();
+    auto& active = registry.emplace<ActiveSkillsComponent>(player2);
+    registry.emplace<Position>(player2, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player2);
+    
+    // Equipping skill 1
+    active.slots[0].id = 1;
+    active.slots[0].current_charges = 1;
+
+    // Trigger shadow cast
+    SkillSystem::ShadowCast(registry, player2, 1, {100, 100}, {200, 200});
+
+    // Run skill system update
+    SkillSystem::Update(registry, grid, 0.1f); // Preparing -> Casting
+    SkillSystem::Update(registry, grid, 0.1f); // Casting -> Settle
+    SkillSystem::Update(registry, grid, 0.1f); // Settle -> Removed
 
     // 5. Update ShadowSystem for cleanup
     ShadowSystem::Update(registry, 1.0f); // Lifetime finished

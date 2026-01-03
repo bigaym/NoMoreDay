@@ -36,6 +36,7 @@ TEST_CASE("SkillSystem: Charges Logic") {
     LoggerScope scope;
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -53,19 +54,19 @@ TEST_CASE("SkillSystem: Charges Logic") {
         CHECK(active.slots[0].cooldown > 0.0f);
         
         // Fully clear execution state machine (needs 3+ updates)
-        for(int i=0; i<5; ++i) SkillSystem::Update(registry, 0.1f);
+        for(int i=0; i<5; ++i) SkillSystem::Update(registry, grid, 0.1f);
 
         // Cast 2
         CHECK(SkillSystem::TryCast(registry, player, 0));
         CHECK(active.slots[0].current_charges == 1);
         
-        for(int i=0; i<5; ++i) SkillSystem::Update(registry, 0.1f);
+        for(int i=0; i<5; ++i) SkillSystem::Update(registry, grid, 0.1f);
 
         // Cast 3
         CHECK(SkillSystem::TryCast(registry, player, 0));
         CHECK(active.slots[0].current_charges == 0);
 
-        for(int i=0; i<5; ++i) SkillSystem::Update(registry, 0.1f);
+        for(int i=0; i<5; ++i) SkillSystem::Update(registry, grid, 0.1f);
 
         // Cast 4 (Fail)
         CHECK_FALSE(SkillSystem::TryCast(registry, player, 0));
@@ -76,22 +77,22 @@ TEST_CASE("SkillSystem: Charges Logic") {
         active.slots[0].cooldown = 2.0f;
 
         // Update 1s
-        SkillSystem::Update(registry, 1.0f);
+        SkillSystem::Update(registry, grid, 1.0f);
         CHECK(active.slots[0].current_charges == 0);
         CHECK(active.slots[0].cooldown == doctest::Approx(1.0f));
 
         // Update 1.1s (Total 2.1s) -> 1 charge restored
-        SkillSystem::Update(registry, 1.1f);
+        SkillSystem::Update(registry, grid, 1.1f);
         CHECK(active.slots[0].current_charges == 1);
         // Cooldown should restart for the next charge
         CHECK(active.slots[0].cooldown > 1.8f); 
 
         // Update 2.0s -> 2nd charge restored
-        SkillSystem::Update(registry, 2.0f);
+        SkillSystem::Update(registry, grid, 2.0f);
         CHECK(active.slots[0].current_charges == 2);
         
         // Update 2.0s -> 3rd charge restored
-        SkillSystem::Update(registry, 2.0f);
+        SkillSystem::Update(registry, grid, 2.0f);
         CHECK(active.slots[0].current_charges == 3);
         CHECK(active.slots[0].cooldown == 0.0f);
     }
@@ -101,6 +102,7 @@ TEST_CASE("SkillSystem: Execution Logic") {
     LoggerScope scope;
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -144,15 +146,15 @@ TEST_CASE("SkillSystem: Execution Logic") {
         CHECK_FALSE(SkillSystem::TryCast(registry, player, 1, {0,0}));
         
         // Advance time
-        SkillSystem::Update(registry, 1.0f);
+        SkillSystem::Update(registry, grid, 1.0f);
         CHECK(active.slots[1].cooldown > 0.9f);
         CHECK_FALSE(SkillSystem::TryCast(registry, player, 1, {0,0}));
 
-        SkillSystem::Update(registry, 1.1f);
+        SkillSystem::Update(registry, grid, 1.1f);
         CHECK(active.slots[1].cooldown == 0.0f);
         
         // Wait for previous execution to finish settling (0.1s windup + 0.05s cast + 0.1s settle)
-        SkillSystem::Update(registry, 0.5f);
+        SkillSystem::Update(registry, grid, 0.5f);
         CHECK(SkillSystem::TryCast(registry, player, 1, {0,0}));
     }
 
@@ -169,16 +171,16 @@ TEST_CASE("SkillSystem: Execution Logic") {
         CHECK(SkillSystem::TryCast(registry, player, 0, {0, 0}));
         
         // At T=0, still in Preparing state
-        SkillSystem::Update(registry, 0.05f);
+        SkillSystem::Update(registry, grid, 0.05f);
         CHECK_FALSE(effect_triggered);
 
         // At T=0.1, transitions to Casting and triggers effect
-        SkillSystem::Update(registry, 0.06f);
+        SkillSystem::Update(registry, grid, 0.06f);
         CHECK(effect_triggered);
 
         // After some time (0.05 cast + 0.1 settle), execution entity should be destroyed
-        SkillSystem::Update(registry, 0.1f); // Casting -> Settle
-        SkillSystem::Update(registry, 0.2f); // Settle -> End
+        SkillSystem::Update(registry, grid, 0.1f); // Casting -> Settle
+        SkillSystem::Update(registry, grid, 0.2f); // Settle -> End
         
         auto exec_view = registry.view<SkillExecution>();
         CHECK(exec_view.empty());
@@ -191,16 +193,16 @@ TEST_CASE("SkillSystem: Execution Logic") {
         active.slots[0].current_charges = 1;
         
         CHECK(SkillSystem::TryCast(registry, player, 0));
-        SkillSystem::Update(registry, 0.01f);
+        SkillSystem::Update(registry, grid, 0.01f);
         CHECK(anim.state == EntityAnimState::SkillWindup);
 
-        SkillSystem::Update(registry, 0.1f); // Windup -> Casting
+        SkillSystem::Update(registry, grid, 0.1f); // Windup -> Casting
         CHECK(anim.state == EntityAnimState::SkillCasting);
 
-        SkillSystem::Update(registry, 0.1f); // Casting -> Settle
+        SkillSystem::Update(registry, grid, 0.1f); // Casting -> Settle
         CHECK(anim.state == EntityAnimState::SkillRecovery);
 
-        SkillSystem::Update(registry, 0.2f); // Settle -> End
+        SkillSystem::Update(registry, grid, 0.2f); // Settle -> End
         CHECK(anim.state == EntityAnimState::Idle);
     }
 }
@@ -264,6 +266,7 @@ TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
 TEST_CASE("SkillSystem: Sword Intent") {
     LoggerScope scope;
     entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
     auto player = registry.create();
     auto& intent = registry.emplace<SwordIntentComponent>(player);
     intent.decay_interval = 1.0f;
@@ -277,11 +280,11 @@ TEST_CASE("SkillSystem: Sword Intent") {
 
     SUBCASE("Decay") {
         intent.stacks = 5;
-        SkillSystem::Update(registry, 0.5f);
+        SkillSystem::Update(registry, grid, 0.5f);
         CHECK(intent.stacks == 5);
-        SkillSystem::Update(registry, 0.6f);
+        SkillSystem::Update(registry, grid, 0.6f);
         CHECK(intent.stacks == 5);
-        SkillSystem::Update(registry, 0.4f);
+        SkillSystem::Update(registry, grid, 0.4f);
         CHECK(intent.stacks == 4);
     }
 }

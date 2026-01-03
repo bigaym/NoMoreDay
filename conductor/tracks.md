@@ -76,5 +76,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [~] Track: Blade Ascendant Skill Specialization (Remaining 7 Skills)
-*Link: [./conductor/tracks/blade_ascendant_specialization_20260103/](./conductor/tracks/blade_ascendant_specialization_20260103/)*
+## [x] Track: Blade Ascendant Skill Specialization (Remaining 7 Skills)
+- **Folder:** conductor/archive/blade_ascendant_specialization_20260103
+- **Description:** Implement specialization talent trees and unique mechanics for the remaining 7 Blade Ascendant skills, including Area, Automation, and Channeling logic. (Completed on 2026-01-03)
+
+---

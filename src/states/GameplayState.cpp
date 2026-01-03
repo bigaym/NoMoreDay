@@ -241,7 +241,7 @@ namespace NoMoreDay {
         DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);
-        SkillSystem::Update(registry, dt);
+        SkillSystem::Update(registry, m_spatialGrid, dt);
         ShadowSystem::Update(registry, dt);
         MovementStanceSystem::Update(registry, dt);
         ProjectileSystem::Update(registry, m_spatialGrid, dt);
@@ -416,6 +416,10 @@ namespace NoMoreDay {
 
     void GameplayState::UpdatePhysics(float dt) {
         auto& registry = *m_context->registry;
+
+        // 0. Projectile Pull (Pre-move)
+        PhysicsSystem::ProjectilePullLogic(registry, m_spatialGrid, dt);
+
         auto view = registry.view<Position, Velocity>();
         
         m_taskflow.clear();

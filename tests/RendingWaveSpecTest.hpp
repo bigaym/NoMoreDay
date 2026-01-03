@@ -14,6 +14,7 @@ TEST_CASE("RendingWave: Branch A - Fen Hai (Extra Waves)") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -26,7 +27,7 @@ TEST_CASE("RendingWave: Branch A - Fen Hai (Extra Waves)") {
     
     SUBCASE("Default 1 Wave") {
         SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
-        for(int i=0; i<10; ++i) SkillSystem::Update(registry, 0.02f);
+        for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
         
         auto view = registry.view<Projectile>();
         int count = 0;
@@ -38,7 +39,7 @@ TEST_CASE("RendingWave: Branch A - Fen Hai (Extra Waves)") {
         active.specialized_slots[1].allocated_points[210] = 2; // Fen Hai
         
         SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
-        for(int i=0; i<10; ++i) SkillSystem::Update(registry, 0.02f);
+        for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
         
         auto view = registry.view<Projectile>();
         int count = 0;
@@ -52,6 +53,7 @@ TEST_CASE("RendingWave: Branch B - Fan Tian (Boomerang)") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -64,7 +66,7 @@ TEST_CASE("RendingWave: Branch B - Fan Tian (Boomerang)") {
     active.specialized_slots[1].allocated_points[220] = 1; // Fan Tian
 
     SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
-    for(int i=0; i<10; ++i) SkillSystem::Update(registry, 0.02f);
+    for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
     
     auto view = registry.view<Projectile, BoomerangComponent, Velocity>();
     REQUIRE(view.begin() != view.end());
@@ -77,7 +79,7 @@ TEST_CASE("RendingWave: Branch B - Fan Tian (Boomerang)") {
     // Run physics until boomerang returns
     // bc.returnTimer is 0.5s. 0.02f * 30 = 0.6s
     for(int i=0; i<30; ++i) {
-        PhysicsSystem::updateAll(registry, 0.02f, 2000, 2000);
+        PhysicsSystem::updateAll(registry, 0.02f, 2000, 2000, grid);
     }
     
     // Check if phase changed and velocity reversed (approx)
@@ -93,6 +95,7 @@ TEST_CASE("RendingWave: Branch C - Intent Scaling") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
@@ -107,7 +110,7 @@ TEST_CASE("RendingWave: Branch C - Intent Scaling") {
     active.specialized_slots[1].allocated_points[230] = 1; // 5% per stack -> +50% More
 
     SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
-    for(int i=0; i<10; ++i) SkillSystem::Update(registry, 0.02f);
+    for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
     
     auto view = registry.view<Projectile, CombatStats>();
     REQUIRE(view.begin() != view.end());
