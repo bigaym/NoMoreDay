@@ -12,7 +12,7 @@
 - [x] Task: Create `SkillEffectSystem` hooks to apply talent modifications to actual combat skills (e.g., damage multipliers, cooldown reduction). 366207e
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic & Progression' (Protocol in workflow.md)
 
-## Phase 3: UI - Central Hub (Hotkey: S)
+## Phase 3: UI - Central Hub (Hotkey: S) [checkpoint: 575fe28]
 - [x] Task: Register 'S' key in `InputSystem` to toggle the Skill Management Interface. ed0cc50
 - [x] Task: Implement `UISkillHub` component in `UISystem.cpp`: e479aed
     - Display 5 specialization slots.
