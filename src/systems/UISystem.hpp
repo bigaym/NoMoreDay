@@ -37,6 +37,7 @@ public:
 
     // --- Helpers ---
     static Vector2 GetMousePositionLogic();
+    static bool IsSkillTreeVisible(entt::registry& registry, entt::entity entity);
 
 private:
     // Internal helpers

@@ -95,6 +95,10 @@ Vector2 UISystem::GetMousePositionLogic() {
     return { m.x / s, m.y / s };
 }
 
+bool UISystem::IsSkillTreeVisible(entt::registry& registry, entt::entity entity) {
+    return State.showSkillTree; // We need to add showSkillTree to UIContext
+}
+
 // --- Main Loop ---
 
 void UISystem::Update(entt::registry& registry, const LevelManager& levelManager) {
@@ -149,6 +153,24 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
                 State.showInventory = false;
                 State.showCharacterPanel = false;
                 State.showContextMenu = false;
+                State.showSkillTree = false;
+            }
+        }
+    }
+
+    // Skill Tree (S)
+    if (IsKeyPressed(KEY_S)) {
+        State.showSkillTree = !State.showSkillTree;
+        if (State.showSkillTree) {
+            State.showInventory = false;
+            State.showCharacterPanel = false;
+            State.showContextMenu = false;
+            // Also close Astrolabe if open
+            auto view = registry.view<PlayerTag>();
+            if (view.begin() != view.end()) {
+                if (UIAstrolabe::IsVisible(registry, view.front())) {
+                    UIAstrolabe::Toggle(registry, view.front());
+                }
             }
         }
     }
@@ -221,6 +243,8 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
             if (!popupHandled) State.showCharacterPanel = false;
         } else if (State.showContextMenu) {
             State.showContextMenu = false;
+        } else if (State.showSkillTree) {
+            State.showSkillTree = false;
         } else if (State.showInventory) {
             UIInventory::Toggle();
         } else {
@@ -371,7 +395,6 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
 
             if (hovered) {
                 State.hoveredItem = entity;
-                DrawRectangleLinesEx({labelRect.x * scale, labelRect.y * scale, labelRect.width * scale, labelRect.height * scale}, 1.0f * scale, Fade(WHITE, 0.8f));
                 
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && playerEntity != entt::null) {
                     float dx = pos.x - playerPos2D.x;

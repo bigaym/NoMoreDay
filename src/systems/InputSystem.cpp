@@ -20,8 +20,8 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
 
     for (auto entity : view)
     {
-        // Check if Astrolabe is open
-        if (UIAstrolabe::IsVisible(registry, entity))
+        // Check if Astrolabe or Skill Tree is open
+        if (UIAstrolabe::IsVisible(registry, entity) || UISystem::IsSkillTreeVisible(registry, entity))
         {
             // Block all input if Astrolabe UI is fully open
             // We might allow closing via ESC/N (handled in UISystem::Update)

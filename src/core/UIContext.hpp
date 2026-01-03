@@ -20,6 +20,8 @@ namespace NoMoreDay {
         bool showInventory = false;
         float inventoryAlpha = 0.0f; // New
         
+        bool showSkillTree = false; // New: Skill Specialization UI (Hotkey: S)
+
         bool showContextMenu = false;
 
         // Drag & Drop State
