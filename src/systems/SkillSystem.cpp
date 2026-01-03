@@ -115,7 +115,6 @@ void SkillSystem::Update(entt::registry& registry, float dt) {
     UpdateCooldowns(registry, dt);
     UpdateStates(registry, dt);
     UpdateSwordIntent(registry, dt);
-    UpdateShadows(registry, dt);
 }
 
 void SkillSystem::RegisterEffect(uint32_t skill_id, CastCallback callback) {
@@ -139,13 +138,16 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
     const auto* data = SkillRegistry::Get().GetSkill(skill_id);
     if (!data) return false;
 
-    // 1. Create Shadow Entity
-    auto shadow = registry.create();
-    registry.emplace<LocalLevelTag>(shadow);
-    registry.emplace<ShadowEntityTag>(shadow);
-    registry.emplace<Position>(shadow, position.x, position.y);
-    registry.emplace<AnimationStateComponent>(shadow);
-    registry.emplace<ShadowLifetime>(shadow, 1.0f); // Shadows last at least 1s
+    entt::entity shadow = owner;
+    
+    // If owner is not a shadow entity, create a temporary one (legacy behavior)
+    if (!registry.any_of<ShadowComponent>(owner) && !registry.any_of<ShadowLifetime>(owner)) {
+        shadow = registry.create();
+        registry.emplace<LocalLevelTag>(shadow);
+        registry.emplace<Position>(shadow, position.x, position.y);
+        registry.emplace<AnimationStateComponent>(shadow);
+        registry.emplace<ShadowLifetime>(shadow, 1.0f);
+    }
 
     // 2. Create Skill Execution tied to Shadow
     auto exec_ent = registry.create();
@@ -157,6 +159,15 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
     exec.timer = 0.05f;
     exec.target_pos = target_pos;
     
+    // If the owner has a ShadowComponent, use its snapshot
+    if (auto* sc = registry.try_get<ShadowComponent>(owner)) {
+        exec.has_snapshot = true;
+        exec.snapshot = sc->snapshot;
+        
+        // Also ensure the shadow entity has CombatStats for the callback to find
+        registry.emplace_or_replace<CombatStats>(shadow, sc->snapshot.stats);
+    }
+
     // 3. Mark as Shadow Cast (for logic hooks)
     registry.emplace<ShadowCastTag>(exec_ent);
 
@@ -181,29 +192,6 @@ void SkillSystem::UpdateSwordIntent(entt::registry& registry, float dt) {
             }
         } else {
             intent.decay_timer = 0.0f;
-        }
-    }
-}
-
-void SkillSystem::UpdateShadows(entt::registry& registry, float dt) {
-    auto view = registry.view<ShadowLifetime>();
-    for (auto entity : view) {
-        auto& lifetime = view.get<ShadowLifetime>(entity);
-        lifetime.remaining -= dt;
-        if (lifetime.remaining <= 0.0f) {
-            // Check if shadow is still casting anything
-            bool still_casting = false;
-            auto exec_view = registry.view<SkillExecution>();
-            for(auto exec_ent : exec_view) {
-                if(exec_view.get<SkillExecution>(exec_ent).owner == entity) {
-                    still_casting = true;
-                    break;
-                }
-            }
-
-            if (!still_casting) {
-                registry.destroy(entity);
-            }
         }
     }
 }

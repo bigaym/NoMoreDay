@@ -227,9 +227,24 @@ struct SkillComponent {
 struct ShadowCastTag {};
 
 /**
- * @brief Marker for the shadow entity itself.
+ * @brief Snapshot of skill data for delayed or repeated execution.
  */
-struct ShadowEntityTag {};
+struct SkillSnapshot {
+    uint32_t skill_id = 0;
+    Vector2 position = {0, 0};
+    Vector2 target_pos = {0, 0};
+    CombatStats stats; // Snapshot of owner's stats at time of creation
+};
+
+/**
+ * @brief Component for the shadow entity itself.
+ */
+struct ShadowComponent {
+    SkillSnapshot snapshot;
+    float delay = 0.0f;       // Time before skill is triggered
+    float lifetime = 1.0f;    // Total time before entity is destroyed
+    bool triggered = false;   // Whether the skill effect has been fired
+};
 
 struct ShadowLifetime {
     float remaining = 1.0f;

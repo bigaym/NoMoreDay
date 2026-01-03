@@ -3,6 +3,7 @@
 #include <functional>
 #include "raylib.h"
 #include "../core/TagRegistry.hpp"
+#include "../components/SkillSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -20,6 +21,10 @@ struct SkillExecution {
     entt::entity owner;
     int slot_index = -1;
     Vector2 target_pos = {0, 0};
+    
+    // Optional snapshot for shadow casts or delayed effects
+    bool has_snapshot = false;
+    SkillSnapshot snapshot;
 };
 
 class SkillSystem {
@@ -78,7 +83,6 @@ private:
     static void UpdateCooldowns(entt::registry& registry, float dt);
     static void UpdateStates(entt::registry& registry, float dt);
     static void UpdateSwordIntent(entt::registry& registry, float dt);
-    static void UpdateShadows(entt::registry& registry, float dt);
 };
 
 }

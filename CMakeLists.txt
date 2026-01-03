@@ -86,6 +86,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/UICrafting.cpp
     src/systems/AstrolabeSystem.cpp
     src/systems/SkillSystem.cpp
+    src/systems/ShadowSystem.cpp
     src/systems/UIInventory.cpp
     src/systems/UIAstrolabe.cpp
     src/systems/UIMinimap.cpp

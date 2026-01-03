@@ -294,7 +294,7 @@ TEST_CASE("SkillSystem: Shadow Casting") {
 
     SUBCASE("Trigger Shadow Cast") {
         CHECK(SkillSystem::ShadowCast(registry, player, 1, {100, 200}, {300, 400}));
-        auto shadow_view = registry.view<ShadowEntityTag>();
+        auto shadow_view = registry.view<ShadowLifetime>();
         CHECK(!shadow_view.empty());
     }
 }
