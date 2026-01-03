@@ -2,7 +2,7 @@
 
 This plan outlines the monolithic implementation of the specialization talent trees and unique mechanics for the remaining 7 active skills of the Blade Ascendant class.
 
-## Phase 1: Data Definition & Registry Setup
+## Phase 1: Data Definition & Registry Setup [checkpoint: 8dc7e19]
 Focus on populating the data-driven backbone for all 7 skills.
 
 - [x] Task: Update `assets/data/skills.json` with full talent trees for Blade Formation, Blade Ward, Infinite Blades, Sword Array, Mind Blade, Blade Boomerang, and Phantom Flash. [b809b96]
