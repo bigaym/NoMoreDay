@@ -24,6 +24,7 @@
 #include "../systems/InventorySystem.hpp"
 #include "../systems/SkillSystem.hpp"
 #include "../systems/ShadowSystem.hpp"
+#include "../systems/MovementStanceSystem.hpp"
 #include "../systems/ProjectileSystem.hpp"
 #include "../systems/SerializationSystem.hpp"
 #include "../systems/FogOfWarSystem.hpp"
@@ -147,6 +148,7 @@ namespace NoMoreDay {
         registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
         registry.emplace<TextureIDComponent>(player, playerAsset.id);
         registry.emplace<SwordIntentComponent>(player);
+        registry.emplace<MovementStanceComponent>(player);
         
         // Astrolabe
         auto& astro = registry.emplace<AstrolabeComponent>(player);
@@ -251,6 +253,23 @@ namespace NoMoreDay {
             }
         }
 
+        // Debug: Add Sword Riding Speed Modifier (L)
+        if (IsKeyPressed(KEY_L)) {
+            auto playerView = registry.view<PlayerTag>();
+            if (playerView.begin() != playerView.end()) {
+                auto entity = playerView.front();
+                auto& list = registry.get_or_emplace<ModifierList>(entity);
+                list.modifiers.push_back({
+                    StatType::MoveSpeed,
+                    ModifierMode::PercentAdd,
+                    100.0f,
+                    Tag::SwordRiding
+                });
+                registry.get_or_emplace<StatsDirty>(entity);
+                LOG_INFO("Debug: Added +100% Move Speed during Sword Riding to player");
+            }
+        }
+
         // Get Player Pos
         Position playerPos{0, 0};
         auto playerView = registry.view<PlayerTag, Position>();
@@ -267,6 +286,7 @@ namespace NoMoreDay {
             portalSystem.Update(registry, dt);
         }
 
+        MovementStanceSystem::Update(registry, dt);
         StatsSystem::UpdateBuffs(registry, dt);
         StatsSystem::update(registry);
         RegenerationSystem::update(registry, dt);
@@ -275,6 +295,7 @@ namespace NoMoreDay {
         InventorySystem::update(registry, dt);
         SkillSystem::Update(registry, dt);
         ShadowSystem::Update(registry, dt);
+        MovementStanceSystem::Update(registry, dt);
         ProjectileSystem::Update(registry, m_spatialGrid, dt);
         
         // 2. Input

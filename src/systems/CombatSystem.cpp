@@ -6,6 +6,7 @@
 #include "../components/Stats.hpp"
 #include "../components/EnemyComponent.hpp"
 #include "../components/Buff.hpp"
+#include "MovementStanceSystem.hpp"
 
 void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
     // LOG_TRACE("CombatSystem::update: 处理战斗逻辑");
@@ -315,6 +316,9 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
     if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) {
         return false;
     }
+
+    // Interrupt movement stance on damage
+    NoMoreDay::MovementStanceSystem::OnTakeDamage(registry, target);
 
     auto& hp = registry.get<HealthComponent>(target);
     hp.current -= amount;

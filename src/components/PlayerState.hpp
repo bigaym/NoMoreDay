@@ -52,6 +52,19 @@ struct AttributeUIComponent {
     // 临时分配的点数 (尚未确认)
     int tempStr = 0;
     int tempDex = 0;
-    int tempInt = 0;
-    int tempVit = 0;
-};
+        int tempInt = 0;
+        int tempVit = 0;
+    };
+    
+    enum class MovementStance : uint8_t {
+        Walking,
+        SwordRiding
+    };
+    
+    struct MovementStanceComponent {
+        MovementStance stance = MovementStance::Walking;
+        float movingTimer = 0.0f;
+        float requiredMoveTime = 2.0f; // 2s continuous movement to enter sword riding
+    };
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovementStanceComponent, stance, movingTimer, requiredMoveTime)
+    

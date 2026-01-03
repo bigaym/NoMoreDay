@@ -26,28 +26,28 @@ This plan outlines the architectural changes needed to support advanced Blade As
     - [x] Create `ShadowSystemTest.hpp` to verify shadows spawn, execute their snapshot, and clean themselves up.
 - [ ] **Task 3: Conductor - User Manual Verification 'Shadow System' (Protocol in workflow.md)**
 
-## Phase 3: Sword Intent & Empowered Logic
+## Phase 3: Sword Intent & Empowered Logic [checkpoint: c345411]
 **Goal:** Integrate the class-specific resource with the new hook system.
 
-- [x] **Task 1: Empowered Cast Hook** [f2e3b2a]
+- [x] **Task 1: Empowered Cast Hook** [c345411]
     - [x] Implement a specific `SwordIntentHook` that checks `SwordIntentComponent` for 10 stacks.
     - [x] Logic: If stacks == 10, set `is_empowered = true` on `SkillExecution` and reset stacks to 0.
     - [x] Register this hook in the `SkillSystem` during player initialization.
-- [x] **Task 2: Verification** [f2e3b2a]
+- [x] **Task 2: Verification** [c345411]
     - [x] Write a test case in `SwordIntentTest.hpp` to verify stack consumption and the "Empowered" flag state.
 - [x] **Task 3: Conductor - User Manual Verification 'Empowered Logic' (Protocol in workflow.md)}
 
 
-## Phase 4: Movement Stance (Sword Riding)
+## Phase 4: Movement Stance (Sword Riding) [checkpoint: c345411]
 **Goal:** Implement the foundation for enhanced movement and "Stance" transitions.
 
-- [ ] **Task 1: Movement Stance Component & Logic**
-    - [ ] Implement `MovementStanceComponent` and `MovementStanceSystem`.
-    - [ ] Logic: Track continuous movement time; if > 2s, transition to `SwordRiding` state (add speed buff).
-- [ ] **Task 2: Stance Interruption**
-    - [ ] Update the damage handling logic to check for `MovementStanceComponent` and reset/interrupt it upon taking damage.
-    - [ ] Create `MovementStanceTest.hpp` to verify transition and interruption triggers.
-- [ ] **Task 3: Conductor - User Manual Verification 'Movement Stance' (Protocol in workflow.md)**
+- [x] **Task 1: Movement Stance Component & Logic** [c345411]
+    - [x] Implement `MovementStanceComponent` and `MovementStanceSystem`.
+    - [x] Logic: Track continuous movement time; if > 2s, transition to `SwordRiding` state (add speed buff).
+- [x] **Task 2: Stance Interruption** [c345411]
+    - [x] Update the damage handling logic to check for `MovementStanceComponent` and reset/interrupt it upon taking damage.
+    - [x] Create `MovementStanceTest.hpp` to verify transition and interruption triggers.
+- [x] **Task 3: Conductor - User Manual Verification 'Movement Stance' (Protocol in workflow.md)**
 
 ## Phase 5: Final Integration
 **Goal:** Ensure all foundational pieces work together seamlessly.

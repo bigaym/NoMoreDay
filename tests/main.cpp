@@ -21,6 +21,7 @@ using namespace NoMoreDay;
 #include "SkillSpecializationTest.hpp"
 #include "ShadowSystemTest.hpp"
 #include "SwordIntentTest.hpp"
+#include "MovementStanceTest.hpp"
 #include "BuffRegistryTest.hpp"
 #include "BuffComponentTest.hpp"
 #include "AstrolabeRegistryTest.hpp"

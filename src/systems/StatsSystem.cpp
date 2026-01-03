@@ -7,6 +7,7 @@
 #include "../components/ItemComponent.hpp"
 #include "../components/ItemStats.hpp"
 #include "../components/Progression.hpp"
+#include "../components/PlayerState.hpp"
 #include "../components/Buff.hpp"
 #include "../core/AstrolabeRegistry.hpp"
 #include "../core/SkillRegistry.hpp"
@@ -228,6 +229,15 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     bool hasOffHandWeapon = false;
     bool offHandIsEmpty = true;
 
+    // Determine combined base tags for the entity
+    Tag entity_base_tags = Tag::None;
+    if (auto* stanceComp = registry.try_get<MovementStanceComponent>(entity)) {
+        if (stanceComp->stance == MovementStance::SwordRiding) {
+            entity_base_tags = entity_base_tags | Tag::SwordRiding;
+            LOG_DEBUG("StatsSystem: Recalculating with SwordRiding tag for entity {}", (uint32_t)entity);
+        }
+    }
+
     // 定义处理词缀的 Lambda，供物品 and 套装奖励复用
     auto processAffixes = [&](const std::vector<Affix>& affixes) {
         for (const auto& affix : affixes) {
@@ -383,7 +393,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     if (registry.all_of<ModifierList>(entity)) {
         const auto& list = registry.get<ModifierList>(entity);
         for (const auto& mod : list.modifiers) {
-            if (mod.required_tags == Tag::None) {
+            if (mod.required_tags == Tag::None || HasTag(entity_base_tags, mod.required_tags)) {
                 ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
             }
         }
@@ -394,7 +404,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         const auto& effects = registry.get<ActiveEffectsComponent>(entity);
         for (const auto& effect : effects.effects) {
             for (const auto& mod : effect.modifiers) {
-                if (mod.required_tags == Tag::None) {
+                if (mod.required_tags == Tag::None || HasTag(entity_base_tags, mod.required_tags)) {
                     // Buffs multiply their effect by stack count
                     ApplyStatModifier(calcs, mod.type, mod.mode, mod.value * effect.stacks);
                 }
@@ -410,7 +420,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
             const auto* node = registry_instance.GetNode(node_id);
             if (node) {
                 for (const auto& mod : node->modifiers) {
-                    if (mod.required_tags == Tag::None) {
+                    if (mod.required_tags == Tag::None || HasTag(entity_base_tags, mod.required_tags)) {
                         ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
                     }
                 }
@@ -550,6 +560,13 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
 
     StatCalculation dynamic_calc;
     
+    Tag combined_query_tags = tags;
+    if (auto* stanceComp = registry.try_get<MovementStanceComponent>(entity)) {
+        if (stanceComp->stance == MovementStance::SwordRiding) {
+            combined_query_tags = combined_query_tags | Tag::SwordRiding;
+        }
+    }
+
     // 1. 获取 CombatStats 中已烘焙的基础值或百分比值
     switch (type) {
         case StatType::PhysicalDamage: dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[0]; break;
@@ -586,11 +603,11 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
     auto apply_if_tags_match = [&](const std::vector<StatModifier>& modifiers, float scale = 1.0f) {
         for (const auto& mod : modifiers) {
             if (mod.type == type) {
-                bool tags_match = (mod.required_tags == Tag::None || HasTag(tags, mod.required_tags));
+                bool tags_match = (mod.required_tags == Tag::None || HasTag(combined_query_tags, mod.required_tags));
                 if (tags_match) {
                     ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
                 } else {
-                    LOG_DEBUG("GetStatWithTags: Tags mismatch for stat {}. Required: {}, Have: {}", (int)type, (uint64_t)mod.required_tags, (uint64_t)tags);
+                    LOG_DEBUG("GetStatWithTags: Tags mismatch for stat {}. Required: {}, Have: {}", (int)type, (uint64_t)mod.required_tags, (uint64_t)combined_query_tags);
                 }
             }
         }

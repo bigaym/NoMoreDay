@@ -36,6 +36,7 @@ enum class Tag : uint64_t {
     Frozen = 1ULL << 50,
     Shocked = 1ULL << 51,
     Stunned = 1ULL << 52,
+    SwordRiding = 1ULL << 53,
 };
 
 constexpr Tag operator|(Tag lhs, Tag rhs) {
@@ -81,14 +82,9 @@ constexpr std::string_view GetTagName(Tag tag) {
         case Tag::Frozen: return "Frozen";
         case Tag::Shocked: return "Shocked";
         case Tag::Stunned: return "Stunned";
+        case Tag::SwordRiding: return "SwordRiding";
         default: return "Unknown";
     }
 }
 
 } // namespace NoMoreDay
-
-#include <nlohmann/json.hpp>
-namespace NoMoreDay {
-    inline void to_json(nlohmann::json& j, const Tag& t) { j = static_cast<uint64_t>(t); }
-    inline void from_json(const nlohmann::json& j, Tag& t) { t = static_cast<Tag>(j.get<uint64_t>()); }
-}
