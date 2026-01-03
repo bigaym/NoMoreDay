@@ -5,6 +5,7 @@
 #include "spdlog/spdlog.h"
 #include <array>
 #include "../core/SkillRegistry.hpp"
+#include "../components/Common.hpp"
 #include "StatsSystem.hpp"
 
 namespace NoMoreDay {
@@ -241,7 +242,37 @@ DamageResult DamagePipeline::Calculate(
         // 5. Final Settlement (Crit & Defense)
         float crit_mult = 1.0f;
         if (HasTag(inst.tags, Tag::Hit) && !HasTag(inst.tags, Tag::DamageOverTime)) {
-             if (HasTag(additional_tags, Tag::Critical)) {
+             bool is_crit = HasTag(additional_tags, Tag::Critical);
+             
+             // Dynamic Crit Check if not already marked as critical
+             if (!is_crit && attacker_stats) {
+                 float crit_chance = StatsSystem::GetStatWithTags(registry, attacker, StatType::CritChance, inst.tags, skill_id, source_entity);
+                 
+                 // Talent: Weakness Insight (ID 130)
+                 if (skill_id == 1) {
+                     if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+                         for (const auto& spec : active->specialized_slots) {
+                             if (spec.skill_id == 1) {
+                                 if (spec.allocated_points.contains(130) && spec.allocated_points.at(130) > 0) {
+                                     // Check if defender is full health
+                                     if (auto* hp = registry.try_get<HealthComponent>(defender)) {
+                                         if (hp->current >= hp->max) {
+                                             crit_chance += 10.0f * spec.allocated_points.at(130); // +10% per point
+                                         }
+                                     }
+                                 }
+                                 break;
+                             }
+                         }
+                     }
+                 }
+
+                 if ((GetRandomValue(0, 10000) / 100.0f) < crit_chance) {
+                     is_crit = true;
+                 }
+             }
+
+             if (is_crit) {
                  crit_mult = attacker_stats ? attacker_stats->crit_damage : 1.5f;
                  result.is_crit = true;
              }

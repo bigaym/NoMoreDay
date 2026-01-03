@@ -28,4 +28,12 @@ struct Projectile {
     std::vector<entt::entity> hitEntities;
 };
 
+// --- NEW: Special Projectile Behaviors ---
+struct BoomerangComponent {
+    enum Phase { Outward, Returning };
+    Phase phase = Outward;
+    float returnTimer = 0.6f; // Time until it turns back
+    entt::entity owner = entt::null;
+};
+
 } // namespace NoMoreDay

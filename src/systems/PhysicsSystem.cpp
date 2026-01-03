@@ -1,4 +1,6 @@
 #include "PhysicsSystem.hpp"
+#include "../components/Projectile.hpp"
+#include "raymath.h"
 #include <cmath>
 #include <algorithm>
 
@@ -70,7 +72,46 @@ void PhysicsSystem::updatePosition(entt::entity entity, Position& pos, Velocity&
 }
 
 void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight) {
-    // 回退：无碰撞（需要网格）
+    using namespace NoMoreDay;
+
+    // 1. Handle Special Behaviors (Boomerang)
+    auto boomView = registry.view<BoomerangComponent, Position, Velocity>();
+    for (auto entity : boomView) {
+        auto& bc = boomView.get<BoomerangComponent>(entity);
+        auto& pos = boomView.get<Position>(entity);
+        auto& vel = boomView.get<Velocity>(entity);
+
+        if (bc.phase == BoomerangComponent::Outward) {
+            bc.returnTimer -= dt;
+            if (bc.returnTimer <= 0.0f) {
+                bc.phase = BoomerangComponent::Returning;
+            }
+        } else {
+            // Returning phase: steer towards owner
+            if (registry.valid(bc.owner) && registry.all_of<Position>(bc.owner)) {
+                const auto& ownerPos = registry.get<Position>(bc.owner);
+                Vector2 p = {pos.x, pos.y};
+                Vector2 op = {ownerPos.x, ownerPos.y};
+                Vector2 toOwner = Vector2Subtract(op, p);
+                float dist = Vector2Length(toOwner);
+                
+                if (dist < 20.0f) {
+                    // Back to owner, destroy projectile
+                    registry.destroy(entity);
+                    continue;
+                }
+                
+                Vector2 dir = Vector2Scale(Vector2Normalize(toOwner), 800.0f); // Fast return
+                vel.vx = dir.x;
+                vel.vy = dir.y;
+            } else {
+                // Owner dead? Just keep flying or die
+                bc.phase = BoomerangComponent::Outward; // Fallback
+            }
+        }
+    }
+
+    // 2. Normal physics update
     auto view = registry.view<Position, Velocity>();
     view.each([dt, screenWidth, screenHeight](auto entity, auto& pos, auto& vel) {
         updatePosition(entity, pos, vel, dt, screenWidth, screenHeight);

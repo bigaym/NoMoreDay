@@ -19,6 +19,8 @@ using namespace NoMoreDay;
 #include "SkillHookTest.hpp"
 #include "SkillModifierTest.hpp"
 #include "SkillSpecializationTest.hpp"
+#include "FlowingThrustSpecTest.hpp"
+#include "RendingWaveSpecTest.hpp"
 #include "ShadowSystemTest.hpp"
 #include "SwordIntentTest.hpp"
 #include "MovementStanceTest.hpp"

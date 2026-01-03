@@ -1,4 +1,5 @@
 #include "XPAwardingSystem.hpp"
+#include "SkillSystem.hpp"
 #include "../components/Common.hpp"
 #include "../components/PlayerState.hpp"
 #include "../components/Stats.hpp"
@@ -66,6 +67,29 @@ void XPAwardingSystem::update(entt::registry& registry) {
                     ProgressionSystem::AddExperience(registry, killer, xpAmount);
                     LOG_INFO("XP System: Player {} gained {:.1f} XP from target {} (Lvl {})", 
                         (uint32_t)killer, xpAmount, (uint32_t)entity, targetLevel);
+
+                    // --- Talent: Guan Ri (贯日) ---
+                    // 50% chance to reset Flowing Thrust (ID 1) cooldown on kill
+                    if (auto* active = registry.try_get<ActiveSkillsComponent>(killer)) {
+                        bool hasGuanRi = false;
+                        for (const auto& spec : active->specialized_slots) {
+                            if (spec.skill_id == 1 && spec.allocated_points.contains(110) && spec.allocated_points.at(110) > 0) {
+                                hasGuanRi = true;
+                                break;
+                            }
+                        }
+
+                        if (hasGuanRi && GetRandomValue(0, 100) < 50) {
+                            for (auto& slot : active->slots) {
+                                if (slot.id == 1) {
+                                    slot.current_charges = 1; // Assuming max 1 for now or just restore 1
+                                    slot.cooldown = 0.0f;
+                                    LOG_INFO("Guan Ri: Cooldown reset for Flowing Thrust!");
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     // Add Bloodlust Buff
                     auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(killer);
