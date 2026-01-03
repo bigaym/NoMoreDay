@@ -1,0 +1,1 @@
+Implemented TalentNode and SkillTreeDefinition structs. Updated ActiveSkillsComponent to include specialized_slots and available_talent_points. Added JSON serialization for all new structures. Verified with SkillSpecializationTest.
