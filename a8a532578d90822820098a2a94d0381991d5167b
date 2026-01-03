@@ -1,0 +1,1 @@
+Implemented UISkillTalentTree with node-link diagram rendering and point spending logic. Added navigation between Skill Hub and Talent Trees via State.selectedSkillId.
