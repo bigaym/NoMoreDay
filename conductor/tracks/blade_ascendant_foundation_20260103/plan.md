@@ -9,10 +9,10 @@ This plan outlines the architectural changes needed to support advanced Blade As
     - [x] Add `PreCastHook` and `PostCastHook` function pointers or event handlers to the `SkillSystem`.
     - [x] Update `SkillSystem.cpp` to trigger `PreCast` during the `Preparing` state and `PostCast` during the `Settle` or `End` state.
     - [x] Create `SkillHookTest.hpp` to verify hooks are called at the correct state transitions.
-- [ ] **Task 2: Component-Based Modifier System**
-    - [ ] Define a generic `SkillModifierComponent` that can hold a collection of modifiers (Damage Inc/More, Conversion, etc.).
-    - [ ] Update `DamagePipeline` to iterate through any `SkillModifierComponent` attached to the `DamageEvent` or `Projectile`.
-    - [ ] Write `SkillModifierTest.hpp` to verify that attached modifiers correctly change damage output.
+- [x] **Task 2: Component-Based Modifier System** [a66a71e]
+    - [x] Define a generic `SkillModifierComponent` that can hold a collection of modifiers (Damage Inc/More, Conversion, etc.).
+    - [x] Update `DamagePipeline` to iterate through any `SkillModifierComponent` attached to the `DamageEvent` or `Projectile`.
+    - [x] Write `SkillModifierTest.hpp` to verify that attached modifiers correctly change damage output.
 - [ ] **Task 3: Conductor - User Manual Verification 'Skill Infrastructure' (Protocol in workflow.md)**
 
 ## Phase 2: Lightweight Shadow System
