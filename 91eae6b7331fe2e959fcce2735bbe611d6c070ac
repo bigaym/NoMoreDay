@@ -1,0 +1,1 @@
+Task: Implement Skill Logic Hooks\nChanges: Added PreCastHook and PostCastHook to SkillSystem, updated UpdateStates to trigger them, and added SkillHookTest.hpp.\nFiles: src/systems/SkillSystem.hpp, src/systems/SkillSystem.cpp, tests/SkillHookTest.hpp, tests/main.cpp\nWhy: To allow dynamic and specialized skill logic like Sword Intent stack consumption or shadow spawning.
