@@ -118,22 +118,6 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                             float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
                             if (roll > stats->accuracy) {
                                 LOG_DEBUG("Attack missed target {}", (uint32_t)target);
-                                if (registry.all_of<Position>(target)) {
-                                    const auto& tPos = registry.get<Position>(target);
-                                    auto popupEntity = registry.create();
-                                    // Add random offset to prevent overlap
-                                    registry.emplace<Position>(popupEntity, tPos.x + GetRandomValue(-15, 15), tPos.y - 20.0f + GetRandomValue(-10, 5));
-                                    
-                                    DamagePopup popup;
-                                    popup.damage = 0;
-                                    popup.timer = 0.0f;
-                                    popup.lifeTime = 0.8f;
-                                    popup.velX = (float)(GetRandomValue(-10, 10));
-                                    popup.velY = -80.0f;
-                                    popup.color = LIGHTGRAY; // 未命中颜色
-                                    popup.isMiss = true;
-                                    registry.emplace<DamagePopup>(popupEntity, popup);
-                                }
                                 return; // 未命中，跳过后续所有判定
                             }
                         }
@@ -160,23 +144,6 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
 
                         if (isDodged) {
                             LOG_DEBUG("Target {} dodged the attack", (uint32_t)target);
-                            if (registry.all_of<Position>(target)) {
-                                const auto& tPos = registry.get<Position>(target);
-                                auto popupEntity = registry.create();
-                                // Add random offset
-                                registry.emplace<Position>(popupEntity, tPos.x + GetRandomValue(-15, 15), tPos.y - 20.0f + GetRandomValue(-10, 5));
-                                
-                                DamagePopup popup;
-                                popup.damage = 0;
-                                popup.timer = 0.0f;
-                                popup.lifeTime = 0.8f;
-                                popup.velX = (float)(GetRandomValue(-10, 10));
-                                popup.velY = -80.0f;
-                                popup.color = SKYBLUE; // 闪避颜色
-                                popup.isDodge = true;
-                                
-                                registry.emplace<DamagePopup>(popupEntity, popup);
-                            }
                             return; // 闪避成功，跳过击退和伤害计算
                         }
 
@@ -252,11 +219,7 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
 
                     // Apply Damage
                     if (registry.all_of<HealthComponent>(target)) {
-                        // Cache position for popup as target might be destroyed
-                        float popupX = tPos.x;
-                        float popupY = tPos.y - 20.0f; // 弹出位置
-
-                        // 应用伤害逻辑（这会处理生命值减少和死亡）
+                        // 应用伤害逻辑（这会处理生命值减少和死亡并生成飘字）
                         bool targetDead = ApplyDamage(registry, target, finalDamage, entity);
                         LOG_DEBUG("对 {} 造成 {:.1f} 伤害 (暴击: {}, 死亡: {})", (uint32_t)target, finalDamage, isCrit, targetDead);
 
@@ -283,33 +246,6 @@ void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& gr
                                 // 可选：在这里添加治疗飘字或特效
                             }
                         }
-
-                        // --- 生成伤害飘字 ---
-                        auto popupEntity = registry.create();
-                        // Add random offset to prevent overlap
-                        registry.emplace<Position>(popupEntity, popupX + GetRandomValue(-15, 15), popupY + GetRandomValue(-10, 5));
-                        
-                        DamagePopup popup;
-                        popup.damage = finalDamage; // 伤害值
-                        popup.timer = 0.0f; // 计时器
-                        popup.lifeTime = 0.8f;
-                        popup.velX = (float)(GetRandomValue(-20, 20)); // 随机水平漂移
-                        popup.velY = -100.0f; // 向上飘
-                        popup.isBlock = isBlocked;
-                        popup.isCrit = isCrit;
-                        
-                        // Color coding
-                        if (isBlocked) {
-                            popup.color = GRAY; // 格挡显示为灰色
-                            popup.lifeTime = 1.0f;
-                        } else if (isCrit) {
-                            popup.color = ORANGE; // 暴击显示为橙黄色
-                            popup.lifeTime = 1.0f; // 暴击持续时间更长
-                        } else {
-                            popup.color = WHITE;
-                        }
-                        
-                        registry.emplace<DamagePopup>(popupEntity, popup);
                     } else { // 如果目标没有生命值组件
                         LOG_LIMITED_WARN(1.0f, "Target {} hit but has no HealthComponent", (uint32_t)target);
                         // For particles/props without health, maybe just destroy or knockback?
@@ -344,12 +280,15 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
     
     if (type == DamageType::Physical) {
         // Armor Reduction
-        // Formula: Reduction = Armor / (Armor + 100)
-        float armor = defender.armor - attacker.armor_pen;
-        if (armor < 0) armor = 0;
+        float effective_armor = defender.armor - attacker.armor_pen;
         
-        if (armor > 0) {
-            mitigation = armor / (armor + 100.0f);
+        if (effective_armor >= 0) {
+            mitigation = 1.0f - (100.0f / (100.0f + effective_armor));
+        } else {
+            // Negative armor amplification: multiplier = 2 - 100/(100 - eff)
+            // We want 'mitigation' to be negative so that damage * (1 - mit) increases.
+            // (1 - mitigation) = 2 - 100/(100-eff) -> mit = 1 - (2 - 100/(100-eff)) = 100/(100-eff) - 1
+            mitigation = (100.0f / (100.0f - effective_armor)) - 1.0f;
         }
     } else { // 元素抗性
         // Elemental Resistance
@@ -379,6 +318,23 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
 
     auto& hp = registry.get<HealthComponent>(target);
     hp.current -= amount;
+
+    // --- NEW: Unified Damage Popup ---
+    if (registry.all_of<Position>(target)) {
+        const auto& tPos = registry.get<Position>(target);
+        auto popupEntity = registry.create();
+        registry.emplace<Position>(popupEntity, tPos.x + GetRandomValue(-15, 15), tPos.y - 20.0f + GetRandomValue(-10, 5));
+        
+        DamagePopup popup;
+        popup.damage = amount;
+        popup.timer = 0.0f;
+        popup.lifeTime = 0.8f;
+        popup.velX = (float)(GetRandomValue(-20, 20));
+        popup.velY = -100.0f;
+        popup.color = WHITE;
+        
+        registry.emplace<DamagePopup>(popupEntity, popup);
+    }
 
     // Apply Hurt Debuff
     if (hp.current > 0) {

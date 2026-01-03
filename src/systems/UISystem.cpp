@@ -39,6 +39,7 @@ static bool s_hasGivenTestItems = false;
 
 void UISystem::Initialize(ResourceManager& resourceManager) {
     AssetLoadingSystem::Initialize(resourceManager);
+    AssetLoadingSystem::LoadAllEquipment(); // Ensure all equipment textures are registered
     
     // Initialize Animations
     State.inventorySlotAnims.assign(100, {0.0f, 1.0f}); // Assume max 100 slots for now
@@ -135,11 +136,6 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
             }
         }
         State.showContextMenu = false;
-    }
-
-    // Inventory (I / Tab)
-    if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB)) {
-        UIInventory::Toggle();
     }
 
     // Quick Sort (Z)
@@ -253,8 +249,6 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
             State.showContextMenu = false;
         } else if (State.showSkillTree) {
             State.showSkillTree = false;
-        } else if (State.showInventory) {
-            UIInventory::Toggle();
         } else {
             // Check if Astrolabe is open
             auto view = registry.view<PlayerTag>();
@@ -356,8 +350,6 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
 
     // 1. Draw Subsystems (Passed logic coordinates will be scaled by UIRenderer)
     UIMinimap::Draw(registry, levelManager);
-    if (State.inventoryAlpha > 0.0f) UIInventory::Draw(registry);
-    if (State.characterPanelAlpha > 0.0f) UICharacter::Draw(registry);
     UIAstrolabe::Draw(registry);
     UICrafting::Draw(registry); // ADDED
     

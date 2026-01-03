@@ -21,6 +21,11 @@ struct Projectile {
     float radius = 5.0f;   // Hitbox size
     bool pierce = false;   // Does it pass through enemies?
     int pierceCount = 0;   // How many enemies can it hit?
+
+    // Tracking hits to prevent multi-hit on the same target
+    // We use a small static-ish array or vector to keep track. 
+    // For many projectiles, a vector is okay as most hits are few.
+    std::vector<entt::entity> hitEntities;
 };
 
 } // namespace NoMoreDay

@@ -20,6 +20,8 @@ To create an immersive, performance-driven ARPG experience where players face ov
 
 - **Active Skill Infrastructure:** A data-driven system supporting modular skill execution with a 4-state machine (Preparing, Casting, Settle, End). Features include skill registries, tag-based scaling, cooldown management, and resource (Mana) consumption.
 
+- **Skill Specialization System:** A deep customization system allowing players to specialize in up to 5 active skills. Each specialized skill features its own unique talent tree, enabling players to drastically alter skill behavior, damage types, and mechanical properties through a dedicated "Skill Management" interface (Hotkey: S).
+
 - **Concentric Astrolabe System:** A data-driven passive talent tree with a concentric layout, allowing for deep character specialization through Minor, Major, and Keystone nodes. Features an interactive, zoomable UI overlay with dynamic connection visuals, planning mode, and activation logic. Includes class-specific keystones like "Sword Heart" for Blade Ascendants.
 
 - **Blade Ascendant Mechanics:** Specialized class logic for sword-wielding characters, including:
@@ -33,6 +35,8 @@ To create an immersive, performance-driven ARPG experience where players face ov
 - **Multi-Biome Persistent World:** A data-driven level management system that allows seamless transitions between different environments (e.g., Safe Towns and Hostile Dungeons) via an interactive portal system. Features include biome-specific generation rules, entity lifecycle persistence, and async level preparation for smooth loading.
 
 - **Procedural Map Generation:** A dynamic dungeon system utilizing cellular automata and Perlin noise to ensure that no two runs feel the same, promoting infinite replayability.
+
+- **Forging & Crafting Interface:** A dedicated UI for modifying items using the "Forging Potential" system. Players can upgrade specific affixes to higher tiers, add new prefixes/suffixes to items with open slots, and use "Chaos" or "Refine" actions to reroll affix types or values, providing deep control over equipment progression.
 
 - **Massive Scale Combat:** A high-performance, tag-driven damage engine supporting a 5-step calculation pipeline (Base, Conversion, Increased, More, Settle). It handles complex damage conversions (e.g., Physical to Fire) and applies multi-layered modifiers for Physical, Elemental, and Eldritch damage types, optimized for 10,000+ entities with zero-allocation update loops.
 

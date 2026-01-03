@@ -1,6 +1,7 @@
 #include "UIRenderer.hpp"
 #include "AstrolabeRegistry.hpp"
 #include "AssetLoadingSystem.hpp"
+#include "UIAssetRegistry.hpp"
 #include "SkillRegistry.hpp"
 #include "BuffRegistry.hpp"
 #include "../systems/InventorySystem.hpp" 
@@ -80,6 +81,7 @@ namespace NoMoreDay {
     const char* UIRenderer::GetShortItemTypeName(const ItemComponent& item) {
         if (item.type == ItemType::Weapon) return "武";
         if (item.type == ItemType::Armor) return "甲";
+        if (item.type == ItemType::Jewelry) return "饰";
         if (item.type == ItemType::Consumable) return "耗";
         if (item.type == ItemType::Material) return "料";
         return "物";
@@ -93,6 +95,11 @@ namespace NoMoreDay {
         if (item.type == ItemType::Weapon) {
             if (item.isTwoHanded) return "双手武器";
             return "单手武器";
+        }
+
+        if (item.type == ItemType::Jewelry) {
+            if (item.slot == EquipmentSlot::Neck) return "项链";
+            return "戒指";
         }
         
         if (item.type == ItemType::Armor || item.type == ItemType::Shield) {
@@ -138,6 +145,12 @@ namespace NoMoreDay {
         // Border
         Color border = highlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder;
         DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(border, alpha));
+
+        // Draw Slot Background Texture if available
+        Texture2D slotBg = AssetLoadingSystem::GetTexture(assets::ui::textures::Inventory_Slot.id);
+        if (slotBg.id > 0) {
+            DrawTexturePro(slotBg, {0, 0, (float)slotBg.width, (float)slotBg.height}, rec, {0, 0}, 0.0f, ApplyAlpha(WHITE, 0.5f * alpha));
+        }
         
         if (item != entt::null && registry.valid(item)) {
             auto* itemComp = registry.try_get<ItemComponent>(item);
@@ -180,6 +193,12 @@ namespace NoMoreDay {
 
         DrawRectangleRec(rec, ApplyAlpha(isHighlighted ? ApplyAlpha(s_theme.panelBorderHighlight, 0.2f) : s_theme.slotBackground, alpha));
         
+        // Draw Slot Background Texture if available
+        Texture2D slotBg = AssetLoadingSystem::GetTexture(assets::ui::textures::Inventory_Slot.id);
+        if (slotBg.id > 0) {
+            DrawTexturePro(slotBg, {0, 0, (float)slotBg.width, (float)slotBg.height}, rec, {0, 0}, 0.0f, ApplyAlpha(WHITE, 0.4f * alpha));
+        }
+
         if (icon.id > 0) {
             Rectangle source = {0, 0, (float)icon.width, (float)icon.height};
             float pad = 4.0f * s_uiScale;

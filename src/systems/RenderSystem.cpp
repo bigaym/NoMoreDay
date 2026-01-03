@@ -238,8 +238,15 @@ void RenderSystem::render(entt::registry& registry) {
         Vector2 textPos = { pos.x - textSize.x / 2.0f, pos.y - 30.0f * scale }; // 物品上方
 
         // 绘制背景框以提高可读性 // Draw background box for readability
-        DrawRectangleRec({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, Fade(BLACK, 0.6f));
-        DrawRectangleLinesEx({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, 1.0f, Fade(rarityColor, 0.5f));
+        bool isHovered = (entity == UISystem::State.hoveredItem);
+        DrawRectangleRec({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, Fade(BLACK, 0.7f));
+        
+        if (isHovered) {
+            // 高亮显示
+            DrawRectangleLinesEx({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, 2.0f, WHITE);
+        } else {
+            DrawRectangleLinesEx({ textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4 }, 1.0f, Fade(rarityColor, 0.5f));
+        }
 
         if (IsFontValid(font)) {
             DrawTextEx(font, name, textPos, (float)fontSize, spacing, rarityColor);

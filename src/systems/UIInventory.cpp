@@ -32,6 +32,13 @@ void UIInventory::SetPage(int page) {
 }
 
 void UIInventory::Update(entt::registry& registry) {
+    float dt = GetFrameTime();
+    float alphaSpeed = 6.0f;
+    if (UISystem::State.showInventory) {
+        UISystem::State.inventoryAlpha = std::min(1.0f, UISystem::State.inventoryAlpha + dt * alphaSpeed);
+    } else {
+        UISystem::State.inventoryAlpha = std::max(0.0f, UISystem::State.inventoryAlpha - dt * alphaSpeed);
+    }
 }
 
 void UIInventory::Draw(entt::registry& registry) {

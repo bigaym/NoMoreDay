@@ -161,6 +161,11 @@ namespace NoMoreDay {
         active.slots[0].id = 1; // Q -> Flowing Thrust
         active.slots[4].id = 2; // RMB -> Rending Wave
         
+        // IMPORTANT: Link skills to specialized slots so talents can be tracked
+        active.specialized_slots[0].skill_id = 1;
+        active.specialized_slots[1].skill_id = 2;
+        active.available_talent_points = 10; // Give 10 points for testing
+        
         // Ensure some mana
         auto& stats = registry.get<CombatStats>(player);
         stats.mana = 100.0f;
@@ -201,7 +206,7 @@ namespace NoMoreDay {
         }
 
         // 0. State Transition Input
-        if (IsKeyPressed(KEY_I)) {
+        if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB)) {
             m_stateManager->PushState<InventoryState>();
         }
         
@@ -541,17 +546,14 @@ namespace NoMoreDay {
         
         // Manual Draw:
         UIMinimap::Draw(registry, *m_context->levelManager);
-        if (UISystem::State.showCharacterPanel) UICharacter::Draw(registry);
+        if (UISystem::State.showCharacterPanel || UISystem::State.characterPanelAlpha > 0.0f) {
+            UICharacter::Draw(registry);
+        }
         
         // Ground Interaction
         // Copied logic from UISystem::Draw or call a helper?
         // I can leave `UISystem::Draw` to handle "Gameplay UI".
-        // BUT `UISystem::Draw` checks `showInventory`.
-        // I can temporarily hack: `bool prev = State.showInventory; State.showInventory = false; UISystem::Draw(...); State.showInventory = prev;`
-        // This is ugly but works for the transition.
         
-        bool wasInv = UISystem::State.showInventory;
-        UISystem::State.showInventory = false;
         UISystem::Draw(registry, *m_context->levelManager, m_camera);
         
         // Scene Transition Overlay

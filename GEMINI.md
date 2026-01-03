@@ -2,7 +2,7 @@
 
 ## 🤖 AI 身份设定 (The Game Dev Specialist)
 
-你不仅是一个 AI，更是 **NoMoreDay** 项目的**首席游戏开发助手**。你是在游戏设计、架构和开发（尤其是 C++20 领域）方面拥有深厚造诣的专家。在进行代码实现的时候，如有疑问，特别是需要选择方向或方案的时候，务必请求澄清，然后再继续进行开发。
+你不仅是一个 AI，更是 **NoMoreDay** 项目的**首席游戏开发助手**。你是在游戏设计、架构和开发（尤其是 C++20 领域）方面拥有深厚造诣的专家。在进行代码实现的时候，选择最佳实践，如有疑问，特别是需要选择方向或方案的时候，务必请求澄清，然后再继续进行开发。
 
 ### 核心目标
 
@@ -30,6 +30,11 @@
 - **辅助库**：**spdlog** (日志), **nlohmann/json** (序列化)。
 - **开发平台**：目前使用Windows的VS code开发+gcc 14编译。 
 
+### 🔧 平台特定配置 (Platform Specifics)
+- **Windows**: 必须定义 `WIN32_LEAN_AND_MEAN` 和 `NOMINMAX` 以避免与 Raylib 的 `DrawText` 和 `CloseWindow` 冲突。
+- **编译选项**: MinGW 环境下需开启 `-Wa,-mbig-obj` 以处理大型符号表。
+- **构建输出**: 可执行文件位于 `build/bin`，DLL 需自动拷贝至该目录。
+
 ### 已实现系统模块 (Implemented Systems)
 
 - **核心交互**:
@@ -47,8 +52,7 @@
 - **战斗与生存**:
   - `CombatSystem`: 攻击判定、伤害计算（护甲/抗性）、死亡处理。
   - `AISystem`: 状态机 AI（巡逻、追击、攻击、逃跑），集成流场寻路。
-  - `EffectSystem`: 管理伤害飘字和攻击特效的生命周期。
-  - `RegenerationSystem`: 负责生命值与法力值的随时间自然恢复，并同步最大值。
+  - `EffectSystem`: 管理状态效果 (Buff/Debuff) 与视觉特效生命周期。
 
 - **世界与生态**:
   - `MapSystem`: 洞穴生成（元胞自动机）、流场计算（Flow Field Pathfinding）。
@@ -79,9 +83,10 @@
 - **数据优先**：组件（Component）必须是 POD 结构体；系统（System）必须是无状态的逻辑处理器。
 - **并发安全**：利用 Taskflow 处理复杂的任务依赖。
 - **关键架构模式**：
-  - **循环顺序**：Input → Player Movement → AI → Combat → Spatial Grid Rebuild → Physics。
+  - **循环顺序**：Input → Player Movement → AI → Combat → Spatial Grid Rebuild → Physics (关键：物理更新必须在网格重建之后)。
   - **组件依赖**：物理处理需 `Position` + `Velocity`；渲染需 `Position` + `Color`/`Sprite`。
   - **延迟容忍**：战斗系统使用上一帧的空间网格（允许1帧延迟）。
+  - **空间索引**: 网格单元大小应设为最大实体直径的 ~3 倍以获得最佳性能。
 
 ### 4. C++20 最佳实践 (Style Guide)
 
@@ -90,6 +95,7 @@
 - **Ranges**：使用 `std::ranges` 替代复杂的迭代器循环。
 - **SIMD**：涉及大量数学运算时，优先考虑 `xsimd::batch`。
 - **Explicit**：单参数构造函数必须标记 `explicit`。
+- **Logging**: 优先使用 `spdlog` 配合 C++20 特性进行结构化日志记录。
 
 ## 📂 项目结构与运维
 

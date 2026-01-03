@@ -200,7 +200,7 @@ namespace NoMoreDay
         MaxMana,   // 最大法力值
         MoveSpeed, // 移动速度
         Armor,     // 护甲
-        
+
         // Offensive
         PhysicalDamage,
         FireDamage,
@@ -208,13 +208,14 @@ namespace NoMoreDay
         LightningDamage,
         PoisonDamage,
         ShadowDamage,
-        
+
         CritChance,
         CritDamage,
         AttackSpeed,
         CastSpeed,
         Accuracy,
         ManaOnHit,
+        ArmorPenetration,
 
         // Defensive
         ResistPhysical,
@@ -225,11 +226,11 @@ namespace NoMoreDay
         ResistShadow,
         ResistAll,
 
-        CooldownReduction,
-        ResourceCostReduction,
-        
-        ProjectileCount,
-        AreaScale,
+        CooldownReduction,     // 冷却缩减 %
+        ResourceCostReduction, // 资源消耗降低 %
+
+        ProjectileCount, // 投射物数量
+        AreaScale,       // 范围大小
 
         Count
     };
@@ -265,21 +266,32 @@ namespace NoMoreDay
         StatType type;
         ModifierMode mode;
         float value;
-        Tag required_tags = Tag::None;                 // 只有当查询携带这些标签时，该修饰符才生效
+        Tag required_tags = Tag::None;                // 只有当查询携带这些标签时，该修饰符才生效
         ModifierSource source = ModifierSource::Base; // 修饰符来源
         uint32_t source_id = 0;                       // 可选: 用于追踪特定的物品/技能ID
     };
 
-    inline void to_json(nlohmann::json& j, const StatModifier& m) {
+    inline void to_json(nlohmann::json &j, const StatModifier &m)
+    {
         j = nlohmann::json{{"type", m.type}, {"mode", m.mode}, {"value", m.value}, {"required_tags", m.required_tags}, {"source", m.source}, {"source_id", m.source_id}};
     }
-    inline void from_json(const nlohmann::json& j, StatModifier& m) {
+    inline void from_json(const nlohmann::json &j, StatModifier &m)
+    {
         j.at("type").get_to(m.type);
         j.at("mode").get_to(m.mode);
         j.at("value").get_to(m.value);
-        if (j.contains("required_tags")) j.at("required_tags").get_to(m.required_tags); else m.required_tags = Tag::None;
-        if (j.contains("source")) j.at("source").get_to(m.source); else m.source = ModifierSource::Base;
-        if (j.contains("source_id")) j.at("source_id").get_to(m.source_id); else m.source_id = 0;
+        if (j.contains("required_tags"))
+            j.at("required_tags").get_to(m.required_tags);
+        else
+            m.required_tags = Tag::None;
+        if (j.contains("source"))
+            j.at("source").get_to(m.source);
+        else
+            m.source = ModifierSource::Base;
+        if (j.contains("source_id"))
+            j.at("source_id").get_to(m.source_id);
+        else
+            m.source_id = 0;
     }
 
     struct ModifierList

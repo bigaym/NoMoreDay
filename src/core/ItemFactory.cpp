@@ -697,7 +697,13 @@ entt::entity ItemFactory::createArmor(entt::registry& registry, int level, Rarit
     LOG_DEBUG("Creating armor with level: {}, rarity: {}, slot: {}", level, static_cast<int>(rarity), static_cast<int>(slot));
     auto entity = registry.create();
     ItemComponent item;
-    item.type = ItemType::Armor;
+    
+    if (slot == EquipmentSlot::Neck || slot == EquipmentSlot::Ring || slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2) {
+        item.type = ItemType::Jewelry;
+    } else {
+        item.type = ItemType::Armor;
+    }
+
     item.slot = slot;
     item.rarity = rarity;
     item.id = std::uniform_int_distribution<>(1000, 9999)(g_rng);

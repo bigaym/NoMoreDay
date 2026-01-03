@@ -534,13 +534,18 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
         case StatType::CastSpeed:     dynamic_calc.base = combat->cast_speed * 100.0f; break;
         case StatType::Accuracy:      dynamic_calc.base = combat->accuracy * 100.0f; break;
         case StatType::ManaOnHit:     dynamic_calc.base = combat->mana_on_hit; break;
+        case StatType::ArmorPenetration: dynamic_calc.base = combat->armor_pen; break;
         case StatType::MoveSpeed:     dynamic_calc.base = combat->move_speed; break;
         case StatType::Armor:         dynamic_calc.base = combat->armor; break;
         case StatType::MaxHealth:     dynamic_calc.base = combat->max_health; break;
         case StatType::MaxMana:       dynamic_calc.base = combat->max_mana; break;
         case StatType::CooldownReduction: dynamic_calc.base = combat->cooldown_reduction * 100.0f; break;
         case StatType::ResourceCostReduction: dynamic_calc.base = combat->resource_cost_reduction * 100.0f; break;
-        case StatType::ProjectileCount: dynamic_calc.base = 0.0f; break; // Skill base projectiles handled in hook
+        case StatType::ProjectileCount: 
+            // If skill_id is provided, use the base count for that specific skill
+            if (skill_id == 2) dynamic_calc.base = 1.0f; // Rending Wave base
+            else dynamic_calc.base = 0.0f; 
+            break;
         case StatType::AreaScale:       dynamic_calc.base = combat->area_scale * 100.0f; break;
 
         default: break;
@@ -576,24 +581,43 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
     // 3. 处理技能专精天赋 (Skill Specialization Talents)
     if (skill_id != 0) {
         if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+            bool found_specialized = false;
             for (const auto& specialized : active->specialized_slots) {
                 if (specialized.skill_id == skill_id) {
+                    found_specialized = true;
                     const auto* tree = SkillRegistry::Get().GetSkillTree(skill_id);
                     if (tree) {
+                        if (specialized.allocated_points.empty()) {
+                            LOG_DEBUG("GetStatWithTags: No points allocated for skill {}", skill_id);
+                        }
                         for (auto [node_id, pts] : specialized.allocated_points) {
                             auto node_it = tree->nodes.find(node_id);
                             if (node_it != tree->nodes.end()) {
+                                LOG_DEBUG("GetStatWithTags: Skill {} Node {} has {} pts. Applying modifiers...", skill_id, node_id, pts);
                                 apply_if_tags_match(node_it->second.stat_modifiers, static_cast<float>(pts));
                             }
                         }
+                    } else {
+                        LOG_WARN("GetStatWithTags: Skill {} has no talent tree definition!", skill_id);
                     }
                     break;
                 }
             }
+            if (!found_specialized) {
+                LOG_DEBUG("GetStatWithTags: Skill {} not found in specialized_slots of entity {}", skill_id, (uint32_t)entity);
+            }
         }
     }
 
-    return dynamic_calc.Result();
+    float result = dynamic_calc.Result();
+    
+    // Debug logging for specific stats to help verify talent application
+    if ((type == StatType::ProjectileCount || type == StatType::ArmorPenetration) && (result > 0.0f || dynamic_calc.base > 0.0f)) {
+        LOG_DEBUG("GetStatWithTags: Stat {} result: {:.1f} (Base: {:.1f}, Flat: {:.1f}, Skill ID: {})", 
+            (int)type, result, dynamic_calc.base, dynamic_calc.flat, skill_id);
+    }
+
+    return result;
 }
 
 void StatsSystem::update(entt::registry& registry) {

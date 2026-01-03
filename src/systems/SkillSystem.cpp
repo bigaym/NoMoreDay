@@ -75,14 +75,12 @@ void SkillSystem::InitHooks() {
 
         Vector2 baseDir = Vector2Normalize(Vector2Subtract(target_pos, {pos->x, pos->y}));
 
-        // Base 3 projectiles
-        int baseCount = 3;
-        // Add projectiles from talents
-        int extraProj = (int)StatsSystem::GetStatWithTags(registry, owner, StatType::ProjectileCount, skillTags, skill_id);
-        int totalCount = baseCount + extraProj;
+        // Get total projectiles. Base is 1, plus modifiers from talents.
+        int totalCount = (int)StatsSystem::GetStatWithTags(registry, owner, StatType::ProjectileCount, skillTags, skill_id);
+        if (totalCount < 1) totalCount = 1; 
 
-        float spread = 0.6f; // Total fan angle in radians
-        float startAngle = -spread / 2.0f;
+        float spread = 0.4f; // Total fan angle in radians
+        float startAngle = (totalCount > 1) ? -spread / 2.0f : 0.0f; // Center if only 1
         float angleStep = totalCount > 1 ? spread / (totalCount - 1) : 0.0f;
 
         for (int i = 0; i < totalCount; ++i) {
@@ -99,9 +97,9 @@ void SkillSystem::InitHooks() {
             proj.owner = owner;
             proj.speed = 600.0f;
             proj.lifeTime = 1.2f;
-            proj.radius = 35.0f; // Increased from 20
+            proj.radius = 35.0f; 
             proj.pierce = true;
-            proj.pierceCount = 5;
+            proj.pierceCount = 99; // True piercing as requested
             proj.snapshot = *stats;
 
             registry.emplace<SkillComponent>(proj_ent, skill_id, owner);
@@ -261,7 +259,7 @@ void SkillSystem::UpdateStates(entt::registry& registry, float dt) {
                     
                     // Trigger effect
                     if (s_skill_callbacks.contains(exec.skill_id)) {
-                        s_skill_callbacks[exec.skill_id](registry, exec.owner, exec.skill_id, exec.target_pos);
+                        s_skill_callbacks[exec.skill_id](registry, entity, exec.skill_id, exec.target_pos);
                     }
                     break;
                 case SkillState::Casting:
@@ -269,20 +267,20 @@ void SkillSystem::UpdateStates(entt::registry& registry, float dt) {
                     exec.timer = 0.1f; // Recovery duration
                     break;
                 case SkillState::Settle:
-                    // Reset owner to idle if not moving (this logic might be refined in AnimationSystem)
-                    if (auto* anim = registry.try_get<AnimationStateComponent>(exec.owner)) {
+                    // Reset owner to idle if not moving
+                    if (auto* anim = registry.try_get<AnimationStateComponent>(entity)) {
                         anim->state = EntityAnimState::Idle;
                     }
-                    registry.destroy(entity);
-                    continue; // Skip the anim update below since entity is destroyed
+                    registry.remove<SkillExecution>(entity);
+                    continue; 
                 default:
-                    registry.destroy(entity);
+                    registry.remove<SkillExecution>(entity);
                     continue;
             }
         }
 
         // Update Owner Animation State if it exists
-        if (auto* anim = registry.try_get<AnimationStateComponent>(exec.owner)) {
+        if (auto* anim = registry.try_get<AnimationStateComponent>(entity)) {
             switch (exec.state) {
                 case SkillState::Preparing: anim->state = EntityAnimState::SkillWindup; break;
                 case SkillState::Casting:   anim->state = EntityAnimState::SkillCasting; break;
@@ -301,16 +299,8 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     auto& slot = active->slots[slot_index];
     if (slot.id == 0) return false;
 
-    // Check if already casting something (Basic lock)
-    bool already_executing = false;
-    auto exec_view = registry.view<SkillExecution>();
-    for(auto exec_ent : exec_view) {
-        if(exec_view.get<SkillExecution>(exec_ent).owner == entity) {
-            already_executing = true;
-            break;
-        }
-    }
-    if (already_executing) return false;
+    // Check if already casting (Improved logic: check component instead of global iteration)
+    if (registry.any_of<SkillExecution>(entity)) return false; 
 
     const auto* data = SkillRegistry::Get().GetSkill(slot.id);
     if (!data) return false;
@@ -335,9 +325,8 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     }
     slot.current_charges--;
 
-    // 4. Create Execution Entity
-    auto exec_ent = registry.create();
-    auto& exec = registry.emplace<SkillExecution>(exec_ent);
+    // 4. Attach Execution State to Caster
+    auto& exec = registry.emplace<SkillExecution>(entity);
     exec.skill_id = slot.id;
     exec.owner = entity;
     exec.slot_index = slot_index;

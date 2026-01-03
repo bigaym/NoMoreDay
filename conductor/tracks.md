@@ -52,5 +52,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [~] Track: Crafting System UI
-*Link: [./conductor/tracks/crafting_ui_20260103/](./conductor/tracks/crafting_ui_20260103/)*
+## [x] Track: Crafting System UI
+- **Folder:** conductor/archive/crafting_ui_20260103
+- **Description:** Implement the user interface for the Crafting System, allowing players to upgrade, add, chaos, and refine affixes on items. (Completed on 2026-01-03)
+
+---
+
+## [x] Track: Skill Management & Specialization System
+- **Folder:** conductor/archive/skill_specialization_20260103
+- **Description:** Implement a comprehensive Skill Management Interface (Hotkey: 'S') including 5 specialization slots, unique talent trees for skills, and point allocation. (Completed on 2026-01-03)

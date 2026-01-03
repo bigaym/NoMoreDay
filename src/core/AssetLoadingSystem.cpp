@@ -1,6 +1,7 @@
 #include "AssetLoadingSystem.hpp"
 #include "../tools/Logger.hpp"
 #include "EquipmentAssetRegistry.hpp"
+#include "UIAssetRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -9,7 +10,24 @@ std::vector<Font> AssetLoadingSystem::m_loadedFonts;
 
 void AssetLoadingSystem::Initialize(ResourceManager& resourceManager) {
     m_resourceManager = &resourceManager;
+    RegisterUITextures(); // Automatically register UI base assets
     LOG_INFO("AssetLoadingSystem 已初始化。");
+}
+
+void AssetLoadingSystem::RegisterUITextures() {
+    if (!m_resourceManager) return;
+
+    using namespace assets::ui::textures;
+    m_resourceManager->registerTexture(Inventory_Slot.id, std::string(Inventory_Slot.path));
+    m_resourceManager->registerTexture(Equipment_Slot.id, std::string(Equipment_Slot.path));
+    m_resourceManager->registerTexture(Panel_Background.id, std::string(Panel_Background.path));
+    m_resourceManager->registerTexture(Context_Menu_BG.id, std::string(Context_Menu_BG.path));
+    
+    // Skill Icons
+    m_resourceManager->registerTexture(Skill_Icon_1.id, std::string(Skill_Icon_1.path));
+    m_resourceManager->registerTexture(Skill_Icon_2.id, std::string(Skill_Icon_2.path));
+    
+    LOG_INFO("AssetLoadingSystem: Registered core UI textures.");
 }
 
 void AssetLoadingSystem::LoadAllEquipment() {

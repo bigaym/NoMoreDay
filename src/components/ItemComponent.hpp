@@ -13,6 +13,7 @@ enum class ItemType {
     Weapon,
     Armor,
     Shield,
+    Jewelry,
     Consumable,
     Material,
     Quest,

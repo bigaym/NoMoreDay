@@ -11,7 +11,21 @@
       "weapon_damage_mult": 1.2,
       "added_damage_effectiveness": 1.0,
       "charge_count": 1,
-      "icon_id": 0
+      "icon_id": 1610207371,
+      "talent_tree": [
+          { 
+              "id": 100, "name_key": "锋锐", "desc_key": "增加物理伤害", "max_points": 5, "x": 0.0, "y": -1.0, 
+              "stat_modifiers": [ { "type": 8, "mode": 1, "value": 10.0 } ]
+          },
+          { 
+              "id": 101, "name_key": "破风", "desc_key": "增加攻击范围", "max_points": 3, "x": -1.0, "y": -2.0, "prerequisites": [100],
+              "stat_modifiers": [ { "type": 29, "mode": 1, "value": 15.0 } ]
+          },
+          { 
+              "id": 102, "name_key": "迅捷", "desc_key": "减少冷却时间", "max_points": 3, "x": 1.0, "y": -2.0, "prerequisites": [100],
+              "stat_modifiers": [ { "type": 27, "mode": 1, "value": 10.0 } ]
+          }
+      ]
     },
     {
       "id": 2,
@@ -24,7 +38,17 @@
       "weapon_damage_mult": 1.5,
       "added_damage_effectiveness": 1.2,
       "charge_count": 3,
-      "icon_id": 0
+      "icon_id": 1626984990,
+      "talent_tree": [
+          { 
+              "id": 200, "name_key": "剑气纵横", "desc_key": "增加投射物数量", "max_points": 3, "x": 0.0, "y": -1.0, 
+              "stat_modifiers": [ { "type": 30, "mode": 0, "value": 1.0 } ]
+          },
+          { 
+              "id": 201, "name_key": "破甲", "desc_key": "增加物理穿透", "max_points": 5, "x": 0.0, "y": -2.0, "prerequisites": [200],
+              "stat_modifiers": [ { "type": 20, "mode": 0, "value": 10.0 } ]
+          }
+      ]
     }
   ]
 }

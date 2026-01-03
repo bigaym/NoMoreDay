@@ -22,6 +22,9 @@ public:
     // Load all equipment assets defined in EquipmentAssetRegistry
     static void LoadAllEquipment();
 
+    // Register all standard UI textures (slots, icons, etc.)
+    static void RegisterUITextures();
+
     static void Shutdown();
 
 private:

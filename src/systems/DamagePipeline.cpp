@@ -226,6 +226,25 @@ DamageResult DamagePipeline::Calculate(
         
         float damage_after_res = inst.amount * (1.0f - res);
         
+        // --- NEW: Robust Armor Calculation for Physical Damage ---
+        if (inst.final_type == Tag::Physical && defender_stats) {
+            float armor = defender_stats->armor;
+            // Retrieve attacker's Flat Armor Penetration
+            float pen = StatsSystem::GetStatWithTags(registry, attacker, StatType::ArmorPenetration, inst.tags, skill_id);
+            float effective_armor = armor - pen;
+            
+            float armor_multiplier = 1.0f;
+            if (effective_armor >= 0.0f) {
+                // Positive Armor: Standard diminishing returns
+                armor_multiplier = 100.0f / (100.0f + effective_armor);
+            } else {
+                // Negative Armor: Increased damage taken
+                // Formula ensures 0 -> 1.0, -100 -> 1.5, -infinity -> 2.0
+                armor_multiplier = 2.0f - (100.0f / (100.0f - effective_armor));
+            }
+            damage_after_res *= armor_multiplier;
+        }
+
         // Global DR
         if (defender_stats && defender_stats->damage_reduction > 0.0f) {
             damage_after_res *= (1.0f - std::min(0.9f, defender_stats->damage_reduction));

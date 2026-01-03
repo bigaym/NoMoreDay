@@ -1,11 +1,38 @@
-[00:16:29] NMD: Level activated successfully
-[00:16:29] NMD: Created player entity with ID: 0
-[00:16:29] NMD: Creating weapon with level: 10, rarity: 6
-[00:16:29] NMD: Selected base weapon: 铁手斧
-[00:16:29] NMD: Created legendary weapon: 远古 铁手斧
-[00:16:29] NMD: ItemFactory: Generated 1 affixes for 远古 铁手斧
-[00:16:29] NMD: ResourceManager: 未找到纹理ID 3766928343！
-[00:16:29] NMD: Weapon created with entity ID: 1
-[00:16:29] NMD: 在缓存中找到纹理 (ID: 476608897)
-[00:16:29] NMD: StatsSystem: Recalculated for entity 0. Dmg: 15.1-18.4, Str: 10.0, HP: 250.0
-[00:16:29] NMD: 背包: 角色 0 拾取了物品 '破烂的背包' (30)
+[14:50:28] NMD: Exiting GameplayState...
+[14:50:29] NMD: State stack empty, exiting game loop
+[14:50:29] NMD: Game loop ended, window closed or stack empty
+I[14:50:29] NMD: Shutting down Game...N
+F[14:50:29] NMD: Cleaning up game systems...O
+: TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 5] Unloaded texture data from VRAM (GPU)
+INFO: TEXTURE: [ID 4] Unloaded texture data from VRAM (GPU)
+[14:50:29] NMD: LevelManager cleaned upI
+N[14:50:29] NMD: Shutting down LevelManager...F
+O[14:50:29] NMD: LevelManager cleaned up:
+ [14:50:29] NMD: LevelManager shutdown completedT
+EXTURE: [ID 14] Unloaded texture data from VRAM (GPU)
+[14:50:29] NMD: AssetLoadingSystem 已关闭。
+[14:50:29] NMD: Final registry clear...
+
+
+========================================
+!!! 捕获到程序崩溃 !!!
+========================================
+异常类型: Access Violation (非法内存访问) (0xC0000005)
+崩溃地址: 0x00007ff699212f36
+[CrashHandler] 增强型 Minidump 已写入: crashes/crash_2026-01-03_14-50-29.dmp
+
+--- Stack Trace (副本回溯) ---
+[0] 0x7FF699212F36 : nlohmann::json_abi_v3_12_0::detail::iter_impl<nlohmann::json_abi_v3_12_0::basic_json<std::map, std::vector, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, bool, long long int, long long unsigned int, double, std::allocator, nlohmann::json_abi_v3_12_0::adl_serializer, std::vector<unsigned char, std::allocator<unsigned char> >, void> >::operator* + 0xc6
+    at F:\NoMoreDay\third_party\json\include\nlohmann\detail\iterators\iter_impl.hpp:315
+[1] 0x7FF6990A69FD : fmt::v9::detail::write_int_noinline<char, fmt::v9::appender, long long unsigned int> + 0xfd
+    at F:\NoMoreDay\third_party\spdlog\include\spdlog\fmt\bundled\format.h:1219
+[2] 0x7FF6990A6D54 : fmt::v9::detail::write_int_noinline<char, fmt::v9::appender, long long unsigned int> + 0x454
+    at F:\NoMoreDay\third_party\spdlog\include\spdlog\fmt\bundled\format.h:1924
+[3] 0x7FF69927A44E : ~_Vector_base + 0x3896e
+[4] 0x7FF6990A1340 : public_all + 0x340
+[5] 0x7FF6990A1146 : public_all + 0x146
+[6] 0x7FFDEFA27374 : BaseThreadInitThunk + 0x14
+[7] 0x7FFDF1A3CC91 : RtlUserThreadStart + 0x21
+========================================
+(base) PS F:\NoMoreDay\build\bin>

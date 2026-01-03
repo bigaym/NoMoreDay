@@ -179,7 +179,8 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
         registry.emplace<TextureIDComponent>(entity, m_raceTextures[data.enemyType].id);
     }
     registry.emplace<EnemyTag>(entity);
-    registry.emplace<NoMoreDay::CombatStats>(entity); // Default stats
+    auto& stats = registry.emplace<NoMoreDay::CombatStats>(entity); // Default stats
+    stats.armor = 100.0f; // Give all enemies 100 base armor to test penetration
     
     EnemyRace::Type race = static_cast<EnemyRace::Type>(data.enemyType);
     

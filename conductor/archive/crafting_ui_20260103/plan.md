@@ -27,8 +27,8 @@ Implement the user interface for the Crafting System, allowing players to upgrad
 - [x] Task: Connect UI actions to `CraftingSystem` logic.
 
 ### Phase 4: Feedback & Polish
-- [ ] Task: Add sound effects or visual feedback on crafting success/failure.
-- [ ] Task: Verify persistence of crafted items.
+- [x] Task: Add sound effects or visual feedback on crafting success/failure.
+- [x] Task: Verify persistence of crafted items.
 
 ## Knowledge
 - **Forging Potential**: Items have `forgingPotential`. Crafting costs potential.

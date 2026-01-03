@@ -31,6 +31,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
 
     // Draw Title
     UISystem::DrawTextUI("技能专精", startX + 20, startY + 20, 30, WHITE, alpha);
+    UISystem::DrawTextUI("左键分配 / 进入天赋树 | 右键取消专精", startX + 200, startY + 28, 16, GRAY, alpha);
 
     // --- Specialization Slots (Top Row) ---
     auto* active = registry.try_get<ActiveSkillsComponent>(player);

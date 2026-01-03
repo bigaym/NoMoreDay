@@ -131,16 +131,16 @@ void Game::cleanup() {
         m_levelManager.reset();
     }
 
-    // 3. 关闭静态系统。
-    UISystem::Shutdown();
-    NoMoreDay::BuffRegistry::Shutdown();
-
-    // 4. 清理注册表实体。
+    // 3. 清理注册表实体。
     // 如果此处依然崩溃，请检查 SwordHeartComponent 是否有手动连接的 on_destroy 信号未断开。
     m_registry.on_destroy<NoMoreDay::AstrolabeUIComponent>().disconnect(); // 安全起见，断开相关信号
     LOG_DEBUG("Final registry clear...");    
-
     m_registry.clear(); 
+
+    // 4. 关闭静态系统。
+    // 必须在 Registry 清理之后关闭，因为销毁组件时可能依赖这些系统的资源 (如字体、纹理 ID 等)
+    UISystem::Shutdown();
+    NoMoreDay::BuffRegistry::Shutdown();
     
     // 5. 卸载资源。
     m_resourceManager.unloadAll();

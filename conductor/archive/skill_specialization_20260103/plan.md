@@ -10,7 +10,7 @@
 - [x] Task: Implement `SkillSystem::AddTalentPoint` logic with validation (available points, prerequisites). 366207e
 - [x] Task: Update `ProgressionSystem` to award Skill Specialization points on character level-up (starting with 1 at Level 1). 366207e
 - [x] Task: Create `SkillEffectSystem` hooks to apply talent modifications to actual combat skills (e.g., damage multipliers, cooldown reduction). 366207e
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic & Progression' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Core Logic & Progression' (Protocol in workflow.md)
 
 ## Phase 3: UI - Central Hub (Hotkey: S) [checkpoint: 575fe28]
 - [x] Task: Register 'S' key in `InputSystem` to toggle the Skill Management Interface. ed0cc50
@@ -19,7 +19,7 @@
     - Display a grid of all available skills.
     - Implement drag-and-drop or click logic to assign/unassign specialized skills.
 - [x] Task: Add skill tooltips with tags and base stats. 57b7739
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: UI - Central Hub' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: UI - Central Hub' (Protocol in workflow.md)
 
 ## Phase 4: UI - Talent Trees [checkpoint: d6ca591]
 - [x] Task: Implement `UISkillTalentTree` view: a8a5325
@@ -27,7 +27,7 @@
     - Show node status (Locked, Available, Maxed).
     - Handle point spending and visual feedback.
 - [x] Task: Implement navigation between the Central Hub and specific Talent Trees. a8a5325
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: UI - Talent Trees' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: UI - Talent Trees' (Protocol in workflow.md)
 
 ## Phase 5: Integration & Polish
 - [x] Task: Integrate talent modifications into `CombatSystem` (e.g., skill behavior changes).

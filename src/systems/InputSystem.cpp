@@ -23,15 +23,13 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
         // Check if Astrolabe or Skill Tree is open
         if (UIAstrolabe::IsVisible(registry, entity) || UISystem::IsSkillTreeVisible(registry, entity))
         {
-            // Block all input if Astrolabe UI is fully open
-            // We might allow closing via ESC/N (handled in UISystem::Update)
-            // But movement/attack should be blocked.
+            // Block all input if UI is fully open
             auto &input = view.get<InputComponent>(entity);
             input.moveX = 0;
             input.moveY = 0;
             input.attack = false;
             input.dash = false;
-            s_hasMovementTarget = false; // 同时取消移动
+            s_hasMovementTarget = false; 
             continue;
         }
 

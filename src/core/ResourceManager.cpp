@@ -37,8 +37,10 @@ void ResourceManager::registerTexture(entt::id_type id, const std::string& path)
 
 Texture2D ResourceManager::getTexture(entt::id_type id) { // 获取纹理
  LOG_TRACE("正在获取纹理，ID: {}", id);
+    if (id == 0) return { 0 }; // Quietly return empty texture for ID 0
+
     if (auto it = m_textures.find(id); it != m_textures.end()) {
- LOG_DEBUG("在缓存中找到纹理 (ID: {})", id);
+//  LOG_DEBUG("在缓存中找到纹理 (ID: {})", id);
         return it->second;
     }
 

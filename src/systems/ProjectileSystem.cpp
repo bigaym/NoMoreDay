@@ -59,11 +59,21 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
         bool hit = false;
         float check_radius = proj.radius + 10.0f; 
         
-        // Use a temp set to avoid double hitting same entity in one query
+        // Track unique hits in this specific spatial query to handle grid cell overlaps
+        std::vector<entt::entity> uniqueQueryHits;
+
         grid.query({pos.x, pos.y}, check_radius, [&](entt::entity target) {
             if (hit && !proj.pierce) return;
             if (target == proj.owner) return;
             if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) return;
+
+            // --- Multi-Hit Prevention ---
+            // 1. Local query uniqueness (in case grid returns same entity twice)
+            if (std::find(uniqueQueryHits.begin(), uniqueQueryHits.end(), target) != uniqueQueryHits.end()) return;
+            uniqueQueryHits.push_back(target);
+
+            // 2. Persistent projectile hit tracking (for piercing projectiles over multiple frames)
+            if (std::find(proj.hitEntities.begin(), proj.hitEntities.end(), target) != proj.hitEntities.end()) return;
 
             const auto& tPos = registry.get<Position>(target);
             float dx = tPos.x - pos.x;
@@ -72,6 +82,8 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
 
             if (distSq <= check_radius * check_radius) {
                 // Hit confirmed
+                proj.hitEntities.push_back(target); // Record the hit
+                
                 Tag hit_tags = Tag::Projectile | Tag::Hit;
                 
                 uint32_t skill_id = 0;
@@ -88,15 +100,6 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
 
                 CombatSystem::ApplyDamage(registry, target, finalDamage, proj.owner);
                 
-                // Spawn Damage Popup
-                DamagePopup popup;
-                popup.damage = finalDamage;
-                popup.lifeTime = 0.8f;
-                popup.velY = -60.0f;
-                popup.color = WHITE;
-                
-                popupsToCreate.push_back({{tPos.x + GetRandomValue(-10, 10), tPos.y - 20.0f}, popup});
-
                 // Trigger Skill Hit interactions
                 SkillSystem::OnSkillHit(registry, proj.owner, target, skill_id, hit_tags);
 
@@ -118,13 +121,6 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
 
     for (auto entity : to_destroy) {
         if (registry.valid(entity)) registry.destroy(entity);
-    }
-
-    // 批量创建伤害飘字实体
-    for (const auto& info : popupsToCreate) {
-        auto popupEntity = registry.create();
-        registry.emplace<Position>(popupEntity, info.pos);
-        registry.emplace<DamagePopup>(popupEntity, info.popup);
     }
 }
 

@@ -224,7 +224,7 @@ void UICrafting::DrawAffixList(entt::registry& registry, entt::entity entity) {
                     // For prototype, just add a random relevant affix
                     // We need to know type. This is hard without a UI popup.
                     // Let's create a "Add Random" for now.
-                    AffixType types[] = { AffixType::Strength, AffixType::Dexterity, AffixType::Intelligence, AffixType::Vitality, AffixType::PhysicalDamage, AffixType::AttackSpeed };
+                    AffixType types[] = { AffixType::Strength, AffixType::Dexterity, AffixType::Intelligence, AffixType::Vitality, AffixType::FlatPhysicalDamage, AffixType::AttackSpeed };
                     AffixType t = types[GetRandomValue(0, 5)];
                     CraftingSystem::addAffix(item, t, isPrefix);
                 }
