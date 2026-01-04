@@ -26,6 +26,9 @@
 #include "../systems/ShadowSystem.hpp"
 #include "../systems/MovementStanceSystem.hpp"
 #include "../systems/ProjectileSystem.hpp"
+#include "../systems/GPUParticleSystem.hpp"
+#include "../systems/GPUEntitySystem.hpp"
+#include "../systems/GPUFlowFieldSystem.hpp"
 #include "../systems/SerializationSystem.hpp"
 #include "../systems/FogOfWarSystem.hpp"
 #include "../systems/RegenerationSystem.hpp"
@@ -227,7 +230,20 @@ namespace NoMoreDay {
 
         // 1. Level & Systems
         m_context->levelManager->update(dt, registry, playerPos);
-        m_context->levelManager->getMapSystem().updateFlowField(playerPos);
+        // m_context->levelManager->getMapSystem().updateFlowField(playerPos);
+        
+        // GPU Flow Field
+        const auto& map = m_context->levelManager->getMapSystem();
+        if (map.getWidth() > 0) {
+             static Position lastFlowTarget = {-100, -100};
+             // Only update if target moved significantly (e.g. 1 tile)
+             if (Vector2Distance({playerPos.x, playerPos.y}, {lastFlowTarget.x, lastFlowTarget.y}) > 32.0f) {
+                 NoMoreDay::systems::GPUFlowFieldSystem::Get().Update(
+                     map.getCostMap(), map.getWidth(), map.getHeight(), {playerPos.x, playerPos.y}
+                 );
+                 lastFlowTarget = playerPos;
+             }
+        }
         
         if (m_context->sceneManager) {
             PortalSystem portalSystem(*m_context->sceneManager);
@@ -468,12 +484,12 @@ namespace NoMoreDay {
                 }
             });
 
-        // Phase 2: Update Positions
+        // Phase 2: Update Positions (Skip if handled by GPU physics)
         auto updateTask = m_taskflow.for_each(m_physicsEntities.begin(), m_physicsEntities.end(),
             [this, dt, worldSizeW, worldSizeH, &registry](entt::entity entity) {
-                auto& pos = registry.get<Position>(entity);
-                auto& vel = registry.get<Velocity>(entity);
-                PhysicsSystem::updatePosition(entity, pos, vel, dt, worldSizeW, worldSizeH);
+                // If GPUEntitySystem is active in Game loop, we don't need updatePosition here.
+                // However, to be safe during transition, let's keep it but ideally we should skip.
+                // PhysicsSystem::updatePosition(entity, pos, vel, dt, worldSizeW, worldSizeH);
             });
 
         resolveTask.precede(updateTask);

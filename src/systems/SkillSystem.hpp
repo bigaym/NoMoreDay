@@ -5,9 +5,8 @@
 #include "../core/TagRegistry.hpp"
 #include "../components/SkillSystem.hpp"
 
-namespace systems { class SpatialHashGrid; }
-
 namespace NoMoreDay {
+namespace systems { class SpatialHashGrid; }
 
 enum class SkillState : uint8_t {
     Ready,

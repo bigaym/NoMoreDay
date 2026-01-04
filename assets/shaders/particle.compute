@@ -1,0 +1,40 @@
+#version 430
+
+layout(local_size_x = 256) in;
+
+struct Particle {
+    vec2 position;   // Offset 0
+    vec2 velocity;   // Offset 8
+    uint color;      // Offset 16
+    float lifetime;  // Offset 20
+    float maxLifetime;// Offset 24
+    float scale;     // Offset 28
+};
+
+layout(std430, binding = 0) buffer ParticleBuffer {
+    Particle particles[];
+};
+
+uniform float dt;
+uniform int maxParticles;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= maxParticles) return;
+
+    if (particles[id].lifetime > 0.0) {
+        // Update physics
+        particles[id].position += particles[id].velocity * dt;
+        
+        // Apply simple air resistance/damping
+        particles[id].velocity *= pow(0.95, dt * 60.0); 
+
+        // Update lifetime
+        particles[id].lifetime -= dt;
+
+        if (particles[id].lifetime <= 0.0) {
+            particles[id].lifetime = 0.0;
+            particles[id].scale = 0.0;
+        }
+    }
+}

@@ -1,5 +1,6 @@
 #include "ResourceManager.hpp"
 #include "../tools/Logger.hpp"
+#include "glad.h"
 
 ResourceManager::~ResourceManager() {
     LOG_INFO("Shutting down ResourceManager...");
@@ -85,31 +86,109 @@ Font ResourceManager::loadFont(entt::id_type id, const std::string& path, int fo
 }
 
 Font ResourceManager::getFont(entt::id_type id) {
-    if (auto it = m_fonts.find(id); it != m_fonts.end()) {
-        return it->second;
+    if (m_fonts.find(id) != m_fonts.end()) {
+        return m_fonts[id];
     }
     return GetFontDefault();
 }
 
+Shader ResourceManager::loadShader(entt::id_type id, const std::string& vsPath, const std::string& fsPath) {
+    if (m_shaders.find(id) != m_shaders.end()) {
+        return m_shaders[id];
+    }
+    Shader shader = LoadShader(vsPath.c_str(), fsPath.c_str());
+    m_shaders[id] = shader;
+    return shader;
+}
+
+Shader ResourceManager::loadComputeShader(entt::id_type id, const std::string& path) {
+    if (auto it = m_shaders.find(id); it != m_shaders.end()) return it->second;
+
+    if (!FileExists(path.c_str())) {
+        LOG_ERROR("ResourceManager: Compute shader file not found: {}", path);
+        return { 0 };
+    }
+
+    // Read shader source
+    char* source = LoadFileText(path.c_str());
+    if (source == nullptr) return { 0 };
+
+    unsigned int shaderId = glCreateShader(GL_COMPUTE_SHADER);
+    glShaderSource(shaderId, 1, &source, NULL);
+    glCompileShader(shaderId);
+
+    // Check compilation
+    int success;
+    glGetShaderiv(shaderId, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetShaderInfoLog(shaderId, 512, NULL, infoLog);
+        LOG_ERROR("ResourceManager: Compute shader compilation failed ({}):\n{}", path, infoLog);
+        UnloadFileText(source);
+        return { 0 };
+    }
+
+    unsigned int programId = glCreateProgram();
+    glAttachShader(programId, shaderId);
+    glLinkProgram(programId);
+
+    // Check linking
+    glGetProgramiv(programId, GL_LINK_STATUS, &success);
+    if (!success) {
+        char infoLog[512];
+        glGetProgramInfoLog(programId, 512, NULL, infoLog);
+        LOG_ERROR("ResourceManager: Compute shader linking failed ({}):\n{}", path, infoLog);
+        UnloadFileText(source);
+        return { 0 };
+    }
+
+    glDeleteShader(shaderId);
+    UnloadFileText(source);
+
+    Shader shader = { 0 };
+    shader.id = programId;
+    // Compute shaders don't necessarily use standard locations, but we'll allocate for safety
+    shader.locs = (int*)RL_MALLOC(32 * sizeof(int));
+    for (int i = 0; i < 32; i++) shader.locs[i] = -1;
+
+    m_shaders[id] = shader;
+    LOG_INFO("ResourceManager: Loaded compute shader (ID: {}) from '{}'", id, path);
+    return shader;
+}
+
+Shader ResourceManager::getShader(entt::id_type id) {
+    if (auto it = m_shaders.find(id); it != m_shaders.end()) return it->second;
+    return { 0 };
+}
+
 void ResourceManager::unloadAll() { // 卸载所有资源
- LOG_DEBUG("正在卸载所有纹理，数量: {}", m_textures.size());
+    LOG_DEBUG("正在卸载所有纹理，数量: {}", m_textures.size());
     for (auto& [id, tex] : m_textures) {
         if (tex.id != 0) {
             UnloadTexture(tex);
- LOG_TRACE("已卸载纹理，ID: {}", id);
+            LOG_TRACE("已卸载纹理，ID: {}", id);
         }
     }
     m_textures.clear();
     m_texturePaths.clear();
 
- LOG_DEBUG("正在卸载所有字体，数量: {}", m_fonts.size());
+    LOG_DEBUG("正在卸载所有字体，数量: {}", m_fonts.size());
     for (auto& [id, font] : m_fonts) {
         if (font.texture.id != 0) {
             UnloadFont(font);
- LOG_TRACE("已卸载字体，ID: {}", id);
+            LOG_TRACE("已卸载字体，ID: {}", id);
         }
     }
     m_fonts.clear();
+
+    LOG_DEBUG("正在卸载所有 Shader，数量: {}", m_shaders.size());
+    for (auto& [id, shader] : m_shaders) {
+        if (shader.id != 0) {
+            UnloadShader(shader);
+            LOG_TRACE("已卸载 Shader，ID: {}", id);
+        }
+    }
+    m_shaders.clear();
 
     LOG_INFO("ResourceManager: All resources unloaded.");
 }

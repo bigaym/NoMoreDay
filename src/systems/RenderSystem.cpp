@@ -1,5 +1,7 @@
 #include "RenderSystem.hpp"
 #include "UISystem.hpp"
+#include "GPUParticleSystem.hpp"
+#include "GPUEntitySystem.hpp"
 #include "../components/Common.hpp"
 #include "../components/EffectComponent.hpp"
 #include "../components/ItemComponent.hpp"
@@ -26,8 +28,13 @@ void RenderSystem::render(entt::registry& registry) {
         DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
     });
 
+    // GPU 粒子渲染
+    NoMoreDay::systems::GPUParticleSystem::Get().Render();
+    NoMoreDay::systems::GPUEntitySystem::Get().Render();
+
     // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent，但没有 SpriteComponent)
-    auto pixelView = registry.view<const Position, const ColorComponent>(entt::exclude<SpriteComponent>);
+    // 排除已由 GPU 渲染的实体 (GPUIndex)
+    auto pixelView = registry.view<const Position, const ColorComponent>(entt::exclude<SpriteComponent, GPUIndex>);
     for (auto entity : pixelView) {
         const auto& pos = pixelView.get<Position>(entity);
         const auto& col = pixelView.get<ColorComponent>(entity);

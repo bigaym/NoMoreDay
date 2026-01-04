@@ -243,7 +243,7 @@ void AISystem::updateAIEntity(entt::registry& registry,
     }
 }
 
-void AISystem::update(entt::registry& registry, systems::SpatialHashGrid& grid, const MapSystem& mapSystem, const Position& playerPos, float dt) {
+void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const MapSystem& mapSystem, const Position& playerPos, float dt) {
     // LOG_TRACE("AISystem::update: processing AI logic for frame");
     
     auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>();

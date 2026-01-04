@@ -16,6 +16,7 @@ add_subdirectory(third_party/spdlog)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES    OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE) # Build as Dynamic Library (DLL)
+set(OPENGL_VERSION "4.3" CACHE STRING "Force OpenGL 4.3" FORCE)
 add_subdirectory(third_party/raylib)
 
 # 3. EnTT
@@ -91,6 +92,9 @@ add_library(NoMoreDayCore STATIC
     src/systems/UIInventory.cpp
     src/systems/UIAstrolabe.cpp
     src/systems/UIMinimap.cpp
+    src/systems/GPUParticleSystem.cpp
+    src/systems/GPUEntitySystem.cpp
+    src/systems/GPUFlowFieldSystem.cpp
     src/systems/ProgressionSystem.cpp
     src/systems/XPAwardingSystem.cpp
     src/systems/DropSystem.cpp
@@ -124,12 +128,16 @@ target_link_libraries(NoMoreDayCore
 target_include_directories(NoMoreDayCore PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     third_party/json/include
+    third_party/raylib/src
+    third_party/raylib/src/external
 )
 
 if(WIN32)
     # Add windows specific libs
     target_link_libraries(NoMoreDayCore PUBLIC winmm kernel32 opengl32 gdi32 user32 shell32 dbghelp)
     
+    target_compile_definitions(NoMoreDayCore PUBLIC GRAPHICS_API_OPENGL_43)
+
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         # -Wno-stringop-overflow: Suppress false positives from spdlog/fmt in GCC 13/14
         target_compile_options(NoMoreDayCore PRIVATE "-Wa,-mbig-obj" "-Wno-stringop-overflow")

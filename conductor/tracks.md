@@ -28,21 +28,21 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [x] Track: 星盘系统基础 (Astrolabe Foundation)
+## [x] Track: Astrolabe Foundation
 - **Folder:** conductor/archive/astrolabe_foundation_20260101
 - **Description:** Implement a data-driven passive talent tree foundation including JSON parsing, activation logic, and stats integration. (Completed on 2026-01-01)
 
 ---
 
-## [x] Track: 剑修核心技能系统 (Sword Cultivator Skill System)
+## [x] Track: Sword Cultivator Skill System
 - **Folder:** conductor/archive/skill_system_sword_cultivator_20260102
 - **Description:** Implement active skills, tag-aware scaling, sword intent, shadow casting, and Sword Heart integration. (Completed on 2026-01-02)
 
 ---
 
-## [x] Track: 技能 UI 与 Buff 显示系统 (Skill UI & Buff System)
+## [x] Track: Skill UI & Buff System
 - **Folder:** conductor/archive/skill_ui_buff_system_20260102
-- **Description:** Implement skill hotbar with cooldowns, dynamic tooltips with Astrolabe integration, and a comprehensive Buff/Debuff display system. (Completed on 2026-01-02)
+- **Description:** Implement skill hotbar with cooldowns, dynamic tooltips with Astrolabe integration, and a comprehensive Buff/Debuff display system. (Completed on 2026-01-02)   
 
 ---
 
@@ -66,7 +66,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## [x] Track: Sword Cultivator Foundation Expansion
 - **Folder:** conductor/tracks/blade_ascendant_foundation_20260103
-- **Description:** Implement advanced Blade Ascendant mechanics: Skill Hooks, Lightweight Shadow System, Sword Intent empowerment, and Movement Stances. (Completed on 2026-01-03)
+- **Description:** Implement advanced Blade Ascendant mechanics: Skill Hooks, Lightweight Shadow System, Sword Intent empowerment, and Movement Stances. (Completed on 2026-01-03) 
 
 ---
 
@@ -82,5 +82,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: 审阅战斗系统的各个组成部分是否有效工作
+## [ ] Track: Combat Balance Review & Difficulty Tuning
 *Link: [./conductor/tracks/combat_review_20260103/](./conductor/tracks/combat_review_20260103/)*
+
+---
+
+## [~] Track: GPU-Driven System Optimization (Compute Shaders)
+*Link: [./conductor/tracks/gpu_optimization_20260104/](./conductor/tracks/gpu_optimization_20260104/)*

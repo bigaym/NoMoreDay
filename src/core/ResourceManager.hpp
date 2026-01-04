@@ -25,10 +25,16 @@ public:
     // 获取已加载的字体
     Font getFont(entt::id_type id);
 
+    Shader loadShader(entt::id_type id, const std::string& vsPath, const std::string& fsPath);
+    // 加载 Compute Shader
+    Shader loadComputeShader(entt::id_type id, const std::string& path);
+    Shader getShader(entt::id_type id);
+
     void unloadAll();
 
 private:
     std::unordered_map<entt::id_type, Texture2D> m_textures;
     std::unordered_map<entt::id_type, std::string> m_texturePaths; // 用于按需加载的路径注册表
     std::unordered_map<entt::id_type, Font> m_fonts;
+    std::unordered_map<entt::id_type, Shader> m_shaders;
 };

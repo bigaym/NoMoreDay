@@ -1,0 +1,36 @@
+#version 430
+layout(local_size_x = 256) in;
+
+struct Entity {
+    vec2 position;
+    vec2 velocity;
+    float radius;
+    int type;
+    int id;
+    float padding;
+};
+
+layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };
+layout(std430, binding = 3) buffer CellOffsetBuffer { uint cellOffsets[]; };
+layout(std430, binding = 4) buffer EntityIndicesBuffer { uint entityIndices[]; };
+layout(std430, binding = 5) buffer TempCountBuffer { uint tempCounts[]; };
+
+uniform int maxEntities;
+uniform float cellSize;
+uniform int gridCols;
+uniform int gridRows;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= maxEntities || entities[id].radius <= 0.0) return;
+
+    int cx = int(entities[id].position.x / cellSize);
+    int cy = int(entities[id].position.y / cellSize);
+    if (cx < 0 || cx >= gridCols || cy < 0 || cy >= gridRows) return;
+    
+    uint cellIdx = cy * gridCols + cx;
+    uint offset = cellOffsets[cellIdx];
+    uint localIdx = atomicAdd(tempCounts[cellIdx], 1);
+    
+    entityIndices[offset + localIdx] = id;
+}

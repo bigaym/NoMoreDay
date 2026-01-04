@@ -99,6 +99,14 @@ public:
     int getWidth() const { return m_mapData.width; }
     int getHeight() const { return m_mapData.height; }
     
+    std::vector<unsigned char> getCostMap() const {
+        std::vector<unsigned char> cost(m_mapData.grid.size());
+        for (size_t i = 0; i < m_mapData.grid.size(); i++) {
+            cost[i] = m_mapData.grid[i].isWalkable() ? 1 : 255;
+        }
+        return cost;
+    }
+
     // 可见性管理
     void setVisibility(int x, int y, uint8_t visibility) {
         if (x >= 0 && x < m_mapData.width && y >= 0 && y < m_mapData.height) {

@@ -10,7 +10,7 @@
 #include "MovementStanceSystem.hpp"
 #include "SkillSystem.hpp"
 
-void CombatSystem::update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
+void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
     // LOG_TRACE("CombatSystem::update: 处理战斗逻辑");
 
     // 不再强制要求 WeaponComponent

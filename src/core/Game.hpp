@@ -7,6 +7,7 @@
 #include "SharedContext.hpp"
 #include "LevelManager.hpp"
 #include "SceneManager.hpp"
+#include "../utils/GPUUtils.hpp"
 #include <memory>
 
 class Game {
@@ -24,6 +25,9 @@ private:
     int m_screenWidth;
     int m_screenHeight;
     const char* m_title;
+
+    // GPU Support info
+    NoMoreDay::utils::GPUSupportInfo m_gpuInfo;
 
     // 1. 基础资源 (最后析构)
     entt::registry m_registry;

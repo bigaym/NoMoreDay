@@ -1,0 +1,110 @@
+#version 430
+
+layout(local_size_x = 256) in;
+
+struct Entity {
+    vec2 position;
+    vec2 velocity;
+    float radius;
+    int type;
+    int id;
+    float padding;
+};
+
+layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };
+layout(std430, binding = 2) buffer CellCountBuffer { uint cellCounts[]; };
+layout(std430, binding = 3) buffer CellOffsetBuffer { uint cellOffsets[]; };
+layout(std430, binding = 4) buffer EntityIndicesBuffer { uint entityIndices[]; };
+
+uniform float dt;
+uniform int maxEntities;
+uniform float cellSize;
+uniform int gridCols;
+uniform int gridRows;
+
+layout(binding = 0) uniform sampler2D flowField;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= maxEntities || entities[id].radius <= 0.0) return;
+
+    vec2 pos = entities[id].position;
+    vec2 vel = entities[id].velocity;
+    float radius = entities[id].radius;
+
+    // 0. Steering (Flow Field)
+    vec2 worldSize = vec2(gridCols, gridRows) * cellSize;
+    vec2 uv = pos / worldSize;
+    // Flip Y if necessary? Raylib/OpenGL coords usually match (Bottom-Left 0,0)
+    // But check how map is generated. MapSystem usually uses Top-Left as 0,0.
+    // OpenGL texture 0,0 is Bottom-Left.
+    // The Compute Shader imageStore uses integer coords.
+    // If we simply divide by size, we get 0..1 range. 
+    // Let's assume consistent coordinate system for now (y-down or y-up doesn't matter as long as it matches).
+    
+    vec2 flowDir = texture(flowField, uv).xy;
+    
+    // Apply steering force
+    if (length(flowDir) > 0.01) {
+        float speed = 100.0; // Desired max speed
+        float steerForce = 500.0;
+        
+        vec2 desiredVel = flowDir * speed;
+        vec2 steer = desiredVel - vel;
+        vel += steer * steerForce * dt * 0.05; // Soft steering
+    }
+
+    // 1. Collision Detection (Spatial Hash Grid)
+    int cx = int(pos.x / cellSize);
+    int cy = int(pos.y / cellSize);
+
+    // Check 9 neighboring cells
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            int ncx = cx + x;
+            int ncy = cy + y;
+            if (ncx < 0 || ncx >= gridCols || ncy < 0 || ncy >= gridRows) continue;
+
+            uint cellIdx = ncy * gridCols + ncx;
+            uint offset = cellOffsets[cellIdx];
+            uint count = cellCounts[cellIdx];
+
+            for (uint i = 0; i < count; i++) {
+                uint neighborId = entityIndices[offset + i];
+                if (neighborId == id) continue;
+
+                vec2 nPos = entities[neighborId].position;
+                float nRadius = entities[neighborId].radius;
+                
+                vec2 diff = pos - nPos;
+                float distSq = dot(diff, diff);
+                float minDist = radius + nRadius;
+
+                if (distSq > 0.0001 && distSq < minDist * minDist) {
+                    float dist = sqrt(distSq);
+                    vec2 normal = diff / dist;
+                    float overlap = minDist - dist;
+                    
+                    // Apply repulsion force to velocity
+                    vel += normal * overlap * 10.0; // Fixed strength factor
+                }
+            }
+        }
+    }
+
+    // 2. Integration
+    pos += vel * dt;
+    
+    // Air resistance/Friction
+    vel *= pow(0.92, dt * 60.0);
+
+    // 3. Boundary Collision
+    if (pos.x < 0.0) { pos.x = 0.0; vel.x *= -0.5; }
+    if (pos.x > 5000.0) { pos.x = 5000.0; vel.x *= -0.5; }
+    if (pos.y < 0.0) { pos.y = 0.0; vel.y *= -0.5; }
+    if (pos.y > 5000.0) { pos.y = 5000.0; vel.y *= -0.5; }
+
+    // Write back
+    entities[id].position = pos;
+    entities[id].velocity = vel;
+}

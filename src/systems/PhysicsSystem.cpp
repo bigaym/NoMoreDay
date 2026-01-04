@@ -7,7 +7,7 @@
 #include <cmath>
 #include <algorithm>
 
-void PhysicsSystem::ProjectilePullLogic(entt::registry& registry, systems::SpatialHashGrid& grid, float dt) {
+void PhysicsSystem::ProjectilePullLogic(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, float dt) {
     using namespace NoMoreDay;
     auto view = registry.view<Projectile, Position>();
     for (auto entity : view) {
@@ -37,7 +37,7 @@ void PhysicsSystem::ProjectilePullLogic(entt::registry& registry, systems::Spati
 }
 
 void PhysicsSystem::resolveCollisions(entt::entity entity, const Position& pos, Velocity& vel, 
- systems::SpatialHashGrid& grid, const entt::registry& registry,
+ NoMoreDay::systems::SpatialHashGrid& grid, const entt::registry& registry,
  float dt) {
     // LOG_TRACE("PhysicsSystem: 正在为实体 {} 解决碰撞", (uint32_t)entity); // 日志太频繁
 
@@ -103,7 +103,7 @@ void PhysicsSystem::updatePosition(entt::entity entity, Position& pos, Velocity&
     }
 }
 
-void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, systems::SpatialHashGrid& grid) {
+void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid) {
     using namespace NoMoreDay;
 
     // 0. Projectile Pull (Pre-move)

@@ -9,7 +9,7 @@
 class AISystem {
 public:
     // 更新所有AI实体
-    static void update(entt::registry& registry, systems::SpatialHashGrid& grid, const MapSystem& mapSystem, const Position& playerPos, float dt);
+    static void update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const MapSystem& mapSystem, const Position& playerPos, float dt);
     
 private:
     static float distance(const Position& a, const Position& b);

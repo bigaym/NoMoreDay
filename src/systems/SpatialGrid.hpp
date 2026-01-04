@@ -7,6 +7,7 @@
 #include <entt/entt.hpp>
 #include "../components/Common.hpp"
 
+namespace NoMoreDay {
 namespace systems {
 
 class SpatialHashGrid {
@@ -130,3 +131,4 @@ private:
 };
 
 } // namespace systems
+} // namespace NoMoreDay

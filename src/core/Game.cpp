@@ -4,6 +4,9 @@
 #include "../tools/Logger.hpp"
 #include "../systems/UISystem.hpp"
 #include "../systems/SkillSystem.hpp"
+#include "../systems/GPUParticleSystem.hpp"
+#include "../systems/GPUEntitySystem.hpp"
+#include "../systems/GPUFlowFieldSystem.hpp"
 #include "../core/ItemFactory.hpp"
 #include "../core/AssetLoadingSystem.hpp"
 #include "../core/AstrolabeRegistry.hpp"
@@ -20,6 +23,10 @@ Game::Game(int width, int height, const char* title)
     
     InitWindow(m_screenWidth, m_screenHeight, m_title);
     InitAudioDevice(); 
+    
+    // Check GPU Support
+    m_gpuInfo = NoMoreDay::utils::GPUUtils::CheckSupport();
+
     SetExitKey(0); 
     SetTargetFPS(60);
     
@@ -65,6 +72,13 @@ void Game::init() {
     // Initialize UI System (Loads Fonts)
     UISystem::Initialize(m_resourceManager);
 
+    // Initialize GPU Particle System
+    if (m_gpuInfo.computeShaderSupported) {
+        NoMoreDay::systems::GPUParticleSystem::Get().Init(m_resourceManager);
+        NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager);
+        NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager);
+    }
+
     // Push Initial State
     LOG_INFO("Pushing MainMenuState...");
     m_stateManager->PushState<NoMoreDay::MainMenuState>();
@@ -94,6 +108,16 @@ void Game::run() {
 
         while (accumulator >= fixedDt) {
             m_stateManager->Update(fixedDt);
+            
+            if (m_gpuInfo.computeShaderSupported) {
+                // 1. CPU -> GPU Sync & Compute Physics
+                NoMoreDay::systems::GPUEntitySystem::Get().Update(m_registry, fixedDt);
+                // 2. GPU -> CPU Sync Back (To allow CPU systems like AI/Render to see the new positions)
+                NoMoreDay::systems::GPUEntitySystem::Get().SyncBack(m_registry);
+                
+                NoMoreDay::systems::GPUParticleSystem::Get().Update(fixedDt);
+            }
+
             accumulator -= fixedDt;
         }
 
@@ -140,6 +164,9 @@ void Game::cleanup() {
     // 4. 关闭静态系统。
     // 必须在 Registry 清理之后关闭，因为销毁组件时可能依赖这些系统的资源 (如字体、纹理 ID 等)
     UISystem::Shutdown();
+    NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();
+    NoMoreDay::systems::GPUEntitySystem::Get().Shutdown();
+    NoMoreDay::systems::GPUFlowFieldSystem::Get().Shutdown();
     NoMoreDay::BuffRegistry::Shutdown();
     
     // 5. 卸载资源。

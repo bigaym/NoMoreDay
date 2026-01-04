@@ -1,6 +1,9 @@
 #include "EffectSystem.hpp"
+#include "GPUParticleSystem.hpp"
 #include "../components/EffectComponent.hpp"
 #include "../components/Common.hpp"
+#include "../components/GPUData.hpp"
+#include "raymath.h"
 
 void EffectSystem::update(entt::registry& registry, float dt) {
     // LOG_TRACE("EffectSystem::update: Processing visual effects");
@@ -68,9 +71,29 @@ void EffectSystem::update(entt::registry& registry, float dt) {
     }
 
     // 3. 更新通用视觉特效
-    auto viewVisual = registry.view<VisualEffect>();
+    auto viewVisual = registry.view<VisualEffect, Position>();
     for(auto entity : viewVisual) {
         auto& effect = viewVisual.get<VisualEffect>(entity);
+        auto& pos = viewVisual.get<Position>(entity);
+
+        // 如果特效刚开始，发射一些粒子
+        if (effect.timer == 0.0f) {
+            for (int i = 0; i < 30; i++) {
+                NoMoreDay::components::GPUParticle p;
+                p.position = { pos.x, pos.y };
+                float angle = (float)(rand() % 360) * DEG2RAD;
+                float speed = (float)(rand() % 150 + 50);
+                p.velocity = { cosf(angle) * speed, sinf(angle) * speed };
+                
+                p.color = effect.color; 
+                
+                p.lifetime = 0.5f + (rand() % 100) / 100.0f;
+                p.maxLifetime = p.lifetime;
+                p.scale = 2.0f + (rand() % 40) / 10.0f;
+                
+                NoMoreDay::systems::GPUParticleSystem::Get().Emit(p);
+            }
+        }
         
         effect.timer += dt;
         if (effect.timer >= effect.lifeTime) {

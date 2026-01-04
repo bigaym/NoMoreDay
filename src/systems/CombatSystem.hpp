@@ -12,7 +12,7 @@
 class CombatSystem {
 public:
     // 处理攻击输入、管理冷却时间并解决命中
-    static void update(entt::registry& registry, systems::SpatialHashGrid& grid, const Camera2D& camera, float dt);
+    static void update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const Camera2D& camera, float dt);
 
     /**
      * @brief 计算减伤后的最终伤害。
