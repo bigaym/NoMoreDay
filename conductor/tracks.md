@@ -87,5 +87,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [~] Track: GPU-Driven System Optimization (Compute Shaders)
-*Link: [./conductor/tracks/gpu_optimization_20260104/](./conductor/tracks/gpu_optimization_20260104/)*
+## [x] Track: GPU-Driven System Optimization (Compute Shaders)
+- **Folder:** conductor/archive/gpu_optimization_20260104
+- **Description:** Optimize the game engine to support 10,000+ entities by offloading particles, physics, collision, and pathfinding to the GPU using OpenGL 4.3 Compute Shaders. (Completed on 2026-01-04)
