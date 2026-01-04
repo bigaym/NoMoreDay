@@ -24,8 +24,15 @@ void AssetLoadingSystem::RegisterUITextures() {
     m_resourceManager->registerTexture(Context_Menu_BG.id, std::string(Context_Menu_BG.path));
     
     // Skill Icons
-    m_resourceManager->registerTexture(Skill_Icon_1.id, std::string(Skill_Icon_1.path));
-    m_resourceManager->registerTexture(Skill_Icon_2.id, std::string(Skill_Icon_2.path));
+    m_resourceManager->registerTexture(Skill_LiuYunCi.id, std::string(Skill_LiuYunCi.path));
+    m_resourceManager->registerTexture(Skill_LieKongZhan.id, std::string(Skill_LieKongZhan.path));
+    m_resourceManager->registerTexture(Skill_WanJianJue.id, std::string(Skill_WanJianJue.path));
+    m_resourceManager->registerTexture(Skill_JianQiHuTi.id, std::string(Skill_JianQiHuTi.path));
+    m_resourceManager->registerTexture(Skill_WanJianGuiZong.id, std::string(Skill_WanJianGuiZong.path));
+    m_resourceManager->registerTexture(Skill_ZhuXianJianZhen.id, std::string(Skill_ZhuXianJianZhen.path));
+    m_resourceManager->registerTexture(Skill_XinJianWuYing.id, std::string(Skill_XinJianWuYing.path));
+    m_resourceManager->registerTexture(Skill_YuJianHuiXuan.id, std::string(Skill_YuJianHuiXuan.path));
+    m_resourceManager->registerTexture(Skill_JueYingShan.id, std::string(Skill_JueYingShan.path));
     
     LOG_INFO("AssetLoadingSystem: Registered core UI textures.");
 }

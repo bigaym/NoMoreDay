@@ -31,7 +31,8 @@ public:
         uint32_t skill_id,
         const DamagePool& base_pool,
         Tag additional_tags = Tag::None,
-        entt::entity source_entity = entt::null
+        entt::entity source_entity = entt::null,
+        bool is_simulation = false
     );
 
 private:

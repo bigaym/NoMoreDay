@@ -8,6 +8,7 @@
 #include "../components/ItemStats.hpp"
 #include "../components/Progression.hpp"
 #include "../components/PlayerState.hpp"
+#include "../components/EnemyComponent.hpp"
 #include "../components/Buff.hpp"
 #include "../core/AstrolabeRegistry.hpp"
 #include "../core/SkillRegistry.hpp"
@@ -203,12 +204,20 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
     std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs; // 初始化计算数组
     
-    // 使用默认值初始化
+    // 使用默认值初始化 (玩家默认值)
     calcs[static_cast<size_t>(StatType::MaxHealth)].base = 100.0f;
     calcs[static_cast<size_t>(StatType::MaxMana)].base = 100.0f;
     calcs[static_cast<size_t>(StatType::MoveSpeed)].base = 300.0f;
     calcs[static_cast<size_t>(StatType::Armor)].base = 0.0f;
     
+    // 如果是敌人，应用敌人种族基础属性
+    if (auto* enemy = registry.try_get<EnemyStateComponent>(entity)) {
+        EnemyRace race(enemy->raceType);
+        calcs[static_cast<size_t>(StatType::MaxHealth)].base = race.baseHP;
+        calcs[static_cast<size_t>(StatType::MoveSpeed)].base = race.baseSpeed;
+        calcs[static_cast<size_t>(StatType::Armor)].base = race.baseArmor;
+    }
+
     calcs[static_cast<size_t>(StatType::CritChance)].base = 5.0f; // 5%
     calcs[static_cast<size_t>(StatType::CritDamage)].base = 150.0f; // 150%
     calcs[static_cast<size_t>(StatType::AttackSpeed)].base = 100.0f; // 100%

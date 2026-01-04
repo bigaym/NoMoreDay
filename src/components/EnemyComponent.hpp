@@ -26,12 +26,13 @@ struct EnemyRace
         ANIMAL = 11    // 野兽
     };
     Type raceType;
-    float baseHP, baseDamage, baseSpeed, baseXP;
+    float baseHP, baseDamage, baseSpeed, baseXP, baseArmor;
     std::vector<std::string> resistances;
     std::string texturePath; // 资源路径
 
     EnemyRace(Type type = UNDEAD) : raceType(type)
     {
+        baseArmor = 100.0f; // 基础护甲
         switch (type)
         {
         case UNDEAD:
@@ -43,7 +44,7 @@ struct EnemyRace
             texturePath = "assets/textures/monster/skeleton_0.png";
             break;
         case DEMON:
-            baseHP = 40.0f;
+            baseHP = 60.0f;
             baseDamage = 25.0f;
             baseSpeed = 200.0f; // 目标 200
             baseXP = 25.0f;

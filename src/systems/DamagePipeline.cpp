@@ -43,7 +43,8 @@ DamageResult DamagePipeline::Calculate(
     uint32_t skill_id,
     const DamagePool& base_pool,
     Tag additional_tags,
-    entt::entity source_entity
+    entt::entity source_entity,
+    bool is_simulation
 ) {
     const auto* skill_data = SkillRegistry::Get().GetSkill(skill_id);
     Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
@@ -267,8 +268,16 @@ DamageResult DamagePipeline::Calculate(
                      }
                  }
 
-                 if ((GetRandomValue(0, 10000) / 100.0f) < crit_chance) {
-                     is_crit = true;
+                 if (is_simulation) {
+                     // Calculate expected damage multiplier
+                     float chance = std::clamp(crit_chance, 0.0f, 100.0f) / 100.0f;
+                     float dmg_mult = attacker_stats ? attacker_stats->crit_damage : 1.5f;
+                     // Expected = 1 * (1-P) + Mult * P = 1 + P * (Mult - 1)
+                     crit_mult = 1.0f + chance * (dmg_mult - 1.0f);
+                 } else {
+                     if ((GetRandomValue(0, 10000) / 100.0f) < crit_chance) {
+                         is_crit = true;
+                     }
                  }
              }
 

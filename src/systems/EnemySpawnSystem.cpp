@@ -178,54 +178,62 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
     if (m_raceTextures.count(data.enemyType)) {
         registry.emplace<TextureIDComponent>(entity, m_raceTextures[data.enemyType].id);
     }
+    
+    EnemyRace::Type raceType = static_cast<EnemyRace::Type>(data.enemyType);
+    EnemyArchetype::Type archType = EnemyArchetype::FODDER;
+    
+    // Determine archetype based on race/logic (simplified for now)
+    if (raceType == EnemyRace::DEMON) archType = EnemyArchetype::TANK;
+    else if (raceType == EnemyRace::CORRUPTED) archType = EnemyArchetype::ASSASSIN;
+    else if (raceType == EnemyRace::CULTIST) archType = EnemyArchetype::RANGER;
+
+    // Emplace EnemyStateComponent EARLY so StatsSystem can use it
+    registry.emplace<EnemyStateComponent>(entity, raceType, archType);
     registry.emplace<EnemyTag>(entity);
-    auto& stats = registry.emplace<NoMoreDay::CombatStats>(entity); // Default stats
-    stats.armor = 100.0f; // Give all enemies 100 base armor to test penetration
+    registry.emplace<NoMoreDay::CombatStats>(entity); 
     
-    EnemyRace::Type race = static_cast<EnemyRace::Type>(data.enemyType);
+    EnemyRace raceDef(raceType);
     
-    switch (race) {
+    switch (raceType) {
         case EnemyRace::UNDEAD:
-            registry.emplace<EnemyStateComponent>(entity, EnemyRace::UNDEAD, EnemyArchetype::FODDER);
-            registry.emplace<HealthComponent>(entity, 30.0f, 30.0f);
+            registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 150.0f, 40.0f, 50.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.25f, 1, 1);
             break;
         case EnemyRace::DEMON:
-            registry.emplace<EnemyStateComponent>(entity, EnemyRace::DEMON, EnemyArchetype::TANK);
-            registry.emplace<HealthComponent>(entity, 60.0f, 60.0f);
+            registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 200.0f, 50.0f, 70.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.45f, 1, 2);
             break;
         case EnemyRace::CORRUPTED:
-            registry.emplace<EnemyStateComponent>(entity, EnemyRace::CORRUPTED, EnemyArchetype::ASSASSIN);
-            registry.emplace<HealthComponent>(entity, 25.0f, 25.0f);
+            registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 250.0f, 60.0f, 100.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.30f, 1, 1);
             break;
         case EnemyRace::CULTIST:
-            registry.emplace<EnemyStateComponent>(entity, EnemyRace::CULTIST, EnemyArchetype::RANGER);
-            registry.emplace<HealthComponent>(entity, 35.0f, 35.0f);
+            registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 180.0f, 30.0f, 60.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.35f, 1, 1);
             break;
         case EnemyRace::GOBLIN:
-            registry.emplace<EnemyStateComponent>(entity, EnemyRace::GOBLIN, EnemyArchetype::FODDER);
-            registry.emplace<HealthComponent>(entity, 20.0f, 20.0f);
+            registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 120.0f, 40.0f, 60.0f);
             registry.emplace<ColorComponent>(entity, GREEN);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.20f, 1, 1);
             break;
         case EnemyRace::SLIME:
-            registry.emplace<EnemyStateComponent>(entity, EnemyRace::SLIME, EnemyArchetype::FODDER);
-            registry.emplace<HealthComponent>(entity, 15.0f, 15.0f);
+            registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 80.0f, 20.0f, 30.0f);
             registry.emplace<ColorComponent>(entity, LIME);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.15f, 1, 1);
+            break;
+        default:
+            registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+            registry.emplace<ColorComponent>(entity, WHITE);
             break;
     }
     

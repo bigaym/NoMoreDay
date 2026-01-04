@@ -11,7 +11,7 @@
       "weapon_damage_mult": 1.2,
       "added_damage_effectiveness": 1.0,
       "charge_count": 1,
-      "icon_id": 1610207371,
+      "icon_id": 2920402032,
       "talent_tree": [
           { 
               "id": 100, "name_key": "锋锐", "desc_key": "增加物理伤害 (10% Increased per point)", "max_points": 5, "x": 0.0, "y": 0.0, 
@@ -63,7 +63,7 @@
       "weapon_damage_mult": 1.5,
       "added_damage_effectiveness": 1.2,
       "charge_count": 3,
-      "icon_id": 1626984990,
+      "icon_id": 773746652,
       "talent_tree": [
           { 
               "id": 200, "name_key": "剑气纵横", "desc_key": "增加投射物数量", "max_points": 3, "x": 0.0, "y": 0.0, 
@@ -105,7 +105,7 @@
       "weapon_damage_mult": 0.5,
       "added_damage_effectiveness": 0.5,
       "charge_count": 1,
-      "icon_id": 1610207372,
+      "icon_id": 3687043718,
       "talent_tree": [
           {"id": 300, "name_key": "多重灵剑", "desc_key": "+1 最大灵剑数量", "max_points": 5, "x": 0.0, "y": 0.0, "stat_modifiers": [ { "type": 30, "mode": 0, "value": 1.0 } ]},
           {"id": 301, "name_key": "疾风剑意", "desc_key": "攻击频率增加10%", "max_points": 5, "x": 1.2, "y": 0.0, "prerequisites": [300], "stat_modifiers": [ { "type": 17, "mode": 1, "value": 10.0 } ]},
@@ -129,7 +129,7 @@
       "weapon_damage_mult": 0.0,
       "added_damage_effectiveness": 0.0,
       "charge_count": 1,
-      "icon_id": 1610207373,
+      "icon_id": 43626286,
       "talent_tree": [
           {"id": 400, "name_key": "金钟罩", "desc_key": "增加15%护甲值", "max_points": 5, "x": 0.0, "y": 0.0, "stat_modifiers": [ { "type": 7, "mode": 1, "value": 15.0 } ]},
           {"id": 401, "name_key": "五行御守", "desc_key": "增加5%全元素抗性", "max_points": 5, "x": 1.2, "y": 0.0, "prerequisites": [400], "stat_modifiers": [ { "type": 27, "mode": 0, "value": 5.0 } ]},
@@ -151,7 +151,7 @@
       "weapon_damage_mult": 1.0,
       "added_damage_effectiveness": 1.0,
       "charge_count": 1,
-      "icon_id": 1610207374,
+      "icon_id": 3729481613,
       "talent_tree": [
           {"id": 500, "name_key": "灵力共振", "desc_key": "引导越久发射越快", "max_points": 5, "x": 0.0, "y": 0.0},
           {"id": 501, "name_key": "气定神闲", "desc_key": "引导期间减伤5%", "max_points": 5, "x": 0.0, "y": 1.2, "prerequisites": [500]},
@@ -173,7 +173,7 @@
       "weapon_damage_mult": 0.8,
       "added_damage_effectiveness": 0.8,
       "charge_count": 1,
-      "icon_id": 1610207375,
+      "icon_id": 3652280228,
       "talent_tree": [
           {"id": 600, "name_key": "双生剑阵", "desc_key": "+1 最大剑阵数量", "max_points": 1, "x": 0.0, "y": 0.0},
           {"id": 601, "name_key": "剑气共鸣", "desc_key": "重叠区域伤害总增20%", "max_points": 3, "x": 0.0, "y": 1.2, "prerequisites": [600]},
@@ -195,7 +195,7 @@
       "weapon_damage_mult": 0.6,
       "added_damage_effectiveness": 0.6,
       "charge_count": 1,
-      "icon_id": 1610207376,
+      "icon_id": 3442851838,
       "talent_tree": [
           {"id": 700, "name_key": "心流积蓄", "desc_key": "引导越久伤害越高", "max_points": 5, "x": 0.0, "y": 0.0},
           {"id": 701, "name_key": "天人合一", "desc_key": "终极：达到上限获得霸体与50%增伤。", "max_points": 1, "x": 0.0, "y": 1.5, "prerequisites": [700]},
@@ -216,7 +216,7 @@
       "weapon_damage_mult": 1.4,
       "added_damage_effectiveness": 1.4,
       "charge_count": 1,
-      "icon_id": 1610207377,
+      "icon_id": 2830780204,
       "talent_tree": [
           {"id": 800, "name_key": "迅捷飞剑", "desc_key": "增加飞行速度15%", "max_points": 5, "x": 0.0, "y": 0.0, "stat_modifiers": [ { "type": 32, "mode": 1, "value": 15.0 } ]},
           {"id": 801, "name_key": "快速回收", "desc_key": "回收后下次冷却降低10%", "max_points": 3, "x": 1.2, "y": 0.0, "prerequisites": [800], "stat_modifiers": [ { "type": 28, "mode": 1, "value": 10.0 } ]},
@@ -239,7 +239,7 @@
       "weapon_damage_mult": 3.0,
       "added_damage_effectiveness": 1.0,
       "charge_count": 1,
-      "icon_id": 1610207378,
+      "icon_id": 698747719,
       "talent_tree": [
           {"id": 900, "name_key": "无间反击", "desc_key": "反击伤害总增20%", "max_points": 5, "x": 0.0, "y": 0.0},
           {"id": 901, "name_key": "影杀连斩", "desc_key": "终极：反击造成3次快速斩击。", "max_points": 1, "x": 0.0, "y": 1.5, "prerequisites": [900]},

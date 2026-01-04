@@ -381,7 +381,7 @@ namespace NoMoreDay {
             DamagePool pool;
             pool.Add(Tag::Physical, avgWeapon * skill->weapon_damage_mult + skill->base_damage);
             
-            auto result = DamagePipeline::Calculate(registry, player, entt::null, skillId, pool, Tag::Hit);
+            auto result = DamagePipeline::Calculate(registry, player, entt::null, skillId, pool, Tag::Hit, entt::null, true);
             minDmg = result.total_damage * 0.9f;
             maxDmg = result.total_damage * 1.1f;
 
