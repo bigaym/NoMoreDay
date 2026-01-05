@@ -292,6 +292,8 @@ DamageResult DamagePipeline::Calculate(
         float res = 0.0f;
         if (type_idx < 6) {
             res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
+            // Resistance Cap: -100% to +75%
+            res = std::clamp(res, -1.0f, 0.75f);
         }
         
         float damage_after_res = inst.amount * (1.0f - res);

@@ -24,5 +24,5 @@ public:
      * @param attacker 造成伤害的可选实体（用于击杀奖励）。
      * @return 如果实体死亡（生命值 <= 0）则返回 true，否则返回 false。
      */
-    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null);
+    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null, bool isCrit = false);
 };

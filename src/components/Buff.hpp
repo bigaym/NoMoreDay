@@ -95,11 +95,19 @@ struct ActiveEffectsComponent {
     void AddOrRefresh(const BuffEffect& new_effect) {
         for (auto& effect : effects) {
             if (effect.id == new_effect.id) {
-                // Refresh logic
+                // Refresh duration
                 effect.duration = new_effect.duration;
                 effect.remaining = new_effect.duration;
+                
+                // Update metadata in case it changed (e.g. from a stronger version of the same buff)
+                effect.name = new_effect.name;
+                effect.description = new_effect.description;
+                effect.modifiers = new_effect.modifiers;
+                
+                // Handle Stacking
                 if (effect.stacks < effect.max_stacks) {
-                    effect.stacks++;
+                    // If the new effect has multiple stacks, add them but clamp to max
+                    effect.stacks = std::min(effect.max_stacks, effect.stacks + new_effect.stacks);
                 }
                 return;
             }

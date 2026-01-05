@@ -115,7 +115,7 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 float finalDamage = result.total_damage;
                 if (finalDamage <= 0.0f) finalDamage = 5.0f; // Minimum damage for prototype feedback
 
-                CombatSystem::ApplyDamage(registry, target, finalDamage, proj.owner);
+                CombatSystem::ApplyDamage(registry, target, finalDamage, proj.owner, result.is_crit);
                 
                 // Trigger Skill Hit interactions
                 SkillSystem::OnSkillHit(registry, proj.owner, target, skill_id, hit_tags);

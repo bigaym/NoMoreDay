@@ -43,6 +43,8 @@ using namespace NoMoreDay;
 #include "TagSystemTest.hpp"
 #include "VisualEffectTest.hpp"
 #include "AffixSystemTest.hpp"
+#include "ProjectileSnapshottingTest.hpp"
+#include "BuffSystemTest.hpp"
 
 int main(int argc, char** argv) {
     // Some Raylib functions require a window context even if not drawing

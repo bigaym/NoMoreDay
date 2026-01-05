@@ -93,11 +93,13 @@ void SkillSystem::InitHooks() {
                         isFrost = true;
                     }
 
-                    // Talent: Momentum (势如破竹)
-                    float dist = Vector2Distance(startPos, exec.target_pos);
-                    if (dist > 150.0f) {
-                        moreDamageMult *= 1.3f; // 30% More
-                        LOG_INFO("Momentum: +30% More damage due to distance ({:.1f})", dist);
+                    // Talent: Momentum (势如破竹) - ID 114
+                    if (spec.allocated_points.contains(114) && spec.allocated_points.at(114) > 0) {
+                        float dist = Vector2Distance(startPos, exec.target_pos);
+                        if (dist > 150.0f) {
+                            moreDamageMult *= 1.3f; // 30% More
+                            LOG_INFO("Momentum: +30% More damage due to distance ({:.1f})", dist);
+                        }
                     }
                     break;
                 }
@@ -573,7 +575,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                     DamagePool pool;
                     pool.Add(Tag::Physical, 10.0f); // Base array tick damage
                     auto result = DamagePipeline::Calculate(registry, array.owner, target, 6, pool, Tag::Area | Tag::Hit);
-                    CombatSystem::ApplyDamage(registry, target, result.total_damage, array.owner);
+                    CombatSystem::ApplyDamage(registry, target, result.total_damage, array.owner, result.is_crit);
                 }
             });
             array.damage_timer = array.damage_interval;

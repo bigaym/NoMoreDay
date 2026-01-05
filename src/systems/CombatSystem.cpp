@@ -223,7 +223,7 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                     // Apply Damage
                     if (registry.all_of<HealthComponent>(target)) {
                         // 应用伤害逻辑（这会处理生命值减少和死亡并生成飘字）
-                        bool targetDead = ApplyDamage(registry, target, finalDamage, entity);
+                        bool targetDead = ApplyDamage(registry, target, finalDamage, entity, isCrit);
                         LOG_DEBUG("对 {} 造成 {:.1f} 伤害 (暴击: {}, 死亡: {})", (uint32_t)target, finalDamage, isCrit, targetDead);
 
                         // --- 荆棘伤害 (Thorns) ---
@@ -231,7 +231,7 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                             const auto& tStats = registry.get<NoMoreDay::CombatStats>(target);
                             if (tStats.thorns > 0.0f) {
                                 // 反伤给攻击者
-                                ApplyDamage(registry, entity, tStats.thorns, target);
+                                ApplyDamage(registry, entity, tStats.thorns, target, false);
                                 LOG_TRACE("Thorns: Entity {} took {:.1f} damage", (uint32_t)entity, tStats.thorns);
                             }
                         }
@@ -314,7 +314,7 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
     return std::max(0.0f, damage);
 }
 
-bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker) {
+bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker, bool isCrit) {
     if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) {
         return false;
     }
@@ -363,7 +363,7 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
         popup.lifeTime = 0.8f;
         popup.velX = (float)(GetRandomValue(-20, 20));
         popup.velY = -100.0f;
-        popup.color = WHITE;
+        popup.color = isCrit ? ORANGE : WHITE;
         
         registry.emplace<DamagePopup>(popupEntity, popup);
     }

@@ -32,6 +32,10 @@ TEST_CASE("Damage Pipeline Logic") {
         mod_list.modifiers.push_back({StatType::PhysicalDamage, ModifierMode::PercentAdd, 50.0f, Tag::Physical}); // +50% Inc Phys
         mod_list.modifiers.push_back({StatType::PhysicalDamage, ModifierMode::PercentMult, 20.0f, Tag::Physical}); // x1.2 More Phys
         
+        // Verify StatsSystem Output directly
+        float phys_mult = StatsSystem::GetStatWithTags(registry, attacker, StatType::PhysicalDamage, Tag::Hit | Tag::Physical, 1);
+        CHECK_MESSAGE(phys_mult == doctest::Approx(180.0f), "StatsSystem Mult: ", phys_mult);
+
         // Skill 1: Flowing Thrust (Phys + Melee). Base Pool 100 + Skill Base 10 = 110.
         auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
         
@@ -54,7 +58,7 @@ TEST_CASE("Damage Pipeline Logic") {
         // 2. Projectile Hit (Skill 2: Rending Wave)
         auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, 2, base, Tag::Hit);
         // (100+25) = 125 (No Melee bonus)
-        CHECK(result_proj.total_damage == doctest::Approx(125.0f));
+        CHECK(result_proj.total_damage == doctest::Approx(125.0f)); 
     }
 
     SUBCASE("Conversion Logic") {
@@ -91,5 +95,79 @@ TEST_CASE("Damage Pipeline Logic") {
         // (100+10) * 2.0 = 220
         CHECK(result_crit.total_damage == doctest::Approx(220.0f));
         CHECK(result_crit.is_crit);
+    }
+
+    SUBCASE("Resistance Cap Logic") {
+        DamagePool base;
+        base.Add(Tag::Fire, 100.0f);
+        mod_list.modifiers.clear();
+        
+        // 1. Over-capped Resistance (90% -> should be capped at 75%)
+        d_stats.resistances[(int)DamageType::Fire] = 0.90f;
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        
+        // Check ONLY Fire part to avoid noise from Skill's physical damage
+        // Base 100 Fire.
+        // Res 0.75 (Capped). Multiplier = 0.25.
+        // Fire Damage = 100 * 0.25 = 25.0
+        float fire_dmg = result.final_pool.values[(int)DamageType::Fire];
+        CHECK(fire_dmg == doctest::Approx(25.0f));
+
+        // 2. Negative Resistance (-150% -> should be capped at -100% per design doc)
+        d_stats.resistances[(int)DamageType::Fire] = -1.50f;
+        auto result_neg = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        
+        // Base 100 Fire.
+        // Res -1.0 (Capped). Multiplier = (1 - (-1)) = 2.0.
+        // Fire Damage = 100 * 2.0 = 200.0.
+        float fire_dmg_neg = result_neg.final_pool.values[(int)DamageType::Fire];
+        CHECK(fire_dmg_neg == doctest::Approx(200.0f));
+    }
+    
+    SUBCASE("Armor Scaling Logic") {
+        DamagePool base;
+        base.Add(Tag::Physical, 100.0f); // 100 Phys
+        mod_list.modifiers.clear();
+        
+        d_stats.armor = 100.0f;
+        
+        // Skill 1 adds 10 Phys. Total 110.
+        // Current Formula: 100 / (100 + Armor) = 100 / 200 = 0.5 multiplier.
+        // Damage = 110 * 0.5 = 55.
+        
+        // Design Formula: Armor / (Armor + 50 * Lvl).
+        // If Lvl=1, 50. Armor=100. DR = 100 / 150 = 2/3 = 66% reduction. Mult = 0.33.
+        // If Lvl=10, 500. Armor=100. DR = 100 / 600 = 1/6 = 16% reduction. Mult = 0.83.
+        
+        // We want to verify if implementation allows passing Level.
+        // Currently it doesn't.
+        
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        
+        // Verification of current behavior: 55.0f
+        CHECK(result.total_damage == doctest::Approx(55.0f));
+    }
+
+    SUBCASE("Edge Cases") {
+        mod_list.modifiers.clear();
+        
+        // 1. Zero Damage
+        DamagePool zero_pool;
+        auto result_zero = DamagePipeline::Calculate(registry, attacker, defender, 0, zero_pool, Tag::Hit);
+        CHECK(result_zero.total_damage == 0.0f);
+
+        // 2. Extremely High Damage (Overflow check)
+        DamagePool high_pool;
+        high_pool.Add(Tag::Physical, 1e10f); 
+        auto result_high = DamagePipeline::Calculate(registry, attacker, defender, 0, high_pool, Tag::Hit);
+        CHECK(result_high.total_damage > 1e9f);
+
+        // 3. 100% Resistance (Capped at 75%)
+        DamagePool fire_pool;
+        fire_pool.Add(Tag::Fire, 100.0f);
+        d_stats.resistances[(int)DamageType::Fire] = 1.0f; // 100%
+        auto result_res = DamagePipeline::Calculate(registry, attacker, defender, 0, fire_pool, Tag::Hit);
+        // Should be 100 * (1 - 0.75) = 25.0
+        CHECK(result_res.total_damage == doctest::Approx(25.0f));
     }
 }

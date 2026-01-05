@@ -682,6 +682,7 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
         for (const auto& mod : modifiers) {
             if (mod.type == type) {
                 bool tags_match = (mod.required_tags == Tag::None || HasTag(combined_query_tags, mod.required_tags));
+
                 if (tags_match) {
                     ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
                 } else {

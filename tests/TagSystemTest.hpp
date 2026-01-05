@@ -42,6 +42,14 @@ TEST_CASE("Tag Registry System") {
         CHECK(GetTagName(Tag::Physical | Tag::Fire) == "Unknown"); 
     }
 
+    SUBCASE("Value Verification") {
+        uint64_t meleeVal = static_cast<uint64_t>(Tag::Melee);
+        uint64_t projVal = static_cast<uint64_t>(Tag::Projectile);
+        
+        CHECK_MESSAGE(meleeVal == (1ULL << 16), "Melee Value: ", meleeVal);
+        CHECK_MESSAGE(projVal == (1ULL << 17), "Projectile Value: ", projVal);
+    }
+
     SUBCASE("Tag Categories") {
         // Verify values are distinct
         CHECK(Tag::Physical != Tag::Fire);
