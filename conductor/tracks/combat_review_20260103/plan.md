@@ -5,8 +5,8 @@ This plan outlines a comprehensive review and verification of the combat system'
 ## Phase 1: Preparation & Baseline Testing
 Set up the environment and ensure existing combat tests are stable.
 
-- [ ] Task: Audit existing combat-related test files (`CombatSystemTest.hpp`, `DamagePipelineTest.hpp`, `BuffComponentTest.hpp`) to identify coverage gaps based on recent skill/buff updates.
-- [ ] Task: Execute current combat test suite and document baseline results/failures.
+- [x] Task: Audit existing combat-related test files (`CombatSystemTest.hpp`, `DamagePipelineTest.hpp`, `BuffComponentTest.hpp`) to identify coverage gaps based on recent skill/buff updates.
+- [x] Task: Execute current combat test suite and document baseline results/failures.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Preparation & Baseline Testing' (Protocol in workflow.md)
 
 ## Phase 2: Damage Pipeline & Snapshotting Review
