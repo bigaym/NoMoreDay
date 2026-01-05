@@ -2,12 +2,12 @@
 
 This plan outlines a comprehensive review and verification of the combat system's logic, focusing on the damage pipeline, buff systems, and skill specializations via unit testing and static analysis.
 
-## Phase 1: Preparation & Baseline Testing
+## Phase 1: Preparation & Baseline Testing [checkpoint: 84c1e76]
 Set up the environment and ensure existing combat tests are stable.
 
 - [x] Task: Audit existing combat-related test files (`CombatSystemTest.hpp`, `DamagePipelineTest.hpp`, `BuffComponentTest.hpp`) to identify coverage gaps based on recent skill/buff updates.
 - [x] Task: Execute current combat test suite and document baseline results/failures.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Preparation & Baseline Testing' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Preparation & Baseline Testing' (Protocol in workflow.md)
 
 ## Phase 2: Damage Pipeline & Snapshotting Review
 Deep dive into the sequence of damage calculations and the accuracy of property snapshotting.
