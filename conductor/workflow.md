@@ -4,7 +4,7 @@
 
 1. **The Plan is the Source of Truth:** All work must be tracked in `plan.md`
 2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
-3. **Test-Driven Development:** Write unit tests before implementing functionality
+3. **Test-Informed Development:** Ensure functionality is covered by tests before the task group is considered done
 4. **High Code Coverage:** Aim for >80% code coverage for all modules
 5. **User Experience First:** Every decision should prioritize user experience
 6. **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
@@ -23,15 +23,15 @@ All tasks follow a strict lifecycle:
 
 4. **Build and Compile:** Run the project's build scripts (e.g., CMake). Resolve all compilation errors and warnings to ensure the game builds successfully.
 
-5. **Test Development & Resolution:**
-   - **Functional Tests:** Write tests to verify the correctness of the new logic.
-   - **Performance Tests:** Write tests to ensure the changes meet performance benchmarks (e.g., entity update timings).
-   - **Modular Organization:** Maintain test modules via dedicated header files to ensure clean separation and reusability.
-   - **Resolve Issues:** Fix any bugs or performance regressions identified during this testing phase.
+5. **Local Verification:** Perform basic manual checks or run existing relevant tests to ensure the current implementation is stable and doesn't crash.
 
-6. **Iterate:** Repeat steps 3 through 5 for the remaining tasks in the plan until all tasks are ready for completion.
+6. **Iterate:** Repeat steps 1 through 5 for a logical group of tasks (e.g., a sub-feature) before proceeding to formal testing.
 
-7. **Pre-commit Testing:** Before committing, run the entire test suite (functional and performance) one final time to ensure no regressions were introduced and all tests pass.
+7. **Consolidated Test Development & Verification:**
+   - **Write Tests:** Once the task group is implemented, write functional and performance tests for the new logic.
+   - **Run Relevant Tests:** Run the test suite related to the modified modules to ensure correctness.
+   - **Resolve Issues:** Fix any bugs or regressions identified.
+   - **Pre-commit Check:** Run a final verification of the current changes.
 
 8. **Commit and Push:**
    - Stage all code changes related to the task.

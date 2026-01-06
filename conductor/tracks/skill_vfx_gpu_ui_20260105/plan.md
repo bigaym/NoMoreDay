@@ -15,7 +15,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Monster Health Bars & Status UI' (Protocol in workflow.md)
 
 ## Phase 3: Skill Assignment UI (Drag-and-Drop & Context Menu)
-- [ ] Task: Update the Skill Panel (Key: 'S') to support draggable skill icons.
+- [~] Task: Update the Skill Panel (Key: 'S') to support draggable skill icons.
 - [ ] Task: Implement Drag-and-Drop handling between Skill Panel and Skill Bar.
 - [ ] Task: Implement Right-Click Context Menu on Skill Bar slots for quick skill selection (Last Epoch style).
 - [ ] Task: Write tests for skill assignment persistence and UI interaction events.
