@@ -7,8 +7,10 @@
 #include "DamagePipeline.hpp"
 #include "CombatSystem.hpp"
 #include "SkillSystem.hpp"
+#include "../components/AIComponent.hpp"
 #include "../tools/Logger.hpp"
 #include "raylib.h"
+#include "../utils/PhysicsUtils.hpp"
 
 namespace NoMoreDay {
 
@@ -28,6 +30,55 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
         auto& pos = view.get<Position>(entity);
         auto& vel = view.get<Velocity>(entity);
         auto& proj = view.get<Projectile>(entity);
+
+        // --- NEW: Boomerang Behavior ---
+        if (auto* bc = registry.try_get<BoomerangComponent>(entity)) {
+            if (bc->phase == BoomerangComponent::Outward) {
+                bc->returnTimer -= dt;
+                if (bc->returnTimer <= 0.0f) {
+                    bc->phase = BoomerangComponent::Returning;
+                }
+            } else {
+                // Returning phase: steer towards owner
+                if (registry.valid(bc->owner) && registry.all_of<Position>(bc->owner)) {
+                    const auto& ownerPos = registry.get<Position>(bc->owner);
+                    Vector2 p = {pos.x, pos.y};
+                    Vector2 op = {ownerPos.x, ownerPos.y};
+                    Vector2 toOwner = Vector2Subtract(op, p);
+                    float dist = Vector2Length(toOwner);
+                    
+                    if (dist < 20.0f) {
+                        // Back to owner, destroy projectile
+                        to_destroy.push_back(entity);
+                        continue;
+                    }
+                    
+                    Vector2 dir = Vector2Scale(Vector2Normalize(toOwner), proj.speed > 0.1f ? proj.speed : 800.0f); 
+                    vel.vx = dir.x;
+                    vel.vy = dir.y;
+                } else {
+                    // Owner dead? Continue flying outward
+                    bc->phase = BoomerangComponent::Outward; 
+                }
+            }
+        }
+
+        // --- NEW: Pull Logic ---
+        if (proj.hasPull) {
+            float pullRadius = proj.radius * 3.0f;
+            grid.query({pos.x, pos.y}, pullRadius, [&](entt::entity target) {
+                if (target == proj.owner || target == entity) return;
+                if (!registry.valid(target) || !registry.all_of<Velocity, Position>(target)) return;
+                if (!registry.any_of<EnemyTag>(target)) return; // Only pull enemies
+
+                auto& tPos = registry.get<Position>(target);
+                auto& tVel = registry.get<Velocity>(target);
+
+                Vector2 dir = Vector2Normalize(Vector2Subtract({pos.x, pos.y}, {tPos.x, tPos.y}));
+                tVel.vx += dir.x * proj.pullStrength * dt;
+                tVel.vy += dir.y * proj.pullStrength * dt;
+            });
+        }
 
         // 1. Position Sync (For skills like Flowing Thrust that should follow the owner)
         // If it's skill 1 (Flowing Thrust), stick to the owner
@@ -64,6 +115,9 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
 
         grid.query({pos.x, pos.y}, check_radius, [&](entt::entity target) {
             if (hit && !proj.pierce) return;
+            // Early exit if out of piercing power (optimized for loop)
+            if (proj.pierce && proj.pierceCount < 0) return;
+
             if (target == proj.owner) return;
             if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) return;
 
@@ -115,18 +169,36 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 float finalDamage = result.total_damage;
                 if (finalDamage <= 0.0f) finalDamage = 5.0f; // Minimum damage for prototype feedback
 
+                // Apply Damage
                 CombatSystem::ApplyDamage(registry, target, finalDamage, proj.owner, result.is_crit);
                 
+                // Apply Knockback
+                // Use snapshot knockback if available, default to 0
+                float knockbackForce = proj.snapshot.knockback;
+                if (knockbackForce > 0.0f) {
+                     Utils::ApplyKnockback(registry, target, {pos.x, pos.y}, knockbackForce);
+                }
+
                 // Trigger Skill Hit interactions
                 SkillSystem::OnSkillHit(registry, proj.owner, target, skill_id, hit_tags, result.is_crit);
 
-                LOG_DEBUG("Projectile {} hit {} for {:.1f} dmg", (uint32_t)entity, (uint32_t)target, finalDamage);
+                LOG_DEBUG("Projectile {} hit {} for {:.1f} dmg, knockback={:.1f}", (uint32_t)entity, (uint32_t)target, finalDamage, knockbackForce);
 
+                // --- Piercing Logic ---
+                // Rule: 
+                // If pierce=false: Always destroy on first hit.
+                // If pierce=true: Decrement pierceCount. If count becomes < 0, destroy.
                 if (!proj.pierce) {
                     hit = true;
-                } else if (proj.pierceCount > 0) {
+                } else {
+                    // pierceCount represents "Remaining Hits allowed after this one".
+                    // Actually, "Pierce Count" usually means "Extra targets".
+                    // If pierceCount = 1, it hits 1st target (count->0), then hits 2nd target (count->-1, destroy).
+                    // So pierceCount=1 means "Hits 2 targets total".
                     proj.pierceCount--;
-                    if (proj.pierceCount <= 0) hit = true;
+                    if (proj.pierceCount < 0) {
+                        hit = true;
+                    }
                 }
             }
         });

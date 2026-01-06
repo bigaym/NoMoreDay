@@ -9,6 +9,7 @@
 #include "../components/SkillSystem.hpp"
 #include "MovementStanceSystem.hpp"
 #include "SkillSystem.hpp"
+#include "../utils/PhysicsUtils.hpp"
 
 void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
     // LOG_TRACE("CombatSystem::update: 处理战斗逻辑");
@@ -165,13 +166,11 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                             }
                         }
                     
+
+
                     LOG_DEBUG("Hit confirmed on target {}", (uint32_t)target);
                     // Apply Knockback
-                    if (registry.all_of<Velocity>(target)) {
-                        auto& tVel = registry.get<Velocity>(target);
-                        tVel.vx += dirX * knockback;
-                        tVel.vy += dirY * knockback;
-                    }
+                   NoMoreDay::Utils::ApplyKnockback(registry, target, {pos.x, pos.y}, knockback);
 
                     // 计算最终伤害
                     float totalDamage = 0.0f;

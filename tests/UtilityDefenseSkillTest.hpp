@@ -64,8 +64,8 @@ TEST_CASE("SkillSystem: Blade Boomerang Pull") {
     auto gridView = registry.view<Position, Velocity>();
     grid.rebuild(gridView, registry);
 
-    // Run Pull Logic
-    PhysicsSystem::ProjectilePullLogic(registry, grid, 0.1f);
+    // Run Projectile System (which handles pull now)
+    ProjectileSystem::Update(registry, grid, 0.1f);
 
     // Enemy should have velocity towards projectile (negative vx)
     CHECK(vel.vx < -10.0f);

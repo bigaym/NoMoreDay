@@ -238,8 +238,8 @@ TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
 
         // 1. Melee Hit (Flowing Thrust ID 1 has Melee tag)
         auto result_melee = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
-        // Expect (100 base_pool + 15 skill_base?) * 1.5 = 172.5 (Actual runtime value)
-        CHECK(result_melee.total_damage == doctest::Approx(172.5f));
+        // Expect (100 base_pool + 10 skill_base) * 1.5 = 165.0
+        CHECK(result_melee.total_damage == doctest::Approx(165.0f));
 
         // 2. Projectile Hit (Rending Wave ID 2 has Projectile tag, NO Melee tag)
         auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, 2, base, Tag::Hit);
@@ -270,6 +270,7 @@ TEST_CASE("SkillSystem: Sword Intent") {
     auto player = registry.create();
     auto& intent = registry.emplace<SwordIntentComponent>(player);
     intent.decay_interval = 1.0f;
+    intent.grace_period = 0.1f; // Small grace period for testing decay
 
     SUBCASE("Accumulation") {
         SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee | Tag::Physical, false);
@@ -280,6 +281,7 @@ TEST_CASE("SkillSystem: Sword Intent") {
 
     SUBCASE("Decay") {
         intent.stacks = 5;
+        intent.time_since_last_gain = 0.2f; // Past grace period
         SkillSystem::Update(registry, grid, 0.5f);
         CHECK(intent.stacks == 5);
         SkillSystem::Update(registry, grid, 0.6f);

@@ -14,8 +14,6 @@ public:
     static void updatePosition(entt::entity entity, Position& pos, Velocity& vel, 
                              float dt, int worldWidth, int worldHeight);
 
-    static void ProjectilePullLogic(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, float dt);
-
     // Update all entities sequentially (fallback or simple usage)
     static void updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid);
 };

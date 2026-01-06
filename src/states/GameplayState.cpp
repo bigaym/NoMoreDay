@@ -433,9 +433,6 @@ namespace NoMoreDay {
     void GameplayState::UpdatePhysics(float dt) {
         auto& registry = *m_context->registry;
 
-        // 0. Projectile Pull (Pre-move)
-        PhysicsSystem::ProjectilePullLogic(registry, m_spatialGrid, dt);
-
         auto view = registry.view<Position, Velocity>();
         
         m_taskflow.clear();
