@@ -7,7 +7,7 @@
 - [x] Task: Write unit tests to verify Sword Intent calculations and skill-specific logic. (6930030)
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Skill System Logic & Sword Intent Depth' (Protocol in workflow.md)
 
-## Phase 2: Monster Health Bars & Status UI
+## Phase 2: Monster Health Bars & Status UI [checkpoint: 4b9310e]
 - [x] Task: Implement `MonsterHealthBarSystem` to render floating HP bars above enemies.
 - [x] Task: Integrate buff/debuff icon rendering above monster health bars.
 - [x] Task: Add "Sword Intent" stack display above the player's health bar.
