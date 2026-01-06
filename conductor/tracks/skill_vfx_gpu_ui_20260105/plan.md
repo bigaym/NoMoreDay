@@ -8,11 +8,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Skill System Logic & Sword Intent Depth' (Protocol in workflow.md)
 
 ## Phase 2: Monster Health Bars & Status UI
-- [ ] Task: Implement `MonsterHealthBarSystem` to render floating HP bars above enemies.
-- [ ] Task: Integrate buff/debuff icon rendering above monster health bars.
-- [ ] Task: Add "Sword Intent" stack display above the player's health bar.
-- [ ] Task: Write tests for health bar visibility and status icon synchronization.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Monster Health Bars & Status UI' (Protocol in workflow.md)
+- [x] Task: Implement `MonsterHealthBarSystem` to render floating HP bars above enemies.
+- [x] Task: Integrate buff/debuff icon rendering above monster health bars.
+- [x] Task: Add "Sword Intent" stack display above the player's health bar.
+- [x] Task: Write tests for health bar visibility and status icon synchronization.
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Monster Health Bars & Status UI' (Protocol in workflow.md)
 
 ## Phase 3: Skill Assignment UI (Drag-and-Drop & Context Menu)
 - [ ] Task: Update the Skill Panel (Key: 'S') to support draggable skill icons.

@@ -33,19 +33,8 @@
 #include "../systems/FogOfWarSystem.hpp"
 #include "../systems/RegenerationSystem.hpp"
 #include "../systems/PortalSystem.hpp"
-#include "../core/SceneManager.hpp"
-
-#include "../components/AIComponent.hpp"
-
-// Components
-#include "../components/Common.hpp"
-#include "../components/PlayerState.hpp"
-#include "../components/InventoryComponent.hpp"
-#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
-#include "../components/Progression.hpp" // For AstrolabeComponent
-#include "../components/Stats.hpp"
-#include "../utils/UUID.hpp"
-#include "../tools/Logger.hpp"
+#include "../systems/MonsterHealthBarSystem.hpp"
+#include "../systems/PlayerHUD.hpp"
 
 namespace NoMoreDay {
 
@@ -512,6 +501,9 @@ namespace NoMoreDay {
             // Entities
             RenderSystem::render(registry);
             
+            // Monster Health Bars
+            systems::MonsterHealthBarSystem::Render(registry, m_camera);
+            
             // Fog
             m_context->levelManager->getFogSystem().renderFog();
         EndMode2D();
@@ -579,6 +571,9 @@ namespace NoMoreDay {
         // I can leave `UISystem::Draw` to handle "Gameplay UI".
         
         UISystem::Draw(registry, *m_context->levelManager, m_camera);
+        
+        // Player HUD (Resource Bars)
+        systems::PlayerHUD::Draw(registry);
         
         // Scene Transition Overlay
         if (m_context->sceneManager) {

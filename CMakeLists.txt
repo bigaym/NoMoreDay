@@ -77,6 +77,8 @@ add_library(NoMoreDayCore STATIC
     src/systems/CraftingSystem.cpp
     src/systems/AISystem.cpp
     src/systems/MapSystem.cpp
+    src/systems/MonsterHealthBarSystem.cpp
+    src/systems/PlayerHUD.cpp
     src/systems/MovementStanceSystem.cpp
     src/systems/EnemySpawnSystem.cpp
     src/systems/FogOfWarSystem.cpp
