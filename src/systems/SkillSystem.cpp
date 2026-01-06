@@ -138,7 +138,7 @@ void SkillSystem::InitHooks() {
         proj.owner = owner;
         proj.speed = speed;
         proj.lifeTime = 0.25f; 
-        proj.radius = 45.0f;   
+        proj.radius = exec.is_empowered ? 70.0f : 45.0f; // Increased radius when empowered
         proj.pierce = true;
         proj.pierceCount = forcePierce ? 999 : 99; 
         
@@ -148,7 +148,7 @@ void SkillSystem::InitHooks() {
 
             if (exec.is_empowered) {
                 for (auto& mult : proj.snapshot.damage_multipliers) mult *= 1.5f;
-                LOG_INFO("Empowered Flowing Thrust spawned with 1.5x damage");
+                LOG_INFO("Empowered Flowing Thrust spawned with 1.5x damage and larger radius");
             }
             registry.emplace<CombatStats>(proj_ent, proj.snapshot);
         }
@@ -230,7 +230,7 @@ void SkillSystem::InitHooks() {
             proj.owner = owner;
             proj.speed = 600.0f;
             proj.lifeTime = boomerang ? 2.0f : 1.2f;
-            proj.radius = 35.0f; 
+            proj.radius = exec.is_empowered ? 60.0f : 35.0f; // Larger waves when empowered
             proj.pierce = true;
             proj.pierceCount = 99; 
             proj.snapshot = *stats;
@@ -289,6 +289,13 @@ void SkillSystem::InitHooks() {
         formation.current_swords = formation.max_swords; // For now, simple activation
         formation.attack_interval = 1.0f / (1.0f + freqInc);
         formation.search_radius = 200.0f * (1.0f + searchInc);
+
+        if (exec.is_empowered) {
+            formation.max_swords += 2;
+            formation.current_swords = formation.max_swords;
+            formation.attack_interval *= 0.5f; // Double attack speed
+            LOG_INFO("Empowered Blade Formation: +2 Max swords and 2x attack speed!");
+        }
         
         LOG_INFO("Blade Formation activated: {} swords for entity {}", formation.max_swords, (uint32_t)owner);
     });
@@ -304,6 +311,12 @@ void SkillSystem::InitHooks() {
         array.owner = owner;
         array.duration = 5.0f;
         array.radius = 150.0f;
+
+        if (exec.is_empowered) {
+            array.radius *= 1.5f;
+            array.damage_interval *= 0.6f; // Faster pulse frequency
+            LOG_INFO("Empowered Sword Array: 1.5x Radius and faster damage pulses!");
+        }
         
         // Talent scaling
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
@@ -377,6 +390,12 @@ void SkillSystem::InitHooks() {
         auto& ward = registry.emplace_or_replace<BladeWardComponent>(owner);
         ward.remaining = 10.0f;
         ward.sword_count = 3;
+
+        if (exec.is_empowered) {
+            ward.sword_count += 3;
+            ward.interception_chance *= 2.0f; // Significantly higher interception
+            LOG_INFO("Empowered Blade Ward: +3 swords and 2x interception chance!");
+        }
         
         registry.get_or_emplace<StatsDirty>(owner);
         LOG_INFO("Blade Ward activated for entity {}", (uint32_t)owner);
@@ -429,6 +448,13 @@ void SkillSystem::InitHooks() {
         proj.snapshot = *stats;
         proj.hasPull = hasPull;
         proj.pullStrength = pullStrength;
+
+        if (exec.is_empowered) {
+            proj.radius *= 1.5f;
+            proj.pullStrength += 300.0f;
+            proj.hasPull = true; // Empowered version always has pull
+            LOG_INFO("Empowered Blade Boomerang: 1.5x Radius and stronger pull!");
+        }
 
         registry.emplace<CombatStats>(proj_ent, proj.snapshot);
         registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);

@@ -2,7 +2,7 @@
 
 ## Phase 1: Skill System Logic & Sword Intent Depth
 - [x] Task: Refactor Sword Intent mechanics in `SkillSystem.cpp` to include more robust triggers and decay rules. (ff9ad70)
-- [ ] Task: Implement advanced "Empowered" behaviors for core skills (e.g., increased radius, extra projectiles, or unique mechanics).
+- [x] Task: Implement advanced "Empowered" behaviors for core skills (e.g., increased radius, extra projectiles, or unique mechanics). (43a1b02)
 - [ ] Task: Improve physical interaction logic (knockback consistency and piercing rules).
 - [ ] Task: Write unit tests to verify Sword Intent calculations and skill-specific logic.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Skill System Logic & Sword Intent Depth' (Protocol in workflow.md)

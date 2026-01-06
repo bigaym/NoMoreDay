@@ -147,3 +147,67 @@ TEST_CASE("Sword Intent: Mechanics") {
         CHECK(intent.stacks == 6);
     }
 }
+
+TEST_CASE("Sword Intent: Advanced Empowered Behaviors") {
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    SkillSystem::InitHooks();
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    auto player = registry.create();
+    auto& active = registry.emplace<ActiveSkillsComponent>(player);
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player);
+    auto& intent = registry.emplace<SwordIntentComponent>(player);
+    intent.stacks = 10; // Ready for empowerment
+
+    SUBCASE("Flowing Thrust (ID 1) Radius") {
+        active.slots[0].id = 1;
+        active.slots[0].current_charges = 1;
+        SkillSystem::TryCast(registry, player, 0);
+        SkillSystem::Update(registry, grid, 0.11f); // Trigger effect
+
+        auto proj_view = registry.view<Projectile>();
+        REQUIRE(!proj_view.empty());
+        auto& proj = proj_view.get<Projectile>(proj_view.front());
+        CHECK(proj.radius == 70.0f); // Empowered radius
+    }
+
+    SUBCASE("Rending Wave (ID 2) Scaling") {
+        active.slots[0].id = 2;
+        active.slots[0].current_charges = 1;
+        SkillSystem::TryCast(registry, player, 0);
+        SkillSystem::Update(registry, grid, 0.11f);
+
+        auto proj_view = registry.view<Projectile>();
+        REQUIRE(!proj_view.empty());
+        int count = 0;
+        for (auto ent : proj_view) {
+            auto& proj = proj_view.get<Projectile>(ent);
+            CHECK(proj.radius == 60.0f);
+            count++;
+        }
+        CHECK(count >= 2); // Should have at least 2 waves (doubled)
+    }
+
+    SUBCASE("Blade Formation (ID 3) Haste") {
+        active.slots[0].id = 3;
+        active.slots[0].current_charges = 1;
+        SkillSystem::TryCast(registry, player, 0);
+        SkillSystem::Update(registry, grid, 0.11f);
+
+        auto& formation = registry.get<BladeFormationComponent>(player);
+        CHECK(formation.max_swords > 1);
+        CHECK(formation.attack_interval < 1.0f);
+    }
+
+    SUBCASE("Blade Ward (ID 4) Extra Swords") {
+        active.slots[0].id = 4;
+        active.slots[0].current_charges = 1;
+        SkillSystem::TryCast(registry, player, 0);
+        SkillSystem::Update(registry, grid, 0.11f);
+
+        auto& ward = registry.get<BladeWardComponent>(player);
+        CHECK(ward.sword_count == 6); // 3 base + 3 empowered
+    }
+}
