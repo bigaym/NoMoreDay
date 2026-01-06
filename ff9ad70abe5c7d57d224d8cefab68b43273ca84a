@@ -1,0 +1,6 @@
+Task: Refactor Sword Intent mechanics
+Changes:
+- Added grace_period and decay logic to SwordIntentComponent.
+- Implemented OnSkillHit crit trigger.
+- Added tests in SwordIntentTest.hpp.
+Why: Improve resource management mechanics.
