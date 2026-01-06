@@ -1,7 +1,7 @@
 # Plan: Skill System Optimization, UI Polish, and GPU VFX
 
 ## Phase 1: Skill System Logic & Sword Intent Depth
-- [x] Task: Refactor Sword Intent mechanics in `SkillSystem.cpp` to include more robust triggers and decay rules.
+- [x] Task: Refactor Sword Intent mechanics in `SkillSystem.cpp` to include more robust triggers and decay rules. (ff9ad70)
 - [ ] Task: Implement advanced "Empowered" behaviors for core skills (e.g., increased radius, extra projectiles, or unique mechanics).
 - [ ] Task: Improve physical interaction logic (knockback consistency and piercing rules).
 - [ ] Task: Write unit tests to verify Sword Intent calculations and skill-specific logic.
