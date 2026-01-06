@@ -76,3 +76,74 @@ TEST_CASE("Sword Intent: Empowered Logic") {
         CHECK(found);
     }
 }
+
+TEST_CASE("Sword Intent: Mechanics") {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+    auto player = registry.create();
+    auto& intent = registry.emplace<SwordIntentComponent>(player);
+    
+    // Setup decay params
+    intent.grace_period = 2.0f;
+    intent.decay_interval = 0.5f;
+
+    SUBCASE("Gain Logic: Crit") {
+        intent.stacks = 0;
+        // Basic Hit (No Crit)
+        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee, false);
+        CHECK(intent.stacks == 1); // Melee gives 1
+
+        // Crit Hit (Non-Melee)
+        SkillSystem::OnSkillHit(registry, player, entt::null, 2, Tag::Projectile, true);
+        CHECK(intent.stacks == 2); // Crit gives 1
+        
+        // Non-Crit Non-Melee
+        SkillSystem::OnSkillHit(registry, player, entt::null, 2, Tag::Projectile, false);
+        CHECK(intent.stacks == 2); // No change
+    }
+
+    SUBCASE("Decay Logic: Grace Period") {
+        intent.stacks = 5;
+        intent.time_since_last_gain = 0.0f;
+        
+        // Step 1: 1.5s
+        SkillSystem::UpdateSwordIntent(registry, 1.5f);
+        CHECK(intent.stacks == 5); // Time 1.5 < 2.0
+        
+        // Step 2: +0.6s (Total 2.1s)
+        // Inside Update: time becomes 2.1. >= 2.0.
+        // tick becomes 0 + 0.6 = 0.6.
+        // 0.6 >= 0.5 -> Decay!
+        SkillSystem::UpdateSwordIntent(registry, 0.6f);
+        CHECK(intent.stacks == 4);
+    }
+
+    SUBCASE("Decay Logic: Rapid Decay") {
+        intent.stacks = 5;
+        intent.time_since_last_gain = 3.0f; // Already past grace
+        intent.decay_tick_timer = 0.0f;
+
+        // Step 0.6s (Interval is 0.5s)
+        SkillSystem::UpdateSwordIntent(registry, 0.6f);
+        CHECK(intent.stacks == 4);
+        CHECK(intent.decay_tick_timer == 0.0f); // Reset after decay
+
+        // Step 0.6s again
+        SkillSystem::UpdateSwordIntent(registry, 0.6f);
+        CHECK(intent.stacks == 3);
+    }
+    
+    SUBCASE("Reset on Gain") {
+        intent.stacks = 5;
+        intent.time_since_last_gain = 3.0f;
+        
+        // Gain stack
+        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee, false);
+        CHECK(intent.stacks == 6);
+        CHECK(intent.time_since_last_gain == 0.0f);
+        
+        // Should be safe from decay for another grace period
+        SkillSystem::UpdateSwordIntent(registry, 1.0f);
+        CHECK(intent.stacks == 6);
+    }
+}

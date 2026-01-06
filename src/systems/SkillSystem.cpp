@@ -697,21 +697,34 @@ void SkillSystem::UpdateSwordIntent(entt::registry& registry, float dt) {
     for (auto entity : view) {
         auto& intent = view.get<SwordIntentComponent>(entity);
         if (intent.stacks > 0) {
-            intent.decay_timer += dt;
-            if (intent.decay_timer >= intent.decay_interval) {
-                intent.stacks--;
-                intent.decay_timer = 0.0f;
-                LOG_DEBUG("Entity {} Sword Intent decayed to {}", (uint32_t)entity, intent.stacks);
+            intent.time_since_last_gain += dt;
+
+            if (intent.time_since_last_gain >= intent.grace_period) {
+                intent.decay_tick_timer += dt;
+                if (intent.decay_tick_timer >= intent.decay_interval) {
+                    intent.stacks--;
+                    intent.decay_tick_timer = 0.0f;
+                    LOG_DEBUG("Entity {} Sword Intent decayed to {} (Grace period expired)", (uint32_t)entity, intent.stacks);
+                }
+            } else {
+                intent.decay_tick_timer = 0.0f;
             }
         } else {
-            intent.decay_timer = 0.0f;
+            intent.time_since_last_gain = 0.0f;
+            intent.decay_tick_timer = 0.0f;
         }
     }
 }
 
-void SkillSystem::OnSkillHit(entt::registry& registry, entt::entity attacker, entt::entity target, uint32_t skill_id, Tag hit_tags) {
+void SkillSystem::OnSkillHit(entt::registry& registry, entt::entity attacker, entt::entity target, uint32_t skill_id, Tag hit_tags, bool is_crit) {
     if (auto* intent = registry.try_get<SwordIntentComponent>(attacker)) {
         bool gainIntent = HasTag(hit_tags, Tag::Melee);
+        
+        // Critical hits always generate Intent (for Sword skills)
+        if (is_crit && (skill_id != 0)) { // Assuming basic attacks (skill 0) might count? Or just mapped skills?
+             // Let's assume any critical hit from a skill generates intent for a Blade Ascendant
+             gainIntent = true;
+        }
         
         // Talent: Rending Wave Intent Scaling (ID 230)
         if (skill_id == 2) {
@@ -742,7 +755,8 @@ void SkillSystem::OnSkillHit(entt::registry& registry, entt::entity attacker, en
                 intent->stacks++;
                 LOG_DEBUG("Entity {} Sword Intent increased to {}", (uint32_t)attacker, intent->stacks);
             }
-            intent->decay_timer = 0.0f; 
+            intent->time_since_last_gain = 0.0f; 
+            intent->decay_tick_timer = 0.0f;
         }
     }
 

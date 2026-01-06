@@ -293,8 +293,10 @@ struct AnimationStateComponent {
 struct SwordIntentComponent {
     int stacks = 0;
     int max_stacks = 10;
-    float decay_timer = 0.0f;
-    float decay_interval = 2.0f; // Start decaying after 2s of no gain
+    float time_since_last_gain = 0.0f; // Track time since last stack gain
+    float grace_period = 5.0f;         // How long before decay starts
+    float decay_tick_timer = 0.0f;     // Timer for individual decay ticks
+    float decay_interval = 0.5f;       // How fast it decays (1 stack per 0.5s)
 };
 
 /**

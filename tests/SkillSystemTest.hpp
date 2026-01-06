@@ -272,9 +272,9 @@ TEST_CASE("SkillSystem: Sword Intent") {
     intent.decay_interval = 1.0f;
 
     SUBCASE("Accumulation") {
-        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee | Tag::Physical);
+        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee | Tag::Physical, false);
         CHECK(intent.stacks == 1);
-        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee | Tag::Physical);
+        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee | Tag::Physical, false);
         CHECK(intent.stacks == 2);
     }
 
@@ -312,7 +312,7 @@ TEST_CASE("SkillSystem: Mana on Hit") {
     stats.mana_on_hit = 5.0f;
 
     SUBCASE("Basic Restore") {
-        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Hit | Tag::Melee);
+        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Hit | Tag::Melee, false);
         CHECK(stats.mana == 15.0f);
     }
 }

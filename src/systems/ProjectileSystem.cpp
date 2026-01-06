@@ -118,7 +118,7 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 CombatSystem::ApplyDamage(registry, target, finalDamage, proj.owner, result.is_crit);
                 
                 // Trigger Skill Hit interactions
-                SkillSystem::OnSkillHit(registry, proj.owner, target, skill_id, hit_tags);
+                SkillSystem::OnSkillHit(registry, proj.owner, target, skill_id, hit_tags, result.is_crit);
 
                 LOG_DEBUG("Projectile {} hit {} for {:.1f} dmg", (uint32_t)entity, (uint32_t)target, finalDamage);
 
