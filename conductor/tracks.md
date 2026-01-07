@@ -101,4 +101,32 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## [~] Track: Stability & Test Suite Repair
 
+
+
+
+
+
+
 *Link: [./conductor/tracks/stability_repair_20260107/](./conductor/tracks/stability_repair_20260107/)*
+
+
+
+
+
+
+
+---
+
+
+
+
+
+
+
+## [ ] Track: GPU 流场寻路集成
+
+
+
+*Link: [./conductor/tracks/flow_field_pathing_20260108/](./conductor/tracks/flow_field_pathing_20260108/)*
+
+
