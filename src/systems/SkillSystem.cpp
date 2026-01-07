@@ -769,17 +769,23 @@ void SkillSystem::UpdateSwordIntent(entt::registry& registry, float dt) {
 
             if (intent.time_since_last_gain >= intent.grace_period) {
                 intent.decay_tick_timer += dt;
-                if (intent.decay_tick_timer >= intent.decay_interval) {
-                    intent.stacks--;
-                    intent.decay_tick_timer = 0.0f;
-                    LOG_DEBUG("Entity {} Sword Intent decayed to {} (Grace period expired)", (uint32_t)entity, intent.stacks);
+                while (intent.decay_tick_timer >= intent.decay_interval) {
+                    if (intent.stacks > 0) {
+                        intent.stacks--;
+                        LOG_DEBUG("Entity {} Sword Intent decayed to {} (Grace period expired)", (uint32_t)entity, intent.stacks);
+                    }
+                    intent.decay_tick_timer -= intent.decay_interval;
+                    if (intent.stacks <= 0) {
+                        intent.decay_tick_timer = 0.0f;
+                        break;
+                    }
                 }
             } else {
                 intent.decay_tick_timer = 0.0f;
             }
 
-            // Visuals
-            if (registry.all_of<Position>(entity)) {
+            // Visuals (Only if window is ready to avoid RNG pollution in headless tests)
+            if (IsWindowReady() && registry.all_of<Position>(entity)) {
                 const auto& pos = registry.get<Position>(entity);
                 if (GetRandomValue(0, 100) < intent.stacks * 3) {
                     components::GPUParticle p;

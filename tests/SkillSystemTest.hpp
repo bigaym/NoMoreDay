@@ -261,6 +261,28 @@ TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
         CHECK(result.final_pool.Get(Tag::Fire) == 220.0f);
         CHECK(result.final_pool.Get(Tag::Physical) == 0.0f);
     }
+
+    SUBCASE("Conversion Inheritance") {
+        auto& global = registry.emplace<GlobalModifierComponent>(attacker);
+        // Convert 100% Physical to Fire
+        global.modifiers.push_back({Tag::Physical, Tag::Fire, 1.0f, ModifierType::Convert});
+
+        // Add +50% Physical Damage (Should apply to the converted Fire damage because it was Physical)
+        auto& list = registry.emplace<ModifierList>(attacker);
+        list.modifiers.push_back({StatType::PhysicalDamage, ModifierMode::PercentAdd, 50.0f});
+
+        // Skill 1 (Flowing Thrust) has Physical base.
+        // Base Pool has 100 Physical.
+        // Skill Base 10 Physical.
+        // Total Base 110 Physical.
+        // Converted to 110 Fire.
+        // Multiplier: 1.5.
+        // Result: 110 * 1.5 = 165.
+
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        CHECK(result.total_damage == doctest::Approx(165.0f));
+        CHECK(result.final_pool.Get(Tag::Fire) == 165.0f);
+    }
 }
 
 TEST_CASE("SkillSystem: Sword Intent") {
@@ -287,6 +309,29 @@ TEST_CASE("SkillSystem: Sword Intent") {
         SkillSystem::Update(registry, grid, 0.6f);
         CHECK(intent.stacks == 4);
         SkillSystem::Update(registry, grid, 0.4f);
+        CHECK(intent.stacks == 4);
+    }
+
+    SUBCASE("Decay Robustness") {
+        // Test decay with large dt (simulation catch-up)
+        intent.stacks = 10;
+        intent.time_since_last_gain = 0.2f; // Past grace period (0.1f)
+        intent.decay_interval = 1.0f;
+
+        // Jump 5.5 seconds.
+        // Should decay 5 times (at 1.0, 2.0, 3.0, 4.0, 5.0 accumulated time)
+        // time_since_last_gain starts at 0.2.
+        // +5.5s -> 5.7s.
+        // 5.5s elapsed.
+        // decay_tick_timer starts at 0.0.
+        // +5.5s -> 5.5s.
+        // 5.5 / 1.0 = 5 decays. Remainder 0.5.
+        
+        SkillSystem::Update(registry, grid, 5.5f);
+        CHECK(intent.stacks == 5);
+        
+        // Another 0.6s -> Total 6.1s. Total decays should be 6.
+        SkillSystem::Update(registry, grid, 0.6f);
         CHECK(intent.stacks == 4);
     }
 }

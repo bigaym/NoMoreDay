@@ -186,6 +186,24 @@ static void ApplyAffix(std::array<StatCalculation, static_cast<size_t>(StatType:
     }
 }
 
+// Helper: Check if StatType is a damage scaling stat
+static bool IsDamageStat(StatType type) {
+    return type >= StatType::PhysicalDamage && type <= StatType::ShadowDamage;
+}
+
+// Helper: Get Tag for Damage Stat
+static Tag GetTagFromDamageStat(StatType type) {
+    switch(type) {
+        case StatType::PhysicalDamage: return Tag::Physical;
+        case StatType::FireDamage: return Tag::Fire;
+        case StatType::ColdDamage: return Tag::Cold;
+        case StatType::LightningDamage: return Tag::Lightning;
+        case StatType::PoisonDamage: return Tag::Poison;
+        case StatType::ShadowDamage: return Tag::Shadow;
+        default: return Tag::None;
+    }
+}
+
 void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     if (!registry.all_of<CombatStats>(entity)) return;
 
@@ -681,13 +699,22 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
     // 2. 累加动态标签修饰符
     auto apply_if_tags_match = [&](const std::vector<StatModifier>& modifiers, float scale = 1.0f) {
         for (const auto& mod : modifiers) {
-            if (mod.type == type) {
+            bool type_match = (mod.type == type);
+
+            // Conversion Inheritance: If querying a Damage Stat, also apply modifiers for
+            // other Damage Types if the source tags contain that type.
+            if (!type_match && IsDamageStat(type) && IsDamageStat(mod.type)) {
+                Tag mod_tag = GetTagFromDamageStat(mod.type);
+                if (mod_tag != Tag::None && HasTag(combined_query_tags, mod_tag)) {
+                    type_match = true;
+                }
+            }
+
+            if (type_match) {
                 bool tags_match = (mod.required_tags == Tag::None || HasTag(combined_query_tags, mod.required_tags));
 
                 if (tags_match) {
                     ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
-                } else {
-                    LOG_DEBUG("GetStatWithTags: Tags mismatch for stat {}. Required: {}, Have: {}", (int)type, (uint64_t)mod.required_tags, (uint64_t)combined_query_tags);
                 }
             }
         }
