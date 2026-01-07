@@ -9,7 +9,7 @@
     - *Note: Fixed decay logic to handle large dt and guarded visuals with `IsWindowReady()`.*
 - [x] Task: Write regression tests in `SkillSystemTest.hpp` to verify the fix and prevent future regressions.
     - *Note: Added `Conversion Inheritance` and `Decay Robustness` test cases.*
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Skill System Logic & Sword Intent Stability' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Skill System Logic & Sword Intent Stability' (Protocol in workflow.md) [checkpoint: 91eafa9]
 
 ## Phase 2: Headless Test Stability & Biome Registry
 - [ ] Task: Investigate `BiomeRegistryTest` segmentation fault in headless mode.
