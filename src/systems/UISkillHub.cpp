@@ -67,9 +67,38 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
         // Handle Click (Unassign or Open Tree)
         if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
             DrawRectangleRec(slotRect, Fade(WHITE, 0.2f * alpha));
+
+            // Drop logic
+            if (state.isDraggingSkill && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                if (state.draggedSkillId == skillId && skillId != 0) {
+                    // Clicked on existing skill -> Enter Talent Tree
+                    state.selectedSkillId = skillId;
+                } else {
+                    // Check if this skill is already specialized elsewhere
+                    bool alreadyInOtherSlot = false;
+                    for (int j = 0; j < 5; ++j) {
+                        if (active->specialized_slots[j].skill_id == state.draggedSkillId) {
+                            alreadyInOtherSlot = true;
+                            break;
+                        }
+                    }
+
+                    if (!alreadyInOtherSlot) {
+                        active->specialized_slots[i].skill_id = state.draggedSkillId;
+                        active->specialized_slots[i].allocated_points.clear();
+                        LOG_INFO("Assigned skill {} to specialized slot {}", state.draggedSkillId, i);
+                    } else {
+                        LOG_INFO("Skill {} already specialized", state.draggedSkillId);
+                    }
+                }
+                state.isDraggingSkill = false;
+                state.draggedSkillId = 0;
+            }
+
             if (skillId != 0) {
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                    state.selectedSkillId = skillId; // Enter Talent Tree view
+                    state.draggedSkillId = skillId;
+                    state.isDraggingSkill = true;
                 }
                 if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
                     active->specialized_slots[i].skill_id = 0;
@@ -135,6 +164,16 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             // Force draw tooltip immediately
             UIRenderer::DrawSkillTooltip(state.globalFont, registry, id, alpha, true); 
 
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                state.draggedSkillId = id;
+                state.isDraggingSkill = true;
+                LOG_INFO("Started dragging skill {}", id);
+            }
+
+            // Keep the old click-to-assign-first-empty logic as a backup/shortcut?
+            // Or remove it if we want pure drag and drop. 
+            // The spec says "Allow players to drag skills", so let's support both for now.
+            /*
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !isSpecialized) {
                 // Find first empty slot
                 for (auto& s : active->specialized_slots) {
@@ -146,6 +185,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                     }
                 }
             }
+            */
         }
 
         col++;

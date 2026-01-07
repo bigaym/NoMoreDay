@@ -52,7 +52,7 @@ TEST_CASE("Buff System Benchmark - 10,000 Entities") {
     for (int i = 0; i < entityCount; ++i) {
         auto entity = registry.create();
         registry.emplace<CombatStats>(entity);
-        registry.emplace<PrimaryStats>(entity, 10, 10, 10, 10);
+        registry.emplace<PrimaryStats>(entity, 10.0f, 10.0f, 10.0f, 10.0f);
         
         auto& effects = registry.emplace<ActiveEffectsComponent>(entity);
         for (int j = 0; j < 5; ++j) {

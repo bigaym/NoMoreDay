@@ -630,7 +630,84 @@ namespace NoMoreDay {
     }
 
     void UIRenderer::DrawContextMenu(const Font& font, UIContext& uiContext, entt::registry& registry, float alpha) {
-        if (!uiContext.showContextMenu || !registry.valid(uiContext.contextMenuItem)) {
+        if (!uiContext.showContextMenu) return;
+
+        if (uiContext.isSkillContext) {
+            // Draw Skill Selection Menu
+            const auto& allSkills = SkillRegistry::Get().GetAllSkills();
+            std::vector<uint32_t> availableSkills;
+            for (const auto& [id, skill] : allSkills) {
+                if (id != 0) availableSkills.push_back(id);
+            }
+
+            float w = 220.0f;
+            float btnH = 40.0f;
+            float h = availableSkills.size() * btnH + 20.0f;
+
+            float sx = uiContext.contextMenuPos.x;
+            float sy = uiContext.contextMenuPos.y;
+            float sw = w * s_uiScale;
+            float sh = std::min(h * s_uiScale, (float)GetScreenHeight() * 0.8f); // Limit height
+            float sBtnH = btnH * s_uiScale;
+
+            if (sx + sw > (float)GetScreenWidth()) sx -= sw;
+            if (sy + sh > (float)GetScreenHeight()) sy -= sh;
+
+            DrawRectangle(sx, sy, sw, sh, Fade(s_theme.panelBackground, 0.98f * alpha));
+            DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, Fade(s_theme.panelBorder, alpha));
+            DrawLineEx({sx, sy}, {sx + sw, sy}, 2.0f * s_uiScale, Fade(GOLD, alpha));
+
+            float curSY = sy + 10.0f * s_uiScale;
+            
+            // Simple Scissor for scrolling if needed, but let's keep it simple first
+            for (uint32_t skillId : availableSkills) {
+                const auto* skill = SkillRegistry::Get().GetSkill(skillId);
+                if (!skill) continue;
+
+                Rectangle r = {sx + 5.0f * s_uiScale, curSY, sw - 10.0f * s_uiScale, sBtnH};
+                bool hovered = CheckCollisionPointRec(GetMousePosition(), r);
+                
+                if (hovered) {
+                    DrawRectangleRec(r, Fade(s_theme.buttonHover, 0.5f * alpha));
+                }
+
+                // Draw Icon
+                float iconSize = 32.0f * s_uiScale;
+                if (skill->icon_id != 0) {
+                    Texture2D icon = AssetLoadingSystem::GetTexture(skill->icon_id);
+                    DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, 
+                                   {sx + 10.0f * s_uiScale, curSY + (sBtnH - iconSize) / 2.0f, iconSize, iconSize}, 
+                                   {0, 0}, 0.0f, Fade(WHITE, alpha));
+                }
+
+                DrawTextUI(font, skill->name_key.c_str(), (sx + 15.0f * s_uiScale + iconSize) / s_uiScale, (curSY + (sBtnH - 18.0f * s_uiScale) / 2.0f) / s_uiScale, 18, WHITE, alpha);
+
+                if (hovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                    // Assign skill to hotbar
+                    auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
+                    if (view.begin() != view.end()) {
+                        auto& active = view.get<ActiveSkillsComponent>(view.front());
+                        if (uiContext.contextSourceSkillSlot >= 0 && uiContext.contextSourceSkillSlot < 5) {
+                            active.slots[uiContext.contextSourceSkillSlot].id = skillId;
+                            LOG_INFO("Assigned skill {} to hotbar slot {} via context menu", skillId, uiContext.contextSourceSkillSlot);
+                        }
+                    }
+                    uiContext.showContextMenu = false;
+                    uiContext.isSkillContext = false;
+                }
+
+                curSY += sBtnH;
+                if (curSY + sBtnH > sy + sh) break; // Simple culling
+            }
+
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !CheckCollisionPointRec(GetMousePosition(), {sx, sy, sw, sh})) {
+                uiContext.showContextMenu = false;
+                uiContext.isSkillContext = false;
+            }
+            return;
+        }
+
+        if (!registry.valid(uiContext.contextMenuItem)) {
             uiContext.showContextMenu = false;
             return;
         }

@@ -479,6 +479,25 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
             State.draggedItem = entt::null; 
         }
     }
+
+    if (State.isDraggingSkill && State.draggedSkillId != 0) {
+        Vector2 mPos = GetMousePositionLogic();
+        float size = 48.0f;
+        const auto* skill = SkillRegistry::Get().GetSkill(State.draggedSkillId);
+        if (skill && skill->icon_id != 0) {
+            Texture2D icon = AssetLoadingSystem::GetTexture(skill->icon_id);
+            DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, 
+                           {mPos.x - size*0.5f, mPos.y - size*0.5f, size, size}, 
+                           {0, 0}, 0.0f, Fade(WHITE, 0.7f));
+        } else {
+            DrawRectangleRec({mPos.x - size*0.5f, mPos.y - size*0.5f, size, size}, Fade(BLUE, 0.5f));
+        }
+
+        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            State.isDraggingSkill = false;
+            State.draggedSkillId = 0;
+        }
+    }
 }
 
 // --- Delegate to UIRenderer ---
@@ -576,6 +595,28 @@ void UISystem::DrawSkillHotbar(entt::registry& registry) {
         if (isHovered) {
             State.hoveredSkillSlot = i;
             State.isMouseOverUI = true;
+
+            // Drop logic
+            if (State.isDraggingSkill && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                // ... (existing drop logic)
+                auto* activePtr = registry.try_get<ActiveSkillsComponent>(player);
+                if (activePtr) {
+                    activePtr->slots[i].id = State.draggedSkillId;
+                    LOG_INFO("Assigned skill {} to hotbar slot {}", State.draggedSkillId, i);
+                }
+                State.isDraggingSkill = false;
+                State.draggedSkillId = 0;
+            }
+
+            // Right-click context menu
+            if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+                State.showContextMenu = true;
+                State.contextMenuPos = GetMousePosition();
+                State.isSkillContext = true;
+                State.contextSourceSkillSlot = i;
+                State.isContextFromInventory = false;
+                State.contextMenuItem = entt::null;
+            }
         }
 
         NoMoreDay::UIRenderer::DrawSkillSlot(State.globalFont, x, y, slotSize, 

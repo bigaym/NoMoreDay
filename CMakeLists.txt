@@ -31,14 +31,16 @@ add_subdirectory(third_party/taskflow)
 
 # --- Tag Generation ---
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+message(STATUS "Found Python3 interpreter at: ${Python3_EXECUTABLE}")
 
-set(TAG_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/gen_tags.py")
-set(TAG_JSON "${CMAKE_CURRENT_SOURCE_DIR}/assets/data/tags.json")
-set(TAG_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/src/core/TagRegistry.hpp")
+set(TAG_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/gen_tags.py")
+set(TAG_JSON "${CMAKE_SOURCE_DIR}/assets/data/tags.json")
+set(TAG_HEADER "${CMAKE_SOURCE_DIR}/src/core/TagRegistry.hpp")
 
 add_custom_command(
     OUTPUT ${TAG_HEADER}
     COMMAND Python3::Interpreter ${TAG_SCRIPT}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     DEPENDS ${TAG_SCRIPT} ${TAG_JSON}
     COMMENT "Generating TagRegistry.hpp from tags.json..."
 )
@@ -110,7 +112,10 @@ add_library(NoMoreDayCore STATIC
     src/core/BiomeRegistry.cpp
     src/core/SceneManager.cpp
     src/systems/InventorySystem.cpp
+    src/core/glad_impl.c
 )
+
+set_source_files_properties(src/core/glad_impl.c PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
 add_dependencies(NoMoreDayCore GenerateTags)
 

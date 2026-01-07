@@ -34,7 +34,7 @@ TEST_CASE("Projectile Snapshotting Logic") {
     proj.owner = attacker;
     proj.snapshot = registry.get<CombatStats>(attacker);
     registry.emplace<CombatStats>(proj_ent, proj.snapshot);
-    registry.emplace<SkillComponent>(proj_ent, 2, attacker); // Skill 2: Rending Wave
+    registry.emplace<SkillComponent>(proj_ent, 2u, attacker); // Skill 2: Rending Wave
     
     // 3. Change Attacker Stats: Remove bonus, add huge penalty
     mod_list.modifiers.clear();

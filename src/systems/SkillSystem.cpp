@@ -328,7 +328,7 @@ void SkillSystem::InitHooks() {
             }
         }
 
-        registry.emplace<SkillComponent>(array_ent, 6, owner);
+        registry.emplace<SkillComponent>(array_ent, 6u, owner);
         LOG_INFO("Sword Array summoned at ({}, {}) by entity {}", exec.target_pos.x, exec.target_pos.y, (uint32_t)owner);
     });
 

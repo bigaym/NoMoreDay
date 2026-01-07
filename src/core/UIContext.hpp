@@ -33,6 +33,10 @@ namespace NoMoreDay {
         EquipmentSlot dragSourceEquipmentSlot = EquipmentSlot::None;
         int dragSourceBagSlotIndex = -1;
 
+        // Skill Dragging
+        uint32_t draggedSkillId = 0;
+        bool isDraggingSkill = false;
+
         // Interaction State
         entt::entity hoveredItem = entt::null;
         int hoveredSkillSlot = -1; // 0-4
@@ -58,6 +62,8 @@ namespace NoMoreDay {
         bool isContextFromInventory = false;
         int contextSourceInventoryIndex = -1;
         EquipmentSlot contextSourceEquipmentSlot = EquipmentSlot::None;
+        bool isSkillContext = false;
+        int contextSourceSkillSlot = -1;
         
         // Quantity Popup State
         bool showQuantityPopup = false;
