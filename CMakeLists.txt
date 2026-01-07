@@ -112,10 +112,9 @@ add_library(NoMoreDayCore STATIC
     src/core/BiomeRegistry.cpp
     src/core/SceneManager.cpp
     src/systems/InventorySystem.cpp
-    src/core/glad_impl.c
 )
 
-set_source_files_properties(src/core/glad_impl.c PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+set_source_files_properties(src/core/ResourceManager.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 
 add_dependencies(NoMoreDayCore GenerateTags)
 

@@ -1,6 +1,5 @@
 #include "GPUParticleSystem.hpp"
 #include "../utils/GPUUtils.hpp"
-#include "glad.h"
 #include "rlgl.h"
 #include "raymath.h"
 #include "../tools/Logger.hpp"
@@ -19,7 +18,7 @@ void GPUParticleSystem::Init(ResourceManager& rm, int maxParticles) {
         p.lifetime = 0.0f;
         p.scale = 0.0f;
     }
-    m_particleBuffer.Create(maxParticles * sizeof(components::GPUParticle), initial.data(), core::BufferUsage::Dynamic);
+    m_particleBuffer.Create(maxParticles * sizeof(components::GPUParticle), initial.data(), RL_DYNAMIC_DRAW);
     
     // 2. Load Shaders
     m_computeShader = rm.loadComputeShader(entt::hashed_string{"particle_update"}, "assets/shaders/particle.compute");
@@ -54,24 +53,24 @@ void GPUParticleSystem::Init(ResourceManager& rm, int maxParticles) {
 void GPUParticleSystem::Update(float dt) {
     if (m_computeShader.id == 0) return;
 
-    // Dispatch Compute Shader
-    glUseProgram(m_computeShader.id);
+    // Use unified rlgl functions
+    rlEnableShader(m_computeShader.id);
     
-    int dtLoc = glGetUniformLocation(m_computeShader.id, "dt");
-    int maxLoc = glGetUniformLocation(m_computeShader.id, "maxParticles");
-    glUniform1f(dtLoc, dt);
-    glUniform1i(maxLoc, m_maxParticles);
+    int dtLoc = rlGetLocationUniform(m_computeShader.id, "dt");
+    int maxLoc = rlGetLocationUniform(m_computeShader.id, "maxParticles");
+    rlSetUniform(dtLoc, &dt, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(maxLoc, &m_maxParticles, RL_SHADER_UNIFORM_INT, 1);
     
     m_particleBuffer.BindBase(0);
     
     // Dispatch (Workgroup size 256 as defined in shader)
     int numGroups = (m_maxParticles + 255) / 256;
-    glDispatchCompute(numGroups, 1, 1);
+    rlComputeShaderDispatch(numGroups, 1, 1);
     
     // Barrier to ensure render can see the results
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    utils::GPUUtils::MemoryBarrier();
     
-    glUseProgram(0);
+    rlDisableShader();
 }
 
 void GPUParticleSystem::Render() {
@@ -131,7 +130,6 @@ void GPUParticleSystem::Shutdown() {
     if (m_quadVAO > 0) rlUnloadVertexArray(m_quadVAO);
     if (m_quadVBO > 0) rlUnloadVertexBuffer(m_quadVBO);
     if (m_renderShader.id > 0) UnloadShader(m_renderShader);
-    // Compute shader is owned by ResourceManager
 }
 
 } // namespace NoMoreDay::systems

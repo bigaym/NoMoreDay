@@ -1,100 +1,101 @@
 #include "GPUEntitySystem.hpp"
 #include "GPUFlowFieldSystem.hpp"
-#include "glad.h"
-#include "rlgl.h"
-#include "../components/Common.hpp"
 #include "../tools/Logger.hpp"
+#include "../utils/GPUUtils.hpp"
+#include "../components/Common.hpp"
+#include "../components/AIComponent.hpp"
+#include "rlgl.h"
 
 namespace NoMoreDay::systems {
 
-void GPUEntitySystem::Init(ResourceManager& rm, int maxEntities) {
+using namespace components;
+
+void GPUEntitySystem::Init(ResourceManager& resources, int maxEntities) {
     m_maxEntities = maxEntities;
-    m_localData.resize(maxEntities);
-    for (auto& e : m_localData) e.radius = 0.0f; // Inactive
+    LOG_INFO("Initializing GPUEntitySystem (Compute-based Physics) with {} entities...", maxEntities);
     
-    LOG_INFO("Initializing GPUEntitySystem with {} entities", maxEntities);
-    m_entityBuffer.Create(maxEntities * sizeof(components::GPUEntity), m_localData.data(), core::BufferUsage::Dynamic);
+    // Load Shaders
+    m_gridClearShader = resources.loadComputeShader(entt::hashed_string{"grid_clear"}, "assets/shaders/grid_clear.compute");
+    m_gridCountShader = resources.loadComputeShader(entt::hashed_string{"grid_count"}, "assets/shaders/grid_count.compute");
+    m_gridSortShader = resources.loadComputeShader(entt::hashed_string{"grid_sort"}, "assets/shaders/grid_sort.compute");
+    m_physicsShader = resources.loadComputeShader(entt::hashed_string{"physics"}, "assets/shaders/physics.compute");
+
+    // Initialize Buffers
+    m_entityBuffer.Create(m_maxEntities * sizeof(components::GPUEntity), nullptr, RL_DYNAMIC_DRAW);
     
-    // Grid Setup
-    int numCells = (5000 / 32 + 1) * (5000 / 32 + 1);
+    int gridCols = 5000 / 32 + 1;
+    int gridRows = 5000 / 32 + 1;
+    int numCells = gridCols * gridRows;
+    
+    m_cellCountBuffer.Create(numCells * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
+    m_cellOffsetBuffer.Create(numCells * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
+    m_entityIndicesBuffer.Create(m_maxEntities * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
+    m_tempCountBuffer.Create(numCells * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
+
+    m_localData.resize(m_maxEntities);
     m_gridCounts.resize(numCells);
     m_gridOffsets.resize(numCells);
 
-    m_cellCountBuffer.Create(numCells * sizeof(uint32_t));
-    m_cellOffsetBuffer.Create(numCells * sizeof(uint32_t));
-    m_tempCountBuffer.Create(numCells * sizeof(uint32_t));
-    m_entityIndicesBuffer.Create(maxEntities * sizeof(uint32_t));
-
-    m_physicsShader = rm.loadComputeShader(entt::hashed_string{"physics_update"}, "assets/shaders/physics.compute");
-    m_gridClearShader = rm.loadComputeShader(entt::hashed_string{"grid_clear"}, "assets/shaders/grid_clear.compute");
-    m_gridCountShader = rm.loadComputeShader(entt::hashed_string{"grid_count"}, "assets/shaders/grid_count.compute");
-    m_gridSortShader = rm.loadComputeShader(entt::hashed_string{"grid_sort"}, "assets/shaders/grid_sort.compute");
-
-    InitRender(rm);
+    InitRender(resources);
 }
 
 void GPUEntitySystem::InitRender(ResourceManager& rm) {
-    m_renderShader = rm.loadShader(entt::hashed_string{"entity_render"}, "assets/shaders/entity.vert", "assets/shaders/entity.frag");
-    
-    float quadVertices[] = {
+    // Load Shaders
+    m_renderShader = LoadShader("assets/shaders/entity.vert", "assets/shaders/entity.frag");
+    m_renderShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(m_renderShader, "mvp");
+
+    // Setup Quad
+    float vertices[] = {
         -0.5f, -0.5f,
          0.5f, -0.5f,
-         0.5f,  0.5f,
-         0.5f,  0.5f,
         -0.5f,  0.5f,
-        -0.5f, -0.5f
+         0.5f,  0.5f
     };
 
-    glGenVertexArrays(1, &m_quadVAO);
-    glGenBuffers(1, &m_quadVBO);
-    glBindVertexArray(m_quadVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, m_quadVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
-    glBindVertexArray(0);
+    m_quadVAO = rlLoadVertexArray();
+    rlEnableVertexArray(m_quadVAO);
+    {
+        m_quadVBO = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
+        rlSetVertexAttribute(0, 2, RL_FLOAT, false, 0, 0);
+        rlEnableVertexAttribute(0);
+    }
+    rlDisableVertexArray();
 }
 
 void GPUEntitySystem::Render() {
-    if (m_renderShader.id == 0 || m_maxEntities == 0) return;
+    if (m_maxEntities <= 0 || m_renderShader.id == 0) return;
 
-    glUseProgram(m_renderShader.id);
-    
-    // Get MVP from Raylib
-    Matrix matView = rlGetMatrixModelview();
-    Matrix matProj = rlGetMatrixProjection();
-    Matrix matMVP = MatrixMultiply(matView, matProj);
-    
-    // Raylib Matrix is column-major float[16], compatible with OpenGL
-    glUniformMatrix4fv(glGetUniformLocation(m_renderShader.id, "mvp"), 1, GL_FALSE, (float*)&matMVP);
+    Matrix mvp = rlGetMatrixModelview();
+    Matrix projection = rlGetMatrixProjection();
+    Matrix finalMvp = MatrixMultiply(mvp, projection);
 
+    rlEnableShader(m_renderShader.id);
+    rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], finalMvp);
+    
     m_entityBuffer.BindBase(1);
-
-    glBindVertexArray(m_quadVAO);
-    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, m_maxEntities);
-    glBindVertexArray(0);
     
-    glUseProgram(0);
+    rlEnableVertexArray(m_quadVAO);
+    rlDrawVertexArrayInstanced(0, 4, m_maxEntities);
+    rlDisableVertexArray();
+    
+    rlDisableShader();
 }
 
 void GPUEntitySystem::Update(entt::registry& registry, float dt) {
-    if (m_physicsShader.id == 0) return;
-
     // 1. Sync CPU -> GPU
-    auto view = registry.view<Position, Velocity>();
-    for (auto& e : m_localData) e.radius = 0.0f; 
-
+    auto view = registry.view<Position, Velocity, Radius, GPUIndex>();
     int index = 0;
-    view.each([&](auto entity, auto& pos, auto& vel) {
+    view.each([&](auto entity, auto& pos, auto& vel, auto& radius, auto& gpuIdx) {
         if (index >= m_maxEntities) return;
-        registry.emplace_or_replace<GPUIndex>(entity, index);
-
-        auto& gpu = m_localData[index];
-        gpu.position = { pos.x, pos.y };
-        gpu.velocity = { vel.vx, vel.vy };
-        gpu.radius = 12.0f; 
-        gpu.type = 1; 
-        gpu.id = (int)entity;
+        
+        gpuIdx.index = index;
+        m_localData[index].position = {pos.x, pos.y};
+        m_localData[index].velocity = {vel.vx, vel.vy};
+        m_localData[index].radius = radius.value;
+        
+        // Entity types (simplified for now)
+        m_localData[index].type = registry.all_of<EnemyTag>(entity) ? 1 : 0;
+        
         index++;
     });
     m_entityBuffer.Update(m_localData.data(), m_maxEntities * sizeof(components::GPUEntity));
@@ -105,24 +106,33 @@ void GPUEntitySystem::Update(entt::registry& registry, float dt) {
     int numCells = gridCols * gridRows;
 
     // 2.1 Clear
-    glUseProgram(m_gridClearShader.id);
-    glUniform1i(glGetUniformLocation(m_gridClearShader.id, "numCells"), numCells);
-    m_cellCountBuffer.BindBase(2);
-    glDispatchCompute((numCells + 255) / 256, 1, 1);
-    m_tempCountBuffer.BindBase(2);
-    glDispatchCompute((numCells + 255) / 256, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    rlEnableShader(m_gridClearShader.id);
+    int locNumCells = rlGetLocationUniform(m_gridClearShader.id, "numCells");
+    rlSetUniform(locNumCells, &numCells, RL_SHADER_UNIFORM_INT, 1);
+    
+    rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
+    rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
+    
+    rlBindShaderBuffer(m_tempCountBuffer.GetId(), 2);
+    rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
+    utils::GPUUtils::MemoryBarrier();
 
     // 2.2 Count
-    glUseProgram(m_gridCountShader.id);
-    glUniform1i(glGetUniformLocation(m_gridCountShader.id, "maxEntities"), m_maxEntities);
-    glUniform1f(glGetUniformLocation(m_gridCountShader.id, "cellSize"), 32.0f);
-    glUniform1i(glGetUniformLocation(m_gridCountShader.id, "gridCols"), gridCols);
-    glUniform1i(glGetUniformLocation(m_gridCountShader.id, "gridRows"), gridRows);
-    m_entityBuffer.BindBase(1);
-    m_cellCountBuffer.BindBase(2);
-    glDispatchCompute((m_maxEntities + 255) / 256, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    rlEnableShader(m_gridCountShader.id);
+    int locMaxEnt = rlGetLocationUniform(m_gridCountShader.id, "maxEntities");
+    rlSetUniform(locMaxEnt, &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
+    float cellSize = 32.0f;
+    int locCellSize = rlGetLocationUniform(m_gridCountShader.id, "cellSize");
+    rlSetUniform(locCellSize, &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+    int locCols = rlGetLocationUniform(m_gridCountShader.id, "gridCols");
+    rlSetUniform(locCols, &gridCols, RL_SHADER_UNIFORM_INT, 1);
+    int locRows = rlGetLocationUniform(m_gridCountShader.id, "gridRows");
+    rlSetUniform(locRows, &gridRows, RL_SHADER_UNIFORM_INT, 1);
+    
+    rlBindShaderBuffer(m_entityBuffer.GetId(), 1);
+    rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
+    rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
+    utils::GPUUtils::MemoryBarrier();
 
     // 2.3 Prefix Sum (CPU)
     m_cellCountBuffer.Read(m_gridCounts.data(), numCells * sizeof(uint32_t));
@@ -134,46 +144,54 @@ void GPUEntitySystem::Update(entt::registry& registry, float dt) {
     m_cellOffsetBuffer.Update(m_gridOffsets.data(), numCells * sizeof(uint32_t));
 
     // 2.4 Sort
-    glUseProgram(m_gridSortShader.id);
-    glUniform1i(glGetUniformLocation(m_gridSortShader.id, "maxEntities"), m_maxEntities);
-    glUniform1f(glGetUniformLocation(m_gridSortShader.id, "cellSize"), 32.0f);
-    glUniform1i(glGetUniformLocation(m_gridSortShader.id, "gridCols"), gridCols);
-    glUniform1i(glGetUniformLocation(m_gridSortShader.id, "gridRows"), gridRows);
-    m_entityBuffer.BindBase(1);
-    m_cellOffsetBuffer.BindBase(3);
-    m_entityIndicesBuffer.BindBase(4);
-    m_tempCountBuffer.BindBase(5);
-    glDispatchCompute((m_maxEntities + 255) / 256, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+    rlEnableShader(m_gridSortShader.id);
+    rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "maxEntities"), &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "cellSize"), &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "gridCols"), &gridCols, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "gridRows"), &gridRows, RL_SHADER_UNIFORM_INT, 1);
+    
+    rlBindShaderBuffer(m_entityBuffer.GetId(), 1);
+    rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
+    rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
+    rlBindShaderBuffer(m_tempCountBuffer.GetId(), 5);
+    rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
+    utils::GPUUtils::MemoryBarrier();
 
     // 3. Dispatch Physics (Integration + Collision)
-    glUseProgram(m_physicsShader.id);
-    glUniform1f(glGetUniformLocation(m_physicsShader.id, "dt"), dt);
-    glUniform1i(glGetUniformLocation(m_physicsShader.id, "maxEntities"), m_maxEntities);
-    // Add grid uniforms to physics shader
-    glUniform1f(glGetUniformLocation(m_physicsShader.id, "cellSize"), 32.0f);
-    glUniform1i(glGetUniformLocation(m_physicsShader.id, "gridCols"), gridCols);
-    glUniform1i(glGetUniformLocation(m_physicsShader.id, "gridRows"), gridRows);
+    rlEnableShader(m_physicsShader.id);
+    rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "dt"), &dt, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "maxEntities"), &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "cellSize"), &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridCols"), &gridCols, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridRows"), &gridRows, RL_SHADER_UNIFORM_INT, 1);
     
     // Bind Flow Texture (Unit 0)
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, GPUFlowFieldSystem::Get().GetFlowTexture());
-    glUniform1i(glGetUniformLocation(m_physicsShader.id, "flowField"), 0);
+    rlActiveTextureSlot(0);
+    rlEnableTexture(GPUFlowFieldSystem::Get().GetFlowTexture());
+    int locFlowField = rlGetLocationUniform(m_physicsShader.id, "flowField");
+    int texUnit = 0;
+    rlSetUniform(locFlowField, &texUnit, RL_SHADER_UNIFORM_INT, 1);
 
-    m_entityBuffer.BindBase(1);
-    m_cellCountBuffer.BindBase(2);
-    m_cellOffsetBuffer.BindBase(3);
-    m_entityIndicesBuffer.BindBase(4);
+    rlBindShaderBuffer(m_entityBuffer.GetId(), 1);
+    rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
+    rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
+    rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
     
-    glDispatchCompute((m_maxEntities + 255) / 256, 1, 1);
-    glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-    glUseProgram(0);
+    rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
+    utils::GPUUtils::MemoryBarrier();
+    rlDisableShader();
 }
 
 void GPUEntitySystem::SyncBack(entt::registry& registry) {
+    static bool s_firstSyncLogged = false;
     m_entityBuffer.Read(m_localData.data(), m_maxEntities * sizeof(components::GPUEntity));
     
     auto view = registry.view<Position, Velocity, GPUIndex>();
+    if (view.begin() != view.end() && !s_firstSyncLogged) {
+        LOG_INFO("GPU Physics Sync: Active (Successfully reading data back to CPU)");
+        s_firstSyncLogged = true;
+    }
+
     view.each([&](auto& pos, auto& vel, auto& gpuIdx) {
         if (gpuIdx.index >= 0 && gpuIdx.index < m_maxEntities) {
             auto& gpu = m_localData[gpuIdx.index];
@@ -189,7 +207,11 @@ void GPUEntitySystem::SyncBack(entt::registry& registry) {
 
 void GPUEntitySystem::Shutdown() {
     LOG_INFO("Shutting down GPUEntitySystem...");
-    m_localData.clear();
+    m_entityBuffer.Release();
+    m_cellCountBuffer.Release();
+    m_cellOffsetBuffer.Release();
+    m_entityIndicesBuffer.Release();
+    m_tempCountBuffer.Release();
 }
 
 } // namespace NoMoreDay::systems

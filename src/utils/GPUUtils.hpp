@@ -1,7 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "rlgl.h"
-#include "glad.h" // Now accessible via target_include_directories
+#include "GLFW/glfw3.h"
 #include "../tools/Logger.hpp"
 #include <cstdio>
 
@@ -11,56 +11,59 @@ struct GPUSupportInfo {
     int majorVersion = 0;
     int minorVersion = 0;
     bool computeShaderSupported = false;
-    int maxComputeWorkGroupCount[3] = { 0, 0, 0 };
-    int maxComputeWorkGroupSize[3] = { 0, 0, 0 };
+    int maxComputeWorkGroupCount[3] = {0};
+    int maxComputeWorkGroupSize[3] = {0};
     int maxComputeWorkGroupInvocations = 0;
 };
+
+// Unified OpenGL pointer for functions not in rlgl
+#ifndef APIENTRY
+    #if defined(_WIN32)
+        #define APIENTRY __stdcall
+    #else
+        #define APIENTRY
+    #endif
+#endif
+
+typedef void (APIENTRY *PFNGLMEMORYBARRIERPROC)(unsigned int barriers);
+
+#ifndef GL_SHADER_STORAGE_BARRIER_BIT
+#define GL_SHADER_STORAGE_BARRIER_BIT 0x00002000
+#endif
 
 class GPUUtils {
 public:
     static GPUSupportInfo CheckSupport() {
         GPUSupportInfo info;
+        
+        // Manual binding for functions not in rlgl
+        static PFNGLMEMORYBARRIERPROC glMemoryBarrier_ptr = nullptr;
+        if (glMemoryBarrier_ptr == nullptr) {
+            glMemoryBarrier_ptr = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
+            if (glMemoryBarrier_ptr) {
+                LOG_INFO("Successfully bound glMemoryBarrier via glfwGetProcAddress.");
+            } else {
+                LOG_WARN("Failed to bind glMemoryBarrier! Compute results might be inconsistent.");
+            }
+        }
 
         // 获取 OpenGL 版本
-        const char* versionStr = (const char*)glGetString(GL_VERSION);
-        LOG_INFO("OpenGL Context Version: {}", versionStr ? versionStr : "Unknown");
+        int version = rlGetVersion(); 
+        LOG_INFO("OpenGL Context Version enum: {}", version);
 
-        glGetIntegerv(GL_MAJOR_VERSION, &info.majorVersion);
-        glGetIntegerv(GL_MINOR_VERSION, &info.minorVersion);
-        
-        // Some drivers might return 0 for GL_MAJOR_VERSION if not properly initialized
-        if (info.majorVersion == 0 && versionStr) {
-            sscanf(versionStr, "%d.%d", &info.majorVersion, &info.minorVersion);
+        if (version == RL_OPENGL_43) {
+            info.majorVersion = 4;
+            info.minorVersion = 3;
+            info.computeShaderSupported = true;
+        } else if (version == RL_OPENGL_33) {
+            info.majorVersion = 3;
+            info.minorVersion = 3;
         }
 
         LOG_INFO("Detected OpenGL Version: {}.{}", info.majorVersion, info.minorVersion);
 
-        // Compute Shader requires OpenGL 4.3
-        if (info.majorVersion > 4 || (info.majorVersion == 4 && info.minorVersion >= 3)) {
-            info.computeShaderSupported = true;
-        }
-
         if (info.computeShaderSupported) {
-            // Check if required compute shader functions are actually loaded
-            if (glGetIntegeri_v == nullptr) {
-                LOG_WARN("Compute shaders reported as supported, but glGetIntegeri_v is NULL! Disabling compute support.");
-                info.computeShaderSupported = false;
-            } else {
-                LOG_INFO("Compute Shaders are SUPPORTED.");
-                
-                // Query Compute Shader limits
-                for (int i = 0; i < 3; i++) {
-                    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, i, &info.maxComputeWorkGroupCount[i]);
-                    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, i, &info.maxComputeWorkGroupSize[i]);
-                }
-                glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &info.maxComputeWorkGroupInvocations);
-
-                LOG_DEBUG("Max Work Group Count: [{}, {}, {}]", 
-                    info.maxComputeWorkGroupCount[0], info.maxComputeWorkGroupCount[1], info.maxComputeWorkGroupCount[2]);
-                LOG_DEBUG("Max Work Group Size: [{}, {}, {}]", 
-                    info.maxComputeWorkGroupSize[0], info.maxComputeWorkGroupSize[1], info.maxComputeWorkGroupSize[2]);
-                LOG_DEBUG("Max Work Group Invocations: {}", info.maxComputeWorkGroupInvocations);
-            }
+            LOG_INFO("Compute Shaders are SUPPORTED.");
         } else {
             LOG_WARN("Compute Shaders are NOT supported on this hardware/context.");
         }
@@ -68,12 +71,16 @@ public:
         return info;
     }
 
-    static void DispatchCompute(unsigned int programId, unsigned int numGroupsX, unsigned int numGroupsY, unsigned int numGroupsZ) {
-        glUseProgram(programId);
-        glDispatchCompute(numGroupsX, numGroupsY, numGroupsZ);
-        // Memory barrier to ensure SSBO writes are visible
-        glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-        glUseProgram(0);
+    static void MemoryBarrier(unsigned int barriers = GL_SHADER_STORAGE_BARRIER_BIT) {
+        static PFNGLMEMORYBARRIERPROC glMemoryBarrier_ptr = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
+        if (glMemoryBarrier_ptr) {
+            glMemoryBarrier_ptr(barriers);
+        }
+    }
+
+    static void DispatchCompute(unsigned int numGroupsX, unsigned int numGroupsY, unsigned int numGroupsZ) {
+        rlComputeShaderDispatch(numGroupsX, numGroupsY, numGroupsZ);
+        MemoryBarrier();
     }
 };
 

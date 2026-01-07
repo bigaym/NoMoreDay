@@ -101,6 +101,12 @@ struct GPUIndex {
     int index;
 };
 
+// 半径组件
+struct Radius {
+    float value;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Radius, value)
+
 // 本地关卡标签：切换关卡时销毁 (如：敌人、掉落物、投射物)
 struct LocalLevelTag {};
 

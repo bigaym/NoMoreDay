@@ -123,6 +123,8 @@ namespace NoMoreDay {
         registry.emplace<Position>(player, startX, startY);
         registry.emplace<IDComponent>(player, Utils::UUID::from("Player"));
         registry.emplace<Velocity>(player, 0.0f, 0.0f);
+        registry.emplace<Radius>(player, 5.0f);
+        registry.emplace<GPUIndex>(player, -1);
         registry.emplace<PlayerTag>(player);
         registry.emplace<PersistentTag>(player);
         registry.emplace<InputComponent>(player);
@@ -454,35 +456,42 @@ namespace NoMoreDay {
                 const auto& map = m_context->levelManager->getMapSystem();
                 const float TILE_SIZE = 10.0f;
                 const float RADIUS = 4.0f; 
-                float nextX = pos.x + vel.vx * dt;
-                int tileX_left = static_cast<int>((nextX - RADIUS) / TILE_SIZE);
-                int tileX_right = static_cast<int>((nextX + RADIUS) / TILE_SIZE);
-                int tileY_top = static_cast<int>((pos.y - RADIUS) / TILE_SIZE);
-                int tileY_bottom = static_cast<int>((pos.y + RADIUS) / TILE_SIZE);
 
-                if (!map.isWalkable(tileX_left, tileY_top) || !map.isWalkable(tileX_left, tileY_bottom) ||
-                    !map.isWalkable(tileX_right, tileY_top) || !map.isWalkable(tileX_right, tileY_bottom)) {
-                    vel.vx = 0; 
+                // Horizontal collision
+                if (std::abs(vel.vx) > 0.001f) {
+                    float nextX = pos.x + vel.vx * dt;
+                    int tileX = static_cast<int>((vel.vx > 0 ? nextX + RADIUS : nextX - RADIUS) / TILE_SIZE);
+                    int tileY_top = static_cast<int>((pos.y - RADIUS + 0.5f) / TILE_SIZE);
+                    int tileY_bottom = static_cast<int>((pos.y + RADIUS - 0.5f) / TILE_SIZE);
+
+                    if (!map.isWalkable(tileX, tileY_top) || !map.isWalkable(tileX, tileY_bottom)) {
+                        vel.vx = 0; 
+                    }
                 }
 
-                float nextY = pos.y + vel.vy * dt;
-                int tileY_next_top = static_cast<int>((nextY - RADIUS) / TILE_SIZE);
-                int tileY_next_bottom = static_cast<int>((nextY + RADIUS) / TILE_SIZE);
-                int tileX_left_curr = static_cast<int>((pos.x - RADIUS) / TILE_SIZE);
-                int tileX_right_curr = static_cast<int>((pos.x + RADIUS) / TILE_SIZE);
+                // Vertical collision
+                if (std::abs(vel.vy) > 0.001f) {
+                    float nextY = pos.y + vel.vy * dt;
+                    int tileY = static_cast<int>((vel.vy > 0 ? nextY + RADIUS : nextY - RADIUS) / TILE_SIZE);
+                    int tileX_left = static_cast<int>((pos.x - RADIUS + 0.5f) / TILE_SIZE);
+                    int tileX_right = static_cast<int>((pos.x + RADIUS - 0.5f) / TILE_SIZE);
 
-                if (!map.isWalkable(tileX_left_curr, tileY_next_top) || !map.isWalkable(tileX_right_curr, tileY_next_top) ||
-                    !map.isWalkable(tileX_left_curr, tileY_next_bottom) || !map.isWalkable(tileX_right_curr, tileY_next_bottom)) {
-                    vel.vy = 0; 
+                    if (!map.isWalkable(tileX_left, tileY) || !map.isWalkable(tileX_right, tileY)) {
+                        vel.vy = 0; 
+                    }
                 }
             });
 
-        // Phase 2: Update Positions (Skip if handled by GPU physics)
+        // Phase 2: Update Positions
         auto updateTask = m_taskflow.for_each(m_physicsEntities.begin(), m_physicsEntities.end(),
-            [this, dt, worldSizeW, worldSizeH, &registry](entt::entity entity) {
-                // If GPUEntitySystem is active in Game loop, we don't need updatePosition here.
-                // However, to be safe during transition, let's keep it but ideally we should skip.
-                // PhysicsSystem::updatePosition(entity, pos, vel, dt, worldSizeW, worldSizeH);
+            [dt, worldSizeW, worldSizeH, &registry](entt::entity entity) {
+                auto& pos = registry.get<Position>(entity);
+                auto& vel = registry.get<Velocity>(entity);
+                
+                // We update position here on CPU. 
+                // If GPUEntitySystem is active, it will SYNC BACK and overwrite these values
+                // in the Game loop. This provides a safe fallback and consistent state.
+                PhysicsSystem::updatePosition(entity, pos, vel, dt, worldSizeW, worldSizeH);
             });
 
         resolveTask.precede(updateTask);

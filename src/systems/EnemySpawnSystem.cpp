@@ -172,6 +172,8 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
     
     registry.emplace<Position>(entity, data.position.x, data.position.y);
     registry.emplace<Velocity>(entity, 0.0f, 0.0f);
+    registry.emplace<Radius>(entity, 5.0f); // Default collision radius
+    registry.emplace<GPUIndex>(entity, -1); // Will be assigned by GPUEntitySystem
     registry.emplace<IDComponent>(entity, NoMoreDay::Utils::UUID::generate());
     registry.emplace<LocalLevelTag>(entity);
     

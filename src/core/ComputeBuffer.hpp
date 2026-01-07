@@ -1,23 +1,15 @@
 #pragma once
-#include "glad.h"
+#include "rlgl.h"
 #include <vector>
 #include <cstddef>
 
 namespace NoMoreDay::core {
 
-enum class BufferUsage {
-    Static = GL_STATIC_DRAW,
-    Dynamic = GL_DYNAMIC_DRAW,
-    Stream = GL_STREAM_DRAW
-};
-
 class ComputeBuffer {
 public:
     ComputeBuffer() = default;
     ~ComputeBuffer() {
-        if (m_id != 0) {
-            glDeleteBuffers(1, &m_id);
-        }
+        Release();
     }
 
     // Disable copy
@@ -31,7 +23,7 @@ public:
     }
     ComputeBuffer& operator=(ComputeBuffer&& other) noexcept {
         if (this != &other) {
-            if (m_id != 0) glDeleteBuffers(1, &m_id);
+            Release();
             m_id = other.m_id;
             m_size = other.m_size;
             other.m_id = 0;
@@ -40,31 +32,33 @@ public:
         return *this;
     }
 
-    void Create(size_t size, const void* data = nullptr, BufferUsage usage = BufferUsage::Dynamic) {
-        if (m_id == 0) glGenBuffers(1, &m_id);
+    void Create(size_t size, const void* data = nullptr, int usage = RL_DYNAMIC_DRAW) {
+        if (m_id != 0) Release();
         m_size = size;
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_id);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, static_cast<GLenum>(usage));
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        m_id = rlLoadShaderBuffer(size, data, usage);
     }
 
     void Update(const void* data, size_t size, size_t offset = 0) {
         if (m_id == 0) return;
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_id);
-        glBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, data);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        rlUpdateShaderBuffer(m_id, data, size, offset);
     }
 
     void BindBase(unsigned int index) const {
         if (m_id == 0) return;
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, m_id);
+        rlBindShaderBuffer(m_id, index);
     }
 
     void Read(void* outData, size_t size, size_t offset = 0) const {
         if (m_id == 0) return;
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, m_id);
-        glGetBufferSubData(GL_SHADER_STORAGE_BUFFER, offset, size, outData);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        rlReadShaderBuffer(m_id, outData, size, offset);
+    }
+
+    void Release() {
+        if (m_id != 0) {
+            rlUnloadShaderBuffer(m_id);
+            m_id = 0;
+            m_size = 0;
+        }
     }
 
     unsigned int GetId() const { return m_id; }
