@@ -22,6 +22,9 @@ public:
     // Emit a single particle
     void Emit(const components::GPUParticle& p);
 
+    // Emit a batch of particles
+    void EmitBatch(const std::vector<components::GPUParticle>& particles);
+
     void Shutdown();
 
 private:

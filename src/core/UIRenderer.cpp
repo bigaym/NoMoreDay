@@ -180,7 +180,7 @@ namespace NoMoreDay {
                                  Texture2D icon, const char* keyLabel, 
                                  float cooldownRatio, float manaCost, 
                                  int charges, int maxCharges,
-                                 bool hasEnoughMana, bool isHighlighted, float alpha) {
+                                 bool hasEnoughMana, bool isHighlighted, bool isPressed, float alpha) {
         float sx = x * s_uiScale;
         float sy = y * s_uiScale;
         float sSize = size * s_uiScale;
@@ -191,47 +191,59 @@ namespace NoMoreDay {
             return { c.r, c.g, c.b, (unsigned char)((float)c.a * a) };
         };
 
-        DrawRectangleRec(rec, ApplyAlpha(isHighlighted ? ApplyAlpha(s_theme.panelBorderHighlight, 0.2f) : s_theme.slotBackground, alpha));
+        // Background
+        DrawRectangleRec(rec, ApplyAlpha(s_theme.slotBackground, alpha));
+        if (isHighlighted || isPressed) {
+            DrawRectangleRec(rec, ApplyAlpha(isPressed ? WHITE : s_theme.panelBorderHighlight, 0.15f * alpha));
+        }
         
         // Draw Slot Background Texture if available
         Texture2D slotBg = AssetLoadingSystem::GetTexture(assets::ui::textures::Inventory_Slot.id);
         if (slotBg.id > 0) {
-            DrawTexturePro(slotBg, {0, 0, (float)slotBg.width, (float)slotBg.height}, rec, {0, 0}, 0.0f, ApplyAlpha(WHITE, 0.4f * alpha));
+            DrawTexturePro(slotBg, {0, 0, (float)slotBg.width, (float)slotBg.height}, rec, {0, 0}, 0.0f, ApplyAlpha(WHITE, 0.3f * alpha));
         }
 
         if (icon.id > 0) {
             Rectangle source = {0, 0, (float)icon.width, (float)icon.height};
-            float pad = 4.0f * s_uiScale;
+            float pad = (isPressed ? 6.0f : 4.0f) * s_uiScale; // Shrink slightly when pressed for "push" effect
             Rectangle dest = {sx + pad, sy + pad, sSize - pad*2, sSize - pad*2};
             
             Color iconColor = WHITE;
-            if (!hasEnoughMana) iconColor = { 50, 50, 200, 255 }; 
-            else if (cooldownRatio > 0 && charges == 0) iconColor = ApplyAlpha(GRAY, 0.8f);
+            if (!hasEnoughMana) iconColor = { 100, 100, 255, 255 }; // Mana tint
+            else if (cooldownRatio > 0 && charges == 0) iconColor = ApplyAlpha(GRAY, 0.7f);
             
             DrawTexturePro(icon, source, dest, {0, 0}, 0.0f, ApplyAlpha(iconColor, alpha));
         }
 
+        // Cooldown Overlay (Circular Sector)
         if (cooldownRatio > 0.0f && charges == 0) {
             float startAngle = -90.0f;
             float endAngle = startAngle + (cooldownRatio * 360.0f);
-            DrawCircleSector({sx + sSize/2, sy + sSize/2}, sSize/2, startAngle, endAngle, 32, ApplyAlpha(BLACK, 0.6f * alpha));
+            DrawCircleSector({sx + sSize/2, sy + sSize/2}, sSize/2, startAngle, endAngle, 32, ApplyAlpha(BLACK, 0.5f * alpha));
+            
+            // Draw a subtle ring for the remaining cooldown
+            DrawRing({sx + sSize/2, sy + sSize/2}, sSize/2 - 2.0f*s_uiScale, sSize/2, startAngle, 270.0f, 32, ApplyAlpha(s_theme.panelBorder, 0.3f * alpha));
         }
 
-        if (keyLabel) DrawTextUI(font, keyLabel, x + 4, y + 4, 14, ApplyAlpha(s_theme.textSecondary, alpha));
+        if (keyLabel) DrawTextUI(font, keyLabel, x + 4, y + 2, 12, ApplyAlpha(isHighlighted ? s_theme.textHighlight : s_theme.textSecondary, alpha));
 
         if (manaCost > 0) {
             char manaStr[16];
             snprintf(manaStr, 16, "%.0f", manaCost);
-            DrawTextUI(font, manaStr, x + 4, y + size - 16, 12, ApplyAlpha(SKYBLUE, alpha));
+            Color mColor = hasEnoughMana ? SKYBLUE : ApplyAlpha(BLUE, 0.7f);
+            DrawTextUI(font, manaStr, x + 4, y + size - 14, 11, ApplyAlpha(mColor, alpha));
         }
 
         if (maxCharges > 1) {
             char chargeStr[16];
             snprintf(chargeStr, 16, "%d", charges);
-            DrawTextUI(font, chargeStr, x + size - 14, y + size - 16, 14, ApplyAlpha(WHITE, alpha));
+            DrawTextUI(font, chargeStr, x + size - 12, y + size - 14, 13, ApplyAlpha(WHITE, alpha));
         }
 
-        DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(isHighlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder, alpha));
+        // Border
+        float borderThick = (isHighlighted || isPressed) ? 2.0f : 1.0f;
+        Color borderColor = isPressed ? WHITE : (isHighlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder);
+        DrawRectangleLinesEx(rec, borderThick * s_uiScale, ApplyAlpha(borderColor, alpha));
     }
 
     void UIRenderer::DrawBuffIcon(const Font& font, float x, float y, float size,
@@ -462,8 +474,10 @@ namespace NoMoreDay {
             lines.push_back({ tagStr, GRAY });
         }
 
-        lines.push_back({ " ", WHITE });
-        lines.push_back({ skill->desc_key, s_theme.textPrimary });
+        if (!skill->desc_key.empty()) {
+            lines.push_back({ " ", WHITE }); // Spacer
+            lines.push_back({ skill->desc_key, s_theme.textPrimary });
+        }
 
         return lines;
     }

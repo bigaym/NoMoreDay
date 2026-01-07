@@ -13,6 +13,39 @@
 #include <string>
 #include <cmath>
 
+#include "PlayerHUD.hpp"
+
+// Static member initialization
+float RenderSystem::s_trauma = 0.0f;
+
+void RenderSystem::AddScreenShake(float intensity) {
+    s_trauma = std::min(s_trauma + intensity, 1.0f);
+}
+
+void RenderSystem::UpdateShake(float dt) {
+    if (s_trauma > 0.0f) {
+        s_trauma -= dt * 1.5f; // Decay speed
+        if (s_trauma < 0.0f) s_trauma = 0.0f;
+    }
+}
+
+Vector2 RenderSystem::GetShakeOffset() {
+    if (s_trauma <= 0.0f) return { 0.0f, 0.0f };
+    
+    // Square the trauma to make the shake feel more impactful at high values
+    float shake = s_trauma * s_trauma;
+    
+    // Max shake offset (e.g., 20 pixels)
+    float maxOffset = 20.0f;
+    
+    // Simple random noise using GetTime
+    float time = (float)GetTime();
+    float offsetX = maxOffset * shake * (2.0f * ((float)(std::rand() % 100) / 100.0f) - 1.0f);
+    float offsetY = maxOffset * shake * (2.0f * ((float)(std::rand() % 100) / 100.0f) - 1.0f);
+    
+    return { offsetX, offsetY };
+}
+
 void RenderSystem::render(entt::registry& registry) {
     // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
     auto spriteView = registry.view<const Position, const SpriteComponent>();
@@ -161,7 +194,9 @@ void RenderSystem::render(entt::registry& registry) {
         color.a = (unsigned char)(255 * alpha);
         // 绘制文字 - 使用 TextFormat 避免 std::string 分配 // Draw text - Use TextFormat to avoid std::string allocation
         const char* text;
-        if (popup.isDodge) {
+        if (popup.isStatus) {
+            text = popup.statusText.c_str();
+        } else if (popup.isDodge) {
             text = "闪避";
         } else if (popup.isMiss) {
             text = "未命中";
@@ -173,6 +208,7 @@ void RenderSystem::render(entt::registry& registry) {
 
         float baseSize = 28.0f; // Increased from 20
         if (popup.isCrit) baseSize = 36.0f; // Increased from 24
+        if (popup.isStatus) baseSize = 22.0f; // Status text slightly smaller
         
         float fontSize = baseSize * popup.currentScale;
         

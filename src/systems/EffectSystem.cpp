@@ -102,3 +102,48 @@ void EffectSystem::update(entt::registry& registry, float dt) {
         }
     }
 }
+
+void EffectSystem::EmitDamagePopup(entt::registry& registry, Vector2 position, float amount, bool isCrit, NoMoreDay::Tag damageType) {
+    auto entity = registry.create();
+    registry.emplace<Position>(entity, position.x + (float)GetRandomValue(-15, 15), position.y - 20.0f + (float)GetRandomValue(-10, 5));
+    
+    DamagePopup popup;
+    popup.damage = amount;
+    popup.timer = 0.0f;
+    popup.lifeTime = 1.0f;
+    popup.isCrit = isCrit;
+    popup.velX = (float)GetRandomValue(-40, 40);
+    popup.velY = -150.0f;
+    
+    // Color mapping
+    popup.color = WHITE;
+    if (isCrit) {
+        popup.color = GOLD;
+    } else {
+        using namespace NoMoreDay;
+        if (HasTag(damageType, Tag::Fire)) popup.color = ORANGE;
+        else if (HasTag(damageType, Tag::Cold)) popup.color = SKYBLUE;
+        else if (HasTag(damageType, Tag::Lightning)) popup.color = YELLOW;
+        else if (HasTag(damageType, Tag::Poison)) popup.color = LIME;
+        else if (HasTag(damageType, Tag::Shadow)) popup.color = PURPLE;
+    }
+    
+    registry.emplace<DamagePopup>(entity, popup);
+}
+
+void EffectSystem::EmitStatusPopup(entt::registry& registry, Vector2 position, const std::string& text, Color color) {
+    auto entity = registry.create();
+    registry.emplace<Position>(entity, position.x, position.y - 30.0f);
+    
+    DamagePopup popup;
+    popup.damage = 0;
+    popup.timer = 0.0f;
+    popup.lifeTime = 1.2f;
+    popup.isStatus = true;
+    popup.statusText = text;
+    popup.velX = 0;
+    popup.velY = -60.0f; // Slower rise
+    popup.color = color;
+    
+    registry.emplace<DamagePopup>(entity, popup);
+}

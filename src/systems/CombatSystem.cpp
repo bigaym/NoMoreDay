@@ -1,4 +1,6 @@
 #include "CombatSystem.hpp"
+#include "EffectSystem.hpp"
+#include "RenderSystem.hpp" // Added
 #include <cmath>
 #include "../tools/Logger.hpp"
 #include "../components/EffectComponent.hpp"
@@ -353,18 +355,12 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
     // --- NEW: Unified Damage Popup ---
     if (registry.all_of<Position>(target)) {
         const auto& tPos = registry.get<Position>(target);
-        auto popupEntity = registry.create();
-        registry.emplace<Position>(popupEntity, tPos.x + GetRandomValue(-15, 15), tPos.y - 20.0f + GetRandomValue(-10, 5));
+        EffectSystem::EmitDamagePopup(registry, {tPos.x, tPos.y}, amount, isCrit);
         
-        DamagePopup popup;
-        popup.damage = amount;
-        popup.timer = 0.0f;
-        popup.lifeTime = 0.8f;
-        popup.velX = (float)(GetRandomValue(-20, 20));
-        popup.velY = -100.0f;
-        popup.color = isCrit ? ORANGE : WHITE;
-        
-        registry.emplace<DamagePopup>(popupEntity, popup);
+        // Screen Shake for critical hits or heavy damage
+        if (isCrit || amount > 50.0f) {
+             RenderSystem::AddScreenShake(isCrit ? 0.3f : 0.15f);
+        }
     }
 
     // Apply Hurt Debuff

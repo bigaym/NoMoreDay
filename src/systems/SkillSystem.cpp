@@ -11,6 +11,7 @@
 #include "DamagePipeline.hpp"
 #include "CombatSystem.hpp"
 #include "SpatialGrid.hpp"
+#include "GPUParticleSystem.hpp" // Added
 #include "../tools/Logger.hpp"
 #include "raymath.h"
 #include <map>
@@ -589,6 +590,27 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         array.damage_timer -= dt;
         if (array.damage_timer <= 0.0f) {
             // Pulsing damage
+            // Visual Effect: Ring of particles
+            std::vector<components::GPUParticle> particles;
+            int pCount = 60;
+            for(int i=0; i<pCount; ++i) {
+                float angle = (float)i / pCount * 2.0f * PI;
+                Vector2 offset = { cosf(angle) * array.radius, sinf(angle) * array.radius };
+                Vector2 pPos = { pos.x + offset.x, pos.y + offset.y };
+                
+                components::GPUParticle p;
+                p.position = pPos;
+                p.velocity = { -offset.x * 2.0f, -offset.y * 2.0f }; // Move inward fast
+                p.acceleration = { 0, 0 };
+                p.color = PURPLE;
+                p.lifetime = 0.5f;
+                p.maxLifetime = 0.5f;
+                p.scale = 2.0f; 
+                p.flags = 2; // Spark
+                particles.push_back(p);
+            }
+            systems::GPUParticleSystem::Get().EmitBatch(particles);
+
             grid.query(pos, array.radius, [&](entt::entity target) {
                 if (target == array.owner || target == entity) return;
                 if (!registry.valid(target) || !registry.all_of<HealthComponent, Position>(target)) return;
@@ -625,6 +647,26 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         if (chan.tick_timer <= 0.0f) {
             if (chan.skill_id == 5) {
                 // Infinite Blades: Spray random blades
+                // Visual Effect: Burst of blades
+                std::vector<components::GPUParticle> particles;
+                for(int i=0; i<5; ++i) { // 5 particles per tick
+                     float pAngle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
+                     Vector2 pDir = { cosf(pAngle), sinf(pAngle) };
+                     
+                     components::GPUParticle p;
+                     p.position = { pos.x, pos.y };
+                     float speed = (float)GetRandomValue(300, 600);
+                     p.velocity = { pDir.x * speed, pDir.y * speed };
+                     p.acceleration = { pDir.x * 200.0f, pDir.y * 200.0f }; // Accelerate out
+                     p.color = GOLD;
+                     p.lifetime = 0.4f;
+                     p.maxLifetime = 0.4f;
+                     p.scale = 2.5f;
+                     p.flags = 1; // Square/Blade
+                     particles.push_back(p);
+                }
+                systems::GPUParticleSystem::Get().EmitBatch(particles);
+
                 float angle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
                 Vector2 dir = { cosf(angle), sinf(angle) };
                 Vector2 strike_target = { pos.x + dir.x * 500.0f, pos.y + dir.y * 500.0f };
@@ -735,6 +777,24 @@ void SkillSystem::UpdateSwordIntent(entt::registry& registry, float dt) {
             } else {
                 intent.decay_tick_timer = 0.0f;
             }
+
+            // Visuals
+            if (registry.all_of<Position>(entity)) {
+                const auto& pos = registry.get<Position>(entity);
+                if (GetRandomValue(0, 100) < intent.stacks * 3) {
+                    components::GPUParticle p;
+                    p.position = { pos.x + GetRandomValue(-15, 15), pos.y + GetRandomValue(-30, 0) };
+                    p.velocity = { 0, -30.0f };
+                    p.acceleration = { 0, 0 };
+                    p.color = WHITE; // Or slight blue tint
+                    p.lifetime = 0.5f;
+                    p.maxLifetime = 0.5f;
+                    p.scale = 1.0f + (intent.stacks * 0.1f);
+                    p.flags = 2; // Spark
+                    systems::GPUParticleSystem::Get().Emit(p);
+                }
+            }
+
         } else {
             intent.time_since_last_gain = 0.0f;
             intent.decay_tick_timer = 0.0f;

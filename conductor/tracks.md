@@ -87,5 +87,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Description:** Optimize the game engine to support 10,000+ entities by offloading particles, physics, collision, and pathfinding to the GPU using OpenGL 4.3 Compute Shaders. (Completed on 2026-01-04)
 ---
 
-## [~] Track: Skill System Optimization, UI Polish, and GPU VFX
-*Link: [./conductor/tracks/skill_vfx_gpu_ui_20260105/](./conductor/tracks/skill_vfx_gpu_ui_20260105/) *
+## [x] Track: Skill System Optimization, UI Polish, and GPU VFX
+- **Folder:** conductor/archive/skill_vfx_gpu_ui_20260105
+- **Description:** Implement advanced skill mechanics, deep UI feedback (Drag-and-Drop, FCT), and high-performance GPU visual effects. (Completed on 2026-01-07)

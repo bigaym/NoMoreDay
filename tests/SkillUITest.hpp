@@ -55,3 +55,61 @@ TEST_CASE("Skill UI - Context Menu State") {
     CHECK(UISystem::State.isSkillContext == true);
     CHECK(UISystem::State.contextSourceSkillSlot == 3);
 }
+
+TEST_CASE("Skill UI - Persistence of Assignments") {
+    ActiveSkillsComponent original;
+    original.slots[0].id = 101;
+    original.slots[0].current_charges = 2;
+    original.specialized_slots[2].skill_id = 202;
+    original.specialized_slots[2].allocated_points[1] = 5;
+    original.available_talent_points = 10;
+
+    nlohmann::json j = original; // calls to_json
+    ActiveSkillsComponent restored = j; // calls from_json
+
+    CHECK(restored.slots[0].id == 101);
+    CHECK(restored.slots[0].current_charges == 2);
+    CHECK(restored.specialized_slots[2].skill_id == 202);
+    CHECK(restored.specialized_slots[2].allocated_points.at(1) == 5);
+    CHECK(restored.available_talent_points == 10);
+}
+
+TEST_CASE("Skill UI - FCT Lifecycle") {
+    entt::registry registry;
+    Vector2 pos = { 100, 100 };
+    
+    EffectSystem::EmitDamagePopup(registry, pos, 500.0f, true, Tag::Fire);
+    
+    auto view = registry.view<DamagePopup, Position>();
+    CHECK(std::distance(view.begin(), view.end()) == 1);
+    
+    auto entity = view.front();
+    const auto& popup = view.get<DamagePopup>(entity);
+    CHECK(popup.damage == 500.0f);
+    CHECK(popup.isCrit == true);
+    // Color should be GOLD for crit
+    CHECK(popup.color.r == GOLD.r);
+    CHECK(popup.color.g == GOLD.g);
+    CHECK(popup.color.b == GOLD.b);
+
+    // Update system
+    EffectSystem::update(registry, 0.5f);
+    const auto& popupUpdated = view.get<DamagePopup>(entity);
+    CHECK(popupUpdated.timer == 0.5f);
+    CHECK(registry.valid(entity));
+
+    // Expire
+    EffectSystem::update(registry, 1.0f);
+    CHECK(registry.valid(entity) == false);
+}
+
+TEST_CASE("Skill UI - Status Popup") {
+    entt::registry registry;
+    EffectSystem::EmitStatusPopup(registry, {0,0}, "LEVEL UP!", GREEN);
+    
+    auto view = registry.view<DamagePopup>();
+    CHECK(std::distance(view.begin(), view.end()) == 1);
+    const auto& popup = view.get<DamagePopup>(view.front());
+    CHECK(popup.isStatus == true);
+    CHECK(popup.statusText == "LEVEL UP!");
+}

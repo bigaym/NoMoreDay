@@ -5,10 +5,13 @@ layout(location = 0) in vec2 vertexPos; // Unit quad vertex [-0.5, 0.5]
 struct Particle {
     vec2 position;
     vec2 velocity;
+    vec2 acceleration;
     uint color;
     float lifetime;
     float maxLifetime;
     float scale;
+    uint flags;
+    float padding;
 };
 
 layout(std430, binding = 0) buffer ParticleBuffer {
@@ -18,6 +21,8 @@ layout(std430, binding = 0) buffer ParticleBuffer {
 uniform mat4 mvp;
 
 out vec4 fragColor;
+out flat uint vFlags; // Pass flags to frag
+out vec2 vTexCoord;   // Pass UVs (derived from vertexPos)
 
 void main() {
     uint id = gl_InstanceID;
@@ -41,6 +46,8 @@ void main() {
     // Simple fade out
     col.a *= (p.lifetime / p.maxLifetime);
     fragColor = col;
+    vFlags = p.flags;
+    vTexCoord = vertexPos + 0.5; // Map [-0.5, 0.5] to [0.0, 1.0]
 
     // Instance transform
     vec2 worldPos = vertexPos * p.scale + p.position;

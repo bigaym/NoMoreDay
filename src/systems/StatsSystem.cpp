@@ -12,6 +12,7 @@
 #include "../components/Buff.hpp"
 #include "../core/AstrolabeRegistry.hpp"
 #include "../core/SkillRegistry.hpp"
+#include "GPUParticleSystem.hpp"
 #include <algorithm>
 #include <vector>
 #include <array>
@@ -757,6 +758,55 @@ void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
         
         if (effects.effects.size() != before) {
             registry.get_or_emplace<StatsDirty>(entity);
+        }
+        
+        // Visuals for Status Effects
+        if (registry.all_of<Position>(entity)) {
+            const auto& pos = registry.get<Position>(entity);
+            for (const auto& buff : effects.effects) {
+                if (buff.type == BuffType::Freeze) {
+                    if (GetRandomValue(0, 100) < 30) {
+                         components::GPUParticle p;
+                         p.position = { pos.x + GetRandomValue(-10, 10), pos.y + GetRandomValue(-10, 10) };
+                         p.velocity = { 0, -10.0f };
+                         p.acceleration = { 0, 0 };
+                         p.color = SKYBLUE;
+                         p.lifetime = 0.5f;
+                         p.maxLifetime = 0.5f;
+                         p.scale = 1.2f;
+                         p.flags = 0; // Soft
+                         systems::GPUParticleSystem::Get().Emit(p);
+                    }
+                }
+                else if (buff.type == BuffType::Burn) {
+                    if (GetRandomValue(0, 100) < 30) {
+                         components::GPUParticle p;
+                         p.position = { pos.x + GetRandomValue(-8, 8), pos.y + GetRandomValue(-5, 5) };
+                         p.velocity = { 0, -30.0f }; // Rise fast
+                         p.acceleration = { 0, 0 };
+                         p.color = ORANGE;
+                         p.lifetime = 0.4f;
+                         p.maxLifetime = 0.4f;
+                         p.scale = 1.5f;
+                         p.flags = 0; // Soft
+                         systems::GPUParticleSystem::Get().Emit(p);
+                    }
+                }
+                else if (buff.type == BuffType::Stun || buff.id == "shock") {
+                    if (GetRandomValue(0, 100) < 20) {
+                         components::GPUParticle p;
+                         p.position = { pos.x + GetRandomValue(-10, 10), pos.y + GetRandomValue(-20, 0) };
+                         p.velocity = { 0, 0 };
+                         p.acceleration = { 0, 0 };
+                         p.color = YELLOW;
+                         p.lifetime = 0.2f;
+                         p.maxLifetime = 0.2f;
+                         p.scale = 1.0f;
+                         p.flags = 2; // Spark
+                         systems::GPUParticleSystem::Get().Emit(p);
+                    }
+                }
+            }
         }
     }
 }

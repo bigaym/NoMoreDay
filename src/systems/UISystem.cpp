@@ -592,6 +592,13 @@ void UISystem::DrawSkillHotbar(entt::registry& registry) {
         }
 
         bool isHovered = CheckCollisionPointRec(GetMousePositionLogic(), { x, y, slotSize, slotSize });
+        bool isPressed = false;
+        if (i == 0) isPressed = IsKeyDown(KEY_Q);
+        else if (i == 1) isPressed = IsKeyDown(KEY_W);
+        else if (i == 2) isPressed = IsKeyDown(KEY_E);
+        else if (i == 3) isPressed = IsKeyDown(KEY_R);
+        else if (i == 4) isPressed = IsMouseButtonDown(MOUSE_RIGHT_BUTTON);
+
         if (isHovered) {
             State.hoveredSkillSlot = i;
             State.isMouseOverUI = true;
@@ -622,7 +629,7 @@ void UISystem::DrawSkillHotbar(entt::registry& registry) {
         NoMoreDay::UIRenderer::DrawSkillSlot(State.globalFont, x, y, slotSize, 
                                  icon, labels[i], cooldownRatio, manaCost, 
                                  slot.current_charges, maxCharges,
-                                 hasEnoughMana, isHovered, 0.8f);
+                                 hasEnoughMana, isHovered, isPressed, 0.8f);
     }
 }
 

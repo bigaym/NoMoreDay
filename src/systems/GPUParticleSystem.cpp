@@ -95,10 +95,35 @@ void GPUParticleSystem::Render() {
 }
 
 void GPUParticleSystem::Emit(const components::GPUParticle& p) {
+    if (m_maxParticles <= 0) return;
     // Basic circular buffer emission
     m_particleBuffer.Update(&p, sizeof(components::GPUParticle), m_poolIndex * sizeof(components::GPUParticle));
     
     m_poolIndex = (m_poolIndex + 1) % m_maxParticles;
+}
+
+void GPUParticleSystem::EmitBatch(const std::vector<components::GPUParticle>& particles) {
+    if (particles.empty() || m_maxParticles <= 0) return;
+
+    int count = (int)particles.size();
+    if (count > m_maxParticles) count = m_maxParticles; // Cap at max
+
+    int start = m_poolIndex;
+    int end = (start + count) % m_maxParticles;
+
+    if (end > start) {
+        // One contiguous block
+        m_particleBuffer.Update(particles.data(), count * sizeof(components::GPUParticle), start * sizeof(components::GPUParticle));
+    } else {
+        // Wrap around
+        int firstChunk = m_maxParticles - start;
+        int secondChunk = count - firstChunk;
+
+        m_particleBuffer.Update(particles.data(), firstChunk * sizeof(components::GPUParticle), start * sizeof(components::GPUParticle));
+        m_particleBuffer.Update(particles.data() + firstChunk, secondChunk * sizeof(components::GPUParticle), 0);
+    }
+
+    m_poolIndex = end;
 }
 
 void GPUParticleSystem::Shutdown() {

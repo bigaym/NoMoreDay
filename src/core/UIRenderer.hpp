@@ -51,7 +51,7 @@ namespace NoMoreDay {
                                  Texture2D icon, const char* keyLabel, 
                                  float cooldownRatio, float manaCost, 
                                   int charges, int maxCharges,
-                                  bool hasEnoughMana, bool isHighlighted, float alpha = 1.0f);
+                                  bool hasEnoughMana, bool isHighlighted, bool isPressed = false, float alpha = 1.0f);
 
         static void DrawBuffIcon(const Font& font, float x, float y, float size,
                                  Texture2D icon, const char* text, float durationRatio, int stacks,

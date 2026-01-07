@@ -16,6 +16,10 @@ struct DamagePopup {
     bool isMiss = false;  // 是否未命中
     bool isCrit = false;  // 是否为暴击
     
+    // Status Effect feedback
+    bool isStatus = false;
+    std::string statusText;
+
     // Animation state
     float currentScale = 1.0f;
 };

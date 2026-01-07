@@ -398,6 +398,15 @@ namespace NoMoreDay {
             float lerpSpeed = 5.0f;
             m_camera.target.x += (pos.x - m_camera.target.x) * lerpSpeed * dt;
             m_camera.target.y += (pos.y - m_camera.target.y) * lerpSpeed * dt;
+            
+            // Screen Shake
+            RenderSystem::UpdateShake(dt);
+            Vector2 shake = RenderSystem::GetShakeOffset();
+            
+            // Reset offset to center then apply shake
+            m_camera.offset = { (float)GetScreenWidth() / 2.0f, (float)GetScreenHeight() / 2.0f };
+            m_camera.offset.x += shake.x;
+            m_camera.offset.y += shake.y;
         }
 
         // Spatial Grid Rebuild
