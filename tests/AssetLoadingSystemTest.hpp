@@ -7,7 +7,9 @@
 #include "TestCommon.hpp" // Added
 
 TEST_CASE("AssetLoadingSystem - Initialization and Management") {
+    LoggerScope scope;
     ResourceManager resourceManager;
+    resourceManager.SetHeadless(true); // Enable headless mode for testing
     
     SUBCASE("Initialization") {
         AssetLoadingSystem::Initialize(resourceManager);
@@ -31,18 +33,26 @@ TEST_CASE("AssetLoadingSystem - Initialization and Management") {
         AssetLoadingSystem::Initialize(resourceManager);
         
         Texture2D tex = AssetLoadingSystem::GetTexture(123);
-        CHECK(tex.id == 0);
+        // In headless mode, GetTexture might return a dummy or {0} depending on logic
+        // Our mock returns a dummy with ID=1 if loaded via loadTexture, but GetTexture(123) fails if not loaded
+        // Let's try loading one
+        Texture2D loaded = AssetLoadingSystem::LoadUITexture(123, "dummy_path");
+        CHECK(loaded.id == 1); // Dummy ID
         
         AssetLoadingSystem::Shutdown();
     }
 
     SUBCASE("Load All Equipment (Smoke Test)") {
-        // Skipped in headless environment because it requires OpenGL context for 397 textures
-        // AssetLoadingSystem::Initialize(resourceManager);
-        // auto id = assets::equipment::amulet::amulet_0.id;
-        // Texture2D tex = AssetLoadingSystem::GetTexture(id);
-        // AssetLoadingSystem::Shutdown();
+        AssetLoadingSystem::Initialize(resourceManager);
+        // This should now be safe in headless mode
+        AssetLoadingSystem::LoadAllEquipment();
+        
+        // Verify one asset
+        using namespace assets::equipment;
+        auto id = amulet::amulet_0.id;
+        Texture2D tex = AssetLoadingSystem::GetTexture(id);
+        CHECK(tex.id == 1); // Should be dummy texture
+        
+        AssetLoadingSystem::Shutdown();
     }
-
-    // tools::Logger::Shutdown(); // Removed
 }

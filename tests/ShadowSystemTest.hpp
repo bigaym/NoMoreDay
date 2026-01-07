@@ -1,5 +1,6 @@
 #pragma once
 #include "doctest.h"
+#include "TestCommon.hpp"
 #include "entt/entt.hpp"
 #include "../src/systems/ShadowSystem.hpp"
 #include "../src/systems/SkillSystem.hpp"
@@ -11,6 +12,7 @@
 using namespace NoMoreDay;
 
 TEST_CASE("Shadow System: Basic Lifecycle") {
+    LoggerScope scope;
     entt::registry registry;
     
     // Setup Skill Registry
@@ -84,6 +86,7 @@ TEST_CASE("Shadow System: Basic Lifecycle") {
 }
 
 TEST_CASE("Shadow System: Snapshot Independence") {
+    LoggerScope scope;
     entt::registry registry;
     
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");

@@ -1,5 +1,6 @@
 #pragma once
 #include "doctest.h"
+#include "TestCommon.hpp"
 #include "../src/core/SceneManager.hpp"
 #include "../src/core/LevelManager.hpp"
 #include "../src/core/BiomeRegistry.hpp"
@@ -10,6 +11,7 @@
 #include <thread>
 
 TEST_CASE("Persistence - Player State survival across transitions") {
+    LoggerScope scope;
     using namespace NoMoreDay;
     
     entt::registry registry;

@@ -16,6 +16,14 @@ Texture2D ResourceManager::loadTexture(entt::id_type id, const std::string& path
         return it->second;
     }
 
+    if (m_headless) {
+        LOG_WARN("ResourceManager (Headless): Returning dummy texture for '{}'", path);
+        // Return a valid-looking dummy texture to satisfy checks (id != 0)
+        Texture2D dummy = { 1, 32, 32, 1, 7 }; // 1=OpenGL ID, 32x32, RGBA
+        m_textures.emplace(id, dummy);
+        return dummy;
+    }
+
     if (!FileExists(path.c_str())) {
  LOG_ERROR("ResourceManager: 文件未找到: {}", path);
         return { 0 };
@@ -61,6 +69,16 @@ Font ResourceManager::loadFont(entt::id_type id, const std::string& path, int fo
         return it->second;
     }
 
+    if (m_headless) {
+        LOG_WARN("ResourceManager (Headless): Returning dummy font for '{}'", path);
+        Font dummy = { 0 };
+        dummy.baseSize = fontSize;
+        dummy.glyphCount = 0;
+        dummy.texture = { 1, 32, 32, 1, 7 }; // Dummy texture
+        m_fonts.emplace(id, dummy);
+        return dummy;
+    }
+
     if (!FileExists(path.c_str())) {
  LOG_ERROR("ResourceManager: 未找到字体文件: {}", path);
         return GetFontDefault();
@@ -96,6 +114,15 @@ Shader ResourceManager::loadShader(entt::id_type id, const std::string& vsPath, 
     if (m_shaders.find(id) != m_shaders.end()) {
         return m_shaders[id];
     }
+
+    if (m_headless) {
+        LOG_WARN("ResourceManager (Headless): Returning dummy shader for '{}'", fsPath);
+        Shader dummy = { 0 };
+        dummy.id = 1;
+        m_shaders[id] = dummy;
+        return dummy;
+    }
+
     Shader shader = LoadShader(vsPath.c_str(), fsPath.c_str());
     m_shaders[id] = shader;
     return shader;
@@ -103,6 +130,14 @@ Shader ResourceManager::loadShader(entt::id_type id, const std::string& vsPath, 
 
 Shader ResourceManager::loadComputeShader(entt::id_type id, const std::string& path) {
     if (auto it = m_shaders.find(id); it != m_shaders.end()) return it->second;
+
+    if (m_headless) {
+        LOG_WARN("ResourceManager (Headless): Returning dummy compute shader for '{}'", path);
+        Shader dummy = { 0 };
+        dummy.id = 1;
+        m_shaders[id] = dummy;
+        return dummy;
+    }
 
     if (!FileExists(path.c_str())) {
         LOG_ERROR("ResourceManager: Compute shader file not found: {}", path);
@@ -165,7 +200,7 @@ void ResourceManager::unloadAll() { // 卸载所有资源
     LOG_DEBUG("正在卸载所有纹理，数量: {}", m_textures.size());
     for (auto& [id, tex] : m_textures) {
         if (tex.id != 0) {
-            UnloadTexture(tex);
+            if (!m_headless) UnloadTexture(tex);
             LOG_TRACE("已卸载纹理，ID: {}", id);
         }
     }
@@ -175,7 +210,7 @@ void ResourceManager::unloadAll() { // 卸载所有资源
     LOG_DEBUG("正在卸载所有字体，数量: {}", m_fonts.size());
     for (auto& [id, font] : m_fonts) {
         if (font.texture.id != 0) {
-            UnloadFont(font);
+            if (!m_headless) UnloadFont(font);
             LOG_TRACE("已卸载字体，ID: {}", id);
         }
     }
@@ -184,7 +219,7 @@ void ResourceManager::unloadAll() { // 卸载所有资源
     LOG_DEBUG("正在卸载所有 Shader，数量: {}", m_shaders.size());
     for (auto& [id, shader] : m_shaders) {
         if (shader.id != 0) {
-            UnloadShader(shader);
+            if (!m_headless) UnloadShader(shader);
             LOG_TRACE("已卸载 Shader，ID: {}", id);
         }
     }

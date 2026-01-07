@@ -47,6 +47,7 @@ void Logger::Init() {
     
     try {
         spdlog::register_logger(s_CoreLogger);
+        spdlog::set_default_logger(s_CoreLogger); // Fix: Ensure spdlog::info/error uses our logger
     } catch (...) {}
 
     s_CoreLogger->set_level(spdlog::level::trace);

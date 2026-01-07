@@ -32,9 +32,14 @@ public:
 
     void unloadAll();
 
+    // Headless Mode Support (For Testing)
+    void SetHeadless(bool headless) { m_headless = headless; }
+    bool IsHeadless() const { return m_headless; }
+
 private:
     std::unordered_map<entt::id_type, Texture2D> m_textures;
     std::unordered_map<entt::id_type, std::string> m_texturePaths; // 用于按需加载的路径注册表
     std::unordered_map<entt::id_type, Font> m_fonts;
     std::unordered_map<entt::id_type, Shader> m_shaders;
+    bool m_headless = false;
 };

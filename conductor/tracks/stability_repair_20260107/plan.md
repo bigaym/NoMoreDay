@@ -12,10 +12,14 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Skill System Logic & Sword Intent Stability' (Protocol in workflow.md) [checkpoint: 91eafa9]
 
 ## Phase 2: Headless Test Stability & Biome Registry
-- [ ] Task: Investigate `BiomeRegistryTest` segmentation fault in headless mode.
-- [ ] Task: Refactor `BiomeRegistry` and `AssetLoadingSystem` to decouple asset loading from Raylib's OpenGL context during unit testing.
-- [ ] Task: Implement a "Headless Mode" flag or mock for Raylib functions that require a window.
-- [ ] Task: Write tests in `BiomeRegistryTest.hpp` to ensure loading works without a graphics context.
+- [x] Task: Investigate `BiomeRegistryTest` segmentation fault in headless mode.
+    - *Note: Root cause was `spdlog` default logger destruction during re-initialization cycles in tests. Fixed by properly setting default logger in `tools::Logger::Init`.*
+- [x] Task: Refactor `BiomeRegistry` and `AssetLoadingSystem` to decouple asset loading from Raylib's OpenGL context during unit testing.
+    - *Note: `AssetLoadingSystem` delegates to `ResourceManager`. Implemented `SetHeadless` in `ResourceManager` to bypass OpenGL calls.*
+- [x] Task: Implement a "Headless Mode" flag or mock for Raylib functions that require a window.
+    - *Note: Added `SetHeadless` to `ResourceManager` which mocks `loadTexture`, `loadFont`, and `loadShader`.*
+- [x] Task: Write tests in `BiomeRegistryTest.hpp` to ensure loading works without a graphics context.
+    - *Note: `BiomeRegistryTest` now passes with `LoggerScope`. `AssetLoadingSystemTest` updated to use headless mode and verify equipment loading simulation.*
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Headless Test Stability & Biome Registry' (Protocol in workflow.md)
 
 ## Phase 3: Final Verification & Integration

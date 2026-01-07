@@ -1,9 +1,11 @@
 #pragma once
 #include "doctest.h"
+#include "TestCommon.hpp"
 #include "../src/core/LevelManager.hpp"
 #include "../src/core/BiomeRegistry.hpp"
 
 TEST_CASE("LevelManager - Biome loading") {
+    LoggerScope scope;
     using namespace NoMoreDay;
     
     // Ensure biomes are loaded
