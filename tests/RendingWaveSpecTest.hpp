@@ -8,6 +8,7 @@
 #include "../src/components/Common.hpp"
 #include "../src/components/Projectile.hpp"
 #include "../src/systems/PhysicsSystem.hpp"
+#include "../src/systems/ProjectileSystem.hpp"
 
 TEST_CASE("RendingWave: Branch A - Fen Hai (Extra Waves)") {
     LoggerScope scope;
@@ -27,7 +28,10 @@ TEST_CASE("RendingWave: Branch A - Fen Hai (Extra Waves)") {
     
     SUBCASE("Default 1 Wave") {
         SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
-        for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
+        for(int i=0; i<10; ++i) {
+            SkillSystem::Update(registry, grid, 0.02f);
+            ProjectileSystem::Update(registry, grid, 0.02f);
+        }
         
         auto view = registry.view<Projectile>();
         int count = 0;
@@ -39,7 +43,10 @@ TEST_CASE("RendingWave: Branch A - Fen Hai (Extra Waves)") {
         active.specialized_slots[1].allocated_points[210] = 2; // Fen Hai
         
         SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
-        for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
+        for(int i=0; i<10; ++i) {
+            SkillSystem::Update(registry, grid, 0.02f);
+            ProjectileSystem::Update(registry, grid, 0.02f);
+        }
         
         auto view = registry.view<Projectile>();
         int count = 0;
@@ -66,7 +73,10 @@ TEST_CASE("RendingWave: Branch B - Fan Tian (Boomerang)") {
     active.specialized_slots[1].allocated_points[220] = 1; // Fan Tian
 
     SkillSystem::TryCast(registry, player, 0, {100.0f, 0.0f});
-    for(int i=0; i<10; ++i) SkillSystem::Update(registry, grid, 0.02f);
+    for(int i=0; i<10; ++i) {
+        SkillSystem::Update(registry, grid, 0.02f);
+        ProjectileSystem::Update(registry, grid, 0.02f);
+    }
     
     auto view = registry.view<Projectile, BoomerangComponent, Velocity>();
     REQUIRE(view.begin() != view.end());
@@ -80,6 +90,7 @@ TEST_CASE("RendingWave: Branch B - Fan Tian (Boomerang)") {
     // bc.returnTimer is 0.5s. 0.02f * 30 = 0.6s
     for(int i=0; i<30; ++i) {
         PhysicsSystem::updateAll(registry, 0.02f, 2000, 2000, grid);
+        ProjectileSystem::Update(registry, grid, 0.02f);
     }
     
     // Check if phase changed and velocity reversed (approx)

@@ -2,7 +2,6 @@
 #include "doctest.h"
 #include "entt/entt.hpp"
 #include "../src/systems/SkillSystem.hpp"
-#include "../src/systems/ShadowSystem.hpp"
 #include "../src/systems/MovementStanceSystem.hpp"
 #include "../src/systems/StatsSystem.hpp"
 #include "../src/core/SkillRegistry.hpp"

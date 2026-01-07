@@ -88,5 +88,17 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: Skill System Optimization, UI Polish, and GPU VFX
+
 - **Folder:** conductor/archive/skill_vfx_gpu_ui_20260105
+
 - **Description:** Implement advanced skill mechanics, deep UI feedback (Drag-and-Drop, FCT), and high-performance GPU visual effects. (Completed on 2026-01-07)
+
+
+
+---
+
+
+
+## [~] Track: Stability & Test Suite Repair
+
+*Link: [./conductor/tracks/stability_repair_20260107/](./conductor/tracks/stability_repair_20260107/)*

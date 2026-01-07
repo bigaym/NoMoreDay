@@ -23,6 +23,6 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Headless Test Stability & Biome Registry' (Protocol in workflow.md) [checkpoint: dbe39f1]
 
 ## Phase 3: Final Verification & Integration
-- [ ] Task: Run the full `tests_runner.exe` and ensure all suites (including `SkillUITest`) pass.
+- [~] Task: Run the full `tests_runner.exe` and ensure all suites (including `SkillUITest`) pass.
 - [ ] Task: Perform a final build in `Release` and `Debug` configurations to ensure no cross-platform/config regressions.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Final Verification & Integration' (Protocol in workflow.md)

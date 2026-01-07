@@ -39,7 +39,7 @@
           {"id": 123, "name_key": "重影", "desc_key": "残影造成的伤害总增 (15% More)。", "max_points": 3, "x": -3.5, "y": 4.5, "prerequisites": [122]},
           {"id": 124, "name_key": "影杀阵", "desc_key": "终极：若消耗剑意，残影会重复你释放的下一个技能。", "max_points": 1, "x": -5.0, "y": 5.5, "prerequisites": [123]},
 
-          {"id": 130, "name_key": "弱点感知", "desc_key": "增加对满血敌人的暴击率 (10% per point)。", "max_points": 5, "x": 2.5, "y": -1.5, "prerequisites": [102]},
+          {"id": 130, "name_key": "弱点感知", "desc_key": "增加对满血敌人的暴击率 (10% per point)。", "max_points": 5, "x": 2.5, "y": -1.5, "prerequisites": [102], "stat_modifiers": [ { "type": 14, "mode": 1, "value": 10.0 } ]},
           {"id": 131, "name_key": "重创", "desc_key": "20%几率造成流血。", "max_points": 3, "x": 3.5, "y": -2.5, "prerequisites": [130]},
           {"id": 132, "name_key": "绝命一击", "desc_key": "暴击伤害倍率增加20%。", "max_points": 5, "x": 2.5, "y": -3.5, "prerequisites": [130], "stat_modifiers": [ { "type": 15, "mode": 1, "value": 20.0 } ]},
           {"id": 133, "name_key": "破甲之志", "desc_key": "将50%物理抗性转为穿透，但不再拥有护甲减伤。", "max_points": 1, "x": 3.5, "y": -5.0, "prerequisites": [132]},

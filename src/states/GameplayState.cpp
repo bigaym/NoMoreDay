@@ -23,7 +23,6 @@
 #include "../systems/XPAwardingSystem.hpp"
 #include "../systems/InventorySystem.hpp"
 #include "../systems/SkillSystem.hpp"
-#include "../systems/ShadowSystem.hpp"
 #include "../systems/MovementStanceSystem.hpp"
 #include "../systems/ProjectileSystem.hpp"
 #include "../systems/GPUParticleSystem.hpp"
@@ -247,7 +246,6 @@ namespace NoMoreDay {
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);
         SkillSystem::Update(registry, m_spatialGrid, dt);
-        ShadowSystem::Update(registry, dt);
         MovementStanceSystem::Update(registry, dt);
         ProjectileSystem::Update(registry, m_spatialGrid, dt);
         
