@@ -20,7 +20,7 @@
     - *Note: Added `SetHeadless` to `ResourceManager` which mocks `loadTexture`, `loadFont`, and `loadShader`.*
 - [x] Task: Write tests in `BiomeRegistryTest.hpp` to ensure loading works without a graphics context.
     - *Note: `BiomeRegistryTest` now passes with `LoggerScope`. `AssetLoadingSystemTest` updated to use headless mode and verify equipment loading simulation.*
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Headless Test Stability & Biome Registry' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Headless Test Stability & Biome Registry' (Protocol in workflow.md) [checkpoint: dbe39f1]
 
 ## Phase 3: Final Verification & Integration
 - [ ] Task: Run the full `tests_runner.exe` and ensure all suites (including `SkillUITest`) pass.
