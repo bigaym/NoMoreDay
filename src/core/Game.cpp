@@ -15,6 +15,11 @@
 #include "../core/BiomeRegistry.hpp"
 #include "../components/AstrolabeUIComponent.hpp"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+#include "GLFW/glfw3.h"
+
 Game::Game(int width, int height, const char* title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title) {
     
@@ -22,6 +27,34 @@ Game::Game(int width, int height, const char* title)
     LOG_INFO("Initializing Game with dimensions: {}x{}, title: {}", width, height, title);
     
     InitWindow(m_screenWidth, m_screenHeight, m_title);
+
+    // Initialize OpenGL function pointers via GLAD using a robust loader
+    LOG_INFO("Loading OpenGL 4.3 extensions via GLAD...");
+    
+    auto glad_loader = [](const char* name) -> void* {
+        void* p = (void*)glfwGetProcAddress(name);
+#ifdef _WIN32
+        if (p == nullptr || p == (void*)0x1 || p == (void*)0x2 || p == (void*)0x3 || p == (void*)-1) {
+            static HMODULE opengl32 = GetModuleHandleA("opengl32.dll");
+            if (opengl32 == nullptr) opengl32 = LoadLibraryA("opengl32.dll");
+            p = (void*)GetProcAddress(opengl32, name);
+        }
+#endif
+        return p;
+    };
+
+    // We don't strictly check the return value here because gladLoadGL 2.0 might return 0
+    // if a single obscure function from the requested version is missing.
+    // We will rely on our own GPUUtils::CheckSupport to verify if what we NEED is there.
+    int loaded_version = gladLoadGL((GLADloadfunc)+glad_loader);
+    
+    const char* gl_version_str = (const char*)glGetString(GL_VERSION);
+    if (gl_version_str) {
+        LOG_INFO("GLAD loader finished. OpenGL Version: {}. Glad reported version: {}", gl_version_str, loaded_version);
+    } else {
+        LOG_ERROR("GLAD loader failed critically: glGetString(GL_VERSION) is NULL!");
+    }
+
     InitAudioDevice(); 
     
     // Check GPU Support

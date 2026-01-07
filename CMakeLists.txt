@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(NoMoreDay VERSION 0.1.0 LANGUAGES CXX)
+project(NoMoreDay VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,6 +17,7 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES    OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE) # Build as Dynamic Library (DLL)
 set(OPENGL_VERSION "4.3" CACHE STRING "Force OpenGL 4.3" FORCE)
+set(GRAPHICS "GRAPHICS_API_OPENGL_43" CACHE STRING "Force OpenGL 4.3" FORCE)
 add_subdirectory(third_party/raylib)
 
 # 3. EnTT
@@ -125,6 +126,7 @@ target_precompile_headers(NoMoreDayCore PRIVATE src/pch.hpp)
 target_link_libraries(NoMoreDayCore 
     PUBLIC 
     raylib 
+    glfw
     spdlog::spdlog 
     EnTT::EnTT 
     Taskflow
@@ -136,6 +138,7 @@ target_include_directories(NoMoreDayCore PUBLIC
     third_party/json/include
     third_party/raylib/src
     third_party/raylib/src/external
+    third_party/raylib/src/external/glfw/include
 )
 
 if(WIN32)

@@ -41,20 +41,26 @@ public:
         }
 
         if (info.computeShaderSupported) {
-            LOG_INFO("Compute Shaders are SUPPORTED.");
-            
-            // Query Compute Shader limits
-            for (int i = 0; i < 3; i++) {
-                glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, i, &info.maxComputeWorkGroupCount[i]);
-                glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, i, &info.maxComputeWorkGroupSize[i]);
-            }
-            glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &info.maxComputeWorkGroupInvocations);
+            // Check if required compute shader functions are actually loaded
+            if (glGetIntegeri_v == nullptr) {
+                LOG_WARN("Compute shaders reported as supported, but glGetIntegeri_v is NULL! Disabling compute support.");
+                info.computeShaderSupported = false;
+            } else {
+                LOG_INFO("Compute Shaders are SUPPORTED.");
+                
+                // Query Compute Shader limits
+                for (int i = 0; i < 3; i++) {
+                    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_COUNT, i, &info.maxComputeWorkGroupCount[i]);
+                    glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, i, &info.maxComputeWorkGroupSize[i]);
+                }
+                glGetIntegerv(GL_MAX_COMPUTE_WORK_GROUP_INVOCATIONS, &info.maxComputeWorkGroupInvocations);
 
-            LOG_DEBUG("Max Work Group Count: [{}, {}, {}]", 
-                info.maxComputeWorkGroupCount[0], info.maxComputeWorkGroupCount[1], info.maxComputeWorkGroupCount[2]);
-            LOG_DEBUG("Max Work Group Size: [{}, {}, {}]", 
-                info.maxComputeWorkGroupSize[0], info.maxComputeWorkGroupSize[1], info.maxComputeWorkGroupSize[2]);
-            LOG_DEBUG("Max Work Group Invocations: {}", info.maxComputeWorkGroupInvocations);
+                LOG_DEBUG("Max Work Group Count: [{}, {}, {}]", 
+                    info.maxComputeWorkGroupCount[0], info.maxComputeWorkGroupCount[1], info.maxComputeWorkGroupCount[2]);
+                LOG_DEBUG("Max Work Group Size: [{}, {}, {}]", 
+                    info.maxComputeWorkGroupSize[0], info.maxComputeWorkGroupSize[1], info.maxComputeWorkGroupSize[2]);
+                LOG_DEBUG("Max Work Group Invocations: {}", info.maxComputeWorkGroupInvocations);
+            }
         } else {
             LOG_WARN("Compute Shaders are NOT supported on this hardware/context.");
         }
