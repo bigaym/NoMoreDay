@@ -20,9 +20,8 @@ void main() {
     uint index = y * width + x;
 
     uint myCost = cost[index];
-    if (myCost >= 255) return; // Wall
+    if (myCost >= 255) return;
     
-    // Ensure minimum cost to avoid zero-cost cycles, assuming 1 is base cost
     myCost = max(myCost, 1u);
 
     uint currentDist = integration[index];
@@ -41,7 +40,6 @@ void main() {
                 uint nDist = integration[nIndex];
                 
                 if (nDist != 0xFFFFFFFF) {
-                    // Cardinal: 10, Diagonal: 14
                     uint weight = (dx == 0 || dy == 0) ? 10u : 14u;
                     uint moveCost = myCost * weight;
                     uint newDist = nDist + moveCost;

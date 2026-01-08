@@ -1,6 +1,7 @@
 #include "AISystem.hpp"
 #include "../tools/Logger.hpp"
 #include "../components/EnemyComponent.hpp"
+#include "GPUFlowFieldSystem.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -39,8 +40,13 @@ void AISystem::updateAIEntity(entt::registry& registry,
                              AIComponent& ai, 
                              Position& pos, 
                              Velocity& vel, 
+                             const NoMoreDay::systems::SpatialHashGrid& grid,
                              const MapSystem& mapSystem,
                              const Position& playerPos, 
+                             const std::vector<Vector2>& flowField,
+                             Vector2 gridOrigin,
+                             int gridW, int gridH,
+                             float cellSize,
                              float dt) {
     
     // 更新决策计时器
@@ -76,7 +82,7 @@ void AISystem::updateAIEntity(entt::registry& registry,
                 ai.aiType = AIType::PATROL;
                 ai.target = entt::null;
             }
-            // 回血
+            // 回回血
             if (health && health->current < health->max * 0.95f) {
                 health->current += health->max * 0.10f * dt;
                 if (health->current > health->max) health->current = health->max;
@@ -172,26 +178,81 @@ void AISystem::updateAIEntity(entt::registry& registry,
                     vel.vx = 0.0f;
                     vel.vy = 0.0f;
                 } else {
-                    // --- 核心修改：使用 MapSystem 的流场进行智能寻路 ---
-                    Vector2 flow = mapSystem.getFlowDirection(pos);
+                    // --- 核心修改：使用 GPUFlowFieldSystem 的流场进行寻路 ---
+                    Vector2 flow = { 0, 0 };
                     
+                    int gx = (int)((pos.x - gridOrigin.x) / cellSize);
+                    int gy = (int)((pos.y - gridOrigin.y) / cellSize);
+                    
+                    if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
+                        flow = flowField[gy * gridW + gx];
+                    }
+
+                    // --- 局部回避 (Separation) ---
+                    Vector2 separation = { 0, 0 };
+                    float searchRadius = 35.0f;
+                    int count = 0;
+
+                    const_cast<NoMoreDay::systems::SpatialHashGrid&>(grid).query(pos, searchRadius, [&](entt::entity neighbor) {
+                        if (neighbor == entity) return;
+                        
+                        const auto& nPos = registry.get<Position>(neighbor);
+                        float dx = pos.x - nPos.x;
+                        float dy = pos.y - nPos.y;
+                        float dSq = dx*dx + dy*dy;
+                        
+                        if (dSq > 0.01f && dSq < searchRadius * searchRadius) {
+                            float d = std::sqrt(dSq);
+                            separation.x += dx / d;
+                            separation.y += dy / d;
+                            count++;
+                        }
+                    });
+
                     // 90% of Player Base Speed (150.0f) = 135.0f
                     float chaseSpeed = 135.0f;
 
                     if (flow.x != 0 || flow.y != 0) {
-                        vel.vx = flow.x * chaseSpeed;
-                        vel.vy = flow.y * chaseSpeed;
+                        // 融合流场与回避
+                        Vector2 finalDir = flow;
+                        if (count > 0) {
+                            separation.x /= count;
+                            separation.y /= count;
+                            // 权重：流场 0.7, 回避 0.3
+                            finalDir.x = flow.x * 0.7f + separation.x * 0.3f;
+                            finalDir.y = flow.y * 0.7f + separation.y * 0.3f;
+                            
+                            float mag = std::sqrt(finalDir.x*finalDir.x + finalDir.y*finalDir.y);
+                            if (mag > 0.01f) {
+                                finalDir.x /= mag;
+                                finalDir.y /= mag;
+                            }
+                        }
+
+                        vel.vx = finalDir.x * chaseSpeed;
+                        vel.vy = finalDir.y * chaseSpeed;
                     } else {
-                        // 流场无效（例如目标在墙里或距离太远），回退到直线追踪
-                        LOG_LIMITED_WARN(2.0f, "AI entity {} flow field invalid at ({:.1f}, {:.1f}), falling back to direct chase", (uint32_t)entity, pos.x, pos.y);
-                        
+                        // 流场无效（例如在网格外部），回退到直线追踪
                         float dx = targetPos.x - pos.x;
                         float dy = targetPos.y - pos.y;
                         float length = std::sqrt(dx * dx + dy * dy);
                         
                         if (length > 0.0f) {
-                            vel.vx = (dx / length) * chaseSpeed;
-                            vel.vy = (dy / length) * chaseSpeed;
+                            Vector2 finalDir = { dx / length, dy / length };
+                            if (count > 0) {
+                                separation.x /= count;
+                                separation.y /= count;
+                                finalDir.x = finalDir.x * 0.7f + separation.x * 0.3f;
+                                finalDir.y = finalDir.y * 0.7f + separation.y * 0.3f;
+                                
+                                float mag = std::sqrt(finalDir.x*finalDir.x + finalDir.y*finalDir.y);
+                                if (mag > 0.01f) {
+                                    finalDir.x /= mag;
+                                    finalDir.y /= mag;
+                                }
+                            }
+                            vel.vx = finalDir.x * chaseSpeed;
+                            vel.vy = finalDir.y * chaseSpeed;
                         }
                     }
                 }
@@ -247,8 +308,13 @@ void AISystem::updateAIEntity(entt::registry& registry,
 }
 
 void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const MapSystem& mapSystem, const Position& playerPos, float dt) {
-    // LOG_TRACE("AISystem::update: processing AI logic for frame");
-    
+    auto& flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
+    std::vector<Vector2> field = flowSystem.DownloadFlowField();
+    Vector2 origin = flowSystem.GetGridOrigin();
+    int gridW = flowSystem.GetWidth();
+    int gridH = flowSystem.GetHeight();
+    float cellSize = 64.0f; // TODO: Make this a constant or parameter
+
     auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>();
     
     for (auto entity : aiView) {
@@ -256,6 +322,6 @@ void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashG
         auto& pos = aiView.get<Position>(entity);
         auto& vel = aiView.get<Velocity>(entity);
         
-        updateAIEntity(registry, entity, ai, pos, vel, mapSystem, playerPos, dt);
+        updateAIEntity(registry, entity, ai, pos, vel, grid, mapSystem, playerPos, field, origin, gridW, gridH, cellSize, dt);
     }
 }

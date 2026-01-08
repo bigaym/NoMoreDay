@@ -22,10 +22,11 @@ void GPUFlowFieldSystem::Init(ResourceManager& resources, int width, int height)
     std::vector<uint32_t> initialCost(cellCount, 255);
     m_costBuffer.Create(cellCount * sizeof(uint32_t), initialCost.data(), RL_DYNAMIC_DRAW);
 
-    // 2. Integration Buffer (uint32_t)
+    // 2. Integration Buffers (uint32_t)
     // Initialize with max int
     std::vector<uint32_t> initialInt(cellCount, 0xFFFFFFFF);
     m_integrationBuffer.Create(cellCount * sizeof(uint32_t), initialInt.data(), RL_DYNAMIC_DRAW);
+    m_integrationBuffer2.Create(cellCount * sizeof(uint32_t), initialInt.data(), RL_DYNAMIC_DRAW);
 
     // 3. Flow Buffer (Vector2)
     // Initialize with zero
@@ -63,18 +64,10 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vecto
     // 1. Reset Integration Field
     rlEnableShader(m_resetShader.id);
     
-    // Set Target Uniform (Grid Space)
-    // Target is in World Space, Grid is World aligned but offset by gridOrigin
     Vector2 targetGrid = { targetPos.x - gridOrigin.x, targetPos.y - gridOrigin.y };
-    // Assuming 1 unit = 1 cell for now? Or pass Grid Scale?
-    // Let's assume 1-to-1 mapping for simplicity if "Rolling Grid" aligns with tiles.
-    // If TileSize > 1, we need to divide.
-    // For now, assume costMap is already downsampled/mapped to grid.
-    
-    // Pass Width/Height uniforms
     int locW = rlGetLocationUniform(m_resetShader.id, "width");
     int locH = rlGetLocationUniform(m_resetShader.id, "height");
-    int locTarget = rlGetLocationUniform(m_resetShader.id, "targetPos"); // ivec2 in shader
+    int locTarget = rlGetLocationUniform(m_resetShader.id, "targetPos");
     
     int targetX = (int)targetGrid.x;
     int targetY = (int)targetGrid.y;
@@ -84,22 +77,20 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vecto
     rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
     rlSetUniform(locTarget, targetIVec, RL_SHADER_UNIFORM_IVEC2, 1);
 
+    m_integrationBuffer.BindBase(1);
     rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
     utils::GPUUtils::MemoryBarrier();
 
-    // 2. Integration (Iterative)
-    // Needs multiple passes? Or Dijkstra wave?
-    // Simple iterative relaxation needs many passes.
-    // Jump Flood is faster but complex.
-    // Let's do 20 passes of simple relaxation for now (good enough for local 50x50).
+    // 2. Integration (Iterative Relaxation)
     rlEnableShader(m_integrationShader.id);
     locW = rlGetLocationUniform(m_integrationShader.id, "width");
     locH = rlGetLocationUniform(m_integrationShader.id, "height");
     rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
     rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
 
-    int passes = std::max(m_width, m_height); // Worst case manhattan
-    // Optimization: Dispatch passes?
+    int passes = 256; 
+    m_integrationBuffer.BindBase(1);
+    
     for (int i = 0; i < passes; ++i) {
         rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
         utils::GPUUtils::MemoryBarrier();

@@ -5,6 +5,8 @@
 #include "SpatialGrid.hpp"
 #include "MapSystem.hpp"
 #include <cmath>
+#include <vector>
+#include "raylib.h"
 
 class AISystem {
 public:
@@ -27,7 +29,12 @@ private:
                               AIComponent& ai, 
                               Position& pos, 
                               Velocity& vel,
+                              const NoMoreDay::systems::SpatialHashGrid& grid,
                               const MapSystem& mapSystem,
                               const Position& playerPos, 
+                              const std::vector<Vector2>& flowField,
+                              Vector2 gridOrigin,
+                              int gridW, int gridH,
+                              float cellSize,
                               float dt);
 };

@@ -16,11 +16,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Compute Shader Pathfinding Logic' (Protocol in workflow.md) (8b3faa6)
 
 ## Phase 3: AI System Integration & Performance Tuning
-- [ ] Task: Update `AISystem` to sample the GPU Flow Field buffer and convert results to Steering Forces.
-- [ ] Task: Implement blending logic between Flow Field steering and local Spatial Hash avoidance.
-- [ ] Task: Optimize Compute Shader group sizes and memory layouts for maximum throughput.
-- [ ] Task: Conduct a stress test with 5,000+ entities to verify stability and performance (Target: < 2ms GPU time for pathing).
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: AI System Integration & Performance Tuning' (Protocol in workflow.md)
+- [x] Task: Update `AISystem` to sample the GPU Flow Field buffer and convert results to Steering Forces. (ad45b5b)
+- [x] Task: Implement blending logic between Flow Field steering and local Spatial Hash avoidance. (ad45b5b)
+- [x] Task: Optimize Compute Shader group sizes and memory layouts for maximum throughput. (ad45b5b)
+- [x] Task: Conduct a stress test with 5,000+ entities to verify stability and performance (Target: < 2ms GPU time for pathing). (ad45b5b)
+- [~] Task: Conductor - User Manual Verification 'Phase 3: AI System Integration & Performance Tuning' (Protocol in workflow.md)
 
 ## Phase 4: Final Polish & Stress Test
 - [ ] Task: Refine "Crowd Density" weights to achieve optimal flanking behavior.

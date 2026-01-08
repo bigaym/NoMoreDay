@@ -45,7 +45,8 @@ private:
                                              // GLSL `uint` is 32-bit. We can use `uint` and pack 4 costs, or just use `uint` per cell.
                                              // Using `uint` per cell (0-255 value) is safe and aligned.
     
-    core::ComputeBuffer m_integrationBuffer; // uint32_t[] (Cost Integration)
+    core::ComputeBuffer m_integrationBuffer;  // Ping
+    core::ComputeBuffer m_integrationBuffer2; // Pong
     core::ComputeBuffer m_flowBuffer;        // Vector2[] (Flow Direction)
     
     int m_width = 0;

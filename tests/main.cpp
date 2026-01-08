@@ -50,6 +50,7 @@ using namespace NoMoreDay;
 #include "SkillUITest.hpp"
 #include "FlowFieldBufferTest.hpp"
 #include "FlowFieldLogicTest.hpp"
+#include "FlowFieldPerformanceTest.hpp"
 
 int main(int argc, char** argv) {
     // Some Raylib functions require a window context even if not drawing
