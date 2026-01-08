@@ -64,14 +64,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [x] Track: Sword Cultivator Foundation Expansion
-- **Folder:** conductor/tracks/blade_ascendant_foundation_20260103
-- **Description:** Implement advanced Blade Ascendant mechanics: Skill Hooks, Lightweight Shadow System, Sword Intent empowerment, and Movement Stances. (Completed on 2026-01-03) 
-
----
-
----
-
 - [x] Skill Specialization Trees (Flowing Thrust & Rending Wave) (skill_spec_trees_20260103) - *Completed 2026-01-03*
 
 ---
@@ -92,20 +84,3 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Folder:** conductor/archive/skill_vfx_gpu_ui_20260105
 
 - **Description:** Implement advanced skill mechanics, deep UI feedback (Drag-and-Drop, FCT), and high-performance GPU visual effects. (Completed on 2026-01-07)
-
-
-
----
-
-
-
-## [x] Track: Stability & Test Suite Repair
-- **Folder:** conductor/archive/stability_repair_20260107
-- **Description:** Repaired the test suite by fixing MSVC build errors (/bigobj), resolving missing DLL issues in Debug mode, and verifying all tests pass. (Completed on 2026-01-08)
-
----
-
-## [x] Track: GPU Flow Field Pathing Integration
-*Link: [./conductor/tracks/flow_field_pathing_20260108/](./conductor/tracks/flow_field_pathing_20260108/)*
-
-

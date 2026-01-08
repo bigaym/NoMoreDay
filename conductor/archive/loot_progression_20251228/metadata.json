@@ -1,8 +1,0 @@
-{
-  "track_id": "loot_progression_20251228",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2025-12-28T11:32:00Z",
-  "updated_at": "2025-12-28T11:32:00Z",
-  "description": "Implement Loot, Experience, and Leveling Systems"
-}

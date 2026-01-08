@@ -42,11 +42,13 @@ Game::Game(int width, int height, const char* title)
     SetTargetFPS(60);
     
     // Fill Context
+    m_settings.Load();
     m_levelManager = std::make_unique<LevelManager>();
     m_context.registry = &m_registry;
     m_context.resources = &m_resourceManager;
     m_context.levelManager = m_levelManager.get();
     m_context.executor = &m_executor;
+    m_context.settings = &m_settings;
 
     // Init SceneManager
     m_sceneManager = std::make_unique<NoMoreDay::SceneManager>(*m_levelManager, m_registry);

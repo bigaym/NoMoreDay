@@ -44,6 +44,8 @@ To create an immersive, performance-driven ARPG experience where players face ov
 
 - **Massive Scale Combat:** A high-performance, tag-driven damage engine supporting a 5-step calculation pipeline (Base, Conversion, Increased, More, Settle). It handles complex damage conversions (e.g., Physical to Fire) and applies multi-layered modifiers for Physical, Elemental, and Eldritch damage types, optimized for 10,000+ entities with zero-allocation update loops.
 
+- **GPU-Driven AI Navigation:** A high-performance pathfinding system utilizing GPU flow fields to support 10,000+ entities. Features a 256x256 local "rolling grid" that calculates optimal steering vectors around static and dynamic obstacles using iterative compute shaders, enabling complex crowd behavior like flanking and surrounding with minimal CPU overhead.
+
 - **Deep Build Economy:** A focus on crafting, rune words, and forging potential to allow for endgame "god-tier" character creation.
 
 - **Dynamic UI & Inventory:** A highly responsive, zero-allocation UI system for managing complex equipment (11 slots) and unlimited materials, with full support for Chinese localization and dynamic text scaling.

@@ -68,6 +68,8 @@ add_library(NoMoreDayCore STATIC
     src/states/MainMenuState.hpp
     src/states/PauseState.cpp
     src/states/PauseState.hpp
+    src/states/SettingsState.cpp
+    src/states/SettingsState.hpp
     src/states/LoadingState.cpp
     src/states/LoadingState.hpp
     src/systems/PhysicsSystem.cpp

@@ -6,10 +6,10 @@
 
 namespace NoMoreDay {
 
-    class PauseState : public IState {
+    class SettingsState : public IState {
     public:
-        PauseState(StateManager& manager, SharedContext& context);
-        virtual ~PauseState() = default;
+        SettingsState(StateManager& manager, SharedContext& context);
+        virtual ~SettingsState() = default;
 
         void OnEnter() override;
         void OnExit() override;
@@ -18,19 +18,28 @@ namespace NoMoreDay {
         void OnRender() override;
 
     private:
+        struct Slider {
+            Rectangle bounds;
+            float* value;
+            float min;
+            float max;
+            std::string label;
+            bool dragging;
+        };
+
         struct Button {
             Rectangle bounds;
             std::string text;
             bool hovered;
         };
 
+        void DrawSlider(Slider& slider);
+        void UpdateSlider(Slider& slider);
         void DrawButton(const Button& btn);
         bool IsButtonClicked(const Button& btn);
 
-        Button m_resumeButton;
-        Button m_unstuckButton;
-        Button m_settingsButton;
-        Button m_menuButton;
+        Slider m_zoomSlider;
+        Button m_backButton;
     };
 
 }

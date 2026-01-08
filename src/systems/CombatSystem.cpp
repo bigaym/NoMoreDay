@@ -357,9 +357,9 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
         const auto& tPos = registry.get<Position>(target);
         EffectSystem::EmitDamagePopup(registry, {tPos.x, tPos.y}, amount, isCrit);
         
-        // Screen Shake for critical hits or heavy damage
-        if (isCrit || amount > 50.0f) {
-             RenderSystem::AddScreenShake(isCrit ? 0.3f : 0.15f);
+        // Screen Shake for heavy damage
+        if (amount > 100.0f) {
+             RenderSystem::AddScreenShake(0.15f);
         }
     }
 
@@ -382,6 +382,10 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
     }
 
     if (hp.current <= 0) {
+        if (registry.all_of<KilledTag>(target)) {
+            return true;
+        }
+
         LOG_INFO("Entity {} destroyed", (uint32_t)target);
         
         // 处理击杀奖励

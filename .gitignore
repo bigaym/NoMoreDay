@@ -30,17 +30,13 @@ venv/
 
 # Logs
 *.log
-# *.png
+*.png
 logs/
 
 # Gemini
 .gemini/
 AGENT*.
 .roo/
-scripts/assets
-third_party/cv2pdb-0.54
-third_party/entt
-third_party/json
-third_party/spdlog
-third_party/taskflow
+scripts/aseets
+conductor/archive
 # assets/textures

@@ -134,9 +134,10 @@ void AISystem::updateAIEntity(entt::registry& registry,
                 ai.patrolDirection = !ai.patrolDirection;
                 vel.vx = 0; vel.vy = 0;
             } else if (distToNext > 0.1f) {
-                // 移动向下一步
-                vel.vx = (dx / distToNext) * ai.speed * 0.33f; // 巡逻速度慢 (1/3)
-                vel.vy = (dy / distToNext) * ai.speed * 0.33f;
+                // 移动向下一步 - 游荡速度固定为 20
+                float patrolSpeed = 20.0f;
+                vel.vx = (dx / distToNext) * patrolSpeed;
+                vel.vy = (dy / distToNext) * patrolSpeed;
             }
 
             // 检查是否有目标进入检测范围

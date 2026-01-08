@@ -31,15 +31,15 @@ struct StatCalculation {
 };
 
 static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
-    combat.max_health = 100.0f;
-    combat.max_mana = 100.0f;
+    combat.max_health = GameConstants::DEFAULT_MAX_HEALTH;
+    combat.max_mana = GameConstants::DEFAULT_MAX_MANA;
     combat.armor = 0.0f;
-    combat.move_speed = 300.0f;
-    combat.crit_chance = 0.05f;
-    combat.crit_damage = 1.50f;
-    combat.attack_speed = 1.0f;
+    combat.move_speed = GameConstants::DEFAULT_MOVE_SPEED;
+    combat.crit_chance = GameConstants::DEFAULT_CRIT_CHANCE;
+    combat.crit_damage = GameConstants::DEFAULT_CRIT_DAMAGE;
+    combat.attack_speed = GameConstants::DEFAULT_ATTACK_SPEED;
     combat.cast_speed = 1.0f;
-    combat.accuracy = 0.97f;
+    combat.accuracy = GameConstants::DEFAULT_ACCURACY;
     combat.knockback = 0.0f;
     combat.resistances.fill(0.0f);
     combat.flat_damage.fill(0.0f);
@@ -224,9 +224,9 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs; // 初始化计算数组
     
     // 使用默认值初始化 (玩家默认值)
-    calcs[static_cast<size_t>(StatType::MaxHealth)].base = 100.0f;
-    calcs[static_cast<size_t>(StatType::MaxMana)].base = 100.0f;
-    calcs[static_cast<size_t>(StatType::MoveSpeed)].base = 300.0f;
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base = GameConstants::DEFAULT_MAX_HEALTH;
+    calcs[static_cast<size_t>(StatType::MaxMana)].base = GameConstants::DEFAULT_MAX_MANA;
+    calcs[static_cast<size_t>(StatType::MoveSpeed)].base = GameConstants::DEFAULT_MOVE_SPEED;
     calcs[static_cast<size_t>(StatType::Armor)].base = 0.0f;
     
     // 如果是敌人，应用敌人种族基础属性
@@ -237,11 +237,11 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         calcs[static_cast<size_t>(StatType::Armor)].base = race.baseArmor;
     }
 
-    calcs[static_cast<size_t>(StatType::CritChance)].base = 5.0f; // 5%
-    calcs[static_cast<size_t>(StatType::CritDamage)].base = 150.0f; // 150%
-    calcs[static_cast<size_t>(StatType::AttackSpeed)].base = 100.0f; // 100%
+    calcs[static_cast<size_t>(StatType::CritChance)].base = GameConstants::DEFAULT_CRIT_CHANCE * 100.0f; 
+    calcs[static_cast<size_t>(StatType::CritDamage)].base = GameConstants::DEFAULT_CRIT_DAMAGE * 100.0f; 
+    calcs[static_cast<size_t>(StatType::AttackSpeed)].base = GameConstants::DEFAULT_ATTACK_SPEED * 100.0f; 
     calcs[static_cast<size_t>(StatType::CastSpeed)].base = 100.0f;
-    calcs[static_cast<size_t>(StatType::Accuracy)].base = 97.0f; // 97%
+    calcs[static_cast<size_t>(StatType::Accuracy)].base = GameConstants::DEFAULT_ACCURACY * 100.0f; 
     
     calcs[static_cast<size_t>(StatType::ProjectileSpeed)].base = 100.0f;
     calcs[static_cast<size_t>(StatType::DurationScale)].base = 100.0f;

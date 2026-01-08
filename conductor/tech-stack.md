@@ -7,6 +7,7 @@
 ## Frameworks & Libraries
 - **ECS (Entity Component System):** **EnTT** - High-performance entity management and data locality.
 - **Rendering:** **Raylib** - Lightweight OpenGL-based framework for 2D graphics, windowing, and input.
+- **GPU Computing:** **OpenGL 4.3 Compute Shaders** - Utilized for offloading massive-scale calculations including particles, physics, and flow field pathfinding.
 - **Task Scheduling:** **Taskflow** - Managing complex task dependencies (DAG) and parallel execution.
 - **SIMD:** **xsimd** - Cross-platform SIMD wrappers for optimizing physics and spatial calculations.
 - **Memory Allocation:** **mimalloc** - Performance-oriented allocator to reduce fragmentation and improve multi-threaded efficiency.

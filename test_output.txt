@@ -1,145 +1,43 @@
-[23:29:58] NMD: Initializing NoMoreDay Engine...
-[23:29:58] NMD: Initializing Game with dimensions: 2560x1440, title: NoMoreDay - High Performance ECSI
-NFO: Initializing raylib 5.5
-INFO: Platform backend: DESKTOP (GLFW)
-INFO: Supported raylib modules:
-INFO:     > rcore:..... loaded (mandatory)
-INFO:     > rlgl:...... loaded (mandatory)
-INFO:     > rshapes:... loaded (optional)
-INFO:     > rtextures:. loaded (optional)
-INFO:     > rtext:..... loaded (optional)
-INFO:     > rmodels:... loaded (optional)
-INFO:     > raudio:.... loaded (optional)
-[I] <MMKV.cpp:166::initialize> version v2.2.4, page size 4096, arch x86_64
-[I] <MMKV.cpp:223::initializeMMKV> root dir: C:\Users\yuminao\AppData\LocalLow\SogouPY\mmkv
-[I] <MMKV.cpp:254::mmkvWithID> prepare to load engine_2 (id 601f0ff869037edd1916d34db04a0411) from rootPath C:\Users\yuminao\AppData\LocalLow\SogouPY\mmkv
-[I] <MemoryFile_Win32.cpp:79::open> open fd[0000000000000784], flag 7, C:\Users\yuminao\AppData\LocalLow\SogouPY\mmkv\engine_2
-[I] <MemoryFile_Win32.cpp:211::mmapOrCleanup> mmap to address [0000028A80C70000], [C:\Users\yuminao\AppData\LocalLow\SogouPY\mmkv\engine_2]
-[I] <MemoryFile_Win32.cpp:85::close> closing fd[0000000000000784], C:\Users\yuminao\AppData\LocalLow\SogouPY\mmkv\engine_2 
-[I] <MemoryFile_Win32.cpp:79::open> open fd[0000000000000788], flag 7, C:\Users\yuminao\AppData\LocalLow\SogouPY\mmkv\engine_2.crc
-[I] <MemoryFile_Win32.cpp:211::mmapOrCleanup> mmap to address [0000028A80C80000], [C:\Users\yuminao\AppData\LocalLow\SogouPY\mmkv\engine_2.crc]
-[I] <MemoryFile_Win32.cpp:616::isDiskOfMMAPFileCorrupted> first byte of the file: 0x0
-[I] <MemoryFile_Win32.cpp:616::isDiskOfMMAPFileCorrupted> first byte of the file: 0x0
-[I] <MMKV_IO.cpp:244::loadMetaInfoAndCheck> meta file [engine_2] has flag [0]
-[I] <MMKV_IO.cpp:84::loadFromFile> loading [engine_2] with 0 actual size, file size 4096, InterProcess 1, meta info version:4
-[I] <MMKV_IO.cpp:133::loadFromFile> loaded [engine_2] with 0 key-values
-INFO: DISPLAY: Device initialized successfully
-INFO:     > Display size: 2560 x 1440
-INFO:     > Screen size:  2560 x 1440
-INFO:     > Render size:  2560 x 1440
-INFO:     > Viewport offsets: 0, 0
-INFO: GLAD: OpenGL extensions loaded successfully
-INFO: GL: Supported extensions count: 403
-INFO: GL: OpenGL device information:
-INFO:     > Vendor:   NVIDIA Corporation
-INFO:     > Renderer: NVIDIA GeForce RTX 4070 SUPER/PCIe/SSE2
-INFO:     > Version:  4.3.0 NVIDIA 591.59
-INFO:     > GLSL:     4.30 NVIDIA via Cg compiler
-INFO: GL: VAO extension detected, VAO functions loaded successfully
-INFO: GL: NPOT textures extension detected, full NPOT textures supported
-INFO: GL: DXT compressed textures supported
-INFO: GL: ETC2/EAC compressed textures supported
-INFO: GL: Compute shaders supported
-INFO: GL: Shader storage buffer objects supported
-INFO: PLATFORM: DESKTOP (GLFW - Win32): Initialized successfully
-INFO: TEXTURE: [ID 1] Texture loaded successfully (1x1 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 1] Default texture loaded successfully
-INFO: SHADER: [ID 1] Vertex shader compiled successfully
-INFO: SHADER: [ID 2] Fragment shader compiled successfully
-INFO: SHADER: [ID 3] Program shader loaded successfully
-INFO: SHADER: [ID 3] Default shader loaded successfully
-INFO: RLGL: Render batch vertex buffers loaded successfully in RAM (CPU)
-INFO: RLGL: Render batch vertex buffers loaded successfully in VRAM (GPU)
-INFO: RLGL: Default OpenGL state initialized successfully
-INFO: TEXTURE: [ID 2] Texture loaded successfully (128x128 | GRAY_ALPHA | 1 mipmaps)
-INFO: FONT: Default font loaded successfully (224 glyphs)
-INFO: SYSTEM: Working Directory: F:\NoMoreDay\build\bin
-[23:29:59] NMD: Loading OpenGL 4.3 extensions via GLAD...
-[23:29:59] NMD: GLAD loader finished. OpenGL Version: 4.3.0 NVIDIA 591.59. Glad reported version: 0
-INFO: AUDIO: Device initialized successfully
-INFO:     > Backend:       miniaudio | WASAPI
-INFO:     > Format:        32-bit IEEE Floating Point -> 32-bit IEEE Floating Point
-INFO:     > Channels:      2 -> 8
-INFO:     > Sample rate:   48000 -> 48000
-INFO:     > Periods size:  1440
-[23:29:59] NMD: OpenGL Context Version: 4.3.0 NVIDIA 591.59I
-N[23:29:59] NMD: Detected OpenGL Version: 4.3F
-O[23:29:59] NMD: Compute shaders reported as supported, but glDispatchCompute is NULL! Disabling compute support.:
- TIMER: Target time per frame: 16.667 milliseconds
-[23:29:59] NMD: Game window and core systems initialized
-[23:29:59] NMD: Initializing Game systems...
-[23:29:59] NMD: AstrolabeRegistry: Loaded 45 nodes from assets/data/astrolabe.json
-[23:29:59] NMD: Loaded 9 skills and 9 trees from assets/data/skills.json
-[23:29:59] NMD: Initializing Skill Hooks...
-[23:29:59] NMD: Loaded biome: 平安镇 (Town) (town)
-[23:29:59] NMD: Loaded biome: 幽暗洞穴 (Dark Cave) (cave)
-[23:29:59] NMD: ItemFactory: 成功加载了 25 个词缀定义。
-[23:29:59] NMD: ItemFactory: 成功加载了 3 个掉落池定义。
-[23:29:59] NMD: Loaded loot filter: Default Filter (2 rules)
-[23:29:59] NMD: ItemFactory: 成功加载了 25 个词缀定义。
-[23:29:59] NMD: AssetLoadingSystem: Registered core UI textures.
-[23:29:59] NMD: AssetLoadingSystem 已初始化。
-[23:29:59] NMD: Registering equipment assets (Lazy Load)...
-[23:29:59] NMD: Registered 397 equipment assets.
-[23:29:59] NMD: UISystem: Attempting to load font from 'C:/Windows/Fonts/simhei.ttf'...
-INFO: FILEIO: [C:/Windows/Fonts/simhei.ttf] File loaded successfully
-WARNING: FONT: Character [0x0000007c] size is bigger than expected font size
-INFO: TEXTURE: [ID 3] Texture loaded successfully (8192x4096 | GRAY_ALPHA | 1 mipmaps)
-INFO: FONT: Data loaded successfully (24 pixel size | 21391 glyphs)
-[23:29:59] NMD: ResourceManager: Loaded font (ID: 1195202555) from 'C:/Windows/Fonts/simhei.ttf'
-[23:29:59] NMD: UISystem: Successfully loaded Chinese font from 'C:/Windows/Fonts/simhei.ttf'
-[23:29:59] NMD: Pushing MainMenuState...
-[23:29:59] NMD: Game initialization completed
-[23:29:59] NMD: Starting Game Loop...
-[23:30:00] NMD: Preparing level data for: cave (128x128) Level: 1
-[23:30:00] NMD: EnemySpawnSystem: Initializing level data for biome 'cave'
-[23:30:00] NMD: Initialized 633 enemy spawn points in 81 clusters
-[23:30:00] NMD: Activating level: cave (128x128) Level: 1I
-N[23:30:00] NMD: LevelManager cleaned upF
-O: TEXTURE: [ID 4] Texture loaded successfully (128x128 | R8G8B8A8 | 1 mipmaps)
-[23:30:00] NMD: Initialized fog of war texture for 128x128 map
-INFO: FILEIO: [assets/textures/monster/slime_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 5] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/textures/monster/goblin_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-[23:30:00] NMD: Level activated successfully
-[23:30:00] NMD: Entering GameplayState...
-INFO: FILEIO: [assets/textures/characters/player_warrior.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 7] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/textures/weapons/weapon_sword_fantasy_01.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 8] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/textures/monster/skeleton_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 9] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/textures/monster/cultist_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 10] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/textures/monster/demon_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 11] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/textures/monster/warcraft_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 12] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-[23:30:00] NMD: LevelManager initialized (empty state)
-[23:30:00] NMD: Loading new level synchronously: cave (500x500) Level: 1
-[23:30:00] NMD: Preparing level data for: cave (500x500) Level: 1
-[23:30:00] NMD: EnemySpawnSystem: Initializing level data for biome 'cave'I
-N[23:30:00] NMD: Initialized 835 enemy spawn points in 100 clustersF
-O[23:30:00] NMD: Activating level: cave (500x500) Level: 1:
- TEXTURE: [ID 6] Unloaded texture data from VRAM (GPU)
-INFO: TEXTURE: [ID 5] Unloaded texture data from VRAM (GPU)
-INFO: TEXTURE: [ID 4] Unloaded texture data from VRAM (GPU)
-[23:30:00] NMD: LevelManager cleaned up
-INFO: TEXTURE: [ID 4] Texture loaded successfully (500x500 | R8G8B8A8 | 1 mipmaps)
-[23:30:00] NMD: Initialized fog of war texture for 500x500 map
-INFO: FILEIO: [assets/textures/monster/slime_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 5] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: FILEIO: [assets/textures/monster/goblin_0.png] File loaded successfully
-INFO: IMAGE: Data loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-INFO: TEXTURE: [ID 6] Texture loaded successfully (1024x1024 | R8G8B8A8 | 1 mipmaps)
-[23:30:00] NMD: Level activated successfully
+IP_IN_PAGED_CODE: 
+NoMoreDay!entt::basic_sigh_mixin<entt::basic_storage<KilledTag, entt::entity, std::allocator<KilledTag>, void>, entt::basic_registry<entt::entity, std::allocator<entt::entity> > >::pop_all+126 [F:/NoMoreDay/third_party/entt/src/entt/entity/sparse_set.hpp @ 258]
+00007ff6`59b2f0c6 41890490        mov     dword ptr [r8+rdx*4],eax
+
+FAULTING_SOURCE_LINE:  F:/NoMoreDay/third_party/entt/src/entt/entity/sparse_set.hpp
+
+FAULTING_SOURCE_FILE:  F:/NoMoreDay/third_party/entt/src/entt/entity/sparse_set.hpp
+
+FAULTING_SOURCE_LINE_NUMBER:  258
+
+FAULTING_SOURCE_CODE:  
+   254:         ENTT_ASSERT(mode == deletion_policy::swap_and_pop, "Deletion policy mismatch");
+   255:         auto &self = sparse_ref(*it);
+   256:         const auto entt = traits_type::to_entity(self);
+   257:         sparse_ref(packed.back()) = traits_type::combine(entt, traits_type::to_integral(packed.back()));
+>  258:         packed[static_cast<size_type>(entt)] = packed.back();
+   259:         // unnecessary but it helps to detect nasty bugs
+   260:         ENTT_ASSERT((packed.back() = null, true), "");
+   261:         // lazy self-assignment guard
+   262:         self = null;
+   263:         packed.pop_back();
+
+
+SYMBOL_NAME:  NoMoreDay!entt::basic_sigh_mixin<entt::basic_storage<KilledTag, entt::entity, std::allocator<KilledTag>, void>, entt::basic_registry<entt::entity, std::allocator<entt::entity> > >::pop_all+126
+
+MODULE_NAME: NoMoreDay
+
+IMAGE_NAME:  NoMoreDay.exe
+
+FAILURE_BUCKET_ID:  INVALID_POINTER_WRITE_c0000005_NoMoreDay.exe!entt::basic_sigh_mixin_entt::basic_storage_KilledTag,_entt::entity,_std::allocator_KilledTag_,_void_,_entt::basic_registry_entt::entity,_std::allocator_entt::entity_____::pop_all
+
+OS_VERSION:  10.0.19041.1
+
+BUILDLAB_STR:  vb_release
+
+OSPLATFORM_TYPE:  x64
+
+OSNAME:  Windows 10
+
+FAILURE_ID_HASH:  {5aec82b6-f852-22fc-5510-37ab4d80ff9f}
+
+Followup:     MachineOwner
+---------

@@ -240,7 +240,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
     }
     
     if (m_raceTextures.count(data.enemyType)) {
-        registry.emplace<SpriteComponent>(entity, m_raceTextures[data.enemyType], 0.1f);
+        registry.emplace<SpriteComponent>(entity, m_raceTextures[data.enemyType], 0.2f);
     }
     
     if (registry.all_of<AIComponent>(entity)) {

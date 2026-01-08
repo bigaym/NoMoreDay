@@ -70,7 +70,7 @@ namespace NoMoreDay {
         InitializeEntities();
 
         // 4. Initialize Camera
-        m_camera.zoom = 1.0f;
+        m_camera.zoom = m_context->settings ? m_context->settings->cameraZoom : 1.5f;
         m_camera.offset = { (float)GetScreenWidth() / 2.0f, (float)GetScreenHeight() / 2.0f };
         m_camera.rotation = 0.0f;
         m_camera.target = { (float)GetScreenWidth() / 2.0f, (float)GetScreenHeight() / 2.0f }; // Will be updated
@@ -180,7 +180,7 @@ namespace NoMoreDay {
         // Texture
         Texture2D playerTexture = resourceManager.getTexture(playerAsset.id); // Should be loaded
         if (playerTexture.id > 0) {
-            registry.emplace<SpriteComponent>(player, playerTexture, 0.1f);
+            registry.emplace<SpriteComponent>(player, playerTexture, 0.2f);
         }
     }
 
@@ -320,7 +320,7 @@ namespace NoMoreDay {
              for (auto entity : view) {
                  const auto& texComp = view.get<TextureIDComponent>(entity);
                  Texture2D tex = m_context->resources->loadTexture(texComp.id, ""); 
-                 registry.emplace_or_replace<SpriteComponent>(entity, tex, 0.1f);
+                 registry.emplace_or_replace<SpriteComponent>(entity, tex, 0.2f);
              }
         }
 
@@ -391,7 +391,7 @@ namespace NoMoreDay {
                     vel.vx = 0; vel.vy = 0;
                 }
             } else {
-                float speed = 150.0f;
+                float speed = GameConstants::DEFAULT_MOVE_SPEED;
                 if (registry.all_of<CombatStats>(entity)) {
                     speed = registry.get<CombatStats>(entity).move_speed;
                 }
@@ -403,6 +403,11 @@ namespace NoMoreDay {
             float lerpSpeed = 5.0f;
             m_camera.target.x += (pos.x - m_camera.target.x) * lerpSpeed * dt;
             m_camera.target.y += (pos.y - m_camera.target.y) * lerpSpeed * dt;
+            
+            // Sync Zoom from settings
+            if (m_context->settings) {
+                m_camera.zoom = m_context->settings->cameraZoom;
+            }
             
             // Screen Shake
             RenderSystem::UpdateShake(dt);

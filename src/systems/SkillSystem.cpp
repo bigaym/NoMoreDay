@@ -7,6 +7,7 @@
 #include "../components/Buff.hpp"
 #include "../components/AIComponent.hpp" // For EnemyTag
 #include "../core/SkillRegistry.hpp"
+#include "RenderSystem.hpp"
 #include "StatsSystem.hpp"
 #include "DamagePipeline.hpp"
 #include "CombatSystem.hpp"
@@ -211,6 +212,7 @@ void SkillSystem::InitHooks() {
         if (exec.is_empowered) {
             totalCount *= 2;
             LOG_INFO("Empowered Rending Wave: Double projectiles!");
+            RenderSystem::AddScreenShake(0.2f); // Added shake for empowered skill
         }
 
         float spread = 0.4f + (totalCount * 0.05f); 

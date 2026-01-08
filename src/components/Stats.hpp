@@ -7,7 +7,7 @@
 namespace NoMoreDay
 {
 
-    // --- 游戏平衡性常量 (Attribute Caps) ---
+    // --- 游戏平衡性常量 (Attribute Caps & Defaults) ---
     namespace GameConstants
     {
         static constexpr int MAX_LEVEL = 100;
@@ -23,6 +23,15 @@ namespace NoMoreDay
         static constexpr float CRIT_CHANCE_CAP = 1.00f;  // 暴击率上限 100%
         static constexpr float CDR_CAP = 0.75f;          // 冷却缩减上限 75%
         static constexpr float ATTACK_SPEED_CAP = 10.0f; // 攻击速度上限 (每秒10次)
+
+        // 默认值 (Defaults)
+        static constexpr float DEFAULT_MOVE_SPEED = 100.0f; 
+        static constexpr float DEFAULT_MAX_HEALTH = 100.0f;
+        static constexpr float DEFAULT_MAX_MANA = 100.0f;
+        static constexpr float DEFAULT_CRIT_CHANCE = 0.05f;
+        static constexpr float DEFAULT_CRIT_DAMAGE = 1.50f;
+        static constexpr float DEFAULT_ATTACK_SPEED = 1.0f;
+        static constexpr float DEFAULT_ACCURACY = 0.97f;
 
         // 移动
         static constexpr float MOVE_SPEED_CAP = 1000.0f; // 移动速度上限
@@ -82,10 +91,10 @@ namespace NoMoreDay
     struct alignas(32) CombatStats
     {
         // --- 生存资源 ---
-        float health = 100.0f;
-        float max_health = 100.0f;
-        float mana = 100.0f;
-        float max_mana = 100.0f;
+        float health = GameConstants::DEFAULT_MAX_HEALTH;
+        float max_health = GameConstants::DEFAULT_MAX_HEALTH;
+        float mana = GameConstants::DEFAULT_MAX_MANA;
+        float max_mana = GameConstants::DEFAULT_MAX_MANA;
 
         // --- 有效属性 (用于 UI 显示) ---
         float effective_strength = 0.0f;
@@ -111,13 +120,13 @@ namespace NoMoreDay
         std::array<float, 6> damage_multipliers = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 
         // D. 暴击体系 (Crit)
-        float crit_chance = 0.05f; // 基础 5%
-        float crit_damage = 1.50f; // 基础 150%
+        float crit_chance = GameConstants::DEFAULT_CRIT_CHANCE;
+        float crit_damage = GameConstants::DEFAULT_CRIT_DAMAGE;
 
         // E. 速度与穿透
-        float attack_speed = 1.0f; // 攻击频率倍率
+        float attack_speed = GameConstants::DEFAULT_ATTACK_SPEED;
         float cast_speed = 1.0f;   // 施法速度
-        float accuracy = 0.97f;    // 命中率 (1.0 = 100% 标准命中)
+        float accuracy = GameConstants::DEFAULT_ACCURACY;
         float armor_pen = 0.0f;    // 护甲穿透 (固定值或百分比，视设计而定)
         float knockback = 0.0f;    // 击退力度
 
@@ -134,7 +143,7 @@ namespace NoMoreDay
         float block_amount = 0.0f; // 格挡减免的伤害值
 
         // --- 特殊机制 ---
-        float move_speed = 150.0f; // 移动速度 (pixels/sec)
+        float move_speed = GameConstants::DEFAULT_MOVE_SPEED; // 移动速度 (pixels/sec)
         float life_steal = 0.0f;   // 吸血 %
         float life_on_hit = 0.0f;  // 击回
         float mana_on_hit = 0.0f;  // 蓝回

@@ -1,8 +1,0 @@
-{
-  "track_id": "flow_field_pathing_20260108",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-01-08T00:35:00Z",
-  "updated_at": "2026-01-08T00:35:00Z",
-  "description": "GPU 流场寻路集成 (GPU Flow Field Pathfinding)，提升游戏性能。"
-}

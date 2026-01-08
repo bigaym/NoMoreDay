@@ -9,57 +9,77 @@ namespace NoMoreDay::systems {
 
 void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& camera) {
     // We only care about enemies that have health and position
-    auto view = registry.view<EnemyTag, Position, CombatStats>();
+    // Exclude killed entities to avoid showing bars for dead monsters during their cleanup/animation phase
+    auto view = registry.view<EnemyTag, Position, HealthComponent>(entt::exclude<KilledTag>);
 
     for (auto entity : view) {
         const auto& pos = view.get<Position>(entity);
-        const auto& stats = view.get<CombatStats>(entity);
+        const auto& hp = view.get<HealthComponent>(entity);
 
-        // Don't show full health bars (optional UX choice)
-        if (stats.health >= stats.max_health) continue;
-        if (stats.health <= 0) continue;
+        // --- Visibility Logic ---
+        // 1. Show if damaged
+        bool isDamaged = hp.current < hp.max - 0.1f;
+        
+        // 2. Show if close to player (Aggro/Awareness hint)
+        // We can check AI state if available
+        bool isAggro = false;
+        if (auto* ai = registry.try_get<AIComponent>(entity)) {
+            if (ai->aiType == AIType::CHASE || ai->aiType == AIType::ATTACK) {
+                isAggro = true;
+            }
+        }
 
-        float hpPercent = stats.health / stats.max_health;
-        if (hpPercent < 0) hpPercent = 0;
-        if (hpPercent > 1) hpPercent = 1;
+        // If neither damaged nor aggro, don't show to keep screen clean
+        if (!isDamaged && !isAggro) continue;
+        if (hp.current <= 0) continue;
+
+        float hpPercent = hp.current / hp.max;
+        hpPercent = std::clamp(hpPercent, 0.0f, 1.0f);
 
         // Health bar dimensions
-        float barWidth = 40.0f;
-        float barHeight = 4.0f;
-        float yOffset = -15.0f; // Above the entity
+        float barWidth = 44.0f;
+        float barHeight = 5.0f;
+        float yOffset = -20.0f; // Above the entity
 
         Vector2 worldPos = { pos.x, pos.y };
         
-        // Background (Gray/Black)
+        // Background (Dark Metallic Gray)
         Rectangle bgRect = { worldPos.x - barWidth / 2.0f, worldPos.y + yOffset, barWidth, barHeight };
-        DrawRectangleRec(bgRect, { 40, 40, 40, 200 });
+        DrawRectangleRec(bgRect, { 20, 20, 20, 220 });
 
-        // Foreground (Green/Red based on health)
-        Color barColor = GREEN;
-        if (hpPercent < 0.25f) barColor = RED;
-        else if (hpPercent < 0.5f) barColor = ORANGE;
-
-        Rectangle fgRect = { worldPos.x - barWidth / 2.0f, worldPos.y + yOffset, barWidth * hpPercent, barHeight };
-        DrawRectangleRec(fgRect, barColor);
+        // Foreground (ARPG Red Gradient-like)
+        // Base color is a deep red
+        Color barColor = { 200, 30, 30, 255 };
+        if (hpPercent < 0.25f) barColor = { 255, 40, 40, 255 }; // Bright red when critical
         
-        // Border
-        DrawRectangleLinesEx(bgRect, 1.0f, { 20, 20, 20, 255 });
+        Rectangle fgRect = { worldPos.x - barWidth / 2.0f, worldPos.y + yOffset, barWidth * hpPercent, barHeight };
+        
+        // Draw health with a slight shadow/gradient effect
+        DrawRectangleRec(fgRect, barColor);
+        // Top highlight line for the health bar
+        DrawRectangle(fgRect.x, fgRect.y, fgRect.width, 1, { 255, 255, 255, 80 });
+        
+        // Border (Darker, more defined)
+        DrawRectangleLinesEx(bgRect, 1.0f, { 10, 10, 10, 255 });
 
         // --- BUFF / DEBUFF ICONS ---
         if (auto* activeEffects = registry.try_get<ActiveEffectsComponent>(entity)) {
-            float iconSize = 8.0f;
+            float iconSize = 10.0f;
             float iconSpacing = 2.0f;
-            float iconsYOffset = yOffset - iconSize - 2.0f;
-            float totalWidth = (activeEffects->effects.size() * iconSize) + ((activeEffects->effects.size() - 1) * iconSpacing);
-            float startX = worldPos.x - totalWidth / 2.0f;
+            float iconsYOffset = yOffset - iconSize - 3.0f;
+            
+            if (!activeEffects->effects.empty()) {
+                float totalWidth = (activeEffects->effects.size() * iconSize) + ((activeEffects->effects.size() - 1) * iconSpacing);
+                float startX = worldPos.x - totalWidth / 2.0f;
 
-            for (size_t i = 0; i < activeEffects->effects.size(); ++i) {
-                const auto& effect = activeEffects->effects[i];
-                Color iconColor = effect.is_debuff ? RED : GREEN;
-                
-                Rectangle iconRect = { startX + i * (iconSize + iconSpacing), worldPos.y + iconsYOffset, iconSize, iconSize };
-                DrawRectangleRec(iconRect, iconColor);
-                DrawRectangleLinesEx(iconRect, 0.5f, { 20, 20, 20, 255 });
+                for (size_t i = 0; i < activeEffects->effects.size(); ++i) {
+                    const auto& effect = activeEffects->effects[i];
+                    Color iconColor = effect.is_debuff ? (Color){ 180, 40, 40, 255 } : (Color){ 40, 180, 40, 255 };
+                    
+                    Rectangle iconRect = { startX + i * (iconSize + iconSpacing), worldPos.y + iconsYOffset, iconSize, iconSize };
+                    DrawRectangleRec(iconRect, iconColor);
+                    DrawRectangleLinesEx(iconRect, 1.0f, { 10, 10, 10, 255 });
+                }
             }
         }
     }

@@ -2,6 +2,7 @@
 
 #include <entt/entt.hpp>
 #include <taskflow/taskflow.hpp>
+#include "Settings.hpp"
 
 class ResourceManager;
 class LevelManager;
@@ -15,6 +16,7 @@ namespace NoMoreDay {
         LevelManager* levelManager = nullptr;
         SceneManager* sceneManager = nullptr;
         tf::Executor* executor = nullptr;
+        GameSettings* settings = nullptr;
         // Window* window; // Raylib uses global state mostly, add if wrapper exists
     };
 

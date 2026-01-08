@@ -36,6 +36,7 @@ private:
 
     // 2. 共享上下文 (依赖资源)
     NoMoreDay::SharedContext m_context;
+    NoMoreDay::GameSettings m_settings;
 
     // 3. 逻辑管理器 (最先析构)
     std::unique_ptr<LevelManager> m_levelManager;

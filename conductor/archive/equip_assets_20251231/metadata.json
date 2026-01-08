@@ -1,8 +1,0 @@
-{
-  "track_id": "equip_assets_20251231",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2025-12-31T10:00:00Z",
-  "updated_at": "2025-12-31T10:00:00Z",
-  "description": "我在@/assets/textures/equipment 添加了很多128*128大小的装备UI素材，让我们基于这些素材，构建我们之前提到的编译期资源映射和装备掉落池图标随机匹配。"
-}

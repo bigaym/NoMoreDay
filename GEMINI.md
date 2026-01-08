@@ -65,9 +65,13 @@ Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `C
 ## 📝 Development Conventions
 
 *   **C++ Style:**
-    *   Prioritize `constexpr` and compile-time evaluation.
-    *   Avoid undefined behavior and dangling pointers.
-    *   Follow `conductor/code_styleguides/general.md`.
+    *   **Safety & Robustness:** Zero tolerance for Undefined Behavior (UB). Use RAII for all resource management. Avoid raw `new`/`delete`; use smart pointers or EnTT's internal management.
+    *   **Data-Oriented Design (DOD):** Components must be POD (Plain Old Data) structs to maximize cache locality. Avoid virtual functions and deep inheritance in performance-critical paths.
+    *   **Modern C++20:** Extensively use Concepts for template constraints, `constexpr`/`consteval` for compile-time evaluation, and Ranges for efficient data processing.
+    *   **High Performance:** Minimize heap allocations during the frame loop. Use `xsimd` for vectorization. Leverage `mimalloc` for optimized memory management.
+    *   **Concurrency:** Systems must be designed for parallel execution via Taskflow. Avoid global mutable state and ensure thread safety.
+    *   **Best Practices:** Use `std::string_view` and `std::span` to avoid unnecessary copies. Apply `[[nodiscard]]` where appropriate.
+    *   **Style Guide:** Adhere to `conductor/code_styleguides/general.md`.
 *   **Python Style:**
     *   Follow Google Python Style Guide (`conductor/code_styleguides/python.md`).
     *   Type annotations encouraged.
