@@ -1,43 +1,15 @@
-IP_IN_PAGED_CODE: 
-NoMoreDay!entt::basic_sigh_mixin<entt::basic_storage<KilledTag, entt::entity, std::allocator<KilledTag>, void>, entt::basic_registry<entt::entity, std::allocator<entt::entity> > >::pop_all+126 [F:/NoMoreDay/third_party/entt/src/entt/entity/sparse_set.hpp @ 258]
-00007ff6`59b2f0c6 41890490        mov     dword ptr [r8+rdx*4],eax
-
-FAULTING_SOURCE_LINE:  F:/NoMoreDay/third_party/entt/src/entt/entity/sparse_set.hpp
-
-FAULTING_SOURCE_FILE:  F:/NoMoreDay/third_party/entt/src/entt/entity/sparse_set.hpp
-
-FAULTING_SOURCE_LINE_NUMBER:  258
-
-FAULTING_SOURCE_CODE:  
-   254:         ENTT_ASSERT(mode == deletion_policy::swap_and_pop, "Deletion policy mismatch");
-   255:         auto &self = sparse_ref(*it);
-   256:         const auto entt = traits_type::to_entity(self);
-   257:         sparse_ref(packed.back()) = traits_type::combine(entt, traits_type::to_integral(packed.back()));
->  258:         packed[static_cast<size_type>(entt)] = packed.back();
-   259:         // unnecessary but it helps to detect nasty bugs
-   260:         ENTT_ASSERT((packed.back() = null, true), "");
-   261:         // lazy self-assignment guard
-   262:         self = null;
-   263:         packed.pop_back();
-
-
-SYMBOL_NAME:  NoMoreDay!entt::basic_sigh_mixin<entt::basic_storage<KilledTag, entt::entity, std::allocator<KilledTag>, void>, entt::basic_registry<entt::entity, std::allocator<entt::entity> > >::pop_all+126
-
-MODULE_NAME: NoMoreDay
-
-IMAGE_NAME:  NoMoreDay.exe
-
-FAILURE_BUCKET_ID:  INVALID_POINTER_WRITE_c0000005_NoMoreDay.exe!entt::basic_sigh_mixin_entt::basic_storage_KilledTag,_entt::entity,_std::allocator_KilledTag_,_void_,_entt::basic_registry_entt::entity,_std::allocator_entt::entity_____::pop_all
-
-OS_VERSION:  10.0.19041.1
-
-BUILDLAB_STR:  vb_release
-
-OSPLATFORM_TYPE:  x64
-
-OSNAME:  Windows 10
-
-FAILURE_ID_HASH:  {5aec82b6-f852-22fc-5510-37ab4d80ff9f}
-
-Followup:     MachineOwner
----------
+[ 38%] Building CXX object CMakeFiles/NoMoreDayCore.dir/src/systems/SkillSystem.cpp.obj
+F:\NoMoreDay\src\systems\SkillSystem.cpp: In lambda function:
+F:\NoMoreDay\src\systems\SkillSystem.cpp:81:52: error: 'isFrost' was not declared in this scope
+   81 |         registry.emplace<ColorComponent>(proj_ent, isFrost ? BLUE : SKYBLUE);
+      |                                                    ^~~~~~~
+F:\NoMoreDay\src\systems\SkillSystem.cpp:89:28: error: 'forcePierce' was not declared in this scope
+   89 |         proj.pierceCount = forcePierce ? 999 : 99;
+      |                            ^~~~~~~~~~~
+F:\NoMoreDay\src\systems\SkillSystem.cpp:93:73: error: 'moreDamageMult' was not declared in this scope
+   93 |             for (auto& mult : proj.snapshot.damage_multipliers) mult *= moreDamageMult;
+      |                                                                         ^~~~~~~~~~~~~~
+mingw32-make[2]: *** [CMakeFiles\NoMoreDayCore.dir\build.make:707: CMakeFiles/NoMoreDayCore.dir/src/systems/SkillSystem.cpp.obj] Error 1
+mingw32-make[1]: *** [CMakeFiles\Makefile2:334: CMakeFiles/NoMoreDayCore.dir/all] Error 2
+mingw32-make: *** [Makefile:165: all] Error 2
+(ai) PS F:\NoMoreDay> 

@@ -84,3 +84,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Folder:** conductor/archive/skill_vfx_gpu_ui_20260105
 
 - **Description:** Implement advanced skill mechanics, deep UI feedback (Drag-and-Drop, FCT), and high-performance GPU visual effects. (Completed on 2026-01-07)
+
+---
+
+## [ ] Track: 技能特效的 GPU 粒子化 (GPU Skill VFX) (水墨修仙风)
+- **Folder:** [./conductor/tracks/gpu_skill_vfx_20260108/](./conductor/tracks/gpu_skill_vfx_20260108/)
+- **Description:** 利用 GPU 粒子系统为 9 个核心技能实现淡雅水墨修仙风格的视觉特效，并包含强化版的“金韵墨痕”表现。

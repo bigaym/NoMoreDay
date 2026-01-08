@@ -47,7 +47,10 @@ Vector2 RenderSystem::GetShakeOffset() {
     return { offsetX, offsetY };
 }
 
-void RenderSystem::render(entt::registry& registry) {
+void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedContext& context) {
+    float cameraZoom = (context.settings) ? context.settings->cameraZoom : 1.5f;
+    float fontScale = 1.0f / cameraZoom;
+
     // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
     auto spriteView = registry.view<const Position, const SpriteComponent>();
     spriteView.each([](const auto& pos, const auto& sprite) {
@@ -184,7 +187,7 @@ void RenderSystem::render(entt::registry& registry) {
     Font font = UISystem::GetFont(); // Move font retrieval up
     
     auto popupView = registry.view<const Position, const DamagePopup>();
-    popupView.each([&font](const auto& pos, const auto& popup) {
+    popupView.each([&font, fontScale](const auto& pos, const auto& popup) {
         float alpha = 1.0f;
         // 后半段生命周期淡出 // Fade out during the second half of its lifetime
         if (popup.timer > popup.lifeTime * 0.5f) {
@@ -211,7 +214,8 @@ void RenderSystem::render(entt::registry& registry) {
         if (popup.isCrit) baseSize = 36.0f; // Increased from 24
         if (popup.isStatus) baseSize = 22.0f; // Status text slightly smaller
         
-        float fontSize = baseSize * popup.currentScale;
+        float fontSize = baseSize * popup.currentScale * fontScale;
+        if (fontSize < 12.0f) fontSize = 12.0f;
         
         // 增加阴影或边框效果
         if (IsFontValid(font)) {
@@ -228,7 +232,7 @@ void RenderSystem::render(entt::registry& registry) {
 
     // 物品
     auto itemView = registry.view<const Position, const NoMoreDay::ItemComponent>();
-    itemView.each([&registry, &font](const auto entity, const auto& pos, const auto& item) {
+    itemView.each([&registry, &font, fontScale](const auto entity, const auto& pos, const auto& item) {
         Color rarityColor = UISystem::GetRarityColor(item.rarity);
         float scale = 1.0f;
         bool emphasized = false;
@@ -276,7 +280,10 @@ void RenderSystem::render(entt::registry& registry) {
         }
 
         const char* name = item.name.c_str();
-        int fontSize = (int)(18 * scale);
+        float baseItemFontSize = 18.0f;
+        int fontSize = (int)(baseItemFontSize * scale * fontScale);
+        if (fontSize < 12) fontSize = 12;
+
         float spacing = 1.0f;
         Vector2 textSize = MeasureTextEx(font, name, (float)fontSize, spacing);
         Vector2 textPos = { pos.x - textSize.x / 2.0f, pos.y - 30.0f * scale }; // 物品上方
@@ -301,9 +308,12 @@ void RenderSystem::render(entt::registry& registry) {
 
     // 金币
     auto goldView = registry.view<const Position, const GoldComponent>();
-    goldView.each([&font](const auto& pos, const auto& gold) {
+    goldView.each([&font, fontScale](const auto& pos, const auto& gold) {
         const char* text = TextFormat("%d 金币", gold.amount);
-        int fontSize = 16;
+        float baseGoldFontSize = 16.0f;
+        int fontSize = (int)(baseGoldFontSize * fontScale);
+        if (fontSize < 10) fontSize = 10;
+        
         float spacing = 1.0f;
         Color goldColor = GOLD;
 

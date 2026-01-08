@@ -54,7 +54,7 @@ void SkillSystem::InitHooks() {
         // 1. Dash towards target
         Vector2 startPos = {pos->x, pos->y};
         Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, startPos));
-        float speed = 1200.0f;
+        float speed = 400.0f; // Reduced from 1200.0f (1/3 speed)
 
         // Apply burst velocity to owner
         if (auto* vel = registry.try_get<Velocity>(owner)) {
@@ -65,7 +65,7 @@ void SkillSystem::InitHooks() {
         // Integrate with DashComponent to prevent movement override
         if (dash) {
             dash->isDashing = true;
-            dash->dashTimer = 0.25f;
+            dash->dashTimer = 0.375f; // Adjusted to maintain 150 range (400 * 0.375 = 150)
             dash->dirX = dir.x;
             dash->dirY = dir.y;
             dash->dashSpeed = speed;
@@ -139,8 +139,8 @@ void SkillSystem::InitHooks() {
         auto& proj = registry.emplace<Projectile>(proj_ent);
         proj.owner = owner;
         proj.speed = speed;
-        proj.lifeTime = 0.25f; 
-        proj.radius = exec.is_empowered ? 70.0f : 45.0f; // Increased radius when empowered
+        proj.lifeTime = 0.375f; // Adjusted to match dash (400 * 0.375 = 150)
+        proj.radius = exec.is_empowered ? 70.0f : 45.0f; 
         proj.pierce = true;
         proj.pierceCount = forcePierce ? 999 : 99; 
         
@@ -226,12 +226,12 @@ void SkillSystem::InitHooks() {
             auto proj_ent = registry.create();
             registry.emplace<LocalLevelTag>(proj_ent);
             registry.emplace<Position>(proj_ent, pos->x, pos->y);
-            registry.emplace<Velocity>(proj_ent, dir.x * 600.0f, dir.y * 600.0f);
+            registry.emplace<Velocity>(proj_ent, dir.x * 300.0f, dir.y * 300.0f);
             registry.emplace<ColorComponent>(proj_ent, GOLD); 
             
             auto& proj = registry.emplace<Projectile>(proj_ent);
             proj.owner = owner;
-            proj.speed = 600.0f;
+            proj.speed = 300.0f;
             proj.lifeTime = boomerang ? 2.0f : 1.2f;
             proj.radius = exec.is_empowered ? 60.0f : 35.0f; // Larger waves when empowered
             proj.pierce = true;
@@ -291,7 +291,7 @@ void SkillSystem::InitHooks() {
         formation.max_swords = 1 + extraSwords;
         formation.current_swords = formation.max_swords; // For now, simple activation
         formation.attack_interval = 1.0f / (1.0f + freqInc);
-        formation.search_radius = 200.0f * (1.0f + searchInc);
+        formation.search_radius = 100.0f * (1.0f + searchInc); // Reduced from 200.0f
 
         if (exec.is_empowered) {
             formation.max_swords += 2;
@@ -313,7 +313,7 @@ void SkillSystem::InitHooks() {
         auto& array = registry.emplace<SwordArrayComponent>(array_ent);
         array.owner = owner;
         array.duration = 5.0f;
-        array.radius = 150.0f;
+        array.radius = 75.0f; // Reduced from 150.0f
 
         if (exec.is_empowered) {
             array.radius *= 1.5f;
@@ -411,7 +411,7 @@ void SkillSystem::InitHooks() {
         if (!pos || !stats) return;
 
         Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
-        float speed = 800.0f;
+        float speed = 400.0f;
 
         // --- BRANCH LOGIC ---
         bool hasPull = false;
@@ -464,7 +464,7 @@ void SkillSystem::InitHooks() {
 
         auto& bc = registry.emplace<BoomerangComponent>(proj_ent);
         bc.owner = owner;
-        bc.returnTimer = 0.6f;
+        bc.returnTimer = 0.3f;
         bc.phase = BoomerangComponent::Outward;
 
         LOG_INFO("Blade Boomerang fired by entity {}", (uint32_t)owner);
@@ -477,11 +477,11 @@ void SkillSystem::InitHooks() {
 
         // 1. Dash backwards
         Vector2 dir = Vector2Normalize(Vector2Subtract({pos->x, pos->y}, exec.target_pos));
-        float dashDist = 100.0f;
+        float dashDist = 50.0f; // Reduced from 100.0f
         
         if (auto* vel = registry.try_get<Velocity>(owner)) {
-            vel->vx = dir.x * 1000.0f;
-            vel->vy = dir.y * 1000.0f;
+            vel->vx = dir.x * 500.0f; // Reduced from 1000.0f
+            vel->vy = dir.y * 500.0f;
         }
         
         if (auto* dash = registry.try_get<DashComponent>(owner)) {
@@ -489,7 +489,7 @@ void SkillSystem::InitHooks() {
             dash->dashTimer = 0.1f;
             dash->dirX = dir.x;
             dash->dirY = dir.y;
-            dash->dashSpeed = 1000.0f;
+            dash->dashSpeed = 500.0f; // Reduced from 1000.0f
         }
 
         // 2. Add Counter State
@@ -671,7 +671,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
                 float angle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
                 Vector2 dir = { cosf(angle), sinf(angle) };
-                Vector2 strike_target = { pos.x + dir.x * 500.0f, pos.y + dir.y * 500.0f };
+                Vector2 strike_target = { pos.x + dir.x * 250.0f, pos.y + dir.y * 250.0f };
                 ShadowCast(registry, entity, 2, {pos.x, pos.y}, strike_target); // Re-use Rending Wave logic
             } else if (chan.skill_id == 7) {
                 // Mind Blade: Rapid narrow beam

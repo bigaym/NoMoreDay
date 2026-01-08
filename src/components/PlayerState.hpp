@@ -33,8 +33,8 @@ struct DashComponent {
     
     bool isDashing = false; // 是否正在冲刺
     float dashTimer = 0.0f; // 冲刺计时器
-    float dashDuration = 0.2f; // 冲刺持续时间
-    float dashSpeed = 1200.0f; // 冲刺速度
+    float dashDuration = 0.3f; // 冲刺持续时间
+    float dashSpeed = 400.0f; // 冲刺速度
     float dirX = 0.0f; // 冲刺方向X
     float dirY = 0.0f; // 冲刺方向Y
     
