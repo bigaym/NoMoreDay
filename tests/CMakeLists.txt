@@ -33,3 +33,7 @@ if(WIN32)
     target_compile_definitions(tests_runner PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
 
+if(MSVC)
+    target_compile_options(tests_runner PRIVATE /bigobj)
+endif()
+
