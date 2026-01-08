@@ -18,6 +18,7 @@ set(BUILD_GAMES    OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE) # Build as Dynamic Library (DLL)
 set(OPENGL_VERSION "4.3" CACHE STRING "Force OpenGL 4.3" FORCE)
 set(GRAPHICS "GRAPHICS_API_OPENGL_43" CACHE STRING "Force OpenGL 4.3" FORCE)
+
 add_subdirectory(third_party/raylib)
 
 # 3. EnTT

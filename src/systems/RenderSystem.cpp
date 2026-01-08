@@ -2,6 +2,7 @@
 #include "UISystem.hpp"
 #include "GPUParticleSystem.hpp"
 #include "GPUEntitySystem.hpp"
+#include "GPUFlowFieldSystem.hpp"
 #include "../components/Common.hpp"
 #include "../components/EffectComponent.hpp"
 #include "../components/ItemComponent.hpp"
@@ -317,4 +318,39 @@ void RenderSystem::render(entt::registry& registry) {
             DrawText(text, (int)textPos.x, (int)textPos.y, fontSize, goldColor);
         }
     });
+
+    // 6. Debug: GPU Flow Field Visualization
+    auto& flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
+    if (flowSystem.m_debugDraw) {
+        std::vector<Vector2> flowField = flowSystem.DownloadFlowField();
+        int width = flowSystem.GetWidth();
+        int height = flowSystem.GetHeight();
+        Vector2 origin = flowSystem.GetGridOrigin();
+        // Assuming cell size is 64x64 or similar. Need to know cell size or assume 1 unit = 1 pixel if logic dictates.
+        // Spec says "Cell Specification: Each cell represents a 64x64 pixel area".
+        // But in GPUFlowFieldSystem::Update, we passed world coords.
+        // Let's assume 64.0f for now.
+        float cellSize = 64.0f; 
+
+        for (int y = 0; y < height; ++y) {
+            for (int x = 0; x < width; ++x) {
+                int index = y * width + x;
+                Vector2 flow = flowField[index];
+                
+                if (Vector2Length(flow) > 0.01f) {
+                    float posX = origin.x + x * cellSize + cellSize * 0.5f;
+                    float posY = origin.y + y * cellSize + cellSize * 0.5f;
+                    
+                    Vector2 start = { posX, posY };
+                    Vector2 end = { posX + flow.x * (cellSize * 0.4f), posY + flow.y * (cellSize * 0.4f) };
+                    
+                    DrawLineV(start, end, GREEN);
+                    DrawCircleV(end, 2.0f, GREEN); // Arrow head
+                }
+            }
+        }
+        
+        // Draw Grid Bounds
+        DrawRectangleLines(origin.x, origin.y, width * cellSize, height * cellSize, RED);
+    }
 }

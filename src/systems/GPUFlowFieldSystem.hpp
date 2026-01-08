@@ -27,6 +27,10 @@ public:
     int GetHeight() const { return m_height; }
     Vector2 GetGridOrigin() const { return m_gridOrigin; }
 
+    // Debugging
+    bool m_debugDraw = false;
+    std::vector<Vector2> DownloadFlowField() const;
+
 private:
     GPUFlowFieldSystem() = default;
 

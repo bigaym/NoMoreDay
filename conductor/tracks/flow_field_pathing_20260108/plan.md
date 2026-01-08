@@ -9,11 +9,11 @@
 - [~] Task: Conductor - User Manual Verification 'Phase 1: GPU Infrastructure & Cost Field' (Protocol in workflow.md)
 
 ## Phase 2: Compute Shader Pathfinding Logic
-- [ ] Task: Implement `flow_integration.compute` using an iterative Dijkstra-like approach or Jump Flood algorithm on the GPU.
-- [ ] Task: Implement `flow_vector.compute` to generate 2D gradient vectors from the Integration Field.
-- [ ] Task: Implement debug visualization in `RenderSystem` to overlay the Flow Field vectors on the screen.
-- [ ] Task: Write `FlowFieldLogicTest` to ensure the generated vectors correctly point toward the player around a simple U-shaped obstacle.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Compute Shader Pathfinding Logic' (Protocol in workflow.md)
+- [x] Task: Implement `flow_integration.compute` using an iterative Dijkstra-like approach or Jump Flood algorithm on the GPU.
+- [x] Task: Implement `flow_vector.compute` to generate 2D gradient vectors from the Integration Field.
+- [x] Task: Implement debug visualization in `RenderSystem` to overlay the Flow Field vectors on the screen.
+- [x] Task: Write `FlowFieldLogicTest` to ensure the generated vectors correctly point toward the player around a simple U-shaped obstacle.
+- [~] Task: Conductor - User Manual Verification 'Phase 2: Compute Shader Pathfinding Logic' (Protocol in workflow.md)
 
 ## Phase 3: AI System Integration & Performance Tuning
 - [ ] Task: Update `AISystem` to sample the GPU Flow Field buffer and convert results to Steering Forces.

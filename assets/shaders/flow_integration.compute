@@ -20,26 +20,35 @@ void main() {
     uint index = y * width + x;
 
     uint myCost = cost[index];
-    if (myCost == 255) return; // Wall
+    if (myCost >= 255) return; // Wall
+    
+    // Ensure minimum cost to avoid zero-cost cycles, assuming 1 is base cost
+    myCost = max(myCost, 1u);
 
     uint currentDist = integration[index];
     uint minDist = currentDist;
 
-    // Check 4 neighbors
-    const int offsets[4][2] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
-    
-    for(int i=0; i<4; i++) {
-        int nx = int(x) + offsets[i][0];
-        int ny = int(y) + offsets[i][1];
-        
-        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-            uint nIndex = ny * width + nx;
-            uint nDist = integration[nIndex];
+    // Check 8 neighbors
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
             
-            if (nDist != 0xFFFFFFFF) {
-                uint newDist = nDist + myCost;
-                if (newDist < minDist) {
-                    minDist = newDist;
+            int nx = int(x) + dx;
+            int ny = int(y) + dy;
+            
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                uint nIndex = ny * width + nx;
+                uint nDist = integration[nIndex];
+                
+                if (nDist != 0xFFFFFFFF) {
+                    // Cardinal: 10, Diagonal: 14
+                    uint weight = (dx == 0 || dy == 0) ? 10u : 14u;
+                    uint moveCost = myCost * weight;
+                    uint newDist = nDist + moveCost;
+                    
+                    if (newDist < minDist) {
+                        minDist = newDist;
+                    }
                 }
             }
         }

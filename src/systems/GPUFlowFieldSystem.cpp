@@ -118,6 +118,13 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vecto
     rlDisableShader();
 }
 
+std::vector<Vector2> GPUFlowFieldSystem::DownloadFlowField() const {
+    size_t cellCount = (size_t)m_width * m_height;
+    std::vector<Vector2> flowData(cellCount);
+    m_flowBuffer.Read(flowData.data(), cellCount * sizeof(Vector2));
+    return flowData;
+}
+
 void GPUFlowFieldSystem::Shutdown() {
     LOG_INFO("Shutting down GPUFlowFieldSystem...");
     m_costBuffer.Release();
