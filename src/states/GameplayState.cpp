@@ -223,16 +223,21 @@ namespace NoMoreDay {
         // m_context->levelManager->getMapSystem().updateFlowField(playerPos);
         
         // GPU Flow Field
+        auto& flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
         const auto& map = m_context->levelManager->getMapSystem();
         if (map.getWidth() > 0) {
-             static Position lastFlowTarget = {-100, -100};
-             // Only update if target moved significantly (e.g. 1 tile)
-             if (Vector2Distance({playerPos.x, playerPos.y}, {lastFlowTarget.x, lastFlowTarget.y}) > 32.0f) {
-                 NoMoreDay::systems::GPUFlowFieldSystem::Get().Update(
-                     map.getCostMap(), {playerPos.x, playerPos.y}, {0.0f, 0.0f}
-                 );
-                 lastFlowTarget = playerPos;
-             }
+             float cellSize = 10.0f; // Tile size
+             int gw = flowSystem.GetWidth();
+             int gh = flowSystem.GetHeight();
+             
+             // Center grid on player and snap to tile size
+             float originX = floor((playerPos.x - (gw * cellSize * 0.5f)) / cellSize) * cellSize;
+             float originY = floor((playerPos.y - (gh * cellSize * 0.5f)) / cellSize) * cellSize;
+
+             flowSystem.Update(
+                 map.getCostMap(), map.getWidth(), map.getHeight(),
+                 {playerPos.x, playerPos.y}, {originX, originY}
+             );
         }
         
         if (m_context->sceneManager) {

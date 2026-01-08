@@ -20,58 +20,37 @@ void main() {
     uint index = y * width + x;
 
     uint myDist = integration[index];
-    if (myDist == 0xFFFFFFFF) {
+    if (myDist == 0xFFFFFFFF || myDist == 0) {
         flow[index] = vec2(0.0);
         return;
     }
 
-    // Helper to get distance safely
-    // If neighbor is out of bounds or wall (0xFFFFFFFF), treat as HIGH COST to repel
-    // Reduced penalty to 50 (from 65535) so it doesn't drown out the path gradient
-    uint penalty = myDist + 50;
+    uint minDist = myDist;
+    vec2 bestDir = vec2(0.0);
 
-    // Left (x-1)
-    uint leftDist = penalty;
-    if (int(x) > 0) {
-        uint val = integration[index - 1];
-        if (val != 0xFFFFFFFF) leftDist = val;
+    // Check 8 neighbors
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
+            
+            int nx = int(x) + dx;
+            int ny = int(y) + dy;
+            
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                uint nIndex = ny * width + nx;
+                uint nDist = integration[nIndex];
+                
+                if (nDist < minDist) {
+                    minDist = nDist;
+                    bestDir = vec2(float(dx), float(dy));
+                }
+            }
+        }
     }
 
-    // Right (x+1)
-    uint rightDist = penalty;
-    if (int(x) < width - 1) {
-        uint val = integration[index + 1];
-        if (val != 0xFFFFFFFF) rightDist = val;
-    }
-
-    // Up (y-1)
-    uint upDist = penalty;
-    if (int(y) > 0) {
-        uint val = integration[(y - 1) * width + x];
-        if (val != 0xFFFFFFFF) upDist = val;
-    }
-
-    // Down (y+1)
-    uint downDist = penalty;
-    if (int(y) < height - 1) {
-        uint val = integration[(y + 1) * width + x];
-        if (val != 0xFFFFFFFF) downDist = val;
-    }
-
-    // Calculate Gradient (Steepest Descent)
-    // V = -Grad(D)
-    // dx = Left - Right
-    // dy = Up - Down
-    
-    // Note: casts to int or float are needed to avoid underflow
-    float dx = float(leftDist) - float(rightDist);
-    float dy = float(upDist) - float(downDist);
-
-    vec2 dir = vec2(dx, dy);
-
-    if (length(dir) > 0.001) {
-        dir = normalize(dir);
+    if (length(bestDir) > 0.001) {
+        bestDir = normalize(bestDir);
     }
     
-    flow[index] = dir;
+    flow[index] = bestDir;
 }

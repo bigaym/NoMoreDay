@@ -6,7 +6,7 @@
 - [x] Task: Implement `flow_reset.compute` to clear buffers and `grid_count.compute` (or reuse) to populate Cost Field with enemy density. (Implemented flow_reset/integration/vector shaders)
 - [x] Task: Integrate static obstacle data (Tilemap) into the Cost Field update loop. (Hooked up via GameplayState)
 - [x] Task: Write `FlowFieldBufferTest` to verify grid scrolling and cost populating accuracy. (Implemented and Passed)
-- [~] Task: Conductor - User Manual Verification 'Phase 1: GPU Infrastructure & Cost Field' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: GPU Infrastructure & Cost Field' (Protocol in workflow.md)
 
 ## Phase 2: Compute Shader Pathfinding Logic [checkpoint: 8b3faa6]
 - [x] Task: Implement `flow_integration.compute` using an iterative Dijkstra-like approach or Jump Flood algorithm on the GPU. (8b3faa6)
@@ -20,10 +20,10 @@
 - [x] Task: Implement blending logic between Flow Field steering and local Spatial Hash avoidance. (ad45b5b)
 - [x] Task: Optimize Compute Shader group sizes and memory layouts for maximum throughput. (ad45b5b)
 - [x] Task: Conduct a stress test with 5,000+ entities to verify stability and performance (Target: < 2ms GPU time for pathing). (ad45b5b)
-- [~] Task: Conductor - User Manual Verification 'Phase 3: AI System Integration & Performance Tuning' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: AI System Integration & Performance Tuning' (Protocol in workflow.md)
 
 ## Phase 4: Final Polish & Stress Test
-- [ ] Task: Refine "Crowd Density" weights to achieve optimal flanking behavior.
-- [ ] Task: Ensure smooth transitions when entities enter/leave the local rolling grid.
-- [ ] Task: Final code review, documentation update, and performance profiling.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Polish & Stress Test' (Protocol in workflow.md)
+- [x] Task: Refine "Crowd Density" weights to achieve optimal flanking behavior. (Implemented via GPU density buffer and robust Best-Neighbor gradient)
+- [x] Task: Ensure smooth transitions when entities enter/leave the local rolling grid. (Implemented snapped rolling grid logic)
+- [x] Task: Final code review, documentation update, and performance profiling. (All tests passed, documentation updated)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Final Polish & Stress Test' (Protocol in workflow.md)

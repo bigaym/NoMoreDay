@@ -6,12 +6,13 @@ Implement a high-performance GPU-driven flow field pathfinding system to support
 ## Functional Requirements
 
 ### 1. GPU Grid Management
-- **Rolling Grid:** Implement a 256x256 local grid that centers and follows the player's position.
-- **Cell Specification:** Each cell represents a 64x64 pixel area in the world coordinate system.
+- **Rolling Grid:** Implement a 256x256 local grid that centers and follows the player's position (Snapped to tile size for stability).
+- **Cell Specification:** Each cell represents a 10x10 pixel area (matching MapSystem tiles).
 - **Data Buffers:** 
-    - **Cost Field:** Stores traversal costs (Static obstacles, dynamic objects, and crowd density).
-    - **Integration Field:** Stores the calculated cumulative cost to the target (player).
-    - **Flow Field:** Stores the final normalized 2D direction vectors for pathing.
+    - **Cost Buffer:** Stores static traversal costs (SSBO).
+    - **Density Buffer:** Stores dynamic crowd density (SSBO, updated via grid_count).
+    - **Integration Field:** Stores cumulative costs (SSBO).
+    - **Flow Field:** Stores final 2D direction vectors (SSBO).
 
 ### 2. Cost Calculation Logic
 - **Static Terrain:** Read from the existing map collision data to mark walls and pits as non-traversable (infinite cost).

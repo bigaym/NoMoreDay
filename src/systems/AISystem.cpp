@@ -313,7 +313,7 @@ void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashG
     Vector2 origin = flowSystem.GetGridOrigin();
     int gridW = flowSystem.GetWidth();
     int gridH = flowSystem.GetHeight();
-    float cellSize = 64.0f; // TODO: Make this a constant or parameter
+    float cellSize = 10.0f; 
 
     auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>();
     

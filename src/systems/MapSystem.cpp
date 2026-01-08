@@ -298,8 +298,15 @@ void MapSystem::generateCaveMap(int width, int height) {
     m_mapData.grid = std::move(mapData.grid);
     
     // 初始化流场大小
-    m_flowField.resize(width * height, {0.0f, 0.0f});
-    m_distanceField.resize(width * height, -1);
+    m_flowField.resize(m_mapData.width * m_mapData.height);
+    m_distanceField.resize(m_mapData.width * m_mapData.height);
+    
+    // 初始化缓存 CostMap
+    m_cachedCostMap.resize(m_mapData.grid.size());
+    for (size_t i = 0; i < m_mapData.grid.size(); i++) {
+        m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? 1 : 255;
+    }
+    m_costMapDirty = false;
 }
 
 void MapSystem::generateMap(int width, int height, const std::string& biome) {

@@ -75,6 +75,9 @@ private:
     std::vector<Vector2> m_flowField;      // 指向目标的向量场 (用于群聚寻路)
     std::vector<int> m_distanceField;      // 距离场 (用于生成流场)
     Position m_lastFlowTarget = {-1, -1};  // 上次计算流场的目标
+    
+    std::vector<unsigned char> m_cachedCostMap;
+    bool m_costMapDirty = true;
 
 public:
     MapSystem();
@@ -99,12 +102,8 @@ public:
     int getWidth() const { return m_mapData.width; }
     int getHeight() const { return m_mapData.height; }
     
-    std::vector<unsigned char> getCostMap() const {
-        std::vector<unsigned char> cost(m_mapData.grid.size());
-        for (size_t i = 0; i < m_mapData.grid.size(); i++) {
-            cost[i] = m_mapData.grid[i].isWalkable() ? 1 : 255;
-        }
-        return cost;
+    const std::vector<unsigned char>& getCostMap() const {
+        return m_cachedCostMap;
     }
 
     // 可见性管理

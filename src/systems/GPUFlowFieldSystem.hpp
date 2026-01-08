@@ -15,17 +15,26 @@ public:
 
     void Init(ResourceManager& rm, int width, int height);
     
-    // Upload cost map and compute flow field towards targetPos
-    // costMap: 0 for walkable, 255 for wall (size must match width*height)
-    void Update(const std::vector<unsigned char>& costMap, Vector2 targetPos, Vector2 gridOrigin);
+    // Update with full cost map and target position
+    // Will extract a window of m_width * m_height based on gridOrigin
+    void Update(const std::vector<unsigned char>& fullCostMap, int mapW, int mapH, Vector2 targetPos, Vector2 gridOrigin);
     
+    // Update crowd density from GPU entity buffer
+    void UpdateCrowdDensity(unsigned int entityBufferId, int entityCount, float cellSize);
+
     void Shutdown();
 
     // Accessors for Debugging
     const core::ComputeBuffer& GetFlowBuffer() const { return m_flowBuffer; }
+    const core::ComputeBuffer& GetDensityBuffer() const { return m_densityBuffer; }
+    const core::ComputeBuffer& GetIntegrationBuffer() const { return m_integrationBuffer; }
+    const core::ComputeBuffer& GetCostBuffer() const { return m_costBuffer; }
     int GetWidth() const { return m_width; }
     int GetHeight() const { return m_height; }
     Vector2 GetGridOrigin() const { return m_gridOrigin; }
+
+    // Density Weight for Flanking
+    float m_densityWeight = 10.0f;
 
     // Debugging
     bool m_debugDraw = false;
@@ -37,13 +46,12 @@ private:
     Shader m_integrationShader;
     Shader m_flowShader;
     Shader m_resetShader;
+    Shader m_gridCountShader;
+    Shader m_gridClearShader;
 
     // Buffers (SSBOs)
-    core::ComputeBuffer m_costBuffer;        // uint8_t[] (Layout: std430 requires alignment, careful!)
-                                             // Actually, std430 array of scalars has stride = size.
-                                             // uint8 is not valid GLSL type for buffer directly? uint is min 32-bit?
-                                             // GLSL `uint` is 32-bit. We can use `uint` and pack 4 costs, or just use `uint` per cell.
-                                             // Using `uint` per cell (0-255 value) is safe and aligned.
+    core::ComputeBuffer m_costBuffer;        // uint32_t[] (Static obstacles)
+    core::ComputeBuffer m_densityBuffer;     // uint32_t[] (Dynamic crowd density)
     
     core::ComputeBuffer m_integrationBuffer;  // Ping
     core::ComputeBuffer m_integrationBuffer2; // Pong
@@ -51,6 +59,7 @@ private:
     
     int m_width = 0;
     int m_height = 0;
+    float m_cellSize = 10.0f;
     Vector2 m_gridOrigin = {0, 0};
 };
 

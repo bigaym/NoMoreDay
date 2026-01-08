@@ -5,12 +5,21 @@ layout(std430, binding = 0) readonly buffer CostBuffer {
     uint cost[];
 };
 
-layout(std430, binding = 1) buffer IntegrationBuffer {
-    uint integration[];
+layout(std430, binding = 1) readonly buffer IntegrationRead {
+    uint integrationRead[];
+};
+
+layout(std430, binding = 4) writeonly buffer IntegrationWrite {
+    uint integrationWrite[];
+};
+
+layout(std430, binding = 3) readonly buffer DensityBuffer {
+    uint density[];
 };
 
 uniform int width;
 uniform int height;
+uniform float densityWeight = 5.0;
 
 void main() {
     uint x = gl_GlobalInvocationID.x;
@@ -20,11 +29,17 @@ void main() {
     uint index = y * width + x;
 
     uint myCost = cost[index];
-    if (myCost >= 255) return;
+    if (myCost >= 255) {
+        integrationWrite[index] = 0xFFFFFFFF;
+        return;
+    }
+    
+    // Add crowd density to cost
+    myCost += uint(float(density[index]) * densityWeight);
     
     myCost = max(myCost, 1u);
 
-    uint currentDist = integration[index];
+    uint currentDist = integrationRead[index];
     uint minDist = currentDist;
 
     // Check 8 neighbors
@@ -37,10 +52,10 @@ void main() {
             
             if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
                 uint nIndex = ny * width + nx;
-                uint nDist = integration[nIndex];
+                uint nDist = integrationRead[nIndex];
                 
                 if (nDist != 0xFFFFFFFF) {
-                    uint weight = (dx == 0 || dy == 0) ? 10u : 14u;
+                    uint weight = (dx == 0 || dy == 0) ? 1u : 1u;
                     uint moveCost = myCost * weight;
                     uint newDist = nDist + moveCost;
                     
@@ -52,7 +67,5 @@ void main() {
         }
     }
 
-    if (minDist < currentDist) {
-        integration[index] = minDist;
-    }
+    integrationWrite[index] = minDist;
 }

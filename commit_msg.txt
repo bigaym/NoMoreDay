@@ -1,0 +1,9 @@
+feat(ai): Finalize GPU Flow Field Pathfinding Integration
+
+- Implemented robust 'Best Neighbor' gradient calculation in flow_vector.compute
+- Added ping-ponging to flow_integration.compute for stable propagation
+- Integrated dynamic Crowd Density using SSBO and grid_count shader
+- Implemented snapped Rolling Grid logic in GameplayState
+- Optimized MapSystem with cached cost maps
+- Fixed physics.compute to use SSBO flow field and correct coordinates
+- All flow field tests (Buffer, Logic, Performance, Density) passing

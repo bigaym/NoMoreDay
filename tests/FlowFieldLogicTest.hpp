@@ -33,10 +33,10 @@ TEST_CASE("GPUFlowFieldSystem: Complex Obstacle Logic") {
         costMap[6 * width + x] = 255;  // Bottom
     }
     
-    Vector2 target = {9.0f, 2.0f}; // Changed from 10.0f
+    Vector2 target = {95.0f, 25.0f}; 
     Vector2 origin = {0.0f, 0.0f};
     
-    flowSystem.Update(costMap, target, origin);
+    flowSystem.Update(costMap, width, height, target, origin);
     
     // Read back Flow Buffer
     std::vector<Vector2> flow = flowSystem.DownloadFlowField();
@@ -60,9 +60,9 @@ TEST_CASE("GPUFlowFieldSystem: Complex Obstacle Logic") {
     
     INFO("Flow at (10, 7): " << v.x << ", " << v.y);
     
-    // Verify it moves AWAY from the wall (Down)
-    // Even if x is 0 (due to grid artifacts), moving Down escapes the trap.
-    CHECK(v.y > 0.5f); 
+    // With 'Best Neighbor' and target at (9,2), escaping wall at (10,7)
+    // should favor Left (-x) path which is shorter.
+    CHECK(v.x < -0.5f); 
 
     // Check Flow at (7, 6) - Left of the bottom corner
     // Path is open Upwards to (7, 2).
@@ -72,7 +72,7 @@ TEST_CASE("GPUFlowFieldSystem: Complex Obstacle Logic") {
     Vector2 sideV = flow[sideIdx];
     INFO("Flow at (7, 6): " << sideV.x << ", " << sideV.y);
     
-    CHECK(sideV.y < -0.3f); // Points Up-ish
+    CHECK(sideV.y < -0.5f); // Points Up-ish
     
     flowSystem.Shutdown();
 }

@@ -157,6 +157,9 @@ void GPUEntitySystem::Update(entt::registry& registry, float dt) {
     rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
     utils::GPUUtils::MemoryBarrier();
 
+    // 2.5 Update Flow Field Crowd Density
+    GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_entityBuffer.GetId(), m_maxEntities, 10.0f);
+
     // 3. Dispatch Physics (Integration + Collision)
     rlEnableShader(m_physicsShader.id);
     rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "dt"), &dt, RL_SHADER_UNIFORM_FLOAT, 1);

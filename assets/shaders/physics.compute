@@ -15,6 +15,7 @@ layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };
 layout(std430, binding = 2) buffer CellCountBuffer { uint cellCounts[]; };
 layout(std430, binding = 3) buffer CellOffsetBuffer { uint cellOffsets[]; };
 layout(std430, binding = 4) buffer EntityIndicesBuffer { uint entityIndices[]; };
+layout(std430, binding = 6) buffer FlowBuffer { vec2 flow[]; };
 
 uniform float dt;
 uniform int maxEntities;
@@ -22,7 +23,10 @@ uniform float cellSize;
 uniform int gridCols;
 uniform int gridRows;
 
-layout(binding = 0) uniform sampler2D flowField;
+uniform int flowWidth;
+uniform int flowHeight;
+uniform vec2 flowOrigin;
+uniform float flowCellSize = 10.0;
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
@@ -34,23 +38,25 @@ void main() {
 
     // 0. Steering (Flow Field) - Only for Enemies (type != 0)
     if (entities[id].type != 0) {
-        vec2 worldSize = vec2(gridCols, gridRows) * cellSize;
-        vec2 uv = pos / worldSize;
-        
-        // Ensure UV is clamped to avoid sampling outside the flow field
-        uv = clamp(uv, vec2(0.0), vec2(1.0));
-        
-        vec2 flowDir = texture(flowField, uv).xy;
-        
-        // Apply steering force if there's a valid flow
-        if (length(flowDir) > 0.01) {
-            float speed = 150.0; // Desired movement speed for enemies
-            float steerForce = 400.0;
+        // Calculate grid coordinates for flow field
+        vec2 relativePos = pos - flowOrigin;
+        int fx = int(relativePos.x / flowCellSize);
+        int fy = int(relativePos.y / flowCellSize);
+
+        if (fx >= 0 && fx < flowWidth && fy >= 0 && fy < flowHeight) {
+            uint flowIdx = uint(fy * flowWidth + fx);
+            vec2 flowDir = flow[flowIdx];
             
-            vec2 desiredVel = flowDir * speed;
-            vec2 steer = desiredVel - vel;
-            // Apply steering force smoothly
-            vel += steer * steerForce * dt * 0.1; 
+            // Apply steering force if there's a valid flow
+            if (length(flowDir) > 0.01) {
+                float speed = 150.0; // Desired movement speed for enemies
+                float steerForce = 400.0;
+                
+                vec2 desiredVel = flowDir * speed;
+                vec2 steer = desiredVel - vel;
+                // Apply steering force smoothly
+                vel += steer * steerForce * dt * 0.1; 
+            }
         }
     }
 

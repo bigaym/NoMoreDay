@@ -10,10 +10,13 @@ void GPUFlowFieldSystem::Init(ResourceManager& resources, int width, int height)
     
     m_width = width;
     m_height = height;
+    m_cellSize = 10.0f; // Default for MapSystem
 
     m_resetShader = resources.loadComputeShader(entt::hashed_string{"flow_reset"}, "assets/shaders/flow_reset.compute");
     m_flowShader = resources.loadComputeShader(entt::hashed_string{"flow_vector"}, "assets/shaders/flow_vector.compute");
     m_integrationShader = resources.loadComputeShader(entt::hashed_string{"flow_integration"}, "assets/shaders/flow_integration.compute");
+    m_gridCountShader = resources.loadComputeShader(entt::hashed_string{"grid_count"}, "assets/shaders/grid_count.compute");
+    m_gridClearShader = resources.loadComputeShader(entt::hashed_string{"grid_clear"}, "assets/shaders/grid_clear.compute");
 
     size_t cellCount = (size_t)width * height;
 
@@ -22,7 +25,11 @@ void GPUFlowFieldSystem::Init(ResourceManager& resources, int width, int height)
     std::vector<uint32_t> initialCost(cellCount, 255);
     m_costBuffer.Create(cellCount * sizeof(uint32_t), initialCost.data(), RL_DYNAMIC_DRAW);
 
-    // 2. Integration Buffers (uint32_t)
+    // 2. Density Buffer
+    std::vector<uint32_t> initialDensity(cellCount, 0);
+    m_densityBuffer.Create(cellCount * sizeof(uint32_t), initialDensity.data(), RL_DYNAMIC_DRAW);
+
+    // 3. Integration Buffers (uint32_t)
     // Initialize with max int
     std::vector<uint32_t> initialInt(cellCount, 0xFFFFFFFF);
     m_integrationBuffer.Create(cellCount * sizeof(uint32_t), initialInt.data(), RL_DYNAMIC_DRAW);
@@ -36,22 +43,53 @@ void GPUFlowFieldSystem::Init(ResourceManager& resources, int width, int height)
     LOG_INFO("GPUFlowFieldSystem buffers allocated.");
 }
 
-void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vector2 targetPos, Vector2 gridOrigin) {
+void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& fullCostMap, int mapW, int mapH, Vector2 targetPos, Vector2 gridOrigin) {
+
     if (m_width == 0 || m_height == 0) return;
+
     
+
     m_gridOrigin = gridOrigin;
 
-    // 0. Upload Cost Map
-    // Convert 8-bit cost to 32-bit buffer
-    if (costMap.size() == (size_t)m_width * m_height) {
-        std::vector<uint32_t> costInt(costMap.size());
-        for (size_t i = 0; i < costMap.size(); ++i) {
-            costInt[i] = (uint32_t)costMap[i];
+
+
+    // 0. Extract Window from Full Cost Map
+
+    std::vector<uint32_t> costInt((size_t)m_width * m_height, 255); // Default to Wall
+
+    
+
+    int startX = (int)(gridOrigin.x / m_cellSize);
+
+    int startY = (int)(gridOrigin.y / m_cellSize);
+
+    
+
+    for (int y = 0; y < m_height; ++y) {
+
+        int my = startY + y;
+
+        if (my < 0 || my >= mapH) continue;
+
+        
+
+        for (int x = 0; x < m_width; ++x) {
+
+            int mx = startX + x;
+
+            if (mx < 0 || mx >= mapW) continue;
+
+            
+
+            size_t fullIdx = (size_t)my * mapW + mx;
+
+            costInt[y * m_width + x] = (uint32_t)fullCostMap[fullIdx];
+
         }
-        m_costBuffer.Update(costInt.data(), costInt.size() * sizeof(uint32_t));
-    } else {
-        LOG_WARN("GPUFlowFieldSystem: Cost map size mismatch! Expected {}, Got {}", m_width * m_height, costMap.size());
+
     }
+
+    m_costBuffer.Update(costInt.data(), costInt.size() * sizeof(uint32_t));
 
     // Bind Buffers to Bindings (Must match shader layout binding = X)
     // Binding 0: Cost (readonly)
@@ -64,7 +102,9 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vecto
     // 1. Reset Integration Field
     rlEnableShader(m_resetShader.id);
     
-    Vector2 targetGrid = { targetPos.x - gridOrigin.x, targetPos.y - gridOrigin.y };
+    m_integrationBuffer.BindBase(1);
+    
+    Vector2 targetGrid = { (targetPos.x - gridOrigin.x) / m_cellSize, (targetPos.y - gridOrigin.y) / m_cellSize };
     int locW = rlGetLocationUniform(m_resetShader.id, "width");
     int locH = rlGetLocationUniform(m_resetShader.id, "height");
     int locTarget = rlGetLocationUniform(m_resetShader.id, "targetPos");
@@ -79,19 +119,35 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vecto
 
     m_integrationBuffer.BindBase(1);
     rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
+    
+    m_integrationBuffer2.BindBase(1);
+    rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
+    
     utils::GPUUtils::MemoryBarrier();
+
 
     // 2. Integration (Iterative Relaxation)
     rlEnableShader(m_integrationShader.id);
     locW = rlGetLocationUniform(m_integrationShader.id, "width");
     locH = rlGetLocationUniform(m_integrationShader.id, "height");
+    int locWeight = rlGetLocationUniform(m_integrationShader.id, "densityWeight");
+
     rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
     rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
+    if (locWeight >= 0) rlSetUniform(locWeight, &m_densityWeight, RL_SHADER_UNIFORM_FLOAT, 1);
 
     int passes = 256; 
-    m_integrationBuffer.BindBase(1);
     
     for (int i = 0; i < passes; ++i) {
+        bool isEven = (i % 2 == 0);
+        const auto& readBuf = isEven ? m_integrationBuffer : m_integrationBuffer2;
+        const auto& writeBuf = isEven ? m_integrationBuffer2 : m_integrationBuffer;
+
+        m_costBuffer.BindBase(0);
+        readBuf.BindBase(1);
+        m_densityBuffer.BindBase(3);
+        writeBuf.BindBase(4);
+        
         rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
         utils::GPUUtils::MemoryBarrier();
     }
@@ -103,7 +159,41 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vecto
     rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
     rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
     
+    m_integrationBuffer.BindBase(1);
+    m_flowBuffer.BindBase(2);
+    
     rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
+    utils::GPUUtils::MemoryBarrier();
+    
+    rlDisableShader();
+}
+
+void GPUFlowFieldSystem::UpdateCrowdDensity(unsigned int entityBufferId, int entityCount, float cellSize) {
+    if (m_width <= 0 || m_height <= 0) return;
+
+    int numCells = m_width * m_height;
+
+    // 1. Clear density buffer
+    rlEnableShader(m_gridClearShader.id);
+    int locNumCells = rlGetLocationUniform(m_gridClearShader.id, "numCells");
+    rlSetUniform(locNumCells, &numCells, RL_SHADER_UNIFORM_INT, 1);
+    
+    m_densityBuffer.BindBase(2); // grid_clear uses binding 2
+    rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
+    utils::GPUUtils::MemoryBarrier();
+
+    // 2. Count
+    rlEnableShader(m_gridCountShader.id);
+    rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "maxEntities"), &entityCount, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "cellSize"), &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "gridCols"), &m_width, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "gridRows"), &m_height, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "gridOrigin"), &m_gridOrigin, RL_SHADER_UNIFORM_VEC2, 1);
+    
+    rlBindShaderBuffer(entityBufferId, 1); // grid_count uses binding 1 for entities
+    m_densityBuffer.BindBase(2);           // and binding 2 for cell counts
+    
+    rlComputeShaderDispatch((entityCount + 255) / 256, 1, 1);
     utils::GPUUtils::MemoryBarrier();
     
     rlDisableShader();

@@ -87,7 +87,7 @@ void Game::init() {
     if (m_gpuInfo.computeShaderSupported) {
         NoMoreDay::systems::GPUParticleSystem::Get().Init(m_resourceManager);
         NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager);
-        NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 500, 500);
+        NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256, 256);
     }
 
     // Push Initial State
