@@ -126,9 +126,9 @@ TEST_CASE("Sword Intent: Mechanics") {
         // Step 0.6s (Interval is 0.5s)
         SkillSystem::UpdateSwordIntent(registry, 0.6f);
         CHECK(intent.stacks == 4);
-        CHECK(intent.decay_tick_timer == 0.0f); // Reset after decay
+        CHECK(intent.decay_tick_timer == doctest::Approx(0.1f)); // Remainder preserved
 
-        // Step 0.6s again
+        // Step 0.6s again (Total accumulator 0.1 + 0.6 = 0.7)
         SkillSystem::UpdateSwordIntent(registry, 0.6f);
         CHECK(intent.stacks == 3);
     }

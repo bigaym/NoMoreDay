@@ -219,7 +219,8 @@ TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
 
     auto attacker = registry.create();
     auto defender = registry.create();
-    registry.emplace<CombatStats>(attacker);
+    auto& a_stats = registry.emplace<CombatStats>(attacker);
+    a_stats.crit_chance = 0.0f; // Disable crit for deterministic damage
     registry.emplace<CombatStats>(defender);
     
     // Base damage pool
@@ -237,12 +238,12 @@ TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
         });
 
         // 1. Melee Hit (Flowing Thrust ID 1 has Melee tag)
-        auto result_melee = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        auto result_melee = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
         // Expect (100 base_pool + 10 skill_base) * 1.5 = 165.0
         CHECK(result_melee.total_damage == doctest::Approx(165.0f));
 
         // 2. Projectile Hit (Rending Wave ID 2 has Projectile tag, NO Melee tag)
-        auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, 2, base, Tag::Hit);
+        auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, 2, base, Tag::Hit, entt::null, true);
         // Expect (100 base_pool + 25 skill_base) = 125
         CHECK(result_proj.total_damage == doctest::Approx(125.0f));
     }
@@ -256,7 +257,7 @@ TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
         auto& list = registry.emplace<ModifierList>(attacker);
         list.modifiers.push_back({StatType::FireDamage, ModifierMode::PercentAdd, 100.0f, Tag::Fire});
 
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
         CHECK(result.total_damage == doctest::Approx(220.0f));
         CHECK(result.final_pool.Get(Tag::Fire) == 220.0f);
         CHECK(result.final_pool.Get(Tag::Physical) == 0.0f);
@@ -279,7 +280,7 @@ TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
         // Multiplier: 1.5.
         // Result: 110 * 1.5 = 165.
 
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
         CHECK(result.total_damage == doctest::Approx(165.0f));
         CHECK(result.final_pool.Get(Tag::Fire) == 165.0f);
     }

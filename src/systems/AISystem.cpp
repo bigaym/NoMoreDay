@@ -175,9 +175,12 @@ void AISystem::updateAIEntity(entt::registry& registry,
                     // --- 核心修改：使用 MapSystem 的流场进行智能寻路 ---
                     Vector2 flow = mapSystem.getFlowDirection(pos);
                     
+                    // 90% of Player Base Speed (150.0f) = 135.0f
+                    float chaseSpeed = 135.0f;
+
                     if (flow.x != 0 || flow.y != 0) {
-                        vel.vx = flow.x * ai.speed;
-                        vel.vy = flow.y * ai.speed;
+                        vel.vx = flow.x * chaseSpeed;
+                        vel.vy = flow.y * chaseSpeed;
                     } else {
                         // 流场无效（例如目标在墙里或距离太远），回退到直线追踪
                         LOG_LIMITED_WARN(2.0f, "AI entity {} flow field invalid at ({:.1f}, {:.1f}), falling back to direct chase", (uint32_t)entity, pos.x, pos.y);
@@ -187,8 +190,8 @@ void AISystem::updateAIEntity(entt::registry& registry,
                         float length = std::sqrt(dx * dx + dy * dy);
                         
                         if (length > 0.0f) {
-                            vel.vx = (dx / length) * ai.speed;
-                            vel.vy = (dy / length) * ai.speed;
+                            vel.vx = (dx / length) * chaseSpeed;
+                            vel.vy = (dy / length) * chaseSpeed;
                         }
                     }
                 }

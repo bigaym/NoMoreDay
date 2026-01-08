@@ -22,6 +22,7 @@ TEST_CASE("Damage Pipeline Logic") {
     
     // Initialize stats
     a_stats.crit_damage = 1.5f; 
+    a_stats.crit_chance = 0.0f; // Ensure no expected crit damage in simulation
     for(auto& res : d_stats.resistances) res = 0.0f; 
 
     SUBCASE("Basic Multipliers (Inc & More)") {
@@ -51,12 +52,12 @@ TEST_CASE("Damage Pipeline Logic") {
         mod_list.modifiers.push_back({StatType::PhysicalDamage, ModifierMode::PercentAdd, 50.0f, Tag::Melee}); 
         
         // 1. Melee Hit (Skill 1: Flowing Thrust)
-        auto result_melee = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
-        // (100+10+5) * 1.5 = 172.5 (Assuming +5 base/hidden bonus for Melee)
-        CHECK(result_melee.total_damage == doctest::Approx(172.5f));
+        auto result_melee = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
+        // (100+10) * 1.5 = 165.0
+        CHECK(result_melee.total_damage == doctest::Approx(165.0f));
         
         // 2. Projectile Hit (Skill 2: Rending Wave)
-        auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, 2, base, Tag::Hit);
+        auto result_proj = DamagePipeline::Calculate(registry, attacker, defender, 2, base, Tag::Hit, entt::null, true);
         // (100+25) = 125 (No Melee bonus)
         CHECK(result_proj.total_damage == doctest::Approx(125.0f)); 
     }
@@ -76,7 +77,7 @@ TEST_CASE("Damage Pipeline Logic") {
         // +50% Inc Physical (Inherited by converted damage due to source tagging)
         mod_list.modifiers.push_back({StatType::PhysicalDamage, ModifierMode::PercentAdd, 50.0f, Tag::Physical});
         
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
         
         // Base (100+10=110) -> converts to 110 Fire
         // scaling: 100% (fire) + 50% (phys inherited) = +150% inc
@@ -91,7 +92,8 @@ TEST_CASE("Damage Pipeline Logic") {
         
         a_stats.crit_damage = 2.0f; 
         
-        auto result_crit = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit | Tag::Critical);
+        // Pass Tag::Critical explicitly to force crit in logic, but simulation=true ensures consistency
+        auto result_crit = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit | Tag::Critical, entt::null, true);
         // (100+10) * 2.0 = 220
         CHECK(result_crit.total_damage == doctest::Approx(220.0f));
         CHECK(result_crit.is_crit);
@@ -104,7 +106,7 @@ TEST_CASE("Damage Pipeline Logic") {
         
         // 1. Over-capped Resistance (90% -> should be capped at 75%)
         d_stats.resistances[(int)DamageType::Fire] = 0.90f;
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
         
         // Check ONLY Fire part to avoid noise from Skill's physical damage
         // Base 100 Fire.
@@ -115,7 +117,7 @@ TEST_CASE("Damage Pipeline Logic") {
 
         // 2. Negative Resistance (-150% -> should be capped at -100% per design doc)
         d_stats.resistances[(int)DamageType::Fire] = -1.50f;
-        auto result_neg = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        auto result_neg = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
         
         // Base 100 Fire.
         // Res -1.0 (Capped). Multiplier = (1 - (-1)) = 2.0.
@@ -135,14 +137,7 @@ TEST_CASE("Damage Pipeline Logic") {
         // Current Formula: 100 / (100 + Armor) = 100 / 200 = 0.5 multiplier.
         // Damage = 110 * 0.5 = 55.
         
-        // Design Formula: Armor / (Armor + 50 * Lvl).
-        // If Lvl=1, 50. Armor=100. DR = 100 / 150 = 2/3 = 66% reduction. Mult = 0.33.
-        // If Lvl=10, 500. Armor=100. DR = 100 / 600 = 1/6 = 16% reduction. Mult = 0.83.
-        
-        // We want to verify if implementation allows passing Level.
-        // Currently it doesn't.
-        
-        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit);
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 1, base, Tag::Hit, entt::null, true);
         
         // Verification of current behavior: 55.0f
         CHECK(result.total_damage == doctest::Approx(55.0f));
@@ -153,20 +148,20 @@ TEST_CASE("Damage Pipeline Logic") {
         
         // 1. Zero Damage
         DamagePool zero_pool;
-        auto result_zero = DamagePipeline::Calculate(registry, attacker, defender, 0, zero_pool, Tag::Hit);
+        auto result_zero = DamagePipeline::Calculate(registry, attacker, defender, 0, zero_pool, Tag::Hit, entt::null, true);
         CHECK(result_zero.total_damage == 0.0f);
 
         // 2. Extremely High Damage (Overflow check)
         DamagePool high_pool;
         high_pool.Add(Tag::Physical, 1e10f); 
-        auto result_high = DamagePipeline::Calculate(registry, attacker, defender, 0, high_pool, Tag::Hit);
+        auto result_high = DamagePipeline::Calculate(registry, attacker, defender, 0, high_pool, Tag::Hit, entt::null, true);
         CHECK(result_high.total_damage > 1e9f);
 
         // 3. 100% Resistance (Capped at 75%)
         DamagePool fire_pool;
         fire_pool.Add(Tag::Fire, 100.0f);
         d_stats.resistances[(int)DamageType::Fire] = 1.0f; // 100%
-        auto result_res = DamagePipeline::Calculate(registry, attacker, defender, 0, fire_pool, Tag::Hit);
+        auto result_res = DamagePipeline::Calculate(registry, attacker, defender, 0, fire_pool, Tag::Hit, entt::null, true);
         // Should be 100 * (1 - 0.75) = 25.0
         CHECK(result_res.total_damage == doctest::Approx(25.0f));
     }

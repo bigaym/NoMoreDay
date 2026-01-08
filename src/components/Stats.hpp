@@ -134,7 +134,7 @@ namespace NoMoreDay
         float block_amount = 0.0f; // 格挡减免的伤害值
 
         // --- 特殊机制 ---
-        float move_speed = 300.0f; // 移动速度 (pixels/sec)
+        float move_speed = 150.0f; // 移动速度 (pixels/sec)
         float life_steal = 0.0f;   // 吸血 %
         float life_on_hit = 0.0f;  // 击回
         float mana_on_hit = 0.0f;  // 蓝回

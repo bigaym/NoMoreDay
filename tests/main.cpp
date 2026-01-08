@@ -48,6 +48,7 @@ using namespace NoMoreDay;
 #include "MonsterHealthBarTest.hpp"
 #include "PlayerHUDTest.hpp"
 #include "SkillUITest.hpp"
+#include "FlowFieldBufferTest.hpp"
 
 int main(int argc, char** argv) {
     // Some Raylib functions require a window context even if not drawing

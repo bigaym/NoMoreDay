@@ -1,753 +1,256 @@
-# 项目结构文档
+# NoMoreDay 项目结构文档
 
-## 项目概述
+## 项目概览
 
-NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏项目，使用 C++ 和 Raylib 图形库开发。项目采用模块化设计，通过组件化的方式管理游戏实体，系统负责处理组件逻辑，实现高效的游戏运行机制。
+NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏，采用 C++ 和 raylib 图形库开发。项目使用 CMake 构建系统，集成了 EnTT 实体组件系统、Taskflow 并行处理库等现代 C++ 技术。
 
-## 目录结构
+## 项目结构
 
 ```
 NoMoreDay/
-├── assets/                 # 游戏资源目录
-├── conductor/              # 项目管理文档
-├── plans/                  # 项目规划文档
-├── scripts/                # 项目脚本
-├── src/                    # 源代码目录
-│   ├── components/         # ECS 组件定义
-│   ├── core/               # 核心系统和管理器
-│   ├── states/             # 游戏状态管理
-│   ├── systems/            # ECS 系统实现
-│   ├── tools/              # 工具类
-│   └── utils/              # 工具函数
-├── tests/                  # 测试代码
-├── CMakeLists.txt          # CMake 构建配置
-├── README.md               # 项目说明
-├── GEMINI.md               # 项目核心文档
-└── LICENSE                 # 许可证
+├── .gitignore              # Git 忽略文件配置
+├── AGENTS.md              # 代理开发指南
+├── build.bat              # Windows 构建脚本
+├── CMakeLists.txt         # CMake 构建配置文件
+├── GEMINI.md              # Gemini 模型相关文档
+├── LICENSE                # 项目许可证
+├── raylib使用opengl4.3.md # Raylib OpenGL 4.3 使用说明
+├── README.md              # 项目介绍文档
+├── test_output.txt        # 测试输出文件
+├── conductor/            # Conductor 工具配置
+├── 设计文档/              # 游戏设计文档
+├── assets/               # 游戏资源文件
+├── scripts/              # Python 脚本工具
+├── src/                  # 源代码目录
+└── tests/                # 测试代码目录
 ```
 
-## 详细文件说明
-
-### 根目录文件
-
-#### CMakeLists.txt
-- **类型**: 构建配置文件
-- **作用**: 定义项目的 CMake 构建规则，包括依赖管理、编译选项、链接库等
-- **使用方式**: 用于 CMake 构建系统生成项目构建文件
-
-#### README.md
-- **类型**: 文档文件
-- **作用**: 项目介绍和使用说明文档
-- **使用方式**: 为开发者和用户提供项目概览和基本使用指南
-
-#### GEMINI.md
-- **类型**: 核心文档文件
-- **作用**: 项目的核心背景、技术架构和操作指令文档
-- **使用方式**: 作为项目开发的主要参考文档
-
-#### LICENSE
-- **类型**: 许可证文件
-- **作用**: 定义项目的开源许可证类型和条款
-
-### assets/ 目录
-- **分类逻辑**: 游戏资源存储目录
-- **包含内容**: 图像、音频、配置等游戏运行所需的所有资源文件
-- **组织作用**: 集中管理游戏资源，便于加载和维护
-
-### conductor/ 目录
-- **分类逻辑**: 项目管理和流程文档
-- **包含内容**: 项目跟踪、工作流程、任务分配等相关文档
-- **组织作用**: 提供项目管理层面的文档支持
-
-### plans/ 目录
-- **分类逻辑**: 项目规划文档
-- **包含内容**: 项目架构设计、技术方案、开发计划等规划性文档
-- **组织作用**: 记录项目的设计思路和开发路线
-
-### scripts/ 目录
-- **分类逻辑**: 项目辅助脚本
-- **包含内容**: 自动化脚本、工具脚本、资源生成脚本等
-- **组织作用**: 提供项目开发和维护的自动化支持
-
-### src/ 目录
-
-#### src/components/ 目录
-**分类逻辑**: ECS 组件定义
-**包含内容**: 游戏实体的各种组件定义
-**组织作用**: 定义游戏实体的属性和状态
-
-##### AIComponent.hpp
-- **功能**: AI 组件定义
-- **职责**: 存储 AI 实体的相关数据，如目标、状态、行为参数等
-- **主要接口**: AI 相关数据结构定义
-- **用途**: 为具有 AI 行为的实体提供数据支持
-
-##### AstrolabeUIComponent.hpp
-- **功能**: 星盘 UI 组件定义
-- **职责**: 存储星盘界面相关组件数据
-- **主要接口**: 星盘 UI 相关数据结构定义
-- **用途**: 为星盘界面系统提供组件支持
-
-##### Buff.hpp
-- **功能**: Buff/Debuff 组件定义
-- **职责**: 存储增益/减益效果的数据
-- **主要接口**: Buff 相关数据结构定义
-- **用途**: 为战斗系统中的状态效果提供组件支持
-
-##### Combat.hpp
-- **功能**: 战斗组件定义
-- **职责**: 存储战斗相关数据，如伤害、防御、攻击类型等
-- **主要接口**: 战斗相关数据结构定义
-- **用途**: 为战斗系统提供组件支持
-
-##### Common.hpp
-- **功能**: 通用组件定义
-- **职责**: 存储通用的组件数据
-- **主要接口**: 通用组件数据结构定义
-- **用途**: 提供通用的组件定义
-
-##### EffectComponent.hpp
-- **功能**: 效果组件定义
-- **职责**: 存储各种视觉和游戏效果的数据
-- **主要接口**: 效果相关数据结构定义
-- **用途**: 为效果系统提供组件支持
-
-##### EnemyComponent.hpp
-- **功能**: 敌人组件定义
-- **职责**: 存储敌人相关的特殊数据
-- **主要接口**: 敌人相关数据结构定义
-- **用途**: 为敌人系统提供组件支持
-
-##### EquipmentComponent.hpp
-- **功能**: 装备组件定义
-- **职责**: 存储装备相关数据和属性
-- **主要接口**: 装备相关数据结构定义
-- **用途**: 为装备系统提供组件支持
-
-##### InventoryComponent.hpp
-- **功能**: 背包组件定义
-- **职责**: 存储背包相关数据，如物品槽位、容量等
-- **主要接口**: 背包相关数据结构定义
-- **用途**: 为背包系统提供组件支持
-
-##### ItemComponent.hpp
-- **功能**: 物品组件定义
-- **职责**: 存储物品相关数据，如类型、数量、属性等
-- **主要接口**: 物品相关数据结构定义
-- **用途**: 为物品系统提供组件支持
-
-##### ItemStats.hpp
-- **功能**: 物品属性组件定义
-- **职责**: 存储物品的属性数据
-- **主要接口**: 物品属性相关数据结构定义
-- **用途**: 为物品属性系统提供组件支持
-
-##### MapComponent.hpp
-- **功能**: 地图组件定义
-- **职责**: 存储地图相关数据
-- **主要接口**: 地图相关数据结构定义
-- **用途**: 为地图系统提供组件支持
-
-##### PlayerState.hpp
-- **功能**: 玩家状态组件定义
-- **职责**: 存储玩家状态相关数据
-- **主要接口**: 玩家状态相关数据结构定义
-- **用途**: 为玩家状态管理提供组件支持
-
-##### Progression.hpp
-- **功能**: 进度组件定义
-- **职责**: 存储角色成长和进度相关数据
-- **主要接口**: 进度相关数据结构定义
-- **用途**: 为角色成长系统提供组件支持
-
-##### Projectile.hpp
-- **功能**: 投射物组件定义
-- **职责**: 存储投射物相关数据，如速度、伤害、类型等
-- **主要接口**: 投射物相关数据结构定义
-- **用途**: 为投射物系统提供组件支持
-
-##### SkillSystem.hpp
-- **功能**: 技能系统组件定义
-- **职责**: 存储技能相关数据
-- **主要接口**: 技能相关数据结构定义
-- **用途**: 为技能系统提供组件支持
-
-##### Stats.hpp
-- **功能**: 属性组件定义
-- **职责**: 存储角色基本属性数据，如生命值、攻击力等
-- **主要接口**: 属性相关数据结构定义
-- **用途**: 为角色属性系统提供组件支持
-
-##### UIAnimationComponent.hpp
-- **功能**: UI 动画组件定义
-- **职责**: 存储 UI 动画相关数据
-- **主要接口**: UI 动画相关数据结构定义
-- **用途**: 为 UI 动画系统提供组件支持
-
-#### src/core/ 目录
-**分类逻辑**: 核心系统和管理器
-**包含内容**: 游戏的核心管理系统和注册表
-**组织作用**: 提供游戏运行所需的基础服务和管理功能
-
-##### AssetLoadingSystem.cpp / AssetLoadingSystem.hpp
-- **功能**: 资源加载系统
-- **职责**: 负责游戏资源的加载、缓存和管理
-- **主要接口**: 
-  - `loadAssets()`: 加载游戏资源
-  - `getAsset()`: 获取指定资源
-  - `unloadAssets()`: 卸载资源
-- **用途**: 统一管理游戏资源的加载流程
-
-##### AssetRegistry.hpp
-- **功能**: 资产注册表
-- **职责**: 注册和管理游戏资产
-- **主要接口**: 资产注册和查找接口
-- **用途**: 为游戏资产提供统一的注册和访问机制
-
-##### AstrolabeRegistry.cpp / AstrolabeRegistry.hpp
-- **功能**: 星盘注册表系统
-- **职责**: 管理星盘相关数据的注册和访问
-- **主要接口**:
-  - `registerAstrolabe()`: 注册星盘数据
-  - `getAstrolabe()`: 获取星盘数据
-- **用途**: 为星盘系统提供数据注册表支持
-
-##### BiomeRegistry.cpp / BiomeRegistry.hpp
-- **功能**: 生物群系注册表系统
-- **职责**: 管理生物群系相关数据
-- **主要接口**:
-  - `registerBiome()`: 注册生物群系
-  - `getBiome()`: 获取生物群系数据
-- **用途**: 为地图生成系统提供生物群系数据支持
-
-##### BuffRegistry.cpp / BuffRegistry.hpp
-- **功能**: Buff 注册表系统
-- **职责**: 管理 Buff/Debuff 的定义和属性
-- **主要接口**:
-  - `registerBuff()`: 注册 Buff
-  - `getBuff()`: 获取 Buff 数据
-- **用途**: 为战斗系统中的状态效果提供数据支持
-
-##### EquipmentAssetRegistry.hpp
-- **功能**: 装备资产注册表
-- **职责**: 管理装备资产的注册和访问
-- **主要接口**: 装备资产注册和查找接口
-- **用途**: 为装备系统提供资产注册表支持
-
-##### Game.cpp / Game.hpp
-- **功能**: 游戏主类
-- **职责**: 游戏的主控制逻辑，包括初始化、主循环、状态管理等
-- **主要接口**:
-  - `run()`: 启动游戏主循环
-  - `init()`: 初始化游戏
-  - `update()`: 更新游戏状态
-  - `render()`: 渲染游戏画面
-- **用途**: 游戏的核心控制类
-
-##### ItemFactory.cpp / ItemFactory.hpp
-- **功能**: 物品工厂系统
-- **职责**: 负责创建和生成游戏中的各种物品
-- **主要接口**:
-  - `createItem()`: 创建物品
-  - `generateRandomItem()`: 生成随机物品
-- **用途**: 为物品系统提供创建和生成机制
-
-##### LevelManager.cpp / LevelManager.hpp
-- **功能**: 关卡管理器
-- **职责**: 管理游戏关卡的加载、切换和状态
-- **主要接口**:
-  - `loadLevel()`: 加载关卡
-  - `changeLevel()`: 切换关卡
-  - `getCurrentLevel()`: 获取当前关卡
-- **用途**: 为游戏关卡系统提供管理功能
-
-##### LootFilter.cpp / LootFilter.hpp
-- **功能**: 战利品过滤系统
-- **职责**: 过滤和筛选战利品掉落
-- **主要接口**:
-  - `filterLoot()`: 过滤战利品
-  - `applyFilters()`: 应用过滤规则
-- **用途**: 为掉落系统提供过滤机制
-
-##### LootTable.hpp
-- **功能**: 战利品表定义
-- **职责**: 定义战利品掉落的规则和概率
-- **主要接口**: 战利品表相关数据结构定义
-- **用途**: 为掉落系统提供掉落规则支持
-
-##### ResourceManager.cpp / ResourceManager.hpp
-- **功能**: 资源管理器
-- **职责**: 管理游戏资源的生命周期和内存使用
-- **主要接口**:
-  - `loadResource()`: 加载资源
-  - `getResource()`: 获取资源
-  - `releaseResource()`: 释放资源
-- **用途**: 为游戏资源提供统一的管理机制
-
-##### SceneManager.cpp / SceneManager.hpp
-- **功能**: 场景管理器
-- **职责**: 管理游戏场景的切换和状态
-- **主要接口**:
-  - `loadScene()`: 加载场景
-  - `switchScene()`: 切换场景
-  - `getCurrentScene()`: 获取当前场景
-- **用途**: 为游戏场景系统提供管理功能
-
-##### SharedContext.hpp
-- **功能**: 共享上下文定义
-- **职责**: 定义各个系统间共享的数据上下文
-- **主要接口**: 共享上下文数据结构定义
-- **用途**: 为系统间数据共享提供基础
-
-##### SkillRegistry.cpp / SkillRegistry.hpp
-- **功能**: 技能注册表系统
-- **职责**: 管理技能的定义和属性
-- **主要接口**:
-  - `registerSkill()`: 注册技能
-  - `getSkill()`: 获取技能数据
-- **用途**: 为技能系统提供数据支持
-
-##### State.hpp
-- **功能**: 游戏状态定义
-- **职责**: 定义游戏状态的基类和相关接口
-- **主要接口**: 游戏状态相关接口定义
-- **用途**: 为游戏状态系统提供基础支持
-
-##### StateManager.cpp / StateManager.hpp
-- **功能**: 状态管理器
-- **职责**: 管理游戏状态的切换和堆栈
-- **主要接口**:
-  - `pushState()`: 压入状态
-  - `popState()`: 弹出状态
-  - `changeState()`: 切换状态
-- **用途**: 为游戏状态系统提供管理功能
-
-##### TagRegistry.hpp
-- **功能**: 标签注册表
-- **职责**: 管理游戏实体标签的注册和访问
-- **主要接口**: 标签注册和查找接口
-- **用途**: 为实体分类和标记提供支持
-
-##### UIAssetRegistry.hpp
-- **功能**: UI 资产注册表
-- **职责**: 管理 UI 相关资产的注册和访问
-- **主要接口**: UI 资产注册和查找接口
-- **用途**: 为 UI 系统提供资产注册表支持
-
-##### UIContext.hpp
-- **功能**: UI 上下文定义
-- **职责**: 定义 UI 系统的上下文数据
-- **主要接口**: UI 上下文数据结构定义
-- **用途**: 为 UI 系统提供上下文支持
-
-##### UIRenderer.cpp / UIRenderer.hpp
-- **功能**: UI 渲染器
-- **职责**: 负责 UI 元素的渲染
-- **主要接口**:
-  - `renderUI()`: 渲染 UI
-  - `addUIElement()`: 添加 UI 元素
-- **用途**: 为 UI 系统提供渲染功能
-
-#### src/states/ 目录
-**分类逻辑**: 游戏状态管理
-**包含内容**: 各种游戏状态的实现
-**组织作用**: 管理游戏的不同运行状态
-
-##### GameplayState.cpp / GameplayState.hpp
-- **功能**: 游戏玩法状态
-- **职责**: 管理游戏进行中的状态和逻辑
-- **主要接口**:
-  - `update()`: 更新游戏玩法状态
-  - `render()`: 渲染游戏画面
-  - `handleInput()`: 处理游戏输入
-- **用途**: 实现游戏进行中的核心逻辑
-
-##### InventoryState.cpp / InventoryState.hpp
-- **功能**: 背包状态
-- **职责**: 管理背包界面的状态和交互
-- **主要接口**:
-  - `update()`: 更新背包状态
-  - `render()`: 渲染背包界面
-  - `handleInput()`: 处理背包操作
-- **用途**: 实现背包界面的逻辑
-
-##### LoadingState.cpp / LoadingState.hpp
-- **功能**: 加载状态
-- **职责**: 管理游戏加载过程的状态
-- **主要接口**:
-  - `update()`: 更新加载进度
-  - `render()`: 渲染加载界面
-- **用途**: 实现游戏加载过程的逻辑
-
-##### MainMenuState.cpp / MainMenuState.hpp
-- **功能**: 主菜单状态
-- **职责**: 管理主菜单的状态和交互
-- **主要接口**:
-  - `update()`: 更新菜单状态
-  - `render()`: 渲染菜单界面
-  - `handleInput()`: 处理菜单选择
-- **用途**: 实现主菜单的逻辑
-
-##### PauseState.cpp / PauseState.hpp
-- **功能**: 暂停状态
-- **职责**: 管理游戏暂停时的状态
-- **主要接口**:
-  - `update()`: 更新暂停状态
-  - `render()`: 渲染暂停界面
-  - `handleInput()`: 处理暂停菜单操作
-- **用途**: 实现游戏暂停功能
-
-#### src/systems/ 目录
-**分类逻辑**: ECS 系统实现
-**包含内容**: 各种 ECS 系统的实现
-**组织作用**: 处理组件逻辑，实现游戏功能
-
-##### AISystem.cpp / AISystem.hpp
-- **功能**: AI 系统
-- **职责**: 处理具有 AI 组件的实体的智能行为
-- **主要接口**:
-  - `update()`: 更新 AI 行为
-  - `processEntity()`: 处理单个 AI 实体
-- **用途**: 实现敌人的智能行为逻辑
-
-##### AstrolabeSystem.cpp / AstrolabeSystem.hpp
-- **功能**: 星盘系统
-- **职责**: 管理星盘相关的逻辑和交互
-- **主要接口**:
-  - `update()`: 更新星盘系统
-  - `processAstrolabe()`: 处理星盘逻辑
-- **用途**: 实现星盘功能系统
-
-##### CombatSystem.cpp / CombatSystem.hpp
-- **功能**: 战斗系统
-- **职责**: 处理战斗相关的逻辑，包括伤害计算、战斗判定等
-- **主要接口**:
-  - `update()`: 更新战斗系统
-  - `processCombat()`: 处理战斗逻辑
-  - `calculateDamage()`: 计算伤害
-- **用途**: 实现游戏战斗机制
-
-##### CraftingSystem.cpp / CraftingSystem.hpp
-- **功能**: 制作系统
-- **职责**: 处理制作相关的逻辑
-- **主要接口**:
-  - `update()`: 更新制作系统
-  - `processCrafting()`: 处理制作逻辑
-- **用途**: 实现物品制作功能
-
-##### DamagePipeline.cpp / DamagePipeline.hpp
-- **功能**: 伤害管道系统
-- **职责**: 管理伤害计算和传递的流程
-- **主要接口**:
-  - `calculateDamage()`: 计算最终伤害
-  - `applyDamage()`: 应用伤害
-- **用途**: 实现标准化的伤害计算流程
-
-##### DropSystem.cpp / DropSystem.hpp
-- **功能**: 掉落系统
-- **职责**: 处理敌人死亡后的物品掉落逻辑
-- **主要接口**:
-  - `update()`: 更新掉落系统
-  - `processDrops()`: 处理掉落逻辑
-- **用途**: 实现敌人战利品掉落机制
-
-##### EffectSystem.cpp / EffectSystem.hpp
-- **功能**: 效果系统
-- **职责**: 处理各种视觉和游戏效果
-- **主要接口**:
-  - `update()`: 更新效果系统
-  - `processEffects()`: 处理效果逻辑
-- **用途**: 实现游戏效果系统
-
-##### EnemyBehavior.cpp
-- **功能**: 敌人行为系统
-- **职责**: 实现敌人具体的行为逻辑
-- **核心逻辑**: 敌人的移动、攻击、AI 决策等具体行为实现
-- **模块作用**: 为敌人提供具体的行为实现
-
-##### EnemySpawnSystem.cpp / EnemySpawnSystem.hpp
-- **功能**: 敌人生成系统
-- **职责**: 管理敌人的生成和刷新逻辑
-- **主要接口**:
-  - `update()`: 更新生成系统
-  - `spawnEnemies()`: 生成敌人
-- **用途**: 实现敌人生成机制
-
-##### FogOfWarSystem.cpp / FogOfWarSystem.hpp
-- **功能**: 战争迷雾系统
-- **职责**: 实现战争迷雾效果，隐藏未探索区域
-- **主要接口**:
-  - `update()`: 更新迷雾系统
-  - `revealArea()`: 揭示区域
-- **用途**: 实现战争迷雾功能
-
-##### InputSystem.cpp / InputSystem.hpp
-- **功能**: 输入系统
-- **职责**: 处理用户输入并转换为游戏动作
-- **主要接口**:
-  - `update()`: 更新输入状态
-  - `processInput()`: 处理输入事件
-- **用途**: 实现用户输入处理机制
-
-##### InventorySystem.cpp / InventorySystem.hpp
-- **功能**: 背包系统
-- **职责**: 处理背包相关的逻辑，包括物品管理、交换等
-- **主要接口**:
-  - `update()`: 更新背包系统
-  - `addItem()`: 添加物品
-  - `removeItem()`: 移除物品
-- **用途**: 实现背包管理功能
-
-##### MapSystem.cpp / MapSystem.hpp
-- **功能**: 地图系统
-- **职责**: 处理地图相关的逻辑，包括地图生成、渲染等
-- **主要接口**:
-  - `update()`: 更新地图系统
-  - `generateMap()`: 生成地图
-- **用途**: 实现地图管理功能
-
-##### PhysicsSystem.cpp / PhysicsSystem.hpp
-- **功能**: 物理系统
-- **职责**: 处理物理相关的逻辑，包括碰撞检测、运动等
-- **主要接口**:
-  - `update()`: 更新物理系统
-  - `processCollisions()`: 处理碰撞
-- **用途**: 实现游戏物理机制
-
-##### PortalSystem.cpp / PortalSystem.hpp
-- **功能**: 传送门系统
-- **职责**: 处理传送门相关的逻辑
-- **主要接口**:
-  - `update()`: 更新传送门系统
-  - `processPortal()`: 处理传送逻辑
-- **用途**: 实现传送功能
-
-##### ProgressionSystem.cpp / ProgressionSystem.hpp
-- **功能**: 进度系统
-- **职责**: 处理角色成长和进度相关的逻辑
-- **主要接口**:
-  - `update()`: 更新进度系统
-  - `processProgression()`: 处理成长逻辑
-- **用途**: 实现角色成长机制
-
-##### ProjectileSystem.cpp / ProjectileSystem.hpp
-- **功能**: 投射物系统
-- **职责**: 处理投射物相关的逻辑，包括移动、碰撞等
-- **主要接口**:
-  - `update()`: 更新投射物系统
-  - `processProjectiles()`: 处理投射物逻辑
-- **用途**: 实现投射物管理功能
-
-##### RegenerationSystem.hpp
-- **功能**: 回复系统
-- **职责**: 处理生命值、法力值等的自动回复逻辑
-- **主要接口**: 回复相关接口定义
-- **用途**: 实现自动回复机制
-
-##### RenderSystem.cpp / RenderSystem.hpp
-- **功能**: 渲染系统
-- **职责**: 处理游戏画面的渲染逻辑
-- **主要接口**:
-  - `update()`: 更新渲染系统
-  - `render()`: 执行渲染操作
-- **用途**: 实现游戏渲染功能
-
-##### SerializationSystem.hpp
-- **功能**: 序列化系统
-- **职责**: 处理游戏数据的序列化和反序列化
-- **主要接口**: 序列化相关接口定义
-- **用途**: 实现游戏存档和加载功能
-
-##### SkillSystem.cpp / SkillSystem.hpp
-- **功能**: 技能系统
-- **职责**: 处理技能相关的逻辑
-- **主要接口**:
-  - `update()`: 更新技能系统
-  - `processSkills()`: 处理技能逻辑
-- **用途**: 实现技能管理功能
-
-##### SpatialGrid.hpp
-- **功能**: 空间网格系统
-- **职责**: 提供高效的空间查询和碰撞检测
-- **主要接口**: 空间网格相关接口定义
-- **用途**: 实现高效的碰撞检测和邻居查询
-
-##### StatsSystem.cpp / StatsSystem.hpp
-- **功能**: 属性系统
-- **职责**: 处理角色属性相关的逻辑
-- **主要接口**:
-  - `update()`: 更新属性系统
-  - `processStats()`: 处理属性逻辑
-- **用途**: 实现角色属性管理功能
-
-##### UIAnimationSystem.cpp / UIAnimationSystem.hpp
-- **功能**: UI 动画系统
-- **职责**: 处理 UI 元素的动画效果
-- **主要接口**:
-  - `update()`: 更新 UI 动画
-  - `processAnimations()`: 处理动画逻辑
-- **用途**: 实现 UI 动画功能
-
-##### UIAstrolabe.cpp / UIAstrolabe.hpp
-- **功能**: 星盘 UI 系统
-- **职责**: 处理星盘界面的显示和交互
-- **主要接口**:
-  - `update()`: 更新星盘 UI
-  - `render()`: 渲染星盘界面
-- **用途**: 实现星盘 UI 功能
-
-##### UICharacter.cpp / UICharacter.hpp
-- **功能**: 角色 UI 系统
-- **职责**: 处理角色界面的显示和交互
-- **主要接口**:
-  - `update()`: 更新角色 UI
-  - `render()`: 渲染角色界面
-- **用途**: 实现角色 UI 功能
-
-##### UICommon.hpp
-- **功能**: UI 通用组件定义
-- **职责**: 定义 UI 系统的通用组件和接口
-- **主要接口**: UI 通用接口定义
-- **用途**: 为 UI 系统提供通用支持
-
-##### UICrafting.cpp / UICrafting.hpp
-- **功能**: 制作 UI 系统
-- **职责**: 处理制作界面的显示和交互
-- **主要接口**:
-  - `update()`: 更新制作 UI
-  - `render()`: 渲染制作界面
-- **用途**: 实现制作 UI 功能
-
-##### UIInventory.cpp / UIInventory.hpp
-- **功能**: 背包 UI 系统
-- **职责**: 处理背包界面的显示和交互
-- **主要接口**:
-  - `update()`: 更新背包 UI
-  - `render()`: 渲染背包界面
-- **用途**: 实现背包 UI 功能
-
-##### UIMinimap.cpp / UIMinimap.hpp
-- **功能**: 小地图 UI 系统
-- **职责**: 处理小地图的显示和更新
-- **主要接口**:
-  - `update()`: 更新小地图
-  - `render()`: 渲染小地图
-- **用途**: 实现小地图功能
-
-##### UISkillHub.cpp / UISkillHub.hpp
-- **功能**: 技能中心 UI 系统
-- **职责**: 处理技能界面的显示和交互
-- **主要接口**:
-  - `update()`: 更新技能 UI
-  - `render()`: 渲染技能界面
-- **用途**: 实现技能 UI 功能
-
-##### UISkillTalentTree.cpp / UISkillTalentTree.hpp
-- **功能**: 技能天赋树 UI 系统
-- **职责**: 处理技能天赋树界面的显示和交互
-- **主要接口**:
-  - `update()`: 更新天赋树 UI
-  - `render()`: 渲染天赋树界面
-- **用途**: 实现技能天赋树 UI 功能
-
-##### UISystem.cpp / UISystem.hpp
-- **功能**: UI 系统
-- **职责**: 管理整个 UI 系统的更新和渲染
-- **主要接口**:
-  - `update()`: 更新 UI 系统
-  - `render()`: 渲染 UI
-- **用途**: 实现 UI 管理功能
-
-##### XPAwardingSystem.cpp / XPAwardingSystem.hpp
-- **功能**: 经验奖励系统
-- **职责**: 处理经验值的奖励和分配
-- **主要接口**:
-  - `update()`: 更新经验系统
-  - `awardXP()`: 奖励经验值
-- **用途**: 实现经验值奖励功能
-
-#### src/tools/ 目录
-**分类逻辑**: 工具类
-**包含内容**: 各种工具类的实现
-**组织作用**: 提供项目开发和运行所需的工具支持
-
-##### CrashHandler.cpp / CrashHandler.hpp
-- **功能**: 崩溃处理器
-- **职责**: 处理程序崩溃并生成崩溃报告
-- **主要接口**:
-  - `setupCrashHandler()`: 设置崩溃处理器
-  - `handleCrash()`: 处理崩溃事件
-- **用途**: 提供程序崩溃处理和报告功能
-
-##### Logger.cpp / Logger.hpp
-- **功能**: 日志记录器
-- **职责**: 记录程序运行时的日志信息
-- **主要接口**:
-  - `log()`: 记录日志
-  - `setLogLevel()`: 设置日志级别
-- **用途**: 提供程序运行日志记录功能
-
-#### src/utils/ 目录
-**分类逻辑**: 工具函数
-**包含内容**: 各种工具函数和辅助类
-**组织作用**: 提供通用的工具函数支持
-
-##### Parallel.hpp
-- **功能**: 并行处理工具
-- **职责**: 提供并行处理的工具和函数
-- **核心逻辑**: 并行计算和任务调度
-- **模块作用**: 为项目提供并行处理能力
-
-##### Tilemask.hpp
-- **功能**: 瓷砖掩码工具
-- **职责**: 处理瓷砖地图的掩码操作
-- **核心逻辑**: 瓷砖掩码算法
-- **模块作用**: 为地图系统提供瓷砖掩码支持
-
-##### UUID.hpp
-- **功能**: UUID 生成器
-- **职责**: 生成和管理唯一标识符
-- **核心逻辑**: UUID 生成算法
-- **模块作用**: 为实体和对象提供唯一标识
-
-### tests/ 目录
-**分类逻辑**: 测试代码
-**包含内容**: 各种单元测试和集成测试代码
-**组织作用**: 确保代码质量和功能正确性
-
-##### 各种 Test 文件
-- **功能**: 单元测试
-- **职责**: 测试特定模块的功能
-- **核心逻辑**: 针对特定系统或组件的测试逻辑
-- **模块作用**: 验证各个模块的功能正确性
-
-##### CMakeLists.txt
-- **功能**: 测试构建配置
-- **职责**: 定义测试代码的构建规则
-- **使用方式**: 用于构建测试程序
-
-##### main.cpp
-- **功能**: 测试主函数
-- **职责**: 启动测试程序
-- **核心逻辑**: 测试框架的入口点
-- **模块作用**: 运行所有测试用例
-
-## 项目架构特点
-
-1. **ECS 架构**: 采用实体-组件-系统架构，实现高内聚低耦合的设计
-2. **模块化设计**: 通过清晰的目录结构和职责分离，实现模块化开发
-3. **注册表模式**: 通过各种注册表管理游戏数据，提高数据管理效率
-4. **状态管理**: 通过状态机管理游戏的不同运行状态
-5. **并行处理**: 利用并行处理提高游戏性能
-6. **资源管理**: 统一的资源管理系统，优化内存使用
-
-## 组件-系统关联关系
-
-- **Position+Velocity**: 物理系统处理
-- **Position+ColorComponent**: 渲染系统以圆形渲染
-- **Position+SpriteComponent**: 渲染系统以纹理渲染
-- **EnemyTag+AIComponent**: AI 系统处理
-- **战斗相关组件**: 战斗系统处理
-- **UI 相关组件**: UI 系统处理
-
-这种架构设计使得各个模块职责清晰，便于维护和扩展。
+## 源代码结构 (src/)
+
+### 核心系统 (src/core/)
+
+- **Game.cpp/Game.hpp** - 游戏主循环和核心管理
+  - 功能：游戏主类，管理整个游戏循环、状态管理和系统初始化
+  - 主要类：Game
+
+- **State.hpp/State.cpp** - 游戏状态基类
+  - 功能：定义游戏状态的接口，如菜单、游戏、暂停等状态
+  - 主要类：State
+
+- **StateManager.hpp/StateManager.cpp** - 游戏状态管理器
+  - 功能：管理游戏状态的切换和堆栈
+  - 主要类：StateManager
+
+- **SharedContext.hpp** - 共享上下文
+  - 功能：提供系统间共享的数据和资源访问
+  - 主要类：SharedContext
+
+- **ItemFactory.hpp** - 物品工厂
+  - 功能：负责创建和初始化游戏中的物品
+  - 主要类：ItemFactory
+
+### 组件系统 (src/components/)
+
+- **EffectComponent.hpp** - 效果组件
+  - 功能：存储实体的效果相关数据，如增益、减益等
+  - 主要类：EffectComponent
+
+### 系统 (src/systems/)
+
+- **AISystem.cpp/AISystem.hpp** - AI 系统
+  - 功能：处理非玩家实体的智能行为和决策
+  - 主要类：AISystem
+
+- **AstrolabeSystem.cpp/AstrolabeSystem.hpp** - 星盘系统
+  - 功能：处理星盘相关的游戏机制和界面
+  - 主要类：AstrolabeSystem
+
+- **CombatSystem.cpp/CombatSystem.hpp** - 战斗系统
+  - 功能：处理游戏中的战斗逻辑，包括伤害计算、技能效果等
+  - 主要类：CombatSystem
+
+- **DropSystem.hpp** - 掉落系统
+  - 功能：处理敌人死亡后的物品掉落逻辑
+  - 主要类：DropSystem
+
+- **EffectSystem.hpp** - 效果系统
+  - 功能：处理各种效果的更新和应用
+  - 主要类：EffectSystem
+
+- **EnemyBehavior.cpp** - 敌人行为系统
+  - 功能：处理特定敌人行为模式
+  - 主要类：EnemyBehavior
+
+- **GPUFlowFieldSystem.hpp** - GPU 流场系统
+  - 功能：使用 GPU 计算流场，用于路径规划和移动
+  - 主要类：GPUFlowFieldSystem
+
+- **GPUParticleSystem.cpp/GPUParticleSystem.hpp** - GPU 粒子系统
+  - 功能：使用 GPU 计算粒子效果
+  - 主要类：GPUParticleSystem
+
+- **InputSystem.cpp/InputSystem.hpp** - 输入系统
+  - 功能：处理玩家输入事件
+  - 主要类：InputSystem
+
+- **InventorySystem.cpp/InventorySystem.hpp** - 背包系统
+  - 功能：管理玩家的物品背包和装备系统
+  - 主要类：InventorySystem
+
+- **MapSystem.cpp** - 地图系统
+  - 功能：处理游戏地图的生成、加载和管理
+  - 主要类：MapSystem
+
+- **PhysicsSystem.hpp** - 物理系统
+  - 功能：处理游戏中的物理模拟和碰撞检测
+  - 主要类：PhysicsSystem
+
+- **PlayerHUD.cpp/PlayerHUD.hpp** - 玩家 HUD 系统
+  - 功能：显示玩家界面信息，如生命值、魔法值等
+  - 主要类：PlayerHUD
+
+- **PortalSystem.cpp/PortalSystem.hpp** - 传送门系统
+  - 功能：处理传送门的创建、激活和传送逻辑
+  - 主要类：PortalSystem
+
+- **RenderSystem.cpp/RenderSystem.hpp** - 渲染系统
+  - 功能：处理游戏实体的渲染逻辑
+  - 主要类：RenderSystem
+
+- **SerializationSystem.hpp** - 序列化系统
+  - 功能：处理游戏数据的保存和加载
+  - 主要类：SerializationSystem
+
+- **SkillSystem.cpp/SkillSystem.hpp** - 技能系统
+  - 功能：处理技能的释放、冷却和效果
+  - 主要类：SkillSystem
+
+- **StatsSystem.cpp/StatsSystem.hpp** - 属性系统
+  - 功能：管理实体的属性和状态计算
+  - 主要类：StatsSystem
+
+- **UIMinimap.cpp** - 小地图 UI 系统
+  - 功能：显示游戏小地图界面
+  - 主要类：UIMinimap
+
+- **UICharacter.cpp** - 角色 UI 系统
+  - 功能：显示角色属性界面
+  - 主要类：UICharacter
+
+### 游戏状态 (src/states/)
+
+- **GameplayState.cpp** - 游戏状态
+  - 功能：处理游戏进行中的逻辑和渲染
+  - 主要类：GameplayState
+
+- **InventoryState.hpp** - 背包状态
+  - 功能：处理背包界面的显示和交互
+  - 主要类：InventoryState
+
+- **LoadingState.cpp/LoadingState.hpp** - 加载状态
+  - 功能：处理游戏资源加载过程
+  - 主要类：LoadingState
+
+- **MainMenuState.cpp/MainMenuState.hpp** - 主菜单状态
+  - 功能：处理主菜单界面和选项
+  - 主要类：MainMenuState
+
+- **PauseState.cpp/PauseState.hpp** - 暂停状态
+  - 功能：处理游戏暂停时的界面和逻辑
+  - 主要类：PauseState
+
+### 工具 (src/tools/)
+
+- **CrashHandler.cpp/CrashHandler.hpp** - 崩溃处理器
+  - 功能：处理程序崩溃并生成错误报告
+  - 主要类：CrashHandler
+
+- **Logger.cpp/Logger.hpp** - 日志系统
+  - 功能：提供日志记录功能
+  - 主要类：Logger
+
+### 工具函数 (src/utils/)
+
+- **GPUUtils.hpp** - GPU 工具函数
+  - 功能：提供 GPU 相关的辅助函数
+  - 主要函数：GPU 相关工具函数
+
+## 资源文件 (assets/)
+
+- **assets/data/** - 游戏数据文件
+  - `astrolabe.json` - 星盘系统配置数据
+  - `biomes.json` - 生物群系配置数据
+  - `tags.json` - 实体标签配置数据
+
+- **assets/shaders/** - 着色器文件
+  - `entity.frag/vert` - 实体渲染着色器
+  - `flow_integration.compute` - 流场积分计算着色器
+  - `flow_reset.compute` - 流场重置计算着色器
+  - `flow_vector.compute` - 流场向量计算着色器
+  - `grid_clear.compute` - 网格清理计算着色器
+  - `grid_count.compute` - 网格计数计算着色器
+  - `grid_sort.compute` - 网格排序计算着色器
+  - `particle.compute` - 粒子计算着色器
+  - `particle.frag` - 粒子渲染片段着色器
+
+- **assets/textures/** - 纹理资源
+  - `equipment/` - 装备纹理
+  - `ui/` - UI 界面纹理
+  - `ui/icons/` - 技能图标纹理
+
+## 脚本文件 (scripts/)
+
+- **gen_affix_data.py** - 生成词缀数据
+- **gen_armor_jewelry_batch.py** - 批量生成护甲和珠宝数据
+- **gen_equipment_registry.py** - 生成装备注册表
+- **gen_pdb.bat** - 生成 PDB 文件的批处理脚本
+- **gen_tags.py** - 生成标签数据
+- **gen_weapons_misc_batch.py** - 批量生成武器和杂项数据
+- **generate_blade_icons.py** - 生成刀剑图标
+- **generate_icons.py** - 生成图标
+- **get_skill_hashes.py** - 获取技能哈希值
+- **resize_icons.py** - 调整图标大小
+- **save_load_memory.py** - 内存保存加载脚本
+- **spplit.py** - 分割脚本
+
+## 测试文件 (tests/)
+
+- 包含各种系统和功能的单元测试和集成测试
+- **CMakeLists.txt** - 测试项目的 CMake 配置
+- **main.cpp** - 测试主函数
+- 各种具体测试文件，如 `AffixSystemTest.hpp`, `CombatSystemTest.hpp` 等
+
+## 设计文档 (设计文档/)
+
+- **地图和敌人刷新机制.md** - 地图和敌人刷新机制设计
+- **怪物和AI设计.md** - 怪物和 AI 系统设计
+- **核心战斗与角色设计.md** - 核心战斗和角色设计
+- **技术架构与实现路线.md** - 技术架构和实现路线
+- **局外成长与终局玩法.md** - 局外成长和终局玩法设计
+- **开发计划与任务追踪.md** - 开发计划和任务追踪
+- **游戏流程与状态管理.md** - 游戏流程和状态管理
+- **战斗系统与属性设计.md** - 战斗系统和属性设计
+- **职业被动和技能设置.md** - 职业被动和技能设置
+- **职业设计草案_剑修.md** - 剑修职业设计草案
+- **装备和存储设计.md** - 装备和存储系统设计
+- **UI系统重构方案.md** - UI 系统重构方案
+
+## 配置文件
+
+- **CMakeLists.txt** - 项目构建配置
+- **.gitignore** - Git 忽略配置
+- **build.bat** - Windows 构建脚本
+- **AGENTS.md** - 代理开发指南
+- **GEMINI.md** - Gemini 模型相关说明
+- **LICENSE** - 项目许可证
+- **raylib使用opengl4.3.md** - Raylib OpenGL 4.3 使用说明
+- **README.md** - 项目说明文档
+
+## 项目特点
+
+1. **ECS 架构**：使用 EnTT 库实现实体-组件-系统架构，便于模块化开发和性能优化
+2. **GPU 加速**：大量使用 GPU 计算来处理流场、粒子等复杂效果
+3. **并行处理**：使用 Taskflow 库进行并行处理，提高性能
+4. **模块化设计**：系统之间通过共享上下文进行通信，降低耦合度
+5. **完整的测试覆盖**：包含大量单元测试和集成测试
+6. **丰富的游戏内容**：包含战斗、装备、技能、AI、地图等多种系统

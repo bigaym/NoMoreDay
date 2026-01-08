@@ -229,7 +229,7 @@ namespace NoMoreDay {
              // Only update if target moved significantly (e.g. 1 tile)
              if (Vector2Distance({playerPos.x, playerPos.y}, {lastFlowTarget.x, lastFlowTarget.y}) > 32.0f) {
                  NoMoreDay::systems::GPUFlowFieldSystem::Get().Update(
-                     map.getCostMap(), map.getWidth(), map.getHeight(), {playerPos.x, playerPos.y}
+                     map.getCostMap(), {playerPos.x, playerPos.y}, {0.0f, 0.0f}
                  );
                  lastFlowTarget = playerPos;
              }
@@ -386,7 +386,7 @@ namespace NoMoreDay {
                     vel.vx = 0; vel.vy = 0;
                 }
             } else {
-                float speed = 300.0f;
+                float speed = 150.0f;
                 if (registry.all_of<CombatStats>(entity)) {
                     speed = registry.get<CombatStats>(entity).move_speed;
                 }

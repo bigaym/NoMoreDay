@@ -165,12 +165,23 @@ void GPUEntitySystem::Update(entt::registry& registry, float dt) {
     rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridCols"), &gridCols, RL_SHADER_UNIFORM_INT, 1);
     rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridRows"), &gridRows, RL_SHADER_UNIFORM_INT, 1);
     
-    // Bind Flow Texture (Unit 0)
-    rlActiveTextureSlot(0);
-    rlEnableTexture(GPUFlowFieldSystem::Get().GetFlowTexture());
-    int locFlowField = rlGetLocationUniform(m_physicsShader.id, "flowField");
-    int texUnit = 0;
-    rlSetUniform(locFlowField, &texUnit, RL_SHADER_UNIFORM_INT, 1);
+    // Bind Flow Buffer (Binding 6 - assumes shader uses binding 6 for flow)
+    // Note: physics.compute needs to be updated to use SSBO instead of sampler2D
+    const auto& flowSystem = GPUFlowFieldSystem::Get();
+    flowSystem.GetFlowBuffer().BindBase(6);
+    
+    // Pass Flow Grid Params
+    int locFlowW = rlGetLocationUniform(m_physicsShader.id, "flowWidth");
+    int locFlowH = rlGetLocationUniform(m_physicsShader.id, "flowHeight");
+    int locFlowOrigin = rlGetLocationUniform(m_physicsShader.id, "flowOrigin");
+    
+    int fw = flowSystem.GetWidth();
+    int fh = flowSystem.GetHeight();
+    Vector2 fo = flowSystem.GetGridOrigin();
+    
+    if (locFlowW >= 0) rlSetUniform(locFlowW, &fw, RL_SHADER_UNIFORM_INT, 1);
+    if (locFlowH >= 0) rlSetUniform(locFlowH, &fh, RL_SHADER_UNIFORM_INT, 1);
+    if (locFlowOrigin >= 0) rlSetUniform(locFlowOrigin, &fo, RL_SHADER_UNIFORM_VEC2, 1);
 
     rlBindShaderBuffer(m_entityBuffer.GetId(), 1);
     rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);

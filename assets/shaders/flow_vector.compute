@@ -1,42 +1,56 @@
 #version 430
 layout(local_size_x = 16, local_size_y = 16) in;
-layout(r32ui, binding = 0) uniform uimage2D integrationImg;
-layout(rg16f, binding = 2) uniform image2D flowImg; // Vector output
+
+layout(std430, binding = 1) readonly buffer IntegrationBuffer {
+    uint integration[];
+};
+
+layout(std430, binding = 2) writeonly buffer FlowBuffer {
+    vec2 flow[];
+};
+
+uniform int width;
+uniform int height;
 
 void main() {
-    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 size = imageSize(integrationImg);
-    if (coord.x >= size.x || coord.y >= size.y) return;
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+    
+    if (x >= width || y >= height) return;
+    uint index = y * width + x;
 
-    uint currentDist = imageLoad(integrationImg, coord).r;
-    if (currentDist == 65535) {
-        imageStore(flowImg, coord, vec4(0.0, 0.0, 0.0, 0.0));
+    uint currentDist = integration[index];
+    if (currentDist == 0xFFFFFFFF) {
+        flow[index] = vec2(0.0);
         return;
     }
 
-    vec2 flow = vec2(0.0);
+    vec2 dir = vec2(0.0);
     uint minDist = currentDist;
 
-    // Check 8 neighbors to find gradient descent
-    for (int y = -1; y <= 1; y++) {
-        for (int x = -1; x <= 1; x++) {
-            if (x == 0 && y == 0) continue;
+    // Check 8 neighbors
+    for (int dy = -1; dy <= 1; dy++) {
+        for (int dx = -1; dx <= 1; dx++) {
+            if (dx == 0 && dy == 0) continue;
             
-            ivec2 nCoord = coord + ivec2(x, y);
-            if (nCoord.x >= 0 && nCoord.y >= 0 && nCoord.x < size.x && nCoord.y < size.y) {
-                uint nDist = imageLoad(integrationImg, nCoord).r;
-                // If neighbor is closer to target
+            int nx = int(x) + dx;
+            int ny = int(y) + dy;
+            
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                uint nIndex = ny * width + nx;
+                uint nDist = integration[nIndex];
+                
                 if (nDist < minDist) {
                     minDist = nDist;
-                    flow = vec2(x, y);
+                    dir = vec2(float(dx), float(dy));
                 }
             }
         }
     }
 
-    if (length(flow) > 0.0) {
-        flow = normalize(flow);
+    if (length(dir) > 0.0) {
+        dir = normalize(dir);
     }
     
-    imageStore(flowImg, coord, vec4(flow, 0.0, 0.0));
+    flow[index] = dir;
 }

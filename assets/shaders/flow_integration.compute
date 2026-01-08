@@ -1,34 +1,51 @@
 #version 430
 layout(local_size_x = 16, local_size_y = 16) in;
-layout(r32ui, binding = 0) uniform uimage2D integrationImg;
-layout(r8ui, binding = 1) uniform uimage2D costImg;
+
+layout(std430, binding = 0) readonly buffer CostBuffer {
+    uint cost[];
+};
+
+layout(std430, binding = 1) buffer IntegrationBuffer {
+    uint integration[];
+};
+
+uniform int width;
+uniform int height;
 
 void main() {
-    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 size = imageSize(integrationImg);
-    if (coord.x >= size.x || coord.y >= size.y) return;
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+    
+    if (x >= width || y >= height) return;
+    uint index = y * width + x;
 
-    uint cost = imageLoad(costImg, coord).r;
-    if (cost == 255) return; // Wall
+    uint myCost = cost[index];
+    if (myCost == 255) return; // Wall
 
-    uint currentDist = imageLoad(integrationImg, coord).r;
+    uint currentDist = integration[index];
     uint minDist = currentDist;
 
     // Check 4 neighbors
-    const ivec2 offsets[4] = {ivec2(1,0), ivec2(-1,0), ivec2(0,1), ivec2(0,-1)};
+    const int offsets[4][2] = { {1,0}, {-1,0}, {0,1}, {0,-1} };
     
     for(int i=0; i<4; i++) {
-        ivec2 nCoord = coord + offsets[i];
-        if (nCoord.x >= 0 && nCoord.y >= 0 && nCoord.x < size.x && nCoord.y < size.y) {
-            uint nDist = imageLoad(integrationImg, nCoord).r;
-            // Cost accumulation
-            if (nDist != 65535 && nDist + cost < minDist) {
-                minDist = nDist + cost;
+        int nx = int(x) + offsets[i][0];
+        int ny = int(y) + offsets[i][1];
+        
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+            uint nIndex = ny * width + nx;
+            uint nDist = integration[nIndex];
+            
+            if (nDist != 0xFFFFFFFF) {
+                uint newDist = nDist + myCost;
+                if (newDist < minDist) {
+                    minDist = newDist;
+                }
             }
         }
     }
 
     if (minDist < currentDist) {
-        imageStore(integrationImg, coord, uvec4(minDist));
+        integration[index] = minDist;
     }
 }

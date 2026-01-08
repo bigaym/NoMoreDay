@@ -5,38 +5,114 @@
 
 namespace NoMoreDay::systems {
 
-void GPUFlowFieldSystem::Init(ResourceManager& resources) {
-    LOG_INFO("Initializing GPUFlowFieldSystem...");
+void GPUFlowFieldSystem::Init(ResourceManager& resources, int width, int height) {
+    LOG_INFO("Initializing GPUFlowFieldSystem ({}x{})...", width, height);
     
+    m_width = width;
+    m_height = height;
+
     m_resetShader = resources.loadComputeShader(entt::hashed_string{"flow_reset"}, "assets/shaders/flow_reset.compute");
     m_flowShader = resources.loadComputeShader(entt::hashed_string{"flow_vector"}, "assets/shaders/flow_vector.compute");
     m_integrationShader = resources.loadComputeShader(entt::hashed_string{"flow_integration"}, "assets/shaders/flow_integration.compute");
 
-    // In Raylib, to get a float texture, we might need a different approach or raw gl
-    // For now, let's use a standard RGBA texture and encode vectors
-    Image img = GenImageColor(m_width > 0 ? m_width : 128, m_height > 0 ? m_height : 128, BLANK);
-    m_flowTexture = LoadTextureFromImage(img).id;
-    UnloadImage(img);
+    size_t cellCount = (size_t)width * height;
+
+    // 1. Cost Buffer (uint32_t for alignment)
+    // Initialize with 255 (Wall)
+    std::vector<uint32_t> initialCost(cellCount, 255);
+    m_costBuffer.Create(cellCount * sizeof(uint32_t), initialCost.data(), RL_DYNAMIC_DRAW);
+
+    // 2. Integration Buffer (uint32_t)
+    // Initialize with max int
+    std::vector<uint32_t> initialInt(cellCount, 0xFFFFFFFF);
+    m_integrationBuffer.Create(cellCount * sizeof(uint32_t), initialInt.data(), RL_DYNAMIC_DRAW);
+
+    // 3. Flow Buffer (Vector2)
+    // Initialize with zero
+    std::vector<Vector2> initialFlow(cellCount, {0.0f, 0.0f});
+    m_flowBuffer.Create(cellCount * sizeof(Vector2), initialFlow.data(), RL_DYNAMIC_DRAW);
     
-    LOG_INFO("GPUFlowFieldSystem initialized.");
+    LOG_INFO("GPUFlowFieldSystem buffers allocated.");
 }
 
-void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, int width, int height, Vector2 targetPos) {
-    // 1. Reset
+void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, Vector2 targetPos, Vector2 gridOrigin) {
+    if (m_width == 0 || m_height == 0) return;
+    
+    m_gridOrigin = gridOrigin;
+
+    // 0. Upload Cost Map
+    // Convert 8-bit cost to 32-bit buffer
+    if (costMap.size() == (size_t)m_width * m_height) {
+        std::vector<uint32_t> costInt(costMap.size());
+        for (size_t i = 0; i < costMap.size(); ++i) {
+            costInt[i] = (uint32_t)costMap[i];
+        }
+        m_costBuffer.Update(costInt.data(), costInt.size() * sizeof(uint32_t));
+    } else {
+        LOG_WARN("GPUFlowFieldSystem: Cost map size mismatch! Expected {}, Got {}", m_width * m_height, costMap.size());
+    }
+
+    // Bind Buffers to Bindings (Must match shader layout binding = X)
+    // Binding 0: Cost (readonly)
+    // Binding 1: Integration (readwrite)
+    // Binding 2: Flow (writeonly)
+    m_costBuffer.BindBase(0);
+    m_integrationBuffer.BindBase(1);
+    m_flowBuffer.BindBase(2);
+
+    // 1. Reset Integration Field
     rlEnableShader(m_resetShader.id);
-    rlComputeShaderDispatch((width + 15)/16, (height + 15)/16, 1);
+    
+    // Set Target Uniform (Grid Space)
+    // Target is in World Space, Grid is World aligned but offset by gridOrigin
+    Vector2 targetGrid = { targetPos.x - gridOrigin.x, targetPos.y - gridOrigin.y };
+    // Assuming 1 unit = 1 cell for now? Or pass Grid Scale?
+    // Let's assume 1-to-1 mapping for simplicity if "Rolling Grid" aligns with tiles.
+    // If TileSize > 1, we need to divide.
+    // For now, assume costMap is already downsampled/mapped to grid.
+    
+    // Pass Width/Height uniforms
+    int locW = rlGetLocationUniform(m_resetShader.id, "width");
+    int locH = rlGetLocationUniform(m_resetShader.id, "height");
+    int locTarget = rlGetLocationUniform(m_resetShader.id, "targetPos"); // ivec2 in shader
+    
+    int targetX = (int)targetGrid.x;
+    int targetY = (int)targetGrid.y;
+    int targetIVec[2] = { targetX, targetY };
+
+    rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(locTarget, targetIVec, RL_SHADER_UNIFORM_IVEC2, 1);
+
+    rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
     utils::GPUUtils::MemoryBarrier();
 
-    // 2. Vector Field (e.g. towards player)
-    rlEnableShader(m_flowShader.id);
-    int locTarget = rlGetLocationUniform(m_flowShader.id, "targetPos");
-    rlSetUniform(locTarget, &targetPos, RL_SHADER_UNIFORM_VEC2, 1);
-    rlComputeShaderDispatch((width + 15)/16, (height + 15)/16, 1);
-    utils::GPUUtils::MemoryBarrier();
-
-    // 3. Integration/Smoothing
+    // 2. Integration (Iterative)
+    // Needs multiple passes? Or Dijkstra wave?
+    // Simple iterative relaxation needs many passes.
+    // Jump Flood is faster but complex.
+    // Let's do 20 passes of simple relaxation for now (good enough for local 50x50).
     rlEnableShader(m_integrationShader.id);
-    rlComputeShaderDispatch((width + 15)/16, (height + 15)/16, 1);
+    locW = rlGetLocationUniform(m_integrationShader.id, "width");
+    locH = rlGetLocationUniform(m_integrationShader.id, "height");
+    rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
+
+    int passes = std::max(m_width, m_height); // Worst case manhattan
+    // Optimization: Dispatch passes?
+    for (int i = 0; i < passes; ++i) {
+        rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
+        utils::GPUUtils::MemoryBarrier();
+    }
+
+    // 3. Vector Field Generation
+    rlEnableShader(m_flowShader.id);
+    locW = rlGetLocationUniform(m_flowShader.id, "width");
+    locH = rlGetLocationUniform(m_flowShader.id, "height");
+    rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
+    
+    rlComputeShaderDispatch((m_width + 15)/16, (m_height + 15)/16, 1);
     utils::GPUUtils::MemoryBarrier();
     
     rlDisableShader();
@@ -44,9 +120,9 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& costMap, int w
 
 void GPUFlowFieldSystem::Shutdown() {
     LOG_INFO("Shutting down GPUFlowFieldSystem...");
-    if (m_flowTexture > 0) {
-        rlUnloadTexture(m_flowTexture);
-    }
+    m_costBuffer.Release();
+    m_integrationBuffer.Release();
+    m_flowBuffer.Release();
 }
 
 } // namespace NoMoreDay::systems
