@@ -15,7 +15,7 @@
       "talent_tree": [
           { 
               "id": 100, "name_key": "锋锐", "desc_key": "增加物理伤害 (10% Increased per point)", "max_points": 5, "x": 0.0, "y": 0.0, 
-              "stat_modifiers": [ { "type": 8, "mode": 1, "value": 10.0 } ]
+              "stat_modifiers": [ { "type": 8, "mode": 1, "value": 14.0 } ]
           },
           { 
               "id": 101, "name_key": "破风", "desc_key": "增加攻击范围 (15% Increased per point)", "max_points": 3, "x": -1.2, "y": 0.0, "prerequisites": [100],
@@ -48,7 +48,7 @@
           {"id": 140, "name_key": "寒霜刺", "desc_key": "100% 物理伤害转为冰霜伤害。命中冻结。", "max_points": 1, "x": 2.5, "y": 1.5, "prerequisites": [102]},
           {"id": 141, "name_key": "雷霆闪", "desc_key": "100% 物理伤害转为闪电伤害。位移路径留下电网。", "max_points": 1, "x": 4.0, "y": 1.5, "prerequisites": [102]},
           {"id": 142, "name_key": "灵动", "desc_key": "释放后增加10%闪避率，持续3s。", "max_points": 3, "x": 3.5, "y": 3.5, "prerequisites": [140, 141]},
-          {"id": 143, "name_key": "元素共鸣", "desc_key": "增加15%元素伤害。", "max_points": 5, "x": 5.0, "y": 4.5, "prerequisites": [142], "stat_modifiers": [ { "type": 10, "mode": 1, "value": 15.0 }, { "type": 11, "mode": 1, "value": 15.0 } ]},
+          {"id": 143, "name_key": "元素共鸣", "desc_key": "增加15%元素伤害。", "max_points": 5, "x": 5.0, "y": 4.5, "prerequisites": [142], "stat_modifiers": [ { "type": 10, "mode": 1, "value": 21.0 }, { "type": 11, "mode": 1, "value": 21.0 } ]},
           {"id": 144, "name_key": "气劲护体", "desc_key": "终极：位移期间处于无敌状态，但消耗翻倍。", "max_points": 1, "x": 6.5, "y": 6.0, "prerequisites": [143]}
       ]
     },
@@ -110,7 +110,7 @@
           {"id": 300, "name_key": "多重灵剑", "desc_key": "+1 最大灵剑数量", "max_points": 5, "x": 0.0, "y": 0.0, "stat_modifiers": [ { "type": 30, "mode": 0, "value": 1.0 } ]},
           {"id": 301, "name_key": "疾风剑意", "desc_key": "攻击频率增加10%", "max_points": 5, "x": 1.2, "y": 0.0, "prerequisites": [300], "stat_modifiers": [ { "type": 17, "mode": 1, "value": 10.0 } ]},
           {"id": 302, "name_key": "索敌范围", "desc_key": "追踪半径增加20%", "max_points": 3, "x": 2.4, "y": 0.0, "prerequisites": [301], "stat_modifiers": [ { "type": 31, "mode": 1, "value": 20.0 } ]},
-          {"id": 303, "name_key": "灵力灌注", "desc_key": "每柄灵剑增加10%物理伤害", "max_points": 5, "x": 0.0, "y": -1.2, "prerequisites": [300], "stat_modifiers": [ { "type": 8, "mode": 1, "value": 10.0 } ]},
+          {"id": 303, "name_key": "灵力灌注", "desc_key": "每柄灵剑增加10%物理伤害", "max_points": 5, "x": 0.0, "y": -1.2, "prerequisites": [300], "stat_modifiers": [ { "type": 8, "mode": 1, "value": 14.0 } ]},
           {"id": 310, "name_key": "归一", "desc_key": "汇聚成巨剑，伤害总增100%，频率减半。", "max_points": 1, "x": -1.5, "y": -1.5, "prerequisites": [303]},
           {"id": 311, "name_key": "天崩地裂", "desc_key": "终极：巨剑暴击产生冲击波。", "max_points": 1, "x": -3.0, "y": -2.5, "prerequisites": [310]},
           {"id": 320, "name_key": "灵剑护体", "desc_key": "每柄灵剑使受到的伤害减少2%。", "max_points": 5, "x": 0.0, "y": 1.2, "prerequisites": [300]},
@@ -180,7 +180,7 @@
           {"id": 610, "name_key": "迟缓剑压", "desc_key": "阵内敌人减速10%", "max_points": 5, "x": 1.2, "y": 0.0, "prerequisites": [600]},
           {"id": 611, "name_key": "破甲剑意", "desc_key": "阵内敌人每秒降低5%护甲", "max_points": 5, "x": 2.5, "y": 0.0, "prerequisites": [610]},
           {"id": 612, "name_key": "绝命领域", "desc_key": "终极：斩杀低血量敌人。", "max_points": 1, "x": 3.8, "y": 0.0, "prerequisites": [611]},
-          {"id": 620, "name_key": "阵眼核心", "desc_key": "身处阵中心伤害增加20%", "max_points": 5, "x": -1.2, "y": 0.0, "prerequisites": [600], "stat_modifiers": [ { "type": 8, "mode": 1, "value": 20.0 } ]},
+          {"id": 620, "name_key": "阵眼核心", "desc_key": "身处阵中心伤害增加20%", "max_points": 5, "x": -1.2, "y": 0.0, "prerequisites": [600], "stat_modifiers": [ { "type": 8, "mode": 1, "value": 28.0 } ]},
           {"id": 621, "name_key": "剑神领域", "desc_key": "终极：身处阵内冷却缩减增加30%。", "max_points": 1, "x": -2.5, "y": 0.0, "prerequisites": [620], "stat_modifiers": [ { "type": 28, "mode": 1, "value": 30.0 } ]}
       ]
     },

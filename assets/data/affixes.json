@@ -876,44 +876,44 @@
             {
                 "tier": 1,
                 "minLevel": 1,
-                "minValue": 5.0,
-                "maxValue": 8.0
+                "minValue": 7.0,
+                "maxValue": 11.0
             },
             {
                 "tier": 2,
                 "minLevel": 11,
-                "minValue": 10.0,
-                "maxValue": 13.0
+                "minValue": 14.0,
+                "maxValue": 18.0
             },
             {
                 "tier": 3,
                 "minLevel": 21,
-                "minValue": 15.0,
-                "maxValue": 18.0
+                "minValue": 21.0,
+                "maxValue": 25.0
             },
             {
                 "tier": 4,
                 "minLevel": 31,
-                "minValue": 20.0,
-                "maxValue": 23.0
+                "minValue": 28.0,
+                "maxValue": 32.0
             },
             {
                 "tier": 5,
                 "minLevel": 41,
-                "minValue": 25.0,
-                "maxValue": 28.0
+                "minValue": 35.0,
+                "maxValue": 39.0
             },
             {
                 "tier": 6,
                 "minLevel": 51,
-                "minValue": 30.0,
-                "maxValue": 33.0
+                "minValue": 42.0,
+                "maxValue": 46.0
             },
             {
                 "tier": 7,
                 "minLevel": 61,
-                "minValue": 35.0,
-                "maxValue": 38.0
+                "minValue": 49.0,
+                "maxValue": 53.0
             }
         ],
         "allowedTags": [
@@ -929,44 +929,44 @@
             {
                 "tier": 1,
                 "minLevel": 1,
-                "minValue": 5.0,
-                "maxValue": 8.0
+                "minValue": 7.0,
+                "maxValue": 11.0
             },
             {
                 "tier": 2,
                 "minLevel": 11,
-                "minValue": 10.0,
-                "maxValue": 13.0
+                "minValue": 14.0,
+                "maxValue": 18.0
             },
             {
                 "tier": 3,
                 "minLevel": 21,
-                "minValue": 15.0,
-                "maxValue": 18.0
+                "minValue": 21.0,
+                "maxValue": 25.0
             },
             {
                 "tier": 4,
                 "minLevel": 31,
-                "minValue": 20.0,
-                "maxValue": 23.0
+                "minValue": 28.0,
+                "maxValue": 32.0
             },
             {
                 "tier": 5,
                 "minLevel": 41,
-                "minValue": 25.0,
-                "maxValue": 28.0
+                "minValue": 35.0,
+                "maxValue": 39.0
             },
             {
                 "tier": 6,
                 "minLevel": 51,
-                "minValue": 30.0,
-                "maxValue": 33.0
+                "minValue": 42.0,
+                "maxValue": 46.0
             },
             {
                 "tier": 7,
                 "minLevel": 61,
-                "minValue": 35.0,
-                "maxValue": 38.0
+                "minValue": 49.0,
+                "maxValue": 53.0
             }
         ],
         "allowedTags": [
@@ -982,44 +982,44 @@
             {
                 "tier": 1,
                 "minLevel": 1,
-                "minValue": 5.0,
-                "maxValue": 8.0
+                "minValue": 7.0,
+                "maxValue": 11.0
             },
             {
                 "tier": 2,
                 "minLevel": 11,
-                "minValue": 10.0,
-                "maxValue": 13.0
+                "minValue": 14.0,
+                "maxValue": 18.0
             },
             {
                 "tier": 3,
                 "minLevel": 21,
-                "minValue": 15.0,
-                "maxValue": 18.0
+                "minValue": 21.0,
+                "maxValue": 25.0
             },
             {
                 "tier": 4,
                 "minLevel": 31,
-                "minValue": 20.0,
-                "maxValue": 23.0
+                "minValue": 28.0,
+                "maxValue": 32.0
             },
             {
                 "tier": 5,
                 "minLevel": 41,
-                "minValue": 25.0,
-                "maxValue": 28.0
+                "minValue": 35.0,
+                "maxValue": 39.0
             },
             {
                 "tier": 6,
                 "minLevel": 51,
-                "minValue": 30.0,
-                "maxValue": 33.0
+                "minValue": 42.0,
+                "maxValue": 46.0
             },
             {
                 "tier": 7,
                 "minLevel": 61,
-                "minValue": 35.0,
-                "maxValue": 38.0
+                "minValue": 49.0,
+                "maxValue": 53.0
             }
         ],
         "allowedTags": [

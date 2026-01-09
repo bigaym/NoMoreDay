@@ -108,7 +108,7 @@
       "type": 0,
       "prerequisites": [10],
       "modifiers": [
-        { "type": 8, "mode": 1, "value": 5.0, "source": 2, "source_id": 11 }
+        { "type": 8, "mode": 1, "value": 7.0, "source": 2, "source_id": 11 }
       ],
       "effects": [],
       "x": 80.0,
@@ -136,9 +136,9 @@
       "type": 0,
       "prerequisites": [11],
       "modifiers": [
-        { "type": 9, "mode": 1, "value": 5.0, "source": 2, "source_id": 13 },
-        { "type": 10, "mode": 1, "value": 5.0, "source": 2, "source_id": 13 },
-        { "type": 11, "mode": 1, "value": 5.0, "source": 2, "source_id": 13 }
+        { "type": 9, "mode": 1, "value": 7.0, "source": 2, "source_id": 13 },
+        { "type": 10, "mode": 1, "value": 7.0, "source": 2, "source_id": 13 },
+        { "type": 11, "mode": 1, "value": 7.0, "source": 2, "source_id": 13 }
       ],
       "effects": [],
       "x": 120.0,
@@ -404,7 +404,7 @@
       "type": 1,
       "prerequisites": [50],
       "modifiers": [
-        { "type": 8, "mode": 1, "value": 15.0, "source": 2, "source_id": 51 }
+        { "type": 8, "mode": 1, "value": 21.0, "source": 2, "source_id": 51 }
       ],
       "effects": [
         { "type": 5, "value": "Knockback:10" }
@@ -532,9 +532,9 @@
       "type": 0,
       "prerequisites": [11],
       "modifiers": [
-        { "type": 9, "mode": 1, "value": 2.0, "source": 2, "source_id": 78 },
-        { "type": 10, "mode": 1, "value": 2.0, "source": 2, "source_id": 78 },
-        { "type": 11, "mode": 1, "value": 2.0, "source": 2, "source_id": 78 }
+        { "type": 9, "mode": 1, "value": 3.0, "source": 2, "source_id": 78 },
+        { "type": 10, "mode": 1, "value": 3.0, "source": 2, "source_id": 78 },
+        { "type": 11, "mode": 1, "value": 3.0, "source": 2, "source_id": 78 }
       ],
       "effects": [],
       "x": 100.0,
@@ -590,7 +590,7 @@
       "type": 0,
       "prerequisites": [10],
       "modifiers": [
-        { "type": 8, "mode": 1, "value": 2.0, "source": 2, "source_id": 82 }
+        { "type": 8, "mode": 1, "value": 3.0, "source": 2, "source_id": 82 }
       ],
       "effects": [],
       "x": 80.0,

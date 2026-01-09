@@ -15,9 +15,10 @@
 
 ## Phase 3: Data Re-tuning & Test Updates
 
-- [ ] Task: Audit `assets/data/affixes.json`, `assets/data/skills.json`, and `assets/data/astrolabe.json` for significant "Increased Damage" values.
-- [ ] Task: Apply a compensatory buff (approx. 20-40%) to these values in the JSON files to mitigate the power loss.
-- [ ] Task: Update expected values in `tests/CombatSystemTest.hpp`, `tests/DamagePipelineTest.hpp`, and any other failing tests to match the new formula and tuned data.
+- [x] Task: Audit `assets/data/affixes.json`, `assets/data/skills.json`, and `assets/data/astrolabe.json` for significant "Increased Damage" values.
+- [x] Task: Apply a compensatory buff (approx. 20-40%) to these values in the JSON files to mitigate the power loss.
+- [x] Task: Update expected values in `tests/CombatSystemTest.hpp`, `tests/DamagePipelineTest.hpp`, and any other failing tests to match the new formula and tuned data.
+- [~] Task: Conductor - User Manual Verification 'Phase 3: Data Re-tuning & Test Updates' (Protocol in workflow.md)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Data Re-tuning & Test Updates' (Protocol in workflow.md)
 
 ## Phase 4: Final Integration & Verification
