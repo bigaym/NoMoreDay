@@ -8,10 +8,10 @@
 
 ## Phase 2: Core Logic Fix
 
-- [ ] Task: Modify `src/systems/StatsSystem.cpp` to use additive aggregation for all `DamageIncreased` stat types.
-- [ ] Task: Verify the fix using the `IncreasedDamageBugTest.hpp` created in Phase 1 (it should now expect 2.0x).
-- [ ] Task: Run all existing tests in `tests/` and identify which ones fail due to the changed damage numbers.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic Fix' (Protocol in workflow.md)
+- [x] Task: Modify `src/systems/StatsSystem.cpp` to use additive aggregation for all `DamageIncreased` stat types.
+- [x] Task: Verify the fix using the `IncreasedDamageBugTest.hpp` created in Phase 1 (it should now expect 2.0x).
+- [x] Task: Run all existing tests in `tests/` and identify which ones fail due to the changed damage numbers.
+- [~] Task: Conductor - User Manual Verification 'Phase 2: Core Logic Fix' (Protocol in workflow.md)
 
 ## Phase 3: Data Re-tuning & Test Updates
 

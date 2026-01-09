@@ -119,6 +119,12 @@ namespace NoMoreDay
         // 基准值为 1.0 (100%)
         std::array<float, 6> damage_multipliers = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
 
+        // Added for proper conditional stacking (Fix 2026-01-09)
+        // Stores the sum of all "Increased" modifiers (e.g. 0.5 for +50%)
+        std::array<float, 6> damage_percent_add = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+        // Stores the product of all "More" modifiers (e.g. 1.5 for x1.5)
+        std::array<float, 6> damage_percent_mult_component = {1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+
         // D. 暴击体系 (Crit)
         float crit_chance = GameConstants::DEFAULT_CRIT_CHANCE;
         float crit_damage = GameConstants::DEFAULT_CRIT_DAMAGE;
@@ -180,7 +186,7 @@ namespace NoMoreDay
                                        health, max_health, mana, max_mana,
                                        effective_strength, effective_dexterity, effective_intelligence, effective_vitality,
                                        min_weapon_damage, max_weapon_damage,
-                                       flat_damage, damage_multipliers,
+                                       flat_damage, damage_multipliers, damage_percent_add, damage_percent_mult_component,
                                        crit_chance, crit_damage,
                                        attack_speed, cast_speed, accuracy, armor_pen, knockback,
                                        armor, dodge_chance,

@@ -44,6 +44,8 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.resistances.fill(0.0f);
     combat.flat_damage.fill(0.0f);
     combat.damage_multipliers.fill(1.0f);
+    combat.damage_percent_add.fill(0.0f);
+    combat.damage_percent_mult_component.fill(1.0f);
     
     // Reset other stats to ensure no "sticky" values
     combat.damage_reduction = 0.0f;
@@ -621,7 +623,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
     // 伤害乘数
     for (int i = 0; i < 6; ++i) {
-        combat.damage_multipliers[i] = calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].Result() / 100.0f;
+        auto& calc = calcs[static_cast<size_t>(StatType::PhysicalDamage) + i];
+        combat.damage_multipliers[i] = calc.Result() / 100.0f;
+        combat.damage_percent_add[i] = calc.percent_add;
+        combat.damage_percent_mult_component[i] = calc.percent_mult;
     }
 
     // 抗性
@@ -656,12 +661,36 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
 
     // 1. 获取 CombatStats 中已烘焙的基础值或百分比值
     switch (type) {
-        case StatType::PhysicalDamage: dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[0]; break;
-        case StatType::FireDamage:     dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[1]; break;
-        case StatType::ColdDamage:     dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[2]; break;
-        case StatType::LightningDamage: dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[3]; break;
-        case StatType::PoisonDamage:    dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[4]; break;
-        case StatType::ShadowDamage:    dynamic_calc.base = 100.0f; dynamic_calc.percent_mult = combat->damage_multipliers[5]; break;
+        case StatType::PhysicalDamage: 
+            dynamic_calc.base = 100.0f; 
+            dynamic_calc.percent_add = combat->damage_percent_add[0];
+            dynamic_calc.percent_mult = combat->damage_percent_mult_component[0];
+            break;
+        case StatType::FireDamage:     
+            dynamic_calc.base = 100.0f; 
+            dynamic_calc.percent_add = combat->damage_percent_add[1];
+            dynamic_calc.percent_mult = combat->damage_percent_mult_component[1];
+            break;
+        case StatType::ColdDamage:     
+            dynamic_calc.base = 100.0f; 
+            dynamic_calc.percent_add = combat->damage_percent_add[2];
+            dynamic_calc.percent_mult = combat->damage_percent_mult_component[2];
+            break;
+        case StatType::LightningDamage: 
+            dynamic_calc.base = 100.0f; 
+            dynamic_calc.percent_add = combat->damage_percent_add[3];
+            dynamic_calc.percent_mult = combat->damage_percent_mult_component[3];
+            break;
+        case StatType::PoisonDamage:    
+            dynamic_calc.base = 100.0f; 
+            dynamic_calc.percent_add = combat->damage_percent_add[4];
+            dynamic_calc.percent_mult = combat->damage_percent_mult_component[4];
+            break;
+        case StatType::ShadowDamage:    
+            dynamic_calc.base = 100.0f; 
+            dynamic_calc.percent_add = combat->damage_percent_add[5];
+            dynamic_calc.percent_mult = combat->damage_percent_mult_component[5];
+            break;
         
         case StatType::CritChance:    dynamic_calc.base = combat->crit_chance * 100.0f; break;
         case StatType::CritDamage:    dynamic_calc.base = combat->crit_damage * 100.0f; break;
