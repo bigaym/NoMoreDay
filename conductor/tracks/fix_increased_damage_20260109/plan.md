@@ -6,12 +6,12 @@
 - [x] Task: Create a reproduction test case in a new test file `tests/IncreasedDamageBugTest.hpp` that demonstrates the current exponential scaling (e.g., verifying that 50% + 50% equals 2.25x instead of 2.0x). [b467295]
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Research & Reproduction' (Protocol in workflow.md)
 
-## Phase 2: Core Logic Fix
+## Phase 2: Core Logic Fix [checkpoint: 8dc7c2c]
 
 - [x] Task: Modify `src/systems/StatsSystem.cpp` to use additive aggregation for all `DamageIncreased` stat types.
 - [x] Task: Verify the fix using the `IncreasedDamageBugTest.hpp` created in Phase 1 (it should now expect 2.0x).
 - [x] Task: Run all existing tests in `tests/` and identify which ones fail due to the changed damage numbers.
-- [~] Task: Conductor - User Manual Verification 'Phase 2: Core Logic Fix' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Core Logic Fix' (Protocol in workflow.md)
 
 ## Phase 3: Data Re-tuning & Test Updates
 
