@@ -97,8 +97,10 @@ void EffectSystem::update(entt::registry& registry, float dt) {
         
         effect.timer += dt;
         if (effect.timer >= effect.lifeTime) {
-             // 简单的淡出或结束逻辑，这里直接销毁
-             registry.destroy(entity);
+             // AoeArray is managed by SkillSystem
+             if (effect.type != VisualEffectType::AoeArray) {
+                registry.destroy(entity);
+             }
         }
     }
 }

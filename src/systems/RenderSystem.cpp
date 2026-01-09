@@ -129,7 +129,10 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
 
     // 3.5. 绘制通用视觉特效 (Visual Effects)
     auto visualEffectView = registry.view<const Position, const VisualEffect>();
-    visualEffectView.each([](const auto& pos, const auto& effect) {
+    for (auto entity : visualEffectView) {
+        const auto& pos = visualEffectView.get<Position>(entity);
+        const auto& effect = visualEffectView.get<VisualEffect>(entity);
+        
         float lifeRatio = effect.timer / effect.lifeTime;
         
         // 简单的线性插值
@@ -145,6 +148,43 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         color.a = (unsigned char)(255 * alpha);
 
         switch (effect.type) {
+            case VisualEffectType::AoeArray: {
+                if (auto* array = registry.try_get<ArrayEffect>(entity)) {
+                    static Shader arrayShader = { 0 };
+                    if (arrayShader.id == 0 && context.resources) {
+                        arrayShader = context.resources->getShader(entt::hashed_string("sh_aoe_array"));
+                    }
+
+                    if (arrayShader.id != 0) {
+                        float radius = array->radius;
+                        float thickness = array->thickness;
+                        float shaderTime = effect.timer; // Use effect local timer
+                        
+                        // Set uniforms
+                        int timeLoc = GetShaderLocation(arrayShader, "time");
+                        int radiusLoc = GetShaderLocation(arrayShader, "radius");
+                        int thickLoc = GetShaderLocation(arrayShader, "thickness");
+                        int colorLoc = GetShaderLocation(arrayShader, "baseColor");
+
+                        Vector4 colVec = ColorNormalize(color);
+
+                        SetShaderValue(arrayShader, timeLoc, &shaderTime, SHADER_UNIFORM_FLOAT);
+                        SetShaderValue(arrayShader, radiusLoc, &radius, SHADER_UNIFORM_FLOAT);
+                        SetShaderValue(arrayShader, thickLoc, &thickness, SHADER_UNIFORM_FLOAT);
+                        SetShaderValue(arrayShader, colorLoc, &colVec, SHADER_UNIFORM_VEC4);
+
+                        BeginShaderMode(arrayShader);
+                        // Using DrawTexturePro with a white texture to ensure UVs are passed correctly
+                        Texture2D whiteTex = { rlGetTextureIdDefault(), 1, 1, 1, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8 };
+                        Rectangle src = { 0, 0, 1, 1 };
+                        Rectangle dest = { pos.x, pos.y, radius * 2.0f, radius * 2.0f };
+                        Vector2 origin = { radius, radius }; // Center the quad
+                        DrawTexturePro(whiteTex, src, dest, origin, 0.0f, WHITE);
+                        EndShaderMode();
+                    }
+                }
+                break;
+            }
             case VisualEffectType::Pickup: {
                 // 扩散的圆环 (Expanding Ring)
                 // DrawRing(center, innerRadius, outerRadius, startAngle, endAngle, segments, color)
@@ -181,7 +221,7 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
             default:
                 break;
         }
-    });
+    }
 
     // 4. 绘制伤害飘字
     Font font = UISystem::GetFont(); // Move font retrieval up

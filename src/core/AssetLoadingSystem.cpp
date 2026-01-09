@@ -11,7 +11,16 @@ std::vector<Font> AssetLoadingSystem::m_loadedFonts;
 void AssetLoadingSystem::Initialize(ResourceManager& resourceManager) {
     m_resourceManager = &resourceManager;
     RegisterUITextures(); // Automatically register UI base assets
+    RegisterShaders();    // Load shaders
     LOG_INFO("AssetLoadingSystem 已初始化。");
+}
+
+void AssetLoadingSystem::RegisterShaders() {
+    if (!m_resourceManager) return;
+
+    // Load AOE Array Shader
+    m_resourceManager->loadShader(entt::hashed_string("sh_aoe_array"), "", "assets/shaders/aoe_array.frag");
+    LOG_INFO("AssetLoadingSystem: Registered core shaders.");
 }
 
 void AssetLoadingSystem::RegisterUITextures() {

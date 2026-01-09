@@ -25,9 +25,9 @@ namespace NoMoreDay
         static constexpr float ATTACK_SPEED_CAP = 10.0f; // 攻击速度上限 (每秒10次)
 
         // 默认值 (Defaults)
-        static constexpr float DEFAULT_MOVE_SPEED = 100.0; 
-        static constexpr float DEFAULT_MAX_HEALTH = 10000000.0f;
-        static constexpr float DEFAULT_MAX_MANA = 100.0f;
+        static constexpr float DEFAULT_MOVE_SPEED = 100.0;
+        static constexpr float DEFAULT_MAX_HEALTH = 10000000.0f; // 测试用数值
+        static constexpr float DEFAULT_MAX_MANA = 55555.0f;      // 测试用数值
         static constexpr float DEFAULT_CRIT_CHANCE = 0.05f;
         static constexpr float DEFAULT_CRIT_DAMAGE = 1.50f;
         static constexpr float DEFAULT_ATTACK_SPEED = 1.0f;
@@ -131,10 +131,10 @@ namespace NoMoreDay
 
         // E. 速度与穿透
         float attack_speed = GameConstants::DEFAULT_ATTACK_SPEED;
-        float cast_speed = 1.0f;   // 施法速度
+        float cast_speed = 1.0f; // 施法速度
         float accuracy = GameConstants::DEFAULT_ACCURACY;
-        float armor_pen = 0.0f;    // 护甲穿透 (固定值或百分比，视设计而定)
-        float knockback = 0.0f;    // 击退力度
+        float armor_pen = 0.0f; // 护甲穿透 (固定值或百分比，视设计而定)
+        float knockback = 0.0f; // 击退力度
 
         // --- 防御面板 ---
 
@@ -150,11 +150,11 @@ namespace NoMoreDay
 
         // --- 特殊机制 ---
         float move_speed = GameConstants::DEFAULT_MOVE_SPEED; // 移动速度 (pixels/sec)
-        float life_steal = 0.0f;   // 吸血 %
-        float life_on_hit = 0.0f;  // 击回
-        float mana_on_hit = 0.0f;  // 蓝回
-        float thorns = 0.0f;       // 荆棘伤害 (反伤)
-        float magic_find = 4.0f;   // 魔法寻宝率
+        float life_steal = 0.0f;                              // 吸血 %
+        float life_on_hit = 0.0f;                             // 击回
+        float mana_on_hit = 0.0f;                             // 蓝回
+        float thorns = 0.0f;                                  // 荆棘伤害 (反伤)
+        float magic_find = 4.0f;                              // 魔法寻宝率
 
         // --- 技能效率 (Skill Efficiency) ---
         // 最终冷却 = (基础冷却 / cooldown_recovery_speed) * (1.0 - cooldown_reduction)
@@ -189,7 +189,7 @@ namespace NoMoreDay
         float raw_block_chance = 0.0f;
 
         // --- Performance Optimization: Stat Cache ---
-        // Caches results of GetStatWithTags queries. 
+        // Caches results of GetStatWithTags queries.
         // Key: Hash of (StatType, Tag, SkillID, SourceEntity)
         // Value: Calculated result.
         // This cache is cleared when StatsDirty is processed.

@@ -25,6 +25,9 @@ public:
     // Register all standard UI textures (slots, icons, etc.)
     static void RegisterUITextures();
 
+    // Register and load core shaders
+    static void RegisterShaders();
+
     static void Shutdown();
 
 private:

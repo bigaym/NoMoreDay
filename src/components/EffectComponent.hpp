@@ -39,7 +39,15 @@ enum class VisualEffectType {
     Pickup,       // 拾取时的扩散圆圈
     DropPillar,   // 掉落时的光柱
     GoldSparkle,  // 金币拾取的闪光
-    LevelUp       // 升级时的特效
+    LevelUp,      // 升级时的特效
+    AoeArray      // 范围法阵 (Shader based)
+};
+
+struct ArrayEffect {
+    float radius;
+    float thickness = 0.15f;
+    Color color = PURPLE;
+    float time = 0.0f;
 };
 
 struct VisualEffect {

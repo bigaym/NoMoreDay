@@ -3,6 +3,7 @@
 #include "../components/Stats.hpp"
 #include "../components/Common.hpp" // For Position
 #include "../components/Projectile.hpp"
+#include "../components/EffectComponent.hpp"
 #include "../components/PlayerState.hpp" // For DashComponent
 #include "../components/Buff.hpp"
 #include "../components/AIComponent.hpp" // For EnemyTag
@@ -363,9 +364,20 @@ void SkillSystem::InitHooks() {
         array.radius = 75.0f; // Reduced from 150.0f
         array.is_empowered = exec.is_empowered;
 
+        // --- VFX: Ground Array (Shader) ---
+        auto& ve = registry.emplace<VisualEffect>(array_ent);
+        ve.type = VisualEffectType::AoeArray;
+        ve.lifeTime = array.duration;
+        ve.color = exec.is_empowered ? GOLD : PURPLE;
+        
+        auto& ae = registry.emplace<ArrayEffect>(array_ent);
+        ae.radius = array.radius;
+        ae.thickness = 0.1f;
+        ae.color = ve.color;
+
         // --- VFX: Boundary Ring (Smoke) ---
         auto& particleSys = systems::GPUParticleSystem::Get();
-        int smokeCount = 30;
+        int smokeCount = 40;
         for(int i=0; i<smokeCount; ++i) {
             float angle = (float)i / smokeCount * 2.0f * PI;
             Vector2 pPos = { exec.target_pos.x + cosf(angle) * array.radius, exec.target_pos.y + sinf(angle) * array.radius };
@@ -739,6 +751,33 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         if (array.duration <= 0.0f) {
             expired_arrays.push_back(entity);
             continue;
+        }
+
+        // --- Continuous VFX: Sword Rain ---
+        auto& particleSys = systems::GPUParticleSystem::Get();
+        if (GetRandomValue(0, 100) < 15) { // Chance per frame to drop a sword
+            float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+            float dist = sqrtf((float)GetRandomValue(0, 1000) / 1000.0f) * array.radius;
+            Vector2 dropPos = { pos.x + cosf(angle) * dist, pos.y + sinf(angle) * dist };
+            
+            // Falling Sword Visual
+            components::GPUParticle p;
+            p.position = { dropPos.x, dropPos.y - 100.0f }; // Start from above
+            p.velocity = { 0, 800.0f }; // Fast fall
+            p.acceleration = { 0, 0 };
+            p.color = array.is_empowered ? GOLD : ColorAlpha(SKYBLUE, 0.7f);
+            p.lifetime = 0.125f; // Hits ground fast
+            p.maxLifetime = 0.125f;
+            p.scale = 2.0f;
+            p.flags = 2; // Spark/Glow
+            particleSys.Emit(p);
+
+            // Ground Impact Splash
+            auto splash = systems::InkEffectHelper::CreateInkSplash(dropPos, 4, 5.0f, 40.0f);
+            for(auto& sp : splash) {
+                sp.color = p.color;
+                particleSys.Emit(sp);
+            }
         }
 
         array.damage_timer -= dt;
