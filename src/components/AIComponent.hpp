@@ -36,7 +36,7 @@ struct AIComponent {
     AIComponent(AIType type = AIType::IDLE,
                 float detRange = 100.0f,
                 float attRange = 50.0f,
-                float spd = 100.0f,
+                float spd = 80.0f,
                 float decisionInt = 0.5f)
         : aiType(type), detectionRange(detRange), attackRange(attRange),
           speed(spd), lastDecisionTime(0.0f), decisionInterval(decisionInt),

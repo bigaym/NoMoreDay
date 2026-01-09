@@ -30,7 +30,10 @@
       "tags": [
         "Hit",
         "Critical",
-        "DamageOverTime"
+        "DamageOverTime",
+        "Buff",
+        "Aura",
+        "Channeled"
       ]
     },
     {

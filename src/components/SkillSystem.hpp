@@ -245,6 +245,16 @@ struct SkillComponent {
 struct ShadowCastTag {};
 
 /**
+ * @brief Marker for the Shadow Kill Array (ID 124) clone.
+ */
+struct ShadowCloneComponent {};
+
+/**
+ * @brief Marker indicating the next valid skill should be duplicated by Shadow Kill Array.
+ */
+struct ShadowKillArrayReady {};
+
+/**
  * @brief Snapshot of skill data for delayed or repeated execution.
  */
 struct SkillSnapshot {

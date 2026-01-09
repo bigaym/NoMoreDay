@@ -182,9 +182,16 @@ DamageResult DamagePipeline::Calculate(
     DamageResult result;
     float total_final_damage = 0.0f;
 
+    float shadow_multiplier = 1.0f;
+    if (registry.all_of<ShadowCloneComponent>(attacker)) {
+        shadow_multiplier = 0.5f;
+    }
+
     for (size_t i = 0; i < instances.size; ++i) {
         auto& inst = instances[i];
         if (inst.amount <= 0.0f) continue;
+
+        inst.amount *= shadow_multiplier;
 
         StatType dmg_stat = StatType::PhysicalDamage;
         switch (inst.final_type) {

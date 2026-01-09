@@ -28,7 +28,7 @@ To create an immersive, performance-driven ARPG experience where players face ov
 
     - **Sword Intent:** A stackable buff system that rewards continuous melee aggression.
 
-    - **Shadow Echo System:** A lightweight "Ghost" mechanism that creates ephemeral shadows to echo skill executions with snapshot-based attributes and independent timers.
+    - **Shadow Echo System:** A lightweight "Ghost" mechanism that creates ephemeral shadows to echo skill executions with snapshot-based attributes and independent timers. Includes mechanical safeguards such as tag-based exclusions (Movement, Buff, Channeled), resource costs (50% Mana), damage penalties (50% reduction), and internal cooldowns (3s) to ensure mechanical balance.
 
     - **Empowered Skill Hooks:** A robust pre/post-cast hook system that enables dynamic skill behavior, such as consuming 10 stacks of Sword Intent to trigger "Empowered" versions of skills with increased damage or modified properties.
 

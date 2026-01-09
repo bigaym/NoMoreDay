@@ -111,4 +111,3 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - **Folder:** conductor/archive/fix_increased_damage_20260109/
 - **Description:** Fix the exponential damage scaling bug by making 'Increased' modifiers additive, and re-tune data values. (Completed on 2026-01-09)
-`r`n---`r`n`r`n## [ ] Track: ”∞…±’Û (Shadow Kill Array) Safeguards & Refinement`r`n*Link: [./conductor/tracks/shadow_kill_array_20260109/](./conductor/tracks/shadow_kill_array_20260109/)*

@@ -55,6 +55,7 @@ using namespace NoMoreDay;
 #include "ParticlePerformanceTest.hpp"
 #include "GPUParticleShaderTest.hpp"
 #include "IncreasedDamageBugTest.hpp"
+#include "ShadowKillArrayTest.hpp"
 
 int main(int argc, char** argv) {
     // Some Raylib functions require a window context even if not drawing

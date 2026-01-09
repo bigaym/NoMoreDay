@@ -21,8 +21,11 @@ struct PlayerStats {
     int base_dexterity = 10;
     int base_intelligence = 10;
     int base_vitality = 10;
+
+    // Skill System State
+    float last_shadow_trigger_time = -10.0f; // Internal Cooldown (ICD) for Shadow Kill Array
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PlayerStats, killCount, deathCount, level, current_xp, required_xp, available_attribute_points, available_skill_points, base_strength, base_dexterity, base_intelligence, base_vitality)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PlayerStats, killCount, deathCount, level, current_xp, required_xp, available_attribute_points, available_skill_points, base_strength, base_dexterity, base_intelligence, base_vitality, last_shadow_trigger_time)
 
 // 冲刺技能组件
 struct DashComponent {

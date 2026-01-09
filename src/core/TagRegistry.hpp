@@ -29,6 +29,9 @@ enum class Tag : uint64_t {
     Hit = 1ULL << 32,
     Critical = 1ULL << 33,
     DamageOverTime = 1ULL << 34,
+    Buff = 1ULL << 35,
+    Aura = 1ULL << 36,
+    Channeled = 1ULL << 37,
 
     // --- State Tags (48-63) ---
     Bleeding = 1ULL << 48,
@@ -77,6 +80,9 @@ constexpr std::string_view GetTagName(Tag tag) {
         case Tag::Hit: return "Hit";
         case Tag::Critical: return "Critical";
         case Tag::DamageOverTime: return "DamageOverTime";
+        case Tag::Buff: return "Buff";
+        case Tag::Aura: return "Aura";
+        case Tag::Channeled: return "Channeled";
         case Tag::Bleeding: return "Bleeding";
         case Tag::Burning: return "Burning";
         case Tag::Frozen: return "Frozen";

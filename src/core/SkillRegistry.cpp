@@ -23,11 +23,15 @@ static Tag StringToTag(const std::string& str) {
     if (str == "Hit") return Tag::Hit;
     if (str == "Critical") return Tag::Critical;
     if (str == "DamageOverTime") return Tag::DamageOverTime;
+    if (str == "Buff") return Tag::Buff;
+    if (str == "Aura") return Tag::Aura;
+    if (str == "Channeled") return Tag::Channeled;
     if (str == "Bleeding") return Tag::Bleeding;
     if (str == "Burning") return Tag::Burning;
     if (str == "Frozen") return Tag::Frozen;
     if (str == "Shocked") return Tag::Shocked;
     if (str == "Stunned") return Tag::Stunned;
+    if (str == "SwordRiding") return Tag::SwordRiding;
     return Tag::None;
 }
 

@@ -210,8 +210,10 @@ void AISystem::updateAIEntity(entt::registry& registry,
                         }
                     });
 
-                    // 90% of Player Base Speed (150.0f) = 135.0f
-                    float chaseSpeed = 135.0f;
+                    float chaseSpeed = 50.0f; // Default speed (1/2 of Player Base Speed 100.0f)
+                    if (stateComp) {
+                        chaseSpeed = stateComp->speed;
+                    }
 
                     if (flow.x != 0 || flow.y != 0) {
                         // 融合流场与回避

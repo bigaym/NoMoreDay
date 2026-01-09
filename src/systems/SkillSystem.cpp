@@ -87,6 +87,17 @@ void SkillSystem::InitHooks() {
                 particleSys.Emit(p);
             }
             RenderSystem::AddScreenShake(0.15f);
+
+            // Talent: Shadow Kill Array (影杀阵) - ID 124
+            if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+                for (const auto& spec : active->specialized_slots) {
+                    if (spec.skill_id == 1 && spec.allocated_points.contains(124) && spec.allocated_points.at(124) > 0) {
+                        registry.emplace_or_replace<ShadowKillArrayReady>(owner);
+                        LOG_INFO("Shadow Kill Array (影杀阵) Ready for entity {}", (uint32_t)owner);
+                        break;
+                    }
+                }
+            }
         }
 
         // --- BRANCH LOGIC ---
@@ -639,9 +650,9 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
             }
         }
 
-        shadow.lifetime -= dt;
-        if (shadow.lifetime <= 0.0f) {
-            // Check if still casting
+        bool is_expired = false;
+        if (shadow.triggered) {
+            // If already triggered, disappear as soon as casting finishes
             bool still_casting = false;
             auto exec_view = registry.view<SkillExecution>();
             for(auto exec_ent : exec_view) {
@@ -650,7 +661,14 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                     break;
                 }
             }
-            if (!still_casting) expired_shadows.push_back(entity);
+            if (!still_casting) is_expired = true;
+        }
+
+        shadow.lifetime -= dt;
+        if (shadow.lifetime <= 0.0f) is_expired = true;
+
+        if (is_expired) {
+            expired_shadows.push_back(entity);
         }
     }
     for (auto e : expired_shadows) registry.destroy(e);
@@ -1192,11 +1210,63 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     if (slot.current_charges <= 0) return false;
 
     auto* stats = registry.try_get<CombatStats>(entity);
+    float rcr = stats ? StatsSystem::GetStatWithTags(registry, entity, StatType::ResourceCostReduction, data->tags, slot.id) / 100.0f : 0.0f;
+    float base_cost = data->mana_cost * (1.0f - std::min(0.9f, rcr));
+
+    // --- Shadow Kill Array (ID 124) Duplication Logic ---
+    bool shadow_duplicate = false;
+    if (registry.any_of<ShadowKillArrayReady>(entity)) {
+        bool excluded = HasTag(data->tags, Tag::Movement) || 
+                        HasTag(data->tags, Tag::Buff) || 
+                        HasTag(data->tags, Tag::Aura) || 
+                        HasTag(data->tags, Tag::Channeled);
+        
+        if (!excluded) {
+            auto* pStats = registry.try_get<PlayerStats>(entity);
+            float currentTime = (float)GetTime();
+            if (pStats && (currentTime - pStats->last_shadow_trigger_time >= 3.0f)) {
+                float extra_cost = base_cost * 0.5f;
+                if (stats && stats->mana >= (base_cost + extra_cost)) {
+                    shadow_duplicate = true;
+                }
+            }
+        }
+    }
+
     if (stats) {
-        float rcr = StatsSystem::GetStatWithTags(registry, entity, StatType::ResourceCostReduction, data->tags, slot.id) / 100.0f;
-        float cost = data->mana_cost * (1.0f - std::min(0.9f, rcr));
-        if (stats->mana < cost) return false;
-        stats->mana -= cost;
+        float total_cost = base_cost;
+        if (shadow_duplicate) total_cost += base_cost * 0.5f;
+
+        if (stats->mana < total_cost) return false;
+        stats->mana -= total_cost;
+    }
+
+    if (shadow_duplicate) {
+        auto* pStats = registry.try_get<PlayerStats>(entity);
+        if (pStats) pStats->last_shadow_trigger_time = (float)GetTime();
+        registry.remove<ShadowKillArrayReady>(entity);
+
+        auto* pos = registry.try_get<Position>(entity);
+        Vector2 spawnPos = pos ? Vector2{pos->x, pos->y} : Vector2{0,0};
+
+        auto shadow_ent = registry.create();
+        registry.emplace<LocalLevelTag>(shadow_ent);
+        registry.emplace<Position>(shadow_ent, spawnPos.x, spawnPos.y);
+        registry.emplace<AnimationStateComponent>(shadow_ent);
+        registry.emplace<ColorComponent>(shadow_ent, ColorAlpha(PURPLE, 0.4f));
+        registry.emplace<ShadowCloneComponent>(shadow_ent);
+        
+        auto& sc = registry.emplace<ShadowComponent>(shadow_ent);
+        sc.delay = 0.1f;
+        sc.lifetime = 1.0f;
+        sc.snapshot.skill_id = slot.id;
+        sc.snapshot.position = spawnPos;
+        sc.snapshot.target_pos = target_pos;
+        if (stats) {
+            sc.snapshot.stats = *stats;
+            // Reduction to 50% damage will be applied in DamagePipeline
+        }
+        LOG_INFO("Shadow Kill Array: Duplicating skill {} for entity {}", slot.id, (uint32_t)entity);
     }
 
     if (slot.current_charges == data->max_charges) {
