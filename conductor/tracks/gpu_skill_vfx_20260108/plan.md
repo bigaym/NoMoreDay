@@ -30,13 +30,13 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Tactical and Area' (Protocol in workflow.md)
 
 ## Phase 4: 引导与终极技能特效 (Channeling & Ultimates - IDs 5, 7)
-- [ ] **Task: 实现万剑归宗 (ID 5) 视觉效果**
+- [x] **Task: 实现万剑归宗 (ID 5) 视觉效果**
     - 设计全屏乱序的草书式墨痕特效。
-- [ ] **Task: 实现心剑·无影 (ID 7) 视觉效果**
+- [x] **Task: 实现心剑·无影 (ID 7) 视觉效果**
     - 实现近乎透明的墨丝线条特效。
-- [ ] **Task: 强化状态全局优化**
+- [x] **Task: 强化状态全局优化**
     - 统一校验所有技能在 `is_empowered` 状态下的“金韵墨痕”表现。
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Channeling and Ultimate' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Channeling and Ultimate' (Protocol in workflow.md)
 
 ## Phase 5: 性能优化与最终调优 (Performance & Polish)
 - [ ] **Task: 压力测试**
