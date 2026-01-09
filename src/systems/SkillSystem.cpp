@@ -249,7 +249,7 @@ void SkillSystem::InitHooks() {
             registry.emplace<LocalLevelTag>(proj_ent);
             registry.emplace<Position>(proj_ent, pos->x, pos->y);
             registry.emplace<Velocity>(proj_ent, dir.x * 300.0f, dir.y * 300.0f);
-            registry.emplace<ColorComponent>(proj_ent, GOLD); 
+            registry.emplace<ColorComponent>(proj_ent, exec.is_empowered ? GOLD : WHITE); 
             
             auto& proj = registry.emplace<Projectile>(proj_ent);
             proj.owner = owner;
@@ -314,6 +314,7 @@ void SkillSystem::InitHooks() {
         formation.current_swords = formation.max_swords; // For now, simple activation
         formation.attack_interval = 1.0f / (1.0f + freqInc);
         formation.search_radius = 100.0f * (1.0f + searchInc); // Reduced from 200.0f
+        formation.is_empowered = exec.is_empowered;
 
         // --- VFX: Activation ---
         auto* pos = registry.try_get<Position>(owner);
@@ -349,6 +350,7 @@ void SkillSystem::InitHooks() {
         array.owner = owner;
         array.duration = 5.0f;
         array.radius = 75.0f; // Reduced from 150.0f
+        array.is_empowered = exec.is_empowered;
 
         // --- VFX: Boundary Ring (Smoke) ---
         auto& particleSys = systems::GPUParticleSystem::Get();
@@ -404,6 +406,7 @@ void SkillSystem::InitHooks() {
         chan.channel_timer = 3.0f; // 3s channel
         chan.tick_interval = 0.1f; // 10 blades per second
         chan.target_pos = exec.target_pos;
+        chan.is_empowered = exec.is_empowered;
         LOG_INFO("Infinite Blades channeling started for entity {}", (uint32_t)owner);
     });
 
@@ -414,6 +417,7 @@ void SkillSystem::InitHooks() {
         chan.channel_timer = 2.0f; 
         chan.tick_interval = 0.05f; // Fast ticks
         chan.target_pos = exec.target_pos;
+        chan.is_empowered = exec.is_empowered;
         LOG_INFO("Mind Blade channeling started for entity {}", (uint32_t)owner);
     });
 
@@ -682,7 +686,23 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                 // Strike! (Shadow cast a simple thrust or custom ID)
                 // For now, let's cast skill 1 (Flowing Thrust) as the "spirit sword strike"
                 const auto& tPos = registry.get<Position>(target);
-                ShadowCast(registry, entity, 1, {pos.x, pos.y}, {tPos.x, tPos.y});
+                
+                auto exec_ent = registry.create();
+                registry.emplace<LocalLevelTag>(exec_ent);
+                registry.emplace<ShadowCastTag>(exec_ent);
+                auto& exec = registry.emplace<SkillExecution>(exec_ent);
+                exec.skill_id = 1; // Flowing Thrust
+                exec.owner = entity;
+                exec.state = SkillState::Casting;
+                exec.timer = 0.05f;
+                exec.target_pos = {tPos.x, tPos.y};
+                exec.is_empowered = formation.is_empowered;
+
+                if (auto* stats = registry.try_get<CombatStats>(entity)) {
+                    exec.has_snapshot = true;
+                    exec.snapshot.stats = *stats;
+                    exec.snapshot.skill_id = 1;
+                }
                 
                 formation.attack_timer = formation.attack_interval;
                 LOG_DEBUG("Blade Formation strike triggered for entity {}", (uint32_t)entity);
@@ -735,7 +755,14 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                     float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
                     float dist = (float)GetRandomValue(0, (int)array.radius);
                     Vector2 pPos = { pos.x + cosf(angle) * dist, pos.y + sinf(angle) * dist };
-                    particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(pPos, {0,0}, 0.8f, 0.5f));
+                    
+                    if (array.is_empowered) {
+                        auto p = systems::InkEffectHelper::CreateGoldParticle(pPos, {0,0}, 0.8f);
+                        p.lifetime = 0.5f;
+                        particleSys.Emit(p);
+                    } else {
+                        particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(pPos, {0,0}, 0.8f, 0.5f));
+                    }
                 }
              }
 
@@ -774,36 +801,117 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         }
 
         chan.tick_timer -= dt;
+
+        // Continuous VFX for Mind Blade (ID 7) - Threads
+        if (chan.skill_id == 7) {
+             auto& particleSys = systems::GPUParticleSystem::Get();
+             Vector2 dir = Vector2Normalize(Vector2Subtract(chan.target_pos, {pos.x, pos.y}));
+             
+             // Main Ink Thread
+             if (GetRandomValue(0, 100) < 50) { // 50% chance per frame
+                 components::GPUParticle p = systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, Vector2Scale(dir, -50.0f), 0.5f, 0.4f);
+                 p.velocity = Vector2Scale(dir, 1500.0f); // Very fast
+                 p.color = ColorAlpha(systems::InkEffectHelper::COLOR_INK_LIGHT, 0.3f); // Transparent
+                 p.scale = 0.8f; // Thin
+                 particleSys.Emit(p);
+             }
+             
+             // Gold Core (Empowered)
+             if (chan.is_empowered && GetRandomValue(0, 100) < 30) {
+                 components::GPUParticle p = systems::InkEffectHelper::CreateGoldParticle({pos.x, pos.y}, Vector2Scale(dir, 1500.0f), 0.4f);
+                 p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
+                 particleSys.Emit(p);
+             }
+        }
+
         if (chan.tick_timer <= 0.0f) {
             if (chan.skill_id == 5) {
-                // Infinite Blades: Spray random blades
-                // Visual Effect: Burst of blades
+                // Infinite Blades: Chaotic "Grass Script" Strokes
+                auto& particleSys = systems::GPUParticleSystem::Get();
                 std::vector<components::GPUParticle> particles;
-                for(int i=0; i<5; ++i) { // 5 particles per tick
-                     float pAngle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
+                
+                // Burst of strokes
+                for(int i=0; i<8; ++i) { 
+                     float pAngle = (float)GetRandomValue(0, 360) * DEG2RAD;
                      Vector2 pDir = { cosf(pAngle), sinf(pAngle) };
                      
-                     components::GPUParticle p;
-                     p.position = { pos.x, pos.y };
-                     float speed = (float)GetRandomValue(300, 600);
+                     // "Grass Script" = Fast, curving ink strokes
+                     components::GPUParticle p = systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, {0,0}, 1.0f, 0.6f);
+                     float speed = (float)GetRandomValue(400, 800);
                      p.velocity = { pDir.x * speed, pDir.y * speed };
-                     p.acceleration = { pDir.x * 200.0f, pDir.y * 200.0f }; // Accelerate out
-                     p.color = GOLD;
-                     p.lifetime = 0.4f;
-                     p.maxLifetime = 0.4f;
-                     p.scale = 2.5f;
-                     p.flags = 1; // Square/Blade
+                     
+                     // Tangential acceleration for curve
+                     Vector2 tangent = { -pDir.y, pDir.x };
+                     float curveStrength = (float)GetRandomValue(-1000, 1000);
+                     p.acceleration = { tangent.x * curveStrength, tangent.y * curveStrength };
+                     
+                     p.scale = (float)GetRandomValue(15, 30) / 10.0f; // Varied thickness
+                     
+                     if (chan.is_empowered && GetRandomValue(0, 100) < 40) {
+                         p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
+                         p.flags |= 2; // Glow/Spark
+                     } else {
+                         p.color = systems::InkEffectHelper::COLOR_INK_DARK;
+                     }
                      particles.push_back(p);
                 }
-                systems::GPUParticleSystem::Get().EmitBatch(particles);
+                
+                // Screen effect: Large faint ink wash
+                if (GetRandomValue(0, 100) < 30) {
+                    components::GPUParticle p;
+                    p.position = { pos.x + (float)GetRandomValue(-400, 400), pos.y + (float)GetRandomValue(-300, 300) };
+                    p.velocity = { 0, 0 };
+                    p.acceleration = { 0, 0 };
+                    p.color = ColorAlpha(systems::InkEffectHelper::COLOR_INK_LIGHT, 0.05f);
+                    p.lifetime = 1.0f;
+                    p.maxLifetime = 1.0f;
+                    p.scale = 20.0f; // Huge
+                    p.flags = 13; // Ink
+                    particles.push_back(p);
+                }
 
-                float angle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
+                particleSys.EmitBatch(particles);
+
+                // Logic: Cast Rending Wave (ID 2) in random direction
+                float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
                 Vector2 dir = { cosf(angle), sinf(angle) };
                 Vector2 strike_target = { pos.x + dir.x * 250.0f, pos.y + dir.y * 250.0f };
-                ShadowCast(registry, entity, 2, {pos.x, pos.y}, strike_target); // Re-use Rending Wave logic
+                
+                auto exec_ent = registry.create();
+                registry.emplace<LocalLevelTag>(exec_ent);
+                registry.emplace<ShadowCastTag>(exec_ent);
+                auto& exec = registry.emplace<SkillExecution>(exec_ent);
+                exec.skill_id = 2; // Rending Wave
+                exec.owner = entity;
+                exec.state = SkillState::Casting;
+                exec.timer = 0.05f;
+                exec.target_pos = strike_target;
+                exec.is_empowered = chan.is_empowered;
+                
+                if (auto* stats = registry.try_get<CombatStats>(entity)) {
+                    exec.has_snapshot = true;
+                    exec.snapshot.stats = *stats;
+                    exec.snapshot.skill_id = 2;
+                }
+
             } else if (chan.skill_id == 7) {
-                // Mind Blade: Rapid narrow beam
-                ShadowCast(registry, entity, 1, {pos.x, pos.y}, chan.target_pos); // Re-use Flowing Thrust logic
+                // Mind Blade: Rapid narrow beam logic (Skill 1 - Flowing Thrust)
+                auto exec_ent = registry.create();
+                registry.emplace<LocalLevelTag>(exec_ent);
+                registry.emplace<ShadowCastTag>(exec_ent);
+                auto& exec = registry.emplace<SkillExecution>(exec_ent);
+                exec.skill_id = 1; // Flowing Thrust
+                exec.owner = entity;
+                exec.state = SkillState::Casting;
+                exec.timer = 0.05f;
+                exec.target_pos = chan.target_pos;
+                exec.is_empowered = chan.is_empowered;
+
+                if (auto* stats = registry.try_get<CombatStats>(entity)) {
+                   exec.has_snapshot = true;
+                   exec.snapshot.stats = *stats;
+                   exec.snapshot.skill_id = 1;
+               }
             }
             chan.tick_timer = chan.tick_interval;
         }

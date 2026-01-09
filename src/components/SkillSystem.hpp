@@ -321,6 +321,7 @@ struct BladeFormationComponent {
     float attack_interval = 1.0f;
     float attack_timer = 0.0f;
     float search_radius = 200.0f;
+    bool is_empowered = false;
 };
 
 struct SwordArrayComponent {
@@ -329,6 +330,7 @@ struct SwordArrayComponent {
     float damage_interval = 0.5f;
     float damage_timer = 0.0f;
     entt::entity owner = entt::null;
+    bool is_empowered = false;
 };
 
 struct ChannelingComponent {
@@ -337,6 +339,7 @@ struct ChannelingComponent {
     float tick_interval = 0.2f;
     float tick_timer = 0.0f;
     Vector2 target_pos;
+    bool is_empowered = false;
 };
 
 } // namespace NoMoreDay
