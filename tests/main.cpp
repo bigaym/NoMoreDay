@@ -51,6 +51,7 @@ using namespace NoMoreDay;
 #include "FlowFieldBufferTest.hpp"
 #include "FlowFieldLogicTest.hpp"
 #include "FlowFieldPerformanceTest.hpp"
+#include "FlowFieldDensityTest.hpp"
 #include "ParticlePerformanceTest.hpp"
 #include "GPUParticleShaderTest.hpp"
 
