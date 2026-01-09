@@ -15,7 +15,7 @@ struct alignas(16) GPUParticle {
     float maxLifetime;    // 4 bytes (Offset 32)
     float scale;          // 4 bytes (Offset 36)
     uint32_t flags;       // 4 bytes (Offset 40) - New! (Type/Behavior)
-    float padding;        // 4 bytes (Offset 44) - Pad to 48 bytes
+    float growthRate;     // 4 bytes (Offset 44) - Used for scale change over time
 }; // Total 48 bytes (Multiple of 16)
 
 // STD430 Layout for Entity Physics

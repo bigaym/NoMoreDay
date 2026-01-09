@@ -52,6 +52,7 @@ using namespace NoMoreDay;
 #include "FlowFieldLogicTest.hpp"
 #include "FlowFieldPerformanceTest.hpp"
 #include "FlowFieldDensityTest.hpp"
+#include "GPUParticleShaderTest.hpp"
 
 int main(int argc, char** argv) {
     // Some Raylib functions require a window context even if not drawing

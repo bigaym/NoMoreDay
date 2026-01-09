@@ -48,6 +48,22 @@ void main() {
         float ray = 1.0 - smoothstep(0.0, 0.05, d); 
         col.a *= max(core, ray * (1.0 - dist*2.0));
     }
+    else if (shapeType == 5u) {
+        // Ink Splat / Cloud
+        // Simple procedural noise for irregular edge
+        vec2 d = vTexCoord - center;
+        float angle = atan(d.y, d.x);
+        
+        // Pseudo-random irregularity
+        float noise = sin(angle * 5.0) * 0.1 + sin(angle * 13.0) * 0.05;
+        
+        float r = length(d);
+        float limit = 0.4 + noise;
+        
+        // Soft edge
+        float alpha = 1.0 - smoothstep(limit - 0.1, limit, r);
+        col.a *= alpha;
+    }
 
     if (col.a < 0.01) discard;
     finalColor = col;

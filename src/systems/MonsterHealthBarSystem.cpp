@@ -74,7 +74,7 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
 
                 for (size_t i = 0; i < activeEffects->effects.size(); ++i) {
                     const auto& effect = activeEffects->effects[i];
-                    Color iconColor = effect.is_debuff ? (Color){ 180, 40, 40, 255 } : (Color){ 40, 180, 40, 255 };
+                    Color iconColor = effect.is_debuff ? Color{ 180, 40, 40, 255 } : Color{ 40, 180, 40, 255 };
                     
                     Rectangle iconRect = { startX + i * (iconSize + iconSpacing), worldPos.y + iconsYOffset, iconSize, iconSize };
                     DrawRectangleRec(iconRect, iconColor);

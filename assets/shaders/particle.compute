@@ -11,7 +11,7 @@ struct Particle {
     float maxLifetime;
     float scale;
     uint flags;
-    float padding;
+    float growthRate;
 };
 
 layout(std430, binding = 0) buffer ParticleBuffer {
@@ -35,6 +35,10 @@ void main() {
         // Apply simple air resistance/damping (Drag)
         // Can make this flag dependent later
         particles[id].velocity *= pow(0.95, dt * 60.0); 
+
+        // Update scale (using growthRate)
+        particles[id].scale += particles[id].growthRate * dt;
+        if (particles[id].scale < 0.0) particles[id].scale = 0.0;
 
         // Update lifetime
         particles[id].lifetime -= dt;
