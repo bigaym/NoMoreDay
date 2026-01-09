@@ -54,8 +54,10 @@ void main() {
         vec2 d = vTexCoord - center;
         float angle = atan(d.y, d.x);
         
-        // Pseudo-random irregularity
-        float noise = sin(angle * 5.0) * 0.1 + sin(angle * 13.0) * 0.05;
+        // Pseudo-random irregularity (3 frequencies for more detail)
+        float noise = sin(angle * 5.0) * 0.1 + 
+                      sin(angle * 13.0) * 0.05 + 
+                      sin(angle * 23.0) * 0.02;
         
         float r = length(d);
         float limit = 0.4 + noise;

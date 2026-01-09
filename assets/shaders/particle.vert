@@ -47,32 +47,16 @@ void main() {
 
     // Check for Fade In/Out flag (Bit 3: 0x8)
     if ((p.flags & 8u) != 0u) {
-        // Ink Fade: Fade In at start (1.0->0.8), Fade Out at end (0.2->0.0)
-        // Fade In: smoothstep(0.8, 1.0, lifeRatio) gives 0->1 as lifeRatio goes 0.8->1.0. 
-        // Wait, lifeRatio goes 1.0 -> 0.0.
-        // At 1.0 (birth): We want Alpha 0 -> 1. 
-        // Let's say Fade In lasts for top 20% of life.
-        float fadeIn = 1.0 - smoothstep(0.8, 1.0, lifeRatio);
+        // Ink Fade: 
+        // Fade In: Very fast (1.0 -> 0.9) - Ink hits paper
+        float fadeIn = 1.0 - smoothstep(0.9, 1.0, lifeRatio);
         
-        // Fade Out: We want Alpha 1 -> 0 at end.
-        float fadeOut = smoothstep(0.0, 0.2, lifeRatio);
+        // Fade Out: Slow and lingering (0.6 -> 0.0) - Ink drying
+        float fadeOut = smoothstep(0.0, 0.6, lifeRatio);
+        // Apply power curve to make it linger (convex curve)
+        fadeOut = pow(fadeOut, 0.8);
 
-        // Combine
-        col.a *= fadeOut * (1.0 - fadeIn); // Incorrect logic above.
-        
-        // Let's retry logic:
-        // We want Alpha to be 1.0 in the middle.
-        // Start (1.0): Alpha 0. 
-        // End (0.0): Alpha 0.
-        
-        // Fade In: We want it to be 0 at 1.0, 1 at 0.8.
-        // smoothstep(0.8, 1.0, lifeRatio) -> returns 0 at 0.8, 1 at 1.0.
-        // So (1.0 - smoothstep(0.8, 1.0, lifeRatio)) -> returns 1 at 0.8, 0 at 1.0. CORRECT.
-        
-        // Fade Out: We want it to be 0 at 0.0, 1 at 0.2.
-        // smoothstep(0.0, 0.2, lifeRatio) -> returns 0 at 0.0, 1 at 0.2. CORRECT.
-        
-        col.a *= (1.0 - smoothstep(0.8, 1.0, lifeRatio)) * smoothstep(0.0, 0.2, lifeRatio);
+        col.a *= fadeIn * fadeOut;
     } else {
         // Standard Linear Fade Out
         col.a *= lifeRatio;
