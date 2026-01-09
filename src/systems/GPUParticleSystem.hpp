@@ -44,4 +44,21 @@ private:
     unsigned int m_quadVBO = 0;
 };
 
+class InkEffectHelper {
+public:
+    static constexpr Color COLOR_INK_LIGHT = { 40, 40, 45, 120 };
+    static constexpr Color COLOR_INK_DARK = { 20, 20, 25, 200 };
+    static constexpr Color COLOR_GOLD_CORE = { 255, 215, 0, 255 };
+    static constexpr Color COLOR_GOLD_GLOW = { 255, 180, 50, 150 };
+
+    // Create a generic ink particle (for trails/ambient)
+    static components::GPUParticle CreateInkTrail(Vector2 pos, Vector2 vel, float scale, float life);
+
+    // Create a burst of ink particles
+    static std::vector<components::GPUParticle> CreateInkSplash(Vector2 pos, int count, float radius, float force);
+
+    // Create a gold stream particle (for empowered effects)
+    static components::GPUParticle CreateGoldParticle(Vector2 pos, Vector2 vel, float scale);
+};
+
 } // namespace NoMoreDay::systems

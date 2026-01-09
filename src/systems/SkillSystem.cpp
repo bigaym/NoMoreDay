@@ -71,6 +71,24 @@ void SkillSystem::InitHooks() {
             dash->dashSpeed = speed;
         }
 
+        // --- VISUAL EFFECTS: Ink Trail ---
+        auto& particleSys = systems::GPUParticleSystem::Get();
+        for (int i = 0; i < 8; ++i) {
+            float offset = (float)i * 15.0f;
+            Vector2 p = { startPos.x + dir.x * offset, startPos.y + dir.y * offset };
+            particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(p, Vector2Scale(dir, -20.0f), 1.5f + (float)i * 0.2f, 0.8f));
+        }
+
+        if (exec.is_empowered) {
+            auto goldParticles = systems::InkEffectHelper::CreateInkSplash(startPos, 12, 10.0f, 150.0f);
+            for (auto& p : goldParticles) {
+                p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
+                p.flags |= 2; // Add glow flag if supported, or just use gold color
+                particleSys.Emit(p);
+            }
+            RenderSystem::AddScreenShake(0.15f);
+        }
+
         // --- BRANCH LOGIC ---
         float moreDamageMult = 1.0f;
         bool forcePierce = false;
@@ -223,6 +241,10 @@ void SkillSystem::InitHooks() {
             float angle = startAngle + i * angleStep;
             Vector2 dir = Vector2Rotate(baseDir, angle);
             
+            // --- VISUAL EFFECTS: Ink Trail ---
+            auto& particleSys = systems::GPUParticleSystem::Get();
+            particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos->x, pos->y}, Vector2Scale(dir, -30.0f), 2.0f, 0.6f));
+
             auto proj_ent = registry.create();
             registry.emplace<LocalLevelTag>(proj_ent);
             registry.emplace<Position>(proj_ent, pos->x, pos->y);
@@ -490,6 +512,24 @@ void SkillSystem::InitHooks() {
             dash->dirX = dir.x;
             dash->dirY = dir.y;
             dash->dashSpeed = 500.0f; // Reduced from 1000.0f
+        }
+
+        // --- VISUAL EFFECTS: Dense Ink & Gold Mark ---
+        auto& particleSys = systems::GPUParticleSystem::Get();
+        Vector2 startPos = { pos->x, pos->y };
+        
+        // Dense Ink Splash
+        auto inkParticles = systems::InkEffectHelper::CreateInkSplash(startPos, 15, 15.0f, 80.0f);
+        for (auto& p : inkParticles) {
+            p.color = systems::InkEffectHelper::COLOR_INK_DARK; // Darker ink for "Dense" effect
+            p.scale *= 1.5f;
+            particleSys.Emit(p);
+        }
+
+        // Gold Sword Mark (Burst of gold particles)
+        for (int i = 0; i < 6; ++i) {
+            Vector2 gVel = { (float)GetRandomValue(-50, 50), (float)GetRandomValue(-50, 50) };
+            particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(startPos, gVel, 1.2f));
         }
 
         // 2. Add Counter State

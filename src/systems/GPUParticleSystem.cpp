@@ -132,4 +132,72 @@ void GPUParticleSystem::Shutdown() {
     if (m_renderShader.id > 0) UnloadShader(m_renderShader);
 }
 
+// --- InkEffectHelper Implementation ---
+
+components::GPUParticle InkEffectHelper::CreateInkTrail(Vector2 pos, Vector2 vel, float scale, float life) {
+    components::GPUParticle p;
+    p.position = pos;
+    p.velocity = vel;
+    p.acceleration = { 0.0f, 0.0f };
+    p.color = COLOR_INK_LIGHT;
+    p.lifetime = life;
+    p.maxLifetime = life;
+    p.scale = scale;
+    // Flags: Bit 0-2 (Shape 5: Ink Splat), Bit 3 (Ink Fade: 8) -> 5 | 8 = 13
+    p.flags = 13; 
+    p.growthRate = 0.2f; // Slight spread
+    return p;
+}
+
+std::vector<components::GPUParticle> InkEffectHelper::CreateInkSplash(Vector2 pos, int count, float radius, float force) {
+    std::vector<components::GPUParticle> particles;
+    particles.reserve(count);
+
+    for (int i = 0; i < count; ++i) {
+        components::GPUParticle p;
+        
+        // Random offset
+        float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+        float dist = (float)GetRandomValue(0, 100) / 100.0f * radius;
+        p.position = { pos.x + cosf(angle) * dist, pos.y + sinf(angle) * dist };
+        
+        // Outward velocity
+        float speed = (float)GetRandomValue(50, 100) / 100.0f * force;
+        p.velocity = { cosf(angle) * speed, sinf(angle) * speed };
+        
+        p.acceleration = { 0.0f, 0.0f }; // Maybe gravity?
+        
+        // Mix of dark and light ink
+        p.color = (GetRandomValue(0, 1) == 0) ? COLOR_INK_DARK : COLOR_INK_LIGHT;
+        
+        float life = 0.5f + (float)GetRandomValue(0, 50) / 100.0f; // 0.5 - 1.0s
+        p.lifetime = life;
+        p.maxLifetime = life;
+        
+        p.scale = 0.5f + (float)GetRandomValue(0, 50) / 100.0f;
+        p.flags = 13; // Ink Splat + Fade
+        p.growthRate = 0.8f; // Rapid spread
+        
+        particles.push_back(p);
+    }
+    return particles;
+}
+
+components::GPUParticle InkEffectHelper::CreateGoldParticle(Vector2 pos, Vector2 vel, float scale) {
+    components::GPUParticle p;
+    p.position = pos;
+    p.velocity = vel;
+    p.acceleration = { 0.0f, 0.0f };
+    p.color = COLOR_GOLD_CORE;
+    p.lifetime = 0.5f;
+    p.maxLifetime = 0.5f;
+    p.scale = scale;
+    // Flags: Shape 2 (Spark) -> 2
+    // Optional: Add Bit 3 (Ink Fade) -> 10? Or just linear fade. 
+    // Let's use Spark shape with linear fade (default).
+    p.flags = 2; 
+    p.growthRate = -scale; // Shrink to zero over 1 sec (approx)
+    return p;
+}
+
 } // namespace NoMoreDay::systems

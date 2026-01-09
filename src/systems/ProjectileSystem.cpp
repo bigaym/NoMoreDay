@@ -7,10 +7,12 @@
 #include "DamagePipeline.hpp"
 #include "CombatSystem.hpp"
 #include "SkillSystem.hpp"
+#include "GPUParticleSystem.hpp" // Added
 #include "../components/AIComponent.hpp"
 #include "../tools/Logger.hpp"
 #include "raylib.h"
 #include "../utils/PhysicsUtils.hpp"
+#include "raymath.h" // Added for Vector2 operations
 
 namespace NoMoreDay {
 
@@ -99,6 +101,13 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
             }
         }
 
+        // --- VISUAL EFFECTS: Continuous Ink Trail ---
+        if (skill_id == 1 || skill_id == 2 || skill_id == 9) {
+            auto& particleSys = systems::GPUParticleSystem::Get();
+            Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, -0.1f);
+            particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, trailVel, 1.2f, 0.4f));
+        }
+
         // 2. Lifetime
         proj.lifeTime -= dt;
         if (proj.lifeTime <= 0.0f) {
@@ -149,6 +158,13 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 // Hit confirmed
                 proj.hitEntities.push_back(target); // Record the hit
                 
+                // --- VISUAL EFFECTS: Ink Splash on Hit ---
+                if (skill_id == 2) {
+                    auto& particleSys = systems::GPUParticleSystem::Get();
+                    auto splash = systems::InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 5, 10.0f, 100.0f);
+                    for (auto& p : splash) particleSys.Emit(p);
+                }
+
                 Tag hit_tags = Tag::Projectile | Tag::Hit;
                 
                 uint32_t skill_id = 0;

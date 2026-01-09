@@ -11,19 +11,14 @@ TEST_CASE("GPUParticleSystem Shader Compilation") {
     // Init should compile shaders
     particleSystem.Init(rm, 100);
     
-    // Emit a particle with Ink Fade flag (8) and Growth Rate
-    NoMoreDay::components::GPUParticle p = {};
-    p.position = { 0, 0 };
-    p.velocity = { 0, 0 };
-    p.acceleration = { 0, 0 };
-    p.color = { 255, 255, 255, 255 };
-    p.lifetime = 1.0f;
-    p.maxLifetime = 1.0f;
-    p.scale = 1.0f;
-    p.flags = 8; // Bit 3: Ink Fade
-    p.growthRate = 0.5f; 
+    // Emit a particle using InkEffectHelper
+    auto p = NoMoreDay::systems::InkEffectHelper::CreateInkTrail({ 100, 100 }, { 10, 10 }, 1.0f, 1.0f);
     
     particleSystem.Emit(p);
+    
+    // Test Splash
+    auto splash = NoMoreDay::systems::InkEffectHelper::CreateInkSplash({ 200, 200 }, 10, 50.0f, 100.0f);
+    particleSystem.EmitBatch(splash);
     
     // Run update to trigger Compute Shader
     particleSystem.Update(0.016f); 

@@ -87,6 +87,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: 技能特效的 GPU 粒子化 (GPU Skill VFX) (水墨修仙风)
+## [~] Track: 技能特效的 GPU 粒子化 (GPU Skill VFX) (水墨修仙风)
 - **Folder:** [./conductor/tracks/gpu_skill_vfx_20260108/](./conductor/tracks/gpu_skill_vfx_20260108/)
 - **Description:** 利用 GPU 粒子系统为 9 个核心技能实现淡雅水墨修仙风格的视觉特效，并包含强化版的“金韵墨痕”表现。
