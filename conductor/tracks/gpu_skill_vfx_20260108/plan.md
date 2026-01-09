@@ -19,15 +19,15 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Core Offensive' (Protocol in workflow.md)
 
 ## Phase 3: 战术与范围技能特效 (Tactical & Area - IDs 3, 4, 6, 8)
-- [ ] **Task: 实现御剑·回旋 (ID 8) 视觉效果**
+- [x] **Task: 实现御剑·回旋 (ID 8) 视觉效果** [commit: <commit_hash>]
     - 为飞剑增加回旋墨环拖尾。
-- [ ] **Task: 实现万剑诀 (ID 3) 视觉效果**
+- [x] **Task: 实现万剑诀 (ID 3) 视觉效果** [commit: <commit_hash>]
     - 为浮游灵剑添加细长墨纹。
-- [ ] **Task: 实现剑气护体 (ID 4) 视觉效果**
+- [x] **Task: 实现剑气护体 (ID 4) 视觉效果** [commit: <commit_hash>]
     - 实现环绕的半透明墨色护罩及格挡时的墨渍反馈。
-- [ ] **Task: 实现剑阵·诛仙 (ID 6) 视觉效果**
+- [x] **Task: 实现剑阵·诛仙 (ID 6) 视觉效果** [commit: <commit_hash>]
     - 绘制阵法墨韵边界及内部升腾的墨烟粒子。
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Tactical and Area' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Tactical and Area' (Protocol in workflow.md)
 
 ## Phase 4: 引导与终极技能特效 (Channeling & Ultimates - IDs 5, 7)
 - [ ] **Task: 实现万剑归宗 (ID 5) 视觉效果**

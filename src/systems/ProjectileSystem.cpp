@@ -102,10 +102,22 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
         }
 
         // --- VISUAL EFFECTS: Continuous Ink Trail ---
-        if (skill_id == 1 || skill_id == 2 || skill_id == 9) {
+        if (skill_id == 1 || skill_id == 2 || skill_id == 8 || skill_id == 9) {
             auto& particleSys = systems::GPUParticleSystem::Get();
             Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, -0.1f);
-            particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, trailVel, 1.2f, 0.4f));
+            
+            // ID 8 (Boomerang) gets a specialized rotating trail
+            if (skill_id == 8) {
+                // Two trails orbiting the center
+                float time = (float)GetTime() * 10.0f;
+                Vector2 offset1 = { cosf(time) * 10.0f, sinf(time) * 10.0f };
+                Vector2 offset2 = Vector2Scale(offset1, -1.0f);
+                
+                particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x + offset1.x, pos.y + offset1.y}, trailVel, 1.0f, 0.3f));
+                particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x + offset2.x, pos.y + offset2.y}, trailVel, 1.0f, 0.3f));
+            } else {
+                particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, trailVel, 1.2f, 0.4f));
+            }
         }
 
         // 2. Lifetime
@@ -150,6 +162,15 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                     float chance = ward->sword_count * ward->interception_chance;
                     if ((float)GetRandomValue(0, 1000) / 1000.0f < chance) {
                         LOG_INFO("Projectile intercepted by Blade Ward on entity {}", (uint32_t)target);
+                        
+                        // VFX: Ink Block
+                        auto& particleSys = systems::GPUParticleSystem::Get();
+                        // 1. Ink Splash at interception point
+                        auto splash = systems::InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 8, 15.0f, 120.0f);
+                        for(auto& p : splash) particleSys.Emit(p);
+                        // 2. Metallic spark
+                        particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle({pos.x, pos.y}, {0, -50.0f}, 1.5f));
+
                         hit = true; 
                         return; // Stop processing this target
                     }

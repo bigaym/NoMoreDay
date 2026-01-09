@@ -315,11 +315,24 @@ void SkillSystem::InitHooks() {
         formation.attack_interval = 1.0f / (1.0f + freqInc);
         formation.search_radius = 100.0f * (1.0f + searchInc); // Reduced from 200.0f
 
+        // --- VFX: Activation ---
+        auto* pos = registry.try_get<Position>(owner);
+        if (pos) {
+            auto& particleSys = systems::GPUParticleSystem::Get();
+            for (int i = 0; i < formation.max_swords; ++i) {
+                float angle = (float)i / formation.max_swords * 2.0f * PI;
+                Vector2 pPos = { pos->x + cosf(angle) * 40.0f, pos->y + sinf(angle) * 40.0f };
+                // Ink sword hint
+                particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(pPos, {0, -50.0f}, 1.5f, 1.0f));
+            }
+        }
+
         if (exec.is_empowered) {
             formation.max_swords += 2;
             formation.current_swords = formation.max_swords;
             formation.attack_interval *= 0.5f; // Double attack speed
             LOG_INFO("Empowered Blade Formation: +2 Max swords and 2x attack speed!");
+            RenderSystem::AddScreenShake(0.1f);
         }
         
         LOG_INFO("Blade Formation activated: {} swords for entity {}", formation.max_swords, (uint32_t)owner);
@@ -337,10 +350,37 @@ void SkillSystem::InitHooks() {
         array.duration = 5.0f;
         array.radius = 75.0f; // Reduced from 150.0f
 
+        // --- VFX: Boundary Ring (Smoke) ---
+        auto& particleSys = systems::GPUParticleSystem::Get();
+        int smokeCount = 30;
+        for(int i=0; i<smokeCount; ++i) {
+            float angle = (float)i / smokeCount * 2.0f * PI;
+            Vector2 pPos = { exec.target_pos.x + cosf(angle) * array.radius, exec.target_pos.y + sinf(angle) * array.radius };
+            
+            components::GPUParticle p;
+            p.position = pPos;
+            p.velocity = { 0, -10.0f }; // Slowly rising
+            p.acceleration = { 0, 0 };
+            p.color = systems::InkEffectHelper::COLOR_INK_LIGHT;
+            p.lifetime = array.duration; // Lasts full duration? Maybe fade out earlier and respawn in update
+            p.maxLifetime = array.duration;
+            p.scale = 2.0f;
+            p.flags = 13; // Ink Splat + Fade
+            p.growthRate = 0.0f;
+            particleSys.Emit(p);
+        }
+
         if (exec.is_empowered) {
             array.radius *= 1.5f;
             array.damage_interval *= 0.6f; // Faster pulse frequency
             LOG_INFO("Empowered Sword Array: 1.5x Radius and faster damage pulses!");
+            
+            // Gold Accents on boundary
+             for(int i=0; i<10; ++i) {
+                float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                Vector2 pPos = { exec.target_pos.x + cosf(angle) * array.radius, exec.target_pos.y + sinf(angle) * array.radius };
+                particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(pPos, {0, 20.0f}, 1.5f));
+             }
         }
         
         // Talent scaling
@@ -387,8 +427,7 @@ void SkillSystem::InitHooks() {
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
             for (const auto& spec : active->specialized_slots) {
                 if (spec.skill_id == 4) {
-                    // Node 400: Jin Zhong Zhao (Armor) - handled by StatsSystem automatically if we used stat_modifiers
-                    // But we want to check for mechanics here if needed.
+                    // Node 400: Jin Zhong Zhao (Armor)
                     break;
                 }
             }
@@ -406,7 +445,7 @@ void SkillSystem::InitHooks() {
         ward_buff.max_stacks = 1;
         ward_buff.is_debuff = false;
         
-        // +10% Physical Resistance (ResistPhysical is index 21 in StatType enum, index 0 in CombatStats.resistances)
+        // +10% Physical Resistance
         ward_buff.modifiers.push_back({StatType::ResistPhysical, ModifierMode::Flat, phys_dr});
         
         active_effects.AddOrRefresh(ward_buff);
@@ -415,6 +454,34 @@ void SkillSystem::InitHooks() {
         auto& ward = registry.emplace_or_replace<BladeWardComponent>(owner);
         ward.remaining = 10.0f;
         ward.sword_count = 3;
+
+        // --- VFX: Shield Activation ---
+        auto* pos = registry.try_get<Position>(owner);
+        if (pos) {
+            auto& particleSys = systems::GPUParticleSystem::Get();
+            int spirals = 3;
+            for (int s = 0; s < spirals; ++s) {
+                 for (int i = 0; i < 20; ++i) {
+                    float t = (float)i / 20.0f;
+                    float angle = t * 4.0f * PI + (s * 2.0f * PI / spirals);
+                    float height = t * 60.0f;
+                    float radius = 40.0f * (1.0f - t * 0.5f); // Cone shape
+                    
+                    Vector2 pPos = { pos->x + cosf(angle) * radius, pos->y + sinf(angle) * radius - height + 30.0f };
+                    
+                    components::GPUParticle p;
+                    p.position = pPos;
+                    p.velocity = { 0, -20.0f }; 
+                    p.acceleration = { 0, 0 };
+                    p.color = ColorAlpha(SKYBLUE, 0.5f);
+                    p.lifetime = 1.0f;
+                    p.maxLifetime = 1.0f;
+                    p.scale = 1.5f;
+                    p.flags = 13; // Ink
+                    particleSys.Emit(p);
+                 }
+            }
+        }
 
         if (exec.is_empowered) {
             ward.sword_count += 3;
@@ -447,14 +514,21 @@ void SkillSystem::InitHooks() {
                         hasPull = true;
                         pullStrength = 300.0f;
                     }
-                    // Talent: Gravity Field (重力场) - ID 811 (Actually 811 is Black Hole in json, 810 is Pull)
-                    // Let's check json again. 810: 磁吸, 811: 剑气黑洞
+                    // Talent: Gravity Field (重力场) - ID 811
                     if (spec.allocated_points.contains(811) && spec.allocated_points.at(811) > 0) {
                         pullStrength += 500.0f;
                     }
                     break;
                 }
             }
+        }
+
+        // --- VFX: Launch Ink Splash ---
+        auto& particleSys = systems::GPUParticleSystem::Get();
+        auto splash = systems::InkEffectHelper::CreateInkSplash({pos->x, pos->y}, 10, 10.0f, 100.0f);
+        for(auto& p : splash) {
+            p.velocity = Vector2Add(p.velocity, Vector2Scale(dir, 200.0f)); // Add forward momentum
+            particleSys.Emit(p);
         }
 
         auto proj_ent = registry.create();
@@ -632,25 +706,39 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         array.damage_timer -= dt;
         if (array.damage_timer <= 0.0f) {
             // Pulsing damage
-            // Visual Effect: Ring of particles
+            // Visual Effect: Ring of particles (Ink Shockwave)
             std::vector<components::GPUParticle> particles;
             int pCount = 60;
+            auto& particleSys = systems::GPUParticleSystem::Get();
+            
+            // 1. Ink Ring expanding out slightly
             for(int i=0; i<pCount; ++i) {
                 float angle = (float)i / pCount * 2.0f * PI;
-                Vector2 offset = { cosf(angle) * array.radius, sinf(angle) * array.radius };
+                Vector2 offset = { cosf(angle) * (array.radius * 0.9f), sinf(angle) * (array.radius * 0.9f) };
                 Vector2 pPos = { pos.x + offset.x, pos.y + offset.y };
                 
                 components::GPUParticle p;
                 p.position = pPos;
-                p.velocity = { -offset.x * 2.0f, -offset.y * 2.0f }; // Move inward fast
+                p.velocity = { offset.x * 2.0f, offset.y * 2.0f }; // Move outward
                 p.acceleration = { 0, 0 };
-                p.color = PURPLE;
-                p.lifetime = 0.5f;
-                p.maxLifetime = 0.5f;
-                p.scale = 2.0f; 
-                p.flags = 2; // Spark
+                p.color = systems::InkEffectHelper::COLOR_INK_DARK;
+                p.lifetime = 0.4f;
+                p.maxLifetime = 0.4f;
+                p.scale = 1.5f; 
+                p.flags = 13; // Ink
                 particles.push_back(p);
             }
+            
+            // 2. Inner implosion (Gold if empowered)
+             if (array.radius > 50.0f) { // Only if reasonably large
+                for(int i=0; i<10; ++i) {
+                    float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                    float dist = (float)GetRandomValue(0, (int)array.radius);
+                    Vector2 pPos = { pos.x + cosf(angle) * dist, pos.y + sinf(angle) * dist };
+                    particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(pPos, {0,0}, 0.8f, 0.5f));
+                }
+             }
+
             systems::GPUParticleSystem::Get().EmitBatch(particles);
 
             grid.query(pos, array.radius, [&](entt::entity target) {
