@@ -21,8 +21,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Data Re-tuning & Test Updates' (Protocol in workflow.md)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Data Re-tuning & Test Updates' (Protocol in workflow.md)
 
-## Phase 4: Final Integration & Verification
+## Phase 4: Final Integration & Verification [checkpoint: e749a4b]
 
-- [ ] Task: Run the full test suite (`.\build.bat` or `ctest`) to ensure no regressions.
-- [ ] Task: Perform a final code review of `StatsSystem` to ensure the logic is clean and well-commented.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Integration & Verification' (Protocol in workflow.md)
+- [x] Task: Run the full test suite (`.\build.bat` or `ctest`) to ensure no regressions.
+- [x] Task: Perform a final code review of `StatsSystem` to ensure the logic is clean and well-commented.
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Final Integration & Verification' (Protocol in workflow.md)
