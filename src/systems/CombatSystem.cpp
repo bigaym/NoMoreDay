@@ -7,6 +7,7 @@
 #include "../components/PlayerState.hpp"
 #include "../components/Stats.hpp"
 #include "../components/EnemyComponent.hpp"
+#include "../components/AIComponent.hpp"
 #include "../components/Buff.hpp"
 #include "../components/SkillSystem.hpp"
 #include "MovementStanceSystem.hpp"
@@ -163,7 +164,10 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                                 if (roll < targetStats.block_chance) {
                                     isBlocked = true;
                                     blockedAmount = targetStats.block_amount;
-                                    LOG_DEBUG("Target {} blocked attack", (uint32_t)target);
+                                    LOG_DEBUG("Target {} blocked attack (Amt: {:.1f})", (uint32_t)target, blockedAmount);
+                                    if (registry.all_of<Position>(target)) {
+                                        EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
+                                    }
                                 }
                             }
                         }
@@ -267,6 +271,82 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
         // 写回冷却时间
         if (attackState) attackState->cooldownTimer = currentCooldownTimer;
         if (weapon) weapon->cooldownTimer = currentCooldownTimer;
+    }
+
+    // --- Enemy Attack Logic ---
+    auto enemyView = registry.view<EnemyTag, AIComponent, Position, NoMoreDay::AttackState, NoMoreDay::CombatStats>();
+    for (auto enemy : enemyView) {
+        auto& ai = enemyView.get<AIComponent>(enemy);
+        auto& ePos = enemyView.get<Position>(enemy);
+        auto& eAttack = enemyView.get<NoMoreDay::AttackState>(enemy);
+        const auto& eStats = enemyView.get<NoMoreDay::CombatStats>(enemy);
+
+        // Update Cooldown
+        if (eAttack.cooldownTimer > 0.0f) {
+            eAttack.cooldownTimer -= dt;
+        }
+
+        // Only attack if in ATTACK state and cooldown is ready
+        if (ai.aiType == AIType::ATTACK && eAttack.cooldownTimer <= 0.0f) {
+            if (registry.valid(ai.target) && registry.all_of<Position>(ai.target)) {
+                const auto& tPos = registry.get<Position>(ai.target);
+                float dx = tPos.x - ePos.x;
+                float dy = tPos.y - ePos.y;
+                float distSq = dx * dx + dy * dy;
+
+                // Precision range check
+                if (distSq <= ai.attackRange * ai.attackRange) {
+                    // Start Attack
+                    float interval = eAttack.baseAttackInterval;
+                    if (eStats.attack_speed > 0.01f) interval /= eStats.attack_speed;
+                    eAttack.cooldownTimer = interval;
+
+                    // Calculate Damage
+                    float basePhys = eStats.min_weapon_damage + (eStats.max_weapon_damage - eStats.min_weapon_damage) * ((float)GetRandomValue(0, 1000) / 1000.0f);
+                    
+                    // Simple hit check for monsters for now (could be expanded)
+                    bool isDodged = false;
+                    if (registry.all_of<NoMoreDay::CombatStats>(ai.target)) {
+                        const auto& tStats = registry.get<NoMoreDay::CombatStats>(ai.target);
+                        float effectiveDodge = tStats.dodge_chance - (eStats.accuracy - 1.0f);
+                        if (effectiveDodge > 0.0f) {
+                            if ((float)GetRandomValue(0, 1000) / 1000.0f < effectiveDodge) {
+                                isDodged = true;
+                            }
+                        }
+                    }
+
+                    if (!isDodged) {
+                        float finalDamage = CalculateDamage(eStats, registry.get_or_emplace<NoMoreDay::CombatStats>(ai.target), basePhys, NoMoreDay::DamageType::Physical);
+                        
+                        // Check for block
+                        bool isBlocked = false;
+                        float blockedAmount = 0.0f;
+                        if (registry.all_of<NoMoreDay::CombatStats>(ai.target)) {
+                            const auto& tStats = registry.get<NoMoreDay::CombatStats>(ai.target);
+                            if (tStats.block_chance > 0.0f && (float)GetRandomValue(0, 1000) / 1000.0f < tStats.block_chance) {
+                                isBlocked = true;
+                                blockedAmount = tStats.block_amount;
+                                float blockMitigation = blockedAmount / (blockedAmount + 100.0f);
+                                finalDamage *= (1.0f - blockMitigation);
+                                
+                                if (registry.all_of<Position>(ai.target)) {
+                                    EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
+                                }
+                            }
+                        }
+
+                        ApplyDamage(registry, ai.target, finalDamage, enemy, false);
+                        LOG_DEBUG("Monster {} attacked {} for {:.1f} damage", (uint32_t)enemy, (uint32_t)ai.target, finalDamage);
+                    } else {
+                        // Show "Dodge" popup
+                        if (registry.all_of<Position>(ai.target)) {
+                             EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y}, "闪避", WHITE);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

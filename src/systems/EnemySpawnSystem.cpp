@@ -2,6 +2,7 @@
 #include "../core/BiomeRegistry.hpp"
 #include "../components/EnemyComponent.hpp"
 #include "../components/AIComponent.hpp"
+#include "../components/Combat.hpp"
 #include "../components/PlayerState.hpp" // For stats if needed
 #include "../components/ItemComponent.hpp"
 #include "../tools/Logger.hpp"
@@ -192,9 +193,18 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
     // Emplace EnemyStateComponent EARLY so StatsSystem can use it
     registry.emplace<EnemyStateComponent>(entity, raceType, archType);
     registry.emplace<EnemyTag>(entity);
-    registry.emplace<NoMoreDay::CombatStats>(entity); 
+    auto& cStats = registry.emplace<NoMoreDay::CombatStats>(entity); 
+    auto& aState = registry.emplace<NoMoreDay::AttackState>(entity);
     
     EnemyRace raceDef(raceType);
+
+    // Initialize monster stats from race
+    cStats.min_weapon_damage = raceDef.baseDamage * 0.8f;
+    cStats.max_weapon_damage = raceDef.baseDamage * 1.2f;
+    cStats.armor = raceDef.baseArmor;
+    cStats.accuracy = 1.0f; // Standard accuracy
+    cStats.attack_speed = 1.0f; // Standard attack speed
+    aState.baseAttackInterval = 1.5f; // Default attack interval
     
     switch (raceType) {
         case EnemyRace::UNDEAD:
@@ -208,30 +218,37 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
             registry.emplace<AIComponent>(entity, AIType::PATROL, 200.0f, 50.0f, 70.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.45f, 1, 2);
+            aState.baseAttackInterval = 2.0f; // Slow but heavy
+            cStats.attack_speed = 0.8f;
             break;
         case EnemyRace::CORRUPTED:
             registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 250.0f, 60.0f, 100.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.30f, 1, 1);
+            aState.baseAttackInterval = 1.0f; // Fast
+            cStats.attack_speed = 1.2f;
             break;
         case EnemyRace::CULTIST:
             registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 180.0f, 30.0f, 60.0f);
             registry.emplace<ColorComponent>(entity, WHITE);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.35f, 1, 1);
+            aState.baseAttackInterval = 1.8f;
             break;
         case EnemyRace::GOBLIN:
             registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 120.0f, 40.0f, 60.0f);
             registry.emplace<ColorComponent>(entity, GREEN);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.20f, 1, 1);
+            aState.baseAttackInterval = 1.2f;
             break;
         case EnemyRace::SLIME:
             registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
             registry.emplace<AIComponent>(entity, AIType::PATROL, 80.0f, 20.0f, 30.0f);
             registry.emplace<ColorComponent>(entity, LIME);
             registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.15f, 1, 1);
+            aState.baseAttackInterval = 2.5f;
             break;
         default:
             registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);

@@ -82,30 +82,8 @@ void UIAstrolabe::Update(entt::registry& registry) {
                             if (ui.isRefundMode) {
                                 // Refund Logic
                                 if (astroComp->activated_nodes.contains(node.id)) {
-                                    // Check if it's a leaf node (not a prerequisite for any other activated node)
-                                    bool isPrereq = false;
-                                    for (const auto& otherPair : nodes) {
-                                        if (astroComp->activated_nodes.contains(otherPair.first)) {
-                                            for (uint32_t prereqId : otherPair.second.prerequisites) {
-                                                if (prereqId == node.id) {
-                                                    isPrereq = true;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                        if (isPrereq) break;
-                                    }
-                                    
-                                    if (!isPrereq) {
-                                        astroComp->activated_nodes.erase(node.id);
-                                        astroComp->available_points++;
-                                        registry.get_or_emplace<StatsDirty>(entity);
-                                        // If it was granting a component, we should ideally remove it too.
-                                        // But removing components safely is complex (what if it came from multiple sources?).
-                                        // For now, let's just log it or skip component removal for MVP.
-                                        LOG_INFO("AstrolabeSystem: Entity {} refunded node {}", (uint32_t)entity, node.id);
-                                    } else {
-                                        LOG_WARN("Cannot refund node {}: It is required by other active nodes.", node.id);
+                                    if (AstrolabeSystem::deactivate_node(registry, entity, node.id)) {
+                                        // Success
                                     }
                                 }
                             } else if (!astroComp->activated_nodes.contains(node.id)) {

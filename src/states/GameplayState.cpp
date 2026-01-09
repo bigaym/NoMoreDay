@@ -138,7 +138,7 @@ namespace NoMoreDay {
         registry.emplace<InventoryComponent>(player);
         registry.emplace<EquipmentComponent>(player);
         registry.emplace<AttackState>(player);
-        registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
+        registry.emplace<HealthComponent>(player, GameConstants::DEFAULT_MAX_HEALTH, GameConstants::DEFAULT_MAX_HEALTH);
         registry.emplace<TextureIDComponent>(player, playerAsset.id);
         registry.emplace<SwordIntentComponent>(player);
         registry.emplace<MovementStanceComponent>(player);
@@ -165,8 +165,8 @@ namespace NoMoreDay {
         
         // Ensure some mana
         auto& stats = registry.get<CombatStats>(player);
-        stats.mana = 100.0f;
-        stats.max_mana = 100.0f;
+        stats.mana = GameConstants::DEFAULT_MAX_MANA;
+        stats.max_mana = GameConstants::DEFAULT_MAX_MANA;
 
         // Test Potions
         auto& inv = registry.get<InventoryComponent>(player);

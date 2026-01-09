@@ -107,11 +107,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] Track: Fix 'Increased' Damage Multiplier Bug & Re-tune Scaling
+- [x] Track: Fix 'Increased' Damage Multiplier Bug & Re-tune Scaling
 - **Folder:** conductor/archive/fix_increased_damage_20260109/
 - **Description:** Fix the exponential damage scaling bug by making 'Increased' modifiers additive, and re-tune data values. (Completed on 2026-01-09)
-
----
-
-## [ ] Track: System Robustness & Performance Optimization
-*Link: [./conductor/tracks/system_robustness_optimization_20260109/](./conductor/tracks/system_robustness_optimization_20260109/)*

@@ -26,7 +26,7 @@ namespace NoMoreDay
 
         // 默认值 (Defaults)
         static constexpr float DEFAULT_MOVE_SPEED = 100.0; 
-        static constexpr float DEFAULT_MAX_HEALTH = 100.0f;
+        static constexpr float DEFAULT_MAX_HEALTH = 10000000.0f;
         static constexpr float DEFAULT_MAX_MANA = 100.0f;
         static constexpr float DEFAULT_CRIT_CHANCE = 0.05f;
         static constexpr float DEFAULT_CRIT_DAMAGE = 1.50f;
@@ -34,7 +34,7 @@ namespace NoMoreDay
         static constexpr float DEFAULT_ACCURACY = 0.97f;
 
         // 移动
-        static constexpr float MOVE_SPEED_CAP = 1000.0f; // 移动速度上限
+        static constexpr float MOVE_SPEED_CAP = 500.0f; // 移动速度上限
     }
 
     // 1. 伤害类型定义

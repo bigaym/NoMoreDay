@@ -37,7 +37,15 @@ void PlayerHUD::Draw(entt::registry& registry) {
     float barBottomY = UI_REF_HEIGHT - 30.0f;
     float barTopY = barBottomY - barHeight;
 
-    // --- 1. Health Bar (Left of Hotbar) ---
+    // Draw FPS in top-left
+    int fps = GetFPS();
+    Color fpsColor = GREEN;
+    if (fps < 30) fpsColor = RED;
+    else if (fps < 60) fpsColor = YELLOW;
+    UISystem::DrawTextUI(TextFormat("FPS: %d", fps), 10.0f, 10.0f, 20.0f, fpsColor, 1.0f);
+
+    // HP Bar background
+
     float hpRightX = hotbarLeft - margin;
     float hpLeftX = hpRightX - barWidth;
     float hpPct = std::clamp(stats.health / stats.max_health, 0.0f, 1.0f);

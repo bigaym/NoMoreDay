@@ -2,6 +2,8 @@
 
 #include "../src/components/Stats.hpp"
 #include "../src/components/Combat.hpp"
+#include "../src/components/AIComponent.hpp"
+#include "../src/components/EnemyComponent.hpp"
 #include "../src/systems/CombatSystem.hpp"
 #include "../src/components/Common.hpp" // For KilledTag
 #include "../src/components/PlayerState.hpp" // For PlayerStats
@@ -84,4 +86,45 @@ TEST_CASE("CombatSystem - ApplyDamage") {
     CHECK(registry.valid(entity) == true);
     // Entity should have KilledTag
     CHECK(registry.all_of<KilledTag>(entity) == true);
+}
+
+TEST_CASE("CombatSystem - Monster to Player Attack") {
+    entt::registry registry;
+    NoMoreDay::systems::SpatialHashGrid grid(100, 100, 10.0f);
+    Camera2D camera = {0};
+
+    auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
+    registry.emplace<NoMoreDay::CombatStats>(player);
+
+    auto monster = registry.create();
+    registry.emplace<EnemyTag>(monster);
+    registry.emplace<Position>(monster, 10.0f, 0.0f);
+    auto& ai = registry.emplace<AIComponent>(monster);
+    ai.aiType = AIType::ATTACK;
+    ai.target = player;
+    ai.attackRange = 50.0f;
+
+    auto& eStats = registry.emplace<NoMoreDay::CombatStats>(monster);
+    eStats.min_weapon_damage = 10.0f;
+    eStats.max_weapon_damage = 10.0f;
+
+    auto& eAttack = registry.emplace<NoMoreDay::AttackState>(monster);
+    eAttack.cooldownTimer = 0.0f;
+    eAttack.baseAttackInterval = 1.0f;
+
+    // First update: Should attack
+    CombatSystem::update(registry, grid, camera, 0.1f);
+
+    auto& pHealth = registry.get<HealthComponent>(player);
+    CHECK(pHealth.current < 100.0f); // Damage applied
+    CHECK(eAttack.cooldownTimer > 0.0f); // Cooldown set
+
+    float healthAfterFirst = pHealth.current;
+
+    // Second update: Cooldown active, should NOT attack
+    CombatSystem::update(registry, grid, camera, 0.1f);
+    CHECK(pHealth.current == doctest::Approx(healthAfterFirst));
 }

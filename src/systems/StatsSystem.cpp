@@ -576,29 +576,30 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
     // --- Sword Heart Mechanic ---
     if (registry.all_of<SwordHeartComponent>(entity)) {
-        // Condition: Main Hand is Weapon AND Off Hand is Empty
-        // TODO: In the future, check if Main Hand is specifically a "Sword" tag
-        bool isSwordHeartActive = hasMainHandWeapon && offHandIsEmpty;
+        // Condition: Main Hand is Weapon AND Off Hand is Empty AND NOT Two-Handed
+        bool isSwordHeartActive = hasMainHandWeapon && offHandIsEmpty && !isTwoHanded;
         
         if (isSwordHeartActive) {
-            // 1. 15% More Weapon Damage (Reduced from 50% for balance)
+            // 1. 15% More Weapon Damage
             combat.min_weapon_damage *= 1.15f;
             combat.max_weapon_damage *= 1.15f;
             
             // 2. Base Block Chance (Shield Equivalent ~20%)
             combat.block_chance += 0.20f;
+            // Add block amount (sword-based parry)
+            combat.block_amount += 50.0f; 
             
             // 3. Spell Damage Bonus (50% of Attack Damage Bonus)
-            // Get the physical damage % increase (which represents "Attack Damage" for Blade Ascendant)
             float phys_inc = calcs[static_cast<size_t>(StatType::PhysicalDamage)].percent_add;
             float spell_bonus = phys_inc * 0.5f;
             
-            // Apply to all elemental/shadow/poison types (Spell types)
             for (int i = 1; i < 6; ++i) {
                 calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].percent_add += spell_bonus;
             }
             
-            LOG_DEBUG("Sword Heart active: +15% Weapon Dmg, +20% Block, +{:.1f}% Spell Dmg", spell_bonus * 100.0f);
+            LOG_INFO("Sword Heart ACTIVE for entity {}: +15% Weapon Dmg, +20% Block (50 Amt), +{:.1f}% Spell Dmg", (uint32_t)entity, spell_bonus * 100.0f);
+        } else {
+            LOG_DEBUG("Sword Heart INACTIVE for entity {}: Condition (One-handed Sword + Empty Offhand) not met.", (uint32_t)entity);
         }
     }
 
@@ -692,6 +693,19 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     LOG_INFO("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
         (uint32_t)entity, combat.min_weapon_damage, combat.max_weapon_damage, 
         str, combat.max_health);
+
+    // Synchronize with HealthComponent if present
+    if (auto* hp = registry.try_get<HealthComponent>(entity)) {
+        float old_max = hp->max;
+        hp->max = combat.max_health;
+        
+        // If it's the first time or max increased, maybe adjust current?
+        // For now, just clamp current to the new max
+        if (hp->current > hp->max) {
+            hp->current = hp->max;
+        }
+        // If max health increased, should we heal? Usually RPGs don't heal automatically unless it's a level up.
+    }
 }
 
 float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags, uint32_t skill_id, entt::entity source_entity) {
