@@ -1,8 +1,0 @@
-{
-  "track_id": "gpu_skill_vfx_20260108",
-  "type": "feature",
-  "status": "new",
-  "created_at": "2026-01-08T16:37:00Z",
-  "updated_at": "2026-01-08T16:37:00Z",
-  "description": "接下来我们规划技能特效的 GPU 粒子化 (GPU Skill VFX)的实现。优化目前的9个技能的视觉特效。"
-}

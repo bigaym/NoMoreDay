@@ -1,256 +1,321 @@
-# NoMoreDay 项目结构文档
+# NoMoreDay 游戏项目架构与系统结构文档
 
-## 项目概览
+## 1. 项目概述
 
-NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 游戏，采用 C++ 和 raylib 图形库开发。项目使用 CMake 构建系统，集成了 EnTT 实体组件系统、Taskflow 并行处理库等现代 C++ 技术。
+NoMoreDay 是一个基于 ECS (Entity-Component-System) 架构的 2D 动作角色扮演游戏，使用 C++ 和 EnTT 实体组件系统开发。游戏采用 raylib 图形库进行渲染，并集成了 GPU 加速的粒子系统、实体系统和流场寻路系统。
 
-## 项目结构
+## 2. 项目目录结构
 
 ```
 NoMoreDay/
-├── .gitignore              # Git 忽略文件配置
-├── AGENTS.md              # 代理开发指南
-├── build.bat              # Windows 构建脚本
-├── CMakeLists.txt         # CMake 构建配置文件
-├── GEMINI.md              # Gemini 模型相关文档
-├── LICENSE                # 项目许可证
-├── raylib使用opengl4.3.md # Raylib OpenGL 4.3 使用说明
-├── README.md              # 项目介绍文档
-├── test_output.txt        # 测试输出文件
-├── conductor/            # Conductor 工具配置
-├── 设计文档/              # 游戏设计文档
-├── assets/               # 游戏资源文件
-├── scripts/              # Python 脚本工具
-├── src/                  # 源代码目录
-└── tests/                # 测试代码目录
+├── assets/                 # 游戏资源文件
+│   ├── data/              # JSON 配置数据
+│   ├── icons/             # UI 图标
+│   ├── sprites/           # 精灵图像
+│   └── textures/          # 纹理资源
+├── scripts/               # Python 脚本工具
+├── src/                   # 源代码目录
+│   ├── components/        # ECS 组件定义
+│   ├── core/              # 核心系统与上下文
+│   ├── states/            # 游戏状态管理
+│   ├── systems/           # ECS 系统实现
+│   └── tools/             # 工具类
+├── tests/                 # 单元测试
+├── CMakeLists.txt         # 构建配置
+├── design_docs/           # 设计文档
+└── README.md             # 项目说明
 ```
 
-## 源代码结构 (src/)
+## 3. 核心架构分析
 
-### 核心系统 (src/core/)
+### 3.1 主游戏循环 (Game.cpp)
 
-- **Game.cpp/Game.hpp** - 游戏主循环和核心管理
-  - 功能：游戏主类，管理整个游戏循环、状态管理和系统初始化
-  - 主要类：Game
+`Game` 类是整个游戏的入口点和核心控制器，负责：
 
-- **State.hpp/State.cpp** - 游戏状态基类
-  - 功能：定义游戏状态的接口，如菜单、游戏、暂停等状态
-  - 主要类：State
+- **窗口管理**：初始化 raylib 窗口和 OpenGL 上下文
+- **系统初始化**：按依赖顺序初始化所有子系统
+- **游戏循环**：固定时间步长的更新循环
+- **状态管理**：通过 StateManager 管理游戏状态栈
 
-- **StateManager.hpp/StateManager.cpp** - 游戏状态管理器
-  - 功能：管理游戏状态的切换和堆栈
-  - 主要类：StateManager
+**初始化顺序**：
+1. 全局静态资源 (星盘、技能、Buff 等注册表)
+2. UI 系统 (加载字体)
+3. GPU 系统 (粒子、实体、流场系统)
+4. 推送初始状态 (MainMenuState)
 
-- **SharedContext.hpp** - 共享上下文
-  - 功能：提供系统间共享的数据和资源访问
-  - 主要类：SharedContext
+**游戏循环流程**：
+- 固定时间步长更新 (1/60 秒)
+- 状态管理器更新当前状态
+- GPU 系统同步与计算
+- 渲染当前状态
 
-- **ItemFactory.hpp** - 物品工厂
-  - 功能：负责创建和初始化游戏中的物品
-  - 主要类：ItemFactory
+### 3.2 状态管理 (StateManager)
 
-### 组件系统 (src/components/)
+基于栈的状态管理系统，支持透明状态渲染：
 
-- **EffectComponent.hpp** - 效果组件
-  - 功能：存储实体的效果相关数据，如增益、减益等
-  - 主要类：EffectComponent
+- **状态栈**：维护当前激活的状态栈
+- **透明渲染**：支持状态分层渲染，上层状态可遮挡下层
+- **状态转换**：提供 Push、Pop、Change 等状态操作
 
-### 系统 (src/systems/)
+**状态类型**：
+- `MainMenuState`：主菜单
+- `GameplayState`：游戏玩法
+- `InventoryState`：背包界面
+- `SettingsState`：设置界面
 
-- **AISystem.cpp/AISystem.hpp** - AI 系统
-  - 功能：处理非玩家实体的智能行为和决策
-  - 主要类：AISystem
+## 4. ECS 架构分析
 
-- **AstrolabeSystem.cpp/AstrolabeSystem.hpp** - 星盘系统
-  - 功能：处理星盘相关的游戏机制和界面
-  - 主要类：AstrolabeSystem
+### 4.1 组件系统 (Components)
 
-- **CombatSystem.cpp/CombatSystem.hpp** - 战斗系统
-  - 功能：处理游戏中的战斗逻辑，包括伤害计算、技能效果等
-  - 主要类：CombatSystem
+组件是纯数据结构，定义实体的属性：
 
-- **DropSystem.hpp** - 掉落系统
-  - 功能：处理敌人死亡后的物品掉落逻辑
-  - 主要类：DropSystem
+**基础组件**：
+- `Position`：位置坐标
+- `Velocity`：速度向量
+- `ColorComponent`：颜色信息
+- `SpriteComponent`：精灵纹理
 
-- **EffectSystem.hpp** - 效果系统
-  - 功能：处理各种效果的更新和应用
-  - 主要类：EffectSystem
+**战斗相关组件**：
+- `HealthComponent`：生命值
+- `CombatStats`：战斗属性
+- `WeaponComponent`：武器信息
+- `AttackState`：攻击状态
 
-- **EnemyBehavior.cpp** - 敌人行为系统
-  - 功能：处理特定敌人行为模式
-  - 主要类：EnemyBehavior
+**角色相关组件**：
+- `PlayerTag`：玩家标识
+- `EnemyTag`：敌人标识
+- `PrimaryStats`：基础属性点
+- `ActiveEffectsComponent`：活跃效果
 
-- **GPUFlowFieldSystem.hpp** - GPU 流场系统
-  - 功能：使用 GPU 计算流场，用于路径规划和移动
-  - 主要类：GPUFlowFieldSystem
+**技能系统组件**：
+- `ActiveSkillsComponent`：激活技能
+- `SkillComponent`：技能信息
+- `SkillExecution`：技能执行状态
+- `GlobalModifierComponent`：全局修饰符
 
-- **GPUParticleSystem.cpp/GPUParticleSystem.hpp** - GPU 粒子系统
-  - 功能：使用 GPU 计算粒子效果
-  - 主要类：GPUParticleSystem
+### 4.2 系统实现 (Systems)
 
-- **InputSystem.cpp/InputSystem.hpp** - 输入系统
-  - 功能：处理玩家输入事件
-  - 主要类：InputSystem
+系统处理组件数据，实现游戏逻辑：
 
-- **InventorySystem.cpp/InventorySystem.hpp** - 背包系统
-  - 功能：管理玩家的物品背包和装备系统
-  - 主要类：InventorySystem
+**核心系统**：
+- `CombatSystem`：战斗处理
+- `SkillSystem`：技能系统
+- `StatsSystem`：属性计算
+- `DamagePipeline`：伤害计算管道
+- `PhysicsSystem`：物理模拟
+- `AISystem`：AI 行为
+- `RenderSystem`：渲染系统
+- `UISystem`：UI 系统
 
-- **MapSystem.cpp** - 地图系统
-  - 功能：处理游戏地图的生成、加载和管理
-  - 主要类：MapSystem
+**系统交互关系**：
+```
+InputSystem → AISystem → Player Movement
+CombatSystem ← SpatialGrid (碰撞检测)
+SkillSystem → DamagePipeline → CombatSystem
+StatsSystem → CombatSystem (属性应用)
+PhysicsSystem → RenderSystem (位置更新)
+```
 
-- **PhysicsSystem.hpp** - 物理系统
-  - 功能：处理游戏中的物理模拟和碰撞检测
-  - 主要类：PhysicsSystem
+## 5. 战斗系统架构
 
-- **PlayerHUD.cpp/PlayerHUD.hpp** - 玩家 HUD 系统
-  - 功能：显示玩家界面信息，如生命值、魔法值等
-  - 主要类：PlayerHUD
+### 5.1 属性系统
 
-- **PortalSystem.cpp/PortalSystem.hpp** - 传送门系统
-  - 功能：处理传送门的创建、激活和传送逻辑
-  - 主要类：PortalSystem
+**PrimaryStats (基础属性)**：
+- 力量 (Strength)：影响护甲和物理伤害
+- 敏捷 (Dexterity)：影响闪避和暴击
+- 智力 (Intelligence)：影响抗性和法力
+- 体质 (Vitality)：影响生命值
 
-- **RenderSystem.cpp/RenderSystem.hpp** - 渲染系统
-  - 功能：处理游戏实体的渲染逻辑
-  - 主要类：RenderSystem
+**CombatStats (战斗属性)**：
+- 生存：生命值、护甲、抗性
+- 进攻：武器伤害、暴击、攻速
+- 防御：闪避、格挡、减伤
+- 特殊：移动速度、吸血、冷却缩减
 
-- **SerializationSystem.hpp** - 序列化系统
-  - 功能：处理游戏数据的保存和加载
-  - 主要类：SerializationSystem
+**属性计算流程**：
+1. 从 PrimaryStats 计算基础值
+2. 应用装备、Buff、技能修饰符
+3. 计算最终 CombatStats
+4. 处理属性间相互影响
 
-- **SkillSystem.cpp/SkillSystem.hpp** - 技能系统
-  - 功能：处理技能的释放、冷却和效果
-  - 主要类：SkillSystem
+### 5.2 技能系统
 
-- **StatsSystem.cpp/StatsSystem.hpp** - 属性系统
-  - 功能：管理实体的属性和状态计算
-  - 主要类：StatsSystem
+**技能执行流程**：
+1. `TryCast`：技能尝试释放
+2. `SkillExecution`：技能执行状态
+3. `RegisterEffect`：技能效果回调
+4. `OnSkillHit`：技能命中处理
 
-- **UIMinimap.cpp** - 小地图 UI 系统
-  - 功能：显示游戏小地图界面
-  - 主要类：UIMinimap
+**技能类型**：
+- `Flowing Thrust`：流云刺
+- `Rending Wave`：裂空斩
+- `Blade Formation`：万剑诀
+- `Sword Array`：剑阵
 
-- **UICharacter.cpp** - 角色 UI 系统
-  - 功能：显示角色属性界面
-  - 主要类：UICharacter
+**技能分支逻辑**：
+- 天赋节点影响技能效果
+- 剑意系统提供强化
+- 装备特效触发额外效果
 
-### 游戏状态 (src/states/)
+### 5.3 伤害计算管道
 
-- **GameplayState.cpp** - 游戏状态
-  - 功能：处理游戏进行中的逻辑和渲染
-  - 主要类：GameplayState
+**五步伤害计算**：
+1. 基础伤害池构建
+2. 伤害类型转换与获取
+3. 增伤乘区计算
+4. 更多乘区计算
+5. 最终结算 (暴击、防御)
 
-- **InventoryState.hpp** - 背包状态
-  - 功能：处理背包界面的显示和交互
-  - 主要类：InventoryState
+**DamagePipeline 特点**：
+- 支持多种伤害类型转换
+- 动态属性查询
+- 天赋节点修饰符应用
+- 暴击与防御计算
 
-- **LoadingState.cpp/LoadingState.hpp** - 加载状态
-  - 功能：处理游戏资源加载过程
-  - 主要类：LoadingState
+## 6. AI 与寻路系统
 
-- **MainMenuState.cpp/MainMenuState.hpp** - 主菜单状态
-  - 功能：处理主菜单界面和选项
-  - 主要类：MainMenuState
+### 6.1 AI 状态机
 
-- **PauseState.cpp/PauseState.hpp** - 暂停状态
-  - 功能：处理游戏暂停时的界面和逻辑
-  - 主要类：PauseState
+**AI 类型**：
+- `IDLE`：闲置状态
+- `PATROL`：巡逻状态
+- `CHASE`：追击状态
+- `ATTACK`：攻击状态
+- `FLEE`：逃跑状态
 
-### 工具 (src/tools/)
+**AI 决策逻辑**：
+- 脱战与激活范围管理
+- 流场寻路与局部回避
+- 目标选择与状态转换
 
-- **CrashHandler.cpp/CrashHandler.hpp** - 崩溃处理器
-  - 功能：处理程序崩溃并生成错误报告
-  - 主要类：CrashHandler
+### 6.2 GPU 流场寻路
 
-- **Logger.cpp/Logger.hpp** - 日志系统
-  - 功能：提供日志记录功能
-  - 主要类：Logger
+**GPUFlowFieldSystem**：
+- 使用 Compute Shader 计算流场
+- 支持动态目标更新
+- 与 CPU 端 AI 系统集成
 
-### 工具函数 (src/utils/)
+## 7. 渲染系统
 
-- **GPUUtils.hpp** - GPU 工具函数
-  - 功能：提供 GPU 相关的辅助函数
-  - 主要函数：GPU 相关工具函数
+### 7.1 渲染层次
 
-## 资源文件 (assets/)
+**渲染顺序**：
+1. 精灵渲染 (SpriteComponent)
+2. GPU 粒子系统
+3. GPU 实体系统
+4. 基础形状渲染
+5. 特效渲染
+6. UI 渲染
 
-- **assets/data/** - 游戏数据文件
-  - `astrolabe.json` - 星盘系统配置数据
-  - `biomes.json` - 生物群系配置数据
-  - `tags.json` - 实体标签配置数据
+### 7.2 视觉效果
 
-- **assets/shaders/** - 着色器文件
-  - `entity.frag/vert` - 实体渲染着色器
-  - `flow_integration.compute` - 流场积分计算着色器
-  - `flow_reset.compute` - 流场重置计算着色器
-  - `flow_vector.compute` - 流场向量计算着色器
-  - `grid_clear.compute` - 网格清理计算着色器
-  - `grid_count.compute` - 网格计数计算着色器
-  - `grid_sort.compute` - 网格排序计算着色器
-  - `particle.compute` - 粒子计算着色器
-  - `particle.frag` - 粒子渲染片段着色器
+**特效系统**：
+- 攻击轨迹特效
+- 伤害飘字系统
+- 粒子效果
+- 屏幕震动
 
-- **assets/textures/** - 纹理资源
-  - `equipment/` - 装备纹理
-  - `ui/` - UI 界面纹理
-  - `ui/icons/` - 技能图标纹理
+## 8. UI 系统
 
-## 脚本文件 (scripts/)
+### 8.1 UI 架构
 
-- **gen_affix_data.py** - 生成词缀数据
-- **gen_armor_jewelry_batch.py** - 批量生成护甲和珠宝数据
-- **gen_equipment_registry.py** - 生成装备注册表
-- **gen_pdb.bat** - 生成 PDB 文件的批处理脚本
-- **gen_tags.py** - 生成标签数据
-- **gen_weapons_misc_batch.py** - 批量生成武器和杂项数据
-- **generate_blade_icons.py** - 生成刀剑图标
-- **generate_icons.py** - 生成图标
-- **get_skill_hashes.py** - 获取技能哈希值
-- **resize_icons.py** - 调整图标大小
-- **save_load_memory.py** - 内存保存加载脚本
-- **spplit.py** - 分割脚本
+**UIContext (UI 上下文)**：
+- 全局 UI 状态管理
+- 缩放与主题控制
+- 交互状态跟踪
 
-## 测试文件 (tests/)
+**UIRenderer (UI 渲染器)**：
+- 统一渲染接口
+- 主题系统
+- 工具提示
 
-- 包含各种系统和功能的单元测试和集成测试
-- **CMakeLists.txt** - 测试项目的 CMake 配置
-- **main.cpp** - 测试主函数
-- 各种具体测试文件，如 `AffixSystemTest.hpp`, `CombatSystemTest.hpp` 等
+### 8.2 UI 组件
 
-## 设计文档 (设计文档/)
+**主要 UI 模块**：
+- `UIInventory`：背包系统
+- `UICharacter`：角色面板
+- `UIAstrolabe`：星盘系统
+- `UISkillHub`：技能树系统
+- `UIMinimap`：小地图
 
-- **地图和敌人刷新机制.md** - 地图和敌人刷新机制设计
-- **怪物和AI设计.md** - 怪物和 AI 系统设计
-- **核心战斗与角色设计.md** - 核心战斗和角色设计
-- **技术架构与实现路线.md** - 技术架构和实现路线
-- **局外成长与终局玩法.md** - 局外成长和终局玩法设计
-- **开发计划与任务追踪.md** - 开发计划和任务追踪
-- **游戏流程与状态管理.md** - 游戏流程和状态管理
-- **战斗系统与属性设计.md** - 战斗系统和属性设计
-- **职业被动和技能设置.md** - 职业被动和技能设置
-- **职业设计草案_剑修.md** - 剑修职业设计草案
-- **装备和存储设计.md** - 装备和存储系统设计
-- **UI系统重构方案.md** - UI 系统重构方案
+## 9. 数据管理系统
 
-## 配置文件
+### 9.1 注册表系统
 
-- **CMakeLists.txt** - 项目构建配置
-- **.gitignore** - Git 忽略配置
-- **build.bat** - Windows 构建脚本
-- **AGENTS.md** - 代理开发指南
-- **GEMINI.md** - Gemini 模型相关说明
-- **LICENSE** - 项目许可证
-- **raylib使用opengl4.3.md** - Raylib OpenGL 4.3 使用说明
-- **README.md** - 项目说明文档
+**数据注册表**：
+- `SkillRegistry`：技能数据
+- `BuffRegistry`：Buff 数据
+- `AstrolabeRegistry`：星盘节点
+- `BiomeRegistry`：生物群系
 
-## 项目特点
+### 9.2 资源管理
 
-1. **ECS 架构**：使用 EnTT 库实现实体-组件-系统架构，便于模块化开发和性能优化
-2. **GPU 加速**：大量使用 GPU 计算来处理流场、粒子等复杂效果
-3. **并行处理**：使用 Taskflow 库进行并行处理，提高性能
-4. **模块化设计**：系统之间通过共享上下文进行通信，降低耦合度
-5. **完整的测试覆盖**：包含大量单元测试和集成测试
-6. **丰富的游戏内容**：包含战斗、装备、技能、AI、地图等多种系统
+**ResourceManager**：
+- 纹理资源缓存
+- 字体资源管理
+- 资源生命周期管理
+
+## 10. 系统间交互关系
+
+### 10.1 数据流
+
+```
+Input → StateManager → GameplayState → Systems
+    ↓
+InputSystem → Player/AI → PhysicsSystem → SpatialGrid → CombatSystem
+    ↓
+SkillSystem → DamagePipeline → CombatSystem → StatsSystem
+    ↓
+RenderSystem → UI System → Display
+```
+
+### 10.2 依赖关系
+
+**核心依赖**：
+- `SharedContext`：全局共享上下文
+- `entt::registry`：实体组件系统
+- `SpatialHashGrid`：空间查询网格
+
+**系统依赖链**：
+1. `StatsSystem` → `CombatSystem` → `SkillSystem`
+2. `SpatialGrid` → `CombatSystem`/`AISystem`
+3. `AssetLoadingSystem` → `RenderSystem`/`UISystem`
+
+## 11. 第三方库集成
+
+- **EnTT**：ECS 框架
+- **raylib**：图形渲染和输入
+- **Taskflow**：并行任务执行
+- **nlohmann/json**：JSON 数据处理
+- **spdlog**：日志系统
+
+## 12. 扩展与维护指导
+
+### 12.1 添加新系统
+
+1. 创建新的系统类，实现 update 方法
+2. 在 GameplayState::update 中调用系统
+3. 确保系统依赖关系正确
+4. 添加必要的组件定义
+
+### 12.2 添加新组件
+
+1. 在 components 目录下创建组件定义
+2. 定义组件数据结构
+3. 在系统中使用组件进行逻辑处理
+
+### 12.3 性能优化要点
+
+- 组件数据缓存与预计算
+- 空间网格优化碰撞检测
+- GPU 加速计算密集型任务
+- 系统并行处理
+
+### 12.4 调试与测试
+
+- 使用 SpatialGrid 调试可视化
+- StatsSystem 性能监控
+- 系统独立单元测试
+- 渲染性能分析
+
+这个架构提供了良好的模块化设计，各系统间通过共享的实体组件系统进行通信，保证了高内聚低耦合的特性，便于功能扩展和维护。
