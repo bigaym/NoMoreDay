@@ -62,7 +62,7 @@
     {
       "id": 4,
       "name_key": "剑心通明",
-      "desc_key": "[基石] 解锁剑心通明特质。单手持剑且副手为空时,获得50%额外伤害加成与20%格挡几率。",
+      "desc_key": "[基石] 解锁剑心通明特质。单手持剑且副手为空时,获得15%额外伤害加成与20%格挡几率。",
       "type": 2,
       "prerequisites": [3],
       "modifiers": [],
@@ -358,12 +358,12 @@
     {
       "id": 41,
       "name_key": "心剑合一",
-      "desc_key": "[基石] 智力的 30% 转化为暴击伤害倍率。",
+      "desc_key": "[基石] 智力的 15% 转化为暴击伤害倍率。",
       "type": 2,
       "prerequisites": [14],
       "modifiers": [],
       "effects": [
-        { "type": 3, "value": "IntToCritMult:0.3" }
+        { "type": 3, "value": "IntToCritMult:0.15" }
       ],
       "x": 200.0,
       "y": 80.0,

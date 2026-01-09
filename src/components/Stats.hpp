@@ -179,6 +179,21 @@ namespace NoMoreDay
         float gold_bonus = 0.0f;           // 金币获取加成
         float experience_gain_mult = 0.0f; // 经验获取加成
         float damage_reduction = 0.0f;     // 全局伤害减免 % (稀有属性)
+
+        // --- Stat Cap Tracking (Raw values before clamping) ---
+        std::array<float, 6> raw_resistances = {0.0f};
+        float raw_move_speed = 0.0f;
+        float raw_cooldown_reduction = 0.0f;
+        float raw_attack_speed = 0.0f;
+        float raw_dodge_chance = 0.0f;
+        float raw_block_chance = 0.0f;
+
+        // --- Performance Optimization: Stat Cache ---
+        // Caches results of GetStatWithTags queries. 
+        // Key: Hash of (StatType, Tag, SkillID, SourceEntity)
+        // Value: Calculated result.
+        // This cache is cleared when StatsDirty is processed.
+        mutable std::unordered_map<uint64_t, float> tag_stat_cache;
     };
 
     // 定义 CombatStats 的 JSON 序列化

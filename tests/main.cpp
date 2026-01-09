@@ -56,6 +56,10 @@ using namespace NoMoreDay;
 #include "GPUParticleShaderTest.hpp"
 #include "IncreasedDamageBugTest.hpp"
 #include "ShadowKillArrayTest.hpp"
+#include "AstrolabeBalanceTest.hpp"
+#include "StatsBenchmark.cpp"
+
+// Setup common mocks/globals if needed
 
 int main(int argc, char** argv) {
     // Some Raylib functions require a window context even if not drawing

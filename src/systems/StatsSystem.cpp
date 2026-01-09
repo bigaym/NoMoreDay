@@ -66,11 +66,20 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.experience_gain_mult = 0.0f;
     combat.pickup_range = 50.0f; // Default
 
+    combat.raw_resistances.fill(0.0f);
+    combat.raw_move_speed = 0.0f;
+    combat.raw_cooldown_reduction = 0.0f;
+    combat.raw_attack_speed = 0.0f;
+    combat.raw_dodge_chance = 0.0f;
+    combat.raw_block_chance = 0.0f;
+
     // Reset regeneration values
     combat.health_regen = 1.0f;
     combat.mana_regen = 1.0f;
     combat.health_regen_pct = 0.0f;
     combat.mana_regen_pct = 0.0f;
+
+    combat.tag_stat_cache.clear();
 }
 
 // 辅助函数：将通用 StatModifier 应用到计算结构
@@ -572,9 +581,9 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         bool isSwordHeartActive = hasMainHandWeapon && offHandIsEmpty;
         
         if (isSwordHeartActive) {
-            // 1. 50% More Weapon Damage
-            combat.min_weapon_damage *= 1.5f;
-            combat.max_weapon_damage *= 1.5f;
+            // 1. 15% More Weapon Damage (Reduced from 50% for balance)
+            combat.min_weapon_damage *= 1.15f;
+            combat.max_weapon_damage *= 1.15f;
             
             // 2. Base Block Chance (Shield Equivalent ~20%)
             combat.block_chance += 0.20f;
@@ -589,34 +598,71 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].percent_add += spell_bonus;
             }
             
-            LOG_DEBUG("Sword Heart active: +50% Weapon Dmg, +20% Block, +{:.1f}% Spell Dmg", spell_bonus * 100.0f);
+            LOG_DEBUG("Sword Heart active: +15% Weapon Dmg, +20% Block, +{:.1f}% Spell Dmg", spell_bonus * 100.0f);
+        }
+    }
+
+    // --- Keystone Effects ---
+    if (auto* astrolabe = registry.try_get<AstrolabeComponent>(entity)) {
+        const auto& reg = AstrolabeRegistry::Get();
+        for (uint32_t node_id : astrolabe->activated_nodes) {
+            if (const auto* node = reg.GetNode(node_id)) {
+                for (const auto& effect : node->effects) {
+                    if (effect.value.find("IntToCritMult:") == 0) {
+                        float ratio = std::stof(effect.value.substr(14));
+                        ApplyStatModifier(calcs, StatType::CritDamage, ModifierMode::Flat, intel * ratio);
+                    }
+                    else if (effect.value.find("IntToArmor:") == 0) {
+                        float ratio = std::stof(effect.value.substr(11));
+                        calcs[static_cast<size_t>(StatType::Armor)].base += intel * ratio;
+                    }
+                }
+            }
         }
     }
 
     // 5. 最终确定次要属性
+    // 5. 最终确定次要属性
     combat.max_health = calcs[static_cast<size_t>(StatType::MaxHealth)].Result();
     combat.max_mana = calcs[static_cast<size_t>(StatType::MaxMana)].Result();
     combat.armor = calcs[static_cast<size_t>(StatType::Armor)].Result();
-    combat.move_speed = calcs[static_cast<size_t>(StatType::MoveSpeed)].Result();
     
-    combat.crit_chance = calcs[static_cast<size_t>(StatType::CritChance)].Result() / 100.0f;
+    float finalMoveSpeed = calcs[static_cast<size_t>(StatType::MoveSpeed)].Result();
+    combat.raw_move_speed = finalMoveSpeed;
+    combat.move_speed = std::min(finalMoveSpeed, GameConstants::MOVE_SPEED_CAP);
+    
+    combat.crit_chance = std::min(calcs[static_cast<size_t>(StatType::CritChance)].Result() / 100.0f, GameConstants::CRIT_CHANCE_CAP);
     combat.crit_damage = calcs[static_cast<size_t>(StatType::CritDamage)].Result() / 100.0f;
-    combat.attack_speed = calcs[static_cast<size_t>(StatType::AttackSpeed)].Result() / 100.0f;
+    
+    float finalAS = calcs[static_cast<size_t>(StatType::AttackSpeed)].Result() / 100.0f;
+    combat.raw_attack_speed = finalAS;
+    combat.attack_speed = std::min(finalAS, GameConstants::ATTACK_SPEED_CAP);
+    
     combat.cast_speed = calcs[static_cast<size_t>(StatType::CastSpeed)].Result() / 100.0f;
     combat.accuracy = calcs[static_cast<size_t>(StatType::Accuracy)].Result() / 100.0f;
     combat.mana_on_hit = calcs[static_cast<size_t>(StatType::ManaOnHit)].Result();
-    combat.cooldown_reduction = calcs[static_cast<size_t>(StatType::CooldownReduction)].Result() / 100.0f;
+    
+    float finalCDR = calcs[static_cast<size_t>(StatType::CooldownReduction)].Result() / 100.0f;
+    combat.raw_cooldown_reduction = finalCDR;
+    combat.cooldown_reduction = std::min(finalCDR, GameConstants::CDR_CAP);
+    
     combat.resource_cost_reduction = calcs[static_cast<size_t>(StatType::ResourceCostReduction)].Result() / 100.0f;
     
     combat.projectile_speed = calcs[static_cast<size_t>(StatType::ProjectileSpeed)].Result() / 100.0f;
     combat.duration_scale = calcs[static_cast<size_t>(StatType::DurationScale)].Result() / 100.0f;
     combat.area_scale = calcs[static_cast<size_t>(StatType::AreaScale)].Result() / 100.0f;
     
-    combat.dodge_chance = calcs[static_cast<size_t>(StatType::DodgeChance)].Result() / 100.0f;
-    combat.block_chance += calcs[static_cast<size_t>(StatType::BlockChance)].Result() / 100.0f; // += because of shield base
+    float finalDodge = calcs[static_cast<size_t>(StatType::DodgeChance)].Result() / 100.0f;
+    combat.raw_dodge_chance = finalDodge;
+    combat.dodge_chance = std::min(finalDodge, GameConstants::DODGE_CAP);
+    
+    float finalBlock = (combat.block_chance + calcs[static_cast<size_t>(StatType::BlockChance)].Result() / 100.0f);
+    combat.raw_block_chance = finalBlock;
+    combat.block_chance = std::min(finalBlock, GameConstants::BLOCK_CAP);
+    
     combat.life_steal += calcs[static_cast<size_t>(StatType::LifeSteal)].Result() / 100.0f;
     combat.life_on_hit += calcs[static_cast<size_t>(StatType::LifeOnHit)].Result();
-    combat.health_regen += calcs[static_cast<size_t>(StatType::HealthRegen)].Result() - 1.0f; // -1.0 because base is 1.0
+    combat.health_regen += calcs[static_cast<size_t>(StatType::HealthRegen)].Result() - 1.0f;
     combat.mana_regen += calcs[static_cast<size_t>(StatType::ManaRegen)].Result() - 1.0f;
     combat.thorns += calcs[static_cast<size_t>(StatType::Thorns)].Result();
     combat.magic_find = calcs[static_cast<size_t>(StatType::MagicFind)].Result();
@@ -632,7 +678,9 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     // 抗性
     float resAll = calcs[static_cast<size_t>(StatType::ResistAll)].Result();
     for (int i = 0; i < 6; ++i) {
-        combat.resistances[i] = (calcs[static_cast<size_t>(StatType::ResistPhysical) + i].Result() + resAll) / 100.0f;
+        float finalRes = (calcs[static_cast<size_t>(StatType::ResistPhysical) + i].Result() + resAll) / 100.0f;
+        combat.raw_resistances[i] = finalRes;
+        combat.resistances[i] = std::min(finalRes, GameConstants::RESISTANCE_CAP);
     }
 
     combat.knockback += str * 0.5f; // 力量增加击退
@@ -649,6 +697,22 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity, StatType type, Tag tags, uint32_t skill_id, entt::entity source_entity) {
     auto* combat = registry.try_get<CombatStats>(entity);
     if (!combat) return 0.0f;
+
+    // --- Cache Lookup ---
+    // Key hash: type | tags | skill_id | source_entity
+    uint64_t key = 14695981039346656037ULL;
+    auto hash_combine = [&](uint64_t val) {
+        key ^= val;
+        key *= 1099511628211ULL;
+    };
+    hash_combine(static_cast<uint64_t>(type));
+    hash_combine(static_cast<uint64_t>(tags));
+    hash_combine(static_cast<uint64_t>(skill_id));
+    hash_combine(static_cast<uint64_t>(source_entity));
+
+    if (combat->tag_stat_cache.contains(key)) {
+        return combat->tag_stat_cache.at(key);
+    }
 
     StatCalculation dynamic_calc;
     
@@ -792,7 +856,7 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
     }
 
     float result = dynamic_calc.Result();
-    
+    combat->tag_stat_cache[key] = result;
     return result;
 }
 
