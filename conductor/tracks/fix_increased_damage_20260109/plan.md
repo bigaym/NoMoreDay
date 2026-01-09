@@ -1,10 +1,10 @@
 # Plan: Fix 'Increased' Damage Multiplier Bug & Re-tune Scaling
 
-## Phase 1: Research & Reproduction
+## Phase 1: Research & Reproduction [checkpoint: baca902]
 
 - [x] Task: Review `src/systems/StatsSystem.cpp` to pinpoint the exact line where `DamageIncreased` modifiers are combined.
-- [~] Task: Create a reproduction test case in a new test file `tests/IncreasedDamageBugTest.hpp` that demonstrates the current exponential scaling (e.g., verifying that 50% + 50% equals 2.25x instead of 2.0x).
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Research & Reproduction' (Protocol in workflow.md)
+- [x] Task: Create a reproduction test case in a new test file `tests/IncreasedDamageBugTest.hpp` that demonstrates the current exponential scaling (e.g., verifying that 50% + 50% equals 2.25x instead of 2.0x). [b467295]
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Research & Reproduction' (Protocol in workflow.md)
 
 ## Phase 2: Core Logic Fix
 
