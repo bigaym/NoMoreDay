@@ -3,7 +3,7 @@
 本计划旨在分阶段实现 9 个技能的水墨风格视觉表现，并确保在高负载下的性能表现。
 
 ## Phase 1: 基础建设与水墨逻辑 (Foundation)
-- [ ] **Task: 粒子着色器扩展**
+- [x] **Task: 粒子着色器扩展** [commit: <commit_hash>]
     - 分析 `assets/shaders/particle.compute`，增加对“水墨感”（边缘羽化、淡入淡出、非线性缩放）的支持。
 - [ ] **Task: 特效辅助工具类实现**
     - 在 `src/systems/GPUParticleSystem` 中实现 `InkEffectHelper` 静态方法，用于生成淡雅墨迹、墨迹溅射和金色流光的粒子参数包。
