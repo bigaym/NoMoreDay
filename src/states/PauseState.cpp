@@ -10,6 +10,7 @@
 
 namespace NoMoreDay {
 
+    // Forced recompile marker
     PauseState::PauseState(StateManager& manager, SharedContext& context)
         : IState(manager, context) 
     {

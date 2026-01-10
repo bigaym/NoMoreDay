@@ -76,11 +76,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WeaponComponent, damage, range, cooldown, kno
 
 // 刚被击杀实体的标签组件
 
-struct KilledTag {
+    struct KilledTag {
+        entt::entity killer = entt::null;
+    };
 
-    entt::entity killer; // 造成致命一击的实体
-
-};
+    struct XPProcessedTag {}; // Marks that XP has been awarded for this entity
 
 
 

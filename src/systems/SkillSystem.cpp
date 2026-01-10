@@ -17,6 +17,8 @@
 #include "../tools/Logger.hpp"
 #include "raymath.h"
 #include <map>
+#include <algorithm>
+#include <unordered_set>
 
 namespace NoMoreDay {
 
@@ -642,7 +644,7 @@ void SkillSystem::InitHooks() {
     });
 }
 
-void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt) {
+void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt, tf::Executor* executor) {
     UpdateCooldowns(registry, dt);
     UpdateStates(registry, dt);
     UpdateSwordIntent(registry, dt);
@@ -825,21 +827,31 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
             systems::GPUParticleSystem::Get().EmitBatch(particles);
 
+            // OPTIMIZATION: Collect unique targets and skip already killed ones
+            std::vector<entt::entity> targets;
             grid.query(pos, array.radius, [&](entt::entity target) {
                 if (target == array.owner || target == entity) return;
-                if (!registry.valid(target) || !registry.all_of<HealthComponent, Position>(target)) return;
+                // Check valid, enemy, and NOT already killed
+                if (!registry.valid(target) || registry.all_of<KilledTag>(target) || !registry.all_of<EnemyTag, HealthComponent, Position>(target)) return;
 
                 const auto& tPos = registry.get<Position>(target);
                 float dx = tPos.x - pos.x;
                 float dy = tPos.y - pos.y;
                 if (dx*dx + dy*dy <= array.radius * array.radius) {
-                    // Hit!
-                    DamagePool pool;
-                    pool.Add(Tag::Physical, 10.0f); // Base array tick damage
-                    auto result = DamagePipeline::Calculate(registry, array.owner, target, 6, pool, Tag::Area | Tag::Hit);
-                    CombatSystem::ApplyDamage(registry, target, result.total_damage, array.owner, result.is_crit);
+                    targets.push_back(target);
                 }
             });
+
+            if (!targets.empty()) {
+                // Deduplicate targets list (in case SpatialGrid returns multiple hits)
+                std::sort(targets.begin(), targets.end());
+                targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
+
+                DamagePool pool;
+                pool.Add(Tag::Physical, 10.0f); 
+                DamagePipeline::CalculateBatch(registry, array.owner, targets, 6, pool, Tag::Area | Tag::Hit, entity, executor);
+            }
+            
             array.damage_timer = array.damage_interval;
         }
     }

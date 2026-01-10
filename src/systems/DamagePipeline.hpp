@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <entt/entt.hpp>
+#include <taskflow/taskflow.hpp>
 #include "../components/SkillSystem.hpp"
 #include "../components/Stats.hpp"
 
@@ -35,8 +36,31 @@ public:
         bool is_simulation = false
     );
 
+    /**
+     * @brief Optimized batch calculation for many targets.
+     */
+    static void CalculateBatch(
+        entt::registry& registry,
+        entt::entity attacker,
+        const std::vector<entt::entity>& defenders,
+        uint32_t skill_id,
+        const DamagePool& base_pool,
+        Tag additional_tags,
+        entt::entity source_entity = entt::null,
+        tf::Executor* executor = nullptr
+    );
+
 private:
-    // Step 2: Conversion & Gain Extra
+    struct AttackerSnapshot {
+        std::array<float, 6> base_damage; // After Inc/More/Conversion
+        float crit_chance;
+        float crit_damage;
+        float armor_pen;
+        Tag hit_tags;
+    };
+
+    static AttackerSnapshot CreateSnapshot(entt::registry& registry, entt::entity attacker, uint32_t skill_id, const DamagePool& base_pool, Tag hit_tags, entt::entity source_entity);
+
     static DamagePool ApplyConversion(const DamagePool& pool, const std::vector<DamageModifier>& mods);
 
     // Step 3 & 4: Apply Inc and More

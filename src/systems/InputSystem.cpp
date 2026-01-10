@@ -6,7 +6,7 @@
 #include "UIAstrolabe.hpp"
 #include "SkillSystem.hpp"
 
-using namespace NoMoreDay;
+namespace NoMoreDay {
 
 // --- Click-to-move state ---
 // 这是一个适用于单人游戏的简单解决方案。
@@ -131,3 +131,5 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
         }
     }
 }
+
+} // namespace NoMoreDay

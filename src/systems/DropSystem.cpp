@@ -14,13 +14,115 @@ namespace NoMoreDay {
 
 static std::mt19937 g_drop_rng(std::random_device{}());
 
+// Static member initialization
+std::queue<PendingDrop> DropSystem::s_pendingDrops;
+
 void DropSystem::update(entt::registry& registry, int areaLevel) {
     auto view = registry.view<KilledTag, DropTableComponent, Position>();
 
+    // 1. Move killed entities into the pending queue and remove the tags so they don't get processed twice
     for (auto entity : view) {
         const auto& killedTag = view.get<KilledTag>(entity);
-        GenerateDrops(registry, killedTag.killer, entity, areaLevel);
-    } // 遍历所有被击杀的实体
+        const auto& table = view.get<DropTableComponent>(entity);
+        const auto& pos = view.get<Position>(entity);
+
+        PendingDrop pending;
+        pending.killer = killedTag.killer;
+        pending.pos = { pos.x, pos.y };
+        pending.poolId = table.poolId;
+        pending.tableMinRolls = table.minRolls;
+        pending.tableMaxRolls = table.maxRolls;
+        pending.dropChance = table.dropChance;
+        pending.areaLevel = areaLevel;
+
+        // If victim has extra rarity, we should ideally snapshot it too.
+        // For simplicity, we add rarity bonus rolls if it's an elite/boss here.
+        if (auto* rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
+            if (rarityComp->rarity == EnemyRarityComponent::ELITE) pending.tableMaxRolls += 1;
+            else if (rarityComp->rarity == EnemyRarityComponent::BOSS) pending.tableMaxRolls += 3;
+        }
+
+        s_pendingDrops.push(pending);
+
+        // Remove the DropTableComponent so we don't enqueue it again next frame
+        registry.remove<DropTableComponent>(entity);
+    }
+
+    // 2. Process a limited number of drops from the queue
+    int processedCount = 0;
+    while (!s_pendingDrops.empty() && processedCount < MAX_DROPS_PER_FRAME) {
+        const auto& pending = s_pendingDrops.front();
+        
+        // Find pool
+        const LootPool* pool = ItemFactory::getLootPool(pending.poolId);
+        if (!pool) pool = ItemFactory::getLootPool(0);
+
+        if (pool && !pool->entries.empty()) {
+             // Roll on the pool (simplified GenerateDrops logic)
+            std::uniform_int_distribution<int> rollDist(pending.tableMinRolls, pending.tableMaxRolls);
+            int rolls = rollDist(g_drop_rng);
+
+            for (int i = 0; i < rolls; ++i) {
+                std::uniform_real_distribution<float> chanceDist(0.0f, 1.0f);
+                if (chanceDist(g_drop_rng) > pending.dropChance) continue;
+
+                std::uniform_real_distribution<float> weightDist(0.0f, pool->totalWeight);
+                float roll = weightDist(g_drop_rng);
+                float currentWeight = 0.0f;
+                
+                for (const auto& entry : pool->entries) {
+                    currentWeight += entry.weight;
+                    if (roll <= currentWeight) {
+                        if (entry.type == LootEntryType::Item) {
+                            // Create item via factory
+                            auto item = ItemFactory::createRandomLoot(registry, pending.areaLevel, 0.0f); // Simplification: MF boost should be snapshotted
+                            registry.emplace_or_replace<Position>(item, pending.pos.x, pending.pos.y);
+                            registry.emplace<LocalLevelTag>(item);
+                            
+                            // Visual Effect & Filter
+                            auto effect = registry.create();
+                            registry.emplace<Position>(effect, pending.pos.x, pending.pos.y);
+                            VisualEffect vEffect;
+                            vEffect.type = VisualEffectType::DropPillar;
+                            vEffect.lifeTime = 0.5f;
+                            vEffect.color = WHITE;
+
+                            if (auto* ic = registry.try_get<ItemComponent>(item)) {
+                                switch(ic->rarity) {
+                                    case Rarity::Magic: vEffect.color = SKYBLUE; break;
+                                    case Rarity::Rare: vEffect.color = YELLOW; break;
+                                    case Rarity::Legendary: vEffect.color = ORANGE; vEffect.lifeTime = 1.0f; break;
+                                    default: vEffect.color = WHITE; break;
+                                }
+                                
+                                auto filterAction = LootFilter::evaluate(*ic, pending.areaLevel);
+                                if (filterAction.type == FilterActionType::HIDE) {
+                                    registry.emplace<LootFilterResultComponent>(item).visible = false;
+                                } else if (filterAction.type == FilterActionType::EMPHASIZE) {
+                                    auto& res = registry.emplace<LootFilterResultComponent>(item);
+                                    res.color = filterAction.colorOverride.value_or(RED);
+                                    vEffect.color = res.color;
+                                }
+                            }
+                            registry.emplace<VisualEffect>(effect, vEffect);
+                        } else if (entry.type == LootEntryType::Gold) {
+                            std::uniform_int_distribution<uint32_t> amountDist(entry.minAmount, entry.maxAmount);
+                            uint32_t amount = amountDist(g_drop_rng);
+                            if (amount > 0) {
+                                auto gold = registry.create();
+                                registry.emplace<Position>(gold, pending.pos.x, pending.pos.y);
+                                registry.emplace<GoldComponent>(gold, amount);
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        
+        s_pendingDrops.pop();
+        processedCount++;
+    }
 }
 
 void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, entt::entity victim, int areaLevel) {

@@ -1,6 +1,7 @@
 #pragma once
 #include "entt/entt.hpp"
 #include <functional>
+#include <taskflow/taskflow.hpp>
 #include "raylib.h"
 #include "../core/TagRegistry.hpp"
 #include "../components/SkillSystem.hpp"
@@ -35,7 +36,7 @@ public:
     using CastCallback = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
     using SkillHook = std::function<void(entt::registry&, entt::entity, SkillExecution&)>;
 
-    static void Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt);
+    static void Update(entt::registry& registry, systems::SpatialHashGrid& grid, float dt, tf::Executor* executor = nullptr);
     
     /**
      * @brief Attempt to cast a skill from a specific slot.

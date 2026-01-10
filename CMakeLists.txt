@@ -29,7 +29,11 @@ set(TF_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(TF_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/taskflow)
 
-# 5. nlohmann/json
+# 5. XTL & XSIMD
+add_subdirectory(third_party/xtl)
+add_subdirectory(third_party/xsimd)
+
+# 6. nlohmann/json
 
 # --- Tag Generation ---
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
@@ -132,6 +136,7 @@ target_link_libraries(NoMoreDayCore
     spdlog::spdlog 
     EnTT::EnTT 
     Taskflow
+    xsimd
 )
 
 # Header-only libraries include paths

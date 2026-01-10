@@ -22,7 +22,9 @@ public:
     /**
      * @brief 对实体施加伤害，处理生命值减少和潜在的死亡。
      * @param attacker 造成伤害的可选实体（用于击杀奖励）。
+     * @param isCrit 是否为暴击（用于显示数字和特效）。
+     * @param showVFX 是否显示受击特效粒子。
      * @return 如果实体死亡（生命值 <= 0）则返回 true，否则返回 false。
      */
-    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null, bool isCrit = false);
+    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null, bool isCrit = false, bool showVFX = true);
 };

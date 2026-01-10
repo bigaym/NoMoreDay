@@ -3,6 +3,7 @@
 #include "GPUParticleSystem.hpp"
 #include "GPUEntitySystem.hpp"
 #include "GPUFlowFieldSystem.hpp"
+#include "DamagePopupManager.hpp"
 #include "../components/Common.hpp"
 #include "../components/EffectComponent.hpp"
 #include "../components/ItemComponent.hpp"
@@ -403,4 +404,7 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         // Draw Grid Bounds
         DrawRectangleLines(origin.x, origin.y, width * cellSize, height * cellSize, RED);
     }
+
+    // 7. 高性能伤害飘字
+    NoMoreDay::DamagePopupManager::Get().Draw();
 }

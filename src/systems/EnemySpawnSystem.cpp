@@ -194,6 +194,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry& registry, EnemySpawnData& data
     registry.emplace<EnemyStateComponent>(entity, raceType, archType);
     registry.emplace<EnemyTag>(entity);
     auto& cStats = registry.emplace<NoMoreDay::CombatStats>(entity); 
+    registry.emplace<NoMoreDay::StatsDirty>(entity); // Trigger initial calculation
     auto& aState = registry.emplace<NoMoreDay::AttackState>(entity);
     
     EnemyRace raceDef(raceType);

@@ -17,6 +17,8 @@ public:
         auto view = registry.view<CombatStats>();
         
         for (auto entity : view) {
+            if (registry.all_of<KilledTag>(entity)) continue; // Don't regenerate dead things
+            
             auto& stats = view.get<CombatStats>(entity);
             bool isPlayer = registry.all_of<PlayerTag>(entity);
             

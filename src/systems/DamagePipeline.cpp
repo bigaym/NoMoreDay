@@ -1,4 +1,6 @@
 #include "DamagePipeline.hpp"
+#include "CombatSystem.hpp"
+#include <xsimd/xsimd.hpp>
 #include <algorithm>
 #include <cmath>
 #include <bit>
@@ -338,6 +340,150 @@ DamageResult DamagePipeline::Calculate(
 
     result.total_damage = total_final_damage;
     return result;
+}
+
+DamagePipeline::AttackerSnapshot DamagePipeline::CreateSnapshot(entt::registry& registry, entt::entity attacker, uint32_t skill_id, const DamagePool& base_pool, Tag hit_tags, entt::entity source_entity) {
+    AttackerSnapshot snap;
+    snap.hit_tags = hit_tags;
+
+    // We run a "simulation" calculation on a dummy target to get the attacker's final output per type
+    // This is a bit of a hack but it reuse the existing complex logic of Calculate()
+    DamageResult res = Calculate(registry, attacker, entt::null, skill_id, base_pool, hit_tags, source_entity, true);
+    
+    for(int i=0; i<6; ++i) snap.base_damage[i] = res.final_pool.values[i];
+    
+    auto* stats = registry.try_get<CombatStats>(attacker);
+    snap.crit_chance = stats ? stats->crit_chance : 0.0f;
+    snap.crit_damage = stats ? stats->crit_damage : 1.5f;
+    snap.armor_pen = stats ? stats->armor_pen : 0.0f; // Simplified for now, should use GetStatWithTags if possible
+
+    return snap;
+}
+
+void DamagePipeline::CalculateBatch(
+    entt::registry& registry,
+    entt::entity attacker,
+    const std::vector<entt::entity>& defenders,
+    uint32_t skill_id,
+    const DamagePool& base_pool,
+    Tag additional_tags,
+    entt::entity source_entity,
+    tf::Executor* executor
+) {
+    if (defenders.empty()) return;
+
+    const auto* skill_data = SkillRegistry::Get().GetSkill(skill_id);
+    Tag combined_tags = (skill_data ? skill_data->tags : Tag::None) | additional_tags;
+    
+    // 1. Snapshot Attacker
+    AttackerSnapshot snap = CreateSnapshot(registry, attacker, skill_id, base_pool, combined_tags, source_entity);
+
+    struct BatchResult {
+        entt::entity target = entt::null;
+        float damage = 0.0f;
+        bool is_crit = false;
+    };
+    std::vector<BatchResult> results(defenders.size());
+
+    auto process_range = [&](size_t start, size_t end) {
+        using batch_type = xsimd::batch<float>;
+        size_t inc = batch_type::size;
+
+        for (size_t i = start; i < end; ) {
+            if (i + inc <= end) {
+                std::array<float, batch_type::size> res_batch_data;
+                std::array<float, batch_type::size> armor_batch_data;
+                std::array<float, batch_type::size> final_dmg_sum;
+                final_dmg_sum.fill(0.0f);
+
+                for (int j = 0; j < 6; ++j) {
+                    float base_amt = snap.base_damage[j];
+                    if (base_amt <= 0.0f) continue;
+
+                    for (size_t k = 0; k < inc; ++k) {
+                        auto* ds = registry.try_get<CombatStats>(defenders[i + k]);
+                        res_batch_data[k] = ds ? ds->resistances[j] : 0.0f;
+                        armor_batch_data[k] = (j == 0 && ds) ? ds->armor : 0.0f;
+                    }
+
+                    auto amt_v = batch_type(base_amt);
+                    auto raw_res_v = batch_type::load_unaligned(res_batch_data.data());
+                    // Robust clamp via select to avoid namespace issues with min/max
+                    auto res_v = xsimd::select(raw_res_v > batch_type(0.75f), batch_type(0.75f), 
+                                 xsimd::select(raw_res_v < batch_type(-1.0f), batch_type(-1.0f), raw_res_v));
+                    auto current_v = amt_v * (batch_type(1.0f) - res_v);
+
+                    if (j == 0) {
+                        auto pen_v = batch_type(snap.armor_pen);
+                        auto eff_armor_v = batch_type::load_unaligned(armor_batch_data.data()) - pen_v;
+                        auto positive_mask = eff_armor_v >= batch_type(0.0f);
+                        auto pos_mult = batch_type(100.0f) / (batch_type(100.0f) + eff_armor_v);
+                        auto neg_mult = batch_type(2.0f) - (batch_type(100.0f) / (batch_type(100.0f) - eff_armor_v));
+                        current_v *= xsimd::select(positive_mask, pos_mult, neg_mult);
+                    }
+                    auto sum_v = batch_type::load_unaligned(final_dmg_sum.data()) + current_v;
+                    sum_v.store_unaligned(final_dmg_sum.data());
+                }
+
+                for (size_t k = 0; k < inc; ++k) {
+                    auto* ds = registry.try_get<CombatStats>(defenders[i + k]);
+                    float dr = ds ? ds->damage_reduction : 0.0f;
+                    float damage = final_dmg_sum[k] * (1.0f - std::min(0.9f, dr));
+                    bool is_crit = (snap.crit_chance > 0.0f && (GetRandomValue(0, 10000) / 100.0f < snap.crit_chance));
+                    results[i + k] = { defenders[i + k], is_crit ? (damage * snap.crit_damage) : damage, is_crit };
+                }
+                i += inc;
+            } else {
+                auto defender = defenders[i];
+                if (registry.valid(defender)) {
+                    auto* def_stats = registry.try_get<CombatStats>(defender);
+                    // Use defaults if stats are missing to avoid "invincible" bugs
+                    float final_damage = 0.0f;
+                    float dr = def_stats ? def_stats->damage_reduction : 0.0f;
+                    float armor = def_stats ? def_stats->armor : 0.0f;
+
+                    for (int j = 0; j < 6; ++j) {
+                        float amt = snap.base_damage[j];
+                        if (amt <= 0.0f) continue;
+                        float res = def_stats ? std::clamp(def_stats->resistances[j], -1.0f, 0.75f) : 0.0f;
+                        float after_res = amt * (1.0f - res);
+                        if (j == 0) {
+                            float effective_armor = armor - snap.armor_pen;
+                            float armor_mult = (effective_armor >= 0.0f) ? (100.0f / (100.0f + effective_armor)) : (2.0f - (100.0f / (100.0f - effective_armor)));
+                            after_res *= armor_mult;
+                        }
+                        final_damage += after_res;
+                    }
+                    final_damage *= (1.0f - std::min(0.9f, dr));
+                    bool is_crit = (snap.crit_chance > 0.0f && (GetRandomValue(0, 10000) / 100.0f < snap.crit_chance));
+                    results[i] = { defender, is_crit ? (final_damage * snap.crit_damage) : final_damage, is_crit };
+                }
+                i++;
+            }
+        }
+    };
+
+    // 2. Execution
+    if (executor && defenders.size() >= 32) {
+        // Parallel Math
+        tf::Taskflow taskflow;
+        size_t grainSize = 32;
+        for (size_t i = 0; i < defenders.size(); i += grainSize) {
+            size_t start = i;
+            size_t end = std::min(i + grainSize, defenders.size());
+            taskflow.emplace([=]() { process_range(start, end); });
+        }
+        executor->run(taskflow).wait();
+    } else {
+        process_range(0, defenders.size());
+    }
+
+    // 3. Serial Commit (Main Thread Safe)
+    for (const auto& res : results) {
+        if (res.target != entt::null) {
+            CombatSystem::ApplyDamage(registry, res.target, res.damage, attacker, res.is_crit);
+        }
+    }
 }
 
 DamagePool DamagePipeline::ApplyConversion(const DamagePool& pool, const std::vector<DamageModifier>& mods) {

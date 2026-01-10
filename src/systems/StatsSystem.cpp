@@ -234,13 +234,17 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
     std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs; // 初始化计算数组
     
-    // 使用默认值初始化 (玩家默认值)
-    calcs[static_cast<size_t>(StatType::MaxHealth)].base = GameConstants::DEFAULT_MAX_HEALTH;
-    calcs[static_cast<size_t>(StatType::MaxMana)].base = GameConstants::DEFAULT_MAX_MANA;
+    // Determine base values (Players use test defaults, others use sane minimums)
+    bool isPlayer = registry.all_of<PlayerTag>(entity);
+    float base_hp = isPlayer ? GameConstants::DEFAULT_MAX_HEALTH : 1.0f;
+    float base_mana = isPlayer ? GameConstants::DEFAULT_MAX_MANA : 1.0f;
+
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base = base_hp;
+    calcs[static_cast<size_t>(StatType::MaxMana)].base = base_mana;
     calcs[static_cast<size_t>(StatType::MoveSpeed)].base = GameConstants::DEFAULT_MOVE_SPEED;
     calcs[static_cast<size_t>(StatType::Armor)].base = 0.0f;
     
-    // 如果是敌人，应用敌人种族基础属性
+    // 如果是敌人，应用敌人种族基础属性覆盖 base_hp
     if (auto* enemy = registry.try_get<EnemyStateComponent>(entity)) {
         EnemyRace race(enemy->raceType);
         calcs[static_cast<size_t>(StatType::MaxHealth)].base = race.baseHP;
@@ -696,15 +700,15 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
     // Synchronize with HealthComponent if present
     if (auto* hp = registry.try_get<HealthComponent>(entity)) {
-        float old_max = hp->max;
         hp->max = combat.max_health;
         
-        // If it's the first time or max increased, maybe adjust current?
-        // For now, just clamp current to the new max
+        // Ensure current health doesn't exceed new max
         if (hp->current > hp->max) {
             hp->current = hp->max;
         }
-        // If max health increased, should we heal? Usually RPGs don't heal automatically unless it's a level up.
+        
+        // Sync visual value for UI
+        combat.health = hp->current;
     }
 }
 

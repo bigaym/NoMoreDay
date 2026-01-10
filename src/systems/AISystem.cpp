@@ -320,11 +320,44 @@ void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashG
 
     auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>();
     
+    // Static frame counter for round-robin updating
+    static uint32_t frameCounter = 0;
+    frameCounter++;
+
     for (auto entity : aiView) {
         auto& ai = aiView.get<AIComponent>(entity);
         auto& pos = aiView.get<Position>(entity);
         auto& vel = aiView.get<Velocity>(entity);
         
-        updateAIEntity(registry, entity, ai, pos, vel, grid, mapSystem, playerPos, field, origin, gridW, gridH, cellSize, dt);
+        // --- OPTIMIZATION: AI Throttling based on distance ---
+        float dx = pos.x - playerPos.x;
+        float dy = pos.y - playerPos.y;
+        float distSq = dx*dx + dy*dy;
+
+        // 1. Culling: Very far enemies stop AI completely (e.g., > 1200 units)
+        if (distSq > 1200.0f * 1200.0f) {
+            vel.vx = 0; vel.vy = 0;
+            continue;
+        }
+
+        // 2. Frequency Throttling:
+        // - Close (< 400): Every frame (full response)
+        // - Medium (400 - 800): Every 2 frames
+        // - Far (> 800): Every 5 frames
+        bool shouldUpdate = true;
+        if (distSq > 800.0f * 800.0f) {
+            shouldUpdate = (frameCounter % 5 == (uint32_t)entity % 5);
+        } else if (distSq > 400.0f * 400.0f) {
+            shouldUpdate = (frameCounter % 2 == (uint32_t)entity % 2);
+        }
+
+        if (shouldUpdate) {
+            // Pass a scaled dt to compensate for lower frequency? 
+            // Actually, for AI decision logic, we just need to tick the state.
+            updateAIEntity(registry, entity, ai, pos, vel, grid, mapSystem, playerPos, field, origin, gridW, gridH, cellSize, dt);
+        } else {
+            // Optional: Continue moving in previous velocity to avoid "stuttering"
+            // vel.vx *= 0.95f; vel.vy *= 0.95f; 
+        }
     }
 }

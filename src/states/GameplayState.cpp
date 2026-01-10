@@ -19,6 +19,7 @@
 #include "../systems/UISystem.hpp"
 #include "../systems/UIMinimap.hpp"
 #include "../systems/UICharacter.hpp"
+#include "../systems/DamagePopupManager.hpp"
 #include "../systems/DropSystem.hpp"
 #include "../systems/XPAwardingSystem.hpp"
 #include "../systems/InventorySystem.hpp"
@@ -252,7 +253,8 @@ namespace NoMoreDay {
         DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);
-        SkillSystem::Update(registry, m_spatialGrid, dt);
+        // Update Skill System
+        SkillSystem::Update(registry, m_spatialGrid, dt, m_context->executor);
         MovementStanceSystem::Update(registry, dt);
         ProjectileSystem::Update(registry, m_spatialGrid, dt);
         

@@ -1,6 +1,6 @@
 #include "CombatSystem.hpp"
 #include "EffectSystem.hpp"
-#include "RenderSystem.hpp" // Added
+#include "RenderSystem.hpp" 
 #include <cmath>
 #include "../tools/Logger.hpp"
 #include "../components/EffectComponent.hpp"
@@ -13,6 +13,9 @@
 #include "MovementStanceSystem.hpp"
 #include "SkillSystem.hpp"
 #include "../utils/PhysicsUtils.hpp"
+
+// Static member initialization
+// (Assuming any static members are here or removed if not needed)
 
 void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const Camera2D& camera, float dt) {
     // LOG_TRACE("CombatSystem::update: 处理战斗逻辑");
@@ -395,7 +398,7 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
     return std::max(0.0f, damage);
 }
 
-bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker, bool isCrit) {
+bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker, bool isCrit, bool showVFX) {
     if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) {
         return false;
     }
@@ -430,10 +433,17 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
     NoMoreDay::MovementStanceSystem::OnTakeDamage(registry, target);
 
     auto& hp = registry.get<HealthComponent>(target);
+    
+    // 如果已经打上了死亡标记，直接返回（防止重复结算和回血复活后的逻辑干扰）
+    if (registry.all_of<KilledTag>(target)) {
+        hp.current = 0.0f; // 强制锁定
+        return true;
+    }
+
     hp.current -= amount;
 
-    // --- NEW: Unified Damage Popup ---
-    if (registry.all_of<Position>(target)) {
+    // --- Unified Damage Popup (Gated by showVFX for performance) ---
+    if (showVFX && registry.all_of<Position>(target)) {
         const auto& tPos = registry.get<Position>(target);
         EffectSystem::EmitDamagePopup(registry, {tPos.x, tPos.y}, amount, isCrit);
         
@@ -443,42 +453,25 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
         }
     }
 
-    // Apply Hurt Debuff
-    if (hp.current > 0) {
-        auto& effects = registry.get_or_emplace<NoMoreDay::ActiveEffectsComponent>(target);
-        NoMoreDay::BuffEffect hurt;
-        hurt.id = "hurt";
-        hurt.name = "受伤";
-        hurt.description = "受到伤害，防御降低";
-        hurt.type = NoMoreDay::BuffType::Hurt;
-        hurt.duration = 2.0f;
-        hurt.remaining = 2.0f;
-        hurt.stacks = 1;
-        hurt.max_stacks = 3;
-        hurt.is_debuff = true;
-        hurt.modifiers.push_back({ NoMoreDay::StatType::Armor, NoMoreDay::ModifierMode::PercentAdd, -10.0f }); // -10% Armor per stack
-        effects.AddOrRefresh(hurt);
-        registry.get_or_emplace<NoMoreDay::StatsDirty>(target);
-    }
-
     if (hp.current <= 0) {
-        if (registry.all_of<KilledTag>(target)) {
-            return true;
-        }
-
-        LOG_INFO("Entity {} destroyed", (uint32_t)target);
+        hp.current = 0.0f; // 锁定生命值为0
         
-        // 处理击杀奖励
+        // --- OPTIMIZATION: Immediate Logical and Visual Removal ---
+        // 立即移除战斗标签，使其无法被后续技能搜寻到
+        if (registry.all_of<EnemyTag>(target)) registry.remove<EnemyTag>(target);
+        if (registry.all_of<AIComponent>(target)) registry.remove<AIComponent>(target);
+        if (registry.all_of<SpriteComponent>(target)) registry.remove<SpriteComponent>(target);
+
+        // 标记实体为已击杀。注意：在实体被销毁前，此标签严禁移除！
+        registry.emplace<KilledTag>(target, attacker);
+
+        // 处理击杀奖励 (Moved relevant parts to XPAwardingSystem)
+        // Note: Actual item dropping is handled by DropSystem
         if (registry.valid(attacker) && registry.all_of<PlayerStats>(attacker)) {
             auto& playerStats = registry.get<PlayerStats>(attacker);
             playerStats.killCount++;
-            LOG_TRACE("Player {} kill count: {}", (uint32_t)attacker, playerStats.killCount);
         }
 
-        // 标记实体为已击杀，用于经验奖励和其他死亡后处理
-        registry.emplace<KilledTag>(target, attacker);
-
-        // registry.destroy(target); // Defer actual destruction to XPAwardingSystem or similar
         return true;
     }
 
