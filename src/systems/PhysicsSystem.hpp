@@ -3,6 +3,9 @@
 #include "../components/Common.hpp"
 #include "SpatialGrid.hpp"
 
+// Fwd decl
+namespace tf { class Executor; }
+
 class PhysicsSystem {
 public:
     // Phase 1: 解决碰撞与计算受力 (线程安全: 读 Position, 写 Velocity)
@@ -15,5 +18,5 @@ public:
                              float dt, int worldWidth, int worldHeight);
 
     // Update all entities sequentially (fallback or simple usage)
-    static void updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid);
+    static void updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid, tf::Executor* executor = nullptr);
 };

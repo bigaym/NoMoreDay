@@ -9,6 +9,7 @@
 #include "../core/SkillRegistry.hpp"
 #include "../components/Common.hpp"
 #include "StatsSystem.hpp"
+#include "../utils/ThreadSafeRandom.hpp"
 
 namespace NoMoreDay {
 
@@ -287,7 +288,7 @@ DamageResult DamagePipeline::Calculate(
                      // Expected = 1 * (1-P) + Mult * P = 1 + P * (Mult - 1)
                      crit_mult = 1.0f + chance * (dmg_mult - 1.0f);
                  } else {
-                     if ((GetRandomValue(0, 10000) / 100.0f) < crit_chance) {
+                     if ((utils::ThreadSafeRandom::GetFloat01()) < (crit_chance / 100.0f)) {
                          is_crit = true;
                      }
                  }
@@ -432,7 +433,7 @@ void DamagePipeline::CalculateBatch(
                     auto* ds = registry.try_get<CombatStats>(defenders[i + k]);
                     float dr = ds ? ds->damage_reduction : 0.0f;
                     float damage = final_dmg_sum[k] * (1.0f - std::min(0.9f, dr));
-                    bool is_crit = (snap.crit_chance > 0.0f && (GetRandomValue(0, 10000) / 100.0f < snap.crit_chance));
+                    bool is_crit = (snap.crit_chance > 0.0f && (utils::ThreadSafeRandom::GetFloat01() < (snap.crit_chance / 100.0f)));
                     results[i + k] = { defenders[i + k], is_crit ? (damage * snap.crit_damage) : damage, is_crit };
                 }
                 i += inc;
@@ -458,7 +459,7 @@ void DamagePipeline::CalculateBatch(
                         final_damage += after_res;
                     }
                     final_damage *= (1.0f - std::min(0.9f, dr));
-                    bool is_crit = (snap.crit_chance > 0.0f && (GetRandomValue(0, 10000) / 100.0f < snap.crit_chance));
+                    bool is_crit = (snap.crit_chance > 0.0f && (utils::ThreadSafeRandom::GetFloat01() < (snap.crit_chance / 100.0f)));
                     results[i] = { defender, is_crit ? (final_damage * snap.crit_damage) : final_damage, is_crit };
                 }
                 i++;

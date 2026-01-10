@@ -64,15 +64,52 @@ void PhysicsSystem::updatePosition(entt::entity entity, Position& pos, Velocity&
     }
 }
 
-void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid) {
+#include <taskflow/taskflow.hpp>
+#include <taskflow/algorithm/for_each.hpp>
+
+void PhysicsSystem::updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid, tf::Executor* executor) {
     using namespace NoMoreDay;
 
     auto view = registry.view<Position, Velocity>();
-    view.each([dt, screenWidth, screenHeight, &grid, &registry](auto entity, auto& pos, auto& vel) {
+    
+    // 1. Collect entities for parallel processing
+    // EnTT views are not random access, so we can't directly partition them for Taskflow efficiently without extraction.
+    std::vector<entt::entity> entities;
+    entities.reserve(view.size_hint()); 
+    for(auto entity : view) {
+        entities.push_back(entity);
+    }
+
+    auto process_collision = [&](entt::entity entity) {
         if (registry.any_of<PlayerTag, EnemyTag>(entity)) {
+            auto [pos, vel] = view.get<Position, Velocity>(entity);
             resolveCollisions(entity, pos, vel, grid, registry, dt);
         }
-                updatePosition(entity, pos, vel, dt, screenWidth, screenHeight);
-            });
+    };
+
+    auto process_integration = [&](entt::entity entity) {
+        auto [pos, vel] = view.get<Position, Velocity>(entity);
+        updatePosition(entity, pos, vel, dt, screenWidth, screenHeight);
+    };
+
+    if (executor && !entities.empty()) {
+        tf::Taskflow tf;
+        
+        // Phase 1: Collision Resolution (Writes to Velocity)
+        auto t1 = tf.for_each(entities.begin(), entities.end(), process_collision);
+        
+        // Phase 2: Integration (Reads Velocity, Writes Position)
+        auto t2 = tf.for_each(entities.begin(), entities.end(), process_integration);
+        
+        t1.precede(t2);
+        
+        executor->run(tf).wait();
+    } else {
+        // Serial Fallback
+        for(auto entity : entities) {
+            process_collision(entity);
+            process_integration(entity);
         }
+    }
+}
         
