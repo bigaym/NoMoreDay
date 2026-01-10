@@ -7,66 +7,20 @@ in vec2 vTexCoord;
 out vec4 finalColor;
 
 void main() {
-    vec2 center = vec2(0.5, 0.5);
-    float dist = distance(vTexCoord, center);
-    vec4 col = fragColor;
+    float d = distance(vTexCoord, vec2(0.5));
+    float alpha = fragColor.a;
 
-    // Check lowest 3 bits for shape type (0-7)
-    uint shapeType = vFlags & 0x7u;
-
-    if (shapeType == 0u) {
-        // Soft Circle (Glow)
-        // Smoothstep from 0.5 down to 0.0
-        float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-        // Exponential falloff for glow
-        alpha = pow(alpha, 1.5);
-        col.a *= alpha;
-    } 
-    else if (shapeType == 1u) {
-        // Hard Square
-        // Just use full quad, maybe small border?
-        // No modification needed
-    }
-    else if (shapeType == 2u) {
-        // Spark / Diamond
-        float d = abs(vTexCoord.x - 0.5) + abs(vTexCoord.y - 0.5);
-        float alpha = 1.0 - smoothstep(0.0, 0.5, d);
-        col.a *= alpha;
-    }
-    else if (shapeType == 3u) {
-        // Ring
-        float d = abs(dist - 0.35); // Ring at 0.35 radius
-        float alpha = 1.0 - smoothstep(0.0, 0.15, d);
-        col.a *= alpha;
-    }
-    else if (shapeType == 4u) {
-        // Star (4-point)
-        // Distance to axes
-        float d = min(abs(vTexCoord.x - 0.5), abs(vTexCoord.y - 0.5));
-        // Fade out as we go away from center
-        float core = 1.0 - smoothstep(0.0, 0.5, dist);
-        float ray = 1.0 - smoothstep(0.0, 0.05, d); 
-        col.a *= max(core, ray * (1.0 - dist*2.0));
-    }
-    else if (shapeType == 5u) {
-        // Ink Splat / Cloud
-        // Simple procedural noise for irregular edge
-        vec2 d = vTexCoord - center;
-        float angle = atan(d.y, d.x);
-        
-        // Pseudo-random irregularity (3 frequencies for more detail)
-        float noise = sin(angle * 5.0) * 0.1 + 
-                      sin(angle * 13.0) * 0.05 + 
-                      sin(angle * 23.0) * 0.02;
-        
-        float r = length(d);
-        float limit = 0.4 + noise;
-        
-        // Soft edge
-        float alpha = 1.0 - smoothstep(limit - 0.1, limit, r);
-        col.a *= alpha;
+    // Different shapes based on flags
+    if (vFlags == 2) { // Spark / Diamond
+        float spark = 1.0 - (abs(vTexCoord.x - 0.5) + abs(vTexCoord.y - 0.5)) * 2.0;
+        alpha *= clamp(spark * 2.0, 0.0, 1.0);
+    } else if (vFlags == 13 || vFlags == 5) { // Ink Splat / Soft Glow
+        alpha *= smoothstep(0.5, 0.2, d);
+    } else { // Default Circle
+        alpha *= smoothstep(0.5, 0.45, d);
     }
 
-    if (col.a < 0.01) discard;
-    finalColor = col;
+    if (alpha < 0.01) discard;
+
+    finalColor = vec4(fragColor.rgb, alpha);
 }

@@ -695,7 +695,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.health_regen *= (1.0f + combat.health_regen_pct);
     combat.mana_regen *= (1.0f + combat.mana_regen_pct);
 
-    LOG_INFO("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
+    LOG_DEBUG("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
         (uint32_t)entity, combat.min_weapon_damage, combat.max_weapon_damage, 
         str, combat.max_health);
 

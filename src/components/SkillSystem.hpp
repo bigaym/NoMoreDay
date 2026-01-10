@@ -351,6 +351,7 @@ struct ChannelingComponent {
     float tick_timer = 0.0f;
     Vector2 target_pos;
     bool is_empowered = false;
+    float total_duration = 0.0f;
 };
 
 } // namespace NoMoreDay

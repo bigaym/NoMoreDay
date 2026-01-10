@@ -12,10 +12,21 @@ struct Particle {
     float scale;
     uint flags;
     float growthRate;
+    float pad[4]; 
 };
 
-layout(std430, binding = 0) buffer ParticleBuffer {
-    Particle particles[];
+// Double-Buffer Bindings
+layout(std430, binding = 10) buffer InputBuffer {
+    Particle inParticles[];
+};
+
+layout(std430, binding = 11) buffer OutputBuffer {
+    Particle outParticles[];
+};
+
+// Atomic counter for compaction
+layout(std430, binding = 12) buffer AtomicBuffer {
+    uint aliveCount;
 };
 
 uniform float dt;
@@ -25,27 +36,25 @@ void main() {
     uint id = gl_GlobalInvocationID.x;
     if (id >= maxParticles) return;
 
-    if (particles[id].lifetime > 0.0) {
-        // Update velocity with acceleration
-        particles[id].velocity += particles[id].acceleration * dt;
+    Particle p = inParticles[id];
 
-        // Update position
-        particles[id].position += particles[id].velocity * dt;
+    if (p.lifetime > 0.0) {
+        // Physics logic (Minimal & Fast)
+        p.velocity += p.acceleration * dt;
+        p.velocity *= (1.0 - 0.5 * dt); // Minimal drag
+        p.position += p.velocity * dt;
         
-        // Apply simple air resistance/damping (Drag)
-        // Can make this flag dependent later
-        particles[id].velocity *= pow(0.95, dt * 60.0); 
+        p.scale += p.growthRate * dt;
+        if (p.scale < 0.0) p.scale = 0.0;
 
-        // Update scale (using growthRate)
-        particles[id].scale += particles[id].growthRate * dt;
-        if (particles[id].scale < 0.0) particles[id].scale = 0.0;
+        p.lifetime -= dt;
 
-        // Update lifetime
-        particles[id].lifetime -= dt;
-
-        if (particles[id].lifetime <= 0.0) {
-            particles[id].lifetime = 0.0;
-            particles[id].scale = 0.0;
+        // If still alive, compact it into the OutputBuffer
+        if (p.lifetime > 0.0 && p.scale > 0.01) {
+            uint destIdx = atomicAdd(aliveCount, 1);
+            if (destIdx < maxParticles) {
+                outParticles[destIdx] = p;
+            }
         }
     }
 }

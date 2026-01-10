@@ -2,7 +2,8 @@
 #include "tools/Logger.hpp"
 #include "tools/CrashHandler.hpp"
 
-int main() {
+// Diagnostic build: Force asset sync for particle fix
+int main(int argc, char* argv[]) {
     NoMoreDay::CrashHandler::Init(); // 初始化崩溃捕获
     tools::Logger::Init();
     LOG_INFO("Initializing NoMoreDay Engine...");

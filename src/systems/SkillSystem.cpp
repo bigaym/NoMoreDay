@@ -430,11 +430,12 @@ void SkillSystem::InitHooks() {
 
     // ID 5: Infinite Blades (万剑归宗)
     RegisterEffect(5, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
-        LOG_INFO("DEBUG: RegisterEffect(5) called for entity {}", (uint32_t)owner);
+        LOG_INFO("DEBUG: RegisterEffect(5) TRIGGERED for entity {}", (uint32_t)owner);
         auto& chan = registry.emplace_or_replace<ChannelingComponent>(owner);
         chan.skill_id = 5;
-        chan.channel_timer = 3.0f; // 3s channel
+        chan.channel_timer = 0.5f; // Increased buffer for stability
         chan.tick_interval = 0.1f; // 10 blades per second
+        chan.tick_timer = -0.01f; // FORCE instant fire on first frame
         chan.target_pos = exec.target_pos;
         chan.is_empowered = exec.is_empowered;
         LOG_INFO("Infinite Blades channeling started for entity {}", (uint32_t)owner);
@@ -446,8 +447,10 @@ void SkillSystem::InitHooks() {
         chan.skill_id = 7;
         chan.channel_timer = 2.0f; 
         chan.tick_interval = 0.05f; // Fast ticks
+        chan.tick_timer = 0.0f; // Ensure immediate first tick
         chan.target_pos = exec.target_pos;
         chan.is_empowered = exec.is_empowered;
+        
         LOG_INFO("Mind Blade channeling started for entity {}", (uint32_t)owner);
     });
 
@@ -877,10 +880,18 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
     for (auto entity : chan_view) {
         auto& chan = chan_view.get<ChannelingComponent>(entity);
         const auto& pos = chan_view.get<Position>(entity);
+        
+        // For skill 7, target_pos is updated in InputSystem.cpp to follow mouse accurately.
+        
+        // 1. Duration Limit (5s hard cap)
+        chan.total_duration += dt;
+        if (chan.total_duration >= 5.0f) {
+            registry.remove<ChannelingComponent>(entity);
+            continue; 
+        }
 
         chan.channel_timer -= dt;
         if (chan.channel_timer <= 0.0f) {
-            LOG_INFO("DEBUG: Channeling ended for entity {}", (uint32_t)entity);
             registry.remove<ChannelingComponent>(entity);
             continue;
         }
@@ -889,6 +900,13 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
         // Continuous VFX for Mind Blade (ID 7) - Threads
         if (chan.skill_id == 7) {
+             static int s_skill7FrameCount = 0;
+             s_skill7FrameCount++;
+             if (s_skill7FrameCount % 30 == 1) { // Log every 30 frames (~0.5s at 60fps)
+                 LOG_INFO("[DEBUG-SKILL7] Continuous VFX active. Entity pos=({:.1f},{:.1f}), target=({:.1f},{:.1f}), tick_timer={:.3f}", 
+                     pos.x, pos.y, chan.target_pos.x, chan.target_pos.y, chan.tick_timer);
+             }
+             
              auto& particleSys = systems::GPUParticleSystem::Get();
              Vector2 dir = Vector2Normalize(Vector2Subtract(chan.target_pos, {pos.x, pos.y}));
              
@@ -958,10 +976,13 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
                 particleSys.EmitBatch(particles);
 
-                // Logic: Cast Rending Wave (ID 2) in random direction
-                float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
-                Vector2 dir = { cosf(angle), sinf(angle) };
-                Vector2 strike_target = { pos.x + dir.x * 250.0f, pos.y + dir.y * 250.0f };
+                // Logic: Cast Rending Wave (ID 2) towards target (Mouse)
+                Vector2 dir = Vector2Normalize(Vector2Subtract(chan.target_pos, {pos.x, pos.y}));
+                // Add some random spread
+                float spread = (float)GetRandomValue(-30, 30) * DEG2RAD; 
+                Vector2 fireDir = Vector2Rotate(dir, spread);
+
+                Vector2 strike_target = { pos.x + fireDir.x * 250.0f, pos.y + fireDir.y * 250.0f };
                 
                 auto exec_ent = registry.create();
                 registry.emplace<LocalLevelTag>(exec_ent);
@@ -969,7 +990,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                 auto& exec = registry.emplace<SkillExecution>(exec_ent);
                 exec.skill_id = 2; // Rending Wave
                 exec.owner = entity;
-                exec.state = SkillState::Casting;
+                exec.state = SkillState::Preparing; // Must be Preparing to trigger callback
                 exec.timer = 0.05f;
                 exec.target_pos = strike_target;
                 exec.is_empowered = chan.is_empowered;
@@ -981,25 +1002,100 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                 }
 
             } else if (chan.skill_id == 7) {
-                // Mind Blade: Rapid narrow beam logic (Skill 1 - Flowing Thrust)
+                // Heart Sword: Shadowless (Spatial Cut)
+                LOG_INFO("[DEBUG-SKILL7] TICK TRIGGERED! Emitting Spatial Cut VFX at tick_timer={:.3f}", chan.tick_timer);
+                
+                // 1. Calculate Cut Position (Clamped to Range)
+                Vector2 diff = Vector2Subtract(chan.target_pos, {pos.x, pos.y});
+                float dist = Vector2Length(diff);
+                float max_range = 350.0f;
+                Vector2 cutPos = chan.target_pos;
+                Vector2 dir = {1.0f, 0.0f}; // Default if dist is 0
+
+                if (dist > 0.001f) {
+                    dir = Vector2Scale(diff, 1.0f / dist); // Normalize
+                    if (dist > max_range) {
+                        cutPos = { pos.x + dir.x * max_range, pos.y + dir.y * max_range };
+                    }
+                } else {
+                    cutPos = { pos.x + 50.0f, pos.y }; 
+                }
+                
+                LOG_INFO("[DEBUG-SKILL7] Cut position: ({:.1f},{:.1f}), dir: ({:.2f},{:.2f})", cutPos.x, cutPos.y, dir.x, dir.y);
+
+                // 2. VFX: Spatial Cut (Perpendicular Line)
+                auto& particleSys = systems::GPUParticleSystem::Get();
+                Vector2 perp = { -dir.y, dir.x }; 
+                float cutWidth = 100.0f;
+                
+                int emittedCount = 0;
+                for(int i = 0; i < 15; ++i) {
+                    float t = (float)i / 14.0f; 
+                    float offset = (t - 0.5f) * cutWidth;
+                    Vector2 pPos = { cutPos.x + perp.x * offset, cutPos.y + perp.y * offset };
+                    
+                    // Core Spark - Golden flash along the cut line
+                    components::GPUParticle spark;
+                    spark.position = pPos;
+                    spark.velocity = Vector2Scale(dir, 80.0f);
+                    spark.acceleration = { 0.0f, 0.0f };
+                    spark.color = GOLD;
+                    spark.scale = 8.0f;
+                    spark.lifetime = 0.4f;
+                    spark.maxLifetime = 0.4f;
+                    spark.flags = 0;
+                    spark.growthRate = -8.0f; // Shrink to nothing
+                    particleSys.Emit(spark);
+
+                    // Outer Glow - Softer surrounding effect
+                    components::GPUParticle glow;
+                    glow.position = pPos;
+                    glow.velocity = Vector2Scale(dir, 30.0f);
+                    glow.acceleration = { 0.0f, 0.0f };
+                    glow.color = ColorAlpha(ORANGE, 0.6f);
+                    glow.scale = 12.0f;
+                    glow.lifetime = 0.5f;
+                    glow.maxLifetime = 0.5f;
+                    glow.flags = 0;
+                    glow.growthRate = 5.0f; // Expand slightly
+                    particleSys.Emit(glow);
+                    
+                    emittedCount += 2;
+                }
+                
+                LOG_DEBUG("[MindBlade] Emitted {} VFX particles at ({:.1f},{:.1f})",
+                    emittedCount, cutPos.x, cutPos.y);
+
+                // 3. Logic: Spawn "Cut" Hitbox (Stationary Projectile)
                 auto exec_ent = registry.create();
                 registry.emplace<LocalLevelTag>(exec_ent);
-                registry.emplace<ShadowCastTag>(exec_ent);
-                auto& exec = registry.emplace<SkillExecution>(exec_ent);
-                exec.skill_id = 1; // Flowing Thrust
-                exec.owner = entity;
-                exec.state = SkillState::Casting;
-                exec.timer = 0.05f;
-                exec.target_pos = chan.target_pos;
-                exec.is_empowered = chan.is_empowered;
-
+                registry.emplace<Position>(exec_ent, cutPos.x, cutPos.y);
+                registry.emplace<Velocity>(exec_ent, 0.0f, 0.0f);
+                
+                auto& proj = registry.emplace<Projectile>(exec_ent);
+                proj.owner = entity;
+                proj.radius = 60.0f; // AoE size
+                proj.speed = 0.0f;
+                proj.lifeTime = 0.1f; // Instant hit (one frame)
+                proj.pierce = true;
+                proj.pierceCount = 999;
+                
+                // Link stats
                 if (auto* stats = registry.try_get<CombatStats>(entity)) {
-                   exec.has_snapshot = true;
-                   exec.snapshot.stats = *stats;
-                   exec.snapshot.skill_id = 1;
-               }
+                     // We can use SkillExecution to snapshot or just pass stats via new Projectile system features?
+                     // ProjectileSystem reads owner's stats via DamagePipeline usually,
+                     // OR it reads 'proj.snapshot' if we add it to Projectile component?
+                     // Looking at ProjectileSystem.cpp:204, it reads registry.get<CombatStats>(entity) aka Projectile Entity?
+                     // No, "damage_attacker = proj.owner".
+                     // So as long as owner has stats, we are good.
+                }
+
+                auto& sc = registry.emplace<SkillComponent>(exec_ent);
+                sc.skill_id = 7;
+
+                chan.tick_timer = chan.tick_interval; // Reset tick
             }
-            chan.tick_timer = chan.tick_interval;
+            chan.tick_timer = chan.tick_interval; // Redundant but safe logic structure warning (fixed by above)
         }
     }
 
@@ -1229,7 +1325,9 @@ void SkillSystem::UpdateStates(entt::registry& registry, float dt) {
                     exec.state = SkillState::Casting;
                     exec.timer = 0.05f; 
                     if (s_skill_callbacks.contains(exec.skill_id)) {
-                        s_skill_callbacks[exec.skill_id](registry, entity, exec);
+                        s_skill_callbacks[exec.skill_id](registry, exec.owner, exec);
+                    } else {
+                        LOG_WARN("UpdateStates: No callback found for skill ID {} on entity {}", exec.skill_id, (uint32_t)entity);
                     }
                     break;
                 case SkillState::Casting:
@@ -1340,6 +1438,9 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     if (slot.current_charges == data->max_charges) {
         float cdr = StatsSystem::GetStatWithTags(registry, entity, StatType::CooldownReduction, data->tags, slot.id) / 100.0f;
         float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
+        // Optimization: For Channeled skills with very long cooldowns (like 60s),
+        // we might NOT want to start cooldown here but when channeling ends?
+        // But preventing abuse is safer.
         slot.cooldown = (data->cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
     }
     slot.current_charges--;
@@ -1352,8 +1453,32 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     exec.timer = 0.1f; 
     exec.target_pos = target_pos;
 
-    LOG_INFO("Entity {} started casting skill: {}", (uint32_t)entity, data->name_key);
+    LOG_INFO("TryCast SUCCESS: Entity {} casting skill ID {} ({})", (uint32_t)entity, slot.id, data->name_key);
     return true;
+}
+
+void SkillSystem::HandleSkillInput(entt::registry& registry, entt::entity entity, int slot_index, Vector2 target_pos) {
+    auto* active = registry.try_get<ActiveSkillsComponent>(entity);
+    if (!active || slot_index < 0 || slot_index >= (int)active->slots.size()) return;
+
+    auto& slot = active->slots[slot_index];
+    if (slot.id == 0) return;
+
+    // 1. Maintain Channeling
+    if (auto* chan = registry.try_get<ChannelingComponent>(entity)) {
+        if (chan->skill_id == slot.id) {
+            chan->channel_timer = 0.25f; // Keep alive
+            chan->target_pos = target_pos;
+            // Maybe handle ticking here if we want instant feedback?
+            // No, update loop handles it.
+            return;
+        }
+        // If channeling something else, we ignore input (or we could interrupt)
+        return; 
+    }
+
+    // 2. Start New Cast
+    TryCast(registry, entity, slot_index, target_pos);
 }
 
 bool SkillSystem::AddTalentPoint(entt::registry& registry, entt::entity entity, uint32_t skill_id, uint32_t node_id) {

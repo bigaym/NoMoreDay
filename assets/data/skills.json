@@ -1049,7 +1049,7 @@
       "name_key": "心剑·无影",
       "desc_key": "高频引导发射极细剑气。",
       "mana_cost": 15.0,
-      "cooldown": 0.0,
+      "cooldown": 4.0,
       "tags": [
         "Physical",
         "Spell",

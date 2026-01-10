@@ -44,6 +44,11 @@ public:
     static bool TryCast(entt::registry& registry, entt::entity entity, int slot_index, Vector2 target_pos = {0, 0});
 
     /**
+     * @brief Handles input for a skill slot. Starts casting if idle, or maintains channeling if active.
+     */
+    static void HandleSkillInput(entt::registry& registry, entt::entity entity, int slot_index, Vector2 target_pos);
+
+    /**
      * @brief Trigger a shadow cast of a skill.
      */
     static bool ShadowCast(entt::registry& registry, entt::entity owner, uint32_t skill_id, Vector2 position, Vector2 target_pos = {0,0});

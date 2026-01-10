@@ -532,6 +532,17 @@ namespace NoMoreDay {
             // Monster Health Bars
             systems::MonsterHealthBarSystem::Render(registry, m_camera);
             
+            // Skill Range Indicators
+            auto view_chan = registry.view<ChannelingComponent, Position>();
+            for (auto entity : view_chan) {
+                auto& chan = view_chan.get<ChannelingComponent>(entity);
+                if (chan.skill_id == 7) { // Heart Sword: Shadowless
+                    auto& pos = view_chan.get<Position>(entity);
+                    DrawCircleLines((int)pos.x, (int)pos.y, 350.0f, ColorAlpha(GOLD, 0.2f)); 
+                    DrawCircleLines((int)pos.x, (int)pos.y, 352.0f, ColorAlpha(ORANGE, 0.15f)); // Thicker rim
+                }
+            }
+
             // Fog
             m_context->levelManager->getFogSystem().renderFog();
         EndMode2D();

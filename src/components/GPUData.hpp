@@ -1,31 +1,48 @@
 #pragma once
-#include "raylib.h"
+#include <raylib.h>
+#include <stdint.h>
+#include <type_traits>
 
 namespace NoMoreDay::components {
 
-// STD430 Layout for Particle
-// Note: GLSL vec2 is 8-byte aligned, vec4 is 16-byte aligned.
-// Structure itself should be multiple of 16 for best performance and alignment.
-struct alignas(16) GPUParticle {
-    Vector2 position;     // 8 bytes (Offset 0)
-    Vector2 velocity;     // 8 bytes (Offset 8)
-    Vector2 acceleration; // 8 bytes (Offset 16) - New!
-    Color color;          // 4 bytes (Offset 24)
-    float lifetime;       // 4 bytes (Offset 28)
-    float maxLifetime;    // 4 bytes (Offset 32)
-    float scale;          // 4 bytes (Offset 36)
-    uint32_t flags;       // 4 bytes (Offset 40) - New! (Type/Behavior)
-    float growthRate;     // 4 bytes (Offset 44) - Used for scale change over time
-}; // Total 48 bytes (Multiple of 16)
+/**
+ * @brief Structure for GPU particles matching SSBO layout.
+ * STRICTLY 64 BYTES (16 * 4) to ensure cross-driver std430 compatibility.
+ */
+struct GPUParticle {
+    Vector2 position     = { 0.0f, 0.0f }; // 8
+    Vector2 velocity     = { 0.0f, 0.0f }; // 8
+    Vector2 acceleration = { 0.0f, 0.0f }; // 8
+    Color color          = { 0, 0, 0, 0 }; // 4
+    float lifetime       = 0.0f;           // 4
+    float maxLifetime    = 0.0f;           // 4
+    float scale          = 0.0f;           // 4
+    uint32_t flags       = 0;              // 4
+    float growthRate     = 0.0f;           // 4
+    float padding[4]     = { 0.0f, 0.0f, 0.0f, 0.0f }; // 16
 
-// STD430 Layout for Entity Physics
-struct alignas(16) GPUEntity {
-    Vector2 position;  // 8 bytes (Offset 0)
-    Vector2 velocity;  // 8 bytes (Offset 8)
-    float radius;      // 4 bytes (Offset 16)
-    int type;          // 4 bytes (Offset 20)
-    int id;            // 4 bytes (Offset 24)
-    float padding;     // 4 bytes (Offset 28)
-}; // Total 32 bytes
+    GPUParticle() = default;
+};
+
+// Ensure Stride is exactly 64 bytes
+static_assert(sizeof(GPUParticle) == 64, "GPUParticle struct must be exactly 64 bytes for SSBO alignment");
+
+/**
+ * @brief Structure for GPU entities (Physics & Sorting).
+ * STRICTLY 32 BYTES (16 * 2) to match physics.compute.
+ */
+struct GPUEntity {
+    Vector2 position = { 0.0f, 0.0f }; // 8
+    Vector2 velocity = { 0.0f, 0.0f }; // 8
+    float radius     = 0.0f;           // 4
+    int32_t type     = 0;              // 4
+    int32_t id       = 0;              // 4
+    float padding    = 0.0f;           // 4
+
+    GPUEntity() = default;
+};
+
+// Ensure Stride is exactly 32 bytes
+static_assert(sizeof(GPUEntity) == 32, "GPUEntity struct must be exactly 32 bytes for physics SSBO compatibility");
 
 } // namespace NoMoreDay::components

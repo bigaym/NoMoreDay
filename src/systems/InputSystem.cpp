@@ -67,30 +67,35 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
             Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), camera);
 
             // 技能 - 同样会取消移动
-            if (IsKeyPressed(KEY_Q))
+            if (IsKeyDown(KEY_Q))
             {
-                SkillSystem::TryCast(registry, entity, 0, mouseWorld);
+                SkillSystem::HandleSkillInput(registry, entity, 0, mouseWorld);
                 s_hasMovementTarget = false;
             }
-            if (IsKeyPressed(KEY_W))
+            if (IsKeyDown(KEY_W))
             {
-                SkillSystem::TryCast(registry, entity, 1, mouseWorld);
+                SkillSystem::HandleSkillInput(registry, entity, 1, mouseWorld);
                 s_hasMovementTarget = false;
             }
-            if (IsKeyPressed(KEY_E))
+            if (IsKeyDown(KEY_E))
             {
-                SkillSystem::TryCast(registry, entity, 2, mouseWorld);
+                SkillSystem::HandleSkillInput(registry, entity, 2, mouseWorld);
                 s_hasMovementTarget = false;
             }
-            if (IsKeyPressed(KEY_R))
+            if (IsKeyDown(KEY_R))
             {
-                SkillSystem::TryCast(registry, entity, 3, mouseWorld);
+                SkillSystem::HandleSkillInput(registry, entity, 3, mouseWorld);
                 s_hasMovementTarget = false;
             }
-            if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON))
+            if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON))
             {
-                SkillSystem::TryCast(registry, entity, 4, mouseWorld);
+                SkillSystem::HandleSkillInput(registry, entity, 4, mouseWorld);
                 s_hasMovementTarget = false;
+            }
+
+            // Real-time update for channeling skills: ensure the skill target follows mouse cursor
+            if (auto* chan = registry.try_get<ChannelingComponent>(entity)) {
+                chan->target_pos = mouseWorld;
             }
         }
         else

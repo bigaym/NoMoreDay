@@ -106,7 +106,7 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
         }
 
         // --- VISUAL EFFECTS: Continuous Ink Trail ---
-        if (skill_id == 1 || skill_id == 2 || skill_id == 8 || skill_id == 9) {
+        if (skill_id == 1 || skill_id == 2 || skill_id == 7 || skill_id == 8 || skill_id == 9) {
             auto& particleSys = systems::GPUParticleSystem::Get();
             Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, -0.1f);
             
@@ -119,6 +119,11 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 
                 particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x + offset1.x, pos.y + offset1.y}, trailVel, 1.0f, 0.3f));
                 particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x + offset2.x, pos.y + offset2.y}, trailVel, 1.0f, 0.3f));
+            } else if (skill_id == 7) {
+                // Skill 7: Spatial Cut - Gold sparkling trail
+                auto p = systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, trailVel, 2.0f, 0.5f);
+                p.color = GOLD;
+                particleSys.Emit(p);
             } else {
                 particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, trailVel, 1.2f, 0.4f));
             }
@@ -184,10 +189,13 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 proj.hitEntities.push_back(target); // Record the hit
                 
                 // --- VISUAL EFFECTS: Ink Splash on Hit ---
-                if (skill_id == 2) {
+                if (skill_id == 2 || skill_id == 7) {
                     auto& particleSys = systems::GPUParticleSystem::Get();
-                    auto splash = systems::InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 5, 10.0f, 100.0f);
-                    for (auto& p : splash) particleSys.Emit(p);
+                    auto splash = systems::InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 8, 15.0f, 150.0f);
+                    for (auto& p : splash) {
+                        if (skill_id == 7) p.color = GOLD; // Gold for Mind Blade
+                        particleSys.Emit(p);
+                    }
                 }
 
                 Tag hit_tags = Tag::Projectile | Tag::Hit;

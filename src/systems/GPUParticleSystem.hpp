@@ -32,13 +32,19 @@ private:
     
     int m_maxParticles = 0;
     int m_poolIndex = 0;
+    std::vector<components::GPUParticle> m_stagedParticles;
     
-    core::ComputeBuffer m_particleBuffer;
-    Shader m_computeShader;
-    Shader m_renderShader;
+    // SSBO Double Buffering (Ping-Pong)
+    core::ComputeBuffer m_particleBufferA;
+    core::ComputeBuffer m_particleBufferB;
+    bool m_useBufferA = true; // Toggle between A and B
     
-    // Optional: local buffer for batch updates if needed
-    // But for particles, we can often just update the SSBO directly for emissions
+    // Atomic counter for compaction (GPU-side)
+    core::ComputeBuffer m_atomicCounter;
+    int m_aliveCount = 0;
+    
+    Shader m_computeShader = { 0 };
+    Shader m_renderShader = { 0 };
     
     unsigned int m_quadVAO = 0;
     unsigned int m_quadVBO = 0;
