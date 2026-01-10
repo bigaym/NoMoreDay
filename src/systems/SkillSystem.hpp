@@ -21,6 +21,7 @@ struct SkillExecution {
     SkillState state = SkillState::Ready;
     float timer = 0.0f;
     entt::entity owner;
+    entt::entity execution_entity; // New member to hold the entity that represents this skill execution
     int slot_index = -1;
     Vector2 target_pos = {0, 0};
     

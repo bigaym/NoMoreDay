@@ -54,24 +54,30 @@ void SkillSystem::InitHooks() {
         auto* dash = registry.try_get<DashComponent>(owner);
         if (!pos) return;
 
-        // 1. Dash towards target
         Vector2 startPos = {pos->x, pos->y};
         Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, startPos));
         float speed = 400.0f; // Reduced from 1200.0f (1/3 speed)
 
-        // Apply burst velocity to owner
-        if (auto* vel = registry.try_get<Velocity>(owner)) {
-            vel->vx = dir.x * speed;
-            vel->vy = dir.y * speed;
-        }
+        // Check if Flowing Thrust is being triggered by a channeling skill (like Mind Blade)
+        // If so, suppress the dash on the main player entity to avoid interrupting channeling.
+        bool suppress_dash = registry.any_of<ChannelingComponent>(owner) && registry.any_of<ShadowCastTag>(exec.execution_entity);
 
-        // Integrate with DashComponent to prevent movement override
-        if (dash) {
-            dash->isDashing = true;
-            dash->dashTimer = 0.375f; // Adjusted to maintain 150 range (400 * 0.375 = 150)
-            dash->dirX = dir.x;
-            dash->dirY = dir.y;
-            dash->dashSpeed = speed;
+        // 1. Dash towards target
+        if (!suppress_dash) {
+            // Apply burst velocity to owner
+            if (auto* vel = registry.try_get<Velocity>(owner)) {
+                vel->vx = dir.x * speed;
+                vel->vy = dir.y * speed;
+            }
+
+            // Integrate with DashComponent to prevent movement override
+            if (dash) {
+                dash->isDashing = true;
+                dash->dashTimer = 0.375f; // Adjusted to maintain 150 range (400 * 0.375 = 150)
+                dash->dirX = dir.x;
+                dash->dirY = dir.y;
+                dash->dashSpeed = speed;
+            }
         }
 
         // --- VISUAL EFFECTS: Ink Trail ---
@@ -430,7 +436,6 @@ void SkillSystem::InitHooks() {
 
     // ID 5: Infinite Blades (万剑归宗)
     RegisterEffect(5, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
-        LOG_INFO("DEBUG: RegisterEffect(5) called for entity {}", (uint32_t)owner);
         auto& chan = registry.emplace_or_replace<ChannelingComponent>(owner);
         chan.skill_id = 5;
         chan.channel_timer = 3.0f; // 3s channel
@@ -438,6 +443,7 @@ void SkillSystem::InitHooks() {
         chan.target_pos = exec.target_pos;
         chan.is_empowered = exec.is_empowered;
         LOG_INFO("Infinite Blades channeling started for entity {}", (uint32_t)owner);
+        LOG_DEBUG("ChannelingComponent added for skill 5 (Infinite Blades) on entity {}", (uint32_t)owner);
     });
 
     // ID 7: Mind Blade (心剑·无影)
@@ -449,6 +455,7 @@ void SkillSystem::InitHooks() {
         chan.target_pos = exec.target_pos;
         chan.is_empowered = exec.is_empowered;
         LOG_INFO("Mind Blade channeling started for entity {}", (uint32_t)owner);
+        LOG_DEBUG("ChannelingComponent added for skill 7 (Mind Blade) on entity {}", (uint32_t)owner);
     });
 
     // ID 4: Blade Ward (剑气护体)
@@ -740,8 +747,9 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                 auto& exec = registry.emplace<SkillExecution>(exec_ent);
                 exec.skill_id = 1; // Flowing Thrust
                 exec.owner = entity;
-                exec.state = SkillState::Casting;
-                exec.timer = 0.05f;
+                exec.execution_entity = exec_ent; // Set the execution entity
+                exec.state = SkillState::Preparing; // Ensure hooks run
+                exec.timer = 0.0f;
                 exec.target_pos = {tPos.x, tPos.y};
                 exec.is_empowered = formation.is_empowered;
 
@@ -878,9 +886,12 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         auto& chan = chan_view.get<ChannelingComponent>(entity);
         const auto& pos = chan_view.get<Position>(entity);
 
+        LOG_DEBUG("ChannelingComponent for entity {} (Skill ID: {}). channel_timer: {:.2f}, tick_timer: {:.2f}, dt: {:.2f}",
+                  (uint32_t)entity, chan.skill_id, chan.channel_timer, chan.tick_timer, dt);
+
         chan.channel_timer -= dt;
         if (chan.channel_timer <= 0.0f) {
-            LOG_INFO("DEBUG: Channeling ended for entity {}", (uint32_t)entity);
+            LOG_DEBUG("Channeling for entity {} (Skill ID: {}) ended. Removing ChannelingComponent.", (uint32_t)entity, chan.skill_id);
             registry.remove<ChannelingComponent>(entity);
             continue;
         }
@@ -910,6 +921,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         }
 
         if (chan.tick_timer <= 0.0f) {
+            LOG_DEBUG("Channeling tick triggered for entity {} (Skill ID: {})", (uint32_t)entity, chan.skill_id);
             if (chan.skill_id == 5) {
                 // Infinite Blades: Chaotic "Grass Script" Strokes
                 // LOG_TRACE("DEBUG: Channeling Tick ID 5 for entity {}", (uint32_t)entity);
@@ -963,14 +975,16 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                 Vector2 dir = { cosf(angle), sinf(angle) };
                 Vector2 strike_target = { pos.x + dir.x * 250.0f, pos.y + dir.y * 250.0f };
                 
+                LOG_DEBUG("Calling ShadowCast for Skill 5 (Infinite Blades) with skill 2 (Rending Wave)");
                 auto exec_ent = registry.create();
                 registry.emplace<LocalLevelTag>(exec_ent);
                 registry.emplace<ShadowCastTag>(exec_ent);
                 auto& exec = registry.emplace<SkillExecution>(exec_ent);
                 exec.skill_id = 2; // Rending Wave
                 exec.owner = entity;
-                exec.state = SkillState::Casting;
-                exec.timer = 0.05f;
+                exec.execution_entity = exec_ent; // Set the execution entity
+                exec.state = SkillState::Preparing; // Ensure hooks run
+                exec.timer = 0.0f;
                 exec.target_pos = strike_target;
                 exec.is_empowered = chan.is_empowered;
                 
@@ -982,14 +996,16 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
             } else if (chan.skill_id == 7) {
                 // Mind Blade: Rapid narrow beam logic (Skill 1 - Flowing Thrust)
+                LOG_DEBUG("Calling ShadowCast for Skill 7 (Mind Blade) with skill 1 (Flowing Thrust)");
                 auto exec_ent = registry.create();
                 registry.emplace<LocalLevelTag>(exec_ent);
                 registry.emplace<ShadowCastTag>(exec_ent);
                 auto& exec = registry.emplace<SkillExecution>(exec_ent);
                 exec.skill_id = 1; // Flowing Thrust
                 exec.owner = entity;
-                exec.state = SkillState::Casting;
-                exec.timer = 0.05f;
+                exec.execution_entity = exec_ent; // Set the execution entity
+                exec.state = SkillState::Preparing; // Ensure hooks run
+                exec.timer = 0.0f;
                 exec.target_pos = chan.target_pos;
                 exec.is_empowered = chan.is_empowered;
 
@@ -1061,8 +1077,9 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
     auto& exec = registry.emplace<SkillExecution>(exec_ent);
     exec.skill_id = skill_id;
     exec.owner = shadow; 
-    exec.state = SkillState::Casting; 
-    exec.timer = 0.05f;
+    exec.execution_entity = exec_ent; // Set the execution entity
+    exec.state = SkillState::Preparing; // Was Casting, now Preparing to ensure Hooks run
+    exec.timer = 0.0f; // Execute immediately next frame
     exec.target_pos = target_pos;
     
     // Check if the caller provided a snapshot (either via ShadowComponent or manual call)
@@ -1347,6 +1364,7 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     auto& exec = registry.emplace<SkillExecution>(entity);
     exec.skill_id = slot.id;
     exec.owner = entity;
+    exec.execution_entity = entity; // Set the execution entity
     exec.slot_index = slot_index;
     exec.state = SkillState::Preparing;
     exec.timer = 0.1f; 
