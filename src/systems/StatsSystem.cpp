@@ -149,6 +149,7 @@ static void ApplyAffix(std::array<StatCalculation, static_cast<size_t>(StatType:
             break;
         case AffixType::AttackSpeed:
             ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd, affix.value);
+            LOG_DEBUG("StatsSystem: Applied Attack Speed Affix +{:.1f}%", affix.value);
             break;
         case AffixType::CastSpeed:
             ApplyStatModifier(calcs, StatType::CastSpeed, ModifierMode::PercentAdd, affix.value);

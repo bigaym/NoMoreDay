@@ -178,7 +178,7 @@ namespace NoMoreDay {
 
     void UIRenderer::DrawSkillSlot(const Font& font, float x, float y, float size, 
                                  Texture2D icon, const char* keyLabel, 
-                                 float cooldownRatio, float manaCost, 
+                                 float cooldownRatio, float remainingCooldown, float manaCost, 
                                  int charges, int maxCharges,
                                  bool hasEnoughMana, bool isHighlighted, bool isPressed, float alpha) {
         float sx = x * s_uiScale;
@@ -216,13 +216,35 @@ namespace NoMoreDay {
         }
 
         // Cooldown Overlay (Circular Sector)
-        if (cooldownRatio > 0.0f && charges == 0) {
+        if (cooldownRatio > 0.0f) {
             float startAngle = -90.0f;
             float endAngle = startAngle + (cooldownRatio * 360.0f);
-            DrawCircleSector({sx + sSize/2, sy + sSize/2}, sSize/2, startAngle, endAngle, 32, ApplyAlpha(BLACK, 0.5f * alpha));
+            
+            // If we have charges, the skill is usable, so don't darken it as much.
+            // If charges == 0, it's fully on cooldown, so darken it more.
+            float sectorAlpha = (charges == 0) ? 0.6f : 0.25f;
+            
+            DrawCircleSector({sx + sSize/2, sy + sSize/2}, sSize/2, startAngle, endAngle, 32, ApplyAlpha(BLACK, sectorAlpha * alpha));
             
             // Draw a subtle ring for the remaining cooldown
             DrawRing({sx + sSize/2, sy + sSize/2}, sSize/2 - 2.0f*s_uiScale, sSize/2, startAngle, 270.0f, 32, ApplyAlpha(s_theme.panelBorder, 0.3f * alpha));
+
+            // Draw Remaining Time Text
+            // Always draw text if we are showing the cooldown overlay
+            char timeStr[16];
+            if (remainingCooldown < 0.1f && remainingCooldown > 0.0f) {
+                snprintf(timeStr, 16, "0.1"); // Minimum display
+            } else {
+                snprintf(timeStr, 16, "%.1f", remainingCooldown);
+            }
+            
+            float fontSize = 24.0f; 
+            float textW = IsFontValid(font) ? MeasureTextEx(font, timeStr, fontSize * s_uiScale, 1.0f).x / s_uiScale : (float)MeasureText(timeStr, (int)(fontSize * s_uiScale)) / s_uiScale;
+            
+            // Draw drop shadow for text
+            DrawTextUI(font, timeStr, x + (size - textW) / 2.0f + 1, y + (size - fontSize) / 2.0f + 1, fontSize, ApplyAlpha(BLACK, alpha));
+            // Draw text in Yellow/Gold for better visibility
+            DrawTextUI(font, timeStr, x + (size - textW) / 2.0f, y + (size - fontSize) / 2.0f, fontSize, ApplyAlpha(GOLD, alpha));
         }
 
         if (keyLabel) DrawTextUI(font, keyLabel, x + 4, y + 2, 12, ApplyAlpha(isHighlighted ? s_theme.textHighlight : s_theme.textSecondary, alpha));
@@ -437,7 +459,7 @@ namespace NoMoreDay {
 
         char buffer[128];
         if (minDmg > 0) {
-            snprintf(buffer, sizeof(buffer), "预估伤害: %.0f - %.0f", minDmg, maxDmg);
+            snprintf(buffer, sizeof(buffer), "预估伤害: %.0f", minDmg);
             lines.push_back({ buffer, SKYBLUE });
         }
 

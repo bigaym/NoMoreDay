@@ -78,6 +78,14 @@ void SkillRegistry::LoadFromJson(const std::string& path) {
         data.max_charges = item.value("charge_count", 1);
         data.icon_id = item.value("icon_id", 0);
 
+        if (item.contains("params")) {
+            for (auto& [key, val] : item["params"].items()) {
+                if (val.is_number()) {
+                    data.params[key] = val.get<float>();
+                }
+            }
+        }
+
         skills_[data.id] = data;
 
         // Parse Talent Tree

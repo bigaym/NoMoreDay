@@ -19,6 +19,14 @@ struct SkillData {
     float added_damage_effectiveness;
     int max_charges = 1;
     uint32_t icon_id = 0;
+    
+    std::unordered_map<std::string, float> params;
+
+    float GetParam(const std::string& key, float default_val = 0.0f) const {
+        auto it = params.find(key);
+        if (it != params.end()) return it->second;
+        return default_val;
+    }
 };
 
 class SkillRegistry {

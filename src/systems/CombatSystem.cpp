@@ -187,7 +187,7 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
 
                     // 1. 计算物理伤害 (武器基础 + 附加物理点伤)
                     float physBase = (stats && stats->max_weapon_damage > 0.1f) 
-                        ? (stats->min_weapon_damage + (stats->max_weapon_damage - stats->min_weapon_damage) * ((float)GetRandomValue(0, 1000) / 1000.0f))
+                        ? stats->min_weapon_damage
                         : baseDamage;
                     
                     if (stats) physBase += stats->flat_damage[(int)NoMoreDay::DamageType::Physical];

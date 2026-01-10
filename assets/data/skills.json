@@ -23,6 +23,7 @@
           "id": 100,
           "name_key": "锋锐",
           "desc_key": "增加物理伤害 (10% Increased per point)",
+          "icon_id": 0,
           "max_points": 5,
           "x": 0.0,
           "y": 0.0,
@@ -38,6 +39,7 @@
           "id": 101,
           "name_key": "破风",
           "desc_key": "增加攻击范围 (15% Increased per point)",
+          "icon_id": 0,
           "max_points": 3,
           "x": -1.2,
           "y": 0.0,
@@ -354,6 +356,11 @@
       "added_damage_effectiveness": 1.2,
       "charge_count": 3,
       "icon_id": 773746652,
+      "params": {
+        "speed": 300.0,
+        "radius": 35.0,
+        "lifetime": 1.2
+      },
       "talent_tree": [
         {
           "id": 200,
@@ -1138,6 +1145,13 @@
       "added_damage_effectiveness": 1.4,
       "charge_count": 1,
       "icon_id": 2830780204,
+      "params": {
+        "speed": 400.0,
+        "return_timer": 0.45,
+        "radius": 40.0,
+        "pull_strength": 300.0,
+        "gravity_strength": 500.0
+      },
       "talent_tree": [
         {
           "id": 800,
@@ -1258,6 +1272,10 @@
       "added_damage_effectiveness": 1.0,
       "charge_count": 1,
       "icon_id": 698747719,
+      "params": {
+        "dash_speed": 500.0,
+        "dash_dist": 50.0
+      },
       "talent_tree": [
         {
           "id": 900,

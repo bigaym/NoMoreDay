@@ -121,7 +121,10 @@ add_library(NoMoreDayCore STATIC
     src/systems/InventorySystem.cpp
 )
 
-set_source_files_properties(src/core/ResourceManager.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+set_source_files_properties(src/core/ResourceManager.cpp PROPERTIES 
+    SKIP_PRECOMPILE_HEADERS ON
+    SKIP_UNITY_BUILD_INCLUSION ON
+)
 
 add_dependencies(NoMoreDayCore GenerateTags)
 
@@ -178,8 +181,11 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set_target_properties(NoMoreDay PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 
 # --- Tests ---
-enable_testing()
-add_subdirectory(tests)
+option(BUILD_TESTING "Build tests" ON)
+if(BUILD_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 # 2. Copy Assets Folder (Robust Cross-Platform)
 # Symlinks on Windows via CMake can be flaky due to permissions or shell differences.

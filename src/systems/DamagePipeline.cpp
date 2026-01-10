@@ -210,6 +210,8 @@ DamageResult DamagePipeline::Calculate(
         inst.amount *= (multiplier_pct / 100.0f);
 
         // --- NEW: Apply Talent-Specific Damage Modifiers (Convert, More) ---
+        // DOCUMENTATION: 'More' modifiers are applied here (after 'Increased') to ensure they act as independent multipliers.
+        // This strictly follows the "Flat -> Increased -> More" hierarchy.
         if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
             for (const auto& specialized : active->specialized_slots) {
                 if (specialized.skill_id == skill_id) {
@@ -237,6 +239,7 @@ DamageResult DamagePipeline::Calculate(
         }
 
         // --- NEW: Apply Skill-Specific Damage Modifiers from Source Entity (More) ---
+        // DOCUMENTATION: Skill-specific 'More' modifiers (e.g. from Projectile source) are applied here.
         if (registry.valid(source_entity)) {
             if (auto* skillMods = registry.try_get<SkillModifierComponent>(source_entity)) {
                 for (const auto& dmod : skillMods->damage_modifiers) {

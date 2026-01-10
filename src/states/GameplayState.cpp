@@ -133,7 +133,7 @@ namespace NoMoreDay {
         registry.emplace<PlayerStats>(player);
         registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
         registry.emplace<CombatStats>(player);
-        registry.emplace<VisionComponent>(player, 300.0f);
+        registry.emplace<VisionComponent>(player, 600.0f);
         registry.emplace<StatsDirty>(player);
         registry.emplace<DashComponent>(player);
         registry.emplace<InventoryComponent>(player);

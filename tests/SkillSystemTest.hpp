@@ -28,6 +28,27 @@ TEST_CASE("SkillSystem: Registry Loading") {
     }
 }
 
+TEST_CASE("SkillSystem: Parameter Loading") {
+    LoggerScope scope;
+    auto& registry = SkillRegistry::Get();
+    registry.LoadFromJson("assets/data/skills.json");
+
+    SUBCASE("Load Boomerang Params") {
+        const auto* skill = registry.GetSkill(8);
+        REQUIRE(skill != nullptr);
+        CHECK(skill->GetParam("speed") == doctest::Approx(400.0f));
+        CHECK(skill->GetParam("return_timer") == doctest::Approx(0.45f));
+        CHECK(skill->GetParam("radius") == doctest::Approx(40.0f));
+        CHECK(skill->GetParam("non_existent", 123.0f) == doctest::Approx(123.0f));
+    }
+
+    SUBCASE("Load Rending Wave Params") {
+        const auto* skill = registry.GetSkill(2);
+        REQUIRE(skill != nullptr);
+        CHECK(skill->GetParam("speed") == doctest::Approx(300.0f));
+    }
+}
+
 #include "../src/systems/SkillSystem.hpp"
 #include "../src/components/SkillSystem.hpp"
 #include "../src/components/Stats.hpp"
@@ -400,4 +421,67 @@ TEST_CASE("SkillSystem: Tooltip Integration") {
     }
     CHECK(hasAstroBonus);
     CHECK(bonusValue.find("+500%") != std::string::npos);
+}
+
+TEST_CASE("SkillSystem: Channeling Skills") {
+    LoggerScope scope;
+    entt::registry registry;
+    tf::Executor executor;
+    systems::SpatialHashGrid grid(100, 100, 50);
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    SkillSystem::InitHooks(); // IMPORTANT: Init hooks for effects
+
+    auto entity = registry.create();
+    auto& stats = registry.emplace<CombatStats>(entity);
+    stats.mana = 500.0f; // Sufficient mana
+    stats.max_mana = 500.0f;
+    registry.emplace<Position>(entity, 0.0f, 0.0f);
+    registry.emplace<AnimationStateComponent>(entity);
+
+    SUBCASE("Channeling Skill (ID 5) - Infinite Blades") {
+        // 1. Setup
+        auto& active = registry.emplace<ActiveSkillsComponent>(entity);
+        active.slots[0].id = 5;
+        active.slots[0].current_charges = 1;
+
+        registry.emplace<SwordIntentComponent>(entity); // Ensure intent component exists
+
+        // 2. Cast
+        bool cast = SkillSystem::TryCast(registry, entity, 0, {100.0f, 100.0f});
+        CHECK(cast);
+        CHECK(registry.any_of<SkillExecution>(entity));
+
+        // 3. Update to trigger callback (Preparing -> Casting)
+        // Timer is 0.1f initially. Update 0.11f to trigger transition.
+        SkillSystem::Update(registry, grid, 0.11f, &executor); 
+        // Now Casting. Timer resets to 0.05f.
+        
+        // Update another 0.06f to finish Casting and call hooks
+        SkillSystem::Update(registry, grid, 0.06f, &executor);
+
+        // Verify ChannelingComponent exists
+        CHECK(registry.any_of<ChannelingComponent>(entity));
+        
+        if (registry.any_of<ChannelingComponent>(entity)) {
+            const auto& chan = registry.get<ChannelingComponent>(entity);
+            CHECK(chan.skill_id == 5);
+            CHECK(chan.channel_timer > 0.0f);
+        }
+
+        // 4. Update to trigger Tick
+        // Tick interval is 0.1f.
+        SkillSystem::Update(registry, grid, 0.2f, &executor);
+        
+        // Should have spawned particles or triggered logic (Shadow Cast Rending Wave)
+        // We check if Rending Wave (ID 2) execution was spawned
+        bool rendingWaveSpawned = false;
+        auto execView = registry.view<SkillExecution>();
+        for (auto e : execView) {
+            if (execView.get<SkillExecution>(e).skill_id == 2) {
+                rendingWaveSpawned = true;
+                break;
+            }
+        }
+        CHECK(rendingWaveSpawned);
+    }
 }

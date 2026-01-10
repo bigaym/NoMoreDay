@@ -38,6 +38,10 @@ struct BoomerangComponent {
     Phase phase = Outward;
     float returnTimer = 0.6f; // Time until it turns back
     entt::entity owner = entt::null;
+    
+    // Improved return logic
+    float returnSpeed = 0.0f; // If 0, use projectile speed
+    entt::entity returnTarget = entt::null; // If null, return to owner
 };
 
 } // namespace NoMoreDay

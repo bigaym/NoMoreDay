@@ -266,8 +266,16 @@ void UICharacter::Draw(entt::registry& registry) {
         UIRenderer::DrawTextUI(font, "攻击基础", rowX, y, 20, theme.textHighlight, alpha); y += 30.0f;
         float flatPhys = combatStats->flat_damage[(int)DamageType::Physical];
         float physMult = combatStats->damage_multipliers[(int)DamageType::Physical];
-        DrawStatRow("物理伤害", TextFormat("%.0f - %.0f", (combatStats->min_weapon_damage + flatPhys) * physMult, (combatStats->max_weapon_damage + flatPhys) * physMult), rowX, y, rowW, 20.0f, alpha);
-        DrawStatRow("攻击速度", FormatStatWithCap(combatStats->attack_speed, combatStats->raw_attack_speed, false), rowX, y, rowW, 20.0f, alpha);
+        DrawStatRow("物理伤害", TextFormat("%.0f", (combatStats->min_weapon_damage + flatPhys) * physMult), rowX, y, rowW, 20.0f, alpha);
+        
+        // Show Attack Speed increase percentage if applicable
+        if (combatStats->attack_speed > 1.0f) {
+            float increase = (combatStats->attack_speed - 1.0f) * 100.0f;
+            DrawStatRow("攻击速度", TextFormat("%.2f (+%.0f%%)", combatStats->attack_speed, increase), rowX, y, rowW, 20.0f, alpha);
+        } else {
+            DrawStatRow("攻击速度", FormatStatWithCap(combatStats->attack_speed, combatStats->raw_attack_speed, false), rowX, y, rowW, 20.0f, alpha);
+        }
+
         DrawStatRow("命中率", TextFormat("%.0f%%", combatStats->accuracy * 100.0f), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("暴击几率", TextFormat("%.1f%%", combatStats->crit_chance * 100.0f), rowX, y, rowW, 20.0f, alpha);
         DrawStatRow("暴击伤害", TextFormat("%.0f%%", combatStats->crit_damage * 100.0f), rowX, y, rowW, 20.0f, alpha);

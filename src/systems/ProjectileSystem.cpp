@@ -41,25 +41,29 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                     bc->phase = BoomerangComponent::Returning;
                 }
             } else {
-                // Returning phase: steer towards owner
-                if (registry.valid(bc->owner) && registry.all_of<Position>(bc->owner)) {
-                    const auto& ownerPos = registry.get<Position>(bc->owner);
+                // Returning phase: steer towards owner or specific target
+                entt::entity targetEnt = registry.valid(bc->returnTarget) ? bc->returnTarget : bc->owner;
+
+                if (registry.valid(targetEnt) && registry.all_of<Position>(targetEnt)) {
+                    const auto& targetPos = registry.get<Position>(targetEnt);
                     Vector2 p = {pos.x, pos.y};
-                    Vector2 op = {ownerPos.x, ownerPos.y};
-                    Vector2 toOwner = Vector2Subtract(op, p);
-                    float dist = Vector2Length(toOwner);
+                    Vector2 tp = {targetPos.x, targetPos.y};
+                    Vector2 toTarget = Vector2Subtract(tp, p);
+                    float dist = Vector2Length(toTarget);
                     
                     if (dist < 20.0f) {
-                        // Back to owner, destroy projectile
+                        // Back to owner/target, destroy projectile
                         to_destroy.push_back(entity);
                         continue;
                     }
                     
-                    Vector2 dir = Vector2Scale(Vector2Normalize(toOwner), proj.speed > 0.1f ? proj.speed : 800.0f); 
+                    float speed = (bc->returnSpeed > 0.1f) ? bc->returnSpeed : (proj.speed > 0.1f ? proj.speed : 800.0f);
+                    Vector2 dir = Vector2Scale(Vector2Normalize(toTarget), speed); 
                     vel.vx = dir.x;
                     vel.vy = dir.y;
                 } else {
-                    // Owner dead? Continue flying outward
+                    // Target dead/invalid? Continue flying outward or just destroy?
+                    // Original logic: Continue flying outward
                     bc->phase = BoomerangComponent::Outward; 
                 }
             }

@@ -205,6 +205,9 @@ void SkillSystem::InitHooks() {
 
         const auto* skillData = SkillRegistry::Get().GetSkill(exec.skill_id);
         Tag skillTags = skillData ? skillData->tags : Tag::None;
+        float baseSpeed = skillData ? skillData->GetParam("speed", 300.0f) : 300.0f;
+        float baseRadius = skillData ? skillData->GetParam("radius", 35.0f) : 35.0f;
+        float baseLifetime = skillData ? skillData->GetParam("lifetime", 1.2f) : 1.2f;
 
         Vector2 baseDir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
 
@@ -262,14 +265,14 @@ void SkillSystem::InitHooks() {
             auto proj_ent = registry.create();
             registry.emplace<LocalLevelTag>(proj_ent);
             registry.emplace<Position>(proj_ent, pos->x, pos->y);
-            registry.emplace<Velocity>(proj_ent, dir.x * 300.0f, dir.y * 300.0f);
+            registry.emplace<Velocity>(proj_ent, dir.x * baseSpeed, dir.y * baseSpeed);
             registry.emplace<ColorComponent>(proj_ent, exec.is_empowered ? GOLD : WHITE); 
             
             auto& proj = registry.emplace<Projectile>(proj_ent);
             proj.owner = owner;
-            proj.speed = 300.0f;
-            proj.lifeTime = boomerang ? 2.0f : 1.2f;
-            proj.radius = exec.is_empowered ? 60.0f : 35.0f; // Larger waves when empowered
+            proj.speed = baseSpeed;
+            proj.lifeTime = boomerang ? 2.0f : baseLifetime;
+            proj.radius = exec.is_empowered ? baseRadius * 1.7f : baseRadius; // Larger waves when empowered
             proj.pierce = true;
             proj.pierceCount = 99; 
             proj.snapshot = *stats;
@@ -290,6 +293,7 @@ void SkillSystem::InitHooks() {
                 bc.owner = owner;
                 bc.returnTimer = 0.5f; // Return after 0.5s
                 bc.phase = BoomerangComponent::Outward;
+                bc.returnSpeed = proj.speed * 1.2f;
             }
         }
 
@@ -426,6 +430,7 @@ void SkillSystem::InitHooks() {
 
     // ID 5: Infinite Blades (万剑归宗)
     RegisterEffect(5, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
+        LOG_INFO("DEBUG: RegisterEffect(5) called for entity {}", (uint32_t)owner);
         auto& chan = registry.emplace_or_replace<ChannelingComponent>(owner);
         chan.skill_id = 5;
         chan.channel_timer = 3.0f; // 3s channel
@@ -528,8 +533,14 @@ void SkillSystem::InitHooks() {
         auto* stats = registry.try_get<CombatStats>(owner);
         if (!pos || !stats) return;
 
+        const auto* skillData = SkillRegistry::Get().GetSkill(8);
+        float speed = skillData ? skillData->GetParam("speed", 400.0f) : 400.0f;
+        float returnTimer = skillData ? skillData->GetParam("return_timer", 0.45f) : 0.45f;
+        float radius = skillData ? skillData->GetParam("radius", 40.0f) : 40.0f;
+        float basePull = skillData ? skillData->GetParam("pull_strength", 300.0f) : 300.0f;
+        float gravityPull = skillData ? skillData->GetParam("gravity_strength", 500.0f) : 500.0f;
+
         Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
-        float speed = 400.0f;
 
         // --- BRANCH LOGIC ---
         bool hasPull = false;
@@ -541,11 +552,11 @@ void SkillSystem::InitHooks() {
                     // Talent: Ci Xi (磁吸) - ID 810
                     if (spec.allocated_points.contains(810) && spec.allocated_points.at(810) > 0) {
                         hasPull = true;
-                        pullStrength = 300.0f;
+                        pullStrength = basePull;
                     }
                     // Talent: Gravity Field (重力场) - ID 811
                     if (spec.allocated_points.contains(811) && spec.allocated_points.at(811) > 0) {
-                        pullStrength += 500.0f;
+                        pullStrength += gravityPull;
                     }
                     break;
                 }
@@ -570,7 +581,7 @@ void SkillSystem::InitHooks() {
         proj.owner = owner;
         proj.speed = speed;
         proj.lifeTime = 3.0f;
-        proj.radius = 40.0f;   
+        proj.radius = radius;   
         proj.pierce = true;
         proj.pierceCount = 99; 
         proj.snapshot = *stats;
@@ -589,8 +600,9 @@ void SkillSystem::InitHooks() {
 
         auto& bc = registry.emplace<BoomerangComponent>(proj_ent);
         bc.owner = owner;
-        bc.returnTimer = 0.3f;
+        bc.returnTimer = returnTimer;
         bc.phase = BoomerangComponent::Outward;
+        bc.returnSpeed = speed * 1.5f;
 
         LOG_INFO("Blade Boomerang fired by entity {}", (uint32_t)owner);
     });
@@ -600,21 +612,24 @@ void SkillSystem::InitHooks() {
         auto* pos = registry.try_get<Position>(owner);
         if (!pos) return;
 
+        const auto* skillData = SkillRegistry::Get().GetSkill(9);
+        float dashSpeed = skillData ? skillData->GetParam("dash_speed", 500.0f) : 500.0f;
+        float dashDist = skillData ? skillData->GetParam("dash_dist", 50.0f) : 50.0f;
+
         // 1. Dash backwards
         Vector2 dir = Vector2Normalize(Vector2Subtract({pos->x, pos->y}, exec.target_pos));
-        float dashDist = 50.0f; // Reduced from 100.0f
         
         if (auto* vel = registry.try_get<Velocity>(owner)) {
-            vel->vx = dir.x * 500.0f; // Reduced from 1000.0f
-            vel->vy = dir.y * 500.0f;
+            vel->vx = dir.x * dashSpeed; 
+            vel->vy = dir.y * dashSpeed;
         }
         
         if (auto* dash = registry.try_get<DashComponent>(owner)) {
             dash->isDashing = true;
-            dash->dashTimer = 0.1f;
+            dash->dashTimer = dashDist / dashSpeed; // Calculate time based on distance/speed
             dash->dirX = dir.x;
             dash->dirY = dir.y;
-            dash->dashSpeed = 500.0f; // Reduced from 1000.0f
+            dash->dashSpeed = dashSpeed; 
         }
 
         // --- VISUAL EFFECTS: Dense Ink & Gold Mark ---
@@ -865,6 +880,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
         chan.channel_timer -= dt;
         if (chan.channel_timer <= 0.0f) {
+            LOG_INFO("DEBUG: Channeling ended for entity {}", (uint32_t)entity);
             registry.remove<ChannelingComponent>(entity);
             continue;
         }
@@ -896,6 +912,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         if (chan.tick_timer <= 0.0f) {
             if (chan.skill_id == 5) {
                 // Infinite Blades: Chaotic "Grass Script" Strokes
+                // LOG_TRACE("DEBUG: Channeling Tick ID 5 for entity {}", (uint32_t)entity);
                 auto& particleSys = systems::GPUParticleSystem::Get();
                 std::vector<components::GPUParticle> particles;
                 

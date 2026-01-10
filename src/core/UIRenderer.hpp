@@ -49,7 +49,7 @@ namespace NoMoreDay {
         static void DrawSlot(const Font& font, entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel = nullptr, bool highlighted = false, bool isLocked = false, float alpha = 1.0f);
         static void DrawSkillSlot(const Font& font, float x, float y, float size, 
                                  Texture2D icon, const char* keyLabel, 
-                                 float cooldownRatio, float manaCost, 
+                                 float cooldownRatio, float remainingCooldown, float manaCost, 
                                   int charges, int maxCharges,
                                   bool hasEnoughMana, bool isHighlighted, bool isPressed = false, float alpha = 1.0f);
 

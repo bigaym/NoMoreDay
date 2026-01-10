@@ -602,6 +602,11 @@ void UISystem::DrawSkillHotbar(entt::registry& registry) {
         if (isHovered) {
             State.hoveredSkillSlot = i;
             State.isMouseOverUI = true;
+            
+            // Debug: Trace cooldown values for first few slots
+            if (i < 2) {
+                // LOG_TRACE("Skill Slot {}: ID={}, Cooldown={:.2f}, Charges={}/{}", i, slot.id, slot.cooldown, slot.current_charges, maxCharges);
+            }
 
             // Drop logic
             if (State.isDraggingSkill && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
@@ -627,7 +632,7 @@ void UISystem::DrawSkillHotbar(entt::registry& registry) {
         }
 
         NoMoreDay::UIRenderer::DrawSkillSlot(State.globalFont, x, y, slotSize, 
-                                 icon, labels[i], cooldownRatio, manaCost, 
+                                 icon, labels[i], cooldownRatio, slot.cooldown, manaCost, 
                                  slot.current_charges, maxCharges,
                                  hasEnoughMana, isHovered, isPressed, 0.8f);
     }
