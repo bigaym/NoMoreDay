@@ -64,7 +64,7 @@ namespace NoMoreDay {
         resourceManager.loadTexture(assets::textures::Corrupted_Beast.id, std::string(assets::textures::Corrupted_Beast.path));
 
         // 2. Initialize Level
-        m_context->levelManager->initialize();
+        m_context->levelManager->initialize(resourceManager);
         m_context->levelManager->loadNewLevel("cave", WorldConstants::WORLD_WIDTH / 10, WorldConstants::WORLD_HEIGHT / 10);
 
         // 3. Initialize Entities (Player)

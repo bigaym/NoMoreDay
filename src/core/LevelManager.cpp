@@ -1,4 +1,5 @@
 #include "LevelManager.hpp"
+#include "ResourceManager.hpp"
 #include "../tools/Logger.hpp"
 
 LevelManager::LevelManager() 
@@ -11,10 +12,9 @@ LevelManager::~LevelManager() {
     LOG_INFO("LevelManager shutdown completed");
 }
 
-void LevelManager::initialize() {
-    // This is now just a placeholder or for empty init
-    // Real init happens in activateLevel
-    LOG_INFO("LevelManager initialized (empty state)");
+void LevelManager::initialize(ResourceManager& resources) {
+    m_resources = &resources;
+    LOG_INFO("LevelManager initialized with ResourceManager");
 }
 
 void LevelManager::loadNewLevel(const std::string& biome, int width, int height, int level) {
@@ -36,10 +36,10 @@ LevelManager::LevelData LevelManager::prepareLevel(const std::string& biome, int
     data.enemy = std::make_unique<EnemySpawnSystem>();
     data.fog = std::make_unique<FogOfWarSystem>();
     
-    // CPU Generation
+    // CPU Generation (地图和敌人数据)
     data.map->generateMap(width, height, biome);
-    data.fog->initData(width, height);
     data.enemy->initData(width, height, *data.map, biome);
+    // 注意: FogOfWarSystem 现在需要 ResourceManager, 在 activateLevel 中初始化
     
     return data;
 }
@@ -56,8 +56,8 @@ void LevelManager::activateLevel(LevelData&& data) {
     m_currentLevel = data.level;
     
     // GPU Initialization (Must be on Main Thread)
-    if (m_fogSystem) {
-        m_fogSystem->initTexture();
+    if (m_fogSystem && m_resources) {
+        m_fogSystem->initialize(*m_resources, data.width, data.height);
     }
     if (m_enemySystem) {
         m_enemySystem->initTextures();
@@ -68,29 +68,19 @@ void LevelManager::activateLevel(LevelData&& data) {
 
 void LevelManager::update(float dt, entt::registry& registry, const Position& playerPos) {
     if (m_mapSystem && m_enemySystem && m_fogSystem) {
-        // 更新战争迷雾
+        // 更新战争迷雾 (GPU 计算)
         float viewRadius = 200.0f; // 默认值
-        // 尝试从玩家实体获取视野组件
         auto view = registry.view<const PlayerTag, const VisionComponent>();
-        if (view.begin() == view.end()) {
-             // It's possible player died or not spawned yet
-        }
         for (auto [entity, vision] : view.each()) {
             viewRadius = vision.radius;
         }
         m_fogSystem->updateVisibility(playerPos, viewRadius);
         
-        // 同步可见性到 MapSystem (确保渲染正确)
-        int w = m_mapSystem->getWidth();
-        int h = m_mapSystem->getHeight();
-        for (int y = 0; y < h; ++y) {
-            for (int x = 0; x < w; ++x) {
-                m_mapSystem->setVisibility(x, y, m_fogSystem->getVisibility(x, y));
-            }
-        }
+        // GPU FogOfWarSystem 直接生成纹理, 无需同步到 MapSystem
+        // 渲染时 FogSystem 和 MapSystem 独立渲染
 
-         // 更新敌人生成状态
-         m_enemySystem->updateEnemySpawning(playerPos, registry);
+        // 更新敌人生成状态
+        m_enemySystem->updateEnemySpawning(playerPos, registry);
     } 
 }
 

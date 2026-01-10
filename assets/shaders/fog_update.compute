@@ -1,0 +1,66 @@
+#version 430
+layout(local_size_x = 16, local_size_y = 16) in;
+
+// Visibility states (must match C++ constants)
+const uint VISIBILITY_UNEXPLORED = 0u;
+const uint VISIBILITY_EXPLORED = 1u;
+const uint VISIBILITY_VISIBLE = 2u;
+
+// Visibility grid (read/write)
+layout(std430, binding = 0) buffer VisibilityBuffer {
+    uint visibility[];
+};
+
+// Output texture (RGBA8, written directly)
+layout(rgba8, binding = 0) uniform writeonly image2D fogTexture;
+
+uniform int width;
+uniform int height;
+uniform vec2 playerGridPos;  // Player position in grid coordinates
+uniform float gridRadius;    // View radius in grid cells
+
+void main() {
+    uint x = gl_GlobalInvocationID.x;
+    uint y = gl_GlobalInvocationID.y;
+    
+    if (x >= width || y >= height) return;
+    
+    uint index = y * width + x;
+    uint currentVis = visibility[index];
+    
+    // Calculate distance to player
+    float dx = float(x) - playerGridPos.x;
+    float dy = float(y) - playerGridPos.y;
+    float dist = sqrt(dx * dx + dy * dy);
+    
+    // Update visibility based on distance
+    if (dist <= gridRadius) {
+        // Within view radius - set to VISIBLE
+        visibility[index] = VISIBILITY_VISIBLE;
+        currentVis = VISIBILITY_VISIBLE;
+    } else if (currentVis == VISIBILITY_VISIBLE) {
+        // Was visible, now out of range - downgrade to EXPLORED
+        visibility[index] = VISIBILITY_EXPLORED;
+        currentVis = VISIBILITY_EXPLORED;
+    }
+    // EXPLORED and UNEXPLORED remain unchanged
+    
+    // Write to fog texture
+    vec4 fogColor;
+    switch (currentVis) {
+        case VISIBILITY_UNEXPLORED:
+            fogColor = vec4(0.0, 0.0, 0.0, 1.0);  // Full black
+            break;
+        case VISIBILITY_EXPLORED:
+            fogColor = vec4(0.2, 0.2, 0.2, 0.7);  // Dark gray, semi-transparent
+            break;
+        case VISIBILITY_VISIBLE:
+            fogColor = vec4(0.0, 0.0, 0.0, 0.0);  // Fully transparent
+            break;
+        default:
+            fogColor = vec4(0.0, 0.0, 0.0, 1.0);
+            break;
+    }
+    
+    imageStore(fogTexture, ivec2(x, y), fogColor);
+}

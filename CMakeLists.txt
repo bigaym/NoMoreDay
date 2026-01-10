@@ -11,15 +11,20 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(SPDLOG_BUILD_SHARED ON CACHE BOOL "" FORCE)
 set(SPDLOG_BUILD_EXAMPLE OFF CACHE BOOL "" FORCE)
 add_subdirectory(third_party/spdlog)
+set_target_properties(spdlog PROPERTIES UNITY_BUILD OFF)
 
 # 2. Raylib
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(BUILD_GAMES    OFF CACHE BOOL "" FORCE)
-set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE) # Build as Dynamic Library (DLL)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE) # Build as Static Library to support rlgl.h usage
 set(OPENGL_VERSION "4.3" CACHE STRING "Force OpenGL 4.3" FORCE)
 set(GRAPHICS "GRAPHICS_API_OPENGL_43" CACHE STRING "Force OpenGL 4.3" FORCE)
 
 add_subdirectory(third_party/raylib)
+
+# Raylib's internal C files are not compatible with Unity Build due to macro and symbol conflicts.
+# We must disable Unity Build specifically for the raylib target.
+set_target_properties(raylib PROPERTIES UNITY_BUILD OFF)
 
 # 3. EnTT
 add_subdirectory(third_party/entt)
@@ -159,7 +164,7 @@ if(WIN32)
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
         # -Wno-stringop-overflow: Suppress false positives from spdlog/fmt in GCC 13/14
-        target_compile_options(NoMoreDayCore PRIVATE "-Wa,-mbig-obj" "-Wno-stringop-overflow")
+        target_compile_options(NoMoreDayCore PUBLIC "-Wa,-mbig-obj" "-Wno-stringop-overflow")
     endif()
     
     target_compile_definitions(NoMoreDayCore PUBLIC WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
@@ -199,12 +204,7 @@ add_custom_command(TARGET NoMoreDay POST_BUILD
     COMMENT "Copying assets to output directory..."
 )
 
-# 3. Copy Dependency DLLs to Output Directory
-# Use generator expressions to locate the DLL files automatically.
 add_custom_command(TARGET NoMoreDay POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:raylib>
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:spdlog>
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"

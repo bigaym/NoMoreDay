@@ -193,4 +193,53 @@ FilterAction LootFilter::evaluate(const ItemComponent& item, int itemLevel) {
     return result;
 }
 
+// 实现 to_json 以支持保存过滤器配置
+void LootFilter::to_json(nlohmann::json& j, const LootFilterProfile& p) {
+    j["name"] = p.name;
+    j["description"] = p.description;
+    j["rules"] = nlohmann::json::array();
+    
+    for (const auto& rule : p.rules) {
+        nlohmann::json rj;
+        rj["name"] = rule.name;
+        rj["enabled"] = rule.enabled;
+        
+        // Conditions
+        nlohmann::json cj;
+        if (rule.condition.minRarity.has_value()) {
+            cj["min_rarity"] = static_cast<int>(rule.condition.minRarity.value());
+        }
+        if (rule.condition.maxRarity.has_value()) {
+            cj["max_rarity"] = static_cast<int>(rule.condition.maxRarity.value());
+        }
+        if (rule.condition.minLevel.has_value()) {
+            cj["min_level"] = rule.condition.minLevel.value();
+        }
+        if (rule.condition.maxLevel.has_value()) {
+            cj["max_level"] = rule.condition.maxLevel.value();
+        }
+        if (rule.condition.itemType.has_value()) {
+            cj["item_type"] = static_cast<int>(rule.condition.itemType.value());
+        }
+        if (!rule.condition.hasAffixes.empty()) {
+            cj["has_affixes"] = rule.condition.hasAffixes;
+        }
+        if (rule.condition.baseName.has_value()) {
+            cj["base_name"] = rule.condition.baseName.value();
+        }
+        rj["conditions"] = cj;
+        
+        // Action
+        rj["action"] = static_cast<int>(rule.action.type);
+        if (rule.action.colorOverride.has_value()) {
+            const auto& c = rule.action.colorOverride.value();
+            rj["color"] = { c.r, c.g, c.b, c.a };
+        }
+        rj["scale"] = rule.action.scale;
+        rj["minimap_icon"] = rule.action.minimapIcon;
+        
+        j["rules"].push_back(rj);
+    }
+}
+
 } // namespace NoMoreDay

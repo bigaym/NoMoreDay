@@ -1,10 +1,13 @@
 #pragma once
 
 #include <memory>
+#include <cassert>
 #include "../systems/MapSystem.hpp"
 #include "../systems/EnemySpawnSystem.hpp"
 #include "../systems/FogOfWarSystem.hpp"
 #include "../components/Common.hpp"
+
+class ResourceManager;
 
 class LevelManager {
 private:
@@ -15,6 +18,9 @@ private:
     // 当前关卡信息
     std::string m_currentBiome;
     int m_currentLevel;
+    
+    // 资源管理器引用 (GPU 初始化需要)
+    ResourceManager* m_resources = nullptr;
     
     // 关卡尺寸
     static constexpr int DEFAULT_MAP_WIDTH = 128;
@@ -32,8 +38,8 @@ public:
     LevelManager();
     ~LevelManager();
     
-    // 初始化关卡管理器
-    void initialize();
+    // 初始化关卡管理器 (传入 ResourceManager 用于 GPU 资源加载)
+    void initialize(ResourceManager& resources);
     
     // 加载新关卡 (Synchronous legacy wrapper)
     void loadNewLevel(const std::string& biome = "cave", 
@@ -57,13 +63,34 @@ public:
     // 清理当前关卡
     void cleanup();
     
-    // 获取系统引用
-    MapSystem& getMapSystem() { return *m_mapSystem; }
-    const MapSystem& getMapSystem() const { return *m_mapSystem; }
-    EnemySpawnSystem& getEnemySystem() { return *m_enemySystem; }
-    const EnemySpawnSystem& getEnemySystem() const { return *m_enemySystem; }
-    FogOfWarSystem& getFogSystem() { return *m_fogSystem; }
-    const FogOfWarSystem& getFogSystem() const { return *m_fogSystem; }
+    // 获取系统引用 (带空指针检查)
+    MapSystem& getMapSystem() { 
+        assert(m_mapSystem && "LevelManager: MapSystem not initialized"); 
+        return *m_mapSystem; 
+    }
+    const MapSystem& getMapSystem() const { 
+        assert(m_mapSystem && "LevelManager: MapSystem not initialized"); 
+        return *m_mapSystem; 
+    }
+    EnemySpawnSystem& getEnemySystem() { 
+        assert(m_enemySystem && "LevelManager: EnemySpawnSystem not initialized"); 
+        return *m_enemySystem; 
+    }
+    const EnemySpawnSystem& getEnemySystem() const { 
+        assert(m_enemySystem && "LevelManager: EnemySpawnSystem not initialized"); 
+        return *m_enemySystem; 
+    }
+    FogOfWarSystem& getFogSystem() { 
+        assert(m_fogSystem && "LevelManager: FogOfWarSystem not initialized"); 
+        return *m_fogSystem; 
+    }
+    const FogOfWarSystem& getFogSystem() const { 
+        assert(m_fogSystem && "LevelManager: FogOfWarSystem not initialized"); 
+        return *m_fogSystem; 
+    }
+    
+    // 检查系统是否已初始化
+    bool isInitialized() const { return m_mapSystem && m_enemySystem && m_fogSystem; }
     
     // 获取当前关卡信息
     const std::string& getCurrentBiome() const { return m_currentBiome; }

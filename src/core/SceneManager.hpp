@@ -11,6 +11,7 @@ namespace NoMoreDay {
 class SceneManager {
 public:
     SceneManager(LevelManager& levelManager, entt::registry& registry);
+    ~SceneManager();  // 确保异步任务在销毁前完成
     
     // Request a transition to a new biome/level
     void RequestTransition(const std::string& biome, int level = 1, const std::string& entranceId = "start");

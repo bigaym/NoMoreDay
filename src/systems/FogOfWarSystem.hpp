@@ -3,63 +3,98 @@
 #include <vector>
 #include <cstdint>
 #include "../components/Common.hpp"
+#include "../core/ComputeBuffer.hpp"
 #include "raylib.h"
 
-class FogOfWarSystem {
-private:
-    std::vector<uint8_t> m_visibilityGrid;  // 0=未探索, 1=已探索, 2=可见
-    Texture2D m_fogTexture;                 // 雾层纹理
-    int m_width, m_height;
-    bool m_textureValid;
-    
-    // 编译期常量
-    static constexpr float FOG_ALPHA = 0.7f;
-    static constexpr int VISIBILITY_UNEXPLORED = 0;
-    static constexpr int VISIBILITY_EXPLORED = 1;
-    static constexpr int VISIBILITY_VISIBLE = 2;
+class ResourceManager;
 
+/**
+ * @brief GPU-accelerated Fog of War System
+ * 
+ * Uses OpenGL 4.3 Compute Shaders for high-performance visibility updates.
+ * Visibility grid and texture generation happen entirely on GPU.
+ */
+class FogOfWarSystem {
 public:
+    // 可见性状态 (必须与 fog_update.compute 中的常量匹配)
+    static constexpr uint32_t VISIBILITY_UNEXPLORED = 0u;
+    static constexpr uint32_t VISIBILITY_EXPLORED = 1u;
+    static constexpr uint32_t VISIBILITY_VISIBLE = 2u;
+    
     static constexpr float TILE_SIZE = 10.0f;
+    static constexpr float FOG_ALPHA = 0.7f;
+
     FogOfWarSystem();
     ~FogOfWarSystem();
     
-    // 初始化系统数据 (CPU Safe)
-    void initData(int width, int height);
+    // 禁止拷贝
+    FogOfWarSystem(const FogOfWarSystem&) = delete;
+    FogOfWarSystem& operator=(const FogOfWarSystem&) = delete;
     
-    // 初始化纹理资源 (Main Thread / GPU Only)
-    void initTexture();
+    // 允许移动
+    FogOfWarSystem(FogOfWarSystem&&) noexcept = default;
+    FogOfWarSystem& operator=(FogOfWarSystem&&) noexcept = default;
 
-    // Legacy initialize (calls both)
-    void initialize(int width, int height);
+    /**
+     * @brief 初始化系统 (必须在主线程调用)
+     * @param resources 资源管理器用于加载 Compute Shader
+     * @param width 地图宽度 (格子数)
+     * @param height 地图高度 (格子数)
+     */
+    void initialize(ResourceManager& resources, int width, int height);
     
-    // 更新可见性（基于玩家位置和视野半径）
+    /**
+     * @brief 基于玩家位置更新可见性 (GPU 计算)
+     * @param playerPos 玩家世界坐标
+     * @param viewRadius 视野半径 (像素)
+     */
     void updateVisibility(const Position& playerPos, float viewRadius);
     
-    // 渲染战争迷雾
+    /**
+     * @brief 渲染战争迷雾
+     */
     void renderFog() const;
     
-    // 检查位置可见性
-    bool isVisible(int x, int y) const;
-    bool isExplored(int x, int y) const;
-    uint8_t getVisibility(int x, int y) const;
+    /**
+     * @brief 检查位置是否可见 (需要从 GPU 读回数据, 较慢)
+     */
+    [[nodiscard]] bool isVisible(int x, int y) const;
+    [[nodiscard]] bool isExplored(int x, int y) const;
+    [[nodiscard]] uint32_t getVisibility(int x, int y) const;
     
-    // 设置特定位置的可见性
-    void setVisibility(int x, int y, uint8_t visibility);
+    /**
+     * @brief 强制设置特定位置的可见性
+     */
+    void setVisibility(int x, int y, uint32_t visibility);
     
     // 获取地图尺寸
-    int getWidth() const { return m_width; }
-    int getHeight() const { return m_height; }
+    [[nodiscard]] int getWidth() const { return m_width; }
+    [[nodiscard]] int getHeight() const { return m_height; }
     
-    // 获取可见性网格引用（用于小地图）
-    const std::vector<uint8_t>& getVisibilityGrid() const { return m_visibilityGrid; }
+    // 获取可见性网格引用 (用于小地图, 需要先同步)
+    [[nodiscard]] const std::vector<uint32_t>& getVisibilityGrid() const { return m_cpuVisibilityCache; }
+    
+    /**
+     * @brief 从 GPU 同步可见性数据到 CPU (用于小地图等需要 CPU 访问的场景)
+     */
+    void syncToCPU();
+    
+    /**
+     * @brief 释放 GPU 资源
+     */
+    void shutdown();
 
 private:
-    // 更新雾纹理
-    void updateFogTexture();
+    int m_width = 0;
+    int m_height = 0;
+    bool m_initialized = false;
     
-    // 泛洪填充算法（用于探索新区域）
-    void floodFillExplore(int startX, int startY);
+    // GPU 资源
+    NoMoreDay::core::ComputeBuffer m_visibilityBuffer;  // uint32_t 数组
+    Shader m_fogShader;                                  // Compute Shader
+    Texture2D m_fogTexture;                              // 输出纹理 (GPU 生成)
     
-    // 检查坐标是否在范围内
-    bool isValidCoordinate(int x, int y) const;
+    // CPU 缓存 (用于 isVisible 等查询)
+    mutable std::vector<uint32_t> m_cpuVisibilityCache;
+    mutable bool m_cpuCacheDirty = true;
 };

@@ -26,9 +26,28 @@ struct GPUSupportInfo {
 #endif
 
 typedef void (APIENTRY *PFNGLMEMORYBARRIERPROC)(unsigned int barriers);
+typedef void (APIENTRY *PFNGLBINDIMAGETEXTUREPROC)(unsigned int unit, unsigned int texture, 
+    int level, unsigned char layered, int layer, unsigned int access, unsigned int format);
 
+// OpenGL constants for image binding (not in raylib headers)
 #ifndef GL_SHADER_STORAGE_BARRIER_BIT
 #define GL_SHADER_STORAGE_BARRIER_BIT 0x00002000
+#endif
+
+#ifndef GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+#define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT 0x00000020
+#endif
+
+#ifndef GL_WRITE_ONLY
+#define GL_WRITE_ONLY 0x88B9
+#endif
+
+#ifndef GL_READ_WRITE
+#define GL_READ_WRITE 0x88BA
+#endif
+
+#ifndef GL_RGBA8
+#define GL_RGBA8 0x8058
 #endif
 
 class GPUUtils {
@@ -71,11 +90,36 @@ public:
         return info;
     }
 
-    static void MemoryBarrier(unsigned int barriers = GL_SHADER_STORAGE_BARRIER_BIT) {
+    static void MemoryBarrier(unsigned int barriers = GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT) {
         static PFNGLMEMORYBARRIERPROC glMemoryBarrier_ptr = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
         if (glMemoryBarrier_ptr) {
             glMemoryBarrier_ptr(barriers);
         }
+    }
+
+    /**
+     * @brief Bind a texture as an image for compute shader access
+     * @param unit Image unit (0-7 typically)
+     * @param textureId OpenGL texture ID
+     * @param level Mipmap level (usually 0)
+     * @param layered If true, all layers are bound
+     * @param layer Layer to bind if not layered
+     * @param access GL_READ_ONLY, GL_WRITE_ONLY, or GL_READ_WRITE
+     * @param format Internal format (e.g., GL_RGBA8)
+     */
+    static void BindImageTexture(unsigned int unit, unsigned int textureId, int level = 0, 
+                                  bool layered = false, int layer = 0, 
+                                  unsigned int access = GL_WRITE_ONLY, 
+                                  unsigned int format = GL_RGBA8) {
+        static PFNGLBINDIMAGETEXTUREPROC glBindImageTexture_ptr = nullptr;
+        if (glBindImageTexture_ptr == nullptr) {
+            glBindImageTexture_ptr = (PFNGLBINDIMAGETEXTUREPROC)glfwGetProcAddress("glBindImageTexture");
+            if (!glBindImageTexture_ptr) {
+                LOG_WARN("Failed to bind glBindImageTexture! Image-based compute will not work.");
+                return;
+            }
+        }
+        glBindImageTexture_ptr(unit, textureId, level, layered ? 1 : 0, layer, access, format);
     }
 
     static void DispatchCompute(unsigned int numGroupsX, unsigned int numGroupsY, unsigned int numGroupsZ) {

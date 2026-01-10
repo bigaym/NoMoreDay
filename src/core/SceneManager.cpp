@@ -8,6 +8,14 @@ namespace NoMoreDay {
 SceneManager::SceneManager(LevelManager& levelManager, entt::registry& registry)
     : m_levelManager(levelManager), m_registry(registry) {}
 
+SceneManager::~SceneManager() {
+    // 确保异步加载任务在销毁前完成，避免悬垂指针
+    if (m_loadingFuture.valid()) {
+        LOG_INFO("SceneManager: Waiting for async loading to complete before destruction...");
+        m_loadingFuture.wait();
+    }
+}
+
 void SceneManager::RequestTransition(const std::string& biome, int level, const std::string& entranceId) {
     if (m_isTransitioning) return;
     
