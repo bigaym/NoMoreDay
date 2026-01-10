@@ -1,6 +1,7 @@
 #include "RenderSystem.hpp"
 #include "UISystem.hpp"
 #include "GPUParticleSystem.hpp"
+#include "GPUParticleSystemV2.hpp"
 #include "GPUEntitySystem.hpp"
 #include "GPUFlowFieldSystem.hpp"
 #include "DamagePopupManager.hpp"
@@ -48,7 +49,7 @@ Vector2 RenderSystem::GetShakeOffset() {
     return { offsetX, offsetY };
 }
 
-void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedContext& context) {
+void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedContext& context, const Camera2D& camera) {
     float cameraZoom = (context.settings) ? context.settings->cameraZoom : 1.5f;
     float fontScale = 1.0f / cameraZoom;
 
@@ -66,7 +67,8 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
     });
 
-    // GPU 粒子渲染
+    // GPU 粒子渲染 - Use V2 with proper camera, keep V1 as fallback
+    NoMoreDay::systems::GPUParticleSystemV2::Get().Render(camera);
     NoMoreDay::systems::GPUParticleSystem::Get().Render();
     NoMoreDay::systems::GPUEntitySystem::Get().Render();
 

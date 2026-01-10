@@ -527,7 +527,7 @@ namespace NoMoreDay {
             m_context->levelManager->render(m_camera);
 
             // Entities
-            RenderSystem::render(*m_context->registry, *m_context);
+            RenderSystem::render(*m_context->registry, *m_context, m_camera);
             
             // Monster Health Bars
             systems::MonsterHealthBarSystem::Render(registry, m_camera);

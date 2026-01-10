@@ -5,6 +5,7 @@
 #include "../systems/UISystem.hpp"
 #include "../systems/SkillSystem.hpp"
 #include "../systems/GPUParticleSystem.hpp"
+#include "../systems/GPUParticleSystemV2.hpp"
 #include "../systems/GPUEntitySystem.hpp"
 #include "../systems/GPUFlowFieldSystem.hpp"
 #include "../core/ItemFactory.hpp"
@@ -85,9 +86,14 @@ void Game::init() {
     // Initialize UI System (Loads Fonts)
     UISystem::Initialize(m_resourceManager);
 
-    // Initialize GPU Particle System
+    // Initialize GPU Systems
     if (m_gpuInfo.computeShaderSupported) {
+        // V2 Particle System with Indirect Drawing
+        NoMoreDay::systems::GPUParticleSystemV2::Get().Init(100000);
+        
+        // Legacy V1 (kept for fallback, can be removed later)
         NoMoreDay::systems::GPUParticleSystem::Get().Init(m_resourceManager);
+        
         NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager);
         NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256, 256);
     }
@@ -122,6 +128,8 @@ void Game::run() {
                 // 2. GPU -> CPU Sync Back
                 NoMoreDay::systems::GPUEntitySystem::Get().SyncBack(m_registry);
                 
+                // Update both V1 and V2 particle systems
+                NoMoreDay::systems::GPUParticleSystemV2::Get().Update(fixedDt);
                 NoMoreDay::systems::GPUParticleSystem::Get().Update(fixedDt);
             }
 
@@ -158,6 +166,7 @@ void Game::cleanup() {
     m_registry.clear(); 
 
     UISystem::Shutdown();
+    NoMoreDay::systems::GPUParticleSystemV2::Get().Shutdown();
     NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();
     NoMoreDay::systems::GPUEntitySystem::Get().Shutdown();
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Shutdown();

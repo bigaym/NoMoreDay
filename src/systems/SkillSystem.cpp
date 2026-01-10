@@ -1037,27 +1037,27 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                     // Core Spark - Golden flash along the cut line
                     components::GPUParticle spark;
                     spark.position = pPos;
-                    spark.velocity = Vector2Scale(dir, 80.0f);
+                    spark.velocity = Vector2Scale(dir, 60.0f);
                     spark.acceleration = { 0.0f, 0.0f };
                     spark.color = GOLD;
-                    spark.scale = 8.0f;
-                    spark.lifetime = 0.4f;
-                    spark.maxLifetime = 0.4f;
-                    spark.flags = 0;
-                    spark.growthRate = -8.0f; // Shrink to nothing
+                    spark.scale = 4.0f;  // Smaller spark
+                    spark.lifetime = 0.3f;
+                    spark.maxLifetime = 0.3f;
+                    spark.flags = 2;  // Spark/diamond shape
+                    spark.growthRate = -6.0f; // Shrink to nothing
                     particleSys.Emit(spark);
 
                     // Outer Glow - Softer surrounding effect
                     components::GPUParticle glow;
                     glow.position = pPos;
-                    glow.velocity = Vector2Scale(dir, 30.0f);
+                    glow.velocity = Vector2Scale(dir, 20.0f);
                     glow.acceleration = { 0.0f, 0.0f };
-                    glow.color = ColorAlpha(ORANGE, 0.6f);
-                    glow.scale = 12.0f;
-                    glow.lifetime = 0.5f;
-                    glow.maxLifetime = 0.5f;
-                    glow.flags = 0;
-                    glow.growthRate = 5.0f; // Expand slightly
+                    glow.color = ColorAlpha(ORANGE, 0.5f);
+                    glow.scale = 6.0f;  // Smaller glow
+                    glow.lifetime = 0.4f;
+                    glow.maxLifetime = 0.4f;
+                    glow.flags = 1;  // Soft glow
+                    glow.growthRate = 3.0f; // Expand slightly
                     particleSys.Emit(glow);
                     
                     emittedCount += 2;

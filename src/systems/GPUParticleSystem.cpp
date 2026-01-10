@@ -3,6 +3,7 @@
 #include "rlgl.h"
 #include "raymath.h"
 #include "../tools/Logger.hpp"
+#include "GPUParticleSystemV2.hpp"
 #include <fstream>
 #include <sstream>
 
@@ -142,67 +143,31 @@ void GPUParticleSystem::Update(float dt) {
 }
 
 void GPUParticleSystem::Render() {
-    static int s_renderDebugCounter = 0;
-    bool doDebug = (++s_renderDebugCounter % 120 == 1);
-    
-    if (m_aliveCount <= 0) {
-        if (doDebug) LOG_DEBUG("[GPUParticle Render] No alive particles to render (aliveCount={})", m_aliveCount);
-        return;
-    }
-    
-    if (doDebug) {
-        LOG_INFO("[GPUParticle Render] Rendering {} particles, shader={}, bufferA={}", 
-            m_aliveCount, m_renderShader.id, m_useBufferA);
-    }
-
-    // TEMPORARY: CPU fallback rendering to diagnose shader issues
-    // Read back particle data and render with simple circles
-    core::ComputeBuffer& renderBuffer = m_useBufferA ? m_particleBufferA : m_particleBufferB;
-    
-    // Only read back a subset to avoid performance issues
-    int readCount = std::min(m_aliveCount, 500);
-    std::vector<components::GPUParticle> particles(readCount);
-    renderBuffer.Read(particles.data(), readCount * sizeof(components::GPUParticle));
-    
-    BeginBlendMode(BLEND_ADDITIVE);
-    for (int i = 0; i < readCount; ++i) {
-        const auto& p = particles[i];
-        if (p.lifetime > 0.0f && p.scale > 0.1f) {
-            float alpha = p.lifetime / p.maxLifetime;
-            if (alpha > 1.0f) alpha = 1.0f;
-            if (alpha < 0.0f) alpha = 0.0f;
-            
-            Color col = p.color;
-            col.a = (unsigned char)(col.a * alpha);
-            
-            DrawCircleV({p.position.x, p.position.y}, p.scale, col);
-        }
-    }
-    EndBlendMode();
-    
-    // Also try GPU rendering (may or may not work)
-    if (m_renderShader.id != 0) {
-        Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
-        BeginBlendMode(BLEND_ADDITIVE);
-        BeginShaderMode(m_renderShader);
-            rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], mvp);
-            renderBuffer.BindBase(11);
-            rlEnableVertexArray(m_quadVAO);
-            rlDrawVertexArrayInstanced(0, 6, m_aliveCount);
-            rlDisableVertexArray();
-        EndShaderMode();
-        EndBlendMode();
-    }
+    // V1 rendering disabled - V2 system (GPUParticleSystemV2) is now the primary renderer
+    // This function is kept for backward compatibility but does nothing
+    return;
 }
 
 void GPUParticleSystem::Emit(const components::GPUParticle& p) {
+    // Forward to V2 system
+    NoMoreDay::systems::GPUParticleSystemV2::Get().Emit(p);
+    
+    // Legacy V1 logic (disabled to avoid double processing/memory usage)
+    /*
     if (m_stagedParticles.size() < (size_t)m_maxParticles) {
         m_stagedParticles.push_back(p);
     }
+    */
 }
 
 void GPUParticleSystem::EmitBatch(const std::vector<components::GPUParticle>& particles) {
+    // Forward to V2 system
+    NoMoreDay::systems::GPUParticleSystemV2::Get().EmitBatch(particles);
+    
+    // Legacy V1 logic (disabled)
+    /*
     for (const auto& p : particles) Emit(p);
+    */
 }
 
 void GPUParticleSystem::Shutdown() {

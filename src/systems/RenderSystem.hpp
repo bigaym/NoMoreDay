@@ -5,7 +5,7 @@
 
 class RenderSystem {
 public:
-    static void render(entt::registry& registry, const NoMoreDay::SharedContext& context);
+    static void render(entt::registry& registry, const NoMoreDay::SharedContext& context, const Camera2D& camera);
 
     // Screen Shake API
     static void AddScreenShake(float intensity);

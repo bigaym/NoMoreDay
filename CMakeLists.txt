@@ -110,6 +110,7 @@ add_library(NoMoreDayCore STATIC
     src/systems/UIAstrolabe.cpp
     src/systems/UIMinimap.cpp
     src/systems/GPUParticleSystem.cpp
+    src/systems/GPUParticleSystemV2.cpp
     src/systems/GPUEntitySystem.cpp
     src/systems/GPUFlowFieldSystem.cpp
     src/systems/ProgressionSystem.cpp
