@@ -324,10 +324,10 @@ Tile::Type MapSystem::getTileType(int x, int y) const {
 
 void MapSystem::render(const Camera2D& camera) const {
     // 简单的视锥剔除
-    int startX = static_cast<int>((camera.target.x - camera.offset.x) / 10.0f);
-    int startY = static_cast<int>((camera.target.y - camera.offset.y) / 10.0f);
-    int endX = startX + static_cast<int>(GetScreenWidth() / 10.0f) + 2;
-    int endY = startY + static_cast<int>(GetScreenHeight() / 10.0f) + 2;
+    int startX = static_cast<int>((camera.target.x - camera.offset.x / camera.zoom) / 10.0f) - 2;
+    int startY = static_cast<int>((camera.target.y - camera.offset.y / camera.zoom) / 10.0f) - 2;
+    int endX = startX + static_cast<int>((GetScreenWidth() / camera.zoom) / 10.0f) + 4;
+    int endY = startY + static_cast<int>((GetScreenHeight() / camera.zoom) / 10.0f) + 4;
 
     startX = std::max(0, startX);
     startY = std::max(0, startY);
@@ -336,24 +336,31 @@ void MapSystem::render(const Camera2D& camera) const {
 
     const auto& biome = NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
 
+    // 渲染所有瓦片 - GPU FogOfWarSystem 负责在顶层绘制迷雾遮罩
     for (int y = startY; y < endY; ++y) {
         for (int x = startX; x < endX; ++x) {
-            // 只渲染可见或已探索的区域
-            if (isExplored(x, y)) {
-                Tile::Type type = getTileType(x, y);
-                Color color = BLACK;
-                if (type == Tile::Type::FLOOR) color = biome.floorColor;
-                else if (type == Tile::Type::WALL) color = biome.wallColor;
-                else if (type == Tile::Type::STAIRS_DOWN) color = RED; 
-                else if (type == Tile::Type::STAIRS_UP) color = biome.floorColor; 
-                
-                // 如果只是已探索但当前不可见，变暗
-                if (!isVisible(x, y)) {
-                    color = ColorTint(color, GRAY);
-                }
-                
-                DrawRectangle(x * 10, y * 10, 10, 10, color);
+            Tile::Type type = getTileType(x, y);
+            Color color = BLACK;
+            
+            switch (type) {
+                case Tile::Type::FLOOR:
+                    color = biome.floorColor;
+                    break;
+                case Tile::Type::WALL:
+                    color = biome.wallColor;
+                    break;
+                case Tile::Type::STAIRS_DOWN:
+                    color = RED;
+                    break;
+                case Tile::Type::STAIRS_UP:
+                    color = GREEN; // Make stairs up visible
+                    break;
+                default:
+                    color = biome.floorColor;
+                    break;
             }
+            
+            DrawRectangle(x * 10, y * 10, 10, 10, color);
         }
     }
 }
