@@ -1,7 +1,9 @@
 #version 430
 
-layout(location = 0) in vec2 vertexPos; 
+// Vertex attributes - simple quad
+layout(location = 0) in vec2 vertexPos;  // [-0.5, 0.5] range
 
+// Particle structure - MUST match compute shader
 struct Particle {
     vec2 position;
     vec2 velocity;
@@ -15,43 +17,52 @@ struct Particle {
     float pad[4];
 };
 
-// Vert shader reads from the COMPACTED buffer (always use slot 11 in Render)
-layout(std430, binding = 11) buffer ParticleBuffer {
+// Compacted particles buffer (only alive particles)
+layout(std430, binding = 0) readonly buffer CompactBuffer {
     Particle particles[];
 };
 
+// MVP matrix for 2D camera transform
 uniform mat4 mvp;
 
+// Outputs to fragment shader
 out vec4 fragColor;
-out flat uint vFlags; 
-out vec2 vTexCoord;   
+out flat uint vFlags;
+out vec2 vTexCoord;
 
 void main() {
+    // Get particle data using instance ID
     uint id = gl_InstanceID;
     Particle p = particles[id];
     
-    // In this compacted system, Vertex shader is only called for m_aliveCount instances.
-    // So all p[id] should be alive. But we keep safety.
-    if (p.lifetime <= 0.0) {
-        gl_Position = vec4(-5.0);
+    // Safety check - should not happen with proper compaction
+    if (p.lifetime <= 0.0 || p.scale <= 0.0) {
+        gl_Position = vec4(-9999.0, -9999.0, 0.0, 1.0);
         return;
     }
-
-    uint c = p.color;
+    
+    // Unpack color from uint (RGBA format, little-endian)
     vec4 col = vec4(
-        float(c & 0xFFu) / 255.0,
-        float((c >> 8) & 0xFFu) / 255.0,
-        float((c >> 16) & 0xFFu) / 255.0,
-        float((c >> 24) & 0xFFu) / 255.0
+        float(p.color & 0xFFu) / 255.0,           // R
+        float((p.color >> 8) & 0xFFu) / 255.0,    // G
+        float((p.color >> 16) & 0xFFu) / 255.0,   // B
+        float((p.color >> 24) & 0xFFu) / 255.0    // A
     );
     
-    // Alpha fade based on lifetime
-    col.a *= clamp(p.lifetime / p.maxLifetime, 0.0, 1.0);
-
+    // Apply lifetime-based alpha fade
+    float lifetimeRatio = clamp(p.lifetime / p.maxLifetime, 0.0, 1.0);
+    col.a *= lifetimeRatio;
+    
+    // Pass to fragment shader
     fragColor = col;
     vFlags = p.flags;
-    vTexCoord = vertexPos + 0.5;
-
-    vec2 worldPos = vertexPos * p.scale + p.position;
+    vTexCoord = vertexPos + 0.5;  // Convert to [0, 1] range
+    
+    // Calculate world position
+    // vertexPos is in [-0.5, 0.5], scale by particle size
+    // Note: p.scale was used as Radius in V1, here it's Diameter. Multiply by 2.0 to match visual size.
+    vec2 worldPos = vertexPos * (p.scale * 2.0) + p.position;
+    
+    // Apply MVP transform
     gl_Position = mvp * vec4(worldPos, 0.0, 1.0);
 }

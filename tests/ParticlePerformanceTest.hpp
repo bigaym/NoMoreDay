@@ -14,7 +14,7 @@ TEST_CASE("GPUParticleSystem: Stress Test (100k Particles)") {
     // Target: 200k particles capacity to handle 10k entities
     // Each entity might emit bursts.
     int maxParticles = 200000;
-    particleSystem.Init(rm, maxParticles);
+    particleSystem.Init(maxParticles);
     
     LOG_INFO("Starting Stress Test with {} particles capacity...", maxParticles);
 

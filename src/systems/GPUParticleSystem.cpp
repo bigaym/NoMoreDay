@@ -1,183 +1,332 @@
 #include "GPUParticleSystem.hpp"
-#include "../utils/GPUUtils.hpp"
-#include "rlgl.h"
-#include "raymath.h"
 #include "../tools/Logger.hpp"
-#include "GPUParticleSystemV2.hpp"
+#include "../utils/GPUUtils.hpp"
+#include <rlgl.h>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
+
+// For glfwGetProcAddress
+#include <GLFW/glfw3.h>
+
+// OpenGL function pointers for indirect drawing
+typedef void (*PFNGLDRAWARRAYSINDIRECTPROC)(unsigned int mode, const void *indirect);
+typedef void (*PFNGLBINDBUFFERPROC)(unsigned int target, unsigned int buffer);
+
+static PFNGLDRAWARRAYSINDIRECTPROC glDrawArraysIndirectPtr = nullptr;
+static PFNGLBINDBUFFERPROC glBindBufferPtr = nullptr;
+
+// OpenGL constants
+#define GL_TRIANGLES 0x0004
+#define GL_DRAW_INDIRECT_BUFFER 0x8F3F
 
 namespace NoMoreDay::systems {
 
-void GPUParticleSystem::Init(ResourceManager& rm, int maxParticles) {
-    m_maxParticles = maxParticles;
-    m_poolIndex = 0;
-    m_stagedParticles.reserve(2048);
-    m_useBufferA = true;
+GPUParticleSystem& GPUParticleSystem::Get() {
+    static GPUParticleSystem instance;
+    return instance;
+}
 
-    // 1. Load Shaders
-    std::ifstream f("assets/shaders/particle.compute");
-    if (f.is_open()) {
-        std::stringstream ss; ss << f.rdbuf();
-        std::string shaderSource = ss.str();
-        LOG_INFO("GPUParticleSystem: Loaded compute shader source ({} bytes)", shaderSource.size());
-        unsigned int compId = rlCompileShader(shaderSource.c_str(), RL_COMPUTE_SHADER);
-        if (compId == 0) {
-            LOG_ERROR("GPUParticleSystem: Compute shader compilation FAILED!");
-        } else {
+void GPUParticleSystem::Init(int maxParticles) {
+    if (m_initialized) {
+        LOG_WARN("GPUParticleSystem: Already initialized!");
+        return;
+    }
+    
+    m_maxParticles = maxParticles;
+    LOG_INFO("Initializing GPUParticleSystem with {} max particles...", maxParticles);
+    
+    // Get OpenGL extension for indirect drawing using GLFW
+    glDrawArraysIndirectPtr = (PFNGLDRAWARRAYSINDIRECTPROC)glfwGetProcAddress("glDrawArraysIndirect");
+    glBindBufferPtr = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
+    
+    if (!glDrawArraysIndirectPtr) {
+        LOG_ERROR("GPUParticleSystem: glDrawArraysIndirect not available!");
+        return;
+    }
+    
+    if (!glBindBufferPtr) {
+        LOG_ERROR("GPUParticleSystem: glBindBuffer not available!");
+        return;
+    }
+    
+    // Create resources
+    LoadShaders();
+    CreateBuffers();
+    CreateQuadVAO();
+    
+    m_stagedParticles.reserve(10000);
+    m_initialized = true;
+    
+    LOG_INFO("GPUParticleSystem: Initialized successfully with Indirect Drawing support.");
+}
+
+void GPUParticleSystem::Shutdown() {
+    if (!m_initialized) return;
+    
+    LOG_INFO("GPUParticleSystem: Shutting down...");
+    
+    // Clean up shaders
+    if (m_computeShader.id != 0) {
+        rlUnloadShaderProgram(m_computeShader.id);
+        m_computeShader.id = 0;
+    }
+    if (m_renderShader.id != 0) {
+        UnloadShader(m_renderShader);
+    }
+    
+    // VAO/VBO cleanup
+    if (m_quadVBO != 0) {
+        rlUnloadVertexBuffer(m_quadVBO);
+        m_quadVBO = 0;
+    }
+    if (m_quadVAO != 0) {
+        rlUnloadVertexArray(m_quadVAO);
+        m_quadVAO = 0;
+    }
+    
+    // Buffers are cleaned up by ComputeBuffer destructor
+    
+    m_stagedParticles.clear();
+    m_initialized = false;
+}
+
+void GPUParticleSystem::LoadShaders() {
+    // 1. Load Compute Shader
+    // Using existing V2 shader files as we are porting V2 code
+    std::ifstream compFile("assets/shaders/particle.compute");
+    if (compFile.is_open()) {
+        std::stringstream ss;
+        ss << compFile.rdbuf();
+        std::string source = ss.str();
+        
+        unsigned int compId = rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
+        if (compId != 0) {
             m_computeShader.id = rlLoadComputeShaderProgram(compId);
-            if (m_computeShader.id == 0) {
-                LOG_ERROR("GPUParticleSystem: Compute shader program linking FAILED!");
+            if (m_computeShader.id != 0) {
+                LOG_INFO("GPUParticleSystem: Compute shader loaded (ID: {})", m_computeShader.id);
+                m_computeDtLoc = rlGetLocationUniform(m_computeShader.id, "dt");
+                m_computeTotalLoc = rlGetLocationUniform(m_computeShader.id, "totalParticles");
             } else {
-                LOG_INFO("GPUParticleSystem: Compute shader loaded successfully (ID: {})", m_computeShader.id);
+                LOG_ERROR("GPUParticleSystem: Compute shader linking failed!");
             }
+        } else {
+            LOG_ERROR("GPUParticleSystem: Compute shader compilation failed!");
         }
     } else {
-        LOG_WARN("GPUParticleSystem: Failed to load assets/shaders/particle.compute - check working directory!");
+        LOG_ERROR("GPUParticleSystem: Could not open assets/shaders/particle.compute");
     }
-
+    
+    // 2. Load Render Shaders
     m_renderShader = LoadShader("assets/shaders/particle.vert", "assets/shaders/particle.frag");
-    if (m_renderShader.id == 0) {
-        LOG_ERROR("GPUParticleSystem: Render shader loading FAILED!");
+    if (m_renderShader.id != 0) {
+        LOG_INFO("GPUParticleSystem: Render shader loaded (ID: {})", m_renderShader.id);
+        m_renderMvpLoc = GetShaderLocation(m_renderShader, "mvp");
     } else {
-        LOG_INFO("GPUParticleSystem: Render shader loaded successfully (ID: {})", m_renderShader.id);
+        LOG_ERROR("GPUParticleSystem: Render shader loading failed!");
     }
-    m_renderShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(m_renderShader, "mvp");
+}
 
-    // 2. SSBOs - Double Buffering
-    size_t structSize = sizeof(components::GPUParticle);
-    size_t bufferSize = m_maxParticles * structSize;
-    std::vector<unsigned char> zeroData(bufferSize, 0);
+void GPUParticleSystem::CreateBuffers() {
+    size_t particleSize = sizeof(components::GPUParticle);
+    size_t totalSize = m_maxParticles * particleSize;
     
-    m_particleBufferA.Create(bufferSize, zeroData.data(), RL_DYNAMIC_DRAW);
-    m_particleBufferB.Create(bufferSize, zeroData.data(), RL_DYNAMIC_DRAW);
+    // Particle buffer (all particles)
+    m_particleBuffer.Create(totalSize);
+    LOG_DEBUG("GPUParticleSystem: Created particle buffer ({} bytes)", totalSize);
     
-    // 3. Atomic Counter Buffer
-    uint32_t zeroCounter = 0;
-    m_atomicCounter.Create(sizeof(uint32_t), &zeroCounter, RL_DYNAMIC_DRAW);
+    // Compact buffer (alive particles only)
+    m_compactBuffer.Create(totalSize);
+    LOG_DEBUG("GPUParticleSystem: Created compact buffer ({} bytes)", totalSize);
+    
+    // DrawIndirect buffer (16 bytes)
+    DrawArraysIndirectCommand cmd = { 6, 0, 0, 0 };  // 6 vertices, 0 instances initially
+    m_indirectBuffer.Create(sizeof(DrawArraysIndirectCommand));
+    m_indirectBuffer.Update(&cmd, sizeof(cmd));
+    LOG_DEBUG("GPUParticleSystem: Created indirect buffer");
+    
+    // Atomic counter buffer (4 bytes)
+    uint32_t zero = 0;
+    m_atomicBuffer.Create(sizeof(uint32_t));
+    m_atomicBuffer.Update(&zero, sizeof(zero));
+    LOG_DEBUG("GPUParticleSystem: Created atomic buffer");
+}
 
-    // 4. VAO/VBO for Instancing
-    float vertices[] = { 
-        -0.5f, -0.5f, 
-         0.5f, -0.5f, 
-        -0.5f,  0.5f, 
-        -0.5f,  0.5f, 
-         0.5f, -0.5f, 
-         0.5f,  0.5f 
+void GPUParticleSystem::CreateQuadVAO() {
+    // Simple quad vertices: two triangles forming a square
+    // Positions are in [-0.5, 0.5] range, centered at origin
+    float vertices[] = {
+        // Triangle 1
+        -0.5f, -0.5f,
+         0.5f, -0.5f,
+         0.5f,  0.5f,
+        // Triangle 2
+        -0.5f, -0.5f,
+         0.5f,  0.5f,
+        -0.5f,  0.5f,
     };
+    
     m_quadVAO = rlLoadVertexArray();
     rlEnableVertexArray(m_quadVAO);
+    
     m_quadVBO = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
-    rlEnableVertexBuffer(m_quadVBO);
-    rlSetVertexAttribute(0, 2, RL_FLOAT, false, 0, 0);
+    rlSetVertexAttribute(0, 2, RL_FLOAT, false, 2 * sizeof(float), 0);
     rlEnableVertexAttribute(0);
+    
     rlDisableVertexArray();
+    
+    LOG_DEBUG("GPUParticleSystem: Created quad VAO (ID: {})", m_quadVAO);
+}
 
-    LOG_INFO("GPUParticleSystem: Refactored with Double-Buffering (Slot 10/11) initialized.");
+void GPUParticleSystem::Emit(const components::GPUParticle& particle) {
+    if (m_stagedParticles.size() < (size_t)m_maxParticles) {
+        m_stagedParticles.push_back(particle);
+    }
+}
+
+void GPUParticleSystem::EmitBatch(const std::vector<components::GPUParticle>& particles) {
+    if (particles.empty()) return;
+    for (const auto& p : particles) {
+        Emit(p);
+    }
 }
 
 void GPUParticleSystem::Update(float dt) {
-    static int s_debugCounter = 0;
-    bool doDebug = (++s_debugCounter % 120 == 1); // Log every ~2 seconds at 60fps
-
-    if (m_computeShader.id == 0) {
-        if (doDebug) {
-            LOG_WARN("[GPUParticle] Compute shader not loaded! Particles won't be processed.");
-        }
-        return;
-    }
-
-    // 1. Reset atomic counter
+    if (!m_initialized || m_computeShader.id == 0) return;
+    
+    // 0. Determine Buffers for Ping-Pong
+    // m_pingPong = false: Input=ParticleBuffer, Output=CompactBuffer
+    // m_pingPong = true:  Input=CompactBuffer,  Output=ParticleBuffer
+    core::ComputeBuffer& bufIn = m_pingPong ? m_compactBuffer : m_particleBuffer;
+    core::ComputeBuffer& bufOut = m_pingPong ? m_particleBuffer : m_compactBuffer;
+    
+    // 1. Reset atomic counter to 0 (This counts ALIVE particles compacted)
     uint32_t zero = 0;
-    m_atomicCounter.Update(&zero, sizeof(uint32_t));
-
-    // 2. Dispatch Compute (process existing particles)
+    m_atomicBuffer.Update(&zero, sizeof(zero));
+    
+    // 2. Dispatch compute shader
     rlEnableShader(m_computeShader.id);
+    
     float clampedDt = (dt > 0.1f) ? 0.016f : dt;
-    rlSetUniform(rlGetLocationUniform(m_computeShader.id, "dt"), &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);
-    rlSetUniform(rlGetLocationUniform(m_computeShader.id, "maxParticles"), &m_maxParticles, RL_SHADER_UNIFORM_INT, 1);
+    rlSetUniform(m_computeDtLoc, &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);
+    rlSetUniform(m_computeTotalLoc, &m_currentParticleCount, RL_SHADER_UNIFORM_INT, 1);
     
-    core::ComputeBuffer& inputBuf = m_useBufferA ? m_particleBufferA : m_particleBufferB;
-    core::ComputeBuffer& outputBuf = m_useBufferA ? m_particleBufferB : m_particleBufferA;
+    // Bind SSBOs
+    bufIn.BindBase(0);   // Input: Read from last frame's valid state
+    bufOut.BindBase(1);  // Output: Write alive particles here
+    m_indirectBuffer.BindBase(2);
+    m_atomicBuffer.BindBase(3);
     
-    inputBuf.BindBase(10);
-    outputBuf.BindBase(11);
-    m_atomicCounter.BindBase(12);
+    // Dispatch
+    int workGroups = (m_currentParticleCount + 255) / 256;
+    if (workGroups > 0) {
+        rlComputeShaderDispatch(workGroups, 1, 1);
+    }
     
-    rlComputeShaderDispatch((m_maxParticles + 255) / 256, 1, 1);
+    // Memory barrier to ensure compute results are visible
     utils::GPUUtils::MemoryBarrier();
-    rlDisableShader();
-
-    // 3. Read back alive count (after compute)
-    int prevAlive = m_aliveCount;
-    m_atomicCounter.Read(&m_aliveCount, sizeof(int));
     
-    // 4. Upload NEW particles to the OUTPUT buffer (after the compacted alive particles)
-    // This is critical: new particles go into the output buffer so they survive the swap!
+    rlDisableShader();
+    
+    // 3. Read back alive count to know where to append new particles
+    uint32_t aliveCount = 0;
+    m_atomicBuffer.Read(&aliveCount, sizeof(uint32_t));
+    
+    // 4. Append New Particles to Output Buffer
+    // They are appended AFTER the compacted alive particles
     if (!m_stagedParticles.empty()) {
-        int count = (int)m_stagedParticles.size();
-        if (count > m_maxParticles - m_aliveCount) {
-            count = m_maxParticles - m_aliveCount; // Don't overflow
+        int newCount = (int)m_stagedParticles.size();
+        size_t structSize = sizeof(components::GPUParticle);
+        
+        // Ensure we don't overflow
+        if (aliveCount + newCount > (uint32_t)m_maxParticles) {
+            newCount = m_maxParticles - aliveCount;
         }
         
-        if (count > 0) {
-            size_t structSize = sizeof(components::GPUParticle);
-            // Append new particles after the alive ones in the OUTPUT buffer
-            outputBuf.Update(m_stagedParticles.data(), count * structSize, m_aliveCount * structSize);
-            m_aliveCount += count; // Include new particles in alive count
-            
-            if (doDebug || count > 10) {
-                LOG_INFO("[GPUParticle] Uploaded {} NEW particles after {} alive (total={})", 
-                    count, prevAlive, m_aliveCount);
-            }
+        if (newCount > 0) {
+            bufOut.Update(m_stagedParticles.data(), newCount * structSize, aliveCount * structSize);
+            aliveCount += newCount;
         }
         m_stagedParticles.clear();
     }
     
-    if (doDebug && m_aliveCount > 0) {
-        LOG_INFO("[GPUParticle] aliveCount={} (prev={}), bufferA={}", m_aliveCount, prevAlive, m_useBufferA);
-    }
-
-    // 5. Swap Buffers - output becomes next frame's input
-    m_useBufferA = !m_useBufferA;
-}
-
-void GPUParticleSystem::Render() {
-    // V1 rendering disabled - V2 system (GPUParticleSystemV2) is now the primary renderer
-    // This function is kept for backward compatibility but does nothing
-    return;
-}
-
-void GPUParticleSystem::Emit(const components::GPUParticle& p) {
-    // Forward to V2 system
-    NoMoreDay::systems::GPUParticleSystemV2::Get().Emit(p);
+    // 5. Update state for next frame
+    m_currentParticleCount = aliveCount;
     
-    // Legacy V1 logic (disabled to avoid double processing/memory usage)
-    /*
-    if (m_stagedParticles.size() < (size_t)m_maxParticles) {
-        m_stagedParticles.push_back(p);
-    }
-    */
-}
-
-void GPUParticleSystem::EmitBatch(const std::vector<components::GPUParticle>& particles) {
-    // Forward to V2 system
-    NoMoreDay::systems::GPUParticleSystemV2::Get().EmitBatch(particles);
+    // 6. Update Indirect Buffer for Rendering
+    // We want to draw ALL valid particles (compacted alive + newly appended)
+    DrawArraysIndirectCommand cmd = { 6, aliveCount, 0, 0 };
+    m_indirectBuffer.Update(&cmd, sizeof(cmd));
     
-    // Legacy V1 logic (disabled)
-    /*
-    for (const auto& p : particles) Emit(p);
-    */
+    // 7. Swap Buffers for next frame
+    m_pingPong = !m_pingPong;
 }
 
-void GPUParticleSystem::Shutdown() {
-    m_particleBufferA.Release();
-    m_particleBufferB.Release();
-    m_atomicCounter.Release();
-    rlUnloadShaderProgram(m_computeShader.id);
-    UnloadShader(m_renderShader);
+Matrix GPUParticleSystem::BuildMVP(const Camera2D& camera) const {
+    float w = (float)GetScreenWidth();
+    float h = (float)GetScreenHeight();
+    
+    // View matrix: camera transform
+    Matrix view = MatrixIdentity();
+    
+    // 1. Translate to camera target (negate for view)
+    view = MatrixMultiply(view, MatrixTranslate(-camera.target.x, -camera.target.y, 0.0f));
+    
+    // 2. Apply rotation
+    if (camera.rotation != 0.0f) {
+        view = MatrixMultiply(view, MatrixRotateZ(camera.rotation * DEG2RAD));
+    }
+    
+    // 3. Apply zoom
+    view = MatrixMultiply(view, MatrixScale(camera.zoom, camera.zoom, 1.0f));
+    
+    // 4. Translate by offset (screen center)
+    view = MatrixMultiply(view, MatrixTranslate(camera.offset.x, camera.offset.y, 0.0f));
+    
+    // Projection matrix: orthographic, Y-down (Raylib convention)
+    Matrix proj = MatrixOrtho(0.0f, w, h, 0.0f, -1.0f, 1.0f);
+    
+    // MVP = View * Projection
+    return MatrixMultiply(view, proj);
 }
 
+void GPUParticleSystem::Render(const Camera2D& camera) {
+    if (!m_initialized || m_renderShader.id == 0) return;
+    
+    // Build MVP matrix
+    Matrix mvp = BuildMVP(camera);
+    
+    // Begin rendering
+    BeginBlendMode(BLEND_ADDITIVE);
+    BeginShaderMode(m_renderShader);
+    
+    // Set MVP uniform
+    SetShaderValueMatrix(m_renderShader, m_renderMvpLoc, mvp);
+    
+    // Bind the buffer containing the valid particles for this frame
+    // Since we flipped m_pingPong at the end of Update, the valid data is in the buffer 
+    // that was the Output (which matches the NEW value of m_pingPong logic)
+    core::ComputeBuffer& bufferToRender = m_pingPong ? m_compactBuffer : m_particleBuffer;
+    bufferToRender.BindBase(0);
+    
+    // Enable VAO
+    rlEnableVertexArray(m_quadVAO);
+    rlDisableDepthTest(); // Ensure depth test is off
+    rlDisableBackfaceCulling(); // Ensure we see both sides
+    
+    // Direct Instanced Draw using CPU count
+    // This is safer than Indirect Draw and we already have the count on CPU
+    if (m_currentParticleCount > 0) {
+        rlDrawVertexArrayInstanced(0, 6, m_currentParticleCount);
+    }
+    
+    // Cleanup
+    rlDisableVertexArray();
+    EndShaderMode();
+    EndBlendMode();
+}
+
+// Implement InkEffectHelper
 components::GPUParticle InkEffectHelper::CreateInkTrail(Vector2 pos, Vector2 vel, float scale, float life) {
     components::GPUParticle p;
     p.position = pos; p.velocity = vel; p.color = COLOR_INK_LIGHT;

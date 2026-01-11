@@ -9,7 +9,7 @@ TEST_CASE("GPUParticleSystem Shader Compilation") {
     auto& particleSystem = NoMoreDay::systems::GPUParticleSystem::Get();
     
     // Init should compile shaders
-    particleSystem.Init(rm, 100);
+    particleSystem.Init(100);
     
     // Emit a particle using InkEffectHelper
     auto p = NoMoreDay::systems::InkEffectHelper::CreateInkTrail({ 100, 100 }, { 10, 10 }, 1.0f, 1.0f);
@@ -26,7 +26,9 @@ TEST_CASE("GPUParticleSystem Shader Compilation") {
     // Run render to trigger Vertex/Frag Shader
     BeginDrawing();
     ClearBackground(RAYWHITE);
-    particleSystem.Render();
+    Camera2D cam = { 0 };
+    cam.zoom = 1.0f;
+    particleSystem.Render(cam);
     EndDrawing();
 
     CHECK(true);

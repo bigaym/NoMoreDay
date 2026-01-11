@@ -1,7 +1,6 @@
 #include "RenderSystem.hpp"
 #include "UISystem.hpp"
 #include "GPUParticleSystem.hpp"
-#include "GPUParticleSystemV2.hpp"
 #include "GPUEntitySystem.hpp"
 #include "GPUFlowFieldSystem.hpp"
 #include "DamagePopupManager.hpp"
@@ -67,9 +66,8 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
     });
 
-    // GPU 粒子渲染 - Use V2 with proper camera, keep V1 as fallback
-    NoMoreDay::systems::GPUParticleSystemV2::Get().Render(camera);
-    NoMoreDay::systems::GPUParticleSystem::Get().Render();
+    // GPU 粒子渲染
+    NoMoreDay::systems::GPUParticleSystem::Get().Render(camera);
     NoMoreDay::systems::GPUEntitySystem::Get().Render();
 
     // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent，但没有 SpriteComponent)
