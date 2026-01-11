@@ -67,4 +67,6 @@ struct PhantomFlash : SkillBehaviorBase<PhantomFlash> {
 
 REGISTER_SKILL_BEHAVIOR(PhantomFlash)
 
+void RegisterPhantomFlash() {}
+
 } // namespace NoMoreDay::skills

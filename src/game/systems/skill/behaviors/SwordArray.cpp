@@ -249,4 +249,6 @@ void SwordArray::DoCast(entt::registry& registry, entt::entity owner, SkillExecu
 
 REGISTER_SKILL_BEHAVIOR(SwordArray)
 
+void RegisterSwordArray() {}
+
 } // namespace NoMoreDay::skills

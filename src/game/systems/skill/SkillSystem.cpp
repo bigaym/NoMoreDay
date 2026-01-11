@@ -32,6 +32,7 @@ static std::vector<SkillSystem::SkillHook> s_post_cast_hooks;
 
 void SkillSystem::InitHooks() {
     LOG_INFO("Initializing Skill Hooks...");
+    SkillBehaviorRegistry::Initialize();
     ClearHooks();
     s_skill_callbacks.clear();
     

@@ -43,4 +43,6 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
 
 REGISTER_SKILL_BEHAVIOR(InfiniteBlades)
 
+void RegisterInfiniteBlades() {}
+
 } // namespace NoMoreDay::skills

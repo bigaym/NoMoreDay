@@ -116,10 +116,23 @@ void Game::run() {
         float frameTime = GetFrameTime();
         if (frameTime > 0.25f) frameTime = 0.25f;
 
-        accumulator += frameTime;
+        // 1. Update Game State based on Frame Rate (Variable DT)
+        // This ensures input responsiveness (ESC, Clicks) at high refresh rates.
+        m_stateManager->Update(frameTime);
 
+        if (m_stateManager->IsEmpty()) {
+            LOG_INFO("State stack empty, exiting game loop");
+            break;
+        }
+
+        // 2. Continuous Simulation & Physics (Fixed DT)
+        accumulator += frameTime;
         while (accumulator >= fixedDt) {
-            m_stateManager->Update(fixedDt);
+            // Note: GameplayState::UpdatePhysics is called inside its OnUpdate, 
+            // which now runs at variable rate. If we truly want fixed physics, 
+            // we should separate it from the State and call it here.
+            // But for now, moving the whole Update to variable DT is the safest
+            // way to fix the input issues reported by the user.
             
             if (m_gpuInfo.computeShaderSupported) {
                 // 1. CPU -> GPU Sync & Compute Physics
@@ -132,11 +145,6 @@ void Game::run() {
             }
 
             accumulator -= fixedDt;
-        }
-
-        if (m_stateManager->IsEmpty()) {
-            LOG_INFO("State stack empty, exiting game loop");
-            break;
         }
 
         BeginDrawing();

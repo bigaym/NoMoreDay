@@ -76,6 +76,14 @@ public:
     static void Clear();
     
     /**
+     * @brief Initialize all skill behaviors.
+     * This function should be called during system initialization to ensure
+     * that all skill behavior translation units are linked and their static
+     * initializers are executed.
+     */
+    static void Initialize();
+    
+    /**
      * @brief Check if a skill has any registered behaviors.
      */
     static bool HasBehavior(uint32_t skill_id);
@@ -98,6 +106,8 @@ private:
         static const int s_register_##SkillClass = []{ \
             NoMoreDay::SkillBehaviorRegistry::RegisterCast( \
                 SkillClass::kSkillId, &SkillClass::OnCast); \
+            NoMoreDay::SkillBehaviorRegistry::RegisterHit( \
+                SkillClass::kSkillId, &SkillClass::OnHit); \
             return 0; \
         }(); \
     }
@@ -112,6 +122,8 @@ private:
                 SkillClass::kSkillId, &SkillClass::OnCast); \
             NoMoreDay::SkillBehaviorRegistry::RegisterTick( \
                 SkillClass::kSkillId, &SkillClass::OnTick); \
+            NoMoreDay::SkillBehaviorRegistry::RegisterHit( \
+                SkillClass::kSkillId, &SkillClass::OnHit); \
             return 0; \
         }(); \
     }

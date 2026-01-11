@@ -117,4 +117,6 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
 
 REGISTER_SKILL_BEHAVIOR(BladeWard)
 
+void RegisterBladeWard() {}
+
 } // namespace NoMoreDay::skills

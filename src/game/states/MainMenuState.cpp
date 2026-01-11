@@ -119,7 +119,7 @@ namespace NoMoreDay {
     }
 
     bool MainMenuState::IsButtonClicked(const Button& btn) {
-        return btn.hovered && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+        return btn.hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     }
 
 }

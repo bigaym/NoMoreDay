@@ -168,4 +168,6 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
 REGISTER_SKILL_BEHAVIOR(RendingWave)
 
+void RegisterRendingWave() {}
+
 } // namespace NoMoreDay::skills

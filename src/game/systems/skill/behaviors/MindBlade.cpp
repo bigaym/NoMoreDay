@@ -27,4 +27,6 @@ struct MindBlade : SkillBehaviorBase<MindBlade> {
 
 REGISTER_SKILL_BEHAVIOR(MindBlade)
 
+void RegisterMindBlade() {}
+
 } // namespace NoMoreDay::skills

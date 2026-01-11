@@ -38,7 +38,7 @@ namespace NoMoreDay {
         m_settingsButton.hovered = CheckCollisionPointRec(mousePos, m_settingsButton.bounds);
         m_menuButton.hovered = CheckCollisionPointRec(mousePos, m_menuButton.bounds);
 
-        if (IsButtonClicked(m_resumeButton) || IsKeyReleased(KEY_ESCAPE)) {
+        if (IsButtonClicked(m_resumeButton) || IsKeyPressed(KEY_ESCAPE)) {
             m_stateManager->PopState();
         }
         else if (IsButtonClicked(m_unstuckButton)) {
@@ -131,7 +131,7 @@ namespace NoMoreDay {
     }
 
     bool PauseState::IsButtonClicked(const Button& btn) {
-        return btn.hovered && IsMouseButtonReleased(MOUSE_BUTTON_LEFT);
+        return btn.hovered && IsMouseButtonPressed(MOUSE_BUTTON_LEFT);
     }
 
 }

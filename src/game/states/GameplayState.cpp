@@ -209,7 +209,7 @@ namespace NoMoreDay {
             m_stateManager->PushState<InventoryState>();
         }
         
-        if (IsKeyReleased(KEY_ESCAPE)) {
+        if (IsKeyPressed(KEY_ESCAPE)) {
             m_stateManager->PushState<PauseState>();
         }
 

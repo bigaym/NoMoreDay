@@ -67,6 +67,38 @@ SkillBehaviorRegistry::HitFunc SkillBehaviorRegistry::GetHit(uint32_t skill_id) 
     return (it != map.end()) ? it->second : nullptr;
 }
 
+// External registration functions to force linkage
+namespace skills {
+    void RegisterFlowingThrust();
+    void RegisterRendingWave();
+    void RegisterBladeFormation();
+    void RegisterBladeWard();
+    void RegisterInfiniteBlades();
+    void RegisterSwordArray();
+    void RegisterMindBlade();
+    void RegisterBladeBoomerang();
+    void RegisterPhantomFlash();
+}
+
+void SkillBehaviorRegistry::Initialize() {
+    LOG_INFO("SkillBehaviorRegistry: Initializing skill behavior system...");
+    
+    // Explicitly call a function from each behavior translation unit.
+    // This forces the linker to include the object file, ensuring that
+    // the static initializers (which call RegisterCast/RegisterHit) are executed.
+    skills::RegisterFlowingThrust();
+    skills::RegisterRendingWave();
+    skills::RegisterBladeFormation();
+    skills::RegisterBladeWard();
+    skills::RegisterInfiniteBlades();
+    skills::RegisterSwordArray();
+    skills::RegisterMindBlade();
+    skills::RegisterBladeBoomerang();
+    skills::RegisterPhantomFlash();
+
+    LOG_INFO("SkillBehaviorRegistry: Handshake completed for all skill behaviors.");
+}
+
 void SkillBehaviorRegistry::Clear() {
     GetCastMap().clear();
     GetTickMap().clear();

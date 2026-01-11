@@ -198,7 +198,7 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                     
                     // --- Event System: OnSkillHit ---
                     // This triggers Sword Intent gain, Mana on Hit, and specific Skill OnHit behaviors
-                    // Note: Basic attacks currently might not have a skill_id (0).
+                    // Note: Basic attacks currently might not have a skill_id (0).，
                     // We need to pass the correct skill_id if this attack came from a skill.
                     // For now, Player input attack is often basic attack (0) or weapon skill.
                     NoMoreDay::Tag hitTags = NoMoreDay::Tag::Melee; 

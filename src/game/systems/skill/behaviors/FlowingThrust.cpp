@@ -249,4 +249,8 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
 // Auto-register on static initialization
 REGISTER_SKILL_BEHAVIOR(FlowingThrust)
 
+void RegisterFlowingThrust() {
+    // This function is called to force the linker to include this translation unit
+}
+
 } // namespace NoMoreDay::skills

@@ -177,4 +177,6 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
 
 REGISTER_SKILL_BEHAVIOR(BladeFormation)
 
+void RegisterBladeFormation() {}
+
 } // namespace NoMoreDay::skills

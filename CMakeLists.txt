@@ -59,6 +59,38 @@ add_custom_command(
 
 add_custom_target(GenerateTags DEPENDS ${TAG_HEADER})
 
+# --- Skill Behaviors (Object Library) ---
+# Using OBJECT library ensures all behaviors are linked even if they have no explicit references,
+# which is necessary for the static registration pattern to work.
+add_library(SkillBehaviors OBJECT
+    src/game/systems/skill/behaviors/SkillBehaviorRegistry.cpp
+    src/game/systems/skill/behaviors/FlowingThrust.cpp
+    src/game/systems/skill/behaviors/RendingWave.cpp
+    src/game/systems/skill/behaviors/BladeFormation.cpp
+    src/game/systems/skill/behaviors/BladeWard.cpp
+    src/game/systems/skill/behaviors/InfiniteBlades.cpp
+    src/game/systems/skill/behaviors/SwordArray.cpp
+    src/game/systems/skill/behaviors/MindBlade.cpp
+    src/game/systems/skill/behaviors/BladeBoomerang.cpp
+    src/game/systems/skill/behaviors/PhantomFlash.cpp
+)
+target_include_directories(SkillBehaviors PRIVATE 
+    src
+    third_party/json/include
+    third_party/raylib/src
+    third_party/raylib/src/external
+    third_party/raylib/src/external/glfw/include
+)
+target_link_libraries(SkillBehaviors PRIVATE 
+    raylib 
+    glfw 
+    spdlog::spdlog 
+    EnTT::EnTT 
+    Taskflow 
+    xsimd
+)
+target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
+
 # --- Core Library (Static) ---
 # 将核心逻辑打包为静态库，供游戏主程序和测试程序共同链接
 add_library(NoMoreDayCore STATIC
@@ -104,16 +136,6 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/skill/ProjectileSystem.cpp
     src/game/systems/skill/SkillSystem.cpp
     src/game/systems/skill/SummonSystem.cpp
-    src/game/systems/skill/behaviors/SkillBehaviorRegistry.cpp
-    src/game/systems/skill/behaviors/FlowingThrust.cpp
-    src/game/systems/skill/behaviors/RendingWave.cpp
-    src/game/systems/skill/behaviors/BladeFormation.cpp
-    src/game/systems/skill/behaviors/BladeWard.cpp
-    src/game/systems/skill/behaviors/InfiniteBlades.cpp
-    src/game/systems/skill/behaviors/SwordArray.cpp
-    src/game/systems/skill/behaviors/MindBlade.cpp
-    src/game/systems/skill/behaviors/BladeBoomerang.cpp
-    src/game/systems/skill/behaviors/PhantomFlash.cpp
     src/game/systems/ui/MonsterHealthBarSystem.cpp
     src/game/systems/ui/PlayerHUD.cpp
     src/game/systems/ui/UIAnimationSystem.cpp
@@ -153,6 +175,7 @@ target_link_libraries(NoMoreDayCore
     EnTT::EnTT 
     Taskflow
     xsimd
+    SkillBehaviors
 )
 
 # Header-only libraries include paths

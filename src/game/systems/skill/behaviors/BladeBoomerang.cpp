@@ -121,4 +121,6 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
 
 REGISTER_SKILL_BEHAVIOR(BladeBoomerang)
 
+void RegisterBladeBoomerang() {}
+
 } // namespace NoMoreDay::skills
