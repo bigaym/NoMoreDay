@@ -63,6 +63,11 @@ void GPUEntitySystem::InitRender(ResourceManager& rm) {
 }
 
 void GPUEntitySystem::Render() {
+    // DISABLED: Red circle entity markers are disabled for cleaner visuals.
+    // The GPU physics simulation still runs, only visual markers are hidden.
+    // To re-enable, remove the 'return' below.
+    return;
+    
     if (m_maxEntities <= 0 || m_renderShader.id == 0) return;
 
     Matrix mvp = rlGetMatrixModelview();
@@ -82,8 +87,14 @@ void GPUEntitySystem::Render() {
 }
 
 void GPUEntitySystem::Update(entt::registry& registry, float dt) {
-    // 1. Sync CPU -> GPU
-    auto view = registry.view<Position, Velocity, Radius, GPUIndex>();
+    // 1. Clear local buffer first (set radius to 0 to disable rendering for all slots)
+    // This ensures dead/removed entities don't leave ghost data
+    for (int i = 0; i < m_maxEntities; ++i) {
+        m_localData[i].radius = 0.0f;
+    }
+    
+    // 2. Sync CPU -> GPU (Exclude killed entities to prevent ghost rendering)
+    auto view = registry.view<Position, Velocity, Radius, GPUIndex>(entt::exclude<KilledTag>);
     int index = 0;
     view.each([&](auto entity, auto& pos, auto& vel, auto& radius, auto& gpuIdx) {
         if (index >= m_maxEntities) return;

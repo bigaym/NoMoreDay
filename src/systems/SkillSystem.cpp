@@ -258,9 +258,15 @@ void SkillSystem::InitHooks() {
             float angle = startAngle + i * angleStep;
             Vector2 dir = Vector2Rotate(baseDir, angle);
             
-            // --- VISUAL EFFECTS: Ink Trail ---
+            // --- VISUAL EFFECTS: Projectile Trail ---
             auto& particleSys = systems::GPUParticleSystem::Get();
-            particleSys.Emit(systems::InkEffectHelper::CreateInkTrail({pos->x, pos->y}, Vector2Scale(dir, -30.0f), 2.0f, 0.6f));
+            Color coreColor = exec.is_empowered ? systems::InkEffectHelper::COLOR_GOLD_CORE 
+                                                : systems::InkEffectHelper::COLOR_SWORD_QI;
+            Color glowColor = exec.is_empowered ? systems::InkEffectHelper::COLOR_GOLD_GLOW 
+                                                : systems::InkEffectHelper::COLOR_FROST_LIGHT;
+            auto trailParticles = systems::InkEffectHelper::CreateProjectileTrail(
+                {pos->x, pos->y}, dir, coreColor, glowColor, 25.0f, 4);
+            particleSys.EmitBatch(trailParticles);
 
             auto proj_ent = registry.create();
             registry.emplace<LocalLevelTag>(proj_ent);
@@ -381,24 +387,30 @@ void SkillSystem::InitHooks() {
         ae.thickness = 0.1f;
         ae.color = ve.color;
 
-        // --- VFX: Boundary Ring (Smoke) ---
+        // --- VFX: Area Effect Particles ---
         auto& particleSys = systems::GPUParticleSystem::Get();
-        int smokeCount = 40;
-        for(int i=0; i<smokeCount; ++i) {
-            float angle = (float)i / smokeCount * 2.0f * PI;
-            Vector2 pPos = { exec.target_pos.x + cosf(angle) * array.radius, exec.target_pos.y + sinf(angle) * array.radius };
+        
+        // Use new area effect API - particles within the radius with color gradient
+        Color coreColor = exec.is_empowered ? systems::InkEffectHelper::COLOR_GOLD_CORE 
+                                             : systems::InkEffectHelper::COLOR_SHADOW_CORE;
+        Color edgeColor = exec.is_empowered ? systems::InkEffectHelper::COLOR_GOLD_GLOW 
+                                             : systems::InkEffectHelper::COLOR_SHADOW_GLOW;
+        auto areaParticles = systems::InkEffectHelper::CreateAreaEffect(
+            exec.target_pos, array.radius, coreColor, edgeColor, 30, 1.0f);
+        particleSys.EmitBatch(areaParticles);
+        
+        // Boundary ring particles - thin line of sparks
+        int ringCount = 25;
+        for(int i = 0; i < ringCount; ++i) {
+            float angle = (float)i / ringCount * 2.0f * PI;
+            float r = array.radius + (float)GetRandomValue(-5, 5);
+            Vector2 pPos = { exec.target_pos.x + cosf(angle) * r, 
+                            exec.target_pos.y + sinf(angle) * r };
             
-            components::GPUParticle p;
-            p.position = pPos;
-            p.velocity = { 0, -10.0f }; // Slowly rising
-            p.acceleration = { 0, 0 };
-            p.color = systems::InkEffectHelper::COLOR_INK_LIGHT;
-            p.lifetime = array.duration; // Lasts full duration? Maybe fade out earlier and respawn in update
-            p.maxLifetime = array.duration;
-            p.scale = 2.0f;
-            p.flags = 13; // Ink Splat + Fade
-            p.growthRate = 0.0f;
-            particleSys.Emit(p);
+            // Tangent velocity for swirling effect
+            Vector2 tangent = { -sinf(angle) * 15.0f, cosf(angle) * 15.0f };
+            particleSys.Emit(systems::InkEffectHelper::CreateSpark(
+                pPos, tangent, systems::InkEffectHelper::COLOR_INK_LIGHT, 1.0f));
         }
 
         if (exec.is_empowered) {
@@ -407,11 +419,14 @@ void SkillSystem::InitHooks() {
             LOG_INFO("Empowered Sword Array: 1.5x Radius and faster damage pulses!");
             
             // Gold Accents on boundary
-             for(int i=0; i<10; ++i) {
+            for(int i = 0; i < 15; ++i) {
                 float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
-                Vector2 pPos = { exec.target_pos.x + cosf(angle) * array.radius, exec.target_pos.y + sinf(angle) * array.radius };
-                particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(pPos, {0, 20.0f}, 1.5f));
-             }
+                float r = array.radius * 0.8f + (float)GetRandomValue(0, (int)(array.radius * 0.4f));
+                Vector2 pPos = { exec.target_pos.x + cosf(angle) * r, 
+                                exec.target_pos.y + sinf(angle) * r };
+                particleSys.Emit(systems::InkEffectHelper::CreateSpark(
+                    pPos, {0, -30.0f}, systems::InkEffectHelper::COLOR_GOLD_CORE, 2.0f));
+            }
         }
         
         // Talent scaling
@@ -635,22 +650,21 @@ void SkillSystem::InitHooks() {
             dash->dashSpeed = dashSpeed; 
         }
 
-        // --- VISUAL EFFECTS: Dense Ink & Gold Mark ---
+        // --- VISUAL EFFECTS: Dash Effect + Gold Mark ---
         auto& particleSys = systems::GPUParticleSystem::Get();
         Vector2 startPos = { pos->x, pos->y };
         
-        // Dense Ink Splash
-        auto inkParticles = systems::InkEffectHelper::CreateInkSplash(startPos, 15, 15.0f, 80.0f);
-        for (auto& p : inkParticles) {
-            p.color = systems::InkEffectHelper::COLOR_INK_DARK; // Darker ink for "Dense" effect
-            p.scale *= 1.5f;
-            particleSys.Emit(p);
-        }
-
-        // Gold Sword Mark (Burst of gold particles)
-        for (int i = 0; i < 6; ++i) {
-            Vector2 gVel = { (float)GetRandomValue(-50, 50), (float)GetRandomValue(-50, 50) };
-            particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(startPos, gVel, 1.2f));
+        // Use new dash effect API - particles at start position spreading along dash direction
+        auto dashParticles = systems::InkEffectHelper::CreateDashEffect(
+            startPos, dir, systems::InkEffectHelper::COLOR_SHADOW_CORE, 
+            dashDist, 20);
+        particleSys.EmitBatch(dashParticles);
+        
+        // Gold Sword Mark (Burst of sparks at dash origin)
+        for (int i = 0; i < 8; ++i) {
+            Vector2 gVel = { (float)GetRandomValue(-80, 80), (float)GetRandomValue(-80, 80) };
+            particleSys.Emit(systems::InkEffectHelper::CreateSpark(
+                startPos, gVel, systems::InkEffectHelper::COLOR_GOLD_CORE, 1.5f));
         }
 
         // 2. Add Counter State

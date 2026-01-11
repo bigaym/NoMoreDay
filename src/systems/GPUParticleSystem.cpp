@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
 
 // For glfwGetProcAddress
 #include <GLFW/glfw3.h>
@@ -326,31 +327,271 @@ void GPUParticleSystem::Render(const Camera2D& camera) {
     EndBlendMode();
 }
 
-// Implement InkEffectHelper
+// ==================== InkEffectHelper Implementation ====================
+
 components::GPUParticle InkEffectHelper::CreateInkTrail(Vector2 pos, Vector2 vel, float scale, float life) {
     components::GPUParticle p;
-    p.position = pos; p.velocity = vel; p.color = COLOR_INK_LIGHT;
-    p.lifetime = life; p.maxLifetime = life; p.scale = scale; p.flags = 0; p.growthRate = 0.2f; return p;
+    p.position = pos;
+    p.velocity = vel;
+    p.color = COLOR_INK_LIGHT;
+    p.lifetime = life;
+    p.maxLifetime = life;
+    p.scale = scale * 0.5f;  // Reduced size
+    p.flags = 0;
+    p.growthRate = 0.1f;
+    return p;
 }
 
 std::vector<components::GPUParticle> InkEffectHelper::CreateInkSplash(Vector2 pos, int count, float radius, float force) {
     std::vector<components::GPUParticle> res;
+    res.reserve(count);
+    
+    // Color palette for variety
+    static const Color colors[] = {
+        COLOR_INK_DARK,
+        COLOR_INK_LIGHT,
+        COLOR_SWORD_QI,
+        { 60, 70, 90, 200 },   // Blue-grey ink
+        { 50, 50, 60, 180 },   // Dark grey
+    };
+    static const int colorCount = sizeof(colors) / sizeof(colors[0]);
+    
     for (int i = 0; i < count; ++i) {
         float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
-        float r = (float)GetRandomValue(0, (int)radius);
+        float r = sqrtf((float)GetRandomValue(0, 1000) / 1000.0f) * radius;  // Uniform distribution
+        
         components::GPUParticle p;
         p.position = { pos.x + cosf(angle) * r, pos.y + sinf(angle) * r };
-        p.velocity = { cosf(angle) * force, sinf(angle) * force };
-        p.color = COLOR_GOLD_CORE; p.scale = 10.0f; p.lifetime = 1.0f; p.maxLifetime = 1.0f;
-        p.flags = 5; p.growthRate = 0.5f; res.push_back(p);
+        p.velocity = { cosf(angle) * force * (0.5f + (float)GetRandomValue(0, 100) / 200.0f),
+                       sinf(angle) * force * (0.5f + (float)GetRandomValue(0, 100) / 200.0f) };
+        
+        // Random color from palette
+        p.color = colors[GetRandomValue(0, colorCount - 1)];
+        
+        // Much smaller particles: 1.5 to 3.5 instead of 10
+        p.scale = 1.5f + (float)GetRandomValue(0, 200) / 100.0f;
+        p.lifetime = 0.4f + (float)GetRandomValue(0, 60) / 100.0f;
+        p.maxLifetime = p.lifetime;
+        p.flags = 5;  // Soft ink splat
+        p.growthRate = -0.5f;  // Shrink over time
+        res.push_back(p);
     }
     return res;
 }
 
 components::GPUParticle InkEffectHelper::CreateGoldParticle(Vector2 pos, Vector2 vel, float scale) {
     components::GPUParticle p;
-    p.position = pos; p.velocity = vel; p.color = COLOR_GOLD_CORE;
-    p.lifetime = 1.0f; p.maxLifetime = 1.0f; p.scale = scale; p.flags = 2; p.growthRate = -scale; return p;
+    p.position = pos;
+    p.velocity = vel;
+    
+    // Slight color variation for gold
+    int variation = GetRandomValue(-20, 20);
+    p.color = { (unsigned char)(255), 
+                (unsigned char)(std::clamp(215 + variation, 180, 255)), 
+                (unsigned char)(std::clamp(variation * 2, 0, 80)), 
+                255 };
+    
+    p.lifetime = 0.6f;
+    p.maxLifetime = 0.6f;
+    p.scale = scale * 0.6f;  // Reduced size
+    p.flags = 2;  // Spark/diamond shape
+    p.growthRate = -scale * 0.8f;
+    return p;
+}
+
+std::vector<components::GPUParticle> InkEffectHelper::CreateProjectileTrail(
+    Vector2 pos, Vector2 dir, Color coreColor, Color glowColor, 
+    float trailLength, int count) {
+    
+    std::vector<components::GPUParticle> res;
+    res.reserve(count * 2);
+    
+    // Normalize direction
+    float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
+    if (len < 0.001f) { dir = {1.0f, 0.0f}; len = 1.0f; }
+    dir.x /= len; dir.y /= len;
+    
+    for (int i = 0; i < count; ++i) {
+        float t = (float)i / (float)(count - 1);
+        float offset = -trailLength * t;  // Behind the projectile
+        
+        // Core particle (bright, small)
+        components::GPUParticle core;
+        core.position = { pos.x + dir.x * offset, pos.y + dir.y * offset };
+        core.velocity = { -dir.x * 20.0f, -dir.y * 20.0f };  // Slight backward drift
+        core.color = coreColor;
+        core.scale = 1.0f - t * 0.5f;  // Smaller at trail end
+        core.lifetime = 0.15f + t * 0.1f;
+        core.maxLifetime = core.lifetime;
+        core.flags = 2;  // Spark
+        core.growthRate = -1.0f;
+        res.push_back(core);
+        
+        // Glow particle (softer, larger)
+        if (i % 2 == 0) {
+            components::GPUParticle glow;
+            glow.position = core.position;
+            glow.position.x += (float)GetRandomValue(-5, 5);
+            glow.position.y += (float)GetRandomValue(-5, 5);
+            glow.velocity = { 0, 0 };
+            glow.color = glowColor;
+            glow.scale = 2.0f - t * 1.0f;
+            glow.lifetime = 0.2f;
+            glow.maxLifetime = 0.2f;
+            glow.flags = 1;  // Soft glow
+            glow.growthRate = -0.5f;
+            res.push_back(glow);
+        }
+    }
+    return res;
+}
+
+std::vector<components::GPUParticle> InkEffectHelper::CreateDashEffect(
+    Vector2 startPos, Vector2 dir, Color color, 
+    float dashLength, int count) {
+    
+    std::vector<components::GPUParticle> res;
+    res.reserve(count);
+    
+    // Normalize direction
+    float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
+    if (len < 0.001f) { dir = {1.0f, 0.0f}; len = 1.0f; }
+    dir.x /= len; dir.y /= len;
+    
+    // Perpendicular direction for spread
+    Vector2 perp = { -dir.y, dir.x };
+    
+    for (int i = 0; i < count; ++i) {
+        float t = (float)i / (float)(count - 1);
+        
+        // Particles concentrated at start and along initial direction
+        float distAlongPath = dashLength * t * 0.3f;  // Only first 30% of dash
+        float perpSpread = (float)GetRandomValue(-20, 20);
+        
+        components::GPUParticle p;
+        p.position = { 
+            startPos.x + dir.x * distAlongPath + perp.x * perpSpread,
+            startPos.y + dir.y * distAlongPath + perp.y * perpSpread
+        };
+        
+        // Velocity fans out from dash direction
+        float speedVariation = 50.0f + (float)GetRandomValue(0, 100);
+        p.velocity = {
+            dir.x * speedVariation * 0.5f + perp.x * (float)GetRandomValue(-30, 30),
+            dir.y * speedVariation * 0.5f + perp.y * (float)GetRandomValue(-30, 30)
+        };
+        
+        p.color = color;
+        p.color.a = (unsigned char)(200 - t * 80);  // Fade with distance
+        p.scale = 1.5f + (float)GetRandomValue(0, 100) / 100.0f;
+        p.lifetime = 0.3f + (float)GetRandomValue(0, 30) / 100.0f;
+        p.maxLifetime = p.lifetime;
+        p.flags = 13;  // Ink with soft edges
+        p.growthRate = -0.8f;
+        res.push_back(p);
+    }
+    return res;
+}
+
+std::vector<components::GPUParticle> InkEffectHelper::CreateAreaEffect(
+    Vector2 center, float radius, Color coreColor, Color edgeColor,
+    int count, float duration) {
+    
+    std::vector<components::GPUParticle> res;
+    res.reserve(count);
+    
+    for (int i = 0; i < count; ++i) {
+        // Random position within area (uniform distribution)
+        float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+        float r = sqrtf((float)GetRandomValue(0, 1000) / 1000.0f) * radius;
+        
+        components::GPUParticle p;
+        p.position = { center.x + cosf(angle) * r, center.y + sinf(angle) * r };
+        
+        // Slow swirling motion within area
+        float tangentAngle = angle + 1.57f;  // 90 degrees offset
+        float speed = 20.0f + (float)GetRandomValue(0, 30);
+        p.velocity = { cosf(tangentAngle) * speed, sinf(tangentAngle) * speed };
+        
+        // Color gradient: core color in center, edge color at boundary
+        float colorT = r / radius;
+        p.color = {
+            (unsigned char)(coreColor.r * (1.0f - colorT) + edgeColor.r * colorT),
+            (unsigned char)(coreColor.g * (1.0f - colorT) + edgeColor.g * colorT),
+            (unsigned char)(coreColor.b * (1.0f - colorT) + edgeColor.b * colorT),
+            (unsigned char)(coreColor.a * (1.0f - colorT * 0.5f))
+        };
+        
+        p.scale = 1.5f + (float)GetRandomValue(0, 150) / 100.0f;
+        p.lifetime = duration * (0.7f + (float)GetRandomValue(0, 60) / 100.0f);
+        p.maxLifetime = p.lifetime;
+        p.flags = 1;  // Soft glow
+        p.growthRate = 0.3f;  // Slight growth
+        res.push_back(p);
+    }
+    return res;
+}
+
+components::GPUParticle InkEffectHelper::CreateSpark(Vector2 pos, Vector2 vel, Color color, float scale) {
+    components::GPUParticle p;
+    p.position = pos;
+    p.velocity = vel;
+    p.color = color;
+    p.scale = scale * 0.8f;  // Small sparks
+    p.lifetime = 0.2f;
+    p.maxLifetime = 0.2f;
+    p.flags = 2;  // Diamond/spark shape
+    p.growthRate = -scale * 2.0f;  // Rapid shrink
+    return p;
+}
+
+std::vector<components::GPUParticle> InkEffectHelper::CreateSlashEffect(
+    Vector2 pos, Vector2 dir, Color color, float length) {
+    
+    std::vector<components::GPUParticle> res;
+    res.reserve(12);
+    
+    // Normalize direction
+    float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
+    if (len < 0.001f) { dir = {1.0f, 0.0f}; len = 1.0f; }
+    dir.x /= len; dir.y /= len;
+    
+    // Perpendicular direction for slash width
+    Vector2 perp = { -dir.y, dir.x };
+    
+    // Create slash line
+    for (int i = 0; i < 10; ++i) {
+        float t = (float)i / 9.0f - 0.5f;  // -0.5 to 0.5
+        float offset = t * length;
+        
+        components::GPUParticle p;
+        p.position = { pos.x + perp.x * offset, pos.y + perp.y * offset };
+        
+        // Slash moves in direction
+        p.velocity = { dir.x * 100.0f, dir.y * 100.0f };
+        
+        p.color = color;
+        p.scale = 2.0f - fabsf(t) * 2.0f;  // Thicker in center
+        p.lifetime = 0.15f;
+        p.maxLifetime = 0.15f;
+        p.flags = 2;  // Spark
+        p.growthRate = -3.0f;
+        res.push_back(p);
+    }
+    
+    // Add core flash
+    components::GPUParticle flash;
+    flash.position = pos;
+    flash.velocity = { dir.x * 50.0f, dir.y * 50.0f };
+    flash.color = COLOR_WHITE_SPARK;
+    flash.scale = 3.0f;
+    flash.lifetime = 0.1f;
+    flash.maxLifetime = 0.1f;
+    flash.flags = 1;  // Glow
+    flash.growthRate = -10.0f;
+    res.push_back(flash);
+    
+    return res;
 }
 
 } // namespace NoMoreDay::systems

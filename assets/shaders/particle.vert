@@ -60,8 +60,10 @@ void main() {
     
     // Calculate world position
     // vertexPos is in [-0.5, 0.5], scale by particle size
-    // Note: p.scale was used as Radius in V1, here it's Diameter. Multiply by 2.0 to match visual size.
-    vec2 worldPos = vertexPos * (p.scale * 2.0) + p.position;
+    // Reduced multiplier from 2.0 to 1.0 for smaller particle appearance
+    float lifetimeScale = sqrt(lifetimeRatio);  // Gentle size fade at end of life
+    float finalScale = p.scale * lifetimeScale * 1.0;  // Reduced from 2.0
+    vec2 worldPos = vertexPos * finalScale + p.position;
     
     // Apply MVP transform
     gl_Position = mvp * vec4(worldPos, 0.0, 1.0);

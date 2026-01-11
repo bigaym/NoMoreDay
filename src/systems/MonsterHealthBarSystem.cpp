@@ -16,22 +16,26 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
         const auto& pos = view.get<Position>(entity);
         const auto& hp = view.get<HealthComponent>(entity);
 
+        // Skip dead monsters
+        if (hp.current <= 0) continue;
+
         // --- Visibility Logic ---
-        // 1. Show if damaged
-        bool isDamaged = hp.current < hp.max - 0.1f;
+        // Show health bar when:
+        // 1. Monster is tracking/chasing the player (CHASE or ATTACK state)
+        // 2. Monster has taken damage
         
-        // 2. Show if close to player (Aggro/Awareness hint)
-        // We can check AI state if available
-        bool isAggro = false;
+        bool isTracking = false;
         if (auto* ai = registry.try_get<AIComponent>(entity)) {
+            // Show when monster has detected and is actively pursuing the player
             if (ai->aiType == AIType::CHASE || ai->aiType == AIType::ATTACK) {
-                isAggro = true;
+                isTracking = true;
             }
         }
-
-        // If neither damaged nor aggro, don't show to keep screen clean
-        if (!isDamaged && !isAggro) continue;
-        if (hp.current <= 0) continue;
+        
+        bool isDamaged = hp.current < hp.max - 0.1f;
+        
+        // Only show if tracking player OR damaged
+        if (!isTracking && !isDamaged) continue;
 
         float hpPercent = hp.current / hp.max;
         hpPercent = std::clamp(hpPercent, 0.0f, 1.0f);

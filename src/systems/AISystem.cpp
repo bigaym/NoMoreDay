@@ -318,7 +318,7 @@ void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashG
     int gridH = flowSystem.GetHeight();
     float cellSize = 10.0f; 
 
-    auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>();
+    auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>(entt::exclude<KilledTag>);
     
     // Static frame counter for round-robin updating
     static uint32_t frameCounter = 0;

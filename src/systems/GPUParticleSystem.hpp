@@ -92,21 +92,75 @@ private:
     };
 };
 
+/**
+ * @brief Particle effect type enumeration for different skill categories
+ */
+enum class ParticleEffectType {
+    Projectile,     // Bound to projectile position
+    Movement,       // Dash/teleport - at origin and along path
+    Area,           // Sustained area - within radius
+    Burst,          // Instant impact
+    Trail           // Following entity
+};
+
+/**
+ * @brief Helper class for creating various particle effects with ink-painting style
+ */
 class InkEffectHelper {
 public:
+    // === Color Presets ===
     static constexpr Color COLOR_INK_LIGHT = { 40, 40, 45, 120 };
     static constexpr Color COLOR_INK_DARK = { 20, 20, 25, 200 };
     static constexpr Color COLOR_GOLD_CORE = { 255, 215, 0, 255 };
     static constexpr Color COLOR_GOLD_GLOW = { 255, 180, 50, 150 };
+    
+    // New color presets for variety
+    static constexpr Color COLOR_FROST_LIGHT = { 150, 220, 255, 200 };
+    static constexpr Color COLOR_FROST_CORE = { 100, 180, 255, 255 };
+    static constexpr Color COLOR_LIGHTNING_CORE = { 200, 200, 255, 255 };
+    static constexpr Color COLOR_LIGHTNING_GLOW = { 150, 150, 255, 180 };
+    static constexpr Color COLOR_SHADOW_CORE = { 60, 40, 80, 240 };
+    static constexpr Color COLOR_SHADOW_GLOW = { 100, 80, 140, 150 };
+    static constexpr Color COLOR_POISON_CORE = { 80, 200, 60, 220 };
+    static constexpr Color COLOR_POISON_GLOW = { 120, 255, 80, 150 };
+    static constexpr Color COLOR_BLOOD_CORE = { 180, 30, 30, 255 };
+    static constexpr Color COLOR_BLOOD_GLOW = { 220, 60, 60, 180 };
+    static constexpr Color COLOR_WHITE_SPARK = { 255, 255, 255, 255 };
+    static constexpr Color COLOR_SWORD_QI = { 180, 200, 255, 220 };
 
+    // === Basic Particle Creators ===
     // Create a generic ink particle (for trails/ambient)
     static components::GPUParticle CreateInkTrail(Vector2 pos, Vector2 vel, float scale, float life);
 
-    // Create a burst of ink particles
+    // Create a burst of ink particles (reduced size)
     static std::vector<components::GPUParticle> CreateInkSplash(Vector2 pos, int count, float radius, float force);
 
     // Create a gold stream particle (for empowered effects)
     static components::GPUParticle CreateGoldParticle(Vector2 pos, Vector2 vel, float scale);
+    
+    // === New Specialized Creators for Different Skill Types ===
+    
+    // Projectile trail - small particles following projectile direction
+    static std::vector<components::GPUParticle> CreateProjectileTrail(
+        Vector2 pos, Vector2 dir, Color coreColor, Color glowColor, 
+        float trailLength = 30.0f, int count = 5);
+    
+    // Movement/dash effect - particles at start position spreading along dash direction
+    static std::vector<components::GPUParticle> CreateDashEffect(
+        Vector2 startPos, Vector2 dir, Color color, 
+        float dashLength = 100.0f, int count = 15);
+    
+    // Area sustained effect - particles within radius
+    static std::vector<components::GPUParticle> CreateAreaEffect(
+        Vector2 center, float radius, Color coreColor, Color edgeColor,
+        int count = 20, float duration = 0.5f);
+    
+    // Spark/flash effect - bright, quick particles
+    static components::GPUParticle CreateSpark(Vector2 pos, Vector2 vel, Color color, float scale = 1.0f);
+    
+    // Sword qi slash effect - thin elongated particles
+    static std::vector<components::GPUParticle> CreateSlashEffect(
+        Vector2 pos, Vector2 dir, Color color, float length = 50.0f);
 };
 
 } // namespace NoMoreDay::systems
