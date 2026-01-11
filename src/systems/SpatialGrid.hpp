@@ -75,7 +75,7 @@ public:
     // 高效查询
     // 回调函数：void(entt::entity neighbor)
     template<typename Func>
-    void query(const Position& pos, float searchRadius, Func&& callback) {
+    void query(const Position& pos, float searchRadius, Func&& callback) const {
         // Determine search bounds in grid coordinates
         int minX = static_cast<int>(std::floor((pos.x - searchRadius) / m_cellSize));
         int maxX = static_cast<int>(std::floor((pos.x + searchRadius) / m_cellSize));

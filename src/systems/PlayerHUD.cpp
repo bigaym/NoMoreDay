@@ -5,6 +5,7 @@
 #include "../components/Stats.hpp"
 #include "../components/SkillSystem.hpp"
 #include "../core/UIRenderer.hpp"
+#include "../core/AssetLoadingSystem.hpp"
 #include <string>
 #include <cmath>
 
@@ -86,6 +87,22 @@ void PlayerHUD::Draw(entt::registry& registry) {
     if (intent.stacks > 0) {
         std::string stackText = "剑意: " + std::to_string(intent.stacks);
         UISystem::DrawTextUI(stackText.c_str(), hpLeftX, intentTopY - 22.0f, 20.0f, GOLD, 1.0f);
+    }
+
+    // --- 4. Summon Status (Top Left) ---
+    auto summonView = registry.view<SummonComponent>();
+    for (auto entity : summonView) {
+        const auto& summon = summonView.get<SummonComponent>(entity);
+        if (summon.owner == player) {
+            float healthPct = summon.lifetime / summon.max_lifetime; // Use lifetime as health for now
+            Texture2D icon = {0};
+            if (summon.icon_id != 0) {
+                 icon = AssetLoadingSystem::GetTexture(summon.icon_id);
+            }
+            
+            UIRenderer::DrawSummonIcon(UISystem::State.globalFont, 10.0f, 40.0f, 150.0f, 40.0f, icon, healthPct, summon.name.c_str(), 1.0f);
+            break; // Show only one
+        }
     }
 }
 

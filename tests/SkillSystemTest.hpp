@@ -1,6 +1,7 @@
 #pragma once
 #include "TestCommon.hpp"
 #include "../src/core/SkillRegistry.hpp"
+#include "../src/systems/SummonSystem.hpp"
 
 TEST_CASE("SkillSystem: Registry Loading") {
     LoggerScope scope;
@@ -483,5 +484,100 @@ TEST_CASE("SkillSystem: Channeling Skills") {
             }
         }
         CHECK(rendingWaveSpawned);
+    }
+}
+
+TEST_CASE("SkillSystem: Blade Formation (ID 3)") {
+    LoggerScope scope;
+    entt::registry registry;
+    tf::Executor executor;
+    systems::SpatialHashGrid grid(100, 100, 32.0f); // Large grid
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    SkillSystem::InitHooks();
+
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player, 100.0f, 100.0f); // HP, Mana
+    auto& active = registry.emplace<ActiveSkillsComponent>(player);
+    active.slots[0].id = 3;
+    active.slots[0].current_charges = 1;
+
+    SUBCASE("Activation & Striking") {
+        // 1. Cast
+        CHECK(SkillSystem::TryCast(registry, player, 0));
+        
+        // 2. Transistion to Casting (Windup 0.1s)
+        SkillSystem::Update(registry, grid, 0.11f, &executor);
+        // Effects should be called now
+        CHECK(registry.any_of<BladeFormationComponent>(player));
+        
+        const auto& formation = registry.get<BladeFormationComponent>(player);
+        CHECK(formation.max_swords == 1);
+        CHECK(formation.current_swords == 1);
+
+        // 3. Setup Enemy
+        auto enemy = registry.create();
+        registry.emplace<Position>(enemy, 50.0f, 50.0f);
+        registry.emplace<EnemyTag>(enemy);
+        auto view = registry.view<EnemyTag, Position>();
+        grid.rebuild(view, registry);
+
+        // 4. Update to trigger strike (Interval is 1.0s, timer starts at 0)
+        // Note: RegisterEffect sets attack_timer to 0 (default initialized in struct and not explicitly set in callback)
+        // Wait, in RegisterEffect(3), I didn't set attack_timer. So it's 0.0f.
+        SkillSystem::Update(registry, grid, 0.01f, &executor);
+        NoMoreDay::systems::SummonSystem::Update(registry, 0.01f, grid);
+
+        // 5. Verify Strike (Should be Skill ID 2 execution)
+        bool strikeFound = false;
+        auto execView = registry.view<SkillExecution>();
+        for (auto e : execView) {
+            auto& exec = execView.get<SkillExecution>(e);
+            if (exec.skill_id == 2 && exec.owner == player) {
+                strikeFound = true;
+                break;
+            }
+        }
+        CHECK(strikeFound);
+    }
+
+    SUBCASE("Talent: Immortality (322)") {
+        // Setup specialized skill
+        active.specialized_slots[0].skill_id = 3;
+        active.specialized_slots[0].allocated_points[322] = 1; // Immortality
+
+        // Cast
+        SkillSystem::TryCast(registry, player, 0);
+        SkillSystem::Update(registry, grid, 0.2f, &executor); // Complete cast
+
+        CHECK(registry.get<BladeFormationComponent>(player).immortality_ready);
+
+        // Take lethal damage
+        auto& hp = registry.get<HealthComponent>(player);
+        hp.current = 10.0f;
+        
+        // Apply 100 damage
+        CombatSystem::ApplyDamage(registry, player, 100.0f, entt::null);
+
+        // Should be alive with 30% HP
+        CHECK(hp.current == doctest::Approx(30.0f));
+        CHECK_FALSE(registry.get<BladeFormationComponent>(player).immortality_ready);
+    }
+
+    SUBCASE("Talent: Mana on Hit (321)") {
+        active.specialized_slots[0].skill_id = 3;
+        active.specialized_slots[0].allocated_points[321] = 1;
+
+        // Cast
+        SkillSystem::TryCast(registry, player, 0);
+        SkillSystem::Update(registry, grid, 0.2f, &executor);
+
+        auto& stats = registry.get<CombatStats>(player);
+        stats.mana = 10.0f;
+
+        // Trigger hit with ID 2 (Spirit Sword Strike uses ID 2)
+        SkillSystem::OnSkillHit(registry, player, entt::null, 2, Tag::Hit, false);
+
+        CHECK(stats.mana == 12.0f); // 10 + 2
     }
 }

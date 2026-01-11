@@ -57,6 +57,9 @@ namespace NoMoreDay {
                                  Texture2D icon, const char* text, float durationRatio, int stacks,
                                  bool isDebuff, float alpha = 1.0f);
 
+        static void DrawSummonIcon(const Font& font, float x, float y, float width, float height,
+                                  Texture2D icon, float healthPct, const char* name, float alpha = 1.0f);
+
         static void DrawTooltip(const Font& font, entt::registry& registry, entt::entity item, float alpha = 1.0f);
         static void DrawSkillTooltip(const Font& font, entt::registry& registry, uint32_t skillId, float alpha = 1.0f, bool forceDraw = false);
         static void DrawBuffTooltip(const Font& font, const BuffEffect& effect, float alpha = 1.0f);

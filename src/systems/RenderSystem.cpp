@@ -109,6 +109,56 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         }
     }
 
+    // 2.5. 绘制浮游灵剑实体 (Spirit Sword Entities)
+    auto swordView = registry.view<const NoMoreDay::SpiritSwordTag, const Position>();
+    for (auto entity : swordView) {
+        const auto& pos = swordView.get<Position>(entity);
+        
+        // Determine properties (e.g. from owner or self)
+        bool isEmpowered = false; 
+        bool isGiant = false;
+        
+        if (auto* summon = registry.try_get<NoMoreDay::SummonComponent>(entity)) {
+            if (registry.valid(summon->owner)) {
+                if (auto* form = registry.try_get<NoMoreDay::BladeFormationComponent>(summon->owner)) {
+                    isEmpowered = form->is_empowered;
+                    isGiant = form->has_giant_sword;
+                }
+            }
+        }
+
+        // Calculate rotation based on orbit angle if we had it, but here we just point "forward" relative to orbit?
+        // Actually, we don't have the orbit angle here easily unless we read SpiritSwordAI.
+        float rotation = 0.0f;
+        if (auto* ai = registry.try_get<NoMoreDay::SpiritSwordAI>(entity)) {
+            rotation = ai->orbit_angle * (180.0f / PI) + 90.0f;
+        }
+
+        Color swordCol = isEmpowered ? GOLD : SKYBLUE;
+        float scale = isGiant ? 2.5f : 1.0f;
+
+        // Draw a simple sword shape using 3 points
+        Vector2 p1 = { pos.x + cosf(rotation * DEG2RAD) * 15.0f * scale, pos.y + sinf(rotation * DEG2RAD) * 15.0f * scale };
+        Vector2 p2 = { pos.x + cosf((rotation + 150) * DEG2RAD) * 7.0f * scale, pos.y + sinf((rotation + 150) * DEG2RAD) * 7.0f * scale };
+        Vector2 p3 = { pos.x + cosf((rotation - 150) * DEG2RAD) * 7.0f * scale, pos.y + sinf((rotation - 150) * DEG2RAD) * 7.0f * scale };
+
+        DrawTriangle(p1, p2, p3, swordCol);
+        DrawTriangleLines(p1, p2, p3, WHITE);
+
+        // Occasional Spark
+        if (GetRandomValue(0, 100) < 5) {
+             NoMoreDay::components::GPUParticle p;
+             p.position = { pos.x, pos.y };
+             p.velocity = { 0, 0 };
+             p.color = Fade(swordCol, 0.5f);
+             p.lifetime = 0.3f;
+             p.maxLifetime = 0.3f;
+             p.scale = 2.0f * scale;
+             p.flags = 2; 
+             NoMoreDay::systems::GPUParticleSystem::Get().Emit(p);
+        }
+    }
+
     // 3. 绘制攻击特效 (挥剑轨迹)
     auto effectView = registry.view<const Position, const AttackEffect>();
     effectView.each([](const auto& pos, const auto& effect) {

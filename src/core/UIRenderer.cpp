@@ -312,6 +312,46 @@ namespace NoMoreDay {
         DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(isDebuff ? RED : s_theme.panelBorder, alpha));
     }
 
+    void UIRenderer::DrawSummonIcon(const Font& font, float x, float y, float width, float height,
+                                  Texture2D icon, float healthPct, const char* name, float alpha) {
+        float sx = x * s_uiScale;
+        float sy = y * s_uiScale;
+        float sw = width * s_uiScale;
+        float sh = height * s_uiScale;
+
+        auto ApplyAlpha = [&](Color c, float a) -> Color {
+            return { c.r, c.g, c.b, (unsigned char)((float)c.a * a) };
+        };
+
+        // Panel Background
+        DrawRectangleRec({sx, sy, sw, sh}, ApplyAlpha(s_theme.panelBackground, 0.8f * alpha));
+        DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale, ApplyAlpha(s_theme.panelBorder, alpha));
+
+        // Icon
+        float iconSize = sh - 4.0f * s_uiScale;
+        if (icon.id > 0) {
+            DrawTexturePro(icon, {0,0,(float)icon.width,(float)icon.height}, 
+                           {sx + 2.0f*s_uiScale, sy + 2.0f*s_uiScale, iconSize, iconSize}, 
+                           {0,0}, 0.0f, ApplyAlpha(WHITE, alpha));
+        } else {
+             DrawRectangleRec({sx + 2.0f*s_uiScale, sy + 2.0f*s_uiScale, iconSize, iconSize}, ApplyAlpha(DARKGRAY, 0.5f * alpha));
+        }
+
+        // Name
+        if (name) {
+            DrawTextUI(font, name, x + height + 5.0f, y + 2.0f, 14.0f, s_theme.textPrimary, alpha);
+        }
+
+        // Health Bar (Green, no mana)
+        float barX = sx + iconSize + 6.0f * s_uiScale;
+        float barY = sy + sh - 10.0f * s_uiScale;
+        float barW = sw - iconSize - 10.0f * s_uiScale;
+        float barH = 6.0f * s_uiScale;
+
+        DrawRectangleRec({barX, barY, barW, barH}, ApplyAlpha(BLACK, 0.5f * alpha));
+        DrawRectangleRec({barX, barY, barW * std::clamp(healthPct, 0.0f, 1.0f), barH}, ApplyAlpha(GREEN, alpha));
+    }
+
     void UIRenderer::DrawTooltip(const Font& font, entt::registry& registry, entt::entity item, float alpha) {
         if (!IsWindowReady()) return;
         auto* itemComp = registry.try_get<ItemComponent>(item);

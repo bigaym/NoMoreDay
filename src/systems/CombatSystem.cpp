@@ -1,6 +1,7 @@
 #include "CombatSystem.hpp"
 #include "EffectSystem.hpp"
 #include "RenderSystem.hpp" 
+#include "GPUParticleSystem.hpp"
 #include <cmath>
 #include "../tools/Logger.hpp"
 #include "../components/EffectComponent.hpp"
@@ -454,6 +455,27 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
     }
 
     if (hp.current <= 0) {
+        // --- Blade Formation: Immortality (Node 322) ---
+        if (auto* formation = registry.try_get<NoMoreDay::BladeFormationComponent>(target)) {
+            if (formation->immortality_ready) {
+                formation->immortality_ready = false;
+                float heal = hp.max * 0.3f;
+                hp.current = heal;
+                LOG_INFO("Blade Formation Immortality (322) triggered for entity {}! Restored {:.1f} HP", (uint32_t)target, heal);
+                
+                // Visual Effect for Immortality
+                if (registry.all_of<Position>(target)) {
+                    const auto& tPos = registry.get<Position>(target);
+                    EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y}, "不灭剑魂", GOLD);
+                    auto& particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
+                    auto splash = NoMoreDay::systems::InkEffectHelper::CreateInkSplash({tPos.x, tPos.y}, 20, 15.0f, 200.0f);
+                    for(auto& p : splash) { p.color = GOLD; particleSys.Emit(p); }
+                    RenderSystem::AddScreenShake(0.3f);
+                }
+                return false; // Death prevented
+            }
+        }
+
         hp.current = 0.0f; // 锁定生命值为0
         
         // --- OPTIMIZATION: Immediate Logical and Visual Removal ---

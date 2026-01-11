@@ -3,6 +3,8 @@
 #include <vector>
 #include <cstdint>
 #include <unordered_map>
+#include <string>
+#include <entt/entt.hpp>
 #include "core/TagRegistry.hpp"
 #include "raylib.h"
 #include "Stats.hpp"
@@ -322,7 +324,34 @@ struct BladeWardComponent {
 
 struct PhantomFlashComponent {
     float counter_window = 0.5f;
+    float knockback_bonus = 0.0f;
     bool triggered = false;
+};
+
+// --- SUMMON SYSTEM COMPONENTS ---
+
+enum class SpiritSwordMode : uint8_t {
+    Guardian,  // Attack nearest (Default)
+    Elite      // Priority on high rarity
+};
+
+struct SummonComponent {
+    entt::entity owner = entt::null;
+    uint32_t skill_id = 0;
+    float lifetime = 10.0f;
+    float max_lifetime = 10.0f;
+    int icon_id = 0;
+    std::string name;
+};
+
+struct SpiritSwordTag {};
+
+struct SpiritSwordAI {
+    entt::entity target = entt::null;
+    float attack_timer = 0.0f;
+    float attack_interval = 1.0f;
+    Vector2 orbit_offset = {0, 0};
+    float orbit_angle = 0.0f;
 };
 
 struct BladeFormationComponent {
@@ -333,9 +362,13 @@ struct BladeFormationComponent {
     float search_radius = 200.0f;
     bool is_empowered = false;
 
+    SpiritSwordMode mode = SpiritSwordMode::Guardian;
+
     // Talent Flags
     bool has_giant_sword = false;     // Talent 310
     bool shockwave_on_crit = false;  // Talent 311
+    bool mana_on_hit = false;        // Talent 321
+    bool immortality_ready = false;  // Talent 322
 };
 
 struct SwordArrayComponent {

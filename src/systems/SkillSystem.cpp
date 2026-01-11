@@ -362,43 +362,62 @@ void SkillSystem::InitHooks() {
                     if (spec.allocated_points.contains(311) && spec.allocated_points.at(311) > 0) {
                         formation.shockwave_on_crit = true;
                     }
+                    // Node 321: 气劲回流 (Mana on hit)
+                    if (spec.allocated_points.contains(321) && spec.allocated_points.at(321) > 0) {
+                        formation.mana_on_hit = true;
+                    }
+                    // Node 322: 不灭剑魂 (Immortality)
+                    if (spec.allocated_points.contains(322) && spec.allocated_points.at(322) > 0) {
+                        formation.immortality_ready = true;
+                    }
                     break;
                 }
             }
         }
 
         formation.max_swords = 1 + extraSwords;
-        formation.current_swords = formation.max_swords; // For now, simple activation
+        formation.current_swords = formation.max_swords; 
         formation.attack_interval = 1.0f / (1.0f + freqInc);
-        formation.search_radius = 100.0f * (1.0f + searchInc); // Reduced from 200.0f
+        formation.search_radius = 100.0f * (1.0f + searchInc); 
         formation.is_empowered = exec.is_empowered;
-
-        // --- VFX: Activation ---
-        auto* pos = registry.try_get<Position>(owner);
-        if (pos) {
-            auto& particleSys = systems::GPUParticleSystem::Get();
-            for (int i = 0; i < formation.max_swords; ++i) {
-                float angle = (float)i / formation.max_swords * 2.0f * PI;
-                Vector2 pPos = { pos->x + cosf(angle) * 40.0f, pos->y + sinf(angle) * 40.0f };
-                // Ink sword hint
-                particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(pPos, {0, -50.0f}, 1.5f, 1.0f));
-            }
-        }
 
         if (formation.has_giant_sword) {
             formation.max_swords = 1;
-            formation.attack_interval *= 2.0f; // Slower frequency
+            formation.attack_interval *= 2.0f; 
         }
 
         if (exec.is_empowered) {
             formation.max_swords += 2;
-            formation.current_swords = formation.max_swords;
-            formation.attack_interval *= 0.5f; // Double attack speed
-            LOG_INFO("Empowered Blade Formation: +2 Max swords and 2x attack speed!");
-            RenderSystem::AddScreenShake(0.1f);
+            formation.attack_interval *= 0.5f; 
         }
-        
-        LOG_INFO("Blade Formation activated: {} swords for entity {}", formation.max_swords, (uint32_t)owner);
+
+        // --- SPAWN SPIRIT SWORDS ---
+        auto* pos = registry.try_get<Position>(owner);
+        uint32_t skillIcon = 3687043718; // From skills.json
+
+        for (int i = 0; i < formation.max_swords; ++i) {
+            auto sword = registry.create();
+            registry.emplace<LocalLevelTag>(sword);
+            registry.emplace<Position>(sword, pos ? *pos : Position{0,0});
+            registry.emplace<Velocity>(sword, 0.0f, 0.0f);
+            
+            auto& summon = registry.emplace<SummonComponent>(sword);
+            summon.owner = owner;
+            summon.skill_id = 3;
+            summon.lifetime = 10.0f;
+            summon.max_lifetime = 10.0f;
+            summon.icon_id = skillIcon;
+            summon.name = "灵剑";
+
+            registry.emplace<SpiritSwordTag>(sword);
+            
+            auto& ai = registry.emplace<SpiritSwordAI>(sword);
+            ai.attack_interval = formation.attack_interval;
+            ai.attack_timer = (float)i * (ai.attack_interval / formation.max_swords); // Offset timers
+            ai.orbit_angle = (float)i / formation.max_swords * 2.0f * PI;
+        }
+
+        LOG_INFO("Blade Formation activated: {} swords summoned for entity {}", formation.max_swords, (uint32_t)owner);
     });
 
     // ID 6: Sword Array (剑阵·诛仙)
@@ -821,58 +840,15 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         auto& formation = formation_view.get<BladeFormationComponent>(entity);
         const auto& pos = formation_view.get<Position>(entity);
 
-        formation.attack_timer -= dt;
-        if (formation.attack_timer <= 0.0f && formation.current_swords > 0) {
-            // Find target
-            entt::entity target = entt::null;
-            float minDistSq = formation.search_radius * formation.search_radius;
-
-            grid.query(pos, formation.search_radius, [&](entt::entity neighbor) {
-                if (neighbor == entity) return;
-                if (!registry.valid(neighbor) || !registry.all_of<EnemyTag, Position>(neighbor)) return;
-
-                const auto& nPos = registry.get<Position>(neighbor);
-                float dx = nPos.x - pos.x;
-                float dy = nPos.y - pos.y;
-                float distSq = dx*dx + dy*dy;
-
-                if (distSq < minDistSq) {
-                    minDistSq = distSq;
-                    target = neighbor;
-                }
-            });
-
-            if (target != entt::null) {
-                // Strike! (Shadow cast a simple thrust or custom ID)
-                // For now, let's cast skill 1 (Flowing Thrust) as the "spirit sword strike"
-                const auto& tPos = registry.get<Position>(target);
-                
-                auto exec_ent = registry.create();
-                registry.emplace<LocalLevelTag>(exec_ent);
-                registry.emplace<ShadowCastTag>(exec_ent);
-                auto& exec = registry.emplace<SkillExecution>(exec_ent);
-                exec.skill_id = 1; // Flowing Thrust
-                exec.owner = entity;
-                exec.state = SkillState::Casting;
-                exec.timer = 0.05f;
-                exec.target_pos = {tPos.x, tPos.y};
-                exec.is_empowered = formation.is_empowered;
-
-                if (auto* stats = registry.try_get<CombatStats>(entity)) {
-                    exec.has_snapshot = true;
-                    exec.snapshot.stats = *stats;
-                    exec.snapshot.skill_id = 1;
-                    
-                    if (formation.has_giant_sword) {
-                        for (auto& mult : exec.snapshot.stats.damage_multipliers) mult *= 2.0f;
-                        // VFX for giant sword strike could be handled in RenderSystem or by spawning a larger projectile
-                    }
-                }
-                
-                formation.attack_timer = formation.attack_interval;
-                LOG_DEBUG("Blade Formation strike triggered for entity {}", (uint32_t)entity);
+        // Update current_swords count from actual entities
+        int count = 0;
+        auto swordView = registry.view<SpiritSwordTag, SummonComponent>();
+        for (auto swordEnt : swordView) {
+            if (swordView.get<SummonComponent>(swordEnt).owner == entity) {
+                count++;
             }
         }
+        formation.current_swords = count;
 
         // Talent: Ling Jian Hu Ti (灵剑护体) - ID 320
         if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
@@ -1553,31 +1529,29 @@ void SkillSystem::OnSkillHit(entt::registry& registry, entt::entity attacker, en
         }
     }
 
-    // --- Talent: Blade Formation Shockwave (ID 311) ---
-    if (skill_id == 3 && is_crit) {
-        bool shockwave = false;
+    // --- Talent: Blade Formation Hits ---
+    if (skill_id == 2 || skill_id == 3) { // Spirit Swords use ID 2
         if (auto* formation = registry.try_get<BladeFormationComponent>(attacker)) {
-            if (formation->shockwave_on_crit) shockwave = true;
-        }
+            // Node 311: Shockwave 
+            if (is_crit && formation->shockwave_on_crit) {
+                 const auto& tPos = registry.get<Position>(target);
+                 auto& particleSys = systems::GPUParticleSystem::Get();
+                 auto splash = systems::InkEffectHelper::CreateInkSplash({tPos.x, tPos.y}, 12, 10.0f, 150.0f);
+                 for(auto& p : splash) {
+                     p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
+                     particleSys.Emit(p);
+                 }
+                 CombatSystem::ApplyDamage(registry, target, 15.0f, attacker, false, true);
+                 LOG_INFO("Blade Formation: Shockwave triggered on entity {}", (uint32_t)target);
+            }
 
-        if (shockwave) {
-             const auto& tPos = registry.get<Position>(target);
-             // Create Explosion
-             auto& particleSys = systems::GPUParticleSystem::Get();
-             auto splash = systems::InkEffectHelper::CreateInkSplash({tPos.x, tPos.y}, 12, 10.0f, 150.0f);
-             for(auto& p : splash) {
-                 p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
-                 particleSys.Emit(p);
-             }
-
-             // AOE Damage
-             std::vector<entt::entity> nearby;
-             systems::SpatialHashGrid* pGrid = nullptr; // Note: SkillSystem::Update has grid, but OnSkillHit doesn't.
-             // We can use a simpler query if needed or just apply to current target for now.
-             // But a true shockwave needs a grid. 
-             // Since we don't have grid here, we'll deal extra damage to the target.
-             CombatSystem::ApplyDamage(registry, target, 15.0f, attacker, false, true);
-             LOG_INFO("Blade Formation: Shockwave triggered on entity {}", (uint32_t)target);
+            // Node 321: Qi Jin Hui Liu (Mana on hit)
+            if (formation->mana_on_hit) {
+                if (auto* attackerStats = registry.try_get<CombatStats>(attacker)) {
+                    attackerStats->mana = std::min(attackerStats->max_mana, attackerStats->mana + 2.0f);
+                    LOG_DEBUG("Blade Formation (321): Restore 2 mana on hit");
+                }
+            }
         }
     }
 
