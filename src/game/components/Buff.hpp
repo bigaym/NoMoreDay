@@ -46,14 +46,14 @@ struct BuffEffect {
     std::string id;             // Unique ID for the buff type (e.g., 'sword_intent', 'rage')
     std::string name;           // Display name
     std::string description;    // Tooltip description
-    BuffType type;              // For icon mapping
+    BuffType type = BuffType::None; // For icon mapping
     
-    float duration;             // Total duration in seconds (-1 for infinite)
-    float remaining;            // Remaining time in seconds
-    int stacks;                 // Current stack count
-    int max_stacks;             // Max stack count
+    float duration = 0.0f;      // Total duration in seconds (-1 for infinite)
+    float remaining = 0.0f;     // Remaining time in seconds
+    int stacks = 1;             // Current stack count
+    int max_stacks = 1;         // Max stack count
     
-    bool is_debuff;             // True if it's a debuff (Red border), false for buff (Green/Gold)
+    bool is_debuff = false;     // True if it's a debuff (Red border), false for buff (Green/Gold)
     
     std::vector<StatModifier> modifiers; // Modifiers applied by this buff
     

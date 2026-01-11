@@ -12,11 +12,14 @@ struct LoggerScope {
     ~LoggerScope() { /* tools::Logger::Shutdown(); */ }
 };
 
+#include "game/systems/combat/CombatEventDispatcher.hpp"
+
 // RAII Helper for Logger and ItemFactory
 struct TestSetupScope {
     TestSetupScope() { 
         tools::Logger::Init();
         ItemFactory::initialize();
+        CombatEventDispatcher::Init();
     }
     ~TestSetupScope() { 
         // tools::Logger::Shutdown();
