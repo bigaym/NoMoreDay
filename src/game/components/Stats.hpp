@@ -25,6 +25,7 @@ namespace NoMoreDay
         static constexpr float ATTACK_SPEED_CAP = 10.0f; // 攻击速度上限 (每秒10次)
 
         // 默认值 (Defaults)
+        static_assert(MAX_LEVEL == 100);
         static constexpr float DEFAULT_MOVE_SPEED = 100.0f;
         static constexpr float DEFAULT_MAX_HEALTH = 1000000.0f;
         static constexpr float DEFAULT_MAX_MANA = 1000000.0f;
@@ -32,9 +33,27 @@ namespace NoMoreDay
         static constexpr float DEFAULT_CRIT_DAMAGE = 1.50f;
         static constexpr float DEFAULT_ATTACK_SPEED = 1.0f;
         static constexpr float DEFAULT_ACCURACY = 0.97f;
+        static constexpr float DEFAULT_PICKUP_RANGE = 50.0f;
 
         // 移动
         static constexpr float MOVE_SPEED_CAP = 500.0f; // 移动速度上限
+
+        // 属性比例 (Attribute Ratios)
+        static constexpr float STR_TO_ARMOR = 2.0f;
+        static constexpr float VIT_TO_HEALTH = 15.0f;
+        static constexpr float INT_TO_MANA = 5.0f;
+        static constexpr float VIT_TO_HEALTH_REGEN = 0.2f;
+        static constexpr float INT_TO_MANA_REGEN = 0.2f;
+        static constexpr float STR_TO_PHYS_DAMAGE_INC = 1.0f; // 1% per point
+        static constexpr float DEX_TO_CRIT_CHANCE = 0.2f;    // 0.2% per point
+        static constexpr float DEX_TO_ACCURACY = 0.1f;       // 0.1% per point
+        static constexpr float STR_TO_KNOCKBACK = 0.5f;
+
+        // 空手/默认攻击 (Unarmed/Default Attack)
+        static constexpr float UNARMED_DAMAGE_MIN = 2.0f;
+        static constexpr float UNARMED_DAMAGE_MAX = 3.0f;
+        static constexpr float UNARMED_KNOCKBACK = 10.0f;
+        static constexpr float DEFAULT_WEAPON_KNOCKBACK = 20.0f;
     }
 
     // 1. 伤害类型定义
@@ -83,6 +102,7 @@ namespace NoMoreDay
         float intelligence = 0.0f; // -> 增加全抗性, 元素伤害，最大蓝量等
         float vitality = 0.0f;     // -> 增加最大生命值等
     };
+    static_assert(alignof(PrimaryStats) == 32, "PrimaryStats must be 32-byte aligned");
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrimaryStats, strength, dexterity, intelligence, vitality)
 
     // 3. 战斗属性 (Combat Stats) - "Baked" Data
@@ -195,6 +215,7 @@ namespace NoMoreDay
         // This cache is cleared when StatsDirty is processed.
         mutable std::unordered_map<uint64_t, float> tag_stat_cache;
     };
+    static_assert(alignof(CombatStats) == 32, "CombatStats must be 32-byte aligned");
 
     // 定义 CombatStats 的 JSON 序列化
     NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CombatStats,
@@ -304,9 +325,9 @@ namespace NoMoreDay
 
     struct StatModifier
     {
-        StatType type;
-        ModifierMode mode;
-        float value;
+        StatType type = StatType::Count;
+        ModifierMode mode = ModifierMode::Flat;
+        float value = 0.0f;
         Tag required_tags = Tag::None;                // 只有当查询携带这些标签时，该修饰符才生效
         ModifierSource source = ModifierSource::Base; // 修饰符来源
         uint32_t source_id = 0;                       // 可选: 用于追踪特定的物品/技能ID

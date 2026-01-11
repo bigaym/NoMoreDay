@@ -77,10 +77,10 @@ inline void to_json(nlohmann::json& j, const AffixType& e) { j = static_cast<uin
 inline void from_json(const nlohmann::json& j, AffixType& e) { e = static_cast<AffixType>(j.get<uint8_t>()); }
 
 struct Affix {
-    AffixType type;
-    float value;       // 词缀值
-    int tier;          // 词缀等级 (1到7，通常T1最低，T7最高/神级)
-    bool isPrefix;     // true = 前缀, false = 后缀
+    AffixType type = AffixType::Count;
+    float value = 0.0f;       // 词缀值
+    int tier = 0;          // 词缀等级 (1到7，通常T1最低，T7最高/神级)
+    bool isPrefix = true;     // true = 前缀, false = 后缀
     std::string name;  // 用于UI显示的缓存名称，例如 "of the Bear"
     Tag required_tags = Tag::None;  // 条件标签，只有技能携带这些标签时该词缀才生效
 };

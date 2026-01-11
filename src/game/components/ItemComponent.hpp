@@ -71,11 +71,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SetBonus, requiredCount, bonuses)
 
 // 标记实体为物品的组件
 struct ItemComponent {
-    uint32_t id;          // 物品的数据库/配置ID
+    uint32_t id = 0;          // 物品的数据库/配置ID
     std::string name;     // 物品名称
-    ItemType type;        // 物品类型
-    EquipmentSlot slot;   // 装备槽位 (如果可装备)
-    Rarity rarity;        // 物品稀有度
+    ItemType type = ItemType::Material;        // 物品类型
+    EquipmentSlot slot = EquipmentSlot::None;   // 装备槽位 (如果可装备)
+    Rarity rarity = Rarity::Common;        // 物品稀有度
     
     int quantity = 1;     // 当前堆叠数量
     int maxStack = 1;     // 最大堆叠数量
@@ -122,7 +122,8 @@ struct DropTableComponent {
     int minRolls = 1;        // 在掉落池中进行抽取的最小次数
     int maxRolls = 1;        // 在掉落池中进行抽取的最大次数
 
-    DropTableComponent(uint32_t id = 0, float chance = 1.0f, int minR = 1, int maxR = 1)
+    DropTableComponent() = default;
+    DropTableComponent(uint32_t id, float chance = 1.0f, int minR = 1, int maxR = 1)
         : poolId(id), dropChance(chance), minRolls(minR), maxRolls(maxR) {}
 };
 

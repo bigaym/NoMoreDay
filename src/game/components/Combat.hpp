@@ -7,12 +7,12 @@
 namespace NoMoreDay {
 
 struct DamageEvent {
-    entt::entity attacker; // 攻击者
-    entt::entity target;   // 目标
-    float amount;          // 伤害量
-    DamageType type;       // 伤害类型
-    bool is_critical;      // 是否暴击
-    bool is_hit;           // 是否命中 (如果完全闪避/格挡则为false)
+    entt::entity attacker = entt::null; // 攻击者
+    entt::entity target = entt::null;   // 目标
+    float amount = 0.0f;          // 伤害量
+    DamageType type = DamageType::Physical;       // 伤害类型
+    bool is_critical = false;      // 是否暴击
+    bool is_hit = true;           // 是否命中 (如果完全闪避/格挡则为false)
 };
 
 // 用于排队等待处理的伤害事件组件

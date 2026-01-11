@@ -15,27 +15,27 @@ namespace WorldConstants {
 
 // 基础变换组件
 struct Position {
-    float x;
-    float y;
+    float x = 0.0f;
+    float y = 0.0f;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Position, x, y)
 
 struct Velocity {
-    float vx;
-    float vy;
+    float vx = 0.0f;
+    float vy = 0.0f;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Velocity, vx, vy)
 
 // 视觉组件
 struct ColorComponent {
-    Color color;
+    Color color = WHITE;
 };
 
 struct SpriteComponent {
-    Texture2D texture;
-    float scale;
-    // float rotation; // 未来扩展
-    // Rectangle sourceRect; // 未来用于精灵图
+    Texture2D texture = { 0 };
+    float scale = 1.0f;
+    // float rotation = 0.0f; // 未来扩展
+    // Rectangle sourceRect = { 0 }; // 未来用于精灵图
 };
 
 // 用于标识玩家实体的标签
@@ -43,34 +43,34 @@ struct PlayerTag {};
 
 // 存储实体的原始输入状态
 struct InputComponent {
-    float moveX; // -1.0 到 1.0
-    float moveY; // -1.0 到 1.0
-    bool attack;
-    bool dash;
+    float moveX = 0.0f; // -1.0 到 1.0
+    float moveY = 0.0f; // -1.0 到 1.0
+    bool attack = false;
+    bool dash = false;
 };
 
 // 战斗属性
 struct HealthComponent {
-    float current;
-    float max;
+    float current = 0.0f;
+    float max = 0.0f;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HealthComponent, current, max)
 
 // 视野组件
 struct VisionComponent {
-    float radius;
+    float radius = 0.0f;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(VisionComponent, radius)
 
 // 简单的近战武器定义
 struct WeaponComponent {
-    float damage;
-    float range;          // 攻击半径
-    float cooldown;       // 两次攻击之间的秒数
-    float knockback;      // 施加到目标的击退力
+    float damage = 0.0f;
+    float range = 0.0f;          // 攻击半径
+    float cooldown = 0.0f;       // 两次攻击之间的秒数
+    float knockback = 0.0f;      // 施加到目标的击退力
     
     // 内部状态
-    float cooldownTimer;  // 0.0f 表示就绪
+    float cooldownTimer = 0.0f;  // 0.0f 表示就绪
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WeaponComponent, damage, range, cooldown, knockback, cooldownTimer)
 
@@ -88,7 +88,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WeaponComponent, damage, range, cooldown, kno
 
 struct GoldComponent {
 
-    uint32_t amount;
+    uint32_t amount = 0;
 
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GoldComponent, amount)
@@ -98,12 +98,12 @@ struct PersistentTag {};
 
 // GPU 索引组件
 struct GPUIndex {
-    int index;
+    int index = -1;
 };
 
 // 半径组件
 struct Radius {
-    float value;
+    float value = 0.0f;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Radius, value)
 
@@ -112,12 +112,12 @@ struct LocalLevelTag {};
 
 // 资源 ID 组件 (用于持久化纹理引用)
 struct TextureIDComponent {
-    uint32_t id;
+    uint32_t id = 0;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TextureIDComponent, id)
 
 // 定义 IDComponent (用于持久化唯一标识)
 struct IDComponent {
-    uint64_t uuid;
+    uint64_t uuid = 0;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(IDComponent, uuid)

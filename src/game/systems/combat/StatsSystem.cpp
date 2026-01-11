@@ -64,7 +64,7 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.dodge_chance = 0.0f;
     combat.gold_bonus = 0.0f;
     combat.experience_gain_mult = 0.0f;
-    combat.pickup_range = 50.0f; // Default
+    combat.pickup_range = GameConstants::DEFAULT_PICKUP_RANGE; // Default
 
     combat.raw_resistances.fill(0.0f);
     combat.raw_move_speed = 0.0f;
@@ -478,9 +478,9 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         // 处理空手情况：如果未装备主手武器，使用 WeaponComponent 的默认值
         // 如果是玩家（有装备栏），给予合理的空手伤害
         if (registry.all_of<EquipmentComponent>(entity)) {
-            combat.min_weapon_damage = 2.0f;
-            combat.max_weapon_damage = 3.0f;
-            combat.knockback = 10.0f; // 空手击退
+            combat.min_weapon_damage = GameConstants::UNARMED_DAMAGE_MIN;
+            combat.max_weapon_damage = GameConstants::UNARMED_DAMAGE_MAX;
+            combat.knockback = GameConstants::UNARMED_KNOCKBACK; // 空手击退
         } else if (registry.all_of<WeaponComponent>(entity)) {
             // 怪物回退逻辑
             const auto& wc = registry.get<WeaponComponent>(entity);
@@ -491,7 +491,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     
     // 如果有武器但没设置击退（ItemComponent目前没有击退字段），给个默认值
     // 未来可以在 ItemComponent 中添加 knockback
-    if (hasMainHandWeapon && combat.knockback < 0.1f) combat.knockback = 20.0f;
+    if (hasMainHandWeapon && combat.knockback < 0.1f) combat.knockback = GameConstants::DEFAULT_WEAPON_KNOCKBACK;
 
     // 2. 累积通用修饰符
     if (registry.all_of<ModifierList>(entity)) {
@@ -578,20 +578,20 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.effective_vitality = vit;
 
     // 4. 应用主要属性的缩放
-    calcs[static_cast<size_t>(StatType::Armor)].base += str * 2.0f; // 1力 = 2护甲
-    calcs[static_cast<size_t>(StatType::MaxHealth)].base += vit * 15.0f; // 1体 = 15血
-    calcs[static_cast<size_t>(StatType::MaxMana)].base += intel * 5.0f;
+    calcs[static_cast<size_t>(StatType::Armor)].base += str * GameConstants::STR_TO_ARMOR; // 1力 = 2护甲
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base += vit * GameConstants::VIT_TO_HEALTH; // 1体 = 15血
+    calcs[static_cast<size_t>(StatType::MaxMana)].base += intel * GameConstants::INT_TO_MANA;
     
     // 回复缩放 (Regeneration Scaling)
-    combat.health_regen += vit * 0.2f;   // 1体 = 0.2 生命回复/秒
-    combat.mana_regen += intel * 0.2f;  // 1智 = 0.2 法力回复/秒
+    combat.health_regen += vit * GameConstants::VIT_TO_HEALTH_REGEN;   // 1体 = 0.2 生命回复/秒
+    combat.mana_regen += intel * GameConstants::INT_TO_MANA_REGEN;  // 1智 = 0.2 法力回复/秒
 
     // 属性对伤害的加成
-    ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd, str * 1.0f); // 1力 = 1% 物理伤害
+    ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd, str * GameConstants::STR_TO_PHYS_DAMAGE_INC); // 1力 = 1% 物理伤害
     
     // 敏捷加成
-    ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat, dex * 0.2f); // 1敏 = 0.2% 暴击率
-    ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat, dex * 0.1f); // 1敏 = 0.1% 命中
+    ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat, dex * GameConstants::DEX_TO_CRIT_CHANCE); // 1敏 = 0.2% 暴击率
+    ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat, dex * GameConstants::DEX_TO_ACCURACY); // 1敏 = 0.1% 命中
 
     // --- Sword Heart Mechanic ---
     if (registry.all_of<SwordHeartComponent>(entity)) {
@@ -703,7 +703,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         combat.resistances[i] = std::min(finalRes, GameConstants::RESISTANCE_CAP);
     }
 
-    combat.knockback += str * 0.5f; // 力量增加击退
+    combat.knockback += str * GameConstants::STR_TO_KNOCKBACK; // 力量增加击退
 
     // Finalize Regeneration (Apply Pct)
     combat.health_regen *= (1.0f + combat.health_regen_pct);

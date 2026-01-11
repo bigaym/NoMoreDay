@@ -43,8 +43,8 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
 
         // 确定战斗参数
         float currentCooldownTimer = 0.0f;
-        float maxCooldown = 1.0f;
-        float range = 100.0f;
+        float maxCooldown = Constants::DEFAULT_ATTACK_COOLDOWN;
+        float range = Constants::DEFAULT_ATTACK_RANGE;
         float knockback = 0.0f;
         float baseDamage = 0.0f;
 
@@ -54,7 +54,7 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
             maxCooldown = attackState->baseAttackInterval;
             if (stats) {
                 if (stats->attack_speed > 0.01f) maxCooldown /= stats->attack_speed;
-                range = (stats->cast_range > 0.1f) ? stats->cast_range : 60.0f; // 默认范围
+                range = (stats->cast_range > 0.1f) ? stats->cast_range : Constants::DEFAULT_ATTACK_RANGE; // 默认范围
                 knockback = stats->knockback;
             }
         } else if (weapon) {
@@ -97,10 +97,10 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
             
             AttackEffect effect;
             effect.timer = 0.0f;
-            effect.lifeTime = 0.2f; // 持续0.2秒
+            effect.lifeTime = Constants::ATTACK_EFFECT_LIFETIME; // 持续0.2秒
             effect.rotation = angleDeg;
             effect.range = range;
-            effect.arcAngle = 120.0f; 
+            effect.arcAngle = Constants::DEFAULT_ATTACK_ARC; 
             effect.color = GOLD; // 剑光颜色
             registry.emplace<AttackEffect>(effectEntity, effect);
 
@@ -126,7 +126,7 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                     float angleDiff = std::abs(angleToTarget - aimAngle);
                     if (angleDiff > PI) angleDiff = 2.0f * PI - angleDiff;
                     
-                    if (angleDiff <= (120.0f * 0.5f) * (PI / 180.0f)) {
+                    if (angleDiff <= (Constants::DEFAULT_ATTACK_ARC * 0.5f) * (PI / 180.0f)) {
                         // HIT CONFIRMED
                         hitAny = true;
 
@@ -241,7 +241,7 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                         float effectiveCrit = std::min(stats->crit_chance, NoMoreDay::GameConstants::CRIT_CHANCE_CAP);
                         if (roll < effectiveCrit) {
                             isCrit = true;
-                            finalDamage *= (stats->crit_damage > 0.1f ? stats->crit_damage : 1.5f);
+                            finalDamage *= (stats->crit_damage > 0.1f ? stats->crit_damage : Constants::CRIT_DAMAGE_FALLBACK);
                         }
                     }
 
@@ -387,12 +387,12 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats& attacker, cons
         float effective_armor = defender.armor - attacker.armor_pen;
         
         if (effective_armor >= 0) {
-            mitigation = 1.0f - (100.0f / (100.0f + effective_armor));
+            mitigation = 1.0f - (Constants::BLOCK_MITIGATION_FACTOR / (Constants::BLOCK_MITIGATION_FACTOR + effective_armor));
         } else {
             // Negative armor amplification: multiplier = 2 - 100/(100 - eff)
             // We want 'mitigation' to be negative so that damage * (1 - mit) increases.
             // (1 - mitigation) = 2 - 100/(100-eff) -> mit = 1 - (2 - 100/(100-eff)) = 100/(100-eff) - 1
-            mitigation = (100.0f / (100.0f - effective_armor)) - 1.0f;
+            mitigation = (Constants::BLOCK_MITIGATION_FACTOR / (Constants::BLOCK_MITIGATION_FACTOR - effective_armor)) - 1.0f;
         }
     } else { // 元素抗性
         // Elemental Resistance
@@ -465,7 +465,7 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
         EffectSystem::EmitDamagePopup(registry, {tPos.x, tPos.y}, amount, isCrit);
         
         // Screen Shake for heavy damage
-        if (amount > 100.0f) {
+        if (amount > Constants::SCREEN_SHAKE_THRESHOLD) {
              RenderSystem::AddScreenShake(0.15f);
         }
     }

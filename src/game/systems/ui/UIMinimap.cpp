@@ -41,8 +41,8 @@ void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager)
     Font font = UISystem::GetFont();
 
     // Layout in Logic Space
-    const float mapSize = 180.0f; // Slightly larger
-    const float margin = 30.0f;
+    const float mapSize = Constants::MAP_SIZE; // Slightly larger
+    const float margin = Constants::MARGIN;
     // Anchor Top-Right relative to UI_REF_WIDTH
     const float x = UI_REF_WIDTH - mapSize - margin;
     const float y = margin;
@@ -71,7 +71,7 @@ void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager)
     
     int playerGx = static_cast<int>(playerPos.x / FogOfWarSystem::TILE_SIZE);
     int playerGy = static_cast<int>(playerPos.y / FogOfWarSystem::TILE_SIZE);
-    const int viewRadius = 30; // Increased view radius
+    const int viewRadius = Constants::VIEW_RADIUS; // Increased view radius
     float minimapScale = mapSize / (float)(viewRadius * 2); // logic scale of map content
 
     // 初始化纹理 (Initialize Texture)
@@ -90,7 +90,7 @@ void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager)
     // 更新纹理 (Update Texture) - Time-based refresh (~6 Hz, ~10 frames at 60 FPS)
     static float minimapRefreshTimer = 0.0f;
     minimapRefreshTimer += GetFrameTime();
-    if (minimapRefreshTimer >= 0.166f || s_minimapDirty) {
+    if (minimapRefreshTimer >= Constants::REFRESH_INTERVAL || s_minimapDirty) {
         minimapRefreshTimer = 0.0f;
         bool changed = false;
         for (int gy = 0; gy < gridH; ++gy) {
@@ -136,15 +136,15 @@ void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager)
         if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
             float logicX = x + (dx + viewRadius) * minimapScale;
             float logicY = y + (dy + viewRadius) * minimapScale;
-            DrawCircle((int)(logicX * scale), (int)(logicY * scale), 2.5f * scale, theme.danger);
+            DrawCircle((int)(logicX * scale), (int)(logicY * scale), Constants::ENEMY_MARKER_SIZE * scale, theme.danger);
         }
     }
     
     // Player Center (Marker)
     float centerX = x + mapSize / 2.0f;
     float centerY = y + mapSize / 2.0f;
-    DrawCircle((int)(centerX * scale), (int)(centerY * scale), 4.0f * scale, theme.success);
-    DrawCircleLines((int)(centerX * scale), (int)(centerY * scale), 4.0f * scale, WHITE);
+    DrawCircle((int)(centerX * scale), (int)(centerY * scale), Constants::PLAYER_MARKER_SIZE * scale, theme.success);
+    DrawCircleLines((int)(centerX * scale), (int)(centerY * scale), Constants::PLAYER_MARKER_SIZE * scale, WHITE);
 
     // North Indicator
     UIRenderer::DrawTextUI(font, "N", x + mapSize / 2.0f - 5.0f, y - 20.0f, 18, theme.textSecondary, 1.0f);

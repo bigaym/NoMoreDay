@@ -14,37 +14,36 @@ enum class AIType {
 
 // AI状态组件
 struct AIComponent {
-    AIType aiType;
-    float detectionRange;     // 检测范围
-    float attackRange;        // 攻击范围
-    float speed;              // AI移动速度
-    float lastDecisionTime;   // 上次决策时间
-    float decisionInterval;   // 决策间隔
+    AIType aiType = AIType::IDLE;
+    float detectionRange = 100.0f;     // 检测范围
+    float attackRange = 50.0f;        // 攻击范围
+    float speed = 80.0f;              // AI移动速度
+    float lastDecisionTime = 0.0f;   // 上次决策时间
+    float decisionInterval = 0.5f;   // 决策间隔
     
     // 巡逻相关
-    Position patrolStart;
-    Position patrolEnd;
-    bool patrolDirection;     // true为正向，false为反向
+    Position patrolStart = { 0.0f, 0.0f };
+    Position patrolEnd = { 0.0f, 0.0f };
+    bool patrolDirection = true;     // true为正向，false为反向
     
     // 追击相关
-    entt::entity target;      // 当前目标
+    entt::entity target = entt::null;      // 当前目标
     
     // 状态相关
-    float stateTimer;         // 状态计时器
-    bool isAggressive;        // 是否具有攻击性
+    float stateTimer = 0.0f;         // 状态计时器
+    bool isAggressive = true;        // 是否具有攻击性
     
     // 帧率无关更新节流
     float updateAccumulator = 0.0f;  // 距离上次AI更新的时间累积
     
-    AIComponent(AIType type = AIType::IDLE,
+    AIComponent() = default;
+    AIComponent(AIType type,
                 float detRange = 100.0f,
                 float attRange = 50.0f,
                 float spd = 80.0f,
                 float decisionInt = 0.5f)
         : aiType(type), detectionRange(detRange), attackRange(attRange),
-          speed(spd), lastDecisionTime(0.0f), decisionInterval(decisionInt),
-          patrolStart{0.0f, 0.0f}, patrolEnd{0.0f, 0.0f}, patrolDirection(true),
-          target(entt::null), stateTimer(0.0f), isAggressive(true) {}
+          speed(spd), decisionInterval(decisionInt) {}
 };
 
 // 标记敌人类实体的组件
