@@ -492,6 +492,9 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
             }
         }
 
+        // Calculate overkill before zeroing HP
+        float overkill = (hp.current < 0.0f) ? -hp.current : 0.0f;
+        
         hp.current = 0.0f; // 锁定生命值为0
         
         // --- OPTIMIZATION: Immediate Logical and Visual Removal ---
@@ -503,9 +506,15 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
         registry.emplace<KilledTag>(target, attacker);
         
         // --- Event System: OnKill ---
-        float overkill = -hp.current; // hp.current is 0 or negative after damage
         CombatEvent kill_evt = CombatEventFactory::CreateOnKill(attacker, target, overkill);
         CombatEventDispatcher::Dispatch(registry, kill_evt);
+        
+        // --- Event System: OnOverkill (if significant overkill damage) ---
+        if (overkill > 1.0f) {
+            CombatEvent overkill_evt = CombatEventFactory::CreateOnOverkill(
+                attacker, target, overkill, amount);
+            CombatEventDispatcher::Dispatch(registry, overkill_evt);
+        }
 
         // 处理击杀奖励 (Moved relevant parts to XPAwardingSystem)
         // Note: Actual item dropping is handled by DropSystem
