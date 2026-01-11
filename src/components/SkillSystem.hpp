@@ -88,6 +88,10 @@ struct TalentNode {
     std::vector<StatModifier> stat_modifiers;
     std::vector<DamageModifier> damage_modifiers;
     
+    // Tag modification (e.g., add "spell" tag to a melee skill)
+    Tag add_tags = Tag::None;     // Tags to add to skill when this talent is allocated
+    Tag remove_tags = Tag::None;  // Tags to remove from skill when this talent is allocated
+    
     // UI Layout
     float x = 0.0f;
     float y = 0.0f;
@@ -101,6 +105,25 @@ inline void to_json(nlohmann::json& j, const TalentNode& n) {
         {"stat_modifiers", n.stat_modifiers}, {"damage_modifiers", n.damage_modifiers},
         {"x", n.x}, {"y", n.y}
     };
+    // Serialize tag modifications as string arrays for human-readable JSON
+    if (n.add_tags != Tag::None) {
+        std::vector<std::string> add_tag_strs;
+        for (const auto& info : kTagInfoTable) {
+            if (HasTag(n.add_tags, info.tag)) {
+                add_tag_strs.emplace_back(info.id);
+            }
+        }
+        j["add_tags"] = add_tag_strs;
+    }
+    if (n.remove_tags != Tag::None) {
+        std::vector<std::string> remove_tag_strs;
+        for (const auto& info : kTagInfoTable) {
+            if (HasTag(n.remove_tags, info.tag)) {
+                remove_tag_strs.emplace_back(info.id);
+            }
+        }
+        j["remove_tags"] = remove_tag_strs;
+    }
 }
 
 inline void from_json(const nlohmann::json& j, TalentNode& n) {
@@ -114,6 +137,13 @@ inline void from_json(const nlohmann::json& j, TalentNode& n) {
     if (j.contains("damage_modifiers")) j.at("damage_modifiers").get_to(n.damage_modifiers);
     if (j.contains("x")) j.at("x").get_to(n.x);
     if (j.contains("y")) j.at("y").get_to(n.y);
+    // Parse tag modifications from string arrays
+    if (j.contains("add_tags")) {
+        n.add_tags = ParseTagList(j.at("add_tags").get<std::vector<std::string>>());
+    }
+    if (j.contains("remove_tags")) {
+        n.remove_tags = ParseTagList(j.at("remove_tags").get<std::vector<std::string>>());
+    }
 }
 
 /**

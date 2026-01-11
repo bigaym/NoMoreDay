@@ -102,6 +102,19 @@ public:
     static void UpdateCooldowns(entt::registry& registry, float dt);
     static void UpdateStates(entt::registry& registry, float dt);
 
+    /**
+     * @brief Get the effective tags for a skill after talent modifications.
+     * 
+     * Talents can add or remove tags from a skill. This function computes
+     * the final tag mask by applying all allocated talent nodes' tag modifications.
+     * 
+     * @param registry The ECS registry
+     * @param entity The player entity
+     * @param skill_id The skill ID to get effective tags for
+     * @return Tag The combined tag mask with talent modifications applied
+     */
+    static Tag GetEffectiveSkillTags(entt::registry& registry, entt::entity entity, uint32_t skill_id);
+
 private:
 };
 

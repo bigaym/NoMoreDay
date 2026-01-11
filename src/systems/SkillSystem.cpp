@@ -1912,4 +1912,44 @@ bool SkillSystem::ClearAllTalents(entt::registry& registry, entt::entity entity)
     return true;
 }
 
+Tag SkillSystem::GetEffectiveSkillTags(entt::registry& registry, entt::entity entity, uint32_t skill_id) {
+    // Start with base tags from skill definition
+    const auto* skill = SkillRegistry::Get().GetSkill(skill_id);
+    if (!skill) return Tag::None;
+    
+    Tag tags = skill->tags;
+    
+    // Apply talent modifications
+    auto* active = registry.try_get<ActiveSkillsComponent>(entity);
+    if (!active) return tags;
+    
+    // Find the specialized slot for this skill
+    for (const auto& spec : active->specialized_slots) {
+        if (spec.skill_id != skill_id) continue;
+        
+        // Get the skill tree definition
+        const auto* tree = SkillRegistry::Get().GetSkillTree(skill_id);
+        if (!tree) break;
+        
+        // Apply tag modifications from allocated talent nodes
+        for (const auto& [node_id, points] : spec.allocated_points) {
+            if (points <= 0) continue;
+            
+            auto it = tree->nodes.find(node_id);
+            if (it == tree->nodes.end()) continue;
+            
+            const auto& node = it->second;
+            
+            // Add tags from this talent
+            tags = tags | node.add_tags;
+            
+            // Remove tags from this talent (using bitwise AND with NOT)
+            tags = tags & ~node.remove_tags;
+        }
+        break;
+    }
+    
+    return tags;
+}
+
 } // namespace NoMoreDay
