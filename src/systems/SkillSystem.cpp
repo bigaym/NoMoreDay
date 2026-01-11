@@ -232,7 +232,14 @@ void SkillSystem::InitHooks() {
         Tag skillTags = skillData ? skillData->tags : Tag::None;
         float baseSpeed = skillData ? skillData->GetParam("speed", 300.0f) : 300.0f;
         float baseRadius = skillData ? skillData->GetParam("radius", 35.0f) : 35.0f;
+        
         float baseLifetime = skillData ? skillData->GetParam("lifetime", 1.2f) : 1.2f;
+
+        if (registry.any_of<SpiritSwordTag>(owner)) {
+            baseRadius *= 0.5f;
+            baseLifetime *= 0.75f;
+            LOG_INFO("Spirit Sword Rending Wave: Radius halved, Lifetime reduced to 75%.");
+        }
 
         Vector2 baseDir = Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
 
@@ -331,7 +338,7 @@ void SkillSystem::InitHooks() {
         LOG_INFO("Rending Wave fired {} projectiles from entity {}", totalCount, (uint32_t)owner);
     });
 
-    // ID 3: Blade Formation (万剑诀)
+    // ID 3: Blade Formation (灵剑决)
     RegisterEffect(3, [](entt::registry& registry, entt::entity owner, SkillExecution& exec) {
         auto& formation = registry.get_or_emplace<BladeFormationComponent>(owner);
         
@@ -377,8 +384,8 @@ void SkillSystem::InitHooks() {
 
         formation.max_swords = 1 + extraSwords;
         formation.current_swords = formation.max_swords; 
-        formation.attack_interval = 1.0f / (1.0f + freqInc);
-        formation.search_radius = 100.0f * (1.0f + searchInc); 
+        formation.attack_interval = 0.6f / (1.0f + freqInc);
+        formation.search_radius = 270.0f * (1.0f + searchInc); 
         formation.is_empowered = exec.is_empowered;
 
         if (formation.has_giant_sword) {
@@ -391,33 +398,62 @@ void SkillSystem::InitHooks() {
             formation.attack_interval *= 0.5f; 
         }
 
-        // --- SPAWN SPIRIT SWORDS ---
-        auto* pos = registry.try_get<Position>(owner);
-        uint32_t skillIcon = 3687043718; // From skills.json
-
-        for (int i = 0; i < formation.max_swords; ++i) {
-            auto sword = registry.create();
-            registry.emplace<LocalLevelTag>(sword);
-            registry.emplace<Position>(sword, pos ? *pos : Position{0,0});
-            registry.emplace<Velocity>(sword, 0.0f, 0.0f);
-            
-            auto& summon = registry.emplace<SummonComponent>(sword);
-            summon.owner = owner;
-            summon.skill_id = 3;
-            summon.lifetime = 10.0f;
-            summon.max_lifetime = 10.0f;
-            summon.icon_id = skillIcon;
-            summon.name = "灵剑";
-
-            registry.emplace<SpiritSwordTag>(sword);
-            
-            auto& ai = registry.emplace<SpiritSwordAI>(sword);
-            ai.attack_interval = formation.attack_interval;
-            ai.attack_timer = (float)i * (ai.attack_interval / formation.max_swords); // Offset timers
-            ai.orbit_angle = (float)i / formation.max_swords * 2.0f * PI;
+        // --- MANAGE SPIRIT SWORDS (Refresh/Spawn) ---
+        std::vector<entt::entity> existing_swords;
+        auto view = registry.view<SpiritSwordTag, SummonComponent>();
+        for(auto entity : view) {
+            if(view.get<SummonComponent>(entity).owner == owner) {
+                existing_swords.push_back(entity);
+            }
         }
 
-        LOG_INFO("Blade Formation activated: {} swords summoned for entity {}", formation.max_swords, (uint32_t)owner);
+        // Refresh Existing
+        for(auto entity : existing_swords) {
+            auto& s = registry.get<SummonComponent>(entity);
+            s.lifetime = s.max_lifetime;
+        }
+
+        // Adjust Count
+        int current_count = (int)existing_swords.size();
+        
+        if (current_count > formation.max_swords) {
+            for (int i = formation.max_swords; i < current_count; ++i) {
+                registry.destroy(existing_swords[i]);
+            }
+            LOG_INFO("Blade Formation: Refreshed duration and removed {} excess swords.", current_count - formation.max_swords);
+        } 
+        else if (current_count < formation.max_swords) {
+            auto* pos = registry.try_get<Position>(owner);
+            uint32_t skillIcon = 3687043718; 
+
+            int needed = formation.max_swords - current_count;
+            for (int i = 0; i < needed; ++i) {
+                auto sword = registry.create();
+                registry.emplace<LocalLevelTag>(sword);
+                registry.emplace<Position>(sword, pos ? *pos : Position{0,0});
+                registry.emplace<Velocity>(sword, 0.0f, 0.0f);
+                
+                auto& summon = registry.emplace<SummonComponent>(sword);
+                summon.owner = owner;
+                summon.skill_id = 3;
+                summon.lifetime = 10.0f;
+                summon.max_lifetime = 10.0f;
+                summon.icon_id = skillIcon;
+                summon.name = "灵剑";
+
+                registry.emplace<SpiritSwordTag>(sword);
+                
+                auto& ai = registry.emplace<SpiritSwordAI>(sword);
+                ai.attack_interval = formation.attack_interval;
+                
+                int total_index = current_count + i;
+                ai.attack_timer = (float)total_index * (ai.attack_interval / formation.max_swords); 
+                ai.orbit_angle = (float)total_index / formation.max_swords * 2.0f * PI;
+            }
+            LOG_INFO("Blade Formation: Refreshed duration and spawned {} new swords.", needed);
+        } else {
+            LOG_INFO("Blade Formation: Refreshed duration of {} swords.", current_count);
+        }
     });
 
     // ID 6: Sword Array (剑阵·诛仙)
@@ -1376,6 +1412,10 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
         registry.emplace<Velocity>(shadow, 0.0f, 0.0f); // Ensure it has velocity for grid
         registry.emplace<AnimationStateComponent>(shadow);
         registry.emplace<ShadowLifetime>(shadow, 1.0f);
+        
+        if (registry.any_of<SpiritSwordTag>(owner)) {
+            registry.emplace<SpiritSwordTag>(shadow);
+        }
     }
 
     auto exec_ent = registry.create();
@@ -1383,7 +1423,7 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
     auto& exec = registry.emplace<SkillExecution>(exec_ent);
     exec.skill_id = skill_id;
     exec.owner = shadow; 
-    exec.state = SkillState::Casting; 
+    exec.state = SkillState::Preparing; 
     exec.timer = 0.05f;
     exec.target_pos = target_pos;
     
@@ -1399,6 +1439,8 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
         exec.snapshot.stats = *stats;
         exec.snapshot.skill_id = skill_id;
         // No empowerment by default for non-snapshot casts unless we want it?
+        
+        registry.emplace_or_replace<CombatStats>(shadow, *stats);
     }
 
     registry.emplace<ShadowCastTag>(exec_ent);

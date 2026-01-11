@@ -31,7 +31,7 @@ TEST_CASE("SkillSystem: Comprehensive Load Verification") {
         // Skill 3: Blade Formation
         const auto* skill3 = registry.GetSkill(3);
         REQUIRE(skill3 != nullptr);
-        CHECK(skill3->name_key == "万剑诀");
+        CHECK(skill3->name_key == "灵剑决");
         CHECK(HasTag(skill3->tags, Tag::Spell));
         CHECK(HasTag(skill3->tags, Tag::Projectile));
 

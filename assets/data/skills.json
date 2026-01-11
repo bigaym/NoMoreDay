@@ -571,7 +571,7 @@
     },
     {
       "id": 3,
-      "name_key": "万剑诀",
+      "name_key": "灵剑决",
       "desc_key": "生成浮游灵剑自动攻击目标。",
       "mana_cost": 25.0,
       "cooldown": 5.0,

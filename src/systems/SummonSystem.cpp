@@ -88,14 +88,22 @@ void SummonSystem::UpdateSpiritSwords(entt::registry& registry, float dt, const 
             ai.attack_timer = ai.attack_interval;
             
             const auto& tPos = registry.get<Position>(ai.target);
-            LOG_INFO("SummonSystem: Triggering ShadowCast for owner {}", (uint32_t)summon.owner);
-            NoMoreDay::SkillSystem::ShadowCast(registry, summon.owner, 2, {pos.x, pos.y}, {tPos.x, tPos.y});
-            LOG_INFO("SummonSystem: ShadowCast done. Emitting particles.");
+            
+            // Create proxy caster to modify stats and radius
+            auto proxy = registry.create();
+            registry.emplace<NoMoreDay::SpiritSwordTag>(proxy);
+            if (auto* pStats = registry.try_get<CombatStats>(summon.owner)) {
+                CombatStats proxyStats = *pStats;
+                for (auto& m : proxyStats.damage_multipliers) m *= 0.5f; // 50% Damage
+                registry.emplace<CombatStats>(proxy, proxyStats);
+            }
+            
+            NoMoreDay::SkillSystem::ShadowCast(registry, proxy, 2, {pos.x, pos.y}, {tPos.x, tPos.y});
+            registry.destroy(proxy);
             
             // Visual feedback
             auto& particleSys = GPUParticleSystem::Get();
             particleSys.Emit(InkEffectHelper::CreateInkTrail({pos.x, pos.y}, {0, -50}, 1.0f, 0.5f));
-            LOG_INFO("SummonSystem: Particles emitted.");
         }
     }
 }

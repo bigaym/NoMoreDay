@@ -28,7 +28,7 @@ namespace assets::ui
         // 剑修技能图标
         constexpr assets::TextureAsset Skill_LiuYunCi = {"ui_skill_liuyunci"_hs, "assets/textures/ui/icons/skills/skill_liuyunci.png"};                      // 流云刺
         constexpr assets::TextureAsset Skill_LieKongZhan = {"ui_skill_liekongzhan"_hs, "assets/textures/ui/icons/skills/skill_liekongzhan.png"};             // 裂空斩
-        constexpr assets::TextureAsset Skill_WanJianJue = {"ui_skill_wanjianjue"_hs, "assets/textures/ui/icons/skills/skill_wanjianjue.png"};                // 万剑诀
+        constexpr assets::TextureAsset Skill_WanJianJue = {"ui_skill_wanjianjue"_hs, "assets/textures/ui/icons/skills/skill_wanjianjue.png"};                // 灵剑决
         constexpr assets::TextureAsset Skill_JianQiHuTi = {"ui_skill_jianqihuti"_hs, "assets/textures/ui/icons/skills/skill_jianqihuti.png"};                // 剑气护体
         constexpr assets::TextureAsset Skill_WanJianGuiZong = {"ui_skill_wanjianguizong"_hs, "assets/textures/ui/icons/skills/skill_wanjianguizong.png"};    // 万剑归宗
         constexpr assets::TextureAsset Skill_ZhuXianJianZhen = {"ui_skill_zhuxianjianzhen"_hs, "assets/textures/ui/icons/skills/skill_zhuxianjianzhen.png"}; // 剑阵·诛仙

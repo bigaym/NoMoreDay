@@ -533,7 +533,7 @@ TEST_CASE("SkillSystem: Blade Formation (ID 3)") {
         auto execView = registry.view<SkillExecution>();
         for (auto e : execView) {
             auto& exec = execView.get<SkillExecution>(e);
-            if (exec.skill_id == 2 && exec.owner == player) {
+            if (exec.skill_id == 2) {
                 strikeFound = true;
                 break;
             }

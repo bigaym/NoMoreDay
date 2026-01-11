@@ -112,6 +112,9 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
     // 2.5. 绘制浮游灵剑实体 (Spirit Sword Entities)
     auto swordView = registry.view<const NoMoreDay::SpiritSwordTag, const Position>();
     for (auto entity : swordView) {
+        // Skip shadows/proxies that are not actual summons
+        if (!registry.any_of<NoMoreDay::SummonComponent>(entity)) continue;
+
         const auto& pos = swordView.get<Position>(entity);
         
         // Determine properties (e.g. from owner or self)

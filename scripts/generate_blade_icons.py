@@ -10,7 +10,7 @@ ASSET_GEN_SCRIPT = os.path.join(os.path.dirname(__file__), "asset_gen.py")
 SKILLS = {
     # "flowing_thrust": "Silhouette of a swordsman charging forward in a powerful single-handed sword thrust, sharp cyan wind energy streaks, clean black silhouette with glowing edges, 2d game icon style", # 流云刺：位移与单体爆发
     # "rending_wave": "A powerful golden crescent sword wave cutting the air, sharp energy",       # 裂空斩：群体清理/半月剑气
-    # "blade_formation": "A circle of floating ethereal spirit swords, blue magical glow, spiritual energy", # 万剑诀：自动化浮游灵剑
+    # "blade_formation": "A circle of floating ethereal spirit swords, blue magical glow, spiritual energy", # 灵剑决：自动化浮游灵剑
     # "blade_ward": "A protective dome made of spinning sword phantoms, defensive aura",           # 剑气护体：防御与拦截投射物
     "infinite_blades": "Low-angle 2.5D perspective looking up at a glowing circular sword array in the sky, distinct sharp spirit blades in vibrant colors falling down in straight lines, sharp edges, clean composition, high contrast, 2d game icon style, sharp focus", # 万剑归宗：全屏清场终极技能
     # "sword_array_execution": "2.5D isometric view of a circular daoist sword array, four distinct glowing swords at cardinal points: deep blue sword at North, silver white sword at West, fiery red sword at South, cyan green sword at East, glowing runes on a circular platform, symmetrical, clean composition", # 剑阵·诛仙：区域持续伤害

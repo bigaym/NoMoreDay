@@ -149,7 +149,7 @@ PhysicsSystem → RenderSystem (位置更新)
 **技能类型**：
 - `Flowing Thrust`：流云刺
 - `Rending Wave`：裂空斩
-- `Blade Formation`：万剑诀
+- `Blade Formation`：灵剑决
 - `Sword Array`：剑阵
 
 **技能分支逻辑**：
