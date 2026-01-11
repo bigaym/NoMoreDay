@@ -15,6 +15,7 @@ TEST_CASE("Affix System Integration Test") {
 
     SUBCASE("StatsSystem applies Affixes correctly") {
         auto entity = registry.create();
+        registry.emplace<PlayerTag>(entity);
         registry.emplace<CombatStats>(entity);
         registry.emplace<PrimaryStats>(entity, 10.0f, 10.0f, 10.0f, 10.0f); // Base stats
         
@@ -55,11 +56,11 @@ TEST_CASE("Affix System Integration Test") {
         CHECK(stats.effective_strength == doctest::Approx(20.0f));
         
         // Check Max Health: 
-        // Base 100
+        // Base from GameConstants::DEFAULT_MAX_HEALTH
         // Vitality 10 -> +150 (10 * 15)
         // Affix +50
-        // Total = 100 + 150 + 50 = 300
-        CHECK(stats.max_health == doctest::Approx(300.0f));
+        float expected_hp = NoMoreDay::GameConstants::DEFAULT_MAX_HEALTH + 150.0f + 50.0f;
+        CHECK(stats.max_health == doctest::Approx(expected_hp));
     }
     
     SUBCASE("Affix Generation Constraints") {

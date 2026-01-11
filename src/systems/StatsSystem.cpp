@@ -232,6 +232,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     // Prepare GlobalModifierComponent for DamagePipeline
     auto& global_mods = registry.get_or_emplace<GlobalModifierComponent>(entity);
     global_mods.modifiers.clear();
+    global_mods.stat_modifiers.clear();  // NEW: Clear conditional stat modifiers
 
     std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs; // 初始化计算数组
     
@@ -305,6 +306,19 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     // 定义处理词缀的 Lambda，供物品 and 套装奖励复用
     auto processAffixes = [&](const std::vector<Affix>& affixes) {
         for (const auto& affix : affixes) {
+            // NEW: Check if affix has tag conditions
+            if (affix.required_tags != Tag::None) {
+                // Store for dynamic resolution in GetStatWithTags
+                StatModifier mod;
+                mod.type = static_cast<StatType>(affix.type);  // Direct cast works for most common types
+                mod.mode = ModifierMode::PercentAdd;  // Default, may need refinement
+                mod.value = affix.value;
+                mod.required_tags = affix.required_tags;
+                mod.source = ModifierSource::Item;
+                global_mods.stat_modifiers.push_back(mod);
+                continue;  // Skip normal processing for conditional affixes
+            }
+            
             ApplyAffix(calcs, affix);
             
             // 处理 ApplyAffix 中未涵盖的特殊词缀
@@ -695,7 +709,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.health_regen *= (1.0f + combat.health_regen_pct);
     combat.mana_regen *= (1.0f + combat.mana_regen_pct);
 
-    LOG_DEBUG("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
+    LOG_TRACE("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
         (uint32_t)entity, combat.min_weapon_damage, combat.max_weapon_damage, 
         str, combat.max_health);
 
@@ -850,6 +864,11 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
         if (auto* skillMods = registry.try_get<SkillModifierComponent>(source_entity)) {
             apply_if_tags_match(skillMods->stat_modifiers);
         }
+    }
+
+    // 2.3 NEW: 处理条件装备词缀 (GlobalModifierComponent.stat_modifiers)
+    if (auto* global = registry.try_get<GlobalModifierComponent>(entity)) {
+        apply_if_tags_match(global->stat_modifiers);
     }
 
     // 3. 处理技能专精天赋 (Skill Specialization Talents)

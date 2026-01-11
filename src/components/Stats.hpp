@@ -25,9 +25,9 @@ namespace NoMoreDay
         static constexpr float ATTACK_SPEED_CAP = 10.0f; // 攻击速度上限 (每秒10次)
 
         // 默认值 (Defaults)
-        static constexpr float DEFAULT_MOVE_SPEED = 100.0;
-        static constexpr float DEFAULT_MAX_HEALTH = 10000000.0f; // 测试用数值
-        static constexpr float DEFAULT_MAX_MANA = 55555.0f;      // 测试用数值
+        static constexpr float DEFAULT_MOVE_SPEED = 100.0f;
+        static constexpr float DEFAULT_MAX_HEALTH = 1000000.0f;
+        static constexpr float DEFAULT_MAX_MANA = 1000000.0f;
         static constexpr float DEFAULT_CRIT_CHANCE = 0.05f;
         static constexpr float DEFAULT_CRIT_DAMAGE = 1.50f;
         static constexpr float DEFAULT_ATTACK_SPEED = 1.0f;

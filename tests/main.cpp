@@ -63,6 +63,10 @@ using namespace NoMoreDay;
 // Setup common mocks/globals if needed
 
 int main(int argc, char** argv) {
+
+    // 设置日志级别为warning
+    tools::Logger::Init();
+    tools::Logger::SetLogLevel(spdlog::level::warn, 2);
     // Some Raylib functions require a window context even if not drawing
     InitWindow(100, 100, "Headless Tests");
     SetTargetFPS(60);
@@ -71,6 +75,7 @@ int main(int argc, char** argv) {
     context.applyCommandLine(argc, argv);
     int res = context.run();
 
+    tools::Logger::Shutdown();
     CloseWindow();
     return res;
 }

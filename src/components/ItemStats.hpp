@@ -4,6 +4,7 @@
 #include "raylib.h"
 #include <nlohmann/json.hpp>
 #include "Stats.hpp"
+#include "../core/TagRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -77,13 +78,36 @@ inline void from_json(const nlohmann::json& j, AffixType& e) { e = static_cast<A
 
 struct Affix {
     AffixType type;
-    float value; // 词缀值
-    int tier;    // 词缀等级 (1到7，通常T1最低，T7最高/神级)
-                 // 假设 T1 = 低，T7 = 高/神级。
-    bool isPrefix; // true = 前缀, false = 后缀
-    std::string name; // 用于UI显示的缓存名称，例如 "of the Bear" 或 "Burning"
+    float value;       // 词缀值
+    int tier;          // 词缀等级 (1到7，通常T1最低，T7最高/神级)
+    bool isPrefix;     // true = 前缀, false = 后缀
+    std::string name;  // 用于UI显示的缓存名称，例如 "of the Bear"
+    Tag required_tags = Tag::None;  // 条件标签，只有技能携带这些标签时该词缀才生效
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Affix, type, value, tier, isPrefix, name)
+
+// Custom JSON serialization for Affix (backward compatible)
+inline void to_json(nlohmann::json& j, const Affix& a) {
+    j = nlohmann::json{
+        {"type", a.type}, {"value", a.value}, {"tier", a.tier},
+        {"isPrefix", a.isPrefix}, {"name", a.name}
+    };
+    if (a.required_tags != Tag::None) {
+        j["required_tags"] = static_cast<uint64_t>(a.required_tags);
+    }
+}
+
+inline void from_json(const nlohmann::json& j, Affix& a) {
+    j.at("type").get_to(a.type);
+    j.at("value").get_to(a.value);
+    j.at("tier").get_to(a.tier);
+    j.at("isPrefix").get_to(a.isPrefix);
+    j.at("name").get_to(a.name);
+    if (j.contains("required_tags")) {
+        a.required_tags = static_cast<Tag>(j.at("required_tags").get<uint64_t>());
+    } else {
+        a.required_tags = Tag::None;
+    }
+}
 
 // --- NEW DEFINITIONS FOR DATA LOADING ---
 
@@ -98,12 +122,40 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AffixTier, tier, minLevel, minValue, maxValue
 struct AffixDefinition {
     std::string id;
     AffixType type;
-    std::string nameTemplate; // e.g. "of the Bear" or "Strong"
+    std::string nameTemplate;              // e.g. "of the Bear" or "Strong"
     bool isPrefix;
     std::vector<AffixTier> tiers;
-    std::vector<std::string> allowedTags; // e.g. "weapon", "armor"
+    std::vector<std::string> allowedTags;  // Slot filtering: "weapon", "armor", etc.
+    std::vector<std::string> requiredSkillTags;  // Skill tag conditions (parsed to Tag bitmask)
+    
+    // Helper to get parsed required tags
+    Tag GetRequiredTags() const {
+        return ParseTagList(requiredSkillTags);
+    }
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AffixDefinition, id, type, nameTemplate, isPrefix, tiers, allowedTags)
+
+// Custom JSON for AffixDefinition (backward compatible)
+inline void to_json(nlohmann::json& j, const AffixDefinition& d) {
+    j = nlohmann::json{
+        {"id", d.id}, {"type", d.type}, {"nameTemplate", d.nameTemplate},
+        {"isPrefix", d.isPrefix}, {"tiers", d.tiers}, {"allowedTags", d.allowedTags}
+    };
+    if (!d.requiredSkillTags.empty()) {
+        j["requiredSkillTags"] = d.requiredSkillTags;
+    }
+}
+
+inline void from_json(const nlohmann::json& j, AffixDefinition& d) {
+    j.at("id").get_to(d.id);
+    j.at("type").get_to(d.type);
+    j.at("nameTemplate").get_to(d.nameTemplate);
+    j.at("isPrefix").get_to(d.isPrefix);
+    j.at("tiers").get_to(d.tiers);
+    j.at("allowedTags").get_to(d.allowedTags);
+    if (j.contains("requiredSkillTags")) {
+        j.at("requiredSkillTags").get_to(d.requiredSkillTags);
+    }
+}
 
 // Helper to determine if an affix is a primary stat
 inline bool IsPrimaryStat(AffixType type) {

@@ -9,7 +9,7 @@ using namespace NoMoreDay;
 // RAII Helper for Logger
 struct LoggerScope {
     LoggerScope() { tools::Logger::Init(); }
-    ~LoggerScope() { tools::Logger::Shutdown(); }
+    ~LoggerScope() { /* tools::Logger::Shutdown(); */ }
 };
 
 // RAII Helper for Logger and ItemFactory
@@ -19,6 +19,6 @@ struct TestSetupScope {
         ItemFactory::initialize();
     }
     ~TestSetupScope() { 
-        tools::Logger::Shutdown();
+        // tools::Logger::Shutdown();
     }
 };

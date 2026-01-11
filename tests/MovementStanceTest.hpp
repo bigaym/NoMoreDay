@@ -54,8 +54,9 @@ TEST_CASE("Movement Stance: Lifecycle and Buffs") {
         // Recalculate stats
         StatsSystem::update(registry);
         auto& combat = registry.get<CombatStats>(player);
-        // Base 300 + 100% = 600
-        CHECK(combat.move_speed == doctest::Approx(600.0f));
+        // Base from DEFAULT_MOVE_SPEED + 100% = 2x
+        float expected_speed = NoMoreDay::GameConstants::DEFAULT_MOVE_SPEED * 2.0f;
+        CHECK(combat.move_speed == doctest::Approx(expected_speed));
     }
 
     SUBCASE("Interruption: Stopped Moving") {
@@ -74,7 +75,7 @@ TEST_CASE("Movement Stance: Lifecycle and Buffs") {
         
         StatsSystem::update(registry);
         auto& combat = registry.get<CombatStats>(player);
-        CHECK(combat.move_speed == 300.0f);
+        CHECK(combat.move_speed == NoMoreDay::GameConstants::DEFAULT_MOVE_SPEED);
     }
 
     SUBCASE("Interruption: Taking Damage") {

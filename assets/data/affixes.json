@@ -1347,5 +1347,103 @@
             "armor",
             "jewelry"
         ]
+    },
+    {
+        "id": "melee_phys_dmg",
+        "type": 11,
+        "nameTemplate": "of Striking",
+        "isPrefix": false,
+        "requiredSkillTags": [
+            "melee"
+        ],
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 8.0,
+                "maxValue": 12.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 21,
+                "minValue": 15.0,
+                "maxValue": 20.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 41,
+                "minValue": 25.0,
+                "maxValue": 30.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ]
+    },
+    {
+        "id": "spell_crit",
+        "type": 17,
+        "nameTemplate": "of Sorcery",
+        "isPrefix": false,
+        "requiredSkillTags": [
+            "spell"
+        ],
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 3.0,
+                "maxValue": 5.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 21,
+                "minValue": 6.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 41,
+                "minValue": 9.0,
+                "maxValue": 12.0
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "jewelry"
+        ]
+    },
+    {
+        "id": "projectile_attack_speed",
+        "type": 19,
+        "nameTemplate": "of Swiftness",
+        "isPrefix": false,
+        "requiredSkillTags": [
+            "projectile"
+        ],
+        "tiers": [
+            {
+                "tier": 1,
+                "minLevel": 1,
+                "minValue": 5.0,
+                "maxValue": 8.0
+            },
+            {
+                "tier": 2,
+                "minLevel": 21,
+                "minValue": 10.0,
+                "maxValue": 13.0
+            },
+            {
+                "tier": 3,
+                "minLevel": 41,
+                "minValue": 15.0,
+                "maxValue": 18.0
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "gloves"
+        ]
     }
 ]

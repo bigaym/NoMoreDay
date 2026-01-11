@@ -151,9 +151,13 @@ struct SkillModifierComponent {
 
 /**
  * @brief Global modifiers from gear, passives, etc.
+ * 用于存储来自装备、被动天赋等的全局修饰符。
+ * - modifiers: 伤害类型转换/增伤 (用于 DamagePipeline)
+ * - stat_modifiers: 条件属性修饰符 (用于 StatsSystem::GetStatWithTags)
  */
 struct GlobalModifierComponent {
     std::vector<DamageModifier> modifiers;
+    std::vector<StatModifier> stat_modifiers;  // NEW: Conditional stat modifiers from affixes
 };
 
 /**

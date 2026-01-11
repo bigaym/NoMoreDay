@@ -8,32 +8,28 @@ namespace NoMoreDay {
 using json = nlohmann::json;
 
 static Tag StringToTag(const std::string& str) {
-    if (str == "Physical") return Tag::Physical;
-    if (str == "Fire") return Tag::Fire;
-    if (str == "Cold") return Tag::Cold;
-    if (str == "Lightning") return Tag::Lightning;
-    if (str == "Shadow") return Tag::Shadow;
-    if (str == "Poison") return Tag::Poison;
-    if (str == "Melee") return Tag::Melee;
-    if (str == "Projectile") return Tag::Projectile;
-    if (str == "Area") return Tag::Area;
-    if (str == "Spell") return Tag::Spell;
-    if (str == "Attack") return Tag::Attack;
-    if (str == "Movement") return Tag::Movement;
-    if (str == "Hit") return Tag::Hit;
-    if (str == "Critical") return Tag::Critical;
+    // First try exact match with lowercase IDs
+    if (auto tag = TagFromString(str)) {
+        return *tag;
+    }
+    
+    // Fallback: Try converting to lowercase for case-insensitive match
+    std::string lower = str;
+    for (char& c : lower) {
+        if (c >= 'A' && c <= 'Z') c += 32;
+    }
+    if (auto tag = TagFromString(lower)) {
+        return *tag;
+    }
+    
+    // Legacy capitalized names not in kTagInfoTable
     if (str == "DamageOverTime") return Tag::DamageOverTime;
-    if (str == "Buff") return Tag::Buff;
-    if (str == "Aura") return Tag::Aura;
-    if (str == "Channeled") return Tag::Channeled;
-    if (str == "Bleeding") return Tag::Bleeding;
-    if (str == "Burning") return Tag::Burning;
-    if (str == "Frozen") return Tag::Frozen;
-    if (str == "Shocked") return Tag::Shocked;
-    if (str == "Stunned") return Tag::Stunned;
     if (str == "SwordRiding") return Tag::SwordRiding;
+    
+    LOG_WARN("Unknown tag string: {}", str);
     return Tag::None;
 }
+
 
 SkillRegistry& SkillRegistry::Get() {
     static SkillRegistry instance;

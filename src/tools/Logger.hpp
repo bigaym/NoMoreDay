@@ -20,6 +20,8 @@ public:
     static void Init();
     static void Shutdown();
     static std::shared_ptr<spdlog::logger>& GetCoreLogger();
+    // mode: 0, console, 1: file, >1: all
+    static void SetLogLevel(spdlog::level::level_enum level, uint8_t mode);
 
 private:
     static std::shared_ptr<spdlog::logger> s_CoreLogger;

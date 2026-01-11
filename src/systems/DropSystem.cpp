@@ -35,6 +35,14 @@ void DropSystem::update(entt::registry& registry, int areaLevel) {
         pending.dropChance = table.dropChance;
         pending.areaLevel = areaLevel;
 
+        // Snapshot killer's bonuses
+        if (registry.valid(killedTag.killer) && registry.all_of<PlayerTag>(killedTag.killer)) {
+            if (auto* combat = registry.try_get<CombatStats>(killedTag.killer)) {
+                pending.magicFind = combat->magic_find;
+                pending.goldBonus = combat->gold_bonus;
+            }
+        }
+
         // If victim has extra rarity, we should ideally snapshot it too.
         // For simplicity, we add rarity bonus rolls if it's an elite/boss here.
         if (auto* rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
@@ -75,7 +83,7 @@ void DropSystem::update(entt::registry& registry, int areaLevel) {
                     if (roll <= currentWeight) {
                         if (entry.type == LootEntryType::Item) {
                             // Create item via factory
-                            auto item = ItemFactory::createRandomLoot(registry, pending.areaLevel, 0.0f); // Simplification: MF boost should be snapshotted
+                            auto item = ItemFactory::createRandomLoot(registry, pending.areaLevel, pending.magicFind);
                             registry.emplace_or_replace<Position>(item, pending.pos.x, pending.pos.y);
                             registry.emplace<LocalLevelTag>(item);
                             
@@ -108,6 +116,7 @@ void DropSystem::update(entt::registry& registry, int areaLevel) {
                         } else if (entry.type == LootEntryType::Gold) {
                             std::uniform_int_distribution<uint32_t> amountDist(entry.minAmount, entry.maxAmount);
                             uint32_t amount = amountDist(g_drop_rng);
+                            amount = (uint32_t)((float)amount * (1.0f + pending.goldBonus)); // Apply gold bonus
                             if (amount > 0) {
                                 auto gold = registry.create();
                                 registry.emplace<Position>(gold, pending.pos.x, pending.pos.y);

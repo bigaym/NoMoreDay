@@ -15,6 +15,8 @@ struct PendingDrop {
     int tableMaxRolls;
     float dropChance;
     int areaLevel;
+    float magicFind = 0.0f;
+    float goldBonus = 0.0f;
 };
 
 class DropSystem {

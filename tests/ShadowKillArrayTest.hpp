@@ -16,6 +16,7 @@ TEST_CASE("Shadow Kill Array: Duplication Logic") {
     systems::SpatialHashGrid grid(100, 100, 50);
 
     auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
     auto& active = registry.emplace<ActiveSkillsComponent>(player);
     auto& stats = registry.emplace<CombatStats>(player);
     auto& playerStats = registry.emplace<PlayerStats>(player);
@@ -155,6 +156,8 @@ TEST_CASE("Shadow Kill Array: Duplication Logic") {
         auto result_player = DamagePipeline::Calculate(registry, player, player, 2, base, Tag::Hit);
         
         // Attacker is shadow
+        // NOTE: We manually add ShadowCloneComponent to trigger the 50% reduction logic in DamagePipeline
+        registry.emplace<ShadowCloneComponent>(shadow_ent);
         auto result_shadow = DamagePipeline::Calculate(registry, shadow_ent, player, 2, base, Tag::Hit);
         
         // Shadow damage should be exactly 50% of player damage
