@@ -12,6 +12,7 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "core/utils/FrameRateUtils.hpp"  // Frame-rate independent utilities
 #include <algorithm>
 #include <vector>
 #include <array>
@@ -922,7 +923,8 @@ void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
             const auto& pos = registry.get<Position>(entity);
             for (const auto& buff : effects.effects) {
                 if (buff.type == BuffType::Freeze) {
-                    if (GetRandomValue(0, 100) < 30) {
+                    // Time-based: ~30% at 60 FPS
+                    if (utils::FrameRateUtils::ShouldTrigger(30.0f, dt)) {
                          components::GPUParticle p;
                          p.position = { pos.x + GetRandomValue(-10, 10), pos.y + GetRandomValue(-10, 10) };
                          p.velocity = { 0, -10.0f };
@@ -936,7 +938,8 @@ void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
                     }
                 }
                 else if (buff.type == BuffType::Burn) {
-                    if (GetRandomValue(0, 100) < 30) {
+                    // Time-based: ~30% at 60 FPS
+                    if (utils::FrameRateUtils::ShouldTrigger(30.0f, dt)) {
                          components::GPUParticle p;
                          p.position = { pos.x + GetRandomValue(-8, 8), pos.y + GetRandomValue(-5, 5) };
                          p.velocity = { 0, -30.0f }; // Rise fast
@@ -950,7 +953,8 @@ void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
                     }
                 }
                 else if (buff.type == BuffType::Stun || buff.id == "shock") {
-                    if (GetRandomValue(0, 100) < 20) {
+                    // Time-based: ~20% at 60 FPS
+                    if (utils::FrameRateUtils::ShouldTrigger(20.0f, dt)) {
                          components::GPUParticle p;
                          p.position = { pos.x + GetRandomValue(-10, 10), pos.y + GetRandomValue(-20, 0) };
                          p.velocity = { 0, 0 };

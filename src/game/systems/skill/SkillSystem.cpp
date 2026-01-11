@@ -12,8 +12,9 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "engine/physics/SpatialGrid.hpp"
-#include "engine/render/GPUParticleSystem.hpp" // Added
+#include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/utils/FrameRateUtils.hpp"  // Frame-rate independent utilities
 #include "raymath.h"
 #include <map>
 #include <algorithm>
@@ -923,7 +924,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
         // --- Continuous VFX: Sword Rain ---
         auto& particleSys = systems::GPUParticleSystem::Get();
-        if (GetRandomValue(0, 100) < 15) { // Chance per frame to drop a sword
+        if (utils::FrameRateUtils::ShouldTrigger(15.0f, dt)) { // Time-based: ~15% at 60 FPS
             float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
             float dist = sqrtf((float)GetRandomValue(0, 1000) / 1000.0f) * array.radius;
             Vector2 dropPos = { pos.x + cosf(angle) * dist, pos.y + sinf(angle) * dist };
@@ -1105,9 +1106,11 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
         // Continuous VFX for Mind Blade (ID 7) - Threads
         if (chan.skill_id == 7) {
-             static int s_skill7FrameCount = 0;
-             s_skill7FrameCount++;
-             if (s_skill7FrameCount % 30 == 1) { // Log every 30 frames (~0.5s at 60fps)
+             // Time-based debug logging (every 0.5s)
+             static float s_skill7LogTimer = 0.0f;
+             s_skill7LogTimer += dt;
+             if (s_skill7LogTimer >= 0.5f) {
+                 s_skill7LogTimer = 0.0f;
                  LOG_INFO("[DEBUG-SKILL7] Continuous VFX active. Entity pos=({:.1f},{:.1f}), target=({:.1f},{:.1f}), tick_timer={:.3f}", 
                      pos.x, pos.y, chan.target_pos.x, chan.target_pos.y, chan.tick_timer);
              }
@@ -1116,7 +1119,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
              Vector2 dir = Vector2Normalize(Vector2Subtract(chan.target_pos, {pos.x, pos.y}));
              
              // Main Ink Thread
-             if (GetRandomValue(0, 100) < 50) { // 50% chance per frame
+             if (utils::FrameRateUtils::ShouldTrigger(50.0f, dt)) { // Time-based: ~50% at 60 FPS
                  components::GPUParticle p = systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y}, Vector2Scale(dir, -50.0f), 0.5f, 0.4f);
                  p.velocity = Vector2Scale(dir, 1500.0f); // Very fast
                  p.color = ColorAlpha(systems::InkEffectHelper::COLOR_INK_LIGHT, 0.3f); // Transparent
@@ -1125,7 +1128,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
              }
              
              // Gold Core (Empowered)
-             if (chan.is_empowered && GetRandomValue(0, 100) < 30) {
+             if (chan.is_empowered && utils::FrameRateUtils::ShouldTrigger(30.0f, dt)) {
                  components::GPUParticle p = systems::InkEffectHelper::CreateGoldParticle({pos.x, pos.y}, Vector2Scale(dir, 1500.0f), 0.4f);
                  p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
                  particleSys.Emit(p);
@@ -1193,7 +1196,7 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                 }
                 
                 // Screen effect: Large faint ink wash
-                if (GetRandomValue(0, 100) < 30) {
+                if (utils::FrameRateUtils::ShouldTrigger(30.0f, dt)) {
                     components::GPUParticle p;
                     p.position = { pos.x + (float)GetRandomValue(-400, 400), pos.y + (float)GetRandomValue(-300, 300) };
                     p.velocity = { 0, 0 };
@@ -1474,7 +1477,8 @@ void SkillSystem::UpdateSwordIntent(entt::registry& registry, float dt) {
             // Visuals (Only if window is ready to avoid RNG pollution in headless tests)
             if (IsWindowReady() && registry.all_of<Position>(entity)) {
                 const auto& pos = registry.get<Position>(entity);
-                if (GetRandomValue(0, 100) < intent.stacks * 3) {
+                // Time-based: intent.stacks * 3% at 60 FPS baseline
+                if (utils::FrameRateUtils::ShouldTrigger(static_cast<float>(intent.stacks * 3), dt)) {
                     components::GPUParticle p;
                     p.position = { pos.x + GetRandomValue(-15, 15), pos.y + GetRandomValue(-30, 0) };
                     p.velocity = { 0, -30.0f };

@@ -87,9 +87,11 @@ void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager)
         s_minimapDirty = true;
     }
 
-    // 更新纹理 (Update Texture)
-    static int frameCounter = 0;
-    if (frameCounter++ % 10 == 0 || s_minimapDirty) {
+    // 更新纹理 (Update Texture) - Time-based refresh (~6 Hz, ~10 frames at 60 FPS)
+    static float minimapRefreshTimer = 0.0f;
+    minimapRefreshTimer += GetFrameTime();
+    if (minimapRefreshTimer >= 0.166f || s_minimapDirty) {
+        minimapRefreshTimer = 0.0f;
         bool changed = false;
         for (int gy = 0; gy < gridH; ++gy) {
             for (int gx = 0; gx < gridW; ++gx) {

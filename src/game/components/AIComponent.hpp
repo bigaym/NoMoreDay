@@ -33,6 +33,9 @@ struct AIComponent {
     float stateTimer;         // 状态计时器
     bool isAggressive;        // 是否具有攻击性
     
+    // 帧率无关更新节流
+    float updateAccumulator = 0.0f;  // 距离上次AI更新的时间累积
+    
     AIComponent(AIType type = AIType::IDLE,
                 float detRange = 100.0f,
                 float attRange = 50.0f,

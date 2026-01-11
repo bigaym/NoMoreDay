@@ -319,10 +319,6 @@ void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashG
     float cellSize = 10.0f; 
 
     auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>(entt::exclude<KilledTag>);
-    
-    // Static frame counter for round-robin updating
-    static uint32_t frameCounter = 0;
-    frameCounter++;
 
     for (auto entity : aiView) {
         auto& ai = aiView.get<AIComponent>(entity);
@@ -340,24 +336,25 @@ void AISystem::update(entt::registry& registry, NoMoreDay::systems::SpatialHashG
             continue;
         }
 
-        // 2. Frequency Throttling:
-        // - Close (< 400): Every frame (full response)
-        // - Medium (400 - 800): Every 2 frames
-        // - Far (> 800): Every 5 frames
-        bool shouldUpdate = true;
+        // 2. Frame-rate independent throttling using time accumulator:
+        // - Close (< 400): Every frame (~0s interval)
+        // - Medium (400 - 800): ~0.033s (2 frames at 60 FPS)
+        // - Far (> 800): ~0.083s (5 frames at 60 FPS)
+        float updateInterval = 0.0f;
         if (distSq > 800.0f * 800.0f) {
-            shouldUpdate = (frameCounter % 5 == (uint32_t)entity % 5);
+            updateInterval = 0.083f;  // ~5 frames at 60 FPS
         } else if (distSq > 400.0f * 400.0f) {
-            shouldUpdate = (frameCounter % 2 == (uint32_t)entity % 2);
+            updateInterval = 0.033f;  // ~2 frames at 60 FPS
+        }
+        
+        ai.updateAccumulator += dt;
+        bool shouldUpdate = (ai.updateAccumulator >= updateInterval);
+        if (shouldUpdate) {
+            ai.updateAccumulator = 0.0f;
         }
 
         if (shouldUpdate) {
-            // Pass a scaled dt to compensate for lower frequency? 
-            // Actually, for AI decision logic, we just need to tick the state.
             updateAIEntity(registry, entity, ai, pos, vel, grid, mapSystem, playerPos, field, origin, gridW, gridH, cellSize, dt);
-        } else {
-            // Optional: Continue moving in previous velocity to avoid "stuttering"
-            // vel.vx *= 0.95f; vel.vy *= 0.95f; 
         }
     }
 }

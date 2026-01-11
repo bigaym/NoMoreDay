@@ -38,11 +38,14 @@ Game::Game(int width, int height, const char* title)
     // Check GPU Support via our Unified Utility
     m_gpuInfo = NoMoreDay::utils::GPUUtils::CheckSupport();
 
-    SetExitKey(0); 
-    SetTargetFPS(60);
+    SetExitKey(0);
+    
+    // Load settings first so targetFPS is available
+    m_settings.Load();
+    SetTargetFPS(m_settings.targetFPS);  // Use FPS from settings (default: 180)
+    LOG_INFO("Target FPS set to: {}", m_settings.targetFPS);
     
     // Fill Context
-    m_settings.Load();
     m_levelManager = std::make_unique<LevelManager>();
     m_context.registry = &m_registry;
     m_context.resources = &m_resourceManager;

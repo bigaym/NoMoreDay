@@ -8,10 +8,12 @@ namespace NoMoreDay {
 
     struct GameSettings {
         float cameraZoom = 1.5f;
+        int targetFPS = 180;  // Target frame rate (60, 120, or 180)
 
         void Save(const std::string& filePath = "settings.json") {
             nlohmann::json j;
             j["cameraZoom"] = cameraZoom;
+            j["targetFPS"] = targetFPS;
             
             std::ofstream file(filePath);
             if (file.is_open()) {
@@ -31,6 +33,7 @@ namespace NoMoreDay {
                 file >> j;
 
                 if (j.contains("cameraZoom")) cameraZoom = j["cameraZoom"].get<float>();
+                if (j.contains("targetFPS")) targetFPS = j["targetFPS"].get<int>();
             } catch (...) {
                 // Fallback to defaults on error
             }
