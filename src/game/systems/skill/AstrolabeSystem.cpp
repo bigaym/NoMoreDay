@@ -20,7 +20,38 @@ static void handle_node_effect(entt::registry& registry, entt::entity entity, co
                         LOG_INFO("AstrolabeSystem: Entity {} revoked SwordHeart trait", (uint32_t)entity);
                     }
                 }
+            } else if (effect.value == "SwordIntentUnlock") {
+                if (active) {
+                    registry.get_or_emplace<SwordIntentComponent>(entity);
+                    LOG_INFO("AstrolabeSystem: Entity {} unlocked Sword Intent", (uint32_t)entity);
+                } else {
+                    if (registry.all_of<SwordIntentComponent>(entity)) {
+                        registry.remove<SwordIntentComponent>(entity);
+                        LOG_INFO("AstrolabeSystem: Entity {} revoked Sword Intent", (uint32_t)entity);
+                    }
+                }
             }
+            break;
+
+        case AstrolabeEffectType::ModifyIntent:
+            if (auto* intent = registry.try_get<SwordIntentComponent>(entity)) {
+                if (effect.value.find("MaxSwordIntent:") == 0) {
+                    int bonus = std::stoi(effect.value.substr(15));
+                    if (active) intent->max_stacks += bonus;
+                    else intent->max_stacks -= bonus;
+                    intent->stacks = std::min(intent->stacks, intent->max_stacks);
+                }
+                else if (effect.value.find("SwordIntentGain:") == 0) {
+                    float bonus = std::stof(effect.value.substr(16));
+                    if (active) intent->gain_rate += bonus;
+                    else intent->gain_rate -= bonus;
+                }
+            }
+            break;
+
+        case AstrolabeEffectType::ModifyStat:
+            // This is primarily handled in StatsSystem::Recalculate, 
+            // but we could handle immediate non-cached effects here if needed.
             break;
     }
 }

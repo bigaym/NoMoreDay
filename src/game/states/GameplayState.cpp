@@ -142,7 +142,6 @@ namespace NoMoreDay {
         registry.emplace<AttackState>(player);
         registry.emplace<HealthComponent>(player, GameConstants::DEFAULT_MAX_HEALTH, GameConstants::DEFAULT_MAX_HEALTH);
         registry.emplace<TextureIDComponent>(player, playerAsset.id);
-        registry.emplace<SwordIntentComponent>(player);
         registry.emplace<MovementStanceComponent>(player);
         
         // Astrolabe

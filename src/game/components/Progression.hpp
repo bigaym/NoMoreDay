@@ -16,7 +16,9 @@ namespace NoMoreDay {
     };
 
     enum class AstrolabeEffectType : uint8_t {
-        GrantComponent
+        GrantComponent = 0,
+        ModifyIntent = 1,
+        ModifyStat = 2
     };
 
     struct AstrolabeNodeEffect {

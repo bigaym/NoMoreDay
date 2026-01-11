@@ -24,9 +24,10 @@ public:
     // 销毁物品（从背包中移除并销毁实体，或减少堆叠数量）
     static bool destroyItem(entt::registry& registry, entt::entity character, entt::entity item, int quantity = -1);
 
-    // 将物品从背包装备到正确的槽位。
+    // 将物品从背包装备到特定的槽位。
+    // 如果 targetSlot 为 None，则由物品默认槽位决定。
     // 如果槽位被占用，则进行交换。
-    static bool equipItem(entt::registry& registry, entt::entity character, entt::entity item);
+    static bool equipItem(entt::registry& registry, entt::entity character, entt::entity item, NoMoreDay::EquipmentSlot targetSlot = NoMoreDay::EquipmentSlot::None);
     
     // 卸下物品并将其放回背包。
     static bool unequipItem(entt::registry& registry, entt::entity character, NoMoreDay::EquipmentSlot slot);

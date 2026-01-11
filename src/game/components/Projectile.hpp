@@ -14,6 +14,7 @@ struct Projectile {
     
     // Who fired this? (Entity ID) - Useful for kill credit, friendly fire checks
     entt::entity owner = entt::null;
+    uint64_t cast_id = 0; // NEW: Unique ID for the cast that spawned this projectile
     
     // Mechanics
     float lifeTime = 5.0f; // Max flight time

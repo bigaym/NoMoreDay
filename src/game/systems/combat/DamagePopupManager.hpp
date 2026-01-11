@@ -78,7 +78,8 @@ public:
         }
     }
 
-    void Draw() {
+    void Draw(const Font& font) {
+        bool hasValidFont = (font.texture.id > 0);
         for (auto& p : popups) {
             if (!p.active) continue;
 
@@ -86,12 +87,19 @@ public:
             alpha = alpha * alpha; 
             Color col = ColorAlpha(p.color, alpha);
             float scale = p.isCrit ? (1.2f + 0.3f * sinf(p.timer * 20.0f)) : 1.0f;
-            int fontSize = (int)(20 * scale);
+            float fontSize = 20.0f * scale;
             
-            if (p.textWidth == -1) {
-                p.textWidth = MeasureText(p.text, fontSize);
+            if (hasValidFont) {
+                if (p.textWidth == -1) {
+                    p.textWidth = (int)MeasureTextEx(font, p.text, fontSize, 1.0f).x;
+                }
+                DrawTextEx(font, p.text, { p.position.x - p.textWidth/2.0f, p.position.y }, fontSize, 1.0f, col);
+            } else {
+                if (p.textWidth == -1) {
+                    p.textWidth = MeasureText(p.text, (int)fontSize);
+                }
+                DrawText(p.text, (int)p.position.x - p.textWidth/2, (int)p.position.y, (int)fontSize, col);
             }
-            DrawText(p.text, (int)p.position.x - p.textWidth/2, (int)p.position.y, fontSize, col);
         }
     }
 

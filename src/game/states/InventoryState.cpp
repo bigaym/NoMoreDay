@@ -90,6 +90,11 @@ namespace NoMoreDay {
             UIRenderer::DrawMessageBox(UISystem::State.globalFont, UISystem::State);
         }
 
+        // 3. Cleanup Dragging at the very end of frame
+        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            UISystem::State.draggedItem = entt::null;
+        }
+
         // Reset hovered item for next frame (Standard IMGUI pattern)
         // Note: UISystem::Draw did this at start of frame. 
         // We should do it here or let UIInventory::Draw handle it?

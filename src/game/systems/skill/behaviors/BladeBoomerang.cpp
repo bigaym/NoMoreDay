@@ -66,6 +66,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
         
         auto& proj = registry.emplace<Projectile>(proj_ent);
         proj.owner = owner;
+        proj.cast_id = exec.cast_id;
         proj.speed = speed;
         proj.lifeTime = 3.0f;
         proj.radius = radius;

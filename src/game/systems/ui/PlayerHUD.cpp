@@ -12,12 +12,12 @@
 namespace NoMoreDay::systems {
 
 void PlayerHUD::Draw(entt::registry& registry) {
-    auto view = registry.view<PlayerTag, CombatStats, SwordIntentComponent>();
+    auto view = registry.view<PlayerTag, CombatStats>();
     if (view.begin() == view.end()) return;
 
     entt::entity player = view.front();
     const auto& stats = view.get<CombatStats>(player);
-    const auto& intent = view.get<SwordIntentComponent>(player);
+    const auto* intent = registry.try_get<SwordIntentComponent>(player);
     
     float scale = UISystem::State.scaleFactor;
 
@@ -75,18 +75,20 @@ void PlayerHUD::Draw(entt::registry& registry) {
     UISystem::DrawTextUI(manaText.c_str(), manaLeftX + barWidth - textW, barTopY + 4.0f, 18.0f, WHITE, 1.0f);
 
     // --- 3. Sword Intent (Above HP Bar) ---
-    float intentH = 10.0f;
-    float intentTopY = barTopY - intentH - 6.0f;
-    float intentPct = (float)intent.stacks / intent.max_stacks;
-    
-    Rectangle intentBg = { hpLeftX * scale, intentTopY * scale, barWidth * scale, intentH * scale };
-    DrawRectangleRec(intentBg, Fade(BLACK, 0.6f));
-    DrawRectangleRec({ hpLeftX * scale, intentTopY * scale, (barWidth * intentPct) * scale, intentH * scale }, GOLD);
-    DrawRectangleLinesEx(intentBg, 1.0f * scale, DARKGRAY);
+    if (intent) {
+        float intentH = 10.0f;
+        float intentTopY = barTopY - intentH - 6.0f;
+        float intentPct = (float)intent->stacks / intent->max_stacks;
+        
+        Rectangle intentBg = { hpLeftX * scale, intentTopY * scale, barWidth * scale, intentH * scale };
+        DrawRectangleRec(intentBg, Fade(BLACK, 0.6f));
+        DrawRectangleRec({ hpLeftX * scale, intentTopY * scale, (barWidth * intentPct) * scale, intentH * scale }, GOLD);
+        DrawRectangleLinesEx(intentBg, 1.0f * scale, DARKGRAY);
 
-    if (intent.stacks > 0) {
-        std::string stackText = "剑意: " + std::to_string(intent.stacks);
-        UISystem::DrawTextUI(stackText.c_str(), hpLeftX, intentTopY - 22.0f, 20.0f, GOLD, 1.0f);
+        if (intent->stacks > 0) {
+            std::string stackText = "剑意: " + std::to_string(intent->stacks);
+            UISystem::DrawTextUI(stackText.c_str(), hpLeftX, intentTopY - 22.0f, 20.0f, GOLD, 1.0f);
+        }
     }
 
     // --- 4. Summon Status (Top Left) ---

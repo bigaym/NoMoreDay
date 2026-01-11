@@ -316,6 +316,7 @@ struct SkillSnapshot {
     Vector2 target_pos = {0, 0};
     CombatStats stats; // Snapshot of owner's stats at time of creation
     bool is_empowered = false;
+    uint64_t cast_id = 0;
 };
 
 /**
@@ -360,6 +361,21 @@ struct SwordIntentComponent {
     float grace_period = SkillConstants::SWORD_INTENT_GRACE_PERIOD;         // How long before decay starts
     float decay_tick_timer = 0.0f;     // Timer for individual decay ticks
     float decay_interval = SkillConstants::SWORD_INTENT_DECAY_INTERVAL;       // How fast it decays (1 stack per 0.5s)
+    
+    // NEW: Passive gain & Hit tracking
+    float passive_timer = 0.0f;
+    float gain_rate = 1.0f; // Stacks per second
+    
+    // Hit tracking for skills
+    struct SkillHitTracking {
+        float last_gain_time = -999.0f; // Time of last gain
+        int stacks_gained = 0;          // Total stacks gained from this tracking entry
+    };
+    
+    // Map cast_id -> Tracking Data
+    // We use cast_id instead of skill_id to differentiate multiple casts of the same skill (e.g. quick spam)
+    // For channeled skills, the cast_id remains the same during the channel.
+    std::unordered_map<uint64_t, SkillHitTracking> hit_tracking;
 };
 
 /**
@@ -428,6 +444,7 @@ struct SwordArrayComponent {
     float damage_timer = 0.0f;
     entt::entity owner = entt::null;
     bool is_empowered = false;
+    uint64_t cast_id = 0;
 
     // Talent Flags
     bool has_slow = false;         // Talent 610
@@ -443,6 +460,7 @@ struct ChannelingComponent {
     Vector2 target_pos;
     bool is_empowered = false;
     float total_duration = 0.0f;
+    uint64_t cast_id = 0;
     bool extra_projectiles = false;    // Talent 520
     bool consume_intent = false;       // If true, will try to consume intent for effects
 };

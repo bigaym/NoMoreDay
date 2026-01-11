@@ -678,14 +678,16 @@ entt::entity ItemFactory::createWeapon(entt::registry& registry, int level, Rari
     if (item.textureId != 0) {
         Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
         if (tex.id > 0) {
-            registry.emplace<SpriteComponent>(entity, tex, 0.05f);
+            float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
+            registry.emplace<SpriteComponent>(entity, tex, dropScale);
             LOG_DEBUG("Assigned weapon sprite (ID: {}) to entity: {}", item.textureId, (uint32_t)entity);
         }
     } else if (item.type == ItemType::Weapon) {
         // Fallback
         Texture2D tex = AssetLoadingSystem::GetTexture(assets::textures::Weapon_Sword.id);
         if (tex.id > 0) {
-            registry.emplace<SpriteComponent>(entity, tex, 0.05f);
+            float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
+            registry.emplace<SpriteComponent>(entity, tex, dropScale);
         }
     }
 
@@ -755,12 +757,8 @@ entt::entity ItemFactory::createArmor(entt::registry& registry, int level, Rarit
     if (item.textureId != 0) {
         Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
         if (tex.id > 0) {
-            float scale = 0.05f;
-            // 针对首饰使用更大的缩放比例 (假设首饰贴图较小，如128x128)
-            if (slot == EquipmentSlot::Neck || slot == EquipmentSlot::Ring || slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2) {
-                scale = 0.40f; 
-            }
-            registry.emplace<SpriteComponent>(entity, tex, scale);
+            float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
+            registry.emplace<SpriteComponent>(entity, tex, dropScale);
         }
     }
 

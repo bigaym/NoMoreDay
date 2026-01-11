@@ -23,6 +23,7 @@ struct SkillExecution {
     entt::entity owner;
     int slot_index = -1;
     Vector2 target_pos = {0, 0};
+    uint64_t cast_id = 0; // Unique ID for this cast instance
     
     // Optional snapshot for shadow casts or delayed effects
     bool has_snapshot = false;

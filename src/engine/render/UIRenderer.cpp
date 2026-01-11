@@ -802,7 +802,8 @@ namespace NoMoreDay {
         bool showUse = false;
         if (uiContext.isContextFromInventory) {
             if (itemComp->type == ItemType::Weapon || itemComp->type == ItemType::Armor || 
-                itemComp->type == ItemType::Shield || itemComp->type == ItemType::Bag) {
+                itemComp->type == ItemType::Shield || itemComp->type == ItemType::Jewelry || 
+                itemComp->type == ItemType::Bag) {
                 showEquip = true;
             } else if (itemComp->type == ItemType::Consumable) {
                 showUse = true;

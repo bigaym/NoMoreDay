@@ -178,6 +178,7 @@ void SwordArray::DoCast(entt::registry& registry, entt::entity owner, SkillExecu
     array.duration = 5.0f;
     array.radius = 75.0f;
     array.is_empowered = exec.is_empowered;
+    array.cast_id = exec.cast_id;
 
     auto& ve = registry.emplace<VisualEffect>(array_ent);
     ve.type = VisualEffectType::AoeArray;

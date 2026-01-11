@@ -112,6 +112,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             
             auto& proj = registry.emplace<Projectile>(proj_ent);
             proj.owner = owner;
+            proj.cast_id = exec.cast_id;
             proj.speed = baseSpeed;
             proj.lifeTime = boomerang ? 2.0f : baseLifetime;
             proj.radius = exec.is_empowered ? baseRadius * 1.7f : baseRadius;

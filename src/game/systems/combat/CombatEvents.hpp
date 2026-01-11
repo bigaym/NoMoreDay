@@ -97,6 +97,9 @@ struct CombatEvent {
     // Optional: source entity for projectiles/summons
     entt::entity source_entity = entt::null;
     entt::entity minion = entt::null;  // 召唤物实体
+    
+    // NEW: Unique cast ID for hit tracking
+    uint64_t cast_id = 0;
 };
 
 /**
@@ -192,7 +195,8 @@ inline CombatEvent CreateOnBlock(
 
 inline CombatEvent CreateSkillHit(
     entt::entity attacker, entt::entity target,
-    uint32_t skill_id, Tag tags, bool is_crit = false
+    uint32_t skill_id, Tag tags, bool is_crit = false,
+    uint64_t cast_id = 0
 ) {
     CombatEvent evt;
     evt.type = CombatEventType::OnSkillHit;
@@ -201,6 +205,7 @@ inline CombatEvent CreateSkillHit(
     evt.skill_id = skill_id;
     evt.tags = tags;
     evt.is_crit = is_crit;
+    evt.cast_id = cast_id;
     return evt;
 }
 

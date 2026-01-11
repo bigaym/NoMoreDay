@@ -185,6 +185,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
         
         auto& proj = registry.emplace<Projectile>(proj_ent);
         proj.owner = owner;
+        proj.cast_id = exec.cast_id;
         proj.speed = speed;
         proj.lifeTime = 0.375f;
         proj.radius = exec.is_empowered ? 70.0f : 45.0f;

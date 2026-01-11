@@ -88,28 +88,6 @@ void CombatEventDispatcher::Init() {
     
     // --- Register default system handlers ---
     
-    // Sword Intent accumulation on hit
-    Register(CombatEventType::OnSkillHit, [](entt::registry& registry, const CombatEvent& evt) {
-        if (!registry.valid(evt.source)) return;
-        
-        auto* intent = registry.try_get<SwordIntentComponent>(evt.source);
-        if (!intent) return;
-        
-        bool gainIntent = HasAnyTag(evt.tags, Tag::Melee | Tag::SwordSkill);
-        
-        // Critical hits always generate Intent
-        if (evt.is_crit && evt.skill_id != 0) {
-            gainIntent = true;
-        }
-        
-        if (gainIntent && intent->stacks < intent->max_stacks) {
-            intent->stacks++;
-            intent->time_since_last_gain = 0.0f;
-            intent->decay_tick_timer = 0.0f;
-            LOG_DEBUG("Entity {} Sword Intent increased to {} (via event)", 
-                      static_cast<uint32_t>(evt.source), intent->stacks);
-        }
-    }, 100); // High priority for core mechanics
     
     // Mana on hit
     Register(CombatEventType::OnSkillHit, [](entt::registry& registry, const CombatEvent& evt) {

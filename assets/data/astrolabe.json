@@ -7,10 +7,34 @@
       "type": 0,
       "prerequisites": [],
       "modifiers": [
-        { "type": 0, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 },
-        { "type": 1, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 },
-        { "type": 2, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 },
-        { "type": 3, "mode": 0, "value": 1.0, "source": 2, "source_id": 0 }
+        {
+          "type": 0,
+          "mode": 0,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 0
+        },
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 0
+        },
+        {
+          "type": 2,
+          "mode": 0,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 0
+        },
+        {
+          "type": 3,
+          "mode": 0,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 0
+        }
       ],
       "effects": [],
       "x": 0.0,
@@ -18,17 +42,44 @@
       "icon_id": "icon_origin"
     },
     {
+      "id": 100,
+      "name_key": "剑意觉醒",
+      "desc_key": "[核心] 解锁剑意机制。每秒获得1层剑意，命中敌人也可获得(每秒/每招最多1层)。剑意满层时下一个技能将被大幅强化。",
+      "type": 1,
+      "prerequisites": [
+        0
+      ],
+      "modifiers": [],
+      "effects": [
+        {
+          "type": 0,
+          "value": "SwordIntentUnlock"
+        }
+      ],
+      "x": -40.0,
+      "y": 40.0,
+      "icon_id": "icon_intent"
+    },
+    {
       "id": 1,
       "name_key": "剑术修炼 I",
       "desc_key": "+5 敏捷",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        100
+      ],
       "modifiers": [
-        { "type": 1, "mode": 0, "value": 5.0, "source": 2, "source_id": 1 }
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 1
+        }
       ],
       "effects": [],
-      "x": -40.0,
-      "y": 40.0,
+      "x": -80.0,
+      "y": 80.0,
       "icon_id": "icon_dex"
     },
     {
@@ -36,13 +87,21 @@
       "name_key": "剑术修炼 II",
       "desc_key": "+2% 攻击速度",
       "type": 0,
-      "prerequisites": [1],
+      "prerequisites": [
+        1
+      ],
       "modifiers": [
-        { "type": 18, "mode": 1, "value": 2.0, "source": 2, "source_id": 2 }
+        {
+          "type": 18,
+          "mode": 1,
+          "value": 2.0,
+          "source": 2,
+          "source_id": 2
+        }
       ],
       "effects": [],
-      "x": -80.0,
-      "y": 80.0,
+      "x": -120.0,
+      "y": 120.0,
       "icon_id": "icon_as"
     },
     {
@@ -50,13 +109,21 @@
       "name_key": "剑术修炼 III",
       "desc_key": "+10 命中值",
       "type": 0,
-      "prerequisites": [2],
+      "prerequisites": [
+        2
+      ],
       "modifiers": [
-        { "type": 20, "mode": 0, "value": 10.0, "source": 2, "source_id": 3 }
+        {
+          "type": 20,
+          "mode": 0,
+          "value": 10.0,
+          "source": 2,
+          "source_id": 3
+        }
       ],
       "effects": [],
-      "x": -120.0,
-      "y": 120.0,
+      "x": -160.0,
+      "y": 160.0,
       "icon_id": "icon_acc"
     },
     {
@@ -64,13 +131,18 @@
       "name_key": "剑心通明",
       "desc_key": "[基石] 解锁剑心通明特质。单手持剑且副手为空时,获得15%额外伤害加成与20%格挡几率。",
       "type": 2,
-      "prerequisites": [3],
+      "prerequisites": [
+        3
+      ],
       "modifiers": [],
       "effects": [
-        { "type": 0, "value": "SwordHeart" }
+        {
+          "type": 0,
+          "value": "SwordHeart"
+        }
       ],
-      "x": -160.0,
-      "y": 160.0,
+      "x": -200.0,
+      "y": 200.0,
       "icon_id": "icon_sword_heart"
     },
     {
@@ -78,13 +150,21 @@
       "name_key": "精准",
       "desc_key": "+2% 暴击率",
       "type": 0,
-      "prerequisites": [2],
+      "prerequisites": [
+        2
+      ],
       "modifiers": [
-        { "type": 16, "mode": 0, "value": 2.0, "source": 2, "source_id": 5 }
+        {
+          "type": 16,
+          "mode": 0,
+          "value": 2.0,
+          "source": 2,
+          "source_id": 5
+        }
       ],
       "effects": [],
-      "x": -120.0,
-      "y": 40.0,
+      "x": -160.0,
+      "y": 80.0,
       "icon_id": "icon_crit"
     },
     {
@@ -92,9 +172,17 @@
       "name_key": "冥想 I",
       "desc_key": "+5 智力",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 2, "mode": 0, "value": 5.0, "source": 2, "source_id": 10 }
+        {
+          "type": 2,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 10
+        }
       ],
       "effects": [],
       "x": 40.0,
@@ -106,9 +194,17 @@
       "name_key": "冥想 II",
       "desc_key": "+5% 物理伤害",
       "type": 0,
-      "prerequisites": [10],
+      "prerequisites": [
+        10
+      ],
       "modifiers": [
-        { "type": 8, "mode": 1, "value": 7.0, "source": 2, "source_id": 11 }
+        {
+          "type": 8,
+          "mode": 1,
+          "value": 7.0,
+          "source": 2,
+          "source_id": 11
+        }
       ],
       "effects": [],
       "x": 80.0,
@@ -120,9 +216,17 @@
       "name_key": "气动",
       "desc_key": "[核心] +10% 移动速度, +2 法力回复",
       "type": 1,
-      "prerequisites": [11],
+      "prerequisites": [
+        11
+      ],
       "modifiers": [
-        { "type": 6, "mode": 1, "value": 10.0, "source": 2, "source_id": 12 }
+        {
+          "type": 6,
+          "mode": 1,
+          "value": 10.0,
+          "source": 2,
+          "source_id": 12
+        }
       ],
       "effects": [],
       "x": 120.0,
@@ -134,11 +238,31 @@
       "name_key": "元素剑气",
       "desc_key": "+5% 元素伤害 (火焰, 冰霜, 闪电)",
       "type": 0,
-      "prerequisites": [11],
+      "prerequisites": [
+        11
+      ],
       "modifiers": [
-        { "type": 9, "mode": 1, "value": 7.0, "source": 2, "source_id": 13 },
-        { "type": 10, "mode": 1, "value": 7.0, "source": 2, "source_id": 13 },
-        { "type": 11, "mode": 1, "value": 7.0, "source": 2, "source_id": 13 }
+        {
+          "type": 9,
+          "mode": 1,
+          "value": 7.0,
+          "source": 2,
+          "source_id": 13
+        },
+        {
+          "type": 10,
+          "mode": 1,
+          "value": 7.0,
+          "source": 2,
+          "source_id": 13
+        },
+        {
+          "type": 11,
+          "mode": 1,
+          "value": 7.0,
+          "source": 2,
+          "source_id": 13
+        }
       ],
       "effects": [],
       "x": 120.0,
@@ -150,9 +274,17 @@
       "name_key": "强体 I",
       "desc_key": "+5 体质",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 3, "mode": 0, "value": 5.0, "source": 2, "source_id": 20 }
+        {
+          "type": 3,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 20
+        }
       ],
       "effects": [],
       "x": 0.0,
@@ -164,9 +296,17 @@
       "name_key": "坚韧",
       "desc_key": "+20 生命值",
       "type": 0,
-      "prerequisites": [20],
+      "prerequisites": [
+        20
+      ],
       "modifiers": [
-        { "type": 4, "mode": 0, "value": 20.0, "source": 2, "source_id": 21 }
+        {
+          "type": 4,
+          "mode": 0,
+          "value": 20.0,
+          "source": 2,
+          "source_id": 21
+        }
       ],
       "effects": [],
       "x": 0.0,
@@ -178,9 +318,17 @@
       "name_key": "钢筋铁骨",
       "desc_key": "+10 护甲",
       "type": 0,
-      "prerequisites": [21],
+      "prerequisites": [
+        21
+      ],
       "modifiers": [
-        { "type": 7, "mode": 0, "value": 10.0, "source": 2, "source_id": 22 }
+        {
+          "type": 7,
+          "mode": 0,
+          "value": 10.0,
+          "source": 2,
+          "source_id": 22
+        }
       ],
       "effects": [],
       "x": 0.0,
@@ -192,9 +340,17 @@
       "name_key": "灵敏",
       "desc_key": "+5 敏捷",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 1, "mode": 0, "value": 5.0, "source": 2, "source_id": 30 }
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 30
+        }
       ],
       "effects": [],
       "x": 40.0,
@@ -206,13 +362,21 @@
       "name_key": "剑术修炼 IV",
       "desc_key": "+5 敏捷",
       "type": 0,
-      "prerequisites": [3],
+      "prerequisites": [
+        3
+      ],
       "modifiers": [
-        { "type": 1, "mode": 0, "value": 5.0, "source": 2, "source_id": 6 }
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 6
+        }
       ],
       "effects": [],
-      "x": -160.0,
-      "y": 120.0,
+      "x": -200.0,
+      "y": 160.0,
       "icon_id": "icon_dex"
     },
     {
@@ -220,13 +384,21 @@
       "name_key": "精准 II",
       "desc_key": "+15% 暴击伤害倍率",
       "type": 0,
-      "prerequisites": [5],
+      "prerequisites": [
+        5
+      ],
       "modifiers": [
-        { "type": 17, "mode": 1, "value": 15.0, "source": 2, "source_id": 7 }
+        {
+          "type": 17,
+          "mode": 1,
+          "value": 15.0,
+          "source": 2,
+          "source_id": 7
+        }
       ],
       "effects": [],
-      "x": -160.0,
-      "y": 40.0,
+      "x": -200.0,
+      "y": 80.0,
       "icon_id": "icon_crit_dmg"
     },
     {
@@ -234,13 +406,21 @@
       "name_key": "迅捷之影",
       "desc_key": "+5% 闪避率",
       "type": 0,
-      "prerequisites": [2],
+      "prerequisites": [
+        2
+      ],
       "modifiers": [
-        { "type": 31, "mode": 1, "value": 5.0, "source": 2, "source_id": 8 }
+        {
+          "type": 31,
+          "mode": 1,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 8
+        }
       ],
       "effects": [],
-      "x": -80.0,
-      "y": 120.0,
+      "x": -120.0,
+      "y": 160.0,
       "icon_id": "icon_dodge"
     },
     {
@@ -248,13 +428,18 @@
       "name_key": "剑意上限",
       "desc_key": "[核心] 最大剑意层数 +2",
       "type": 1,
-      "prerequisites": [6],
+      "prerequisites": [
+        6
+      ],
       "modifiers": [],
       "effects": [
-        { "type": 1, "value": "MaxSwordIntent:2" }
+        {
+          "type": 1,
+          "value": "MaxSwordIntent:2"
+        }
       ],
-      "x": -200.0,
-      "y": 120.0,
+      "x": -240.0,
+      "y": 160.0,
       "icon_id": "icon_intent_cap"
     },
     {
@@ -262,9 +447,17 @@
       "name_key": "冥想 III",
       "desc_key": "+5 智力",
       "type": 0,
-      "prerequisites": [11],
+      "prerequisites": [
+        11
+      ],
       "modifiers": [
-        { "type": 2, "mode": 0, "value": 5.0, "source": 2, "source_id": 14 }
+        {
+          "type": 2,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 14
+        }
       ],
       "effects": [],
       "x": 120.0,
@@ -276,10 +469,15 @@
       "name_key": "奥术屏障",
       "desc_key": "[核心] 每 10 点智力提供 +2 护甲",
       "type": 1,
-      "prerequisites": [14],
+      "prerequisites": [
+        14
+      ],
       "modifiers": [],
       "effects": [
-        { "type": 2, "value": "IntToArmor:0.2" }
+        {
+          "type": 2,
+          "value": "IntToArmor:0.2"
+        }
       ],
       "x": 160.0,
       "y": 80.0,
@@ -290,9 +488,17 @@
       "name_key": "施法流转",
       "desc_key": "+5% 施法速度",
       "type": 0,
-      "prerequisites": [13],
+      "prerequisites": [
+        13
+      ],
       "modifiers": [
-        { "type": 19, "mode": 1, "value": 5.0, "source": 2, "source_id": 16 }
+        {
+          "type": 19,
+          "mode": 1,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 16
+        }
       ],
       "effects": [],
       "x": 160.0,
@@ -304,9 +510,17 @@
       "name_key": "灵力充盈",
       "desc_key": "+10% 最大法力值",
       "type": 0,
-      "prerequisites": [12],
+      "prerequisites": [
+        12
+      ],
       "modifiers": [
-        { "type": 5, "mode": 1, "value": 10.0, "source": 2, "source_id": 17 }
+        {
+          "type": 5,
+          "mode": 1,
+          "value": 10.0,
+          "source": 2,
+          "source_id": 17
+        }
       ],
       "effects": [],
       "x": 160.0,
@@ -318,9 +532,17 @@
       "name_key": "强体 II",
       "desc_key": "+5 体质",
       "type": 0,
-      "prerequisites": [22],
+      "prerequisites": [
+        22
+      ],
       "modifiers": [
-        { "type": 3, "mode": 0, "value": 5.0, "source": 2, "source_id": 23 }
+        {
+          "type": 3,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 23
+        }
       ],
       "effects": [],
       "x": 0.0,
@@ -332,9 +554,17 @@
       "name_key": "格挡技巧",
       "desc_key": "+3% 格挡几率",
       "type": 0,
-      "prerequisites": [22],
+      "prerequisites": [
+        22
+      ],
       "modifiers": [
-        { "type": 33, "mode": 0, "value": 3.0, "source": 2, "source_id": 24 }
+        {
+          "type": 33,
+          "mode": 0,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 24
+        }
       ],
       "effects": [],
       "x": 40.0,
@@ -346,9 +576,17 @@
       "name_key": "生命律动",
       "desc_key": "[核心] +5% 最大生命值",
       "type": 1,
-      "prerequisites": [23],
+      "prerequisites": [
+        23
+      ],
       "modifiers": [
-        { "type": 4, "mode": 1, "value": 5.0, "source": 2, "source_id": 25 }
+        {
+          "type": 4,
+          "mode": 1,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 25
+        }
       ],
       "effects": [],
       "x": 0.0,
@@ -360,10 +598,15 @@
       "name_key": "心剑合一",
       "desc_key": "[基石] 智力的 15% 转化为暴击伤害倍率。",
       "type": 2,
-      "prerequisites": [14],
+      "prerequisites": [
+        14
+      ],
       "modifiers": [],
       "effects": [
-        { "type": 3, "value": "IntToCritMult:0.15" }
+        {
+          "type": 3,
+          "value": "IntToCritMult:0.15"
+        }
       ],
       "x": 200.0,
       "y": 80.0,
@@ -374,10 +617,15 @@
       "name_key": "御剑御风",
       "desc_key": "[基石] 处于御剑状态时，闪避率总增 (More) 15%。",
       "type": 2,
-      "prerequisites": [12],
+      "prerequisites": [
+        12
+      ],
       "modifiers": [],
       "effects": [
-        { "type": 4, "value": "SwordRidingMoreEvasion:15" }
+        {
+          "type": 4,
+          "value": "SwordRidingMoreEvasion:15"
+        }
       ],
       "x": 160.0,
       "y": 160.0,
@@ -388,9 +636,17 @@
       "name_key": "力量修炼 I",
       "desc_key": "+5 力量",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 0, "mode": 0, "value": 5.0, "source": 2, "source_id": 50 }
+        {
+          "type": 0,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 50
+        }
       ],
       "effects": [],
       "x": -40.0,
@@ -402,12 +658,23 @@
       "name_key": "重锤打击",
       "desc_key": "[核心] +15% 物理伤害，+10% 击退力度",
       "type": 1,
-      "prerequisites": [50],
+      "prerequisites": [
+        50
+      ],
       "modifiers": [
-        { "type": 8, "mode": 1, "value": 21.0, "source": 2, "source_id": 51 }
+        {
+          "type": 8,
+          "mode": 1,
+          "value": 21.0,
+          "source": 2,
+          "source_id": 51
+        }
       ],
       "effects": [
-        { "type": 5, "value": "Knockback:10" }
+        {
+          "type": 5,
+          "value": "Knockback:10"
+        }
       ],
       "x": -80.0,
       "y": -80.0,
@@ -418,9 +685,17 @@
       "name_key": "微光生命",
       "desc_key": "+10 最大生命值",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 4, "mode": 0, "value": 10.0, "source": 2, "source_id": 70 }
+        {
+          "type": 4,
+          "mode": 0,
+          "value": 10.0,
+          "source": 2,
+          "source_id": 70
+        }
       ],
       "effects": [],
       "x": 0.0,
@@ -432,9 +707,17 @@
       "name_key": "微光灵力",
       "desc_key": "+10 最大法力值",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 5, "mode": 0, "value": 10.0, "source": 2, "source_id": 71 }
+        {
+          "type": 5,
+          "mode": 0,
+          "value": 10.0,
+          "source": 2,
+          "source_id": 71
+        }
       ],
       "effects": [],
       "x": 20.0,
@@ -446,9 +729,17 @@
       "name_key": "轻盈",
       "desc_key": "+1% 移动速度",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 6, "mode": 1, "value": 1.0, "source": 2, "source_id": 72 }
+        {
+          "type": 6,
+          "mode": 1,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 72
+        }
       ],
       "effects": [],
       "x": -20.0,
@@ -460,9 +751,17 @@
       "name_key": "加固",
       "desc_key": "+5 护甲",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 7, "mode": 0, "value": 5.0, "source": 2, "source_id": 73 }
+        {
+          "type": 7,
+          "mode": 0,
+          "value": 5.0,
+          "source": 2,
+          "source_id": 73
+        }
       ],
       "effects": [],
       "x": -20.0,
@@ -474,9 +773,17 @@
       "name_key": "抗性训练",
       "desc_key": "+1% 全元素抗性",
       "type": 0,
-      "prerequisites": [0],
+      "prerequisites": [
+        0
+      ],
       "modifiers": [
-        { "type": 12, "mode": 1, "value": 1.0, "source": 2, "source_id": 74 }
+        {
+          "type": 12,
+          "mode": 1,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 74
+        }
       ],
       "effects": [],
       "x": 20.0,
@@ -488,9 +795,17 @@
       "name_key": "敏捷训练",
       "desc_key": "+3 敏捷",
       "type": 0,
-      "prerequisites": [1],
+      "prerequisites": [
+        1
+      ],
       "modifiers": [
-        { "type": 1, "mode": 0, "value": 3.0, "source": 2, "source_id": 75 }
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 75
+        }
       ],
       "effects": [],
       "x": -60.0,
@@ -502,9 +817,17 @@
       "name_key": "攻速训练",
       "desc_key": "+1% 攻击速度",
       "type": 0,
-      "prerequisites": [2],
+      "prerequisites": [
+        2
+      ],
       "modifiers": [
-        { "type": 18, "mode": 1, "value": 1.0, "source": 2, "source_id": 76 }
+        {
+          "type": 18,
+          "mode": 1,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 76
+        }
       ],
       "effects": [],
       "x": -100.0,
@@ -516,9 +839,17 @@
       "name_key": "智力训练",
       "desc_key": "+3 智力",
       "type": 0,
-      "prerequisites": [10],
+      "prerequisites": [
+        10
+      ],
       "modifiers": [
-        { "type": 2, "mode": 0, "value": 3.0, "source": 2, "source_id": 77 }
+        {
+          "type": 2,
+          "mode": 0,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 77
+        }
       ],
       "effects": [],
       "x": 60.0,
@@ -530,11 +861,31 @@
       "name_key": "元素感应",
       "desc_key": "+2% 元素伤害",
       "type": 0,
-      "prerequisites": [11],
+      "prerequisites": [
+        11
+      ],
       "modifiers": [
-        { "type": 9, "mode": 1, "value": 3.0, "source": 2, "source_id": 78 },
-        { "type": 10, "mode": 1, "value": 3.0, "source": 2, "source_id": 78 },
-        { "type": 11, "mode": 1, "value": 3.0, "source": 2, "source_id": 78 }
+        {
+          "type": 9,
+          "mode": 1,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 78
+        },
+        {
+          "type": 10,
+          "mode": 1,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 78
+        },
+        {
+          "type": 11,
+          "mode": 1,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 78
+        }
       ],
       "effects": [],
       "x": 100.0,
@@ -546,9 +897,17 @@
       "name_key": "力量训练",
       "desc_key": "+3 力量",
       "type": 0,
-      "prerequisites": [50],
+      "prerequisites": [
+        50
+      ],
       "modifiers": [
-        { "type": 0, "mode": 0, "value": 3.0, "source": 2, "source_id": 79 }
+        {
+          "type": 0,
+          "mode": 0,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 79
+        }
       ],
       "effects": [],
       "x": -60.0,
@@ -560,9 +919,17 @@
       "name_key": "体质训练",
       "desc_key": "+3 体质",
       "type": 0,
-      "prerequisites": [20],
+      "prerequisites": [
+        20
+      ],
       "modifiers": [
-        { "type": 3, "mode": 0, "value": 3.0, "source": 2, "source_id": 80 }
+        {
+          "type": 3,
+          "mode": 0,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 80
+        }
       ],
       "effects": [],
       "x": -20.0,
@@ -574,9 +941,17 @@
       "name_key": "精准训练",
       "desc_key": "+1% 暴击率",
       "type": 0,
-      "prerequisites": [1],
+      "prerequisites": [
+        1
+      ],
       "modifiers": [
-        { "type": 16, "mode": 0, "value": 1.0, "source": 2, "source_id": 81 }
+        {
+          "type": 16,
+          "mode": 0,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 81
+        }
       ],
       "effects": [],
       "x": -80.0,
@@ -588,9 +963,17 @@
       "name_key": "物理强化",
       "desc_key": "+2% 物理伤害",
       "type": 0,
-      "prerequisites": [10],
+      "prerequisites": [
+        10
+      ],
       "modifiers": [
-        { "type": 8, "mode": 1, "value": 3.0, "source": 2, "source_id": 82 }
+        {
+          "type": 8,
+          "mode": 1,
+          "value": 3.0,
+          "source": 2,
+          "source_id": 82
+        }
       ],
       "effects": [],
       "x": 80.0,
@@ -602,9 +985,17 @@
       "name_key": "格挡练习",
       "desc_key": "+1% 格挡几率",
       "type": 0,
-      "prerequisites": [22],
+      "prerequisites": [
+        22
+      ],
       "modifiers": [
-        { "type": 33, "mode": 0, "value": 1.0, "source": 2, "source_id": 83 }
+        {
+          "type": 33,
+          "mode": 0,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 83
+        }
       ],
       "effects": [],
       "x": 20.0,
@@ -616,9 +1007,17 @@
       "name_key": "闪避练习",
       "desc_key": "+1% 闪避率",
       "type": 0,
-      "prerequisites": [8],
+      "prerequisites": [
+        8
+      ],
       "modifiers": [
-        { "type": 31, "mode": 1, "value": 1.0, "source": 2, "source_id": 84 }
+        {
+          "type": 31,
+          "mode": 1,
+          "value": 1.0,
+          "source": 2,
+          "source_id": 84
+        }
       ],
       "effects": [],
       "x": -120.0,
@@ -630,9 +1029,17 @@
       "name_key": "法力扩充",
       "desc_key": "+15 最大法力值",
       "type": 0,
-      "prerequisites": [12],
+      "prerequisites": [
+        12
+      ],
       "modifiers": [
-        { "type": 5, "mode": 0, "value": 15.0, "source": 2, "source_id": 85 }
+        {
+          "type": 5,
+          "mode": 0,
+          "value": 15.0,
+          "source": 2,
+          "source_id": 85
+        }
       ],
       "effects": [],
       "x": 140.0,

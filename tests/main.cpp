@@ -22,6 +22,7 @@ using namespace NoMoreDay;
 // Integration and Benchmarks
 #include "FinalIntegrationTest.hpp"
 #include "StatsBenchmark.cpp"
+#include "TestSwordIntentAccumulation.cpp"
 
 int main(int argc, char** argv) {
     // 设置日志级别为warning

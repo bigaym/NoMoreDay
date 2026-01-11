@@ -459,5 +459,5 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
     }
 
     // 7. 高性能伤害飘字
-    NoMoreDay::DamagePopupManager::Get().Draw();
+    NoMoreDay::DamagePopupManager::Get().Draw(font);
 }

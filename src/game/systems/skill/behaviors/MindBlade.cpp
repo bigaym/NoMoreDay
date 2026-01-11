@@ -20,6 +20,7 @@ struct MindBlade : SkillBehaviorBase<MindBlade> {
         chan.tick_timer = 0.0f;
         chan.target_pos = exec.target_pos;
         chan.is_empowered = exec.is_empowered;
+        chan.cast_id = exec.cast_id;
         
         LOG_INFO("Mind Blade channeling started for entity {}", (uint32_t)owner);
     }

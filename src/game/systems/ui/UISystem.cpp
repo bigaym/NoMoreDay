@@ -476,7 +476,8 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
         UIRenderer::DrawSlot(State.globalFont, registry, mPos.x - size * 0.5f, mPos.y - size * 0.5f, size, State.draggedItem, nullptr, true);
         
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            State.draggedItem = entt::null; 
+            // Moved clearing logic to InventoryState to allow drop processing in Draw calls
+            // State.draggedItem = entt::null; 
         }
     }
 

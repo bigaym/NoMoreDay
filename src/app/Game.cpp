@@ -4,6 +4,7 @@
 #include "core/logging/Logger.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
@@ -76,6 +77,7 @@ void Game::init() {
     LOG_INFO("Initializing Game systems...");
     
     // Global Static Inits
+    NoMoreDay::CombatEventDispatcher::Init();
     NoMoreDay::AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
     NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     NoMoreDay::SkillSystem::InitHooks();

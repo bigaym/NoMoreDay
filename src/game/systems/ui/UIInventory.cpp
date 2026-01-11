@@ -168,20 +168,16 @@ void UIInventory::Draw(entt::registry& registry) {
         }
 
         if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
-            auto* dragItemComp = registry.try_get<ItemComponent>(UISystem::State.draggedItem);
-            // 允许匹配的槽位，或者通用的 Ring 放入 Ring1/Ring2
-            if (dragItemComp && (dragItemComp->slot == slotType || (dragItemComp->slot == EquipmentSlot::Ring && (slotType == EquipmentSlot::Ring1 || slotType == EquipmentSlot::Ring2)))) {
-                if (UISystem::State.isDraggingFromInventory && inv) {
-                    entt::entity oldEquip = equip->get(slotType);
-                    equip->set(slotType, UISystem::State.draggedItem);
-                    inv->items[UISystem::State.dragSourceInventoryIndex] = oldEquip;
-                } else if (!UISystem::State.isDraggingFromInventory) {
-                    entt::entity oldEquip = equip->get(slotType);
-                    equip->set(slotType, UISystem::State.draggedItem);
-                    equip->set(UISystem::State.dragSourceEquipmentSlot, oldEquip);
+            // Drop into equipment slot
+            if (InventorySystem::equipItem(registry, player, UISystem::State.draggedItem, slotType)) {
+                // If it was from ANOTHER equipment slot, we must clear that slot 
+                // because equipItem doesn't know about the source slot
+                if (!UISystem::State.isDraggingFromInventory && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
+                    if (UISystem::State.dragSourceEquipmentSlot != slotType) {
+                        equip->set(UISystem::State.dragSourceEquipmentSlot, entt::null);
+                    }
                 }
                 UISystem::State.draggedItem = entt::null;
-                registry.get_or_emplace<StatsDirty>(player);
             }
         }
 
@@ -272,21 +268,15 @@ void UIInventory::Draw(entt::registry& registry) {
              } else {
                  // From equipment or bag slot to inventory
                  if (equip && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
-                     equip->set(UISystem::State.dragSourceEquipmentSlot, entt::null);
+                     InventorySystem::unequipItem(registry, player, UISystem::State.dragSourceEquipmentSlot);
                  } else if (UISystem::State.dragSourceBagSlotIndex != -1) {
-                     // 修复背包复制问题：拖离槽位时调用 unequipBag(..., false)，由 UI 负责放置到 items[i]
-                     InventorySystem::unequipBag(registry, player, UISystem::State.dragSourceBagSlotIndex, false);
+                     InventorySystem::unequipBag(registry, player, UISystem::State.dragSourceBagSlotIndex, true);
                  }
                  
-                 if (inv->items[i] == entt::null) {
-                     inv->items[i] = UISystem::State.draggedItem;
-                 } else {
-                     bool placed = false;
-                     for (auto& s : inv->items) { if(s == entt::null) { s = UISystem::State.draggedItem; placed = true; break; } }
-                     if (!placed) inv->items.push_back(UISystem::State.draggedItem);
-                 }
-
-                 registry.get_or_emplace<StatsDirty>(player);
+                 // The item is now somewhere in the inventory. 
+                 // If we want it EXACTLY at index `i`, we should find where it landed and swap.
+                 // But for simplicity and safety (since unequip handles 'full' states), 
+                 // we just let it land where it landed. 
              }
              UISystem::State.draggedItem = entt::null;
         }

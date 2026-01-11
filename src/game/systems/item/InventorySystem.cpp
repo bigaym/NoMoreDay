@@ -261,7 +261,7 @@ bool InventorySystem::destroyItem(entt::registry &registry, entt::entity charact
     return true;
 }
 
-bool InventorySystem::equipItem(entt::registry &registry, entt::entity character, entt::entity item)
+bool InventorySystem::equipItem(entt::registry &registry, entt::entity character, entt::entity item, EquipmentSlot targetSlot)
 {
     auto *equipment = registry.try_get<EquipmentComponent>(character);
     auto *itemComp = registry.try_get<ItemComponent>(item);
@@ -272,10 +272,24 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
         return false;
     }
 
-    EquipmentSlot slot = itemComp->slot;
+    EquipmentSlot slot = (targetSlot != EquipmentSlot::None) ? targetSlot : itemComp->slot;
 
-    // 自动分配戒指槽位
-    if (slot == EquipmentSlot::Ring) {
+    // 验证槽位匹配
+    bool canEquip = (slot == itemComp->slot);
+    if (!canEquip) {
+        // Special case for Rings
+        bool isItemRing = (itemComp->slot == EquipmentSlot::Ring || itemComp->slot == EquipmentSlot::Ring1 || itemComp->slot == EquipmentSlot::Ring2);
+        bool isSlotRing = (slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2);
+        if (isItemRing && isSlotRing) canEquip = true;
+    }
+
+    if (!canEquip) {
+        LOG_WARN("背包: 物品 '{}' 无法装备到槽位 {}", itemComp->name, (int)slot);
+        return false;
+    }
+
+    // 只有在没有指定 targetSlot 时才执行自动分配戒指逻辑
+    if (targetSlot == EquipmentSlot::None && slot == EquipmentSlot::Ring) {
         if (equipment->get(EquipmentSlot::Ring1) == entt::null) {
             slot = EquipmentSlot::Ring1;
         } else if (equipment->get(EquipmentSlot::Ring2) == entt::null) {

@@ -11,6 +11,7 @@
 #include "game/components/Common.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
+#include "game/components/Projectile.hpp"
 
 namespace NoMoreDay {
 
@@ -350,8 +351,15 @@ DamageResult DamagePipeline::Calculate(
         // Dispatch OnSkillHit for all direct hits (exclude DoT)
         // Even 0 damage hits should trigger OnHit effects (e.g., mana on hit, debuff on hit)
         if (!HasTag(combined_hit_tags, Tag::DamageOverTime)) {
+             uint64_t cast_id = 0;
+             if (registry.valid(source_entity)) {
+                 if (auto* proj = registry.try_get<Projectile>(source_entity)) {
+                     cast_id = proj->cast_id;
+                 }
+             }
+
             CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(
-                attacker, defender, skill_id, combined_hit_tags, result.is_crit);
+                attacker, defender, skill_id, combined_hit_tags, result.is_crit, cast_id);
             CombatEventDispatcher::Dispatch(registry, hit_evt);
         }
 
@@ -523,8 +531,16 @@ void DamagePipeline::CalculateBatch(
 
             // --- Event System: Dispatch combat events ---
             if (!HasTag(combined_tags, Tag::DamageOverTime)) {
+                uint64_t cast_id = 0;
+                if (registry.valid(source_entity)) {
+                    if (auto* proj = registry.try_get<Projectile>(source_entity)) {
+                        cast_id = proj->cast_id;
+                    } else if (auto* array = registry.try_get<SwordArrayComponent>(source_entity)) {
+                        cast_id = array->cast_id;
+                    }
+                }
                 CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(
-                    attacker, res.target, skill_id, combined_tags, res.is_crit));
+                    attacker, res.target, skill_id, combined_tags, res.is_crit, cast_id));
             }
 
             // Dispatch specific hit types

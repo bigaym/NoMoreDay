@@ -21,6 +21,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
         chan.tick_timer = -0.01f;
         chan.target_pos = exec.target_pos;
         chan.is_empowered = exec.is_empowered;
+        chan.cast_id = exec.cast_id;
 
         // Talent: Yi Qi Bao Fa (意气爆发) - ID 520
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
