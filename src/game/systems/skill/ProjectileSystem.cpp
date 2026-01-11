@@ -233,8 +233,7 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                      Utils::ApplyKnockback(registry, target, {pos.x, pos.y}, knockbackForce);
                 }
 
-                // Trigger Skill Hit interactions
-                SkillSystem::OnSkillHit(registry, proj.owner, target, skill_id, hit_tags, result.is_crit);
+
 
                 LOG_DEBUG("Projectile {} hit {} for {:.1f} dmg, knockback={:.1f}", (uint32_t)entity, (uint32_t)target, finalDamage, knockbackForce);
 

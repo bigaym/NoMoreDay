@@ -17,6 +17,11 @@
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/SkillDefs.hpp"
+
+#include "game/systems/combat/CombatSystem.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
+
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay::skills {
@@ -137,6 +142,35 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
             LOG_INFO("Blade Formation: Spawned {} new swords.", needed);
         } else {
             LOG_INFO("Blade Formation: Refreshed {} swords.", current_count);
+        }
+    }
+
+    static void DoHit(entt::registry& registry, entt::entity attacker, entt::entity target, Tag hit_tags, bool is_crit) {
+        auto* formation = registry.try_get<BladeFormationComponent>(attacker);
+        if (!formation) return;
+
+        // Node 311: Shockwave 
+        if (is_crit && formation->shockwave_on_crit) {
+            if (registry.all_of<Position>(target)) {
+                 const auto& tPos = registry.get<Position>(target);
+                 auto& particleSys = systems::GPUParticleSystem::Get();
+                 auto splash = systems::InkEffectHelper::CreateInkSplash({tPos.x, tPos.y}, 12, 10.0f, 150.0f);
+                 for(auto& p : splash) {
+                     p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
+                     particleSys.Emit(p);
+                 }
+                 // Apply direct damage 
+                 CombatSystem::ApplyDamage(registry, target, 15.0f, attacker, false, true);
+                 LOG_INFO("Blade Formation (311): Shockwave triggered");
+            }
+        }
+
+        // Node 321: Mana on Hit
+        if (formation->mana_on_hit) {
+            if (auto* stats = registry.try_get<CombatStats>(attacker)) {
+                stats->mana = std::min(stats->max_mana, stats->mana + 2.0f);
+                LOG_DEBUG("Blade Formation (321): Restored 2 mana");
+            }
         }
     }
 };

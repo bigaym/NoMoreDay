@@ -6,12 +6,16 @@
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/CombatEvents.hpp"
 
 using namespace NoMoreDay;
 
 TEST_CASE("Sword Intent: Empowered Logic") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    CombatEventDispatcher::Init();
     SkillSystem::InitHooks();
     systems::SpatialHashGrid grid(100, 100, 50);
 
@@ -81,6 +85,7 @@ TEST_CASE("Sword Intent: Empowered Logic") {
 
 TEST_CASE("Sword Intent: Mechanics") {
     entt::registry registry;
+    CombatEventDispatcher::Init();
     systems::SpatialHashGrid grid(100, 100, 50);
     auto player = registry.create();
     auto& intent = registry.emplace<SwordIntentComponent>(player);
@@ -92,15 +97,18 @@ TEST_CASE("Sword Intent: Mechanics") {
     SUBCASE("Gain Logic: Crit") {
         intent.stacks = 0;
         // Basic Hit (No Crit)
-        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee, false);
+        // Basic Hit (No Crit)
+        CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(player, entt::null, 1, Tag::Melee, false));
         CHECK(intent.stacks == 1); // Melee gives 1
 
         // Crit Hit (Non-Melee)
-        SkillSystem::OnSkillHit(registry, player, entt::null, 2, Tag::Projectile, true);
+        // Crit Hit (Non-Melee)
+        CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(player, entt::null, 2, Tag::Projectile, true));
         CHECK(intent.stacks == 2); // Crit gives 1
         
         // Non-Crit Non-Melee
-        SkillSystem::OnSkillHit(registry, player, entt::null, 2, Tag::Projectile, false);
+        // Non-Crit Non-Melee
+        CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(player, entt::null, 2, Tag::Projectile, false));
         CHECK(intent.stacks == 2); // No change
     }
 
@@ -140,7 +148,8 @@ TEST_CASE("Sword Intent: Mechanics") {
         intent.time_since_last_gain = 3.0f;
         
         // Gain stack
-        SkillSystem::OnSkillHit(registry, player, entt::null, 1, Tag::Melee, false);
+        // Gain stack
+        CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(player, entt::null, 1, Tag::Melee, false));
         CHECK(intent.stacks == 6);
         CHECK(intent.time_since_last_gain == 0.0f);
         
@@ -153,6 +162,8 @@ TEST_CASE("Sword Intent: Mechanics") {
 TEST_CASE("Sword Intent: Advanced Empowered Behaviors") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    CombatEventDispatcher::Init();
     SkillSystem::InitHooks();
     systems::SpatialHashGrid grid(100, 100, 50);
 

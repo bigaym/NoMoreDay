@@ -95,7 +95,7 @@ void CombatEventDispatcher::Init() {
         auto* intent = registry.try_get<SwordIntentComponent>(evt.source);
         if (!intent) return;
         
-        bool gainIntent = HasTag(evt.tags, Tag::Melee);
+        bool gainIntent = HasAnyTag(evt.tags, Tag::Melee | Tag::SwordSkill);
         
         // Critical hits always generate Intent
         if (evt.is_crit && evt.skill_id != 0) {

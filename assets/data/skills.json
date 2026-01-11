@@ -11,7 +11,8 @@
         "Melee",
         "Attack",
         "Movement",
-        "Hit"
+        "Hit",
+        "sword_skill"
       ],
       "base_damage": 10.0,
       "weapon_damage_mult": 1.2,
@@ -349,7 +350,8 @@
         "Physical",
         "Projectile",
         "Attack",
-        "Hit"
+        "Hit",
+        "sword_skill"
       ],
       "base_damage": 25.0,
       "weapon_damage_mult": 1.5,
@@ -579,7 +581,8 @@
         "Physical",
         "Spell",
         "Projectile",
-        "Hit"
+        "Hit",
+        "sword_skill"
       ],
       "base_damage": 15.0,
       "weapon_damage_mult": 0.5,
@@ -852,7 +855,8 @@
         "Spell",
         "Area",
         "Hit",
-        "Channeled"
+        "Channeled",
+        "sword_skill"
       ],
       "base_damage": 40.0,
       "weapon_damage_mult": 1.0,
@@ -946,7 +950,8 @@
         "Physical",
         "Spell",
         "Area",
-        "Hit"
+        "Hit",
+        "sword_skill"
       ],
       "base_damage": 20.0,
       "weapon_damage_mult": 0.8,
@@ -1055,7 +1060,8 @@
         "Spell",
         "Projectile",
         "Hit",
-        "Channeled"
+        "Channeled",
+        "sword_skill"
       ],
       "base_damage": 30.0,
       "weapon_damage_mult": 0.6,
@@ -1138,7 +1144,8 @@
         "Physical",
         "Attack",
         "Projectile",
-        "Hit"
+        "Hit",
+        "sword_skill"
       ],
       "base_damage": 25.0,
       "weapon_damage_mult": 1.4,
@@ -1265,7 +1272,8 @@
         "Attack",
         "Melee",
         "Movement",
-        "Hit"
+        "Hit",
+        "sword_skill"
       ],
       "base_damage": 50.0,
       "weapon_damage_mult": 3.0,

@@ -346,24 +346,34 @@ DamageResult DamagePipeline::Calculate(
     result.total_damage = total_final_damage;
     
     // --- Event System: Dispatch combat events ---
-    if (!is_simulation && total_final_damage > 0.0f) {
-        // OnDealDamage (from attacker's perspective)
-        CombatEvent deal_evt = CombatEventFactory::CreateDealDamage(
-            attacker, defender, skill_id, combined_hit_tags, 
-            total_final_damage, result.is_crit, source_entity);
-        CombatEventDispatcher::Dispatch(registry, deal_evt);
-        
-        // OnTakeDamage (from defender's perspective)
-        CombatEvent take_evt = CombatEventFactory::CreateTakeDamage(
-            defender, attacker, skill_id, combined_hit_tags,
-            total_final_damage, result.is_crit);
-        CombatEventDispatcher::Dispatch(registry, take_evt);
-        
-        // OnCrit (if critical hit)
-        if (result.is_crit) {
-            CombatEvent crit_evt = CombatEventFactory::CreateOnCrit(
-                attacker, defender, skill_id, combined_hit_tags, total_final_damage);
-            CombatEventDispatcher::Dispatch(registry, crit_evt);
+    if (!is_simulation) {
+        // Dispatch OnSkillHit for all direct hits (exclude DoT)
+        // Even 0 damage hits should trigger OnHit effects (e.g., mana on hit, debuff on hit)
+        if (!HasTag(combined_hit_tags, Tag::DamageOverTime)) {
+            CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(
+                attacker, defender, skill_id, combined_hit_tags, result.is_crit);
+            CombatEventDispatcher::Dispatch(registry, hit_evt);
+        }
+
+        if (total_final_damage > 0.0f) {
+            // OnDealDamage (from attacker's perspective)
+            CombatEvent deal_evt = CombatEventFactory::CreateDealDamage(
+                attacker, defender, skill_id, combined_hit_tags, 
+                total_final_damage, result.is_crit, source_entity);
+            CombatEventDispatcher::Dispatch(registry, deal_evt);
+            
+            // OnTakeDamage (from defender's perspective)
+            CombatEvent take_evt = CombatEventFactory::CreateTakeDamage(
+                defender, attacker, skill_id, combined_hit_tags,
+                total_final_damage, result.is_crit);
+            CombatEventDispatcher::Dispatch(registry, take_evt);
+            
+            // OnCrit (if critical hit)
+            if (result.is_crit) {
+                CombatEvent crit_evt = CombatEventFactory::CreateOnCrit(
+                    attacker, defender, skill_id, combined_hit_tags, total_final_damage);
+                CombatEventDispatcher::Dispatch(registry, crit_evt);
+            }
         }
     }
     
@@ -510,6 +520,38 @@ void DamagePipeline::CalculateBatch(
     for (const auto& res : results) {
         if (res.target != entt::null) {
             CombatSystem::ApplyDamage(registry, res.target, res.damage, attacker, res.is_crit);
+
+            // --- Event System: Dispatch combat events ---
+            if (!HasTag(combined_tags, Tag::DamageOverTime)) {
+                CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(
+                    attacker, res.target, skill_id, combined_tags, res.is_crit));
+            }
+
+            // Dispatch specific hit types
+            if (HasTag(combined_tags, Tag::Melee)) {
+                CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateMeleeHit(
+                    attacker, res.target, skill_id, combined_tags, res.damage, res.is_crit));
+            }
+            if (HasTag(combined_tags, Tag::Projectile)) {
+                CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateProjectileHit(
+                    attacker, res.target, skill_id, combined_tags, res.damage, res.is_crit, source_entity));
+            }
+            if (HasTag(combined_tags, Tag::Area)) {
+                CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateAreaHit(
+                    attacker, res.target, skill_id, combined_tags, res.damage, res.is_crit));
+            }
+
+            // Standard damage events
+            CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateDealDamage(
+                attacker, res.target, skill_id, combined_tags, res.damage, res.is_crit, source_entity));
+
+            CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateTakeDamage(
+                res.target, attacker, skill_id, combined_tags, res.damage, res.is_crit));
+
+            if (res.is_crit) {
+                CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateOnCrit(
+                    attacker, res.target, skill_id, combined_tags, res.damage));
+            }
         }
     }
 }

@@ -23,6 +23,8 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/EffectComponent.hpp"
+#include "game/components/SkillDefs.hpp" // For ActiveSkillsComponent
+
 #include "engine/render/RenderSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
@@ -208,6 +210,39 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
 
         registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
         LOG_INFO("Flowing Thrust executed by entity {}", (uint32_t)owner);
+    }
+
+    static void DoHit(entt::registry& registry, entt::entity attacker, entt::entity target, Tag hit_tags, bool is_crit) {
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == kSkillId) {
+                    // ID 121: Jian Yi Ying Ying (Chance to gain Intent)
+                    if (spec.allocated_points.contains(121)) {
+                        int pts = spec.allocated_points.at(121);
+                        if (pts > 0 && GetRandomValue(0, 100) < 25 * pts) {
+                             if (auto* intent = registry.try_get<SwordIntentComponent>(attacker)) {
+                                 if (intent->stacks < intent->max_stacks) {
+                                     intent->stacks++;
+                                     intent->time_since_last_gain = 0.0f;
+                                     intent->decay_tick_timer = 0.0f;
+                                     LOG_DEBUG("Flowing Thrust (121): Gained Intent via Hit");
+                                 }
+                             }
+                        }
+                    }
+                    
+                    // ID 124: Shadow Kill Array (On Crit)
+                    if (is_crit && spec.allocated_points.contains(124)) {
+                         int pts = spec.allocated_points.at(124);
+                         if (pts > 0 && GetRandomValue(0, 100) < 20 * pts) {
+                             registry.get_or_emplace<ShadowKillArrayReady>(attacker);
+                             LOG_INFO("Flowing Thrust (124): Shadow Kill Array READY");
+                         }
+                    }
+                    break;
+                }
+            }
+        }
     }
 };
 

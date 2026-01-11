@@ -9,8 +9,10 @@
 #include "game/components/Projectile.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
+#include "game/components/SkillDefs.hpp" // For SwordIntent
 
 namespace NoMoreDay::skills {
 
@@ -90,6 +92,30 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
         bc.returnSpeed = speed * 1.5f;
 
         LOG_INFO("Blade Boomerang fired by entity {}", (uint32_t)owner);
+    }
+
+    static void DoHit(entt::registry& registry, entt::entity attacker, entt::entity target, Tag hit_tags, bool is_crit) {
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == kSkillId) {
+                    // ID 813: Ju Ling (Chance to gain Intent)
+                    if (spec.allocated_points.contains(813)) {
+                        int pts = spec.allocated_points.at(813);
+                        if (pts > 0 && GetRandomValue(0, 100) < 15 * pts) {
+                             if (auto* intent = registry.try_get<SwordIntentComponent>(attacker)) {
+                                 if (intent->stacks < intent->max_stacks) {
+                                     intent->stacks++;
+                                     intent->time_since_last_gain = 0.0f;
+                                     intent->decay_tick_timer = 0.0f;
+                                     LOG_DEBUG("Blade Boomerang (813): Gained Intent via Hit");
+                                 }
+                             }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
     }
 };
 

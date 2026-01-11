@@ -20,6 +20,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
+#include "game/components/SkillDefs.hpp"
 
 namespace NoMoreDay::skills {
 
@@ -139,6 +140,29 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         }
 
         LOG_INFO("Rending Wave fired {} projectiles from entity {}", totalCount, (uint32_t)owner);
+    }
+
+    static void DoHit(entt::registry& registry, entt::entity attacker, entt::entity target, Tag hit_tags, bool is_crit) {
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == kSkillId) {
+                    // Talent: Sword Intent Scaling - ID 230
+                    if (spec.allocated_points.contains(230) && spec.allocated_points.at(230) > 0) {
+                         if (GetRandomValue(0, 100) < 50) {
+                             if (auto* intent = registry.try_get<SwordIntentComponent>(attacker)) {
+                                 if (intent->stacks < intent->max_stacks) {
+                                     intent->stacks++;
+                                     intent->time_since_last_gain = 0.0f;
+                                     intent->decay_tick_timer = 0.0f;
+                                     LOG_DEBUG("Rending Wave (230): Gained Intent via Hit");
+                                 }
+                             }
+                         }
+                    }
+                    break;
+                }
+            }
+        }
     }
 };
 

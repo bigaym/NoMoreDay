@@ -195,6 +195,21 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
 
 
                     LOG_DEBUG("Hit confirmed on target {}", (uint32_t)target);
+                    
+                    // --- Event System: OnSkillHit ---
+                    // This triggers Sword Intent gain, Mana on Hit, and specific Skill OnHit behaviors
+                    // Note: Basic attacks currently might not have a skill_id (0).
+                    // We need to pass the correct skill_id if this attack came from a skill.
+                    // For now, Player input attack is often basic attack (0) or weapon skill.
+                    NoMoreDay::Tag hitTags = NoMoreDay::Tag::Melee; 
+                    uint32_t skillId = 0; // Default to 0 (Basic Attack)
+                    
+
+                    // Actually is_crit is calculated LATER (line 238). 
+                    // Ideally OnSkillHit happens AFTER damage calc? 
+                    // No, usually OnHit happens regardless of damage, but Crit status might be needed.
+                    // Let's dispatch it AFTER crit calculation to be accurate.
+                    
                     // Apply Knockback
                    NoMoreDay::Utils::ApplyKnockback(registry, target, {pos.x, pos.y}, knockback);
 
@@ -244,6 +259,10 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                             finalDamage *= (stats->crit_damage > 0.1f ? stats->crit_damage : Constants::CRIT_DAMAGE_FALLBACK);
                         }
                     }
+                    
+                    // --- Event System: OnSkillHit (Delayed) ---
+                    CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(entity, target, skillId, hitTags, isCrit);
+                    CombatEventDispatcher::Dispatch(registry, hit_evt);
 
                     // Apply Damage
                     if (registry.all_of<HealthComponent>(target)) {

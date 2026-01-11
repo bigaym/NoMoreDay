@@ -43,6 +43,7 @@ enum class Tag : uint64_t {
     Shocked     = 1ULL << 51,
     Stunned     = 1ULL << 52,
     SwordRiding = 1ULL << 53,
+    SwordSkill  = 1ULL << 54,
 };
 
 // --- Operator Overloads ---
@@ -88,7 +89,7 @@ struct TagInfo {
 };
 
 // Total number of defined tags (for iteration)
-inline constexpr size_t kTagCount = 24;
+inline constexpr size_t kTagCount = 25;
 
 // Master tag info table - ordered for easy lookup
 // This is the single source of truth for all tag metadata
@@ -124,6 +125,7 @@ inline constexpr std::array<TagInfo, kTagCount> kTagInfoTable = {{
     {Tag::Shocked,       "shocked",       "感电"},
     {Tag::Stunned,       "stunned",       "眩晕"},
     {Tag::SwordRiding,   "swordriding",   "御剑"},
+    {Tag::SwordSkill,    "sword_skill",   "剑系技能"},
 }};
 
 // O(1) lookup: Get bit index from a single tag
@@ -201,6 +203,7 @@ constexpr std::string_view GetTagName(Tag tag) {
         case Tag::Shocked: return "Shocked";
         case Tag::Stunned: return "Stunned";
         case Tag::SwordRiding: return "SwordRiding";
+        case Tag::SwordSkill: return "SwordSkill";
         default: return "Unknown";
     }
 }
