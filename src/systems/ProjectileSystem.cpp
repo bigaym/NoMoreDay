@@ -180,6 +180,11 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                         // 2. Metallic spark
                         particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle({pos.x, pos.y}, {0, -50.0f}, 1.5f));
 
+                        // Consume sword unless "Solidified"
+                        if (!ward->is_solidified) {
+                            ward->sword_count--;
+                        }
+
                         hit = true; 
                         return; // Stop processing this target
                     }

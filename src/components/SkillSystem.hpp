@@ -316,9 +316,8 @@ struct SwordIntentComponent {
 struct BladeWardComponent {
     float remaining = 10.0f;
     int sword_count = 3;
-    float interception_chance = 0.15f; // 15% base per sword? 
-    // Actually spec says 15% base per shadow. 
-    // Let's keep it simple: if you have swords, you have a chance to intercept.
+    float interception_chance = 0.15f; 
+    bool is_solidified = false;        // "Solidified" talent: swords are not consumed
 };
 
 struct PhantomFlashComponent {
@@ -333,6 +332,10 @@ struct BladeFormationComponent {
     float attack_timer = 0.0f;
     float search_radius = 200.0f;
     bool is_empowered = false;
+
+    // Talent Flags
+    bool has_giant_sword = false;     // Talent 310
+    bool shockwave_on_crit = false;  // Talent 311
 };
 
 struct SwordArrayComponent {
@@ -342,6 +345,11 @@ struct SwordArrayComponent {
     float damage_timer = 0.0f;
     entt::entity owner = entt::null;
     bool is_empowered = false;
+
+    // Talent Flags
+    bool has_slow = false;         // Talent 610
+    bool has_armor_shred = false;  // Talent 611
+    bool has_execute = false;      // Talent 612
 };
 
 struct ChannelingComponent {
@@ -352,6 +360,8 @@ struct ChannelingComponent {
     Vector2 target_pos;
     bool is_empowered = false;
     float total_duration = 0.0f;
+    bool extra_projectiles = false;    // Talent 520
+    bool consume_intent = false;       // If true, will try to consume intent for effects
 };
 
 } // namespace NoMoreDay

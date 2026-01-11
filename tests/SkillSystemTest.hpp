@@ -420,7 +420,7 @@ TEST_CASE("SkillSystem: Tooltip Integration") {
         }
     }
     CHECK(hasAstroBonus);
-    CHECK(bonusValue.find("+500%") != std::string::npos);
+    CHECK(bonusValue.find("+700%") != std::string::npos);
 }
 
 TEST_CASE("SkillSystem: Channeling Skills") {

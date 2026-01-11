@@ -24,6 +24,7 @@ using namespace NoMoreDay;
 #include "FlowingThrustSpecTest.hpp"
 #include "RendingWaveSpecTest.hpp"
 #include "SwordIntentTest.hpp"
+#include "SwordCultivatorRefinementTest.hpp"
 #include "MovementStanceTest.hpp"
 #include "FinalIntegrationTest.hpp"
 #include "BuffRegistryTest.hpp"

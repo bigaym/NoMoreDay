@@ -1,5 +1,6 @@
 #include "UISkillHub.hpp"
 #include "UISystem.hpp"
+#include "SkillSystem.hpp"
 #include "../components/SkillSystem.hpp"
 #include "../components/PlayerState.hpp"
 #include "../core/SkillRegistry.hpp"
@@ -84,6 +85,9 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                     }
 
                     if (!alreadyInOtherSlot) {
+                        if (active->specialized_slots[i].skill_id != 0) {
+                            SkillSystem::ResetTalents(registry, player, active->specialized_slots[i].skill_id);
+                        }
                         active->specialized_slots[i].skill_id = state.draggedSkillId;
                         active->specialized_slots[i].allocated_points.clear();
                         LOG_INFO("Assigned skill {} to specialized slot {}", state.draggedSkillId, i);
@@ -101,8 +105,8 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                     state.isDraggingSkill = true;
                 }
                 if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
+                    SkillSystem::ResetTalents(registry, player, active->specialized_slots[i].skill_id);
                     active->specialized_slots[i].skill_id = 0;
-                    active->specialized_slots[i].allocated_points.clear();
                     LOG_INFO("Unassigned skill from slot {}", i);
                 }
             }

@@ -88,6 +88,16 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
     // Header & Points
     UISystem::DrawTextUI(TextFormat("%s - 专精天赋", skillData->name_key.c_str()), startX + 40, startY + 30, 40, GOLD, alpha);
     UISystem::DrawTextUI(TextFormat("可用点数: %d", active->available_talent_points), startX + 40, startY + 80, 24, WHITE, alpha);
+    
+    // Reset Button
+    Rectangle resetRectLogic = {startX + 250, startY + 75, 120, 40};
+    bool resetHover = CheckCollisionPointRec(mouseLogicPos, resetRectLogic);
+    DrawRectangleRec({resetRectLogic.x * scale, resetRectLogic.y * scale, resetRectLogic.width * scale, resetRectLogic.height * scale}, Fade(resetHover ? RED : MAROON, alpha));
+    UISystem::DrawTextUI("重置天赋", resetRectLogic.x + 15, resetRectLogic.y + 10, 20, WHITE, alpha);
+    if (resetHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        SkillSystem::ResetTalents(registry, player, skillId);
+    }
+
     UISystem::DrawTextUI("右键拖拽平移, 滚轮缩放", startX + panelW - 400, startY + 85, 20, GRAY, alpha * 0.7f);
     
     // Back Button

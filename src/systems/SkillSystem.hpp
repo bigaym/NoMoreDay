@@ -88,11 +88,21 @@ public:
      */
     static bool AddTalentPoint(entt::registry& registry, entt::entity entity, uint32_t skill_id, uint32_t node_id);
 
-    static void UpdateSwordIntent(entt::registry& registry, float dt);
+    /**
+     * @brief Reset all talent points for a specific skill and refund them.
+     */
+    static bool ResetTalents(entt::registry& registry, entt::entity entity, uint32_t skill_id);
 
-private:
+    /**
+     * @brief Reset all talent points for ALL skills and refund them.
+     */
+    static bool ClearAllTalents(entt::registry& registry, entt::entity entity);
+
+    static void UpdateSwordIntent(entt::registry& registry, float dt);
     static void UpdateCooldowns(entt::registry& registry, float dt);
     static void UpdateStates(entt::registry& registry, float dt);
+
+private:
 };
 
 }

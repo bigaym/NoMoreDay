@@ -135,6 +135,31 @@ void SkillSystem::InitHooks() {
                             LOG_INFO("Momentum: +30% More damage due to distance ({:.1f})", dist);
                         }
                     }
+
+                    // Talent: Feng Xing (风行) - ID 112
+                    if (spec.allocated_points.contains(112) && spec.allocated_points.at(112) > 0) {
+                        auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
+                        BuffEffect swift;
+                        swift.id = "flowing_thrust_swift";
+                        swift.name = "Feng Xing";
+                        swift.type = BuffType::SpeedUp;
+                        swift.duration = 2.0f;
+                        swift.remaining = 2.0f;
+                        swift.modifiers.push_back({StatType::MoveSpeed, ModifierMode::PercentAdd, 30.0f});
+                        effects.AddOrRefresh(swift);
+                        registry.get_or_emplace<StatsDirty>(owner);
+                        LOG_INFO("Feng Xing swiftness applied to entity {}", (uint32_t)owner);
+                    }
+
+                    // Talent: Xun Jie Zhi Ren (迅捷之刃) - ID 113
+                    if (spec.allocated_points.contains(113) && spec.allocated_points.at(113) > 0) {
+                        if (auto* combat = registry.try_get<CombatStats>(owner)) {
+                            float ms = combat->move_speed;
+                            float ms_bonus = (ms / 10.0f) * 0.01f * spec.allocated_points.at(113); // 1% per 10 MS per point
+                            moreDamageMult *= (1.0f + ms_bonus);
+                            LOG_INFO("Xun Jie Zhi Ren: +{:.1f}% More damage from MoveSpeed ({:.1f})", ms_bonus * 100.0f, ms);
+                        }
+                    }
                     break;
                 }
             }
@@ -329,6 +354,14 @@ void SkillSystem::InitHooks() {
                     if (spec.allocated_points.contains(302)) {
                         searchInc = spec.allocated_points.at(302) * 0.2f;
                     }
+                    // Node 310: 归一 (Convergence into giant sword)
+                    if (spec.allocated_points.contains(310) && spec.allocated_points.at(310) > 0) {
+                        formation.has_giant_sword = true;
+                    }
+                    // Node 311: 天崩地裂 (Ultimate shockwave)
+                    if (spec.allocated_points.contains(311) && spec.allocated_points.at(311) > 0) {
+                        formation.shockwave_on_crit = true;
+                    }
                     break;
                 }
             }
@@ -350,6 +383,11 @@ void SkillSystem::InitHooks() {
                 // Ink sword hint
                 particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(pPos, {0, -50.0f}, 1.5f, 1.0f));
             }
+        }
+
+        if (formation.has_giant_sword) {
+            formation.max_swords = 1;
+            formation.attack_interval *= 2.0f; // Slower frequency
         }
 
         if (exec.is_empowered) {
@@ -433,7 +471,18 @@ void SkillSystem::InitHooks() {
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
             for (const auto& spec : active->specialized_slots) {
                 if (spec.skill_id == 6) {
-                    // node 610: slow - we could add a flag here
+                    // node 610: slow 
+                    if (spec.allocated_points.contains(610) && spec.allocated_points.at(610) > 0) {
+                        array.has_slow = true;
+                    }
+                    // node 611: armor shred
+                    if (spec.allocated_points.contains(611) && spec.allocated_points.at(611) > 0) {
+                        array.has_armor_shred = true;
+                    }
+                    // node 612: execute
+                    if (spec.allocated_points.contains(612) && spec.allocated_points.at(612) > 0) {
+                        array.has_execute = true;
+                    }
                     break;
                 }
             }
@@ -453,6 +502,22 @@ void SkillSystem::InitHooks() {
         chan.tick_timer = -0.01f; // FORCE instant fire on first frame
         chan.target_pos = exec.target_pos;
         chan.is_empowered = exec.is_empowered;
+
+        // Talent: Yi Qi Bao Fa (意气爆发) - ID 520
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 5 && spec.allocated_points.contains(520) && spec.allocated_points.at(520) > 0) {
+                    if (auto* intent = registry.try_get<SwordIntentComponent>(owner)) {
+                        if (intent->stacks >= 5) { // Assuming 5 stacks for "Double projectiles"
+                            intent->stacks -= 5;
+                            chan.extra_projectiles = true;
+                            LOG_INFO("Yi Qi Bao Fa: Consumed 5 intent for double projectiles.");
+                        }
+                    }
+                    break;
+                }
+            }
+        }
         LOG_INFO("Infinite Blades channeling started for entity {}", (uint32_t)owner);
     });
 
@@ -479,33 +544,64 @@ void SkillSystem::InitHooks() {
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
             for (const auto& spec : active->specialized_slots) {
                 if (spec.skill_id == 4) {
-                    // Node 400: Jin Zhong Zhao (Armor)
+                    // Node 400: Jin Zhong Zhao (Armor/Phys DR)
+                    if (spec.allocated_points.contains(400)) {
+                         phys_dr += spec.allocated_points.at(400) * 5.0f; // 5% extra per point
+                    }
+                    // Node 401: Elemental Ward (Elemental Res)
+                    float elemental_res = 0.0f;
+                    if (spec.allocated_points.contains(401)) {
+                        elemental_res = spec.allocated_points.at(401) * 3.0f; // 3% per point
+                    }
+                    // Node 410: Parrying Stance (Block Chance)
+                    float block_inc = 0.0f;
+                    if (spec.allocated_points.contains(410)) {
+                        block_inc = spec.allocated_points.at(410) * 5.0f; // 5% per point
+                    }
+
+                    // Apply talents to buff
+                    BuffEffect ward_buff;
+                    ward_buff.id = "blade_ward";
+                    ward_buff.name = "Blade Ward";
+                    ward_buff.type = BuffType::Shield;
+                    ward_buff.duration = 10.0f;
+                    ward_buff.remaining = 10.0f;
+                    
+                    ward_buff.modifiers.push_back({StatType::ResistPhysical, ModifierMode::Flat, phys_dr});
+                    if (elemental_res > 0.0f) {
+                        ward_buff.modifiers.push_back({StatType::ResistFire, ModifierMode::Flat, elemental_res});
+                        ward_buff.modifiers.push_back({StatType::ResistCold, ModifierMode::Flat, elemental_res});
+                        ward_buff.modifiers.push_back({StatType::ResistLightning, ModifierMode::Flat, elemental_res});
+                    }
+                    if (block_inc > 0.0f) {
+                        ward_buff.modifiers.push_back({StatType::BlockChance, ModifierMode::Flat, block_inc});
+                    }
+                    
+                    active_effects.AddOrRefresh(ward_buff);
                     break;
                 }
             }
         }
 
-        // Apply Buff
-        BuffEffect ward_buff;
-        ward_buff.id = "blade_ward";
-        ward_buff.name = "Blade Ward";
-        ward_buff.description = "Interacts with projectiles and provides physical DR.";
-        ward_buff.type = BuffType::Shield;
-        ward_buff.duration = 10.0f;
-        ward_buff.remaining = 10.0f;
-        ward_buff.stacks = 1;
-        ward_buff.max_stacks = 1;
-        ward_buff.is_debuff = false;
-        
-        // +10% Physical Resistance
-        ward_buff.modifiers.push_back({StatType::ResistPhysical, ModifierMode::Flat, phys_dr});
-        
-        active_effects.AddOrRefresh(ward_buff);
         
         // Add Logic Component
         auto& ward = registry.emplace_or_replace<BladeWardComponent>(owner);
         ward.remaining = 10.0f;
         ward.sword_count = 3;
+        ward.is_solidified = false;
+
+        // Apply talents to component
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 4) {
+                    if (spec.allocated_points.contains(122) && spec.allocated_points.at(122) > 0) {
+                        ward.is_solidified = true;
+                    }
+                    // Add more per-cast talent logic here if needed
+                    break;
+                }
+            }
+        }
 
         // --- VFX: Shield Activation ---
         auto* pos = registry.try_get<Position>(owner);
@@ -766,10 +862,37 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                     exec.has_snapshot = true;
                     exec.snapshot.stats = *stats;
                     exec.snapshot.skill_id = 1;
+                    
+                    if (formation.has_giant_sword) {
+                        for (auto& mult : exec.snapshot.stats.damage_multipliers) mult *= 2.0f;
+                        // VFX for giant sword strike could be handled in RenderSystem or by spawning a larger projectile
+                    }
                 }
                 
                 formation.attack_timer = formation.attack_interval;
                 LOG_DEBUG("Blade Formation strike triggered for entity {}", (uint32_t)entity);
+            }
+        }
+
+        // Talent: Ling Jian Hu Ti (灵剑护体) - ID 320
+        if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+            for (const auto& spec : active->specialized_slots) {
+                if (spec.skill_id == 3 && spec.allocated_points.contains(320) && spec.allocated_points.at(320) > 0) {
+                    auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(entity);
+                    BuffEffect bladeDR;
+                    bladeDR.id = "ling_jian_hu_ti";
+                    bladeDR.name = "Ling Jian Hu Ti";
+                    bladeDR.type = BuffType::Shield;
+                    bladeDR.duration = 0.2f; // Short duration, refreshed every update
+                    bladeDR.remaining = 0.2f;
+                    
+                    float dr_per_sword = 2.0f * spec.allocated_points.at(320); 
+                    float total_dr = formation.current_swords * dr_per_sword;
+                    
+                    bladeDR.modifiers.push_back({StatType::ResistAll, ModifierMode::Flat, total_dr}); 
+                    effects.AddOrRefresh(bladeDR);
+                    break;
+                }
             }
         }
     }
@@ -874,15 +997,72 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                 }
             });
 
-            if (!targets.empty()) {
-                // Deduplicate targets list (in case SpatialGrid returns multiple hits)
-                std::sort(targets.begin(), targets.end());
-                targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
+                if (!targets.empty()) {
+                    // Deduplicate targets list
+                    std::sort(targets.begin(), targets.end());
+                    targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
 
-                DamagePool pool;
-                pool.Add(Tag::Physical, 10.0f); 
-                DamagePipeline::CalculateBatch(registry, array.owner, targets, 6, pool, Tag::Area | Tag::Hit, entity, executor);
-            }
+                    // Apply Talent Buffs/Status
+                    for (auto target_ent : targets) {
+                         auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(target_ent);
+                         
+                         if (array.has_slow) {
+                             BuffEffect slow;
+                             slow.id = "array_slow";
+                             slow.name = "Sword Array Slow";
+                             slow.type = BuffType::SpeedDown;
+                             slow.duration = 1.0f;
+                             slow.remaining = 1.0f;
+                             slow.is_debuff = true;
+                             
+                             StatModifier m;
+                             m.type = StatType::MoveSpeed;
+                             m.mode = ModifierMode::PercentAdd;
+                             m.value = -10.0f;
+                             m.required_tags = Tag::None;
+                             m.source = ModifierSource::Buff;
+                             slow.modifiers.push_back(m);
+                             
+                             effects.AddOrRefresh(slow);
+                         }
+
+                         if (array.has_armor_shred) {
+                             BuffEffect shred;
+                             shred.id = "array_armor_shred";
+                             shred.name = "Armor Shred";
+                             shred.type = BuffType::DefenseDown;
+                             shred.duration = 1.0f;
+                             shred.remaining = 1.0f;
+                             shred.is_debuff = true;
+                             
+                             StatModifier m;
+                             m.type = StatType::Armor;
+                             m.mode = ModifierMode::PercentAdd;
+                             m.value = -5.0f;
+                             m.required_tags = Tag::None;
+                             m.source = ModifierSource::Buff;
+                             shred.modifiers.push_back(m);
+                             
+                             effects.AddOrRefresh(shred);
+                         }
+                    }
+
+                    DamagePool pool;
+                    pool.Add(Tag::Physical, 10.0f); 
+                    
+                    // Simple Execute Logic for Node 612
+                    DamagePipeline::CalculateBatch(registry, array.owner, targets, 6, pool, Tag::Area | Tag::Hit, entity, executor);
+                    
+                    if (array.has_execute) {
+                        for (auto target_ent : targets) {
+                            if (auto* hp = registry.try_get<HealthComponent>(target_ent)) {
+                                if (hp->current / hp->max < 0.15f) {
+                                    CombatSystem::ApplyDamage(registry, target_ent, hp->max * 0.1f, array.owner, false, true);
+                                }
+                            }
+                        }
+                    }
+                }
             
             array.damage_timer = array.damage_interval;
         }
@@ -943,6 +1123,25 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
 
         if (chan.tick_timer <= 0.0f) {
             if (chan.skill_id == 5) {
+                // Update GPUParticleSystem logic here too if needed
+                // ... 
+                
+                // Talent: Qi Ding Shen Xian (气定神闲) - ID 501
+                if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
+                    for (const auto& spec : active->specialized_slots) {
+                        if (spec.skill_id == 5 && spec.allocated_points.contains(501) && spec.allocated_points.at(501) > 0) {
+                            auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(entity);
+                            BuffEffect chanDR;
+                            chanDR.id = "infinite_blades_dr";
+                            chanDR.duration = 0.5f;
+                            chanDR.remaining = 0.5f;
+                            chanDR.modifiers.push_back({StatType::ResistAll, ModifierMode::Flat, 5.0f * spec.allocated_points.at(501)}); 
+                            effects.AddOrRefresh(chanDR);
+                            break;
+                        }
+                    }
+                }
+
                 // Infinite Blades: Chaotic "Grass Script" Strokes
                 // LOG_TRACE("DEBUG: Channeling Tick ID 5 for entity {}", (uint32_t)entity);
                 auto& particleSys = systems::GPUParticleSystem::Get();
@@ -972,6 +1171,14 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                          p.color = systems::InkEffectHelper::COLOR_INK_DARK;
                      }
                      particles.push_back(p);
+                     
+                     // Extra Projectiles (Talent 520)
+                     if (chan.extra_projectiles) {
+                         components::GPUParticle extra = p;
+                         extra.velocity = Vector2Rotate(p.velocity, 0.2f); // Slight offset
+                         extra.color = ColorAlpha(p.color, 0.6f);
+                         particles.push_back(extra);
+                     }
                 }
                 
                 // Screen effect: Large faint ink wash
@@ -1013,6 +1220,30 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
                     exec.has_snapshot = true;
                     exec.snapshot.stats = *stats;
                     exec.snapshot.skill_id = 2;
+                }
+
+                // Talent: Yi Qi Bao Fa (意气爆发) - ID 520: Extra Projectile
+                if (chan.extra_projectiles) {
+                    auto extra_exec_ent = registry.create();
+                    registry.emplace<LocalLevelTag>(extra_exec_ent);
+                    registry.emplace<ShadowCastTag>(extra_exec_ent);
+                    auto& extra_exec = registry.emplace<SkillExecution>(extra_exec_ent);
+                    extra_exec.skill_id = 2;
+                    extra_exec.owner = entity;
+                    extra_exec.state = SkillState::Preparing;
+                    extra_exec.timer = 0.05f;
+                    
+                    // Slightly varied target for extra projectle
+                    extra_exec.target_pos = Vector2Add(strike_target, { (float)GetRandomValue(-20, 20), (float)GetRandomValue(-20, 20) });
+                    extra_exec.is_empowered = chan.is_empowered;
+                    
+                    if (auto* stats = registry.try_get<CombatStats>(entity)) {
+                        extra_exec.has_snapshot = true;
+                        extra_exec.snapshot.stats = *stats;
+                        extra_exec.snapshot.skill_id = 2;
+                        for (auto& mult : extra_exec.snapshot.stats.damage_multipliers) mult *= 0.8f; // 80% damage for extra
+                    }
+                    LOG_DEBUG("Yi Qi Bao Fa: Spawned EXTRA Rending Wave execution.");
                 }
 
             } else if (chan.skill_id == 7) {
@@ -1120,7 +1351,12 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
         ward.remaining -= dt;
         if (ward.remaining <= 0.0f) {
             registry.remove<BladeWardComponent>(entity);
+            continue;
         }
+
+        // Keep the buff refreshed if we want it to stay for the duration
+        // Actually, the buff has its own duration in ActiveEffectsComponent.
+        // We just need to sync them or let them be independent.
     }
 
     // Update Phantom Flash
@@ -1264,6 +1500,37 @@ void SkillSystem::OnSkillHit(entt::registry& registry, entt::entity attacker, en
             }
         }
 
+        // --- Talent: Jian Yi Ying Ying (剑意盈盈) - ID 121 ---
+        if (skill_id == 1) {
+            if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+                for (const auto& spec : active->specialized_slots) {
+                    if (spec.skill_id == 1 && spec.allocated_points.contains(121) && spec.allocated_points.at(121) > 0) {
+                        // 25% chance per point on hit
+                        if (GetRandomValue(0, 100) < 25 * spec.allocated_points.at(121)) {
+                            gainIntent = true;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // --- Talent: Shadow Kill Array (ID 124) ---
+        if (skill_id == 1 && is_crit) {
+             if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+                for (const auto& spec : active->specialized_slots) {
+                    if (spec.skill_id == 1 && spec.allocated_points.contains(124) && spec.allocated_points.at(124) > 0) {
+                        // 20% chance per point on crit to trigger Shadow Kill Array
+                        if (GetRandomValue(0, 100) < 20 * spec.allocated_points.at(124)) {
+                            registry.get_or_emplace<ShadowKillArrayReady>(attacker);
+                            LOG_INFO("Shadow Kill Array READY for entity {}", (uint32_t)attacker);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
         // Talent: Blade Boomerang Ju Ling (ID 813) - 15% chance to gain intent per pull
         if (skill_id == 8) {
             if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
@@ -1283,6 +1550,34 @@ void SkillSystem::OnSkillHit(entt::registry& registry, entt::entity attacker, en
             }
             intent->time_since_last_gain = 0.0f; 
             intent->decay_tick_timer = 0.0f;
+        }
+    }
+
+    // --- Talent: Blade Formation Shockwave (ID 311) ---
+    if (skill_id == 3 && is_crit) {
+        bool shockwave = false;
+        if (auto* formation = registry.try_get<BladeFormationComponent>(attacker)) {
+            if (formation->shockwave_on_crit) shockwave = true;
+        }
+
+        if (shockwave) {
+             const auto& tPos = registry.get<Position>(target);
+             // Create Explosion
+             auto& particleSys = systems::GPUParticleSystem::Get();
+             auto splash = systems::InkEffectHelper::CreateInkSplash({tPos.x, tPos.y}, 12, 10.0f, 150.0f);
+             for(auto& p : splash) {
+                 p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
+                 particleSys.Emit(p);
+             }
+
+             // AOE Damage
+             std::vector<entt::entity> nearby;
+             systems::SpatialHashGrid* pGrid = nullptr; // Note: SkillSystem::Update has grid, but OnSkillHit doesn't.
+             // We can use a simpler query if needed or just apply to current target for now.
+             // But a true shockwave needs a grid. 
+             // Since we don't have grid here, we'll deal extra damage to the target.
+             CombatSystem::ApplyDamage(registry, target, 15.0f, attacker, false, true);
+             LOG_INFO("Blade Formation: Shockwave triggered on entity {}", (uint32_t)target);
         }
     }
 
@@ -1549,6 +1844,54 @@ bool SkillSystem::AddTalentPoint(entt::registry& registry, entt::entity entity, 
 
     LOG_INFO("Entity {} spent talent point on Skill {} -> Node {} ({}/{})", 
         (uint32_t)entity, skill_id, node_id, specialized->allocated_points[node_id], node.max_points);
+
+    return true;
+}
+
+bool SkillSystem::ResetTalents(entt::registry& registry, entt::entity entity, uint32_t skill_id) {
+    auto* active = registry.try_get<ActiveSkillsComponent>(entity);
+    if (!active) return false;
+
+    SpecializedSkill* specialized = nullptr;
+    for (auto& slot : active->specialized_slots) {
+        if (slot.skill_id == skill_id) {
+            specialized = &slot;
+            break;
+        }
+    }
+    if (!specialized) return false;
+
+    int points_to_refund = 0;
+    for (auto [node_id, pts] : specialized->allocated_points) {
+        points_to_refund += pts;
+    }
+
+    active->available_talent_points += points_to_refund;
+    specialized->allocated_points.clear();
+    
+    registry.get_or_emplace<StatsDirty>(entity);
+    LOG_INFO("Entity {} reset talents for Skill {}. Refunded {} points.", (uint32_t)entity, skill_id, points_to_refund);
+
+    return true;
+}
+
+bool SkillSystem::ClearAllTalents(entt::registry& registry, entt::entity entity) {
+    auto* active = registry.try_get<ActiveSkillsComponent>(entity);
+    if (!active) return false;
+
+    int total_refunded = 0;
+    for (auto& slot : active->specialized_slots) {
+        if (slot.skill_id == 0) continue;
+        
+        for (auto [node_id, pts] : slot.allocated_points) {
+            total_refunded += pts;
+        }
+        slot.allocated_points.clear();
+    }
+
+    active->available_talent_points += total_refunded;
+    registry.get_or_emplace<StatsDirty>(entity);
+    LOG_INFO("Entity {} cleared all talents. Refunded {} points.", (uint32_t)entity, total_refunded);
 
     return true;
 }
