@@ -352,14 +352,20 @@ DamageResult DamagePipeline::Calculate(
         // Even 0 damage hits should trigger OnHit effects (e.g., mana on hit, debuff on hit)
         if (!HasTag(combined_hit_tags, Tag::DamageOverTime)) {
              uint64_t cast_id = 0;
+             entt::entity actual_attacker = attacker; // Default to the attacker param
+             
              if (registry.valid(source_entity)) {
+                 // Get the real caster (owner) from skill entities
                  if (auto* proj = registry.try_get<Projectile>(source_entity)) {
                      cast_id = proj->cast_id;
+                     if (registry.valid(proj->owner)) {
+                         actual_attacker = proj->owner;
+                     }
                  }
              }
 
             CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(
-                attacker, defender, skill_id, combined_hit_tags, result.is_crit, cast_id);
+                actual_attacker, defender, skill_id, combined_hit_tags, result.is_crit, cast_id);
             CombatEventDispatcher::Dispatch(registry, hit_evt);
         }
 
@@ -532,15 +538,25 @@ void DamagePipeline::CalculateBatch(
             // --- Event System: Dispatch combat events ---
             if (!HasTag(combined_tags, Tag::DamageOverTime)) {
                 uint64_t cast_id = 0;
+                entt::entity actual_attacker = attacker;
+                
                 if (registry.valid(source_entity)) {
+                    // Get the real owner from skill entities
                     if (auto* proj = registry.try_get<Projectile>(source_entity)) {
                         cast_id = proj->cast_id;
+                        if (registry.valid(proj->owner)) {
+                            actual_attacker = proj->owner;
+                        }
                     } else if (auto* array = registry.try_get<SwordArrayComponent>(source_entity)) {
                         cast_id = array->cast_id;
+                        if (registry.valid(array->owner)) {
+                            actual_attacker = array->owner;
+                        }
                     }
                 }
+                
                 CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(
-                    attacker, res.target, skill_id, combined_tags, res.is_crit, cast_id));
+                    actual_attacker, res.target, skill_id, combined_tags, res.is_crit, cast_id));
             }
 
             // Dispatch specific hit types

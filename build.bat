@@ -10,7 +10,12 @@ set "NEED_CONFIG=0"
 :ARGS_LOOP
 if "%~1"=="" goto :ARGS_DONE
 if /i "%~1"=="clean" (
-    echo [Build] Cleaning build cache...
+    echo [Build] Cleaning CMake cache (preserving objects)...
+    if exist "%BUILD_DIR%\CMakeCache.txt" del /f /q "%BUILD_DIR%\CMakeCache.txt"
+    set "NEED_CONFIG=1"
+)
+if /i "%~1"=="clean-all" (
+    echo [Build] Cleaning full build environment...
     if exist "%BUILD_DIR%\CMakeCache.txt" del /f /q "%BUILD_DIR%\CMakeCache.txt"
     if exist "%BUILD_DIR%\CMakeFiles" rmdir /s /q "%BUILD_DIR%\CMakeFiles"
     set "NEED_CONFIG=1"

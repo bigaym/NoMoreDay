@@ -54,10 +54,28 @@ void SkillSystem::InitHooks() {
     
     // 2. Sword Intent Gain on Hit
     CombatEventDispatcher::Register(CombatEventType::OnSkillHit, [](entt::registry& registry, const CombatEvent& evt) {
-        if (!registry.valid(evt.source)) return;
+        // evt.source is the actual caster (fixed in DamagePipeline)
+        entt::entity caster = evt.source;
         
-        auto* intent = registry.try_get<SwordIntentComponent>(evt.source);
-        if (!intent) return;
+        if (!registry.valid(caster)) {
+            return;
+        }
+        
+        auto* intent = registry.try_get<SwordIntentComponent>(caster);
+        if (!intent) {
+            return;
+        }
+
+        // Only trigger sword intent gain for skills with Hit tag
+        if (!HasTag(evt.tags, Tag::Hit)) {
+            // Still dispatch to skill-specific hit handlers
+            if (evt.skill_id != 0) {
+                if (auto hitFunc = SkillBehaviorRegistry::GetHit(evt.skill_id)) {
+                    hitFunc(registry, evt.source, evt.target, evt.tags, evt.is_crit);
+                }
+            }
+            return;
+        }
 
         bool gainStack = false;
         float currentTime = (float)GetTime();
@@ -71,54 +89,16 @@ void SkillSystem::InitHooks() {
         auto& tracking = intent->hit_tracking[trackingKey];
 
         if (isContinuous) {
-            // Continuous Skills: 
-            // 1. Max 1 stack per second per cast
-            // 2. Total stacks capped at floor(duration) - handled by duration naturally limiting updates? 
-            //    Actually, user said "max floor(duration) times". 
-            //    If we just rate limit to 1/sec, it naturally hits that cap for a given duration.
-            //    e.g. 3.5s duration -> triggers at 0, 1, 2, 3 -> 4 times? 
-            //    User said "count max floor(duration)". So for 3.5s, max 3 stacks.
+            // Continuous Skills: Max 1 stack per second per cast
+            float timeSinceLastGain = currentTime - tracking.last_gain_time;
             
-            // To implement hard cap, we need to know the skill duration or just cap count.
-            // Since we don't easily know the duration here without lookup, let's stick to 1.0s ICD per cast.
-            // But we can add a 'stacks_gained' counter to hit_tracking.
-            
-            // For now, let's implement strict 1.0s interval.
-            if (currentTime - tracking.last_gain_time >= 1.0f) {
-                // Approximate "floor(duration)" logic:
-                // If this is the FIRST hit (stacks_gained == 0), allow it? 
-                // User: "trigger only adds one stack" -> handled.
-                // "max floor(duration)" -> For a 5s channel, we want 5 stacks? Or 0?
-                // If duration is < 1s, floor is 0? Meaning NO stacks for short continuous skills?
-                // Let's assume minimum 1 stack if it hits, but rate limited.
-                
-                // Refined Logic based on user request "max floor(duration)":
-                // If a skill lasts 0.5s, floor is 0 -> No stacks? That seems harsh.
-                // Probably means 1 stack per FULL second of duration. 
-                // So at t=0 (hit), no stack. At t=1, stack.
-                // Let's try: Grant stack if (currentTime - first_hit_time) >= 1.0 * (stacks_gained + 1).
-                // This implies NO instant stack on first hit for continuous skills.
-                
-                // However, existing logic gave 1 stack immediately.
-                // Let's stick to "1 stack per 1.0s interval", but maybe skip the very first instant one if strictly following "per second"?
-                // "Count max floor(duration)" -> if duration=3.5s, floor=3.
-                // If we grant at 0, 1, 2... that is 3 stacks. 
-                // If we grant at 0, 1, 2, 3... that is 4.
-                // So "Grant at t=0" seems correct for 0,1,2 sequence fitting in 3.5s? 
-                // Actually 0,1,2 is 3 events. 3.5s duration. floor(3.5)=3. perfectly matches.
-                // BUT if duration is 0.9s. floor(0.9)=0.
-                // If we grant at t=0, that's 1 stack. > 0.
-                // So for short continuous skills, we shouldn't grant any?
-                
-                // Let's implement: gain if (stacks_gained < floor(duration))? We don't know duration.
-                // Safe bet: 1 stack per second, immediate first set.
+            if (timeSinceLastGain >= 1.0f) {
                 gainStack = true;
                 tracking.last_gain_time = currentTime;
                 tracking.stacks_gained++;
             }
         } else {
-            // Instant/Hit Skills:
-            // "Release hit only counts once" -> One stack per CAST.
+            // Instant/Hit Skills: One stack per CAST
             if (tracking.stacks_gained == 0) {
                 gainStack = true;
                 tracking.last_gain_time = currentTime;
@@ -130,7 +110,8 @@ void SkillSystem::InitHooks() {
             intent->stacks++;
             intent->time_since_last_gain = 0.0f;
             intent->decay_tick_timer = 0.0f;
-            // LOG_TRACE("Entity {} gained Sword Intent via skill {} hit. Stacks: {}", (uint32_t)evt.source, evt.skill_id, intent->stacks);
+            LOG_INFO("Sword Intent: Entity {} gained stack via skill {} hit. Stacks: {}/{}", 
+                     (uint32_t)caster, evt.skill_id, intent->stacks, intent->max_stacks);
         }
 
         // Dispatch to specific Skill Behavior
