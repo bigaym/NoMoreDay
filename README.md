@@ -59,11 +59,11 @@ NoMoreDay/
 │   ├── shaders/           # GLSL 着色器 (Compute/Vertex/Fragment)
 │   └── textures/          # 纹理素材
 ├── src/                    # C++ 源代码
-│   ├── components/        # ECS 组件定义 (POD Structs)
-│   ├── systems/           # ECS 系统逻辑 (Logic)
-│   ├── core/              # 引擎基础设施 (Window, Resource, Input)
-│   ├── states/            # 游戏状态 (Gameplay, Menu, Inventory)
-│   └── tools/             # 工具类 (Logger, UUID)
+│   ├── app/               # 应用入口、主循环、全局上下文
+│   ├── core/              # 引擎基础设施 (日志、数学、多线程)
+│   ├── engine/            # 核心引擎模块 (渲染、物理、资源、输入、场景)
+│   ├── game/              # 游戏业务逻辑 (组件、状态、数据定义)
+│   └── systems/           # ECS 系统实现
 ├── scripts/                # Python 工具脚本 (资源管线)
 ├── conductor/              # 项目管理与开发追踪
 ├── 设计文档/               # 详细设计文档

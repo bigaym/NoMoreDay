@@ -88,6 +88,7 @@ add_library(NoMoreDayCore STATIC
     src/game/states/SettingsState.cpp
     src/game/systems/ai/AISystem.cpp
     src/game/systems/ai/EnemyBehavior.cpp
+    src/game/systems/combat/CombatEventDispatcher.cpp
     src/game/systems/combat/CombatSystem.cpp
     src/game/systems/combat/DamagePipeline.cpp
     src/game/systems/combat/EffectSystem.cpp
@@ -103,6 +104,16 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/skill/ProjectileSystem.cpp
     src/game/systems/skill/SkillSystem.cpp
     src/game/systems/skill/SummonSystem.cpp
+    src/game/systems/skill/behaviors/SkillBehaviorRegistry.cpp
+    src/game/systems/skill/behaviors/FlowingThrust.cpp
+    src/game/systems/skill/behaviors/RendingWave.cpp
+    src/game/systems/skill/behaviors/BladeFormation.cpp
+    src/game/systems/skill/behaviors/BladeWard.cpp
+    src/game/systems/skill/behaviors/InfiniteBlades.cpp
+    src/game/systems/skill/behaviors/SwordArray.cpp
+    src/game/systems/skill/behaviors/MindBlade.cpp
+    src/game/systems/skill/behaviors/BladeBoomerang.cpp
+    src/game/systems/skill/behaviors/PhantomFlash.cpp
     src/game/systems/ui/MonsterHealthBarSystem.cpp
     src/game/systems/ui/PlayerHUD.cpp
     src/game/systems/ui/UIAnimationSystem.cpp

@@ -13,7 +13,14 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "core/math/PhysicsUtils.hpp"
+
+// Bring CombatEvent types into scope
+using NoMoreDay::CombatEvent;
+using NoMoreDay::CombatEventType;
+using NoMoreDay::CombatEventDispatcher;
+namespace CombatEventFactory = NoMoreDay::CombatEventFactory;
 
 // Static member initialization
 // (Assuming any static members are here or removed if not needed)
@@ -155,6 +162,11 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
 
                         if (isDodged) {
                             LOG_DEBUG("Target {} dodged the attack", (uint32_t)target);
+                            
+                            // --- Event System: OnDodge ---
+                            CombatEvent dodge_evt = CombatEventFactory::CreateOnDodge(target, entity);
+                            CombatEventDispatcher::Dispatch(registry, dodge_evt);
+                            
                             return; // 闪避成功，跳过击退和伤害计算
                         }
 
@@ -172,6 +184,10 @@ void CombatSystem::update(entt::registry& registry, NoMoreDay::systems::SpatialH
                                     if (registry.all_of<Position>(target)) {
                                         EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
                                     }
+                                    
+                                    // --- Event System: OnBlock ---
+                                    CombatEvent block_evt = CombatEventFactory::CreateOnBlock(target, entity, blockedAmount);
+                                    CombatEventDispatcher::Dispatch(registry, block_evt);
                                 }
                             }
                         }
@@ -484,8 +500,12 @@ bool CombatSystem::ApplyDamage(entt::registry& registry, entt::entity target, fl
         if (registry.all_of<AIComponent>(target)) registry.remove<AIComponent>(target);
         if (registry.all_of<SpriteComponent>(target)) registry.remove<SpriteComponent>(target);
 
-        // 标记实体为已击杀。注意：在实体被销毁前，此标签严禁移除！
         registry.emplace<KilledTag>(target, attacker);
+        
+        // --- Event System: OnKill ---
+        float overkill = -hp.current; // hp.current is 0 or negative after damage
+        CombatEvent kill_evt = CombatEventFactory::CreateOnKill(attacker, target, overkill);
+        CombatEventDispatcher::Dispatch(registry, kill_evt);
 
         // 处理击杀奖励 (Moved relevant parts to XPAwardingSystem)
         // Note: Actual item dropping is handled by DropSystem

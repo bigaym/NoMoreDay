@@ -1,5 +1,6 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include <xsimd/xsimd.hpp>
 #include <algorithm>
 #include <cmath>
@@ -343,6 +344,29 @@ DamageResult DamagePipeline::Calculate(
     }
 
     result.total_damage = total_final_damage;
+    
+    // --- Event System: Dispatch combat events ---
+    if (!is_simulation && total_final_damage > 0.0f) {
+        // OnDealDamage (from attacker's perspective)
+        CombatEvent deal_evt = CombatEventFactory::CreateDealDamage(
+            attacker, defender, skill_id, combined_hit_tags, 
+            total_final_damage, result.is_crit, source_entity);
+        CombatEventDispatcher::Dispatch(registry, deal_evt);
+        
+        // OnTakeDamage (from defender's perspective)
+        CombatEvent take_evt = CombatEventFactory::CreateTakeDamage(
+            defender, attacker, skill_id, combined_hit_tags,
+            total_final_damage, result.is_crit);
+        CombatEventDispatcher::Dispatch(registry, take_evt);
+        
+        // OnCrit (if critical hit)
+        if (result.is_crit) {
+            CombatEvent crit_evt = CombatEventFactory::CreateOnCrit(
+                attacker, defender, skill_id, combined_hit_tags, total_final_damage);
+            CombatEventDispatcher::Dispatch(registry, crit_evt);
+        }
+    }
+    
     return result;
 }
 

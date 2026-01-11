@@ -50,11 +50,12 @@ Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `C
 ## 📂 Project Structure
 
 *   **`src/`**: C++ Source Code.
-    *   `components/`: ECS Components (POD structs).
-    *   `systems/`: ECS Systems (Logic).
-    *   `core/`: Engine infrastructure.
-    *   `utils/`: Helper functions.
-*   **`assets/`**: Game assets (textures, data JSONs).
+    *   `app/`: Application entry, main loop, and shared context.
+    *   `core/`: Engine infrastructure (logging, math, threading).
+    *   `engine/`: Core engine systems (render, physics, resource, input, scene).
+    *   `game/`: Game business logic (components, states, data definitions).
+    *   `systems/`: ECS system implementations.
+*   **`assets/`**: Game assets (textures, shaders, data JSONs).
 *   **`scripts/`**: Python scripts for asset generation and tools.
     *   **Env:** Use `conda activate ai` (or equivalent) for scripts requiring ML libraries.
 *   **`conductor/`**: Project management, tracks, and plans.
