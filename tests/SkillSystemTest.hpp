@@ -1,7 +1,7 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/core/SkillRegistry.hpp"
-#include "../src/systems/SummonSystem.hpp"
+#include "game/data/SkillRegistry.hpp"
+#include "game/systems/skill/SummonSystem.hpp"
 
 TEST_CASE("SkillSystem: Registry Loading") {
     LoggerScope scope;
@@ -50,9 +50,9 @@ TEST_CASE("SkillSystem: Parameter Loading") {
     }
 }
 
-#include "../src/systems/SkillSystem.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Stats.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Stats.hpp"
 
 TEST_CASE("SkillSystem: Charges Logic") {
     LoggerScope scope;
@@ -229,10 +229,10 @@ TEST_CASE("SkillSystem: Execution Logic") {
     }
 }
 
-#include "../src/systems/DamagePipeline.hpp"
-#include "../src/core/UIRenderer.hpp"
-#include "../src/core/AstrolabeRegistry.hpp"
-#include "../src/components/Common.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
+#include "engine/render/UIRenderer.hpp"
+#include "game/data/AstrolabeRegistry.hpp"
+#include "game/components/Common.hpp"
 
 TEST_CASE("SkillSystem: Tag Scaling & Conversion") {
     LoggerScope scope;

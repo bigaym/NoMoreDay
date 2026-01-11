@@ -1,6 +1,6 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/core/AstrolabeRegistry.hpp"
+#include "game/data/AstrolabeRegistry.hpp"
 #include <filesystem>
 
 TEST_CASE("AstrolabeRegistry: Loading and Node Retrieval") {

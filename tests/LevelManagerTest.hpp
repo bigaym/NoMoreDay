@@ -1,8 +1,8 @@
 #pragma once
 #include "doctest.h"
 #include "TestCommon.hpp"
-#include "../src/core/LevelManager.hpp"
-#include "../src/core/BiomeRegistry.hpp"
+#include "game/systems/world/LevelManager.hpp"
+#include "game/data/BiomeRegistry.hpp"
 
 TEST_CASE("LevelManager - Biome loading") {
     LoggerScope scope;

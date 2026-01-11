@@ -1,14 +1,14 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/core/SkillRegistry.hpp"
-#include "../src/systems/SkillSystem.hpp"
-#include "../src/systems/DamagePipeline.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Projectile.hpp"
-#include "../src/systems/PhysicsSystem.hpp"
-#include "../src/systems/ProjectileSystem.hpp"
+#include "game/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Projectile.hpp"
+#include "engine/physics/PhysicsSystem.hpp"
+#include "game/systems/skill/ProjectileSystem.hpp"
 
 TEST_CASE("RendingWave: Branch A - Fen Hai (Extra Waves)") {
     LoggerScope scope;

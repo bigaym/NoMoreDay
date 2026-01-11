@@ -1,7 +1,7 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/systems/GPUParticleSystem.hpp"
-#include "../src/core/ResourceManager.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
+#include "engine/resource/ResourceManager.hpp"
 
 TEST_CASE("GPUParticleSystem Shader Compilation") {
     ResourceManager rm;

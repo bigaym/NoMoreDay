@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../src/components/ItemComponent.hpp"
-#include "../src/core/ItemFactory.hpp"
+#include "game/components/ItemComponent.hpp"
+#include "game/systems/item/ItemFactory.hpp"
 #include <nlohmann/json.hpp>
 
 TEST_CASE("ItemComponent Serialization") {

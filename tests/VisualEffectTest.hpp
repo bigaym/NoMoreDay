@@ -1,15 +1,15 @@
 #pragma once
 
-#include "../src/components/EffectComponent.hpp"
-#include "../src/components/ItemComponent.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/PlayerState.hpp"
-#include "../src/components/InventoryComponent.hpp"
-#include "../src/systems/DropSystem.hpp"
-#include "../src/systems/InventorySystem.hpp"
-#include "../src/systems/EffectSystem.hpp"
-#include "../src/core/ItemFactory.hpp"
+#include "game/components/EffectComponent.hpp"
+#include "game/components/ItemComponent.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/components/InventoryComponent.hpp"
+#include "game/systems/item/DropSystem.hpp"
+#include "game/systems/item/InventorySystem.hpp"
+#include "game/systems/combat/EffectSystem.hpp"
+#include "game/systems/item/ItemFactory.hpp"
 #include <entt/entt.hpp>
 #include "TestCommon.hpp"
 

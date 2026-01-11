@@ -1,8 +1,8 @@
 #pragma once
 
-#include "../src/core/AssetLoadingSystem.hpp"
-#include "../src/core/ResourceManager.hpp"
-#include "../src/core/EquipmentAssetRegistry.hpp" // Added
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/ResourceManager.hpp"
+#include "engine/resource/EquipmentAssetRegistry.hpp" // Added
 #include <raylib.h> // For Font, Texture2D
 #include "TestCommon.hpp" // Added
 

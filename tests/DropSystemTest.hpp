@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../src/components/ItemComponent.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/PlayerState.hpp"
-#include "../src/core/ItemFactory.hpp"
-#include "../src/systems/DropSystem.hpp"
-#include "../src/components/EnemyComponent.hpp"
+#include "game/components/ItemComponent.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/systems/item/ItemFactory.hpp"
+#include "game/systems/item/DropSystem.hpp"
+#include "game/components/EnemyComponent.hpp"
 #include <entt/entt.hpp>
 #include "TestCommon.hpp"
 

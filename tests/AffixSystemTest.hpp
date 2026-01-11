@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../src/components/Stats.hpp"
-#include "../src/components/ItemComponent.hpp"
-#include "../src/components/EquipmentComponent.hpp"
-#include "../src/systems/StatsSystem.hpp"
-#include "../src/core/ItemFactory.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/ItemComponent.hpp"
+#include "game/components/EquipmentComponent.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/item/ItemFactory.hpp"
 #include <entt/entt.hpp>
 #include "TestCommon.hpp"
 

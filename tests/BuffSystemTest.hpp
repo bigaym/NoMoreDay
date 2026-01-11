@@ -1,6 +1,6 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/components/Buff.hpp"
+#include "game/components/Buff.hpp"
 
 using namespace NoMoreDay;
 

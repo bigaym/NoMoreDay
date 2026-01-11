@@ -1,7 +1,7 @@
 #pragma once
 #include "doctest.h"
 #include "TestCommon.hpp"
-#include "../src/core/BiomeRegistry.hpp"
+#include "game/data/BiomeRegistry.hpp"
 #include <filesystem>
 
 TEST_CASE("BiomeRegistry - Loading from JSON") {

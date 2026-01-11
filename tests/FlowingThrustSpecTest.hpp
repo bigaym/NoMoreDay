@@ -1,13 +1,13 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/core/SkillRegistry.hpp"
-#include "../src/systems/SkillSystem.hpp"
-#include "../src/systems/DamagePipeline.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Projectile.hpp"
-#include "../src/systems/XPAwardingSystem.hpp"
+#include "game/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Projectile.hpp"
+#include "game/systems/combat/XPAwardingSystem.hpp"
 
 TEST_CASE("FlowingThrust: Branch A - Guan Ri (Pierce & Reset)") {
     LoggerScope scope;

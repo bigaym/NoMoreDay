@@ -1,12 +1,12 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/systems/SkillSystem.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/systems/StatsSystem.hpp"
-#include "../src/core/SkillRegistry.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Projectile.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Stats.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
+#include "game/data/SkillRegistry.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Projectile.hpp"
 
 namespace NoMoreDay {
 

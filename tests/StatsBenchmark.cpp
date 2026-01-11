@@ -1,11 +1,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
-#include "../src/systems/StatsSystem.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/EquipmentComponent.hpp"
-#include "../src/components/Progression.hpp"
-#include "../src/components/Buff.hpp"
-#include "../src/core/AstrolabeRegistry.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/EquipmentComponent.hpp"
+#include "game/components/Progression.hpp"
+#include "game/components/Buff.hpp"
+#include "game/data/AstrolabeRegistry.hpp"
 #include <chrono>
 #include <vector>
 

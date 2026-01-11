@@ -1,6 +1,6 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/core/SkillRegistry.hpp"
+#include "game/data/SkillRegistry.hpp"
 #include <unordered_set>
 
 TEST_CASE("SkillSystem: Comprehensive Load Verification") {

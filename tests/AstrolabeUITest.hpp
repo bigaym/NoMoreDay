@@ -1,8 +1,8 @@
 #pragma once
 #include "doctest.h"
-#include "../src/systems/UIAstrolabe.hpp"
-#include "../src/components/AstrolabeUIComponent.hpp"
-#include "../src/components/Common.hpp"
+#include "game/systems/ui/UIAstrolabe.hpp"
+#include "game/components/AstrolabeUIComponent.hpp"
+#include "game/components/Common.hpp"
 
 using namespace NoMoreDay;
 

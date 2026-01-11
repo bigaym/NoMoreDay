@@ -1,8 +1,8 @@
 #pragma once
 
 #include "doctest.h"
-#include "../src/tools/Logger.hpp"
-#include "../src/core/ItemFactory.hpp" // If TestSetupScope uses it
+#include "core/logging/Logger.hpp"
+#include "game/systems/item/ItemFactory.hpp" // If TestSetupScope uses it
 
 using namespace NoMoreDay;
 

@@ -1,11 +1,11 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/systems/ProjectileSystem.hpp"
-#include "../src/systems/CombatSystem.hpp"
-#include "../src/utils/PhysicsUtils.hpp"
-#include "../src/components/Projectile.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Stats.hpp"
+#include "game/systems/skill/ProjectileSystem.hpp"
+#include "game/systems/combat/CombatSystem.hpp"
+#include "core/math/PhysicsUtils.hpp"
+#include "game/components/Projectile.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Stats.hpp"
 
 using namespace NoMoreDay;
 

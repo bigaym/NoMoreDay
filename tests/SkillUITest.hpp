@@ -1,10 +1,10 @@
 #pragma once
 #include "doctest.h"
-#include "../src/systems/UISystem.hpp"
-#include "../src/systems/UISkillHub.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/core/SkillRegistry.hpp"
+#include "game/systems/ui/UISystem.hpp"
+#include "game/systems/ui/UISkillHub.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Common.hpp"
+#include "game/data/SkillRegistry.hpp"
 #include <entt/entt.hpp>
 #include <raylib.h>
 

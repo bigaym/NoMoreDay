@@ -1,7 +1,7 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/systems/GPUFlowFieldSystem.hpp"
-#include "../src/core/ResourceManager.hpp"
+#include "engine/render/GPUFlowFieldSystem.hpp"
+#include "engine/resource/ResourceManager.hpp"
 #include <vector>
 
 using namespace NoMoreDay;

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../src/components/ItemStats.hpp"
+#include "game/components/ItemStats.hpp"
 
 TEST_CASE("ItemStats - Affix Descriptions") {
     SUBCASE("Primary Stats") {

@@ -1,12 +1,12 @@
 #pragma once
 #include "doctest.h"
 #include "TestCommon.hpp"
-#include "../src/core/SceneManager.hpp"
-#include "../src/core/LevelManager.hpp"
-#include "../src/core/BiomeRegistry.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Buff.hpp"
-#include "../src/components/InventoryComponent.hpp"
+#include "engine/scene/SceneManager.hpp"
+#include "game/systems/world/LevelManager.hpp"
+#include "game/data/BiomeRegistry.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Buff.hpp"
+#include "game/components/InventoryComponent.hpp"
 #include <chrono>
 #include <thread>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../src/systems/RenderSystem.hpp"
+#include "engine/render/RenderSystem.hpp"
 #include <entt/entt.hpp>
 
 TEST_CASE("RenderSystem - Basic Setup") {

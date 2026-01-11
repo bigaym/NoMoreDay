@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../src/core/LootFilter.hpp"
-#include "../src/components/ItemComponent.hpp"
+#include "game/systems/item/LootFilter.hpp"
+#include "game/components/ItemComponent.hpp"
 #include <fstream>
 #include <cstdio>
 #include <string> // For std::string

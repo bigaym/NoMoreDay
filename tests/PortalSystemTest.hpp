@@ -1,9 +1,9 @@
 #pragma once
 #include "doctest.h"
-#include "../src/systems/PortalSystem.hpp"
-#include "../src/components/MapComponent.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/core/SceneManager.hpp"
+#include "game/systems/world/PortalSystem.hpp"
+#include "game/components/MapComponent.hpp"
+#include "game/components/Common.hpp"
+#include "engine/scene/SceneManager.hpp"
 
 // Mock SceneManager or use real one with minimal dependencies?
 // Real SceneManager needs LevelManager which needs... 

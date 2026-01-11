@@ -1,9 +1,9 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/systems/DamagePipeline.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/core/SkillRegistry.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Stats.hpp"
+#include "game/data/SkillRegistry.hpp"
 
 TEST_CASE("SkillModifierSystem: Component Modifiers") {
     LoggerScope scope;

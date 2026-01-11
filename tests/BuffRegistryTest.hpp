@@ -1,6 +1,6 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "core/BuffRegistry.hpp"
+#include "game/data/BuffRegistry.hpp"
 
 TEST_CASE("BuffRegistry Lookups") {
     // Ensure initialized

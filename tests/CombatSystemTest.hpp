@@ -1,12 +1,12 @@
 #pragma once
 
-#include "../src/components/Stats.hpp"
-#include "../src/components/Combat.hpp"
-#include "../src/components/AIComponent.hpp"
-#include "../src/components/EnemyComponent.hpp"
-#include "../src/systems/CombatSystem.hpp"
-#include "../src/components/Common.hpp" // For KilledTag
-#include "../src/components/PlayerState.hpp" // For PlayerStats
+#include "game/components/Stats.hpp"
+#include "game/components/Combat.hpp"
+#include "game/components/AIComponent.hpp"
+#include "game/components/EnemyComponent.hpp"
+#include "game/systems/combat/CombatSystem.hpp"
+#include "game/components/Common.hpp" // For KilledTag
+#include "game/components/PlayerState.hpp" // For PlayerStats
 #include <entt/entt.hpp>
 #include "TestCommon.hpp"
 

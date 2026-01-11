@@ -47,7 +47,7 @@ message(STATUS "Found Python3 interpreter at: ${Python3_EXECUTABLE}")
 
 set(TAG_SCRIPT "${CMAKE_SOURCE_DIR}/scripts/gen_tags.py")
 set(TAG_JSON "${CMAKE_SOURCE_DIR}/assets/data/tags.json")
-set(TAG_HEADER "${CMAKE_SOURCE_DIR}/src/core/TagRegistry.hpp")
+set(TAG_HEADER "${CMAKE_SOURCE_DIR}/src/game/data/TagRegistry.hpp")
 
 add_custom_command(
     OUTPUT ${TAG_HEADER}
@@ -62,74 +62,68 @@ add_custom_target(GenerateTags DEPENDS ${TAG_HEADER})
 # --- Core Library (Static) ---
 # 将核心逻辑打包为静态库，供游戏主程序和测试程序共同链接
 add_library(NoMoreDayCore STATIC
-    src/core/Game.cpp
-    src/core/ResourceManager.cpp
-    src/core/LevelManager.cpp
-    src/core/ItemFactory.cpp
-    src/core/LootFilter.cpp
-    src/core/AssetLoadingSystem.cpp
-    src/core/StateManager.cpp
-    src/core/UIRenderer.cpp
-    src/states/GameplayState.cpp
-    src/states/GameplayState.hpp
-    src/states/InventoryState.cpp
-    src/states/InventoryState.hpp
-    src/states/MainMenuState.cpp
-    src/states/MainMenuState.hpp
-    src/states/PauseState.cpp
-    src/states/PauseState.hpp
-    src/states/SettingsState.cpp
-    src/states/SettingsState.hpp
-    src/states/LoadingState.cpp
-    src/states/LoadingState.hpp
-    src/systems/PhysicsSystem.cpp
-    src/systems/ProjectileSystem.cpp
-    src/systems/RenderSystem.cpp
-    src/systems/InputSystem.cpp
-    src/systems/CombatSystem.cpp
-    src/systems/StatsSystem.cpp
-    src/systems/UIAnimationSystem.cpp
-    src/systems/UICharacter.cpp
-    src/systems/CraftingSystem.cpp
-    src/systems/AISystem.cpp
-    src/systems/MapSystem.cpp
-    src/systems/MonsterHealthBarSystem.cpp
-    src/systems/PlayerHUD.cpp
-    src/systems/MovementStanceSystem.cpp
-    src/systems/EnemySpawnSystem.cpp
-    src/systems/FogOfWarSystem.cpp
-    src/systems/EffectSystem.cpp
-    # src/systems/EnemyBehavior.cpp
-    src/systems/UISystem.cpp
-    src/systems/UISkillHub.cpp
-    src/systems/UISkillTalentTree.cpp
-    src/systems/UICrafting.cpp
-    src/systems/AstrolabeSystem.cpp
-    src/systems/SkillSystem.cpp
-    src/systems/SummonSystem.cpp
-    src/systems/UIInventory.cpp
-    src/systems/UIAstrolabe.cpp
-    src/systems/UIMinimap.cpp
-    src/systems/GPUParticleSystem.cpp
-
-    src/systems/GPUEntitySystem.cpp
-    src/systems/GPUFlowFieldSystem.cpp
-    src/systems/ProgressionSystem.cpp
-    src/systems/XPAwardingSystem.cpp
-    src/systems/DropSystem.cpp
-    src/systems/PortalSystem.cpp
-    src/systems/DamagePipeline.cpp
-    src/tools/Logger.cpp
-    src/tools/CrashHandler.cpp
-    src/core/AstrolabeRegistry.cpp
-    src/core/SkillRegistry.cpp
-    src/core/BuffRegistry.cpp
-    src/core/BiomeRegistry.cpp
-    src/core/SceneManager.cpp
-    src/systems/InventorySystem.cpp
+    src/app/Game.cpp
+    src/core/logging/CrashHandler.cpp
+    src/core/logging/Logger.cpp
+    src/engine/input/InputSystem.cpp
+    src/engine/physics/PhysicsSystem.cpp
+    src/engine/render/GPUEntitySystem.cpp
+    src/engine/render/GPUFlowFieldSystem.cpp
+    src/engine/render/GPUParticleSystem.cpp
+    src/engine/render/RenderSystem.cpp
+    src/engine/render/UIRenderer.cpp
+    src/engine/resource/AssetLoadingSystem.cpp
+    src/engine/resource/ResourceManager.cpp
+    src/engine/scene/SceneManager.cpp
+    src/engine/scene/StateManager.cpp
+    src/game/data/AstrolabeRegistry.cpp
+    src/game/data/BiomeRegistry.cpp
+    src/game/data/BuffRegistry.cpp
+    src/game/data/SkillRegistry.cpp
+    src/game/states/GameplayState.cpp
+    src/game/states/InventoryState.cpp
+    src/game/states/LoadingState.cpp
+    src/game/states/MainMenuState.cpp
+    src/game/states/PauseState.cpp
+    src/game/states/SettingsState.cpp
+    src/game/systems/ai/AISystem.cpp
+    src/game/systems/ai/EnemyBehavior.cpp
+    src/game/systems/combat/CombatSystem.cpp
+    src/game/systems/combat/DamagePipeline.cpp
+    src/game/systems/combat/EffectSystem.cpp
+    src/game/systems/combat/ProgressionSystem.cpp
+    src/game/systems/combat/StatsSystem.cpp
+    src/game/systems/combat/XPAwardingSystem.cpp
+    src/game/systems/item/CraftingSystem.cpp
+    src/game/systems/item/DropSystem.cpp
+    src/game/systems/item/InventorySystem.cpp
+    src/game/systems/item/ItemFactory.cpp
+    src/game/systems/item/LootFilter.cpp
+    src/game/systems/skill/AstrolabeSystem.cpp
+    src/game/systems/skill/ProjectileSystem.cpp
+    src/game/systems/skill/SkillSystem.cpp
+    src/game/systems/skill/SummonSystem.cpp
+    src/game/systems/ui/MonsterHealthBarSystem.cpp
+    src/game/systems/ui/PlayerHUD.cpp
+    src/game/systems/ui/UIAnimationSystem.cpp
+    src/game/systems/ui/UIAstrolabe.cpp
+    src/game/systems/ui/UICharacter.cpp
+    src/game/systems/ui/UICrafting.cpp
+    src/game/systems/ui/UIInventory.cpp
+    src/game/systems/ui/UIMinimap.cpp
+    src/game/systems/ui/UISkillHub.cpp
+    src/game/systems/ui/UISkillTalentTree.cpp
+    src/game/systems/ui/UISystem.cpp
+    src/game/systems/world/EnemySpawnSystem.cpp
+    src/game/systems/world/FogOfWarSystem.cpp
+    src/game/systems/world/LevelManager.cpp
+    src/game/systems/world/MapSystem.cpp
+    src/game/systems/world/MovementStanceSystem.cpp
+    src/game/systems/world/PortalSystem.cpp
+    src/systems/SerializationSystem.hpp
 )
 
-set_source_files_properties(src/core/ResourceManager.cpp PROPERTIES 
+set_source_files_properties(src/engine/resource/ResourceManager.cpp PROPERTIES 
     SKIP_PRECOMPILE_HEADERS ON
     SKIP_UNITY_BUILD_INCLUSION ON
 )
@@ -174,7 +168,7 @@ if(WIN32)
 endif()
 
 # --- Main Executable ---
-add_executable(NoMoreDay src/main.cpp)
+add_executable(NoMoreDay src/app/main.cpp)
 target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
 
 if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")

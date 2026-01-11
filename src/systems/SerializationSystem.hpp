@@ -9,18 +9,18 @@
 #include <string>
 #include <vector>
 #include <raylib.h>
-#include "../utils/UUID.hpp"
+#include "core/math/UUID.hpp"
 
-#include "../components/Common.hpp"
-#include "../components/Stats.hpp"
-#include "../components/InventoryComponent.hpp"
-#include "../components/EquipmentComponent.hpp" // ADDED THIS LINE
-#include "../components/SkillSystem.hpp"
-#include "../components/Buff.hpp"
-#include "../components/Progression.hpp"
-#include "../components/PlayerState.hpp"
-#include "../components/AIComponent.hpp"
-#include "UISystem.hpp" // Include UISystem
+#include "game/components/Common.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/InventoryComponent.hpp"
+#include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Buff.hpp"
+#include "game/components/Progression.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/components/AIComponent.hpp"
+#include "game/systems/ui/UISystem.hpp" // Include UISystem
 
 // 定义 Concept：检查类型 T 是否支持 nlohmann/json 序列化
 template<typename T>

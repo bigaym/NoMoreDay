@@ -1,13 +1,13 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/core/SkillRegistry.hpp"
-#include "../src/systems/SkillSystem.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/systems/StatsSystem.hpp"
-#include "../src/components/ItemStats.hpp"
-#include "../src/components/EquipmentComponent.hpp"
-#include "../src/components/ItemComponent.hpp"
+#include "game/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Stats.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
+#include "game/components/ItemStats.hpp"
+#include "game/components/EquipmentComponent.hpp"
+#include "game/components/ItemComponent.hpp"
 
 TEST_CASE("SkillSpecialization: Data Loading") {
     LoggerScope scope;

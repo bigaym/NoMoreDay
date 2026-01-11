@@ -1,9 +1,9 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "core/TagRegistry.hpp"
-#include "core/SkillRegistry.hpp"
-#include "systems/SkillSystem.hpp"
-#include "components/SkillSystem.hpp"
+#include "game/data/TagRegistry.hpp"
+#include "game/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 #include <entt/entt.hpp>
 
 using namespace NoMoreDay;

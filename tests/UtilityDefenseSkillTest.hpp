@@ -1,13 +1,13 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/systems/SkillSystem.hpp"
-#include "../src/systems/ProjectileSystem.hpp"
-#include "../src/systems/CombatSystem.hpp"
-#include "../src/systems/PhysicsSystem.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Projectile.hpp"
-#include "../src/components/EnemyComponent.hpp"
-#include "../src/components/AIComponent.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/ProjectileSystem.hpp"
+#include "game/systems/combat/CombatSystem.hpp"
+#include "engine/physics/PhysicsSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Projectile.hpp"
+#include "game/components/EnemyComponent.hpp"
+#include "game/components/AIComponent.hpp"
 
 TEST_CASE("SkillSystem: Blade Ward Interception") {
     LoggerScope scope;

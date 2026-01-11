@@ -1,9 +1,9 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "../src/systems/AstrolabeSystem.hpp"
-#include "../src/systems/StatsSystem.hpp"
-#include "../src/core/AstrolabeRegistry.hpp"
-#include "../src/components/Progression.hpp"
+#include "game/systems/skill/AstrolabeSystem.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
+#include "game/data/AstrolabeRegistry.hpp"
+#include "game/components/Progression.hpp"
 
 TEST_CASE("AstrolabeSystem: Activation Logic") {
     using namespace NoMoreDay;

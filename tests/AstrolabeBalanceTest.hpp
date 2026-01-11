@@ -1,11 +1,11 @@
 #pragma once
 #include "doctest.h"
-#include "../src/core/AstrolabeRegistry.hpp"
-#include "../src/systems/AstrolabeSystem.hpp"
-#include "../src/systems/StatsSystem.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/Progression.hpp"
-#include "../src/components/InventoryComponent.hpp"
+#include "game/data/AstrolabeRegistry.hpp"
+#include "game/systems/skill/AstrolabeSystem.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/Progression.hpp"
+#include "game/components/InventoryComponent.hpp"
 
 using namespace NoMoreDay;
 

@@ -1,11 +1,11 @@
 #pragma once
 #include "doctest.h"
 #include "entt/entt.hpp"
-#include "../src/systems/MonsterHealthBarSystem.hpp"
-#include "../src/components/AIComponent.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Buff.hpp"
+#include "game/systems/ui/MonsterHealthBarSystem.hpp"
+#include "game/components/AIComponent.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Buff.hpp"
 
 using namespace NoMoreDay;
 

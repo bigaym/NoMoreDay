@@ -1,6 +1,6 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "components/Buff.hpp"
+#include "game/components/Buff.hpp"
 
 TEST_CASE("ActiveEffectsComponent Logic") {
     ActiveEffectsComponent component;

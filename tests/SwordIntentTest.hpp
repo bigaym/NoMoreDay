@@ -1,11 +1,11 @@
 #pragma once
 #include "doctest.h"
 #include "entt/entt.hpp"
-#include "../src/systems/SkillSystem.hpp"
-#include "../src/components/SkillSystem.hpp"
-#include "../src/components/Common.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/core/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/Stats.hpp"
+#include "game/data/SkillRegistry.hpp"
 
 using namespace NoMoreDay;
 

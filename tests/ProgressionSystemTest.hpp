@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../src/components/PlayerState.hpp"
-#include "../src/components/Stats.hpp"
-#include "../src/components/Common.hpp" // For KilledTag
-#include "../src/systems/ProgressionSystem.hpp"
-#include "../src/systems/XPAwardingSystem.hpp" // For XPAwardingSystem
+#include "game/components/PlayerState.hpp"
+#include "game/components/Stats.hpp"
+#include "game/components/Common.hpp" // For KilledTag
+#include "game/systems/combat/ProgressionSystem.hpp"
+#include "game/systems/combat/XPAwardingSystem.hpp" // For XPAwardingSystem
 #include <entt/entt.hpp>
 
 TEST_CASE("ProgressionSystem - XP Scaling") {
