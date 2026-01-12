@@ -754,7 +754,7 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     auto& slot = active->slots[slot_index];
     if (slot.id == 0) return false;
 
-    if (registry.any_of<SkillExecution>(entity)) return false; 
+    if (registry.any_of<SkillExecution>(entity)) return false;  
 
     const auto* data = SkillRegistry::Get().GetSkill(slot.id);
     if (!data) return false;

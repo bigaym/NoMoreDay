@@ -32,8 +32,9 @@ public:
     FogOfWarSystem& operator=(const FogOfWarSystem&) = delete;
     
     // 允许移动
-    FogOfWarSystem(FogOfWarSystem&&) noexcept = default;
-    FogOfWarSystem& operator=(FogOfWarSystem&&) noexcept = default;
+    // 允许移动
+    FogOfWarSystem(FogOfWarSystem&& other) noexcept;
+    FogOfWarSystem& operator=(FogOfWarSystem&& other) noexcept;
 
     /**
      * @brief 初始化系统 (必须在主线程调用)
@@ -77,7 +78,7 @@ public:
     /**
      * @brief 从 GPU 同步可见性数据到 CPU (用于小地图等需要 CPU 访问的场景)
      */
-    void syncToCPU();
+    void syncToCPU() const;
     
     /**
      * @brief 释放 GPU 资源

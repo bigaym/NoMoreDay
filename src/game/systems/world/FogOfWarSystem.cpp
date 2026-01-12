@@ -11,6 +11,45 @@ FogOfWarSystem::~FogOfWarSystem() {
     shutdown();
 }
 
+FogOfWarSystem::FogOfWarSystem(FogOfWarSystem&& other) noexcept 
+    : m_width(other.m_width)
+    , m_height(other.m_height)
+    , m_initialized(other.m_initialized)
+    , m_visibilityBuffer(std::move(other.m_visibilityBuffer))
+    , m_fogShader(other.m_fogShader)
+    , m_fogTexture(other.m_fogTexture)
+    , m_cpuVisibilityCache(std::move(other.m_cpuVisibilityCache))
+    , m_cpuCacheDirty(other.m_cpuCacheDirty)
+{
+    other.m_fogTexture.id = 0;
+    other.m_fogShader.id = 0;
+    other.m_initialized = false;
+    other.m_width = 0;
+    other.m_height = 0;
+}
+
+FogOfWarSystem& FogOfWarSystem::operator=(FogOfWarSystem&& other) noexcept {
+    if (this != &other) {
+        shutdown();
+        
+        m_width = other.m_width;
+        m_height = other.m_height;
+        m_initialized = other.m_initialized;
+        m_visibilityBuffer = std::move(other.m_visibilityBuffer);
+        m_fogShader = other.m_fogShader;
+        m_fogTexture = other.m_fogTexture;
+        m_cpuVisibilityCache = std::move(other.m_cpuVisibilityCache);
+        m_cpuCacheDirty = other.m_cpuCacheDirty;
+        
+        other.m_fogTexture.id = 0;
+        other.m_fogShader.id = 0;
+        other.m_initialized = false;
+        other.m_width = 0;
+        other.m_height = 0;
+    }
+    return *this;
+}
+
 void FogOfWarSystem::initialize(ResourceManager& resources, int width, int height) {
     if (m_initialized) {
         shutdown();
@@ -115,7 +154,7 @@ void FogOfWarSystem::renderFog() const {
     DrawTextureEx(m_fogTexture, {0.0f, 0.0f}, 0.0f, scale, WHITE);
 }
 
-void FogOfWarSystem::syncToCPU() {
+void FogOfWarSystem::syncToCPU() const {
     if (!m_initialized || !m_cpuCacheDirty) return;
     
     size_t cellCount = static_cast<size_t>(m_width) * m_height;
@@ -138,7 +177,7 @@ uint32_t FogOfWarSystem::getVisibility(int x, int y) const {
     
     // 如果需要 CPU 访问, 先同步
     if (m_cpuCacheDirty) {
-        const_cast<FogOfWarSystem*>(this)->syncToCPU();
+        syncToCPU();
     }
     
     return m_cpuVisibilityCache[y * m_width + x];

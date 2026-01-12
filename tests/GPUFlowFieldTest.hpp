@@ -83,7 +83,8 @@ TEST_CASE("GPU Flow Field Compute Test") {
     Vector2 flowAtStart = flowData2[5 * 64 + 5];
     MESSAGE("Flow at (5,5): ", flowAtStart.x, ", ", flowAtStart.y);
     
-    CHECK(flowAtStart.x > 0.0f || flowAtStart.y > 0.0f);
+    bool hasPositiveFlow = (flowAtStart.x > 0.0f || flowAtStart.y > 0.0f);
+    CHECK(hasPositiveFlow);
     
     // Check flow at wall (should be zero or valid)
     Vector2 flowAtWall = flowData[wallY * 64 + wallX];

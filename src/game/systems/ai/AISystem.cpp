@@ -194,7 +194,7 @@ void AISystem::updateAIEntity(entt::registry& registry,
                     float searchRadius = 35.0f;
                     int count = 0;
 
-                    const_cast<NoMoreDay::systems::SpatialHashGrid&>(grid).query(pos, searchRadius, [&](entt::entity neighbor) {
+                    grid.query(pos, searchRadius, [&](entt::entity neighbor) {
                         if (neighbor == entity) return;
                         
                         const auto& nPos = registry.get<Position>(neighbor);
