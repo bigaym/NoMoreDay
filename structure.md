@@ -8,7 +8,7 @@ This document provides a high-level overview of the `NoMoreDay` codebase to assi
 *   **`assets/`**: Game assets including textures, shaders (glsl), data files (JSON), and fonts.
 *   **`scripts/`**: Automation scripts (mostly Python) for asset processing, tag generation, etc.
 *   **`conductor/`**: Project management specific files (tracks, plans).
-*   **`tests/`**: Unit and integration tests using GoogleTest (implied by `tests` folder naming convention).
+*   **`tests/`**: Unit and integration tests using GoogleTest/Doctest.
 *   **`third_party/`**: External libraries (Raylib, EnTT, Taskflow, spdlog, etc.).
 *   **`build/`**: CMake build artifacts.
 *   **`设计文档/`**: Design documents and specifications.
@@ -27,8 +27,8 @@ Contains the main entry point and high-level application flow.
 Foundation layer providing common utilities independent of the game logic.
 *   **`logging/`**: `Logger`, `CrashHandler` (Spdlog wrapper).
 *   **`math/`**: Math utilities, UUID generation.
-*   **`threading/`**: Thread pool or concurrency primitives (likely Taskflow intigration).
-*   **`utils/`**: General purpose helpers.
+*   **`threading/`**: Thread pool or concurrency primitives (Taskflow integration).
+*   **`utils/`**: General purpose helpers (FrameRateUtils, etc.).
 
 ### 2.3. `engine/` - Core Subsystems
 Low-level engine systems that handle technical operations usually agnostic of specific gameplay rules.
@@ -37,7 +37,7 @@ Low-level engine systems that handle technical operations usually agnostic of sp
     *   `GPUParticleSystem` / `GPUFlowFieldSystem`: Compute shader-based visual systems.
     *   `UIRenderer`: UI rendering.
 *   **`input/`**: `InputSystem` - handling keyboard/mouse state mapping.
-*   **`physics/`**: `PhysicsSystem` - Collision detection (likely AABB or similar 2D physics), QuadTrees/SpatialHash.
+*   **`physics/`**: `PhysicsSystem` - Collision detection (SpatialHashGrid), movement integration.
 *   **`resource/`**: `ResourceManager`, `AssetLoadingSystem`. Handles async loading of textures, shaders, JSONs.
 *   **`scene/`**: `SceneManager`, `StateManager`. Manages the stack of GameStates (Menu -> Game -> Pause).
 
@@ -46,28 +46,33 @@ The bulk of the specific game logic, built primarily on the EnTT ECS architectur
 
 #### 2.4.1. `states/` - Game States
 Classes corresponding to different screens/modes of the application.
-*   `GameplayState`: The actual game loop.
+*   `GameplayState`: The actual game loop. Initializes level, entities, and runs the update loop.
 *   `MainMenuState`, `PauseState`, `SettingsState`, `InventoryState`, `LoadingState`.
 
 #### 2.4.2. `components/` - ECS Components (Data)
 POD (Plain Old Data) structs attached to entities.
 *   **`Common.hpp`**: `Position`, `Velocity`, `Sprite`, `IDComponent`.
-*   **`Stats.hpp`**: `Health`, `Mana`, `Damage`, `Defense` stats.
-*   **`SkillDefs.hpp`**: `SkillCooldowns`, `ActiveSkills`.
+*   **`Stats.hpp`**: `Health`, `Mana`, `CombatStats`, `Damage` modifiers.
+*   **`SkillDefs.hpp`**: `SkillCooldowns`, `ActiveSkills`, `SummonComponent`, `ShadowComponent`.
 *   **`ItemComponent.hpp`**, `InventoryComponent.hpp`, `EquipmentComponent.hpp`.
-*   **`AIComponent.hpp`**: State data for enemy AI behavior trees/FSM.
+*   **`AIComponent.hpp`**: State data for enemy AI.
+*   **`Combat.hpp`**: `AttackState`, `DamageEvent`.
 
 #### 2.4.3. `systems/` - ECS Systems (Logic)
 Systems that iterate over entities with specific components to execute logic.
 *   **`combat/`**:
-    *   `CombatSystem`: Hit detection, state resolution.
-    *   `DamagePipeline`: Calculation of damage numbers, mitigations, crits.
-    *   `StatsSystem`: Synchronizes base stats with modifiers.
-    *   `CombatEventDispatcher`: Event bus for combat triggers (OnHit, OnKill).
+    *   `CombatSystem`: Hit detection resolution, basic damage application.
+    *   `DamagePipeline`: Complex damage calculation (Mitigations, Crits, Elemental, Armor).
+    *   `StatsSystem`: Synchronizes base stats with modifiers (Talents, Gear).
+    *   `CombatEventDispatcher`: Event bus for combat triggers (OnHit, OnKill, OnCrit).
+    *   `VisualFXSystem`: Handles visual feedback for combat events (particles, screen shake) decoupled from logic.
+    *   `EffectSystem`: Status effects (DoT, Buffs).
 *   **`skill/`**:
-    *   `SkillSystem`: Manages skill triggers, cooldowns, and execution.
-    *   `ProjectileSystem`: Updates projectile movement and collision.
-    *   `behaviors/`: Specific implementation logic for different skills (e.g., `BladeBoomerang`, `FlowingThrust`).
+    *   `SkillSystem`: Manages skill triggers, cooldowns, and input handling.
+    *   `ShadowSystem`: Manages "Shadow/Afterimage" delayed skill mimicry.
+    *   `SummonSystem`: Manages summons (Spirit Swords) AI and lifetime.
+    *   `ProjectileSystem`: Updates projectile movement, collision, and piercing logic.
+    *   `behaviors/`: Specific implementation logic for different skills (e.g., `BladeFormation`, `FlowingThrust`).
 *   **`ai/`**: `AISystem`, `EnemyBehavior`. Handles enemy pathfinding and decision making.
 *   **`item/`**: `InventorySystem`, `DropSystem`, `LootFilter`.
 *   **`world/`**:
@@ -82,7 +87,7 @@ Registries and loaders for static game data (often loaded from JSON).
 
 ## 3. Module Interactions & Architecture
 
-### 3.1. Entity Componenet System (EnTT)
+### 3.1. Entity Component System (EnTT)
 *   **Entities** are just IDs.
 *   **Components** hold data (e.g., `Position`, `Health`).
 *   **Systems** hold logic. The `Game` loop calls `System::Update(registry, dt)`.
@@ -105,12 +110,15 @@ Registries and loaders for static game data (often loaded from JSON).
 
 ### 3.5. Event System
 *   Used primarily in Combat.
-*   `CombatEventDispatcher` allows systems to subscribe to events like `OnDealDamage` or `OnKill` without tight coupling between the DamagePipeline and specialized logic (like specific Item effects).
+*   `CombatEventDispatcher` allows systems to subscribe to events like `OnDealDamage`, `OnKill`, or `OnSkillHit` without tight coupling.
+*   **VisualFXSystem** listens to these events to spawn particles, ensuring visual logic doesn't clutter gameplay code.
 
 ## 4. Key Files for Quick Navigation
 *   **Main Game Loop**: `src/app/Game.cpp`
 *   **Combat Logic**: `src/game/systems/combat/DamagePipeline.cpp`
 *   **Skill Definitions**: `src/game/systems/skill/behaviors/`
+*   **Shadow Logic**: `src/game/systems/skill/ShadowSystem.cpp`
+*   **Visuals**: `src/game/systems/combat/VisualFXSystem.cpp`
 *   **Entity Registration (Save/Load)**: `src/systems/SerializationSystem.hpp`
 *   **Defines/Config**: `src/pch.hpp` (Precompiled Header), `CMakeLists.txt`
 
@@ -130,10 +138,12 @@ graph TD
         
         ECS -->|Update| Physics[PhysicsSystem]
         ECS -->|Update| Combat[CombatSystem]
+        ECS -->|Update| Skill[Skill/Shadow/Summon]
         ECS -->|Update| AI[AISystem]
         
         Physics -->|Write| Components
         Combat -->|Write| Components
+        Skill -->|Write| Components
         AI -->|Write| Components
         
         Gameplay -->|Draw| Render[RenderSystem]
@@ -150,6 +160,7 @@ sequenceDiagram
     participant Phys as PhysicsSystem
     participant Dmg as DamagePipeline
     participant Event as CombatEventDispatcher
+    participant VFX as VisualFXSystem
     participant Stats as StatsSystem
 
     Player->>Input: Press Key
@@ -165,8 +176,12 @@ sequenceDiagram
         Dmg->>Stats: Check Defense/Resist
     end
     
-    Dmg->>Event: Dispatch OnDealDamage
-    Event-->>Skill: Trigger OnHit Effects (e.g. Lifesteal)
+    Dmg->>Event: Dispatch OnDealDamage/OnHit
+    par Logic
+        Event-->>Skill: Trigger OnHit Effects (e.g. Lifesteal)
+    and Visuals
+        Event-->>VFX: Spawn Hit Particles
+    end
     
     Dmg->>Stats: Deduct Health
     
