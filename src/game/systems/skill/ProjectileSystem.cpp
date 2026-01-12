@@ -193,16 +193,6 @@ void ProjectileSystem::Update(entt::registry& registry, systems::SpatialHashGrid
                 // Hit confirmed
                 proj.hitEntities.push_back(target); // Record the hit
                 
-                // --- VISUAL EFFECTS: Ink Splash on Hit ---
-                if (skill_id == 2 || skill_id == 7) {
-                    auto& particleSys = systems::GPUParticleSystem::Get();
-                    auto splash = systems::InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 8, 15.0f, 150.0f);
-                    for (auto& p : splash) {
-                        if (skill_id == 7) p.color = GOLD; // Gold for Mind Blade
-                        particleSys.Emit(p);
-                    }
-                }
-
                 Tag hit_tags = Tag::Projectile | Tag::Hit;
                 
                 uint32_t skill_id = 0;

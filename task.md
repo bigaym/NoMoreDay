@@ -14,6 +14,6 @@ This task tracks the phased implementation of the Sword Cultivator's full skill 
 - [x] **Phase 3: Defensive & Counter Mechanics**
     - [x] `Blade Ward`: Projectile interception system <!-- id: 7 -->
     - [x] `Phantom Flash`: Counter-attack state watcher <!-- id: 8 -->
-- [ ] **Phase 4: Visual Polish (GPU VFX)**
-    - [ ] Bind `GPUParticleSystem` to `OnSkillHit`/`OnCast` events <!-- id: 9 -->
-    - [ ] Implement visual feedback for Sword Intent stacks <!-- id: 10 -->
+- [x] **Phase 4: Visual Polish (GPU VFX)**
+    - [x] Bind `GPUParticleSystem` to `OnSkillHit`/`OnCast` events <!-- id: 9 -->
+    - [x] Implement visual feedback for Sword Intent stacks <!-- id: 10 -->

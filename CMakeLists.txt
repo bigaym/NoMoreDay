@@ -159,6 +159,7 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/combat/CombatEventDispatcher.cpp
     src/game/systems/combat/CombatSystem.cpp
     src/game/systems/combat/DamagePipeline.cpp
+    src/game/systems/combat/VisualFXSystem.cpp
     src/game/systems/combat/EffectSystem.cpp
     src/game/systems/combat/ProgressionSystem.cpp
     src/game/systems/combat/StatsSystem.cpp

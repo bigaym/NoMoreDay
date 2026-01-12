@@ -37,6 +37,7 @@
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/systems/skill/ShadowSystem.hpp"
+#include "game/systems/combat/VisualFXSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -45,6 +46,9 @@ namespace NoMoreDay {
         
         // Initialize Spatial Grid
         m_spatialGrid = systems::SpatialHashGrid(WorldConstants::GRID_COLS, WorldConstants::GRID_ROWS, WorldConstants::GRID_CELL_SIZE);
+
+        // Initialize Visual FX (Events)
+        systems::VisualFXSystem::Initialize(*m_context->registry);
 
         // 1. Initialize Managers/Resources (if not already)
         // Note: Resources are managed by SharedContext->resources (owned by Game)
@@ -436,6 +440,7 @@ namespace NoMoreDay {
 
         // 6. Effects
         EffectSystem::update(registry, dt);
+        systems::VisualFXSystem::Update(registry, dt);
 
         // 7. Physics (Taskflow)
         UpdatePhysics(dt);

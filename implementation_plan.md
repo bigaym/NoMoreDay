@@ -97,3 +97,28 @@ Implement defensive mechanics for **Blade Ward** (Projectile Interception) and *
 
 ## Verification
 - **Test Results**: `Defense Mechanics` PASSED.
+
+# Implementation Plan - Skill System Phase 4: Visual Polish
+
+## Goal Description
+Enhance visual feedback for skills using `VisualFXSystem`, event-driven VFX, and Sword Intent auras.
+
+## Changes
+
+### 1. Visual FX System
+#### [NEW] [VisualFXSystem.hpp/cpp](file:///f:/NoMoreDay/src/game/systems/combat/VisualFXSystem.hpp)
+- **Initialize**: Registers event handlers for `OnSkillHit` and `OnCrit` via `CombatEventDispatcher`.
+- **Update**: Handles Sword Intent aura particles based on stack count.
+- **Centralized Logic**: Moved hardcoded VFX from `ProjectileSystem` to this system.
+
+### 2. Integration
+#### [MODIFY] [GameplayState.cpp](file:///f:/NoMoreDay/src/game/states/GameplayState.cpp)
+- Registered `VisualFXSystem::Initialize` in `OnEnter`.
+- Registered `VisualFXSystem::Update` in `OnUpdate`.
+
+#### [MODIFY] [ProjectileSystem.cpp](file:///f:/NoMoreDay/src/game/systems/skill/ProjectileSystem.cpp)
+- Removed hardcoded hit effects to avoid duplication.
+
+## Verification
+- **Visuals**: Verified compilation and logic. 
+- **Tests**: Re-ran `Defense Mechanics` to ensure no regression. PASSED.
