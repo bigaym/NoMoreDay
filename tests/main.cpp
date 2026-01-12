@@ -25,6 +25,7 @@ using namespace NoMoreDay;
 #include "TestSwordIntentAccumulation.cpp"
 #include "TestShadowSystem.cpp"
 #include "TestBladeFormation.cpp"
+#include "TestDefenseMechanics.cpp"
 #include "GPUFlowFieldTest.hpp"
 
 #if defined(_WIN32) && defined(__GNUC__)

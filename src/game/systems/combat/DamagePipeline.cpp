@@ -9,7 +9,9 @@
 #include <array>
 #include "game/data/SkillRegistry.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/PlayerState.hpp" // PhantomFlashComponent
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp" // ShadowCast
 #include "core/math/ThreadSafeRandom.hpp"
 #include "game/components/Projectile.hpp"
 
@@ -344,6 +346,26 @@ DamageResult DamagePipeline::Calculate(
         }
     }
 
+    // --- Phantom Flash Counter Logic (Single Target) ---
+    if (!is_simulation && registry.valid(defender)) {
+        if (auto* pf = registry.try_get<PhantomFlashComponent>(defender)) {
+            if (pf->counter_window > 0.0f && !pf->triggered) {
+                pf->triggered = true;
+                total_final_damage = 0.0f; // Negate damage
+                result.final_pool.Clear(); // Clear pools
+                
+                spdlog::info("Phantom Flash: Counter Triggered by entity {}", (uint32_t)defender);
+                
+                // Trigger Counter Attack (Visual/Logic)
+                if (registry.valid(attacker) && registry.all_of<Position>(attacker) && registry.all_of<Position>(defender)) {
+                    const auto& attPos = registry.get<Position>(attacker);
+                    const auto& defPos = registry.get<Position>(defender);
+                    NoMoreDay::SkillSystem::ShadowCast(registry, defender, 2, {defPos.x, defPos.y}, {attPos.x, attPos.y});
+                }
+            }
+        }
+    }
+
     result.total_damage = total_final_damage;
     
     // --- Event System: Dispatch combat events ---
@@ -533,7 +555,31 @@ void DamagePipeline::CalculateBatch(
     // 3. Serial Commit (Main Thread Safe)
     for (const auto& res : results) {
         if (res.target != entt::null) {
-            CombatSystem::ApplyDamage(registry, res.target, res.damage, attacker, res.is_crit);
+            float final_damage = res.damage;
+            bool counter_triggered = false;
+
+            // --- Phantom Flash Counter Logic ---
+            if (auto* pf = registry.try_get<PhantomFlashComponent>(res.target)) {
+                if (pf->counter_window > 0.0f && !pf->triggered) {
+                    pf->triggered = true;
+                    final_damage = 0.0f;
+                    counter_triggered = true;
+                    spdlog::info("Phantom Flash: Counter Triggered by entity {}", (uint32_t)res.target);
+                    
+                    // Counter Attack: Spawn Gold Sparks aimed at attacker
+                    if (registry.valid(attacker) && registry.all_of<Position>(attacker) && registry.all_of<Position>(res.target)) {
+                        const auto& attPos = registry.get<Position>(attacker);
+                        const auto& defPos = registry.get<Position>(res.target);
+                        
+                        // Cast a counter-projectile (e.g. ID 2 Rending Wave but Gold/Empowered)
+                        // Or just instant damage.
+                        // Let's use SkillSystem::ShadowCast for a "Counter Cut".
+                        NoMoreDay::SkillSystem::ShadowCast(registry, res.target, 2, {defPos.x, defPos.y}, {attPos.x, attPos.y});
+                    }
+                }
+            }
+
+            CombatSystem::ApplyDamage(registry, res.target, final_damage, attacker, res.is_crit);
 
             // --- Event System: Dispatch combat events ---
             if (!HasTag(combined_tags, Tag::DamageOverTime)) {

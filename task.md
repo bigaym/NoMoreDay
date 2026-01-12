@@ -11,9 +11,9 @@ This task tracks the phased implementation of the Sword Cultivator's full skill 
     - [x] Refactor `BladeFormation` for state-driven behavior <!-- id: 4 -->
     - [x] Implement "Sword Rain" branch logic (Multi-projectile tracking) <!-- id: 5 -->
     - [x] Implement "Heavy Sword" branch logic (Entity merging) <!-- id: 6 -->
-- [ ] **Phase 3: Defensive & Counter Mechanics**
-    - [ ] `Blade Ward`: Projectile interception system <!-- id: 7 -->
-    - [ ] `Phantom Flash`: Counter-attack state watcher <!-- id: 8 -->
+- [x] **Phase 3: Defensive & Counter Mechanics**
+    - [x] `Blade Ward`: Projectile interception system <!-- id: 7 -->
+    - [x] `Phantom Flash`: Counter-attack state watcher <!-- id: 8 -->
 - [ ] **Phase 4: Visual Polish (GPU VFX)**
     - [ ] Bind `GPUParticleSystem` to `OnSkillHit`/`OnCast` events <!-- id: 9 -->
     - [ ] Implement visual feedback for Sword Intent stacks <!-- id: 10 -->

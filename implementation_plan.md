@@ -72,3 +72,28 @@ Refactor **Blade Formation (Ling Jian Jue)** to support advanced behaviors: "Gia
 ## Verification
 - **Test Results**: `Blade Formation Deep Dive` PASSED.
 - **Build**: Fixed `-fno-rtti` issues in `tests/CMakeLists.txt` to allow `spdlog` compatibility.
+
+# Implementation Plan - Skill System Phase 3: Defensive & Counter Mechanics
+
+## Goal Description
+Implement defensive mechanics for **Blade Ward** (Projectile Interception) and **Phantom Flash** (Evasion Counter).
+
+## Changes
+
+### 1. Blade Ward Interception
+#### [MODIFY] [ProjectileSystem.cpp](file:///f:/NoMoreDay/src/game/systems/skill/ProjectileSystem.cpp)
+- **Existing Logic**: `ProjectileSystem` already contains logic to check `BladeWardComponent` on target during collision.
+- **Verification**: Logic verified via tests.
+
+### 2. Phantom Flash Counter
+#### [MODIFY] [DamagePipeline.cpp](file:///f:/NoMoreDay/src/game/systems/combat/DamagePipeline.cpp)
+- **Implement Counter**: In `Calculate`, check if defender has `PhantomFlashComponent` active.
+- **Effect**: If active (and not triggered), negate damage (`total_damage = 0`) and trigger a counter-attack (`SkillSystem::ShadowCast` ID 2 from defender to attacker).
+
+### 3. Tests
+#### [NEW] [TestDefenseMechanics.cpp](file:///f:/NoMoreDay/tests/TestDefenseMechanics.cpp)
+- **Blade Ward**: Verify projectile destruction and sword count decrement. (Note: Required valid `Velocity` on defender for grid inclusion).
+- **Phantom Flash**: Verify 0 damage and `triggered` state on defender.
+
+## Verification
+- **Test Results**: `Defense Mechanics` PASSED.
