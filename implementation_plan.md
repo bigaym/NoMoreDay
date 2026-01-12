@@ -37,3 +37,38 @@ The `ShadowSystem` manages the lifecycle of shadow actions (delay -> cast).
 
 ### Manual Verification
 - Tests passed via `tests_runner.exe -tc="ShadowSystem Tests"`.
+
+# Implementation Plan - Skill System Phase 2: Blade Formation Deep Dive
+
+## Goal Description
+Refactor **Blade Formation (Ling Jian Jue)** to support advanced behaviors: "Giant Sword" (Heavy) and "Standard/Sword Rain" modes.
+
+## Changes
+
+### 1. Components
+#### [MODIFY] [SkillDefs.hpp](file:///f:/NoMoreDay/src/game/components/SkillDefs.hpp)
+- Updated `SpiritSwordAI` to include `State` (Idle, Attacking, etc.) - *Not strictly used yet but ready*.
+- `BladeFormationComponent` handles flags for `has_giant_sword`.
+
+### 2. Systems
+#### [MODIFY] [SummonSystem.cpp](file:///f:/NoMoreDay/src/game/systems/skill/SummonSystem.cpp)
+- **Refactored `UpdateSpiritSwords`**:
+    - Checks `BladeFormationComponent` from owner.
+    - **Giant Sword**: Slower orbit, larger radius, 1.5x Damage, Heavy visual effect (Ink Splash).
+    - **Standard**: Faster orbit, 0.5x Damage, Standard visual effect (Ink Trail).
+- **Damage Logic**: Uses `CombatStats` snapshot on proxy entity to scale damage multipliers before casting `Rending Wave` (Skill ID 2).
+
+#### [MODIFY] [BladeFormation.cpp](file:///f:/NoMoreDay/src/game/systems/skill/behaviors/BladeFormation.cpp)
+- **Talent Logic**: Correctly sets `has_giant_sword` flag if Talent 310 is allocated.
+- **Merging**: Caps `max_swords` to 1 if Giant Sword is active.
+
+### 3. Tests
+#### [NEW] [TestBladeFormation.cpp](file:///f:/NoMoreDay/tests/TestBladeFormation.cpp)
+- **Deep Dive Tests**:
+    - Verify "Giant Sword" caps max swords to 1.
+    - Verify "Standard Mode" allows multiple swords.
+    - **Damage Scaling**: Uses `SkillSystem::AddPreCastHook` to verify that the proxy entity cast has the correct damage multipliers (1.5x vs 0.5x).
+
+## Verification
+- **Test Results**: `Blade Formation Deep Dive` PASSED.
+- **Build**: Fixed `-fno-rtti` issues in `tests/CMakeLists.txt` to allow `spdlog` compatibility.

@@ -418,6 +418,17 @@ struct SpiritSwordAI {
     float attack_interval = 1.0f;
     Vector2 orbit_offset = {0, 0};
     float orbit_angle = 0.0f;
+    
+    // State Machine
+    enum class State : uint8_t {
+        Idle,       // Orbiting
+        Chasing,    // Flying to target (Sword Rain)
+        Attacking,  // Striking (Heavy Sword)
+        Returning   // Returning to orbit
+    } state = State::Idle;
+    
+    float state_timer = 0.0f;
+    Vector2 start_pos = {0, 0}; // For return lerp
 };
 
 struct BladeFormationComponent {

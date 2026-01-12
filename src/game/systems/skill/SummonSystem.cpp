@@ -43,6 +43,7 @@ void SummonSystem::UpdateSpiritSwords(entt::registry& registry, float dt, const 
         auto* formation = registry.try_get<NoMoreDay::BladeFormationComponent>(summon.owner);
         NoMoreDay::SpiritSwordMode mode = formation ? formation->mode : NoMoreDay::SpiritSwordMode::Guardian;
         float searchRadius = formation ? formation->search_radius : 300.0f;
+        bool isGiant = formation && formation->has_giant_sword;
 
         // --- Targeting ---
         if (!registry.valid(ai.target) || registry.all_of<KilledTag>(ai.target)) {
@@ -73,14 +74,17 @@ void SummonSystem::UpdateSpiritSwords(entt::registry& registry, float dt, const 
         }
 
         // --- Movement (Orbiting) ---
-        ai.orbit_angle += dt * 3.0f;
-        float radius = 45.0f;
+        float orbitSpeed = isGiant ? 1.5f : 3.0f;
+        ai.orbit_angle += dt * orbitSpeed;
+        
+        float radius = isGiant ? 60.0f : 45.0f;
         float targetX = ownerPos->x + cosf(ai.orbit_angle) * radius;
         float targetY = ownerPos->y + sinf(ai.orbit_angle) * radius;
 
         // Smoothly move towards orbit position
-        pos.x += (targetX - pos.x) * 10.0f * dt;
-        pos.y += (targetY - pos.y) * 10.0f * dt;
+        float moveSpeed = isGiant ? 5.0f : 10.0f;
+        pos.x += (targetX - pos.x) * moveSpeed * dt;
+        pos.y += (targetY - pos.y) * moveSpeed * dt;
 
         // --- Combat ---
         ai.attack_timer -= dt;
@@ -92,18 +96,31 @@ void SummonSystem::UpdateSpiritSwords(entt::registry& registry, float dt, const 
             // Create proxy caster to modify stats and radius
             auto proxy = registry.create();
             registry.emplace<NoMoreDay::SpiritSwordTag>(proxy);
+            registry.emplace<LocalLevelTag>(proxy); // Ensure it's cleaned up if level changes
+
             if (auto* pStats = registry.try_get<CombatStats>(summon.owner)) {
                 CombatStats proxyStats = *pStats;
-                for (auto& m : proxyStats.damage_multipliers) m *= 0.5f; // 50% Damage
+                if (isGiant) {
+                    for (auto& m : proxyStats.damage_multipliers) m *= 1.5f; // 150% Damage for Giant
+                } else {
+                    for (auto& m : proxyStats.damage_multipliers) m *= 0.5f; // 50% Damage for small swords
+                }
                 registry.emplace<CombatStats>(proxy, proxyStats);
             }
             
             NoMoreDay::SkillSystem::ShadowCast(registry, proxy, 2, {pos.x, pos.y}, {tPos.x, tPos.y});
-            registry.destroy(proxy);
             
             // Visual feedback
             auto& particleSys = GPUParticleSystem::Get();
-            particleSys.Emit(InkEffectHelper::CreateInkTrail({pos.x, pos.y}, {0, -50}, 1.0f, 0.5f));
+            if (isGiant) {
+                // Heavier effect for Giant Sword
+                 auto splash = InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 5, 10.0f, 80.0f);
+                 for(auto& p : splash) particleSys.Emit(p);
+            } else {
+                particleSys.Emit(InkEffectHelper::CreateInkTrail({pos.x, pos.y}, {0, -50}, 1.0f, 0.5f));
+            }
+
+            registry.destroy(proxy);
         }
     }
 }

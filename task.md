@@ -7,10 +7,10 @@ This task tracks the phased implementation of the Sword Cultivator's full skill 
     - [x] Implement `ShadowSystem` lifecycle & behavior loop <!-- id: 1 -->
     - [x] Implement `ShadowBehavior` for skill mimicry <!-- id: 2 -->
     - [x] Integration: `Flowing Thrust` (Branch B: Shadow Kill) <!-- id: 3 -->
-- [ ] **Phase 2: Blade Formation (Ling Jian Jue) Deep Dive**
-    - [ ] Refactor `BladeFormation` for state-driven behavior <!-- id: 4 -->
-    - [ ] Implement "Sword Rain" branch logic (Multi-projectile tracking) <!-- id: 5 -->
-    - [ ] Implement "Heavy Sword" branch logic (Entity merging) <!-- id: 6 -->
+- [x] **Phase 2: Blade Formation (Ling Jian Jue) Deep Dive**
+    - [x] Refactor `BladeFormation` for state-driven behavior <!-- id: 4 -->
+    - [x] Implement "Sword Rain" branch logic (Multi-projectile tracking) <!-- id: 5 -->
+    - [x] Implement "Heavy Sword" branch logic (Entity merging) <!-- id: 6 -->
 - [ ] **Phase 3: Defensive & Counter Mechanics**
     - [ ] `Blade Ward`: Projectile interception system <!-- id: 7 -->
     - [ ] `Phantom Flash`: Counter-attack state watcher <!-- id: 8 -->
