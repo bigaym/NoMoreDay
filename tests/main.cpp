@@ -23,6 +23,7 @@ using namespace NoMoreDay;
 #include "FinalIntegrationTest.hpp"
 #include "StatsBenchmark.cpp"
 #include "TestSwordIntentAccumulation.cpp"
+#include "GPUFlowFieldTest.hpp"
 
 int main(int argc, char** argv) {
     // 设置日志级别为warning

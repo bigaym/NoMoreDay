@@ -12,7 +12,7 @@ static void handle_node_effect(entt::registry& registry, entt::entity entity, co
         case AstrolabeEffectType::GrantComponent:
             if (effect.value == "SwordHeart") {
                 if (active) {
-                    registry.get_or_emplace<SwordHeartComponent>(entity);
+                    (void)registry.get_or_emplace<SwordHeartComponent>(entity);
                     LOG_INFO("AstrolabeSystem: Entity {} granted SwordHeart trait", (uint32_t)entity);
                 } else {
                     if (registry.all_of<SwordHeartComponent>(entity)) {
@@ -22,7 +22,7 @@ static void handle_node_effect(entt::registry& registry, entt::entity entity, co
                 }
             } else if (effect.value == "SwordIntentUnlock") {
                 if (active) {
-                    registry.get_or_emplace<SwordIntentComponent>(entity);
+                    (void)registry.get_or_emplace<SwordIntentComponent>(entity);
                     LOG_INFO("AstrolabeSystem: Entity {} unlocked Sword Intent", (uint32_t)entity);
                 } else {
                     if (registry.all_of<SwordIntentComponent>(entity)) {

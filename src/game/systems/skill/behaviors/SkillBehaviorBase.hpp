@@ -19,7 +19,8 @@ namespace NoMoreDay {
  */
 template<typename Derived>
 struct SkillBehaviorBase {
-    static constexpr uint32_t SkillId = Derived::kSkillId;
+    // MSVC fix: Derived is incomplete during base class instantiation in CRTP.
+    // static constexpr uint32_t SkillId = Derived::kSkillId;
     
     /**
      * @brief Called when the skill effect should be executed.

@@ -3,14 +3,14 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 set "BUILD_DIR=build"
-set "CMAKE_OPTS=-DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_UNITY_BUILD=ON"
+set "CMAKE_OPTS=-DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_UNITY_BUILD=OFF"
 set "BUILD_TESTS=ON"
 set "NEED_CONFIG=0"
 
 :ARGS_LOOP
 if "%~1"=="" goto :ARGS_DONE
 if /i "%~1"=="clean" (
-    echo [Build] Cleaning CMake cache (preserving objects)...
+    echo [Build] Cleaning CMake cache ^(preserving objects^)...
     if exist "%BUILD_DIR%\CMakeCache.txt" del /f /q "%BUILD_DIR%\CMakeCache.txt"
     set "NEED_CONFIG=1"
 )
