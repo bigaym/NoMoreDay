@@ -1,3 +1,4 @@
+# === Benchmark: Stats System ===
 add_executable(StatsBenchmark 
     StatsBenchmark.cpp
 )
@@ -7,8 +8,14 @@ target_include_directories(StatsBenchmark PRIVATE
 target_link_libraries(StatsBenchmark PRIVATE NoMoreDayCore)
 if(WIN32)
     target_compile_definitions(StatsBenchmark PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+    if(MSVC)
+        target_compile_options(StatsBenchmark PRIVATE /GR-)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        target_compile_options(StatsBenchmark PRIVATE -fno-rtti)
+    endif()
 endif()
 
+# === Benchmark: Drop System ===
 add_executable(DropSystemBenchmark 
     DropSystemBenchmark.cpp
 )
@@ -18,8 +25,14 @@ target_include_directories(DropSystemBenchmark PRIVATE
 target_link_libraries(DropSystemBenchmark PRIVATE NoMoreDayCore)
 if(WIN32)
     target_compile_definitions(DropSystemBenchmark PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+    if(MSVC)
+        target_compile_options(DropSystemBenchmark PRIVATE /GR-)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        target_compile_options(DropSystemBenchmark PRIVATE -fno-rtti)
+    endif()
 endif()
 
+# === Test Runner ===
 add_executable(tests_runner
     main.cpp
 )
@@ -34,6 +47,8 @@ if(WIN32)
 endif()
 
 if(MSVC)
-    target_compile_options(tests_runner PRIVATE /bigobj)
+    target_compile_options(tests_runner PRIVATE /bigobj /GR-)
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(tests_runner PRIVATE -fno-rtti)
 endif()
 

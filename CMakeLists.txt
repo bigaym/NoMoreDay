@@ -4,7 +4,24 @@ project(NoMoreDay VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_UNITY_BUILD OFF)  # Disable Unity Build globally
+set(CMAKE_UNITY_BUILD OFF)  # 禁用Unity Build，防止一些文件不编译
+
+# --- Build Acceleration: ccache/sccache ---
+find_program(CCACHE_PROGRAM ccache)
+find_program(SCCACHE_PROGRAM sccache)
+if(SCCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER "${SCCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${SCCACHE_PROGRAM}")
+    message(STATUS "Using sccache: ${SCCACHE_PROGRAM}")
+elseif(CCACHE_PROGRAM)
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    message(STATUS "Using ccache: ${CCACHE_PROGRAM}")
+endif()
+
+# --- Optimization & Layout ---
+set_property(GLOBAL PROPERTY USE_FOLDERS ON) # Organize projects in folders in VS
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON) # Enable Link Time Optimization (LTO) for Release
 
 # --- External Dependencies ---
 
@@ -193,9 +210,91 @@ if(WIN32)
     
     target_compile_definitions(NoMoreDayCore PUBLIC GRAPHICS_API_OPENGL_43)
 
+    if(MSVC)
+        # === MSVC Compiler Options ===
+        target_compile_options(NoMoreDayCore PUBLIC 
+            /MP                   # Multi-processor compilation
+            /utf-8                # Force UTF-8 encoding for source and execution
+            /W4                   # Warning Level 4
+            /permissive-          # Strict conformance mode
+            /Zc:__cplusplus       # Correct __cplusplus macro definition
+            /Zc:inline            # Remove unreferenced COMDAT
+            /Zc:forScope          # Stricter for loop scoping
+            /Zc:preprocessor      # Modern conformant preprocessor
+            /fp:fast              # Fast floating-point model (good for games)
+            /Oi                   # Enable intrinsic functions
+            /GR-                  # Disable RTTI (we don't use dynamic_cast/typeid)
+        )
+
+        # Release-only optimizations (maximum performance)
+        target_compile_options(NoMoreDayCore PRIVATE $<$<CONFIG:Release>:
+            /O2                   # Maximum optimization
+            /Ob3                  # Aggressive inlining (MSVC 19.25+)
+            /Gy                   # Enable function-level linking
+            /GF                   # Enable string pooling (deduplicate strings)
+            /Ot                   # Favor fast code over small code
+            /GL                   # Whole program optimization
+            /GA                   # Assume thread-local storage (single-thread main loop)
+            /Qpar                 # Auto-parallelize loops where safe
+        >)
+
+        # RelWithDebInfo optimizations (performance + debugging)
+        target_compile_options(NoMoreDayCore PRIVATE $<$<CONFIG:RelWithDebInfo>:
+            /O2                   # Maximum optimization
+            /Ob2                  # Normal inlining
+            /Gy                   # Enable function-level linking
+            /GF                   # Enable string pooling
+            /Ot                   # Favor fast code
+        >)
+
+        # Debug-specific options for fast iteration
+        target_compile_options(NoMoreDayCore PRIVATE $<$<CONFIG:Debug>:
+            /Ob1                  # Inline marked functions (faster than /Ob0)
+            /RTC1                 # Runtime checks
+        >)
+
+        # Enable AVX2 for modern CPUs (Intel Haswell+ / AMD Excavator+)
+        # Comment out if you need to support older CPUs
+        option(ENABLE_AVX2 "Enable AVX2 instruction set" ON)
+        if(ENABLE_AVX2)
+            target_compile_options(NoMoreDayCore PUBLIC /arch:AVX2)
+        endif()
+    endif()
+
     if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        # -Wno-stringop-overflow: Suppress false positives from spdlog/fmt in GCC 13/14
-        target_compile_options(NoMoreDayCore PUBLIC "-Wa,-mbig-obj" "-Wno-stringop-overflow")
+        # === GCC Compiler Options ===
+        target_compile_options(NoMoreDayCore PUBLIC 
+            "-Wa,-mbig-obj"       # Large object file support
+            -Wno-stringop-overflow # Suppress false positives from spdlog/fmt
+            -fno-rtti             # Disable RTTI
+            -ffast-math           # Fast floating-point (like /fp:fast)
+        )
+
+        # Release-only optimizations for GCC
+        target_compile_options(NoMoreDayCore PRIVATE $<$<CONFIG:Release>:
+            -O3                   # Maximum optimization
+            -march=native         # Optimize for current CPU (includes AVX2 if available)
+            -mtune=native         # Tune for current CPU
+            -flto=auto            # Link-time optimization with auto thread detection
+            -ffunction-sections   # Enable function-level linking
+            -fdata-sections       # Enable data-level linking
+            -fno-plt              # Avoid PLT for faster calls
+        >)
+
+        # RelWithDebInfo optimizations for GCC
+        target_compile_options(NoMoreDayCore PRIVATE $<$<CONFIG:RelWithDebInfo>:
+            -O2                   # Good optimization with debugging
+            -march=native
+            -mtune=native
+            -ffunction-sections
+            -fdata-sections
+        >)
+
+        # Debug-specific options for GCC
+        target_compile_options(NoMoreDayCore PRIVATE $<$<CONFIG:Debug>:
+            -Og                   # Optimize for debugging (better than -O0)
+            -g3                   # Maximum debug info
+        >)
     endif()
     
     target_compile_definitions(NoMoreDayCore PUBLIC WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
@@ -205,9 +304,47 @@ endif()
 add_executable(NoMoreDay src/app/main.cpp)
 target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
 
-if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # STRIP symbols in Release mode to drastically reduce size
-    # target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:-s>)
+if(WIN32)
+    if(MSVC)
+        # === MSVC Linker Options ===
+        # Release linker optimizations
+        target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:
+            /OPT:REF              # Eliminate unreferenced data/functions
+            /OPT:ICF              # Identical COMDAT Folding
+            /LTCG                 # Link-time code generation (pairs with /GL)
+            /CGTHREADS:16         # Parallel code generation threads
+        >)
+
+        # RelWithDebInfo linker optimizations
+        target_link_options(NoMoreDay PRIVATE $<$<CONFIG:RelWithDebInfo>:
+            /OPT:REF
+            /OPT:ICF
+            /DEBUG:FASTLINK       # Fast incremental linking with debug info
+            /PDBALTPATH:%_PDB%    # Portable PDB paths
+        >)
+
+        # Debug linker options
+        target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Debug>:
+            /DEBUG:FASTLINK       # Much faster link times for Debug
+            /INCREMENTAL          # Only for Debug (conflicts with /OPT:ICF)
+        >)
+
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+        # === GCC Linker Options ===
+        # Release linker optimizations
+        target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:
+            -flto=auto            # LTO at link time
+            -Wl,--gc-sections     # Remove unused sections
+            -Wl,-O2               # Linker optimization level
+            -s                    # Strip symbols (smaller binary)
+        >)
+
+        # RelWithDebInfo linker optimizations
+        target_link_options(NoMoreDay PRIVATE $<$<CONFIG:RelWithDebInfo>:
+            -Wl,--gc-sections
+            -Wl,-O1
+        >)
+    endif()
 endif()
 
 # --- Output & Assets ---
@@ -223,29 +360,20 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-# 2. Copy Assets Folder (Robust Cross-Platform)
-# Symlinks on Windows via CMake can be flaky due to permissions or shell differences.
-# copy_directory is safe and effective for this scale.   
+# 2. Assets are managed via symlinks (created manually or by setup script)
+# No need to copy assets on every build.
+# If symlinks are not set up, run: mklink /D build\bin\assets ..\..\assets
 
-# 手动创建软链接
-add_custom_command(TARGET NoMoreDay POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    "${CMAKE_SOURCE_DIR}/assets"
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets"
-    COMMENT "Copying assets to output directory..."
-)
-
+# 3. Copy spdlog DLL (still needed since it's a shared library)
 add_custom_command(TARGET NoMoreDay POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:spdlog>
     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
-    COMMENT "Copying dependency DLLs..."
+    COMMENT "Copying spdlog DLL..."
 )
 
 # Set compile output encoding to UTF-8
-if(MSVC)
-    target_compile_options(NoMoreDay PRIVATE /utf-8)
-endif()
+# Moved to NoMoreDayCore PUBLIC options above for MSVC
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     # For GCC on Windows, ensure console output is UTF-8
