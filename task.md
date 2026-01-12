@@ -2,11 +2,11 @@
 
 This task tracks the phased implementation of the Sword Cultivator's full skill set, moving from technical foundations to complex gameplay mechanics and finally visual polish.
 
-- [/] **Phase 1: Shadow Entity System (Technical Foundation)**
-    - [ ] Define `ShadowComponent` & `ShadowSystem` structure <!-- id: 0 -->
-    - [ ] Implement `ShadowSystem` lifecycle & behavior loop <!-- id: 1 -->
-    - [ ] Implement `ShadowBehavior` for skill mimicry <!-- id: 2 -->
-    - [ ] Integration: `Flowing Thrust` (Branch B: Shadow Kill) <!-- id: 3 -->
+- [x] **Phase 1: Shadow Entity System (Technical Foundation)**
+    - [x] Define `ShadowComponent` & `ShadowSystem` structure <!-- id: 0 -->
+    - [x] Implement `ShadowSystem` lifecycle & behavior loop <!-- id: 1 -->
+    - [x] Implement `ShadowBehavior` for skill mimicry <!-- id: 2 -->
+    - [x] Integration: `Flowing Thrust` (Branch B: Shadow Kill) <!-- id: 3 -->
 - [ ] **Phase 2: Blade Formation (Ling Jian Jue) Deep Dive**
     - [ ] Refactor `BladeFormation` for state-driven behavior <!-- id: 4 -->
     - [ ] Implement "Sword Rain" branch logic (Multi-projectile tracking) <!-- id: 5 -->
