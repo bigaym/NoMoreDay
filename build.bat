@@ -24,7 +24,7 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 set "BUILD_DIR=build"
-set "BUILD_TYPE=RelWithDebInfo"
+set "BUILD_TYPE=release"
 set "BUILD_TESTS=ON"
 set "ENABLE_LTO=OFF"
 set "GENERATOR="

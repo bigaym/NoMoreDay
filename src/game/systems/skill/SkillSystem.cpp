@@ -130,44 +130,6 @@ void SkillSystem::Update(entt::registry& registry, systems::SpatialHashGrid& gri
     UpdateStates(registry, dt);
     UpdateSwordIntent(registry, dt);
     
-    // Update Shadows
-    auto shadow_view = registry.view<ShadowComponent>();
-    std::vector<entt::entity> expired_shadows;
-    for (auto entity : shadow_view) {
-        auto& shadow = shadow_view.get<ShadowComponent>(entity);
-        
-        if (!shadow.triggered) {
-            shadow.delay -= dt;
-            if (shadow.delay <= 0.0f) {
-                registry.emplace_or_replace<CombatStats>(entity, shadow.snapshot.stats);
-                ShadowCast(registry, entity, shadow.snapshot.skill_id, shadow.snapshot.position, shadow.snapshot.target_pos);
-                shadow.triggered = true;
-            }
-        }
-
-        bool is_expired = false;
-        if (shadow.triggered) {
-            // If already triggered, disappear as soon as casting finishes
-            bool still_casting = false;
-            auto exec_view = registry.view<SkillExecution>();
-            for(auto exec_ent : exec_view) {
-                if(exec_view.get<SkillExecution>(exec_ent).owner == entity) {
-                    still_casting = true;
-                    break;
-                }
-            }
-            if (!still_casting) is_expired = true;
-        }
-
-        shadow.lifetime -= dt;
-        if (shadow.lifetime <= 0.0f) is_expired = true;
-
-        if (is_expired) {
-            expired_shadows.push_back(entity);
-        }
-    }
-    for (auto e : expired_shadows) registry.destroy(e);
-
     // Update Blade Formation (ID 3)
     auto formation_view = registry.view<BladeFormationComponent, Position>();
     for (auto entity : formation_view) {

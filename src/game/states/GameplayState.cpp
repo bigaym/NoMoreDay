@@ -36,6 +36,7 @@
 #include "game/systems/ui/MonsterHealthBarSystem.hpp"
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
+#include "game/systems/skill/ShadowSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -254,6 +255,7 @@ namespace NoMoreDay {
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);
         // Update Skill System
+        ShadowSystem::Update(registry, dt);
         SkillSystem::Update(registry, m_spatialGrid, dt, m_context->executor);
         NoMoreDay::systems::SummonSystem::Update(registry, dt, m_spatialGrid);
         MovementStanceSystem::Update(registry, dt);

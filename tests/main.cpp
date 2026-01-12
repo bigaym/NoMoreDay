@@ -23,6 +23,7 @@ using namespace NoMoreDay;
 #include "FinalIntegrationTest.hpp"
 #include "StatsBenchmark.cpp"
 #include "TestSwordIntentAccumulation.cpp"
+#include "TestShadowSystem.cpp"
 #include "GPUFlowFieldTest.hpp"
 
 #if defined(_WIN32) && defined(__GNUC__)

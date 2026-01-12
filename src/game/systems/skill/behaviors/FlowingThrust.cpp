@@ -169,6 +169,13 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
             sc.snapshot.skill_id = 1;
             sc.snapshot.position = startPos;
             sc.snapshot.target_pos = exec.target_pos;
+
+            auto& summon = registry.emplace<SummonComponent>(shadow_ent);
+            summon.owner = owner;
+            summon.lifetime = 1.5f;
+            summon.max_lifetime = 1.5f;
+            summon.name = "Shadow Echo";
+
             if (stats) {
                 sc.snapshot.stats = *stats;
                 for (auto& mult : sc.snapshot.stats.damage_multipliers) mult *= 0.3f;
