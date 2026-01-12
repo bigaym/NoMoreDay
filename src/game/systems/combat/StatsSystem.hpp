@@ -2,6 +2,7 @@
 #include <entt/entity/registry.hpp>
 #include "game/components/Stats.hpp"
 #include "game/data/TagRegistry.hpp"
+#include <unordered_map>
 
 namespace NoMoreDay {
 
@@ -21,6 +22,15 @@ public:
 
     // @brief 更新所有实体的活跃 Buff 生命周期。
     static void UpdateBuffs(entt::registry& registry, float dt);
+
+    // @brief 清除特定实体的属性缓存（在属性重新计算时调用）
+    static void ClearCache(entt::entity entity);
+
+private:
+    // Per-entity stat cache, moved out of CombatStats to allow alignas(32) for SIMD
+    // Key: FNV-1a hash of (StatType, Tag, SkillID, SourceEntity)
+    // Outer Key: Entity ID
+    static inline std::unordered_map<uint32_t, std::unordered_map<uint64_t, float>> s_tagStatCache;
 };
 
 } // namespace NoMoreDay

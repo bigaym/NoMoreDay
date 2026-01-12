@@ -25,6 +25,14 @@ using namespace NoMoreDay;
 #include "TestSwordIntentAccumulation.cpp"
 #include "GPUFlowFieldTest.hpp"
 
+#if defined(_WIN32) && defined(__GNUC__)
+#include <windows.h>
+extern int main(int argc, char** argv);
+extern "C" int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    return main(__argc, __argv);
+}
+#endif
+
 int main(int argc, char** argv) {
     // 设置日志级别为warning
     tools::Logger::Init();

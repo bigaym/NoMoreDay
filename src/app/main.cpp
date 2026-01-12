@@ -3,6 +3,14 @@
 #include "core/logging/CrashHandler.hpp"
 
 // Diagnostic build: Force asset sync for particle fix
+#if defined(_WIN32) && defined(__GNUC__)
+#include <windows.h>
+extern int main(int argc, char* argv[]);
+extern "C" int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    return main(__argc, __argv);
+}
+#endif
+
 int main(int argc, char* argv[]) {
     NoMoreDay::CrashHandler::Init(); // 初始化崩溃捕获
     tools::Logger::Init();

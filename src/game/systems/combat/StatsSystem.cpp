@@ -79,7 +79,7 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.health_regen_pct = 0.0f;
     combat.mana_regen_pct = 0.0f;
 
-    combat.tag_stat_cache.clear();
+    // Cache is now managed by StatsSystem, cleared via ClearCache()
 }
 
 // 辅助函数：将通用 StatModifier 应用到计算结构
@@ -220,7 +220,8 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     if (!registry.all_of<CombatStats>(entity)) return;
 
     auto& combat = registry.get<CombatStats>(entity);
-    resetCombatStats(combat); 
+    resetCombatStats(combat);
+    ClearCache(entity);  // Clear the stat cache for this entity 
     
     // 0.5 Reset Skill Bonus Levels
     if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
@@ -743,8 +744,10 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
     hash_combine(static_cast<uint64_t>(skill_id));
     hash_combine(static_cast<uint64_t>(source_entity));
 
-    if (combat->tag_stat_cache.contains(key)) {
-        return combat->tag_stat_cache.at(key);
+    uint32_t entity_id = static_cast<uint32_t>(entity);
+    auto& entity_cache = s_tagStatCache[entity_id];
+    if (entity_cache.contains(key)) {
+        return entity_cache.at(key);
     }
 
     StatCalculation dynamic_calc;
@@ -894,7 +897,7 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
     }
 
     float result = dynamic_calc.Result();
-    combat->tag_stat_cache[key] = result;
+    s_tagStatCache[static_cast<uint32_t>(entity)][key] = result;
     return result;
 }
 
@@ -970,6 +973,11 @@ void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
             }
         }
     }
+}
+
+void StatsSystem::ClearCache(entt::entity entity) {
+    uint32_t entity_id = static_cast<uint32_t>(entity);
+    s_tagStatCache.erase(entity_id);
 }
 
 } // namespace NoMoreDay

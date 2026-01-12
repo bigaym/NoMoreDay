@@ -1,36 +1,39 @@
-
-@REM # 基本用法
-@REM .\build.bat           # 默认 RelWithDebInfo，自动检测 Ninja
-
-@REM # 新增选项
-@REM .\build.bat release   # Release 构建 (最大性能)
-@REM .\build.bat debug     # Debug 构建
-@REM .\build.bat noavx     # 禁用 AVX2 (兼容老 CPU)
-@REM .\build.bat msbuild   # 强制使用 MSBuild
-@REM .\build.bat clean     # 清理 CMake 缓存
-@REM .\build.bat clean-all # 完全清理
 @echo off
+REM ============================================================================
+REM NoMoreDay Build Script
+REM ============================================================================
+REM Usage: build.bat [options]
+REM
+REM Options:
+REM   clean       - Clean CMake cache (preserves object files)
+REM   clean-all   - Clean entire build directory
+REM   notest      - Skip building tests
+REM   release     - Build in Release mode (with LTO)
+REM   debug       - Build in Debug mode
+REM   ninja       - Use Ninja generator instead of MinGW Makefiles
+REM   j=N         - Set parallel jobs (default: 16)
+REM
+REM Examples:
+REM   build.bat                    - Default RelWithDebInfo build
+REM   build.bat release            - Optimized Release build with LTO
+REM   build.bat ninja notest       - Fast build with Ninja, no tests
+REM   build.bat clean release j=8  - Clean and rebuild Release with 8 jobs
+REM ============================================================================
+
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 set "BUILD_DIR=build"
 set "BUILD_TYPE=RelWithDebInfo"
 set "BUILD_TESTS=ON"
-set "NEED_CONFIG=0"
-set "USE_NINJA=0"
+set "ENABLE_LTO=OFF"
+set "GENERATOR="
 set "PARALLEL_JOBS=16"
-
-REM Detect Ninja
-where ninja >nul 2>&1
-if %errorlevel%==0 (
-    set "USE_NINJA=1"
-    echo [Build] Ninja detected, using Ninja generator for faster builds.
-) else (
-    echo [Build] Ninja not found, using default generator. Install with: pip install ninja
-)
+set "NEED_CONFIG=0"
 
 :ARGS_LOOP
 if "%~1"=="" goto :ARGS_DONE
+
 if /i "%~1"=="clean" (
     echo [Build] Cleaning CMake cache ^(preserving objects^)...
     if exist "%BUILD_DIR%\CMakeCache.txt" del /f /q "%BUILD_DIR%\CMakeCache.txt"
@@ -38,10 +41,7 @@ if /i "%~1"=="clean" (
 )
 if /i "%~1"=="clean-all" (
     echo [Build] Cleaning full build environment...
-    if exist "%BUILD_DIR%\CMakeCache.txt" del /f /q "%BUILD_DIR%\CMakeCache.txt"
-    if exist "%BUILD_DIR%\CMakeFiles" rmdir /s /q "%BUILD_DIR%\CMakeFiles"
-    if exist "%BUILD_DIR%\.ninja_deps" del /f /q "%BUILD_DIR%\.ninja_deps"
-    if exist "%BUILD_DIR%\.ninja_log" del /f /q "%BUILD_DIR%\.ninja_log"
+    if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="notest" (
@@ -50,56 +50,74 @@ if /i "%~1"=="notest" (
 )
 if /i "%~1"=="release" (
     set "BUILD_TYPE=Release"
+    set "ENABLE_LTO=ON"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="debug" (
     set "BUILD_TYPE=Debug"
     set "NEED_CONFIG=1"
 )
-if /i "%~1"=="msbuild" (
-    set "USE_NINJA=0"
-    echo [Build] Forcing MSBuild generator.
-)
-if /i "%~1"=="noavx" (
-    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_AVX2=OFF"
+if /i "%~1"=="ninja" (
+    set "GENERATOR=-G Ninja"
     set "NEED_CONFIG=1"
 )
+
+REM Parse j=N parameter for parallel jobs
+echo %~1 | findstr /i /r "^j=[0-9]*$" >nul
+if not errorlevel 1 (
+    for /f "tokens=2 delims==" %%a in ("%~1") do set "PARALLEL_JOBS=%%a"
+)
+
 shift
 goto :ARGS_LOOP
 
 :ARGS_DONE
+
+REM Create build directory if needed
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 cd "%BUILD_DIR%"
 
+REM Check if configuration is needed
 if not exist CMakeCache.txt set "NEED_CONFIG=1"
 
-REM Build CMAKE_OPTS
-set "CMAKE_OPTS=-DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DCMAKE_UNITY_BUILD=OFF -DBUILD_TESTING=!BUILD_TESTS! !CMAKE_OPTS!"
-
+REM Configure if needed
 if "!NEED_CONFIG!"=="1" (
-    echo [Build] Configuring project ^(%BUILD_TYPE%^)...
-    if "!USE_NINJA!"=="1" (
-        cmake -G Ninja !CMAKE_OPTS! ..
-    ) else (
-        cmake !CMAKE_OPTS! ..
-    )
+    echo.
+    echo ============================================================
+    echo [Build] Configuring project...
+    echo   Build Type:    !BUILD_TYPE!
+    echo   Tests:         !BUILD_TESTS!
+    echo   LTO:           !ENABLE_LTO!
+    echo   Parallel Jobs: !PARALLEL_JOBS!
+    if defined GENERATOR echo   Generator:     Ninja
+    echo ============================================================
+    echo.
+    
+    cmake !GENERATOR! ^
+        -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
+        -DCMAKE_UNITY_BUILD=OFF ^
+        -DBUILD_TESTING=!BUILD_TESTS! ^
+        -DENABLE_LTO=!ENABLE_LTO! ^
+        ..
+    
     if errorlevel 1 (
         echo [Build] Configuration failed!
         exit /b 1
     )
 )
 
-echo [Build] Building with %PARALLEL_JOBS% parallel jobs...
-if "!USE_NINJA!"=="1" (
-    ninja -j%PARALLEL_JOBS%
-) else (
-    cmake --build . --config %BUILD_TYPE% -j %PARALLEL_JOBS%
-)
+REM Build
+echo.
+echo [Build] Building with !PARALLEL_JOBS! parallel jobs...
+cmake --build . --config !BUILD_TYPE! -j !PARALLEL_JOBS!
 
 if errorlevel 1 (
     echo [Build] Build failed!
     exit /b 1
 )
 
+echo.
 echo [Build] Build completed successfully!
-echo [Build] Output: %cd%\bin\NoMoreDay.exe
+echo   Output: %CD%\bin\
+
+cd ..

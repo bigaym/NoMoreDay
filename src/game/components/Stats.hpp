@@ -108,6 +108,7 @@ namespace NoMoreDay
     // 3. 战斗属性 (Combat Stats) - "Baked" Data
     // 这是战斗系统直接读取的最终面板。
     // 所有的 Buff、装备词缀、天赋加成都在 StatsSystem 中计算并“烘焙”进这里。
+    // NOTE: tag_stat_cache moved to StatsSystem to keep CombatStats as POD for SIMD
     struct alignas(32) CombatStats
     {
         // --- 生存资源 ---
@@ -208,12 +209,8 @@ namespace NoMoreDay
         float raw_dodge_chance = 0.0f;
         float raw_block_chance = 0.0f;
 
-        // --- Performance Optimization: Stat Cache ---
-        // Caches results of GetStatWithTags queries.
-        // Key: Hash of (StatType, Tag, SkillID, SourceEntity)
-        // Value: Calculated result.
-        // This cache is cleared when StatsDirty is processed.
-        mutable std::unordered_map<uint64_t, float> tag_stat_cache;
+        // Padding to maintain struct size consistency
+        float _padding[2] = {0.0f, 0.0f};
     };
     static_assert(alignof(CombatStats) == 32, "CombatStats must be 32-byte aligned");
 
