@@ -110,3 +110,51 @@ This file tracks all major tracks for the project. Each track has its own detail
 - [x] Track: Fix 'Increased' Damage Multiplier Bug & Re-tune Scaling
 - **Folder:** conductor/archive/fix_increased_damage_20260109/
 - **Description:** Fix the exponential damage scaling bug by making 'Increased' modifiers additive, and re-tune data values. (Completed on 2026-01-09)
+
+---
+
+## Phase 6: 终局玩法构建 (Endgame Construction)
+
+### [ ] Track: 维度拼接系统 (Dimensional Mosaic)
+
+- **Folder:** conductor/tracks/dimensional_mosaic/
+- **Description:** 实现地图碎片掉落、3x3 拼图编辑器和共鸣机制。玩家通过拼接碎片构建下一层的挑战。
+- **Status:** PLANNED
+- **Priority:** HIGH
+- **Estimated Time:** 1.5 weeks
+
+---
+
+### [x] Track: 宿敌系统完善 (Nemesis Enhancements)
+
+- **Folder:** conductor/archive/nemesis_enhancements_20260113/
+- **Description:** 实现宿敌 Hunter AI、进化逻辑闭环、线程安全保护以及针对性抗性进化。 (Completed on 2026-01-13)
+
+---
+
+### [ ] Track: 传家宝系统 (Heirloom Vault)
+
+- **Folder:** conductor/tracks/heirloom_vault/
+- **Description:** 实现跨轮回装备继承系统，包括传家宝标记、宝库 UI 和属性动态压缩。
+- **Status:** PLANNED
+- **Priority:** MEDIUM
+- **Estimated Time:** 0.5 week
+
+---
+
+## Phase 7: 游戏深度扩展 (Game Depth)
+
+### [x] Track: 怪物 AI 行为扩展 (Monster AI Expansion)
+
+- **Folder:** conductor/archive/monster_ai_expansion_20260113/
+- **Description:** 实现 Support、Assassin、Tank 等怪物原型，以及 SoulLink、Avenger 等精英词缀，并完成 GameplayState 集成。 (Completed on 2026-01-13)
+
+---
+
+### [ ] Track: 第二职业原型 (Second Class Prototype)
+
+- **Folder:** conductor/tracks/second_class/
+- **Description:** 抽象职业框架，设计并实现第二职业（如符咒师或炼体修士）。
+- **Status:** PLANNED
+- **Priority:** MEDIUM
+- **Estimated Time:** 2 weeks
