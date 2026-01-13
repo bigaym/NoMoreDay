@@ -115,13 +115,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## Phase 6: 终局玩法构建 (Endgame Construction)
 
-### [ ] Track: 维度拼接系统 (Dimensional Mosaic)
+### [x] Track: 维度拼接系统 (Dimensional Mosaic)
 
-- **Folder:** conductor/tracks/dimensional_mosaic/
-- **Description:** 实现地图碎片掉落、3x3 拼图编辑器和共鸣机制。玩家通过拼接碎片构建下一层的挑战。
-- **Status:** PLANNED
-- **Priority:** HIGH
-- **Estimated Time:** 1.5 weeks
+- **Folder:** conductor/archive/dimensional_mosaic_20260113/
+- **Description:** 实现地图碎片掉落、3x3 拼图编辑器和共鸣机制。通过 Command Buffer 确保线程安全，并优化了地图生成的通用性。玩家通过拼接碎片构建下一层的挑战。 (Completed on 2026-01-13)
 
 ---
 

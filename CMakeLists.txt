@@ -152,6 +152,7 @@ add_library(NoMoreDayCore STATIC
     src/game/states/InventoryState.cpp
     src/game/states/LoadingState.cpp
     src/game/states/MainMenuState.cpp
+    src/game/states/MosaicEditorState.cpp
     src/game/states/PauseState.cpp
     src/game/states/SettingsState.cpp
     src/game/systems/ai/AISystem.cpp
@@ -168,9 +169,11 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/combat/XPAwardingSystem.cpp
     src/game/systems/item/CraftingSystem.cpp
     src/game/systems/item/DropSystem.cpp
+    src/game/systems/item/FragmentDropSystem.cpp
     src/game/systems/item/InventorySystem.cpp
     src/game/systems/item/ItemFactory.cpp
     src/game/systems/item/LootFilter.cpp
+    src/game/data/ResonanceCalculator.cpp
     src/game/systems/skill/AstrolabeSystem.cpp
     src/game/systems/skill/ProjectileSystem.cpp
     src/game/systems/skill/SkillSystem.cpp
@@ -191,6 +194,7 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/world/FogOfWarSystem.cpp
     src/game/systems/world/LevelManager.cpp
     src/game/systems/world/MapSystem.cpp
+    src/game/systems/world/MosaicMapGenerator.cpp
     src/game/systems/world/MovementStanceSystem.cpp
     src/game/systems/world/PortalSystem.cpp
     src/game/systems/nemesis/FactionAggroSystem.cpp

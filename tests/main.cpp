@@ -17,6 +17,7 @@ using namespace NoMoreDay;
 
 // System and World Tests
 #include "WorldSystemTests.hpp"
+#include "ResonanceCalculatorTest.hpp"
 
 // Engine and Tech Tests
 #include "EngineTechTests.hpp"

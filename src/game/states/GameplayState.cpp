@@ -22,6 +22,7 @@
 #include "game/systems/ui/UICharacter.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/item/DropSystem.hpp"
+#include "game/systems/item/FragmentDropSystem.hpp"
 #include "game/systems/combat/XPAwardingSystem.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -262,6 +263,7 @@ namespace NoMoreDay {
         RegenerationSystem::update(registry, dt);
         EliteModifierSystem::Update(registry, dt);
         DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
+        FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);
         // Update Skill System

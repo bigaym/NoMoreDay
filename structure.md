@@ -48,11 +48,13 @@ The bulk of the specific game logic, built primarily on the EnTT ECS architectur
 Classes corresponding to different screens/modes of the application.
 *   `GameplayState`: The actual game loop. Initializes level, entities, and runs the update loop.
 *   `MainMenuState`, `PauseState`, `SettingsState`, `InventoryState`, `LoadingState`.
+*   `MosaicEditorState`: 3x3 维度拼图编辑器界面。
 
 #### 2.4.2. `components/` - ECS Components (Data)
 POD (Plain Old Data) structs attached to entities.
 *   **`Common.hpp`**: `Position`, `Velocity`, `Sprite`, `IDComponent`.
 *   **`Stats.hpp`**: `Health`, `Mana`, `CombatStats`, `Damage` modifiers.
+*   **`MapFragmentComponent.hpp`**: 地图碎片数据（类型、元素、词缀属性、共鸣效果）。
 *   **`SkillDefs.hpp`**: `SkillCooldowns`, `ActiveSkills`, `SummonComponent`, `ShadowComponent`.
 *   **`ItemComponent.hpp`**, `InventoryComponent.hpp`, `EquipmentComponent.hpp`.
 *   **`AIComponent.hpp`**: State data for enemy AI (includes `NEMESIS_HUNTER` mode).
@@ -78,11 +80,12 @@ Systems that iterate over entities with specific components to execute logic.
 *   **`ai/`**: `AISystem`, `EnemyBehavior`. Handles enemy pathfinding and decision making (Supports `Support`, `Assassin`, `Tank` archetypes).
 *   **`combat/`**:
     *   `EliteModifierSystem`: Manages elite modifiers like `SoulLink` (damage sharing) and `Avenger` (stat stacking on ally death).
-*   **`item/`**: `InventorySystem`, `DropSystem`, `LootFilter`.
+*   **`item/`**: `InventorySystem`, `DropSystem`, `LootFilter`, `FragmentDropSystem` (处理碎片延迟生成队列).
 *   **`world/`**:
     *   `MapSystem`: Level generation/management.
+    *   `MosaicMapGenerator`: 基于维度拼图结果的程序化地图生成。
     *   `FogOfWarSystem`: Visual obscuration.
-    *   `EnemySpawnSystem`: Spawning rules.
+    *   `EnemySpawnSystem`: Spawning rules (应用维度共鸣加成).
 *   **`nemesis/`**:
     *   `NemesisGenerator`: Dynamically creates Nemesis enemies based on kill history and player build.
     *   `FactionAggroSystem`: Tracks player hostility toward factions and triggers Nemesis spawns.
@@ -91,6 +94,8 @@ Systems that iterate over entities with specific components to execute logic.
 #### 2.4.4. `data/` - Data Definitions
 Registries and loaders for static game data (often loaded from JSON).
 *   `SkillRegistry`, `BuffRegistry`, `TagRegistry`.
+*   `MosaicData.hpp`: 维度网格数据结构与进度管理。
+*   `ResonanceCalculator.hpp`: 相邻/连线/全满共鸣算法。
 *   `NemesisDataStore`: Singleton for persisting Nemesis state across runs.
 
 ## 3. Module Interactions & Architecture

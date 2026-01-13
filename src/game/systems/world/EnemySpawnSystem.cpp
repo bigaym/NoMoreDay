@@ -7,8 +7,10 @@
 #include "game/components/EliteModifierComponents.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/ItemComponent.hpp"
+#include "game/components/MapFragmentComponent.hpp"
 #include "game/components/PlayerState.hpp" // For stats if needed
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/MosaicData.hpp"
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -35,13 +37,31 @@ void EnemySpawnSystem::initializeLevel(int width, int height,
   initTextures();
 }
 
+// Async Loading Support
 void EnemySpawnSystem::initData(int width, int height,
                                 const MapSystem &mapSystem,
-                                const std::string &biomeId) {
+                                const std::string &biomeId,
+                                const NoMoreDay::ResonanceResult *resonance) {
   m_mapWidth = width;
   m_mapHeight = height;
   m_spawnData.clear();
   m_pendingRaces.clear();
+
+  // Reset resonance mods
+  m_resonanceMods = {1.0f, 0, 0.0f, 0};
+
+  if (resonance) {
+    m_resonanceMods.densityMultiplier = resonance->totalEnemyDensity;
+    m_resonanceMods.levelBonus = resonance->totalLevelMod;
+    m_resonanceMods.dropRateBonus = resonance->totalDropRate;
+    m_resonanceMods.dominantElement =
+        static_cast<int>(resonance->dominantElement);
+
+    LOG_INFO("EnemySpawnSystem: Applying Resonance - Density: {:.2f}, Level: "
+             "{}, Drop: {:.2f}, Element: {}",
+             m_resonanceMods.densityMultiplier, m_resonanceMods.levelBonus,
+             m_resonanceMods.dropRateBonus, m_resonanceMods.dominantElement);
+  }
 
   LOG_INFO("EnemySpawnSystem: Initializing level data for biome '{}'", biomeId);
 
@@ -76,12 +96,16 @@ void EnemySpawnSystem::initData(int width, int height,
   m_pendingRaces = availableRaces; // Store for texture loading
 
   // 2. 群聚生成 - 大幅增加密度 (5~10倍)
-  int clusterCount = (width * height) / 200; // 原来是 1000, 现在是 5倍密度
+  int baseClusterCount = (width * height) / 200; // 原来是 1000, 现在是 5倍密度
+  int clusterCount =
+      static_cast<int>(baseClusterCount * m_resonanceMods.densityMultiplier);
+
+  // Ensure strict min/max
   if (biomeConfig.maxEnemies > 0) {
     // 允许生成更多，限制在 maxEnemies 范围内
     clusterCount = std::min(clusterCount, biomeConfig.maxEnemies / 5);
   }
-  if (clusterCount < 1 && biomeConfig.maxEnemies > 0)
+  if (clusterCount < 1)
     clusterCount = 1;
 
   std::uniform_int_distribution<int> xDist(2, width - 3);
@@ -104,7 +128,10 @@ void EnemySpawnSystem::initData(int width, int height,
       continue;
 
     int race = availableRaces[i % availableRaces.size()];
-    int enemyCount = countDist(m_gen);
+    int enemyCount = static_cast<int>(
+        countDist(m_gen) *
+        std::min(1.5f,
+                 m_resonanceMods.densityMultiplier)); // 也会稍微增加单群数量
 
     for (int j = 0; j < enemyCount; ++j) {
       std::uniform_real_distribution<float> angleDist(0.0f, 6.283185f);
@@ -131,8 +158,9 @@ void EnemySpawnSystem::initData(int width, int height,
     }
   }
 
-  LOG_INFO("Initialized {} enemy spawn points in {} clusters",
-           m_spawnData.size(), clusterCount);
+  LOG_INFO(
+      "Initialized {} enemy spawn points in {} clusters (Density Mod: {:.2f})",
+      m_spawnData.size(), clusterCount, m_resonanceMods.densityMultiplier);
 }
 
 void EnemySpawnSystem::initTextures() {
@@ -227,63 +255,101 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
   EnemyRace raceDef(raceType);
 
-  // Initialize monster stats from race
-  cStats.min_weapon_damage = raceDef.baseDamage * 0.8f;
-  cStats.max_weapon_damage = raceDef.baseDamage * 1.2f;
-  cStats.armor = raceDef.baseArmor;
+  // Apply Level Mod to Base Stats
+  float levelMultiplier =
+      1.0f + (m_resonanceMods.levelBonus * 0.1f); // 每个等级增加 10% 基础属性
+
+  cStats.min_weapon_damage = raceDef.baseDamage * 0.8f * levelMultiplier;
+  cStats.max_weapon_damage = raceDef.baseDamage * 1.2f * levelMultiplier;
+  cStats.armor = raceDef.baseArmor * levelMultiplier;
   cStats.accuracy = 1.0f;           // Standard accuracy
   cStats.attack_speed = 1.0f;       // Standard attack speed
   aState.baseAttackInterval = 1.5f; // Default attack interval
 
+  float modifiedHP = raceDef.baseHP * levelMultiplier;
+
   switch (raceType) {
   case EnemyRace::UNDEAD:
-    registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::PATROL, 150.0f, 40.0f, 50.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
-    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.25f, 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(
+        entity, 0, 0.25f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     break;
   case EnemyRace::DEMON:
-    registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::PATROL, 200.0f, 50.0f, 70.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
-    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.45f, 1, 2);
+    registry.emplace<NoMoreDay::DropTableComponent>(
+        entity, 0, 0.45f * (1.0f + m_resonanceMods.dropRateBonus), 1, 2);
     aState.baseAttackInterval = 2.0f; // Slow but heavy
     cStats.attack_speed = 0.8f;
     break;
   case EnemyRace::CORRUPTED:
-    registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::PATROL, 250.0f, 60.0f,
                                   100.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
-    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.30f, 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(
+        entity, 0, 0.30f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.0f; // Fast
     cStats.attack_speed = 1.2f;
     break;
   case EnemyRace::CULTIST:
-    registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::PATROL, 180.0f, 30.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
-    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.35f, 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(
+        entity, 0, 0.35f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.8f;
     break;
   case EnemyRace::GOBLIN:
-    registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::PATROL, 120.0f, 40.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, GREEN);
-    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.20f, 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(
+        entity, 0, 0.20f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.2f;
     break;
   case EnemyRace::SLIME:
-    registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::PATROL, 80.0f, 20.0f, 30.0f);
     registry.emplace<ColorComponent>(entity, LIME);
-    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.15f, 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(
+        entity, 0, 0.15f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 2.5f;
     break;
   default:
-    registry.emplace<HealthComponent>(entity, raceDef.baseHP, raceDef.baseHP);
+    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<ColorComponent>(entity, WHITE);
     break;
+  }
+
+  // Apply Element Color Tint
+  if (m_resonanceMods.dominantElement != 0) {
+    auto *colorComp = registry.try_get<ColorComponent>(entity);
+    if (colorComp) {
+      switch (static_cast<NoMoreDay::FragmentElement>(
+          m_resonanceMods.dominantElement)) {
+      case NoMoreDay::FragmentElement::Fire:
+        colorComp->color = RED;
+        break;
+      case NoMoreDay::FragmentElement::Cold:
+        colorComp->color = SKYBLUE;
+        break;
+      case NoMoreDay::FragmentElement::Lightning:
+        colorComp->color = YELLOW;
+        break;
+      case NoMoreDay::FragmentElement::Shadow:
+        colorComp->color = PURPLE;
+        break;
+      case NoMoreDay::FragmentElement::Chaos:
+        colorComp->color = DARKGRAY;
+        break;
+      default:
+        break; // No tint for other elements or if 0
+      }
+    }
   }
 
   if (m_raceTextures.count(data.enemyType)) {
