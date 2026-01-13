@@ -55,8 +55,9 @@ POD (Plain Old Data) structs attached to entities.
 *   **`Stats.hpp`**: `Health`, `Mana`, `CombatStats`, `Damage` modifiers.
 *   **`SkillDefs.hpp`**: `SkillCooldowns`, `ActiveSkills`, `SummonComponent`, `ShadowComponent`.
 *   **`ItemComponent.hpp`**, `InventoryComponent.hpp`, `EquipmentComponent.hpp`.
-*   **`AIComponent.hpp`**: State data for enemy AI.
+*   **`AIComponent.hpp`**: State data for enemy AI (includes `NEMESIS_HUNTER` mode).
 *   **`Combat.hpp`**: `AttackState`, `DamageEvent`.
+*   ****`NemesisComponent.hpp`**: Persistent data for Nemesis (tier, affixes, resistances).
 
 #### 2.4.3. `systems/` - ECS Systems (Logic)
 Systems that iterate over entities with specific components to execute logic.
@@ -79,11 +80,15 @@ Systems that iterate over entities with specific components to execute logic.
     *   `MapSystem`: Level generation/management.
     *   `FogOfWarSystem`: Visual obscuration.
     *   `EnemySpawnSystem`: Spawning rules.
+*   **`nemesis/`**:
+    *   `NemesisGenerator`: Dynamically creates Nemesis enemies based on kill history and player build.
+    *   `FactionAggroSystem`: Tracks player hostility toward factions and triggers Nemesis spawns.
 *   **`ui/`**: `UISystem`, `PlayerHUD`, `UIInventory`, `UISkillTalentTree`. Updates UI data based on ECS state.
 
 #### 2.4.4. `data/` - Data Definitions
 Registries and loaders for static game data (often loaded from JSON).
 *   `SkillRegistry`, `BuffRegistry`, `TagRegistry`.
+*   `NemesisDataStore`: Singleton for persisting Nemesis state across runs.
 
 ## 3. Module Interactions & Architecture
 
