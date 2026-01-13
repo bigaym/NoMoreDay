@@ -16,6 +16,7 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/ai/AISystem.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
+#include "game/systems/combat/EliteModifierSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/ui/UIMinimap.hpp"
 #include "game/systems/ui/UICharacter.hpp"
@@ -49,6 +50,9 @@ namespace NoMoreDay {
 
         // Initialize Visual FX (Events)
         systems::VisualFXSystem::Initialize(*m_context->registry);
+
+        // Initialize Elite Modifiers (SoulLink, Avenger)
+        EliteModifierSystem::Init();
 
         // 1. Initialize Managers/Resources (if not already)
         // Note: Resources are managed by SharedContext->resources (owned by Game)
@@ -192,6 +196,7 @@ namespace NoMoreDay {
 
     void GameplayState::OnExit() {
         LOG_INFO("Exiting GameplayState...");
+        EliteModifierSystem::Shutdown();
         // Cleanup logic if needed. 
         // Note: Game::cleanup will handle the global registry clear.
     }
@@ -255,6 +260,7 @@ namespace NoMoreDay {
         StatsSystem::UpdateBuffs(registry, dt);
         StatsSystem::update(registry);
         RegenerationSystem::update(registry, dt);
+        EliteModifierSystem::Update(registry, dt);
         DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
         XPAwardingSystem::update(registry);
         InventorySystem::update(registry, dt);
