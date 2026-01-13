@@ -56,8 +56,9 @@ POD (Plain Old Data) structs attached to entities.
 *   **`SkillDefs.hpp`**: `SkillCooldowns`, `ActiveSkills`, `SummonComponent`, `ShadowComponent`.
 *   **`ItemComponent.hpp`**, `InventoryComponent.hpp`, `EquipmentComponent.hpp`.
 *   **`AIComponent.hpp`**: State data for enemy AI (includes `NEMESIS_HUNTER` mode).
+*   **`NemesisComponent.hpp`**: Persistent data for Nemesis (tier, affixes, resistances).
+*   **`EliteModifierComponents.hpp`**: Data for `SoulLink`, `Avenger`, `StealthedTag`, and `TankBlockingTag`.
 *   **`Combat.hpp`**: `AttackState`, `DamageEvent`.
-*   ****`NemesisComponent.hpp`**: Persistent data for Nemesis (tier, affixes, resistances).
 
 #### 2.4.3. `systems/` - ECS Systems (Logic)
 Systems that iterate over entities with specific components to execute logic.
@@ -74,7 +75,9 @@ Systems that iterate over entities with specific components to execute logic.
     *   `SummonSystem`: Manages summons (Spirit Swords) AI and lifetime.
     *   `ProjectileSystem`: Updates projectile movement, collision, and piercing logic.
     *   `behaviors/`: Specific implementation logic for different skills (e.g., `BladeFormation`, `FlowingThrust`).
-*   **`ai/`**: `AISystem`, `EnemyBehavior`. Handles enemy pathfinding and decision making.
+*   **`ai/`**: `AISystem`, `EnemyBehavior`. Handles enemy pathfinding and decision making (Supports `Support`, `Assassin`, `Tank` archetypes).
+*   **`combat/`**:
+    *   `EliteModifierSystem`: Manages elite modifiers like `SoulLink` (damage sharing) and `Avenger` (stat stacking on ally death).
 *   **`item/`**: `InventorySystem`, `DropSystem`, `LootFilter`.
 *   **`world/`**:
     *   `MapSystem`: Level generation/management.

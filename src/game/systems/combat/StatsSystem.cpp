@@ -8,6 +8,7 @@
 #include "game/components/Progression.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/EnemyComponent.hpp"
+#include "game/components/EliteModifierComponents.hpp"
 #include "game/components/Buff.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
@@ -872,6 +873,14 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
     // 2.3 NEW: 处理条件装备词缀 (GlobalModifierComponent.stat_modifiers)
     if (auto* global = registry.try_get<GlobalModifierComponent>(entity)) {
         apply_if_tags_match(global->stat_modifiers);
+    }
+
+    // 2.4 NEW: 处理 Avenger (复仇者) 词缀加成
+    if (IsDamageStat(type)) {
+        if (auto* avenger = registry.try_get<AvengerComponent>(entity)) {
+            // 将加成应用到 percent_add，确保是加法叠加
+            dynamic_calc.percent_add += (avenger->GetDamageMultiplier() - 1.0f);
+        }
     }
 
     // 3. 处理技能专精天赋 (Skill Specialization Talents)
