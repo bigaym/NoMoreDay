@@ -78,4 +78,10 @@ void main() {
         uint destIdx = atomicAdd(aliveCounter, 1);
         compacted[destIdx] = p;
     }
+
+    // Wait for all threads to finish atomic adds, then first thread updates indirect buffer
+    memoryBarrierBuffer();
+    if (id == 0) {
+        instanceCount = aliveCounter;
+    }
 }

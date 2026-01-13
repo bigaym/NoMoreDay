@@ -25,11 +25,14 @@
 | **维度拼接系统** | ✅ 完成 | 碎片掉落, 3x3 拼图共鸣, 线程安全掉落队列, 程序化地图集成 |
 | **怪物 AI 扩展** | ✅ 完成 | Support, Assassin, Tank, SoulLink, Avenger |
 | **存档系统** | ✅ 完成 | SerializationSystem (JSON) |
+| **传家宝系统** | ✅ 完成 | HeirloomVaultState, 属性动态压缩, 跨存档继承 |
+| **无限梦魇/腐化** | ✅ 完成 | CorruptionSystem (难度动态缩放), LeaderboardSystem (排行榜) |
 
 ### 🔄 进行中 (Phase 5-6 过渡)
 | 模块 | 状态 | 说明 |
 |------|------|------|
 | **GPU 流场集成** | 🔄 进行中 | 已重构为 SSBO, 需完成实际怪物寻路集成 |
+| **打磨与 UX** | 🔄 启动 | 音频系统, 成就系统, 教程引导 (Phase 8 提前) |
 
 ---
 
@@ -39,13 +42,13 @@
 
 这是设计文档中优先级最高的未实现内容，直接影响游戏的核心循环。
 
-#### 6.2 传家宝系统 (Heirloom Vault) - **中优先级**
+#### 6.2 传家宝系统 (Heirloom Vault) - **✅ 已完成**
 | 子任务 | 复杂度 | 描述 |
 |--------|--------|------|
-| **HeirloomComponent** | ⭐ | 标记装备为传家宝的组件 |
-| **HeirloomVaultUI** | ⭐⭐⭐ | 在主菜单展示并选择传承装备 |
-| **HeirloomScaling** | ⭐⭐ | 低等级时属性动态压缩公式 |
-| **PersistentStorage** | ⭐⭐ | 扩展 `SerializationSystem` 支持跨存档 |
+| **HeirloomComponent** | ✅ | 标记装备为传家宝的组件 |
+| **HeirloomVaultUI** | ✅ | 在主菜单展示并选择传承装备 |
+| **HeirloomScaling** | ✅ | 低等级时属性动态压缩公式 |
+| **PersistentStorage** | ✅ | 扩展 `SerializationSystem` 支持跨存档 |
 
 ---
 
@@ -77,12 +80,12 @@
 
 ### 📍 Phase 8: 打磨与内容 (预计 2 周)
 
-#### 8.1 无尽梦魇模式 (Eternal Nightmare) - **中优先级**
+#### 8.1 无尽梦魇模式 (Eternal Nightmare) - **✅ 已完成**
 | 子任务 | 复杂度 | 描述 |
 |--------|--------|------|
-| **CorruptionSystem** | ⭐⭐ | 腐化值计算与词缀增强 |
-| **InfiniteScaling** | ⭐⭐ | 怪物属性指数增长公式 |
-| **LeaderboardSystem** | ⭐⭐⭐ | 本地/在线排行榜 (最高层数, 伤害峰值) |
+| **CorruptionSystem** | ✅ | 腐化值计算与词缀增强 |
+| **InfiniteScaling** | ✅ | 怪物属性指数增长公式 |
+| **LeaderboardSystem** | ✅ | 本地/在线排行榜 (最高层数, 伤害峰值) |
 
 ---
 
@@ -114,11 +117,11 @@ graph LR
     end
     
     subgraph "Phase 8: 打磨"
-        G[8.1 无尽梦魇] --> H[8.2 体验优化]
+        H[8.2 体验优化]
     end
     
     A --> D
-    C --> G
+    G[8.1 无尽梦魇 (Done)] --> H
 ```
 
 ---

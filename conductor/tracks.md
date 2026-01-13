@@ -129,13 +129,33 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-### [ ] Track: 传家宝系统 (Heirloom Vault)
+### [x] Track: 传家宝系统 (Heirloom Vault)
 
 - **Folder:** conductor/tracks/heirloom_vault/
-- **Description:** 实现跨轮回装备继承系统，包括传家宝标记、宝库 UI 和属性动态压缩。
-- **Status:** PLANNED
-- **Priority:** MEDIUM
+- **Description:** 实现跨轮回装备继承系统，包括传家宝标记、宝库 UI 和属性动态压缩。 (Completed on 2026-01-13)
+- **Status:** COMPLETED
+- **Priority:** HIGH
 - **Estimated Time:** 0.5 week
+
+---
+
+### [x] Track: 无尽梦魇与腐化系统 (Eternal Nightmare & Corruption)
+
+- **Folder:** conductor/tracks/eternal_nightmare/
+- **Description:** 实现腐化系统 (CorruptionSystem) 用于动态难度调整，以及排行榜系统 (LeaderboardSystem) 用于记录挑战成绩。 (Completed on 2026-01-13)
+- **Status:** COMPLETED
+- **Priority:** MEDIUM
+- **Estimated Time:** 1 week
+
+---
+
+### [ ] Track: 游戏体验优化 (Polish & UX)
+
+- **Folder:** conductor/tracks/polish_ux/
+- **Description:** 实现音频系统 (AudioSystem)、成就系统 (AchievementSystem) 和新手引导 (TutorialSystem)。
+- **Status:** IN PROGRESS
+- **Priority:** MEDIUM
+- **Estimated Time:** 1 week
 
 ---
 

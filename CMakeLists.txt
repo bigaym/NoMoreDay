@@ -155,6 +155,8 @@ add_library(NoMoreDayCore STATIC
     src/game/states/MosaicEditorState.cpp
     src/game/states/PauseState.cpp
     src/game/states/SettingsState.cpp
+    src/game/states/HeirloomVaultState.cpp
+    src/game/states/NightmareFloorState.cpp
     src/game/systems/ai/AISystem.cpp
     src/game/systems/ai/EnemyBehavior.cpp
     src/game/systems/ai/EnemyAIBehaviors.cpp

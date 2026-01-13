@@ -3,7 +3,6 @@
 #include "doctest.h"
 #include <raylib.h>
 
-
 using namespace NoMoreDay;
 
 // Merged Test Groups
@@ -14,10 +13,9 @@ using namespace NoMoreDay;
 #include "SkillSystemTests.hpp"
 #include "UITests.hpp"
 
-
 // System and World Tests
-#include "WorldSystemTests.hpp"
 #include "ResonanceCalculatorTest.hpp"
+#include "WorldSystemTests.hpp"
 
 // Engine and Tech Tests
 #include "EngineTechTests.hpp"
@@ -29,9 +27,11 @@ using namespace NoMoreDay;
 #include "StatsBenchmark.cpp"
 #include "TestBladeFormation.cpp"
 #include "TestDefenseMechanics.cpp"
+#include "TestEternalNightmare.cpp"
+#include "TestHeirloomSystem.cpp"
+#include "TestPolishSystems.cpp"
 #include "TestShadowSystem.cpp"
 #include "TestSwordIntentAccumulation.cpp"
-
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>

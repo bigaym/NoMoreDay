@@ -39,6 +39,7 @@ Low-level engine systems that handle technical operations usually agnostic of sp
 *   **`input/`**: `InputSystem` - handling keyboard/mouse state mapping.
 *   **`physics/`**: `PhysicsSystem` - Collision detection (SpatialHashGrid), movement integration.
 *   **`resource/`**: `ResourceManager`, `AssetLoadingSystem`. Handles async loading of textures, shaders, JSONs.
+*   **`audio/`**: `AudioSystem` (Raylib wrapper), DynamicMixer, SoundRegistry.
 *   **`scene/`**: `SceneManager`, `StateManager`. Manages the stack of GameStates (Menu -> Game -> Pause).
 
 ### 2.4. `game/` - Gameplay Logic (ECS)
@@ -49,6 +50,7 @@ Classes corresponding to different screens/modes of the application.
 *   `GameplayState`: The actual game loop. Initializes level, entities, and runs the update loop.
 *   `MainMenuState`, `PauseState`, `SettingsState`, `InventoryState`, `LoadingState`.
 *   `MosaicEditorState`: 3x3 维度拼图编辑器界面。
+*   `HeirloomVaultState`: 传家宝仓库与选择界面。
 
 #### 2.4.2. `components/` - ECS Components (Data)
 POD (Plain Old Data) structs attached to entities.
@@ -57,6 +59,7 @@ POD (Plain Old Data) structs attached to entities.
 *   **`MapFragmentComponent.hpp`**: 地图碎片数据（类型、元素、词缀属性、共鸣效果）。
 *   **`SkillDefs.hpp`**: `SkillCooldowns`, `ActiveSkills`, `SummonComponent`, `ShadowComponent`.
 *   **`ItemComponent.hpp`**, `InventoryComponent.hpp`, `EquipmentComponent.hpp`.
+*   `HeirloomComponent.hpp`: 传家宝属性与状态（层级、原始等级）。
 *   **`AIComponent.hpp`**: State data for enemy AI (includes `NEMESIS_HUNTER` mode).
 *   **`NemesisComponent.hpp`**: Persistent data for Nemesis (tier, affixes, resistances).
 *   **`EliteModifierComponents.hpp`**: Data for `SoulLink`, `Avenger`, `StealthedTag`, and `TankBlockingTag`.
@@ -80,15 +83,19 @@ Systems that iterate over entities with specific components to execute logic.
 *   **`ai/`**: `AISystem`, `EnemyBehavior`. Handles enemy pathfinding and decision making (Supports `Support`, `Assassin`, `Tank` archetypes).
 *   **`combat/`**:
     *   `EliteModifierSystem`: Manages elite modifiers like `SoulLink` (damage sharing) and `Avenger` (stat stacking on ally death).
-*   **`item/`**: `InventorySystem`, `DropSystem`, `LootFilter`, `FragmentDropSystem` (处理碎片延迟生成队列).
+*   **`item/`**: `InventorySystem`, `DropSystem`, `LootFilter`, `FragmentDropSystem` (处理碎片延迟生成队列), `HeirloomScaling` (传家宝动态压缩算法).
 *   **`world/`**:
     *   `MapSystem`: Level generation/management.
     *   `MosaicMapGenerator`: 基于维度拼图结果的程序化地图生成。
     *   `FogOfWarSystem`: Visual obscuration.
     *   `EnemySpawnSystem`: Spawning rules (应用维度共鸣加成).
+    *   `CorruptionSystem`: 腐化值管理与全局难度动态调整。
 *   **`nemesis/`**:
     *   `NemesisGenerator`: Dynamically creates Nemesis enemies based on kill history and player build.
     *   `FactionAggroSystem`: Tracks player hostility toward factions and triggers Nemesis spawns.
+*   **`progression/`**:
+    *   `LeaderboardSystem`: 记录无尽模式最高层数与 DPS 峰值，支持本地持久化。
+    *   `AchievementSystem`: 数据驱动的成就系统，支持条件触发与 UI 通知。
 *   **`ui/`**: `UISystem`, `PlayerHUD`, `UIInventory`, `UISkillTalentTree`. Updates UI data based on ECS state.
 
 #### 2.4.4. `data/` - Data Definitions

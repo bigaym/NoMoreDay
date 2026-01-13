@@ -1,128 +1,149 @@
 #include "game/systems/skill/SummonSystem.hpp"
-#include "game/components/Common.hpp"
-#include "game/systems/skill/SkillSystem.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Stats.hpp"
-#include "game/systems/skill/SkillSystem.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
-#include <raymath.h>
+#include "game/components/AIComponent.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/EnemyComponent.hpp"
+#include "game/components/Stats.hpp"
+#include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>
+#include <raymath.h>
+
 
 namespace NoMoreDay::systems {
 
-void SummonSystem::Update(entt::registry& registry, float dt, const SpatialHashGrid& grid) {
-    // 1. Lifetime Management
-    auto summonView = registry.view<NoMoreDay::SummonComponent>();
-    for (auto entity : summonView) {
-        auto& summon = summonView.get<NoMoreDay::SummonComponent>(entity);
-        summon.lifetime -= dt;
-        if (summon.lifetime <= 0) {
-            registry.destroy(entity);
-            continue;
-        }
+void SummonSystem::Update(entt::registry &registry, float dt,
+                          const SpatialHashGrid &grid) {
+  // 1. Lifetime Management
+  auto summonView = registry.view<NoMoreDay::SummonComponent>();
+  for (auto entity : summonView) {
+    auto &summon = summonView.get<NoMoreDay::SummonComponent>(entity);
+    summon.lifetime -= dt;
+    if (summon.lifetime <= 0) {
+      registry.destroy(entity);
+      continue;
     }
+  }
 
-    // 2. Spirit Sword AI
-    UpdateSpiritSwords(registry, dt, grid);
+  // 2. Spirit Sword AI
+  UpdateSpiritSwords(registry, dt, grid);
 }
 
-void SummonSystem::UpdateSpiritSwords(entt::registry& registry, float dt, const SpatialHashGrid& grid) {
-    auto view = registry.view<NoMoreDay::SpiritSwordTag, NoMoreDay::SummonComponent, NoMoreDay::SpiritSwordAI, Position>();
-    
-    for (auto entity : view) {
-        auto& summon = view.get<NoMoreDay::SummonComponent>(entity);
-        auto& ai = view.get<NoMoreDay::SpiritSwordAI>(entity);
-        auto& pos = view.get<Position>(entity);
+void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
+                                      const SpatialHashGrid &grid) {
+  auto view =
+      registry.view<NoMoreDay::SpiritSwordTag, NoMoreDay::SummonComponent,
+                    NoMoreDay::SpiritSwordAI, Position>();
 
-        if (!registry.valid(summon.owner)) continue;
-        auto* ownerPos = registry.try_get<Position>(summon.owner);
-        if (!ownerPos) continue;
+  for (auto entity : view) {
+    auto &summon = view.get<NoMoreDay::SummonComponent>(entity);
+    auto &ai = view.get<NoMoreDay::SpiritSwordAI>(entity);
+    auto &pos = view.get<Position>(entity);
 
-        auto* formation = registry.try_get<NoMoreDay::BladeFormationComponent>(summon.owner);
-        NoMoreDay::SpiritSwordMode mode = formation ? formation->mode : NoMoreDay::SpiritSwordMode::Guardian;
-        float searchRadius = formation ? formation->search_radius : 300.0f;
-        bool isGiant = formation && formation->has_giant_sword;
+    if (!registry.valid(summon.owner))
+      continue;
+    auto *ownerPos = registry.try_get<Position>(summon.owner);
+    if (!ownerPos)
+      continue;
 
-        // --- Targeting ---
-        if (!registry.valid(ai.target) || registry.all_of<KilledTag>(ai.target)) {
-            ai.target = entt::null;
-            float bestPriority = -1e9f;
+    auto *formation =
+        registry.try_get<NoMoreDay::BladeFormationComponent>(summon.owner);
+    NoMoreDay::SpiritSwordMode mode =
+        formation ? formation->mode : NoMoreDay::SpiritSwordMode::Guardian;
+    float searchRadius = formation ? formation->search_radius : 300.0f;
+    bool isGiant = formation && formation->has_giant_sword;
 
-            grid.query(*ownerPos, searchRadius, [&](entt::entity candidate) {
-                if (!registry.all_of<EnemyTag, Position>(candidate)) return;
-                const auto& cPos = registry.get<Position>(candidate);
-                float distSq = Vector2DistanceSqr({ownerPos->x, ownerPos->y}, {cPos.x, cPos.y});
-                if (distSq > searchRadius * searchRadius) return;
+    // --- Targeting ---
+    if (!registry.valid(ai.target) || registry.all_of<KilledTag>(ai.target)) {
+      ai.target = entt::null;
+      float bestPriority = -1e9f;
 
-                float priority = 0.0f;
-                if (mode == NoMoreDay::SpiritSwordMode::Elite) {
-                    if (auto* rarity = registry.try_get<EnemyRarityComponent>(candidate)) {
-                        if (rarity->rarity == EnemyRarityComponent::BOSS) priority += 1000.0f;
-                        else if (rarity->rarity == EnemyRarityComponent::ELITE) priority += 500.0f;
-                    }
-                }
-                // Tie-breaker: distance to owner
-                priority -= sqrtf(distSq) / 100.0f;
+      grid.query(*ownerPos, searchRadius,
+                 [&](entt::entity candidate, const Position &cPos) {
+                   if (!registry.all_of<EnemyTag, Position>(candidate))
+                     return;
+                   float distSq = Vector2DistanceSqr({ownerPos->x, ownerPos->y},
+                                                     {cPos.x, cPos.y});
+                   if (distSq > searchRadius * searchRadius)
+                     return;
 
-                if (priority > bestPriority) {
-                    bestPriority = priority;
-                    ai.target = candidate;
-                }
-            });
-        }
+                   float priority = 0.0f;
+                   if (mode == NoMoreDay::SpiritSwordMode::Elite) {
+                     if (auto *rarity = registry.try_get<EnemyRarityComponent>(
+                             candidate)) {
+                       if (rarity->rarity == EnemyRarityComponent::BOSS)
+                         priority += 1000.0f;
+                       else if (rarity->rarity == EnemyRarityComponent::ELITE)
+                         priority += 500.0f;
+                     }
+                   }
+                   // Tie-breaker: distance to owner
+                   priority -= sqrtf(distSq) / 100.0f;
 
-        // --- Movement (Orbiting) ---
-        float orbitSpeed = isGiant ? 1.5f : 3.0f;
-        ai.orbit_angle += dt * orbitSpeed;
-        
-        float radius = isGiant ? 60.0f : 45.0f;
-        float targetX = ownerPos->x + cosf(ai.orbit_angle) * radius;
-        float targetY = ownerPos->y + sinf(ai.orbit_angle) * radius;
-
-        // Smoothly move towards orbit position
-        float moveSpeed = isGiant ? 5.0f : 10.0f;
-        pos.x += (targetX - pos.x) * moveSpeed * dt;
-        pos.y += (targetY - pos.y) * moveSpeed * dt;
-
-        // --- Combat ---
-        ai.attack_timer -= dt;
-        if (ai.attack_timer <= 0 && registry.valid(ai.target)) {
-            ai.attack_timer = ai.attack_interval;
-            
-            const auto& tPos = registry.get<Position>(ai.target);
-            
-            // Create proxy caster to modify stats and radius
-            auto proxy = registry.create();
-            registry.emplace<NoMoreDay::SpiritSwordTag>(proxy);
-            registry.emplace<LocalLevelTag>(proxy); // Ensure it's cleaned up if level changes
-
-            if (auto* pStats = registry.try_get<CombatStats>(summon.owner)) {
-                CombatStats proxyStats = *pStats;
-                if (isGiant) {
-                    for (auto& m : proxyStats.damage_multipliers) m *= 1.5f; // 150% Damage for Giant
-                } else {
-                    for (auto& m : proxyStats.damage_multipliers) m *= 0.5f; // 50% Damage for small swords
-                }
-                registry.emplace<CombatStats>(proxy, proxyStats);
-            }
-            
-            NoMoreDay::SkillSystem::ShadowCast(registry, proxy, 2, {pos.x, pos.y}, {tPos.x, tPos.y});
-            
-            // Visual feedback
-            auto& particleSys = GPUParticleSystem::Get();
-            if (isGiant) {
-                // Heavier effect for Giant Sword
-                 auto splash = InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 5, 10.0f, 80.0f);
-                 for(auto& p : splash) particleSys.Emit(p);
-            } else {
-                particleSys.Emit(InkEffectHelper::CreateInkTrail({pos.x, pos.y}, {0, -50}, 1.0f, 0.5f));
-            }
-
-            registry.destroy(proxy);
-        }
+                   if (priority > bestPriority) {
+                     bestPriority = priority;
+                     ai.target = candidate;
+                   }
+                 });
     }
+
+    // --- Movement (Orbiting) ---
+    float orbitSpeed = isGiant ? 1.5f : 3.0f;
+    ai.orbit_angle += dt * orbitSpeed;
+
+    float radius = isGiant ? 60.0f : 45.0f;
+    float targetX = ownerPos->x + cosf(ai.orbit_angle) * radius;
+    float targetY = ownerPos->y + sinf(ai.orbit_angle) * radius;
+
+    // Smoothly move towards orbit position
+    float moveSpeed = isGiant ? 5.0f : 10.0f;
+    pos.x += (targetX - pos.x) * moveSpeed * dt;
+    pos.y += (targetY - pos.y) * moveSpeed * dt;
+
+    // --- Combat ---
+    ai.attack_timer -= dt;
+    if (ai.attack_timer <= 0 && registry.valid(ai.target)) {
+      ai.attack_timer = ai.attack_interval;
+
+      const auto &tPos = registry.get<Position>(ai.target);
+
+      // Create proxy caster to modify stats and radius
+      auto proxy = registry.create();
+      registry.emplace<NoMoreDay::SpiritSwordTag>(proxy);
+      registry.emplace<LocalLevelTag>(
+          proxy); // Ensure it's cleaned up if level changes
+
+      if (auto *pStats = registry.try_get<CombatStats>(summon.owner)) {
+        CombatStats proxyStats = *pStats;
+        if (isGiant) {
+          for (auto &m : proxyStats.damage_multipliers)
+            m *= 1.5f; // 150% Damage for Giant
+        } else {
+          for (auto &m : proxyStats.damage_multipliers)
+            m *= 0.5f; // 50% Damage for small swords
+        }
+        registry.emplace<CombatStats>(proxy, proxyStats);
+      }
+
+      NoMoreDay::SkillSystem::ShadowCast(registry, proxy, 2, {pos.x, pos.y},
+                                         {tPos.x, tPos.y});
+
+      // Visual feedback
+      auto &particleSys = GPUParticleSystem::Get();
+      if (isGiant) {
+        // Heavier effect for Giant Sword
+        auto splash =
+            InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 5, 10.0f, 80.0f);
+        for (auto &p : splash)
+          particleSys.Emit(p);
+      } else {
+        particleSys.Emit(InkEffectHelper::CreateInkTrail({pos.x, pos.y},
+                                                         {0, -50}, 1.0f, 0.5f));
+      }
+
+      registry.destroy(proxy);
+    }
+  }
 }
 
 } // namespace NoMoreDay::systems

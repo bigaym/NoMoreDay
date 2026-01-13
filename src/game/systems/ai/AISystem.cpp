@@ -207,22 +207,22 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
         float searchRadius = 35.0f;
         int count = 0;
 
-        grid.query(pos, searchRadius, [&](entt::entity neighbor) {
-          if (neighbor == entity)
-            return;
+        grid.query(pos, searchRadius,
+                   [&](entt::entity neighbor, const Position &nPos) {
+                     if (neighbor == entity)
+                       return;
 
-          const auto &nPos = registry.get<Position>(neighbor);
-          float dx = pos.x - nPos.x;
-          float dy = pos.y - nPos.y;
-          float dSq = dx * dx + dy * dy;
+                     float dx = pos.x - nPos.x;
+                     float dy = pos.y - nPos.y;
+                     float dSq = dx * dx + dy * dy;
 
-          if (dSq > 0.01f && dSq < searchRadius * searchRadius) {
-            float d = std::sqrt(dSq);
-            separation.x += dx / d;
-            separation.y += dy / d;
-            count++;
-          }
-        });
+                     if (dSq > 0.01f && dSq < searchRadius * searchRadius) {
+                       float d = std::sqrt(dSq);
+                       separation.x += dx / d;
+                       separation.y += dy / d;
+                       count++;
+                     }
+                   });
 
         float chaseSpeed =
             50.0f; // Default speed (1/2 of Player Base Speed 100.0f)
