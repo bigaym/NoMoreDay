@@ -186,6 +186,7 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/skill/AstrolabeSystem.cpp
     src/game/systems/skill/ProjectileSystem.cpp
     src/game/systems/skill/SkillSystem.cpp
+    src/game/systems/skill/BehaviorInjectionRegistry.cpp
     src/game/systems/skill/ShadowSystem.cpp
     src/game/systems/skill/SummonSystem.cpp
     src/game/systems/ui/MonsterHealthBarSystem.cpp

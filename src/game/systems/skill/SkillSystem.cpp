@@ -1,5 +1,6 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
+#include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/behaviors/SwordArray.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/Common.hpp" // For Position
@@ -36,6 +37,30 @@ void SkillSystem::InitHooks() {
     ClearHooks();
     s_skill_callbacks.clear();
     
+    BehaviorInjectionRegistry::Init();
+
+    // 0. Generic Behavior Injection
+    AddPreCastHook([](entt::registry& registry, entt::entity execution_ent, SkillExecution& exec) {
+        if (exec.active_nodes.none()) return;
+        if (!registry.valid(exec.owner)) return;
+
+        const auto* tree = SkillRegistry::Get().GetSkillTree(exec.skill_id);
+        if (!tree) return;
+
+        for (size_t i = 0; i < exec.active_nodes.size(); ++i) {
+             if (exec.active_nodes.test(i)) {
+                 uint32_t node_id = (exec.skill_id * 100) + (uint32_t)i;
+                 auto it = tree->nodes.find(node_id);
+                 if (it != tree->nodes.end()) {
+                     const auto& node = it->second;
+                     if (!node.behavior_id.empty()) {
+                         BehaviorInjectionRegistry::Apply(node.behavior_id, registry, exec.owner);
+                     }
+                 }
+             }
+        }
+    });
+
     // 1. Sword Intent & Empowered Logic
     AddPreCastHook([](entt::registry& registry, entt::entity execution_ent, SkillExecution& exec) {
         entt::entity caster = exec.owner;
@@ -524,6 +549,7 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
         exec.has_snapshot = true;
         exec.snapshot = sc->snapshot;
         exec.is_empowered = sc->snapshot.is_empowered;
+        exec.active_nodes = sc->snapshot.active_nodes;
         registry.emplace_or_replace<CombatStats>(shadow, sc->snapshot.stats);
     } else if (auto* stats = registry.try_get<CombatStats>(owner)) {
         // Fallback: Use current owner stats
@@ -794,6 +820,22 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
     exec.state = SkillState::Preparing;
     exec.timer = 0.1f; 
     exec.target_pos = target_pos;
+
+    // Populate active_nodes from Specialization
+    if (slot_index >= 0 && slot_index < (int)active->specialized_slots.size()) {
+       const auto& spec = active->specialized_slots[slot_index];
+       if (spec.skill_id == slot.id) {
+           for (auto const& [node_id, points] : spec.allocated_points) {
+               if (points > 0) {
+                   // ID Convention: SkillID * 100 + Index (0-99)
+                   uint32_t bit_idx = node_id % 100;
+                   if (bit_idx < 128) {
+                       exec.active_nodes.set(bit_idx);
+                   }
+               }
+           }
+       }
+    }
 
     LOG_INFO("TryCast SUCCESS: Entity {} casting skill ID {} ({})", (uint32_t)entity, slot.id, data->name_key);
     return true;

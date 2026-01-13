@@ -30,6 +30,7 @@ struct SkillExecution {
     SkillSnapshot snapshot;
 
     bool is_empowered = false;
+    std::bitset<128> active_nodes;
 };
 
 class SkillSystem {

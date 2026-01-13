@@ -80,6 +80,8 @@ Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `C
     *   Managed via Python scripts in `scripts/`.
     *   Skill icons and other data-driven assets use JSON registries.
 
+**注意**：代码实现使用C++20最佳实践，不要引入UB、内存陷阱、内存泄漏、UAF(use after free)、逻辑问题、死锁等问题，需要硬编码的值放到 @Common.hpp 中。
+
 ## 🧠 Memory & Context
 
 *   **Memory Bank:** `.gemini/GEMINI.md` (Check for saved facts).

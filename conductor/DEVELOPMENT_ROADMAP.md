@@ -26,6 +26,7 @@
 | **传送门系统 (基础)** | ✅ 完成 | 回城传送门 (T键), 关卡出口, 纯代码渲染特效, 双向返回逻辑 |
 | **怪物 AI 扩展** | ✅ 完成 | Support, Assassin, Tank, SoulLink, Avenger |
 | **存档系统** | ✅ 完成 | SerializationSystem (JSON) |
+| **技能专精树重构** | ✅ 完成 | Behavior Injection + bitset 优化 |
 | **传家宝系统** | ✅ 完成 | HeirloomVaultState, 属性动态压缩, 跨存档继承 |
 | **无限梦魇/腐化** | ✅ 完成 | CorruptionSystem (难度动态缩放), LeaderboardSystem (排行榜) |
 

@@ -8,6 +8,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <bitset>
 
 namespace NoMoreDay {
 
@@ -106,6 +107,7 @@ struct TalentNode {
   uint32_t id = 0;
   std::string name_key;
   std::string desc_key;
+  std::string behavior_id; // ID for C++ logic injection (e.g., "shadow_caster")
   uint32_t icon_id = 0; // Added for UI Polish
   int max_points = 1;
 
@@ -128,6 +130,7 @@ inline void to_json(nlohmann::json &j, const TalentNode &n) {
   j = nlohmann::json{{"id", n.id},
                      {"name_key", n.name_key},
                      {"desc_key", n.desc_key},
+                     {"behavior_id", n.behavior_id},
                      {"icon_id", n.icon_id},
                      {"max_points", n.max_points},
                      {"prerequisites", n.prerequisites},
@@ -160,6 +163,8 @@ inline void from_json(const nlohmann::json &j, TalentNode &n) {
   j.at("id").get_to(n.id);
   j.at("name_key").get_to(n.name_key);
   j.at("desc_key").get_to(n.desc_key);
+  if (j.contains("behavior_id"))
+    j.at("behavior_id").get_to(n.behavior_id);
   if (j.contains("icon_id"))
     j.at("icon_id").get_to(n.icon_id);
   if (j.contains("max_points"))
@@ -320,6 +325,7 @@ inline void from_json(const nlohmann::json &j, ActiveSkillsComponent &c) {
 struct SkillComponent {
   uint32_t skill_id = 0;
   entt::entity owner = entt::null;
+  std::bitset<128> active_nodes; // Tracks which talent nodes are active for this instance
 };
 
 // ---星盘相关组件---
@@ -350,6 +356,7 @@ struct SkillSnapshot {
   CombatStats stats; // Snapshot of owner's stats at time of creation
   bool is_empowered = false;
   uint64_t cast_id = 0;
+  std::bitset<128> active_nodes;
 };
 
 /**
