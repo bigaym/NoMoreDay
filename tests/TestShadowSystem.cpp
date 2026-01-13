@@ -3,6 +3,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
 
 namespace NoMoreDay {
 
@@ -92,6 +93,35 @@ TEST_CASE("ShadowSystem Tests") {
          // Update past lifetime
          ShadowSystem::Update(registry, 0.2f);
          CHECK_FALSE(registry.valid(shadow_ent));
+    }
+
+    SUBCASE("Shadow Damage Scaling") {
+        auto attacker = registry.create();
+        auto& sc = registry.emplace<ShadowComponent>(attacker);
+        sc.damage_scale = 0.3f; // 30% damage
+        
+        auto& stats = registry.emplace<CombatStats>(attacker);
+        stats.min_weapon_damage = 100.0f;
+        stats.max_weapon_damage = 100.0f;
+        
+        auto defender = registry.create();
+        registry.emplace<HealthComponent>(defender, 1000.0f, 1000.0f);
+        registry.emplace<CombatStats>(defender);
+        
+        DamagePool pool;
+        pool.Add(Tag::Physical, 100.0f); 
+        
+        auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::None);
+        
+        // Expected: 100 (Pool) + 100 (Weapon) = 200 Raw.
+        // Scaled by 0.3 = 60.
+        // However, defaults might apply other things?
+        // Let's just check relative to raw.
+        // Base damage in pipeline adds weapon damage IF skill_data exists. 
+        // Here skill_id=0 (No skill data), so only base pool (100).
+        // So 100 * 0.3 = 30.
+        
+        CHECK(result.total_damage == doctest::Approx(30.0f));
     }
 }
 

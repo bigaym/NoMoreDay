@@ -53,8 +53,12 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
     float fontScale = 1.0f / cameraZoom;
 
     // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
+    // Updated to iterate entities for ShadowVisualComponent check
     auto spriteView = registry.view<const Position, const SpriteComponent>();
-    spriteView.each([](const auto& pos, const auto& sprite) {
+    for (auto entity : spriteView) {
+        const auto& pos = spriteView.get<Position>(entity);
+        const auto& sprite = spriteView.get<SpriteComponent>(entity);
+
         float width = (float)sprite.texture.width * sprite.scale; // 宽度
         float height = (float)sprite.texture.height * sprite.scale;
         
@@ -63,8 +67,13 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         Rectangle source = { 0.0f, 0.0f, (float)sprite.texture.width, (float)sprite.texture.height };
         Rectangle dest = { pos.x, pos.y, width, height };
         
-        DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
-    });
+        Color tint = WHITE;
+        if (auto* svc = registry.try_get<NoMoreDay::ShadowVisualComponent>(entity)) {
+            tint = svc->color_tint;
+        }
+
+        DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, tint);
+    }
 
     // GPU 粒子渲染
     NoMoreDay::systems::GPUParticleSystem::Get().Render(camera);

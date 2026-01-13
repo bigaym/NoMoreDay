@@ -550,7 +550,11 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
         exec.snapshot = sc->snapshot;
         exec.is_empowered = sc->snapshot.is_empowered;
         exec.active_nodes = sc->snapshot.active_nodes;
-        registry.emplace_or_replace<CombatStats>(shadow, sc->snapshot.stats);
+        
+        // Inherit damage scale from the shadow that cast this (if chaining shadows)
+        // Or strictly use the component's value if we want to mutate it.
+        // Actually, shadows don't usually cast shadows? 
+        // If owner is a shadow, 'shadow' variable is 'owner'.
     } else if (auto* stats = registry.try_get<CombatStats>(owner)) {
         // Fallback: Use current owner stats
         exec.has_snapshot = true;
@@ -558,8 +562,29 @@ bool SkillSystem::ShadowCast(entt::registry& registry, entt::entity owner, uint3
         exec.snapshot.skill_id = skill_id;
         // No empowerment by default for non-snapshot casts unless we want it?
         
-        registry.emplace_or_replace<CombatStats>(shadow, *stats);
+        // If owner is NOT a shadow, they are the source.
     }
+    
+    // NEW: Initialize generic shadow stats if not already present
+    // (If owner was already a shadow, 'shadow' == 'owner', so we might be updating it or it's fine)
+    if (shadow != owner || !registry.all_of<ShadowComponent>(shadow)) {
+         // This block handles FRESH shadow creation (when shadow != owner, or owner wasn't a shadow)
+         // Wait, the logic above is:
+         // if (!registry.any_of<ShadowComponent>(owner)...) { shadow = registry.create(); ... }
+         // else { shadow = owner; }
+         
+         // So if we created a new entity, 'shadow' is new.
+         if (shadow != owner) {
+             // We just created it.
+             registry.get_or_emplace<ShadowComponent>(shadow).damage_scale = 0.3f; // Default 30%
+             
+             // Add Visuals
+             auto& visual = registry.emplace<ShadowVisualComponent>(shadow);
+             visual.color_tint = { 40, 0, 60, 180 }; // Deep ink purple
+         }
+    }
+
+    registry.emplace_or_replace<CombatStats>(shadow, exec.snapshot.stats); // Ensure stats are on the entity
 
     registry.emplace<ShadowCastTag>(exec_ent);
     LOG_INFO("Shadow casting skill: {}", data->name_key);
@@ -787,6 +812,7 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
         registry.emplace<ShadowCloneComponent>(shadow_ent);
         
         auto& sc = registry.emplace<ShadowComponent>(shadow_ent);
+        sc.damage_scale = 0.5f; // Explicit 50% for Shadow Kill Array
         sc.delay = 0.1f;
         sc.lifetime = 1.0f;
         sc.snapshot.skill_id = slot.id;
@@ -794,8 +820,9 @@ bool SkillSystem::TryCast(entt::registry& registry, entt::entity entity, int slo
         sc.snapshot.target_pos = target_pos;
         if (stats) {
             sc.snapshot.stats = *stats;
-            // Reduction to 50% damage will be applied in DamagePipeline
         }
+        
+        registry.emplace<ShadowVisualComponent>(shadow_ent).color_tint = { 60, 0, 80, 200 }; // Distinct visual for clone
         LOG_INFO("Shadow Kill Array: Duplicating skill {} for entity {}", slot.id, (uint32_t)entity);
     }
 

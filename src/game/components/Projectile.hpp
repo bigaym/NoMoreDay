@@ -37,7 +37,7 @@ struct Projectile {
 struct BoomerangComponent {
     enum Phase { Outward, Returning };
     Phase phase = Outward;
-    float returnTimer = 0.6f; // Time until it turns back
+    float returnTimer = 0.5f; // Time until it turns back
     entt::entity owner = entt::null;
     
     // Improved return logic

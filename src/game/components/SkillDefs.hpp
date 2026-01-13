@@ -367,10 +367,30 @@ struct ShadowComponent {
   float delay = 0.0f;     // Time before skill is triggered
   float lifetime = 1.0f;  // Total time before entity is destroyed
   bool triggered = false; // Whether the skill effect has been fired
+  float damage_scale = 0.3f; // Damage multiplier for skills cast by this shadow (Default 30%)
+};
+
+/**
+ * @brief Component to mark an entity for specific "Ink/Shadow" visual rendering.
+ */
+struct ShadowVisualComponent {
+    Color color_tint = { 50, 0, 50, 150 }; // Dark purple/black tint
+    bool use_shader = false; // Whether to use the ink shader
 };
 
 struct ShadowLifetime {
   float remaining = 1.0f;
+};
+
+/**
+ * @brief Component for projectiles/entities that seek targets.
+ */
+struct SeekerComponent {
+    entt::entity target = entt::null;
+    float turn_rate = 5.0f; // Radians per second
+    float range = 1000.0f;  // Maximum seeking range
+    bool stop_on_arrival = false; 
+    float arrival_threshold = 10.0f;
 };
 
 /**

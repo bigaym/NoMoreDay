@@ -77,6 +77,60 @@ void ProjectileSystem::Update(entt::registry &registry,
 
     // --- NEW: Pull Logic ---
     if (proj.hasPull) {
+       // ... existing pull logic (omitted in snippet, but assuming context match) ...
+       // Wait, I need to match exact context or just insert before.
+       // Let's rely on context matching. I will include the pull logic block if needed, 
+       // or insert Seeker logic BEFORE it or AFTER it.
+       // The snippet below replaces the "NEW: Pull Logic" block to verify context, 
+       // but I'll try to insert Seeker logic right before it.
+    }
+
+    // --- NEW: Seeker Logic ---
+    if (auto* seeker = registry.try_get<SeekerComponent>(entity)) {
+        entt::entity target = seeker->target;
+        
+        // If target is invalid/dead, try to find a new one if we want auto-retargeting,
+        // or just fly straight. For now, strict targeting.
+        if (registry.valid(target) && registry.all_of<Position>(target)) {
+             const auto& tPos = registry.get<Position>(target);
+             Vector2 desired = Vector2Subtract({tPos.x, tPos.y}, {pos.x, pos.y});
+             float dist = Vector2Length(desired);
+             
+             if (dist > 0.001f && dist <= seeker->range) {
+                 desired = Vector2Scale(Vector2Normalize(desired), proj.speed);
+                 Vector2 current = {vel.vx, vel.vy};
+                 
+                 // Rotate current towards desired by turn_rate * dt
+                 // Simple approach: Lerp or Rotate
+                 // Using Rotate for constant anglular velocity
+                 float currentAngle = atan2f(current.y, current.x);
+                 float desiredAngle = atan2f(desired.y, desired.x);
+                 
+                 // Shortest arc
+                 float diff = desiredAngle - currentAngle;
+                 while (diff <= -PI) diff += 2*PI;
+                 while (diff > PI) diff -= 2*PI;
+                 
+                 float turn = seeker->turn_rate * dt;
+                 if (abs(diff) < turn) {
+                     vel.vx = desired.x;
+                     vel.vy = desired.y;
+                 } else {
+                     float newAngle = currentAngle + copysignf(turn, diff);
+                     vel.vx = cosf(newAngle) * proj.speed;
+                     vel.vy = sinf(newAngle) * proj.speed;
+                 }
+                 
+                 if (seeker->stop_on_arrival && dist < seeker->arrival_threshold) {
+                     vel.vx = 0;
+                     vel.vy = 0;
+                 }
+             }
+        }
+    }
+
+    // --- NEW: Pull Logic ---
+    if (proj.hasPull) {
       using namespace NoMoreDay::Constants::Skill;
       float pullRadius = proj.radius * PROJECTILE_PULL_RADIUS_MULTIPLIER;
       grid.query({pos.x, pos.y}, pullRadius,

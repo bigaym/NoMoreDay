@@ -194,8 +194,11 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
   using namespace NoMoreDay::Constants::Combat::Pipeline;
   float shadow_multiplier = 1.0f;
-  if (registry.all_of<ShadowCloneComponent>(attacker)) {
-    shadow_multiplier = SHADOW_MULTIPLIER;
+  
+  if (auto* sc = registry.try_get<ShadowComponent>(attacker)) {
+      shadow_multiplier = sc->damage_scale;
+  } else if (registry.all_of<ShadowCloneComponent>(attacker)) {
+      shadow_multiplier = SHADOW_MULTIPLIER;
   }
 
   for (size_t i = 0; i < instances.size; ++i) {

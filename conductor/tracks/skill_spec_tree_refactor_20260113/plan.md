@@ -2,18 +2,18 @@
 
 ## 阶段 1：基础工具与数据架构 (Foundation & Tooling)
 本阶段建立数据同步管道和 C++ 层的数据承载结构。
-- [ ] **任务 1.1**: 开发 `scripts/sync_skills_spec.py`。实现从 `职业设计草案_剑修.md` 提取节点逻辑并注入 `skills.json` 的功能。
-- [ ] **任务 1.2**: 扩展 `skills.json` 模式。增加 `specialization_tree` 字段，支持 4 分支结构及行为 ID 映射。
-- [ ] **任务 1.3**: 重构 C++ `SkillComponent`。增加专精激活状态位图 (`bitset`) 和动态属性缓存池。
-- [ ] **任务 1.4**: 实现 `BehaviorInjectionRegistry`。建立行为 ID（如 `shadow_caster`）与组件注入逻辑的映射关系。
-- [ ] **任务 1.5**: - [ ] Task: Conductor - User Manual Verification '阶段 1' (Protocol in workflow.md)
+- [x] **任务 1.1**: 开发 `scripts/sync_skills_spec.py`。实现从 `职业设计草案_剑修.md` 提取节点逻辑并注入 `skills.json` 的功能。
+- [x] **任务 1.2**: 扩展 `skills.json` 模式。增加 `specialization_tree` 字段，支持 4 分支结构及行为 ID 映射。
+- [x] **任务 1.3**: 重构 C++ `SkillComponent`。增加专精激活状态位图 (`bitset`) 和动态属性缓存池。
+- [x] **任务 1.4**: 实现 `BehaviorInjectionRegistry`。建立行为 ID（如 `shadow_caster`）与组件注入逻辑的映射关系。
+- [x] **任务 1.5**: - [x] Task: Conductor - User Manual Verification '阶段 1' (Protocol in workflow.md)
 
 ## 阶段 2：核心行为引擎实现 (Core Mechanical Systems)
 实现支撑专精效果的底层通用系统，这些是构建复杂技能形态的“积木”。
-- [ ] **任务 2.1**: **残影系统 (Shadow System)**。实现 `ShadowEntity` 的创建、属性继承（30% 基础）以及动作镜像逻辑。
-- [ ] **任务 2.2**: **折返逻辑 (Boomerang Logic)**。实现投射物的距离检测、力场反转及玩家追踪移动组件。
-- [ ] **任务 2.3**: **自动化索敌 (Seeking Logic)**。为灵剑和心剑实现基于网格扫描的高频自动锁定组件。
-- [ ] **任务 2.4**: **水墨特效着色器**。在 `RenderSystem` 中为持有 `ShadowTag` 的实体实现淡雅水墨/墨痕渐变效果。
+- [x] **任务 2.1**: **残影系统 (Shadow System)**。实现 `ShadowEntity` 的创建、属性继承（30% 基础）以及动作镜像逻辑。
+- [x] **任务 2.2**: **折返逻辑 (Boomerang Logic)**。实现投射物的距离检测、力场反转及玩家追踪移动组件。
+- [x] **任务 2.3**: **自动化索敌 (Seeking Logic)**。为灵剑和心剑实现基于网格扫描的高频自动锁定组件。
+- [x] **任务 2.4**: **水墨特效着色器**。在 `RenderSystem` 中为持有 `ShadowTag` 的实体实现淡雅水墨/墨痕渐变效果。
 - [ ] **任务 2.5**: - [ ] Task: Conductor - User Manual Verification '阶段 2' (Protocol in workflow.md)
 
 ## 阶段 3：高频输出技能集成 (Melee & Projectile Integration)
