@@ -2,9 +2,9 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "game/components/EnemyComponent.hpp"
+#include "game/systems/ai/EnemyAIBehaviors.hpp"
 #include <algorithm>
 #include <cmath>
-
 
 float AISystem::distance(const Position &a, const Position &b) {
   float dx = a.x - b.x;
@@ -360,6 +360,27 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
         vel.vy = (dy / distToPlayer) * hunterSpeed;
       }
     }
+    break;
+  }
+
+  case AIType::SUPPORT_FLEE_BUFF: {
+    // 支援者行为：远离玩家 + 给友军施 Buff
+    NoMoreDay::AI::UpdateSupportBehavior(registry, entity, ai, pos, vel,
+                                         playerPos, dt);
+    break;
+  }
+
+  case AIType::ASSASSIN_STEALTH: {
+    // 刺客行为：潜行 + 背刺
+    NoMoreDay::AI::UpdateAssassinBehavior(registry, entity, ai, pos, vel,
+                                          playerPos, dt);
+    break;
+  }
+
+  case AIType::TANK_BLOCK: {
+    // 坦克行为：阻挡视线保护远程友军
+    NoMoreDay::AI::UpdateTankBehavior(registry, entity, ai, pos, vel, playerPos,
+                                      dt);
     break;
   }
   }

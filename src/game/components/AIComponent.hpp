@@ -3,15 +3,17 @@
 #include <cmath>
 #include <entt/entt.hpp>
 
-
 // AI行为类型枚举
 enum class AIType {
-  IDLE,          // 闲置
-  PATROL,        // 巡逻
-  CHASE,         // 追击
-  ATTACK,        // 攻击
-  FLEE,          // 逃跑
-  NEMESIS_HUNTER // 宿敌猎杀模式 (主动巡逻搜索玩家)
+  IDLE,              // 闲置
+  PATROL,            // 巡逻
+  CHASE,             // 追击
+  ATTACK,            // 攻击
+  FLEE,              // 逃跑
+  NEMESIS_HUNTER,    // 宿敌猎杀模式 (主动巡逻搜索玩家)
+  SUPPORT_FLEE_BUFF, // 支援者：远离玩家 + 给友军施 Buff
+  ASSASSIN_STEALTH,  // 刺客：潜行等待时机
+  TANK_BLOCK         // 坦克：阻挡视线保护远程友军
 };
 
 // AI状态组件
@@ -37,6 +39,23 @@ struct AIComponent {
 
   // 帧率无关更新节流
   float updateAccumulator = 0.0f; // 距离上次AI更新的时间累积
+
+  // === 支援者 (SUPPORT) 专用 ===
+  float buffCooldown = 5.0f;        // Buff 施放冷却时间
+  float buffCooldownTimer = 0.0f;   // 当前冷却计时
+  float buffRadius = 300.0f;        // Buff 施放范围
+  float preferredDistance = 300.0f; // 与玩家保持的首选距离
+
+  // === 刺客 (ASSASSIN) 专用 ===
+  bool isStealthed = false;        // 是否处于隐身状态
+  float stealthTimer = 0.0f;       // 隐身持续时间
+  float backstabMultiplier = 2.5f; // 背刺伤害倍率
+  float backstabCooldown = 8.0f;   // 背刺冷却
+  float backstabCooldownTimer = 0.0f;
+
+  // === 坦克 (TANK) 专用 ===
+  entt::entity protectTarget = entt::null; // 保护的远程友军
+  float blockingMass = 5.0f;               // 阻挡质量 (难以被击退)
 
   AIComponent() = default;
   AIComponent(AIType type, float detRange = 100.0f, float attRange = 50.0f,

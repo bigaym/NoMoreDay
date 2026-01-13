@@ -156,8 +156,10 @@ add_library(NoMoreDayCore STATIC
     src/game/states/SettingsState.cpp
     src/game/systems/ai/AISystem.cpp
     src/game/systems/ai/EnemyBehavior.cpp
+    src/game/systems/ai/EnemyAIBehaviors.cpp
     src/game/systems/combat/CombatEventDispatcher.cpp
     src/game/systems/combat/CombatSystem.cpp
+    src/game/systems/combat/EliteModifierSystem.cpp
     src/game/systems/combat/DamagePipeline.cpp
     src/game/systems/combat/VisualFXSystem.cpp
     src/game/systems/combat/EffectSystem.cpp
