@@ -271,14 +271,14 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   switch (raceType) {
   case EnemyRace::UNDEAD:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::PATROL, 150.0f, 40.0f, 50.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 150.0f, 40.0f, 50.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.25f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     break;
   case EnemyRace::DEMON:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::PATROL, 200.0f, 50.0f, 70.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 200.0f, 50.0f, 70.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.45f * (1.0f + m_resonanceMods.dropRateBonus), 1, 2);
@@ -287,7 +287,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::CORRUPTED:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::PATROL, 250.0f, 60.0f,
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 250.0f, 60.0f,
                                   100.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
     registry.emplace<NoMoreDay::DropTableComponent>(
@@ -297,7 +297,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::CULTIST:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::PATROL, 180.0f, 30.0f, 60.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 180.0f, 30.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, WHITE);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.35f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
@@ -305,7 +305,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::GOBLIN:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::PATROL, 120.0f, 40.0f, 60.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 120.0f, 40.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, GREEN);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.20f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
@@ -313,7 +313,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::SLIME:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::PATROL, 80.0f, 20.0f, 30.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 80.0f, 20.0f, 30.0f);
     registry.emplace<ColorComponent>(entity, LIME);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.15f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
@@ -422,9 +422,59 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
 void EnemySpawnSystem::despawnEnemy(entt::registry &registry,
                                     EnemySpawnData &data) {
+  // If entity is Dormant, do NOT destroy it here, let it persist in pool
+  if (registry.valid(data.entityId) && registry.any_of<DormantTag>(data.entityId)) {
+      return; 
+  }
+  
   if (registry.valid(data.entityId)) {
     registry.destroy(data.entityId);
   }
   data.entityId = entt::null;
   data.isAlive = false;
+}
+
+void EnemySpawnSystem::updateDormantEntities(entt::registry& registry, const Position& playerPos, int gridW, int gridH) {
+    static int frameCounter = 0;
+    if (++frameCounter < 60) return; // Spec 2.3: Re-schedule every 60 frames
+    frameCounter = 0;
+
+    auto dormantView = registry.view<DormantTag, Position, AIComponent>();
+    int awakenedCount = 0;
+    int maxAwakenPerCycle = 50; // Throttle awakening
+
+    std::uniform_real_distribution<float> angleDist(0.0f, 6.283185f);
+    std::uniform_real_distribution<float> distDist(1650.0f, 1800.0f); // Just inside active boundary (1950)
+
+    for (auto entity : dormantView) {
+        if (awakenedCount >= maxAwakenPerCycle) break;
+
+        // Find a valid spot
+        float angle = angleDist(m_gen);
+        float dist = distDist(m_gen);
+        float tx = playerPos.x + std::cos(angle) * dist;
+        float ty = playerPos.y + std::sin(angle) * dist;
+
+        // Check bounds (approximate)
+        if (tx < 0 || tx > gridW * 10.0f || ty < 0 || ty > gridH * 10.0f) continue;
+        
+        // Wake up
+        auto& pos = dormantView.get<Position>(entity);
+        pos.x = tx;
+        pos.y = ty;
+
+        registry.remove<DormantTag>(entity);
+        registry.emplace_or_replace<Velocity>(entity, 0.0f, 0.0f); // Re-add Velocity
+        
+        // Reset AI
+        auto& ai = dormantView.get<AIComponent>(entity);
+        ai.aiType = AIType::IDLE; // Spec 3.0: Reset to IDLE, wait for WakeUp
+        ai.target = entt::null;
+
+        awakenedCount++;
+    }
+    
+    if (awakenedCount > 0) {
+        LOG_INFO("Recycled {} dormant entities", awakenedCount);
+    }
 }

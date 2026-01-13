@@ -59,6 +59,9 @@ public:
 
   // 更新生成/销毁逻辑
   void updateEnemySpawning(const Position &playerPos, entt::registry &registry);
+  
+  // Spec 2.3: Re-schedule dormant entities
+  void updateDormantEntities(entt::registry& registry, const Position& playerPos, int gridW, int gridH);
 
 private:
   // 具体的生成逻辑

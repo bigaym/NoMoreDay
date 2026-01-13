@@ -40,11 +40,14 @@ void GPUFlowFieldSystem::Init(ResourceManager& resources, int width, int height)
     std::vector<Vector2> initialFlow(cellCount, {0.0f, 0.0f});
     m_flowBuffer.Create(cellCount * sizeof(Vector2), initialFlow.data(), RL_DYNAMIC_DRAW);
     
+    // Initialize Shadow Buffer
+    m_flowFieldShadow = initialFlow;
+
     LOG_INFO("GPUFlowFieldSystem buffers allocated.");
 }
 
 void GPUFlowFieldSystem::Update(const std::vector<unsigned char>& fullCostMap, int mapW, int mapH, Vector2 targetPos, Vector2 gridOrigin) {
-
+    m_syncedThisFrame = false;
     if (m_width == 0 || m_height == 0) return;
 
     
@@ -199,7 +202,22 @@ void GPUFlowFieldSystem::UpdateCrowdDensity(unsigned int entityBufferId, int ent
     rlDisableShader();
 }
 
+void GPUFlowFieldSystem::SyncToCPU() {
+    if (m_width <= 0 || m_height <= 0 || m_syncedThisFrame) return;
+    size_t cellCount = (size_t)m_width * m_height;
+    
+    // Ensure shadow buffer size is correct (though it should be from Init)
+    if (m_flowFieldShadow.size() != cellCount) {
+        m_flowFieldShadow.resize(cellCount);
+    }
+
+    // Read data from GPU to CPU shadow buffer
+    m_flowBuffer.Read(m_flowFieldShadow.data(), cellCount * sizeof(Vector2));
+    m_syncedThisFrame = true;
+}
+
 std::vector<Vector2> GPUFlowFieldSystem::DownloadFlowField() const {
+
     size_t cellCount = (size_t)m_width * m_height;
     std::vector<Vector2> flowData(cellCount);
     m_flowBuffer.Read(flowData.data(), cellCount * sizeof(Vector2));

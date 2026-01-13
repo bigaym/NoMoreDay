@@ -274,11 +274,15 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 1. Level & Systems
   m_context->levelManager->update(dt, registry, playerPos);
+  
+  // Update Dormant Entities (Spec 2.3)
+  const auto& map = m_context->levelManager->getMapSystem();
+  m_context->levelManager->getEnemySpawnSystem().updateDormantEntities(registry, playerPos, map.getWidth(), map.getHeight());
   // m_context->levelManager->getMapSystem().updateFlowField(playerPos);
 
   // GPU Flow Field
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
-  const auto &map = m_context->levelManager->getMapSystem();
+  // Map already declared above
   if (map.getWidth() > 0) {
     float cellSize = 10.0f; // Tile size
     int gw = flowSystem.GetWidth();

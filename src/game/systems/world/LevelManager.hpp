@@ -84,6 +84,8 @@ public:
     assert(m_enemySystem && "LevelManager: EnemySpawnSystem not initialized");
     return *m_enemySystem;
   }
+  EnemySpawnSystem &getEnemySpawnSystem() { return getEnemySystem(); }
+
   const EnemySpawnSystem &getEnemySystem() const {
     assert(m_enemySystem && "LevelManager: EnemySpawnSystem not initialized");
     return *m_enemySystem;

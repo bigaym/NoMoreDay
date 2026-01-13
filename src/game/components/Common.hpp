@@ -121,3 +121,7 @@ struct IDComponent {
     uint64_t uuid = 0;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(IDComponent, uuid)
+
+// 休眠标签：标记实体处于休眠状态，跳过 AI 和 Physics 更新
+struct DormantTag {};
+

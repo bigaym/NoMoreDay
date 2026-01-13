@@ -33,6 +33,12 @@ public:
     int GetHeight() const { return m_height; }
     Vector2 GetGridOrigin() const { return m_gridOrigin; }
 
+    // Efficient CPU Access
+    void SyncToCPU();
+    const std::vector<Vector2>& GetFlowFieldCPU() const { return m_flowFieldShadow; }
+    bool IsCoordinateInBounds(int x, int y) const { return x >= 0 && x < m_width && y >= 0 && y < m_height; }
+    void ResetSyncTag() { m_syncedThisFrame = false; }
+
     // Density Weight for Flanking
     float m_densityWeight = 10.0f;
 
@@ -57,6 +63,10 @@ private:
     core::ComputeBuffer m_integrationBuffer2; // Pong
     core::ComputeBuffer m_flowBuffer;        // Vector2[] (Flow Direction)
     
+    // CPU Shadow Buffer
+    std::vector<Vector2> m_flowFieldShadow;
+    bool m_syncedThisFrame = false;
+
     int m_width = 0;
     int m_height = 0;
     float m_cellSize = 10.0f;

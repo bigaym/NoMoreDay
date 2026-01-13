@@ -150,7 +150,7 @@ struct EnemyStateComponent {
                       EnemyArchetype::Type arch = EnemyArchetype::FODDER)
       : raceType(race), archetypeType(arch), detectionRange(150.0f),
         attackRange(50.0f), speed(100.0f), target(entt::null), stateTimer(0.0f),
-        activationRange(500.0f), deactivationRange(600.0f), level(1),
+        activationRange(300.0f), deactivationRange(600.0f), level(1),
         aiState(AIState::IDLE) {
 
     // 根据种族和职业设置初始参数

@@ -92,6 +92,16 @@ TEST_CASE("GPU Flow Field Compute Test") {
     // physics.compute checks length > 0.01.
     // If our integration shader writes zero for walls, this holds.
     
+    // 5. Test SyncToCPU
+    flowSystem.SyncToCPU();
+    const auto& cpuFlow = flowSystem.GetFlowFieldCPU();
+    REQUIRE(cpuFlow.size() == 64 * 64);
+    
+    // Verify that CPU shadow buffer matches DownloadFlowField result
+    // (5,5) was checked earlier
+    CHECK(cpuFlow[5 * 64 + 5].x == doctest::Approx(flowAtStart.x));
+    CHECK(cpuFlow[5 * 64 + 5].y == doctest::Approx(flowAtStart.y));
+
     // Cleanup
     flowSystem.Shutdown();
 }

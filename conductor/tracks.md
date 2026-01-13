@@ -180,3 +180,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** PLANNED
 - **Priority:** MEDIUM
 - **Estimated Time:** 2 weeks
+---
+
+## [x] Track: GPU Flow Field Integration
+- **Folder:** [./conductor/tracks/gpu_flow_integration_20260113/](./conductor/tracks/gpu_flow_integration_20260113/)
+- **Description:** 将 GPU 流场 (SSBO) 集成到怪物寻路 AI 中。实现了 CPU 影子缓冲区同步、AI 分段降频更新以及基于实体池的休眠系统 (Dormancy System)，支持万级实体高性能寻路。 (Completed on 2026-01-13)

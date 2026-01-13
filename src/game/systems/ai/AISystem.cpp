@@ -36,6 +36,9 @@ entt::entity AISystem::findNearestTarget(entt::registry &registry,
   return nearest;
 }
 
+// 辅助函数：快速获取符号
+inline float sgn(float x) { return (x > 0) ? 1.0f : ((x < 0) ? -1.0f : 0.0f); }
+
 void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
                               AIComponent &ai, Position &pos, Velocity &vel,
                               const NoMoreDay::systems::SpatialHashGrid &grid,
@@ -49,7 +52,6 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   ai.lastDecisionTime += dt;
 
   // --- 全局状态管理 (Leashing / Reset) ---
-  // 检查是否有关联的 EnemyStateComponent (用于获取脱战范围等)
   const EnemyStateComponent *stateComp =
       registry.try_get<EnemyStateComponent>(entity);
   HealthComponent *health = registry.try_get<HealthComponent>(entity);
@@ -59,39 +61,37 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     float dy = pos.y - playerPos.y;
     float distSq = dx * dx + dy * dy;
 
-    float leashRangeSq =
-        stateComp->deactivationRange * stateComp->deactivationRange;
+    // 脱战与重置逻辑
+    float leashRangeSq = stateComp->deactivationRange * stateComp->deactivationRange;
     float hardResetRangeSq = leashRangeSq * 4.0f;
-    float wakeUpRangeSq =
-        stateComp->activationRange * stateComp->activationRange;
+    float wakeUpRangeSq = stateComp->activationRange * stateComp->activationRange;
 
-    // 1. 强制传送逻辑
+    // 1. 强制传送逻辑 (Hard Reset)
     if (distSq > hardResetRangeSq) {
-      pos = ai.patrolStart; // 传送回出生点
+      // LOG_DEBUG("Entity {} Hard Reset (Dist: {:.1f})", (uint32_t)entity, std::sqrt(distSq));
+      pos = ai.patrolStart;
       ai.aiType = AIType::IDLE;
       ai.target = entt::null;
       vel.vx = 0.0f;
       vel.vy = 0.0f;
-      if (health)
-        health->current = health->max;
-      return; // 传送后本帧不移动
+      if (health) health->current = health->max;
+      return; 
     }
-    // 2. 脱战逻辑
+    // 2. 脱战逻辑 (Leashing)
     else if (distSq > leashRangeSq) {
-      if (ai.aiType == AIType::CHASE || ai.aiType == AIType::ATTACK) {
-        LOG_DEBUG("AI entity {} leashing: switching to PATROL",
-                  (uint32_t)entity);
-        ai.aiType = AIType::PATROL;
-        ai.target = entt::null;
+      if (ai.aiType == AIType::CHASE || ai.aiType == AIType::ATTACK || ai.aiType == AIType::NEMESIS_HUNTER) {
+        if (ai.aiType != AIType::NEMESIS_HUNTER) { // Nemesis 不脱战
+             // LOG_DEBUG("Entity {} Leashed (Dist: {:.1f})", (uint32_t)entity, std::sqrt(distSq));
+             ai.aiType = AIType::PATROL;
+             ai.target = entt::null;
+        }
       }
-      // 回回血
       if (health && health->current < health->max * 0.95f) {
         health->current += health->max * 0.10f * dt;
-        if (health->current > health->max)
-          health->current = health->max;
+        if (health->current > health->max) health->current = health->max;
       }
     }
-    // 3. 激活逻辑
+    // 3. 激活逻辑 (Wake Up)
     else if (distSq < wakeUpRangeSq) {
       if (ai.aiType == AIType::IDLE) {
         ai.aiType = AIType::PATROL;
@@ -99,20 +99,48 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     }
   }
 
+  // Common Chase Logic using Flow Field
+  auto applyFlowFieldCheck = [&](float speed) {
+      // 2.1 坐标映射 (Coordinate Mapping)
+      int gx = (int)((pos.x - gridOrigin.x) / cellSize);
+      int gy = (int)((pos.y - gridOrigin.y) / cellSize);
+
+      bool hasFlow = false;
+      Vector2 flow = {0.0f, 0.0f};
+
+      if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
+          int index = gy * gridW + gx;
+          if (index < (int)flowField.size()) {
+              flow = flowField[index];
+              // 2.2 移动算法 (Movement Engine)
+              // 若采样到的 Vector2 模长 > 0.01 (有效指引)
+              if (std::abs(flow.x) > 0.01f || std::abs(flow.y) > 0.01f) {
+                  hasFlow = true;
+              }
+          }
+      }
+
+      if (hasFlow) {
+          // 采样模式 (Exclusive): 直接读取 SSBO，不计算避障
+          vel.vx = flow.x * speed;
+          vel.vy = flow.y * speed;
+      } else {
+          // 若采样到的模长为 0 (障碍物或无效区)
+          // 实体保持当前速度衰减 (Friction)
+          vel.vx *= 0.90f; // Rapid validation friction
+          vel.vy *= 0.90f;
+      }
+  };
+
+
   // 基于AI类型执行不同行为
   switch (ai.aiType) {
   case AIType::IDLE: {
-    // 闲置状态 - 随机移动或保持不动
     vel.vx = 0.0f;
     vel.vy = 0.0f;
-
-    // 检查是否有目标进入检测范围
     if (ai.lastDecisionTime >= ai.decisionInterval) {
-      entt::entity target =
-          findNearestTarget(registry, pos, ai.detectionRange, entity);
+      entt::entity target = findNearestTarget(registry, pos, ai.detectionRange, entity);
       if (target != entt::null) {
-        LOG_DEBUG("AI entity {} found target {} in IDLE, switching to CHASE",
-                  (uint32_t)entity, (uint32_t)target);
         ai.target = target;
         ai.aiType = AIType::CHASE;
       }
@@ -122,38 +150,27 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   case AIType::PATROL: {
-    // 巡逻状态 - 使用 A* 路径或简单直线返回巡逻点
+    // 巡逻逻辑保持不变 (MapSystem A* or Simple)
     Position targetPos = ai.patrolDirection ? ai.patrolEnd : ai.patrolStart;
-
-    // 使用 MapSystem 的简单寻路获取下一步
     Position nextStep = mapSystem.getPathNextStep(pos, targetPos);
-
     float dx = nextStep.x - pos.x;
     float dy = nextStep.y - pos.y;
     float distToNext = std::sqrt(dx * dx + dy * dy);
-
-    // 检查是否到达当前巡逻目标点
     float distToTarget = distance(pos, targetPos);
+
     if (distToTarget < 10.0f) {
-      // LOG_TRACE("AI entity {} reached patrol point, switching direction",
-      // (uint32_t)entity);
       ai.patrolDirection = !ai.patrolDirection;
       vel.vx = 0;
       vel.vy = 0;
     } else if (distToNext > 0.1f) {
-      // 移动向下一步 - 游荡速度固定为 20
       float patrolSpeed = 20.0f;
       vel.vx = (dx / distToNext) * patrolSpeed;
       vel.vy = (dy / distToNext) * patrolSpeed;
     }
 
-    // 检查是否有目标进入检测范围
     if (ai.lastDecisionTime >= ai.decisionInterval) {
-      entt::entity target =
-          findNearestTarget(registry, pos, ai.detectionRange, entity);
+      entt::entity target = findNearestTarget(registry, pos, ai.detectionRange, entity);
       if (target != entt::null) {
-        // LOG_DEBUG("AI entity {} found target {} during PATROL, switching to
-        // CHASE", (uint32_t)entity, (uint32_t)target);
         ai.target = target;
         ai.aiType = AIType::CHASE;
       }
@@ -163,144 +180,45 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   case AIType::CHASE: {
-    // 追击状态 - 寻找并接近目标
     if (ai.target == entt::null || !registry.valid(ai.target)) {
-      // 目标无效，寻找新目标
-      LOG_DEBUG("AI entity {} target lost or invalid, searching for new target",
-                (uint32_t)entity);
       ai.target = findNearestTarget(registry, pos, ai.detectionRange, entity);
       if (ai.target == entt::null) {
         ai.aiType = AIType::IDLE;
-        LOG_DEBUG("AI entity {} no target found, returning to IDLE",
-                  (uint32_t)entity);
         vel.vx = 0.0f;
         vel.vy = 0.0f;
         break;
       }
     }
 
-    // 获取目标位置
+    // Check attack range
     if (registry.all_of<Position>(ai.target)) {
-      const auto &targetPos = registry.get<Position>(ai.target);
-      float distToTarget = distance(pos, targetPos);
-
-      if (distToTarget <= ai.attackRange) {
-        // 进入攻击范围，切换到攻击状态
-        // LOG_DEBUG("AI entity {} in range of target {}, switching to ATTACK",
-        // (uint32_t)entity, (uint32_t)ai.target);
-        ai.aiType = AIType::ATTACK;
-        vel.vx = 0.0f;
-        vel.vy = 0.0f;
-      } else {
-        // --- 核心修改：使用 GPUFlowFieldSystem 的流场进行寻路 ---
-        Vector2 flow = {0, 0};
-
-        int gx = (int)((pos.x - gridOrigin.x) / cellSize);
-        int gy = (int)((pos.y - gridOrigin.y) / cellSize);
-
-        if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
-          flow = flowField[gy * gridW + gx];
+        const auto &targetPos = registry.get<Position>(ai.target);
+        if (distance(pos, targetPos) <= ai.attackRange) {
+            ai.aiType = AIType::ATTACK;
+            vel.vx = 0.0f;
+            vel.vy = 0.0f;
+            break;
         }
-
-        // --- 局部回避 (Separation) ---
-        Vector2 separation = {0, 0};
-        float searchRadius = 35.0f;
-        int count = 0;
-
-        grid.query(pos, searchRadius,
-                   [&](entt::entity neighbor, const Position &nPos) {
-                     if (neighbor == entity)
-                       return;
-
-                     float dx = pos.x - nPos.x;
-                     float dy = pos.y - nPos.y;
-                     float dSq = dx * dx + dy * dy;
-
-                     if (dSq > 0.01f && dSq < searchRadius * searchRadius) {
-                       float d = std::sqrt(dSq);
-                       separation.x += dx / d;
-                       separation.y += dy / d;
-                       count++;
-                     }
-                   });
-
-        float chaseSpeed =
-            50.0f; // Default speed (1/2 of Player Base Speed 100.0f)
-        if (stateComp) {
-          chaseSpeed = stateComp->speed;
-        }
-
-        if (flow.x != 0 || flow.y != 0) {
-          // 融合流场与回避
-          Vector2 finalDir = flow;
-          if (count > 0) {
-            separation.x /= count;
-            separation.y /= count;
-            // 权重：流场 0.7, 回避 0.3
-            finalDir.x = flow.x * 0.7f + separation.x * 0.3f;
-            finalDir.y = flow.y * 0.7f + separation.y * 0.3f;
-
-            float mag =
-                std::sqrt(finalDir.x * finalDir.x + finalDir.y * finalDir.y);
-            if (mag > 0.01f) {
-              finalDir.x /= mag;
-              finalDir.y /= mag;
-            }
-          }
-
-          vel.vx = finalDir.x * chaseSpeed;
-          vel.vy = finalDir.y * chaseSpeed;
-        } else {
-          // 流场无效（例如在网格外部），回退到直线追踪
-          float dx = targetPos.x - pos.x;
-          float dy = targetPos.y - pos.y;
-          float length = std::sqrt(dx * dx + dy * dy);
-
-          if (length > 0.0f) {
-            Vector2 finalDir = {dx / length, dy / length};
-            if (count > 0) {
-              separation.x /= count;
-              separation.y /= count;
-              finalDir.x = finalDir.x * 0.7f + separation.x * 0.3f;
-              finalDir.y = finalDir.y * 0.7f + separation.y * 0.3f;
-
-              float mag =
-                  std::sqrt(finalDir.x * finalDir.x + finalDir.y * finalDir.y);
-              if (mag > 0.01f) {
-                finalDir.x /= mag;
-                finalDir.y /= mag;
-              }
-            }
-            vel.vx = finalDir.x * chaseSpeed;
-            vel.vy = finalDir.y * chaseSpeed;
-          }
-        }
-      }
-    } else {
-      ai.target = entt::null;
     }
+    
+    // Spec 2.2: Flow Field Drive (No Separation)
+    float chaseSpeed = stateComp ? stateComp->speed : 50.0f;
+    applyFlowFieldCheck(chaseSpeed);
     break;
   }
 
   case AIType::ATTACK: {
-    // 攻击状态
     if (ai.target == entt::null || !registry.valid(ai.target)) {
       ai.aiType = AIType::CHASE;
       break;
     }
-
     if (registry.all_of<Position>(ai.target)) {
       const auto &targetPos = registry.get<Position>(ai.target);
-      float distToTarget = distance(pos, targetPos);
-
-      if (distToTarget > ai.attackRange * 1.2f) { // 稍微增加一点缓冲防止抖动
-        // LOG_DEBUG("AI entity {} target moved out of range, switching back to
-        // CHASE", (uint32_t)entity);
+      if (distance(pos, targetPos) > ai.attackRange * 1.2f) {
         ai.aiType = AIType::CHASE;
       } else {
         vel.vx = 0.0f;
         vel.vy = 0.0f;
-        // 实际攻击逻辑由 CombatSystem 处理，这里只负责状态和移动
       }
     } else {
       ai.aiType = AIType::CHASE;
@@ -309,14 +227,13 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   case AIType::FLEE: {
-    // 逃跑状态 (简化为直线远离)
-    if (ai.target != entt::null && registry.valid(ai.target) &&
-        registry.all_of<Position>(ai.target)) {
+     // Flee remains simple vector based for now, or could use negative flow?
+     // For now, keep existing logic but simplified
+    if (registry.valid(ai.target) && registry.all_of<Position>(ai.target)) {
       const auto &targetPos = registry.get<Position>(ai.target);
       float dx = pos.x - targetPos.x;
       float dy = pos.y - targetPos.y;
       float length = std::sqrt(dx * dx + dy * dy);
-
       if (length > 0.0f) {
         vel.vx = (dx / length) * ai.speed;
         vel.vy = (dy / length) * ai.speed;
@@ -328,61 +245,27 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   case AIType::NEMESIS_HUNTER: {
-    // 宿敌猎杀模式 - 无视脱战距离，始终追踪玩家
-    // 直接向玩家方向移动，使用高速度
-    float dx = playerPos.x - pos.x;
-    float dy = playerPos.y - pos.y;
-    float distToPlayer = std::sqrt(dx * dx + dy * dy);
-
-    float hunterSpeed = ai.speed * 1.2f; // Nemesis is faster
-
-    if (distToPlayer <= ai.attackRange) {
-      // 在攻击距离内，停下攻击
-      vel.vx = 0.0f;
-      vel.vy = 0.0f;
-    } else if (distToPlayer > 0.1f) {
-      // 追踪玩家，使用流场
-      Vector2 flow = {0, 0};
-
-      int gx = (int)((pos.x - gridOrigin.x) / cellSize);
-      int gy = (int)((pos.y - gridOrigin.y) / cellSize);
-
-      if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
-        flow = flowField[gy * gridW + gx];
-      }
-
-      if (flow.x != 0 || flow.y != 0) {
-        vel.vx = flow.x * hunterSpeed;
-        vel.vy = flow.y * hunterSpeed;
-      } else {
-        // 回退到直线追踪
-        vel.vx = (dx / distToPlayer) * hunterSpeed;
-        vel.vy = (dy / distToPlayer) * hunterSpeed;
-      }
+    float hunterSpeed = ai.speed * 1.2f;
+    // Check attack range
+    if (distance(pos, playerPos) <= ai.attackRange) {
+        vel.vx = 0.0f;
+        vel.vy = 0.0f;
+    } else {
+        // Spec 2.2: Flow Field Drive (No Separation)
+        applyFlowFieldCheck(hunterSpeed);
     }
     break;
   }
 
-  case AIType::SUPPORT_FLEE_BUFF: {
-    // 支援者行为：远离玩家 + 给友军施 Buff
-    NoMoreDay::AI::UpdateSupportBehavior(registry, entity, ai, pos, vel,
-                                         playerPos, dt);
+  case AIType::SUPPORT_FLEE_BUFF:
+    NoMoreDay::AI::UpdateSupportBehavior(registry, entity, ai, pos, vel, playerPos, dt);
     break;
-  }
-
-  case AIType::ASSASSIN_STEALTH: {
-    // 刺客行为：潜行 + 背刺
-    NoMoreDay::AI::UpdateAssassinBehavior(registry, entity, ai, pos, vel,
-                                          playerPos, dt);
+  case AIType::ASSASSIN_STEALTH:
+    NoMoreDay::AI::UpdateAssassinBehavior(registry, entity, ai, pos, vel, playerPos, dt);
     break;
-  }
-
-  case AIType::TANK_BLOCK: {
-    // 坦克行为：阻挡视线保护远程友军
-    NoMoreDay::AI::UpdateTankBehavior(registry, entity, ai, pos, vel, playerPos,
-                                      dt);
+  case AIType::TANK_BLOCK:
+    NoMoreDay::AI::UpdateTankBehavior(registry, entity, ai, pos, vel, playerPos, dt);
     break;
-  }
   }
 }
 
@@ -391,14 +274,19 @@ void AISystem::update(entt::registry &registry,
                       const MapSystem &mapSystem, const Position &playerPos,
                       float dt) {
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
-  std::vector<Vector2> field = flowSystem.DownloadFlowField();
+  
+  // Spec 1.0: CPU Time Constraint - Sync from GPU
+  flowSystem.SyncToCPU();
+  const std::vector<Vector2>& field = flowSystem.GetFlowFieldCPU();
+  
   Vector2 origin = flowSystem.GetGridOrigin();
   int gridW = flowSystem.GetWidth();
   int gridH = flowSystem.GetHeight();
-  float cellSize = 10.0f;
+  float cellSize = 10.0f; // Should match flowSystem.m_cellSize
 
+  // Exclude DormantTag (Spec 3.0) and KilledTag
   auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>(
-      entt::exclude<KilledTag>);
+      entt::exclude<KilledTag, DormantTag>);
 
   for (auto entity : aiView) {
     auto &ai = aiView.get<AIComponent>(entity);
@@ -410,33 +298,37 @@ void AISystem::update(entt::registry &registry,
     float dy = pos.y - playerPos.y;
     float distSq = dx * dx + dy * dy;
 
-    // 1. Culling: Very far enemies stop AI completely (e.g., > 1200 units)
-    if (distSq > 1200.0f * 1200.0f) {
-      vel.vx = 0;
-      vel.vy = 0;
+    // 1. Culling & Dormancy (Spec 2.3)
+    // Active Boundary: ~1900 units. Dormancy Trigger: > 1950 units. (Scaled 1.5x from 1300)
+    if (distSq > 1950.0f * 1950.0f) {
+      // Enter Dormancy
+      registry.emplace_or_replace<DormantTag>(entity);
+      registry.remove<Velocity>(entity); 
+      // Teleport to holding area
+      pos.x = -1000.0f;
+      pos.y = -1000.0f;
       continue;
     }
 
     // 2. Frame-rate independent throttling using time accumulator:
-    // - Close (< 400): Every frame (~0s interval)
-    // - Medium (400 - 800): ~0.033s (2 frames at 60 FPS)
-    // - Far (> 800): ~0.083s (5 frames at 60 FPS)
+    // - Close (< 600): Every frame
+    // - Medium (600 - 1200): ~0.033f (2 frames at 60 FPS)
+    // - Far (> 1200): ~0.083f (5 frames at 60 FPS)
     float updateInterval = 0.0f;
-    if (distSq > 800.0f * 800.0f) {
-      updateInterval = 0.083f; // ~5 frames at 60 FPS
-    } else if (distSq > 400.0f * 400.0f) {
-      updateInterval = 0.033f; // ~2 frames at 60 FPS
+    if (distSq > 1200.0f * 1200.0f) {
+      updateInterval = 0.083f; 
+    } else if (distSq > 600.0f * 600.0f) {
+      updateInterval = 0.033f;
     }
 
     ai.updateAccumulator += dt;
-    bool shouldUpdate = (ai.updateAccumulator >= updateInterval);
-    if (shouldUpdate) {
-      ai.updateAccumulator = 0.0f;
-    }
-
-    if (shouldUpdate) {
+    if (ai.updateAccumulator >= updateInterval) {
+      // Pass dt as accumulator if we want to simulate jumped time, 
+      // but usually for movement, we just update current state.
+      // But here we'll pass dt.
       updateAIEntity(registry, entity, ai, pos, vel, grid, mapSystem, playerPos,
                      field, origin, gridW, gridH, cellSize, dt);
+      ai.updateAccumulator = 0.0f;
     }
   }
 }

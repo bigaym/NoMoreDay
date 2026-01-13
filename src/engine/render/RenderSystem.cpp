@@ -74,8 +74,16 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
     // 排除已由 GPU 渲染的实体 (GPUIndex)
     auto pixelView = registry.view<const Position, const ColorComponent>(entt::exclude<SpriteComponent, GPUIndex>);
     for (auto entity : pixelView) {
-        const auto& pos = pixelView.get<Position>(entity);
+        auto pos = pixelView.get<Position>(entity); // Copy to modify for visual offset
         const auto& col = pixelView.get<ColorComponent>(entity);
+
+        // Spec 2.2: Visual De-stacking Offset
+        // Prevent z-fighting and perfect overlap for mass units
+        uint32_t id = (uint32_t)entity;
+        float offsetX = (float)((id % 11) - 5) * 1.5f;
+        float offsetY = (float)((id % 7) - 3) * 1.5f;
+        pos.x += offsetX;
+        pos.y += offsetY;
         
         // 如果是投射物，绘制成剑气波形状
         if (auto* proj = registry.try_get<NoMoreDay::Projectile>(entity)) {
