@@ -53,15 +53,17 @@ void ProjectileSystem::Update(entt::registry &registry,
           Vector2 toTarget = Vector2Subtract(tp, p);
           float dist = Vector2Length(toTarget);
 
-          if (dist < 20.0f) {
+          using namespace NoMoreDay::Constants::Skill;
+          if (dist < PROJECTILE_RETURN_THRESHOLD) {
             // Back to owner/target, destroy projectile
             to_destroy.push_back(entity);
             continue;
           }
 
+          using namespace NoMoreDay::Constants::Skill;
           float speed = (bc->returnSpeed > 0.1f)
                             ? bc->returnSpeed
-                            : (proj.speed > 0.1f ? proj.speed : 800.0f);
+                            : (proj.speed > 0.1f ? proj.speed : PROJECTILE_DEFAULT_RETURN_SPEED);
           Vector2 dir = Vector2Scale(Vector2Normalize(toTarget), speed);
           vel.vx = dir.x;
           vel.vy = dir.y;
@@ -75,7 +77,8 @@ void ProjectileSystem::Update(entt::registry &registry,
 
     // --- NEW: Pull Logic ---
     if (proj.hasPull) {
-      float pullRadius = proj.radius * 3.0f;
+      using namespace NoMoreDay::Constants::Skill;
+      float pullRadius = proj.radius * PROJECTILE_PULL_RADIUS_MULTIPLIER;
       grid.query({pos.x, pos.y}, pullRadius,
                  [&](entt::entity target, const Position &tPos) {
                    if (target == proj.owner || target == entity)
@@ -118,13 +121,15 @@ void ProjectileSystem::Update(entt::registry &registry,
     if (skill_id == 1 || skill_id == 2 || skill_id == 7 || skill_id == 8 ||
         skill_id == 9) {
       auto &particleSys = systems::GPUParticleSystem::Get();
-      Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, -0.1f);
+      using namespace NoMoreDay::Constants::Skill;
+      Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, PROJECTILE_TRAIL_VEL_SCALE);
 
       // ID 8 (Boomerang) gets a specialized rotating trail
       if (skill_id == 8) {
         // Two trails orbiting the center
+        using namespace NoMoreDay::Constants::Skill;
         float time = (float)GetTime() * 10.0f;
-        Vector2 offset1 = {cosf(time) * 10.0f, sinf(time) * 10.0f};
+        Vector2 offset1 = {cosf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS, sinf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS};
         Vector2 offset2 = Vector2Scale(offset1, -1.0f);
 
         particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(
@@ -152,7 +157,8 @@ void ProjectileSystem::Update(entt::registry &registry,
 
     // 3. Collision Check
     bool hit = false;
-    float check_radius = proj.radius + 10.0f;
+    using namespace NoMoreDay::Constants::Skill;
+    float check_radius = proj.radius + PROJECTILE_COLLISION_RADIUS_OFFSET;
 
     // Track unique hits in this specific spatial query to handle grid cell
     // overlaps
@@ -244,8 +250,10 @@ void ProjectileSystem::Update(entt::registry &registry,
                                           skill_id, base, hit_tags, entity);
 
             float finalDamage = result.total_damage;
-            if (finalDamage <= 0.0f)
-              finalDamage = 5.0f; // Minimum damage for prototype feedback
+            if (finalDamage <= 0.0f) {
+              using namespace NoMoreDay::Constants::Skill;
+              finalDamage = PROJECTILE_MIN_DAMAGE; // Minimum damage for prototype feedback
+            }
 
             // Apply Damage
             CombatSystem::ApplyDamage(registry, target, finalDamage, proj.owner,

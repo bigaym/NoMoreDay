@@ -1,6 +1,7 @@
 #include "game/systems/world/MapSystem.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/systems/world/MosaicMapGenerator.hpp"
+#include "game/components/Common.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -25,9 +26,10 @@ MapGenerator::MapData CaveMapGenerator::Generate(int width, int height,
   std::mt19937 gen(seed);
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
-  // 1. 初始化：进一步降低环境噪音 (0.10 -> 0.05)，确保留白更多
+  // 1. 初始化
+  using namespace NoMoreDay::Constants::Generator::Cave;
   for (auto &tile : map.grid) {
-    tile.type = (dist(gen) < 0.05f) ? Tile::Type::WALL : Tile::Type::FLOOR;
+    tile.type = (dist(gen) < INITIAL_WALL_PROB) ? Tile::Type::WALL : Tile::Type::FLOOR;
   }
 
   // 辅助 buffer
@@ -66,10 +68,11 @@ void CaveMapGenerator::PlaceExits(std::vector<Tile> &grid, int w, int h,
   std::uniform_int_distribution<int> yDist(1, h - 2);
 
   // 1. Place Start point (STAIRS_UP) near center
+  using namespace NoMoreDay::Constants::Generator::Cave;
   int cx = w / 2;
   int cy = h / 2;
   bool startPlaced = false;
-  for (int r = 0; r < 20 && !startPlaced; r++) {
+  for (int r = 0; r < START_SEARCH_RADIUS && !startPlaced; r++) {
     for (int dx = -r; dx <= r; dx++) {
       for (int dy = -r; dy <= r; dy++) {
         int idx = (cy + dy) * w + (cx + dx);
@@ -85,7 +88,8 @@ void CaveMapGenerator::PlaceExits(std::vector<Tile> &grid, int w, int h,
   }
 
   // 2. Place Stairs Down (Exit)
-  for (int attempt = 0; attempt < 1000; ++attempt) {
+  using namespace NoMoreDay::Constants::Generator::Cave;
+  for (int attempt = 0; attempt < EXIT_ATTEMPTS; ++attempt) {
     int x = xDist(gen);
     int y = yDist(gen);
     if (grid[y * w + x].type == Tile::Type::FLOOR) {
@@ -113,8 +117,9 @@ void CaveMapGenerator::SmoothIteration(const std::vector<Tile> &src,
         if (src[offset + 1].type == Tile::Type::WALL)
           wallCount++;
       }
+      using namespace NoMoreDay::Constants::Generator::Cave;
       dst[y * w + x].type =
-          (wallCount > 4) ? Tile::Type::WALL : Tile::Type::FLOOR;
+          (wallCount > SMOOTH_THRESHOLD) ? Tile::Type::WALL : Tile::Type::FLOOR;
     }
   }
 }
@@ -135,14 +140,14 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
   std::mt19937 gen(seed);
   std::uniform_int_distribution<int> xDist(5, w - 6);
   std::uniform_int_distribution<int> yDist(5, h - 6);
+  using namespace NoMoreDay::Constants::Generator::Cave;
   std::uniform_int_distribution<int> sizeDist(
-      100, 400); // 调整每个岩块的目标面积为 100~400
-
-  // 1. 确定岩块数量 (减少为原来的一半)
-  int numRocks = (w * h) / 1200; // 原来是 600
+      ROCK_SIZE_MIN, ROCK_SIZE_MAX); // 调整每个岩块的目标面积
+  // 1. 确定岩块数量
+  using namespace NoMoreDay::Constants::Generator::Cave;
+  int numRocks = (w * h) / ROCK_DENSITY_DIVISOR;
   if (numRocks < 10)
-    numRocks = 12; // 原来是 25
-
+    numRocks = ROCK_MIN_COUNT;
   // 2. 生成巨型岩块种子
   for (int i = 0; i < numRocks; ++i) {
     int cx = xDist(gen);
@@ -176,8 +181,9 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
         int nx = x + dx[d];
         int ny = y + dy[d];
         if (nx >= 2 && nx < w - 2 && ny >= 2 && ny < h - 2) {
+          using namespace NoMoreDay::Constants::Generator::Cave;
           std::uniform_int_distribution<int> chance(0, 100);
-          if (chance(gen) < 85) { // 85% 扩张概率，保证紧凑
+          if (chance(gen) < ROCK_EXPANSION_CHANCE) { // 保证紧凑
             q.push(ny * w + nx);
           }
         }
@@ -185,17 +191,19 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
     }
   }
 
-  // 3. 强力平滑 (4次) 让岩块边缘圆润且合并临近块
-  for (int i = 0; i < 4; ++i) {
+  // 3. 强力平滑 让岩块边缘圆润且合并临近块
+  using namespace NoMoreDay::Constants::Generator::Cave;
+  for (int i = 0; i < ROCK_SMOOTH_ITERATIONS; ++i) {
     std::vector<Tile> src = grid;
     SmoothIteration(src, grid, w, h);
   }
 
-  // 4. 清理残留的极小岛屿 (面积小于 80 的碎片直接移除)
-  RemoveSmallRegions(grid, w, h, 80, Tile::Type::WALL, Tile::Type::FLOOR);
-
+  // 4. 清理残留的极小岛屿
+  using namespace NoMoreDay::Constants::Generator::Cave;
+  RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_WALL, Tile::Type::WALL, Tile::Type::FLOOR);
+ 
   // 5. 填充大岩块内部的小孔洞
-  RemoveSmallRegions(grid, w, h, 40, Tile::Type::FLOOR, Tile::Type::WALL);
+  RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_FLOOR, Tile::Type::FLOOR, Tile::Type::WALL);
 }
 
 void CaveMapGenerator::RemoveSmallRegions(std::vector<Tile> &grid, int w, int h,
@@ -323,9 +331,10 @@ void MapSystem::generateCaveMap(int width, int height) {
   m_distanceField.resize(m_mapData.width * m_mapData.height);
 
   // 初始化缓存 CostMap
+  using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
-    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? 1 : 255;
+    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
   }
   m_costMapDirty = false;
 }
@@ -369,8 +378,9 @@ void MapSystem::generateTownMap(int width, int height) {
   
   // Place exit portal (STAIRS_DOWN) - leads to dungeon
   // Safe bounds check
-  int exitX = std::clamp(cx + 10, 1, width - 2);
-  int exitY = std::clamp(cy - 10, 1, height - 2);
+  using namespace NoMoreDay::Constants::World::Map;
+  int exitX = std::clamp(cx + TOWN_EXIT_OFFSET, 1, width - 2);
+  int exitY = std::clamp(cy - TOWN_EXIT_OFFSET, 1, height - 2);
   m_mapData.grid[exitY * width + exitX].type = Tile::Type::STAIRS_DOWN;
   
   // Initialize flow field
@@ -378,9 +388,10 @@ void MapSystem::generateTownMap(int width, int height) {
   m_distanceField.resize(m_mapData.width * m_mapData.height);
   
   // Initialize cached cost map
+  using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
-    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? 1 : 255;
+    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
   }
   m_costMapDirty = false;
 }
@@ -412,9 +423,10 @@ void MapSystem::generateMosaicMap(int width, int height,
   m_distanceField.resize(m_mapData.width * m_mapData.height);
 
   // 初始化缓存 CostMap
+  using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
-    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? 1 : 255;
+    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
   }
   m_costMapDirty = false;
 }
@@ -429,16 +441,18 @@ Tile::Type MapSystem::getTileType(int x, int y) const {
 
 void MapSystem::render(const Camera2D &camera) const {
   // 简单的视锥剔除
+  using namespace NoMoreDay::Constants::World;
+  using namespace NoMoreDay::Constants::World::Map;
   int startX = static_cast<int>(
-                   (camera.target.x - camera.offset.x / camera.zoom) / 10.0f) -
+                   (camera.target.x - camera.offset.x / camera.zoom) / GRID_TILE_SIZE) -
                2;
   int startY = static_cast<int>(
-                   (camera.target.y - camera.offset.y / camera.zoom) / 10.0f) -
+                   (camera.target.y - camera.offset.y / camera.zoom) / GRID_TILE_SIZE) -
                2;
   int endX =
-      startX + static_cast<int>((GetScreenWidth() / camera.zoom) / 10.0f) + 4;
+      startX + static_cast<int>((GetScreenWidth() / camera.zoom) / GRID_TILE_SIZE) + (int)RENDER_PADDING;
   int endY =
-      startY + static_cast<int>((GetScreenHeight() / camera.zoom) / 10.0f) + 4;
+      startY + static_cast<int>((GetScreenHeight() / camera.zoom) / GRID_TILE_SIZE) + (int)RENDER_PADDING;
 
   startX = std::max(0, startX);
   startY = std::max(0, startY);
@@ -472,7 +486,8 @@ void MapSystem::render(const Camera2D &camera) const {
         break;
       }
 
-      DrawRectangle(x * 10, y * 10, 10, 10, color);
+      using namespace NoMoreDay::Constants::World;
+      DrawRectangle(x * (int)GRID_TILE_SIZE, y * (int)GRID_TILE_SIZE, (int)GRID_TILE_SIZE, (int)GRID_TILE_SIZE, color);
     }
   }
 }
@@ -480,8 +495,9 @@ void MapSystem::render(const Camera2D &camera) const {
 // --- 寻路算法实现 (The "Black Magic") ---
 
 void MapSystem::updateFlowField(const Position &targetPos) {
-  int targetX = static_cast<int>(targetPos.x / 10.0f);
-  int targetY = static_cast<int>(targetPos.y / 10.0f);
+  using namespace NoMoreDay::Constants::World;
+  int targetX = static_cast<int>(targetPos.x / GRID_TILE_SIZE);
+  int targetY = static_cast<int>(targetPos.y / GRID_TILE_SIZE);
 
   // 优化：如果目标瓦片没有变化，不重新计算
   if (targetX == static_cast<int>(m_lastFlowTarget.x) &&
@@ -501,9 +517,9 @@ void MapSystem::updateFlowField(const Position &targetPos) {
     queue.push(targetIdx);
   }
 
-  // 限制搜索深度以优化性能 (例如只计算玩家周围 50 格)
-  // 对于全图追踪，可以移除此限制或分帧计算
-  const int MAX_DEPTH = 100;
+  // 限制搜索深度以优化性能
+  using namespace NoMoreDay::Constants::World::Map;
+  const int MAX_DEPTH = FLOW_FIELD_MAX_DEPTH;
 
   while (!queue.empty()) {
     int currIdx = queue.front();
@@ -565,8 +581,9 @@ void MapSystem::updateFlowField(const Position &targetPos) {
 }
 
 Vector2 MapSystem::getFlowDirection(const Position &pos) const {
-  int x = static_cast<int>(pos.x / 10.0f);
-  int y = static_cast<int>(pos.y / 10.0f);
+  using namespace NoMoreDay::Constants::World;
+  int x = static_cast<int>(pos.x / GRID_TILE_SIZE);
+  int y = static_cast<int>(pos.y / GRID_TILE_SIZE);
 
   if (x >= 0 && x < m_mapData.width && y >= 0 && y < m_mapData.height) {
     return m_flowField[y * m_mapData.width + x];
@@ -579,10 +596,11 @@ Position MapSystem::getPathNextStep(const Position &start,
   // 简单的 A* 实现，只返回下一步的位置
   // 为了性能，这里使用简化的贪心搜索或小范围 A*
 
-  int startX = static_cast<int>(start.x / 10.0f);
-  int startY = static_cast<int>(start.y / 10.0f);
-  int endX = static_cast<int>(end.x / 10.0f);
-  int endY = static_cast<int>(end.y / 10.0f);
+  using namespace NoMoreDay::Constants::World;
+  int startX = static_cast<int>(start.x / GRID_TILE_SIZE);
+  int startY = static_cast<int>(start.y / GRID_TILE_SIZE);
+  int endX = static_cast<int>(end.x / GRID_TILE_SIZE);
+  int endY = static_cast<int>(end.y / GRID_TILE_SIZE);
 
   if (startX == endX && startY == endY)
     return end;
@@ -609,7 +627,8 @@ Position MapSystem::getPathNextStep(const Position &start,
 
       if (distSq < minCost) {
         minCost = distSq;
-        nextStep = {nx * 10.0f + 5.0f, ny * 10.0f + 5.0f};
+        using namespace NoMoreDay::Constants::World;
+        nextStep = {nx * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f), ny * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f)};
         found = true;
       }
     }

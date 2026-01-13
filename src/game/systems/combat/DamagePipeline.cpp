@@ -68,10 +68,12 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     Tag final_type;
   };
 
-  FixedVector<Instance, 64> instances;
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
+  FixedVector<Instance, MAX_INSTANCES> instances;
 
   // 1. Add instances from provided base_pool
-  for (int i = 0; i < 16; ++i) {
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
+  for (int i = 0; i < DAMAGE_POOL_SIZE; ++i) {
     if (base_pool.values[i] > 0.0f) {
       Tag type_tag = static_cast<Tag>(1ULL << i);
       instances.push_back(
@@ -90,8 +92,9 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
         skill_data->base_damage + (weapon_avg * skill_data->weapon_damage_mult);
 
     // Find the primary damage type of the skill
+    using namespace NoMoreDay::Constants::Combat::Pipeline;
     Tag primary_type = Tag::Physical;
-    for (int i = 0; i < 6; ++i) {
+    for (int i = 0; i < ELEMENTAL_TYPE_COUNT; ++i) {
       Tag t = static_cast<Tag>(1ULL << i);
       if (HasTag(skill_data->tags, t)) {
         primary_type = t;
@@ -105,10 +108,9 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     }
   }
 
-  // 2. Conversion & Gain Extra
   // (Ordering: Phys -> Lightning -> Cold -> Fire -> Chaos -> Void)
-  // Simplified order: 0-5
-  std::array<int, 6> order = {0, 3, 2, 1, 5, 4};
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
+  std::array<int, ELEMENTAL_TYPE_COUNT> order = {0, 3, 2, 1, 5, 4};
 
   for (int type_idx : order) {
     Tag current_source_type = static_cast<Tag>(1ULL << type_idx);
@@ -190,9 +192,10 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
   DamageResult result;
   float total_final_damage = 0.0f;
 
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
   float shadow_multiplier = 1.0f;
   if (registry.all_of<ShadowCloneComponent>(attacker)) {
-    shadow_multiplier = 0.5f;
+    shadow_multiplier = SHADOW_MULTIPLIER;
   }
 
   for (size_t i = 0; i < instances.size; ++i) {
@@ -315,8 +318,9 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
         if (is_simulation) {
           // Calculate expected damage multiplier
+          using namespace NoMoreDay::Constants::Combat::Pipeline;
           float chance = std::clamp(crit_chance, 0.0f, 100.0f) / 100.0f;
-          float dmg_mult = attacker_stats ? attacker_stats->crit_damage : 1.5f;
+          float dmg_mult = attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
           // Expected = 1 * (1-P) + Mult * P = 1 + P * (Mult - 1)
           crit_mult = 1.0f + chance * (dmg_mult - 1.0f);
         } else {
@@ -328,18 +332,20 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
       }
 
       if (is_crit) {
-        crit_mult = attacker_stats ? attacker_stats->crit_damage : 1.5f;
+        using namespace NoMoreDay::Constants::Combat::Pipeline;
+        crit_mult = attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
         result.is_crit = true;
       }
     }
     inst.amount *= crit_mult;
 
+    using namespace NoMoreDay::Constants::Combat::Pipeline;
     int type_idx = std::countr_zero(static_cast<uint64_t>(inst.final_type));
     float res = 0.0f;
-    if (type_idx < 6) {
+    if (type_idx < ELEMENTAL_TYPE_COUNT) {
       res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
       // Resistance Cap: -100% to +75%
-      res = std::clamp(res, -1.0f, 0.75f);
+      res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
     }
 
     float damage_after_res = inst.amount * (1.0f - res);
@@ -354,21 +360,23 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
       float effective_armor = armor - pen;
 
       float armor_multiplier = 1.0f;
+      using namespace NoMoreDay::Constants::Combat::Pipeline;
       if (effective_armor >= 0.0f) {
         // Positive Armor: Standard diminishing returns
-        armor_multiplier = 100.0f / (100.0f + effective_armor);
+        armor_multiplier = ARMOR_BASE / (ARMOR_BASE + effective_armor);
       } else {
         // Negative Armor: Increased damage taken
         // Formula ensures 0 -> 1.0, -100 -> 1.5, -infinity -> 2.0
-        armor_multiplier = 2.0f - (100.0f / (100.0f - effective_armor));
+        armor_multiplier = 2.0f - (ARMOR_BASE / (ARMOR_BASE - effective_armor));
       }
       damage_after_res *= armor_multiplier;
     }
 
     // Global DR
+    using namespace NoMoreDay::Constants::Combat::Pipeline;
     if (defender_stats && defender_stats->damage_reduction > 0.0f) {
       damage_after_res *=
-          (1.0f - std::min(0.9f, defender_stats->damage_reduction));
+          (1.0f - std::min(DR_MAX, defender_stats->damage_reduction));
     }
 
     total_final_damage += damage_after_res;
@@ -459,6 +467,7 @@ DamagePipeline::AttackerSnapshot
 DamagePipeline::CreateSnapshot(entt::registry &registry, entt::entity attacker,
                                uint32_t skill_id, const DamagePool &base_pool,
                                Tag hit_tags, entt::entity source_entity) {
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
   AttackerSnapshot snap;
   snap.hit_tags = hit_tags;
 
@@ -468,12 +477,12 @@ DamagePipeline::CreateSnapshot(entt::registry &registry, entt::entity attacker,
   DamageResult res = Calculate(registry, attacker, entt::null, skill_id,
                                base_pool, hit_tags, source_entity, true);
 
-  for (int i = 0; i < 6; ++i)
+  for (int i = 0; i < ELEMENTAL_TYPE_COUNT; ++i)
     snap.base_damage[i] = res.final_pool.values[i];
 
   auto *stats = registry.try_get<CombatStats>(attacker);
   snap.crit_chance = stats ? stats->crit_chance : 0.0f;
-  snap.crit_damage = stats ? stats->crit_damage : 1.5f;
+  snap.crit_damage = stats ? stats->crit_damage : DEFAULT_CRIT_MULT;
   snap.armor_pen =
       stats
           ? stats->armor_pen
@@ -487,6 +496,7 @@ void DamagePipeline::CalculateBatch(
     const std::vector<entt::entity> &defenders, uint32_t skill_id,
     const DamagePool &base_pool, Tag additional_tags,
     entt::entity source_entity, tf::Executor *executor) {
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
   if (defenders.empty())
     return;
 
@@ -516,8 +526,9 @@ void DamagePipeline::CalculateBatch(
         alignas(32) std::array<float, batch_type::size> final_dmg_sum;
         final_dmg_sum.fill(0.0f);
 
-        for (int j = 0; j < 6; ++j) {
-          float base_amt = snap.base_damage[j];
+          using namespace NoMoreDay::Constants::Combat::Pipeline;
+          for (int j = 0; j < ELEMENTAL_TYPE_COUNT; ++j) {
+            float base_amt = snap.base_damage[j];
           if (base_amt <= 0.0f)
             continue;
 
@@ -527,25 +538,27 @@ void DamagePipeline::CalculateBatch(
             armor_batch_data[k] = (j == 0 && ds) ? ds->armor : 0.0f;
           }
 
+          using namespace NoMoreDay::Constants::Combat::Pipeline;
           auto amt_v = batch_type(base_amt);
           auto raw_res_v = batch_type::load_aligned(res_batch_data.data());
           // Robust clamp via select to avoid namespace issues with min/max
           auto res_v =
-              xsimd::select(raw_res_v > batch_type(0.75f), batch_type(0.75f),
-                            xsimd::select(raw_res_v < batch_type(-1.0f),
-                                          batch_type(-1.0f), raw_res_v));
+              xsimd::select(raw_res_v > batch_type(RESISTANCE_MAX), batch_type(RESISTANCE_MAX),
+                            xsimd::select(raw_res_v < batch_type(RESISTANCE_MIN),
+                                          batch_type(RESISTANCE_MIN), raw_res_v));
           auto current_v = amt_v * (batch_type(1.0f) - res_v);
 
           if (j == 0) {
+            using namespace NoMoreDay::Constants::Combat::Pipeline;
             auto pen_v = batch_type(snap.armor_pen);
             auto eff_armor_v =
                 batch_type::load_aligned(armor_batch_data.data()) - pen_v;
             auto positive_mask = eff_armor_v >= batch_type(0.0f);
             auto pos_mult =
-                batch_type(100.0f) / (batch_type(100.0f) + eff_armor_v);
+                batch_type(ARMOR_BASE) / (batch_type(ARMOR_BASE) + eff_armor_v);
             auto neg_mult =
                 batch_type(2.0f) -
-                (batch_type(100.0f) / (batch_type(100.0f) - eff_armor_v));
+                (batch_type(ARMOR_BASE) / (batch_type(ARMOR_BASE) - eff_armor_v));
             current_v *= xsimd::select(positive_mask, pos_mult, neg_mult);
           }
           auto sum_v =
@@ -554,9 +567,10 @@ void DamagePipeline::CalculateBatch(
         }
 
         for (size_t k = 0; k < inc; ++k) {
+          using namespace NoMoreDay::Constants::Combat::Pipeline;
           auto *ds = registry.try_get<CombatStats>(defenders[i + k]);
           float dr = ds ? ds->damage_reduction : 0.0f;
-          float damage = final_dmg_sum[k] * (1.0f - std::min(0.9f, dr));
+          float damage = final_dmg_sum[k] * (1.0f - std::min(DR_MAX, dr));
           bool is_crit = (snap.crit_chance > 0.0f &&
                           (utils::ThreadSafeRandom::GetFloat01() <
                            (snap.crit_chance / 100.0f)));
@@ -574,25 +588,26 @@ void DamagePipeline::CalculateBatch(
           float dr = def_stats ? def_stats->damage_reduction : 0.0f;
           float armor = def_stats ? def_stats->armor : 0.0f;
 
-          for (int j = 0; j < 6; ++j) {
+          using namespace NoMoreDay::Constants::Combat::Pipeline;
+          for (int j = 0; j < ELEMENTAL_TYPE_COUNT; ++j) {
             float amt = snap.base_damage[j];
             if (amt <= 0.0f)
               continue;
             float res =
-                def_stats ? std::clamp(def_stats->resistances[j], -1.0f, 0.75f)
+                def_stats ? std::clamp(def_stats->resistances[j], RESISTANCE_MIN, RESISTANCE_MAX)
                           : 0.0f;
             float after_res = amt * (1.0f - res);
             if (j == 0) {
               float effective_armor = armor - snap.armor_pen;
               float armor_mult =
                   (effective_armor >= 0.0f)
-                      ? (100.0f / (100.0f + effective_armor))
-                      : (2.0f - (100.0f / (100.0f - effective_armor)));
+                      ? (ARMOR_BASE / (ARMOR_BASE + effective_armor))
+                      : (2.0f - (ARMOR_BASE / (ARMOR_BASE - effective_armor)));
               after_res *= armor_mult;
             }
             final_damage += after_res;
           }
-          final_damage *= (1.0f - std::min(0.9f, dr));
+          final_damage *= (1.0f - std::min(DR_MAX, dr));
           bool is_crit = (snap.crit_chance > 0.0f &&
                           (utils::ThreadSafeRandom::GetFloat01() <
                            (snap.crit_chance / 100.0f)));
@@ -607,10 +622,10 @@ void DamagePipeline::CalculateBatch(
   };
 
   // 2. Execution
-  if (executor && defenders.size() >= 32) {
+  if (executor && defenders.size() >= (size_t)BATCH_GRAIN_SIZE) {
     // Parallel Math
     tf::Taskflow taskflow;
-    size_t grainSize = 32;
+    size_t grainSize = BATCH_GRAIN_SIZE;
     for (size_t i = 0; i < defenders.size(); i += grainSize) {
       size_t start = i;
       size_t end = std::min(i + grainSize, defenders.size());

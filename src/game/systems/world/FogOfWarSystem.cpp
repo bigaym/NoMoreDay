@@ -3,6 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "rlgl.h"
+#include "game/components/Common.hpp"
 #include <cmath>
 
 FogOfWarSystem::FogOfWarSystem() = default;
@@ -96,9 +97,11 @@ void FogOfWarSystem::updateVisibility(const Position& playerPos, float viewRadiu
     if (!m_initialized || m_fogShader.id == 0) return;
     
     // 转换世界坐标到网格坐标
-    float playerGridX = playerPos.x / TILE_SIZE;
-    float playerGridY = playerPos.y / TILE_SIZE;
-    float gridRadius = (viewRadius / TILE_SIZE) + 2.0f;  // 额外缓冲
+    using namespace NoMoreDay::Constants::World;
+    using namespace NoMoreDay::Constants::World::Fog;
+    float playerGridX = playerPos.x / GRID_TILE_SIZE;
+    float playerGridY = playerPos.y / GRID_TILE_SIZE;
+    float gridRadius = (viewRadius / GRID_TILE_SIZE) + VIEW_RADIUS_BUFFER;  // 额外缓冲
     
     // 启用 Compute Shader
     rlEnableShader(m_fogShader.id);
@@ -124,8 +127,9 @@ void FogOfWarSystem::updateVisibility(const Position& playerPos, float viewRadiu
     NoMoreDay::utils::GPUUtils::BindImageTexture(0, m_fogTexture.id, 0, false, 0, GL_WRITE_ONLY, GL_RGBA8);
     
     // 调度 Compute Shader
-    int groupsX = (m_width + 15) / 16;
-    int groupsY = (m_height + 15) / 16;
+    using namespace NoMoreDay::Constants::World::Fog;
+    int groupsX = (m_width + (COMPUTE_GROUP_SIZE - 1)) / COMPUTE_GROUP_SIZE;
+    int groupsY = (m_height + (COMPUTE_GROUP_SIZE - 1)) / COMPUTE_GROUP_SIZE;
     rlComputeShaderDispatch(groupsX, groupsY, 1);
     
     // 内存屏障
@@ -138,17 +142,17 @@ void FogOfWarSystem::updateVisibility(const Position& playerPos, float viewRadiu
 }
 
 void FogOfWarSystem::renderFog() const {
-    if (!m_initialized || m_fogTexture.id == 0) return;
-    
-    float scale = TILE_SIZE;
+    using namespace NoMoreDay::Constants::World;
+    using namespace NoMoreDay::Constants::World::Fog;
+    float scale = GRID_TILE_SIZE;
     float mapPixelW = m_width * scale;
     float mapPixelH = m_height * scale;
 
     // 绘制地图外的黑色背景
-    DrawRectangle(-5000, -5000, static_cast<int>(mapPixelW + 10000), 5000, BLACK);
-    DrawRectangle(-5000, static_cast<int>(mapPixelH), static_cast<int>(mapPixelW + 10000), 5000, BLACK);
-    DrawRectangle(-5000, 0, 5000, static_cast<int>(mapPixelH), BLACK);
-    DrawRectangle(static_cast<int>(mapPixelW), 0, 5000, static_cast<int>(mapPixelH), BLACK);
+    DrawRectangle((int)-BACKGROUND_PADDING, (int)-BACKGROUND_PADDING, static_cast<int>(mapPixelW + BACKGROUND_PADDING * 2.0f), (int)BACKGROUND_PADDING, BLACK);
+    DrawRectangle((int)-BACKGROUND_PADDING, static_cast<int>(mapPixelH), static_cast<int>(mapPixelW + BACKGROUND_PADDING * 2.0f), (int)BACKGROUND_PADDING, BLACK);
+    DrawRectangle((int)-BACKGROUND_PADDING, 0, (int)BACKGROUND_PADDING, static_cast<int>(mapPixelH), BLACK);
+    DrawRectangle(static_cast<int>(mapPixelW), 0, (int)BACKGROUND_PADDING, static_cast<int>(mapPixelH), BLACK);
 
     // 绘制迷雾纹理 (GPU 已生成)
     DrawTextureEx(m_fogTexture, {0.0f, 0.0f}, 0.0f, scale, WHITE);

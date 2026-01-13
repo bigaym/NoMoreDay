@@ -1,4 +1,5 @@
 #include "engine/render/GPUParticleSystem.hpp"
+#include "game/components/Common.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include <algorithm>
@@ -60,7 +61,8 @@ void GPUParticleSystem::Init(int maxParticles) {
   CreateBuffers();
   CreateQuadVAO();
 
-  m_stagedParticles.reserve(10000);
+  using namespace NoMoreDay::Constants::Render;
+  m_stagedParticles.reserve(PARTICLE_STAGING_RESERVE);
   m_initialized = true;
 
   LOG_INFO("GPUParticleSystem: Initialized successfully with Indirect Drawing "
@@ -229,7 +231,8 @@ void GPUParticleSystem::Update(float dt) {
   // 2. Dispatch compute shader
   rlEnableShader(m_computeShader.id);
 
-  float clampedDt = (dt > 0.1f) ? 0.016f : dt;
+  using namespace NoMoreDay::Constants::Render;
+  float clampedDt = (dt > MAX_DELTA_TIME_PARTICLES) ? DEFAULT_DELTA_TIME_PARTICLES : dt;
   rlSetUniform(m_computeDtLoc, &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);
   rlSetUniform(m_computeTotalLoc, &m_currentParticleCount,
                RL_SHADER_UNIFORM_INT, 1);
@@ -241,7 +244,8 @@ void GPUParticleSystem::Update(float dt) {
   m_atomicBuffer.BindBase(3);
 
   // Dispatch
-  int workGroups = (m_currentParticleCount + 255) / 256;
+  using namespace NoMoreDay::Constants::Render;
+  int workGroups = (m_currentParticleCount + (WORKGROUP_SIZE_PARTICLES - 1)) / WORKGROUP_SIZE_PARTICLES;
   if (workGroups > 0) {
     rlComputeShaderDispatch(workGroups, 1, 1);
   }

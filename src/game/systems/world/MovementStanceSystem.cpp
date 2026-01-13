@@ -15,7 +15,8 @@ void MovementStanceSystem::Update(entt::registry& registry, float dt) {
 
         float speedSq = vel.vx * vel.vx + vel.vy * vel.vy;
         // More lenient threshold: speed > 50 (standard is 300)
-        bool isMoving = speedSq > 2500.0f; 
+        using namespace NoMoreDay::Constants::Movement;
+        bool isMoving = speedSq > STANCE_THRESHOLD_SPEED_SQ; 
 
         if (isMoving) {
             if (stanceComp.stance == MovementStance::Walking) {

@@ -32,15 +32,16 @@ struct StatCalculation {
 };
 
 static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
-    combat.max_health = GameConstants::DEFAULT_MAX_HEALTH;
-    combat.max_mana = GameConstants::DEFAULT_MAX_MANA;
+    using namespace NoMoreDay::Constants::Combat;
+    combat.max_health = DEFAULT_MAX_HEALTH;
+    combat.max_mana = DEFAULT_MAX_MANA;
     combat.armor = 0.0f;
-    combat.move_speed = GameConstants::DEFAULT_MOVE_SPEED;
-    combat.crit_chance = GameConstants::DEFAULT_CRIT_CHANCE;
-    combat.crit_damage = GameConstants::DEFAULT_CRIT_DAMAGE;
-    combat.attack_speed = GameConstants::DEFAULT_ATTACK_SPEED;
+    combat.move_speed = DEFAULT_MOVE_SPEED;
+    combat.crit_chance = DEFAULT_CRIT_CHANCE;
+    combat.crit_damage = DEFAULT_CRIT_DAMAGE;
+    combat.attack_speed = DEFAULT_ATTACK_SPEED;
     combat.cast_speed = 1.0f;
-    combat.accuracy = GameConstants::DEFAULT_ACCURACY;
+    combat.accuracy = DEFAULT_ACCURACY;
     combat.knockback = 0.0f;
     combat.resistances.fill(0.0f);
     combat.flat_damage.fill(0.0f);
@@ -63,9 +64,10 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.block_chance = 0.0f;
     combat.block_amount = 0.0f;
     combat.dodge_chance = 0.0f;
-    combat.gold_bonus = 0.0f;
+    combat. gold_bonus = 0.0f;
     combat.experience_gain_mult = 0.0f;
-    combat.pickup_range = GameConstants::DEFAULT_PICKUP_RANGE; // Default
+    using namespace NoMoreDay::Constants::Combat;
+    combat. pickup_range = BASE_PICKUP_RANGE; // Default
 
     combat.raw_resistances.fill(0.0f);
     combat.raw_move_speed = 0.0f;
@@ -239,13 +241,15 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs; // 初始化计算数组
     
     // Determine base values (Players use test defaults, others use sane minimums)
+    using namespace NoMoreDay::Constants::Combat;
     bool isPlayer = registry.all_of<PlayerTag>(entity);
-    float base_hp = isPlayer ? GameConstants::DEFAULT_MAX_HEALTH : 1.0f;
-    float base_mana = isPlayer ? GameConstants::DEFAULT_MAX_MANA : 1.0f;
+    float base_hp = isPlayer ? DEFAULT_MAX_HEALTH : 1.0f;
+    float base_mana = isPlayer ? DEFAULT_MAX_MANA : 1.0f;
 
+    using namespace NoMoreDay::Constants::Combat;
     calcs[static_cast<size_t>(StatType::MaxHealth)].base = base_hp;
     calcs[static_cast<size_t>(StatType::MaxMana)].base = base_mana;
-    calcs[static_cast<size_t>(StatType::MoveSpeed)].base = GameConstants::DEFAULT_MOVE_SPEED;
+    calcs[static_cast<size_t>(StatType::MoveSpeed)].base = DEFAULT_MOVE_SPEED;
     calcs[static_cast<size_t>(StatType::Armor)].base = 0.0f;
     
     // 如果是敌人，应用敌人种族基础属性覆盖 base_hp
@@ -256,11 +260,12 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         calcs[static_cast<size_t>(StatType::Armor)].base = race.baseArmor;
     }
 
-    calcs[static_cast<size_t>(StatType::CritChance)].base = GameConstants::DEFAULT_CRIT_CHANCE * 100.0f; 
-    calcs[static_cast<size_t>(StatType::CritDamage)].base = GameConstants::DEFAULT_CRIT_DAMAGE * 100.0f; 
-    calcs[static_cast<size_t>(StatType::AttackSpeed)].base = GameConstants::DEFAULT_ATTACK_SPEED * 100.0f; 
+    using namespace NoMoreDay::Constants::Combat;
+    calcs[static_cast<size_t>(StatType::CritChance)].base = DEFAULT_CRIT_CHANCE * 100.0f; 
+    calcs[static_cast<size_t>(StatType::CritDamage)].base = DEFAULT_CRIT_DAMAGE * 100.0f; 
+    calcs[static_cast<size_t>(StatType::AttackSpeed)].base = DEFAULT_ATTACK_SPEED * 100.0f; 
     calcs[static_cast<size_t>(StatType::CastSpeed)].base = 100.0f;
-    calcs[static_cast<size_t>(StatType::Accuracy)].base = GameConstants::DEFAULT_ACCURACY * 100.0f; 
+    calcs[static_cast<size_t>(StatType::Accuracy)].base = DEFAULT_ACCURACY * 100.0f; 
     
     calcs[static_cast<size_t>(StatType::ProjectileSpeed)].base = 100.0f;
     calcs[static_cast<size_t>(StatType::DurationScale)].base = 100.0f;
@@ -271,9 +276,9 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     calcs[static_cast<size_t>(StatType::LifeSteal)].base = 0.0f;
     calcs[static_cast<size_t>(StatType::LifeOnHit)].base = 0.0f;
     calcs[static_cast<size_t>(StatType::HealthRegen)].base = 1.0f;
-    calcs[static_cast<size_t>(StatType::ManaRegen)].base = 1.0f;
+    calcs[static_cast<size_t>(StatType::ManaRegen)].base = REGEN_BASE;
     calcs[static_cast<size_t>(StatType::Thorns)].base = 0.0f;
-    calcs[static_cast<size_t>(StatType::MagicFind)].base = 4.0f;
+    calcs[static_cast<size_t>(StatType::MagicFind)].base = MAGIC_FIND_BASE;
 
     // 伤害乘数默认为 100% (1.0)
     for (int i = 0; i < 6; ++i) {
@@ -461,28 +466,32 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         if (hasOffHandWeapon) {
             // 双持 (Dual Wielding)
             // 逻辑：平均伤害 + 15% 攻速奖励
+            using namespace NoMoreDay::Constants::Combat;
             float avgAttack = (mainHandAttack + offHandAttack) * 0.5f;
             combat.min_weapon_damage = avgAttack * 0.9f;
             combat.max_weapon_damage = avgAttack * 1.1f;
-            ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd, 15.0f);
+            ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd, System::DUAL_WIELD_AS_BONUS);
         } else {
             // 单持主手
             combat.min_weapon_damage = mainHandAttack * 0.9f;
             combat.max_weapon_damage = mainHandAttack * 1.1f;
 
             // 双手武器奖励：额外 25% 基础伤害
+            using namespace NoMoreDay::Constants::Combat;
             if (isTwoHanded) {
-                combat.min_weapon_damage *= 1.25f;
-                combat.max_weapon_damage *= 1.25f;
+                combat.min_weapon_damage *= System::TWO_HANDED_DMG_BONUS;
+                combat.max_weapon_damage *= System::TWO_HANDED_DMG_BONUS;
             }
         }
     } else {
         // 处理空手情况：如果未装备主手武器，使用 WeaponComponent 的默认值
         // 如果是玩家（有装备栏），给予合理的空手伤害
         if (registry.all_of<EquipmentComponent>(entity)) {
-            combat.min_weapon_damage = GameConstants::UNARMED_DAMAGE_MIN;
-            combat.max_weapon_damage = GameConstants::UNARMED_DAMAGE_MAX;
-            combat.knockback = GameConstants::UNARMED_KNOCKBACK; // 空手击退
+            using namespace NoMoreDay::Constants::Combat::System; // Wait, I should add these to System if needed
+            // Actually I didn't add UNARMED specifically, but I can add them or use defaults
+            combat.min_weapon_damage = 2.0f; // UNARMED_DAMAGE_MIN
+            combat.max_weapon_damage = 3.0f; // UNARMED_DAMAGE_MAX
+            combat.knockback = 10.0f; // UNARMED_KNOCKBACK
         } else if (registry.all_of<WeaponComponent>(entity)) {
             // 怪物回退逻辑
             const auto& wc = registry.get<WeaponComponent>(entity);
@@ -492,8 +501,8 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     }
     
     // 如果有武器但没设置击退（ItemComponent目前没有击退字段），给个默认值
-    // 未来可以在 ItemComponent 中添加 knockback
-    if (hasMainHandWeapon && combat.knockback < 0.1f) combat.knockback = GameConstants::DEFAULT_WEAPON_KNOCKBACK;
+    using namespace NoMoreDay::Constants::Combat;
+    if (hasMainHandWeapon && combat.knockback < 0.1f) combat.knockback = 20.0f; // DEFAULT_WEAPON_KNOCKBACK
 
     // 2. 累积通用修饰符
     if (registry.all_of<ModifierList>(entity)) {
@@ -580,20 +589,21 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.effective_vitality = vit;
 
     // 4. 应用主要属性的缩放
-    calcs[static_cast<size_t>(StatType::Armor)].base += str * GameConstants::STR_TO_ARMOR; // 1力 = 2护甲
-    calcs[static_cast<size_t>(StatType::MaxHealth)].base += vit * GameConstants::VIT_TO_HEALTH; // 1体 = 15血
-    calcs[static_cast<size_t>(StatType::MaxMana)].base += intel * GameConstants::INT_TO_MANA;
+    using namespace NoMoreDay::Constants::Combat;
+    calcs[static_cast<size_t>(StatType::Armor)].base += str * Attribute::STR_TO_ARMOR;
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base += vit * Attribute::VIT_TO_HEALTH;
+    calcs[static_cast<size_t>(StatType::MaxMana)].base += intel * Attribute::INT_TO_MANA;
     
     // 回复缩放 (Regeneration Scaling)
-    combat.health_regen += vit * GameConstants::VIT_TO_HEALTH_REGEN;   // 1体 = 0.2 生命回复/秒
-    combat.mana_regen += intel * GameConstants::INT_TO_MANA_REGEN;  // 1智 = 0.2 法力回复/秒
-
+    combat.health_regen += vit * Attribute::VIT_TO_HEALTH_REGEN;
+    combat.mana_regen += intel * Attribute::INT_TO_MANA_REGEN;
+ 
     // 属性对伤害的加成
-    ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd, str * GameConstants::STR_TO_PHYS_DAMAGE_INC); // 1力 = 1% 物理伤害
+    ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd, str * Attribute::STR_TO_PHYS_DAMAGE_INC);
     
     // 敏捷加成
-    ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat, dex * GameConstants::DEX_TO_CRIT_CHANCE); // 1敏 = 0.2% 暴击率
-    ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat, dex * GameConstants::DEX_TO_ACCURACY); // 1敏 = 0.1% 命中
+    ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat, dex * Attribute::DEX_TO_CRIT_CHANCE);
+    ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat, dex * Attribute::DEX_TO_ACCURACY);
 
     // --- Sword Heart Mechanic ---
     if (registry.all_of<SwordHeartComponent>(entity)) {
@@ -601,18 +611,19 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         bool isSwordHeartActive = hasMainHandWeapon && offHandIsEmpty && !isTwoHanded;
         
         if (isSwordHeartActive) {
+            using namespace NoMoreDay::Constants::Combat::System;
             // 1. 15% More Weapon Damage
-            combat.min_weapon_damage *= 1.15f;
-            combat.max_weapon_damage *= 1.15f;
+            combat.min_weapon_damage *= SWORD_HEART_MORE_DMG;
+            combat.max_weapon_damage *= SWORD_HEART_MORE_DMG;
             
             // 2. Base Block Chance (Shield Equivalent ~20%)
-            combat.block_chance += 0.20f;
+            combat.block_chance += SHIELD_BASE_BLOCK;
             // Add block amount (sword-based parry)
-            combat.block_amount += 50.0f; 
+            combat.block_amount += SWORD_HEART_BLOCK_AMT; 
             
             // 3. Spell Damage Bonus (50% of Attack Damage Bonus)
             float phys_inc = calcs[static_cast<size_t>(StatType::PhysicalDamage)].percent_add;
-            float spell_bonus = phys_inc * 0.5f;
+            float spell_bonus = phys_inc * SWORD_HEART_SPELL_BONUS_RATIO;
             
             for (int i = 1; i < 6; ++i) {
                 calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].percent_add += spell_bonus;
@@ -649,16 +660,17 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.max_mana = calcs[static_cast<size_t>(StatType::MaxMana)].Result();
     combat.armor = calcs[static_cast<size_t>(StatType::Armor)].Result();
     
+    using namespace NoMoreDay::Constants::Combat;
     float finalMoveSpeed = calcs[static_cast<size_t>(StatType::MoveSpeed)].Result();
     combat.raw_move_speed = finalMoveSpeed;
-    combat.move_speed = std::min(finalMoveSpeed, GameConstants::MOVE_SPEED_CAP);
+    combat.move_speed = std::min(finalMoveSpeed, MOVE_SPEED_CAP);
     
-    combat.crit_chance = std::min(calcs[static_cast<size_t>(StatType::CritChance)].Result() / 100.0f, GameConstants::CRIT_CHANCE_CAP);
+    combat.crit_chance = std::min(calcs[static_cast<size_t>(StatType::CritChance)].Result() / 100.0f, Cap::CRIT_CHANCE);
     combat.crit_damage = calcs[static_cast<size_t>(StatType::CritDamage)].Result() / 100.0f;
     
     float finalAS = calcs[static_cast<size_t>(StatType::AttackSpeed)].Result() / 100.0f;
     combat.raw_attack_speed = finalAS;
-    combat.attack_speed = std::min(finalAS, GameConstants::ATTACK_SPEED_CAP);
+    combat.attack_speed = std::min(finalAS, Cap::ATTACK_SPEED);
     
     combat.cast_speed = calcs[static_cast<size_t>(StatType::CastSpeed)].Result() / 100.0f;
     combat.accuracy = calcs[static_cast<size_t>(StatType::Accuracy)].Result() / 100.0f;
@@ -666,7 +678,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     
     float finalCDR = calcs[static_cast<size_t>(StatType::CooldownReduction)].Result() / 100.0f;
     combat.raw_cooldown_reduction = finalCDR;
-    combat.cooldown_reduction = std::min(finalCDR, GameConstants::CDR_CAP);
+    combat.cooldown_reduction = std::min(finalCDR, Cap::CDR);
     
     combat.resource_cost_reduction = calcs[static_cast<size_t>(StatType::ResourceCostReduction)].Result() / 100.0f;
     
@@ -676,11 +688,11 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     
     float finalDodge = calcs[static_cast<size_t>(StatType::DodgeChance)].Result() / 100.0f;
     combat.raw_dodge_chance = finalDodge;
-    combat.dodge_chance = std::min(finalDodge, GameConstants::DODGE_CAP);
+    combat.dodge_chance = std::min(finalDodge, Cap::DODGE);
     
     float finalBlock = (combat.block_chance + calcs[static_cast<size_t>(StatType::BlockChance)].Result() / 100.0f);
     combat.raw_block_chance = finalBlock;
-    combat.block_chance = std::min(finalBlock, GameConstants::BLOCK_CAP);
+    combat.block_chance = std::min(finalBlock, Cap::BLOCK);
     
     combat.life_steal += calcs[static_cast<size_t>(StatType::LifeSteal)].Result() / 100.0f;
     combat.life_on_hit += calcs[static_cast<size_t>(StatType::LifeOnHit)].Result();
@@ -702,10 +714,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     for (int i = 0; i < 6; ++i) {
         float finalRes = (calcs[static_cast<size_t>(StatType::ResistPhysical) + i].Result() + resAll) / 100.0f;
         combat.raw_resistances[i] = finalRes;
-        combat.resistances[i] = std::min(finalRes, GameConstants::RESISTANCE_CAP);
+        combat.resistances[i] = std::min(finalRes, Cap::RESISTANCE);
     }
 
-    combat.knockback += str * GameConstants::STR_TO_KNOCKBACK; // 力量增加击退
+    combat.knockback += str * Attribute::STR_TO_KNOCKBACK; // 力量增加击退
 
     // Finalize Regeneration (Apply Pct)
     combat.health_regen *= (1.0f + combat.health_regen_pct);

@@ -20,11 +20,12 @@ void PhysicsSystem::resolveCollisions(entt::entity entity, const Position &pos,
                                       float dt) {
 
   // 参数
-  const float entityRadius = 5.0f;
-  const float separationDist = entityRadius * 2.0f; // 10.0f
+  using namespace NoMoreDay::Constants::Physics;
+  const float entityRadius = DEFAULT_ENTITY_RADIUS;
+  const float separationDist = entityRadius * SEPARATION_DIST_MULT;
 
   const float searchRadius = separationDist;
-  const float repulsionStrength = 200.0f;
+  const float repulsionStrength = REPULSION_STRENGTH;
 
   grid.query(
       pos, searchRadius, [&](entt::entity neighbor, const Position &nPos) {
@@ -35,7 +36,8 @@ void PhysicsSystem::resolveCollisions(entt::entity entity, const Position &pos,
         float dy = pos.y - nPos.y;
         float distSq = dx * dx + dy * dy;
 
-        if (distSq > 0.0001f && distSq < separationDist * separationDist) {
+        using namespace NoMoreDay::Constants::Physics;
+        if (distSq > MIN_DIST_SQ_THRESHOLD && distSq < separationDist * separationDist) {
           float dist = std::sqrt(distSq);
           float overlap = separationDist - dist;
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "game/components/Stats.hpp"
+#include "game/components/Common.hpp"
 #include <cstdint>
 #include <vector>
 #include <entt/entity/entity.hpp>
@@ -23,7 +24,7 @@ struct DamageQueue {
 // 攻击运行时状态 (替代 WeaponComponent 的 cooldownTimer)
 struct AttackState {
     float cooldownTimer = 0.0f;
-    float baseAttackInterval = 0.6f; // 基础攻击间隔 (秒)
+    float baseAttackInterval = NoMoreDay::Constants::Combat::System::DEFAULT_ATTACK_COOLDOWN; // 基础攻击间隔 (秒)
 };
 
 } // namespace NoMoreDay

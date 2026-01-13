@@ -44,9 +44,10 @@ void CombatSystem::update(entt::registry &registry,
     const auto *stats = registry.try_get<NoMoreDay::CombatStats>(entity);
 
     // 确定战斗参数
+    using namespace NoMoreDay::Constants::Combat;
     float currentCooldownTimer = 0.0f;
-    float maxCooldown = Constants::DEFAULT_ATTACK_COOLDOWN;
-    float range = Constants::DEFAULT_ATTACK_RANGE;
+    float maxCooldown = System::DEFAULT_ATTACK_COOLDOWN;
+    float range = System::DEFAULT_ATTACK_RANGE;
     float knockback = 0.0f;
     float baseDamage = 0.0f;
 
@@ -59,7 +60,7 @@ void CombatSystem::update(entt::registry &registry,
           maxCooldown /= stats->attack_speed;
         range = (stats->cast_range > 0.1f)
                     ? stats->cast_range
-                    : Constants::DEFAULT_ATTACK_RANGE; // 默认范围
+                    : System::DEFAULT_ATTACK_RANGE; // 默认范围
         knockback = stats->knockback;
       }
     } else if (weapon) {
@@ -104,12 +105,13 @@ void CombatSystem::update(entt::registry &registry,
                                  pos.y); // 特效跟随玩家位置(或固定在挥剑处)
       float angleDeg = std::atan2(dirY, dirX) * (180.0f / PI);
 
+      using namespace NoMoreDay::Constants::Combat;
       AttackEffect effect;
       effect.timer = 0.0f;
-      effect.lifeTime = Constants::ATTACK_EFFECT_LIFETIME; // 持续0.2秒
+      effect.lifeTime = System::ATTACK_EFFECT_LIFETIME; // 持续0.2秒
       effect.rotation = angleDeg;
       effect.range = range;
-      effect.arcAngle = Constants::DEFAULT_ATTACK_ARC;
+      effect.arcAngle = System::DEFAULT_ATTACK_ARC;
       effect.color = GOLD; // 剑光颜色
       registry.emplace<AttackEffect>(effectEntity, effect);
 
@@ -139,8 +141,9 @@ void CombatSystem::update(entt::registry &registry,
               if (angleDiff > PI)
                 angleDiff = 2.0f * PI - angleDiff;
 
+              using namespace NoMoreDay::Constants::Combat;
               if (angleDiff <=
-                  (Constants::DEFAULT_ATTACK_ARC * 0.5f) * (PI / 180.0f)) {
+                  (System::DEFAULT_ATTACK_ARC * 0.5f) * (PI / 180.0f)) {
                 // HIT CONFIRMED
                 hitAny = true;
 
@@ -275,8 +278,9 @@ void CombatSystem::update(entt::registry &registry,
                 // Apply Block Reduction
                 // Formula: Reduction = BlockAmount / (BlockAmount + 100)
                 if (isBlocked) {
+                  using namespace NoMoreDay::Constants::Combat::Pipeline;
                   float blockMitigation =
-                      blockedAmount / (blockedAmount + 100.0f);
+                      blockedAmount / (blockedAmount + ARMOR_BASE);
                   finalDamage *= (1.0f - blockMitigation);
                 }
 
@@ -284,14 +288,16 @@ void CombatSystem::update(entt::registry &registry,
                 if (registry.all_of<NoMoreDay::CombatStats>(target)) {
                   float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
                   // 应用暴击率上限
+                  using namespace NoMoreDay::Constants::Combat;
                   float effectiveCrit =
                       std::min(stats->crit_chance,
-                               NoMoreDay::GameConstants::CRIT_CHANCE_CAP);
+                               Cap::CRIT_CHANCE);
                   if (roll < effectiveCrit) {
                     isCrit = true;
+                    using namespace NoMoreDay::Constants::Combat;
                     finalDamage *= (stats->crit_damage > 0.1f
                                         ? stats->crit_damage
-                                        : Constants::CRIT_DAMAGE_FALLBACK);
+                                        : System::CRIT_DAMAGE_FALLBACK);
                   }
                 }
 
@@ -429,8 +435,9 @@ void CombatSystem::update(entt::registry &registry,
                       tStats.block_chance) {
                 isBlocked = true;
                 blockedAmount = tStats.block_amount;
+                using namespace NoMoreDay::Constants::Combat::Pipeline;
                 float blockMitigation =
-                    blockedAmount / (blockedAmount + 100.0f);
+                    blockedAmount / (blockedAmount + ARMOR_BASE);
                 finalDamage *= (1.0f - blockMitigation);
 
                 if (registry.all_of<Position>(ai.target)) {
@@ -476,24 +483,27 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
     float effective_armor = defender.armor - attacker.armor_pen;
 
     if (effective_armor >= 0) {
+      using namespace NoMoreDay::Constants::Combat::Pipeline;
       mitigation =
-          1.0f - (Constants::BLOCK_MITIGATION_FACTOR /
-                  (Constants::BLOCK_MITIGATION_FACTOR + effective_armor));
+          1.0f - (ARMOR_BASE /
+                  (ARMOR_BASE + effective_armor));
     } else {
       // Negative armor amplification: multiplier = 2 - 100/(100 - eff)
       // We want 'mitigation' to be negative so that damage * (1 - mit)
       // increases. (1 - mitigation) = 2 - 100/(100-eff) -> mit = 1 - (2 -
       // 100/(100-eff)) = 100/(100-eff) - 1
-      mitigation = (Constants::BLOCK_MITIGATION_FACTOR /
-                    (Constants::BLOCK_MITIGATION_FACTOR - effective_armor)) -
+      using namespace NoMoreDay::Constants::Combat::Pipeline;
+      mitigation = (ARMOR_BASE /
+                    (ARMOR_BASE - effective_armor)) -
                    1.0f;
     }
   } else { // 元素抗性
+    using namespace NoMoreDay::Constants::Combat;
     // Elemental Resistance
     float res = defender.resistances[(int)type];
     // Hard Cap at 75%
-    if (res > 0.75f)
-      res = 0.75f;
+    if (res > Cap::RESISTANCE)
+      res = Cap::RESISTANCE;
     mitigation = res;
   }
 
@@ -501,10 +511,11 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
   damage *= (1.0f - mitigation);
 
   // 4. Global Damage Reduction
+  using namespace NoMoreDay::Constants::Combat;
   if (defender.damage_reduction > 0.0f) {
     float reduction = defender.damage_reduction;
-    if (reduction > 0.90f)
-      reduction = 0.90f; // Hard Cap 90%
+    if (reduction > Cap::DR)
+      reduction = Cap::DR; // Hard Cap 90%
     damage *= (1.0f - reduction);
   }
 
@@ -567,7 +578,8 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
     EffectSystem::EmitDamagePopup(registry, {tPos.x, tPos.y}, amount, isCrit);
 
     // Screen Shake for heavy damage
-    if (amount > Constants::SCREEN_SHAKE_THRESHOLD) {
+    using namespace NoMoreDay::Constants::Combat;
+    if (amount > System::SCREEN_SHAKE_THRESHOLD) {
       RenderSystem::AddScreenShake(0.15f);
     }
   }

@@ -28,6 +28,7 @@ void EliteModifierSystem::Init() {
     return;
 
   // 注册 OnKill 事件处理器
+  using namespace NoMoreDay::Constants::Combat::Elite;
   s_killHandlerId = CombatEventDispatcher::Register(
       CombatEventType::OnKill, &EliteModifierSystem::OnEnemyKilled,
       50 // 中等优先级
@@ -71,9 +72,10 @@ void EliteModifierSystem::Update(entt::registry &registry, float dt) {
 
 void EliteModifierSystem::UpdateSoulLinks(entt::registry &registry) {
   // 注意：这里理想情况下应该使用 PhysicsSystem::Get().GetSpatialGrid() 进行查询
-  // 为了简化展示且保持高性能，我们每 5 帧才更新一次链接关系
+  // 为了简化展示且保持高性能，我们按间隔更新链接关系
   static int frameCounter = 0;
-  if (++frameCounter % 5 != 0) return;
+  using namespace NoMoreDay::Constants::Combat::Elite;
+  if (++frameCounter % UPDATE_INTERVAL_FRAMES != 0) return;
 
   auto view = registry.view<SoulLinkComponent, Position, EnemyTag>();
 
@@ -213,10 +215,11 @@ void EliteModifierSystem::OnEnemyKilled(entt::registry &registry,
         float angle = static_cast<float>(rand() % 360) * DEG2RAD;
         float speed = static_cast<float>(rand() % 80 + 40);
         p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
+        using namespace NoMoreDay::Constants::Combat::Elite;
         p.color = {255, 50, 50, 255}; // 红色
         p.lifetime = 0.6f;
         p.maxLifetime = p.lifetime;
-        p.scale = 3.0f + avenger.avengerStacks * 0.3f;
+        p.scale = Vfx_Scale_Base + avenger.avengerStacks * Vfx_Scale_Step;
         NoMoreDay::systems::GPUParticleSystem::Get().Emit(p);
       }
 

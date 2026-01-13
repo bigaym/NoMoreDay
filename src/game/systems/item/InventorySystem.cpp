@@ -70,7 +70,8 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
                         registry.emplace<Position>(effect, pos.x, pos.y);
                         VisualEffect vEffect;
                         vEffect.type = VisualEffectType::Pickup;
-                        vEffect.lifeTime = 0.3f;
+                        using namespace NoMoreDay::Constants::Item;
+                        vEffect.lifeTime = PICKUP_VISUAL_EFFECT_DURATION;
                         vEffect.color = WHITE;
                         if (existingItem) {
                              switch(existingItem->rarity) {
@@ -127,7 +128,8 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
         registry.emplace<Position>(effect, pos.x, pos.y);
         VisualEffect vEffect;
         vEffect.type = VisualEffectType::Pickup;
-        vEffect.lifeTime = 0.3f;
+        using namespace NoMoreDay::Constants::Item;
+        vEffect.lifeTime = PICKUP_VISUAL_EFFECT_DURATION;
         vEffect.color = WHITE;
         if (itemComp) {
             switch(itemComp->rarity) {
@@ -192,7 +194,8 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         newItemComp.quantity = dropCount;
 
         registry.emplace<ItemComponent>(droppedEntity, newItemComp);
-        registry.emplace<Position>(droppedEntity, pos->x + 20.0f, pos->y);
+        using namespace NoMoreDay::Constants::Item;
+        registry.emplace<Position>(droppedEntity, pos->x + DROP_OFFSET_X, pos->y);
         registry.emplace<LocalLevelTag>(droppedEntity); // Ensure it's cleaned up on scene change
 
         // 恢复视觉效果 (简单处理：根据类型给颜色，或者复制原实体的 Sprite 如果有)
@@ -221,7 +224,8 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         *it = entt::null; // 标记为空槽位，而不是移除
 
         // 重新添加世界组件
-        registry.emplace_or_replace<Position>(item, pos->x + 20.0f, pos->y);
+        using namespace NoMoreDay::Constants::Item;
+        registry.emplace_or_replace<Position>(item, pos->x + DROP_OFFSET_X, pos->y);
         
         // 物品离开背包后，不再需要跨场景持久化，替换为 LocalLevelTag
         if (registry.any_of<PersistentTag>(item))
@@ -401,7 +405,8 @@ bool InventorySystem::unequipItem(entt::registry &registry, entt::entity charact
 
     if (!hasSpace)
     {
-        LOG_LIMITED_WARN(2.0f, "背包: 无法卸下 - 角色 {} 的背包已满", (uint32_t)character);
+        using namespace NoMoreDay::Constants::Item;
+        LOG_LIMITED_WARN(POTION_DEFAULT_COOLDOWN, "背包: 无法卸下 - 角色 {} 的背包已满", (uint32_t)character);
         return false;
     }
 
@@ -463,7 +468,8 @@ bool InventorySystem::useItem(entt::registry& registry, entt::entity character, 
              LOG_INFO("生命值已满，无需使用生命药水。");
              return false;
         }
-        stats->health = std::min(stats->max_health, stats->health + 50.0f);
+        using namespace NoMoreDay::Constants::Item;
+        stats->health = std::min(stats->max_health, stats->health + POTION_HEAL_AMOUNT);
         effectApplied = true;
         LOG_INFO("使用了生命药水，恢复 50 点生命值。当前: {:.0f}/{:.0f}", stats->health, stats->max_health);
     } else if (itemComp->id == 102) { // 法力药水
@@ -471,14 +477,16 @@ bool InventorySystem::useItem(entt::registry& registry, entt::entity character, 
              LOG_INFO("法力值已满，无需使用法力药水。");
              return false;
         }
-        stats->mana = std::min(stats->max_mana, stats->mana + 50.0f);
+        using namespace NoMoreDay::Constants::Item;
+        stats->mana = std::min(stats->max_mana, stats->mana + POTION_MANA_AMOUNT);
         effectApplied = true;
         LOG_INFO("使用了法力药水，恢复 50 点法力值。当前: {:.0f}/{:.0f}", stats->mana, stats->max_mana);
     }
 
     if (effectApplied) {
         // 设置药水冷却 (例如 1 秒)
-        inv->potionCooldown = 1.0f;
+        using namespace NoMoreDay::Constants::Item;
+        inv->potionCooldown = POTION_DEFAULT_COOLDOWN;
 
         // 减少数量或销毁
         if (itemComp->quantity > 1) {
@@ -655,7 +663,8 @@ void InventorySystem::organize(entt::registry &registry, entt::entity character)
         LOG_WARN("背包: 整理冷却中 ({:.1f}s)", inv->sortCooldown);
         return;
     }
-    inv->sortCooldown = 1.0f; // 设置1秒冷却
+    using namespace NoMoreDay::Constants::Item;
+    inv->sortCooldown = SORT_COOLDOWN; // 设置1秒冷却
 
     LOG_INFO("背包: 开始整理角色 {} 的背包 (全局排序)", (uint32_t)character);
 
@@ -795,7 +804,8 @@ void InventorySystem::update(entt::registry &registry, float dt)
         }
 
         // 初始吸附范围：如果属性中的范围较小，则使用默认的 150.0f，方便测试和调整
-        float pickupRange = (stats.pickup_range > 50.0f) ? stats.pickup_range : 75.0f;
+        using namespace NoMoreDay::Constants::Item;
+        float pickupRange = (stats.pickup_range > MIN_EFFECTIVE_PICKUP_RANGE) ? stats.pickup_range : DEFAULT_PICKUP_RANGE;
         float pickupRangeSq = pickupRange * pickupRange;
 
         for (auto goldEntity : goldView)

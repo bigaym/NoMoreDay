@@ -20,7 +20,8 @@ static float Distance(const Position &a, const Position &b) {
 // 辅助函数：归一化向量
 static void Normalize(float &x, float &y) {
   float len = std::sqrt(x * x + y * y);
-  if (len > 0.01f) {
+  using namespace NoMoreDay::Constants::AI;
+  if (len > NORMALIZE_THRESHOLD) {
     x /= len;
     y /= len;
   }
@@ -41,8 +42,9 @@ void UpdateSupportBehavior(entt::registry &registry, entt::entity entity,
   }
 
   // === 1. 危险距离检查：太近则逃跑 ===
-  float minSafeDistance = 150.0f;
-  float maxSafeDistance = 400.0f;
+  using namespace NoMoreDay::Constants::AI::Support;
+  float minSafeDistance = MIN_SAFE_DIST;
+  float maxSafeDistance = MAX_SAFE_DIST;
 
   if (distToPlayer < minSafeDistance) {
     // 紧急逃跑：直接远离玩家
@@ -50,7 +52,7 @@ void UpdateSupportBehavior(entt::registry &registry, entt::entity entity,
     float dy = pos.y - playerPos.y;
     Normalize(dx, dy);
 
-    float fleeSpeed = ai.speed * 1.2f; // 逃跑时加速
+    float fleeSpeed = ai.speed * FLEE_SPEED_MULT; // 逃跑时加速
     vel.vx = dx * fleeSpeed;
     vel.vy = dy * fleeSpeed;
 
@@ -59,13 +61,14 @@ void UpdateSupportBehavior(entt::registry &registry, entt::entity entity,
   }
 
   // === 2. 位置调整：保持合适距离 ===
+  using namespace NoMoreDay::Constants::AI::Support;
   if (distToPlayer > maxSafeDistance) {
     // 太远了，稍微靠近一点
     float dx = playerPos.x - pos.x;
     float dy = playerPos.y - pos.y;
     Normalize(dx, dy);
 
-    float approachSpeed = ai.speed * 0.5f;
+    float approachSpeed = ai.speed * APPROACH_SPEED_MULT;
     vel.vx = dx * approachSpeed;
     vel.vy = dy * approachSpeed;
   } else if (distToPlayer < ai.preferredDistance) {
@@ -74,7 +77,7 @@ void UpdateSupportBehavior(entt::registry &registry, entt::entity entity,
     float dy = pos.y - playerPos.y;
     Normalize(dx, dy);
 
-    float retreatSpeed = ai.speed * 0.6f;
+    float retreatSpeed = ai.speed * RETREAT_SPEED_MULT;
     vel.vx = dx * retreatSpeed;
     vel.vy = dy * retreatSpeed;
   } else {
@@ -120,13 +123,14 @@ void ApplyBuffToNearbyAllies(entt::registry &registry, entt::entity source,
     float dist = Distance(sourcePos, allyPos);
     if (dist <= radius) {
       // 创建 Shield Buff
+      using namespace NoMoreDay::Constants::AI::Support;
       BuffEffect shieldBuff;
       shieldBuff.id = "support_shield";
       shieldBuff.name = "Support Shield";
       shieldBuff.description = "Damage reduction from support ally";
       shieldBuff.type = BuffType::Shield;
-      shieldBuff.duration = 5.0f;
-      shieldBuff.remaining = 5.0f;
+      shieldBuff.duration = BUFF_DURATION;
+      shieldBuff.remaining = BUFF_DURATION;
       shieldBuff.is_debuff = false;
       shieldBuff.source = source;
 
@@ -134,7 +138,7 @@ void ApplyBuffToNearbyAllies(entt::registry &registry, entt::entity source,
       NoMoreDay::StatModifier defMod;
       defMod.type = NoMoreDay::StatType::Armor;
       defMod.mode = NoMoreDay::ModifierMode::PercentAdd;
-      defMod.value = 0.30f; // +30% 护甲
+      defMod.value = ARMOR_MOD_VALUE; // +30% 护甲
       shieldBuff.modifiers.push_back(defMod);
 
       effects.AddOrRefresh(shieldBuff);
@@ -181,11 +185,12 @@ void UpdateAssassinBehavior(entt::registry &registry, entt::entity entity,
   }
 
   // === 行为决策 ===
-  float backstabDistance = 250.0f; // 背刺触发距离
-  float lurkerDistance = 350.0f;   // 潜伏距离
+  using namespace NoMoreDay::Constants::AI::Assassin;
+  float backstabDistance = BACKSTAB_DIST; // 背刺触发距离
+  float lurkerDistance = LURKER_DIST;   // 潜伏距离
 
   if (ai.isStealthed) {
-    if (distToPlayer <= backstabDistance && ai.stealthTimer >= 2.0f) {
+    if (distToPlayer <= backstabDistance && ai.stealthTimer >= STEALTH_TIMER_THRESHOLD) {
       // 条件满足：执行背刺
       if (ExecuteBackstab(registry, entity, playerPos, ai.backstabMultiplier)) {
         // 背刺成功
@@ -205,7 +210,7 @@ void UpdateAssassinBehavior(entt::registry &registry, entt::entity entity,
       float dy = playerPos.y - pos.y;
       Normalize(dx, dy);
 
-      float stalkSpeed = ai.speed * 0.6f; // 潜行时慢速移动
+      float stalkSpeed = ai.speed * STALK_SPEED_MULT; // 潜行时慢速移动
       vel.vx = dx * stalkSpeed;
       vel.vy = dy * stalkSpeed;
     } else {
@@ -215,7 +220,7 @@ void UpdateAssassinBehavior(entt::registry &registry, entt::entity entity,
     }
   } else {
     // 非隐身状态（背刺后冷却中）
-    if (distToPlayer < 100.0f) {
+    if (distToPlayer < FLEE_DIST) {
       // 太近了，逃跑
       float dx = pos.x - playerPos.x;
       float dy = pos.y - playerPos.y;
@@ -246,12 +251,14 @@ bool ExecuteBackstab(entt::registry &registry, entt::entity assassin,
 
   // 瞬移到玩家背后 (带简单的地图边界检查)
   // TODO: 后续应集成物理系统的射线检测以处理更复杂的墙体
-  float targetX = playerPos.x + dx * 30.0f;
-  float targetY = playerPos.y + dy * 30.0f;
+  using namespace NoMoreDay::Constants::AI::Assassin;
+  using namespace NoMoreDay::Constants::World;
+  float targetX = playerPos.x + dx * TELEPORT_OFFSET;
+  float targetY = playerPos.y + dy * TELEPORT_OFFSET;
   
-  // 简化的边界检查（假设地图大小为 5000x5000）
-  assassinPos->x = std::clamp(targetX, 0.0f, 5000.0f);
-  assassinPos->y = std::clamp(targetY, 0.0f, 5000.0f);
+  // 简化的边界检查（使用 MAP_BOUNDARY）
+  assassinPos->x = std::clamp(targetX, 0.0f, MAP_BOUNDARY);
+  assassinPos->y = std::clamp(targetY, 0.0f, MAP_BOUNDARY);
 
   // 发射背刺粒子效果
   for (int i = 0; i < 30; ++i) {
@@ -273,11 +280,12 @@ bool ExecuteBackstab(entt::registry &registry, entt::entity assassin,
   // TODO: 集成到 DamagePipeline 中处理背刺乘数
   // 应用临时的背刺 Buff
   if (auto* effects = registry.try_get<ActiveEffectsComponent>(assassin)) {
+    using namespace NoMoreDay::Constants::AI::Assassin;
     BuffEffect backstabBuff;
     backstabBuff.id = "assassin_backstab_boost";
     backstabBuff.name = "Backstab Focus";
-    backstabBuff.duration = 1.0f; // 仅持续 1 秒，覆盖接下来的攻击
-    backstabBuff.remaining = 1.0f;
+    backstabBuff.duration = BUFF_DURATION; // 覆盖后续攻击
+    backstabBuff.remaining = BUFF_DURATION;
     
     NoMoreDay::StatModifier dmgMod;
     dmgMod.type = NoMoreDay::StatType::PhysicalDamage;
@@ -300,8 +308,9 @@ void UpdateTankBehavior(entt::registry &registry, entt::entity entity,
                         AIComponent &ai, Position &pos, Velocity &vel,
                         const Position &playerPos, float dt) {
   // === 1. 查找需要保护的远程友军 ===
+  using namespace NoMoreDay::Constants::AI::Tank;
   if (ai.protectTarget == entt::null || !registry.valid(ai.protectTarget)) {
-    ai.protectTarget = FindNearestRanger(registry, pos, 500.0f, entity);
+    ai.protectTarget = FindNearestRanger(registry, pos, SEARCH_RADIUS, entity);
   }
 
   // 如果没有需要保护的目标，切换到普通追击模式
@@ -333,22 +342,24 @@ void UpdateTankBehavior(entt::registry &registry, entt::entity entity,
   float midX = (playerPos.x + rangerPos->x) / 2.0f;
   float midY = (playerPos.y + rangerPos->y) / 2.0f;
 
-  // 向玩家方向偏移 30%
-  float offsetX = (playerPos.x - midX) * 0.3f;
-  float offsetY = (playerPos.y - midY) * 0.3f;
+  // 向玩家方向偏移
+  using namespace NoMoreDay::Constants::AI::Tank;
+  float offsetX = (playerPos.x - midX) * MIDPOINT_OFFSET;
+  float offsetY = (playerPos.y - midY) * MIDPOINT_OFFSET;
 
   Position targetBlockPos = {midX + offsetX, midY + offsetY};
 
   // === 3. 移动到阻挡位置 ===
   float distToTarget = Distance(pos, targetBlockPos);
+  using namespace NoMoreDay::Constants::AI::Tank;
 
-  if (distToTarget > 20.0f) {
+  if (distToTarget > ARRIVAL_DIST) {
     float dx = targetBlockPos.x - pos.x;
     float dy = targetBlockPos.y - pos.y;
     Normalize(dx, dy);
 
     // 坦克移动较慢但稳定
-    float tankSpeed = ai.speed * 0.8f;
+    float tankSpeed = ai.speed * SPEED_MULT;
     vel.vx = dx * tankSpeed;
     vel.vy = dy * tankSpeed;
   } else {

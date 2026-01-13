@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "game/components/EnemyComponent.hpp"
+#include "game/components/Common.hpp"
 #include "game/systems/ai/EnemyAIBehaviors.hpp"
 #include <algorithm>
 #include <cmath>
@@ -47,7 +48,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
                               const std::vector<Vector2> &flowField,
                               Vector2 gridOrigin, int gridW, int gridH,
                               float cellSize, float dt) {
-
+  using namespace NoMoreDay::Constants::AI;
+ 
   // 更新决策计时器
   ai.lastDecisionTime += dt;
 
@@ -62,8 +64,9 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     float distSq = dx * dx + dy * dy;
 
     // 脱战与重置逻辑
+    using namespace NoMoreDay::Constants::AI;
     float leashRangeSq = stateComp->deactivationRange * stateComp->deactivationRange;
-    float hardResetRangeSq = leashRangeSq * 4.0f;
+    float hardResetRangeSq = leashRangeSq * LEASH_RESET_MULTIPLIER;
     float wakeUpRangeSq = stateComp->activationRange * stateComp->activationRange;
 
     // 1. 强制传送逻辑 (Hard Reset)
@@ -86,8 +89,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
              ai.target = entt::null;
         }
       }
-      if (health && health->current < health->max * 0.95f) {
-        health->current += health->max * 0.10f * dt;
+      if (health && health->current < health->max * HEALTH_REGEN_THRESHOLD) {
+        health->current += health->max * HEALTH_REGEN_PER_SEC * dt;
         if (health->current > health->max) health->current = health->max;
       }
     }
@@ -112,9 +115,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
           int index = gy * gridW + gx;
           if (index < (int)flowField.size()) {
               flow = flowField[index];
-              // 2.2 移动算法 (Movement Engine)
-              // 若采样到的 Vector2 模长 > 0.01 (有效指引)
-              if (std::abs(flow.x) > 0.01f || std::abs(flow.y) > 0.01f) {
+              // 若采样到的 Vector2 模长 > Threshold (有效指引)
+              if (std::abs(flow.x) > NORMALIZE_THRESHOLD || std::abs(flow.y) > NORMALIZE_THRESHOLD) {
                   hasFlow = true;
               }
           }
@@ -127,8 +129,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
       } else {
           // 若采样到的模长为 0 (障碍物或无效区)
           // 实体保持当前速度衰减 (Friction)
-          vel.vx *= 0.90f; // Rapid validation friction
-          vel.vy *= 0.90f;
+          vel.vx *= FRICTION; // Rapid validation friction
+          vel.vy *= FRICTION;
       }
   };
 
@@ -158,12 +160,12 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     float distToNext = std::sqrt(dx * dx + dy * dy);
     float distToTarget = distance(pos, targetPos);
 
-    if (distToTarget < 10.0f) {
+    if (distToTarget < NoMoreDay::Constants::AI::Patrol::ARRIVAL_DIST) {
       ai.patrolDirection = !ai.patrolDirection;
       vel.vx = 0;
       vel.vy = 0;
-    } else if (distToNext > 0.1f) {
-      float patrolSpeed = 20.0f;
+    } else if (distToNext > NoMoreDay::Constants::AI::Patrol::MIN_STEP_DIST) {
+      float patrolSpeed = NoMoreDay::Constants::AI::Patrol::SPEED;
       vel.vx = (dx / distToNext) * patrolSpeed;
       vel.vy = (dy / distToNext) * patrolSpeed;
     }
@@ -202,7 +204,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     }
     
     // Spec 2.2: Flow Field Drive (No Separation)
-    float chaseSpeed = stateComp ? stateComp->speed : 50.0f;
+    using namespace NoMoreDay::Constants::AI;
+    float chaseSpeed = stateComp ? stateComp->speed : Chase::SPEED_FALLBACK;
     applyFlowFieldCheck(chaseSpeed);
     break;
   }
@@ -214,7 +217,7 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     }
     if (registry.all_of<Position>(ai.target)) {
       const auto &targetPos = registry.get<Position>(ai.target);
-      if (distance(pos, targetPos) > ai.attackRange * 1.2f) {
+      if (distance(pos, targetPos) > ai.attackRange * Chase::ATTACK_EXIT_MULT) {
         ai.aiType = AIType::CHASE;
       } else {
         vel.vx = 0.0f;
@@ -245,7 +248,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   case AIType::NEMESIS_HUNTER: {
-    float hunterSpeed = ai.speed * 1.2f;
+    using namespace NoMoreDay::Constants::AI;
+    float hunterSpeed = ai.speed * Chase::HUNTER_SPEED_MULT;
     // Check attack range
     if (distance(pos, playerPos) <= ai.attackRange) {
         vel.vx = 0.0f;
@@ -282,7 +286,7 @@ void AISystem::update(entt::registry &registry,
   Vector2 origin = flowSystem.GetGridOrigin();
   int gridW = flowSystem.GetWidth();
   int gridH = flowSystem.GetHeight();
-  float cellSize = 10.0f; // Should match flowSystem.m_cellSize
+  float cellSize = NoMoreDay::Constants::AI::FLOW_CELL_SIZE; // Should match flowSystem.m_cellSize
 
   // Exclude DormantTag (Spec 3.0) and KilledTag
   auto aiView = registry.view<AIComponent, Position, Velocity, EnemyTag>(
@@ -299,26 +303,24 @@ void AISystem::update(entt::registry &registry,
     float distSq = dx * dx + dy * dy;
 
     // 1. Culling & Dormancy (Spec 2.3)
-    // Active Boundary: ~1900 units. Dormancy Trigger: > 1950 units. (Scaled 1.5x from 1300)
-    if (distSq > 1950.0f * 1950.0f) {
+    using namespace NoMoreDay::Constants::AI;
+    if (distSq > DORMANCY_THRESHOLD * DORMANCY_THRESHOLD) {
       // Enter Dormancy
       registry.emplace_or_replace<DormantTag>(entity);
       registry.remove<Velocity>(entity); 
       // Teleport to holding area
-      pos.x = -1000.0f;
-      pos.y = -1000.0f;
+      pos.x = DORMANCY_TELEPORT_COORD;
+      pos.y = DORMANCY_TELEPORT_COORD;
       continue;
     }
 
     // 2. Frame-rate independent throttling using time accumulator:
-    // - Close (< 600): Every frame
-    // - Medium (600 - 1200): ~0.033f (2 frames at 60 FPS)
-    // - Far (> 1200): ~0.083f (5 frames at 60 FPS)
+    using namespace NoMoreDay::Constants::AI;
     float updateInterval = 0.0f;
-    if (distSq > 1200.0f * 1200.0f) {
-      updateInterval = 0.083f; 
-    } else if (distSq > 600.0f * 600.0f) {
-      updateInterval = 0.033f;
+    if (distSq > UPDATE_DIST_FAR * UPDATE_DIST_FAR) {
+      updateInterval = UPDATE_INTERVAL_FAR; 
+    } else if (distSq > UPDATE_DIST_MEDIUM * UPDATE_DIST_MEDIUM) {
+      updateInterval = UPDATE_INTERVAL_MEDIUM;
     }
 
     ai.updateAccumulator += dt;

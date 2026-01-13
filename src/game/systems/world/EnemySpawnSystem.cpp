@@ -1,4 +1,5 @@
 #include "game/systems/world/EnemySpawnSystem.hpp"
+#include "game/components/Common.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/UUID.hpp"
 #include "game/components/AIComponent.hpp"
@@ -19,8 +20,9 @@
 EnemySpawnSystem::EnemySpawnSystem()
     : m_mapWidth(0), m_mapHeight(0), m_gen(std::random_device{}()) {
   // 扩大生成和销毁范围
-  m_activationDistance = 1200.0f;
-  m_deactivationDistance = 2000.0f;
+  using namespace NoMoreDay::Constants::Enemy;
+  m_activationDistance = DEFAULT_ACTIVATION_DISTANCE;
+  m_deactivationDistance = DEFAULT_DEACTIVATION_DISTANCE;
 }
 
 EnemySpawnSystem::~EnemySpawnSystem() {
@@ -96,7 +98,8 @@ void EnemySpawnSystem::initData(int width, int height,
   m_pendingRaces = availableRaces; // Store for texture loading
 
   // 2. 群聚生成 - 大幅增加密度 (5~10倍)
-  int baseClusterCount = (width * height) / 200; // 原来是 1000, 现在是 5倍密度
+  using namespace NoMoreDay::Constants::Enemy;
+  int baseClusterCount = (width * height) / CLUSTER_DENSITY_DIVISOR; // 原来是 1000, 现在是 5倍密度
   int clusterCount =
       static_cast<int>(baseClusterCount * m_resonanceMods.densityMultiplier);
 
@@ -110,8 +113,9 @@ void EnemySpawnSystem::initData(int width, int height,
 
   std::uniform_int_distribution<int> xDist(2, width - 3);
   std::uniform_int_distribution<int> yDist(2, height - 3);
-  std::uniform_int_distribution<int> countDist(5,
-                                               12); // 每群 5-12 只 (原来 3-6)
+  using namespace NoMoreDay::Constants::Enemy;
+  std::uniform_int_distribution<int> countDist(MIN_CLUSTER_ENEMY_COUNT,
+                                               MAX_CLUSTER_ENEMY_COUNT); // 每群 5-12 只 (原来 3-6)
   for (int i = 0; i < clusterCount; ++i) {
     int cx, cy;
     bool foundCenter = false;
@@ -138,7 +142,8 @@ void EnemySpawnSystem::initData(int width, int height,
       std::uniform_real_distribution<float> rDist(0.0f, 1.0f);
 
       float angle = angleDist(m_gen);
-      float r = 2.0f + rDist(m_gen) * 4.0f;
+      using namespace NoMoreDay::Constants::Enemy;
+      float r = SPAWN_RADIUS_MIN + rDist(m_gen) * SPAWN_RADIUS_MAX;
 
       int ex = cx + static_cast<int>(cos(angle) * r);
       int ey = cy + static_cast<int>(sin(angle) * r);
@@ -147,7 +152,8 @@ void EnemySpawnSystem::initData(int width, int height,
           mapSystem.getTileType(ex, ey) == Tile::Type::FLOOR) {
 
         EnemySpawnData data;
-        data.position = {ex * 10.0f + 5.0f, ey * 10.0f + 5.0f};
+        using namespace NoMoreDay::Constants::World;
+        data.position = {ex * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f), ey * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f)};
         data.isAlive = false;
         data.entityId = entt::null;
         data.enemyType = race;
@@ -222,7 +228,8 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
   registry.emplace<Position>(entity, data.position.x, data.position.y);
   registry.emplace<Velocity>(entity, 0.0f, 0.0f);
-  registry.emplace<Radius>(entity, 5.0f); // Default collision radius
+  using namespace NoMoreDay::Constants::Enemy;
+  registry.emplace<Radius>(entity, DEFAULT_COLLISION_RADIUS); // Default collision radius
   registry.emplace<GPUIndex>(entity, -1); // Will be assigned by GPUEntitySystem
   registry.emplace<IDComponent>(entity, NoMoreDay::Utils::UUID::generate());
   registry.emplace<LocalLevelTag>(entity);
@@ -256,15 +263,16 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   EnemyRace raceDef(raceType);
 
   // Apply Level Mod to Base Stats
+  using namespace NoMoreDay::Constants::Enemy;
   float levelMultiplier =
-      1.0f + (m_resonanceMods.levelBonus * 0.1f); // 每个等级增加 10% 基础属性
+      1.0f + (m_resonanceMods.levelBonus * LEVEL_HP_MULTIPLIER); // 每个等级增加 10% 基础属性
 
-  cStats.min_weapon_damage = raceDef.baseDamage * 0.8f * levelMultiplier;
-  cStats.max_weapon_damage = raceDef.baseDamage * 1.2f * levelMultiplier;
+  cStats.min_weapon_damage = raceDef.baseDamage * DAMAGE_VARIANCE_MIN * levelMultiplier;
+  cStats.max_weapon_damage = raceDef.baseDamage * DAMAGE_VARIANCE_MAX * levelMultiplier;
   cStats.armor = raceDef.baseArmor * levelMultiplier;
   cStats.accuracy = 1.0f;           // Standard accuracy
   cStats.attack_speed = 1.0f;       // Standard attack speed
-  aState.baseAttackInterval = 1.5f; // Default attack interval
+  aState.baseAttackInterval = DEFAULT_ATTACK_INTERVAL; // Default attack interval
 
   float modifiedHP = raceDef.baseHP * levelMultiplier;
 
@@ -353,8 +361,9 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   }
 
   if (m_raceTextures.count(data.enemyType)) {
+    using namespace NoMoreDay::Constants::Enemy;
     registry.emplace<SpriteComponent>(entity, m_raceTextures[data.enemyType],
-                                      0.2f);
+                                      DEFAULT_SPRITE_SCALE);
   }
 
   if (registry.all_of<AIComponent>(entity)) {
@@ -386,8 +395,9 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     }
 
     // === Random elite modifier assignment (10% chance) ===
+    using namespace NoMoreDay::Constants::Enemy;
     std::uniform_real_distribution<float> eliteChance(0.0f, 1.0f);
-    if (eliteChance(m_gen) < 0.10f) {
+    if (eliteChance(m_gen) < ELITE_CHANCE) {
       // Assign either Link or Avenger modifier
       std::uniform_int_distribution<int> modifierType(0, 1);
       if (modifierType(m_gen) == 0) {
@@ -407,7 +417,8 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
       // Increase stats for elites
       auto *health = registry.try_get<HealthComponent>(entity);
       if (health) {
-        health->max *= 1.5f;
+        using namespace NoMoreDay::Constants::Enemy;
+        health->max *= ELITE_HP_MULTIPLIER;
         health->current = health->max;
       }
     }
@@ -436,15 +447,16 @@ void EnemySpawnSystem::despawnEnemy(entt::registry &registry,
 
 void EnemySpawnSystem::updateDormantEntities(entt::registry& registry, const Position& playerPos, int gridW, int gridH) {
     static int frameCounter = 0;
-    if (++frameCounter < 60) return; // Spec 2.3: Re-schedule every 60 frames
+    using namespace NoMoreDay::Constants::Enemy;
+    if (++frameCounter < DORMANT_CHECK_INTERVAL_FRAMES) return; // Spec 2.3: Re-schedule every 60 frames
     frameCounter = 0;
 
     auto dormantView = registry.view<DormantTag, Position, AIComponent>();
     int awakenedCount = 0;
-    int maxAwakenPerCycle = 50; // Throttle awakening
+    int maxAwakenPerCycle = MAX_AWAKEN_PER_CYCLE; // Throttle awakening
 
     std::uniform_real_distribution<float> angleDist(0.0f, 6.283185f);
-    std::uniform_real_distribution<float> distDist(1650.0f, 1800.0f); // Just inside active boundary (1950)
+    std::uniform_real_distribution<float> distDist(AWAKEN_DISTANCE_MIN, AWAKEN_DISTANCE_MAX); // Just inside active boundary (1950)
 
     for (auto entity : dormantView) {
         if (awakenedCount >= maxAwakenPerCycle) break;
@@ -456,7 +468,8 @@ void EnemySpawnSystem::updateDormantEntities(entt::registry& registry, const Pos
         float ty = playerPos.y + std::sin(angle) * dist;
 
         // Check bounds (approximate)
-        if (tx < 0 || tx > gridW * 10.0f || ty < 0 || ty > gridH * 10.0f) continue;
+        using namespace NoMoreDay::Constants::World;
+        if (tx < 0 || tx > gridW * GRID_TILE_SIZE || ty < 0 || ty > gridH * GRID_TILE_SIZE) continue;
         
         // Wake up
         auto& pos = dormantView.get<Position>(entity);

@@ -50,7 +50,7 @@ TEST_CASE("Stats Recalculation and Modifiers") {
         
         StatsSystem::update(registry);
         const auto& combat = registry.get<CombatStats>(entity);
-        float base_hp = GameConstants::DEFAULT_MAX_HEALTH;
+        float base_hp = Constants::Combat::DEFAULT_MAX_HEALTH;
         float expected = (base_hp + 15.0f * 15.0f + 50.0f) * 1.1f;
         CHECK(combat.max_health == doctest::Approx(expected));
     }

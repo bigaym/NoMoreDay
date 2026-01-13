@@ -8,18 +8,9 @@
 #include "game/components/Combat.hpp"
 
 
-
 class CombatSystem {
 public:
-    struct Constants {
-        static constexpr float DEFAULT_ATTACK_COOLDOWN = 1.0f;
-        static constexpr float DEFAULT_ATTACK_RANGE = 60.0f;
-        static constexpr float DEFAULT_ATTACK_ARC = 120.0f;
-        static constexpr float ATTACK_EFFECT_LIFETIME = 0.2f;
-        static constexpr float BLOCK_MITIGATION_FACTOR = 100.0f; // Mitigation = Block / (Block + Factor)
-        static constexpr float CRIT_DAMAGE_FALLBACK = 1.5f;
-        static constexpr float SCREEN_SHAKE_THRESHOLD = 100.0f;
-    };
+    // Constants moved to NoMoreDay::Constants::Combat::System
 
     // 处理攻击输入、管理冷却时间并解决命中
     static void update(entt::registry& registry, NoMoreDay::systems::SpatialHashGrid& grid, const Camera2D& camera, float dt);

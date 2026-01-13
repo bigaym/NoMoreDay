@@ -66,9 +66,10 @@ void SceneManager::Update(float dt) {
             // Using std::async for simplicity. In a real heavy engine we might use Taskflow, 
             // but LevelManager::prepareLevel is a single function call.
             m_loadingFuture = std::async(std::launch::async, [this]() {
+                using namespace NoMoreDay::Constants::World;
                 return m_levelManager.prepareLevel(m_targetBiome, 
-                    WorldConstants::WORLD_WIDTH / 10, 
-                    WorldConstants::WORLD_HEIGHT / 10, 
+                    WORLD_WIDTH / 10, 
+                    WORLD_HEIGHT / 10, 
                     m_targetLevel);
             });
             
@@ -110,8 +111,9 @@ void SceneManager::ApplyLoadedLevel() {
     int w = mapSystem.getWidth();
     int h = mapSystem.getHeight();
     
-    float spawnX = (float)WorldConstants::WORLD_WIDTH / 2.0f;
-    float spawnY = (float)WorldConstants::WORLD_HEIGHT / 2.0f;
+    using namespace NoMoreDay::Constants::World;
+    float spawnX = (float)WORLD_WIDTH / 2.0f;
+    float spawnY = (float)WORLD_HEIGHT / 2.0f;
     bool spawnFound = false;
 
     for (int y = 0; y < h; ++y) {

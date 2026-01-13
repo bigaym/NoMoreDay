@@ -50,9 +50,10 @@ void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
 
   // Initialize Spatial Grid
-  m_spatialGrid = systems::SpatialHashGrid(WorldConstants::GRID_COLS,
-                                           WorldConstants::GRID_ROWS,
-                                           WorldConstants::GRID_CELL_SIZE);
+  using namespace NoMoreDay::Constants::World;
+  m_spatialGrid = systems::SpatialHashGrid(GRID_COLS,
+                                           GRID_ROWS,
+                                           GRID_CELL_SIZE);
 
   // Initialize Visual FX (Events)
   systems::VisualFXSystem::Initialize(*m_context->registry);
@@ -88,9 +89,10 @@ void GameplayState::OnEnter() {
 
   // 2. Initialize Level
   m_context->levelManager->initialize(resourceManager);
+  using namespace NoMoreDay::Constants::World;
   m_context->levelManager->loadNewLevel("cave",
-                                        WorldConstants::WORLD_WIDTH / 10,
-                                        WorldConstants::WORLD_HEIGHT / 10);
+                                        WORLD_WIDTH / 10,
+                                        WORLD_HEIGHT / 10);
 
   // 3. Initialize Entities (Player)
   InitializeEntities();
@@ -117,8 +119,9 @@ void GameplayState::InitializeEntities() {
   auto player = registry.create();
   LOG_DEBUG("Created player entity with ID: {}", (uint32_t)player);
 
-  float startX = (float)WorldConstants::WORLD_WIDTH / 2.0f;
-  float startY = (float)WorldConstants::WORLD_HEIGHT / 2.0f;
+  using namespace NoMoreDay::Constants::World;
+  float startX = (float)WORLD_WIDTH / 2.0f;
+  float startY = (float)WORLD_HEIGHT / 2.0f;
 
   // Use Map System to find a safe spawn (STAIRS_UP or nearest walkable)
   const auto &map = m_context->levelManager->getMapSystem();
@@ -126,8 +129,9 @@ void GameplayState::InitializeEntities() {
   for (int y = 0; y < map.getHeight(); y++) {
     for (int x = 0; x < map.getWidth(); x++) {
       if (map.getTileType(x, y) == Tile::Type::STAIRS_UP) {
-        startX = x * 10.0f + 5.0f;
-        startY = y * 10.0f + 5.0f;
+        using namespace NoMoreDay::Constants::World;
+        startX = x * GRID_TILE_SIZE + (GRID_TILE_SIZE * 0.5f);
+        startY = y * GRID_TILE_SIZE + (GRID_TILE_SIZE * 0.5f);
         spawnFound = true;
         break;
       }
@@ -143,8 +147,9 @@ void GameplayState::InitializeEntities() {
       for (int dx = -r; dx <= r; dx++) {
         for (int dy = -r; dy <= r; dy++) {
           if (map.isWalkable(cx + dx, cy + dy)) {
-            startX = (cx + dx) * 10.0f + 5.0f;
-            startY = (cy + dy) * 10.0f + 5.0f;
+            using namespace NoMoreDay::Constants::World;
+            startX = (cx + dx) * GRID_TILE_SIZE + (GRID_TILE_SIZE * 0.5f);
+            startY = (cy + dy) * GRID_TILE_SIZE + (GRID_TILE_SIZE * 0.5f);
             spawnFound = true;
             break;
           }
@@ -173,8 +178,9 @@ void GameplayState::InitializeEntities() {
   registry.emplace<InventoryComponent>(player);
   registry.emplace<EquipmentComponent>(player);
   registry.emplace<AttackState>(player);
-  registry.emplace<HealthComponent>(player, GameConstants::DEFAULT_MAX_HEALTH,
-                                    GameConstants::DEFAULT_MAX_HEALTH);
+  using namespace NoMoreDay::Constants::Combat;
+  registry.emplace<HealthComponent>(player, DEFAULT_MAX_HEALTH,
+                                    DEFAULT_MAX_HEALTH);
   registry.emplace<TextureIDComponent>(player, playerAsset.id);
   registry.emplace<MovementStanceComponent>(player);
 
@@ -202,8 +208,9 @@ void GameplayState::InitializeEntities() {
 
   // Ensure some mana
   auto &stats = registry.get<CombatStats>(player);
-  stats.mana = GameConstants::DEFAULT_MAX_MANA;
-  stats.max_mana = GameConstants::DEFAULT_MAX_MANA;
+  using namespace NoMoreDay::Constants::Combat;
+  stats.mana = DEFAULT_MAX_MANA;
+  stats.max_mana = DEFAULT_MAX_MANA;
 
   // Test Potions
   auto &inv = registry.get<InventoryComponent>(player);
@@ -284,7 +291,8 @@ bool GameplayState::OnUpdate(float dt) {
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
   // Map already declared above
   if (map.getWidth() > 0) {
-    float cellSize = 10.0f; // Tile size
+    using namespace NoMoreDay::Constants::World;
+    float cellSize = GRID_TILE_SIZE; // Tile size
     int gw = flowSystem.GetWidth();
     int gh = flowSystem.GetHeight();
 
@@ -468,7 +476,8 @@ bool GameplayState::OnUpdate(float dt) {
         vel.vy = 0;
       }
     } else {
-      float speed = GameConstants::DEFAULT_MOVE_SPEED;
+      using namespace NoMoreDay::Constants::Combat;
+      float speed = DEFAULT_MOVE_SPEED;
       if (registry.all_of<CombatStats>(entity)) {
         speed = registry.get<CombatStats>(entity).move_speed;
       }
@@ -530,8 +539,9 @@ void GameplayState::UpdatePhysics(float dt) {
   for (auto entity : view)
     m_physicsEntities.push_back(entity);
 
-  int worldSizeW = WorldConstants::WORLD_WIDTH;
-  int worldSizeH = WorldConstants::WORLD_HEIGHT;
+  using namespace NoMoreDay::Constants::World;
+  int worldSizeW = WORLD_WIDTH;
+  int worldSizeH = WORLD_HEIGHT;
 
   // Phase 1: Resolve Collisions
   auto resolveTask = m_taskflow.for_each(
@@ -546,10 +556,12 @@ void GameplayState::UpdatePhysics(float dt) {
                                            registry, dt);
         }
 
-        // Map Collision
+        // Map collision
         const auto &map = m_context->levelManager->getMapSystem();
-        const float TILE_SIZE = 10.0f;
-        const float RADIUS = 4.0f;
+        using namespace NoMoreDay::Constants::World;
+        using namespace NoMoreDay::Constants::Physics;
+        const float TILE_SIZE = GRID_TILE_SIZE;
+        const float RADIUS = DEFAULT_ENTITY_RADIUS * 0.8f; // Using slightly smaller radius for map collision buffer
 
         // Horizontal collision
         if (std::abs(vel.vx) > 0.001f) {
@@ -610,8 +622,9 @@ void GameplayState::OnRender() {
   BeginMode2D(m_camera);
   // Grid
   const int gridSize = 100;
-  const int worldWidth = WorldConstants::WORLD_WIDTH;
-  const int worldHeight = WorldConstants::WORLD_HEIGHT;
+  using namespace NoMoreDay::Constants::World;
+  const int worldWidth = WORLD_WIDTH;
+  const int worldHeight = WORLD_HEIGHT;
   for (int x = 0; x <= worldWidth; x += gridSize)
     DrawLine(x, 0, x, worldHeight, LIGHTGRAY);
   for (int y = 0; y <= worldHeight; y += gridSize)

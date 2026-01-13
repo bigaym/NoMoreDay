@@ -1,60 +1,12 @@
 #pragma once
 #include "game/data/TagRegistry.hpp"
+#include "game/components/Common.hpp"
 #include <array>
 #include <cstdint>
 #include <nlohmann/json.hpp>
 
 
 namespace NoMoreDay {
-
-// --- 游戏平衡性常量 (Attribute Caps & Defaults) ---
-namespace GameConstants {
-static constexpr int MAX_LEVEL = 100;
-
-// 生存上限
-static constexpr float RESISTANCE_CAP = 0.75f; // 基础抗性上限 75%
-static constexpr float MAX_RESISTANCE_HARD_CAP =
-    0.90f; // 即使有增加上限的装备，绝对上限为 90%
-static constexpr float DODGE_CAP = 0.75f;     // 闪避上限 75%
-static constexpr float BLOCK_CAP = 0.75f;     // 格挡上限 75%
-static constexpr float GLOBAL_DR_CAP = 0.90f; // 全局减伤上限 90%
-
-// 进攻与效能上限
-static constexpr float CRIT_CHANCE_CAP = 1.00f;  // 暴击率上限 100%
-static constexpr float CDR_CAP = 0.75f;          // 冷却缩减上限 75%
-static constexpr float ATTACK_SPEED_CAP = 10.0f; // 攻击速度上限 (每秒10次)
-
-// 默认值 (Defaults)
-static_assert(MAX_LEVEL == 100);
-static constexpr float DEFAULT_MOVE_SPEED = 100.0f;
-static constexpr float DEFAULT_MAX_HEALTH = 1000000.0f;
-static constexpr float DEFAULT_MAX_MANA = 1000000.0f;
-static constexpr float DEFAULT_CRIT_CHANCE = 0.05f;
-static constexpr float DEFAULT_CRIT_DAMAGE = 1.50f;
-static constexpr float DEFAULT_ATTACK_SPEED = 1.0f;
-static constexpr float DEFAULT_ACCURACY = 0.97f;
-static constexpr float DEFAULT_PICKUP_RANGE = 50.0f;
-
-// 移动
-static constexpr float MOVE_SPEED_CAP = 500.0f; // 移动速度上限
-
-// 属性比例 (Attribute Ratios)
-static constexpr float STR_TO_ARMOR = 2.0f;
-static constexpr float VIT_TO_HEALTH = 15.0f;
-static constexpr float INT_TO_MANA = 5.0f;
-static constexpr float VIT_TO_HEALTH_REGEN = 0.2f;
-static constexpr float INT_TO_MANA_REGEN = 0.2f;
-static constexpr float STR_TO_PHYS_DAMAGE_INC = 1.0f; // 1% per point
-static constexpr float DEX_TO_CRIT_CHANCE = 0.2f;     // 0.2% per point
-static constexpr float DEX_TO_ACCURACY = 0.1f;        // 0.1% per point
-static constexpr float STR_TO_KNOCKBACK = 0.5f;
-
-// 空手/默认攻击 (Unarmed/Default Attack)
-static constexpr float UNARMED_DAMAGE_MIN = 2.0f;
-static constexpr float UNARMED_DAMAGE_MAX = 3.0f;
-static constexpr float UNARMED_KNOCKBACK = 10.0f;
-static constexpr float DEFAULT_WEAPON_KNOCKBACK = 20.0f;
-} // namespace GameConstants
 
 // 1. 伤害类型定义
 
@@ -109,12 +61,13 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrimaryStats, strength, dexterity,
 // 这是战斗系统直接读取的最终面板。
 // 所有的 Buff、装备词缀、天赋加成都在 StatsSystem 中计算并“烘焙”进这里。
 // NOTE: tag_stat_cache moved to StatsSystem to keep CombatStats as POD for SIMD
+using namespace NoMoreDay::Constants::Combat;
 struct alignas(32) CombatStats {
   // --- 生存资源 ---
-  float health = GameConstants::DEFAULT_MAX_HEALTH;
-  float max_health = GameConstants::DEFAULT_MAX_HEALTH;
-  float mana = GameConstants::DEFAULT_MAX_MANA;
-  float max_mana = GameConstants::DEFAULT_MAX_MANA;
+  float health = DEFAULT_MAX_HEALTH;
+  float max_health = DEFAULT_MAX_HEALTH;
+  float mana = DEFAULT_MAX_MANA;
+  float max_mana = DEFAULT_MAX_MANA;
 
   // --- 有效属性 (用于 UI 显示) ---
   float effective_strength = 0.0f;
@@ -149,13 +102,13 @@ struct alignas(32) CombatStats {
                                                         1.0f, 1.0f, 1.0f};
 
   // D. 暴击体系 (Crit)
-  float crit_chance = GameConstants::DEFAULT_CRIT_CHANCE;
-  float crit_damage = GameConstants::DEFAULT_CRIT_DAMAGE;
+  float crit_chance = DEFAULT_CRIT_CHANCE;
+  float crit_damage = DEFAULT_CRIT_DAMAGE;
 
   // E. 速度与穿透
-  float attack_speed = GameConstants::DEFAULT_ATTACK_SPEED;
+  float attack_speed = DEFAULT_ATTACK_SPEED;
   float cast_speed = 1.0f; // 施法速度
-  float accuracy = GameConstants::DEFAULT_ACCURACY;
+  float accuracy = DEFAULT_ACCURACY;
   float armor_pen = 0.0f; // 护甲穿透 (固定值或百分比，视设计而定)
   float knockback = 0.0f; // 击退力度
 
@@ -172,7 +125,7 @@ struct alignas(32) CombatStats {
   float block_amount = 0.0f; // 格挡减免的伤害值
 
   // --- 特殊机制 ---
-  float move_speed = GameConstants::DEFAULT_MOVE_SPEED; // 移动速度 (pixels/sec)
+  float move_speed = DEFAULT_MOVE_SPEED; // 移动速度 (pixels/sec)
   float life_steal = 0.0f;                              // 吸血 %
   float life_on_hit = 0.0f;                             // 击回
   float mana_on_hit = 0.0f;                             // 蓝回
