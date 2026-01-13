@@ -149,6 +149,13 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+### [x] Track: 传送门系统 (Portal System)
+
+- **Folder:** conductor/archive/portal_system_20260113/
+- **Description:** 实现回城门 (Town Portal) 和关卡出口机制。包含纯代码渲染的旋涡特效、施法吟唱逻辑、双向传送以及跨场景位置保存。 (Completed on 2026-01-13)
+
+---
+
 ### [ ] Track: 游戏体验优化 (Polish & UX)
 
 - **Folder:** conductor/tracks/polish_ux/

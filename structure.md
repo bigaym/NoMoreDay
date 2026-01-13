@@ -56,6 +56,7 @@ Classes corresponding to different screens/modes of the application.
 POD (Plain Old Data) structs attached to entities.
 *   **`Common.hpp`**: `Position`, `Velocity`, `Sprite`, `IDComponent`.
 *   **`Stats.hpp`**: `Health`, `Mana`, `CombatStats`, `Damage` modifiers.
+*   **`MapComponent.hpp`**: `PortalComponent`, `TownPortalCastingComponent`, `MapTileComponent`, `VisibilityComponent`.
 *   **`MapFragmentComponent.hpp`**: 地图碎片数据（类型、元素、词缀属性、共鸣效果）。
 *   **`SkillDefs.hpp`**: `SkillCooldowns`, `ActiveSkills`, `SummonComponent`, `ShadowComponent`.
 *   **`ItemComponent.hpp`**, `InventoryComponent.hpp`, `EquipmentComponent.hpp`.
@@ -86,6 +87,7 @@ Systems that iterate over entities with specific components to execute logic.
 *   **`item/`**: `InventorySystem`, `DropSystem`, `LootFilter`, `FragmentDropSystem` (处理碎片延迟生成队列), `HeirloomScaling` (传家宝动态压缩算法).
 *   **`world/`**:
     *   `MapSystem`: Level generation/management.
+    *   `PortalSystem`: Handles teleportation logic (Town Portal, Dungeon Exit) and visual effects.
     *   `MosaicMapGenerator`: 基于维度拼图结果的程序化地图生成。
     *   `FogOfWarSystem`: Visual obscuration.
     *   `EnemySpawnSystem`: Spawning rules (应用维度共鸣加成).

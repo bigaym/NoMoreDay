@@ -30,6 +30,14 @@ void SceneManager::RequestTransition(const std::string& biome, int level, const 
     LOG_INFO("Transition requested to Biome: {}, Level: {}", biome, level);
 }
 
+void SceneManager::SetOriginInfo(const std::string& biome, int level, float x, float y) {
+    m_originBiome = biome;
+    m_originLevel = level;
+    m_originX = x;
+    m_originY = y;
+    LOG_DEBUG("Origin set: {} L{} at ({:.1f}, {:.1f})", biome, level, x, y);
+}
+
 void SceneManager::Update(float dt) {
     if (!m_isTransitioning) return;
     
@@ -92,6 +100,10 @@ void SceneManager::Update(float dt) {
 void SceneManager::ApplyLoadedLevel() {
     auto levelData = m_loadingFuture.get();
     m_levelManager.activateLevel(std::move(levelData));
+    
+    // Update current scene info
+    m_currentBiome = m_targetBiome;
+    m_currentLevel = m_targetLevel;
     
     // Spawn Portals based on Map
     const auto& mapSystem = m_levelManager.getMapSystem();
@@ -165,6 +177,25 @@ void SceneManager::ApplyLoadedLevel() {
         }
         
         // Notify systems that player teleported (optional, e.g. camera snap)
+    }
+    
+    // Spawn return portal if coming from a dungeon to town
+    if (m_targetBiome == "town" && !m_originBiome.empty() && m_originBiome != "town") {
+        auto returnPortal = m_registry.create();
+        m_registry.emplace<LocalLevelTag>(returnPortal);
+        m_registry.emplace<Position>(returnPortal, spawnX + 50.0f, spawnY);
+        
+        PortalComponent pc;
+        pc.type = PortalType::Return;
+        pc.targetBiome = m_originBiome;
+        pc.targetLevel = m_originLevel;
+        pc.originX = m_originX;
+        pc.originY = m_originY;
+        pc.isActive = true;
+        pc.radius = 35.0f;
+        m_registry.emplace<PortalComponent>(returnPortal, pc);
+        
+        LOG_INFO("Return portal spawned to {} L{}", m_originBiome, m_originLevel);
     }
 }
 

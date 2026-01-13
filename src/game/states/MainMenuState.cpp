@@ -1,6 +1,7 @@
 #include "game/states/MainMenuState.hpp"
 #include "game/states/GameplayState.hpp"
 #include "game/states/LoadingState.hpp"
+#include "game/systems/world/PortalSystem.hpp"  // Required for GameplayState's unique_ptr<PortalSystem>
 #include "engine/scene/StateManager.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "game/systems/ui/UISystem.hpp" // Include UISystem

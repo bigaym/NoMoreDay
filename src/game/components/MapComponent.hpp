@@ -53,11 +53,39 @@ struct MapGenerationParams {
           smoothIterations(iterations), connectivityThreshold(threshold) {}
 };
 
+// 传送门类型枚举
+enum class PortalType : uint8_t {
+    Dungeon,      // 地下城入口/出口
+    Town,         // 回城门
+    Boss,         // BOSS房入口
+    Return        // 返回门（双向）
+};
+
 // 传送门组件
 struct PortalComponent {
+    PortalType type = PortalType::Dungeon;
     std::string targetBiome;
     int targetLevel = 1; 
     std::string targetEntranceId = "start"; 
     bool isOneWay = false;
     bool isActive = true;
+    
+    // For Town Portal (return functionality)
+    std::string originBiome;          // 原始生物群系
+    int originLevel = 0;              // 原始层数
+    float originX = 0.0f;             // 原始X位置
+    float originY = 0.0f;             // 原始Y位置
+    
+    // Visual animation
+    float animationTimer = 0.0f;      // 用于渲染动画
+    float radius = 30.0f;             // 视觉半径
+};
+
+// 回城门施法状态组件
+struct TownPortalCastingComponent {
+    float castTime = 1.0f;            // 吟唱时间（用户要求改为1秒）
+    float elapsedTime = 0.0f;         // 已过时间
+    bool isCasting = false;
+    float castX = 0.0f;               // 开始施法的位置X
+    float castY = 0.0f;               // 开始施法的位置Y
 };

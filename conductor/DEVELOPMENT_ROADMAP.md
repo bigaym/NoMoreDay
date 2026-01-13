@@ -23,6 +23,7 @@
 | **敌人生成** | ✅ 完成 | 群聚生成, 精英词缀, 休眠系统 |
 | **宿敌系统完善** | ✅ 完成 | Hunter AI, 进化闭环, 线程安全, 针对性进化 |
 | **维度拼接系统** | ✅ 完成 | 碎片掉落, 3x3 拼图共鸣, 线程安全掉落队列, 程序化地图集成 |
+| **传送门系统 (基础)** | ✅ 完成 | 回城传送门 (T键), 关卡出口, 纯代码渲染特效, 双向返回逻辑 |
 | **怪物 AI 扩展** | ✅ 完成 | Support, Assassin, Tank, SoulLink, Avenger |
 | **存档系统** | ✅ 完成 | SerializationSystem (JSON) |
 | **传家宝系统** | ✅ 完成 | HeirloomVaultState, 属性动态压缩, 跨存档继承 |
@@ -146,8 +147,8 @@ struct MapFragmentComponent {
 ### 2. **GPU 流场实际集成测试** (约 2-3 小时)
 验证 `GPUFlowFieldSystem` 与 `AISystem` 的协作，确保怪物正确使用 GPU 计算的流场移动。
 
-### 3. **维度拼接编辑器原型** (约 4-6 小时)
-设计 `MosaicEditorState`，利用 `raylib` 实现简单的碎片拖放与 3x3 网格对齐逻辑。
+### 3. **传送门与维度拼接集成** (约 4-6 小时)
+实现 3 选 1 传送门机制，交互时弹出 `MosaicEditorState` 进行下一层地图构建。
 
 ---
 

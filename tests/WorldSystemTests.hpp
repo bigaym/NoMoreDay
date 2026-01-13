@@ -86,7 +86,10 @@ TEST_CASE("PortalSystem and Scene Transitions") {
     registry.emplace<Position>(player, 100.0f, 100.0f);
     
     auto portal = registry.create();
-    registry.emplace<PortalComponent>(portal, "town", 1);
+    PortalComponent pc;
+    pc.targetBiome = "town";
+    pc.targetLevel = 1;
+    registry.emplace<PortalComponent>(portal, pc);
     registry.emplace<Position>(portal, 100.0f, 100.0f);
     
     ps.Update(registry, 0.1f);

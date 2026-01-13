@@ -29,6 +29,7 @@ using namespace NoMoreDay;
 #include "TestDefenseMechanics.cpp"
 #include "TestEternalNightmare.cpp"
 #include "TestHeirloomSystem.cpp"
+#include "TestPortalSystem.cpp"
 #include "TestPolishSystems.cpp"
 #include "TestShadowSystem.cpp"
 #include "TestSwordIntentAccumulation.cpp"

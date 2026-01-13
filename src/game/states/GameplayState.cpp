@@ -101,6 +101,11 @@ void GameplayState::OnEnter() {
   m_camera.rotation = 0.0f;
   m_camera.target = {(float)GetScreenWidth() / 2.0f,
                      (float)GetScreenHeight() / 2.0f}; // Will be updated
+
+  // 5. Initialize Portal System
+  if (m_context->sceneManager) {
+    m_portalSystem = std::make_unique<PortalSystem>(*m_context->sceneManager);
+  }
 }
 
 void GameplayState::InitializeEntities() {
@@ -222,6 +227,10 @@ void GameplayState::OnExit() {
   // Note: Game::cleanup will handle the global registry clear.
 }
 
+GameplayState::~GameplayState() {
+  // Destructor defined here where PortalSystem is complete
+}
+
 bool GameplayState::OnUpdate(float dt) {
   auto &registry = *m_context->registry;
 
@@ -241,6 +250,15 @@ bool GameplayState::OnUpdate(float dt) {
 
   if (IsKeyPressed(KEY_ESCAPE)) {
     m_stateManager->PushState<PauseState>();
+  }
+
+  // Town Portal (KEY_T) - only when no major panel is open
+  bool anyPanelOpen = UISystem::State.showSkillTree || UISystem::State.showInventory || UISystem::State.showCharacterPanel;
+  if (IsKeyPressed(KEY_T) && !anyPanelOpen) {
+    auto playerViewT = registry.view<PlayerTag>();
+    if (playerViewT.begin() != playerViewT.end()) {
+      PortalSystem::StartTownPortalCast(registry, playerViewT.front());
+    }
   }
 
   // Get Player Pos
@@ -273,8 +291,7 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   if (m_context->sceneManager) {
-    PortalSystem portalSystem(*m_context->sceneManager);
-    portalSystem.Update(registry, dt);
+    m_portalSystem->Update(registry, dt);
   }
 
   MovementStanceSystem::Update(registry, dt);
@@ -603,6 +620,11 @@ void GameplayState::OnRender() {
       DrawCircleLines((int)pos.x, (int)pos.y, 352.0f,
                       ColorAlpha(ORANGE, 0.15f)); // Thicker rim
     }
+  }
+
+  // Portals
+  if (m_portalSystem) {
+    m_portalSystem->Render(registry, m_camera);
   }
 
   // Fog

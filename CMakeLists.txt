@@ -58,6 +58,9 @@ set(OPENGL_VERSION "4.3" CACHE STRING "Force OpenGL 4.3" FORCE)
 set(GRAPHICS "GRAPHICS_API_OPENGL_43" CACHE STRING "Force OpenGL 4.3" FORCE)
 
 add_subdirectory(third_party/raylib)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(raylib PRIVATE "-Wno-stringop-overflow")
+endif()
 
 # Raylib's internal C files are not compatible with Unity Build due to macro and symbol conflicts.
 # We must disable Unity Build specifically for the raylib target.
@@ -126,6 +129,10 @@ target_link_libraries(SkillBehaviors PRIVATE
     xsimd
 )
 target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    target_compile_options(SkillBehaviors PRIVATE "-Wno-stringop-overflow")
+endif()
 
 # --- Core Library (Static) ---
 # 将核心逻辑打包为静态库，供游戏主程序和测试程序共同链接
