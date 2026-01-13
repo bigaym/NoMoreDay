@@ -41,7 +41,7 @@ TEST_CASE("AstrolabeRegistry: Loading and Node Retrieval") {
     CHECK(node1->name_key == "剑术修炼 I");
     CHECK(node1->modifiers[0].type == StatType::Dexterity);
     CHECK(node1->modifiers[0].value == 5.0f);
-    CHECK(node1->prerequisites[0] == 0);
+    CHECK(node1->prerequisites[0] == 100);
 
     // Node 4: 剑心通明 (Keystone)
     const AstrolabeNode *keystone = registry.GetNode(4);
@@ -76,21 +76,23 @@ TEST_CASE("AstrolabeSystem: Activation Logic") {
   }
 
   SUBCASE("Cannot activate without prerequisites") {
-    // Node 1 depends on 0
+    // Node 1 depends on 100, 100 depends on 0
     CHECK(AstrolabeSystem::can_activate(registry, entity, 1) == false);
     CHECK(AstrolabeSystem::activate_node(registry, entity, 1) == false);
   }
 
   SUBCASE("Can activate after prerequisites are met") {
     AstrolabeSystem::activate_node(registry, entity, 0);
+    AstrolabeSystem::activate_node(registry, entity, 100);
     CHECK(AstrolabeSystem::can_activate(registry, entity, 1) == true);
     CHECK(AstrolabeSystem::activate_node(registry, entity, 1) == true);
-    CHECK(astrolabe.available_points == 8);
+    CHECK(astrolabe.available_points == 7);
   }
 
   SUBCASE("Effect Integration: Activating Keystone grants Component") {
-    // Path: 0 -> 1 -> 2 -> 3 -> 4 (Sword Heart)
+    // Path: 0 -> 100 -> 1 -> 2 -> 3 -> 4 (Sword Heart)
     AstrolabeSystem::activate_node(registry, entity, 0);
+    AstrolabeSystem::activate_node(registry, entity, 100);
     AstrolabeSystem::activate_node(registry, entity, 1);
     AstrolabeSystem::activate_node(registry, entity, 2);
     AstrolabeSystem::activate_node(registry, entity, 3);
@@ -112,6 +114,7 @@ TEST_CASE("AstrolabeSystem: Activation Logic") {
 
     // Path to node 1 (+5 Dex)
     AstrolabeSystem::activate_node(registry, entity, 0); // +1 all
+    AstrolabeSystem::activate_node(registry, entity, 100); // 
     AstrolabeSystem::activate_node(registry, entity, 1); // +5 dex
 
     // Stats should be dirty, but we call Recalculate directly for testing

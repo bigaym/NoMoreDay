@@ -6,6 +6,8 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
 
+#include "game/systems/skill/ShadowSystem.hpp"
+
 using namespace NoMoreDay;
 
 TEST_CASE("Final Integration: Sword Cultivator Full Flow") {
@@ -53,7 +55,8 @@ TEST_CASE("Final Integration: Sword Cultivator Full Flow") {
     registry.emplace<Position>(shadow, 0.0f, 0.0f);
     registry.emplace<Velocity>(shadow, 0.0f, 0.0f);
 
-    // 4. Update SkillSystem to trigger shadow
+    // 4. Update SkillSystem and ShadowSystem to trigger shadow
+    ShadowSystem::Update(registry, 0.15f);
     SkillSystem::Update(registry, grid, 0.15f);
     
     auto shadow_exec_view = registry.view<SkillExecution, ShadowCastTag>();

@@ -96,7 +96,7 @@ TEST_CASE("SkillSystem: Sword Intent") {
     intent.grace_period = 0.1f;
 
     SUBCASE("Accumulation") {
-        CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(player, entt::null, 1, Tag::Melee | Tag::Physical, false));
+        CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateSkillHit(player, entt::null, 1, Tag::Melee | Tag::Physical | Tag::Hit, false));
         CHECK(intent.stacks == 1);
     }
 

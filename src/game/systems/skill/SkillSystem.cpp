@@ -62,56 +62,46 @@ void SkillSystem::InitHooks() {
         }
         
         auto* intent = registry.try_get<SwordIntentComponent>(caster);
-        if (!intent) {
-            return;
-        }
+        if (intent) {
+            // Only trigger sword intent gain for skills with Hit tag
+            if (HasTag(evt.tags, Tag::Hit)) {
+                bool gainStack = false;
+                float currentTime = (float)GetTime();
 
-        // Only trigger sword intent gain for skills with Hit tag
-        if (!HasTag(evt.tags, Tag::Hit)) {
-            // Still dispatch to skill-specific hit handlers
-            if (evt.skill_id != 0) {
-                if (auto hitFunc = SkillBehaviorRegistry::GetHit(evt.skill_id)) {
-                    hitFunc(registry, evt.source, evt.target, evt.tags, evt.is_crit);
+                // Check if skill is Continuous (Channeled or Aura)
+                bool isContinuous = HasTag(evt.tags, Tag::Channeled) || HasTag(evt.tags, Tag::Aura);
+                
+                // Use cast_id if available, otherwise fallback to skill_id (less reliable for rapid casts)
+                uint64_t trackingKey = (evt.cast_id != 0) ? evt.cast_id : (uint64_t)evt.skill_id;
+                
+                auto& tracking = intent->hit_tracking[trackingKey];
+
+                if (isContinuous) {
+                    // Continuous Skills: Max 1 stack per second per cast
+                    float timeSinceLastGain = currentTime - tracking.last_gain_time;
+                    
+                    if (timeSinceLastGain >= 1.0f) {
+                        gainStack = true;
+                        tracking.last_gain_time = currentTime;
+                        tracking.stacks_gained++;
+                    }
+                } else {
+                    // Instant/Hit Skills: One stack per CAST
+                    if (tracking.stacks_gained == 0) {
+                        gainStack = true;
+                        tracking.last_gain_time = currentTime;
+                        tracking.stacks_gained++;
+                    }
+                }
+
+                if (gainStack && intent->stacks < intent->max_stacks) {
+                    intent->stacks++;
+                    intent->time_since_last_gain = 0.0f;
+                    intent->decay_tick_timer = 0.0f;
+                    LOG_INFO("Sword Intent: Entity {} gained stack via skill {} hit. Stacks: {}/{}", 
+                             (uint32_t)caster, evt.skill_id, intent->stacks, intent->max_stacks);
                 }
             }
-            return;
-        }
-
-        bool gainStack = false;
-        float currentTime = (float)GetTime();
-
-        // Check if skill is Continuous (Channeled or Aura)
-        bool isContinuous = HasTag(evt.tags, Tag::Channeled) || HasTag(evt.tags, Tag::Aura);
-        
-        // Use cast_id if available, otherwise fallback to skill_id (less reliable for rapid casts)
-        uint64_t trackingKey = (evt.cast_id != 0) ? evt.cast_id : (uint64_t)evt.skill_id;
-        
-        auto& tracking = intent->hit_tracking[trackingKey];
-
-        if (isContinuous) {
-            // Continuous Skills: Max 1 stack per second per cast
-            float timeSinceLastGain = currentTime - tracking.last_gain_time;
-            
-            if (timeSinceLastGain >= 1.0f) {
-                gainStack = true;
-                tracking.last_gain_time = currentTime;
-                tracking.stacks_gained++;
-            }
-        } else {
-            // Instant/Hit Skills: One stack per CAST
-            if (tracking.stacks_gained == 0) {
-                gainStack = true;
-                tracking.last_gain_time = currentTime;
-                tracking.stacks_gained++;
-            }
-        }
-
-        if (gainStack && intent->stacks < intent->max_stacks) {
-            intent->stacks++;
-            intent->time_since_last_gain = 0.0f;
-            intent->decay_tick_timer = 0.0f;
-            LOG_INFO("Sword Intent: Entity {} gained stack via skill {} hit. Stacks: {}/{}", 
-                     (uint32_t)caster, evt.skill_id, intent->stacks, intent->max_stacks);
         }
 
         // Dispatch to specific Skill Behavior
