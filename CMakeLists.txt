@@ -191,6 +191,8 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/world/MapSystem.cpp
     src/game/systems/world/MovementStanceSystem.cpp
     src/game/systems/world/PortalSystem.cpp
+    src/game/systems/nemesis/FactionAggroSystem.cpp
+    src/game/systems/nemesis/NemesisGenerator.cpp
     src/systems/SerializationSystem.hpp
 )
 
