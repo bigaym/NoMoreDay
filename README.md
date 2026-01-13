@@ -126,6 +126,7 @@ cmake --build . --config Release
 *   **C++ Style**: 严格遵循 RAII，避免裸指针。组件必须是 POD 类型以最大化缓存命中率。
 *   **Data-Driven**: 技能、怪物、掉落表等均通过 JSON 配置，便于策划和调整。
 *   **Performance**: 核心循环中避免内存分配，使用对象池或预分配缓冲区。
+*   **review prompt**: 使用git diff查看最近修改，审查一下实现有没有什么UB、内存陷阱、内存泄漏、UAF(use after free)、逻辑问题、死锁问题等，有问题则提出修改方案，没问题则更新 @conductor/tracks.md @conductor/DEVELOPMENT_ROADMAP.md ，然后提交修改。 
 
 ## 许可证
 

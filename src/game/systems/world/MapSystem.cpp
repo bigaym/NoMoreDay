@@ -332,7 +332,57 @@ void MapSystem::generateCaveMap(int width, int height) {
 
 void MapSystem::generateMap(int width, int height, const std::string &biome) {
   m_currentBiomeId = biome;
-  generateCaveMap(width, height);
+  
+  // Town gets a special open layout
+  if (biome == "town") {
+    generateTownMap(width, height);
+  } else {
+    generateCaveMap(width, height);
+  }
+}
+
+void MapSystem::generateTownMap(int width, int height) {
+  m_mapData.width = width;
+  m_mapData.height = height;
+  m_mapData.grid.resize(width * height);
+  
+  // Fill with floor tiles
+  for (auto &tile : m_mapData.grid) {
+    tile.type = Tile::Type::FLOOR;
+    tile.visibility = 1; // Towns are fully explored by default
+  }
+  
+  // Add walls only at the borders
+  for (int x = 0; x < width; ++x) {
+    m_mapData.grid[0 * width + x].type = Tile::Type::WALL;
+    m_mapData.grid[(height - 1) * width + x].type = Tile::Type::WALL;
+  }
+  for (int y = 0; y < height; ++y) {
+    m_mapData.grid[y * width + 0].type = Tile::Type::WALL;
+    m_mapData.grid[y * width + (width - 1)].type = Tile::Type::WALL;
+  }
+  
+  // Place spawn point (STAIRS_UP) near center
+  int cx = width / 2;
+  int cy = height / 2;
+  m_mapData.grid[cy * width + cx].type = Tile::Type::STAIRS_UP;
+  
+  // Place exit portal (STAIRS_DOWN) - leads to dungeon
+  // Safe bounds check
+  int exitX = std::clamp(cx + 10, 1, width - 2);
+  int exitY = std::clamp(cy - 10, 1, height - 2);
+  m_mapData.grid[exitY * width + exitX].type = Tile::Type::STAIRS_DOWN;
+  
+  // Initialize flow field
+  m_flowField.resize(m_mapData.width * m_mapData.height);
+  m_distanceField.resize(m_mapData.width * m_mapData.height);
+  
+  // Initialize cached cost map
+  m_cachedCostMap.resize(m_mapData.grid.size());
+  for (size_t i = 0; i < m_mapData.grid.size(); i++) {
+    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? 1 : 255;
+  }
+  m_costMapDirty = false;
 }
 
 // 生成拼图地图

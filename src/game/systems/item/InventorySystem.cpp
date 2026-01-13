@@ -152,6 +152,13 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
         registry.remove<ColorComponent>(item);
     }
 
+    // 物品进入背包后需要跟随玩家跨场景，替换 LocalLevelTag 为 PersistentTag
+    if (registry.any_of<LocalLevelTag>(item))
+    {
+        registry.remove<LocalLevelTag>(item);
+        registry.emplace_or_replace<PersistentTag>(item);
+    }
+
     LOG_INFO("背包: 角色 {} 拾取了物品 '{}' ({})",
              (uint32_t)character, itemComp ? itemComp->name : "未知", (uint32_t)item);
 
@@ -186,6 +193,7 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
 
         registry.emplace<ItemComponent>(droppedEntity, newItemComp);
         registry.emplace<Position>(droppedEntity, pos->x + 20.0f, pos->y);
+        registry.emplace<LocalLevelTag>(droppedEntity); // Ensure it's cleaned up on scene change
 
         // 恢复视觉效果 (简单处理：根据类型给颜色，或者复制原实体的 Sprite 如果有)
         if (registry.any_of<SpriteComponent>(item))
@@ -214,6 +222,13 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
 
         // 重新添加世界组件
         registry.emplace_or_replace<Position>(item, pos->x + 20.0f, pos->y);
+        
+        // 物品离开背包后，不再需要跨场景持久化，替换为 LocalLevelTag
+        if (registry.any_of<PersistentTag>(item))
+        {
+            registry.remove<PersistentTag>(item);
+        }
+        registry.emplace_or_replace<LocalLevelTag>(item);
 
         // 恢复视觉效果 (如果之前被移除了)
         if (!registry.any_of<SpriteComponent>(item) && !registry.any_of<ColorComponent>(item))

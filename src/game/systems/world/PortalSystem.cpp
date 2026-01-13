@@ -42,6 +42,14 @@ void PortalSystem::UpdatePortalCollision(entt::registry& registry) {
             
             // Interaction range (20 units)
             if (distSq < 20.0f * 20.0f) {
+                // Handle NextLevel portals - trigger MosaicEditorState
+                if (portalComp.type == PortalType::NextLevel) {
+                    LOG_INFO("Player triggered NextLevel portal - opening Mosaic Editor");
+                    registry.emplace_or_replace<PendingMosaicEditorTag>(player);
+                    return;
+                }
+                
+                // Handle other portal types - direct transition
                 LOG_INFO("Player triggered portal to {} (Level {})", portalComp.targetBiome, portalComp.targetLevel);
                 
                 // Store origin info for return portal

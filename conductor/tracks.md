@@ -156,22 +156,20 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-### [ ] Track: 游戏体验优化 (Polish & UX)
-
-- **Folder:** conductor/tracks/polish_ux/
-- **Description:** 实现音频系统 (AudioSystem)、成就系统 (AchievementSystem) 和新手引导 (TutorialSystem)。
-- **Status:** IN PROGRESS
-- **Priority:** MEDIUM
-- **Estimated Time:** 1 week
-
----
-
-## Phase 7: 游戏深度扩展 (Game Depth)
-
 ### [x] Track: 怪物 AI 行为扩展 (Monster AI Expansion)
 
 - **Folder:** conductor/archive/monster_ai_expansion_20260113/
 - **Description:** 实现 Support、Assassin、Tank 等怪物原型，以及 SoulLink、Avenger 等精英词缀，并完成 GameplayState 集成。 (Completed on 2026-01-13)
+
+---
+
+### [ ] Track: 游戏体验优化 (Polish & UX)
+
+- **Folder:** conductor/tracks/polish_ux/
+- **Description:** 实现音频系统 (AudioSystem)、成就系统 (AchievementSystem) 和新手引导 (TutorialSystem)。修复了背包掉落物品的标签持久化问题，以及城镇地图的视觉与边界安全问题。
+- **Status:** IN PROGRESS
+- **Priority:** MEDIUM
+- **Estimated Time:** 1 week
 
 ---
 

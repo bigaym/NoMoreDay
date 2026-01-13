@@ -2,21 +2,24 @@
 
 ## Narrative Tone
 - **Atmosphere:** A synthesis of **Bleak & Oppressive** and **Gothic & Mysterious**. The world should feel heavy and hopeless, but layered with ancient secrets and eldritch horrors.
-- **Theme:** **Otherworldly Fantasy (Eldritch).** The environments and procedural generation should reflect not just a ruined world, but one invaded by alien, incomprehensible dimensions.
+- **Theme:** **Otherworldly Fantasy (Eldritch Cultivation).** The environments and procedural generation should reflect a ruined world invaded by alien dimensions, where "Cultivation" is a desperate struggle against the void.
 
 ## Visual Identity
 - **Style:** **High-Fidelity Pixel Art.** A retro-modern aesthetic that supports the dark fantasy theme.
+- **VFX Language:** **Ink-Wash Cultivation Style (水墨修仙风).** Use fluid, high-performance GPU particles to create an ethereal yet visceral combat experience, blending traditional ink aesthetics with modern bloom and distortion.
 - **Pipeline:** **AI-Driven Asset Generation.** Heavily utilize the `scripts/asset_gen.py` pipeline to generate the massive volume of 2D assets required for varied environments and enemies.
 
 ## Design Pillars
 - **Gameplay First (Depth & Variety):**
-    - **Deep Builds:** Prioritize complex interactions between Equipment Affixes, Monster Modifiers, and Passive Skills.
-    - **Variety:** Ensure a vast pool of affixes (prefixes/suffixes) to drive the loot hunt and build diversity.
-- **Technical Excellence (Performance & Safety):**
-    - **Compile-Time Optimization:** Leverage C++20 features (Concepts, Templates, `constexpr`) to shift logic to compile time wherever possible.
-    - **Zero-Cost Abstractions:** Ensure runtime performance is not compromised by architectural choices.
-    - **Memory Safety:** Strict resource management (RAII) to guarantee zero memory leaks, crucial for long play sessions and high entity counts.
+    - **Deep Builds:** Prioritize complex interactions between Equipment Affixes, Monster Modifiers, and Passive Skills via the **Tag-Driven Engine**.
+    - **User-Defined Endgames:** Move beyond static maps. Players build their own challenges through the **Dimensional Mosaic** system.
+    - **Persistent Rivalry:** The **Nemesis System** ensures that failure has consequences and victories feel personal across multiple runs.
+- **Technical Excellence (Performance & GPGPU):**
+    - **Extreme Scalability:** Leverage ECS (EnTT) and Taskflow to simulate 10,000+ active entities.
+    - **Compute-First Logic:** Offload heavy lifting (Physics, Particles, Pathfinding Flow-Fields) to **OpenGL 4.3 Compute Shaders** to free up CPU for complex logic.
+    - **Memory Safety:** Strict resource management (RAII) and zero-allocation frame loops.
 
 ## User Experience (UX) Principles
-- **Clarity in Chaos:** Visual effects must be distinct enough to be readable when 10,000 units are on screen.
-- **Responsive Controls:** Input must be instant and precise (Twin-Stick) to reward player skill.
+- **Clarity in Chaos:** Even with 10,000 units, use color-coding (Tag-based) and distinct VFX silhouettes to maintain readability.
+- **Seamless Flow:** Minimal loading times via async level preparation and bi-directional portals (Town Portal).
+- **Responsive Controls:** Instant and precise Twin-Stick/WASD input to reward player skill.

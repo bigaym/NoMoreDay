@@ -4,6 +4,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/scene/StateManager.hpp"
 #include "game/states/InventoryState.hpp"
+#include "game/states/MosaicEditorState.hpp"
 #include "game/states/PauseState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/world/LevelManager.hpp"
@@ -186,6 +187,7 @@ void GameplayState::InitializeEntities() {
   registry.emplace_or_replace<IDComponent>(sword, Utils::UUID::generate());
   registry.emplace<TextureIDComponent>(sword,
                                        assets::textures::Weapon_Sword.id);
+  registry.emplace<PersistentTag>(sword);  // Persist across scene transitions
   registry.get<EquipmentComponent>(player).set(EquipmentSlot::MainHand, sword);
 
   // Skill Setup
@@ -207,9 +209,11 @@ void GameplayState::InitializeEntities() {
   auto &inv = registry.get<InventoryComponent>(player);
   auto redPot = ItemFactory::createPotion(registry, 0, 10);
   registry.emplace_or_replace<IDComponent>(redPot, Utils::UUID::generate());
+  registry.emplace<PersistentTag>(redPot);  // Persist across scene transitions
   inv.items.push_back(redPot);
   auto bluePot = ItemFactory::createPotion(registry, 1, 10);
   registry.emplace_or_replace<IDComponent>(bluePot, Utils::UUID::generate());
+  registry.emplace<PersistentTag>(bluePot);  // Persist across scene transitions
   inv.items.push_back(bluePot);
 
   // Texture
@@ -292,6 +296,14 @@ bool GameplayState::OnUpdate(float dt) {
 
   if (m_context->sceneManager) {
     m_portalSystem->Update(registry, dt);
+  }
+
+  // Check if PortalSystem requested MosaicEditorState
+  auto pendingView = registry.view<PendingMosaicEditorTag, PlayerTag>();
+  for (auto entity : pendingView) {
+    registry.remove<PendingMosaicEditorTag>(entity);
+    m_stateManager->PushState<MosaicEditorState>();
+    LOG_INFO("Pushed MosaicEditorState");
   }
 
   MovementStanceSystem::Update(registry, dt);

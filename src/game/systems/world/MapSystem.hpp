@@ -96,6 +96,9 @@ public:
 
   // 生成洞穴地图
   void generateCaveMap(int width, int height);
+  
+  // 生成城镇地图 (开阔和平区域)
+  void generateTownMap(int width, int height);
 
   // 生成指定生物群系的地图
   void generateMap(int width, int height, const std::string &biome = "cave");

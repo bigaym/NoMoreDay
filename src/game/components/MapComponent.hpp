@@ -55,10 +55,11 @@ struct MapGenerationParams {
 
 // 传送门类型枚举
 enum class PortalType : uint8_t {
-    Dungeon,      // 地下城入口/出口
+    Dungeon,      // 地下城入口/出口 (直接传送)
     Town,         // 回城门
     Boss,         // BOSS房入口
-    Return        // 返回门（双向）
+    Return,       // 返回门（双向）
+    NextLevel     // 下一层入口 (触发维度拼接编辑器)
 };
 
 // 传送门组件
@@ -89,3 +90,6 @@ struct TownPortalCastingComponent {
     float castX = 0.0f;               // 开始施法的位置X
     float castY = 0.0f;               // 开始施法的位置Y
 };
+
+// 待处理的维度拼接编辑器请求 (由 PortalSystem 设置，GameplayState 处理)
+struct PendingMosaicEditorTag {};

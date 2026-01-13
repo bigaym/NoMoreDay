@@ -121,6 +121,7 @@ void DropSystem::update(entt::registry& registry, int areaLevel) {
                                 auto gold = registry.create();
                                 registry.emplace<Position>(gold, pending.pos.x, pending.pos.y);
                                 registry.emplace<GoldComponent>(gold, amount);
+                                registry.emplace<LocalLevelTag>(gold);  // Ensure gold is cleaned up on scene change
                             }
                         }
                         break;
@@ -261,6 +262,7 @@ void DropSystem::GenerateDrops(entt::registry& registry, entt::entity killer, en
                         auto gold = registry.create();
                         registry.emplace<Position>(gold, pos.x, pos.y);
                         registry.emplace<GoldComponent>(gold, amount);
+                        registry.emplace<LocalLevelTag>(gold);  // Ensure gold is cleaned up on scene change
                         
                         // Spawn Gold Effect
                         auto effect = registry.create();

@@ -122,16 +122,18 @@ void SceneManager::ApplyLoadedLevel() {
                 m_registry.emplace<LocalLevelTag>(portal);
                 m_registry.emplace<Position>(portal, x * 10.0f + 5.0f, y * 10.0f + 5.0f);
                 
-                // Configure destination (Hardcoded cycle for now)
                 PortalComponent pc;
                 if (m_targetBiome == "town") {
+                    // Town exit: direct transition to dungeon
+                    pc.type = PortalType::Dungeon;
                     pc.targetBiome = "cave";
                     pc.targetLevel = 1;
                 } else {
-                    // If in cave, go to town
-                    pc.targetBiome = "town"; 
-                    pc.targetLevel = m_targetLevel;
+                    // Dungeon exit: trigger Mosaic Editor for next level
+                    pc.type = PortalType::NextLevel;
+                    pc.targetLevel = m_targetLevel + 1;
                 }
+                pc.radius = 35.0f;
                 m_registry.emplace<PortalComponent>(portal, pc);
             }
             else if (type == Tile::Type::STAIRS_UP && !spawnFound) {
