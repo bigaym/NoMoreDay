@@ -68,6 +68,10 @@ We use C++20 features to write expressive and efficient code.
 ### 4.4 Formatting
 *   **Clang-Format**: All code must be formatted using the project's `.clang-format` configuration.
 
+### 4.5 Development vs. Review Workflow
+*   **Focus on Delivery**: During feature development, the primary goal is ensuring functional implementation and passing all associated tests.
+*   **Workflow Separation**: Code review, formal audits, and submission/merging are distinct stages handled in separate workflows. These should not be performed as part of the active development process.
+
 ## 5. Testing Standards
 
 *   **Unit Tests**: New features must have corresponding tests in the `tests/` directory.

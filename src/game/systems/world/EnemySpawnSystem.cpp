@@ -7,6 +7,7 @@
 #include "game/components/Combat.hpp"
 #include "game/components/EliteModifierComponents.hpp"
 #include "game/components/EnemyComponent.hpp"
+#include "game/components/FactionComponent.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/components/MapFragmentComponent.hpp"
 #include "game/components/PlayerState.hpp" // For stats if needed
@@ -242,7 +243,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   EnemyRace::Type raceType = static_cast<EnemyRace::Type>(data.enemyType);
   EnemyArchetype::Type archType = EnemyArchetype::FODDER;
 
-  // Determine archetype based on race/logic (simplified for now)
+  // Determine archetype based on race/logic
   if (raceType == EnemyRace::DEMON)
     archType = EnemyArchetype::TANK;
   else if (raceType == EnemyRace::CORRUPTED)
@@ -265,48 +266,85 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   // Apply Level Mod to Base Stats
   using namespace NoMoreDay::Constants::Enemy;
   float levelMultiplier =
-      1.0f + (m_resonanceMods.levelBonus * LEVEL_HP_MULTIPLIER); // 每个等级增加 10% 基础属性
+      1.0f + (m_resonanceMods.levelBonus * LEVEL_HP_MULTIPLIER); 
 
   cStats.min_weapon_damage = raceDef.baseDamage * DAMAGE_VARIANCE_MIN * levelMultiplier;
   cStats.max_weapon_damage = raceDef.baseDamage * DAMAGE_VARIANCE_MAX * levelMultiplier;
   cStats.armor = raceDef.baseArmor * levelMultiplier;
-  cStats.accuracy = 1.0f;           // Standard accuracy
-  cStats.attack_speed = 1.0f;       // Standard attack speed
-  aState.baseAttackInterval = DEFAULT_ATTACK_INTERVAL; // Default attack interval
+  cStats.accuracy = 1.0f;           
+  cStats.attack_speed = 1.0f;       
+  aState.baseAttackInterval = DEFAULT_ATTACK_INTERVAL; 
 
   float modifiedHP = raceDef.baseHP * levelMultiplier;
 
+  // === Advanced Rarity System Implementation ===
+  std::uniform_real_distribution<float> rarityRoll(0.0f, 1.0f);
+  EnemyRarityComponent::Rarity rarity = EnemyRarityComponent::NORMAL;
+  float rarityScale = 1.0f;
+  Color rarityColor = WHITE;
+  float hpMult = 1.0f;
+  float dmgMult = 1.0f;
+
+  // Check for Nemesis eligibility based on Faction Aggro
+  NoMoreDay::FactionType faction = NoMoreDay::FactionType::Undead;
+  if (raceType == EnemyRace::DEMON) faction = NoMoreDay::FactionType::Void;
+  else if (raceType == EnemyRace::CORRUPTED) faction = NoMoreDay::FactionType::Corrupted;
+
+  if (rarityRoll(m_gen) < 0.005f) { // 0.5% Boss
+    rarity = EnemyRarityComponent::BOSS;
+    hpMult = BOSS_HP_MULTIPLIER;
+    dmgMult = 2.5f;
+    rarityScale = 2.0f;
+    rarityColor = ORANGE;
+  } else if (rarityRoll(m_gen) < ELITE_CHANCE) { // 10% Elite
+    rarity = EnemyRarityComponent::ELITE;
+    hpMult = ELITE_HP_MULTIPLIER;
+    dmgMult = 1.6f;
+    rarityScale = 1.4f;
+    rarityColor = YELLOW;
+  } else if (rarityRoll(m_gen) < 0.25f) { // 15% Champion (after elite/boss check)
+    rarity = EnemyRarityComponent::CHAMPION;
+    hpMult = CHAMPION_HP_MULTIPLIER;
+    dmgMult = 1.25f;
+    rarityScale = 1.15f;
+    rarityColor = SKYBLUE;
+  }
+
+  registry.emplace<EnemyRarityComponent>(entity, rarity);
+  modifiedHP *= hpMult;
+
+  // Setup Race/Archetype specifics
   switch (raceType) {
   case EnemyRace::UNDEAD:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::IDLE, 150.0f, 40.0f, 50.0f);
-    registry.emplace<ColorComponent>(entity, WHITE);
+    registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.25f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     break;
   case EnemyRace::DEMON:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::IDLE, 200.0f, 50.0f, 70.0f);
-    registry.emplace<ColorComponent>(entity, WHITE);
+    registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.45f * (1.0f + m_resonanceMods.dropRateBonus), 1, 2);
-    aState.baseAttackInterval = 2.0f; // Slow but heavy
+    aState.baseAttackInterval = 2.0f; 
     cStats.attack_speed = 0.8f;
     break;
   case EnemyRace::CORRUPTED:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::IDLE, 250.0f, 60.0f,
                                   100.0f);
-    registry.emplace<ColorComponent>(entity, WHITE);
+    registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.30f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
-    aState.baseAttackInterval = 1.0f; // Fast
+    aState.baseAttackInterval = 1.0f; 
     cStats.attack_speed = 1.2f;
     break;
   case EnemyRace::CULTIST:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::IDLE, 180.0f, 30.0f, 60.0f);
-    registry.emplace<ColorComponent>(entity, WHITE);
+    registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.35f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.8f;
@@ -314,7 +352,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   case EnemyRace::GOBLIN:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::IDLE, 120.0f, 40.0f, 60.0f);
-    registry.emplace<ColorComponent>(entity, GREEN);
+    registry.emplace<ColorComponent>(entity, (rarity == EnemyRarityComponent::NORMAL) ? GREEN : rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.20f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.2f;
@@ -322,18 +360,22 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   case EnemyRace::SLIME:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<AIComponent>(entity, AIType::IDLE, 80.0f, 20.0f, 30.0f);
-    registry.emplace<ColorComponent>(entity, LIME);
+    registry.emplace<ColorComponent>(entity, (rarity == EnemyRarityComponent::NORMAL) ? LIME : rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.15f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 2.5f;
     break;
   default:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<ColorComponent>(entity, WHITE);
+    registry.emplace<ColorComponent>(entity, rarityColor);
     break;
   }
 
-  // Apply Element Color Tint
+  // Finalize Stats with Rarity Multipliers
+  cStats.min_weapon_damage *= dmgMult;
+  cStats.max_weapon_damage *= dmgMult;
+
+  // Apply Element Color Tint (Higher priority than rarity color if exists)
   if (m_resonanceMods.dominantElement != 0) {
     auto *colorComp = registry.try_get<ColorComponent>(entity);
     if (colorComp) {
@@ -355,7 +397,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
         colorComp->color = DARKGRAY;
         break;
       default:
-        break; // No tint for other elements or if 0
+        break; 
       }
     }
   }
@@ -363,7 +405,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   if (m_raceTextures.count(data.enemyType)) {
     using namespace NoMoreDay::Constants::Enemy;
     registry.emplace<SpriteComponent>(entity, m_raceTextures[data.enemyType],
-                                      DEFAULT_SPRITE_SCALE);
+                                      DEFAULT_SPRITE_SCALE * rarityScale);
   }
 
   if (registry.all_of<AIComponent>(entity)) {
@@ -371,9 +413,9 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     ai.patrolStart = data.position;
 
     std::uniform_real_distribution<float> angleDist(0.0f, 6.283185f);
-    std::uniform_real_distribution<float> distDist(30.0f, 60.0f);
+    std::uniform_int_distribution<int> moveDist(30, 60);
     float angle = angleDist(m_gen);
-    float dist = distDist(m_gen);
+    float dist = (float)moveDist(m_gen);
 
     ai.patrolEnd = {data.position.x + std::cos(angle) * dist,
                     data.position.y + std::sin(angle) * dist};
@@ -390,42 +432,33 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
       ai.aiType = AIType::SUPPORT_FLEE_BUFF;
       break;
     default:
-      // FODDER and RANGER use default PATROL
       break;
     }
 
-    // === Random elite modifier assignment (10% chance) ===
-    using namespace NoMoreDay::Constants::Enemy;
-    std::uniform_real_distribution<float> eliteChance(0.0f, 1.0f);
-    if (eliteChance(m_gen) < ELITE_CHANCE) {
-      // Assign either Link or Avenger modifier
-      std::uniform_int_distribution<int> modifierType(0, 1);
-      if (modifierType(m_gen) == 0) {
-        registry.emplace<NoMoreDay::SoulLinkComponent>(entity);
-        registry.emplace<NoMoreDay::SoulLinkTag>(entity);
-        LOG_DEBUG("Elite enemy {} spawned with SoulLink modifier",
-                  static_cast<uint32_t>(entity));
-      } else {
-        registry.emplace<NoMoreDay::AvengerComponent>(entity);
-        registry.emplace<NoMoreDay::AvengerTag>(entity);
-        LOG_DEBUG("Elite enemy {} spawned with Avenger modifier",
-                  static_cast<uint32_t>(entity));
-      }
-
-      // Mark as elite
-      auto &stateComp = registry.get<EnemyStateComponent>(entity);
-      // Increase stats for elites
-      auto *health = registry.try_get<HealthComponent>(entity);
-      if (health) {
-        using namespace NoMoreDay::Constants::Enemy;
-        health->max *= ELITE_HP_MULTIPLIER;
-        health->current = health->max;
-      }
+    // === Elite Modifier Assignment ===
+    if (rarity != EnemyRarityComponent::NORMAL) {
+        int numModifiers = 0;
+        if (rarity == EnemyRarityComponent::CHAMPION) numModifiers = 1;
+        else if (rarity == EnemyRarityComponent::ELITE) numModifiers = 2;
+        else if (rarity == EnemyRarityComponent::BOSS) numModifiers = 4;
+        
+        // Randomly assign from the available set in EliteModifierComponents
+        std::uniform_int_distribution<int> modRoll(0, 1);
+        for(int m = 0; m < numModifiers; ++m) {
+            if (modRoll(m_gen) == 0) {
+                (void)registry.get_or_emplace<NoMoreDay::SoulLinkComponent>(entity);
+                (void)registry.get_or_emplace<NoMoreDay::SoulLinkTag>(entity);
+            } else {
+                (void)registry.get_or_emplace<NoMoreDay::AvengerComponent>(entity);
+                (void)registry.get_or_emplace<NoMoreDay::AvengerTag>(entity);
+            }
+        }
     }
 
     // Add ActiveEffectsComponent for buff support
     registry.emplace<NoMoreDay::ActiveEffectsComponent>(entity);
   }
+
 
   data.entityId = entity;
   data.isAlive = true;

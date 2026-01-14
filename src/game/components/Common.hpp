@@ -208,7 +208,10 @@ constexpr float LEVEL_HP_MULTIPLIER = 0.1f; // 随等级增加的血量加成比
 constexpr float DAMAGE_VARIANCE_MIN = 0.8f; // 敌人输出伤害的波动下限系数
 constexpr float DAMAGE_VARIANCE_MAX = 1.2f; // 敌人输出伤害的波动上限系数
 constexpr float DEFAULT_ATTACK_INTERVAL = 1.5f; // 默认普攻间隔
-constexpr float ELITE_HP_MULTIPLIER = 1.5f;     // 精英怪额外的生命值乘数
+constexpr float ELITE_HP_MULTIPLIER = 5.0f;     // 精英怪额外的生命值乘数
+constexpr float CHAMPION_HP_MULTIPLIER = 2.5f;  // 冠军怪生命值乘数
+constexpr float BOSS_HP_MULTIPLIER = 15.0f;     // Boss生命值乘数
+constexpr float NEMESIS_HP_MULTIPLIER = 25.0f;  // 宿敌生命值乘数
 constexpr float ELITE_CHANCE = 0.10f;           // 精英怪生成的自然概率 (10%)
 
 constexpr int DORMANT_CHECK_INTERVAL_FRAMES = 60; // 更新休眠实体的帧间隔

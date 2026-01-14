@@ -1,0 +1,8 @@
+{
+  "track_id": "legendary_merging_20260114",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-01-14T22:31:00Z",
+  "updated_at": "2026-01-14T22:31:00Z",
+  "description": "实现传奇融合系统 (Legendary Merging)，允许玩家将暗金装备与崇高装备融合以获得红色属性的传奇装备。"
+}

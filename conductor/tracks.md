@@ -184,11 +184,16 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: GPU Flow Field Integration
-- **Folder:** [./conductor/tracks/gpu_flow_integration_20260113/](./conductor/tracks/gpu_flow_integration_20260113/)
+- **Folder:** [./conductor/archive/gpu_flow_integration_20260113/](./conductor/archive/gpu_flow_integration_20260113/)
 - **Description:** 将 GPU 流场 (SSBO) 集成到怪物寻路 AI 中。实现了 CPU 影子缓冲区同步、AI 分段降频更新以及基于实体池的休眠系统 (Dormancy System)，支持万级实体高性能寻路。 (Completed on 2026-01-13)
 
 ---
 
 ## [x] Track: 技能专精树重构 (Skill Spec Tree Refactoring)
-- **Folder:** [./conductor/tracks/skill_spec_tree_refactor_20260113/](./conductor/tracks/skill_spec_tree_refactor_20260113/)
+- **Folder:** [./conductor/archive/skill_spec_tree_refactor_20260113/](./conductor/archive/skill_spec_tree_refactor_20260113/)
 - **Description:** 重构技能专精树系统，引入 Behavior Injection 机制支持复杂的逻辑注入，并使用 bitset 优化了专精节点的激活状态追踪。 (Completed on 2026-01-14)
+- - -  
+  
+ # #   [   ]   T r a c k :    OGY��T�|�~  ( L e g e n d a r y   M e r g i n g )  
+ * L i n k :   [ . / c o n d u c t o r / t r a c k s / l e g e n d a r y _ m e r g i n g _ 2 0 2 6 0 1 1 4 / ] ( . / c o n d u c t o r / t r a c k s / l e g e n d a r y _ m e r g i n g _ 2 0 2 6 0 1 1 4 / ) *  
+ 

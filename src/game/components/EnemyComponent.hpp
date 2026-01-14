@@ -197,17 +197,17 @@ struct DormantComponent {
       : spawnDataIndex(index), isFromSpawnData(fromData) {}
 };
 
-// 稀有度组件
 struct EnemyRarityComponent {
-  enum Type : uint8_t { NORMAL = 0, ELITE = 1, BOSS = 2 };
-  Type rarity;
+  enum Rarity : uint8_t { 
+    NORMAL = 0,    // 普通
+    CHAMPION = 1,  // 冠军 (蓝色，通常成组出现)
+    ELITE = 2,     // 精英 (金色，单体强力词缀)
+    BOSS = 3,      // 首领 (橙色，关卡核心)
+    NEMESIS = 4    // 宿敌 (红色，跨局进化)
+  };
+  Rarity rarity;
   std::vector<std::string> affixes; // 词缀
 
-  EnemyRarityComponent(Type r = NORMAL) : rarity(r) {
-    if (rarity == ELITE) {
-      affixes = {"Fast", "Tanky"}; // 示例词缀
-    } else if (rarity == BOSS) {
-      affixes = {"Fast", "Tanky", "Vampiric"};
-    }
+  EnemyRarityComponent(Rarity r = NORMAL) : rarity(r) {
   }
 };

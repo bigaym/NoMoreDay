@@ -60,6 +60,7 @@ void GameplayState::OnEnter() {
 
   // Initialize Elite Modifiers (SoulLink, Avenger)
   EliteModifierSystem::Init();
+  FragmentDropSystem::Init();
 
   // 1. Initialize Managers/Resources (if not already)
   // Note: Resources are managed by SharedContext->resources (owned by Game)
@@ -234,6 +235,7 @@ void GameplayState::InitializeEntities() {
 void GameplayState::OnExit() {
   LOG_INFO("Exiting GameplayState...");
   EliteModifierSystem::Shutdown();
+  FragmentDropSystem::Shutdown();
   // Cleanup logic if needed.
   // Note: Game::cleanup will handle the global registry clear.
 }
