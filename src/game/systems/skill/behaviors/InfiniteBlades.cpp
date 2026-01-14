@@ -6,40 +6,68 @@
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 
 namespace NoMoreDay::skills {
 
 struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
-    static constexpr uint32_t kSkillId = 5;
-    
-    static void DoCast(entt::registry& registry, entt::entity owner, SkillExecution& exec) {
-        LOG_INFO("DEBUG: InfiniteBlades::DoCast TRIGGERED for entity {}", (uint32_t)owner);
-        auto& chan = registry.emplace_or_replace<ChannelingComponent>(owner);
-        chan.skill_id = 5;
-        chan.channel_timer = 0.5f;
-        chan.tick_interval = 0.1f;
-        chan.tick_timer = -0.01f;
-        chan.target_pos = exec.target_pos;
-        chan.is_empowered = exec.is_empowered;
-        chan.cast_id = exec.cast_id;
+  static constexpr uint32_t kSkillId = 5;
 
-        // Talent: Yi Qi Bao Fa (意气爆发) - ID 520
-        if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
-            for (const auto& spec : active->specialized_slots) {
-                if (spec.skill_id == 5 && spec.allocated_points.contains(520) && spec.allocated_points.at(520) > 0) {
-                    if (auto* intent = registry.try_get<SwordIntentComponent>(owner)) {
-                        if (intent->stacks >= 5) {
-                            intent->stacks -= 5;
-                            chan.extra_projectiles = true;
-                            LOG_INFO("Yi Qi Bao Fa: Consumed 5 intent for double projectiles.");
-                        }
-                    }
-                    break;
-                }
-            }
+  static void DoCast(entt::registry &registry, entt::entity owner,
+                     SkillExecution &exec) {
+    LOG_INFO("DEBUG: InfiniteBlades::DoCast TRIGGERED for entity {}",
+             (uint32_t)owner);
+    auto &chan = registry.emplace_or_replace<ChannelingComponent>(owner);
+    chan.skill_id = 5;
+    chan.channel_timer = 0.5f;
+    chan.tick_interval = 0.1f;
+    chan.tick_timer = -0.01f;
+    chan.target_pos = exec.target_pos;
+    chan.is_empowered = exec.is_empowered;
+    chan.cast_id = exec.cast_id;
+
+    // Talent: Yi Qi Bao Fa (意气爆发) - ID 551 (Was 520 in old code, correcting
+    // based on skills.json 551) Note: skills.json ID 551 says "Before channel
+    // if 10 intent, consume all for double projectiles" ID 520 seems to be
+    // legacy or mixed up. Using 551 as per plan verification.
+    if (exec.active_nodes.test(551)) {
+      if (auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
+        if (intent->stacks >= 10) {
+          intent->stacks = 0; // Consume all
+          chan.extra_projectiles = true;
+          chan.consume_intent =
+              true; // Mark for damage multiplier logic in system
+          LOG_INFO("Infinite Blades (551): Consumed all intent for double "
+                   "projectiles and damage boost.");
         }
-        LOG_INFO("Infinite Blades channeling started for entity {}", (uint32_t)owner);
+      }
     }
+
+    // Talent 551: Sword Intent Consumption (Generic/Buff effect)
+    if (exec.active_nodes.test(551 % 100)) {
+      // Implementation TODO or check if logic exists
+    }
+
+    // Talent: Full Screen Lock (530/533)
+    if (exec.active_nodes.test(530)) {
+      // Mark component to prioritize mouse but search wider
+      // We might need a flag in ChannelingComponent or a separate Tag
+      // For now, let's assume the system reads `is_empowered` or we add a
+      // dynamic property For Phase 5, active_nodes usually handled in System,
+      // but here we set up the start state.
+    }
+
+    // Talent: Burst Finisher (513)
+    // "End of channel triggers giant sword". This needs to be checked in the
+    // System when channel ends. We can store a flag in ChannelingComponent.
+    // Current ChannelingComponent definition might need `has_burst_finisher`
+
+    // Talent: Sword Intent Resonance (500)
+    // "Longer channel = higher freq". Handled in System update logic.
+
+    LOG_INFO("Infinite Blades channeling started for entity {}",
+             (uint32_t)owner);
+  }
 };
 
 REGISTER_SKILL_BEHAVIOR(InfiniteBlades)

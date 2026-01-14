@@ -72,17 +72,6 @@ void ProjectileSystem::Update(entt::registry &registry,
           // Original logic: Continue flying outward
           bc->phase = BoomerangComponent::Outward;
         }
-      }
-    }
-
-    // --- NEW: Pull Logic ---
-    if (proj.hasPull) {
-       // ... existing pull logic (omitted in snippet, but assuming context match) ...
-       // Wait, I need to match exact context or just insert before.
-       // Let's rely on context matching. I will include the pull logic block if needed, 
-       // or insert Seeker logic BEFORE it or AFTER it.
-       // The snippet below replaces the "NEW: Pull Logic" block to verify context, 
-       // but I'll try to insert Seeker logic right before it.
     }
 
     // --- NEW: Seeker Logic ---

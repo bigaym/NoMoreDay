@@ -1383,7 +1383,6 @@
         "Spell",
         "Projectile",
         "Hit",
-        "Channeled",
         "sword_skill"
       ],
       "base_damage": 30.0,

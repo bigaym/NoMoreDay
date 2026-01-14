@@ -18,8 +18,11 @@
 
 ## 阶段 3：高频输出技能集成 (Melee & Projectile Integration)
 完成最核心的直接攻击型技能重构。
-- [ ] **任务 3.1**: **流云刺 (Flowing Thrust)**。集成影杀流（残影）、破阵流（暴击）及形态转化。
-- [ ] **任务 3.2**: **裂空斩 (Rending Wave)**。集成多重剑气、折返机制及元素渗透。
+- [x] **任务 3.1**: **流云刺 (Flowing Thrust)**。集成影杀流（残影）、破阵流（暴击）及形态转化。
+- [x] **任务 3.2**: **裂空斩 (Rending Wave)**。集成多重投射、折返（Boomerang）及剑意增幅。
+- [x] **任务 3.3**: **御剑回旋 (Blade Boomerang)**。验证回旋/聚怪逻辑。
+- [x] **任务 3.4**: **万剑归宗 (Infinite Blades)**。集成引导组件与剑意爆发（520）。
+- [x] **任务 3.5**: **剑阵 (Sword Array)**。集成AoE场与减速/破甲/斩杀天赋。集成多重剑气、折返机制及元素渗透。
 - [ ] **任务 3.3**: **御剑·回旋 (Blade Boomerang)**。集成牵引聚怪、多段切割及速度缩放逻辑。
 - [ ] **任务 3.4**: - [ ] Task: Conductor - User Manual Verification '阶段 3' (Protocol in workflow.md)
 

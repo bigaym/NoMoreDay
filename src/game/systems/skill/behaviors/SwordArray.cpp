@@ -12,7 +12,7 @@
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
-
+#include "game/systems/skill/SkillSystem.hpp"
 
 namespace NoMoreDay::skills {
 
@@ -250,24 +250,14 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
     }
   }
 
-  if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
-    for (const auto &spec : active->specialized_slots) {
-      if (spec.skill_id == 6) {
-        if (spec.allocated_points.contains(610) &&
-            spec.allocated_points.at(610) > 0) {
-          array.has_slow = true;
-        }
-        if (spec.allocated_points.contains(611) &&
-            spec.allocated_points.at(611) > 0) {
-          array.has_armor_shred = true;
-        }
-        if (spec.allocated_points.contains(612) &&
-            spec.allocated_points.at(612) > 0) {
-          array.has_execute = true;
-        }
-        break;
-      }
-    }
+  if (exec.active_nodes.test(610 % 100)) {
+    array.has_slow = true;
+  }
+  if (exec.active_nodes.test(611 % 100)) {
+    array.has_armor_shred = true;
+  }
+  if (exec.active_nodes.test(612 % 100)) {
+    array.has_execute = true;
   }
 
   registry.emplace<SkillComponent>(array_ent, 6u, owner);

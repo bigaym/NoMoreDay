@@ -29,10 +29,12 @@ using namespace NoMoreDay;
 #include "TestDefenseMechanics.cpp"
 #include "TestEternalNightmare.cpp"
 #include "TestHeirloomSystem.cpp"
-#include "TestPortalSystem.cpp"
 #include "TestPolishSystems.cpp"
+#include "TestPortalSystem.cpp"
 #include "TestShadowSystem.cpp"
+#include "TestSkillBehaviors.cpp"
 #include "TestSwordIntentAccumulation.cpp"
+
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>

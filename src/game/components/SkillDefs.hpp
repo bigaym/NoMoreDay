@@ -3,12 +3,13 @@
 #include "game/data/TagRegistry.hpp"
 #include "raylib.h"
 #include <array>
+#include <bitset>
 #include <cstdint>
 #include <entt/entt.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <bitset>
+
 
 namespace NoMoreDay {
 
@@ -108,7 +109,7 @@ struct TalentNode {
   std::string name_key;
   std::string desc_key;
   std::string behavior_id; // ID for C++ logic injection (e.g., "shadow_caster")
-  uint32_t icon_id = 0; // Added for UI Polish
+  uint32_t icon_id = 0;    // Added for UI Polish
   int max_points = 1;
 
   std::vector<uint32_t> prerequisites;
@@ -325,7 +326,8 @@ inline void from_json(const nlohmann::json &j, ActiveSkillsComponent &c) {
 struct SkillComponent {
   uint32_t skill_id = 0;
   entt::entity owner = entt::null;
-  std::bitset<128> active_nodes; // Tracks which talent nodes are active for this instance
+  std::bitset<128>
+      active_nodes; // Tracks which talent nodes are active for this instance
 };
 
 // ---星盘相关组件---
@@ -367,15 +369,17 @@ struct ShadowComponent {
   float delay = 0.0f;     // Time before skill is triggered
   float lifetime = 1.0f;  // Total time before entity is destroyed
   bool triggered = false; // Whether the skill effect has been fired
-  float damage_scale = 0.3f; // Damage multiplier for skills cast by this shadow (Default 30%)
+  float damage_scale =
+      0.3f; // Damage multiplier for skills cast by this shadow (Default 30%)
 };
 
 /**
- * @brief Component to mark an entity for specific "Ink/Shadow" visual rendering.
+ * @brief Component to mark an entity for specific "Ink/Shadow" visual
+ * rendering.
  */
 struct ShadowVisualComponent {
-    Color color_tint = { 50, 0, 50, 150 }; // Dark purple/black tint
-    bool use_shader = false; // Whether to use the ink shader
+  Color color_tint = {50, 0, 50, 150}; // Dark purple/black tint
+  bool use_shader = false;             // Whether to use the ink shader
 };
 
 struct ShadowLifetime {
@@ -386,11 +390,11 @@ struct ShadowLifetime {
  * @brief Component for projectiles/entities that seek targets.
  */
 struct SeekerComponent {
-    entt::entity target = entt::null;
-    float turn_rate = 5.0f; // Radians per second
-    float range = 1000.0f;  // Maximum seeking range
-    bool stop_on_arrival = false; 
-    float arrival_threshold = 10.0f;
+  entt::entity target = entt::null;
+  float turn_rate = 5.0f; // Radians per second
+  float range = 1000.0f;  // Maximum seeking range
+  bool stop_on_arrival = false;
+  float arrival_threshold = 10.0f;
 };
 
 /**
@@ -456,6 +460,20 @@ struct PhantomFlashComponent {
   float counter_window = 0.5f;
   float knockback_bonus = 0.0f;
   bool triggered = false;
+};
+
+struct MindBladeAI {
+  entt::entity target = entt::null;
+  float retarget_timer = 0.0f;
+  float attack_timer = 0.0f;
+  float base_interval = 0.3f;
+  float range = 400.0f;
+};
+
+struct MindBladeComponent {
+  entt::entity owner = entt::null;
+  float intelligence_scaling = 1.0f;
+  int stack_count = 0;
 };
 
 // --- SUMMON SYSTEM COMPONENTS ---
