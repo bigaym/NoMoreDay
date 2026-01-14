@@ -19,6 +19,7 @@ enum class Tag : uint64_t {
     Lightning   = 1ULL << 3,
     Shadow      = 1ULL << 4,
     Poison      = 1ULL << 5,
+    Void        = 1ULL << 6,
 
     // --- Form Tags (Bits 16-21) ---
     Melee       = 1ULL << 16,
@@ -89,7 +90,7 @@ struct TagInfo {
 };
 
 // Total number of defined tags (for iteration)
-inline constexpr size_t kTagCount = 25;
+inline constexpr size_t kTagCount = 26;
 
 // Master tag info table - ordered for easy lookup
 // This is the single source of truth for all tag metadata
@@ -101,6 +102,7 @@ inline constexpr std::array<TagInfo, kTagCount> kTagInfoTable = {{
     {Tag::Lightning,     "lightning",     "闪电"},
     {Tag::Shadow,        "shadow",        "暗影"},
     {Tag::Poison,        "poison",        "毒素"},
+    {Tag::Void,          "void",          "虚空"},
     
     // Form Tags (bits 16-21)
     {Tag::Melee,         "melee",         "近战"},
@@ -204,6 +206,7 @@ constexpr std::string_view GetTagName(Tag tag) {
         case Tag::Stunned: return "Stunned";
         case Tag::SwordRiding: return "SwordRiding";
         case Tag::SwordSkill: return "SwordSkill";
+        case Tag::Void: return "Void";
         default: return "Unknown";
     }
 }

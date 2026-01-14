@@ -47,6 +47,8 @@ Executable is typically located at:
 ### Running Tests
 Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `CombatSystemTest.exe`).
 
+## 🚧 Active Development (Conductor)
+
 ## 📂 Project Structure
 
 *   **`src/`**: C++ Source Code.
@@ -54,12 +56,12 @@ Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `C
     *   `core/`: Engine infrastructure (logging, math, threading).
     *   `engine/`: Core engine systems (render, physics, resource, input, scene).
     *   `game/`: Game business logic (components, states, data definitions).
+        *   `constants/`: (Empty/Deprecated?) See `components/Common.hpp`.
     *   `systems/`: ECS system implementations.
 *   **`assets/`**: Game assets (textures, shaders, data JSONs).
 *   **`scripts/`**: Python scripts for asset generation and tools.
     *   **Env:** Use `conda activate ai` (or equivalent) for scripts requiring ML libraries.
 *   **`conductor/`**: Project management, tracks, and plans.
-    *   **Important:** Check `conductor/tracks/` for active development plans.
 *   **`设计文档/`**: Design documents (Game mechanics, Architecture).
 *   **`tests/`**: Unit and Integration tests.
 
@@ -80,7 +82,7 @@ Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `C
     *   Managed via Python scripts in `scripts/`.
     *   Skill icons and other data-driven assets use JSON registries.
 
-**注意**：代码实现使用C++20最佳实践，不要引入UB、内存陷阱、内存泄漏、UAF(use after free)、逻辑问题、死锁等问题，需要硬编码的值放到 @Common.hpp 中。
+**注意**：代码实现使用C++20最佳实践，不要引入UB、内存陷阱、内存泄漏、UAF(use after free)、逻辑问题、死锁等问题，需要硬编码的值放到 `src/game/components/Common.hpp` 中。
 
 ## 🧠 Memory & Context
 

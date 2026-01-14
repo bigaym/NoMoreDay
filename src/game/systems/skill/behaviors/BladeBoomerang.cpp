@@ -1,6 +1,12 @@
 /**
  * @file BladeBoomerang.cpp
  * @brief 御剑回旋 (ID 8) - 回旋镖技能行为实现
+ *
+ * 天赋分支:
+ * - 812 破空: 速度转增伤
+ * - 813 幻影回旋: 额外飞剑
+ * - 830-833 牵引机制: 磁力/重力/黑洞
+ * - 850 滞空切割: 折返点常驻
  */
 
 #include "SkillBehaviorBase.hpp"
@@ -35,16 +41,38 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
 
         bool hasPull = false;
         float pullStrength = 0.0f;
+        int extraProjectiles = 0;
+        float moreDamageFromSpeed = 1.0f;
 
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
             for (const auto& spec : active->specialized_slots) {
-                if (spec.skill_id == 8) {
-                    if (spec.allocated_points.contains(810) && spec.allocated_points.at(810) > 0) {
+                if (spec.skill_id == kSkillId) {
+                    // Talent: Po Kong (破空) - ID 812
+                    if (spec.allocated_points.contains(812)) {
+                        float bonus = (speed / 100.0f) * 0.1f * spec.allocated_points.at(812);
+                        moreDamageFromSpeed += bonus;
+                    }
+
+                    // Talent: Huan Ying Hui Xuan (幻影回旋) - ID 813
+                    if (spec.allocated_points.contains(813) && spec.allocated_points.at(813) > 0) {
+                        extraProjectiles = 2;
+                    }
+
+                    // Talent: Ci Li Chang (磁力场) - ID 830
+                    if (spec.allocated_points.contains(830) && spec.allocated_points.at(830) > 0) {
                         hasPull = true;
                         pullStrength = basePull;
                     }
-                    if (spec.allocated_points.contains(811) && spec.allocated_points.at(811) > 0) {
-                        pullStrength += gravityPull;
+
+                    // Talent: Zhong Li Chang (重力场) - ID 832
+                    if (spec.allocated_points.contains(832)) {
+                        pullStrength += gravityPull * spec.allocated_points.at(832);
+                    }
+
+                    // Talent: Jian Qi Hei Dong (剑气黑洞) - ID 833
+                    if (spec.allocated_points.contains(833) && spec.allocated_points.at(833) > 0) {
+                        pullStrength *= 2.0f; // Black hole effect
+                        radius *= 1.5f;
                     }
                     break;
                 }
@@ -58,40 +86,64 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
             particleSys.Emit(p);
         }
 
-        auto proj_ent = registry.create();
-        registry.emplace<LocalLevelTag>(proj_ent);
-        registry.emplace<Position>(proj_ent, pos->x, pos->y);
-        registry.emplace<Velocity>(proj_ent, dir.x * speed, dir.y * speed);
-        registry.emplace<ColorComponent>(proj_ent, ORANGE);
-        
-        auto& proj = registry.emplace<Projectile>(proj_ent);
-        proj.owner = owner;
-        proj.cast_id = exec.cast_id;
-        proj.speed = speed;
-        proj.lifeTime = 3.0f;
-        proj.radius = radius;
-        proj.pierce = true;
-        proj.pierceCount = 99;
-        proj.snapshot = *stats;
-        proj.hasPull = hasPull;
-        proj.pullStrength = pullStrength;
+        // Fix UAF: Copy component data to local variables before creating new entities
+        Position ownerPos = *pos;
+        CombatStats ownerStats = *stats;
 
-        if (exec.is_empowered) {
-            proj.radius *= 1.5f;
-            proj.pullStrength += 300.0f;
-            proj.hasPull = true;
-            LOG_INFO("Empowered Blade Boomerang: 1.5x Radius and stronger pull!");
+        auto spawnProj = [&](Vector2 p_dir, float p_scale) {
+            auto proj_ent = registry.create();
+            registry.emplace<LocalLevelTag>(proj_ent);
+            registry.emplace<Position>(proj_ent, ownerPos.x, ownerPos.y);
+            registry.emplace<Velocity>(proj_ent, p_dir.x * speed, p_dir.y * speed);
+            registry.emplace<ColorComponent>(proj_ent, ORANGE);
+            
+            auto& proj = registry.emplace<Projectile>(proj_ent);
+            proj.owner = owner;
+            proj.cast_id = exec.cast_id;
+            proj.speed = speed;
+            proj.lifeTime = 3.0f;
+            proj.radius = radius * p_scale;
+            proj.pierce = true;
+            proj.pierceCount = 99;
+            proj.snapshot = ownerStats;
+            proj.hasPull = hasPull;
+            proj.pullStrength = pullStrength * p_scale;
+
+            for (auto& mult : proj.snapshot.damage_multipliers) {
+                mult *= moreDamageFromSpeed * p_scale;
+                if (exec.is_empowered) mult *= 1.5f;
+            }
+
+            if (exec.is_empowered) {
+                proj.radius *= 1.5f;
+                proj.pullStrength += 300.0f;
+                proj.hasPull = true;
+            }
+
+            registry.emplace<CombatStats>(proj_ent, proj.snapshot);
+            registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
+
+            auto& bc = registry.emplace<BoomerangComponent>(proj_ent);
+            bc.owner = owner;
+            bc.returnTimer = returnTimer;
+            bc.phase = BoomerangComponent::Outward;
+            bc.returnSpeed = speed * 1.5f;
+
+            // Talent: Zhi Kong Qie Ge (滞空切割) - ID 850
+            if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
+                for (const auto& spec : active->specialized_slots) {
+                    if (spec.skill_id == kSkillId && spec.allocated_points.contains(850)) {
+                        // Logic handled in BoomerangSystem
+                    }
+                }
+            }
+        };
+
+        spawnProj(dir, 1.0f);
+        if (extraProjectiles > 0) {
+            spawnProj(Vector2Rotate(dir, 0.25f), 0.6f);
+            spawnProj(Vector2Rotate(dir, -0.25f), 0.6f);
         }
-
-        registry.emplace<CombatStats>(proj_ent, proj.snapshot);
-        registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
-
-        auto& bc = registry.emplace<BoomerangComponent>(proj_ent);
-        bc.owner = owner;
-        bc.returnTimer = returnTimer;
-        bc.phase = BoomerangComponent::Outward;
-        bc.returnSpeed = speed * 1.5f;
-
         LOG_INFO("Blade Boomerang fired by entity {}", (uint32_t)owner);
     }
 
@@ -99,19 +151,9 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
         if (auto* active = registry.try_get<ActiveSkillsComponent>(attacker)) {
             for (const auto& spec : active->specialized_slots) {
                 if (spec.skill_id == kSkillId) {
-                    // ID 813: Ju Ling (Chance to gain Intent)
-                    if (spec.allocated_points.contains(813)) {
-                        int pts = spec.allocated_points.at(813);
-                        if (pts > 0 && GetRandomValue(0, 100) < 15 * pts) {
-                             if (auto* intent = registry.try_get<SwordIntentComponent>(attacker)) {
-                                 if (intent->stacks < intent->max_stacks) {
-                                     intent->stacks++;
-                                     intent->time_since_last_gain = 0.0f;
-                                     intent->decay_tick_timer = 0.0f;
-                                     LOG_DEBUG("Blade Boomerang (813): Gained Intent via Hit");
-                                 }
-                             }
-                        }
+                    // Talent: Fang Xue (放血) - ID 851
+                    if (spec.allocated_points.contains(851) && spec.allocated_points.at(851) > 0) {
+                        // Apply Bleed/Slow here
                     }
                     break;
                 }

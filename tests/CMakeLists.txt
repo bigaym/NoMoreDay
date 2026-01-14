@@ -35,6 +35,8 @@ endif()
 # === Test Runner ===
 add_executable(tests_runner
     main.cpp
+    TestRendingWave.cpp
+    TestBladeBoomerang.cpp
 )
 target_include_directories(tests_runner PRIVATE 
     ${CMAKE_SOURCE_DIR}/third_party/doctest
