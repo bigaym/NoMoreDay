@@ -19,8 +19,10 @@ TEST_CASE("Blade Ward Logic Verification") {
   systems::SpatialHashGrid grid(100, 100, 50);
 
   auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
   registry.emplace<Position>(player, 0.0f, 0.0f);
   registry.emplace<CombatStats>(player);
+  registry.emplace<HealthComponent>(player, 100.0f, 100.0f);
   registry.emplace<ActiveSkillsComponent>(player);
 
   SUBCASE("Blade Ward - Activation") {
@@ -66,8 +68,10 @@ TEST_CASE("Blade Ward Logic Verification") {
     // Simulate Projectile Interception
     // We need an enemy and a projectile owned by that enemy
     auto enemy = registry.create();
+    registry.emplace<EnemyTag>(enemy);
     registry.emplace<Position>(enemy, 50.0f, 0.0f);
     registry.emplace<CombatStats>(enemy);
+    registry.emplace<HealthComponent>(enemy, 100.0f, 100.0f);
 
     auto projectileEntity = registry.create();
     registry.emplace<Position>(projectileEntity, 5.0f, 0.0f); // Close to player

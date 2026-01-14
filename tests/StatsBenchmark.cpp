@@ -1,4 +1,6 @@
+#ifndef DOCTEST_CONFIG_IMPLEMENT
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#endif
 #include "doctest.h"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/components/Stats.hpp"
@@ -17,7 +19,7 @@ TEST_CASE("StatsSystem Performance Benchmark") {
     std::vector<entt::entity> entities;
 
     // Load necessary data
-    AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
+    REQUIRE(AstrolabeRegistry::Get().Load("assets/data/astrolabe.json"));
 
     for (int i = 0; i < num_entities; ++i) {
         auto e = registry.create();

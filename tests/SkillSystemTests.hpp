@@ -111,7 +111,8 @@ TEST_CASE("SkillSystem: Sword Intent") {
         SkillSystem::Update(registry, grid, 0.11f);
         
         auto exec_view = registry.view<SkillExecution>();
-        CHECK(exec_view.get<SkillExecution>(exec_view.front()).is_empowered == true);
+        REQUIRE(!exec_view.empty());
+        CHECK(exec_view.get<SkillExecution>(*exec_view.begin()).is_empowered == true);
         CHECK(intent.stacks == 0);
     }
 }

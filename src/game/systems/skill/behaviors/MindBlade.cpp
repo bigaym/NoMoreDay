@@ -9,6 +9,7 @@
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
+#include <cfloat>
 #include "engine/physics/SpatialGrid.hpp"      // Added
 #include "engine/render/GPUParticleSystem.hpp" // Added
 #include "game/components/AIComponent.hpp"

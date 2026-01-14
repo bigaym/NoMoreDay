@@ -19,7 +19,7 @@ TEST_CASE("AstrolabeRegistry: Loading and Node Retrieval") {
 
   SUBCASE("Load astrolabe.json") {
     bool success = registry.Load("assets/data/astrolabe.json");
-    CHECK(success == true);
+    REQUIRE(success == true);
 
     auto &all_nodes = registry.GetAllNodes();
     CHECK(all_nodes.size() >= 10);
