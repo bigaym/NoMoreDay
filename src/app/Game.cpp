@@ -14,6 +14,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/data/BuffRegistry.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/systems/item/MaterialRegistry.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
 
 #ifdef _WIN32
@@ -79,6 +80,7 @@ void Game::init() {
     // Global Static Inits
     NoMoreDay::CombatEventDispatcher::Init();
     NoMoreDay::AstrolabeRegistry::Get().Load("assets/data/astrolabe.json");
+    NoMoreDay::MaterialRegistry::Get().LoadMaterials("assets/data/materials.json");
     NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     NoMoreDay::SkillSystem::InitHooks();
     NoMoreDay::BuffRegistry::Initialize(); 

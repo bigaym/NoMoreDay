@@ -35,6 +35,8 @@ using namespace NoMoreDay;
 #include "TestShadowSystem.cpp"
 #include "TestSkillBehaviors.cpp"
 #include "TestSwordIntentAccumulation.cpp"
+#include "TestRendingWave.cpp"
+#include "TestBladeBoomerang.cpp"
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>

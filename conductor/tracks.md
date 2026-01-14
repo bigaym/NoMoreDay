@@ -198,3 +198,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [x] Track: Legendary Merging (传奇融合)
 - **Folder:** [./conductor/archive/legendary_merging_20260114/](./conductor/archive/legendary_merging_20260114/)
 - **Description:** 实现传奇融合系统 (Legendary Merging)，允许玩家将暗金装备与崇高装备融合以获得红色属性的传奇装备。 (Completed on 2026-01-14)
+
+---
+
+## [x] Track: 高性能材料存储系统 (Material Storage System)
+- **Folder:** [./conductor/archive/material_system_20260115/](./conductor/archive/material_system_20260115/)
+- **Description:** 实现不占格子的材料存储、有序向量后端、虚拟化 UI 列表以及持久化集成。 (Completed on 2026-01-15)

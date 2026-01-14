@@ -11,6 +11,7 @@
 #include "engine/resource/EquipmentAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/item/LootFilter.hpp"
+#include "game/systems/item/MaterialRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -790,20 +791,40 @@ entt::entity ItemFactory::createBag(entt::registry& registry, int level, Rarity 
     return entity;
 }
 
-entt::entity ItemFactory::createMaterial(entt::registry& registry, const std::string& name, const std::string& description, Rarity rarity, int quantity) {
+entt::entity ItemFactory::createMaterial(entt::registry& registry, uint32_t materialId, int quantity) {
+    const auto* def = MaterialRegistry::Get().GetMaterial(materialId);
+    if (!def) {
+        LOG_ERROR("ItemFactory: Failed to create material with ID {}", materialId);
+        return entt::null;
+    }
+
     auto entity = registry.create();
     ItemComponent item;
     item.type = ItemType::Material;
-    item.rarity = rarity;
+    item.id = materialId;
+    item.name = def->name;
+    item.description = def->description;
+    item.rarity = def->rarity;
+    item.maxStack = def->maxStack;
     item.quantity = quantity;
-    item.maxStack = 999; 
     item.slot = EquipmentSlot::None;
-    item.name = name;
-    item.description = description;
-    item.id = std::uniform_int_distribution<>(9000, 9999)(g_rng);
-
+    
     registry.emplace<ItemComponent>(entity, item);
-    LOG_DEBUG("Created material '{}' x{} with entity ID: {}", name, quantity, (uint32_t)entity);
+    
+    // Visuals: Use ColorComponent based on rarity for now
+    Color color = WHITE;
+    switch(def->rarity) {
+        case Rarity::Common: color = LIGHTGRAY; break;
+        case Rarity::Uncommon: color = GREEN; break;
+        case Rarity::Rare: color = BLUE; break;
+        case Rarity::Epic: color = PURPLE; break;
+        case Rarity::Legendary: color = ORANGE; break;
+        case Rarity::Ancient: color = RED; break;
+        default: break;
+    }
+    registry.emplace<ColorComponent>(entity, color);
+
+    LOG_DEBUG("Created material '{}' (ID: {}) x{} with entity ID: {}", def->name, materialId, quantity, (uint32_t)entity);
     return entity;
 }
 

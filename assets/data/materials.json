@@ -1,0 +1,58 @@
+{
+    "materials": [
+        {
+            "id": 1001,
+            "name": "Iron Ore",
+            "description": "Common iron ore used for basic smithing.",
+            "category": "Mineral",
+            "rarity": "Common",
+            "icon": "icon_ore_iron",
+            "max_stack": 9999
+        },
+        {
+            "id": 1002,
+            "name": "Gold Ore",
+            "description": "Precious ore with high conductivity.",
+            "category": "Mineral",
+            "rarity": "Uncommon",
+            "icon": "icon_ore_gold",
+            "max_stack": 9999
+        },
+        {
+            "id": 2001,
+            "name": "Dimension Fragment",
+            "description": "A shard of unstable reality.",
+            "category": "Fragment",
+            "rarity": "Rare",
+            "icon": "icon_frag_dim",
+            "max_stack": 9999
+        },
+        {
+            "id": 2002,
+            "name": "Void Essence",
+            "description": "Condensed essence of the void.",
+            "category": "Fragment",
+            "rarity": "Epic",
+            "icon": "icon_essence_void",
+            "max_stack": 999
+        },
+        {
+            "id": 3001,
+            "name": "Rune of Strength",
+            "description": "Increases physical power when socketed.",
+            "category": "Rune",
+            "rarity": "Rare",
+            "icon": "icon_rune_str",
+            "max_stack": 99
+        },
+        {
+            "id": 3002,
+            "name": "Rune of Speed",
+            "description": "Increases attack speed when socketed.",
+            "category": "Rune",
+            "rarity": "Rare",
+            "icon": "icon_rune_spd",
+            "max_stack": 99
+        }
+    ]
+}

@@ -21,6 +21,7 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/systems/ui/UISystem.hpp" // Include UISystem
+#include "game/components/MaterialBankComponent.hpp"
 
 // 定义 Concept：检查类型 T 是否支持 nlohmann/json 序列化
 template<typename T>
@@ -146,7 +147,7 @@ public:
             TrySerialize<WeaponComponent>(registry, entity, entityJson, "Weapon");
             TrySerialize<GoldComponent>(registry, entity, entityJson, "Gold");
             TrySerialize<TextureIDComponent>(registry, entity, entityJson, "TextureID");
-            TrySerialize<NoMoreDay::ItemComponent>(registry, entity, entityJson, "ItemData");
+            SerializeItemComponent(registry, entity, entityJson);
             
             TrySerialize<NoMoreDay::CombatStats>(registry, entity, entityJson, "Stats");
             TrySerialize<NoMoreDay::PrimaryStats>(registry, entity, entityJson, "PrimaryStats");
@@ -158,6 +159,7 @@ public:
             TrySerialize<DashComponent>(registry, entity, entityJson, "Dash");
             TrySerialize<NoMoreDay::ActiveSkillsComponent>(registry, entity, entityJson, "ActiveSkills");
             TrySerialize<NoMoreDay::ActiveEffectsComponent>(registry, entity, entityJson, "ActiveEffects");
+            TrySerialize<NoMoreDay::MaterialBankComponent>(registry, entity, entityJson, "MaterialBank");
             
             // 特殊处理包含 Entity 引用的组件
             SerializeInventory(registry, entity, entityJson);
@@ -227,7 +229,9 @@ public:
             TryDeserialize<WeaponComponent>(registry, entity, entityJson, "Weapon");
             TryDeserialize<GoldComponent>(registry, entity, entityJson, "Gold");
             TryDeserialize<TextureIDComponent>(registry, entity, entityJson, "TextureID");
-            TryDeserialize<NoMoreDay::ItemComponent>(registry, entity, entityJson, "ItemData");
+            
+            // Custom ItemData Deserialization
+            DeserializeItemComponent(registry, entity, entityJson, uuidMap);
 
             TryDeserialize<NoMoreDay::CombatStats>(registry, entity, entityJson, "Stats");
             TryDeserialize<NoMoreDay::PrimaryStats>(registry, entity, entityJson, "PrimaryStats");
@@ -239,6 +243,7 @@ public:
             TryDeserialize<DashComponent>(registry, entity, entityJson, "Dash");
             TryDeserialize<NoMoreDay::ActiveSkillsComponent>(registry, entity, entityJson, "ActiveSkills");
             TryDeserialize<NoMoreDay::ActiveEffectsComponent>(registry, entity, entityJson, "ActiveEffects");
+            TryDeserialize<NoMoreDay::MaterialBankComponent>(registry, entity, entityJson, "MaterialBank");
             
             DeserializeInventory(registry, entity, entityJson, uuidMap);
             DeserializeEquipment(registry, entity, entityJson, uuidMap);
@@ -275,6 +280,42 @@ private:
         if (j.contains(key)) {
             T component = j[key].get<T>(); // 自动调用 from_json
             registry.emplace_or_replace<T>(entity, std::move(component));
+        }
+    }
+    
+    static void SerializeItemComponent(entt::registry& registry, entt::entity entity, nlohmann::json& j) {
+        if (!registry.all_of<NoMoreDay::ItemComponent>(entity)) return;
+        const auto& item = registry.get<NoMoreDay::ItemComponent>(entity);
+        nlohmann::json itemJson;
+        
+        // Base serialization
+        to_json(itemJson, item);
+        
+        // Override sockets with UUIDs
+        std::vector<uint64_t> socketUUIDs;
+        for(auto socketEntity : item.sockets) {
+            socketUUIDs.push_back(GetEntityUUID(registry, socketEntity));
+        }
+        itemJson["sockets"] = socketUUIDs; 
+        
+        j["ItemData"] = itemJson;
+    }
+
+    static void DeserializeItemComponent(entt::registry& registry, entt::entity entity, const nlohmann::json& j, const std::unordered_map<uint64_t, entt::entity>& uuidMap) {
+        if (!j.contains("ItemData")) return;
+        const auto& itemJson = j["ItemData"];
+        
+        auto& item = registry.emplace_or_replace<NoMoreDay::ItemComponent>(entity);
+        from_json(itemJson, item); 
+        
+        // Fixup sockets
+        if (itemJson.contains("sockets")) {
+            item.sockets.clear();
+            for (uint64_t uuid : itemJson["sockets"]) {
+                if (uuid != 0 && uuidMap.count(uuid)) {
+                    item.sockets.push_back(uuidMap.at(uuid));
+                }
+            }
         }
     }
 

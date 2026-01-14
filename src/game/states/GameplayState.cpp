@@ -3,6 +3,8 @@
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/scene/StateManager.hpp"
+#include "game/components/InventoryComponent.hpp"
+#include "game/components/MaterialBankComponent.hpp" // Added
 #include "game/states/InventoryState.hpp"
 #include "game/states/MosaicEditorState.hpp"
 #include "game/states/PauseState.hpp"
@@ -177,6 +179,7 @@ void GameplayState::InitializeEntities() {
   registry.emplace<StatsDirty>(player);
   registry.emplace<DashComponent>(player);
   registry.emplace<InventoryComponent>(player);
+  registry.emplace<MaterialBankComponent>(player);
   registry.emplace<EquipmentComponent>(player);
   registry.emplace<AttackState>(player);
   using namespace NoMoreDay::Constants::Combat;

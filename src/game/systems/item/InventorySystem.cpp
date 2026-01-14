@@ -3,6 +3,7 @@
 #include "game/components/Stats.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "game/components/MaterialBankComponent.hpp"
 #include "game/components/EffectComponent.hpp"
 #include <cmath>
 #include <limits>
@@ -41,6 +42,31 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
     auto *itemComp = registry.try_get<NoMoreDay::ItemComponent>(item);
     if (!itemComp)
         return false;
+
+    // --- Material Storage System ---
+    if (itemComp->type == ItemType::Material) {
+        auto *materialBank = registry.try_get<NoMoreDay::MaterialBankComponent>(character);
+        if (materialBank) {
+            int newCount = materialBank->Add(itemComp->id, itemComp->quantity);
+            
+            // Visual Effect for Material Pickup
+            if (registry.all_of<Position>(item)) {
+                const auto& pos = registry.get<Position>(item);
+                auto effect = registry.create();
+                registry.emplace<Position>(effect, pos.x, pos.y);
+                VisualEffect vEffect;
+                vEffect.type = VisualEffectType::Pickup;
+                using namespace NoMoreDay::Constants::Item;
+                vEffect.lifeTime = PICKUP_VISUAL_EFFECT_DURATION;
+                vEffect.color = GREEN; // Materials use Green for pickup effect
+                registry.emplace<VisualEffect>(effect, vEffect);
+            }
+
+            LOG_INFO("Material System: Auto-banked '{}' x{} (Total: {})", itemComp->name, itemComp->quantity, newCount);
+            registry.destroy(item);
+            return true;
+        }
+    }
 
     // --- 堆叠逻辑 ---
     if (itemComp->maxStack > 1)

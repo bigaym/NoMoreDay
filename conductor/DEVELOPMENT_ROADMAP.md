@@ -32,6 +32,9 @@
 ### 📍 Phase 9: 终局装备深度 (Endgame Gear & Crafting)
 **优先级：最高**。解决中后期刷宝动力不足的问题。
 
+- [x] **实现材料存储系统 (Material Storage System)**
+    - 零实体存储 (`MaterialBankComponent`)，UI 虚拟化列表支持 100+ 种材料展示。
+    - 自动拾取、分类过滤与搜索功能。
 - [x] **实现传奇融合系统 (Legendary Merging)**
     - 修改 `CraftingSystem::fuseItems`，实现 Unique (LP) + Exalted 的词缀抽取算法。
     - 实现融合 UI 与 视觉效果。

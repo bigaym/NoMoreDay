@@ -182,6 +182,7 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/item/InventorySystem.cpp
     src/game/systems/item/ItemFactory.cpp
     src/game/systems/item/LootFilter.cpp
+    src/game/systems/item/MaterialRegistry.cpp
     src/game/data/ResonanceCalculator.cpp
     src/game/systems/skill/AstrolabeSystem.cpp
     src/game/systems/skill/ProjectileSystem.cpp

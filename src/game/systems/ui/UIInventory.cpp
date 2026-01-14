@@ -5,15 +5,24 @@
 #include "game/components/ItemComponent.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
+#include "game/components/MaterialBankComponent.hpp"
+#include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>
+#include <cstring>
+#include <cctype>
 
 using namespace NoMoreDay;
 
 int UIInventory::m_inventoryPage = 0;
+int UIInventory::m_activeTab = 0;
+float UIInventory::m_materialScrollOffset = 0.0f;
+char UIInventory::m_searchBuffer[64] = "";
+std::string UIInventory::m_selectedCategory = "";
+bool UIInventory::m_isSearchFocused = false;
 
 bool UIInventory::IsVisible() {
     return UISystem::State.showInventory;
@@ -190,110 +199,298 @@ void UIInventory::Draw(entt::registry& registry) {
     float invY = panelY + 80.0f;
     float invW = panelW - (invX - panelX) - padding;
     float invH = panelH - 220.0f; // Viewport height
-    float invSlotSize = 48.0f;
-    float invSlotGap = 5.0f;
 
-    UIRenderer::DrawTextUI(font, "物品背包", invX + 5, invY - 25, 22, theme.textHighlight, alpha);
-    
+    // Tabs
+    float tabW = 80.0f;
+    float tabH = 24.0f;
+    float tabX = invX;
+    float tabY = invY - tabH - 5.0f;
+
+    auto DrawTab = [&](int index, const char* label) {
+        float x = tabX + index * (tabW + 5.0f);
+        bool isActive = (m_activeTab == index);
+        bool isHovered = CheckCollisionPointRec(mousePos, {x, tabY, tabW, tabH});
+        
+        Color bg = isActive ? theme.textHighlight : theme.slotBackground;
+        if (!isActive && isHovered) bg = theme.buttonHover;
+
+        DrawRectScaled(x, tabY, tabW, tabH, bg);
+        DrawRectLinesScaled({x, tabY, tabW, tabH}, 1.0f, theme.panelBorder);
+        
+        Color textColor = isActive ? BLACK : theme.textPrimary;
+        UIRenderer::DrawTextUI(font, label, x + 10, tabY + 2, 18, textColor, alpha);
+
+        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            m_activeTab = index;
+        }
+    };
+
+    DrawTab(0, "物品");
+    DrawTab(1, "材料");
+
     Color invBg = theme.slotBackground;
     invBg.a = (unsigned char)(invBg.a * 0.3f);
     DrawRectangleRounded({invX*scale, invY*scale, invW*scale, invH*scale}, 0.02f, 4, ApplyAlpha(invBg, alpha));
     DrawRectangleRoundedLinesEx({invX*scale, invY*scale, invW*scale, invH*scale}, 0.02f, 4, 1.0f*scale, ApplyAlpha(theme.panelBorder, alpha));
 
-    // 同步 items 向量大小，确保所有拾取的物品（如药水）都能被遍历到
-    if ((int)inv->items.size() < inv->capacity) {
-        inv->items.resize(inv->capacity, entt::null);
-    }
+    // Content
+    if (m_activeTab == 0) {
+        // --- ITEM GRID ---
+        float invSlotSize = 48.0f;
+        float invSlotGap = 5.0f;
 
-    // Scroll Logic
-    const int cols = 8;
-    int totalCapacity = inv->capacity;
-    // 渲染时考虑实际 items 大小，防止 push_back 的物品丢失
-    int renderCount = std::max(totalCapacity, (int)inv->items.size());
-    int totalRows = (renderCount + cols - 1) / cols;
-    float contentHeight = totalRows * (invSlotSize + invSlotGap) + 20.0f;
-    
-    // Mouse wheel scrolling
-    if (CheckCollisionPointRec(mousePos, {invX, invY, invW, invH})) {
-        float wheel = GetMouseWheelMove();
-        if (wheel != 0) {
-            inv->scrollOffset -= wheel * (invSlotSize + invSlotGap) * 2.0f;
-        }
-    }
-    
-    // Clamp scroll offset
-    float maxScroll = contentHeight - invH;
-    if (maxScroll < 0) maxScroll = 0;
-    if (inv->scrollOffset < 0) inv->scrollOffset = 0;
-    if (inv->scrollOffset > maxScroll) inv->scrollOffset = maxScroll;
-
-    BeginScissorMode((int)(invX * scale), (int)(invY * scale), (int)(invW * scale), (int)(invH * scale));
-
-    float gridStartX = invX + 15.0f;
-    float gridStartY = invY + 15.0f - inv->scrollOffset;
-
-    for (int i = 0; i < renderCount; ++i) {
-        int r = i / cols;
-        int c = i % cols;
-        float x = gridStartX + c * (invSlotSize + invSlotGap);
-        float y = gridStartY + r * (invSlotSize + invSlotGap);
-
-        if (y + invSlotSize < invY || y > invY + invH) continue;
-
-        entt::entity item = (i < (int)inv->items.size()) ? inv->items[i] : entt::null;
-        bool isHovered = CheckCollisionPointRec(mousePos, {x, y, invSlotSize, invSlotSize}) && CheckCollisionPointRec(mousePos, {invX, invY, invW, invH});
-
-        if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
-            UISystem::State.hoveredItem = item;
+        // 同步 items 向量大小
+        if ((int)inv->items.size() < inv->capacity) {
+            inv->items.resize(inv->capacity, entt::null);
         }
 
-        // Drag Start
-        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
-            UISystem::State.draggedItem = item;
-            UISystem::State.isDraggingFromInventory = true;
-            UISystem::State.dragSourceInventoryIndex = i;
-            UISystem::State.dragSourceEquipmentSlot = EquipmentSlot::None;
-            UISystem::State.dragSourceBagSlotIndex = -1;
+        // Scroll Logic for Items
+        const int cols = 8;
+        int totalCapacity = inv->capacity;
+        int renderCount = std::max(totalCapacity, (int)inv->items.size());
+        int totalRows = (renderCount + cols - 1) / cols;
+        float contentHeight = totalRows * (invSlotSize + invSlotGap) + 20.0f;
+        
+        if (CheckCollisionPointRec(mousePos, {invX, invY, invW, invH})) {
+            float wheel = GetMouseWheelMove();
+            if (wheel != 0) inv->scrollOffset -= wheel * (invSlotSize + invSlotGap) * 2.0f;
         }
         
-        // Right Click
-        if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
-            UISystem::OpenContextMenu(item, true, i, EquipmentSlot::None);
-        }
+        float maxScroll = std::max(0.0f, contentHeight - invH);
+        inv->scrollOffset = std::clamp(inv->scrollOffset, 0.0f, maxScroll);
 
-        // Drag Drop
-        if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
-             if (UISystem::State.isDraggingFromInventory) {
-                 std::swap(inv->items[UISystem::State.dragSourceInventoryIndex], inv->items[i]);
-             } else {
-                 // From equipment or bag slot to inventory
-                 if (equip && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
-                     InventorySystem::unequipItem(registry, player, UISystem::State.dragSourceEquipmentSlot);
-                 } else if (UISystem::State.dragSourceBagSlotIndex != -1) {
-                     InventorySystem::unequipBag(registry, player, UISystem::State.dragSourceBagSlotIndex, true);
+        BeginScissorMode((int)(invX * scale), (int)(invY * scale), (int)(invW * scale), (int)(invH * scale));
+
+        float gridStartX = invX + 15.0f;
+        float gridStartY = invY + 15.0f - inv->scrollOffset;
+
+        for (int i = 0; i < renderCount; ++i) {
+            int r = i / cols;
+            int c = i % cols;
+            float x = gridStartX + c * (invSlotSize + invSlotGap);
+            float y = gridStartY + r * (invSlotSize + invSlotGap);
+
+            if (y + invSlotSize < invY || y > invY + invH) continue;
+
+            entt::entity item = (i < (int)inv->items.size()) ? inv->items[i] : entt::null;
+            bool isHovered = CheckCollisionPointRec(mousePos, {x, y, invSlotSize, invSlotSize}) && CheckCollisionPointRec(mousePos, {invX, invY, invW, invH});
+
+            if (isHovered && item != entt::null && UISystem::State.draggedItem == entt::null) {
+                UISystem::State.hoveredItem = item;
+            }
+
+            // Drag Start
+            if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
+                UISystem::State.draggedItem = item;
+                UISystem::State.isDraggingFromInventory = true;
+                UISystem::State.dragSourceInventoryIndex = i;
+                UISystem::State.dragSourceEquipmentSlot = EquipmentSlot::None;
+                UISystem::State.dragSourceBagSlotIndex = -1;
+            }
+            
+            // Right Click
+            if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
+                UISystem::OpenContextMenu(item, true, i, EquipmentSlot::None);
+            }
+
+            // Drag Drop
+            if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+                 if (UISystem::State.isDraggingFromInventory) {
+                     std::swap(inv->items[UISystem::State.dragSourceInventoryIndex], inv->items[i]);
+                 } else {
+                     if (equip && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
+                         InventorySystem::unequipItem(registry, player, UISystem::State.dragSourceEquipmentSlot);
+                     } else if (UISystem::State.dragSourceBagSlotIndex != -1) {
+                         InventorySystem::unequipBag(registry, player, UISystem::State.dragSourceBagSlotIndex, true);
+                     }
                  }
-                 
-                 // The item is now somewhere in the inventory. 
-                 // If we want it EXACTLY at index `i`, we should find where it landed and swap.
-                 // But for simplicity and safety (since unequip handles 'full' states), 
-                 // we just let it land where it landed. 
-             }
-             UISystem::State.draggedItem = entt::null;
+                 UISystem::State.draggedItem = entt::null;
+            }
+
+            UIRenderer::DrawSlot(font, registry, x, y, invSlotSize, (UISystem::State.draggedItem == item) ? entt::null : item, nullptr, isHovered, false, alpha);
         }
 
-        UIRenderer::DrawSlot(font, registry, x, y, invSlotSize, (UISystem::State.draggedItem == item) ? entt::null : item, nullptr, isHovered, false, alpha);
-    }
+        EndScissorMode();
 
-    EndScissorMode();
+        // Scrollbar Items
+        if (maxScroll > 0) {
+            float scrollbarW = 6.0f;
+            float scrollbarX = invX + invW - scrollbarW - 5.0f;
+            float thumbH = (invH / contentHeight) * invH;
+            float thumbY = invY + (inv->scrollOffset / maxScroll) * (invH - thumbH);
+            DrawRectScaled(scrollbarX, invY, scrollbarW, invH, theme.slotBackground);
+            DrawRectScaled(scrollbarX, thumbY, scrollbarW, thumbH, theme.panelBorderHighlight);
+        }
 
-    // Scrollbar
-    if (maxScroll > 0) {
-        float scrollbarW = 6.0f;
-        float scrollbarX = invX + invW - scrollbarW - 5.0f;
-        float thumbH = (invH / contentHeight) * invH;
-        float thumbY = invY + (inv->scrollOffset / maxScroll) * (invH - thumbH);
-        DrawRectScaled(scrollbarX, invY, scrollbarW, invH, theme.slotBackground);
-        DrawRectScaled(scrollbarX, thumbY, scrollbarW, thumbH, theme.panelBorderHighlight);
+    } else if (m_activeTab == 1) {
+        // --- MATERIAL LIST ---
+        auto* bank = registry.try_get<MaterialBankComponent>(player);
+        if (bank) {
+            float contentStartX = invX + 10.0f;
+            float contentStartY = invY;
+            float contentW = invW - 20.0f;
+            
+            // 1. Search Bar
+            float searchH = 28.0f;
+            Rectangle searchRect = {contentStartX, contentStartY, 200.0f, searchH};
+            bool searchHover = CheckCollisionPointRec(mousePos, searchRect);
+            
+            if (searchHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                m_isSearchFocused = true;
+            } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !searchHover) {
+                m_isSearchFocused = false;
+            }
+
+            DrawRectScaled(searchRect.x, searchRect.y, searchRect.width, searchRect.height, m_isSearchFocused ? theme.buttonHover : theme.buttonNormal);
+            DrawRectLinesScaled(searchRect, 1.0f, m_isSearchFocused ? theme.panelBorderHighlight : theme.panelBorder);
+            
+            const char* searchText = (strlen(m_searchBuffer) == 0 && !m_isSearchFocused) ? "搜索..." : m_searchBuffer;
+            Color searchColor = (strlen(m_searchBuffer) == 0 && !m_isSearchFocused) ? theme.textSecondary : theme.textPrimary;
+            UIRenderer::DrawTextUI(font, searchText, searchRect.x + 5, searchRect.y + 4, 18, searchColor, alpha);
+
+            // Input Logic
+            if (m_isSearchFocused) {
+                int key = GetCharPressed();
+                while (key > 0) {
+                    if ((key >= 32) && (key <= 125) && (strlen(m_searchBuffer) < 63)) {
+                        int len = strlen(m_searchBuffer);
+                        m_searchBuffer[len] = (char)key;
+                        m_searchBuffer[len+1] = '\0';
+                    }
+                    key = GetCharPressed();
+                }
+                if (IsKeyPressed(KEY_BACKSPACE)) {
+                    int len = strlen(m_searchBuffer);
+                    if (len > 0) m_searchBuffer[len-1] = '\0';
+                }
+            }
+
+            // 2. Categories
+            float catX = searchRect.x + searchRect.width + 15.0f;
+            float catH = 24.0f;
+            const char* categories[] = {"All", "Ore", "Fragment", "Rune"}; // Common categories
+            // Or dynamically find? For now static is cleaner.
+            
+            for (const char* cat : categories) {
+                float textW = MeasureTextEx(font, cat, 18, 1).x;
+                float btnW = textW + 20.0f;
+                Rectangle btnRect = {catX, contentStartY + 2, btnW, catH};
+                bool isSelected = (m_selectedCategory == cat) || (std::string(cat) == "All" && m_selectedCategory.empty());
+                bool isHover = CheckCollisionPointRec(mousePos, btnRect);
+
+                Color btnBg = isSelected ? theme.textHighlight : theme.buttonNormal;
+                if (!isSelected && isHover) btnBg = theme.buttonHover;
+                
+                DrawRectScaled(btnRect.x, btnRect.y, btnRect.width, btnRect.height, btnBg);
+                
+                Color txtColor = isSelected ? BLACK : theme.textSecondary;
+                UIRenderer::DrawTextUI(font, cat, btnRect.x + 10, btnRect.y + 2, 18, txtColor, alpha);
+
+                if (isHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    if (std::string(cat) == "All") m_selectedCategory.clear();
+                    else m_selectedCategory = cat;
+                    m_materialScrollOffset = 0.0f; // Reset scroll
+                }
+                
+                catX += btnW + 5.0f;
+            }
+
+            // 3. Filtering
+            // Create a filtered list of pointers
+            std::vector<const MaterialEntry*> filteredList;
+            filteredList.reserve(bank->materials.size());
+            
+            std::string lowerSearch = m_searchBuffer;
+            std::transform(lowerSearch.begin(), lowerSearch.end(), lowerSearch.begin(), ::tolower);
+
+            for (const auto& entry : bank->materials) {
+                const auto* def = MaterialRegistry::Get().GetMaterial(entry.id);
+                if (!def) continue;
+
+                // Category Check
+                if (!m_selectedCategory.empty()) {
+                    if (def->category != m_selectedCategory) continue;
+                }
+
+                // Search Check
+                if (!lowerSearch.empty()) {
+                    std::string lowerName = def->name;
+                    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+                    if (lowerName.find(lowerSearch) == std::string::npos) continue;
+                }
+
+                filteredList.push_back(&entry);
+            }
+
+            // 4. Render List
+            float listTopY = contentStartY + searchH + 10.0f;
+            float listH = invH - (listTopY - invY);
+            
+            float rowHeight = 40.0f;
+            int totalItems = (int)filteredList.size();
+            float contentHeight = totalItems * rowHeight + 10.0f;
+
+            if (CheckCollisionPointRec(mousePos, {invX, listTopY, invW, listH})) {
+                float wheel = GetMouseWheelMove();
+                if (wheel != 0) m_materialScrollOffset -= wheel * rowHeight * 2.0f;
+            }
+            
+            float maxScroll = std::max(0.0f, contentHeight - listH);
+            m_materialScrollOffset = std::clamp(m_materialScrollOffset, 0.0f, maxScroll);
+            
+            BeginScissorMode((int)(invX * scale), (int)(listTopY * scale), (int)(invW * scale), (int)(listH * scale));
+            
+            float listStartY = listTopY + 5.0f - m_materialScrollOffset;
+            
+            for (int i = 0; i < totalItems; ++i) {
+                float y = listStartY + i * rowHeight;
+                if (y + rowHeight < listTopY || y > listTopY + listH) continue;
+                
+                const auto* entry = filteredList[i]; // Pointer
+                const auto* def = MaterialRegistry::Get().GetMaterial(entry->id);
+                // def guaranteed not null from filter step
+                
+                float x = invX + 10.0f;
+                float w = invW - 20.0f;
+                // Row BG
+                bool isRowHovered = CheckCollisionPointRec(mousePos, {x, y, w, rowHeight});
+                if (isRowHovered) {
+                    DrawRectScaled(x, y, w, rowHeight, ApplyAlpha(theme.buttonHover, alpha * 0.5f));
+                }
+                
+                // Icon Placeholder
+                DrawRectLinesScaled({x+2, y+2, 36, 36}, 1.0f, theme.panelBorder);
+                
+                // Text
+                Color nameColor = theme.textPrimary;
+                // Rarity Colors?
+                if (def) {
+                    switch(def->rarity) {
+                        case Rarity::Uncommon: nameColor = GREEN; break;
+                        case Rarity::Rare: nameColor = BLUE; break;
+                        case Rarity::Epic: nameColor = PURPLE; break;
+                        case Rarity::Legendary: nameColor = ORANGE; break;
+                        default: break;
+                    }
+                    UIRenderer::DrawTextUI(font, def->name.c_str(), x + 45, y + 10, 20, nameColor, alpha);
+                }
+                
+                // Quantity
+                UIRenderer::DrawTextUI(font, TextFormat("x%d", entry->count), x + w - 80, y + 10, 20, theme.textHighlight, alpha);
+            }
+            
+            EndScissorMode();
+            
+             // Scrollbar Materials
+            if (maxScroll > 0) {
+                float scrollbarW = 6.0f;
+                float scrollbarX = invX + invW - scrollbarW - 5.0f;
+                float thumbH = (listH / contentHeight) * listH;
+                float thumbY = listTopY + (m_materialScrollOffset / maxScroll) * (listH - thumbH);
+                DrawRectScaled(scrollbarX, listTopY, scrollbarW, listH, theme.slotBackground);
+                DrawRectScaled(scrollbarX, thumbY, scrollbarW, thumbH, theme.panelBorderHighlight);
+            }
+        }
     }
 
     // --- 底部控制 & 背包扩展槽 ---

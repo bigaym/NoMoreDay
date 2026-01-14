@@ -29,8 +29,8 @@ public:
     // 创建药水 (0: 生命药水, 1: 法力药水)
     static entt::entity createPotion(entt::registry& registry, int type, int quantity = 1);
 
-    // 创建材料 (比如传奇核心)
-    static entt::entity createMaterial(entt::registry& registry, const std::string& name, const std::string& description, Rarity rarity, int quantity = 1);
+    // 创建材料
+    static entt::entity createMaterial(entt::registry& registry, uint32_t materialId, int quantity = 1);
 
     static Affix generateRandomAffix(int level, bool isPrefix, EquipmentSlot slot);
     

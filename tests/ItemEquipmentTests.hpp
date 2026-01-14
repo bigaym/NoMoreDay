@@ -435,7 +435,7 @@ TEST_CASE("Affix System Integration Test") {
 }
 
 
-TEST_CASE("Legendary Merging System", "[Item][Crafting]") {
+TEST_CASE("Legendary Merging System [Item][Crafting]") {
     entt::registry registry;
     ItemFactory::initialize();
 
