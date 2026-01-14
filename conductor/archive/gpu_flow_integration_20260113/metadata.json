@@ -1,0 +1,9 @@
+{
+  "track_id": "gpu_flow_integration_20260113",
+  "type": "feature",
+  "status": "completed",
+  "created_at": "2026-01-13T22:06:00Z",
+  "updated_at": "2026-01-13T22:42:00Z",
+  "end_time": "2026-01-13T22:42:00Z",
+  "description": "接下来我们规划GPU 流场实际集成，目前 GPUFlowFieldSystem 已重构为 SSBO，但在 AISystem 中怪物可能还在使用 CPU 路径或简单的寻路。目标： 让 10,000+ 怪物真正通过读取 GPU 计算出的引导向量进行移动。价值： 真正实现“人潮汹涌”的战斗效果，且 CPU 占用极低，是项目技术实力的核心体现。工作： 修改 AISystem 的移动逻辑，直接从 SSBO 缓冲区中采样方向。"
+}

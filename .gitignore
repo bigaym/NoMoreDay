@@ -38,5 +38,4 @@ logs/
 AGENT*.
 .roo/
 scripts/aseets
-conductor/archive
 # assets/textures   
