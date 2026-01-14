@@ -87,7 +87,42 @@ We use C++20 features to write expressive and efficient code.
     *   **Skill Parameters**: Skill-specific values (damage ratios, cooldowns) should be loaded from JSON via `SkillRegistry` with sensible fallbacks.
 *   **Logging**: Use the project's `Logger` (`LOG_INFO`, `LOG_ERROR`). Do not use `std::cout`.
 
-## 7. Code Review Checklist (Pre-Commit)
+## 7. Build & Runtime Standards
+
+### 7.1 Build Script (`build.bat`)
+We use a standard build script for Windows. Always use `build.bat` instead of running `cmake` manually when possible.
+
+```batch
+@echo off
+REM ============================================================================
+REM NoMoreDay Build Script
+REM ============================================================================
+REM Usage: build.bat [options]
+REM
+REM Options:
+REM   clean       - Clean CMake cache (preserves object files)
+REM   clean-all   - Clean entire build directory
+REM   notest      - Skip building tests
+REM   release     - Build in Release mode (with LTO)
+REM   debug       - Build in Debug mode
+REM   ninja       - Use Ninja generator instead of MinGW Makefiles
+REM   j=N         - Set parallel jobs (default: 16)
+REM
+REM Examples:
+REM   build.bat                    - Default RelWithDebInfo build
+REM   build.bat release            - Optimized Release build with LTO
+REM   build.bat ninja notest       - Fast build with Ninja, no tests
+REM   build.bat clean release j=8  - Clean and rebuild Release with 8 jobs
+REM ============================================================================
+```
+
+### 7.2 Runtime Environment
+
+When running executables or debugging:
+*   **GCC/MinGW Builds**: Executables are located in `.\build\bin`
+*   **MSVC Builds**: Executables are located in `.\build\bin\Release` (or `Debug`)
+
+## 8. Code Review Checklist (Pre-Commit)
 
 Before committing, run `git diff` and verify:
 1.  **UB Check**: Are you dereferencing pointers without null checks?
