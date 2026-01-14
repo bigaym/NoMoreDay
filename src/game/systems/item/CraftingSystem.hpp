@@ -42,6 +42,9 @@ public:
     // 融合: 结合两个物品 (占位符)
     static CraftingResult fuseItems(ItemComponent& baseItem, ItemComponent& fodderItem);
 
+    // 传奇融合: 将Exalted物品的词缀融合到Unique物品上
+    static CraftingResult fuseLegendary(entt::registry& registry, entt::entity baseEntity, entt::entity fodderEntity, entt::entity catalystEntity, int selectedAffixIndex);
+
 private:
     static int calculatePotentialCost(int targetTier);
 };

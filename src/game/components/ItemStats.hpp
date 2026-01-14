@@ -83,13 +83,15 @@ struct Affix {
     bool isPrefix = true;     // true = 前缀, false = 后缀
     std::string name;  // 用于UI显示的缓存名称，例如 "of the Bear"
     Tag required_tags = Tag::None;  // 条件标签，只有技能携带这些标签时该词缀才生效
+    bool isLegendary = false; // 是否为传奇融合词缀
 };
 
 // Custom JSON serialization for Affix (backward compatible)
 inline void to_json(nlohmann::json& j, const Affix& a) {
     j = nlohmann::json{
         {"type", a.type}, {"value", a.value}, {"tier", a.tier},
-        {"isPrefix", a.isPrefix}, {"name", a.name}
+        {"isPrefix", a.isPrefix}, {"name", a.name},
+        {"isLegendary", a.isLegendary}
     };
     if (a.required_tags != Tag::None) {
         j["required_tags"] = static_cast<uint64_t>(a.required_tags);
@@ -102,6 +104,11 @@ inline void from_json(const nlohmann::json& j, Affix& a) {
     j.at("tier").get_to(a.tier);
     j.at("isPrefix").get_to(a.isPrefix);
     j.at("name").get_to(a.name);
+    if (j.contains("isLegendary")) {
+        j.at("isLegendary").get_to(a.isLegendary);
+    } else {
+        a.isLegendary = false;
+    }
     if (j.contains("required_tags")) {
         a.required_tags = static_cast<Tag>(j.at("required_tags").get<uint64_t>());
     } else {

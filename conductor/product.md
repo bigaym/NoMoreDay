@@ -52,4 +52,5 @@ To create an immersive ARPG experience where the **Roguelite run loop** meets **
 
 ## Build Economy & Crafting
 - **Forging Potential:** A high-stakes crafting system where players upgrade, reroll (Chaos), or refine specific affixes until the item's potential is exhausted.
+- **Legendary Merging:** Fuse Mythic items with Exalted fodder to inherit powerful affixes, creating Ancient-tier gear.
 - **Loot Filters:** Built-in support for filtering loot by Tiers, LP (Legendary Potential), and Base types.

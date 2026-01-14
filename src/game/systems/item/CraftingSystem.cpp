@@ -278,4 +278,110 @@ CraftingResult CraftingSystem::fuseItems(ItemComponent& baseItem, ItemComponent&
     return CraftingResult::Success;
 }
 
+
+CraftingResult CraftingSystem::fuseLegendary(entt::registry& registry, entt::entity baseEntity, entt::entity fodderEntity, entt::entity catalystEntity, int selectedAffixIndex) {
+    if (!registry.valid(baseEntity) || !registry.valid(fodderEntity) || !registry.valid(catalystEntity)) {
+        LOG_ERROR("Fusion: Invalid entities provided.");
+        return CraftingResult::Failure;
+    }
+
+    auto* base = registry.try_get<ItemComponent>(baseEntity);
+    auto* fodder = registry.try_get<ItemComponent>(fodderEntity);
+    auto* catalyst = registry.try_get<ItemComponent>(catalystEntity);
+
+    if (!base || !fodder || !catalyst) {
+        LOG_ERROR("Fusion: Missing ItemComponent on entities.");
+        return CraftingResult::Failure;
+    }
+
+    // 1. Validation
+    // Base: Mythic (Unique) with LP > 0
+    if (base->rarity != Rarity::Mythic && base->rarity != Rarity::Legendary) { // Allow Legendary for now if Mythic isn't fully used
+        // Spec says "Unique (Mythic)". Let's assume Mythic. But ItemFactory creates Legendary with LP.
+        // ItemFactory: if (rarity == Rarity::Legendary) { item.legendaryPotential = ... }
+        // So we should check Legendary (which acts as Unique in this codebase currently?) or Mythic.
+        if (base->legendaryPotential <= 0) {
+            LOG_WARN("Fusion: Base item '{}' has no Legendary Potential.", base->name);
+            return CraftingResult::NoPotential;
+        }
+    } else {
+         // Strict check if distinction exists. 
+         // ItemFactory sets LP on Legendary. So Legendary is the "Unique" equivalent for LP purposes currently.
+         // But Spec says "Unique (Mythic)". 
+         // I will allow Legendary OR Mythic as long as LP > 0.
+         if (base->legendaryPotential <= 0) return CraftingResult::NoPotential;
+    }
+
+    // Fodder: 4 affixes
+    if (fodder->affixes.size() != 4) {
+        LOG_WARN("Fusion: Fodder item '{}' must have exactly 4 affixes.", fodder->name);
+        return CraftingResult::Failure;
+    }
+
+    // Slots match
+    if (base->slot != fodder->slot) {
+        LOG_WARN("Fusion: Slot mismatch. Base: {}, Fodder: {}", (int)base->slot, (int)fodder->slot);
+        return CraftingResult::Failure;
+    }
+
+    // Catalyst: Legendary Core
+    // We check name or ID. Name check for now.
+    if (catalyst->name != "Legendary Core" && catalyst->name != "传奇核心") {
+        LOG_WARN("Fusion: Invalid catalyst '{}'. Expected 'Legendary Core'.", catalyst->name);
+         // Allow bypass if testing? No, strict.
+        return CraftingResult::Failure;
+    }
+
+    // Selected index
+    if (selectedAffixIndex < 0 || selectedAffixIndex >= 4) {
+        LOG_ERROR("Fusion: Invalid selected affix index {}", selectedAffixIndex);
+        return CraftingResult::Failure;
+    }
+
+    // 2. Selection Logic
+    std::vector<int> indicesToInherit;
+    indicesToInherit.push_back(selectedAffixIndex);
+
+    int lp = base->legendaryPotential;
+    if (lp > 1) {
+        std::vector<int> available;
+        for (int i = 0; i < 4; ++i) {
+            if (i != selectedAffixIndex) available.push_back(i);
+        }
+        
+        // Randomly pick lp - 1
+        std::shuffle(available.begin(), available.end(), std::default_random_engine(std::random_device{}()));
+        
+        for (int i = 0; i < lp - 1 && i < available.size(); ++i) {
+            indicesToInherit.push_back(available[i]);
+        }
+    }
+
+    // 3. Transformation
+    for (int idx : indicesToInherit) {
+        Affix inherited = fodder->affixes[idx];
+        inherited.isLegendary = true;
+        base->affixes.push_back(inherited);
+        LOG_INFO("Fusion: Inherited affix '{}' [T{}]", inherited.name, inherited.tier);
+    }
+
+    base->rarity = Rarity::Ancient;
+    base->name = "Ancient " + base->name; // Simple prefix
+    base->legendaryPotential = 0; // Consumed
+
+    // 4. Consumption
+    // Destroy fodder
+    registry.destroy(fodderEntity);
+
+    // Consume catalyst
+    if (catalyst->quantity > 1) {
+        catalyst->quantity--;
+    } else {
+        registry.destroy(catalystEntity);
+    }
+
+    LOG_INFO("Fusion: Successfully fused to create '{}'!", base->name);
+    return CraftingResult::Success;
+}
+
 } // namespace NoMoreDay

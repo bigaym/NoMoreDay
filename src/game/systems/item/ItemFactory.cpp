@@ -790,6 +790,23 @@ entt::entity ItemFactory::createBag(entt::registry& registry, int level, Rarity 
     return entity;
 }
 
+entt::entity ItemFactory::createMaterial(entt::registry& registry, const std::string& name, const std::string& description, Rarity rarity, int quantity) {
+    auto entity = registry.create();
+    ItemComponent item;
+    item.type = ItemType::Material;
+    item.rarity = rarity;
+    item.quantity = quantity;
+    item.maxStack = 999; 
+    item.slot = EquipmentSlot::None;
+    item.name = name;
+    item.description = description;
+    item.id = std::uniform_int_distribution<>(9000, 9999)(g_rng);
+
+    registry.emplace<ItemComponent>(entity, item);
+    LOG_DEBUG("Created material '{}' x{} with entity ID: {}", name, quantity, (uint32_t)entity);
+    return entity;
+}
+
 entt::entity ItemFactory::createPotion(entt::registry& registry, int type, int quantity) {
     auto entity = registry.create();
     ItemComponent item;

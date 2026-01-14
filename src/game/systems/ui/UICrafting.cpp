@@ -6,10 +6,14 @@
 #include "game/components/ItemComponent.hpp"
 #include "game/components/ItemStats.hpp"
 #include "core/logging/Logger.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
 #include <algorithm>
 #include <cmath>
 
 namespace NoMoreDay {
+
+// Define static members here since they are inline in HPP but some compilers might complain if not used carefully 
+// actually inline static in C++17 is fine.
 
 void UICrafting::Toggle() {
     m_visible = !m_visible;
@@ -55,6 +59,7 @@ void UICrafting::Draw(entt::registry& registry) {
 
 void UICrafting::DrawCraftingPanel(entt::registry& registry) {
     auto& state = UISystem::State;
+    auto& s_theme = UIRenderer::GetTheme();
     float alpha = m_craftingAlpha;
     
     float screenW = (float)GetScreenWidth();
@@ -68,9 +73,31 @@ void UICrafting::DrawCraftingPanel(entt::registry& registry) {
     DrawRectangleRec({startX, startY, panelW, panelH}, Fade(Color{30, 30, 40, 255}, 0.95f * alpha));
     DrawRectangleLinesEx({startX, startY, panelW, panelH}, 2.0f, Fade(GOLD, alpha));
 
-    // Title
-    UISystem::DrawTextUI("神铸台 (Crafting)", startX + 20, startY + 20, 24, GOLD, alpha);
+    // Title & Tabs
+    float titleY = startY + 20;
     
+    // Tab Buttons
+    float tabW = 120.0f * state.scaleFactor;
+    float tabH = 30.0f * state.scaleFactor;
+    float tabX = startX + 20;
+    
+    auto DrawTab = [&](const char* label, CraftingTab tab) {
+        bool active = (m_currentTab == tab);
+        Rectangle tabRect = {tabX, titleY, tabW, tabH};
+        bool hover = CheckCollisionPointRec(GetMousePosition(), tabRect);
+        
+        Color bg = active ? s_theme.buttonPress : (hover ? s_theme.buttonHover : s_theme.buttonNormal);
+        DrawRectangleRec(tabRect, Fade(bg, alpha));
+        DrawRectangleLinesEx(tabRect, 1.0f, Fade(active ? GOLD : GRAY, alpha));
+        UISystem::DrawTextUI(label, tabRect.x + 10, tabRect.y + 5, 20, active ? GOLD : WHITE, alpha);
+        
+        if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_currentTab = tab;
+        tabX += tabW + 10;
+    };
+    
+    DrawTab("锻造 (Forge)", CraftingTab::Forging);
+    DrawTab("融合 (Merge)", CraftingTab::Merging);
+
     // Close Button
     if (CheckCollisionPointRec(GetMousePosition(), {startX + panelW - 40, startY + 10, 30, 30})) {
         UISystem::DrawTextUI("X", startX + panelW - 35, startY + 15, 20, RED, alpha);
@@ -79,6 +106,13 @@ void UICrafting::DrawCraftingPanel(entt::registry& registry) {
         UISystem::DrawTextUI("X", startX + panelW - 35, startY + 15, 20, WHITE, alpha);
     }
 
+    if (m_currentTab == CraftingTab::Merging) {
+        DrawMergePanel(registry, startX, startY, panelW, panelH, alpha);
+        return;
+    }
+
+    // --- FORGING PANEL (Original Logic) ---
+    
     // Target Item Slot
     float slotSize = 80.0f * state.scaleFactor;
     float slotX = startX + (panelW - slotSize) / 2.0f;
@@ -86,38 +120,166 @@ void UICrafting::DrawCraftingPanel(entt::registry& registry) {
 
     UIRenderer::DrawSlot(state.globalFont, registry, slotX, slotY, slotSize, m_targetItem, "放入装备", false, false, alpha);
     
-    // Handle Item Drop
+    // Handle Item Drop for Forging
     Rectangle slotRect = {slotX, slotY, slotSize, slotSize};
     if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
         if (state.draggedItem != entt::null && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            // Check if item is equipment
             if (registry.any_of<ItemComponent>(state.draggedItem)) {
                 auto& item = registry.get<ItemComponent>(state.draggedItem);
+                // Allow equipment
                 if (item.type == ItemType::Weapon || item.type == ItemType::Armor || item.type == ItemType::Jewelry) {
                     m_targetItem = state.draggedItem;
-                    state.draggedItem = entt::null; // Consume drag
+                    state.draggedItem = entt::null; 
                 }
             }
         }
-        // Tooltip
         if (m_targetItem != entt::null) {
-            state.hoveredItem = entt::null; // Override other hover
+            state.hoveredItem = entt::null; 
             UIRenderer::DrawTooltip(state.globalFont, registry, m_targetItem, alpha);
         }
     }
 
     if (m_targetItem != entt::null) {
         auto& item = registry.get<ItemComponent>(m_targetItem);
-        
-        // Potential Display
         char potBuf[64];
         snprintf(potBuf, 64, "锻造潜力: %d", item.forgingPotential);
         float potW = MeasureTextEx(state.globalFont, potBuf, 20, 1.0f).x;
         UISystem::DrawTextUI(potBuf, startX + (panelW - potW)/2.0f, slotY + slotSize + 10, 20, SKYBLUE, alpha);
-
-        // Draw Affixes List
         DrawAffixList(registry, m_targetItem);
     }
+}
+
+void UICrafting::DrawMergePanel(entt::registry& registry, float startX, float startY, float panelW, float panelH, float alpha) {
+    auto& state = UISystem::State;
+    
+    float slotSize = 64.0f * state.scaleFactor;
+    float spacing = 20.0f * state.scaleFactor;
+    
+    // Layout: Base (Left), Fodder (Right), Result/Arrow (Center?), Catalyst (Bottom Center)
+    // Actually typically: Base + Fodder -> Result.
+    
+    float midX = startX + panelW / 2.0f;
+    float topY = startY + 100.0f * state.scaleFactor;
+    
+    // Base Slot
+    float baseX = midX - slotSize - spacing;
+    UIRenderer::DrawSlot(state.globalFont, registry, baseX, topY, slotSize, m_targetItem, "基底(Unique)", false, false, alpha);
+    
+    // Fodder Slot
+    float fodderX = midX + spacing;
+    UIRenderer::DrawSlot(state.globalFont, registry, fodderX, topY, slotSize, m_fodderItem, "耗材(Exalted)", false, false, alpha);
+    
+    // Catalyst Slot
+    float catX = midX - slotSize/2.0f;
+    float catY = topY + slotSize + spacing * 2;
+    UIRenderer::DrawSlot(state.globalFont, registry, catX, catY, slotSize, m_catalystItem, "核心", false, false, alpha);
+    
+    // Handle Drops
+    auto HandleDrop = [&](entt::entity& target, float x, float y, const char* filterType) {
+        Rectangle r = {x, y, slotSize, slotSize};
+        if (CheckCollisionPointRec(GetMousePosition(), r)) {
+            if (state.draggedItem != entt::null && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+                // Should validate type further here potentially
+                target = state.draggedItem;
+                state.draggedItem = entt::null;
+            }
+            if (target != entt::null) {
+                state.hoveredItem = entt::null;
+                UIRenderer::DrawTooltip(state.globalFont, registry, target, alpha);
+            }
+        }
+    };
+    
+    HandleDrop(m_targetItem, baseX, topY, "Unique");
+    HandleDrop(m_fodderItem, fodderX, topY, "Exalted");
+    HandleDrop(m_catalystItem, catX, catY, "Material");
+    
+    // Affix Selection Interface
+    if (m_fodderItem != entt::null && registry.valid(m_fodderItem)) {
+        auto& fodder = registry.get<ItemComponent>(m_fodderItem);
+        float affixY = catY + slotSize + 20.0f;
+        UISystem::DrawTextUI("选择词缀 (Select Affix to Keep):", startX + 40, affixY, 18, LIGHTGRAY, alpha);
+        
+        affixY += 30.0f;
+        for (int i = 0; i < (int)fodder.affixes.size(); ++i) {
+            float x = startX + 40;
+            float w = panelW - 80;
+            float h = 40;
+            Rectangle rowRect = {x, affixY, w, h};
+            
+            bool selected = (m_selectedAffixIndex == i);
+            bool hover = CheckCollisionPointRec(GetMousePosition(), rowRect);
+            
+            Color bg = selected ? Fade(RED, 0.3f) : Fade(DARKGRAY, 0.5f);
+            if (hover && !selected) bg = Fade(GRAY, 0.4f);
+            
+            DrawRectangleRec(rowRect, Fade(bg, alpha));
+            DrawRectangleLinesEx(rowRect, 1.0f, Fade(selected ? RED : GRAY, alpha));
+            
+            Color textColor = GetAffixTierColor(fodder.affixes[i].tier);
+            char buf[128];
+            snprintf(buf, 128, "%s", GetAffixDescription(fodder.affixes[i], true));
+            UISystem::DrawTextUI(buf, x + 10, affixY + 10, 18, textColor, alpha);
+            
+            if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                m_selectedAffixIndex = i;
+            }
+            
+            affixY += h + 5;
+        }
+    }
+    
+    // Fuse Button
+    float btnW = 160.0f * state.scaleFactor;
+    float btnH = 50.0f * state.scaleFactor;
+    float btnX = midX - btnW / 2.0f;
+    float btnY = startY + panelH - 80.0f;
+    
+    Rectangle btnRect = {btnX, btnY, btnW, btnH};
+    bool canFuse = m_targetItem != entt::null && m_fodderItem != entt::null && 
+                   m_catalystItem != entt::null && m_selectedAffixIndex != -1;
+                   
+    Color btnColor = canFuse ? RED : DARKGRAY;
+    if (canFuse && CheckCollisionPointRec(GetMousePosition(), btnRect)) {
+        btnColor = ORANGE;
+        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            CraftingResult res = CraftingSystem::fuseLegendary(registry, m_targetItem, m_fodderItem, m_catalystItem, m_selectedAffixIndex);
+            if (res == CraftingResult::Success) {
+                // VFX: Burst of Gold and Red particles
+                auto& ps = systems::GPUParticleSystem::Get();
+                Vector2 center = {btnX + btnW / 2.0f, btnY + btnH / 2.0f};
+                
+                for(int i=0; i<40; ++i) {
+                    float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+                    float speed = (float)GetRandomValue(100, 300);
+                    Vector2 vel = { cosf(angle) * speed, sinf(angle) * speed };
+                    
+                    if (i < 20) {
+                        // Gold Sparks
+                        auto p = systems::InkEffectHelper::CreateSpark(center, vel, GOLD, 2.5f);
+                        ps.Emit(p);
+                    } else {
+                        // Red/Ancient Ink
+                        auto p = systems::InkEffectHelper::CreateInkTrail(center, vel, 2.0f, 0.8f);
+                        p.color = {230, 0, 0, 200}; // Ancient Red
+                        ps.Emit(p);
+                    }
+                }
+
+                // Clear consumed slots
+                if (!registry.valid(m_fodderItem)) m_fodderItem = entt::null;
+                if (!registry.valid(m_catalystItem)) m_catalystItem = entt::null;
+                m_selectedAffixIndex = -1;
+            } else {
+                // Show error message?
+            }
+        }
+    }
+    
+    DrawRectangleRec(btnRect, Fade(btnColor, alpha));
+    DrawRectangleLinesEx(btnRect, 2.0f, Fade(WHITE, 0.5f * alpha));
+    UISystem::DrawTextUI("融合 (FUSE)", btnX + 35, btnY + 15, 24, canFuse ? WHITE : GRAY, alpha);
+
 }
 
 void UICrafting::DrawAffixList(entt::registry& registry, entt::entity entity) {

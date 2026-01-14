@@ -192,8 +192,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [x] Track: 技能专精树重构 (Skill Spec Tree Refactoring)
 - **Folder:** [./conductor/archive/skill_spec_tree_refactor_20260113/](./conductor/archive/skill_spec_tree_refactor_20260113/)
 - **Description:** 重构技能专精树系统，引入 Behavior Injection 机制支持复杂的逻辑注入，并使用 bitset 优化了专精节点的激活状态追踪。 (Completed on 2026-01-14)
-- - -  
-  
- # #   [   ]   T r a c k :    OGY��T�|�~  ( L e g e n d a r y   M e r g i n g )  
- * L i n k :   [ . / c o n d u c t o r / t r a c k s / l e g e n d a r y _ m e r g i n g _ 2 0 2 6 0 1 1 4 / ] ( . / c o n d u c t o r / t r a c k s / l e g e n d a r y _ m e r g i n g _ 2 0 2 6 0 1 1 4 / ) *  
- 
+
+---
+
+## [x] Track: Legendary Merging (传奇融合)
+- **Folder:** [./conductor/archive/legendary_merging_20260114/](./conductor/archive/legendary_merging_20260114/)
+- **Description:** 实现传奇融合系统 (Legendary Merging)，允许玩家将暗金装备与崇高装备融合以获得红色属性的传奇装备。 (Completed on 2026-01-14)

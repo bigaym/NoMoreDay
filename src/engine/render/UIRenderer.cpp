@@ -74,6 +74,7 @@ namespace NoMoreDay {
             case Rarity::Epic:      return PURPLE;
             case Rarity::Legendary: return ORANGE;
             case Rarity::Mythic:    return RED;
+            case Rarity::Ancient:   return Color{ 230, 0, 0, 255 }; // Bright Red
             default:                return WHITE;
         }
     }
@@ -383,7 +384,9 @@ namespace NoMoreDay {
         }
 
         for (const auto& aff : itemComp->affixes) {
-            lines.push_back({ GetAffixDescription(aff, true), GetAffixTierColor(aff.tier) });
+            Color color = GetAffixTierColor(aff.tier);
+            if (aff.isLegendary) color = RED; 
+            lines.push_back({ GetAffixDescription(aff, true), color });
         }
 
         if (!itemComp->description.empty()) {

@@ -4,7 +4,7 @@
 
 根据对 `src/` 源代码的深度审计，对比 `@设计文档`，当前项目的真实进度如下：
 
-### ✅ 已稳固的基础设施 (Phase 1-5 & Core)
+### ✅ 已稳固的基础设施 (Phase 1-9 & Core)
 | 模块 | 状态 | 技术要点 |
 |------|------|----------|
 | **C++20 ECS 核心** | ✅ 完成 | EnTT + Taskflow 并发调度，稳定支持 10,000+ 实体 |
@@ -13,11 +13,11 @@
 | **维度拼接系统** | ✅ 完成 | 碎片掉落、3x3 拼接、属性共鸣与地图生成集成 |
 | **基础 AI 行为** | ✅ 完成 | Support, Assassin, Tank, Fodder 等原型逻辑实现 |
 | **存档与传家宝** | ✅ 完成 | 物品持久化、跨存档继承、属性动态压缩 |
+| **传奇融合 (Legendary Merging)** | ✅ 完成 | Unique (LP) + Exalted 词缀继承逻辑，Ancient 稀有度实现 |
 
 ### 🔍 代码审计发现的缺失 (对比设计文档)
 | 缺失项 | 现状 | 影响 |
 |------|------|------|
-| **传奇融合 (Legendary Merging)** | ❌ 仅占位符 | `CraftingSystem::fuseItems` 尚未实现词缀继承逻辑 |
 | **符文语 (Runewords)** | ❌ 尚未实现 | 仅有基础插槽，缺乏 D2 式的序列加成，白装价值低 |
 | **宿敌针对性进化** | 🔄 基础实现 | 目前仅支持单一主伤害类型抗性，缺乏对复杂 Build 的分析 |
 | **高级精英词缀** | 🔄 数量不足 | 仅实现 SoulLink, Avenger；缺失 Molten, Mirror Image, Nullifier 等 |
@@ -32,7 +32,7 @@
 ### 📍 Phase 9: 终局装备深度 (Endgame Gear & Crafting)
 **优先级：最高**。解决中后期刷宝动力不足的问题。
 
-- [ ] **实现传奇融合系统 (Legendary Merging)**
+- [x] **实现传奇融合系统 (Legendary Merging)**
     - 修改 `CraftingSystem::fuseItems`，实现 Unique (LP) + Exalted 的词缀抽取算法。
     - 实现融合 UI 与 视觉效果。
 - [ ] **实现符文语系统 (Runewords)**

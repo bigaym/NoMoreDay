@@ -224,6 +224,41 @@ void GameplayState::InitializeEntities() {
   registry.emplace<PersistentTag>(bluePot);  // Persist across scene transitions
   inv.items.push_back(bluePot);
 
+  // --- Legendary Merging Test Items ---
+  // 1. Catalyst
+  auto core = ItemFactory::createMaterial(registry, "Legendary Core", "Catalyst for Legendary Fusion", Rarity::Legendary, 5);
+  registry.emplace_or_replace<IDComponent>(core, Utils::UUID::generate());
+  registry.emplace<PersistentTag>(core);
+  inv.items.push_back(core);
+
+  // 2. Base Item (Unique/Mythic with LP)
+  auto baseFunc = ItemFactory::createWeapon(registry, 10, Rarity::Mythic); 
+  auto& baseItem = registry.get<ItemComponent>(baseFunc);
+  baseItem.legendaryPotential = 2; // LP 2
+  baseItem.name = "Blade of Testing (LP2)";
+  registry.emplace_or_replace<IDComponent>(baseFunc, Utils::UUID::generate());
+  registry.emplace<PersistentTag>(baseFunc);
+  inv.items.push_back(baseFunc);
+
+  // 3. Fodder Item (Exalted with 4 T6/T7)
+  auto fodderFunc = ItemFactory::createWeapon(registry, 10, Rarity::Uncommon); // Exalted typically Uncommon base? Or Rare?
+  auto& fodderItem = registry.get<ItemComponent>(fodderFunc);
+  fodderItem.name = "Exalted Fodder";
+  fodderItem.affixes.clear(); // Clear default
+  // Add 4 high tier affixes
+  for(int i=0; i<4; ++i) {
+      Affix aff;
+      aff.type = (AffixType)(i % 5); // Str, Dex, Int, Vit, FlatPhys
+      aff.tier = (i < 2) ? 7 : 6; // Two T7, Two T6
+      aff.value = 50.0f;
+      aff.name = "Exalted Stat " + std::to_string(i);
+      fodderItem.affixes.push_back(aff);
+  }
+  registry.emplace_or_replace<IDComponent>(fodderFunc, Utils::UUID::generate());
+  registry.emplace<PersistentTag>(fodderFunc);
+  inv.items.push_back(fodderFunc);
+
+
   // Texture
   Texture2D playerTexture =
       resourceManager.getTexture(playerAsset.id); // Should be loaded

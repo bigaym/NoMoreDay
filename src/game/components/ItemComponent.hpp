@@ -55,7 +55,8 @@ enum class Rarity {
     Set,
     Epic,
     Legendary,
-    Mythic
+    Mythic,
+    Ancient
 };
 
 // 为枚举提供简单的序列化支持 (转为底层整数)

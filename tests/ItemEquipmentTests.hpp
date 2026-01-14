@@ -434,4 +434,115 @@ TEST_CASE("Affix System Integration Test") {
     }
 }
 
+
+TEST_CASE("Legendary Merging System", "[Item][Crafting]") {
+    entt::registry registry;
+    ItemFactory::initialize();
+
+    SUBCASE("Validation Failures") {
+        auto base = registry.create();
+        auto fodder = registry.create();
+        auto catalyst = registry.create();
+
+        // Empty components
+        CHECK(CraftingSystem::fuseLegendary(registry, base, fodder, catalyst, 0) == CraftingResult::Failure);
+    }
+
+    SUBCASE("Successful Fusion - 1LP") {
+        // Base: Unique Sword (1LP)
+        auto baseEntity = registry.create();
+        ItemComponent baseItem;
+        baseItem.name = "Unique Sword";
+        baseItem.rarity = Rarity::Mythic;
+        baseItem.legendaryPotential = 1;
+        baseItem.slot = EquipmentSlot::MainHand;
+        registry.emplace<ItemComponent>(baseEntity, baseItem);
+
+        // Fodder: Exalted Sword (4 Affixes)
+        auto fodderEntity = registry.create();
+        ItemComponent fodderItem;
+        fodderItem.name = "Exalted Sword";
+        fodderItem.rarity = Rarity::Uncommon; 
+        fodderItem.slot = EquipmentSlot::MainHand;
+        for(int i=0; i<4; ++i) {
+            Affix aff;
+            aff.type = (AffixType)i;
+            aff.tier = 6;
+            aff.name = "T6 Affix " + std::to_string(i);
+            fodderItem.affixes.push_back(aff);
+        }
+        registry.emplace<ItemComponent>(fodderEntity, fodderItem);
+
+        // Catalyst: Legendary Core
+        auto catalystEntity = registry.create();
+        ItemComponent catalystItem;
+        catalystItem.name = "Legendary Core";
+        catalystItem.quantity = 1;
+        registry.emplace<ItemComponent>(catalystEntity, catalystItem);
+
+        // Fuse select 2nd affix (index 1)
+        auto result = CraftingSystem::fuseLegendary(registry, baseEntity, fodderEntity, catalystEntity, 1);
+        CHECK(result == CraftingResult::Success);
+
+        auto& fusedBase = registry.get<ItemComponent>(baseEntity);
+        CHECK(fusedBase.rarity == Rarity::Ancient);
+        CHECK(fusedBase.legendaryPotential == 0);
+        REQUIRE(fusedBase.affixes.size() == 1);
+        CHECK(fusedBase.affixes[0].type == (AffixType)1);
+        CHECK(fusedBase.affixes[0].isLegendary == true);
+
+        CHECK_FALSE(registry.valid(fodderEntity)); // Consumed
+        CHECK_FALSE(registry.valid(catalystEntity)); // Consumed (qty 1->0)
+    }
+
+    SUBCASE("Successful Fusion - 2LP") {
+        // Base: Unique Sword (2LP)
+        auto baseEntity = registry.create();
+        ItemComponent baseItem;
+        baseItem.name = "Unique Sword";
+        baseItem.rarity = Rarity::Mythic;
+        baseItem.legendaryPotential = 2;
+        baseItem.slot = EquipmentSlot::MainHand;
+        registry.emplace<ItemComponent>(baseEntity, baseItem);
+
+        // Fodder
+        auto fodderEntity = registry.create();
+        ItemComponent fodderItem;
+        fodderItem.name = "Exalted Sword";
+        fodderItem.rarity = Rarity::Rare;
+        fodderItem.slot = EquipmentSlot::MainHand;
+        for(int i=0; i<4; ++i) {
+            Affix aff;
+            aff.type = (AffixType)i;
+            fodderItem.affixes.push_back(aff);
+        }
+        registry.emplace<ItemComponent>(fodderEntity, fodderItem);
+
+        // Catalyst
+        auto catalystEntity = registry.create();
+        ItemComponent catalystItem;
+        catalystItem.name = "Legendary Core";
+        catalystItem.quantity = 5;
+        registry.emplace<ItemComponent>(catalystEntity, catalystItem);
+
+        // Fuse select index 0
+        auto result = CraftingSystem::fuseLegendary(registry, baseEntity, fodderEntity, catalystEntity, 0);
+        CHECK(result == CraftingResult::Success);
+
+        auto& fusedBase = registry.get<ItemComponent>(baseEntity);
+        REQUIRE(fusedBase.affixes.size() == 2);
+        
+        // One must be index 0
+        bool foundSelected = false;
+        for(const auto& aff : fusedBase.affixes) {
+            if (aff.type == (AffixType)0) foundSelected = true;
+            CHECK(aff.isLegendary);
+        }
+        CHECK(foundSelected);
+
+        CHECK(registry.valid(catalystEntity)); 
+        CHECK(registry.get<ItemComponent>(catalystEntity).quantity == 4);
+    }
+}
+
 } // namespace NoMoreDay
