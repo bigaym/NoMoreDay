@@ -26,6 +26,7 @@ using namespace NoMoreDay;
 #include "NemesisSystemTests.hpp"
 #include "StatsBenchmark.cpp"
 #include "TestBladeFormation.cpp"
+#include "TestBladeWard.cpp"
 #include "TestDefenseMechanics.cpp"
 #include "TestEternalNightmare.cpp"
 #include "TestHeirloomSystem.cpp"
@@ -34,7 +35,6 @@ using namespace NoMoreDay;
 #include "TestShadowSystem.cpp"
 #include "TestSkillBehaviors.cpp"
 #include "TestSwordIntentAccumulation.cpp"
-
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>

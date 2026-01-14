@@ -5,6 +5,7 @@
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
+#include "game/components/Combat.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/PlayerState.hpp"
@@ -14,7 +15,6 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include <cmath>
-
 
 // Bring CombatEvent types into scope
 using NoMoreDay::CombatEvent;
@@ -290,8 +290,7 @@ void CombatSystem::update(entt::registry &registry,
                   // 应用暴击率上限
                   using namespace NoMoreDay::Constants::Combat;
                   float effectiveCrit =
-                      std::min(stats->crit_chance,
-                               Cap::CRIT_CHANCE);
+                      std::min(stats->crit_chance, Cap::CRIT_CHANCE);
                   if (roll < effectiveCrit) {
                     isCrit = true;
                     using namespace NoMoreDay::Constants::Combat;
@@ -484,18 +483,14 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
 
     if (effective_armor >= 0) {
       using namespace NoMoreDay::Constants::Combat::Pipeline;
-      mitigation =
-          1.0f - (ARMOR_BASE /
-                  (ARMOR_BASE + effective_armor));
+      mitigation = 1.0f - (ARMOR_BASE / (ARMOR_BASE + effective_armor));
     } else {
       // Negative armor amplification: multiplier = 2 - 100/(100 - eff)
       // We want 'mitigation' to be negative so that damage * (1 - mit)
       // increases. (1 - mitigation) = 2 - 100/(100-eff) -> mit = 1 - (2 -
       // 100/(100-eff)) = 100/(100-eff) - 1
       using namespace NoMoreDay::Constants::Combat::Pipeline;
-      mitigation = (ARMOR_BASE /
-                    (ARMOR_BASE - effective_armor)) -
-                   1.0f;
+      mitigation = (ARMOR_BASE / (ARMOR_BASE - effective_armor)) - 1.0f;
     }
   } else { // 元素抗性
     using namespace NoMoreDay::Constants::Combat;
@@ -553,6 +548,21 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
         // Shadow Riposte (Cast Flowing Thrust ID 1 as riposte)
         NoMoreDay::SkillSystem::ShadowCast(registry, target, 1, ripostePos,
                                            {aPos.x, aPos.y});
+
+        // Apply Stealth (Invisibility / Aggro Drop)
+        auto &effects =
+            registry.get_or_emplace<NoMoreDay::ActiveEffectsComponent>(target);
+        NoMoreDay::BuffEffect stealth;
+        stealth.id = "stealth";
+        stealth.name = "Stealth";
+        stealth.description = "Invisible to enemies";
+        stealth.type = NoMoreDay::BuffType::None;
+        stealth.duration = 2.0f;
+        stealth.remaining = 2.0f;
+        // Optionally add a visual modifier or tag
+        effects.AddOrRefresh(stealth);
+
+        LOG_INFO("Phantom Flash: Entity {} entered Stealth", (uint32_t)target);
       }
 
       return false; // Damage blocked

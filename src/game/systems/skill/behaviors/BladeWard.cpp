@@ -76,6 +76,16 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
       ward.interception_chance += 0.25f; // +25% chance
     }
 
+    // Talent 470: Counter Shot
+    if (exec.active_nodes.test(470 % 100)) {
+      ward.trigger_counter = true;
+    }
+
+    // Talent 473: Blade Storm (Counter Spin)
+    if (exec.active_nodes.test(473 % 100)) {
+      ward.counter_spin = true;
+    }
+
     // Talent 4xx: Solidified (Hypothetical ID 412 "Immovable")
     if (exec.active_nodes.test(412 %
                                100)) { // Talent 412: Solidified (Immovable)

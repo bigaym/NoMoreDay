@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 namespace NoMoreDay {
 
 /**
@@ -453,7 +452,9 @@ struct BladeWardComponent {
   float remaining = 10.0f;
   int sword_count = 3;
   float interception_chance = 0.15f;
-  bool is_solidified = false; // "Solidified" talent: swords are not consumed
+  bool is_solidified = false;   // "Solidified" talent: swords are not consumed
+  bool trigger_counter = false; // Talent 470
+  bool counter_spin = false;    // Talent 473
 };
 
 struct PhantomFlashComponent {
@@ -557,6 +558,8 @@ struct ChannelingComponent {
   bool extra_projectiles = false; // Talent 520
   bool consume_intent =
       false; // If true, will try to consume intent for effects
+  bool burst_finisher = false;   // Talent 513: Trigger finisher on channel end
+  bool full_screen_lock = false; // Talent 530: Target all enemies
 };
 
 } // namespace NoMoreDay

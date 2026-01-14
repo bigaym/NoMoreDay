@@ -11,14 +11,14 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raylib.h"
-#include "raymath.h" // Added for Vector2 operations
-
 
 namespace NoMoreDay {
 
 void ProjectileSystem::Update(entt::registry &registry,
                               systems::SpatialHashGrid &grid, float dt) {
+  LOG_WARN("ProjectileSystem::Update called.");
   auto view = registry.view<Position, Velocity, Projectile>();
+  LOG_WARN("Projectile View Size Hint: {}", view.size_hint());
 
   // 用于延迟创建伤害飘字的数据结构，避免在 grid.query 回调中直接修改注册表
   struct PopupInfo {
@@ -61,9 +61,11 @@ void ProjectileSystem::Update(entt::registry &registry,
           }
 
           using namespace NoMoreDay::Constants::Skill;
-          float speed = (bc->returnSpeed > 0.1f)
-                            ? bc->returnSpeed
-                            : (proj.speed > 0.1f ? proj.speed : PROJECTILE_DEFAULT_RETURN_SPEED);
+          float speed =
+              (bc->returnSpeed > 0.1f)
+                  ? bc->returnSpeed
+                  : (proj.speed > 0.1f ? proj.speed
+                                       : PROJECTILE_DEFAULT_RETURN_SPEED);
           Vector2 dir = Vector2Scale(Vector2Normalize(toTarget), speed);
           vel.vx = dir.x;
           vel.vy = dir.y;
@@ -72,50 +74,53 @@ void ProjectileSystem::Update(entt::registry &registry,
           // Original logic: Continue flying outward
           bc->phase = BoomerangComponent::Outward;
         }
+      }
     }
 
     // --- NEW: Seeker Logic ---
-    if (auto* seeker = registry.try_get<SeekerComponent>(entity)) {
-        entt::entity target = seeker->target;
-        
-        // If target is invalid/dead, try to find a new one if we want auto-retargeting,
-        // or just fly straight. For now, strict targeting.
-        if (registry.valid(target) && registry.all_of<Position>(target)) {
-             const auto& tPos = registry.get<Position>(target);
-             Vector2 desired = Vector2Subtract({tPos.x, tPos.y}, {pos.x, pos.y});
-             float dist = Vector2Length(desired);
-             
-             if (dist > 0.001f && dist <= seeker->range) {
-                 desired = Vector2Scale(Vector2Normalize(desired), proj.speed);
-                 Vector2 current = {vel.vx, vel.vy};
-                 
-                 // Rotate current towards desired by turn_rate * dt
-                 // Simple approach: Lerp or Rotate
-                 // Using Rotate for constant anglular velocity
-                 float currentAngle = atan2f(current.y, current.x);
-                 float desiredAngle = atan2f(desired.y, desired.x);
-                 
-                 // Shortest arc
-                 float diff = desiredAngle - currentAngle;
-                 while (diff <= -PI) diff += 2*PI;
-                 while (diff > PI) diff -= 2*PI;
-                 
-                 float turn = seeker->turn_rate * dt;
-                 if (abs(diff) < turn) {
-                     vel.vx = desired.x;
-                     vel.vy = desired.y;
-                 } else {
-                     float newAngle = currentAngle + copysignf(turn, diff);
-                     vel.vx = cosf(newAngle) * proj.speed;
-                     vel.vy = sinf(newAngle) * proj.speed;
-                 }
-                 
-                 if (seeker->stop_on_arrival && dist < seeker->arrival_threshold) {
-                     vel.vx = 0;
-                     vel.vy = 0;
-                 }
-             }
+    if (auto *seeker = registry.try_get<SeekerComponent>(entity)) {
+      entt::entity target = seeker->target;
+
+      // If target is invalid/dead, try to find a new one if we want
+      // auto-retargeting, or just fly straight. For now, strict targeting.
+      if (registry.valid(target) && registry.all_of<Position>(target)) {
+        const auto &tPos = registry.get<Position>(target);
+        Vector2 desired = Vector2Subtract({tPos.x, tPos.y}, {pos.x, pos.y});
+        float dist = Vector2Length(desired);
+
+        if (dist > 0.001f && dist <= seeker->range) {
+          desired = Vector2Scale(Vector2Normalize(desired), proj.speed);
+          Vector2 current = {vel.vx, vel.vy};
+
+          // Rotate current towards desired by turn_rate * dt
+          // Simple approach: Lerp or Rotate
+          // Using Rotate for constant anglular velocity
+          float currentAngle = atan2f(current.y, current.x);
+          float desiredAngle = atan2f(desired.y, desired.x);
+
+          // Shortest arc
+          float diff = desiredAngle - currentAngle;
+          while (diff <= -PI)
+            diff += 2 * PI;
+          while (diff > PI)
+            diff -= 2 * PI;
+
+          float turn = seeker->turn_rate * dt;
+          if (abs(diff) < turn) {
+            vel.vx = desired.x;
+            vel.vy = desired.y;
+          } else {
+            float newAngle = currentAngle + copysignf(turn, diff);
+            vel.vx = cosf(newAngle) * proj.speed;
+            vel.vy = sinf(newAngle) * proj.speed;
+          }
+
+          if (seeker->stop_on_arrival && dist < seeker->arrival_threshold) {
+            vel.vx = 0;
+            vel.vy = 0;
+          }
         }
+      }
     }
 
     // --- NEW: Pull Logic ---
@@ -165,14 +170,16 @@ void ProjectileSystem::Update(entt::registry &registry,
         skill_id == 9) {
       auto &particleSys = systems::GPUParticleSystem::Get();
       using namespace NoMoreDay::Constants::Skill;
-      Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, PROJECTILE_TRAIL_VEL_SCALE);
+      Vector2 trailVel =
+          Vector2Scale({vel.vx, vel.vy}, PROJECTILE_TRAIL_VEL_SCALE);
 
       // ID 8 (Boomerang) gets a specialized rotating trail
       if (skill_id == 8) {
         // Two trails orbiting the center
         using namespace NoMoreDay::Constants::Skill;
         float time = (float)GetTime() * 10.0f;
-        Vector2 offset1 = {cosf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS, sinf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS};
+        Vector2 offset1 = {cosf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS,
+                           sinf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS};
         Vector2 offset2 = Vector2Scale(offset1, -1.0f);
 
         particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(
@@ -207,9 +214,15 @@ void ProjectileSystem::Update(entt::registry &registry,
     // overlaps
     std::vector<entt::entity> uniqueQueryHits;
 
+    // Grid Query for collisions
+    // LOG_DEBUG("ProcProj: {} at ({}, {}), searching rad {}", (uint32_t)entity,
+    // pos.x, pos.y, searchRadius);
+    LOG_WARN("Processing Projectile entity {} at ({}, {})", (uint32_t)entity,
+             pos.x, pos.y);
     grid.query(
-        {pos.x, pos.y}, check_radius,
-        [&](entt::entity target, const Position &tPos) {
+        pos, check_radius, [&](entt::entity target, const Position &tPos) {
+          LOG_WARN("  Grid found target: {}", (uint32_t)target);
+          // LOG_DEBUG("  Checking target: {}", (uint32_t)target);
           if (hit && !proj.pierce)
             return;
           // Early exit if out of piercing power (optimized for loop)
@@ -244,7 +257,11 @@ void ProjectileSystem::Update(entt::registry &registry,
             if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
               // Base chance 15% per sword (3 swords default = 45%)
               float chance = ward->sword_count * ward->interception_chance;
-              if ((float)GetRandomValue(0, 1000) / 1000.0f < chance) {
+              // LOG_DEBUG("    Target {} has BladeWard. Chance={}. Roll={}",
+              // (uint32_t)target, chance, (float)GetRandomValue(0, 1000) /
+              // 1000.0f);
+              float rnd = (float)GetRandomValue(0, 1000) / 1000.0f;
+              if (rnd < chance) {
                 LOG_INFO("Projectile intercepted by Blade Ward on entity {}",
                          (uint32_t)target);
 
@@ -264,9 +281,67 @@ void ProjectileSystem::Update(entt::registry &registry,
                   ward->sword_count--;
                 }
 
+                // Talent 470: Counter Shot / Talent 473: Blade Storm
+                if (ward->trigger_counter) {
+                  if (ward->counter_spin) {
+                    // Talent 473: Trigger Spin (Sword Array - localized)
+                    // Trigger Skill ID 6 (Sword Array) at self position
+                    auto counter_ent = registry.create();
+                    registry.emplace<LocalLevelTag>(counter_ent);
+                    auto &exec = registry.emplace<SkillExecution>(counter_ent);
+                    exec.skill_id = 6; // Sword Array
+                    exec.owner = target;
+                    exec.state = SkillState::Preparing;
+                    exec.timer = 0.0f;
+                    exec.target_pos = {tPos.x, tPos.y};
+                    exec.is_empowered = false; // Could inherit?
+
+                    // Modifiers for counter
+                    if (registry.all_of<CombatStats>(target)) {
+                      exec.has_snapshot = true;
+                      exec.snapshot.stats = registry.get<CombatStats>(target);
+                      exec.snapshot.skill_id = 6;
+                      // Talent 471: Counter Damage More +20%..100%
+                      // We don't have easy access to active_nodes here without
+                      // checking owner again. For now, baseline counter.
+                    }
+                    LOG_INFO("Blade Ward (473): Triggered Counter Spin");
+
+                  } else {
+                    // Talent 470: Counter Shot
+                    // Fire Rending Wave (ID 2) at projectile owner
+                    if (registry.valid(proj.owner) &&
+                        registry.all_of<Position>(proj.owner)) {
+                      const auto &ownerPos = registry.get<Position>(proj.owner);
+
+                      auto counter_ent = registry.create();
+                      registry.emplace<LocalLevelTag>(counter_ent);
+                      auto &exec =
+                          registry.emplace<SkillExecution>(counter_ent);
+                      exec.skill_id = 2; // Rending Wave
+                      exec.owner = target;
+                      exec.state = SkillState::Preparing;
+                      exec.timer = 0.0f;
+                      exec.target_pos = {ownerPos.x, ownerPos.y};
+
+                      if (registry.all_of<CombatStats>(target)) {
+                        exec.has_snapshot = true;
+                        exec.snapshot.stats = registry.get<CombatStats>(target);
+                        exec.snapshot.skill_id = 2;
+                      }
+                      LOG_INFO("Blade Ward (470): Triggered Counter Shot");
+                    }
+                  }
+                }
+
                 hit = true;
                 return; // Stop processing this target
+              } else {
+                LOG_WARN("  Interception FAIL. Target {}. Chance {}, Rnd {}",
+                         (uint32_t)target, chance, rnd);
               }
+            } else {
+              LOG_WARN("  Target {} has no BladeWard", (uint32_t)target);
             }
 
             // Hit confirmed
@@ -295,7 +370,8 @@ void ProjectileSystem::Update(entt::registry &registry,
             float finalDamage = result.total_damage;
             if (finalDamage <= 0.0f) {
               using namespace NoMoreDay::Constants::Skill;
-              finalDamage = PROJECTILE_MIN_DAMAGE; // Minimum damage for prototype feedback
+              finalDamage = PROJECTILE_MIN_DAMAGE; // Minimum damage for
+                                                   // prototype feedback
             }
 
             // Apply Damage
@@ -336,6 +412,8 @@ void ProjectileSystem::Update(entt::registry &registry,
         });
 
     if (hit) {
+      // LOG_DEBUG("Projectile {} hit something, destroying.",
+      // (uint32_t)entity);
       to_destroy.push_back(entity);
     }
   }

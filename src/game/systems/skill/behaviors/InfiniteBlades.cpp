@@ -48,19 +48,15 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
       // Implementation TODO or check if logic exists
     }
 
-    // Talent: Full Screen Lock (530/533)
+    // Talent: Full Screen Lock (530)
     if (exec.active_nodes.test(530)) {
-      // Mark component to prioritize mouse but search wider
-      // We might need a flag in ChannelingComponent or a separate Tag
-      // For now, let's assume the system reads `is_empowered` or we add a
-      // dynamic property For Phase 5, active_nodes usually handled in System,
-      // but here we set up the start state.
+      chan.full_screen_lock = true;
     }
 
     // Talent: Burst Finisher (513)
-    // "End of channel triggers giant sword". This needs to be checked in the
-    // System when channel ends. We can store a flag in ChannelingComponent.
-    // Current ChannelingComponent definition might need `has_burst_finisher`
+    if (exec.active_nodes.test(513)) {
+      chan.burst_finisher = true;
+    }
 
     // Talent: Sword Intent Resonance (500)
     // "Longer channel = higher freq". Handled in System update logic.
