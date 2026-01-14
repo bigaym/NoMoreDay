@@ -13,6 +13,7 @@
 #include "SkillBehaviorRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Projectile.hpp"
+#include "game/components/Buff.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 
@@ -44,6 +45,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
         int extraProjectiles = 0;
         float moreDamageFromSpeed = 1.0f;
 
+        bool hasZhiKong = false;
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
             for (const auto& spec : active->specialized_slots) {
                 if (spec.skill_id == kSkillId) {
@@ -74,6 +76,11 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
                         pullStrength *= 2.0f; // Black hole effect
                         radius *= 1.5f;
                     }
+
+                    // Talent: Zhi Kong Qie Ge (滞空切割) - ID 850
+                    if (spec.allocated_points.contains(850)) {
+                        hasZhiKong = true;
+                    }
                     break;
                 }
             }
@@ -86,14 +93,10 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
             particleSys.Emit(p);
         }
 
-        // Fix UAF: Copy component data to local variables before creating new entities
-        Position ownerPos = *pos;
-        CombatStats ownerStats = *stats;
-
         auto spawnProj = [&](Vector2 p_dir, float p_scale) {
             auto proj_ent = registry.create();
             registry.emplace<LocalLevelTag>(proj_ent);
-            registry.emplace<Position>(proj_ent, ownerPos.x, ownerPos.y);
+            registry.emplace<Position>(proj_ent, pos->x, pos->y);
             registry.emplace<Velocity>(proj_ent, p_dir.x * speed, p_dir.y * speed);
             registry.emplace<ColorComponent>(proj_ent, ORANGE);
             
@@ -105,7 +108,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
             proj.radius = radius * p_scale;
             proj.pierce = true;
             proj.pierceCount = 99;
-            proj.snapshot = ownerStats;
+            proj.snapshot = *stats;
             proj.hasPull = hasPull;
             proj.pullStrength = pullStrength * p_scale;
 
@@ -129,13 +132,9 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
             bc.phase = BoomerangComponent::Outward;
             bc.returnSpeed = speed * 1.5f;
 
-            // Talent: Zhi Kong Qie Ge (滞空切割) - ID 850
-            if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
-                for (const auto& spec : active->specialized_slots) {
-                    if (spec.skill_id == kSkillId && spec.allocated_points.contains(850)) {
-                        // Logic handled in BoomerangSystem
-                    }
-                }
+            if (hasZhiKong) {
+                // Talent 850 Logic handled in BoomerangSystem, 
+                // but we could set a flag here if needed.
             }
         };
 
@@ -153,7 +152,21 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
                 if (spec.skill_id == kSkillId) {
                     // Talent: Fang Xue (放血) - ID 851
                     if (spec.allocated_points.contains(851) && spec.allocated_points.at(851) > 0) {
-                        // Apply Bleed/Slow here
+                        auto& effects = registry.get_or_emplace<ActiveEffectsComponent>(target);
+                        BuffEffect bleed;
+                        bleed.id = "blade_boomerang_bleed";
+                        bleed.name = "Bleed";
+                        bleed.type = BuffType::Bleed;
+                        bleed.duration = 3.0f;
+                        bleed.remaining = 3.0f;
+                        bleed.is_debuff = true;
+                        bleed.source = attacker;
+                        
+                        // Slow effect (SpeedDown)
+                        float slowAmount = 10.0f * spec.allocated_points.at(851);
+                        bleed.modifiers.push_back({StatType::MoveSpeed, ModifierMode::PercentAdd, -slowAmount});
+                        
+                        effects.AddOrRefresh(bleed);
                     }
                     break;
                 }

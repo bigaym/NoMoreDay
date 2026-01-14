@@ -37,6 +37,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         const auto* skillData = SkillRegistry::Get().GetSkill(exec.skill_id);
         Tag skillTags = skillData ? skillData->tags : Tag::None;
         float baseSpeed = skillData ? skillData->GetParam("speed", 300.0f) : 300.0f;
+        if (baseSpeed < 1.0f) baseSpeed = 1.0f; // Prevent division by zero
         float baseRadius = skillData ? skillData->GetParam("radius", 35.0f) : 35.0f;
         float baseLifetime = skillData ? skillData->GetParam("lifetime", 1.2f) : 1.2f;
 
