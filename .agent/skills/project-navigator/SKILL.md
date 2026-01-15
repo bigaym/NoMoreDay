@@ -1,39 +1,38 @@
 ---
 name: project-navigator
-description: Guides the agent to clarify requirements and align with the NoMoreDay technical stack before implementation. Use this skill when the user provides high-level or ambiguous C++ development tasks, or when starting a new feature that involves EnTT ECS components, Taskflow, or C++20 standards. It prevents the agent from making assumptions and ensures all code follows the RAII and memory safety rules defined in conductor/code_standard.md.
+description: Guides the agent through the implementation planning phase. Use this skill before writing code to ensure alignment with technical standards and requirements.
 ---
 
 # Project Navigator
 
-This skill acts as a mandatory guardrail for all development tasks. It ensures the Agent is fully synchronized with the project's technical DNA before modification.
+## Goal
+To prevent technical debt and build failures by enforcing architectural standards and clarifying requirements *before* a single line of code is written.
 
-## When to use this skill
+## Instructions
+1.  **Smart Exploration & Check**:
+    -   **Context**: Use `overview {mode:'quick', depth:2}` to visualize the immediate working environment.
+    -   **Reference Search**: Use `search {keyword:'<Component/System Name>'}` to find how similar components are defined and used.
+    -   **File Location**: Use `find {type:'code', pattern:'*<feature>*'}` to locate relevant source files quickly.
+    -   **Pre-Flight**: Run the environment verification script:
+        `python .agent/skills/project-navigator/scripts/preflight_check.py`
 
-- Use this at the start of any development task (feature implementation, bug fix, or refactor).
-- Use this when user requirements are high-level, ambiguous, or lack technical specs.
-- Use this to ensure every code change adheres to the EnTT memory safety and C++20 standards.
+2.  **Requirement Guard**:
+    -   Do not proceed if the task is vague (e.g., "Fix the bug").
+    -   Ask the user to clarify:
+        -   **Components**: Which POD structs are involved?
+        -   **Systems**: Which `update()` loops need changes?
+        -   **Safety**: Are there pointer invalidation risks?
 
-## How to use it
+3.  **Implementation Planning**:
+    -   Propose a brief plan.
+    -   Identify necessary `Common.hpp` constants (magic numbers are forbidden).
 
-### 1. Context Initialization
-Before generating any code, you must:
-- Execute `st context {operation: 'gather_project'}` to absorb the latest architectural state.
-- Query `st memory {operation: 'find', keywords: ['standard', 'component', 'pod']}` to recall specific constraints.
+4.  **Standard Enforcement**:
+    -   **EnTT**: No keeping references to components across registry operations.
+    -   **C++20**: Use Concepts and Ranges.
+    -   **Taskflow**: Design for parallelism.
 
-### 2. Requirement Clarification (The Guard)
-NEVER execute a task based on fuzzy descriptions. You must pause and ask the user to clarify:
-- **Data Structures**: Which POD components are being modified or created?
-- **Logic Flow**: What are the specific state transitions and Taskflow dependencies?
-- **Safety Boundaries**: Are there concurrency risks or pointer invalidation scenarios?
-- **Plan Approval**: Provide a short implementation plan and wait for an "ACK" or "Proceed" from the user.
-
-### 3. Engineering Standards
-- **EnTT Safety**: NEVER hold pointers/references to components across registry mutations. Copy PODs to the stack if needed.
-- **C++20**: Constrain all templates with `requires` clauses. Use `std::ranges` and `std::span` for data handling.
-- **POD Components**: Ensure all ECS components are Plain Old Data (no complex logic/destructors).
-- **Hardcoded Values**: Move all magic numbers to `src/game/components/Common.hpp`.
-
-### 4. Build & Test Verification
-- **Build Standard**: Use `build.bat` for all compilations. Do not use raw `cmake`.
-- **Test-Driven**: Every implementation must have a corresponding test in `tests/`.
-- **Assertions**: Use `REQUIRE()` for safety-critical checks and `CHECK()` for value verification.
+## Constraints
+-   Must execute `preflight_check.py` first.
+-   No raw pointers without ownership semantics.
+-   No `new`/`delete`.

@@ -1,37 +1,35 @@
 ---
 name: project-auditor
-description: Audits completed code changes for technical compliance and synchronizes project documentation. Use this skill when a development task is finished and you need to perform a final review, update conductor/tracks files, and prepare a git commit using the Conventional Commits format. It ensures that no Use-After-Free (UAF) issues exist and that build.bat has been used for final verification.
+description: Performs the final code review and technical audit. Use this skill after implementation is complete to verify safety, style, and documentation before committing.
 ---
 
 # Project Auditor
 
-This skill provides a final quality gate to ensure that delivered code is stable, correctly named, and fully tracked in the project's documentation.
+## Goal
+To act as the final quality gate, ensuring strictly memory-safe, performant, and well-documented C++ code.
 
-## When to use this skill
+## Instructions
+1.  **Smart Review & Scan**:
+    -   **Change Detection**: Use `analyze {mode:'git_status'}` to identify all modified, staged, and untracked files.
+    -   **Safety Scan**: Run the automated safety scanner on the source code:
+        `python .agent/skills/project-auditor/scripts/safety_scan.py src`
+    -   If any violations (raw `new`, `printf`, etc.) are found, reject the code immediately.
 
-- Use this after implementation is complete and all tests pass.
-- Use this strictly for the review and commit phase (not during active coding).
-- Use this to update the `conductor/` tracking files after a task.
+2.  **Manual Code Audit**:
+    -   Review `git diff` for logical errors not caught by the scanner:
+        -   **UAF**: Use-After-Free in EnTT views?
+        -   **Concurrency**: Race conditions in Taskflow tasks?
+        -   **Naming**: `PascalCase` types, `kPascalCase` constants?
 
-## How to use it
+3.  **Build Verification**:
+    -   Run `build.bat` and ensure 0 warnings.
+    -   Run relevant tests in `build/bin/tests/`.
 
-### 1. Technical Audit Checklist
-Review the `git diff` line-by-line and verify:
-- **Memory Safety**: No raw `new`/`delete` and no Use-After-Free (UAF) in EnTT logic.
-- **Naming**: `PascalCase` for Types/Functions and `kPascalCase` for constants.
-- **Safety**: All critical pointer dereferences must be guarded by `REQUIRE()` or null checks.
-- **Hygiene**: Use forward declarations instead of unnecessary `#include` in headers.
+4.  **Documentation & Commit**:
+    -   Update `conductor/tracks/` files.
+    -   Generate a Conventional Commit message (`feat:`, `fix:`, `refactor:`).
 
-### 2. Documentation Synchronization
-Ensure the project's state is updated:
-- Update the completion status in the relevant `conductor/tracks/<track_id>/plan.md`.
-- Record new technical decisions or patterns in `conductor/tech-stack.md`.
-- Ensure new files are registered in the `conductor/index.md` if necessary.
-
-### 3. Git Submission
-- **Commit Format**: Generate a message using the Conventional Commits standard (e.g., `feat: ...`, `fix: ...`, `test: ...`).
-- **Cleanliness**: Verify that no temporary logs or build artifacts are staged for commit.
-
-### 4. Final Build Verification
-- Execute `build.bat` to confirm zero compilation warnings.
-- Run the relevant test binaries in `build/bin/tests/` and confirm a 100% pass rate before finishing the audit.
+## Constraints
+-   Zero tolerance for memory safety violations.
+-   Build must be clean (no warnings).
+-   Documentation must be synced before commit.
