@@ -25,18 +25,20 @@ using namespace NoMoreDay;
 #include "GPUFlowFieldTest.hpp"
 #include "NemesisSystemTests.hpp"
 #include "StatsBenchmark.cpp"
+#include "TestBladeBoomerang.cpp"
 #include "TestBladeFormation.cpp"
 #include "TestBladeWard.cpp"
 #include "TestDefenseMechanics.cpp"
 #include "TestEternalNightmare.cpp"
 #include "TestHeirloomSystem.cpp"
+#include "TestPersistence.cpp"
 #include "TestPolishSystems.cpp"
 #include "TestPortalSystem.cpp"
+#include "TestRendingWave.cpp"
 #include "TestShadowSystem.cpp"
 #include "TestSkillBehaviors.cpp"
 #include "TestSwordIntentAccumulation.cpp"
-#include "TestRendingWave.cpp"
-#include "TestBladeBoomerang.cpp"
+
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>

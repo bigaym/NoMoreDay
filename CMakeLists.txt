@@ -145,6 +145,7 @@ add_library(NoMoreDayCore STATIC
     src/engine/render/GPUEntitySystem.cpp
     src/engine/render/GPUFlowFieldSystem.cpp
     src/engine/render/GPUParticleSystem.cpp
+    src/engine/persistence/SaveManager.cpp
     src/engine/render/RenderSystem.cpp
     src/engine/render/UIRenderer.cpp
     src/engine/resource/AssetLoadingSystem.cpp
