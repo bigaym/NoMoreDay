@@ -207,6 +207,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: 符文之语系统 (Runewords System)
+- **Folder:** [./conductor/archive/runewords_20260115/](./conductor/archive/runewords_20260115/)
+- **Description:** 实现 33 种符文及其基础属性、符文语序列激活逻辑、底材匹配以及 Tooltip UI 显示。 (Completed on 2026-01-15)
+
+---
+
 ## [x] Track: 持久化系统 (Persistence System)
 - **Folder:** [./conductor/tracks/persistence_system/](./conductor/tracks/persistence_system/)
 - **Description:** 实现基于异步快照的存档系统，支持全量物品属性快照、回城自动保存及主菜单加载。 (Completed on 2026-01-15)
