@@ -1,9 +1,9 @@
 #include "game/systems/item/CraftingSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/systems/item/ItemFactory.hpp"
+#include "game/systems/item/RunewordSystem.hpp"
 #include <algorithm>
 #include <random>
-
 
 namespace NoMoreDay {
 
@@ -270,6 +270,14 @@ CraftingResult CraftingSystem::socketRune(entt::registry &registry,
   item.sockets[socketIndex] = runeEntity;
   LOG_INFO("打造插槽: 将符文放入物品 '{}' 的第 {} 个插槽", item.name,
            socketIndex);
+
+  // Check for Runeword
+  uint32_t rwId =
+      RunewordSystem::checkForRuneword(item, item.sockets, registry);
+  if (rwId != 0) {
+    RunewordSystem::applyRuneword(item, rwId);
+    LOG_INFO("Runeword {} Applied to item {}", rwId, item.name);
+  }
 
   return CraftingResult::Success;
 }

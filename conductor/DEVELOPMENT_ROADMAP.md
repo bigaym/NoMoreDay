@@ -38,7 +38,7 @@
 - [x] **实现传奇融合系统 (Legendary Merging)**
     - 修改 `CraftingSystem::fuseItems`，实现 Unique (LP) + Exalted 的词缀抽取算法。
     - 实现融合 UI 与 视觉效果。
-- [ ] **实现符文语系统 (Runewords)**
+- [x] **实现符文语系统 (Runewords)**
     - 定义 33 种符文及其在不同底材上的序列组合。
     - 实现 `RunewordSystem`，在物品插槽填满时检查并应用特殊特效。
 - [ ] **底材价值重构**

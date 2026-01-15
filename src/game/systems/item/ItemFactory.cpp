@@ -6,6 +6,7 @@
 #include "game/components/Common.hpp"
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
+#include "game/systems/item/RunewordSystem.hpp"
 #include <algorithm>
 #include <fstream>
 #include <map>
@@ -102,6 +103,9 @@ void ItemFactory::initialize() {
 
   // 加载掉落过滤器
   LootFilter::load("assets/data/loot_filters/default.json");
+
+  // Initialize Runeword System
+  RunewordSystem::initialize();
 }
 
 void ItemFactory::loadAffixDefinitions(const std::string &path) {
@@ -987,54 +991,84 @@ entt::entity ItemFactory::createBag(entt::registry &registry, int level,
 
 entt::entity ItemFactory::createMaterial(entt::registry &registry,
                                          uint32_t materialId, int quantity) {
-  const auto *def = MaterialRegistry::Get().GetMaterial(materialId);
-  if (!def) {
-    LOG_ERROR("ItemFactory: Failed to create material with ID {}", materialId);
-    return entt::null;
+  // 1. Try Material Registry
+  if (const auto *def = MaterialRegistry::Get().GetMaterial(materialId)) {
+    auto entity = registry.create();
+    ItemComponent item;
+    item.type = ItemType::Material;
+    item.id = materialId;
+    item.name = def->name;
+    item.description = def->description;
+    item.rarity = def->rarity;
+    item.maxStack = def->maxStack;
+    item.quantity = quantity;
+    item.slot = EquipmentSlot::None;
+
+    registry.emplace<ItemComponent>(entity, item);
+
+    // Visuals: Use ColorComponent based on rarity for now
+    Color color = WHITE;
+    switch (def->rarity) {
+    case Rarity::Common:
+      color = LIGHTGRAY;
+      break;
+    case Rarity::Uncommon:
+      color = GREEN;
+      break;
+    case Rarity::Rare:
+      color = BLUE;
+      break;
+    case Rarity::Epic:
+      color = PURPLE;
+      break;
+    case Rarity::Legendary:
+      color = ORANGE;
+      break;
+    case Rarity::Ancient:
+      color = RED;
+      break;
+    default:
+      break;
+    }
+    registry.emplace<ColorComponent>(entity, color);
+
+    LOG_DEBUG("Created material '{}' (ID: {}) x{} with entity ID: {}",
+              def->name, materialId, quantity, (uint32_t)entity);
+    return entity;
   }
 
-  auto entity = registry.create();
-  ItemComponent item;
-  item.type = ItemType::Material;
-  item.id = materialId;
-  item.name = def->name;
-  item.description = def->description;
-  item.rarity = def->rarity;
-  item.maxStack = def->maxStack;
-  item.quantity = quantity;
-  item.slot = EquipmentSlot::None;
+  // 2. Try Runeword System (Runes)
+  if (const auto *runeDef = RunewordSystem::getRune(materialId)) {
+    auto entity = registry.create();
+    ItemComponent item;
+    item.type = ItemType::Material; // Runes are materials
+    item.id = materialId;
+    item.name = runeDef->name + " Rune";
+    item.description = "Can be socketed into items.";
+    // Determine rarity based on Tier
+    if (runeDef->tier >= 3)
+      item.rarity = Rarity::Legendary;
+    else if (runeDef->tier == 2)
+      item.rarity = Rarity::Rare;
+    else
+      item.rarity = Rarity::Uncommon;
 
-  registry.emplace<ItemComponent>(entity, item);
+    item.maxStack = 99;
+    item.quantity = quantity;
+    item.slot = EquipmentSlot::None;
 
-  // Visuals: Use ColorComponent based on rarity for now
-  Color color = WHITE;
-  switch (def->rarity) {
-  case Rarity::Common:
-    color = LIGHTGRAY;
-    break;
-  case Rarity::Uncommon:
-    color = GREEN;
-    break;
-  case Rarity::Rare:
-    color = BLUE;
-    break;
-  case Rarity::Epic:
-    color = PURPLE;
-    break;
-  case Rarity::Legendary:
-    color = ORANGE;
-    break;
-  case Rarity::Ancient:
-    color = RED;
-    break;
-  default:
-    break;
+    // Add AffixStats info to description? (Optional for now)
+
+    registry.emplace<ItemComponent>(entity, item);
+    registry.emplace<ColorComponent>(entity, ORANGE); // Runes distinct color
+
+    LOG_DEBUG("Created Rune '{}' (ID: {}) x{}", runeDef->name, materialId,
+              quantity);
+    return entity;
   }
-  registry.emplace<ColorComponent>(entity, color);
 
-  LOG_DEBUG("Created material '{}' (ID: {}) x{} with entity ID: {}", def->name,
-            materialId, quantity, (uint32_t)entity);
-  return entity;
+  LOG_ERROR("ItemFactory: Failed to create material with ID {}", materialId);
+  return entt::null;
 }
 
 entt::entity ItemFactory::createPotion(entt::registry &registry, int type,

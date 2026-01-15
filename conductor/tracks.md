@@ -204,3 +204,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [x] Track: 高性能材料存储系统 (Material Storage System)
 - **Folder:** [./conductor/archive/material_system_20260115/](./conductor/archive/material_system_20260115/)
 - **Description:** 实现不占格子的材料存储、有序向量后端、虚拟化 UI 列表以及持久化集成。 (Completed on 2026-01-15)
+
+---
+
+## [x] Track: 持久化系统 (Persistence System)
+- **Folder:** [./conductor/tracks/persistence_system/](./conductor/tracks/persistence_system/)
+- **Description:** 实现基于异步快照的存档系统，支持全量物品属性快照、回城自动保存及主菜单加载。 (Completed on 2026-01-15)

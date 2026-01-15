@@ -1,0 +1,509 @@
+{
+    "runes": [
+        {
+            "id": 3001,
+            "name": "El",
+            "tier": 1,
+            "weapon_mod": {
+                "attack_rating": 50,
+                "light_radius": 1
+            },
+            "armor_mod": {
+                "light_radius": 1,
+                "defense": 15
+            },
+            "shield_mod": {
+                "light_radius": 1,
+                "defense": 15
+            },
+            "level_req": 11
+        },
+        {
+            "id": 3002,
+            "name": "Eld",
+            "tier": 1,
+            "weapon_mod": {
+                "damage_undead_percent": 75,
+                "rating_undead": 50
+            },
+            "armor_mod": {
+                "stamina_drain": -15
+            },
+            "shield_mod": {
+                "block_chance": 7
+            },
+            "level_req": 11
+        },
+        {
+            "id": 3003,
+            "name": "Tir",
+            "tier": 1,
+            "weapon_mod": {
+                "mana_per_kill": 2
+            },
+            "armor_mod": {
+                "mana_per_kill": 2
+            },
+            "shield_mod": {
+                "mana_per_kill": 2
+            },
+            "level_req": 13
+        },
+        {
+            "id": 3004,
+            "name": "Nef",
+            "tier": 1,
+            "weapon_mod": {
+                "knockback": 1
+            },
+            "armor_mod": {
+                "def_vs_missile": 30
+            },
+            "shield_mod": {
+                "def_vs_missile": 30
+            },
+            "level_req": 13
+        },
+        {
+            "id": 3005,
+            "name": "Eth",
+            "tier": 1,
+            "weapon_mod": {
+                "defense_ignore_percent": -25
+            },
+            "armor_mod": {
+                "mana_regen": 15
+            },
+            "shield_mod": {
+                "mana_regen": 15
+            },
+            "level_req": 15
+        },
+        {
+            "id": 3006,
+            "name": "Ith",
+            "tier": 1,
+            "weapon_mod": {
+                "max_damage": 9
+            },
+            "armor_mod": {
+                "damage_taken_mana": 15
+            },
+            "shield_mod": {
+                "damage_taken_mana": 15
+            },
+            "level_req": 15
+        },
+        {
+            "id": 3007,
+            "name": "Tal",
+            "tier": 1,
+            "weapon_mod": {
+                "poison_damage": 75,
+                "poison_duration": 5
+            },
+            "armor_mod": {
+                "poison_res": 30
+            },
+            "shield_mod": {
+                "poison_res": 35
+            },
+            "level_req": 17
+        },
+        {
+            "id": 3008,
+            "name": "Ral",
+            "tier": 1,
+            "weapon_mod": {
+                "fire_damage_min": 5,
+                "fire_damage_max": 30
+            },
+            "armor_mod": {
+                "fire_res": 30
+            },
+            "shield_mod": {
+                "fire_res": 35
+            },
+            "level_req": 19
+        },
+        {
+            "id": 3009,
+            "name": "Ort",
+            "tier": 1,
+            "weapon_mod": {
+                "lightning_damage_min": 1,
+                "lightning_damage_max": 50
+            },
+            "armor_mod": {
+                "lightning_res": 30
+            },
+            "shield_mod": {
+                "lightning_res": 35
+            },
+            "level_req": 21
+        },
+        {
+            "id": 3010,
+            "name": "Thul",
+            "tier": 1,
+            "weapon_mod": {
+                "cold_damage_min": 3,
+                "cold_damage_max": 14,
+                "cold_duration": 3
+            },
+            "armor_mod": {
+                "cold_res": 30
+            },
+            "shield_mod": {
+                "cold_res": 35
+            },
+            "level_req": 23
+        },
+        {
+            "id": 3011,
+            "name": "Amn",
+            "tier": 1,
+            "weapon_mod": {
+                "life_steal": 7
+            },
+            "armor_mod": {
+                "thorns": 14
+            },
+            "shield_mod": {
+                "thorns": 14
+            },
+            "level_req": 25
+        },
+        {
+            "id": 3012,
+            "name": "Sol",
+            "tier": 1,
+            "weapon_mod": {
+                "min_damage": 9
+            },
+            "armor_mod": {
+                "damage_reduced": 7
+            },
+            "shield_mod": {
+                "damage_reduced": 7
+            },
+            "level_req": 27
+        },
+        {
+            "id": 3013,
+            "name": "Shael",
+            "tier": 1,
+            "weapon_mod": {
+                "attack_speed": 20
+            },
+            "armor_mod": {
+                "fhr": 20
+            },
+            "shield_mod": {
+                "block_rate": 20
+            },
+            "level_req": 29
+        },
+        {
+            "id": 3014,
+            "name": "Dol",
+            "tier": 1,
+            "weapon_mod": {
+                "flee_hit": 25
+            },
+            "armor_mod": {
+                "health_regen": 7
+            },
+            "shield_mod": {
+                "health_regen": 7
+            },
+            "level_req": 31
+        },
+        {
+            "id": 3015,
+            "name": "Hel",
+            "tier": 1,
+            "weapon_mod": {
+                "req_percent": -20
+            },
+            "armor_mod": {
+                "req_percent": -15
+            },
+            "shield_mod": {
+                "req_percent": -15
+            },
+            "level_req": 0
+        },
+        {
+            "id": 3016,
+            "name": "Io",
+            "tier": 1,
+            "weapon_mod": {
+                "vitality": 10
+            },
+            "armor_mod": {
+                "vitality": 10
+            },
+            "shield_mod": {
+                "vitality": 10
+            },
+            "level_req": 35
+        },
+        {
+            "id": 3017,
+            "name": "Lum",
+            "tier": 1,
+            "weapon_mod": {
+                "energy": 10
+            },
+            "armor_mod": {
+                "energy": 10
+            },
+            "shield_mod": {
+                "energy": 10
+            },
+            "level_req": 37
+        },
+        {
+            "id": 3018,
+            "name": "Ko",
+            "tier": 1,
+            "weapon_mod": {
+                "dexterity": 10
+            },
+            "armor_mod": {
+                "dexterity": 10
+            },
+            "shield_mod": {
+                "dexterity": 10
+            },
+            "level_req": 39
+        },
+        {
+            "id": 3019,
+            "name": "Fal",
+            "tier": 1,
+            "weapon_mod": {
+                "strength": 10
+            },
+            "armor_mod": {
+                "strength": 10
+            },
+            "shield_mod": {
+                "strength": 10
+            },
+            "level_req": 41
+        },
+        {
+            "id": 3020,
+            "name": "Lem",
+            "tier": 1,
+            "weapon_mod": {
+                "gold_find": 75
+            },
+            "armor_mod": {
+                "gold_find": 50
+            },
+            "shield_mod": {
+                "gold_find": 50
+            },
+            "level_req": 43
+        },
+        {
+            "id": 3021,
+            "name": "Pul",
+            "tier": 2,
+            "weapon_mod": {
+                "damage_demon_percent": 75,
+                "rating_demon": 100
+            },
+            "armor_mod": {
+                "defense_percent": 30
+            },
+            "shield_mod": {
+                "defense_percent": 30
+            },
+            "level_req": 45
+        },
+        {
+            "id": 3022,
+            "name": "Um",
+            "tier": 2,
+            "weapon_mod": {
+                "open_wounds": 25
+            },
+            "armor_mod": {
+                "all_res": 15
+            },
+            "shield_mod": {
+                "all_res": 22
+            },
+            "level_req": 47
+        },
+        {
+            "id": 3023,
+            "name": "Mal",
+            "tier": 2,
+            "weapon_mod": {
+                "prevet_heal": 1
+            },
+            "armor_mod": {
+                "magic_damage_reduced": 7
+            },
+            "shield_mod": {
+                "magic_damage_reduced": 7
+            },
+            "level_req": 49
+        },
+        {
+            "id": 3024,
+            "name": "Ist",
+            "tier": 2,
+            "weapon_mod": {
+                "magic_find": 30
+            },
+            "armor_mod": {
+                "magic_find": 25
+            },
+            "shield_mod": {
+                "magic_find": 25
+            },
+            "level_req": 51
+        },
+        {
+            "id": 3025,
+            "name": "Gul",
+            "tier": 2,
+            "weapon_mod": {
+                "attack_rating_percent": 20
+            },
+            "armor_mod": {
+                "poison_res_max": 5
+            },
+            "shield_mod": {
+                "poison_res_max": 5
+            },
+            "level_req": 53
+        },
+        {
+            "id": 3026,
+            "name": "Vex",
+            "tier": 2,
+            "weapon_mod": {
+                "mana_steal": 7
+            },
+            "armor_mod": {
+                "fire_res_max": 5
+            },
+            "shield_mod": {
+                "fire_res_max": 5
+            },
+            "level_req": 55
+        },
+        {
+            "id": 3027,
+            "name": "Ohm",
+            "tier": 2,
+            "weapon_mod": {
+                "damage_percent": 50
+            },
+            "armor_mod": {
+                "cold_res_max": 5
+            },
+            "shield_mod": {
+                "cold_res_max": 5
+            },
+            "level_req": 57
+        },
+        {
+            "id": 3028,
+            "name": "Lo",
+            "tier": 2,
+            "weapon_mod": {
+                "deadly_strike": 20
+            },
+            "armor_mod": {
+                "lightning_res_max": 5
+            },
+            "shield_mod": {
+                "lightning_res_max": 5
+            },
+            "level_req": 59
+        },
+        {
+            "id": 3029,
+            "name": "Sur",
+            "tier": 3,
+            "weapon_mod": {
+                "blind_hit": 1
+            },
+            "armor_mod": {
+                "mana_percent": 5
+            },
+            "shield_mod": {
+                "mana": 50
+            },
+            "level_req": 61
+        },
+        {
+            "id": 3030,
+            "name": "Ber",
+            "tier": 3,
+            "weapon_mod": {
+                "crushing_blow": 20
+            },
+            "armor_mod": {
+                "damage_reduced_percent": 8
+            },
+            "shield_mod": {
+                "damage_reduced_percent": 8
+            },
+            "level_req": 63
+        },
+        {
+            "id": 3031,
+            "name": "Jah",
+            "tier": 3,
+            "weapon_mod": {
+                "ignore_target_defense": 1
+            },
+            "armor_mod": {
+                "health_percent": 5
+            },
+            "shield_mod": {
+                "health": 50
+            },
+            "level_req": 65
+        },
+        {
+            "id": 3032,
+            "name": "Cham",
+            "tier": 3,
+            "weapon_mod": {
+                "freeze_hit": 3
+            },
+            "armor_mod": {
+                "cannot_be_frozen": 1
+            },
+            "shield_mod": {
+                "cannot_be_frozen": 1
+            },
+            "level_req": 67
+        },
+        {
+            "id": 3033,
+            "name": "Zod",
+            "tier": 3,
+            "weapon_mod": {
+                "indestructible": 1
+            },
+            "armor_mod": {
+                "indestructible": 1
+            },
+            "shield_mod": {
+                "indestructible": 1
+            },
+            "level_req": 69
+        }
+    ]
+}

@@ -1,0 +1,92 @@
+{
+    "runewords": [
+        {
+            "id": 1,
+            "name": "Stealth",
+            "runes": [
+                "Tal",
+                "Eth"
+            ],
+            "allowed_types": [
+                "Armor"
+            ],
+            "stats": {
+                "magic_damage_reduced": 3,
+                "poison_res": 30,
+                "mana_regen": 15,
+                "run_speed": 25,
+                "cast_speed": 25,
+                "fhr": 25,
+                "dexterity": 6
+            }
+        },
+        {
+            "id": 2,
+            "name": "Steel",
+            "runes": [
+                "Tir",
+                "El"
+            ],
+            "allowed_types": [
+                "Weapon",
+                "Axe",
+                "Sword",
+                "Mace"
+            ],
+            "stats": {
+                "attack_speed": 25,
+                "damage_percent": 20,
+                "min_damage": 3,
+                "max_damage": 3,
+                "attack_rating": 50,
+                "open_wounds": 50,
+                "mana_per_kill": 2,
+                "light_radius": 1
+            }
+        },
+        {
+            "id": 3,
+            "name": "Leaf",
+            "runes": [
+                "Tir",
+                "Ral"
+            ],
+            "allowed_types": [
+                "Staff"
+            ],
+            "stats": {
+                "fire_skills": 3,
+                "fire_damage_min": 5,
+                "fire_damage_max": 30,
+                "defense": 2,
+                "cold_res": 33,
+                "mana_per_kill": 2
+            }
+        },
+        {
+            "id": 4,
+            "name": "Spirit",
+            "runes": [
+                "Tal",
+                "Thul",
+                "Ort",
+                "Amn"
+            ],
+            "allowed_types": [
+                "Sword",
+                "Shield"
+            ],
+            "stats": {
+                "all_skills": 2,
+                "cast_speed": 25,
+                "fhr": 55,
+                "vitality": 22,
+                "mana": 89,
+                "cold_res": 35,
+                "lightning_res": 35,
+                "poison_res": 35,
+                "magic_absorb": 3
+            }
+        }
+    ]
+}
