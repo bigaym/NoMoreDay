@@ -11,7 +11,6 @@
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/world/LevelManager.hpp"
 
-
 // Systems
 #include "engine/input/InputSystem.hpp"
 #include "engine/physics/PhysicsSystem.hpp"
@@ -45,7 +44,6 @@
 #include "game/systems/world/PortalSystem.hpp"
 #include "systems/SerializationSystem.hpp"
 
-
 namespace NoMoreDay {
 
 void GameplayState::OnEnter() {
@@ -53,9 +51,8 @@ void GameplayState::OnEnter() {
 
   // Initialize Spatial Grid
   using namespace NoMoreDay::Constants::World;
-  m_spatialGrid = systems::SpatialHashGrid(GRID_COLS,
-                                           GRID_ROWS,
-                                           GRID_CELL_SIZE);
+  m_spatialGrid =
+      systems::SpatialHashGrid(GRID_COLS, GRID_ROWS, GRID_CELL_SIZE);
 
   // Initialize Visual FX (Events)
   systems::VisualFXSystem::Initialize(*m_context->registry);
@@ -93,8 +90,7 @@ void GameplayState::OnEnter() {
   // 2. Initialize Level
   m_context->levelManager->initialize(resourceManager);
   using namespace NoMoreDay::Constants::World;
-  m_context->levelManager->loadNewLevel("cave",
-                                        WORLD_WIDTH / 10,
+  m_context->levelManager->loadNewLevel("cave", WORLD_WIDTH / 10,
                                         WORLD_HEIGHT / 10);
 
   // 3. Initialize Entities (Player)
@@ -197,7 +193,7 @@ void GameplayState::InitializeEntities() {
   registry.emplace_or_replace<IDComponent>(sword, Utils::UUID::generate());
   registry.emplace<TextureIDComponent>(sword,
                                        assets::textures::Weapon_Sword.id);
-  registry.emplace<PersistentTag>(sword);  // Persist across scene transitions
+  registry.emplace<PersistentTag>(sword); // Persist across scene transitions
   registry.get<EquipmentComponent>(player).set(EquipmentSlot::MainHand, sword);
 
   // Skill Setup
@@ -220,23 +216,23 @@ void GameplayState::InitializeEntities() {
   auto &inv = registry.get<InventoryComponent>(player);
   auto redPot = ItemFactory::createPotion(registry, 0, 10);
   registry.emplace_or_replace<IDComponent>(redPot, Utils::UUID::generate());
-  registry.emplace<PersistentTag>(redPot);  // Persist across scene transitions
+  registry.emplace<PersistentTag>(redPot); // Persist across scene transitions
   inv.items.push_back(redPot);
   auto bluePot = ItemFactory::createPotion(registry, 1, 10);
   registry.emplace_or_replace<IDComponent>(bluePot, Utils::UUID::generate());
-  registry.emplace<PersistentTag>(bluePot);  // Persist across scene transitions
+  registry.emplace<PersistentTag>(bluePot); // Persist across scene transitions
   inv.items.push_back(bluePot);
 
   // --- Legendary Merging Test Items ---
   // 1. Catalyst
-  auto core = ItemFactory::createMaterial(registry, "Legendary Core", "Catalyst for Legendary Fusion", Rarity::Legendary, 5);
+  auto core = ItemFactory::createMaterial(registry, 10001, 5);
   registry.emplace_or_replace<IDComponent>(core, Utils::UUID::generate());
   registry.emplace<PersistentTag>(core);
   inv.items.push_back(core);
 
   // 2. Base Item (Unique/Mythic with LP)
-  auto baseFunc = ItemFactory::createWeapon(registry, 10, Rarity::Mythic); 
-  auto& baseItem = registry.get<ItemComponent>(baseFunc);
+  auto baseFunc = ItemFactory::createWeapon(registry, 10, Rarity::Mythic);
+  auto &baseItem = registry.get<ItemComponent>(baseFunc);
   baseItem.legendaryPotential = 2; // LP 2
   baseItem.name = "Blade of Testing (LP2)";
   registry.emplace_or_replace<IDComponent>(baseFunc, Utils::UUID::generate());
@@ -244,23 +240,24 @@ void GameplayState::InitializeEntities() {
   inv.items.push_back(baseFunc);
 
   // 3. Fodder Item (Exalted with 4 T6/T7)
-  auto fodderFunc = ItemFactory::createWeapon(registry, 10, Rarity::Uncommon); // Exalted typically Uncommon base? Or Rare?
-  auto& fodderItem = registry.get<ItemComponent>(fodderFunc);
+  auto fodderFunc = ItemFactory::createWeapon(
+      registry, 10,
+      Rarity::Uncommon); // Exalted typically Uncommon base? Or Rare?
+  auto &fodderItem = registry.get<ItemComponent>(fodderFunc);
   fodderItem.name = "Exalted Fodder";
   fodderItem.affixes.clear(); // Clear default
   // Add 4 high tier affixes
-  for(int i=0; i<4; ++i) {
-      Affix aff;
-      aff.type = (AffixType)(i % 5); // Str, Dex, Int, Vit, FlatPhys
-      aff.tier = (i < 2) ? 7 : 6; // Two T7, Two T6
-      aff.value = 50.0f;
-      aff.name = "Exalted Stat " + std::to_string(i);
-      fodderItem.affixes.push_back(aff);
+  for (int i = 0; i < 4; ++i) {
+    Affix aff;
+    aff.type = (AffixType)(i % 5); // Str, Dex, Int, Vit, FlatPhys
+    aff.tier = (i < 2) ? 7 : 6;    // Two T7, Two T6
+    aff.value = 50.0f;
+    aff.name = "Exalted Stat " + std::to_string(i);
+    fodderItem.affixes.push_back(aff);
   }
   registry.emplace_or_replace<IDComponent>(fodderFunc, Utils::UUID::generate());
   registry.emplace<PersistentTag>(fodderFunc);
   inv.items.push_back(fodderFunc);
-
 
   // Texture
   Texture2D playerTexture =
@@ -304,7 +301,9 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // Town Portal (KEY_T) - only when no major panel is open
-  bool anyPanelOpen = UISystem::State.showSkillTree || UISystem::State.showInventory || UISystem::State.showCharacterPanel;
+  bool anyPanelOpen = UISystem::State.showSkillTree ||
+                      UISystem::State.showInventory ||
+                      UISystem::State.showCharacterPanel;
   if (IsKeyPressed(KEY_T) && !anyPanelOpen) {
     auto playerViewT = registry.view<PlayerTag>();
     if (playerViewT.begin() != playerViewT.end()) {
@@ -321,10 +320,11 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 1. Level & Systems
   m_context->levelManager->update(dt, registry, playerPos);
-  
+
   // Update Dormant Entities (Spec 2.3)
-  const auto& map = m_context->levelManager->getMapSystem();
-  m_context->levelManager->getEnemySpawnSystem().updateDormantEntities(registry, playerPos, map.getWidth(), map.getHeight());
+  const auto &map = m_context->levelManager->getMapSystem();
+  m_context->levelManager->getEnemySpawnSystem().updateDormantEntities(
+      registry, playerPos, map.getWidth(), map.getHeight());
   // m_context->levelManager->getMapSystem().updateFlowField(playerPos);
 
   // GPU Flow Field
@@ -601,7 +601,9 @@ void GameplayState::UpdatePhysics(float dt) {
         using namespace NoMoreDay::Constants::World;
         using namespace NoMoreDay::Constants::Physics;
         const float TILE_SIZE = GRID_TILE_SIZE;
-        const float RADIUS = DEFAULT_ENTITY_RADIUS * 0.8f; // Using slightly smaller radius for map collision buffer
+        const float RADIUS =
+            DEFAULT_ENTITY_RADIUS *
+            0.8f; // Using slightly smaller radius for map collision buffer
 
         // Horizontal collision
         if (std::abs(vel.vx) > 0.001f) {

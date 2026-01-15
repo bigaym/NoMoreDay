@@ -53,6 +53,15 @@
             "rarity": "Rare",
             "icon": "icon_rune_spd",
             "max_stack": 99
+        },
+        {
+            "id": 10001,
+            "name": "Legendary Core",
+            "description": "Catalyst for Legendary Fusion",
+            "category": "Material",
+            "rarity": "Legendary",
+            "icon": "icon_core_legendary",
+            "max_stack": 999
         }
     ]
 }
