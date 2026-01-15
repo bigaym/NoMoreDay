@@ -323,6 +323,12 @@ struct HealthComponent {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HealthComponent, current, max)
 
+struct MovementAccumulator {
+  float distance = 0.0f;
+  float threshold = 100.0f; // Default trigger every 100 distance (approx 1 meter if scale 1:100)
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovementAccumulator, distance, threshold)
+
 // 视野组件
 struct VisionComponent {
   float radius = 0.0f;

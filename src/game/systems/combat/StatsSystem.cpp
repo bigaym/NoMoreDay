@@ -225,6 +225,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     auto& combat = registry.get<CombatStats>(entity);
     resetCombatStats(combat);
     ClearCache(entity);  // Clear the stat cache for this entity 
+
+    // Reset Traits
+    if (registry.all_of<TitanGripTrait>(entity)) registry.remove<TitanGripTrait>(entity);
+    bool hasTitanGrip = false;
     
     // 0.5 Reset Skill Bonus Levels
     if (auto* active = registry.try_get<ActiveSkillsComponent>(entity)) {
@@ -310,6 +314,18 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         }
     }
 
+    // --- Stat Conversions (General Framework) ---
+    auto apply_conversions = [&](const std::vector<StatConversion>& convs) {
+        for (const auto& conv : convs) {
+            if (conv.source < StatType::Count && conv.target < StatType::Count) {
+                if (conv.required_tags == Tag::None || HasTag(entity_base_tags, conv.required_tags)) {
+                    float sourceVal = calcs[static_cast<size_t>(conv.source)].Result();
+                    ApplyStatModifier(calcs, conv.target, ModifierMode::Flat, sourceVal * conv.ratio);
+                }
+            }
+        }
+    };
+
     // 定义处理词缀的 Lambda，供物品 and 套装奖励复用
     auto processAffixes = [&](const std::vector<Affix>& affixes) {
         for (const auto& affix : affixes) {
@@ -378,6 +394,11 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                     break;
                 }
 
+                case AffixType::TitanGrip: {
+                    hasTitanGrip = true;
+                    break;
+                }
+
                 default: break;
             }
         }
@@ -386,11 +407,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     std::unordered_map<std::string, int> setCounts;
     std::unordered_map<std::string, const std::vector<SetBonus>*> setDefinitions;
 
-    // 1. 处理装备
+    // 1.1 Equipment Stats
     if (registry.all_of<EquipmentComponent>(entity)) {
         const auto& equipment = registry.get<EquipmentComponent>(entity);
         
-        // Track offhand status specifically
         offHandIsEmpty = !registry.valid(equipment.slots[(int)EquipmentSlot::OffHand]);
 
         for (const auto& itemEntity : equipment.slots) {
@@ -412,6 +432,16 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 processAffixes(item.implicits);
                 processAffixes(item.affixes);
 
+                // NEW: Process Legendary/Special Conversions from Item
+                for (const auto& conv : item.conversions) {
+                    apply_conversions({conv});
+                }
+
+                // NEW: Process Damage Modifiers from Item
+                for (const auto& dmod : item.damage_modifiers) {
+                    global_mods.modifiers.push_back(dmod);
+                }
+
                 // 处理插槽中的符文
                 for (auto runeEntity : item.sockets) {
                     if (registry.valid(runeEntity) && registry.all_of<RuneComponent>(runeEntity)) {
@@ -429,12 +459,6 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
                 if (item.defense > 0) {
                     ApplyStatModifier(calcs, StatType::Armor, ModifierMode::Flat, item.defense);
-                }
-
-                // 盾牌逻辑：增加格挡几率和格挡值
-                if (item.type == ItemType::Shield) {
-                    combat.block_chance += 0.20f; // 基础 20% 格挡几率
-                    combat.block_amount += item.defense; // 使用防御值作为格挡减免值
                 }
 
                 // 统计套装
@@ -635,7 +659,12 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         }
     }
 
-    // --- Keystone Effects ---
+    // 1. Apply from component
+    if (auto* scc = registry.try_get<StatConversionComponent>(entity)) {
+        apply_conversions(scc->conversions);
+    }
+
+    // 2. Apply from Astrolabe (Legacy string parsing converted to generic)
     if (auto* astrolabe = registry.try_get<AstrolabeComponent>(entity)) {
         const auto& reg = AstrolabeRegistry::Get();
         for (uint32_t node_id : astrolabe->activated_nodes) {
@@ -643,14 +672,24 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 for (const auto& effect : node->effects) {
                     if (effect.value.find("IntToCritMult:") == 0) {
                         float ratio = std::stof(effect.value.substr(14));
-                        ApplyStatModifier(calcs, StatType::CritDamage, ModifierMode::Flat, intel * ratio);
+                        apply_conversions({{StatType::Intelligence, StatType::CritDamage, ratio}});
                     }
                     else if (effect.value.find("IntToArmor:") == 0) {
                         float ratio = std::stof(effect.value.substr(11));
-                        calcs[static_cast<size_t>(StatType::Armor)].base += intel * ratio;
+                        apply_conversions({{StatType::Intelligence, StatType::Armor, ratio}});
                     }
+                    // Add more legacy parsers here if needed, or migration logic
                 }
             }
+        }
+    }
+
+    // 3. Dependent Stats (e.g., Stats based on Dynamic Stacks)
+    if (auto* intent = registry.try_get<SwordIntentComponent>(entity)) {
+        if (intent->stacks > 0) {
+            // Default mechanic: 1% Attack Speed per stack
+            ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::Flat, (float)intent->stacks);
+            LOG_TRACE("StatsSystem: Applied {}% Attack Speed from {} Sword Intent stacks", intent->stacks, intent->stacks);
         }
     }
 
@@ -722,6 +761,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     // Finalize Regeneration (Apply Pct)
     combat.health_regen *= (1.0f + combat.health_regen_pct);
     combat.mana_regen *= (1.0f + combat.mana_regen_pct);
+
+    if (hasTitanGrip) {
+        registry.emplace<TitanGripTrait>(entity);
+    }
 
     LOG_TRACE("StatsSystem: Recalculated for entity {}. Dmg: {:.1f}-{:.1f}, Str: {:.1f}, HP: {:.1f}", 
         (uint32_t)entity, combat.min_weapon_damage, combat.max_weapon_damage, 

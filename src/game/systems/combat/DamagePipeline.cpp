@@ -236,6 +236,18 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
         registry, attacker, dmg_stat, inst.tags, skill_id, source_entity);
     inst.amount *= (multiplier_pct / 100.0f);
 
+    // --- NEW: Apply Global Damage Modifiers (More) ---
+    if (global_mods) {
+      for (const auto &dmod : global_mods->modifiers) {
+        if (dmod.type == ModifierType::More) {
+          if (dmod.source_tag == Tag::None ||
+              HasTag(inst.tags, dmod.source_tag)) {
+            inst.amount *= (1.0f + dmod.value);
+          }
+        }
+      }
+    }
+
     // --- NEW: Apply Talent-Specific Damage Modifiers (Convert, More) ---
     // DOCUMENTATION: 'More' modifiers are applied here (after 'Increased') to
     // ensure they act as independent multipliers. This strictly follows the

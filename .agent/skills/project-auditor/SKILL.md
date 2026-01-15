@@ -1,35 +1,35 @@
 ---
 name: project-auditor
-description: Performs the final code review and technical audit. Use this skill after implementation is complete to verify safety, style, and documentation before committing.
+description: 执行最终代码审查和技术审计。在实现完成后使用此技能，在提交前验证安全性、风格和文档。
 ---
 
-# Project Auditor
+# 项目审计员 (Project Auditor)
 
-## Goal
-To act as the final quality gate, ensuring strictly memory-safe, performant, and well-documented C++ code.
+## 目标
+作为最终质量关卡，确保代码严格符合内存安全、高性能且文档完善的 C++ 标准。
 
-## Instructions
-1.  **Smart Review & Scan**:
-    -   **Change Detection**: Use `analyze {mode:'git_status'}` to identify all modified, staged, and untracked files.
-    -   **Safety Scan**: Run the automated safety scanner on the source code:
+## 指令
+1.  **智能审查与扫描**:
+    -   **变更检测**: 使用 `analyze {mode:'git_status'}` 识别所有已修改、已暂存和未跟踪的文件。
+    -   **安全扫描**: 对源代码运行自动化安全扫描器：
         `python .agent/skills/project-auditor/scripts/safety_scan.py src`
-    -   If any violations (raw `new`, `printf`, etc.) are found, reject the code immediately.
+    -   如果发现任何违规（如原始 `new`、`printf` 等），立即驳回代码。
 
-2.  **Manual Code Audit**:
-    -   Review `git diff` for logical errors not caught by the scanner:
-        -   **UAF**: Use-After-Free in EnTT views?
-        -   **Concurrency**: Race conditions in Taskflow tasks?
-        -   **Naming**: `PascalCase` types, `kPascalCase` constants?
+2.  **手动代码审计**:
+    -   审查 `git diff` 以发现扫描器无法捕获的逻辑错误：
+        -   **UAF**: EnTT 视图中是否存在使用后释放？
+        -   **并发**: Taskflow 任务中是否存在竞态条件？
+        -   **命名**: 类型使用 `PascalCase`，常量使用 `kPascalCase`？
 
-3.  **Build Verification**:
-    -   Run `build.bat` and ensure 0 warnings.
-    -   Run relevant tests in `build/bin/tests/`.
+3.  **构建验证**:
+    -   运行 `build.bat` 并确保 0 警告。
+    -   运行 `build/bin/tests/` 中相关的测试。
 
-4.  **Documentation & Commit**:
-    -   Update `conductor/tracks/` files.
-    -   Generate a Conventional Commit message (`feat:`, `fix:`, `refactor:`).
+4.  **文档与提交**:
+    -   更新 `conductor/tracks/` 下的文件。
+    -   生成规范的提交信息（Conventional Commit，如 `feat:`, `fix:`, `refactor:`）。
 
-## Constraints
--   Zero tolerance for memory safety violations.
--   Build must be clean (no warnings).
--   Documentation must be synced before commit.
+## 约束
+-   对内存安全违规零容忍。
+-   构建必须洁净（无警告）。
+-   提交前必须同步文档。

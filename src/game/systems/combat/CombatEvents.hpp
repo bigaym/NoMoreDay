@@ -39,18 +39,23 @@ enum class CombatEventType : uint8_t {
     OnFullHealth,     // 满血时
     OnManaSpent,      // 消耗魔力时
     OnUsePotion,      // 使用药水时
+    OnResourceConsumed, // 消耗特殊资源时 (如剑意)
     
     // === Skills ===
     OnChannelTick,    // 引导技能每跳时
     OnChannelEnd,     // 引导结束时
     OnDash,           // 冲刺/位移技能时
     
+    // === World & Exploration ===
+    OnMoveDistance,   // 移动一定距离时
+    OnGoldPickup,     // 拾取金币时
+
     // === Minions ===
     OnSummon,         // 召唤物生成时
     OnMinionDeath,    // 召唤物死亡时
     OnMinionHit,      // 召唤物命中时
     
-    Count // 26 total
+    Count // 29 total
 };
 
 /**
@@ -410,6 +415,38 @@ inline CombatEvent CreateOnDash(
     evt.source = entity;
     evt.skill_id = skill_id;
     evt.value = distance;
+    return evt;
+}
+
+inline CombatEvent CreateResourceConsumed(
+    entt::entity entity, Tag resource_tag, float amount, uint32_t skill_id = 0
+) {
+    CombatEvent evt;
+    evt.type = CombatEventType::OnResourceConsumed;
+    evt.source = entity;
+    evt.tags = resource_tag;
+    evt.value = amount;
+    evt.skill_id = skill_id;
+    return evt;
+}
+
+inline CombatEvent CreateMoveDistance(
+    entt::entity entity, float distance
+) {
+    CombatEvent evt;
+    evt.type = CombatEventType::OnMoveDistance;
+    evt.source = entity;
+    evt.value = distance;
+    return evt;
+}
+
+inline CombatEvent CreateGoldPickup(
+    entt::entity entity, float amount
+) {
+    CombatEvent evt;
+    evt.type = CombatEventType::OnGoldPickup;
+    evt.source = entity;
+    evt.value = amount;
     return evt;
 }
 

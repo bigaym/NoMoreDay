@@ -183,6 +183,9 @@ void GameplayState::InitializeEntities() {
                                     DEFAULT_MAX_HEALTH);
   registry.emplace<TextureIDComponent>(player, playerAsset.id);
   registry.emplace<MovementStanceComponent>(player);
+  registry.emplace<MovementAccumulator>(player);
+  
+  // Set up Inventory
 
   // Astrolabe
   auto &astro = registry.emplace<AstrolabeComponent>(player);

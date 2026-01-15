@@ -670,40 +670,20 @@ void SkillSystem::UpdateSwordIntent(entt::registry &registry, float dt) {
   for (auto entity : view) {
     auto &intent = view.get<SwordIntentComponent>(entity);
 
-    // 1. Passive Gain
-    if (intent.stacks < intent.max_stacks) {
-      intent.passive_timer += dt;
-      if (intent.passive_timer >= 1.0f / std::max(0.1f, intent.gain_rate)) {
-        intent.stacks++;
-        intent.passive_timer = 0.0f;
-        intent.time_since_last_gain = 0.0f; // Prevent decay while gaining
-        // LOG_TRACE("Entity {} gained Sword Intent passively. Stacks: {}",
-        // (uint32_t)entity, intent.stacks);
-      }
-    } else {
-      intent.passive_timer = 0.0f;
-    }
+    // 1. Passive Gain - REMOVED per design change
+    // Previously gained 1 stack/sec. Now only skill hits gain stacks.
+    intent.passive_timer = 0.0f;
 
     // 2. Decay Logic
     if (intent.stacks > 0) {
       intent.time_since_last_gain += dt;
 
       if (intent.time_since_last_gain >= intent.grace_period) {
-        intent.decay_tick_timer += dt;
-        while (intent.decay_tick_timer >= intent.decay_interval) {
-          if (intent.stacks > 0) {
-            intent.stacks--;
-            // LOG_DEBUG("Entity {} Sword Intent decayed to {} (Grace period
-            // expired)", (uint32_t)entity, intent.stacks);
-          }
-          intent.decay_tick_timer -= intent.decay_interval;
-          if (intent.stacks <= 0) {
-            intent.decay_tick_timer = 0.0f;
-            break;
-          }
-        }
-      } else {
-        intent.decay_tick_timer = 0.0f;
+        // New Design: Clear ALL stacks after grace period (default 5s)
+        intent.stacks = 0;
+        intent.time_since_last_gain = 0.0f;
+        LOG_INFO("Entity {} Sword Intent cleared (Inactive for {:.1f}s)",
+                  (uint32_t)entity, intent.grace_period);
       }
 
       // Visuals
@@ -726,7 +706,6 @@ void SkillSystem::UpdateSwordIntent(entt::registry &registry, float dt) {
       }
     } else {
       intent.time_since_last_gain = 0.0f;
-      intent.decay_tick_timer = 0.0f;
     }
 
     // Clean up old hit tracking entries to prevent memory leak

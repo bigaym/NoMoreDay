@@ -1,5 +1,6 @@
 #pragma once
 #include "game/components/ItemStats.hpp"
+#include "game/components/SkillDefs.hpp"
 #include "game/systems/item/LootTable.hpp"
 #include <cstdint>
 #include <entt/entt.hpp>
@@ -116,6 +117,10 @@ struct ItemComponent {
   // 显性词缀 (随机生成或打造的属性)
   std::vector<NoMoreDay::Affix> affixes;
 
+  // 传奇/特殊效果 (如属性转化)
+  std::vector<NoMoreDay::StatConversion> conversions;
+  std::vector<NoMoreDay::DamageModifier> damage_modifiers;
+
   // 插槽
   int socketCount = 0;
   std::vector<entt::entity> sockets;
@@ -134,6 +139,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity,
                                    bagCapacity, isTwoHanded, setName,
                                    setBonuses, forgingPotential,
                                    legendaryPotential, implicits, affixes,
+                                   conversions, damage_modifiers,
                                    socketCount, sockets, textureId,
                                    activeRunewordId, description)
 

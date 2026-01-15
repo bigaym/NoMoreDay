@@ -100,6 +100,32 @@ TEST_CASE("SkillSystem: Sword Intent") {
         CHECK(intent.stacks == 1);
     }
 
+    SUBCASE("Decay Logic") {
+        intent.stacks = 5;
+        intent.grace_period = 1.0f;
+        intent.time_since_last_gain = 0.0f;
+        
+        // Update roughly 0.5s - shouldn't decay
+        // Need to pass executor pointer as nullptr since it's now required in Update signature?
+        // Let's check SkillSystem::Update signature. 
+        // void Update(entt::registry &registry, systems::SpatialHashGrid &grid, float dt, tf::Executor *executor = nullptr);
+        // It seems it usually takes executor.
+        SkillSystem::Update(registry, grid, 0.5f);
+        CHECK(intent.stacks == 5);
+        
+        // Update another 0.6s -> total 1.1s > 1.0s grace -> clear all
+        SkillSystem::Update(registry, grid, 0.6f);
+        CHECK(intent.stacks == 0);
+    }
+
+    SUBCASE("No Passive Gain") {
+        intent.stacks = 0;
+        intent.gain_rate = 1.0f;
+        
+        SkillSystem::Update(registry, grid, 2.0f); // 2 seconds
+        CHECK(intent.stacks == 0);
+    }
+
     SUBCASE("Empowered Cast") {
         auto& active = registry.emplace<ActiveSkillsComponent>(player);
         registry.emplace<CombatStats>(player);

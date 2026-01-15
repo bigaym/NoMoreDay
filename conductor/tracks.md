@@ -216,3 +216,13 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [x] Track: 持久化系统 (Persistence System)
 - **Folder:** [./conductor/tracks/persistence_system/](./conductor/tracks/persistence_system/)
 - **Description:** 实现基于异步快照的存档系统，支持全量物品属性快照、回城自动保存及主菜单加载。 (Completed on 2026-01-15)
+
+---
+
+## [x] Track: Legendary Affix System Support
+- **Folder:** [./conductor/tracks/legendary_affix_support/](./conductor/tracks/legendary_affix_support/)
+- **Description:** 扩展核心系统（Tag、Event、Stats）以支持传奇词缀的复杂机制，包括属性转化框架、特殊事件钩子（如闪避、药水、剑意消耗）以及位移追踪逻辑。 (Completed on 2026-01-15)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 3 days
+

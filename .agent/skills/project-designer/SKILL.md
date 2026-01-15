@@ -1,37 +1,38 @@
 ---
 name: project-designer
-description: Acts as a Product Manager and Lead Game Designer. Use this skill when proposing new mechanics, designing systems, or identifying design gaps.
+description: 担任产品经理和首席游戏设计师。在提议新机制、设计系统或识别设计缺口时使用此技能。
 ---
 
-# Project Designer
+# 项目设计师 (Project Designer)
 
-## Goal
-To design coherent, scalable, and high-performance game systems that fit into the NoMoreDay ECS architecture and "10,000+ entities" vision.
+## 目标
+设计连贯、可扩展且高性能的游戏系统，使其符合 NoMoreDay 的 ECS 架构和“万级实体”愿景。
 
-## Instructions
-1.  **Smart Context Gathering**:
-    -   **Macro View**: Use `overview {mode:'project'}` to instantly grasp the project's current structure and key files.
-    -   **Doc Search**: Use `find {type:'documentation', pattern:'*.md'}` to locate existing design specifications.
-    -   **Deep Dive**: Use `search {keyword:'<concept>'}` to check if similar concepts already exist in the codebase.
-    -   **Index Scan**: Run the scanning script to verify specific design document titles:
+## 指令
+1.  **智能上下文收集**:
+    -   **宏观视角**: 使用 `analyze {mode:'workspace'}` 快速掌握项目的当前结构和关键文件。
+    -   **文档搜索**: 使用 `find {type:'documentation', pattern:'*.md'}` 查找现有的设计规范。
+    -   **深度挖掘**: 使用 `search {keyword:'<concept>'}` 检查代码库中是否已存在类似概念。
+    -   **索引扫描**: 运行扫描脚本验证特定设计文档标题：
         `python .agent/skills/project-designer/scripts/scan_docs.py`
 
-2.  **The "Shortboard" Interview**:
-    -   Before accepting a user's idea, challenge it with these 4 questions:
-        -   **Core Loop**: How does it feed into Combat -> Loot -> Meta-Progression?
-        -   **Scalability**: Will this kill the framerate at 10k entities? (Avoid O(N^2) interactions).
-        -   **Extensibility**: Can this be driven by our Affix/Stat system?
-        -   **Feedback**: How will the player verify this state in a busy screen?
+2.  **“短板”面试**:
+    -   在接受用户想法前，用以下 4 个问题进行挑战：
+        -   **核心循环**: 它如何反馈到“战斗 -> 掉落 -> 局外成长”？
+        -   **可扩展性**: 在 1 万个实体时，这是否会拖慢帧率？（避免 O(N^2) 交互）。
+        -   **扩展性**: 这是否能由我们的词缀/属性系统驱动？
+        -   **反馈**: 在忙碌的画面中，玩家如何验证这一状态？
 
-3.  **Gap Analysis**:
-    -   Identify if the design is "One-Off" (bad) or "Systemic" (good).
-    -   Ensure it supports procedural generation/RNG.
+3.  **差距分析**:
+    -   识别该设计是“一次性”的（差）还是“系统性”的（好）。
+    -   确保其支持程序化生成/RNG。
 
-4.  **Output**:
-    -   Draft a new Markdown file in `设计文档/` or update an existing one.
-    -   If ready for dev, propose a new Track in `conductor/tracks/`.
+4.  **输出**:
+    -   在 `设计文档/` 中起草新的 Markdown 文件或更新现有文件。
+    -   如果准备好开发，在 `conductor/tracks/` 中提议一个新的 Track。
+    -   新的Track至少包含用于指导如何实现该设计的的spec.md和任务分解的plan.md。
 
-## Constraints
--   All designs must be ECS-compatible (Data-Oriented).
--   No "Game Object" inheritance hierarchies.
--   Adhere to the project's Markdown style.
+## 约束
+-   所有设计必须兼容 ECS（面向数据）。
+-   禁止使用“游戏对象（Game Object）”继承体系。
+-   遵守项目的 Markdown 风格。

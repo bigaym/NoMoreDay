@@ -499,7 +499,9 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
   if (s_affixDefinitions.empty()) {
     LOG_WARN("ItemFactory: 词缀定义为空，使用回退生成。");
     Affix fallback;
-    fallback.type = AffixType::Strength;
+    // Return random primary stat to avoid duplicates
+    int typeIdx = std::uniform_int_distribution<>(0, 3)(g_rng);
+    fallback.type = static_cast<AffixType>(typeIdx);
     fallback.value = (float)level;
     fallback.tier = 1;
     fallback.isPrefix = isPrefix;
@@ -568,7 +570,13 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
 
   if (candidates.empty()) {
     // 如果没有符合标签的词缀，尝试放宽条件或返回基础词缀
-    return createAffix(AffixType::Strength, 1);
+    
+    // Return random primary stat (0-3) to avoid infinite duplicate loops
+    int typeIdx = std::uniform_int_distribution<>(0, 3)(g_rng);
+    Affix aff = createAffix(static_cast<AffixType>(typeIdx), 1);
+    aff.isPrefix = isPrefix; // Force prefix/suffix to match request
+    aff.name = isPrefix ? "Fallback Pre" : "Fallback Suf";
+    return aff;
   }
 
   // 3. 随机选择一个定义

@@ -68,6 +68,7 @@ enum class AffixType : uint8_t {
     PlusAllSkills,      // 44
     PlusFlowingThrust,  // 45
     PlusRendingWave,    // 46
+    TitanGrip,          // 47
 
     Count
 };
@@ -252,6 +253,7 @@ inline std::string GetAffixDescription(const Affix& affix, bool showTier = true)
         case AffixType::PlusAllSkills: text += " 所有技能等级"; break;
         case AffixType::PlusFlowingThrust: text += " 流云刺等级"; break;
         case AffixType::PlusRendingWave: text += " 裂空斩等级"; break;
+        case AffixType::TitanGrip: return "泰坦之握 (可单手持双手武器)";
 
         default: text += " 属性"; break;
     }
@@ -322,6 +324,7 @@ inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier = tr
         case AffixType::PlusAllSkills: return TextFormat("%s+%.0f 所有技能等级", prefix, val);
         case AffixType::PlusFlowingThrust: return TextFormat("%s+%.0f 流云刺等级", prefix, val);
         case AffixType::PlusRendingWave: return TextFormat("%s+%.0f 裂空斩等级", prefix, val);
+        case AffixType::TitanGrip: return "泰坦之握 (可单手持双手武器)";
 
         default: return TextFormat("%s+%.1f 属性", prefix, val);
     }

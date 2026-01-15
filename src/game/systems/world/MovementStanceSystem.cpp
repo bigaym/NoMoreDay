@@ -2,19 +2,20 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "core/logging/Logger.hpp"
 #include <cmath>
 
 namespace NoMoreDay {
 
 void MovementStanceSystem::Update(entt::registry& registry, float dt) {
-    auto view = registry.view<MovementStanceComponent, Velocity>();
-    for (auto entity : view) {
-        auto& stanceComp = view.get<MovementStanceComponent>(entity);
-        const auto& vel = view.get<Velocity>(entity);
+    // 1. Update Movement Stances
+    auto stance_view = registry.view<MovementStanceComponent, Velocity>();
+    for (auto entity : stance_view) {
+        auto& stanceComp = stance_view.get<MovementStanceComponent>(entity);
+        const auto& vel = stance_view.get<Velocity>(entity);
 
         float speedSq = vel.vx * vel.vx + vel.vy * vel.vy;
-        // More lenient threshold: speed > 50 (standard is 300)
         using namespace NoMoreDay::Constants::Movement;
         bool isMoving = speedSq > STANCE_THRESHOLD_SPEED_SQ; 
 
@@ -25,28 +26,43 @@ void MovementStanceSystem::Update(entt::registry& registry, float dt) {
                     stanceComp.stance = MovementStance::SwordRiding;
                     registry.get_or_emplace<StatsDirty>(entity);
                     
-                    // Visual feedback: Color change
                     if (auto* color = registry.try_get<ColorComponent>(entity)) {
                         color->color = SKYBLUE;
                     }
-
-                    LOG_INFO("Entity {} entered Sword Riding stance (2s move completed)", (uint32_t)entity);
+                    LOG_INFO("Entity {} entered Sword Riding stance", (uint32_t)entity);
                 }
             }
         } else {
-            // Stopped moving: reset timer and stance
             if (stanceComp.stance != MovementStance::Walking) {
                 stanceComp.stance = MovementStance::Walking;
                 registry.get_or_emplace<StatsDirty>(entity);
-                
-                // Reset visual
                 if (auto* color = registry.try_get<ColorComponent>(entity)) {
                     color->color = WHITE;
                 }
-
-                LOG_INFO("Entity {} exited Sword Riding stance (stopped)", (uint32_t)entity);
+                LOG_INFO("Entity {} exited Sword Riding stance", (uint32_t)entity);
             }
             stanceComp.movingTimer = 0.0f;
+        }
+    }
+
+    // 2. Track Movement Distance for Events
+    auto acc_view = registry.view<MovementAccumulator, Velocity>();
+    for (auto entity : acc_view) {
+        auto& acc = acc_view.get<MovementAccumulator>(entity);
+        const auto& vel = acc_view.get<Velocity>(entity);
+
+        float speed = std::sqrt(vel.vx * vel.vx + vel.vy * vel.vy);
+        if (speed < 1.0f) continue;
+
+        float dist = speed * dt;
+        acc.distance += dist;
+
+        if (acc.distance >= acc.threshold) {
+            float overflow = acc.distance - acc.threshold;
+            acc.distance = overflow; // Keep overflow but reset base
+
+            // Dispatch Event
+            CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateMoveDistance(entity, acc.threshold));
         }
     }
 }

@@ -5,6 +5,7 @@
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/components/MaterialBankComponent.hpp"
 #include "game/components/EffectComponent.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include <cmath>
 #include <limits>
 #include <algorithm>
@@ -326,6 +327,13 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
         bool isItemRing = (itemComp->slot == EquipmentSlot::Ring || itemComp->slot == EquipmentSlot::Ring1 || itemComp->slot == EquipmentSlot::Ring2);
         bool isSlotRing = (slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2);
         if (isItemRing && isSlotRing) canEquip = true;
+
+        // NEW: Titan's Grip allows 2H weapons in OffHand or switching MainHand items to OffHand
+        if (registry.all_of<TitanGripTrait>(character) && itemComp->type == ItemType::Weapon) {
+            if (slot == EquipmentSlot::MainHand || slot == EquipmentSlot::OffHand) {
+                canEquip = true;
+            }
+        }
     }
 
     if (!canEquip) {
@@ -351,8 +359,10 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
     }
 
     // --- 双手武器逻辑 ---
-    // 1. 如果装备的是双手武器 (主手)，必须先卸下副手物品
-    if (slot == EquipmentSlot::MainHand && itemComp->isTwoHanded) {
+    bool hasTitanGrip = registry.all_of<TitanGripTrait>(character);
+
+    // 1. 如果装备的是双手武器 (主手)，必须先卸下副手物品 (除非有 Titan's Grip)
+    if (slot == EquipmentSlot::MainHand && itemComp->isTwoHanded && !hasTitanGrip) {
         if (registry.valid(equipment->get(EquipmentSlot::OffHand))) {
             if (!unequipItem(registry, character, EquipmentSlot::OffHand)) {
                 LOG_WARN("背包: 无法装备双手武器 - 副手卸下失败 (背包已满?)");
@@ -360,12 +370,12 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
             }
         }
     }
-    // 2. 如果装备的是副手物品，必须检查主手是否为双手武器
+    // 2. 如果装备的是副手物品，必须检查主手是否为双手武器 (除非有 Titan's Grip)
     if (slot == EquipmentSlot::OffHand) {
         entt::entity mhItem = equipment->get(EquipmentSlot::MainHand);
         if (registry.valid(mhItem)) {
             auto* mhComp = registry.try_get<ItemComponent>(mhItem);
-            if (mhComp && mhComp->isTwoHanded) {
+            if (mhComp && mhComp->isTwoHanded && !hasTitanGrip) {
                 if (!unequipItem(registry, character, EquipmentSlot::MainHand)) {
                     LOG_WARN("背包: 无法装备副手 - 双手武器卸下失败 (背包已满?)");
                     return false;
@@ -487,6 +497,7 @@ bool InventorySystem::useItem(entt::registry& registry, entt::entity character, 
     }
 
     bool effectApplied = false;
+    float recoverAmount = 0.0f;
 
     // 根据物品 ID 处理效果 (匹配 ItemFactory 中的 ID)
     if (itemComp->id == 101) { // 生命药水
@@ -495,7 +506,8 @@ bool InventorySystem::useItem(entt::registry& registry, entt::entity character, 
              return false;
         }
         using namespace NoMoreDay::Constants::Item;
-        stats->health = std::min(stats->max_health, stats->health + POTION_HEAL_AMOUNT);
+        recoverAmount = POTION_HEAL_AMOUNT;
+        stats->health = std::min(stats->max_health, stats->health + recoverAmount);
         effectApplied = true;
         LOG_INFO("使用了生命药水，恢复 50 点生命值。当前: {:.0f}/{:.0f}", stats->health, stats->max_health);
     } else if (itemComp->id == 102) { // 法力药水
@@ -504,12 +516,16 @@ bool InventorySystem::useItem(entt::registry& registry, entt::entity character, 
              return false;
         }
         using namespace NoMoreDay::Constants::Item;
-        stats->mana = std::min(stats->max_mana, stats->mana + POTION_MANA_AMOUNT);
+        recoverAmount = POTION_MANA_AMOUNT;
+        stats->mana = std::min(stats->max_mana, stats->mana + recoverAmount);
         effectApplied = true;
         LOG_INFO("使用了法力药水，恢复 50 点法力值。当前: {:.0f}/{:.0f}", stats->mana, stats->max_mana);
     }
 
     if (effectApplied) {
+        // Dispatch Event for Legendary Affixes
+        CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateOnUsePotion(character, itemComp->id, recoverAmount));
+
         // 设置药水冷却 (例如 1 秒)
         using namespace NoMoreDay::Constants::Item;
         inv->potionCooldown = POTION_DEFAULT_COOLDOWN;

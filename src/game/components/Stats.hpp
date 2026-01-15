@@ -322,4 +322,34 @@ struct ModifierList {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ModifierList, modifiers)
 
+struct StatConversion {
+  StatType source = StatType::Count;
+  StatType target = StatType::Count;
+  float ratio = 0.0f;
+  Tag required_tags = Tag::None;
+};
+
+inline void to_json(nlohmann::json &j, const StatConversion &m) {
+  j = nlohmann::json{{"source", m.source},
+                     {"target", m.target},
+                     {"ratio", m.ratio},
+                     {"required_tags", m.required_tags}};
+}
+inline void from_json(const nlohmann::json &j, StatConversion &m) {
+  j.at("source").get_to(m.source);
+  j.at("target").get_to(m.target);
+  j.at("ratio").get_to(m.ratio);
+  if (j.contains("required_tags"))
+    j.at("required_tags").get_to(m.required_tags);
+  else
+    m.required_tags = Tag::None;
+}
+
+struct StatConversionComponent {
+  std::vector<StatConversion> conversions;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StatConversionComponent, conversions)
+
+struct TitanGripTrait {};
+
 } // namespace NoMoreDay

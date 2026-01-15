@@ -18,6 +18,7 @@
 #include "game/components/Projectile.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
@@ -84,6 +85,10 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
                                 exec.is_empowered = true;
                                 intent->stacks = 0;
                                 LOG_INFO("Sword Intent Burst (252) triggered for Rending Wave!");
+
+                                // Dispatch Event for Legendary Affixes (e.g. Blade Resonance)
+                                CombatEventDispatcher::Dispatch(registry, CombatEventFactory::CreateResourceConsumed(
+                                    owner, Tag::SwordSkill, 10.0f, kSkillId));
                             }
                         }
                     }

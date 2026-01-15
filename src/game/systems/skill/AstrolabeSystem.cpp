@@ -46,6 +46,11 @@ static void handle_node_effect(entt::registry& registry, entt::entity entity, co
                     if (active) intent->gain_rate += bonus;
                     else intent->gain_rate -= bonus;
                 }
+                else if (effect.value.find("SwordIntentGrace:") == 0) {
+                    float bonus = std::stof(effect.value.substr(17));
+                    if (active) intent->grace_period += bonus;
+                    else intent->grace_period -= bonus;
+                }
             }
             break;
 

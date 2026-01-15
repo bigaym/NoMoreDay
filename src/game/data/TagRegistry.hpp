@@ -45,6 +45,11 @@ enum class Tag : uint64_t {
     Stunned     = 1ULL << 52,
     SwordRiding = 1ULL << 53,
     SwordSkill  = 1ULL << 54,
+    Potion      = 1ULL << 55,
+    Dash        = 1ULL << 56,
+    Elite       = 1ULL << 57,
+    Boss        = 1ULL << 58,
+    Gold        = 1ULL << 59,
 };
 
 // --- Operator Overloads ---
@@ -90,7 +95,7 @@ struct TagInfo {
 };
 
 // Total number of defined tags (for iteration)
-inline constexpr size_t kTagCount = 26;
+inline constexpr size_t kTagCount = 31;
 
 // Master tag info table - ordered for easy lookup
 // This is the single source of truth for all tag metadata
@@ -128,6 +133,13 @@ inline constexpr std::array<TagInfo, kTagCount> kTagInfoTable = {{
     {Tag::Stunned,       "stunned",       "眩晕"},
     {Tag::SwordRiding,   "swordriding",   "御剑"},
     {Tag::SwordSkill,    "sword_skill",   "剑系技能"},
+
+    // Functional Tags (for Legendary Affixes)
+    {Tag::Potion,        "potion",        "药水"},
+    {Tag::Dash,          "dash",          "冲刺"},
+    {Tag::Elite,         "elite",         "精英"},
+    {Tag::Boss,          "boss",          "首领"},
+    {Tag::Gold,          "gold",          "金币"},
 }};
 
 // O(1) lookup: Get bit index from a single tag
@@ -207,6 +219,11 @@ constexpr std::string_view GetTagName(Tag tag) {
         case Tag::SwordRiding: return "SwordRiding";
         case Tag::SwordSkill: return "SwordSkill";
         case Tag::Void: return "Void";
+        case Tag::Potion: return "Potion";
+        case Tag::Dash: return "Dash";
+        case Tag::Elite: return "Elite";
+        case Tag::Boss: return "Boss";
+        case Tag::Gold: return "Gold";
         default: return "Unknown";
     }
 }
