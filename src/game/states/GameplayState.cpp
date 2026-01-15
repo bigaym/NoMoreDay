@@ -9,6 +9,7 @@
 #include "game/states/MosaicEditorState.hpp"
 #include "game/states/PauseState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
+#include "game/data/SkillRegistry.hpp"
 #include "game/systems/world/LevelManager.hpp"
 
 // Systems
@@ -17,6 +18,7 @@
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/systems/ai/AISystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
@@ -58,8 +60,11 @@ void GameplayState::OnEnter() {
   systems::VisualFXSystem::Initialize(*m_context->registry);
 
   // Initialize Elite Modifiers (SoulLink, Avenger)
+  // Initialize Elite Modifiers (SoulLink, Avenger)
   EliteModifierSystem::Init();
   FragmentDropSystem::Init();
+  
+  // GPU Skill Effect System is initialized in Game.cpp (Global)
 
   // 1. Initialize Managers/Resources (if not already)
   // Note: Resources are managed by SharedContext->resources (owned by Game)
@@ -204,10 +209,22 @@ void GameplayState::InitializeEntities() {
   active.slots[0].id = 1; // Q -> Flowing Thrust
   active.slots[4].id = 2; // RMB -> Rending Wave
 
+  // Initialize charges
+  for (auto& slot : active.slots) {
+    if (slot.id != 0) {
+        if (const auto* data = SkillRegistry::Get().GetSkill(slot.id)) {
+            slot.current_charges = data->max_charges;
+        }
+    }
+  }
+
   // IMPORTANT: Link skills to specialized slots so talents can be tracked
   active.specialized_slots[0].skill_id = 1;
   active.specialized_slots[1].skill_id = 2;
   active.available_talent_points = 49; // Give 49 points for testing
+
+  // Add Sword Intent for Blade Ascendant mechanics
+  registry.emplace<SwordIntentComponent>(player);
 
   // Ensure some mana
   auto &stats = registry.get<CombatStats>(player);

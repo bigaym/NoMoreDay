@@ -496,119 +496,77 @@ ItemFactory::getBaseStatRange(const ItemComponent &item) {
 
 Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
                                        EquipmentSlot slot) {
-  if (s_affixDefinitions.empty()) {
-    LOG_WARN("ItemFactory: 词缀定义为空，使用回退生成。");
-    Affix fallback;
-    // Return random primary stat to avoid duplicates
-    int typeIdx = std::uniform_int_distribution<>(0, 3)(g_rng);
-    fallback.type = static_cast<AffixType>(typeIdx);
-    fallback.value = (float)level;
-    fallback.tier = 1;
-    fallback.isPrefix = isPrefix;
-    fallback.name = "Fallback";
-    return fallback;
-  }
-
-  // 1. 确定槽位对应的标签
-  std::vector<std::string> slotTags;
-  switch (slot) {
-  case EquipmentSlot::MainHand:
-    slotTags = {"weapon"};
-    break;
-  case EquipmentSlot::OffHand:
-    slotTags = {"weapon", "armor"};
-    break; // 盾牌或副手
-  case EquipmentSlot::Head:
-  case EquipmentSlot::Shoulder:
-  case EquipmentSlot::Chest:
-  case EquipmentSlot::Legs:
-    slotTags = {"armor"};
-    break;
-  case EquipmentSlot::Hands:
-    slotTags = {"armor", "gloves"};
-    break;
-  case EquipmentSlot::Feet:
-    slotTags = {"armor", "boots"};
-    break;
-  case EquipmentSlot::Neck:
-  case EquipmentSlot::Ring1:
-  case EquipmentSlot::Ring2:
-    slotTags = {"jewelry"};
-    break;
-  default:
-    slotTags = {"misc"};
-    break;
-  }
-
-  // 2. 筛选符合条件的词缀定义
-  std::vector<const AffixDefinition *> candidates;
-  for (const auto &def : s_affixDefinitions) {
-    if (def.isPrefix != isPrefix)
-      continue;
-
-    // 检查标签是否匹配
-    bool tagMatch = false;
-    for (const auto &sTag : slotTags) {
-      for (const auto &aTag : def.allowedTags) {
-        if (sTag == aTag) {
-          tagMatch = true;
-          break;
-        }
-      }
-      if (tagMatch)
-        break;
+  // 1. 获取所有候选词缀定义
+  std::vector<const AffixDefinition*> candidates;
+  if (!s_affixDefinitions.empty()) {
+    // 确定槽位标签
+    std::vector<std::string> slotTags;
+    switch (slot) {
+      case EquipmentSlot::MainHand: slotTags = {"weapon"}; break;
+      case EquipmentSlot::OffHand: slotTags = {"weapon", "armor"}; break;
+      case EquipmentSlot::Head:
+      case EquipmentSlot::Shoulder:
+      case EquipmentSlot::Chest:
+      case EquipmentSlot::Legs: slotTags = {"armor"}; break;
+      case EquipmentSlot::Hands: slotTags = {"armor", "gloves"}; break;
+      case EquipmentSlot::Feet: slotTags = {"armor", "boots"}; break;
+      case EquipmentSlot::Neck:
+      case EquipmentSlot::Ring1:
+      case EquipmentSlot::Ring2: slotTags = {"jewelry"}; break;
+      default: slotTags = {"misc"}; break;
     }
-    if (!tagMatch)
-      continue;
 
-    // 检查等级是否符合 (至少有 T1 可用)
-    if (def.tiers.empty() || def.tiers[0].minLevel > level)
-      continue;
+    for (const auto& def : s_affixDefinitions) {
+      if (def.isPrefix != isPrefix) continue;
+      
+      bool tagMatch = false;
+      for (const auto& sTag : slotTags) {
+        for (const auto& aTag : def.allowedTags) {
+          if (sTag == aTag) { tagMatch = true; break; }
+        }
+        if (tagMatch) break;
+      }
+      if (!tagMatch) continue;
 
-    candidates.push_back(&def);
+      if (def.tiers.empty() || def.tiers[0].minLevel > level) continue;
+
+      candidates.push_back(&def);
+    }
   }
 
   if (candidates.empty()) {
-    // 如果没有符合标签的词缀，尝试放宽条件或返回基础词缀
-    
-    // Return random primary stat (0-3) to avoid infinite duplicate loops
-    int typeIdx = std::uniform_int_distribution<>(0, 3)(g_rng);
-    Affix aff = createAffix(static_cast<AffixType>(typeIdx), 1);
-    aff.isPrefix = isPrefix; // Force prefix/suffix to match request
-    aff.name = isPrefix ? "Fallback Pre" : "Fallback Suf";
+    // 回退到基础属性
+    std::vector<AffixType> fallbacks = { 
+      AffixType::Strength, AffixType::Dexterity, 
+      AffixType::Intelligence, AffixType::Vitality 
+    };
+    std::uniform_int_distribution<> fDist(0, (int)fallbacks.size() - 1);
+    AffixType selectedType = fallbacks[fDist(g_rng)];
+    Affix aff = createAffix(selectedType, 1);
+    aff.isPrefix = isPrefix;
     return aff;
   }
 
-  // 3. 随机选择一个定义
-  std::uniform_int_distribution<> dist(0, candidates.size() - 1);
-  const AffixDefinition *selectedDef = candidates[dist(g_rng)];
+  // 从候选池随机选择一个
+  std::uniform_int_distribution<> dist(0, (int)candidates.size() - 1);
+  const AffixDefinition* selectedDef = candidates[dist(g_rng)];
 
-  // 4. 选择合适的等级 (Tier)
-  // 选择 minLevel <= itemLevel 的最高等级
+  // 选择最高可用 Tier
   int bestTierIdx = 0;
   for (int i = 0; i < (int)selectedDef->tiers.size(); ++i) {
-    if (selectedDef->tiers[i].minLevel <= level) {
-      bestTierIdx = i;
-    } else {
-      break;
-    }
+    if (selectedDef->tiers[i].minLevel <= level) bestTierIdx = i;
+    else break;
   }
 
-  const auto &tier = selectedDef->tiers[bestTierIdx];
-
-  // 5. 生成最终词缀
+  const auto& tier = selectedDef->tiers[bestTierIdx];
   Affix result;
   result.type = selectedDef->type;
   result.tier = tier.tier;
   result.isPrefix = selectedDef->isPrefix;
   result.name = selectedDef->nameTemplate;
-
-  if (tier.maxValue > tier.minValue) {
-    result.value = std::uniform_real_distribution<float>(tier.minValue,
-                                                         tier.maxValue)(g_rng);
-  } else {
-    result.value = tier.minValue;
-  }
+  result.value = (tier.maxValue > tier.minValue) ? 
+                 std::uniform_real_distribution<float>(tier.minValue, tier.maxValue)(g_rng) : 
+                 tier.minValue;
 
   return result;
 }
@@ -649,35 +607,110 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
   for (const auto &aff : item.implicits)
     existingTypes.push_back(aff.type);
 
-  auto addUniqueAffix = [&](bool isPrefix) {
-    for (int attempt = 0; attempt < 20; ++attempt) {
-      Affix aff = generateRandomAffix(level, isPrefix, item.slot);
-      bool duplicate = false;
-      for (auto t : existingTypes)
-        if (t == aff.type) {
-          duplicate = true;
-          break;
-        }
+  auto pickAffixes = [&](bool isPrefix, int count) {
+    if (count <= 0) return;
 
-      if (!duplicate) {
-        item.affixes.push_back(aff);
-        existingTypes.push_back(aff.type);
-        return;
-      }
+    // 1. 获取所有符合条件的候选词缀定义
+    std::vector<const AffixDefinition*> candidates;
+    
+    // 确定槽位标签
+    std::vector<std::string> slotTags;
+    switch (item.slot) {
+      case EquipmentSlot::MainHand: slotTags = {"weapon"}; break;
+      case EquipmentSlot::OffHand: slotTags = {"weapon", "armor"}; break;
+      case EquipmentSlot::Head:
+      case EquipmentSlot::Shoulder:
+      case EquipmentSlot::Chest:
+      case EquipmentSlot::Legs: slotTags = {"armor"}; break;
+      case EquipmentSlot::Hands: slotTags = {"armor", "gloves"}; break;
+      case EquipmentSlot::Feet: slotTags = {"armor", "boots"}; break;
+      case EquipmentSlot::Neck:
+      case EquipmentSlot::Ring1:
+      case EquipmentSlot::Ring2: slotTags = {"jewelry"}; break;
+      default: slotTags = {"misc"}; break;
     }
-    LOG_WARN(
-        "ItemFactory: Failed to generate unique affix for item {} (Prefix: {})",
-        item.name, isPrefix);
+
+    // 从数据库筛选
+    for (const auto& def : s_affixDefinitions) {
+      if (def.isPrefix != isPrefix) continue;
+      
+      bool tagMatch = false;
+      for (const auto& sTag : slotTags) {
+        for (const auto& aTag : def.allowedTags) {
+          if (sTag == aTag) { tagMatch = true; break; }
+        }
+        if (tagMatch) break;
+      }
+      if (!tagMatch) continue;
+      if (def.tiers.empty() || def.tiers[0].minLevel > level) continue;
+
+      // 检查是否重复
+      bool isDuplicate = false;
+      for (auto et : existingTypes) {
+        if (et == def.type) { isDuplicate = true; break; }
+      }
+      if (isDuplicate) continue;
+
+      candidates.push_back(&def);
+    }
+
+    // 如果数据库候选不足，使用基础属性回退
+    if (candidates.empty()) {
+       std::vector<AffixType> fallbacks = { 
+         AffixType::Strength, AffixType::Dexterity, 
+         AffixType::Intelligence, AffixType::Vitality 
+       };
+       for (auto fType : fallbacks) {
+         bool isDuplicate = false;
+         for (auto et : existingTypes) if (et == fType) { isDuplicate = true; break; }
+         if (isDuplicate) continue;
+         
+         // 创建临时定义（或者直接生成词缀）
+         Affix aff = createAffix(fType, 1);
+         aff.isPrefix = isPrefix;
+         item.affixes.push_back(aff);
+         existingTypes.push_back(fType);
+         if (--count <= 0) break;
+       }
+       return;
+    }
+
+    // 打乱候选池并按需挑选
+    std::shuffle(candidates.begin(), candidates.end(), g_rng);
+    int toAdd = std::min(count, (int)candidates.size());
+    
+    for (int i = 0; i < toAdd; ++i) {
+      const auto* def = candidates[i];
+      
+      // 选择 Tier
+      int bestTierIdx = 0;
+      for (int j = 0; j < (int)def->tiers.size(); ++j) {
+        if (def->tiers[j].minLevel <= level) bestTierIdx = j;
+        else break;
+      }
+      const auto& tier = def->tiers[bestTierIdx];
+
+      Affix result;
+      result.type = def->type;
+      result.tier = tier.tier;
+      result.isPrefix = def->isPrefix;
+      result.name = def->nameTemplate;
+      result.value = (tier.maxValue > tier.minValue) ? 
+                     std::uniform_real_distribution<float>(tier.minValue, tier.maxValue)(g_rng) : 
+                     tier.minValue;
+
+      item.affixes.push_back(result);
+      existingTypes.push_back(result.type);
+    }
   };
 
-  for (int i = 0; i < prefixCount; ++i)
-    addUniqueAffix(true);
-  for (int i = 0; i < suffixCount; ++i)
-    addUniqueAffix(false);
+  pickAffixes(true, prefixCount);
+  pickAffixes(false, suffixCount);
 
   LOG_DEBUG("ItemFactory: Generated {} affixes for {}", item.affixes.size(),
             item.name);
 }
+
 
 // -----------------------------------------------------------------------------
 // 创建方法 (与之前相同)

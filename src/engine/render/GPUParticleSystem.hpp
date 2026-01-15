@@ -90,6 +90,8 @@ private:
         uint32_t first;         // = 0
         uint32_t baseInstance;  // = 0
     };
+
+    std::mutex m_emitMutex; // Protects m_stagedParticles
 };
 
 /**
@@ -134,6 +136,7 @@ public:
 
     // Create a burst of ink particles (reduced size)
     static std::vector<components::GPUParticle> CreateInkSplash(Vector2 pos, int count, float radius, float force);
+    static void AppendInkSplash(std::vector<components::GPUParticle>& out, Vector2 pos, int count, float radius, float force);
 
     // Create a gold stream particle (for empowered effects)
     static components::GPUParticle CreateGoldParticle(Vector2 pos, Vector2 vel, float scale);
@@ -144,14 +147,26 @@ public:
     static std::vector<components::GPUParticle> CreateProjectileTrail(
         Vector2 pos, Vector2 dir, Color coreColor, Color glowColor, 
         float trailLength = 30.0f, int count = 5);
+    static void AppendProjectileTrail(
+        std::vector<components::GPUParticle>& out,
+        Vector2 pos, Vector2 dir, Color coreColor, Color glowColor, 
+        float trailLength = 30.0f, int count = 5);
     
     // Movement/dash effect - particles at start position spreading along dash direction
     static std::vector<components::GPUParticle> CreateDashEffect(
         Vector2 startPos, Vector2 dir, Color color, 
         float dashLength = 100.0f, int count = 15);
+    static void AppendDashEffect(
+        std::vector<components::GPUParticle>& out,
+        Vector2 startPos, Vector2 dir, Color color, 
+        float dashLength = 100.0f, int count = 15);
     
     // Area sustained effect - particles within radius
     static std::vector<components::GPUParticle> CreateAreaEffect(
+        Vector2 center, float radius, Color coreColor, Color edgeColor,
+        int count = 20, float duration = 0.5f);
+    static void AppendAreaEffect(
+        std::vector<components::GPUParticle>& out,
         Vector2 center, float radius, Color coreColor, Color edgeColor,
         int count = 20, float duration = 0.5f);
     
@@ -160,6 +175,9 @@ public:
     
     // Sword qi slash effect - thin elongated particles
     static std::vector<components::GPUParticle> CreateSlashEffect(
+        Vector2 pos, Vector2 dir, Color color, float length = 50.0f);
+    static void AppendSlashEffect(
+        std::vector<components::GPUParticle>& out,
         Vector2 pos, Vector2 dir, Color color, float length = 50.0f);
 };
 

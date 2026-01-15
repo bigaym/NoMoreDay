@@ -30,7 +30,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     // based on skills.json 551) Note: skills.json ID 551 says "Before channel
     // if 10 intent, consume all for double projectiles" ID 520 seems to be
     // legacy or mixed up. Using 551 as per plan verification.
-    if (exec.active_nodes.test(551)) {
+    if (exec.active_nodes.test(551 % 100)) {
       if (auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
         if (intent->stacks >= 10) {
           intent->stacks = 0; // Consume all
@@ -49,12 +49,12 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     }
 
     // Talent: Full Screen Lock (530)
-    if (exec.active_nodes.test(530)) {
+    if (exec.active_nodes.test(530 % 100)) {
       chan.full_screen_lock = true;
     }
 
     // Talent: Burst Finisher (513)
-    if (exec.active_nodes.test(513)) {
+    if (exec.active_nodes.test(513 % 100)) {
       chan.burst_finisher = true;
     }
 

@@ -3,6 +3,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
+#include "engine/render/GPUSkillEffectSystem.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
@@ -79,11 +80,17 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
     NoMoreDay::systems::GPUParticleSystem::Get().Render(camera);
     NoMoreDay::systems::GPUEntitySystem::Get().Render();
 
-    // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent，但没有 SpriteComponent)
-    // 排除已由 GPU 渲染的实体 (GPUIndex)
-    auto pixelView = registry.view<const Position, const ColorComponent>(entt::exclude<SpriteComponent, GPUIndex>);
+
+    // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent)
+    // 注意：如果是投射物 (Projectile)，即使它有 GPUIndex，我们也允许 CPU 绘制特殊的形状（如剑气弧）
+    auto pixelView = registry.view<const Position, const ColorComponent>(entt::exclude<SpriteComponent>);
     for (auto entity : pixelView) {
-        auto pos = pixelView.get<Position>(entity); // Copy to modify for visual offset
+        // 如果不是投射物且具有 GPUIndex，则跳过（由 GPU 渲染精灵）
+        if (registry.any_of<GPUIndex>(entity) && !registry.any_of<NoMoreDay::Projectile>(entity)) {
+            continue;
+        }
+
+        auto pos = pixelView.get<Position>(entity); 
         const auto& col = pixelView.get<ColorComponent>(entity);
 
         // Spec 2.2: Visual De-stacking Offset
@@ -94,36 +101,13 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         pos.x += offsetX;
         pos.y += offsetY;
         
-        // 如果是投射物，绘制成剑气波形状
-        if (auto* proj = registry.try_get<NoMoreDay::Projectile>(entity)) {
-            if (auto* vel = registry.try_get<Velocity>(entity)) {
-                // Raylib's DrawCircleSector starts 0 at 3 o'clock (Right) and goes clockwise.
-                // atan2f also starts 0 at 3 o'clock (Right) in screen coordinates (Y down).
-                float angle = atan2f(vel->vy, vel->vx) * (180.0f / PI);
-                
-                // 绘制一个弧形表示剑气
-                float arcRange = proj->radius * 1.5f;
-                float arcWidth = 60.0f; // Default (Rending Wave)
-                
-                // Skill specific adjustments
-                uint32_t skill_id = 0;
-                if (auto* skillComp = registry.try_get<NoMoreDay::SkillComponent>(entity)) {
-                    skill_id = skillComp->skill_id;
-                }
-                
-                if (skill_id == 1) arcWidth = 90.0f; // Flowing Thrust is wider
-                
-                DrawCircleSector({pos.x, pos.y}, arcRange, angle - arcWidth/2, angle + arcWidth/2, 8, Fade(col.color, 0.6f));
-                DrawCircleSectorLines({pos.x, pos.y}, arcRange, angle - arcWidth/2, angle + arcWidth/2, 8, col.color);
-                
-                // 添加一个明亮的核心
-                DrawCircleSector({pos.x, pos.y}, arcRange * 0.4f, angle - arcWidth/3, angle + arcWidth/3, 6, WHITE);
-            } else {
-                DrawCircle((int)pos.x, (int)pos.y, proj->radius, col.color);
-            }
-        } else {
-            DrawCircle((int)pos.x, (int)pos.y, 8.0f, col.color);
+        // Dedicated Loop for Projectiles is below (Step 6).
+        // Here we only draw simple shapes for non-projectiles (debug/fallback).
+        if (registry.any_of<NoMoreDay::Projectile>(entity)) {
+             continue; 
         }
+
+        DrawCircle((int)pos.x, (int)pos.y, 8.0f, col.color);
     }
 
     // 2.5. 绘制浮游灵剑实体 (Spirit Sword Entities)
@@ -473,7 +457,50 @@ void RenderSystem::render(entt::registry& registry, const NoMoreDay::SharedConte
         
         // Draw Grid Bounds
         DrawRectangleLines(origin.x, origin.y, width * cellSize, height * cellSize, RED);
+    } // End of pixelView loop
+
+    // 6. Projectiles Submission (Dedicated Loop)
+    // Iterate ALL projectiles, regardless of GPUIndex or SpriteComponent or ColorComponent
+    // We want to render them via GPUSkillEffectSystem if they exist.
+    auto projView = registry.view<const Position, NoMoreDay::Projectile>();
+    for (auto entity : projView) {
+        const auto& pos = projView.get<const Position>(entity);
+        auto& proj = projView.get<NoMoreDay::Projectile>(entity);
+        
+        proj.hasRendered = true; // Mark as visible
+        
+        NoMoreDay::components::GPUSkillEffect effect;
+        
+        // Extrapolate
+        float ax = pos.x;
+        float ay = pos.y;
+        if (auto* vel = registry.try_get<Velocity>(entity)) {
+             ax += vel->vx * context.renderAccumulator;
+             ay += vel->vy * context.renderAccumulator;
+             effect.velocity = {vel->vx, vel->vy};
+        }
+        effect.position = {ax, ay};
+        
+        // Radius & Angle
+        effect.radius = (proj.radius > 1.0f) ? proj.radius : 5.0f;
+        effect.sectorAngle = (proj.arcWidth > 0.0f) ? proj.arcWidth : 45.0f;
+        effect.type = (float)proj.visualType;
+        effect.softness = 0.5f;
+        
+        // Color - Try get ColorComponent, else default
+        if (auto* col = registry.try_get<ColorComponent>(entity)) {
+            effect.coreColor = ColorNormalize(col->color);
+            effect.glowColor = ColorNormalize(col->color);
+        } else {
+            effect.coreColor = {1.0f, 1.0f, 1.0f, 1.0f}; // White default
+            effect.glowColor = {0.8f, 0.8f, 1.0f, 0.5f};
+        }
+        
+        NoMoreDay::systems::GPUSkillEffectSystem::Get().Submit(effect);
     }
+
+    // GPU Skill Effects
+    NoMoreDay::systems::GPUSkillEffectSystem::Get().Render(camera);
 
     // 7. 高性能伤害飘字
     NoMoreDay::DamagePopupManager::Get().Draw(font);

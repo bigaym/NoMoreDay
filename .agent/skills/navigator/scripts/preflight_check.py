@@ -1,0 +1,30 @@
+import os
+import sys
+
+REQUIRED_FILES = [
+    'build.bat',
+    'src/game/components/Common.hpp',
+    'conductor/code_standard.md'
+]
+
+def check_files():
+    print('Checking required files...')
+    missing = []
+    for f in REQUIRED_FILES:
+        if not os.path.exists(f):
+            missing.append(f)
+    
+    if missing:
+        print('CRITICAL: Missing required files:')
+        for m in missing:
+            print(f'    - {m}')
+        sys.exit(1)
+    else:
+        print('All required infrastructure files present.')
+
+def main():
+    check_files()
+    print('Ready for implementation task.')
+
+if __name__ == '__main__':
+    main()

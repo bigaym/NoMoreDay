@@ -200,6 +200,7 @@ void GPUParticleSystem::CreateQuadVAO() {
 }
 
 void GPUParticleSystem::Emit(const components::GPUParticle &particle) {
+  std::lock_guard<std::mutex> lock(m_emitMutex);
   if (m_stagedParticles.size() < (size_t)m_maxParticles) {
     m_stagedParticles.push_back(particle);
   }
@@ -209,8 +210,14 @@ void GPUParticleSystem::EmitBatch(
     const std::vector<components::GPUParticle> &particles) {
   if (particles.empty())
     return;
-  for (const auto &p : particles) {
-    Emit(p);
+  
+  std::lock_guard<std::mutex> lock(m_emitMutex); 
+  // Optimization: Resize once
+  size_t freeSpace = (size_t)m_maxParticles - m_stagedParticles.size();
+  size_t toAdd = std::min(particles.size(), freeSpace);
+  
+  if (toAdd > 0) {
+      m_stagedParticles.insert(m_stagedParticles.end(), particles.begin(), particles.begin() + toAdd);
   }
 }
 
@@ -388,7 +395,13 @@ InkEffectHelper::CreateInkSplash(Vector2 pos, int count, float radius,
                                  float force) {
   std::vector<components::GPUParticle> res;
   res.reserve(count);
+  AppendInkSplash(res, pos, count, radius, force);
+  return res;
+}
 
+void InkEffectHelper::AppendInkSplash(std::vector<components::GPUParticle>& res,
+                                      Vector2 pos, int count, float radius,
+                                      float force) {
   // Color palette for variety
   static const Color colors[] = {
       COLOR_INK_DARK,    COLOR_INK_LIGHT,
@@ -419,7 +432,6 @@ InkEffectHelper::CreateInkSplash(Vector2 pos, int count, float radius,
     p.growthRate = -0.5f; // Shrink over time
     res.push_back(p);
   }
-  return res;
 }
 
 components::GPUParticle
@@ -446,9 +458,16 @@ std::vector<components::GPUParticle>
 InkEffectHelper::CreateProjectileTrail(Vector2 pos, Vector2 dir,
                                        Color coreColor, Color glowColor,
                                        float trailLength, int count) {
-
   std::vector<components::GPUParticle> res;
   res.reserve(count * 2);
+  AppendProjectileTrail(res, pos, dir, coreColor, glowColor, trailLength, count);
+  return res;
+}
+
+void InkEffectHelper::AppendProjectileTrail(
+    std::vector<components::GPUParticle>& res,
+    Vector2 pos, Vector2 dir, Color coreColor, Color glowColor,
+    float trailLength, int count) {
 
   // Normalize direction
   float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
@@ -491,15 +510,21 @@ InkEffectHelper::CreateProjectileTrail(Vector2 pos, Vector2 dir,
       res.push_back(glow);
     }
   }
-  return res;
 }
 
 std::vector<components::GPUParticle>
 InkEffectHelper::CreateDashEffect(Vector2 startPos, Vector2 dir, Color color,
                                   float dashLength, int count) {
-
   std::vector<components::GPUParticle> res;
   res.reserve(count);
+  AppendDashEffect(res, startPos, dir, color, dashLength, count);
+  return res;
+}
+
+void InkEffectHelper::AppendDashEffect(
+    std::vector<components::GPUParticle>& res,
+    Vector2 startPos, Vector2 dir, Color color,
+    float dashLength, int count) {
 
   // Normalize direction
   float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
@@ -540,15 +565,21 @@ InkEffectHelper::CreateDashEffect(Vector2 startPos, Vector2 dir, Color color,
     p.growthRate = -0.8f;
     res.push_back(p);
   }
-  return res;
 }
 
 std::vector<components::GPUParticle>
 InkEffectHelper::CreateAreaEffect(Vector2 center, float radius, Color coreColor,
                                   Color edgeColor, int count, float duration) {
-
   std::vector<components::GPUParticle> res;
   res.reserve(count);
+  AppendAreaEffect(res, center, radius, coreColor, edgeColor, count, duration);
+  return res;
+}
+
+void InkEffectHelper::AppendAreaEffect(
+    std::vector<components::GPUParticle>& res,
+    Vector2 center, float radius, Color coreColor,
+    Color edgeColor, int count, float duration) {
 
   for (int i = 0; i < count; ++i) {
     // Random position within area (uniform distribution)
@@ -578,7 +609,6 @@ InkEffectHelper::CreateAreaEffect(Vector2 center, float radius, Color coreColor,
     p.growthRate = 0.3f; // Slight growth
     res.push_back(p);
   }
-  return res;
 }
 
 components::GPUParticle InkEffectHelper::CreateSpark(Vector2 pos, Vector2 vel,
@@ -598,9 +628,15 @@ components::GPUParticle InkEffectHelper::CreateSpark(Vector2 pos, Vector2 vel,
 std::vector<components::GPUParticle>
 InkEffectHelper::CreateSlashEffect(Vector2 pos, Vector2 dir, Color color,
                                    float length) {
-
   std::vector<components::GPUParticle> res;
   res.reserve(12);
+  AppendSlashEffect(res, pos, dir, color, length);
+  return res;
+}
+
+void InkEffectHelper::AppendSlashEffect(
+    std::vector<components::GPUParticle>& res,
+    Vector2 pos, Vector2 dir, Color color, float length) {
 
   // Normalize direction
   float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
@@ -645,8 +681,6 @@ InkEffectHelper::CreateSlashEffect(Vector2 pos, Vector2 dir, Color color,
   flash.flags = 1; // Glow
   flash.growthRate = -10.0f;
   res.push_back(flash);
-
-  return res;
 }
 
 } // namespace NoMoreDay::systems

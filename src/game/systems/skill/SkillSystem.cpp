@@ -49,8 +49,10 @@ void SkillSystem::InitHooks() {
       return;
 
     const auto *tree = SkillRegistry::Get().GetSkillTree(exec.skill_id);
-    if (!tree)
+    if (!tree) {
+      // Log warning only if strictly needed, otherwise silent return helps robustness for dummy skills
       return;
+    }
 
     for (size_t i = 0; i < exec.active_nodes.size(); ++i) {
       if (exec.active_nodes.test(i)) {
@@ -769,6 +771,8 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
         exec.state = SkillState::Casting;
         exec.timer = 0.05f;
 
+        LOG_INFO("UpdateStates: Executing skill ID {} for entity {}", exec.skill_id, (uint32_t)exec.owner);
+
         // NEW: Try SkillBehaviorRegistry first (new modular system)
         if (auto castFunc = SkillBehaviorRegistry::GetCast(exec.skill_id)) {
           castFunc(registry, exec.owner, exec);
@@ -827,18 +831,27 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     return false;
 
   auto &slot = active->slots[slot_index];
-  if (slot.id == 0)
+  if (slot.id == 0) {
+    LOG_WARN("TryCast FAILED: No skill in slot {}", slot_index);
     return false;
+  }
 
-  if (registry.any_of<SkillExecution>(entity))
+  if (registry.any_of<SkillExecution>(entity)) {
+    LOG_TRACE("TryCast: Entity {} is already executing a skill", (uint32_t)entity);
     return false;
+  }
 
   const auto *data = SkillRegistry::Get().GetSkill(slot.id);
-  if (!data)
+  if (!data) {
+    LOG_ERROR("TryCast FAILED: Skill ID {} data not found", slot.id);
     return false;
+  }
 
-  if (slot.current_charges <= 0)
+  if (slot.current_charges <= 0) {
+    LOG_TRACE("TryCast: Skill {} has no charges ({} / {})", 
+             data->name_key, slot.current_charges, data->max_charges);
     return false;
+  }
 
   auto *stats = registry.try_get<CombatStats>(entity);
   float rcr = stats ? StatsSystem::GetStatWithTags(

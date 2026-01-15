@@ -263,6 +263,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     proj.radius = exec.is_empowered ? 70.0f : 45.0f;
     proj.pierce = true;
     proj.pierceCount = forcePierce ? 999 : 99;
+    proj.visualType = 2; // Beam/Box for Thrust
 
     if (stats) {
       proj.snapshot = *stats;

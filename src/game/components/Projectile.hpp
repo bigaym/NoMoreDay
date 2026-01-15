@@ -20,8 +20,12 @@ struct Projectile {
     float lifeTime = 5.0f; // Max flight time
     float speed = 500.0f;
     float radius = 5.0f;   // Hitbox size
+    float arcWidth = 0.0f; // Visual arc width in degrees (0 = use system default)
+    int visualType = 0;    // 0 = Fan, 1 = Circle, 2 = Beam
     bool pierce = false;   // Does it pass through enemies?
     int pierceCount = 0;   // How many enemies can it hit?
+    bool hasRendered = false; // Flag to prevent first-frame destruction before visibility
+    bool hitLimitReached = false; // Persistent flag to ensure destruction after rendering
 
     // Pull mechanics
     bool hasPull = false;

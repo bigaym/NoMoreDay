@@ -4,6 +4,7 @@
 #include "engine/render/GPUUtils.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/AIComponent.hpp"
+#include "game/components/Projectile.hpp" // Added
 #include "rlgl.h"
 
 namespace NoMoreDay::systems {
@@ -93,8 +94,9 @@ void GPUEntitySystem::Update(entt::registry& registry, float dt) {
         m_localData[i].radius = 0.0f;
     }
     
-    // 2. Sync CPU -> GPU (Exclude killed entities to prevent ghost rendering)
-    auto view = registry.view<Position, Velocity, Radius, GPUIndex>(entt::exclude<KilledTag>);
+    // 2. Sync CPU -> GPU (Exclude killed entities and Projectiles)
+    // Projectiles handle their own physics on CPU to avoid sync latency/freezing
+    auto view = registry.view<Position, Velocity, Radius, GPUIndex>(entt::exclude<KilledTag, NoMoreDay::Projectile>);
     int index = 0;
     view.each([&](auto entity, auto& pos, auto& vel, auto& radius, auto& gpuIdx) {
         if (index >= m_maxEntities) return;

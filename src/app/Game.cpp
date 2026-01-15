@@ -4,6 +4,7 @@
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
@@ -107,6 +108,8 @@ void Game::init() {
     NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
+    // Initialize GPU Skill Effect System (Global)
+    NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(m_resourceManager);
   }
 
   // Push Initial State
@@ -160,6 +163,9 @@ void Game::run() {
       accumulator -= fixedDt;
     }
 
+    // Update Accumulator for Rendering (Interpolation/Extrapolation)
+    m_context.renderAccumulator = accumulator;
+
     BeginDrawing();
     ClearBackground(RAYWHITE);
     m_stateManager->Render();
@@ -187,6 +193,7 @@ void Game::cleanup() {
   UISystem::Shutdown();
   NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();
   NoMoreDay::systems::GPUEntitySystem::Get().Shutdown();
+  NoMoreDay::systems::GPUSkillEffectSystem::Get().Shutdown();
   NoMoreDay::systems::GPUFlowFieldSystem::Get().Shutdown();
   NoMoreDay::BuffRegistry::Shutdown();
 

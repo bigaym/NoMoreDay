@@ -45,4 +45,24 @@ struct GPUEntity {
 // Ensure Stride is exactly 32 bytes
 static_assert(sizeof(GPUEntity) == 32, "GPUEntity struct must be exactly 32 bytes for physics SSBO compatibility");
 
+/**
+ * @brief Structure for GPU skill effects (SDF Rendering).
+ * STRICTLY 64 BYTES (16 * 4) for alignment.
+ */
+struct GPUSkillEffect {
+    Vector2 position     = { 0.0f, 0.0f }; // 8
+    Vector2 velocity     = { 0.0f, 0.0f }; // 8
+    Vector4 coreColor    = { 1.0f, 1.0f, 1.0f, 1.0f }; // 16
+    Vector4 glowColor    = { 1.0f, 1.0f, 1.0f, 1.0f }; // 16
+    float radius         = 0.0f;           // 4
+    float sectorAngle    = 0.0f;           // 4 (Degrees)
+    float softness       = 0.0f;           // 4
+    float type           = 0.0f;           // 4 (0=Fan/Sector, 1=Annulus/Circle, 2=Beam)
+    
+    GPUSkillEffect() = default;
+};
+
+// Ensure Stride is exactly 64 bytes
+static_assert(sizeof(GPUSkillEffect) == 64, "GPUSkillEffect struct must be exactly 64 bytes for SSBO alignment");
+
 } // namespace NoMoreDay::components

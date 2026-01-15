@@ -38,9 +38,24 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         const auto* skillData = SkillRegistry::Get().GetSkill(exec.skill_id);
         Tag skillTags = skillData ? skillData->tags : Tag::None;
         float baseSpeed = skillData ? skillData->GetParam("speed", 300.0f) : 300.0f;
-        if (baseSpeed < 1.0f) baseSpeed = 1.0f; // Prevent division by zero
         float baseRadius = skillData ? skillData->GetParam("radius", 35.0f) : 35.0f;
         float baseLifetime = skillData ? skillData->GetParam("lifetime", 1.2f) : 1.2f;
+
+        // Apply Stats (Area of Effect, Projectile Speed)
+        // GetStatWithTags returns values like 100.0f for 1.0 (100%)
+        float areaStat = StatsSystem::GetStatWithTags(registry, owner, StatType::AreaScale, skillTags, exec.skill_id);
+        float speedStat = StatsSystem::GetStatWithTags(registry, owner, StatType::ProjectileSpeed, skillTags, exec.skill_id);
+        
+        float areaScale = (areaStat > 0.1f) ? areaStat / 100.0f : 1.0f;
+        float speedScale = (speedStat > 0.1f) ? speedStat / 100.0f : 1.0f;
+        
+        // Clamp scales to sane values to prevent "all screen" or "frozen" projectiles
+        areaScale = std::clamp(areaScale, 0.1f, 5.0f);
+        speedScale = std::clamp(speedScale, 0.1f, 10.0f);
+        
+        baseRadius *= areaScale;
+        baseSpeed *= speedScale;
+        if (baseSpeed < 1.0f) baseSpeed = 1.0f; // Prevent division by zero
 
         // Spirit Sword adjustment
         if (registry.any_of<SpiritSwordTag>(owner)) {
@@ -56,10 +71,19 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         float damagePenalty = 1.0f;
         bool boomerang = false;
         bool isVoid = false;
+        float talentWidthBonus = 0.0f;
 
         if (auto* active = registry.try_get<ActiveSkillsComponent>(owner)) {
             for (const auto& spec : active->specialized_slots) {
                 if (spec.skill_id == kSkillId) {
+                    // Talent: Jian Qi Zong Heng (剑气纵横) - ID 200
+                    // Increases width and range (radius)
+                    if (spec.allocated_points.contains(200)) {
+                        int pts = spec.allocated_points.at(200);
+                        baseRadius *= (1.0f + pts * 0.1f);
+                        talentWidthBonus = pts * 10.0f; // +10 deg per point
+                    }
+
                     // Talent: Duo Zhong Jian Qi (多重剑气) - ID 210
                     if (spec.allocated_points.contains(210)) {
                         int pts = spec.allocated_points.at(210);
@@ -124,10 +148,16 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             Color coreColor = exec.is_empowered ? systems::InkEffectHelper::COLOR_GOLD_CORE 
                                                 : systems::InkEffectHelper::COLOR_SWORD_QI;
             Color glowColor = exec.is_empowered ? systems::InkEffectHelper::COLOR_GOLD_GLOW 
-                                                : systems::InkEffectHelper::COLOR_FROST_LIGHT;
-            auto trailParticles = systems::InkEffectHelper::CreateProjectileTrail(
-                {ownerPos.x, ownerPos.y}, dir, coreColor, glowColor, 25.0f, 4);
-            particleSys.EmitBatch(trailParticles);
+                                                : (isVoid ? PURPLE : systems::InkEffectHelper::COLOR_FROST_LIGHT);
+            
+            // Optimization: Use thread-local buffer to avoid heap allocation per projectile
+            static thread_local std::vector<components::GPUParticle> s_trailBuffer;
+            s_trailBuffer.clear();
+            s_trailBuffer.reserve(32); // Pre-reserve enough space
+            
+            systems::InkEffectHelper::AppendProjectileTrail(
+                s_trailBuffer, {ownerPos.x, ownerPos.y}, dir, coreColor, glowColor, 25.0f, 4);
+            particleSys.EmitBatch(s_trailBuffer);
 
             auto proj_ent = registry.create();
             registry.emplace<LocalLevelTag>(proj_ent);
@@ -141,6 +171,11 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             proj.speed = baseSpeed;
             proj.lifeTime = boomerang ? (400.0f / baseSpeed) * 2.0f + 0.5f : baseLifetime; // Travel 400 yards and back
             proj.radius = exec.is_empowered ? baseRadius * 1.7f : baseRadius;
+            proj.arcWidth = 60.0f + talentWidthBonus;
+            if (exec.is_empowered) proj.arcWidth *= 1.3f;
+            
+            proj.visualType = 0; // Fan/Sector
+            
             proj.pierce = true;
             proj.pierceCount = 99;
             proj.snapshot = ownerStats;
