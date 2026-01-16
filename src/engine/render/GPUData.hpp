@@ -81,6 +81,58 @@ namespace Colors {
         };
     }
 
+    // --- Rarity Colors (物品稀有度) ---
+    
+    constexpr Color RARITY_COMMON    = { 180, 180, 180, 255 }; // Common / 普通
+    constexpr Color RARITY_MAGIC     = { 60, 130, 255, 255 };  // Magic / 魔法
+    constexpr Color RARITY_RARE      = { 255, 220, 0, 255 };   // Rare / 稀有
+    constexpr Color RARITY_EPIC      = { 190, 60, 255, 255 };  // Epic / 史诗
+    constexpr Color RARITY_LEGENDARY = { 255, 140, 0, 255 };   // Legendary / 传说
+    constexpr Color RARITY_MYTHIC    = { 255, 40, 40, 255 };    // Mythic / 神话
+
+    // --- Elemental Colors (元素属性) ---
+    
+    // Fire / 火焰
+    constexpr Color ELEM_FIRE      = { 255, 80, 30, 255 };   
+    // Cold / 冰霜
+    constexpr Color ELEM_COLD      = { 80, 180, 255, 255 };  
+    // Lightning / 闪电
+    constexpr Color ELEM_LIGHTNING = { 255, 255, 100, 255 }; 
+    // Poison / 毒素
+    constexpr Color ELEM_POISON    = { 100, 255, 60, 255 };  
+    // Shadow / 暗影
+    constexpr Color ELEM_SHADOW    = { 130, 50, 200, 255 };  
+    // Void / 虚空
+    constexpr Color ELEM_VOID      = { 40, 10, 60, 255 };    
+
+    // --- UI & Status Colors (UI 与 状态) ---
+    
+    // Health Bar / 生命值
+    constexpr Color UI_HEALTH = { 230, 40, 40, 255 };  
+    // Mana Bar / 法力值
+    constexpr Color UI_MANA   = { 40, 100, 230, 255 }; 
+    // Gold / 金币
+    constexpr Color UI_GOLD   = { 255, 215, 0, 255 };  
+    // Experience / 经验值
+    constexpr Color UI_XP     = { 100, 200, 255, 255 }; 
+
+    // --- UI Control & Edge Colors (UI 控件与边缘) ---
+    
+    // Default Border / 默认边框
+    constexpr Color UI_BORDER_DEFAULT   = { 80, 80, 90, 255 };
+    // Hovered Border / 悬停边框
+    constexpr Color UI_BORDER_HOVER     = { 120, 120, 140, 255 };
+    // Active or Selected Border / 激活或选中边框
+    constexpr Color UI_BORDER_ACTIVE    = { 255, 215, 0, 255 }; 
+    // Disabled Border / 禁用边框
+    constexpr Color UI_BORDER_DISABLED  = { 50, 50, 55, 255 };
+    // Danger or Error Border / 危险或错误边框
+    constexpr Color UI_BORDER_DANGER    = { 220, 60, 60, 255 };
+    // Success Border / 成功边框
+    constexpr Color UI_BORDER_SUCCESS   = { 60, 220, 60, 255 };
+    // Info or Hint Border / 信息或提示边框
+    constexpr Color UI_BORDER_INFO      = { 60, 160, 255, 255 };
+
     // --- Blade Ascendant Theme (剑修主题) ---
     
     // Low opacity trail color (Very faint water/ink)
@@ -98,6 +150,26 @@ namespace Colors {
     // Speed Line / Particle bright accent
     // 速度线/粒子的高亮色
     constexpr Color SPEED_ACCENT = { 200, 255, 255, 200 };
+
+    // Ink Black (#1A1A1A)
+    // 水墨黑 (设计规范色)
+    constexpr Color INK_BLACK = { 26, 26, 26, 255 };
+
+    // Pure White Highlight
+    // 纯白高光
+    constexpr Color BLADE_WHITE = { 255, 255, 255, 255 };
+
+    // Spirit Blade (Translucent blue-white for Blade Formation)
+    // 灵体飞剑 (半透明蓝白 - 灵剑决)
+    constexpr Color SPIRIT_BLADE = { 200, 230, 255, 160 };
+
+    // Mind Blade Core (High-bright line)
+    // 心剑核心 (高亮核心线 - 心剑·无影)
+    constexpr Color MIND_BLADE_CORE = { 240, 255, 255, 255 };
+
+    // Ink Silhouette (Pure black for Phantom Flash)
+    // 水墨残影 (纯黑墨迹 - 绝影闪)
+    constexpr Color INK_SILHOUETTE = { 10, 10, 10, 230 };
 }
 
 } // namespace NoMoreDay::components

@@ -68,7 +68,7 @@ void main() {
         // Type 1: Annulus / Ring / Circle
         // Just a circle for now
         dist = sdCircle(p, passRadius);
-    } else {
+    } else if (passType < 2.5) {
 
         // Type 2: Sharp Thrust (Tapered Blade)
         // Aligned with X axis.
@@ -97,8 +97,46 @@ void main() {
         float dy = abs(p.y) - currentHalfWidth;
         
         // Combine (Intersection of bounds)
-        // Using max(dx, dy) creates a sharp intersection
-        dist = max(dx, dy);
+        // Combine (Intersection of bounds)
+        // Using max(dx, dy) creates a sharp intersection (Blade)
+        float dBlade = max(dx, dy);
+        
+        // Crossguard (Guard)
+        // Position: At the "base" of the blade.
+        // Blade goes from -halfLen (Back) to +halfLen (Tip).
+        // Taper starts at 0.0 -> 0.2 (Back ramp).
+        // Let's place guard at t=0.2 approx?
+        // t=0.2 => p.x = -halfLen + 0.4*halfLen = -0.6 * passRadius?
+        // Let's place it at x = -halfLen * 0.6
+        
+        float guardPos = -halfLen * 0.7;
+        vec2 guardSize = vec2(passRadius * 0.1, passRadius * 0.45); // Thickness, Width
+        
+        float dGuard = sdBox(p - vec2(guardPos, 0.0), guardSize);
+        
+        // Union: min(dBlade, dGuard)
+        dist = min(dBlade, dGuard);
+    } else {
+        // Type 3: Crescent Wave (Moon / Sword Wave)
+        // Convex shape facing Right (+X).
+        
+        float rOuter = passRadius;             // The leading edge
+        float rInner = passRadius * 0.85;      // The trailing cutter
+        float shift = passRadius * 0.25;       // How far back the inner circle is
+        
+        // Outer Circle (Centered)
+        float d1 = length(p) - rOuter;
+        
+        // Inner Circle (Shifted backwards, i.e., Left)
+        // We subtract this shape.
+        float d2 = length(p - vec2(-shift, 0.0)) - rInner;
+        
+        // Result is Intersection of Outer AND NOT Inner
+        dist = max(d1, -d2);
+        
+        // Hard clip the back to prevent wrapping artifacts if parameters are extreme
+        // Ensure x > -rOuter
+        // dist = max(dist, -p.x - rOuter);
     }
     
     // SDF Rendering logic
@@ -108,35 +146,40 @@ void main() {
     // Core: Sharp inside
     // Glow: Fade outside
     
-    float alpha = 0.0;
-    vec3 color = vec3(0.0);
+    // --- Inverted Logic (Rim Light) ---
+    // User Request: "Edges too bright, invert colors"
+    // Interpretation: Darker/Colored Inside, Bright/White Edge (Rim)
     
-    // Hard edge with antialiasing
-    // 1.0 inside, 0.0 outside
-    float coreAlpha = 1.0 - smoothstep(-0.02, 0.0, dist);
+    vec3 color;
+    float alpha;
     
-    // Glow
-    // Fade out as dist increases
-    float glowDist = 0.2; // How far the glow extends
-    float glowAlpha = 1.0 - smoothstep(0.0, glowDist, dist);
+    // 1. Core Logic (Inside dist <= 0)
+    // We want the deep center to be the Body Color (passCoreColor)
+    // We want the edge (dist ~ 0) to be White (Rim)
     
-    // Inside Glow (hot core)
-    // As we get deeper inside (more negative), it gets hotter
-    float innerGlow = smoothstep(-passRadius, -0.0, dist);
+    float rimFactor = smoothstep(-passRadius * 0.8, 0.0, dist); // 0.0 deep inside, 1.0 at edge
+    rimFactor = pow(rimFactor, 4.0); // Make the rim sharp/thin
     
-    // Combine
-    vec3 coreMix = mix(passCoreColor.rgb, vec3(1.0), 0.5 * (1.0 - innerGlow)); // Whiter at center
-    vec3 glowMix = passGlowColor.rgb;
+    vec3 rimColor = vec3(1.0, 1.0, 1.0); // Pure White Rim
+    vec3 bodyColor = passCoreColor.rgb;  // Cyan/Ink Body
+    
+    // Mix Body and Rim
+    vec3 finalInnerColor = mix(bodyColor, rimColor, rimFactor);
+    float finalInnerAlpha = passCoreColor.a; // Keep opacity
+    
+    // 2. Glow Logic (Outside dist > 0)
+    // Reduce brightness
+    float glowFactor = 1.0 - smoothstep(0.0, passRadius * 0.5, dist); // Quicker falloff
+    vec3 finalGlowColor = passGlowColor.rgb;
+    float finalGlowAlpha = passGlowColor.a * glowFactor * 0.4; // Reduced intesity (was 0.8)
     
     // Composite
     if (dist <= 0.0) {
-        // Inside
-        color = coreMix;
-        alpha = passCoreColor.a * coreAlpha;
+        color = finalInnerColor;
+        alpha = finalInnerAlpha;
     } else {
-        // Outside (Glow only)
-        color = glowMix;
-        alpha = passGlowColor.a * glowAlpha * 0.8; // Glow is weaker
+        color = finalGlowColor;
+        alpha = finalGlowAlpha;
     }
     
     finalColor = vec4(color, alpha);

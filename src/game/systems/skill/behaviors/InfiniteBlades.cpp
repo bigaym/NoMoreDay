@@ -20,7 +20,7 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     auto &chan = registry.emplace_or_replace<ChannelingComponent>(owner);
     chan.skill_id = 5;
     chan.channel_timer = 0.5f;
-    chan.tick_interval = 0.1f;
+    chan.tick_interval = 0.5f;
     chan.tick_timer = -0.01f;
     chan.target_pos = exec.target_pos;
     chan.is_empowered = exec.is_empowered;

@@ -1,5 +1,6 @@
 #include "TestCommon.hpp"
 #include "game/systems/world/PortalSystem.hpp"
+#include "game/systems/world/LevelManager.hpp"
 #include "engine/scene/SceneManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/MapComponent.hpp"

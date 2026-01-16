@@ -39,7 +39,9 @@ void main() {
     
     // Calculate world position
     // We expand the quad slightly larger than radius to allow for soft edges/glow
-    float renderRadius = e.radius * 2.5; 
+    // User Feedback: Range too big. Adjusted to match Hitbox more closely.
+    // 0.8 * 1.3 = 1.04x Hitbox (Edge)
+    float renderRadius = e.radius * 1.3; 
     vec2 worldPos = vertexPos * renderRadius + e.position;
     
     gl_Position = mvp * vec4(worldPos, 0.0, 1.0);

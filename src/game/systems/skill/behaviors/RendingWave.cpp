@@ -21,6 +21,7 @@
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/GPUData.hpp"
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
 #include "game/components/SkillDefs.hpp"
@@ -161,9 +162,14 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
             auto proj_ent = registry.create();
             registry.emplace<LocalLevelTag>(proj_ent);
-            registry.emplace<Position>(proj_ent, ownerPos.x, ownerPos.y);
+            // Apply forward offset (Reference Flowing Thrust)
+            // Spawn slightly in front of the caster so the crescent doesn't clip through the body
+            float forwardOffset = baseRadius * 0.6f; 
+            Vector2 spawnPos = { ownerPos.x + dir.x * forwardOffset, ownerPos.y + dir.y * forwardOffset };
+
+            registry.emplace<Position>(proj_ent, spawnPos.x, spawnPos.y);
             registry.emplace<Velocity>(proj_ent, dir.x * baseSpeed, dir.y * baseSpeed);
-            registry.emplace<ColorComponent>(proj_ent, isVoid ? PURPLE : (exec.is_empowered ? GOLD : WHITE));
+            registry.emplace<ColorComponent>(proj_ent, isVoid ? PURPLE : (exec.is_empowered ? GOLD : NoMoreDay::components::Colors::BLADE_CYAN));
             
             auto& proj = registry.emplace<Projectile>(proj_ent);
             proj.owner = owner;
@@ -174,7 +180,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             proj.arcWidth = 60.0f + talentWidthBonus;
             if (exec.is_empowered) proj.arcWidth *= 1.3f;
             
-            proj.visualType = 0; // Fan/Sector
+            proj.visualType = 3; // Crescent Wave (Moon)
             
             proj.pierce = true;
             proj.pierceCount = 99;

@@ -1,89 +1,46 @@
-# NoMoreDay - Project Context
+# NoMoreDay - 智能体规则与上下文
 
-**NoMoreDay** is a high-performance **2D Diablo-like Roguelite ARPG** built with **C++20** and an **ECS (Entity Component System)** architecture. It aims to support **10,000+ simultaneous entities** on screen, featuring deep itemization, skill trees, and procedural generation.
+## 1. Project Identity
+*   **游戏类型**: 高性能 2D 类暗黑 (Diablo-like) Roguelite ARPG。
+*   **核心技术**: C++20, ECS (EnTT), Raylib。
+*   **目标**: 支持 10,000+ 实体同屏，GPU 加速，数据导向设计 (DOD)。
 
-## 🛠 Tech Stack
+## 2. Tech Stack Rules
+*   **语言**: 必须使用 **C++20** (Modules, Concepts, Coroutines)。
+*   **ECS**: 仅限使用 **EnTT**。组件 (Components) 必须是 POD 类型。
+*   **渲染**: **Raylib** + 自定义 OpenGL 计算着色器 (Compute Shaders)。
+*   **异步**: 使用 **Taskflow** 进行基于 DAG 的并行调度。
+*   **数学**: 使用 **xsimd** 进行向量化加速。
+*   **内存**: 使用 **mimalloc** 进行内存分配。
+*   **数据**: 使用 **nlohmann/json** 进行序列化。
+*   **日志**: **spdlog**。
 
-*   **Language:** C++20 (Modules, Concepts, Coroutines)
-*   **Architecture:** Data-Oriented Design (DOD), ECS
-*   **Core Libraries:**
-    *   **EnTT:** High-performance ECS framework.
-    *   **Raylib:** Lightweight 2D rendering and windowing.
-    *   **Taskflow:** DAG-based task parallelism.
-    *   **xsimd:** SIMD acceleration for physics/math.
-    *   **mimalloc:** High-performance memory allocator.
-    *   **nlohmann/json:** JSON parsing.
-    *   **spdlog:** Fast logging.
+## 3. Development Directives
+### 安全与稳定性
+*   **规则**: 对未定义行为 (UB)、内存泄漏或 Use-After-Free 零容忍。
+*   **规则**: 严格遵守 **RAII**。禁止使用原生 `new`/`delete`。使用智能指针或 EnTT 句柄。
+*   **规则**: 必须保证线程安全。禁止使用全局可变状态。
 
-## 🚀 Build & Run
+### 性能与数据导向设计 (DOD)
+*   **规则**: **数据导向设计**为首要原则。最大化缓存局部性 (Cache Locality)。
+*   **规则**: 避免在热点路径 (Hot Paths) 中使用虚函数和深层继承。
+*   **规则**: 主游戏循环中禁止进行堆内存分配。使用对象池或预分配缓冲区。
+*   **规则**: 使用 `std::string_view` 和 `std::span` 避免不必要的拷贝。
 
-### Prerequisites
-*   Windows (Primary dev environment), Linux, or macOS.
-*   C++20 compliant compiler.
-*   CMake 3.10+.
-*   Python 3.10+ (for asset/script pipelines).
+### 配置与常量
+*   **规则**: 逻辑常量 $\to$ `src/game/components/Common.hpp`。
+*   **规则**: GPU/渲染相关常量 $\to$ `src/engine/render/GPUData.hpp`。
+*   **规则**: 不要锁死帧率。尊重 `settings.json` 中的 `target_fps`（默认为 180）。
 
-### Build Commands (Windows PowerShell)
+## 4. Build & Environment
+*   **构建**: 运行 `.\build.bat` (Windows)。输出位于 `build/bin/`。
+*   **测试**: 位于 `build/bin/tests/`。
+*   **脚本**: `scripts/` 目录下的 Python 3.10+ 脚本（遵循 Google 风格）。
 
-**One-step Build (Recommended):**
-```powershell
-.\build.bat
-```
-*   Builds in `RelWithDebInfo` configuration.
-*   Output binaries are located in `build/bin/`.
-
-**Manual CMake Build:**
-```powershell
-mkdir build
-cd build
-cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-cmake --build . --config RelWithDebInfo -j 16
-```
-
-### Running the Game
-Executable is typically located at:
-`build/bin/NoMoreDay.exe` (Verify exact name in `build/bin/`)
-
-### Running Tests
-Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `CombatSystemTest.exe`).
-
-## 🚧 Active Development (Conductor)
-
-## 📂 Project Structure
-
-*   **`src/`**: C++ Source Code.
-    *   `app/`: Application entry, main loop, and shared context.
-    *   `core/`: Engine infrastructure (logging, math, threading).
-    *   `engine/`: Core engine systems (render, physics, resource, input, scene).
-    *   `game/`: Game business logic (components, states, data definitions).
-        *   `constants/`: (Empty/Deprecated?) See `components/Common.hpp`.
-    *   `systems/`: ECS system implementations.
-*   **`assets/`**: Game assets (textures, shaders, data JSONs).
-*   **`scripts/`**: Python scripts for asset generation and tools.
-    *   **Env:** Use `conda activate ai` (or equivalent) for scripts requiring ML libraries.
-*   **`conductor/`**: Project management, tracks, and plans.
-*   **`设计文档/`**: Design documents (Game mechanics, Architecture).
-*   **`tests/`**: Unit and Integration tests.
-
-## 📝 Development Conventions
-
-*   **C++ Style:**
-    *   **Safety & Robustness:** Zero tolerance for Undefined Behavior (UB). Use RAII for all resource management. Avoid raw `new`/`delete`; use smart pointers or EnTT's internal management.
-    *   **Data-Oriented Design (DOD):** Components must be POD (Plain Old Data) structs to maximize cache locality. Avoid virtual functions and deep inheritance in performance-critical paths.
-    *   **Modern C++20:** Extensively use Concepts for template constraints, `constexpr`/`consteval` for compile-time evaluation, and Ranges for efficient data processing.
-    *   **High Performance:** Minimize heap allocations during the frame loop. Use `xsimd` for vectorization. Leverage `mimalloc` for optimized memory management.
-    *   **Concurrency:** Systems must be designed for parallel execution via Taskflow. Avoid global mutable state and ensure thread safety.
-    *   **Best Practices:** Use `std::string_view` and `std::span` to avoid unnecessary copies. Apply `[[nodiscard]]` where appropriate.
-    *   **Style Guide:** Adhere to `conductor/code_styleguides/general.md`.
-*   **Python Style:**
-    *   Follow Google Python Style Guide (`conductor/code_styleguides/python.md`).
-    *   Type annotations encouraged.
-*   **Assets:**
-    *   Managed via Python scripts in `scripts/`.
-    *   Skill icons and other data-driven assets use JSON registries.
-
-**注意**：代码实现使用C++20最佳实践，不要引入UB、内存陷阱、内存泄漏、UAF(use after free)、逻辑问题、死锁等问题，C++逻辑代码中需要硬编码的值放到 `src/game/components/Common.hpp` 中。
-
-渲染相关：
-    GPU使用需要的硬编码的值(如颜色)放到 `src/engine/render/GPUData.hpp` 中。
-    渲染的时候注意不要锁死60帧，帧率动态变化，settings.json中定义了`target_fps`，可能不是60帧，目前是180帧。
+## 5. 目录结构
+*   `src/app`: 入口点，状态机。
+*   `src/core`: 基础设施（日志、数学、线程）。
+*   **`src/engine`**: 引擎系统（渲染、物理、输入、资源）。
+*   **`src/game`**: 游戏业务逻辑（组件、状态、数据）。
+*   `src/systems`: ECS 系统实现。
+*   `assets/`: 纹理、着色器、JSON 配置。
