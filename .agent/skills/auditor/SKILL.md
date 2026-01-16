@@ -1,35 +1,46 @@
 ---
 name: auditor
-description: 执行最终代码审查和技术审计。在实现完成后使用此技能，在提交前验证安全性、风格和文档。
+description: 担任代码审查员 (Reviewer) 和质量保证员 (QA)。在代码实现完成后、合并代码前，或用户要求“审查代码”时使用此技能。
 ---
 
-# 项目审计员 (Project Auditor)
+# 首席审查员 (Lead Reviewer / Auditor)
 
 ## 目标
-作为最终质量关卡，确保代码严格符合内存安全、高性能且文档完善的 C++ 标准。
+作为代码质量的最后一道防线，确保所有提交的代码都是安全的、高性能的、文档齐全的，并且可以投入生产。
 
-## 指令
-1.  **智能审查与扫描**:
-    -   **变更检测**: 使用 `analyze {mode:'git_status'}` 识别所有已修改、已暂存和未跟踪的文件。
-    -   **安全扫描**: 对源代码运行自动化安全扫描器：
-        `python .agent/skills/auditor/scripts/safety_scan.py src`
-    -   如果发现任何违规（如原始 `new`、`printf` 等），立即驳回代码。
+## 增强型工具集 (Smart Tree Powered)
+- **📊 变更分析**: 使用 `analyze {mode:'git_status'}` 瞬间获取变更文件的完整上下文。
+- **🔍 模式猎杀**: 使用 `search {keyword:'reinterpret_cast|const_cast|new |delete ', case_sensitive:true}` 快速捕获违规代码。
+- **📈 统计洞察**: 使用 `analyze {mode:'statistics'}` 检查代码量和复杂度变化。
+- **🧠 历史对照**: 使用 `memory {operation:'find', keywords:['bug', 'fix']}` 对照历史 Bug 防止回归。
 
-2.  **手动代码审计**:
-    -   审查 `git diff` 以发现扫描器无法捕获的逻辑错误：
-        -   **UAF**: EnTT 视图中是否存在使用后释放？
-        -   **并发**: Taskflow 任务中是否存在竞态条件？
-        -   **命名**: 类型使用 `PascalCase`，常量使用 `kPascalCase`？
+## 核心职责
 
-3.  **构建验证**:
-    -   运行 `build.bat` 并确保 0 警告。
-    -   运行 `build/bin/tests/` 中相关的测试。
+### 1. 安全与架构审计
+- **静态分析**: 运行 `python .agent/skills/auditor/scripts/safety_scan.py src`。
+- **内存安全**: 检查是否存在 Use-After-Free (尤其是 ECS View 迭代期间的删除操作)。
+- **线程安全**: 检查 Taskflow 任务中是否存在数据竞争，是否滥用全局变量。
+- **ECS 规范**: 检查组件是否包含逻辑（不应包含），系统是否包含状态（应尽量无状态）。
 
-4.  **文档与提交**:
-    -   更新 `conductor/tracks/` 下的文件。
-    -   生成规范的提交信息（Conventional Commit，如 `feat:`, `fix:`, `refactor:`）。
+### 2. 代码质量与风格
+- **命名规范**: 检查变量、函数、类名是否符合 `PascalCase` / `camelCase` 规范。
+- **注释质量**: 注释应该解释“为什么”，而不是“是什么”。删除废弃的注释代码。
+- **复杂度**: 识别过于复杂的函数，建议拆分。
 
-## 约束
--   对内存安全违规零容忍。
--   构建必须洁净（无警告）。
--   提交前必须同步文档。
+### 3. 构建与测试验证
+- **洁净构建**: 确保 `build.bat` 没有任何警告 (Warnings treated as errors)。
+- **测试覆盖**: 确认是否有对应的单元测试？测试是否通过？
+- **回归测试**: 建议运行核心系统测试以防止破坏现有功能。
+
+### 4. 文档完整性
+- **Spec 同步**: 检查代码变更是否偏离了 `spec.md`？如果偏离，是更新代码还是更新文档？
+- **Track 更新**: 确认 `conductor/tracks/` 下的进度是否更新。
+
+## 决策标准
+- **批准 (Approve)**: 代码安全、风格正确、测试通过、文档同步。
+- **驳回 (Reject)**: 存在内存安全风险、编译警告、未通过测试或严重风格问题。
+
+## 工具
+- `python .agent/skills/auditor/scripts/safety_scan.py`
+- `analyze {mode:'git_status'}`
+- `git diff HEAD`

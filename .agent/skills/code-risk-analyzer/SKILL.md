@@ -8,7 +8,11 @@ description: 深度分析代码库风险，识别性能瓶颈、UB、UAF、内�
 ## 目标
 识别代码库中的深层技术债务和安全隐患，提供高性能、生产级别的修复方案。
 
-**宏观视角**: 使用 `analyze {mode:'workspace'}` 快速掌握项目的当前结构和关键文件。
+## 增强型工具集 (Smart Tree Powered)
+- **🔍 深度搜索**: 使用 `search {keyword:'reinterpret_cast|const_cast|malloc|free|new |delete ', case_sensitive:true}` 扫描危险代码模式。
+- **📊 依赖分析**: 使用 `analyze {mode:'semantic', path:'src'}` 理解模块间的耦合，识别循环依赖风险。
+- **⚡ 热点定位**: 使用 `find {type:'code', pattern:'*System.cpp'}` 快速定位每一帧都在运行的核心系统逻辑。
+- **🧠 记忆检索**: 使用 `memory {operation:'find', keywords:['bug', 'performance', 'uaf']}` 检索过往的项目痛点。
 
 ## 审计标准
 
@@ -32,16 +36,35 @@ description: 深度分析代码库风险，识别性能瓶颈、UB、UAF、内�
 - **竞态条件**: 检查 `registry` 在非线程安全上下文下的并发写入。
 - **死锁**: 检查互斥锁的嵌套使用顺序。
 
-## 执行指令
-1.  **扫描危险模式**: 使用 `search` 查找 `reinterpret_cast`、`const_cast`、`raw pointer`、`static T var` 等。
-2.  **数据流追踪**: 跟踪关键资源（如 `Texture`、`Shader`）的生命周期，确保在 `CloseWindow` 前释放。
-3.  **ECS 架构核查**: 
-    - 检查 `view<A, B>` 是否可以优化为 `group<A, B>`。
-    - 验证 `registry.patch` 的使用是否正确触发了事件。
+## 执行流程
 
-## 报告格式
-对于发现的每个风险，按以下格式报告：
-- **风险等级**: [Critical/High/Medium/Low]
-- **位置**: `file:line`
-- **问题描述**: 详细解释风险来源（如：为何会导致 UB）。
-- **解决方案**: 提供符合 C++20 标准的重构建议。
+1.  **探索与发现**: 使用 `search` 和 `analyze` 工具扫描代码库。
+2.  **记录问题**: 将发现的每一个风险点记录下来。
+3.  **生成报告**: 
+    - 使用 Python 脚本生成标准化报告文件。
+    - 报告位置: `conductor/analyzer/YYYY-MM-DD_HH-MM-SS_code_analyze.md`
+    - 指令: `python .agent/skills/code-risk-analyzer/scripts/generate_report.py "报告的具体Markdown内容"`
+
+## 报告格式内容
+
+报告必须包含以下 Markdown 结构：
+
+```markdown
+# Code Risk Analysis Report
+Date: YYYY-MM-DD HH:MM:SS
+
+## Summary
+Brief overview of the codebase health and major risks found.
+
+## Critical Risks (High Priority)
+### 1. [Risk Type] in `filename:line`
+- **Description**: Why is this dangerous?
+- **Consequence**: Crash / Corruption / Lag.
+- **Recommendation**: Code snippet or specific refactoring advice.
+
+## Performance Bottlenecks
+...
+
+## Refactoring Suggestions
+...
+```

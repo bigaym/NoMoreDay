@@ -1,38 +1,47 @@
 ---
 name: designer
-description: 担任产品经理和首席游戏设计师。在提议新机制、设计系统或识别设计缺口时使用此技能。
+description: 担任产品经理和系统设计师。在需要规划新功能、编写设计文档 (Specs) 或设计复杂游戏系统时使用此技能。
 ---
 
-# 项目设计师 (Project Designer)
+# 首席设计师 (Lead Designer)
 
 ## 目标
-设计连贯、可扩展且高性能的游戏系统，使其符合 NoMoreDay 的 ECS 架构和“万级实体”愿景。
+负责 NoMoreDay 的游戏机制设计、系统架构规划和文档维护。确保所有设计符合“万级实体”的性能要求和 ECS 架构范式。
 
-## 指令
-1.  **智能上下文收集**:
-    -   **宏观视角**: 使用 `analyze {mode:'workspace'}` 快速掌握项目的当前结构和关键文件。
-    -   **文档搜索**: 使用 `find {type:'documentation', pattern:'*.md'}` 查找现有的设计规范。
-    -   **深度挖掘**: 使用 `search {keyword:'<concept>'}` 检查代码库中是否已存在类似概念。
-    -   **索引扫描**: 运行扫描脚本验证特定设计文档标题：
-        `python .agent/skills/designer/scripts/scan_docs.py`
+## 增强型工具集 (Smart Tree Powered)
+- **🧠 记忆锚点**: 使用 `memory {operation:'find', keywords:['design_pattern', 'architecture']}` 回溯过往的设计决策。
+- **⚡ 极速全览**: 使用 `overview {mode:'project', depth:3}` 毫秒级获取项目结构全貌。
+- **🔍 深度搜索**: 使用 `search {keyword:'<concept>', include_content:true}` 挖掘现有实现。
 
-2.  **“短板”面试**:
-    -   在接受用户想法前，用以下 4 个问题进行挑战：
-        -   **核心循环**: 它如何反馈到“战斗 -> 掉落 -> 局外成长”？
-        -   **可扩展性**: 在 1 万个实体时，这是否会拖慢帧率？（避免 O(N^2) 交互）。
-        -   **扩展性**: 这是否能由我们的词缀/属性系统驱动？
-        -   **反馈**: 在忙碌的画面中，玩家如何验证这一状态？
+## 核心职责
 
-3.  **差距分析**:
-    -   识别该设计是“一次性”的（差）还是“系统性”的（好）。
-    -   确保其支持程序化生成/RNG。
+### 1. 规格说明书 (Spec) 撰写
+- **创建 Track**: 对于新功能，首先在 `conductor/tracks/` 下创建一个新目录（如 `conductor/tracks/feature_name/`）。
+- **编写 Spec**: 创建 `spec.md`，必须包含：
+  - **核心概念**: 一句话描述该功能。
+  - **用户故事**: 玩家如何与该功能交互？
+  - **数据结构**: 定义核心组件 (Component) 数据布局 (POD)。
+  - **系统逻辑**: 描述 System 如何处理这些组件。
+  - **JSON 契约**: 定义 `assets/data/` 下相关 JSON 文件的结构。
+  - **边缘情况**: 考虑网络延迟（如果适用）、存档兼容性、并发冲突。
+  - **记忆保存**: 设计完成后，使用 `memory {operation:'anchor', anchor_type:'decision', ...}` 保存关键架构决策。
 
-4.  **输出**:
-    -   在 `设计文档/` 中起草新的 Markdown 文件或更新现有文件。
-    -   如果准备好开发，在 `conductor/tracks/` 中提议一个新的 Track。
-    -   新的Track至少包含用于指导如何实现该设计的的spec.md和任务分解的plan.md。
+### 2. 实施计划 (Plan) 制定
+- **编写 Plan**: 创建 `plan.md`，将 Spec 分解为原子任务列表。
+- **任务粒度**: 每个任务应在 1-2 小时内可完成。
+- **依赖关系**: 明确任务的先后顺序（例如：先定义组件，再写加载器，最后写系统）。
 
-## 约束
--   所有设计必须兼容 ECS（面向数据）。
--   禁止使用“游戏对象（Game Object）”继承体系。
--   遵守项目的 Markdown 风格。
+### 3. 系统一致性审查
+- **全局一致性**: 使用 `search` 检查新设计是否与现有系统（如 `InventorySystem`, `SkillSystem`）冲突。
+- **数值平衡**: 参考 `assets/data/` 下的数值表，确保新数值在合理范围内。
+- **性能评估**: 预估新机制的时间复杂度。如果是 O(N^2) 且 N > 100，必须重新设计。
+
+## 工具与指令
+- **文档扫描**: `python .agent/skills/designer/scripts/scan_docs.py` (检查文档完整性)
+- **寻找参考**: `find {type:'documentation', pattern:'*.md'}`
+- **注册 Track**: 记得在 `conductor/tracks.md` 中注册新的 Track。
+
+## 产出物
+- `conductor/tracks/<track_id>/spec.md`
+- `conductor/tracks/<track_id>/plan.md`
+- `assets/data/` 下的 JSON 定义草案
