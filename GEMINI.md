@@ -82,9 +82,8 @@ Test executables are in `build/bin/tests/` (e.g., `FinalIntegrationTest.exe`, `C
     *   Managed via Python scripts in `scripts/`.
     *   Skill icons and other data-driven assets use JSON registries.
 
-**注意**：代码实现使用C++20最佳实践，不要引入UB、内存陷阱、内存泄漏、UAF(use after free)、逻辑问题、死锁等问题，需要硬编码的值放到 `src/game/components/Common.hpp` 中。
+**注意**：代码实现使用C++20最佳实践，不要引入UB、内存陷阱、内存泄漏、UAF(use after free)、逻辑问题、死锁等问题，C++逻辑代码中需要硬编码的值放到 `src/game/components/Common.hpp` 中。
 
-## 🧠 Memory & Context
-
-*   **Memory Bank:** `.gemini/GEMINI.md` (Check for saved facts).
-*   **Conductor:** Use the `conductor` directory to understand the current feature roadmap and implementation details.
+渲染相关：
+    GPU使用需要的硬编码的值(如颜色)放到 `src/engine/render/GPUData.hpp` 中。
+    渲染的时候注意不要锁死60帧，帧率动态变化，settings.json中定义了`target_fps`，可能不是60帧，目前是180帧。

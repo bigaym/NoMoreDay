@@ -113,25 +113,35 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       dash->dirY = dir.y;
       dash->dashSpeed = speed;
 
-      // Add Trail Visual
+      // Add Trail Visual - Particle Flow Mode
       auto &trail = registry.get_or_emplace<components::MotionTrail>(owner);
+      
+      // Configuration values
+      float targetWidth = 20.0f; // Adjusted to 20.0f per user request
+      float targetLifetime = 0.1f; // User: "1/4 of skill duration" (0.375s / 4 ~= 0.09s)
+      
       trail.isActive = true;
-      trail.maxWidth = exec.is_empowered ? 25.0f : 15.0f;
-      trail.lifetime = 0.4f;
-      trail.color = is_cold ? SKYBLUE : (exec.is_empowered ? GOLD : WHITE);
-      trail.minDistance = 2.0f;
+      trail.maxWidth = targetWidth; // Apply width to component
+      trail.useParticles = true;
+      trail.emitInterval = 0.0007f; // Increased density (3x more particles, 0.002 -> 0.0007)
+      trail.lifetime = targetLifetime;
+      trail.particleSize = 3.5f; // Large particles
+      
+      // Color Config: Center Bright, Edge Dim
+      trail.coreColor = components::Colors::SPEED_ACCENT; // Bright Cyan Center
+      
+      Color glowColor = is_cold ? SKYBLUE : (exec.is_empowered ? GOLD : components::Colors::INK_TRAIL_PALE);
+      glowColor.a = 20; // Low alpha for glow/edge
+      trail.color = glowColor; // Edge color
     }
 
-    // --- VISUAL EFFECTS: Ink Trail ---
-    auto &particleSys = systems::GPUParticleSystem::Get();
-    for (int i = 0; i < 8; ++i) {
-      float offset = (float)i * 15.0f;
-      Vector2 p = {startPos.x + dir.x * offset, startPos.y + dir.y * offset};
-      particleSys.Emit(systems::InkEffectHelper::CreateInkTrail(
-          p, Vector2Scale(dir, -20.0f), 1.5f + (float)i * 0.2f, 0.8f));
-    }
-
+    // --- VISUAL EFFECTS: Ink Trail & Speed Lines ---
+    // Replaced by MotionTrail Particle System (Time-based emission)
+    
+    // 2. End Point Burst - Removed per feedback
+    
     if (exec.is_empowered) {
+      auto &particleSys = systems::GPUParticleSystem::Get();
       auto goldParticles = systems::InkEffectHelper::CreateInkSplash(
           startPos, 12, 10.0f, 150.0f);
       for (auto &p : goldParticles) {
@@ -260,18 +270,28 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     }
 
     // 2. Spawn a "Thrust" projectile
+    // Offset spawn position so the visual is not centered on the player, but extending forward
+    // User wants 20% behind, 80% forward. The shape is roughly 2*radius long.
+    // Shifting forward by approx 0.6 * radius aligns the "center" of the shape forward.
+    float renderRadius = exec.is_empowered ? 35.0f : 20.0f; // Reduced by ~1/3 (was 50/30)
+    float forwardOffset = renderRadius * 1.2f; // Offset refined to 1.2f per user request 
+    
     auto proj_ent = registry.create();
     registry.emplace<LocalLevelTag>(proj_ent);
-    registry.emplace<Position>(proj_ent, pos->x, pos->y);
+    
+    // Calculate offset position
+    Vector2 spawnPos = { pos->x + dir.x * forwardOffset, pos->y + dir.y * forwardOffset };
+    registry.emplace<Position>(proj_ent, spawnPos.x, spawnPos.y);
+    
     registry.emplace<Velocity>(proj_ent, dir.x * speed, dir.y * speed);
-    registry.emplace<ColorComponent>(proj_ent, isFrost ? BLUE : SKYBLUE);
+    registry.emplace<ColorComponent>(proj_ent, isFrost ? BLUE : NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT);
 
     auto &proj = registry.emplace<Projectile>(proj_ent);
     proj.owner = owner;
     proj.cast_id = exec.cast_id;
-    proj.speed = speed;
+    proj.speed = speed; // Bind to dash displacement speed (User requested) 
     proj.lifeTime = 0.375f;
-    proj.radius = exec.is_empowered ? 70.0f : 45.0f;
+    proj.radius = renderRadius;
     proj.pierce = true;
     proj.pierceCount = forcePierce ? 999 : 99;
     proj.visualType = 2; // Beam/Box for Thrust

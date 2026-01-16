@@ -8,7 +8,9 @@
 #include "raymath.h"
 #include <cmath>
 
-PortalSystem::PortalSystem(NoMoreDay::SceneManager &sceneManager)
+namespace NoMoreDay {
+
+PortalSystem::PortalSystem(SceneManager &sceneManager)
     : m_sceneManager(sceneManager) {}
 
 void PortalSystem::Update(entt::registry &registry, float dt) {
@@ -100,7 +102,7 @@ void PortalSystem::UpdateTownPortalCasting(entt::registry &registry, float dt) {
     casting.elapsedTime += dt;
 
     // Emit casting particles
-    auto &particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
+    auto &particleSys = systems::GPUParticleSystem::Get();
     float progress = casting.elapsedTime / casting.castTime;
     int particleCount = 1 + (int)(progress * 3.0f);
 
@@ -109,7 +111,7 @@ void PortalSystem::UpdateTownPortalCasting(entt::registry &registry, float dt) {
           casting.elapsedTime * 8.0f + i * (2.0f * PI / particleCount);
       float radius = 15.0f + progress * 15.0f;
 
-      NoMoreDay::components::GPUParticle p;
+      components::GPUParticle p;
       p.position = {casting.castX + cosf(angle) * radius,
                     casting.castY + sinf(angle) * radius};
       p.velocity = {-sinf(angle) * 20.0f, cosf(angle) * 20.0f - 30.0f};
@@ -157,8 +159,8 @@ void PortalSystem::SpawnTownPortal(entt::registry &registry,
   registry.emplace<PortalComponent>(portal, pc);
 
   // Spawn visual effect
-  auto &particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
-  auto splash = NoMoreDay::systems::InkEffectHelper::CreateInkSplash(
+  auto &particleSys = systems::GPUParticleSystem::Get();
+  auto splash = systems::InkEffectHelper::CreateInkSplash(
       {pos->x, pos->y + 40.0f}, 20, 15.0f, 120.0f);
   for (auto &p : splash) {
     p.color = GOLD;
@@ -267,12 +269,12 @@ void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
 
     // 4. Emit periodic particles
     if (fmodf(portal.animationTimer, 0.1f) < 0.016f) {
-      auto &particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
+      auto &particleSys = systems::GPUParticleSystem::Get();
       float pAngle = portal.animationTimer * 5.0f;
 
       for (int i = 0; i < 2; ++i) {
         float a = pAngle + i * PI;
-        NoMoreDay::components::GPUParticle p;
+        components::GPUParticle p;
         p.position = {pos.x + cosf(a) * (radius - 10.0f),
                       pos.y + sinf(a) * (radius - 10.0f)};
         p.velocity = {-sinf(a) * 40.0f, cosf(a) * 40.0f - 20.0f};
@@ -301,3 +303,5 @@ void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
              ColorAlpha(WHITE, 0.3f));
   }
 }
+
+} // namespace NoMoreDay

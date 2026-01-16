@@ -1,4 +1,5 @@
 #include "game/states/GameplayState.hpp"
+#include "game/systems/world/PortalSystem.hpp" // Moved up
 #include "app/SharedContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
@@ -46,7 +47,6 @@
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
-#include "game/systems/world/PortalSystem.hpp"
 #include "systems/SerializationSystem.hpp"
 
 namespace NoMoreDay {
@@ -226,8 +226,7 @@ void GameplayState::InitializeEntities() {
   active.specialized_slots[1].skill_id = 2;
   active.available_talent_points = 49; // Give 49 points for testing
 
-  // Add Sword Intent for Blade Ascendant mechanics
-  registry.emplace<SwordIntentComponent>(player);
+
 
   // Ensure some mana
   auto &stats = registry.get<CombatStats>(player);

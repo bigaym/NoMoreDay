@@ -20,7 +20,15 @@ struct MotionTrail {
   float updateTimer = 0.0f;
   float minDistance = 5.0f; // Distance between points to record
   bool isActive = true;
+  
+  // Particle Trail Option
+  bool useParticles = false;
+  float emitInterval = 0.02f; // Frequent emission for smooth flow
+  float emitTimer = 0.0f;
+  float particleSize = 3.0f;
+  Color coreColor = WHITE; // Bright center color
 };
+
 
 // JSON integration not strictly necessary for VFX-only components unless
 // persisted, but good for consistency.

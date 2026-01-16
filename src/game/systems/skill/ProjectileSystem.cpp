@@ -123,14 +123,35 @@ void ProjectileSystem::Update(entt::registry &registry,
 
     // 4. Position Sync
     if (auto *skillComp = registry.try_get<SkillComponent>(entity)) {
+    // 4. Position Sync (Dynamic relative positioning)
+    if (auto *skillComp = registry.try_get<SkillComponent>(entity)) {
         if (skillComp->skill_id == 1 && registry.valid(proj.owner)) {
+            // Keep projectile strictly relative to owner to prevent lag
             if (auto* ownerPos = registry.try_get<Position>(proj.owner)) {
-                pos.x = ownerPos->x; pos.y = ownerPos->y;
-            }
-            if (auto* ownerVel = registry.try_get<Velocity>(proj.owner)) {
-                vel.vx = ownerVel->vx; vel.vy = ownerVel->vy;
+                // Re-calculate the offset based on current velocity direction
+                // We need the direction for the offset. Use owner's velocity or projectile's stored velocity direction?
+                // Owner's velocity is reliable for dash.
+                if (auto* ownerVel = registry.try_get<Velocity>(proj.owner)) {
+                    float speedSq = ownerVel->vx * ownerVel->vx + ownerVel->vy * ownerVel->vy;
+                    if (speedSq > 0.1f) {
+                        float invSpeed = 1.0f / sqrtf(speedSq);
+                        float dirX = ownerVel->vx * invSpeed;
+                        float dirY = ownerVel->vy * invSpeed;
+                        
+                        // Apply the same offset logic as spawning: 1.2 * Radius
+                        // Radius might be stored in proj.radius
+                        float forwardOffset = proj.radius * 1.2f;
+                        pos.x = ownerPos->x + dirX * forwardOffset;
+                        pos.y = ownerPos->y + dirY * forwardOffset;
+                        
+                        // Sync velocity too
+                        vel.vx = ownerVel->vx; 
+                        vel.vy = ownerVel->vy;
+                    }
+                }
             }
         }
+    }
     }
 
     // 5. Visual Effects (Safe with Mutex in ParticleSystem)

@@ -35,6 +35,7 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
 
     // Emit particles if level > 0
     if (intent.stacks > 0 && visual.showAura) {
+      /*
       auto &particleSys = GPUParticleSystem::Get();
 
       // Base aura density
@@ -86,6 +87,7 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
           particleSys.Emit(p);
         }
       }
+      */
     }
   }
 }
@@ -104,6 +106,9 @@ void SwordIntentVisualSystem::Render(entt::registry& registry) {
 
     if (auraShader.id == 0) return;
 
+    // Disabled per user request (redundant with UI). Resources kept for future use.
+    // To re-enable, uncomment the block below.
+    /*
     // Use Visual Component for smooth parameters
     auto view = registry.view<Position, components::SwordIntentVisual>();
 
@@ -145,6 +150,7 @@ void SwordIntentVisualSystem::Render(entt::registry& registry) {
     }
     
     EndShaderMode();
+    */
 }
 
 } // namespace NoMoreDay::systems

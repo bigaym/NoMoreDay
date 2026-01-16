@@ -52,8 +52,8 @@ void main() {
     
     // Angle of passDirection
     float angle = atan(passDirection.y, passDirection.x);
-    // Rotate localPos by -angle to align with X-axis
-    vec2 p = rotate(localPos, -angle);
+    // Rotate localPos by angle (which results in -angle rotation due to matrix implementation)
+    vec2 p = rotate(localPos, angle);
     
     float dist = 0.0;
     
@@ -69,9 +69,36 @@ void main() {
         // Just a circle for now
         dist = sdCircle(p, passRadius);
     } else {
-        // Type 2: Beam / Box
-        // Long and thin on X axis
-        dist = sdBox(p, vec2(passRadius, passRadius * 0.3));
+
+        // Type 2: Sharp Thrust (Tapered Blade)
+        // Aligned with X axis.
+        // Center is (0,0). Length is approx 2 * passRadius.
+        
+        float halfLen = passRadius;
+        float baseHalfWidth = passRadius * 0.25;
+        
+        // Normalize X to [0, 1] range (0 = Back, 1 = Front)
+        float t = clamp((p.x + halfLen) / (2.0 * halfLen), 0.0, 1.0);
+        
+        // Taper Function: Double taper (Diamond-like profile)
+        // 0.0 -> 0.2 (Back): Ramp up
+        // 0.2 -> 1.0 (Blade): Taper down
+        float widthScale = 1.0;
+        if (t < 0.2) {
+            widthScale = smoothstep(0.0, 0.2, t);
+        } else {
+            widthScale = mix(1.0, 0.15, (t - 0.2) / 0.8);
+        }
+        
+        float currentHalfWidth = baseHalfWidth * widthScale;
+        
+        // Approximate SDF
+        float dx = abs(p.x) - halfLen;
+        float dy = abs(p.y) - currentHalfWidth;
+        
+        // Combine (Intersection of bounds)
+        // Using max(dx, dy) creates a sharp intersection
+        dist = max(dx, dy);
     }
     
     // SDF Rendering logic

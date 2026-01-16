@@ -8,9 +8,11 @@
 struct PortalComponent;
 enum class PortalType : uint8_t;
 
+namespace NoMoreDay {
+
 class PortalSystem {
 public:
-    PortalSystem(NoMoreDay::SceneManager& sceneManager);
+    PortalSystem(SceneManager& sceneManager);
     
     void Update(entt::registry& registry, float dt);
     void Render(entt::registry& registry, const Camera2D& camera);
@@ -25,5 +27,7 @@ private:
     void SpawnTownPortal(entt::registry& registry, entt::entity caster);
     void UpdatePortalAnimations(entt::registry& registry, float dt);
     
-    NoMoreDay::SceneManager& m_sceneManager;
+    SceneManager& m_sceneManager;
 };
+
+}

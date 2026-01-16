@@ -8,9 +8,12 @@
 #include "engine/physics/SpatialGrid.hpp"
 
 // Forward declaration
-class PortalSystem;
 
 namespace NoMoreDay {
+
+    // Forward declaration in namespace
+    class PortalSystem;
+
 
     class GameplayState : public IState {
     public:

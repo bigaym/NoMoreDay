@@ -65,4 +65,39 @@ struct GPUSkillEffect {
 // Ensure Stride is exactly 64 bytes
 static_assert(sizeof(GPUSkillEffect) == 64, "GPUSkillEffect struct must be exactly 64 bytes for SSBO alignment");
 
+/**
+ * @brief Centralized Color Manager for VFX
+ * 颜色管理器：统一管理游戏内的特效颜色
+ */
+namespace Colors {
+    // Defines a color in 0xRRGGBBAA format for easy hex usage
+    // 使用 0xRRGGBBAA 格式定义的颜色辅助函数
+    constexpr Color FromHex(uint32_t hex) {
+        return Color{
+            static_cast<unsigned char>((hex >> 24) & 0xFF),
+            static_cast<unsigned char>((hex >> 16) & 0xFF),
+            static_cast<unsigned char>((hex >> 8) & 0xFF),
+            static_cast<unsigned char>((hex) & 0xFF)
+        };
+    }
+
+    // --- Blade Ascendant Theme (剑修主题) ---
+    
+    // Low opacity trail color (Very faint water/ink)
+    // 极淡的水墨色拖尾 (高透明度)
+    constexpr Color INK_TRAIL_PALE = { 180, 220, 235, 40 }; 
+
+    // Deep ink for impact/core visuals
+    // 深色水墨，用于打击核心或强调
+    constexpr Color INK_DEEP = { 20, 25, 35, 220 };
+
+    // Standard Blade Cyan (The energy color)
+    // 标准剑气天青色
+    constexpr Color BLADE_CYAN = { 195, 248, 245, 255 };
+    
+    // Speed Line / Particle bright accent
+    // 速度线/粒子的高亮色
+    constexpr Color SPEED_ACCENT = { 200, 255, 255, 200 };
+}
+
 } // namespace NoMoreDay::components
