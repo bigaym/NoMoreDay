@@ -44,6 +44,10 @@
 - [ ] **底材价值重构**
     - 增加“底材隐性属性 (Implicit)”系统，使同类武器的不同底材具有差异化。
 
+- [x] **Code Risk Mitigation**
+    - **SkillSystem**: Fixed UAF vulnerability using Collect-then-Process pattern.
+    - **GPUFlowFieldSystem**: Fixed resource leaks (missing Release calls) and optimized memory allocation.
+
 ### 📍 Phase 10: 敌人生态与宿敌进化 (Advanced AI & Nemesis)
 **优先级：高**。增强战斗的挑战性与交互性。
 

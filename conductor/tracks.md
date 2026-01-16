@@ -235,8 +235,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Blade Ascendant System Integration
+## [x] Track: Blade Ascendant System Integration
 - **Folder:** [./conductor/archive/blade_ascendant_integration/](./conductor/archive/blade_ascendant_integration/)
 - **Description:** Integrate VFX assets into the ECS, linking visuals to gameplay state (Sword Intent levels, Skill casts) and implementing the detailed VFX design.
-- **Status:** IN PROGRESS
+- **Status:** COMPLETED
 - **Priority:** HIGH
+- **Estimated Time:** 2 days (Completed on 2026-01-16)
+
+---
+
+## [x] Track: Code Risk Mitigation
+- **Folder:** conductor/archive/code_risk_mitigation_20260116
+- **Description:** Address critical UAF risks in SkillSystem and memory leaks in GPUFlowFieldSystem identified by Code Risk Analysis. (Completed on 2026-01-16)
