@@ -207,7 +207,7 @@ void CombatSystem::update(entt::registry &registry,
                       LOG_DEBUG("Target {} blocked attack (Amt: {:.1f})",
                                 (uint32_t)target, blockedAmount);
                       if (registry.all_of<Position>(target)) {
-                        EffectSystem::EmitStatusPopup(
+                        NoMoreDay::systems::EffectSystem::EmitStatusPopup(
                             registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
                       }
 
@@ -440,8 +440,8 @@ void CombatSystem::update(entt::registry &registry,
                 finalDamage *= (1.0f - blockMitigation);
 
                 if (registry.all_of<Position>(ai.target)) {
-                  EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y},
-                                                "格挡", SKYBLUE);
+                  NoMoreDay::systems::EffectSystem::EmitStatusPopup(
+                      registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
                 }
               }
             }
@@ -452,8 +452,8 @@ void CombatSystem::update(entt::registry &registry,
           } else {
             // Show "Dodge" popup
             if (registry.all_of<Position>(ai.target)) {
-              EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y}, "闪避",
-                                            WHITE);
+              NoMoreDay::systems::EffectSystem::EmitStatusPopup(
+                  registry, {tPos.x, tPos.y}, "闪避", WHITE);
             }
           }
         }
@@ -585,7 +585,8 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
   // --- Unified Damage Popup (Gated by showVFX for performance) ---
   if (showVFX && registry.all_of<Position>(target)) {
     const auto &tPos = registry.get<Position>(target);
-    EffectSystem::EmitDamagePopup(registry, {tPos.x, tPos.y}, amount, isCrit);
+    NoMoreDay::systems::EffectSystem::EmitDamagePopup(
+        registry, {tPos.x, tPos.y}, amount, isCrit);
 
     // Screen Shake for heavy damage
     using namespace NoMoreDay::Constants::Combat;
@@ -609,8 +610,8 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
         // Visual Effect for Immortality
         if (registry.all_of<Position>(target)) {
           const auto &tPos = registry.get<Position>(target);
-          EffectSystem::EmitStatusPopup(registry, {tPos.x, tPos.y}, "不灭剑魂",
-                                        GOLD);
+          NoMoreDay::systems::EffectSystem::EmitStatusPopup(
+              registry, {tPos.x, tPos.y}, "不灭剑魂", GOLD);
           auto &particleSys = NoMoreDay::systems::GPUParticleSystem::Get();
           auto splash = NoMoreDay::systems::InkEffectHelper::CreateInkSplash(
               {tPos.x, tPos.y}, 20, 15.0f, 200.0f);

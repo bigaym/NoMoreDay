@@ -16,9 +16,13 @@
 
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
+#include "app/SharedContext.hpp"
+#include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
+#include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+
 
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
@@ -129,6 +133,23 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
 
         auto &ai = registry.emplace<SpiritSwordAI>(sword);
         ai.attack_interval = formation.attack_interval;
+
+        // Visuals
+        auto &holo = registry.emplace<components::HoloBlade>(sword);
+        holo.holoColor =
+            formation.is_empowered ? GOLD : components::HoloBlade{}.holoColor;
+        holo.scale = formation.has_giant_sword ? 2.5f : 1.0f;
+
+        // Add Sprite for Holo Shader
+        Texture2D swordTex = {0};
+        if (auto **ctx = registry.ctx().find<NoMoreDay::SharedContext *>()) {
+          NoMoreDay::SharedContext *context = *ctx;
+          if (context && context->resources) {
+            swordTex = context->resources->getTexture(
+                entt::hashed_string("sword_001"));
+          }
+        }
+        registry.emplace<SpriteComponent>(sword, swordTex, 0.15f);
 
         int total_index = current_count + i;
         ai.attack_timer =

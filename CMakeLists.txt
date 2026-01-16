@@ -166,6 +166,7 @@ add_library(NoMoreDayCore STATIC
     src/game/states/SettingsState.cpp
     src/game/states/HeirloomVaultState.cpp
     src/game/states/NightmareFloorState.cpp
+    src/game/states/TestVFXState.cpp
     src/game/systems/ai/AISystem.cpp
     src/game/systems/ai/EnemyBehavior.cpp
     src/game/systems/ai/EnemyAIBehaviors.cpp
@@ -211,6 +212,9 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/world/MosaicMapGenerator.cpp
     src/game/systems/world/MovementStanceSystem.cpp
     src/game/systems/world/PortalSystem.cpp
+    src/game/systems/vfx/TrailSystem.cpp
+    src/game/systems/vfx/SwordIntentVisualSystem.cpp
+    src/game/systems/vfx/HoloBladeRenderSystem.cpp
     src/game/systems/nemesis/FactionAggroSystem.cpp
     src/game/systems/nemesis/NemesisGenerator.cpp
     src/systems/SerializationSystem.hpp

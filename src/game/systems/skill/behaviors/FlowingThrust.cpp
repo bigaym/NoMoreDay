@@ -23,8 +23,11 @@
 #include "game/components/EffectComponent.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Projectile.hpp"
-#include "game/components/SkillDefs.hpp"      // For ActiveSkillsComponent
+#include "game/components/SkillDefs.hpp" // For ActiveSkillsComponent
+#include "game/components/vfx/MotionTrailComponent.hpp"
+#include "game/components/vfx/SwordIntentVisualComponent.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // Added for SkillExecution definition
+
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -109,6 +112,14 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       dash->dirX = dir.x;
       dash->dirY = dir.y;
       dash->dashSpeed = speed;
+
+      // Add Trail Visual
+      auto &trail = registry.get_or_emplace<components::MotionTrail>(owner);
+      trail.isActive = true;
+      trail.maxWidth = exec.is_empowered ? 25.0f : 15.0f;
+      trail.lifetime = 0.4f;
+      trail.color = is_cold ? SKYBLUE : (exec.is_empowered ? GOLD : WHITE);
+      trail.minDistance = 2.0f;
     }
 
     // --- VISUAL EFFECTS: Ink Trail ---

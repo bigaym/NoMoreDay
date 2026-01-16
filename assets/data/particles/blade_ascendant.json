@@ -1,0 +1,86 @@
+{
+    "SwordIntent": {
+        "Aura": {
+            "color": [
+                100,
+                200,
+                255,
+                200
+            ],
+            "lifetime": [
+                0.5,
+                1.2
+            ],
+            "scale": [
+                2.0,
+                5.0
+            ],
+            "velocity_range": [
+                -20,
+                20
+            ],
+            "acceleration": [
+                0,
+                -5
+            ],
+            "count": 5,
+            "growth_rate": -0.1
+        }
+    },
+    "FlowingThrust": {
+        "Impact": {
+            "color": [
+                255,
+                255,
+                200,
+                255
+            ],
+            "lifetime": [
+                0.2,
+                0.4
+            ],
+            "scale": [
+                1.0,
+                3.0
+            ],
+            "velocity_range": [
+                -100,
+                100
+            ],
+            "acceleration": [
+                0,
+                0
+            ],
+            "count": 12,
+            "growth_rate": -0.5
+        }
+    },
+    "InfiniteBlades": {
+        "Stream": {
+            "color": [
+                200,
+                230,
+                255,
+                180
+            ],
+            "lifetime": [
+                0.8,
+                1.5
+            ],
+            "scale": [
+                3.0,
+                6.0
+            ],
+            "velocity_range": [
+                -50,
+                50
+            ],
+            "acceleration": [
+                0,
+                10
+            ],
+            "count": 20,
+            "growth_rate": 0.05
+        }
+    }
+}

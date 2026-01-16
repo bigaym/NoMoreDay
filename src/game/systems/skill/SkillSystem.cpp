@@ -50,7 +50,8 @@ void SkillSystem::InitHooks() {
 
     const auto *tree = SkillRegistry::Get().GetSkillTree(exec.skill_id);
     if (!tree) {
-      // Log warning only if strictly needed, otherwise silent return helps robustness for dummy skills
+      // Log warning only if strictly needed, otherwise silent return helps
+      // robustness for dummy skills
       return;
     }
 
@@ -338,11 +339,40 @@ void SkillSystem::Update(entt::registry &registry,
 
     chan.tick_timer -= dt;
 
-    // ... (VFX code omitted) ...
+    // 2. VFX: Channeling Aura
+    if (chan.skill_id == 5 || chan.skill_id == 7) {
+      auto &particleSys = systems::GPUParticleSystem::Get();
+      if ((float)GetRandomValue(0, 1000) < 500.0f * dt) {
+        components::GPUParticle p;
+        p.position = {pos.x + (float)GetRandomValue(-20, 20),
+                      pos.y + (float)GetRandomValue(-10, 10)};
+        p.velocity = {(float)GetRandomValue(-20, 20),
+                      -50.0f - (float)GetRandomValue(0, 50)};
+        p.color = chan.is_empowered ? GOLD : SKYBLUE;
+        p.lifetime = 0.6f;
+        p.maxLifetime = 0.6f;
+        p.scale = 2.0f;
+        p.flags = 2; // Spark
+        particleSys.Emit(p);
+      }
+    }
 
     if (chan.tick_timer <= 0.0f) {
       if (chan.skill_id == 5) {
-        // ... (Particles) ...
+        // VFX: Sword emission toward target
+        auto &particleSys = systems::GPUParticleSystem::Get();
+        Vector2 dir =
+            Vector2Normalize(Vector2Subtract(chan.target_pos, {pos.x, pos.y}));
+
+        components::GPUParticle p;
+        p.position = {pos.x + dir.x * 20.0f, pos.y + dir.y * 20.0f};
+        p.velocity = Vector2Scale(dir, 400.0f);
+        p.color = chan.is_empowered ? GOLD : WHITE;
+        p.lifetime = 0.4f;
+        p.maxLifetime = 0.4f;
+        p.scale = 4.0f;
+        p.flags = 13; // Sword shape (hypothetically if index 13 is sword)
+        particleSys.Emit(p);
 
         // Logic: Cast Rending Wave (ID 2)
         Vector2 targetPos = chan.target_pos;
@@ -380,11 +410,11 @@ void SkillSystem::Update(entt::registry &registry,
           }
         }
 
-        Vector2 dir =
+        Vector2 target_dir =
             Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
         // Add some random spread
         float spread = (float)GetRandomValue(-30, 30) * DEG2RAD;
-        Vector2 fireDir = Vector2Rotate(dir, spread);
+        Vector2 fireDir = Vector2Rotate(target_dir, spread);
 
         Vector2 strike_target = {pos.x + fireDir.x * 250.0f,
                                  pos.y + fireDir.y * 250.0f};
@@ -488,7 +518,7 @@ void SkillSystem::Update(entt::registry &registry,
           // Outer Glow - Softer surrounding effect
           components::GPUParticle glow;
           glow.position = pPos;
-          glow.velocity = Vector2Scale(dir, 20.0f);
+          glow.velocity = Vector2Scale(dir, 30.0f);
           glow.acceleration = {0.0f, 0.0f};
           glow.color = ColorAlpha(ORANGE, 0.5f);
           glow.scale = 6.0f; // Smaller glow
@@ -685,7 +715,7 @@ void SkillSystem::UpdateSwordIntent(entt::registry &registry, float dt) {
         intent.stacks = 0;
         intent.time_since_last_gain = 0.0f;
         LOG_INFO("Entity {} Sword Intent cleared (Inactive for {:.1f}s)",
-                  (uint32_t)entity, intent.grace_period);
+                 (uint32_t)entity, intent.grace_period);
       }
 
       // Visuals
@@ -771,7 +801,8 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
         exec.state = SkillState::Casting;
         exec.timer = 0.05f;
 
-        LOG_INFO("UpdateStates: Executing skill ID {} for entity {}", exec.skill_id, (uint32_t)exec.owner);
+        LOG_INFO("UpdateStates: Executing skill ID {} for entity {}",
+                 exec.skill_id, (uint32_t)exec.owner);
 
         // NEW: Try SkillBehaviorRegistry first (new modular system)
         if (auto castFunc = SkillBehaviorRegistry::GetCast(exec.skill_id)) {
@@ -837,7 +868,8 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   }
 
   if (registry.any_of<SkillExecution>(entity)) {
-    LOG_TRACE("TryCast: Entity {} is already executing a skill", (uint32_t)entity);
+    LOG_TRACE("TryCast: Entity {} is already executing a skill",
+              (uint32_t)entity);
     return false;
   }
 
@@ -848,8 +880,8 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   }
 
   if (slot.current_charges <= 0) {
-    LOG_TRACE("TryCast: Skill {} has no charges ({} / {})", 
-             data->name_key, slot.current_charges, data->max_charges);
+    LOG_TRACE("TryCast: Skill {} has no charges ({} / {})", data->name_key,
+              slot.current_charges, data->max_charges);
     return false;
   }
 

@@ -226,3 +226,17 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Priority:** HIGH
 - **Estimated Time:** 3 days
 
+
+---
+
+## [x] Track: Blade Ascendant VFX Asset Pipeline
+- **Folder:** [./conductor/archive/blade_ascendant_vfx/](./conductor/archive/blade_ascendant_vfx/)
+- **Description:** Implement custom shaders (SwordTrail, HoloBlade, Distortion) and GPU particle configurations for the Blade Ascendant class. (Completed on 2026-01-16)
+
+---
+
+## [ ] Track: Blade Ascendant System Integration
+- **Folder:** [./conductor/archive/blade_ascendant_integration/](./conductor/archive/blade_ascendant_integration/)
+- **Description:** Integrate VFX assets into the ECS, linking visuals to gameplay state (Sword Intent levels, Skill casts) and implementing the detailed VFX design.
+- **Status:** IN PROGRESS
+- **Priority:** HIGH

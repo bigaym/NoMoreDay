@@ -5,11 +5,11 @@
 #include "engine/scene/StateManager.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp" // Added
+#include "game/data/SkillRegistry.hpp"
 #include "game/states/InventoryState.hpp"
 #include "game/states/MosaicEditorState.hpp"
 #include "game/states/PauseState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
-#include "game/data/SkillRegistry.hpp"
 #include "game/systems/world/LevelManager.hpp"
 
 // Systems
@@ -20,6 +20,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/systems/ai/AISystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
@@ -41,6 +42,8 @@
 #include "game/systems/ui/UICharacter.hpp"
 #include "game/systems/ui/UIMinimap.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "game/systems/vfx/SwordIntentVisualSystem.hpp"
+#include "game/systems/vfx/TrailSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include "game/systems/world/PortalSystem.hpp"
@@ -63,7 +66,7 @@ void GameplayState::OnEnter() {
   // Initialize Elite Modifiers (SoulLink, Avenger)
   EliteModifierSystem::Init();
   FragmentDropSystem::Init();
-  
+
   // GPU Skill Effect System is initialized in Game.cpp (Global)
 
   // 1. Initialize Managers/Resources (if not already)
@@ -189,7 +192,7 @@ void GameplayState::InitializeEntities() {
   registry.emplace<TextureIDComponent>(player, playerAsset.id);
   registry.emplace<MovementStanceComponent>(player);
   registry.emplace<MovementAccumulator>(player);
-  
+
   // Set up Inventory
 
   // Astrolabe
@@ -210,11 +213,11 @@ void GameplayState::InitializeEntities() {
   active.slots[4].id = 2; // RMB -> Rending Wave
 
   // Initialize charges
-  for (auto& slot : active.slots) {
+  for (auto &slot : active.slots) {
     if (slot.id != 0) {
-        if (const auto* data = SkillRegistry::Get().GetSkill(slot.id)) {
-            slot.current_charges = data->max_charges;
-        }
+      if (const auto *data = SkillRegistry::Get().GetSkill(slot.id)) {
+        slot.current_charges = data->max_charges;
+      }
     }
   }
 
@@ -524,6 +527,13 @@ bool GameplayState::OnUpdate(float dt) {
       if (dash.charges == dash.maxCharges - 1 && dash.cooldownTimer <= 0.0f) {
         dash.cooldownTimer = effectiveCooldown;
       }
+
+      // Start Trail
+      auto &trail = registry.get_or_emplace<components::MotionTrail>(entity);
+      trail.isActive = true;
+      trail.maxWidth = 15.0f;
+      trail.lifetime = 0.3f;
+      trail.color = {200, 200, 255, 150}; // Light blue for normal dash
     }
 
     if (dash.isDashing) {
@@ -534,6 +544,11 @@ bool GameplayState::OnUpdate(float dt) {
         dash.isDashing = false;
         vel.vx = 0;
         vel.vy = 0;
+
+        // Stop Trail
+        if (auto *trail = registry.try_get<components::MotionTrail>(entity)) {
+          trail->isActive = false;
+        }
       }
     } else {
       using namespace NoMoreDay::Constants::Combat;
@@ -579,8 +594,10 @@ bool GameplayState::OnUpdate(float dt) {
   CombatSystem::update(registry, m_spatialGrid, m_camera, dt);
 
   // 6. Effects
-  EffectSystem::update(registry, dt);
+  systems::EffectSystem::update(registry, dt);
   systems::VisualFXSystem::Update(registry, dt);
+  systems::TrailSystem::Update(registry, dt);
+  systems::SwordIntentVisualSystem::Update(registry, dt);
 
   // 7. Physics (Taskflow)
   UpdatePhysics(dt);

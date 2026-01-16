@@ -287,6 +287,11 @@ struct Position {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Position, x, y)
 
+struct Rotation {
+  float angle = 0.0f; // In degrees
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Rotation, angle)
+
 struct Velocity {
   float vx = 0.0f;
   float vy = 0.0f;
@@ -325,7 +330,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(HealthComponent, current, max)
 
 struct MovementAccumulator {
   float distance = 0.0f;
-  float threshold = 100.0f; // Default trigger every 100 distance (approx 1 meter if scale 1:100)
+  float threshold = 100.0f; // Default trigger every 100 distance (approx 1
+                            // meter if scale 1:100)
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovementAccumulator, distance, threshold)
 

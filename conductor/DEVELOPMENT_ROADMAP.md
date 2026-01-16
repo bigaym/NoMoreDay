@@ -55,9 +55,13 @@
     - 强化 `NemesisGenerator` 的分析逻辑：统计玩家近 100 次击杀的伤害构成，而非仅仅主属性。
     - 使宿敌获得针对玩家高频技能的防御组件（如：频繁格挡投射物）。
 
+
 ### 📍 Phase 11: 战斗内容与职业扩展 (Class & Combat Expansion)
 **优先级：中**。增加游戏横向可玩性。
 
+- [x] **剑修视觉升级 (Blade Ascendant VFX)**
+    - **Asset Pipeline**: 实现 SwordTrail, HoloBlade, Distortion Shaders 及 GPU 粒子配置。
+- [ ] **System Integration**: 将剑意层数可视化（光环/发光），实现流云刺拖尾与万剑归宗的粒子流表现。
 - [ ] **第二职业原型：灵术师 (Mage/Caster)**
     - 抽象 `ClassBase`，实现高额自然回蓝机制。
     - 设计 3 个核心法术（火球、冰环、奥术流）。
