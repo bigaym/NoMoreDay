@@ -5,7 +5,7 @@
 #include "game/components/vfx/SwordIntentVisualComponent.hpp"
 #include "raymath.h"
 #include <algorithm>
-
+#include <string>
 
 namespace NoMoreDay::systems {
 
@@ -57,8 +57,10 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
         p.acceleration = {0, 5.0f}; // Slight gravity/air resistance
 
         // Color gets more intense/vibrant at higher stacks
+        // Use central definition
+        Color baseColor = NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT;
         float alpha = 0.2f + (visual.intensity * 0.4f) + (pulse * 0.1f);
-        p.color = ColorAlpha(visual.auraColor, alpha);
+        p.color = ColorAlpha(baseColor, alpha);
 
         p.lifetime = 0.8f + (visual.intensity * 0.4f);
         p.maxLifetime = p.lifetime;
@@ -86,6 +88,63 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
       }
     }
   }
+}
+
+void SwordIntentVisualSystem::Render(entt::registry& registry) {
+    static Shader auraShader = {0};
+    static Texture2D auraNoise = {0};
+    
+    if (auraShader.id == 0) {
+        if (FileExists("assets/shaders/vfx/aura.fs")) {
+            auraShader = LoadShader("assets/shaders/vfx/aura.vs", "assets/shaders/vfx/aura.fs");
+            auraNoise = LoadTexture("assets/textures/vfx/vfx_aura_noise.png");
+            SetTextureFilter(auraNoise, TEXTURE_FILTER_BILINEAR);
+        }
+    }
+
+    if (auraShader.id == 0) return;
+
+    // Use Visual Component for smooth parameters
+    auto view = registry.view<Position, components::SwordIntentVisual>();
+
+    BeginShaderMode(auraShader);
+    
+    int timeLoc = GetShaderLocation(auraShader, "time");
+    int intentLoc = GetShaderLocation(auraShader, "intensity");
+    int colorLoc = GetShaderLocation(auraShader, "auraColor");
+    int noiseLoc = GetShaderLocation(auraShader, "noiseTexture");
+    
+    SetShaderValueTexture(auraShader, noiseLoc, auraNoise);
+    
+    float time = (float)GetTime();
+    SetShaderValue(auraShader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
+    
+    for (auto entity : view) {
+        const auto& pos = view.get<Position>(entity);
+        const auto& visual = view.get<components::SwordIntentVisual>(entity);
+        
+        if (visual.intensity > 0.01f && visual.showAura) {
+             float intensity = visual.intensity;
+             // Overload effect logic
+             if (visual.currentLevel >= 10) intensity = 1.5f; // Boost for max stacks
+
+             SetShaderValue(auraShader, intentLoc, &intensity, SHADER_UNIFORM_FLOAT);
+             
+             // Use Constants::Visuals::COLOR_BLADE_ASCENDANT
+             Vector4 colVec = ColorNormalize(NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT);
+             SetShaderValue(auraShader, colorLoc, &colVec, SHADER_UNIFORM_VEC4);
+             
+             // Draw Quad
+             float size = 120.0f + intensity * 40.0f;
+             Rectangle src = {0, 0, (float)auraNoise.width, (float)auraNoise.height};
+             Rectangle dest = {pos.x, pos.y, size, size};
+             Vector2 origin = {size/2, size/2};
+             
+             DrawTexturePro(auraNoise, src, dest, origin, 0.0f, WHITE);
+        }
+    }
+    
+    EndShaderMode();
 }
 
 } // namespace NoMoreDay::systems

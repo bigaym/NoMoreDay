@@ -8,12 +8,14 @@
 #include "game/components/EffectComponent.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/components/Projectile.hpp" // For Projectile visualization
+#include "game/components/SkillDefs.hpp" // For SwordIntentComponent
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/vfx/HoloBladeRenderSystem.hpp"
+#include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "raymath.h"
 #include <cmath>
@@ -71,6 +73,9 @@ void RenderSystem::render(entt::registry &registry,
   if (trailShader.id != 0) {
     NoMoreDay::systems::TrailSystem::Render(registry, trailShader);
   }
+
+  // 0.5. Sword Intent Aura (Before Sprites)
+  NoMoreDay::systems::SwordIntentVisualSystem::Render(registry);
 
   // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
   // Updated to iterate entities for ShadowVisualComponent check
@@ -268,6 +273,33 @@ void RenderSystem::render(entt::registry &registry,
       DrawRing({pos.x, pos.y}, 40.0f, 45.0f, lifeRatio * 360.0f,
                lifeRatio * 360.0f + 180.0f, 16, color);
       break;
+    }
+    case VisualEffectType::SwordIntentBurst: {
+        // Sword Intent Burst: Ink Splatter + Ring
+        static Texture2D inkTex = {0};
+        if (inkTex.id == 0 && FileExists("assets/textures/vfx/vfx_ink_splatter.png")) {
+             inkTex = LoadTexture("assets/textures/vfx/vfx_ink_splatter.png");
+             SetTextureFilter(inkTex, TEXTURE_FILTER_BILINEAR);
+        }
+
+        // 1. Shockwave Ring
+        float radius = currentScale * 50.0f;
+        float thickness = 4.0f * (1.0f - lifeRatio);
+        DrawRing({pos.x, pos.y}, radius, radius + thickness, 0, 360, 32, color);
+
+        // 2. Ink Splatter
+        if (inkTex.id != 0) {
+            float spin = lifeRatio * 45.0f; // Slow spin
+            float inkScale = currentScale * 1.5f; 
+            
+            Rectangle src = {0, 0, (float)inkTex.width, (float)inkTex.height};
+            Rectangle dest = {pos.x, pos.y, inkTex.width * inkScale, inkTex.height * inkScale};
+            Vector2 origin = {dest.width/2, dest.height/2};
+            
+            // Cyan tint
+            DrawTexturePro(inkTex, src, dest, origin, spin, Fade(color, 0.8f));
+        }
+        break;
     }
     default:
       break;

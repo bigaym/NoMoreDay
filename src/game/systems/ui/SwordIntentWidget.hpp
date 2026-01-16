@@ -1,0 +1,17 @@
+#pragma once
+#include "raylib.h"
+
+namespace NoMoreDay::systems::ui {
+
+class SwordIntentWidget {
+public:
+    static void Init();
+    static void Draw(int currentStacks, int maxStacks);
+    static void Shutdown();
+
+private:
+    static Texture2D swordIcon;
+    static bool initialized;
+};
+
+}

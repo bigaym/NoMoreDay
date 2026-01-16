@@ -1,6 +1,7 @@
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/ui/UICommon.hpp"
+#include "game/systems/ui/SwordIntentWidget.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -74,21 +75,9 @@ void PlayerHUD::Draw(entt::registry& registry) {
     float textW = 120.0f; // Approximate
     UISystem::DrawTextUI(manaText.c_str(), manaLeftX + barWidth - textW, barTopY + 4.0f, 18.0f, WHITE, 1.0f);
 
-    // --- 3. Sword Intent (Above HP Bar) ---
+    // --- 3. Sword Intent (Visual Widget) ---
     if (intent) {
-        float intentH = 10.0f;
-        float intentTopY = barTopY - intentH - 6.0f;
-        float intentPct = (float)intent->stacks / intent->max_stacks;
-        
-        Rectangle intentBg = { hpLeftX * scale, intentTopY * scale, barWidth * scale, intentH * scale };
-        DrawRectangleRec(intentBg, Fade(BLACK, 0.6f));
-        DrawRectangleRec({ hpLeftX * scale, intentTopY * scale, (barWidth * intentPct) * scale, intentH * scale }, GOLD);
-        DrawRectangleLinesEx(intentBg, 1.0f * scale, DARKGRAY);
-
-        if (intent->stacks > 0) {
-            std::string stackText = "剑意: " + std::to_string(intent->stacks);
-            UISystem::DrawTextUI(stackText.c_str(), hpLeftX, intentTopY - 22.0f, 20.0f, GOLD, 1.0f);
-        }
+        NoMoreDay::systems::ui::SwordIntentWidget::Draw(intent->stacks, intent->max_stacks);
     }
 
     // --- 4. Summon Status (Top Left) ---

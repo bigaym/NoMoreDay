@@ -247,3 +247,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [x] Track: Code Risk Mitigation
 - **Folder:** conductor/archive/code_risk_mitigation_20260116
 - **Description:** Address critical UAF risks in SkillSystem and memory leaks in GPUFlowFieldSystem identified by Code Risk Analysis. (Completed on 2026-01-16)
+
+---
+
+## [x] Track: Sword Intent System Visual Implementation
+- **Folder:** [./conductor/tracks/sword_intent_vfx/](./conductor/tracks/sword_intent_vfx/)
+- **Description:** Implement comprehensive visual feedback for the Sword Intent system, including UI indicators, progressive character auras, 10-stack overload effects, and empowered skill impacts (Ink Splatter/Inverted Colors). (Completed on 2026-01-16)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1.5 days

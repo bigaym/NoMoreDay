@@ -86,6 +86,20 @@ void SkillSystem::InitHooks() {
         intent->stacks = 0;
         LOG_INFO("Skill {} empowered by Sword Intent for entity {}",
                  exec.skill_id, (uint32_t)caster);
+
+        // Spawn Sword Intent Burst Visual Effect
+        if (auto* pos = registry.try_get<Position>(caster)) {
+             auto vfxEntity = registry.create();
+             registry.emplace<Position>(vfxEntity, *pos);
+             registry.emplace<VisualEffect>(vfxEntity, VisualEffect{
+                 .type = VisualEffectType::SwordIntentBurst,
+                 .timer = 0.0f,
+                 .lifeTime = 0.4f,
+                 .startScale = 0.2f,
+                 .endScale = 1.8f,
+                 .color = NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT
+             });
+        }
       }
     }
   });

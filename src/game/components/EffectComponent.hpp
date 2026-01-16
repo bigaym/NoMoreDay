@@ -40,7 +40,8 @@ enum class VisualEffectType {
     DropPillar,   // 掉落时的光柱
     GoldSparkle,  // 金币拾取的闪光
     LevelUp,      // 升级时的特效
-    AoeArray      // 范围法阵 (Shader based)
+    AoeArray,      // 范围法阵 (Shader based)
+    SwordIntentBurst // 剑意爆发 (Reverse Shockwave + Ink)
 };
 
 struct ArrayEffect {

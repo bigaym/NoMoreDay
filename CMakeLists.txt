@@ -196,6 +196,7 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/skill/SummonSystem.cpp
     src/game/systems/ui/MonsterHealthBarSystem.cpp
     src/game/systems/ui/PlayerHUD.cpp
+    src/game/systems/ui/SwordIntentWidget.cpp
     src/game/systems/ui/UIAnimationSystem.cpp
     src/game/systems/ui/UIAstrolabe.cpp
     src/game/systems/ui/UICharacter.cpp

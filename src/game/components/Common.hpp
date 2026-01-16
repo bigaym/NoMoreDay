@@ -278,6 +278,10 @@ constexpr float MAX_DELTA_TIME_PARTICLES =
 constexpr float DEFAULT_DELTA_TIME_PARTICLES =
     0.016f; // 默认每帧粒子物理模拟步长 (60fps)
 } // namespace Render
+
+namespace Visuals {
+    inline constexpr Color COLOR_BLADE_ASCENDANT = { 195, 248, 245, 255 }; // #C3F8F5 Pale Cyan
+}
 } // namespace NoMoreDay::Constants
 
 // 基础变换组件
