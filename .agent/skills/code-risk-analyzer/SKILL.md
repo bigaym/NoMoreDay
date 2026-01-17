@@ -38,7 +38,9 @@ description: 深度分析代码库风险，识别性能瓶颈、UB、UAF、内�
 
 ## 执行流程
 
-1.  **探索与发现**: 使用 `search` 和 `analyze` 工具扫描代码库。
+1.  **探索与发现**: 
+    - 使用 `search` 和 `analyze` 工具扫描代码库。
+    - 运行 `powershell -File .gemini/skills/code-risk-analyzer/scripts/deep_scan.ps1` 进行静态分析。
 2.  **记录问题**: 将发现的每一个风险点记录下来。
 3.  **生成报告**: 
     - 使用 Python 脚本生成标准化报告文件。

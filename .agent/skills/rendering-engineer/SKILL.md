@@ -17,11 +17,12 @@ description: 担任图形渲染工程师。在处理 OpenGL 4.3+ 特性、编写
     *   Shader 原型: `assets/shaders/vfx/` (可选)
 
 ### 2. 代码生成 (Boilerplate Gen)
-*   **工具**: 使用 `scripts/gen_vfx_system.py` 快速生成 ECS System 和 Compute Shader 框架。
-    *   `python scripts/gen_vfx_system.py <SystemName> --out_dir src/game/systems/vfx`
-    *   *示例*: `python scripts/gen_vfx_system.py RendingWave`
+*   **工具**: 使用 `.gemini/skills/rendering-engineer/scripts/gen_vfx_system.py` 快速生成 ECS System 和 Compute Shader 框架。
+    *   `python .gemini/skills/rendering-engineer/scripts/gen_vfx_system.py <SystemName> --out_dir src/game/systems/vfx`
+    *   *示例*: `python .gemini/skills/rendering-engineer/scripts/gen_vfx_system.py RendingWave`
 
 ### 3. 实现与优化
+*   **Shader 验证**: 运行 `python .gemini/skills/rendering-engineer/scripts/validate_shaders.py` 检查语法错误。
 *   **Compute Shader**: 将逻辑填充到生成的 `.compute` 文件中。
     *   *技巧*: 引用 `rendering-designer` 的算法库（需手动复制相关函数）。
 *   **SSBO**: 确保 C++ 结构体 (`alignas(16)`) 与 GLSL `struct` 内存布局严格一致。

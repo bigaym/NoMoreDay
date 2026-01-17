@@ -11,6 +11,7 @@ description: 定位、分析并修复 NoMoreDay 项目中的 Bug。当用户报�
 
 ### 1. 分析与定位
 *   **输入**: 分析用户报告、日志和堆栈跟踪（Stack Traces）。
+*   **自动日志分析**: 运行 `python .gemini/skills/bug-fixer/scripts/analyze_logs.py` 快速提取错误。
 *   **工具箱**:
     *   `search_file_content`: 定位错误字符串、函数名或逻辑模式。
     *   `smart-tree` (find/search): 进行高级模式匹配和文件变动分析。

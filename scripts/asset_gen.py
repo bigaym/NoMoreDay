@@ -58,26 +58,24 @@ def start_comfyui():
 # 8: VAE Decode, 9: Save Image, 5: Empty Latent
 def get_default_workflow():
     return {
-        "3": {
+        "10": {
             "inputs": {
-                "seed": random.randint(1, 1000000000),
-                "steps": 25,
-                "cfg": 7.5,
-                "sampler_name": "euler",
-                "scheduler": "normal",
-                "denoise": 1,
-                "model": ["4", 0],
-                "positive": ["6", 0],
-                "negative": ["7", 0],
-                "latent_image": ["5", 0]
+                "unet_name": "flux2_dev_fp8mixed.safetensors",
+                "weight_dtype": "default"
             },
-            "class_type": "KSampler"
+            "class_type": "UNETLoader"
         },
-        "4": {
+        "11": {
             "inputs": {
-                "ckpt_name": "sd_xl_base_1.0.safetensors" 
+                "type": "flux"
             },
-            "class_type": "CheckpointLoaderSimple"
+            "class_type": "CLIPLoader"
+        },
+        "12": {
+            "inputs": {
+                "vae_name": "flux2-vae.safetensors"
+            },
+            "class_type": "VAELoader"
         },
         "5": {
             "inputs": {
@@ -90,21 +88,36 @@ def get_default_workflow():
         "6": {
             "inputs": {
                 "text": "masterpiece, best quality, 2d game sprite, high detail, white background",
-                "clip": ["4", 1]
+                "clip": ["11", 0]
             },
             "class_type": "CLIPTextEncode"
         },
         "7": {
             "inputs": {
                 "text": "blur, noise, photo, realistic, 3d, text, watermark, background",
-                "clip": ["4", 1]
+                "clip": ["11", 0]
             },
             "class_type": "CLIPTextEncode"
+        },
+        "3": {
+            "inputs": {
+                "seed": random.randint(1, 1000000000),
+                "steps": 20,
+                "cfg": 1.0,
+                "sampler_name": "euler",
+                "scheduler": "simple",
+                "denoise": 1,
+                "model": ["10", 0],
+                "positive": ["6", 0],
+                "negative": ["7", 0],
+                "latent_image": ["5", 0]
+            },
+            "class_type": "KSampler"
         },
         "8": {
             "inputs": {
                 "samples": ["3", 0],
-                "vae": ["4", 2]
+                "vae": ["12", 0]
             },
             "class_type": "VAEDecode"
         },
@@ -231,26 +244,6 @@ def main():
 
     # 2. Setup Workflow
     workflow = get_default_workflow()
-    
-    # Auto-select the first available model if default isn't found
-    available_models = get_available_models()
-    if available_models:
-        # Prefer SDXL if available, otherwise v1-5, otherwise pick the first one
-        selected_model = available_models[0]
-        # First priority: SDXL
-        for model in available_models:
-            if "sd_xl" in model.lower():
-                selected_model = model
-                break
-        else:
-            # Second priority: SD 1.5
-            for model in available_models:
-                if "v1-5" in model:
-                    selected_model = model
-                    break
-        
-        workflow["4"]["inputs"]["ckpt_name"] = selected_model
-        print(f"Using Model: {selected_model}")
     
     # Update Prompts
     workflow["6"]["inputs"]["text"] = f"{args.prompt}, white background, isolated, 2d game sprite"

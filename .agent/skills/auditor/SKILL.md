@@ -17,7 +17,10 @@ description: 担任代码审查员 (Reviewer) 和质量保证员 (QA)。在代�
 ## 核心职责
 
 ### 1. 安全与架构审计
-- **静态分析**: 运行 `python .agent/skills/auditor/scripts/safety_scan.py src`。
+- **基础安全扫描**: 运行 `python .gemini/skills/auditor/scripts/safety_scan.py src`。
+- **深度静态分析**: 
+    - Cppcheck: `powershell -File .gemini/skills/auditor/scripts/run_static_analysis.ps1`
+    - MSVC /analyze: `powershell -File .gemini/skills/auditor/scripts/run_msvc_analysis.ps1` (需安装 VS)
 - **内存安全**: 检查是否存在 Use-After-Free (尤其是 ECS View 迭代期间的删除操作)。
 - **线程安全**: 检查 Taskflow 任务中是否存在数据竞争，是否滥用全局变量。
 - **ECS 规范**: 检查组件是否包含逻辑（不应包含），系统是否包含状态（应尽量无状态）。

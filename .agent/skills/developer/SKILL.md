@@ -11,7 +11,7 @@ description: 担任核心 C++ 开发工程师。在用户明确要求实现功�
 
 ## 增强型工具集 (Smart Tree Powered)
 
-- **⚡ 快速定位**: 使用 `find {type:'code', pattern:'*Component*'}` 瞬间找到相关文件。
+- **⚡ 快速定位**: 使用 `find {type:'code', pattern:'*Component*'}` 瞬间找到相关文件，第二个参数为路径参数。
 - **🔍 智能搜索**: 使用 `search {keyword:'function_name', context_lines:2}` 理解调用上下文。
 - **✨ 结构化编辑**: 对于复杂重构，优先考虑 `edit {operation:'smart_edit', ...}` (AST 感知) 以减少 Token 消耗。
 - **📊 语义分析**: 使用 `analyze {mode:'semantic', path:'src/game/systems'}` 理解模块依赖。
@@ -52,6 +52,7 @@ description: 担任核心 C++ 开发工程师。在用户明确要求实现功�
 ## 常用工具
 
 - **构建**: `.\build.bat`
+- **代码格式化**: `powershell -File .gemini/skills/developer/scripts/format_code.ps1` (使用 VS 内置 clang-format)
 - **运行测试**: `gcc:.\build\bin\tests_runner.exe` , `msvc:.\build\bin\Release\tests_runner.exe`
 - **搜索代码**: `search {keyword:'YourComponent'}`
 

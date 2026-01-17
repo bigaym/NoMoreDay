@@ -37,7 +37,8 @@ description: 担任产品经理和系统设计师。在需要规划新功能、�
 - **性能评估**: 预估新机制的时间复杂度。如果是 O(N^2) 且 N > 100，必须重新设计。
 
 ## 工具与指令
-- **文档扫描**: `python .agent/skills/designer/scripts/scan_docs.py` (检查文档完整性)
+- **文档扫描**: `python .gemini/skills/designer/scripts/scan_docs.py` (检查文档完整性)
+- **进度可视化**: `python .gemini/skills/designer/scripts/visualize_tracks.py` (查看 Track 结构)
 - **寻找参考**: `find {type:'documentation', pattern:'*.md'}`
 - **注册 Track**: 记得在 `conductor/tracks.md` 中注册新的 Track。
 

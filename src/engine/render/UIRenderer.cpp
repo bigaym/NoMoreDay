@@ -152,7 +152,7 @@ const char *UIRenderer::GetItemCategoryString(const ItemComponent &item) {
 void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
                           float y, float size, entt::entity item,
                           const char *defaultLabel, bool highlighted,
-                          bool isLocked, float alpha) {
+                          bool isLocked, float alpha, EquipmentSlot slotHint) {
   float sx = x * s_uiScale;
   float sy = y * s_uiScale;
   float sSize = size * s_uiScale;
@@ -184,7 +184,62 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
   // Border
   Color border =
       highlighted ? s_theme.panelBorderHighlight : s_theme.panelBorder;
-  DrawRectangleLinesEx(rec, 1.0f * s_uiScale, ApplyAlpha(border, alpha));
+  float borderThick = (slotHint != EquipmentSlot::None) ? 2.0f : 1.0f;
+  DrawRectangleLinesEx(rec, borderThick * s_uiScale, ApplyAlpha(border, alpha));
+
+  // Ghost Icon (Procedural)
+  if (item == entt::null && slotHint != EquipmentSlot::None) {
+      Color ghostColor = ApplyAlpha(WHITE, 0.1f * alpha);
+      float cx = sx + sSize / 2;
+      float cy = sy + sSize / 2;
+      float r = sSize * 0.3f;
+
+      switch (slotHint) {
+          case EquipmentSlot::Head:
+              DrawCircleLines(cx, cy, r, ghostColor);
+              DrawLine(cx - r, cy, cx + r, cy, ghostColor); 
+              break;
+          case EquipmentSlot::Shoulder:
+              DrawRectangleLines(cx - r, cy - r*0.5f, r*2, r, ghostColor);
+              break;
+          case EquipmentSlot::Chest:
+              DrawRectangleLines(cx - r*0.8f, cy - r, r*1.6f, r*2, ghostColor);
+              break;
+          case EquipmentSlot::Hands:
+              DrawCircleLines(cx - r*0.5f, cy, r*0.4f, ghostColor);
+              DrawCircleLines(cx + r*0.5f, cy, r*0.4f, ghostColor);
+              break;
+          case EquipmentSlot::Legs:
+              DrawLine(cx - r*0.5f, cy - r, cx - r*0.5f, cy + r, ghostColor);
+              DrawLine(cx + r*0.5f, cy - r, cx + r*0.5f, cy + r, ghostColor);
+              DrawLine(cx - r*0.5f, cy - r, cx + r*0.5f, cy - r, ghostColor);
+              break;
+          case EquipmentSlot::Feet:
+              DrawRectangleLines(cx - r*0.8f, cy, r*0.6f, r*0.5f, ghostColor);
+              DrawRectangleLines(cx + r*0.2f, cy, r*0.6f, r*0.5f, ghostColor);
+              break;
+          case EquipmentSlot::Neck:
+              DrawCircleLines(cx, cy - r*0.2f, r*0.6f, ghostColor);
+              DrawCircleLines(cx, cy + r*0.6f, r*0.2f, ghostColor);
+              break;
+          case EquipmentSlot::Ring:
+          case EquipmentSlot::Ring1:
+          case EquipmentSlot::Ring2:
+              DrawCircleLines(cx, cy, r*0.5f, ghostColor);
+              DrawCircleLines(cx, cy, r*0.4f, ghostColor); // Double ring
+              break;
+          case EquipmentSlot::MainHand:
+              DrawLine(cx - r, cy + r, cx + r, cy - r, ghostColor); // Slash
+              DrawLine(cx + r*0.5f, cy - r*0.5f, cx + r, cy - r, ghostColor); // Tip
+              break;
+          case EquipmentSlot::OffHand:
+              DrawCircleLines(cx, cy, r * 0.8f, ghostColor);
+              DrawLine(cx, cy - r*0.8f, cx, cy + r*0.8f, ghostColor);
+              break;
+          default:
+              break;
+      }
+  }
 
   // Draw Slot Background Texture if available
   Texture2D slotBg =

@@ -16,14 +16,14 @@ description: 专注于游戏视觉表现的优化与美化。能够适应多种�
 ## 内置工具能力 (Built-in Tools)
 
 ### 1. 程序化纹理生成 (Procedural Texture Gen)
-使用 `scripts/gen_proc_textures.py` 快速生成占位或实用纹理。
+使用 `.gemini/skills/rendering-designer/scripts/gen_proc_textures.py` 快速生成占位或实用纹理。
 *   **命令示例**:
     ```bash
     # 生成 512x512 的径向渐变蒙版
-    python scripts/gen_proc_textures.py assets/textures/vfx/mask_radial.png --type radial --width 512 --height 512
+    python .gemini/skills/rendering-designer/scripts/gen_proc_textures.py assets/textures/vfx/mask_radial.png --type radial --width 512 --height 512
     
     # 生成用于溶解的噪声图
-    python scripts/gen_proc_textures.py assets/textures/vfx/noise_dissolve.png --type noise --scale 20.0
+    python .gemini/skills/rendering-designer/scripts/gen_proc_textures.py assets/textures/vfx/noise_dissolve.png --type noise --scale 20.0
     ```
 
 ### 2. Shader 代码库 (Shader Library)

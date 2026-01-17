@@ -496,9 +496,24 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
                                  float startY, float panelW, float panelH,
                                  float alpha) {
   auto &state = UISystem::State;
+  auto &s_theme = UIRenderer::GetTheme();
   float slotSize = 80.0f * state.scaleFactor;
   float midX = startX + panelW / 2.0f;
-  float slotY = startY + 100.0f * state.scaleFactor;
+  float topMargin = 150.0f * state.scaleFactor;
+  float slotY = startY + topMargin;
+
+  // --- Altar VFX ---
+  float time = (float)GetTime();
+  Color ringColor1 = Fade(SKYBLUE, 0.2f * alpha);
+  Color ringColor2 = Fade(BLUE, 0.15f * alpha);
+  Vector2 center = {midX, slotY + slotSize / 2.0f}; 
+  float radius = slotSize * 0.9f;
+
+  if (IsWindowReady()) {
+      DrawRing(center, radius, radius + 2.0f * state.scaleFactor, time * 20.0f, time * 20.0f + 240.0f, 32, ringColor1);
+      DrawPolyLines(center, 6, radius + 20 * state.scaleFactor, time * 30.0f, ringColor2);
+      DrawPolyLines(center, 3, radius + 35 * state.scaleFactor, -time * 20.0f, ringColor1);
+  }
 
   // Single Item Salvage Slot
   UIRenderer::DrawSlot(state.globalFont, registry, midX - slotSize / 2.0f, slotY,
@@ -529,66 +544,99 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
     const auto &item = registry.get<ItemComponent>(m_targetItem);
     auto yield = SalvageSystem::CalculateYield(item);
 
-    float yieldY = slotY + slotSize + 40.0f * state.scaleFactor;
-    UISystem::DrawTextUI("预估产出 (Estimated Yield):", startX + 40, yieldY, 20,
-                         LIGHTGRAY, alpha);
-    yieldY += 30.0f;
+    float yieldY = slotY + slotSize + 60.0f * state.scaleFactor;
+    
+    // Header
+    const char* headerText = "预估产出 (Estimated Yield)";
+    float headerW = MeasureTextEx(state.globalFont, headerText, 20 * state.scaleFactor, 1.0f).x;
+    
+    // Note: Passing logic coords to DrawTextUI as it scales them internally
+    float logicMidX = midX / state.scaleFactor;
+    float logicYieldY = yieldY / state.scaleFactor;
+    float logicHeaderW = headerW / state.scaleFactor;
+    
+    UISystem::DrawTextUI(headerText, logicMidX - logicHeaderW/2.0f, logicYieldY, 20, LIGHTGRAY, alpha);
+    
+    yieldY += 40.0f * state.scaleFactor;
 
     if (yield.empty()) {
-      UISystem::DrawTextUI("该物品无产出 (No yield)", startX + 60, yieldY, 18,
-                           GRAY, alpha);
+      UISystem::DrawTextUI("该物品无产出 (No yield)", logicMidX - 60, yieldY / state.scaleFactor, 18, GRAY, alpha);
     } else {
-      for (const auto &res : yield) {
-        const auto *def = MaterialRegistry::Get().GetMaterial(res.materialId);
-        char buf[128];
-        snprintf(buf, 128, "%s x %d",
-                 def ? def->name.c_str() : "Unknown Shard", res.count);
-        UISystem::DrawTextUI(buf, startX + 60, yieldY, 18, WHITE, alpha);
-        yieldY += 25.0f;
+      float matSize = 48.0f * state.scaleFactor;
+      float gap = 10.0f * state.scaleFactor;
+      int count = (int)yield.size();
+      float totalW = count * matSize + (count - 1) * gap;
+      float curX = midX - totalW / 2.0f;
+      float curY = yieldY;
+      
+      for (int i = 0; i < count; ++i) {
+          Rectangle mRect = {curX, curY, matSize, matSize};
+          DrawRectangleRec(mRect, Fade(s_theme.slotBackground, alpha));
+          DrawRectangleLinesEx(mRect, 1.0f, Fade(s_theme.panelBorder, alpha));
+          
+          const auto *def = MaterialRegistry::Get().GetMaterial(yield[i].materialId);
+          if (def) {
+              Color matColor = UIRenderer::GetRarityColor(def->rarity);
+              DrawRectangleRec({curX+4, curY+4, matSize-8, matSize-8}, Fade(matColor, 0.3f * alpha));
+              
+              char countBuf[16];
+              snprintf(countBuf, 16, "x%d", yield[i].count);
+              UISystem::DrawTextUI(countBuf, curX/state.scaleFactor + 2, curY/state.scaleFactor + 48 - 14, 14, WHITE, alpha);
+              
+              if (CheckCollisionPointRec(GetMousePosition(), mRect)) {
+                    UISystem::DrawTextUI(def->name.c_str(), curX/state.scaleFactor, curY/state.scaleFactor - 20, 16, matColor, alpha);
+              }
+          }
+          curX += matSize + gap;
       }
     }
 
     // Salvage Button
-    float btnW = 160.0f * state.scaleFactor;
-    float btnH = 50.0f * state.scaleFactor;
+    float btnW = 200.0f * state.scaleFactor;
+    float btnH = 60.0f * state.scaleFactor;
     float btnX = midX - btnW / 2.0f;
-    float btnY = startY + panelH - 100.0f * state.scaleFactor;
+    float btnY = startY + panelH - 120.0f * state.scaleFactor;
 
     Rectangle btnRect = {btnX, btnY, btnW, btnH};
     bool hover = CheckCollisionPointRec(GetMousePosition(), btnRect);
-    DrawRectangleRec(btnRect, Fade(hover ? RED : Color{180, 0, 0, 255}, alpha));
-    DrawRectangleLinesEx(btnRect, 2.0f, Fade(WHITE, 0.5f * alpha));
-    UISystem::DrawTextUI("分解 (SALVAGE)", btnX + 25, btnY + 15, 20, WHITE,
-                         alpha);
+    Color btnColor = hover ? RED : Color{120, 20, 20, 255};
+    
+    DrawRectangleRec(btnRect, Fade(btnColor, alpha));
+    DrawRectangleLinesEx(btnRect, 2.0f, Fade(WHITE, (hover ? 0.8f : 0.4f) * alpha));
+    
+    const char* btnLabel = "分解 (SALVAGE)";
+    float txtW = MeasureTextEx(state.globalFont, btnLabel, 24 * state.scaleFactor, 1.0f).x;
+    UISystem::DrawTextUI(btnLabel, (btnX + (btnW - txtW)/2)/state.scaleFactor, (btnY + (btnH - 24*state.scaleFactor)/2)/state.scaleFactor, 24, WHITE, alpha);
 
     if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-      // Execute Salvage
       auto playerEnt = UISystem::GetPlayerEntity(registry);
       SalvageSystem::Execute(registry, m_targetItem, playerEnt);
       m_targetItem = entt::null;
       
-      // Simple Sound/VFX Placeholder
-      // ...
+      // VFX
+      auto &ps = systems::GPUParticleSystem::Get();
+      for (int i = 0; i < 30; ++i) {
+           float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+           float speed = (float)GetRandomValue(150, 400);
+           Vector2 vel = {cosf(angle) * speed, sinf(angle) * speed};
+           auto p = systems::InkEffectHelper::CreateSpark(center, vel, RED, 2.0f);
+           ps.Emit(p);
+      }
     }
   }
 
   // Batch Salvage Options
-  float batchY = startY + panelH - 250.0f * state.scaleFactor;
-  UISystem::DrawTextUI("快速分解 (Quick Salvage):", startX + 40, batchY, 20,
-                       GOLD, alpha);
-  batchY += 40.0f;
-
-  auto DrawBatchButton = [&](const char *label, Rarity maxRarity, float x,
-                             float y) {
+  float batchY = startY + panelH - 40.0f * state.scaleFactor;
+  
+  auto DrawBatchButton = [&](const char *label, Rarity maxRarity, float x, float y) {
     float bW = 200.0f * state.scaleFactor;
-    float bH = 40.0f * state.scaleFactor;
+    float bH = 30.0f * state.scaleFactor;
     Rectangle r = {x, y, bW, bH};
     bool h = CheckCollisionPointRec(GetMousePosition(), r);
-
-    DrawRectangleRec(r, Fade(h ? DARKGRAY : Color{40, 40, 50, 255}, alpha));
+    DrawRectangleRec(r, Fade(h ? RED : DARKGRAY, alpha));
     DrawRectangleLinesEx(r, 1.0f, Fade(GRAY, alpha));
-    UISystem::DrawTextUI(label, x + 10, y + 10, 18, WHITE, alpha);
-
+    UISystem::DrawTextUI(label, x/state.scaleFactor + 10, y/state.scaleFactor + 5, 16, WHITE, alpha);
+    
     if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       auto playerEnt = UISystem::GetPlayerEntity(registry);
       auto* inv = registry.try_get<InventoryComponent>(playerEnt);
@@ -598,20 +646,17 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
       for (auto entity : inv->items) {
         if (!registry.valid(entity)) continue;
         const auto &item = registry.get<ItemComponent>(entity);
-        
-        // Only salvage if within rarity filter and satisfies CanSalvage (checks isLocked, Type, etc.)
         if (item.rarity <= maxRarity && SalvageSystem::CanSalvage(item)) {
            toSalvage.push_back(entity);
         }
       }
-      
       if (!toSalvage.empty()) {
           SalvageSystem::BatchExecute(registry, toSalvage, playerEnt);
       }
     }
   };
 
-  DrawBatchButton("分解所有 稀有/魔法", Rarity::Rare, startX + 40, batchY);
+  DrawBatchButton("分解所有 稀有/魔法", Rarity::Rare, midX - 100 * state.scaleFactor, batchY - 40 * state.scaleFactor);
 }
 
 } // namespace NoMoreDay

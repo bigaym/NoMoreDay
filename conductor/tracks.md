@@ -291,3 +291,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2 days
+
+---
+
+## [ ] Track: UI Visual Polish & Salvage UX
+- **Folder:** [./conductor/tracks/ui_visual_polish/](./conductor/tracks/ui_visual_polish/)
+- **Description:** Enhance global UI aesthetics (texture, borders), implement Ghost Icons for equipment, and completely redesign the Salvage Panel with Altar metaphor and Output Preview.
+- **Status:** PLANNED
+- **Priority:** HIGH
+- **Estimated Time:** 2 days
