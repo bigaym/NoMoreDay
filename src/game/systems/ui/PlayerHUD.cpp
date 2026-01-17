@@ -9,6 +9,7 @@
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include <string>
 #include <cmath>
+#include <map>
 
 namespace NoMoreDay::systems {
 
@@ -82,18 +83,39 @@ void PlayerHUD::Draw(entt::registry& registry) {
 
     // --- 4. Summon Status (Top Left) ---
     auto summonView = registry.view<SummonComponent>();
+    std::map<uint32_t, std::pair<float, int>> summonGroups; // key -> {maxLifeRatio, count}
+    std::map<uint32_t, std::string> summonNames;
+    std::map<uint32_t, uint32_t> summonIcons;
+
     for (auto entity : summonView) {
         const auto& summon = summonView.get<SummonComponent>(entity);
         if (summon.owner == player) {
-            float healthPct = summon.lifetime / summon.max_lifetime; // Use lifetime as health for now
-            Texture2D icon = {0};
-            if (summon.icon_id != 0) {
-                 icon = AssetLoadingSystem::GetTexture(summon.icon_id);
-            }
+            uint32_t key = (summon.skill_id != 0) ? summon.skill_id : entt::hashed_string{summon.name.c_str()}.value();
+            float ratio = (summon.max_lifetime > 0) ? (summon.lifetime / summon.max_lifetime) : 0.0f;
             
-            UIRenderer::DrawSummonIcon(UISystem::State.globalFont, 10.0f, 40.0f, 150.0f, 40.0f, icon, healthPct, summon.name.c_str(), 1.0f);
-            break; // Show only one
+            auto& group = summonGroups[key];
+            group.first = std::max(group.first, ratio); // Show largest remaining duration
+            group.second++;
+            
+            summonNames[key] = summon.name;
+            summonIcons[key] = summon.icon_id;
         }
+    }
+
+    float startY = 40.0f;
+    for (auto const& [key, data] : summonGroups) {
+        Texture2D icon = {0};
+        if (summonIcons[key] != 0) {
+            icon = AssetLoadingSystem::GetTexture(summonIcons[key]);
+        }
+        
+        std::string displayName = summonNames[key];
+        if (data.second > 1) {
+            displayName += " x" + std::to_string(data.second);
+        }
+        
+        UIRenderer::DrawSummonIcon(UISystem::State.globalFont, 10.0f, startY, 150.0f, 40.0f, icon, data.first, displayName.c_str(), 1.0f);
+        startY += 45.0f;
     }
 }
 

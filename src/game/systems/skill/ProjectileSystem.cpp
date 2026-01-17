@@ -7,6 +7,7 @@
 #include "game/components/EffectComponent.hpp" // For DamagePopup
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
+#include "game/components/vfx/VisualGhostComponent.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -44,8 +45,27 @@ void ProjectileSystem::Update(entt::registry &registry,
       if (bc->phase == BoomerangComponent::Outward) {
         bc->returnTimer -= dt;
         if (bc->returnTimer <= 0.0f) {
-          bc->phase = BoomerangComponent::Returning;
+          bc->phase = BoomerangComponent::Paused;
+          bc->pauseTimer = 0.2f; // Short pause
+          
+          // Emit Shockwave on apex
+          components::GPUParticle p;
+          p.position = {pos.x, pos.y};
+          p.velocity = {0, 0};
+          p.color = {180, 240, 255, 200};
+          p.lifetime = 0.4f;
+          p.maxLifetime = 0.4f;
+          p.scale = proj.radius;
+          p.flags = 2; // Glow
+          p.growthRate = 120.0f; // Rapid expansion
+          systems::GPUParticleSystem::Get().Emit(p);
         }
+      } else if (bc->phase == BoomerangComponent::Paused) {
+          bc->pauseTimer -= dt;
+          vel.vx = 0; vel.vy = 0; // Stop movement
+          if (bc->pauseTimer <= 0.0f) {
+              bc->phase = BoomerangComponent::Returning;
+          }
       } else {
         entt::entity targetEnt = registry.valid(bc->returnTarget) ? bc->returnTarget : bc->owner;
         if (registry.valid(targetEnt) && registry.all_of<Position>(targetEnt)) {
@@ -165,6 +185,23 @@ void ProjectileSystem::Update(entt::registry &registry,
     if (skill_id == 1 || skill_id == 2 || skill_id == 7 || skill_id == 8 || skill_id == 9) {
        using namespace NoMoreDay::Constants::Skill;
        Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, PROJECTILE_TRAIL_VEL_SCALE);
+       
+       // Handle Ghost Snapshots for Skill 1 (Flowing Thrust)
+       if (skill_id == 1) {
+           static thread_local float snapshotTimer = 0.0f;
+           snapshotTimer += dt;
+           if (snapshotTimer >= 0.05f) { // Every 0.05s
+               snapshotTimer = 0.0f;
+               
+               // We need the owner's sprite to make a ghost
+               if (registry.valid(proj.owner)) {
+                   if (auto* ownerSprite = registry.try_get<SpriteComponent>(proj.owner)) {
+                       actions.push_back({DeferredAction::CounterSpin, entity, proj.owner}); // Reuse enum or add new
+                   }
+               }
+           }
+       }
+
        if (skill_id == 8) {
            float time = (float)GetTime() * 10.0f;
            Vector2 off1 = {cosf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS, sinf(time) * PROJECTILE_ROTATING_TRAIL_RADIUS};
@@ -415,7 +452,47 @@ void ProjectileSystem::Update(entt::registry &registry,
           
           CombatSystem::ApplyDamage(registry, target, finalDamage, act.instigator, result.is_crit);
           
+          // Rending Wave Hit Effect (Glass Shatter)
+          if (skill_id == 2) {
+              for (int i = 0; i < 12; ++i) {
+                  components::GPUParticle p;
+                  p.position = act.pos;
+                  float angle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
+                  float speed = (float)GetRandomValue(100, 300);
+                  p.velocity = { cosf(angle) * speed, sinf(angle) * speed };
+                  p.color = { 200, 250, 255, 200 };
+                  p.lifetime = 0.3f + (float)GetRandomValue(0, 20) / 100.0f;
+                  p.maxLifetime = p.lifetime;
+                  p.scale = 2.0f + (float)GetRandomValue(0, 20) / 10.0f;
+                  p.flags = 2; // Glow
+                  p.growthRate = -5.0f;
+                  particleSys.Emit(p);
+              }
+          }
+
           if (knockback > 0) Utils::ApplyKnockback(registry, target, act.pos, knockback);
+      }
+      else if (act.type == DeferredAction::CounterSpin) {
+          // Reusing enum for Ghost Spawning to avoid modifying enum if possible
+          // Actually, I should probably add Type::Ghost to DeferredAction
+          entt::entity projEnt = act.entity;
+          entt::entity owner = act.target; // passed in.target
+          
+          if (registry.valid(owner) && registry.valid(projEnt)) {
+              auto* sprite = registry.try_get<SpriteComponent>(owner);
+              auto* pos = registry.try_get<Position>(projEnt); // Use projectile's current pos for ghost
+              if (sprite && pos) {
+                  auto ghostEnt = registry.create();
+                  registry.emplace<Position>(ghostEnt, pos->x, pos->y);
+                  auto& ghost = registry.emplace<components::VisualGhost>(ghostEnt);
+                  ghost.texture = sprite->texture;
+                  ghost.source = { 0.0f, 0.0f, (float)sprite->texture.width, (float)sprite->texture.height };
+                  ghost.alpha = 0.6f;
+                  ghost.fadeSpeed = 5.0f;
+                  ghost.scale = sprite->scale;
+                  ghost.color = { 180, 220, 255, 255 }; // Cyan tinted ghost
+              }
+          }
       }
   }
 }

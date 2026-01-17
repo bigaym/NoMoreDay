@@ -39,9 +39,10 @@ struct Projectile {
 
 // --- NEW: Special Projectile Behaviors ---
 struct BoomerangComponent {
-    enum Phase { Outward, Returning };
+    enum Phase { Outward, Paused, Returning };
     Phase phase = Outward;
-    float returnTimer = 0.5f; // Time until it turns back
+    float returnTimer = 0.5f; // Time until it pauses/turns
+    float pauseTimer = 0.0f;  // Time to stay at apex
     entt::entity owner = entt::null;
     
     // Improved return logic

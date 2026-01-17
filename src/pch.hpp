@@ -38,4 +38,9 @@
 
 // Project Utilities
 #include "core/logging/Logger.hpp"
+
 #include "game/components/Common.hpp"
+
+// Engine
+#include "engine/render/GPUData.hpp"
+#include "engine/render/GPUEntitySystem.hpp"

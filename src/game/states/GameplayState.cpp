@@ -39,6 +39,7 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/systems/ui/MonsterHealthBarSystem.hpp"
+#include "game/systems/vfx/GhostSystem.hpp"
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "game/systems/ui/UICharacter.hpp"
 #include "game/systems/ui/UIMinimap.hpp"
@@ -395,6 +396,7 @@ bool GameplayState::OnUpdate(float dt) {
   NoMoreDay::systems::SummonSystem::Update(registry, dt, m_spatialGrid);
   MovementStanceSystem::Update(registry, dt);
   ProjectileSystem::Update(registry, m_spatialGrid, dt);
+  NoMoreDay::systems::GhostSystem::Update(registry, dt);
 
   // 2. Input
   InputSystem::update(registry, m_camera);
@@ -736,6 +738,10 @@ void GameplayState::OnRender() {
 
   // Fog
   m_context->levelManager->getFogSystem().renderFog();
+  
+  // Ghost Snapshots
+  NoMoreDay::systems::GhostSystem::Render(registry);
+  
   EndMode2D();
 
   // UI

@@ -415,34 +415,40 @@ void UIRenderer::DrawSummonIcon(const Font &font, float x, float y, float width,
   DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale,
                        ApplyAlpha(s_theme.panelBorder, alpha));
 
-  // Icon
-  float iconSize = sh - 4.0f * s_uiScale;
+  // Icon Background Glow (Optional but looks premium)
+  float iconSize = sh - 8.0f * s_uiScale;
+  float iconX = sx + 4.0f * s_uiScale;
+  float iconY = sy + 4.0f * s_uiScale;
+  
   if (icon.id > 0) {
+    // Draw a subtle radial glow behind the icon
+    DrawCircleGradient((int)(iconX + iconSize/2), (int)(iconY + iconSize/2), iconSize * 0.8f, 
+                       ApplyAlpha(SKYBLUE, 0.4f * alpha), ApplyAlpha(SKYBLUE, 0.0f));
+    
     DrawTexturePro(
         icon, {0, 0, (float)icon.width, (float)icon.height},
-        {sx + 2.0f * s_uiScale, sy + 2.0f * s_uiScale, iconSize, iconSize},
+        {iconX, iconY, iconSize, iconSize},
         {0, 0}, 0.0f, ApplyAlpha(WHITE, alpha));
   } else {
-    DrawRectangleRec(
-        {sx + 2.0f * s_uiScale, sy + 2.0f * s_uiScale, iconSize, iconSize},
-        ApplyAlpha(DARKGRAY, 0.5f * alpha));
+    DrawRectangleRec({iconX, iconY, iconSize, iconSize}, ApplyAlpha(DARKGRAY, 0.5f * alpha));
   }
 
-  // Name
-  if (name) {
-    DrawTextUI(font, name, x + height + 5.0f, y + 2.0f, 14.0f,
-               s_theme.textPrimary, alpha);
-  }
-
-  // Health Bar (Green, no mana)
-  float barX = sx + iconSize + 6.0f * s_uiScale;
-  float barY = sy + sh - 10.0f * s_uiScale;
-  float barW = sw - iconSize - 10.0f * s_uiScale;
+  // Bar and Text Area
+  float contentX = iconX + iconSize + 6.0f * s_uiScale;
+  float barW = sw - (contentX - sx) - 8.0f * s_uiScale;
   float barH = 6.0f * s_uiScale;
+  
+  // Name
+  float fontSize = 16.0f * s_uiScale;
+  DrawTextEx(font, name, {contentX, sy + 6.0f * s_uiScale}, fontSize, 1.0f, ApplyAlpha(WHITE, alpha));
 
-  DrawRectangleRec({barX, barY, barW, barH}, ApplyAlpha(BLACK, 0.5f * alpha));
-  DrawRectangleRec({barX, barY, barW * std::clamp(healthPct, 0.0f, 1.0f), barH},
-                   ApplyAlpha(GREEN, alpha));
+  // Health/Duration Bar
+  Rectangle barRec = {contentX, sy + sh - 12.0f * s_uiScale, barW, barH};
+  DrawRectangleRec(barRec, ApplyAlpha(BLACK, 0.5f * alpha));
+  
+  Color barColor = healthPct > 0.3f ? SKYBLUE : ORANGE;
+  DrawRectangleRec({barRec.x, barRec.y, barRec.width * std::clamp(healthPct, 0.0f, 1.0f), barRec.height}, ApplyAlpha(barColor, 0.8f * alpha));
+  DrawRectangleLinesEx(barRec, 1.0f, ApplyAlpha(WHITE, 0.2f * alpha));
 }
 
 void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,

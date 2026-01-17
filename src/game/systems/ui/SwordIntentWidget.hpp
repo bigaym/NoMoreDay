@@ -11,7 +11,9 @@ public:
 
 private:
     static Texture2D swordIcon;
+    static Shader shineShader;
     static bool initialized;
+    static float glowIntensity;
 };
 
 }

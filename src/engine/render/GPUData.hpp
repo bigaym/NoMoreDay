@@ -66,6 +66,24 @@ struct GPUSkillEffect {
 static_assert(sizeof(GPUSkillEffect) == 64, "GPUSkillEffect struct must be exactly 64 bytes for SSBO alignment");
 
 /**
+ * @brief Structure for GPU HoloBlade instances.
+ * 48 Bytes (16 * 3) for alignment.
+ */
+struct HoloBladeInstance {
+    Vector2 position     = { 0.0f, 0.0f }; // 8
+    float rotation       = 0.0f;           // 4
+    float scale          = 1.0f;           // 4
+    Vector4 holoColor    = { 1.0f, 1.0f, 1.0f, 1.0f }; // 16
+    float rimStrength    = 0.0f;           // 4
+    float noiseSpeed     = 0.0f;           // 4
+    float padding[2]      = { 0.0f, 0.0f }; // 8
+
+    HoloBladeInstance() = default;
+};
+
+static_assert(sizeof(HoloBladeInstance) == 48, "HoloBladeInstance struct must be 48 bytes for SSBO alignment");
+
+/**
  * @brief Centralized Color Manager for VFX
  * 颜色管理器：统一管理游戏内的特效颜色
  */

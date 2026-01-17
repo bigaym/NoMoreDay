@@ -35,7 +35,13 @@ void AssetLoadingSystem::RegisterShaders() {
   m_resourceManager->loadShader(entt::hashed_string("sh_distortion"), "",
                                 "assets/shaders/vfx/distortion.fs");
 
-  LOG_INFO("AssetLoadingSystem: Registered VFX shaders.");
+  // Register essential VFX textures
+  m_resourceManager->registerTexture(entt::hashed_string("vfx_spirit_sword"), "assets/textures/vfx/spirit_sword.png");
+  m_resourceManager->registerTexture(entt::hashed_string("vfx_noise"), "assets/textures/vfx/energy_noise.png");
+  m_resourceManager->registerTexture(entt::hashed_string("vfx_trail"), "assets/textures/vfx/trail_mask.png");
+  m_resourceManager->registerTexture(entt::hashed_string("vfx_dist_norm"), "assets/textures/vfx/distortion_normal.png");
+
+  LOG_INFO("AssetLoadingSystem: Registered VFX shaders and textures.");
 }
 
 void AssetLoadingSystem::RegisterUITextures() {

@@ -4,71 +4,157 @@
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "raymath.h"
 #include "rlgl.h"
-
+#include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/GPUData.hpp"
+#include "core/logging/Logger.hpp"
+#include <map>
 
 namespace NoMoreDay::systems {
 
+struct HoloBladeInternal {
+    Shader holoShader = {0};
+    Texture2D noiseTex = {0};
+    core::ComputeBuffer instanceBuffer;
+    unsigned int quadVAO = 0;
+    unsigned int quadVBO = 0;
+    bool initialized = false;
+    
+    std::vector<components::HoloBladeInstance> hostBuffer;
+    
+    void Init(const NoMoreDay::SharedContext &context) {
+        if (initialized) return;
+        
+        LOG_INFO("Initializing HoloBladeRenderSystem (Instanced)...");
+        
+        holoShader = LoadShader("assets/shaders/vfx/holo_blade_instanced.vs", 
+                                "assets/shaders/vfx/holo_blade_instanced.fs");
+        
+        if (context.resources) {
+            noiseTex = context.resources->getTexture(entt::hashed_string("vfx_noise"));
+        }
+        
+        // Quad for instancing (-0.5 to 0.5)
+        float vertices[] = {
+            -0.5f, -0.5f, 0.0f,  0.0f, 0.0f,
+             0.5f, -0.5f, 0.0f,  1.0f, 0.0f,
+            -0.5f,  0.5f, 0.0f,  0.0f, 1.0f,
+             0.5f, -0.5f, 0.0f,  1.0f, 0.0f,
+             0.5f,  0.5f, 0.0f,  1.0f, 1.0f,
+            -0.5f,  0.5f, 0.0f,  0.0f, 1.0f
+        };
+        
+        quadVAO = rlLoadVertexArray();
+        rlEnableVertexArray(quadVAO);
+        quadVBO = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
+        rlSetVertexAttribute(0, 3, RL_FLOAT, false, 5 * sizeof(float), 0);
+        rlEnableVertexAttribute(0);
+        rlSetVertexAttribute(1, 2, RL_FLOAT, false, 5 * sizeof(float), (int)(3 * sizeof(float)));
+        rlEnableVertexAttribute(1);
+        rlDisableVertexArray();
+        
+        instanceBuffer.Create(1000 * sizeof(components::HoloBladeInstance), nullptr, RL_DYNAMIC_DRAW);
+        hostBuffer.reserve(1000);
+        
+        initialized = true;
+    }
+    
+    void Shutdown() {
+        if (!initialized) return;
+        UnloadShader(holoShader);
+        rlUnloadVertexArray(quadVAO);
+        rlUnloadVertexBuffer(quadVBO);
+        instanceBuffer.Release();
+        initialized = false;
+    }
+};
+
+static HoloBladeInternal s_data;
+
 void HoloBladeRenderSystem::Render(entt::registry &registry,
                                    const NoMoreDay::SharedContext &context) {
+  s_data.Init(context);
+  if (!s_data.initialized) return;
+
   auto view = registry.view<const components::HoloBlade, const Position,
                             const SpriteComponent>();
+  
+  if (view.size_hint() == 0) return;
 
-  static Shader holoShader = {0};
-  static Texture2D noiseTex = {0};
-
-  if (holoShader.id == 0 && context.resources) {
-    holoShader =
-        context.resources->getShader(entt::hashed_string("sh_holo_blade"));
+  // We group by texture primarily, but for HoloBlades they usually share the same sword texture.
+  
+  std::map<unsigned int, std::vector<entt::entity>> batches;
+  for (auto entity : view) {
+      const auto &holo = view.get<const components::HoloBlade>(entity);
+      if (!holo.isVisible) continue;
+      const auto &sprite = view.get<const SpriteComponent>(entity);
+      batches[sprite.texture.id].push_back(entity);
   }
-  if (noiseTex.id == 0 && context.resources) {
-    noiseTex = context.resources->getTexture(entt::hashed_string("vfx_noise"));
-  }
-
-  if (holoShader.id == 0)
-    return;
 
   float time = (float)GetTime();
-  int timeLoc = GetShaderLocation(holoShader, "time");
-  int noiseTexLoc = GetShaderLocation(holoShader, "noiseTex");
-  int holoColLoc = GetShaderLocation(holoShader, "holoColor");
-  int rimLoc = GetShaderLocation(holoShader, "rimStrength");
-  int speedLoc = GetShaderLocation(holoShader, "noiseSpeed");
+  rlDrawRenderBatchActive();
+  
+  BeginShaderMode(s_data.holoShader);
+  
+  // Update MVP matrix
+  Matrix matModelView = rlGetMatrixModelview();
+  Matrix matProjection = rlGetMatrixProjection();
+  Matrix matMVP = MatrixMultiply(matModelView, matProjection);
+  int mvpLoc = GetShaderLocation(s_data.holoShader, "mvp");
+  SetShaderValueMatrix(s_data.holoShader, mvpLoc, matMVP);
 
-  SetShaderValue(holoShader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
-  SetShaderValueTexture(holoShader, noiseTexLoc, noiseTex);
+  int timeLoc = GetShaderLocation(s_data.holoShader, "time");
+  int noiseLoc = GetShaderLocation(s_data.holoShader, "noiseTex");
+  SetShaderValue(s_data.holoShader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
+  SetShaderValueTexture(s_data.holoShader, noiseLoc, s_data.noiseTex);
 
-  for (auto entity : view) {
-    const auto &holo = view.get<const components::HoloBlade>(entity);
-    if (!holo.isVisible)
-      continue;
+  int totalRendered = 0;
+  for (auto const& [texId, entities] : batches) {
+      if (entities.empty()) continue;
+      
+      const auto &firstSprite = view.get<const SpriteComponent>(entities[0]);
+      Texture2D tex = firstSprite.texture;
 
-    const auto &pos = view.get<const Position>(entity);
-    const auto &sprite = view.get<const SpriteComponent>(entity);
-
-    Vector4 col = ColorNormalize(holo.holoColor);
-    SetShaderValue(holoShader, holoColLoc, &col, SHADER_UNIFORM_VEC4);
-    SetShaderValue(holoShader, rimLoc, &holo.rimStrength, SHADER_UNIFORM_FLOAT);
-    SetShaderValue(holoShader, speedLoc, &holo.noiseSpeed,
-                   SHADER_UNIFORM_FLOAT);
-
-    float width = (float)sprite.texture.width * sprite.scale * holo.scale;
-    float height = (float)sprite.texture.height * sprite.scale * holo.scale;
-
-    Vector2 origin = {width / 2.0f, height / 2.0f};
-    Rectangle source = {0.0f, 0.0f, (float)sprite.texture.width,
-                        (float)sprite.texture.height};
-    Rectangle dest = {pos.x, pos.y, width, height};
-
-    // Use rotation if available
-    float rotation = 0.0f;
-    if (auto *rot = registry.try_get<Rotation>(entity)) {
-      rotation = rot->angle;
-    }
-
-    BeginShaderMode(holoShader);
-    DrawTexturePro(sprite.texture, source, dest, origin, rotation, WHITE);
-    EndShaderMode();
+      s_data.hostBuffer.clear();
+      
+      for (auto entity : entities) {
+          const auto &holo = view.get<const components::HoloBlade>(entity);
+          const auto &pos = view.get<const Position>(entity);
+          const auto &sprite = view.get<const SpriteComponent>(entity);
+          
+          components::HoloBladeInstance inst;
+          inst.position = {pos.x, pos.y};
+          inst.rotation = 0.0f;
+          if (auto *rot = registry.try_get<Rotation>(entity)) {
+              inst.rotation = rot->angle * (PI / 180.0f);
+          }
+          
+          // Spirit swords might want rotation towards target or orbit dir
+          // But our shader rotates the quad.
+          
+          inst.scale = sprite.scale * holo.scale * (float)tex.width; 
+          inst.holoColor = ColorNormalize(holo.holoColor);
+          inst.rimStrength = holo.rimStrength;
+          inst.noiseSpeed = holo.noiseSpeed;
+          
+          s_data.hostBuffer.push_back(inst);
+          if (s_data.hostBuffer.size() >= 1000) break;
+      }
+      
+      if (s_data.hostBuffer.empty()) continue;
+      
+      totalRendered += (int)s_data.hostBuffer.size();
+      s_data.instanceBuffer.Update(s_data.hostBuffer.data(), s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance));
+      s_data.instanceBuffer.BindBase(4);
+      
+      rlActiveTextureSlot(0);
+      rlEnableTexture(tex.id);
+      
+      rlEnableVertexArray(s_data.quadVAO);
+      rlDrawVertexArrayInstanced(0, 6, (int)s_data.hostBuffer.size());
+      rlDisableVertexArray();
   }
+  
+  EndShaderMode();
 }
 
 } // namespace NoMoreDay::systems

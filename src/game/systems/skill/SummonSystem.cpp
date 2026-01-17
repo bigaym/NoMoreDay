@@ -88,15 +88,21 @@ void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
     }
 
     // --- Movement (Orbiting) ---
-    float orbitSpeed = isGiant ? 1.5f : 3.0f;
+    float orbitSpeed = isGiant ? 2.5f : 3.5f;
     ai.orbit_angle += dt * orbitSpeed;
 
-    float radius = isGiant ? 60.0f : 45.0f;
+    float radius = isGiant ? 55.0f : 35.0f;
     float targetX = ownerPos->x + cosf(ai.orbit_angle) * radius;
     float targetY = ownerPos->y + sinf(ai.orbit_angle) * radius;
 
+    // Giant sword wobbles a bit for effect
+    if (isGiant) {
+        targetX += sinf(ai.orbit_angle * 2.0f) * 10.0f;
+        targetY += cosf(ai.orbit_angle * 2.0f) * 10.0f;
+    }
+
     // Smoothly move towards orbit position
-    float moveSpeed = isGiant ? 5.0f : 10.0f;
+    float moveSpeed = isGiant ? 8.0f : 12.0f;
     pos.x += (targetX - pos.x) * moveSpeed * dt;
     pos.y += (targetY - pos.y) * moveSpeed * dt;
 
@@ -130,15 +136,31 @@ void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
 
       // Visual feedback
       auto &particleSys = GPUParticleSystem::Get();
+      
+      // Muzzle Flash
+      components::GPUParticle muzzle;
+      muzzle.position = {pos.x, pos.y};
+      Vector2 dir = Vector2Normalize(Vector2Subtract({tPos.x, tPos.y}, {pos.x, pos.y}));
+      muzzle.velocity = Vector2Scale(dir, 100.0f);
+      muzzle.color = isGiant ? GOLD : ColorAlpha(SKYBLUE, 0.8f);
+      muzzle.lifetime = 0.15f;
+      muzzle.maxLifetime = 0.15f;
+      muzzle.scale = isGiant ? 4.0f : 2.0f;
+      muzzle.flags = 2; // Spark/Diamond
+      particleSys.Emit(muzzle);
+
       if (isGiant) {
         // Heavier effect for Giant Sword
         auto splash =
-            InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 5, 10.0f, 80.0f);
-        for (auto &p : splash)
+            InkEffectHelper::CreateInkSplash({pos.x, pos.y}, 8, 15.0f, 120.0f);
+        for (auto &p : splash) {
+          p.color = GOLD;
           particleSys.Emit(p);
+        }
       } else {
+        // Small sword trail/flash
         particleSys.Emit(InkEffectHelper::CreateInkTrail({pos.x, pos.y},
-                                                         {0, -50}, 1.0f, 0.5f));
+                                                         Vector2Scale(dir, 150.0f), 0.8f, 0.3f));
       }
 
       registry.destroy(proxy);

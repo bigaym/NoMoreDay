@@ -216,6 +216,7 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/vfx/TrailSystem.cpp
     src/game/systems/vfx/SwordIntentVisualSystem.cpp
     src/game/systems/vfx/HoloBladeRenderSystem.cpp
+    src/game/systems/vfx/GhostSystem.cpp
     src/game/systems/nemesis/FactionAggroSystem.cpp
     src/game/systems/nemesis/NemesisGenerator.cpp
     src/systems/SerializationSystem.hpp
