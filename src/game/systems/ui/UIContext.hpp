@@ -5,6 +5,21 @@
 
 namespace NoMoreDay {
 
+    // Panel Management
+    enum class UIPanelID {
+        None = -1,
+        Character = 0,
+        Inventory,
+        Crafting,
+        Count
+    };
+
+    struct PanelState {
+        Vector2 position = { -1.0f, -1.0f }; // -1 indicates uninitialized (use default)
+        bool isDragging = false;
+        Vector2 dragOffset = { 0.0f, 0.0f };
+    };
+
     struct UIContext {
         // Global Font Resource
         Font globalFont = { 0 };
@@ -23,6 +38,10 @@ namespace NoMoreDay {
         bool showSkillTree = false; // New: Skill Specialization UI (Hotkey: S)
         float skillTreeAlpha = 0.0f; // New
         uint32_t selectedSkillId = 0; // Skill currently being viewed in talent tree
+
+        // Panel Management State
+        PanelState panelStates[(int)UIPanelID::Count];
+        UIPanelID activeDragPanel = UIPanelID::None;
 
         bool showContextMenu = false;
 

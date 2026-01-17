@@ -61,10 +61,17 @@ void UIInventory::Draw(entt::registry& registry) {
     if (!inv) return;
 
     // Use Reference Resolution for Layout
+    // Use Reference Resolution for Layout
     const float panelW = 900.0f; 
     const float panelH = 700.0f;
-    const float panelX = (UI_REF_WIDTH - panelW) / 2.0f;
-    const float panelY = (UI_REF_HEIGHT - panelH) / 2.0f;
+    
+    // Calculate centered position initially, updated by drag system
+    float panelX = (UI_REF_WIDTH - panelW) / 2.0f;
+    float panelY = (UI_REF_HEIGHT - panelH) / 2.0f;
+    
+    // Enable Dragging (Header Height ~60px)
+    UISystem::UpdatePanelDrag(UIPanelID::Inventory, panelX, panelY, panelW, panelH, 60.0f);
+    
     const float padding = 30.0f;
 
     // Use Logic Mouse Position

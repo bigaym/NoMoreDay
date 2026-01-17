@@ -62,10 +62,23 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
 
   float screenW = (float)GetScreenWidth();
   float screenH = (float)GetScreenHeight();
-  float panelW = 600.0f * state.scaleFactor;
-  float panelH = 700.0f * state.scaleFactor;
-  float startX = (screenW - panelW) / 2.0f;
-  float startY = (screenH - panelH) / 2.0f;
+
+  // Logic Dimensions
+  float panelW_Logic = 600.0f;
+  float panelH_Logic = 700.0f;
+
+  // Initial Logic Position (Centered)
+  float startX_Logic = (UI_REF_WIDTH - panelW_Logic) / 2.0f;
+  float startY_Logic = (UI_REF_HEIGHT - panelH_Logic) / 2.0f;
+
+  // Handle Drag in Logic Space
+  UISystem::UpdatePanelDrag(UIPanelID::Crafting, startX_Logic, startY_Logic, panelW_Logic, panelH_Logic, 60.0f);
+
+  // Convert to Screen Space for Drawing (legacy behavior of this file)
+  float panelW = panelW_Logic * state.scaleFactor;
+  float panelH = panelH_Logic * state.scaleFactor;
+  float startX = startX_Logic * state.scaleFactor;
+  float startY = startY_Logic * state.scaleFactor;
 
   // Background
   DrawRectangleRec({startX, startY, panelW, panelH},

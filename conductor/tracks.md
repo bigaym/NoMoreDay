@@ -256,3 +256,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 1.5 days
+
+---
+
+## [x] Track: UI Draggable Panels
+- **Folder:** [./conductor/tracks/ui_draggable_panels/](./conductor/tracks/ui_draggable_panels/)
+- **Description:** 实现 UI 面板（角色、物品栏、打造）的自由拖动功能。使用 PanelState 独立管理每个面板的位置与拖动状态，并添加智能边界限制及坐标映射。 (Completed on 2026-01-17)
+- **Status:** COMPLETED
+- **Priority:** MEDIUM
+- **Estimated Time:** 1 day

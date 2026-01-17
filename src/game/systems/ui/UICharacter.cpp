@@ -77,9 +77,13 @@ void UICharacter::Draw(entt::registry& registry) {
     const float panelH = 780.0f; // Heightened for better spacing
     const float margin = 40.0f;  // Increased margin from screen edge
     
-    // 锚定左侧居中 (Center Left Anchor)
-    const float panelX = margin;
-    const float panelY = (UI_REF_HEIGHT - panelH) / 2.0f;
+    // 锚定左侧居中 (Center Left Anchor) - Initial values, overridden by UpdatePanelDrag
+    float panelX = margin;
+    float panelY = (UI_REF_HEIGHT - panelH) / 2.0f;
+    
+    // Enable Dragging (Header Height ~60px)
+    UISystem::UpdatePanelDrag(UIPanelID::Character, panelX, panelY, panelW, panelH, 60.0f);
+
     const float padding = 25.0f;
 
     // Helpers for scaled drawing

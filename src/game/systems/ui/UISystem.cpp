@@ -103,6 +103,50 @@ bool UISystem::IsSkillTreeVisible(entt::registry& registry, entt::entity entity)
     return State.showSkillTree; // We need to add showSkillTree to UIContext
 }
 
+void UISystem::UpdatePanelDrag(NoMoreDay::UIPanelID id, float& x, float& y, float w, float h, float headerHeight) {
+    auto& pState = State.panelStates[(int)id];
+    Vector2 mousePos = GetMousePositionLogic();
+    
+    // 1. Initialize default position if not set
+    if (pState.position.x < 0) {
+        pState.position = { x, y };
+    }
+    
+    // 2. Override inputs with state position
+    x = pState.position.x;
+    y = pState.position.y;
+    
+    // 3. Handle Drag Start
+    bool isMouseOverHeader = CheckCollisionPointRec(mousePos, { x, y, w, headerHeight });
+    bool isPressed = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+    
+    if (isMouseOverHeader && isPressed && State.activeDragPanel == UIPanelID::None) {
+        State.activeDragPanel = id;
+        pState.isDragging = true;
+        pState.dragOffset = { mousePos.x - x, mousePos.y - y };
+    }
+    
+    // 4. Handle Dragging
+    if (pState.isDragging && State.activeDragPanel == id) {
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+            pState.position.x = mousePos.x - pState.dragOffset.x;
+            pState.position.y = mousePos.y - pState.dragOffset.y;
+            
+            // Simple Boundary Constraint (Keep at least 50px visible)
+            float minVis = 50.0f;
+            pState.position.x = std::clamp(pState.position.x, -w + minVis, UI_REF_WIDTH - minVis);
+            pState.position.y = std::clamp(pState.position.y, -h + minVis, UI_REF_HEIGHT - minVis);
+            
+            x = pState.position.x;
+            y = pState.position.y;
+        } else {
+            // Drag End
+            pState.isDragging = false;
+            State.activeDragPanel = UIPanelID::None;
+        }
+    }
+}
+
 // --- Main Loop ---
 
 void UISystem::Update(entt::registry& registry, const LevelManager& levelManager) {
