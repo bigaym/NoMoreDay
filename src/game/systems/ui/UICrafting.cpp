@@ -351,8 +351,8 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity) {
       // Existing Affix
       Color textColor = WHITE; // Determine by tier?
       char nameBuf[128];
-      snprintf(nameBuf, 128, "[T%d] %s (%.1f)", affix->tier,
-               affix->name.c_str(), affix->value);
+      snprintf(nameBuf, 128, "[T%d] %s", affix->tier,
+               GetAffixDescription(*affix, false).c_str());
       UISystem::DrawTextUI(nameBuf, x + 10, currentY + 15, 18, textColor,
                            alpha);
 

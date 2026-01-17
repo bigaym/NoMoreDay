@@ -113,6 +113,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: String Usage Optimization & Resistance Logic Fix
+- **Folder:** [./conductor/archive/optimization_string_reduction/](./conductor/archive/optimization_string_reduction/)
+- **Description:** Optimize hot paths by replacing heap-allocated strings (EnemyRace, Affix) with DOD-style static lookups and Tag bitmasks. Implemented functional enemy resistances. (Completed on 2026-01-17)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1 day
+
+---
+
 ## Phase 6: 终局玩法构建 (Endgame Construction)
 
 ### [x] Track: 维度拼接系统 (Dimensional Mosaic)

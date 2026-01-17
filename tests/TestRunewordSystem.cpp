@@ -70,7 +70,7 @@ TEST_CASE("Runeword Logic") {
       bool foundMoveSpeed = false;
 
       for (const auto &affix : armor.affixes) {
-        if (affix.name == "Runeword Bonus") {
+        // if (affix.name == "Runeword Bonus") { // Name removed
           if (affix.type == AffixType::CastSpeed) {
             CHECK(affix.value == 25);
             foundCastSpeed = true;
@@ -87,7 +87,7 @@ TEST_CASE("Runeword Logic") {
             CHECK(affix.value == 25);
             foundMoveSpeed = true;
           }
-        }
+        // }
       }
       CHECK(foundCastSpeed);
       CHECK(foundPoisonRes);

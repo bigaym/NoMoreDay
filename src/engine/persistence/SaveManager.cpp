@@ -42,7 +42,7 @@ static SerializedItem SerializeItem(entt::registry &registry,
     sAff.value = aff.value;
     sAff.isPrefix = aff.isPrefix;
     sAff.isLegendary = aff.isLegendary;
-    sAff.name = aff.name;
+    // sAff.name = aff.name; // REMOVED
     sAff.required_tags = aff.required_tags;
     dto.affixes.push_back(sAff);
   }
@@ -54,7 +54,7 @@ static SerializedItem SerializeItem(entt::registry &registry,
     sAff.value = aff.value;
     sAff.isPrefix = aff.isPrefix;
     sAff.isLegendary = aff.isLegendary;
-    sAff.name = aff.name;
+    // sAff.name = aff.name; // REMOVED
     sAff.required_tags = aff.required_tags;
     dto.implicits.push_back(sAff);
   }

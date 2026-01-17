@@ -245,7 +245,7 @@ void RunewordSystem::applyRuneword(ItemComponent &item, uint32_t runewordId) {
       affix.value = val;
       affix.tier = 10; // Special tier for runewords
       affix.isPrefix = true;
-      affix.name = "Runeword Bonus";
+      // affix.name = "Runeword Bonus"; // REMOVED
       item.affixes.push_back(affix);
     } else {
       LOG_WARN("RunewordSystem: Unknown stat key '{}' in runeword '{}'", key,
@@ -265,8 +265,7 @@ void RunewordSystem::removeRuneword(ItemComponent &item) {
   // idiom.
   item.affixes.erase(std::remove_if(item.affixes.begin(), item.affixes.end(),
                                     [](const Affix &a) {
-                                      return a.tier == 10 &&
-                                             a.name == "Runeword Bonus";
+                                      return a.tier == 10;
                                     }),
                      item.affixes.end());
 

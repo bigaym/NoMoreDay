@@ -352,51 +352,42 @@ static void fillAffixDetails(Affix &affix, AffixType type, int tier) {
   case AffixType::Intelligence:
   case AffixType::Vitality:
     affix.value = rollVal(3.0f, 2.0f);
-    affix.name = "力量";
     affix.isPrefix = false; // 后缀
     break;
   case AffixType::FlatHealth:
     affix.value = rollVal(10.0f, 5.0f);
-    affix.name = "坚韧的";
     affix.isPrefix = true; // 前缀
     break;
   case AffixType::FlatMana:
     affix.value = rollVal(8.0f, 4.0f);
-    affix.name = "神秘的";
     affix.isPrefix = true;
     break;
   case AffixType::PercentPhysicalDamage:
   case AffixType::PercentFireDamage:
   case AffixType::PercentLightningDamage:
     affix.value = rollVal(5.0f, 3.0f);
-    affix.name = "残酷的";
     affix.isPrefix = true;
     break;
   case AffixType::FlatPhysicalDamage:
   case AffixType::FlatFireDamage:
     affix.value = rollVal(2.0f, 2.0f);
-    affix.name = "锋利的";
     affix.isPrefix = true;
     break;
   case AffixType::CritChance:
     affix.value = 1.0f + (scale * 0.8f);
-    affix.name = "致命的";
     affix.isPrefix = false; // 通常是后缀
     break;
   case AffixType::MoveSpeed:
     affix.value = 5.0f + (scale * 2.0f);
-    affix.name = "迅捷的";
     affix.isPrefix = false;
     break;
   case AffixType::AttackSpeed:
     affix.value = 5.0f + (scale * 1.5f);
-    affix.name = "快速的";
     affix.isPrefix = false;
     break;
   case AffixType::FlatArmor:
   case AffixType::PercentArmor:
     affix.value = rollVal(10.0f, 5.0f);
-    affix.name = "强化的";
     affix.isPrefix = true;
     break;
   case AffixType::ResistAll:
@@ -404,12 +395,10 @@ static void fillAffixDetails(Affix &affix, AffixType type, int tier) {
   case AffixType::ResistCold:
   case AffixType::ResistLightning:
     affix.value = rollVal(5.0f, 3.0f);
-    affix.name = "守护的";
     affix.isPrefix = false;
     break;
   default:
     affix.value = rollVal(5.0f, 0.0f);
-    affix.name = "强化";
     break;
   }
 }
@@ -563,7 +552,7 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
   result.type = selectedDef->type;
   result.tier = tier.tier;
   result.isPrefix = selectedDef->isPrefix;
-  result.name = selectedDef->nameTemplate;
+  // result.name = selectedDef->nameTemplate; // REMOVED
   result.value = (tier.maxValue > tier.minValue) ? 
                  std::uniform_real_distribution<float>(tier.minValue, tier.maxValue)(g_rng) : 
                  tier.minValue;
@@ -694,7 +683,7 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
       result.type = def->type;
       result.tier = tier.tier;
       result.isPrefix = def->isPrefix;
-      result.name = def->nameTemplate;
+      // result.name = def->nameTemplate; // REMOVED
       result.value = (tier.maxValue > tier.minValue) ? 
                      std::uniform_real_distribution<float>(tier.minValue, tier.maxValue)(g_rng) : 
                      tier.minValue;
@@ -768,7 +757,7 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
     aff.value = sAff.value;
     aff.isPrefix = sAff.isPrefix;
     aff.isLegendary = sAff.isLegendary;
-    aff.name = sAff.name;
+    // aff.name = sAff.name; // REMOVED
     aff.required_tags = sAff.required_tags;
     item.affixes.push_back(aff);
   }
@@ -780,7 +769,7 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
     aff.value = sAff.value;
     aff.isPrefix = sAff.isPrefix;
     aff.isLegendary = sAff.isLegendary;
-    aff.name = sAff.name;
+    // aff.name = sAff.name; // REMOVED
     aff.required_tags = sAff.required_tags;
     item.implicits.push_back(aff);
   }
@@ -864,7 +853,7 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   item.implicits.back().value =
       std::uniform_real_distribution<>(5.0f, 15.0f)(g_rng) + (level * 0.5f);
   item.implicits.back().tier = 0;
-  item.implicits.back().name = "固有";
+  // item.implicits.back().name = "固有"; // REMOVED
 
   item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
 

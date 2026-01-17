@@ -275,7 +275,6 @@ void GameplayState::InitializeEntities() {
     aff.type = (AffixType)(i % 5); // Str, Dex, Int, Vit, FlatPhys
     aff.tier = (i < 2) ? 7 : 6;    // Two T7, Two T6
     aff.value = 50.0f;
-    aff.name = "Exalted Stat " + std::to_string(i);
     fodderItem.affixes.push_back(aff);
   }
   registry.emplace_or_replace<IDComponent>(fodderFunc, Utils::UUID::generate());

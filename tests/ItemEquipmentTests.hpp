@@ -468,7 +468,7 @@ TEST_CASE("Legendary Merging System [Item][Crafting]") {
             Affix aff;
             aff.type = (AffixType)i;
             aff.tier = 6;
-            aff.name = "T6 Affix " + std::to_string(i);
+            // aff.name = "T6 Affix " + std::to_string(i); // REMOVED
             fodderItem.affixes.push_back(aff);
         }
         registry.emplace<ItemComponent>(fodderEntity, fodderItem);

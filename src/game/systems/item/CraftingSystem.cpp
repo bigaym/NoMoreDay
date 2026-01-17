@@ -28,7 +28,7 @@ CraftingResult CraftingSystem::upgradeAffix(ItemComponent &item,
   // 检查限制
   if (affix.tier >= 5) { // 可打造的最大等级 T5
     LOG_DEBUG("Crafting: Affix '{}' on item '{}' is already max tier (5)",
-              affix.name, item.name);
+              GetAffixDescription(affix, false), item.name);
     return CraftingResult::MaxTierReached;
   }
 
@@ -42,7 +42,7 @@ CraftingResult CraftingSystem::upgradeAffix(ItemComponent &item,
   item.forgingPotential -= finalCost;
 
   LOG_INFO("打造: 正在升级物品 '{}' 上的词缀 '{}'。消耗: {} 潜力", item.name,
-           affix.name, finalCost);
+           GetAffixDescription(affix, false), finalCost);
 
   // 升级: 纯粹基于类型和新等级重新生成
   int newTier = affix.tier + 1;
@@ -124,7 +124,7 @@ CraftingResult CraftingSystem::chaosAffix(ItemComponent &item, int affixIndex) {
 
   auto &oldAffix = item.affixes[affixIndex];
   if (oldAffix.tier >= 5) {
-    LOG_DEBUG("Crafting Chaos: Affix '{}' is already max tier", oldAffix.name);
+    LOG_DEBUG("Crafting Chaos: Affix '{}' is already max tier", GetAffixDescription(oldAffix, false));
     return CraftingResult::MaxTierReached;
   }
 
@@ -134,7 +134,7 @@ CraftingResult CraftingSystem::chaosAffix(ItemComponent &item, int affixIndex) {
   item.forgingPotential -= finalCost;
 
   LOG_INFO("打造混沌: 正在重铸物品 '{}' 上的词缀 '{}'。消耗: {}", item.name,
-           oldAffix.name, finalCost);
+           GetAffixDescription(oldAffix, false), finalCost);
 
   // 3. 混沌逻辑: 新类型，等级 + 1
   int targetTier = oldAffix.tier + 1;
@@ -159,13 +159,11 @@ CraftingResult CraftingSystem::chaosAffix(ItemComponent &item, int affixIndex) {
     // 回退: 如果找不到替换，则只升级现有词缀 (这种情况应该很少发生)
     LOG_WARN("打造混沌: 无法为 '{}' 找到新的有效类型，回退到升级", item.name);
     oldAffix = ItemFactory::createAffix(oldAffix.type, targetTier);
-    oldAffix.name = "Chaotic " + oldAffix.name;
     return CraftingResult::Success;
   }
 
   // 应用新类型和目标等级
   oldAffix = ItemFactory::createAffix(tempCandidate.type, targetTier);
-  oldAffix.name = "Chaotic " + oldAffix.name;
 
   return CraftingResult::Success;
 }
@@ -198,7 +196,7 @@ CraftingResult CraftingSystem::refineAffixValues(ItemComponent &item,
       std::uniform_real_distribution<float>(range.first, range.second)(rng);
 
   LOG_INFO("打造洗练: 物品 '{}' 的词缀 '{}' 从 {:.1f} 变为 {:.1f}", item.name,
-           affix.name, affix.value, newValue);
+           GetAffixDescription(affix, false), affix.value, newValue);
   affix.value = newValue;
 
   return CraftingResult::Success;
@@ -416,7 +414,7 @@ CraftingResult CraftingSystem::fuseLegendary(entt::registry &registry,
     Affix inherited = fodder->affixes[idx];
     inherited.isLegendary = true;
     base->affixes.push_back(inherited);
-    LOG_INFO("Fusion: Inherited affix '{}' [T{}]", inherited.name,
+    LOG_INFO("Fusion: Inherited affix '{}' [T{}]", GetAffixDescription(inherited, false),
              inherited.tier);
   }
 

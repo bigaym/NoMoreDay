@@ -55,7 +55,7 @@ TEST_CASE("Item Restoration - Deterministic Attributes") {
       sAff.value = aff.value;
       sAff.isPrefix = aff.isPrefix;
       sAff.isLegendary = aff.isLegendary;
-      sAff.name = aff.name;
+      // sAff.name = aff.name;
       sAff.required_tags = aff.required_tags;
       dto.affixes.push_back(sAff);
     }

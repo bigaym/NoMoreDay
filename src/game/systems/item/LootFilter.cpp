@@ -1,4 +1,5 @@
 #include "game/systems/item/LootFilter.hpp"
+#include "game/components/ItemStats.hpp"
 #include <fstream>
 #include <iostream>
 #include <algorithm>
@@ -158,7 +159,7 @@ bool FilterRule::matches(const ItemComponent& item, int itemLevel) const {
             bool found = false;
             // Check implicits
             for (const auto& aff : item.implicits) {
-                if (aff.name.find(requiredAffix) != std::string::npos) {
+                if (GetAffixDescription(aff, false).find(requiredAffix) != std::string::npos) {
                     found = true; 
                     break;
                 }
@@ -167,7 +168,7 @@ bool FilterRule::matches(const ItemComponent& item, int itemLevel) const {
 
             // Check explicit affixes
             for (const auto& aff : item.affixes) {
-                 if (aff.name.find(requiredAffix) != std::string::npos) {
+                 if (GetAffixDescription(aff, false).find(requiredAffix) != std::string::npos) {
                     found = true; 
                     break;
                 }

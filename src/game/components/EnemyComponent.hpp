@@ -1,12 +1,55 @@
 #pragma once
 
 #include "game/components/Common.hpp"
+#include "game/data/TagRegistry.hpp"
 #include <cstdint>
 #include <entt/entt.hpp>
 #include <functional>
 #include <string>
 #include <vector>
 
+
+// 敌人种族定义
+// 敌人种族数据 (POD) - 静态查找表使用
+// 敌人种族数据 (POD) - 静态查找表使用
+struct EnemyRaceData {
+  float baseHP;
+  float baseDamage;
+  float baseSpeed;
+  float baseXP;
+  float baseArmor;
+  NoMoreDay::Tag resistances;             // 使用位掩码替代 vector<string>
+  std::string_view texturePath; // 共享视图替代 string 拷贝
+};
+
+// 静态常量表：映射 EnemyRace::Type 到具体数据
+// 顺序必须与 EnemyRace::Type 枚举一致
+static constexpr std::array<EnemyRaceData, 12> kRaceData = {{
+    // UNDEAD
+    {30.0f, 15.0f, 40.0f, 10.0f, 100.0f, NoMoreDay::Tag::Bleeding | NoMoreDay::Tag::Poison, "assets/textures/monster/skeleton_0.png"},
+    // DEMON
+    {60.0f, 25.0f, 50.0f, 25.0f, 100.0f, NoMoreDay::Tag::Fire | NoMoreDay::Tag::Shadow, "assets/textures/monster/demon_0.png"},
+    // CORRUPTED
+    {25.0f, 20.0f, 60.0f, 15.0f, 100.0f, NoMoreDay::Tag::Stunned, "assets/textures/monster/warcraft_0.png"},
+    // CULTIST
+    {35.0f, 20.0f, 45.0f, 12.0f, 100.0f, NoMoreDay::Tag::Spell, "assets/textures/monster/cultist_0.png"},
+    // ElVES
+    {25.0f, 15.0f, 55.0f, 12.0f, 80.0f, NoMoreDay::Tag::None, "assets/textures/monster/elf_0.png"},
+    // BEAST
+    {40.0f, 18.0f, 45.0f, 15.0f, 90.0f, NoMoreDay::Tag::None, "assets/textures/monster/beast_0.png"},
+    // GOBLIN
+    {20.0f, 10.0f, 55.0f, 8.0f, 100.0f, NoMoreDay::Tag::None, "assets/textures/monster/goblin_0.png"},
+    // DRAGONKIN
+    {100.0f, 40.0f, 45.0f, 50.0f, 200.0f, NoMoreDay::Tag::Fire, "assets/textures/monster/dragon_0.png"},
+    // MACHINE
+    {80.0f, 20.0f, 30.0f, 30.0f, 150.0f, NoMoreDay::Tag::Poison | NoMoreDay::Tag::Bleeding, "assets/textures/monster/mech_0.png"},
+    // ELEMENTAL
+    {50.0f, 30.0f, 40.0f, 20.0f, 120.0f, NoMoreDay::Tag::Physical, "assets/textures/monster/elemental_0.png"},
+    // SLIME
+    {15.0f, 5.0f, 30.0f, 5.0f, 100.0f, NoMoreDay::Tag::Physical, "assets/textures/monster/slime_0.png"},
+    // ANIMAL
+    {20.0f, 8.0f, 50.0f, 5.0f, 50.0f, NoMoreDay::Tag::None, "assets/textures/monster/animal_0.png"}
+}};
 
 // 敌人种族定义
 struct EnemyRace {
@@ -24,64 +67,6 @@ struct EnemyRace {
     SLIME = 10,    // 史莱姆
     ANIMAL = 11    // 野兽
   };
-  Type raceType;
-  float baseHP, baseDamage, baseSpeed, baseXP, baseArmor;
-  std::vector<std::string> resistances;
-  std::string texturePath; // 资源路径
-
-  EnemyRace(Type type = UNDEAD) : raceType(type) {
-    baseArmor = 100.0f; // 基础护甲
-    switch (type) {
-    case UNDEAD:
-      baseHP = 30.0f;
-      baseDamage = 15.0f;
-      baseSpeed = 40.0f; // 接近
-      baseXP = 10.0f;
-      resistances = {"bleed", "poison"};
-      texturePath = "assets/textures/monster/skeleton_0.png";
-      break;
-    case DEMON:
-      baseHP = 60.0f;
-      baseDamage = 25.0f;
-      baseSpeed = 50.0f; // 目标
-      baseXP = 25.0f;
-      resistances = {"fire", "dark"};
-      texturePath = "assets/textures/monster/demon_0.png";
-      break;
-    case CORRUPTED:
-      baseHP = 25.0f;
-      baseDamage = 20.0f;
-      baseSpeed = 60.0f; // 稍快
-      baseXP = 15.0f;
-      resistances = {"slow", "stun"};
-      texturePath = "assets/textures/monster/warcraft_0.png";
-      break;
-    case CULTIST:
-      baseHP = 35.0f;
-      baseDamage = 20.0f;
-      baseSpeed = 45.0f;
-      baseXP = 12.0f;
-      resistances = {"magic"};
-      texturePath = "assets/textures/monster/cultist_0.png";
-      break;
-    case GOBLIN:
-      baseHP = 20.0f;
-      baseDamage = 10.0f;
-      baseSpeed = 55.0f;
-      baseXP = 8.0f;
-      resistances = {};
-      texturePath = "assets/textures/monster/goblin_0.png";
-      break;
-    case SLIME:
-      baseHP = 15.0f;
-      baseDamage = 5.0f;
-      baseSpeed = 30.0f; // 史莱姆稍慢
-      baseXP = 5.0f;
-      resistances = {"physical"};
-      texturePath = "assets/textures/monster/slime_0.png";
-      break;
-    }
-  }
 };
 
 // 敌人职业/行为模板
@@ -154,7 +139,7 @@ struct EnemyStateComponent {
         aiState(AIState::IDLE) {
 
     // 根据种族和职业设置初始参数
-    EnemyRace raceDef(race);
+    const auto& raceDef = kRaceData[static_cast<size_t>(race)];
     EnemyArchetype archDef(arch);
 
     speed = raceDef.baseSpeed;

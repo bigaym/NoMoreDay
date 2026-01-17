@@ -179,8 +179,8 @@ void EnemySpawnSystem::initTextures() {
 
   // Load new
   for (int raceType : m_pendingRaces) {
-    EnemyRace raceDef(static_cast<EnemyRace::Type>(raceType));
-    Texture2D tex = LoadTexture(raceDef.texturePath.c_str());
+    const auto& raceDef = kRaceData[static_cast<size_t>(raceType)];
+    Texture2D tex = LoadTexture(raceDef.texturePath.data());
     if (tex.id == 0) {
       LOG_ERROR("EnemySpawnSystem: Failed to load texture for race {} at '{}'",
                 raceType, raceDef.texturePath);
@@ -261,7 +261,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
       entity); // Trigger initial calculation
   auto &aState = registry.emplace<NoMoreDay::AttackState>(entity);
 
-  EnemyRace raceDef(raceType);
+  const auto& raceDef = kRaceData[static_cast<size_t>(raceType)];
 
   // Apply Level Mod to Base Stats
   using namespace NoMoreDay::Constants::Enemy;

@@ -33,8 +33,8 @@ void XPAwardingSystem::update(entt::registry& registry) {
             if (registry.valid(killer) && registry.all_of<PlayerTag>(killer)) {
                 playerKiller = killer;
                 if (auto* state = registry.try_get<EnemyStateComponent>(entity)) {
-                    EnemyRace race(state->raceType);
-                    float xp = race.baseXP * (1.0f + (state->level - 1) * 0.1f);
+                    const auto& raceData = kRaceData[static_cast<size_t>(state->raceType)];
+                    float xp = raceData.baseXP * (1.0f + (state->level - 1) * 0.1f);
                     if (auto* rarity = registry.try_get<EnemyRarityComponent>(entity)) {
                         if (rarity->rarity == EnemyRarityComponent::ELITE) xp *= 2.5f;
                         else if (rarity->rarity == EnemyRarityComponent::BOSS) xp *= 10.0f;

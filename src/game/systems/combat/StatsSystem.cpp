@@ -258,10 +258,30 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     
     // 如果是敌人，应用敌人种族基础属性覆盖 base_hp
     if (auto* enemy = registry.try_get<EnemyStateComponent>(entity)) {
-        EnemyRace race(enemy->raceType);
-        calcs[static_cast<size_t>(StatType::MaxHealth)].base = race.baseHP;
-        calcs[static_cast<size_t>(StatType::MoveSpeed)].base = race.baseSpeed;
-        calcs[static_cast<size_t>(StatType::Armor)].base = race.baseArmor;
+        // 使用静态查找表，避免每次分配 vector<string>
+        const auto& raceData = kRaceData[static_cast<size_t>(enemy->raceType)];
+        
+        calcs[static_cast<size_t>(StatType::MaxHealth)].base = raceData.baseHP;
+        calcs[static_cast<size_t>(StatType::MoveSpeed)].base = raceData.baseSpeed;
+        calcs[static_cast<size_t>(StatType::Armor)].base = raceData.baseArmor;
+
+        // 应用种族抗性 (Tag -> StatType)
+        constexpr float NATIVE_RESISTANCE_VALUE = 50.0f; // 天生抗性数值 (50%)
+        
+        // 我们遍历主要的伤害类型标签来映射抗性
+        // 注意：Tag::Void 目前没有对应的 StatType::ResistVoid，暂不处理
+        if (HasTag(raceData.resistances, Tag::Physical)) 
+            ApplyStatModifier(calcs, StatType::ResistPhysical, ModifierMode::Flat, NATIVE_RESISTANCE_VALUE);
+        if (HasTag(raceData.resistances, Tag::Fire)) 
+            ApplyStatModifier(calcs, StatType::ResistFire, ModifierMode::Flat, NATIVE_RESISTANCE_VALUE);
+        if (HasTag(raceData.resistances, Tag::Cold)) 
+            ApplyStatModifier(calcs, StatType::ResistCold, ModifierMode::Flat, NATIVE_RESISTANCE_VALUE);
+        if (HasTag(raceData.resistances, Tag::Lightning)) 
+            ApplyStatModifier(calcs, StatType::ResistLightning, ModifierMode::Flat, NATIVE_RESISTANCE_VALUE);
+        if (HasTag(raceData.resistances, Tag::Poison)) 
+            ApplyStatModifier(calcs, StatType::ResistPoison, ModifierMode::Flat, NATIVE_RESISTANCE_VALUE);
+        if (HasTag(raceData.resistances, Tag::Shadow)) 
+            ApplyStatModifier(calcs, StatType::ResistShadow, ModifierMode::Flat, NATIVE_RESISTANCE_VALUE);
     }
 
     using namespace NoMoreDay::Constants::Combat;
