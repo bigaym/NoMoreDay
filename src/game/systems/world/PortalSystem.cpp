@@ -32,6 +32,7 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
 
   for (auto player : players) {
     const auto &pPos = players.get<Position>(player);
+    bool inAnyPortal = false;
 
     for (auto portal : portals) {
       const auto &portalComp = portals.get<PortalComponent>(portal);
@@ -46,6 +47,16 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
 
       // Interaction range (20 units)
       if (distSq < 20.0f * 20.0f) {
+        inAnyPortal = true;
+
+        // If we are still in the same portal we just triggered, do nothing
+        if (portal == m_lastTriggeredPortal) {
+            continue;
+        }
+        
+        // New activation
+        m_lastTriggeredPortal = portal;
+
         // Handle NextLevel portals - trigger MosaicEditorState
         if (portalComp.type == PortalType::NextLevel) {
           LOG_INFO("Player triggered NextLevel portal - opening Mosaic Editor");
@@ -75,6 +86,11 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
                                          portalComp.targetEntranceId);
         return;
       }
+    }
+
+    // If player is not in ANY portal, reset the tracker
+    if (!inAnyPortal) {
+        m_lastTriggeredPortal = entt::null;
     }
   }
 }

@@ -2,9 +2,11 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/AIComponent.hpp"
+#include "game/components/PlayerState.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
+#include "game/data/AffixMapping.hpp" // Added by user instruction
 #include "raylib.h"
 #include "core/logging/Logger.hpp"
 #include <vector>
@@ -153,7 +155,101 @@ void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager)
     DrawRectLinesScaled(x, y, mapSize, mapSize, 2.0f, theme.panelBorderHighlight);
     
     // Coordinates or Zone Name
-    const char* zoneName = "地下城 - 1层";
+    const char* zoneName = levelManager.getCurrentBiome() == "town" ? "宁静村落" : "地下城 - 1层";
+    if (levelManager.getCurrentBiome() != "town") {
+        static char zoneBuf[64];
+        snprintf(zoneBuf, sizeof(zoneBuf), "地下城 - %d层", levelManager.getCurrentLevel());
+        zoneName = zoneBuf;
+    }
+
     float tw = IsFontValid(font) ? MeasureTextEx(font, zoneName, 18, 1.0f).x : (float)MeasureText(zoneName, 18);
     UIRenderer::DrawTextUI(font, zoneName, x + mapSize - tw, y + mapSize + 10.0f, 18, theme.textHighlight, 1.0f);
+
+    // 1. Kill Count (Below Minimap Level Name)
+    auto* pStats = registry.try_get<PlayerStats>(playerEntity);
+    if (pStats && levelManager.getCurrentBiome() != "town") {
+        char killBuf[64];
+        Color killColor = (pStats->current_map_kills >= 100) ? theme.success : theme.textSecondary;
+        
+        if (pStats->current_map_kills < 100) {
+            snprintf(killBuf, sizeof(killBuf), "击杀: %u / 100", pStats->current_map_kills);
+        } else {
+            snprintf(killBuf, sizeof(killBuf), "击杀: %u (出口已标位)", pStats->current_map_kills);
+        }
+        
+        float killTw = IsFontValid(font) ? MeasureTextEx(font, killBuf, 16, 1.0f).x : (float)MeasureText(killBuf, 16);
+        UIRenderer::DrawTextUI(font, killBuf, x + mapSize - killTw, y + mapSize + 35.0f, 16, killColor, 1.0f);
+
+        // 2. Navigation Arrow (Points to NextLevel Portal)
+        if (pStats->current_map_kills >= 100) {
+            entt::entity exitPortal = entt::null;
+            auto portalView = registry.view<PortalComponent, Position>();
+            for (auto e : portalView) {
+                if (portalView.get<PortalComponent>(e).type == PortalType::NextLevel) {
+                    exitPortal = e;
+                    break;
+                }
+            }
+
+            if (exitPortal != entt::null) {
+                const auto& portalPos = portalView.get<Position>(exitPortal);
+                float dx = portalPos.x - playerPos.x;
+                float dy = portalPos.y - playerPos.y;
+                float angle = atan2f(dy, dx);
+                
+                // Draw rotating arrow next to text
+                float arrowX = x + mapSize - killTw - 20.0f;
+                float arrowY = y + mapSize + 43.0f;
+                
+                // Draw simple arrow head pointing towards portal
+                Vector2 center = { arrowX * scale, arrowY * scale };
+                float arrowSize = 10.0f * scale;
+                Vector2 v1 = { center.x + cosf(angle) * arrowSize, center.y + sinf(angle) * arrowSize };
+                Vector2 v2 = { center.x + cosf(angle + 2.4f) * arrowSize * 0.6f, center.y + sinf(angle + 2.4f) * arrowSize * 0.6f };
+                Vector2 v3 = { center.x + cosf(angle - 2.4f) * arrowSize * 0.6f, center.y + sinf(angle - 2.4f) * arrowSize * 0.6f };
+                
+                DrawTriangle(v1, v2, v3, theme.success);
+                // Glow effect
+                DrawCircleGradient((int)center.x, (int)center.y, arrowSize * 1.5f, Fade(theme.success, 0.3f), BLANK);
+            }
+        }
+
+        // 3. Map Affixes (Bonuses/Modifiers)
+        if (levelManager.isMosaicLevel()) {
+            const auto& resonance = levelManager.getCurrentResonance();
+            float bonusY = y + mapSize + 65.0f;
+            
+            auto drawBonus = [&](const char* label, float value, bool isPositive) {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "%s: %+.0f%%", label, (value - 1.0f) * 100.0f);
+                Color c = isPositive ? components::Colors::MAP_AFFIX_POSITIVE : components::Colors::MAP_AFFIX_NEGATIVE;
+                float tw = MeasureTextEx(font, buf, 14, 1.0f).x;
+                UIRenderer::DrawTextUI(font, buf, x + mapSize - tw, bonusY, 14, c, 1.0f);
+                bonusY += 18.0f;
+            };
+
+            if (resonance.totalEnemyDensity != 1.0f) {
+                // Density buff (value > 1.0) is negative for player (more enemies)
+                drawBonus("怪物密度", resonance.totalEnemyDensity, resonance.totalEnemyDensity < 1.0f); 
+            }
+            if (resonance.totalDropRate != 1.0f) {
+                drawBonus("物品掉落", resonance.totalDropRate, resonance.totalDropRate > 1.0f);
+            }
+            if (resonance.totalLevelMod != 0) {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "怪物等级: %+d", resonance.totalLevelMod);
+                float tw = MeasureTextEx(font, buf, 14, 1.0f).x;
+                UIRenderer::DrawTextUI(font, buf, x + mapSize - tw, bonusY, 14, components::Colors::MAP_AFFIX_NEGATIVE, 1.0f);
+                bonusY += 18.0f;
+            }
+            
+            // Dominant Element
+            if (resonance.dominantElement != FragmentElement::None) {
+                const char* elemName = FragmentElementzh[static_cast<size_t>(resonance.dominantElement)].data();
+                float tw = MeasureTextEx(font, elemName, 14, 1.0f).x;
+                UIRenderer::DrawTextUI(font, elemName, x + mapSize - tw, bonusY, 14, GOLD, 1.0f);
+                bonusY += 18.0f;
+            }
+        }
+    }
 }

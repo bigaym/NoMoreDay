@@ -57,10 +57,11 @@ private:
   void RenderBackground();
   void RenderGrid();
   void RenderGridCell(int x, int y, float screenX, float screenY);
-  void RenderFragmentInventory();
+  void RenderInventory();
   void RenderResonancePreview();
   void RenderConfirmButton();
   void RenderDraggedFragment();
+  void RenderTooltip();
   void RenderConfirmDialog();
 
   // 交互方法

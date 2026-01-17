@@ -357,14 +357,35 @@ void RenderSystem::render(entt::registry &registry,
     }
   });
 
-  // 5. 绘制物品和金币的世界标签
+  // --- 5. 绘制物品和金币的世界标签 (Optimization: View Frustum Culling) ---
   // Font font = UISystem::GetFont(); // Already retrieved
 
-  // 物品
+  // Culling Setup: Calculate visible world area
+  // Add margin to prevent "popping" of tall beams or labels
+  float screenW = (float)GetScreenWidth();
+  float screenH = (float)GetScreenHeight();
+  Vector2 viewTopLeft = GetScreenToWorld2D({0, 0}, camera);
+  Vector2 viewBottomRight = GetScreenToWorld2D({screenW, screenH}, camera);
+
+  float cullingMargin = 300.0f; // Large margin for tall beams (120px+) and text
+  Rectangle viewRect = {
+      viewTopLeft.x - cullingMargin,
+      viewTopLeft.y - cullingMargin,
+      (viewBottomRight.x - viewTopLeft.x) + cullingMargin * 2.0f,
+      (viewBottomRight.y - viewTopLeft.y) + cullingMargin * 2.0f
+  };
+
+  // 物品 (Items)
   auto itemView =
       registry.view<const Position, const NoMoreDay::ItemComponent>();
-  itemView.each([&registry, &font, fontScale](
+  itemView.each([&registry, &font, fontScale, &viewRect](
                     const auto entity, const auto &pos, const auto &item) {
+    
+    // Culling Test
+    if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) {
+        return; // Skip off-screen items
+    }
+
     Color rarityColor = UISystem::GetRarityColor(item.rarity);
     float scale = 1.0f;
     bool emphasized = false;
@@ -452,9 +473,15 @@ void RenderSystem::render(entt::registry &registry,
     }
   });
 
-  // 金币
+  // 金币 (Gold)
   auto goldView = registry.view<const Position, const GoldComponent>();
-  goldView.each([&font, fontScale](const auto &pos, const auto &gold) {
+  goldView.each([&font, fontScale, &viewRect](const auto &pos, const auto &gold) {
+    
+    // Culling Test
+    if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) {
+        return; // Skip off-screen gold
+    }
+
     const char *text = TextFormat("%d 金币", gold.amount);
     float baseGoldFontSize = 16.0f;
     int fontSize = (int)(baseGoldFontSize * fontScale);

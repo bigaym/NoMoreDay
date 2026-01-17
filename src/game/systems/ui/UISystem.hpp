@@ -21,6 +21,7 @@ public:
         static void DrawSkillHotbar(entt::registry& registry);
         static void DrawBuffs(entt::registry& registry);
         static void Benchmark(entt::registry& registry, const LevelManager& levelManager, int frames);
+        static void DrawDraggingPhantom(entt::registry& registry);
     
     // --- Resource Access ---
     static Font GetFont() { return State.globalFont; }

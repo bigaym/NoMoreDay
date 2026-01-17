@@ -4,28 +4,13 @@
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"
+#include "game/data/MosaicData.hpp"
 #include <cassert>
 #include <memory>
 
 class ResourceManager;
 
 class LevelManager {
-private:
-  std::unique_ptr<MapSystem> m_mapSystem;
-  std::unique_ptr<EnemySpawnSystem> m_enemySystem;
-  std::unique_ptr<FogOfWarSystem> m_fogSystem;
-
-  // 当前关卡信息
-  std::string m_currentBiome;
-  int m_currentLevel;
-
-  // 资源管理器引用 (GPU 初始化需要)
-  ResourceManager *m_resources = nullptr;
-
-  // 关卡尺寸
-  static constexpr int DEFAULT_MAP_WIDTH = 128;
-  static constexpr int DEFAULT_MAP_HEIGHT = 128;
-
 public:
   struct LevelData {
     std::unique_ptr<MapSystem> map;
@@ -33,6 +18,8 @@ public:
     std::unique_ptr<FogOfWarSystem> fog;
     std::string biome;
     int width, height, level;
+    NoMoreDay::ResonanceResult resonance; 
+    bool isMosaic = false;
   };
   LevelManager();
   ~LevelManager();
@@ -107,8 +94,27 @@ public:
   // 获取当前关卡信息
   const std::string &getCurrentBiome() const { return m_currentBiome; }
   int getCurrentLevel() const { return m_currentLevel; }
+  const NoMoreDay::ResonanceResult& getCurrentResonance() const { return m_currentResonance; }
+  bool isMosaicLevel() const { return m_isMosaicLevel; }
 
 private:
+  std::unique_ptr<MapSystem> m_mapSystem;
+  std::unique_ptr<EnemySpawnSystem> m_enemySystem;
+  std::unique_ptr<FogOfWarSystem> m_fogSystem;
+
+  // 当前关卡信息
+  std::string m_currentBiome;
+  int m_currentLevel;
+  NoMoreDay::ResonanceResult m_currentResonance;
+  bool m_isMosaicLevel = false;
+
+  // 资源管理器引用 (GPU 初始化需要)
+  ResourceManager *m_resources = nullptr;
+
+  // 关卡尺寸
+  static constexpr int DEFAULT_MAP_WIDTH = 128;
+  static constexpr int DEFAULT_MAP_HEIGHT = 128;
+
   // 生成关卡
   void generateLevel(const std::string &biome, int width, int height);
 

@@ -276,7 +276,7 @@ constexpr int WORKGROUP_SIZE_PARTICLES = 256;   // GPU计算粒子时的线程�
 constexpr float MAX_DELTA_TIME_PARTICLES =
     0.1f; // 粒子模拟的最大允许时间步长（防止卡顿后飞天）
 constexpr float DEFAULT_DELTA_TIME_PARTICLES =
-    0.016f; // 默认每帧粒子物理模拟步长 (60fps)
+    0.016f; // 默认每帧粒子物理模拟步长 (60fps)---此值不可信，实际帧率由全局设置决定，目前是180fps
 } // namespace Render
 
 namespace Visuals {

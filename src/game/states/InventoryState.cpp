@@ -90,9 +90,14 @@ namespace NoMoreDay {
             UIRenderer::DrawMessageBox(UISystem::State.globalFont, UISystem::State);
         }
 
-        // 3. Cleanup Dragging at the very end of frame
+        // 3. Draw Phantom (Topmost)
+        UISystem::DrawDraggingPhantom(registry);
+
+        // 4. Cleanup Dragging at the very end of frame
         if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
             UISystem::State.draggedItem = entt::null;
+            UISystem::State.isDraggingSkill = false;
+            UISystem::State.draggedSkillId = 0;
         }
 
         // Reset hovered item for next frame (Standard IMGUI pattern)

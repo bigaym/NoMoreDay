@@ -1,6 +1,7 @@
 #include "game/systems/world/MosaicMapGenerator.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/components/MapFragmentComponent.hpp"
+#include "game/components/Common.hpp"
 #include <algorithm>
 #include <queue>
 #include <random>
@@ -97,33 +98,94 @@ void MosaicMapGenerator::GenerateZone(std::vector<Tile> &grid, int mapWidth,
   std::mt19937 gen(seed);
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
-  // 确定区域的墙壁概率
-  float wallProb = 0.08f; // 基础概率
-
-  if (zone.fragment) {
-    // 地形碎片增加墙壁密度
-    if (zone.fragment->type == FragmentType::Terrain) {
-      wallProb *= zone.fragment->enemyDensityMod;
-    }
-    // Unique 碎片创建更开阔的空间
-    if (zone.fragment->type == FragmentType::Unique) {
-      wallProb *= 0.5f;
-    }
-  }
-
-  // 生成初始噪声
+  // 1. 初始化全为地板
   for (int y = zone.startY; y < zone.endY; ++y) {
     for (int x = zone.startX; x < zone.endX; ++x) {
       if (x <= 0 || x >= mapWidth - 1 || y <= 0 || y >= mapHeight - 1) {
         grid[y * mapWidth + x].type = Tile::Type::WALL;
       } else {
-        grid[y * mapWidth + x].type =
-            (dist(gen) < wallProb) ? Tile::Type::WALL : Tile::Type::FLOOR;
+        grid[y * mapWidth + x].type = Tile::Type::FLOOR;
       }
     }
   }
 
-  // 应用碎片特效
+  // 2. 使用 BFS "岩石堆积" 算法 (复刻 CaveMapGenerator 逻辑)
+  // 参考 Game Design: 生成从 0 到 标准密度 的随机障碍物
+  using namespace NoMoreDay::Constants::Generator::Cave;
+  
+  int zoneW = zone.endX - zone.startX;
+  int zoneH = zone.endY - zone.startY;
+  int area = zoneW * zoneH;
+  
+  // 基准最大数量 (与初始地图密度一致)
+  int maxRocks = area / ROCK_DENSITY_DIVISOR;
+
+  // 随机密度因子 [0.0, 1.0] (符合"随机生成完全无障碍物到初始地图水平")
+  float densityFactor = dist(gen);
+  
+  // 碎片修正
+  if (zone.fragment) {
+    if (zone.fragment->type == FragmentType::Terrain) {
+       // 地形碎片稍微偏向高密度，但保持随机性
+       densityFactor = std::min(1.2f, densityFactor * 1.5f);
+    } else if (zone.fragment->type == FragmentType::Unique) {
+       // Unique 碎片大幅减少
+       densityFactor *= 0.2f;
+    }
+  }
+
+  int numRocks = static_cast<int>(maxRocks * densityFactor);
+  
+  // 最小尺寸岩石生成
+  if (numRocks > 0) {
+      std::uniform_int_distribution<int> xDist(zone.startX + 5, zone.endX - 6);
+      std::uniform_int_distribution<int> yDist(zone.startY + 5, zone.endY - 6);
+      std::uniform_int_distribution<int> sizeDist(ROCK_SIZE_MIN, ROCK_SIZE_MAX);
+
+      for (int i = 0; i < numRocks; ++i) {
+          int cx = xDist(gen);
+          int cy = yDist(gen);
+          int targetArea = sizeDist(gen);
+          int currentArea = 0;
+
+          std::queue<int> q;
+          q.push(cy * mapWidth + cx);
+          
+          while (!q.empty() && currentArea < targetArea) {
+              int curr = q.front();
+              q.pop();
+
+              if (curr < 0 || curr >= grid.size()) continue; // Safety
+              if (grid[curr].type == Tile::Type::WALL) continue;
+
+              grid[curr].type = Tile::Type::WALL;
+              currentArea++;
+
+              int curX = curr % mapWidth;
+              int curY = curr / mapWidth;
+
+              // 四周扩张
+              const int dx[] = {0, 0, 1, -1};
+              const int dy[] = {1, -1, 0, 0};
+              
+              for (int d = 0; d < 4; ++d) {
+                  int nx = curX + dx[d];
+                  int ny = curY + dy[d];
+                  // 严格限制在 Zone 内部 (留 buffer)
+                  if (nx >= zone.startX + 1 && nx < zone.endX - 1 &&
+                      ny >= zone.startY + 1 && ny < zone.endY - 1) {
+                      
+                      std::uniform_int_distribution<int> chance(0, 100);
+                      if (chance(gen) < ROCK_EXPANSION_CHANCE) {
+                          q.push(ny * mapWidth + nx);
+                      }
+                  }
+              }
+          }
+      }
+  }
+
+  // 应用碎片特效 (这里不再做平滑，留给全局 SmoothZoneBorders 做统一风格化)
   ApplyFragmentEffects(grid, mapWidth, zone);
 }
 

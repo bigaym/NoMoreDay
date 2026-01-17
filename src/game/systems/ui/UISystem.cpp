@@ -518,19 +518,17 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     if (State.showContextMenu) DrawContextMenu(registry);
     if (State.showQuantityPopup) DrawQuantityPopup(registry);
     if (State.showMessageBox) DrawMessageBox();
+}
 
-    // Dragging Phantom
+void UISystem::DrawDraggingPhantom(entt::registry& registry) {
+    // 1. Item Phantom
     if (State.draggedItem != entt::null) {
         Vector2 mPos = GetMousePositionLogic(); 
         float size = 64.0f; 
         UIRenderer::DrawSlot(State.globalFont, registry, mPos.x - size * 0.5f, mPos.y - size * 0.5f, size, State.draggedItem, nullptr, true);
-        
-        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            // Moved clearing logic to InventoryState to allow drop processing in Draw calls
-            // State.draggedItem = entt::null; 
-        }
     }
 
+    // 2. Skill Phantom
     if (State.isDraggingSkill && State.draggedSkillId != 0) {
         Vector2 mPos = GetMousePositionLogic();
         float size = 48.0f;
@@ -542,11 +540,6 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
                            {0, 0}, 0.0f, Fade(WHITE, 0.7f));
         } else {
             DrawRectangleRec({mPos.x - size*0.5f, mPos.y - size*0.5f, size, size}, Fade(BLUE, 0.5f));
-        }
-
-        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-            State.isDraggingSkill = false;
-            State.draggedSkillId = 0;
         }
     }
 }

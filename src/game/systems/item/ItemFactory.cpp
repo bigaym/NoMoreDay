@@ -895,10 +895,18 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
 
   item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
 
+  // IMPORTANT: Legendary items (Uniques) roll LP (0-4). Sockets are independent.
   if (rarity == Rarity::Legendary) {
     item.name = "远古 " + item.name;
-    item.legendaryPotential = std::uniform_int_distribution<>(1, 4)(g_rng);
-    LOG_DEBUG("Created legendary weapon: {}", item.name);
+    // In Last Epoch style, LP is rarity-based. Here we use a simple weighted roll.
+    int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
+    if (lpRoll < 60) item.legendaryPotential = 0;
+    else if (lpRoll < 85) item.legendaryPotential = 1;
+    else if (lpRoll < 95) item.legendaryPotential = 2;
+    else if (lpRoll < 99) item.legendaryPotential = 3;
+    else item.legendaryPotential = 4;
+
+    LOG_DEBUG("Created legendary weapon: {} with LP {}", item.name, item.legendaryPotential);
   } else if (rarity == Rarity::Rare) {
     item.name = "稀有 " + item.name;
     LOG_DEBUG("Created rare weapon: {}", item.name);
@@ -911,11 +919,10 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
 
   rollAffixes(item, level);
 
-  // Sockets for Weapons
-  // 40% chance
+  // Sockets for Weapons (Independent of Rarity/LP)
+  // 40% chance to have sockets
   if (std::uniform_int_distribution<>(0, 100)(g_rng) < 40) {
       item.socketCount = std::uniform_int_distribution<>(1, 3)(g_rng);
-      if (item.socketCount > 3) item.socketCount = 3;
       LOG_DEBUG("Weapon '{}' rolled with {} sockets", item.name, item.socketCount);
   }
 
@@ -1026,9 +1033,15 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
   item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
 
   if (rarity == Rarity::Legendary) {
-    item.name = "传奇 " + item.name;
-    item.legendaryPotential = std::uniform_int_distribution<>(1, 3)(g_rng);
-    LOG_DEBUG("Created legendary armor/jewelry: {}", item.name);
+    item.name = "远古 " + item.name;
+    // In Last Epoch style, LP is rarity-based. Here we use a simple weighted roll.
+    int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
+    if (lpRoll < 70) item.legendaryPotential = 0;
+    else if (lpRoll < 90) item.legendaryPotential = 1;
+    else if (lpRoll < 97) item.legendaryPotential = 2;
+    else item.legendaryPotential = 3;
+    
+    LOG_DEBUG("Created legendary armor/jewelry: {} with LP {}", item.name, item.legendaryPotential);
   } else {
     LOG_DEBUG("Created common/magic/rare armor/jewelry: {}", item.name);
   }

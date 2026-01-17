@@ -26,26 +26,27 @@ void LevelManager::loadNewLevel(const std::string &biome, int width, int height,
   activateLevel(std::move(data));
 }
 
-LevelManager::LevelData LevelManager::prepareLevel(const std::string &biome,
-                                                   int width, int height,
-                                                   int level) {
-  LOG_INFO("Preparing level data for: {} ({}x{}) Level: {}", biome, width,
-           height, level);
+LevelManager::LevelData
+LevelManager::prepareLevel(const std::string &biome, int width, int height,
+                           int level) {
+  LOG_INFO("Preparing level data for biome: {} ({}x{})", biome, width, height);
 
   LevelData data;
   data.biome = biome;
   data.width = width;
   data.height = height;
   data.level = level;
+  data.isMosaic = false;
 
   data.map = std::make_unique<MapSystem>();
   data.enemy = std::make_unique<EnemySpawnSystem>();
   data.fog = std::make_unique<FogOfWarSystem>();
 
-  // CPU Generation (地图和敌人数据)
-  data.map->generateMap(width, height, biome);
+  // 生成地图 (这里只是预生成数据结构，不涉及 GPU)
+  data.map->generateCaveMap(width, height);
+
+  // 初始化敌人
   data.enemy->initData(width, height, *data.map, biome);
-  // 注意: FogOfWarSystem 现在需要 ResourceManager, 在 activateLevel 中初始化
 
   return data;
 }
@@ -76,6 +77,8 @@ LevelManager::prepareMosaicLevel(const NoMoreDay::MosaicGrid &grid,
   data.width = width;
   data.height = height;
   data.level = 1; // 可以根据 resonance.totalLevelMod 计算实际等级
+  data.isMosaic = true;
+  data.resonance = resonance;
 
   data.map = std::make_unique<MapSystem>();
   data.enemy = std::make_unique<EnemySpawnSystem>();
@@ -101,6 +104,8 @@ void LevelManager::activateLevel(LevelData &&data) {
   m_fogSystem = std::move(data.fog);
   m_currentBiome = data.biome;
   m_currentLevel = data.level;
+  m_currentResonance = data.resonance;
+  m_isMosaicLevel = data.isMosaic;
 
   // GPU Initialization (Must be on Main Thread)
   if (m_fogSystem && m_resources) {

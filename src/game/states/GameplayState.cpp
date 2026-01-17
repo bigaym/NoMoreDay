@@ -308,8 +308,7 @@ bool GameplayState::OnUpdate(float dt) {
   if (m_context->sceneManager) {
     m_context->sceneManager->Update(dt);
     if (m_context->sceneManager->IsTransitioning()) {
-      // If we are loading, we might want to skip some logic,
-      // but let's keep it simple and just let SceneManager handle the overlay.
+      return false; // Skip logic during transition (loading/fade)
     }
   }
 
@@ -811,6 +810,16 @@ void GameplayState::OnRender() {
 
   // Player HUD (Resource Bars)
   systems::PlayerHUD::Draw(registry);
+
+  // Global UI Overlay (Dragging Phantom)
+  UISystem::DrawDraggingPhantom(registry);
+
+  // Cleanup Dragging if mouse released (Fallback if no other state active)
+  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+    UISystem::State.draggedItem = entt::null;
+    UISystem::State.isDraggingSkill = false;
+    UISystem::State.draggedSkillId = 0;
+  }
 
   // Scene Transition Overlay
   if (m_context->sceneManager) {

@@ -9,6 +9,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PlayerLevel, value)
 
 struct PlayerStats {
     uint64_t killCount = 0; // 击杀计数
+    uint32_t current_map_kills = 0; // 当前地图击杀数
     uint64_t deathCount = 0; // 死亡计数 (预留)
     int level = 1; // 等级
     float current_xp = 0.0f; // 当前经验值
@@ -25,7 +26,7 @@ struct PlayerStats {
     // Skill System State
     float last_shadow_trigger_time = -10.0f; // Internal Cooldown (ICD) for Shadow Kill Array
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PlayerStats, killCount, deathCount, level, current_xp, required_xp, available_attribute_points, available_skill_points, base_strength, base_dexterity, base_intelligence, base_vitality, last_shadow_trigger_time)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PlayerStats, killCount, current_map_kills, deathCount, level, current_xp, required_xp, available_attribute_points, available_skill_points, base_strength, base_dexterity, base_intelligence, base_vitality, last_shadow_trigger_time)
 
 // 冲刺技能组件
 struct DashComponent {

@@ -32,6 +32,10 @@ void XPAwardingSystem::update(entt::registry& registry) {
             // --- 经验结算 ---
             if (registry.valid(killer) && registry.all_of<PlayerTag>(killer)) {
                 playerKiller = killer;
+                if (auto* pStats = registry.try_get<PlayerStats>(killer)) {
+                    pStats->current_map_kills++;
+                }
+
                 if (auto* state = registry.try_get<EnemyStateComponent>(entity)) {
                     const auto& raceData = kRaceData[static_cast<size_t>(state->raceType)];
                     float xp = raceData.baseXP * (1.0f + (state->level - 1) * 0.1f);

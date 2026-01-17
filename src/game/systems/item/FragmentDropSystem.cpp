@@ -76,6 +76,7 @@ void FragmentDropSystem::Update(entt::registry &registry) {
     entt::entity fragment = CreateRandomFragment(registry, req.areaLevel, req.magicFind);
     if (fragment != entt::null) {
       registry.emplace<Position>(fragment, req.posX, req.posY);
+      registry.emplace<LocalLevelTag>(fragment); // Clean up on map transition
       LOG_DEBUG("Fragment created at ({}, {}) from deferred request", req.posX, req.posY);
     }
   }

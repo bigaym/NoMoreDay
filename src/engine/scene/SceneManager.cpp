@@ -1,5 +1,6 @@
 #include "engine/scene/SceneManager.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/PlayerState.hpp"
 #include "core/logging/Logger.hpp"
 #include "raylib.h"
 
@@ -28,6 +29,23 @@ void SceneManager::RequestTransition(const std::string& biome, int level, const 
     m_fadeAlpha = 0.0f;
     
     LOG_INFO("Transition requested to Biome: {}, Level: {}", biome, level);
+}
+
+void SceneManager::RequestMosaicTransition(const NoMoreDay::MosaicGrid& grid, const NoMoreDay::ResonanceResult& resonance) {
+    if (m_isTransitioning) return;
+    
+    m_pendingMosaicGrid = grid;
+    m_pendingResonance = resonance;
+    m_isMosaicTransition = true;
+    
+    m_targetBiome = resonance.primaryBiome.empty() ? "cave" : resonance.primaryBiome;
+    m_targetLevel = 1; // Rifts always start at level 1 contextually
+    
+    m_isTransitioning = true;
+    m_state = State::FADE_OUT;
+    m_fadeAlpha = 0.0f;
+    
+    LOG_INFO("Mosaic transition requested to Biome: {}", m_targetBiome);
 }
 
 void SceneManager::SetOriginInfo(const std::string& biome, int level, float x, float y) {
@@ -63,15 +81,21 @@ void SceneManager::Update(float dt) {
             }
             
             // 2. Start Async Load
-            // Using std::async for simplicity. In a real heavy engine we might use Taskflow, 
-            // but LevelManager::prepareLevel is a single function call.
-            m_loadingFuture = std::async(std::launch::async, [this]() {
-                using namespace NoMoreDay::Constants::World;
-                return m_levelManager.prepareLevel(m_targetBiome, 
-                    WORLD_WIDTH / 10, 
-                    WORLD_HEIGHT / 10, 
-                    m_targetLevel);
-            });
+            if (m_isMosaicTransition) {
+                m_loadingFuture = std::async(std::launch::async, [this]() {
+                    using namespace NoMoreDay::Constants::World;
+                    // Use standard world size for mosaic maps to provide enough space (approx 500x500 tiles)
+                    return m_levelManager.prepareMosaicLevel(m_pendingMosaicGrid, m_pendingResonance, &m_registry, WORLD_WIDTH / 10, WORLD_HEIGHT / 10);
+                });
+            } else {
+                m_loadingFuture = std::async(std::launch::async, [this]() {
+                    using namespace NoMoreDay::Constants::World;
+                    return m_levelManager.prepareLevel(m_targetBiome, 
+                        WORLD_WIDTH / 10, 
+                        WORLD_HEIGHT / 10, 
+                        m_targetLevel);
+                });
+            }
             
             m_state = State::WAIT_FOR_FUTURE;
             break;
@@ -79,6 +103,7 @@ void SceneManager::Update(float dt) {
         case State::WAIT_FOR_FUTURE:
             if (m_loadingFuture.valid() && m_loadingFuture.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
                 ApplyLoadedLevel();
+                m_isMosaicTransition = false; // Reset the mosaic flag after applying
                 m_state = State::FADE_IN;
             }
             break;
@@ -105,6 +130,21 @@ void SceneManager::ApplyLoadedLevel() {
     // Update current scene info
     m_currentBiome = m_targetBiome;
     m_currentLevel = m_targetLevel;
+
+    // Reset kills if moving to a new combat level (not town)
+    if (m_targetBiome != "town") {
+        if (m_isMosaicTransition || m_targetBiome != m_lastCombatBiome || m_targetLevel != m_lastCombatLevel) {
+             // Moving to a NEW dungeon level or into a Rift
+             auto playerView = m_registry.view<PlayerTag, PlayerStats>();
+             for (auto entity : playerView) {
+                 m_registry.get<PlayerStats>(entity).current_map_kills = 0;
+             }
+             
+             // Update last combat info
+             m_lastCombatBiome = m_targetBiome;
+             m_lastCombatLevel = m_targetLevel;
+        }
+    }
     
     // Spawn Portals based on Map
     const auto& mapSystem = m_levelManager.getMapSystem();

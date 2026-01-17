@@ -44,19 +44,19 @@ inline void from_json(const nlohmann::json &j, FragmentElement &e) {
 inline const char *GetFragmentElementName(FragmentElement elem) {
   switch (elem) {
   case FragmentElement::None:
-    return "None";
+    return "基础";
   case FragmentElement::Fire:
-    return "Fire";
+    return "灼热";
   case FragmentElement::Cold:
-    return "Cold";
+    return "凛冬";
   case FragmentElement::Lightning:
-    return "Lightning";
+    return "惊雷";
   case FragmentElement::Shadow:
-    return "Shadow";
+    return "幽冥";
   case FragmentElement::Chaos:
-    return "Chaos";
+    return "混沌";
   default:
-    return "Unknown";
+    return "未知";
   }
 }
 

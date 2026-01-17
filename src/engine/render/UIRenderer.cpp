@@ -274,7 +274,22 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
                    alpha);
       }
 
-      // Draw Sockets
+      // Draw Legendary Potential (LP) - Shown at Top
+      if (itemComp->legendaryPotential > 0) {
+          float dotRadius = sSize * 0.08f;
+          float gap = sSize * 0.05f;
+          float totalW = itemComp->legendaryPotential * (dotRadius * 2) + (itemComp->legendaryPotential - 1) * gap;
+          float startX = sx + (sSize - totalW) / 2.0f + dotRadius;
+          float dotY = sy + dotRadius + 4.0f * s_uiScale; // Top padding
+
+          for (int i = 0; i < itemComp->legendaryPotential; ++i) {
+              float dotX = startX + i * (dotRadius * 2 + gap);
+              DrawCircleV({dotX, dotY}, dotRadius, ApplyAlpha(VIOLET, 0.9f * alpha));
+              DrawCircleLines((int)dotX, (int)dotY, dotRadius, ApplyAlpha(WHITE, 0.5f * alpha));
+          }
+      }
+
+      // Draw Sockets - Shown at Bottom
       if (itemComp->socketCount > 0) {
           float dotRadius = sSize * 0.08f; // Relative size
           float gap = sSize * 0.05f;
@@ -580,6 +595,13 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
     if (hasRunes) {
       lines.push_back({runeStr, GOLD});
     }
+  }
+
+  // --- Legendary Potential ---
+  if (itemComp->legendaryPotential > 0) {
+      char lpBuf[64];
+      snprintf(lpBuf, sizeof(lpBuf), "传奇潜力: %d", itemComp->legendaryPotential);
+      lines.push_back({lpBuf, VIOLET});
   }
 
   char buffer[128];

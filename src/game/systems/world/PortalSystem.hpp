@@ -28,6 +28,7 @@ private:
     void UpdatePortalAnimations(entt::registry& registry, float dt);
     
     SceneManager& m_sceneManager;
+    entt::entity m_lastTriggeredPortal = entt::null;
 };
 
 }

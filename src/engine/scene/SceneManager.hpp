@@ -5,6 +5,7 @@
 #include <string>
 #include <future>
 #include "game/systems/world/LevelManager.hpp"
+#include "game/data/MosaicData.hpp"
 
 namespace NoMoreDay {
 
@@ -15,6 +16,9 @@ public:
     
     // Request a transition to a new biome/level
     void RequestTransition(const std::string& biome, int level = 1, const std::string& entranceId = "start");
+    
+    // Request a transition to a mosaic level
+    void RequestMosaicTransition(const NoMoreDay::MosaicGrid& grid, const NoMoreDay::ResonanceResult& resonance);
     
     // Update logic (handling fade, async loading check)
     void Update(float dt);
@@ -61,10 +65,19 @@ private:
     int m_originLevel = 0;
     float m_originX = 0.0f;
     float m_originY = 0.0f;
+
+    // Combat tracking for kill count resets
+    std::string m_lastCombatBiome;
+    int m_lastCombatLevel = 0;
     
     // Async data
     // Note: std::future cannot be copied, so we must be careful if SceneManager is moved (it shouldn't be).
     std::future<LevelManager::LevelData> m_loadingFuture;
+
+    // Mosaic Transition Data
+    bool m_isMosaicTransition = false;
+    NoMoreDay::MosaicGrid m_pendingMosaicGrid;
+    NoMoreDay::ResonanceResult m_pendingResonance;
 };
 
 }
