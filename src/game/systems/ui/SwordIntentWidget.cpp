@@ -1,4 +1,6 @@
 #include "SwordIntentWidget.hpp"
+#include "game/systems/ui/UISystem.hpp"
+#include "game/systems/ui/UICommon.hpp"
 #include <string>
 #include <algorithm>
 #include <cmath>
@@ -39,36 +41,35 @@ void SwordIntentWidget::Draw(int currentStacks, int maxStacks) {
     float targetIntensity = (currentStacks >= maxStacks) ? 1.0f : 0.0f;
     glowIntensity = Lerp(glowIntensity, targetIntensity, dt * 3.0f);
 
-    // Position: Bottom center, slightly above hotbar
-    float screenW = (float)GetScreenWidth();
-    float screenH = (float)GetScreenHeight();
+    float scale = UISystem::State.scaleFactor;
     
     // Config
-    float spacing = 24.0f;
-    float iconScale = 0.6f;
+    float spacing = 30.0f;  // Increased logic spacing
+    float iconScale = 0.75f; // Slightly larger for better visibility
     
     float totalWidth = (maxStacks - 1) * spacing;
-    float startX = screenW / 2.0f - totalWidth / 2.0f;
-    float y = screenH - 160.0f; 
+    float startX = UI_REF_WIDTH / 2.0f - totalWidth / 2.0f;
+    float logicY = UI_REF_HEIGHT - 210.0f; // Above the hotbar
     
     // Draw base icons
     for (int i = 0; i < maxStacks; ++i) {
-        float x = startX + i * spacing;
+        float lx = startX + i * spacing;
+        float ly = logicY;
+        
         bool isActive = i < currentStacks;
         Color color = isActive ? WHITE : Fade(GRAY, 0.3f);
         
-        float scale = iconScale;
+        float finalScale = iconScale;
         if (isActive && i == currentStacks - 1) {
-            scale *= 1.2f + 0.1f * sinf(GetTime() * 5.0f);
+            finalScale *= 1.2f + 0.1f * sinf(GetTime() * 5.0f);
             color = (currentStacks >= maxStacks) ? GOLD : SKYBLUE;
         }
         
+        float sScale = finalScale * scale;
         Rectangle source = { 0, 0, (float)swordIcon.width, (float)swordIcon.height };
-        Rectangle dest = { x, y, (float)swordIcon.width * scale, (float)swordIcon.height * scale };
+        Rectangle dest = { lx * scale, ly * scale, (float)swordIcon.width * sScale, (float)swordIcon.height * sScale };
         Vector2 origin = { dest.width / 2.0f, dest.height / 2.0f };
         
-        // If at max stacks, we might want to use the shine shader for all active ones or just specific ones
-        // Apply shine shader for the golden flow
         if (isActive && glowIntensity > 0.01f && shineShader.id != 0) {
             float time = (float)GetTime();
             int timeLoc = GetShaderLocation(shineShader, "time");

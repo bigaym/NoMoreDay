@@ -45,6 +45,7 @@ namespace NoMoreDay {
         std::vector<uint32_t> prerequisites;
         std::vector<StatModifier> modifiers;
         std::vector<DamageModifier> damage_modifiers; // 用于转换和独立增伤
+        std::vector<StatConversion> conversions; // 新：替代基于字符串的效果解析
         std::vector<AstrolabeNodeEffect> effects;
         
         float x = 0.0f;
@@ -64,8 +65,8 @@ namespace NoMoreDay {
         j = nlohmann::json{
             {"id", n.id}, {"name_key", n.name_key}, {"desc_key", n.desc_key}, {"type", n.type},
             {"prerequisites", n.prerequisites}, {"modifiers", n.modifiers}, 
-            {"damage_modifiers", n.damage_modifiers}, {"effects", n.effects},
-            {"x", n.x}, {"y", n.y}, {"icon_id", n.icon_id}
+            {"damage_modifiers", n.damage_modifiers}, {"conversions", n.conversions},
+            {"effects", n.effects}, {"x", n.x}, {"y", n.y}, {"icon_id", n.icon_id}
         };
     }
     inline void from_json(const nlohmann::json& j, AstrolabeNode& n) {
@@ -76,6 +77,7 @@ namespace NoMoreDay {
         j.at("prerequisites").get_to(n.prerequisites);
         j.at("modifiers").get_to(n.modifiers);
         if (j.contains("damage_modifiers")) j.at("damage_modifiers").get_to(n.damage_modifiers);
+        if (j.contains("conversions")) j.at("conversions").get_to(n.conversions);
         j.at("effects").get_to(n.effects);
         j.at("x").get_to(n.x);
         j.at("y").get_to(n.y);

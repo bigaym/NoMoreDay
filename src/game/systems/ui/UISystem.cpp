@@ -697,39 +697,47 @@ void UISystem::DrawBuffs(entt::registry& registry) {
     const auto& effects = view.get<ActiveEffectsComponent>(player);
     if (effects.effects.empty()) return;
 
-    // Hotbar Metrics (Sync with DrawSkillHotbar)
+    // --- Metrics (Sync with PlayerHUD.cpp) ---
     float slotSize = 54.0f;
-    float slotPadding = 8.0f;
-    float hotbarW = (slotSize * 5) + (slotPadding * 4);
-    float hotbarStartX = (UI_REF_WIDTH - hotbarW) / 2.0f;
-    float hotbarStartY = UI_REF_HEIGHT - slotSize - 20.0f;
+    float hotbarPadding = 8.0f;
+    float hotbarW = (slotSize * 5) + (hotbarPadding * 4);
+    float hotbarLeft = (UI_REF_WIDTH - hotbarW) / 2.0f;
+    float hotbarRight = hotbarLeft + hotbarW;
+
+    float barWidth = 450.0f;
+    float barMargin = 50.0f; 
+    float barTopY = UI_REF_HEIGHT - 30.0f - 28.0f;
+
+    float hpLeftX = hotbarLeft - barMargin - barWidth;
+    float manaLeftX = hotbarRight + barMargin;
 
     // Buff Metrics
-    float iconSize = 36.0f; 
+    float iconSize = 40.0f; // Slightly larger for better visibility
     float padding = 4.0f;
-    int maxPerRow = (int)std::floor((hotbarW + padding) / (iconSize + padding));
+    float yOffset = 10.0f; // Space between bar and icons
+    
+    int maxPerRow = (int)std::floor((barWidth + padding) / (iconSize + padding));
     if (maxPerRow < 1) maxPerRow = 1;
 
-    int totalBuffs = (int)effects.effects.size();
+    int currentBuffs = 0;
+    int currentDebuffs = 0;
 
-    for (int i = 0; i < totalBuffs; ++i) {
-        // row 0 is bottom-most row (closest to hotbar)
-        int row = i / maxPerRow;
-        int col = i % maxPerRow;
-        
-        float x = hotbarStartX + col * (iconSize + padding);
-        // Calculate y going upwards from hotbarStartY
-        float y = hotbarStartY - 10.0f - (row + 1) * (iconSize + padding);
-
+    for (int i = 0; i < (int)effects.effects.size(); ++i) {
         const auto& effect = effects.effects[i];
+        bool isDebuff = effect.is_debuff;
+        
+        int count = isDebuff ? currentDebuffs++ : currentBuffs++;
+        float startX = isDebuff ? manaLeftX : hpLeftX;
+        
+        int row = count / maxPerRow;
+        int col = count % maxPerRow;
+        
+        float x = startX + col * (iconSize + padding);
+        float y = barTopY - yOffset - (row + 1) * (iconSize + padding);
+
         const auto& visual = BuffRegistry::GetVisualData(effect.type);
         Texture2D icon = { 0 };
         const char* iconText = visual.icon_text.c_str();
-        bool isDebuff = visual.is_debuff;
-
-        if (visual.name != "Unknown") {
-            // Placeholder: real icon lookup would go here
-        }
 
         float ratio = 0.0f;
         if (effect.duration > 0) {
@@ -737,7 +745,7 @@ void UISystem::DrawBuffs(entt::registry& registry) {
         }
 
         NoMoreDay::UIRenderer::DrawBuffIcon(State.globalFont, x, y, iconSize,
-                                 icon, iconText, ratio, effect.stacks, isDebuff, 0.8f);
+                                 icon, iconText, ratio, effect.stacks, isDebuff, 0.9f);
         
         if (CheckCollisionPointRec(GetMousePositionLogic(), { x, y, iconSize, iconSize })) {
             State.hoveredBuffIdx = i;

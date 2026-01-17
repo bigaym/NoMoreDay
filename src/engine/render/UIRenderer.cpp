@@ -274,6 +274,35 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
                    alpha);
       }
 
+      // Draw Sockets
+      if (itemComp->socketCount > 0) {
+          float dotRadius = sSize * 0.08f; // Relative size
+          float gap = sSize * 0.05f;
+          float totalW = itemComp->socketCount * (dotRadius * 2) + (itemComp->socketCount - 1) * gap;
+          float startX = sx + (sSize - totalW) / 2.0f + dotRadius;
+          float dotY = sy + sSize - dotRadius - 4.0f * s_uiScale; // Bottom padding
+
+          for (int i = 0; i < itemComp->socketCount; ++i) {
+              float dotX = startX + i * (dotRadius * 2 + gap);
+              Vector2 center = {dotX, dotY};
+              
+              bool isFilled = false;
+              if (i < (int)itemComp->sockets.size() && registry.valid(itemComp->sockets[i])) {
+                  isFilled = true;
+              }
+
+              if (isFilled) {
+                  // Filled Socket (Gold/Rune Color)
+                  DrawCircleV(center, dotRadius, ApplyAlpha(GOLD, alpha));
+                  DrawCircleLines((int)center.x, (int)center.y, dotRadius, ApplyAlpha(WHITE, 0.8f * alpha));
+              } else {
+                  // Empty Socket (Dark Gray)
+                  DrawCircleV(center, dotRadius, ApplyAlpha(DARKGRAY, 0.8f * alpha));
+                  DrawCircleLines((int)center.x, (int)center.y, dotRadius, ApplyAlpha(GRAY, 0.5f * alpha));
+              }
+          }
+      }
+
       if (isLocked || itemComp->isLocked) {
           // Draw a small lock icon or indicator
           DrawRectangleRec({sx + 2, sy + 2, 12 * s_uiScale, 12 * s_uiScale}, ApplyAlpha(RED, 0.8f * alpha));

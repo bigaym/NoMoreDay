@@ -910,6 +910,15 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   item.textureId = getRandomTextureForType(item.type, item.slot, item.name);
 
   rollAffixes(item, level);
+
+  // Sockets for Weapons
+  // 40% chance
+  if (std::uniform_int_distribution<>(0, 100)(g_rng) < 40) {
+      item.socketCount = std::uniform_int_distribution<>(1, 3)(g_rng);
+      if (item.socketCount > 3) item.socketCount = 3;
+      LOG_DEBUG("Weapon '{}' rolled with {} sockets", item.name, item.socketCount);
+  }
+
   registry.emplace<ItemComponent>(entity, item);
 
   // Assign Sprite based on item type/name (Legacy/World)
@@ -948,6 +957,17 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
     item.type = ItemType::Jewelry;
   } else {
     item.type = ItemType::Armor;
+    
+    // Sockets for Armor
+    // 40% chance
+    if (std::uniform_int_distribution<>(0, 100)(g_rng) < 40) {
+        int maxS = 1;
+        if (slot == EquipmentSlot::Chest || slot == EquipmentSlot::OffHand) maxS = 3;
+        else if (slot == EquipmentSlot::Head || slot == EquipmentSlot::Legs) maxS = 2;
+        
+        item.socketCount = std::uniform_int_distribution<>(1, maxS)(g_rng);
+        LOG_DEBUG("Armor/Jewelry '{}' rolled with {} sockets", item.name, item.socketCount);
+    }
   }
 
   item.slot = slot;

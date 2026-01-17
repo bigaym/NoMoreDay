@@ -372,6 +372,7 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
 void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity, float panelStartX, float panelStartY) {
   auto &state = UISystem::State;
   auto &item = registry.get<ItemComponent>(entity);
+  auto playerEnt = UISystem::GetPlayerEntity(registry);
   float alpha = m_craftingAlpha;
 
   float panelW = 600.0f * state.scaleFactor;
@@ -416,6 +417,7 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity, fl
                                alpha);
           if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             CraftingSystem::upgradeAffix(item, index);
+            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
           }
         } else {
           DrawRectangleRec(btnRect, Fade(RED, 0.3f * alpha));
@@ -436,6 +438,7 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity, fl
           UISystem::DrawTextUI("C", cRect.x + 8, cRect.y + 5, 16, WHITE, alpha);
           if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             CraftingSystem::chaosAffix(item, index);
+            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
           }
           if (hover) {
             // Tooltip for Chaos
@@ -454,6 +457,7 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity, fl
           UISystem::DrawTextUI("R", rRect.x + 8, rRect.y + 5, 16, WHITE, alpha);
           if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             CraftingSystem::refineAffixValues(item, index);
+            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
           }
         }
       }
@@ -474,18 +478,19 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity, fl
         UISystem::DrawTextUI("添加", btnRect.x + 20, btnRect.y + 5, 16, WHITE,
                              alpha);
 
-        if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-          // Logic to show shard selection popup...
-          // For prototype, just add a random relevant affix
-          // We need to know type. This is hard without a UI popup.
-          // Let's create a "Add Random" for now.
-          AffixType types[] = {
-              AffixType::Strength,           AffixType::Dexterity,
-              AffixType::Intelligence,       AffixType::Vitality,
-              AffixType::FlatPhysicalDamage, AffixType::AttackSpeed};
-          AffixType t = types[GetRandomValue(0, 5)];
-          CraftingSystem::addAffix(item, t, isPrefix);
-        }
+          if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            // Logic to show shard selection popup...
+            // For prototype, just add a random relevant affix
+            // We need to know type. This is hard without a UI popup.
+            // Let's create a "Add Random" for now.
+            AffixType types[] = {
+                AffixType::Strength,           AffixType::Dexterity,
+                AffixType::Intelligence,       AffixType::Vitality,
+                AffixType::FlatPhysicalDamage, AffixType::AttackSpeed};
+            AffixType t = types[GetRandomValue(0, 5)];
+            CraftingSystem::addAffix(item, t, isPrefix);
+            if (playerEnt != entt::null) registry.get_or_emplace<StatsDirty>(playerEnt);
+          }
       }
     }
 

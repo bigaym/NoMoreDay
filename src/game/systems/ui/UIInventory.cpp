@@ -9,6 +9,9 @@
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "game/systems/item/CraftingSystem.hpp"
+#include "game/systems/item/RunewordSystem.hpp"
+#include "game/systems/item/ItemFactory.hpp"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>
@@ -183,7 +186,78 @@ void UIInventory::Draw(entt::registry& registry) {
             UISystem::OpenContextMenu(item, false, -1, slotType);
         }
 
+
+        // Socketing Logic (Drag Rune -> Equipment)
+        bool handledDrop = false;
         if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+             auto* dragItem = registry.try_get<ItemComponent>(UISystem::State.draggedItem);
+             auto* targetItem = (item != entt::null) ? registry.try_get<ItemComponent>(item) : nullptr;
+             
+             if (dragItem && targetItem && RunewordSystem::isRune(dragItem->id)) {
+                 // Check available socket
+                 int freeSocketIdx = -1;
+                 if (targetItem->sockets.size() < (size_t)targetItem->socketCount) {
+                     freeSocketIdx = (int)targetItem->sockets.size();
+                 } else {
+                     for(size_t s=0; s<targetItem->sockets.size(); ++s) {
+                         if (targetItem->sockets[s] == entt::null) {
+                             freeSocketIdx = (int)s;
+                             break;
+                         }
+                     }
+                 }
+
+                 if (freeSocketIdx != -1) {
+                     // Perform Socketing
+                     // Logic: If stack > 1, decrement and create new single rune.
+                     entt::entity runeToSocket = UISystem::State.draggedItem;
+                     bool wasSplit = false;
+
+                     if (dragItem->quantity > 1) {
+                         dragItem->quantity--;
+                         // Create a single rune copy
+                         runeToSocket = ItemFactory::createMaterial(registry, dragItem->id, 1);
+                         wasSplit = true;
+                     }
+
+                     if (CraftingSystem::socketRune(registry, item, runeToSocket, freeSocketIdx) == CraftingResult::Success) {
+                         LOG_INFO("UI: Successfully socketed rune into equipment.");
+                         registry.get_or_emplace<StatsDirty>(player); // Notify stats system
+                         handledDrop = true;
+                         // If we split, we keep dragging the original stack? 
+                         // Typically usually stop dragging if we just did an action.
+                         // But if we split, the original entity is still in our hand (draggedItem).
+                         // We just reduced its quantity. 
+                         // To prevent "losing" the dragged visual if we just dropped one, we might keep dragging if quantity > 0.
+                         // OR, we just drop one and stop dragging. Let's stop dragging for safety.
+                         
+                         // If we didn't split (used the last one), the dragged item is now inside the socket.
+                         if (!wasSplit) {
+                              UISystem::State.draggedItem = entt::null;
+                              // Clean up source slot if needed
+                              if (UISystem::State.isDraggingFromInventory) {
+                                  inv->items[UISystem::State.dragSourceInventoryIndex] = entt::null;
+                              } else if (UISystem::State.dragSourceBagSlotIndex != -1) {
+                                  InventorySystem::unequipBag(registry, player, UISystem::State.dragSourceBagSlotIndex, false); // Detach
+                              }
+                         }
+                     } else {
+                         // Failed? If split, we must destroy the copy
+                         if (wasSplit) registry.destroy(runeToSocket);
+                         UISystem::State.showMessageBox = true;
+                         snprintf(UISystem::State.messageBoxText, 64, "镶嵌失败");
+                         UISystem::State.messageBoxTimer = 1.0f;
+                     }
+                 } else {
+                     UISystem::State.showMessageBox = true;
+                     snprintf(UISystem::State.messageBoxText, 64, "没有可用插槽");
+                     UISystem::State.messageBoxTimer = 1.0f;
+                     handledDrop = true; // Prevent swap logic
+                 }
+             }
+        }
+
+        if (!handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
             // Drop into equipment slot
             if (InventorySystem::equipItem(registry, player, UISystem::State.draggedItem, slotType)) {
                 // If it was from ANOTHER equipment slot, we must clear that slot 
@@ -301,7 +375,85 @@ void UIInventory::Draw(entt::registry& registry) {
             }
 
             // Drag Drop
+            // Drag Drop
+            bool handledDropInv = false;
+            // Socketing Logic (Drag Rune -> Inventory Item)
             if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+                 auto* dragItem = registry.try_get<ItemComponent>(UISystem::State.draggedItem);
+                 auto* targetItem = (item != entt::null) ? registry.try_get<ItemComponent>(item) : nullptr;
+                 
+                 // If dragging a Rune onto a valid item that is NOT itself (prevent self-socketing if that were possible)
+                 if (dragItem && targetItem && item != UISystem::State.draggedItem && RunewordSystem::isRune(dragItem->id)) {
+                      // Check available socket
+                     int freeSocketIdx = -1;
+                     if (targetItem->sockets.size() < (size_t)targetItem->socketCount) {
+                         freeSocketIdx = (int)targetItem->sockets.size();
+                     } else {
+                         for(size_t s=0; s<targetItem->sockets.size(); ++s) {
+                             if (targetItem->sockets[s] == entt::null) {
+                                 freeSocketIdx = (int)s;
+                                 break;
+                             }
+                         }
+                     }
+
+                     if (freeSocketIdx != -1) {
+                         // Perform Socketing
+                         entt::entity runeToSocket = UISystem::State.draggedItem;
+                         bool wasSplit = false;
+
+                         if (dragItem->quantity > 1) {
+                             dragItem->quantity--;
+                             runeToSocket = ItemFactory::createMaterial(registry, dragItem->id, 1);
+                             wasSplit = true;
+                         }
+
+                         if (CraftingSystem::socketRune(registry, item, runeToSocket, freeSocketIdx) == CraftingResult::Success) {
+                             LOG_INFO("UI: Successfully socketed rune into inventory item.");
+                             registry.get_or_emplace<StatsDirty>(player); // Notify stats system
+                             handledDropInv = true;
+                             if (!wasSplit) {
+                                  UISystem::State.draggedItem = entt::null;
+                                   if (UISystem::State.isDraggingFromInventory && UISystem::State.dragSourceInventoryIndex != -1) {
+                                      // If we dragged the LAST rune from inventory list, update the slot to null
+                                      // But wait: item is from inv->items[i]. draggedItem is inv->items[dragSource].
+                                      // If we used the whole entity, we just need to NULL the source.
+                                      // Note: item is target. draggedItem is source.
+                                      inv->items[UISystem::State.dragSourceInventoryIndex] = entt::null;
+                                  } else {
+                                      // Handle external sources if any (equip/bag)
+                                       if (equip && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
+                                           equip->set(UISystem::State.dragSourceEquipmentSlot, entt::null);
+                                       } else if (UISystem::State.dragSourceBagSlotIndex != -1) {
+                                           InventorySystem::unequipBag(registry, player, UISystem::State.dragSourceBagSlotIndex, true);
+                                       }
+                                  }
+                             }
+                         } else {
+                             if (wasSplit) registry.destroy(runeToSocket);
+                              UISystem::State.showMessageBox = true;
+                             snprintf(UISystem::State.messageBoxText, 64, "镶嵌失败");
+                             UISystem::State.messageBoxTimer = 1.0f;
+                             // We don't set handledDropInv=true here to fallthrough? 
+                             // No, if we tried to socket and failed, we shouldn't try swap.
+                             handledDropInv = true; 
+                         }
+                     } else {
+                         // Target full? Or just not socketable. 
+                         // If not socketable, maybe userINTENDED to swap?
+                         // If target has socketCount > 0 but full, message. 
+                         // If socketCount == 0, then maybe it's just a swap.
+                         if (targetItem->socketCount > 0) {
+                              UISystem::State.showMessageBox = true;
+                              snprintf(UISystem::State.messageBoxText, 64, "没有可用插槽");
+                              UISystem::State.messageBoxTimer = 1.0f;
+                              handledDropInv = true;
+                         }
+                     }
+                 }
+            }
+
+            if (!handledDropInv && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
                  if (UISystem::State.isDraggingFromInventory) {
                      std::swap(inv->items[UISystem::State.dragSourceInventoryIndex], inv->items[i]);
                  } else {

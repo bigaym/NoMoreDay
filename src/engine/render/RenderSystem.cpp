@@ -481,7 +481,8 @@ void RenderSystem::render(entt::registry &registry,
   // 6. Debug: GPU Flow Field Visualization
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
   if (flowSystem.m_debugDraw) {
-    std::vector<Vector2> flowField = flowSystem.DownloadFlowField();
+    flowSystem.SyncToCPU();
+    const std::vector<Vector2>& flowField = flowSystem.GetFlowFieldCPU();
     int width = flowSystem.GetWidth();
     int height = flowSystem.GetHeight();
     Vector2 origin = flowSystem.GetGridOrigin();

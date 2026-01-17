@@ -16,10 +16,21 @@
 #include "core/utils/FrameRateUtils.hpp"  // Frame-rate independent utilities
 #include <algorithm>
 #include <vector>
+#include <Taskflow/taskflow.hpp>
+#include <Taskflow/algorithm/for_each.hpp>
 #include <array>
 #include <unordered_map>
 namespace NoMoreDay {
 
+// Scratch space for Set Bonus tracking to avoid per-call allocations
+struct SetTrack {
+    uint32_t hash;
+    int count;
+    const std::vector<SetBonus>* definitions;
+};
+static thread_local std::vector<SetTrack> s_set_scratch;
+
+// -----------------------------------------------------------------------------
 struct StatCalculation {
     float base = 0.0f;
     float flat = 0.0f;
@@ -224,7 +235,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
 
     auto& combat = registry.get<CombatStats>(entity);
     resetCombatStats(combat);
-    ClearCache(entity);  // Clear the stat cache for this entity 
+    ClearCache(registry, entity);  // Clear the stat cache for this entity 
 
     // Reset Traits
     if (registry.all_of<TitanGripTrait>(entity)) registry.remove<TitanGripTrait>(entity);
@@ -424,8 +435,7 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         }
     };
 
-    std::unordered_map<std::string, int> setCounts;
-    std::unordered_map<std::string, const std::vector<SetBonus>*> setDefinitions;
+    s_set_scratch.clear();
 
     // 1.1 Equipment Stats
     if (registry.all_of<EquipmentComponent>(entity)) {
@@ -482,11 +492,17 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 }
 
                 // 统计套装
-                if (item.rarity == Rarity::Set && !item.setName.empty()) {
-                    setCounts[item.setName]++;
-                    // 缓存套装定义 (假设同名套装的定义是一致的，取第一个遇到的即可)
-                    if (setDefinitions.find(item.setName) == setDefinitions.end()) {
-                        setDefinitions[item.setName] = &item.setBonuses;
+                if (item.rarity == Rarity::Set && item.setNameHash != 0) {
+                    bool found = false;
+                    for (auto& track : s_set_scratch) {
+                        if (track.hash == item.setNameHash) {
+                            track.count++;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        s_set_scratch.push_back({item.setNameHash, 1, &item.setBonuses});
                     }
                 }
             }
@@ -494,11 +510,10 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     }
 
     // 应用套装奖励
-    for (const auto& [setName, count] : setCounts) {
-        const auto* bonuses = setDefinitions[setName];
-        if (bonuses) {
-            for (const auto& sb : *bonuses) {
-                if (count >= sb.requiredCount) {
+    for (const auto& track : s_set_scratch) {
+        if (track.definitions) {
+            for (const auto& sb : *track.definitions) {
+                if (track.count >= sb.requiredCount) {
                     processAffixes(sb.bonuses);
                 }
             }
@@ -684,11 +699,15 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         apply_conversions(scc->conversions);
     }
 
-    // 2. Apply from Astrolabe (Legacy string parsing converted to generic)
+    // 2. Apply from Astrolabe
     if (auto* astrolabe = registry.try_get<AstrolabeComponent>(entity)) {
         const auto& reg = AstrolabeRegistry::Get();
         for (uint32_t node_id : astrolabe->activated_nodes) {
             if (const auto* node = reg.GetNode(node_id)) {
+                // Apply pre-structured conversions
+                apply_conversions(node->conversions);
+
+                // Legacy string parsing support
                 for (const auto& effect : node->effects) {
                     if (effect.value.find("IntToCritMult:") == 0) {
                         float ratio = std::stof(effect.value.substr(14));
@@ -698,7 +717,6 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                         float ratio = std::stof(effect.value.substr(11));
                         apply_conversions({{StatType::Intelligence, StatType::Armor, ratio}});
                     }
-                    // Add more legacy parsers here if needed, or migration logic
                 }
             }
         }
@@ -1059,9 +1077,17 @@ void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
     }
 }
 
-void StatsSystem::ClearCache(entt::entity entity) {
+void StatsSystem::ClearCache(entt::registry&, entt::entity entity) {
     uint32_t entity_id = static_cast<uint32_t>(entity);
     s_tagStatCache.erase(entity_id);
+}
+
+void StatsSystem::Initialize(entt::registry &registry) {
+    registry.on_destroy<CombatStats>().connect<&StatsSystem::ClearCache>();
+}
+
+void StatsSystem::Shutdown(entt::registry &registry) {
+    registry.on_destroy<CombatStats>().disconnect<&StatsSystem::ClearCache>();
 }
 
 } // namespace NoMoreDay

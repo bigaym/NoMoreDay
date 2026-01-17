@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Performance Hardening & Logic Fixes
+- **Folder:** [./conductor/archive/performance_hardening_20260117/](./conductor/archive/performance_hardening_20260117/)
+- **Description:** 解决万级实体目标下的关键性能瓶颈与逻辑死锁。包括修复 StatsCache 内存泄漏、SkillSystem 零分配循环重构，整合 Hash-based 查找以及 Sword Intent 属性实时刷新逻辑。 (Completed on 2026-01-17)
+- **Status:** COMPLETED
+- **Priority:** CRITICAL
+- **Estimated Time:** 2 days
+
+---
+
 ## [x] Track: Item and Drop System
 
 - **Folder:** conductor/archive/item_drop_system_20251229
@@ -71,10 +80,6 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - **Folder:** conductor/archive/skill_specialization_20260103
 - **Description:** Implement a comprehensive Skill Management Interface (Hotkey: 'S') including 5 specialization slots, unique talent trees for skills, and point allocation. (Completed on 2026-01-03)
-
----
-
-- [x] Skill Specialization Trees (Flowing Thrust & Rending Wave) (skill_spec_trees_20260103) - *Completed 2026-01-03*
 
 ---
 
@@ -300,3 +305,11 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2 days
+---
+
+## [x] Track: Rune Inlay System (Refinement)
+- **Folder:** [./conductor/archive/rune_inlay_system_20260117/](./conductor/archive/rune_inlay_system_20260117/)
+- **Description:** Implement UI drag-and-drop for rune socketing, stack splitting logic, and visual socket indicators. Audit and verify runeword activation and ensure real-time attribute updates via StatsDirty integration. (Completed on 2026-01-17)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1 day

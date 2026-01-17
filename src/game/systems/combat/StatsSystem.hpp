@@ -27,7 +27,13 @@ public:
   static void UpdateBuffs(entt::registry &registry, float dt);
 
   // @brief 清除特定实体的属性缓存（在属性重新计算时调用）
-  static void ClearCache(entt::entity entity);
+  static void ClearCache(entt::registry &registry, entt::entity entity);
+
+  // @brief 初始化系统，注册监听器（如销毁监听）
+  static void Initialize(entt::registry &registry);
+
+  // @brief 关闭系统，清理监听器
+  static void Shutdown(entt::registry &registry);
 
 private:
   // Per-entity stat cache, moved out of CombatStats to allow alignas(32) for

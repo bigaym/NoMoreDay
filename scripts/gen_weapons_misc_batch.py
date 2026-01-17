@@ -3,8 +3,8 @@ import os
 
 def generate_misc_assets():
     script_path = os.path.join(os.path.dirname(__file__), "asset_gen.py")
-    output_width = 1024
-    output_height = 1024
+    output_width = 768
+    output_height = 768
 
     # 1. 定义 10 种核心武器/副手类型 (基于设计文档)
     weapon_types = [

@@ -14,6 +14,7 @@
 #include "game/states/GameplayState.hpp"
 #include "game/states/MainMenuState.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -96,6 +97,9 @@ void Game::init() {
 
   // Initialize Persistence
   NoMoreDay::SaveManager::Get().Initialize(&m_executor);
+
+  // Initialize Stats System (Cache cleanup)
+  NoMoreDay::StatsSystem::Initialize(m_registry);
 
   // Initialize UI System (Loads Fonts)
   UISystem::Initialize(m_resourceManager);
@@ -195,6 +199,7 @@ void Game::cleanup() {
   NoMoreDay::systems::GPUEntitySystem::Get().Shutdown();
   NoMoreDay::systems::GPUSkillEffectSystem::Get().Shutdown();
   NoMoreDay::systems::GPUFlowFieldSystem::Get().Shutdown();
+  NoMoreDay::StatsSystem::Shutdown(m_registry);
   NoMoreDay::BuffRegistry::Shutdown();
 
   m_resourceManager.unloadAll();

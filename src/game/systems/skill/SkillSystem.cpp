@@ -33,6 +33,9 @@ static std::map<uint32_t, SkillSystem::CastCallback> s_skill_callbacks;
 static std::vector<SkillSystem::SkillHook> s_pre_cast_hooks;
 static std::vector<SkillSystem::SkillHook> s_post_cast_hooks;
 
+// Static scratch buffers to avoid per-frame allocations in hot paths
+static std::vector<entt::entity> s_entities_scratch;
+
 void SkillSystem::InitHooks() {
   LOG_INFO("Initializing Skill Hooks...");
   SkillBehaviorRegistry::Initialize();
@@ -85,6 +88,7 @@ void SkillSystem::InitHooks() {
       if (intent->stacks >= intent->max_stacks) {
         exec.is_empowered = true;
         intent->stacks = 0;
+        registry.get_or_emplace<StatsDirty>(caster); // NEW: Notify stats system
         LOG_INFO("Skill {} empowered by Sword Intent for entity {}",
                  exec.skill_id, (uint32_t)caster);
 
@@ -156,6 +160,7 @@ void SkillSystem::InitHooks() {
               intent->stacks++;
               intent->time_since_last_gain = 0.0f;
               intent->decay_tick_timer = 0.0f;
+              registry.get_or_emplace<StatsDirty>(caster); // NEW: Notify stats system
               LOG_INFO("Sword Intent: Entity {} gained stack via skill {} hit. "
                        "Stacks: {}/{}",
                        (uint32_t)caster, evt.skill_id, intent->stacks,
@@ -286,15 +291,15 @@ void SkillSystem::Update(entt::registry &registry,
   // Update Mind Blade (ID 7)
   auto mind_blade_view =
       registry.view<MindBladeComponent, MindBladeAI, Position>();
-  std::vector<entt::entity> mb_to_destroy;
+  s_entities_scratch.clear();
   for (auto entity : mind_blade_view) {
     auto &mc = mind_blade_view.get<MindBladeComponent>(entity);
     auto &ai = mind_blade_view.get<MindBladeAI>(entity);
     if (!skills::MindBlade::Update(registry, entity, ai, mc, dt, grid)) {
-      mb_to_destroy.push_back(entity);
+      s_entities_scratch.push_back(entity);
     }
   }
-  for (auto e : mb_to_destroy) {
+  for (auto e : s_entities_scratch) {
     registry.destroy(e);
   }
 
@@ -582,11 +587,11 @@ void SkillSystem::Update(entt::registry &registry,
   // EnTT views are safe if we don't destroy the entity. Removing component
   // might invalidate view iterator? Safest to collect list or use safe
   // iteration pattern if available. Standard pattern:
-  std::vector<entt::entity> pf_entities;
+  s_entities_scratch.clear();
   for (auto entity : pf_view) {
-    pf_entities.push_back(entity);
+    s_entities_scratch.push_back(entity);
   }
-  for (auto entity : pf_entities) {
+  for (auto entity : s_entities_scratch) {
     if (registry.valid(entity) &&
         registry.all_of<PhantomFlashComponent>(entity)) {
       auto &pf = registry.get<PhantomFlashComponent>(entity);
@@ -705,6 +710,7 @@ void SkillSystem::UpdateSwordIntent(entt::registry &registry, float dt) {
         // New Design: Clear ALL stacks after grace period (default 5s)
         intent.stacks = 0;
         intent.time_since_last_gain = 0.0f;
+        registry.get_or_emplace<StatsDirty>(entity); // NEW: Notify stats system
         LOG_INFO("Entity {} Sword Intent cleared (Inactive for {:.1f}s)",
                  (uint32_t)entity, intent.grace_period);
       }
@@ -793,9 +799,9 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
   // 1. Collect entities to avoid iterator invalidation during hook execution
   // Hooks (e.g. counter-attacks) may create new entities, triggering pool
   // reallocation.
-  std::vector<entt::entity> entities(view.begin(), view.end());
+  s_entities_scratch.assign(view.begin(), view.end());
 
-  for (auto entity : entities) {
+  for (auto entity : s_entities_scratch) {
     if (!registry.valid(entity))
       continue;
 
