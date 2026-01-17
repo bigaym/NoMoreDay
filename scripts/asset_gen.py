@@ -30,18 +30,20 @@ def start_comfyui():
     print(f"ComfyUI not found at {SERVER_ADDRESS}. Starting it now...")
     if not os.path.exists(COMFYUI_PATH):
         print(f"Error: Could not find ComfyUI start script at: {COMFYUI_PATH}")
+        print("Tip: If you are using a 12GB card like 4070S, ensure your .bat file includes --lowvram")
         sys.exit(1)
     
     # Extract the directory of the batch file to set as CWD
     comfyui_dir = os.path.dirname(COMFYUI_PATH)
     
-    # Start ComfyUI in a new independent console window.
-    # We use 'start' to detach it. '/D' sets the working directory.
-    # The first quoted argument to 'start' is the window title (required if path is quoted).
-    cmd = f'start "ComfyUI" /D "{comfyui_dir}" "{COMFYUI_PATH}"'
+    # Start ComfyUI with potential memory optimization flags
+    # Note: We try to pass --lowvram directly, but the batch file might not forward it.
+    # It's better for the user to edit the .bat file itself.
+    cmd = f'start "ComfyUI" /D "{comfyui_dir}" "{COMFYUI_PATH}" --lowvram'
     subprocess.Popen(cmd, shell=True)
     
     print("Waiting for ComfyUI to initialize (this may take 10-20 seconds)...")
+    print("Note: Flux2 requires massive VRAM. On 12GB cards, it MUST run in --lowvram mode.")
     for i in range(30):
         if is_server_running():
             print("ComfyUI is Online!")
@@ -60,14 +62,15 @@ def get_default_workflow():
     return {
         "10": {
             "inputs": {
-                "unet_name": "flux2_dev_fp8mixed.safetensors",
-                "weight_dtype": "default"
+                "unet_name": "flux-2-klein-9b.safetensors",
+                "weight_dtype": "fp8_e4m3fn"
             },
             "class_type": "UNETLoader"
         },
         "11": {
             "inputs": {
-                "type": "flux"
+                "clip_name": "qwen_3_8b_fp8mixed.safetensors",
+                "type": "flux2"
             },
             "class_type": "CLIPLoader"
         },
@@ -76,6 +79,16 @@ def get_default_workflow():
                 "vae_name": "flux2-vae.safetensors"
             },
             "class_type": "VAELoader"
+        },
+        "13": {
+            "inputs": {
+                "max_shift": 1.15,
+                "base_shift": 0.5,
+                "width": 1024,
+                "height": 1024,
+                "model": ["10", 0]
+            },
+            "class_type": "ModelSamplingFlux"
         },
         "5": {
             "inputs": {
@@ -102,12 +115,12 @@ def get_default_workflow():
         "3": {
             "inputs": {
                 "seed": random.randint(1, 1000000000),
-                "steps": 20,
+                "steps": 15,
                 "cfg": 1.0,
                 "sampler_name": "euler",
                 "scheduler": "simple",
                 "denoise": 1,
-                "model": ["10", 0],
+                "model": ["13", 0],
                 "positive": ["6", 0],
                 "negative": ["7", 0],
                 "latent_image": ["5", 0]
@@ -245,18 +258,36 @@ def main():
     # 2. Setup Workflow
     workflow = get_default_workflow()
     
-    # Update Prompts
+    # Ensure dimensions are multiples of 8
+    gen_width = (args.width // 8) * 8
+    gen_height = (args.height // 8) * 8
+    
+    print(f"Workflow Configuration: Generation Res={gen_width}x{gen_height}, Prompt='{args.prompt}'")
+    
+    # Update Prompts and Dimensions
     workflow["6"]["inputs"]["text"] = f"{args.prompt}, white background, isolated, 2d game sprite"
     workflow["7"]["inputs"]["text"] = args.negative
-    workflow["5"]["inputs"]["width"] = args.width
-    workflow["5"]["inputs"]["height"] = args.height
+    workflow["5"]["inputs"]["width"] = gen_width
+    workflow["5"]["inputs"]["height"] = gen_height
 
     # 3. Generate
     output_path = os.path.abspath(os.path.join("assets", "textures"))
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
-    get_images(ws, workflow, output_path, args.name, not args.no_remove_bg)
+    image_paths = get_images(ws, workflow, output_path, args.name, not args.no_remove_bg)
+    
+    # Downscale for game use (Standard 128x128 for NoMoreDay assets)
+    target_size = 128 
+    for img_path in image_paths:
+        try:
+            with Image.open(img_path) as img:
+                print(f"Standardizing {os.path.basename(img_path)} to {target_size}x{target_size}...")
+                # Maintain aspect ratio by padding or just force square for icons
+                img_res = img.resize((target_size, target_size), Image.Resampling.LANCZOS)
+                img_res.save(img_path, "PNG")
+        except Exception as e:
+            print(f"Downscaling failed: {e}")
     ws.close()
     print("Generation Complete.")
 

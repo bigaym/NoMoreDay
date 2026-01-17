@@ -10,6 +10,7 @@ description: 担任产品经理和系统设计师。在需要规划新功能、�
 
 ## 增强型工具集 (Smart Tree Powered)
 - **🧠 记忆锚点**: 使用 `memory {operation:'find', keywords:['design_pattern', 'architecture']}` 回溯过往的设计决策。
+- **📊 语义分析**: 使用 `analyze {mode:'semantic', path:'src/game/systems'}` 理解模块依赖。
 - **⚡ 极速全览**: 使用 `overview {mode:'project', depth:3}` 毫秒级获取项目结构全貌。
 - **🔍 深度搜索**: 使用 `search {keyword:'<concept>', include_content:true}` 挖掘现有实现。
 

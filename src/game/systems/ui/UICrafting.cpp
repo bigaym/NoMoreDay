@@ -30,13 +30,13 @@ void UICrafting::Toggle() {
 bool UICrafting::IsVisible() { return m_visible; }
 
 void UICrafting::SetTargetItem(entt::entity item) {
-  m_targetItem = item;
+  m_forgeItem = item;
   m_visible = true; // Auto-open when setting target via context menu
 }
 
-entt::entity UICrafting::GetTargetItem() { return m_targetItem; }
+entt::entity UICrafting::GetTargetItem() { return m_forgeItem; }
 
-void UICrafting::ClearTargetItem() { m_targetItem = entt::null; }
+void UICrafting::ClearTargetItem() { m_forgeItem = entt::null; }
 
 void UICrafting::Update(entt::registry &registry) {
   float dt = GetFrameTime();
@@ -46,9 +46,16 @@ void UICrafting::Update(entt::registry &registry) {
   else
     m_craftingAlpha = std::max(0.0f, m_craftingAlpha - dt * alphaSpeed);
 
-  if (m_targetItem != entt::null && !registry.valid(m_targetItem)) {
-    m_targetItem = entt::null;
-  }
+  if (m_forgeItem != entt::null && !registry.valid(m_forgeItem))
+    m_forgeItem = entt::null;
+  if (m_mergeBase != entt::null && !registry.valid(m_mergeBase))
+    m_mergeBase = entt::null;
+  if (m_mergeFodder != entt::null && !registry.valid(m_mergeFodder))
+    m_mergeFodder = entt::null;
+  if (m_mergeCatalyst != entt::null && !registry.valid(m_mergeCatalyst))
+    m_mergeCatalyst = entt::null;
+  if (m_salvageItem != entt::null && !registry.valid(m_salvageItem))
+    m_salvageItem = entt::null;
 }
 
 void UICrafting::Draw(entt::registry &registry) {
@@ -114,9 +121,9 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
     tabX += tabW + 10;
   };
 
-  DrawTab("锻造 (Forge)", CraftingTab::Forging);
-  DrawTab("融合 (Merge)", CraftingTab::Merging);
-  DrawTab("分解 (Salvage)", CraftingTab::Salvaging);
+  DrawTab("词缀锻造", CraftingTab::Forging);
+  DrawTab("传奇融合", CraftingTab::Merging);
+  DrawTab("装备分解", CraftingTab::Salvaging);
 
   // Close Button
   if (CheckCollisionPointRec(GetMousePosition(),
@@ -139,15 +146,13 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
     return;
   }
 
-  // --- FORGING PANEL (Original Logic) ---
-
   // Target Item Slot
   float slotSize = 80.0f * state.scaleFactor;
   float slotX = startX + (panelW - slotSize) / 2.0f;
   float slotY = startY + 80.0f * state.scaleFactor;
 
   UIRenderer::DrawSlot(state.globalFont, registry, slotX, slotY, slotSize,
-                       m_targetItem, "放入装备", false, false, alpha);
+                       m_forgeItem, "放入装备", false, false, alpha);
 
   // Handle Item Drop for Forging
   Rectangle slotRect = {slotX, slotY, slotSize, slotSize};
@@ -158,26 +163,36 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
         auto &item = registry.get<ItemComponent>(state.draggedItem);
         // Allow equipment
         if (item.type == ItemType::Weapon || item.type == ItemType::Armor ||
-            item.type == ItemType::Jewelry) {
-          m_targetItem = state.draggedItem;
+            item.type == ItemType::Jewelry || item.type == ItemType::Shield) {
+          m_forgeItem = state.draggedItem;
           state.draggedItem = entt::null;
         }
       }
     }
-    if (m_targetItem != entt::null) {
+    if (m_forgeItem != entt::null) {
       state.hoveredItem = entt::null;
-      UIRenderer::DrawTooltip(state.globalFont, registry, m_targetItem, alpha);
+      UIRenderer::DrawTooltip(state.globalFont, registry, m_forgeItem, alpha);
     }
   }
 
-  if (m_targetItem != entt::null) {
-    auto &item = registry.get<ItemComponent>(m_targetItem);
+  if (m_forgeItem != entt::null) {
+    auto &item = registry.get<ItemComponent>(m_forgeItem);
     char potBuf[64];
     snprintf(potBuf, 64, "锻造潜力: %d", item.forgingPotential);
     float potW = MeasureTextEx(state.globalFont, potBuf, 20, 1.0f).x;
     UISystem::DrawTextUI(potBuf, startX + (panelW - potW) / 2.0f,
                          slotY + slotSize + 10, 20, SKYBLUE, alpha);
-    DrawAffixList(registry, m_targetItem);
+    
+    // Guidance Text
+    const char* guide = "提示：锻造会消耗装备潜力。潜力耗尽后将无法再修改。";
+    float guideW = MeasureTextEx(state.globalFont, guide, 16 * state.scaleFactor, 1.0f).x;
+    UISystem::DrawTextUI(guide, (panelW / state.scaleFactor - guideW / state.scaleFactor) / 2.0f + startX / state.scaleFactor, (panelH / state.scaleFactor) + startY / state.scaleFactor - 40, 16, GRAY, alpha);
+
+    DrawAffixList(registry, m_forgeItem, startX, startY);
+  } else {
+    const char* guide = "将装备拖入上方槽位开始锻造（升级、粉碎、重置词缀）";
+    float guideW = MeasureTextEx(state.globalFont, guide, 16 * state.scaleFactor, 1.0f).x;
+    UISystem::DrawTextUI(guide, (panelW / state.scaleFactor - guideW / state.scaleFactor) / 2.0f + startX / state.scaleFactor, slotY / state.scaleFactor + 100, 16, GRAY, alpha);
   }
 }
 
@@ -198,29 +213,49 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
   // Base Slot
   float baseX = midX - slotSize - spacing;
   UIRenderer::DrawSlot(state.globalFont, registry, baseX, topY, slotSize,
-                       m_targetItem, "基底(Unique)", false, false, alpha);
+                       m_mergeBase, m_mergeBase == entt::null ? "放入暗金(LP > 0)" : "", false, false, alpha);
 
   // Fodder Slot
   float fodderX = midX + spacing;
   UIRenderer::DrawSlot(state.globalFont, registry, fodderX, topY, slotSize,
-                       m_fodderItem, "耗材(Exalted)", false, false, alpha);
+                       m_mergeFodder, m_mergeFodder == entt::null ? "放入崇高(T6+)" : "", false, false, alpha);
 
   // Catalyst Slot
   float catX = midX - slotSize / 2.0f;
   float catY = topY + slotSize + spacing * 2;
   UIRenderer::DrawSlot(state.globalFont, registry, catX, catY, slotSize,
-                       m_catalystItem, "核心", false, false, alpha);
+                       m_mergeCatalyst, "放入时空核心", false, false, alpha);
+
+  // Guidance Labels
+  UISystem::DrawTextUI("暗金基底", (baseX / state.scaleFactor), (topY / state.scaleFactor) - 25, 18, GOLD, alpha);
+  UISystem::DrawTextUI("崇高物品", (fodderX / state.scaleFactor), (topY / state.scaleFactor) - 25, 18, PURPLE, alpha);
+  UISystem::DrawTextUI("传奇核心", (catX / state.scaleFactor), (catY / state.scaleFactor) - 25, 18, SKYBLUE, alpha);
 
   // Handle Drops
-  auto HandleDrop = [&](entt::entity &target, float x, float y,
-                        const char *filterType) {
+  auto HandleMergeDrop = [&](entt::entity &target, float x, float y, int type) {
     Rectangle r = {x, y, slotSize, slotSize};
     if (CheckCollisionPointRec(GetMousePosition(), r)) {
       if (state.draggedItem != entt::null &&
           IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-        // Should validate type further here potentially
-        target = state.draggedItem;
-        state.draggedItem = entt::null;
+        if (registry.any_of<ItemComponent>(state.draggedItem)) {
+            bool valid = false;
+            auto& item = registry.get<ItemComponent>(state.draggedItem);
+            
+            if (type == 0) { // Base: Legendary + LP > 0
+                if (item.rarity == Rarity::Legendary && item.legendaryPotential > 0) valid = true;
+            } else if (type == 1) { // Fodder: Exalted (Rare with T6+)
+                bool hasT6 = false;
+                for(const auto& aff : item.affixes) if(aff.tier >= 6) { hasT6 = true; break; }
+                if (hasT6) valid = true;
+            } else if (type == 2) { // Catalyst
+                if (item.type == ItemType::Material) valid = true; // Simplified check
+            }
+
+            if (valid) {
+                target = state.draggedItem;
+                state.draggedItem = entt::null;
+            }
+        }
       }
       if (target != entt::null) {
         state.hoveredItem = entt::null;
@@ -229,15 +264,15 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
     }
   };
 
-  HandleDrop(m_targetItem, baseX, topY, "Unique");
-  HandleDrop(m_fodderItem, fodderX, topY, "Exalted");
-  HandleDrop(m_catalystItem, catX, catY, "Material");
+  HandleMergeDrop(m_mergeBase, baseX, topY, 0);
+  HandleMergeDrop(m_mergeFodder, fodderX, topY, 1);
+  HandleMergeDrop(m_mergeCatalyst, catX, catY, 2);
 
   // Affix Selection Interface
-  if (m_fodderItem != entt::null && registry.valid(m_fodderItem)) {
-    auto &fodder = registry.get<ItemComponent>(m_fodderItem);
+  if (m_mergeFodder != entt::null && registry.valid(m_mergeFodder)) {
+    auto &fodder = registry.get<ItemComponent>(m_mergeFodder);
     float affixY = catY + slotSize + 20.0f;
-    UISystem::DrawTextUI("选择词缀 (Select Affix to Keep):", startX + 40,
+    UISystem::DrawTextUI("选择要转移并保留的词缀:", startX + 40,
                          affixY, 18, LIGHTGRAY, alpha);
 
     affixY += 30.0f;
@@ -278,16 +313,16 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
   float btnY = startY + panelH - 80.0f;
 
   Rectangle btnRect = {btnX, btnY, btnW, btnH};
-  bool canFuse = m_targetItem != entt::null && m_fodderItem != entt::null &&
-                 m_catalystItem != entt::null && m_selectedAffixIndex != -1;
+  bool canFuse = m_mergeBase != entt::null && m_mergeFodder != entt::null &&
+                 m_mergeCatalyst != entt::null && m_selectedAffixIndex != -1;
 
   Color btnColor = canFuse ? RED : DARKGRAY;
   if (canFuse && CheckCollisionPointRec(GetMousePosition(), btnRect)) {
     btnColor = ORANGE;
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       CraftingResult res =
-          CraftingSystem::fuseLegendary(registry, m_targetItem, m_fodderItem,
-                                        m_catalystItem, m_selectedAffixIndex);
+          CraftingSystem::fuseLegendary(registry, m_mergeBase, m_mergeFodder,
+                                        m_mergeCatalyst, m_selectedAffixIndex);
       if (res == CraftingResult::Success) {
         // VFX: Burst of Gold and Red particles
         auto &ps = systems::GPUParticleSystem::Get();
@@ -313,10 +348,10 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
         }
 
         // Clear consumed slots
-        if (!registry.valid(m_fodderItem))
-          m_fodderItem = entt::null;
-        if (!registry.valid(m_catalystItem))
-          m_catalystItem = entt::null;
+        if (!registry.valid(m_mergeFodder))
+          m_mergeFodder = entt::null;
+        if (!registry.valid(m_mergeCatalyst))
+          m_mergeCatalyst = entt::null;
         m_selectedAffixIndex = -1;
       } else {
         // Show error message?
@@ -326,21 +361,22 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
 
   DrawRectangleRec(btnRect, Fade(btnColor, alpha));
   DrawRectangleLinesEx(btnRect, 2.0f, Fade(WHITE, 0.5f * alpha));
-  UISystem::DrawTextUI("融合 (FUSE)", btnX + 35, btnY + 15, 24,
+  UISystem::DrawTextUI("开始融合", btnX + 45, btnY + 15, 24,
                        canFuse ? WHITE : GRAY, alpha);
+
+  const char* bottomGuide = "融合会将崇高物品的随机词缀转移到暗金基底上。";
+  float bW = MeasureTextEx(state.globalFont, bottomGuide, 14 * state.scaleFactor, 1.0f).x;
+  UISystem::DrawTextUI(bottomGuide, (midX / state.scaleFactor - bW / state.scaleFactor / 2.0f), (panelH / state.scaleFactor) + (startY / state.scaleFactor) - 30, 14, GRAY, alpha);
 }
 
-void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity) {
+void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity, float panelStartX, float panelStartY) {
   auto &state = UISystem::State;
   auto &item = registry.get<ItemComponent>(entity);
   float alpha = m_craftingAlpha;
 
-  float screenW = (float)GetScreenWidth();
-  float screenH = (float)GetScreenHeight();
   float panelW = 600.0f * state.scaleFactor;
-  float panelH = 700.0f * state.scaleFactor;
-  float startX = (screenW - panelW) / 2.0f;
-  float startY = (screenH - panelH) / 2.0f;
+  float startX = panelStartX;
+  float startY = panelStartY;
 
   float currentY = startY + 200.0f * state.scaleFactor;
   float rowH = 50.0f * state.scaleFactor;
@@ -359,7 +395,7 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity) {
       // Existing Affix
       Color textColor = WHITE; // Determine by tier?
       char nameBuf[128];
-      snprintf(nameBuf, 128, "[T%d] %s", affix->tier,
+      snprintf(nameBuf, 128, "T%d - %s", affix->tier,
                GetAffixDescription(*affix, false).c_str());
       UISystem::DrawTextUI(nameBuf, x + 10, currentY + 15, 18, textColor,
                            alpha);
@@ -466,7 +502,7 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity) {
       suffixIndices.push_back((int)i);
   }
 
-  UISystem::DrawTextUI("前缀 (Prefixes)", startX + 20, currentY, 20, LIGHTGRAY,
+  UISystem::DrawTextUI("前缀属性", startX + 20, currentY, 20, LIGHTGRAY,
                        alpha);
   currentY += 30;
 
@@ -479,7 +515,7 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity) {
   }
 
   currentY += 10;
-  UISystem::DrawTextUI("后缀 (Suffixes)", startX + 20, currentY, 20, LIGHTGRAY,
+  UISystem::DrawTextUI("后缀属性", startX + 20, currentY, 20, LIGHTGRAY,
                        alpha);
   currentY += 30;
 
@@ -517,7 +553,7 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
 
   // Single Item Salvage Slot
   UIRenderer::DrawSlot(state.globalFont, registry, midX - slotSize / 2.0f, slotY,
-                       slotSize, m_targetItem, "放入分解物品", false, false,
+                       slotSize, m_salvageItem, "放入分解物品", false, false,
                        alpha);
 
   // Handle Drop
@@ -528,26 +564,39 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
       if (registry.any_of<ItemComponent>(state.draggedItem)) {
         const auto &item = registry.get<ItemComponent>(state.draggedItem);
         if (SalvageSystem::CanSalvage(item)) {
-          m_targetItem = state.draggedItem;
+          m_salvageItem = state.draggedItem;
           state.draggedItem = entt::null;
         }
       }
     }
-    if (m_targetItem != entt::null) {
+    if (m_salvageItem != entt::null) {
       state.hoveredItem = entt::null;
-      UIRenderer::DrawTooltip(state.globalFont, registry, m_targetItem, alpha);
+      UIRenderer::DrawTooltip(state.globalFont, registry, m_salvageItem, alpha);
     }
   }
 
   // Yield Preview
-  if (m_targetItem != entt::null && registry.valid(m_targetItem)) {
-    const auto &item = registry.get<ItemComponent>(m_targetItem);
-    auto yield = SalvageSystem::CalculateYield(item);
+  if (m_salvageItem != entt::null && registry.valid(m_salvageItem)) {
+    const auto &item = registry.get<ItemComponent>(m_salvageItem);
+    // Deterministic Range Calculation
+    struct YieldRange { uint32_t matId; int min; int max; };
+    std::vector<YieldRange> ranges;
+    for (const auto& aff : item.affixes) {
+        if (aff.type == AffixType::Count) continue;
+        uint32_t materialId = (aff.isLegendary || IsLegendaryAffix(aff.type)) ? 4999 : 4000 + static_cast<uint32_t>(aff.type);
+        int t = aff.tier;
+        int min = (t < 4) ? 0 : (t - 3);
+        int max = t;
+        
+        bool found = false;
+        for (auto& r : ranges) { if (r.matId == materialId) { r.min += min; r.max += max; found = true; break; } }
+        if (!found) ranges.push_back({materialId, min, max});
+    }
 
     float yieldY = slotY + slotSize + 60.0f * state.scaleFactor;
     
     // Header
-    const char* headerText = "预估产出 (Estimated Yield)";
+    const char* headerText = "分解产出预估:";
     float headerW = MeasureTextEx(state.globalFont, headerText, 20 * state.scaleFactor, 1.0f).x;
     
     // Note: Passing logic coords to DrawTextUI as it scales them internally
@@ -555,16 +604,16 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
     float logicYieldY = yieldY / state.scaleFactor;
     float logicHeaderW = headerW / state.scaleFactor;
     
-    UISystem::DrawTextUI(headerText, logicMidX - logicHeaderW/2.0f, logicYieldY, 20, LIGHTGRAY, alpha);
+    UISystem::DrawTextUI(headerText, logicMidX - logicHeaderW/2.0f, logicYieldY, 20, SKYBLUE, alpha);
     
     yieldY += 40.0f * state.scaleFactor;
 
-    if (yield.empty()) {
-      UISystem::DrawTextUI("该物品无产出 (No yield)", logicMidX - 60, yieldY / state.scaleFactor, 18, GRAY, alpha);
+    if (ranges.empty()) {
+      UISystem::DrawTextUI("该物品无任何可分解产出", logicMidX - 90, yieldY / state.scaleFactor, 18, GRAY, alpha);
     } else {
       float matSize = 48.0f * state.scaleFactor;
-      float gap = 10.0f * state.scaleFactor;
-      int count = (int)yield.size();
+      float gap = 15.0f * state.scaleFactor;
+      int count = (int)ranges.size();
       float totalW = count * matSize + (count - 1) * gap;
       float curX = midX - totalW / 2.0f;
       float curY = yieldY;
@@ -574,14 +623,14 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
           DrawRectangleRec(mRect, Fade(s_theme.slotBackground, alpha));
           DrawRectangleLinesEx(mRect, 1.0f, Fade(s_theme.panelBorder, alpha));
           
-          const auto *def = MaterialRegistry::Get().GetMaterial(yield[i].materialId);
+          const auto *def = MaterialRegistry::Get().GetMaterial(ranges[i].matId);
           if (def) {
               Color matColor = UIRenderer::GetRarityColor(def->rarity);
               DrawRectangleRec({curX+4, curY+4, matSize-8, matSize-8}, Fade(matColor, 0.3f * alpha));
               
-              char countBuf[16];
-              snprintf(countBuf, 16, "x%d", yield[i].count);
-              UISystem::DrawTextUI(countBuf, curX/state.scaleFactor + 2, curY/state.scaleFactor + 48 - 14, 14, WHITE, alpha);
+              char rangeBuf[32];
+              snprintf(rangeBuf, 32, "%d~%d", ranges[i].min, ranges[i].max);
+              UISystem::DrawTextUI(rangeBuf, curX/state.scaleFactor + 2, curY/state.scaleFactor + 48 - 14, 12, SKYBLUE, alpha);
               
               if (CheckCollisionPointRec(GetMousePosition(), mRect)) {
                     UISystem::DrawTextUI(def->name.c_str(), curX/state.scaleFactor, curY/state.scaleFactor - 20, 16, matColor, alpha);
@@ -604,14 +653,14 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
     DrawRectangleRec(btnRect, Fade(btnColor, alpha));
     DrawRectangleLinesEx(btnRect, 2.0f, Fade(WHITE, (hover ? 0.8f : 0.4f) * alpha));
     
-    const char* btnLabel = "分解 (SALVAGE)";
+    const char* btnLabel = "开始分解装备";
     float txtW = MeasureTextEx(state.globalFont, btnLabel, 24 * state.scaleFactor, 1.0f).x;
     UISystem::DrawTextUI(btnLabel, (btnX + (btnW - txtW)/2)/state.scaleFactor, (btnY + (btnH - 24*state.scaleFactor)/2)/state.scaleFactor, 24, WHITE, alpha);
 
     if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       auto playerEnt = UISystem::GetPlayerEntity(registry);
-      SalvageSystem::Execute(registry, m_targetItem, playerEnt);
-      m_targetItem = entt::null;
+      SalvageSystem::Execute(registry, m_salvageItem, playerEnt);
+      m_salvageItem = entt::null;
       
       // VFX
       auto &ps = systems::GPUParticleSystem::Get();
@@ -628,7 +677,49 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
   // Batch Salvage Options
   float batchY = startY + panelH - 40.0f * state.scaleFactor;
   
-  auto DrawBatchButton = [&](const char *label, Rarity maxRarity, float x, float y) {
+  // Filter Toggle
+  Rectangle filterBtn = {startX + 20*state.scaleFactor, startY + panelH - 80*state.scaleFactor, 100*state.scaleFactor, 30*state.scaleFactor};
+  bool filterHover = CheckCollisionPointRec(GetMousePosition(), filterBtn);
+  DrawRectangleRec(filterBtn, Fade(m_showSalvageFilter ? RED : DARKGRAY, alpha));
+  UISystem::DrawTextUI("筛选设置", filterBtn.x/state.scaleFactor + 10, filterBtn.y/state.scaleFactor + 5, 16, WHITE, alpha);
+  if (filterHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) m_showSalvageFilter = !m_showSalvageFilter;
+
+  if (m_showSalvageFilter) {
+      float fx = startX - 220 * state.scaleFactor;
+      float fy = startY + 100 * state.scaleFactor;
+      float fw = 200 * state.scaleFactor;
+      float fh = 300 * state.scaleFactor;
+      DrawRectangleRec({fx, fy, fw, fh}, Fade({40, 40, 50, 255}, 0.9f * alpha));
+      DrawRectangleLinesEx({fx, fy, fw, fh}, 1.0f, Fade(GOLD, alpha));
+      UISystem::DrawTextUI("分解过滤器", fx/state.scaleFactor + 10, fy/state.scaleFactor + 10, 18, GOLD, alpha);
+
+      auto DrawOption = [&](const char* label, bool& val, float y) {
+          Rectangle r = {fx + 10, fy + y, 180*state.scaleFactor, 24*state.scaleFactor};
+          bool h = CheckCollisionPointRec(GetMousePosition(), r);
+          if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) val = !val;
+          DrawRectangleRec(r, Fade(val ? RED : DARKGRAY, alpha));
+          UISystem::DrawTextUI(label, r.x/state.scaleFactor + 5, r.y/state.scaleFactor + 4, 14, WHITE, alpha);
+      };
+      
+      DrawOption("排除已锁定", m_salvageFilter.excludeLocked, 40*state.scaleFactor);
+      DrawOption("保留 T6+ 装备", m_salvageFilter.keepIfTier6Plus, 70*state.scaleFactor);
+      
+      UISystem::DrawTextUI("稀有度限制:", fx/state.scaleFactor + 10, fy/state.scaleFactor + 110, 14, GRAY, alpha);
+      auto DrawRarity = [&](const char* label, Rarity rar, float y) {
+          bool active = (m_salvageFilter.rarityMask & (1 << (uint32_t)rar));
+          Rectangle r = {fx + 10, fy + y, 180*state.scaleFactor, 24*state.scaleFactor};
+          if (CheckCollisionPointRec(GetMousePosition(), r) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+              m_salvageFilter.rarityMask ^= (1 << (uint32_t)rar);
+          }
+          DrawRectangleRec(r, Fade(active ? UIRenderer::GetRarityColor(rar) : DARKGRAY, 0.5f * alpha));
+          UISystem::DrawTextUI(label, r.x/state.scaleFactor + 5, r.y/state.scaleFactor + 4, 14, WHITE, alpha);
+      };
+      DrawRarity("Magic (蓝色)", Rarity::Magic, 130*state.scaleFactor);
+      DrawRarity("Rare (黄色)", Rarity::Rare, 160*state.scaleFactor);
+      DrawRarity("Exalted (紫色)", Rarity::Epic, 190*state.scaleFactor);
+  }
+
+  auto DrawBatchButton = [&](const char *label, float x, float y) {
     float bW = 200.0f * state.scaleFactor;
     float bH = 30.0f * state.scaleFactor;
     Rectangle r = {x, y, bW, bH};
@@ -646,7 +737,17 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
       for (auto entity : inv->items) {
         if (!registry.valid(entity)) continue;
         const auto &item = registry.get<ItemComponent>(entity);
-        if (item.rarity <= maxRarity && SalvageSystem::CanSalvage(item)) {
+        
+        // Apply Filters
+        if (m_salvageFilter.excludeLocked && item.isLocked) continue;
+        if (!(m_salvageFilter.rarityMask & (1 << (uint32_t)item.rarity))) continue;
+        if (m_salvageFilter.keepIfTier6Plus) {
+            bool hasT6 = false;
+            for(const auto& aff : item.affixes) if(aff.tier >= 6) { hasT6 = true; break; }
+            if(hasT6) continue;
+        }
+
+        if (SalvageSystem::CanSalvage(item)) {
            toSalvage.push_back(entity);
         }
       }
@@ -656,7 +757,7 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
     }
   };
 
-  DrawBatchButton("分解所有 稀有/魔法", Rarity::Rare, midX - 100 * state.scaleFactor, batchY - 40 * state.scaleFactor);
+  DrawBatchButton("按过滤器批量分解", midX - 100 * state.scaleFactor, batchY - 40 * state.scaleFactor);
 }
 
 } // namespace NoMoreDay

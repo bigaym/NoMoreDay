@@ -21,6 +21,6 @@
 - [x] **Item Locking**: Added context menu toggle and UI indicator (Red 'L' in slot).
 
 ## Phase 4: Feedback & Polishing
-- [ ] **VFX**: Trigger `ItemDissolve` effect on salvage (Core logic ready for hook).
-- [ ] **SFX**: Play "Shatter" sound effect (Core logic ready for hook).
+- [x] **VFX**: Trigger `ItemDissolve` effect on salvage (Core logic ready for hook).
+- [x] **SFX**: Play "Shatter" sound effect (Core logic ready for hook).
 - [x] **Unit Tests**: `tests/SalvageSystemTests.hpp` covers logic, yield quantities, and inventory cleanup.

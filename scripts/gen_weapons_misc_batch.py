@@ -15,23 +15,22 @@ def generate_misc_assets():
 
     # 2. 定义 10 种风格/元素主题 (10 Types * 10 Themes = 100 Assets)
     themes = [
-        {"name": "iron",     "prompt": "Damascus steel, intricate engraving, polished silver, knightly, heavy metal"},
-        {"name": "fire",     "prompt": "Molten obsidian, flowing lava, burning ember, charred rock, volcanic energy"},
-        {"name": "ice",      "prompt": "Translucent glacial crystal, frost rime, frozen aura, winter chill, jagged ice shards"},
-        {"name": "lightning","prompt": "Storm-forged metal, crackling blue lightning, voltaic arcs, thunder energy, electrified"},
-        {"name": "poison",   "prompt": "Corroded metal, dripping venom, serpent scales, toxic green glow, acid burns"},
-        {"name": "necrotic", "prompt": "Bleached bone, spectral ghost flames, soul trap, shadowy mist, grim dark fantasy"},
-        {"name": "holy",     "prompt": "Polished gold, platinum filigree, divine radiance, angel wings motif, celestial light"},
-        {"name": "void",     "prompt": "Dark matter, swirling galaxy, purple nebula, eldritch stars, cosmic abyss"},
-        {"name": "nature",   "prompt": "Ancient oak wood, emerald leaves, glowing moss, druidic vines, forest spirit"},
-        {"name": "arcane",   "prompt": "Floating mana shards, glowing runes, arcane geometry, pink and cyan magic, sorcery"}
+        {"name": "iron",     "prompt": "forged from cold-rolled Damascus steel with intricate geometric engravings, polished silver sheen, heavy and battle-worn"},
+        {"name": "fire",     "prompt": "crafted from molten obsidian, glowing with flowing orange lava, pulsating burning embers and charred rock textures"},
+        {"name": "ice",      "prompt": "made of translucent glacial crystal, encased in a frost rime with a cold blue mist and jagged frozen ice shards"},
+        {"name": "lightning","prompt": "a storm-forged weapon crackling with vibrant blue lightning arcs and voltaic energy, surrounded by electric sparks"},
+        {"name": "poison",   "prompt": "corroded dark metal dripping with neon green venom, featuring serpent scale textures and toxic fuming acid bubbles"},
+        {"name": "necrotic", "prompt": "sculpted from bleached ancient bone and skull fragments, wreathed in spectral ghost-green flames and shadowy soul mist"},
+        {"name": "holy",     "prompt": "divine platinum filigree with polished gold accents, adorned with celestial angel wings and radiating a warm white halo"},
+        {"name": "void",     "prompt": "an eldritch artifact made of dark matter, containing a swirling purple nebula and sparkling cosmic stars from the abyss"},
+        {"name": "nature",   "prompt": "entwined with ancient druidic oak wood, blooming emerald leaves, glowing moss, and enchanted vines of the forest"},
+        {"name": "arcane",   "prompt": "floating mana crystals held by glowing magical runes, featuring arcane geometry and pink-to-cyan shimmering energy"}
     ]
 
     # 统一负面提示词
     negative_prompt = (
-        "hand, person, character, arm, finger, holding, two items, "
-        "multiple views, front and back view, scabbard, sheath, blurry, low quality, "
-        "text, watermark, 3d render, realistic photo, background, messy, frame, human"
+        "human hands, character holding item, human body, multiple objects, collage, "
+        "blurry, photo, realism, text, watermark, messy background, cluttered, scabbard"
     )
 
     print(f"--- Starting Batch Generation: {len(weapon_types)} Types x {len(themes)} Themes = {len(weapon_types)*len(themes)} Assets ---")
@@ -41,9 +40,12 @@ def generate_misc_assets():
         for theme in themes:
             asset_name = f"{w_type}_{theme['name']}"
             
-            # 构建提示词: [Theme Adjectives] [Weapon Type], [Details], [Style]
-            prompt = f"{theme['prompt']} {w_type}, {theme['prompt']}, high detail, 2d game sprite"
-            full_prompt = f"{prompt}, single object, isolated, centered, white background"
+            # 构建提示词: 自然语言化的描述
+            full_prompt = (
+                f"A high-quality 2D game icon of a {w_type}, {theme['prompt']}. "
+                f"Clean digital painting style, sharp edges, centered composition, "
+                f"isolated on a plain white background, masterpiece, professional game art."
+            )
             
             print(f"Generating: {asset_name}")
             

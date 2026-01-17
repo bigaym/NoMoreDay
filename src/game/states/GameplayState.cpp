@@ -97,7 +97,7 @@ void GameplayState::OnEnter() {
       std::string(assets::textures::Corrupted_Beast.path));
 
   // 2. Initialize Level
-  m_context->levelManager->initialize(resourceManager);
+  m_context->levelManager->initialize(resourceManager, *m_context->registry);
   using namespace NoMoreDay::Constants::World;
   m_context->levelManager->loadNewLevel("cave", WORLD_WIDTH / 10,
                                         WORLD_HEIGHT / 10);

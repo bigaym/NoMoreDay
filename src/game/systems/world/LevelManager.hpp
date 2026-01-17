@@ -37,8 +37,8 @@ public:
   LevelManager();
   ~LevelManager();
 
-  // 初始化关卡管理器 (传入 ResourceManager 用于 GPU 资源加载)
-  void initialize(ResourceManager &resources);
+  // 初始化关卡管理器 (传入 ResourceManager 用于 GPU 资源加载, Registry 用于生成实体)
+  void initialize(ResourceManager &resources, entt::registry &registry);
 
   // 加载新关卡 (Synchronous legacy wrapper)
   void loadNewLevel(const std::string &biome = "cave",
@@ -111,6 +111,12 @@ public:
 private:
   // 生成关卡
   void generateLevel(const std::string &biome, int width, int height);
+
+  // 在地图上生成实体 (如出口传送门)
+  void spawnLevelEntities();
+
+  // Registry reference
+  entt::registry *m_registry = nullptr;
 
   // 设置关卡参数
   void setLevelParameters(const std::string &biome);

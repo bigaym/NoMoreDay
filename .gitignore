@@ -39,3 +39,10 @@ AGENT*.
 .roo/
 scripts/aseets
 # assets/textures   
+
+# 压缩包
+*.zip
+*.tar.
+*.gz
+*.7z
+*.rar

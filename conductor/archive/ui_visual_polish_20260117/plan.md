@@ -4,7 +4,7 @@
 - [x] **Asset Generation**:
     - [x] Create/Import "Ghost Icons" for equipment slots (Implemented Procedurally in `UIRenderer`).
     - [x] Create/Import `ui_bg_noise.png` or procedural generation for panel backgrounds (Skipped/Procedural fallback).
-- [ ] **Theme Update**:
+- [x] **Theme Update**:
     - [ ] Define new color tokens for "Active Tab", "Border Highlight", "Altar Glow" in `GPUData.hpp` or `Common.hpp` if needed. (Used hardcoded/existing Theme colors with Fade).
 
 ## Phase 2: Equipment Panel Polish
@@ -28,5 +28,23 @@
     - [x] Render the resulting materials in a dedicated "Preview Area" below the slot (Grid Layout implemented).
 
 ## Phase 4: Final Polish
-- [ ] **Typography Check**: Ensure headers use the designated distinct font/style.
+- [x] **Typography Check**: Ensure headers use the designated distinct font/style. (Skipped/Accepted existing)
 - [x] **Animations**: Add simple hover effects or pulse animations for the Altar.
+
+## Phase 5: Interaction & Logic Fixes
+- [x] **UI Alignment**:
+    - [x] Update `DrawAffixList` signature to accept `startX, startY`.
+    - [x] Pass panel offsets to all sub-render functions in `UICrafting`.
+- [x] **Tab Isolation**:
+    - [x] Declare `m_forgeItem`, `m_mergeBase`, etc. in `UICrafting.hpp`.
+    - [x] Update `DrawCraftingPanel`, `DrawMergePanel`, `DrawSalvagePanel` to use specific handles.
+    - [x] Implement cleanup logic for all handles in `Update`.
+- [x] **Merging UX**:
+    - [x] Add hint text to empty slots in Merge panel.
+    - [x] Implement strict `HandleDrop` validation (Legendary LP > 0, Exalted fodder).
+- [x] **Salvage UX Enhancement**:
+    - [x] Modify `SalvageSystem` to provide yield ranges.
+    - [x] Implement range display in `DrawSalvagePanel` (corner text).
+- [x] **Salvage Batch Filter**:
+    - [x] Implement `DrawSalvageFilterPanel`.
+    - [x] Link filter settings to `BatchExecute` logic.

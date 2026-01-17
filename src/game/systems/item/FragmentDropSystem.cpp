@@ -84,8 +84,14 @@ void FragmentDropSystem::Update(entt::registry &registry) {
 void FragmentDropSystem::OnEnemyKilled(entt::registry &registry,
                                        entt::entity killer,
                                        entt::entity victim) {
-  // 检查受害者是否是敌人
-  if (!registry.valid(victim) || !registry.any_of<EnemyTag>(victim)) {
+  // 检查受害者是否是有效实体 (敌人或已死亡的敌人)
+  // CombatSystem 可能会在派发事件前移除 EnemyTag，所以我们需要检查 EnemyStateComponent 或 KilledTag
+  bool validEnemy = registry.valid(victim) && 
+      (registry.any_of<EnemyTag>(victim) || 
+       registry.any_of<EnemyStateComponent>(victim) ||
+       registry.any_of<KilledTag>(victim));
+
+  if (!validEnemy) {
     return;
   }
 
@@ -158,21 +164,26 @@ entt::entity FragmentDropSystem::CreateFragment(entt::registry &registry,
 
   // 添加物品组件 (使碎片可被拾取和存储)
   auto &item = registry.emplace<ItemComponent>(entity);
-  item.type = ItemType::Material; // 材料类型
+  // 修正: 碎片具有随机属性 (MapFragmentComponent)，不能作为简单的堆叠材料存储在 MaterialBank 中。
+  // 因此将其设为 Consumable (或 Quest)，使其进入主背包并保留组件数据。
+  item.type = ItemType::Consumable; 
   item.rarity = rarity;
   item.maxStack = 1; // 碎片不可堆叠
   item.quantity = 1;
 
-  // 根据类型设置名称
+  // 根据类型设置名称和ID (参考 materials.json)
   switch (type) {
   case FragmentType::Terrain:
     item.name = "地形碎片";
+    item.id = 2001; // Dimension Fragment
     break;
   case FragmentType::Affix:
     item.name = "词缀碎片";
+    item.id = 0; // 暂时没有对应的单一材料ID，保持 0 或自定义
     break;
   case FragmentType::Unique:
     item.name = "特殊碎片";
+    item.id = 2002; // Void Essence
     break;
   }
 

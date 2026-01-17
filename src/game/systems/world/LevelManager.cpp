@@ -1,5 +1,6 @@
 #include "game/systems/world/LevelManager.hpp"
 #include "core/logging/Logger.hpp"
+#include "game/components/MapComponent.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/data/MosaicData.hpp"
 
@@ -11,9 +12,10 @@ LevelManager::~LevelManager() {
   LOG_INFO("LevelManager shutdown completed");
 }
 
-void LevelManager::initialize(ResourceManager &resources) {
+void LevelManager::initialize(ResourceManager &resources, entt::registry &registry) {
   m_resources = &resources;
-  LOG_INFO("LevelManager initialized with ResourceManager");
+  m_registry = &registry;
+  LOG_INFO("LevelManager initialized with ResourceManager and Registry");
 }
 
 void LevelManager::loadNewLevel(const std::string &biome, int width, int height,
@@ -53,6 +55,8 @@ void LevelManager::loadMosaicLevel(const NoMoreDay::MosaicGrid &grid,
                                    entt::registry *registry, int width,
                                    int height) {
   LOG_INFO("Loading mosaic level ({}x{})...", width, height);
+  // Note: Registry passed here is likely for reading components, but we also use m_registry for spawning.
+  // Ideally they are the same.
   auto data = prepareMosaicLevel(grid, resonance, registry, width, height);
   activateLevel(std::move(data));
 }
@@ -105,8 +109,51 @@ void LevelManager::activateLevel(LevelData &&data) {
   if (m_enemySystem) {
     m_enemySystem->initTextures();
   }
+  
+  // Spawn Level Entities (Portals, etc.)
+  spawnLevelEntities();
 
   LOG_INFO("Level activated successfully");
+}
+
+void LevelManager::spawnLevelEntities() {
+  if (!m_registry || !m_mapSystem) return;
+  
+  LOG_INFO("Scanning map for exit portals...");
+  int w = m_mapSystem->getWidth();
+  int h = m_mapSystem->getHeight();
+  using namespace NoMoreDay::Constants::World;
+
+  int count = 0;
+  for (int y = 0; y < h; ++y) {
+    for (int x = 0; x < w; ++x) {
+      if (m_mapSystem->getTileType(x, y) == Tile::Type::STAIRS_DOWN) {
+        auto entity = m_registry->create();
+        float cx = x * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f);
+        float cy = y * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f);
+        
+        m_registry->emplace<Position>(entity, cx, cy);
+        m_registry->emplace<LocalLevelTag>(entity);
+        
+        PortalComponent pc;
+        pc.isActive = true;
+        pc.radius = 25.0f;
+        
+        // Determine type based on context?
+        // Default to NextLevel (Mosaic System)
+        pc.type = PortalType::NextLevel; 
+        
+        // Visuals are handled by PortalSystem based on type
+        m_registry->emplace<PortalComponent>(entity, pc);
+        LOG_INFO("Spawned NextLevel Portal at ({}, {})", cx, cy);
+        count++;
+      }
+    }
+  }
+  
+  if (count == 0) {
+      LOG_WARN("No STAIRS_DOWN found in map! Player might be stuck.");
+  }
 }
 
 void LevelManager::update(float dt, entt::registry &registry,

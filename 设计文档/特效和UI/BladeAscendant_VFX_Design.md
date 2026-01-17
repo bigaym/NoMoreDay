@@ -63,12 +63,12 @@ tiji### 2.2 剑压巅峰 (Max Stack - 10 Layers)
 *   **Tech**: Instanced Static Mesh, Sine Wave positioning in Vertex Shader.
 
 ### 3.4 剑气护体 (Blade Ward)
-*   **表现**: 快速旋转的剑影形成护盾。
+*   **表现**: 召唤 3 柄旋转的灵体剑影形成防御周身。
 *   **Visual Breakdown**:
-    *   **护盾**:
-        *   不使用实体模型，而是使用一个 Billboard 或 Cylinder。
-        *   Shader 使用 **极坐标 (Polar Coordinates)** 旋转 `trail_noise.png`，模拟高速旋转的动态模糊感。
-    *   **格挡**: 触发时，护盾对应方向亮度瞬间爆发 (Bloom)，并弹出火花粒子。
+    *   **护盾主体**:
+        *   三柄高亮的水墨剑影（Spirit Swords）呈 120 度角环绕角色高速旋转。
+        *   Shader 使用 **极坐标 (Polar Coordinates)** 在剑影路径上生成半透明的拖尾，模拟高速旋转的动态模糊感。
+    *   **格挡反馈**: 拦截投射物或触发格挡时，对应位置产生强烈的能量爆裂 (Vignette Bloom)，并弹出大量火花粒子。
 
 ### 3.5 万剑归宗 (Infinite Blades)
 *   **表现**: 漫天剑雨落下，覆盖全屏或大范围。
@@ -104,11 +104,14 @@ tiji### 2.2 剑压巅峰 (Max Stack - 10 Layers)
     *   **折返点**: 稍微停顿，产生一个扩散的冲击波圈 (Shockwave)。
 
 ### 3.9 绝影闪 (Phantom Flash)
-*   **表现**: 消失并在原地留下残影。
+*   **表现**: 角色后跳进入残心姿态，受击后瞬间消失并从阴影中发动反击。
 *   **Visual Breakdown**:
-    *   **消失**: 角色瞬间隐形 (Alpha = 0)。
-    *   **残影**: 原地生成一个纯黑色的墨水风格残影 (Ink Silhouette)，边缘带有青色勾边。
-    *   **重现**: 在新位置通过“墨水汇聚”的方式出现。
+    *   **后跳 (Backstep)**: 角色向后滑行，脚下拖出长长的墨迹轨迹，原地留下一个半透明的战斗残影。
+    *   **反击姿态**: 角色进入低帧率动画风格的“蓄势”状态，全身颜色略微变暗，仅双眼或武器发出强光。
+    *   **瞬移反击 (Counter)**:
+        *   受击瞬间，角色化为一团墨水炸裂消失。
+        *   瞬间在攻击者身后重现，挥出一道极其宽阔且高亮的十字水墨斩击 (`vfx_ink_splatter.png`)。
+        *   伴随强烈的屏幕顿帧 (Hit Stop) 和反色视觉效果。
 
 ## 3. 资源需求清单 (Asset Requirements)
 

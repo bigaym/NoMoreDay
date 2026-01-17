@@ -286,7 +286,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: Equipment Salvage & Affix Shards
-- **Folder:** [./conductor/tracks/salvage_system/](./conductor/tracks/salvage_system/)
+- **Folder:** [./conductor/archive/salvage_system_20260117/](./conductor/archive/salvage_system_20260117/)
 - **Description:** Optimized equipment decomposition system with "Zero-Table Mapping" for affix shards. Features include deterministic yield logic, batch processing with safety locks, Context Menu integration, and full UI implementation. (Completed on 2026-01-17)
 - **Status:** COMPLETED
 - **Priority:** HIGH
@@ -294,9 +294,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: UI Visual Polish & Salvage UX
-- **Folder:** [./conductor/tracks/ui_visual_polish/](./conductor/tracks/ui_visual_polish/)
-- **Description:** Enhance global UI aesthetics (texture, borders), implement Ghost Icons for equipment, and completely redesign the Salvage Panel with Altar metaphor and Output Preview.
-- **Status:** PLANNED
+## [x] Track: UI Visual Polish & Salvage UX
+- **Folder:** [./conductor/archive/ui_visual_polish_20260117/](./conductor/archive/ui_visual_polish_20260117/)
+- **Description:** Enhance global UI aesthetics (texture, borders), implement Ghost Icons for equipment, and completely redesign the Salvage Panel with Altar metaphor and Output Preview. (Completed on 2026-01-17)
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2 days
