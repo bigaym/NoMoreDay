@@ -186,6 +186,7 @@ add_library(NoMoreDayCore STATIC
     src/game/systems/item/ItemFactory.cpp
     src/game/systems/item/LootFilter.cpp
     src/game/systems/item/MaterialRegistry.cpp
+    src/game/systems/item/SalvageSystem.cpp
     src/game/systems/item/RunewordSystem.cpp
     src/game/data/ResonanceCalculator.cpp
     src/game/systems/skill/AstrolabeSystem.cpp

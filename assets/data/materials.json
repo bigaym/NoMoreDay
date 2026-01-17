@@ -55,6 +55,438 @@
             "max_stack": 99
         },
         {
+            "id": 4001,
+            "name": "Dexterity Shard",
+            "description": "Powerful residue containing Dexterity.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_1",
+            "max_stack": 9999
+        },
+        {
+            "id": 4002,
+            "name": "Intelligence Shard",
+            "description": "Powerful residue containing Intelligence.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_2",
+            "max_stack": 9999
+        },
+        {
+            "id": 4003,
+            "name": "Vitality Shard",
+            "description": "Powerful residue containing Vitality.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_3",
+            "max_stack": 9999
+        },
+        {
+            "id": 4004,
+            "name": "All Attributes Shard",
+            "description": "Powerful residue containing All Attributes.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_4",
+            "max_stack": 9999
+        },
+        {
+            "id": 4005,
+            "name": "Flat Physical Damage Shard",
+            "description": "Powerful residue containing Flat Physical Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_5",
+            "max_stack": 9999
+        },
+        {
+            "id": 4006,
+            "name": "Flat Fire Damage Shard",
+            "description": "Powerful residue containing Flat Fire Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_6",
+            "max_stack": 9999
+        },
+        {
+            "id": 4007,
+            "name": "Flat Cold Damage Shard",
+            "description": "Powerful residue containing Flat Cold Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_7",
+            "max_stack": 9999
+        },
+        {
+            "id": 4008,
+            "name": "Flat Lightning Damage Shard",
+            "description": "Powerful residue containing Flat Lightning Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_8",
+            "max_stack": 9999
+        },
+        {
+            "id": 4009,
+            "name": "Flat Poison Damage Shard",
+            "description": "Powerful residue containing Flat Poison Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_9",
+            "max_stack": 9999
+        },
+        {
+            "id": 4010,
+            "name": "Flat Shadow Damage Shard",
+            "description": "Powerful residue containing Flat Shadow Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_10",
+            "max_stack": 9999
+        },
+        {
+            "id": 4011,
+            "name": "Percent Physical Damage Shard",
+            "description": "Powerful residue containing Percent Physical Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_11",
+            "max_stack": 9999
+        },
+        {
+            "id": 4012,
+            "name": "Percent Fire Damage Shard",
+            "description": "Powerful residue containing Percent Fire Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_12",
+            "max_stack": 9999
+        },
+        {
+            "id": 4013,
+            "name": "Percent Cold Damage Shard",
+            "description": "Powerful residue containing Percent Cold Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_13",
+            "max_stack": 9999
+        },
+        {
+            "id": 4014,
+            "name": "Percent Lightning Damage Shard",
+            "description": "Powerful residue containing Percent Lightning Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_14",
+            "max_stack": 9999
+        },
+        {
+            "id": 4015,
+            "name": "Percent Poison Damage Shard",
+            "description": "Powerful residue containing Percent Poison Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_15",
+            "max_stack": 9999
+        },
+        {
+            "id": 4016,
+            "name": "Percent Shadow Damage Shard",
+            "description": "Powerful residue containing Percent Shadow Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_16",
+            "max_stack": 9999
+        },
+        {
+            "id": 4017,
+            "name": "Crit Chance Shard",
+            "description": "Powerful residue containing Crit Chance.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_17",
+            "max_stack": 9999
+        },
+        {
+            "id": 4018,
+            "name": "Crit Damage Shard",
+            "description": "Powerful residue containing Crit Damage.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_18",
+            "max_stack": 9999
+        },
+        {
+            "id": 4019,
+            "name": "Attack Speed Shard",
+            "description": "Powerful residue containing Attack Speed.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_19",
+            "max_stack": 9999
+        },
+        {
+            "id": 4020,
+            "name": "Cast Speed Shard",
+            "description": "Powerful residue containing Cast Speed.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_20",
+            "max_stack": 9999
+        },
+        {
+            "id": 4021,
+            "name": "Accuracy Shard",
+            "description": "Powerful residue containing Accuracy.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_21",
+            "max_stack": 9999
+        },
+        {
+            "id": 4022,
+            "name": "Flat Armor Shard",
+            "description": "Powerful residue containing Flat Armor.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_22",
+            "max_stack": 9999
+        },
+        {
+            "id": 4023,
+            "name": "Percent Armor Shard",
+            "description": "Powerful residue containing Percent Armor.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_23",
+            "max_stack": 9999
+        },
+        {
+            "id": 4024,
+            "name": "Flat Health Shard",
+            "description": "Powerful residue containing Flat Health.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_24",
+            "max_stack": 9999
+        },
+        {
+            "id": 4025,
+            "name": "Percent Health Shard",
+            "description": "Powerful residue containing Percent Health.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_25",
+            "max_stack": 9999
+        },
+        {
+            "id": 4026,
+            "name": "Flat Mana Shard",
+            "description": "Powerful residue containing Flat Mana.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_26",
+            "max_stack": 9999
+        },
+        {
+            "id": 4027,
+            "name": "Resist All Shard",
+            "description": "Powerful residue containing Resist All.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_27",
+            "max_stack": 9999
+        },
+        {
+            "id": 4028,
+            "name": "Resist Fire Shard",
+            "description": "Powerful residue containing Resist Fire.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_28",
+            "max_stack": 9999
+        },
+        {
+            "id": 4029,
+            "name": "Resist Cold Shard",
+            "description": "Powerful residue containing Resist Cold.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_29",
+            "max_stack": 9999
+        },
+        {
+            "id": 4030,
+            "name": "Resist Lightning Shard",
+            "description": "Powerful residue containing Resist Lightning.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_30",
+            "max_stack": 9999
+        },
+        {
+            "id": 4031,
+            "name": "Resist Poison Shard",
+            "description": "Powerful residue containing Resist Poison.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_31",
+            "max_stack": 9999
+        },
+        {
+            "id": 4032,
+            "name": "Resist Shadow Shard",
+            "description": "Powerful residue containing Resist Shadow.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_32",
+            "max_stack": 9999
+        },
+        {
+            "id": 4033,
+            "name": "Thorns Shard",
+            "description": "Powerful residue containing Thorns.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_33",
+            "max_stack": 9999
+        },
+        {
+            "id": 4034,
+            "name": "Damage Reduction Shard",
+            "description": "Powerful residue containing Damage Reduction.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_34",
+            "max_stack": 9999
+        },
+        {
+            "id": 4035,
+            "name": "Health Regen Shard",
+            "description": "Powerful residue containing Health Regen.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_35",
+            "max_stack": 9999
+        },
+        {
+            "id": 4036,
+            "name": "Mana Regen Shard",
+            "description": "Powerful residue containing Mana Regen.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_36",
+            "max_stack": 9999
+        },
+        {
+            "id": 4037,
+            "name": "Percent Health Regen Shard",
+            "description": "Powerful residue containing Percent Health Regen.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_37",
+            "max_stack": 9999
+        },
+        {
+            "id": 4038,
+            "name": "Percent Mana Regen Shard",
+            "description": "Powerful residue containing Percent Mana Regen.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_38",
+            "max_stack": 9999
+        },
+        {
+            "id": 4039,
+            "name": "Move Speed Shard",
+            "description": "Powerful residue containing Move Speed.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_39",
+            "max_stack": 9999
+        },
+        {
+            "id": 4040,
+            "name": "Cooldown Reduction Shard",
+            "description": "Powerful residue containing Cooldown Reduction.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_40",
+            "max_stack": 9999
+        },
+        {
+            "id": 4041,
+            "name": "Life Steal Shard",
+            "description": "Powerful residue containing Life Steal.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_41",
+            "max_stack": 9999
+        },
+        {
+            "id": 4042,
+            "name": "Life On Hit Shard",
+            "description": "Powerful residue containing Life On Hit.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_42",
+            "max_stack": 9999
+        },
+        {
+            "id": 4043,
+            "name": "Mana On Hit Shard",
+            "description": "Powerful residue containing Mana On Hit.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_43",
+            "max_stack": 9999
+        },
+        {
+            "id": 4044,
+            "name": "Plus All Skills Shard",
+            "description": "Powerful residue containing Plus All Skills.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_44",
+            "max_stack": 9999
+        },
+        {
+            "id": 4045,
+            "name": "Plus Flowing Thrust Shard",
+            "description": "Powerful residue containing Plus Flowing Thrust.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_45",
+            "max_stack": 9999
+        },
+        {
+            "id": 4046,
+            "name": "Plus Rending Wave Shard",
+            "description": "Powerful residue containing Plus Rending Wave.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_46",
+            "max_stack": 9999
+        },
+        {
+            "id": 4047,
+            "name": "Titan Grip Shard",
+            "description": "Powerful residue containing Titan Grip.",
+            "category": "Affix Shard",
+            "rarity": "Magic",
+            "icon": "icon_shard_47",
+            "max_stack": 9999
+        },
+        {
+            "id": 4999,
+            "name": "Legendary Essence",
+            "description": "Pure essence extracted from legendary powers.",
+            "category": "Affix Shard",
+            "rarity": "Legendary",
+            "icon": "icon_essence_legendary",
+            "max_stack": 999
+        },
+        {
             "id": 10001,
             "name": "Legendary Core",
             "description": "Catalyst for Legendary Fusion",

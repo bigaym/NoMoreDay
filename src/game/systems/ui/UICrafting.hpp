@@ -29,13 +29,14 @@ private:
     static inline entt::entity m_catalystItem = entt::null;
     static inline int m_selectedAffixIndex = -1;
     
-    enum class CraftingTab { Forging, Merging };
+    enum class CraftingTab { Forging, Merging, Salvaging };
     static inline CraftingTab m_currentTab = CraftingTab::Forging;
 
     static inline float m_craftingAlpha = 0.0f;
     static inline bool m_visible = false;
     
     static void DrawMergePanel(entt::registry& registry, float startX, float startY, float panelW, float panelH, float alpha);
+    static void DrawSalvagePanel(entt::registry& registry, float startX, float startY, float panelW, float panelH, float alpha);
 };
 
 }

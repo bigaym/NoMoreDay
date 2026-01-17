@@ -92,6 +92,12 @@ void UISystem::Shutdown() {
 
 // --- Helper ---
 
+entt::entity UISystem::GetPlayerEntity(entt::registry& registry) {
+    auto view = registry.view<PlayerTag>();
+    if (view.begin() == view.end()) return entt::null;
+    return view.front();
+}
+
 Vector2 UISystem::GetMousePositionLogic() {
     Vector2 m = GetMousePosition();
     float s = State.scaleFactor;

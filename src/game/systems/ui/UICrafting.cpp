@@ -3,9 +3,12 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "game/components/ItemComponent.hpp"
+#include "game/components/InventoryComponent.hpp"
 #include "game/components/ItemStats.hpp"
 #include "game/systems/item/CraftingSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
+#include "game/systems/item/MaterialRegistry.hpp"
+#include "game/systems/item/SalvageSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include <algorithm>
 #include <cmath>
@@ -113,6 +116,7 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
 
   DrawTab("锻造 (Forge)", CraftingTab::Forging);
   DrawTab("融合 (Merge)", CraftingTab::Merging);
+  DrawTab("分解 (Salvage)", CraftingTab::Salvaging);
 
   // Close Button
   if (CheckCollisionPointRec(GetMousePosition(),
@@ -128,6 +132,10 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
 
   if (m_currentTab == CraftingTab::Merging) {
     DrawMergePanel(registry, startX, startY, panelW, panelH, alpha);
+    return;
+  }
+  if (m_currentTab == CraftingTab::Salvaging) {
+    DrawSalvagePanel(registry, startX, startY, panelW, panelH, alpha);
     return;
   }
 
@@ -482,6 +490,128 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity) {
       DrawAffixRow(nullptr, -1, false, i);
     }
   }
+}
+
+void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
+                                 float startY, float panelW, float panelH,
+                                 float alpha) {
+  auto &state = UISystem::State;
+  float slotSize = 80.0f * state.scaleFactor;
+  float midX = startX + panelW / 2.0f;
+  float slotY = startY + 100.0f * state.scaleFactor;
+
+  // Single Item Salvage Slot
+  UIRenderer::DrawSlot(state.globalFont, registry, midX - slotSize / 2.0f, slotY,
+                       slotSize, m_targetItem, "放入分解物品", false, false,
+                       alpha);
+
+  // Handle Drop
+  Rectangle slotRect = {midX - slotSize / 2.0f, slotY, slotSize, slotSize};
+  if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
+    if (state.draggedItem != entt::null &&
+        IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+      if (registry.any_of<ItemComponent>(state.draggedItem)) {
+        const auto &item = registry.get<ItemComponent>(state.draggedItem);
+        if (SalvageSystem::CanSalvage(item)) {
+          m_targetItem = state.draggedItem;
+          state.draggedItem = entt::null;
+        }
+      }
+    }
+    if (m_targetItem != entt::null) {
+      state.hoveredItem = entt::null;
+      UIRenderer::DrawTooltip(state.globalFont, registry, m_targetItem, alpha);
+    }
+  }
+
+  // Yield Preview
+  if (m_targetItem != entt::null && registry.valid(m_targetItem)) {
+    const auto &item = registry.get<ItemComponent>(m_targetItem);
+    auto yield = SalvageSystem::CalculateYield(item);
+
+    float yieldY = slotY + slotSize + 40.0f * state.scaleFactor;
+    UISystem::DrawTextUI("预估产出 (Estimated Yield):", startX + 40, yieldY, 20,
+                         LIGHTGRAY, alpha);
+    yieldY += 30.0f;
+
+    if (yield.empty()) {
+      UISystem::DrawTextUI("该物品无产出 (No yield)", startX + 60, yieldY, 18,
+                           GRAY, alpha);
+    } else {
+      for (const auto &res : yield) {
+        const auto *def = MaterialRegistry::Get().GetMaterial(res.materialId);
+        char buf[128];
+        snprintf(buf, 128, "%s x %d",
+                 def ? def->name.c_str() : "Unknown Shard", res.count);
+        UISystem::DrawTextUI(buf, startX + 60, yieldY, 18, WHITE, alpha);
+        yieldY += 25.0f;
+      }
+    }
+
+    // Salvage Button
+    float btnW = 160.0f * state.scaleFactor;
+    float btnH = 50.0f * state.scaleFactor;
+    float btnX = midX - btnW / 2.0f;
+    float btnY = startY + panelH - 100.0f * state.scaleFactor;
+
+    Rectangle btnRect = {btnX, btnY, btnW, btnH};
+    bool hover = CheckCollisionPointRec(GetMousePosition(), btnRect);
+    DrawRectangleRec(btnRect, Fade(hover ? RED : Color{180, 0, 0, 255}, alpha));
+    DrawRectangleLinesEx(btnRect, 2.0f, Fade(WHITE, 0.5f * alpha));
+    UISystem::DrawTextUI("分解 (SALVAGE)", btnX + 25, btnY + 15, 20, WHITE,
+                         alpha);
+
+    if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+      // Execute Salvage
+      auto playerEnt = UISystem::GetPlayerEntity(registry);
+      SalvageSystem::Execute(registry, m_targetItem, playerEnt);
+      m_targetItem = entt::null;
+      
+      // Simple Sound/VFX Placeholder
+      // ...
+    }
+  }
+
+  // Batch Salvage Options
+  float batchY = startY + panelH - 250.0f * state.scaleFactor;
+  UISystem::DrawTextUI("快速分解 (Quick Salvage):", startX + 40, batchY, 20,
+                       GOLD, alpha);
+  batchY += 40.0f;
+
+  auto DrawBatchButton = [&](const char *label, Rarity maxRarity, float x,
+                             float y) {
+    float bW = 200.0f * state.scaleFactor;
+    float bH = 40.0f * state.scaleFactor;
+    Rectangle r = {x, y, bW, bH};
+    bool h = CheckCollisionPointRec(GetMousePosition(), r);
+
+    DrawRectangleRec(r, Fade(h ? DARKGRAY : Color{40, 40, 50, 255}, alpha));
+    DrawRectangleLinesEx(r, 1.0f, Fade(GRAY, alpha));
+    UISystem::DrawTextUI(label, x + 10, y + 10, 18, WHITE, alpha);
+
+    if (h && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+      auto playerEnt = UISystem::GetPlayerEntity(registry);
+      auto* inv = registry.try_get<InventoryComponent>(playerEnt);
+      if (!inv) return;
+
+      std::vector<entt::entity> toSalvage;
+      for (auto entity : inv->items) {
+        if (!registry.valid(entity)) continue;
+        const auto &item = registry.get<ItemComponent>(entity);
+        
+        // Only salvage if within rarity filter and satisfies CanSalvage (checks isLocked, Type, etc.)
+        if (item.rarity <= maxRarity && SalvageSystem::CanSalvage(item)) {
+           toSalvage.push_back(entity);
+        }
+      }
+      
+      if (!toSalvage.empty()) {
+          SalvageSystem::BatchExecute(registry, toSalvage, playerEnt);
+      }
+    }
+  };
+
+  DrawBatchButton("分解所有 稀有/魔法", Rarity::Rare, startX + 40, batchY);
 }
 
 } // namespace NoMoreDay

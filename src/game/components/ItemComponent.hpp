@@ -133,6 +133,8 @@ struct ItemComponent {
 
   // Description
   std::string description;
+
+  bool isLocked = false; // Prevents accidental salvage/sell
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity,
                                    quantity, maxStack, value, attack, defense,
@@ -141,7 +143,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ItemComponent, id, name, type, slot, rarity,
                                    legendaryPotential, implicits, affixes,
                                    conversions, damage_modifiers,
                                    socketCount, sockets, textureId,
-                                   activeRunewordId, description)
+                                   activeRunewordId, description, isLocked)
 
 /**
  * @brief 附加到敌人实体上，定义其掉落物的组件。

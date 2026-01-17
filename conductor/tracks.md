@@ -282,3 +282,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 1 day
+
+---
+
+## [x] Track: Equipment Salvage & Affix Shards
+- **Folder:** [./conductor/tracks/salvage_system/](./conductor/tracks/salvage_system/)
+- **Description:** Optimized equipment decomposition system with "Zero-Table Mapping" for affix shards. Features include deterministic yield logic, batch processing with safety locks, Context Menu integration, and full UI implementation. (Completed on 2026-01-17)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 2 days

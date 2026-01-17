@@ -11,6 +11,7 @@ using namespace NoMoreDay;
 #include "CombatSystemTests.hpp"
 #include "ItemEquipmentTests.hpp"
 #include "SkillSystemTests.hpp"
+#include "SalvageSystemTests.hpp"
 #include "UITests.hpp"
 
 // System and World Tests

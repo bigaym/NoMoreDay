@@ -218,6 +218,12 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
                    x + size - 15, y + size - 15, 12, s_theme.textPrimary,
                    alpha);
       }
+
+      if (isLocked || itemComp->isLocked) {
+          // Draw a small lock icon or indicator
+          DrawRectangleRec({sx + 2, sy + 2, 12 * s_uiScale, 12 * s_uiScale}, ApplyAlpha(RED, 0.8f * alpha));
+          DrawTextUI(font, "L", x + 3, y + 2, 11, WHITE, alpha);
+      }
     }
   }
 }
@@ -1107,7 +1113,8 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
     btnCount++; // Add Craft count
   if (showDrop)
     btnCount++;
-  btnCount++;
+  btnCount++; // Lock button
+  btnCount++; // Cancel button
 
   float h = btnCount * btnH + 20.0f;
 
@@ -1222,6 +1229,13 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
                                 uiContext.contextMenuItem);
       uiContext.showContextMenu = false;
     }
+  }
+
+  // Lock/Unlock toggle
+  const char* lockLabel = itemComp->isLocked ? "解锁 (Unlock)" : "锁定 (Lock)";
+  if (DrawMenuBtn(lockLabel, itemComp->isLocked ? GREEN : GOLD)) {
+      itemComp->isLocked = !itemComp->isLocked;
+      uiContext.showContextMenu = false;
   }
 
   if (btnCount > 1) {
