@@ -274,3 +274,11 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** MEDIUM
 - **Estimated Time:** 1 day
+---
+
+## [x] Track: Legendary Affix System Infrastructure
+- **Folder:** [./conductor/archive/legendary_affix_system_20260117/](./conductor/archive/legendary_affix_system_20260117/)
+- **Description:** 实现传奇和独特词缀的基础设施。将 AffixType 升级为 uint16_t，引入语义化 ID 区间锚点，移除冗余布尔标志，并在 ItemFactory 中实现了基于 JSON 的动态词缀加载与过滤逻辑。 (Completed on 2026-01-17)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1 day

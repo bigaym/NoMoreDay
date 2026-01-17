@@ -1,0 +1,934 @@
+[
+    {
+        "id": "leg_infernal_touch",
+        "type": 1001,
+        "nameTemplate": "炼狱之触",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "gloves",
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_absolute_zero",
+        "type": 1002,
+        "nameTemplate": "绝对零度",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "gloves",
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_thunderlord",
+        "type": 1003,
+        "nameTemplate": "雷霆领主",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "shoulder",
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_void_gaze",
+        "type": 1004,
+        "nameTemplate": "虚空凝视",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "head"
+        ]
+    },
+    {
+        "id": "leg_burning_steps",
+        "type": 1005,
+        "nameTemplate": "烈焰步",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "boots"
+        ]
+    },
+    {
+        "id": "leg_frozen_heart",
+        "type": 1006,
+        "nameTemplate": "冰封之心",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "chest"
+        ]
+    },
+    {
+        "id": "leg_static_charge",
+        "type": 1007,
+        "nameTemplate": "静电积蓄",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "boots",
+            "offhand"
+        ]
+    },
+    {
+        "id": "leg_shadow_clone",
+        "type": 1008,
+        "nameTemplate": "影分身",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "legs",
+            "boots"
+        ]
+    },
+    {
+        "id": "leg_phoenix_rebirth",
+        "type": 1009,
+        "nameTemplate": "凤凰涅槃",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "chest",
+            "amulet"
+        ]
+    },
+    {
+        "id": "leg_elemental_harmony",
+        "type": 1010,
+        "nameTemplate": "元素谐振",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "jewelry"
+        ]
+    },
+    {
+        "id": "leg_vampiric_thirst",
+        "type": 1011,
+        "nameTemplate": "鲜血渴求",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "ring",
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_berserker_rage",
+        "type": 1012,
+        "nameTemplate": "狂战士之怒",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "shoulder",
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_glass_cannon",
+        "type": 1013,
+        "nameTemplate": "玻璃大炮",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_titans_grip",
+        "type": 1014,
+        "nameTemplate": "泰坦之握",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "gloves"
+        ]
+    },
+    {
+        "id": "leg_sure_strikes",
+        "type": 1015,
+        "nameTemplate": "必中之刃",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "head",
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_momentum",
+        "type": 1016,
+        "nameTemplate": "动能积累",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "boots"
+        ]
+    },
+    {
+        "id": "leg_echo",
+        "type": 1017,
+        "nameTemplate": "回响",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "ring",
+            "armor"
+        ]
+    },
+    {
+        "id": "leg_executioner",
+        "type": 1018,
+        "nameTemplate": "处决者",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ]
+    },
+    {
+        "id": "leg_blood_magic",
+        "type": 1019,
+        "nameTemplate": "鲜血魔法",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "chest",
+            "offhand"
+        ]
+    },
+    {
+        "id": "leg_mana_shield",
+        "type": 1020,
+        "nameTemplate": "法力护盾",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "ring",
+            "offhand"
+        ]
+    },
+    {
+        "id": "leg_thornmail",
+        "type": 1021,
+        "nameTemplate": "荆棘板甲",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "chest"
+        ]
+    },
+    {
+        "id": "leg_unstoppable",
+        "type": 1022,
+        "nameTemplate": "势不可挡",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "boots",
+            "head"
+        ]
+    },
+    {
+        "id": "leg_goldskin",
+        "type": 1023,
+        "nameTemplate": "黄金之肤",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "chest"
+        ]
+    },
+    {
+        "id": "leg_scavenger",
+        "type": 1024,
+        "nameTemplate": "拾荒者",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "ring",
+            "amulet"
+        ]
+    },
+    {
+        "id": "leg_phase_walk",
+        "type": 1025,
+        "nameTemplate": "相位行者",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "boots"
+        ]
+    },
+    {
+        "id": "leg_giant_slayer",
+        "type": 1026,
+        "nameTemplate": "巨人杀手",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "offhand"
+        ]
+    },
+    {
+        "id": "leg_greed",
+        "type": 1027,
+        "nameTemplate": "贪婪",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "ring"
+        ]
+    },
+    {
+        "id": "leg_second_wind",
+        "type": 1028,
+        "nameTemplate": "重整旗鼓",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "head",
+            "belt"
+        ]
+    },
+    {
+        "id": "leg_fortress",
+        "type": 1029,
+        "nameTemplate": "移动堡垒",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "legs"
+        ]
+    },
+    {
+        "id": "leg_grandmaster",
+        "type": 1030,
+        "nameTemplate": "一代宗师",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "ring"
+        ]
+    },
+    {
+        "id": "leg_endless_flow",
+        "type": 1101,
+        "nameTemplate": "无尽剑流",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon",
+            "jewelry"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_blade_resonance",
+        "type": 1102,
+        "nameTemplate": "剑气共鸣",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "chest"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_phantom_edge",
+        "type": 1103,
+        "nameTemplate": "幻影锋刃",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "gloves"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_sword_heart",
+        "type": 1104,
+        "nameTemplate": "剑心通明",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "head"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_qi_infusion",
+        "type": 1105,
+        "nameTemplate": "真气灌注",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_heavenly_strike",
+        "type": 1106,
+        "nameTemplate": "天雷剑引",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_blade_barrier",
+        "type": 1107,
+        "nameTemplate": "护体剑罡",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "shoulder"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_spirit_sword",
+        "type": 1108,
+        "nameTemplate": "元神御剑",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_sword_domain",
+        "type": 1109,
+        "nameTemplate": "绝剑领域",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "boots",
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_formless_blade",
+        "type": 1110,
+        "nameTemplate": "无形之刃",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "jewelry"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_lifestone",
+        "type": 1111,
+        "nameTemplate": "生命之石",
+        "isPrefix": false,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "belt",
+            "jewelry"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_rending_storm",
+        "type": 1112,
+        "nameTemplate": "裂空风暴",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_flowing_river",
+        "type": 1113,
+        "nameTemplate": "川流不息",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_infinite_formation",
+        "type": 1114,
+        "nameTemplate": "万剑归宗",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "head",
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_boomerang_galaxy",
+        "type": 1115,
+        "nameTemplate": "星河回旋",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "gloves",
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_shadow_dash",
+        "type": 1116,
+        "nameTemplate": "幽影闪",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "boots"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_sword_god",
+        "type": 1117,
+        "nameTemplate": "剑神降世",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "head",
+            "amulet"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_mind_pierce",
+        "type": 1118,
+        "nameTemplate": "心剑穿刺",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_blade_storm_ward",
+        "type": 1119,
+        "nameTemplate": "剑刃风暴",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "chest"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    },
+    {
+        "id": "leg_whirlwind",
+        "type": 1120,
+        "nameTemplate": "旋风斩",
+        "isPrefix": true,
+        "tiers": [
+            {
+                "tier": 7,
+                "minLevel": 1,
+                "minValue": 1.0,
+                "maxValue": 1.0
+            }
+        ],
+        "allowedTags": [
+            "weapon"
+        ],
+        "requiredSkillTags": [
+            "blade_ascendant"
+        ]
+    }
+]

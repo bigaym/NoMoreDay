@@ -39,6 +39,7 @@ add_executable(tests_runner
     MaterialSystemTests.cpp
     TestRunewordSystem.cpp
     TestStatsOptimization.cpp
+    TestLegendaryInfrastructure.cpp
 )
 target_include_directories(tests_runner PRIVATE 
     ${CMAKE_SOURCE_DIR}/third_party/doctest

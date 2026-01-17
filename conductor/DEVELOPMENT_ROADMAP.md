@@ -18,7 +18,8 @@
 ### 🔍 代码审计发现的缺失 (对比设计文档)
 | 缺失项 | 现状 | 影响 |
 |------|------|------|
-| **符文语 (Runewords)** | ❌ 尚未实现 | 仅有基础插槽，缺乏 D2 式的序列加成，白装价值低 |
+| **符文语 (Runewords)** | ✅ 完成 | 33 种符文、底材匹配序列、激活逻辑与位点集成 |
+| **传奇词缀基础设施** | ✅ 完成 | uint16 ID 空间、语义化锚点、JSON 动态描述加载回调 |
 | **宿敌针对性进化** | 🔄 基础实现 | 目前仅支持单一主伤害类型抗性，缺乏对复杂 Build 的分析 |
 | **高级精英词缀** | 🔄 数量不足 | 仅实现 SoulLink, Avenger；缺失 Molten, Mirror Image, Nullifier 等 |
 | **第二职业 (Mage/Ranger)** | ❌ 尚未启动 | 目前仅有“剑修”职业及其分支 |
@@ -41,8 +42,11 @@
 - [x] **实现符文语系统 (Runewords)**
     - 定义 33 种符文及其在不同底材上的序列组合。
     - 实现 `RunewordSystem`，在物品插槽填满时检查并应用特殊特效。
-- [ ] **底材价值重构**
+- [x] **底材价值重构**
     - 增加“底材隐性属性 (Implicit)”系统，使同类武器的不同底材具有差异化。
+- [x] **实现传奇词缀基础设施 (Legendary Affix Infra)**
+    - 将 AffixType 升级为 uint16_t (0-65535)，定义 Normal (0-999) 和 Legendary (1000-1999) 锚点。
+    - 实现 `GetAffixNameLookup` 回调接口，支持从 `legendary_affixes.json` 动态加载词缀描述。
 
 - [x] **Code Risk Mitigation**
     - **SkillSystem**: Fixed UAF vulnerability using Collect-then-Process pattern.

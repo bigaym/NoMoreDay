@@ -97,6 +97,7 @@ void ItemFactory::initialize() {
 
   // 加载词缀定义
   loadAffixDefinitions("assets/data/affixes.json");
+  loadAffixDefinitions("assets/data/legendary_affixes.json");
 
   // 加载掉落池定义
   loadLootPools("assets/data/loot_tables.json");
@@ -106,6 +107,15 @@ void ItemFactory::initialize() {
 
   // Initialize Runeword System
   RunewordSystem::initialize();
+
+  // Setup UI Lookup for Affix Names
+  GetAffixNameLookup() = [](AffixType type) -> const char * {
+    for (const auto &def : s_affixDefinitions) {
+      if (def.type == type)
+        return def.nameTemplate.c_str();
+    }
+    return nullptr;
+  };
 }
 
 void ItemFactory::loadAffixDefinitions(const std::string &path) {
@@ -118,11 +128,12 @@ void ItemFactory::loadAffixDefinitions(const std::string &path) {
   try {
     nlohmann::json j;
     file >> j;
-    s_affixDefinitions = j.get<std::vector<AffixDefinition>>();
-    LOG_INFO("ItemFactory: 成功加载了 {} 个词缀定义。",
-             s_affixDefinitions.size());
+    auto newDefs = j.get<std::vector<AffixDefinition>>();
+    s_affixDefinitions.insert(s_affixDefinitions.end(), newDefs.begin(), newDefs.end());
+    LOG_INFO("ItemFactory: 从 {} 成功加载了 {} 个词缀定义 (总计: {})。",
+             path, newDefs.size(), s_affixDefinitions.size());
   } catch (const std::exception &e) {
-    LOG_ERROR("ItemFactory: 解析词缀定义文件时出错: {}", e.what());
+    LOG_ERROR("ItemFactory: 解析词缀定义文件 {} 时出错: {}", path, e.what());
   }
 }
 
@@ -405,6 +416,31 @@ static void fillAffixDetails(Affix &affix, AffixType type, int tier) {
 
 Affix ItemFactory::createAffix(AffixType type, int tier) {
   Affix affix;
+  affix.type = type;
+  affix.tier = tier;
+
+  // Try to find in definitions first (for JSON-driven values)
+  for (const auto& def : s_affixDefinitions) {
+      if (def.type == type) {
+          affix.isPrefix = def.isPrefix;
+          // Find tier
+          for (const auto& t : def.tiers) {
+              if (t.tier == tier) {
+                  affix.value = (t.maxValue > t.minValue) ? 
+                                std::uniform_real_distribution<float>(t.minValue, t.maxValue)(g_rng) : 
+                                t.minValue;
+                  return affix;
+              }
+          }
+          // Default to first tier if requested tier not found
+          if (!def.tiers.empty()) {
+              affix.value = def.tiers[0].minValue;
+              return affix;
+          }
+      }
+  }
+
+  // Fallback to hardcoded logic
   fillAffixDetails(affix, type, tier);
   return affix;
 }
@@ -507,6 +543,7 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
 
     for (const auto& def : s_affixDefinitions) {
       if (def.isPrefix != isPrefix) continue;
+      if (!IsRandomRollableAffix(def.type)) continue; // 排除传奇/独特词缀
       
       bool tagMatch = false;
       for (const auto& sTag : slotTags) {
@@ -622,6 +659,7 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
     // 从数据库筛选
     for (const auto& def : s_affixDefinitions) {
       if (def.isPrefix != isPrefix) continue;
+      if (!IsRandomRollableAffix(def.type)) continue; // 排除传奇/独特词缀
       
       bool tagMatch = false;
       for (const auto& sTag : slotTags) {

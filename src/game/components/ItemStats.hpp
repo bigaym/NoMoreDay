@@ -8,9 +8,12 @@
 
 namespace NoMoreDay {
 
-enum class AffixType : uint8_t {
+enum class AffixType : uint16_t {
+    // --- Range Markers ---
+    Normal_Start = 0,
+
     // Primary Stats
-    Strength,
+    Strength = Normal_Start,
     Dexterity, // 敏捷
     Intelligence,
     Vitality, // 体质
@@ -70,19 +73,46 @@ enum class AffixType : uint8_t {
     PlusRendingWave,    // 46
     TitanGrip,          // 47
 
+    Normal_End = 999,
+
+    // --- Legendary Markers ---
+    Legendary_Start = 1000,
+    Legendary_Regular_Start = 1001,   // 通用传奇 (1001-1099)
+    Legendary_Class_Start = 1101,     // 职业传奇 (1101-1299)
+    Legendary_End = 1999,
+
     Count
 };
 
+// Callback for looking up dynamic names (e.g. from JSON definitions)
+using AffixNameLookupFunc = const char* (*)(AffixType);
+inline AffixNameLookupFunc& GetAffixNameLookup() {
+    static AffixNameLookupFunc lookup = nullptr;
+    return lookup;
+}
+
+// 辅助判断函数
+inline bool IsLegendaryAffix(AffixType type) {
+    return type >= AffixType::Legendary_Start && type <= AffixType::Legendary_End;
+}
+
+inline bool IsRandomRollableAffix(AffixType type) {
+    // 只有 Normal 区间的词缀才允许随机掉落
+    return type >= AffixType::Normal_Start && type <= AffixType::Normal_End;
+}
+
 // 为枚举提供简单的序列化支持 (转为底层整数)
-inline void to_json(nlohmann::json& j, const AffixType& e) { j = static_cast<uint8_t>(e); }
-inline void from_json(const nlohmann::json& j, AffixType& e) { e = static_cast<AffixType>(j.get<uint8_t>()); }
+inline void to_json(nlohmann::json& j, const AffixType& e) { j = static_cast<uint16_t>(e); }
+inline void from_json(const nlohmann::json& j, AffixType& e) { e = static_cast<AffixType>(j.get<uint16_t>()); }
+
+struct Affix;
+inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier = true);
 
 struct Affix {
     AffixType type = AffixType::Count;
     float value = 0.0f;       // 词缀值
     int tier = 0;          // 词缀等级 (1到7，通常T1最低，T7最高/神级)
     bool isPrefix = true;     // true = 前缀, false = 后缀
-    // std::string name;  // REMOVED: Name is dynamically generated to save memory
     Tag required_tags = Tag::None;  // 条件标签，只有技能携带这些标签时该词缀才生效
     bool isLegendary = false; // 是否为传奇融合词缀
 };
@@ -104,8 +134,6 @@ inline void from_json(const nlohmann::json& j, Affix& a) {
     j.at("value").get_to(a.value);
     j.at("tier").get_to(a.tier);
     j.at("isPrefix").get_to(a.isPrefix);
-    
-    // Ignore "name" if present in legacy JSON
     
     if (j.contains("isLegendary")) {
         j.at("isLegendary").get_to(a.isLegendary);
@@ -190,14 +218,16 @@ inline Color GetAffixTierColor(int tier) {
 
 // Returns a human readable string for the affix, e.g. "[T1] +10 Strength"
 inline std::string GetAffixDescription(const Affix& affix, bool showTier = true) {
+    if (IsLegendaryAffix(affix.type)) {
+        return GetAffixDescriptionRef(affix, showTier);
+    }
+    
     std::string text = "";
     if (showTier) {
         text += "[T" + std::to_string(affix.tier) + "] ";
     }
     text += "+";
     text += std::to_string((int)affix.value); // Simplify for now
-    
-    // 百分号在switch语句中处理，以便更好地控制
     
     switch (affix.type) {
         case AffixType::Strength: text += " 力量"; break;
@@ -263,7 +293,7 @@ inline std::string GetAffixDescription(const Affix& affix, bool showTier = true)
 }
 
 // Zero-allocation version using Raylib's TextFormat (Internal pool of buffers)
-inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier = true) {
+inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier) {
     float val = affix.value;
     int tier = affix.tier;
     
@@ -276,8 +306,8 @@ inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier = tr
         case AffixType::Vitality: return TextFormat("%s+%.0f 体质", prefix, val);
         case AffixType::AllAttributes: return TextFormat("%s+%.0f 所有属性", prefix, val);
         
-        case AffixType::FlatHealth: return TextFormat("%s+%.0f 生命", prefix, tier, val);
-        case AffixType::FlatMana: return TextFormat("%s+%.0f 法力", prefix, tier, val);
+        case AffixType::FlatHealth: return TextFormat("%s+%.0f 生命", prefix, val);
+        case AffixType::FlatMana: return TextFormat("%s+%.0f 法力", prefix, val);
         
         case AffixType::FlatPhysicalDamage: return TextFormat("%s+%.0f 物理伤害", prefix, val);
         case AffixType::FlatFireDamage: return TextFormat("%s+%.0f 火焰伤害", prefix, val);
@@ -328,11 +358,20 @@ inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier = tr
         case AffixType::PlusRendingWave: return TextFormat("%s+%.0f 裂空斩等级", prefix, val);
         case AffixType::TitanGrip: return "泰坦之握 (可单手持双手武器)";
 
-        default: return TextFormat("%s+%.1f 属性", prefix, val);
+        default: {
+            if (IsLegendaryAffix(affix.type)) {
+                auto lookup = GetAffixNameLookup();
+                if (lookup) {
+                    const char* name = lookup(affix.type);
+                    if (name) return TextFormat("%s%s", prefix, name);
+                }
+                return TextFormat("%s传奇词缀", prefix);
+            }
+            return TextFormat("%s+%.1f 属性", prefix, val);
+        }
     }
 }
 
-// 符文组件: 标记物品为符文，并定义其在不同装备上的效果
 struct RuneComponent {
     std::vector<Affix> weaponEffects;
     std::vector<Affix> armorEffects;
