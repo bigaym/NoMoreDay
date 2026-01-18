@@ -423,6 +423,26 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
         }
       }
     }
+
+    // --- Blade Ward Interception Logic (Projectiles only) ---
+    if (HasTag(combined_hit_tags, Tag::Projectile)) {
+      if (auto *ward = registry.try_get<BladeWardComponent>(defender)) {
+        if (ward->sword_count > 0) {
+          if (utils::ThreadSafeRandom::GetFloat01() <
+              ward->interception_chance) {
+            if (!ward->is_solidified) {
+              ward->sword_count--;
+            }
+            total_final_damage = 0.0f; // Negate damage
+            result.final_pool.Clear();
+
+            spdlog::info(
+                "Blade Ward: Projectile intercepted! Swords remaining: {}",
+                ward->sword_count);
+          }
+        }
+      }
+    }
   }
 
   result.total_damage = total_final_damage;
@@ -672,12 +692,29 @@ void DamagePipeline::CalculateBatch(
             const auto &attPos = registry.get<Position>(attacker);
             const auto &defPos = registry.get<Position>(res.target);
 
-            // Cast a counter-projectile (e.g. ID 2 Rending Wave but
-            // Gold/Empowered) Or just instant damage. Let's use
-            // SkillSystem::ShadowCast for a "Counter Cut".
+            // Cast a counter-projectile
             NoMoreDay::SkillSystem::ShadowCast(registry, res.target, 2,
                                                {defPos.x, defPos.y},
                                                {attPos.x, attPos.y});
+          }
+        }
+      }
+
+      // --- Blade Ward Interception Logic ---
+      if (HasTag(combined_tags, Tag::Projectile)) {
+        if (auto *ward = registry.try_get<BladeWardComponent>(res.target)) {
+          if (ward->sword_count > 0) {
+            if (utils::ThreadSafeRandom::GetFloat01() <
+                ward->interception_chance) {
+              if (!ward->is_solidified) {
+                ward->sword_count--;
+              }
+              final_damage = 0.0f;
+              counter_triggered = true;
+              spdlog::info("Blade Ward (Batch): Projectile intercepted for "
+                           "entity {}! Swords remaining: {}",
+                           (uint32_t)res.target, ward->sword_count);
+            }
           }
         }
       }

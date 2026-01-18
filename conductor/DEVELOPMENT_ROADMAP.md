@@ -48,9 +48,10 @@
     - 将 AffixType 升级为 uint16_t (0-65535)，定义 Normal (0-999) 和 Legendary (1000-1999) 锚点。
     - 实现 `GetAffixNameLookup` 回调接口，支持从 `legendary_affixes.json` 动态加载词缀描述。
 
-- [x] **Code Risk Mitigation**
-    - **SkillSystem**: Fixed UAF vulnerability using Collect-then-Process pattern.
-    - **GPUFlowFieldSystem**: Fixed resource leaks (missing Release calls) and optimized memory allocation.
+    - **Code Risk Mitigation**: 
+        - **SkillSystem**: Fixed UAF vulnerability and resolved critical test failures for Blade Ward (Interception Logic), Infinite Blades, and Boomerang state transitions.
+        - **GPUFlowFieldSystem**: Fixed resource leaks and ensured correct shader loading path in tests.
+        - **Infrastructure**: Stabilized integration test suite (Astrolabe, ItemFactory) for reliable CI execution.
 
 ### 📍 Phase 10: 敌人生态与宿敌进化 (Advanced AI & Nemesis)
 **优先级：高**。增强战斗的挑战性与交互性。

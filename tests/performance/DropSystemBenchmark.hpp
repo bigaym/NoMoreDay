@@ -1,3 +1,6 @@
+#pragma once
+
+#include "TestCommon.hpp"
 #include <entt/entt.hpp>
 #include "game/components/Common.hpp"
 #include "game/components/ItemComponent.hpp"
@@ -5,23 +8,14 @@
 #include "game/components/PlayerState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/DropSystem.hpp"
-#include "core/logging/Logger.hpp"
 #include <iostream>
 #include <chrono>
 #include <vector>
 
-using namespace NoMoreDay;
+namespace NoMoreDay {
 
-int main() {
-    try {
-        tools::Logger::Init(); 
-        ItemFactory::initialize();
-    } catch (const std::exception& e) {
-        std::cerr << "Init failed: " << e.what() << std::endl;
-        return 1;
-    }
-
-    std::cout << "Starting benchmark..." << std::endl;
+TEST_CASE("Performance: DropSystem Benchmark" * doctest::skip(true)) {
+    TestSetupScope scope;
     entt::registry registry;
     
     auto player = registry.create();
@@ -30,9 +24,7 @@ int main() {
     registry.emplace<PlayerLevel>(player, 10);
 
     const int ENTITY_COUNT = 1000;
-    std::vector<entt::entity> entities;
     
-    // Setup test pool
     LootPool benchmarkPool;
     benchmarkPool.name = "Benchmark Pool";
     benchmarkPool.entries = {
@@ -46,27 +38,14 @@ int main() {
         registry.emplace<Position>(e, (float)i, (float)i);
         registry.emplace<DropTableComponent>(e, 100, 1.0f, 1, 1);
         registry.emplace<KilledTag>(e, player);
-        entities.push_back(e);
     }
 
-    std::cout << "Benchmarking DropSystem with " << ENTITY_COUNT << " entity deaths..." << std::endl;
-
     auto start = std::chrono::high_resolution_clock::now();
-    
     DropSystem::update(registry);
-    
     auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
-
-    std::cout << "Duration: " << duration << " us" << std::endl;
-    std::cout << "Average per death: " << (double)duration / ENTITY_COUNT << " us" << std::endl;
-
-    // Count results
-    auto items = registry.view<ItemComponent>().size();
-    auto gold = registry.view<GoldComponent>().size();
     
-    std::cout << "Total items dropped: " << items << std::endl;
-    std::cout << "Total gold stacks dropped: " << gold << std::endl;
-
-    return 0;
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    std::cout << "[Benchmark] DropSystem Duration for " << ENTITY_COUNT << " deaths: " << duration << " us" << std::endl;
 }
+
+} // namespace NoMoreDay

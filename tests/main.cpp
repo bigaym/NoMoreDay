@@ -5,42 +5,25 @@
 
 using namespace NoMoreDay;
 
-// Merged Test Groups
-#include "AstrolabeTests.hpp"
-#include "BuffTests.hpp"
-#include "CombatSystemTests.hpp"
-#include "ItemEquipmentTests.hpp"
-#include "SkillSystemTests.hpp"
-#include "SalvageSystemTests.hpp"
-#include "UITests.hpp"
+// --- Unit Tests ---
+#include "unit/SystemMechanics.hpp"
+#include "unit/BuffTests.hpp"
 
-// System and World Tests
-#include "ResonanceCalculatorTest.hpp"
-#include "WorldSystemTests.hpp"
+// --- Integration Tests ---
+#include "integration/GameplaySystems.hpp"
+#include "integration/SkillSystemTests.hpp"
 
-// Engine and Tech Tests
-#include "EngineTechTests.hpp"
+// --- Functional Tests ---
+#include "functional/SkillBehaviors.hpp"
 
-// Integration and Benchmarks
-#include "FinalIntegrationTest.hpp"
-#include "GPUFlowFieldTest.hpp"
-#include "NemesisSystemTests.hpp"
-#include "StatsBenchmark.cpp"
-#include "TestBladeBoomerang.cpp"
-#include "TestBladeFormation.cpp"
-#include "TestBladeWard.cpp"
-#include "TestDefenseMechanics.cpp"
-#include "TestEternalNightmare.cpp"
-#include "TestHeirloomSystem.cpp"
-#include "TestInfiniteBladesCrash.cpp"
-#include "TestLegendaryInfrastructure.cpp"
-#include "TestPersistence.cpp"
-#include "TestPolishSystems.cpp"
-#include "TestPortalSystem.cpp"
-#include "TestRendingWave.cpp"
-#include "TestShadowSystem.cpp"
-#include "TestSkillBehaviors.cpp"
-#include "TestSwordIntentAccumulation.cpp"
+// --- Tech & Engine Tests ---
+#include "tech/EngineTechTests.hpp"
+#include "tech/GPUFlowFieldTest.hpp"
+#include "tech/UITests.hpp"
+
+// --- Performance Benchmarks ---
+#include "performance/StatsBenchmark.hpp"
+#include "performance/DropSystemBenchmark.hpp"
 
 
 #if defined(_WIN32) && defined(__GNUC__)

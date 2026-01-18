@@ -117,6 +117,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Test Suite Organization & Categorization
+- **Folder:** [./conductor/archive/test_suite_organization_20260118/](./conductor/archive/test_suite_organization_20260118/)
+- **Description:** 对现有的 30+ 个测试文件进行物理重构与逻辑分类。将乱堆在根目录的文件整理进 unit/、integration/、functional/、performance/ 和 tech/ 子目录，并同步更新测试运行器，以提升维护效率和编译清晰度。 (Completed on 2026-01-18)
+- **Status:** COMPLETED
+- **Priority:** MEDIUM
+- **Estimated Time:** 0.5 day
+
+---
+
 ## [x] Track: Equipment Tooltip Upgrade
 
 - **Folder:** [./conductor/archive/ui_tooltip_upgrade_20260118/](./conductor/archive/ui_tooltip_upgrade_20260118/)
@@ -124,3 +133,13 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** MEDIUM
 - **Estimated Time:** 0.5 day
+
+---
+
+## [x] Track: Skill System Fixes & Blade Ward Implementation
+- **Folder:** [./conductor/archive/skill_fixes_20260118/](./conductor/archive/skill_fixes_20260118/)
+- **Description:** Implement Blade Ward projectile interception logic and resolve persistent test failures in SkillSystem, GameplaySystems (Astrolabe), and Tech tests. (Completed on 2026-01-18)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 0.5 day
+

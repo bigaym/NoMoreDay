@@ -11,7 +11,7 @@ description: 担任产品经理和系统设计师。在需要规划新功能、�
 ## 智能设计工具集 (Smart Tree Powered)
 - **🧠 记忆回溯**: `memory {operation:'find', keywords:['design_pattern', 'architecture']}` 确保设计延续性。
 - **📊 依赖分析**: `analyze {mode:'semantic', path:'src/game/systems'}` 理解模块间的数据流转与依赖。
-- **⚡ 结构感知**: `overview {mode:'project', depth:3}` 确保新系统路径符合规范。
+- **⚡ 结构感知**: `overview {mode:'project', depth:10}` 确保新系统路径符合规范。
 - **🔍 深度搜索**: `search {keyword:'...', include_content:true}` 检查现有系统逻辑，避免功能冗余。
 
 ## 核心工作流

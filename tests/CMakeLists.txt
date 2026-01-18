@@ -1,58 +1,22 @@
-# === Benchmark: Stats System ===
-add_executable(StatsBenchmark 
-    StatsBenchmark.cpp
-)
-target_include_directories(StatsBenchmark PRIVATE 
-    ${CMAKE_SOURCE_DIR}/third_party/doctest
-)
-target_link_libraries(StatsBenchmark PRIVATE NoMoreDayCore)
-if(WIN32)
-    target_compile_definitions(StatsBenchmark PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
-    if(MSVC)
-        target_compile_options(StatsBenchmark PRIVATE /GR-)
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        # target_compile_options(StatsBenchmark PRIVATE -fno-rtti) # Disabled for spdlog compatibility
-    endif()
-endif()
-
-# === Benchmark: Drop System ===
-add_executable(DropSystemBenchmark 
-    DropSystemBenchmark.cpp
-)
-target_include_directories(DropSystemBenchmark PRIVATE 
-    ${CMAKE_SOURCE_DIR}/third_party/doctest
-)
-target_link_libraries(DropSystemBenchmark PRIVATE NoMoreDayCore)
-if(WIN32)
-    target_compile_definitions(DropSystemBenchmark PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
-    if(MSVC)
-        target_compile_options(DropSystemBenchmark PRIVATE /GR-)
-    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        # target_compile_options(DropSystemBenchmark PRIVATE -fno-rtti)
-    endif()
-endif()
-
-# === Test Runner ===
-# === Test Runner ===
-add_executable(tests_runner
+# === Test Runner (Single TU) ===
+add_executable(NoMoreDayTests
     main.cpp
-    MaterialSystemTests.cpp
-    TestRunewordSystem.cpp
-    TestStatsOptimization.cpp
-    TestLegendaryInfrastructure.cpp
 )
-target_include_directories(tests_runner PRIVATE 
+
+target_include_directories(NoMoreDayTests PRIVATE 
     ${CMAKE_SOURCE_DIR}/third_party/doctest
     ${CMAKE_SOURCE_DIR}/third_party/entt
-    ${CMAKE_CURRENT_SOURCE_DIR} # To find the .hpp test files
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
-target_link_libraries(tests_runner PRIVATE NoMoreDayCore)
+
+target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayCore)
+
 if(WIN32)
-    target_compile_definitions(tests_runner PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+    target_compile_definitions(NoMoreDayTests PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
 endif()
 
 if(MSVC)
-    target_compile_options(tests_runner PRIVATE /bigobj /GR-)
+    target_compile_options(NoMoreDayTests PRIVATE /bigobj /GR-)
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # target_compile_options(tests_runner PRIVATE -fno-rtti)
+    # target_compile_options(NoMoreDayTests PRIVATE -fno-rtti)
 endif()
