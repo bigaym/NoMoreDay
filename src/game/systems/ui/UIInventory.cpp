@@ -625,10 +625,14 @@ void UIInventory::Draw(entt::registry& registry) {
                 // Rarity Colors?
                 if (def) {
                     switch(def->rarity) {
-                        case Rarity::Uncommon: nameColor = GREEN; break;
-                        case Rarity::Rare: nameColor = BLUE; break;
-                        case Rarity::Epic: nameColor = PURPLE; break;
-                        case Rarity::Legendary: nameColor = ORANGE; break;
+                        case Rarity::Uncommon: nameColor = components::Colors::RARITY_UNCOMMON; break;
+                        case Rarity::Rare: nameColor = components::Colors::RARITY_RARE; break;
+                        case Rarity::Epic: nameColor = components::Colors::RARITY_EPIC; break;
+                        case Rarity::Legendary: nameColor = components::Colors::RARITY_LEGENDARY; break;
+                        case Rarity::Magic: nameColor = components::Colors::RARITY_MAGIC; break;
+                        case Rarity::Set: nameColor = components::Colors::RARITY_SET; break;
+                        case Rarity::Mythic: nameColor = components::Colors::RARITY_MYTHIC; break;
+                        case Rarity::Ancient: nameColor = components::Colors::RARITY_ANCIENT; break;
                         default: break;
                     }
                     UIRenderer::DrawTextUI(font, def->name.c_str(), x + 45, y + 10, 20, nameColor, alpha);

@@ -482,8 +482,8 @@ bool GameplayState::OnUpdate(float dt) {
     float effectiveCooldown = dash.cooldownDuration;
     if (registry.all_of<CombatStats>(entity)) {
       float cdr = registry.get<CombatStats>(entity).cooldown_reduction;
-      if (cdr > 0.75f)
-        cdr = 0.75f;
+      if (cdr > Cap::CDR)
+        cdr = Cap::CDR;
       effectiveCooldown *= (1.0f - cdr);
     }
 
@@ -645,7 +645,7 @@ void GameplayState::UpdatePhysics(float dt) {
             0.8f; // Using slightly smaller radius for map collision buffer
 
         // Horizontal collision
-        if (std::abs(vel.vx) > 0.001f) {
+        if (std::abs(vel.vx) > EPSILON_VELOCITY) {
           float nextX = pos.x + vel.vx * dt;
           int tileX = static_cast<int>(
               (vel.vx > 0 ? nextX + RADIUS : nextX - RADIUS) / TILE_SIZE);
@@ -660,7 +660,7 @@ void GameplayState::UpdatePhysics(float dt) {
         }
 
         // Vertical collision
-        if (std::abs(vel.vy) > 0.001f) {
+        if (std::abs(vel.vy) > EPSILON_VELOCITY) {
           float nextY = pos.y + vel.vy * dt;
           int tileY = static_cast<int>(
               (vel.vy > 0 ? nextY + RADIUS : nextY - RADIUS) / TILE_SIZE);

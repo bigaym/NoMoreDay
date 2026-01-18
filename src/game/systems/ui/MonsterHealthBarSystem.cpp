@@ -6,6 +6,8 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "raymath.h"
+#include "game/systems/ui/UISystem.hpp"
+#include "engine/render/UIRenderer.hpp"
 
 namespace NoMoreDay::systems {
 
@@ -115,8 +117,13 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
                 }
                 
                 float totalLabelWidth = 0.0f;
+                Font font = UISystem::GetFont();
+                float fontSize = 14.0f; // Slightly larger for readability with custom font
+                float textSpacing = 0.0f;
+
                 for (const auto& [name, _] : labels) {
-                    totalLabelWidth += MeasureText(name.data(), 8) + labelSpacing;
+                    Vector2 size = MeasureTextEx(font, name.data(), fontSize, textSpacing);
+                    totalLabelWidth += size.x + labelSpacing;
                 }
                 totalLabelWidth -= labelSpacing; // Remove last spacing
                 
@@ -124,9 +131,9 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
                 float curX = startX;
                 
                 for (const auto& [name, color] : labels) {
-                    float textWidth = (float)MeasureText(name.data(), 8);
-                    DrawText(name.data(), (int)curX, (int)(worldPos.y + labelYOffset), 8, color);
-                    curX += textWidth + labelSpacing;
+                    Vector2 size = MeasureTextEx(font, name.data(), fontSize, textSpacing);
+                    UIRenderer::DrawTextUI(font, name.data(), curX, worldPos.y + labelYOffset, fontSize, color);
+                    curX += size.x + labelSpacing;
                 }
             }
         }

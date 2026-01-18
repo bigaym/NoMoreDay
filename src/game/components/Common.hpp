@@ -192,6 +192,8 @@ namespace Physics {
 constexpr float DEFAULT_ENTITY_RADIUS = 5.0f;    // 实体默认碰撞半径
 constexpr float SEPARATION_DIST_MULT = 2.0f;     // 实体间分离距离倍数
 constexpr float REPULSION_STRENGTH = 200.0f;     // 实体间互相排斥的力度
+constexpr float MAX_VELOCITY = 2000.0f;        // 最大速度限制
+constexpr float EPSILON_VELOCITY = 0.001f;       // 速度归一化/停止判定阈值
 constexpr float MIN_DIST_SQ_THRESHOLD = 0.0001f; // 距离计算的极小过滤阈值
 } // namespace Physics
 
@@ -279,6 +281,7 @@ constexpr float MAX_DELTA_TIME_PARTICLES =
     0.1f; // 粒子模拟的最大允许时间步长（防止卡顿后飞天）
 constexpr float DEFAULT_DELTA_TIME_PARTICLES =
     0.016f; // 默认每帧粒子物理模拟步长 (60fps)---此值不可信，实际帧率由全局设置决定，目前是180fps
+constexpr int MAX_SKILL_EFFECTS = 10000; //同时存在的最大技能特效数量 (GPU Buffer)
 } // namespace Render
 
 namespace Visuals {

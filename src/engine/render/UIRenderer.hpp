@@ -5,25 +5,26 @@
 #include "game/components/ItemComponent.hpp"
 #include "game/components/Buff.hpp"
 #include "game/systems/ui/UIContext.hpp"
+#include "engine/render/GPUData.hpp"
 
 namespace NoMoreDay {
 
     struct UITheme {
-        Color panelBackground = { 35, 35, 45, 180 }; // Lighter Blue-Gray, 70% opacity
-        Color panelBorder = { 70, 70, 85, 255 };     // Lighter Gray
-        Color panelBorderHighlight = { 200, 170, 50, 255 }; // Gold
-        Color slotBackground = { 25, 25, 35, 200 };
+        Color panelBackground = components::Colors::UI_BACKGROUND;
+        Color panelBorder = components::Colors::UI_BORDER;
+        Color panelBorderHighlight = components::Colors::UI_BORDER_HIGHLIGHT;
+        Color slotBackground = components::Colors::UI_SLOT_BG;
         
-        Color textPrimary = { 245, 245, 245, 255 };
-        Color textSecondary = { 180, 180, 180, 255 };
-        Color textHighlight = { 255, 215, 0, 255 };
+        Color textPrimary = components::Colors::TEXT_PRIMARY;
+        Color textSecondary = components::Colors::TEXT_SECONDARY;
+        Color textHighlight = components::Colors::TEXT_HIGHLIGHT;
         
-        Color buttonNormal = { 50, 50, 65, 255 };
-        Color buttonHover = { 70, 70, 95, 255 };
-        Color buttonPress = { 40, 40, 55, 255 };
+        Color buttonNormal = components::Colors::BUTTON_NORMAL;
+        Color buttonHover = components::Colors::BUTTON_HOVER;
+        Color buttonPress = components::Colors::BUTTON_PRESS;
         
-        Color danger = { 200, 50, 50, 255 };
-        Color success = { 50, 200, 50, 255 };
+        Color danger = components::Colors::STATUS_DANGER;
+        Color success = components::Colors::STATUS_SUCCESS;
     };
 
     class UIRenderer {

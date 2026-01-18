@@ -107,13 +107,13 @@ void Game::init() {
   // Initialize GPU Systems
   if (m_gpuInfo.computeShaderSupported) {
     // GPU Particle System (Indirect Drawing)
-    NoMoreDay::systems::GPUParticleSystem::Get().Init(100000);
+    NoMoreDay::systems::GPUParticleSystem::Get().Init(NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
 
     NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
     // Initialize GPU Skill Effect System (Global)
-    NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(m_resourceManager);
+    NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(m_resourceManager, NoMoreDay::Constants::Render::MAX_SKILL_EFFECTS);
   }
 
   // Push Initial State

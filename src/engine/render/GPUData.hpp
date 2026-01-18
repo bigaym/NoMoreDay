@@ -105,11 +105,14 @@ namespace Colors {
     // --- Rarity Colors (物品稀有度) ---
     
     constexpr Color RARITY_COMMON    = { 180, 180, 180, 255 }; // Common / 普通
+    constexpr Color RARITY_UNCOMMON  = { 100, 255, 100, 255 }; // Uncommon / 优秀 (Lime/Green)
     constexpr Color RARITY_MAGIC     = { 60, 130, 255, 255 };  // Magic / 魔法
     constexpr Color RARITY_RARE      = { 255, 220, 0, 255 };   // Rare / 稀有
+    constexpr Color RARITY_SET       = { 0, 255, 0, 255 };     // Set / 套装 (Green)
     constexpr Color RARITY_EPIC      = { 190, 60, 255, 255 };  // Epic / 史诗
     constexpr Color RARITY_LEGENDARY = { 255, 140, 0, 255 };   // Legendary / 传说
     constexpr Color RARITY_MYTHIC    = { 255, 40, 40, 255 };    // Mythic / 神话
+    constexpr Color RARITY_ANCIENT   = { 230, 0, 0, 255 };      // Ancient / 远古
 
     // --- Elemental Colors (元素属性) ---
     
@@ -154,7 +157,30 @@ namespace Colors {
     // Info or Hint Border / 信息或提示边框
     constexpr Color UI_BORDER_INFO      = { 60, 160, 255, 255 };
     // Color for socket info in tooltips
+    // Color for socket info in tooltips
     constexpr Color COLOR_SOCKET_INFO   = { 208, 239, 232, 255 };
+
+    // --- Modern UI Theme Colors (Standardized) ---
+    // Panels
+    constexpr Color UI_BACKGROUND       = { 35, 35, 45, 180 }; // Panel Background
+    constexpr Color UI_BORDER           = { 70, 70, 85, 255 }; // Panel Border
+    constexpr Color UI_BORDER_HIGHLIGHT = { 200, 170, 50, 255 }; // Gold Highlight
+    constexpr Color UI_SLOT_BG          = { 25, 25, 35, 200 }; // Slot Background
+
+    // Text Resources
+    constexpr Color TEXT_PRIMARY        = { 245, 245, 245, 255 };
+    constexpr Color TEXT_SECONDARY      = { 180, 180, 180, 255 };
+    constexpr Color TEXT_HIGHLIGHT      = { 255, 215, 0, 255 };
+
+    // Buttons
+    constexpr Color BUTTON_NORMAL       = { 50, 50, 65, 255 };
+    constexpr Color BUTTON_HOVER        = { 70, 70, 95, 255 };
+    constexpr Color BUTTON_PRESS        = { 40, 40, 55, 255 };
+
+    // Status / Feedback
+    constexpr Color STATUS_DANGER       = { 200, 50, 50, 255 }; // Red/Danger
+    constexpr Color STATUS_SUCCESS      = { 50, 200, 50, 255 }; // Green/Success
+    constexpr Color STATUS_INFO         = { 60, 160, 255, 255 }; // Blue/Info
 
     // --- Blade Ascendant Theme (剑修主题) ---
     

@@ -161,3 +161,13 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Priority:** HIGH
 - **Estimated Time:** 0.5 day
 
+---
+
+## [x] Track: Constant Centralization & Refactoring
+- **Folder:** [./conductor/tracks/const_refactor/](./conductor/tracks/const_refactor/)
+- **Description:** Centralize gameplay and rendering constants to eliminate magic numbers. Created `Common.hpp` as SSOT for logic and `GPUData.hpp` for visual themes. Standardized physics epsilon, CDR caps, and particle limits. (Completed on 2026-01-18)
+- **Status:** COMPLETED
+- **Priority:** MEDIUM
+- **Estimated Time:** 1 day
+
+

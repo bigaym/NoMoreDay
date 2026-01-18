@@ -71,23 +71,23 @@ void UIRenderer::DrawTextScaled(const Font &font, const char *text, float x,
 Color UIRenderer::GetRarityColor(NoMoreDay::Rarity rarity) {
   switch (rarity) {
   case Rarity::Common:
-    return LIGHTGRAY;
+    return components::Colors::RARITY_COMMON;
   case Rarity::Magic:
-    return SKYBLUE;
+    return components::Colors::RARITY_MAGIC;
   case Rarity::Rare:
-    return YELLOW;
+    return components::Colors::RARITY_RARE;
   case Rarity::Uncommon:
-    return LIME;
+    return components::Colors::RARITY_UNCOMMON;
   case Rarity::Set:
-    return GREEN;
+    return components::Colors::RARITY_SET;
   case Rarity::Epic:
-    return PURPLE;
+    return components::Colors::RARITY_EPIC;
   case Rarity::Legendary:
-    return ORANGE;
+    return components::Colors::RARITY_LEGENDARY;
   case Rarity::Mythic:
-    return RED;
+    return components::Colors::RARITY_MYTHIC;
   case Rarity::Ancient:
-    return Color{230, 0, 0, 255}; // Bright Red
+    return components::Colors::RARITY_ANCIENT;
   default:
     return WHITE;
   }
