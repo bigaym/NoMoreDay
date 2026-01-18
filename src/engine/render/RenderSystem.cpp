@@ -1,4 +1,5 @@
 #include "engine/render/RenderSystem.hpp"
+#include "engine/physics/SpatialGrid.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -80,12 +81,11 @@ void RenderSystem::render(entt::registry &registry,
   // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
   // Updated to iterate entities for ShadowVisualComponent check
   // Exclude HoloBlade as it's handled by HoloBladeRenderSystem
-  auto spriteView = registry.view<const Position, const SpriteComponent>();
+  auto spriteView = registry.view<const Position, const SpriteComponent>(
+      entt::exclude<NoMoreDay::ItemComponent, GoldComponent, NoMoreDay::components::HoloBlade>);
+
   for (auto entity : spriteView) {
-    if (registry.any_of<NoMoreDay::components::HoloBlade>(entity))
-      continue;
-    const auto &pos = spriteView.get<Position>(entity);
-    const auto &sprite = spriteView.get<SpriteComponent>(entity);
+    const auto & [pos, sprite] = spriteView.get(entity);
 
     float width = (float)sprite.texture.width * sprite.scale; // 宽度
     float height = (float)sprite.texture.height * sprite.scale;
@@ -357,153 +357,150 @@ void RenderSystem::render(entt::registry &registry,
     }
   });
 
-  // --- 5. 绘制物品和金币的世界标签 (Optimization: View Frustum Culling) ---
-  // Font font = UISystem::GetFont(); // Already retrieved
-
-  // Culling Setup: Calculate visible world area
-  // Add margin to prevent "popping" of tall beams or labels
-  float screenW = (float)GetScreenWidth();
-  float screenH = (float)GetScreenHeight();
-  Vector2 viewTopLeft = GetScreenToWorld2D({0, 0}, camera);
-  Vector2 viewBottomRight = GetScreenToWorld2D({screenW, screenH}, camera);
-
-  float cullingMargin = 300.0f; // Large margin for tall beams (120px+) and text
-  Rectangle viewRect = {
-      viewTopLeft.x - cullingMargin,
-      viewTopLeft.y - cullingMargin,
-      (viewBottomRight.x - viewTopLeft.x) + cullingMargin * 2.0f,
-      (viewBottomRight.y - viewTopLeft.y) + cullingMargin * 2.0f
+  // --- 5. 绘制物品和金币的世界标签 (Optimization: High-Speed Linear Culling + Multi-Pass Batching) ---
+  
+  struct RenderItem {
+      entt::entity entity;
+      Position pos;
+      Color rarityColor;
+      NoMoreDay::Rarity rarity;
+      float scale;
+      bool emphasized;
+      const char* name;
+      Vector2 textSize;
   };
+  static std::vector<RenderItem> s_visibleItems;
+  s_visibleItems.clear();
 
-  // 物品 (Items)
-  auto itemView =
-      registry.view<const Position, const NoMoreDay::ItemComponent>();
-  itemView.each([&registry, &font, fontScale, &viewRect](
-                    const auto entity, const auto &pos, const auto &item) {
-    
-    // Culling Test
-    if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) {
-        return; // Skip off-screen items
-    }
+  struct RenderGold {
+      Position pos;
+      const char* text; 
+      Vector2 textSize;
+  };
+  static std::vector<RenderGold> s_visibleGold;
+  s_visibleGold.clear();
 
-    Color rarityColor = UISystem::GetRarityColor(item.rarity);
-    float scale = 1.0f;
-    bool emphasized = false;
+  // Calculate visible world area (Frustum)
+  Vector2 viewTopLeft = GetScreenToWorld2D({0, 0}, camera);
+  Vector2 viewBottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
+  Rectangle viewRect = { viewTopLeft.x - 100, viewTopLeft.y - 100, (viewBottomRight.x - viewTopLeft.x) + 200, (viewBottomRight.y - viewTopLeft.y) + 200 };
 
-    // Apply Loot Filter Result
-    const auto *filterResult =
-        registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
-    if (filterResult) {
-      if (!filterResult->visible)
-        return; // Skip rendering entirely
+  // 1. Item Collection Pass (Linear culling is ~O(N) but predictable and cache-friendly)
+  auto itemView = registry.view<NoMoreDay::ItemComponent, Position>();
+  itemView.each([&](entt::entity entity, const auto& item, const auto& pos) {
+      // Frustum Culling
+      if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) return;
 
-      if (filterResult->scale > 1.0f) {
-        scale = filterResult->scale;
-        emphasized = true;
-        rarityColor = filterResult->color; // Use emphasize color
+      Color rarityColor = UISystem::GetRarityColor(item.rarity);
+      float scale = 1.0f;
+      bool emphasized = false;
+
+      const auto* filterResult = registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
+      if (filterResult) {
+          if (!filterResult->visible) return;
+          if (filterResult->scale > 1.0f) {
+              scale = filterResult->scale;
+              emphasized = true;
+              rarityColor = filterResult->color;
+          }
       }
-    }
 
-    // --- 光柱特效 (Rare及以上 或 被过滤器高亮) ---
-    // 仅对稀有(Rare)及更高品质的物品显示光柱，方便远处识别
-    if (item.rarity >= NoMoreDay::Rarity::Rare || emphasized) {
-      float time = (float)GetTime();
-      // 呼吸效果 (Alpha 0.3 ~ 0.6)
-      float alpha = 0.45f + 0.15f * std::sin(time * 3.0f);
+      int fontSize = (int)(18.0f * scale * fontScale);
+      if (fontSize < 12) fontSize = 12;
 
-      float beamHeight = 120.0f * scale; // 光柱高度
-      float beamWidth = 24.0f * scale;   // 光柱宽度
-
-      // 颜色渐变：底部实色 -> 顶部透明
-      Color colBottom = rarityColor;
-      colBottom.a = (unsigned char)(255 * alpha);
-      Color colTop = rarityColor;
-      colTop.a = 0;
-
-      // 绘制光柱 (从下往上渐变)
-      // 坐标为左上角，所以 y = pos.y - height 让底部对齐物体
-      DrawRectangleGradientV((int)(pos.x - beamWidth * 0.5f),
-                             (int)(pos.y - beamHeight), (int)beamWidth,
-                             (int)beamHeight, colTop, colBottom);
-
-      // 底部光晕
-      DrawCircleGradient((int)pos.x, (int)pos.y, beamWidth * 0.8f, colBottom,
-                         Fade(colBottom, 0.0f));
-
-      // 核心高亮 (更细更亮，增加立体感)
-      Color coreCol = WHITE;
-      coreCol.a = (unsigned char)(255 * alpha * 0.8f);
-      DrawRectangleGradientV((int)(pos.x - 2 * scale),
-                             (int)(pos.y - beamHeight), (int)(4 * scale),
-                             (int)beamHeight, Fade(WHITE, 0.0f), coreCol);
-    }
-
-    const char *name = item.name.c_str();
-    float baseItemFontSize = 18.0f;
-    int fontSize = (int)(baseItemFontSize * scale * fontScale);
-    if (fontSize < 12)
-      fontSize = 12;
-
-    float spacing = 1.0f;
-    Vector2 textSize = MeasureTextEx(font, name, (float)fontSize, spacing);
-    Vector2 textPos = {pos.x - textSize.x / 2.0f,
-                       pos.y - 30.0f * scale}; // 物品上方
-
-    // 绘制背景框以提高可读性 // Draw background box for readability
-    bool isHovered = (entity == UISystem::State.hoveredItem);
-    DrawRectangleRec(
-        {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4},
-        Fade(BLACK, 0.7f));
-
-    if (isHovered) {
-      // 高亮显示
-      DrawRectangleLinesEx(
-          {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4}, 2.0f,
-          WHITE);
-    } else {
-      DrawRectangleLinesEx(
-          {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4}, 1.0f,
-          Fade(rarityColor, 0.5f));
-    }
-
-    if (IsFontValid(font)) {
-      DrawTextEx(font, name, textPos, (float)fontSize, spacing, rarityColor);
-    } else {
-      DrawText(name, (int)textPos.x, (int)textPos.y, fontSize, rarityColor);
-    }
+      auto& labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
+      if (!labelCache.isValid || labelCache.lastFontSize != fontSize) {
+          labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, item.name.c_str(), (float)fontSize, 1.0f) : Vector2{(float)MeasureText(item.name.c_str(), fontSize), (float)fontSize};
+          labelCache.lastFontSize = fontSize;
+          labelCache.isValid = true;
+      }
+      
+      s_visibleItems.push_back({entity, pos, rarityColor, item.rarity, scale, emphasized, item.name.c_str(), labelCache.cachedSize});
   });
 
-  // 金币 (Gold)
-  auto goldView = registry.view<const Position, const GoldComponent>();
-  goldView.each([&font, fontScale, &viewRect](const auto &pos, const auto &gold) {
-    
-    // Culling Test
-    if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) {
-        return; // Skip off-screen gold
-    }
+  // 2. Gold Collection Pass
+  auto goldView = registry.view<GoldComponent, Position>();
+  goldView.each([&](entt::entity entity, const auto& gold, const auto& pos) {
+      if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) return;
 
-    const char *text = TextFormat("%d 金币", gold.amount);
-    float baseGoldFontSize = 16.0f;
-    int fontSize = (int)(baseGoldFontSize * fontScale);
-    if (fontSize < 10)
-      fontSize = 10;
-
-    float spacing = 1.0f;
-    Color goldColor = GOLD;
-
-    Vector2 textSize = MeasureTextEx(font, text, (float)fontSize, spacing);
-    Vector2 textPos = {pos.x - textSize.x / 2.0f, pos.y - 25.0f};
-
-    DrawRectangleRec(
-        {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4},
-        Fade(BLACK, 0.6f));
-
-    if (IsFontValid(font)) {
-      DrawTextEx(font, text, textPos, (float)fontSize, spacing, goldColor);
-    } else {
-      DrawText(text, (int)textPos.x, (int)textPos.y, fontSize, goldColor);
-    }
+      int fontSize = (int)(16.0f * fontScale);
+      if (fontSize < 10) fontSize = 10;
+      
+      auto& labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
+      if (!labelCache.isValid || labelCache.lastFontSize != fontSize) {
+          // Format and cache string inside LabelCacheComponent
+          snprintf(labelCache.cachedText, sizeof(labelCache.cachedText), "%d 金币", gold.amount);
+          labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, labelCache.cachedText, (float)fontSize, 1.0f) : Vector2{(float)MeasureText(labelCache.cachedText, fontSize), (float)fontSize};
+          labelCache.lastFontSize = fontSize;
+          labelCache.isValid = true;
+      }
+      s_visibleGold.push_back({pos, labelCache.cachedText, labelCache.cachedSize});
   });
+
+  // 3. Rendering Pass: Beams (Pure vector iteration, no registry lookups)
+  for (const auto& item : s_visibleItems) {
+      if (item.rarity >= NoMoreDay::Rarity::Rare || item.emphasized) {
+          float time = (float)GetTime();
+          float alpha = 0.45f + 0.15f * std::sin(time * 3.0f);
+          float beamHeight = 120.0f * item.scale;
+          float beamWidth = 24.0f * item.scale;
+
+          Color colBurst = item.rarityColor;
+          colBurst.a = (unsigned char)(255 * alpha);
+
+          DrawRectangleGradientV((int)(item.pos.x - beamWidth * 0.5f), (int)(item.pos.y - beamHeight), (int)beamWidth, (int)beamHeight, Fade(item.rarityColor, 0.0f), colBurst);
+          DrawCircleGradient((int)item.pos.x, (int)item.pos.y, beamWidth * 0.8f, colBurst, Fade(colBurst, 0.0f));
+
+          if (item.rarity == NoMoreDay::Rarity::Legendary) {
+              Color coreCol = ColorAlpha(WHITE, alpha * 0.7f);
+              DrawRectangleGradientV((int)(item.pos.x - 2 * item.scale), (int)(item.pos.y - beamHeight), (int)(4 * item.scale), (int)beamHeight, Fade(WHITE, 0.0f), coreCol);
+          }
+      }
+  }
+
+  // 4. Rendering Pass: Background Boxes
+  for (const auto& item : s_visibleItems) {
+      Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
+      DrawRectangleRec({textPos.x - 4, textPos.y - 2, item.textSize.x + 8, item.textSize.y + 4}, Fade(BLACK, 0.7f));
+  }
+  for (const auto& gold : s_visibleGold) {
+      Vector2 textPos = {gold.pos.x - gold.textSize.x / 2.0f, gold.pos.y - 25.0f};
+      DrawRectangleRec({textPos.x - 4, textPos.y - 2, gold.textSize.x + 8, gold.textSize.y + 4}, Fade(BLACK, 0.6f));
+  }
+
+  // 5. Rendering Pass: Borders
+  for (const auto& item : s_visibleItems) {
+      Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
+      bool isHovered = (item.entity == UISystem::State.hoveredItem);
+      if (isHovered) {
+          DrawRectangleLinesEx({textPos.x - 4, textPos.y - 2, item.textSize.x + 8, item.textSize.y + 4}, 2.0f, WHITE);
+      } else {
+          DrawRectangleLinesEx({textPos.x - 4, textPos.y - 2, item.textSize.x + 8, item.textSize.y + 4}, 1.0f, ColorAlpha(item.rarityColor, 0.5f));
+      }
+  }
+
+  // 6. Rendering Pass: Text (Max Batching)
+  if (IsFontValid(font)) {
+      for (const auto& item : s_visibleItems) {
+          Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
+          float baseItemFontSize = 18.0f;
+          int fontSize = (int)(baseItemFontSize * item.scale * fontScale);
+          if (fontSize < 12) fontSize = 12;
+          DrawTextEx(font, item.name, textPos, (float)fontSize, 1.0f, item.rarityColor);
+      }
+      for (const auto& gold : s_visibleGold) {
+          Vector2 textPos = {gold.pos.x - gold.textSize.x / 2.0f, gold.pos.y - 25.0f};
+          float baseGoldFontSize = 16.0f;
+          int fontSize = (int)(baseGoldFontSize * fontScale);
+          if (fontSize < 10) fontSize = 10;
+          DrawTextEx(font, gold.text, textPos, (float)fontSize, 1.0f, GOLD);
+      }
+  } else {
+      for (const auto& item : s_visibleItems) {
+          Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
+          DrawText(item.name, (int)textPos.x, (int)textPos.y, (int)(18 * item.scale), item.rarityColor);
+      }
+  }
 
   // 6. Debug: GPU Flow Field Visualization
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();

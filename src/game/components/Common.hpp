@@ -98,7 +98,8 @@ constexpr float SPEED_MULT = 0.8f;      // 坦克怪物的速度倍率
 namespace Patrol {
 constexpr float ARRIVAL_DIST = 10.0f; // 巡逻点到达判定距离
 constexpr float MIN_STEP_DIST = 0.1f; // 有效移动的最小步长
-constexpr float SPEED = 20.0f;        // 默认巡逻移动速度
+constexpr float SPEED = 15.0f;        // 默认巡逻移动速度
+constexpr float WAIT_TIME = 2.0f;     // 巡逻点停留时间
 } // namespace Patrol
 
 namespace Chase {
@@ -411,3 +412,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayedDestroyComponent, timer)
 
 // 休眠标签：标记实体处于休眠状态，跳过 AI 和 Physics 更新
 struct DormantTag {};
+
+// 标签缓存组件：用于加速世界坐标中文字标签的渲染
+struct LabelCacheComponent {
+    mutable Vector2 cachedSize = {0, 0};
+    mutable int lastFontSize = 0;
+    mutable bool isValid = false;
+    mutable char cachedText[32] = {0};
+};

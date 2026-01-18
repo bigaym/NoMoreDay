@@ -4,6 +4,7 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/ai/EnemyAIBehaviors.hpp"
+#include "game/components/EliteModifierComponents.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -63,6 +64,12 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     float dy = pos.y - playerPos.y;
     float distSq = dx * dx + dy * dy;
 
+    // TODO: Remove debug logging after fixing aggro
+    if (ai.aiType == AIType::CHASE && distSq > 400000.0f) { // > 630 pixels
+        LOG_DEBUG("DEBUG AGGRO: Entity {} sticking in CHASE at dist {:.1f}. limit: {:.1f}", 
+            (uint32_t)entity, std::sqrt(distSq), stateComp->deactivationRange);
+    }
+
     // 脱战与重置逻辑
     using namespace NoMoreDay::Constants::AI;
     float leashRangeSq = stateComp->deactivationRange * stateComp->deactivationRange;
@@ -82,11 +89,17 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     }
     // 2. 脱战逻辑 (Leashing)
     else if (distSq > leashRangeSq) {
-      if (ai.aiType == AIType::CHASE || ai.aiType == AIType::ATTACK || ai.aiType == AIType::NEMESIS_HUNTER) {
+      if (ai.aiType == AIType::CHASE || ai.aiType == AIType::ATTACK || ai.aiType == AIType::NEMESIS_HUNTER ||
+          ai.aiType == AIType::TANK_BLOCK || ai.aiType == AIType::ASSASSIN_STEALTH || ai.aiType == AIType::SUPPORT_FLEE_BUFF) {
         if (ai.aiType != AIType::NEMESIS_HUNTER) { // Nemesis 不脱战
              // LOG_DEBUG("Entity {} Leashed (Dist: {:.1f})", (uint32_t)entity, std::sqrt(distSq));
              ai.aiType = AIType::PATROL;
              ai.target = entt::null;
+             // Reset specialized states if needed
+             if (ai.aiType == AIType::ASSASSIN_STEALTH) {
+                 registry.remove<NoMoreDay::StealthedTag>(entity);
+                 ai.isStealthed = false;
+             }
         }
       }
       if (health && health->current < health->max * HEALTH_REGEN_THRESHOLD) {
@@ -141,10 +154,21 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     vel.vx = 0.0f;
     vel.vy = 0.0f;
     if (ai.lastDecisionTime >= ai.decisionInterval) {
+      ai.target = entt::null;
       entt::entity target = findNearestTarget(registry, pos, ai.detectionRange, entity);
       if (target != entt::null) {
         ai.target = target;
-        ai.aiType = AIType::CHASE;
+        // Determine state based on archetype
+        if (stateComp) {
+            switch (stateComp->archetypeType) {
+                case EnemyArchetype::TANK: ai.aiType = AIType::TANK_BLOCK; break;
+                case EnemyArchetype::ASSASSIN: ai.aiType = AIType::ASSASSIN_STEALTH; break;
+                case EnemyArchetype::SUPPORT: ai.aiType = AIType::SUPPORT_FLEE_BUFF; break;
+                default: ai.aiType = AIType::CHASE; break;
+            }
+        } else {
+            ai.aiType = AIType::PATROL; // Fallback to PATROL if no state component
+        }
       }
       ai.lastDecisionTime = 0.0f;
     }
@@ -152,6 +176,14 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   case AIType::PATROL: {
+    // 0. Wait Logic
+    if (ai.stateTimer > 0.0f) {
+        ai.stateTimer -= dt;
+        vel.vx = 0.0f;
+        vel.vy = 0.0f;
+        break; 
+    }
+
     // 巡逻逻辑保持不变 (MapSystem A* or Simple)
     Position targetPos = ai.patrolDirection ? ai.patrolEnd : ai.patrolStart;
     Position nextStep = mapSystem.getPathNextStep(pos, targetPos);
@@ -162,6 +194,7 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
 
     if (distToTarget < NoMoreDay::Constants::AI::Patrol::ARRIVAL_DIST) {
       ai.patrolDirection = !ai.patrolDirection;
+      ai.stateTimer = NoMoreDay::Constants::AI::Patrol::WAIT_TIME;
       vel.vx = 0;
       vel.vy = 0;
     } else if (distToNext > NoMoreDay::Constants::AI::Patrol::MIN_STEP_DIST) {
@@ -171,10 +204,21 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     }
 
     if (ai.lastDecisionTime >= ai.decisionInterval) {
+      ai.target = entt::null;
       entt::entity target = findNearestTarget(registry, pos, ai.detectionRange, entity);
       if (target != entt::null) {
         ai.target = target;
-        ai.aiType = AIType::CHASE;
+        // Determine state based on archetype
+        if (stateComp) {
+            switch (stateComp->archetypeType) {
+                case EnemyArchetype::TANK: ai.aiType = AIType::TANK_BLOCK; break;
+                case EnemyArchetype::ASSASSIN: ai.aiType = AIType::ASSASSIN_STEALTH; break;
+                case EnemyArchetype::SUPPORT: ai.aiType = AIType::SUPPORT_FLEE_BUFF; break;
+                default: ai.aiType = AIType::CHASE; break;
+            }
+        } else {
+            ai.aiType = AIType::PATROL; // Fallback to PATROL if no state component
+        }
       }
       ai.lastDecisionTime = 0.0f;
     }

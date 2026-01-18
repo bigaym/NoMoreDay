@@ -1,4 +1,10 @@
 
+"""
+NoMoreDay VFX Texture Utility
+Purpose: Generates common shader masks (noise, trail masks, normal maps) 
+         used for energy and distortion effects.
+Usage: python scripts/gen_vfx_textures.py
+"""
 import numpy as np
 from PIL import Image
 import os

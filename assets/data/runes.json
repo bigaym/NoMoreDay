@@ -2,7 +2,7 @@
     "runes": [
         {
             "id": 3001,
-            "name": "El",
+            "name": "曾",
             "tier": 1,
             "weapon_mod": {
                 "attack_rating": 50,
@@ -20,7 +20,7 @@
         },
         {
             "id": 3002,
-            "name": "Eld",
+            "name": "完",
             "tier": 1,
             "weapon_mod": {
                 "damage_undead_percent": 75,
@@ -36,7 +36,7 @@
         },
         {
             "id": 3003,
-            "name": "Tir",
+            "name": "童",
             "tier": 1,
             "weapon_mod": {
                 "mana_per_kill": 2
@@ -51,7 +51,7 @@
         },
         {
             "id": 3004,
-            "name": "Nef",
+            "name": "育",
             "tier": 1,
             "weapon_mod": {
                 "knockback": 1
@@ -66,7 +66,7 @@
         },
         {
             "id": 3005,
-            "name": "Eth",
+            "name": "举",
             "tier": 1,
             "weapon_mod": {
                 "defense_ignore_percent": -25
@@ -81,7 +81,7 @@
         },
         {
             "id": 3006,
-            "name": "Ith",
+            "name": "夷",
             "tier": 1,
             "weapon_mod": {
                 "max_damage": 9
@@ -96,7 +96,7 @@
         },
         {
             "id": 3007,
-            "name": "Tal",
+            "name": "衡",
             "tier": 1,
             "weapon_mod": {
                 "poison_damage": 75,
@@ -112,7 +112,7 @@
         },
         {
             "id": 3008,
-            "name": "Ral",
+            "name": "翳",
             "tier": 1,
             "weapon_mod": {
                 "fire_damage_min": 5,
@@ -128,7 +128,7 @@
         },
         {
             "id": 3009,
-            "name": "Ort",
+            "name": "阳",
             "tier": 1,
             "weapon_mod": {
                 "lightning_damage_min": 1,
@@ -144,7 +144,7 @@
         },
         {
             "id": 3010,
-            "name": "Thul",
+            "name": "华",
             "tier": 1,
             "weapon_mod": {
                 "cold_damage_min": 3,
@@ -161,7 +161,7 @@
         },
         {
             "id": 3011,
-            "name": "Amn",
+            "name": "飘",
             "tier": 1,
             "weapon_mod": {
                 "life_steal": 7
@@ -176,7 +176,7 @@
         },
         {
             "id": 3012,
-            "name": "Sol",
+            "name": "竺",
             "tier": 1,
             "weapon_mod": {
                 "min_damage": 9
@@ -191,7 +191,7 @@
         },
         {
             "id": 3013,
-            "name": "Shael",
+            "name": "禁",
             "tier": 1,
             "weapon_mod": {
                 "attack_speed": 20
@@ -206,7 +206,7 @@
         },
         {
             "id": 3014,
-            "name": "Dol",
+            "name": "崖",
             "tier": 1,
             "weapon_mod": {
                 "flee_hit": 25
@@ -221,7 +221,7 @@
         },
         {
             "id": 3015,
-            "name": "Hel",
+            "name": "答",
             "tier": 1,
             "weapon_mod": {
                 "req_percent": -20
@@ -236,7 +236,7 @@
         },
         {
             "id": 3016,
-            "name": "Io",
+            "name": "霄",
             "tier": 1,
             "weapon_mod": {
                 "vitality": 10
@@ -251,7 +251,7 @@
         },
         {
             "id": 3017,
-            "name": "Lum",
+            "name": "翁",
             "tier": 1,
             "weapon_mod": {
                 "energy": 10
@@ -266,7 +266,7 @@
         },
         {
             "id": 3018,
-            "name": "Ko",
+            "name": "极",
             "tier": 1,
             "weapon_mod": {
                 "dexterity": 10
@@ -281,7 +281,7 @@
         },
         {
             "id": 3019,
-            "name": "Fal",
+            "name": "晖",
             "tier": 1,
             "weapon_mod": {
                 "strength": 10
@@ -296,7 +296,7 @@
         },
         {
             "id": 3020,
-            "name": "Lem",
+            "name": "密",
             "tier": 1,
             "weapon_mod": {
                 "gold_find": 75
@@ -311,7 +311,7 @@
         },
         {
             "id": 3021,
-            "name": "Pul",
+            "name": "耀",
             "tier": 2,
             "weapon_mod": {
                 "damage_demon_percent": 75,
@@ -327,7 +327,7 @@
         },
         {
             "id": 3022,
-            "name": "Um",
+            "name": "慧",
             "tier": 2,
             "weapon_mod": {
                 "open_wounds": 25
@@ -342,7 +342,7 @@
         },
         {
             "id": 3023,
-            "name": "Mal",
+            "name": "迦",
             "tier": 2,
             "weapon_mod": {
                 "prevet_heal": 1
@@ -357,7 +357,7 @@
         },
         {
             "id": 3024,
-            "name": "Ist",
+            "name": "昙",
             "tier": 2,
             "weapon_mod": {
                 "magic_find": 30
@@ -372,7 +372,7 @@
         },
         {
             "id": 3025,
-            "name": "Gul",
+            "name": "虚",
             "tier": 2,
             "weapon_mod": {
                 "attack_rating_percent": 20
@@ -387,7 +387,7 @@
         },
         {
             "id": 3026,
-            "name": "Vex",
+            "name": "演",
             "tier": 2,
             "weapon_mod": {
                 "mana_steal": 7
@@ -402,7 +402,7 @@
         },
         {
             "id": 3027,
-            "name": "Ohm",
+            "name": "梵",
             "tier": 2,
             "weapon_mod": {
                 "damage_percent": 50
@@ -417,7 +417,7 @@
         },
         {
             "id": 3028,
-            "name": "Lo",
+            "name": "腾",
             "tier": 2,
             "weapon_mod": {
                 "deadly_strike": 20
@@ -432,7 +432,7 @@
         },
         {
             "id": 3029,
-            "name": "Sur",
+            "name": "显",
             "tier": 3,
             "weapon_mod": {
                 "blind_hit": 1
@@ -447,7 +447,7 @@
         },
         {
             "id": 3030,
-            "name": "Ber",
+            "name": "秀",
             "tier": 3,
             "weapon_mod": {
                 "crushing_blow": 20
@@ -462,7 +462,7 @@
         },
         {
             "id": 3031,
-            "name": "Jah",
+            "name": "清",
             "tier": 3,
             "weapon_mod": {
                 "ignore_target_defense": 1
@@ -477,7 +477,7 @@
         },
         {
             "id": 3032,
-            "name": "Cham",
+            "name": "灵",
             "tier": 3,
             "weapon_mod": {
                 "freeze_hit": 3
@@ -492,7 +492,7 @@
         },
         {
             "id": 3033,
-            "name": "Zod",
+            "name": "宝",
             "tier": 3,
             "weapon_mod": {
                 "indestructible": 1

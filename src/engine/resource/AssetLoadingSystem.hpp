@@ -28,6 +28,9 @@ public:
     // Register and load core shaders
     static void RegisterShaders();
 
+    // Register all rune assets
+    static void RegisterRunes();
+
     static void Shutdown();
 
 private:

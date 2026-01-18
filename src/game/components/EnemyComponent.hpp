@@ -135,7 +135,7 @@ struct EnemyStateComponent {
                       EnemyArchetype::Type arch = EnemyArchetype::FODDER)
       : raceType(race), archetypeType(arch), detectionRange(150.0f),
         attackRange(50.0f), speed(100.0f), target(entt::null), stateTimer(0.0f),
-        activationRange(300.0f), deactivationRange(600.0f), level(1),
+        activationRange(250.0f), deactivationRange(500.0f), level(1),
         aiState(AIState::IDLE) {
 
     // 根据种族和职业设置初始参数
@@ -145,19 +145,19 @@ struct EnemyStateComponent {
     speed = raceDef.baseSpeed;
     switch (arch) {
     case EnemyArchetype::FODDER:
-      detectionRange = 100.0f;
+      detectionRange = 80.0f;
       attackRange = 30.0f;
       break;
     case EnemyArchetype::TANK:
-      detectionRange = 120.0f;
+      detectionRange = 100.0f;
       attackRange = 40.0f;
       break;
     case EnemyArchetype::RANGER:
-      detectionRange = 300.0f;
+      detectionRange = 220.0f;
       attackRange = 250.0f;
       break;
     case EnemyArchetype::ASSASSIN:
-      detectionRange = 200.0f;
+      detectionRange = 150.0f;
       attackRange = 35.0f;
       break;
     }

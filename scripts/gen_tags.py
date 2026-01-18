@@ -1,3 +1,9 @@
+"""
+NoMoreDay Tag Registry Generator
+Purpose: Converts 'tags.json' into a C++ 'TagRegistry.hpp' with 64-bit bitmask enums.
+         Automates the synchronization of gameplay tags between data and engine.
+Usage: python scripts/gen_tags.py
+"""
 import json
 import os
 

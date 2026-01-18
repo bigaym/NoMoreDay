@@ -13,6 +13,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Dropped Item Performance Optimization
+- **Folder:** [./conductor/archive/dropped_item_optimization_20260118/](./conductor/archive/dropped_item_optimization_20260118/)
+- **Description:** 极速优化万级掉落物性能。通过 LabelCache 消除文字测量开销，实现 5-Stage 多阶段批次渲染极大化渲染效率，并利用 EnTT 内存过滤和空间网格分离技术稳定 180 FPS。 (Completed on 2026-01-18)
+- **Status:** COMPLETED
+- **Priority:** CRITICAL
+- **Estimated Time:** 1 day
+
+---
+
 ## [x] Track: Item and Drop System
 
 - **Folder:** conductor/archive/item_drop_system_20251229

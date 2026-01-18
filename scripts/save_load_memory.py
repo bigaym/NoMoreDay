@@ -1,3 +1,9 @@
+"""
+NoMoreDay Session Memory & Snapshot Manager
+Purpose: Provides MCP tools to save, load, and list Gemini CLI session snapshots.
+         Helps maintain continuity across long-running development tasks.
+Usage: python scripts/save_load_memory.py
+"""
 import json
 import os
 from datetime import datetime

@@ -1,3 +1,9 @@
+"""
+NoMoreDay Affix Shard Generator
+Purpose: Scans 'ItemStats.hpp' for AffixType enums and synchronizes 'materials.json'.
+         Ensures every affix has a corresponding craftable shard item.
+Usage: python scripts/gen_affix_shards.py
+"""
 import re
 import json
 import os

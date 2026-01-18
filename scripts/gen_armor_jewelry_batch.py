@@ -1,10 +1,16 @@
+"""
+NoMoreDay Armor/Jewelry Batch Generator
+Purpose: Generates icons for 8 types of armor across 10 elemental themes.
+         Wraps 'asset_gen.py' with specialized prompts for equipment.
+Usage: python scripts/gen_armor_jewelry_batch.py
+"""
 import subprocess
 import os
 
 def generate_armor_assets():
     script_path = os.path.join(os.path.dirname(__file__), "asset_gen.py")
-    output_width = 768
-    output_height = 768
+    output_width = 1024
+    output_height = 1024
 
     # 1. 定义 8 种核心防具/饰品类型 (基于设计文档)
     armor_types = [

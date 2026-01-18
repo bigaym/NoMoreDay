@@ -1,3 +1,9 @@
+"""
+NoMoreDay Asset Generator
+Purpose: Generates high-quality 2D game assets using ComfyUI (Flux.1 model).
+         Supports automatic background removal and downscaling to 128x128.
+Usage: python scripts/asset_gen.py --prompt "golden sword" --name "weapon_gold_sword"
+"""
 import websocket # type: ignore
 import uuid
 import json

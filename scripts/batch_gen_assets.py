@@ -1,3 +1,9 @@
+"""
+NoMoreDay Batch Asset Generator
+Purpose: Parses 'Asset_Regeneration_List.md' and generates assets in bulk.
+         Supports both small (icons) and large (UI panels, environment) assets with dynamic sizing.
+Usage: conda run -n ai python scripts/batch_gen_assets.py
+"""
 import websocket # type: ignore
 import uuid
 import json
@@ -25,7 +31,7 @@ PROJECT_ROOT = os.getcwd()
 # Force no proxy for localhost
 os.environ["NO_PROXY"] = "127.0.0.1,localhost"
 
-# --- ComfyUI Helper Functions (Adapted from asset_gen.py) ---
+# --- ComfyUI Helper Functions ---
 
 def is_server_running():
     try:
@@ -56,7 +62,6 @@ def start_comfyui():
     sys.exit(1)
 
 def get_default_workflow():
-    # Use the same workflow as asset_gen.py (Flux based)
     return {
         "10": {
             "inputs": {
@@ -161,7 +166,6 @@ def generate_image(ws, prompt_text, negative_prompt, output_path, filename, targ
     workflow = get_default_workflow()
     
     # Configure Workflow
-    # Flux likes 1024x1024 generation
     gen_width = 1024
     gen_height = 1024
     
@@ -172,7 +176,7 @@ def generate_image(ws, prompt_text, negative_prompt, output_path, filename, targ
     workflow["3"]["inputs"]["seed"] = random.randint(1, 1000000000)
 
     prompt_id = queue_prompt(workflow)['prompt_id']
-    print(f" -> Generating: {filename} (ID: {prompt_id})")
+    print(f" -> Generating: {filename} ({target_size}px) (ID: {prompt_id})")
 
     while True:
         out = ws.recv()
@@ -181,7 +185,7 @@ def generate_image(ws, prompt_text, negative_prompt, output_path, filename, targ
             if message['type'] == 'executing':
                 data = message['data']
                 if data['node'] is None and data['prompt_id'] == prompt_id:
-                    break # Execution is done
+                    break
         else:
             continue
 
@@ -192,7 +196,6 @@ def generate_image(ws, prompt_text, negative_prompt, output_path, filename, targ
             for image in node_output['images']:
                 img_data = get_image(image['filename'], image['subfolder'], image['type'])
                 
-                # Processing
                 img = Image.open(io.BytesIO(img_data))
                 
                 if remove_bg:
@@ -201,144 +204,109 @@ def generate_image(ws, prompt_text, negative_prompt, output_path, filename, targ
                 # Resize
                 img = img.resize((target_size, target_size), Image.Resampling.LANCZOS)
                 
-                # Save
                 full_path = os.path.join(output_path, filename)
                 img.save(full_path, "PNG")
                 print(f" -> Saved to {full_path}")
-                return # Only one image per prompt expected
+                return
 
-# --- Markdown Parsing & Logic ---
+# --- Logic ---
 
-def is_small_asset(filename, section_title):
-    # Rules for identifying assets <= 128x128
-    
+def get_asset_config(filename):
     filename = filename.lower()
     
-    # 1. Explicitly small types
-    small_keywords = ['button', 'checkbox', 'slider', 'icon', 'slot', 'tile', 'shard', 'rune']
+    config = {
+        "size": 128,
+        "remove_bg": True
+    }
     
-    # 2. Exclude typically large types (unless overridden)
-    large_keywords = ['panel', 'bg', 'background', 'border', 'frame', 'bar', 'fill', 'divider', 'wall', 'env', 'tree', 'rock', 'portal', 'character', 'monster', 'vfx', 'splatter', 'trail', 'distortion']
+    # UI Panels & Backgrounds
+    if any(k in filename for k in ['panel', 'bg', 'background']):
+        config["size"] = 512
+        config["remove_bg"] = False # Backgrounds should keep their texture
     
-    # Exceptions (Slot backgrounds are small)
-    if 'slot_background' in filename or 'equip_slot_background' in filename:
-        return True
+    # Large Environment / Wall
+    elif any(k in filename for k in ['wall', 'env_', 'tree', 'rock', 'portal']):
+        config["size"] = 512
+        config["remove_bg"] = True
     
-    # Check exclusion first
-    for k in large_keywords:
-        if k in filename:
-            # Check if it's a tile (tiles are usually 128x128 in this project context)
-            if 'tile' in filename:
-                return True
-            return False
-            
-    # Check inclusion
-    for k in small_keywords:
-        if k in filename:
-            return True
-            
-    return False
+    # Tile (Usually 128x128 but keep texture)
+    elif 'tile' in filename:
+        config["size"] = 128
+        config["remove_bg"] = False
+        
+    # Standard UI / Icon
+    else:
+        config["size"] = 128
+        config["remove_bg"] = True
+        
+    return config
 
 def parse_markdown(file_path):
     tasks = []
-    
     if not os.path.exists(file_path):
-        print(f"File not found: {file_path}")
         return tasks
 
     with open(file_path, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
     current_section = ""
-    section_completed = False
-    
-    # Regex to match table rows: | Col1 | Col2 | Col3 | ... | 
     table_row_re = re.compile(r"^|\s*(.*?)\s*|\s*(.*?)\s*|\s*(.*?)\s*|")
 
     for line in lines:
         line = line.strip()
-        
-        # Section Detection
         if line.startswith("## "):
             current_section = line
-            section_completed = "--已完成" in line or "Completed" in line
+            if "--已完成" in line:
+                current_section = "COMPLETED"
             continue
             
-        if section_completed:
-            continue
-            
-        # Skip header separators
-        if line.startswith("|--") or line.startswith("| :"):
+        if current_section == "COMPLETED" or line.startswith("|--") or line.startswith("| :"):
             continue
 
-        # Table Parsing
         match = table_row_re.match(line)
         if match:
             cols = [c.strip() for c in line.split('|') if c.strip()]
-            
-            # We expect at least 3 columns for valid asset rows
-            # Format varies:
-            # UI: | Name | Path | Filename | Prompt |
-            # Map: | Category | Path | Filename | Prompt |
-            
             if len(cols) >= 4:
-                path = cols[1]
-                filename = cols[2]
+                path = cols[1].replace('`', '').strip()
+                filename_raw = cols[2].replace('`', '').strip()
                 prompt = cols[3]
                 
-                # Cleanup path (remove backticks if present)
-                path = path.replace('`', '').strip()
-                filename = filename.replace('`', '').strip()
-                
-                # Check validity
-                if filename.endswith('.png'):
-                     tasks.append({
-                        "section": current_section,
-                        "path": path,
-                        "filename": filename,
-                        "prompt": prompt
-                    })
-
+                clean_filenames = filename_raw.replace('<br>', ',').split(',')
+                for filename in clean_filenames:
+                    filename = filename.strip()
+                    if filename.endswith('.png'):
+                         tasks.append({
+                            "section": current_section,
+                            "path": path,
+                            "filename": filename,
+                            "prompt": prompt
+                        })
     return tasks
 
 def main():
-    print("--- NoMoreDay Batch Asset Generator ---")
+    print("--- NoMoreDay Advanced Batch Asset Generator ---")
     
-    # 1. Parse Tasks
     all_tasks = parse_markdown(MD_FILE_PATH)
     print(f"Found {len(all_tasks)} potential assets in Markdown.")
     
     generation_queue = []
-    
     for task in all_tasks:
-        # Resolve full path
-        # Path in MD might be 'assets/textures/ui/' or relative
-        rel_path = task['path']
-        full_dir = os.path.join(PROJECT_ROOT, rel_path)
+        full_dir = os.path.join(PROJECT_ROOT, task['path'])
         full_path = os.path.join(full_dir, task['filename'])
         
-        # Check existence
         if os.path.exists(full_path):
-            # print(f"Skipping [Exists]: {task['filename']}")
             continue
             
-        # Check size classification
-        if is_small_asset(task['filename'], task['section']):
-            generation_queue.append(task)
-        else:
-            print(f"Skipping [Pending/Large]: {task['filename']}")
+        generation_queue.append(task)
             
     print(f"\nQueued {len(generation_queue)} assets for generation.\n")
-    
     if not generation_queue:
         print("Nothing to do.")
         return
 
-    # 2. Init ComfyUI
     if not is_server_running():
         start_comfyui()
 
-    print(f"Connecting to ComfyUI at {SERVER_ADDRESS}...")
     try:
         ws = websocket.WebSocket()
         ws.connect(f"ws://{SERVER_ADDRESS}/ws?clientId={CLIENT_ID}")
@@ -346,69 +314,41 @@ def main():
         print(f"Error connecting: {e}")
         return
 
-    # 3. Process Queue
-    universal_keywords = "high-quality, masterpiece, professional game art, clean digital painting style, sharp edges, centered composition"
-    style_keywords = "ink wash painting style, dark fantasy, ancient chinese aesthetics, mystical, high contrast, detailed texture"
+    universal_keywords = "high-quality, masterpiece, professional game art, clean digital painting style, sharp edges, centered composition, best quality, 8k, highly detailed"
+    style_keywords = "ink wash painting style, traditional chinese sumi-e, dark fantasy, ancient chinese aesthetics, mystical, high contrast, detailed texture, ethereal, wuxia atmosphere"
     
     for i, task in enumerate(generation_queue):
         print(f"[{i+1}/{len(generation_queue)}] Processing {task['filename']}...")
         
-        # Determine specific prompt enhancements based on asset type
-        specific_instruction = ""
         filename = task['filename'].lower()
+        config = get_asset_config(filename)
         
-        # UI Button logic: Force aspect ratio descriptions in prompt (though generation is square, the content should fit)
+        specific_instruction = ""
         if "button" in filename:
             specific_instruction = "rectangular button UI element, horizontal layout, game interface asset, stone or jade texture"
         elif "slider" in filename or "bar" in filename:
-            specific_instruction = "horizontal slider bar UI element, linear design, game interface asset"
-        elif "icon" in filename or "slot" in filename:
-             specific_instruction = "square icon, game interface asset"
+            specific_instruction = "horizontal slider bar UI element, linear design"
         elif "tile" in filename:
             specific_instruction = "top-down view, seamless texture pattern, flat ground surface, no perspective, infinite tiling"
+        elif "background" in filename or "panel" in filename:
+            specific_instruction = "large game ui background panel, ornate borders, ancient paper or dark stone texture"
+        elif "env_" in filename or "tree" in filename or "rock" in filename:
+            specific_instruction = "solitary environment object, detailed silhouette, mystical atmosphere"
 
-        # Combine prompts: [Specific Type Instruction] + [Markdown Description] + [Style] + [Universal Quality]
-        full_prompt = (
-            f"{specific_instruction}, {task['prompt']}, {style_keywords}, {universal_keywords}. "
-            f"Isolated on a plain white background."
-        )
-        
-        # Refined Negative Prompt
-        negative_prompt = (
-            "blur, low quality, 3d render, text, background, photo, realistic, vector, flat, cartoon, "
-            "rotated, tilted, perspective, distorted, messy, cluttered, multiple objects, collage"
-        )
-        
-        if "tile" in filename:
-             # Tiles shouldn't be isolated or have background removed in the same way, but the prompt needs to ensure full coverage
-             full_prompt = (
-                f"{specific_instruction}, {task['prompt']}, {style_keywords}, {universal_keywords}. "
-                f"Full frame texture, no borders, no empty space."
-            )
-             negative_prompt += ", borders, edges, frames, vignette, white background"
+        full_prompt = f"{specific_instruction}, {task['prompt']}, {style_keywords}, {universal_keywords}."
+        if config['remove_bg']:
+            full_prompt += " Isolated on a plain white background."
+        else:
+            full_prompt += " Full frame coverage, no empty edges."
+            
+        negative_prompt = "blur, low quality, 3d render, text, background, photo, realistic, vector, flat, cartoon, rotated, tilted, perspective, distorted, messy, cluttered"
 
-        # Prepare Output Dir
-        rel_path = task['path']
-        full_dir = os.path.join(PROJECT_ROOT, rel_path)
+        full_dir = os.path.join(PROJECT_ROOT, task['path'])
         if not os.path.exists(full_dir):
             os.makedirs(full_dir)
             
-        # Generate
-        # Determine background removal needs
-        remove_bg = True
-        if "tile" in filename or "background" in filename:
-            remove_bg = False
-            
         try:
-            generate_image(
-                ws, 
-                full_prompt, 
-                negative_prompt, 
-                full_dir, 
-                task['filename'], 
-                target_size=128, 
-                remove_bg=remove_bg
-            )
+            generate_image(ws, full_prompt, negative_prompt, full_dir, task['filename'], target_size=config['size'], remove_bg=config['remove_bg'])
         except Exception as e:
             print(f"Failed to generate {task['filename']}: {e}")
             

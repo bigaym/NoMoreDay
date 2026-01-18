@@ -1,3 +1,9 @@
+"""
+NoMoreDay Legendary Affix Generator
+Purpose: Parses 'legendary_affixes.md' and converts it to 'legendary_affixes.json'.
+         Maps design document table entries to game-ready data structures.
+Usage: python scripts/gen_legendary_affixes.py
+"""
 import json
 import re
 

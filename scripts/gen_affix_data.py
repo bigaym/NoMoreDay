@@ -1,3 +1,9 @@
+"""
+NoMoreDay Affix Data Generator
+Purpose: Generates 'affixes.json' containing definitions for all item modifiers.
+         Includes math for 7 tiers of power scaling.
+Usage: python scripts/gen_affix_data.py
+"""
 import json
 import os
 

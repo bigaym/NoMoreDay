@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/resource/EquipmentAssetRegistry.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
+#include "engine/resource/RuneAssetRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -12,6 +13,7 @@ void AssetLoadingSystem::Initialize(ResourceManager &resourceManager) {
   m_resourceManager = &resourceManager;
   RegisterUITextures(); // Automatically register UI base assets
   RegisterShaders();    // Load shaders
+  RegisterRunes();      // Register Rune assets
   LOG_INFO("AssetLoadingSystem 已初始化。");
 }
 
@@ -92,8 +94,10 @@ void AssetLoadingSystem::LoadAllEquipment() {
 
   auto load = [&](const auto &assets) {
     for (const auto &asset : assets) {
-      m_resourceManager->registerTexture(asset.id, std::string(asset.path));
-      count++;
+      if (asset) {
+        m_resourceManager->registerTexture(asset->id, std::string(asset->path));
+        count++;
+      }
     }
   };
 
@@ -119,6 +123,20 @@ void AssetLoadingSystem::LoadAllEquipment() {
   load(wand::All);
 
   LOG_INFO("Registered {} equipment assets.", count);
+}
+
+void AssetLoadingSystem::RegisterRunes() {
+  if (!m_resourceManager) return;
+
+  using namespace assets::runes::general;
+  int count = 0;
+  for (const auto *asset : All) {
+      if (asset) {
+          m_resourceManager->registerTexture(asset->id, std::string(asset->path));
+          count++;
+      }
+  }
+  LOG_INFO("Registered {} rune assets.", count);
 }
 
 Font AssetLoadingSystem::LoadUIFont(const std::string &path, int fontSize) {

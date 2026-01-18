@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-
+// 维度碎片词缀，TODO：待扩展
 namespace NoMoreDay {
 
 // 碎片类型
@@ -103,17 +103,17 @@ struct MapFragmentComponent {
   std::string GetDescription() const {
     std::string desc;
     if (enemyDensityMod != 1.0f) {
-      desc += "Density: ";
+      desc += "密度: ";
       desc += std::to_string(static_cast<int>(enemyDensityMod * 100));
       desc += "%\n";
     }
     if (dropRateMod != 1.0f) {
-      desc += "Drop Rate: ";
+      desc += "掉落率: ";
       desc += std::to_string(static_cast<int>(dropRateMod * 100));
       desc += "%\n";
     }
     if (monsterLevelMod != 0) {
-      desc += "Monster Level: ";
+      desc += "怪物等级: ";
       if (monsterLevelMod > 0)
         desc += "+";
       desc += std::to_string(monsterLevelMod);
@@ -122,9 +122,9 @@ struct MapFragmentComponent {
     if (hasBoss)
       desc += "[Boss]\n";
     if (hasMerchant)
-      desc += "[Merchant]\n";
+      desc += "[商人]\n";
     if (hasTreasure)
-      desc += "[Treasure]\n";
+      desc += "[宝库]\n";
     return desc;
   }
 };

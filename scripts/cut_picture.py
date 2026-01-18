@@ -1,3 +1,10 @@
+"""
+NoMoreDay Interactive Image Cropper
+Purpose: A GUI tool to manually crop and standardize raw AI-generated images (1024x1024)
+         to the game's standard 128x128 format with proper padding.
+Usage: python scripts/cut_picture.py <directory_path>
+       Controls: Mouse drag to select, F5/C to save and move to next.
+"""
 import cv2
 import numpy as np
 import os

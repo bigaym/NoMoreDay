@@ -1,3 +1,8 @@
+"""
+NoMoreDay Icon Standardization Utility
+Purpose: Resizes all PNG icons in a target directory to exactly 128x128 pixels.
+Usage: python scripts/resize_icons.py <directory_path>
+"""
 import os
 import sys
 from PIL import Image

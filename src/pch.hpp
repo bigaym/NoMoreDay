@@ -39,7 +39,7 @@
 #include <typeindex>
 
 // Third Party - Heavy Headers
-#include <raylib.h>
+#include <raylib.h> 
 #include <raymath.h>
 #include <rlgl.h>
 #include <nlohmann/json.hpp>
@@ -51,15 +51,17 @@
 #include <taskflow/algorithm/for_each.hpp>
 
 // Project Utilities
-#include "core/logging/Logger.hpp"
-#include "core/utils/HashUtils.hpp"
-#include "core/math/PhysicsUtils.hpp"
-#include "game/data/TagRegistry.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/Combat.hpp"
-#include "game/components/SkillDefs.hpp"
+#include "core/logging/Logger.hpp"              // 日志
+#include "core/utils/HashUtils.hpp"             // 哈希工具
+#include "core/math/PhysicsUtils.hpp"           // 物理工具
+#include "game/data/TagRegistry.hpp"            // 标签注册
+#include "game/components/Common.hpp"             // 通用组件
+#include "game/components/Stats.hpp"              // 属性
+#include "game/components/Combat.hpp"             // 战斗
+#include "game/components/SkillDefs.hpp"          // 技能定义
+#include "engine/resource/EquipmentAssetRegistry.hpp" // 装备资源注册
+#include "engine/resource/RuneAssetRegistry.hpp"    // 符文资源注册
 
 // Engine
-#include "engine/render/GPUData.hpp"
-#include "engine/render/GPUEntitySystem.hpp"
+#include "engine/render/GPUData.hpp"  // GPU数据
+#include "engine/render/GPUEntitySystem.hpp"    // GPU实体系统

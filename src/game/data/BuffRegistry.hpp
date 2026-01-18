@@ -4,6 +4,8 @@
 #include "raylib.h"
 #include "game/components/Buff.hpp"
 
+namespace assets { struct TextureAsset; }
+
 namespace NoMoreDay {
 
 struct BuffVisualData {
@@ -12,6 +14,7 @@ struct BuffVisualData {
     std::string name;
     std::string description;
     bool is_debuff = false;
+    const assets::TextureAsset* icon_asset = nullptr; // Added for icon support
 };
 
 class BuffRegistry {

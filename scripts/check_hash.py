@@ -1,4 +1,10 @@
 
+"""
+NoMoreDay FNV1a-32 Hash Checker
+Purpose: Calculates FNV1a-32 hashes for strings to match C++ compile-time hashes.
+         Used for verifying asset IDs and component tags.
+Usage: python scripts/check_hash.py
+"""
 def fnv1a_32(string):
     hash_val = 0x811c9dc5
     for char in string:

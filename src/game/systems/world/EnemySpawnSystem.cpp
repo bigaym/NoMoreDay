@@ -317,14 +317,14 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   switch (raceType) {
   case EnemyRace::UNDEAD:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 150.0f, 40.0f, 50.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 100.0f, 40.0f, 50.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.25f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     break;
   case EnemyRace::DEMON:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 200.0f, 50.0f, 70.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 140.0f, 50.0f, 70.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.45f * (1.0f + m_resonanceMods.dropRateBonus), 1, 2);
@@ -333,7 +333,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::CORRUPTED:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 250.0f, 60.0f,
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 180.0f, 60.0f,
                                   100.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
@@ -343,7 +343,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::CULTIST:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 180.0f, 30.0f, 60.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 150.0f, 30.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.35f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
@@ -351,7 +351,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::GOBLIN:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 120.0f, 40.0f, 60.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 80.0f, 40.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, (rarity == EnemyRarityComponent::NORMAL) ? GREEN : rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.20f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
@@ -359,7 +359,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   case EnemyRace::SLIME:
     registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 80.0f, 20.0f, 30.0f);
+    registry.emplace<AIComponent>(entity, AIType::IDLE, 60.0f, 20.0f, 30.0f);
     registry.emplace<ColorComponent>(entity, (rarity == EnemyRarityComponent::NORMAL) ? LIME : rarityColor);
     registry.emplace<NoMoreDay::DropTableComponent>(
         entity, 0, 0.15f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
@@ -413,7 +413,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     ai.patrolStart = data.position;
 
     std::uniform_real_distribution<float> angleDist(0.0f, 6.283185f);
-    std::uniform_int_distribution<int> moveDist(30, 60);
+    std::uniform_int_distribution<int> moveDist(80, 150);
     float angle = angleDist(m_gen);
     float dist = (float)moveDist(m_gen);
 
@@ -421,6 +421,10 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
                     data.position.y + std::sin(angle) * dist};
 
     // === Set AIType based on archetype ===
+    // === Set AIType based on archetype ===
+    // REMOVED: Do not force state here. Let AISystem transition to specialized states
+    // when Aggro occurs.
+    /*
     switch (archType) {
     case EnemyArchetype::TANK:
       ai.aiType = AIType::TANK_BLOCK;
@@ -434,6 +438,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     default:
       break;
     }
+    */
 
     // === Elite Modifier Assignment ===
     if (rarity != EnemyRarityComponent::NORMAL) {

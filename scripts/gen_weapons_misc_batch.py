@@ -1,3 +1,9 @@
+"""
+NoMoreDay Weapons & Misc Batch Generator
+Purpose: Generates icons for 10 types of weapons/offhands across 10 elemental themes.
+         Automates the creation of a diverse loot visual library.
+Usage: python scripts/gen_weapons_misc_batch.py
+"""
 import subprocess
 import os
 

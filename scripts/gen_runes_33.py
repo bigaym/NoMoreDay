@@ -1,3 +1,9 @@
+"""
+NoMoreDay 33 Heavens Rune Generator
+Purpose: Generates 33 unique jade rune stones based on Chinese tiers (Yu, Se, Sheng).
+         Uses stylized seal script characters and progressive material quality.
+Usage: python scripts/gen_runes_33.py
+"""
 import subprocess
 import os
 

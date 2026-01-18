@@ -1,4 +1,9 @@
 
+"""
+NoMoreDay Skill Hash Utility
+Purpose: Simple utility to output FNV1a-32 hashes for skill icon identifiers.
+Usage: python scripts/get_skill_hashes.py
+"""
 def fnv1a_32(string):
     hash_val = 0x811c9dc5
     for char in string:

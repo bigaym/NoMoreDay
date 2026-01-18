@@ -7,6 +7,7 @@
 #include "engine/render/UIRenderer.hpp"
 
 class LevelManager; 
+namespace NoMoreDay { namespace systems { class SpatialHashGrid; } }
 
 class UISystem {
 public:
@@ -17,7 +18,7 @@ public:
     static void Initialize(ResourceManager& resourceManager);
     static void Shutdown();
     static void Update(entt::registry& registry, const LevelManager& levelManager);
-        static void Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera);
+        static void Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera, NoMoreDay::systems::SpatialHashGrid* spatialGrid = nullptr);
         static void DrawSkillHotbar(entt::registry& registry);
         static void DrawBuffs(entt::registry& registry);
         static void Benchmark(entt::registry& registry, const LevelManager& levelManager, int frames);

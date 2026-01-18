@@ -59,6 +59,7 @@ void GameplayState::OnEnter() {
   using namespace NoMoreDay::Constants::World;
   m_spatialGrid =
       systems::SpatialHashGrid(GRID_COLS, GRID_ROWS, GRID_CELL_SIZE);
+  m_context->spatialGrid = &m_spatialGrid;
 
   // Initialize Visual FX (Events)
   systems::VisualFXSystem::Initialize(*m_context->registry);
@@ -580,9 +581,8 @@ bool GameplayState::OnUpdate(float dt) {
     m_camera.offset.y += shake.y;
   }
 
-  // Spatial Grid Rebuild (only needs Position, rebuild's each() callback
-  // expects (entity, pos))
-  auto gridView = registry.view<Position>();
+  // Spatial Grid Rebuild (Exclude items/gold to keep AI/physics search fast)
+  auto gridView = registry.view<Position>(entt::exclude<NoMoreDay::ItemComponent, GoldComponent>);
   m_spatialGrid.rebuild(gridView, registry);
 
   // 4. AI
@@ -806,7 +806,7 @@ void GameplayState::OnRender() {
   // Copied logic from UISystem::Draw or call a helper?
   // I can leave `UISystem::Draw` to handle "Gameplay UI".
 
-  UISystem::Draw(registry, *m_context->levelManager, m_camera);
+  UISystem::Draw(registry, *m_context->levelManager, m_camera, &m_spatialGrid);
 
   // Player HUD (Resource Bars)
   systems::PlayerHUD::Draw(registry);

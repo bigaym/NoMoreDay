@@ -1,3 +1,8 @@
+"""
+NoMoreDay Placeholder Image Creator
+Purpose: Generates solid-color RGBA PNGs to act as temporary UI/icon assets.
+Usage: python scripts/create_placeholder_png.py
+"""
 from PIL import Image
 
 def create_solid_color_png(filepath, size=(64, 64), color=(128, 128, 128, 255)):

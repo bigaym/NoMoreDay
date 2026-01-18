@@ -1,4 +1,10 @@
 
+"""
+NoMoreDay Sword Intent UI & VFX Generator
+Purpose: Generates simple UI icons (sword) and ink-wash splatter masks for 
+         the Sword Intent system using procedural PIL drawing.
+Usage: python scripts/gen_sword_intent_assets.py
+"""
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 import os

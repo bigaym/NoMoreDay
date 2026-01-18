@@ -3,6 +3,7 @@
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/EquipmentAssetRegistry.hpp"
+#include "engine/resource/RuneAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
@@ -25,7 +26,7 @@ static entt::id_type pickRandomAsset(const std::array<T, N> &assets) {
   if (N == 0)
     return 0;
   std::uniform_int_distribution<size_t> dist(0, N - 1);
-  return assets[dist(g_rng)].id;
+  return assets[dist(g_rng)]->id;
 }
 
 static entt::id_type getRandomTextureForType(ItemType type, EquipmentSlot slot,
@@ -1144,7 +1145,7 @@ entt::entity ItemFactory::createMaterial(entt::registry &registry,
     ItemComponent item;
     item.type = ItemType::Material; // Runes are materials
     item.id = materialId;
-    item.name = runeDef->name + " Rune";
+    item.name = "符文·" + runeDef->name;
     item.description = "Can be socketed into items.";
     // Determine rarity based on Tier
     if (runeDef->tier >= 3)
@@ -1159,9 +1160,24 @@ entt::entity ItemFactory::createMaterial(entt::registry &registry,
     item.slot = EquipmentSlot::None;
 
     // Add AffixStats info to description? (Optional for now)
+    
+    // Assign Texture from RuneAssetRegistry
+    int idx = (int)materialId - 3001;
+    if (idx >= 0 && idx < (int)assets::runes::general::All.size()) {
+        item.textureId = assets::runes::general::All[idx]->id;
+    }
 
     registry.emplace<ItemComponent>(entity, item);
     registry.emplace<ColorComponent>(entity, ORANGE); // Runes distinct color
+
+    // Visuals: Sprite
+    if (item.textureId != 0) {
+        Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
+        if (tex.id > 0) {
+             float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
+             registry.emplace<SpriteComponent>(entity, tex, dropScale);
+        }
+    }
 
     LOG_DEBUG("Created Rune '{}' (ID: {}) x{}", runeDef->name, materialId,
               quantity);

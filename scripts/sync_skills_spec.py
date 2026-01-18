@@ -1,3 +1,9 @@
+"""
+NoMoreDay Skill Specification Synchronizer
+Purpose: Parses the 'Blade Ascendant' Markdown design doc and synchronizes
+         the skill tree structure into 'skills.json'.
+Usage: python scripts/sync_skills_spec.py
+"""
 import json
 import re
 import os

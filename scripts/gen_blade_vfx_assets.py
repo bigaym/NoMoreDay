@@ -1,4 +1,10 @@
 
+"""
+NoMoreDay Procedural VFX Texture Generator
+Purpose: Generates mathematically defined grayscale/RGBA masks for shaders.
+         Creates trails, noise, shockwaves, and rune patterns.
+Usage: python scripts/gen_blade_vfx_assets.py
+"""
 import numpy as np
 from PIL import Image, ImageDraw
 import os

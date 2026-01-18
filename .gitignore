@@ -32,6 +32,7 @@ venv/
 *.log
 *.png
 logs/
+*.txt   
 
 # Gemini
 .gemini/

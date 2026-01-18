@@ -1,3 +1,9 @@
+"""
+NoMoreDay Blade Ascendant Icon Generator
+Purpose: Generates ink-wash style icons for all Blade Ascendant skills and talents
+         defined in the design specifications.
+Usage: python scripts/generate_blade_icons.py
+"""
 import os
 import subprocess
 import sys

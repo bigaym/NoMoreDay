@@ -13,7 +13,7 @@ namespace assets {
 
     namespace textures {
         // 武器
-        constexpr TextureAsset Weapon_Sword = { "weapon_sword"_hs, "assets/textures/weapons/weapon_sword_fantasy_01.png" };
+        constexpr TextureAsset Weapon_Sword = { "weapon_sword"_hs, "assets/textures/equipment/sword/sword_0.png" };
         
         // 角色
         constexpr TextureAsset Player_Warrior = { "player_warrior"_hs, "assets/textures/characters/player_warrior.png" };

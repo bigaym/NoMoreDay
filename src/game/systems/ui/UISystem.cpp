@@ -1,4 +1,5 @@
 #include "game/systems/ui/UISystem.hpp"
+#include "engine/physics/SpatialGrid.hpp"
 #include "game/systems/ui/UIInventory.hpp"
 #include "game/systems/ui/UICharacter.hpp"
 #include "game/systems/ui/UIMinimap.hpp"
@@ -384,7 +385,7 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
     }
 }
 
-void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera) {
+void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, const Camera2D& camera, NoMoreDay::systems::SpatialHashGrid* spatialGrid) {
     // --- Scale Calculation ---
     float scaleX = (float)GetScreenWidth() / UI_REF_WIDTH;
     float scaleY = (float)GetScreenHeight() / UI_REF_HEIGHT;
@@ -401,7 +402,7 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     // 1. Draw Subsystems (Passed logic coordinates will be scaled by UIRenderer)
     UIMinimap::Draw(registry, levelManager);
     UIAstrolabe::Draw(registry);
-    UICrafting::Draw(registry); // ADDED
+    UICrafting::Draw(registry); 
     
     // Skill Tree Hub
     auto playerView = registry.view<PlayerTag>();
@@ -422,38 +423,46 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
 
     // 3. Ground Interaction highlights (drawn below overlays)
     if (State.hoveredItem == entt::null) {
-        // ... (rest of ground interaction logic remains same, just highlighting)
-        auto groundItemView = registry.view<ItemComponent, Position>();
         Vector2 mouseLogicPos = GetMousePositionLogic(); 
+        Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
         bool altHeld = IsKeyDown(KEY_LEFT_ALT);
         
         Vector2 playerPos2D = {0, 0};
         entt::entity playerEntity = entt::null;
-        auto playerView = registry.view<PlayerTag, Position>();
-        if (playerView.begin() != playerView.end()) {
-            playerEntity = playerView.front();
-            auto& p = playerView.get<Position>(playerEntity);
+        auto pView = registry.view<PlayerTag, Position>();
+        if (pView.begin() != pView.end()) {
+            playerEntity = pView.front();
+            auto& p = pView.get<Position>(playerEntity);
             playerPos2D = {p.x, p.y};
         }
 
         Font font = GetFont();
 
-        for (auto entity : groundItemView) {
+        auto groundItemView = registry.view<ItemComponent, Position>();
+        groundItemView.each([&](entt::entity entity, const ItemComponent& item, const Position& p) {
+            if (State.hoveredItem != entt::null) return; // Already found one
+
+            // Frustum Culling for Hover Logic
+            Vector2 screenPos = GetWorldToScreen2D({p.x, p.y}, camera); 
+            if (screenPos.x < -100 || screenPos.x > (float)GetScreenWidth() + 100 || 
+                screenPos.y < -100 || screenPos.y > (float)GetScreenHeight() + 100) return;
+
             const auto* filterResult = registry.try_get<LootFilterResultComponent>(entity);
-            if (filterResult && !filterResult->visible && !altHeld) {
-                continue; 
-            }
+            if (filterResult && !filterResult->visible && !altHeld) return;
 
-            const auto& pos = groundItemView.get<Position>(entity);
-            const auto& item = groundItemView.get<ItemComponent>(entity);
-
-            Vector2 screenPos = GetWorldToScreen2D({pos.x, pos.y}, camera); 
             Vector2 screenPosLogic = { screenPos.x / scale, screenPos.y / scale }; 
 
             float labelScale = 1.0f;
             if (filterResult) labelScale = filterResult->scale;
             float fontSize = 18.0f * labelScale;
-            Vector2 textSize = IsFontValid(font) ? MeasureTextEx(font, item.name.c_str(), fontSize, 1.0f) : Vector2{(float)MeasureText(item.name.c_str(), (int)fontSize), fontSize};
+            
+            auto& labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
+            if (!labelCache.isValid || labelCache.lastFontSize != (int)fontSize) {
+                labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, item.name.c_str(), fontSize, 1.0f) : Vector2{(float)MeasureText(item.name.c_str(), (int)fontSize), fontSize};
+                labelCache.lastFontSize = (int)fontSize;
+                labelCache.isValid = true;
+            }
+            Vector2 textSize = labelCache.cachedSize;
             
             Rectangle labelRect = { 
                 screenPosLogic.x - (textSize.x / 2.0f) - 4, 
@@ -467,12 +476,10 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
 
             if (hovered) {
                 State.hoveredItem = entity;
-                
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && playerEntity != entt::null) {
-                    float dx = pos.x - playerPos2D.x;
-                    float dy = pos.y - playerPos2D.y;
+                    float dx = p.x - playerPos2D.x;
+                    float dy = p.y - playerPos2D.y;
                     float distSq = dx*dx + dy*dy;
-
                     if (distSq <= 180.0f * 180.0f) { 
                         if (InventorySystem::pickUpItem(registry, playerEntity, entity)) {
                             State.hoveredItem = entt::null;
@@ -487,9 +494,8 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
                         State.messageBoxTimer = 1.5f;
                     }
                 }
-                break; 
             }
-        }
+        });
     }
 
     // 4. Overlays (Drawn LAST to be on very top)
@@ -730,6 +736,9 @@ void UISystem::DrawBuffs(entt::registry& registry) {
 
         const auto& visual = BuffRegistry::GetVisualData(effect.type);
         Texture2D icon = { 0 };
+        if (visual.icon_asset) {
+            icon = AssetLoadingSystem::GetTexture(visual.icon_asset->id);
+        }
         const char* iconText = visual.icon_text.c_str();
 
         float ratio = 0.0f;

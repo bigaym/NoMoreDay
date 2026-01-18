@@ -13,6 +13,7 @@
 #include <cmath>
 #include <cstdio>
 #include <string>
+#include <sstream>
 
 
 namespace NoMoreDay {
@@ -308,8 +309,31 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
 
               if (isFilled) {
                   // Filled Socket (Gold/Rune Color)
-                  DrawCircleV(center, dotRadius, ApplyAlpha(GOLD, alpha));
-                  DrawCircleLines((int)center.x, (int)center.y, dotRadius, ApplyAlpha(WHITE, 0.8f * alpha));
+                  bool drawn = false;
+                  if (i < (int)itemComp->sockets.size()) {
+                       auto socketEntity = itemComp->sockets[i];
+                       if (registry.valid(socketEntity)) {
+                           if (const auto* sockItem = registry.try_get<ItemComponent>(socketEntity)) {
+                                Texture2D tex = AssetLoadingSystem::GetTexture(sockItem->textureId);
+                                if (tex.id > 0) {
+                                     // Draw texture scaled
+                                     Rectangle source = {0,0,(float)tex.width, (float)tex.height};
+                                     float iconSize = dotRadius * 2.8f; // Larger than dot
+                                     Rectangle dest = {center.x - iconSize/2, center.y - iconSize/2, iconSize, iconSize};
+                                     DrawTexturePro(tex, source, dest, {0,0}, 0.0f, ApplyAlpha(WHITE, alpha));
+                                     drawn = true;
+                                }
+                           }
+                       }
+                  }
+
+                  if (!drawn) {
+                      DrawCircleV(center, dotRadius, ApplyAlpha(GOLD, alpha));
+                      DrawCircleLines((int)center.x, (int)center.y, dotRadius, ApplyAlpha(WHITE, 0.8f * alpha));
+                  } else {
+                      // Optional: Draw a thin border around the rune
+                      // DrawCircleLines((int)center.x, (int)center.y, dotRadius * 1.4f, ApplyAlpha(GOLD, 0.5f * alpha));
+                  }
               } else {
                   // Empty Socket (Dark Gray)
                   DrawCircleV(center, dotRadius, ApplyAlpha(DARKGRAY, 0.8f * alpha));
@@ -638,7 +662,17 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
 
   if (!itemComp->description.empty()) {
     lines.push_back({" ", WHITE});
-    lines.push_back({itemComp->description, s_theme.textPrimary});
+    
+    // Handle multi-line descriptions (e.g. Map Fragments)
+    std::stringstream ss(itemComp->description);
+    std::string line;
+    while (std::getline(ss, line, '\n')) {
+        // Remove CR if present (Windows specific safety)
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (!line.empty()) {
+             lines.push_back({line, s_theme.textPrimary});
+        }
+    }
   }
 
   float fontSize = 18.0f;

@@ -1,3 +1,8 @@
+"""
+NoMoreDay General Image Resizer
+Purpose: Batch resizes images in a folder to a specified square size.
+Usage: python scripts/resize_images.py <folder_path> <target_size>
+"""
 import os
 import sys
 from PIL import Image

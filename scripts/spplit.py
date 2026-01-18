@@ -1,3 +1,9 @@
+"""
+NoMoreDay Image Organizer (Spplit)
+Purpose: Automatically categorizes generated PNGs into subdirectories based on filename prefixes.
+         Assigns sequential numerical IDs to avoid overwriting.
+Usage: python scripts/spplit.py <target_directory>
+"""
 import os
 import sys
 import shutil
