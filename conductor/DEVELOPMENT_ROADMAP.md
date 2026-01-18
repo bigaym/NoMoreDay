@@ -8,12 +8,14 @@
 | 模块 | 状态 | 技术要点 |
 |------|------|----------|
 | **C++20 ECS 核心** | ✅ 完成 | EnTT + Taskflow 并发调度，稳定支持 10,000+ 实体 |
+| **混合护盾系统** | ✅ 完成 | **ES + Ward** 模式，支持回充延迟、动态衰减与智力维持加成 |
 | **渲染与 GPGPU** | ✅ 完成 | Raylib 2D 渲染 + GPU 流场寻路 (SSBO) + GPU 粒子 (20万级) |
 | **伤害流水线** | ✅ 完成 | **5步计算法** (Base->Convert->Inc->More->Settle)，SIMD 优化 |
 | **维度拼接系统** | ✅ 完成 | 碎片掉落、3x3 拼接、属性共鸣与地图生成集成 |
 | **基础 AI 行为** | ✅ 完成 | Support, Assassin, Tank, Fodder 等原型逻辑实现 |
 | **存档与传家宝** | ✅ 完成 | 物品持久化、跨存档继承、属性动态压缩 |
 | **传奇融合 (Legendary Merging)** | ✅ 完成 | Unique (LP) + Exalted 词缀继承逻辑，Ancient 稀有度实现 |
+| **基础 AI 行为** | 🔄 部分完成 | Fodder/Tank/Assassin 原型已出，Support (支援者) 逻辑尚为空 |
 
 ### 🔍 代码审计发现的缺失 (对比设计文档)
 | 缺失项 | 现状 | 影响 |
@@ -48,10 +50,10 @@
     - 将 AffixType 升级为 uint16_t (0-65535)，定义 Normal (0-999) 和 Legendary (1000-1999) 锚点。
     - 实现 `GetAffixNameLookup` 回调接口，支持从 `legendary_affixes.json` 动态加载词缀描述。
 
-    - **Code Risk Mitigation**: 
-        - **SkillSystem**: Fixed UAF vulnerability and resolved critical test failures for Blade Ward (Interception Logic), Infinite Blades, and Boomerang state transitions.
-        - **GPUFlowFieldSystem**: Fixed resource leaks and ensured correct shader loading path in tests.
-        - **Infrastructure**: Stabilized integration test suite (Astrolabe, ItemFactory) for reliable CI execution.
+    - **Code Risk Mitigation**: [All Phase 9 Fixes Applied]
+        - **SkillSystem**: Fixed UAF vulnerability and resolved critical test failures.
+        - **GPUFlowFieldSystem**: Fixed resource leaks.
+        - **Infrastructure**: Stabilized integration test suite.
 
 ### 📍 Phase 10: 敌人生态与宿敌进化 (Advanced AI & Nemesis)
 **优先级：高**。增强战斗的挑战性与交互性。
@@ -59,9 +61,16 @@
 - [ ] **扩充精英词缀库**
     - 实现 **Molten (熔火)**：路径伤害与死亡爆炸。
     - 实现 **Mirror Image (镜像)**：受击分裂。
-    - 实现 **Nullifier (虚无)**：周期性驱散玩家 Buff。
+    - **Nullifier (虚无)**：周期性驱散玩家 Buff。
+    - **Teleporter (闪烁)**：受到攻击或定时间隔瞬移至玩家身后 (Counter Kite)。
+    - **Shielding (护盾)**：周期性为周围友军提供无敌护盾 (Force Priority)。
+    - **Deadly Synergy**: 实现组合权重的随机逻辑（e.g. Fast + Molten 组合权重提升）。
+- [ ] **AI 行为树补完**
+    - 实现 **Support (支援者)** 逻辑：`Flee` + `CastBuff` (Shield/Frenzy)。
+    - 优化 **Tank (坦克)** 逻辑：主动阻挡视线 (`BlockLineOfSight`)。
 - [ ] **宿敌系统进化闭环**
-    - 强化 `NemesisGenerator` 的分析逻辑：统计玩家近 100 次击杀的伤害构成，而非仅仅主属性。
+    - 强化 `NemesisGenerator` 的分析逻辑：统计玩家近 50 次击杀的伤害构成 (Damage Composition Analysis)。
+    - **逻辑挂载**：当前 Nemesis 仅有数值膨胀，需实装 `Resist` 对应的被动组件 logic (e.g. `ReactiveArmor` vs Physical)。
     - 使宿敌获得针对玩家高频技能的防御组件（如：频繁格挡投射物）。
 
 

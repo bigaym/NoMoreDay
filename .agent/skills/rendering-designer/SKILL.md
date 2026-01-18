@@ -13,7 +13,7 @@ description: 专注于游戏视觉表现的优化与美化。能够适应多种�
 
 ## 智能工作流 (Smart Tree Powered)
 
-### 1. 需求与参考搜寻
+### 1. 需求与参考搜寻 (Discovery)
 - **项目全览**: `overview {mode:'quick'}` 定位相关策划案。
 - **设计回溯**: `memory {operation:'find', keywords:['art_style', 'visual_keyword']}` 确保视觉一致性。
 - **参考挖掘**: `find {type:'documentation', pattern:'*VFX_Design.md'}` 查看既有设计。
@@ -22,8 +22,9 @@ description: 专注于游戏视觉表现的优化与美化。能够适应多种�
 - **文档创建**: 在 `设计文档/特效和UI/` 下使用 `write_file` 创建新规。
 - **记忆保存**: 使用 `memory {operation:'anchor', anchor_type:'decision'}` 记录配色方案和视觉阶段定义。
 
-### 3. 资源生成与管理
+### 3. 资源生成与管理 (Assets)
 - **纹理脚本**: 使用 `scripts/gen_proc_textures.py`。
+- **大小监控**: 使用 `find {type:'large', path:'assets/textures', min_size:'500KB'}` 确保生成的程序化纹理不过大。
 - **语义分析**: `analyze {mode:'semantic', path:'assets/shaders'}` 理解 Shader 依赖关系。
 
 ## 资源路径规范

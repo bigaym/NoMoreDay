@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Hybrid Barrier System (ES + Ward)
+- **Folder:** [./conductor/archive/hybrid_barrier_20260118/](./conductor/archive/hybrid_barrier_20260118/)
+- **Description:** 实现混合护盾系统 (Energy Shield + Ward)。支持受击延迟回复 (ES 模式) 与超出上限自动衰减 (Ward 模式)。包括 CombatStats 属性聚合、CombatSystem 伤害吸收逻辑、以及 UI (PlayerHUD/MonsterBar) 的青色遮罩脉冲表现。 (Completed on 2026-01-18)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1 day
+
+---
+
 ## [x] Track: Performance Hardening & Logic Fixes
 - **Folder:** [./conductor/archive/performance_hardening_20260117/](./conductor/archive/performance_hardening_20260117/)
 - **Description:** 解决万级实体目标下的关键性能瓶颈与逻辑死锁。包括修复 StatsCache 内存泄漏、SkillSystem 零分配循环重构，整合 Hash-based 查找以及 Sword Intent 属性实时刷新逻辑。 (Completed on 2026-01-17)

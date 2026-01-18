@@ -10,9 +10,9 @@ description: 担任产品经理和系统设计师。在需要规划新功能、�
 
 ## 智能设计工具集 (Smart Tree Powered)
 - **🧠 记忆回溯**: `memory {operation:'find', keywords:['design_pattern', 'architecture']}` 确保设计延续性。
-- **📊 依赖分析**: `analyze {mode:'semantic', path:'src/game/systems'}` 理解模块间的数据流转与依赖。
-- **⚡ 结构感知**: `overview {mode:'project', depth:10}` 确保新系统路径符合规范。
-- **🔍 深度搜索**: `search {keyword:'...', include_content:true}` 检查现有系统逻辑，避免功能冗余。
+- **🗺️ 全局视野**: `overview {mode:'project', depth:4}` 获取深度的项目目录结构，确保新系统放置在正确位置。
+- **📊 依赖分析**: `analyze {mode:'semantic', path:'src/game/systems'}` 理解现有模块间的数据流转与依赖。
+- **🔍 查重与冲突**: `search {keyword:'class ClassName', include_content:false}` 确保类名或文件名不与现有系统冲突。
 
 ## 核心工作流
 
@@ -34,4 +34,3 @@ description: 担任产品经理和系统设计师。在需要规划新功能、�
 - `conductor/tracks/<track_id>/spec.md`
 - `conductor/tracks/<track_id>/plan.md`
 - `assets/data/` JSON 定义
-

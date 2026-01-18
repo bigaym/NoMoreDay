@@ -8,6 +8,7 @@ using namespace NoMoreDay;
 // --- Unit Tests ---
 #include "unit/SystemMechanics.hpp"
 #include "unit/BuffTests.hpp"
+#include "unit/BarrierTests.hpp"
 
 // --- Integration Tests ---
 #include "integration/GameplaySystems.hpp"

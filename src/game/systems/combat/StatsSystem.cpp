@@ -93,6 +93,14 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     combat.health_regen_pct = 0.0f;
     combat.mana_regen_pct = 0.0f;
 
+    // Reset barrier values (Hybrid Barrier: ES + Ward)
+    // Note: combat.barrier (current value) is NOT reset here - it's runtime state
+    combat.max_barrier = 0.0f;
+    combat.barrier_regen = 0.0f;
+    combat.barrier_decay = 0.2f;  // Default 20% decay per second
+    combat.barrier_delay = 2.0f;  // Default 2 seconds before regen
+    combat.barrier_retention = 0.0f;
+
     // Cache is now managed by StatsSystem, cleared via ClearCache()
 }
 
@@ -800,6 +808,24 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     combat.health_regen *= (1.0f + combat.health_regen_pct);
     combat.mana_regen *= (1.0f + combat.mana_regen_pct);
 
+    // --- Hybrid Barrier Stats Finalization ---
+    // Aggregate barrier stats from calcs (set by equipment/modifiers)
+    combat.max_barrier += calcs[static_cast<size_t>(StatType::MaxBarrier)].Result();
+    combat.barrier_regen += calcs[static_cast<size_t>(StatType::BarrierRegen)].Result();
+    
+    // Calculate decay and delay from modifiers
+    // Decay: Base 20% (0.2), modifiers are added/multiplied to this base
+    calcs[static_cast<size_t>(StatType::BarrierDecay)].base = 20.0f; // 20% base
+    combat.barrier_decay = calcs[static_cast<size_t>(StatType::BarrierDecay)].Result() / 100.0f;
+    
+    // Delay: Base 2.0s, modifiers are added/multiplied to this base
+    calcs[static_cast<size_t>(StatType::BarrierDelay)].base = 2.0f; 
+    combat.barrier_delay = calcs[static_cast<size_t>(StatType::BarrierDelay)].Result();
+    
+    // barrier_retention: INT scaling (1 INT = +1% retention)
+    combat.barrier_retention = calcs[static_cast<size_t>(StatType::BarrierRetention)].Result() / 100.0f;
+    combat.barrier_retention += intel * Attribute::INT_TO_BARRIER_RETENTION / 100.0f;
+
     if (hasTitanGrip) {
         registry.emplace<TitanGripTrait>(entity);
     }
@@ -819,6 +845,11 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
         
         // Sync visual value for UI
         combat.health = hp->current;
+    }
+
+    // Ensure BarrierComponent exists if entity has any barrier capacity
+    if (combat.max_barrier > 0.0f || combat.barrier > 0.0f) {
+        (void)registry.get_or_emplace<BarrierComponent>(entity);
     }
 }
 

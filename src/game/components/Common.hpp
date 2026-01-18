@@ -171,6 +171,7 @@ constexpr float STR_TO_PHYS_DAMAGE_INC =
 constexpr float DEX_TO_CRIT_CHANCE = 0.2f; // 每点敏捷提供的暴击率增加
 constexpr float DEX_TO_ACCURACY = 0.1f;    // 每点敏捷提供的命中率增加
 constexpr float STR_TO_KNOCKBACK = 0.5f;   // 每点力量提供的击退力度增加
+constexpr float INT_TO_BARRIER_RETENTION = 1.0f; // 每点智力提供的护盾维持(降低衰减)百分比
 } // namespace Attribute
 
 namespace Cap {
@@ -412,6 +413,13 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayedDestroyComponent, timer)
 
 // 休眠标签：标记实体处于休眠状态，跳过 AI 和 Physics 更新
 struct DormantTag {};
+
+// 护盾运行时状态组件 (Hybrid Barrier: ES + Ward)
+// 护盾值存储在 CombatStats.barrier 中，此组件仅存储运行时状态
+struct BarrierComponent {
+  float last_damage_time = 0.0f; // 上次受击时间戳（用于判断回复延迟）
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BarrierComponent, last_damage_time)
 
 // 标签缓存组件：用于加速世界坐标中文字标签的渲染
 struct LabelCacheComponent {

@@ -57,9 +57,40 @@ void PlayerHUD::Draw(entt::registry& registry) {
     DrawRectangleRec(hpBg, Fade(BLACK, 0.6f));
     DrawRectangleRec({ hpLeftX * scale, barTopY * scale, (barWidth * hpPct) * scale, barHeight * scale }, MAROON);
     DrawRectangleLinesEx(hpBg, 2.0f * scale, DARKGRAY);
+
+    // --- Hybrid Barrier Overlay (Cyan shield on top of HP bar) ---
+    // Barrier colors
+    constexpr Color BARRIER_COLOR = { 102, 217, 232, 200 };       // #66D9E8 (明亮青色)
+    constexpr Color BARRIER_GLOW = { 64, 160, 255, 255 };         // #40A0FF (溢出发光)
+    constexpr Color BARRIER_BG = { 26, 58, 74, 180 };             // #1A3A4A (深青色背景)
     
-    // HP Text
+    bool hasBarrier = stats.barrier > 0.0f || stats.max_barrier > 0.0f;
+    float barrierDisplayValue = stats.barrier;
+    
+    if (hasBarrier && barrierDisplayValue > 0.0f) {
+        // Calculate barrier percentage relative to max_health (for visual overlay)
+        // This makes barrier visually overlay the health bar proportionally
+        float barrierPct = std::clamp(barrierDisplayValue / stats.max_health, 0.0f, 1.0f);
+        
+        // Draw barrier bar overlaying on top of HP bar (from left edge)
+        float barrierWidth = barWidth * barrierPct;
+        Rectangle barrierRect = { hpLeftX * scale, barTopY * scale, barrierWidth * scale, barHeight * scale };
+        DrawRectangleRec(barrierRect, BARRIER_COLOR);
+        
+        // If barrier exceeds max_barrier (Ward mode overflow), add pulsing glow effect
+        if (stats.barrier > stats.max_barrier && stats.max_barrier > 0.0f) {
+            // Simple pulse animation based on time
+            float pulse = (std::sin(static_cast<float>(GetTime()) * 4.0f) + 1.0f) * 0.5f; // 0-1 oscillation
+            float glowAlpha = 0.3f + pulse * 0.4f; // 0.3-0.7 range
+            DrawRectangleLinesEx(hpBg, 3.0f * scale, Fade(BARRIER_GLOW, glowAlpha));
+        }
+    }
+    
+    // HP + Barrier Text
     std::string hpText = std::to_string((int)stats.health) + " / " + std::to_string((int)stats.max_health);
+    if (hasBarrier && barrierDisplayValue > 0.0f) {
+        hpText += " (+" + std::to_string((int)barrierDisplayValue) + ")";
+    }
     UISystem::DrawTextUI(hpText.c_str(), hpLeftX + 10.0f, barTopY + 4.0f, 18.0f, WHITE, 1.0f);
 
     // --- 2. Mana Bar (Right of Hotbar) ---

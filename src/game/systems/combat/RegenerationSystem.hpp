@@ -14,6 +14,9 @@ namespace NoMoreDay {
 class RegenerationSystem {
 public:
     static void update(entt::registry& registry, float dt) {
+        // Get current game time for barrier delay calculation
+        float currentTime = static_cast<float>(GetTime());
+        
         auto view = registry.view<CombatStats>();
         
         for (auto entity : view) {
@@ -62,6 +65,44 @@ public:
             if (stats.mana < stats.max_mana && effectiveManaRegen > 0.0f) {
                 stats.mana += effectiveManaRegen * dt;
                 if (stats.mana > stats.max_mana) stats.mana = stats.max_mana;
+            }
+
+            // 3. 处理护盾回复/衰减 (Hybrid Barrier: ES + Ward Mode)
+            if (auto* barrier = registry.try_get<BarrierComponent>(entity)) {
+                float timeSinceDamage = currentTime - barrier->last_damage_time;
+
+                // --- ES Mode: Regeneration ---
+                // Only regenerate if:
+                // 1. Time since last damage > barrier_delay
+                // 2. Current barrier < max_barrier
+                // 3. barrier_regen > 0
+                if (timeSinceDamage > stats.barrier_delay && 
+                    stats.barrier < stats.max_barrier && 
+                    stats.barrier_regen > 0.0f) {
+                    stats.barrier += stats.barrier_regen * dt;
+                    if (stats.barrier > stats.max_barrier) {
+                        stats.barrier = stats.max_barrier;
+                    }
+                }
+
+                // --- Ward Mode: Decay ---
+                // Decay barrier if it exceeds max_barrier (temporary shield from skills/kills)
+                // Formula: EffectiveDecay = barrier_decay / (1 + barrier_retention)
+                if (stats.barrier > stats.max_barrier && stats.barrier_decay > 0.0f) {
+                    float effectiveDecay = stats.barrier_decay / (1.0f + stats.barrier_retention);
+                    float excessBarrier = stats.barrier - stats.max_barrier;
+                    float decayAmount = excessBarrier * effectiveDecay * dt;
+                    stats.barrier -= decayAmount;
+                    // Don't decay below max_barrier
+                    if (stats.barrier < stats.max_barrier) {
+                        stats.barrier = stats.max_barrier;
+                    }
+                }
+
+                // Ensure barrier doesn't go negative
+                if (stats.barrier < 0.0f) {
+                    stats.barrier = 0.0f;
+                }
             }
         }
     }

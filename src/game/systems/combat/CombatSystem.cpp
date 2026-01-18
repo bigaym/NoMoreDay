@@ -580,7 +580,38 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
     return true;
   }
 
-  hp.current -= amount;
+  float remainingDamage = amount;
+  float barrierDamage = 0.0f;
+
+  // --- Hybrid Barrier: Damage Absorption ---
+  // Priority: Barrier absorbs damage before Health
+  // Note: Chaos/True damage bypass is currently handled at DamagePipeline level
+  if (auto* barrier = registry.try_get<BarrierComponent>(target)) {
+    auto* stats = registry.try_get<NoMoreDay::CombatStats>(target);
+    if (stats && stats->barrier > 0.0f) {
+      // Update last_damage_time to reset ES regeneration delay
+      barrier->last_damage_time = static_cast<float>(GetTime());
+      
+      // Calculate barrier absorption
+      if (stats->barrier >= remainingDamage) {
+        // Barrier absorbs all damage
+        barrierDamage = remainingDamage;
+        stats->barrier -= remainingDamage;
+        remainingDamage = 0.0f;
+      } else {
+        // Barrier absorbs partial damage
+        barrierDamage = stats->barrier;
+        remainingDamage -= stats->barrier;
+        stats->barrier = 0.0f;
+      }
+      
+      LOG_TRACE("Barrier absorbed {:.1f} damage, remaining: {:.1f}, barrier left: {:.1f}",
+                barrierDamage, remainingDamage, stats->barrier);
+    }
+  }
+
+  // Apply remaining damage to health
+  hp.current -= remainingDamage;
 
   // --- Unified Damage Popup (Gated by showVFX for performance) ---
   if (showVFX && registry.all_of<Position>(target)) {

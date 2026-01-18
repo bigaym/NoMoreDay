@@ -62,6 +62,16 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
         DrawRectangleRec(fgRect, barColor);
         // Top highlight line for the health bar
         DrawRectangle(fgRect.x, fgRect.y, fgRect.width, 1, { 255, 255, 255, 80 });
+
+        // --- Barrier Overlay (Cyan Shield) ---
+        if (auto* stats = registry.try_get<CombatStats>(entity)) {
+            if (stats->barrier > 0.0f) {
+                constexpr Color BARRIER_COLOR = { 102, 217, 232, 200 }; // Cyan
+                float barrierPct = std::clamp(stats->barrier / hp.max, 0.0f, 1.0f);
+                Rectangle barrierRect = { worldPos.x - barWidth / 2.0f, worldPos.y + yOffset, barWidth * barrierPct, barHeight };
+                DrawRectangleRec(barrierRect, BARRIER_COLOR);
+            }
+        }
         
         // Border (Darker, more defined)
         DrawRectangleLinesEx(bgRect, 1.0f, { 10, 10, 10, 255 });

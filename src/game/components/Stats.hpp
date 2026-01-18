@@ -69,6 +69,14 @@ struct alignas(32) CombatStats {
   float mana = DEFAULT_MAX_MANA;
   float max_mana = DEFAULT_MAX_MANA;
 
+  // --- 护盾机制 (Hybrid Barrier: ES + Ward) ---
+  float barrier = 0.0f;           // 当前护盾值
+  float max_barrier = 0.0f;       // 护盾上限 (ES模式基准)
+  float barrier_regen = 0.0f;     // 每秒回复 (ES模式)
+  float barrier_decay = 0.2f;     // 每秒衰减比例 (Ward模式, Default 20%)
+  float barrier_delay = 2.0f;     // 受击后暂停回复时间 (秒)
+  float barrier_retention = 0.0f; // 护盾维持 (降低衰减)
+
   // --- 有效属性 (用于 UI 显示) ---
   float effective_strength = 0.0f;
   float effective_dexterity = 0.0f;
@@ -177,7 +185,9 @@ static_assert(sizeof(CombatStats) % 32 == 0,
 
 // 定义 CombatStats 的 JSON 序列化
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
-    CombatStats, health, max_health, mana, max_mana, effective_strength,
+    CombatStats, health, max_health, mana, max_mana, barrier, max_barrier,
+    barrier_regen, barrier_decay, barrier_delay, barrier_retention,
+    effective_strength,
     effective_dexterity, effective_intelligence, effective_vitality,
     min_weapon_damage, max_weapon_damage, flat_damage, damage_multipliers,
     damage_percent_add, damage_percent_mult_component, crit_chance, crit_damage,
@@ -201,6 +211,7 @@ enum class StatType : uint8_t {
   Vitality,
   MaxHealth, // 最大生命值
   MaxMana,   // 最大法力值
+  MaxBarrier, // 最大护盾值
   MoveSpeed, // 移动速度
   Armor,     // 护甲
 
@@ -243,6 +254,10 @@ enum class StatType : uint8_t {
   LifeOnHit,   // 击回
   HealthRegen, // 生命回复
   ManaRegen,   // 法力回复
+  BarrierRegen,     // 护盾回复 (Flat)
+  BarrierDecay,     // 护盾衰减 (Percent)
+  BarrierDelay,     // 护盾充能延迟
+  BarrierRetention, // 护盾维持
   Thorns,      // 荆棘
   MagicFind,   // 掉率
 
