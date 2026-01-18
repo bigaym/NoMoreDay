@@ -1,3 +1,6 @@
+#ifndef NOMOREDAY_GPUDATA_HPP
+#define NOMOREDAY_GPUDATA_HPP
+
 #pragma once
 #include <raylib.h>
 #include <stdint.h>
@@ -150,6 +153,8 @@ namespace Colors {
     constexpr Color UI_BORDER_SUCCESS   = { 60, 220, 60, 255 };
     // Info or Hint Border / 信息或提示边框
     constexpr Color UI_BORDER_INFO      = { 60, 160, 255, 255 };
+    // Color for socket info in tooltips
+    constexpr Color COLOR_SOCKET_INFO   = { 208, 239, 232, 255 };
 
     // --- Blade Ascendant Theme (剑修主题) ---
     
@@ -201,3 +206,5 @@ namespace Colors {
 }
 
 } // namespace NoMoreDay::components
+
+#endif // NOMOREDAY_GPUDATA_HPP

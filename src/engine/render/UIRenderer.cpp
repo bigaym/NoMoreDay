@@ -9,7 +9,11 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/systems/ui/UICrafting.hpp" // ADDED
+
 #include <algorithm>
+
+
+
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -660,6 +664,13 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
     lines.push_back({GetAffixDescription(aff, true), color});
   }
 
+  // --- Socket Count ---
+  if (itemComp->socketCount > 0) {
+      char sockBuf[64];
+      snprintf(sockBuf, sizeof(sockBuf), "插槽数量: %d", itemComp->socketCount);
+      lines.push_back({sockBuf, NoMoreDay::components::Colors::COLOR_SOCKET_INFO});
+  }
+
   if (!itemComp->description.empty()) {
     lines.push_back({" ", WHITE});
     
@@ -696,8 +707,17 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
     maxW = std::max(maxW, w);
   }
 
-  float w = maxW + padding * 2;
-  float h = padding * 2 + titleSize + 5.0f + lines.size() * lineHeight;
+  float iconSectionHeight = 0.0f;
+  Texture2D iconTex = { 0 };
+  if (itemComp->textureId != 0) {
+      iconTex = AssetLoadingSystem::GetTexture(itemComp->textureId);
+      if (iconTex.id > 0) {
+          iconSectionHeight = 64.0f + 10.0f; // Icon height + spacing
+      }
+  }
+
+  float w = std::max(maxW + padding * 2, 64.0f + padding * 2);
+  float h = padding * 2 + titleSize + 5.0f + iconSectionHeight + lines.size() * lineHeight;
 
   Vector2 m = GetMousePosition();
   float x = m.x + 15 * s_uiScale;
@@ -721,7 +741,16 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
              (x + padding * s_uiScale) / s_uiScale,
              (y + padding * s_uiScale) / s_uiScale, titleSize,
              GetRarityColor(itemComp->rarity), alpha);
+  
   float curSY = y + (padding + titleSize + 5.0f) * s_uiScale;
+
+  if (iconTex.id > 0) {
+      float sIconSize = 64.0f * s_uiScale;
+      Rectangle source = { 0, 0, (float)iconTex.width, (float)iconTex.height };
+      Rectangle dest = { x + (sW - sIconSize) / 2.0f, curSY, sIconSize, sIconSize };
+      DrawTexturePro(iconTex, source, dest, { 0, 0 }, 0.0f, Fade(WHITE, alpha));
+      curSY += (64.0f + 10.0f) * s_uiScale;
+  }
 
   for (const auto &line : lines) {
     if (line.isSeparator) {

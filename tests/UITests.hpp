@@ -138,4 +138,20 @@ TEST_CASE("PlayerHUD: Render Logic") {
     }
 }
 
+TEST_CASE("UIRenderer: Tooltip Logic Smoke Test") {
+    entt::registry registry;
+    Font font = GetFontDefault();
+    
+    auto itemEntity = registry.create();
+    auto& item = registry.emplace<ItemComponent>(itemEntity);
+    item.name = "Test Legendary Sword";
+    item.rarity = Rarity::Legendary;
+    item.socketCount = 3;
+    item.textureId = 1; // Dummy ID
+    
+    // Smoke test for DrawTooltip
+    // We can't easily verify the actual drawing but we can ensure it doesn't crash
+    UIRenderer::DrawTooltip(font, registry, itemEntity, 1.0f);
+}
+
 } // namespace NoMoreDay
