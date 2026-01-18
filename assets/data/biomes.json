@@ -3,8 +3,18 @@
         {
             "id": "town",
             "name": "平安镇 (Town)",
-            "floorColor": [139, 69, 19, 255],
-            "wallColor": [105, 105, 105, 255],
+            "floorColor": [
+                139,
+                69,
+                19,
+                255
+            ],
+            "wallColor": [
+                105,
+                105,
+                105,
+                255
+            ],
             "wallProbability": 0.2,
             "smoothIterations": 2,
             "enemyPool": [],
@@ -14,11 +24,24 @@
         {
             "id": "cave",
             "name": "幽暗洞穴 (Dark Cave)",
-            "floorColor": [60, 40, 30, 255],
-            "wallColor": [40, 40, 40, 255],
+            "floorColor": [
+                60,
+                40,
+                30,
+                255
+            ],
+            "wallColor": [
+                40,
+                40,
+                40,
+                255
+            ],
             "wallProbability": 0.38,
             "smoothIterations": 5,
-            "enemyPool": ["slime", "goblin"],
+            "enemyPool": [
+                "beast",
+                "goblin"
+            ],
             "maxEnemies": 500,
             "isSafeZone": false
         }

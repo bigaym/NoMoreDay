@@ -42,8 +42,14 @@ LevelManager::prepareLevel(const std::string &biome, int width, int height,
   data.enemy = std::make_unique<EnemySpawnSystem>();
   data.fog = std::make_unique<FogOfWarSystem>();
 
+  // Override size for town (safe zone) to be smaller
+  if (biome == "town") {
+      width = 100;
+      height = 100;
+  }
+
   // 生成地图 (这里只是预生成数据结构，不涉及 GPU)
-  data.map->generateCaveMap(width, height);
+  data.map->generateMap(width, height, biome);
 
   // 初始化敌人
   data.enemy->initData(width, height, *data.map, biome);
@@ -76,7 +82,7 @@ LevelManager::prepareMosaicLevel(const NoMoreDay::MosaicGrid &grid,
   data.biome = biome;
   data.width = width;
   data.height = height;
-  data.level = 1; // 可以根据 resonance.totalLevelMod 计算实际等级
+  data.level = m_currentLevel + 1; // Increment level depth
   data.isMosaic = true;
   data.resonance = resonance;
 

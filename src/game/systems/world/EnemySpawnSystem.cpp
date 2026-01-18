@@ -28,8 +28,10 @@ EnemySpawnSystem::EnemySpawnSystem()
 }
 
 EnemySpawnSystem::~EnemySpawnSystem() {
-  for (auto &[type, texture] : m_raceTextures) {
-    UnloadTexture(texture);
+  for (auto &[type, textures] : m_raceTextures) {
+    for (auto &tex : textures) {
+      UnloadTexture(tex);
+    }
   }
   m_raceTextures.clear();
 }
@@ -82,18 +84,15 @@ void EnemySpawnSystem::initData(int width, int height,
     availableRaces = {EnemyRace::UNDEAD, EnemyRace::DEMON};
   } else {
     for (const auto &raceName : biomeConfig.enemyPool) {
-      if (raceName == "undead" || raceName == "skeleton")
-        availableRaces.push_back(EnemyRace::UNDEAD);
-      else if (raceName == "demon")
-        availableRaces.push_back(EnemyRace::DEMON);
-      else if (raceName == "corrupted")
-        availableRaces.push_back(EnemyRace::CORRUPTED);
-      else if (raceName == "cultist")
-        availableRaces.push_back(EnemyRace::CULTIST);
-      else if (raceName == "goblin")
-        availableRaces.push_back(EnemyRace::GOBLIN);
-      else if (raceName == "slime")
-        availableRaces.push_back(EnemyRace::SLIME);
+      if (raceName == "undead" || raceName == "skeleton") availableRaces.push_back(EnemyRace::UNDEAD);
+      else if (raceName == "demon") availableRaces.push_back(EnemyRace::DEMON);
+      else if (raceName == "corrupted" || raceName == "warcraft") availableRaces.push_back(EnemyRace::CORRUPTED);
+      else if (raceName == "cultist") availableRaces.push_back(EnemyRace::CULTIST);
+      else if (raceName == "elf" || raceName == "elves") availableRaces.push_back(EnemyRace::ElVES);
+      else if (raceName == "beast" || raceName == "animal") availableRaces.push_back(EnemyRace::BEAST);
+      else if (raceName == "goblin") availableRaces.push_back(EnemyRace::GOBLIN);
+      else if (raceName == "machine" || raceName == "mech") availableRaces.push_back(EnemyRace::MACHINE);
+      else if (raceName == "elemental") availableRaces.push_back(EnemyRace::ELEMENTAL);
     }
   }
 
@@ -159,6 +158,17 @@ void EnemySpawnSystem::initData(int width, int height,
         data.isAlive = false;
         data.entityId = entt::null;
         data.enemyType = race;
+        
+        // Random Variant (Archetype Distribution)
+        // 0: Warrior (40%), 1: Archer (30%), 2: Tank (15%), 3: Assassin (10%), 4: Mage (5%)
+        std::uniform_int_distribution<int> varDist(0, 99);
+        int roll = varDist(m_gen);
+        if (roll < 40) data.enemyVariant = 0;
+        else if (roll < 70) data.enemyVariant = 1;
+        else if (roll < 85) data.enemyVariant = 2;
+        else if (roll < 95) data.enemyVariant = 3;
+        else data.enemyVariant = 4;
+
         data.allowRespawn = false;
 
         m_spawnData.push_back(data);
@@ -173,21 +183,27 @@ void EnemySpawnSystem::initData(int width, int height,
 
 void EnemySpawnSystem::initTextures() {
   // Cleanup old
-  for (auto &[type, texture] : m_raceTextures) {
-    UnloadTexture(texture);
+  for (auto &[type, textures] : m_raceTextures) {
+    for (auto &tex : textures) {
+      UnloadTexture(tex);
+    }
   }
   m_raceTextures.clear();
 
   // Load new
   for (int raceType : m_pendingRaces) {
     const auto& raceDef = kRaceData[static_cast<size_t>(raceType)];
-    Texture2D tex = LoadTexture(raceDef.texturePath.data());
-    if (tex.id == 0) {
-      LOG_ERROR("EnemySpawnSystem: Failed to load texture for race {} at '{}'",
-                raceType, raceDef.texturePath);
-    } else {
-      m_raceTextures[raceType] = tex;
+    
+    std::array<Texture2D, 5> textures;
+    for(int i=0; i<5; ++i) {
+        std::string path = std::string(raceDef.texturePath) + "_" + std::to_string(i) + ".png";
+        Texture2D tex = LoadTexture(path.c_str());
+        if (tex.id == 0) {
+           LOG_ERROR("EnemySpawnSystem: Failed to load texture for race {} variant {} at '{}'", raceType, i, path);
+        }
+        textures[i] = tex;
     }
+    m_raceTextures[raceType] = textures;
   }
   m_pendingRaces.clear();
 }
@@ -238,21 +254,20 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
   if (m_raceTextures.count(data.enemyType)) {
     registry.emplace<TextureIDComponent>(entity,
-                                         m_raceTextures[data.enemyType].id);
+                                         m_raceTextures[data.enemyType][data.enemyVariant].id);
   }
 
   EnemyRace::Type raceType = static_cast<EnemyRace::Type>(data.enemyType);
   EnemyArchetype::Type archType = EnemyArchetype::FODDER;
 
-  // Determine archetype based on race/logic
-  if (raceType == EnemyRace::DEMON)
-    archType = EnemyArchetype::TANK;
-  else if (raceType == EnemyRace::CORRUPTED)
-    archType = EnemyArchetype::ASSASSIN;
-  else if (raceType == EnemyRace::CULTIST)
-    archType = EnemyArchetype::RANGER;
-  else if (raceType == EnemyRace::ELEMENTAL)
-    archType = EnemyArchetype::SUPPORT;
+  // Determine archetype based on variant
+  switch (data.enemyVariant) {
+      case 0: archType = EnemyArchetype::FODDER; break; // Warrior
+      case 1: archType = EnemyArchetype::RANGER; break;
+      case 2: archType = EnemyArchetype::TANK; break;
+      case 3: archType = EnemyArchetype::ASSASSIN; break;
+      case 4: archType = EnemyArchetype::SUPPORT; break; // Mage/Support
+  }
 
   // Emplace EnemyStateComponent EARLY so StatsSystem can use it
   registry.emplace<EnemyStateComponent>(entity, raceType, archType);
@@ -316,59 +331,58 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   modifiedHP *= hpMult;
 
   // Setup Race/Archetype specifics
+  // Add Core Components (Health, AI) using stats from EnemyStateComponent
+  auto& esc = registry.get<EnemyStateComponent>(entity);
+  registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
+  registry.emplace<AIComponent>(entity, AIType::IDLE, esc.detectionRange, esc.attackRange, esc.speed);
+
+  // Setup Race specifics (Stats/AI tweaks beyond base component init)
   switch (raceType) {
   case EnemyRace::UNDEAD:
-    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 100.0f, 40.0f, 50.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
-    registry.emplace<NoMoreDay::DropTableComponent>(
-        entity, 0, 0.25f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.25f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     break;
   case EnemyRace::DEMON:
-    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 140.0f, 50.0f, 70.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
-    registry.emplace<NoMoreDay::DropTableComponent>(
-        entity, 0, 0.45f * (1.0f + m_resonanceMods.dropRateBonus), 1, 2);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.45f * (1.0f + m_resonanceMods.dropRateBonus), 1, 2);
     aState.baseAttackInterval = 2.0f; 
     cStats.attack_speed = 0.8f;
     break;
   case EnemyRace::CORRUPTED:
-    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 180.0f, 60.0f,
-                                  100.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
-    registry.emplace<NoMoreDay::DropTableComponent>(
-        entity, 0, 0.30f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.30f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.0f; 
     cStats.attack_speed = 1.2f;
     break;
   case EnemyRace::CULTIST:
-    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 150.0f, 30.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, rarityColor);
-    registry.emplace<NoMoreDay::DropTableComponent>(
-        entity, 0, 0.35f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.35f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.8f;
     break;
+  case EnemyRace::ElVES:
+    registry.emplace<ColorComponent>(entity, rarityColor);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.30f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
+    cStats.attack_speed = 1.3f;
+    break;
+  case EnemyRace::BEAST:
+    registry.emplace<ColorComponent>(entity, rarityColor);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.20f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
+    break;
   case EnemyRace::GOBLIN:
-    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 80.0f, 40.0f, 60.0f);
     registry.emplace<ColorComponent>(entity, (rarity == EnemyRarityComponent::NORMAL) ? GREEN : rarityColor);
-    registry.emplace<NoMoreDay::DropTableComponent>(
-        entity, 0, 0.20f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.20f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     aState.baseAttackInterval = 1.2f;
     break;
-  case EnemyRace::SLIME:
-    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-    registry.emplace<AIComponent>(entity, AIType::IDLE, 60.0f, 20.0f, 30.0f);
-    registry.emplace<ColorComponent>(entity, (rarity == EnemyRarityComponent::NORMAL) ? LIME : rarityColor);
-    registry.emplace<NoMoreDay::DropTableComponent>(
-        entity, 0, 0.15f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
-    aState.baseAttackInterval = 2.5f;
+  case EnemyRace::MACHINE:
+    registry.emplace<ColorComponent>(entity, rarityColor);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.40f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
+    cStats.armor *= 1.5f;
+    break;
+  case EnemyRace::ELEMENTAL:
+    registry.emplace<ColorComponent>(entity, rarityColor);
+    registry.emplace<NoMoreDay::DropTableComponent>(entity, 0, 0.30f * (1.0f + m_resonanceMods.dropRateBonus), 1, 1);
     break;
   default:
-    registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
     registry.emplace<ColorComponent>(entity, rarityColor);
     break;
   }
@@ -406,7 +420,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
   if (m_raceTextures.count(data.enemyType)) {
     using namespace NoMoreDay::Constants::Enemy;
-    registry.emplace<SpriteComponent>(entity, m_raceTextures[data.enemyType],
+    registry.emplace<SpriteComponent>(entity, m_raceTextures[data.enemyType][data.enemyVariant],
                                       DEFAULT_SPRITE_SCALE * rarityScale);
   }
 

@@ -171,7 +171,7 @@ void Game::run() {
     m_context.renderAccumulator = accumulator;
 
     BeginDrawing();
-    ClearBackground(RAYWHITE);
+    ClearBackground(BLACK);
     m_stateManager->Render();
     EndDrawing();
   }

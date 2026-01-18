@@ -164,10 +164,19 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: Constant Centralization & Refactoring
-- **Folder:** [./conductor/tracks/const_refactor/](./conductor/tracks/const_refactor/)
+- **Folder:** [./conductor/archive/const_refactor_20260118/](./conductor/archive/const_refactor_20260118/)
 - **Description:** Centralize gameplay and rendering constants to eliminate magic numbers. Created `Common.hpp` as SSOT for logic and `GPUData.hpp` for visual themes. Standardized physics epsilon, CDR caps, and particle limits. (Completed on 2026-01-18)
 - **Status:** COMPLETED
 - **Priority:** MEDIUM
 - **Estimated Time:** 1 day
+
+---
+
+## [x] Track: Monster System Refactor & Map Polish
+- **Folder:** [./conductor/archive/monster_system_refactor_20260118/](./conductor/archive/monster_system_refactor_20260118/)
+- **Description:** Refactored enemy system to support 5 visual variants per race (45 total types). Implemented safe zone generation for Town maps (100x100), fixed physics boundaries, unified map naming to "Otherworld" (异界), and polished visual presentation (void background). (Completed on 2026-01-18)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 2 days
 
 

@@ -225,7 +225,7 @@ constexpr int MAX_AWAKEN_PER_CYCLE = 50; // 每个更新周期允许唤醒的最
 constexpr float AWAKEN_DISTANCE_MIN = 1650.0f; // 唤醒行为的最近触发距离
 constexpr float AWAKEN_DISTANCE_MAX = 1800.0f; // 唤醒行为的最远触发距离
 
-constexpr float DEFAULT_SPRITE_SCALE = 0.2f;     // 默认怪物贴图缩放
+constexpr float DEFAULT_SPRITE_SCALE = 0.3f;     // 默认怪物贴图缩放
 constexpr float DEFAULT_COLLISION_RADIUS = 5.0f; // 怪物默认物理碰撞半径
 } // namespace Enemy
 

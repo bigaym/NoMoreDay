@@ -91,7 +91,7 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
 
         // --- NAME DISPLAY ---
         Font font = UISystem::GetFont();
-        float nameFontSize = 14.0f; // Reduced by 2 points
+        float nameFontSize = 12.0f; // Reduced by 2 points
         
         std::string name = "未知怪物";
         Color nameColor = WHITE;
@@ -122,6 +122,9 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
         UIRenderer::DrawTextUI(font, name.data(), worldPos.x - nameSize.x / 2.0f, yOffset + worldPos.y - nameSize.y - 4.0f, nameFontSize, nameColor);
 
         // --- BUFF / DEBUFF ICONS ---
+// --- BUFF / DEBUFF ICONS ---
+        // Hidden to prevent visual glitches (green squares overlapping text) until real icons are implemented
+        /*
         if (auto* activeEffects = registry.try_get<ActiveEffectsComponent>(entity)) {
             float iconSize = 10.0f;
             float iconSpacing = 2.0f;
@@ -141,6 +144,7 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
                 }
             }
         }
+        */
 
         // --- AFFIX LABELS (Below health bar) ---
         if (auto* affixComp = registry.try_get<NoMoreDay::MonsterAffixComponent>(entity)) {
@@ -159,7 +163,7 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
                 
                 float totalLabelWidth = 0.0f;
                 Font font = UISystem::GetFont();
-                float fontSize = 12.0f; // Reduced by 2 points
+                float fontSize = 10.0f; // Reduced by 2 points
                 float textSpacing = 0.0f;
 
                 for (const auto& [name, _] : labels) {

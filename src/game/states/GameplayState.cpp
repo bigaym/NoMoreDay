@@ -618,9 +618,13 @@ void GameplayState::UpdatePhysics(float dt) {
   for (auto entity : view)
     m_physicsEntities.push_back(entity);
 
+  const auto &map = m_context->levelManager->getMapSystem();
   using namespace NoMoreDay::Constants::World;
-  int worldSizeW = WORLD_WIDTH;
-  int worldSizeH = WORLD_HEIGHT;
+  int worldSizeW = map.getWidth() * (int)GRID_TILE_SIZE;
+  int worldSizeH = map.getHeight() * (int)GRID_TILE_SIZE;
+  // Fallback if map not ready
+  if (worldSizeW == 0) worldSizeW = WORLD_WIDTH;
+  if (worldSizeH == 0) worldSizeH = WORLD_HEIGHT;
 
   // Phase 1: Resolve Collisions
   auto resolveTask = m_taskflow.for_each(
@@ -701,16 +705,7 @@ void GameplayState::OnRender() {
   auto &registry = *m_context->registry;
 
   BeginMode2D(m_camera);
-  // Grid
-  const int gridSize = 100;
-  using namespace NoMoreDay::Constants::World;
-  const int worldWidth = WORLD_WIDTH;
-  const int worldHeight = WORLD_HEIGHT;
-  for (int x = 0; x <= worldWidth; x += gridSize)
-    DrawLine(x, 0, x, worldHeight, LIGHTGRAY);
-  for (int y = 0; y <= worldHeight; y += gridSize)
-    DrawLine(0, y, worldWidth, y, LIGHTGRAY);
-
+  // Grid - REMOVED per user request (Dark background for void area)
   // Level
   m_context->levelManager->render(m_camera);
 

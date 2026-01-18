@@ -12,7 +12,8 @@
 // 敌人生数据结构
 struct EnemySpawnData {
   Position position;
-  int enemyType;             // 简单起见，0=Skeleton, 1=Demon
+  int enemyType;             // Type (EnemyRace::Type)
+  int enemyVariant;          // Variant/Archetype (0-4)
   bool isAlive;              // 当前是否已生成实体
   entt::entity entityId;     // 对应的实体ID
   bool allowRespawn = false; // 是否允许重生
@@ -27,7 +28,7 @@ private:
   std::vector<EnemySpawnData> m_spawnData;
   int m_mapWidth;
   int m_mapHeight;
-  std::map<int, Texture2D> m_raceTextures;
+  std::map<int, std::array<Texture2D, 5>> m_raceTextures;
   std::vector<int> m_pendingRaces;
   std::mt19937 m_gen;
 

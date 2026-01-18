@@ -158,7 +158,8 @@ void UIMinimap::Draw(entt::registry& registry, const LevelManager& levelManager)
     const char* zoneName = levelManager.getCurrentBiome() == "town" ? "宁静村落" : "地下城 - 1层";
     if (levelManager.getCurrentBiome() != "town") {
         static char zoneBuf[64];
-        snprintf(zoneBuf, sizeof(zoneBuf), "地下城 - %d层", levelManager.getCurrentLevel());
+        // Unify naming to '异界' (Otherworld) for all combat zones per user request
+        snprintf(zoneBuf, sizeof(zoneBuf), "异界 - %d层", levelManager.getCurrentLevel());
         zoneName = zoneBuf;
     }
 

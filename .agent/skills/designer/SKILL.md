@@ -21,7 +21,7 @@ description: 担任产品经理和系统设计师。在需要规划新功能、�
 - **编写 Spec**: 
   - 使用 `find {type:'documentation'}` 聚合相关文档。
   - 定义组件 (POD)、系统逻辑、JSON 契约。
-  - **决策锚定**: 使用 `memory {operation:'anchor', anchor_type:'decision'}` 固化核心架构点。
+  - **决策锚定**: 规划编写完成后，必须请求用户确认后才能继续。
 
 ### 2. 实施计划 (Plan) 制定
 - **分解任务**: 制定原子化的 `plan.md`。
