@@ -38,8 +38,17 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
         
         bool isDamaged = hp.current < hp.max - 0.1f;
         
-        // Only show if tracking player OR damaged
-        if (!isTracking && !isDamaged) continue;
+        // Champion/Elite/Boss/Nemesis Always visible
+        bool isRare = false;
+        if (auto* rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
+            if (rarityComp->rarity > EnemyRarityComponent::NORMAL) {
+                isRare = true;
+            }
+        }
+
+        // Only show if tracking player OR damaged OR Rare
+        // Normal monsters still hidden until engaged/damaged to reduce clutter
+        if (!isTracking && !isDamaged && !isRare) continue;
 
         float hpPercent = hp.current / hp.max;
         hpPercent = std::clamp(hpPercent, 0.0f, 1.0f);
@@ -80,6 +89,38 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
         // Border (Darker, more defined)
         DrawRectangleLinesEx(bgRect, 1.0f, { 10, 10, 10, 255 });
 
+        // --- NAME DISPLAY ---
+        Font font = UISystem::GetFont();
+        float nameFontSize = 14.0f; // Reduced by 2 points
+        
+        std::string name = "未知怪物";
+        Color nameColor = WHITE;
+
+        if (auto* enemyState = registry.try_get<EnemyStateComponent>(entity)) {
+            name = kRaceData[static_cast<size_t>(enemyState->raceType)].name;
+        }
+
+        if (auto* rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
+             switch (rarityComp->rarity) {
+                 case EnemyRarityComponent::CHAMPION: 
+                    name = "冠军: " + name;
+                    nameColor = SKYBLUE; break;
+                 case EnemyRarityComponent::ELITE: 
+                    name = "精英: " + name;
+                    nameColor = GOLD; break;
+                 case EnemyRarityComponent::BOSS: 
+                    name = "首领: " + name;
+                    nameColor = ORANGE; break;
+                 case EnemyRarityComponent::NEMESIS: 
+                    name = "宿敌: " + name;
+                    nameColor = RED; break;
+                 default: break;
+             }
+        }
+
+        Vector2 nameSize = MeasureTextEx(font, name.c_str(), nameFontSize, 0.0f);
+        UIRenderer::DrawTextUI(font, name.data(), worldPos.x - nameSize.x / 2.0f, yOffset + worldPos.y - nameSize.y - 4.0f, nameFontSize, nameColor);
+
         // --- BUFF / DEBUFF ICONS ---
         if (auto* activeEffects = registry.try_get<ActiveEffectsComponent>(entity)) {
             float iconSize = 10.0f;
@@ -118,7 +159,7 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
                 
                 float totalLabelWidth = 0.0f;
                 Font font = UISystem::GetFont();
-                float fontSize = 14.0f; // Slightly larger for readability with custom font
+                float fontSize = 12.0f; // Reduced by 2 points
                 float textSpacing = 0.0f;
 
                 for (const auto& [name, _] : labels) {

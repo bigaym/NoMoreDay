@@ -607,10 +607,16 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
     maxSuffix = 1;
     break;
   case Rarity::Rare:
+  case Rarity::Epic:
     maxPrefix = 2;
     maxSuffix = 2;
     break;
   case Rarity::Legendary:
+    maxPrefix = 2;
+    maxSuffix = 2;
+    break;
+  case Rarity::Ancient:
+  case Rarity::Mythic:
     maxPrefix = 3;
     maxSuffix = 3;
     break;

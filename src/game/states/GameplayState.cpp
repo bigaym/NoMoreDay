@@ -288,7 +288,7 @@ void GameplayState::InitializeEntities() {
   Texture2D playerTexture =
       resourceManager.getTexture(playerAsset.id); // Should be loaded
   if (playerTexture.id > 0) {
-    registry.emplace<SpriteComponent>(player, playerTexture, 0.2f);
+    registry.emplace<SpriteComponent>(player, playerTexture, 0.4f);
   }
 }
 
@@ -462,7 +462,7 @@ bool GameplayState::OnUpdate(float dt) {
     for (auto entity : view) {
       const auto &texComp = view.get<TextureIDComponent>(entity);
       Texture2D tex = m_context->resources->loadTexture(texComp.id, "");
-      registry.emplace_or_replace<SpriteComponent>(entity, tex, 0.2f);
+      registry.emplace_or_replace<SpriteComponent>(entity, tex, 0.4f);
     }
   }
 

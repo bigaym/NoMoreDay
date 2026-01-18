@@ -32,7 +32,7 @@ def is_server_running():
         # Catches ConnectionError, Timeout, etc.
         return False
 
-def start_comfyui():
+def start_comfyui(use_lowvram=True):
     print(f"ComfyUI not found at {SERVER_ADDRESS}. Starting it now...")
     if not os.path.exists(COMFYUI_PATH):
         print(f"Error: Could not find ComfyUI start script at: {COMFYUI_PATH}")
@@ -43,13 +43,14 @@ def start_comfyui():
     comfyui_dir = os.path.dirname(COMFYUI_PATH)
     
     # Start ComfyUI with potential memory optimization flags
-    # Note: We try to pass --lowvram directly, but the batch file might not forward it.
-    # It's better for the user to edit the .bat file itself.
-    cmd = f'start "ComfyUI" /D "{comfyui_dir}" "{COMFYUI_PATH}" --lowvram'
+    lowvram_flag = "--lowvram" if use_lowvram else ""
+    cmd = f'start "ComfyUI" /D "{comfyui_dir}" "{COMFYUI_PATH}" {lowvram_flag}'
+    print(f"Executing: {cmd}")
     subprocess.Popen(cmd, shell=True)
     
     print("Waiting for ComfyUI to initialize (this may take 10-20 seconds)...")
-    print("Note: Flux2 requires massive VRAM. On 12GB cards, it MUST run in --lowvram mode.")
+    if use_lowvram:
+        print("Note: Flux2 requires massive VRAM. On 12GB cards, it MUST run in --lowvram mode.")
     for i in range(30):
         if is_server_running():
             print("ComfyUI is Online!")
@@ -64,11 +65,11 @@ def start_comfyui():
 # Node IDs: 
 # 3: KSampler, 4: Checkpoint, 6: Positive Prompt, 7: Negative Prompt, 
 # 8: VAE Decode, 9: Save Image, 5: Empty Latent
-def get_default_workflow():
+def get_default_workflow(unet_name="flux-2-klein-9b.safetensors"):
     return {
         "10": {
             "inputs": {
-                "unet_name": "flux-2-klein-9b.safetensors",
+                "unet_name": unet_name,
                 "weight_dtype": "fp8_e4m3fn"
             },
             "class_type": "UNETLoader"
@@ -121,7 +122,7 @@ def get_default_workflow():
         "3": {
             "inputs": {
                 "seed": random.randint(1, 1000000000),
-                "steps": 15,
+                "steps": 7,
                 "cfg": 1.0,
                 "sampler_name": "euler",
                 "scheduler": "simple",
@@ -245,12 +246,19 @@ def main():
     parser.add_argument("--height", type=int, default=1024, help="Height of the sprite")
     parser.add_argument("--name", type=str, default="asset", help="Output filename prefix")
     parser.add_argument("--no-remove-bg", action="store_true", help="Disable automatic background removal")
+    parser.add_argument("--model", type=str, default="flux-2-klein-9b.safetensors", help="Model to use (e.g., flux-2-klein-base-4b.safetensors)")
     
     args = parser.parse_args()
 
+    # Determine if we need lowvram (Assume 4B models don't need it as much, per user instruction)
+    use_lowvram = True
+    if "4b" in args.model.lower():
+        use_lowvram = False
+        print(f"4B Model detected ('{args.model}'), disabling --lowvram.")
+
     # 1. Connect (Auto-start if needed)
     if not is_server_running():
-        start_comfyui()
+        start_comfyui(use_lowvram=use_lowvram)
 
     print(f"Connecting to ComfyUI at {SERVER_ADDRESS}...")
     try:
@@ -262,7 +270,7 @@ def main():
         return
 
     # 2. Setup Workflow
-    workflow = get_default_workflow()
+    workflow = get_default_workflow(unet_name=args.model)
     
     # Ensure dimensions are multiples of 8
     gen_width = (args.width // 8) * 8

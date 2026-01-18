@@ -3,6 +3,7 @@
 #include "engine/resource/EquipmentAssetRegistry.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/resource/RuneAssetRegistry.hpp"
+#include "engine/resource/BuffAssetRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -14,6 +15,7 @@ void AssetLoadingSystem::Initialize(ResourceManager &resourceManager) {
   RegisterUITextures(); // Automatically register UI base assets
   RegisterShaders();    // Load shaders
   RegisterRunes();      // Register Rune assets
+  RegisterBuffs();      // Register Buff assets
   LOG_INFO("AssetLoadingSystem 已初始化。");
 }
 
@@ -137,6 +139,20 @@ void AssetLoadingSystem::RegisterRunes() {
       }
   }
   LOG_INFO("Registered {} rune assets.", count);
+}
+
+void AssetLoadingSystem::RegisterBuffs() {
+  if (!m_resourceManager) return;
+
+  using namespace assets::buffs::general;
+  int count = 0;
+  for (const auto *asset : All) {
+      if (asset) {
+          m_resourceManager->registerTexture(asset->id, std::string(asset->path));
+          count++;
+      }
+  }
+  LOG_INFO("Registered {} buff assets.", count);
 }
 
 Font AssetLoadingSystem::LoadUIFont(const std::string &path, int fontSize) {

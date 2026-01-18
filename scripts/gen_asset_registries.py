@@ -106,6 +106,14 @@ if __name__ == "__main__":
             "namespace": "assets::buffs",
             "id_prefix": "buff_"
         }
+        ,
+        {
+            "name": "Monsters",
+            "root_dir": "assets/textures/monster",
+            "output_file": "src/engine/resource/MonsterAssetRegistry.hpp",
+            "namespace": "assets::monsters",
+            "id_prefix": "monster_"
+        }
     ]
     
     for reg in registries:

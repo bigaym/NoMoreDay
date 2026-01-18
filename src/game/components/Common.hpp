@@ -216,7 +216,9 @@ constexpr float ELITE_HP_MULTIPLIER = 5.0f;     // 精英怪额外的生命值�
 constexpr float CHAMPION_HP_MULTIPLIER = 2.5f;  // 冠军怪生命值乘数
 constexpr float BOSS_HP_MULTIPLIER = 15.0f;     // Boss生命值乘数
 constexpr float NEMESIS_HP_MULTIPLIER = 25.0f;  // 宿敌生命值乘数
-constexpr float ELITE_CHANCE = 0.10f;           // 精英怪生成的自然概率 (10%)
+constexpr float BOSS_CHANCE = 0.002f;           // Boss 生成概率 (0.2%)
+constexpr float ELITE_CHANCE = 0.02f;          // 精英怪生成概率 (2%)
+constexpr float CHAMPION_CHANCE = 0.01f;       // 冠军怪生成概率 (1%)
 
 constexpr int DORMANT_CHECK_INTERVAL_FRAMES = 60; // 更新休眠实体的帧间隔
 constexpr int MAX_AWAKEN_PER_CYCLE = 50; // 每个更新周期允许唤醒的最大实体数

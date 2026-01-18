@@ -257,7 +257,9 @@ inline std::string GetAffixDescription(const Affix& affix, bool showTier = true)
         case AffixType::Accuracy: text += "% 命中率"; break;
 
         case AffixType::FlatArmor: text += " 护甲"; break;
+        case AffixType::PercentArmor: text += "% 护甲"; break;
         case AffixType::FlatHealth: text += " 生命"; break;
+        case AffixType::PercentHealth: text += "% 生命"; break;
         case AffixType::FlatMana: text += " 法力"; break;
         
         case AffixType::ResistAll: text += "% 全抗性"; break;
@@ -307,6 +309,7 @@ inline const char* GetAffixDescriptionRef(const Affix& affix, bool showTier) {
         case AffixType::AllAttributes: return TextFormat("%s+%.0f 所有属性", prefix, val);
         
         case AffixType::FlatHealth: return TextFormat("%s+%.0f 生命", prefix, val);
+        case AffixType::PercentHealth: return TextFormat("%s+%.0f%% 生命", prefix, val);
         case AffixType::FlatMana: return TextFormat("%s+%.0f 法力", prefix, val);
         
         case AffixType::FlatPhysicalDamage: return TextFormat("%s+%.0f 物理伤害", prefix, val);

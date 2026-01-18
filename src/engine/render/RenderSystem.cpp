@@ -7,6 +7,7 @@
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
+#include "game/components/EnemyComponent.hpp" 
 #include "game/components/ItemComponent.hpp"
 #include "game/components/Projectile.hpp" // For Projectile visualization
 #include "game/components/SkillDefs.hpp" // For SwordIntentComponent
@@ -102,6 +103,35 @@ void RenderSystem::render(entt::registry &registry,
     if (auto *svc =
             registry.try_get<NoMoreDay::ShadowVisualComponent>(entity)) {
       tint = svc->color_tint;
+    }
+
+    // --- Monster Rarity Glow (Underlay) ---
+    if (auto* rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
+        if (rarityComp->rarity > EnemyRarityComponent::NORMAL) {
+            Color glowColor = WHITE;
+            float glowScale = 1.2f;
+            switch (rarityComp->rarity) {
+                case EnemyRarityComponent::CHAMPION: 
+                    glowColor = SKYBLUE; glowScale = 1.3f; break;
+                case EnemyRarityComponent::ELITE: 
+                    glowColor = { 255, 215, 0, 255 }; // Gold
+                    glowScale = 1.5f; break;
+                case EnemyRarityComponent::BOSS: 
+                    glowColor = { 255, 120, 0, 255 }; // Orange
+                    glowScale = 2.0f; break;
+                case EnemyRarityComponent::NEMESIS: 
+                    glowColor = { 220, 20, 60, 255 }; // Crimson
+                    glowScale = 2.5f; break;
+                default: break;
+            }
+            
+            float pulse = 0.85f + 0.15f * sinf((float)GetTime() * 3.0f);
+            float radius = (width > height ? width : height) * 0.6f * glowScale * pulse;
+            
+            // Draw multi-layered glow for premium feel
+            DrawCircleGradient((int)pos.x, (int)pos.y, radius, Fade(glowColor, 0.4f), Fade(glowColor, 0.0f));
+            DrawCircleGradient((int)pos.x, (int)pos.y, radius * 0.6f, Fade(glowColor, 0.6f), Fade(glowColor, 0.0f));
+        }
     }
 
     DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, tint);

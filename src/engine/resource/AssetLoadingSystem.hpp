@@ -31,6 +31,9 @@ public:
     // Register all rune assets
     static void RegisterRunes();
 
+    // Register all buff icons
+    static void RegisterBuffs();
+
     static void Shutdown();
 
 private:

@@ -291,19 +291,20 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   if (raceType == EnemyRace::DEMON) faction = NoMoreDay::FactionType::Void;
   else if (raceType == EnemyRace::CORRUPTED) faction = NoMoreDay::FactionType::Corrupted;
 
-  if (rarityRoll(m_gen) < 0.005f) { // 0.5% Boss
+  float roll = rarityRoll(m_gen);
+  if (roll < BOSS_CHANCE) { 
     rarity = EnemyRarityComponent::BOSS;
     hpMult = BOSS_HP_MULTIPLIER;
     dmgMult = 2.5f;
     rarityScale = 2.0f;
     rarityColor = ORANGE;
-  } else if (rarityRoll(m_gen) < ELITE_CHANCE) { // 10% Elite
+  } else if (roll < BOSS_CHANCE + ELITE_CHANCE) { 
     rarity = EnemyRarityComponent::ELITE;
     hpMult = ELITE_HP_MULTIPLIER;
     dmgMult = 1.6f;
     rarityScale = 1.4f;
     rarityColor = YELLOW;
-  } else if (rarityRoll(m_gen) < 0.25f) { // 15% Champion (after elite/boss check)
+  } else if (roll < BOSS_CHANCE + ELITE_CHANCE + CHAMPION_CHANCE) { 
     rarity = EnemyRarityComponent::CHAMPION;
     hpMult = CHAMPION_HP_MULTIPLIER;
     dmgMult = 1.25f;
