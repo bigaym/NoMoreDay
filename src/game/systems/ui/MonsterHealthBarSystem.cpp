@@ -3,6 +3,8 @@
 #include "game/components/Stats.hpp"
 #include "game/components/AIComponent.hpp" // For EnemyTag
 #include "game/components/Buff.hpp"
+#include "game/components/EnemyComponent.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "raymath.h"
 
 namespace NoMoreDay::systems {
@@ -93,6 +95,38 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
                     Rectangle iconRect = { startX + i * (iconSize + iconSpacing), worldPos.y + iconsYOffset, iconSize, iconSize };
                     DrawRectangleRec(iconRect, iconColor);
                     DrawRectangleLinesEx(iconRect, 1.0f, { 10, 10, 10, 255 });
+                }
+            }
+        }
+
+        // --- AFFIX LABELS (Below health bar) ---
+        if (auto* affixComp = registry.try_get<NoMoreDay::MonsterAffixComponent>(entity)) {
+            if (!affixComp->affixes.empty()) {
+                float labelYOffset = yOffset + barHeight + 2.0f;
+                float labelSpacing = 2.0f;
+                float labelHeight = 8.0f;
+                
+                // Calculate total width for centering
+                std::vector<std::pair<std::string_view, Color>> labels;
+                for (auto affixType : affixComp->affixes) {
+                    const auto& def = NoMoreDay::MonsterAffixRegistry::GetAffixDef(affixType);
+                    Color labelColor = { def.tintR, def.tintG, def.tintB, 255 };
+                    labels.emplace_back(def.name, labelColor);
+                }
+                
+                float totalLabelWidth = 0.0f;
+                for (const auto& [name, _] : labels) {
+                    totalLabelWidth += MeasureText(name.data(), 8) + labelSpacing;
+                }
+                totalLabelWidth -= labelSpacing; // Remove last spacing
+                
+                float startX = worldPos.x - totalLabelWidth / 2.0f;
+                float curX = startX;
+                
+                for (const auto& [name, color] : labels) {
+                    float textWidth = (float)MeasureText(name.data(), 8);
+                    DrawText(name.data(), (int)curX, (int)(worldPos.y + labelYOffset), 8, color);
+                    curX += textWidth + labelSpacing;
                 }
             }
         }

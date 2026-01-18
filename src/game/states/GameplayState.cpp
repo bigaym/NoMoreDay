@@ -27,6 +27,7 @@
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/EliteModifierSystem.hpp"
+#include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/RegenerationSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/combat/VisualFXSystem.hpp"
@@ -67,6 +68,7 @@ void GameplayState::OnEnter() {
   // Initialize Elite Modifiers (SoulLink, Avenger)
   // Initialize Elite Modifiers (SoulLink, Avenger)
   EliteModifierSystem::Init();
+  MonsterAffixSystem::Init();
   FragmentDropSystem::Init();
 
   // GPU Skill Effect System is initialized in Game.cpp (Global)
@@ -385,6 +387,7 @@ bool GameplayState::OnUpdate(float dt) {
   StatsSystem::update(registry);
   RegenerationSystem::update(registry, dt);
   EliteModifierSystem::Update(registry, dt);
+  MonsterAffixSystem::Update(registry, dt);
   DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
   FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
   XPAwardingSystem::update(registry);

@@ -12,6 +12,7 @@
 #include "game/components/MapFragmentComponent.hpp"
 #include "game/components/PlayerState.hpp" // For stats if needed
 #include "game/data/BiomeRegistry.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/MosaicData.hpp"
 #include <algorithm>
 #include <cmath>
@@ -440,24 +441,62 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     }
     */
 
-    // === Elite Modifier Assignment ===
+    // === Monster Affix Assignment (New System) ===
     if (rarity != EnemyRarityComponent::NORMAL) {
-        int numModifiers = 0;
-        if (rarity == EnemyRarityComponent::CHAMPION) numModifiers = 1;
-        else if (rarity == EnemyRarityComponent::ELITE) numModifiers = 2;
-        else if (rarity == EnemyRarityComponent::BOSS) numModifiers = 4;
+        int numAffixes = 0;
+        if (rarity == EnemyRarityComponent::CHAMPION) numAffixes = 1;
+        else if (rarity == EnemyRarityComponent::ELITE) numAffixes = 2;
+        else if (rarity == EnemyRarityComponent::BOSS) numAffixes = 4;
         
-        // Randomly assign from the available set in EliteModifierComponents
-        std::uniform_int_distribution<int> modRoll(0, 1);
-        for(int m = 0; m < numModifiers; ++m) {
-            if (modRoll(m_gen) == 0) {
-                (void)registry.get_or_emplace<NoMoreDay::SoulLinkComponent>(entity);
-                (void)registry.get_or_emplace<NoMoreDay::SoulLinkTag>(entity);
-            } else {
+        auto& affixComp = registry.emplace<NoMoreDay::MonsterAffixComponent>(entity);
+        
+        // Affix pool for random selection (数值型和基础机制型)
+        static constexpr std::array<NoMoreDay::MonsterAffixType, 8> kAffixPool = {
+            NoMoreDay::MonsterAffixType::Fast,
+            NoMoreDay::MonsterAffixType::Tanky,
+            NoMoreDay::MonsterAffixType::Powerful,
+            NoMoreDay::MonsterAffixType::Vampiric,
+            NoMoreDay::MonsterAffixType::Berserker,
+            NoMoreDay::MonsterAffixType::Molten,
+            NoMoreDay::MonsterAffixType::Frozen,
+            NoMoreDay::MonsterAffixType::Teleporter
+        };
+        
+        std::uniform_int_distribution<int> affixRoll(0, static_cast<int>(kAffixPool.size()) - 1);
+        
+        for (int m = 0; m < numAffixes; ++m) {
+            NoMoreDay::MonsterAffixType selectedAffix = kAffixPool[affixRoll(m_gen)];
+            
+            // Avoid duplicate affixes
+            if (affixComp.HasAffix(selectedAffix)) {
+                // Try once more
+                selectedAffix = kAffixPool[affixRoll(m_gen)];
+                if (affixComp.HasAffix(selectedAffix)) continue;
+            }
+            
+            affixComp.AddAffix(selectedAffix);
+            
+            // Stat modifiers are now handled by StatsSystem during Recalculate.
+            // We just need to ensure StatsDirty is set (already handled by default in spawnEnemy).
+            
+            // Backward compatibility: Add legacy tags for existing systems
+            if (selectedAffix == NoMoreDay::MonsterAffixType::Avenger) {
                 (void)registry.get_or_emplace<NoMoreDay::AvengerComponent>(entity);
                 (void)registry.get_or_emplace<NoMoreDay::AvengerTag>(entity);
+            } else if (selectedAffix == NoMoreDay::MonsterAffixType::SoulLink) {
+                (void)registry.get_or_emplace<NoMoreDay::SoulLinkComponent>(entity);
+                (void)registry.get_or_emplace<NoMoreDay::SoulLinkTag>(entity);
             }
         }
+        
+        // Update HealthComponent with modified HP
+        if (registry.all_of<HealthComponent>(entity)) {
+            auto& hp = registry.get<HealthComponent>(entity);
+            hp.max = modifiedHP;
+            hp.current = modifiedHP;
+        }
+        
+        LOG_TRACE("Entity {} spawned with {} affixes", (uint32_t)entity, affixComp.affixes.size());
     }
 
     // Add ActiveEffectsComponent for buff support

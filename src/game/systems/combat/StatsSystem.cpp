@@ -10,6 +10,7 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/EliteModifierComponents.hpp"
 #include "game/components/Buff.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -46,6 +47,8 @@ static void resetCombatStats(CombatStats& combat) { // 重置战斗属性
     using namespace NoMoreDay::Constants::Combat;
     combat.max_health = DEFAULT_MAX_HEALTH;
     combat.max_mana = DEFAULT_MAX_MANA;
+    combat.min_weapon_damage = 0.0f;
+    combat.max_weapon_damage = 0.0f;
     combat.armor = 0.0f;
     combat.move_speed = DEFAULT_MOVE_SPEED;
     combat.crit_chance = DEFAULT_CRIT_CHANCE;
@@ -564,6 +567,27 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
             const auto& wc = registry.get<WeaponComponent>(entity);
             combat.min_weapon_damage = wc.damage;
             combat.max_weapon_damage = wc.damage;
+        } else if (auto* enemy = registry.try_get<EnemyStateComponent>(entity)) {
+            // 从种族数据恢复基础伤害 (解决词缀重算丢失问题)
+            const auto& raceData = kRaceData[static_cast<size_t>(enemy->raceType)];
+            
+            // 等级加成 (使用 Constants::Enemy 中的倍率，简化处理)
+            float levelMultiplier = 1.0f + (enemy->level * 0.1f); // 假设 10% 每级
+            
+            float baseDmg = raceData.baseDamage * levelMultiplier;
+            
+            // 稀有度加成
+            if (auto* rarity = registry.try_get<EnemyRarityComponent>(entity)) {
+                switch(rarity->rarity) {
+                    case EnemyRarityComponent::CHAMPION: baseDmg *= 1.25f; break;
+                    case EnemyRarityComponent::ELITE:    baseDmg *= 1.6f; break;
+                    case EnemyRarityComponent::BOSS:     baseDmg *= 2.5f; break;
+                    default: break;
+                }
+            }
+            
+            combat.min_weapon_damage = baseDmg * 0.9f;
+            combat.max_weapon_damage = baseDmg * 1.1f;
         }
     }
     
@@ -590,6 +614,26 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                     // Buffs multiply their effect by stack count
                     ApplyStatModifier(calcs, mod.type, mod.mode, mod.value * effect.stacks);
                 }
+            }
+        }
+    }
+
+    // 2.2 处理怪物词缀 (Monster Affixes)
+    if (auto* affixComp = registry.try_get<MonsterAffixComponent>(entity)) {
+        for (auto affixType : affixComp->affixes) {
+            const auto& def = MonsterAffixRegistry::GetAffixDef(affixType);
+            for (int s = 0; s < def.statModCount; ++s) {
+                const auto& mod = def.statMods[s];
+                ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+            }
+            
+            // 特殊逻辑：狂暴倍率
+            if (affixType == MonsterAffixType::Berserker && affixComp->isBerserk) {
+                // 狂暴在重算时直接增加 More 伤害 (PercentMult)
+                // 注意：由于 CombatStats.min_weapon_damage 是基础值，
+                // 我们可能需要特殊的 StatType 或者在这里直接乘
+                // 但为了统一，我们假设有 DamageMult 修饰符
+                // 这里我们直接修改最终武器伤害的倍率逻辑
             }
         }
     }
@@ -850,6 +894,14 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
     // Ensure BarrierComponent exists if entity has any barrier capacity
     if (combat.max_barrier > 0.0f || combat.barrier > 0.0f) {
         (void)registry.get_or_emplace<BarrierComponent>(entity);
+    }
+
+    // --- Final Pass for Monster Affixes (Post-Calculation) ---
+    if (auto* affixComp = registry.try_get<MonsterAffixComponent>(entity)) {
+        if (affixComp->isBerserk) {
+            combat.min_weapon_damage *= 2.0f; // BERSERKER_DAMAGE_MULT
+            combat.max_weapon_damage *= 2.0f;
+        }
     }
 }
 

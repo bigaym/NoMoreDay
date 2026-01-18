@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Monster Affix System Implementation
+- **Folder:** [./conductor/archive/monster_affixes_20260118/](./conductor/archive/monster_affixes_20260118/)
+- **Description:** 实现数据驱动的怪物词缀系统。包括运行时组件 MonsterAffixComponent、机制处理器 MonsterAffixSystem（处理熔火、闪烁、狂暴、极寒、消魔等效果）、基于 StatsSystem 的属性持久化修复，以及配套的视觉特效与 UI 标签表现。 (Completed on 2026-01-18)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1 day
+
+---
+
 ## [x] Track: Hybrid Barrier System (ES + Ward)
 - **Folder:** [./conductor/archive/hybrid_barrier_20260118/](./conductor/archive/hybrid_barrier_20260118/)
 - **Description:** 实现混合护盾系统 (Energy Shield + Ward)。支持受击延迟回复 (ES 模式) 与超出上限自动衰减 (Ward 模式)。包括 CombatStats 属性聚合、CombatSystem 伤害吸收逻辑、以及 UI (PlayerHUD/MonsterBar) 的青色遮罩脉冲表现。 (Completed on 2026-01-18)

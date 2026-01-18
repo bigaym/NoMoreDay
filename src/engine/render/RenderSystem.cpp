@@ -12,6 +12,7 @@
 #include "game/components/SkillDefs.hpp" // For SwordIntentComponent
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
+#include "game/systems/combat/MonsterAffixSystem.hpp" // For MoltenTrailTag
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
@@ -19,6 +20,7 @@
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "raymath.h"
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -139,6 +141,33 @@ void RenderSystem::render(entt::registry &registry,
     }
 
     DrawCircle((int)pos.x, (int)pos.y, 8.0f, col.color);
+  }
+
+  // 2.3. 渲染熔火区域 (Molten Trail Zones)
+  auto moltenView = registry.view<const Position, const NoMoreDay::MoltenTrailTag, const Radius, const ColorComponent, const DelayedDestroyComponent>();
+  for (auto entity : moltenView) {
+    const auto& pos = moltenView.get<Position>(entity);
+    const auto& radius = moltenView.get<Radius>(entity);
+    const auto& color = moltenView.get<ColorComponent>(entity);
+    const auto& delayed = moltenView.get<DelayedDestroyComponent>(entity);
+    
+    // Calculate fade based on remaining time
+    float lifeRatio = delayed.timer / 3.0f; // Assuming 3s duration
+    lifeRatio = std::clamp(lifeRatio, 0.0f, 1.0f);
+    float alpha = lifeRatio; // Fade out as time runs out
+    
+    // Core glow (orange-red)
+    Color coreColor = color.color;
+    coreColor.a = (unsigned char)(180 * alpha);
+    DrawCircleGradient((int)pos.x, (int)pos.y, radius.value, coreColor, Fade(coreColor, 0.0f));
+    
+    // Outer ring
+    Color ringColor = {255, 50, 0, (unsigned char)(100 * alpha)};
+    DrawRing({pos.x, pos.y}, radius.value * 0.8f, radius.value, 0, 360, 16, ringColor);
+    
+    // Center bright spot
+    Color brightSpot = {255, 200, 100, (unsigned char)(200 * alpha)};
+    DrawCircle((int)pos.x, (int)pos.y, radius.value * 0.3f, brightSpot);
   }
 
   // 2.5. 绘制浮游灵剑实体 (Spirit Sword Entities)
