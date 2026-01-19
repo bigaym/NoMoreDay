@@ -1,5 +1,6 @@
 #include "game/systems/combat/EliteModifierSystem.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Combat.hpp"
@@ -156,8 +157,8 @@ bool EliteModifierSystem::DistributeDamageToLinkGroup(entt::registry &registry,
         for (int i = 0; i < 5; ++i) {
           NoMoreDay::components::GPUParticle p;
           p.position = {linkedPos->x, linkedPos->y};
-          float angle = static_cast<float>(rand() % 360) * DEG2RAD;
-          float speed = static_cast<float>(rand() % 50 + 30);
+          float angle = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
+          float speed = NoMoreDay::utils::ThreadSafeRandom::GetFloat(30.0f, 80.0f);
           p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
           p.color = {200, 50, 200, 255}; // 粉紫色表示链接伤害
           p.lifetime = 0.4f;
@@ -212,8 +213,8 @@ void EliteModifierSystem::OnEnemyKilled(entt::registry &registry,
       for (int i = 0; i < 15; ++i) {
         NoMoreDay::components::GPUParticle p;
         p.position = {pos.x, pos.y};
-        float angle = static_cast<float>(rand() % 360) * DEG2RAD;
-        float speed = static_cast<float>(rand() % 80 + 40);
+        float angle = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
+        float speed = NoMoreDay::utils::ThreadSafeRandom::GetFloat(40.0f, 120.0f);
         p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
         using namespace NoMoreDay::Constants::Combat::Elite;
         p.color = {255, 50, 50, 255}; // 红色

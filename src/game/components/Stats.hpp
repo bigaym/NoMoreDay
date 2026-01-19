@@ -18,6 +18,7 @@ enum class DamageType : uint8_t {
   Lightning,
   Poison,
   Shadow,
+  True, // 无视护盾、防御、抗性的真实伤害，仅受到伤害减免类型防御的影响
   Count // 6种类型
 };
 

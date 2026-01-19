@@ -27,10 +27,12 @@ enum class MonsterAffixType : uint8_t {
     
     // === 元素词缀 (Elemental) ===
     Molten,     // 熔火: 留下火焰路径
-    Frozen,     // 极寒: 周围减速, 攻击附带冰冻
+    Frozen,     // 极寒: 生成追踪冰球，延迟爆炸
     Storm,      // 雷暴: 周期性落雷
-    Toxic,      // 剧毒: 攻击叠加中毒, 死亡毒爆
+    Toxic,      // 剧毒: 死亡时生成追踪毒球
     Void,       // 虚空: 攻击造成真实伤害
+    VoidZone,   // 虚空区域: 在玩家脚下生成高伤害区域
+    StormStrider, // 雷行: 受击时生成雷电残影
     
     // === 机制型词缀 (Mechanics) ===
     Teleporter, // 闪烁: 瞬移到玩家附近
@@ -133,7 +135,7 @@ private:
           {{{ StatType::ResistFire, ModifierMode::Flat, 50.0f }}}, 1,
           { true, false, false, true }, 255, 80, 0 }, // 橙红色
         
-        // Frozen: Slow aura (requires Update)
+        // Frozen: Spawn Frozen Orbs (requires Update)
         { MonsterAffixType::Frozen, "极寒", "Frozen", 2, 
           {{{ StatType::ResistCold, ModifierMode::Flat, 50.0f }}}, 1,
           { true, false, false, true }, 100, 200, 255 }, // 冰蓝色
@@ -143,15 +145,25 @@ private:
           {{{ StatType::ResistLightning, ModifierMode::Flat, 50.0f }}}, 1,
           { true, false, false, true }, 255, 255, 50 }, // 亮黄色
         
-        // Toxic: Poison (requires OnHit, OnDeath)
+        // Toxic: Volatile Death (requires OnDeath)
         { MonsterAffixType::Toxic, "剧毒", "Toxic", 2, 
           {{{ StatType::ResistPoison, ModifierMode::Flat, 50.0f }}}, 1,
-          { false, true, true, true }, 50, 200, 50 }, // 绿色
+          { false, false, true, true }, 50, 200, 50 }, // 绿色
         
         // Void: True damage (requires OnHit logic)
         { MonsterAffixType::Void, "虚空", "Void", 3, 
           {{{ StatType::ResistShadow, ModifierMode::Flat, 75.0f }}}, 1,
           { false, true, false, true }, 100, 0, 150 }, // 紫色
+        
+        // VoidZone: Spawn void zones under player (requires Update)
+        { MonsterAffixType::VoidZone, "虚空区域", "Void Zone", 3, 
+          {{{ StatType::ResistShadow, ModifierMode::Flat, 50.0f }}}, 1,
+          { true, false, false, true }, 80, 0, 120 }, // 暗紫色
+        
+        // StormStrider: Lightning ghost on hit (requires OnHit)
+        { MonsterAffixType::StormStrider, "雷行", "Storm Strider", 2, 
+          {{{ StatType::ResistLightning, ModifierMode::Flat, 50.0f }}}, 1,
+          { false, true, false, true }, 255, 255, 100 }, // 黄色
         
         // === 机制型词缀 ===
         // Teleporter: Blink (requires Update)
@@ -215,6 +227,7 @@ struct MonsterAffixComponent {
     
     // 运行时状态
     bool isBerserk = false;  // Berserker激活状态
+    float voidZoneNextSpawnTime = 0.0f; // 修复：各怪物独立的虚空区域冷却
     
     void AddAffix(MonsterAffixType type) {
         if (affixes.size() >= 4) return;  // 最多4个词缀

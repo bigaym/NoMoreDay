@@ -1,4 +1,5 @@
 #include "engine/render/RenderSystem.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "engine/physics/SpatialGrid.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
@@ -55,9 +56,9 @@ Vector2 RenderSystem::GetShakeOffset() {
   // Simple random noise using GetTime
   float time = (float)GetTime();
   float offsetX =
-      maxOffset * shake * (2.0f * ((float)(std::rand() % 100) / 100.0f) - 1.0f);
+      maxOffset * shake * (2.0f * NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) - 1.0f);
   float offsetY =
-      maxOffset * shake * (2.0f * ((float)(std::rand() % 100) / 100.0f) - 1.0f);
+      maxOffset * shake * (2.0f * NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) - 1.0f);
 
   return {offsetX, offsetY};
 }

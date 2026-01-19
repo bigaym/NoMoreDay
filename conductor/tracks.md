@@ -172,11 +172,38 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [x] Track: Monster System Refactor & Map Polish
-- **Folder:** [./conductor/archive/monster_system_refactor_20260118/](./conductor/archive/monster_system_refactor_20260118/)
-- **Description:** Refactored enemy system to support 5 visual variants per race (45 total types). Implemented safe zone generation for Town maps (100x100), fixed physics boundaries, unified map naming to "Otherworld" (异界), and polished visual presentation (void background). (Completed on 2026-01-18)
+## [x] Track: Monster Affix V2 - Part 1: Environmental & Hazard
+- **Folder:** [./conductor/archive/monster_affixes_hazards_20260119/](./conductor/archive/monster_affixes_hazards_20260119/)
+- **Description:** Implement high-impact environmental hazard affixes (Frozen, Toxic, Void Zone, Storm Strider) using a generic HazardSystem and GPU particles. (Completed on 2026-01-19)
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2 days
+
+---
+
+## [ ] Track: Monster Affix V2 - Part 2: Physics & Crowd Control
+- **Folder:** [./conductor/tracks/monster_affixes_physics_20260119/](./conductor/tracks/monster_affixes_physics_20260119/)
+- **Description:** Implement physics-based and CC affixes (Vortex, Waller, Entangler) by extending the PhysicsSystem with Force Fields and dynamic terrain.
+- **Status:** TODO
+- **Priority:** HIGH
+- **Estimated Time:** 2 days
+
+---
+
+## [ ] Track: Monster Affix V2 - Part 3: Advanced Combat Mechanics
+- **Folder:** [./conductor/tracks/monster_affixes_mechanics_20260119/](./conductor/tracks/monster_affixes_mechanics_20260119/)
+- **Description:** Implement complex entity interactions: Mirror Image (cloning), Shielding (links), Soul Eater (scaling), Suppressor (proximity check), and Mana Siphon.
+- **Status:** TODO
+- **Priority:** MEDIUM
+- **Estimated Time:** 3 days
+
+---
+
+## [ ] Track: Monster Affix V2 - Part 4: Nemesis Evolution
+- **Folder:** [./conductor/tracks/nemesis_evolution_20260119/](./conductor/tracks/nemesis_evolution_20260119/)
+- **Description:** Implement the Nemesis Evolution system that adapts the boss's affixes based on the player's recorded combat history (damage types, engagement distance).
+- **Status:** TODO
+- **Priority:** LOW
+- **Estimated Time:** 1.5 days
 
 

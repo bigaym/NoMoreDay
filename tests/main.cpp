@@ -10,6 +10,7 @@ using namespace NoMoreDay;
 #include "unit/BuffTests.hpp"
 #include "unit/BarrierTests.hpp"
 #include "unit/MonsterAffixTests.hpp"
+#include "unit/HazardSystemTests.hpp"
 
 // --- Integration Tests ---
 #include "integration/GameplaySystems.hpp"

@@ -12,6 +12,7 @@
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
+#include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include <cmath>
@@ -676,6 +677,9 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
     CombatEvent kill_evt =
         CombatEventFactory::CreateOnKill(attacker, target, overkill);
     CombatEventDispatcher::Dispatch(registry, kill_evt);
+
+    // --- Monster Affix System: OnDeath ---
+    NoMoreDay::MonsterAffixSystem::OnEnemyDeath(registry, target);
 
     // --- Event System: OnOverkill (if significant overkill damage) ---
     if (overkill > 1.0f) {

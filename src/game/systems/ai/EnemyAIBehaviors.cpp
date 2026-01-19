@@ -1,5 +1,6 @@
 #include "game/systems/ai/EnemyAIBehaviors.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Combat.hpp"
@@ -95,8 +96,8 @@ void UpdateSupportBehavior(entt::registry &registry, entt::entity entity,
     for (int i = 0; i < 20; ++i) {
       NoMoreDay::components::GPUParticle p;
       p.position = {pos.x, pos.y};
-      float angle = static_cast<float>(rand() % 360) * DEG2RAD;
-      float speed = static_cast<float>(rand() % 100 + 50);
+      float angle = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
+      float speed = NoMoreDay::utils::ThreadSafeRandom::GetFloat(50.0f, 150.0f);
       p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
       p.color = {100, 200, 255, 255}; // 水蓝色
       p.lifetime = 0.8f;
@@ -264,8 +265,8 @@ bool ExecuteBackstab(entt::registry &registry, entt::entity assassin,
   for (int i = 0; i < 30; ++i) {
     NoMoreDay::components::GPUParticle p;
     p.position = {assassinPos->x, assassinPos->y};
-    float angle = static_cast<float>(rand() % 360) * DEG2RAD;
-    float speed = static_cast<float>(rand() % 200 + 100);
+    float angle = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
+    float speed = NoMoreDay::utils::ThreadSafeRandom::GetFloat(100.0f, 300.0f);
     p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
     p.color = {128, 0, 128, 255}; // 紫色
     p.lifetime = 0.5f;

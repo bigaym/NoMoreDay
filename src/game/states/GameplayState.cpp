@@ -28,6 +28,7 @@
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/EliteModifierSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
+#include "game/systems/combat/HazardSystem.hpp"
 #include "game/systems/combat/RegenerationSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/combat/VisualFXSystem.hpp"
@@ -345,6 +346,13 @@ bool GameplayState::OnUpdate(float dt) {
   // 1. Level & Systems
   m_context->levelManager->update(dt, registry, playerPos);
 
+  // Spatial Grid Rebuild (Exclude items/gold to keep AI/physics search fast)
+  // Move rebuild here so systems use fresh data this frame
+  {
+    auto gridView = registry.view<Position>(entt::exclude<NoMoreDay::ItemComponent, GoldComponent>);
+    m_spatialGrid.rebuild(gridView, registry);
+  }
+
   // Update Dormant Entities (Spec 2.3)
   const auto &map = m_context->levelManager->getMapSystem();
   m_context->levelManager->getEnemySpawnSystem().updateDormantEntities(
@@ -388,6 +396,7 @@ bool GameplayState::OnUpdate(float dt) {
   RegenerationSystem::update(registry, dt);
   EliteModifierSystem::Update(registry, dt);
   MonsterAffixSystem::Update(registry, dt);
+  NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
   DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
   FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
   XPAwardingSystem::update(registry);
@@ -583,10 +592,6 @@ bool GameplayState::OnUpdate(float dt) {
     m_camera.offset.x += shake.x;
     m_camera.offset.y += shake.y;
   }
-
-  // Spatial Grid Rebuild (Exclude items/gold to keep AI/physics search fast)
-  auto gridView = registry.view<Position>(entt::exclude<NoMoreDay::ItemComponent, GoldComponent>);
-  m_spatialGrid.rebuild(gridView, registry);
 
   // 4. AI
   AISystem::update(registry, m_spatialGrid,

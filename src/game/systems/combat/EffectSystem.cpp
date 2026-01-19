@@ -3,8 +3,11 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
+#include "game/components/Buff.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "raymath.h"
 #include <vector>
 
@@ -58,79 +61,48 @@ void EffectSystem::update(entt::registry &registry, float dt) {
     }
   }
 
-  // 5. 熔火伤害区域处理 (Molten Trail Damage)
-  static constexpr float MOLTEN_DAMAGE_PER_SEC = 15.0f;
-  static constexpr float MOLTEN_DAMAGE_TICK = 0.25f; // 每0.25秒造成一次伤害
-  static float moltenDamageTimer = 0.0f;
-  moltenDamageTimer += dt;
-  
-  if (moltenDamageTimer >= MOLTEN_DAMAGE_TICK) {
-    moltenDamageTimer = 0.0f;
+  // 5. 处理 DoT (Damage Over Time) Buff
+  auto dotView = registry.view<ActiveEffectsComponent, HealthComponent, Position>();
+  for (auto entity : dotView) {
+    auto& activeEffects = dotView.get<ActiveEffectsComponent>(entity);
+    const auto& pos = dotView.get<Position>(entity);
     
-    auto playerView = registry.view<PlayerTag, Position, HealthComponent>();
-    auto moltenView = registry.view<MoltenTrailTag, Position, Radius>();
-    
-    for (auto player : playerView) {
-      const auto& playerPos = playerView.get<Position>(player);
-      auto& hp = playerView.get<HealthComponent>(player);
-      
-      for (auto molten : moltenView) {
-        const auto& moltenPos = moltenView.get<Position>(molten);
-        const auto& radius = moltenView.get<Radius>(molten);
-        
-        float dx = playerPos.x - moltenPos.x;
-        float dy = playerPos.y - moltenPos.y;
-        float distSq = dx * dx + dy * dy;
-        
-        if (distSq < radius.value * radius.value) {
-          // Deal fire damage
-          float damage = MOLTEN_DAMAGE_PER_SEC * MOLTEN_DAMAGE_TICK;
-          hp.current -= damage;
+    for (auto& effect : activeEffects.effects) {
+      if (effect.type == BuffType::DamageOverTime && effect.remaining > 0.0f) {
+        effect.tick_timer += dt;
+        if (effect.tick_timer >= effect.tick_interval) {
+          effect.tick_timer = 0.0f;
           
-          // Emit fire damage popup
-          EmitDamagePopup(registry, {playerPos.x, playerPos.y - 20.0f}, damage, false, Tag::Fire);
+          // 使用 DamagePipeline 计算伤害
+          DamagePool base_pool;
+          base_pool.Add(Tag::Poison, effect.tick_damage);
           
-          // Only hit once per tick
-          break;
+          auto result = DamagePipeline::Calculate(registry, effect.source, entity, 0, base_pool, Tag::None);
+          
+          // 发射伤害飘字
+          EmitDamagePopup(registry, {pos.x, pos.y - 20.0f}, result.total_damage, result.is_crit, Tag::Poison);
         }
       }
     }
   }
 
-  // 6. 熔火视觉粒子效果 (每火焰区域偶尔发射粒子)
-  auto moltenParticleView = registry.view<MoltenTrailTag, Position>();
-  for (auto entity : moltenParticleView) {
-    // 10% 几率每帧发射粒子 (避免过多)
-    if (rand() % 100 < 3) {
-      const auto& pos = moltenParticleView.get<Position>(entity);
-      NoMoreDay::components::GPUParticle p;
-      p.position = {pos.x + (rand() % 20 - 10), pos.y + (rand() % 20 - 10)};
-      p.velocity = {(float)(rand() % 20 - 10), -50.0f - (float)(rand() % 30)};
-      p.color = {255, (unsigned char)(80 + rand() % 100), 0, 220};
-      p.lifetime = 0.4f + (rand() % 30) / 100.0f;
-      p.maxLifetime = p.lifetime;
-      p.scale = 3.0f + (rand() % 20) / 10.0f;
-      NoMoreDay::systems::GPUParticleSystem::Get().Emit(p);
-    }
-  }
-
-  // 7. 更新通用视觉特效
+  // 6. 更新通用视觉特效
   auto viewVisual = registry.view<VisualEffect, Position>();
   for (auto entity : viewVisual) {
     auto &effect = viewVisual.get<VisualEffect>(entity);
     auto &pos = viewVisual.get<Position>(entity);
 
     if (effect.timer == 0.0f) {
-      for (int i = 0; i < 15; i++) { // Reduced count for standard effects
+      for (int i = 0; i < 15; i++) {
         NoMoreDay::components::GPUParticle p;
         p.position = {pos.x, pos.y};
-        float angle = (float)(rand() % 360) * DEG2RAD;
-        float speed = (float)(rand() % 150 + 50);
+        float angle = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
+        float speed = NoMoreDay::utils::ThreadSafeRandom::GetFloat(50.0f, 200.0f);
         p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
         p.color = effect.color;
-        p.lifetime = 0.5f + (rand() % 100) / 100.0f;
+        p.lifetime = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.5f, 1.5f);
         p.maxLifetime = p.lifetime;
-        p.scale = 2.0f + (rand() % 40) / 10.0f;
+        p.scale = NoMoreDay::utils::ThreadSafeRandom::GetFloat(2.0f, 6.0f);
         NoMoreDay::systems::GPUParticleSystem::Get().Emit(p);
       }
     }

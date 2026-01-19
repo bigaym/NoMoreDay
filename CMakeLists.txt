@@ -101,18 +101,9 @@ add_custom_target(GenerateTags DEPENDS ${TAG_HEADER})
 # --- Skill Behaviors (Object Library) ---
 # Using OBJECT library ensures all behaviors are linked even if they have no explicit references,
 # which is necessary for the static registration pattern to work.
-add_library(SkillBehaviors OBJECT
-    src/game/systems/skill/behaviors/SkillBehaviorRegistry.cpp
-    src/game/systems/skill/behaviors/FlowingThrust.cpp
-    src/game/systems/skill/behaviors/RendingWave.cpp
-    src/game/systems/skill/behaviors/BladeFormation.cpp
-    src/game/systems/skill/behaviors/BladeWard.cpp
-    src/game/systems/skill/behaviors/InfiniteBlades.cpp
-    src/game/systems/skill/behaviors/SwordArray.cpp
-    src/game/systems/skill/behaviors/MindBlade.cpp
-    src/game/systems/skill/behaviors/BladeBoomerang.cpp
-    src/game/systems/skill/behaviors/PhantomFlash.cpp
-)
+file(GLOB_RECURSE SKILL_BEHAVIORS_SOURCES CONFIGURE_DEPENDS "src/game/systems/skill/behaviors/*.cpp")
+
+add_library(SkillBehaviors OBJECT ${SKILL_BEHAVIORS_SOURCES})
 target_include_directories(SkillBehaviors PRIVATE 
     src
     third_party/json/include
@@ -135,93 +126,22 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 endif()
 
 # --- Core Library (Static) ---
-# 将核心逻辑打包为静态库，供游戏主程序和测试程序共同链接
-add_library(NoMoreDayCore STATIC
-    src/app/Game.cpp
-    src/core/logging/CrashHandler.cpp
-    src/core/logging/Logger.cpp
-    src/engine/input/InputSystem.cpp
-    src/engine/physics/PhysicsSystem.cpp
-    src/engine/render/GPUEntitySystem.cpp
-    src/engine/render/GPUFlowFieldSystem.cpp
-    src/engine/render/GPUParticleSystem.cpp
-    src/engine/render/GPUSkillEffectSystem.cpp
-    src/engine/persistence/SaveManager.cpp
-    src/engine/render/RenderSystem.cpp
-    src/engine/render/UIRenderer.cpp
-    src/engine/resource/AssetLoadingSystem.cpp
-    src/engine/resource/ResourceManager.cpp
-    src/engine/scene/SceneManager.cpp
-    src/engine/scene/StateManager.cpp
-    src/game/data/AstrolabeRegistry.cpp
-    src/game/data/BiomeRegistry.cpp
-    src/game/data/BuffRegistry.cpp
-    src/game/data/SkillRegistry.cpp
-    src/game/states/GameplayState.cpp
-    src/game/states/InventoryState.cpp
-    src/game/states/LoadingState.cpp
-    src/game/states/MainMenuState.cpp
-    src/game/states/MosaicEditorState.cpp
-    src/game/states/PauseState.cpp
-    src/game/states/SettingsState.cpp
-    src/game/states/HeirloomVaultState.cpp
-    src/game/states/NightmareFloorState.cpp
-    src/game/states/TestVFXState.cpp
-    src/game/systems/ai/AISystem.cpp
-    src/game/systems/ai/EnemyBehavior.cpp
-    src/game/systems/ai/EnemyAIBehaviors.cpp
-    src/game/systems/combat/CombatEventDispatcher.cpp
-    src/game/systems/combat/CombatSystem.cpp
-    src/game/systems/combat/EliteModifierSystem.cpp
-    src/game/systems/combat/DamagePipeline.cpp
-    src/game/systems/combat/VisualFXSystem.cpp
-    src/game/systems/combat/EffectSystem.cpp
-    src/game/systems/combat/ProgressionSystem.cpp
-    src/game/systems/combat/StatsSystem.cpp
-    src/game/systems/combat/XPAwardingSystem.cpp
-    src/game/systems/item/CraftingSystem.cpp
-    src/game/systems/item/DropSystem.cpp
-    src/game/systems/item/FragmentDropSystem.cpp
-    src/game/systems/item/InventorySystem.cpp
-    src/game/systems/item/ItemFactory.cpp
-    src/game/systems/item/LootFilter.cpp
-    src/game/systems/item/MaterialRegistry.cpp
-    src/game/systems/item/SalvageSystem.cpp
-    src/game/systems/item/RunewordSystem.cpp
-    src/game/data/ResonanceCalculator.cpp
-    src/game/systems/skill/AstrolabeSystem.cpp
-    src/game/systems/skill/ProjectileSystem.cpp
-    src/game/systems/skill/SkillSystem.cpp
-    src/game/systems/skill/BehaviorInjectionRegistry.cpp
-    src/game/systems/skill/ShadowSystem.cpp
-    src/game/systems/skill/SummonSystem.cpp
-    src/game/systems/ui/MonsterHealthBarSystem.cpp
-    src/game/systems/ui/PlayerHUD.cpp
-    src/game/systems/ui/SwordIntentWidget.cpp
-    src/game/systems/ui/UIAnimationSystem.cpp
-    src/game/systems/ui/UIAstrolabe.cpp
-    src/game/systems/ui/UICharacter.cpp
-    src/game/systems/ui/UICrafting.cpp
-    src/game/systems/ui/UIInventory.cpp
-    src/game/systems/ui/UIMinimap.cpp
-    src/game/systems/ui/UISkillHub.cpp
-    src/game/systems/ui/UISkillTalentTree.cpp
-    src/game/systems/ui/UISystem.cpp
-    src/game/systems/world/EnemySpawnSystem.cpp
-    src/game/systems/world/FogOfWarSystem.cpp
-    src/game/systems/world/LevelManager.cpp
-    src/game/systems/world/MapSystem.cpp
-    src/game/systems/world/MosaicMapGenerator.cpp
-    src/game/systems/world/MovementStanceSystem.cpp
-    src/game/systems/world/PortalSystem.cpp
-    src/game/systems/vfx/TrailSystem.cpp
-    src/game/systems/vfx/SwordIntentVisualSystem.cpp
-    src/game/systems/vfx/HoloBladeRenderSystem.cpp
-    src/game/systems/vfx/GhostSystem.cpp
-    src/game/systems/nemesis/FactionAggroSystem.cpp
-    src/game/systems/nemesis/NemesisGenerator.cpp
-    src/systems/SerializationSystem.hpp
+# 递归获取所有源文件，排除 app/main.cpp 和已在 SkillBehaviors 中的文件
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS 
+    "src/*.cpp" 
+    "src/*.hpp"
 )
+
+# 移除 main.cpp (由主程序目标使用)
+list(REMOVE_ITEM CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/app/main.cpp")
+
+# 移除 SkillBehaviors 的源文件，避免重复编译
+foreach(SKILL_SRC ${SKILL_BEHAVIORS_SOURCES})
+    list(REMOVE_ITEM CORE_SOURCES ${SKILL_SRC})
+endforeach()
+
+# 将核心逻辑打包为静态库
+add_library(NoMoreDayCore STATIC ${CORE_SOURCES})
 
 set_source_files_properties(src/engine/resource/ResourceManager.cpp PROPERTIES 
     SKIP_PRECOMPILE_HEADERS ON

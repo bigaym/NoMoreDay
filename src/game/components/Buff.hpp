@@ -36,7 +36,9 @@ enum class BuffType {
     Shield,       // 护盾
     Invincible,   // 无敌
     Bloodlust,    // 嗜血
-    Hurt          // 受伤
+    Hurt,          // 受伤
+
+    DamageOverTime
 };
 
 inline void to_json(nlohmann::json& j, const BuffType& e) { j = static_cast<int>(e); }
@@ -52,6 +54,9 @@ struct BuffEffect {
     float remaining = 0.0f;     // Remaining time in seconds
     int stacks = 1;             // Current stack count
     int max_stacks = 1;         // Max stack count
+    float tick_interval = 1e10;
+    float tick_damage = 0.0f;
+    float tick_timer = 0.0f;
     
     bool is_debuff = false;     // True if it's a debuff (Red border), false for buff (Green/Gold)
     
