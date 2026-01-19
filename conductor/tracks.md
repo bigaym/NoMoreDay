@@ -190,10 +190,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Monster Affix V2 - Part 3: Advanced Combat Mechanics
-- **Folder:** [./conductor/tracks/monster_affixes_mechanics_20260119/](./conductor/tracks/monster_affixes_mechanics_20260119/)
-- **Description:** Implement complex entity interactions: Mirror Image (cloning), Shielding (links), Soul Eater (scaling), Suppressor (proximity check), and Mana Siphon.
-- **Status:** TODO
+## [x] Track: Monster Affix V2 - Part 3: Advanced Combat Mechanics
+- **Folder:** [./conductor/archive/monster_affixes_mechanics_20260119/](./conductor/archive/monster_affixes_mechanics_20260119/)
+- **Description:** Implement complex entity interactions: Mirror Image (cloning), Shielding (links), Soul Eater (scaling), Suppressor (proximity check), and Mana Siphon. (Completed on 2026-01-19)
+- **Status:** COMPLETED
 - **Priority:** MEDIUM
 - **Estimated Time:** 3 days
 

@@ -4,6 +4,7 @@
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/EnemyComponent.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 
 using namespace NoMoreDay;
@@ -84,4 +85,117 @@ TEST_CASE("Monster Affix Stat Mod Persistence Test") {
     
     // Verify if speed is still correct
     CHECK(stats.move_speed == doctest::Approx(fastSpeed));
+}
+
+TEST_CASE("Monster Affix: Mirror Image Logic Test") {
+    entt::registry registry;
+    
+    auto enemy = registry.create();
+    registry.emplace<Position>(enemy, 100.0f, 100.0f);
+    registry.emplace<HealthComponent>(enemy, 100.0f, 100.0f);
+    registry.emplace<EnemyTag>(enemy);
+    registry.emplace<EnemyStateComponent>(enemy, EnemyRace::UNDEAD, EnemyArchetype::FODDER);
+    registry.emplace<CombatStats>(enemy);
+    
+    auto& affix = registry.emplace<MonsterAffixComponent>(enemy);
+    affix.AddAffix(MonsterAffixType::MirrorImage);
+    affix.hasOnHit = true;
+    affix.timer1 = 10.0f; // Reset cooldown
+    
+    // Trigger Mirror Image via HP threshold
+    auto& hp = registry.get<HealthComponent>(enemy);
+    hp.current = 40.0f; // 40% HP
+    
+    CombatEvent evt;
+    evt.target = enemy;
+    
+    MonsterAffixSystem::OnEnemyTakeDamage(registry, evt);
+    
+    // Check if clones were created
+    auto cloneView = registry.view<CloneComponent>();
+    int cloneCount = 0;
+    for (auto c : cloneView) {
+        cloneCount++;
+        auto& comp = cloneView.get<CloneComponent>(c);
+        CHECK(comp.parent == enemy);
+    }
+    
+    CHECK(cloneCount == 2);
+}
+
+TEST_CASE("Monster Affix: Soul Eater Progression Test") {
+    entt::registry registry;
+    
+    auto eater = registry.create();
+    registry.emplace<Position>(eater, 100.0f, 100.0f);
+    registry.emplace<EnemyTag>(eater);
+    registry.emplace<EnemyStateComponent>(eater, EnemyRace::UNDEAD, EnemyArchetype::FODDER);
+    registry.emplace<EnemyRarityComponent>(eater, EnemyRarityComponent::ELITE);
+    registry.emplace<CombatStats>(eater);
+    
+    auto& affix = registry.emplace<MonsterAffixComponent>(eater);
+    affix.AddAffix(MonsterAffixType::SoulEater);
+    
+    // Manually add component as ProcessSoulEater would do in Update
+    auto& soulEaterComp = registry.emplace<SoulEaterComponent>(eater);
+    
+    // Initial stats
+    StatsSystem::update(registry);
+    auto& stats = registry.get<CombatStats>(eater);
+    float initialDmg = stats.damage_multipliers[0];
+    
+    // Simulate nearby enemy death
+    auto victim = registry.create();
+    registry.emplace<Position>(victim, 110.0f, 110.0f);
+    
+    MonsterAffixSystem::OnEnemyDeath(registry, victim);
+    
+    // Check if stack gained
+    auto& soulEater = registry.get<SoulEaterComponent>(eater);
+    CHECK(soulEater.stacks == 1);
+    
+    // Check if stats recalculation was triggered
+    CHECK(registry.all_of<StatsDirty>(eater));
+    
+    StatsSystem::update(registry);
+    
+    // Verify damage bonus (5% per stack)
+    CHECK(stats.damage_multipliers[0] == doctest::Approx(initialDmg + 0.05f));
+}
+
+TEST_CASE("Monster Affix: Suppressor Damage Reduction Test") {
+    entt::registry registry;
+    
+    auto attacker = registry.create();
+    registry.emplace<Position>(attacker, 500.0f, 500.0f); // Far away
+    registry.emplace<CombatStats>(attacker);
+    
+    auto defender = registry.create();
+    registry.emplace<Position>(defender, 100.0f, 100.0f); // Distance = 565px (> 300px threshold)
+    registry.emplace<EnemyTag>(defender);
+    registry.emplace<CombatStats>(defender);
+    
+    auto& suppressor = registry.emplace<SuppressorComponent>(defender);
+    suppressor.threshold = 300.0f;
+    suppressor.damageReduction = 0.9f;
+    
+    DamagePool pool;
+    pool.values[0] = 100.0f; // 100 Phys damage
+    
+    // We use a clean environment - no stats, no modifiers.
+    // DamagePipeline should use defaults if stats are missing.
+    
+    // Calculate damage (NOT simulation, but with controlled entities)
+    auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Hit);
+    
+    // Expect 90% reduction (100 -> 10)
+    CHECK(result.total_damage == doctest::Approx(10.0f));
+    
+    // Move closer (within 300px)
+    registry.replace<Position>(attacker, 200.0f, 200.0f); // Distance = 141px
+    
+    result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Hit);
+    
+    // Expect full damage (100)
+    CHECK(result.total_damage == doctest::Approx(100.0f));
 }

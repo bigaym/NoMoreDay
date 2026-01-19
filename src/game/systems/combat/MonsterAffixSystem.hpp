@@ -6,6 +6,8 @@
 #include "game/components/Buff.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/HazardComponents.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
+#include "game/utils/EntityUtils.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
@@ -129,11 +131,25 @@ public:
                     case MonsterAffixType::VoidZone:
                         ProcessVoidZone(registry, entity, pos, playerPos, affix, dt);
                         break;
+                    case MonsterAffixType::SoulEater:
+                        ProcessSoulEater(registry, entity, affix, dt);
+                        break;
+                    case MonsterAffixType::ManaSiphon:
+                        ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt);
+                        break;
+                    case MonsterAffixType::Shielding:
+                        ProcessShielding(registry, entity, pos, affix, dt);
+                        break;
                     default:
                         break;
                 }
             }
         }
+        
+        // Update clone entities and invulnerable components
+        EntityUtils::UpdateClones(registry, dt);
+        EntityUtils::UpdateInvulnerable(registry, dt);
+        EntityUtils::UpdateLinks(registry, dt);
     }
     
 private:
@@ -341,9 +357,131 @@ private:
         }
     }
     
+    /**
+     * @brief 噬魂词缀 - 吸收附近死亡灵魂获得增益
+     */
+    static void ProcessSoulEater(entt::registry& registry, entt::entity enemy,
+                                MonsterAffixComponent& affix, float dt) {
+        // Soul Eater 的层数增加由 OnDeath 事件处理
+        // 这里只需要更新视觉效果
+        auto* soulEater = registry.try_get<SoulEaterComponent>(enemy);
+        if (!soulEater) {
+            // 首次添加组件
+            registry.emplace<SoulEaterComponent>(enemy);
+            return;
+        }
+        
+        // 根据层数更新体型
+        float scaleBonus = 1.0f + (soulEater->stacks * soulEater->sizePerStack / 100.0f);
+        if (auto* sprite = registry.try_get<SpriteComponent>(enemy)) {
+            sprite->scale = soulEater->baseScale * scaleBonus;
+        }
+    }
+    
+    /**
+     * @brief 虹吸词缀 - 剥夺玩家法力
+     */
+    static void ProcessManaSiphon(entt::registry& registry, entt::entity enemy,
+                                 const Position& enemyPos, entt::entity player,
+                                 MonsterAffixComponent& affix, float dt) {
+        if (!registry.valid(player)) return;
+        
+        // 确保有 ResourceDrainComponent
+        auto* drain = registry.try_get<ResourceDrainComponent>(enemy);
+        if (!drain) {
+            auto& newDrain = registry.emplace<ResourceDrainComponent>(enemy);
+            newDrain.radius = 200.0f;
+            newDrain.drainRate = 10.0f;
+            newDrain.resource = ResourceType::Mana;
+            newDrain.safeZoneInside = true;
+            newDrain.innerRadius = 50.0f;
+            newDrain.effectColor = PURPLE;
+            drain = &newDrain;
+        }
+        
+        // 检查玩家是否在范围内
+        auto* playerPos = registry.try_get<Position>(player);
+        if (!playerPos) return;
+        
+        float dx = playerPos->x - enemyPos.x;
+        float dy = playerPos->y - enemyPos.y;
+        float distSq = dx * dx + dy * dy;
+        float radiusSq = drain->radius * drain->radius;
+        
+        // 甜甜圈模式：内圈安全
+        bool inRange = false;
+        if (drain->safeZoneInside) {
+            float innerRadiusSq = drain->innerRadius * drain->innerRadius;
+            inRange = (distSq > innerRadiusSq && distSq <= radiusSq);
+        } else {
+            inRange = (distSq <= radiusSq);
+        }
+        
+        if (inRange) {
+            // 剥夺法力
+            if (auto* stats = registry.try_get<CombatStats>(player)) {
+                float drainAmount = drain->drainRate * dt;
+                stats->mana = std::max(0.0f, stats->mana - drainAmount);
+            }
+        }
+    }
+    
+    /**
+     * @brief 护盾词缀 - 给附近友军施加无敌护盾
+     */
+    static void ProcessShielding(entt::registry& registry, entt::entity enemy,
+                                const Position& enemyPos, MonsterAffixComponent& affix,
+                                float dt) {
+        // 每 3 秒检查一次附近友军
+        static constexpr float SHIELDING_COOLDOWN = 3.0f;
+        static constexpr float SHIELDING_RANGE = 250.0f;
+        static constexpr float SHIELDING_DURATION = 2.0f;
+        
+        if (affix.timer1 < SHIELDING_COOLDOWN) return;
+        affix.timer1 = 0.0f;
+        
+        // 查找附近的友军（同样是 EnemyTag）
+        auto view = registry.view<EnemyTag, Position>(entt::exclude<KilledTag>);
+        
+        for (auto ally : view) {
+            if (ally == enemy) continue;  // 跳过自己
+            
+            const auto& allyPos = view.get<Position>(ally);
+            float dx = allyPos.x - enemyPos.x;
+            float dy = allyPos.y - enemyPos.y;
+            float distSq = dx * dx + dy * dy;
+            
+            if (distSq <= SHIELDING_RANGE * SHIELDING_RANGE) {
+                // 给友军添加无敌状态
+                if (!registry.all_of<InvulnerableComponent>(ally)) {
+                    registry.emplace<InvulnerableComponent>(ally,
+                        SHIELDING_DURATION,  // duration
+                        0.0f,                // elapsed
+                        enemy,               // source
+                        Color{255, 200, 50, 150},  // shieldColor (金色)
+                        0.0f                 // shieldRadius
+                    );
+                    
+                    // 添加连线组件
+                    registry.emplace<LinkComponent>(enemy,
+                        ally,                      // target
+                        LinkType::Shielding,       // type
+                        2.0f,                      // visualWidth
+                        GOLD,                      // color
+                        SHIELDING_DURATION,        // lifetime
+                        true                       // isActive
+                    );
+                    
+                    LOG_INFO("Shielding: Entity {} shielded entity {}", 
+                             static_cast<uint32_t>(enemy), static_cast<uint32_t>(ally));
+                }
+            }
+        }
+    }
+    
 public:
     /**
-     * @brief OnDealDamage 回调 - 处理 Nullifier 和 StormStrider 词缀
+     * @brief OnDealDamage 回调 - 处理 Nullifier 和 MirrorImage 词缀
      */
     static void OnEnemyDealDamage(entt::registry& registry, const CombatEvent& evt) {
         // Check if attacker has OnHit affixes
@@ -368,13 +506,50 @@ public:
     }
     
     /**
-     * @brief OnTakeDamage 回调 - 处理 StormStrider 词缀
+     * @brief OnTakeDamage 回调 - 处理 StormStrider 和 MirrorImage 词缀
      */
     static void OnEnemyTakeDamage(entt::registry& registry, const CombatEvent& evt) {
-        // Check if defender has StormStrider affix
+        // Check if defender has OnHit affixes
         auto* affix = registry.try_get<MonsterAffixComponent>(evt.target);
         if (!affix || !affix->hasOnHit) return;
         
+        // MirrorImage: Spawn clones on crit or low HP
+        if (affix->HasAffix(MonsterAffixType::MirrorImage)) {
+            static constexpr float MIRROR_COOLDOWN = 10.0f;
+            static constexpr float MIRROR_HP_THRESHOLD = 0.5f;
+            
+            bool shouldTrigger = false;
+            
+            // Trigger on crit (5% chance)
+            if (evt.is_crit && NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) < 0.05f) {
+                shouldTrigger = true;
+            }
+            
+            // Trigger on HP threshold (once)
+            if (!shouldTrigger) {
+                auto* hp = registry.try_get<HealthComponent>(evt.target);
+                if (hp && hp->current / hp->max <= MIRROR_HP_THRESHOLD) {
+                    // Check if already triggered (use timer2 as flag)
+                    if (affix->timer2 == 0.0f) {
+                        shouldTrigger = true;
+                        affix->timer2 = -1.0f;  // Mark as triggered
+                    }
+                }
+            }
+            
+            if (shouldTrigger && affix->timer1 >= MIRROR_COOLDOWN) {
+                affix->timer1 = 0.0f;
+                
+                // Spawn 2 clones
+                for (int i = 0; i < 2; ++i) {
+                    EntityUtils::CloneEntity(registry, evt.target, 0.5f, 0.1f, 10.0f);
+                }
+                
+                LOG_INFO("MirrorImage: Entity {} spawned 2 clones", static_cast<uint32_t>(evt.target));
+            }
+        }
+        
+        // StormStrider: Spawn lightning ghost
         if (!affix->HasAffix(MonsterAffixType::StormStrider)) return;
         
         // 概率触发
@@ -408,10 +583,41 @@ public:
     }
     
     /**
-     * @brief OnDeath 回调 - 处理 Toxic 词缀
+     * @brief OnDeath 回调 - 处理 Toxic 和 SoulEater 词缀
      */
     static void OnEnemyDeath(entt::registry& registry, entt::entity enemy) {
         auto* affix = registry.try_get<MonsterAffixComponent>(enemy);
+        
+        // === SoulEater: 全局监听所有敌人死亡 ===
+        auto* enemyPos = registry.try_get<Position>(enemy);
+        if (enemyPos) {
+            // 查找附近的 SoulEater 怪物
+            auto soulEaterView = registry.view<MonsterAffixComponent, SoulEaterComponent, Position>(entt::exclude<KilledTag>);
+            
+            for (auto eater : soulEaterView) {
+                auto& soulEater = soulEaterView.get<SoulEaterComponent>(eater);
+                const auto& eaterPos = soulEaterView.get<Position>(eater);
+                
+                float dx = eaterPos.x - enemyPos->x;
+                float dy = eaterPos.y - enemyPos->y;
+                float distSq = dx * dx + dy * dy;
+                
+                if (distSq <= soulEater.stackRadius * soulEater.stackRadius) {
+                    // 在范围内,增加层数
+                    if (soulEater.stacks < soulEater.maxStacks) {
+                        soulEater.stacks++;
+                        
+                        // 触发属性重算
+                        registry.get_or_emplace<StatsDirty>(eater);
+                        
+                        LOG_INFO("SoulEater: Entity {} gained stack (now {})", 
+                                 static_cast<uint32_t>(eater), soulEater.stacks);
+                    }
+                }
+            }
+        }
+        
+        // === Toxic: 死亡时生成毒球 ===
         if (!affix || !affix->hasOnDeath) return;
         
         if (!affix->HasAffix(MonsterAffixType::Toxic)) return;

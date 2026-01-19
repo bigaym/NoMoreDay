@@ -9,6 +9,7 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/EliteModifierComponents.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/Buff.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
@@ -626,15 +627,26 @@ void StatsSystem::Recalculate(entt::registry& registry, entt::entity entity) {
                 const auto& mod = def.statMods[s];
                 ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
             }
+        }
+    }
+
+    // 2.3 处理灵魂吞噬者加成 (Soul Eater)
+    if (auto* soulEater = registry.try_get<SoulEaterComponent>(entity)) {
+        if (soulEater->stacks > 0) {
+            float dmgBonus = soulEater->stacks * soulEater->damagePerStack;
+            float asBonus = soulEater->stacks * soulEater->attackSpeedPerStack;
             
-            // 特殊逻辑：狂暴倍率
-            if (affixType == MonsterAffixType::Berserker && affixComp->isBerserk) {
-                // 狂暴在重算时直接增加 More 伤害 (PercentMult)
-                // 注意：由于 CombatStats.min_weapon_damage 是基础值，
-                // 我们可能需要特殊的 StatType 或者在这里直接乘
-                // 但为了统一，我们假设有 DamageMult 修饰符
-                // 这里我们直接修改最终武器伤害的倍率逻辑
+            // 应用到所有伤害类型
+            for (int i = 0; i < 6; ++i) {
+                ApplyStatModifier(calcs, static_cast<StatType>(static_cast<size_t>(StatType::PhysicalDamage) + i), 
+                                ModifierMode::PercentAdd, dmgBonus);
             }
+            
+            // 应用攻速
+            ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd, asBonus);
+            
+            LOG_DEBUG("StatsSystem: Applied Soul Eater bonuses (Stacks: {}, Dmg: +{}%, AS: +{}%)", 
+                      soulEater->stacks, dmgBonus, asBonus);
         }
     }
 
@@ -1056,6 +1068,17 @@ float StatsSystem::GetStatWithTags(entt::registry& registry, entt::entity entity
         if (auto* avenger = registry.try_get<AvengerComponent>(entity)) {
             // 将加成应用到 percent_add，确保是加法叠加
             dynamic_calc.percent_add += (avenger->GetDamageMultiplier() - 1.0f);
+        }
+    }
+
+    // 2.5 处理 Soul Eater (噬魂) 动态加成
+    if (auto* soulEater = registry.try_get<SoulEaterComponent>(entity)) {
+        if (soulEater->stacks > 0) {
+            if (IsDamageStat(type)) {
+                dynamic_calc.percent_add += (soulEater->stacks * soulEater->damagePerStack / 100.0f);
+            } else if (type == StatType::AttackSpeed) {
+                dynamic_calc.percent_add += (soulEater->stacks * soulEater->attackSpeedPerStack / 100.0f);
+            }
         }
     }
 

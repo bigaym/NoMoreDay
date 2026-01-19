@@ -46,6 +46,12 @@ enum class MonsterAffixType : uint8_t {
     Avenger,    // 复仇者: 友军死亡时获得增益 (已实现)
     SoulLink,   // 灵魂链接: 伤害共享 (已实现)
     
+    // === 高级战斗机制词缀 (Advanced Combat Mechanics) ===
+    MirrorImage,  // 镜像: 生成克隆体
+    SoulEater,    // 噬魂: 吸收死亡灵魂获得增益
+    Suppressor,   // 压制: 距离减伤
+    ManaSiphon,   // 虹吸: 剥夺玩家法力
+    
     Count       // 词缀总数 (用于数组大小)
 };
 
@@ -205,6 +211,27 @@ private:
         { MonsterAffixType::SoulLink, "灵魂链接", "Soul Link", 3, 
           {}, 0,
           { true, false, false, true }, 100, 255, 100 }, // 亮绿色
+        
+        // === Advanced Combat Mechanics ===
+        // MirrorImage: Spawn clones (requires OnHit for trigger)
+        { MonsterAffixType::MirrorImage, "镜像", "Mirror Image", 3, 
+          {}, 0,
+          { false, true, false, true }, 180, 180, 255 }, // 淡紫色
+        
+        // SoulEater: Absorb souls on nearby death (requires Update for stack management)
+        { MonsterAffixType::SoulEater, "噬魂", "Soul Eater", 3, 
+          {}, 0,
+          { true, false, true, true }, 50, 0, 100 }, // 暗紫色
+        
+        // Suppressor: Distance-based damage reduction (requires DamagePipeline hook)
+        { MonsterAffixType::Suppressor, "压制", "Suppressor", 3, 
+          {}, 0,
+          { false, false, false, true }, 255, 50, 50 }, // 红色
+        
+        // ManaSiphon: Drain player mana (requires Update for aura)
+        { MonsterAffixType::ManaSiphon, "虹吸", "Mana Siphon", 3, 
+          {}, 0,
+          { true, false, false, true }, 150, 50, 200 }, // 紫色
     }};
 };
 

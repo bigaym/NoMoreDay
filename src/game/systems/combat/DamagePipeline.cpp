@@ -1,6 +1,7 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"  // InvulnerableComponent, SuppressorComponent
 #include "game/components/PlayerState.hpp" // PhantomFlashComponent
 #include "game/components/Projectile.hpp"
 #include "game/data/SkillRegistry.hpp"
@@ -48,6 +49,40 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
                           entt::entity defender, uint32_t skill_id,
                           const DamagePool &base_pool, Tag additional_tags,
                           entt::entity source_entity, bool is_simulation) {
+  // === PRE-CALCULATION INTERCEPTORS ===
+  
+  // 1. Invulnerable Check (Shielding, Clone Invulnerability)
+  if (!is_simulation && registry.valid(defender)) {
+    if (registry.all_of<InvulnerableComponent>(defender)) {
+      // Defender is invulnerable, negate all damage
+      DamageResult result;
+      result.total_damage = 0.0f;
+      result.is_crit = false;
+      return result;
+    }
+  }
+  
+  // 2. Suppressor Check (Distance-based damage reduction)
+  float suppressor_multiplier = 1.0f;
+  if (registry.valid(attacker) && registry.valid(defender)) {
+    if (auto* suppressor = registry.try_get<SuppressorComponent>(defender)) {
+      // Calculate distance between attacker and defender
+      auto* attPos = registry.try_get<Position>(attacker);
+      auto* defPos = registry.try_get<Position>(defender);
+      
+      if (attPos && defPos) {
+        float dx = attPos->x - defPos->x;
+        float dy = attPos->y - defPos->y;
+        float distance = std::sqrt(dx * dx + dy * dy);
+        
+        // If attacker is beyond threshold, apply damage reduction
+        if (distance > suppressor->threshold) {
+          suppressor_multiplier = 1.0f - suppressor->damageReduction;
+        }
+      }
+    }
+  }
+  
   const auto *skill_data = SkillRegistry::Get().GetSkill(skill_id);
   Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
   Tag combined_hit_tags = skill_tags | additional_tags;
@@ -400,6 +435,12 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
       result.final_pool.values[type_idx] += damage_after_res;
     }
   }
+  
+  // === FINAL MULTIPLIERS (Suppressor, etc) ===
+  total_final_damage *= suppressor_multiplier;
+  for (int i = 0; i < 6; ++i) {
+    result.final_pool.values[i] *= suppressor_multiplier;
+  }
 
   // --- Phantom Flash Counter Logic (Single Target) ---
   if (!is_simulation && registry.valid(defender)) {
@@ -603,13 +644,29 @@ void DamagePipeline::CalculateBatch(
 
         for (size_t k = 0; k < inc; ++k) {
           using namespace NoMoreDay::Constants::Combat::Pipeline;
-          auto *ds = registry.try_get<CombatStats>(defenders[i + k]);
+          auto defender = defenders[i + k];
+          auto *ds = registry.try_get<CombatStats>(defender);
           float dr = ds ? ds->damage_reduction : 0.0f;
           float damage = final_dmg_sum[k] * (1.0f - std::min(DR_MAX, dr));
+          
+          // === Suppressor Check (Batch) ===
+          if (auto* suppressor = registry.try_get<SuppressorComponent>(defender)) {
+            auto* attPos = registry.try_get<Position>(attacker);
+            auto* defPos = registry.try_get<Position>(defender);
+            if (attPos && defPos) {
+              float dx = attPos->x - defPos->x;
+              float dy = attPos->y - defPos->y;
+              float distanceSq = dx * dx + dy * dy;
+              if (distanceSq > suppressor->threshold * suppressor->threshold) {
+                damage *= (1.0f - suppressor->damageReduction);
+              }
+            }
+          }
+
           bool is_crit = (snap.crit_chance > 0.0f &&
                           (utils::ThreadSafeRandom::GetFloat01() <
                            (snap.crit_chance / 100.0f)));
-          results[i + k] = {defenders[i + k],
+          results[i + k] = {defender,
                             is_crit ? (damage * snap.crit_damage) : damage,
                             is_crit};
         }
@@ -643,6 +700,21 @@ void DamagePipeline::CalculateBatch(
             final_damage += after_res;
           }
           final_damage *= (1.0f - std::min(DR_MAX, dr));
+          
+          // === Suppressor Check (Fallback) ===
+          if (auto* suppressor = registry.try_get<SuppressorComponent>(defender)) {
+            auto* attPos = registry.try_get<Position>(attacker);
+            auto* defPos = registry.try_get<Position>(defender);
+            if (attPos && defPos) {
+              float dx = attPos->x - defPos->x;
+              float dy = attPos->y - defPos->y;
+              float distanceSq = dx * dx + dy * dy;
+              if (distanceSq > suppressor->threshold * suppressor->threshold) {
+                final_damage *= (1.0f - suppressor->damageReduction);
+              }
+            }
+          }
+
           bool is_crit = (snap.crit_chance > 0.0f &&
                           (utils::ThreadSafeRandom::GetFloat01() <
                            (snap.crit_chance / 100.0f)));
