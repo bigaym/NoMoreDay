@@ -61,7 +61,38 @@ void EffectSystem::update(entt::registry &registry, float dt) {
     }
   }
 
-  // 5. 处理 DoT (Damage Over Time) Buff
+  // 5. 更新所有 ActiveEffects 的生命周期 (CRITICAL FIX: Buff System Lifecycle)
+  auto buffView = registry.view<ActiveEffectsComponent>();
+  // 收集同步状态
+  bool playerRooted = false;
+  bool playerSilenced = false;
+  
+  for (auto entity : buffView) {
+      auto& activeEffects = buffView.get<ActiveEffectsComponent>(entity);
+      activeEffects.Update(dt);
+      
+      // 状态同步逻辑 (SyncStatusFlags)
+      if (registry.any_of<PlayerTag>(entity)) {
+          bool hasRoot = false;
+          bool hasSilence = false;
+          for (const auto& effect : activeEffects.effects) {
+              if (effect.type == BuffType::Root) hasRoot = true;
+              if (effect.type == BuffType::Silence) hasSilence = true;
+          }
+          playerRooted = hasRoot;
+          playerSilenced = hasSilence;
+      }
+  }
+
+  // 同步到 PlayerStats
+  auto playerView = registry.view<PlayerTag, PlayerStats>();
+  for (auto entity : playerView) {
+      auto& stats = playerView.get<PlayerStats>(entity);
+      stats.isRooted = playerRooted;
+      stats.isSilenced = playerSilenced;
+  }
+
+  // 6. 处理 DoT (Damage Over Time) Buff
   auto dotView = registry.view<ActiveEffectsComponent, HealthComponent, Position>();
   for (auto entity : dotView) {
     auto& activeEffects = dotView.get<ActiveEffectsComponent>(entity);

@@ -181,10 +181,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Monster Affix V2 - Part 2: Physics & Crowd Control
-- **Folder:** [./conductor/tracks/monster_affixes_physics_20260119/](./conductor/tracks/monster_affixes_physics_20260119/)
-- **Description:** Implement physics-based and CC affixes (Vortex, Waller, Entangler) by extending the PhysicsSystem with Force Fields and dynamic terrain.
-- **Status:** TODO
+## [x] Track: Monster Affix V2 - Part 2: Physics & Crowd Control
+- **Folder:** [./conductor/archive/monster_affixes_physics_20260119/](./conductor/archive/monster_affixes_physics_20260119/)
+- **Description:** Implement physics-based and CC affixes (Vortex, Waller, Entangler) by extending the PhysicsSystem with Force Fields and dynamic terrain. (Completed on 2026-01-20)
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2 days
 

@@ -17,6 +17,40 @@ enum class LinkType : uint8_t {
 };
 
 /**
+ * @brief 力场组件 - 用于 Vortex (漩涡) 等物理效果
+ */
+struct ForceFieldComponent {
+    float strength = 0.0f;        // 正值=排斥(Repel), 负值=吸引(Attract)
+    float radius = 100.0f;        // 作用半径
+    float activeDuration = -1.0f; // 激活时长 (<0 无限)
+    float cooldown = 0.0f;        // 冷却时间
+    float currentCooldown = 0.0f; // 当前冷却
+    bool isAlwaysOn = true;       // 是否常驻
+};
+
+/**
+ * @brief 动态障碍物组件 - 用于 Waller (筑墙)
+ */
+struct DynamicObstacleComponent {
+    float lifetime = 5.0f;        // 持续时间，归零销毁
+    uint8_t solidity = 1;         // 碰撞层级 (1=普通)
+};
+
+/**
+ * @brief 传送状态组件 - 用于 Teleporter 视觉效果
+ */
+struct TeleportationComponent {
+    enum class Phase { FadeOut, Invisible, FadeIn } phase = Phase::FadeOut;
+    float timer = 0.0f;
+    float fadeDuration = 0.3f;    // 渐变时间
+    float invisibleDuration = 0.2f; // 隐身位移时间
+    float targetX = 0.0f;
+    float targetY = 0.0f;
+    Color originalColor = WHITE;
+    bool hasAttacked = false;
+};
+
+/**
  * @brief 实体连接组件 - 用于建立两个实体之间的逻辑连接
  * 
  * 用于 Shielding 词缀: 护盾源 -> 护盾目标

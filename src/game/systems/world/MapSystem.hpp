@@ -143,6 +143,9 @@ public:
 
   // 更新可见性（基于玩家位置）
   void updateVisibility(const Position &playerPos, float viewRadius);
+  
+  // 生成动态障碍物 (Waller Affix) - 返回生成的实体
+  static entt::entity spawnDynamicObstacle(entt::registry& registry, const Rectangle& bounds, float duration);
 
   // 渲染地图
   void render(const Camera2D &camera) const;

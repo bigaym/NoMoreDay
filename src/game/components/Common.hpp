@@ -395,6 +395,16 @@ struct Radius {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Radius, value)
 
+enum class ColliderType : uint8_t { Dynamic, Static, Trigger };
+struct ColliderComponent {
+    float width = 0.0f;
+    float height = 0.0f;
+    ColliderType type = ColliderType::Dynamic;
+    uint8_t layer = 1;
+    uint8_t mask = 1;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ColliderComponent, width, height, layer, mask)
+
 // 本地关卡标签：切换关卡时销毁 (如：敌人、掉落物、投射物)
 struct LocalLevelTag {};
 

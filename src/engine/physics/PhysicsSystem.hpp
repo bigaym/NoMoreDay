@@ -17,6 +17,9 @@ public:
     static void updatePosition(entt::entity entity, Position& pos, Velocity& vel, 
                              float dt, int worldWidth, int worldHeight);
 
+    // Apply Force Fields (Vortex, etc.)
+    static void applyForceFields(entt::registry& registry, float dt, NoMoreDay::systems::SpatialHashGrid& grid);
+
     // Update all entities sequentially (fallback or simple usage)
     static void updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid, tf::Executor* executor = nullptr);
 };

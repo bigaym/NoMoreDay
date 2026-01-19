@@ -240,5 +240,24 @@ inline void UpdateInvulnerable(entt::registry& registry, float dt) {
     }
 }
 
+/**
+ * @brief 更新动态障碍物 - 处理持续时间
+ */
+inline void UpdateDynamicObstacles(entt::registry& registry, float dt) {
+    auto view = registry.view<DynamicObstacleComponent>();
+    std::vector<entt::entity> toRemove;
+    
+    view.each([&](entt::entity entity, DynamicObstacleComponent& obstacle) {
+        obstacle.lifetime -= dt;
+        if (obstacle.lifetime <= 0.0f) {
+            toRemove.push_back(entity);
+        }
+    });
+    
+    for (auto entity : toRemove) {
+        registry.destroy(entity);
+    }
+}
+
 } // namespace EntityUtils
 } // namespace NoMoreDay

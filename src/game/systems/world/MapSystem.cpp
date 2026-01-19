@@ -1,7 +1,10 @@
 #include "game/systems/world/MapSystem.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/systems/world/MapSystem.hpp"
+#include "game/data/BiomeRegistry.hpp"
 #include "game/systems/world/MosaicMapGenerator.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -663,4 +666,25 @@ void MapSystem::updateFogTexture() {
 
 void MapSystem::initializeFogTexture(int width, int height) {
   // 辅助函数
+}
+
+entt::entity MapSystem::spawnDynamicObstacle(entt::registry& registry, const Rectangle& bounds, float duration) {
+    auto entity = registry.create();
+    // Position at center
+    registry.emplace<Position>(entity, bounds.x + bounds.width * 0.5f, bounds.y + bounds.height * 0.5f);
+    registry.emplace<LocalLevelTag>(entity);
+    // Static collider
+    ColliderComponent collider;
+    collider.width = bounds.width;
+    collider.height = bounds.height;
+    collider.type = ColliderType::Static;
+    registry.emplace<ColliderComponent>(entity, collider);
+    
+    // Dynamic obstacle logic (lifetime)
+    registry.emplace<NoMoreDay::DynamicObstacleComponent>(entity, duration, 1);
+    
+    // Optional: Add visual component here if needed, or handle in VisualFXSystem
+    // For now, PhysicsSystem will handle the improved collision
+
+    return entity;
 }

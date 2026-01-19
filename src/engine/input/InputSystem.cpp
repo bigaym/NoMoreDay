@@ -1,5 +1,6 @@
 #include "engine/input/InputSystem.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/PlayerState.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
 #include "raylib.h"
 #include "game/systems/ui/UISystem.hpp" // For UI state check
@@ -34,22 +35,38 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
         }
 
         auto &input = view.get<InputComponent>(entity);
+        
+        // Rooted Check
+        bool isRooted = false;
+        if (auto* stats = registry.try_get<PlayerStats>(entity)) {
+            isRooted = stats->isRooted;
+        }
 
         // 重置
         input.moveX = 0.0f;
         input.moveY = 0.0f;
         input.attack = false; // 确保每帧重置攻击指令
 
+        // If rooted, movement inputs are ignored (but skills might still work)
+        if (!isRooted) {
+             // 在鼠标左键按下或按住时更新移动目标
+             // ... existing mouse movement logic ...
+             // But simpler to just inject the check below before applying movement
+        }
+
         // 动作
         // Only allow mouse actions if not hovering over UI
         if (!UISystem::State.isMouseOverUI)
         {
-
-            // 在鼠标左键按下或按住时更新移动目标
-            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
-            {
-                s_movementTarget = GetScreenToWorld2D(GetMousePosition(), camera);
-                s_hasMovementTarget = true;
+            if (!isRooted) {
+                // 在鼠标左键按下或按住时更新移动目标
+                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON))
+                {
+                    s_movementTarget = GetScreenToWorld2D(GetMousePosition(), camera);
+                    s_hasMovementTarget = true;
+                }
+            } else {
+                s_hasMovementTarget = false; // Cancel pending movement if rooted
             }
 
             // 普通攻击绑定到 'A' 键

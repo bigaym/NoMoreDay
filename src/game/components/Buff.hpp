@@ -38,6 +38,10 @@ enum class BuffType {
     Bloodlust,    // 嗜血
     Hurt,          // 受伤
 
+    // Control Effects
+    Root,         // 缠绕
+    Silence,      // 沉默
+
     DamageOverTime
 };
 

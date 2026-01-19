@@ -3,6 +3,7 @@
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
+#include "game/components/PlayerState.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/HazardComponents.hpp"
@@ -61,6 +62,19 @@ public:
     static constexpr float STORMSTRIDER_TRIGGER_CHANCE = 0.25f; // 雷行触发概率 (25%)
     static constexpr float STORMSTRIDER_GHOST_DELAY = 1.5f;     // 雷电残影爆炸延迟
     static constexpr float STORMSTRIDER_DAMAGE = 80.0f;         // 雷电残影伤害
+    
+    // Part 2: Physics & CC Constants
+    static constexpr float VORTEX_INTERVAL = 8.0f;
+    static constexpr float VORTEX_DURATION = 3.0f;
+    static constexpr float VORTEX_RADIUS = 300.0f;
+    static constexpr float VORTEX_STRENGTH = -500.0f; // Negative = Attract
+    
+    static constexpr float WALLER_COOLDOWN = 12.0f;
+    static constexpr float WALLER_DURATION = 5.0f;
+    static constexpr float WALLER_DISTANCE = 150.0f;
+    
+    static constexpr float ENTANGLER_ROOT_DURATION = 2.0f;
+    static constexpr float ENTANGLER_CHANCE = 0.3f;
     
     /**
      * @brief 初始化系统 - 注册 CombatEvent 处理器
@@ -140,6 +154,12 @@ public:
                     case MonsterAffixType::Shielding:
                         ProcessShielding(registry, entity, pos, affix, dt);
                         break;
+                    case MonsterAffixType::Vortex:
+                        ProcessVortex(registry, entity, affix, dt);
+                        break;
+                    case MonsterAffixType::Waller:
+                        ProcessWaller(registry, entity, pos, playerPos, affix, dt);
+                        break;
                     default:
                         break;
                 }
@@ -150,9 +170,74 @@ public:
         EntityUtils::UpdateClones(registry, dt);
         EntityUtils::UpdateInvulnerable(registry, dt);
         EntityUtils::UpdateLinks(registry, dt);
+        EntityUtils::UpdateDynamicObstacles(registry, dt);
+        
+        // Update active teleportations
+        UpdateTeleportation(registry, dt);
     }
     
 private:
+    /**
+     * @brief 更新传送状态 - 处理渐隐渐显
+     */
+    static void UpdateTeleportation(entt::registry& registry, float dt) {
+        auto view = registry.view<TeleportationComponent, Position, ColorComponent>();
+        std::vector<entt::entity> toRemove;
+        
+        view.each([&](entt::entity entity, TeleportationComponent& teleport, Position& pos, ColorComponent& color) {
+            teleport.timer += dt;
+            
+            switch (teleport.phase) {
+                case TeleportationComponent::Phase::FadeOut: {
+                    float t = teleport.timer / teleport.fadeDuration;
+                    if (t >= 1.0f) {
+                        teleport.phase = TeleportationComponent::Phase::Invisible;
+                        teleport.timer = 0.0f;
+                        color.color.a = 0;
+                        
+                        // Move to target
+                        pos.x = teleport.targetX;
+                        pos.y = teleport.targetY;
+                    } else {
+                        // Lerp alpha
+                        color.color.a = static_cast<unsigned char>(teleport.originalColor.a * (1.0f - t));
+                    }
+                    break;
+                }
+                case TeleportationComponent::Phase::Invisible: {
+                    if (teleport.timer >= teleport.invisibleDuration) {
+                        teleport.phase = TeleportationComponent::Phase::FadeIn;
+                        teleport.timer = 0.0f;
+                        color.color.a = 0;
+                        
+                        // Attack immediately? (Make AI aggressive)
+                        if (auto* ai = registry.try_get<AIComponent>(entity)) {
+                            ai->stateTimer = 0.0f; // Reset AI timer
+                            // Force attack state if possible? 
+                            // AI system usually handles this based on distance
+                        }
+                    }
+                    break;
+                }
+                case TeleportationComponent::Phase::FadeIn: {
+                    float t = teleport.timer / teleport.fadeDuration;
+                    if (t >= 1.0f) {
+                        // Restore
+                        color.color = teleport.originalColor;
+                        toRemove.push_back(entity);
+                    } else {
+                        color.color.a = static_cast<unsigned char>(teleport.originalColor.a * t);
+                    }
+                    break;
+                }
+            }
+        });
+        
+        for (auto entity : toRemove) {
+            registry.remove<TeleportationComponent>(entity);
+        }
+    }
+
     /**
      * @brief 熔火词缀 - 生成火焰路径 (已配置化为 HazardComponent)
      */
@@ -197,6 +282,10 @@ private:
     static void ProcessTeleporter(entt::registry& registry, entt::entity enemy,
                                   const Position& enemyPos, const Position& playerPos,
                                   MonsterAffixComponent& affix, float dt) {
+        
+        // If already teleporting, skip
+        if (registry.any_of<TeleportationComponent>(enemy)) return;
+
         if (affix.timer2 >= TELEPORT_COOLDOWN) {
             float dx = playerPos.x - enemyPos.x;
             float dy = playerPos.y - enemyPos.y;
@@ -208,20 +297,29 @@ private:
                 
                 // Calculate new position behind player
                 float dist = std::sqrt(distSq);
-                float nx = dx / dist;
-                float ny = dy / dist;
+                float nx = (dist > 0.001f) ? dx / dist : 1.0f;
+                float ny = (dist > 0.001f) ? dy / dist : 0.0f;
                 
                 float newX = playerPos.x - nx * TELEPORT_TARGET_DISTANCE;
                 float newY = playerPos.y - ny * TELEPORT_TARGET_DISTANCE;
                 
-                // Update position
-                auto& pos = registry.get<Position>(enemy);
-                pos.x = newX;
-                pos.y = newY;
+                // Start Teleport Sequence
+                // Save original color
+                Color origColor = WHITE;
+                if (auto* c = registry.try_get<ColorComponent>(enemy)) {
+                    origColor = c->color;
+                } else {
+                    registry.emplace<ColorComponent>(enemy, WHITE);
+                }
                 
-                // TODO: Add teleport VFX (fade out/in)
+                auto& tc = registry.emplace<TeleportationComponent>(enemy);
+                tc.targetX = newX;
+                tc.targetY = newY;
+                tc.originalColor = origColor;
+                tc.phase = TeleportationComponent::Phase::FadeOut;
+                tc.timer = 0.0f;
                 
-                LOG_TRACE("Teleporter enemy blinked to ({:.1f}, {:.1f})", newX, newY);
+                LOG_TRACE("Teleporter enemy starting blink sequence to ({:.1f}, {:.1f})", newX, newY);
             }
         }
     }
@@ -478,7 +576,87 @@ private:
             }
         }
     }
-    
+
+    /**
+     * @brief 漩涡词缀 - 周期性吸引力场
+     */
+    static void ProcessVortex(entt::registry& registry, entt::entity enemy,
+                             MonsterAffixComponent& affix, float dt) {
+        // Init logic: ensure ForceFieldComponent exists
+        if (!registry.all_of<ForceFieldComponent>(enemy)) {
+             registry.emplace<ForceFieldComponent>(enemy, 
+                VORTEX_STRENGTH, 
+                VORTEX_RADIUS, 
+                0.0f, // Initial active duration
+                0.0f, // unused
+                0.0f, // unused
+                false // not always on
+             );
+        }
+        
+        auto& ff = registry.get<ForceFieldComponent>(enemy);
+        
+        // Timer logic
+        if (affix.timer1 >= VORTEX_INTERVAL) {
+            affix.timer1 = 0.0f;
+            ff.activeDuration = VORTEX_DURATION;
+            // Visual cue could be added here
+            LOG_TRACE("Vortex activated for entity {}", (uint32_t)enemy);
+        }
+        
+        // Update force field duration
+        if (ff.activeDuration > 0.0f) {
+            ff.activeDuration -= dt;
+        }
+    }
+
+    /**
+     * @brief 筑墙词缀 - 在玩家周围生成U型墙
+     */
+    static void ProcessWaller(entt::registry& registry, entt::entity enemy,
+                             const Position& enemyPos, const Position& playerPos,
+                             MonsterAffixComponent& affix, float dt) {
+        if (affix.timer2 >= WALLER_COOLDOWN) {
+            float dx = playerPos.x - enemyPos.x;
+            float dy = playerPos.y - enemyPos.y;
+            float distSq = dx*dx + dy*dy;
+            
+            if (distSq < 600.0f * 600.0f) { // Only if reasonably close
+                affix.timer2 = 0.0f;
+                
+                // Calculate direction to player
+                float dist = std::sqrt(distSq);
+                float nx = (dist > 0.1f) ? dx / dist : 1.0f;
+                float ny = (dist > 0.1f) ? dy / dist : 0.0f;
+                
+                // Perpendicular vector
+                float perpX = -ny;
+                float perpY = nx;
+                
+                // Wall dimensions
+                float segmentLen = 60.0f;
+                float segmentThick = 20.0f;
+                
+                // Center point slightly behind player (relative to monster)
+                float backDist = 50.0f;
+                float cx = playerPos.x + nx * backDist;
+                float cy = playerPos.y + ny * backDist;
+                
+                // Helper to spawn wall
+                auto SpawnWall = [&](float x, float y, float w, float h) {
+                    auto entity = MapSystem::spawnDynamicObstacle(registry, Rectangle{x - w*0.5f, y - h*0.5f, w, h}, WALLER_DURATION);
+                    registry.emplace<ColorComponent>(entity, Color{139, 69, 19, 255}); // Brown
+                };
+                
+                SpawnWall(cx, cy, segmentLen, segmentThick); // Center
+                SpawnWall(cx - perpX * 40 - nx * 30, cy - perpY * 40 - ny * 30, segmentThick, segmentLen); // Left
+                SpawnWall(cx + perpX * 40 - nx * 30, cy + perpY * 40 - ny * 30, segmentThick, segmentLen); // Right
+                
+                LOG_TRACE("Waller cast walls around player");
+            }
+        }
+    }
+
 public:
     /**
      * @brief OnDealDamage 回调 - 处理 Nullifier 和 MirrorImage 词缀
@@ -487,6 +665,34 @@ public:
         // Check if attacker has OnHit affixes
         auto* affix = registry.try_get<MonsterAffixComponent>(evt.source);
         if (!affix || !affix->hasOnHit) return;
+
+        // Entangler: Root player
+        if (affix->HasAffix(MonsterAffixType::Entangler)) {
+            if (registry.valid(evt.target) && registry.any_of<PlayerTag>(evt.target)) {
+                 if (NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) < ENTANGLER_CHANCE) {
+                     if (auto* effects = registry.try_get<ActiveEffectsComponent>(evt.target)) {
+                         BuffEffect rootBuff;
+                         rootBuff.id = "root";
+                         rootBuff.name = "Rooted"; // Loc hint?
+                         rootBuff.description = "Cannot move.";
+                         rootBuff.type = BuffType::Root;
+                         rootBuff.duration = ENTANGLER_ROOT_DURATION;
+                         rootBuff.remaining = ENTANGLER_ROOT_DURATION;
+                         rootBuff.is_debuff = true;
+                         effects->AddOrRefresh(rootBuff);
+                         
+                         // Note: PlayerState.isRooted needs to be synced by BuffSystem or similar
+                         // For now, we manually set it if we can access PlayerState, but strictly BuffSystem should handle it.
+                         // But for safety:
+                         if (auto* pState = registry.try_get<PlayerStats>(evt.target)) {
+                             pState->isRooted = true; // Temporary immediate set
+                         }
+                         
+                         LOG_INFO("Entangler rooted player");
+                     }
+                 }
+            }
+        }
         
         // Nullifier: Dispel buffs
         if (affix->HasAffix(MonsterAffixType::Nullifier)) {

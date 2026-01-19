@@ -41,6 +41,8 @@ enum class MonsterAffixType : uint8_t {
     Waller,     // 筑墙: 生成阻挡物
     Vampiric,   // 吸血: 造成伤害回复生命
     Berserker,  // 狂暴: 低血量时伤害翻倍
+    Vortex,     // 漩涡: 周期性吸引力场
+    Entangler,  // 纠缠: 攻击定身玩家
     
     // === 特殊词缀 (Unique to Rarity) ===
     Avenger,    // 复仇者: 友军死亡时获得增益 (已实现)

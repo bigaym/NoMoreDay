@@ -3,6 +3,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Projectile.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <cmath>
@@ -37,6 +38,36 @@ void PhysicsSystem::resolveCollisions(entt::entity entity, const Position &pos,
         float distSq = dx * dx + dy * dy;
 
         using namespace NoMoreDay::Constants::Physics;
+        
+        // Check for Static Collider (e.g. Walls)
+        if (registry.any_of<ColliderComponent>(neighbor)) {
+            const auto& collider = registry.get<ColliderComponent>(neighbor);
+            if (collider.type == ColliderType::Static) {
+                // Circle-AABB Collision
+                float hw = collider.width * 0.5f;
+                float hh = collider.height * 0.5f;
+                // nPos is center
+                float closestX = std::clamp(pos.x, nPos.x - hw, nPos.x + hw);
+                float closestY = std::clamp(pos.y, nPos.y - hh, nPos.y + hh);
+                
+                float cdx = pos.x - closestX;
+                float cdy = pos.y - closestY;
+                float distSq = cdx*cdx + cdy*cdy;
+                
+                // Hard Push (Approximate)
+                if (distSq < entityRadius * entityRadius && distSq > 0.0001f) {
+                    float dist = std::sqrt(distSq);
+                    float overlap = entityRadius - dist;
+                    // Stronger repulsion for walls
+                    constexpr float WALL_REPULSION_FACTOR = 20.0f; 
+                    vel.vx += (cdx / dist) * overlap * repulsionStrength * WALL_REPULSION_FACTOR * dt;
+                    vel.vy += (cdy / dist) * overlap * repulsionStrength * WALL_REPULSION_FACTOR * dt;
+                }
+                return;
+            }
+        }
+        
+        // Standard Boid Separation
         if (distSq > MIN_DIST_SQ_THRESHOLD && distSq < separationDist * separationDist) {
           float dist = std::sqrt(distSq);
           float overlap = separationDist - dist;
@@ -74,6 +105,42 @@ void PhysicsSystem::updatePosition(entt::entity entity, Position &pos,
   }
 }
 
+void PhysicsSystem::applyForceFields(entt::registry& registry, float dt, NoMoreDay::systems::SpatialHashGrid& grid) {
+    using namespace NoMoreDay;
+    auto view = registry.view<Position, ForceFieldComponent>();
+    view.each([&](entt::entity entity, const Position& pos, ForceFieldComponent& ff) {
+        if (!ff.isAlwaysOn && ff.activeDuration > 0 && ff.currentCooldown > 0) return; // Simple check
+
+        float r = ff.radius;
+        grid.query(pos, r, [&](entt::entity target, const Position& tPos) {
+            if (target == entity) return;
+            if (!registry.any_of<Velocity>(target)) return;
+            
+            // Ignore other walls/static objects
+            if (registry.any_of<ColliderComponent>(target)) {
+                 const auto& col = registry.get<ColliderComponent>(target);
+                 if (col.type == ColliderType::Static) return;
+            }
+
+            float dx = tPos.x - pos.x;
+            float dy = tPos.y - pos.y;
+            float distSq = dx*dx + dy*dy;
+            if (distSq < r*r && distSq > 0.0001f) {
+                float dist = std::sqrt(distSq);
+                float factor = 1.0f - (dist / r); // Linear Falloff
+                
+                // Force vector
+                float fx = (dx / dist) * ff.strength * factor;
+                float fy = (dy / dist) * ff.strength * factor;
+                
+                auto& tVel = registry.get<Velocity>(target);
+                tVel.vx += fx * dt;
+                tVel.vy += fy * dt;
+            }
+        });
+    });
+}
+
 void PhysicsSystem::updateAll(entt::registry &registry, float dt,
                               int screenWidth, int screenHeight,
                               NoMoreDay::systems::SpatialHashGrid &grid,
@@ -103,6 +170,9 @@ void PhysicsSystem::updateAll(entt::registry &registry, float dt,
 
   if (executor && !s_entity_buffer.empty()) {
     tf::Taskflow tf;
+
+    // Phase 0: Force Fields
+    applyForceFields(registry, dt, grid);
 
     // Phase 1: Collision Resolution (Writes to Velocity)
     auto t1 = tf.for_each(s_entity_buffer.begin(), s_entity_buffer.end(),
