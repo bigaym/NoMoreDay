@@ -7,13 +7,13 @@
 #include "game/components/MaterialBankComponent.hpp" // Added
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/registry/GroupRegistry.hpp"
 #include "game/states/InventoryState.hpp"
 #include "game/states/MosaicEditorState.hpp"
 #include "game/states/PauseState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "game/systems/world/PortalSystem.hpp" // Moved up
-
 
 // Systems
 #include "engine/input/InputSystem.hpp"
@@ -59,6 +59,9 @@ namespace NoMoreDay {
 
 void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
+
+  // Phase 2: Register EnTT Groups for memory optimization
+  NoMoreDay::groups::RegisterGroups(*m_context->registry);
 
   // Initialize Spatial Grid
   using namespace NoMoreDay::Constants::World;
@@ -108,8 +111,8 @@ void GameplayState::OnEnter() {
   // 2. Initialize Level
   m_context->levelManager->initialize(resourceManager, *m_context->registry);
   using namespace NoMoreDay::Constants::World;
-  m_context->levelManager->loadNewLevel(NoMoreDay::BiomeID::Cave, WORLD_WIDTH / 10,
-                                        WORLD_HEIGHT / 10);
+  m_context->levelManager->loadNewLevel(NoMoreDay::BiomeID::Cave,
+                                        WORLD_WIDTH / 10, WORLD_HEIGHT / 10);
 
   // 3. Initialize Entities (Player)
   InitializeEntities();
