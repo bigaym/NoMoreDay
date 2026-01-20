@@ -50,4 +50,6 @@ struct BoomerangComponent {
     entt::entity returnTarget = entt::null; // If null, return to owner
 };
 
+struct HomingTag {};
+
 } // namespace NoMoreDay

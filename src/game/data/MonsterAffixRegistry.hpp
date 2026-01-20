@@ -3,7 +3,8 @@
 #include "game/components/Stats.hpp"
 #include <array>
 #include <cstdint>
-#include <string_view>  
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace NoMoreDay {
@@ -97,6 +98,52 @@ struct MonsterAffixDef {
  */
 class MonsterAffixRegistry {
 public:
+    // Constants moved from MonsterAffixSystem
+    struct Params {
+        static constexpr float MOLTEN_TICK_INTERVAL = 0.5f;
+        static constexpr float MOLTEN_TRAIL_DURATION = 3.0f;
+        static constexpr float MOLTEN_TRAIL_DAMAGE = 10.0f;
+        static constexpr float MOLTEN_TRAIL_RADIUS = 20.0f;
+
+        static constexpr float TELEPORT_COOLDOWN = 5.0f;
+        static constexpr float TELEPORT_TRIGGER_DISTANCE = 300.0f;
+        static constexpr float TELEPORT_TARGET_DISTANCE = 50.0f;
+
+        static constexpr float BERSERKER_HP_THRESHOLD = 0.5f;
+        static constexpr float BERSERKER_DAMAGE_MULT = 2.0f;
+        static constexpr float BERSERKER_SCALE_MULT = 1.5f;
+
+        static constexpr float FROZEN_ORB_INTERVAL = 4.0f;
+        static constexpr float FROZEN_ORB_SPEED = 120.0f;
+        static constexpr float FROZEN_ORB_DAMAGE = 60.0f;
+
+        static constexpr float VOIDZONE_SPAWN_INTERVAL_MIN = 5.0f;
+        static constexpr float VOIDZONE_SPAWN_INTERVAL_MAX = 8.0f;
+        static constexpr float VOIDZONE_WARNING_DURATION = 1.0f;
+        static constexpr float VOIDZONE_ACTIVE_DURATION = 4.0f;
+        static constexpr float VOIDZONE_DAMAGE_PER_TICK = 50.0f;
+        static constexpr float VOIDZONE_TICK_INTERVAL = 0.2f;
+
+        static constexpr float STORMSTRIDER_TRIGGER_CHANCE = 0.25f;
+        static constexpr float STORMSTRIDER_GHOST_DELAY = 1.5f;
+        static constexpr float STORMSTRIDER_DAMAGE = 80.0f;
+
+        static constexpr float VORTEX_INTERVAL = 8.0f;
+        static constexpr float VORTEX_DURATION = 3.0f;
+        static constexpr float VORTEX_RADIUS = 300.0f;
+        static constexpr float VORTEX_STRENGTH = -500.0f;
+
+        static constexpr float WALLER_COOLDOWN = 12.0f;
+        static constexpr float WALLER_DURATION = 5.0f;
+        static constexpr float WALLER_DISTANCE = 150.0f;
+
+        static constexpr float ENTANGLER_ROOT_DURATION = 2.0f;
+        static constexpr float ENTANGLER_CHANCE = 0.3f;
+    };
+
+    static const std::unordered_map<std::string_view, MonsterAffixType> kNameToType;
+    static MonsterAffixType GetTypeFromName(std::string_view name);
+
     static constexpr auto& GetAffixDef(MonsterAffixType type) {
         return kAffixData[static_cast<size_t>(type)];
     }
@@ -107,6 +154,15 @@ public:
     
     static constexpr std::string_view GetAffixNameEn(MonsterAffixType type) {
         return kAffixData[static_cast<size_t>(type)].name_en;
+    }
+
+    /**
+     * @brief Calculate scaled value based on evolution tier.
+     * Default scaling: +10% per tier above 1.
+     */
+    static float GetScaledValue(float baseValue, int tier) {
+        if (tier <= 1) return baseValue;
+        return baseValue * (1.0f + (tier - 1) * 0.1f);
     }
     
 private:

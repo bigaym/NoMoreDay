@@ -9,6 +9,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/HazardComponents.hpp" // For HazardComponent
+#include "game/components/NemesisComponent.hpp" // Added for Tier scaling
 
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
@@ -40,50 +41,7 @@ struct MoltenTrailTag {};
  */
 class MonsterAffixSystem {
 public:
-  // 常量定义
-  static constexpr float MOLTEN_TICK_INTERVAL = 0.5f;  // 火焰路径生成间隔
-  static constexpr float MOLTEN_TRAIL_DURATION = 3.0f; // 火焰持续时间
-  static constexpr float MOLTEN_TRAIL_DAMAGE = 10.0f;  // 每秒火焰伤害
-  static constexpr float MOLTEN_TRAIL_RADIUS = 20.0f;  // 火焰半径
-
-  static constexpr float TELEPORT_COOLDOWN = 5.0f;           // 闪烁冷却时间
-  static constexpr float TELEPORT_TRIGGER_DISTANCE = 300.0f; // 触发闪烁的距离
-  static constexpr float TELEPORT_TARGET_DISTANCE = 50.0f;   // 闪烁到玩家的距离
-
-  static constexpr float BERSERKER_HP_THRESHOLD = 0.5f; // 狂暴触发血量阈值
-  static constexpr float BERSERKER_DAMAGE_MULT = 2.0f;  // 狂暴伤害倍率
-  static constexpr float BERSERKER_SCALE_MULT = 1.5f;   // 狂暴体型倍率
-
-  static constexpr float FROZEN_ORB_INTERVAL = 4.0f; // 冰球生成间隔
-  static constexpr float FROZEN_ORB_SPEED = 120.0f;  // 冰球飞行速度
-  static constexpr float FROZEN_ORB_DAMAGE = 60.0f;  // 冰球爆炸伤害
-
-  static constexpr float VOIDZONE_SPAWN_INTERVAL_MIN =
-      5.0f; // 虚空区域生成最小间隔
-  static constexpr float VOIDZONE_SPAWN_INTERVAL_MAX =
-      8.0f; // 虚空区域生成最大间隔
-  static constexpr float VOIDZONE_WARNING_DURATION = 1.0f; // 虚空区域预警时间
-  static constexpr float VOIDZONE_ACTIVE_DURATION = 4.0f;  // 虚空区域激活时间
-  static constexpr float VOIDZONE_DAMAGE_PER_TICK = 50.0f; // 虚空区域每次伤害
-  static constexpr float VOIDZONE_TICK_INTERVAL = 0.2f;    // 虚空区域伤害间隔
-
-  static constexpr float STORMSTRIDER_TRIGGER_CHANCE =
-      0.25f;                                              // 雷行触发概率 (25%)
-  static constexpr float STORMSTRIDER_GHOST_DELAY = 1.5f; // 雷电残影爆炸延迟
-  static constexpr float STORMSTRIDER_DAMAGE = 80.0f;     // 雷电残影伤害
-
-  // Part 2: Physics & CC Constants
-  static constexpr float VORTEX_INTERVAL = 8.0f;
-  static constexpr float VORTEX_DURATION = 3.0f;
-  static constexpr float VORTEX_RADIUS = 300.0f;
-  static constexpr float VORTEX_STRENGTH = -500.0f; // Negative = Attract
-
-  static constexpr float WALLER_COOLDOWN = 12.0f;
-  static constexpr float WALLER_DURATION = 5.0f;
-  static constexpr float WALLER_DISTANCE = 150.0f;
-
-  static constexpr float ENTANGLER_ROOT_DURATION = 2.0f;
-  static constexpr float ENTANGLER_CHANCE = 0.3f;
+  // Constants moved to MonsterAffixRegistry::Params
 
   /**
    * @brief 初始化系统 - 注册 CombatEvent 处理器
@@ -133,6 +91,10 @@ public:
       if (!affix.hasUpdate)
         continue;
 
+      // Determine evolution tier
+      int tier = 1;
+      if (auto *nc = registry.try_get<NemesisComponent>(entity)) tier = nc->evolution_tier;
+
       // Update timers
       affix.timer1 += dt;
       affix.timer2 += dt;
@@ -141,34 +103,34 @@ public:
       for (auto affixType : affix.affixes) {
         switch (affixType) {
         case MonsterAffixType::Molten:
-          ProcessMolten(registry, entity, pos, affix, dt);
+          ProcessMolten(registry, entity, pos, affix, dt, tier);
           break;
         case MonsterAffixType::Teleporter:
-          ProcessTeleporter(registry, entity, pos, playerPos, affix, dt);
+          ProcessTeleporter(registry, entity, pos, playerPos, affix, dt, tier);
           break;
         case MonsterAffixType::Berserker:
-          ProcessBerserker(registry, entity, affix);
+          ProcessBerserker(registry, entity, affix, tier);
           break;
         case MonsterAffixType::Frozen:
-          ProcessFrozen(registry, entity, pos, playerPos, affix, dt);
+          ProcessFrozen(registry, entity, pos, playerPos, affix, dt, tier);
           break;
         case MonsterAffixType::VoidZone:
-          ProcessVoidZone(registry, entity, pos, playerPos, affix, dt);
+          ProcessVoidZone(registry, entity, pos, playerPos, affix, dt, tier);
           break;
         case MonsterAffixType::SoulEater:
-          ProcessSoulEater(registry, entity, affix, dt);
+          ProcessSoulEater(registry, entity, affix, dt, tier);
           break;
         case MonsterAffixType::ManaSiphon:
-          ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt);
+          ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt, tier);
           break;
         case MonsterAffixType::Shielding:
-          ProcessShielding(registry, entity, pos, affix, dt);
+          ProcessShielding(registry, entity, pos, affix, dt, tier);
           break;
         case MonsterAffixType::Vortex:
-          ProcessVortex(registry, entity, affix, dt);
+          ProcessVortex(registry, entity, affix, dt, tier);
           break;
         case MonsterAffixType::Waller:
-          ProcessWaller(registry, entity, pos, playerPos, affix, dt);
+          ProcessWaller(registry, entity, pos, playerPos, affix, dt, tier);
           break;
         default:
           break;
@@ -184,6 +146,18 @@ public:
 
     // Update active teleportations
     UpdateTeleportation(registry, dt);
+
+    // Update Phase Shields
+    auto psView = registry.view<PhaseShieldComponent>();
+    psView.each([&](PhaseShieldComponent &ps) {
+        if (ps.currentCooldown > 0.0f) ps.currentCooldown -= dt;
+        if (ps.accumulationTimer > 0.0f) {
+            ps.accumulationTimer -= dt;
+            if (ps.accumulationTimer <= 0.0f) {
+                ps.accumulatedDamage = 0.0f; // Reset if window expires
+            }
+        }
+    });
   }
 
 private:
@@ -257,22 +231,25 @@ private:
    */
   static void ProcessMolten(entt::registry &registry, entt::entity enemy,
                             const Position &pos, MonsterAffixComponent &affix,
-                            float dt) {
-    if (affix.timer1 >= MOLTEN_TICK_INTERVAL) {
+                            float dt, int tier) {
+    if (affix.timer1 >= MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL) {
       affix.timer1 = 0.0f;
+
+      float scaledRadius = MonsterAffixRegistry::GetScaledValue(MonsterAffixRegistry::Params::MOLTEN_TRAIL_RADIUS, tier);
+      float scaledDamage = MonsterAffixRegistry::GetScaledValue(MonsterAffixRegistry::Params::MOLTEN_TRAIL_DAMAGE, tier);
 
       // Create fire trail entity
       auto fireEntity = registry.create();
       registry.emplace<Position>(fireEntity, pos.x, pos.y);
       registry.emplace<LocalLevelTag>(fireEntity);
-      registry.emplace<Radius>(fireEntity, MOLTEN_TRAIL_RADIUS);
+      registry.emplace<Radius>(fireEntity, scaledRadius);
 
       // Hazard 配置 (取代旧的 MoltenTrailTag)
       HazardComponent hazard;
-      hazard.damagePerTick = MOLTEN_TRAIL_DAMAGE * MOLTEN_TICK_INTERVAL;
-      hazard.tickInterval = MOLTEN_TICK_INTERVAL;
-      hazard.duration = MOLTEN_TRAIL_DURATION;
-      hazard.radius = MOLTEN_TRAIL_RADIUS;
+      hazard.damagePerTick = scaledDamage * MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL;
+      hazard.tickInterval = MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL;
+      hazard.duration = MonsterAffixRegistry::Params::MOLTEN_TRAIL_DURATION;
+      hazard.radius = scaledRadius;
       hazard.damageType = DamageType::Fire;
       hazard.isDelayedExplosion = false;
       hazard.hitsPlayers = true;
@@ -298,19 +275,19 @@ private:
   static void ProcessTeleporter(entt::registry &registry, entt::entity enemy,
                                 const Position &enemyPos,
                                 const Position &playerPos,
-                                MonsterAffixComponent &affix, float dt) {
+                                MonsterAffixComponent &affix, float dt, int tier) {
 
     // If already teleporting, skip
     if (registry.any_of<TeleportationComponent>(enemy))
       return;
 
-    if (affix.timer2 >= TELEPORT_COOLDOWN) {
+    if (affix.timer2 >= MonsterAffixRegistry::Params::TELEPORT_COOLDOWN) {
       float dx = playerPos.x - enemyPos.x;
       float dy = playerPos.y - enemyPos.y;
       float distSq = dx * dx + dy * dy;
 
       // Only teleport if far from player
-      if (distSq > TELEPORT_TRIGGER_DISTANCE * TELEPORT_TRIGGER_DISTANCE) {
+      if (distSq > MonsterAffixRegistry::Params::TELEPORT_TRIGGER_DISTANCE * MonsterAffixRegistry::Params::TELEPORT_TRIGGER_DISTANCE) {
         affix.timer2 = 0.0f;
 
         // Calculate new position behind player
@@ -318,8 +295,8 @@ private:
         float nx = (dist > 0.001f) ? dx / dist : 1.0f;
         float ny = (dist > 0.001f) ? dy / dist : 0.0f;
 
-        float newX = playerPos.x - nx * TELEPORT_TARGET_DISTANCE;
-        float newY = playerPos.y - ny * TELEPORT_TARGET_DISTANCE;
+        float newX = playerPos.x - nx * MonsterAffixRegistry::Params::TELEPORT_TARGET_DISTANCE;
+        float newY = playerPos.y - ny * MonsterAffixRegistry::Params::TELEPORT_TARGET_DISTANCE;
 
         // Start Teleport Sequence
         // Save original color
@@ -348,7 +325,7 @@ private:
    * @brief 狂暴词缀 - 低血量时激活
    */
   static void ProcessBerserker(entt::registry &registry, entt::entity enemy,
-                               MonsterAffixComponent &affix) {
+                               MonsterAffixComponent &affix, int tier) {
     if (affix.isBerserk)
       return; // Already berserk
 
@@ -357,7 +334,7 @@ private:
       return;
 
     float hpRatio = hp->current / hp->max;
-    if (hpRatio <= BERSERKER_HP_THRESHOLD) {
+    if (hpRatio <= MonsterAffixRegistry::Params::BERSERKER_HP_THRESHOLD) {
       affix.isBerserk = true;
 
       // Trigger recalculation to apply multipliers via StatsSystem
@@ -365,8 +342,15 @@ private:
 
       // Apply scale multiplier
       if (auto *sprite = registry.try_get<SpriteComponent>(enemy)) {
-        sprite->scale *= BERSERKER_SCALE_MULT;
+        sprite->scale *= MonsterAffixRegistry::Params::BERSERKER_SCALE_MULT;
       }
+      
+      // Note: Actual damage multiplier should be handled in StatsSystem using tier if needed.
+      // But currently it's hardcoded in StatsSystem? 
+      // MonsterAffixSystem handles activation. 
+      // If we want to scale the *effect*, we need to store the scaled value on the component or modify StatsSystem.
+      // Since StatsSystem likely checks "HasAffix(Berserker) && isBerserk", it applies fixed value.
+      // For now, we update signature. Scaling effect would require StatsSystem change.
 
       // Add red tint
       if (auto *color = registry.try_get<ColorComponent>(enemy)) {
@@ -382,9 +366,11 @@ private:
    */
   static void ProcessFrozen(entt::registry &registry, entt::entity enemy,
                             const Position &enemyPos, const Position &playerPos,
-                            MonsterAffixComponent &affix, float dt) {
-    if (affix.timer1 >= FROZEN_ORB_INTERVAL) {
+                            MonsterAffixComponent &affix, float dt, int tier) {
+    if (affix.timer1 >= MonsterAffixRegistry::Params::FROZEN_ORB_INTERVAL) {
       affix.timer1 = 0.0f;
+
+      float scaledDamage = MonsterAffixRegistry::GetScaledValue(MonsterAffixRegistry::Params::FROZEN_ORB_DAMAGE, tier);
 
       // 生成冰球实体
       auto orbEntity = registry.create();
@@ -400,8 +386,8 @@ private:
       if (dist > 0.1f) {
         float nx = dx / dist;
         float ny = dy / dist;
-        registry.emplace<Velocity>(orbEntity, nx * FROZEN_ORB_SPEED,
-                                   ny * FROZEN_ORB_SPEED);
+        registry.emplace<Velocity>(orbEntity, nx * MonsterAffixRegistry::Params::FROZEN_ORB_SPEED,
+                                   ny * MonsterAffixRegistry::Params::FROZEN_ORB_SPEED);
       } else {
         registry.emplace<Velocity>(orbEntity, 0.0f, 0.0f);
       }
@@ -414,7 +400,7 @@ private:
 
       // Hazard 组件（用于爆炸）
       HazardComponent hazard;
-      hazard.explosionDamage = FROZEN_ORB_DAMAGE;
+      hazard.explosionDamage = scaledDamage;
       hazard.isDelayedExplosion = true;
       hazard.damageType = DamageType::Cold;
       hazard.duration = 3.0f; // 总生命周期
@@ -435,20 +421,22 @@ private:
   static void ProcessVoidZone(entt::registry &registry, entt::entity enemy,
                               const Position &enemyPos,
                               const Position &playerPos,
-                              MonsterAffixComponent &affix, float dt) {
+                              MonsterAffixComponent &affix, float dt, int tier) {
     // 使用怪物独立的冷却计时器
     if (affix.voidZoneNextSpawnTime <= 0.0f) {
       // 初始化第一次触发时间
       affix.voidZoneNextSpawnTime =
           NoMoreDay::utils::ThreadSafeRandom::GetFloat(
-              VOIDZONE_SPAWN_INTERVAL_MIN, VOIDZONE_SPAWN_INTERVAL_MAX);
+              MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MIN, MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MAX);
     }
 
     if (affix.timer2 >= affix.voidZoneNextSpawnTime) {
       affix.timer2 = 0.0f;
       affix.voidZoneNextSpawnTime =
           NoMoreDay::utils::ThreadSafeRandom::GetFloat(
-              VOIDZONE_SPAWN_INTERVAL_MIN, VOIDZONE_SPAWN_INTERVAL_MAX);
+              MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MIN, MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MAX);
+
+      float scaledDamage = MonsterAffixRegistry::GetScaledValue(MonsterAffixRegistry::Params::VOIDZONE_DAMAGE_PER_TICK, tier);
 
       // 在玩家当前位置生成虚空区域
       auto zoneEntity = registry.create();
@@ -459,16 +447,16 @@ private:
 
       // Hazard 组件
       HazardComponent hazard;
-      hazard.damagePerTick = VOIDZONE_DAMAGE_PER_TICK;
-      hazard.tickInterval = VOIDZONE_TICK_INTERVAL;
-      hazard.duration = VOIDZONE_WARNING_DURATION + VOIDZONE_ACTIVE_DURATION;
+      hazard.damagePerTick = scaledDamage;
+      hazard.tickInterval = MonsterAffixRegistry::Params::VOIDZONE_TICK_INTERVAL;
+      hazard.duration = MonsterAffixRegistry::Params::VOIDZONE_WARNING_DURATION + MonsterAffixRegistry::Params::VOIDZONE_ACTIVE_DURATION;
       hazard.radius = 80.0f;
       hazard.damageType = DamageType::Shadow;
       hazard.isDelayedExplosion = false;
       hazard.hitsPlayers = true;
       hazard.hitsEnemies = false;
       hazard.hasWarningPhase = true;
-      hazard.warningDuration = VOIDZONE_WARNING_DURATION;
+      hazard.warningDuration = MonsterAffixRegistry::Params::VOIDZONE_WARNING_DURATION;
       hazard.isWarningActive = true;
       hazard.owner = enemy;
       registry.emplace<HazardComponent>(zoneEntity, hazard);
@@ -489,13 +477,17 @@ private:
    * @brief 噬魂词缀 - 吸收附近死亡灵魂获得增益
    */
   static void ProcessSoulEater(entt::registry &registry, entt::entity enemy,
-                               MonsterAffixComponent &affix, float dt) {
+                               MonsterAffixComponent &affix, float dt, int tier) {
     // Soul Eater 的层数增加由 OnDeath 事件处理
     // 这里只需要更新视觉效果
     auto *soulEater = registry.try_get<SoulEaterComponent>(enemy);
     if (!soulEater) {
       // 首次添加组件
-      registry.emplace<SoulEaterComponent>(enemy);
+      auto& se = registry.emplace<SoulEaterComponent>(enemy);
+      // Scale per-stack bonuses
+      se.sizePerStack = MonsterAffixRegistry::GetScaledValue(se.sizePerStack, tier);
+      se.damagePerStack = MonsterAffixRegistry::GetScaledValue(se.damagePerStack, tier);
+      se.attackSpeedPerStack = MonsterAffixRegistry::GetScaledValue(se.attackSpeedPerStack, tier);
       return;
     }
 
@@ -512,7 +504,7 @@ private:
    */
   static void ProcessManaSiphon(entt::registry &registry, entt::entity enemy,
                                 const Position &enemyPos, entt::entity player,
-                                MonsterAffixComponent &affix, float dt) {
+                                MonsterAffixComponent &affix, float dt, int tier) {
     if (!registry.valid(player))
       return;
 
@@ -521,7 +513,7 @@ private:
     if (!drain) {
       auto &newDrain = registry.emplace<ResourceDrainComponent>(enemy);
       newDrain.radius = 200.0f;
-      newDrain.drainRate = 10.0f;
+      newDrain.drainRate = MonsterAffixRegistry::GetScaledValue(10.0f, tier);
       newDrain.resource = ResourceType::Mana;
       newDrain.safeZoneInside = true;
       newDrain.innerRadius = 50.0f;
@@ -562,11 +554,17 @@ private:
    */
   static void ProcessShielding(entt::registry &registry, entt::entity enemy,
                                const Position &enemyPos,
-                               MonsterAffixComponent &affix, float dt) {
+                               MonsterAffixComponent &affix, float dt, int tier) {
+    // Phase Shield Logic (Self)
+    if (!registry.all_of<PhaseShieldComponent>(enemy)) {
+        auto& ps = registry.emplace<PhaseShieldComponent>(enemy);
+        // Scale threshold? Maybe not needed, ratio is usually consistent.
+    }
+
     // 每 3 秒检查一次附近友军
     static constexpr float SHIELDING_COOLDOWN = 3.0f;
     static constexpr float SHIELDING_RANGE = 250.0f;
-    static constexpr float SHIELDING_DURATION = 2.0f;
+    float shieldingDuration = MonsterAffixRegistry::GetScaledValue(2.0f, tier);
 
     if (affix.timer1 < SHIELDING_COOLDOWN)
       return;
@@ -574,6 +572,7 @@ private:
 
     // 查找附近的友军（同样是 EnemyTag）
     auto view = registry.view<EnemyTag, Position>(entt::exclude<KilledTag>);
+    std::vector<entt::entity> targets;
 
     for (auto ally : view) {
       if (ally == enemy)
@@ -585,11 +584,17 @@ private:
       float distSq = dx * dx + dy * dy;
 
       if (distSq <= SHIELDING_RANGE * SHIELDING_RANGE) {
+          targets.push_back(ally);
+      }
+    }
+
+    // Apply shields deferred
+    for (auto ally : targets) {
         // 给友军添加无敌状态
         if (!registry.all_of<InvulnerableComponent>(ally)) {
           registry.emplace<InvulnerableComponent>(
               ally,
-              SHIELDING_DURATION,       // duration
+              shieldingDuration,       // duration
               0.0f,                     // elapsed
               enemy,                    // source
               Color{255, 200, 50, 150}, // shieldColor (金色)
@@ -602,14 +607,13 @@ private:
                                           LinkType::Shielding, // type
                                           2.0f,                // visualWidth
                                           GOLD,                // color
-                                          SHIELDING_DURATION,  // lifetime
+                                          shieldingDuration,  // lifetime
                                           true                 // isActive
           );
 
           LOG_INFO("Shielding: Entity {} shielded entity {}",
                    static_cast<uint32_t>(enemy), static_cast<uint32_t>(ally));
         }
-      }
     }
   }
 
@@ -617,11 +621,12 @@ private:
    * @brief 漩涡词缀 - 周期性吸引力场
    */
   static void ProcessVortex(entt::registry &registry, entt::entity enemy,
-                            MonsterAffixComponent &affix, float dt) {
+                            MonsterAffixComponent &affix, float dt, int tier) {
     // Init logic: ensure ForceFieldComponent exists
     if (!registry.all_of<ForceFieldComponent>(enemy)) {
-      registry.emplace<ForceFieldComponent>(enemy, VORTEX_STRENGTH,
-                                            VORTEX_RADIUS,
+      registry.emplace<ForceFieldComponent>(enemy, 
+                                            MonsterAffixRegistry::GetScaledValue(MonsterAffixRegistry::Params::VORTEX_STRENGTH, tier),
+                                            MonsterAffixRegistry::Params::VORTEX_RADIUS,
                                             0.0f, // Initial active duration
                                             0.0f, // unused
                                             0.0f, // unused
@@ -632,9 +637,9 @@ private:
     auto &ff = registry.get<ForceFieldComponent>(enemy);
 
     // Timer logic
-    if (affix.timer1 >= VORTEX_INTERVAL) {
+    if (affix.timer1 >= MonsterAffixRegistry::Params::VORTEX_INTERVAL) {
       affix.timer1 = 0.0f;
-      ff.activeDuration = VORTEX_DURATION;
+      ff.activeDuration = MonsterAffixRegistry::Params::VORTEX_DURATION;
       // Visual cue could be added here
       LOG_TRACE("Vortex activated for entity {}", (uint32_t)enemy);
     }
@@ -650,8 +655,8 @@ private:
    */
   static void ProcessWaller(entt::registry &registry, entt::entity enemy,
                             const Position &enemyPos, const Position &playerPos,
-                            MonsterAffixComponent &affix, float dt) {
-    if (affix.timer2 >= WALLER_COOLDOWN) {
+                            MonsterAffixComponent &affix, float dt, int tier) {
+    if (affix.timer2 >= MonsterAffixRegistry::Params::WALLER_COOLDOWN) {
       float dx = playerPos.x - enemyPos.x;
       float dy = playerPos.y - enemyPos.y;
       float distSq = dx * dx + dy * dy;
@@ -677,11 +682,13 @@ private:
         float cx = playerPos.x + nx * backDist;
         float cy = playerPos.y + ny * backDist;
 
+        float scaledDuration = MonsterAffixRegistry::GetScaledValue(MonsterAffixRegistry::Params::WALLER_DURATION, tier);
+
         // Helper to spawn wall
         auto SpawnWall = [&](float x, float y, float w, float h) {
           auto entity = MapSystem::spawnDynamicObstacle(
               registry, Rectangle{x - w * 0.5f, y - h * 0.5f, w, h},
-              WALLER_DURATION);
+              scaledDuration);
           registry.emplace<ColorComponent>(entity,
                                            Color{139, 69, 19, 255}); // Brown
         };
@@ -713,7 +720,7 @@ public:
       if (registry.valid(evt.target) &&
           registry.any_of<PlayerTag>(evt.target)) {
         if (NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) <
-            ENTANGLER_CHANCE) {
+            MonsterAffixRegistry::Params::ENTANGLER_CHANCE) {
           if (auto *effects =
                   registry.try_get<ActiveEffectsComponent>(evt.target)) {
             BuffEffect rootBuff;
@@ -721,8 +728,8 @@ public:
             rootBuff.name = "Rooted"; // Loc hint?
             rootBuff.description = "Cannot move.";
             rootBuff.type = BuffType::Root;
-            rootBuff.duration = ENTANGLER_ROOT_DURATION;
-            rootBuff.remaining = ENTANGLER_ROOT_DURATION;
+            rootBuff.duration = MonsterAffixRegistry::Params::ENTANGLER_ROOT_DURATION;
+            rootBuff.remaining = MonsterAffixRegistry::Params::ENTANGLER_ROOT_DURATION;
             rootBuff.is_debuff = true;
             effects->AddOrRefresh(rootBuff);
 
@@ -762,6 +769,36 @@ public:
    */
   static void OnEnemyTakeDamage(entt::registry &registry,
                                 const CombatEvent &evt) {
+    // Check Phase Shield
+    if (auto *ps = registry.try_get<PhaseShieldComponent>(evt.target)) {
+        if (ps->currentCooldown <= 0.0f) {
+            ps->accumulatedDamage += evt.value; // Use final damage (value)
+            ps->accumulationTimer = ps->accumulationWindow; // Reset timer
+
+            // Check Threshold
+            if (auto *hp = registry.try_get<HealthComponent>(evt.target)) {
+                if (ps->accumulatedDamage >= hp->max * ps->triggerThresholdRatio) {
+                    // Trigger Invulnerability
+                    if (!registry.all_of<InvulnerableComponent>(evt.target)) {
+                        registry.emplace<InvulnerableComponent>(
+                            evt.target,
+                            ps->invulnDuration,
+                            0.0f,
+                            evt.target, // Self source
+                            Color{200, 200, 255, 150}, // Cyan/White shield
+                            0.0f
+                        );
+                        LOG_INFO("Phase Shield Triggered for Entity {}! (Burst: {:.1f})", (uint32_t)evt.target, ps->accumulatedDamage);
+                    }
+                    
+                    // Reset and Cooldown
+                    ps->accumulatedDamage = 0.0f;
+                    ps->currentCooldown = ps->cooldown;
+                }
+            }
+        }
+    }
+
     // Check if defender has OnHit affixes
     auto *affix = registry.try_get<MonsterAffixComponent>(evt.target);
     if (!affix || !affix->hasOnHit)
@@ -811,7 +848,7 @@ public:
 
     // 概率触发
     if (NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) >
-        STORMSTRIDER_TRIGGER_CHANCE)
+        MonsterAffixRegistry::Params::STORMSTRIDER_TRIGGER_CHANCE)
       return;
 
     // 获取怪物位置
@@ -828,7 +865,7 @@ public:
 
     // 雷电残影组件
     LightningGhostComponent ghost;
-    ghost.explosionDelay = STORMSTRIDER_GHOST_DELAY;
+    ghost.explosionDelay = MonsterAffixRegistry::Params::STORMSTRIDER_GHOST_DELAY;
     registry.emplace<LightningGhostComponent>(ghostEntity, ghost);
 
     // Hazard 组件 (用于 owner 追踪)

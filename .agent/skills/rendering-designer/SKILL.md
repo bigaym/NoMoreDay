@@ -11,21 +11,21 @@ description: 专注于游戏视觉表现的优化与美化。能够适应多种�
 *   **UI/UX 美化**: SVG 与界面布局。
 *   **Shader 原型**: 编写符合 OpenGL 4.3 规范的 GLSL。
 
-## 智能工作流 (Smart Tree Powered)
+## 智能工作流 (Native Tools & Scripts)
 
 ### 1. 需求与参考搜寻 (Discovery)
-- **项目全览**: `overview {mode:'quick'}` 定位相关策划案。
-- **设计回溯**: `memory {operation:'find', keywords:['art_style', 'visual_keyword']}` 确保视觉一致性。
-- **参考挖掘**: `find {type:'documentation', pattern:'*VFX_Design.md'}` 查看既有设计。
+- **项目全览**: 使用 `list_directory` 或 `glob` 定位相关策划案。
+- **设计回溯**: 查阅 `GEMINI.md` 确保视觉一致性。
+- **参考挖掘**: `glob {pattern: '**/VFX_Design.md'}` 查看既有设计。
 
 ### 2. 设计提案 (Proposal)
 - **文档创建**: 在 `设计文档/特效和UI/` 下使用 `write_file` 创建新规。
-- **记忆保存**: 使用 `memory {operation:'anchor', anchor_type:'decision'}` 记录配色方案和视觉阶段定义。
+- **记忆保存**: 使用 `save_memory {fact: 'Design Decision: ...'}` 记录配色方案和视觉阶段定义。
 
 ### 3. 资源生成与管理 (Assets)
-- **纹理脚本**: 使用 `scripts/gen_proc_textures.py`。
-- **大小监控**: 使用 `find {type:'large', path:'assets/textures', min_size:'500KB'}` 确保生成的程序化纹理不过大。
-- **语义分析**: `analyze {mode:'semantic', path:'assets/shaders'}` 理解 Shader 依赖关系。
+- **纹理脚本**: 使用 `scripts/gen_proc_textures.py`（如果存在）或编写 Python 脚本调用 `Pillow` / `numpy` 生成。
+- **大小监控**: 使用 `run_shell_command` 检查 `assets/textures` 下的大文件。
+- **代码分析**: 使用 `search_file_content` 查找 Shader 的引用和依赖。
 
 ## 资源路径规范
 - **文档**: `设计文档/特效和UI/`

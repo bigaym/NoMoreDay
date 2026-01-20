@@ -4,6 +4,7 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/ai/EnemyAIBehaviors.hpp"
+#include "game/components/NemesisComponent.hpp"
 #include "game/components/EliteModifierComponents.hpp"
 #include <algorithm>
 #include <cmath>
@@ -78,14 +79,16 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
 
     // 1. 强制传送逻辑 (Hard Reset)
     if (distSq > hardResetRangeSq) {
-      // LOG_DEBUG("Entity {} Hard Reset (Dist: {:.1f})", (uint32_t)entity, std::sqrt(distSq));
-      pos = ai.patrolStart;
-      ai.aiType = AIType::IDLE;
-      ai.target = entt::null;
-      vel.vx = 0.0f;
-      vel.vy = 0.0f;
-      if (health) health->current = health->max;
-      return; 
+      if (ai.aiType != AIType::NEMESIS_HUNTER) {
+          // LOG_DEBUG("Entity {} Hard Reset (Dist: {:.1f})", (uint32_t)entity, std::sqrt(distSq));
+          pos = ai.patrolStart;
+          ai.aiType = AIType::IDLE;
+          ai.target = entt::null;
+          vel.vx = 0.0f;
+          vel.vy = 0.0f;
+          if (health) health->current = health->max;
+          return; 
+      }
     }
     // 2. 脱战逻辑 (Leashing)
     else if (distSq > leashRangeSq) {
@@ -348,7 +351,8 @@ void AISystem::update(entt::registry &registry,
 
     // 1. Culling & Dormancy (Spec 2.3)
     using namespace NoMoreDay::Constants::AI;
-    if (distSq > DORMANCY_THRESHOLD * DORMANCY_THRESHOLD) {
+    bool isNemesis = registry.any_of<NoMoreDay::NemesisTag>(entity);
+    if (!isNemesis && distSq > DORMANCY_THRESHOLD * DORMANCY_THRESHOLD) {
       // Enter Dormancy
       registry.emplace_or_replace<DormantTag>(entity);
       registry.remove<Velocity>(entity); 

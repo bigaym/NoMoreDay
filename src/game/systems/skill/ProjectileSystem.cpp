@@ -8,6 +8,7 @@
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/vfx/VisualGhostComponent.hpp"
+#include "game/data/MonsterAffixRegistry.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -87,6 +88,52 @@ void ProjectileSystem::Update(entt::registry &registry,
           bc->phase = BoomerangComponent::Outward;
         }
       }
+    }
+
+    // 1.5 Homing Auto-Targeting
+    bool shouldHome = registry.any_of<HomingTag>(entity);
+    if (!shouldHome && registry.valid(proj.owner)) {
+         if (auto *affix = registry.try_get<MonsterAffixComponent>(proj.owner)) {
+             if (affix->HasAffix(MonsterAffixType::Accurate)) {
+                 shouldHome = true;
+             }
+         }
+    }
+
+    if (shouldHome) {
+        if (auto *seeker = registry.try_get<SeekerComponent>(entity)) {
+            if (!registry.valid(seeker->target)) {
+                 float minDist = seeker->range;
+                 entt::entity bestTarget = entt::null;
+                 
+                 // Query grid for nearest valid target
+                 grid.query({pos.x, pos.y}, seeker->range, [&](entt::entity t, const Position &tp) {
+                     if (t == entity || t == proj.owner) return;
+                     if (!registry.valid(t)) return;
+                     
+                     // Target filtering
+                     bool ownerIsPlayer = registry.any_of<PlayerTag>(proj.owner);
+                     bool tIsPlayer = registry.any_of<PlayerTag>(t);
+                     bool tIsEnemy = registry.any_of<EnemyTag>(t);
+                     
+                     if (ownerIsPlayer && !tIsEnemy) return;
+                     if (!ownerIsPlayer && !tIsPlayer) return; // Enemies target players
+                     if (registry.any_of<KilledTag>(t)) return;
+
+                     float dx = tp.x - pos.x;
+                     float dy = tp.y - pos.y;
+                     float dist = std::sqrt(dx*dx + dy*dy);
+                     if (dist < minDist) {
+                         minDist = dist;
+                         bestTarget = t;
+                     }
+                 });
+                 
+                 if (bestTarget != entt::null) {
+                     seeker->target = bestTarget;
+                 }
+            }
+        }
     }
 
     // 2. Seeker Logic

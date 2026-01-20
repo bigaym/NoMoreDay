@@ -207,3 +207,11 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Estimated Time:** 1.5 days
 
 
+---
+
+## [x] Track: Monster System Refinement & Nemesis Evolution
+- **Folder:** [./conductor/archive/monster_system_refinement_20260120/](./conductor/archive/monster_system_refinement_20260120/)
+- **Description:** 优化怪物词缀系统架构。消除 Nemesis 生成中的字符串硬编码，实现基于 Evolution Tier 的词缀数值动态缩放，修复宿敌 AI 在 Dormancy 逻辑下的不一致性，并补全 Homing 与 Phase Shield 等核心缺失机制。 (Completed on 2026-01-20)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 3 days

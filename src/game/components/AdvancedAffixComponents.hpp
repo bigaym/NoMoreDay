@@ -159,4 +159,19 @@ struct SuppressorComponent {
     float pulseSpeed = 1.5f;            // 脉冲速度
 };
 
+/**
+ * @brief 相位护盾组件 - 用于 Burst Counter
+ * 
+ * 受到爆发伤害时触发无敌
+ */
+struct PhaseShieldComponent {
+    float accumulatedDamage = 0.0f;
+    float accumulationWindow = 1.0f; // 1 second window
+    float accumulationTimer = 0.0f;
+    float triggerThresholdRatio = 0.3f;   // 30% Max HP
+    float cooldown = 15.0f;
+    float currentCooldown = 0.0f;
+    float invulnDuration = 3.0f;
+};
+
 } // namespace NoMoreDay

@@ -38,18 +38,18 @@ static void DrawCappedStatRow(const char* label, float currentVal, float cap, bo
     bool isOverCap = (currentVal > cap);
     float displayVal = isOverCap ? cap : currentVal;
     
-    char buffer[64];
+    const char* buffer;
     if (isPercent) {
         if (isOverCap) {
-            sprintf(buffer, "%.0f%% (%.0f%%)", displayVal * 100.0f, currentVal * 100.0f);
+            buffer = TextFormat("%.0f%% (%.0f%%)", displayVal * 100.0f, currentVal * 100.0f);
         } else {
-            sprintf(buffer, "%.1f%%", currentVal * 100.0f);
+            buffer = TextFormat("%.1f%%", currentVal * 100.0f);
         }
     } else {
         if (isOverCap) {
-            sprintf(buffer, "%.0f (%.0f)", displayVal, currentVal);
+            buffer = TextFormat("%.0f (%.0f)", displayVal, currentVal);
         } else {
-            sprintf(buffer, "%.0f", currentVal);
+            buffer = TextFormat("%.0f", currentVal);
         }
     }
 

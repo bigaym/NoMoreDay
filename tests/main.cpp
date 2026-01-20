@@ -16,6 +16,7 @@ using namespace NoMoreDay;
 
 // --- Integration Tests ---
 #include "integration/GameplaySystems.hpp"
+#include "integration/NemesisScalingTest.hpp"
 #include "integration/SkillSystemTests.hpp"
 
 // --- Functional Tests ---
