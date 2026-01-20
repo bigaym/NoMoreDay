@@ -24,15 +24,18 @@ using namespace NoMoreDay;
 // --- Functional Tests ---
 #include "functional/SkillBehaviors.hpp"
 
+// --- Unit Tests ---
+#include "unit/BranchlessTest.cpp"
+
 // --- Tech & Engine Tests ---
 #include "tech/EngineTechTests.hpp"
-#include "tech/GPUFlowFieldTest.hpp"
+#include "performance/StatsBenchmark.hpp"
+#include "performance/BranchlessBenchmark.hpp"
 #include "tech/PersistentBufferTest.hpp"
 #include "tech/UITests.hpp"
 
 // --- Performance Benchmarks ---
 #include "performance/DropSystemBenchmark.hpp"
-#include "performance/StatsBenchmark.hpp"
 #include "performance/MDIRenderBenchmark.hpp"
 #include "performance/SpatialGridBenchmark.hpp"
 

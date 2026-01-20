@@ -467,6 +467,7 @@ private:
  */
 struct MonsterAffixComponent {
   std::vector<MonsterAffixType> affixes; // 词缀列表 (最多4个)
+  uint64_t affixMask = 0; // Bitmask for O(1) lookup
 
   // 缓存的回调标志 (初始化时计算一次)
   bool hasUpdate = false;
@@ -486,6 +487,7 @@ struct MonsterAffixComponent {
     if (affixes.size() >= 4)
       return; // 最多4个词缀
     affixes.push_back(type);
+    affixMask |= (1ULL << static_cast<uint8_t>(type));
 
     // 更新缓存标志
     const auto &def = MonsterAffixRegistry::GetAffixDef(type);
@@ -494,12 +496,8 @@ struct MonsterAffixComponent {
     hasOnDeath |= def.flags.hasOnDeath;
   }
 
-  bool HasAffix(MonsterAffixType type) const {
-    for (auto aff : affixes) {
-      if (aff == type)
-        return true;
-    }
-    return false;
+  [[nodiscard]] bool HasAffix(MonsterAffixType type) const {
+    return (affixMask & (1ULL << static_cast<uint8_t>(type))) != 0;
   }
 };
 

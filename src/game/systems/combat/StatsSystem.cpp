@@ -134,133 +134,148 @@ static void ApplyStatModifier(
   ApplyStatCalculation(calcs[static_cast<size_t>(type)], mode, value);
 }
 
-// 辅助函数：将 AffixType 转换为 StatType 并应用它
-static void ApplyAffix(
-    std::array<StatCalculation, static_cast<size_t>(StatType::Count)> &calcs,
-    const Affix &affix) {
-  switch (affix.type) {
-  case AffixType::Strength:
-    ApplyStatModifier(calcs, StatType::Strength, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::Dexterity:
-    ApplyStatModifier(calcs, StatType::Dexterity, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::Intelligence:
-    ApplyStatModifier(calcs, StatType::Intelligence, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::Vitality:
-    ApplyStatModifier(calcs, StatType::Vitality, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::AllAttributes:
-    ApplyStatModifier(calcs, StatType::Strength, ModifierMode::Flat,
-                      affix.value);
-    ApplyStatModifier(calcs, StatType::Dexterity, ModifierMode::Flat,
-                      affix.value);
-    ApplyStatModifier(calcs, StatType::Intelligence, ModifierMode::Flat,
-                      affix.value);
-    ApplyStatModifier(calcs, StatType::Vitality, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::FlatHealth:
-    ApplyStatModifier(calcs, StatType::MaxHealth, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::PercentHealth:
-    ApplyStatModifier(calcs, StatType::MaxHealth, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::FlatMana:
-    ApplyStatModifier(calcs, StatType::MaxMana, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::FlatArmor:
-    ApplyStatModifier(calcs, StatType::Armor, ModifierMode::Flat, affix.value);
-    break;
-  case AffixType::PercentArmor:
-    ApplyStatModifier(calcs, StatType::Armor, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::MoveSpeed:
-    ApplyStatModifier(calcs, StatType::MoveSpeed, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::CritChance:
-    ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::CritDamage:
-    ApplyStatModifier(calcs, StatType::CritDamage, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::AttackSpeed:
-    ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd,
-                      affix.value);
-    LOG_DEBUG("StatsSystem: Applied Attack Speed Affix +{:.1f}%", affix.value);
-    break;
-  case AffixType::CastSpeed:
-    ApplyStatModifier(calcs, StatType::CastSpeed, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::Accuracy:
-    ApplyStatModifier(calcs, StatType::Accuracy, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::PercentPhysicalDamage:
-    ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::PercentFireDamage:
-    ApplyStatModifier(calcs, StatType::FireDamage, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::PercentColdDamage:
-    ApplyStatModifier(calcs, StatType::ColdDamage, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::PercentLightningDamage:
-    ApplyStatModifier(calcs, StatType::LightningDamage,
-                      ModifierMode::PercentAdd, affix.value);
-    break;
-  case AffixType::PercentPoisonDamage:
-    ApplyStatModifier(calcs, StatType::PoisonDamage, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::PercentShadowDamage:
-    ApplyStatModifier(calcs, StatType::ShadowDamage, ModifierMode::PercentAdd,
-                      affix.value);
-    break;
-  case AffixType::ResistFire:
-    ApplyStatModifier(calcs, StatType::ResistFire, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::ResistCold:
-    ApplyStatModifier(calcs, StatType::ResistCold, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::ResistLightning:
-    ApplyStatModifier(calcs, StatType::ResistLightning, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::ResistPoison:
-    ApplyStatModifier(calcs, StatType::ResistPoison, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::ResistShadow:
-    ApplyStatModifier(calcs, StatType::ResistShadow, ModifierMode::Flat,
-                      affix.value);
-    break;
-  case AffixType::ResistAll:
-    ApplyStatModifier(calcs, StatType::ResistAll, ModifierMode::Flat,
-                      affix.value);
-    break;
-  default:
-    break;
+// Helper Context for Affix Dispatch
+struct AffixContext {
+  std::array<StatCalculation, static_cast<size_t>(StatType::Count)> &calcs;
+  CombatStats &combat;
+  entt::registry &registry;
+  entt::entity entity;
+  bool &hasTitanGrip;
+  GlobalModifierComponent &global_mods;
+};
+
+using AffixHandler = void (*)(AffixContext &, const Affix &);
+
+// Dispatcher Class
+class AffixDispatcher {
+public:
+  static constexpr size_t TABLE_SIZE = 128; // Covers Normal affixes (0-99 approx)
+  std::array<AffixHandler, TABLE_SIZE> handlers = {};
+
+  AffixDispatcher() {
+    handlers.fill([](AffixContext &, const Affix &) {}); // Default no-op
+
+    // --- Primary Stats ---
+    Bind<StatType::Strength, ModifierMode::Flat>(AffixType::Strength);
+    Bind<StatType::Dexterity, ModifierMode::Flat>(AffixType::Dexterity);
+    Bind<StatType::Intelligence, ModifierMode::Flat>(AffixType::Intelligence);
+    Bind<StatType::Vitality, ModifierMode::Flat>(AffixType::Vitality);
+    
+    // All Attributes
+    handlers[(int)AffixType::AllAttributes] = [](AffixContext &ctx, const Affix &a) {
+        ApplyStatModifier(ctx.calcs, StatType::Strength, ModifierMode::Flat, a.value);
+        ApplyStatModifier(ctx.calcs, StatType::Dexterity, ModifierMode::Flat, a.value);
+        ApplyStatModifier(ctx.calcs, StatType::Intelligence, ModifierMode::Flat, a.value);
+        ApplyStatModifier(ctx.calcs, StatType::Vitality, ModifierMode::Flat, a.value);
+    };
+
+    // --- Offensive ---
+    // Flat Damage (Direct Combat Access)
+    BindDirect<DamageType::Physical>(AffixType::FlatPhysicalDamage);
+    BindDirect<DamageType::Fire>(AffixType::FlatFireDamage);
+    BindDirect<DamageType::Cold>(AffixType::FlatColdDamage);
+    BindDirect<DamageType::Lightning>(AffixType::FlatLightningDamage);
+    BindDirect<DamageType::Poison>(AffixType::FlatPoisonDamage);
+    BindDirect<DamageType::Shadow>(AffixType::FlatShadowDamage);
+
+    // Percent Damage
+    Bind<StatType::PhysicalDamage, ModifierMode::PercentAdd>(AffixType::PercentPhysicalDamage);
+    Bind<StatType::FireDamage, ModifierMode::PercentAdd>(AffixType::PercentFireDamage);
+    Bind<StatType::ColdDamage, ModifierMode::PercentAdd>(AffixType::PercentColdDamage);
+    Bind<StatType::LightningDamage, ModifierMode::PercentAdd>(AffixType::PercentLightningDamage);
+    Bind<StatType::PoisonDamage, ModifierMode::PercentAdd>(AffixType::PercentPoisonDamage);
+    Bind<StatType::ShadowDamage, ModifierMode::PercentAdd>(AffixType::PercentShadowDamage);
+
+    // Speed & Critical
+    Bind<StatType::CritChance, ModifierMode::Flat>(AffixType::CritChance);
+    Bind<StatType::CritDamage, ModifierMode::Flat>(AffixType::CritDamage);
+    Bind<StatType::AttackSpeed, ModifierMode::PercentAdd>(AffixType::AttackSpeed);
+    Bind<StatType::CastSpeed, ModifierMode::PercentAdd>(AffixType::CastSpeed);
+    Bind<StatType::Accuracy, ModifierMode::Flat>(AffixType::Accuracy);
+
+    // --- Defensive ---
+    Bind<StatType::Armor, ModifierMode::Flat>(AffixType::FlatArmor);
+    Bind<StatType::Armor, ModifierMode::PercentAdd>(AffixType::PercentArmor);
+    Bind<StatType::MaxHealth, ModifierMode::Flat>(AffixType::FlatHealth);
+    Bind<StatType::MaxHealth, ModifierMode::PercentAdd>(AffixType::PercentHealth);
+    Bind<StatType::MaxMana, ModifierMode::Flat>(AffixType::FlatMana);
+
+    // Resistances
+    Bind<StatType::ResistFire, ModifierMode::Flat>(AffixType::ResistFire);
+    Bind<StatType::ResistCold, ModifierMode::Flat>(AffixType::ResistCold);
+    Bind<StatType::ResistLightning, ModifierMode::Flat>(AffixType::ResistLightning);
+    Bind<StatType::ResistPoison, ModifierMode::Flat>(AffixType::ResistPoison);
+    Bind<StatType::ResistShadow, ModifierMode::Flat>(AffixType::ResistShadow);
+    Bind<StatType::ResistAll, ModifierMode::Flat>(AffixType::ResistAll);
+
+    // Utility & Recovery (Combat Direct or Stat)
+    // Direct Float Modifiers on CombatStats
+    handlers[(int)AffixType::Thorns] = [](AffixContext &c, const Affix &a) { c.combat.thorns += a.value; };
+    handlers[(int)AffixType::DamageReduction] = [](AffixContext &c, const Affix &a) { c.combat.damage_reduction += a.value / 100.0f; };
+    handlers[(int)AffixType::CooldownReduction] = [](AffixContext &c, const Affix &a) { c.combat.cooldown_reduction += a.value / 100.0f; };
+    
+    handlers[(int)AffixType::LifeSteal] = [](AffixContext &c, const Affix &a) { c.combat.life_steal += a.value / 100.0f; };
+    handlers[(int)AffixType::LifeOnHit] = [](AffixContext &c, const Affix &a) { c.combat.life_on_hit += a.value; };
+    handlers[(int)AffixType::ManaOnHit] = [](AffixContext &c, const Affix &a) { c.combat.mana_on_hit += a.value; };
+    handlers[(int)AffixType::HealthRegen] = [](AffixContext &c, const Affix &a) { c.combat.health_regen += a.value; };
+    handlers[(int)AffixType::ManaRegen] = [](AffixContext &c, const Affix &a) { c.combat.mana_regen += a.value; };
+    handlers[(int)AffixType::PercentHealthRegen] = [](AffixContext &c, const Affix &a) { c.combat.health_regen_pct += a.value / 100.0f; };
+    handlers[(int)AffixType::PercentManaRegen] = [](AffixContext &c, const Affix &a) { c.combat.mana_regen_pct += a.value / 100.0f; };
+
+    Bind<StatType::MoveSpeed, ModifierMode::PercentAdd>(AffixType::MoveSpeed);
+
+    // Special Skills
+    handlers[(int)AffixType::PlusAllSkills] = [](AffixContext &ctx, const Affix &a) {
+        if (auto *active = ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
+            for (auto &specialized : active->specialized_slots) {
+                if (specialized.skill_id != 0) specialized.bonus_levels += (int)a.value;
+            }
+        }
+    };
+    handlers[(int)AffixType::PlusFlowingThrust] = [](AffixContext &ctx, const Affix &a) {
+        if (auto *active = ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
+            for (auto &specialized : active->specialized_slots) {
+                if (specialized.skill_id == 1) specialized.bonus_levels += (int)a.value;
+            }
+        }
+    };
+    handlers[(int)AffixType::PlusRendingWave] = [](AffixContext &ctx, const Affix &a) {
+       if (auto *active = ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
+            for (auto &specialized : active->specialized_slots) {
+                if (specialized.skill_id == 2) specialized.bonus_levels += (int)a.value;
+            }
+        }
+    };
+
+    handlers[(int)AffixType::TitanGrip] = [](AffixContext &ctx, const Affix &) {
+        ctx.hasTitanGrip = true;
+    };
   }
-}
+
+  void Dispatch(AffixContext &ctx, const Affix &affix) const {
+    if (static_cast<size_t>(affix.type) < TABLE_SIZE) {
+      handlers[static_cast<size_t>(affix.type)](ctx, affix);
+    }
+  }
+
+  static const AffixDispatcher &Get() {
+    static AffixDispatcher instance;
+    return instance;
+  }
+
+private:
+  template <StatType S, ModifierMode M> void Bind(AffixType type) {
+    handlers[(int)type] = [](AffixContext &ctx, const Affix &a) {
+      ApplyStatModifier(ctx.calcs, S, M, a.value);
+    };
+  }
+
+  template <DamageType DT> void BindDirect(AffixType type) {
+      handlers[(int)type] = [](AffixContext &ctx, const Affix &a) {
+        ctx.combat.flat_damage[(int)DT] += a.value;
+      };
+  }
+};
 
 // Helper: Check if StatType is a damage scaling stat
 static bool IsDamageStat(StatType type) {
@@ -433,6 +448,8 @@ void StatsSystem::Recalculate(entt::registry &registry, entt::entity entity) {
 
   // 定义处理词缀的 Lambda，供物品 and 套装奖励复用
   auto processAffixes = [&](const std::vector<Affix> &affixes) {
+    AffixContext ctx{calcs, combat, registry, entity, hasTitanGrip, global_mods};
+    
     for (const auto &affix : affixes) {
       // NEW: Check if affix has tag conditions
       if (affix.required_tags != Tag::None) {
@@ -448,101 +465,8 @@ void StatsSystem::Recalculate(entt::registry &registry, entt::entity entity) {
         continue; // Skip normal processing for conditional affixes
       }
 
-      ApplyAffix(calcs, affix);
-
-      // 处理 ApplyAffix 中未涵盖的特殊词缀
-      switch (affix.type) {
-      // 基础点伤 (Flat Damage) - 目前 StatType 不处理点伤基数，保持原样
-      case AffixType::FlatPhysicalDamage:
-        combat.flat_damage[(int)DamageType::Physical] += affix.value;
-        break;
-      case AffixType::FlatFireDamage:
-        combat.flat_damage[(int)DamageType::Fire] += affix.value;
-        break;
-      case AffixType::FlatColdDamage:
-        combat.flat_damage[(int)DamageType::Cold] += affix.value;
-        break;
-      case AffixType::FlatLightningDamage:
-        combat.flat_damage[(int)DamageType::Lightning] += affix.value;
-        break;
-      case AffixType::FlatPoisonDamage:
-        combat.flat_damage[(int)DamageType::Poison] += affix.value;
-        break;
-      case AffixType::FlatShadowDamage:
-        combat.flat_damage[(int)DamageType::Shadow] += affix.value;
-        break;
-
-      // 回复 (Recovery)
-      case AffixType::LifeSteal:
-        combat.life_steal += affix.value / 100.0f;
-        break;
-      case AffixType::LifeOnHit:
-        combat.life_on_hit += affix.value;
-        break;
-      case AffixType::ManaOnHit:
-        combat.mana_on_hit += affix.value;
-        break;
-      case AffixType::HealthRegen:
-        combat.health_regen += affix.value;
-        break;
-      case AffixType::ManaRegen:
-        combat.mana_regen += affix.value;
-        break;
-      case AffixType::PercentHealthRegen:
-        combat.health_regen_pct += affix.value / 100.0f;
-        break;
-      case AffixType::PercentManaRegen:
-        combat.mana_regen_pct += affix.value / 100.0f;
-        break;
-
-      // 其他特殊词缀
-      case AffixType::Thorns:
-        combat.thorns += affix.value;
-        break;
-      case AffixType::DamageReduction:
-        combat.damage_reduction += affix.value / 100.0f;
-        break;
-      case AffixType::CooldownReduction:
-        combat.cooldown_reduction += affix.value / 100.0f;
-        break;
-
-      // Skill Levels
-      case AffixType::PlusAllSkills: {
-        if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
-          for (auto &specialized : active->specialized_slots) {
-            if (specialized.skill_id != 0)
-              specialized.bonus_levels += (int)affix.value;
-          }
-        }
-        break;
-      }
-      case AffixType::PlusFlowingThrust: {
-        if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
-          for (auto &specialized : active->specialized_slots) {
-            if (specialized.skill_id == 1)
-              specialized.bonus_levels += (int)affix.value;
-          }
-        }
-        break;
-      }
-      case AffixType::PlusRendingWave: {
-        if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
-          for (auto &specialized : active->specialized_slots) {
-            if (specialized.skill_id == 2)
-              specialized.bonus_levels += (int)affix.value;
-          }
-        }
-        break;
-      }
-
-      case AffixType::TitanGrip: {
-        hasTitanGrip = true;
-        break;
-      }
-
-      default:
-        break;
-      }
+      // Dispatch to branchless handler
+      AffixDispatcher::Get().Dispatch(ctx, affix);
     }
   };
 

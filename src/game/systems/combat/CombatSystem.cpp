@@ -16,6 +16,7 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include <cmath>
+#include "core/utils/Branchless.hpp"
 
 // Bring CombatEvent types into scope
 using NoMoreDay::CombatEvent;
@@ -468,54 +469,77 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
                                     float baseDamage,
                                     NoMoreDay::DamageType type) {
   using namespace NoMoreDay;
+  using namespace NoMoreDay::utils;
 
   // 1. Apply Attacker Multipliers
-  // 公式：基础伤害 * (1 + 乘数)
-  // 修复：如果倍率为0（未初始化），则视为1.0，防止伤害归零
+  // Formula: Base * (1 + Multiplier)
+  // Branchless: multiplier = max(multiplier, 1.0f) is handled by check
   float multiplier = attacker.damage_multipliers[(int)type];
-  float damage = baseDamage * (multiplier > 0.001f ? multiplier : 1.0f);
+  // If multiplier <= 0.001f, use 1.0f, else use multiplier
+  // logic: mult = (multiplier > 0.001f) ? multiplier : 1.0f;
+  float effectiveMult = SelectF(multiplier > 0.001f, multiplier, 1.0f);
+  float damage = baseDamage * effectiveMult;
 
   // 2. Mitigation
   float mitigation = 0.0f;
 
-  if (type == DamageType::Physical) {
-    // Armor Reduction
-    float effective_armor = defender.armor - attacker.armor_pen;
+  // Branchless Physical vs Elemental
+  // We calculate both paths and select the result
+  
+  // -- Path A: Physical --
+  // Armor Reduction
+  float effective_armor = defender.armor - attacker.armor_pen;
+  
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
+  // if effective_armor >= 0
+  // mitigation = 1.0f - (ARMOR_BASE / (ARMOR_BASE + effective_armor));
+  // else
+  // mitigation = (ARMOR_BASE / (ARMOR_BASE - effective_armor)) - 1.0f;
+  
+  float term_positive = ARMOR_BASE + effective_armor;
+  float term_negative = ARMOR_BASE - effective_armor;
+  
+  // Avoid division by zero if something goes wrong (though ARMOR_BASE should be > 0)
+  // We can just execute the math. If effective_armor is negative, term_positive might be small/zero?
+  // Actually, ARMOR_BASE is usually large (e.g. 100 or 500). effective_armor can be negative.
+  
+  float mit_positive = 1.0f - (ARMOR_BASE / term_positive);
+  float mit_negative = (ARMOR_BASE / term_negative) - 1.0f;
+  
+  float physMitigation = SelectF(effective_armor >= 0.0f, mit_positive, mit_negative);
 
-    if (effective_armor >= 0) {
-      using namespace NoMoreDay::Constants::Combat::Pipeline;
-      mitigation = 1.0f - (ARMOR_BASE / (ARMOR_BASE + effective_armor));
-    } else {
-      // Negative armor amplification: multiplier = 2 - 100/(100 - eff)
-      // We want 'mitigation' to be negative so that damage * (1 - mit)
-      // increases. (1 - mitigation) = 2 - 100/(100-eff) -> mit = 1 - (2 -
-      // 100/(100-eff)) = 100/(100-eff) - 1
-      using namespace NoMoreDay::Constants::Combat::Pipeline;
-      mitigation = (ARMOR_BASE / (ARMOR_BASE - effective_armor)) - 1.0f;
-    }
-  } else { // 元素抗性
-    using namespace NoMoreDay::Constants::Combat;
-    // Elemental Resistance
-    float res = defender.resistances[(int)type];
-    // Hard Cap at 75%
-    if (res > Cap::RESISTANCE)
-      res = Cap::RESISTANCE;
-    mitigation = res;
-  }
+  // -- Path B: Elemental --
+  float res = defender.resistances[(int)type];
+  // Hard Cap at 75%
+  // logic: if (res > Cap::RESISTANCE) res = Cap::RESISTANCE;
+  using namespace NoMoreDay::Constants::Combat;
+  float elemMitigation = SelectF(res > Cap::RESISTANCE, Cap::RESISTANCE, res);
+  
+  // Select Physical vs Elemental
+  bool isPhysical = (type == DamageType::Physical);
+  mitigation = SelectF(isPhysical, physMitigation, elemMitigation);
 
   // 3. Final Calculation
   damage *= (1.0f - mitigation);
 
   // 4. Global Damage Reduction
-  using namespace NoMoreDay::Constants::Combat;
-  if (defender.damage_reduction > 0.0f) {
-    float reduction = defender.damage_reduction;
-    if (reduction > Cap::DR)
-      reduction = Cap::DR; // Hard Cap 90%
-    damage *= (1.0f - reduction);
-  }
+  // logic: if (defender.damage_reduction > 0.0f) ...
+  // reduction = min(modifier, Cap::DR)
+  float reduction = defender.damage_reduction;
+  // Apply Cap
+  reduction = SelectF(reduction > Cap::DR, Cap::DR, reduction);
+  // Only apply if > 0 (handled by SelectF automatically if we assume reduction is 0 when not active)
+  // damage *= (1.0f - reduction)
+  // If reduction is 0, factor is 1.0. If reduction is valid, factor is 1-red.
+  // However, input check `if (defender.damage_reduction > 0.0f)` implies we shouldn't apply negative DR?
+  // Let's assume DR is clamped to 0 at least before this or is positive.
+  // Actually, logic was: if (dr > 0) apply. If dr <= 0, do nothing.
+  // So effective_dr = (dr > 0) ? min(dr, cap) : 0
+  float effective_dr = SelectF(reduction > 0.0f, reduction, 0.0f); // Ensures no negative DR handling if logic required
+  damage *= (1.0f - effective_dr);
 
-  return std::max(0.0f, damage);
+  // return max(0.0f, damage);
+  return SelectF(damage > 0.0f, damage, 0.0f);
 }
 
 bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
