@@ -28,6 +28,7 @@ enum class BuffType {
     Stun,
     Freeze,
     Burn,
+    Shock,
     Poison,
     Bleed,
     

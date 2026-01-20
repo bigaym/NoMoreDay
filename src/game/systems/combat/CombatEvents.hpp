@@ -93,9 +93,9 @@ struct CombatEvent {
     float value = 0.0f;                // 主数值 (伤害量/治疗量/消耗量等)
     float value2 = 0.0f;               // 辅数值 (超杀量/血量百分比等)
     
-    bool is_crit = false;              // 是否暴击
-    bool is_blocked = false;           // 是否被格挡
-    bool is_dodged = false;            // 是否被闪避
+    bool isCrit = false;              // 是否暴击
+    bool isBlocked = false;           // 是否被格挡
+    bool isDodged = false;            // 是否被闪避
     
     AilmentType ailment = AilmentType::None;  // 异常状态类型
     
@@ -104,7 +104,7 @@ struct CombatEvent {
     entt::entity minion = entt::null;  // 召唤物实体
     
     // NEW: Unique cast ID for hit tracking
-    uint64_t cast_id = 0;
+    uint64_t castId = 0;
 };
 
 /**
@@ -126,7 +126,7 @@ inline CombatEvent CreateDealDamage(
     evt.skill_id = skill_id;
     evt.tags = tags;
     evt.value = damage;
-    evt.is_crit = is_crit;
+    evt.isCrit = is_crit;
     evt.source_entity = source_entity;
     return evt;
 }
@@ -142,7 +142,7 @@ inline CombatEvent CreateTakeDamage(
     evt.skill_id = skill_id;
     evt.tags = tags;
     evt.value = damage;
-    evt.is_crit = is_crit;
+    evt.isCrit = is_crit;
     return evt;
 }
 
@@ -168,7 +168,7 @@ inline CombatEvent CreateOnCrit(
     evt.skill_id = skill_id;
     evt.tags = tags;
     evt.value = damage;
-    evt.is_crit = true;
+    evt.isCrit = true;
     return evt;
 }
 
@@ -180,7 +180,7 @@ inline CombatEvent CreateOnDodge(
     evt.source = dodger;
     evt.target = attacker;
     evt.skill_id = skill_id;
-    evt.is_dodged = true;
+    evt.isDodged = true;
     return evt;
 }
 
@@ -194,7 +194,7 @@ inline CombatEvent CreateOnBlock(
     evt.target = attacker;
     evt.skill_id = skill_id;
     evt.value = blocked_damage;
-    evt.is_blocked = true;
+    evt.isBlocked = true;
     return evt;
 }
 
@@ -209,8 +209,8 @@ inline CombatEvent CreateSkillHit(
     evt.target = target;
     evt.skill_id = skill_id;
     evt.tags = tags;
-    evt.is_crit = is_crit;
-    evt.cast_id = cast_id;
+    evt.isCrit = is_crit;
+    evt.castId = cast_id;
     return evt;
 }
 
@@ -263,7 +263,7 @@ inline CombatEvent CreateMeleeHit(
     evt.skill_id = skill_id;
     evt.tags = tags;
     evt.value = damage;
-    evt.is_crit = is_crit;
+    evt.isCrit = is_crit;
     return evt;
 }
 
@@ -279,7 +279,7 @@ inline CombatEvent CreateProjectileHit(
     evt.skill_id = skill_id;
     evt.tags = tags;
     evt.value = damage;
-    evt.is_crit = is_crit;
+    evt.isCrit = is_crit;
     evt.source_entity = projectile;
     return evt;
 }
@@ -295,7 +295,7 @@ inline CombatEvent CreateAreaHit(
     evt.skill_id = skill_id;
     evt.tags = tags;
     evt.value = damage;
-    evt.is_crit = is_crit;
+    evt.isCrit = is_crit;
     return evt;
 }
 
@@ -484,7 +484,7 @@ inline CombatEvent CreateMinionHit(
     evt.target = target;
     evt.minion = minion;
     evt.value = damage;
-    evt.is_crit = is_crit;
+    evt.isCrit = is_crit;
     return evt;
 }
 

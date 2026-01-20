@@ -4,6 +4,8 @@
 #include <mutex>
 #include <vector>
 
+class LevelManager;
+
 namespace NoMoreDay {
 
 /**
@@ -23,10 +25,12 @@ public:
     float magicFind;
     float posX;
     float posY;
+    FragmentElement areaElement;
   };
 
   // 初始化系统 (注册事件监听器)
   static void Init();
+  static void SetLevelManager(::LevelManager* lm) { s_levelManager = lm; }
 
   // 关闭系统 (取消事件监听器)
   static void Shutdown();
@@ -40,7 +44,8 @@ public:
 
   // 创建一个随机碎片实体
   static entt::entity CreateRandomFragment(entt::registry &registry,
-                                           int areaLevel, float magicFind);
+                                           int areaLevel, float magicFind,
+                                           FragmentElement areaElement = FragmentElement::None);
 
   // 创建指定属性的碎片实体
   static entt::entity CreateFragment(entt::registry &registry,
@@ -50,6 +55,7 @@ public:
 private:
   static uint32_t s_killHandlerId;
   static bool s_initialized;
+  static ::LevelManager* s_levelManager;
   static std::vector<DropRequest> s_pendingRequests;
   static std::mutex s_requestMutex;
 
@@ -61,7 +67,7 @@ private:
   static FragmentType RollFragmentType(float luck);
 
   // 随机生成碎片元素 (基于区域)
-  static FragmentElement RollFragmentElement(const std::string &areaElement);
+  static FragmentElement RollFragmentElement(FragmentElement areaElement);
 
   // 随机生成碎片稀有度
   static Rarity RollFragmentRarity(float magicFind, bool isElite, bool isBoss);

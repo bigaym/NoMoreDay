@@ -39,17 +39,27 @@ void MaterialRegistry::LoadMaterials(const std::string& path) {
         def.name = item.value("name", "Unknown Material");
         def.description = item.value("description", "");
         def.category = item.value("category", "Misc");
+        def.categoryEnum = static_cast<MaterialCategory>(item.value("category_id", 0));
         
+        static const std::unordered_map<std::string, Rarity> kStringToRarity = {
+            {"Common", Rarity::Common},
+            {"Magic", Rarity::Magic},
+            {"Rare", Rarity::Rare},
+            {"Uncommon", Rarity::Uncommon},
+            {"Epic", Rarity::Epic},
+            {"Legendary", Rarity::Legendary},
+            {"Mythic", Rarity::Mythic},
+            {"Ancient", Rarity::Ancient},
+            {"Set", Rarity::Set}
+        };
+
         std::string rarityStr = item.value("rarity", "Common");
-        if (rarityStr == "Common") def.rarity = Rarity::Common;
-        else if (rarityStr == "Magic") def.rarity = Rarity::Magic;
-        else if (rarityStr == "Rare") def.rarity = Rarity::Rare;
-        else if (rarityStr == "Uncommon") def.rarity = Rarity::Uncommon;
-        else if (rarityStr == "Epic") def.rarity = Rarity::Epic;
-        else if (rarityStr == "Legendary") def.rarity = Rarity::Legendary;
-        else if (rarityStr == "Mythic") def.rarity = Rarity::Mythic;
-        else if (rarityStr == "Ancient") def.rarity = Rarity::Ancient;
-        else def.rarity = Rarity::Common;
+        auto it = kStringToRarity.find(rarityStr);
+        if (it != kStringToRarity.end()) {
+            def.rarity = it->second;
+        } else {
+            def.rarity = Rarity::Common;
+        }
 
         def.icon = item.value("icon", "");
         def.maxStack = item.value("max_stack", 9999);

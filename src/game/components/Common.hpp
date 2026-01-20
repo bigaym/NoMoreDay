@@ -171,7 +171,8 @@ constexpr float STR_TO_PHYS_DAMAGE_INC =
 constexpr float DEX_TO_CRIT_CHANCE = 0.2f; // 每点敏捷提供的暴击率增加
 constexpr float DEX_TO_ACCURACY = 0.1f;    // 每点敏捷提供的命中率增加
 constexpr float STR_TO_KNOCKBACK = 0.5f;   // 每点力量提供的击退力度增加
-constexpr float INT_TO_BARRIER_RETENTION = 1.0f; // 每点智力提供的护盾维持(降低衰减)百分比
+constexpr float INT_TO_BARRIER_RETENTION =
+    1.0f; // 每点智力提供的护盾维持(降低衰减)百分比
 } // namespace Attribute
 
 namespace Cap {
@@ -192,7 +193,7 @@ namespace Physics {
 constexpr float DEFAULT_ENTITY_RADIUS = 5.0f;    // 实体默认碰撞半径
 constexpr float SEPARATION_DIST_MULT = 2.0f;     // 实体间分离距离倍数
 constexpr float REPULSION_STRENGTH = 200.0f;     // 实体间互相排斥的力度
-constexpr float MAX_VELOCITY = 2000.0f;        // 最大速度限制
+constexpr float MAX_VELOCITY = 2000.0f;          // 最大速度限制
 constexpr float EPSILON_VELOCITY = 0.001f;       // 速度归一化/停止判定阈值
 constexpr float MIN_DIST_SQ_THRESHOLD = 0.0001f; // 距离计算的极小过滤阈值
 } // namespace Physics
@@ -217,8 +218,8 @@ constexpr float CHAMPION_HP_MULTIPLIER = 2.5f;  // 冠军怪生命值乘数
 constexpr float BOSS_HP_MULTIPLIER = 15.0f;     // Boss生命值乘数
 constexpr float NEMESIS_HP_MULTIPLIER = 25.0f;  // 宿敌生命值乘数
 constexpr float BOSS_CHANCE = 0.002f;           // Boss 生成概率 (0.2%)
-constexpr float ELITE_CHANCE = 0.02f;          // 精英怪生成概率 (2%)
-constexpr float CHAMPION_CHANCE = 0.01f;       // 冠军怪生成概率 (1%)
+constexpr float ELITE_CHANCE = 0.02f;           // 精英怪生成概率 (2%)
+constexpr float CHAMPION_CHANCE = 0.01f;        // 冠军怪生成概率 (1%)
 
 constexpr int DORMANT_CHECK_INTERVAL_FRAMES = 60; // 更新休眠实体的帧间隔
 constexpr int MAX_AWAKEN_PER_CYCLE = 50; // 每个更新周期允许唤醒的最大实体数
@@ -282,14 +283,22 @@ constexpr int WORKGROUP_SIZE_PARTICLES = 256;   // GPU计算粒子时的线程�
 constexpr float MAX_DELTA_TIME_PARTICLES =
     0.1f; // 粒子模拟的最大允许时间步长（防止卡顿后飞天）
 constexpr float DEFAULT_DELTA_TIME_PARTICLES =
-    0.016f; // 默认每帧粒子物理模拟步长 (60fps)---此值不可信，实际帧率由全局设置决定，目前是180fps
-constexpr int MAX_SKILL_EFFECTS = 10000; //同时存在的最大技能特效数量 (GPU Buffer)
+    0.016f; // 默认每帧粒子物理模拟步长
+            // (60fps)---此值不可信，实际帧率由全局设置决定，目前是180fps
+constexpr int MAX_SKILL_EFFECTS =
+    10000; // 同时存在的最大技能特效数量 (GPU Buffer)
 } // namespace Render
 
 namespace Visuals {
-    inline constexpr Color COLOR_BLADE_ASCENDANT = { 195, 248, 245, 255 }; // #C3F8F5 Pale Cyan
+inline constexpr Color COLOR_BLADE_ASCENDANT = {195, 248, 245,
+                                                255}; // #C3F8F5 Pale Cyan
 }
 } // namespace NoMoreDay::Constants
+
+namespace NoMoreDay {
+// 生物群系ID枚举
+enum class BiomeID : uint8_t { None = 0, Town = 1, Cave = 2, Other = 3 };
+} // namespace NoMoreDay
 
 // 基础变换组件
 struct Position {
@@ -397,13 +406,14 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Radius, value)
 
 enum class ColliderType : uint8_t { Dynamic, Static, Trigger };
 struct ColliderComponent {
-    float width = 0.0f;
-    float height = 0.0f;
-    ColliderType type = ColliderType::Dynamic;
-    uint8_t layer = 1;
-    uint8_t mask = 1;
+  float width = 0.0f;
+  float height = 0.0f;
+  ColliderType type = ColliderType::Dynamic;
+  uint8_t layer = 1;
+  uint8_t mask = 1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ColliderComponent, width, height, layer, mask)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ColliderComponent, width, height, layer,
+                                   mask)
 
 // 本地关卡标签：切换关卡时销毁 (如：敌人、掉落物、投射物)
 struct LocalLevelTag {};
@@ -438,8 +448,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BarrierComponent, last_damage_time)
 
 // 标签缓存组件：用于加速世界坐标中文字标签的渲染
 struct LabelCacheComponent {
-    mutable Vector2 cachedSize = {0, 0};
-    mutable int lastFontSize = 0;
-    mutable bool isValid = false;
-    mutable char cachedText[32] = {0};
+  mutable Vector2 cachedSize = {0, 0};
+  mutable int lastFontSize = 0;
+  mutable bool isValid = false;
+  mutable char cachedText[32] = {0};
 };

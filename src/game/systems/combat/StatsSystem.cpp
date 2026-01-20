@@ -1163,7 +1163,7 @@ void StatsSystem::UpdateBuffs(entt::registry& registry, float dt) {
                          systems::GPUParticleSystem::Get().Emit(p);
                     }
                 }
-                else if (buff.type == BuffType::Stun || buff.id == "shock") {
+                else if (buff.type == BuffType::Stun || buff.type == BuffType::Shock) {
                     // Time-based: ~20% at 60 FPS
                     if (utils::FrameRateUtils::ShouldTrigger(20.0f, dt)) {
                          components::GPUParticle p;

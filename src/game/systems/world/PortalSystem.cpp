@@ -51,9 +51,9 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
 
         // If we are still in the same portal we just triggered, do nothing
         if (portal == m_lastTriggeredPortal) {
-            continue;
+          continue;
         }
-        
+
         // New activation
         m_lastTriggeredPortal = portal;
 
@@ -66,10 +66,10 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
 
         // Handle other portal types - direct transition
         LOG_INFO("Player triggered portal to {} (Level {})",
-                 portalComp.targetBiome, portalComp.targetLevel);
+                 (int)portalComp.targetBiome, portalComp.targetLevel);
 
         // Trigger auto-save when entering town
-        if (portalComp.targetBiome == "town") {
+        if (portalComp.targetBiome == NoMoreDay::BiomeID::Town) {
           LOG_INFO("Entering Town - triggering auto-save");
           if (NoMoreDay::SaveManager::Get().IsInitialized()) {
             NoMoreDay::SaveManager::Get().saveCharacterAsync(registry, 0);
@@ -90,7 +90,7 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
 
     // If player is not in ANY portal, reset the tracker
     if (!inAnyPortal) {
-        m_lastTriggeredPortal = entt::null;
+      m_lastTriggeredPortal = entt::null;
     }
   }
 }
@@ -161,7 +161,7 @@ void PortalSystem::SpawnTownPortal(entt::registry &registry,
 
   PortalComponent pc;
   pc.type = PortalType::Town;
-  pc.targetBiome = "town";
+  pc.targetBiome = NoMoreDay::BiomeID::Town;
   pc.targetLevel = 1;
   pc.isActive = true;
   pc.radius = 35.0f;

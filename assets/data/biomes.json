@@ -19,7 +19,8 @@
             "smoothIterations": 2,
             "enemyPool": [],
             "maxEnemies": 0,
-            "isSafeZone": true
+            "isSafeZone": true,
+            "numeric_id": 1
         },
         {
             "id": "cave",
@@ -43,7 +44,8 @@
                 "goblin"
             ],
             "maxEnemies": 500,
-            "isSafeZone": false
+            "isSafeZone": false,
+            "numeric_id": 2
         }
     ]
 }

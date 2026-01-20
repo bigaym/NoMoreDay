@@ -50,11 +50,11 @@ public:
 
   // 初始化关卡 (Legacy)
   void initializeLevel(int width, int height, const MapSystem &mapSystem,
-                       const std::string &biome);
+                       NoMoreDay::BiomeID biome);
 
   // Async Loading Support
   void initData(int width, int height, const MapSystem &mapSystem,
-                const std::string &biome,
+                NoMoreDay::BiomeID biome,
                 const NoMoreDay::ResonanceResult *resonance = nullptr);
   void initTextures();
 

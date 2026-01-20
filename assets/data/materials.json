@@ -7,7 +7,8 @@
             "category": "Mineral",
             "rarity": "Common",
             "icon": "icon_ore_iron",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 1
         },
         {
             "id": 1002,
@@ -16,7 +17,8 @@
             "category": "Mineral",
             "rarity": "Uncommon",
             "icon": "icon_ore_gold",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 1
         },
         {
             "id": 2001,
@@ -25,7 +27,8 @@
             "category": "Fragment",
             "rarity": "Rare",
             "icon": "icon_frag_dim",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 2
         },
         {
             "id": 2002,
@@ -34,7 +37,8 @@
             "category": "Fragment",
             "rarity": "Epic",
             "icon": "icon_essence_void",
-            "max_stack": 999
+            "max_stack": 999,
+            "category_id": 2
         },
         {
             "id": 3001,
@@ -43,7 +47,8 @@
             "category": "Rune",
             "rarity": "Rare",
             "icon": "icon_rune_str",
-            "max_stack": 99
+            "max_stack": 99,
+            "category_id": 3
         },
         {
             "id": 3002,
@@ -52,7 +57,8 @@
             "category": "Rune",
             "rarity": "Rare",
             "icon": "icon_rune_spd",
-            "max_stack": 99
+            "max_stack": 99,
+            "category_id": 3
         },
         {
             "id": 4001,
@@ -61,7 +67,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_1",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4002,
@@ -70,7 +77,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_2",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4003,
@@ -79,7 +87,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_3",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4004,
@@ -88,7 +97,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_4",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4005,
@@ -97,7 +107,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_5",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4006,
@@ -106,7 +117,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_6",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4007,
@@ -115,7 +127,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_7",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4008,
@@ -124,7 +137,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_8",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4009,
@@ -133,7 +147,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_9",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4010,
@@ -142,7 +157,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_10",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4011,
@@ -151,7 +167,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_11",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4012,
@@ -160,7 +177,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_12",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4013,
@@ -169,7 +187,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_13",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4014,
@@ -178,7 +197,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_14",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4015,
@@ -187,7 +207,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_15",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4016,
@@ -196,7 +217,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_16",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4017,
@@ -205,7 +227,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_17",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4018,
@@ -214,7 +237,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_18",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4019,
@@ -223,7 +247,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_19",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4020,
@@ -232,7 +257,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_20",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4021,
@@ -241,7 +267,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_21",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4022,
@@ -250,7 +277,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_22",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4023,
@@ -259,7 +287,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_23",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4024,
@@ -268,7 +297,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_24",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4025,
@@ -277,7 +307,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_25",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4026,
@@ -286,7 +317,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_26",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4027,
@@ -295,7 +327,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_27",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4028,
@@ -304,7 +337,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_28",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4029,
@@ -313,7 +347,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_29",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4030,
@@ -322,7 +357,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_30",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4031,
@@ -331,7 +367,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_31",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4032,
@@ -340,7 +377,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_32",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4033,
@@ -349,7 +387,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_33",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4034,
@@ -358,7 +397,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_34",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4035,
@@ -367,7 +407,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_35",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4036,
@@ -376,7 +417,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_36",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4037,
@@ -385,7 +427,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_37",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4038,
@@ -394,7 +437,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_38",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4039,
@@ -403,7 +447,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_39",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4040,
@@ -412,7 +457,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_40",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4041,
@@ -421,7 +467,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_41",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4042,
@@ -430,7 +477,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_42",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4043,
@@ -439,7 +487,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_43",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4044,
@@ -448,7 +497,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_44",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4045,
@@ -457,7 +507,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_45",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4046,
@@ -466,7 +517,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_46",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4047,
@@ -475,7 +527,8 @@
             "category": "Affix Shard",
             "rarity": "Magic",
             "icon": "icon_shard_47",
-            "max_stack": 9999
+            "max_stack": 9999,
+            "category_id": 4
         },
         {
             "id": 4999,
@@ -484,7 +537,8 @@
             "category": "Affix Shard",
             "rarity": "Legendary",
             "icon": "icon_essence_legendary",
-            "max_stack": 999
+            "max_stack": 999,
+            "category_id": 4
         },
         {
             "id": 10001,
@@ -493,7 +547,8 @@
             "category": "Material",
             "rarity": "Legendary",
             "icon": "icon_core_legendary",
-            "max_stack": 999
+            "max_stack": 999,
+            "category_id": 0
         }
     ]
 }

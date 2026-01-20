@@ -15,6 +15,7 @@ public:
     ~SceneManager();  // 确保异步任务在销毁前完成
     
     // Request a transition to a new biome/level
+    void RequestTransition(BiomeID biome, int level = 1, const std::string& entranceId = "start");
     void RequestTransition(const std::string& biome, int level = 1, const std::string& entranceId = "start");
     
     // Request a transition to a mosaic level
@@ -29,10 +30,15 @@ public:
     bool IsTransitioning() const { return m_isTransitioning; }
     
     // Origin tracking for return portals
+    void SetOriginInfo(BiomeID biome, int level, float x, float y);
     void SetOriginInfo(const std::string& biome, int level, float x, float y);
-    const std::string& GetCurrentBiome() const { return m_currentBiome; }
+    
+    const std::string& GetCurrentBiomeKey() const { return m_currentBiomeKey; }
+    BiomeID GetCurrentBiome() const { return m_currentBiome; }
     int GetCurrentLevel() const { return m_currentLevel; }
-    const std::string& GetOriginBiome() const { return m_originBiome; }
+    
+    const std::string& GetOriginBiomeKey() const { return m_originBiomeKey; }
+    BiomeID GetOriginBiome() const { return m_originBiome; }
     int GetOriginLevel() const { return m_originLevel; }
     float GetOriginX() const { return m_originX; }
     float GetOriginY() const { return m_originY; }
@@ -52,22 +58,26 @@ private:
     State m_state = State::IDLE;
     
     // Target Info
-    std::string m_targetBiome;
+    std::string m_targetBiomeKey;
+    BiomeID m_targetBiome = BiomeID::None;
     int m_targetLevel = 1;
     std::string m_targetEntranceId;
     
     // Current scene info
-    std::string m_currentBiome = "cave";
+    std::string m_currentBiomeKey = "cave";
+    BiomeID m_currentBiome = BiomeID::Cave;
     int m_currentLevel = 1;
     
     // Origin info (for return portals)
-    std::string m_originBiome;
+    std::string m_originBiomeKey;
+    BiomeID m_originBiome = BiomeID::None;
     int m_originLevel = 0;
     float m_originX = 0.0f;
     float m_originY = 0.0f;
 
     // Combat tracking for kill count resets
-    std::string m_lastCombatBiome;
+    std::string m_lastCombatBiomeKey;
+    BiomeID m_lastCombatBiome = BiomeID::None;
     int m_lastCombatLevel = 0;
     
     // Async data

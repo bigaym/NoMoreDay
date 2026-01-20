@@ -21,8 +21,18 @@ namespace NoMoreDay {
         ModifyStat = 2
     };
 
+    enum class TraitID : uint16_t {
+        None = 0,
+        SwordHeart = 100,
+        SwordIntentUnlock = 101,
+        MaxSwordIntent = 200,
+        SwordIntentGain = 201,
+        SwordIntentGrace = 202
+    };
+
     struct AstrolabeNodeEffect {
         AstrolabeEffectType type;
+        TraitID trait_id = TraitID::None;
         std::string value; // e.g., "SwordHeart"
     };
 
@@ -34,7 +44,26 @@ namespace NoMoreDay {
         t = static_cast<AstrolabeEffectType>(j.get<uint8_t>());
     }
 
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AstrolabeNodeEffect, type, value)
+    // TraitID JSON
+    inline void to_json(nlohmann::json& j, const TraitID& t) {
+        j = static_cast<uint16_t>(t);
+    }
+    inline void from_json(const nlohmann::json& j, TraitID& t) {
+        t = static_cast<TraitID>(j.get<uint16_t>());
+    }
+
+    inline void to_json(nlohmann::json& j, const AstrolabeNodeEffect& e) {
+        j = nlohmann::json{
+            {"type", e.type},
+            {"trait_id", e.trait_id},
+            {"value", e.value}
+        };
+    }
+    inline void from_json(const nlohmann::json& j, AstrolabeNodeEffect& e) {
+        j.at("type").get_to(e.type);
+        if (j.contains("trait_id")) j.at("trait_id").get_to(e.trait_id);
+        j.at("value").get_to(e.value);
+    }
 
     struct AstrolabeNode {
         uint32_t id = 0;

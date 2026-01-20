@@ -75,6 +75,7 @@ void GameplayState::OnEnter() {
   MonsterAffixSystem::Init();
   CombatHistorySystem::Init();
   FragmentDropSystem::Init();
+  FragmentDropSystem::SetLevelManager(m_context->levelManager);
 
   // GPU Skill Effect System is initialized in Game.cpp (Global)
 
@@ -107,7 +108,7 @@ void GameplayState::OnEnter() {
   // 2. Initialize Level
   m_context->levelManager->initialize(resourceManager, *m_context->registry);
   using namespace NoMoreDay::Constants::World;
-  m_context->levelManager->loadNewLevel("cave", WORLD_WIDTH / 10,
+  m_context->levelManager->loadNewLevel(NoMoreDay::BiomeID::Cave, WORLD_WIDTH / 10,
                                         WORLD_HEIGHT / 10);
 
   // 3. Initialize Entities (Player)

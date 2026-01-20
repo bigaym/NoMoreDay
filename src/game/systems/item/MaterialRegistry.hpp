@@ -7,11 +7,21 @@
 
 namespace NoMoreDay {
 
+enum class MaterialCategory : uint8_t {
+    Misc = 0,
+    Mineral = 1,
+    Fragment = 2,
+    Rune = 3,
+    AffixShard = 4,
+    Count
+};
+
 struct MaterialDefinition {
     uint32_t id;
     std::string name;
     std::string description;
     std::string category;
+    MaterialCategory categoryEnum = MaterialCategory::Misc;
     Rarity rarity;
     std::string icon;
     int maxStack;

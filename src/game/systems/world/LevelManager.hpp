@@ -1,10 +1,10 @@
 #pragma once
 
 #include "game/components/Common.hpp"
+#include "game/data/MosaicData.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"
-#include "game/data/MosaicData.hpp"
 #include <cassert>
 #include <memory>
 
@@ -16,19 +16,20 @@ public:
     std::unique_ptr<MapSystem> map;
     std::unique_ptr<EnemySpawnSystem> enemy;
     std::unique_ptr<FogOfWarSystem> fog;
-    std::string biome;
+    NoMoreDay::BiomeID biome = NoMoreDay::BiomeID::None;
     int width, height, level;
-    NoMoreDay::ResonanceResult resonance; 
+    NoMoreDay::ResonanceResult resonance;
     bool isMosaic = false;
   };
   LevelManager();
   ~LevelManager();
 
-  // 初始化关卡管理器 (传入 ResourceManager 用于 GPU 资源加载, Registry 用于生成实体)
+  // 初始化关卡管理器 (传入 ResourceManager 用于 GPU 资源加载, Registry
+  // 用于生成实体)
   void initialize(ResourceManager &resources, entt::registry &registry);
 
   // 加载新关卡 (Synchronous legacy wrapper)
-  void loadNewLevel(const std::string &biome = "cave",
+  void loadNewLevel(NoMoreDay::BiomeID biome = NoMoreDay::BiomeID::Cave,
                     int width = DEFAULT_MAP_WIDTH,
                     int height = DEFAULT_MAP_HEIGHT, int level = 1);
 
@@ -40,7 +41,7 @@ public:
 
   // Async Loading Support
   // 1. Prepare data (Thread Safe, CPU Only)
-  LevelData prepareLevel(const std::string &biome, int width, int height,
+  LevelData prepareLevel(NoMoreDay::BiomeID biome, int width, int height,
                          int level);
   LevelData prepareMosaicLevel(const NoMoreDay::MosaicGrid &grid,
                                const NoMoreDay::ResonanceResult &resonance,
@@ -93,8 +94,11 @@ public:
 
   // 获取当前关卡信息
   const std::string &getCurrentBiome() const { return m_currentBiome; }
+  NoMoreDay::BiomeID getCurrentBiomeID() const;
   int getCurrentLevel() const { return m_currentLevel; }
-  const NoMoreDay::ResonanceResult& getCurrentResonance() const { return m_currentResonance; }
+  const NoMoreDay::ResonanceResult &getCurrentResonance() const {
+    return m_currentResonance;
+  }
   bool isMosaicLevel() const { return m_isMosaicLevel; }
 
 private:
@@ -116,7 +120,7 @@ private:
   static constexpr int DEFAULT_MAP_HEIGHT = 128;
 
   // 生成关卡
-  void generateLevel(const std::string &biome, int width, int height);
+  void generateLevel(NoMoreDay::BiomeID biome, int width, int height);
 
   // 在地图上生成实体 (如出口传送门)
   void spawnLevelEntities();

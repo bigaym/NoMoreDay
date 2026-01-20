@@ -10,21 +10,18 @@ std::unordered_map<uint32_t, RunewordDefinition> RunewordSystem::s_runewords;
 
 // Helper to parse strings to ItemType
 static ItemType parseItemType(const std::string &typeStr) {
-  if (typeStr == "Armor")
-    return ItemType::Armor;
-  if (typeStr == "Weapon")
-    return ItemType::Weapon;
-  if (typeStr == "Shield")
-    return ItemType::Shield;
-  // Add more granular checks (Axe, Sword etc) if we distinguish them in
-  // ItemType enum or just treat all weapons as Weapon For now, map specific
-  // weapon types to ItemType::Weapon, but we might need SubType check logic
-  // later. The simplified version treats "Axe", "Sword" etc as Weapon. The
-  // Runeword check logic will need to check ItemComponent properties (e.g.
-  // isTwoHanded, or name/tag) for specific base types.
-  if (typeStr == "Axe" || typeStr == "Sword" || typeStr == "Mace" ||
-      typeStr == "Staff")
-    return ItemType::Weapon;
+  static const std::unordered_map<std::string, ItemType> kStringToType = {
+      {"Armor", ItemType::Armor},
+      {"Weapon", ItemType::Weapon},
+      {"Shield", ItemType::Shield},
+      {"Axe", ItemType::Weapon},
+      {"Sword", ItemType::Weapon},
+      {"Mace", ItemType::Weapon},
+      {"Staff", ItemType::Weapon}
+  };
+
+  auto it = kStringToType.find(typeStr);
+  if (it != kStringToType.end()) return it->second;
   return ItemType::Material;
 }
 
@@ -167,57 +164,53 @@ RunewordSystem::checkForRuneword(const ItemComponent &item,
 
 // Helper to map string keys to AffixType
 static AffixType stringToAffixType(const std::string &key) {
-  // Attributes
-  if (key == "strength")
-    return AffixType::Strength;
-  if (key == "dexterity")
-    return AffixType::Dexterity;
-  if (key == "intelligence")
-    return AffixType::Intelligence;
-  if (key == "vitality")
-    return AffixType::Vitality;
-  if (key == "all_attributes")
-    return AffixType::AllAttributes;
+  static const std::unordered_map<std::string, AffixType> kStringToAffixType = {
+      // Attributes
+      {"strength", AffixType::Strength},
+      {"dexterity", AffixType::Dexterity},
+      {"intelligence", AffixType::Intelligence},
+      {"vitality", AffixType::Vitality},
+      {"all_attributes", AffixType::AllAttributes},
 
-  // Stats
-  if (key == "cast_speed" || key == "fcr")
-    return AffixType::CastSpeed;
-  if (key == "attack_speed" || key == "ias")
-    return AffixType::AttackSpeed;
-  if (key == "move_speed" || key == "run_speed" || key == "frw")
-    return AffixType::MoveSpeed;
-  if (key == "crit_chance")
-    return AffixType::CritChance;
-  if (key == "crit_damage")
-    return AffixType::CritDamage;
+      // Stats
+      {"cast_speed", AffixType::CastSpeed},
+      {"fcr", AffixType::CastSpeed},
+      {"attack_speed", AffixType::AttackSpeed},
+      {"ias", AffixType::AttackSpeed},
+      {"move_speed", AffixType::MoveSpeed},
+      {"run_speed", AffixType::MoveSpeed},
+      {"frw", AffixType::MoveSpeed},
+      {"crit_chance", AffixType::CritChance},
+      {"crit_damage", AffixType::CritDamage},
 
-  // Defense
-  if (key == "defense" || key == "armor")
-    return AffixType::FlatArmor;
-  if (key == "res_all" || key == "all_res")
-    return AffixType::ResistAll;
-  if (key == "res_fire" || key == "fire_res")
-    return AffixType::ResistFire;
-  if (key == "res_cold" || key == "cold_res")
-    return AffixType::ResistCold;
-  if (key == "res_light" || key == "res_lightning" || key == "lightning_res")
-    return AffixType::ResistLightning;
-  if (key == "res_poison" || key == "poison_res")
-    return AffixType::ResistPoison;
+      // Defense
+      {"defense", AffixType::FlatArmor},
+      {"armor", AffixType::FlatArmor},
+      {"res_all", AffixType::ResistAll},
+      {"all_res", AffixType::ResistAll},
+      {"res_fire", AffixType::ResistFire},
+      {"fire_res", AffixType::ResistFire},
+      {"res_cold", AffixType::ResistCold},
+      {"cold_res", AffixType::ResistCold},
+      {"res_light", AffixType::ResistLightning},
+      {"res_lightning", AffixType::ResistLightning},
+      {"lightning_res", AffixType::ResistLightning},
+      {"res_poison", AffixType::ResistPoison},
+      {"poison_res", AffixType::ResistPoison},
 
-  // Recovery
-  if (key == "mana_regen")
-    return AffixType::PercentManaRegen; // Usually D2 is percent
-  if (key == "life_regen")
-    return AffixType::HealthRegen;
+      // Recovery
+      {"mana_regen", AffixType::PercentManaRegen},
+      {"life_regen", AffixType::HealthRegen},
 
-  // Others
-  if (key == "fhr")
-    return AffixType::CooldownReduction; // Approx mapping for now
-  if (key == "all_skills")
-    return AffixType::PlusAllSkills;
-  if (key == "magic_damage_reduced" || key == "mdr")
-    return AffixType::DamageReduction; // Treated as % DR for now
+      // Others
+      {"fhr", AffixType::CooldownReduction},
+      {"all_skills", AffixType::PlusAllSkills},
+      {"magic_damage_reduced", AffixType::DamageReduction},
+      {"mdr", AffixType::DamageReduction}
+  };
+
+  auto it = kStringToAffixType.find(key);
+  if (it != kStringToAffixType.end()) return it->second;
 
   return AffixType::Count;
 }

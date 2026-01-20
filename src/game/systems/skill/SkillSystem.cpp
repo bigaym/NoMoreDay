@@ -134,7 +134,7 @@ void SkillSystem::InitHooks() {
             // Use cast_id if available, otherwise fallback to skill_id (less
             // reliable for rapid casts)
             uint64_t trackingKey =
-                (evt.cast_id != 0) ? evt.cast_id : (uint64_t)evt.skill_id;
+                (evt.castId != 0) ? evt.castId : (uint64_t)evt.skill_id;
 
             auto &tracking = intent->hit_tracking[trackingKey];
 
@@ -172,7 +172,7 @@ void SkillSystem::InitHooks() {
         // Dispatch to specific Skill Behavior
         if (evt.skill_id != 0) {
           if (auto hitFunc = SkillBehaviorRegistry::GetHit(evt.skill_id)) {
-            hitFunc(registry, evt.source, evt.target, evt.tags, evt.is_crit);
+            hitFunc(registry, evt.source, evt.target, evt.tags, evt.isCrit);
           }
         }
       },

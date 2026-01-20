@@ -3,6 +3,8 @@
 #include <cmath>
 #include <entt/entt.hpp>
 
+// namespace NoMoreDay {
+
 // AI行为类型枚举
 enum class AIType {
   IDLE,              // 闲置
@@ -38,7 +40,7 @@ struct AIComponent {
   bool isAggressive = true; // 是否具有攻击性
 
   // 帧率无关更新节流
-  float updateAccumulator = 0.0f; // 距离上次AI更新的时间累积
+  float updateAccumulator = 0.0f; // 距离上次AI更新的时间累累积
 
   // === 支援者 (SUPPORT) 专用 ===
   float buffCooldown = 5.0f;        // Buff 施放冷却时间
@@ -66,3 +68,5 @@ struct AIComponent {
 
 // 标记敌人类实体的组件
 struct EnemyTag {};
+
+// } // namespace NoMoreDay

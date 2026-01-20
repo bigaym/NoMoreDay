@@ -61,7 +61,7 @@ bool MainMenuState::OnUpdate(float dt) {
     // Transition to Loading State
     m_stateManager->ChangeState<LoadingState>(
         [levelMgr, levelData]() {
-          *levelData = levelMgr->prepareLevel("cave", 128, 128, 1);
+          *levelData = levelMgr->prepareLevel(NoMoreDay::BiomeID::Cave, 128, 128, 1);
         },
         [levelMgr, levelData](StateManager &mgr) {
           levelMgr->activateLevel(std::move(*levelData));
@@ -74,7 +74,7 @@ bool MainMenuState::OnUpdate(float dt) {
     m_stateManager->ChangeState<LoadingState>(
         [levelMgr, levelData]() {
           // Towns are usually smaller
-          *levelData = levelMgr->prepareLevel("town", 64, 64, 1);
+          *levelData = levelMgr->prepareLevel(NoMoreDay::BiomeID::Town, 64, 64, 1);
         },
         [this, levelMgr, levelData](StateManager &mgr) {
           levelMgr->activateLevel(std::move(*levelData));

@@ -855,7 +855,7 @@ public:
       bool shouldTrigger = false;
 
       // Trigger on crit (5% chance)
-      if (evt.is_crit &&
+      if (evt.isCrit &&
           NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) < 0.05f) {
         shouldTrigger = true;
       }

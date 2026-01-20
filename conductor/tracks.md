@@ -215,3 +215,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 3 days
+
+---
+
+## [x] Track: Runtime String Dependency Elimination
+- **Folder:** [./conductor/archive/string_dependency_elimination_20260120/](./conductor/archive/string_dependency_elimination_20260120/)
+- **Description:** 消除核心系统的运行时字符串依赖。将 Biomes、Material Categories 和 Astrolabe Traits 迁移至枚举（BiomeID, MaterialCategory, TraitID），同步更新 JSON 数据，并重构相关系统（LevelManager, RunewordSystem, EnemySpawnSystem）以使用静态 Map 查找代替字符串比较，显著提升性能与类型安全性。 (Completed on 2026-01-20)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1.5 days

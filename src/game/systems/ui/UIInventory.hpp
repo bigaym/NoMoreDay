@@ -1,5 +1,10 @@
 #pragma once
 #include <entt/entt.hpp>
+#include <string>
+
+namespace NoMoreDay {
+    enum class MaterialCategory : uint8_t;
+}
 
 class UIInventory {
 public:
@@ -18,6 +23,6 @@ private:
     
     // Filtering & Search
     static char m_searchBuffer[64];
-    static std::string m_selectedCategory; // Empty = All
+    static NoMoreDay::MaterialCategory m_selectedCategory; 
     static bool m_isSearchFocused;
 };

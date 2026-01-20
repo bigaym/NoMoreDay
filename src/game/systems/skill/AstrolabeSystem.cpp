@@ -10,7 +10,7 @@ namespace NoMoreDay {
 static void handle_node_effect(entt::registry& registry, entt::entity entity, const AstrolabeNodeEffect& effect, bool active) {
     switch (effect.type) {
         case AstrolabeEffectType::GrantComponent:
-            if (effect.value == "SwordHeart") {
+            if (effect.trait_id == TraitID::SwordHeart) {
                 if (active) {
                     (void)registry.get_or_emplace<SwordHeartComponent>(entity);
                     LOG_INFO("AstrolabeSystem: Entity {} granted SwordHeart trait", (uint32_t)entity);
@@ -20,7 +20,7 @@ static void handle_node_effect(entt::registry& registry, entt::entity entity, co
                         LOG_INFO("AstrolabeSystem: Entity {} revoked SwordHeart trait", (uint32_t)entity);
                     }
                 }
-            } else if (effect.value == "SwordIntentUnlock") {
+            } else if (effect.trait_id == TraitID::SwordIntentUnlock) {
                 if (active) {
                     (void)registry.get_or_emplace<SwordIntentComponent>(entity);
                     LOG_INFO("AstrolabeSystem: Entity {} unlocked Sword Intent", (uint32_t)entity);
@@ -35,18 +35,18 @@ static void handle_node_effect(entt::registry& registry, entt::entity entity, co
 
         case AstrolabeEffectType::ModifyIntent:
             if (auto* intent = registry.try_get<SwordIntentComponent>(entity)) {
-                if (effect.value.find("MaxSwordIntent:") == 0) {
+                if (effect.trait_id == TraitID::MaxSwordIntent) {
                     int bonus = std::stoi(effect.value.substr(15));
                     if (active) intent->max_stacks += bonus;
                     else intent->max_stacks -= bonus;
                     intent->stacks = std::min(intent->stacks, intent->max_stacks);
                 }
-                else if (effect.value.find("SwordIntentGain:") == 0) {
+                else if (effect.trait_id == TraitID::SwordIntentGain) {
                     float bonus = std::stof(effect.value.substr(16));
                     if (active) intent->gain_rate += bonus;
                     else intent->gain_rate -= bonus;
                 }
-                else if (effect.value.find("SwordIntentGrace:") == 0) {
+                else if (effect.trait_id == TraitID::SwordIntentGrace) {
                     float bonus = std::stof(effect.value.substr(17));
                     if (active) intent->grace_period += bonus;
                     else intent->grace_period -= bonus;

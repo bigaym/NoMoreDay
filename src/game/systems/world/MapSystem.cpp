@@ -2,7 +2,6 @@
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/Common.hpp"
 #include "game/data/BiomeRegistry.hpp"
-#include "game/systems/world/MapSystem.hpp"
 #include "game/systems/world/MosaicMapGenerator.hpp"
 #include <algorithm>
 #include <cmath>
@@ -350,7 +349,7 @@ void MapSystem::generateMap(int width, int height, const std::string &biome) {
   m_currentBiomeId = biome;
 
   // Town gets a special open layout
-  if (biome == "town") {
+  if (NoMoreDay::BiomeRegistry::Get().GetBiome(biome).numericId == NoMoreDay::BiomeID::Town) {
     generateTownMap(width, height);
   } else {
     generateCaveMap(width, height);
@@ -413,8 +412,7 @@ void MapSystem::generateMosaicMap(int width, int height,
   generator.SetMosaicData(grid, resonance, registry);
 
   // 假设 biome 由 resonance 结果决定，或者暂时默认 cave
-  m_currentBiomeId =
-      (resonance.primaryBiome.empty()) ? "cave" : resonance.primaryBiome;
+  m_currentBiomeId = (resonance.primaryBiome == NoMoreDay::BiomeID::None) ? "cave" : NoMoreDay::BiomeRegistry::Get().GetBiome(resonance.primaryBiome).id;
   const auto &biome =
       NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
 

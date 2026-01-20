@@ -11,38 +11,54 @@ LootFilterProfile LootFilter::s_currentProfile;
 // --- Helper Functions for Enum <-> String ---
 
 static Rarity stringToRarity(const std::string& str) {
+    static const std::unordered_map<std::string, Rarity> kStringToRarity = {
+        {"COMMON", Rarity::Common},
+        {"MAGIC", Rarity::Magic},
+        {"RARE", Rarity::Rare},
+        {"UNCOMMON", Rarity::Uncommon},
+        {"SET", Rarity::Set},
+        {"EPIC", Rarity::Epic},
+        {"LEGENDARY", Rarity::Legendary},
+        {"MYTHIC", Rarity::Mythic},
+        {"ANCIENT", Rarity::Ancient}
+    };
+
     std::string s = str;
     std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-    if (s == "COMMON") return Rarity::Common;
-    if (s == "MAGIC") return Rarity::Magic;
-    if (s == "RARE") return Rarity::Rare;
-    if (s == "UNCOMMON") return Rarity::Uncommon;
-    if (s == "SET") return Rarity::Set;
-    if (s == "EPIC") return Rarity::Epic;
-    if (s == "LEGENDARY") return Rarity::Legendary;
-    if (s == "MYTHIC") return Rarity::Mythic;
+    auto it = kStringToRarity.find(s);
+    if (it != kStringToRarity.end()) return it->second;
     return Rarity::Common;
 }
 
 static ItemType stringToItemType(const std::string& str) {
+    static const std::unordered_map<std::string, ItemType> kStringToItemType = {
+        {"WEAPON", ItemType::Weapon},
+        {"ARMOR", ItemType::Armor},
+        {"SHIELD", ItemType::Shield},
+        {"CONSUMABLE", ItemType::Consumable},
+        {"MATERIAL", ItemType::Material},
+        {"QUEST", ItemType::Quest},
+        {"BAG", ItemType::Bag}
+    };
+
     std::string s = str;
     std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-    if (s == "WEAPON") return ItemType::Weapon;
-    if (s == "ARMOR") return ItemType::Armor;
-    if (s == "SHIELD") return ItemType::Shield;
-    if (s == "CONSUMABLE") return ItemType::Consumable;
-    if (s == "MATERIAL") return ItemType::Material;
-    if (s == "QUEST") return ItemType::Quest;
-    if (s == "BAG") return ItemType::Bag;
+    auto it = kStringToItemType.find(s);
+    if (it != kStringToItemType.end()) return it->second;
     return ItemType::Material; 
 }
 
 static FilterActionType stringToActionType(const std::string& str) {
+    static const std::unordered_map<std::string, FilterActionType> kStringToFilterAction = {
+        {"SHOW", FilterActionType::SHOW},
+        {"HIDE", FilterActionType::HIDE},
+        {"EMPHASIZE", FilterActionType::EMPHASIZE}
+    };
+
     std::string s = str;
     std::transform(s.begin(), s.end(), s.begin(), ::toupper);
-    if (s == "SHOW") return FilterActionType::SHOW;
-    if (s == "HIDE") return FilterActionType::HIDE;
-    if (s == "EMPHASIZE") return FilterActionType::EMPHASIZE;
+    auto it = kStringToFilterAction.find(s);
+    if (it != kStringToFilterAction.end()) return it->second;
     return FilterActionType::SHOW;
 }
 

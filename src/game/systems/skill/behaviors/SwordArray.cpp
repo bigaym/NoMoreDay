@@ -107,8 +107,8 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
         *pos, array.radius, [&](entt::entity target, const Position &tPos) {
           if (target == array.owner || target == entity)
             return;
-          if (!registry.valid(target) || registry.all_of<::KilledTag>(target) ||
-              !registry.all_of<::EnemyTag, ::HealthComponent, ::Position>(
+          if (!registry.valid(target) || registry.all_of<KilledTag>(target) ||
+              !registry.all_of<EnemyTag, HealthComponent, Position>(
                   target))
             return;
 

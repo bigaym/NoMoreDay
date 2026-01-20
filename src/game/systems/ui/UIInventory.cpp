@@ -24,7 +24,7 @@ int UIInventory::m_inventoryPage = 0;
 int UIInventory::m_activeTab = 0;
 float UIInventory::m_materialScrollOffset = 0.0f;
 char UIInventory::m_searchBuffer[64] = "";
-std::string UIInventory::m_selectedCategory = "";
+NoMoreDay::MaterialCategory UIInventory::m_selectedCategory = NoMoreDay::MaterialCategory::Count; // Using Count as "All"
 bool UIInventory::m_isSearchFocused = false;
 
 bool UIInventory::IsVisible() {
@@ -527,14 +527,19 @@ void UIInventory::Draw(entt::registry& registry) {
             // 2. Categories
             float catX = searchRect.x + searchRect.width + 15.0f;
             float catH = 24.0f;
-            const char* categories[] = {"All", "Ore", "Fragment", "Rune"}; // Common categories
-            // Or dynamically find? For now static is cleaner.
+            struct CatDef { const char* label; MaterialCategory cat; };
+            static const CatDef categories[] = {
+                {"All", MaterialCategory::Count}, 
+                {"Ore", MaterialCategory::Mineral}, 
+                {"Fragment", MaterialCategory::Fragment}, 
+                {"Rune", MaterialCategory::Rune}
+            };
             
-            for (const char* cat : categories) {
-                float textW = MeasureTextEx(font, cat, 18, 1).x;
+            for (const auto& catDef : categories) {
+                float textW = MeasureTextEx(font, catDef.label, 18, 1).x;
                 float btnW = textW + 20.0f;
                 Rectangle btnRect = {catX, contentStartY + 2, btnW, catH};
-                bool isSelected = (m_selectedCategory == cat) || (std::string(cat) == "All" && m_selectedCategory.empty());
+                bool isSelected = (m_selectedCategory == catDef.cat);
                 bool isHover = CheckCollisionPointRec(mousePos, btnRect);
 
                 Color btnBg = isSelected ? theme.textHighlight : theme.buttonNormal;
@@ -543,11 +548,10 @@ void UIInventory::Draw(entt::registry& registry) {
                 DrawRectScaled(btnRect.x, btnRect.y, btnRect.width, btnRect.height, btnBg);
                 
                 Color txtColor = isSelected ? BLACK : theme.textSecondary;
-                UIRenderer::DrawTextUI(font, cat, btnRect.x + 10, btnRect.y + 2, 18, txtColor, alpha);
+                UIRenderer::DrawTextUI(font, catDef.label, btnRect.x + 10, btnRect.y + 2, 18, txtColor, alpha);
 
                 if (isHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                    if (std::string(cat) == "All") m_selectedCategory.clear();
-                    else m_selectedCategory = cat;
+                    m_selectedCategory = catDef.cat;
                     m_materialScrollOffset = 0.0f; // Reset scroll
                 }
                 
@@ -567,8 +571,8 @@ void UIInventory::Draw(entt::registry& registry) {
                 if (!def) continue;
 
                 // Category Check
-                if (!m_selectedCategory.empty()) {
-                    if (def->category != m_selectedCategory) continue;
+                if (m_selectedCategory != MaterialCategory::Count) {
+                    if (def->categoryEnum != m_selectedCategory) continue;
                 }
 
                 // Search Check

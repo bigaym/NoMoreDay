@@ -1,9 +1,9 @@
 #pragma once
+#include "game/components/Common.hpp"
 #include "game/components/MapFragmentComponent.hpp"
 #include <array>
 #include <entt/entt.hpp>
 #include <string>
-
 
 namespace NoMoreDay {
 
@@ -105,13 +105,11 @@ struct ResonanceResult {
 
   // 1字节成员
   FragmentElement dominantElement = FragmentElement::None;
+  NoMoreDay::BiomeID primaryBiome = NoMoreDay::BiomeID::Cave;
   bool hasBoss = false;
   bool hasMerchant = false;
   bool hasTreasure = false;
   bool isPerfectResonance = false;
-
-  // 字符串成员 (放在最后)
-  std::string primaryBiome = "cave";
 
   // 获取共鸣描述文字
   std::string GetSummary() const {

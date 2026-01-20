@@ -7,6 +7,7 @@
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
+#include "game/systems/world/LevelManager.hpp"
 #include <random>
 
 namespace NoMoreDay {
@@ -14,6 +15,7 @@ namespace NoMoreDay {
 // 静态成员初始化
 uint32_t FragmentDropSystem::s_killHandlerId = 0;
 bool FragmentDropSystem::s_initialized = false;
+::LevelManager* FragmentDropSystem::s_levelManager = nullptr;
 std::vector<FragmentDropSystem::DropRequest> FragmentDropSystem::s_pendingRequests;
 std::mutex FragmentDropSystem::s_requestMutex;
 
@@ -73,7 +75,7 @@ void FragmentDropSystem::Update(entt::registry &registry) {
 
   // 在主线程同步处理掉落 (线程安全)
   for (const auto& req : requests) {
-    entt::entity fragment = CreateRandomFragment(registry, req.areaLevel, req.magicFind);
+    entt::entity fragment = CreateRandomFragment(registry, req.areaLevel, req.magicFind, req.areaElement);
     if (fragment != entt::null) {
       registry.emplace<Position>(fragment, req.posX, req.posY);
       registry.emplace<LocalLevelTag>(fragment); // Clean up on map transition
@@ -137,19 +139,23 @@ void FragmentDropSystem::OnEnemyKilled(entt::registry &registry,
     return; // 没有掉落
   }
 
+  // 获取当前区域元素 (如果有关卡管理器)
+  FragmentElement areaElement = FragmentElement::None;
+  if (s_levelManager) {
+    areaElement = s_levelManager->getCurrentResonance().dominantElement;
+  }
+
   // 将请求加入队列而非直接创建 (线程安全)
   {
     std::lock_guard<std::mutex> lock(s_requestMutex);
-    s_pendingRequests.push_back({victimLevel, magicFind, posX, posY});
+    s_pendingRequests.push_back({victimLevel, magicFind, posX, posY, areaElement});
   }
 }
 
 entt::entity FragmentDropSystem::CreateRandomFragment(entt::registry &registry,
                                                       int areaLevel,
-                                                      float magicFind) {
-  // 默认区域元素为 None（可从 LevelManager 获取）
-  std::string areaElement = "";
-
+                                                      float magicFind,
+                                                      FragmentElement areaElement) {
   FragmentType type = RollFragmentType(magicFind * 0.01f);
   FragmentElement element = RollFragmentElement(areaElement);
   Rarity rarity = RollFragmentRarity(magicFind, false, false);
@@ -251,19 +257,19 @@ FragmentType FragmentDropSystem::RollFragmentType(float luck) {
 }
 
 FragmentElement
-FragmentDropSystem::RollFragmentElement(const std::string &areaElement) {
+FragmentDropSystem::RollFragmentElement(FragmentElement areaElement) {
   std::uniform_int_distribution<int> dist(0, 5);
   int roll = dist(s_fragmentRng);
 
   // 基于区域偏向某元素
-  if (!areaElement.empty()) {
-    if (areaElement == "fire" && roll < 2)
+  if (areaElement != FragmentElement::None) {
+    if (areaElement == FragmentElement::Fire && roll < 2)
       return FragmentElement::Fire;
-    if (areaElement == "ice" && roll < 2)
+    if (areaElement == FragmentElement::Cold && roll < 2)
       return FragmentElement::Cold;
-    if (areaElement == "storm" && roll < 2)
+    if (areaElement == FragmentElement::Lightning && roll < 2)
       return FragmentElement::Lightning;
-    if (areaElement == "shadow" && roll < 2)
+    if (areaElement == FragmentElement::Shadow && roll < 2)
       return FragmentElement::Shadow;
   }
 

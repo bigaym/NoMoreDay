@@ -1,7 +1,9 @@
 #include "game/data/ResonanceCalculator.hpp"
 #include "core/logging/Logger.hpp"
+#include "game/data/BiomeRegistry.hpp"
 #include <algorithm>
 #include <unordered_map>
+
 
 namespace NoMoreDay {
 
@@ -47,8 +49,10 @@ ResonanceResult ResonanceCalculator::Calculate(MosaicGrid &grid,
       result.hasTreasure = true;
 
     // 生物群系 (使用第一个非空的覆盖)
-    if (!fragment->biomeOverride.empty() && result.primaryBiome == "cave") {
-      result.primaryBiome = fragment->biomeOverride;
+    if (!fragment->biomeOverride.empty() &&
+        result.primaryBiome == NoMoreDay::BiomeID::Cave) {
+      result.primaryBiome =
+          BiomeRegistry::Get().GetBiome(fragment->biomeOverride).numericId;
     }
   }
 
@@ -103,13 +107,14 @@ ResonanceResult ResonanceCalculator::Calculate(MosaicGrid &grid,
       maxCount == MosaicGrid::TOTAL_CELLS &&
       result.dominantElement != FragmentElement::None) {
     result.isPerfectResonance = true;
-    
+
     // 完美共鸣是最终翻倍
     result.totalEnemyDensity *= PERFECT_MULTIPLIER;
     result.totalDropRate *= PERFECT_MULTIPLIER;
-    
-    LOG_INFO("Perfect Resonance achieved! Element: {}, final multiplier applied",
-             static_cast<int>(result.dominantElement));
+
+    LOG_INFO(
+        "Perfect Resonance achieved! Element: {}, final multiplier applied",
+        static_cast<int>(result.dominantElement));
   }
 
   LOG_DEBUG("Resonance calculated: density={:.2f}, drop={:.2f}, chains={}",
