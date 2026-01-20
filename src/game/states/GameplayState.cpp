@@ -1,17 +1,19 @@
 #include "game/states/GameplayState.hpp"
-#include "game/systems/world/PortalSystem.hpp" // Moved up
 #include "app/SharedContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/scene/StateManager.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp" // Added
+#include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/states/InventoryState.hpp"
 #include "game/states/MosaicEditorState.hpp"
 #include "game/states/PauseState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/world/LevelManager.hpp"
+#include "game/systems/world/PortalSystem.hpp" // Moved up
+
 
 // Systems
 #include "engine/input/InputSystem.hpp"
@@ -23,12 +25,13 @@
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/systems/ai/AISystem.hpp"
+#include "game/systems/combat/CombatHistorySystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/EliteModifierSystem.hpp"
-#include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/HazardSystem.hpp"
+#include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/RegenerationSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/combat/VisualFXSystem.hpp"
@@ -41,11 +44,11 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/systems/ui/MonsterHealthBarSystem.hpp"
-#include "game/systems/vfx/GhostSystem.hpp"
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "game/systems/ui/UICharacter.hpp"
 #include "game/systems/ui/UIMinimap.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "game/systems/vfx/GhostSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
@@ -70,6 +73,7 @@ void GameplayState::OnEnter() {
   // Initialize Elite Modifiers (SoulLink, Avenger)
   EliteModifierSystem::Init();
   MonsterAffixSystem::Init();
+  CombatHistorySystem::Init();
   FragmentDropSystem::Init();
 
   // GPU Skill Effect System is initialized in Game.cpp (Global)
@@ -197,6 +201,7 @@ void GameplayState::InitializeEntities() {
   registry.emplace<TextureIDComponent>(player, playerAsset.id);
   registry.emplace<MovementStanceComponent>(player);
   registry.emplace<MovementAccumulator>(player);
+  registry.emplace<PlayerCombatHistory>(player);
 
   // Set up Inventory
 
@@ -230,8 +235,6 @@ void GameplayState::InitializeEntities() {
   active.specialized_slots[0].skill_id = 1;
   active.specialized_slots[1].skill_id = 2;
   active.available_talent_points = 49; // Give 49 points for testing
-
-
 
   // Ensure some mana
   auto &stats = registry.get<CombatStats>(player);
@@ -296,6 +299,8 @@ void GameplayState::InitializeEntities() {
 void GameplayState::OnExit() {
   LOG_INFO("Exiting GameplayState...");
   EliteModifierSystem::Shutdown();
+
+  CombatHistorySystem::Shutdown();
   FragmentDropSystem::Shutdown();
   // Cleanup logic if needed.
   // Note: Game::cleanup will handle the global registry clear.
@@ -349,7 +354,8 @@ bool GameplayState::OnUpdate(float dt) {
   // Spatial Grid Rebuild (Exclude items/gold to keep AI/physics search fast)
   // Move rebuild here so systems use fresh data this frame
   {
-    auto gridView = registry.view<Position>(entt::exclude<NoMoreDay::ItemComponent, GoldComponent>);
+    auto gridView = registry.view<Position>(
+        entt::exclude<NoMoreDay::ItemComponent, GoldComponent>);
     m_spatialGrid.rebuild(gridView, registry);
   }
 
@@ -396,6 +402,7 @@ bool GameplayState::OnUpdate(float dt) {
   RegenerationSystem::update(registry, dt);
   EliteModifierSystem::Update(registry, dt);
   MonsterAffixSystem::Update(registry, dt);
+  CombatHistorySystem::Update(registry, dt);
   NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
   DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
   FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
@@ -628,8 +635,10 @@ void GameplayState::UpdatePhysics(float dt) {
   int worldSizeW = map.getWidth() * (int)GRID_TILE_SIZE;
   int worldSizeH = map.getHeight() * (int)GRID_TILE_SIZE;
   // Fallback if map not ready
-  if (worldSizeW == 0) worldSizeW = WORLD_WIDTH;
-  if (worldSizeH == 0) worldSizeH = WORLD_HEIGHT;
+  if (worldSizeW == 0)
+    worldSizeW = WORLD_WIDTH;
+  if (worldSizeH == 0)
+    worldSizeH = WORLD_HEIGHT;
 
   // Phase 1: Resolve Collisions
   auto resolveTask = m_taskflow.for_each(
@@ -739,10 +748,10 @@ void GameplayState::OnRender() {
 
   // Fog
   m_context->levelManager->getFogSystem().renderFog();
-  
+
   // Ghost Snapshots
   NoMoreDay::systems::GhostSystem::Render(registry);
-  
+
   EndMode2D();
 
   // UI

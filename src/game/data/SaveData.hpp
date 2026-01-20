@@ -3,12 +3,12 @@
 #include "game/components/Progression.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
+#include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SerializedItem.hpp"
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-
 
 namespace NoMoreDay {
 
@@ -48,6 +48,7 @@ struct CharacterSaveData {
   // Progression Systems
   ActiveSkillsComponent skills;
   AstrolabeComponent astrolabe;
+  PlayerCombatHistory combatHistory;
 
   // Note: QuestState and other world variables should be added here in the
   // future.
@@ -56,6 +57,6 @@ struct CharacterSaveData {
 // JSON serialization for the root DTO
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CharacterSaveData, header, primaryStats,
                                    position, mapId, gold, inventory, equipment,
-                                   skills, astrolabe)
+                                   skills, astrolabe, combatHistory)
 
 } // namespace NoMoreDay

@@ -1,14 +1,14 @@
 #include "game/systems/world/MapSystem.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/Common.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/systems/world/MapSystem.hpp"
-#include "game/data/BiomeRegistry.hpp"
 #include "game/systems/world/MosaicMapGenerator.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/AdvancedAffixComponents.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
 #include <queue>
+
 
 MapSystem::MapSystem() : m_gen(std::random_device{}()) {}
 
@@ -32,7 +32,8 @@ MapGenerator::MapData CaveMapGenerator::Generate(int width, int height,
   // 1. 初始化
   using namespace NoMoreDay::Constants::Generator::Cave;
   for (auto &tile : map.grid) {
-    tile.type = (dist(gen) < INITIAL_WALL_PROB) ? Tile::Type::WALL : Tile::Type::FLOOR;
+    tile.type =
+        (dist(gen) < INITIAL_WALL_PROB) ? Tile::Type::WALL : Tile::Type::FLOOR;
   }
 
   // 辅助 buffer
@@ -203,10 +204,12 @@ void CaveMapGenerator::GenerateObstacles(std::vector<Tile> &grid, int w, int h,
 
   // 4. 清理残留的极小岛屿
   using namespace NoMoreDay::Constants::Generator::Cave;
-  RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_WALL, Tile::Type::WALL, Tile::Type::FLOOR);
- 
+  RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_WALL, Tile::Type::WALL,
+                     Tile::Type::FLOOR);
+
   // 5. 填充大岩块内部的小孔洞
-  RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_FLOOR, Tile::Type::FLOOR, Tile::Type::WALL);
+  RemoveSmallRegions(grid, w, h, REGION_THRESHOLD_FLOOR, Tile::Type::FLOOR,
+                     Tile::Type::WALL);
 }
 
 void CaveMapGenerator::RemoveSmallRegions(std::vector<Tile> &grid, int w, int h,
@@ -337,14 +340,15 @@ void MapSystem::generateCaveMap(int width, int height) {
   using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
-    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
+    m_cachedCostMap[i] =
+        m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
   }
   m_costMapDirty = false;
 }
 
 void MapSystem::generateMap(int width, int height, const std::string &biome) {
   m_currentBiomeId = biome;
-  
+
   // Town gets a special open layout
   if (biome == "town") {
     generateTownMap(width, height);
@@ -357,13 +361,13 @@ void MapSystem::generateTownMap(int width, int height) {
   m_mapData.width = width;
   m_mapData.height = height;
   m_mapData.grid.resize(width * height);
-  
+
   // Fill with floor tiles
   for (auto &tile : m_mapData.grid) {
     tile.type = Tile::Type::FLOOR;
     tile.visibility = 1; // Towns are fully explored by default
   }
-  
+
   // Add walls only at the borders
   for (int x = 0; x < width; ++x) {
     m_mapData.grid[0 * width + x].type = Tile::Type::WALL;
@@ -373,28 +377,29 @@ void MapSystem::generateTownMap(int width, int height) {
     m_mapData.grid[y * width + 0].type = Tile::Type::WALL;
     m_mapData.grid[y * width + (width - 1)].type = Tile::Type::WALL;
   }
-  
+
   // Place spawn point (STAIRS_UP) near center
   int cx = width / 2;
   int cy = height / 2;
   m_mapData.grid[cy * width + cx].type = Tile::Type::STAIRS_UP;
-  
+
   // Place exit portal (STAIRS_DOWN) - leads to dungeon
   // Safe bounds check
   using namespace NoMoreDay::Constants::World::Map;
   int exitX = std::clamp(cx + TOWN_EXIT_OFFSET, 1, width - 2);
   int exitY = std::clamp(cy - TOWN_EXIT_OFFSET, 1, height - 2);
   m_mapData.grid[exitY * width + exitX].type = Tile::Type::STAIRS_DOWN;
-  
+
   // Initialize flow field
   m_flowField.resize(m_mapData.width * m_mapData.height);
   m_distanceField.resize(m_mapData.width * m_mapData.height);
-  
+
   // Initialize cached cost map
   using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
-    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
+    m_cachedCostMap[i] =
+        m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
   }
   m_costMapDirty = false;
 }
@@ -429,7 +434,8 @@ void MapSystem::generateMosaicMap(int width, int height,
   using namespace NoMoreDay::Constants::World::Map;
   m_cachedCostMap.resize(m_mapData.grid.size());
   for (size_t i = 0; i < m_mapData.grid.size(); i++) {
-    m_cachedCostMap[i] = m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
+    m_cachedCostMap[i] =
+        m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
   }
   m_costMapDirty = false;
 }
@@ -446,16 +452,22 @@ void MapSystem::render(const Camera2D &camera) const {
   // 简单的视锥剔除
   using namespace NoMoreDay::Constants::World;
   using namespace NoMoreDay::Constants::World::Map;
-  int startX = static_cast<int>(
-                   (camera.target.x - camera.offset.x / camera.zoom) / GRID_TILE_SIZE) -
-               2;
-  int startY = static_cast<int>(
-                   (camera.target.y - camera.offset.y / camera.zoom) / GRID_TILE_SIZE) -
-               2;
+  int startX =
+      static_cast<int>((camera.target.x - camera.offset.x / camera.zoom) /
+                       GRID_TILE_SIZE) -
+      2;
+  int startY =
+      static_cast<int>((camera.target.y - camera.offset.y / camera.zoom) /
+                       GRID_TILE_SIZE) -
+      2;
   int endX =
-      startX + static_cast<int>((GetScreenWidth() / camera.zoom) / GRID_TILE_SIZE) + (int)RENDER_PADDING;
+      startX +
+      static_cast<int>((GetScreenWidth() / camera.zoom) / GRID_TILE_SIZE) +
+      (int)RENDER_PADDING;
   int endY =
-      startY + static_cast<int>((GetScreenHeight() / camera.zoom) / GRID_TILE_SIZE) + (int)RENDER_PADDING;
+      startY +
+      static_cast<int>((GetScreenHeight() / camera.zoom) / GRID_TILE_SIZE) +
+      (int)RENDER_PADDING;
 
   startX = std::max(0, startX);
   startY = std::max(0, startY);
@@ -490,7 +502,8 @@ void MapSystem::render(const Camera2D &camera) const {
       }
 
       using namespace NoMoreDay::Constants::World;
-      DrawRectangle(x * (int)GRID_TILE_SIZE, y * (int)GRID_TILE_SIZE, (int)GRID_TILE_SIZE, (int)GRID_TILE_SIZE, color);
+      DrawRectangle(x * (int)GRID_TILE_SIZE, y * (int)GRID_TILE_SIZE,
+                    (int)GRID_TILE_SIZE, (int)GRID_TILE_SIZE, color);
     }
   }
 }
@@ -631,7 +644,8 @@ Position MapSystem::getPathNextStep(const Position &start,
       if (distSq < minCost) {
         minCost = distSq;
         using namespace NoMoreDay::Constants::World;
-        nextStep = {nx * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f), ny * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f)};
+        nextStep = {nx * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f),
+                    ny * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f)};
         found = true;
       }
     }
@@ -668,23 +682,27 @@ void MapSystem::initializeFogTexture(int width, int height) {
   // 辅助函数
 }
 
-entt::entity MapSystem::spawnDynamicObstacle(entt::registry& registry, const Rectangle& bounds, float duration) {
-    auto entity = registry.create();
-    // Position at center
-    registry.emplace<Position>(entity, bounds.x + bounds.width * 0.5f, bounds.y + bounds.height * 0.5f);
-    registry.emplace<LocalLevelTag>(entity);
-    // Static collider
-    ColliderComponent collider;
-    collider.width = bounds.width;
-    collider.height = bounds.height;
-    collider.type = ColliderType::Static;
-    registry.emplace<ColliderComponent>(entity, collider);
-    
-    // Dynamic obstacle logic (lifetime)
-    registry.emplace<NoMoreDay::DynamicObstacleComponent>(entity, duration, 1);
-    
-    // Optional: Add visual component here if needed, or handle in VisualFXSystem
-    // For now, PhysicsSystem will handle the improved collision
+entt::entity MapSystem::spawnDynamicObstacle(entt::registry &registry,
+                                             const Rectangle &bounds,
+                                             float duration) {
+  auto entity = registry.create();
+  // Position at center
+  registry.emplace<Position>(entity, bounds.x + bounds.width * 0.5f,
+                             bounds.y + bounds.height * 0.5f);
+  registry.emplace<LocalLevelTag>(entity);
+  // Static collider
+  ColliderComponent collider;
+  collider.width = bounds.width;
+  collider.height = bounds.height;
+  collider.type = ColliderType::Static;
+  registry.emplace<ColliderComponent>(entity, collider);
 
-    return entity;
+  // Dynamic obstacle logic (lifetime)
+  registry.emplace<NoMoreDay::DynamicObstacleComponent>(entity, duration,
+                                                        (uint8_t)1);
+
+  // Optional: Add visual component here if needed, or handle in VisualFXSystem
+  // For now, PhysicsSystem will handle the improved collision
+
+  return entity;
 }

@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-
 namespace NoMoreDay {
 
 /**
@@ -45,12 +44,12 @@ public:
   GenerateDisplayName(FactionType faction,
                       const std::vector<std::string> &affixes);
 
-private:
   /**
    * @brief Select affixes based on player kill history.
    */
-  static std::vector<std::string> SelectAffixes();
+  static std::vector<std::string> SelectAffixes(entt::registry &registry);
 
+public:
   /**
    * @brief Determine counter resistances based on player's main damage type.
    */
@@ -58,6 +57,7 @@ private:
 
   /**
    * @brief Create the Nemesis entity with all components.
+   * Public for testing.
    */
   static entt::entity
   CreateNemesisEntity(entt::registry &registry, FactionType faction,

@@ -113,6 +113,11 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
   if (registry.all_of<AstrolabeComponent>(playerEntity))
     data.astrolabe = registry.get<AstrolabeComponent>(playerEntity);
 
+  // Combat History (Nemesis System)
+  if (registry.all_of<PlayerCombatHistory>(playerEntity)) {
+    data.combatHistory = registry.get<PlayerCombatHistory>(playerEntity);
+  }
+
   // Header
   data.header.name = "Hero"; // TODO: Implement name selection
   data.header.characterClass = "SwordCultivator";
@@ -156,6 +161,7 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   // Skills & Astrolabe
   registry.emplace<ActiveSkillsComponent>(player, data.skills);
   registry.emplace<AstrolabeComponent>(player, data.astrolabe);
+  registry.emplace<PlayerCombatHistory>(player, data.combatHistory);
 
   // Re-apply traits if necessary (e.g. SwordHeart if activated in Astrolabe)
   // This usually happens in a progression system or during recount.

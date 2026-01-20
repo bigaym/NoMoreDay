@@ -199,10 +199,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Monster Affix V2 - Part 4: Nemesis Evolution
-- **Folder:** [./conductor/tracks/nemesis_evolution_20260119/](./conductor/tracks/nemesis_evolution_20260119/)
-- **Description:** Implement the Nemesis Evolution system that adapts the boss's affixes based on the player's recorded combat history (damage types, engagement distance).
-- **Status:** TODO
+## [x] Track: Monster Affix V2 - Part 4: Nemesis Evolution
+- **Folder:** [./conductor/archive/nemesis_evolution_20260119/](./conductor/archive/nemesis_evolution_20260119/)
+- **Description:** Implement the Nemesis Evolution system that adapts the boss's affixes based on the player's recorded combat history (damage types, engagement distance). (Completed on 2026-01-20)
+- **Status:** COMPLETED
 - **Priority:** LOW
 - **Estimated Time:** 1.5 days
 

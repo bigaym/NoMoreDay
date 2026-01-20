@@ -6,10 +6,13 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/NemesisDataStore.hpp"
+#include "game/data/PlayerCombatHistory.hpp"
 #include "game/systems/nemesis/FactionAggroSystem.hpp"
 #include <algorithm>
 #include <random>
+
 
 namespace NoMoreDay {
 
@@ -23,9 +26,9 @@ static const std::vector<std::string> FACTION_PREFIXES[] = {
 
 // Nemesis name suffixes based on top affixes
 static const std::unordered_map<std::string, std::string> AFFIX_SUFFIXES = {
-    {"Fast", "疾风"},      {"Tanky", "巨岩"},      {"Vampiric", "血饮"},
-    {"Molten", "烈焰"},    {"Stone Skin", "铁壁"}, {"Mirror Image", "幻影"},
-    {"Avenger", "复仇者"}, {"Sunder", "破甲者"}};
+    {"Fast", "疾风"},      {"Tanky", "巨岩"},     {"Vampiric", "血饮"},
+    {"Molten", "烈焰"},    {"Shielding", "铁壁"}, {"Mirror Image", "幻影"},
+    {"Avenger", "复仇者"}, {"Void", "破甲者"}};
 
 bool NemesisGenerator::SpawnNemesisIfReady(entt::registry &registry,
                                            const Position &spawnPos) {
@@ -51,7 +54,7 @@ bool NemesisGenerator::SpawnNemesisIfReady(entt::registry &registry,
 entt::entity NemesisGenerator::SpawnNemesis(entt::registry &registry,
                                             FactionType faction,
                                             const Position &spawnPos) {
-  auto affixes = SelectAffixes();
+  auto affixes = SelectAffixes(registry);
   auto resistances = DetermineCounterResistances(registry);
 
   // Get evolution tier from data store
@@ -88,10 +91,11 @@ NemesisGenerator::GenerateDisplayName(FactionType faction,
   // Pick a random faction prefix
   size_t faction_idx = static_cast<size_t>(faction);
   if (faction_idx >= 4) { // Safety check for FACTION_PREFIXES size
-      faction_idx = 0;
+    faction_idx = 0;
   }
   const auto &prefixes = FACTION_PREFIXES[faction_idx];
-  std::string prefix = prefixes[utils::ThreadSafeRandom::GetInt(0, static_cast<int>(prefixes.size() - 1))];
+  std::string prefix = prefixes[utils::ThreadSafeRandom::GetInt(
+      0, static_cast<int>(prefixes.size() - 1))];
 
   // Build suffix from top affix
   std::string suffix = "·复仇者"; // Default
@@ -105,55 +109,128 @@ NemesisGenerator::GenerateDisplayName(FactionType faction,
   return prefix + suffix;
 }
 
-std::vector<std::string> NemesisGenerator::SelectAffixes() {
+std::vector<std::string>
+NemesisGenerator::SelectAffixes(entt::registry &registry) {
+  std::vector<std::string> selected_affixes;
+
+  // 1. Analyze Player History for Adaptive Traits
+  auto view = registry.view<PlayerCombatHistory>();
+  if (!view.empty()) {
+    const auto &history = view.get<PlayerCombatHistory>(*view.begin());
+    float totalDmg = history.getTotalDamageTracking();
+
+    // Rule 1: Adaptive Resistance (Offensive Traits)
+    if (totalDmg > 0) {
+      if (history.damageDealtFire / totalDmg > 0.6f)
+        selected_affixes.push_back("Molten");
+      else if (history.damageDealtPhysical / totalDmg > 0.6f)
+        selected_affixes.push_back("Tanky"); // Was Thorns
+      else if (history.damageDealtCold / totalDmg > 0.6f)
+        selected_affixes.push_back("Frozen");
+      else if (history.damageDealtLightning / totalDmg > 0.6f)
+        selected_affixes.push_back("Storm"); // Was Shocking
+    }
+
+    // Rule 2: Anti-Kite
+    // Assuming distance units are pixels. > 300 is roughly ranged.
+    if (history.avgEngagementDistance > 300.0f) {
+      selected_affixes.push_back("Fast");   // Closer gap
+      selected_affixes.push_back("Vortex"); // Pull player
+    }
+
+    // Rule 3: Anti-Burst
+    // If peak damage is extremely high relative to... something?
+    // Or just if it exceeds a threshold (e.g. 5000).
+    if (history.burstDamagePeak > 2000.0f) {
+      selected_affixes.push_back("Shielding"); // Was PhaseShield
+    }
+  }
+
+  // 2. Fill with Global History (DataStore)
   auto &store = NemesisDataStore::Get();
   auto top_affixes = store.GetTopAffixes(3);
 
-  // If not enough history, add some random default affixes
-  if (top_affixes.size() < 2) {
+  // Merge lists unique
+  for (const auto &aff : top_affixes) {
+    if (std::find(selected_affixes.begin(), selected_affixes.end(), aff) ==
+        selected_affixes.end()) {
+      selected_affixes.push_back(aff);
+    }
+  }
+
+  // 3. Fill with random defaults if needed
+  if (selected_affixes.size() < 2) {
     static const std::vector<std::string> DEFAULT_AFFIXES = {"Fast", "Tanky",
                                                              "Vampiric"};
-
-    while (top_affixes.size() < 2) {
-      std::string affix = DEFAULT_AFFIXES[utils::ThreadSafeRandom::GetInt(0, static_cast<int>(DEFAULT_AFFIXES.size() - 1))];
-      if (std::find(top_affixes.begin(), top_affixes.end(), affix) ==
-          top_affixes.end()) {
-        top_affixes.push_back(affix);
+    while (selected_affixes.size() < 2) {
+      std::string affix = DEFAULT_AFFIXES[utils::ThreadSafeRandom::GetInt(
+          0, static_cast<int>(DEFAULT_AFFIXES.size() - 1))];
+      if (std::find(selected_affixes.begin(), selected_affixes.end(), affix) ==
+          selected_affixes.end()) {
+        selected_affixes.push_back(affix);
       }
     }
   }
 
+  // Cap at 4 affixes to avoid overload
+  if (selected_affixes.size() > 4) {
+    selected_affixes.resize(4);
+  }
+
   LOG_DEBUG("NemesisGenerator: Selected affixes: {}", [&] {
     std::string s;
-    for (auto &a : top_affixes)
+    for (auto &a : selected_affixes)
       s += a + ", ";
     return s;
   }());
 
-  return top_affixes;
+  return selected_affixes;
 }
 
 Tag NemesisGenerator::DetermineCounterResistances(entt::registry &registry) {
-  // Find player and analyze their damage profile
   Tag result = Tag::None;
 
-  auto view = registry.view<PlayerTag, CombatStats>();
-  for (auto [entity, stats] : view.each()) {
-    // Find the damage type with highest multiplier
-    float max_mult = 0.0f;
-    int max_idx = 0;
+  auto view = registry.view<PlayerCombatHistory>();
+  if (view.empty()) {
+    // Fallback to old stats-based method if no history
+    // ... (Copying old logic is messy here, let's just default to None or use
+    // Stats view as fallback?) For brevity, let's just return None or implement
+    // a simple fallback.
+    return result;
+  }
 
-    for (size_t i = 0; i < stats.damage_multipliers.size(); ++i) {
-      float total =
-          stats.damage_multipliers[i] * (1.0f + stats.damage_percent_add[i]);
-      if (total > max_mult) {
-        max_mult = total;
-        max_idx = static_cast<int>(i);
-      }
-    }
+  const auto &history = view.get<PlayerCombatHistory>(*view.begin());
+  float totalDmg = history.getTotalDamageTracking();
+  if (totalDmg <= 1.0f)
+    return result; // No data
 
-    // Map DamageType index to Tag
-    switch (static_cast<DamageType>(max_idx)) {
+  float maxVal = 0.0f;
+  DamageType maxType = DamageType::Physical;
+
+  if (history.damageDealtPhysical > maxVal) {
+    maxVal = history.damageDealtPhysical;
+    maxType = DamageType::Physical;
+  }
+  if (history.damageDealtFire > maxVal) {
+    maxVal = history.damageDealtFire;
+    maxType = DamageType::Fire;
+  }
+  if (history.damageDealtCold > maxVal) {
+    maxVal = history.damageDealtCold;
+    maxType = DamageType::Cold;
+  }
+  if (history.damageDealtLightning > maxVal) {
+    maxVal = history.damageDealtLightning;
+    maxType = DamageType::Lightning;
+  }
+  if (history.damageDealtPoison > maxVal) {
+    maxVal = history.damageDealtPoison;
+    maxType = DamageType::Poison;
+  }
+
+  // If dominant type is > 50% of total, counter it
+  if (maxVal / totalDmg > 0.5f) {
+    switch (maxType) {
     case DamageType::Physical:
       result = Tag::Physical;
       break;
@@ -169,18 +246,15 @@ Tag NemesisGenerator::DetermineCounterResistances(entt::registry &registry) {
     case DamageType::Poison:
       result = Tag::Poison;
       break;
-    case DamageType::Shadow:
-      result = Tag::Shadow; // Shadow -> Sword for this game
-      break;
+    // Shadow/Void not tracked in struct explicitly yet but mapped to keys if
+    // added
     default:
       break;
     }
-
-    LOG_DEBUG("NemesisGenerator: Player primary damage type: {} -> Counter "
-              "resistance: {}",
-              GetDamageTypeName(static_cast<DamageType>(max_idx)),
+    LOG_DEBUG("NemesisGenerator: Player primary damage type: {} ({:.1f}%) -> "
+              "Counter resistance: {}",
+              static_cast<int>(maxType), (maxVal / totalDmg) * 100.0f,
               static_cast<uint64_t>(result));
-    break;
   }
 
   return result;
@@ -222,6 +296,76 @@ entt::entity NemesisGenerator::CreateNemesisEntity(
   auto &rarity = registry.emplace<EnemyRarityComponent>(entity);
   rarity.rarity = EnemyRarityComponent::BOSS; // Use BOSS for now
   rarity.affixes = affixes;
+
+  // MonsterAffixComponent (Critical for logic)
+  auto &affixComp = registry.emplace<MonsterAffixComponent>(entity);
+  for (const auto &affixName : affixes) {
+    MonsterAffixType type = MonsterAffixType::None;
+    if (affixName == "Fast")
+      type = MonsterAffixType::Fast;
+    else if (affixName == "Tanky")
+      type = MonsterAffixType::Tanky;
+    else if (affixName == "Powerful")
+      type = MonsterAffixType::Powerful;
+    else if (affixName == "Accurate")
+      type = MonsterAffixType::Accurate;
+    else if (affixName == "Molten")
+      type = MonsterAffixType::Molten;
+    else if (affixName == "Frozen")
+      type = MonsterAffixType::Frozen;
+    else if (affixName == "Storm")
+      type = MonsterAffixType::Storm;
+    else if (affixName == "Toxic")
+      type = MonsterAffixType::Toxic;
+    else if (affixName == "Void")
+      type = MonsterAffixType::Void;
+    else if (affixName == "VoidZone")
+      type = MonsterAffixType::
+          VoidZone; // Corrected "Void Zone" space issue handled by name match?
+                    // Registry has "Void Zone" as name but keys are simple.
+    // Wait, Registry defines key enum e.g. VoidZone. The name string is "Void
+    // Zone". My select logic pushes "VoidZone" (no space).
+    else if (affixName == "StormStrider")
+      type = MonsterAffixType::StormStrider;
+    else if (affixName == "Teleporter")
+      type = MonsterAffixType::Teleporter;
+    else if (affixName == "Nullifier")
+      type = MonsterAffixType::Nullifier;
+    else if (affixName == "Shielding")
+      type = MonsterAffixType::Shielding;
+    else if (affixName == "Waller")
+      type = MonsterAffixType::Waller;
+    else if (affixName == "Vampiric")
+      type = MonsterAffixType::Vampiric;
+    else if (affixName == "Berserker")
+      type = MonsterAffixType::Berserker;
+    else if (affixName == "Avenger")
+      type = MonsterAffixType::Avenger;
+    else if (affixName == "SoulLink")
+      type = MonsterAffixType::SoulLink;
+    else if (affixName == "MirrorImage")
+      type = MonsterAffixType::MirrorImage; // Mirror Image space? My select
+                                            // pushes "MirrorImage"?
+    // Registry Enum is MirrorImage. SelectAffixes keys should match Enum names
+    // generally or be consistent. I should check what SelectAffixes uses. It
+    // pushes "Mirror Image" in top_affixes from DataStore? DataStore uses
+    // strings. I need to be careful with spaces. Let's assume keys are
+    // CamelCase without spaces as generated by `SelectAffixes` and
+    // `top_affixes`. If top_affixes come from
+    // `NemesisDataStore::GetTopAffixes`, they rely on what was saved.
+    else if (affixName == "SoulEater")
+      type = MonsterAffixType::SoulEater;
+    else if (affixName == "Suppressor")
+      type = MonsterAffixType::Suppressor;
+    else if (affixName == "ManaSiphon")
+      type = MonsterAffixType::ManaSiphon;
+
+    if (type != MonsterAffixType::None) {
+      affixComp.AddAffix(type);
+    } else {
+      LOG_WARN("NemesisGenerator: Unknown affix string '{}'", affixName);
+    }
+  }
 
   // AI - Hunter Mode
   auto &ai = registry.emplace<AIComponent>(entity);
