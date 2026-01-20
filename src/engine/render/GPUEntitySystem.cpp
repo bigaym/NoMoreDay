@@ -7,6 +7,7 @@
 #include "game/components/Projectile.hpp" // Added
 #include "game/registry/GroupRegistry.hpp"
 #include "rlgl.h"
+#include "raymath.h"
 
 namespace NoMoreDay::systems {
 
@@ -46,10 +47,12 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
                            RL_DYNAMIC_DRAW);
 
   m_localData.resize(m_maxEntities);
+  m_mdiInstanceData.resize(m_maxEntities);
   m_gridCounts.resize(numCells);
   m_gridOffsets.resize(numCells);
 
   InitRender(resources);
+  NoMoreDay::render::MDIRenderer::Get().Init(resources, m_maxEntities);
 }
 
 void GPUEntitySystem::InitRender(ResourceManager &rm) {
@@ -73,11 +76,43 @@ void GPUEntitySystem::InitRender(ResourceManager &rm) {
 }
 
 void GPUEntitySystem::Render() {
-  // DISABLED: Red circle entity markers are disabled for cleaner visuals.
-  // The GPU physics simulation still runs, only visual markers are hidden.
-  // To re-enable, remove the 'return' below.
-  return;
+  bool useMDI = true; // Could be Config::Get().useMDI
 
+  if (useMDI && NoMoreDay::render::MDIRenderer::Get().IsInitialized()) {
+      Matrix mv = rlGetMatrixModelview();
+      Matrix proj = rlGetMatrixProjection();
+      Matrix mvp = MatrixMultiply(mv, proj);
+      
+      // Calculate View Bounds (World Space AABB of the screen)
+      Matrix invMVP = MatrixInvert(mvp);
+      Vector3 ndcMin = {-1.0f, -1.0f, 0.0f};
+      Vector3 ndcMax = {1.0f, 1.0f, 0.0f};
+      Vector3 worldMin = Vector3Transform(ndcMin, invMVP);
+      Vector3 worldMax = Vector3Transform(ndcMax, invMVP);
+
+      // Simple min/max for AABB
+      Vector4 viewBounds;
+      viewBounds.x = fminf(worldMin.x, worldMax.x);
+      viewBounds.y = fminf(worldMin.y, worldMax.y);
+      viewBounds.z = fmaxf(worldMin.x, worldMax.x);
+      viewBounds.w = fmaxf(worldMin.y, worldMax.y);
+
+      // Margin
+      float margin = 120.0f; 
+      viewBounds.x -= margin;
+      viewBounds.y -= margin;
+      viewBounds.z += margin;
+      viewBounds.w += margin;
+
+      auto& mdi = NoMoreDay::render::MDIRenderer::Get();
+      mdi.Cull(viewBounds);
+      mdi.Render(mvp);
+  } else {
+      RenderLegacy();
+  }
+}
+
+void GPUEntitySystem::RenderLegacy() {
   if (m_maxEntities <= 0 || m_renderShader.id == 0)
     return;
 
@@ -130,10 +165,21 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     // Entity types (simplified for now)
     m_localData[index].type = registry.all_of<EnemyTag>(entity) ? 1 : 0;
 
+    // Phase 1 MDI Data Population
+    auto& mdi = m_mdiInstanceData[index];
+    mdi.position = m_localData[index].position;
+    mdi.scale = {m_localData[index].radius * 2.0f, m_localData[index].radius * 2.0f};
+    mdi.rotation = 0.0f; // Placeholder
+    mdi.textureIndex = m_localData[index].type;
+    mdi.flags = 0;
+
     index++;
   }
   m_entityBuffer.Update(m_localData.data(),
                         m_maxEntities * sizeof(components::GPUEntity));
+  
+  // Update MDI Buffer
+  NoMoreDay::render::MDIRenderer::Get().UpdateInstances(m_mdiInstanceData);
 
   // 2. Build Grid
   int gridCols = 5000 / 32 + 1;
@@ -276,6 +322,7 @@ void GPUEntitySystem::Shutdown() {
   m_cellOffsetBuffer.Release();
   m_entityIndicesBuffer.Release();
   m_tempCountBuffer.Release();
+  NoMoreDay::render::MDIRenderer::Get().Shutdown();
 }
 
 } // namespace NoMoreDay::systems

@@ -1,0 +1,49 @@
+#version 430 core
+layout(local_size_x = 256) in;
+
+// Must match GPUInstanceData in MDIRenderer.hpp
+struct InstanceData {
+    vec2 position;
+    vec2 scale; // x for scale, y unused or independent
+    float rotation;
+    uint textureIndex;
+    uint flags;
+    float _padding;
+};
+
+layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
+layout(std430, binding = 1) buffer VisibleIndices { uint visibleIndices[]; };
+layout(std430, binding = 2) buffer DrawCommand { 
+    uint count;
+    uint instanceCount;
+    uint first;
+    uint baseInstance;
+};
+
+uniform vec4 viewBounds; // x=minX, y=minY, z=maxX, w=maxY
+uniform uint maxEntities;
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= maxEntities) return;
+    
+    InstanceData e = entities[id];
+    
+    // Skip if invalid scale (assuming scale.x is the primary scale)
+    if (e.scale.x <= 0.0) return;
+    
+    vec2 pos = e.position;
+    
+    // Bounds check (Axis Aligned)
+    // viewBounds: [minX, minY, maxX, maxY]
+    // Consider adding entity radius for better culling if available (e.g. from scale if it represents radius)
+    // For now purely center based as requested.
+    bool visible = (pos.x >= viewBounds.x && pos.x <= viewBounds.z &&
+                    pos.y >= viewBounds.y && pos.y <= viewBounds.w);
+    
+    if (visible) {
+        // Atomic increment of instanceCount
+        uint idx = atomicAdd(instanceCount, 1);
+        visibleIndices[idx] = id;
+    }
+}

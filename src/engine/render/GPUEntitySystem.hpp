@@ -3,6 +3,7 @@
 #include <vector>
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/MDIRenderer.hpp"
 #include "engine/resource/ResourceManager.hpp"
 
 namespace NoMoreDay::systems {
@@ -19,6 +20,7 @@ public:
     void Update(entt::registry& registry, float dt);
     void SyncBack(entt::registry& registry);
     void Render(); // Render instanced entities
+    void RenderLegacy(); // CPU-Instanced rendering (Fallback)
 
     void Shutdown();
 
@@ -37,6 +39,7 @@ private:
     std::vector<components::GPUEntity> m_localData;
     std::vector<uint32_t> m_gridCounts;
     std::vector<uint32_t> m_gridOffsets;
+    std::vector<NoMoreDay::render::GPUInstanceData> m_mdiInstanceData;
 
     // Compute Shaders
     Shader m_physicsShader;

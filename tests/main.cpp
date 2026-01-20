@@ -18,6 +18,7 @@ using namespace NoMoreDay;
 #include "integration/GameplaySystems.hpp"
 #include "integration/NemesisScalingTest.hpp"
 #include "integration/SkillSystemTests.hpp"
+#include "integration/MDIRenderTest.hpp"
 
 // --- Functional Tests ---
 #include "functional/SkillBehaviors.hpp"
@@ -30,6 +31,7 @@ using namespace NoMoreDay;
 // --- Performance Benchmarks ---
 #include "performance/DropSystemBenchmark.hpp"
 #include "performance/StatsBenchmark.hpp"
+#include "performance/MDIRenderBenchmark.hpp"
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>
