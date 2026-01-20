@@ -31,7 +31,9 @@ TEST_CASE("Nemesis Scaling and Phase Shield") {
   // the spawned Hazard. Run Update to trigger Molten spawn Molten spawns every
   // interval. Force timer to interval.
   if (auto *affix = registry.try_get<MonsterAffixComponent>(nemesis)) {
-    affix->timer1 = MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL;
+    // Molten is index 0, Shielding is index 1
+    affix->timers[0] = MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL;
+    affix->timers[1] = 3.0f; // Force Shielding cooldown
   }
 
   MonsterAffixSystem::Update(registry, 0.1f);
@@ -61,42 +63,19 @@ TEST_CASE("Nemesis Scaling and Phase Shield") {
   float expectedRad = MonsterAffixRegistry::Params::MOLTEN_TRAIL_RADIUS * 1.9f;
   CHECK(hazardRadius == doctest::Approx(expectedRad).epsilon(0.01f));
 
-  // 2. Verify Phase Shield Logic
-  // Run Update again to ensure PhaseShieldComponent is added (via
-  // ProcessShielding) ProcessShielding needs timer reset? ProcessShielding adds
-  // component if missing. It runs if timer1 >= COOLDOWN. We just used timer1
-  // for Molten (shared??). MonsterAffixComponent uses timer1 and timer2. Molten
-  // uses timer1. Shielding uses timer1. CONFLICT! MonsterAffixComponent::timer1
-  // is shared. If an entity has both Molten and Shielding, they fight for
-  // timer1. Molten resets timer1 to 0.0. Shielding sees < COOLDOWN (3.0) and
-  // returns. This is a bug in MonsterAffixSystem logic (shared timers for
-  // multiple active affixes). BUT, PhaseShield logic (in ProcessShielding) adds
-  // component *before* cooldown check? Let's check my implementation of
-  // ProcessShielding.
+  // With the Refactored MonsterAffixComponent (timers array), Molten (index 0)
+  // and Shielding (index 1) now have independent timers.
+  // Verify Shielding logic triggers:
+  CHECK(registry.all_of<PhaseShieldComponent>(nemesis));
 
-  // In ProcessShielding:
-  // if (!registry.all_of<PhaseShieldComponent>(enemy)) { registry.emplace... }
-  // static constexpr float SHIELDING_COOLDOWN = 3.0f;
-  // if (affix.timer1 < SHIELDING_COOLDOWN) return;
+  // Also verify that both Molten trail spawned and Shielding check passed.
+  // If we run another update with enough time:
+  if (auto *affix = registry.try_get<MonsterAffixComponent>(nemesis)) {
+    affix->timers[1] = 3.1f; // Force Shielding
+  }
+  MonsterAffixSystem::Update(registry, 0.1f);
 
-  // So PhaseShieldComponent IS added regardless of timer.
-  // However, the function `ProcessShielding` is called inside the switch.
-  // `MonsterAffixComponent` has `timer1`.
-  // In `Update`:
-  // affix.timer1 += dt;
-  // switch(affixType) { ... case Molten: ProcessMolten(...); ... case
-  // Shielding: ProcessShielding(...); }
-
-  // If Molten runs first:
-  // ProcessMolten: checks timer1 >= 0.5. If true, resets timer1 = 0.
-  // Then Shielding runs:
-  // ProcessShielding: adds component. Checks timer1 < 3.0. Returns.
-  // So Shielding (Active effect) will NEVER fire if Molten keeps resetting
-  // timer1 to 0 every 0.5s. Because 0 < 3.0.
-
-  // FIX NEEDED: MonsterAffixComponent needs more timers or a map of timers.
-  // For now, I will proceed with the test, acknowledging this bug might exist
-  // for Active effects. But PhaseShieldComponent addition should work.
+  // The test below for PhaseShield remains valid.
 
   // Run update to add PhaseShieldComponent
   MonsterAffixSystem::Update(registry, 0.1f);
@@ -107,23 +86,21 @@ TEST_CASE("Nemesis Scaling and Phase Shield") {
   auto &ps = registry.get<PhaseShieldComponent>(nemesis);
   auto &hp = registry.get<HealthComponent>(nemesis);
 
-    // Deal burst damage > 30% HP
-    float burstDmg = hp.max * 0.35f;
-    CombatEvent evt;
-    evt.type = CombatEventType::OnTakeDamage;
-    evt.target = nemesis;
-    evt.value = burstDmg;
-    
-    // Manually trigger OnEnemyTakeDamage (since we don't have full event dispatch in test)
-    // Wait, OnEnemyTakeDamage is static private?
-    // No, it's used by lambda in Init().
-    // I need to call it. It is private.
-    // But I can use `CombatEventDispatcher` if I initialized it.
-    // `MonsterAffixSystem::Init` registers it.
-    // So I can `CombatEventDispatcher::Dispatch(evt, registry)`.
-    
-    CombatEventDispatcher::Dispatch(registry, evt);
-    
-    // Verify Invulnerability
-    CHECK(registry.any_of<InvulnerableComponent>(nemesis));
+  // Deal burst damage > 30% HP
+  float burstDmg = hp.max * 0.35f;
+  CombatEvent evt;
+  evt.type = CombatEventType::OnTakeDamage;
+  evt.target = nemesis;
+  evt.value = burstDmg;
+
+  // Manually trigger OnEnemyTakeDamage (since we don't have full event dispatch
+  // in test) Wait, OnEnemyTakeDamage is static private? No, it's used by lambda
+  // in Init(). I need to call it. It is private. But I can use
+  // `CombatEventDispatcher` if I initialized it. `MonsterAffixSystem::Init`
+  // registers it. So I can `CombatEventDispatcher::Dispatch(evt, registry)`.
+
+  CombatEventDispatcher::Dispatch(registry, evt);
+
+  // Verify Invulnerability
+  CHECK(registry.any_of<InvulnerableComponent>(nemesis));
 }

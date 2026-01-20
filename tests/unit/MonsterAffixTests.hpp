@@ -8,7 +8,6 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 
-
 using namespace NoMoreDay;
 
 TEST_CASE("Monster Affix Persistence Test") {
@@ -105,7 +104,7 @@ TEST_CASE("Monster Affix: Mirror Image Logic Test") {
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::MirrorImage);
   affix.hasOnHit = true;
-  affix.timer1 = 10.0f; // Reset cooldown
+  affix.mirrorCooldown = 0.0f; // Reset cooldown
 
   // Trigger Mirror Image via HP threshold
   auto &hp = registry.get<HealthComponent>(enemy);
