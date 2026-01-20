@@ -5,6 +5,7 @@
 #include <raymath.h>
 #include "engine/render/GPUData.hpp"
 #include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/PersistentBuffer.hpp"
 
 namespace NoMoreDay::systems {
 
@@ -84,6 +85,7 @@ private:
     unsigned int m_quadVBO = 0;
     
     // DrawIndirect command structure (must match OpenGL spec)
+    // DrawIndirect command structure (must match OpenGL spec)
     struct DrawArraysIndirectCommand {
         uint32_t count;         // = 6 (vertices per quad)
         uint32_t instanceCount; // Alive particle count (GPU writes)
@@ -92,6 +94,11 @@ private:
     };
 
     std::mutex m_emitMutex; // Protects m_stagedParticles
+    
+    // Phase 3: Emission Buffer
+    render::PersistentBuffer m_emissionBuffer;
+    Shader m_emitShader = { 0 };
+    int m_emitCountLoc = -1;
 };
 
 /**

@@ -2,6 +2,7 @@
 #include <entt/entt.hpp>
 #include <vector>
 #include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/PersistentBuffer.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/resource/ResourceManager.hpp"
@@ -28,7 +29,7 @@ private:
     GPUEntitySystem() = default;
 
     int m_maxEntities = 0;
-    core::ComputeBuffer m_entityBuffer;
+    render::PersistentBuffer m_persistentEntityBuffer;
     
     // Grid Buffers
     core::ComputeBuffer m_cellCountBuffer;

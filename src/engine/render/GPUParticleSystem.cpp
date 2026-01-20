@@ -97,6 +97,7 @@ void GPUParticleSystem::Shutdown() {
   // Buffers are cleaned up by ComputeBuffer destructor
 
   m_stagedParticles.clear();
+  m_emissionBuffer.Destroy();
   m_initialized = false;
 }
 
@@ -165,6 +166,21 @@ void GPUParticleSystem::CreateBuffers() {
   m_atomicBuffer.Create(sizeof(uint32_t));
   m_atomicBuffer.Update(&zero, sizeof(zero));
   LOG_DEBUG("GPUParticleSystem: Created atomic buffer");
+
+  // Emission Buffer (Triple Buffered)
+  using namespace NoMoreDay::Constants::Render;
+  m_emissionBuffer.Create(PARTICLE_STAGING_RESERVE * sizeof(components::GPUParticle));
+
+  std::ifstream emitFile("assets/shaders/particle_emit.compute");
+  if (emitFile.is_open()) {
+      std::stringstream ss;
+      ss << emitFile.rdbuf();
+      unsigned int shId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
+      if (shId) {
+          m_emitShader.id = rlLoadComputeShaderProgram(shId);
+          m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
+      }
+  }
 }
 
 void GPUParticleSystem::CreateQuadVAO() {
@@ -269,31 +285,52 @@ void GPUParticleSystem::Update(float dt) {
   uint32_t aliveCount = 0;
   m_atomicBuffer.Read(&aliveCount, sizeof(uint32_t));
 
-  // 4. Append New Particles to Output Buffer
-  // They are appended AFTER the compacted alive particles
-  if (!m_stagedParticles.empty()) {
-    int newCount = (int)m_stagedParticles.size();
-    size_t structSize = sizeof(components::GPUParticle);
+  // 4. Append New Particles via Compute Shader
+  if (!m_stagedParticles.empty() && m_emitShader.id != 0) {
+      int newCount = (int)m_stagedParticles.size();
+      
+      // Upload to Persistent Buffer
+      components::GPUParticle* mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
+      if (mappedPtr) {
+          memcpy(mappedPtr, m_stagedParticles.data(), newCount * sizeof(components::GPUParticle));
+      }
+      m_emissionBuffer.Flush();
 
-    // Ensure we don't overflow
-    if (aliveCount + newCount > (uint32_t)m_maxParticles) {
-      newCount = m_maxParticles - aliveCount;
-    }
+      // Dispatch Emit Shader
+      rlEnableShader(m_emitShader.id);
+      rlSetUniform(m_emitCountLoc, &newCount, RL_SHADER_UNIFORM_INT, 1);
+      
+      m_emissionBuffer.BindBase(0); // Emitted
+      bufOut.BindBase(1);           // Compacted (Destination)
+      m_atomicBuffer.BindBase(3);   // Atomic (tracks total alive)
+      
+      int workGroups = (newCount + 255) / 256;
+      rlComputeShaderDispatch(workGroups, 1, 1);
+      utils::GPUUtils::MemoryBarrier();
+      rlDisableShader();
 
-    if (newCount > 0) {
-      bufOut.Update(m_stagedParticles.data(), newCount * structSize,
-                    aliveCount * structSize);
+      // Lock current emission slot
+      m_emissionBuffer.Lock();
+
+      m_stagedParticles.clear();
+      
+      // Update local count to include newly emitted particles
+      // aliveCount holds the count BEFORE emission (from simulation step)
+      // particle_emit.compute increments m_atomicBuffer, so the GPU buffer is correct.
+      // But we need m_currentParticleCount to be correct for NEXT frame's dispatch.
       aliveCount += newCount;
-    }
-    m_stagedParticles.clear();
+  } else if (!m_stagedParticles.empty()) {
+     m_stagedParticles.clear();
   }
 
   // 5. Update state for next frame
   m_currentParticleCount = aliveCount;
 
-  // 6. Indirect Buffer is already updated by GPU (instanceCount)
-  // DrawArraysIndirectCommand cmd = { 6, aliveCount, 0, 0 };
-  // m_indirectBuffer.Update(&cmd, sizeof(cmd));
+  // 6. Update Indirect Buffer from CPU
+  // We do this to ensure instanceCount is correct and avoid shader race conditions.
+  // aliveCount now reflects (Survivors + Emitted).
+  DrawArraysIndirectCommand cmd = { 6, aliveCount, 0, 0 };
+  m_indirectBuffer.Update(&cmd, sizeof(cmd));
 
   // 7. Swap Buffers for next frame
   m_pingPong = !m_pingPong;

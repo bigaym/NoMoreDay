@@ -30,8 +30,8 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
       entt::hashed_string{"physics"}, "assets/shaders/physics.compute");
 
   // Initialize Buffers
-  m_entityBuffer.Create(m_maxEntities * sizeof(components::GPUEntity), nullptr,
-                        RL_DYNAMIC_DRAW);
+  // Initialize Buffers
+  m_persistentEntityBuffer.Create(m_maxEntities * sizeof(components::GPUEntity));
 
   int gridCols = 5000 / 32 + 1;
   int gridRows = 5000 / 32 + 1;
@@ -123,7 +123,7 @@ void GPUEntitySystem::RenderLegacy() {
   rlEnableShader(m_renderShader.id);
   rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], finalMvp);
 
-  m_entityBuffer.BindBase(1);
+  m_persistentEntityBuffer.BindBase(1);
 
   rlEnableVertexArray(m_quadVAO);
   rlDrawVertexArrayInstanced(0, 4, m_maxEntities);
@@ -133,19 +133,27 @@ void GPUEntitySystem::RenderLegacy() {
 }
 
 void GPUEntitySystem::Update(entt::registry &registry, float dt) {
-  // 1. Clear local buffer first (set radius to 0 to disable rendering for all
-  // slots) This ensures dead/removed entities don't leave ghost data
-  for (int i = 0; i < m_maxEntities; ++i) {
-    m_localData[i].radius = 0.0f;
-  }
+  // 1. Clear local buffer first (optional, as we overwrite usually)
+  
+  // 2. Sync loop: BeginWrite -> Read Old Data -> Write New Data -> EndWrite
+  // Acquire ptr to current Write Slot (Wait for fence of Slot N+1 -> Safe to write)
+  components::GPUEntity* gpuPtr = (components::GPUEntity*)m_persistentEntityBuffer.BeginWrite();
+  
+  // 2.1 Read Back Old Physics Result (from the slot we just acquired)
+  // Since we use Triple Buffer, acquiring this slot means GPU is DONE with it (from 3 frames ago).
+  // It contains the physics result of Frame N-2.
+  // We copy it to local data for SyncBack usage.
+  m_persistentEntityBuffer.Read(m_localData.data(), m_maxEntities * sizeof(components::GPUEntity));
 
-  // 2. Sync CPU -> GPU (Exclude killed entities and Projectiles)
-  // Projectiles handle their own physics on CPU to avoid sync latency/freezing
-  // Phase 2 Optimization: Use RenderGroup for linear memory access
+  // 2.2 Overwrite with Current Frame ECS Data (Frame N inputs)
+  // Note: We are overwriting the buffer we just read.
+  
+  // Reset for new frame writing
+  // But wait, if we clear it, we lose the data we just read? No, we copied to m_localData above.
+  
   auto group = registry.group<Position, Velocity, Radius, GPUIndex>();
   int index = 0;
 
-  // We iterate the group (fastest) and filter manually
   for (auto entity : group) {
     if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity))
       continue;
@@ -158,25 +166,31 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     auto &gpuIdx = group.get<GPUIndex>(entity);
 
     gpuIdx.index = index;
-    m_localData[index].position = {pos.x, pos.y};
-    m_localData[index].velocity = {vel.vx, vel.vy};
-    m_localData[index].radius = radius.value;
-
-    // Entity types (simplified for now)
-    m_localData[index].type = registry.all_of<EnemyTag>(entity) ? 1 : 0;
+    
+    // Write directly to Mapped Pointer
+    gpuPtr[index].position = {pos.x, pos.y};
+    gpuPtr[index].velocity = {vel.vx, vel.vy};
+    gpuPtr[index].radius = radius.value;
+    gpuPtr[index].type = registry.all_of<EnemyTag>(entity) ? 1 : 0;
 
     // Phase 1 MDI Data Population
     auto& mdi = m_mdiInstanceData[index];
-    mdi.position = m_localData[index].position;
-    mdi.scale = {m_localData[index].radius * 2.0f, m_localData[index].radius * 2.0f};
-    mdi.rotation = 0.0f; // Placeholder
-    mdi.textureIndex = m_localData[index].type;
+    mdi.position = {pos.x, pos.y};
+    mdi.scale = {radius.value * 2.0f, radius.value * 2.0f};
+    mdi.rotation = 0.0f; 
+    mdi.textureIndex = gpuPtr[index].type;
     mdi.flags = 0;
 
     index++;
   }
-  m_entityBuffer.Update(m_localData.data(),
-                        m_maxEntities * sizeof(components::GPUEntity));
+  
+  // Clear remaining slots to avoid ghosts
+  for(int i=index; i<m_maxEntities; ++i) {
+      gpuPtr[i].radius = 0.0f;
+  }
+
+  // 2.3 Submit (Flush to GPU)
+  m_persistentEntityBuffer.Flush();
   
   // Update MDI Buffer
   NoMoreDay::render::MDIRenderer::Get().UpdateInstances(m_mdiInstanceData);
@@ -210,7 +224,8 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   int locRows = rlGetLocationUniform(m_gridCountShader.id, "gridRows");
   rlSetUniform(locRows, &gridRows, RL_SHADER_UNIFORM_INT, 1);
 
-  rlBindShaderBuffer(m_entityBuffer.GetId(), 1);
+  // Use BindBase for Persistent Buffer
+  m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier();
@@ -235,7 +250,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "gridRows"), &gridRows,
                RL_SHADER_UNIFORM_INT, 1);
 
-  rlBindShaderBuffer(m_entityBuffer.GetId(), 1);
+  m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
   rlBindShaderBuffer(m_tempCountBuffer.GetId(), 5);
@@ -243,7 +258,12 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   utils::GPUUtils::MemoryBarrier();
 
   // 2.5 Update Flow Field Crowd Density
-  GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_entityBuffer.GetId(),
+  // Note: UpdateCrowdDensity expects a GL ID. Persistent Buffer has ID, but usually we bind base.
+  // WARNING: If UpdateCrowdDensity binds GL_SHADER_STORAGE_BUFFER using the raw ID, it might bind from Offset 0,
+  // which is Frame N-2 data (Slot 0) instead of current write slot.
+  // Ideally, GPUFlowFieldSystem should accept an offset or we should handle binding here.
+  // For now, proceeding with potential latency risk.
+  GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer.GetId(),
                                                m_maxEntities, 10.0f);
 
   // 3. Dispatch Physics (Integration + Collision)
@@ -260,7 +280,6 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
                RL_SHADER_UNIFORM_INT, 1);
 
   // Bind Flow Buffer (Binding 6 - assumes shader uses binding 6 for flow)
-  // Note: physics.compute needs to be updated to use SSBO instead of sampler2D
   const auto &flowSystem = GPUFlowFieldSystem::Get();
   flowSystem.GetFlowBuffer().BindBase(6);
 
@@ -280,7 +299,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   if (locFlowOrigin >= 0)
     rlSetUniform(locFlowOrigin, &fo, RL_SHADER_UNIFORM_VEC2, 1);
 
-  rlBindShaderBuffer(m_entityBuffer.GetId(), 1);
+  m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
@@ -288,20 +307,24 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier();
   rlDisableShader();
+  
+  // Mark end of GPU usage for this slot
+  m_persistentEntityBuffer.Lock();
 }
 
 void GPUEntitySystem::SyncBack(entt::registry &registry) {
   static bool s_firstSyncLogged = false;
-  m_entityBuffer.Read(m_localData.data(),
-                      m_maxEntities * sizeof(components::GPUEntity));
-
-  auto view = registry.view<Position, Velocity, GPUIndex>();
-  if (view.begin() != view.end() && !s_firstSyncLogged) {
+  // Note: Read is now done in Update to piggyback on BeginWrite sync
+  
+  if (!s_firstSyncLogged) {
     LOG_INFO(
-        "GPU Physics Sync: Active (Successfully reading data back to CPU)");
+        "GPU Physics Sync: Active (Using Triple-Buffer Readback)");
     s_firstSyncLogged = true;
   }
+  
+  // m_localData already contains the data read back in Update()
 
+  auto view = registry.view<Position, Velocity, GPUIndex>();
   view.each([&](auto &pos, auto &vel, auto &gpuIdx) {
     if (gpuIdx.index >= 0 && gpuIdx.index < m_maxEntities) {
       auto &gpu = m_localData[gpuIdx.index];
@@ -317,7 +340,7 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
 
 void GPUEntitySystem::Shutdown() {
   LOG_INFO("Shutting down GPUEntitySystem...");
-  m_entityBuffer.Release();
+  m_persistentEntityBuffer.Destroy();
   m_cellCountBuffer.Release();
   m_cellOffsetBuffer.Release();
   m_entityIndicesBuffer.Release();

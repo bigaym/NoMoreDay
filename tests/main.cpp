@@ -26,6 +26,7 @@ using namespace NoMoreDay;
 // --- Tech & Engine Tests ---
 #include "tech/EngineTechTests.hpp"
 #include "tech/GPUFlowFieldTest.hpp"
+#include "tech/PersistentBufferTest.hpp"
 #include "tech/UITests.hpp"
 
 // --- Performance Benchmarks ---
