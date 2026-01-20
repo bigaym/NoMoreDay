@@ -1,14 +1,14 @@
 #version 430 core
 layout(local_size_x = 256) in;
 
-// Must match GPUInstanceData in MDIRenderer.hpp
+// Must match GPUEntity in GPUData.hpp
 struct InstanceData {
     vec2 position;
-    vec2 scale; // x for scale, y unused or independent
-    float rotation;
-    uint textureIndex;
+    vec2 velocity;
+    float radius;
+    uint type;
     uint flags;
-    float _padding;
+    float padding;
 };
 
 layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
@@ -29,8 +29,8 @@ void main() {
     
     InstanceData e = entities[id];
     
-    // Skip if invalid scale (assuming scale.x is the primary scale)
-    if (e.scale.x <= 0.0) return;
+    // Skip if invalid radius
+    if (e.radius <= 0.01) return;
     
     vec2 pos = e.position;
     

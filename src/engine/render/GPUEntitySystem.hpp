@@ -40,7 +40,6 @@ private:
     std::vector<components::GPUEntity> m_localData;
     std::vector<uint32_t> m_gridCounts;
     std::vector<uint32_t> m_gridOffsets;
-    std::vector<NoMoreDay::render::GPUInstanceData> m_mdiInstanceData;
 
     // Compute Shaders
     Shader m_physicsShader;

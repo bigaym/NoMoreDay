@@ -493,7 +493,7 @@ bool GameplayState::OnUpdate(float dt) {
   for (auto entity : playerView2) {
     auto &input = playerView2.get<InputComponent>(entity);
     auto &vel = playerView2.get<Velocity>(entity);
-    const auto &pos = playerView2.get<Position>(entity);
+    auto &pos = playerView2.get<Position>(entity);
     auto &dash = playerView2.get<DashComponent>(entity);
 
     if (IsKeyPressed(KEY_SPACE))
@@ -563,6 +563,10 @@ bool GameplayState::OnUpdate(float dt) {
       dash.dashTimer -= dt;
       vel.vx = dash.dirX * dash.dashSpeed;
       vel.vy = dash.dirY * dash.dashSpeed;
+
+      // Predictive CPU position update for DASH
+      pos.x += vel.vx * dt;
+      pos.y += vel.vy * dt;
       if (dash.dashTimer <= 0.0f) {
         dash.isDashing = false;
         vel.vx = 0;
@@ -581,6 +585,11 @@ bool GameplayState::OnUpdate(float dt) {
       }
       vel.vx = input.moveX * speed;
       vel.vy = input.moveY * speed;
+
+      // Predictive CPU position update for immediate camera/UI response
+      // This bypasses the 2-frame GPUEntitySystem SyncBack latency for the player.
+      pos.x += vel.vx * dt;
+      pos.y += vel.vy * dt;
     }
 
     // Camera Follow

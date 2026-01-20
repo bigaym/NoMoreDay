@@ -7,7 +7,7 @@ struct Entity {
     vec2 velocity;
     float radius;
     int type;
-    int id;
+    uint flags;
     float padding;
 };
 

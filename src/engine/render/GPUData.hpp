@@ -39,7 +39,7 @@ struct GPUEntity {
     Vector2 velocity = { 0.0f, 0.0f }; // 8
     float radius     = 0.0f;           // 4
     int32_t type     = 0;              // 4
-    int32_t id       = 0;              // 4
+    uint32_t flags   = 0;              // 4
     float padding    = 0.0f;           // 4
 
     GPUEntity() = default;

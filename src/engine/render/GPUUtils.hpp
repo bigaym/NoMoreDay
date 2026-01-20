@@ -38,6 +38,14 @@ typedef void (APIENTRY *PFNGLBINDIMAGETEXTUREPROC)(unsigned int unit, unsigned i
 #define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT 0x00000020
 #endif
 
+#ifndef GL_COMMAND_BARRIER_BIT
+#define GL_COMMAND_BARRIER_BIT 0x00000040
+#endif
+
+#ifndef GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT
+#define GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT 0x00004000
+#endif
+
 #ifndef GL_WRITE_ONLY
 #define GL_WRITE_ONLY 0x88B9
 #endif
@@ -90,8 +98,11 @@ public:
         return info;
     }
 
-    static void MemoryBarrier(unsigned int barriers = GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT) {
-        static PFNGLMEMORYBARRIERPROC glMemoryBarrier_ptr = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
+    static void MemoryBarrier(unsigned int barriers = GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_COMMAND_BARRIER_BIT) {
+        static PFNGLMEMORYBARRIERPROC glMemoryBarrier_ptr = nullptr;
+        if (glMemoryBarrier_ptr == nullptr) {
+            glMemoryBarrier_ptr = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
+        }
         if (glMemoryBarrier_ptr) {
             glMemoryBarrier_ptr(barriers);
         }

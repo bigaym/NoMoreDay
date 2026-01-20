@@ -1,13 +1,14 @@
 #version 430 core
 layout(location = 0) in vec2 aPos; // [-0.5, 0.5]
 
+// Must match GPUEntity in GPUData.hpp
 struct InstanceData {
     vec2 position;
-    vec2 scale; 
-    float rotation;
-    uint textureIndex;
+    vec2 velocity;
+    float radius;
+    uint type;
     uint flags;
-    float _padding;
+    float padding;
 };
 
 // Bindings match Cull/MDIRenderer
@@ -25,13 +26,20 @@ void main() {
     uint entityId = visibleIndices[gl_InstanceID];
     InstanceData e = entities[entityId];
     
-    // Rotation
-    float c = cos(e.rotation);
-    float s = sin(e.rotation);
+    // Auto-calculate Rotation from Velocity
+    // Only rotate if moving significantly
+    float rotation = 0.0;
+    if (length(e.velocity) > 0.1) {
+        rotation = atan(e.velocity.y, e.velocity.x);
+    }
+    
+    float c = cos(rotation);
+    float s = sin(rotation);
     mat2 rot = mat2(c, -s, s, c);
     
-    // Apply Scale and Rotation
-    vec2 pos = aPos * e.scale;
+    // Apply Scale (Radius * 2) and Rotation
+    vec2 scale = vec2(e.radius * 2.0);
+    vec2 pos = aPos * scale;
     pos = rot * pos;
     vec2 worldPos = e.position + pos;
     
@@ -39,6 +47,6 @@ void main() {
     
     vTexCoord = aPos + 0.5; // [0, 1]
     vLocalPos = aPos * 2.0; // [-1, 1] for circle SDF
-    vTextureIndex = e.textureIndex;
+    vTextureIndex = e.type;
     vFlags = e.flags;
 }

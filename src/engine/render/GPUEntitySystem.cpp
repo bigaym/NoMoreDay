@@ -47,7 +47,6 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
                            RL_DYNAMIC_DRAW);
 
   m_localData.resize(m_maxEntities);
-  m_mdiInstanceData.resize(m_maxEntities);
   m_gridCounts.resize(numCells);
   m_gridOffsets.resize(numCells);
 
@@ -104,6 +103,10 @@ void GPUEntitySystem::Render() {
       viewBounds.z += margin;
       viewBounds.w += margin;
 
+      // 1. Bind the SIMULATED data from the PREVIOUS slot (the one that just finished physics)
+      // Binding 0: Instance Data for Cull and Render
+      m_persistentEntityBuffer.BindPrevious(0);
+
       auto& mdi = NoMoreDay::render::MDIRenderer::Get();
       mdi.Cull(viewBounds);
       mdi.Render(mvp);
@@ -140,8 +143,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   components::GPUEntity* gpuPtr = (components::GPUEntity*)m_persistentEntityBuffer.BeginWrite();
   
   // 2.1 Read Back Old Physics Result (from the slot we just acquired)
-  // Since we use Triple Buffer, acquiring this slot means GPU is DONE with it (from 3 frames ago).
-  // It contains the physics result of Frame N-2.
+  // Since we use Double Buffer, acquiring this slot means GPU is DONE with it (from 2 frames ago).
   // We copy it to local data for SyncBack usage.
   m_persistentEntityBuffer.Read(m_localData.data(), m_maxEntities * sizeof(components::GPUEntity));
 
@@ -172,19 +174,12 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     gpuPtr[index].velocity = {vel.vx, vel.vy};
     gpuPtr[index].radius = radius.value;
     gpuPtr[index].type = registry.all_of<EnemyTag>(entity) ? 1 : 0;
-
-    // Phase 1 MDI Data Population
-    auto& mdi = m_mdiInstanceData[index];
-    mdi.position = {pos.x, pos.y};
-    mdi.scale = {radius.value * 2.0f, radius.value * 2.0f};
-    mdi.rotation = 0.0f; 
-    mdi.textureIndex = gpuPtr[index].type;
-    mdi.flags = 0;
+    gpuPtr[index].flags = 0; // Clear flags for new frame
 
     index++;
   }
   
-  // Clear remaining slots to avoid ghosts
+  // Clear remaining slots to avoid ghosts in both physics and rendering
   for(int i=index; i<m_maxEntities; ++i) {
       gpuPtr[i].radius = 0.0f;
   }
@@ -192,8 +187,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   // 2.3 Submit (Flush to GPU)
   m_persistentEntityBuffer.Flush();
   
-  // Update MDI Buffer
-  NoMoreDay::render::MDIRenderer::Get().UpdateInstances(m_mdiInstanceData);
+  // Instance update is now zero-copy via PersistentBuffer!
 
   // 2. Build Grid
   int gridCols = 5000 / 32 + 1;

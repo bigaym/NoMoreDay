@@ -3,22 +3,23 @@
 #include "raylib.h"
 #include "rlgl.h"
 #include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/PersistentBuffer.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include <vector>
 #include <cstdint>
 
 namespace NoMoreDay::render {
 
-// Matches generic InstanceData structure for MDI
+// Matches GPUEntity in GPUData.hpp for zero-copy rendering
 struct alignas(16) GPUInstanceData {
     Vector2 position;      // 8 bytes
-    Vector2 scale;         // 8 bytes (using Vector2 for independent xy scaling if needed, or x=scale, y=unused)
-    float rotation;        // 4 bytes
-    uint32_t textureIndex; // 4 bytes
+    Vector2 velocity;      // 8 bytes (Used for auto-rotation in shader)
+    float radius;          // 4 bytes (Used for scale calculation)
+    int32_t type;          // 4 bytes (Texture Index)
     uint32_t flags;        // 4 bytes
-    float _padding;        // 4 bytes to reach 32 bytes
+    float padding;         // 4 bytes
 };
-static_assert(sizeof(GPUInstanceData) == 32, "GPUInstanceData must be 32 bytes");
+static_assert(sizeof(GPUInstanceData) == 32, "GPUInstanceData must match GPUEntity size");
 
 struct DrawArraysIndirectCommand {
     uint32_t count;
@@ -54,6 +55,10 @@ public:
     void ResetCommand();
 
     bool IsInitialized() const { return m_quadVAO != 0; }
+    int GetCurrentSlot() const { return m_commandBuffer.GetCurrentSlot(); }
+    unsigned int GetId() const { return m_commandBuffer.GetId(); }
+    size_t GetSize() const { return m_commandBuffer.GetSize(); }
+
 
 private:
     MDIRenderer() = default;
@@ -63,9 +68,8 @@ private:
     MDIRenderer(const MDIRenderer&) = delete;
     MDIRenderer& operator=(const MDIRenderer&) = delete;
 
-    core::ComputeBuffer m_instanceBuffer;     // SSBO Binding 0
-    core::ComputeBuffer m_visibleBuffer;      // SSBO Binding 1
-    core::ComputeBuffer m_commandBuffer;      // SSBO Binding 2 (and Indirect Buffer)
+    PersistentBuffer m_visibleBuffer;          // SSBO Binding 1 (Double Buffered)
+    PersistentBuffer m_commandBuffer;        // SSBO Binding 2 & Indirect (Double Buffered)
 
     Shader m_cullShader;
     Shader m_renderShader;

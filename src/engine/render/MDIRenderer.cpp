@@ -8,6 +8,18 @@
 #define GL_DRAW_INDIRECT_BUFFER 0x8F3F
 #endif
 
+#ifndef GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+#define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT 0x00000020
+#endif
+
+#ifndef GL_COMMAND_BARRIER_BIT
+#define GL_COMMAND_BARRIER_BIT 0x00000040
+#endif
+
+#ifndef GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT
+#define GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT 0x00004000
+#endif
+
 typedef void (*PFNGLDRAWARRAYSINDIRECTPROC)(unsigned int mode, const void *indirect);
 static PFNGLDRAWARRAYSINDIRECTPROC glDrawArraysIndirect = nullptr;
 
@@ -36,21 +48,11 @@ void MDIRenderer::Init(ResourceManager& rm, uint32_t maxEntities) {
         glBindBuffer = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
     }
 
-    // Initialize Buffers
-    // Binding 0: Instance Data
-    m_instanceBuffer.Create(maxEntities * sizeof(GPUInstanceData), nullptr, RL_DYNAMIC_DRAW);
-    
-    // Binding 1: Visible Indices (Worst case all visible)
-    m_visibleBuffer.Create(maxEntities * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW); 
+    // Binding 1: Visible Indices (Double Buffered)
+    m_visibleBuffer.Create(maxEntities * sizeof(uint32_t)); 
 
-    // Binding 2: Indirect Command
-    // We only need 1 command for now (Entity Type batching is a future improvement if needed)
-    DrawArraysIndirectCommand cmd = {};
-    cmd.count = 4; // Quad
-    cmd.instanceCount = 0; // Starts at 0, filled by GPU
-    cmd.first = 0;
-    cmd.baseInstance = 0;
-    m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand), &cmd, RL_DYNAMIC_DRAW);
+    // Binding 2: Indirect Command (Double Buffered)
+    m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand));
 
     // Load Shaders
     // Using hashed string for IDs as per ResourceManager usage in GPUEntitySystem
@@ -76,28 +78,16 @@ void MDIRenderer::Init(ResourceManager& rm, uint32_t maxEntities) {
 }
 
 void MDIRenderer::UpdateInstances(const std::vector<GPUInstanceData>& data) {
-    if (data.empty()) return;
-    size_t uploadSize = data.size() * sizeof(GPUInstanceData);
-    if (uploadSize > m_instanceBuffer.GetSize()) {
-        // Resize or warn
-        std::cerr << "[MDIRenderer] Instance data exceeds buffer size" << std::endl;
-        uploadSize = m_instanceBuffer.GetSize();
-    }
-    m_instanceBuffer.Update(data.data(), uploadSize);
+    // Redundant - Logic moved to GPUEntitySystem zero-copy path
 }
 
 void MDIRenderer::ResetCommand() {
-    // Reset instanceCount to 0 in command buffer
-    // Method 1: CPU Update (easiest for now, though Plan said Compute Shader)
-    // To stick to Plan Task 1.2 which says "Use Compute Shader to clear":
-    // For now I'll use CPU update as placeholder or if Shader loading isn't clear yet.
-    // Actually, `atomicCounter` or `atomicAdd` requires the buffer to be reset.
-    // The command buffer `instanceCount` is at offset 4.
-    uint32_t zero = 0;
-    m_commandBuffer.Update(&zero, sizeof(uint32_t), offsetof(DrawArraysIndirectCommand, instanceCount));
-    
-    // Memory Barrier to ensure update is visible
-    NoMoreDay::utils::GPUUtils::MemoryBarrier();
+    auto* cmd = (DrawArraysIndirectCommand*)m_commandBuffer.BeginWrite();
+    cmd->count = 4;
+    cmd->instanceCount = 0;
+    cmd->first = 0;
+    cmd->baseInstance = 0;
+    m_commandBuffer.Flush();
 }
 
 void MDIRenderer::Cull(Vector4 viewBounds) {
@@ -109,7 +99,9 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
     rlEnableShader(m_cullShader.id);
 
     // Bind Buffers
-    m_instanceBuffer.BindBase(0);
+    // Skip instanceBuffer binding as it is provided by the caller (GPUEntitySystem) via BindPrevious(0)
+    
+    // Bind CURRENT write slots for culling output
     m_visibleBuffer.BindBase(1);
     m_commandBuffer.BindBase(2);
 
@@ -127,11 +119,19 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
 
     rlDisableShader();
     
-    NoMoreDay::utils::GPUUtils::MemoryBarrier();
+    // Lock the buffers after writing
+    m_visibleBuffer.Lock();
+    m_commandBuffer.Lock();
+    
+    // Memory Barrier to ensure instanceCount is visible for Indirect Draw
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 }
 
 void MDIRenderer::Render(const Matrix& viewProj) {
     if (!m_renderShader.id || !glDrawArraysIndirect) return;
+
+    // Ensure culling results and instance data are visible
+    NoMoreDay::utils::GPUUtils::MemoryBarrier();
 
     rlEnableShader(m_renderShader.id);
 
@@ -139,14 +139,24 @@ void MDIRenderer::Render(const Matrix& viewProj) {
     int locVP = rlGetLocationUniform(m_renderShader.id, "viewProj");
     if (locVP != -1) rlSetUniformMatrix(locVP, viewProj);
 
-    // Bind Buffers for Vertex Shader
-    m_instanceBuffer.BindBase(0);
-    m_visibleBuffer.BindBase(1);
+    // Bind Buffers for Vertex Shader (Binding 1 = Indices, 2 = Commands)
+    // We bind PREVIOUS slots because those are what the physics-synced MDI just finished.
+    m_visibleBuffer.BindPrevious(1);
 
     rlEnableVertexArray(m_quadVAO);
     
-    // Bind Indirect Buffer
-    m_commandBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
+    // Bind Indirect Buffer (Previous slot to match the data)
+    typedef void (APIENTRY *PFNGLBINDBUFFERRANGEPROC) (unsigned int target, unsigned int index, unsigned int buffer, ptrdiff_t offset, ptrdiff_t size);
+    static PFNGLBINDBUFFERRANGEPROC glBindBufferRange = nullptr;
+    if (!glBindBufferRange) {
+        glBindBufferRange = (PFNGLBINDBUFFERRANGEPROC)glfwGetProcAddress("glBindBufferRange");
+    }
+    
+    if (glBindBufferRange) {
+        int prevSlot = (m_commandBuffer.GetCurrentSlot() - 1 + 2) % 2;
+        size_t offset = prevSlot * m_commandBuffer.GetSize();
+        glBindBufferRange(GL_DRAW_INDIRECT_BUFFER, 0, m_commandBuffer.GetId(), (ptrdiff_t)offset, (ptrdiff_t)sizeof(DrawArraysIndirectCommand));
+    }
 
     // Draw
     glDrawArraysIndirect(GL_TRIANGLES, 0); // 0 offset in indirect buffer
@@ -166,9 +176,8 @@ void MDIRenderer::Shutdown() {
         rlUnloadVertexBuffer(m_quadVBO);
         m_quadVAO = 0;
     }
-    m_instanceBuffer.Release();
-    m_visibleBuffer.Release();
-    m_commandBuffer.Release();
+    m_visibleBuffer.Destroy();
+    m_commandBuffer.Destroy();
     
     // Shaders are managed by ResourceManager, simply reset IDs
     if (m_cullShader.id != 0) {

@@ -136,7 +136,7 @@ void PersistentBuffer::Create(size_t slotSize, unsigned int usageHint) {
 
     if (IsSupported()) {
         m_mode = Mode::Persistent;
-        LOG_INFO("PersistentBuffer: Creating in PERSISTENT mode. SlotSize={}, Total={}", slotSize, slotSize * 3);
+        LOG_INFO("PersistentBuffer: Creating in PERSISTENT mode. SlotSize={}, Total={}", slotSize, slotSize * 2);
         CreatePersistent(slotSize);
     } else {
         m_mode = Mode::Compat;
@@ -146,7 +146,7 @@ void PersistentBuffer::Create(size_t slotSize, unsigned int usageHint) {
 }
 
 void PersistentBuffer::CreatePersistent(size_t size) {
-    m_totalSize = size * 3;
+    m_totalSize = size * 2;
     
     unsigned int id = 0;
     typedef void (APIENTRY *PFNGLGENBUFFERSPROC) (GLsizei n, GLuint *buffers);
@@ -204,7 +204,7 @@ void PersistentBuffer::Destroy() {
         typedef void (APIENTRY *PFNGLDELETEBUFFERSPROC) (GLsizei n, const GLuint *buffers);
         static PFNGLDELETEBUFFERSPROC glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)glfwGetProcAddress("glDeleteBuffers");
         
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 2; i++) {
             if (m_fences[i]) {
                 glDeleteSync((GLsync)m_fences[i]);
                 m_fences[i] = nullptr;
@@ -230,20 +230,10 @@ void PersistentBuffer::WaitForFence(void*& fencePtr) {
     if (!fencePtr) return;
     GLsync fence = static_cast<GLsync>(fencePtr);
     
-    GLenum result = GL_TIMEOUT_EXPIRED;
-    int retries = 0;
-    while (result != GL_ALREADY_SIGNALED && result != GL_CONDITION_SATISFIED) {
-        result = glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000); // 1ms
-        if (result == GL_WAIT_FAILED) {
-            LOG_ERROR("PersistentBuffer: Fence wait failed!");
-            break;
-        }
-        retries++;
-        if (retries > 1000) {
-             LOG_ERROR("PersistentBuffer: Fence wait timeout!");
-             break;
-        }
-    }
+    // Use a very high timeout for absolute safety
+    glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 1000000000); // 1.0s
+    
+    // ALWAYS delete the fence once waited, regardless of result, to avoid leaks
     glDeleteSync(fence);
     fencePtr = nullptr;
 }
@@ -283,19 +273,31 @@ void PersistentBuffer::Flush() {
 
 void PersistentBuffer::Lock() {
     if (m_mode == Mode::Persistent) {
+        // Clear previous fence if it exists (extra safety)
+        if (m_fences[m_writeSlot]) {
+            glDeleteSync((GLsync)m_fences[m_writeSlot]);
+        }
         m_fences[m_writeSlot] = (void*)glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-        m_writeSlot = (m_writeSlot + 1) % 3;
+        m_writeSlot = (m_writeSlot + 1) % 2;
     }
 }
 
 void PersistentBuffer::Read(void* data, size_t size) const {
     if (m_mode == Mode::Persistent) {
         if (m_mappedPtr) {
+            // Read from the PREVIOUS slot (the one that just finished GPU work)
+            // This ensures we get the latest stable simulation results without 2-frame lag.
+            int targetSlot = (m_writeSlot - 1 + 2) % 2;
+            
+            // CRITICAL: Must wait for the GPU to finish with this slot before CPU reads!
+            const_cast<PersistentBuffer*>(this)->WaitForFence(const_cast<PersistentBuffer*>(this)->m_fences[targetSlot]);
+
+            typedef void (APIENTRY *PFNGLMEMORYBARRIERPROC)(unsigned int barriers);
             static PFNGLMEMORYBARRIERPROC glMemoryBarrier = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
             if (glMemoryBarrier) glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
 
             size_t copySize = std::min(size, m_slotSize);
-            memcpy(data, m_mappedPtr + m_writeSlot * m_slotSize, copySize);
+            memcpy(data, m_mappedPtr + targetSlot * m_slotSize, copySize);
         }
     } else {
         typedef void (APIENTRY *PFNGLBINDBUFFERPROC) (GLenum target, GLuint buffer);
@@ -319,7 +321,7 @@ void PersistentBuffer::BindBase(unsigned int bindingPoint) const {
     static PFNGLBINDBUFFERRANGEPROC glBindBufferRange = (PFNGLBINDBUFFERRANGEPROC)glfwGetProcAddress("glBindBufferRange");
 
     if (m_mode == Mode::Persistent) {
-        // Bind the CURRENT write slot (Logic: We are about to Dispatch using current frame data)
+        // Bind the CURRENT write slot (for compute writing)
         size_t offset = m_writeSlot * m_slotSize;
         if (glBindBufferRange) {
             glBindBufferRange(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_bufferId, offset, m_slotSize);
@@ -328,6 +330,20 @@ void PersistentBuffer::BindBase(unsigned int bindingPoint) const {
         if (glBindBufferBase) {
             glBindBufferBase(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_bufferId);
         }
+    }
+}
+
+void PersistentBuffer::BindPrevious(unsigned int bindingPoint) const {
+    typedef void (APIENTRY *PFNGLBINDBUFFERRANGEPROC) (GLenum target, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size);
+    static PFNGLBINDBUFFERRANGEPROC glBindBufferRange = (PFNGLBINDBUFFERRANGEPROC)glfwGetProcAddress("glBindBufferRange");
+    
+    if (m_mode == Mode::Persistent && m_bufferId != 0 && glBindBufferRange) {
+        // Bind the PREVIOUS slot (the one that just finished simulation)
+        int prevSlot = (m_writeSlot - 1 + 2) % 2;
+        size_t offset = prevSlot * m_slotSize;
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_bufferId, offset, m_slotSize);
+    } else if (m_mode == Mode::Compat) {
+        BindBase(bindingPoint);
     }
 }
 
