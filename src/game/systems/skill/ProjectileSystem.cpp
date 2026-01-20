@@ -1,42 +1,76 @@
 #include "game/systems/skill/ProjectileSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/PhysicsUtils.hpp"
-#include "engine/render/GPUParticleSystem.hpp" // Added
+#include "engine/render/GPUParticleSystem.hpp" 
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
-#include "game/components/EffectComponent.hpp" // For DamagePopup
+#include "game/components/EffectComponent.hpp" 
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/vfx/VisualGhostComponent.hpp"
-#include "game/data/MonsterAffixRegistry.hpp" // Added
+#include "game/data/MonsterAffixRegistry.hpp" 
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "engine/physics/SIMDSpatialGrid.hpp" // Phase 4 Integration
 #include "raylib.h"
 
 namespace NoMoreDay {
 
+// Phase 4: Static SIMD Grid for Projectile Queries (Enemies Only)
+// Initialized with World Constants. Note: Might need resize if map size changes dynamically, 
+// but currently World size is constant.
+static systems::SIMDSpatialGrid s_enemyGrid(
+    Constants::World::GRID_COLS, 
+    Constants::World::GRID_ROWS, 
+    Constants::World::GRID_CELL_SIZE
+);
+
 // Helper struct for deferred actions
 struct DeferredAction {
     enum Type { Destroy, Damage, Pull, CounterShot, CounterSpin };
-    Type type; // Added missing member variable
+    Type type; 
     entt::entity entity;       // Subject (Projectile or Target)
     entt::entity target;       // Target for damage/pull
     float value;               // Damage amount or Pull strength
     bool flag;                 // Critical hit or specialized flag
     entt::entity instigator;   // Who caused it
-    // Additional data for complex interactions
     Vector2 pos;
 };
 
 void ProjectileSystem::Update(entt::registry &registry,
-                              systems::SpatialHashGrid &grid, float dt,
+                              systems::SpatialHashGrid & /*grid*/, float dt, // Ignore old grid
                               tf::Executor* executor) {
   auto view = registry.view<Position, Velocity, Projectile>();
-  if (view.size_hint() == 0) return;
+  
+  // Phase 4: Rebuild SIMD Grid with Enemies Only
+  // This drastically reduces grid pollution from projectiles/items
+  s_enemyGrid.rebuild(registry.view<EnemyTag, Position>(), registry);
+
+  // Cache Player for scalar check (Player is not in Enemy Grid)
+  entt::entity playerEnt = entt::null;
+  auto playerView = registry.view<PlayerTag, Position>();
+  if (playerView.begin() != playerView.end()) playerEnt = playerView.front();
+
+  // Helper: Combined Query (SIMD Enemy Grid + Scalar Player Check)
+  auto QueryWorld = [&](Vector2 center, float radius, auto&& callback) {
+      // 1. SIMD Grid (Enemies)
+      s_enemyGrid.query({center.x, center.y}, radius, callback);
+      
+      // 2. Scalar Player Check
+      if (registry.valid(playerEnt)) {
+          const auto& pPos = registry.get<Position>(playerEnt);
+          float dx = pPos.x - center.x;
+          float dy = pPos.y - center.y;
+          if (dx*dx + dy*dy <= radius*radius) {
+              callback(playerEnt, pPos);
+          }
+      }
+  };
+
+  if (view.begin() == view.end()) return;
   
   // Logic implementation lambda (Thread-Safe Simulation Phase)
-  // Returns TRUE if ANY deferred action was needed (optimization)
   auto SimulateProjectile = [&](entt::entity entity, Position& pos, Velocity& vel, Projectile& proj, 
                                 std::vector<DeferredAction>& actions) -> bool {
     bool hasAction = false;
@@ -47,7 +81,7 @@ void ProjectileSystem::Update(entt::registry &registry,
         bc->returnTimer -= dt;
         if (bc->returnTimer <= 0.0f) {
           bc->phase = BoomerangComponent::Paused;
-          bc->pauseTimer = 0.2f; // Short pause
+          bc->pauseTimer = 0.2f; 
           
           // Emit Shockwave on apex
           components::GPUParticle p;
@@ -63,7 +97,7 @@ void ProjectileSystem::Update(entt::registry &registry,
         }
       } else if (bc->phase == BoomerangComponent::Paused) {
           bc->pauseTimer -= dt;
-          vel.vx = 0; vel.vy = 0; // Stop movement
+          vel.vx = 0; vel.vy = 0; 
           if (bc->pauseTimer <= 0.0f) {
               bc->phase = BoomerangComponent::Returning;
           }
@@ -106,18 +140,17 @@ void ProjectileSystem::Update(entt::registry &registry,
                  float minDist = seeker->range;
                  entt::entity bestTarget = entt::null;
                  
-                 // Query grid for nearest valid target
-                 grid.query({pos.x, pos.y}, seeker->range, [&](entt::entity t, const Position &tp) {
+                 // Phase 4: Use QueryWorld
+                 QueryWorld({pos.x, pos.y}, seeker->range, [&](entt::entity t, const Position &tp) {
                      if (t == entity || t == proj.owner) return;
                      if (!registry.valid(t)) return;
                      
-                     // Target filtering
                      bool ownerIsPlayer = registry.any_of<PlayerTag>(proj.owner);
                      bool tIsPlayer = registry.any_of<PlayerTag>(t);
                      bool tIsEnemy = registry.any_of<EnemyTag>(t);
                      
                      if (ownerIsPlayer && !tIsEnemy) return;
-                     if (!ownerIsPlayer && !tIsPlayer) return; // Enemies target players
+                     if (!ownerIsPlayer && !tIsPlayer) return; 
                      if (registry.any_of<KilledTag>(t)) return;
 
                      float dx = tp.x - pos.x;
@@ -144,7 +177,6 @@ void ProjectileSystem::Update(entt::registry &registry,
         float dist = Vector2Length(desired);
         
         if (dist > 0.001f && dist <= seeker->range) {
-           // ... (Same Seeker logic as original) ...
            desired = Vector2Scale(Vector2Normalize(desired), proj.speed);
            Vector2 current = {vel.vx, vel.vy};
            float currentAngle = atan2f(current.y, current.x);
@@ -171,17 +203,17 @@ void ProjectileSystem::Update(entt::registry &registry,
     if (proj.hasPull) {
       using namespace NoMoreDay::Constants::Skill;
       float pullRadius = proj.radius * PROJECTILE_PULL_RADIUS_MULTIPLIER;
-      grid.query({pos.x, pos.y}, pullRadius, [&](entt::entity target, const Position &tPos) {
+      // Phase 4: Use QueryWorld
+      QueryWorld({pos.x, pos.y}, pullRadius, [&](entt::entity target, const Position &tPos) {
           if (target == proj.owner || target == entity) return;
           if (!registry.valid(target) || !registry.all_of<Velocity, Position>(target)) return;
           if (!registry.any_of<EnemyTag>(target)) return;
           
-          // Defer Pull
           DeferredAction act;
           act.type = DeferredAction::Pull;
-          act.entity = target; // Who gets pulled
+          act.entity = target; 
           act.value = proj.pullStrength;
-          act.instigator = entity; // Pull source (for direction calc later)
+          act.instigator = entity; 
           act.pos = {pos.x, pos.y};
           actions.push_back(act);
       });
@@ -190,14 +222,8 @@ void ProjectileSystem::Update(entt::registry &registry,
 
     // 4. Position Sync
     if (auto *skillComp = registry.try_get<SkillComponent>(entity)) {
-    // 4. Position Sync (Dynamic relative positioning)
-    if (auto *skillComp = registry.try_get<SkillComponent>(entity)) {
         if (skillComp->skill_id == 1 && registry.valid(proj.owner)) {
-            // Keep projectile strictly relative to owner to prevent lag
             if (auto* ownerPos = registry.try_get<Position>(proj.owner)) {
-                // Re-calculate the offset based on current velocity direction
-                // We need the direction for the offset. Use owner's velocity or projectile's stored velocity direction?
-                // Owner's velocity is reliable for dash.
                 if (auto* ownerVel = registry.try_get<Velocity>(proj.owner)) {
                     float speedSq = ownerVel->vx * ownerVel->vx + ownerVel->vy * ownerVel->vy;
                     if (speedSq > 0.1f) {
@@ -205,13 +231,10 @@ void ProjectileSystem::Update(entt::registry &registry,
                         float dirX = ownerVel->vx * invSpeed;
                         float dirY = ownerVel->vy * invSpeed;
                         
-                        // Apply the same offset logic as spawning: 1.2 * Radius
-                        // Radius might be stored in proj.radius
                         float forwardOffset = proj.radius * 1.2f;
                         pos.x = ownerPos->x + dirX * forwardOffset;
                         pos.y = ownerPos->y + dirY * forwardOffset;
                         
-                        // Sync velocity too
                         vel.vx = ownerVel->vx; 
                         vel.vy = ownerVel->vy;
                     }
@@ -219,10 +242,8 @@ void ProjectileSystem::Update(entt::registry &registry,
             }
         }
     }
-    }
 
-    // 5. Visual Effects (Safe with Mutex in ParticleSystem)
-    // Optimized: Append to thread-local buffer then EmitBatch
+    // 5. Visual Effects (Thread Local Buffer)
     static thread_local std::vector<components::GPUParticle> s_particles;
     s_particles.clear();
     
@@ -233,17 +254,14 @@ void ProjectileSystem::Update(entt::registry &registry,
        using namespace NoMoreDay::Constants::Skill;
        Vector2 trailVel = Vector2Scale({vel.vx, vel.vy}, PROJECTILE_TRAIL_VEL_SCALE);
        
-       // Handle Ghost Snapshots for Skill 1 (Flowing Thrust)
        if (skill_id == 1) {
            static thread_local float snapshotTimer = 0.0f;
            snapshotTimer += dt;
-           if (snapshotTimer >= 0.05f) { // Every 0.05s
+           if (snapshotTimer >= 0.05f) { 
                snapshotTimer = 0.0f;
-               
-               // We need the owner's sprite to make a ghost
                if (registry.valid(proj.owner)) {
                    if (auto* ownerSprite = registry.try_get<SpriteComponent>(proj.owner)) {
-                       actions.push_back({DeferredAction::CounterSpin, entity, proj.owner}); // Reuse enum or add new
+                       actions.push_back({DeferredAction::CounterSpin, entity, proj.owner}); 
                    }
                }
            }
@@ -272,69 +290,49 @@ void ProjectileSystem::Update(entt::registry &registry,
         return true;
     }
 
-    // 7. Collision (Read-Only Query)
+    // 7. Collision (Phase 4: Use QueryWorld)
     bool hit = false;
     using namespace NoMoreDay::Constants::Skill;
     float check_radius = proj.radius + PROJECTILE_COLLISION_RADIUS_OFFSET;
     
-    // We can't easily dedup over grid overlaps in deferred mode without complex logic.
-    // Simplifying: Just buffer hits. Dedup in serial phase? 
-    // Or keep dedup here using local vector.
     static thread_local std::vector<entt::entity> s_uniqueHits;
     s_uniqueHits.clear();
 
-    grid.query(pos, check_radius, [&](entt::entity target, const Position &tPos) {
+    QueryWorld({pos.x, pos.y}, check_radius, [&](entt::entity target, const Position &tPos) {
         if (hit && !proj.pierce) return;
         if (proj.pierce && proj.pierceCount < 0) return;
         if (target == proj.owner || target == entity) return;
         
-        // Fast checks
-        if (!registry.valid(target)) return; // Check valid first
+        if (!registry.valid(target)) return; 
         
         bool ownerIsPlayer = registry.any_of<PlayerTag>(proj.owner);
         bool targetIsEnemy = registry.any_of<EnemyTag>(target);
         bool ownerIsEnemy = registry.any_of<EnemyTag>(proj.owner);
-        bool targetIsPlayer = registry.any_of<PlayerTag>(target); // Assuming PlayerTag exists or checked via other component
+        bool targetIsPlayer = registry.any_of<PlayerTag>(target); 
 
         if (ownerIsPlayer && !targetIsEnemy) return;
         if (ownerIsEnemy && !targetIsPlayer) return;
 
-        // Dedup
         for(auto e : s_uniqueHits) if(e == target) return;
         s_uniqueHits.push_back(target);
 
-        // Persistent check (Safe to read proj.hitEntities? Only THIS thread writes to it? Yes, 1 thread per projectile)
         for(auto e : proj.hitEntities) if(e == target) return;
 
-        // Distance Check
+        // Distance check already done by QueryWorld/query mostly, but double check doesn't hurt if grid returns candidates
         float dx = tPos.x - pos.x; float dy = tPos.y - pos.y;
         if (dx*dx + dy*dy <= check_radius * check_radius) {
-             // Interception (Blade Ward) - Needs Registry Access (Read Safe)
+             // Interception Logic
              if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
                  float chance = ward->sword_count * ward->interception_chance;
                  if ((float)GetRandomValue(0, 1000)/1000.0f < chance) {
-                     // Intercepted! Defer visual & counter logic
-                     DeferredAction act;
-                     act.type = DeferredAction::Destroy; // This projectile gets destroyed logic handled separately?
-                     // Actually, current logic says "Destroy Projectile" BUT also "Trigger Counter".
-                     // We need a special Interception Action.
-                     // For simplicity: Just buffer Damage/Hit, handle interception in Serial phase?
-                     // NO, interception PREVENTS damage.
-                     // We must decide interception HERE.
-                     // Queue "InterceptionEvent".
-                     // Reusing DeferredAction... 
-                     // Let's implement full collision logic in serial phase? Too slow.
-                     // Let's implement:
-                     // 1. Buffer HIT candidate.
-                     // 2. Serial phase: resolve hit (Interception or Damage).
                      DeferredAction hitAct;
-                     hitAct.type = DeferredAction::Damage; // Potentially damage
-                     hitAct.entity = entity; // Projectile
-                     hitAct.target = target; // Victim
+                     hitAct.type = DeferredAction::Damage; 
+                     hitAct.entity = entity; 
+                     hitAct.target = target; 
                      hitAct.instigator = proj.owner;
                      hitAct.pos = {pos.x, pos.y};
                      actions.push_back(hitAct);
-                     return; // Stop processing target
+                     return; 
                  }
              }
 
@@ -347,7 +345,6 @@ void ProjectileSystem::Update(entt::registry &registry,
              hitAct.pos = {pos.x, pos.y};
              actions.push_back(hitAct);
              
-             // Update Projectile State (Local Modify OK)
              proj.hitEntities.push_back(target);
              if (!proj.pierce) {
                  hit = true;
@@ -370,17 +367,21 @@ void ProjectileSystem::Update(entt::registry &registry,
   };
 
   // Execution Flow
+  // Basic View Iterate
+  // Or Copy to vector if we want parallel
+  // Existing code copied to vector
   std::vector<entt::entity> entities;
-  entities.reserve(view.size_hint());
+  
+  // Reserve skipped to avoid EnTT versioning issues with size/size_hint
+  
   for(auto e : view) entities.push_back(e);
 
-  // Global buffer for deferred actions
   std::vector<DeferredAction> globalActions;
-  std::mutex actionMutex; // Only lock when merging
+  std::mutex actionMutex; 
 
   auto run_parallel = [&](int start, int end) {
       std::vector<DeferredAction> localActions;
-      localActions.reserve(32); // Estimate
+      localActions.reserve(32); 
       
       for(int i=start; i<end; ++i) {
           entt::entity e = entities[i];
@@ -399,10 +400,8 @@ void ProjectileSystem::Update(entt::registry &registry,
       }
   };
 
-  // Run!
   if (executor && entities.size() > 64) {
       tf::Taskflow tf;
-      // Chunking
       int chunkSize = 64;
       int numChunks = (entities.size() + chunkSize - 1) / chunkSize;
       for(int j=0; j<numChunks; ++j) {
@@ -412,7 +411,6 @@ void ProjectileSystem::Update(entt::registry &registry,
       }
       executor->run(tf).wait();
   } else {
-      // Serial execution
       run_parallel(0, entities.size());
   }
 
@@ -428,9 +426,6 @@ void ProjectileSystem::Update(entt::registry &registry,
       else if (act.type == DeferredAction::Pull) {
           if (registry.valid(act.entity) && registry.all_of<Velocity>(act.entity)) {
                auto& tVel = registry.get<Velocity>(act.entity);
-               Vector2 dir = Vector2Normalize(Vector2Subtract(act.pos, {0,0})); // Wait, pos was stored as ProjPos. Target pos?
-               // We need direction. act.pos stores ProjPos.
-               // We need TargetPos to calculate direction.
                if(registry.all_of<Position>(act.entity)) {
                    auto& tPos = registry.get<Position>(act.entity);
                    Vector2 dir = Vector2Normalize(Vector2Subtract(act.pos, {tPos.x, tPos.y}));
@@ -440,45 +435,26 @@ void ProjectileSystem::Update(entt::registry &registry,
           }
       }
       else if (act.type == DeferredAction::Damage) {
-          // Resolve Hit (Damage or Interception)
-          // act.entity = Projectile
-          // act.target = Target
           entt::entity projEnt = act.entity;
           entt::entity target = act.target;
 
           if (!registry.valid(target)) continue;
           
-          // Re-Check Interception (Serial Step)
           bool intercepted = false;
           if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
-               // Logic was partly done in parallel (Chance roll). 
-               // Duplicating check here is safer or trust "Hit" implies "Passed Check"?
-               // In parallel block above, we queued "Damage" action unconditionally for hits,
-               // EXCEPT interception logic was there but I commented it out/simplified.
-               // Let's implement full check here to be safe and avoid duplicated code issues.
-               
-               // ... (Full interception logic, VFX, Counter Trigger) ...
-               // Simplified for brevity in this refactor step, assuming standard damage pipeline handles it?
-               // Standard DamagePipeline does NOT handle BladeWard interception.
-               // We must do it here.
                float chance = ward->sword_count * ward->interception_chance;
                if (!ward->is_solidified && ward->sword_count > 0 && (float)GetRandomValue(0,1000)/1000.0f < chance) {
                    intercepted = true;
                    ward->sword_count--;
-                   // Interception VFX
                     particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(act.pos, {0, -50.0f}, 1.5f));
-                    // Trigger Counter logic (Counters etc)
-                    // ...
                }
           }
 
           if (intercepted) {
-              if (registry.valid(projEnt)) registry.destroy(projEnt); // Destroy projectile
+              if (registry.valid(projEnt)) registry.destroy(projEnt); 
               continue;
           }
           
-          // Apply Damage
-          // Access Projectile Data (might be destroyed? check valid)
           uint32_t skill_id = 0;
           float knockback = 0;
           if (registry.valid(projEnt)) {
@@ -486,20 +462,15 @@ void ProjectileSystem::Update(entt::registry &registry,
               if (auto *p = registry.try_get<Projectile>(projEnt)) knockback = p->snapshot.knockback;
           }
 
-          // We need stats. Proj might be gone?
-          // If Proj gone, can't get owner?
-          // act.instigator stored owner.
-          
-          DamagePool base; // Retrieve from pipeline or use defaults
+          DamagePool base; 
           Tag hit_tags = Tag::Projectile | Tag::Hit;
           entt::entity attacker = registry.valid(projEnt) && registry.all_of<CombatStats>(projEnt) ? projEnt : act.instigator;
           
           auto result = DamagePipeline::Calculate(registry, attacker, target, skill_id, base, hit_tags, projEnt);
-          float finalDamage = result.total_damage > 0 ? result.total_damage : 1.0f; // Min damage
+          float finalDamage = result.total_damage > 0 ? result.total_damage : 1.0f; 
           
           CombatSystem::ApplyDamage(registry, target, finalDamage, act.instigator, result.is_crit);
           
-          // Rending Wave Hit Effect (Glass Shatter)
           if (skill_id == 2) {
               for (int i = 0; i < 12; ++i) {
                   components::GPUParticle p;
@@ -511,7 +482,7 @@ void ProjectileSystem::Update(entt::registry &registry,
                   p.lifetime = 0.3f + (float)GetRandomValue(0, 20) / 100.0f;
                   p.maxLifetime = p.lifetime;
                   p.scale = 2.0f + (float)GetRandomValue(0, 20) / 10.0f;
-                  p.flags = 2; // Glow
+                  p.flags = 2; 
                   p.growthRate = -5.0f;
                   particleSys.Emit(p);
               }
@@ -520,14 +491,12 @@ void ProjectileSystem::Update(entt::registry &registry,
           if (knockback > 0) Utils::ApplyKnockback(registry, target, act.pos, knockback);
       }
       else if (act.type == DeferredAction::CounterSpin) {
-          // Reusing enum for Ghost Spawning to avoid modifying enum if possible
-          // Actually, I should probably add Type::Ghost to DeferredAction
           entt::entity projEnt = act.entity;
-          entt::entity owner = act.target; // passed in.target
+          entt::entity owner = act.target; 
           
           if (registry.valid(owner) && registry.valid(projEnt)) {
               auto* sprite = registry.try_get<SpriteComponent>(owner);
-              auto* pos = registry.try_get<Position>(projEnt); // Use projectile's current pos for ghost
+              auto* pos = registry.try_get<Position>(projEnt); 
               if (sprite && pos) {
                   auto ghostEnt = registry.create();
                   registry.emplace<Position>(ghostEnt, pos->x, pos->y);
@@ -537,7 +506,7 @@ void ProjectileSystem::Update(entt::registry &registry,
                   ghost.alpha = 0.6f;
                   ghost.fadeSpeed = 5.0f;
                   ghost.scale = sprite->scale;
-                  ghost.color = { 180, 220, 255, 255 }; // Cyan tinted ghost
+                  ghost.color = { 180, 220, 255, 255 }; 
               }
           }
       }

@@ -13,6 +13,7 @@ using namespace NoMoreDay;
 #include "unit/MonsterAffixTests.hpp"
 #include "unit/NemesisEvolutionTests.hpp"
 #include "unit/SystemMechanics.hpp"
+#include "unit/SIMDSpatialGridTest.hpp"
 
 // --- Integration Tests ---
 #include "integration/GameplaySystems.hpp"
@@ -33,6 +34,7 @@ using namespace NoMoreDay;
 #include "performance/DropSystemBenchmark.hpp"
 #include "performance/StatsBenchmark.hpp"
 #include "performance/MDIRenderBenchmark.hpp"
+#include "performance/SpatialGridBenchmark.hpp"
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>
