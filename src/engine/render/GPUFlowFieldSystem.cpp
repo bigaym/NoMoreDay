@@ -30,9 +30,10 @@ void GPUFlowFieldSystem::Init(ResourceManager &resources, int width,
 
   // 1. Cost Buffer (uint32_t for alignment)
   // Initialize with 255 (Wall)
-  std::vector<uint32_t> initialCost(cellCount, 255);
-  m_costBuffer.Create(cellCount * sizeof(uint32_t), initialCost.data(),
-                      RL_DYNAMIC_DRAW);
+  m_costBuffer.Create(cellCount * sizeof(uint32_t));
+  uint32_t* costPtr = (uint32_t*)m_costBuffer.BeginWrite();
+  for(size_t i=0; i<cellCount; ++i) costPtr[i] = 255;
+  m_costBuffer.Flush();
 
   // 2. Density Buffer
   std::vector<uint32_t> initialDensity(cellCount, 0);
@@ -49,12 +50,13 @@ void GPUFlowFieldSystem::Init(ResourceManager &resources, int width,
 
   // 3. Flow Buffer (Vector2)
   // Initialize with zero
-  std::vector<Vector2> initialFlow(cellCount, {0.0f, 0.0f});
-  m_flowBuffer.Create(cellCount * sizeof(Vector2), initialFlow.data(),
-                      RL_DYNAMIC_DRAW);
+  m_flowBuffer.Create(cellCount * sizeof(Vector2));
+  Vector2* flowPtr = (Vector2*)m_flowBuffer.BeginWrite();
+  for(size_t i=0; i<cellCount; ++i) flowPtr[i] = {0.0f, 0.0f};
+  m_flowBuffer.Flush();
 
   // Initialize Shadow Buffer
-  m_flowFieldShadow = initialFlow;
+  m_flowFieldShadow.assign(cellCount, {0.0f, 0.0f});
 
   LOG_INFO("GPUFlowFieldSystem buffers allocated.");
 }
@@ -94,8 +96,9 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
     }
   }
 
-  m_costBuffer.Update(m_costCache.data(),
-                      m_costCache.size() * sizeof(uint32_t));
+  uint32_t* costPtr = (uint32_t*)m_costBuffer.BeginWrite();
+  memcpy(costPtr, m_costCache.data(), m_costCache.size() * sizeof(uint32_t));
+  m_costBuffer.Flush();
 
   // Bind Buffers to Bindings (Must match shader layout binding = X)
   // Binding 0: Cost (readonly)
@@ -173,9 +176,12 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   utils::GPUUtils::MemoryBarrier();
 
   rlDisableShader();
+  
+  m_costBuffer.Lock();
+  m_flowBuffer.Lock();
 }
 
-void GPUFlowFieldSystem::UpdateCrowdDensity(unsigned int entityBufferId,
+void GPUFlowFieldSystem::UpdateCrowdDensity(const render::PersistentBuffer &entityBuffer,
                                             int entityCount, float cellSize) {
   if (m_width <= 0 || m_height <= 0)
     return;
@@ -204,8 +210,7 @@ void GPUFlowFieldSystem::UpdateCrowdDensity(unsigned int entityBufferId,
   rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "gridOrigin"),
                &m_gridOrigin, RL_SHADER_UNIFORM_VEC2, 1);
 
-  rlBindShaderBuffer(entityBufferId,
-                     1);       // grid_count uses binding 1 for entities
+  entityBuffer.BindBase(1);     // grid_count uses binding 1 for entities
   m_densityBuffer.BindBase(2); // and binding 2 for cell counts
 
   rlComputeShaderDispatch((entityCount + 255) / 256, 1, 1);
@@ -239,12 +244,12 @@ std::vector<Vector2> GPUFlowFieldSystem::DownloadFlowField() const {
 
 void GPUFlowFieldSystem::Shutdown() {
   LOG_INFO("Shutting down GPUFlowFieldSystem...");
-  m_costBuffer.Release();
+  m_costBuffer.Destroy();
   m_integrationBuffer.Release();
   // Added missing releases
   m_integrationBuffer2.Release();
   m_densityBuffer.Release();
-  m_flowBuffer.Release();
+  m_flowBuffer.Destroy();
 }
 
 } // namespace NoMoreDay::systems

@@ -258,12 +258,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   utils::GPUUtils::MemoryBarrier();
 
   // 2.5 Update Flow Field Crowd Density
-  // Note: UpdateCrowdDensity expects a GL ID. Persistent Buffer has ID, but usually we bind base.
-  // WARNING: If UpdateCrowdDensity binds GL_SHADER_STORAGE_BUFFER using the raw ID, it might bind from Offset 0,
-  // which is Frame N-2 data (Slot 0) instead of current write slot.
-  // Ideally, GPUFlowFieldSystem should accept an offset or we should handle binding here.
-  // For now, proceeding with potential latency risk.
-  GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer.GetId(),
+  GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer,
                                                m_maxEntities, 10.0f);
 
   // 3. Dispatch Physics (Integration + Collision)

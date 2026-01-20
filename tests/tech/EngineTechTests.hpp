@@ -66,7 +66,12 @@ TEST_CASE("GPUFlowFieldSystem Logic") {
     std::vector<unsigned char> costMap(width * height, 1);
     costMap[4 * width + 4] = 255;
 
-    flowSystem.Update(costMap, width, height, {55, 55}, {0, 0});
+    // Run 3 times to account for Triple-Buffer latency (reads result of Frame 1 from Slot 0)
+    for(int i=0; i<3; ++i) {
+        flowSystem.Update(costMap, width, height, {55, 55}, {0, 0});
+    }
+
+    glFinish(); // Ensure GPU work is completed before reading via persistent mapping
 
     std::vector<Vector2> flow(width * height);
     flowSystem.GetFlowBuffer().Read(flow.data(), flow.size() * sizeof(Vector2));

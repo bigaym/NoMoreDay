@@ -129,7 +129,10 @@ bool PersistentBuffer::IsSupported() {
 void PersistentBuffer::Create(size_t slotSize, unsigned int usageHint) {
     if (m_bufferId != 0) Destroy();
 
-    m_slotSize = slotSize;
+    // Align slotSize to satisfy GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT
+    // Typical alignment is 16, 32, 64 or 256 depending on driver.
+    const size_t alignment = 256;
+    m_slotSize = (slotSize + alignment - 1) & ~(alignment - 1);
 
     if (IsSupported()) {
         m_mode = Mode::Persistent;
@@ -285,9 +288,12 @@ void PersistentBuffer::Lock() {
     }
 }
 
-void PersistentBuffer::Read(void* data, size_t size) {
+void PersistentBuffer::Read(void* data, size_t size) const {
     if (m_mode == Mode::Persistent) {
         if (m_mappedPtr) {
+            static PFNGLMEMORYBARRIERPROC glMemoryBarrier = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
+            if (glMemoryBarrier) glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
+
             size_t copySize = std::min(size, m_slotSize);
             memcpy(data, m_mappedPtr + m_writeSlot * m_slotSize, copySize);
         }

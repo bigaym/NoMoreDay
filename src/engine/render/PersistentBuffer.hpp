@@ -46,7 +46,7 @@ public:
     // Read data from the buffer
     // In Persistent mode: Copies from the currently mapped slot (Safe if called after BeginWrite)
     // In Compat mode: Downloads from GPU buffer
-    void Read(void* data, size_t size);
+    void Read(void* data, size_t size) const;
 
     // Bind the buffer for reading by shaders
     // automatically handles offset for the correct frame (N-2 for Persistent)

@@ -1,5 +1,6 @@
 #pragma once
 #include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/PersistentBuffer.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "raylib.h"
 #include <vector>
@@ -22,20 +23,20 @@ public:
               Vector2 targetPos, Vector2 gridOrigin);
 
   // Update crowd density from GPU entity buffer
-  void UpdateCrowdDensity(unsigned int entityBufferId, int entityCount,
+  void UpdateCrowdDensity(const render::PersistentBuffer &entityBuffer, int entityCount,
                           float cellSize);
 
   void Shutdown();
 
   // Accessors for Debugging
-  const core::ComputeBuffer &GetFlowBuffer() const { return m_flowBuffer; }
+  const render::PersistentBuffer &GetFlowBuffer() const { return m_flowBuffer; }
   const core::ComputeBuffer &GetDensityBuffer() const {
     return m_densityBuffer;
   }
   const core::ComputeBuffer &GetIntegrationBuffer() const {
     return m_integrationBuffer;
   }
-  const core::ComputeBuffer &GetCostBuffer() const { return m_costBuffer; }
+  const render::PersistentBuffer &GetCostBuffer() const { return m_costBuffer; }
   int GetWidth() const { return m_width; }
   int GetHeight() const { return m_height; }
   Vector2 GetGridOrigin() const { return m_gridOrigin; }
@@ -67,12 +68,12 @@ private:
   Shader m_gridClearShader;
 
   // Buffers (SSBOs)
-  core::ComputeBuffer m_costBuffer;    // uint32_t[] (Static obstacles)
+  render::PersistentBuffer m_costBuffer;    // uint32_t[] (Static obstacles)
   core::ComputeBuffer m_densityBuffer; // uint32_t[] (Dynamic crowd density)
 
   core::ComputeBuffer m_integrationBuffer;  // Ping
   core::ComputeBuffer m_integrationBuffer2; // Pong
-  core::ComputeBuffer m_flowBuffer;         // Vector2[] (Flow Direction)
+  render::PersistentBuffer m_flowBuffer;         // Vector2[] (Flow Direction)
 
   // CPU Shadow Buffer
   std::vector<Vector2> m_flowFieldShadow;
