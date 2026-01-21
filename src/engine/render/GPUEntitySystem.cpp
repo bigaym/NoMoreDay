@@ -43,6 +43,7 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
   m_localData.resize(m_maxEntities);
   m_gridCounts.resize(numCells);
   m_gridOffsets.resize(numCells);
+  m_blockDirty.resize((m_maxEntities / BLOCK_SIZE) + 1, true);
 
   InitRender(resources);
   NoMoreDay::render::MDIRenderer::Get().Init(resources, m_maxEntities);
@@ -112,6 +113,16 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity) || index >= m_maxEntities) continue;
     
     const auto &pos = group.get<Position>(entity);
+    bool isDirty = true;
+    if (auto* dtComp = registry.try_get<DirtyTransform>(entity)) {
+        isDirty = dtComp->isDirty;
+        dtComp->isDirty = false; // Reset for next frame
+    }
+
+    // Since we use Triple Buffering, we must ensure the current slot is updated.
+    // However, if the entity hasn't moved AND we have a high-confidence cache, we could skip.
+    // For now, we always update but the 'isDirty' flag can be used for logic branching.
+    
     const auto &vel = group.get<Velocity>(entity);
     const auto &radius = group.get<Radius>(entity);
     
@@ -235,6 +246,13 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
     auto& gpu = m_localData[i];
     if (gpu.radius > 0.0f) {
       if (auto* pos = registry.try_get<Position>(entity)) { 
+        // Significant change threshold (0.5 pixel)
+        float dx = gpu.position.x - pos->x;
+        float dy = gpu.position.y - pos->y;
+        if (dx*dx + dy*dy > 0.25f) { // 0.5^2
+            registry.get_or_emplace<DirtyTransform>(entity).isDirty = true;
+        }
+
         // Update PrevPosition for stable interpolation
         auto& prev = registry.get_or_emplace<PrevPosition>(entity, pos->x, pos->y);
         prev.x = pos->x;

@@ -1,0 +1,9 @@
+{
+  "id": "rendering_performance_sync_opt",
+  "name": "Rendering Performance & Sync Optimization",
+  "description": "Addressing CPU-GPU sync bottlenecks and UI batching efficiency identified during audit.",
+  "status": "in_progress",
+  "category": "performance",
+  "created_at": "2026-01-22",
+  "tags": ["rendering", "opengl", "optimization", "sync"]
+}

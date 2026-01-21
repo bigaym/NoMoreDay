@@ -54,6 +54,9 @@ private:
 
   uint64_t m_frameCounter = 0;
   std::vector<entt::entity> m_slotToEntities[3]; // Stable tracking for each slot
+  
+  static constexpr int BLOCK_SIZE = 1024;
+  std::vector<bool> m_blockDirty;
 
   // Rendering
   Shader m_renderShader;

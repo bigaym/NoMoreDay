@@ -54,7 +54,9 @@ private:
     void CreateQuadVAO();
     void LoadShaders();
     void CreateBuffers();
+public:
     Matrix BuildMVP(const Camera2D& camera) const;
+private:
     
     // State
     bool m_initialized = false;
@@ -69,7 +71,12 @@ private:
     core::ComputeBuffer m_particleBuffer;    // All particles
     core::ComputeBuffer m_compactBuffer;     // Compacted alive particles
     core::ComputeBuffer m_indirectBuffer;    // DrawArraysIndirect command
-    core::ComputeBuffer m_atomicBuffer;      // Atomic counter for compaction
+    core::ComputeBuffer m_atomicBufferPing;  // Atomic counter (Ping)
+    core::ComputeBuffer m_atomicBufferPong;  // Atomic counter (Pong)
+    
+    // Asynchronous state
+    uint32_t m_lastKnownAliveCount = 0;      // Read from previous frame
+    bool m_atomicPingPong = false;           // Swap flag for atomic buffers
     
     // Shaders
     Shader m_computeShader = { 0 };

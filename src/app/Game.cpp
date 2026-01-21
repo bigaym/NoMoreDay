@@ -5,6 +5,7 @@
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/PopupRenderer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
@@ -115,6 +116,9 @@ void Game::init() {
                                                        256);
     // Initialize GPU Skill Effect System (Global)
     NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(m_resourceManager, NoMoreDay::Constants::Render::MAX_SKILL_EFFECTS);
+    
+    // Initialize GPU Damage Popup System
+    NoMoreDay::render::PopupRenderer::Get().Init();
   }
 
   // Push Initial State
@@ -212,6 +216,7 @@ void Game::cleanup() {
   m_registry.clear();
 
   UISystem::Shutdown();
+  NoMoreDay::render::PopupRenderer::Get().Shutdown();
   NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();
   NoMoreDay::systems::GPUEntitySystem::Get().Shutdown();
   NoMoreDay::systems::GPUSkillEffectSystem::Get().Shutdown();

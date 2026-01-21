@@ -1,4 +1,5 @@
 #include "engine/render/RenderSystem.hpp"
+#include "engine/render/PopupRenderer.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "engine/physics/SpatialGrid.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
@@ -195,6 +196,11 @@ void RenderSystem::render(entt::registry &registry,
   // GPU 粒子渲染
   NoMoreDay::systems::GPUParticleSystem::Get().Render(camera);
   NoMoreDay::systems::GPUEntitySystem::Get().Render(context);
+  
+  // GPU 伤害飘字渲染
+  NoMoreDay::render::PopupRenderer::Get().Update(GetFrameTime());
+  Matrix viewProj = NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(camera);
+  NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
 
   // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent)
   // 注意：如果是投射物 (Projectile)，即使它有 GPUIndex，我们也允许 CPU
@@ -699,6 +705,6 @@ void RenderSystem::render(entt::registry &registry,
   // GPU Skill Effects
   NoMoreDay::systems::GPUSkillEffectSystem::Get().Render(camera);
 
-  // 7. 高性能伤害飘字
-  NoMoreDay::DamagePopupManager::Get().Draw(font);
+  // 7. 高性能伤害飘字 (已迁移至 GPU PopupRenderer)
+  // NoMoreDay::DamagePopupManager::Get().Draw(font);
 }

@@ -103,6 +103,26 @@ struct HoloBladeInstance {
 static_assert(sizeof(HoloBladeInstance) == 48, "HoloBladeInstance struct must be 48 bytes for SSBO alignment");
 
 /**
+ * @brief Structure for GPU damage popups.
+ * 48 Bytes (16 * 3) for alignment.
+ */
+struct GPUPopupInstance {
+    Vector2 position     = { 0.0f, 0.0f }; // 8
+    Vector2 velocity     = { 0.0f, 0.0f }; // 8
+    float timer          = 0.0f;           // 4
+    float lifeTime       = 1.0f;           // 4
+    uint32_t glyphData   = 0;              // 4 - Packed: startIdx << 16 | count
+    uint32_t colorPacked = 0xFFFFFFFF;     // 4 - RGBA8
+    uint32_t flags       = 0;              // 4 - bit0: isCrit, bit1: isStatus
+    float scale          = 1.0f;           // 4
+    float padding[2]     = { 0.0f, 0.0f }; // 8
+
+    GPUPopupInstance() = default;
+};
+
+static_assert(sizeof(GPUPopupInstance) == 48, "GPUPopupInstance struct must be 48 bytes for SSBO alignment");
+
+/**
  * @brief Centralized Color Manager for VFX
  * 颜色管理器：统一管理游戏内的特效颜色
  */

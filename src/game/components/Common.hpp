@@ -524,6 +524,11 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DelayedDestroyComponent, timer)
 // 休眠标签：标记实体处于休眠状态，跳过 AI 和 Physics 更新
 struct DormantTag {};
 
+// 脏标记组件：标记实体的变换（位置/旋转）是否发生改变，用于加速 GPU 同步
+struct DirtyTransform {
+  bool isDirty = true;
+};
+
 // 护盾运行时状态组件 (Hybrid Barrier: ES + Ward)
 // 护盾值存储在 CombatStats.barrier 中，此组件仅存储运行时状态
 struct BarrierComponent {
