@@ -1,7 +1,7 @@
 # 性能极致优化 - 总体实施计划 (Master Plan)
 
 **Track ID**: `performance_optimization`  
-**状态**: 📋 Planned  
+**状态**: 🚧 In Progress  
 **目标帧率**: 180 FPS (帧预算 5.5ms)  
 **总预计工时**: 10-12 天
 
@@ -9,13 +9,13 @@
 
 ## 1. Phase 总览
 
-| Phase | Track ID | 优先级 | 依赖 | 工时 | 收益预估 |
+| Phase | Track ID | 优先级 | 状态 | 工时 | 收益预估 |
 |-------|----------|--------|------|------|----------|
-| Phase 1 | `phase1_mdi_rendering` | P0 | 无 | 3-4d | Draw Call → O(1) |
-| Phase 2 | `phase2_entt_group` | P1 | 无 | 2d | Cache Miss ↓80% |
-| Phase 3 | `phase3_triple_buffer` | P2 | Phase 1 | 2-3d | CPU-GPU 同步 → 0 |
-| Phase 4 | `phase4_simd_spatial` | P2 | 无 | 2d | 查询性能 ↑4-6x |
-| Phase 5 | `phase5_branchless` | P3 | Phase 2 | 1.5d | 分支失败 ↓95% |
+| Phase 1 | `phase1_mdi_rendering` | P0 | ✅ Completed | 3-4d | Draw Call → O(1) |
+| Phase 2 | `phase2_entt_group` | P1 | ✅ Completed | 2d | Cache Miss ↓80% |
+| Phase 3 | `phase3_triple_buffer` | P2 | ✅ Completed | 2-3d | CPU-GPU 同步 → 0 |
+| Phase 4 | `phase4_simd_spatial` | P2 | ✅ Completed | 2d | 查询性能 ↑4-6x |
+| Phase 5 | `phase5_branchless` | P3 | 🚧 In Progress | 1.5d | 分支失败 ↓95% |
 
 ---
 
@@ -63,32 +63,32 @@ Week 2:                                        ▼
 
 ## 3. 里程碑检查点
 
-### M1: 基础优化完成 (Phase 2 + Phase 4)
-**预计时间**: Week 1 结束
+### M1: 基础优化完成 (Phase 2 + Phase 4) ✅
+**状态**: Completed
 
 **验收指标**:
-- [ ] EnTT Group 遍历已集成
-- [ ] SIMD 空间查询已集成
-- [ ] 所有现有测试通过
+- [x] EnTT Group 遍历已集成
+- [x] SIMD 空间查询已集成
+- [x] 所有现有测试通过
 
 **预期收益**:
 - 属性更新耗时 ↓50%
 - 空间查询耗时 ↓70%
 
-### M2: GPU Pipeline 优化完成 (Phase 1 + Phase 3)
-**预计时间**: Week 2 结束
+### M2: GPU Pipeline 优化完成 (Phase 1 + Phase 3) ✅
+**状态**: Completed
 
 **验收指标**:
-- [ ] MDI 渲染正常工作
-- [ ] Triple Buffer 同步正常
-- [ ] 10k 实体无卡顿
+- [x] MDI 渲染正常工作
+- [x] Triple Buffer 同步正常
+- [x] 10k 实体无卡顿
 
 **预期收益**:
 - Draw Call = 1
 - CPU-GPU 同步开销 ≈ 0
 
-### M3: 全面优化完成 (All Phases)
-**预计时间**: Week 2.5
+### M3: 全面优化完成 (All Phases) ⬜
+**预计时间**: Week 3
 
 **验收指标**:
 - [ ] 所有 Phase 验收通过

@@ -228,7 +228,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: Performance Extreme Optimization (Multi-Phase)
-- **Folder:** [./conductor/tracks/performance_optimization/](./conductor/tracks/performance_optimization/)
+- **Folder:** [./conductor/archive/performance_optimization/](./conductor/archive/performance_optimization/)
 - **Description:** 多阶段极致性能优化策略，目标锁定 180 FPS (5.5ms 帧预算)。包含 5 个独立 Phase：Phase 1 (GPU-Driven MDI Rendering)、Phase 2 (EnTT Group Memory Optimization)、Phase 3 (Triple-Buffered Persistent Mapping)、Phase 4 (SIMD SpatialGrid Query)、Phase 5 (Branchless Combat Logic)。采用工业级手段彻底解决 Draw Call、Cache Miss、CPU-GPU 同步、空间查询密度和分支预测失败等性能瓶颈。
 - **Status:** COMPLETED
 - **Priority:** CRITICAL
