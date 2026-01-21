@@ -14,9 +14,11 @@ using namespace NoMoreDay;
 #include "unit/NemesisEvolutionTests.hpp"
 #include "unit/SystemMechanics.hpp"
 #include "unit/SIMDSpatialGridTest.hpp"
+#include "unit/CombatFormulaTest.hpp"
 #include "unit/StashSystemTest.hpp" // ADDED
 
 // --- Integration Tests ---
+#include "integration/CombatBalanceTest.hpp"
 #include "integration/GameplaySystems.hpp"
 #include "integration/NemesisScalingTest.hpp"
 #include "integration/SkillSystemTests.hpp"

@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Combat Formula Refactor (Level Scaling)
+- **Folder:** [./conductor/archive/combat_formula_refactor_20260121/](./conductor/archive/combat_formula_refactor_20260121/)
+- **Description:** 参考 Last Epoch 重构战斗公式，引入基于等级的动态缩放因子 (Level Factor)。实现了护甲减伤/负护甲增伤、基于评级 (Rating) 的渐进式闪避率计算、以及格挡效能缩放。同步更新了 DamagePipeline 的 SIMD 路径、词缀系统（新增评级词缀）及 UI 属性面板的有效值显示。已通过单元测试与集成测试验证。 (Completed on 2026-01-21)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1 day
+
+---
+
 ## [x] Track: Stash System (Personal & Shared)
 - **Folder:** [./conductor/archive/stash_system_20260121/](./conductor/archive/stash_system_20260121/)
 - **Description:** 实现完整的仓库系统，包含个人仓库与账号共享仓库。支持多标签页解锁、物品分类拖拽、Ctrl+Click 快速存取、带缓存的高性能搜索、一键整理以及批量存入功能。数据层通过 SharedStash 单例与 SaveManager 深度集成，确保跨存档与场景切换的稳定性。已完成城镇地图实体的交互落地与 77 项全量测试验证。 (Completed on 2026-01-21)

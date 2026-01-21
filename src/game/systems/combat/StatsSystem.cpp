@@ -16,14 +16,14 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
-#include "game/registry/GroupRegistry.hpp" // Added
+#include "game/registry/GroupRegistry.hpp"       // Added
+#include "game/systems/combat/CombatFormula.hpp" // Added for Formula Refactor
 #include <Taskflow/algorithm/for_each.hpp>
 #include <Taskflow/taskflow.hpp>
 #include <algorithm>
 #include <array>
 #include <unordered_map>
 #include <vector>
-
 
 namespace NoMoreDay {
 
@@ -149,7 +149,8 @@ using AffixHandler = void (*)(AffixContext &, const Affix &);
 // Dispatcher Class
 class AffixDispatcher {
 public:
-  static constexpr size_t TABLE_SIZE = 128; // Covers Normal affixes (0-99 approx)
+  static constexpr size_t TABLE_SIZE =
+      128; // Covers Normal affixes (0-99 approx)
   std::array<AffixHandler, TABLE_SIZE> handlers = {};
 
   AffixDispatcher() {
@@ -160,13 +161,18 @@ public:
     Bind<StatType::Dexterity, ModifierMode::Flat>(AffixType::Dexterity);
     Bind<StatType::Intelligence, ModifierMode::Flat>(AffixType::Intelligence);
     Bind<StatType::Vitality, ModifierMode::Flat>(AffixType::Vitality);
-    
+
     // All Attributes
-    handlers[(int)AffixType::AllAttributes] = [](AffixContext &ctx, const Affix &a) {
-        ApplyStatModifier(ctx.calcs, StatType::Strength, ModifierMode::Flat, a.value);
-        ApplyStatModifier(ctx.calcs, StatType::Dexterity, ModifierMode::Flat, a.value);
-        ApplyStatModifier(ctx.calcs, StatType::Intelligence, ModifierMode::Flat, a.value);
-        ApplyStatModifier(ctx.calcs, StatType::Vitality, ModifierMode::Flat, a.value);
+    handlers[(int)AffixType::AllAttributes] = [](AffixContext &ctx,
+                                                 const Affix &a) {
+      ApplyStatModifier(ctx.calcs, StatType::Strength, ModifierMode::Flat,
+                        a.value);
+      ApplyStatModifier(ctx.calcs, StatType::Dexterity, ModifierMode::Flat,
+                        a.value);
+      ApplyStatModifier(ctx.calcs, StatType::Intelligence, ModifierMode::Flat,
+                        a.value);
+      ApplyStatModifier(ctx.calcs, StatType::Vitality, ModifierMode::Flat,
+                        a.value);
     };
 
     // --- Offensive ---
@@ -179,17 +185,24 @@ public:
     BindDirect<DamageType::Shadow>(AffixType::FlatShadowDamage);
 
     // Percent Damage
-    Bind<StatType::PhysicalDamage, ModifierMode::PercentAdd>(AffixType::PercentPhysicalDamage);
-    Bind<StatType::FireDamage, ModifierMode::PercentAdd>(AffixType::PercentFireDamage);
-    Bind<StatType::ColdDamage, ModifierMode::PercentAdd>(AffixType::PercentColdDamage);
-    Bind<StatType::LightningDamage, ModifierMode::PercentAdd>(AffixType::PercentLightningDamage);
-    Bind<StatType::PoisonDamage, ModifierMode::PercentAdd>(AffixType::PercentPoisonDamage);
-    Bind<StatType::ShadowDamage, ModifierMode::PercentAdd>(AffixType::PercentShadowDamage);
+    Bind<StatType::PhysicalDamage, ModifierMode::PercentAdd>(
+        AffixType::PercentPhysicalDamage);
+    Bind<StatType::FireDamage, ModifierMode::PercentAdd>(
+        AffixType::PercentFireDamage);
+    Bind<StatType::ColdDamage, ModifierMode::PercentAdd>(
+        AffixType::PercentColdDamage);
+    Bind<StatType::LightningDamage, ModifierMode::PercentAdd>(
+        AffixType::PercentLightningDamage);
+    Bind<StatType::PoisonDamage, ModifierMode::PercentAdd>(
+        AffixType::PercentPoisonDamage);
+    Bind<StatType::ShadowDamage, ModifierMode::PercentAdd>(
+        AffixType::PercentShadowDamage);
 
     // Speed & Critical
     Bind<StatType::CritChance, ModifierMode::Flat>(AffixType::CritChance);
     Bind<StatType::CritDamage, ModifierMode::Flat>(AffixType::CritDamage);
-    Bind<StatType::AttackSpeed, ModifierMode::PercentAdd>(AffixType::AttackSpeed);
+    Bind<StatType::AttackSpeed, ModifierMode::PercentAdd>(
+        AffixType::AttackSpeed);
     Bind<StatType::CastSpeed, ModifierMode::PercentAdd>(AffixType::CastSpeed);
     Bind<StatType::Accuracy, ModifierMode::Flat>(AffixType::Accuracy);
 
@@ -197,58 +210,102 @@ public:
     Bind<StatType::Armor, ModifierMode::Flat>(AffixType::FlatArmor);
     Bind<StatType::Armor, ModifierMode::PercentAdd>(AffixType::PercentArmor);
     Bind<StatType::MaxHealth, ModifierMode::Flat>(AffixType::FlatHealth);
-    Bind<StatType::MaxHealth, ModifierMode::PercentAdd>(AffixType::PercentHealth);
+    Bind<StatType::MaxHealth, ModifierMode::PercentAdd>(
+        AffixType::PercentHealth);
     Bind<StatType::MaxMana, ModifierMode::Flat>(AffixType::FlatMana);
 
     // Resistances
     Bind<StatType::ResistFire, ModifierMode::Flat>(AffixType::ResistFire);
     Bind<StatType::ResistCold, ModifierMode::Flat>(AffixType::ResistCold);
-    Bind<StatType::ResistLightning, ModifierMode::Flat>(AffixType::ResistLightning);
+    Bind<StatType::ResistLightning, ModifierMode::Flat>(
+        AffixType::ResistLightning);
     Bind<StatType::ResistPoison, ModifierMode::Flat>(AffixType::ResistPoison);
     Bind<StatType::ResistShadow, ModifierMode::Flat>(AffixType::ResistShadow);
     Bind<StatType::ResistAll, ModifierMode::Flat>(AffixType::ResistAll);
 
     // Utility & Recovery (Combat Direct or Stat)
     // Direct Float Modifiers on CombatStats
-    handlers[(int)AffixType::Thorns] = [](AffixContext &c, const Affix &a) { c.combat.thorns += a.value; };
-    handlers[(int)AffixType::DamageReduction] = [](AffixContext &c, const Affix &a) { c.combat.damage_reduction += a.value / 100.0f; };
-    handlers[(int)AffixType::CooldownReduction] = [](AffixContext &c, const Affix &a) { c.combat.cooldown_reduction += a.value / 100.0f; };
-    
-    handlers[(int)AffixType::LifeSteal] = [](AffixContext &c, const Affix &a) { c.combat.life_steal += a.value / 100.0f; };
-    handlers[(int)AffixType::LifeOnHit] = [](AffixContext &c, const Affix &a) { c.combat.life_on_hit += a.value; };
-    handlers[(int)AffixType::ManaOnHit] = [](AffixContext &c, const Affix &a) { c.combat.mana_on_hit += a.value; };
-    handlers[(int)AffixType::HealthRegen] = [](AffixContext &c, const Affix &a) { c.combat.health_regen += a.value; };
-    handlers[(int)AffixType::ManaRegen] = [](AffixContext &c, const Affix &a) { c.combat.mana_regen += a.value; };
-    handlers[(int)AffixType::PercentHealthRegen] = [](AffixContext &c, const Affix &a) { c.combat.health_regen_pct += a.value / 100.0f; };
-    handlers[(int)AffixType::PercentManaRegen] = [](AffixContext &c, const Affix &a) { c.combat.mana_regen_pct += a.value / 100.0f; };
+    handlers[(int)AffixType::Thorns] = [](AffixContext &c, const Affix &a) {
+      c.combat.thorns += a.value;
+    };
+    handlers[(int)AffixType::DamageReduction] = [](AffixContext &c,
+                                                   const Affix &a) {
+      c.combat.damage_reduction += a.value / 100.0f;
+    };
+    handlers[(int)AffixType::CooldownReduction] = [](AffixContext &c,
+                                                     const Affix &a) {
+      c.combat.cooldown_reduction += a.value / 100.0f;
+    };
+
+    handlers[(int)AffixType::LifeSteal] = [](AffixContext &c, const Affix &a) {
+      c.combat.life_steal += a.value / 100.0f;
+    };
+    handlers[(int)AffixType::LifeOnHit] = [](AffixContext &c, const Affix &a) {
+      c.combat.life_on_hit += a.value;
+    };
+    handlers[(int)AffixType::ManaOnHit] = [](AffixContext &c, const Affix &a) {
+      c.combat.mana_on_hit += a.value;
+    };
+    handlers[(int)AffixType::HealthRegen] = [](AffixContext &c,
+                                               const Affix &a) {
+      c.combat.health_regen += a.value;
+    };
+    handlers[(int)AffixType::ManaRegen] = [](AffixContext &c, const Affix &a) {
+      c.combat.mana_regen += a.value;
+    };
+    handlers[(int)AffixType::PercentHealthRegen] = [](AffixContext &c,
+                                                      const Affix &a) {
+      c.combat.health_regen_pct += a.value / 100.0f;
+    };
+    handlers[(int)AffixType::PercentManaRegen] = [](AffixContext &c,
+                                                    const Affix &a) {
+      c.combat.mana_regen_pct += a.value / 100.0f;
+    };
 
     Bind<StatType::MoveSpeed, ModifierMode::PercentAdd>(AffixType::MoveSpeed);
 
+    // --- NEW: Rating System Bindings (Phase 1/2) ---
+    Bind<StatType::DodgeRating, ModifierMode::Flat>(AffixType::FlatDodgeRating);
+    Bind<StatType::DodgeRating, ModifierMode::PercentAdd>(
+        AffixType::PercentDodgeRating);
+    Bind<StatType::BlockRating, ModifierMode::Flat>(AffixType::FlatBlockRating);
+    Bind<StatType::BlockRating, ModifierMode::PercentAdd>(
+        AffixType::PercentBlockRating);
+
     // Special Skills
-    handlers[(int)AffixType::PlusAllSkills] = [](AffixContext &ctx, const Affix &a) {
-        if (auto *active = ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
-            for (auto &specialized : active->specialized_slots) {
-                if (specialized.skill_id != 0) specialized.bonus_levels += (int)a.value;
-            }
+    handlers[(int)AffixType::PlusAllSkills] = [](AffixContext &ctx,
+                                                 const Affix &a) {
+      if (auto *active =
+              ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
+        for (auto &specialized : active->specialized_slots) {
+          if (specialized.skill_id != 0)
+            specialized.bonus_levels += (int)a.value;
         }
+      }
     };
-    handlers[(int)AffixType::PlusFlowingThrust] = [](AffixContext &ctx, const Affix &a) {
-        if (auto *active = ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
-            for (auto &specialized : active->specialized_slots) {
-                if (specialized.skill_id == 1) specialized.bonus_levels += (int)a.value;
-            }
+    handlers[(int)AffixType::PlusFlowingThrust] = [](AffixContext &ctx,
+                                                     const Affix &a) {
+      if (auto *active =
+              ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
+        for (auto &specialized : active->specialized_slots) {
+          if (specialized.skill_id == 1)
+            specialized.bonus_levels += (int)a.value;
         }
+      }
     };
-    handlers[(int)AffixType::PlusRendingWave] = [](AffixContext &ctx, const Affix &a) {
-       if (auto *active = ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
-            for (auto &specialized : active->specialized_slots) {
-                if (specialized.skill_id == 2) specialized.bonus_levels += (int)a.value;
-            }
+    handlers[(int)AffixType::PlusRendingWave] = [](AffixContext &ctx,
+                                                   const Affix &a) {
+      if (auto *active =
+              ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
+        for (auto &specialized : active->specialized_slots) {
+          if (specialized.skill_id == 2)
+            specialized.bonus_levels += (int)a.value;
         }
+      }
     };
 
     handlers[(int)AffixType::TitanGrip] = [](AffixContext &ctx, const Affix &) {
-        ctx.hasTitanGrip = true;
+      ctx.hasTitanGrip = true;
     };
   }
 
@@ -271,9 +328,9 @@ private:
   }
 
   template <DamageType DT> void BindDirect(AffixType type) {
-      handlers[(int)type] = [](AffixContext &ctx, const Affix &a) {
-        ctx.combat.flat_damage[(int)DT] += a.value;
-      };
+    handlers[(int)type] = [](AffixContext &ctx, const Affix &a) {
+      ctx.combat.flat_damage[(int)DT] += a.value;
+    };
   }
 };
 
@@ -341,6 +398,8 @@ void StatsSystem::Recalculate(entt::registry &registry, entt::entity entity) {
   calcs[static_cast<size_t>(StatType::MaxMana)].base = base_mana;
   calcs[static_cast<size_t>(StatType::MoveSpeed)].base = DEFAULT_MOVE_SPEED;
   calcs[static_cast<size_t>(StatType::Armor)].base = 0.0f;
+  calcs[static_cast<size_t>(StatType::DodgeRating)].base = 0.0f;
+  calcs[static_cast<size_t>(StatType::BlockRating)].base = 0.0f;
 
   // 如果是敌人，应用敌人种族基础属性覆盖 base_hp
   if (auto *enemy = registry.try_get<EnemyStateComponent>(entity)) {
@@ -448,8 +507,9 @@ void StatsSystem::Recalculate(entt::registry &registry, entt::entity entity) {
 
   // 定义处理词缀的 Lambda，供物品 and 套装奖励复用
   auto processAffixes = [&](const std::vector<Affix> &affixes) {
-    AffixContext ctx{calcs, combat, registry, entity, hasTitanGrip, global_mods};
-    
+    AffixContext ctx{calcs,  combat,       registry,
+                     entity, hasTitanGrip, global_mods};
+
     for (const auto &affix : affixes) {
       // NEW: Check if affix has tag conditions
       if (affix.required_tags != Tag::None) {
@@ -779,6 +839,77 @@ void StatsSystem::Recalculate(entt::registry &registry, entt::entity entity) {
   // 属性对伤害的加成
   ApplyStatModifier(calcs, StatType::PhysicalDamage, ModifierMode::PercentAdd,
                     str * Attribute::STR_TO_PHYS_DAMAGE_INC);
+
+  // --- NEW: Refresh Cached Area Level ---
+  int area_level = 1;
+  if (auto *enemy = registry.try_get<EnemyStateComponent>(entity)) {
+    area_level = (std::max)(1, enemy->level);
+  } else if (auto *pStats = registry.try_get<PlayerStats>(entity)) {
+    area_level = (std::max)(1, pStats->level);
+  }
+  combat.cached_area_level = area_level;
+
+  // --- NEW: Resolve Rating Stats & Effective Values ---
+  combat.dodge_rating =
+      calcs[static_cast<size_t>(StatType::DodgeRating)].Result();
+  combat.block_rating =
+      calcs[static_cast<size_t>(StatType::BlockRating)].Result();
+
+  // NOTE: Dodge Chance is now derived from Dodge Rating via Formula
+  // We add any direct DodgeChance% from legacy sources/talents to the formula
+  // result? Spec implies formula is primary. Let's assume calcs[DodgeChance]
+  // holds Flat Chance bonuses (e.g. Talent +5%) So: Total Chance =
+  // Formula(Rating) + FlatChanceMod
+  float formula_dodge = NoMoreDay::CombatFormula::CalculateDodgeChance(
+      combat.dodge_rating, area_level);
+  float flat_dodge_mod = calcs[static_cast<size_t>(StatType::DodgeChance)]
+                             .Result(); // Result of 0 base + mods
+  combat.effective_dodge = formula_dodge + flat_dodge_mod;
+  // Store final effective dodge back to `dodge_chance` for backwards
+  // compatibility/simplicity in other systems? Yes, CombatSystem uses
+  // `dodge_chance`. So we sync them. BUT `dodge_chance` field in CombatStats is
+  // defined as "闪避几率". Let's overwrite `dodge_chance` with the final
+  // effective value.
+  combat.dodge_chance =
+      std::min(combat.effective_dodge,
+               NoMoreDay::Constants::Combat::Scaling::DODGE_MAX_CHANCE);
+  combat.effective_dodge = combat.dodge_chance; // Ensure consistency
+
+  // Resolve Block
+  // Block Rating (amount) determines Effectiveness (DR).
+  // Block Chance is a separate stat (percentage).
+  float flat_block_chance =
+      calcs[static_cast<size_t>(StatType::BlockChance)].Result();
+  combat.block_chance =
+      std::min(flat_block_chance,
+               NoMoreDay::Constants::Combat::Scaling::BLOCK_MAX_CHANCE);
+
+  // Block Rating -> Effectiveness
+  // Note: `combat.block_amount` was used as "Damage Blocked" in legacy.
+  // Now `block_amount` serves as "Block Rating" passed to formula?
+  // Spec says: "float block_rating = 0.0f; // 格挡评级 (= block_amount)"
+  // So we sync `block_amount` to `block_rating` for display/legacy?
+  combat.block_amount = combat.block_rating;
+  combat.effective_block_eff =
+      NoMoreDay::CombatFormula::CalculateBlockEffectiveness(combat.block_rating,
+                                                            area_level);
+
+  // Resolve Armor DR (Effective)
+  // Note: Actual damage calc happens in Pipeline, but we store estimated DR
+  // here for UI
+  float armor_val = calcs[static_cast<size_t>(StatType::Armor)].Result();
+  combat.armor = armor_val;
+  float armor_mult =
+      NoMoreDay::CombatFormula::CalculateArmorMultiplier(armor_val, area_level);
+  // DR = 1.0 - Multiplier (For positive armor). If negative armor, Multiplier
+  // > 1.0, DR is negative.
+  combat.effective_armor_dr = 1.0f - armor_mult;
+
+  // 敏捷加成 (Refined)
+  // Dexterity now scales Dodge Rating? Spec doesn't strictly say so, but
+  // usually Dex -> Dodge Rating. Existing code: Dex -> Dodge Chance directly?
+  // No, existing code didn't have Dex -> Dodge. Existing: Dex -> Crit,
+  // Accuracy. Let's keep existing Dex bonuses.
 
   // 敏捷加成
   ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat,

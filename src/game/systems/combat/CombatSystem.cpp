@@ -1,6 +1,7 @@
 #include "game/systems/combat/CombatSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/PhysicsUtils.hpp"
+#include "core/utils/Branchless.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/AIComponent.hpp"
@@ -11,12 +12,12 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include <cmath>
-#include "core/utils/Branchless.hpp"
 
 // Bring CombatEvent types into scope
 using NoMoreDay::CombatEvent;
@@ -278,12 +279,14 @@ void CombatSystem::update(entt::registry &registry,
                 float finalDamage = totalDamage;
 
                 // Apply Block Reduction
-                // Formula: Reduction = BlockAmount / (BlockAmount + 100)
+                // Formula: Reduction using effective_block_eff from CombatStats
                 if (isBlocked) {
                   using namespace NoMoreDay::Constants::Combat::Pipeline;
-                  float blockMitigation =
-                      blockedAmount / (blockedAmount + ARMOR_BASE);
-                  finalDamage *= (1.0f - blockMitigation);
+                  if (registry.all_of<NoMoreDay::CombatStats>(target)) {
+                    const auto &tStats =
+                        registry.get<NoMoreDay::CombatStats>(target);
+                    finalDamage *= (1.0f - tStats.effective_block_eff);
+                  }
                 }
 
                 // 3. 暴击判定 (作用于最终总伤害)
@@ -292,7 +295,7 @@ void CombatSystem::update(entt::registry &registry,
                   // 应用暴击率上限
                   using namespace NoMoreDay::Constants::Combat;
                   float effectiveCrit =
-                      std::min(stats->crit_chance, Cap::CRIT_CHANCE);
+                      (std::min)(stats->crit_chance, Cap::CRIT_CHANCE);
                   if (roll < effectiveCrit) {
                     isCrit = true;
                     using namespace NoMoreDay::Constants::Combat;
@@ -436,10 +439,11 @@ void CombatSystem::update(entt::registry &registry,
                       tStats.block_chance) {
                 isBlocked = true;
                 blockedAmount = tStats.block_amount;
-                using namespace NoMoreDay::Constants::Combat::Pipeline;
-                float blockMitigation =
-                    blockedAmount / (blockedAmount + ARMOR_BASE);
-                finalDamage *= (1.0f - blockMitigation);
+                if (registry.all_of<NoMoreDay::CombatStats>(ai.target)) {
+                  const auto &tStats =
+                      registry.get<NoMoreDay::CombatStats>(ai.target);
+                  finalDamage *= (1.0f - tStats.effective_block_eff);
+                }
 
                 if (registry.all_of<Position>(ai.target)) {
                   NoMoreDay::systems::EffectSystem::EmitStatusPopup(
@@ -485,28 +489,27 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
 
   // Branchless Physical vs Elemental
   // We calculate both paths and select the result
-  
+
   // -- Path A: Physical --
   // Armor Reduction
   float effective_armor = defender.armor - attacker.armor_pen;
-  
-  using namespace NoMoreDay::Constants::Combat::Pipeline;
-  // if effective_armor >= 0
-  // mitigation = 1.0f - (ARMOR_BASE / (ARMOR_BASE + effective_armor));
-  // else
-  // mitigation = (ARMOR_BASE / (ARMOR_BASE - effective_armor)) - 1.0f;
-  
-  float term_positive = ARMOR_BASE + effective_armor;
-  float term_negative = ARMOR_BASE - effective_armor;
-  
-  // Avoid division by zero if something goes wrong (though ARMOR_BASE should be > 0)
-  // We can just execute the math. If effective_armor is negative, term_positive might be small/zero?
-  // Actually, ARMOR_BASE is usually large (e.g. 100 or 500). effective_armor can be negative.
-  
-  float mit_positive = 1.0f - (ARMOR_BASE / term_positive);
-  float mit_negative = (ARMOR_BASE / term_negative) - 1.0f;
-  
-  float physMitigation = SelectF(effective_armor >= 0.0f, mit_positive, mit_negative);
+
+  // Use CombatFormula for robust calculation
+  // We assume default area level 1 if not cached (though it should be)
+  int area_level = defender.cached_area_level;
+  if (area_level < 1)
+    area_level = 1;
+
+  float multiplier_val = NoMoreDay::CombatFormula::CalculateArmorMultiplier(
+      effective_armor, area_level);
+  // CalculateArmorMultiplier returns Damage Multiplier (e.g., 0.5 for 50% DR,
+  // or >1.0 for increased dmg) Our 'mitigation' logic expects a reduction
+  // factor [0, 1]. However, the formula below says: damage *= (1.0f -
+  // mitigation); So mitigation = 1.0f - multiplier_val; If multiplier > 1.0
+  // (Increased Damage), mitigation would be negative. e.g. mult=1.5 -> mit =
+  // -0.5 -> damage *= (1 - -0.5) = 1.5. Correct.
+
+  float physMitigation = 1.0f - multiplier_val;
 
   // -- Path B: Elemental --
   float res = defender.resistances[(int)type];
@@ -514,7 +517,7 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
   // logic: if (res > Cap::RESISTANCE) res = Cap::RESISTANCE;
   using namespace NoMoreDay::Constants::Combat;
   float elemMitigation = SelectF(res > Cap::RESISTANCE, Cap::RESISTANCE, res);
-  
+
   // Select Physical vs Elemental
   bool isPhysical = (type == DamageType::Physical);
   mitigation = SelectF(isPhysical, physMitigation, elemMitigation);
@@ -528,14 +531,16 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
   float reduction = defender.damage_reduction;
   // Apply Cap
   reduction = SelectF(reduction > Cap::DR, Cap::DR, reduction);
-  // Only apply if > 0 (handled by SelectF automatically if we assume reduction is 0 when not active)
-  // damage *= (1.0f - reduction)
-  // If reduction is 0, factor is 1.0. If reduction is valid, factor is 1-red.
-  // However, input check `if (defender.damage_reduction > 0.0f)` implies we shouldn't apply negative DR?
-  // Let's assume DR is clamped to 0 at least before this or is positive.
+  // Only apply if > 0 (handled by SelectF automatically if we assume reduction
+  // is 0 when not active) damage *= (1.0f - reduction) If reduction is 0,
+  // factor is 1.0. If reduction is valid, factor is 1-red. However, input check
+  // `if (defender.damage_reduction > 0.0f)` implies we shouldn't apply negative
+  // DR? Let's assume DR is clamped to 0 at least before this or is positive.
   // Actually, logic was: if (dr > 0) apply. If dr <= 0, do nothing.
   // So effective_dr = (dr > 0) ? min(dr, cap) : 0
-  float effective_dr = SelectF(reduction > 0.0f, reduction, 0.0f); // Ensures no negative DR handling if logic required
+  float effective_dr =
+      SelectF(reduction > 0.0f, reduction,
+              0.0f); // Ensures no negative DR handling if logic required
   damage *= (1.0f - effective_dr);
 
   // return max(0.0f, damage);
@@ -611,12 +616,12 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
   // --- Hybrid Barrier: Damage Absorption ---
   // Priority: Barrier absorbs damage before Health
   // Note: Chaos/True damage bypass is currently handled at DamagePipeline level
-  if (auto* barrier = registry.try_get<BarrierComponent>(target)) {
-    auto* stats = registry.try_get<NoMoreDay::CombatStats>(target);
+  if (auto *barrier = registry.try_get<BarrierComponent>(target)) {
+    auto *stats = registry.try_get<NoMoreDay::CombatStats>(target);
     if (stats && stats->barrier > 0.0f) {
       // Update last_damage_time to reset ES regeneration delay
       barrier->last_damage_time = static_cast<float>(GetTime());
-      
+
       // Calculate barrier absorption
       if (stats->barrier >= remainingDamage) {
         // Barrier absorbs all damage
@@ -629,8 +634,9 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
         remainingDamage -= stats->barrier;
         stats->barrier = 0.0f;
       }
-      
-      LOG_TRACE("Barrier absorbed {:.1f} damage, remaining: {:.1f}, barrier left: {:.1f}",
+
+      LOG_TRACE("Barrier absorbed {:.1f} damage, remaining: {:.1f}, barrier "
+                "left: {:.1f}",
                 barrierDamage, remainingDamage, stats->barrier);
     }
   }

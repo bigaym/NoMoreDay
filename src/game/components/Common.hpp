@@ -175,16 +175,33 @@ constexpr float INT_TO_BARRIER_RETENTION =
     1.0f; // 每点智力提供的护盾维持(降低衰减)百分比
 } // namespace Attribute
 
+// 等级缩放因子 (Last Epoch 风格)
+namespace Scaling {
+constexpr float LEVEL_BASE = 10.0f;
+constexpr float LEVEL_LINEAR = 0.5f;
+constexpr float LEVEL_QUADRATIC = 0.05f;
+
+// 闪避评级系数
+constexpr float DODGE_RATING_LINEAR = 0.1f;
+constexpr float DODGE_RATING_QUADRATIC = 0.001f;
+constexpr float DODGE_MAX_CHANCE = 0.90f; // 90% 上限
+
+// 格挡上限
+constexpr float BLOCK_MAX_CHANCE = 0.75f;
+} // namespace Scaling
+
 namespace Cap {
 constexpr int MAX_LEVEL = 100;           // 角色/敌人最大等级
 constexpr float RESISTANCE = 0.75f;      // 基础抗性上限 (75%)
 constexpr float RESISTANCE_HARD = 0.90f; // 抗性极限硬上限 (90%)
-constexpr float DODGE = 0.75f;           // 闪避率上限
-constexpr float BLOCK = 0.75f;           // 格挡率上限
-constexpr float DR = 0.90f;              // 伤害减免上限
-constexpr float CRIT_CHANCE = 1.00f;     // 暴击率上限
-constexpr float CDR = 0.75f;             // 冷却缩减 (CDR) 上限
-constexpr float ATTACK_SPEED = 10.0f;    // 每秒攻击次数上限
+constexpr float DODGE =
+    Scaling::DODGE_MAX_CHANCE; // 闪避率上限 using new scaling constant
+constexpr float BLOCK =
+    Scaling::BLOCK_MAX_CHANCE;        // 格挡率上限 using new scaling constant
+constexpr float DR = 0.90f;           // 伤害减免上限
+constexpr float CRIT_CHANCE = 1.00f;  // 暴击率上限
+constexpr float CDR = 0.75f;          // 冷却缩减 (CDR) 上限
+constexpr float ATTACK_SPEED = 10.0f; // 每秒攻击次数上限
 } // namespace Cap
 } // namespace Combat
 
@@ -245,26 +262,27 @@ constexpr float MIN_EFFECTIVE_PICKUP_RANGE = 50.0f; // 有效拾取的最小距�
 } // namespace Item
 
 namespace StashConfig {
-    constexpr int MAX_TABS = 10;
-    // 解锁每一页的费用 (第1页免费，数组从索引1开始对应第2页解锁费)
-    constexpr int UNLOCK_COSTS[] = {
-        0,       // Tab 1 (Free)
-        5000,    // Tab 2
-        15000,   // Tab 3
-        50000,   // Tab 4
-        150000,  // Tab 5
-        500000,  // Tab 6
-        1500000, // Tab 7
-        5000000, // Tab 8
-        10000000,// Tab 9
-        20000000 // Tab 10
-    };
+constexpr int MAX_TABS = 10;
+// 解锁每一页的费用 (第1页免费，数组从索引1开始对应第2页解锁费)
+constexpr int UNLOCK_COSTS[] = {
+    0,        // Tab 1 (Free)
+    5000,     // Tab 2
+    15000,    // Tab 3
+    50000,    // Tab 4
+    150000,   // Tab 5
+    500000,   // Tab 6
+    1500000,  // Tab 7
+    5000000,  // Tab 8
+    10000000, // Tab 9
+    20000000  // Tab 10
+};
 
-    constexpr int getUnlockCost(int tabIndex) {
-        if (tabIndex < 0 || tabIndex >= MAX_TABS) return -1;
-        return UNLOCK_COSTS[tabIndex];
-    }
+constexpr int getUnlockCost(int tabIndex) {
+  if (tabIndex < 0 || tabIndex >= MAX_TABS)
+    return -1;
+  return UNLOCK_COSTS[tabIndex];
 }
+} // namespace StashConfig
 
 // 角色移动与姿态设置
 namespace Movement {

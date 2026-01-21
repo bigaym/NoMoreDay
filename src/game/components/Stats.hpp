@@ -1,10 +1,9 @@
 #pragma once
-#include "game/data/TagRegistry.hpp"
 #include "game/components/Common.hpp"
+#include "game/data/TagRegistry.hpp"
 #include <array>
 #include <cstdint>
 #include <nlohmann/json.hpp>
-
 
 namespace NoMoreDay {
 
@@ -133,13 +132,25 @@ struct alignas(32) CombatStats {
   float block_chance = 0.0f;
   float block_amount = 0.0f; // 格挡减免的伤害值
 
+  // NEW: 评级系统 (用于等级缩放计算)
+  float dodge_rating = 0.0f; // 闪避评级
+  float block_rating = 0.0f; // 格挡评级 (= block_amount)
+
+  // NEW: 有效值 (UI显示用, 由 StatsSystem::Bake 计算)
+  float effective_dodge = 0.0f;     // 当前等级下的有效闪避率
+  float effective_armor_dr = 0.0f;  // 当前等级下的护甲减伤
+  float effective_block_eff = 0.0f; // 当前等级下的格挡效能
+
+  // NEW: 当前地图等级缓存 (避免重复查询)
+  int cached_area_level = 1;
+
   // --- 特殊机制 ---
   float move_speed = DEFAULT_MOVE_SPEED; // 移动速度 (pixels/sec)
-  float life_steal = 0.0f;                              // 吸血 %
-  float life_on_hit = 0.0f;                             // 击回
-  float mana_on_hit = 0.0f;                             // 蓝回
-  float thorns = 0.0f;                                  // 荆棘伤害 (反伤)
-  float magic_find = 4.0f;                              // 魔法寻宝率
+  float life_steal = 0.0f;               // 吸血 %
+  float life_on_hit = 0.0f;              // 击回
+  float mana_on_hit = 0.0f;              // 蓝回
+  float thorns = 0.0f;                   // 荆棘伤害 (反伤)
+  float magic_find = 4.0f;               // 魔法寻宝率
 
   // --- 技能效率 (Skill Efficiency) ---
   // 最终冷却 = (基础冷却 / cooldown_recovery_speed) * (1.0 -
@@ -188,13 +199,12 @@ static_assert(sizeof(CombatStats) % 32 == 0,
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(
     CombatStats, health, max_health, mana, max_mana, barrier, max_barrier,
     barrier_regen, barrier_decay, barrier_delay, barrier_retention,
-    effective_strength,
-    effective_dexterity, effective_intelligence, effective_vitality,
-    min_weapon_damage, max_weapon_damage, flat_damage, damage_multipliers,
-    damage_percent_add, damage_percent_mult_component, crit_chance, crit_damage,
-    attack_speed, cast_speed, accuracy, armor_pen, knockback, armor,
-    dodge_chance, resistances, block_chance, block_amount, move_speed,
-    life_steal, life_on_hit, mana_on_hit, thorns, magic_find,
+    effective_strength, effective_dexterity, effective_intelligence,
+    effective_vitality, min_weapon_damage, max_weapon_damage, flat_damage,
+    damage_multipliers, damage_percent_add, damage_percent_mult_component,
+    crit_chance, crit_damage, attack_speed, cast_speed, accuracy, armor_pen,
+    knockback, armor, dodge_chance, resistances, block_chance, block_amount,
+    move_speed, life_steal, life_on_hit, mana_on_hit, thorns, magic_find,
     cooldown_recovery_speed, cooldown_reduction, resource_cost_reduction,
     cast_range, health_regen, mana_regen, health_regen_pct, mana_regen_pct,
     area_scale, projectile_speed, duration_scale, pickup_range, gold_bonus,
@@ -210,11 +220,11 @@ enum class StatType : uint8_t {
   Dexterity,
   Intelligence,
   Vitality,
-  MaxHealth, // 最大生命值
-  MaxMana,   // 最大法力值
+  MaxHealth,  // 最大生命值
+  MaxMana,    // 最大法力值
   MaxBarrier, // 最大护盾值
-  MoveSpeed, // 移动速度
-  Armor,     // 护甲
+  MoveSpeed,  // 移动速度
+  Armor,      // 护甲
 
   // Offensive
   PhysicalDamage,
@@ -249,19 +259,20 @@ enum class StatType : uint8_t {
   ProjectileSpeed, // 投射物速度
   DurationScale,   // 持续时间乘区
 
-  DodgeChance, // 闪避率
-  BlockChance, // 格挡几率
-  LifeSteal,   // 吸血 %
-  LifeOnHit,   // 击回
-  HealthRegen, // 生命回复
-  ManaRegen,   // 法力回复
+  DodgeChance,      // 闪避率
+  BlockChance,      // 格挡几率
+  LifeSteal,        // 吸血 %
+  LifeOnHit,        // 击回
+  HealthRegen,      // 生命回复
+  ManaRegen,        // 法力回复
   BarrierRegen,     // 护盾回复 (Flat)
   BarrierDecay,     // 护盾衰减 (Percent)
   BarrierDelay,     // 护盾充能延迟
   BarrierRetention, // 护盾维持
-  Thorns,      // 荆棘
-  MagicFind,   // 掉率
-
+  Thorns,           // 荆棘
+  MagicFind,        // 掉率
+  DodgeRating,      // 闪避评级
+  BlockRating,      // 格挡评级
   Count
 };
 

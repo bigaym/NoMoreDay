@@ -1,11 +1,12 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
+#include "game/components/AdvancedAffixComponents.hpp" // InvulnerableComponent, SuppressorComponent
 #include "game/components/Common.hpp"
-#include "game/components/AdvancedAffixComponents.hpp"  // InvulnerableComponent, SuppressorComponent
 #include "game/components/PlayerState.hpp" // PhantomFlashComponent
 #include "game/components/Projectile.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // ShadowCast
@@ -15,7 +16,6 @@
 #include <bit>
 #include <cmath>
 #include <xsimd/xsimd.hpp>
-
 
 namespace NoMoreDay {
 
@@ -50,7 +50,7 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
                           const DamagePool &base_pool, Tag additional_tags,
                           entt::entity source_entity, bool is_simulation) {
   // === PRE-CALCULATION INTERCEPTORS ===
-  
+
   // 1. Invulnerable Check (Shielding, Clone Invulnerability)
   if (!is_simulation && registry.valid(defender)) {
     if (registry.all_of<InvulnerableComponent>(defender)) {
@@ -61,20 +61,20 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
       return result;
     }
   }
-  
+
   // 2. Suppressor Check (Distance-based damage reduction)
   float suppressor_multiplier = 1.0f;
   if (registry.valid(attacker) && registry.valid(defender)) {
-    if (auto* suppressor = registry.try_get<SuppressorComponent>(defender)) {
+    if (auto *suppressor = registry.try_get<SuppressorComponent>(defender)) {
       // Calculate distance between attacker and defender
-      auto* attPos = registry.try_get<Position>(attacker);
-      auto* defPos = registry.try_get<Position>(defender);
-      
+      auto *attPos = registry.try_get<Position>(attacker);
+      auto *defPos = registry.try_get<Position>(defender);
+
       if (attPos && defPos) {
         float dx = attPos->x - defPos->x;
         float dy = attPos->y - defPos->y;
         float distance = std::sqrt(dx * dx + dy * dy);
-        
+
         // If attacker is beyond threshold, apply damage reduction
         if (distance > suppressor->threshold) {
           suppressor_multiplier = 1.0f - suppressor->damageReduction;
@@ -82,7 +82,7 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
       }
     }
   }
-  
+
   const auto *skill_data = SkillRegistry::Get().GetSkill(skill_id);
   Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
   Tag combined_hit_tags = skill_tags | additional_tags;
@@ -229,11 +229,11 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
   using namespace NoMoreDay::Constants::Combat::Pipeline;
   float shadow_multiplier = 1.0f;
-  
-  if (auto* sc = registry.try_get<ShadowComponent>(attacker)) {
-      shadow_multiplier = sc->damage_scale;
+
+  if (auto *sc = registry.try_get<ShadowComponent>(attacker)) {
+    shadow_multiplier = sc->damage_scale;
   } else if (registry.all_of<ShadowCloneComponent>(attacker)) {
-      shadow_multiplier = SHADOW_MULTIPLIER;
+    shadow_multiplier = SHADOW_MULTIPLIER;
   }
 
   for (size_t i = 0; i < instances.size; ++i) {
@@ -370,7 +370,8 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
           // Calculate expected damage multiplier
           using namespace NoMoreDay::Constants::Combat::Pipeline;
           float chance = std::clamp(crit_chance, 0.0f, 100.0f) / 100.0f;
-          float dmg_mult = attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
+          float dmg_mult =
+              attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
           // Expected = 1 * (1-P) + Mult * P = 1 + P * (Mult - 1)
           crit_mult = 1.0f + chance * (dmg_mult - 1.0f);
         } else {
@@ -383,7 +384,8 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
       if (is_crit) {
         using namespace NoMoreDay::Constants::Combat::Pipeline;
-        crit_mult = attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
+        crit_mult =
+            attacker_stats ? attacker_stats->crit_damage : DEFAULT_CRIT_MULT;
         result.is_crit = true;
       }
     }
@@ -401,6 +403,7 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     float damage_after_res = inst.amount * (1.0f - res);
 
     // --- NEW: Robust Armor Calculation for Physical Damage ---
+    // --- NEW: Robust Armor Calculation for Physical Damage ---
     if (inst.final_type == Tag::Physical && defender_stats) {
       float armor = defender_stats->armor;
       // Retrieve attacker's Flat Armor Penetration
@@ -409,16 +412,11 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
           source_entity);
       float effective_armor = armor - pen;
 
-      float armor_multiplier = 1.0f;
-      using namespace NoMoreDay::Constants::Combat::Pipeline;
-      if (effective_armor >= 0.0f) {
-        // Positive Armor: Standard diminishing returns
-        armor_multiplier = ARMOR_BASE / (ARMOR_BASE + effective_armor);
-      } else {
-        // Negative Armor: Increased damage taken
-        // Formula ensures 0 -> 1.0, -100 -> 1.5, -infinity -> 2.0
-        armor_multiplier = 2.0f - (ARMOR_BASE / (ARMOR_BASE - effective_armor));
-      }
+      int area_level = defender_stats->cached_area_level; // Use cached level
+      float armor_multiplier =
+          NoMoreDay::CombatFormula::CalculateArmorMultiplier(effective_armor,
+                                                             area_level);
+
       damage_after_res *= armor_multiplier;
     }
 
@@ -426,7 +424,7 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     using namespace NoMoreDay::Constants::Combat::Pipeline;
     if (defender_stats && defender_stats->damage_reduction > 0.0f) {
       damage_after_res *=
-          (1.0f - std::min(DR_MAX, defender_stats->damage_reduction));
+          (1.0f - (std::min)(DR_MAX, defender_stats->damage_reduction));
     }
 
     total_final_damage += damage_after_res;
@@ -435,7 +433,7 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
       result.final_pool.values[type_idx] += damage_after_res;
     }
   }
-  
+
   // === FINAL MULTIPLIERS (Suppressor, etc) ===
   total_final_damage *= suppressor_multiplier;
   for (int i = 0; i < 6; ++i) {
@@ -599,12 +597,14 @@ void DamagePipeline::CalculateBatch(
       if (i + inc <= end) {
         alignas(32) std::array<float, batch_type::size> res_batch_data;
         alignas(32) std::array<float, batch_type::size> armor_batch_data;
+        alignas(32) std::array<float, batch_type::size>
+            level_batch_data; // Added for Level Scaling
         alignas(32) std::array<float, batch_type::size> final_dmg_sum;
         final_dmg_sum.fill(0.0f);
 
-          using namespace NoMoreDay::Constants::Combat::Pipeline;
-          for (int j = 0; j < ELEMENTAL_TYPE_COUNT; ++j) {
-            float base_amt = snap.base_damage[j];
+        using namespace NoMoreDay::Constants::Combat::Pipeline;
+        for (int j = 0; j < ELEMENTAL_TYPE_COUNT; ++j) {
+          float base_amt = snap.base_damage[j];
           if (base_amt <= 0.0f)
             continue;
 
@@ -612,29 +612,44 @@ void DamagePipeline::CalculateBatch(
             auto *ds = registry.try_get<CombatStats>(defenders[i + k]);
             res_batch_data[k] = ds ? ds->resistances[j] : 0.0f;
             armor_batch_data[k] = (j == 0 && ds) ? ds->armor : 0.0f;
+            level_batch_data[k] = (j == 0 && ds) ? (float)ds->cached_area_level
+                                                 : 1.0f; // Default level 1
           }
 
           using namespace NoMoreDay::Constants::Combat::Pipeline;
           auto amt_v = batch_type(base_amt);
           auto raw_res_v = batch_type::load_aligned(res_batch_data.data());
           // Robust clamp via select to avoid namespace issues with min/max
-          auto res_v =
-              xsimd::select(raw_res_v > batch_type(RESISTANCE_MAX), batch_type(RESISTANCE_MAX),
-                            xsimd::select(raw_res_v < batch_type(RESISTANCE_MIN),
-                                          batch_type(RESISTANCE_MIN), raw_res_v));
+          auto res_v = xsimd::select(
+              raw_res_v > batch_type(RESISTANCE_MAX),
+              batch_type(RESISTANCE_MAX),
+              xsimd::select(raw_res_v < batch_type(RESISTANCE_MIN),
+                            batch_type(RESISTANCE_MIN), raw_res_v));
           auto current_v = amt_v * (batch_type(1.0f) - res_v);
 
           if (j == 0) {
-            using namespace NoMoreDay::Constants::Combat::Pipeline;
+            using namespace NoMoreDay::Constants::Combat::
+                Scaling; // Use Scaling namespace for formula consts if needed,
+                         // but we implement formula logic directly here
             auto pen_v = batch_type(snap.armor_pen);
             auto eff_armor_v =
                 batch_type::load_aligned(armor_batch_data.data()) - pen_v;
+
+            // Level Factor: 10 + 0.5*L + 0.05*L^2
+            auto L_v = batch_type::load_aligned(level_batch_data.data());
+            auto LF_v = batch_type(10.0f) + batch_type(0.5f) * L_v +
+                        batch_type(0.05f) * L_v * L_v;
+
+            auto abs_armor_v = xsimd::abs(eff_armor_v);
+            auto denom_v = abs_armor_v + LF_v;
+
+            // Positive: LF / (Armor + LF) = LF / denom
+            auto pos_mult = LF_v / denom_v;
+
+            // Negative: 1 + |Armor| / (|Armor| + LF) = 1 + abs_armor / denom
+            auto neg_mult = batch_type(1.0f) + (abs_armor_v / denom_v);
+
             auto positive_mask = eff_armor_v >= batch_type(0.0f);
-            auto pos_mult =
-                batch_type(ARMOR_BASE) / (batch_type(ARMOR_BASE) + eff_armor_v);
-            auto neg_mult =
-                batch_type(2.0f) -
-                (batch_type(ARMOR_BASE) / (batch_type(ARMOR_BASE) - eff_armor_v));
             current_v *= xsimd::select(positive_mask, pos_mult, neg_mult);
           }
           auto sum_v =
@@ -647,12 +662,13 @@ void DamagePipeline::CalculateBatch(
           auto defender = defenders[i + k];
           auto *ds = registry.try_get<CombatStats>(defender);
           float dr = ds ? ds->damage_reduction : 0.0f;
-          float damage = final_dmg_sum[k] * (1.0f - std::min(DR_MAX, dr));
-          
+          float damage = final_dmg_sum[k] * (1.0f - (std::min)(DR_MAX, dr));
+
           // === Suppressor Check (Batch) ===
-          if (auto* suppressor = registry.try_get<SuppressorComponent>(defender)) {
-            auto* attPos = registry.try_get<Position>(attacker);
-            auto* defPos = registry.try_get<Position>(defender);
+          if (auto *suppressor =
+                  registry.try_get<SuppressorComponent>(defender)) {
+            auto *attPos = registry.try_get<Position>(attacker);
+            auto *defPos = registry.try_get<Position>(defender);
             if (attPos && defPos) {
               float dx = attPos->x - defPos->x;
               float dy = attPos->y - defPos->y;
@@ -685,26 +701,27 @@ void DamagePipeline::CalculateBatch(
             float amt = snap.base_damage[j];
             if (amt <= 0.0f)
               continue;
-            float res =
-                def_stats ? std::clamp(def_stats->resistances[j], RESISTANCE_MIN, RESISTANCE_MAX)
-                          : 0.0f;
+            float res = def_stats ? std::clamp(def_stats->resistances[j],
+                                               RESISTANCE_MIN, RESISTANCE_MAX)
+                                  : 0.0f;
             float after_res = amt * (1.0f - res);
             if (j == 0) {
               float effective_armor = armor - snap.armor_pen;
+              int area_level = def_stats ? def_stats->cached_area_level : 1;
               float armor_mult =
-                  (effective_armor >= 0.0f)
-                      ? (ARMOR_BASE / (ARMOR_BASE + effective_armor))
-                      : (2.0f - (ARMOR_BASE / (ARMOR_BASE - effective_armor)));
+                  NoMoreDay::CombatFormula::CalculateArmorMultiplier(
+                      effective_armor, area_level);
               after_res *= armor_mult;
             }
             final_damage += after_res;
           }
-          final_damage *= (1.0f - std::min(DR_MAX, dr));
-          
+          final_damage *= (1.0f - (std::min)(DR_MAX, dr));
+
           // === Suppressor Check (Fallback) ===
-          if (auto* suppressor = registry.try_get<SuppressorComponent>(defender)) {
-            auto* attPos = registry.try_get<Position>(attacker);
-            auto* defPos = registry.try_get<Position>(defender);
+          if (auto *suppressor =
+                  registry.try_get<SuppressorComponent>(defender)) {
+            auto *attPos = registry.try_get<Position>(attacker);
+            auto *defPos = registry.try_get<Position>(defender);
             if (attPos && defPos) {
               float dx = attPos->x - defPos->x;
               float dy = attPos->y - defPos->y;
