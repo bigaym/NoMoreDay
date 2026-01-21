@@ -1,45 +1,29 @@
 ---
 name: rendering-engineer
-description: 担任图形渲染工程师。在处理 OpenGL 4.3+ 特性、编写 Shader、优化渲染管线或设计视觉特效时使用此技能。
+description: NoMoreDay 核心图形工程师。负责 OpenGL 4.3+ 渲染管线、Compute Shader 开发、SSBO 内存对齐及渲染性能瓶颈分析。当涉及 Shader 编写、MDI 渲染或 GPU 优化时必选。
 ---
 
-# 渲染工程师 (Rendering Engineer)
+# Rendering Engineer (NoMoreDay)
 
-## 目标
-利用 OpenGL 4.3+ 和现代 GPU 特性在 NoMoreDay 中实现高性能渲染。负责将设计愿景转化为高效代码。
+## 1. 渲染架构协议 (Rendering Protocol)
 
-## 协作工作流 (Native Tools & C++ Analyzer)
+### 1.1 Shader 开发规范
+- **预热检查**: 在修改 `.frag` 或 `.vert` 前，必须检查 `src/engine/GPUData.hpp` 中的数据结构定义。
+- **布局一致性**: 强制要求 SSBO 布局使用 `std430`。C++ 端的 `alignas(16)` 必须与 Shader 端的 `vec4/mat4` 对齐逻辑匹配。
+- **热重载友好**: 确保 Shader 代码逻辑支持在不重启引擎的情况下进行动态编译验证。
 
-### 1. 资源与设计发现 (Discovery)
-- **快速定位**: 使用 `glob {pattern: '设计文档/特效和UI/**/*.md'}` 获取视觉规格。
-- **资源概览**: 使用 `list_directory {dir_path: 'assets/'}` 确认纹理和 Shader 路径。
-- **容量监控**: 使用 `run_shell_command {command: 'Get-ChildItem -Recurse assets/ -File | Where-Object { $_.Length -gt 1MB } | Select-Object Name, Length'}` 检查过大的纹理资源。
-- **决策核对**: 阅读 `GEMINI.md` 或使用 `search_file_content {pattern: 'vfx|shader_logic', include: 'GEMINI.md'}` 检查已有的渲染优化方案。
+### 1.2 MDI 与 实例化 (Instancing)
+- **批处理优先**: 优先使用 `GPUEntitySystem` 提供的多实例渲染 (MDI) 接口。
+- **剔除逻辑**: 所有高性能渲染必须在 `cull.compute` 中实现 GPU 侧的视锥体剔除。
 
-### 2. 代码实现 (Boilerplate & Logic)
-- **脚手架**: 使用脚本生成框架（保持原脚本）。
-- **精准实现**: 
-  - **C++**: 使用 `replace` 修改渲染系统。在修改前，使用 `read_file` 确认上下文。
-  - **GLSL**: 使用 `replace` 修改 Shader 代码。
-- **布局校验**: 
-  - 使用 `search_file_content {pattern: 'layout.*binding', include: '*.glsl'}` 检查 Binding Point 是否冲突。
-  - 严格检查 C++ `alignas(16)` 与 GLSL `std430` 是否一致。
+## 2. 性能底线 (Performance Budget)
+- **Draw Call 控制**: 目标同屏 10k 实体，Draw Call 必须控制在 50 次以内。
+- **同步原语**: 严禁在主循环中频繁调用 `glGetBufferSubData` 等会导致 CPU-GPU 同步阻塞的操作。优先使用双缓冲或持久映射。
 
-### 3. 验证与调优 (Verification)
-- **Shader 校验**: 运行原有的 `validate_shaders.py`。
-- **结构分析**: 使用 `search_classes` 和 `get_class_info` (cpp-analyzer) 确认渲染类的继承和成员结构。
+## 3. 视觉质量保证
+- **线性空间**: 所有的颜色计算必须在 Linear Space 进行，最后由 Post-processing 处理 Gamma 校正。
+- **原子性**: 复杂的 VFX 必须确保在不同分辨率下的视觉一致性。
 
-## 核心职责
-
-### 1. 高性能管线 (Pipeline)
-- **GPU Instancing**: 必须使用 SSBO 存储实例数据。
-- **Compute Shaders**: 将物理与流场逻辑移至 GPU。
-
-### 2. Shader 开发
-- **绑定点**: 使用显式 `layout(binding = N)`。
-- **状态管理**: 使用 `rlgl` 保持 Raylib 兼容性。
-
-## 约束
-- **API**: OpenGL 4.3 Core Profile。
-- **对齐**: SSBO 结构体必须 16 字节对齐。
-- **记忆**: 完成关键里程碑后，使用 `save_memory` 记录技术决策。
+## 4. 专项工具
+- **Shader 校验**: 运行 `glslangValidator`（如果可用）检查语法。
+- **性能分析**: 咨询 `code-risk-analyzer` 进行 GPU 耗时回溯。

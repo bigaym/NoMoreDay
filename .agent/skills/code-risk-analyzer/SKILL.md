@@ -1,35 +1,31 @@
 ---
 name: code-risk-analyzer
-description: 深度分析代码库风险，识别性能瓶颈、UB、UAF、内存泄漏及逻辑陷阱。
+description: 深度分析 NoMoreDay 的底层技术风险。专注于 UB、UAF、线程竞争、GPU 资源泄漏及极端情况下的性能瓶颈。在涉及多线程、Shader 或复杂内存管理时必选。
 ---
 
-# 代码风险分析师 (Code Risk Analyzer)
+# Low-Level Risk Analyzer (NoMoreDay)
 
-## 目标
-识别深层技术债务和安全隐患，生成标准化风险报告。
+## 1. 内存风险深度扫描 (Memory Risks)
+- **UAF (Use-After-Free)**: 特别针对 EnTT 实体销毁后的残留引用进行扫描。
+- **内存抖动**: 监控主循环中是否存在频繁的“分配-释放”循环（即使是小内存块），这会导致 mimalloc 缓存失效。
+- **指针悬挂**: 检查是否存在跨帧保存组件地址的危险行为。
 
-## 分析标准 (Native Tools & C++ Analyzer)
-- **结构基准**: 使用 `list_directory` 建立当前代码库的基准视图。
-- **内存安全**: 
-  - 使用 `search_file_content {pattern: 'reinterpret_cast|delete '}` 识别高危操作。
-  - 使用 `find_callers {function_name: 'destroy'}` (或其他 EnTT 相关销毁函数) 识别潜在的指针失效风险。
-- **性能瓶颈**: 
-  - 检查主循环 (`Game::Update`, `Game::Draw`) 中的分配。
-  - 使用 `get_class_info` 检查组件大小（POD 检查）。
-- **并发风险**: 检查 `Taskflow` 中的竞态条件，利用 `search_file_content` 扫描多线程资源竞争点。
+## 2. 并发与同步风险 (Concurrency)
+- **Taskflow 冲突**: 分析任务依赖图，寻找可能的资源竞争点。
+- **原子性操作**: 检查关键计数器是否正确使用了 `std::atomic` 或内存屏障。
+- **死锁预测**: 扫描嵌套锁或跨系统同步等待。
 
-## 执行流程
+## 3. GPU 与 Shader 风险 (GPU/Rendering)
+- **SSBO 越界**: 检查 C++ 结构体与 Shader `std430` 布局的字节对齐是否严格一致（16字节对齐规则）。
+- **资源泄漏**: 监控纹理和缓冲区的生命周期，确保护照 (`UnloadTexture`, `UnloadShader`) 在析构函数中被调用。
+- **同步原语**: 检查 Compute Shader 写入后，是否正确执行了内存屏障 (`glMemoryBarrier`)。
 
-1.  **全量扫描 (Deep Scan)**:
-    - **结构概览**: `list_directory` / `glob`.
-    - **深度语义**: 使用 `cpp-analyzer` 工具 (`search_classes`, `get_function_signature`).
-    - **静态脚本**: 如果存在，运行 `.agent/skills/code-risk-analyzer/scripts/deep_scan.ps1` (需先确认存在)。
-2.  **生成报告 (Reporting)**:
-    - 位置: `conductor/analyzer/YYYY-MM-DD_HH-MM-SS_code_analyze.md`。
-    - 工具: 使用 `write_file` 写入报告。
-3.  **记忆锚定 (Memory)**: 
-    - 使用 `save_memory {fact: 'Risk Pattern Identified: ...'}` 记录发现的高危代码模式。
+## 4. 极端性能风险 (Edge-Case Performance)
+- **缓存行伪共享**: 在多线程修改相邻组件数据时，识别潜在的 False Sharing。
+- **分支预测失败**: 识别热点循环中复杂的 if-else 嵌套，建议采用查表法或位运算优化。
+- **SIMD 对齐**: 检查 `xsimd` 操作的数据地址是否满足对齐要求。
 
-## 报告内容要求
-必须包含：`Critical Risks`, `Performance Bottlenecks`, `Refactoring Suggestions`。
-详细格式请参考 `conductor/analyzer/` 下的历史文件。
+## 5. 分析流程
+1. **静态扫描**: 分析代码中的敏感关键词 (`reinterpret_cast`, `volatile`, `atomic`).
+2. **逻辑推理**: 模拟多线程竞争场景或极端内存分配压力。
+3. **性能锚定**: 使用 `tests/performance` 下的基准测试进行压力验证。

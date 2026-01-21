@@ -12,6 +12,7 @@
 | **渲染与 GPGPU** | ✅ 完成 | Raylib 2D 渲染 + GPU 流场寻路 (SSBO) + GPU 粒子 (20万级) |
 | **伤害流水线** | ✅ 完成 | **5步计算法** (Base->Convert->Inc->More->Settle)，SIMD 优化 |
 | **维度拼接系统** | ✅ 完成 | 碎片掉落、3x3 拼接、属性共鸣与地图生成集成 |
+| **极致性能优化** | ✅ 完成 | **MDI Rendering** + **EnTT Group** + **SIMD SpatialGrid** + **Branchless Combat**，稳定 180 FPS |
 | **基础 AI 行为** | ✅ 完成 | Support, Assassin, Tank, Fodder 等原型逻辑实现 |
 | **存档与传家宝** | ✅ 完成 | 物品持久化、跨存档继承、属性动态压缩 |
 | **传奇融合 (Legendary Merging)** | ✅ 完成 | Unique (LP) + Exalted 词缀继承逻辑，Ancient 稀有度实现 |
@@ -58,20 +59,22 @@
 ### 📍 Phase 10: 敌人生态与宿敌进化 (Advanced AI & Nemesis)
 **优先级：高**。增强战斗的挑战性与交互性。
 
-- [ ] **扩充精英词缀库**
-    - 实现 **Molten (熔火)**：路径伤害与死亡爆炸。
-    - 实现 **Mirror Image (镜像)**：受击分裂。
-    - **Nullifier (虚无)**：周期性驱散玩家 Buff。
-    - **Teleporter (闪烁)**：受到攻击或定时间隔瞬移至玩家身后 (Counter Kite)。
-    - **Shielding (护盾)**：周期性为周围友军提供无敌护盾 (Force Priority)。
-    - **Deadly Synergy**: 实现组合权重的随机逻辑（e.g. Fast + Molten 组合权重提升）。
+- [x] **扩充精英词缀库**
+    - [x] **Molten (熔火)**：路径伤害与死亡爆炸。(Completed)
+    - [x] **Mirror Image (镜像)**：受击分裂。(Completed)
+    - [ ] **Nullifier (虚无)**：周期性驱散玩家 Buff。
+    - [x] **Teleporter (闪烁)**：受到攻击或定时间隔瞬移至玩家身后。(Completed)
+    - [x] **Shielding (护盾)**：周期性为周围友军提供无敌护盾。(Completed)
+    - [x] **Environmental & Hazard**: Frozen, Toxic, Void Zone, Storm Strider. (Completed)
+    - [x] **Physics & CC**: Vortex, Waller, Entangler. (Completed)
+    - [x] **Advanced Mechanics**: Soul Eater, Suppressor, Mana Siphon. (Completed)
 - [ ] **AI 行为树补完**
     - 实现 **Support (支援者)** 逻辑：`Flee` + `CastBuff` (Shield/Frenzy)。
     - 优化 **Tank (坦克)** 逻辑：主动阻挡视线 (`BlockLineOfSight`)。
-- [ ] **宿敌系统进化闭环**
-    - 强化 `NemesisGenerator` 的分析逻辑：统计玩家近 50 次击杀的伤害构成 (Damage Composition Analysis)。
-    - **逻辑挂载**：当前 Nemesis 仅有数值膨胀，需实装 `Resist` 对应的被动组件 logic (e.g. `ReactiveArmor` vs Physical)。
-    - 使宿敌获得针对玩家高频技能的防御组件（如：频繁格挡投射物）。
+- [x] **宿敌系统进化闭环**
+    - [x] 强化 `NemesisGenerator` 的分析逻辑：统计玩家近 50 次击杀的伤害构成。(Completed)
+    - [x] **逻辑挂载**：实装 `MonsterAffixComponent` 动态缩放与 Evolution Tier。(Completed)
+    - [x] **针对性进化**：根据玩家历史 hurt type 动态调整抗性与词缀。(Completed)
 
 
 ### 📍 Phase 11: 战斗内容与职业扩展 (Class & Combat Expansion)
@@ -79,7 +82,8 @@
 
 - [x] **剑修视觉升级 (Blade Ascendant VFX)**
     - **Asset Pipeline**: 实现 SwordTrail, HoloBlade, Distortion Shaders 及 GPU 粒子配置。
-- [ ] **System Integration**: 将剑意层数可视化（光环/发光），实现流云刺拖尾与万剑归宗的粒子流表现。
+- [x] **System Integration**: 完成剑意可视化、流云刺拖尾与万剑归宗的粒子流表现。(Completed)
+- [x] **性能与逻辑修复**: 修复 SkillSystem UAF, 优化 GPU 粒子生命周期。(Completed)
 - [ ] **第二职业原型：灵术师 (Mage/Caster)**
     - 抽象 `ClassBase`，实现高额自然回蓝机制。
     - 设计 3 个核心法术（火球、冰环、奥术流）。
@@ -91,11 +95,23 @@
 **优先级：中**。提升整体完整度。
 
 - [x] **UI 视觉打磨与分解 UX 重构**
-    - 实现祭坛式分解界面、产出预览、批量过滤器。
-    - 增加装备槽位 Ghost Icons 和动态面板拖拽。
+    - [x] 实现祭坛式分解界面、产出预览、批量过滤器。(Completed)
+    - [x] 增加装备槽位 Ghost Icons 和动态面板拖拽。(Completed)
+    - [x] **Inventory UI Overhaul**: 分页拖拽、右键菜单、搜索过滤。(Completed)
+    - [x] **Tooltip Upgrade**: 大图标预览与镶嵌孔显示。(Completed)
 - [ ] **成就系统与教程系统**
 - [ ] **无尽梦魇排行榜 UI 完善**
 - [ ] **音频系统 (AudioSystem) 动态混音集成**
+
+### 📍 Phase 13: 极致性能优化 (Performance Extreme Optimization)
+**优先级：已完成**。重构核心架构以支持万级实体流畅运行。
+
+- [x] **Phase 1: MDI Rendering**: GPU 驱动的 Multi-Draw Indirect 渲染管线。
+- [x] **Phase 2: EnTT Group**: 内存布局优化，通过 Group 预排序提升遍历速度。
+- [x] **Phase 3: Triple-Buffer**: 持久化映射 (Persistent Mapping) 消除 GPU 同步等待。
+- [x] **Phase 4: SIMD SpatialGrid**: 向量化加速的空间划分查询。
+- [x] **Phase 5: Branchless Combat**: 消除热点代码分支预测失败。
+- [x] **String Dependency Elimination**: 全局移除运行时字符串比较，迁移至 Enum/ID。
 
 ---
 

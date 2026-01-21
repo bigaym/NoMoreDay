@@ -1,36 +1,35 @@
-# NoMoreDay - 核心规则与上下文 (V2.0)
+# NoMoreDay - Agent Awareness & Control Layer (V3.0)
 
-## 1. 项目概览 (Project Identity)
-*   **类型**: 高性能 2D 类暗黑 Roguelite ARPG。
-*   **架构**: C++20, ECS (EnTT), Raylib, Taskflow (异步), xsimd (向量化)。
-*   **性能**: 支持 10,000+ 实体同屏，强制数据导向设计 (DOD)。
+> **MANDATORY PRE-RESPONSE CHECK**: 
+> 在响应任何请求前，Agent 必须评估任务类型并激活对应的“超能力”技能。
 
-## 2. 技术栈核心 (Tech Stack)
-*   **内存**: mimalloc (分配), RAII (生命周期)。严禁原生 `new`/`delete`。
-*   **组件**: POD 类型，严禁包含复杂逻辑。
-*   **渲染**: OpenGL 4.3+, Compute Shaders, SSBO, GPU Instancing。
-*   **数据**: nlohmann/json 序列化，spdlog 日志。
+## 1. 核心任务导流协议 (Task Routing)
+根据任务类型，强制性地激活并遵循以下技能工作流：
 
-## 3. 核心工程原则 (Engineering Principles)
-> 详细规则请参考关联技能 (`developer`, `auditor`, `bug-fixer`, `code-risk-analyzer`)。
+- **BUG/CRASH/LOG**: 
+  1. 激活 `systematic-debugging`。
+  2. 执行“铁律”：未定根因，不准修补。
+- **NEW FEATURE/REFACTOR**:
+  1. 激活 `feature-architect`。
+  2. 执行 Phase 1（设计）-> Phase 2（实现）协议。
+- **PERFORMANCE/MEMORY**:
+  1. 激活 `code-risk-analyzer`。
+  2. 评估 DOD 依从性、内存对齐及主循环分配风险。
+- **CODE REVIEW**:
+  1. 激活 `auditor`。
 
-*   **安全性**: 对 UB、UAF、内存泄漏零容忍。在 EnTT 操作中严禁持有组件指针。
-*   **性能**: 主循环禁止堆分配。最大化缓存局部性，避免热点路径中的虚函数。
-*   **配置**: 逻辑常量 $\to$ `Common.hpp`；渲染常量 $\to$ `GPUData.hpp`。
+## 2. 核心架构约束 (The Prime Directives)
+*   **架构**: C++20, ECS (EnTT), Raylib。强制数据导向设计 (DOD)。
+*   **内存**: 全程 RAII，主循环零堆分配。禁止使用原生 `new/delete`。
+*   **安全性**: EnTT 迭代期间严禁持有组件指针或执行会导致组件重新分配的操作。
+*   **渲染**: OpenGL 4.3+。逻辑与表现严格分离，禁止在 `System` 之外调用渲染指令。
 
-## 4. 智能体交互协议 (Agent Protocol)
-### 4.1 沟通准则 (Communication)
-*   **极简主义**: 严禁废话、寒暄或指令复述。直接输出技术方案。
-*   **精确提问**: 面对歧义指令必须挂起任务，列出候选意图供用户选择。
-*   **置信度**: 对不确定推论标注 `[置信度: Low/Mid/High]`。
+## 3. 智能体交互准则 (Agent Protocol)
+*   **意识同步**: 每次对话开始，优先检查 `conductor/tracks.md` 确认当前开发进度。
+*   **极简通讯**: 严禁寒暄。直接提供方案、代码或分析结果。
+*   **强制熔断**: 若连续两次修复失败或编译报错，必须报告“思维局部解”，并请求用户提供新的上下文信息。
 
-### 4.2 任务流程 (Workflow)
-*   **设计优先 (Phase 1)**: 涉及架构变更时，先提交 Spec/Plan。
-*   **授权实施 (Phase 2)**: 获准后执行代码修改。禁止“边说边做”。
-*   **根因分析**: 修复 Bug 必须追溯至架构或第一性原理，拒绝逻辑补丁。
-*   **强制熔断**: 连续两次失败后必须主动报告“思维局部解”并请求新线索。
-
-## 5. 资源与环境 (Build & Structure)
-*   **构建/测试**: `.\build.bat`；测试集位于 `build/bin/tests/`。
-*   **脚本**: `scripts/` (Python 3.10+)。
-*   **目录**: `src/app` (入口), `src/engine` (渲染/物理), `src/game` (逻辑), `src/systems` (ECS), `assets/` (资源)。
+## 4. 环境与资源
+*   **构建**: `.\build.bat`。
+*   **测试**: `build/bin/tests/tests_runner.exe`。
+*   **规范**: 参考 `conductor/code_standard.md`。
