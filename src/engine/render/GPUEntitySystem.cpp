@@ -102,6 +102,15 @@ void GPUEntitySystem::RenderLegacy() {
 void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   NoMoreDay::utils::ScopedTimer timer("GPUEntity_Update", 1000);
   m_frameCounter++;
+
+  // Ensure shadow buffer is sized correctly (lazy init if maxEntities changed, though usually static)
+  if (m_shadowBuffer.size() != m_maxEntities) {
+      m_shadowBuffer.resize(m_maxEntities);
+      // Initialize with zero radius to hide unused slots by default
+      for(auto& e : m_shadowBuffer) e.radius = 0.0f; 
+  }
+
+  // Get mapped pointer for the current frame's slot
   components::GPUEntity *gpuPtr = (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
 
   auto group = registry.group<Position, Velocity, Radius, GPUIndex>();
@@ -109,53 +118,76 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   int currentWriteSlot = m_persistentEntityBuffer.GetCurrentSlot();
   m_slotToEntities[currentWriteSlot].assign(m_maxEntities, entt::null);
 
+  // Partial Update Optimization:
+  // 1. Update m_shadowBuffer from Registry (CPU -> CPU), only for active entities.
+  // 2. We could optimize this further by only iterating dirty entities, but iterating the Group
+  //    is fast enough for 20k entities. The main saving is establishing the coherent ShadowBuffer.
+  //    Actually, checking 'isDirty' prevents redundant component reads/writes to shadow buffer.
+
+  constexpr float DIRTY_THRESHOLD_SQ = 0.5f * 0.5f;
+
   for (auto entity : group) {
     if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity) || index >= m_maxEntities) continue;
     
-    const auto &pos = group.get<Position>(entity);
-    bool isDirty = true;
-    if (auto* dtComp = registry.try_get<DirtyTransform>(entity)) {
-        isDirty = dtComp->isDirty;
-        dtComp->isDirty = false; // Reset for next frame
-    }
-
-    // Since we use Triple Buffering, we must ensure the current slot is updated.
-    // However, if the entity hasn't moved AND we have a high-confidence cache, we could skip.
-    // For now, we always update but the 'isDirty' flag can be used for logic branching.
-    
-    const auto &vel = group.get<Velocity>(entity);
-    const auto &radius = group.get<Radius>(entity);
-    
-    // Get or initialize previous position for interpolation
-    auto& prevPos = registry.get_or_emplace<PrevPosition>(entity, pos.x, pos.y);
-    
+    // Assign GPU Index dynamically
     group.get<GPUIndex>(entity).index = index;
     m_slotToEntities[currentWriteSlot][index] = entity;
-    
-    gpuPtr[index].position = {pos.x, pos.y};
-    gpuPtr[index].prevPosition = {prevPos.x, prevPos.y};
-    
-    // Store current position for the next physics step's prevPosition
-    prevPos.x = pos.x;
-    prevPos.y = pos.y;
 
-    gpuPtr[index].velocity = {vel.vx, vel.vy};
-    gpuPtr[index].radius = radius.value;
-    gpuPtr[index].type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
-    
-    uint32_t flags = 0;
-    if (registry.all_of<PlayerTag>(entity)) {
-      flags |= GPU_ENTITY_FLAG_KINEMATIC;
-      flags |= GPU_ENTITY_FLAG_NO_RENDER;
-    } else if (registry.all_of<SpriteComponent>(entity)) {
-      // Disable MDI rendering for monsters with sprites to avoid double rendering (Sprite + Red Circle)
-      flags |= GPU_ENTITY_FLAG_NO_RENDER;
+    // Check Dirty Status
+    bool needsUpdate = true; // Default to true for safety, or check DirtyTransform
+    if (auto* dtComp = registry.try_get<DirtyTransform>(entity)) {
+        if (!dtComp->isDirty) {
+            needsUpdate = false;
+        } else {
+            dtComp->isDirty = false; // consume flag
+        }
+    } else {
+        // If no DirtyTransform, assume always dirty (legacy entities)
+        needsUpdate = true;
     }
-    gpuPtr[index].flags = flags;
-    
+
+    if (needsUpdate) {
+        const auto &pos = group.get<Position>(entity);
+        const auto &vel = group.get<Velocity>(entity);
+        const auto &radius = group.get<Radius>(entity);
+        
+        // Get or initialize previous position for interpolation
+        auto& prevPos = registry.get_or_emplace<PrevPosition>(entity, pos.x, pos.y);
+        
+        // Update Shadow Buffer
+        auto& gpuEntity = m_shadowBuffer[index];
+        gpuEntity.position = {pos.x, pos.y};
+        gpuEntity.prevPosition = {prevPos.x, prevPos.y};
+        gpuEntity.velocity = {vel.vx, vel.vy};
+        gpuEntity.radius = radius.value;
+        gpuEntity.type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
+        
+        uint32_t flags = 0;
+        if (registry.all_of<PlayerTag>(entity)) {
+            flags |= GPU_ENTITY_FLAG_KINEMATIC;
+            flags |= GPU_ENTITY_FLAG_NO_RENDER;
+        } else if (registry.all_of<SpriteComponent>(entity)) {
+            flags |= GPU_ENTITY_FLAG_NO_RENDER;
+        }
+        gpuEntity.flags = flags;
+
+        // Store current position for the next physics step's prevPosition
+        prevPos.x = pos.x;
+        prevPos.y = pos.y;
+    }
+
     index++;
   }
-  for (int i = index; i < m_maxEntities; ++i) gpuPtr[i].radius = 0.0f;
+
+  // Clear remaining slots in shadow buffer to avoid ghosting
+  for (int i = index; i < m_maxEntities; ++i) {
+      m_shadowBuffer[i].radius = 0.0f;
+  }
+
+  // Bulk Upload: Copy entire Shadow Buffer to GPU Mapped Memory
+  // This uses a optimized memcpy (likely AVX-accelerated by std lib) to Write-Combined memory.
+  // This resolves the "Ring Buffer Staleness" issue because ShadowBuffer is the "State of Truth".
+  memcpy(gpuPtr, m_shadowBuffer.data(), m_maxEntities * sizeof(components::GPUEntity));
 
   m_persistentEntityBuffer.Flush();
 

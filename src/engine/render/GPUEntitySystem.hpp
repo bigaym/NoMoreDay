@@ -43,6 +43,7 @@ private:
   core::ComputeBuffer m_tempCountBuffer;
 
   std::vector<components::GPUEntity> m_localData;
+  std::vector<components::GPUEntity> m_shadowBuffer; // CPU-side shadow copy for incremental updates
   std::vector<uint32_t> m_gridCounts;
   std::vector<uint32_t> m_gridOffsets;
 
