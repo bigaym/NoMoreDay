@@ -16,6 +16,7 @@ layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; 
 layout(std430, binding = 1) readonly buffer VisibleIndices { uint visibleIndices[]; };
 
 uniform mat4 viewProj;
+uniform float interpolationFactor; // Factor between 0 and 1 for physics interpolation
 
 out vec2 vTexCoord;
 out vec2 vLocalPos;
@@ -37,11 +38,15 @@ void main() {
     float s = sin(rotation);
     mat2 rot = mat2(c, -s, s, c);
     
+    // [INTERPOLATION] Predict current position based on velocity and frame offset
+    // This removes the "stuttering" feel when rendering frame rate is higher than physics
+    vec2 interpolatedPos = e.position + e.velocity * interpolationFactor;
+    
     // Apply Scale (Radius * 2) and Rotation
     vec2 scale = vec2(e.radius * 2.0);
     vec2 pos = aPos * scale;
     pos = rot * pos;
-    vec2 worldPos = e.position + pos;
+    vec2 worldPos = interpolatedPos + pos;
     
     gl_Position = viewProj * vec4(worldPos, 0.0, 1.0);
     

@@ -11,6 +11,7 @@
 #include "game/components/HazardComponents.hpp" // For HazardComponent
 #include "game/components/NemesisComponent.hpp" // Added for Tier scaling
 
+#include "core/utils/Branchless.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/MonsterAffixRegistry.hpp" // For MonsterAffixComponent
@@ -20,6 +21,7 @@
 #include "game/utils/EntityUtils.hpp"
 #include <cmath>
 #include <entt/entt.hpp>
+
 
 namespace NoMoreDay {
 
@@ -237,9 +239,12 @@ private:
   static void ProcessMolten(entt::registry &registry, entt::entity enemy,
                             const Position &pos, MonsterAffixComponent &affix,
                             size_t affixIdx, float dt, int tier) {
-    if (affix.timers[affixIdx] >=
-        MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL) {
-      affix.timers[affixIdx] = 0.0f;
+    bool ready = affix.timers[affixIdx] >=
+                 MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL;
+    affix.timers[affixIdx] =
+        NoMoreDay::utils::SelectF(ready, 0.0f, affix.timers[affixIdx]);
+
+    if (ready) {
 
       float scaledRadius = MonsterAffixRegistry::GetScaledValue(
           MonsterAffixRegistry::Params::MOLTEN_TRAIL_RADIUS, tier);
@@ -291,8 +296,10 @@ private:
     if (registry.any_of<TeleportationComponent>(enemy))
       return;
 
-    if (affix.timers[affixIdx] >=
-        MonsterAffixRegistry::Params::TELEPORT_COOLDOWN) {
+    bool ready = affix.timers[affixIdx] >=
+                 MonsterAffixRegistry::Params::TELEPORT_COOLDOWN;
+
+    if (ready) {
       float dx = playerPos.x - enemyPos.x;
       float dy = playerPos.y - enemyPos.y;
       float distSq = dx * dx + dy * dy;
@@ -301,7 +308,7 @@ private:
       if (distSq >
           MonsterAffixRegistry::Params::TELEPORT_TRIGGER_DISTANCE *
               MonsterAffixRegistry::Params::TELEPORT_TRIGGER_DISTANCE) {
-        affix.timers[affixIdx] = 0.0f;
+        affix.timers[affixIdx] = 0.0f; // Reset only on successful trigger
 
         // Calculate new position behind player
         float dist = std::sqrt(distSq);
@@ -352,10 +359,12 @@ private:
 
     float hpRatio = hp->current / hp->max;
     if (hpRatio <= MonsterAffixRegistry::Params::BERSERKER_HP_THRESHOLD) {
+      bool wasBerserk = affix.isBerserk;
       affix.isBerserk = true;
 
       // Trigger recalculation to apply multipliers via StatsSystem
-      registry.get_or_emplace<StatsDirty>(enemy);
+      if (!wasBerserk)
+        registry.get_or_emplace<StatsDirty>(enemy);
 
       // Apply scale multiplier
       if (auto *sprite = registry.try_get<SpriteComponent>(enemy)) {
@@ -386,9 +395,12 @@ private:
                             const Position &enemyPos, const Position &playerPos,
                             MonsterAffixComponent &affix, size_t affixIdx,
                             float dt, int tier) {
-    if (affix.timers[affixIdx] >=
-        MonsterAffixRegistry::Params::FROZEN_ORB_INTERVAL) {
-      affix.timers[affixIdx] = 0.0f;
+    bool ready = affix.timers[affixIdx] >=
+                 MonsterAffixRegistry::Params::FROZEN_ORB_INTERVAL;
+    affix.timers[affixIdx] =
+        NoMoreDay::utils::SelectF(ready, 0.0f, affix.timers[affixIdx]);
+
+    if (ready) {
 
       float scaledDamage = MonsterAffixRegistry::GetScaledValue(
           MonsterAffixRegistry::Params::FROZEN_ORB_DAMAGE, tier);
@@ -454,8 +466,11 @@ private:
               MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MAX);
     }
 
-    if (affix.timers[affixIdx] >= affix.voidZoneNextSpawnTime) {
-      affix.timers[affixIdx] = 0.0f;
+    bool ready = affix.timers[affixIdx] >= affix.voidZoneNextSpawnTime;
+    affix.timers[affixIdx] =
+        NoMoreDay::utils::SelectF(ready, 0.0f, affix.timers[affixIdx]);
+
+    if (ready) {
       affix.voidZoneNextSpawnTime =
           NoMoreDay::utils::ThreadSafeRandom::GetFloat(
               MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MIN,
@@ -575,12 +590,14 @@ private:
       inRange = (distSq <= radiusSq);
     }
 
-    if (inRange) {
-      // 剥夺法力
-      if (auto *stats = registry.try_get<CombatStats>(player)) {
-        float drainAmount = drain->drainRate * dt;
-        stats->mana = std::max(0.0f, stats->mana - drainAmount);
-      }
+    // 剥夺法力
+    if (auto *stats = registry.try_get<CombatStats>(player)) {
+      float drainAmount =
+          NoMoreDay::utils::SelectF(inRange, drain->drainRate * dt, 0.0f);
+      // Branchless max(0, x): SelectF(x>0, x, 0)
+      float resultingMana = stats->mana - drainAmount;
+      stats->mana =
+          NoMoreDay::utils::SelectF(resultingMana > 0.0f, resultingMana, 0.0f);
     }
   }
 
@@ -604,6 +621,10 @@ private:
 
     if (affix.timers[affixIdx] < SHIELDING_COOLDOWN)
       return;
+    // Delay reset until actually searching to avoid spinning?
+    // Actually Logic here is: Check CD -> Search Allies -> Apply.
+    // We can make CD check branchless for timer reset but early return is
+    // better for perf. The Plan asked for branchless. Let's do partial.
     affix.timers[affixIdx] = 0.0f;
 
     // 查找附近的友军（同样是 EnemyTag）
@@ -676,9 +697,12 @@ private:
     auto &ff = registry.get<ForceFieldComponent>(enemy);
 
     // Timer logic
-    if (affix.timers[affixIdx] >=
-        MonsterAffixRegistry::Params::VORTEX_INTERVAL) {
-      affix.timers[affixIdx] = 0.0f;
+    bool ready =
+        affix.timers[affixIdx] >= MonsterAffixRegistry::Params::VORTEX_INTERVAL;
+    affix.timers[affixIdx] =
+        NoMoreDay::utils::SelectF(ready, 0.0f, affix.timers[affixIdx]);
+
+    if (ready) {
       ff.activeDuration = MonsterAffixRegistry::Params::VORTEX_DURATION;
       // Visual cue could be added here
       LOG_TRACE("Vortex activated for entity {}", (uint32_t)enemy);
@@ -697,13 +721,16 @@ private:
                             const Position &enemyPos, const Position &playerPos,
                             MonsterAffixComponent &affix, size_t affixIdx,
                             float dt, int tier) {
-    if (affix.timers[affixIdx] >=
-        MonsterAffixRegistry::Params::WALLER_COOLDOWN) {
+    bool ready =
+        affix.timers[affixIdx] >= MonsterAffixRegistry::Params::WALLER_COOLDOWN;
+
+    if (ready) {
       float dx = playerPos.x - enemyPos.x;
       float dy = playerPos.y - enemyPos.y;
       float distSq = dx * dx + dy * dy;
 
       if (distSq < 600.0f * 600.0f) { // Only if reasonably close
+        // Reset timer only if triggered
         affix.timers[affixIdx] = 0.0f;
 
         // Calculate direction to player

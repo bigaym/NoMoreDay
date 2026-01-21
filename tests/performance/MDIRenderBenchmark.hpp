@@ -37,9 +37,12 @@ TEST_CASE("MDI vs Legacy Rendering Benchmark") {
     
     // 1. Benchmark MDI (GPU Culling + Indirect)
     // We measure multiple calls to get a stable average, then glFinish to ensure GPU caught up
+    NoMoreDay::SharedContext context;
+    context.renderAccumulator = 0.0f; // No interpolation for benchmark
+
     auto startMDI = std::chrono::high_resolution_clock::now();
     for(int i=0; i<ITERATIONS; ++i) {
-        systems::GPUEntitySystem::Get().Render();
+        systems::GPUEntitySystem::Get().Render(context);
     }
     glFinish(); 
     auto endMDI = std::chrono::high_resolution_clock::now();

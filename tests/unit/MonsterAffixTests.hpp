@@ -173,7 +173,8 @@ TEST_CASE("Monster Affix: Suppressor Damage Reduction Test") {
 
   auto attacker = registry.create();
   registry.emplace<Position>(attacker, 500.0f, 500.0f); // Far away
-  registry.emplace<CombatStats>(attacker);
+  auto& attackerStats = registry.emplace<CombatStats>(attacker);
+  attackerStats.crit_chance = 0.0f; // Disable random crits for test stability
 
   auto defender = registry.create();
   registry.emplace<Position>(defender, 100.0f,

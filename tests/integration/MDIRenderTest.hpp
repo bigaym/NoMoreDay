@@ -1,6 +1,7 @@
 #pragma once
 
 #include "TestCommon.hpp"
+#include "app/SharedContext.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/resource/ResourceManager.hpp"
@@ -14,6 +15,9 @@ TEST_CASE("MDI Rendering Integration") {
 
     // 1. Setup Resources
     ResourceManager resources;
+    SharedContext context;
+    context.resources = &resources;
+    context.renderAccumulator = 0.0f;
     // Minimal mock if needed, but we rely on assets existing or fails gracefully
     
     LOG_INFO("TEST: Init GPUEntitySystem");
@@ -42,7 +46,7 @@ TEST_CASE("MDI Rendering Integration") {
     LOG_INFO("TEST: Render Frame");
     BeginDrawing();
         ClearBackground(BLACK);
-        systems::GPUEntitySystem::Get().Render();
+        systems::GPUEntitySystem::Get().Render(context);
     EndDrawing();
     
     LOG_INFO("TEST: Render Done");

@@ -1,13 +1,14 @@
 #include "engine/render/GPUEntitySystem.hpp"
+#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
-#include "game/components/Projectile.hpp" // Added
+#include "game/components/Projectile.hpp"
 #include "game/registry/GroupRegistry.hpp"
-#include "rlgl.h"
 #include "raymath.h"
+#include "rlgl.h"
 
 namespace NoMoreDay::systems {
 
@@ -19,7 +20,6 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
            "entities...",
            maxEntities);
 
-  // Load Shaders
   m_gridClearShader = resources.loadComputeShader(
       entt::hashed_string{"grid_clear"}, "assets/shaders/grid_clear.compute");
   m_gridCountShader = resources.loadComputeShader(
@@ -29,22 +29,16 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
   m_physicsShader = resources.loadComputeShader(
       entt::hashed_string{"physics"}, "assets/shaders/physics.compute");
 
-  // Initialize Buffers
-  // Initialize Buffers
-  m_persistentEntityBuffer.Create(m_maxEntities * sizeof(components::GPUEntity));
+  m_persistentEntityBuffer.Create(m_maxEntities * sizeof(components::GPUEntity), 3);
 
   int gridCols = 5000 / 32 + 1;
   int gridRows = 5000 / 32 + 1;
   int numCells = gridCols * gridRows;
 
-  m_cellCountBuffer.Create(numCells * sizeof(uint32_t), nullptr,
-                           RL_DYNAMIC_DRAW);
-  m_cellOffsetBuffer.Create(numCells * sizeof(uint32_t), nullptr,
-                            RL_DYNAMIC_DRAW);
-  m_entityIndicesBuffer.Create(m_maxEntities * sizeof(uint32_t), nullptr,
-                               RL_DYNAMIC_DRAW);
-  m_tempCountBuffer.Create(numCells * sizeof(uint32_t), nullptr,
-                           RL_DYNAMIC_DRAW);
+  m_cellCountBuffer.Create(numCells * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
+  m_cellOffsetBuffer.Create(numCells * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
+  m_entityIndicesBuffer.Create(m_maxEntities * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
+  m_tempCountBuffer.Create(numCells * sizeof(uint32_t), nullptr, RL_DYNAMIC_DRAW);
 
   m_localData.resize(m_maxEntities);
   m_gridCounts.resize(numCells);
@@ -55,15 +49,10 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
 }
 
 void GPUEntitySystem::InitRender(ResourceManager &rm) {
-  // Load Shaders
-  m_renderShader =
-      LoadShader("assets/shaders/entity.vert", "assets/shaders/entity.frag");
-  m_renderShader.locs[SHADER_LOC_MATRIX_MVP] =
-      GetShaderLocation(m_renderShader, "mvp");
+  m_renderShader = LoadShader("assets/shaders/entity.vert", "assets/shaders/entity.frag");
+  m_renderShader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(m_renderShader, "mvp");
 
-  // Setup Quad
   float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f, 0.5f};
-
   m_quadVAO = rlLoadVertexArray();
   rlEnableVertexArray(m_quadVAO);
   {
@@ -74,176 +63,103 @@ void GPUEntitySystem::InitRender(ResourceManager &rm) {
   rlDisableVertexArray();
 }
 
-void GPUEntitySystem::Render() {
-  bool useMDI = true; // Could be Config::Get().useMDI
-
+void GPUEntitySystem::Render(const NoMoreDay::SharedContext& context) {
+  bool useMDI = true;
   if (useMDI && NoMoreDay::render::MDIRenderer::Get().IsInitialized()) {
-      Matrix mv = rlGetMatrixModelview();
-      Matrix proj = rlGetMatrixProjection();
-      Matrix mvp = MatrixMultiply(mv, proj);
-      
-      // Calculate View Bounds (World Space AABB of the screen)
-      Matrix invMVP = MatrixInvert(mvp);
-      Vector3 ndcMin = {-1.0f, -1.0f, 0.0f};
-      Vector3 ndcMax = {1.0f, 1.0f, 0.0f};
-      Vector3 worldMin = Vector3Transform(ndcMin, invMVP);
-      Vector3 worldMax = Vector3Transform(ndcMax, invMVP);
+    Matrix mv = rlGetMatrixModelview();
+    Matrix proj = rlGetMatrixProjection();
+    Matrix mvp = MatrixMultiply(mv, proj);
+    
+    Matrix invMVP = MatrixInvert(mvp);
+    Vector3 ndcMin = {-1.0f, -1.0f, 0.0f}, ndcMax = {1.0f, 1.0f, 0.0f};
+    Vector3 worldMin = Vector3Transform(ndcMin, invMVP), worldMax = Vector3Transform(ndcMax, invMVP);
 
-      // Simple min/max for AABB
-      Vector4 viewBounds;
-      viewBounds.x = fminf(worldMin.x, worldMax.x);
-      viewBounds.y = fminf(worldMin.y, worldMax.y);
-      viewBounds.z = fmaxf(worldMin.x, worldMax.x);
-      viewBounds.w = fmaxf(worldMin.y, worldMax.y);
+    Vector4 viewBounds = { fminf(worldMin.x, worldMax.x) - 120.0f, fminf(worldMin.y, worldMax.y) - 120.0f,
+                           fmaxf(worldMin.x, worldMax.x) + 120.0f, fmaxf(worldMin.y, worldMax.y) + 120.0f };
 
-      // Margin
-      float margin = 120.0f; 
-      viewBounds.x -= margin;
-      viewBounds.y -= margin;
-      viewBounds.z += margin;
-      viewBounds.w += margin;
-
-      // 1. Bind the SIMULATED data from the PREVIOUS slot (the one that just finished physics)
-      // Binding 0: Instance Data for Cull and Render
-      m_persistentEntityBuffer.BindPrevious(0);
-
-      auto& mdi = NoMoreDay::render::MDIRenderer::Get();
-      mdi.Cull(viewBounds);
-      mdi.Render(mvp);
+    m_persistentEntityBuffer.BindPrevious(0);
+    auto &mdi = NoMoreDay::render::MDIRenderer::Get();
+    mdi.Cull(viewBounds);
+    mdi.Render(mvp, context.renderAccumulator);
   } else {
-      RenderLegacy();
+    RenderLegacy();
   }
 }
 
 void GPUEntitySystem::RenderLegacy() {
-  if (m_maxEntities <= 0 || m_renderShader.id == 0)
-    return;
-
-  Matrix mvp = rlGetMatrixModelview();
-  Matrix projection = rlGetMatrixProjection();
-  Matrix finalMvp = MatrixMultiply(mvp, projection);
-
+  if (m_maxEntities <= 0 || m_renderShader.id == 0) return;
+  Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
   rlEnableShader(m_renderShader.id);
-  rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], finalMvp);
-
-  m_persistentEntityBuffer.BindBase(1);
-
+  rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], mvp);
+  m_persistentEntityBuffer.BindPrevious(1);
   rlEnableVertexArray(m_quadVAO);
   rlDrawVertexArrayInstanced(0, 4, m_maxEntities);
   rlDisableVertexArray();
-
   rlDisableShader();
 }
 
 void GPUEntitySystem::Update(entt::registry &registry, float dt) {
-  // 1. Clear local buffer first (optional, as we overwrite usually)
-  
-  // 2. Sync loop: BeginWrite -> Read Old Data -> Write New Data -> EndWrite
-  // Acquire ptr to current Write Slot (Wait for fence of Slot N+1 -> Safe to write)
-  components::GPUEntity* gpuPtr = (components::GPUEntity*)m_persistentEntityBuffer.BeginWrite();
-  
-  // 2.1 Read Back Old Physics Result (from the slot we just acquired)
-  // Since we use Double Buffer, acquiring this slot means GPU is DONE with it (from 2 frames ago).
-  // We copy it to local data for SyncBack usage.
+  m_frameCounter++;
+  components::GPUEntity *gpuPtr = (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
   m_persistentEntityBuffer.Read(m_localData.data(), m_maxEntities * sizeof(components::GPUEntity));
 
-  // 2.2 Overwrite with Current Frame ECS Data (Frame N inputs)
-  // Note: We are overwriting the buffer we just read.
-  
-  // Reset for new frame writing
-  // But wait, if we clear it, we lose the data we just read? No, we copied to m_localData above.
-  
   auto group = registry.group<Position, Velocity, Radius, GPUIndex>();
   int index = 0;
+  int currentWriteSlot = m_persistentEntityBuffer.GetCurrentSlot();
+  m_slotToEntities[currentWriteSlot].assign(m_maxEntities, entt::null);
 
   for (auto entity : group) {
-    if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity))
-      continue;
-    if (index >= m_maxEntities)
-      break;
-
+    if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity) || index >= m_maxEntities) continue;
+    
     const auto &pos = group.get<Position>(entity);
     const auto &vel = group.get<Velocity>(entity);
     const auto &radius = group.get<Radius>(entity);
-    auto &gpuIdx = group.get<GPUIndex>(entity);
-
-    gpuIdx.index = index;
     
-    // Write directly to Mapped Pointer
+    group.get<GPUIndex>(entity).index = index;
+    m_slotToEntities[currentWriteSlot][index] = entity;
+    
     gpuPtr[index].position = {pos.x, pos.y};
     gpuPtr[index].velocity = {vel.vx, vel.vy};
     gpuPtr[index].radius = radius.value;
-    gpuPtr[index].type = registry.all_of<EnemyTag>(entity) ? 1 : 0;
-    gpuPtr[index].flags = 0; // Clear flags for new frame
-
+    gpuPtr[index].type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
+    gpuPtr[index].flags = 0;
+    
     index++;
   }
-  
-  // Clear remaining slots to avoid ghosts in both physics and rendering
-  for(int i=index; i<m_maxEntities; ++i) {
-      gpuPtr[i].radius = 0.0f;
-  }
+  for (int i = index; i < m_maxEntities; ++i) gpuPtr[i].radius = 0.0f;
 
-  // 2.3 Submit (Flush to GPU)
   m_persistentEntityBuffer.Flush();
-  
-  // Instance update is now zero-copy via PersistentBuffer!
 
-  // 2. Build Grid
-  int gridCols = 5000 / 32 + 1;
-  int gridRows = 5000 / 32 + 1;
-  int numCells = gridCols * gridRows;
-
-  // 2.1 Clear
+  int gridCols = 5000 / 32 + 1, gridRows = 5000 / 32 + 1, numCells = gridCols * gridRows;
   rlEnableShader(m_gridClearShader.id);
-  int locNumCells = rlGetLocationUniform(m_gridClearShader.id, "numCells");
-  rlSetUniform(locNumCells, &numCells, RL_SHADER_UNIFORM_INT, 1);
-
+  rlSetUniform(rlGetLocationUniform(m_gridClearShader.id, "numCells"), &numCells, RL_SHADER_UNIFORM_INT, 1);
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
-
   rlBindShaderBuffer(m_tempCountBuffer.GetId(), 2);
   rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier();
 
-  // 2.2 Count
   rlEnableShader(m_gridCountShader.id);
-  int locMaxEnt = rlGetLocationUniform(m_gridCountShader.id, "maxEntities");
-  rlSetUniform(locMaxEnt, &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
   float cellSize = 32.0f;
-  int locCellSize = rlGetLocationUniform(m_gridCountShader.id, "cellSize");
-  rlSetUniform(locCellSize, &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
-  int locCols = rlGetLocationUniform(m_gridCountShader.id, "gridCols");
-  rlSetUniform(locCols, &gridCols, RL_SHADER_UNIFORM_INT, 1);
-  int locRows = rlGetLocationUniform(m_gridCountShader.id, "gridRows");
-  rlSetUniform(locRows, &gridRows, RL_SHADER_UNIFORM_INT, 1);
-
-  // Use BindBase for Persistent Buffer
+  rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "maxEntities"), &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "cellSize"), &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "gridCols"), &gridCols, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "gridRows"), &gridRows, RL_SHADER_UNIFORM_INT, 1);
   m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier();
 
-  // 2.3 Prefix Sum (CPU)
   m_cellCountBuffer.Read(m_gridCounts.data(), numCells * sizeof(uint32_t));
   uint32_t currentOffset = 0;
-  for (int i = 0; i < numCells; i++) {
-    m_gridOffsets[i] = currentOffset;
-    currentOffset += m_gridCounts[i];
-  }
+  for (int i = 0; i < numCells; i++) { m_gridOffsets[i] = currentOffset; currentOffset += m_gridCounts[i]; }
   m_cellOffsetBuffer.Update(m_gridOffsets.data(), numCells * sizeof(uint32_t));
 
-  // 2.4 Sort
   rlEnableShader(m_gridSortShader.id);
-  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "maxEntities"),
-               &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
-  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "cellSize"), &cellSize,
-               RL_SHADER_UNIFORM_FLOAT, 1);
-  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "gridCols"), &gridCols,
-               RL_SHADER_UNIFORM_INT, 1);
-  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "gridRows"), &gridRows,
-               RL_SHADER_UNIFORM_INT, 1);
-
+  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "maxEntities"), &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "cellSize"), &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "gridCols"), &gridCols, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "gridRows"), &gridRows, RL_SHADER_UNIFORM_INT, 1);
   m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
@@ -251,80 +167,49 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier();
 
-  // 2.5 Update Flow Field Crowd Density
-  GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer,
-                                               m_maxEntities, 10.0f);
+  GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer, m_maxEntities, 10.0f);
 
-  // 3. Dispatch Physics (Integration + Collision)
   rlEnableShader(m_physicsShader.id);
-  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "dt"), &dt,
-               RL_SHADER_UNIFORM_FLOAT, 1);
-  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "maxEntities"),
-               &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
-  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "cellSize"), &cellSize,
-               RL_SHADER_UNIFORM_FLOAT, 1);
-  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridCols"), &gridCols,
-               RL_SHADER_UNIFORM_INT, 1);
-  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridRows"), &gridRows,
-               RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "dt"), &dt, RL_SHADER_UNIFORM_FLOAT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "maxEntities"), &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "cellSize"), &cellSize, RL_SHADER_UNIFORM_FLOAT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridCols"), &gridCols, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridRows"), &gridRows, RL_SHADER_UNIFORM_INT, 1);
 
-  // Bind Flow Buffer (Binding 6 - assumes shader uses binding 6 for flow)
   const auto &flowSystem = GPUFlowFieldSystem::Get();
   flowSystem.GetFlowBuffer().BindBase(6);
-
-  // Pass Flow Grid Params
-  int locFlowW = rlGetLocationUniform(m_physicsShader.id, "flowWidth");
-  int locFlowH = rlGetLocationUniform(m_physicsShader.id, "flowHeight");
-  int locFlowOrigin = rlGetLocationUniform(m_physicsShader.id, "flowOrigin");
-
-  int fw = flowSystem.GetWidth();
-  int fh = flowSystem.GetHeight();
+  int fw = flowSystem.GetWidth(), fh = flowSystem.GetHeight();
   Vector2 fo = flowSystem.GetGridOrigin();
-
-  if (locFlowW >= 0)
-    rlSetUniform(locFlowW, &fw, RL_SHADER_UNIFORM_INT, 1);
-  if (locFlowH >= 0)
-    rlSetUniform(locFlowH, &fh, RL_SHADER_UNIFORM_INT, 1);
-  if (locFlowOrigin >= 0)
-    rlSetUniform(locFlowOrigin, &fo, RL_SHADER_UNIFORM_VEC2, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "flowWidth"), &fw, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "flowHeight"), &fh, RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "flowOrigin"), &fo, RL_SHADER_UNIFORM_VEC2, 1);
 
   m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
-
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier();
   rlDisableShader();
-  
-  // Mark end of GPU usage for this slot
   m_persistentEntityBuffer.Lock();
 }
 
 void GPUEntitySystem::SyncBack(entt::registry &registry) {
-  static bool s_firstSyncLogged = false;
-  // Note: Read is now done in Update to piggyback on BeginWrite sync
-  
-  if (!s_firstSyncLogged) {
-    LOG_INFO(
-        "GPU Physics Sync: Active (Using Triple-Buffer Readback)");
-    s_firstSyncLogged = true;
-  }
-  
-  // m_localData already contains the data read back in Update()
+  if (m_frameCounter < 2) return;
+  int bufferCount = m_persistentEntityBuffer.GetBufferCount();
+  int writeSlotBeforeLock = (m_persistentEntityBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
+  int readSlotUsedInUpdate = (writeSlotBeforeLock - 1 + bufferCount) % bufferCount;
+  const auto& entitiesInReadSlot = m_slotToEntities[readSlotUsedInUpdate];
 
-  auto view = registry.view<Position, Velocity, GPUIndex>();
-  view.each([&](auto &pos, auto &vel, auto &gpuIdx) {
-    if (gpuIdx.index >= 0 && gpuIdx.index < m_maxEntities) {
-      auto &gpu = m_localData[gpuIdx.index];
-      if (gpu.radius > 0.0f) {
-        pos.x = gpu.position.x;
-        pos.y = gpu.position.y;
-        vel.vx = gpu.velocity.x;
-        vel.vy = gpu.velocity.y;
-      }
+  for (int i = 0; i < (int)entitiesInReadSlot.size(); ++i) {
+    entt::entity entity = entitiesInReadSlot[i];
+    if (entity == entt::null || !registry.valid(entity)) continue;
+    auto& gpu = m_localData[i];
+    if (gpu.radius > 0.0f) {
+      if (auto* pos = registry.try_get<Position>(entity)) { pos->x = gpu.position.x; pos->y = gpu.position.y; }
+      if (auto* vel = registry.try_get<Velocity>(entity)) { vel->vx = gpu.velocity.x; vel->vy = gpu.velocity.y; }
     }
-  });
+  }
 }
 
 void GPUEntitySystem::Shutdown() {

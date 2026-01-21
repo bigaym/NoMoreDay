@@ -45,20 +45,22 @@ TEST_SUITE("PersistentBuffer") {
         int* p3 = (int*)buffer.BeginWrite();
         
         // Verify Pointer Arithmetic (if persistent)
-        // p0, p1, p2 should be distinct and spaced by slotSize?
-        // Actually BeginWrite returns mappedPtr + slotIndex * slotSize.
-        // So p3 should equal p0.
+        // Note: PersistentBuffer aligns each slot to 256 bytes.
         if (buffer.GetMode() == NoMoreDay::render::PersistentBuffer::Mode::Persistent) {
             CHECK(p3 == p0);
-            CHECK(p1 == p0 + 1); // int pointer arithmetic, +1 int = +4 bytes. slotSize=4. CORRECT.
-            CHECK(p2 == p1 + 1);
+            
+            // p1 should be p0 + alignedSlotSize / sizeof(int)
+            const size_t alignedSize = 256; // Defined in PersistentBuffer.cpp
+            size_t step = alignedSize / sizeof(int);
+            CHECK(p1 == p0 + step);
+            CHECK(p2 == p1 + step);
             
             // Read Back Verification
-            // Read() copies from Current Slot (Slot 0).
-            // Slot 0 holds what we wrote in Frame 0 (100).
+            // Read() copies from the most recently Locked slot.
+            // After Frame 2's Lock, targetSlot is 2, which holds 300.
             int readVal = 0;
             buffer.Read(&readVal, sizeof(int));
-            CHECK(readVal == 100);
+            CHECK(readVal == 300);
         } else {
             // Compat mode
             // p0, p1, p2 point to staging buffer (same address)

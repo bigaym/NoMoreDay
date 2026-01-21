@@ -46,7 +46,7 @@ public:
     void Cull(Vector4 viewBounds);
 
     // Execute indirect draw
-    void Render(const Matrix& viewProj);
+    void Render(const Matrix& viewProj, float renderAccumulator = 0.0f);
 
     // Shutdown and release resources
     void Shutdown();

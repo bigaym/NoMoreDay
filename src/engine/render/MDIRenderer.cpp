@@ -127,7 +127,7 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
     NoMoreDay::utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 }
 
-void MDIRenderer::Render(const Matrix& viewProj) {
+void MDIRenderer::Render(const Matrix& viewProj, float renderAccumulator) {
     if (!m_renderShader.id || !glDrawArraysIndirect) return;
 
     // Ensure culling results and instance data are visible
@@ -138,6 +138,10 @@ void MDIRenderer::Render(const Matrix& viewProj) {
     // Set ViewProj
     int locVP = rlGetLocationUniform(m_renderShader.id, "viewProj");
     if (locVP != -1) rlSetUniformMatrix(locVP, viewProj);
+
+    // Set Interpolation Factor
+    int locInterp = rlGetLocationUniform(m_renderShader.id, "interpolationFactor");
+    if (locInterp != -1) rlSetUniform(locInterp, &renderAccumulator, RL_SHADER_UNIFORM_FLOAT, 1);
 
     // Bind Buffers for Vertex Shader (Binding 1 = Indices, 2 = Commands)
     // We bind PREVIOUS slots because those are what the physics-synced MDI just finished.
