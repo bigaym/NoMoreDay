@@ -1,14 +1,15 @@
 #version 430 core
 layout(location = 0) in vec2 aPos; // [-0.5, 0.5]
 
-// Must match GPUEntity in GPUData.hpp
+// Must match GPUEntity in GPUData.hpp (48 bytes)
 struct InstanceData {
-    vec2 position;
-    vec2 velocity;
-    float radius;
-    uint type;
-    uint flags;
-    float padding;
+    vec2 position;     // 8  - Current physics position
+    vec2 prevPosition; // 8  - Previous frame position (for render interpolation)
+    vec2 velocity;     // 8  - Current velocity
+    float radius;      // 4  - Collision radius
+    uint type;         // 4  - Entity type
+    uint flags;        // 4  - Behavior flags
+    float padding[3];  // 12 - Padding to 48 bytes
 };
 
 // Bindings match Cull/MDIRenderer
@@ -16,7 +17,7 @@ layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; 
 layout(std430, binding = 1) readonly buffer VisibleIndices { uint visibleIndices[]; };
 
 uniform mat4 viewProj;
-uniform float interpolationFactor; // Factor between 0 and 1 for physics interpolation
+uniform float interpolationFactor; // Alpha factor [0, 1] for smooth interpolation between physics frames
 
 out vec2 vTexCoord;
 out vec2 vLocalPos;
@@ -26,6 +27,11 @@ flat out uint vFlags;
 void main() {
     uint entityId = visibleIndices[gl_InstanceID];
     InstanceData e = entities[entityId];
+    
+    // [RENDER INTERPOLATION] Smooth movement between physics frames
+    // This eliminates stuttering when render FPS (180) > physics FPS (60)
+    // mix(a, b, t) = a * (1-t) + b * t
+    vec2 interpolatedPos = mix(e.prevPosition, e.position, interpolationFactor);
     
     // Auto-calculate Rotation from Velocity
     // Only rotate if moving significantly
@@ -37,10 +43,6 @@ void main() {
     float c = cos(rotation);
     float s = sin(rotation);
     mat2 rot = mat2(c, -s, s, c);
-    
-    // [INTERPOLATION] Predict current position based on velocity and frame offset
-    // This removes the "stuttering" feel when rendering frame rate is higher than physics
-    vec2 interpolatedPos = e.position + e.velocity * interpolationFactor;
     
     // Apply Scale (Radius * 2) and Rotation
     vec2 scale = vec2(e.radius * 2.0);

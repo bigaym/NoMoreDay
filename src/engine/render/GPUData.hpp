@@ -5,8 +5,18 @@
 #include <raylib.h>
 #include <stdint.h>
 #include <type_traits>
+#include <nlohmann/json.hpp>
 
 namespace NoMoreDay::components {
+
+/**
+ * @brief CPU component to store previous position for interpolation.
+ */
+struct PrevPosition {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrevPosition, x, y)
 
 /**
  * @brief Structure for GPU particles matching SSBO layout.
@@ -32,21 +42,27 @@ static_assert(sizeof(GPUParticle) == 64, "GPUParticle struct must be exactly 64 
 
 /**
  * @brief Structure for GPU entities (Physics & Sorting).
- * STRICTLY 32 BYTES (16 * 2) to match physics.compute.
+ * STRICTLY 48 BYTES (16 * 3) to match physics.compute.
+ * Includes prevPosition for render interpolation to smooth movement.
  */
 struct GPUEntity {
-    Vector2 position = { 0.0f, 0.0f }; // 8
-    Vector2 velocity = { 0.0f, 0.0f }; // 8
-    float radius     = 0.0f;           // 4
-    int32_t type     = 0;              // 4
-    uint32_t flags   = 0;              // 4
-    float padding    = 0.0f;           // 4
+    Vector2 position     = { 0.0f, 0.0f }; // 8  - Current physics position
+    Vector2 prevPosition = { 0.0f, 0.0f }; // 8  - Previous frame position (for interpolation)
+    Vector2 velocity     = { 0.0f, 0.0f }; // 8  - Current velocity
+    float radius         = 0.0f;           // 4  - Collision/render radius
+    int32_t type         = 0;              // 4  - Entity type (0=player, 1=enemy, etc.)
+    uint32_t flags       = 0;              // 4  - Behavior flags
+    float padding[3]     = { 0.0f };       // 12 - Padding to 48 bytes
 
     GPUEntity() = default;
 };
 
-// Ensure Stride is exactly 32 bytes
-static_assert(sizeof(GPUEntity) == 32, "GPUEntity struct must be exactly 32 bytes for physics SSBO compatibility");
+// Flags for GPUEntity
+constexpr uint32_t GPU_ENTITY_FLAG_KINEMATIC = 1 << 0; // Entity moved by CPU/Logic, GPU skips integration
+constexpr uint32_t GPU_ENTITY_FLAG_NO_RENDER = 1 << 1; // Entity not rendered by MDI (e.g. has Sprite)
+
+// Ensure Stride is exactly 48 bytes for SSBO alignment
+static_assert(sizeof(GPUEntity) == 48, "GPUEntity struct must be exactly 48 bytes for physics SSBO compatibility");
 
 /**
  * @brief Structure for GPU skill effects (SDF Rendering).

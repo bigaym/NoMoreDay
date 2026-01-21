@@ -1,14 +1,15 @@
 #version 430 core
 layout(local_size_x = 256) in;
 
-// Must match GPUEntity in GPUData.hpp
+// Must match GPUEntity in GPUData.hpp (48 bytes)
 struct InstanceData {
-    vec2 position;
-    vec2 velocity;
-    float radius;
-    uint type;
-    uint flags;
-    float padding;
+    vec2 position;     // 8  - Current physics position
+    vec2 prevPosition; // 8  - Previous frame position (for render interpolation)
+    vec2 velocity;     // 8  - Current velocity
+    float radius;      // 4  - Collision radius
+    uint type;         // 4  - Entity type
+    uint flags;        // 4  - Behavior flags
+    float padding[3];  // 12 - Padding to 48 bytes
 };
 
 layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
@@ -29,17 +30,15 @@ void main() {
     
     InstanceData e = entities[id];
     
-    // Skip if invalid radius
-    if (e.radius <= 0.01) return;
+    // Skip if invalid radius or NO_RENDER flag set (bit 1 = 2)
+    if (e.radius <= 0.01 || (e.flags & 2u) != 0u) return;
     
     vec2 pos = e.position;
+    float r = e.radius;
     
-    // Bounds check (Axis Aligned)
-    // viewBounds: [minX, minY, maxX, maxY]
-    // Consider adding entity radius for better culling if available (e.g. from scale if it represents radius)
-    // For now purely center based as requested.
-    bool visible = (pos.x >= viewBounds.x && pos.x <= viewBounds.z &&
-                    pos.y >= viewBounds.y && pos.y <= viewBounds.w);
+    // Bounds check (Axis Aligned) with radius padding
+    bool visible = (pos.x + r >= viewBounds.x && pos.x - r <= viewBounds.z &&
+                    pos.y + r >= viewBounds.y && pos.y - r <= viewBounds.w);
     
     if (visible) {
         // Atomic increment of instanceCount

@@ -1,6 +1,6 @@
 {
   "session_id": "181b047c-f1a6-4e58-958d-9a0eb05f8182",
-  "last_saved": "2026-01-20T17:20:30.571243700Z",
+  "last_saved": "2026-01-21T14:19:03.340285600Z",
   "working_directory": "f:\\NoMoreDay",
   "project_context": {
     "project_name": "unknown",
@@ -12,9 +12,9 @@
   "file_history": [],
   "tokenization_rules": {
     "target": 130,
+    "node_modules": 128,
     ".git": 129,
-    "dist": 131,
-    "node_modules": 128
+    "dist": 131
   },
   "insights": [],
   "philosophy": {

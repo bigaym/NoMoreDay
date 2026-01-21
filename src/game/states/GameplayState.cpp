@@ -660,8 +660,15 @@ void GameplayState::UpdatePhysics(float dt) {
         const auto &pos = registry.get<Position>(entity);
         auto &vel = registry.get<Velocity>(entity);
 
-        // Only resolve collisions for solid game entities (Players and Enemies)
-        if (registry.any_of<PlayerTag, EnemyTag>(entity)) {
+        // [OPTIMIZATION] Skip CPU physics for GPU-managed entities (except Player)
+        // Enemies are fully simulated on GPU. CPU only handles interpolation in RenderSystem.
+        bool isGpuManaged = registry.all_of<GPUIndex>(entity);
+        bool isPlayer = registry.all_of<PlayerTag>(entity);
+        
+        if (isGpuManaged && !isPlayer) return;
+
+        // Only resolve collisions for solid game entities (Players and Enemies - if handled by CPU)
+        if (isPlayer || (!isGpuManaged && registry.all_of<EnemyTag>(entity))) {
           PhysicsSystem::resolveCollisions(entity, pos, vel, m_spatialGrid,
                                            registry, dt);
         }
@@ -711,6 +718,12 @@ void GameplayState::UpdatePhysics(float dt) {
   auto updateTask = m_taskflow.for_each(
       m_physicsEntities.begin(), m_physicsEntities.end(),
       [dt, worldSizeW, worldSizeH, &registry](entt::entity entity) {
+        // [OPTIMIZATION] Skip CPU position update for GPU-managed entities AND Player
+        // Enemies are handled by GPU SyncBack. Player is handled in OnUpdate (Predictive).
+        bool isGpuManaged = registry.all_of<GPUIndex>(entity);
+        bool isPlayer = registry.all_of<PlayerTag>(entity);
+        if (isGpuManaged || isPlayer) return;
+
         auto &pos = registry.get<Position>(entity);
         auto &vel = registry.get<Velocity>(entity);
 

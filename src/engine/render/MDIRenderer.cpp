@@ -127,7 +127,7 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
     NoMoreDay::utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 }
 
-void MDIRenderer::Render(const Matrix& viewProj, float renderAccumulator) {
+void MDIRenderer::Render(const Matrix& viewProj, float renderAlpha) {
     if (!m_renderShader.id || !glDrawArraysIndirect) return;
 
     // Ensure culling results and instance data are visible
@@ -135,13 +135,18 @@ void MDIRenderer::Render(const Matrix& viewProj, float renderAccumulator) {
 
     rlEnableShader(m_renderShader.id);
 
+    // Binding 0: Instance Data (Triple Buffered in GPUEntitySystem)
+    // Note: binding 0 is usually already bound by GPUEntitySystem::Render, 
+    // but re-binding here is safer against intermediate state changes.
+    // The actual binding is done by the caller using m_persistentEntityBuffer.BindPrevious(0).
+
     // Set ViewProj
     int locVP = rlGetLocationUniform(m_renderShader.id, "viewProj");
     if (locVP != -1) rlSetUniformMatrix(locVP, viewProj);
 
     // Set Interpolation Factor
     int locInterp = rlGetLocationUniform(m_renderShader.id, "interpolationFactor");
-    if (locInterp != -1) rlSetUniform(locInterp, &renderAccumulator, RL_SHADER_UNIFORM_FLOAT, 1);
+    if (locInterp != -1) rlSetUniform(locInterp, &renderAlpha, RL_SHADER_UNIFORM_FLOAT, 1);
 
     // Bind Buffers for Vertex Shader (Binding 1 = Indices, 2 = Commands)
     // We bind PREVIOUS slots because those are what the physics-synced MDI just finished.
@@ -157,8 +162,9 @@ void MDIRenderer::Render(const Matrix& viewProj, float renderAccumulator) {
     }
     
     if (glBindBufferRange) {
-        int prevSlot = (m_commandBuffer.GetCurrentSlot() - 1 + 2) % 2;
-        size_t offset = prevSlot * m_commandBuffer.GetSize();
+        int bufferCount = m_commandBuffer.GetBufferCount();
+        int prevSlot = (m_commandBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
+        size_t offset = (size_t)prevSlot * m_commandBuffer.GetSize();
         glBindBufferRange(GL_DRAW_INDIRECT_BUFFER, 0, m_commandBuffer.GetId(), (ptrdiff_t)offset, (ptrdiff_t)sizeof(DrawArraysIndirectCommand));
     }
 

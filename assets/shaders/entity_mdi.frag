@@ -8,6 +8,9 @@ flat in uint vFlags;
 out vec4 fragColor;
 
 void main() {
+    // Check flags (GPU_ENTITY_FLAG_NO_RENDER = 2)
+    if ((vFlags & 2u) != 0u) discard;
+
     // Current fallback: Circle SDF (matches legacy GPUEntitySystem)
     float distSq = dot(vLocalPos, vLocalPos);
     if (distSq > 1.0) discard;

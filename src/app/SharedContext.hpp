@@ -19,7 +19,7 @@ namespace NoMoreDay {
         tf::Executor* executor = nullptr;
         GameSettings* settings = nullptr;
         systems::SpatialHashGrid* spatialGrid = nullptr;
-        float renderAccumulator = 0.0f; // For interpolation/extrapolation in rendering
+        float renderAlpha = 0.0f; // Interpolation factor [0, 1) for smooth rendering between physics frames
         // Window* window; // Raylib uses global state mostly, add if wrapper exists
     };
 

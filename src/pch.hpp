@@ -52,6 +52,7 @@
 
 // Project Utilities
 #include "core/logging/Logger.hpp"              // 日志
+#include "core/utils/ScopedTimer.hpp"             // 性能计时器
 #include "core/utils/HashUtils.hpp"             // 哈希工具
 #include "core/math/PhysicsUtils.hpp"           // 物理工具
 #include "game/data/TagRegistry.hpp"            // 标签注册

@@ -168,13 +168,26 @@ void Game::run() {
       accumulator -= fixedDt;
     }
 
-    // Update Accumulator for Rendering (Interpolation/Extrapolation)
-    m_context.renderAccumulator = accumulator;
+    // Update Interpolation Alpha for Rendering
+    // alpha = accumulator / fixedDt, range [0, 1)
+    // This allows smooth interpolation between physics frames
+    m_context.renderAlpha = accumulator / fixedDt;
 
-    BeginDrawing();
-    ClearBackground(BLACK);
-    m_stateManager->Render();
-    EndDrawing();
+    static float fpsLogTimer = 0.0f;
+    fpsLogTimer += frameTime;
+    if (fpsLogTimer >= 1.0f) {
+      LOG_INFO("Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(), frameTime * 1000.0f);
+      fpsLogTimer = 0.0f;
+    }
+
+    {
+      NoMoreDay::utils::ScopedTimer timer("MainLoop_Frame", 5000); // Log if > 5ms
+
+      BeginDrawing();
+      ClearBackground(BLACK);
+      m_stateManager->Render();
+      EndDrawing();
+    }
   }
 }
 

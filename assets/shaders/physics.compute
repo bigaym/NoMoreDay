@@ -2,13 +2,15 @@
 
 layout(local_size_x = 256) in;
 
+// Must match GPUEntity in GPUData.hpp (48 bytes)
 struct Entity {
-    vec2 position;
-    vec2 velocity;
-    float radius;
-    int type;
-    uint flags;
-    float padding;
+    vec2 position;     // 8  - Current physics position
+    vec2 prevPosition; // 8  - Previous frame position (for render interpolation)
+    vec2 velocity;     // 8  - Current velocity
+    float radius;      // 4  - Collision radius
+    int type;          // 4  - Entity type
+    uint flags;        // 4  - Behavior flags
+    float padding[3];  // 12 - Padding to 48 bytes
 };
 
 layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };
@@ -35,6 +37,10 @@ void main() {
     vec2 pos = entities[id].position;
     vec2 vel = entities[id].velocity;
     float radius = entities[id].radius;
+
+    // [INTERPOLATION] Save current position as previous BEFORE physics update
+    // This allows the renderer to interpolate between prevPosition and position
+    entities[id].prevPosition = pos;
 
     // 0. Steering (Flow Field) - Only for Enemies (type != 0)
     if (entities[id].type != 0) {
@@ -100,16 +106,19 @@ void main() {
     }
 
     // 2. Integration
-    pos += vel * dt;
-    
-    // Air resistance/Friction
-    vel *= pow(0.92, dt * 60.0);
+    // Skip integration for Kinematic entities (moved by CPU)
+    if ((entities[id].flags & 1u) == 0u) {
+        pos += vel * dt;
+        
+        // Air resistance/Friction
+        vel *= pow(0.92, dt * 60.0);
 
-    // 3. Boundary Collision
-    if (pos.x < 0.0) { pos.x = 0.0; vel.x *= -0.5; }
-    if (pos.x > 5000.0) { pos.x = 5000.0; vel.x *= -0.5; }
-    if (pos.y < 0.0) { pos.y = 0.0; vel.y *= -0.5; }
-    if (pos.y > 5000.0) { pos.y = 5000.0; vel.y *= -0.5; }
+        // 3. Boundary Collision
+        if (pos.x < 0.0) { pos.x = 0.0; vel.x *= -0.5; }
+        if (pos.x > 5000.0) { pos.x = 5000.0; vel.x *= -0.5; }
+        if (pos.y < 0.0) { pos.y = 0.0; vel.y *= -0.5; }
+        if (pos.y > 5000.0) { pos.y = 5000.0; vel.y *= -0.5; }
+    }
 
     // Write back
     entities[id].position = pos;

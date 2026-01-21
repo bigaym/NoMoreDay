@@ -2,12 +2,13 @@
 layout(local_size_x = 256) in;
 
 struct Entity {
-    vec2 position;
-    vec2 velocity;
-    float radius;
-    int type;
-    int id;
-    float padding;
+    vec2 position;     // 8  - Current physics position
+    vec2 prevPosition; // 8  - Previous frame position (for render interpolation)
+    vec2 velocity;     // 8  - Current velocity
+    float radius;      // 4  - Collision radius
+    int type;          // 4  - Entity type
+    uint flags;        // 4  - Behavior flags
+    float padding[3];  // 12 - Padding to 48 bytes
 };
 
 layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };

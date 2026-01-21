@@ -17,7 +17,7 @@ TEST_CASE("MDI Rendering Integration") {
     ResourceManager resources;
     SharedContext context;
     context.resources = &resources;
-    context.renderAccumulator = 0.0f;
+    context.renderAlpha = 0.0f;
     // Minimal mock if needed, but we rely on assets existing or fails gracefully
     
     LOG_INFO("TEST: Init GPUEntitySystem");

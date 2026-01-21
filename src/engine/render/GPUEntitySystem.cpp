@@ -80,7 +80,7 @@ void GPUEntitySystem::Render(const NoMoreDay::SharedContext& context) {
     m_persistentEntityBuffer.BindPrevious(0);
     auto &mdi = NoMoreDay::render::MDIRenderer::Get();
     mdi.Cull(viewBounds);
-    mdi.Render(mvp, context.renderAccumulator);
+    mdi.Render(mvp, context.renderAlpha);
   } else {
     RenderLegacy();
   }
@@ -99,9 +99,9 @@ void GPUEntitySystem::RenderLegacy() {
 }
 
 void GPUEntitySystem::Update(entt::registry &registry, float dt) {
+  NoMoreDay::utils::ScopedTimer timer("GPUEntity_Update", 1000);
   m_frameCounter++;
   components::GPUEntity *gpuPtr = (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
-  m_persistentEntityBuffer.Read(m_localData.data(), m_maxEntities * sizeof(components::GPUEntity));
 
   auto group = registry.group<Position, Velocity, Radius, GPUIndex>();
   int index = 0;
@@ -115,14 +115,32 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     const auto &vel = group.get<Velocity>(entity);
     const auto &radius = group.get<Radius>(entity);
     
+    // Get or initialize previous position for interpolation
+    auto& prevPos = registry.get_or_emplace<PrevPosition>(entity, pos.x, pos.y);
+    
     group.get<GPUIndex>(entity).index = index;
     m_slotToEntities[currentWriteSlot][index] = entity;
     
     gpuPtr[index].position = {pos.x, pos.y};
+    gpuPtr[index].prevPosition = {prevPos.x, prevPos.y};
+    
+    // Store current position for the next physics step's prevPosition
+    prevPos.x = pos.x;
+    prevPos.y = pos.y;
+
     gpuPtr[index].velocity = {vel.vx, vel.vy};
     gpuPtr[index].radius = radius.value;
     gpuPtr[index].type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
-    gpuPtr[index].flags = 0;
+    
+    uint32_t flags = 0;
+    if (registry.all_of<PlayerTag>(entity)) {
+      flags |= GPU_ENTITY_FLAG_KINEMATIC;
+      flags |= GPU_ENTITY_FLAG_NO_RENDER;
+    } else if (registry.all_of<SpriteComponent>(entity)) {
+      // Disable MDI rendering for monsters with sprites to avoid double rendering (Sprite + Red Circle)
+      flags |= GPU_ENTITY_FLAG_NO_RENDER;
+    }
+    gpuPtr[index].flags = flags;
     
     index++;
   }
@@ -195,18 +213,34 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
 }
 
 void GPUEntitySystem::SyncBack(entt::registry &registry) {
+  NoMoreDay::utils::ScopedTimer timer("GPUEntity_SyncBack", 500);
   if (m_frameCounter < 2) return;
+
+  // Read back the result of the compute shader that just finished (in the previous Update)
+  m_persistentEntityBuffer.Read(m_localData.data(), m_maxEntities * sizeof(components::GPUEntity));
+
   int bufferCount = m_persistentEntityBuffer.GetBufferCount();
-  int writeSlotBeforeLock = (m_persistentEntityBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
-  int readSlotUsedInUpdate = (writeSlotBeforeLock - 1 + bufferCount) % bufferCount;
-  const auto& entitiesInReadSlot = m_slotToEntities[readSlotUsedInUpdate];
+  // PersistentBuffer::Read already accesses (m_writeSlot - 1), 
+  // so we must use the same slot to find the matching entity list.
+  int readSlot = (m_persistentEntityBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
+  const auto& entitiesInReadSlot = m_slotToEntities[readSlot];
 
   for (int i = 0; i < (int)entitiesInReadSlot.size(); ++i) {
     entt::entity entity = entitiesInReadSlot[i];
     if (entity == entt::null || !registry.valid(entity)) continue;
+    if (registry.all_of<PlayerTag>(entity)) continue;
+
     auto& gpu = m_localData[i];
     if (gpu.radius > 0.0f) {
-      if (auto* pos = registry.try_get<Position>(entity)) { pos->x = gpu.position.x; pos->y = gpu.position.y; }
+      if (auto* pos = registry.try_get<Position>(entity)) { 
+        // Update PrevPosition for stable interpolation
+        auto& prev = registry.get_or_emplace<PrevPosition>(entity, pos->x, pos->y);
+        prev.x = pos->x;
+        prev.y = pos->y;
+
+        pos->x = gpu.position.x; 
+        pos->y = gpu.position.y; 
+      }
       if (auto* vel = registry.try_get<Velocity>(entity)) { vel->vx = gpu.velocity.x; vel->vy = gpu.velocity.y; }
     }
   }

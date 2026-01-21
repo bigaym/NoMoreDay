@@ -12,14 +12,15 @@ namespace NoMoreDay::render {
 
 // Matches GPUEntity in GPUData.hpp for zero-copy rendering
 struct alignas(16) GPUInstanceData {
-    Vector2 position;      // 8 bytes
-    Vector2 velocity;      // 8 bytes (Used for auto-rotation in shader)
-    float radius;          // 4 bytes (Used for scale calculation)
-    int32_t type;          // 4 bytes (Texture Index)
-    uint32_t flags;        // 4 bytes
-    float padding;         // 4 bytes
+    Vector2 position;      // 8 bytes  - Current physics position
+    Vector2 prevPosition;  // 8 bytes  - Previous frame position (for interpolation)
+    Vector2 velocity;      // 8 bytes  - Used for auto-rotation in shader
+    float radius;          // 4 bytes  - Used for scale calculation
+    int32_t type;          // 4 bytes  - Texture Index
+    uint32_t flags;        // 4 bytes  - Behavior flags
+    float padding[3];      // 12 bytes - Padding to 48 bytes
 };
-static_assert(sizeof(GPUInstanceData) == 32, "GPUInstanceData must match GPUEntity size");
+static_assert(sizeof(GPUInstanceData) == 48, "GPUInstanceData must match GPUEntity size");
 
 struct DrawArraysIndirectCommand {
     uint32_t count;
@@ -46,7 +47,7 @@ public:
     void Cull(Vector4 viewBounds);
 
     // Execute indirect draw
-    void Render(const Matrix& viewProj, float renderAccumulator = 0.0f);
+    void Render(const Matrix& viewProj, float renderAlpha = 0.0f);
 
     // Shutdown and release resources
     void Shutdown();

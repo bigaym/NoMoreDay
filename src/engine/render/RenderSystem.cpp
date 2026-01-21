@@ -132,7 +132,27 @@ void RenderSystem::render(entt::registry &registry,
     Vector2 origin = {width / 2.0f, height / 2.0f};
     Rectangle source = {0.0f, 0.0f, (float)sprite.texture.width,
                         (float)sprite.texture.height};
-    Rectangle dest = {pos.x, pos.y, width, height};
+
+    // [RENDER INTERPOLATION] Smooth movement between physics frames
+    // GPU-managed entities use true interpolation: mix(prevPos, pos, alpha)
+    // CPU-driven entities (Players) don't need interpolation as they update every frame.
+    float renderX = pos.x;
+    float renderY = pos.y;
+    
+    if (registry.any_of<GPUIndex>(entity) && !registry.any_of<PlayerTag>(entity)) {
+        // For GPU entities, we assume the GPU already stores prevPosition
+        // But since CPU only has Position, we use velocity-based extrapolation as a fallback
+        // The proper fix is handled by MDI shader using SSBO prevPosition
+        // This path is for SpriteComponent entities which bypass MDI rendering
+        if (const auto* vel = registry.try_get<Velocity>(entity)) {
+            // Simple extrapolation based on current alpha
+            // Note: This is a fallback - MDI handles true interpolation in GPU
+            renderX += vel->vx * context.renderAlpha * (1.0f / 60.0f);
+            renderY += vel->vy * context.renderAlpha * (1.0f / 60.0f);
+        }
+    }
+
+    Rectangle dest = {renderX, renderY, width, height};
 
     Color tint = WHITE;
     if (auto *svc =
@@ -647,12 +667,13 @@ void RenderSystem::render(entt::registry &registry,
 
     NoMoreDay::components::GPUSkillEffect effect;
 
-    // Extrapolate
+    // [RENDER INTERPOLATION] Smooth projectile movement
+    // Use velocity-based extrapolation scaled by renderAlpha and fixedDt
     float ax = pos.x;
     float ay = pos.y;
     if (auto *vel = registry.try_get<Velocity>(entity)) {
-      ax += vel->vx * context.renderAccumulator;
-      ay += vel->vy * context.renderAccumulator;
+      ax += vel->vx * context.renderAlpha * (1.0f / 60.0f);
+      ay += vel->vy * context.renderAlpha * (1.0f / 60.0f);
       effect.velocity = {vel->vx, vel->vy};
     }
     effect.position = {ax, ay};
