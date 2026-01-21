@@ -146,7 +146,7 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   if (locWeight >= 0)
     rlSetUniform(locWeight, &m_densityWeight, RL_SHADER_UNIFORM_FLOAT, 1);
 
-  int passes = 256;
+  int passes = 64; // Reduced from 256 for performance, 64 is usually enough for local propagation
 
   for (int i = 0; i < passes; ++i) {
     bool isEven = (i % 2 == 0);
@@ -159,7 +159,8 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
     writeBuf.BindBase(4);
 
     rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
-    utils::GPUUtils::MemoryBarrier();
+    // Explicitly only sync SSBO writes
+    utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
   }
 
   // 3. Vector Field Generation
@@ -195,7 +196,7 @@ void GPUFlowFieldSystem::UpdateCrowdDensity(const render::PersistentBuffer &enti
 
   m_densityBuffer.BindBase(2); // grid_clear uses binding 2
   rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
-  utils::GPUUtils::MemoryBarrier();
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
   // 2. Count
   rlEnableShader(m_gridCountShader.id);
@@ -214,7 +215,7 @@ void GPUFlowFieldSystem::UpdateCrowdDensity(const render::PersistentBuffer &enti
   m_densityBuffer.BindBase(2); // and binding 2 for cell counts
 
   rlComputeShaderDispatch((entityCount + 255) / 256, 1, 1);
-  utils::GPUUtils::MemoryBarrier();
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
   rlDisableShader();
 }

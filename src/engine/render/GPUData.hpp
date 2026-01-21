@@ -42,7 +42,7 @@ static_assert(sizeof(GPUParticle) == 64, "GPUParticle struct must be exactly 64 
 
 /**
  * @brief Structure for GPU entities (Physics & Sorting).
- * STRICTLY 48 BYTES (16 * 3) to match physics.compute.
+ * STRICTLY 64 BYTES (16 * 4) to match physics.compute.
  * Includes prevPosition for render interpolation to smooth movement.
  */
 struct GPUEntity {
@@ -52,7 +52,7 @@ struct GPUEntity {
     float radius         = 0.0f;           // 4  - Collision/render radius
     int32_t type         = 0;              // 4  - Entity type (0=player, 1=enemy, etc.)
     uint32_t flags       = 0;              // 4  - Behavior flags
-    float padding[3]     = { 0.0f };       // 12 - Padding to 48 bytes
+    float padding[7]     = { 0.0f };       // 28 - Padding to 64 bytes
 
     GPUEntity() = default;
 };
@@ -61,8 +61,8 @@ struct GPUEntity {
 constexpr uint32_t GPU_ENTITY_FLAG_KINEMATIC = 1 << 0; // Entity moved by CPU/Logic, GPU skips integration
 constexpr uint32_t GPU_ENTITY_FLAG_NO_RENDER = 1 << 1; // Entity not rendered by MDI (e.g. has Sprite)
 
-// Ensure Stride is exactly 48 bytes for SSBO alignment
-static_assert(sizeof(GPUEntity) == 48, "GPUEntity struct must be exactly 48 bytes for physics SSBO compatibility");
+// Ensure Stride is exactly 64 bytes for SSBO alignment
+static_assert(sizeof(GPUEntity) == 64, "GPUEntity struct must be exactly 64 bytes for physics SSBO compatibility");
 
 /**
  * @brief Structure for GPU skill effects (SDF Rendering).

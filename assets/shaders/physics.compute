@@ -2,7 +2,7 @@
 
 layout(local_size_x = 256) in;
 
-// Must match GPUEntity in GPUData.hpp (48 bytes)
+// Must match GPUEntity in GPUData.hpp (64 bytes)
 struct Entity {
     vec2 position;     // 8  - Current physics position
     vec2 prevPosition; // 8  - Previous frame position (for render interpolation)
@@ -10,7 +10,7 @@ struct Entity {
     float radius;      // 4  - Collision radius
     int type;          // 4  - Entity type
     uint flags;        // 4  - Behavior flags
-    float padding[3];  // 12 - Padding to 48 bytes
+    float padding[7];  // 28 - Padding to 64 bytes
 };
 
 layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };

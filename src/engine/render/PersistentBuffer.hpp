@@ -55,8 +55,18 @@ public:
   // Offset = ((m_writeSlot - 1 + m_bufferCount) % m_bufferCount) * m_slotSize
   void BindPrevious(unsigned int bindingPoint) const;
 
+  // Bind previous slot WITHOUT waiting for Fence (Performance optimized for rendering)
+  void BindPreviousNoSync(unsigned int bindingPoint) const;
+
   // Bind the slot before previous (for interpolation/sync back)
   void BindOldest(unsigned int bindingPoint) const;
+
+  /**
+   * @brief Bind the buffer to a specific OpenGL target (e.g. GL_DRAW_INDIRECT_BUFFER)
+   * @param target OpenGL buffer target
+   * @param slotType 0 = Current, 1 = Previous, 2 = Oldest
+   */
+  void Bind(unsigned int target, int slotType = 0) const;
 
   unsigned int GetId() const { return m_bufferId; }
   size_t GetSize() const { return m_slotSize; }

@@ -123,15 +123,15 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
     m_visibleBuffer.Lock();
     m_commandBuffer.Lock();
     
-    // Memory Barrier to ensure instanceCount is visible for Indirect Draw
-    NoMoreDay::utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
+    // Memory Barrier to ensure instanceCount and visibleIndices are visible for Indirect Draw and Shaders
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT | GL_COMMAND_BARRIER_BIT);
 }
 
 void MDIRenderer::Render(const Matrix& viewProj, float renderAlpha) {
     if (!m_renderShader.id || !glDrawArraysIndirect) return;
 
-    // Ensure culling results and instance data are visible
-    NoMoreDay::utils::GPUUtils::MemoryBarrier();
+    // Culling happens just before Render in the same frame, 
+    // we already have a barrier at the end of Cull().
 
     rlEnableShader(m_renderShader.id);
 
@@ -150,26 +150,21 @@ void MDIRenderer::Render(const Matrix& viewProj, float renderAlpha) {
 
     // Bind Buffers for Vertex Shader (Binding 1 = Indices, 2 = Commands)
     // We bind PREVIOUS slots because those are what the physics-synced MDI just finished.
-    m_visibleBuffer.BindPrevious(1);
+    m_visibleBuffer.BindPreviousNoSync(1);
 
     rlEnableVertexArray(m_quadVAO);
     
-    // Bind Indirect Buffer (Previous slot to match the data)
-    typedef void (APIENTRY *PFNGLBINDBUFFERRANGEPROC) (unsigned int target, unsigned int index, unsigned int buffer, ptrdiff_t offset, ptrdiff_t size);
-    static PFNGLBINDBUFFERRANGEPROC glBindBufferRange = nullptr;
-    if (!glBindBufferRange) {
-        glBindBufferRange = (PFNGLBINDBUFFERRANGEPROC)glfwGetProcAddress("glBindBufferRange");
-    }
+    // Bind Indirect Buffer
+    int bufferCount = m_commandBuffer.GetBufferCount();
+    int prevSlot = (m_commandBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
+    size_t offset = (size_t)prevSlot * m_commandBuffer.GetSize();
     
-    if (glBindBufferRange) {
-        int bufferCount = m_commandBuffer.GetBufferCount();
-        int prevSlot = (m_commandBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
-        size_t offset = (size_t)prevSlot * m_commandBuffer.GetSize();
-        glBindBufferRange(GL_DRAW_INDIRECT_BUFFER, 0, m_commandBuffer.GetId(), (ptrdiff_t)offset, (ptrdiff_t)sizeof(DrawArraysIndirectCommand));
-    }
+    m_commandBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
 
     // Draw
-    glDrawArraysIndirect(GL_TRIANGLES, 0); // 0 offset in indirect buffer
+    // IMPORTANT: glDrawArraysIndirect offset is in BYTES!
+    // Using GL_TRIANGLE_FAN since we have 4 vertices for a quad
+    glDrawArraysIndirect(GL_TRIANGLE_FAN, (void*)offset);
 
     // Unbind
     // explicit unbind if needed, or rlgl wrapper handles generic state?

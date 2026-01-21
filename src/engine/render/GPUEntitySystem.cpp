@@ -77,7 +77,7 @@ void GPUEntitySystem::Render(const NoMoreDay::SharedContext& context) {
     Vector4 viewBounds = { fminf(worldMin.x, worldMax.x) - 120.0f, fminf(worldMin.y, worldMax.y) - 120.0f,
                            fmaxf(worldMin.x, worldMax.x) + 120.0f, fmaxf(worldMin.y, worldMax.y) + 120.0f };
 
-    m_persistentEntityBuffer.BindPrevious(0);
+    m_persistentEntityBuffer.BindPreviousNoSync(0);
     auto &mdi = NoMoreDay::render::MDIRenderer::Get();
     mdi.Cull(viewBounds);
     mdi.Render(mvp, context.renderAlpha);
@@ -155,7 +155,8 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
   rlBindShaderBuffer(m_tempCountBuffer.GetId(), 2);
   rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
-  utils::GPUUtils::MemoryBarrier();
+  // Only need SSBO barrier for subsequent counting
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
   rlEnableShader(m_gridCountShader.id);
   float cellSize = 32.0f;
@@ -166,7 +167,8 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
-  utils::GPUUtils::MemoryBarrier();
+  // Barrier for CPU read in the next line
+  utils::GPUUtils::MemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
   m_cellCountBuffer.Read(m_gridCounts.data(), numCells * sizeof(uint32_t));
   uint32_t currentOffset = 0;
@@ -183,7 +185,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
   rlBindShaderBuffer(m_tempCountBuffer.GetId(), 5);
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
-  utils::GPUUtils::MemoryBarrier();
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
   GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer, m_maxEntities, 10.0f);
 
@@ -207,7 +209,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
   rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
-  utils::GPUUtils::MemoryBarrier();
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
   rlDisableShader();
   m_persistentEntityBuffer.Lock();
 }

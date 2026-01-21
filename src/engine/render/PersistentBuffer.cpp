@@ -362,6 +362,25 @@ void PersistentBuffer::BindPrevious(unsigned int bindingPoint) const {
   }
 }
 
+void PersistentBuffer::BindPreviousNoSync(unsigned int bindingPoint) const {
+  typedef void(APIENTRY *PFNGLBINDBUFFERRANGEPROC)(
+      GLenum target, GLuint index, GLuint buffer, ptrdiff_t offset,
+      ptrdiff_t size);
+  static PFNGLBINDBUFFERRANGEPROC glBindBufferRange =
+      (PFNGLBINDBUFFERRANGEPROC)glfwGetProcAddress("glBindBufferRange");
+
+  if (m_mode == Mode::Persistent && m_bufferId != 0 && glBindBufferRange) {
+    int prevSlot = (m_writeSlot - 1 + m_bufferCount) % m_bufferCount;
+    // SKIP WaitForFence to avoid CPU Stall. 
+    // GPU sync should be handled by glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT)
+    size_t offset = prevSlot * m_slotSize;
+    glBindBufferRange(GL_SHADER_STORAGE_BUFFER, bindingPoint, m_bufferId,
+                      offset, m_slotSize);
+  } else if (m_mode == Mode::Compat) {
+    BindBase(bindingPoint);
+  }
+}
+
 void PersistentBuffer::BindOldest(unsigned int bindingPoint) const {
   typedef void(APIENTRY * PFNGLBINDBUFFERRANGEPROC)(
       GLenum target, GLuint index, GLuint buffer, ptrdiff_t offset,
@@ -380,6 +399,26 @@ void PersistentBuffer::BindOldest(unsigned int bindingPoint) const {
   } else if (m_mode == Mode::Compat) {
     BindBase(bindingPoint);
   }
+}
+
+void PersistentBuffer::Bind(unsigned int target, int slotType) const {
+  typedef void(APIENTRY *PFNGLBINDBUFFERPROC)(unsigned int target,
+                                              unsigned int buffer);
+  static PFNGLBINDBUFFERPROC glBindBufferFn = nullptr;
+  if (!glBindBufferFn) {
+    glBindBufferFn = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
+  }
+
+  if (m_bufferId == 0 || !glBindBufferFn)
+    return;
+
+  glBindBufferFn(target, m_bufferId);
+
+  // Note: For non-indexed targets like GL_DRAW_INDIRECT_BUFFER, 
+  // you still need to use the correct offset in the draw call 
+  // if you want to select a slot, because glBindBufferRange 
+  // doesn't work for these targets.
+  // However, we bind the buffer ID here for convenience.
 }
 
 } // namespace NoMoreDay::render
