@@ -188,6 +188,51 @@ constexpr float DODGE_MAX_CHANCE = 0.90f; // 90% 上限
 
 // 格挡上限
 constexpr float BLOCK_MAX_CHANCE = 0.75f;
+// 敌人等级成长配置 (D2/POE Style)
+namespace Monster {
+    // --- HP Growth ---
+    constexpr float HP_GROWTH_RATE = 0.10f; // 激进的指数成长 (10%/级)
+    
+    // --- Damage Growth ---
+    constexpr float DMG_GROWTH_RATE = 0.08f; // 8%/级
+    constexpr float DMG_VARIANCE_MIN = 0.90f;
+    constexpr float DMG_VARIANCE_MAX = 1.10f;
+    
+    // --- Armor Growth ---
+    constexpr float TARGET_DR_AT_100 = 0.20f; // 100级目标减伤 20%
+    constexpr float DR_PER_LEVEL = 0.002f;    // 线性每级增加减伤
+    
+    // --- Resistance Growth (Lv 100+) ---
+    constexpr float RES_GROWTH_NORMAL = 0.002f;
+    constexpr float RES_GROWTH_CHAMPION = 0.004f;
+    constexpr float RES_GROWTH_ELITE = 0.006f;
+    constexpr float RES_GROWTH_BOSS = 0.008f;
+    constexpr float RES_GROWTH_NEMESIS = 0.010f;
+    constexpr float RES_HARD_CAP = 0.75f;
+    
+    // --- XP Growth ---
+    constexpr float XP_GROWTH_RATE = 0.05f;
+    constexpr float XP_DIFF_THRESHOLD = 5.0f;
+    constexpr float XP_PENALTY_PER_LEVEL = 0.10f;
+    constexpr float XP_MIN_MULT = 0.10f;
+    
+    // --- Level Sync ---
+    constexpr int LEVEL_SYNC_OFFSET = 5;
+    
+    // --- Rarity HP Multipliers ---
+    constexpr float RARITY_HP_NORMAL = 1.0f;
+    constexpr float RARITY_HP_CHAMPION = 2.5f;
+    constexpr float RARITY_HP_ELITE = 5.0f;
+    constexpr float RARITY_HP_BOSS = 15.0f;
+    constexpr float RARITY_HP_NEMESIS = 25.0f;
+    
+    // --- Rarity Damage Multipliers ---
+    constexpr float RARITY_DMG_NORMAL = 1.0f;
+    constexpr float RARITY_DMG_CHAMPION = 1.25f;
+    constexpr float RARITY_DMG_ELITE = 1.6f;
+    constexpr float RARITY_DMG_BOSS = 2.5f;
+    constexpr float RARITY_DMG_NEMESIS = 3.0f;
+} // namespace Monster
 } // namespace Scaling
 
 namespace Cap {

@@ -14,6 +14,7 @@
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/utils/MonsterScaling.hpp"
 #include <algorithm>
 #include <cmath>
 #include <random>
@@ -35,19 +36,20 @@ EnemySpawnSystem::~EnemySpawnSystem() {
   m_raceTextures.clear();
 }
 
-void EnemySpawnSystem::initializeLevel(int width, int height,
+void EnemySpawnSystem::initializeLevel(int width, int height, int level,
                                         const MapSystem &mapSystem,
                                         NoMoreDay::BiomeID biome) {
-  initData(width, height, mapSystem, biome);
+  initData(width, height, level, mapSystem, biome);
   initTextures();
 }
 
 // Async Loading Support
-void EnemySpawnSystem::initData(int width, int height,
+void EnemySpawnSystem::initData(int width, int height, int level,
                                 const MapSystem &mapSystem,
                                 NoMoreDay::BiomeID biomeId,
                                 const NoMoreDay::ResonanceResult *resonance) {  m_mapWidth = width;
   m_mapHeight = height;
+  m_areaLevel = level;
   m_spawnData.clear();
   m_pendingRaces.clear();
 
@@ -303,38 +305,19 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   }
 
   // Emplace EnemyStateComponent EARLY so StatsSystem can use it
-  registry.emplace<EnemyStateComponent>(entity, raceType, archType);
+  auto &esc = registry.emplace<EnemyStateComponent>(entity, raceType, archType);
   registry.emplace<EnemyTag>(entity);
   auto &cStats = registry.emplace<NoMoreDay::CombatStats>(entity);
   registry.emplace<NoMoreDay::StatsDirty>(
       entity); // Trigger initial calculation
   auto &aState = registry.emplace<NoMoreDay::AttackState>(entity);
-
-  const auto &raceDef = kRaceData[static_cast<size_t>(raceType)];
-
-  // Apply Level Mod to Base Stats
-  using namespace NoMoreDay::Constants::Enemy;
-  float levelMultiplier =
-      1.0f + (m_resonanceMods.levelBonus * LEVEL_HP_MULTIPLIER);
-
-  cStats.min_weapon_damage =
-      raceDef.baseDamage * DAMAGE_VARIANCE_MIN * levelMultiplier;
-  cStats.max_weapon_damage =
-      raceDef.baseDamage * DAMAGE_VARIANCE_MAX * levelMultiplier;
-  cStats.armor = raceDef.baseArmor * levelMultiplier;
-  cStats.accuracy = 1.0f;
-  cStats.attack_speed = 1.0f;
   aState.baseAttackInterval = DEFAULT_ATTACK_INTERVAL;
-
-  float modifiedHP = raceDef.baseHP * levelMultiplier;
 
   // === Advanced Rarity System Implementation ===
   std::uniform_real_distribution<float> rarityRoll(0.0f, 1.0f);
   EnemyRarityComponent::Rarity rarity = EnemyRarityComponent::NORMAL;
-  float rarityScale = 1.0f;
   Color rarityColor = WHITE;
-  float hpMult = 1.0f;
-  float dmgMult = 1.0f;
+  float rarityScale = 1.0f;
 
   // Check for Nemesis eligibility based on Faction Aggro
   NoMoreDay::FactionType faction = NoMoreDay::FactionType::Undead;
@@ -346,33 +329,53 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   float roll = rarityRoll(m_gen);
   if (roll < BOSS_CHANCE) {
     rarity = EnemyRarityComponent::BOSS;
-    hpMult = BOSS_HP_MULTIPLIER;
-    dmgMult = 2.5f;
     rarityScale = 2.0f;
     rarityColor = ORANGE;
   } else if (roll < BOSS_CHANCE + ELITE_CHANCE) {
     rarity = EnemyRarityComponent::ELITE;
-    hpMult = ELITE_HP_MULTIPLIER;
-    dmgMult = 1.6f;
     rarityScale = 1.4f;
     rarityColor = YELLOW;
   } else if (roll < BOSS_CHANCE + ELITE_CHANCE + CHAMPION_CHANCE) {
     rarity = EnemyRarityComponent::CHAMPION;
-    hpMult = CHAMPION_HP_MULTIPLIER;
-    dmgMult = 1.25f;
     rarityScale = 1.15f;
     rarityColor = SKYBLUE;
   }
 
   registry.emplace<EnemyRarityComponent>(entity, rarity);
-  modifiedHP *= hpMult;
+
+  // === Monster Scaling Implementation ===
+  // 1. Get Player Level
+  int playerLevel = 1;
+  auto playerView = registry.view<PlayerStats>();
+  if (playerView.begin() != playerView.end()) {
+      playerLevel = playerView.get<PlayerStats>(*playerView.begin()).level;
+  }
+
+  // 2. Calculate Synchronized Monster Level
+  int effectiveAreaLevel = m_areaLevel + m_resonanceMods.levelBonus;
+  int monsterLevel = NoMoreDay::MonsterScaling::SyncLevel(effectiveAreaLevel, playerLevel);
+  esc.level = monsterLevel;
+
+  // 3. Calculate Stats
+  NoMoreDay::MonsterScalingResult result = NoMoreDay::MonsterScaling::Calculate(raceType, monsterLevel, rarity);
+
+  cStats.min_weapon_damage = result.minDamage;
+  cStats.max_weapon_damage = result.maxDamage;
+  cStats.armor = result.armor;
+  cStats.accuracy = 1.0f;
+  cStats.attack_speed = 1.0f;
+  
+  float modifiedHP = result.maxHealth;
+
+  // Apply Element Color Tint (Higher priority than rarity color if exists)
 
   // Setup Race/Archetype specifics
   // Add Core Components (Health, AI) using stats from EnemyStateComponent
-  auto &esc = registry.get<EnemyStateComponent>(entity);
+  // Note: esc reference might be invalid if registry reallocated, assume entity is valid
+  auto &esc2 = registry.get<EnemyStateComponent>(entity);
   registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-  registry.emplace<AIComponent>(entity, AIType::IDLE, esc.detectionRange,
-                                esc.attackRange, esc.speed);
+  registry.emplace<AIComponent>(entity, AIType::IDLE, esc2.detectionRange,
+                                esc2.attackRange, esc2.speed);
 
   // Setup Race specifics (Stats/AI tweaks beyond base component init)
   switch (raceType) {
@@ -435,9 +438,9 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   }
 
-  // Finalize Stats with Rarity Multipliers
-  cStats.min_weapon_damage *= dmgMult;
-  cStats.max_weapon_damage *= dmgMult;
+  // Finalize Stats with Rarity Multipliers (Already handled in MonsterScaling::Calculate)
+  // cStats.min_weapon_damage *= dmgMult;
+  // cStats.max_weapon_damage *= dmgMult;
 
   // Apply Element Color Tint (Higher priority than rarity color if exists)
   if (m_resonanceMods.dominantElement != 0) {

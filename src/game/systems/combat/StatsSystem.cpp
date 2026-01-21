@@ -24,6 +24,7 @@
 #include <array>
 #include <unordered_map>
 #include <vector>
+#include "game/utils/MonsterScaling.hpp"
 
 namespace NoMoreDay {
 
@@ -403,36 +404,94 @@ void StatsSystem::Recalculate(entt::registry &registry, entt::entity entity) {
 
   // 如果是敌人，应用敌人种族基础属性覆盖 base_hp
   if (auto *enemy = registry.try_get<EnemyStateComponent>(entity)) {
-    // 使用静态查找表，避免每次分配 vector<string>
+    // Determine Rarity
+    EnemyRarityComponent::Rarity rarity = EnemyRarityComponent::NORMAL;
+    if (auto *rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
+        rarity = rarityComp->rarity;
+    }
+
+    // Use MonsterScaling to calculating Base Stats
+    MonsterScalingResult scaled = MonsterScaling::Calculate(enemy->raceType, enemy->level, rarity);
+
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base = scaled.maxHealth;
+    // Speed is currently not scaled by level in spec (or is it?), let's stick to raceData for speed or add it to scaling if needed. 
+    // Spec says nothing about speed scaling. Use raceData.
     const auto &raceData = kRaceData[static_cast<size_t>(enemy->raceType)];
-
-    calcs[static_cast<size_t>(StatType::MaxHealth)].base = raceData.baseHP;
     calcs[static_cast<size_t>(StatType::MoveSpeed)].base = raceData.baseSpeed;
-    calcs[static_cast<size_t>(StatType::Armor)].base = raceData.baseArmor;
+    
+    calcs[static_cast<size_t>(StatType::Armor)].base = scaled.armor;
 
-    // 应用种族抗性 (Tag -> StatType)
-    constexpr float NATIVE_RESISTANCE_VALUE = 50.0f; // 天生抗性数值 (50%)
+    // Apply Base Resistances (Race Defaults) + Scaling Bonus
+    constexpr float NATIVE_RESISTANCE_VALUE = 50.0f; 
 
-    // 我们遍历主要的伤害类型标签来映射抗性
-    // 注意：Tag::Void 目前没有对应的 StatType::ResistVoid，暂不处理
-    if (HasTag(raceData.resistances, Tag::Physical))
-      ApplyStatModifier(calcs, StatType::ResistPhysical, ModifierMode::Flat,
-                        NATIVE_RESISTANCE_VALUE);
-    if (HasTag(raceData.resistances, Tag::Fire))
-      ApplyStatModifier(calcs, StatType::ResistFire, ModifierMode::Flat,
-                        NATIVE_RESISTANCE_VALUE);
-    if (HasTag(raceData.resistances, Tag::Cold))
-      ApplyStatModifier(calcs, StatType::ResistCold, ModifierMode::Flat,
-                        NATIVE_RESISTANCE_VALUE);
-    if (HasTag(raceData.resistances, Tag::Lightning))
-      ApplyStatModifier(calcs, StatType::ResistLightning, ModifierMode::Flat,
-                        NATIVE_RESISTANCE_VALUE);
-    if (HasTag(raceData.resistances, Tag::Poison))
-      ApplyStatModifier(calcs, StatType::ResistPoison, ModifierMode::Flat,
-                        NATIVE_RESISTANCE_VALUE);
-    if (HasTag(raceData.resistances, Tag::Shadow))
-      ApplyStatModifier(calcs, StatType::ResistShadow, ModifierMode::Flat,
-                        NATIVE_RESISTANCE_VALUE);
+    // Helper to apply resist
+    auto applyResist = [&](Tag tag, StatType type) {
+        float val = 0.0f;
+        if (HasTag(raceData.resistances, tag)) val += NATIVE_RESISTANCE_VALUE;
+        // Add Scaling Bonus
+        val += scaled.resistanceBonus * 100.0f; // scaled is 0.0-0.75, stat is 0-100? 
+        // Wait, StatsSystem uses Flat for resists. 
+        // 50.0f means 50%.
+        // scaled.resistanceBonus is e.g. 0.10 for 10%. So * 100.
+        // Wait, MonsterScaling::Calculate returns resistanceBonus as 0.X float.
+        // Need to confirm unit. MonsterScaling.cpp line 56: result.resistanceBonus = overLevel * resPerLevel;
+        // resPerLevel is 0.002. So for 10 levels, 0.02.
+        // So yes, multiply by 100 for StatsSystem if it expects percentage points (0-100).
+        // Looking at ApplyStatModifier calls... NATIVE_RESISTANCE_VALUE = 50.0f.
+        // ResistFire is Flat.
+        // CombatStats.resistances uses 0.0-0.75 as 75%.
+        // Wait, let's check resetCombatStats.
+        // applyResist uses ApplyStatModifier(..., Flat, 50.0f).
+        // Then `c.flat += value`.
+        // Result() = (base + flat) ...
+        // Finally, how is it used?
+        // In CombatSystem: float res = stats.resistances[...]
+        // If 50.0f is stored, that's 5000% if interpreted as 1.0 = 100%.
+        // I need to check how StatsSystem stores Resistances.
+        // Check `StatsSystem.cpp` around line 64: `combat.resistances.fill(0.0f);`
+        // Affixes: `Bind<StatType::ResistFire, ModifierMode::Flat>(AffixType::ResistFire);`
+        // Affix definitions usually use whole numbers (e.g. 10 for 10%).
+        // Let's assume StatsSystem working with Percentage Points (0-100) and converts later, OR works with 0.0-1.0.
+        // NATIVE_RESISTANCE_VALUE = 50.0f.  If 1.0 was 100%, 50 would be god mode.
+        // So likely StatsSystem expects 0-100 logic or converts it.
+        // Let's check `CombatSystem::ApplyDamage` or similar?
+        // Actually, looking at `MonsterScaling::CustomArmor`: targetDR is 0.20.
+        
+        // Let's check `Common.hpp`: `RESISTANCE_MAX = 0.75f`.
+        
+        if (val > 0) ApplyStatModifier(calcs, type, ModifierMode::Flat, val);
+    };
+
+    // Note: If race has no resistance, it still gets bonus?
+    // "Lv 1-100: Use race base. Lv 100+: Add bonus."
+    // So yes, even if base is 0, bonus applies.
+    
+    // Determine Base Resists from Race
+    // Base 50 if tag present.
+    // Plus scaled.resistanceBonus * 100.0f.
+    
+    // We apply the Bonus uniformly to ALL resists? Or just the ones the monster has?
+    // Spec: "3.1 Constants (Common.hpp) ... Lv 1-100: Use race base ... Lv 100+: bonusRes = ..."
+    // Implicitly, monsters usually gain ALL res or specific res?
+    // "finalRes = min(0.75, baseRes + bonusRes)".
+    // This implies bonus applies to whatever base is.
+    // If base is 0, final is bonusRes.
+    // So yes, all elements get the bonus.
+    
+    float bonus = scaled.resistanceBonus * 100.0f;
+
+    ApplyStatModifier(calcs, StatType::ResistPhysical, ModifierMode::Flat, 
+        (HasTag(raceData.resistances, Tag::Physical) ? NATIVE_RESISTANCE_VALUE : 0.0f) + bonus);
+    ApplyStatModifier(calcs, StatType::ResistFire, ModifierMode::Flat, 
+        (HasTag(raceData.resistances, Tag::Fire) ? NATIVE_RESISTANCE_VALUE : 0.0f) + bonus);
+    ApplyStatModifier(calcs, StatType::ResistCold, ModifierMode::Flat, 
+        (HasTag(raceData.resistances, Tag::Cold) ? NATIVE_RESISTANCE_VALUE : 0.0f) + bonus);
+    ApplyStatModifier(calcs, StatType::ResistLightning, ModifierMode::Flat, 
+        (HasTag(raceData.resistances, Tag::Lightning) ? NATIVE_RESISTANCE_VALUE : 0.0f) + bonus);
+    ApplyStatModifier(calcs, StatType::ResistPoison, ModifierMode::Flat, 
+        (HasTag(raceData.resistances, Tag::Poison) ? NATIVE_RESISTANCE_VALUE : 0.0f) + bonus);
+    ApplyStatModifier(calcs, StatType::ResistShadow, ModifierMode::Flat, 
+        (HasTag(raceData.resistances, Tag::Shadow) ? NATIVE_RESISTANCE_VALUE : 0.0f) + bonus);
   }
 
   using namespace NoMoreDay::Constants::Combat;

@@ -29,6 +29,7 @@ using namespace NoMoreDay;
 
 // --- Unit Tests ---
 #include "unit/BranchlessTest.cpp"
+#include "unit/MonsterScalingTest.cpp"
 
 // --- Tech & Engine Tests ---
 #include "tech/EngineTechTests.hpp"

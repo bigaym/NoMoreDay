@@ -62,7 +62,7 @@ LevelManager::LevelData LevelManager::prepareLevel(NoMoreDay::BiomeID biome,
   data.map->generateMap(width, height, biomeKey);
 
   // 初始化敌人
-  data.enemy->initData(width, height, *data.map, biome);
+  data.enemy->initData(width, height, level, *data.map, biome);
 
   return data;
 }
@@ -103,7 +103,7 @@ LevelManager::prepareMosaicLevel(const NoMoreDay::MosaicGrid &grid,
   data.map->generateMosaicMap(width, height, grid, resonance, registry);
 
   // 初始化敌人
-  data.enemy->initData(width, height, *data.map, resonance.primaryBiome, &resonance);
+  data.enemy->initData(width, height, data.level, *data.map, resonance.primaryBiome, &resonance);
 
   return data;
 }

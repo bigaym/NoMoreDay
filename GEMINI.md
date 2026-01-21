@@ -31,5 +31,5 @@
 
 ## 4. 环境与资源
 *   **构建**: `.\build.bat`。
-*   **测试**: `build/bin/tests/tests_runner.exe`。
+*   **测试**: `./build/bin/NoMoreDayTests.exe`。
 *   **规范**: 参考 `conductor/code_standard.md`。

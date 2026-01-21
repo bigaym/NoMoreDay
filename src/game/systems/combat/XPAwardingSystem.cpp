@@ -10,6 +10,7 @@
 #include "core/logging/Logger.hpp"
 #include <vector>
 #include <queue>
+#include "game/utils/MonsterScaling.hpp"
 
 namespace NoMoreDay {
 
@@ -37,12 +38,20 @@ void XPAwardingSystem::update(entt::registry& registry) {
                 }
 
                 if (auto* state = registry.try_get<EnemyStateComponent>(entity)) {
-                    const auto& raceData = kRaceData[static_cast<size_t>(state->raceType)];
-                    float xp = raceData.baseXP * (1.0f + (state->level - 1) * 0.1f);
+                    EnemyRarityComponent::Rarity rarityVal = EnemyRarityComponent::NORMAL;
                     if (auto* rarity = registry.try_get<EnemyRarityComponent>(entity)) {
-                        if (rarity->rarity == EnemyRarityComponent::ELITE) xp *= 2.5f;
-                        else if (rarity->rarity == EnemyRarityComponent::BOSS) xp *= 10.0f;
+                        rarityVal = rarity->rarity;
                     }
+
+                    // 1. Calculate base XP based on Level & Rarity Scaling
+                    MonsterScalingResult scaled = MonsterScaling::Calculate(state->raceType, state->level, rarityVal);
+                    float xp = scaled.xpValue;
+
+                    // 2. Apply Level Difference Penalty (D3 Style)
+                    if (auto* pStats = registry.try_get<PlayerStats>(playerKiller)) {
+                         xp *= MonsterScaling::GetXPMultiplier(state->level, pStats->level);
+                    }
+
                     totalXP += xp;
                 }
             }

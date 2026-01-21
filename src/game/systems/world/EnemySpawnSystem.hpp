@@ -43,17 +43,19 @@ private:
     float dropRateBonus = 0.0f;
     int dominantElement = 0; // 0=None, 1=Fire, etc.
   } m_resonanceMods;
+  
+  int m_areaLevel = 1; // 当前区域等级
 
 public:
   EnemySpawnSystem();
   ~EnemySpawnSystem();
 
   // 初始化关卡 (Legacy)
-  void initializeLevel(int width, int height, const MapSystem &mapSystem,
+  void initializeLevel(int width, int height, int level, const MapSystem &mapSystem,
                        NoMoreDay::BiomeID biome);
 
   // Async Loading Support
-  void initData(int width, int height, const MapSystem &mapSystem,
+  void initData(int width, int height, int level, const MapSystem &mapSystem,
                 NoMoreDay::BiomeID biome,
                 const NoMoreDay::ResonanceResult *resonance = nullptr);
   void initTextures();
