@@ -176,6 +176,58 @@ const LootPool *ItemFactory::getLootPool(uint32_t id) {
   return nullptr;
 }
 
+// Helper to serialize an item entity to DTO (Duplicated from SaveManager for now)
+SerializedItem ItemFactory::serializeItem(entt::registry &registry, entt::entity entity) {
+  SerializedItem dto;
+  if (!registry.all_of<ItemComponent>(entity))
+    return dto;
+
+  const auto &item = registry.get<ItemComponent>(entity);
+  dto.itemId = item.id;
+  dto.name = item.name;
+  dto.type = item.type;
+  dto.textureId = item.textureId;
+  dto.quantity = item.quantity;
+
+  dto.stats.rarity = item.rarity;
+  dto.stats.slot = item.slot;
+  dto.stats.attack = item.attack;
+  dto.stats.defense = item.defense;
+  dto.stats.forgingPotential = item.forgingPotential;
+  dto.stats.legendaryPotential = item.legendaryPotential;
+  dto.stats.value = item.value;
+
+  for (const auto &aff : item.affixes) {
+    SerializedItem::SavedAffix sAff;
+    sAff.type = aff.type;
+    sAff.tier = aff.tier;
+    sAff.value = aff.value;
+    sAff.isPrefix = aff.isPrefix;
+    sAff.isLegendary = aff.isLegendary;
+    sAff.required_tags = aff.required_tags;
+    dto.affixes.push_back(sAff);
+  }
+
+  for (const auto &aff : item.implicits) {
+    SerializedItem::SavedAffix sAff;
+    sAff.type = aff.type;
+    sAff.tier = aff.tier;
+    sAff.value = aff.value;
+    sAff.isPrefix = aff.isPrefix;
+    sAff.isLegendary = aff.isLegendary;
+    sAff.required_tags = aff.required_tags;
+    dto.implicits.push_back(sAff);
+  }
+
+  for (auto socketEntity : item.sockets) {
+    if (registry.valid(socketEntity)) {
+      dto.socketedItems.push_back(serializeItem(registry, socketEntity));
+    }
+  }
+
+  return dto;
+}
+
 // -----------------------------------------------------------------------------
 // 基础物品定义 (内部数据库)
 // -----------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/MapComponent.hpp"
+#include "game/components/StashComponent.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/MosaicData.hpp"
 
@@ -138,6 +139,21 @@ void LevelManager::activateLevel(LevelData &&data) {
 void LevelManager::spawnLevelEntities() {
   if (!m_registry || !m_mapSystem)
     return;
+
+  // Spawn Stashes in Town
+  if (getCurrentBiomeID() == NoMoreDay::BiomeID::Town) {
+       auto pStash = m_registry->create();
+       m_registry->emplace<Position>(pStash, 400.0f, 400.0f);
+       m_registry->emplace<NoMoreDay::StashInteractableComponent>(pStash, NoMoreDay::StashType::Personal);
+       m_registry->emplace<NoMoreDay::StashPlaceholderRender>(pStash);
+       m_registry->emplace<LocalLevelTag>(pStash);
+
+       auto sStash = m_registry->create();
+       m_registry->emplace<Position>(sStash, 500.0f, 400.0f);
+       m_registry->emplace<NoMoreDay::StashInteractableComponent>(sStash, NoMoreDay::StashType::Shared);
+       m_registry->emplace<NoMoreDay::StashPlaceholderRender>(sStash);
+       m_registry->emplace<LocalLevelTag>(sStash);
+  }
 
   LOG_INFO("Scanning map for exit portals...");
   int w = m_mapSystem->getWidth();

@@ -1,5 +1,7 @@
 #include "engine/persistence/SaveManager.hpp"
 #include "core/logging/Logger.hpp"
+#include "engine/persistence/GlobalSaveData.hpp"
+#include "engine/persistence/SharedStash.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/systems/item/ItemFactory.hpp"
@@ -10,63 +12,6 @@
 namespace fs = std::filesystem;
 
 namespace NoMoreDay {
-
-// Helper to serialize an item entity to DTO
-static SerializedItem SerializeItem(entt::registry &registry,
-                                    entt::entity entity) {
-  SerializedItem dto;
-  if (!registry.all_of<ItemComponent>(entity))
-    return dto;
-
-  const auto &item = registry.get<ItemComponent>(entity);
-  dto.itemId = item.id;
-  dto.name = item.name;
-  dto.type = item.type;
-  dto.textureId = item.textureId;
-  dto.quantity = item.quantity;
-
-  // Note: If ItemComponent had a level field, we'd save it here.
-  // For now we use a default of 1 or leave it uninitialized if not used.
-  dto.stats.rarity = item.rarity;
-  dto.stats.slot = item.slot;
-  dto.stats.attack = item.attack;
-  dto.stats.defense = item.defense;
-  dto.stats.forgingPotential = item.forgingPotential;
-  dto.stats.legendaryPotential = item.legendaryPotential;
-  dto.stats.value = item.value;
-
-  for (const auto &aff : item.affixes) {
-    SerializedItem::SavedAffix sAff;
-    sAff.type = aff.type;
-    sAff.tier = aff.tier;
-    sAff.value = aff.value;
-    sAff.isPrefix = aff.isPrefix;
-    sAff.isLegendary = aff.isLegendary;
-    // sAff.name = aff.name; // REMOVED
-    sAff.required_tags = aff.required_tags;
-    dto.affixes.push_back(sAff);
-  }
-
-  for (const auto &aff : item.implicits) {
-    SerializedItem::SavedAffix sAff;
-    sAff.type = aff.type;
-    sAff.tier = aff.tier;
-    sAff.value = aff.value;
-    sAff.isPrefix = aff.isPrefix;
-    sAff.isLegendary = aff.isLegendary;
-    // sAff.name = aff.name; // REMOVED
-    sAff.required_tags = aff.required_tags;
-    dto.implicits.push_back(sAff);
-  }
-
-  for (auto socketEntity : item.sockets) {
-    if (registry.valid(socketEntity)) {
-      dto.socketedItems.push_back(SerializeItem(registry, socketEntity));
-    }
-  }
-
-  return dto;
-}
 
 CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
   CharacterSaveData data;
@@ -92,7 +37,7 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
 
     for (auto itemEntity : inv.items) {
       if (registry.valid(itemEntity)) {
-        data.inventory.push_back(SerializeItem(registry, itemEntity));
+        data.inventory.push_back(ItemFactory::serializeItem(registry, itemEntity));
       }
     }
   }
@@ -102,7 +47,7 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
     const auto &eq = registry.get<EquipmentComponent>(playerEntity);
     for (auto itemEntity : eq.slots) {
       if (registry.valid(itemEntity)) {
-        data.equipment.push_back(SerializeItem(registry, itemEntity));
+        data.equipment.push_back(ItemFactory::serializeItem(registry, itemEntity));
       }
     }
   }
@@ -112,6 +57,32 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
     data.skills = registry.get<ActiveSkillsComponent>(playerEntity);
   if (registry.all_of<AstrolabeComponent>(playerEntity))
     data.astrolabe = registry.get<AstrolabeComponent>(playerEntity);
+
+  // Stash
+  if (registry.all_of<PersonalStashComponent>(playerEntity)) {
+      const auto& stash = registry.get<PersonalStashComponent>(playerEntity);
+      SerializedStash sStash;
+      sStash.unlockedTabs = stash.unlockedTabs;
+      
+      for (const auto& tab : stash.tabs) {
+          SerializedStashTab sTab;
+          sTab.name = tab.name;
+          sTab.type = tab.type;
+          sTab.iconId = tab.iconId;
+          sTab.color = tab.color;
+          
+          for (int i = 0; i < StashTab::CAPACITY; ++i) {
+              if (registry.valid(tab.items[i])) {
+                  SerializedStashSlot slot;
+                  slot.slotIndex = i;
+                  slot.item = ItemFactory::serializeItem(registry, tab.items[i]);
+                  sTab.items.push_back(slot);
+              }
+          }
+          sStash.tabs.push_back(sTab);
+      }
+      data.personalStash = sStash;
+  }
 
   // Combat History (Nemesis System)
   if (registry.all_of<PlayerCombatHistory>(playerEntity)) {
@@ -130,7 +101,13 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
 
 void SaveManager::restoreFromSnapshot(entt::registry &registry,
                                       const CharacterSaveData &data) {
+  // Suspend Global State (SharedStash) as its entities are about to be destroyed
+  SharedStash::Get().suspend(registry);
+
   registry.clear();
+
+  // Resume Global State (Re-create entities)
+  SharedStash::Get().resume(registry);
 
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -162,6 +139,33 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   registry.emplace<ActiveSkillsComponent>(player, data.skills);
   registry.emplace<AstrolabeComponent>(player, data.astrolabe);
   registry.emplace<PlayerCombatHistory>(player, data.combatHistory);
+
+  // Stash
+  if (data.personalStash.has_value()) {
+      auto& stash = registry.emplace<PersonalStashComponent>(player);
+      stash.unlockedTabs = data.personalStash->unlockedTabs;
+      stash.tabs.resize(stash.unlockedTabs); 
+      
+      const auto& sTabs = data.personalStash->tabs;
+      for (size_t i = 0; i < sTabs.size(); ++i) {
+          if (i >= stash.tabs.size()) break; 
+          auto& t = stash.tabs[i];
+          const auto& sT = sTabs[i];
+          
+          t.name = sT.name;
+          t.type = sT.type;
+          t.iconId = sT.iconId;
+          t.color = sT.color;
+          
+          for (const auto& slot : sT.items) {
+              if (slot.slotIndex >= 0 && slot.slotIndex < StashTab::CAPACITY) {
+                  t.items[slot.slotIndex] = ItemFactory::restoreItem(registry, slot.item);
+              }
+          }
+      }
+  } else {
+      registry.emplace<PersonalStashComponent>(player);
+  }
 
   // Re-apply traits if necessary (e.g. SwordHeart if activated in Astrolabe)
   // This usually happens in a progression system or during recount.
@@ -243,6 +247,64 @@ std::string SaveManager::getSavePath(int slotIndex) const {
 
 std::string SaveManager::getTempPath(int slotIndex) const {
   return "saves/temp/slot_" + std::to_string(slotIndex) + ".tmp";
+}
+
+bool SaveManager::loadGlobal(entt::registry& registry) {
+    std::string path = "saves/global.json";
+    if (!fs::exists(path)) {
+        SharedStash::Get().initialize(); // Ensure initialized
+        return true; 
+    }
+    
+    try {
+        std::ifstream file(path);
+        if (!file.is_open()) return false;
+        
+        nlohmann::json j;
+        file >> j;
+        GlobalSaveData data = j.get<GlobalSaveData>();
+        
+        nlohmann::json jStash = data.sharedStash;
+        SharedStash::Get().fromJson(jStash, registry);
+        
+        return true;
+    } catch (const std::exception& e) {
+        LOG_ERROR("SaveManager: Failed to load global save: {}", e.what());
+        SharedStash::Get().initialize(); // Fallback
+        return false;
+    }
+}
+
+std::future<bool> SaveManager::saveGlobalAsync(entt::registry& registry) {
+    if (!m_executor) {
+        std::promise<bool> p; p.set_value(false); return p.get_future();
+    }
+    
+    // Create snapshot on main thread
+    GlobalSaveData data;
+    data.sharedStash = SharedStash::Get().toJson(registry).get<SerializedStash>();
+    
+    return m_executor->async([data]() {
+        try {
+            fs::create_directories("saves");
+            std::string path = "saves/global.json";
+            std::string temp = "saves/global.tmp";
+            
+            nlohmann::json j = data;
+            std::ofstream file(temp);
+            if (!file.is_open()) return false;
+            
+            file << j.dump(4);
+            file.close();
+            
+            fs::rename(temp, path);
+            LOG_INFO("SaveManager: Global save success.");
+            return true;
+        } catch (const std::exception& e) {
+            LOG_ERROR("SaveManager: Global save failed: {}", e.what());
+            return false;
+        }
+    });
 }
 
 } // namespace NoMoreDay

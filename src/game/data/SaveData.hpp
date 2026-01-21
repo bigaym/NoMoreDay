@@ -5,10 +5,12 @@
 #include "game/components/Stats.hpp"
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SerializedItem.hpp"
+#include "game/data/StashData.hpp"
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
+#include <optional>
 
 namespace NoMoreDay {
 
@@ -44,6 +46,7 @@ struct CharacterSaveData {
   // Item Containers
   std::vector<SerializedItem> inventory;
   std::vector<SerializedItem> equipment; // Flat list of equipped items
+  std::optional<SerializedStash> personalStash;
 
   // Progression Systems
   ActiveSkillsComponent skills;
@@ -55,8 +58,39 @@ struct CharacterSaveData {
 };
 
 // JSON serialization for the root DTO
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(CharacterSaveData, header, primaryStats,
-                                   position, mapId, gold, inventory, equipment,
-                                   skills, astrolabe, combatHistory)
+inline void to_json(nlohmann::json& j, const CharacterSaveData& p) {
+    j = nlohmann::json{
+        {"header", p.header},
+        {"primaryStats", p.primaryStats},
+        {"position", p.position},
+        {"mapId", p.mapId},
+        {"gold", p.gold},
+        {"inventory", p.inventory},
+        {"equipment", p.equipment},
+        {"skills", p.skills},
+        {"astrolabe", p.astrolabe},
+        {"combatHistory", p.combatHistory}
+    };
+    if (p.personalStash.has_value()) {
+        j["personalStash"] = p.personalStash.value();
+    }
+}
+
+inline void from_json(const nlohmann::json& j, CharacterSaveData& p) {
+    j.at("header").get_to(p.header);
+    j.at("primaryStats").get_to(p.primaryStats);
+    j.at("position").get_to(p.position);
+    j.at("mapId").get_to(p.mapId);
+    j.at("gold").get_to(p.gold);
+    j.at("inventory").get_to(p.inventory);
+    j.at("equipment").get_to(p.equipment);
+    j.at("skills").get_to(p.skills);
+    j.at("astrolabe").get_to(p.astrolabe);
+    j.at("combatHistory").get_to(p.combatHistory);
+    
+    if (j.contains("personalStash")) {
+        p.personalStash = j.at("personalStash").get<SerializedStash>();
+    }
+}
 
 } // namespace NoMoreDay

@@ -97,6 +97,7 @@ void Game::init() {
 
   // Initialize Persistence
   NoMoreDay::SaveManager::Get().Initialize(&m_executor);
+  NoMoreDay::SaveManager::Get().loadGlobal(m_registry);
 
   // Initialize Stats System (Cache cleanup)
   NoMoreDay::StatsSystem::Initialize(m_registry);
@@ -179,6 +180,9 @@ void Game::run() {
 
 void Game::cleanup() {
   LOG_INFO("Cleaning up game systems...");
+
+  // Save Global State (Shared Stash)
+  NoMoreDay::SaveManager::Get().saveGlobalAsync(m_registry);
 
   m_executor.wait_for_all();
 

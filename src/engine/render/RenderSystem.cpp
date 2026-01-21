@@ -10,6 +10,7 @@
 #include "game/components/EffectComponent.hpp"
 #include "game/components/EnemyComponent.hpp" 
 #include "game/components/ItemComponent.hpp"
+#include "game/components/StashComponent.hpp" // ADDED
 #include "game/components/Projectile.hpp" // For Projectile visualization
 #include "game/components/SkillDefs.hpp" // For SwordIntentComponent
 #include "game/components/vfx/HoloBladeComponent.hpp"
@@ -81,6 +82,39 @@ void RenderSystem::render(entt::registry &registry,
 
   // 0.5. Sword Intent Aura (Before Sprites)
   NoMoreDay::systems::SwordIntentVisualSystem::Render(registry);
+
+  // Render Stash Placeholders
+  auto playerView = registry.view<PlayerTag, Position>();
+  Vector2 playerPos = {0,0};
+  bool hasPlayer = false;
+  if (playerView.begin() != playerView.end()) {
+      playerPos = { playerView.get<Position>(playerView.front()).x, playerView.get<Position>(playerView.front()).y };
+      hasPlayer = true;
+  }
+
+  auto stashView = registry.view<const Position, const NoMoreDay::StashPlaceholderRender>();
+  for (auto entity : stashView) {
+      const auto& pos = stashView.get<Position>(entity);
+      const auto& render = stashView.get<NoMoreDay::StashPlaceholderRender>(entity);
+      
+      DrawRectangle((int)pos.x, (int)pos.y, (int)render.WIDTH, (int)render.HEIGHT, render.color);
+      
+      // Draw Label
+      const char* label = "Stash";
+      if (auto* interact = registry.try_get<NoMoreDay::StashInteractableComponent>(entity)) {
+          if (interact->type == NoMoreDay::StashType::Shared) label = "Shared Stash";
+      }
+      DrawText(label, (int)pos.x, (int)pos.y - 20, 20, WHITE);
+
+      // Interaction Prompt
+      if (hasPlayer) {
+          float dx = pos.x - playerPos.x;
+          float dy = pos.y - playerPos.y;
+          if (dx*dx + dy*dy < 100.0f * 100.0f) {
+               DrawText("Press E", (int)pos.x, (int)pos.y - 45, 24, YELLOW);
+          }
+      }
+  }
 
   // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
   // Updated to iterate entities for ShadowVisualComponent check

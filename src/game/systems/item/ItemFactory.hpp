@@ -25,6 +25,9 @@ public:
   static entt::entity restoreItem(entt::registry &registry,
                                   const SerializedItem &dto);
 
+  // 序列化物品
+  static SerializedItem serializeItem(entt::registry &registry, entt::entity entity);
+
   // 创建一个具有随机属性的特定物品类型
   static entt::entity createWeapon(entt::registry &registry, int level,
                                    Rarity rarity);

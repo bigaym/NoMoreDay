@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Stash System (Personal & Shared)
+- **Folder:** [./conductor/archive/stash_system_20260121/](./conductor/archive/stash_system_20260121/)
+- **Description:** 实现完整的仓库系统，包含个人仓库与账号共享仓库。支持多标签页解锁、物品分类拖拽、Ctrl+Click 快速存取、带缓存的高性能搜索、一键整理以及批量存入功能。数据层通过 SharedStash 单例与 SaveManager 深度集成，确保跨存档与场景切换的稳定性。已完成城镇地图实体的交互落地与 77 项全量测试验证。 (Completed on 2026-01-21)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 3-4 days
+
+---
+
 ## [x] Track: Monster Affix System Implementation
 - **Folder:** [./conductor/archive/monster_affixes_20260118/](./conductor/archive/monster_affixes_20260118/)
 - **Description:** 实现数据驱动的怪物词缀系统。包括运行时组件 MonsterAffixComponent、机制处理器 MonsterAffixSystem（处理熔火、闪烁、狂暴、极寒、消魔等效果）、基于 StatsSystem 的属性持久化修复，以及配套的视觉特效与 UI 标签表现。 (Completed on 2026-01-18)

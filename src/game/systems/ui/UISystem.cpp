@@ -8,6 +8,7 @@
 #include "game/systems/ui/UISkillHub.hpp"
 #include "game/systems/ui/UISkillTalentTree.hpp" // ADDED
 #include "game/systems/ui/UICrafting.hpp" // ADDED
+#include "game/systems/ui/UIStash.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/PlayerState.hpp"
@@ -230,6 +231,27 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
         }
     }
 
+    // Stash Interaction (E)
+    if (IsKeyPressed(KEY_E)) {
+        auto playerView = registry.view<PlayerTag, Position>();
+        if (playerView.begin() != playerView.end()) {
+            auto playerEntity = playerView.front();
+            const auto& pPos = playerView.get<Position>(playerEntity);
+            
+            auto stashView = registry.view<StashInteractableComponent, Position>();
+            for (auto entity : stashView) {
+                const auto& iPos = stashView.get<Position>(entity);
+                float dx = iPos.x - pPos.x;
+                float dy = iPos.y - pPos.y;
+                if (dx*dx + dy*dy < 100.0f * 100.0f) { 
+                    const auto& interact = stashView.get<StashInteractableComponent>(entity);
+                    UIStash::Open(interact.type);
+                    break; 
+                }
+            }
+        }
+    }
+
     // Quick Pickup (F)
     if (IsKeyPressed(KEY_F)) {
         auto playerView = registry.view<PlayerTag, Position>();
@@ -369,6 +391,7 @@ void UISystem::Update(entt::registry& registry, const LevelManager& levelManager
     }
     
     UIInventory::Update(registry);
+    UIStash::Update(registry);
     UIAstrolabe::Update(registry);
     UICrafting::Update(registry); // ADDED
 
@@ -403,6 +426,7 @@ void UISystem::Draw(entt::registry& registry, const LevelManager& levelManager, 
     UIMinimap::Draw(registry, levelManager);
     UIAstrolabe::Draw(registry);
     UICrafting::Draw(registry); 
+    UIStash::Draw(registry);
     
     // Skill Tree Hub
     auto playerView = registry.view<PlayerTag>();

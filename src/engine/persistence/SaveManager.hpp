@@ -44,6 +44,10 @@ public:
   void restoreFromSnapshot(entt::registry &registry,
                            const CharacterSaveData &data);
 
+  // Global Save
+  bool loadGlobal(entt::registry& registry);
+  std::future<bool> saveGlobalAsync(entt::registry& registry);
+
 private:
   SaveManager() = default;
   tf::Executor *m_executor = nullptr;

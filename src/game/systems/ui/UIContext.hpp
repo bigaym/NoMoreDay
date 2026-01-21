@@ -2,6 +2,7 @@
 #include <entt/entt.hpp>
 #include "raylib.h"
 #include "game/components/ItemComponent.hpp"
+#include "game/components/StashComponent.hpp"
 
 namespace NoMoreDay {
 
@@ -11,6 +12,7 @@ namespace NoMoreDay {
         Character = 0,
         Inventory,
         Crafting,
+        Stash,
         Count
     };
 
@@ -34,6 +36,9 @@ namespace NoMoreDay {
         
         bool showInventory = false;
         float inventoryAlpha = 0.0f; // New
+
+        bool showStash = false;
+        float stashAlpha = 0.0f; 
         
         bool showSkillTree = false; // New: Skill Specialization UI (Hotkey: S)
         float skillTreeAlpha = 0.0f; // New
@@ -51,6 +56,12 @@ namespace NoMoreDay {
         int dragSourceInventoryIndex = -1;
         EquipmentSlot dragSourceEquipmentSlot = EquipmentSlot::None;
         int dragSourceBagSlotIndex = -1;
+
+        // Stash Dragging
+        bool isDraggingFromStash = false;
+        int dragSourceStashTab = -1;
+        int dragSourceStashSlot = -1;
+        StashType dragSourceStashType = StashType::Personal;
 
         // Skill Dragging
         uint32_t draggedSkillId = 0;

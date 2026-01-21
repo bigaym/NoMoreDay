@@ -97,8 +97,9 @@
 - [x] **UI 视觉打磨与分解 UX 重构**
     - [x] 实现祭坛式分解界面、产出预览、批量过滤器。(Completed)
     - [x] 增加装备槽位 Ghost Icons 和动态面板拖拽。(Completed)
-    - [x] **Inventory UI Overhaul**: 分页拖拽、右键菜单、搜索过滤。(Completed)
+        - [x] **Inventory UI Overhaul**: 分页拖拽、右键菜单、搜索过滤。(Completed)
     - [x] **Tooltip Upgrade**: 大图标预览与镶嵌孔显示。(Completed)
+    - [x] **实现仓库系统 (Stash System)**: 个人与账号共享仓库、10页标签解锁、带缓存的搜索高亮与一键整理功能。(Completed)
 - [ ] **成就系统与教程系统**
 - [ ] **无尽梦魇排行榜 UI 完善**
 - [ ] **音频系统 (AudioSystem) 动态混音集成**
