@@ -1,315 +1,91 @@
-# Project Workflow
+# NoMoreDay 项目开发工作流 (V3.3)
 
-## Guiding Principles
+## 0. 核心原则 (The Prime Directives)
+1. **计划为准 (Plan-Driven)**: 所有的开发任务必须在 `plan.md` 中追踪，并通过 `tracks.md` 进行索引。
+2. **架构一致性 (Architectural Integrity)**: 方案必须符合 C++20、ECS (EnTT)、OpenGL 4.3+ 及数据导向设计 (DOD)。
+3. **主循环零分配 (Zero-Allocation Loop)**: 代码更新阶段严禁动态内存分配。
+4. **测试即质量 (Quality by Testing)**: 关键逻辑必须包含复现式测试。
+5. **审计优先 (Audit First)**: Agent 负责实现和重构，用户负责最终审计。**严禁在无用户指令的情况下进行 git commit**。
+6. **环境感知**: 适配 MSVC (Release) 与 G++ (Release) 的双编译器开发，注意二进制路径差异。
 
-1. **The Plan is the Source of Truth:** All work must be tracked in `plan.md`
-2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
-3. **Test-Informed Development:** Ensure functionality is covered by tests before the task group is considered done
-4. **High Code Coverage:** Aim for >80% code coverage for all modules
-5. **User Experience First:** Every decision should prioritize user experience
-6. **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
+---
 
-## Task Workflow
+## 1. 任务标准工作流 (Standard Task Workflow)
 
-All tasks follow a strict lifecycle:
+所有原子任务遵循以下生命周期：
 
-### Standard Task Workflow
+### Step 1: 任务选择与准备
+*   **选择任务**: 从 `plan.md` 中按顺序选择下一个任务。
+*   **标记状态**: 将任务标记从 `[ ]` 改为 `[~]`（进行中）。
+*   **激活技能**: 根据任务类型激活对应的技能（`feature-architect`, `systematic-debugging` 等）。
 
-1. **Select Task:** Choose the next available task from `plan.md` in sequential order
+### Step 2: 逻辑实现与构建
+*   **原子开发**: 实现业务逻辑，确保遵循 `Common.hpp` 和 `GPUData.hpp` 规范。
+*   **暂存更改**: 允许使用 `git add` 暂存代码。
+*   **编译验证**: 执行 `.\build.bat Release`。
+*   **上下文保护 (Context Saving)**: 在任务初期或进行大规模重构时，编译输出可能会产生海量报错。**严禁将完整错误流直接输出到终端控制台**（会消耗大量上下文）。必须将输出重定向至文本文件（如 `build_log.txt`），然后通过 `view_file` 读取前 100 行或关键错误段落进行修复。
 
-2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
+### Step 3: 测试验证
+*   **编写测试**: 在 `tests/` 下对应的子目录编写测试代码。
+*   **执行测试**: 注意编译器造成的路径差异。
 
-3. **Implement Logic:** Write the application code and logic as defined in the `plan.md`. Ensure the implementation adheres to the project's tech stack and design pillars.
+### Step 4: 任务交付 (Audit & Feedback)
+1. **提交审计**: 开发完成后，通知用户“任务已就绪，等待审计”。
+2. **审计修正**: 根据用户的审计报告或反馈建议完善代码。
+3. **严禁自动提交**: 只有在用户明确下达指令后方可 `commit`。
 
-4. **Build and Compile:** Run the project's build scripts (e.g., CMake). Resolve all compilation errors and warnings to ensure the game builds successfully.
+---
 
-5. **Local Verification:** Perform basic manual checks or run existing relevant tests to ensure the current implementation is stable and doesn't crash.
+## 2. 阶段性存盘协议 (Checkpointing Protocol)
 
-6. **Iterate:** Repeat steps 1 through 5 for a logical group of tasks (e.g., a sub-feature) before proceeding to formal testing.
+**触发点**: 当一个 Phase 结束，且用户通过了所有的审计和修正。
 
-7. **Consolidated Test Development & Verification:**
-   - **Write Tests:** Once the task group is implemented, write functional and performance tests for the new logic.
-   - **Run Relevant Tests:** Run the test suite related to the modified modules to ensure correctness.
-   - **Resolve Issues:** Fix any bugs or regressions identified.
-   - **Pre-commit Check:** Run a final verification of the current changes.
+### Step 1: 自动化验证
+*   执行全量自动化测试，并向用户报告结果。
 
-8. **Commit and Push:**
-   - Stage all code changes related to the task.
-   - Commit the changes with a clear, concise message.
-   - **Attach Task Summary:**
-     - Get the commit hash: `git log -1 --format="%H"`.
-     - Create a summary (task name, changes, files, "why").
-     - Attach via git notes: `git notes add -m "<summary>" <commit_hash>`.
-   - **Update Plan:**
-     - Mark the task as complete `[x]` in `plan.md` and append the short SHA.
-     - Commit the `plan.md` update: `conductor(plan): Mark task '<TASK>' as complete`.
-   - **Push:** Push the commits and notes to the remote repository:
-     ```bash
-     git push origin <branch_name>
-     git push origin refs/notes/*
-     ```
+### Step 2: 用户手动验收
+*   提供步骤化的手动验证方案，**暂停**并等待确认。
 
-### Phase Completion Verification and Checkpointing Protocol
+### Step 3: 创建存盘点 (仅限用户授权)
+*   由用户执行或在用户授权下执行 Checkpoint 提交。
 
-**Trigger:** This protocol is executed immediately after a task is completed that also concludes a phase in `plan.md`.
+---
 
-1.  **Announce Protocol Start:** Inform the user that the phase is complete and the verification and checkpointing protocol has begun.
+## 3. 质量关卡 (Quality Gates)
 
-2.  **Ensure Test Coverage for Phase Changes:**
-    -   **Step 2.1: Determine Phase Scope:** To identify the files changed in this phase, you must first find the starting point. Read `plan.md` to find the Git commit SHA of the *previous* phase's checkpoi
-nt. If no previous checkpoint exists, the scope is all changes since the first commit.
-    -   **Step 2.2: List Changed Files:** Execute `git diff --name-only <previous_checkpoint_sha> HEAD` to get a precise list of all files modified during this phase.
-    -   **Step 2.3: Verify and Create Tests:** For each file in the list:
-        -   **CRITICAL:** First, check its extension. Exclude non-code files (e.g., `.json`, `.md`, `.yaml`).
-        -   For each remaining code file, verify a corresponding test file exists.
-        -   If a test file is missing, you **must** create one. Before writing the test, **first, analyze other test files in the repository to determine the correct naming convention and testing style.** T
-he new tests **must** validate the functionality described in this phase's tasks (`plan.md`).
+在任务就绪（Audit Ready）前，必须满足：
+- [ ] 代码通过 Release 配置编译，无新增 Warning。
+- [ ] 自动化测试全部通过。
+- [ ] 无魔法数字，常量已归档。
+- [ ] 变更已暂存，编译日志已按需处理。
 
-3.  **Execute Automated Tests with Proactive Debugging:**
-    -   Before execution, you **must** announce the exact shell command you will use to run the tests.
-    -   **Example Announcement:** "I will now run the automated test suite to verify the phase. **Command:** `CI=true npm test`"
-    -   Execute the announced command.
-    -   If tests fail, you **must** inform the user and begin debugging. You may attempt to propose a fix a **maximum of two times**. If the tests still fail after your second proposed fix, you **must stop*
-*, report the persistent failure, and ask the user for guidance.
+---
 
-4.  **Propose a Detailed, Actionable Manual Verification Plan:**
-    -   **CRITICAL:** To generate the plan, first analyze `product.md`, `product-guidelines.md`, and `plan.md` to determine the user-facing goals of the completed phase.
-    -   You **must** generate a step-by-step plan that walks the user through the verification process, including any necessary commands and specific, expected outcomes.
-    -   The plan you present to the user **must** follow this format:
+## 4. 常见开发指令与路径
 
-        **For a Frontend Change:**
-        ```
-        The automated tests have passed. For manual verification, please follow these steps:
+### 路径差异说明
+- **MSVC 默认路径**: `.\build\bin\Release\NoMoreDayTests.exe`
+- **G++ 默认路径**: `.\build\bin\NoMoreDayTests.exe`
 
-        **Manual Verification Steps:**
-        1.  **Start the development server with the command:** `npm run dev`
-        2.  **Open your browser to:** `http://localhost:3000`
-        3.  **Confirm that you see:** The new user profile page, with the user's name and email displayed correctly.
-        ```
+### 操作指令
+```powershell
+# 标准构建 (Release)
+.\build.bat Release
 
-        **For a Backend Change:**
-        ```
-        The automated tests have passed. For manual verification, please follow these steps:
+# 上下文保护构建 (重定向输出)
+.\build.bat Release > build_log.txt 2>&1
 
-        **Manual Verification Steps:**
-        1.  **Ensure the server is running.**
-        2.  **Execute the following command in your terminal:** `curl -X POST http://localhost:8080/api/v1/users -d '{"name": "test"}'`
-        3.  **Confirm that you receive:** A JSON response with a status of `201 Created`.
-        ```
+# 读取重定向日志的前 100 行 (PowerShell)
+Get-Content build_log.txt -TotalCount 100
 
-5.  **Await Explicit User Feedback:**
-    -   After presenting the detailed plan, ask the user for confirmation: "**Does this meet your expectations? Please confirm with yes or provide feedback on what needs to be changed.**"
-    -   **PAUSE** and await the user's response. Do not proceed without an explicit yes or confirmation.
+# 执行测试 (自动适配环境)
+$testPath = if (Test-Path ".\build\bin\Release\NoMoreDayTests.exe") { ".\build\bin\Release\NoMoreDayTests.exe" } else { ".\build\bin\NoMoreDayTests.exe" }
+& $testPath "[combat]"
 
-6.  **Create Checkpoint Commit:**
-    -   Stage all changes. If no changes occurred in this step, proceed with an empty commit.
-    -   Perform the commit with a clear and concise message (e.g., `conductor(checkpoint): Checkpoint end of Phase X`).
-
-7.  **Get and Record Phase Checkpoint SHA:**
-    -   **Step 7.1: Get Commit Hash:** Obtain the hash of the *just-created checkpoint commit* (`git log -1 --format="%H"`).
-    -   **Step 7.2: Update Plan:** Read `plan.md`, find the heading for the completed phase, and append the first 7 characters of the commit hash in the format `[checkpoint: <sha>]`.
-    -   **Step 7.3: Write Plan:** Write the updated content back to `plan.md`.
-
-8. **Commit Plan Update:**
-    - **Action:** Stage the modified `plan.md` file.
-    - **Action:** Commit this change with a descriptive message following the format `conductor(plan): Mark phase '<PHASE NAME>' as complete`.
-
-9.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created, with the detailed verification report attached as a git note.
-
-### Quality Gates
-
-Before marking any task complete, verify:
-
-- [ ] All tests pass
-- [ ] Code coverage meets requirements (>80%)
-- [ ] Code follows project's code style guidelines (as defined in `code_styleguides/`)
-- [ ] All public functions/methods are documented (e.g., docstrings, JSDoc, GoDoc)
-- [ ] Type safety is enforced (e.g., type hints, TypeScript types, Go types)
-- [ ] No linting or static analysis errors (using the project's configured tools)
-- [ ] Works correctly on mobile (if applicable)
-- [ ] Documentation updated if needed
-- [ ] No security vulnerabilities introduced
-
-## Development Commands
-
-**AI AGENT INSTRUCTION: This section should be adapted to the project's specific language, framework, and build tools.**
-
-### Setup
-```bash
-# Example: Commands to set up the development environment (e.g., install dependencies, configure database)
-# e.g., for a Node.js project: npm install
-# e.g., for a Go project: go mod tidy
+# 暂存所有变更
+git add .
 ```
 
-### Daily Development
-```bash
-# Example: Commands for common daily tasks (e.g., start dev server, run tests, lint, format)
-# e.g., for a Node.js project: npm run dev, npm test, npm run lint
-# e.g., for a Go project: go run main.go, go test ./..., go fmt ./...
-```
-
-### Before Committing
-```bash
-# Example: Commands to run all pre-commit checks (e.g., format, lint, type check, run tests)
-# e.g., for a Node.js project: npm run check
-# e.g., for a Go project: make check (if a Makefile exists)
-```
-
-## Testing Requirements
-
-### Unit Testing
-- Every module must have corresponding tests.
-- Use appropriate test setup/teardown mechanisms (e.g., fixtures, beforeEach/afterEach).
-- Mock external dependencies.
-- Test both success and failure cases.
-
-### Integration Testing
-- Test complete user flows
-- Verify database transactions
-- Test authentication and authorization
-- Check form submissions
-
-### Mobile Testing
-- Test on actual iPhone when possible
-- Use Safari developer tools
-- Test touch interactions
-- Verify responsive layouts
-- Check performance on 3G/4G
-
-## Code Review Process
-
-### Self-Review Checklist
-Before requesting review:
-
-1. **Functionality**
-   - Feature works as specified
-   - Edge cases handled
-   - Error messages are user-friendly
-
-2. **Code Quality**
-   - Follows style guide
-   - DRY principle applied
-   - Clear variable/function names
-   - Appropriate comments
-
-3. **Testing**
-   - Unit tests comprehensive
-   - Integration tests pass
-   - Coverage adequate (>80%)
-
-4. **Security**
-   - No hardcoded secrets
-   - Input validation present
-   - SQL injection prevented
-   - XSS protection in place
-
-5. **Performance**
-   - Database queries optimized
-   - Images optimized
-   - Caching implemented where needed
-
-6. **Mobile Experience**
-   - Touch targets adequate (44x44px)
-   - Text readable without zooming
-   - Performance acceptable on mobile
-   - Interactions feel native
-
-## Commit Guidelines
-
-### Message Format
-```
-<type>(<scope>): <description>
-
-[optional body]
-
-[optional footer]
-```
-
-### Types
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only
-- `style`: Formatting, missing semicolons, etc.
-- `refactor`: Code change that neither fixes a bug nor adds a feature
-- `test`: Adding missing tests
-- `chore`: Maintenance tasks
-
-### Examples
-```bash
-git commit -m "feat(auth): Add remember me functionality"
-git commit -m "fix(posts): Correct excerpt generation for short posts"
-git commit -m "test(comments): Add tests for emoji reaction limits"
-git commit -m "style(mobile): Improve button touch targets"
-```
-
-## Definition of Done
-
-A task is complete when:
-
-1. All code implemented to specification
-2. Unit tests written and passing
-3. Code coverage meets project requirements
-4. Documentation complete (if applicable)
-5. Code passes all configured linting and static analysis checks
-6. Works beautifully on mobile (if applicable)
-7. Implementation notes added to `plan.md`
-8. Changes committed with proper message
-9. Git note with task summary attached to the commit
-
-## Emergency Procedures
-
-### Critical Bug in Production
-1. Create hotfix branch from main
-2. Write failing test for bug
-3. Implement minimal fix
-4. Test thoroughly including mobile
-5. Deploy immediately
-6. Document in plan.md
-
-### Data Loss
-1. Stop all write operations
-2. Restore from latest backup
-3. Verify data integrity
-4. Document incident
-5. Update backup procedures
-
-### Security Breach
-1. Rotate all secrets immediately
-2. Review access logs
-3. Patch vulnerability
-4. Notify affected users (if any)
-5. Document and update security procedures
-
-## Deployment Workflow
-
-### Pre-Deployment Checklist
-- [ ] All tests passing
-- [ ] Coverage >80%
-- [ ] No linting errors
-- [ ] Mobile testing complete
-- [ ] Environment variables configured
-- [ ] Database migrations ready
-- [ ] Backup created
-
-### Deployment Steps
-1. Merge feature branch to main
-2. Tag release with version
-3. Push to deployment service
-4. Run database migrations
-5. Verify deployment
-6. Test critical paths
-7. Monitor for errors
-
-### Post-Deployment
-1. Monitor analytics
-2. Check error logs
-3. Gather user feedback
-4. Plan next iteration
-
-## Continuous Improvement
-
-- Review workflow weekly
-- Update based on pain points
-- Document lessons learned
-- Optimize for user happiness
-- Keep things simple and maintainable
+## 5. 持续改进
+- 优化海量报错时的关键词过滤策略。
+- 减少重复编译次数，合并逻辑后再执行统一验证。

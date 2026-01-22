@@ -6,18 +6,19 @@
 
 ## Visual Identity
 - **Style:** **High-Fidelity Pixel Art.** A retro-modern aesthetic that supports the dark fantasy theme.
-- **VFX Language:** **Ink-Wash Cultivation Style (水墨修仙风).** Use fluid, high-performance GPU particles to create an ethereal yet visceral combat experience, blending traditional ink aesthetics with modern bloom and distortion.
-- **Pipeline:** **AI-Driven Asset Generation.** Heavily utilize the `scripts/asset_gen.py` pipeline to generate the massive volume of 2D assets required for varied environments and enemies.
+- **VFX Language:** **Ink-Wash Cultivation Style (水墨修仙风).** Use fluid, high-performance GPU particles to create an ethereal yet visceral combat experience. The implementation uses **Indirect Drawing** and **Triple Buffering** to ensure zero-stutter rendering of 200k+ particles.
+- **Pipeline:** **AI-Driven Asset Generation.** Successfully utilizing the `scripts/asset_gen.py` pipeline (ComfyUI/SDXL based) to generate consistent 2D assets, enabling rapid iteration of monster variants and environment props.
 
 ## Design Pillars
 - **Gameplay First (Depth & Variety):**
-    - **Deep Builds:** Prioritize complex interactions between Equipment Affixes, Monster Modifiers, and Passive Skills via the **Tag-Driven Engine**.
-    - **User-Defined Endgames:** Move beyond static maps. Players build their own challenges through the **Dimensional Mosaic** system.
-    - **Persistent Rivalry:** The **Nemesis System** ensures that failure has consequences and victories feel personal across multiple runs.
+    - **Deep Builds:** Complex interactions between Equipment Affixes (T1-T7), Monster Modifiers, and the **5-Step Damage Pipeline**.
+    - **User-Defined Endgames:** Dimensional Mosaic system is functional, allowing tactical map construction.
+    - **Persistent Rivalry:** Nemesis System with **build-adaptive evolution** logic is implemented.
 - **Technical Excellence (Performance & GPGPU):**
-    - **Extreme Scalability:** Leverage ECS (EnTT) and Taskflow to simulate 10,000+ active entities.
-    - **Compute-First Logic:** Offload heavy lifting (Physics, Particles, Pathfinding Flow-Fields) to **OpenGL 4.3 Compute Shaders** to free up CPU for complex logic.
-    - **Memory Safety:** Strict resource management (RAII) and zero-allocation frame loops.
+    - **Extreme Scalability:** ECS (EnTT) + Taskflow DAG scheduler simulating 10,000+ active entities with SIMD optimization.
+    - **Compute-First Logic:** Physics, GPU Flow Fields, and Fog of War are fully offloaded to **OpenGL 4.3 Compute Shaders**.
+    - **Rendering Mastery:** Using **Multi-Draw Indirect (MDI)** to minimize Draw Calls, keeping the main thread focused on gameplay logic.
+    - **Memory Safety:** Strict RAII and zero-allocation frame loops verified.
 
 ## User Experience (UX) Principles
 - **Clarity in Chaos:** Even with 10,000 units, use color-coding (Tag-based) and distinct VFX silhouettes to maintain readability.
