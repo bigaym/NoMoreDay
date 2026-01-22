@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Combat Pipeline Refactor & Fix
+- **Folder:** [./conductor/archive/combat_pipeline_fix_20260122/](./conductor/archive/combat_pipeline_fix_20260122/)
+- **Description:** 修复 CombatBalanceTest 中的“零伤害”问题。重构 SkillRegistry 增加 Basic Attack (ID 0) 兜底逻辑，增强 DamagePipeline 的鲁棒性与日志诊断，并解决了 StatsSystem 静态缓存导致的测试环境污染。 (Completed on 2026-01-22)
+- **Status:** COMPLETED
+- **Priority:** CRITICAL
+- **Estimated Time:** 0.5 day
+
+---
+
 ## [x] Track: Monster Level Scaling System
 - **Folder:** [./conductor/archive/monster_level_scaling_20260121/](./conductor/archive/monster_level_scaling_20260121/)
 - **Description:** 实现怪物随地图等级动态成长的机制。包含 HP/伤害指数成长曲线、等级同步 (玩家等级-5)、D3风格经验公式、100级后抗性递增、护甲线性减伤成长。参考 D2/D3/POE/Grim Dawn 的成长模型。 (Completed on 2026-01-21)

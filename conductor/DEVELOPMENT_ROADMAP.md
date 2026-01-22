@@ -64,7 +64,7 @@
     - [x] **怪物数值成长 (Level Scaling)**：动态等级同步、指数级 HP/伤害增长、抗性递增。(Completed)
     - [x] **Molten (熔火)**：路径伤害与死亡爆炸。(Completed)
     - [x] **Mirror Image (镜像)**：受击分裂。(Completed)
-    - [ ] **Nullifier (虚无)**：周期性驱散玩家 Buff。
+    - [x] **Nullifier (虚无)**：周期性驱散玩家 Buff。(Completed)
     - [x] **Teleporter (闪烁)**：受到攻击或定时间隔瞬移至玩家身后。(Completed)
     - [x] **Shielding (护盾)**：周期性为周围友军提供无敌护盾。(Completed)
     - [x] **Environmental & Hazard**: Frozen, Toxic, Void Zone, Storm Strider. (Completed)
