@@ -52,19 +52,27 @@ void main() {
     uint charIdx = (inst.flags >> 1) & 0x7Fu;
     uint charCount = (inst.flags >> 8) & 0xFFu;
     
-    float charWidth = 24.0 * scale; 
+    float charWidth = 4.5 * scale; 
     float totalWidth = float(charCount) * charWidth;
     worldPos.x += (float(charIdx) - float(charCount-1) * 0.5) * charWidth; 
     
     // Final vertex position in world space
-    vec2 pos = worldPos + aPos * vec2(32.0, 48.0) * scale;
+    vec2 pos = worldPos + aPos * vec2(12.0, 12.0) * scale;
     
     gl_Position = uViewProj * vec4(pos, 0.0, 1.0);
     
-    // Atlas UV: assume 16 glyphs in a row (0-9, +, -, !, etc.)
-    float glyphIdx = float(inst.glyphData);
-    float uStart = glyphIdx / 16.0;
-    fragTexCoord = vec2(uStart + aTexCoord.x / 16.0, aTexCoord.y);
+    // Atlas UV: 16 columns per row, 2 rows total
+    float col = float(inst.glyphData % 16u);
+    float row = float(inst.glyphData / 16u);
+    
+    float uStart = col / 16.0;
+    // PIL Row 0 (Digits) is at the TOP of the image.
+    // In Raylib/Common GL setups, V=0.0 is often the TOP of the texture.
+    // Row 0 -> vStart = 0.0, Row 1 -> vStart = 0.5
+    float vStart = (row == 0.0) ? 0.0 : 0.5;
+    
+    // Offset UV based on current vertex corner (aTexCoord is 0..1)
+    fragTexCoord = vec2(uStart + aTexCoord.x / 16.0, vStart + aTexCoord.y / 2.0);
     
     fragColor = color;
     fragColor.a *= alpha;

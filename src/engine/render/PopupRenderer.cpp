@@ -1,6 +1,8 @@
 #include "engine/render/PopupRenderer.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include <rlgl.h>
 #include <string>
 
@@ -39,29 +41,54 @@ void PopupRenderer::Shutdown() {
 void PopupRenderer::Emit(Vector2 position, int amount, bool isCrit, Color color) {
     if (!m_initialized) return;
 
-    // Find an inactive slot (ring buffer style)
-    static int nextSlot = 0;
-    
-    PopupState& p = m_popups[nextSlot];
+    PopupState& p = m_popups[m_nextSlot];
     p.position = position;
-    p.velocity = { (float)GetRandomValue(-50, 50), (float)GetRandomValue(-150, -100) };
+    p.velocity = { (float)GetRandomValue(-40, 40), (float)GetRandomValue(-160, -120) };
     p.timer = 0.0f;
-    p.lifeTime = isCrit ? 1.2f : 0.8f;
+    p.lifeTime = isCrit ? 1.0f : 0.7f;
     p.amount = amount;
-    snprintf(p.amountText, 16, "%d", std::abs(amount));
     p.isCrit = isCrit;
     p.color = color;
     p.active = true;
 
-    nextSlot = (nextSlot + 1) % MAX_POPUPS;
+    // Convert to glyph indices (digits 0-9)
+    std::string s = std::to_string(std::abs(amount));
+    p.glyphCount = (uint8_t)std::min((size_t)16, s.length());
+    for (int i = 0; i < p.glyphCount; ++i) {
+        p.glyphs[i] = (uint8_t)(s[i] - '0');
+    }
+
+    m_nextSlot = (m_nextSlot + 1) % MAX_POPUPS;
 }
 
 void PopupRenderer::EmitStatus(Vector2 position, const char* text, Color color) {
     if (!m_initialized) return;
 
-    // Basic implementation: convert text to dummy amount or map to glyphs
-    // For Phase 2, we focus on numeric damage popups.
-    Emit(position, 0, false, color);
+    PopupState& p = m_popups[m_nextSlot];
+    p.position = position;
+    p.velocity = { 0.0f, -80.0f }; // Status float up
+    p.timer = 0.0f;
+    p.lifeTime = 1.2f;
+    p.amount = 0;
+    p.isCrit = false;
+    p.color = color;
+    p.active = true;
+
+    // Map Chinese status text to Row 1 (indices 16+)
+    std::string s = text;
+    p.glyphCount = 0;
+    
+    if (s == "暴击") { p.glyphs[0] = 16; p.glyphs[1] = 17; p.glyphCount = 2; }
+    else if (s == "闪避") { p.glyphs[0] = 18; p.glyphs[1] = 19; p.glyphCount = 2; }
+    else if (s == "格挡") { p.glyphs[0] = 20; p.glyphs[1] = 21; p.glyphCount = 2; }
+    else if (s == "免疫") { p.glyphs[0] = 22; p.glyphs[1] = 23; p.glyphCount = 2; }
+    else if (s == "吸收") { p.glyphs[0] = 24; p.glyphs[1] = 25; p.glyphCount = 2; }
+    else {
+        p.glyphs[0] = 15; // Question mark
+        p.glyphCount = 1;
+    }
+
+    m_nextSlot = (m_nextSlot + 1) % MAX_POPUPS;
 }
 
 void PopupRenderer::Update(float dt) {
@@ -94,8 +121,7 @@ void PopupRenderer::Render(const Matrix& viewProj) {
     for (const auto& p : m_popups) {
         if (!p.active) continue;
 
-        const char* s = p.amountText;
-        int charCount = (int)strlen(s);
+        int charCount = p.glyphCount;
         
         for (int i = 0; i < charCount; ++i) {
             if (totalInstances >= MAX_POPUPS) break;
@@ -106,16 +132,9 @@ void PopupRenderer::Render(const Matrix& viewProj) {
             inst.lifeTime = p.lifeTime;
             inst.colorPacked = (p.color.r << 0) | (p.color.g << 8) | (p.color.b << 16) | (p.color.a << 24);
             inst.scale = p.isCrit ? 1.5f : 1.0f;
-            
-            // Set glyph data based on character
-            char c = s[i];
-            if (c >= '0' && c <= '9') {
-                inst.glyphData = (uint32_t)(c - '0');
-            } else {
-                inst.glyphData = 10; // Placeholder for non-digits
-            }
+            inst.glyphData = (uint32_t)p.glyphs[i];
 
-            // Pack flags: bit0 = isCrit, bits1-7 = charIndex, bits8-15 = string length (for centering)
+            // Pack flags: bit0 = isCrit, bits1-7 = charIndex, bits8-15 = string length
             inst.flags = (p.isCrit ? 1 : 0) | (uint32_t(i) << 1) | (uint32_t(charCount) << 8);
 
             totalInstances++;
@@ -130,9 +149,11 @@ void PopupRenderer::Render(const Matrix& viewProj) {
     rlEnableShader(m_shader.id);
     rlSetUniformMatrix(m_uViewProj, viewProj);
     
+    // Bind atlas to slot 0
     rlActiveTextureSlot(0);
     rlEnableTexture(m_atlas.id);
-    rlSetUniform(m_uAtlas, &m_atlas.id, RL_SHADER_UNIFORM_SAMPLER2D, 1);
+    int unit = 0;
+    rlSetUniform(m_uAtlas, &unit, RL_SHADER_UNIFORM_SAMPLER2D, 1);
 
     m_instanceBuffer.BindBase(0);
 
@@ -177,13 +198,17 @@ void PopupRenderer::CreateResources() {
 }
 
 void PopupRenderer::LoadGlyphAtlas() {
-    // Try to load existing atlas, or create placeholder
-    m_atlas = LoadTexture("assets/textures/vfx/popup_glyphs.png");
+    // Load from registry via AssetLoadingSystem
+    using namespace assets::ui::fonts;
+    m_atlas = NoMoreDay::AssetLoadingSystem::GetTexture(Fast_Font_Img.id);
+    
     if (m_atlas.id == 0) {
-        LOG_WARN("PopupRenderer: Could not load glyph atlas, using placeholder");
-        Image img = GenImageColor(512, 64, { 255, 255, 255, 100 });
+        LOG_WARN("PopupRenderer: Could not load glyph atlas (ID: {}), using placeholder", Fast_Font_Img.id);
+        Image img = GenImageColor(1024, 128, { 255, 255, 255, 100 });
         m_atlas = LoadTextureFromImage(img);
         UnloadImage(img);
+    } else {
+        LOG_INFO("PopupRenderer: Loaded glyph atlas successfully.");
     }
 }
 

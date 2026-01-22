@@ -62,6 +62,10 @@ void AssetLoadingSystem::RegisterUITextures() {
   m_resourceManager->registerTexture(Context_Menu_BG.id,
                                      std::string(Context_Menu_BG.path));
 
+  using namespace assets::ui::fonts;
+  m_resourceManager->registerTexture(Fast_Font_Img.id,
+                                     std::string(Fast_Font_Img.path));
+
   // Skill Icons
   m_resourceManager->registerTexture(Skill_LiuYunCi.id,
                                      std::string(Skill_LiuYunCi.path));

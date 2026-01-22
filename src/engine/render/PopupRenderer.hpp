@@ -48,7 +48,8 @@ private:
         float timer;
         float lifeTime;
         int amount;
-        char amountText[16];
+        uint8_t glyphs[16];
+        uint8_t glyphCount;
         bool isCrit;
         Color color;
         bool active = false;
@@ -69,8 +70,8 @@ private:
     int m_uViewProj = -1;
     int m_uAtlas = -1;
     int m_uTime = -1;
-
-    // Quad VAO (shared or internal)
+    int m_nextSlot = 0; // Unified slot counter
+    
     unsigned int m_vao = 0;
     unsigned int m_vbo = 0;
 

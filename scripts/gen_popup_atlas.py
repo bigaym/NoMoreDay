@@ -3,14 +3,14 @@ import sys
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # Configuration
-ATLAS_WIDTH = 512
+ATLAS_WIDTH = 1024
 ATLAS_HEIGHT = 128
-CELL_WIDTH = 32
-CELL_HEIGHT = 48
-OUTPUT_PATH = os.path.join("assets", "textures", "popup_glyphs.png")
-FONT_SIZE = 36  # Adjust based on cell size
-STROKE_WIDTH = 2
-SHADOW_OFFSET = (2, 2)
+CELL_WIDTH = 64
+CELL_HEIGHT = 64
+OUTPUT_PATH = os.path.join("assets", "textures", "icons", "fastfont", "popup_glyphs.png")
+FONT_SIZE = 48  # Large enough for high-res
+STROKE_WIDTH = 3
+SHADOW_OFFSET = (3, 3)
 
 # Character Set
 # Row 0: Numbers and Symbols
@@ -68,39 +68,28 @@ def create_atlas():
             y = row_idx * CELL_HEIGHT
             
             # Center text in cell
-            # Get bounding box
             bbox = draw.textbbox((0, 0), char, font=font)
             text_w = bbox[2] - bbox[0]
             text_h = bbox[3] - bbox[1]
             
             # Offset to center
-            # Note: fonts have baseline issues, manual tweak might be needed
             txt_x = x + (CELL_WIDTH - text_w) / 2
-            txt_y = y + (CELL_HEIGHT - text_h) / 2 - 4 # Move up slightly
+            txt_y = y + (CELL_HEIGHT - text_h) / 2 - 4 # Adjusted offset
             
-            # 1. Drop Shadow
-            draw.text((txt_x + SHADOW_OFFSET[0], txt_y + SHADOW_OFFSET[1]), char, font=font, fill=(0, 0, 0, 128))
-            
-            # 2. Outline (Stroke) - simple 8-way simulation
-            stroke_color = (0, 0, 0, 255)
-            for ox in range(-STROKE_WIDTH, STROKE_WIDTH + 1):
-                for oy in range(-STROKE_WIDTH, STROKE_WIDTH + 1):
-                    if ox == 0 and oy == 0: continue
-                    draw.text((txt_x + ox, txt_y + oy), char, font=font, fill=stroke_color)
-            
-            # 3. Main Text (Gradient Simulation - Top White, Bottom Light Gray)
-            # For simplicity in PIL, just Solid White or slightly yellow for Crit
-            # We can vary color based on row?
-            # Row 0 (Numbers): White
-            # Row 1 (Text): Yellow/Orange?
-            
-            # Actually, the spec says "Color is passed in Instance".
-            # So the texture should be White (Grayscale) so it can be tinted!
-            # If we make it red, we can't tint it blue easily.
-            # So Main Text = Pure White.
-            # Outline = Black.
-            
-            draw.text((txt_x, txt_y), char, font=font, fill=(255, 255, 255, 255))
+            # Create a temporary layer for shadow to apply blur
+            shadow_layer = Image.new('RGBA', (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0))
+            shadow_draw = ImageDraw.Draw(shadow_layer)
+            # Draw shadow text shifted
+            shadow_draw.text((txt_x - x + SHADOW_OFFSET[0], txt_y - y + SHADOW_OFFSET[1]), 
+                             char, font=font, fill=(0, 0, 0, 160))
+            # Blur the shadow slightly for better transition
+            shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=1.0))
+            atlas.alpha_composite(shadow_layer, (x, y))
+
+            # Draw Main Text with native stroke for high quality antialiasing
+            # stroke_width=1 provides a very sharp outline
+            draw.text((txt_x, txt_y), char, font=font, fill=(255, 255, 255, 255),
+                      stroke_width=1, stroke_fill=(0, 0, 0, 255))
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)

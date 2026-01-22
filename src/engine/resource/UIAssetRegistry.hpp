@@ -26,20 +26,21 @@ namespace assets::ui
         // constexpr assets::TextureAsset Skill_Icon_2 = { "ui_skill_icon_2"_hs, "assets/textures/ui/icons/skill_icon_2.png" };
 
         // 剑修技能图标
-        constexpr assets::TextureAsset Skill_LiuYunCi = {"ui_skill_liuyunci"_hs, "assets/textures/ui/icons/skills/skill_liuyunci.png"};                      // 流云刺
-        constexpr assets::TextureAsset Skill_LieKongZhan = {"ui_skill_liekongzhan"_hs, "assets/textures/ui/icons/skills/skill_liekongzhan.png"};             // 裂空斩
-        constexpr assets::TextureAsset Skill_WanJianJue = {"ui_skill_wanjianjue"_hs, "assets/textures/ui/icons/skills/skill_wanjianjue.png"};                // 灵剑决
-        constexpr assets::TextureAsset Skill_JianQiHuTi = {"ui_skill_jianqihuti"_hs, "assets/textures/ui/icons/skills/skill_jianqihuti.png"};                // 剑气护体
-        constexpr assets::TextureAsset Skill_WanJianGuiZong = {"ui_skill_wanjianguizong"_hs, "assets/textures/ui/icons/skills/skill_wanjianguizong.png"};    // 万剑归宗
-        constexpr assets::TextureAsset Skill_ZhuXianJianZhen = {"ui_skill_zhuxianjianzhen"_hs, "assets/textures/ui/icons/skills/skill_zhuxianjianzhen.png"}; // 剑阵·诛仙
-        constexpr assets::TextureAsset Skill_XinJianWuYing = {"ui_skill_xinjianwuying"_hs, "assets/textures/ui/icons/skills/skill_xinjianwuying.png"};       // 心剑·无影
-        constexpr assets::TextureAsset Skill_YuJianHuiXuan = {"ui_skill_yujianhuixuan"_hs, "assets/textures/ui/icons/skills/skill_yujianhuixuan.png"};       // 御剑·回旋
-        constexpr assets::TextureAsset Skill_JueYingShan = {"ui_skill_jueyingshan"_hs, "assets/textures/ui/icons/skills/skill_jueyingshan.png"};             // 绝影闪
+        constexpr assets::TextureAsset Skill_LiuYunCi = {"ui_skill_liuyunci"_hs, "assets/textures/icons/skills/skill_liuyunci.png"};                      // 流云刺
+        constexpr assets::TextureAsset Skill_LieKongZhan = {"ui_skill_liekongzhan"_hs, "assets/textures/icons/skills/skill_liekongzhan.png"};             // 裂空斩
+        constexpr assets::TextureAsset Skill_WanJianJue = {"ui_skill_wanjianjue"_hs, "assets/textures/icons/skills/skill_wanjianjue.png"};                // 灵剑决
+        constexpr assets::TextureAsset Skill_JianQiHuTi = {"ui_skill_jianqihuti"_hs, "assets/textures/icons/skills/skill_jianqihuti.png"};                // 剑气护体
+        constexpr assets::TextureAsset Skill_WanJianGuiZong = {"ui_skill_wanjianguizong"_hs, "assets/textures/icons/skills/skill_wanjianguizong.png"};    // 万剑归宗
+        constexpr assets::TextureAsset Skill_ZhuXianJianZhen = {"ui_skill_zhuxianjianzhen"_hs, "assets/textures/icons/skills/skill_zhuxianjianzhen.png"}; // 剑阵·诛仙
+        constexpr assets::TextureAsset Skill_XinJianWuYing = {"ui_skill_xinjianwuying"_hs, "assets/textures/icons/skills/skill_xinjianwuying.png"};       // 心剑·无影
+        constexpr assets::TextureAsset Skill_YuJianHuiXuan = {"ui_skill_yujianhuixuan"_hs, "assets/textures/icons/skills/skill_yujianhuixuan.png"};       // 御剑·回旋
+        constexpr assets::TextureAsset Skill_JueYingShan = {"ui_skill_jueyingshan"_hs, "assets/textures/icons/skills/skill_jueyingshan.png"};             // 绝影闪
     }
 
     namespace fonts
     {
         constexpr UIFontAsset Main_Chinese = {"ui_font_main"_hs, "assets/fonts/simsun.ttc", 24};
         constexpr UIFontAsset Title_Chinese = {"ui_font_title"_hs, "assets/fonts/simsun.ttc", 32};
+        constexpr assets::TextureAsset Fast_Font_Img = {"fast_font_img"_hs, "assets/textures/icons/fastfont/popup_glyphs.png"}; // 快速字形
     }
 }
