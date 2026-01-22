@@ -37,6 +37,8 @@ void PopupRenderer::Shutdown() {
 }
 
 void PopupRenderer::Emit(Vector2 position, int amount, bool isCrit, Color color) {
+    if (!m_initialized) return;
+
     // Find an inactive slot (ring buffer style)
     static int nextSlot = 0;
     
@@ -55,6 +57,8 @@ void PopupRenderer::Emit(Vector2 position, int amount, bool isCrit, Color color)
 }
 
 void PopupRenderer::EmitStatus(Vector2 position, const char* text, Color color) {
+    if (!m_initialized) return;
+
     // Basic implementation: convert text to dummy amount or map to glyphs
     // For Phase 2, we focus on numeric damage popups.
     Emit(position, 0, false, color);

@@ -45,6 +45,10 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
   m_gridOffsets.resize(numCells);
   m_blockDirty.resize((m_maxEntities / BLOCK_SIZE) + 1, true);
 
+  for(int i=0; i<3; ++i) {
+      m_slotToEntities[i].resize(m_maxEntities, entt::null);
+  }
+
   InitRender(resources);
   NoMoreDay::render::MDIRenderer::Get().Init(resources, m_maxEntities);
 }
