@@ -1,0 +1,9 @@
+{
+    "id": "trk-attribute-pipeline",
+    "name": "Attribute Calculation & Visualization Pipeline",
+    "status": "planned",
+    "priority": "high",
+    "owner": "feature-architect",
+    "start_date": "2026-01-23",
+    "description": "Design and implement a high-performance attribute calculation pipeline with support for complex modifiers, conversions, and direct GPU visual feedback."
+}
