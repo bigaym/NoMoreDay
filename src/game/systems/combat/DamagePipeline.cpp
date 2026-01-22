@@ -84,6 +84,20 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
   }
 
   const auto *skill_data = SkillRegistry::Get().GetSkill(skill_id);
+  if (!skill_data) {
+    bool empty_pool = true;
+    for (float v : base_pool.values)
+      if (v > 0.0f) {
+        empty_pool = false;
+        break;
+      }
+
+    if (empty_pool) {
+      spdlog::warn("DamagePipeline: Calculating damage for invalid skill ID {} "
+                   "with empty base pool. Result will be 0.",
+                   skill_id);
+    }
+  }
   Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
   Tag combined_hit_tags = skill_tags | additional_tags;
 

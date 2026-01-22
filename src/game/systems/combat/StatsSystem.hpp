@@ -4,7 +4,6 @@
 #include <entt/entity/registry.hpp>
 #include <unordered_map>
 
-
 namespace NoMoreDay {
 
 class StatsSystem {
@@ -34,6 +33,9 @@ public:
 
   // @brief 关闭系统，清理监听器
   static void Shutdown(entt::registry &registry);
+
+  // @brief 完全重置内部状态 (主要是缓存)，仅用于测试或硬重置
+  static void Reset();
 
 private:
   // Per-entity stat cache, moved out of CombatStats to allow alignas(32) for

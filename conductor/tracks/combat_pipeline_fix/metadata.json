@@ -1,0 +1,14 @@
+{
+    "id": "combat_pipeline_fix",
+    "name": "Combat Pipeline Refactor & Fix",
+    "description": "Investigate and fix the Zero Damage issue in CombatBalanceTest, ensuring robust dependency between DamagePipeline and SkillRegistry.",
+    "status": "completed",
+    "category": "feature",
+    "created_at": "2026-01-22",
+    "tags": [
+        "combat",
+        "bugfix",
+        "pipeline",
+        "test"
+    ]
+}
