@@ -33,6 +33,9 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
 
   m_persistentEntityBuffer.Create(m_maxEntities * sizeof(components::GPUEntity),
                                   3);
+  m_physicsOutputBuffer.Create(m_maxEntities * sizeof(components::GPUEntity),
+                               3);
+  m_mapBoundary = NoMoreDay::Constants::World::MAP_BOUNDARY;
 
   int gridCols = 5000 / 32 + 1;
   int gridRows = 5000 / 32 + 1;
@@ -303,6 +306,8 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
                RL_SHADER_UNIFORM_INT, 1);
   rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "gridRows"), &gridRows,
                RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "mapBoundary"),
+               &m_mapBoundary, RL_SHADER_UNIFORM_FLOAT, 1);
 
   const auto &flowSystem = GPUFlowFieldSystem::Get();
   flowSystem.GetFlowBuffer().BindBase(6);
@@ -315,7 +320,11 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "flowOrigin"), &fo,
                RL_SHADER_UNIFORM_VEC2, 1);
 
-  m_persistentEntityBuffer.BindBase(1);
+  m_persistentEntityBuffer.BindBase(1); // InEntityBuffer
+  rlBindShaderBuffer(m_physicsOutputBuffer.GetId(),
+                     5); // OutEntityBuffer (Binding 5 matches shader)
+  m_physicsOutputBuffer.BindBase(5); // Ensure current slot is bound
+
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
@@ -323,6 +332,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
   rlDisableShader();
   m_persistentEntityBuffer.Lock();
+  m_physicsOutputBuffer.Lock();
 }
 
 void GPUEntitySystem::SyncBack(entt::registry &registry) {
@@ -330,10 +340,9 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
   if (m_frameCounter < 2)
     return;
 
-  // Read back the result of the compute shader that just finished (in the
-  // previous Update)
-  m_persistentEntityBuffer.Read(m_localData.data(),
-                                m_maxEntities * sizeof(components::GPUEntity));
+  // Read back from the output buffer
+  m_physicsOutputBuffer.Read(m_localData.data(),
+                             m_maxEntities * sizeof(components::GPUEntity));
 
   int bufferCount = m_persistentEntityBuffer.GetBufferCount();
   // PersistentBuffer::Read already accesses (m_writeSlot - 1),

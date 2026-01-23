@@ -9,7 +9,6 @@
 #include <random>
 #include <span>
 
-
 namespace NoMoreDay {
 struct MosaicGrid;
 struct ResonanceResult;
@@ -96,7 +95,7 @@ public:
 
   // 生成洞穴地图
   void generateCaveMap(int width, int height);
-  
+
   // 生成城镇地图 (开阔和平区域)
   void generateTownMap(int width, int height);
 
@@ -113,7 +112,10 @@ public:
   const MapData &getMapData() const { return m_mapData; }
 
   // 检查是否可行走
-  bool isWalkable(int x, int y) const;
+  virtual bool isWalkable(int x, int y) const;
+
+  // 检查两点之间是否没有障碍物 (Tile Raycast)
+  virtual bool raycast(const Position &start, const Position &end) const;
 
   // 获取瓦片类型
   Tile::Type getTileType(int x, int y) const;
@@ -143,9 +145,11 @@ public:
 
   // 更新可见性（基于玩家位置）
   void updateVisibility(const Position &playerPos, float viewRadius);
-  
+
   // 生成动态障碍物 (Waller Affix) - 返回生成的实体
-  static entt::entity spawnDynamicObstacle(entt::registry& registry, const Rectangle& bounds, float duration);
+  static entt::entity spawnDynamicObstacle(entt::registry &registry,
+                                           const Rectangle &bounds,
+                                           float duration);
 
   // 渲染地图
   void render(const Camera2D &camera) const;

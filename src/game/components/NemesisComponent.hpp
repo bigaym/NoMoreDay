@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-
 namespace NoMoreDay {
 
 /**
@@ -34,6 +33,9 @@ struct NemesisComponent {
 
   /// Display name (generated based on affixes)
   std::string display_name;
+
+  /// Gold drop value (tier * 1000)
+  uint32_t gold_value = 0;
 
   NemesisComponent() = default;
 

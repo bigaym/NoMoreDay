@@ -319,8 +319,9 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## [x] Track: Core Risk Remediation
 - **Folder:** [./conductor/archive/core_risk_remediation_20260122/](./conductor/archive/core_risk_remediation_20260122/)
-- **Description:** Comprehensive remediation of core risks identified in the code audit, including Rendering Sync, Memory Safety, and Combat Logic.
+- **Description:** Comprehensive remediation of core risks identified in the code audit. Implemented safe iterative Damage Conversion (no loops), Assassin AI teleport safety checks, Triple-Buffered GPU Physics to fix race conditions, and Runeword subtype validation. (Completed on 2026-01-23)
 - **Status:** COMPLETED
 - **Priority:** CRITICAL
-- **Estimated Time:** 2 days
+- **Estimated Time:** 4-5 days
+
 \

@@ -1,6 +1,8 @@
 #pragma once
 
 #include "raylib.h"
+#include <array>
+#include <cstdint>
 #include <entt/entt.hpp>
 #include <nlohmann/json.hpp>
 
@@ -86,6 +88,7 @@ constexpr float STALK_SPEED_MULT = 0.6f;        // 跟踪时的速度倍率
 constexpr float FLEE_DIST = 100.0f;             // 触发逃跑的距离
 constexpr float TELEPORT_OFFSET = 30.0f;        // 瞬移到背后的偏移
 constexpr float BUFF_DURATION = 1.0f;           // 爆发Buff的持续时间
+constexpr float BACKSTAB_DOT_THRESHOLD = 0.5f;  // 背刺角度阈值 (dot > 0.5)
 } // namespace Assassin
 
 namespace Tank {
@@ -142,6 +145,27 @@ constexpr float ARMOR_BASE = 100.0f;      // 护甲公式的基础常数系数
 constexpr int BATCH_GRAIN_SIZE = 32;      // 并行处理伤害时的每批任务大小
 } // namespace Pipeline
 
+namespace Conversion {
+// 转换优先级顺序（单向：idx 小 -> idx 大）
+// Physical(0) -> Lightning(3) -> Cold(2) -> Fire(1) -> Poison(4) -> Shadow(5)
+constexpr std::array<int, 6> CONVERSION_ORDER = {0, 3, 2, 1, 4, 5};
+
+// 最大递归深度（防止配置错误导致无限循环）
+constexpr int MAX_CONVERSION_DEPTH = 3;
+
+// 合法转换方向检查 (from_idx, to_idx) -> from 在 ORDER 中的位置必须 < to
+inline constexpr bool IsValidConversion(int from_idx, int to_idx) {
+  int from_pos = -1, to_pos = -1;
+  for (int i = 0; i < 6; ++i) {
+    if (CONVERSION_ORDER[i] == from_idx)
+      from_pos = i;
+    if (CONVERSION_ORDER[i] == to_idx)
+      to_pos = i;
+  }
+  return from_pos < to_pos;
+}
+} // namespace Conversion
+
 namespace System {
 constexpr float DEFAULT_ATTACK_COOLDOWN = 1.0f;  // 默认攻击冷却时间
 constexpr float DEFAULT_ATTACK_RANGE = 60.0f;    // 默认攻击检测半径
@@ -190,48 +214,48 @@ constexpr float DODGE_MAX_CHANCE = 0.90f; // 90% 上限
 constexpr float BLOCK_MAX_CHANCE = 0.75f;
 // 敌人等级成长配置 (D2/POE Style)
 namespace Monster {
-    // --- HP Growth ---
-    constexpr float HP_GROWTH_RATE = 0.10f; // 激进的指数成长 (10%/级)
-    
-    // --- Damage Growth ---
-    constexpr float DMG_GROWTH_RATE = 0.08f; // 8%/级
-    constexpr float DMG_VARIANCE_MIN = 0.90f;
-    constexpr float DMG_VARIANCE_MAX = 1.10f;
-    
-    // --- Armor Growth ---
-    constexpr float TARGET_DR_AT_100 = 0.20f; // 100级目标减伤 20%
-    constexpr float DR_PER_LEVEL = 0.002f;    // 线性每级增加减伤
-    
-    // --- Resistance Growth (Lv 100+) ---
-    constexpr float RES_GROWTH_NORMAL = 0.002f;
-    constexpr float RES_GROWTH_CHAMPION = 0.004f;
-    constexpr float RES_GROWTH_ELITE = 0.006f;
-    constexpr float RES_GROWTH_BOSS = 0.008f;
-    constexpr float RES_GROWTH_NEMESIS = 0.010f;
-    constexpr float RES_HARD_CAP = 0.75f;
-    
-    // --- XP Growth ---
-    constexpr float XP_GROWTH_RATE = 0.05f;
-    constexpr float XP_DIFF_THRESHOLD = 5.0f;
-    constexpr float XP_PENALTY_PER_LEVEL = 0.10f;
-    constexpr float XP_MIN_MULT = 0.10f;
-    
-    // --- Level Sync ---
-    constexpr int LEVEL_SYNC_OFFSET = 5;
-    
-    // --- Rarity HP Multipliers ---
-    constexpr float RARITY_HP_NORMAL = 1.0f;
-    constexpr float RARITY_HP_CHAMPION = 2.5f;
-    constexpr float RARITY_HP_ELITE = 5.0f;
-    constexpr float RARITY_HP_BOSS = 15.0f;
-    constexpr float RARITY_HP_NEMESIS = 25.0f;
-    
-    // --- Rarity Damage Multipliers ---
-    constexpr float RARITY_DMG_NORMAL = 1.0f;
-    constexpr float RARITY_DMG_CHAMPION = 1.25f;
-    constexpr float RARITY_DMG_ELITE = 1.6f;
-    constexpr float RARITY_DMG_BOSS = 2.5f;
-    constexpr float RARITY_DMG_NEMESIS = 3.0f;
+// --- HP Growth ---
+constexpr float HP_GROWTH_RATE = 0.10f; // 激进的指数成长 (10%/级)
+
+// --- Damage Growth ---
+constexpr float DMG_GROWTH_RATE = 0.08f; // 8%/级
+constexpr float DMG_VARIANCE_MIN = 0.90f;
+constexpr float DMG_VARIANCE_MAX = 1.10f;
+
+// --- Armor Growth ---
+constexpr float TARGET_DR_AT_100 = 0.20f; // 100级目标减伤 20%
+constexpr float DR_PER_LEVEL = 0.002f;    // 线性每级增加减伤
+
+// --- Resistance Growth (Lv 100+) ---
+constexpr float RES_GROWTH_NORMAL = 0.002f;
+constexpr float RES_GROWTH_CHAMPION = 0.004f;
+constexpr float RES_GROWTH_ELITE = 0.006f;
+constexpr float RES_GROWTH_BOSS = 0.008f;
+constexpr float RES_GROWTH_NEMESIS = 0.010f;
+constexpr float RES_HARD_CAP = 0.75f;
+
+// --- XP Growth ---
+constexpr float XP_GROWTH_RATE = 0.05f;
+constexpr float XP_DIFF_THRESHOLD = 5.0f;
+constexpr float XP_PENALTY_PER_LEVEL = 0.10f;
+constexpr float XP_MIN_MULT = 0.10f;
+
+// --- Level Sync ---
+constexpr int LEVEL_SYNC_OFFSET = 5;
+
+// --- Rarity HP Multipliers ---
+constexpr float RARITY_HP_NORMAL = 1.0f;
+constexpr float RARITY_HP_CHAMPION = 2.5f;
+constexpr float RARITY_HP_ELITE = 5.0f;
+constexpr float RARITY_HP_BOSS = 15.0f;
+constexpr float RARITY_HP_NEMESIS = 25.0f;
+
+// --- Rarity Damage Multipliers ---
+constexpr float RARITY_DMG_NORMAL = 1.0f;
+constexpr float RARITY_DMG_CHAMPION = 1.25f;
+constexpr float RARITY_DMG_ELITE = 1.6f;
+constexpr float RARITY_DMG_BOSS = 2.5f;
+constexpr float RARITY_DMG_NEMESIS = 3.0f;
 } // namespace Monster
 } // namespace Scaling
 

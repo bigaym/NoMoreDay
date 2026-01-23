@@ -8,7 +8,6 @@
 #include <limits>
 #include <queue>
 
-
 MapSystem::MapSystem() : m_gen(std::random_device{}()) {}
 
 MapSystem::~MapSystem() {
@@ -349,7 +348,8 @@ void MapSystem::generateMap(int width, int height, const std::string &biome) {
   m_currentBiomeId = biome;
 
   // Town gets a special open layout
-  if (NoMoreDay::BiomeRegistry::Get().GetBiome(biome).numericId == NoMoreDay::BiomeID::Town) {
+  if (NoMoreDay::BiomeRegistry::Get().GetBiome(biome).numericId ==
+      NoMoreDay::BiomeID::Town) {
     generateTownMap(width, height);
   } else {
     generateCaveMap(width, height);
@@ -412,7 +412,10 @@ void MapSystem::generateMosaicMap(int width, int height,
   generator.SetMosaicData(grid, resonance, registry);
 
   // 假设 biome 由 resonance 结果决定，或者暂时默认 cave
-  m_currentBiomeId = (resonance.primaryBiome == NoMoreDay::BiomeID::None) ? "cave" : NoMoreDay::BiomeRegistry::Get().GetBiome(resonance.primaryBiome).id;
+  m_currentBiomeId =
+      (resonance.primaryBiome == NoMoreDay::BiomeID::None)
+          ? "cave"
+          : NoMoreDay::BiomeRegistry::Get().GetBiome(resonance.primaryBiome).id;
   const auto &biome =
       NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
 
@@ -436,6 +439,29 @@ void MapSystem::generateMosaicMap(int width, int height,
         m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
   }
   m_costMapDirty = false;
+}
+
+bool MapSystem::raycast(const Position &start, const Position &end) const {
+  using namespace NoMoreDay::Constants::World;
+  float dx = end.x - start.x;
+  float dy = end.y - start.y;
+  float distance = std::sqrt(dx * dx + dy * dy);
+  if (distance < 1.0f)
+    return true;
+
+  int steps = static_cast<int>(std::ceil(distance / (GRID_TILE_SIZE * 0.5f)));
+  float stepX = dx / steps;
+  float stepY = dy / steps;
+
+  for (int i = 1; i <= steps; ++i) {
+    float px = start.x + stepX * i;
+    float py = start.y + stepY * i;
+    int tx = static_cast<int>(px / GRID_TILE_SIZE);
+    int ty = static_cast<int>(py / GRID_TILE_SIZE);
+    if (!isWalkable(tx, ty))
+      return false;
+  }
+  return true;
 }
 
 bool MapSystem::isWalkable(int x, int y) const {

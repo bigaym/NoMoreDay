@@ -7,6 +7,7 @@
 #include "game/components/EliteModifierComponents.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Stats.hpp"
+#include "game/systems/world/TilemapCollisionSystem.hpp"
 #include <cmath>
 
 namespace NoMoreDay::AI {
@@ -96,7 +97,8 @@ void UpdateSupportBehavior(entt::registry &registry, entt::entity entity,
     for (int i = 0; i < 20; ++i) {
       NoMoreDay::components::GPUParticle p;
       p.position = {pos.x, pos.y};
-      float angle = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
+      float angle =
+          NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
       float speed = NoMoreDay::utils::ThreadSafeRandom::GetFloat(50.0f, 150.0f);
       p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
       p.color = {100, 200, 255, 255}; // 水蓝色
@@ -158,6 +160,7 @@ void ApplyBuffToNearbyAllies(entt::registry &registry, entt::entity source,
 
 void UpdateAssassinBehavior(entt::registry &registry, entt::entity entity,
                             AIComponent &ai, Position &pos, Velocity &vel,
+                            const MapSystem &mapSystem,
                             const Position &playerPos, float dt) {
   float distToPlayer = Distance(pos, playerPos);
 
@@ -188,12 +191,14 @@ void UpdateAssassinBehavior(entt::registry &registry, entt::entity entity,
   // === 行为决策 ===
   using namespace NoMoreDay::Constants::AI::Assassin;
   float backstabDistance = BACKSTAB_DIST; // 背刺触发距离
-  float lurkerDistance = LURKER_DIST;   // 潜伏距离
+  float lurkerDistance = LURKER_DIST;     // 潜伏距离
 
   if (ai.isStealthed) {
-    if (distToPlayer <= backstabDistance && ai.stealthTimer >= STEALTH_TIMER_THRESHOLD) {
+    if (distToPlayer <= backstabDistance &&
+        ai.stealthTimer >= STEALTH_TIMER_THRESHOLD) {
       // 条件满足：执行背刺
-      if (ExecuteBackstab(registry, entity, playerPos, ai.backstabMultiplier)) {
+      if (ExecuteBackstab(registry, entity, mapSystem, playerPos,
+                          ai.backstabMultiplier)) {
         // 背刺成功
         ai.isStealthed = false;
         ai.backstabCooldownTimer = ai.backstabCooldown;
@@ -238,64 +243,89 @@ void UpdateAssassinBehavior(entt::registry &registry, entt::entity entity,
 }
 
 bool ExecuteBackstab(entt::registry &registry, entt::entity assassin,
-                     const Position &playerPos, float backstabMultiplier) {
+                     const MapSystem &mapSystem, const Position &playerPos,
+                     float backstabMultiplier) {
   // 获取刺客位置
   auto *assassinPos = registry.try_get<Position>(assassin);
   if (!assassinPos)
     return false;
 
-  // 计算瞬移位置：玩家背后 30 像素
-  // "背后" 定义为：远离刺客原始位置的方向
-  float dx = playerPos.x - assassinPos->x;
-  float dy = playerPos.y - assassinPos->y;
-  Normalize(dx, dy);
+  // 0. 获取玩家朝向 (基于速度)
+  Vector2 playerFacing = {0.0f, -1.0f};
+  auto playerView = registry.view<PlayerTag, Velocity>();
+  for (auto player : playerView) {
+    const auto &pv = playerView.get<Velocity>(player);
+    float speedSq = pv.vx * pv.vx + pv.vy * pv.vy;
+    if (speedSq > 0.001f) {
+      float speed = std::sqrt(speedSq);
+      playerFacing = {pv.vx / speed, pv.vy / speed};
+    }
+    break;
+  }
 
-  // 瞬移到玩家背后 (带简单的地图边界检查)
-  // TODO: 后续应集成物理系统的射线检测以处理更复杂的墙体
+  // 1. 计算背部瞬移点
   using namespace NoMoreDay::Constants::AI::Assassin;
-  using namespace NoMoreDay::Constants::World;
-  float targetX = playerPos.x + dx * TELEPORT_OFFSET;
-  float targetY = playerPos.y + dy * TELEPORT_OFFSET;
-  
-  // 简化的边界检查（使用 MAP_BOUNDARY）
-  assassinPos->x = std::clamp(targetX, 0.0f, MAP_BOUNDARY);
-  assassinPos->y = std::clamp(targetY, 0.0f, MAP_BOUNDARY);
+  Vector2 startPos = {playerPos.x, playerPos.y};
+  Vector2 direction = {-playerFacing.x, -playerFacing.y};
+  Vector2 safePos;
+
+  if (!TilemapCollisionSystem::FindSafeTeleportTarget(
+          mapSystem, startPos, direction, TELEPORT_OFFSET, safePos)) {
+    // 如果背面完全被堵死，尝试稍微偏移或者取消本次背刺
+    LOG_DEBUG("Backstab: No safe teleport target found for assassin {}",
+              static_cast<uint32_t>(assassin));
+    return false;
+  }
+
+  // 2. 射线检测 (Raycast)
+  if (!mapSystem.raycast(playerPos, {safePos.x, safePos.y})) {
+    return false;
+  }
+
+  // 3. 角度检查
+  float attackDx = playerPos.x - safePos.x;
+  float attackDy = playerPos.y - safePos.y;
+  Normalize(attackDx, attackDy);
+  float dot = attackDx * playerFacing.x + attackDy * playerFacing.y;
+
+  // 执行瞬移
+  assassinPos->x = safePos.x;
+  assassinPos->y = safePos.y;
 
   // 发射背刺粒子效果
   for (int i = 0; i < 30; ++i) {
     NoMoreDay::components::GPUParticle p;
     p.position = {assassinPos->x, assassinPos->y};
-    float angle = NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
+    float angle =
+        NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 360.0f) * DEG2RAD;
     float speed = NoMoreDay::utils::ThreadSafeRandom::GetFloat(100.0f, 300.0f);
     p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
-    p.color = {128, 0, 128, 255}; // 紫色
+    p.color = {128, 0, 128, 255};
     p.lifetime = 0.5f;
     p.maxLifetime = p.lifetime;
     p.scale = 4.0f;
     NoMoreDay::systems::GPUParticleSystem::Get().Emit(p);
   }
 
-  // 触发攻击
-  // 注意：实际伤害通过 CombatSystem 的距离检测处理
-  // 背刺乘数应该通过 StatsSystem 的 modifier 系统临时应用
-  // TODO: 集成到 DamagePipeline 中处理背刺乘数
   // 应用临时的背刺 Buff
-  if (auto* effects = registry.try_get<ActiveEffectsComponent>(assassin)) {
+  if (auto *effects = registry.try_get<ActiveEffectsComponent>(assassin)) {
     using namespace NoMoreDay::Constants::AI::Assassin;
     BuffEffect backstabBuff;
     backstabBuff.id = "assassin_backstab_boost";
     backstabBuff.name = "Backstab Focus";
-    backstabBuff.duration = BUFF_DURATION; // 覆盖后续攻击
+    backstabBuff.duration = BUFF_DURATION;
     backstabBuff.remaining = BUFF_DURATION;
-    
+
     NoMoreDay::StatModifier dmgMod;
     dmgMod.type = NoMoreDay::StatType::PhysicalDamage;
     dmgMod.mode = NoMoreDay::ModifierMode::PercentMult;
-    dmgMod.value = backstabMultiplier;
+    dmgMod.value = (dot >= BACKSTAB_DOT_THRESHOLD)
+                       ? backstabMultiplier
+                       : (backstabMultiplier * 0.5f);
     backstabBuff.modifiers.push_back(dmgMod);
-    
+
     effects->AddOrRefresh(backstabBuff);
-    LOG_DEBUG("Backstab buff applied to assassin {}", static_cast<uint32_t>(assassin));
+    LOG_DEBUG("Backstab buff applied (dot: {:.2f})", dot);
   }
 
   return true;

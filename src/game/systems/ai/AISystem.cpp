@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <cmath>
 
-
 float AISystem::distance(const Position &a, const Position &b) {
   float dx = a.x - b.x;
   float dy = a.y - b.y;
@@ -347,7 +346,7 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     break;
   case AIType::ASSASSIN_STEALTH:
     NoMoreDay::AI::UpdateAssassinBehavior(registry, entity, ai, pos, vel,
-                                          playerPos, dt);
+                                          mapSystem, playerPos, dt);
     break;
   case AIType::TANK_BLOCK:
     NoMoreDay::AI::UpdateTankBehavior(registry, entity, ai, pos, vel, playerPos,

@@ -4,6 +4,7 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/PersistentBuffer.hpp"
 #include "engine/resource/ResourceManager.hpp"
+#include "raylib.h"
 #include <entt/entt.hpp>
 #include <vector>
 
@@ -20,7 +21,7 @@ public:
     return instance;
   }
 
-  void Init(ResourceManager &rm, int maxEntities = 20000);
+  void Init(ResourceManager &rm, int maxEntities = 200000);
 
   void Update(entt::registry &registry, float dt);
   void SyncBack(entt::registry &registry);
@@ -34,18 +35,21 @@ private:
   GPUEntitySystem() = default;
 
   int m_maxEntities = 0;
-  render::PersistentBuffer m_persistentEntityBuffer;
+  NoMoreDay::render::PersistentBuffer m_persistentEntityBuffer;
+  NoMoreDay::render::PersistentBuffer m_physicsOutputBuffer;
+
+  float m_mapBoundary = 5000.0f;
 
   // Grid Buffers
-  core::ComputeBuffer m_cellCountBuffer;
-  core::ComputeBuffer m_cellOffsetBuffer;
-  core::ComputeBuffer m_entityIndicesBuffer; // Sorted entity IDs
-  core::ComputeBuffer m_tempCountBuffer;
+  NoMoreDay::core::ComputeBuffer m_cellCountBuffer;
+  NoMoreDay::core::ComputeBuffer m_cellOffsetBuffer;
+  NoMoreDay::core::ComputeBuffer m_entityIndicesBuffer; // Sorted entity IDs
+  NoMoreDay::core::ComputeBuffer m_tempCountBuffer;
 
-  std::vector<components::GPUEntity> m_localData;
-  std::vector<components::GPUEntity>
+  std::vector<NoMoreDay::components::GPUEntity> m_localData;
+  std::vector<NoMoreDay::components::GPUEntity>
       m_shadowBuffer; // CPU-side shadow copy for incremental updates
-  std::vector<components::GPUVisualStats>
+  std::vector<NoMoreDay::components::GPUVisualStats>
       m_visualStatsShadowBuffer; // Cache for visual stats
   std::vector<uint32_t> m_gridCounts;
   std::vector<uint32_t> m_gridOffsets;

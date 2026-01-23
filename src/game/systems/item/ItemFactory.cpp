@@ -29,8 +29,10 @@ static entt::id_type pickRandomAsset(const std::array<T, N> &assets) {
   return assets[dist(g_rng)]->id;
 }
 
-static entt::id_type getRandomTextureForType(ItemType type, EquipmentSlot slot,
-                                             const std::string &name) {
+static entt::id_type
+getRandomTextureForType(ItemType type, EquipmentSlot slot,
+                        const std::string &name,
+                        WeaponSubtype subtype = WeaponSubtype::None) {
   using namespace assets::equipment;
 
   if (type == ItemType::Armor) {
@@ -48,43 +50,40 @@ static entt::id_type getRandomTextureForType(ItemType type, EquipmentSlot slot,
     case EquipmentSlot::Feet:
       return pickRandomAsset(boots::All);
     case EquipmentSlot::OffHand:
-      return pickRandomAsset(shield::All); // Shield as armor offhand
+      return pickRandomAsset(shield::All);
     default:
       break;
     }
   } else if (type == ItemType::Weapon) {
-    // Heuristic based on name
-    if (name.find("大剑") != std::string::npos ||
-        name.find("Claymore") != std::string::npos)
-      return pickRandomAsset(greatsword::All);
-    if (name.find("匕首") != std::string::npos ||
-        name.find("Dagger") != std::string::npos)
-      return pickRandomAsset(dagger::All);
-    if (name.find("斧") != std::string::npos ||
-        name.find("Axe") != std::string::npos)
+    switch (subtype) {
+    case WeaponSubtype::Sword:
+      return pickRandomAsset(sword::All);
+    case WeaponSubtype::Axe:
       return pickRandomAsset(axe::All);
-    if (name.find("锤") != std::string::npos ||
-        name.find("Hammer") != std::string::npos)
+    case WeaponSubtype::Dagger:
+      return pickRandomAsset(dagger::All);
+    case WeaponSubtype::Mace:
       return pickRandomAsset(hammer::All);
-    if (name.find("法杖") != std::string::npos ||
-        name.find("Staff") != std::string::npos)
+    case WeaponSubtype::Staff:
       return pickRandomAsset(staff::All);
-    if (name.find("魔杖") != std::string::npos ||
-        name.find("Wand") != std::string::npos)
+    case WeaponSubtype::Wand:
       return pickRandomAsset(wand::All);
-
-    // Default to sword if unspecified or generic
-    return pickRandomAsset(sword::All);
+    case WeaponSubtype::None:
+    default:
+      if (name.find("大剑") != std::string::npos ||
+          name.find("Great") != std::string::npos)
+        return pickRandomAsset(greatsword::All);
+      return pickRandomAsset(sword::All);
+    }
   } else if (type == ItemType::Shield) {
     return pickRandomAsset(shield::All);
+  } else if (type == ItemType::Jewelry) {
+    if (slot == EquipmentSlot::Neck)
+      return pickRandomAsset(amulet::All);
+    if (slot == EquipmentSlot::Ring || slot == EquipmentSlot::Ring1 ||
+        slot == EquipmentSlot::Ring2)
+      return pickRandomAsset(ring::All);
   }
-
-  // Jewelry
-  if (slot == EquipmentSlot::Neck)
-    return pickRandomAsset(amulet::All);
-  if (slot == EquipmentSlot::Ring || slot == EquipmentSlot::Ring1 ||
-      slot == EquipmentSlot::Ring2)
-    return pickRandomAsset(ring::All);
 
   return 0;
 }
@@ -130,9 +129,10 @@ void ItemFactory::loadAffixDefinitions(const std::string &path) {
     nlohmann::json j;
     file >> j;
     auto newDefs = j.get<std::vector<AffixDefinition>>();
-    s_affixDefinitions.insert(s_affixDefinitions.end(), newDefs.begin(), newDefs.end());
-    LOG_INFO("ItemFactory: 从 {} 成功加载了 {} 个词缀定义 (总计: {})。",
-             path, newDefs.size(), s_affixDefinitions.size());
+    s_affixDefinitions.insert(s_affixDefinitions.end(), newDefs.begin(),
+                              newDefs.end());
+    LOG_INFO("ItemFactory: 从 {} 成功加载了 {} 个词缀定义 (总计: {})。", path,
+             newDefs.size(), s_affixDefinitions.size());
   } catch (const std::exception &e) {
     LOG_ERROR("ItemFactory: 解析词缀定义文件 {} 时出错: {}", path, e.what());
   }
@@ -176,8 +176,10 @@ const LootPool *ItemFactory::getLootPool(uint32_t id) {
   return nullptr;
 }
 
-// Helper to serialize an item entity to DTO (Duplicated from SaveManager for now)
-SerializedItem ItemFactory::serializeItem(entt::registry &registry, entt::entity entity) {
+// Helper to serialize an item entity to DTO (Duplicated from SaveManager for
+// now)
+SerializedItem ItemFactory::serializeItem(entt::registry &registry,
+                                          entt::entity entity) {
   SerializedItem dto;
   if (!registry.all_of<ItemComponent>(entity))
     return dto;
@@ -473,24 +475,25 @@ Affix ItemFactory::createAffix(AffixType type, int tier) {
   affix.tier = tier;
 
   // Try to find in definitions first (for JSON-driven values)
-  for (const auto& def : s_affixDefinitions) {
-      if (def.type == type) {
-          affix.isPrefix = def.isPrefix;
-          // Find tier
-          for (const auto& t : def.tiers) {
-              if (t.tier == tier) {
-                  affix.value = (t.maxValue > t.minValue) ? 
-                                std::uniform_real_distribution<float>(t.minValue, t.maxValue)(g_rng) : 
-                                t.minValue;
-                  return affix;
-              }
-          }
-          // Default to first tier if requested tier not found
-          if (!def.tiers.empty()) {
-              affix.value = def.tiers[0].minValue;
-              return affix;
-          }
+  for (const auto &def : s_affixDefinitions) {
+    if (def.type == type) {
+      affix.isPrefix = def.isPrefix;
+      // Find tier
+      for (const auto &t : def.tiers) {
+        if (t.tier == tier) {
+          affix.value = (t.maxValue > t.minValue)
+                            ? std::uniform_real_distribution<float>(
+                                  t.minValue, t.maxValue)(g_rng)
+                            : t.minValue;
+          return affix;
+        }
       }
+      // Default to first tier if requested tier not found
+      if (!def.tiers.empty()) {
+        affix.value = def.tiers[0].minValue;
+        return affix;
+      }
+    }
   }
 
   // Fallback to hardcoded logic
@@ -575,39 +578,61 @@ ItemFactory::getBaseStatRange(const ItemComponent &item) {
 Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
                                        EquipmentSlot slot) {
   // 1. 获取所有候选词缀定义
-  std::vector<const AffixDefinition*> candidates;
+  std::vector<const AffixDefinition *> candidates;
   if (!s_affixDefinitions.empty()) {
     // 确定槽位标签
     std::vector<std::string> slotTags;
     switch (slot) {
-      case EquipmentSlot::MainHand: slotTags = {"weapon"}; break;
-      case EquipmentSlot::OffHand: slotTags = {"weapon", "armor"}; break;
-      case EquipmentSlot::Head:
-      case EquipmentSlot::Shoulder:
-      case EquipmentSlot::Chest:
-      case EquipmentSlot::Legs: slotTags = {"armor"}; break;
-      case EquipmentSlot::Hands: slotTags = {"armor", "gloves"}; break;
-      case EquipmentSlot::Feet: slotTags = {"armor", "boots"}; break;
-      case EquipmentSlot::Neck:
-      case EquipmentSlot::Ring1:
-      case EquipmentSlot::Ring2: slotTags = {"jewelry"}; break;
-      default: slotTags = {"misc"}; break;
+    case EquipmentSlot::MainHand:
+      slotTags = {"weapon"};
+      break;
+    case EquipmentSlot::OffHand:
+      slotTags = {"weapon", "armor"};
+      break;
+    case EquipmentSlot::Head:
+    case EquipmentSlot::Shoulder:
+    case EquipmentSlot::Chest:
+    case EquipmentSlot::Legs:
+      slotTags = {"armor"};
+      break;
+    case EquipmentSlot::Hands:
+      slotTags = {"armor", "gloves"};
+      break;
+    case EquipmentSlot::Feet:
+      slotTags = {"armor", "boots"};
+      break;
+    case EquipmentSlot::Neck:
+    case EquipmentSlot::Ring1:
+    case EquipmentSlot::Ring2:
+      slotTags = {"jewelry"};
+      break;
+    default:
+      slotTags = {"misc"};
+      break;
     }
 
-    for (const auto& def : s_affixDefinitions) {
-      if (def.isPrefix != isPrefix) continue;
-      if (!IsRandomRollableAffix(def.type)) continue; // 排除传奇/独特词缀
-      
-      bool tagMatch = false;
-      for (const auto& sTag : slotTags) {
-        for (const auto& aTag : def.allowedTags) {
-          if (sTag == aTag) { tagMatch = true; break; }
-        }
-        if (tagMatch) break;
-      }
-      if (!tagMatch) continue;
+    for (const auto &def : s_affixDefinitions) {
+      if (def.isPrefix != isPrefix)
+        continue;
+      if (!IsRandomRollableAffix(def.type))
+        continue; // 排除传奇/独特词缀
 
-      if (def.tiers.empty() || def.tiers[0].minLevel > level) continue;
+      bool tagMatch = false;
+      for (const auto &sTag : slotTags) {
+        for (const auto &aTag : def.allowedTags) {
+          if (sTag == aTag) {
+            tagMatch = true;
+            break;
+          }
+        }
+        if (tagMatch)
+          break;
+      }
+      if (!tagMatch)
+        continue;
+
+      if (def.tiers.empty() || def.tiers[0].minLevel > level)
+        continue;
 
       candidates.push_back(&def);
     }
@@ -615,10 +640,9 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
 
   if (candidates.empty()) {
     // 回退到基础属性
-    std::vector<AffixType> fallbacks = { 
-      AffixType::Strength, AffixType::Dexterity, 
-      AffixType::Intelligence, AffixType::Vitality 
-    };
+    std::vector<AffixType> fallbacks = {
+        AffixType::Strength, AffixType::Dexterity, AffixType::Intelligence,
+        AffixType::Vitality};
     std::uniform_int_distribution<> fDist(0, (int)fallbacks.size() - 1);
     AffixType selectedType = fallbacks[fDist(g_rng)];
     Affix aff = createAffix(selectedType, 1);
@@ -628,24 +652,27 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
 
   // 从候选池随机选择一个
   std::uniform_int_distribution<> dist(0, (int)candidates.size() - 1);
-  const AffixDefinition* selectedDef = candidates[dist(g_rng)];
+  const AffixDefinition *selectedDef = candidates[dist(g_rng)];
 
   // 选择最高可用 Tier
   int bestTierIdx = 0;
   for (int i = 0; i < (int)selectedDef->tiers.size(); ++i) {
-    if (selectedDef->tiers[i].minLevel <= level) bestTierIdx = i;
-    else break;
+    if (selectedDef->tiers[i].minLevel <= level)
+      bestTierIdx = i;
+    else
+      break;
   }
 
-  const auto& tier = selectedDef->tiers[bestTierIdx];
+  const auto &tier = selectedDef->tiers[bestTierIdx];
   Affix result;
   result.type = selectedDef->type;
   result.tier = tier.tier;
   result.isPrefix = selectedDef->isPrefix;
   // result.name = selectedDef->nameTemplate; // REMOVED
-  result.value = (tier.maxValue > tier.minValue) ? 
-                 std::uniform_real_distribution<float>(tier.minValue, tier.maxValue)(g_rng) : 
-                 tier.minValue;
+  result.value = (tier.maxValue > tier.minValue)
+                     ? std::uniform_real_distribution<float>(
+                           tier.minValue, tier.maxValue)(g_rng)
+                     : tier.minValue;
 
   return result;
 }
@@ -693,97 +720,132 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
     existingTypes.push_back(aff.type);
 
   auto pickAffixes = [&](bool isPrefix, int count) {
-    if (count <= 0) return;
+    if (count <= 0)
+      return;
 
     // 1. 获取所有符合条件的候选词缀定义
-    std::vector<const AffixDefinition*> candidates;
-    
+    std::vector<const AffixDefinition *> candidates;
+
     // 确定槽位标签
     std::vector<std::string> slotTags;
     switch (item.slot) {
-      case EquipmentSlot::MainHand: slotTags = {"weapon"}; break;
-      case EquipmentSlot::OffHand: slotTags = {"weapon", "armor"}; break;
-      case EquipmentSlot::Head:
-      case EquipmentSlot::Shoulder:
-      case EquipmentSlot::Chest:
-      case EquipmentSlot::Legs: slotTags = {"armor"}; break;
-      case EquipmentSlot::Hands: slotTags = {"armor", "gloves"}; break;
-      case EquipmentSlot::Feet: slotTags = {"armor", "boots"}; break;
-      case EquipmentSlot::Neck:
-      case EquipmentSlot::Ring1:
-      case EquipmentSlot::Ring2: slotTags = {"jewelry"}; break;
-      default: slotTags = {"misc"}; break;
+    case EquipmentSlot::MainHand:
+      slotTags = {"weapon"};
+      break;
+    case EquipmentSlot::OffHand:
+      slotTags = {"weapon", "armor"};
+      break;
+    case EquipmentSlot::Head:
+    case EquipmentSlot::Shoulder:
+    case EquipmentSlot::Chest:
+    case EquipmentSlot::Legs:
+      slotTags = {"armor"};
+      break;
+    case EquipmentSlot::Hands:
+      slotTags = {"armor", "gloves"};
+      break;
+    case EquipmentSlot::Feet:
+      slotTags = {"armor", "boots"};
+      break;
+    case EquipmentSlot::Neck:
+    case EquipmentSlot::Ring1:
+    case EquipmentSlot::Ring2:
+      slotTags = {"jewelry"};
+      break;
+    default:
+      slotTags = {"misc"};
+      break;
     }
 
     // 从数据库筛选
-    for (const auto& def : s_affixDefinitions) {
-      if (def.isPrefix != isPrefix) continue;
-      if (!IsRandomRollableAffix(def.type)) continue; // 排除传奇/独特词缀
-      
+    for (const auto &def : s_affixDefinitions) {
+      if (def.isPrefix != isPrefix)
+        continue;
+      if (!IsRandomRollableAffix(def.type))
+        continue; // 排除传奇/独特词缀
+
       bool tagMatch = false;
-      for (const auto& sTag : slotTags) {
-        for (const auto& aTag : def.allowedTags) {
-          if (sTag == aTag) { tagMatch = true; break; }
+      for (const auto &sTag : slotTags) {
+        for (const auto &aTag : def.allowedTags) {
+          if (sTag == aTag) {
+            tagMatch = true;
+            break;
+          }
         }
-        if (tagMatch) break;
+        if (tagMatch)
+          break;
       }
-      if (!tagMatch) continue;
-      if (def.tiers.empty() || def.tiers[0].minLevel > level) continue;
+      if (!tagMatch)
+        continue;
+      if (def.tiers.empty() || def.tiers[0].minLevel > level)
+        continue;
 
       // 检查是否重复
       bool isDuplicate = false;
       for (auto et : existingTypes) {
-        if (et == def.type) { isDuplicate = true; break; }
+        if (et == def.type) {
+          isDuplicate = true;
+          break;
+        }
       }
-      if (isDuplicate) continue;
+      if (isDuplicate)
+        continue;
 
       candidates.push_back(&def);
     }
 
     // 如果数据库候选不足，使用基础属性回退
     if (candidates.empty()) {
-       std::vector<AffixType> fallbacks = { 
-         AffixType::Strength, AffixType::Dexterity, 
-         AffixType::Intelligence, AffixType::Vitality 
-       };
-       for (auto fType : fallbacks) {
-         bool isDuplicate = false;
-         for (auto et : existingTypes) if (et == fType) { isDuplicate = true; break; }
-         if (isDuplicate) continue;
-         
-         // 创建临时定义（或者直接生成词缀）
-         Affix aff = createAffix(fType, 1);
-         aff.isPrefix = isPrefix;
-         item.affixes.push_back(aff);
-         existingTypes.push_back(fType);
-         if (--count <= 0) break;
-       }
-       return;
+      std::vector<AffixType> fallbacks = {
+          AffixType::Strength, AffixType::Dexterity, AffixType::Intelligence,
+          AffixType::Vitality};
+      for (auto fType : fallbacks) {
+        bool isDuplicate = false;
+        for (auto et : existingTypes)
+          if (et == fType) {
+            isDuplicate = true;
+            break;
+          }
+        if (isDuplicate)
+          continue;
+
+        // 创建临时定义（或者直接生成词缀）
+        Affix aff = createAffix(fType, 1);
+        aff.isPrefix = isPrefix;
+        item.affixes.push_back(aff);
+        existingTypes.push_back(fType);
+        if (--count <= 0)
+          break;
+      }
+      return;
     }
 
     // 打乱候选池并按需挑选
     std::shuffle(candidates.begin(), candidates.end(), g_rng);
     int toAdd = std::min(count, (int)candidates.size());
-    
+
     for (int i = 0; i < toAdd; ++i) {
-      const auto* def = candidates[i];
-      
+      const auto *def = candidates[i];
+
       // 选择 Tier
       int bestTierIdx = 0;
       for (int j = 0; j < (int)def->tiers.size(); ++j) {
-        if (def->tiers[j].minLevel <= level) bestTierIdx = j;
-        else break;
+        if (def->tiers[j].minLevel <= level)
+          bestTierIdx = j;
+        else
+          break;
       }
-      const auto& tier = def->tiers[bestTierIdx];
+      const auto &tier = def->tiers[bestTierIdx];
 
       Affix result;
       result.type = def->type;
       result.tier = tier.tier;
       result.isPrefix = def->isPrefix;
       // result.name = def->nameTemplate; // REMOVED
-      result.value = (tier.maxValue > tier.minValue) ? 
-                     std::uniform_real_distribution<float>(tier.minValue, tier.maxValue)(g_rng) : 
-                     tier.minValue;
+      result.value = (tier.maxValue > tier.minValue)
+                         ? std::uniform_real_distribution<float>(
+                               tier.minValue, tier.maxValue)(g_rng)
+                         : tier.minValue;
 
       item.affixes.push_back(result);
       existingTypes.push_back(result.type);
@@ -796,7 +858,6 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
   LOG_DEBUG("ItemFactory: Generated {} affixes for {}", item.affixes.size(),
             item.name);
 }
-
 
 // -----------------------------------------------------------------------------
 // 创建方法 (与之前相同)
@@ -914,24 +975,33 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   switch (typeRoll) {
   case 0:
     baseList = &WEAPON_SWORD_BASES;
+    item.weaponSubtype = WeaponSubtype::Sword;
     break;
   case 1:
     baseList = &WEAPON_AXE_BASES;
+    item.weaponSubtype = WeaponSubtype::Axe;
     break;
   case 2:
     baseList = &WEAPON_DAGGER_BASES;
+    item.weaponSubtype = WeaponSubtype::Dagger;
     break;
   case 3:
     baseList = &WEAPON_HAMMER_BASES;
+    item.weaponSubtype = WeaponSubtype::Mace;
     break;
   case 4:
     baseList = &WEAPON_GREATSWORD_BASES;
+    item.weaponSubtype = WeaponSubtype::Sword; // Or Greatsword
+    item.isTwoHanded = true;
     break;
   case 5:
     baseList = &WEAPON_STAFF_BASES;
+    item.weaponSubtype = WeaponSubtype::Staff;
+    item.isTwoHanded = true;
     break;
   case 6:
     baseList = &WEAPON_WAND_BASES;
+    item.weaponSubtype = WeaponSubtype::Wand;
     break;
   }
 
@@ -954,18 +1024,26 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
 
   item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
 
-  // IMPORTANT: Legendary items (Uniques) roll LP (0-4). Sockets are independent.
+  // IMPORTANT: Legendary items (Uniques) roll LP (0-4). Sockets are
+  // independent.
   if (rarity == Rarity::Legendary) {
     item.name = "远古 " + item.name;
-    // In Last Epoch style, LP is rarity-based. Here we use a simple weighted roll.
+    // In Last Epoch style, LP is rarity-based. Here we use a simple weighted
+    // roll.
     int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
-    if (lpRoll < 60) item.legendaryPotential = 0;
-    else if (lpRoll < 85) item.legendaryPotential = 1;
-    else if (lpRoll < 95) item.legendaryPotential = 2;
-    else if (lpRoll < 99) item.legendaryPotential = 3;
-    else item.legendaryPotential = 4;
+    if (lpRoll < 60)
+      item.legendaryPotential = 0;
+    else if (lpRoll < 85)
+      item.legendaryPotential = 1;
+    else if (lpRoll < 95)
+      item.legendaryPotential = 2;
+    else if (lpRoll < 99)
+      item.legendaryPotential = 3;
+    else
+      item.legendaryPotential = 4;
 
-    LOG_DEBUG("Created legendary weapon: {} with LP {}", item.name, item.legendaryPotential);
+    LOG_DEBUG("Created legendary weapon: {} with LP {}", item.name,
+              item.legendaryPotential);
   } else if (rarity == Rarity::Rare) {
     item.name = "稀有 " + item.name;
     LOG_DEBUG("Created rare weapon: {}", item.name);
@@ -974,15 +1052,17 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   }
 
   // Assign random texture
-  item.textureId = getRandomTextureForType(item.type, item.slot, item.name);
+  item.textureId = getRandomTextureForType(item.type, item.slot, item.name,
+                                           item.weaponSubtype);
 
   rollAffixes(item, level);
 
   // Sockets for Weapons (Independent of Rarity/LP)
   // 40% chance to have sockets
   if (std::uniform_int_distribution<>(0, 100)(g_rng) < 40) {
-      item.socketCount = std::uniform_int_distribution<>(1, 3)(g_rng);
-      LOG_DEBUG("Weapon '{}' rolled with {} sockets", item.name, item.socketCount);
+    item.socketCount = std::uniform_int_distribution<>(1, 3)(g_rng);
+    LOG_DEBUG("Weapon '{}' rolled with {} sockets", item.name,
+              item.socketCount);
   }
 
   registry.emplace<ItemComponent>(entity, item);
@@ -1023,16 +1103,19 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
     item.type = ItemType::Jewelry;
   } else {
     item.type = ItemType::Armor;
-    
+
     // Sockets for Armor
     // 40% chance
     if (std::uniform_int_distribution<>(0, 100)(g_rng) < 40) {
-        int maxS = 1;
-        if (slot == EquipmentSlot::Chest || slot == EquipmentSlot::OffHand) maxS = 3;
-        else if (slot == EquipmentSlot::Head || slot == EquipmentSlot::Legs) maxS = 2;
-        
-        item.socketCount = std::uniform_int_distribution<>(1, maxS)(g_rng);
-        LOG_DEBUG("Armor/Jewelry '{}' rolled with {} sockets", item.name, item.socketCount);
+      int maxS = 1;
+      if (slot == EquipmentSlot::Chest || slot == EquipmentSlot::OffHand)
+        maxS = 3;
+      else if (slot == EquipmentSlot::Head || slot == EquipmentSlot::Legs)
+        maxS = 2;
+
+      item.socketCount = std::uniform_int_distribution<>(1, maxS)(g_rng);
+      LOG_DEBUG("Armor/Jewelry '{}' rolled with {} sockets", item.name,
+                item.socketCount);
     }
   }
 
@@ -1093,20 +1176,27 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
 
   if (rarity == Rarity::Legendary) {
     item.name = "远古 " + item.name;
-    // In Last Epoch style, LP is rarity-based. Here we use a simple weighted roll.
+    // In Last Epoch style, LP is rarity-based. Here we use a simple weighted
+    // roll.
     int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
-    if (lpRoll < 70) item.legendaryPotential = 0;
-    else if (lpRoll < 90) item.legendaryPotential = 1;
-    else if (lpRoll < 97) item.legendaryPotential = 2;
-    else item.legendaryPotential = 3;
-    
-    LOG_DEBUG("Created legendary armor/jewelry: {} with LP {}", item.name, item.legendaryPotential);
+    if (lpRoll < 70)
+      item.legendaryPotential = 0;
+    else if (lpRoll < 90)
+      item.legendaryPotential = 1;
+    else if (lpRoll < 97)
+      item.legendaryPotential = 2;
+    else
+      item.legendaryPotential = 3;
+
+    LOG_DEBUG("Created legendary armor/jewelry: {} with LP {}", item.name,
+              item.legendaryPotential);
   } else {
     LOG_DEBUG("Created common/magic/rare armor/jewelry: {}", item.name);
   }
 
   // Assign random texture
-  item.textureId = getRandomTextureForType(item.type, item.slot, item.name);
+  item.textureId = getRandomTextureForType(item.type, item.slot, item.name,
+                                           item.weaponSubtype);
 
   rollAffixes(item, level);
   registry.emplace<ItemComponent>(entity, item);
@@ -1218,11 +1308,11 @@ entt::entity ItemFactory::createMaterial(entt::registry &registry,
     item.slot = EquipmentSlot::None;
 
     // Add AffixStats info to description? (Optional for now)
-    
+
     // Assign Texture from RuneAssetRegistry
     int idx = (int)materialId - 3001;
     if (idx >= 0 && idx < (int)assets::runes::general::All.size()) {
-        item.textureId = assets::runes::general::All[idx]->id;
+      item.textureId = assets::runes::general::All[idx]->id;
     }
 
     registry.emplace<ItemComponent>(entity, item);
@@ -1230,11 +1320,11 @@ entt::entity ItemFactory::createMaterial(entt::registry &registry,
 
     // Visuals: Sprite
     if (item.textureId != 0) {
-        Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
-        if (tex.id > 0) {
-             float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
-             registry.emplace<SpriteComponent>(entity, tex, dropScale);
-        }
+      Texture2D tex = AssetLoadingSystem::GetTexture(item.textureId);
+      if (tex.id > 0) {
+        float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
+        registry.emplace<SpriteComponent>(entity, tex, dropScale);
+      }
     }
 
     LOG_DEBUG("Created Rune '{}' (ID: {}) x{}", runeDef->name, materialId,

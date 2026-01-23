@@ -157,45 +157,58 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     }
   }
 
-  // (Ordering: Phys -> Lightning -> Cold -> Fire -> Chaos -> Void)
-  using namespace NoMoreDay::Constants::Combat::Pipeline;
-  std::array<int, ELEMENTAL_TYPE_COUNT> order = {0, 3, 2, 1, 5, 4};
+  // 2. Conversion and Gain Logic (Ordered Chain)
+  // Physical(0) -> Lightning(3) -> Cold(2) -> Fire(1) -> Poison(4) -> Shadow(5)
+  using namespace Constants::Combat::Conversion;
 
-  for (int type_idx : order) {
-    Tag current_source_type = static_cast<Tag>(1ULL << type_idx);
+  for (int source_idx : CONVERSION_ORDER) {
+    Tag current_source_type = static_cast<Tag>(1ULL << source_idx);
 
-    FixedVector<const DamageModifier *, 32> conv_mods;
-    FixedVector<const DamageModifier *, 32> gain_mods;
+    // Aggregate modifiers for this source type
+    FixedVector<const DamageModifier *, 16> conv_mods;
+    FixedVector<const DamageModifier *, 16> gain_mods;
     float total_conv_pct = 0.0f;
 
-    if (global_mods) {
-      for (const auto &mod : global_mods->modifiers) {
-        if (mod.source_tag == current_source_type) {
-          if (mod.type == ModifierType::Convert &&
-              mod.target_tag != Tag::None) {
+    auto ProcessMod = [&](const DamageModifier &mod) {
+      if (mod.source_tag == current_source_type &&
+          mod.target_tag != Tag::None) {
+        int target_idx =
+            std::countr_zero(static_cast<uint64_t>(mod.target_tag));
+        if (IsValidConversion(source_idx, target_idx)) {
+          if (mod.type == ModifierType::Convert) {
             conv_mods.push_back(&mod);
             total_conv_pct += mod.value;
-          } else if (mod.type == ModifierType::GainExtra &&
-                     mod.target_tag != Tag::None) {
+          } else if (mod.type == ModifierType::GainExtra) {
             gain_mods.push_back(&mod);
           }
+        } else if (mod.target_tag != current_source_type) {
+          spdlog::warn("DamagePipeline: Illegal conversion loop detected ({} "
+                       "-> {}). Skipping.",
+                       source_idx, target_idx);
         }
       }
+    };
+
+    // Modifier sources
+    if (global_mods)
+      for (const auto &mod : global_mods->modifiers)
+        ProcessMod(mod);
+    if (registry.valid(source_entity)) {
+      if (auto *sm = registry.try_get<SkillModifierComponent>(source_entity))
+        for (const auto &mod : sm->damage_modifiers)
+          ProcessMod(mod);
     }
 
-    // --- NEW: Also check source_entity for conversion/gain ---
-    if (registry.valid(source_entity)) {
-      if (auto *skillMods =
-              registry.try_get<SkillModifierComponent>(source_entity)) {
-        for (const auto &mod : skillMods->damage_modifiers) {
-          if (mod.source_tag == current_source_type) {
-            if (mod.type == ModifierType::Convert &&
-                mod.target_tag != Tag::None) {
-              conv_mods.push_back(&mod);
-              total_conv_pct += mod.value;
-            } else if (mod.type == ModifierType::GainExtra &&
-                       mod.target_tag != Tag::None) {
-              gain_mods.push_back(&mod);
+    // Talent modifiers
+    if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+      for (const auto &spec : active->specialized_slots) {
+        if (spec.skill_id == skill_id) {
+          if (const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id)) {
+            for (auto [node_id, pts] : spec.allocated_points) {
+              if (tree->nodes.contains(node_id)) {
+                for (const auto &mod : tree->nodes.at(node_id).damage_modifiers)
+                  ProcessMod(mod);
+              }
             }
           }
         }
@@ -205,33 +218,33 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     if (conv_mods.empty() && gain_mods.empty())
       continue;
 
-    float conv_scale = 1.0f;
-    if (total_conv_pct > 1.0f) {
-      conv_scale = 1.0f / total_conv_pct;
-    }
-
+    float conv_scale = (total_conv_pct > 1.0f) ? (1.0f / total_conv_pct) : 1.0f;
     size_t current_count = instances.size;
+
     for (size_t i = 0; i < current_count; ++i) {
       if (instances[i].final_type == current_source_type) {
         float original_amount = instances[i].amount;
         if (original_amount <= 0.0f)
           continue;
 
+        // Gain Extra
         for (auto *mod : gain_mods) {
           instances.push_back({original_amount * mod->value,
                                instances[i].tags | mod->target_tag,
                                mod->target_tag});
         }
 
+        // Convert
         float actual_conv_total = 0.0f;
         for (auto *mod : conv_mods) {
           float amount_to_convert = original_amount * mod->value * conv_scale;
-          instances.push_back({amount_to_convert,
-                               instances[i].tags | mod->target_tag,
-                               mod->target_tag});
-          actual_conv_total += amount_to_convert;
+          if (amount_to_convert > 0.0f) {
+            instances.push_back({amount_to_convert,
+                                 instances[i].tags | mod->target_tag,
+                                 mod->target_tag});
+            actual_conv_total += amount_to_convert;
+          }
         }
-
         instances[i].amount -= actual_conv_total;
       }
     }
@@ -285,40 +298,30 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
         registry, attacker, dmg_stat, inst.tags, skill_id, source_entity);
     inst.amount *= (multiplier_pct / 100.0f);
 
-    // --- NEW: Apply Global Damage Modifiers (More) ---
+    // Final More accumulation per instance
+    float final_more = 1.0f;
     if (global_mods) {
       for (const auto &dmod : global_mods->modifiers) {
-        if (dmod.type == ModifierType::More) {
-          if (dmod.source_tag == Tag::None ||
-              HasTag(inst.tags, dmod.source_tag)) {
-            inst.amount *= (1.0f + dmod.value);
-          }
+        if (dmod.type == ModifierType::More &&
+            (dmod.source_tag == Tag::None ||
+             HasTag(inst.tags, dmod.source_tag))) {
+          final_more *= (1.0f + dmod.value);
         }
       }
     }
-
-    // --- NEW: Apply Talent-Specific Damage Modifiers (Convert, More) ---
-    // DOCUMENTATION: 'More' modifiers are applied here (after 'Increased') to
-    // ensure they act as independent multipliers. This strictly follows the
-    // "Flat -> Increased -> More" hierarchy.
     if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &specialized : active->specialized_slots) {
         if (specialized.skill_id == skill_id) {
-          const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id);
-          if (tree) {
+          if (const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id)) {
             for (auto [node_id, pts] : specialized.allocated_points) {
-              auto node_it = tree->nodes.find(node_id);
-              if (node_it != tree->nodes.end()) {
-                const auto &node = node_it->second;
-                for (const auto &dmod : node.damage_modifiers) {
-                  if (dmod.source_tag == Tag::None ||
-                      HasTag(inst.tags, dmod.source_tag)) {
-                    float value = dmod.value * pts;
-                    if (dmod.type == ModifierType::More) {
-                      inst.amount *= (1.0f + value);
-                    }
-                    // TODO: Conversion in talents might need to be handled
-                    // earlier in the pipeline if we want complex chaining
+              if (tree->nodes.contains(node_id)) {
+                for (const auto &dmod :
+                     tree->nodes.at(node_id).damage_modifiers) {
+                  if (dmod.type == ModifierType::More &&
+                      (dmod.source_tag == Tag::None ||
+                       HasTag(inst.tags, dmod.source_tag))) {
+                    final_more *=
+                        std::pow(1.0f + dmod.value, static_cast<float>(pts));
                   }
                 }
               }
@@ -328,23 +331,19 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
         }
       }
     }
-
-    // --- NEW: Apply Skill-Specific Damage Modifiers from Source Entity (More)
-    // --- DOCUMENTATION: Skill-specific 'More' modifiers (e.g. from Projectile
-    // source) are applied here.
     if (registry.valid(source_entity)) {
       if (auto *skillMods =
               registry.try_get<SkillModifierComponent>(source_entity)) {
         for (const auto &dmod : skillMods->damage_modifiers) {
-          if (dmod.source_tag == Tag::None ||
-              HasTag(inst.tags, dmod.source_tag)) {
-            if (dmod.type == ModifierType::More) {
-              inst.amount *= (1.0f + dmod.value);
-            }
+          if (dmod.type == ModifierType::More &&
+              (dmod.source_tag == Tag::None ||
+               HasTag(inst.tags, dmod.source_tag))) {
+            final_more *= (1.0f + dmod.value);
           }
         }
       }
     }
+    inst.amount *= final_more;
 
     // 5. Final Settlement (Crit & Defense)
     float crit_mult = 1.0f;
@@ -416,8 +415,6 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
     float damage_after_res = inst.amount * (1.0f - res);
 
-    // --- NEW: Robust Armor Calculation for Physical Damage ---
-    // --- NEW: Robust Armor Calculation for Physical Damage ---
     if (inst.final_type == Tag::Physical && defender_stats) {
       float armor = defender_stats->armor;
       // Retrieve attacker's Flat Armor Penetration
@@ -502,9 +499,6 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
   // --- Event System: Dispatch combat events ---
   if (!is_simulation) {
-    // Dispatch OnSkillHit for all direct hits (exclude DoT)
-    // Even 0 damage hits should trigger OnHit effects (e.g., mana on hit,
-    // debuff on hit)
     if (!HasTag(combined_hit_tags, Tag::DamageOverTime)) {
       uint64_t cast_id = 0;
       entt::entity actual_attacker = attacker; // Default to the attacker param
@@ -786,16 +780,11 @@ void DamagePipeline::CalculateBatch(
           pf->triggered = true;
           final_damage = 0.0f;
           counter_triggered = true;
-          spdlog::info("Phantom Flash: Counter Triggered by entity {}",
-                       (uint32_t)res.target);
 
-          // Counter Attack: Spawn Gold Sparks aimed at attacker
           if (registry.valid(attacker) && registry.all_of<Position>(attacker) &&
               registry.all_of<Position>(res.target)) {
             const auto &attPos = registry.get<Position>(attacker);
             const auto &defPos = registry.get<Position>(res.target);
-
-            // Cast a counter-projectile
             NoMoreDay::SkillSystem::ShadowCast(registry, res.target, 2,
                                                {defPos.x, defPos.y},
                                                {attPos.x, attPos.y});

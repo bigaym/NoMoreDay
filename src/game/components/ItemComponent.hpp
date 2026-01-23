@@ -1,4 +1,5 @@
 #pragma once
+#include "core/utils/HashUtils.hpp"
 #include "game/components/ItemStats.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/systems/item/LootTable.hpp"
@@ -7,8 +8,6 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
-#include "core/utils/HashUtils.hpp"
-
 
 namespace NoMoreDay {
 
@@ -21,6 +20,17 @@ enum class ItemType {
   Material,
   Quest,
   Bag
+};
+
+enum class WeaponSubtype : uint8_t {
+  None = 0,
+  Sword,
+  Axe,
+  Mace,
+  Staff,
+  Dagger,
+  Bow,
+  Wand
 };
 
 // 为枚举提供简单的序列化支持 (转为底层整数)
@@ -98,13 +108,14 @@ struct ItemComponent {
   float value = 0.0f; // 物品金币价值
 
   // 基础属性
-  float attack = 0.0f;      // 基础武器伤害 (仅武器)
-  float defense = 0.0f;     // 基础护甲防御 (仅护甲)
-  int bagCapacity = 0;      // 背包扩容量 (仅背包)
-  bool isTwoHanded = false; // 是否为双手武器
+  float attack = 0.0f;                               // 基础武器伤害 (仅武器)
+  float defense = 0.0f;                              // 基础护甲防御 (仅护甲)
+  int bagCapacity = 0;                               // 背包扩容量 (仅背包)
+  bool isTwoHanded = false;                          // 是否为双手武器
+  WeaponSubtype weaponSubtype = WeaponSubtype::None; // 武器子类型 (仅武器)
 
   // --- 套装属性 ---
-  std::string setName; // 套装名称 (例如 "Immortal King")
+  std::string setName;      // 套装名称 (例如 "Immortal King")
   uint32_t setNameHash = 0; // 套装名称哈希 (提高战斗属性计算性能)
   std::vector<SetBonus>
       setBonuses; // 套装奖励定义 (通常每件同名套装物品都携带一份相同的定义)
@@ -140,51 +151,73 @@ struct ItemComponent {
 };
 
 // 避免在 JSON 中存储哈希值，反序列化时自动计算
-inline void to_json(nlohmann::json& j, const ItemComponent& i) {
-    j = nlohmann::json{
-        {"id", i.id}, {"name", i.name}, {"type", i.type}, {"slot", i.slot}, {"rarity", i.rarity},
-        {"quantity", i.quantity}, {"maxStack", i.maxStack}, {"value", i.value}, {"attack", i.attack},
-        {"defense", i.defense}, {"bagCapacity", i.bagCapacity}, {"isTwoHanded", i.isTwoHanded},
-        {"setName", i.setName}, {"setBonuses", i.setBonuses}, {"forgingPotential", i.forgingPotential},
-        {"legendaryPotential", i.legendaryPotential}, {"implicits", i.implicits}, {"affixes", i.affixes},
-        {"conversions", i.conversions}, {"damage_modifiers", i.damage_modifiers}, {"socketCount", i.socketCount},
-        {"sockets", i.sockets}, {"textureId", i.textureId}, {"activeRunewordId", i.activeRunewordId},
-        {"description", i.description}, {"isLocked", i.isLocked}
-    };
+inline void to_json(nlohmann::json &j, const ItemComponent &i) {
+  j = nlohmann::json{{"id", i.id},
+                     {"name", i.name},
+                     {"type", i.type},
+                     {"slot", i.slot},
+                     {"rarity", i.rarity},
+                     {"quantity", i.quantity},
+                     {"maxStack", i.maxStack},
+                     {"value", i.value},
+                     {"attack", i.attack},
+                     {"defense", i.defense},
+                     {"bagCapacity", i.bagCapacity},
+                     {"isTwoHanded", i.isTwoHanded},
+                     {"weaponSubtype", static_cast<uint8_t>(i.weaponSubtype)},
+                     {"setName", i.setName},
+                     {"setBonuses", i.setBonuses},
+                     {"forgingPotential", i.forgingPotential},
+                     {"legendaryPotential", i.legendaryPotential},
+                     {"implicits", i.implicits},
+                     {"affixes", i.affixes},
+                     {"conversions", i.conversions},
+                     {"damage_modifiers", i.damage_modifiers},
+                     {"socketCount", i.socketCount},
+                     {"sockets", i.sockets},
+                     {"textureId", i.textureId},
+                     {"activeRunewordId", i.activeRunewordId},
+                     {"description", i.description},
+                     {"isLocked", i.isLocked}};
 }
 
-inline void from_json(const nlohmann::json& j, ItemComponent& i) {
-    j.at("id").get_to(i.id);
-    j.at("name").get_to(i.name);
-    j.at("type").get_to(i.type);
-    j.at("slot").get_to(i.slot);
-    j.at("rarity").get_to(i.rarity);
-    j.at("quantity").get_to(i.quantity);
-    j.at("maxStack").get_to(i.maxStack);
-    j.at("value").get_to(i.value);
-    j.at("attack").get_to(i.attack);
-    j.at("defense").get_to(i.defense);
-    j.at("bagCapacity").get_to(i.bagCapacity);
-    j.at("isTwoHanded").get_to(i.isTwoHanded);
-    j.at("setName").get_to(i.setName);
-    j.at("setBonuses").get_to(i.setBonuses);
-    j.at("forgingPotential").get_to(i.forgingPotential);
-    j.at("legendaryPotential").get_to(i.legendaryPotential);
-    j.at("implicits").get_to(i.implicits);
-    j.at("affixes").get_to(i.affixes);
-    j.at("conversions").get_to(i.conversions);
-    j.at("damage_modifiers").get_to(i.damage_modifiers);
-    j.at("socketCount").get_to(i.socketCount);
-    j.at("sockets").get_to(i.sockets);
-    j.at("textureId").get_to(i.textureId);
-    j.at("activeRunewordId").get_to(i.activeRunewordId);
-    j.at("description").get_to(i.description);
-    if (j.contains("isLocked")) j.at("isLocked").get_to(i.isLocked);
+inline void from_json(const nlohmann::json &j, ItemComponent &i) {
+  j.at("id").get_to(i.id);
+  j.at("name").get_to(i.name);
+  j.at("type").get_to(i.type);
+  j.at("slot").get_to(i.slot);
+  j.at("rarity").get_to(i.rarity);
+  j.at("quantity").get_to(i.quantity);
+  j.at("maxStack").get_to(i.maxStack);
+  j.at("value").get_to(i.value);
+  j.at("attack").get_to(i.attack);
+  j.at("defense").get_to(i.defense);
+  j.at("bagCapacity").get_to(i.bagCapacity);
+  j.at("isTwoHanded").get_to(i.isTwoHanded);
+  if (j.contains("weaponSubtype")) {
+    i.weaponSubtype =
+        static_cast<WeaponSubtype>(j.at("weaponSubtype").get<uint8_t>());
+  }
+  j.at("setName").get_to(i.setName);
+  j.at("setBonuses").get_to(i.setBonuses);
+  j.at("forgingPotential").get_to(i.forgingPotential);
+  j.at("legendaryPotential").get_to(i.legendaryPotential);
+  j.at("implicits").get_to(i.implicits);
+  j.at("affixes").get_to(i.affixes);
+  j.at("conversions").get_to(i.conversions);
+  j.at("damage_modifiers").get_to(i.damage_modifiers);
+  j.at("socketCount").get_to(i.socketCount);
+  j.at("sockets").get_to(i.sockets);
+  j.at("textureId").get_to(i.textureId);
+  j.at("activeRunewordId").get_to(i.activeRunewordId);
+  j.at("description").get_to(i.description);
+  if (j.contains("isLocked"))
+    j.at("isLocked").get_to(i.isLocked);
 
-    // 自动计算哈希
-    if (!i.setName.empty()) {
-        i.setNameHash = NoMoreDay::utils::Hash(i.setName);
-    }
+  // 自动计算哈希
+  if (!i.setName.empty()) {
+    i.setNameHash = NoMoreDay::utils::Hash(i.setName);
+  }
 }
 
 /**

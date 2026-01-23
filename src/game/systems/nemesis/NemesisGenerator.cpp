@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <random>
 
-
 namespace NoMoreDay {
 
 // Nemesis name prefixes based on faction
@@ -26,10 +25,10 @@ static const std::vector<std::string> FACTION_PREFIXES[] = {
 
 // Nemesis name suffixes based on top affixes
 static const std::unordered_map<std::string, std::string> AFFIX_SUFFIXES = {
-    {"Fast", "疾风"},      {"Tanky", "巨岩"},     {"Vampiric", "血饮"},
-    {"Molten", "烈焰"},    {"Shielding", "铁壁"}, {"Mirror Image", "幻影"},
-    {"MirrorImage", "幻影"}, {"Avenger", "复仇者"}, {"Void", "破甲者"},
-    {"VoidZone", "虚空"}, {"Void Zone", "虚空"}, {"StormStrider", "雷行"},
+    {"Fast", "疾风"},          {"Tanky", "巨岩"},      {"Vampiric", "血饮"},
+    {"Molten", "烈焰"},        {"Shielding", "铁壁"},  {"Mirror Image", "幻影"},
+    {"MirrorImage", "幻影"},   {"Avenger", "复仇者"},  {"Void", "破甲者"},
+    {"VoidZone", "虚空"},      {"Void Zone", "虚空"},  {"StormStrider", "雷行"},
     {"Storm Strider", "雷行"}, {"Teleporter", "瞬身"}, {"Berserker", "狂战"}};
 
 bool NemesisGenerator::SpawnNemesisIfReady(entt::registry &registry,
@@ -280,6 +279,7 @@ entt::entity NemesisGenerator::CreateNemesisEntity(
   nemesis_comp.counter_resistances = resistances;
   nemesis_comp.display_name = GenerateDisplayName(faction, affixes);
   nemesis_comp.nemesis_id = NemesisDataStore::Get().GenerateNemesisId();
+  nemesis_comp.gold_value = evolution_tier * 1000;
   registry.emplace<NemesisTag>(entity);
 
   // Faction

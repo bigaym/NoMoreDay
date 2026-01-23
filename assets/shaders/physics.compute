@@ -13,7 +13,8 @@ struct Entity {
     float padding[7];  // 28 - Padding to 64 bytes
 };
 
-layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };
+layout(std430, binding = 1) buffer InEntityBuffer { Entity inEntities[]; };
+layout(std430, binding = 5) buffer OutEntityBuffer { Entity outEntities[]; };
 layout(std430, binding = 2) buffer CellCountBuffer { uint cellCounts[]; };
 layout(std430, binding = 3) buffer CellOffsetBuffer { uint cellOffsets[]; };
 layout(std430, binding = 4) buffer EntityIndicesBuffer { uint entityIndices[]; };
@@ -24,6 +25,7 @@ uniform int maxEntities;
 uniform float cellSize;
 uniform int gridCols;
 uniform int gridRows;
+uniform float mapBoundary = 5000.0;
 
 uniform int flowWidth;
 uniform int flowHeight;
@@ -32,19 +34,28 @@ uniform float flowCellSize = 10.0;
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-    if (id >= maxEntities || entities[id].radius <= 0.0) return;
+    if (id >= maxEntities || inEntities[id].radius <= 0.0) {
+        // Must copy inactive entities too to maintain parity if needed, 
+        // but since we sync from CPU every frame, we just need to ensure 
+        // active ones are calculated. 
+        // Actually, since we are double buffering, we MUST copy the state 
+        // even if we don't update it, or at least zero it out.
+        if (id < maxEntities) {
+            outEntities[id] = inEntities[id];
+        }
+        return;
+    }
 
-    vec2 pos = entities[id].position;
-    vec2 vel = entities[id].velocity;
-    float radius = entities[id].radius;
+    Entity e = inEntities[id];
+    vec2 pos = e.position;
+    vec2 vel = e.velocity;
+    float radius = e.radius;
 
     // [INTERPOLATION] Save current position as previous BEFORE physics update
-    // This allows the renderer to interpolate between prevPosition and position
-    entities[id].prevPosition = pos;
+    e.prevPosition = pos;
 
     // 0. Steering (Flow Field) - Only for Enemies (type != 0)
-    if (entities[id].type != 0) {
-        // Calculate grid coordinates for flow field
+    if (e.type != 0) {
         vec2 relativePos = pos - flowOrigin;
         int fx = int(relativePos.x / flowCellSize);
         int fy = int(relativePos.y / flowCellSize);
@@ -52,26 +63,20 @@ void main() {
         if (fx >= 0 && fx < flowWidth && fy >= 0 && fy < flowHeight) {
             uint flowIdx = uint(fy * flowWidth + fx);
             vec2 flowDir = flow[flowIdx];
-            
-            // Apply steering force if there's a valid flow
             if (length(flowDir) > 0.01) {
-                float speed = 150.0; // Desired movement speed for enemies
+                float speed = 150.0; 
                 float steerForce = 400.0;
-                
                 vec2 desiredVel = flowDir * speed;
                 vec2 steer = desiredVel - vel;
-                // Apply steering force smoothly
                 vel += steer * steerForce * dt * 0.1; 
             }
         }
     }
 
     // 1. Collision Detection (Spatial Hash Grid)
-    // Only resolve collisions if the entity has a valid radius
     int cx = int(pos.x / cellSize);
     int cy = int(pos.y / cellSize);
 
-    // Check 9 neighboring cells
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
             int ncx = cx + x;
@@ -86,8 +91,8 @@ void main() {
                 uint neighborId = entityIndices[offset + i];
                 if (neighborId == id) continue;
 
-                vec2 nPos = entities[neighborId].position;
-                float nRadius = entities[neighborId].radius;
+                vec2 nPos = inEntities[neighborId].position;
+                float nRadius = inEntities[neighborId].radius;
                 
                 vec2 diff = pos - nPos;
                 float distSq = dot(diff, diff);
@@ -97,30 +102,26 @@ void main() {
                     float dist = sqrt(distSq);
                     vec2 normal = diff / dist;
                     float overlap = minDist - dist;
-                    
-                    // Apply repulsion force to velocity
-                    vel += normal * overlap * 10.0; // Fixed strength factor
+                    vel += normal * overlap * 10.0; 
                 }
             }
         }
     }
 
     // 2. Integration
-    // Skip integration for Kinematic entities (moved by CPU)
-    if ((entities[id].flags & 1u) == 0u) {
+    if ((e.flags & 1u) == 0u) {
         pos += vel * dt;
-        
-        // Air resistance/Friction
         vel *= pow(0.92, dt * 60.0);
 
         // 3. Boundary Collision
         if (pos.x < 0.0) { pos.x = 0.0; vel.x *= -0.5; }
-        if (pos.x > 5000.0) { pos.x = 5000.0; vel.x *= -0.5; }
+        if (pos.x > mapBoundary) { pos.x = mapBoundary; vel.x *= -0.5; }
         if (pos.y < 0.0) { pos.y = 0.0; vel.y *= -0.5; }
-        if (pos.y > 5000.0) { pos.y = 5000.0; vel.y *= -0.5; }
+        if (pos.y > mapBoundary) { pos.y = mapBoundary; vel.y *= -0.5; }
     }
 
-    // Write back
-    entities[id].position = pos;
-    entities[id].velocity = vel;
+    // Write back to OUT buffer
+    e.position = pos;
+    e.velocity = vel;
+    outEntities[id] = e;
 }

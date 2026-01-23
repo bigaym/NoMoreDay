@@ -8,7 +8,6 @@
 #include <unordered_map> // Keep this include for s_runes and s_runewords
 #include <vector>
 
-
 namespace NoMoreDay {
 
 // Simple map for stats: "stat_name" -> value
@@ -43,6 +42,7 @@ struct RunewordDefinition {
   std::string name;
   std::vector<std::string> runes; // e.g. ["Tal", "Eth"]
   std::vector<ItemType> allowedTypes;
+  std::vector<WeaponSubtype> allowedSubtypes; // e.g. [Sword, Axe]
   AffixStats stats;
 };
 

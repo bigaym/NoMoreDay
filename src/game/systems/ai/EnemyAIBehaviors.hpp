@@ -2,8 +2,8 @@
 
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include "game/systems/world/MapSystem.hpp"
 #include <entt/entt.hpp>
-
 
 namespace NoMoreDay::AI {
 
@@ -30,6 +30,7 @@ void UpdateSupportBehavior(entt::registry &registry, entt::entity entity,
  */
 void UpdateAssassinBehavior(entt::registry &registry, entt::entity entity,
                             AIComponent &ai, Position &pos, Velocity &vel,
+                            const MapSystem &mapSystem,
                             const Position &playerPos, float dt);
 
 /**
@@ -63,6 +64,7 @@ void ApplyBuffToNearbyAllies(entt::registry &registry, entt::entity source,
  * @return 是否成功执行背刺
  */
 bool ExecuteBackstab(entt::registry &registry, entt::entity assassin,
-                     const Position &playerPos, float backstabMultiplier);
+                     const MapSystem &mapSystem, const Position &playerPos,
+                     float backstabMultiplier);
 
 } // namespace NoMoreDay::AI

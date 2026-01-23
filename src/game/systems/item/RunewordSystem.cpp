@@ -8,21 +8,30 @@ namespace NoMoreDay {
 std::unordered_map<uint32_t, RuneDefinition> RunewordSystem::s_runes;
 std::unordered_map<uint32_t, RunewordDefinition> RunewordSystem::s_runewords;
 
-// Helper to parse strings to ItemType
 static ItemType parseItemType(const std::string &typeStr) {
   static const std::unordered_map<std::string, ItemType> kStringToType = {
-      {"Armor", ItemType::Armor},
-      {"Weapon", ItemType::Weapon},
-      {"Shield", ItemType::Shield},
-      {"Axe", ItemType::Weapon},
-      {"Sword", ItemType::Weapon},
-      {"Mace", ItemType::Weapon},
-      {"Staff", ItemType::Weapon}
-  };
+      {"Weapon", ItemType::Weapon},         {"Armor", ItemType::Armor},
+      {"Shield", ItemType::Shield},         {"Jewelry", ItemType::Jewelry},
+      {"Consumable", ItemType::Consumable}, {"Material", ItemType::Material},
+      {"Quest", ItemType::Quest},           {"Bag", ItemType::Bag}};
 
   auto it = kStringToType.find(typeStr);
-  if (it != kStringToType.end()) return it->second;
+  if (it != kStringToType.end())
+    return it->second;
   return ItemType::Material;
+}
+
+static WeaponSubtype parseWeaponSubtype(const std::string &typeStr) {
+  static const std::unordered_map<std::string, WeaponSubtype> kStringToSubtype =
+      {{"Sword", WeaponSubtype::Sword},   {"Axe", WeaponSubtype::Axe},
+       {"Mace", WeaponSubtype::Mace},     {"Staff", WeaponSubtype::Staff},
+       {"Dagger", WeaponSubtype::Dagger}, {"Bow", WeaponSubtype::Bow},
+       {"Wand", WeaponSubtype::Wand}};
+
+  auto it = kStringToSubtype.find(typeStr);
+  if (it != kStringToSubtype.end())
+    return it->second;
+  return WeaponSubtype::None;
 }
 
 void RunewordSystem::initialize() {
@@ -84,6 +93,14 @@ void RunewordSystem::loadRunewords(const std::string &path) {
           rwJson.at("allowed_types").get<std::vector<std::string>>();
       for (const auto &t : types) {
         rw.allowedTypes.push_back(parseItemType(t));
+      }
+
+      if (rwJson.contains("allowed_subtypes")) {
+        std::vector<std::string> subTypes =
+            rwJson.at("allowed_subtypes").get<std::vector<std::string>>();
+        for (const auto &st : subTypes) {
+          rw.allowedSubtypes.push_back(parseWeaponSubtype(st));
+        }
       }
 
       if (rwJson.contains("stats"))
@@ -152,11 +169,24 @@ RunewordSystem::checkForRuneword(const ItemComponent &item,
         typeMatch = true;
         break;
       }
-      // TODO: Granular checks (e.g. "Sword" vs "Mace") would go here using item
-      // name or tags
     }
-    if (typeMatch)
-      return id;
+    if (!typeMatch)
+      continue;
+
+    // Check Allowed Subtype (for Weapons)
+    if (item.type == ItemType::Weapon && !word.allowedSubtypes.empty()) {
+      bool subtypeMatch = false;
+      for (auto allowed : word.allowedSubtypes) {
+        if (allowed == item.weaponSubtype) {
+          subtypeMatch = true;
+          break;
+        }
+      }
+      if (!subtypeMatch)
+        continue;
+    }
+
+    return id;
   }
 
   return 0;
@@ -206,11 +236,11 @@ static AffixType stringToAffixType(const std::string &key) {
       {"fhr", AffixType::CooldownReduction},
       {"all_skills", AffixType::PlusAllSkills},
       {"magic_damage_reduced", AffixType::DamageReduction},
-      {"mdr", AffixType::DamageReduction}
-  };
+      {"mdr", AffixType::DamageReduction}};
 
   auto it = kStringToAffixType.find(key);
-  if (it != kStringToAffixType.end()) return it->second;
+  if (it != kStringToAffixType.end())
+    return it->second;
 
   return AffixType::Count;
 }
@@ -256,11 +286,10 @@ void RunewordSystem::removeRuneword(ItemComponent &item) {
   // Remove all affixes tagged as Runeword Bonus (Tier 10)
   // std::remove_if doesn't resizing vector automatically? actually erase-remove
   // idiom.
-  item.affixes.erase(std::remove_if(item.affixes.begin(), item.affixes.end(),
-                                    [](const Affix &a) {
-                                      return a.tier == 10;
-                                    }),
-                     item.affixes.end());
+  item.affixes.erase(
+      std::remove_if(item.affixes.begin(), item.affixes.end(),
+                     [](const Affix &a) { return a.tier == 10; }),
+      item.affixes.end());
 
   item.activeRunewordId = 0;
   item.rarity =
