@@ -299,10 +299,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Attribute Pipeline Cleanup
-- **Folder:** [./conductor/tracks/cleanup_attribute_pipeline/](./conductor/tracks/cleanup_attribute_pipeline/)
-- **Description:** Remove deprecated PhaseX interfaces from AttributePipeline and refactor tests to verify the unified Calculate logic directly.
-- **Status:** IN PROGRESS
+## [x] Track: Attribute Pipeline Cleanup
+- **Folder:** [./conductor/archive/cleanup_attribute_pipeline_20260123/](./conductor/archive/cleanup_attribute_pipeline_20260123/)
+- **Description:** 移除 AttributePipeline 中废弃的 PhaseX 接口与其内部实现，并重构单元测试直接验证统一的 Calculate 逻辑，提升系统简洁性与可维护性。(Completed on 2026-01-23)
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2 hours
 

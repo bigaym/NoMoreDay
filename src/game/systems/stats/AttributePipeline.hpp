@@ -24,33 +24,8 @@ public:
   static void ToGPU(const CombatStats &src,
                     NoMoreDay::components::GPUVisualStats &dst);
 
-  // Internal Phases exposed for testing
-  static void Phase2_ResolvePrimary(CombatStats &stats,
-                                    const std::vector<StatModifier> &modifiers,
-                                    int level);
-
-  static void
-  Phase3_ResolveSecondary(CombatStats &stats,
-                          const std::vector<StatModifier> &modifiers);
-
-  static void Phase4_BakeEffective(CombatStats &stats, int level);
-
-private:
-  // Pipeline Phases
-  static void Phase0_Initialize(entt::registry &registry, entt::entity entity,
-                                CombatStats &stats, CalculationContext &ctx);
-
-  static void Phase1_GatherModifiers(entt::registry &registry,
-                                     entt::entity entity,
-                                     const CalculationContext &ctx,
-                                     std::vector<StatModifier> &out_modifiers);
-
-  static void Phase5_GPUSync(entt::registry &registry, entt::entity entity,
-                             const CombatStats &stats);
-
   // Helpers
-  static float CalculateFinalValue(float base, StatType type,
-                                   const std::vector<StatModifier> &modifiers);
+  // (None currently)
 };
 
 } // namespace NoMoreDay

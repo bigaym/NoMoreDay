@@ -534,11 +534,10 @@ void AttributePipeline::Calculate(entt::registry &registry,
       float dmgBonus = se->stacks * se->damagePerStack;
       float asBonus = se->stacks * se->attackSpeedPerStack;
       for (int i = 0; i < 6; ++i)
-        ApplyStatModifier(
-            calcs,
-            static_cast<StatType>(static_cast<int>(StatType::PhysicalDamage) +
-                                  i),
-            ModifierMode::PercentAdd, dmgBonus);
+        ApplyStatModifier(calcs,
+                          static_cast<StatType>(
+                              static_cast<int>(StatType::PhysicalDamage) + i),
+                          ModifierMode::PercentAdd, dmgBonus);
       ApplyStatModifier(calcs, StatType::AttackSpeed, ModifierMode::PercentAdd,
                         asBonus);
     }
@@ -547,11 +546,10 @@ void AttributePipeline::Calculate(entt::registry &registry,
     if (av->avengerStacks > 0) {
       float dmgBonus = av->avengerStacks * av->damagePerStack * 100.0f;
       for (int i = 0; i < 6; ++i)
-        ApplyStatModifier(
-            calcs,
-            static_cast<StatType>(static_cast<int>(StatType::PhysicalDamage) +
-                                  i),
-            ModifierMode::PercentAdd, dmgBonus);
+        ApplyStatModifier(calcs,
+                          static_cast<StatType>(
+                              static_cast<int>(StatType::PhysicalDamage) + i),
+                          ModifierMode::PercentAdd, dmgBonus);
     }
   }
 
@@ -577,10 +575,6 @@ void AttributePipeline::Calculate(entt::registry &registry,
       }
     }
   }
-
-  // Phase 2: Resolve Primary & Conversions
-  std::vector<StatModifier> dummy_mods; // Placeholder for legacy phase call
-  Phase2_ResolvePrimary(stats, dummy_mods, 1); // We'll update the body to use calcs
 
   // Phase 2: Resolve Primary & Conversions (Revised)
   float str = calcs[static_cast<size_t>(StatType::Strength)].Result();
@@ -732,16 +726,6 @@ void AttributePipeline::ToGPU(const CombatStats &src,
   // Pack Color (White default)
   uint32_t r = 255, g = 255, b = 255, a = 255;
   dst.glowColorPacked = (a << 24) | (b << 16) | (g << 8) | r;
-}
-
-// Phase functions kept for test compliance, but main logic is in Calculate for now
-void AttributePipeline::Phase2_ResolvePrimary(CombatStats &stats, const std::vector<StatModifier> &modifiers, int level) {}
-void AttributePipeline::Phase3_ResolveSecondary(CombatStats &stats, const std::vector<StatModifier> &modifiers) {}
-void AttributePipeline::Phase4_BakeEffective(CombatStats &stats, int level) {}
-
-float AttributePipeline::CalculateFinalValue(
-    float base, StatType type, const std::vector<StatModifier> &modifiers) {
-  return base;
 }
 
 } // namespace NoMoreDay
