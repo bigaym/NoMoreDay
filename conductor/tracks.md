@@ -290,14 +290,22 @@ This file tracks all major tracks for the project. Each track has its own detail
 \
 ---
 
-## [ ] Track: Attribute Calculation & Visualization Pipeline
-- **Folder:** [./conductor/tracks/attribute_pipeline_design/](./conductor/tracks/attribute_pipeline_design/)
+## [x] Track: Attribute Calculation & Visualization Pipeline
+- **Folder:** [./conductor/archive/attribute_pipeline_design_20260123/](./conductor/archive/attribute_pipeline_design_20260123/)
 - **Description:** Design and implement a high-performance attribute calculation pipeline with support for complex modifiers, conversions, and direct GPU visual feedback.
-- **Status:** PLANNED
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 4.5 days
-\
-\
+
+---
+
+## [ ] Track: Attribute Pipeline Cleanup
+- **Folder:** [./conductor/tracks/cleanup_attribute_pipeline/](./conductor/tracks/cleanup_attribute_pipeline/)
+- **Description:** Remove deprecated PhaseX interfaces from AttributePipeline and refactor tests to verify the unified Calculate logic directly.
+- **Status:** IN PROGRESS
+- **Priority:** HIGH
+- **Estimated Time:** 2 hours
+
 ---
 
 ## [ ] Track: Rendering Performance Validation
@@ -306,12 +314,11 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** PLANNED
 - **Priority:** HIGH
 - **Estimated Time:** 1 day
-\
-\
+
 ---
 
-## [ ] Track: Core Risk Remediation
-- **Folder:** [./conductor/tracks/core_risk_remediation_20260122/](./conductor/tracks/core_risk_remediation_20260122/)
+## [x] Track: Core Risk Remediation
+- **Folder:** [./conductor/archive/core_risk_remediation_20260122/](./conductor/archive/core_risk_remediation_20260122/)
 - **Description:** Comprehensive remediation of core risks identified in the code audit, including Rendering Sync, Memory Safety, and Combat Logic.
 - **Status:** COMPLETED
 - **Priority:** CRITICAL

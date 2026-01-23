@@ -4,6 +4,7 @@ in vec2 vTexCoord;
 in vec2 vLocalPos;
 flat in uint vTextureIndex;
 flat in uint vFlags;
+flat in float vGlow;
 
 out vec4 fragColor;
 
@@ -24,6 +25,11 @@ void main() {
     
     // Simple debug visualization for other types if needed (e.g. textureIndex > 0)
     if (vTextureIndex == 1) color = vec3(0.3, 1.0, 0.3);
+
+    // Apply Glow (Visual Stats)
+    if (vGlow > 0.0) {
+        color += vec3(vGlow * 0.8, vGlow * 0.8, vGlow * 1.0); // Blue-ish tint for barrier/glow
+    }
     
     fragColor = vec4(color, alpha);
 }

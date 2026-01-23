@@ -16,6 +16,19 @@ struct InstanceData {
 layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
 layout(std430, binding = 1) readonly buffer VisibleIndices { uint visibleIndices[]; };
 
+struct GPUVisualStats {
+    float weaponDamage;
+    float attackSpeed;
+    float critChance;
+    float critDamage;
+    float defenseRating;
+    float statusStrength;
+    float glowIntensity;
+    uint glowColorPacked;
+    float padding[8];
+};
+layout(std430, binding = 3) readonly buffer StatsBuffer { GPUVisualStats stats[]; };
+
 uniform mat4 viewProj;
 uniform float interpolationFactor; // Alpha factor [0, 1] for smooth interpolation between physics frames
 
@@ -23,6 +36,7 @@ out vec2 vTexCoord;
 out vec2 vLocalPos;
 flat out uint vTextureIndex;
 flat out uint vFlags;
+flat out float vGlow;
 
 void main() {
     uint entityId = visibleIndices[gl_InstanceID];
@@ -56,4 +70,5 @@ void main() {
     vLocalPos = aPos * 2.0; // [-1, 1] for circle SDF
     vTextureIndex = e.type;
     vFlags = e.flags;
+    vGlow = stats[entityId].glowIntensity;
 }

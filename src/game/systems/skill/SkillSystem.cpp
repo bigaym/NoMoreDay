@@ -2,8 +2,8 @@
 #include "core/logging/Logger.hpp"
 #include "core/utils/FrameRateUtils.hpp" // Frame-rate independent utilities
 #include "engine/physics/SpatialGrid.hpp"
-#include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/AIComponent.hpp" // For EnemyTag
 #include "game/components/Buff.hpp"
@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <map>
 #include <unordered_set>
+
 
 namespace NoMoreDay {
 
@@ -93,17 +94,19 @@ void SkillSystem::InitHooks() {
                  exec.skill_id, (uint32_t)caster);
 
         // Spawn Sword Intent Burst Visual Effect
-        if (auto* pos = registry.try_get<Position>(caster)) {
-             auto vfxEntity = registry.create();
-             registry.emplace<Position>(vfxEntity, *pos);
-             registry.emplace<VisualEffect>(vfxEntity, VisualEffect{
-                 .type = VisualEffectType::SwordIntentBurst,
-                 .timer = 0.0f,
-                 .lifeTime = 0.4f,
-                 .startScale = 0.2f,
-                 .endScale = 1.8f,
-                 .color = NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT
-             });
+        if (auto *pos = registry.try_get<Position>(caster)) {
+          auto vfxEntity = registry.create();
+          registry.emplace<Position>(vfxEntity, *pos);
+          registry.emplace<VisualEffect>(
+              vfxEntity,
+              VisualEffect{
+                  .type = VisualEffectType::SwordIntentBurst,
+                  .timer = 0.0f,
+                  .lifeTime = 0.4f,
+                  .startScale = 0.2f,
+                  .endScale = 1.8f,
+                  .color =
+                      NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT});
         }
       }
     }
@@ -160,7 +163,8 @@ void SkillSystem::InitHooks() {
               intent->stacks++;
               intent->time_since_last_gain = 0.0f;
               intent->decay_tick_timer = 0.0f;
-              registry.get_or_emplace<StatsDirty>(caster); // NEW: Notify stats system
+              registry.get_or_emplace<StatsDirty>(
+                  caster); // NEW: Notify stats system
               LOG_INFO("Sword Intent: Entity {} gained stack via skill {} hit. "
                        "Stacks: {}/{}",
                        (uint32_t)caster, evt.skill_id, intent->stacks,
@@ -272,8 +276,9 @@ void SkillSystem::Update(entt::registry &registry,
           float dr_per_sword = 2.0f * spec.allocated_points.at(320);
           float total_dr = formation.current_swords * dr_per_sword;
 
-          bladeDR.modifiers.push_back(
-              {StatType::ResistAll, ModifierMode::Flat, total_dr});
+          bladeDR.modifiers.push_back({.value = total_dr,
+                                       .type = StatType::ResistAll,
+                                       .mode = ModifierMode::Flat});
           effects.AddOrRefresh(bladeDR);
           break;
         }
@@ -380,85 +385,99 @@ void SkillSystem::Update(entt::registry &registry,
     if (chan.tick_timer <= 0.0f) {
       if (chan.skill_id == 5) {
         // Infinite Blades (Wan Jian Gui Zong)
-        
+
         // 1. Determine Count (Base 2 per 0.2s - Smoother stream)
-        int projectileCount = 2; 
+        int projectileCount = 2;
         if (chan.extra_projectiles) {
-             projectileCount += 2; // 4 total
+          projectileCount += 2; // 4 total
         }
 
         // 2. Target Logic (Full Screen Lock check)
         Vector2 targetPos = chan.target_pos;
         if (chan.full_screen_lock) {
-             float bestDistSq = 900.0f * 900.0f;
-             entt::entity bestTarget = entt::null;
-             grid.query({targetPos.x, targetPos.y}, 900.0f, [&](entt::entity e, const Position &ep) {
-                if (registry.any_of<EnemyTag>(e) && !registry.any_of<KilledTag>(e)) {
-                     float distSq = Vector2DistanceSqr({targetPos.x, targetPos.y}, {ep.x, ep.y});
-                     if (distSq < bestDistSq) { bestDistSq = distSq; bestTarget = e; }
-                }
-             });
-             if (registry.valid(bestTarget) && registry.all_of<Position>(bestTarget)) {
-                 const auto& tp = registry.get<Position>(bestTarget);
-                 targetPos = {tp.x, tp.y};
-             }
+          float bestDistSq = 900.0f * 900.0f;
+          entt::entity bestTarget = entt::null;
+          grid.query({targetPos.x, targetPos.y}, 900.0f,
+                     [&](entt::entity e, const Position &ep) {
+                       if (registry.any_of<EnemyTag>(e) &&
+                           !registry.any_of<KilledTag>(e)) {
+                         float distSq = Vector2DistanceSqr(
+                             {targetPos.x, targetPos.y}, {ep.x, ep.y});
+                         if (distSq < bestDistSq) {
+                           bestDistSq = distSq;
+                           bestTarget = e;
+                         }
+                       }
+                     });
+          if (registry.valid(bestTarget) &&
+              registry.all_of<Position>(bestTarget)) {
+            const auto &tp = registry.get<Position>(bestTarget);
+            targetPos = {tp.x, tp.y};
+          }
         }
-        
-        Vector2 dirToTarget = Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
-        
+
+        Vector2 dirToTarget =
+            Vector2Normalize(Vector2Subtract(targetPos, {pos.x, pos.y}));
+
         // 3. Loop and Spawn
-        for(int i=0; i<projectileCount; ++i) {
-             float spreadAmt = (float)GetRandomValue(-20, 20) * DEG2RAD; 
-             Vector2 fireDir = Vector2Rotate(dirToTarget, spreadAmt);
-             
-             auto proj_ent = registry.create();
-             registry.emplace<LocalLevelTag>(proj_ent);
-             registry.emplace<ShadowCastTag>(proj_ent); 
-             // Spawn a bit forward
-             registry.emplace<Position>(proj_ent, pos.x + fireDir.x * 20.0f, pos.y + fireDir.y * 20.0f);
-             
-             float speed = 1000.0f;
-             registry.emplace<Velocity>(proj_ent, fireDir.x * speed, fireDir.y * speed);
-             
-             // Visuals: Deep Sky Blue for body + White Rim (from Shader).
-             // Using manual Color value for stronger presence than BLADE_CYAN.
-             Color swordColor = chan.is_empowered ? GOLD : ColorAlpha(Color{0, 170, 255, 255}, 0.5f);
-             registry.emplace<ColorComponent>(proj_ent, swordColor);
+        for (int i = 0; i < projectileCount; ++i) {
+          float spreadAmt = (float)GetRandomValue(-20, 20) * DEG2RAD;
+          Vector2 fireDir = Vector2Rotate(dirToTarget, spreadAmt);
 
-             auto& proj = registry.emplace<Projectile>(proj_ent);
-             proj.owner = entity;
-             proj.cast_id = chan.cast_id;
-             proj.radius = 35.0f; 
-             proj.speed = speed;
-             proj.lifeTime = 1.2f;
-             proj.visualType = 2; // SWORD
+          auto proj_ent = registry.create();
+          registry.emplace<LocalLevelTag>(proj_ent);
+          registry.emplace<ShadowCastTag>(proj_ent);
+          // Spawn a bit forward
+          registry.emplace<Position>(proj_ent, pos.x + fireDir.x * 20.0f,
+                                     pos.y + fireDir.y * 20.0f);
 
-             // Stats & Damage
-             if (auto *stats = registry.try_get<CombatStats>(entity)) {
-                  proj.snapshot = *stats;
-                  // Scale damage: 35% per sword
-                  for(auto& mult : proj.snapshot.damage_multipliers) {
-                      mult *= 0.35f;
-                  }
-             }
+          float speed = 1000.0f;
+          registry.emplace<Velocity>(proj_ent, fireDir.x * speed,
+                                     fireDir.y * speed);
 
-             // CRITICAL: Add SkillComponent so DamagePipeline knows this is Skill 5
-             auto &sc = registry.emplace<SkillComponent>(proj_ent);
-             sc.skill_id = 5;
-             
-             // VFX: Flash on spawn
-             auto &particleSys = systems::GPUParticleSystem::Get();
-             components::GPUParticle p;
-             p.position = {pos.x + fireDir.x * 30.0f, pos.y + fireDir.y * 30.0f};
-             p.velocity = Vector2Scale(fireDir, 200.0f);
-             p.color = chan.is_empowered ? GOLD : ColorAlpha(WHITE, 0.6f);
-             p.lifetime = 0.2f; p.maxLifetime = 0.2f; p.scale = 1.8f; p.flags = 2;
-             particleSys.Emit(p);
+          // Visuals: Deep Sky Blue for body + White Rim (from Shader).
+          // Using manual Color value for stronger presence than BLADE_CYAN.
+          Color swordColor = chan.is_empowered
+                                 ? GOLD
+                                 : ColorAlpha(Color{0, 170, 255, 255}, 0.5f);
+          registry.emplace<ColorComponent>(proj_ent, swordColor);
+
+          auto &proj = registry.emplace<Projectile>(proj_ent);
+          proj.owner = entity;
+          proj.cast_id = chan.cast_id;
+          proj.radius = 35.0f;
+          proj.speed = speed;
+          proj.lifeTime = 1.2f;
+          proj.visualType = 2; // SWORD
+
+          // Stats & Damage
+          if (auto *stats = registry.try_get<CombatStats>(entity)) {
+            proj.snapshot = *stats;
+            // Scale damage: 35% per sword
+            for (auto &mult : proj.snapshot.damage_multipliers) {
+              mult *= 0.35f;
+            }
+          }
+
+          // CRITICAL: Add SkillComponent so DamagePipeline knows this is Skill
+          // 5
+          auto &sc = registry.emplace<SkillComponent>(proj_ent);
+          sc.skill_id = 5;
+
+          // VFX: Flash on spawn
+          auto &particleSys = systems::GPUParticleSystem::Get();
+          components::GPUParticle p;
+          p.position = {pos.x + fireDir.x * 30.0f, pos.y + fireDir.y * 30.0f};
+          p.velocity = Vector2Scale(fireDir, 200.0f);
+          p.color = chan.is_empowered ? GOLD : ColorAlpha(WHITE, 0.6f);
+          p.lifetime = 0.2f;
+          p.maxLifetime = 0.2f;
+          p.scale = 1.8f;
+          p.flags = 2;
+          particleSys.Emit(p);
         }
-        
+
         chan.tick_timer = 0.2f; // Reset timer (Must match tick_interval)
-
-
 
       } else if (chan.skill_id == 7) {
         // Heart Sword: Shadowless (Spatial Cut)
@@ -762,32 +781,33 @@ void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
         continue;
 
       if (slot.current_charges < data->max_charges) {
-        // Paused Cooldown Logic: If channeling THIS skill, do not reduce cooldown.
-        // This ensures the cooldown effectively starts AFTER channeling (or duration is added).
+        // Paused Cooldown Logic: If channeling THIS skill, do not reduce
+        // cooldown. This ensures the cooldown effectively starts AFTER
+        // channeling (or duration is added).
         bool isChannelingThis = false;
         if (auto *chan = registry.try_get<ChannelingComponent>(entity)) {
-             if (chan->skill_id == slot.id) {
-                 isChannelingThis = true;
-             }
+          if (chan->skill_id == slot.id) {
+            isChannelingThis = true;
+          }
         }
-        
+
         if (!isChannelingThis) {
-            slot.cooldown -= dt;
-            if (slot.cooldown <= 0.0f) {
-              slot.current_charges++;
-              if (slot.current_charges < data->max_charges) {
-                auto *stats = registry.try_get<CombatStats>(entity);
-                float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
-                float cdr = StatsSystem::GetStatWithTags(
-                                registry, entity, StatType::CooldownReduction,
-                                data->tags, slot.id) /
-                            100.0f;
-                slot.cooldown =
-                    (data->cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
-              } else {
-                slot.cooldown = 0.0f;
-              }
+          slot.cooldown -= dt;
+          if (slot.cooldown <= 0.0f) {
+            slot.current_charges++;
+            if (slot.current_charges < data->max_charges) {
+              auto *stats = registry.try_get<CombatStats>(entity);
+              float recovery = stats ? stats->cooldown_recovery_speed : 1.0f;
+              float cdr = StatsSystem::GetStatWithTags(
+                              registry, entity, StatType::CooldownReduction,
+                              data->tags, slot.id) /
+                          100.0f;
+              slot.cooldown =
+                  (data->cooldown / recovery) * (1.0f - std::min(0.75f, cdr));
+            } else {
+              slot.cooldown = 0.0f;
             }
+          }
         }
       }
     }

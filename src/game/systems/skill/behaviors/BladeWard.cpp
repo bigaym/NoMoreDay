@@ -51,14 +51,29 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     ward_buff.duration = 10.0f;
     ward_buff.remaining = 10.0f;
 
-    ward_buff.modifiers.push_back(
-        {StatType::ResistPhysical, ModifierMode::Flat, phys_dr});
-    if (elemental_res > 0)
-      ward_buff.modifiers.push_back(
-          {StatType::ResistAll, ModifierMode::Flat, elemental_res});
-    if (block_inc > 0)
-      ward_buff.modifiers.push_back(
-          {StatType::BlockChance, ModifierMode::Flat, block_inc});
+    ward_buff.modifiers.push_back({.value = phys_dr,
+                                   .type = StatType::ResistPhysical,
+                                   .mode = ModifierMode::Flat});
+
+    // Get the ActiveSkillsComponent to check specialized slots
+    auto active = registry.try_get<ActiveSkillsComponent>(owner);
+    if (active) {
+      // 210: Elemental Resistance
+      if (active->specialized_slots[0].allocated_points.contains(210)) {
+        float elemental_res = 15.0f;
+        ward_buff.modifiers.push_back({.value = elemental_res,
+                                       .type = StatType::ResistAll,
+                                       .mode = ModifierMode::Flat});
+      }
+
+      // 220: Block Chance
+      if (active->specialized_slots[0].allocated_points.contains(220)) {
+        float block_inc = 10.0f;
+        ward_buff.modifiers.push_back({.value = block_inc,
+                                       .type = StatType::BlockChance,
+                                       .mode = ModifierMode::Flat});
+      }
+    }
 
     registry.get_or_emplace<ActiveEffectsComponent>(owner).AddOrRefresh(
         ward_buff);

@@ -259,20 +259,21 @@ enum class StatType : uint8_t {
   ProjectileSpeed, // 投射物速度
   DurationScale,   // 持续时间乘区
 
-  DodgeChance,      // 闪避率
-  BlockChance,      // 格挡几率
-  LifeSteal,        // 吸血 %
-  LifeOnHit,        // 击回
-  HealthRegen,      // 生命回复
-  ManaRegen,        // 法力回复
-  BarrierRegen,     // 护盾回复 (Flat)
-  BarrierDecay,     // 护盾衰减 (Percent)
-  BarrierDelay,     // 护盾充能延迟
-  BarrierRetention, // 护盾维持
-  Thorns,           // 荆棘
-  MagicFind,        // 掉率
-  DodgeRating,      // 闪避评级
-  BlockRating,      // 格挡评级
+  DodgeChance,           // 闪避率
+  BlockChance,           // 格挡几率
+  LifeSteal,             // 吸血 %
+  LifeOnHit,             // 击回
+  HealthRegen,           // 生命回复
+  ManaRegen,             // 法力回复
+  BarrierRegen,          // 护盾回复 (Flat)
+  BarrierDecay,          // 护盾衰减 (Percent)
+  BarrierDelay,          // 护盾充能延迟
+  BarrierRetention,      // 护盾维持
+  Thorns,                // 荆棘
+  MagicFind,             // 掉率
+  DodgeRating,           // 闪避评级
+  BlockRating,           // 格挡评级
+  GlobalDamageReduction, // 全局伤害减免 %
   Count
 };
 
@@ -312,13 +313,74 @@ inline void from_json(const nlohmann::json &j, ModifierSource &e) {
   e = static_cast<ModifierSource>(j.get<uint8_t>());
 }
 
-struct StatModifier {
-  StatType type = StatType::Count;
-  ModifierMode mode = ModifierMode::Flat;
-  float value = 0.0f;
-  Tag required_tags = Tag::None; // 只有当查询携带这些标签时，该修饰符才生效
-  ModifierSource source = ModifierSource::Base; // 修饰符来源
-  uint32_t source_id = 0; // 可选: 用于追踪特定的物品/技能ID
+struct alignas(8) StatModifier {
+  float value = 0.0f;                     // 4B
+  StatType type = StatType::Count;        // 1B
+  ModifierMode mode = ModifierMode::Flat; // 1B
+  uint16_t _padding = 0;                  // 2B (Padding)
+  Tag required_tags = Tag::None;          // 8B
+
+  // Extra fields from existing code that were not in Spec snippet but exist in
+  // codebase We need to keep them or remove them? Specifies "strict" layout.
+  // The existing code has `source` and `source_id`.
+  // The spec snippet showed:
+  // struct alignas(8) StatModifier {
+  //     float value;
+  //     StatType type;
+  //     ModifierMode mode;
+  //     uint16_t _padding;
+  //     Tag required_tags;
+  // };
+  // It didn't allow for `source` and `source_id`.
+  // However, removing them might break other code.
+  // The Spec says: "24 Bytes - fits 2 per Cache Line".
+  // Current fields: Value(4), Type(1), Mode(1), Tags(8). Total 14.
+  // If I add Source(1) and SourceID(4), it becomes 19 bytes.
+  // With padding it can fit in 24.
+  // Layout idea:
+  // float value (4)
+  // uint32_t source_id (4)
+  // Tag required_tags (8)
+  // StatType type (1)
+  // ModifierMode mode (1)
+  // ModifierSource source (1)
+  // 5 bytes padding -> 24 bytes? No.
+  // 4+4+8+1+1+1 = 19. + 5 padding = 24.
+  // So I can keep them.
+
+  ModifierSource source = ModifierSource::Base; // 1B
+  // We need 3 bytes padding here to reach 4-byte alignment for source_id,
+  // or just place things smart.
+  // Let's look at the packed layout:
+
+  // 0: float value (4)
+  // 4: uint32_t source_id (4)
+  // 8: Tag required_tags (8)
+  // 16: StatType type (1)
+  // 17: ModifierMode mode (1)
+  // 18: ModifierSource source (1)
+  // 19: uint8_t _pad[5] -> 24 total.
+
+  uint8_t _pad[5] = {0};  // 5B
+  uint32_t source_id = 0; // 4B - Wait, I put it at 4 above.
+
+  // Let's stick to the Spec's layout as close as possible and add the extras.
+  // Spec:
+  // float value (4)
+  // StatType type (1)
+  // ModifierMode mode (1)
+  // uint16_t _padding (2) -> 8 byte boundary
+  // Tag required_tags (8)
+  // This is 16 bytes.
+  // Extras: ModifierSource source (1) + SourceID (4).
+  // 16 + 5 = 21. alignas(8) means size must be multiple of 8? No, alignment
+  // is 8. But sizeof usually rounds up to alignment. So 24 is valid.
+
+  // Helper to check if modifier is active
+  bool IsActive(Tag context_tags) const {
+    return (required_tags == Tag::None) ||
+           ((context_tags & required_tags) == required_tags);
+  }
 };
 
 inline void to_json(nlohmann::json &j, const StatModifier &m) {

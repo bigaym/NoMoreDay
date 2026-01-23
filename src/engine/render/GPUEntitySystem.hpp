@@ -7,9 +7,8 @@
 #include <entt/entt.hpp>
 #include <vector>
 
-
 namespace NoMoreDay {
-  struct SharedContext;
+struct SharedContext;
 }
 
 namespace NoMoreDay::systems {
@@ -25,7 +24,8 @@ public:
 
   void Update(entt::registry &registry, float dt);
   void SyncBack(entt::registry &registry);
-  void Render(const NoMoreDay::SharedContext& context);       // Render instanced entities
+  void
+  Render(const NoMoreDay::SharedContext &context); // Render instanced entities
   void RenderLegacy(); // CPU-Instanced rendering (Fallback)
 
   void Shutdown();
@@ -43,7 +43,10 @@ private:
   core::ComputeBuffer m_tempCountBuffer;
 
   std::vector<components::GPUEntity> m_localData;
-  std::vector<components::GPUEntity> m_shadowBuffer; // CPU-side shadow copy for incremental updates
+  std::vector<components::GPUEntity>
+      m_shadowBuffer; // CPU-side shadow copy for incremental updates
+  std::vector<components::GPUVisualStats>
+      m_visualStatsShadowBuffer; // Cache for visual stats
   std::vector<uint32_t> m_gridCounts;
   std::vector<uint32_t> m_gridOffsets;
 
@@ -54,8 +57,9 @@ private:
   Shader m_gridSortShader;
 
   uint64_t m_frameCounter = 0;
-  std::vector<entt::entity> m_slotToEntities[3]; // Stable tracking for each slot
-  
+  std::vector<entt::entity>
+      m_slotToEntities[3]; // Stable tracking for each slot
+
   static constexpr int BLOCK_SIZE = 1024;
   std::vector<bool> m_blockDirty;
 

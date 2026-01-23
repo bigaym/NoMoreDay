@@ -91,7 +91,7 @@ void AssetLoadingSystem::RegisterUITextures() {
 
 void AssetLoadingSystem::LoadAllEquipment() {
   if (!m_resourceManager) {
-    LOG_ERROR("AssetLoadingSystem: Not initialized!");
+    LOG_LIMITED_ERROR(1.0f, "AssetLoadingSystem: Not initialized!");
     return;
   }
 
@@ -161,7 +161,7 @@ void AssetLoadingSystem::RegisterBuffs() {
 
 Font AssetLoadingSystem::LoadUIFont(const std::string &path, int fontSize) {
   if (!m_resourceManager) {
-    LOG_ERROR("AssetLoadingSystem: 未初始化！");
+    LOG_LIMITED_ERROR(1.0f, "AssetLoadingSystem: 未初始化！");
     return GetFontDefault();
   }
 
@@ -173,7 +173,7 @@ Font AssetLoadingSystem::LoadUIFont(const std::string &path, int fontSize) {
 Texture2D AssetLoadingSystem::LoadUITexture(entt::id_type id,
                                             const std::string &path) {
   if (!m_resourceManager) {
-    LOG_ERROR("AssetLoadingSystem: 未初始化！");
+    LOG_LIMITED_ERROR(1.0f, "AssetLoadingSystem: 未初始化！");
     return {0};
   }
   return m_resourceManager->loadTexture(id, path); // 加载UI纹理
@@ -181,7 +181,7 @@ Texture2D AssetLoadingSystem::LoadUITexture(entt::id_type id,
 
 Texture2D AssetLoadingSystem::GetTexture(entt::id_type id) {
   if (!m_resourceManager) {
-    LOG_ERROR("AssetLoadingSystem: Not initialized!");
+    LOG_LIMITED_ERROR(1.0f, "AssetLoadingSystem: Not initialized!");
     return {0};
   }
   return m_resourceManager->getTexture(id);
