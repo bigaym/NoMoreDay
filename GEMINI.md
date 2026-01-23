@@ -38,3 +38,10 @@
 * **构建**: `.\build.bat`。
 * **测试**: `./build/bin/NoMoreDayTests.exe`。
 * **规范**: 参考 `conductor/code_standard.md`。
+
+## 5. Performance Baselines (Verified 2026-01-23)
+* **Rendering**:
+    * Particle Update (10k emission/s): ~0.3ms
+    * Popup Render (Instanced): ~0.2ms
+    * Entity Simulation (20k entities): ~2.8ms (Sync + Compute)
+    * Verified on Intel Iris Xe.

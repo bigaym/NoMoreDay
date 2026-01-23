@@ -17,7 +17,6 @@ using namespace NoMoreDay;
 #include "unit/StashSystemTest.hpp" // ADDED
 #include "unit/SystemMechanics.hpp"
 
-
 // --- Integration Tests ---
 #include "integration/CombatBalanceTest.hpp"
 #include "integration/GameplaySystems.hpp"
@@ -25,12 +24,10 @@ using namespace NoMoreDay;
 #include "integration/NemesisScalingTest.hpp"
 #include "integration/SkillSystemTests.hpp"
 
-
 // --- Functional Tests ---
 #include "functional/BackstabMechanicsTest.cpp"
 #include "functional/DamagePipelineConversionTest.cpp"
 #include "functional/SkillBehaviors.hpp"
-
 
 // --- Unit Tests ---
 #include "unit/BranchlessTest.cpp"
@@ -43,12 +40,13 @@ using namespace NoMoreDay;
 #include "tech/PersistentBufferTest.hpp"
 #include "tech/UITests.hpp"
 
-
 // --- Performance Benchmarks ---
 #include "performance/DropSystemBenchmark.hpp"
 #include "performance/MDIRenderBenchmark.hpp"
+#include "performance/RenderingBenchmark.hpp"
 #include "performance/SpatialGridBenchmark.hpp"
 #include "performance/StashBenchmark.hpp" // ADDED
+
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>
