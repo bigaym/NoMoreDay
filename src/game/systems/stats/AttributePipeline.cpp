@@ -716,7 +716,7 @@ void AttributePipeline::Calculate(entt::registry &registry,
     stats.health = hp->current;
   }
   if (stats.max_barrier > 0 || stats.barrier > 0)
-    registry.get_or_emplace<BarrierComponent>(entity);
+    (void)registry.get_or_emplace<BarrierComponent>(entity);
 
   // Phase 5: GPU Sync
   // Rely on GPUEntitySystem to call ToGPU

@@ -6,6 +6,10 @@
 // Fwd decl
 namespace tf { class Executor; }
 
+// Forward declaration
+// Forward declaration
+class MapSystem;
+
 class PhysicsSystem {
 public:
     // Phase 1: 解决碰撞与计算受力 (线程安全: 读 Position, 写 Velocity)
@@ -22,4 +26,7 @@ public:
 
     // Update all entities sequentially (fallback or simple usage)
     static void updateAll(entt::registry& registry, float dt, int screenWidth, int screenHeight, NoMoreDay::systems::SpatialHashGrid& grid, tf::Executor* executor = nullptr);
+
+    // Handle Dash Movement with CCD (Continuous Collision Detection)
+    static void performDashStep(entt::registry& registry, entt::entity entity, struct DashComponent& dash, Position& pos, Velocity& vel, float dt, const NoMoreDay::systems::SpatialHashGrid& grid, const MapSystem* map = nullptr);
 };

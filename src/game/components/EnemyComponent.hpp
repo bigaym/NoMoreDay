@@ -139,19 +139,19 @@ struct EnemyStateComponent {
     speed = raceDef.baseSpeed;
     switch (arch) {
     case EnemyArchetype::FODDER:
-      detectionRange = 80.0f;
+      detectionRange = 800.0f;
       attackRange = 30.0f;
       break;
     case EnemyArchetype::TANK:
-      detectionRange = 100.0f;
+      detectionRange = 800.0f;
       attackRange = 40.0f;
       break;
     case EnemyArchetype::RANGER:
-      detectionRange = 220.0f;
+      detectionRange = 1200.0f;
       attackRange = 250.0f;
       break;
     case EnemyArchetype::ASSASSIN:
-      detectionRange = 150.0f;
+      detectionRange = 1000.0f;
       attackRange = 35.0f;
       break;
     }

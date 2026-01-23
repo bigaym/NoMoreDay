@@ -288,8 +288,7 @@ constexpr float MIN_DIST_SQ_THRESHOLD = 0.0001f; // 距离计算的极小过滤�
 namespace Enemy {
 constexpr float DEFAULT_ACTIVATION_DISTANCE = 1200.0f; // 敌人进入活跃状态的视距 (Spawning/Active)
 constexpr float DEFAULT_AGGRO_DISTANCE = 500.0f;         // 敌人触发仇恨的距离 (AI Aggro)
-constexpr float DEFAULT_DEACTIVATION_DISTANCE =
-    2000.0f;                                 // 敌人进入休眠状态的脱战距离
+constexpr float DEFAULT_DEACTIVATION_DISTANCE = 2000.0f;  // 敌人进入休眠状态的脱战距离
 constexpr int CLUSTER_DENSITY_DIVISOR = 200; // 敌人集群生成的密度分母
 constexpr int MIN_CLUSTER_ENEMY_COUNT = 5;   // 最小敌人群规模
 constexpr int MAX_CLUSTER_ENEMY_COUNT = 12;  // 最大敌人群规模

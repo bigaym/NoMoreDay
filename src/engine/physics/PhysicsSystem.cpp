@@ -4,6 +4,9 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/systems/world/MapSystem.hpp" // Added
+#include "game/systems/world/TilemapCollisionSystem.hpp" // Added
 #include "raymath.h"
 #include <algorithm>
 #include <cmath>
@@ -13,6 +16,105 @@
 
 // Persistent buffer to avoid per-frame reallocations
 static thread_local std::vector<entt::entity> s_entity_buffer;
+
+void PhysicsSystem::performDashStep(entt::registry& registry, entt::entity entity, DashComponent& dash, Position& pos, Velocity& vel, float dt, const NoMoreDay::systems::SpatialHashGrid& grid, const MapSystem* map) {
+    // 1. Calculate intended movement
+    float moveX = vel.vx * dt;
+    float moveY = vel.vy * dt;
+    float distSq = moveX * moveX + moveY * moveY;
+    
+    if (distSq < 0.0001f) return;
+    
+    float dist = std::sqrt(distSq);
+    
+    // 2. Stepping for CCD
+    // Use a step size smaller than player size/wall thickness
+    // Assuming player radius approx 15.0f.
+    constexpr float STEP_SIZE = 10.0f; 
+    int steps = static_cast<int>(std::ceil(dist / STEP_SIZE));
+    if (steps == 0) steps = 1;
+    
+    float stepX = moveX / static_cast<float>(steps);
+    float stepY = moveY / static_cast<float>(steps);
+    
+    // Current test position
+    float currX = pos.x;
+    float currY = pos.y;
+    
+    using namespace NoMoreDay::Constants::Physics;
+    using namespace NoMoreDay::Constants::Physics;
+    float entityRadius = DEFAULT_ENTITY_RADIUS; 
+    if (registry.all_of<Radius>(entity)) {
+        entityRadius = registry.get<Radius>(entity).value;
+    }
+    // Reduced radius for map collision to match GameplayState logic and prevent sticking
+    float collisionRadius = std::max(1.0f, entityRadius * 0.8f); 
+    
+    for (int i = 0; i < steps; ++i) {
+        float nextX = currX + stepX;
+        float nextY = currY + stepY;
+        
+        bool hit = false;
+        
+        // A. Check Tilemap (Static World)
+        if (map) {
+             // Use IsAreaWalkable to check the full body of the entity against the map area
+             // This prevents tunneling through corners or "staircase" tiles
+             if (!NoMoreDay::TilemapCollisionSystem::IsAreaWalkable(*map, {nextX, nextY}, collisionRadius)) {
+                 // LOG_INFO("Dash Collision: Hit Wall at ({:.2f}, {:.2f})", nextX, nextY);
+                 hit = true;
+             }
+        }
+
+        // B. Check Dynamic Entities (via Grid)
+        if (!hit) {
+            // Query around next position
+            // Search radius needs to include the entity radius + check margin
+            grid.query({nextX, nextY}, entityRadius + 20.0f, [&](entt::entity neighbor, const Position& nPos) {
+                if (hit) return; // Already hit in this step
+                if (neighbor == entity) return;
+                
+                if (registry.any_of<ColliderComponent>(neighbor)) {
+                    const auto& col = registry.get<ColliderComponent>(neighbor);
+                    if (col.type == ColliderType::Static) {
+                         // Circle-AABB Check
+                         float hw = col.width * 0.5f;
+                         float hh = col.height * 0.5f;
+                         
+                         float closestX = std::clamp(nextX, nPos.x - hw, nPos.x + hw);
+                         float closestY = std::clamp(nextY, nPos.y - hh, nPos.y + hh);
+                         
+                         float cdx = nextX - closestX;
+                         float cdy = nextY - closestY;
+                         float dSq = cdx*cdx + cdy*cdy;
+                         
+                         if (dSq < entityRadius * entityRadius) {
+                             hit = true;
+                         }
+                    }
+                }
+            });
+        }
+        
+        if (hit) {
+            // Stop dash
+            dash.isDashing = false;
+            dash.dashTimer = 0.0f; 
+            vel.vx = 0;
+            vel.vy = 0;
+            
+            // Stop at current position (before hitting wall)
+            break; 
+        } else {
+            currX = nextX;
+            currY = nextY;
+        }
+    }
+    
+    // 3. Commit position
+    pos.x = currX;
+    pos.y = currY;
+}
 
 void PhysicsSystem::resolveCollisions(entt::entity entity, const Position &pos,
                                       Velocity &vel,

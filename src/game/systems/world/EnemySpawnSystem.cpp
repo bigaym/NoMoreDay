@@ -488,7 +488,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     ai.patrolStart = data.position;
 
     std::uniform_real_distribution<float> angleDist(0.0f, 6.283185f);
-    std::uniform_int_distribution<int> moveDist(80, 150);
+    std::uniform_int_distribution<int> moveDist(300, 600);
     float angle = angleDist(m_gen);
     float dist = (float)moveDist(m_gen);
 

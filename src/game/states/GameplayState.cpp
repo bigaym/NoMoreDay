@@ -1,4 +1,5 @@
 #include "game/states/GameplayState.hpp"
+#include "game/systems/world/MapSystem.hpp" // Forced early include
 #include "app/SharedContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
@@ -14,6 +15,8 @@
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "game/systems/world/PortalSystem.hpp" // Moved up
+#include "game/systems/world/MapSystem.hpp" // Explicit include
+#include "game/systems/world/TilemapCollisionSystem.hpp"
 
 // Systems
 #include "engine/input/InputSystem.hpp"
@@ -564,9 +567,10 @@ bool GameplayState::OnUpdate(float dt) {
       vel.vx = dash.dirX * dash.dashSpeed;
       vel.vy = dash.dirY * dash.dashSpeed;
 
-      // Predictive CPU position update for DASH
-      pos.x += vel.vx * dt;
-      pos.y += vel.vy * dt;
+      // Predictive CPU position update for DASH with Collision Check
+      const auto &mapSystem = m_context->levelManager->getMapSystem();
+      PhysicsSystem::performDashStep(registry, entity, dash, pos, vel, dt, m_spatialGrid, &mapSystem);
+      
       if (dash.dashTimer <= 0.0f) {
         dash.isDashing = false;
         vel.vx = 0;
@@ -588,7 +592,15 @@ bool GameplayState::OnUpdate(float dt) {
 
       // Predictive CPU position update for immediate camera/UI response
       // This bypasses the 2-frame GPUEntitySystem SyncBack latency for the player.
+      // [FIX] Apply Map Collision Check BEFORE position update
+      float radius = NoMoreDay::Constants::Physics::DEFAULT_ENTITY_RADIUS * 0.8f; 
+      if (registry.all_of<Radius>(entity)) radius = registry.get<Radius>(entity).value * 0.8f;
+      
+      const auto &map = m_context->levelManager->getMapSystem();
+      TilemapCollisionSystem::ResolveCollision(map, pos, vel, dt, radius);
+
       pos.x += vel.vx * dt;
+
       pos.y += vel.vy * dt;
     }
 
@@ -677,41 +689,10 @@ void GameplayState::UpdatePhysics(float dt) {
         const auto &map = m_context->levelManager->getMapSystem();
         using namespace NoMoreDay::Constants::World;
         using namespace NoMoreDay::Constants::Physics;
-        const float TILE_SIZE = GRID_TILE_SIZE;
-        const float RADIUS =
-            DEFAULT_ENTITY_RADIUS *
-            0.8f; // Using slightly smaller radius for map collision buffer
+        float radius = DEFAULT_ENTITY_RADIUS * 0.8f; // Using slightly smaller radius for map collision buffer
+        if (registry.all_of<Radius>(entity)) radius = registry.get<Radius>(entity).value * 0.8f;
 
-        // Horizontal collision
-        if (std::abs(vel.vx) > EPSILON_VELOCITY) {
-          float nextX = pos.x + vel.vx * dt;
-          int tileX = static_cast<int>(
-              (vel.vx > 0 ? nextX + RADIUS : nextX - RADIUS) / TILE_SIZE);
-          int tileY_top = static_cast<int>((pos.y - RADIUS + 0.5f) / TILE_SIZE);
-          int tileY_bottom =
-              static_cast<int>((pos.y + RADIUS - 0.5f) / TILE_SIZE);
-
-          if (!map.isWalkable(tileX, tileY_top) ||
-              !map.isWalkable(tileX, tileY_bottom)) {
-            vel.vx = 0;
-          }
-        }
-
-        // Vertical collision
-        if (std::abs(vel.vy) > EPSILON_VELOCITY) {
-          float nextY = pos.y + vel.vy * dt;
-          int tileY = static_cast<int>(
-              (vel.vy > 0 ? nextY + RADIUS : nextY - RADIUS) / TILE_SIZE);
-          int tileX_left =
-              static_cast<int>((pos.x - RADIUS + 0.5f) / TILE_SIZE);
-          int tileX_right =
-              static_cast<int>((pos.x + RADIUS - 0.5f) / TILE_SIZE);
-
-          if (!map.isWalkable(tileX_left, tileY) ||
-              !map.isWalkable(tileX_right, tileY)) {
-            vel.vy = 0;
-          }
-        }
+        TilemapCollisionSystem::ResolveCollision(map, pos, vel, dt, radius);
       });
 
   // Phase 2: Update Positions

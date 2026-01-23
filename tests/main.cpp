@@ -17,10 +17,12 @@ using namespace NoMoreDay;
 #include "unit/StashSystemTest.hpp" // ADDED
 #include "unit/SystemMechanics.hpp"
 #include "unit/TalentModifierTest.cpp"
+#include "unit/TilemapCollisionSystemTest.cpp"
 
 // --- Integration Tests ---
 #include "integration/CombatBalanceTest.hpp"
 #include "integration/GameplaySystems.hpp"
+#include "integration/CollisionReproTest.hpp"
 #include "integration/MDIRenderTest.hpp"
 #include "integration/NemesisScalingTest.hpp"
 #include "integration/SkillSystemTests.hpp"

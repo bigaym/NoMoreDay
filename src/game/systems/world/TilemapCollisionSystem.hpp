@@ -30,6 +30,29 @@ public:
                                      const Vector2 &startPos,
                                      const Vector2 &direction, float distance,
                                      Vector2 &outPos);
+
+  /**
+   * @brief Check if a circular area is walkable.
+   * Checks the bounding box of the area against map tiles.
+   * @param mapSystem The map system.
+   * @param pos Center position.
+   * @param radius Area radius.
+   * @return True if fully walkable.
+   */
+  static bool IsAreaWalkable(const MapSystem &mapSystem, const Vector2 &pos, float radius);
+
+  /**
+   * @brief Resolves collision with the tilemap by modifying velocity.
+   * If a movement would result in hitting a wall, component velocity is set to 0.
+   * Supports sliding along walls.
+   * 
+   * @param map The map system.
+   * @param pos Current entity position.
+   * @param vel Entity velocity (will be modified).
+   * @param dt Delta time.
+   * @param radius Entity collision radius.
+   */
+  static void ResolveCollision(const MapSystem &map, const Position &pos, Velocity &vel, float dt, float radius);
 };
 
 } // namespace NoMoreDay
