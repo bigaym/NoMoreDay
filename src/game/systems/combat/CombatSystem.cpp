@@ -87,7 +87,7 @@ void CombatSystem::update(entt::registry &registry,
     // 2. 处理攻击
     if (input.attack && currentCooldownTimer <= 0.0f) {
       // 重置冷却时间（使用计算出的有效冷却时间）
-      LOG_DEBUG("玩家 {} 发起攻击。有效冷却时间: {:.2f}s", (uint32_t)entity,
+      LOG_TRACE("玩家 {} 发起攻击。有效冷却时间: {:.2f}s", (uint32_t)entity,
                 maxCooldown);
 
       currentCooldownTimer = maxCooldown;
@@ -453,7 +453,7 @@ void CombatSystem::update(entt::registry &registry,
             }
 
             ApplyDamage(registry, ai.target, finalDamage, enemy, false);
-            LOG_DEBUG("Monster {} attacked {} for {:.1f} damage",
+            LOG_TRACE("Monster {} attacked {} for {:.1f} damage",
                       (uint32_t)enemy, (uint32_t)ai.target, finalDamage);
           } else {
             // Show "Dodge" popup

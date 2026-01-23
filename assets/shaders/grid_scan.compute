@@ -1,0 +1,79 @@
+#version 430
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 2) buffer CellCountBuffer { uint cellCounts[]; };
+layout(std430, binding = 3) buffer CellOffsetBuffer { uint cellOffsets[]; };
+layout(std430, binding = 6) buffer BlockSumBuffer { uint blockSums[]; };
+
+uniform int numCells;
+uniform int mode; // 0: Local Scan, 1: Block Scan, 2: Combine
+
+shared uint temp[512]; // 2 * local_size_x
+
+void main() {
+    uint id = gl_GlobalInvocationID.x;
+    uint localId = gl_LocalInvocationID.x;
+    uint blockId = gl_WorkGroupID.x;
+
+    if (mode == 0) { // Local Scan
+        // Load two elements into shared memory
+        uint idx1 = blockId * (gl_WorkGroupSize.x * 2) + localId;
+        uint idx2 = idx1 + gl_WorkGroupSize.x;
+
+        temp[localId] = (idx1 < numCells) ? cellCounts[idx1] : 0;
+        temp[localId + gl_WorkGroupSize.x] = (idx2 < numCells) ? cellCounts[idx2] : 0;
+
+        // Blelloch Scan - Up-sweep
+        uint offset = 1;
+        for (uint d = gl_WorkGroupSize.x; d > 0; d >>= 1) {
+            barrier();
+            if (localId < d) {
+                uint ai = offset * (2 * localId + 1) - 1;
+                uint bi = offset * (2 * localId + 2) - 1;
+                temp[bi] += temp[ai];
+            }
+            offset *= 2;
+        }
+
+        if (localId == 0) {
+            blockSums[blockId] = temp[gl_WorkGroupSize.x * 2 - 1];
+            temp[gl_WorkGroupSize.x * 2 - 1] = 0;
+        }
+
+        // Down-sweep
+        for (uint d = 1; d <= gl_WorkGroupSize.x; d <<= 1) {
+            offset >>= 1;
+            barrier();
+            if (localId < d) {
+                uint ai = offset * (2 * localId + 1) - 1;
+                uint bi = offset * (2 * localId + 2) - 1;
+                uint t = temp[ai];
+                temp[ai] = temp[bi];
+                temp[bi] += t;
+            }
+        }
+        barrier();
+
+        if (idx1 < numCells) cellOffsets[idx1] = temp[localId];
+        if (idx2 < numCells) cellOffsets[idx2] = temp[localId + gl_WorkGroupSize.x];
+
+    } else if (mode == 1) { // Block Scan (assuming blockCount < 1024)
+        if (gl_WorkGroupID.x == 0) {
+            uint n = numCells; // Here numCells is actually blockCount
+            // Exclusive scan of blockSums
+            uint total = 0;
+            for (uint i = 0; i < n; i++) {
+                uint val = blockSums[i];
+                blockSums[i] = total;
+                total += val;
+            }
+        }
+    } else if (mode == 2) { // Combine
+        uint scanVal = blockSums[blockId];
+        uint idx1 = blockId * (gl_WorkGroupSize.x * 2) + localId;
+        uint idx2 = idx1 + gl_WorkGroupSize.x;
+
+        if (idx1 < numCells) cellOffsets[idx1] += scanVal;
+        if (idx2 < numCells) cellOffsets[idx2] += scanVal;
+    }
+}

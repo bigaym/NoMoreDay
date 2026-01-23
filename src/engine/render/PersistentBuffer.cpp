@@ -286,11 +286,19 @@ void PersistentBuffer::Lock() {
 }
 
 void PersistentBuffer::Read(void *data, size_t size) const {
+  int targetSlot = (m_writeSlot - 1 + m_bufferCount) % m_bufferCount;
+  ReadFromSlot(data, size, targetSlot);
+}
+
+void PersistentBuffer::ReadFromSlot(void *data, size_t size,
+                                    int slotIndex) const {
+  if (slotIndex < 0 || slotIndex >= m_bufferCount)
+    return;
+
   if (m_mode == Mode::Persistent) {
     if (m_mappedPtr) {
-      int targetSlot = (m_writeSlot - 1 + m_bufferCount) % m_bufferCount;
       const_cast<PersistentBuffer *>(this)->WaitForFence(
-          const_cast<PersistentBuffer *>(this)->m_fences[targetSlot]);
+          const_cast<PersistentBuffer *>(this)->m_fences[slotIndex]);
 
       static PFNGLMEMORYBARRIERPROC glMemoryBarrier =
           (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
@@ -298,7 +306,7 @@ void PersistentBuffer::Read(void *data, size_t size) const {
         glMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
 
       size_t copySize = std::min(size, m_slotSize);
-      memcpy(data, m_mappedPtr + targetSlot * m_slotSize, copySize);
+      memcpy(data, m_mappedPtr + slotIndex * m_slotSize, copySize);
     }
   } else {
     typedef void(APIENTRY * PFNGLBINDBUFFERPROC)(GLenum target, GLuint buffer);

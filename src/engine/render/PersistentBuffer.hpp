@@ -46,6 +46,9 @@ public:
   // Read data from the buffer
   // Copies from the currently mapped slot (Safe if called after BeginWrite)
   void Read(void *data, size_t size) const;
+  
+  // Read from a specific slot index
+  void ReadFromSlot(void *data, size_t size, int slotIndex) const;
 
   // Bind the buffer for reading by shaders
   // Bind current write slot (for physics/update)

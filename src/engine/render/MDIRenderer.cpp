@@ -103,6 +103,7 @@ void MDIRenderer::UpdateStats(
   if (ptr) {
     memcpy(ptr, stats.data(), dataSize);
     m_statsBuffer.Flush();
+    m_statsBuffer.Lock();
   }
 }
 

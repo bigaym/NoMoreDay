@@ -160,10 +160,12 @@ void Game::run() {
       // way to fix the input issues reported by the user.
 
       if (m_gpuInfo.computeShaderSupported) {
-        // 1. CPU -> GPU Sync & Compute Physics
-        NoMoreDay::systems::GPUEntitySystem::Get().Update(m_registry, fixedDt);
-        // 2. GPU -> CPU Sync Back
+        // 1. GPU -> CPU Sync Back (Get results from previous fixed update)
+        // This is now stall-free because the GPU had time since last pulse.
         NoMoreDay::systems::GPUEntitySystem::Get().SyncBack(m_registry);
+
+        // 2. CPU -> GPU Sync & Compute Physics (Submit new pulse)
+        NoMoreDay::systems::GPUEntitySystem::Get().Update(m_registry, fixedDt);
 
         // Update particle system
         NoMoreDay::systems::GPUParticleSystem::Get().Update(fixedDt);
@@ -185,7 +187,7 @@ void Game::run() {
     }
 
     {
-      NoMoreDay::utils::ScopedTimer timer("MainLoop_Frame", 5000); // Log if > 5ms
+      // NoMoreDay::utils::ScopedTimer timer("MainLoop_Frame", 5000); // Log if > 5ms
 
       BeginDrawing();
       ClearBackground(BLACK);

@@ -45,6 +45,7 @@ private:
   NoMoreDay::core::ComputeBuffer m_cellOffsetBuffer;
   NoMoreDay::core::ComputeBuffer m_entityIndicesBuffer; // Sorted entity IDs
   NoMoreDay::core::ComputeBuffer m_tempCountBuffer;
+  NoMoreDay::core::ComputeBuffer m_blockSumBuffer;
 
   std::vector<NoMoreDay::components::GPUEntity> m_localData;
   std::vector<NoMoreDay::components::GPUEntity>
@@ -59,10 +60,12 @@ private:
   Shader m_gridClearShader;
   Shader m_gridCountShader;
   Shader m_gridSortShader;
+  Shader m_gridScanShader;
 
   uint64_t m_frameCounter = 0;
   std::vector<entt::entity>
       m_slotToEntities[3]; // Stable tracking for each slot
+  int m_activeCountPerSlot[3] = {0, 0, 0};
 
   static constexpr int BLOCK_SIZE = 1024;
   std::vector<bool> m_blockDirty;

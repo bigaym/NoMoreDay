@@ -30,6 +30,8 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
       entt::hashed_string{"grid_sort"}, "assets/shaders/grid_sort.compute");
   m_physicsShader = resources.loadComputeShader(
       entt::hashed_string{"physics"}, "assets/shaders/physics.compute");
+  m_gridScanShader = resources.loadComputeShader(
+      entt::hashed_string{"grid_scan"}, "assets/shaders/grid_scan.compute");
 
   m_persistentEntityBuffer.Create(m_maxEntities * sizeof(components::GPUEntity),
                                   3);
@@ -49,6 +51,8 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
                                RL_DYNAMIC_DRAW);
   m_tempCountBuffer.Create(numCells * sizeof(uint32_t), nullptr,
                            RL_DYNAMIC_DRAW);
+  m_blockSumBuffer.Create(((numCells + 511) / 512) * sizeof(uint32_t), nullptr,
+                          RL_DYNAMIC_DRAW);
 
   m_localData.resize(m_maxEntities);
   m_gridCounts.resize(numCells);
@@ -120,7 +124,6 @@ void GPUEntitySystem::RenderLegacy() {
 }
 
 void GPUEntitySystem::Update(entt::registry &registry, float dt) {
-  NoMoreDay::utils::ScopedTimer timer("GPUEntity_Update", 1000);
   m_frameCounter++;
 
   // Ensure shadow buffer is sized correctly (lazy init if maxEntities changed,
@@ -141,7 +144,9 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   auto group = registry.group<Position, Velocity, Radius, GPUIndex>();
   int index = 0;
   int currentWriteSlot = m_persistentEntityBuffer.GetCurrentSlot();
-  m_slotToEntities[currentWriteSlot].assign(m_maxEntities, entt::null);
+  m_activeCountPerSlot[currentWriteSlot] = 0;
+  // No need to clear the whole vector, we will track active count
+  // m_slotToEntities[currentWriteSlot].assign(m_maxEntities, entt::null);
 
   // Partial Update Optimization:
   // 1. Update m_shadowBuffer from Registry (CPU -> CPU), only for active
@@ -219,18 +224,24 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
 
     index++;
   }
+  m_activeCountPerSlot[currentWriteSlot] = index;
 
-  // Clear remaining slots in shadow buffer/stats to avoid ghosting or stale
-  // visuals
-  for (int i = index; i < m_maxEntities; ++i) {
+  // Optimized clearing: Only clear what was potentially used in the previous frame's slot
+  // or simply keep a "lastIndex" and clear from index to lastIndex.
+  // Actually, since we use triple buffering, it's safer to clear up to the max index 
+  // reached in the last few frames, but for simplicity, let's just 
+  // use a smaller limit if possible, or only zero what is strictly needed.
+  static int lastMaxIndex = 0;
+  int currentClearLimit = std::max(index + 100, lastMaxIndex); 
+  currentClearLimit = std::min(currentClearLimit, m_maxEntities);
+
+  for (int i = index; i < currentClearLimit; ++i) {
     m_shadowBuffer[i].radius = 0.0f;
-    m_visualStatsShadowBuffer[i] = {}; // Clear stats
+    m_visualStatsShadowBuffer[i] = {};
   }
+  lastMaxIndex = index;
 
   // Bulk Upload: Copy entire Shadow Buffer to GPU Mapped Memory
-  // This uses a optimized memcpy (likely AVX-accelerated by std lib) to
-  // Write-Combined memory. This resolves the "Ring Buffer Staleness" issue
-  // because ShadowBuffer is the "State of Truth".
   memcpy(gpuPtr, m_shadowBuffer.data(),
          m_maxEntities * sizeof(components::GPUEntity));
 
@@ -239,7 +250,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
 
   m_persistentEntityBuffer.Flush();
 
-  int gridCols = 5000 / 32 + 1, gridRows = 5000 / 32 + 1,
+  int gridCols = (int)m_mapBoundary / 32 + 1, gridRows = (int)m_mapBoundary / 32 + 1,
       numCells = gridCols * gridRows;
   rlEnableShader(m_gridClearShader.id);
   rlSetUniform(rlGetLocationUniform(m_gridClearShader.id, "numCells"),
@@ -263,18 +274,43 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
                &gridRows, RL_SHADER_UNIFORM_INT, 1);
   m_persistentEntityBuffer.BindBase(1);
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
-  rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
-  // Barrier for CPU read in the next line
-  utils::GPUUtils::MemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT |
-                                 GL_SHADER_STORAGE_BARRIER_BIT);
+  rlComputeShaderDispatch((index + 255) / 256, 1, 1);
+  // Barrier for subsequent scan
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-  m_cellCountBuffer.Read(m_gridCounts.data(), numCells * sizeof(uint32_t));
-  uint32_t currentOffset = 0;
-  for (int i = 0; i < numCells; i++) {
-    m_gridOffsets[i] = currentOffset;
-    currentOffset += m_gridCounts[i];
-  }
-  m_cellOffsetBuffer.Update(m_gridOffsets.data(), numCells * sizeof(uint32_t));
+  // 3-Pass GPU Prefix Sum (Scan)
+  rlEnableShader(m_gridScanShader.id);
+  rlSetUniform(rlGetLocationUniform(m_gridScanShader.id, "numCells"), &numCells,
+               RL_SHADER_UNIFORM_INT, 1);
+  rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
+  rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
+  rlBindShaderBuffer(m_blockSumBuffer.GetId(), 6);
+
+  // Pass 1: Local Scan
+  int mode = 0;
+  rlSetUniform(rlGetLocationUniform(m_gridScanShader.id, "mode"), &mode,
+               RL_SHADER_UNIFORM_INT, 1);
+  int blockCount = (numCells + 511) / 512;
+  rlComputeShaderDispatch(blockCount, 1, 1);
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+  // Pass 2: Block Scan
+  mode = 1;
+  rlSetUniform(rlGetLocationUniform(m_gridScanShader.id, "mode"), &mode,
+               RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridScanShader.id, "numCells"),
+               &blockCount, RL_SHADER_UNIFORM_INT, 1); // numBlocks for this pass
+  rlComputeShaderDispatch(1, 1, 1);
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+  // Pass 3: Combine
+  mode = 2;
+  rlSetUniform(rlGetLocationUniform(m_gridScanShader.id, "mode"), &mode,
+               RL_SHADER_UNIFORM_INT, 1);
+  rlSetUniform(rlGetLocationUniform(m_gridScanShader.id, "numCells"), &numCells,
+               RL_SHADER_UNIFORM_INT, 1);
+  rlComputeShaderDispatch(blockCount, 1, 1);
+  utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
   rlEnableShader(m_gridSortShader.id);
   rlSetUniform(rlGetLocationUniform(m_gridSortShader.id, "maxEntities"),
@@ -289,7 +325,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
   rlBindShaderBuffer(m_tempCountBuffer.GetId(), 5);
-  rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
+  rlComputeShaderDispatch((index + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
   GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer,
@@ -328,7 +364,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
   rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
   rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
-  rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
+  rlComputeShaderDispatch((index + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
   rlDisableShader();
   m_persistentEntityBuffer.Lock();
@@ -336,22 +372,22 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
 }
 
 void GPUEntitySystem::SyncBack(entt::registry &registry) {
-  NoMoreDay::utils::ScopedTimer timer("GPUEntity_SyncBack", 500);
   if (m_frameCounter < 2)
     return;
 
-  // Read back from the output buffer
-  m_physicsOutputBuffer.Read(m_localData.data(),
-                             m_maxEntities * sizeof(components::GPUEntity));
+  // Read back from the previous buffer (N-1)
+  // We use triple buffering, so N-1 should be ready or near-ready.
+  int bufferCount = m_physicsOutputBuffer.GetBufferCount();
+  int readSlot = (m_physicsOutputBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
+  
+  m_physicsOutputBuffer.ReadFromSlot(m_localData.data(),
+                                     m_maxEntities * sizeof(components::GPUEntity), 
+                                     readSlot);
 
-  int bufferCount = m_persistentEntityBuffer.GetBufferCount();
-  // PersistentBuffer::Read already accesses (m_writeSlot - 1),
-  // so we must use the same slot to find the matching entity list.
-  int readSlot = (m_persistentEntityBuffer.GetCurrentSlot() - 1 + bufferCount) %
-                 bufferCount;
   const auto &entitiesInReadSlot = m_slotToEntities[readSlot];
+  int activeCount = m_activeCountPerSlot[readSlot];
 
-  for (int i = 0; i < (int)entitiesInReadSlot.size(); ++i) {
+  for (int i = 0; i < activeCount; ++i) {
     entt::entity entity = entitiesInReadSlot[i];
     if (entity == entt::null || !registry.valid(entity))
       continue;
