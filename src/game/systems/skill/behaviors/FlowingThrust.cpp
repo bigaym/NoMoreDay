@@ -35,6 +35,39 @@
 
 namespace NoMoreDay::skills {
 
+namespace FlowingThrustNodes {
+// 基础分支
+constexpr uint32_t Speed = 100;      // 迅捷之刃
+constexpr uint32_t CritChance = 101; // 剑心
+
+// 贯穿分支 (左上)
+constexpr uint32_t Pierce = 110;     // 贯日
+constexpr uint32_t Charges = 111;    // 连环
+constexpr uint32_t Momentum = 112;   // 势如破竹
+constexpr uint32_t Windrunner = 113; // 风行者
+constexpr uint32_t SwordEcho = 114;  // 剑气回响
+
+// 残影分支 (右上)
+constexpr uint32_t Shadow = 130;       // 留影
+constexpr uint32_t Teleport = 131;     // 移形换位
+constexpr uint32_t ShadowDomain = 132; // 影域
+constexpr uint32_t PrisonSlash = 133;  // 瞬狱影杀
+constexpr uint32_t Phantom = 134;      // 虚实相生
+
+// 暴击分支 (左下)
+constexpr uint32_t WeakPoint = 150;  // 要害感知
+constexpr uint32_t Bleed = 151;      // 重创
+constexpr uint32_t FatalBlow = 152;  // 绝命一击
+constexpr uint32_t AllIn = 153;      // 孤注一掷
+constexpr uint32_t ArmorBreak = 154; // 破甲之志
+
+// 元素分支 (右下)
+constexpr uint32_t ElementShift = 170; // 元素幻化
+constexpr uint32_t ElementBody = 171;  // 元素身法
+constexpr uint32_t QiShield = 172;     // 气劲护体
+constexpr uint32_t Agility = 173;      // 灵动
+} // namespace FlowingThrustNodes
+
 struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
   static constexpr uint32_t kSkillId = 1;
 
@@ -57,14 +90,15 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       vel->vy = dir.y * speed;
     }
 
-    // Talent 140: Frost Thrust (Phys -> Cold)
+    // Talent 170: ElementShift (Phys -> Elemental)
     // We apply a temporary tag or handle it in DoHit.
     // For visual effects, we might want to change the particle color here.
-    bool is_cold = exec.active_nodes.test(140 % 100);
+    bool is_elemental =
+        exec.active_nodes.test(FlowingThrustNodes::ElementShift % 100);
 
-    // Talent 120: Shadow (Spawn Shadow Echo)
+    // Talent 130: Shadow (Spawn Shadow Echo)
     // Prevent recursion: Don't spawn shadow if owner is already a shadow
-    if (exec.active_nodes.test(120 % 100) &&
+    if (exec.active_nodes.test(FlowingThrustNodes::Shadow % 100) &&
         !registry.any_of<ShadowComponent>(owner)) {
       auto shadow_ent = registry.create();
       Vector2 shadow_pos = startPos; // Start at same pos
@@ -132,7 +166,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       trail.coreColor = components::Colors::SPEED_ACCENT; // Bright Cyan Center
 
       Color glowColor =
-          is_cold
+          is_elemental
               ? SKYBLUE
               : (exec.is_empowered ? GOLD : components::Colors::INK_TRAIL_PALE);
       glowColor.a = 20;        // Low alpha for glow/edge
@@ -155,13 +189,14 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       }
       RenderSystem::AddScreenShake(0.15f);
 
-      // Talent: Shadow Kill Array (影杀阵) - ID 124
+      // Talent: Prison Slash (瞬狱影杀) - ID 133 (Was 124)
       if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
         for (const auto &spec : active->specialized_slots) {
-          if (spec.skill_id == 1 && spec.allocated_points.contains(124) &&
-              spec.allocated_points.at(124) > 0) {
+          if (spec.skill_id == 1 &&
+              spec.allocated_points.contains(FlowingThrustNodes::PrisonSlash) &&
+              spec.allocated_points.at(FlowingThrustNodes::PrisonSlash) > 0) {
             registry.emplace_or_replace<ShadowKillArrayReady>(owner);
-            LOG_INFO("Shadow Kill Array (影杀阵) Ready for entity {}",
+            LOG_INFO("Shadow Kill Array (Prison Slash) Ready for entity {}",
                      (uint32_t)owner);
             break;
           }
@@ -179,26 +214,27 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == 1) {
           // Talent: Guan Ri (贯日) - ID 110
-          if (spec.allocated_points.contains(110) &&
-              spec.allocated_points.at(110) > 0) {
+          if (spec.allocated_points.contains(FlowingThrustNodes::Pierce) &&
+              spec.allocated_points.at(FlowingThrustNodes::Pierce) > 0) {
             forcePierce = true;
           }
 
-          // Talent: Liu Ying (留影) - ID 120
-          if (spec.allocated_points.contains(120) &&
-              spec.allocated_points.at(120) > 0) {
+          // Talent: Liu Ying (留影) - ID 130
+          if (spec.allocated_points.contains(FlowingThrustNodes::Shadow) &&
+              spec.allocated_points.at(FlowingThrustNodes::Shadow) > 0) {
             spawnShadow = true;
           }
 
-          // Talent: Frost Thrust (寒霜刺) - ID 140
-          if (spec.allocated_points.contains(140) &&
-              spec.allocated_points.at(140) > 0) {
-            isFrost = true;
+          // Talent: Element Shift (元素幻化) - ID 170
+          if (spec.allocated_points.contains(
+                  FlowingThrustNodes::ElementShift) &&
+              spec.allocated_points.at(FlowingThrustNodes::ElementShift) > 0) {
+            isFrost = true; // Maps to Elemental logic
           }
 
-          // Talent: Momentum (势如破竹) - ID 114
-          if (spec.allocated_points.contains(114) &&
-              spec.allocated_points.at(114) > 0) {
+          // Talent: Momentum (势如破竹) - ID 112
+          if (spec.allocated_points.contains(FlowingThrustNodes::Momentum) &&
+              spec.allocated_points.at(FlowingThrustNodes::Momentum) > 0) {
             float dist = Vector2Distance(startPos, exec.target_pos);
             if (dist > 150.0f) {
               moreDamageMult *= 1.3f;
@@ -207,9 +243,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
             }
           }
 
-          // Talent: Feng Xing (风行) - ID 112
-          if (spec.allocated_points.contains(112) &&
-              spec.allocated_points.at(112) > 0) {
+          // Talent: Feng Xing (风行者) - ID 113
+          if (spec.allocated_points.contains(FlowingThrustNodes::Windrunner) &&
+              spec.allocated_points.at(FlowingThrustNodes::Windrunner) > 0) {
             auto &effects =
                 registry.get_or_emplace<ActiveEffectsComponent>(owner);
             BuffEffect swift;
@@ -227,13 +263,14 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                      (uint32_t)owner);
           }
 
-          // Talent: Xun Jie Zhi Ren (迅捷之刃) - ID 113
-          if (spec.allocated_points.contains(113) &&
-              spec.allocated_points.at(113) > 0) {
+          // Talent: Xun Jie Zhi Ren (迅捷之刃) - ID 100
+          if (spec.allocated_points.contains(FlowingThrustNodes::Speed) &&
+              spec.allocated_points.at(FlowingThrustNodes::Speed) > 0) {
             if (auto *combat = registry.try_get<CombatStats>(owner)) {
               float ms = combat->move_speed;
               float ms_bonus =
-                  (ms / 10.0f) * 0.01f * spec.allocated_points.at(113);
+                  (ms / 10.0f) * 0.01f *
+                  spec.allocated_points.at(FlowingThrustNodes::Speed);
               moreDamageMult *= (1.0f + ms_bonus);
               LOG_INFO("Xun Jie Zhi Ren: +{:.1f}% More damage from MoveSpeed "
                        "({:.1f})",
@@ -337,7 +374,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
-          // ID 121: Jian Yi Ying Ying (Chance to gain Intent)
+          // ID 121: Jian Yi Ying Ying (Chance to gain Intent) - Legacy, not in
+          // JSON
+          /*
           if (spec.allocated_points.contains(121)) {
             int pts = spec.allocated_points.at(121);
             if (pts > 0 && GetRandomValue(0, 100) < 25 * pts) {
@@ -347,59 +386,39 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                   intent->stacks++;
                   intent->time_since_last_gain = 0.0f;
                   intent->decay_tick_timer = 0.0f;
-                  LOG_DEBUG("Flowing Thrust (121): Gained Intent via Hit");
+                  LOG_DEBUG("Flowing Thrust (121 Legacy): Gained Intent via
+          Hit");
                 }
               }
             }
           }
+          */
 
-          // ID 130: Insight Weakness (Crit Rate vs Full HP)
+          // ID 150: Weak Point (Was 130)
           // We check if target is at full HP.
-          bool force_crit_check = false;
-          if (spec.allocated_points.contains(130)) {
+          if (spec.allocated_points.contains(FlowingThrustNodes::WeakPoint)) {
             if (auto *t_stats = registry.try_get<CombatStats>(target)) {
-              // Assuming max_hp is available in stats or separate component.
-              // CombatStats usually has hp/max_hp or similar.
-              // Let's check CombatStats definition if possible.
-              // Assuming Standard Stats Structure: health, max_health
               if (t_stats->health >= t_stats->max_health * 0.99f) {
-                // Increase crit chance? Or force crit?
-                // "Increased Crit Rate". Let's assume +50% for now or logic is
-                // handled in DamagePipeline. Since we are in DoHit *after* hit,
-                // we can't easily change the *past* crit roll. But `is_crit` is
-                // passed in. If this talent is meant to *cause* crit, this
-                // check is too late? Actually, DoHit is called "When a skill
-                // hit occurs". If we want to modify damage calculation, we
-                // should have done it earlier. However, we can apply "More
-                // Damage" here if we missed the crit check? Or maybe we just
-                // rely on standard stats. FOR NOW: We assume this talent is a
-                // stat modifier handled in `GetEffectiveStats` or we apply a
-                // bonus damage here if it WAS a crit? "Insight Weakness:
-                // Increased Crit Rate". This implies we need to modify the
-                // attacker's stats *before* the hit. Since FlowingThrust is a
-                // dash-hit, the hit detection happens in Physics/Combat system.
-                // We might not be able to hook into "Pre-Hit" easily here
-                // without `SkillModifier` system. But let's look at ID 140
-                // first.
+                // Logic to be implemented or handled by modifiers
+                // Currently just a placeholder for logic hook
               }
             }
           }
 
-          // ID 140: Frost Thrust logic (On Hit Effect)
-          if (spec.allocated_points.contains(140)) {
-            // Apply Chill/Freeze application logic here if needed
-            // Actual damage type conversion should happen in `DamagePipeline`
-            // or by modifying the Projectile/Dash component's damage type.
-            // For now, let's spawn a particle effect to show it worked.
-            // GPUParticle_Spawn( ... ColdColor ... )
+          // ID 170: ElementShift (Was 140)
+          if (spec.allocated_points.contains(
+                  FlowingThrustNodes::ElementShift)) {
+            // Logic handled in DoCast or separate system
           }
 
-          // ID 124: Shadow Kill Array (On Crit)
-          if (is_crit && spec.allocated_points.contains(124)) {
-            int pts = spec.allocated_points.at(124);
+          // ID 133: PrisonSlash (Was 124)
+          // Shadow Kill Array logic
+          if (is_crit &&
+              spec.allocated_points.contains(FlowingThrustNodes::PrisonSlash)) {
+            int pts = spec.allocated_points.at(FlowingThrustNodes::PrisonSlash);
             if (pts > 0 && GetRandomValue(0, 100) < 20 * pts) {
               registry.get_or_emplace<ShadowKillArrayReady>(attacker);
-              LOG_INFO("Flowing Thrust (124): Shadow Kill Array READY");
+              LOG_INFO("Flowing Thrust (133): Shadow Kill Array READY");
             }
           }
           break;

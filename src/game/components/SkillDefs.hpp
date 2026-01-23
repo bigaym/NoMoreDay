@@ -507,7 +507,8 @@ struct SpiritSwordAI {
     Idle,      // Orbiting
     Chasing,   // Flying to target (Sword Rain)
     Attacking, // Striking (Heavy Sword)
-    Returning  // Returning to orbit
+    Returning, // Returning to orbit
+    MeleeOrbit // Orbiting and dealing contact damage (Talent 352)
   } state = State::Idle;
 
   float state_timer = 0.0f;
@@ -529,6 +530,7 @@ struct BladeFormationComponent {
   bool shockwave_on_crit = false; // Talent 311
   bool mana_on_hit = false;       // Talent 321
   bool immortality_ready = false; // Talent 322
+  bool melee_orbit = false;       // Talent 352 (Melee Orbit)
 };
 
 struct SwordArrayComponent {

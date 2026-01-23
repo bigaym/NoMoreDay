@@ -17,15 +17,15 @@
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
 #include "app/SharedContext.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "engine/resource/AssetLoadingSystem.hpp"
+
 
 using namespace entt::literals;
-
 
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
@@ -68,6 +68,9 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       formation.shockwave_on_crit = true;
     if (exec.active_nodes.test(321 % 100))
       formation.mana_on_hit = true;
+    if (exec.active_nodes.test(352 % 100))
+      formation.melee_orbit =
+          true; // Talent 352: Melee Orbit (Sword Shadow Tracking)
 
     // Immortality (353)
     if (exec.active_nodes.test(353 % 100)) {
@@ -118,8 +121,9 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       uint32_t skillIcon = entt::hashed_string{"ui_skill_wanjianjue"};
 
       int needed = formation.max_swords - current_count;
-      LOG_INFO("Blade Formation: Spawning {} new swords (Total max: {})", needed, formation.max_swords);
-      
+      LOG_INFO("Blade Formation: Spawning {} new swords (Total max: {})",
+               needed, formation.max_swords);
+
       for (int i = 0; i < needed; ++i) {
         auto sword = registry.create();
         registry.emplace<LocalLevelTag>(sword);
@@ -142,16 +146,17 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         // Visuals
         auto &holo = registry.emplace<components::HoloBlade>(sword);
         holo.holoColor =
-            formation.is_empowered ? GOLD : Color{150, 220, 255, 220}; 
-        holo.scale = formation.has_giant_sword ? 0.5f : 0.18f; 
+            formation.is_empowered ? GOLD : Color{150, 220, 255, 220};
+        holo.scale = formation.has_giant_sword ? 0.5f : 0.18f;
 
         // Add Sprite for Holo Shader
-        Texture2D swordTex = NoMoreDay::AssetLoadingSystem::GetTexture(entt::hashed_string{"vfx_spirit_sword"});
+        Texture2D swordTex = NoMoreDay::AssetLoadingSystem::GetTexture(
+            entt::hashed_string{"vfx_spirit_sword"});
         registry.emplace<SpriteComponent>(sword, swordTex, 0.5f);
-        
+
         // Use sword icon for the summon status
         summon.icon_id = entt::hashed_string{"vfx_spirit_sword"};
-        summon.name = "飞剑"; 
+        summon.name = "飞剑";
 
         int total_index = current_count + i;
         ai.attack_timer =

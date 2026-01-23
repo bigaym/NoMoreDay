@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <raymath.h>
 
-
 namespace NoMoreDay::systems {
 
 void SummonSystem::Update(entt::registry &registry, float dt,
@@ -48,6 +47,52 @@ void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
 
     auto *formation =
         registry.try_get<NoMoreDay::BladeFormationComponent>(summon.owner);
+
+    // --- Phase 5: Melee Orbit (Talent 352) ---
+    if (formation && formation->melee_orbit) {
+      // 1. High Speed Orbit
+      float speed = 6.0f; // Fast rotation
+      ai.orbit_angle += dt * speed;
+
+      // 2. Tighter Radius
+      float radius = 50.0f;
+      float targetX = ownerPos->x + cosf(ai.orbit_angle) * radius;
+      float targetY = ownerPos->y + sinf(ai.orbit_angle) * radius;
+
+      pos.x = targetX;
+      pos.y = targetY;
+
+      // 3. Contact Damage (Tick based)
+      ai.attack_timer -= dt;
+      if (ai.attack_timer <= 0.0f) {
+        ai.attack_timer = 0.2f; // 5 hits/sec
+        float hitRadius = 30.0f;
+
+        grid.query({pos.x, pos.y}, hitRadius,
+                   [&](entt::entity target, const Position &tPos) {
+                     if (!registry.all_of<EnemyTag, CombatStats>(target))
+                       return;
+                     if (registry.any_of<KilledTag>(target))
+                       return;
+
+                     float distSq =
+                         Vector2DistanceSqr({pos.x, pos.y}, {tPos.x, tPos.y});
+                     if (distSq <= hitRadius * hitRadius) {
+                       // Apply Damage
+                       // Use owner as source
+                       CombatSystem::ApplyDamage(registry, target, 25.0f,
+                                                 summon.owner);
+
+                       // VFX
+                       auto &particles = GPUParticleSystem::Get();
+                       particles.Emit(InkEffectHelper::CreateInkSplash(
+                           {tPos.x, tPos.y}, 3, 5.0f, 80.0f)[0]);
+                     }
+                   });
+      }
+      continue; // Skip standard behavior
+    }
+
     NoMoreDay::SpiritSwordMode mode =
         formation ? formation->mode : NoMoreDay::SpiritSwordMode::Guardian;
     float searchRadius = formation ? formation->search_radius : 300.0f;
@@ -97,8 +142,8 @@ void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
 
     // Giant sword wobbles a bit for effect
     if (isGiant) {
-        targetX += sinf(ai.orbit_angle * 2.0f) * 10.0f;
-        targetY += cosf(ai.orbit_angle * 2.0f) * 10.0f;
+      targetX += sinf(ai.orbit_angle * 2.0f) * 10.0f;
+      targetY += cosf(ai.orbit_angle * 2.0f) * 10.0f;
     }
 
     // Smoothly move towards orbit position
@@ -136,11 +181,12 @@ void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
 
       // Visual feedback
       auto &particleSys = GPUParticleSystem::Get();
-      
+
       // Muzzle Flash
       components::GPUParticle muzzle;
       muzzle.position = {pos.x, pos.y};
-      Vector2 dir = Vector2Normalize(Vector2Subtract({tPos.x, tPos.y}, {pos.x, pos.y}));
+      Vector2 dir =
+          Vector2Normalize(Vector2Subtract({tPos.x, tPos.y}, {pos.x, pos.y}));
       muzzle.velocity = Vector2Scale(dir, 100.0f);
       muzzle.color = isGiant ? GOLD : ColorAlpha(SKYBLUE, 0.8f);
       muzzle.lifetime = 0.15f;
@@ -159,8 +205,8 @@ void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
         }
       } else {
         // Small sword trail/flash
-        particleSys.Emit(InkEffectHelper::CreateInkTrail({pos.x, pos.y},
-                                                         Vector2Scale(dir, 150.0f), 0.8f, 0.3f));
+        particleSys.Emit(InkEffectHelper::CreateInkTrail(
+            {pos.x, pos.y}, Vector2Scale(dir, 150.0f), 0.8f, 0.3f));
       }
 
       registry.destroy(proxy);
