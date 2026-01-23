@@ -1,36 +1,53 @@
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include <spdlog/spdlog.h>
 
+#include "game/components/SkillDefs.hpp"
+
 namespace NoMoreDay {
 
-std::unordered_map<std::string, BehaviorInjectionRegistry::BehaviorInjector> BehaviorInjectionRegistry::injectors;
-
-void BehaviorInjectionRegistry::Register(const std::string& id, BehaviorInjector injector) {
-    if (injectors.contains(id)) {
-        spdlog::warn("BehaviorInjectionRegistry: Overwriting injector for ID '{}'", id);
-    }
-    injectors[id] = std::move(injector);
+namespace BehaviorID {
+constexpr const char *ShadowCaster = "shadow_caster";
 }
 
-void BehaviorInjectionRegistry::Apply(const std::string& id, entt::registry& registry, entt::entity entity) {
-    if (id.empty()) return;
+std::unordered_map<std::string, BehaviorInjectionRegistry::BehaviorInjector>
+    BehaviorInjectionRegistry::injectors;
 
-    auto it = injectors.find(id);
-    if (it != injectors.end()) {
-        it->second(registry, entity);
-    } else {
-        // Optional: log warning if ID is not found but expected?
-        // spdlog::trace("BehaviorInjectionRegistry: ID '{}' not found", id);
-    }
+void BehaviorInjectionRegistry::Register(const std::string &id,
+                                         BehaviorInjector injector) {
+  if (injectors.contains(id)) {
+    spdlog::warn("BehaviorInjectionRegistry: Overwriting injector for ID '{}'",
+                 id);
+  }
+  injectors[id] = std::move(injector);
+}
+
+void BehaviorInjectionRegistry::Apply(const std::string &id,
+                                      entt::registry &registry,
+                                      entt::entity entity) {
+  if (id.empty())
+    return;
+
+  auto it = injectors.find(id);
+  if (it != injectors.end()) {
+    it->second(registry, entity);
+    spdlog::debug(
+        "BehaviorInjectionRegistry: Applied behavior '{}' to entity {}", id,
+        static_cast<uint32_t>(entity));
+  } else {
+    spdlog::warn("BehaviorInjectionRegistry: Unknown behavior ID '{}'", id);
+  }
 }
 
 void BehaviorInjectionRegistry::Init() {
-    if (!injectors.empty()) return; // Already initialized
+  if (!injectors.empty())
+    return; // Already initialized
 
-    // Example registration (Placeholders for future tasks)
-    // Register("shadow_caster", [](entt::registry& r, entt::entity e) {
-    //     r.emplace_or_replace<ShadowCasterTag>(e);
-    // });
+  Register(BehaviorID::ShadowCaster, [](entt::registry &r, entt::entity e) {
+    r.get_or_emplace<ShadowKillArrayReady>(e);
+  });
+
+  spdlog::info("BehaviorInjectionRegistry: Initialized with {} behaviors",
+               injectors.size());
 }
 
 } // namespace NoMoreDay

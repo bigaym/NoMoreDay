@@ -576,6 +576,52 @@ void AttributePipeline::Calculate(entt::registry &registry,
     }
   }
 
+  // Phase 1.5: Skill Specialization & Astrolabe Global Modifiers
+  if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
+    for (const auto &specialized : active->specialized_slots) {
+      if (specialized.skill_id == 0)
+        continue;
+
+      const auto *tree =
+          SkillRegistry::Get().GetSkillTree(specialized.skill_id);
+      if (!tree)
+        continue;
+
+      for (const auto &[node_id, points] : specialized.allocated_points) {
+        if (points <= 0)
+          continue;
+
+        auto node_it = tree->nodes.find(node_id);
+        if (node_it == tree->nodes.end())
+          continue;
+
+        const TalentNode &node = node_it->second;
+
+        // Apply stat_modifiers (unconditionally only)
+        for (const StatModifier &mod : node.stat_modifiers) {
+          if (mod.required_tags == Tag::None) {
+            // Scale by points
+            ApplyStatModifier(calcs, mod.type, mod.mode,
+                              mod.value * static_cast<float>(points));
+          }
+        }
+      }
+    }
+  }
+
+  if (auto *astrolabe = registry.try_get<AstrolabeComponent>(entity)) {
+    const auto &astroReg = AstrolabeRegistry::Get();
+    for (uint32_t node_id : astrolabe->activated_nodes) {
+      if (const auto *node = astroReg.GetNode(node_id)) {
+        for (const StatModifier &mod : node->modifiers) {
+          if (mod.required_tags == Tag::None) {
+            ApplyStatModifier(calcs, mod.type, mod.mode, mod.value);
+          }
+        }
+      }
+    }
+  }
+
   // Phase 2: Resolve Primary & Conversions (Revised)
   float str = calcs[static_cast<size_t>(StatType::Strength)].Result();
   float dex = calcs[static_cast<size_t>(StatType::Dexterity)].Result();

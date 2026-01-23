@@ -16,6 +16,7 @@ using namespace NoMoreDay;
 #include "unit/SIMDSpatialGridTest.hpp"
 #include "unit/StashSystemTest.hpp" // ADDED
 #include "unit/SystemMechanics.hpp"
+#include "unit/TalentModifierTest.cpp"
 
 // --- Integration Tests ---
 #include "integration/CombatBalanceTest.hpp"
@@ -46,7 +47,6 @@ using namespace NoMoreDay;
 #include "performance/RenderingBenchmark.hpp"
 #include "performance/SpatialGridBenchmark.hpp"
 #include "performance/StashBenchmark.hpp" // ADDED
-
 
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>

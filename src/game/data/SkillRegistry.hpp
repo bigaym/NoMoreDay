@@ -5,7 +5,6 @@
 #include <unordered_map>
 #include <vector>
 
-
 namespace NoMoreDay {
 
 struct SkillData {
@@ -43,6 +42,9 @@ public:
   }
 
   void RegisterSkill(const SkillData &data) { skills_[data.id] = data; }
+  void RegisterSkillTree(const SkillTreeDefinition &tree) {
+    skill_trees_[tree.skill_id] = tree;
+  }
 
 private:
   SkillRegistry() = default;
