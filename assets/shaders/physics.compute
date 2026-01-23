@@ -32,6 +32,25 @@ uniform int flowHeight;
 uniform vec2 flowOrigin;
 uniform float flowCellSize = 10.0;
 
+// AI State Constants (Must match C++ AIType)
+const uint AI_IDLE = 0u;
+const uint AI_PATROL = 1u;
+const uint AI_CHASE = 2u;
+const uint AI_ATTACK = 3u;
+const uint AI_FLEE = 4u;
+const uint AI_NEMESIS_HUNTER = 5u;
+const uint AI_SUPPORT_FLEE_BUFF = 6u;
+const uint AI_ASSASSIN_STEALTH = 7u;
+const uint AI_TANK_BLOCK = 8u;
+
+bool shouldUseFlowField(uint aiState) {
+    return aiState == AI_CHASE ||
+           aiState == AI_ATTACK ||
+           aiState == AI_NEMESIS_HUNTER ||
+           aiState == AI_ASSASSIN_STEALTH ||
+           aiState == AI_TANK_BLOCK;
+}
+
 void main() {
     uint id = gl_GlobalInvocationID.x;
     if (id >= maxEntities || inEntities[id].radius <= 0.0) {
@@ -54,8 +73,12 @@ void main() {
     // [INTERPOLATION] Save current position as previous BEFORE physics update
     e.prevPosition = pos;
 
-    // 0. Steering (Flow Field) - Only for Enemies (type != 0)
-    if (e.type != 0) {
+    // 0. Steering (Flow Field) - Based on AI State (Bits 8-15)
+    uint aiState = (e.flags >> 8) & 0xFFu;
+    
+    // Legacy fallback: also check bit 2 (CHASING) just in case, or solely rely on state.
+    // Spec says: "Shield non-aggro state", so we strictly use aiState logic to be safe.
+    if (shouldUseFlowField(aiState)) {
         vec2 relativePos = pos - flowOrigin;
         int fx = int(relativePos.x / flowCellSize);
         int fy = int(relativePos.y / flowCellSize);
@@ -70,6 +93,14 @@ void main() {
                 vec2 steer = desiredVel - vel;
                 vel += steer * steerForce * dt * 0.1; 
             }
+        }
+    } else {
+        // Non-chasing state: Apply friction to prevent infinite sliding if pushed
+        // Exception: Kinematic entities (moved by CPU) shouldn't have friction applied here 
+        // if we assume velocity is controlled by CPU.
+        // But for entities managed by GPU physics (falling into this block), we want them to stop if not chasing.
+        if ((e.flags & 1u) == 0u) { // If NOT KINEMATIC
+             vel *= 0.90;
         }
     }
 

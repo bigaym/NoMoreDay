@@ -61,19 +61,11 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
       registry.try_get<EnemyStateComponent>(entity);
   HealthComponent *health = registry.try_get<HealthComponent>(entity);
 
+  float pdx = pos.x - playerPos.x;
+  float pdy = pos.y - playerPos.y;
+  float distSq = pdx * pdx + pdy * pdy;
+
   if (stateComp) {
-    float dx = pos.x - playerPos.x;
-    float dy = pos.y - playerPos.y;
-    float distSq = dx * dx + dy * dy;
-
-    // TODO: Remove debug logging after fixing aggro
-    if (ai.aiType == AIType::CHASE && distSq > 400000.0f) { // > 630 pixels
-      LOG_DEBUG("DEBUG AGGRO: Entity {} sticking in CHASE at dist {:.1f}. "
-                "limit: {:.1f}",
-                (uint32_t)entity, std::sqrt(distSq),
-                stateComp->deactivationRange);
-    }
-
     // 脱战与重置逻辑
     using namespace NoMoreDay::Constants::AI;
     float leashRangeSq =
@@ -123,46 +115,30 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
       }
     }
     // 3. 激活逻辑 (Wake Up)
+    // Removed: We now use activationRange as a gate for target detection instead of state switching
+    /*
     else if (distSq < wakeUpRangeSq) {
       if (ai.aiType == AIType::IDLE) {
         ai.aiType = AIType::PATROL;
       }
     }
+    */
+    
+    // DEBUG: Log distance if entity is in a chase/aggressive state
+    if (ai.aiType == AIType::CHASE || ai.aiType == AIType::ATTACK) {
+       static float logTimer = 0;
+       logTimer += dt;
+       if (logTimer > 2.0f) { // Throttled log
+           LOG_DEBUG("[AI_DEBUG] Entity {} in {} state at dist {:.1f}. Activation: {:.1f}", 
+               (uint32_t)entity, (int)ai.aiType, std::sqrt(distSq), stateComp->activationRange);
+           logTimer = 0;
+       }
+    }
   }
 
   // Common Chase Logic using Flow Field
-  auto applyFlowFieldCheck = [&](float speed) {
-    // 2.1 坐标映射 (Coordinate Mapping)
-    int gx = (int)((pos.x - gridOrigin.x) / cellSize);
-    int gy = (int)((pos.y - gridOrigin.y) / cellSize);
-
-    bool hasFlow = false;
-    Vector2 flow = {0.0f, 0.0f};
-
-    if (gx >= 0 && gx < gridW && gy >= 0 && gy < gridH) {
-      int index = gy * gridW + gx;
-      if (index < (int)flowField.size()) {
-        flow = flowField[index];
-        // 若采样到的 Vector2 模长 > Threshold (有效指引)
-        if (std::abs(flow.x) > NORMALIZE_THRESHOLD ||
-            std::abs(flow.y) > NORMALIZE_THRESHOLD) {
-          hasFlow = true;
-        }
-      }
-    }
-
-    if (hasFlow) {
-      // 采样模式 (Exclusive): 直接读取 SSBO，不计算避障
-      vel.vx = flow.x * speed;
-      vel.vy = flow.y * speed;
-    } else {
-      // 若采样到的模长为 0 (障碍物或无效区)
-      // 实体保持当前速度衰减 (Friction)
-      vel.vx *= FRICTION; // Rapid validation friction
-      vel.vy *= FRICTION;
-    }
-  };
-
+  // REMOVED (Phase 4): Delegated to GPU physics.compute
+  
   // 基于AI类型执行不同行为
   switch (ai.aiType) {
   case AIType::IDLE: {
@@ -170,29 +146,46 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     vel.vy = 0.0f;
     if (ai.lastDecisionTime >= ai.decisionInterval) {
       ai.target = entt::null;
-      entt::entity target =
-          findNearestTarget(registry, pos, ai.detectionRange, entity);
-      if (target != entt::null) {
-        ai.target = target;
-        // Determine state based on archetype
-        if (stateComp) {
-          switch (stateComp->archetypeType) {
-          case EnemyArchetype::TANK:
-            ai.aiType = AIType::TANK_BLOCK;
-            break;
-          case EnemyArchetype::ASSASSIN:
-            ai.aiType = AIType::ASSASSIN_STEALTH;
-            break;
-          case EnemyArchetype::SUPPORT:
-            ai.aiType = AIType::SUPPORT_FLEE_BUFF;
-            break;
-          default:
-            ai.aiType = AIType::CHASE;
-            break;
+      
+      // ONLY check for targets if player is within activation range
+      bool canAggro = false;
+      if (stateComp) {
+        if (distSq < stateComp->activationRange * stateComp->activationRange) {
+          canAggro = true;
+        }
+      }
+
+      if (canAggro || registry.any_of<NoMoreDay::NemesisTag>(entity)) {
+        entt::entity target =
+            findNearestTarget(registry, pos, ai.detectionRange, entity);
+        if (target != entt::null) {
+          float currentDist = std::sqrt(distSq);
+          // Removed Warning Log (Phase 4 P4.3)
+          LOG_DEBUG("[AI_DEBUG] Entity {} triggered AGGRO (IDLE->CHASE) at dist {:.1f}.", 
+              (uint32_t)entity, currentDist);
+          ai.target = target;
+
+          if (registry.any_of<NoMoreDay::NemesisTag>(entity)) {
+            ai.aiType = AIType::NEMESIS_HUNTER;
+          } else if (stateComp) {
+            switch (stateComp->archetypeType) {
+            case EnemyArchetype::TANK:
+              ai.aiType = AIType::TANK_BLOCK;
+              break;
+            case EnemyArchetype::ASSASSIN:
+              ai.aiType = AIType::ASSASSIN_STEALTH;
+              break;
+            case EnemyArchetype::SUPPORT:
+              ai.aiType = AIType::SUPPORT_FLEE_BUFF;
+              break;
+            default:
+              ai.aiType = AIType::CHASE;
+              break;
+            }
+          } else {
+            ai.aiType =
+                AIType::PATROL; // Fallback to PATROL if no state component
           }
-        } else {
-          ai.aiType =
-              AIType::PATROL; // Fallback to PATROL if no state component
         }
       }
       ai.lastDecisionTime = 0.0f;
@@ -230,29 +223,46 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
 
     if (ai.lastDecisionTime >= ai.decisionInterval) {
       ai.target = entt::null;
-      entt::entity target =
-          findNearestTarget(registry, pos, ai.detectionRange, entity);
-      if (target != entt::null) {
-        ai.target = target;
-        // Determine state based on archetype
-        if (stateComp) {
-          switch (stateComp->archetypeType) {
-          case EnemyArchetype::TANK:
-            ai.aiType = AIType::TANK_BLOCK;
-            break;
-          case EnemyArchetype::ASSASSIN:
-            ai.aiType = AIType::ASSASSIN_STEALTH;
-            break;
-          case EnemyArchetype::SUPPORT:
-            ai.aiType = AIType::SUPPORT_FLEE_BUFF;
-            break;
-          default:
-            ai.aiType = AIType::CHASE;
-            break;
+
+      // ONLY check for targets if player is within activation range
+      bool canAggro = false;
+      if (stateComp) {
+        if (distSq < stateComp->activationRange * stateComp->activationRange) {
+          canAggro = true;
+        }
+      }
+
+      if (canAggro || registry.any_of<NoMoreDay::NemesisTag>(entity)) {
+        entt::entity target =
+            findNearestTarget(registry, pos, ai.detectionRange, entity);
+        if (target != entt::null) {
+          float currentDist = std::sqrt(distSq);
+          // Removed Warning Log (Phase 4 P4.3)
+          LOG_DEBUG("[AI_DEBUG] Entity {} triggered AGGRO (PATROL->CHASE) at dist {:.1f}.", 
+              (uint32_t)entity, currentDist);
+          ai.target = target;
+
+          if (registry.any_of<NoMoreDay::NemesisTag>(entity)) {
+            ai.aiType = AIType::NEMESIS_HUNTER;
+          } else if (stateComp) {
+            switch (stateComp->archetypeType) {
+            case EnemyArchetype::TANK:
+              ai.aiType = AIType::TANK_BLOCK;
+              break;
+            case EnemyArchetype::ASSASSIN:
+              ai.aiType = AIType::ASSASSIN_STEALTH;
+              break;
+            case EnemyArchetype::SUPPORT:
+              ai.aiType = AIType::SUPPORT_FLEE_BUFF;
+              break;
+            default:
+              ai.aiType = AIType::CHASE;
+              break;
+            }
+          } else {
+            ai.aiType =
+                AIType::PATROL; // Fallback to PATROL if no state component
           }
-        } else {
-          ai.aiType =
-              AIType::PATROL; // Fallback to PATROL if no state component
         }
       }
       ai.lastDecisionTime = 0.0f;
@@ -282,10 +292,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
       }
     }
 
-    // Spec 2.2: Flow Field Drive (No Separation)
-    using namespace NoMoreDay::Constants::AI;
-    float chaseSpeed = stateComp ? stateComp->speed : Chase::SPEED_FALLBACK;
-    applyFlowFieldCheck(chaseSpeed);
+    // Spec 2.2: Flow Field Drive
+    // Handled by GPU (physics.compute)
     break;
   }
 
@@ -327,15 +335,13 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   case AIType::NEMESIS_HUNTER: {
-    using namespace NoMoreDay::Constants::AI;
-    float hunterSpeed = ai.speed * Chase::HUNTER_SPEED_MULT;
     // Check attack range
     if (distance(pos, playerPos) <= ai.attackRange) {
       vel.vx = 0.0f;
       vel.vy = 0.0f;
     } else {
-      // Spec 2.2: Flow Field Drive (No Separation)
-      applyFlowFieldCheck(hunterSpeed);
+      // Spec 2.2: Flow Field Drive
+      // Handled by GPU
     }
     break;
   }

@@ -306,6 +306,13 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
   // Emplace EnemyStateComponent EARLY so StatsSystem can use it
   auto &esc = registry.emplace<EnemyStateComponent>(entity, raceType, archType);
+  
+  // Explicitly set activation range to ensure correct value
+  using namespace NoMoreDay::Constants::Enemy;
+  esc.activationRange = DEFAULT_AGGRO_DISTANCE;
+  
+  LOG_DEBUG("Spawned Entity {} with Activation Range: {:.1f}", (uint32_t)entity, esc.activationRange);
+
   registry.emplace<EnemyTag>(entity);
   auto &cStats = registry.emplace<NoMoreDay::CombatStats>(entity);
   registry.emplace<NoMoreDay::StatsDirty>(
@@ -374,7 +381,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   // Note: esc reference might be invalid if registry reallocated, assume entity is valid
   auto &esc2 = registry.get<EnemyStateComponent>(entity);
   registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-  registry.emplace<AIComponent>(entity, AIType::IDLE, esc2.detectionRange,
+  registry.emplace<AIComponent>(entity, AIType::PATROL, esc2.detectionRange,
                                 esc2.attackRange, esc2.speed);
 
   // Setup Race specifics (Stats/AI tweaks beyond base component init)

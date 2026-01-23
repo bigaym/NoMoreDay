@@ -341,3 +341,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 8.5 hours
+
+---
+
+## [x] Track: AI FlowField Integration
+- **Folder:** [./conductor/archive/ai_flowfield_integration_20260123/](./conductor/archive/ai_flowfield_integration_20260123/)
+- **Description:** 统一了 GPU 流场与 AI 索敌机制。现在只有在 `CHASE` 等特定攻击状态下，Entity 才会利用 GPU 计算流场速度；`IDLE`/`PATROL` 等状态由 CPU 逻辑或摩擦力控制。消除了“越权索敌”问题，并定义了规范的 `GPUFlags::AIState` (Bit 8-15) 通信协议，移除了 CPU `applyFlowFieldCheck` 冗余计算。(Completed on 2026-01-23)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 4.5 hours

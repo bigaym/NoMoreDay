@@ -24,8 +24,8 @@
 | **符文语 (Runewords)** | ✅ 完成 | 33 种符文、底材匹配序列、激活逻辑与位点集成 |
 | **传奇词缀基础设施** | ✅ 完成 | uint16 ID 空间、语义化锚点、JSON 动态描述加载回调 |
 | **怪物数值成长 (Scaling)** | ✅ 完成 | 动态等级同步、HP指数增长、D3风格经验公式及抗性/护甲成长 |
-| **宿敌针对性进化** | 🔄 基础实现 | 目前仅支持单一主伤害类型抗性，缺乏对复杂 Build 的分析 |
-| **高级精英词缀** | 🔄 数量不足 | 仅实现 SoulLink, Avenger；缺失 Molten, Mirror Image, Nullifier 等 |
+| **宿敌针对性进化** | ✅ 完成 | 基于玩家伤害类型历史的动态抗性与词缀进化 (Evolution Tier) |
+| **高级精英词缀** | ✅ 完成 | Molten, Mirror Image, Nullifier, Shielding 等高危词缀已实装 |
 | **第二职业 (Mage/Ranger)** | ❌ 尚未启动 | 目前仅有“剑修”职业及其分支 |
 
 ---
@@ -70,9 +70,11 @@
     - [x] **Environmental & Hazard**: Frozen, Toxic, Void Zone, Storm Strider. (Completed)
     - [x] **Physics & CC**: Vortex, Waller, Entangler. (Completed)
     - [x] **Advanced Mechanics**: Soul Eater, Suppressor, Mana Siphon. (Completed)
-- [ ] **AI 行为树补完**
-    - 实现 **Support (支援者)** 逻辑：`Flee` + `CastBuff` (Shield/Frenzy)。
-    - 优化 **Tank (坦克)** 逻辑：主动阻挡视线 (`BlockLineOfSight`)。
+- [x] **AI 行为与寻路优化**
+    - [x] **FlowField Integration**: 统一流场与 AI 索敌，消除非仇恨状态的越权移动。(Completed 2026-01-23)
+    - [ ] **AI 行为树补完**
+        - 实现 **Support (支援者)** 逻辑：`Flee` + `CastBuff` (Shield/Frenzy)。
+        - 优化 **Tank (坦克)** 逻辑：主动阻挡视线 (`BlockLineOfSight`)。
 - [x] **宿敌系统进化闭环**
     - [x] 强化 `NemesisGenerator` 的分析逻辑：统计玩家近 50 次击杀的伤害构成。(Completed)
     - [x] **逻辑挂载**：实装 `MonsterAffixComponent` 动态缩放与 Evolution Tier。(Completed)

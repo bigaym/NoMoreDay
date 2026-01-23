@@ -32,7 +32,11 @@ using namespace NoMoreDay;
 
 // --- Unit Tests ---
 #include "unit/BranchlessTest.cpp"
+#include "unit/GPUFlagsTest.cpp"
 #include "unit/MonsterScalingTest.cpp"
+
+// --- Integration Tests ---
+#include "integration/AIFlowFieldIntegrationTest.cpp"
 
 // --- Tech & Engine Tests ---
 #include "performance/BranchlessBenchmark.hpp"

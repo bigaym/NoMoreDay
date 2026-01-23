@@ -1,0 +1,14 @@
+{
+    "sharedStash": {
+        "tabs": [
+            {
+                "color": 4294967295,
+                "iconId": 0,
+                "items": [],
+                "name": "Shared 1",
+                "type": 0
+            }
+        ],
+        "unlockedTabs": 1
+    }
+}

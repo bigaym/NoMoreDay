@@ -206,6 +206,21 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
       } else if (registry.all_of<SpriteComponent>(entity)) {
         flags |= GPU_ENTITY_FLAG_NO_RENDER;
       }
+
+      if (auto *ai = registry.try_get<AIComponent>(entity)) {
+        // Legacy flag for fast check (Keep for now or removing depending on preference, plan says keep for compat)
+        if (ai->aiType == AIType::CHASE ||
+            ai->aiType == AIType::NEMESIS_HUNTER) {
+          flags |= GPU_ENTITY_FLAG_CHASING;
+        }
+        
+        // Phase 2: AI State Sync (Bits 8-15)
+        // Ensure AIType fits in 8 bits
+        static_assert(static_cast<int>(AIType::TANK_BLOCK) < 256, "AI State must fit in 8 bits");
+        uint8_t stateVal = static_cast<uint8_t>(ai->aiType);
+        flags |= GPUFlags::PackAIState(stateVal);
+      }
+
       gpuEntity.flags = flags;
 
       // Store current position for the next physics step's prevPosition

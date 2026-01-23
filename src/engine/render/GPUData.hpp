@@ -65,11 +65,25 @@ constexpr uint32_t GPU_ENTITY_FLAG_KINEMATIC =
     1 << 0; // Entity moved by CPU/Logic, GPU skips integration
 constexpr uint32_t GPU_ENTITY_FLAG_NO_RENDER =
     1 << 1; // Entity not rendered by MDI (e.g. has Sprite)
+constexpr uint32_t GPU_ENTITY_FLAG_CHASING =
+    1 << 2; // Entity follows flow field steering in GPU physics
 
 // Ensure Stride is exactly 64 bytes for SSBO alignment
 static_assert(
     sizeof(GPUEntity) == 64,
     "GPUEntity struct must be exactly 64 bytes for physics SSBO compatibility");
+
+namespace GPUFlags {
+  constexpr uint32_t AI_STATE_SHIFT = 8;
+  constexpr uint32_t AI_STATE_MASK = 0xFF << AI_STATE_SHIFT;
+  
+  inline constexpr uint32_t PackAIState(uint8_t state) {
+    return static_cast<uint32_t>(state) << AI_STATE_SHIFT;
+  }
+  inline constexpr uint8_t UnpackAIState(uint32_t flags) {
+    return static_cast<uint8_t>((flags & AI_STATE_MASK) >> AI_STATE_SHIFT);
+  }
+}
 
 /**
  * @brief Structure for GPU skill effects (SDF Rendering).
