@@ -280,7 +280,7 @@
       "name_key": "裂空斩",
       "desc_key": "挥动剑气攻击前方敌人，穿透目标。",
       "mana_cost": 15.0,
-      "cooldown": 2.0,
+      "cooldown": 0.1,
       "tags": [
         "Physical",
         "Projectile",

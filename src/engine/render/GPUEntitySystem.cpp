@@ -409,10 +409,7 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
     return;
 
   // Read back from the oldest buffer (N-2)
-  // Standard Triple Buffering: Write N, Render N-1, Read N-2.
-  // This ensures the Fence for N-2 is definitely signaled (32ms ago), avoiding CPU Stalls.
   int bufferCount = m_physicsOutputBuffer.GetBufferCount();
-  // Ensure we don't handle negative modulo
   int readSlot = (m_physicsOutputBuffer.GetCurrentSlot() - 2 + bufferCount) % bufferCount;
   
   m_physicsOutputBuffer.ReadFromSlot(m_localData.data(),
@@ -430,8 +427,27 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
       continue;
 
     auto &gpu = m_localData[i];
-    if (gpu.radius > 0.0f) {
-      if (auto *pos = registry.try_get<Position>(entity)) {
+    
+    // [SAFETY] Sanity check for valid GPU data
+    // If radius is 0, it means the slot was empty/cleared or not written to.
+    if (gpu.radius <= 0.001f) {
+        continue;
+    }
+
+    if (auto *pos = registry.try_get<Position>(entity)) {
+        // [SAFETY] Zero-Coordinate Glitch Protection
+        // If GPU returns exact (0,0) but entity is far away, it's likely a buffer read error.
+        if (gpu.position.x == 0.0f && gpu.position.y == 0.0f) {
+            if (pos->x * pos->x + pos->y * pos->y > 100.0f) {
+                // Log only once per second to avoid spam
+                static int logTimer = 0;
+                if (logTimer++ % 60 == 0) {
+                     LOG_WARN("SyncBack: Ignored invalid GPU (0,0) for Entity {}", (uint32_t)entity);
+                }
+                continue;
+            }
+        }
+
         // Significant change threshold (0.5 pixel)
         float dx = gpu.position.x - pos->x;
         float dy = gpu.position.y - pos->y;
@@ -440,21 +456,14 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         }
 
         // Update PrevPosition for stable interpolation
-        // Standard Sync: prev.x = pos->x;
-        // But since we are extrapolating, we should set prev to the UN-EXTRAPOLATED value?
-        // No, PrevPosition is used for Render Interpolation from Last Frame -> This Frame.
-        // If we jump 'pos' to 'Future', we risk a jump.
-        // Actually, if we update 'pos' to correct 'Time Now', then next frame's 'Prev' will be correct.
         auto &prev =
             registry.get_or_emplace<PrevPosition>(entity, pos->x, pos->y);
         prev.x = pos->x;
         prev.y = pos->y;
 
         // [FIX] Extrapolate to compensate for N-2 Readback Latency (32ms)
-        // P_cpu = P_gpu(t-2) + V_gpu * (2 * dt)
-        // exact dt is 1.0/60.0.
         float simDt = GetFrameTime();
-        if (simDt > 0.1f) simDt = 0.1f; // Cap for debugging breakpoints
+        if (simDt > 0.1f) simDt = 0.1f; 
 
         float predictedX = gpu.position.x + gpu.velocity.x * (2.0f * simDt);
         float predictedY = gpu.position.y + gpu.velocity.y * (2.0f * simDt);
@@ -466,21 +475,15 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         if(predictedY > m_mapBoundary) predictedY = m_mapBoundary;
         
         // [CRITICAL FIX] Teleport Protection / Desync Prevention
-        // If CPU Logic (AI/Scripts) moved the entity significantly (Teleport),
-        // the GPU data (which is 2-3 frames old) will be FAR away.
-        // We MUST NOT overwrite the CPU's new position with the GPU's old position.
         float deltaX = predictedX - pos->x;
         float deltaY = predictedY - pos->y;
         float distSq = deltaX*deltaX + deltaY*deltaY;
 
         // Threshold: 64.0f pixels squared (8.0f distance). 
-        // Normal physics drift is usually < 1.0f. 
-        // If drift is > 8.0f, it's likely a logic intervention (Teleport/Reset).
         constexpr float TELEPORT_THRESHOLD_SQ = 8.0f * 8.0f;
 
         if (distSq > TELEPORT_THRESHOLD_SQ) {
             // Logic moved the entity. Trust CPU, ignore GPU this frame.
-            // Also, we might want to update PrevPosition to current to avoid interpolation glitches
             prev.x = pos->x;
             prev.y = pos->y;
         } else {
@@ -493,7 +496,6 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
                 vel->vy = gpu.velocity.y;
             }
         }
-      }
     }
   }
 }
