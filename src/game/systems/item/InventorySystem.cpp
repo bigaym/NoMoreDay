@@ -11,6 +11,9 @@
 #include <algorithm>
 #include <map>
 #include <vector>
+#include "game/systems/ui/UICrafting.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/systems/ui/UISystem.hpp"
 
 using namespace NoMoreDay;
 
@@ -320,6 +323,19 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
         return false;
     }
 
+    // [NEW] Level Requirement Check
+    if (registry.all_of<PlayerStats>(character)) {
+        const auto& stats = registry.get<PlayerStats>(character);
+        if (stats.level < itemComp->itemLevel) {
+            LOG_WARN("背包: 无法装备 - 等级不足 (需 Lv.{}, 当前 Lv.{})", itemComp->itemLevel, stats.level);
+            
+            UISystem::State.showMessageBox = true;
+            snprintf(UISystem::State.messageBoxText, 64, "等级不足 (%d)", itemComp->itemLevel);
+            UISystem::State.messageBoxTimer = 1.5f;
+            return false;
+        }
+    }
+
     EquipmentSlot slot = (targetSlot != EquipmentSlot::None) ? targetSlot : itemComp->slot;
 
     // 验证槽位匹配
@@ -522,6 +538,12 @@ bool InventorySystem::useItem(entt::registry& registry, entt::entity character, 
         stats->mana = std::min(stats->max_mana, stats->mana + recoverAmount);
         effectApplied = true;
         LOG_INFO("使用了法力药水，恢复 50 点法力值。当前: {:.0f}/{:.0f}", stats->mana, stats->max_mana);
+    } else if (itemComp->id == 10001) { // Legendary Core
+        // Open Legendary Crafting UI (Merging Tab)
+        UICrafting::OpenMergePanel();
+        LOG_INFO("Opening Legendary Crafting (Merging) Panel via Legendary Core");
+        // Do NOT consume the item here. It is used as a reagent inside the UI.
+        return false; 
     }
 
     if (effectApplied) {

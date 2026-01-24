@@ -29,6 +29,11 @@ void UICrafting::Toggle() {
 
 bool UICrafting::IsVisible() { return m_visible; }
 
+void UICrafting::OpenMergePanel() {
+    m_visible = true;
+    m_currentTab = CraftingTab::Merging;
+}
+
 void UICrafting::SetTargetItem(entt::entity item) {
   m_forgeItem = item;
   m_visible = true; // Auto-open when setting target via context menu
@@ -248,7 +253,8 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
                 for(const auto& aff : item.affixes) if(aff.tier >= 6) { hasT6 = true; break; }
                 if (hasT6) valid = true;
             } else if (type == 2) { // Catalyst
-                if (item.type == ItemType::Material) valid = true; // Simplified check
+                // Allow Material OR Consumable (Legendary Core)
+                if (item.type == ItemType::Material || item.type == ItemType::Consumable) valid = true; 
             }
 
             if (valid) {

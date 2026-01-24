@@ -378,3 +378,39 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** CRITICAL
 - **Estimated Time:** 0.5 day
+
+---
+
+## [x] Track: Inventory & Stash UX Fixes
+- **Folder:** [./conductor/archive/fix-inventory-stash-ux/](./conductor/archive/fix-inventory-stash-ux/)
+- **Description:** ä¿®å¤äº†èƒŒåŒ…ä¸ä»“åº“çš„äº¤äº’ä½“éªŒé—®é¢˜ã€‚å®ç°äº†ä¸ªäººä»“åº“çš„æ­£ç¡®åˆå§‹åŒ–ï¼Œè§£å†³äº†è¾“å…¥ç„¦ç‚¹æ³„éœ²å¯¼è‡´çš„è¯¯æ“ä½œï¼Œå¹¶æ–°å¢äº†ä»“åº“è‡³èƒŒåŒ…çš„æŒ‡å®šæ§½ä½æ‹–æ‹½ä¸äº¤æ¢åŠŸèƒ½ã€‚(Completed on 2026-01-24)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 0.2 day
+
+---
+
+## [x] Track: Legendary Core Stash Unblock
+- **Folder:** [./conductor/archive/fix-legendary-core-stash/](./conductor/archive/fix-legendary-core-stash/)
+- **Description:** è§£é™¤ä»“åº“å¯¹ Material ç±»å‹ç‰©å“ï¼ˆå¦‚ä¼ å¥‡æ ¸å¿ƒï¼‰çš„å­˜å‚¨é™åˆ¶ï¼Œå…è®¸ç©å®¶è‡ªç”±ç®¡ç†ç¨€æœ‰ææ–™ã€‚(Completed on 2026-01-24)
+- **Status:** COMPLETED
+- **Priority:** MEDIUM
+- **Estimated Time:** 0.1 day
+
+---
+
+## [x] Track: Legendary Core Usage Logic
+- **Folder:** [./conductor/archive/fix-legendary-core-usage/](./conductor/archive/fix-legendary-core-usage/)
+- **Description:** ä¿®å¤ä¼ å¥‡æ ¸å¿ƒçš„äº¤äº’é€»è¾‘ã€‚å°†å…¶ç±»å‹ä¿®æ­£ä¸º Consumableï¼Œå®ç°äº†å³é”®â€œä½¿ç”¨â€ç›´æ¥æ‰“å¼€ä¼ å¥‡èåˆé¢æ¿çš„åŠŸèƒ½ï¼Œå¹¶é€‚é…äº†æ‹–æ‹½å…¥å­”é€»è¾‘ã€‚(Completed on 2026-01-24)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 0.1 day
+
+---
+
+## [x] Track: Equipment Level System
+- **Folder:** [./conductor/archive/equipment-level-system/](./conductor/archive/equipment-level-system/)
+- **Description:** ÊµÊ©ÁË×°±¸µÈ¼¶ÏµÍ³¡£°üÀ¨ÎïÆ·µÈ¼¶µÄÊı¾İ²ãÊµÏÖ£¨ItemComponent£©¡¢»ùÓÚµÈ¼¶µÄÊôĞÔÏßĞÔÊÕÒæÂß¼­£¨ItemFactory£©¡¢×°±¸µÈ¼¶ÏŞÖÆµÄÇ¿ÖÆĞ£Ñé£¨InventorySystem£©ÒÔ¼° UI ²ãµÄ Tooltip ÊÓ¾õ·´À¡¡£ÌáÈ¡ÁË Constants::Items Ëõ·Å³£Á¿²¢ÒıÈëÁË UISystem::State.playerEntity »º´æÒÔÓÅ»¯äÖÈ¾ĞÔÄÜ¡£(Completed on 2026-01-24)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 0.5 day

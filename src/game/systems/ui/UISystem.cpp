@@ -182,6 +182,11 @@ void UISystem::Update(entt::registry &registry,
                       const LevelManager &levelManager) {
   float dt = GetFrameTime();
 
+  // 0. Cache Player Entity for efficient UI access
+  if (State.playerEntity == entt::null || !registry.valid(State.playerEntity)) {
+      State.playerEntity = GetPlayerEntity(registry);
+  }
+
   // 0. Update Animation System
   UIAnimationSystem::Update(registry, dt);
 

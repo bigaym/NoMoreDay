@@ -23,6 +23,7 @@ public:
 
     static void Toggle();
     static bool IsVisible();
+    static void OpenMergePanel();
 
 private:
     static void DrawCraftingPanel(entt::registry& registry);

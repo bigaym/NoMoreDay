@@ -112,6 +112,15 @@ constexpr float HUNTER_SPEED_MULT = 1.2f; // 猎杀者加速倍率
 } // namespace AI
 
 // 战斗系统核心常量
+// 掉落与装备系统常量
+namespace Items {
+constexpr float LEVEL_SCALING_FACTOR = 1.5f; // 100级时的额外属性增幅 (1.0 + 1.5 = 2.5x)
+constexpr int MAX_ITEM_LEVEL = 100;
+inline float GetLevelMultiplier(int level) {
+    return 1.0f + (float)std::max(0, level - 1) * (LEVEL_SCALING_FACTOR / 99.0f);
+}
+} // namespace Items
+
 namespace Combat {
 constexpr float DEFAULT_MAX_HEALTH = 100000.0f; // 默认最大生命值--测试用值
 constexpr float DEFAULT_MAX_MANA = 100000.0f;   // 默认最大法力值--测试用值

@@ -15,6 +15,7 @@ using namespace NoMoreDay;
 #include "unit/NemesisEvolutionTests.hpp"
 #include "unit/SIMDSpatialGridTest.hpp"
 #include "unit/StashSystemTest.hpp" // ADDED
+#include "unit/ItemLevelScalingTest.cpp" // NEW
 #include "unit/SystemMechanics.hpp"
 #include "unit/TalentModifierTest.cpp"
 #include "unit/TilemapCollisionSystemTest.cpp"

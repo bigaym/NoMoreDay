@@ -23,6 +23,9 @@ namespace NoMoreDay {
     };
 
     struct UIContext {
+        // Cached Player Reference
+        entt::entity playerEntity = entt::null;
+
         // Global Font Resource
         Font globalFont = { 0 };
         
@@ -31,6 +34,7 @@ namespace NoMoreDay {
 
         // State Flags
         bool isMouseOverUI = false; // Tracks if mouse is over any UI element
+        bool isTyping = false; // Tracks if user is typing in any input field (blocks gameplay input)
         bool showCharacterPanel = false;
         float characterPanelAlpha = 0.0f; // New
         

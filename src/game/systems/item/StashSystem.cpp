@@ -53,7 +53,8 @@ bool StashSystem::canStoreItem(entt::registry& registry, entt::entity item) {
     if (!itemComp) return false;
     
     // Reject Materials
-    if (itemComp->type == ItemType::Material) return false;
+    // Constraint Removed: Allow Materials in Stash per user request (Legendary Core)
+    // if (itemComp->type == ItemType::Material) return false;
     
     return true;
 }
@@ -211,6 +212,38 @@ bool StashSystem::depositFromInventory(entt::registry& registry, entt::entity in
         // Swap logic
         tab->items[targetSlot] = invItem;
         inv.items[invSlotIndex] = targetItem;
+        return true;
+    }
+}
+
+bool StashSystem::withdrawToSpecificSlot(entt::registry& registry, 
+                                         StashType srcType, int srcTab, int srcSlot,
+                                         entt::entity playerEntity, int invSlot) {
+    StashTab* tab = getTab(registry, srcType, srcTab);
+    if (!tab) return false;
+    if (srcSlot < 0 || srcSlot >= StashTab::CAPACITY) return false;
+    
+    entt::entity stashItem = tab->items[srcSlot];
+    if (stashItem == entt::null) return false;
+
+    auto* inv = registry.try_get<InventoryComponent>(playerEntity);
+    if (!inv) return false;
+    if (invSlot < 0 || invSlot >= (int)inv->items.size()) return false;
+
+    entt::entity targetInvItem = inv->items[invSlot];
+
+    if (targetInvItem == entt::null) {
+        // Move
+        inv->items[invSlot] = stashItem;
+        tab->items[srcSlot] = entt::null;
+        return true;
+    } else {
+        // Swap
+        // Check if item in inventory can go to stash?
+        if (!canStoreItem(registry, targetInvItem)) return false;
+
+        inv->items[invSlot] = stashItem;
+        tab->items[srcSlot] = targetInvItem;
         return true;
     }
 }

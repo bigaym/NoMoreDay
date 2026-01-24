@@ -192,6 +192,7 @@ SerializedItem ItemFactory::serializeItem(entt::registry &registry,
   dto.quantity = item.quantity;
 
   dto.stats.rarity = item.rarity;
+  dto.stats.level = item.itemLevel; // [NEW] Save item level
   dto.stats.slot = item.slot;
   dto.stats.attack = item.attack;
   dto.stats.defense = item.defense;
@@ -864,7 +865,7 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
 // -----------------------------------------------------------------------------
 entt::entity ItemFactory::createRandomLoot(entt::registry &registry, int level,
                                            float magicFind) {
-  LOG_DEBUG("创建随机掉落物，等级: {}，魔法寻宝率: {}", level, magicFind);
+  LOG_DEBUG("创建随机掉落物，地图等级: {}，物品等级: {}，魔法寻宝率: {}", level, level, magicFind);
   Rarity rarity = rollRarity(magicFind);
   entt::entity result;
   if (std::uniform_int_distribution<>(0, 2)(g_rng) == 0) {
@@ -964,6 +965,7 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
             static_cast<int>(rarity));
   auto entity = registry.create();
   ItemComponent item;
+  item.itemLevel = level; // [NEW] Set Item Level
   item.type = ItemType::Weapon;
   item.slot = EquipmentSlot::MainHand;
   item.rarity = rarity;
@@ -1011,7 +1013,10 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
 
   float baseVal = std::uniform_real_distribution<>(base.baseStatMin,
                                                    base.baseStatMax)(g_rng);
-  item.attack = baseVal;
+  // [NEW] Level Scaling
+  float multiplier = Constants::Items::GetLevelMultiplier(level);
+  item.attack = baseVal * multiplier;
+  item.value = item.attack * 5.0f; // Basic value estimation
 
   // Implicit
   item.implicits.push_back(
@@ -1097,7 +1102,7 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
             static_cast<int>(rarity), static_cast<int>(slot));
   auto entity = registry.create();
   ItemComponent item;
-
+  item.itemLevel = level; // [NEW] Set Item Level
   if (slot == EquipmentSlot::Neck || slot == EquipmentSlot::Ring ||
       slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2) {
     item.type = ItemType::Jewelry;
@@ -1167,7 +1172,10 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
 
   float baseVal = std::uniform_real_distribution<>(base.baseStatMin,
                                                    base.baseStatMax)(g_rng);
-  item.defense = baseVal;
+  // [NEW] Level Scaling
+  float multiplier = Constants::Items::GetLevelMultiplier(level);
+  item.defense = baseVal * multiplier;
+  item.value = item.defense * 5.0f; // Basic value estimation
 
   item.implicits.push_back(createAffix(base.implicitType, 1));
   item.implicits.back().tier = 0;
@@ -1253,6 +1261,11 @@ entt::entity ItemFactory::createMaterial(entt::registry &registry,
     item.maxStack = def->maxStack;
     item.quantity = quantity;
     item.slot = EquipmentSlot::None;
+    
+    // Fix: Force Legendary Core (Catalyst) to be Consumable so it can have "Use" action (Open UI)
+    if (materialId == 10001) {
+        item.type = ItemType::Consumable;
+    }
 
     registry.emplace<ItemComponent>(entity, item);
 

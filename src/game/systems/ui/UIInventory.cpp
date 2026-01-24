@@ -12,6 +12,7 @@
 #include "game/systems/item/CraftingSystem.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
+#include "game/systems/item/StashSystem.hpp"
 #include "raylib.h"
 #include <algorithm>
 #include <vector>
@@ -454,7 +455,15 @@ void UIInventory::Draw(entt::registry& registry) {
             }
 
             if (!handledDropInv && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
-                 if (UISystem::State.isDraggingFromInventory) {
+                 if (UISystem::State.isDraggingFromStash) {
+                      if (StashSystem::withdrawToSpecificSlot(registry, 
+                           UISystem::State.dragSourceStashType, 
+                           UISystem::State.dragSourceStashTab, 
+                           UISystem::State.dragSourceStashSlot, 
+                           player, i)) {
+                           UISystem::State.draggedItem = entt::null;
+                      }
+                 } else if (UISystem::State.isDraggingFromInventory) {
                      std::swap(inv->items[UISystem::State.dragSourceInventoryIndex], inv->items[i]);
                  } else {
                      if (equip && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
@@ -499,6 +508,7 @@ void UIInventory::Draw(entt::registry& registry) {
             } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !searchHover) {
                 m_isSearchFocused = false;
             }
+            if (m_isSearchFocused) UISystem::State.isTyping = true;
 
             DrawRectScaled(searchRect.x, searchRect.y, searchRect.width, searchRect.height, m_isSearchFocused ? theme.buttonHover : theme.buttonNormal);
             DrawRectLinesScaled(searchRect, 1.0f, m_isSearchFocused ? theme.panelBorderHighlight : theme.panelBorder);

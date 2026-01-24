@@ -7,6 +7,7 @@
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp" // Added
 #include "game/components/PlayerState.hpp"
+#include "game/components/StashComponent.hpp"
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"
@@ -198,6 +199,12 @@ void GameplayState::InitializeEntities() {
   registry.emplace<DashComponent>(player);
   registry.emplace<InventoryComponent>(player);
   registry.emplace<MaterialBankComponent>(player);
+  {
+      auto& stash = registry.emplace<PersonalStashComponent>(player);
+      stash.unlockedTabs = 1;
+      stash.tabs.resize(1);
+      stash.tabs[0].name = "Stash 1";
+  }
   registry.emplace<EquipmentComponent>(player);
   registry.emplace<AttackState>(player);
   using namespace NoMoreDay::Constants::Combat;
@@ -423,6 +430,7 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 2. Input
   InputSystem::update(registry, m_camera);
+  UISystem::State.isTyping = false; // Reset blocking flag for next frame's UI Render pass
   // Note: UISystem::Update was here in Game.cpp.
   // Now UISystem::Update handles "Global Keys" like 'C' for char panel.
   // We should probably keep it, but it might conflict with InventoryState if

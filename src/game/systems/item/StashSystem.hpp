@@ -41,6 +41,11 @@ public:
     static bool depositFromInventory(entt::registry& registry, entt::entity invItem, int invSlotIndex, 
                                      StashType targetType, int targetTab, int targetSlot);
 
+    // From Stash -> Specific Inventory Slot (Swap/Move)
+    static bool withdrawToSpecificSlot(entt::registry& registry, 
+                                      StashType srcType, int srcTab, int srcSlot, 
+                                      entt::entity playerEntity, int invSlot);
+
     // Tab Management
     static bool unlockTab(entt::registry& registry, StashType type);
     static bool renameTab(entt::registry& registry, StashType type, int tabIndex, const std::string& newName);

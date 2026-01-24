@@ -22,9 +22,9 @@ void InputSystem::update(entt::registry &registry, const Camera2D &camera)
     for (auto entity : view)
     {
         // Check if Astrolabe or Skill Tree is open
-        if (UIAstrolabe::IsVisible(registry, entity) || UISystem::IsSkillTreeVisible(registry, entity))
+        if (UIAstrolabe::IsVisible(registry, entity) || UISystem::IsSkillTreeVisible(registry, entity) || UISystem::State.isTyping)
         {
-            // Block all input if UI is fully open
+            // Block all input if UI is fully open or User is typing
             auto &input = view.get<InputComponent>(entity);
             input.moveX = 0;
             input.moveY = 0;

@@ -144,8 +144,8 @@ struct ItemComponent {
   // Runeword ID (if active)
   uint32_t activeRunewordId = 0;
 
-  // Description
   std::string description;
+  int itemLevel = 1; // [NEW] 物品等级
 
   bool isLocked = false; // Prevents accidental salvage/sell
 };
@@ -157,6 +157,7 @@ inline void to_json(nlohmann::json &j, const ItemComponent &i) {
                      {"type", i.type},
                      {"slot", i.slot},
                      {"rarity", i.rarity},
+                     {"itemLevel", i.itemLevel}, // Added itemLevel
                      {"quantity", i.quantity},
                      {"maxStack", i.maxStack},
                      {"value", i.value},
@@ -187,6 +188,11 @@ inline void from_json(const nlohmann::json &j, ItemComponent &i) {
   j.at("type").get_to(i.type);
   j.at("slot").get_to(i.slot);
   j.at("rarity").get_to(i.rarity);
+  if (j.contains("itemLevel")) {
+    j.at("itemLevel").get_to(i.itemLevel);
+  } else {
+    i.itemLevel = 1;
+  }
   j.at("quantity").get_to(i.quantity);
   j.at("maxStack").get_to(i.maxStack);
   j.at("value").get_to(i.value);

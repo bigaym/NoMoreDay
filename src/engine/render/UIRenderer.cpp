@@ -8,6 +8,8 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/item/InventorySystem.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/systems/ui/UISystem.hpp"
 #include "game/systems/ui/UICrafting.hpp" // ADDED
 
 #include <algorithm>
@@ -594,6 +596,24 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
 
   std::vector<TooltipLine> lines;
   lines.push_back({GetItemCategoryString(*itemComp), s_theme.textSecondary});
+
+  // [NEW] Item Level Display
+  int playerLevel = 1;
+  // Optimization: Use cached playerEntity from UISystem::State
+  if (UISystem::State.playerEntity != entt::null && registry.valid(UISystem::State.playerEntity)) {
+      if (auto* stats = registry.try_get<PlayerStats>(UISystem::State.playerEntity)) {
+          playerLevel = stats->level;
+      }
+  }
+
+  char lvlBuf[64];
+  snprintf(lvlBuf, sizeof(lvlBuf), "物品等级: %d", itemComp->itemLevel);
+  Color lvlColor = (playerLevel >= itemComp->itemLevel) ? GREEN : RED;
+  if (playerLevel < itemComp->itemLevel) {
+      // Append warning if too low
+      snprintf(lvlBuf, sizeof(lvlBuf), "物品等级: %d (需要 Lv.%d)", itemComp->itemLevel, itemComp->itemLevel);
+  }
+  lines.push_back({lvlBuf, lvlColor});
 
   // --- Rune Sequence Display ---
   if (!itemComp->sockets.empty()) {

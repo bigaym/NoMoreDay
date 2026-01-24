@@ -62,7 +62,7 @@ void UIStash::Draw(entt::registry& registry) {
 
     // Layout
     const float panelW = 680.0f; 
-    const float panelH = 700.0f;
+    const float panelH = 820.0f;
     
     float defaultX = 100.0f;
     float defaultY = (UI_REF_HEIGHT - panelH) / 2.0f;
@@ -106,6 +106,23 @@ void UIStash::Draw(entt::registry& registry) {
     // Header
     const char* title = (m_activeType == StashType::Shared) ? "共享仓库" : "个人仓库";
     UIRenderer::DrawTextUI(font, title, panelX + 30, panelY + 20, 28, theme.textHighlight, alpha);
+
+    // Close Button
+    float closeSize = 24.0f;
+    Rectangle closeRect = { panelX + panelW - closeSize - 15.0f, panelY + 15.0f, closeSize, closeSize };
+    bool closeHover = CheckCollisionPointRec(mousePos, closeRect);
+    
+    // Draw close button background/hover
+    if (closeHover) {
+        DrawRectScaled(closeRect.x, closeRect.y, closeRect.width, closeRect.height, RED);
+    }
+    
+    // Draw X
+    UIRenderer::DrawTextUI(font, "x", closeRect.x + 8, closeRect.y - 2, 24, closeHover ? WHITE : theme.textSecondary, alpha);
+    
+    if (closeHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        Close();
+    }
 
     // Tabs
     float tabX = panelX + 30.0f;
@@ -278,6 +295,9 @@ void UIStash::Draw(entt::registry& registry) {
     } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !searchHover) {
         m_isSearchFocused = false;
     }
+    
+    // Propagate blocking state
+    if (m_isSearchFocused) UISystem::State.isTyping = true;
 
     DrawRectScaled(searchRect.x, searchRect.y, searchRect.width, searchRect.height, m_isSearchFocused ? theme.buttonHover : theme.buttonNormal);
     DrawRectLinesScaled(searchRect, 1.0f, m_isSearchFocused ? theme.panelBorderHighlight : theme.panelBorder);
@@ -289,16 +309,39 @@ void UIStash::Draw(entt::registry& registry) {
     if (m_isSearchFocused) {
         int key = GetCharPressed();
         while (key > 0) {
-            if ((key >= 32) && (key <= 125) && (strlen(m_searchBuffer) < 63)) {
+            if (key >= 32) {
                 int len = strlen(m_searchBuffer);
-                m_searchBuffer[len] = (char)key;
-                m_searchBuffer[len+1] = '\0';
+                if (len < 60) {
+                    if (key <= 0x7F) {
+                        m_searchBuffer[len++] = (char)key;
+                    } else if (key <= 0x7FF) {
+                        m_searchBuffer[len++] = (char)(0xC0 | ((key >> 6) & 0x1F));
+                        m_searchBuffer[len++] = (char)(0x80 | (key & 0x3F));
+                    } else if (key <= 0xFFFF) {
+                        m_searchBuffer[len++] = (char)(0xE0 | ((key >> 12) & 0x0F));
+                        m_searchBuffer[len++] = (char)(0x80 | ((key >> 6) & 0x3F));
+                        m_searchBuffer[len++] = (char)(0x80 | (key & 0x3F));
+                    } else if (key <= 0x10FFFF) {
+                        m_searchBuffer[len++] = (char)(0xF0 | ((key >> 18) & 0x07));
+                        m_searchBuffer[len++] = (char)(0x80 | ((key >> 12) & 0x3F));
+                        m_searchBuffer[len++] = (char)(0x80 | ((key >> 6) & 0x3F));
+                        m_searchBuffer[len++] = (char)(0x80 | (key & 0x3F));
+                    }
+                    m_searchBuffer[len] = '\0';
+                }
             }
             key = GetCharPressed();
         }
+        
         if (IsKeyPressed(KEY_BACKSPACE)) {
             int len = strlen(m_searchBuffer);
-            if (len > 0) m_searchBuffer[len-1] = '\0';
+            if (len > 0) {
+                while (len > 0) {
+                    len--;
+                    if ((m_searchBuffer[len] & 0xC0) != 0x80) break;
+                }
+                m_searchBuffer[len] = '\0';
+            }
         }
     }
 
