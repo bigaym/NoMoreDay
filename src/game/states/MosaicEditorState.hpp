@@ -2,6 +2,7 @@
 
 #include "engine/scene/State.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/data/MapAffix.hpp"
 #include "raylib.h"
 #include <vector>
 
@@ -45,6 +46,12 @@ private:
   // 缓存的共鸣结果
   ResonanceResult m_cachedResonance;
   bool m_resonanceDirty = true;
+
+  // Affix & Difficulty Preview
+  std::vector<MapAffix> m_previewAffixes;
+  int m_previewDS = 0;
+  float m_previewRarity = 0.0f;
+  float m_previewQuantity = 0.0f;
 
   // 玩家碎片库存 (从 registry 中筛选)
   std::vector<entt::entity> m_fragmentInventory;

@@ -21,6 +21,8 @@
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "game/systems/world/MapAffixRegistry.hpp"
+#include "game/components/WorldState.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -99,10 +101,19 @@ void Game::init() {
 
   NoMoreDay::ItemFactory::initialize();
   NoMoreDay::ItemFactory::loadAffixDefinitions("assets/data/affixes.json");
+  
+  // Initialize Map Affix Registry
+  NoMoreDay::MapAffixRegistry::Initialize();
 
   // Initialize Persistence
   NoMoreDay::SaveManager::Get().Initialize(&m_executor);
   NoMoreDay::SaveManager::Get().loadGlobal(m_registry);
+
+  // Initialize ActiveDimensionalState in Context
+  // This ensures the state is available globally for all systems
+  if(!m_registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      m_registry.ctx().emplace<NoMoreDay::ActiveDimensionalState>();
+  }
 
   // Initialize Stats System (Cache cleanup)
   NoMoreDay::StatsSystem::Initialize(m_registry);

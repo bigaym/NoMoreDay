@@ -19,6 +19,7 @@ using namespace NoMoreDay;
 #include "unit/SystemMechanics.hpp"
 #include "unit/TalentModifierTest.cpp"
 #include "unit/TilemapCollisionSystemTest.cpp"
+#include "unit/MapAffixSystemTest.cpp"
 
 // --- Integration Tests ---
 #include "integration/CombatBalanceTest.hpp"

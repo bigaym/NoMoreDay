@@ -5,6 +5,7 @@
 #include "game/components/StashComponent.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/components/WorldState.hpp"
 
 
 LevelManager::LevelManager() : m_currentLevel(1) {}
@@ -103,7 +104,13 @@ LevelManager::prepareMosaicLevel(const NoMoreDay::MosaicGrid &grid,
   data.map->generateMosaicMap(width, height, grid, resonance, registry);
 
   // 初始化敌人
-  data.enemy->initData(width, height, data.level, *data.map, resonance.primaryBiome, &resonance);
+  const NoMoreDay::ActiveDimensionalState* statePtr = nullptr;
+  if(registry && registry->ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      statePtr = &registry->ctx().get<NoMoreDay::ActiveDimensionalState>();
+  } else {
+      LOG_WARN("ActiveDimensionalState missing during Mosaic Load!");
+  }
+  data.enemy->initData(width, height, data.level, *data.map, resonance.primaryBiome, statePtr);
 
   return data;
 }

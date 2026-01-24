@@ -58,6 +58,9 @@
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
+#include "game/components/WorldState.hpp"
+#include "game/systems/world/MapAffixCalculator.hpp"
+#include "game/systems/world/MapAffixRegistry.hpp"
 #include "systems/SerializationSystem.hpp"
 
 namespace NoMoreDay {
@@ -334,7 +337,7 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // 0. State Transition Input
-  if (IsKeyPressed(KEY_I) || IsKeyPressed(KEY_TAB)) {
+  if (IsKeyPressed(KEY_I)) {
     m_stateManager->PushState<InventoryState>();
   }
 
@@ -870,6 +873,73 @@ void GameplayState::OnRender() {
   if (m_context->sceneManager) {
     m_context->sceneManager->RenderOverlay();
   }
+
+  // --- Map Affix Overlay (Tab Menu) ---
+  if (IsKeyDown(KEY_TAB)) {
+      RenderMapAffixOverlay();
+  }
+}
+
+void GameplayState::RenderMapAffixOverlay() {
+    auto& registry = *m_context->registry;
+    if (!registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) return;
+
+    const auto& state = registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
+    if (!state.isActive) return;
+
+    // Draw Background
+    float width = 350.0f;
+    float height = 450.0f;
+    float x = (GetScreenWidth() - width) / 2.0f;
+    float y = (GetScreenHeight() - height) / 2.0f;
+
+    DrawRectangleRounded(Rectangle{x, y, width, height}, 0.05f, 8, ColorAlpha(BLACK, 0.85f));
+    DrawRectangleRoundedLinesEx(Rectangle{x, y, width, height}, 0.05f, 8, 2.0f, DARKGRAY);
+
+    Font font = UISystem::GetFont();
+    UIRenderer::DrawTextUI(font, "当前维度概览 (Map Modifiers)", x + 20, y + 20, 20, GOLD, 1.0f);
+    
+    float ly = y + 60;
+    char buf[128];
+
+    // 1. Difficulty
+    snprintf(buf, sizeof(buf), "难度系数 (DS): %d", state.difficultyScore);
+    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, RED, 1.0f);
+    ly += 30;
+
+    // 2. Rewards
+    snprintf(buf, sizeof(buf), "物品寻宝率 (Rarity): +%.0f%%", state.calculatedRarity * 100.0f);
+    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, components::Colors::RARITY_LEGENDARY, 1.0f);
+    ly += 22;
+
+    snprintf(buf, sizeof(buf), "物品数量 (Quantity): +%.0f%%", state.calculatedQuantity * 100.0f);
+    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, components::Colors::RARITY_EPIC, 1.0f);
+    ly += 30;
+
+    DrawLine(x + 20, ly, x + width - 20, ly, GRAY);
+    ly += 15;
+
+    UIRenderer::DrawTextUI(font, "挑战词缀 (Active Challenges):", x + 25, ly, 16, LIGHTGRAY, 1.0f);
+    ly += 25;
+
+    // 3. Affixes
+    for (const auto& aff : state.explicitAffixes) {
+        const auto& def = MapAffixRegistry::GetDef(aff.type);
+        std::string name = def.nameZh.empty() ? def.name : def.nameZh;
+        
+        Color color = WHITE;
+        if (aff.category == MapAffixCategory::Debuff) color = RED;
+        else if (aff.category == MapAffixCategory::Buff) color = GREEN;
+
+        snprintf(buf, sizeof(buf), "[T%d] %s", aff.tier, name.c_str());
+        UIRenderer::DrawTextUI(font, buf, x + 30, ly, 14, color, 1.0f);
+        ly += 18;
+
+        if (ly > y + height - 30) {
+            UIRenderer::DrawTextUI(font, "...", x + 30, ly, 14, GRAY, 1.0f);
+            break;
+        }
+    }
 }
 
 } // namespace NoMoreDay

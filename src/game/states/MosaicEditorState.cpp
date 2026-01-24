@@ -9,6 +9,9 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "game/data/AffixMapping.hpp"
+#include "game/components/WorldState.hpp"
+#include "game/systems/world/MapAffixCalculator.hpp"
+#include "game/systems/world/MapAffixRegistry.hpp"
 #include <algorithm>
 
 
@@ -176,8 +179,8 @@ void MosaicEditorState::RenderInventory() {
              slotRect.y + 8, 16, GetRarityColor(itemComp->rarity), 1.0f);
 
     char attrBuf[64];
-    snprintf(attrBuf, sizeof(attrBuf), "D:%.0f%% R:%.0f%%",
-             fragComp->enemyDensityMod * 100, fragComp->dropRateMod * 100);
+    snprintf(attrBuf, sizeof(attrBuf), "密度:%.0f%%",
+             fragComp->enemyDensityMod * 100);
     UIRenderer::DrawTextUI(font, attrBuf, slotRect.x + 12,
              slotRect.y + 28, 12, LIGHTGRAY, 1.0f);
     DrawRectangleRoundedLinesEx(
@@ -189,45 +192,89 @@ void MosaicEditorState::RenderInventory() {
 void MosaicEditorState::RenderResonancePreview() {
   float previewX = INVENTORY_X + 270;
   float previewY = GRID_OFFSET_Y;
-  float previewWidth = 200.0f;
-  float previewHeight = 180.0f;
+  float previewWidth = 280.0f;
+  float previewHeight = 400.0f; // Taller for affix list
 
   DrawRectangleRounded(
       Rectangle{previewX, previewY, previewWidth, previewHeight}, 0.05f, 8,
-      Color{40, 40, 60, 200});
-  
+      Color{30, 30, 40, 230});
+  DrawRectangleRoundedLinesEx(
+      Rectangle{previewX, previewY, previewWidth, previewHeight}, 0.05f, 8, 2.0f, DARKGRAY);
+
   Font font = UISystem::GetFont();
-  UIRenderer::DrawTextUI(font, "共鸣预览", previewX + 10, previewY + 10, 16, GOLD, 1.0f);
+  UIRenderer::DrawTextUI(font, "维度概览 (Mosaic Summary)", previewX + 10, previewY + 10, 18, GOLD, 1.0f);
 
-  float y = previewY + 35;
-  char buf[64];
+  float y = previewY + 40;
+  char buf[128];
 
-  snprintf(buf, sizeof(buf), "怪物密度: %.0f%%",
-           m_cachedResonance.totalEnemyDensity * 100);
-  UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, WHITE, 1.0f);
-  y += 22;
+  // 1. Difficulty Section
+  DrawRectangleGradientH(static_cast<int>(previewX), static_cast<int>(y), static_cast<int>(previewWidth), 30, Color{60,0,0,100}, Color{20,0,0,0});
+  snprintf(buf, sizeof(buf), "难度系数 (DS): %d", m_previewDS);
+  UIRenderer::DrawTextUI(font, buf, previewX + 10, y + 5, 20, RED, 1.0f);
+  y += 35;
 
-  snprintf(buf, sizeof(buf), "物品掉落: %.0f%%",
-           m_cachedResonance.totalDropRate * 100);
-  UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, m_cachedResonance.totalDropRate > 1.0f ? components::Colors::MAP_AFFIX_POSITIVE : WHITE, 1.0f);
-  y += 22;
+  // 2. Rewards Section (Calculated)
+  snprintf(buf, sizeof(buf), "物品掉宝: +%.0f%%", m_previewRarity * 100.0f);
+  UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 16, components::Colors::RARITY_LEGENDARY, 1.0f); // Gold/Orange
+  y += 20;
 
+  snprintf(buf, sizeof(buf), "物品数量: +%.0f%%", m_previewQuantity * 100.0f);
+  UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 16, components::Colors::RARITY_EPIC, 1.0f); // Purple
+  y += 25;
+  
+  // High LP Chance Note
+  if (m_previewRarity > 1.0f) {
+       float lpMult = MapAffixCalculator::CalculateLPProbabilityMultiplier(m_previewRarity);
+       snprintf(buf, sizeof(buf), "Legendary Potential: %.1fx", lpMult);
+       UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 12, GRAY, 1.0f);
+       y += 20;
+  }
+  
+  DrawRectangle(static_cast<int>(previewX) + 10, static_cast<int>(y), static_cast<int>(previewWidth) - 20, 1, GRAY);
+  y += 5;
+
+  // 3. Base Stats (Resonance)
+  if (m_cachedResonance.totalEnemyDensity != 1.0f) {
+      snprintf(buf, sizeof(buf), "基础密度: %.0f%%", m_cachedResonance.totalEnemyDensity * 100);
+      UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, LIGHTGRAY, 1.0f);
+      y += 18;
+  }
   if (m_cachedResonance.totalLevelMod != 0) {
-    snprintf(buf, sizeof(buf), "怪物等级: %s%d",
-             m_cachedResonance.totalLevelMod > 0 ? "+" : "",
-             m_cachedResonance.totalLevelMod);
-    UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, 
-                          m_cachedResonance.totalLevelMod > 0 ? components::Colors::MAP_AFFIX_NEGATIVE : components::Colors::MAP_AFFIX_POSITIVE, 1.0f);
-    y += 22;
+      snprintf(buf, sizeof(buf), "怪物等级: %+d", m_cachedResonance.totalLevelMod);
+      UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, WHITE, 1.0f);
+      y += 18;
   }
-  if (m_cachedResonance.resonanceChainCount > 0) {
-    snprintf(buf, sizeof(buf), "共鸣链: %d",
-             m_cachedResonance.resonanceChainCount);
-    UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, SKYBLUE, 1.0f);
-    y += 22;
-  }
+  
   if (m_cachedResonance.isPerfectResonance) {
-    UIRenderer::DrawTextUI(font, "完美共鸣! x2.0", previewX + 10, y, 16, GOLD, 1.0f);
+    UIRenderer::DrawTextUI(font, "★ 完美共鸣 (Perfect) ★", previewX + 10, y, 14, GOLD, 1.0f);
+    y += 20;
+  }
+  
+  y += 10;
+  // Layer Count Info
+  UIRenderer::DrawTextUI(font, "有效层数 (Duration): 3 层", previewX + 10, y, 14, SKYBLUE, 1.0f);
+  y += 20;
+  
+  UIRenderer::DrawTextUI(font, "激活词缀 (Active Affixes):", previewX + 10, y, 16, WHITE, 1.0f);
+  y += 20;
+
+  // 4. Affix List
+  for (const auto& aff : m_previewAffixes) {
+      // Show Name + Tier
+      Color color = WHITE;
+      if (aff.category == MapAffixCategory::Debuff) color = RED;
+      else if (aff.category == MapAffixCategory::Buff) color = GREEN;
+      else if (aff.category == MapAffixCategory::Environment) color = SKYBLUE;
+      
+      const auto& def = MapAffixRegistry::GetDef(aff.type);
+      // Use Chinese Name if available
+      std::string displayName = def.nameZh.empty() ? def.name : def.nameZh;
+      
+      snprintf(buf, sizeof(buf), "[T%d] %s", aff.tier, displayName.c_str());
+      UIRenderer::DrawTextUI(font, buf, previewX + 15, y, 14, color, 1.0f);
+      y += 16;
+      
+      if (y > previewY + previewHeight - 20) break; // Overflow protection
   }
 }
 
@@ -347,14 +394,33 @@ void MosaicEditorState::RenderTooltip() {
   UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, WHITE, 1.0f);
   ty += 20;
 
-  snprintf(buf, sizeof(buf), "物品掉落: %+.0f%%", (frag->dropRateMod - 1.0f) * 100.0f);
-  UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, WHITE, 1.0f);
-  ty += 20;
+  // Drop Rate is now calculated systematically, not shown on fragment
+  // snprintf(buf, sizeof(buf), "物品掉落: %+.0f%%", (frag->dropRateMod - 1.0f) * 100.0f);
 
   if (frag->monsterLevelMod != 0) {
       snprintf(buf, sizeof(buf), "怪物等级: %+d", frag->monsterLevelMod);
       UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, WHITE, 1.0f);
       ty += 20;
+  }
+  
+  // Show Implicit Affix Sources
+  ty += 5;
+  UIRenderer::DrawTextUI(font, "隐含词缀:", x + 10, ty, 14, GRAY, 1.0f);
+  ty += 18;
+  
+  // 1. Element Source
+  if (frag->element != FragmentElement::None) {
+      std::string elName = std::string(FragmentElementzh[static_cast<size_t>(frag->element)]);
+      snprintf(buf, sizeof(buf), "• %s (元素)", elName.c_str());
+      UIRenderer::DrawTextUI(font, buf, x + 15, ty, 12, GetElementColor(frag->element), 1.0f);
+      ty += 16;
+  }
+  
+  // 2. Rarity Source
+  if (item->rarity >= Rarity::Magic) {
+       snprintf(buf, sizeof(buf), "• %s (稀有度)", (item->rarity == Rarity::Legendary ? "传说" : "魔法"));
+       UIRenderer::DrawTextUI(font, buf, x + 15, ty, 12, GetRarityColor(item->rarity), 1.0f);
+       ty += 16;
   }
 }
 
@@ -520,6 +586,13 @@ void MosaicEditorState::RecalculateResonance() {
                                                       *m_context->registry);
     }
   }
+
+  // Preview Affixes & Difficulty
+  m_previewAffixes = MapAffixCalculator::GenerateAffixesFromGrid(m_grid, *m_context->registry);
+  m_previewDS = MapAffixCalculator::CalculateDifficultyScore(m_previewAffixes);
+  auto rewards = MapAffixCalculator::CalculateRewards(m_previewDS);
+  m_previewRarity = rewards.rarityBonus;
+  m_previewQuantity = rewards.quantityBonus;
 }
 
 void MosaicEditorState::ConfirmAndGenerate() {
@@ -527,6 +600,34 @@ void MosaicEditorState::ConfirmAndGenerate() {
            m_grid.GetFilledCount());
 
   RecalculateResonance(); // Ensure resonance data is fresh
+
+  // --- Map Affix & Persistence Logic ---
+  if (m_context->registry->ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      auto& worldState = m_context->registry->ctx().get<NoMoreDay::ActiveDimensionalState>();
+      
+      // 1. Generate Affixes from Grid
+      worldState.explicitAffixes = MapAffixCalculator::GenerateAffixesFromGrid(m_grid, *m_context->registry);
+      
+      // 2. Calculate Stats
+      worldState.difficultyScore = MapAffixCalculator::CalculateDifficultyScore(worldState.explicitAffixes);
+      auto rewards = MapAffixCalculator::CalculateRewards(worldState.difficultyScore);
+      worldState.calculatedRarity = rewards.rarityBonus;
+      worldState.calculatedQuantity = rewards.quantityBonus;
+      
+      // 3. Initialize State
+      worldState.isActive = true;
+      // Simple seed generation (time + grid hash)
+      worldState.seed = static_cast<uint32_t>(GetTime() * 1000) ^ m_grid.GetFilledCount(); 
+      worldState.biome = m_cachedResonance.primaryBiome;
+      worldState.currentDepth = 1;
+      worldState.maxDepth = 3; // Default
+      worldState.resonance = m_cachedResonance;
+      worldState.isBossKilled = false;
+      worldState.isCompleted = false;
+      
+      LOG_INFO("Dimensional State Activated: DS={}, Rarity={:.1f}%, Quant={:.1f}%", 
+               worldState.difficultyScore, worldState.calculatedRarity*100.0f, worldState.calculatedQuantity*100.0f);
+  }
 
   if (m_context && m_context->sceneManager) {
     m_context->sceneManager->RequestMosaicTransition(m_grid, m_cachedResonance);

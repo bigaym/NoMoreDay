@@ -31,6 +31,7 @@ namespace NoMoreDay {
     private:
         void InitializeEntities();
         void UpdatePhysics(float dt);
+        void RenderMapAffixOverlay();
 
         Camera2D m_camera = { 0 };
         tf::Taskflow m_taskflow;

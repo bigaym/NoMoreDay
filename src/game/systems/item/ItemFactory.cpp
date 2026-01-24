@@ -8,6 +8,7 @@
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
+#include "game/components/WorldState.hpp"
 #include <algorithm>
 #include <fstream>
 #include <map>
@@ -865,8 +866,13 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
 // -----------------------------------------------------------------------------
 entt::entity ItemFactory::createRandomLoot(entt::registry &registry, int level,
                                            float magicFind) {
-  LOG_DEBUG("创建随机掉落物，地图等级: {}，物品等级: {}，魔法寻宝率: {}", level, level, magicFind);
-  Rarity rarity = rollRarity(magicFind);
+  float effectiveMF = magicFind;
+  if(registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      effectiveMF += registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity * 100.0f;
+  }
+  
+  LOG_DEBUG("创建随机掉落物，地图等级: {}，物品等级: {}，魔法寻宝率: {}", level, level, effectiveMF);
+  Rarity rarity = rollRarity(effectiveMF);
   entt::entity result;
   if (std::uniform_int_distribution<>(0, 2)(g_rng) == 0) {
     LOG_DEBUG("正在生成武器");
@@ -1035,7 +1041,22 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
     item.name = "远古 " + item.name;
     // In Last Epoch style, LP is rarity-based. Here we use a simple weighted
     // roll.
+    // Apply Dimensional Modifiers to LP Roll
+    float lpBoost = 0.0f;
+    if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+         lpBoost = registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity;
+         // e.g. 100% Rarity => +20 to roll? Or scale?
+         // Let's use scale strategy: shift the roll towards 100
+    }
+
     int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
+    
+    // Boost logic: shift roll based on rarity bonus
+    // 100% Rarity (+1.0) -> +15 flat roll (Moves 85->100, Massive buff for high LP)
+    // 500% Rarity (+5.0) -> +75 flat roll
+    int flatBonus = static_cast<int>(lpBoost * 15.0f);
+    lpRoll = std::min(100, lpRoll + flatBonus);
+
     if (lpRoll < 60)
       item.legendaryPotential = 0;
     else if (lpRoll < 85)
@@ -1064,7 +1085,11 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
 
   // Sockets for Weapons (Independent of Rarity/LP)
   // 40% chance to have sockets
-  if (std::uniform_int_distribution<>(0, 100)(g_rng) < 40) {
+  int socketChance = 40;
+  if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      socketChance = static_cast<int>(40 * (1.0f + registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity * 0.5f));
+  }
+  if (std::uniform_int_distribution<>(0, 100)(g_rng) < socketChance) {
     item.socketCount = std::uniform_int_distribution<>(1, 3)(g_rng);
     LOG_DEBUG("Weapon '{}' rolled with {} sockets", item.name,
               item.socketCount);
@@ -1111,7 +1136,11 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
 
     // Sockets for Armor
     // 40% chance
-    if (std::uniform_int_distribution<>(0, 100)(g_rng) < 40) {
+    int socketChance = 40;
+    if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+        socketChance = static_cast<int>(40 * (1.0f + registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity * 0.5f));
+    }
+    if (std::uniform_int_distribution<>(0, 100)(g_rng) < socketChance) {
       int maxS = 1;
       if (slot == EquipmentSlot::Chest || slot == EquipmentSlot::OffHand)
         maxS = 3;
@@ -1186,7 +1215,16 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
     item.name = "远古 " + item.name;
     // In Last Epoch style, LP is rarity-based. Here we use a simple weighted
     // roll.
+    // Apply Dimensional Modifiers to LP Roll
+    float lpBoost = 0.0f;
+    if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+         lpBoost = registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity;
+    }
+
     int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
+    int flatBonus = static_cast<int>(lpBoost * 15.0f);
+    lpRoll = std::min(100, lpRoll + flatBonus);
+
     if (lpRoll < 70)
       item.legendaryPotential = 0;
     else if (lpRoll < 90)

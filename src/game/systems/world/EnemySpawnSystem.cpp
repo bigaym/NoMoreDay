@@ -14,6 +14,7 @@
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/components/WorldState.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <algorithm>
 #include <cmath>
@@ -47,26 +48,49 @@ void EnemySpawnSystem::initializeLevel(int width, int height, int level,
 void EnemySpawnSystem::initData(int width, int height, int level,
                                 const MapSystem &mapSystem,
                                 NoMoreDay::BiomeID biomeId,
-                                const NoMoreDay::ResonanceResult *resonance) {  m_mapWidth = width;
+                                const NoMoreDay::ActiveDimensionalState *state) {  m_mapWidth = width;
   m_mapHeight = height;
   m_areaLevel = level;
   m_spawnData.clear();
   m_pendingRaces.clear();
 
-  // Reset resonance mods
-  m_resonanceMods = {1.0f, 0, 0.0f, 0};
+  // Reset modifiers
+  m_resonanceMods = {1.0f, 0, 0.0f, 0, 1.0f, 1.0f, 1.0f};
 
-  if (resonance) {
-    m_resonanceMods.densityMultiplier = resonance->totalEnemyDensity;
-    m_resonanceMods.levelBonus = resonance->totalLevelMod;
-    m_resonanceMods.dropRateBonus = resonance->totalDropRate;
-    m_resonanceMods.dominantElement =
-        static_cast<int>(resonance->dominantElement);
+  if (state) {
+    const auto& resonance = state->resonance;
+    m_resonanceMods.densityMultiplier = resonance.totalEnemyDensity;
+    m_resonanceMods.levelBonus = resonance.totalLevelMod;
+    m_resonanceMods.dropRateBonus = resonance.totalDropRate;
+    m_resonanceMods.dominantElement = static_cast<int>(resonance.dominantElement);
+    
+    // Apply Explicit Affixes (Challenges)
+    for (const auto& affix : state->explicitAffixes) {
+        switch (affix.type) {
+            case NoMoreDay::MapAffixType::MonsterDensity:
+                m_resonanceMods.densityMultiplier *= (1.0f + affix.value);
+                break;
+            case NoMoreDay::MapAffixType::MonsterLevel:
+                m_resonanceMods.levelBonus += static_cast<int>(affix.value);
+                break;
+            case NoMoreDay::MapAffixType::Enemy_ExtraHealth:
+                m_resonanceMods.hpMultiplier *= (1.0f + affix.value);
+                break;
+            case NoMoreDay::MapAffixType::Enemy_ExtraDamage:
+                // Global damage multiplier
+                m_resonanceMods.damageMultiplier *= (1.0f + affix.value);
+                break;
+            case NoMoreDay::MapAffixType::Enemy_Fast:
+                m_resonanceMods.speedMultiplier *= (1.0f + affix.value);
+                break;
+            default:
+                break;
+        }
+    }
 
-    LOG_INFO("EnemySpawnSystem: Applying Resonance - Density: {:.2f}, Level: "
-             "{}, Drop: {:.2f}, Element: {}",
+    LOG_INFO("EnemySpawnSystem: Applying Dimensional State - Density: {:.2f}, Level: +{}, Drop: {:.2f}, HP: {:.2f}x, Dmg: {:.2f}x",
              m_resonanceMods.densityMultiplier, m_resonanceMods.levelBonus,
-             m_resonanceMods.dropRateBonus, m_resonanceMods.dominantElement);
+             m_resonanceMods.dropRateBonus, m_resonanceMods.hpMultiplier, m_resonanceMods.damageMultiplier);
   }
 
   LOG_INFO("EnemySpawnSystem: Initializing level data for biome '{}'",
@@ -372,11 +396,16 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   // 3. Calculate Stats
   NoMoreDay::MonsterScalingResult result = NoMoreDay::MonsterScaling::Calculate(raceType, monsterLevel, rarity);
 
+  // Apply State Multipliers
+  result.minDamage *= m_resonanceMods.damageMultiplier;
+  result.maxDamage *= m_resonanceMods.damageMultiplier;
+  result.maxHealth *= m_resonanceMods.hpMultiplier;
+
   cStats.min_weapon_damage = result.minDamage;
   cStats.max_weapon_damage = result.maxDamage;
   cStats.armor = result.armor;
   cStats.accuracy = 1.0f;
-  cStats.attack_speed = 1.0f;
+  cStats.attack_speed = 1.0f * m_resonanceMods.speedMultiplier;
   
   float modifiedHP = result.maxHealth;
 
@@ -388,7 +417,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   auto &esc2 = registry.get<EnemyStateComponent>(entity);
   registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
   registry.emplace<AIComponent>(entity, AIType::PATROL, esc2.detectionRange,
-                                esc2.attackRange, esc2.speed);
+                                esc2.attackRange, esc2.speed * m_resonanceMods.speedMultiplier);
 
   // Setup Race specifics (Stats/AI tweaks beyond base component init)
   switch (raceType) {

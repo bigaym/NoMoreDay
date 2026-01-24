@@ -1,6 +1,7 @@
 #include "game/systems/world/MapSystem.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/WorldState.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/systems/world/MosaicMapGenerator.hpp"
 #include <algorithm>
@@ -420,8 +421,15 @@ void MapSystem::generateMosaicMap(int width, int height,
       NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiomeId);
 
   // 生成地图
+  uint32_t seed = m_gen();
+  if (registry && registry->ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      const auto& state = registry->ctx().get<NoMoreDay::ActiveDimensionalState>();
+      seed = state.seed ^ (state.currentDepth * 0x9e3779b9); // Use depth to vary seed
+      LOG_INFO("Using Dimensional Seed: {} (Base: {}, Depth: {})", seed, state.seed, state.currentDepth);
+  }
+
   auto mapData = generator.Generate(
-      width, height, m_gen(), biome.wallProbability, biome.smoothIterations);
+      width, height, seed, biome.wallProbability, biome.smoothIterations);
 
   m_mapData.width = mapData.width;
   m_mapData.height = mapData.height;

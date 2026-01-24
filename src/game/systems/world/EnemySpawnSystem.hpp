@@ -21,6 +21,7 @@ struct EnemySpawnData {
 
 namespace NoMoreDay {
 struct ResonanceResult;
+struct ActiveDimensionalState;
 }
 
 class EnemySpawnSystem {
@@ -42,6 +43,9 @@ private:
     int levelBonus = 0;
     float dropRateBonus = 0.0f;
     int dominantElement = 0; // 0=None, 1=Fire, etc.
+    float hpMultiplier = 1.0f;
+    float damageMultiplier = 1.0f;
+    float speedMultiplier = 1.0f;
   } m_resonanceMods;
   
   int m_areaLevel = 1; // 当前区域等级
@@ -57,7 +61,7 @@ public:
   // Async Loading Support
   void initData(int width, int height, int level, const MapSystem &mapSystem,
                 NoMoreDay::BiomeID biome,
-                const NoMoreDay::ResonanceResult *resonance = nullptr);
+                const NoMoreDay::ActiveDimensionalState *state = nullptr);
   void initTextures();
 
   // 更新生成/销毁逻辑

@@ -1,6 +1,7 @@
 #include "game/systems/item/DropSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/WorldState.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/ItemComponent.hpp"
@@ -216,10 +217,21 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
   if (!pool || pool->entries.empty())
     return;
 
-  // 确定掷骰次数
-  std::uniform_int_distribution<int> rollDist(table.minRolls,
-                                              table.maxRolls + extraRolls);
+  // Determine roll count
+  std::uniform_int_distribution<int> rollDist(table.minRolls, table.maxRolls + extraRolls);
   int rolls = rollDist(g_drop_rng);
+
+  // Apply Dimensional Quantity
+  if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      float quantMult = 1.0f + registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedQuantity;
+      int oldRolls = rolls;
+      rolls = static_cast<int>(rolls * quantMult);
+      // Ensure at least 1 roll if original was > 0 and mult > 0? Standard truncation is fine.
+      if (oldRolls > 0 && rolls == 0) rolls = 1;
+      
+      LOG_DEBUG("DropSystem: Quantity Bonus {:.1f}% ({} -> {} rolls)", 
+          (quantMult-1.0f)*100.0f, oldRolls, rolls);
+  }
 
   for (int i = 0; i < rolls; ++i) {
     // 检查掉落几率
