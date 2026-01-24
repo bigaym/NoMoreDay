@@ -6,6 +6,7 @@
 #include "engine/scene/StateManager.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp" // Added
+#include "game/components/PlayerState.hpp"
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"

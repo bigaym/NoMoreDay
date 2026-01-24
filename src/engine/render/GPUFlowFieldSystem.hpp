@@ -85,6 +85,11 @@ private:
   int m_height = 0;
   float m_cellSize = 10.0f;
   Vector2 m_gridOrigin = {0, 0};
+
+  // State Tracking for Optimization
+  Vector2 m_lastGridOrigin = {-99999.0f, -99999.0f};
+  Vector2 m_lastTargetGridPos = {-99999.0f, -99999.0f};
+  bool m_forceUpdate = true; // Use accessors to set this if map changes
 };
 
 } // namespace NoMoreDay::systems

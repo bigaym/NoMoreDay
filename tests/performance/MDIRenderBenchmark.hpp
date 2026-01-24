@@ -51,7 +51,7 @@ TEST_CASE("MDI vs Legacy Rendering Benchmark") {
     // 2. Benchmark Legacy (Instanced, but CPU-driven submission)
     auto startLegacy = std::chrono::high_resolution_clock::now();
     for(int i=0; i<ITERATIONS; ++i) {
-        systems::GPUEntitySystem::Get().RenderLegacy();
+        systems::GPUEntitySystem::Get().RenderLegacy(0.0f);
     }
     glFinish();
     auto endLegacy = std::chrono::high_resolution_clock::now();

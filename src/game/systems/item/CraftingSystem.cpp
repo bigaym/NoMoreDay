@@ -337,26 +337,11 @@ CraftingResult CraftingSystem::fuseLegendary(entt::registry &registry,
   }
 
   // 1. Validation
-  // Base: Mythic (Unique) with LP > 0
-  if (base->rarity != Rarity::Mythic &&
-      base->rarity != Rarity::Legendary) { // Allow Legendary for now if Mythic
-                                           // isn't fully used
-    // Spec says "Unique (Mythic)". Let's assume Mythic. But ItemFactory creates
-    // Legendary with LP. ItemFactory: if (rarity == Rarity::Legendary) {
-    // item.legendaryPotential = ... } So we should check Legendary (which acts
-    // as Unique in this codebase currently?) or Mythic.
-    if (base->legendaryPotential <= 0) {
-      LOG_WARN("Fusion: Base item '{}' has no Legendary Potential.",
-               base->name);
-      return CraftingResult::NoPotential;
-    }
-  } else {
-    // Strict check if distinction exists.
-    // ItemFactory sets LP on Legendary. So Legendary is the "Unique" equivalent
-    // for LP purposes currently. But Spec says "Unique (Mythic)". I will allow
-    // Legendary OR Mythic as long as LP > 0.
-    if (base->legendaryPotential <= 0)
-      return CraftingResult::NoPotential;
+  // 1. Validation
+  // Base: Any item with LP > 0 (Unique/Legendary/Mythic/Ancient)
+  if (base->legendaryPotential <= 0) {
+    LOG_WARN("Fusion: Base item '{}' has no Legendary Potential.", base->name);
+    return CraftingResult::NoPotential;
   }
 
   // Fodder: 4 affixes

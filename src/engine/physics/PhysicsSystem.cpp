@@ -259,13 +259,20 @@ void PhysicsSystem::updateAll(entt::registry &registry, float dt,
   }
 
   auto process_collision = [&](entt::entity entity) {
-    if (registry.any_of<PlayerTag, EnemyTag>(entity)) {
+    // [FIX] Skip GPU-managed entities (Enemies) to prevent double-integration and oscillation.
+    // The GPUEntitySystem handles physics for all enemies via Compute Shaders.
+    if (registry.any_of<EnemyTag>(entity)) return;
+
+    if (registry.any_of<PlayerTag>(entity)) {
       auto [pos, vel] = view.get<Position, Velocity>(entity);
       resolveCollisions(entity, pos, vel, grid, registry, dt);
     }
   };
 
   auto process_integration = [&](entt::entity entity) {
+    // [FIX] Skip GPU-managed entities
+    if (registry.any_of<EnemyTag>(entity)) return;
+
     auto [pos, vel] = view.get<Position, Velocity>(entity);
     updatePosition(entity, pos, vel, dt, screenWidth, screenHeight);
   };

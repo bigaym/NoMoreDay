@@ -68,6 +68,29 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   if (m_width == 0 || m_height == 0)
     return;
 
+  // Change Detection for Optimization
+  // Calculate Target Grid Position (Integer Coords relative to Grid Origin)
+  Vector2 targetGrid = {(targetPos.x - gridOrigin.x) / m_cellSize,
+                        (targetPos.y - gridOrigin.y) / m_cellSize};
+  // Simply casting to int is enough for comparison validation
+  // We want to update if we move to a NEW cell, or if the grid shifts.
+  
+  bool gridChanged = (gridOrigin.x != m_lastGridOrigin.x || gridOrigin.y != m_lastGridOrigin.y);
+  // Important: Check integer grid coords for target. Float noise shouldn't trigger update.
+  bool targetChanged = ((int)targetGrid.x != (int)m_lastTargetGridPos.x || 
+                        (int)targetGrid.y != (int)m_lastTargetGridPos.y);
+
+  if (!m_forceUpdate && !gridChanged && !targetChanged) {
+      // Optimization: Inputs haven't changed significantly, skip heavy compute.
+      // We still update m_gridOrigin for consistency if it drifts micro-amounts?
+      // No, if we skip, we assume m_gridOrigin matches what's on GPU.
+      return;
+  }
+
+  m_lastGridOrigin = gridOrigin;
+  m_lastTargetGridPos = { (float)(int)targetGrid.x, (float)(int)targetGrid.y };
+  m_forceUpdate = false;
+
   m_gridOrigin = gridOrigin;
 
   // 0. Extract Window from Full Cost Map
@@ -113,8 +136,8 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
 
   m_integrationBuffer.BindBase(1);
 
-  Vector2 targetGrid = {(targetPos.x - gridOrigin.x) / m_cellSize,
-                        (targetPos.y - gridOrigin.y) / m_cellSize};
+  // Vector2 targetGrid already calculated at top of function
+  
   int locW = rlGetLocationUniform(m_resetShader.id, "width");
   int locH = rlGetLocationUniform(m_resetShader.id, "height");
   int locTarget = rlGetLocationUniform(m_resetShader.id, "targetPos");

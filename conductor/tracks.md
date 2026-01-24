@@ -350,3 +350,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 4.5 hours
+
+---
+
+## [x] Track: GPU Physics Authority & Sync Stabilization
+- **Folder:** [./conductor/tracks/gpu_physics_authority/](./conductor/tracks/gpu_physics_authority/)
+- **Description:** Migrate enemy physics authority strictly to GPU to fix "Double Authority Oscillation" and flickering. Includes CPU physics bypass, shader friction fix, and SyncBack extrapolation (Client-Side Prediction).
+- **Status:** TODO
+- **Priority:** CRITICAL
+- **Estimated Time:** 2-3 hours

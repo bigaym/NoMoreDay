@@ -94,15 +94,9 @@ void main() {
                 vel += steer * steerForce * dt * 0.1; 
             }
         }
-    } else {
-        // Non-chasing state: Apply friction to prevent infinite sliding if pushed
-        // Exception: Kinematic entities (moved by CPU) shouldn't have friction applied here 
-        // if we assume velocity is controlled by CPU.
-        // But for entities managed by GPU physics (falling into this block), we want them to stop if not chasing.
-        if ((e.flags & 1u) == 0u) { // If NOT KINEMATIC
-             vel *= 0.90;
-        }
     }
+    // [FIX] Removed aggressive friction (vel *= 0.90) for non-chase states.
+    // This allows CPU-driven velocity (Patrol) to persist without being instantly dampened.
 
     // 1. Collision Detection (Spatial Hash Grid)
     int cx = int(pos.x / cellSize);

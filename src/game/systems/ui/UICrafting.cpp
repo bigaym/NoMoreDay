@@ -241,8 +241,8 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
             bool valid = false;
             auto& item = registry.get<ItemComponent>(state.draggedItem);
             
-            if (type == 0) { // Base: Legendary + LP > 0
-                if (item.rarity == Rarity::Legendary && item.legendaryPotential > 0) valid = true;
+            if (type == 0) { // Base: LP > 0
+                if (item.legendaryPotential > 0) valid = true;
             } else if (type == 1) { // Fodder: Exalted (Rare with T6+)
                 bool hasT6 = false;
                 for(const auto& aff : item.affixes) if(aff.tier >= 6) { hasT6 = true; break; }

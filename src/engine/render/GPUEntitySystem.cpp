@@ -11,6 +11,7 @@
 #include "game/systems/stats/AttributePipeline.hpp"
 #include "raymath.h"
 #include "rlgl.h"
+#include "raylib.h" // Added for GetFrameTime()
 
 namespace NoMoreDay::systems {
 
@@ -106,16 +107,21 @@ void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context) {
     mdi.Cull(viewBounds);
     mdi.Render(mvp, context.renderAlpha);
   } else {
-    RenderLegacy();
+    RenderLegacy(context.renderAlpha);
   }
 }
 
-void GPUEntitySystem::RenderLegacy() {
+void GPUEntitySystem::RenderLegacy(float alpha) {
   if (m_maxEntities <= 0 || m_renderShader.id == 0)
     return;
   Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
   rlEnableShader(m_renderShader.id);
   rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], mvp);
+  
+  // Set interpolation alpha
+  int alphaLoc = rlGetLocationUniform(m_renderShader.id, "renderAlpha");
+  rlSetUniform(alphaLoc, &alpha, RL_SHADER_UNIFORM_FLOAT, 1);
+
   m_persistentEntityBuffer.BindPrevious(1);
   rlEnableVertexArray(m_quadVAO);
   rlDrawVertexArrayInstanced(0, 4, m_maxEntities);
@@ -168,65 +174,77 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     group.get<GPUIndex>(entity).index = index;
     m_slotToEntities[currentWriteSlot][index] = entity;
 
-    // Check Dirty Status
-    bool needsUpdate =
-        true; // Default to true for safety, or check DirtyTransform
+    // Check Dirty Status (Optimization REMOVED for correctness)
+    // EnTT group iteration order is NOT stable when entities are created/destroyed (swap-remove).
+    // An entity at index 'i' this frame might be different from 'i' last frame.
+    // If we skip update for static entities, m_shadowBuffer[i] contains STALE data from the previous occupant.
+    // This caused the "Static Monster Flickering" bug.
     if (auto *dtComp = registry.try_get<DirtyTransform>(entity)) {
-      if (!dtComp->isDirty) {
-        needsUpdate = false;
-      } else {
-        dtComp->isDirty = false; // consume flag
-      }
+      dtComp->isDirty = false; // consume flag
+    }
+
+    const auto &pos = group.get<Position>(entity);
+    const auto &vel = group.get<Velocity>(entity);
+    const auto &radius = group.get<Radius>(entity);
+
+    // Get or initialize previous position for interpolation
+    auto &prevPos =
+        registry.get_or_emplace<PrevPosition>(entity, pos.x, pos.y);
+
+    // [FIX] Teleport/Spawn Glitch Prevention
+    // If prevPos is too far from current pos (e.g. just spawned, recycled, or teleported),
+    // the render interpolation (mix(prev, curr, alpha)) will cause visual artifacts.
+    float dx = pos.x - prevPos.x;
+    float dy = pos.y - prevPos.y;
+    bool isTeleport = (dx * dx + dy * dy > 100.0f * 100.0f); // 100 pixel threshold
+
+    if (isTeleport) {
+        prevPos.x = pos.x;
+        prevPos.y = pos.y;
+    }
+
+    // Update Shadow Buffer
+    auto &gpuEntity = m_shadowBuffer[index];
+    gpuEntity.position = {pos.x, pos.y};
+    gpuEntity.prevPosition = {prevPos.x, prevPos.y};
+    
+    // [FIX] Zero-out velocity on teleport/spawn to prevent physics overshoot/oscillation
+    // If we recycled an entity that was moving fast, we don't want that ghost velocity.
+    if (isTeleport) {
+        gpuEntity.velocity = {0.0f, 0.0f};
     } else {
-      // If no DirtyTransform, assume always dirty (legacy entities)
-      needsUpdate = true;
+        gpuEntity.velocity = {vel.vx, vel.vy};
+    }
+    gpuEntity.radius = radius.value;
+    gpuEntity.type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
+
+    uint32_t flags = 0;
+    if (registry.all_of<PlayerTag>(entity)) {
+      flags |= GPU_ENTITY_FLAG_KINEMATIC;
+      flags |= GPU_ENTITY_FLAG_NO_RENDER;
+    } else if (registry.all_of<SpriteComponent>(entity)) {
+      flags |= GPU_ENTITY_FLAG_NO_RENDER;
     }
 
-    if (needsUpdate) {
-      const auto &pos = group.get<Position>(entity);
-      const auto &vel = group.get<Velocity>(entity);
-      const auto &radius = group.get<Radius>(entity);
-
-      // Get or initialize previous position for interpolation
-      auto &prevPos =
-          registry.get_or_emplace<PrevPosition>(entity, pos.x, pos.y);
-
-      // Update Shadow Buffer
-      auto &gpuEntity = m_shadowBuffer[index];
-      gpuEntity.position = {pos.x, pos.y};
-      gpuEntity.prevPosition = {prevPos.x, prevPos.y};
-      gpuEntity.velocity = {vel.vx, vel.vy};
-      gpuEntity.radius = radius.value;
-      gpuEntity.type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
-
-      uint32_t flags = 0;
-      if (registry.all_of<PlayerTag>(entity)) {
-        flags |= GPU_ENTITY_FLAG_KINEMATIC;
-        flags |= GPU_ENTITY_FLAG_NO_RENDER;
-      } else if (registry.all_of<SpriteComponent>(entity)) {
-        flags |= GPU_ENTITY_FLAG_NO_RENDER;
+    if (auto *ai = registry.try_get<AIComponent>(entity)) {
+      // Legacy flag for fast check (Keep for now or removing depending on preference, plan says keep for compat)
+      if (ai->aiType == AIType::CHASE ||
+          ai->aiType == AIType::NEMESIS_HUNTER) {
+        flags |= GPU_ENTITY_FLAG_CHASING;
       }
-
-      if (auto *ai = registry.try_get<AIComponent>(entity)) {
-        // Legacy flag for fast check (Keep for now or removing depending on preference, plan says keep for compat)
-        if (ai->aiType == AIType::CHASE ||
-            ai->aiType == AIType::NEMESIS_HUNTER) {
-          flags |= GPU_ENTITY_FLAG_CHASING;
-        }
-        
-        // Phase 2: AI State Sync (Bits 8-15)
-        // Ensure AIType fits in 8 bits
-        static_assert(static_cast<int>(AIType::TANK_BLOCK) < 256, "AI State must fit in 8 bits");
-        uint8_t stateVal = static_cast<uint8_t>(ai->aiType);
-        flags |= GPUFlags::PackAIState(stateVal);
-      }
-
-      gpuEntity.flags = flags;
-
-      // Store current position for the next physics step's prevPosition
-      prevPos.x = pos.x;
-      prevPos.y = pos.y;
+      
+      // Phase 2: AI State Sync (Bits 8-15)
+      // Ensure AIType fits in 8 bits
+      static_assert(static_cast<int>(AIType::TANK_BLOCK) < 256, "AI State must fit in 8 bits");
+      uint8_t stateVal = static_cast<uint8_t>(ai->aiType);
+      flags |= GPUFlags::PackAIState(stateVal);
     }
+
+    gpuEntity.flags = flags;
+
+    // Store current position for the next physics step's prevPosition
+    prevPos.x = pos.x;
+    prevPos.y = pos.y;
 
     // Always update stats for valid entities (or check dirty if stats have
     // dirty flag, but for now update always)
@@ -387,13 +405,15 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
 }
 
 void GPUEntitySystem::SyncBack(entt::registry &registry) {
-  if (m_frameCounter < 2)
+  if (m_frameCounter < 3)
     return;
 
-  // Read back from the previous buffer (N-1)
-  // We use triple buffering, so N-1 should be ready or near-ready.
+  // Read back from the oldest buffer (N-2)
+  // Standard Triple Buffering: Write N, Render N-1, Read N-2.
+  // This ensures the Fence for N-2 is definitely signaled (32ms ago), avoiding CPU Stalls.
   int bufferCount = m_physicsOutputBuffer.GetBufferCount();
-  int readSlot = (m_physicsOutputBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
+  // Ensure we don't handle negative modulo
+  int readSlot = (m_physicsOutputBuffer.GetCurrentSlot() - 2 + bufferCount) % bufferCount;
   
   m_physicsOutputBuffer.ReadFromSlot(m_localData.data(),
                                      m_maxEntities * sizeof(components::GPUEntity), 
@@ -420,17 +440,59 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         }
 
         // Update PrevPosition for stable interpolation
+        // Standard Sync: prev.x = pos->x;
+        // But since we are extrapolating, we should set prev to the UN-EXTRAPOLATED value?
+        // No, PrevPosition is used for Render Interpolation from Last Frame -> This Frame.
+        // If we jump 'pos' to 'Future', we risk a jump.
+        // Actually, if we update 'pos' to correct 'Time Now', then next frame's 'Prev' will be correct.
         auto &prev =
             registry.get_or_emplace<PrevPosition>(entity, pos->x, pos->y);
         prev.x = pos->x;
         prev.y = pos->y;
 
-        pos->x = gpu.position.x;
-        pos->y = gpu.position.y;
-      }
-      if (auto *vel = registry.try_get<Velocity>(entity)) {
-        vel->vx = gpu.velocity.x;
-        vel->vy = gpu.velocity.y;
+        // [FIX] Extrapolate to compensate for N-2 Readback Latency (32ms)
+        // P_cpu = P_gpu(t-2) + V_gpu * (2 * dt)
+        // exact dt is 1.0/60.0.
+        float simDt = GetFrameTime();
+        if (simDt > 0.1f) simDt = 0.1f; // Cap for debugging breakpoints
+
+        float predictedX = gpu.position.x + gpu.velocity.x * (2.0f * simDt);
+        float predictedY = gpu.position.y + gpu.velocity.y * (2.0f * simDt);
+
+        // Clamping to map boundary (simple safety)
+        if(predictedX < 0) predictedX = 0;
+        if(predictedY < 0) predictedY = 0;
+        if(predictedX > m_mapBoundary) predictedX = m_mapBoundary;
+        if(predictedY > m_mapBoundary) predictedY = m_mapBoundary;
+        
+        // [CRITICAL FIX] Teleport Protection / Desync Prevention
+        // If CPU Logic (AI/Scripts) moved the entity significantly (Teleport),
+        // the GPU data (which is 2-3 frames old) will be FAR away.
+        // We MUST NOT overwrite the CPU's new position with the GPU's old position.
+        float deltaX = predictedX - pos->x;
+        float deltaY = predictedY - pos->y;
+        float distSq = deltaX*deltaX + deltaY*deltaY;
+
+        // Threshold: 64.0f pixels squared (8.0f distance). 
+        // Normal physics drift is usually < 1.0f. 
+        // If drift is > 8.0f, it's likely a logic intervention (Teleport/Reset).
+        constexpr float TELEPORT_THRESHOLD_SQ = 8.0f * 8.0f;
+
+        if (distSq > TELEPORT_THRESHOLD_SQ) {
+            // Logic moved the entity. Trust CPU, ignore GPU this frame.
+            // Also, we might want to update PrevPosition to current to avoid interpolation glitches
+            prev.x = pos->x;
+            prev.y = pos->y;
+        } else {
+            // Normal physics sync
+            pos->x = predictedX;
+            pos->y = predictedY;
+            
+            if (auto *vel = registry.try_get<Velocity>(entity)) {
+                vel->vx = gpu.velocity.x;
+                vel->vy = gpu.velocity.y;
+            }
+        }
       }
     }
   }

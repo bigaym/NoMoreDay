@@ -25,11 +25,10 @@ public:
 
   void Update(entt::registry &registry, float dt);
   void SyncBack(entt::registry &registry);
-  void
-  Render(const NoMoreDay::SharedContext &context); // Render instanced entities
-  void RenderLegacy(); // CPU-Instanced rendering (Fallback)
-
-  void Shutdown();
+    void Render(const NoMoreDay::SharedContext &context); // Render instanced entities
+    void RenderLegacy(float alpha); // CPU-Instanced rendering (Fallback)
+  
+    void Shutdown();
 
 private:
   GPUEntitySystem() = default;
