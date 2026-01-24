@@ -431,7 +431,11 @@ void AISystem::update(entt::registry &registry,
     if (!isNemesis && distSq > DORMANCY_THRESHOLD * DORMANCY_THRESHOLD) {
       // Enter Dormancy
       registry.emplace_or_replace<DormantTag>(entity);
-      registry.remove<Velocity>(entity);
+      // [FIX] NEVER remove components that are part of an Owning Group (like
+      // Velocity) while iterating. This causes registry corruption and
+      // iterator invalidation.
+      vel.vx = 0.0f;
+      vel.vy = 0.0f;
       continue;
     }
 

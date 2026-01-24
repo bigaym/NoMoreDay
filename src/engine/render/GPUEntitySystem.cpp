@@ -69,6 +69,9 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities, entt::re
 
   if (registry) {
     registry->on_destroy<GPUIndex>().connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
+    // Added: Reclaim slot when Position or Radius is removed
+    registry->on_destroy<Position>().connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
+    registry->on_destroy<Radius>().connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
   }
 
   InitRender(resources);
@@ -136,19 +139,31 @@ void GPUEntitySystem::RenderLegacy(float alpha) {
   rlDisableShader();
 }
 
-void GPUEntitySystem::OnGPUIndexDestroyed(entt::registry &registry, entt::entity entity) {
-  auto& gpuIdx = registry.get<GPUIndex>(entity);
-  if (gpuIdx.index != -1) {
-    int slot = gpuIdx.index;
+void GPUEntitySystem::OnGPUIndexDestroyed(entt::registry &registry,
+                                        entt::entity entity) {
+  auto* gpuIdx = registry.try_get<GPUIndex>(entity);
+  if (gpuIdx && gpuIdx->index != -1) {
+    int slot = gpuIdx->index;
+
+    // Bounds Check: Prevent corruption if index is garbage
+    if (slot < 0 || slot >= m_maxEntities) {
+      LOG_ERROR("[GPUEntitySystem] CRITICAL: Invalid GPUIndex {} on entity {} "
+                "during destruction!",
+                slot, (uint32_t)entity);
+      gpuIdx->index = -1;
+      return;
+    }
+
     m_freeSlots.push_back(slot);
     m_slotToEntity[slot] = entt::null;
-    
-    // Crucial: Clear shadow buffer IMMEDIATELY so the next Update uploads radius=0
+
+    // Crucial: Clear shadow buffer IMMEDIATELY so the next Update uploads
+    // radius=0
     m_shadowBuffer[slot].radius = 0.0f;
     m_shadowBuffer[slot].position = {0, 0};
     m_visualStatsShadowBuffer[slot] = {};
-    
-    gpuIdx.index = -1;
+
+    gpuIdx->index = -1;
   }
 }
 
@@ -165,46 +180,57 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
       (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
 
   // Phase 1: Slot Reclamation & Assignment
-  auto group = registry.group<Position, Radius, GPUIndex>();
-  
-  // Identify active entities and ensure they have slots
-  std::vector<int> currentActiveSlots;
-  currentActiveSlots.reserve(group.size());
+  // [FIX] Use view instead of group to avoid conflicting with the 4-component
+  // Owned Group registered in GroupRegistry. Conflicting groups break EnTT
+  // invariants and cause memory corruption.
+  auto view = registry.view<Position, Radius, GPUIndex>();
 
-  for (auto entity : group) {
+  for (auto entity : view) {
+    auto& gpuIdx = view.get<GPUIndex>(entity);
+    
     if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity)) {
         // Entity should NOT be on GPU (Projectiles are short-lived, killed are gone)
-        auto& gpuIdx = group.get<GPUIndex>(entity);
         if (gpuIdx.index != -1) {
             int slot = gpuIdx.index;
-            m_freeSlots.push_back(slot);
-            m_slotToEntity[slot] = entt::null;
-            m_shadowBuffer[slot].radius = 0.0f;
-            m_visualStatsShadowBuffer[slot] = {};
+            if (slot >= 0 && slot < m_maxEntities) {
+                m_freeSlots.push_back(slot);
+                m_slotToEntity[slot] = entt::null;
+                m_shadowBuffer[slot].radius = 0.0f;
+                m_visualStatsShadowBuffer[slot] = {};
+            }
             gpuIdx.index = -1;
         }
         continue;
     }
 
-    auto& gpuIdx = group.get<GPUIndex>(entity);
     if (gpuIdx.index == -1) {
         if (!m_freeSlots.empty()) {
             gpuIdx.index = m_freeSlots.back();
             m_freeSlots.pop_back();
             m_slotToEntity[gpuIdx.index] = entity;
             
-            const auto& pos = group.get<Position>(entity);
+            const auto& pos = view.get<Position>(entity);
+            const auto& radius = view.get<Radius>(entity);
             m_shadowBuffer[gpuIdx.index].position = {pos.x, pos.y};
             m_shadowBuffer[gpuIdx.index].prevPosition = {pos.x, pos.y};
+            m_shadowBuffer[gpuIdx.index].radius = radius.value;
+            m_shadowBuffer[gpuIdx.index].frameId = (uint32_t)m_frameCounter;
         } else {
             continue; 
         }
     }
     
     int slot = gpuIdx.index;
-    const auto &pos = group.get<Position>(entity);
-    const auto &radius = group.get<Radius>(entity);
-    const auto &vel = registry.get_or_emplace<Velocity>(entity, 0.0f, 0.0f);
+    if (slot < 0 || slot >= m_maxEntities) continue;
+
+    const auto &pos = view.get<Position>(entity);
+    const auto &radius = view.get<Radius>(entity);
+    
+    // [SAFETY] Do NOT use get_or_emplace here. Velocity is part of an Owning Group.
+    // Emplacing it would trigger a component reordering in storage while this View
+    // is iterating, causing iterator invalidation and registry corruption.
+    auto* velPtr = registry.try_get<Velocity>(entity);
+    Vector2 velocity = velPtr ? Vector2{velPtr->vx, velPtr->vy} : Vector2{0, 0};
 
     auto &gpuEntity = m_shadowBuffer[slot];
     
@@ -220,7 +246,7 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
         gpuEntity.position = {pos.x, pos.y};
     }
 
-    gpuEntity.velocity = {vel.vx, vel.vy};
+    gpuEntity.velocity = velocity;
     gpuEntity.radius = radius.value;
     gpuEntity.type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
     gpuEntity.frameId = (uint32_t)m_frameCounter;

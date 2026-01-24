@@ -64,9 +64,6 @@ namespace NoMoreDay {
 void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
 
-  // Phase 2: Register EnTT Groups for memory optimization
-  NoMoreDay::groups::RegisterGroups(*m_context->registry);
-
   // Initialize Spatial Grid
   using namespace NoMoreDay::Constants::World;
   m_spatialGrid =

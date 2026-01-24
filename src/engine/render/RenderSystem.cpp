@@ -121,7 +121,7 @@ void RenderSystem::render(entt::registry &registry,
   // Updated to iterate entities for ShadowVisualComponent check
   // Exclude HoloBlade as it's handled by HoloBladeRenderSystem
   auto spriteView = registry.view<const Position, const SpriteComponent>(
-      entt::exclude<NoMoreDay::ItemComponent, GoldComponent, NoMoreDay::components::HoloBlade>);
+      entt::exclude<NoMoreDay::components::HoloBlade>);
 
   for (auto entity : spriteView) {
     const auto & [pos, sprite] = spriteView.get(entity);

@@ -223,6 +223,7 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         registry.emplace<ItemComponent>(droppedEntity, newItemComp);
         using namespace NoMoreDay::Constants::Item;
         registry.emplace<Position>(droppedEntity, pos->x + DROP_OFFSET_X, pos->y);
+        registry.emplace<Radius>(droppedEntity, 15.0f);
         registry.emplace<LocalLevelTag>(droppedEntity); // Ensure it's cleaned up on scene change
 
         // 恢复视觉效果 (简单处理：根据类型给颜色，或者复制原实体的 Sprite 如果有)
@@ -260,6 +261,7 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
             registry.remove<PersistentTag>(item);
         }
         registry.emplace_or_replace<LocalLevelTag>(item);
+        registry.emplace_or_replace<Radius>(item, 15.0f);
 
         // 恢复视觉效果 (如果之前被移除了)
         if (!registry.any_of<SpriteComponent>(item) && !registry.any_of<ColorComponent>(item))

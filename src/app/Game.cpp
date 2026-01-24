@@ -1,4 +1,5 @@
 #include "app/Game.hpp"
+#include "game/registry/GroupRegistry.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/persistence/SaveManager.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
@@ -42,8 +43,11 @@ Game::Game(int width, int height, const char *title)
 
   InitAudioDevice();
 
-  // Check GPU Support via our Unified Utility
   m_gpuInfo = NoMoreDay::utils::GPUUtils::CheckSupport();
+
+  // Register EnTT Groups EARLY (before any components are added)
+  // This is critical to prevent registry corruption.
+  NoMoreDay::groups::RegisterGroups(m_registry);
 
   SetExitKey(0);
 

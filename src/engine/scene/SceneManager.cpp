@@ -114,13 +114,21 @@ void SceneManager::Update(float dt) {
     break;
 
   case State::LOADING:
-    // 1. Clear Local Entities
     {
       auto view = m_registry.view<LocalLevelTag>();
-      // Note: destroy invalidates iterators, so we can't iterate simply if we
-      // want to be safe, but entt::registry::destroy(first, last) handles it
-      // efficiently.
-      m_registry.destroy(view.begin(), view.end());
+      std::vector<entt::entity> entities;
+      for (auto entity : view) {
+        entities.push_back(entity);
+      }
+      
+      if (!entities.empty()) {
+        LOG_INFO("Clearing {} local entities...", entities.size());
+        for (auto entity : entities) {
+          if (m_registry.valid(entity)) {
+            m_registry.destroy(entity);
+          }
+        }
+      }
       LOG_INFO("Cleared local entities");
     }
 

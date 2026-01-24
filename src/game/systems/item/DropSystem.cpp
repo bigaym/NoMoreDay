@@ -96,6 +96,7 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
                   registry, pending.areaLevel, pending.magicFind);
               registry.emplace_or_replace<Position>(item, pending.pos.x,
                                                     pending.pos.y);
+              registry.emplace<Radius>(item, 15.0f);
               registry.emplace<LocalLevelTag>(item);
 
               // Visual Effect & Filter
@@ -146,6 +147,8 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
                 auto gold = registry.create();
                 registry.emplace<Position>(gold, pending.pos.x, pending.pos.y);
                 registry.emplace<GoldComponent>(gold, amount);
+                registry.emplace<ColorComponent>(gold, GOLD);
+                registry.emplace<Radius>(gold, 10.0f);
                 registry.emplace<LocalLevelTag>(
                     gold); // Ensure gold is cleaned up on scene change
               }
@@ -237,6 +240,7 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
           auto item = ItemFactory::createRandomLoot(registry, dropLevel,
                                                     mf + rarityMFBoost);
           registry.emplace_or_replace<Position>(item, pos.x, pos.y);
+          registry.emplace<Radius>(item, 15.0f);
           registry.emplace<LocalLevelTag>(item);
 
           // Spawn Visual Effect
@@ -308,6 +312,8 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
             auto gold = registry.create();
             registry.emplace<Position>(gold, pos.x, pos.y);
             registry.emplace<GoldComponent>(gold, amount);
+            registry.emplace<ColorComponent>(gold, GOLD);
+            registry.emplace<Radius>(gold, 10.0f);
             registry.emplace<LocalLevelTag>(
                 gold); // Ensure gold is cleaned up on scene change
 
