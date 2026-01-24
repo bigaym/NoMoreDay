@@ -10,7 +10,8 @@ struct Entity {
     float radius;      // 4  - Collision radius
     int type;          // 4  - Entity type
     uint flags;        // 4  - Behavior flags
-    float padding[7];  // 28 - Padding to 64 bytes
+    uint frameId;      // 4  - Frame ID for stale data detection
+    float padding[6];  // 24 - Padding to 64 bytes
 };
 
 layout(std430, binding = 1) buffer InEntityBuffer { Entity inEntities[]; };
@@ -26,6 +27,7 @@ uniform float cellSize;
 uniform int gridCols;
 uniform int gridRows;
 uniform float mapBoundary = 5000.0;
+uniform uint currentFrame;
 
 uniform int flowWidth;
 uniform int flowHeight;
@@ -53,15 +55,16 @@ bool shouldUseFlowField(uint aiState) {
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
-    if (id >= maxEntities || inEntities[id].radius <= 0.0) {
-        // Must copy inactive entities too to maintain parity if needed, 
-        // but since we sync from CPU every frame, we just need to ensure 
-        // active ones are calculated. 
-        // Actually, since we are double buffering, we MUST copy the state 
-        // even if we don't update it, or at least zero it out.
-        if (id < maxEntities) {
-            outEntities[id] = inEntities[id];
-        }
+    // Limit dt to avoid instability on huge lag spikes
+    float safeDt = min(dt, 0.1);
+    
+    // Safety check: ensure dispatch covers all potential slots
+    // If id is valid but inactive (radius <= 0), we MUST clear it in the output buffer
+    // to prevent "Ghost Entities" from N-2 frames polluting the grid.
+    if (inEntities[id].radius <= 0.0) {
+        outEntities[id].radius = 0.0;
+        outEntities[id].position = vec2(0.0);
+        outEntities[id].velocity = vec2(0.0);
         return;
     }
 
@@ -72,6 +75,9 @@ void main() {
 
     // [INTERPOLATION] Save current position as previous BEFORE physics update
     e.prevPosition = pos;
+
+    // Update Frame ID to mark this slot as valid for the current frame
+    e.frameId = currentFrame;
 
     // 0. Steering (Flow Field) - Based on AI State (Bits 8-15)
     uint aiState = (e.flags >> 8) & 0xFFu;
@@ -91,7 +97,7 @@ void main() {
                 float steerForce = 400.0;
                 vec2 desiredVel = flowDir * speed;
                 vec2 steer = desiredVel - vel;
-                vel += steer * steerForce * dt * 0.1; 
+                vel += steer * steerForce * safeDt * 0.1; 
             }
         }
     }
@@ -127,7 +133,12 @@ void main() {
                     float dist = sqrt(distSq);
                     vec2 normal = diff / dist;
                     float overlap = minDist - dist;
-                    vel += normal * overlap * 10.0; 
+                    
+                    // [FIX] Multiply by dt to convert Impulse to Force
+                    // Previously: vel += normal * overlap * 10.0; (Frame-rate dependent explosion)
+                    // Now: Force based repulsion. 
+                    // Coefficient 800.0 is arbitrary stiffness.
+                    vel += normal * overlap * 800.0 * safeDt; 
                 }
             }
         }
@@ -135,8 +146,15 @@ void main() {
 
     // 2. Integration
     if ((e.flags & 1u) == 0u) {
-        pos += vel * dt;
-        vel *= pow(0.92, dt * 60.0);
+        // [SAFETY] Clamp velocity to prevent physics explosion
+        // 500.0 is MOVE_SPEED_CAP, 2000.0 is MAX_VELOCITY
+        float vLen = length(vel);
+        if (vLen > 2000.0) {
+            vel = normalize(vel) * 2000.0;
+        }
+
+        pos += vel * safeDt;
+        vel *= pow(0.92, safeDt * 60.0);
 
         // 3. Boundary Collision
         if (pos.x < 0.0) { pos.x = 0.0; vel.x *= -0.5; }

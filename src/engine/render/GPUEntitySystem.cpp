@@ -398,10 +398,11 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
                      5); // OutEntityBuffer (Binding 5 matches shader)
   m_physicsOutputBuffer.BindBase(5); // Ensure current slot is bound
 
-  rlBindShaderBuffer(m_cellCountBuffer.GetId(), 2);
-  rlBindShaderBuffer(m_cellOffsetBuffer.GetId(), 3);
-  rlBindShaderBuffer(m_entityIndicesBuffer.GetId(), 4);
-  rlComputeShaderDispatch((index + 255) / 256, 1, 1);
+  // [CRITICAL FIX] Dispatch for ALL potential entities, not just active ones.
+  // This ensures that non-active slots (radius <= 0) are correctly cleared in the output buffer.
+  // Without this, "Ghost Entities" from N-2 frames (Triple Buffering) persist in the output,
+  // causing invisible collisions and "teleportation" bugs.
+  rlComputeShaderDispatch((m_maxEntities + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
   rlDisableShader();
   m_persistentEntityBuffer.Lock();
@@ -470,6 +471,13 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
             }
         }
 
+        // [FIX] Dormancy Check
+        // If the entity is dormant (placed at sentinel coordinates), do NOT sync back.
+        // This prevents pulling dormant entities back into the world due to stale GPU data.
+        if (pos->x <= -990.0f) {
+            continue;
+        }
+
         // Significant change threshold (0.5 pixel)
         float dx = gpu.position.x - pos->x;
         float dy = gpu.position.y - pos->y;
@@ -509,8 +517,10 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         float deltaY = predictedY - pos->y;
         float predDistSq = deltaX*deltaX + deltaY*deltaY;
 
-        // Threshold: 64.0f pixels squared (8.0f distance). 
-        constexpr float TELEPORT_THRESHOLD_SQ = 8.0f * 8.0f;
+        // Threshold: Increased from 64.0f (8px) to 10000.0f (100px)
+        // This prevents rubberbanding when entities move fast or accelerate,
+        // allowing the GPU physics to remain authoritative unless a massive teleport occurs.
+        constexpr float TELEPORT_THRESHOLD_SQ = 100.0f * 100.0f;
 
         if (predDistSq > TELEPORT_THRESHOLD_SQ) {
             // Logic moved the entity. Trust CPU, ignore GPU this frame.

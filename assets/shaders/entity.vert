@@ -9,7 +9,8 @@ struct Entity {
     float radius;      // 4
     int type;          // 4
     uint flags;        // 4
-    float padding[7];  // 28
+    uint frameId;      // 4
+    float padding[6];  // 24
 };
 
 layout(std430, binding = 1) buffer EntityBuffer { Entity entities[]; };

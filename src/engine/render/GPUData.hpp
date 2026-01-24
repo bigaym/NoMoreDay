@@ -55,7 +55,8 @@ struct GPUEntity {
   float radius = 0.0f;             // 4  - Collision/render radius
   int32_t type = 0;                // 4  - Entity type (0=player, 1=enemy, etc.)
   uint32_t flags = 0;              // 4  - Behavior flags
-  float padding[7] = {0.0f};       // 28 - Padding to 64 bytes
+  uint32_t frameId = 0;            // 4  - Frame ID for stale data detection
+  float padding[6] = {0.0f};       // 24 - Padding to 64 bytes
 
   GPUEntity() = default;
 };

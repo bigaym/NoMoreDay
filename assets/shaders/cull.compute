@@ -9,7 +9,8 @@ struct InstanceData {
     float radius;      // 4  - Collision radius
     uint type;         // 4  - Entity type
     uint flags;        // 4  - Behavior flags
-    float padding[7];  // 28 - Padding to 64 bytes
+    uint frameId;      // 4  - Frame ID
+    float padding[6];  // 24 - Padding to 64 bytes
 };
 
 layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
