@@ -43,6 +43,28 @@ private:
 // Usage: LOG_LIMITED_WARN(5.0f, "This warns at most once every 5 seconds");
 // interval_seconds: float/double representing seconds
 
+#define LOG_LIMITED_DEBUG(interval_seconds, ...) \
+    do { \
+        static auto last_log_time_##__LINE__ = std::chrono::steady_clock::time_point::min(); \
+        auto now_##__LINE__ = std::chrono::steady_clock::now(); \
+        std::chrono::duration<float> diff_##__LINE__ = now_##__LINE__ - last_log_time_##__LINE__; \
+        if (diff_##__LINE__.count() >= interval_seconds) { \
+            LOG_DEBUG(__VA_ARGS__); \
+            last_log_time_##__LINE__ = now_##__LINE__; \
+        } \
+    } while(0)
+
+#define LOG_LIMITED_INFO(interval_seconds, ...) \
+    do { \
+        static auto last_log_time_##__LINE__ = std::chrono::steady_clock::time_point::min(); \
+        auto now_##__LINE__ = std::chrono::steady_clock::now(); \
+        std::chrono::duration<float> diff_##__LINE__ = now_##__LINE__ - last_log_time_##__LINE__; \
+        if (diff_##__LINE__.count() >= interval_seconds) { \
+            LOG_INFO(__VA_ARGS__); \
+            last_log_time_##__LINE__ = now_##__LINE__; \
+        } \
+    } while(0)
+
 #define LOG_LIMITED_WARN(interval_seconds, ...) \
     do { \
         static auto last_log_time_##__LINE__ = std::chrono::steady_clock::time_point::min(); \

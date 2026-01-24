@@ -225,6 +225,14 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     } else if (registry.all_of<SpriteComponent>(entity)) {
       flags |= GPU_ENTITY_FLAG_NO_RENDER;
     }
+    
+    // [FIX] Force Kinematic on Teleport/Spawn
+    // This prevents the GPU from integrating physics/forces for one frame,
+    // allowing the entity to "settle" at the new position.
+    // Crucial for recycled entities or massive teleports where N-2 buffer might contain invalid overlap data.
+    if (isTeleport) {
+        flags |= GPU_ENTITY_FLAG_KINEMATIC;
+    }
 
     if (auto *ai = registry.try_get<AIComponent>(entity)) {
       // Legacy flag for fast check (Keep for now or removing depending on preference, plan says keep for compat)
@@ -483,10 +491,18 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         float dy = gpu.position.y - pos->y;
         float distSq = dx * dx + dy * dy;
 
-        // [DEBUG] Log massive jumps
-        if (distSq > 50.0f * 50.0f) {
-             LOG_WARN("SyncBack: Huge Jump Detected for Entity {}. CPU: ({}, {}) -> GPU: ({}, {}). Slot: {}", 
-                      (uint32_t)entity, pos->x, pos->y, gpu.position.x, gpu.position.y, readSlot);
+        // Threshold: Increased from 64.0f (8px) to 90000.0f (300px)
+        // This prevents rubberbanding when entities move fast or accelerate,
+        // allowing the GPU physics to remain authoritative unless a massive teleport occurs.
+        constexpr float TELEPORT_THRESHOLD_SQ = 300.0f * 300.0f;
+
+        // [DEBUG] Log ONLY massive jumps that exceed the valid threshold (Teleport Rejection)
+        // Rate limited to avoid spamming logs during lag spikes
+        if (distSq > TELEPORT_THRESHOLD_SQ) {
+             static int logCounter = 0;
+             if (logCounter++ % 60 == 0) {
+                 LOG_WARN("SyncBack: Teleport Rejected. Entity {}. Dist: {:.1f}", (uint32_t)entity, std::sqrt(distSq));
+             }
         }
 
         if (distSq > 0.25f) { // 0.5^2
@@ -516,11 +532,6 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         float deltaX = predictedX - pos->x;
         float deltaY = predictedY - pos->y;
         float predDistSq = deltaX*deltaX + deltaY*deltaY;
-
-        // Threshold: Increased from 64.0f (8px) to 10000.0f (100px)
-        // This prevents rubberbanding when entities move fast or accelerate,
-        // allowing the GPU physics to remain authoritative unless a massive teleport occurs.
-        constexpr float TELEPORT_THRESHOLD_SQ = 100.0f * 100.0f;
 
         if (predDistSq > TELEPORT_THRESHOLD_SQ) {
             // Logic moved the entity. Trust CPU, ignore GPU this frame.

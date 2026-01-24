@@ -168,8 +168,14 @@ void EnemySpawnSystem::initData(int width, int height, int level,
 
         EnemySpawnData data;
         using namespace NoMoreDay::Constants::World;
-        data.position = {ex * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f),
-                         ey * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f)};
+        
+        // [FIX] Add sub-tile jitter to prevent perfect overlap physics explosions
+        std::uniform_real_distribution<float> jitterDist(-4.0f, 4.0f);
+        float jx = jitterDist(m_gen);
+        float jy = jitterDist(m_gen);
+
+        data.position = {ex * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f) + jx,
+                         ey * GRID_TILE_SIZE + (GRID_TILE_SIZE / 2.0f) + jy};
         data.isAlive = false;
         data.entityId = entt::null;
         data.enemyType = race;
@@ -311,7 +317,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   using namespace NoMoreDay::Constants::Enemy;
   esc.activationRange = DEFAULT_AGGRO_DISTANCE;
   
-  LOG_DEBUG("Spawned Entity {} with Activation Range: {:.1f}", (uint32_t)entity, esc.activationRange);
+  LOG_LIMITED_DEBUG(5.0F,"Spawned Entity {} with Activation Range: {:.1f}", (uint32_t)entity, esc.activationRange);
 
   registry.emplace<EnemyTag>(entity);
   auto &cStats = registry.emplace<NoMoreDay::CombatStats>(entity);
