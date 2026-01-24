@@ -21,9 +21,9 @@ struct alignas(16) GPUInstanceData {
   float radius;     // 4 bytes  - Used for scale calculation
   int32_t type;     // 4 bytes  - Texture Index
   uint32_t flags;   // 4 bytes  - Behavior flags
-  float padding[3]; // 12 bytes - Padding to 48 bytes
+  float padding[7]; // 28 bytes - Padding to 64 bytes
 };
-static_assert(sizeof(GPUInstanceData) == 48,
+static_assert(sizeof(GPUInstanceData) == 64,
               "GPUInstanceData must match GPUEntity size");
 
 struct DrawArraysIndirectCommand {

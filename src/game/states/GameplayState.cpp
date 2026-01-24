@@ -664,6 +664,10 @@ void GameplayState::UpdatePhysics(float dt) {
 
   auto view = registry.view<Position, Velocity>();
 
+  // [RECOVERY] Restore Force Fields logic (Phase 0 - Serial Pre-task)
+  // This calculates skills like Singularity/Vortex that modify Velocity.
+  PhysicsSystem::applyForceFields(registry, dt, m_spatialGrid);
+
   m_taskflow.clear();
   m_physicsEntities.clear();
   m_physicsEntities.reserve(view.size_hint());
@@ -707,8 +711,8 @@ void GameplayState::UpdatePhysics(float dt) {
         const auto &map = m_context->levelManager->getMapSystem();
         using namespace NoMoreDay::Constants::World;
         using namespace NoMoreDay::Constants::Physics;
-        float radius = DEFAULT_ENTITY_RADIUS * 0.8f; // Using slightly smaller radius for map collision buffer
-        if (registry.all_of<Radius>(entity)) radius = registry.get<Radius>(entity).value * 0.8f;
+        float radius = DEFAULT_ENTITY_RADIUS * MAP_COLLISION_RADIUS_FACTOR; 
+        if (registry.all_of<Radius>(entity)) radius = registry.get<Radius>(entity).value * MAP_COLLISION_RADIUS_FACTOR;
 
         TilemapCollisionSystem::ResolveCollision(map, pos, vel, dt, radius);
       });

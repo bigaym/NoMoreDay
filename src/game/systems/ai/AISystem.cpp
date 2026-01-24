@@ -432,8 +432,6 @@ void AISystem::update(entt::registry &registry,
       // Enter Dormancy
       registry.emplace_or_replace<DormantTag>(entity);
       registry.remove<Velocity>(entity);
-      // Removed: Teleport to holding area (DORMANCY_TELEPORT_COORD)
-      // This prevents the "Ghosting" artifacts during awakening.
       continue;
     }
 

@@ -23,15 +23,16 @@ void PhysicsSystem::performDashStep(entt::registry& registry, entt::entity entit
     float moveY = vel.vy * dt;
     float distSq = moveX * moveX + moveY * moveY;
     
-    if (distSq < 0.0001f) return;
+    using namespace NoMoreDay::Constants::Physics;
+    if (distSq < MIN_DIST_SQ_THRESHOLD) return;
     
     float dist = std::sqrt(distSq);
     
     // 2. Stepping for CCD
     // Use a step size smaller than player size/wall thickness
     // Assuming player radius approx 15.0f.
-    constexpr float STEP_SIZE = 10.0f; 
-    int steps = static_cast<int>(std::ceil(dist / STEP_SIZE));
+    using namespace NoMoreDay::Constants::Physics;
+    int steps = static_cast<int>(std::ceil(dist / CCD_STEP_SIZE));
     if (steps == 0) steps = 1;
     
     float stepX = moveX / static_cast<float>(steps);
@@ -48,7 +49,7 @@ void PhysicsSystem::performDashStep(entt::registry& registry, entt::entity entit
         entityRadius = registry.get<Radius>(entity).value;
     }
     // Reduced radius for map collision to match GameplayState logic and prevent sticking
-    float collisionRadius = std::max(1.0f, entityRadius * 0.8f); 
+    float collisionRadius = std::max(1.0f, entityRadius * MAP_COLLISION_RADIUS_FACTOR); 
     
     for (int i = 0; i < steps; ++i) {
         float nextX = currX + stepX;
@@ -157,11 +158,11 @@ void PhysicsSystem::resolveCollisions(entt::entity entity, const Position &pos,
                 float distSq = cdx*cdx + cdy*cdy;
                 
                 // Hard Push (Approximate)
-                if (distSq < entityRadius * entityRadius && distSq > 0.0001f) {
+                using namespace NoMoreDay::Constants::Physics;
+                if (distSq < entityRadius * entityRadius && distSq > MIN_DIST_SQ_THRESHOLD) {
                     float dist = std::sqrt(distSq);
                     float overlap = entityRadius - dist;
                     // Stronger repulsion for walls
-                    constexpr float WALL_REPULSION_FACTOR = 20.0f; 
                     vel.vx += (cdx / dist) * overlap * repulsionStrength * WALL_REPULSION_FACTOR * dt;
                     vel.vy += (cdy / dist) * overlap * repulsionStrength * WALL_REPULSION_FACTOR * dt;
                 }
@@ -189,11 +190,11 @@ void PhysicsSystem::updatePosition(entt::registry& registry, entt::entity entity
 
   // [SAFETY] Clamp velocity to prevent physics explosion (mimic GPU shader)
   float speedSq = vel.vx * vel.vx + vel.vy * vel.vy;
-  constexpr float MAX_SPEED = 2000.0f;
-  if (speedSq > MAX_SPEED * MAX_SPEED) {
+  using namespace NoMoreDay::Constants::Physics;
+  if (speedSq > MAX_VELOCITY * MAX_VELOCITY) {
     float speed = std::sqrt(speedSq);
-    vel.vx = (vel.vx / speed) * MAX_SPEED;
-    vel.vy = (vel.vy / speed) * MAX_SPEED;
+    vel.vx = (vel.vx / speed) * MAX_VELOCITY;
+    vel.vy = (vel.vy / speed) * MAX_VELOCITY;
   }
 
   pos.x += vel.vx * dt;
@@ -202,7 +203,8 @@ void PhysicsSystem::updatePosition(entt::registry& registry, entt::entity entity
   // [DAMPING] Apply velocity damping ONLY to gameplay entities (Enemies/Players)
   // Projectiles should maintain their speed.
   if (registry.any_of<EnemyTag, PlayerTag>(entity)) {
-    float damping = std::pow(0.92f, dt * 60.0f);
+    using namespace NoMoreDay::Constants::Physics;
+    float damping = std::pow(ENTITY_DAMPING_FACTOR, dt * 60.0f);
     vel.vx *= damping;
     vel.vy *= damping;
   }
@@ -249,7 +251,8 @@ void PhysicsSystem::applyForceFields(entt::registry& registry, float dt, NoMoreD
             float dx = tPos.x - pos.x;
             float dy = tPos.y - pos.y;
             float distSq = dx*dx + dy*dy;
-            if (distSq < r*r && distSq > 0.0001f) {
+            using namespace NoMoreDay::Constants::Physics;
+            if (distSq < r*r && distSq > MIN_DIST_SQ_THRESHOLD) {
                 float dist = std::sqrt(distSq);
                 float factor = 1.0f - (dist / r); // Linear Falloff
                 

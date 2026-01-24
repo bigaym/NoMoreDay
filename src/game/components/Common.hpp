@@ -63,7 +63,6 @@ constexpr float FLOW_CELL_SIZE = 10.0f;         // 流场单元格大小
 
 // 性能优化：基于距离的分级更新
 constexpr float DORMANCY_THRESHOLD = 1950.0f;       // 进入休眠状态的距离阈值
-constexpr float DORMANCY_TELEPORT_COORD = -1000.0f; // 休眠实体隐藏坐标
 constexpr float UPDATE_DIST_MEDIUM = 600.0f;        // 中距离更新范围
 constexpr float UPDATE_DIST_FAR = 1200.0f;          // 远距离更新范围
 constexpr float UPDATE_INTERVAL_MEDIUM = 0.033f;    // 中距离更新频率 (30Hz)
@@ -282,6 +281,12 @@ constexpr float REPULSION_STRENGTH = 200.0f;     // 实体间互相排斥的力�
 constexpr float MAX_VELOCITY = 2000.0f;          // 最大速度限制
 constexpr float EPSILON_VELOCITY = 0.001f;       // 速度归一化/停止判定阈值
 constexpr float MIN_DIST_SQ_THRESHOLD = 0.0001f; // 距离计算的极小过滤阈值
+
+// [NEW] Added from audit (2026-01-24)
+constexpr float WALL_REPULSION_FACTOR = 20.0f; // 墙壁排斥力系数
+constexpr float ENTITY_DAMPING_FACTOR = 0.92f; // 瀹炰綋闃诲凹 (绌烘皵闃诲姏)
+constexpr float CCD_STEP_SIZE = 10.0f;         // 杩炵画纰版挒妫€娴嬫闀
+constexpr float MAP_COLLISION_RADIUS_FACTOR = 0.8f; // 鍦板浘纰版挒鍗婂緞缂╁皬绯鏁
 } // namespace Physics
 
 // 敌人驱动设置
