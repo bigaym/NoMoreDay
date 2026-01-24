@@ -377,6 +377,10 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
                RL_SHADER_UNIFORM_INT, 1);
   rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "mapBoundary"),
                &m_mapBoundary, RL_SHADER_UNIFORM_FLOAT, 1);
+  
+  uint32_t currentFrame = (uint32_t)m_frameCounter;
+  rlSetUniform(rlGetLocationUniform(m_physicsShader.id, "currentFrame"),
+               &currentFrame, RL_SHADER_UNIFORM_UINT, 1);
 
   const auto &flowSystem = GPUFlowFieldSystem::Get();
   flowSystem.GetFlowBuffer().BindBase(6);
@@ -428,6 +432,24 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
 
     auto &gpu = m_localData[i];
     
+    // [SAFETY] Stale Data Protection (Ring Buffer Sync)
+    // If the GPU data corresponds to an older frame (because compute shader skipped it),
+    // we MUST ignore it to prevent "Teleport to Past" artifacts.
+    // We expect gpu.frameId to be roughly (m_frameCounter - 2).
+    // Due to update order, gpu.frameId might be (m_frameCounter - 1) or equal.
+    // Crucially, it must NOT be 0 (uninitialized/copied from inactive) and NOT old.
+    uint32_t expectedFrame = (uint32_t)(m_frameCounter - 3); // Relaxed safety bound
+    
+    if (gpu.frameId == 0 || gpu.frameId < expectedFrame) {
+         // Log for debugging (Limit frequency)
+         static int staleLogCount = 0;
+         if (staleLogCount++ < 100 && gpu.frameId != 0) { // Don't log 0s, they are expected for inactive
+             LOG_WARN("SyncBack: Stale Data for Entity {}. GPU Frame: {}, Threshold: {}", 
+                      (uint32_t)entity, gpu.frameId, expectedFrame);
+         }
+         continue;
+    }
+
     // [SAFETY] Sanity check for valid GPU data
     // If radius is 0, it means the slot was empty/cleared or not written to.
     if (gpu.radius <= 0.001f) {
@@ -437,12 +459,12 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
     if (auto *pos = registry.try_get<Position>(entity)) {
         // [SAFETY] Zero-Coordinate Glitch Protection
         // If GPU returns exact (0,0) but entity is far away, it's likely a buffer read error.
-        if (gpu.position.x == 0.0f && gpu.position.y == 0.0f) {
+        if (std::abs(gpu.position.x) < 0.01f && std::abs(gpu.position.y) < 0.01f) {
             if (pos->x * pos->x + pos->y * pos->y > 100.0f) {
                 // Log only once per second to avoid spam
                 static int logTimer = 0;
                 if (logTimer++ % 60 == 0) {
-                     LOG_WARN("SyncBack: Ignored invalid GPU (0,0) for Entity {}", (uint32_t)entity);
+                     LOG_WARN("SyncBack: Ignored invalid GPU (0,0) for Entity {}. CPU Pos: ({}, {})", (uint32_t)entity, pos->x, pos->y);
                 }
                 continue;
             }
@@ -451,7 +473,15 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         // Significant change threshold (0.5 pixel)
         float dx = gpu.position.x - pos->x;
         float dy = gpu.position.y - pos->y;
-        if (dx * dx + dy * dy > 0.25f) { // 0.5^2
+        float distSq = dx * dx + dy * dy;
+
+        // [DEBUG] Log massive jumps
+        if (distSq > 50.0f * 50.0f) {
+             LOG_WARN("SyncBack: Huge Jump Detected for Entity {}. CPU: ({}, {}) -> GPU: ({}, {}). Slot: {}", 
+                      (uint32_t)entity, pos->x, pos->y, gpu.position.x, gpu.position.y, readSlot);
+        }
+
+        if (distSq > 0.25f) { // 0.5^2
           registry.get_or_emplace<DirtyTransform>(entity).isDirty = true;
         }
 
@@ -477,12 +507,12 @@ void GPUEntitySystem::SyncBack(entt::registry &registry) {
         // [CRITICAL FIX] Teleport Protection / Desync Prevention
         float deltaX = predictedX - pos->x;
         float deltaY = predictedY - pos->y;
-        float distSq = deltaX*deltaX + deltaY*deltaY;
+        float predDistSq = deltaX*deltaX + deltaY*deltaY;
 
         // Threshold: 64.0f pixels squared (8.0f distance). 
         constexpr float TELEPORT_THRESHOLD_SQ = 8.0f * 8.0f;
 
-        if (distSq > TELEPORT_THRESHOLD_SQ) {
+        if (predDistSq > TELEPORT_THRESHOLD_SQ) {
             // Logic moved the entity. Trust CPU, ignore GPU this frame.
             prev.x = pos->x;
             prev.y = pos->y;
