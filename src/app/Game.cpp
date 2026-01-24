@@ -111,7 +111,7 @@ void Game::init() {
     // GPU Particle System (Indirect Drawing)
     NoMoreDay::systems::GPUParticleSystem::Get().Init(NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
 
-    NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager);
+    NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager, 200000, &m_registry);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
     // Initialize GPU Skill Effect System (Global)

@@ -18,7 +18,7 @@ public:
                                 float dt);
 
     // Phase 2: 位置积分与边界处理 (线程安全: 读 Velocity, 写 Position)
-    static void updatePosition(entt::entity entity, Position& pos, Velocity& vel, 
+    static void updatePosition(entt::registry& registry, entt::entity entity, Position& pos, Velocity& vel, 
                              float dt, int worldWidth, int worldHeight);
 
     // Apply Force Fields (Vortex, etc.)

@@ -21,7 +21,9 @@ public:
     return instance;
   }
 
-  void Init(ResourceManager &rm, int maxEntities = 200000);
+  void Init(ResourceManager &rm, int maxEntities = 200000, entt::registry* registry = nullptr);
+
+  void OnGPUIndexDestroyed(entt::registry &registry, entt::entity entity);
 
   void Update(entt::registry &registry, float dt);
   void SyncBack(entt::registry &registry);
@@ -62,10 +64,11 @@ private:
   Shader m_gridScanShader;
 
   uint64_t m_frameCounter = 0;
-  std::vector<entt::entity>
-      m_slotToEntities[3]; // Stable tracking for each slot
-  int m_activeCountPerSlot[3] = {0, 0, 0};
-
+  
+  // Stable Slot Management
+  std::vector<int> m_freeSlots;
+  std::vector<entt::entity> m_slotToEntity; 
+  
   static constexpr int BLOCK_SIZE = 1024;
   std::vector<bool> m_blockDirty;
 

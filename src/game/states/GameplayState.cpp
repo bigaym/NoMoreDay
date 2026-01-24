@@ -359,11 +359,11 @@ bool GameplayState::OnUpdate(float dt) {
   // 1. Level & Systems
   m_context->levelManager->update(dt, registry, playerPos);
 
-  // Spatial Grid Rebuild (Exclude items/gold to keep AI/physics search fast)
+  // Spatial Grid Rebuild (Exclude items/gold/dormant to keep AI/physics search fast)
   // Move rebuild here so systems use fresh data this frame
   {
     auto gridView = registry.view<Position>(
-        entt::exclude<NoMoreDay::ItemComponent, GoldComponent>);
+        entt::exclude<NoMoreDay::ItemComponent, GoldComponent, DormantTag>);
     m_spatialGrid.rebuild(gridView, registry);
   }
 
@@ -601,8 +601,22 @@ bool GameplayState::OnUpdate(float dt) {
       TilemapCollisionSystem::ResolveCollision(map, pos, vel, dt, radius);
 
       pos.x += vel.vx * dt;
-
       pos.y += vel.vy * dt;
+
+    // [SAFETY] Position Sanity Check
+    static Position lastValidPos = pos;
+    LOG_LIMITED_DEBUG(1.0f, "[PLAYER_POS] Current: ({:.1f}, {:.1f}), Velocity: ({:.1f}, {:.1f})", pos.x, pos.y, vel.vx, vel.vy);
+    
+    if (std::isnan(pos.x) || std::isnan(pos.y) || 
+        pos.x < -2000.0f || pos.x > 15000.0f || 
+        pos.y < -2000.0f || pos.y > 15000.0f) {
+          LOG_ERROR("[CRITICAL] Player teleported to invalid position: ({:.1f}, {:.1f}). Resetting to last valid pos.", pos.x, pos.y);
+          pos = lastValidPos;
+          vel.vx = 0;
+          vel.vy = 0;
+      } else {
+          lastValidPos = pos;
+      }
     }
 
     // Camera Follow
@@ -670,18 +684,21 @@ void GameplayState::UpdatePhysics(float dt) {
   auto resolveTask = m_taskflow.for_each(
       m_physicsEntities.begin(), m_physicsEntities.end(),
       [this, dt, &registry](entt::entity entity) {
+        if (registry.any_of<DormantTag>(entity)) return;
+
         const auto &pos = registry.get<Position>(entity);
         auto &vel = registry.get<Velocity>(entity);
 
-        // [OPTIMIZATION] Skip CPU physics for GPU-managed entities (except Player)
-        // Enemies are fully simulated on GPU. CPU only handles interpolation in RenderSystem.
+        // CPU is now the authority for both Player and Enemies.
         bool isGpuManaged = registry.all_of<GPUIndex>(entity);
         bool isPlayer = registry.all_of<PlayerTag>(entity);
+        bool isEnemy = registry.all_of<EnemyTag>(entity);
         
-        if (isGpuManaged && !isPlayer) return;
+        // Only skip if it's neither player nor enemy (e.g. some other GPU managed VFX)
+        if (!isPlayer && !isEnemy) return;
 
-        // Only resolve collisions for solid game entities (Players and Enemies - if handled by CPU)
-        if (isPlayer || (!isGpuManaged && registry.all_of<EnemyTag>(entity))) {
+        // Only resolve collisions for solid game entities (Players and Enemies)
+        if (isPlayer || isEnemy) {
           PhysicsSystem::resolveCollisions(entity, pos, vel, m_spatialGrid,
                                            registry, dt);
         }
@@ -700,20 +717,19 @@ void GameplayState::UpdatePhysics(float dt) {
   auto updateTask = m_taskflow.for_each(
       m_physicsEntities.begin(), m_physicsEntities.end(),
       [dt, worldSizeW, worldSizeH, &registry](entt::entity entity) {
-        // [OPTIMIZATION] Skip CPU position update for GPU-managed entities AND Player
-        // Enemies are handled by GPU SyncBack. Player is handled in OnUpdate (Predictive).
-        bool isGpuManaged = registry.all_of<GPUIndex>(entity);
-        bool isPlayer = registry.all_of<PlayerTag>(entity);
-        if (isGpuManaged || isPlayer) return;
+        if (registry.any_of<DormantTag>(entity)) return;
 
+        // Player is handled in OnUpdate (Predictive).
+        bool isPlayer = registry.all_of<PlayerTag>(entity);
+        if (isPlayer) return;
+
+        // Enemies AND Projectiles are now handled here on CPU.
+        // We integrate anything with Velocity that isn't the player or dormant.
+        
         auto &pos = registry.get<Position>(entity);
         auto &vel = registry.get<Velocity>(entity);
 
-        // We update position here on CPU.
-        // If GPUEntitySystem is active, it will SYNC BACK and overwrite these
-        // values in the Game loop. This provides a safe fallback and consistent
-        // state.
-        PhysicsSystem::updatePosition(entity, pos, vel, dt, worldSizeW,
+        PhysicsSystem::updatePosition(registry, entity, pos, vel, dt, worldSizeW,
                                       worldSizeH);
       });
 

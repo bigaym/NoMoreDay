@@ -137,8 +137,37 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
   }
 
   // Common Chase Logic using Flow Field
-  // REMOVED (Phase 4): Delegated to GPU physics.compute
-  
+  auto shouldUseFlowField = [](AIType type) {
+    return type == AIType::CHASE || type == AIType::ATTACK ||
+           type == AIType::NEMESIS_HUNTER || type == AIType::ASSASSIN_STEALTH ||
+           type == AIType::TANK_BLOCK;
+  };
+
+  if (shouldUseFlowField(ai.aiType) && !flowField.empty()) {
+    Vector2 relativePos = {pos.x - gridOrigin.x, pos.y - gridOrigin.y};
+    int fx = (int)(relativePos.x / cellSize);
+    int fy = (int)(relativePos.y / cellSize);
+
+    if (fx >= 0 && fx < gridW && fy >= 0 && fy < gridH) {
+      uint32_t flowIdx = (uint32_t)(fy * gridW + fx);
+      if (flowIdx < flowField.size()) {
+        Vector2 flowDir = flowField[flowIdx];
+        if (std::abs(flowDir.x) > 0.01f || std::abs(flowDir.y) > 0.01f) {
+          float speed = 150.0f;
+          float steerForce = 400.0f;
+          float desiredVelX = flowDir.x * speed;
+          float desiredVelY = flowDir.y * speed;
+          
+          float steerX = desiredVelX - vel.vx;
+          float steerY = desiredVelY - vel.vy;
+          
+          vel.vx += steerX * steerForce * dt * 0.1f;
+          vel.vy += steerY * steerForce * dt * 0.1f;
+        }
+      }
+    }
+  }
+
   // 基于AI类型执行不同行为
   switch (ai.aiType) {
   case AIType::IDLE: {
@@ -403,9 +432,8 @@ void AISystem::update(entt::registry &registry,
       // Enter Dormancy
       registry.emplace_or_replace<DormantTag>(entity);
       registry.remove<Velocity>(entity);
-      // Teleport to holding area
-      pos.x = DORMANCY_TELEPORT_COORD;
-      pos.y = DORMANCY_TELEPORT_COORD;
+      // Removed: Teleport to holding area (DORMANCY_TELEPORT_COORD)
+      // This prevents the "Ghosting" artifacts during awakening.
       continue;
     }
 

@@ -183,27 +183,49 @@ void PhysicsSystem::resolveCollisions(entt::entity entity, const Position &pos,
       });
 }
 
-void PhysicsSystem::updatePosition(entt::entity entity, Position &pos,
+void PhysicsSystem::updatePosition(entt::registry& registry, entt::entity entity, Position &pos,
                                    Velocity &vel, float dt, int worldWidth,
                                    int worldHeight) {
+
+  // [SAFETY] Clamp velocity to prevent physics explosion (mimic GPU shader)
+  float speedSq = vel.vx * vel.vx + vel.vy * vel.vy;
+  constexpr float MAX_SPEED = 2000.0f;
+  if (speedSq > MAX_SPEED * MAX_SPEED) {
+    float speed = std::sqrt(speedSq);
+    vel.vx = (vel.vx / speed) * MAX_SPEED;
+    vel.vy = (vel.vy / speed) * MAX_SPEED;
+  }
 
   pos.x += vel.vx * dt;
   pos.y += vel.vy * dt;
 
+  // [DAMPING] Apply velocity damping ONLY to gameplay entities (Enemies/Players)
+  // Projectiles should maintain their speed.
+  if (registry.any_of<EnemyTag, PlayerTag>(entity)) {
+    float damping = std::pow(0.92f, dt * 60.0f);
+    vel.vx *= damping;
+    vel.vy *= damping;
+  }
+
+  // [BOUNDARY] World boundary clamping with generous fallback
+  // Use Constants if passed values are suspiciously small/zero
+  float limitX = (worldWidth > 100) ? (float)worldWidth : NoMoreDay::Constants::World::MAP_BOUNDARY;
+  float limitY = (worldHeight > 100) ? (float)worldHeight : NoMoreDay::Constants::World::MAP_BOUNDARY;
+
   if (pos.x < 0) {
     pos.x = 0;
-    vel.vx *= -1;
-  } else if (pos.x > (float)worldWidth) {
-    pos.x = (float)worldWidth;
-    vel.vx *= -1;
+    vel.vx *= -0.5f;
+  } else if (pos.x > limitX) {
+    pos.x = limitX;
+    vel.vx *= -0.5f;
   }
 
   if (pos.y < 0) {
     pos.y = 0;
-    vel.vy *= -1;
-  } else if (pos.y > (float)worldHeight) {
-    pos.y = (float)worldHeight;
-    vel.vy *= -1;
+    vel.vy *= -0.5f;
+  } else if (pos.y > limitY) {
+    pos.y = limitY;
+    vel.vy *= -0.5f;
   }
 }
 
@@ -259,22 +281,15 @@ void PhysicsSystem::updateAll(entt::registry &registry, float dt,
   }
 
   auto process_collision = [&](entt::entity entity) {
-    // [FIX] Skip GPU-managed entities (Enemies) to prevent double-integration and oscillation.
-    // The GPUEntitySystem handles physics for all enemies via Compute Shaders.
-    if (registry.any_of<EnemyTag>(entity)) return;
-
-    if (registry.any_of<PlayerTag>(entity)) {
+    if (registry.any_of<PlayerTag, EnemyTag>(entity)) {
       auto [pos, vel] = view.get<Position, Velocity>(entity);
       resolveCollisions(entity, pos, vel, grid, registry, dt);
     }
   };
 
   auto process_integration = [&](entt::entity entity) {
-    // [FIX] Skip GPU-managed entities
-    if (registry.any_of<EnemyTag>(entity)) return;
-
     auto [pos, vel] = view.get<Position, Velocity>(entity);
-    updatePosition(entity, pos, vel, dt, screenWidth, screenHeight);
+    updatePosition(registry, entity, pos, vel, dt, screenWidth, screenHeight);
   };
 
   if (executor && !s_entity_buffer.empty()) {
@@ -298,7 +313,8 @@ void PhysicsSystem::updateAll(entt::registry &registry, float dt,
     // Serial Fallback
     for (auto entity : s_entity_buffer) {
       process_collision(entity);
-      process_integration(entity);
+      auto [pos, vel] = view.get<Position, Velocity>(entity);
+      updatePosition(registry, entity, pos, vel, dt, screenWidth, screenHeight);
     }
   }
 }

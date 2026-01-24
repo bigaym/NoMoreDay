@@ -649,6 +649,8 @@ void EnemySpawnSystem::updateDormantEntities(entt::registry &registry,
     pos.x = tx;
     pos.y = ty;
 
+    LOG_DEBUG("[RENDER_SYNC] Awakening Entity {} at ({:.1f}, {:.1f})", (uint32_t)entity, tx, ty);
+
     registry.remove<DormantTag>(entity);
     registry.emplace_or_replace<Velocity>(entity, 0.0f,
                                           0.0f); // Re-add Velocity
@@ -657,6 +659,12 @@ void EnemySpawnSystem::updateDormantEntities(entt::registry &registry,
     auto &ai = dormantView.get<AIComponent>(entity);
     ai.aiType = AIType::IDLE; // Spec 3.0: Reset to IDLE, wait for WakeUp
     ai.target = entt::null;
+    
+    // Explicitly update previous position to prevent interpolation ghosting from dormant holding area
+    if (auto* prevPos = registry.try_get<NoMoreDay::components::PrevPosition>(entity)) {
+        prevPos->x = tx;
+        prevPos->y = ty;
+    }
 
     awakenedCount++;
   }
