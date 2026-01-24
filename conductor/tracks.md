@@ -354,8 +354,17 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Enemy Rendering Refactor (CPU Authority)
+- **Folder:** [./conductor/archive/enemy-rendering-refactor/](./conductor/archive/enemy-rendering-refactor/)
+- **Description:** 将敌人渲染架构由“GPU物理更新+SyncBack”重构为“CPU权威+GPU加速渲染”。解决了 N-2 帧同步延迟导致的视觉抖动与幽灵位移，确立了 CPU 为单一事实来源，提升了系统的稳定性与可维护性。(Completed on 2026-01-24)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1 day
+
+---
+
 ## [x] Track: Comprehensive Code Audit (Physics & Rendering)
-- **Folder:** [./tracks/code-audit-20260124/](./conductor/tracks/code-audit-20260124/)
+- **Folder:** [./conductor/archive/code-audit-20260124/](./conductor/archive/code-audit-20260124/)
 - **Description:** 对物理引擎与渲染管线进行深度审计。识别了 SSBO 结构体不匹配 (48 vs 64 bytes)、受力场逻辑回归、硬编码魔数以及 AI 休眠位置残影等关键风险点。(Completed on 2026-01-24)
 - **Status:** COMPLETED
 - **Priority:** HIGH
@@ -364,7 +373,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: Physics & Rendering Audit Fixes
-- **Folder:** [./tracks/fix-physics-rendering-audit-20260124/](./conductor/tracks/fix-physics-rendering-audit-20260124/)
+- **Folder:** [./conductor/archive/fix-physics-rendering-audit-20260124/](./conductor/archive/fix-physics-rendering-audit-20260124/)
 - **Description:** 修复审计发现的核心风险。恢复了 ForceField 逻辑，统一了 GPUInstanceData 与 GPUEntity 的 64 字节对齐，并完成了物理常量的集中提取与魔数清理。(Completed on 2026-01-24)
 - **Status:** COMPLETED
 - **Priority:** CRITICAL

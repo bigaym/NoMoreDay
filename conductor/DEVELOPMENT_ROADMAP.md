@@ -117,6 +117,10 @@
 - [x] **Phase 4: SIMD SpatialGrid**: 向量化加速的空间划分查询。
 - [x] **Phase 5: Branchless Combat**: 消除热点代码分支预测失败。
 - [x] **String Dependency Elimination**: 全局移除运行时字符串比较，迁移至 Enum/ID。
+- [x] **System Integrity & Audit Fixes (2026-01-24)**: 
+    - 完成物理引擎与渲染管线深度审计。
+    - 修复 SSBO 结构体不匹配、ForceField 逻辑回归与 AI 休眠残影。
+    - 提取物理常量并清理所有魔数。
 
 ---
 
