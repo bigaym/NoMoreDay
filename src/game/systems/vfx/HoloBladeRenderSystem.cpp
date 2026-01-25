@@ -7,7 +7,9 @@
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
 #include "core/logging/Logger.hpp"
-#include <map>
+#include <vector>
+#include <algorithm>
+#include <utility>
 
 namespace NoMoreDay::systems {
 
@@ -19,8 +21,16 @@ struct HoloBladeInternal {
     unsigned int quadVBO = 0;
     bool initialized = false;
     
+    // Persistent buffers to avoid allocation
     std::vector<components::HoloBladeInstance> hostBuffer;
+    std::vector<std::pair<unsigned int, entt::entity>> renderQueue;
     
+    // Cache shader locations
+    int mvpLoc = -1;
+    int timeLoc = -1;
+    int noiseLoc = -1;
+    int offsetLoc = -1;
+
     void Init(const NoMoreDay::SharedContext &context) {
         if (initialized) return;
         
@@ -29,6 +39,12 @@ struct HoloBladeInternal {
         holoShader = LoadShader("assets/shaders/vfx/holo_blade_instanced.vs", 
                                 "assets/shaders/vfx/holo_blade_instanced.fs");
         
+        // Cache locations
+        mvpLoc = GetShaderLocation(holoShader, "mvp");
+        timeLoc = GetShaderLocation(holoShader, "time");
+        noiseLoc = GetShaderLocation(holoShader, "noiseTex");
+        offsetLoc = GetShaderLocation(holoShader, "uInstanceOffset");
+
         if (context.resources) {
             noiseTex = context.resources->getTexture(entt::hashed_string("vfx_noise"));
         }
@@ -52,8 +68,10 @@ struct HoloBladeInternal {
         rlEnableVertexAttribute(1);
         rlDisableVertexArray();
         
-        instanceBuffer.Create(1000 * sizeof(components::HoloBladeInstance), nullptr, RL_DYNAMIC_DRAW);
-        hostBuffer.reserve(1000);
+        // Reserve sufficient capacity to avoid runtime reallocations
+        instanceBuffer.Create(2000 * sizeof(components::HoloBladeInstance), nullptr, RL_DYNAMIC_DRAW);
+        hostBuffer.reserve(2000);
+        renderQueue.reserve(2000);
         
         initialized = true;
     }
@@ -70,6 +88,12 @@ struct HoloBladeInternal {
 
 static HoloBladeInternal s_data;
 
+struct DrawBatch {
+    Texture2D texture;
+    int startOffset;
+    int count;
+};
+
 void HoloBladeRenderSystem::Render(entt::registry &registry,
                                    const NoMoreDay::SharedContext &context) {
   s_data.Init(context);
@@ -80,16 +104,89 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
   
   if (view.size_hint() == 0) return;
 
-  // We group by texture primarily, but for HoloBlades they usually share the same sword texture.
-  
-  std::map<unsigned int, std::vector<entt::entity>> batches;
+  // 1. Collect entities (Zero-Alloc)
+  s_data.renderQueue.clear();
   for (auto entity : view) {
       const auto &holo = view.get<const components::HoloBlade>(entity);
       if (!holo.isVisible) continue;
       const auto &sprite = view.get<const SpriteComponent>(entity);
-      batches[sprite.texture.id].push_back(entity);
+      s_data.renderQueue.emplace_back(sprite.texture.id, entity);
   }
 
+  if (s_data.renderQueue.empty()) return;
+
+  // 2. Sort by Texture ID to batch draw calls
+  std::sort(s_data.renderQueue.begin(), s_data.renderQueue.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; });
+
+  s_data.hostBuffer.clear();
+  std::vector<DrawBatch> batches;
+  // Reserve roughly assuming not too many different textures per frame
+  batches.reserve(10); 
+
+  // 3. Generate Instance Data & Batches
+  if (!s_data.renderQueue.empty()) {
+      DrawBatch currentBatch;
+      currentBatch.count = 0;
+      unsigned int currentTexId = 0;
+      bool firstBatch = true;
+
+      for (const auto& pair : s_data.renderQueue) {
+          entt::entity entity = pair.second;
+          const auto &sprite = view.get<const SpriteComponent>(entity);
+
+          // Start new batch if texture changes
+          if (firstBatch || sprite.texture.id != currentTexId) {
+              if (!firstBatch && currentBatch.count > 0) {
+                  batches.push_back(currentBatch);
+              }
+              
+              currentTexId = sprite.texture.id;
+              currentBatch.texture = sprite.texture;
+              currentBatch.startOffset = (int)s_data.hostBuffer.size();
+              currentBatch.count = 0;
+              firstBatch = false;
+          }
+
+          // Build Instance Data
+          const auto &holo = view.get<const components::HoloBlade>(entity);
+          const auto &pos = view.get<const Position>(entity);
+
+          components::HoloBladeInstance inst;
+          inst.position = {pos.x, pos.y};
+          inst.rotation = 0.0f;
+          if (auto *rot = registry.try_get<Rotation>(entity)) {
+              inst.rotation = rot->angle * (PI / 180.0f);
+          }
+          
+          inst.scale = sprite.scale * holo.scale * (float)currentBatch.texture.width; 
+          inst.holoColor = ColorNormalize(holo.holoColor);
+          inst.rimStrength = holo.rimStrength;
+          inst.noiseSpeed = holo.noiseSpeed;
+          
+          s_data.hostBuffer.push_back(inst);
+          currentBatch.count++;
+          
+          // Hard cap safety
+          if (s_data.hostBuffer.size() >= 4096) break;
+      }
+      // Push final batch
+      if (currentBatch.count > 0) {
+          batches.push_back(currentBatch);
+      }
+  }
+
+  if (s_data.hostBuffer.empty()) return;
+
+  // 4. Single GPU Upload
+  // Check resize
+  if (s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance) > s_data.instanceBuffer.GetSize()) {
+       s_data.instanceBuffer.Create(s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance) * 2, nullptr, RL_DYNAMIC_DRAW);
+  }
+  s_data.instanceBuffer.Update(s_data.hostBuffer.data(), s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance));
+  s_data.instanceBuffer.BindBase(4);
+
+  // 5. Render Batches
   float time = (float)GetTime();
   rlDrawRenderBatchActive();
   
@@ -99,61 +196,25 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
   Matrix matModelView = rlGetMatrixModelview();
   Matrix matProjection = rlGetMatrixProjection();
   Matrix matMVP = MatrixMultiply(matModelView, matProjection);
-  int mvpLoc = GetShaderLocation(s_data.holoShader, "mvp");
-  SetShaderValueMatrix(s_data.holoShader, mvpLoc, matMVP);
+  
+  SetShaderValueMatrix(s_data.holoShader, s_data.mvpLoc, matMVP);
+  SetShaderValue(s_data.holoShader, s_data.timeLoc, &time, SHADER_UNIFORM_FLOAT);
+  SetShaderValueTexture(s_data.holoShader, s_data.noiseLoc, s_data.noiseTex);
 
-  int timeLoc = GetShaderLocation(s_data.holoShader, "time");
-  int noiseLoc = GetShaderLocation(s_data.holoShader, "noiseTex");
-  SetShaderValue(s_data.holoShader, timeLoc, &time, SHADER_UNIFORM_FLOAT);
-  SetShaderValueTexture(s_data.holoShader, noiseLoc, s_data.noiseTex);
+  rlEnableVertexArray(s_data.quadVAO);
 
-  int totalRendered = 0;
-  for (auto const& [texId, entities] : batches) {
-      if (entities.empty()) continue;
-      
-      const auto &firstSprite = view.get<const SpriteComponent>(entities[0]);
-      Texture2D tex = firstSprite.texture;
-
-      s_data.hostBuffer.clear();
-      
-      for (auto entity : entities) {
-          const auto &holo = view.get<const components::HoloBlade>(entity);
-          const auto &pos = view.get<const Position>(entity);
-          const auto &sprite = view.get<const SpriteComponent>(entity);
-          
-          components::HoloBladeInstance inst;
-          inst.position = {pos.x, pos.y};
-          inst.rotation = 0.0f;
-          if (auto *rot = registry.try_get<Rotation>(entity)) {
-              inst.rotation = rot->angle * (PI / 180.0f);
-          }
-          
-          // Spirit swords might want rotation towards target or orbit dir
-          // But our shader rotates the quad.
-          
-          inst.scale = sprite.scale * holo.scale * (float)tex.width; 
-          inst.holoColor = ColorNormalize(holo.holoColor);
-          inst.rimStrength = holo.rimStrength;
-          inst.noiseSpeed = holo.noiseSpeed;
-          
-          s_data.hostBuffer.push_back(inst);
-          if (s_data.hostBuffer.size() >= 1000) break;
+  for (const auto& batch : batches) {
+      if (s_data.offsetLoc != -1) {
+          SetShaderValue(s_data.holoShader, s_data.offsetLoc, &batch.startOffset, SHADER_UNIFORM_INT);
       }
-      
-      if (s_data.hostBuffer.empty()) continue;
-      
-      totalRendered += (int)s_data.hostBuffer.size();
-      s_data.instanceBuffer.Update(s_data.hostBuffer.data(), s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance));
-      s_data.instanceBuffer.BindBase(4);
-      
+
       rlActiveTextureSlot(0);
-      rlEnableTexture(tex.id);
+      rlEnableTexture(batch.texture.id);
       
-      rlEnableVertexArray(s_data.quadVAO);
-      rlDrawVertexArrayInstanced(0, 6, (int)s_data.hostBuffer.size());
-      rlDisableVertexArray();
+      rlDrawVertexArrayInstanced(0, 6, batch.count);
   }
   
+  rlDisableVertexArray();
   EndShaderMode();
 }
 

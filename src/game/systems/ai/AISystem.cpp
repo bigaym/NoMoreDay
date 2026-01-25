@@ -126,13 +126,8 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     
     // DEBUG: Log distance if entity is in a chase/aggressive state
     if (ai.aiType == AIType::CHASE || ai.aiType == AIType::ATTACK) {
-       static float logTimer = 0;
-       logTimer += dt;
-       if (logTimer > 2.0f) { // Throttled log
-           LOG_DEBUG("[AI_DEBUG] Entity {} in {} state at dist {:.1f}. Activation: {:.1f}", 
-               (uint32_t)entity, (int)ai.aiType, std::sqrt(distSq), stateComp->activationRange);
-           logTimer = 0;
-       }
+       LOG_LIMITED_DEBUG(2.0f, "[AI_DEBUG] Entity {} in {} state at dist {:.1f}. Activation: {:.1f}", 
+           (uint32_t)entity, (int)ai.aiType, std::sqrt(distSq), stateComp->activationRange);
     }
   }
 
@@ -190,7 +185,7 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
         if (target != entt::null) {
           float currentDist = std::sqrt(distSq);
           // Removed Warning Log (Phase 4 P4.3)
-          LOG_DEBUG("[AI_DEBUG] Entity {} triggered AGGRO (IDLE->CHASE) at dist {:.1f}.", 
+          LOG_LIMITED_DEBUG(1.0f, "[AI_DEBUG] Entity {} triggered AGGRO (IDLE->CHASE) at dist {:.1f}.", 
               (uint32_t)entity, currentDist);
           ai.target = target;
 
@@ -267,7 +262,7 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
         if (target != entt::null) {
           float currentDist = std::sqrt(distSq);
           // Removed Warning Log (Phase 4 P4.3)
-          LOG_DEBUG("[AI_DEBUG] Entity {} triggered AGGRO (PATROL->CHASE) at dist {:.1f}.", 
+          LOG_LIMITED_DEBUG(1.0f, "[AI_DEBUG] Entity {} triggered AGGRO (PATROL->CHASE) at dist {:.1f}.", 
               (uint32_t)entity, currentDist);
           ai.target = target;
 

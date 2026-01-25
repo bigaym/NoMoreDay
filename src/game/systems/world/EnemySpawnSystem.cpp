@@ -138,6 +138,9 @@ void EnemySpawnSystem::initData(int width, int height, int level,
   using namespace NoMoreDay::Constants::Enemy;
   int baseClusterCount =
       (width * height) / CLUSTER_DENSITY_DIVISOR; // 原来是 1000, 现在是 5倍密度
+  
+  LOG_INFO("[Debug] Density Calc: w={} h={} Divisor={} -> BaseClusters={}", width, height, CLUSTER_DENSITY_DIVISOR, baseClusterCount);
+
   int clusterCount =
       static_cast<int>(baseClusterCount * m_resonanceMods.densityMultiplier);
 
@@ -264,6 +267,13 @@ void EnemySpawnSystem::initTextures() {
 
 void EnemySpawnSystem::updateEnemySpawning(const Position &playerPos,
                                            entt::registry &registry) {
+  static int debugFrame = 0;
+  if (++debugFrame % 120 == 0) {
+      int activeCount = 0;
+      for (const auto& d : m_spawnData) if (d.isAlive) activeCount++;
+      LOG_INFO("[Debug] Active Enemies: {} / Total Spawn Points: {}", activeCount, m_spawnData.size());
+  }
+
   for (auto &data : m_spawnData) {
     float dx = data.position.x - playerPos.x;
     float dy = data.position.y - playerPos.y;

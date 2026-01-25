@@ -23,9 +23,10 @@ out float fragRimStrength;
 out float fragNoiseSpeed;
 
 uniform mat4 mvp;
+uniform int uInstanceOffset;
 
 void main() {
-    HoloBladeInstance inst = instances[gl_InstanceID];
+    HoloBladeInstance inst = instances[uInstanceOffset + gl_InstanceID];
     
     // Rotation matrix (Note: GLSL mat2 is column-major)
     float s = sin(inst.rotation);

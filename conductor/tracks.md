@@ -423,3 +423,21 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 1.5 days
+
+---
+
+## [ ] Track: Fix Dimensional Mosaic System
+- **Folder:** [./conductor/tracks/fix-dimensional-mosaic-system/](./conductor/tracks/fix-dimensional-mosaic-system/)
+- **Description:** ĞŞ¸´Î¬¶ÈÍ¼Æ´½Ó½çÃæµÄ´Ê×ºÏÔÊ¾£¨ÏÔÊ¾Ğ§¹û¶ø·ÇÃû³Æ£©¡¢¾ÀÕı´«ËÍÃÅ²ã¼¶Ìø×ªÂß¼­¡¢ĞŞ¸´ ESC ÎŞ·¨ÍË³ö UI µÄÎÊÌâ£¬ÒÔ¼°½â¾ö»Ø³Çºó¸±±¾×´Ì¬¶ªÊ§µÄ³Ö¾Ã»¯ Bug¡£
+- **Status:** IN_PROGRESS
+- **Priority:** HIGH
+- **Estimated Time:** 1-2 days
+
+---
+
+## [ ] Track: Fix Dimensional Mosaic System
+- **Folder:** [./conductor/tracks/fix-dimensional-mosaic-system/](./conductor/tracks/fix-dimensional-mosaic-system/)
+- **Description:** ä¿®å¤ç»´åº¦å›¾æ‹¼æ¥ç•Œé¢çš„è¯ç¼€æ˜¾ç¤ºï¼ˆæ˜¾ç¤ºæ•ˆæœè€Œéåç§°ï¼‰ã€çº æ­£ä¼ é€é—¨å±‚çº§è·³è½¬é€»è¾‘ã€ä¿®å¤ ESC æ— æ³•é€€å‡º UI çš„é—®é¢˜ï¼Œä»¥åŠè§£å†³å›åŸåå‰¯æœ¬çŠ¶æ€ä¸¢å¤±çš„æŒä¹…åŒ– Bugã€‚
+- **Status:** IN_PROGRESS
+- **Priority:** HIGH
+- **Estimated Time:** 1-2 days
