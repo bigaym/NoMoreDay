@@ -1,4 +1,5 @@
 #include "engine/render/RenderSystem.hpp"
+#include "core/utils/ScopedTimer.hpp" // ADDED
 #include "engine/render/ComputeBuffer.hpp" // ADDED
 #include "engine/render/PopupRenderer.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
@@ -109,6 +110,8 @@ Vector2 RenderSystem::GetShakeOffset() {
 void RenderSystem::render(entt::registry &registry,
                           const NoMoreDay::SharedContext &context,
                           const Camera2D &camera) {
+  NoMoreDay::utils::ScopedTimer totalTimer("RenderSystem::Total", 500); // Log if > 0.5ms
+
   float cameraZoom = (context.settings) ? context.settings->cameraZoom : 1.5f;
   float fontScale = 1.0f / cameraZoom;
 
@@ -519,6 +522,8 @@ void RenderSystem::render(entt::registry &registry,
   });
 
   // --- 5. 绘制物品和金币的世界标签 (Optimization: Instanced SDF Rendering + Batched Text) ---
+  {
+  NoMoreDay::utils::ScopedTimer itemTimer("RenderSystem::ItemsLabels", 100); // Log if > 0.1ms
   
   // Clear Queues
   s_labelBuffer.clear();
@@ -728,6 +733,7 @@ void RenderSystem::render(entt::registry &registry,
           DrawText(cmd.text, (int)cmd.position.x, (int)cmd.position.y, (int)cmd.fontSize, cmd.color);
       }
   }
+  } // End of itemTimer scope
 
   // 6. Debug: GPU Flow Field Visualization
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();

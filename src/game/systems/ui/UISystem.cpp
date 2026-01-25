@@ -1,4 +1,5 @@
 #include "game/systems/ui/UISystem.hpp"
+#include "core/utils/ScopedTimer.hpp" // ADDED
 #include "core/logging/Logger.hpp"
 #include "engine/physics/SpatialGrid.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
@@ -180,6 +181,7 @@ void UISystem::UpdatePanelDrag(NoMoreDay::UIPanelID id, float &x, float &y,
 
 void UISystem::Update(entt::registry &registry,
                       const LevelManager &levelManager) {
+  NoMoreDay::utils::ScopedTimer timer("UISystem::Update", 500);
   float dt = GetFrameTime();
 
   // 0. Cache Player Entity for efficient UI access
@@ -332,7 +334,7 @@ void UISystem::Update(entt::registry &registry,
       }
 
       if (attemptCount > 0) {
-        LOG_INFO("批量拾取: 范围内的物品 {}, 成功拾取 {}", attemptCount,
+        LOG_LIMITED_INFO(1.0f, "批量拾取: 范围内的物品 {}, 成功拾取 {}", attemptCount,
                  successCount);
       }
 
@@ -482,6 +484,7 @@ void UISystem::Update(entt::registry &registry,
 void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
                     const Camera2D &camera,
                     NoMoreDay::systems::SpatialHashGrid *spatialGrid) {
+  NoMoreDay::utils::ScopedTimer totalTimer("UISystem::Draw", 500);
   // --- Scale Calculation ---
   float scaleX = (float)GetScreenWidth() / UI_REF_WIDTH;
   float scaleY = (float)GetScreenHeight() / UI_REF_HEIGHT;
@@ -520,6 +523,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
 
   // 3. Ground Interaction highlights (drawn below overlays)
   if (State.hoveredItem == entt::null) {
+    NoMoreDay::utils::ScopedTimer hoverTimer("UISystem::GroundHover", 100);
     Vector2 mouseLogicPos = GetMousePositionLogic();
     Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
     bool altHeld = IsKeyDown(KEY_LEFT_ALT);
@@ -603,7 +607,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
         }
       }
     });
-  }
+  } // End of hoverTimer scope
 
   // 4. Overlays (Drawn LAST to be on very top)
   if (State.hoveredItem != entt::null && registry.valid(State.hoveredItem)) {
