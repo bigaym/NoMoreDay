@@ -43,19 +43,21 @@ public:
   // Initialize MDI renderer with resource manager and max entity capacity
   void Init(ResourceManager &rm, uint32_t maxEntities);
 
-  // Upload instance data to GPU
-  void UpdateInstances(const std::vector<GPUInstanceData> &data);
-
-  // Upload visual stats data to GPU (Binding 3)
-  void
-  UpdateStats(const std::vector<NoMoreDay::components::GPUVisualStats> &stats);
+  /**
+   * @brief Update visual-only stats (glow, status effects)
+   */
+  void UpdateStats(const std::vector<NoMoreDay::components::GPUVisualStats> &stats);
 
   // Perform GPU culling and command generation
   // viewBounds: x=minX, y=minY, z=maxX, w=maxY (Axis Aligned)
   void Cull(Vector4 viewBounds);
 
   // Execute indirect draw
-  void Render(const Matrix &viewProj, float renderAlpha = 0.0f);
+  /**
+   * @brief Perform MDI Draw call
+   * @param entities The buffer containing entity data (Binding 0)
+   */
+  void Render(ResourceManager &rm, const PersistentBuffer &entities, float renderAlpha);
 
   // Shutdown and release resources
   void Shutdown();

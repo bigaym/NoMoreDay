@@ -7,6 +7,19 @@
 #include <stdint.h>
 #include <type_traits>
 
+namespace NoMoreDay::Constants::GPU {
+  // Texture Array Constraints
+  constexpr int TEXTURE_LAYER_SIZE = 128;       // Standardized sprite size (px)
+  constexpr int MAX_TEXTURE_LAYERS = 256;       // Max sprites in primary array
+  constexpr int SDF_CIRCLE_TYPE = -1;           // Special type for SDF rendering
+  
+  // Status Visual Indices (packed into activeStatusMask bits)
+  constexpr uint32_t STATUS_NONE = 0;
+  constexpr uint32_t STATUS_FROZEN = 1 << 0;
+  constexpr uint32_t STATUS_BURNING = 1 << 1;
+  constexpr uint32_t STATUS_POISONED = 1 << 2;
+  constexpr uint32_t STATUS_SHOCKED = 1 << 3;
+}
 
 namespace NoMoreDay::components {
 
@@ -162,7 +175,10 @@ struct GPUVisualStats {
   float statusStrength = 0.0f;           // 4 (Elemental intensity)
   float glowIntensity = 0.0f;            // 4
   uint32_t glowColorPacked = 0xFFFFFFFF; // 4
-  float padding[8] = {0.0f};             // 32 bytes padding to reach 64
+  
+  uint32_t activeStatusMask = 0;         // 4 bytes - Bitmask of active status effects
+  float statusTimer = 0.0f;              // 4 bytes - Animation phase [0, 1]
+  float padding[6] = {0.0f};             // 24 bytes padding to reach 64
 
   GPUVisualStats() = default;
 };

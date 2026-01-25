@@ -1,6 +1,70 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "core/logging/Logger.hpp"
 #include "rlgl.h"
+#include "GLFW/glfw3.h"
+
+// OpenGL 4.3 constants for Texture Arrays
+#ifndef GL_TEXTURE_2D_ARRAY
+#define GL_TEXTURE_2D_ARRAY 0x8C1A
+#endif
+
+#ifndef GL_RGBA8
+#define GL_RGBA8 0x8058
+#endif
+
+#ifndef GL_RGBA
+#define GL_RGBA 0x1908
+#endif
+
+#ifndef GL_UNSIGNED_BYTE
+#define GL_UNSIGNED_BYTE 0x1401
+#endif
+
+#ifndef GL_TEXTURE_WRAP_S
+#define GL_TEXTURE_WRAP_S 0x2802
+#endif
+
+#ifndef GL_TEXTURE_WRAP_T
+#define GL_TEXTURE_WRAP_T 0x2803
+#endif
+
+#ifndef GL_CLAMP_TO_EDGE
+#define GL_CLAMP_TO_EDGE 0x812F
+#endif
+
+#ifndef GL_TEXTURE_MIN_FILTER
+#define GL_TEXTURE_MIN_FILTER 0x2801
+#endif
+
+#ifndef GL_TEXTURE_MAG_FILTER
+#define GL_TEXTURE_MAG_FILTER 0x2800
+#endif
+
+#ifndef GL_LINEAR
+#define GL_LINEAR 0x2601
+#endif
+
+#ifndef APIENTRY
+    #if defined(_WIN32)
+        #define APIENTRY __stdcall
+    #else
+        #define APIENTRY
+    #endif
+#endif
+
+typedef void (APIENTRY *PFNGLTEXSTORAGE3DPROC)(unsigned int target, int levels, unsigned int internalformat, int width, int height, int depth);
+typedef void (APIENTRY *PFNGLTEXSUBIMAGE3DPROC)(unsigned int target, int level, int xoffset, int yoffset, int zoffset, int width, int height, int depth, unsigned int format, unsigned int type, const void *pixels);
+typedef void (APIENTRY *PFNGLGENTEXTURESPROC)(int n, unsigned int *textures);
+typedef void (APIENTRY *PFNGLBINDTEXTUREPROC)(unsigned int target, unsigned int texture);
+typedef void (APIENTRY *PFNGLTEXPARAMETERIPROC)(unsigned int target, unsigned int pname, int param);
+typedef void (APIENTRY *PFNGLACTIVETEXTUREPROC)(unsigned int texture);
+
+static PFNGLTEXSTORAGE3DPROC glTexStorage3D_ptr = nullptr;
+static PFNGLTEXSUBIMAGE3DPROC glTexSubImage3D_ptr = nullptr;
+static PFNGLGENTEXTURESPROC glGenTextures_ptr = nullptr;
+static PFNGLBINDTEXTUREPROC glBindTexture_ptr = nullptr;
+static PFNGLTEXPARAMETERIPROC glTexParameteri_ptr = nullptr;
+static PFNGLACTIVETEXTUREPROC glActiveTexture_ptr = nullptr;
 
 ResourceManager::~ResourceManager() {
     LOG_INFO("Shutting down ResourceManager...");
@@ -165,6 +229,96 @@ Shader ResourceManager::getShader(entt::id_type id) {
     return { 0 };
 }
 
+unsigned int ResourceManager::loadTextureArray(const std::vector<std::string>& paths) {
+    if (paths.empty()) return 0;
+
+    const int layerWidth = 128;
+    const int layerHeight = 128;
+    const int layerCount = static_cast<int>(paths.size());
+
+    if (m_headless) {
+        for (int i = 0; i < layerCount; i++) {
+            std::string name = GetFileNameWithoutExt(paths[i].c_str());
+            m_textureLayerMap[name] = i;
+        }
+        m_entityTextureArray = 1;
+        return 1;
+    }
+
+    // Load function pointers if not already loaded
+    if (glTexStorage3D_ptr == nullptr) {
+        glTexStorage3D_ptr = (PFNGLTEXSTORAGE3DPROC)glfwGetProcAddress("glTexStorage3D");
+        glTexSubImage3D_ptr = (PFNGLTEXSUBIMAGE3DPROC)glfwGetProcAddress("glTexSubImage3D");
+        glGenTextures_ptr = (PFNGLGENTEXTURESPROC)glfwGetProcAddress("glGenTextures");
+        glBindTexture_ptr = (PFNGLBINDTEXTUREPROC)glfwGetProcAddress("glBindTexture");
+        glTexParameteri_ptr = (PFNGLTEXPARAMETERIPROC)glfwGetProcAddress("glTexParameteri");
+        glActiveTexture_ptr = (PFNGLACTIVETEXTUREPROC)glfwGetProcAddress("glActiveTexture");
+        
+        if (!glTexStorage3D_ptr || !glTexSubImage3D_ptr || !glGenTextures_ptr || !glBindTexture_ptr) {
+            LOG_ERROR("ResourceManager: Failed to load OpenGL 4.3 function pointers");
+            return 0;
+        }
+    }
+
+    // Create the Texture Array using raw GL to avoid raylib side effects
+    unsigned int texArrayId = 0;
+    glGenTextures_ptr(1, &texArrayId);
+    if (texArrayId == 0) return 0;
+
+    glBindTexture_ptr(GL_TEXTURE_2D_ARRAY, texArrayId);
+    glTexStorage3D_ptr(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, layerWidth, layerHeight, layerCount);
+
+    // Set sampling parameters IMMEDIATELY after storage allocation
+    glTexParameteri_ptr(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri_ptr(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri_ptr(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri_ptr(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    LOG_INFO("ResourceManager: Created Texture Array ID: {} ({}x{}x{})", texArrayId, layerWidth, layerHeight, layerCount);
+
+    for (int i = 0; i < layerCount; i++) {
+        const std::string& path = paths[i];
+        if (!FileExists(path.c_str())) {
+            LOG_WARN("ResourceManager: Sprite file not found for texture array: {}", path);
+            continue;
+        }
+
+        Image img = LoadImage(path.c_str());
+        if (img.data == nullptr) {
+            LOG_WARN("ResourceManager: Failed to load image: {}", path);
+            continue;
+        }
+
+        // Standardize image
+        if (img.width != layerWidth || img.height != layerHeight) {
+            ImageResize(&img, layerWidth, layerHeight);
+        }
+        ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
+
+        // Upload to specific layer
+        glTexSubImage3D_ptr(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, layerWidth, layerHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE, img.data);
+        
+        // Store mapping
+        std::string name = GetFileNameWithoutExt(path.c_str());
+        m_textureLayerMap[name] = i;
+        
+        UnloadImage(img);
+        LOG_TRACE("ResourceManager: Loaded layer {} for texture array: {}", i, name);
+    }
+
+    glBindTexture_ptr(GL_TEXTURE_2D_ARRAY, 0);
+    m_entityTextureArray = texArrayId;
+    LOG_INFO("ResourceManager: Loaded Texture Array with {} layers (ID: {})", layerCount, texArrayId);
+    return texArrayId;
+}
+
+int ResourceManager::getTextureLayerIndex(const std::string& name) const {
+    if (auto it = m_textureLayerMap.find(name); it != m_textureLayerMap.end()) {
+        return it->second;
+    }
+    return -1;
+}
+
 void ResourceManager::unloadAll() {
     for (auto& [id, tex] : m_textures) {
         if (tex.id != 0 && !m_headless) UnloadTexture(tex);
@@ -181,6 +335,12 @@ void ResourceManager::unloadAll() {
         if (shader.id != 0 && !m_headless) UnloadShader(shader);
     }
     m_shaders.clear();
+
+    if (m_entityTextureArray != 0) {
+        if (!m_headless) rlUnloadTexture(m_entityTextureArray);
+        m_entityTextureArray = 0;
+    }
+    m_textureLayerMap.clear();
 
     LOG_INFO("ResourceManager: All resources unloaded.");
 }

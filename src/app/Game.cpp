@@ -124,7 +124,19 @@ void Game::init() {
 
   // Initialize GPU Systems
   if (m_gpuInfo.computeShaderSupported) {
-    // GPU Particle System (Indirect Drawing)
+    // 1. Pre-load Entity Texture Array
+    std::vector<std::string> entityPaths;
+    static const std::vector<std::string> races = {
+        "skeleton", "demon", "warcraft", "cultist", "elf", "beast", "goblin", "mech", "elemental"
+    };
+    for (const auto& race : races) {
+        for (int i = 0; i < 5; ++i) {
+            entityPaths.push_back("assets/textures/monster/" + race + "_" + std::to_string(i) + ".png");
+        }
+    }
+    m_resourceManager.loadTextureArray(entityPaths);
+
+    // 2. GPU Particle System (Indirect Drawing)
     NoMoreDay::systems::GPUParticleSystem::Get().Init(NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
 
     NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager, 200000, &m_registry);
@@ -200,13 +212,9 @@ void Game::run() {
 
     static float fpsLogTimer = 0.0f;
     fpsLogTimer += frameTime;
-    if (fpsLogTimer >= 1.0f) {
-      LOG_INFO("Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(), frameTime * 1000.0f);
-      fpsLogTimer = 0.0f;
-    }
+    LOG_LIMITED_DEBUG(10.0f, "Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(), frameTime * 1000.0f);
 
     {
-      // NoMoreDay::utils::ScopedTimer timer("MainLoop_Frame", 5000); // Log if > 5ms
 
       BeginDrawing();
       ClearBackground(BLACK);

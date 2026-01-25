@@ -29,8 +29,6 @@ private:
   std::vector<EnemySpawnData> m_spawnData;
   int m_mapWidth;
   int m_mapHeight;
-  std::map<int, std::array<Texture2D, 5>> m_raceTextures;
-  std::vector<int> m_pendingRaces;
   std::mt19937 m_gen;
 
   // 生成参数

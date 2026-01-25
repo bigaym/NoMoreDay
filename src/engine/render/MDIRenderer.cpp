@@ -1,4 +1,5 @@
 #include "engine/render/MDIRenderer.hpp"
+#include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "raymath.h"
 #include <iostream>
@@ -20,12 +21,29 @@
 #define GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT 0x00004000
 #endif
 
+#ifndef GL_TEXTURE_2D_ARRAY
+#define GL_TEXTURE_2D_ARRAY 0x8C1A
+#endif
+
+#ifndef GL_TEXTURE0
+#define GL_TEXTURE0 0x84C0
+#endif
+
 typedef void (*PFNGLDRAWARRAYSINDIRECTPROC)(unsigned int mode,
                                             const void *indirect);
 static PFNGLDRAWARRAYSINDIRECTPROC glDrawArraysIndirect = nullptr;
 
 typedef void (*PFNGLBINDBUFFERPROC)(unsigned int target, unsigned int buffer);
 static PFNGLBINDBUFFERPROC glBindBuffer = nullptr;
+
+typedef void(APIENTRY *PFNGLACTIVETEXTUREPROC)(unsigned int texture);
+typedef void(APIENTRY *PFNGLMEMORYBARRIERPROC)(unsigned int barriers);
+static PFNGLACTIVETEXTUREPROC glActiveTexture = nullptr;
+static PFNGLMEMORYBARRIERPROC glMemoryBarrier = nullptr;
+
+#ifndef GL_SHADER_STORAGE_BUFFER
+#define GL_SHADER_STORAGE_BUFFER 0x90D2
+#endif
 
 namespace NoMoreDay::render {
 
@@ -49,16 +67,22 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
   if (!glBindBuffer) {
     glBindBuffer = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
   }
+  if (!glActiveTexture) {
+    glActiveTexture = (PFNGLACTIVETEXTUREPROC)glfwGetProcAddress("glActiveTexture");
+  }
+  if (!glMemoryBarrier) {
+    glMemoryBarrier = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
+  }
 
   // Binding 1: Visible Indices (Double Buffered)
-  m_visibleBuffer.Create(maxEntities * sizeof(uint32_t));
+  m_visibleBuffer.Create(maxEntities * sizeof(uint32_t), 3);
 
   // Binding 2: Indirect Command (Double Buffered)
-  m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand));
+  m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand), 3);
 
   // Binding 3: Visual Stats (Double Buffered)
   m_statsBuffer.Create(maxEntities *
-                       sizeof(NoMoreDay::components::GPUVisualStats));
+                       sizeof(NoMoreDay::components::GPUVisualStats), 3);
 
   // Load Shaders
   // Using hashed string for IDs as per ResourceManager usage in GPUEntitySystem
@@ -68,8 +92,10 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
                                  "assets/shaders/entity_mdi.vert",
                                  "assets/shaders/entity_mdi.frag");
 
-  // Create Quad VAO
-  float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f};
+  // Create Quad VAO (6 vertices for GL_TRIANGLES)
+  float vertices[] = {
+      -0.5f, -0.5f, 0.5f, -0.5f, 0.5f, 0.5f,
+      -0.5f, -0.5f, 0.5f, 0.5f,  -0.5f, 0.5f};
 
   m_quadVAO = rlLoadVertexArray();
   rlEnableVertexArray(m_quadVAO);
@@ -79,10 +105,6 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
   rlEnableVertexAttribute(0);
 
   rlDisableVertexArray();
-}
-
-void MDIRenderer::UpdateInstances(const std::vector<GPUInstanceData> &data) {
-  // Redundant - Logic moved to GPUEntitySystem zero-copy path
 }
 
 void MDIRenderer::UpdateStats(
@@ -109,109 +131,110 @@ void MDIRenderer::UpdateStats(
 
 void MDIRenderer::ResetCommand() {
   auto *cmd = (DrawArraysIndirectCommand *)m_commandBuffer.BeginWrite();
-  cmd->count = 4;
-  cmd->instanceCount = 0;
+  cmd->count = 6;
+  cmd->instanceCount = 0; // RESET TO 0 - let Cull fill it
   cmd->first = 0;
   cmd->baseInstance = 0;
   m_commandBuffer.Flush();
 }
 
 void MDIRenderer::Cull(Vector4 viewBounds) {
-  if (!m_cullShader.id)
-    return;
+  if (!m_cullShader.id) {
+      LOG_LIMITED_ERROR(5.0f, "MDI Cull Fail: Shader ID is 0!");
+      return;
+  }
 
   // reset command buffer instance count
   ResetCommand();
 
   rlEnableShader(m_cullShader.id);
 
-  // Bind Buffers
-  // Skip instanceBuffer binding as it is provided by the caller
-  // (GPUEntitySystem) via BindPrevious(0)
-
-  // Bind CURRENT write slots for culling output
+  // Bind buffers to CURRENT write slots
   m_visibleBuffer.BindBase(1);
   m_commandBuffer.BindBase(2);
 
   // Set Uniforms
-  int locBounds = rlGetLocationUniform(m_cullShader.id, "viewBounds");
+  int locView = rlGetLocationUniform(m_cullShader.id, "viewBounds");
+  if (locView != -1)
+    rlSetUniform(locView, &viewBounds, RL_SHADER_UNIFORM_VEC4, 1);
+
   int locMax = rlGetLocationUniform(m_cullShader.id, "maxEntities");
+  if (locMax != -1) {
+    int me = (int)m_maxEntities;
+    rlSetUniform(locMax, &me, RL_SHADER_UNIFORM_INT, 1);
+  }
 
-  if (locBounds != -1)
-    rlSetUniform(locBounds, &viewBounds, RL_SHADER_UNIFORM_VEC4, 1);
-  if (locMax != -1)
-    rlSetUniform(locMax, &m_maxEntities, RL_SHADER_UNIFORM_INT, 1);
-
-  // Dispatch
-  // Group size 256
+  // Dispatch Compute
   int groups = (m_maxEntities + 255) / 256;
   rlComputeShaderDispatch(groups, 1, 1);
 
-  rlDisableShader();
+  glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
 
-  // Lock the buffers after writing
   m_visibleBuffer.Lock();
   m_commandBuffer.Lock();
-
-  // Memory Barrier to ensure instanceCount and visibleIndices are visible for
-  // Indirect Draw and Shaders
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT |
-                                            GL_COMMAND_BARRIER_BIT);
 }
 
-void MDIRenderer::Render(const Matrix &viewProj, float renderAlpha) {
-  if (!m_renderShader.id || !glDrawArraysIndirect)
-    return;
+void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities, float renderAlpha) {
+  if (m_renderShader.id == 0 || !glDrawArraysIndirect) return;
 
-  // Culling happens just before Render in the same frame,
-  // we already have a barrier at the end of Cull().
+  // 1. Flush Raylib batch
+  rlDrawRenderBatchActive();
+
+  // 2. Get current matrices from Raylib (ensure we are in BeginMode2D)
+  Matrix modelview = rlGetMatrixModelview();
+  Matrix projection = rlGetMatrixProjection();
+  Matrix mvp = MatrixMultiply(modelview, projection);
 
   rlEnableShader(m_renderShader.id);
 
-  // Binding 0: Instance Data (Triple Buffered in GPUEntitySystem)
-  // Note: binding 0 is usually already bound by GPUEntitySystem::Render,
-  // but re-binding here is safer against intermediate state changes.
-  // The actual binding is done by the caller using
-  // m_persistentEntityBuffer.BindPrevious(0).
+  // 3. Bind Texture Array
+  unsigned int texArray = rm.getEntityTextureArray();
+  if (texArray != 0) {
+    int locTex = rlGetLocationUniform(m_renderShader.id, "entityTextures");
+    if (locTex != -1 && glActiveTexture) {
+      glActiveTexture(GL_TEXTURE0);
+      glBindTexture(GL_TEXTURE_2D_ARRAY, texArray);
+      int unit = 0; 
+      rlSetUniform(locTex, &unit, RL_SHADER_UNIFORM_INT, 1);
+    }
+  }
 
-  // Set ViewProj
+  // 4. Set Uniforms
   int locVP = rlGetLocationUniform(m_renderShader.id, "viewProj");
-  if (locVP != -1)
-    rlSetUniformMatrix(locVP, viewProj);
+  if (locVP != -1) rlSetUniformMatrix(locVP, mvp);
 
-  // Set Interpolation Factor
-  int locInterp =
-      rlGetLocationUniform(m_renderShader.id, "interpolationFactor");
-  if (locInterp != -1)
-    rlSetUniform(locInterp, &renderAlpha, RL_SHADER_UNIFORM_FLOAT, 1);
+  int locInterp = rlGetLocationUniform(m_renderShader.id, "interpolationFactor");
+  if (locInterp != -1) rlSetUniform(locInterp, &renderAlpha, RL_SHADER_UNIFORM_FLOAT, 1);
 
-  // Bind Buffers for Vertex Shader (Binding 1 = Indices, 2 = Commands)
-  // We bind PREVIOUS slots because those are what the physics-synced MDI just
-  // finished.
+  // 5. EXPLICITLY BIND ALL SSBOs
+  typedef void(APIENTRY *PFNGLBINDBUFFERBASEPROC)(unsigned int target, unsigned int index, unsigned int buffer);
+  static PFNGLBINDBUFFERBASEPROC glBindBufferBasePtr = (PFNGLBINDBUFFERBASEPROC)glfwGetProcAddress("glBindBufferBase");
+
+  // Binding 0: Entities (From external buffer)
+  entities.BindPreviousNoSync(0);
+  
+  // Binding 1: Visible Indices
   m_visibleBuffer.BindPreviousNoSync(1);
-  m_statsBuffer.BindPreviousNoSync(3); // Binding 3: Visual Stats
+  // Binding 3: Visual Stats
+  m_statsBuffer.BindPreviousNoSync(3); 
 
+  // 6. VAO & Indirect Buffer
   rlEnableVertexArray(m_quadVAO);
 
-  // Bind Indirect Buffer
   int bufferCount = m_commandBuffer.GetBufferCount();
-  int prevSlot =
-      (m_commandBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
+  int prevSlot = (m_commandBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
   size_t offset = (size_t)prevSlot * m_commandBuffer.GetSize();
 
   m_commandBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
 
-  // Draw
-  // IMPORTANT: glDrawArraysIndirect offset is in BYTES!
-  // Using GL_TRIANGLE_FAN since we have 4 vertices for a quad
-  glDrawArraysIndirect(GL_TRIANGLE_FAN, (void *)offset);
+  // 7. Final Draw
+  glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT);
+  
+  glDrawArraysIndirect(GL_TRIANGLES, (void *)offset);
 
   // Unbind
-  // explicit unbind if needed, or rlgl wrapper handles generic state?
-  // Indirect buffer binding is global state in GL
   if (glBindBuffer)
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
-
   rlDisableVertexArray();
   rlDisableShader();
 }

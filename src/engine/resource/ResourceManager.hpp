@@ -30,6 +30,16 @@ public:
     Shader loadComputeShader(entt::id_type id, const std::string& path);
     Shader getShader(entt::id_type id);
 
+    // 加载多个纹理到一个 GL_TEXTURE_2D_ARRAY
+    // paths: 纹理文件路径列表 (按顺序对应 layer index 0, 1, 2...)
+    unsigned int loadTextureArray(const std::vector<std::string>& paths);
+    
+    // 获取已加载的实体纹理数组
+    unsigned int getEntityTextureArray() const { return m_entityTextureArray; }
+    
+    // 获取指定纹理名称对应的 Layer Index (-1 if not found)
+    int getTextureLayerIndex(const std::string& name) const;
+
     void unloadAll();
 
     // Headless Mode Support (For Testing)
@@ -41,5 +51,7 @@ private:
     std::unordered_map<entt::id_type, std::string> m_texturePaths; // 用于按需加载的路径注册表
     std::unordered_map<entt::id_type, Font> m_fonts;
     std::unordered_map<entt::id_type, Shader> m_shaders;
+    unsigned int m_entityTextureArray = 0;
+    std::unordered_map<std::string, int> m_textureLayerMap; // name -> layer index
     bool m_headless = false;
 };

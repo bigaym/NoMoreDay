@@ -203,6 +203,12 @@ void RenderSystem::render(entt::registry &registry,
   for (auto entity : spriteView) {
     const auto & [pos, sprite] = spriteView.get(entity);
 
+    // [GPU OFFLOAD] Skip CPU rendering if handled by GPU MDI
+    // Player remains on CPU path as it has special logic and NO_RENDER flag in GPU
+    if (registry.any_of<GPUIndex>(entity) && !registry.any_of<PlayerTag>(entity)) {
+        if (sprite.textureLayerIndex >= 0) continue;
+    }
+
     float width = (float)sprite.texture.width * sprite.scale; // 宽度
     float height = (float)sprite.texture.height * sprite.scale;
 
@@ -272,7 +278,7 @@ void RenderSystem::render(entt::registry &registry,
 
   // GPU 粒子渲染
   NoMoreDay::systems::GPUParticleSystem::Get().Render(camera);
-  NoMoreDay::systems::GPUEntitySystem::Get().Render(context);
+  NoMoreDay::systems::GPUEntitySystem::Get().Render(context, camera);
   
   // GPU 伤害飘字渲染
   NoMoreDay::render::PopupRenderer::Get().Update(GetFrameTime());

@@ -44,9 +44,11 @@ TEST_CASE("MDI Rendering Integration") {
     systems::GPUEntitySystem::Get().Update(registry, 0.016f);
     
     LOG_INFO("TEST: Render Frame");
+    Camera2D camera = {0};
+    camera.zoom = 1.0f;
     BeginDrawing();
         ClearBackground(BLACK);
-        systems::GPUEntitySystem::Get().Render(context);
+        systems::GPUEntitySystem::Get().Render(context, camera);
     EndDrawing();
     
     LOG_INFO("TEST: Render Done");

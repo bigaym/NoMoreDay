@@ -433,9 +433,18 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: GPU Sprite Offload (MDI Texture Array)
-- **Folder:** [./conductor/tracks/gpu-sprite-offload/](./conductor/tracks/gpu-sprite-offload/)
-- **Description:** 将 CPU 精灵渲染卸载至 GPU。核心实现 `GL_TEXTURE_2D_ARRAY` 支持，使 MDI 渲染管线能够直接采样多纹理精灵；整合状态效果 (冰冻/燃烧) 到 Shader；清理遗留 CPU 渲染路径。目标将 Draw Calls 从 ~1000 降至 < 10，GPU 渲染实体比例提升至 > 95%。
-- **Status:** PLANNED
+## [x] Track: GPU Sprite Offload (MDI Texture Array)
+- **Folder:** [./conductor/archive/gpu-sprite-offload_20260125/](./conductor/archive/gpu-sprite-offload_20260125/)
+- **Description:** 将 CPU 精灵渲染卸载至 GPU。完成了 `GL_TEXTURE_2D_ARRAY` 与 MDI 管线的整合，实现了状态效果 (冰冻/燃烧) 的 Shader 级叠加，并清理了遗留的单体 Draw Call 路径。成功将 Draw Calls 降低至个位数，渲染效率大幅提升。(Completed on 2026-01-25)
+- **Status:** COMPLETED
 - **Priority:** CRITICAL
 - **Estimated Time:** 2 days
+
+---
+
+## [x] Track: Render Items CPU Optimization (Beam & Cache)
+- **Folder:** [./conductor/archive/render-items-cpu-optimization_20260125/](./conductor/archive/render-items-cpu-optimization_20260125/)
+- **Description:** 优化掉落物品的 CPU 侧性能。通过 `VisibleItemCache` 消除 UISystem 中的冗余 $O(N)$ 遍历，并实现了光束 (Beam) 的 Instanced Rendering，显著降低了 Driver Overhead 和 Draw Calls。(Completed on 2026-01-25)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 0.5 day

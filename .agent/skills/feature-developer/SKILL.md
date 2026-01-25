@@ -7,8 +7,8 @@ description: 负责 NoMoreDay 功能的编码实现。它严格遵循 feature-pl
 
 ## 0. 启动前提 (Prerequisites)
 在开始任何工作前，你必须：
-1.  **加载合约**: 仔细阅读当前 Track 目录下的 `spec.md` 和 `plan.md`。
-2.  **代码初始化**: 调用 `set_project_directory`（路径为当前项目根目录）。
+1.  **代码初始化**: 调用 `set_project_directory`（路径为当前项目根目录）。
+2.  **加载合约**: 仔细阅读当前 Track 目录下的 `spec.md` 和 `plan.md`。
 3.  **精确对齐**:
     *   **符号定位**: 使用 `search_symbols` 和 `find_in_file` 快速定位需要修改的代码行，避免在大型文件中迷失。
     *   **协议确认**: 使用 `get_function_signature` 验证 Spec 中的接口描述是否与底层引擎定义的参数、`const` 属性及 `noexcept` 声明完全匹配。

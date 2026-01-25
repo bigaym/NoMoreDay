@@ -449,6 +449,7 @@ struct ColorComponent {
 struct SpriteComponent {
   Texture2D texture = {0};
   float scale = 1.0f;
+  int textureLayerIndex = -1; // Index in GL_TEXTURE_2D_ARRAY (-1 for none)
   // float rotation = 0.0f; // 未来扩展
   // Rectangle sourceRect = { 0 }; // 未来用于精灵图
 };

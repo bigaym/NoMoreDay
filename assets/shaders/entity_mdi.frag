@@ -2,34 +2,41 @@
 
 in vec2 vTexCoord;
 in vec2 vLocalPos;
-flat in uint vTextureIndex;
+flat in int vTextureIndex;
 flat in uint vFlags;
 flat in float vGlow;
+flat in uint vStatusMask;
+flat in float vStatusTimer;
+
+uniform sampler2DArray entityTextures;
 
 out vec4 fragColor;
 
 void main() {
-    // Check flags (GPU_ENTITY_FLAG_NO_RENDER = 2)
-    if ((vFlags & 2u) != 0u) discard;
+    // 基础颜色 (纹理或 SDF)
+    vec4 baseColor;
+    if (vTextureIndex >= 0) {
+        baseColor = texture(entityTextures, vec3(vTexCoord, float(vTextureIndex)));
+        if (baseColor.a < 0.1) discard;
+    } else {
+        float distSq = dot(vLocalPos, vLocalPos);
+        if (distSq > 1.0) discard;
+        baseColor = vec4(1.0, 0.3, 0.3, 1.0);
+    }
 
-    // Current fallback: Circle SDF (matches legacy GPUEntitySystem)
-    float distSq = dot(vLocalPos, vLocalPos);
-    if (distSq > 1.0) discard;
-    
-    float delta = fwidth(distSq);
-    float alpha = 1.0 - smoothstep(1.0 - delta, 1.0, distSq);
-    
-    // Default color (Red for enemies)
-    // In future, vTextureIndex can sample a TextureArray
-    vec3 color = vec3(1.0, 0.3, 0.3);
-    
-    // Simple debug visualization for other types if needed (e.g. textureIndex > 0)
-    if (vTextureIndex == 1) color = vec3(0.3, 1.0, 0.3);
-
-    // Apply Glow (Visual Stats)
-    if (vGlow > 0.0) {
-        color += vec3(vGlow * 0.8, vGlow * 0.8, vGlow * 1.0); // Blue-ish tint for barrier/glow
+    // 状态特效发光
+    vec3 statusGlow = vec3(0.0);
+    if ((vStatusMask & 1u) != 0u) { // Frozen
+        statusGlow += vec3(0.2, 0.6, 1.0) * (0.3 + 0.2 * sin(vStatusTimer * 6.28));
+    }
+    if ((vStatusMask & 2u) != 0u) { // Burning
+        statusGlow += vec3(1.0, 0.5, 0.1) * (0.4 + 0.2 * sin(vStatusTimer * 12.56));
     }
     
-    fragColor = vec4(color, alpha);
+    // 稀有度发光
+    if (vGlow > 0.0) {
+        statusGlow += vec3(vGlow * 0.4, vGlow * 0.4, vGlow * 0.6);
+    }
+    
+    fragColor = vec4(baseColor.rgb + statusGlow, baseColor.a);
 }

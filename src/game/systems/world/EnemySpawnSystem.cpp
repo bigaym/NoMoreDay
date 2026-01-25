@@ -29,19 +29,12 @@ EnemySpawnSystem::EnemySpawnSystem()
 }
 
 EnemySpawnSystem::~EnemySpawnSystem() {
-  for (auto &[type, textures] : m_raceTextures) {
-    for (auto &tex : textures) {
-      UnloadTexture(tex);
-    }
-  }
-  m_raceTextures.clear();
 }
 
 void EnemySpawnSystem::initializeLevel(int width, int height, int level,
                                         const MapSystem &mapSystem,
                                         NoMoreDay::BiomeID biome) {
   initData(width, height, level, mapSystem, biome);
-  initTextures();
 }
 
 // Async Loading Support
@@ -52,7 +45,6 @@ void EnemySpawnSystem::initData(int width, int height, int level,
   m_mapHeight = height;
   m_areaLevel = level;
   m_spawnData.clear();
-  m_pendingRaces.clear();
 
   // Reset modifiers
   m_resonanceMods = {1.0f, 0, 0.0f, 0, 1.0f, 1.0f, 1.0f};
@@ -132,15 +124,11 @@ void EnemySpawnSystem::initData(int width, int height, int level,
     }
   }
 
-  m_pendingRaces = availableRaces; // Store for texture loading
-
   // 2. 群聚生成 - 大幅增加密度 (5~10倍)
   using namespace NoMoreDay::Constants::Enemy;
   int baseClusterCount =
       (width * height) / CLUSTER_DENSITY_DIVISOR; // 原来是 1000, 现在是 5倍密度
   
-  LOG_INFO("[Debug] Density Calc: w={} h={} Divisor={} -> BaseClusters={}", width, height, CLUSTER_DENSITY_DIVISOR, baseClusterCount);
-
   int clusterCount =
       static_cast<int>(baseClusterCount * m_resonanceMods.densityMultiplier);
 
@@ -236,43 +224,13 @@ void EnemySpawnSystem::initData(int width, int height, int level,
 }
 
 void EnemySpawnSystem::initTextures() {
-  // Cleanup old
-  for (auto &[type, textures] : m_raceTextures) {
-    for (auto &tex : textures) {
-      UnloadTexture(tex);
-    }
-  }
-  m_raceTextures.clear();
-
-  // Load new
-  for (int raceType : m_pendingRaces) {
-    const auto &raceDef = kRaceData[static_cast<size_t>(raceType)];
-
-    std::array<Texture2D, 5> textures;
-    for (int i = 0; i < 5; ++i) {
-      std::string path =
-          std::string(raceDef.texturePath) + "_" + std::to_string(i) + ".png";
-      Texture2D tex = LoadTexture(path.c_str());
-      if (tex.id == 0) {
-        LOG_ERROR("EnemySpawnSystem: Failed to load texture for race {} "
-                  "variant {} at '{}'",
-                  raceType, i, path);
-      }
-      textures[i] = tex;
-    }
-    m_raceTextures[raceType] = textures;
-  }
-  m_pendingRaces.clear();
 }
 
 void EnemySpawnSystem::updateEnemySpawning(const Position &playerPos,
                                            entt::registry &registry) {
-  static int debugFrame = 0;
-  if (++debugFrame % 120 == 0) {
-      int activeCount = 0;
-      for (const auto& d : m_spawnData) if (d.isAlive) activeCount++;
-      LOG_INFO("[Debug] Active Enemies: {} / Total Spawn Points: {}", activeCount, m_spawnData.size());
-  }
+  int activeCount = 0;
+  for (const auto& d : m_spawnData) if (d.isAlive) activeCount++;
+  LOG_LIMITED_INFO(5.0f, "[SpawnSystem] Active Entities: {} / Total Spawn Points: {}", activeCount, m_spawnData.size());
 
   for (auto &data : m_spawnData) {
     float dx = data.position.x - playerPos.x;
@@ -317,61 +275,34 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   registry.emplace<IDComponent>(entity, NoMoreDay::Utils::UUID::generate());
   registry.emplace<LocalLevelTag>(entity);
 
-  if (m_raceTextures.count(data.enemyType)) {
-    registry.emplace<TextureIDComponent>(
-        entity, m_raceTextures[data.enemyType][data.enemyVariant].id);
-  }
+  auto &aState = registry.emplace<NoMoreDay::AttackState>(entity);
+  aState.baseAttackInterval = DEFAULT_ATTACK_INTERVAL;
 
   EnemyRace::Type raceType = static_cast<EnemyRace::Type>(data.enemyType);
   EnemyArchetype::Type archType = EnemyArchetype::FODDER;
 
   // Determine archetype based on variant
   switch (data.enemyVariant) {
-  case 0:
-    archType = EnemyArchetype::FODDER;
-    break; // Warrior
-  case 1:
-    archType = EnemyArchetype::RANGER;
-    break;
-  case 2:
-    archType = EnemyArchetype::TANK;
-    break;
-  case 3:
-    archType = EnemyArchetype::ASSASSIN;
-    break;
-  case 4:
-    archType = EnemyArchetype::SUPPORT;
-    break; // Mage/Support
+  case 0: archType = EnemyArchetype::FODDER; break; 
+  case 1: archType = EnemyArchetype::RANGER; break;
+  case 2: archType = EnemyArchetype::TANK; break;
+  case 3: archType = EnemyArchetype::ASSASSIN; break;
+  case 4: archType = EnemyArchetype::SUPPORT; break;
   }
 
   // Emplace EnemyStateComponent EARLY so StatsSystem can use it
   auto &esc = registry.emplace<EnemyStateComponent>(entity, raceType, archType);
-  
-  // Explicitly set activation range to ensure correct value
-  using namespace NoMoreDay::Constants::Enemy;
   esc.activationRange = DEFAULT_AGGRO_DISTANCE;
-  
-  LOG_LIMITED_DEBUG(5.0F,"Spawned Entity {} with Activation Range: {:.1f}", (uint32_t)entity, esc.activationRange);
 
   registry.emplace<EnemyTag>(entity);
   auto &cStats = registry.emplace<NoMoreDay::CombatStats>(entity);
-  registry.emplace<NoMoreDay::StatsDirty>(
-      entity); // Trigger initial calculation
-  auto &aState = registry.emplace<NoMoreDay::AttackState>(entity);
-  aState.baseAttackInterval = DEFAULT_ATTACK_INTERVAL;
+  registry.emplace<NoMoreDay::StatsDirty>(entity); 
 
   // === Advanced Rarity System Implementation ===
   std::uniform_real_distribution<float> rarityRoll(0.0f, 1.0f);
   EnemyRarityComponent::Rarity rarity = EnemyRarityComponent::NORMAL;
   Color rarityColor = WHITE;
   float rarityScale = 1.0f;
-
-  // Check for Nemesis eligibility based on Faction Aggro
-  NoMoreDay::FactionType faction = NoMoreDay::FactionType::Undead;
-  if (raceType == EnemyRace::DEMON)
-    faction = NoMoreDay::FactionType::Void;
-  else if (raceType == EnemyRace::CORRUPTED)
-    faction = NoMoreDay::FactionType::Corrupted;
 
   float roll = rarityRoll(m_gen);
   if (roll < BOSS_CHANCE) {
@@ -390,23 +321,26 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
   registry.emplace<EnemyRarityComponent>(entity, rarity);
 
+  // === Sprite and Texture Array Setup ===
+  auto& sprite = registry.emplace<SpriteComponent>(entity);
+  sprite.scale = DEFAULT_SPRITE_SCALE * rarityScale;
+  // Map race + variant to global texture array index
+  // Each race has 5 variants in the array (see Game::init)
+  sprite.textureLayerIndex = static_cast<int>(data.enemyType) * 5 + data.enemyVariant;
+
   // === Monster Scaling Implementation ===
-  // 1. Get Player Level
   int playerLevel = 1;
   auto playerView = registry.view<PlayerStats>();
   if (playerView.begin() != playerView.end()) {
       playerLevel = playerView.get<PlayerStats>(*playerView.begin()).level;
   }
 
-  // 2. Calculate Synchronized Monster Level
   int effectiveAreaLevel = m_areaLevel + m_resonanceMods.levelBonus;
   int monsterLevel = NoMoreDay::MonsterScaling::SyncLevel(effectiveAreaLevel, playerLevel);
   esc.level = monsterLevel;
 
-  // 3. Calculate Stats
   NoMoreDay::MonsterScalingResult result = NoMoreDay::MonsterScaling::Calculate(raceType, monsterLevel, rarity);
 
-  // Apply State Multipliers
   result.minDamage *= m_resonanceMods.damageMultiplier;
   result.maxDamage *= m_resonanceMods.damageMultiplier;
   result.maxHealth *= m_resonanceMods.hpMultiplier;
@@ -419,17 +353,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   
   float modifiedHP = result.maxHealth;
 
-  // Apply Element Color Tint (Higher priority than rarity color if exists)
-
-  // Setup Race/Archetype specifics
-  // Add Core Components (Health, AI) using stats from EnemyStateComponent
-  // Note: esc reference might be invalid if registry reallocated, assume entity is valid
-  auto &esc2 = registry.get<EnemyStateComponent>(entity);
-  registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
-  registry.emplace<AIComponent>(entity, AIType::PATROL, esc2.detectionRange,
-                                esc2.attackRange, esc2.speed * m_resonanceMods.speedMultiplier);
-
-  // Setup Race specifics (Stats/AI tweaks beyond base component init)
+  // Apply Race specifics (Stats/AI tweaks beyond base component init)
   switch (raceType) {
   case EnemyRace::UNDEAD:
     registry.emplace<ColorComponent>(entity, rarityColor);
@@ -490,43 +414,26 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     break;
   }
 
-  // Finalize Stats with Rarity Multipliers (Already handled in MonsterScaling::Calculate)
-  // cStats.min_weapon_damage *= dmgMult;
-  // cStats.max_weapon_damage *= dmgMult;
-
-  // Apply Element Color Tint (Higher priority than rarity color if exists)
+  // Apply Element Color Tint
   if (m_resonanceMods.dominantElement != 0) {
     auto *colorComp = registry.try_get<ColorComponent>(entity);
     if (colorComp) {
       switch (static_cast<NoMoreDay::FragmentElement>(
           m_resonanceMods.dominantElement)) {
-      case NoMoreDay::FragmentElement::Fire:
-        colorComp->color = RED;
-        break;
-      case NoMoreDay::FragmentElement::Cold:
-        colorComp->color = SKYBLUE;
-        break;
-      case NoMoreDay::FragmentElement::Lightning:
-        colorComp->color = YELLOW;
-        break;
-      case NoMoreDay::FragmentElement::Shadow:
-        colorComp->color = PURPLE;
-        break;
-      case NoMoreDay::FragmentElement::Chaos:
-        colorComp->color = DARKGRAY;
-        break;
-      default:
-        break;
+      case NoMoreDay::FragmentElement::Fire: colorComp->color = RED; break;
+      case NoMoreDay::FragmentElement::Cold: colorComp->color = SKYBLUE; break;
+      case NoMoreDay::FragmentElement::Lightning: colorComp->color = YELLOW; break;
+      case NoMoreDay::FragmentElement::Shadow: colorComp->color = PURPLE; break;
+      case NoMoreDay::FragmentElement::Chaos: colorComp->color = DARKGRAY; break;
+      default: break;
       }
     }
   }
 
-  if (m_raceTextures.count(data.enemyType)) {
-    using namespace NoMoreDay::Constants::Enemy;
-    registry.emplace<SpriteComponent>(
-        entity, m_raceTextures[data.enemyType][data.enemyVariant],
-        DEFAULT_SPRITE_SCALE * rarityScale);
-  }
+  // Setup AI
+  registry.emplace<HealthComponent>(entity, modifiedHP, modifiedHP);
+  registry.emplace<AIComponent>(entity, AIType::PATROL, esc.detectionRange,
+                                esc.attackRange, esc.speed * m_resonanceMods.speedMultiplier);
 
   if (registry.all_of<AIComponent>(entity)) {
     auto &ai = registry.get<AIComponent>(entity);
@@ -540,72 +447,28 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
     ai.patrolEnd = {data.position.x + std::cos(angle) * dist,
                     data.position.y + std::sin(angle) * dist};
 
-    // === Set AIType based on archetype ===
-    // === Set AIType based on archetype ===
-    // REMOVED: Do not force state here. Let AISystem transition to specialized
-    // states when Aggro occurs.
-    /*
-    switch (archType) {
-    case EnemyArchetype::TANK:
-      ai.aiType = AIType::TANK_BLOCK;
-      break;
-    case EnemyArchetype::ASSASSIN:
-      ai.aiType = AIType::ASSASSIN_STEALTH;
-      break;
-    case EnemyArchetype::SUPPORT:
-      ai.aiType = AIType::SUPPORT_FLEE_BUFF;
-      break;
-    default:
-      break;
-    }
-    */
-
-    // === Monster Affix Assignment (New System) ===
+    // === Monster Affix Assignment ===
     if (rarity != EnemyRarityComponent::NORMAL) {
       int numAffixes = 0;
-      if (rarity == EnemyRarityComponent::CHAMPION)
-        numAffixes = 1;
-      else if (rarity == EnemyRarityComponent::ELITE)
-        numAffixes = 2;
-      else if (rarity == EnemyRarityComponent::BOSS)
-        numAffixes = 4;
+      if (rarity == EnemyRarityComponent::CHAMPION) numAffixes = 1;
+      else if (rarity == EnemyRarityComponent::ELITE) numAffixes = 2;
+      else if (rarity == EnemyRarityComponent::BOSS) numAffixes = 4;
 
-      auto &affixComp =
-          registry.emplace<NoMoreDay::MonsterAffixComponent>(entity);
+      auto &affixComp = registry.emplace<NoMoreDay::MonsterAffixComponent>(entity);
 
-      // Affix pool for random selection (数值型和基础机制型)
       static constexpr std::array<NoMoreDay::MonsterAffixType, 8> kAffixPool = {
-          NoMoreDay::MonsterAffixType::Fast,
-          NoMoreDay::MonsterAffixType::Tanky,
-          NoMoreDay::MonsterAffixType::Powerful,
-          NoMoreDay::MonsterAffixType::Vampiric,
-          NoMoreDay::MonsterAffixType::Berserker,
-          NoMoreDay::MonsterAffixType::Molten,
-          NoMoreDay::MonsterAffixType::Frozen,
-          NoMoreDay::MonsterAffixType::Teleporter};
+          NoMoreDay::MonsterAffixType::Fast, NoMoreDay::MonsterAffixType::Tanky,
+          NoMoreDay::MonsterAffixType::Powerful, NoMoreDay::MonsterAffixType::Vampiric,
+          NoMoreDay::MonsterAffixType::Berserker, NoMoreDay::MonsterAffixType::Molten,
+          NoMoreDay::MonsterAffixType::Frozen, NoMoreDay::MonsterAffixType::Teleporter};
 
-      std::uniform_int_distribution<int> affixRoll(
-          0, static_cast<int>(kAffixPool.size()) - 1);
+      std::uniform_int_distribution<int> affixRoll(0, static_cast<int>(kAffixPool.size()) - 1);
 
       for (int m = 0; m < numAffixes; ++m) {
-        NoMoreDay::MonsterAffixType selectedAffix =
-            kAffixPool[affixRoll(m_gen)];
-
-        // Avoid duplicate affixes
-        if (affixComp.HasAffix(selectedAffix)) {
-          // Try once more
-          selectedAffix = kAffixPool[affixRoll(m_gen)];
-          if (affixComp.HasAffix(selectedAffix))
-            continue;
-        }
-
+        NoMoreDay::MonsterAffixType selectedAffix = kAffixPool[affixRoll(m_gen)];
+        if (affixComp.HasAffix(selectedAffix)) continue;
         affixComp.AddAffix(selectedAffix);
 
-        // Stat modifiers are now handled by StatsSystem during Recalculate.
-        // We just need to ensure StatsDirty is set (already handled by default
-        // in spawnEnemy).
-
-        // Backward compatibility: Add legacy tags for existing systems
         if (selectedAffix == NoMoreDay::MonsterAffixType::Avenger) {
           (void)registry.get_or_emplace<NoMoreDay::AvengerComponent>(entity);
           (void)registry.get_or_emplace<NoMoreDay::AvengerTag>(entity);
@@ -615,18 +478,13 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
         }
       }
 
-      // Update HealthComponent with modified HP
       if (registry.all_of<HealthComponent>(entity)) {
         auto &hp = registry.get<HealthComponent>(entity);
         hp.max = modifiedHP;
         hp.current = modifiedHP;
       }
-
-      LOG_TRACE("Entity {} spawned with {} affixes", (uint32_t)entity,
-                affixComp.affixes.size());
     }
 
-    // Add ActiveEffectsComponent for buff support
     registry.emplace<NoMoreDay::ActiveEffectsComponent>(entity);
   }
 

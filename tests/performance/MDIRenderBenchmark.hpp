@@ -39,10 +39,12 @@ TEST_CASE("MDI vs Legacy Rendering Benchmark") {
     // We measure multiple calls to get a stable average, then glFinish to ensure GPU caught up
     NoMoreDay::SharedContext context;
     context.renderAlpha = 0.0f; // No interpolation for benchmark
+    Camera2D camera = {0};
+    camera.zoom = 1.0f;
 
     auto startMDI = std::chrono::high_resolution_clock::now();
     for(int i=0; i<ITERATIONS; ++i) {
-        systems::GPUEntitySystem::Get().Render(context);
+        systems::GPUEntitySystem::Get().Render(context, camera);
     }
     glFinish(); 
     auto endMDI = std::chrono::high_resolution_clock::now();

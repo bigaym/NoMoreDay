@@ -1,18 +1,17 @@
 #version 430 core
-layout(location = 0) in vec2 aPos; // [-0.5, 0.5]
+layout(location = 0) in vec2 aPos;
 
-// Must match GPUEntity in GPUData.hpp (64 bytes)
 struct InstanceData {
-    vec2 position;     // 8  - Current physics position
-    vec2 prevPosition; // 8  - Previous frame position (for render interpolation)
-    vec2 velocity;     // 8  - Current velocity
-    float radius;      // 4  - Collision radius
-    uint type;         // 4  - Entity type
-    uint flags;        // 4  - Behavior flags
-    float padding[7];  // 28 - Padding to 64 bytes
+    vec2 position;
+    vec2 prevPosition;
+    vec2 velocity;
+    float radius;
+    int type;
+    uint flags;
+    uint frameId;
+    float padding[6];
 };
 
-// Bindings match Cull/MDIRenderer
 layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
 layout(std430, binding = 1) readonly buffer VisibleIndices { uint visibleIndices[]; };
 
@@ -25,50 +24,55 @@ struct GPUVisualStats {
     float statusStrength;
     float glowIntensity;
     uint glowColorPacked;
-    float padding[8];
+    uint activeStatusMask;
+    float statusTimer;
+    float padding[6];
 };
 layout(std430, binding = 3) readonly buffer StatsBuffer { GPUVisualStats stats[]; };
 
 uniform mat4 viewProj;
-uniform float interpolationFactor; // Alpha factor [0, 1] for smooth interpolation between physics frames
+uniform float interpolationFactor;
 
 out vec2 vTexCoord;
 out vec2 vLocalPos;
-flat out uint vTextureIndex;
+flat out int vTextureIndex;
 flat out uint vFlags;
 flat out float vGlow;
+flat out uint vStatusMask;
+flat out float vStatusTimer;
 
 void main() {
+    // 从剔除后的索引缓冲中获取真正的实体 ID
     uint entityId = visibleIndices[gl_InstanceID];
     InstanceData e = entities[entityId];
+    GPUVisualStats s = stats[entityId];
     
-    // [RENDER INTERPOLATION] Smooth movement between physics frames
-    // This eliminates stuttering when render FPS (180) > physics FPS (60)
-    // mix(a, b, t) = a * (1-t) + b * t
+    // 插值位置
     vec2 interpolatedPos = mix(e.prevPosition, e.position, interpolationFactor);
     
-    // Auto-calculate Rotation from Velocity
-    // Only rotate if moving significantly
+    // 朝向计算
     float rotation = 0.0;
     if (length(e.velocity) > 0.1) {
         rotation = atan(e.velocity.y, e.velocity.x);
     }
     
     float c = cos(rotation);
-    float s = sin(rotation);
-    mat2 rot = mat2(c, -s, s, c);
+    float s_rot = sin(rotation);
+    mat2 rot = mat2(c, -s_rot, s_rot, c);
     
-    // Apply Scale (Radius * 2) and Rotation
-    vec2 scale = vec2(e.radius * 2.0);
-    vec2 pos = aPos * scale;
+    // 渲染尺寸：物理半径 * 4
+    float renderRadius = e.radius * 4.0;
+    vec2 pos = aPos * (renderRadius * 2.0);
     pos = rot * pos;
     vec2 worldPos = interpolatedPos + pos;
     
     gl_Position = viewProj * vec4(worldPos, 0.0, 1.0);
     
-    vTexCoord = aPos + 0.5; // [0, 1]
-    vLocalPos = aPos * 2.0; // [-1, 1] for circle SDF
+    vTexCoord = aPos + 0.5;
+    vLocalPos = aPos * 2.0;
     vTextureIndex = e.type;
     vFlags = e.flags;
-    vGlow = stats[entityId].glowIntensity;
+    vGlow = s.glowIntensity;
+    vStatusMask = s.activeStatusMask;
+    vStatusTimer = s.statusTimer;
 }

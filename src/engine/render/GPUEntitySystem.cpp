@@ -4,6 +4,7 @@
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "game/components/AIComponent.hpp"
+#include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
@@ -95,27 +96,22 @@ void GPUEntitySystem::InitRender(ResourceManager &rm) {
   rlDisableVertexArray();
 }
 
-void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context) {
-  bool useMDI = true;
-  if (useMDI && NoMoreDay::render::MDIRenderer::Get().IsInitialized()) {
-    Matrix mv = rlGetMatrixModelview();
-    Matrix proj = rlGetMatrixProjection();
-    Matrix mvp = MatrixMultiply(mv, proj);
-
-    Matrix invMVP = MatrixInvert(mvp);
-    Vector3 ndcMin = {-1.0f, -1.0f, 0.0f}, ndcMax = {1.0f, 1.0f, 0.0f};
-    Vector3 worldMin = Vector3Transform(ndcMin, invMVP),
-            worldMax = Vector3Transform(ndcMax, invMVP);
+void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context, const Camera2D &camera) {
+  if (m_maxEntities > 0) {
+    // Calculate View Bounds for Culling
+    Vector2 worldMin = GetScreenToWorld2D({0, 0}, camera);
+    Vector2 worldMax = GetScreenToWorld2D(
+        {(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
 
     Vector4 viewBounds = {fminf(worldMin.x, worldMax.x) - 500.0f,
                           fminf(worldMin.y, worldMax.y) - 500.0f,
                           fmaxf(worldMin.x, worldMax.x) + 500.0f,
                           fmaxf(worldMin.y, worldMax.y) + 500.0f};
 
-    m_persistentEntityBuffer.BindPreviousNoSync(0);
     auto &mdi = NoMoreDay::render::MDIRenderer::Get();
+    m_persistentEntityBuffer.BindPreviousNoSync(0); // Bind Binding 0 for Cull CS
     mdi.Cull(viewBounds);
-    mdi.Render(mvp, context.renderAlpha);
+    mdi.Render(*context.resources, m_persistentEntityBuffer, context.renderAlpha);
   } else {
     RenderLegacy(context.renderAlpha);
   }
@@ -248,15 +244,21 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
 
     gpuEntity.velocity = velocity;
     gpuEntity.radius = radius.value;
-    gpuEntity.type = (uint32_t)(registry.all_of<EnemyTag>(entity) ? 1 : 0);
     gpuEntity.frameId = (uint32_t)m_frameCounter;
+
+    // Sprite Texture Index Sync
+    if (auto* sprite = registry.try_get<SpriteComponent>(entity)) {
+        gpuEntity.type = sprite->textureLayerIndex;
+    } else {
+        gpuEntity.type = NoMoreDay::Constants::GPU::SDF_CIRCLE_TYPE;
+    }
 
     uint32_t flags = 0;
     if (registry.all_of<PlayerTag>(entity)) {
       flags |= GPU_ENTITY_FLAG_KINEMATIC | GPU_ENTITY_FLAG_NO_RENDER;
-    } else if (registry.all_of<SpriteComponent>(entity)) {
-      flags |= GPU_ENTITY_FLAG_NO_RENDER;
     }
+    // Standard sprites are now handled by GPU, so we DON'T set NO_RENDER here
+    // unless explicitly needed for some reason.
 
     if (auto *ai = registry.try_get<AIComponent>(entity)) {
       uint8_t stateVal = static_cast<uint8_t>(ai->aiType);
@@ -264,12 +266,29 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
     }
     gpuEntity.flags = flags;
 
-    // Stats
+    // Stats and Status Effects
     auto &visualStats = m_visualStatsShadowBuffer[slot];
     if (auto *stats = registry.try_get<CombatStats>(entity)) {
       AttributePipeline::ToGPU(*stats, visualStats);
     } else {
       visualStats = {};
+    }
+
+    // Sync Status Mask for Visuals
+    visualStats.activeStatusMask = 0;
+    visualStats.statusTimer = (float)GetTime();
+    m_visualStatsShadowBuffer[slot] = visualStats;
+
+    if (auto* effects = registry.try_get<ActiveEffectsComponent>(entity)) {
+        for (const auto& effect : effects->effects) {
+            switch (effect.type) {
+                case BuffType::Freeze: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_FROZEN; break;
+                case BuffType::Burn: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_BURNING; break;
+                case BuffType::Poison: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_POISONED; break;
+                case BuffType::Shock: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_SHOCKED; break;
+                default: break;
+            }
+        }
     }
   }
 
