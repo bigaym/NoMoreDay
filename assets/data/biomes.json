@@ -43,7 +43,7 @@
                 "beast",
                 "goblin"
             ],
-            "maxEnemies": 500,
+            "maxEnemies": 5000,
             "isSafeZone": false,
             "numeric_id": 2
         }

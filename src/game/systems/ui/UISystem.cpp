@@ -182,7 +182,7 @@ void UISystem::UpdatePanelDrag(NoMoreDay::UIPanelID id, float &x, float &y,
 
 void UISystem::Update(entt::registry &registry,
                       const LevelManager &levelManager) {
-  NoMoreDay::utils::ScopedTimer timer("UISystem::Update", 500);
+  // NoMoreDay::utils::ScopedTimer timer("UISystem::Update", 500);
   float dt = GetFrameTime();
 
   // 0. Cache Player Entity for efficient UI access
@@ -485,7 +485,7 @@ void UISystem::Update(entt::registry &registry,
 void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
                     const Camera2D &camera,
                     NoMoreDay::systems::SpatialHashGrid *spatialGrid) {
-  NoMoreDay::utils::ScopedTimer totalTimer("UISystem::Draw", 500);
+  // NoMoreDay::utils::ScopedTimer totalTimer("UISystem::Draw", 500);
   // --- Scale Calculation ---
   float scaleX = (float)GetScreenWidth() / UI_REF_WIDTH;
   float scaleY = (float)GetScreenHeight() / UI_REF_HEIGHT;
@@ -524,7 +524,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
 
   // 3. Ground Interaction highlights (drawn below overlays)
   if (State.hoveredItem == entt::null) {
-    NoMoreDay::utils::ScopedTimer hoverTimer("UISystem::GroundHover", 100);
+    // NoMoreDay::utils::ScopedTimer hoverTimer("UISystem::GroundHover", 100);
     
     // Phase 1 Optimization: Use shared cache from RenderSystem
     // Use Mouse World Position to check against Item World Rects directly

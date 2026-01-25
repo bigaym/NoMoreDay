@@ -1,4 +1,5 @@
 #include "game/states/GameplayState.hpp"
+#include "core/utils/ScopedTimer.hpp" // ADDED
 #include "game/systems/world/MapSystem.hpp" // Forced early include
 #include "app/SharedContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
@@ -326,6 +327,7 @@ GameplayState::~GameplayState() {
 }
 
 bool GameplayState::OnUpdate(float dt) {
+  // NoMoreDay::utils::ScopedTimer updateTimer("Gameplay::OnUpdate", 2000);
   auto &registry = *m_context->registry;
 
   // 0. Update SceneManager (Transitions)
@@ -364,11 +366,15 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // 1. Level & Systems
-  m_context->levelManager->update(dt, registry, playerPos);
+  {
+      // NoMoreDay::utils::ScopedTimer levelTimer("Update::LevelManager", 500);
+      m_context->levelManager->update(dt, registry, playerPos);
+  }
 
   // Spatial Grid Rebuild (Exclude items/gold/dormant to keep AI/physics search fast)
   // Move rebuild here so systems use fresh data this frame
   {
+    // NoMoreDay::utils::ScopedTimer gridTimer("Update::SpatialGrid", 200);
     auto gridView = registry.view<Position>(
         entt::exclude<NoMoreDay::ItemComponent, GoldComponent, DormantTag>);
     m_spatialGrid.rebuild(gridView, registry);
@@ -381,6 +387,8 @@ bool GameplayState::OnUpdate(float dt) {
   // m_context->levelManager->getMapSystem().updateFlowField(playerPos);
 
   // GPU Flow Field
+  {
+  // NoMoreDay::utils::ScopedTimer flowTimer("Update::FlowField", 200);
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
   // Map already declared above
   if (map.getWidth() > 0) {
@@ -410,26 +418,29 @@ bool GameplayState::OnUpdate(float dt) {
     m_stateManager->PushState<MosaicEditorState>();
     LOG_INFO("Pushed MosaicEditorState");
   }
-
-  MovementStanceSystem::Update(registry, dt);
-  StatsSystem::UpdateBuffs(registry, dt);
-  StatsSystem::update(registry);
-  RegenerationSystem::update(registry, dt);
-  EliteModifierSystem::Update(registry, dt);
-  MonsterAffixSystem::Update(registry, dt);
-  CombatHistorySystem::Update(registry, dt);
-  NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
-  DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
-  FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
-  XPAwardingSystem::update(registry);
-  InventorySystem::update(registry, dt);
-  // Update Skill System
-  ShadowSystem::Update(registry, dt);
-  SkillSystem::Update(registry, m_spatialGrid, dt, m_context->executor);
-  NoMoreDay::systems::SummonSystem::Update(registry, dt, m_spatialGrid);
-  MovementStanceSystem::Update(registry, dt);
-  ProjectileSystem::Update(registry, m_spatialGrid, dt);
-  NoMoreDay::systems::GhostSystem::Update(registry, dt);
+}
+  {
+      // NoMoreDay::utils::ScopedTimer systemsTimer("Update::Systems", 1000);
+      MovementStanceSystem::Update(registry, dt);
+      StatsSystem::UpdateBuffs(registry, dt);
+      StatsSystem::update(registry);
+      RegenerationSystem::update(registry, dt);
+      EliteModifierSystem::Update(registry, dt);
+      MonsterAffixSystem::Update(registry, dt);
+      CombatHistorySystem::Update(registry, dt);
+      NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
+      DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
+      FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
+      XPAwardingSystem::update(registry);
+      InventorySystem::update(registry, dt);
+      // Update Skill System
+      ShadowSystem::Update(registry, dt);
+      SkillSystem::Update(registry, m_spatialGrid, dt, m_context->executor);
+      NoMoreDay::systems::SummonSystem::Update(registry, dt, m_spatialGrid);
+      MovementStanceSystem::Update(registry, dt);
+      ProjectileSystem::Update(registry, m_spatialGrid, dt);
+      NoMoreDay::systems::GhostSystem::Update(registry, dt);
+  }
 
   // 2. Input
   InputSystem::update(registry, m_camera);
@@ -662,7 +673,10 @@ bool GameplayState::OnUpdate(float dt) {
   systems::SwordIntentVisualSystem::Update(registry, dt);
 
   // 7. Physics (Taskflow)
-  UpdatePhysics(dt);
+  {
+      // NoMoreDay::utils::ScopedTimer physicsTimer("Update::Physics", 500);
+      UpdatePhysics(dt);
+  }
 
   return true;
 }
@@ -747,7 +761,10 @@ void GameplayState::UpdatePhysics(float dt) {
 
   resolveTask.precede(updateTask);
 
-  m_context->executor->run(m_taskflow).wait();
+  {
+      // NoMoreDay::utils::ScopedTimer tfTimer("Physics::Taskflow", 200);
+      m_context->executor->run(m_taskflow).wait();
+  }
   return;
 }
 
