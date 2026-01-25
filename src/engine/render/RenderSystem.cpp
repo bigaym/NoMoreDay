@@ -521,8 +521,14 @@ void RenderSystem::render(entt::registry &registry,
     }
   });
 
-  // --- 5. 绘制物品和金币的世界标签 (Optimization: High-Speed Linear Culling + Multi-Pass Batching) ---
+  // --- 5. 绘制物品和金币的世界标签 (Optimization: Instanced SDF Rendering + Batched Text) ---
   
+  // Clear Queues
+  s_labelBuffer.clear();
+  s_textQueue.clear();
+  
+  // Keep s_visibleItems for Beams (Phase 1 legacy support, or refactor beams later)
+  // For now, we will reuse s_visibleItems for beams logic, but move label rendering to new pipeline.
   struct RenderItem {
       entt::entity entity;
       Position pos;
@@ -530,26 +536,18 @@ void RenderSystem::render(entt::registry &registry,
       NoMoreDay::Rarity rarity;
       float scale;
       bool emphasized;
-      const char* name;
-      Vector2 textSize;
+      // const char* name; // Removed, stored in textQueue
+      // Vector2 textSize; // Removed, stored in labelBuffer
   };
   static std::vector<RenderItem> s_visibleItems;
   s_visibleItems.clear();
-
-  struct RenderGold {
-      Position pos;
-      const char* text; 
-      Vector2 textSize;
-  };
-  static std::vector<RenderGold> s_visibleGold;
-  s_visibleGold.clear();
 
   // Calculate visible world area (Frustum)
   Vector2 viewTopLeft = GetScreenToWorld2D({0, 0}, camera);
   Vector2 viewBottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
   Rectangle viewRect = { viewTopLeft.x - 100, viewTopLeft.y - 100, (viewBottomRight.x - viewTopLeft.x) + 200, (viewBottomRight.y - viewTopLeft.y) + 200 };
 
-  // 1. Item Collection Pass (Linear culling is ~O(N) but predictable and cache-friendly)
+  // 1. Item Collection Pass (Cull & Generate Instances)
   auto itemView = registry.view<NoMoreDay::ItemComponent, Position>();
   itemView.each([&](entt::entity entity, const auto& item, const auto& pos) {
       // Frustum Culling
@@ -569,9 +567,11 @@ void RenderSystem::render(entt::registry &registry,
           }
       }
 
+      // Font Size Calculation
       int fontSize = (int)(18.0f * scale * fontScale);
       if (fontSize < 12) fontSize = 12;
 
+      // Cache Text Size
       auto& labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
       if (!labelCache.isValid || labelCache.lastFontSize != fontSize) {
           labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, item.name.c_str(), (float)fontSize, 1.0f) : Vector2{(float)MeasureText(item.name.c_str(), fontSize), (float)fontSize};
@@ -579,7 +579,27 @@ void RenderSystem::render(entt::registry &registry,
           labelCache.isValid = true;
       }
       
-      s_visibleItems.push_back({entity, pos, rarityColor, item.rarity, scale, emphasized, item.name.c_str(), labelCache.cachedSize});
+      // Calculate Layout
+      Vector2 textSize = labelCache.cachedSize;
+      Vector2 textPos = {pos.x - textSize.x / 2.0f, pos.y - 30.0f * scale};
+      Rectangle bgRect = {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4};
+      
+      // Push to Beam List (Legacy support for now)
+      s_visibleItems.push_back({entity, pos, rarityColor, item.rarity, scale, emphasized});
+
+      // Push GPU Instance (Background + Border)
+      bool isHovered = (entity == UISystem::State.hoveredItem);
+      NoMoreDay::components::GPULabelInstance instance;
+      instance.position = {bgRect.x, bgRect.y}; // Top-Left of quad
+      instance.size = {bgRect.width, bgRect.height};
+      instance.bgColor = ColorNormalize(Fade(BLACK, 0.7f));
+      instance.borderColor = ColorNormalize(isHovered ? WHITE : ColorAlpha(rarityColor, 0.5f));
+      instance.borderWidth = isHovered ? 2.0f : 1.0f;
+      instance.cornerRadius = 4.0f; // Rounded corners
+      s_labelBuffer.push_back(instance);
+      
+      // Push Text Command
+      s_textQueue.push_back({textPos, item.name.c_str(), (float)fontSize, rarityColor, false});
   });
 
   // 2. Gold Collection Pass
@@ -592,16 +612,32 @@ void RenderSystem::render(entt::registry &registry,
       
       auto& labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
       if (!labelCache.isValid || labelCache.lastFontSize != fontSize) {
-          // Format and cache string inside LabelCacheComponent
           snprintf(labelCache.cachedText, sizeof(labelCache.cachedText), "%d 金币", gold.amount);
           labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, labelCache.cachedText, (float)fontSize, 1.0f) : Vector2{(float)MeasureText(labelCache.cachedText, fontSize), (float)fontSize};
           labelCache.lastFontSize = fontSize;
           labelCache.isValid = true;
       }
-      s_visibleGold.push_back({pos, labelCache.cachedText, labelCache.cachedSize});
+      
+      Vector2 textSize = labelCache.cachedSize;
+      Vector2 textPos = {pos.x - textSize.x / 2.0f, pos.y - 25.0f};
+      Rectangle bgRect = {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4};
+      
+      // Push GPU Instance
+      NoMoreDay::components::GPULabelInstance instance;
+      instance.position = {bgRect.x, bgRect.y};
+      instance.size = {bgRect.width, bgRect.height};
+      instance.bgColor = ColorNormalize(Fade(BLACK, 0.6f));
+      instance.borderColor = ColorNormalize(Fade(GOLD, 0.5f));
+      instance.borderWidth = 1.0f;
+      instance.cornerRadius = 4.0f;
+      s_labelBuffer.push_back(instance);
+      
+      // Push Text Command
+      s_textQueue.push_back({textPos, labelCache.cachedText, (float)fontSize, GOLD, false});
   });
 
-  // 3. Rendering Pass: Beams (Pure vector iteration, no registry lookups)
+  // 3. Rendering Pass: Beams (Immediate Mode - Kept for visual flair)
+  // Optimization: Only iterate filtered list
   for (const auto& item : s_visibleItems) {
       if (item.rarity >= NoMoreDay::Rarity::Rare || item.emphasized) {
           float time = (float)GetTime();
@@ -622,47 +658,118 @@ void RenderSystem::render(entt::registry &registry,
       }
   }
 
-  // 4. Rendering Pass: Background Boxes
-  for (const auto& item : s_visibleItems) {
-      Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
-      DrawRectangleRec({textPos.x - 4, textPos.y - 2, item.textSize.x + 8, item.textSize.y + 4}, Fade(BLACK, 0.7f));
-  }
-  for (const auto& gold : s_visibleGold) {
-      Vector2 textPos = {gold.pos.x - gold.textSize.x / 2.0f, gold.pos.y - 25.0f};
-      DrawRectangleRec({textPos.x - 4, textPos.y - 2, gold.textSize.x + 8, gold.textSize.y + 4}, Fade(BLACK, 0.6f));
-  }
+  // 4. Rendering Pass: Instanced Backgrounds (The Optimization)
+  if (!s_labelBuffer.empty() && s_labelShader.id != 0 && s_labelInstanceBuffer) {
+      // 4.1 Upload Data
+      s_labelInstanceBuffer->bindBase(4);
+      // Only reallocate if size grows, otherwise map or subdata
+      // For simplicity in Phase 1, we use orphan-and-upload via subData or setData
+      // Assuming ComputeBuffer has a setData method or similar. Let's use standard GL for now if needed, 
+      // but ComputeBuffer probably has `updateData` or we can access ID.
+      // Checking ComputeBuffer.hpp... it likely has `update`.
+      // NOTE: Using a simple re-upload for now. In high-perf scenarios, use persistent mapping.
+      
+      // Resize buffer if needed (simple strategy: grow only)
+      size_t requiredSize = s_labelBuffer.size() * sizeof(NoMoreDay::components::GPULabelInstance);
+      // Re-upload data
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_labelInstanceBuffer->getID());
+      glBufferData(GL_SHADER_STORAGE_BUFFER, requiredSize, s_labelBuffer.data(), GL_DYNAMIC_DRAW);
+      glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-  // 5. Rendering Pass: Borders
-  for (const auto& item : s_visibleItems) {
-      Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
-      bool isHovered = (item.entity == UISystem::State.hoveredItem);
-      if (isHovered) {
-          DrawRectangleLinesEx({textPos.x - 4, textPos.y - 2, item.textSize.x + 8, item.textSize.y + 4}, 2.0f, WHITE);
-      } else {
-          DrawRectangleLinesEx({textPos.x - 4, textPos.y - 2, item.textSize.x + 8, item.textSize.y + 4}, 1.0f, ColorAlpha(item.rarityColor, 0.5f));
+      // 4.2 Draw Instanced
+      BeginShaderMode(s_labelShader);
+      
+      // Set MVP (Orthographic Projection)
+      Matrix matMvp = rlGetMatrixModelview();
+      Matrix matProj = rlGetMatrixProjection();
+      Matrix matMvpFinal = MatrixMultiply(matMvp, matProj);
+      SetShaderValueMatrix(s_labelShader, s_labelMvpLoc, matMvpFinal);
+      
+      // Draw Quads (6 vertices per instance)
+      // We use a dummy draw call because vertex shader generates geometry from Instance ID
+      // But we need to supply vertices for the Quad? 
+      // Our vertex shader `layout(location = 0) in vec3 vertexPosition;` expects a VBO.
+      // Raylib's `rlDrawRenderBatchActive` flushes current batch.
+      // We should use `rlDrawVertexArray` or manually bind a simple quad VBO.
+      // FAST PATH: Use `rlgl` immediate mode to send 1 quad, but instanced? No, `rlgl` doesn't support easy instancing.
+      // BETTER PATH: Use an empty VAO and generate vertices in VS (Vertex ID), OR bind a static Quad VBO.
+      // Let's use the standard "Vertex ID Trick" or a simple VBO.
+      // For `label_instanced.vert` I defined `in vec3 vertexPosition`.
+      // I will create a static VBO for the Quad on Init, or just use a small array here.
+      
+      // HOTFIX: To avoid managing VBOs, let's use `rlEnableVertexArray` with a pointer? 
+      // Actually, Raylib has `rlDrawMeshInstanced`. We can build a simple Mesh (Quad).
+      
+      // STATIC QUAD MESH (Lazy Init)
+      static Mesh quadMesh = { 0 };
+      static Material quadMat = { 0 };
+      if (quadMesh.vertexCount == 0) {
+          quadMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
+          // GenMeshPlane produces a flat plane on XZ. We need XY.
+          // Let's manually build a unit quad [0,0] to [1,1]
+          // Or just use GenMeshPlane and rotate it.
+          // Actually, let's just make a mesh.
+          Mesh mesh = { 0 };
+          mesh.triangleCount = 2;
+          mesh.vertexCount = 6;
+          mesh.vertices = (float *)MemAlloc(mesh.vertexCount * 3 * sizeof(float));
+          mesh.texcoords = (float *)MemAlloc(mesh.vertexCount * 2 * sizeof(float));
+          
+          // Quad: [0,0] -> [1,1]
+          float vertices[] = {
+              0.0f, 0.0f, 0.0f,
+              0.0f, 1.0f, 0.0f,
+              1.0f, 1.0f, 0.0f,
+              0.0f, 0.0f, 0.0f,
+              1.0f, 1.0f, 0.0f,
+              1.0f, 0.0f, 0.0f
+          };
+          float texcoords[] = {
+              0.0f, 0.0f,
+              0.0f, 1.0f,
+              1.0f, 1.0f,
+              0.0f, 0.0f,
+              1.0f, 1.0f,
+              1.0f, 0.0f
+          };
+          memcpy(mesh.vertices, vertices, sizeof(vertices));
+          memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
+          UploadMesh(&mesh, false);
+          quadMesh = mesh;
+          
+          quadMat = LoadMaterialDefault();
+          quadMat.shader = s_labelShader; // Assign our shader
       }
+      
+      // Override material shader locally just to be safe (though rlDrawMeshInstanced takes material)
+      quadMat.shader = s_labelShader;
+      
+      // Draw Mesh Instanced
+      // Note: rlDrawMeshInstanced uses the material's shader.
+      // We need to ensure the shader is bound and uniforms set. 
+      // Raylib's `DrawMeshInstanced` does `BeginShaderMode` internally.
+      // So we should NOT call `BeginShaderMode` manually if using `DrawMeshInstanced`.
+      // BUT, `DrawMeshInstanced` might not support setting our custom SSBOs or uniforms easily *between* instances.
+      // Wait, `DrawMeshInstanced` sets the transformation matrix array. We don't want that. We have SSBO.
+      
+      // CORRECT APPROACH: Raw GL Draw
+      // We already called BeginShaderMode.
+      // Bind the Quad VAO.
+      glBindVertexArray(quadMesh.vaoId);
+      glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)s_labelBuffer.size());
+      glBindVertexArray(0);
+      
+      EndShaderMode();
   }
 
-  // 6. Rendering Pass: Text (Max Batching)
+  // 5. Rendering Pass: Text (Batched by Raylib)
   if (IsFontValid(font)) {
-      for (const auto& item : s_visibleItems) {
-          Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
-          float baseItemFontSize = 18.0f;
-          int fontSize = (int)(baseItemFontSize * item.scale * fontScale);
-          if (fontSize < 12) fontSize = 12;
-          DrawTextEx(font, item.name, textPos, (float)fontSize, 1.0f, item.rarityColor);
-      }
-      for (const auto& gold : s_visibleGold) {
-          Vector2 textPos = {gold.pos.x - gold.textSize.x / 2.0f, gold.pos.y - 25.0f};
-          float baseGoldFontSize = 16.0f;
-          int fontSize = (int)(baseGoldFontSize * fontScale);
-          if (fontSize < 10) fontSize = 10;
-          DrawTextEx(font, gold.text, textPos, (float)fontSize, 1.0f, GOLD);
+      for (const auto& cmd : s_textQueue) {
+          DrawTextEx(font, cmd.text, cmd.position, cmd.fontSize, 1.0f, cmd.color);
       }
   } else {
-      for (const auto& item : s_visibleItems) {
-          Vector2 textPos = {item.pos.x - item.textSize.x / 2.0f, item.pos.y - 30.0f * item.scale};
-          DrawText(item.name, (int)textPos.x, (int)textPos.y, (int)(18 * item.scale), item.rarityColor);
+      for (const auto& cmd : s_textQueue) {
+          DrawText(cmd.text, (int)cmd.position.x, (int)cmd.position.y, (int)cmd.fontSize, cmd.color);
       }
   }
 
