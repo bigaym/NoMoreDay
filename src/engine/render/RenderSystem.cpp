@@ -1,4 +1,5 @@
 #include "engine/render/RenderSystem.hpp"
+#include "engine/render/ComputeBuffer.hpp" // ADDED
 #include "engine/render/PopupRenderer.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "engine/physics/SpatialGrid.hpp"
@@ -38,13 +39,12 @@ float RenderSystem::s_trauma = 0.0f;
 // Instanced Label Rendering Statics
 Shader RenderSystem::s_labelShader = {0};
 int RenderSystem::s_labelMvpLoc = -1;
-std::unique_ptr<NoMoreDay::render::ComputeBuffer> RenderSystem::s_labelInstanceBuffer = nullptr;
+std::unique_ptr<NoMoreDay::core::ComputeBuffer> RenderSystem::s_labelInstanceBuffer = nullptr;
 std::vector<NoMoreDay::components::GPULabelInstance> RenderSystem::s_labelBuffer;
 std::vector<RenderSystem::TextRenderCmd> RenderSystem::s_textQueue;
 
 void RenderSystem::Initialize() {
     // Load Instanced Label Shader
-    // Note: Assuming assets path is correct relative to execution dir
     s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert", "assets/shaders/ui/label_instanced.frag");
     
     if (s_labelShader.id != 0) {
@@ -55,12 +55,9 @@ void RenderSystem::Initialize() {
     }
 
     // Initialize SSBO (Binding 4 as per shader)
-    // Start with a reasonable capacity, it will resize if needed
-    s_labelInstanceBuffer = std::make_unique<NoMoreDay::render::ComputeBuffer>(
-        1000 * sizeof(NoMoreDay::components::GPULabelInstance), 
-        GL_DYNAMIC_DRAW
-    );
-    s_labelInstanceBuffer->bindBase(4);
+    s_labelInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
+    s_labelInstanceBuffer->Create(1000 * sizeof(NoMoreDay::components::GPULabelInstance), nullptr, RL_DYNAMIC_DRAW);
+    s_labelInstanceBuffer->BindBase(4);
     
     // Reserve vector memory
     s_labelBuffer.reserve(1000);
@@ -660,21 +657,18 @@ void RenderSystem::render(entt::registry &registry,
 
   // 4. Rendering Pass: Instanced Backgrounds (The Optimization)
   if (!s_labelBuffer.empty() && s_labelShader.id != 0 && s_labelInstanceBuffer) {
-      // 4.1 Upload Data
-      s_labelInstanceBuffer->bindBase(4);
-      // Only reallocate if size grows, otherwise map or subdata
-      // For simplicity in Phase 1, we use orphan-and-upload via subData or setData
-      // Assuming ComputeBuffer has a setData method or similar. Let's use standard GL for now if needed, 
-      // but ComputeBuffer probably has `updateData` or we can access ID.
-      // Checking ComputeBuffer.hpp... it likely has `update`.
-      // NOTE: Using a simple re-upload for now. In high-perf scenarios, use persistent mapping.
-      
-      // Resize buffer if needed (simple strategy: grow only)
+      // 4.1 Upload Data (Orphaning for performance)
       size_t requiredSize = s_labelBuffer.size() * sizeof(NoMoreDay::components::GPULabelInstance);
-      // Re-upload data
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, s_labelInstanceBuffer->getID());
-      glBufferData(GL_SHADER_STORAGE_BUFFER, requiredSize, s_labelBuffer.data(), GL_DYNAMIC_DRAW);
-      glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+      
+      // Ensure capacity covers requirement, but prefer OrphanAndUpload for sync-free updates
+      if (requiredSize > s_labelInstanceBuffer->GetSize()) {
+          // Resize if needed (Create calls glBufferData internally which orphans)
+          s_labelInstanceBuffer->Create(requiredSize * 2, s_labelBuffer.data(), RL_DYNAMIC_DRAW);
+      } else {
+          // Use Orphan strategy on existing buffer
+          s_labelInstanceBuffer->OrphanAndUpload(s_labelBuffer.data(), requiredSize, RL_DYNAMIC_DRAW);
+      }
+      s_labelInstanceBuffer->BindBase(4);
 
       // 4.2 Draw Instanced
       BeginShaderMode(s_labelShader);
@@ -685,37 +679,15 @@ void RenderSystem::render(entt::registry &registry,
       Matrix matMvpFinal = MatrixMultiply(matMvp, matProj);
       SetShaderValueMatrix(s_labelShader, s_labelMvpLoc, matMvpFinal);
       
-      // Draw Quads (6 vertices per instance)
-      // We use a dummy draw call because vertex shader generates geometry from Instance ID
-      // But we need to supply vertices for the Quad? 
-      // Our vertex shader `layout(location = 0) in vec3 vertexPosition;` expects a VBO.
-      // Raylib's `rlDrawRenderBatchActive` flushes current batch.
-      // We should use `rlDrawVertexArray` or manually bind a simple quad VBO.
-      // FAST PATH: Use `rlgl` immediate mode to send 1 quad, but instanced? No, `rlgl` doesn't support easy instancing.
-      // BETTER PATH: Use an empty VAO and generate vertices in VS (Vertex ID), OR bind a static Quad VBO.
-      // Let's use the standard "Vertex ID Trick" or a simple VBO.
-      // For `label_instanced.vert` I defined `in vec3 vertexPosition`.
-      // I will create a static VBO for the Quad on Init, or just use a small array here.
-      
-      // HOTFIX: To avoid managing VBOs, let's use `rlEnableVertexArray` with a pointer? 
-      // Actually, Raylib has `rlDrawMeshInstanced`. We can build a simple Mesh (Quad).
-      
       // STATIC QUAD MESH (Lazy Init)
       static Mesh quadMesh = { 0 };
-      static Material quadMat = { 0 };
       if (quadMesh.vertexCount == 0) {
-          quadMesh = GenMeshPlane(1.0f, 1.0f, 1, 1);
-          // GenMeshPlane produces a flat plane on XZ. We need XY.
-          // Let's manually build a unit quad [0,0] to [1,1]
-          // Or just use GenMeshPlane and rotate it.
-          // Actually, let's just make a mesh.
           Mesh mesh = { 0 };
           mesh.triangleCount = 2;
           mesh.vertexCount = 6;
           mesh.vertices = (float *)MemAlloc(mesh.vertexCount * 3 * sizeof(float));
           mesh.texcoords = (float *)MemAlloc(mesh.vertexCount * 2 * sizeof(float));
           
-          // Quad: [0,0] -> [1,1]
           float vertices[] = {
               0.0f, 0.0f, 0.0f,
               0.0f, 1.0f, 0.0f,
@@ -736,28 +708,12 @@ void RenderSystem::render(entt::registry &registry,
           memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
           UploadMesh(&mesh, false);
           quadMesh = mesh;
-          
-          quadMat = LoadMaterialDefault();
-          quadMat.shader = s_labelShader; // Assign our shader
       }
       
-      // Override material shader locally just to be safe (though rlDrawMeshInstanced takes material)
-      quadMat.shader = s_labelShader;
-      
-      // Draw Mesh Instanced
-      // Note: rlDrawMeshInstanced uses the material's shader.
-      // We need to ensure the shader is bound and uniforms set. 
-      // Raylib's `DrawMeshInstanced` does `BeginShaderMode` internally.
-      // So we should NOT call `BeginShaderMode` manually if using `DrawMeshInstanced`.
-      // BUT, `DrawMeshInstanced` might not support setting our custom SSBOs or uniforms easily *between* instances.
-      // Wait, `DrawMeshInstanced` sets the transformation matrix array. We don't want that. We have SSBO.
-      
-      // CORRECT APPROACH: Raw GL Draw
-      // We already called BeginShaderMode.
-      // Bind the Quad VAO.
-      glBindVertexArray(quadMesh.vaoId);
-      glDrawArraysInstanced(GL_TRIANGLES, 0, 6, (GLsizei)s_labelBuffer.size());
-      glBindVertexArray(0);
+      // Draw using rlgl abstraction
+      rlEnableVertexArray(quadMesh.vaoId);
+      rlDrawVertexArrayInstanced(0, 6, (int)s_labelBuffer.size());
+      rlDisableVertexArray();
       
       EndShaderMode();
   }

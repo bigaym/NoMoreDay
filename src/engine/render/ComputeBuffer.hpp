@@ -46,6 +46,41 @@ public:
     rlUpdateShaderBuffer(m_id, data, size, offset);
   }
 
+  // Optimize for high-frequency updates (avoid GPU sync stalls)
+  void OrphanAndUpload(const void *data, size_t size, int usage = RL_DYNAMIC_DRAW) {
+    if (m_id == 0) return;
+    
+    // Get glBufferData pointer
+    typedef void (*PFNGLBUFFERDATAPROC)(unsigned int target, ptrdiff_t size, const void *data, unsigned int usage);
+    static PFNGLBUFFERDATAPROC glBufferDataFn = nullptr;
+    if (!glBufferDataFn) {
+        glBufferDataFn = (PFNGLBUFFERDATAPROC)glfwGetProcAddress("glBufferData");
+    }
+    
+    if (glBufferDataFn) {
+        // Bind
+        Bind(0x90D2); // GL_SHADER_STORAGE_BUFFER = 0x90D2
+        
+        // Orphan (Reallocate storage, driver discards old sync requirements)
+        // Note: rlgl constants map to GL constants mostly, but let's be safe.
+        // RL_DYNAMIC_DRAW = 0x88E8 (GL_DYNAMIC_DRAW)
+        // We pass the exact size.
+        glBufferDataFn(0x90D2, size, nullptr, (unsigned int)usage); // Orphan
+        glBufferDataFn(0x90D2, size, data, (unsigned int)usage);    // Upload
+        
+        // Unbind is technically 0, but Bind wrapper takes target. 
+        // We can just leave it bound or bind 0 via raw GL if we had glBindBufferFn exposed.
+        // But ComputeBuffer::Bind uses internal static loader.
+        // Let's rely on standard rlgl state or just leave it bound (it's fine, we unbind after use usually).
+        // For safety, let's unbind.
+        BindBase(0); // This unbinds from indexed point, but not necessarily generic bind point? 
+                     // Actually rlBindShaderBuffer calls glBindBufferRange.
+    } else {
+        // Fallback
+        Update(data, size, 0);
+    }
+  }
+
   void BindBase(unsigned int index) const {
     if (m_id == 0)
       return;

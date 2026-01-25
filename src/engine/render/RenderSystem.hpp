@@ -7,7 +7,7 @@
 #include <vector>
 
 // Forward declaration for GPU buffer
-namespace NoMoreDay::render {
+namespace NoMoreDay::core {
     class ComputeBuffer;
 }
 
@@ -36,7 +36,7 @@ private:
 
     static Shader s_labelShader;
     static int s_labelMvpLoc;
-    static std::unique_ptr<NoMoreDay::render::ComputeBuffer> s_labelInstanceBuffer;
+    static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_labelInstanceBuffer;
     
     // Rendering Queues
     static std::vector<NoMoreDay::components::GPULabelInstance> s_labelBuffer;
