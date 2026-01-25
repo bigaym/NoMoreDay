@@ -173,6 +173,25 @@ static_assert(
     "GPUVisualStats struct must be exactly 64 bytes for SSBO alignment");
 
 /**
+ * @brief Structure for GPU Item Label instances (Instanced UI).
+ * STRICTLY 64 BYTES (16 * 4) for alignment.
+ */
+struct GPULabelInstance {
+  Vector2 position = {0.0f, 0.0f};      // 8  - Screen/World coords (Top-Left or Center)
+  Vector2 size = {0.0f, 0.0f};          // 8  - Width, Height
+  Vector4 bgColor = {0, 0, 0, 0};       // 16 - Background Color (RGBA)
+  Vector4 borderColor = {0, 0, 0, 0};   // 16 - Border Color (RGBA)
+  float borderWidth = 0.0f;             // 4  - Border width in pixels
+  float cornerRadius = 0.0f;            // 4  - Radius in pixels
+  float padding[2] = {0.0f, 0.0f};      // 8  - Padding to 64 bytes
+  
+  GPULabelInstance() = default;
+};
+
+// Static assert for alignment safety
+static_assert(sizeof(GPULabelInstance) == 64, "GPULabelInstance must be 64 bytes");
+
+/**
  * @brief Centralized Color Manager for VFX
  * 颜色管理器：统一管理游戏内的特效颜色
  */

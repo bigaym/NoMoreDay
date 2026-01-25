@@ -7,6 +7,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/PopupRenderer.hpp"
+#include "engine/render/RenderSystem.hpp" // ADDED
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
@@ -134,6 +135,9 @@ void Game::init() {
     
     // Initialize GPU Damage Popup System
     NoMoreDay::render::PopupRenderer::Get().Init();
+    
+    // Initialize Instanced Label Renderer
+    RenderSystem::Initialize();
   }
 
   // Push Initial State
@@ -232,6 +236,7 @@ void Game::cleanup() {
   m_registry.on_destroy<NoMoreDay::AstrolabeUIComponent>().disconnect();
   m_registry.clear();
 
+  RenderSystem::Shutdown(); // ADDED
   UISystem::Shutdown();
   NoMoreDay::render::PopupRenderer::Get().Shutdown();
   NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();

@@ -27,11 +27,55 @@
 #include <algorithm>
 #include <cmath>
 #include <string>
+#include <iostream>
 
 #include "game/systems/ui/PlayerHUD.hpp"
+#include "rlgl.h"
 
 // Static member initialization
 float RenderSystem::s_trauma = 0.0f;
+
+// Instanced Label Rendering Statics
+Shader RenderSystem::s_labelShader = {0};
+int RenderSystem::s_labelMvpLoc = -1;
+std::unique_ptr<NoMoreDay::render::ComputeBuffer> RenderSystem::s_labelInstanceBuffer = nullptr;
+std::vector<NoMoreDay::components::GPULabelInstance> RenderSystem::s_labelBuffer;
+std::vector<RenderSystem::TextRenderCmd> RenderSystem::s_textQueue;
+
+void RenderSystem::Initialize() {
+    // Load Instanced Label Shader
+    // Note: Assuming assets path is correct relative to execution dir
+    s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert", "assets/shaders/ui/label_instanced.frag");
+    
+    if (s_labelShader.id != 0) {
+        s_labelMvpLoc = GetShaderLocation(s_labelShader, "mvp");
+        TraceLog(LOG_INFO, "RENDER: Loaded Label Instanced Shader (ID: %d)", s_labelShader.id);
+    } else {
+        TraceLog(LOG_ERROR, "RENDER: Failed to load Label Instanced Shader!");
+    }
+
+    // Initialize SSBO (Binding 4 as per shader)
+    // Start with a reasonable capacity, it will resize if needed
+    s_labelInstanceBuffer = std::make_unique<NoMoreDay::render::ComputeBuffer>(
+        1000 * sizeof(NoMoreDay::components::GPULabelInstance), 
+        GL_DYNAMIC_DRAW
+    );
+    s_labelInstanceBuffer->bindBase(4);
+    
+    // Reserve vector memory
+    s_labelBuffer.reserve(1000);
+    s_textQueue.reserve(1000);
+}
+
+void RenderSystem::Shutdown() {
+    if (s_labelShader.id != 0) {
+        UnloadShader(s_labelShader);
+        s_labelShader = {0};
+    }
+    s_labelInstanceBuffer.reset();
+    s_labelBuffer.clear();
+    s_textQueue.clear();
+}
 
 void RenderSystem::AddScreenShake(float intensity) {
   s_trauma = std::min(s_trauma + intensity, 1.0f);
