@@ -34,15 +34,29 @@
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "rlgl.h"
 
-// Static member initialization
-float RenderSystem::s_trauma = 0.0f;
+// Static Buffers
+std::vector<NoMoreDay::components::GPULabelInstance> RenderSystem::s_labelBuffer;
+std::vector<RenderSystem::TextRenderCmd> RenderSystem::s_textQueue;
+std::vector<RenderSystem::VisibleItemCache::ItemData> RenderSystem::VisibleItemCache::visibleItems; // Phase 1
 
-// Instanced Label Rendering Statics
+// Static Members Definition
+float RenderSystem::s_trauma = 0.0f;
 Shader RenderSystem::s_labelShader = {0};
 int RenderSystem::s_labelMvpLoc = -1;
 std::unique_ptr<NoMoreDay::core::ComputeBuffer> RenderSystem::s_labelInstanceBuffer = nullptr;
-std::vector<NoMoreDay::components::GPULabelInstance> RenderSystem::s_labelBuffer;
-std::vector<RenderSystem::TextRenderCmd> RenderSystem::s_textQueue;
+
+// Phase 2: Beam Instancing
+struct GPUBeamInstance {
+    Vector2 position;
+    Vector2 size;
+    Vector4 color;
+    float time;
+    float padding[3];
+};
+static Shader s_beamShader = {0};
+static int s_beamMvpLoc = -1;
+static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_beamInstanceBuffer = nullptr;
+static std::vector<GPUBeamInstance> s_beamBuffer;
 
 void RenderSystem::Initialize() {
     // Load Instanced Label Shader
@@ -60,9 +74,21 @@ void RenderSystem::Initialize() {
     s_labelInstanceBuffer->Create(1000 * sizeof(NoMoreDay::components::GPULabelInstance), nullptr, RL_DYNAMIC_DRAW);
     s_labelInstanceBuffer->BindBase(4);
     
+    // Phase 2: Beam Instancing
+    s_beamShader = LoadShader("assets/shaders/vfx/beam_instanced.vert", "assets/shaders/vfx/beam_instanced.frag");
+    if (s_beamShader.id != 0) {
+        s_beamMvpLoc = GetShaderLocation(s_beamShader, "mvp");
+        TraceLog(LOG_INFO, "RENDER: Loaded Beam Instanced Shader (ID: %d)", s_beamShader.id);
+    }
+    s_beamInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
+    s_beamInstanceBuffer->Create(1000 * sizeof(GPUBeamInstance), nullptr, RL_DYNAMIC_DRAW);
+    s_beamInstanceBuffer->BindBase(5);
+    s_beamBuffer.reserve(1000);
+
     // Reserve vector memory
     s_labelBuffer.reserve(1000);
     s_textQueue.reserve(1000);
+    VisibleItemCache::visibleItems.reserve(1000); // Phase 1
 }
 
 void RenderSystem::Shutdown() {
@@ -72,7 +98,17 @@ void RenderSystem::Shutdown() {
     }
     s_labelInstanceBuffer.reset();
     s_labelBuffer.clear();
+    
+    // Phase 2: Cleanup Beam
+    if (s_beamShader.id != 0) {
+        UnloadShader(s_beamShader);
+        s_beamShader = {0};
+    }
+    s_beamInstanceBuffer.reset();
+    s_beamBuffer.clear();
+
     s_textQueue.clear();
+    VisibleItemCache::Clear(); // Phase 1
 }
 
 void RenderSystem::AddScreenShake(float intensity) {
@@ -528,26 +564,44 @@ void RenderSystem::render(entt::registry &registry,
   // Clear Queues
   s_labelBuffer.clear();
   s_textQueue.clear();
+  s_beamBuffer.clear(); // Phase 2
+  VisibleItemCache::Clear(); // Phase 1
   
-  // Keep s_visibleItems for Beams (Phase 1 legacy support, or refactor beams later)
-  // For now, we will reuse s_visibleItems for beams logic, but move label rendering to new pipeline.
-  struct RenderItem {
-      entt::entity entity;
-      Position pos;
-      Color rarityColor;
-      NoMoreDay::Rarity rarity;
-      float scale;
-      bool emphasized;
-      // const char* name; // Removed, stored in textQueue
-      // Vector2 textSize; // Removed, stored in labelBuffer
-  };
-  static std::vector<RenderItem> s_visibleItems;
-  s_visibleItems.clear();
-
   // Calculate visible world area (Frustum)
   Vector2 viewTopLeft = GetScreenToWorld2D({0, 0}, camera);
   Vector2 viewBottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
   Rectangle viewRect = { viewTopLeft.x - 100, viewTopLeft.y - 100, (viewBottomRight.x - viewTopLeft.x) + 200, (viewBottomRight.y - viewTopLeft.y) + 200 };
+
+  // Static Quad Mesh (Shared for Instanced Rendering)
+  static Mesh quadMesh = { 0 };
+  if (quadMesh.vertexCount == 0) {
+      Mesh mesh = { 0 };
+      mesh.triangleCount = 2;
+      mesh.vertexCount = 6;
+      mesh.vertices = (float *)MemAlloc(mesh.vertexCount * 3 * sizeof(float));
+      mesh.texcoords = (float *)MemAlloc(mesh.vertexCount * 2 * sizeof(float));
+      
+      float vertices[] = {
+          0.0f, 0.0f, 0.0f,
+          0.0f, 1.0f, 0.0f,
+          1.0f, 1.0f, 0.0f,
+          0.0f, 0.0f, 0.0f,
+          1.0f, 1.0f, 0.0f,
+          1.0f, 0.0f, 0.0f
+      };
+      float texcoords[] = {
+          0.0f, 0.0f,
+          0.0f, 1.0f,
+          1.0f, 1.0f,
+          0.0f, 0.0f,
+          1.0f, 1.0f,
+          1.0f, 0.0f
+      };
+      memcpy(mesh.vertices, vertices, sizeof(vertices));
+      memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
+      UploadMesh(&mesh, false);
+      quadMesh = mesh;
+  }
 
   // 1. Item Collection Pass (Cull & Generate Instances)
   auto itemView = registry.view<NoMoreDay::ItemComponent, Position>();
@@ -586,8 +640,18 @@ void RenderSystem::render(entt::registry &registry,
       Vector2 textPos = {pos.x - textSize.x / 2.0f, pos.y - 30.0f * scale};
       Rectangle bgRect = {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4};
       
-      // Push to Beam List (Legacy support for now)
-      s_visibleItems.push_back({entity, pos, rarityColor, item.rarity, scale, emphasized});
+      // Phase 2: Beam Instancing
+      if (item.rarity >= NoMoreDay::Rarity::Rare || emphasized) {
+          float beamWidth = 24.0f * scale;
+          float beamHeight = 120.0f * scale;
+          
+          GPUBeamInstance beamInst;
+          beamInst.position = {pos.x, pos.y};
+          beamInst.size = {beamWidth, beamHeight};
+          beamInst.color = ColorNormalize(rarityColor);
+          beamInst.time = (float)GetTime();
+          s_beamBuffer.push_back(beamInst);
+      }
 
       // Push GPU Instance (Background + Border)
       bool isHovered = (entity == UISystem::State.hoveredItem);
@@ -600,6 +664,9 @@ void RenderSystem::render(entt::registry &registry,
       instance.cornerRadius = 4.0f; // Rounded corners
       s_labelBuffer.push_back(instance);
       
+      // Phase 1: Populate Shared Cache
+      VisibleItemCache::visibleItems.push_back({entity, bgRect}); // Store World Space Rect
+
       // Push Text Command
       s_textQueue.push_back({textPos, item.name.c_str(), (float)fontSize, rarityColor, false});
   });
@@ -638,26 +705,33 @@ void RenderSystem::render(entt::registry &registry,
       s_textQueue.push_back({textPos, labelCache.cachedText, (float)fontSize, GOLD, false});
   });
 
-  // 3. Rendering Pass: Beams (Immediate Mode - Kept for visual flair)
-  // Optimization: Only iterate filtered list
-  for (const auto& item : s_visibleItems) {
-      if (item.rarity >= NoMoreDay::Rarity::Rare || item.emphasized) {
-          float time = (float)GetTime();
-          float alpha = 0.45f + 0.15f * std::sin(time * 3.0f);
-          float beamHeight = 120.0f * item.scale;
-          float beamWidth = 24.0f * item.scale;
-
-          Color colBurst = item.rarityColor;
-          colBurst.a = (unsigned char)(255 * alpha);
-
-          DrawRectangleGradientV((int)(item.pos.x - beamWidth * 0.5f), (int)(item.pos.y - beamHeight), (int)beamWidth, (int)beamHeight, Fade(item.rarityColor, 0.0f), colBurst);
-          DrawCircleGradient((int)item.pos.x, (int)item.pos.y, beamWidth * 0.8f, colBurst, Fade(colBurst, 0.0f));
-
-          if (item.rarity == NoMoreDay::Rarity::Legendary) {
-              Color coreCol = ColorAlpha(WHITE, alpha * 0.7f);
-              DrawRectangleGradientV((int)(item.pos.x - 2 * item.scale), (int)(item.pos.y - beamHeight), (int)(4 * item.scale), (int)beamHeight, Fade(WHITE, 0.0f), coreCol);
-          }
+  // 3. Rendering Pass: Beams (Instanced)
+  if (!s_beamBuffer.empty() && s_beamShader.id != 0 && s_beamInstanceBuffer) {
+      size_t requiredSize = s_beamBuffer.size() * sizeof(GPUBeamInstance);
+      
+      // Upload Data
+      if (requiredSize > s_beamInstanceBuffer->GetSize()) {
+          s_beamInstanceBuffer->Create(requiredSize * 2, s_beamBuffer.data(), RL_DYNAMIC_DRAW);
+      } else {
+          s_beamInstanceBuffer->OrphanAndUpload(s_beamBuffer.data(), requiredSize, RL_DYNAMIC_DRAW);
       }
+      s_beamInstanceBuffer->BindBase(5);
+      
+      // Draw Instanced
+      BeginShaderMode(s_beamShader);
+      
+      // MVP
+      Matrix matMvp = rlGetMatrixModelview();
+      Matrix matProj = rlGetMatrixProjection();
+      Matrix matMvpFinal = MatrixMultiply(matMvp, matProj);
+      SetShaderValueMatrix(s_beamShader, s_beamMvpLoc, matMvpFinal);
+      
+      // Reuse Quad Mesh Logic (Static init)
+      rlEnableVertexArray(quadMesh.vaoId);
+      rlDrawVertexArrayInstanced(0, 6, (int)s_beamBuffer.size());
+      rlDisableVertexArray();
+      
+      EndShaderMode();
   }
 
   // 4. Rendering Pass: Instanced Backgrounds (The Optimization)
@@ -683,37 +757,6 @@ void RenderSystem::render(entt::registry &registry,
       Matrix matProj = rlGetMatrixProjection();
       Matrix matMvpFinal = MatrixMultiply(matMvp, matProj);
       SetShaderValueMatrix(s_labelShader, s_labelMvpLoc, matMvpFinal);
-      
-      // STATIC QUAD MESH (Lazy Init)
-      static Mesh quadMesh = { 0 };
-      if (quadMesh.vertexCount == 0) {
-          Mesh mesh = { 0 };
-          mesh.triangleCount = 2;
-          mesh.vertexCount = 6;
-          mesh.vertices = (float *)MemAlloc(mesh.vertexCount * 3 * sizeof(float));
-          mesh.texcoords = (float *)MemAlloc(mesh.vertexCount * 2 * sizeof(float));
-          
-          float vertices[] = {
-              0.0f, 0.0f, 0.0f,
-              0.0f, 1.0f, 0.0f,
-              1.0f, 1.0f, 0.0f,
-              0.0f, 0.0f, 0.0f,
-              1.0f, 1.0f, 0.0f,
-              1.0f, 0.0f, 0.0f
-          };
-          float texcoords[] = {
-              0.0f, 0.0f,
-              0.0f, 1.0f,
-              1.0f, 1.0f,
-              0.0f, 0.0f,
-              1.0f, 1.0f,
-              1.0f, 0.0f
-          };
-          memcpy(mesh.vertices, vertices, sizeof(vertices));
-          memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
-          UploadMesh(&mesh, false);
-          quadMesh = mesh;
-      }
       
       // Draw using rlgl abstraction
       rlEnableVertexArray(quadMesh.vaoId);

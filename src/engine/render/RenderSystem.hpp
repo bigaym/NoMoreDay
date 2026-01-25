@@ -13,9 +13,24 @@ namespace NoMoreDay::core {
 
 class RenderSystem {
 public:
-    static void Initialize(); // New init method
-    static void Shutdown();   // New shutdown method
-    static void render(entt::registry& registry, const NoMoreDay::SharedContext& context, const Camera2D& camera);
+    // --- Phase 1 Optimization: Shared Visibility Cache ---
+    struct VisibleItemCache {
+        struct ItemData {
+            entt::entity entity;
+            Rectangle worldRect; // World Space Bounds for Label
+            // Vector2 screenPos; // Removed: Use World Space check
+            // float radius;      // Removed: Use Rect check
+        };
+        static std::vector<ItemData> visibleItems;
+        static void Clear() { visibleItems.clear(); }
+    };
+
+    static void render(entt::registry &registry,
+                       const NoMoreDay::SharedContext &context,
+                       const Camera2D &camera);
+    
+    static void Initialize();
+    static void Shutdown();
 
     // Screen Shake API
     static void AddScreenShake(float intensity);
