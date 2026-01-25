@@ -3,6 +3,7 @@
 #include "engine/scene/State.hpp"
 #include "game/data/MosaicData.hpp"
 #include "game/data/MapAffix.hpp"
+#include "game/systems/world/MapAffixCalculator.hpp"
 #include "raylib.h"
 #include <vector>
 
@@ -57,7 +58,10 @@ private:
   std::vector<entt::entity> m_fragmentInventory;
   int m_inventoryScrollOffset = 0;
 
-  // 确认对话框
+  // Cached Aggregated Affixes (Optimization)
+  std::vector<AggregatedAffix> m_cachedAggregatedAffixes;
+
+  // 纭瀵硅瘽妗
   bool m_showConfirmDialog = false;
 
   // 渲染方法

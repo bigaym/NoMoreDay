@@ -1,6 +1,4 @@
 #include "game/states/GameplayState.hpp"
-#include "core/utils/ScopedTimer.hpp" // ADDED
-#include "game/systems/world/MapSystem.hpp" // Forced early include
 #include "app/SharedContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
@@ -68,6 +66,12 @@ namespace NoMoreDay {
 
 void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
+  
+  // [CRITICAL] Initialize Static Registries to prevent Async Race Conditions
+  NoMoreDay::MapAffixRegistry::Initialize();
+  
+  // [CRITICAL] Reset Static Safety Queues to prevent Cross-Session ID Collisions
+  NoMoreDay::XPAwardingSystem::Reset();
 
   // Initialize Spatial Grid
   using namespace NoMoreDay::Constants::World;
@@ -314,6 +318,7 @@ void GameplayState::InitializeEntities() {
 
 void GameplayState::OnExit() {
   LOG_INFO("Exiting GameplayState...");
+  NoMoreDay::XPAwardingSystem::Reset(); // Cleanup static GC queue
   EliteModifierSystem::Shutdown();
 
   CombatHistorySystem::Shutdown();
@@ -426,7 +431,7 @@ bool GameplayState::OnUpdate(float dt) {
       StatsSystem::update(registry);
       RegenerationSystem::update(registry, dt);
       EliteModifierSystem::Update(registry, dt);
-      MonsterAffixSystem::Update(registry, dt);
+      MonsterAffixSystem::Update(registry, dt, m_spatialGrid);
       CombatHistorySystem::Update(registry, dt);
       NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
       DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
@@ -919,37 +924,45 @@ void GameplayState::RenderMapAffixOverlay() {
     float ly = y + 60;
     char buf[128];
 
+    // 0. Depth Info
+    snprintf(buf, sizeof(buf), "当前深度 (Layer): %d / %d", state.currentDepth, state.maxDepth);
+    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, SKYBLUE, 1.0f);
+    ly += 25;
+
     // 1. Difficulty
     snprintf(buf, sizeof(buf), "难度系数 (DS): %d", state.difficultyScore);
     UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, RED, 1.0f);
-    ly += 30;
+    ly += 25;
+
+    // 1.1 Kill Counter
+    snprintf(buf, sizeof(buf), "击杀计数 (Kills): %d", state.killCounter);
+    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, WHITE, 1.0f);
+    ly += 25;
 
     // 2. Rewards
     snprintf(buf, sizeof(buf), "物品寻宝率 (Rarity): +%.0f%%", state.calculatedRarity * 100.0f);
     UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, components::Colors::RARITY_LEGENDARY, 1.0f);
-    ly += 22;
+    ly += 20;
 
     snprintf(buf, sizeof(buf), "物品数量 (Quantity): +%.0f%%", state.calculatedQuantity * 100.0f);
     UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, components::Colors::RARITY_EPIC, 1.0f);
-    ly += 30;
+    ly += 25;
 
     DrawLine(x + 20, ly, x + width - 20, ly, GRAY);
     ly += 15;
 
-    UIRenderer::DrawTextUI(font, "挑战词缀 (Active Challenges):", x + 25, ly, 16, LIGHTGRAY, 1.0f);
+    UIRenderer::DrawTextUI(font, "鎸戞垬璇嶇紑 (Active Challenges):", x + 25, ly, 16, LIGHTGRAY, 1.0f);
     ly += 25;
 
-    // 3. Affixes
-    for (const auto& aff : state.explicitAffixes) {
-        const auto& def = MapAffixRegistry::GetDef(aff.type);
-        std::string name = def.nameZh.empty() ? def.name : def.nameZh;
-        
-        Color color = WHITE;
-        if (aff.category == MapAffixCategory::Debuff) color = RED;
-        else if (aff.category == MapAffixCategory::Buff) color = GREEN;
+    // 3. Cached Aggregated Affixes
+    for (const auto& agg : state.aggregatedAffixes) {
+        std::string desc = MapAffixRegistry::FormatDescription(agg.type, agg.totalValue);
 
-        snprintf(buf, sizeof(buf), "[T%d] %s", aff.tier, name.c_str());
-        UIRenderer::DrawTextUI(font, buf, x + 30, ly, 14, color, 1.0f);
+        Color color = WHITE;
+        if (agg.category == MapAffixCategory::Debuff) color = RED;
+        else if (agg.category == MapAffixCategory::Buff) color = GREEN;
+
+        UIRenderer::DrawTextUI(font, desc.c_str(), x + 30, ly, 14, color, 1.0f);
         ly += 18;
 
         if (ly > y + height - 30) {

@@ -94,6 +94,7 @@ struct MapFragmentComponent {
   bool hasBoss = false;     // 是否包含 Boss
   bool hasMerchant = false; // 是否包含商人
   bool hasTreasure = false; // 是否包含宝库
+  int remainingLayers = 3;  // 剩余层数
 
   // 视觉标识与覆盖 (字符串放在最后，避免打断 POD 布局)
   std::string biomeOverride; // 覆盖生物群系 (如 "lava", "ice_cave")
@@ -133,7 +134,7 @@ struct MapFragmentComponent {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MapFragmentComponent, type, element,
                                    biomeOverride, enemyDensityMod, dropRateMod,
                                    monsterLevelMod, hasBoss, hasMerchant,
-                                   hasTreasure, iconId, rarity)
+                                   hasTreasure, iconId, rarity, remainingLayers)
 
 // 标记实体为地图碎片的标签
 struct MapFragmentTag {};

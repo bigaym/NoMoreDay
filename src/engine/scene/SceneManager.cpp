@@ -1,5 +1,7 @@
 #include "engine/scene/SceneManager.hpp"
 #include "core/logging/Logger.hpp"
+#include "game/components/WorldState.hpp"
+#include "game/systems/world/TilemapCollisionSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/data/BiomeRegistry.hpp"
@@ -189,12 +191,30 @@ void SceneManager::ApplyLoadedLevel() {
 
   // Reset kills if moving to a new combat level (not town)
   if (m_targetBiome != NoMoreDay::BiomeID::Town) {
+    bool isRift = m_registry.ctx().contains<NoMoreDay::ActiveDimensionalState>() && 
+                  m_registry.ctx().get<NoMoreDay::ActiveDimensionalState>().isActive;
+
     if (m_isMosaicTransition || m_targetBiome != m_lastCombatBiome ||
         m_targetLevel != m_lastCombatLevel) {
-      // Moving to a NEW dungeon level or into a Rift
+      
       auto playerView = m_registry.view<PlayerTag, PlayerStats>();
       for (auto entity : playerView) {
-        m_registry.get<PlayerStats>(entity).current_map_kills = 0;
+        auto& stats = m_registry.get<PlayerStats>(entity);
+        
+        if (isRift) {
+            auto& state = m_registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
+            // If it's a fresh start (m_isMosaicTransition), reset. 
+            // Otherwise (e.g. reload or layer advance), we might want to keep or restore.
+            if (m_isMosaicTransition) {
+                stats.current_map_kills = 0;
+                state.killCounter = 0;
+            } else {
+                // Restore from persisted state
+                stats.current_map_kills = state.killCounter;
+            }
+        } else {
+            stats.current_map_kills = 0;
+        }
       }
 
       // Update last combat info

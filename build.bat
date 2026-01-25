@@ -48,7 +48,7 @@ if /i "%~1"=="notest" (
     set "BUILD_TESTS=OFF"
     set "NEED_CONFIG=1"
 )
-if /i "%~1"=="relwithdebinfo" (
+if /i "%~1"=="rwb" (
     set "BUILD_TYPE=RelWithDebInfo"
     set "ENABLE_LTO=OFF"
     set "NEED_CONFIG=1"

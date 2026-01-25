@@ -424,12 +424,21 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Fix Dimensional Mosaic System
-- **Folder:** [./conductor/tracks/fix-dimensional-mosaic-system/](./conductor/tracks/fix-dimensional-mosaic-system/)
-- **Description:** 修复维度图拼接界面的词缀显示（显示效果而非名称）、纠正传送门层级跳转逻辑、修复 ESC 无法退出 UI 的问题，以及解决回城后副本状态丢失的持久化 Bug。
-- **Status:** IN_PROGRESS
+## [x] Track: Fix Dimensional Mosaic System & Performance Critical Recovery
+- **Folder:** [./conductor/archive/fix-dimensional-mosaic-20260126/](./conductor/archive/fix-dimensional-mosaic-20260126/)
+- **Description:** 修复维度图拼接界面的词缀显示逻辑，实现了数值聚合与描述模板系统。纠正了异界传送门的层级跳转逻辑，引入了碎片生命周期衰减机制，并完善了回城后场景状态的持久化恢复。特别修复了由词缀系统 O(N^2) 遍历导致的性能严重下降问题，通过 Spatial Grid 优化和 Staggered 生成逻辑将 FPS 从 40 恢复至 130+ (Completed on 2026-01-26)
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 1-2 days
+
+---
+
+## [ ] Track: Next Milestone (TBD)
+- **Folder:** [./conductor/tracks/next-track/](./conductor/tracks/next-track/)
+- **Description:** 规划下一个功能模块或优化方向。
+- **Status:** PLANNED
+- **Priority:** MEDIUM
+- **Estimated Time:** TBD
 
 ---
 

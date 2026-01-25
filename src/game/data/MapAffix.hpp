@@ -54,7 +54,9 @@ enum class MapAffixType : uint8_t {
     Env_Firestorm,
     Env_Darkness,
     Env_GroundIce,
-    Env_LightningStorm
+    Env_LightningStorm,
+
+    Count // Enum size marker
 };
 
 struct MapAffix {
@@ -70,5 +72,18 @@ struct MapAffix {
 
 // JSON Serialization
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MapAffix, type, category, value, tier, source, remainingLayers)
+
+/**
+ * @brief Aggregated view of multiple affixes of the same type
+ */
+struct AggregatedAffix {
+    MapAffixType type;
+    MapAffixCategory category;
+    float totalValue;
+    int maxTier;
+    std::vector<std::string> sources;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AggregatedAffix, type, category, totalValue, maxTier, sources)
 
 } // namespace NoMoreDay

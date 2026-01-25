@@ -108,16 +108,14 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
 }
 
 void MDIRenderer::UpdateStats(
-    const std::vector<NoMoreDay::components::GPUVisualStats> &stats) {
+    const std::vector<NoMoreDay::components::GPUVisualStats> &stats, int count) {
   if (stats.empty())
     return;
 
-  size_t dataSize =
-      stats.size() * sizeof(NoMoreDay::components::GPUVisualStats);
+  size_t actualCount = (count < 0) ? stats.size() : (size_t)count;
+  size_t dataSize = actualCount * sizeof(NoMoreDay::components::GPUVisualStats);
+  
   if (dataSize > m_statsBuffer.GetSize()) {
-    std::cerr << "[MDIRenderer] Stats data lager than buffer context!"
-              << std::endl;
-    // Optional: Resize? For now just clamp or return to avoid crash.
     dataSize = m_statsBuffer.GetSize();
   }
 

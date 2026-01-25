@@ -26,6 +26,7 @@ private:
     void UpdateTownPortalCasting(entt::registry& registry, float dt);
     void SpawnTownPortal(entt::registry& registry, entt::entity caster);
     void UpdatePortalAnimations(entt::registry& registry, float dt);
+    void AdvanceRiftLayer(entt::registry& registry, entt::entity player);
     
     SceneManager& m_sceneManager;
     entt::entity m_lastTriggeredPortal = entt::null;

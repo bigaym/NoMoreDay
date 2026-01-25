@@ -259,19 +259,16 @@ void MosaicEditorState::RenderResonancePreview() {
   y += 20;
 
   // 4. Affix List
-  for (const auto& aff : m_previewAffixes) {
+  for (const auto& agg : m_cachedAggregatedAffixes) {
       // Show Name + Tier
       Color color = WHITE;
-      if (aff.category == MapAffixCategory::Debuff) color = RED;
-      else if (aff.category == MapAffixCategory::Buff) color = GREEN;
-      else if (aff.category == MapAffixCategory::Environment) color = SKYBLUE;
+      if (agg.category == MapAffixCategory::Debuff) color = RED;
+      else if (agg.category == MapAffixCategory::Buff) color = GREEN;
+      else if (agg.category == MapAffixCategory::Environment) color = SKYBLUE;
       
-      const auto& def = MapAffixRegistry::GetDef(aff.type);
-      // Use Chinese Name if available
-      std::string displayName = def.nameZh.empty() ? def.name : def.nameZh;
+      std::string desc = MapAffixRegistry::FormatDescription(agg.type, agg.totalValue);
       
-      snprintf(buf, sizeof(buf), "[T%d] %s", aff.tier, displayName.c_str());
-      UIRenderer::DrawTextUI(font, buf, previewX + 15, y, 14, color, 1.0f);
+      UIRenderer::DrawTextUI(font, desc.c_str(), previewX + 15, y, 14, color, 1.0f);
       y += 16;
       
       if (y > previewY + previewHeight - 20) break; // Overflow protection
@@ -370,8 +367,15 @@ void MosaicEditorState::RenderTooltip() {
   Vector2 mouse = GetMousePosition();
   float x = mouse.x + 15;
   float y = mouse.y + 15;
-  float w = 220;
-  float h = 120;
+  float w = 240;
+  
+  // Calculate dynamic height
+  float h = 80; // Base height (Header + Density)
+  if (frag->monsterLevelMod != 0) h += 20;
+  h += 25; // Implicit Header
+  if (frag->element != FragmentElement::None) h += 18;
+  if (item->rarity >= Rarity::Magic) h += 18;
+  h += 20; // Duration line
 
   // Background
   DrawRectangleRounded(Rectangle{x, y, w, h}, 0.1f, 4, Color{20, 20, 30, 240});
@@ -394,18 +398,20 @@ void MosaicEditorState::RenderTooltip() {
   UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, WHITE, 1.0f);
   ty += 20;
 
-  // Drop Rate is now calculated systematically, not shown on fragment
-  // snprintf(buf, sizeof(buf), "物品掉落: %+.0f%%", (frag->dropRateMod - 1.0f) * 100.0f);
-
   if (frag->monsterLevelMod != 0) {
       snprintf(buf, sizeof(buf), "怪物等级: %+d", frag->monsterLevelMod);
       UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, WHITE, 1.0f);
       ty += 20;
   }
   
+  // Duration
+  snprintf(buf, sizeof(buf), "有效层数: %d 层", frag->remainingLayers);
+  UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, SKYBLUE, 1.0f);
+  ty += 20;
+
   // Show Implicit Affix Sources
   ty += 5;
-  UIRenderer::DrawTextUI(font, "隐含词缀:", x + 10, ty, 14, GRAY, 1.0f);
+  UIRenderer::DrawTextUI(font, "隐含词缀 (Implicit):", x + 10, ty, 14, GRAY, 1.0f);
   ty += 18;
   
   // 1. Element Source
@@ -589,6 +595,7 @@ void MosaicEditorState::RecalculateResonance() {
 
   // Preview Affixes & Difficulty
   m_previewAffixes = MapAffixCalculator::GenerateAffixesFromGrid(m_grid, *m_context->registry);
+  m_cachedAggregatedAffixes = MapAffixCalculator::AggregateAffixes(m_previewAffixes);
   m_previewDS = MapAffixCalculator::CalculateDifficultyScore(m_previewAffixes);
   auto rewards = MapAffixCalculator::CalculateRewards(m_previewDS);
   m_previewRarity = rewards.rarityBonus;
@@ -622,8 +629,35 @@ void MosaicEditorState::ConfirmAndGenerate() {
       worldState.currentDepth = 1;
       worldState.maxDepth = 3; // Default
       worldState.resonance = m_cachedResonance;
+      worldState.explicitAffixes = m_previewAffixes;
+      worldState.aggregatedAffixes = m_cachedAggregatedAffixes;
       worldState.isBossKilled = false;
       worldState.isCompleted = false;
+      worldState.killCounter = 0;
+      
+      // 4. Snapshot the grid for persistence
+      for (int i = 0; i < MosaicGrid::TOTAL_CELLS; ++i) {
+          entt::entity fragEntity = m_grid.cells[i];
+          auto& snap = worldState.gridSnapshots[i];
+          if (m_context->registry->valid(fragEntity)) {
+              auto* frag = m_context->registry->try_get<MapFragmentComponent>(fragEntity);
+              auto* item = m_context->registry->try_get<ItemComponent>(fragEntity);
+              if (frag && item) {
+                  snap.hasFragment = true;
+                  snap.element = frag->element;
+                  snap.type = frag->type;
+                  snap.rarity = item->rarity;
+                  snap.enemyDensityMod = frag->enemyDensityMod;
+                  snap.monsterLevelMod = frag->monsterLevelMod;
+                  snap.remainingLayers = frag->remainingLayers;
+                  snap.name = item->name;
+              } else {
+                  snap.hasFragment = false;
+              }
+          } else {
+              snap.hasFragment = false;
+          }
+      }
       
       LOG_INFO("Dimensional State Activated: DS={}, Rarity={:.1f}%, Quant={:.1f}%", 
                worldState.difficultyScore, worldState.calculatedRarity*100.0f, worldState.calculatedQuantity*100.0f);

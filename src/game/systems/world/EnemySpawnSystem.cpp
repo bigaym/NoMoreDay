@@ -232,7 +232,16 @@ void EnemySpawnSystem::updateEnemySpawning(const Position &playerPos,
   for (const auto& d : m_spawnData) if (d.isAlive) activeCount++;
   LOG_LIMITED_INFO(5.0f, "[SpawnSystem] Active Entities: {} / Total Spawn Points: {}", activeCount, m_spawnData.size());
 
-  for (auto &data : m_spawnData) {
+  // Optimization: Stagger updates to avoid O(N) distance checks for 8000+ points every frame
+  static size_t startIndex = 0;
+  size_t totalPoints = m_spawnData.size();
+  size_t pointsToProcess = (totalPoints / 4) + 1; // Process 25% per frame
+  
+  if (startIndex >= totalPoints) startIndex = 0;
+  size_t endIndex = std::min(startIndex + pointsToProcess, totalPoints);
+
+  for (size_t i = startIndex; i < endIndex; ++i) {
+    auto &data = m_spawnData[i];
     float dx = data.position.x - playerPos.x;
     float dy = data.position.y - playerPos.y;
     float distSq = dx * dx + dy * dy;
@@ -260,6 +269,8 @@ void EnemySpawnSystem::updateEnemySpawning(const Position &playerPos,
       }
     }
   }
+  
+  startIndex = endIndex;
 }
 
 void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
@@ -525,6 +536,9 @@ void EnemySpawnSystem::updateDormantEntities(entt::registry &registry,
       AWAKEN_DISTANCE_MIN,
       AWAKEN_DISTANCE_MAX); // Just inside active boundary (1950)
 
+  std::vector<entt::entity> toAwaken;
+  toAwaken.reserve(static_cast<size_t>(maxAwakenPerCycle));
+
   for (auto entity : dormantView) {
     if (awakenedCount >= maxAwakenPerCycle)
       break;
@@ -548,22 +562,27 @@ void EnemySpawnSystem::updateDormantEntities(entt::registry &registry,
 
     LOG_DEBUG("[RENDER_SYNC] Awakening Entity {} at ({:.1f}, {:.1f})", (uint32_t)entity, tx, ty);
 
-    registry.remove<DormantTag>(entity);
-    registry.emplace_or_replace<Velocity>(entity, 0.0f,
-                                          0.0f); // Re-add Velocity
+    // Store for second pass to avoid iterator invalidation
+    toAwaken.push_back(entity);
 
     // Reset AI
     auto &ai = dormantView.get<AIComponent>(entity);
     ai.aiType = AIType::IDLE; // Spec 3.0: Reset to IDLE, wait for WakeUp
     ai.target = entt::null;
     
-    // Explicitly update previous position to prevent interpolation ghosting from dormant holding area
+    // Explicitly update previous position
     if (auto* prevPos = registry.try_get<NoMoreDay::components::PrevPosition>(entity)) {
         prevPos->x = tx;
         prevPos->y = ty;
     }
 
     awakenedCount++;
+  }
+
+  // Second pass: Modify structure (add/remove components)
+  for (auto entity : toAwaken) {
+    registry.remove<DormantTag>(entity);
+    registry.emplace_or_replace<Velocity>(entity, 0.0f, 0.0f);
   }
 
   if (awakenedCount > 0) {

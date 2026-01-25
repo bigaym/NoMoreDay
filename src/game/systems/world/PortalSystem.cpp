@@ -5,8 +5,12 @@
 #include "game/components/Common.hpp"
 #include "game/components/MapComponent.hpp"
 #include "game/components/PlayerState.hpp"
+#include "game/components/WorldState.hpp"
+#include "game/systems/world/MapAffixCalculator.hpp"
+#include "game/systems/world/MapAffixRegistry.hpp"
 #include "raymath.h"
 #include <cmath>
+#include <algorithm>
 
 namespace NoMoreDay {
 
@@ -57,8 +61,17 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
         // New activation
         m_lastTriggeredPortal = portal;
 
-        // Handle NextLevel portals - trigger MosaicEditorState
+        // Handle NextLevel portals
         if (portalComp.type == PortalType::NextLevel) {
+          if (registry.ctx().contains<ActiveDimensionalState>()) {
+              auto& state = registry.ctx().get<ActiveDimensionalState>();
+              if (state.isActive) {
+                  LOG_INFO("Advancing Dimensional Rift layer...");
+                  AdvanceRiftLayer(registry, player);
+                  return;
+              }
+          }
+          
           LOG_INFO("Player triggered NextLevel portal - opening Mosaic Editor");
           registry.emplace_or_replace<PendingMosaicEditorTag>(player);
           return;
@@ -93,6 +106,64 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
       m_lastTriggeredPortal = entt::null;
     }
   }
+}
+
+void PortalSystem::AdvanceRiftLayer(entt::registry &registry, entt::entity player) {
+    if (!registry.ctx().contains<ActiveDimensionalState>()) return;
+    auto& state = registry.ctx().get<ActiveDimensionalState>();
+
+    // 1. Increment depth
+    state.currentDepth++;
+    
+    // 2. Fragment Decay & Grid Cleanup
+        for (int i = 0; i < MosaicGrid::TOTAL_CELLS; ++i) {
+            auto& snap = state.gridSnapshots[i];
+            if (snap.hasFragment) {
+                snap.remainingLayers--;
+                 if (snap.remainingLayers <= 0) {
+                    snap.hasFragment = false;
+    
+                    // Also destroy runtime entity if it still exists
+                    entt::entity fragEntity = state.sourceGrid.cells[i];
+                    if (registry.valid(fragEntity)) {
+                        registry.destroy(fragEntity);
+                        state.sourceGrid.cells[i] = entt::null;
+                    }
+                }
+            }
+        }
+    
+        // 3. Recalculate State from residual snapshots
+        state.explicitAffixes = MapAffixCalculator::GenerateAffixesFromSnapshots(state.gridSnapshots);
+        
+        // Apply Depth Scaling to affix values
+        float depthMult = 1.0f + (state.currentDepth - 1) * 0.1f;
+        for (auto& aff : state.explicitAffixes) {
+            aff.value *= depthMult;
+        }
+    
+        state.aggregatedAffixes = MapAffixCalculator::AggregateAffixes(state.explicitAffixes);
+        state.difficultyScore = MapAffixCalculator::CalculateDifficultyScore(state.explicitAffixes);
+    
+        auto rewards = MapAffixCalculator::CalculateRewards(state.difficultyScore, state.currentDepth);    state.calculatedRarity = rewards.rarityBonus;
+    state.calculatedQuantity = rewards.quantityBonus;
+
+    // 4. Check for Rift Completion (No fragments left or reached max depth)
+    bool hasFragments = false;
+    for (const auto& snap : state.gridSnapshots) if (snap.hasFragment) { hasFragments = true; break; }
+
+    if (!hasFragments || state.currentDepth > state.maxDepth) {
+        LOG_INFO("Rift Completed at depth {}!", state.currentDepth - 1);
+        state.isActive = false;
+        state.isCompleted = true;
+        m_sceneManager.RequestTransition(BiomeID::Town, 1, "");
+        return;
+    }
+
+    // 5. Normal Progression - New Seed for New Level
+    state.seed = (uint32_t)GetTime() + state.currentDepth;
+    LOG_INFO("Transitioning to Depth {}", state.currentDepth);
+    m_sceneManager.RequestTransition(state.biome, state.currentDepth, "");
 }
 
 void PortalSystem::UpdateTownPortalCasting(entt::registry &registry, float dt) {

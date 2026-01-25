@@ -1,36 +1,57 @@
 #include "game/systems/ui/MonsterHealthBarSystem.hpp"
+#include "game/components/Combat.hpp"
 #include "game/components/Common.hpp"
-#include "game/components/Stats.hpp"
-#include "game/components/AIComponent.hpp" // For EnemyTag
-#include "game/components/Buff.hpp"
 #include "game/components/EnemyComponent.hpp"
-#include "game/data/MonsterAffixRegistry.hpp"
-#include "raymath.h"
+#include "game/components/AIComponent.hpp"
+#include "game/components/EliteModifierComponents.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "game/components/Buff.hpp"
 
 namespace NoMoreDay::systems {
 
 void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& camera) {
-    // We only care about enemies that have health and position
-    // Exclude killed entities to avoid showing bars for dead monsters during their cleanup/animation phase
+    // 1. Calculate Viewport Bounds in World Space
+    Vector2 screenMin = GetScreenToWorld2D({ 0, 0 }, camera);
+    Vector2 screenMax = GetScreenToWorld2D({ (float)GetScreenWidth(), (float)GetScreenHeight() }, camera);
+    
+    // Add some padding to avoid bars popping in/out at edges
+    float padding = 100.0f;
+    Rectangle viewBounds = { 
+        screenMin.x - padding, 
+        screenMin.y - padding, 
+        (screenMax.x - screenMin.x) + padding * 2.0f, 
+        (screenMax.y - screenMin.y) + padding * 2.0f 
+    };
+
     auto view = registry.view<EnemyTag, Position, HealthComponent>(entt::exclude<KilledTag>);
+    
+    // Performance optimization: limit number of health bars drawn per frame if density is insane
+    int drawCount = 0;
+    const int MAX_BARS_PER_FRAME = 200; 
 
     for (auto entity : view) {
+        if (drawCount >= MAX_BARS_PER_FRAME) break;
+
         const auto& pos = view.get<Position>(entity);
+        
+        // --- 2. Viewport Culling ---
+        // Fast bounds check before more complex logic
+        if (pos.x < viewBounds.x || pos.x > viewBounds.x + viewBounds.width ||
+            pos.y < viewBounds.y || pos.y > viewBounds.y + viewBounds.height) {
+            continue;
+        }
+
         const auto& hp = view.get<HealthComponent>(entity);
 
         // Skip dead monsters
         if (hp.current <= 0) continue;
 
-        // --- Visibility Logic ---
-        // Show health bar when:
-        // 1. Monster is tracking/chasing the player (CHASE or ATTACK state)
-        // 2. Monster has taken damage
+        // ...
         
         bool isTracking = false;
         if (auto* ai = registry.try_get<AIComponent>(entity)) {
-            // Show when monster has detected and is actively pursuing the player
             if (ai->aiType == AIType::CHASE || ai->aiType == AIType::ATTACK) {
                 isTracking = true;
             }
@@ -38,7 +59,6 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
         
         bool isDamaged = hp.current < hp.max - 0.1f;
         
-        // Champion/Elite/Boss/Nemesis Always visible
         bool isRare = false;
         if (auto* rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
             if (rarityComp->rarity > EnemyRarityComponent::NORMAL) {
@@ -46,10 +66,9 @@ void MonsterHealthBarSystem::Render(entt::registry& registry, const Camera2D& ca
             }
         }
 
-        // Only show if tracking player OR damaged OR Rare
-        // Normal monsters still hidden until engaged/damaged to reduce clutter
         if (!isTracking && !isDamaged && !isRare) continue;
-
+        
+        drawCount++;
         float hpPercent = hp.current / hp.max;
         hpPercent = std::clamp(hpPercent, 0.0f, 1.0f);
 

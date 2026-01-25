@@ -1,5 +1,5 @@
 #include "game/systems/ui/UISystem.hpp"
-#include "core/utils/ScopedTimer.hpp" // ADDED
+#include "app/Game.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/RenderSystem.hpp" // ADDED
 #include "engine/physics/SpatialGrid.hpp"
@@ -62,6 +62,8 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
   std::vector<int> codepoints;
   for (int i = 32; i <= 126; ++i)
     codepoints.push_back(i);
+  codepoints.push_back(0x2022); // •
+  codepoints.push_back(0x2605); // ★
   for (int i = 0x3000; i <= 0x303F; ++i)
     codepoints.push_back(i);
   for (int i = 0x4E00; i <= 0x9FFF; ++i)

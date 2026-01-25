@@ -19,6 +19,7 @@
 #include "game/systems/combat/CombatEvents.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include "game/utils/EntityUtils.hpp"
+#include "engine/physics/SpatialGrid.hpp"
 #include <cmath>
 #include <entt/entt.hpp>
 
@@ -71,7 +72,7 @@ public:
   /**
    * @brief 主更新循环 - 处理需要 Update 的词缀
    */
-  static void Update(entt::registry &registry, float dt) {
+  static void Update(entt::registry &registry, float dt, const NoMoreDay::systems::SpatialHashGrid& spatialGrid) {
     auto view = registry.view<MonsterAffixComponent, Position>(
         entt::exclude<KilledTag>);
 
@@ -130,7 +131,7 @@ public:
                             tier);
           break;
         case MonsterAffixType::Shielding:
-          ProcessShielding(registry, entity, pos, affix, i, dt, tier);
+          ProcessShielding(registry, entity, pos, spatialGrid, affix, i, dt, tier);
           break;
         case MonsterAffixType::Vortex:
           ProcessVortex(registry, entity, affix, i, dt, tier);
@@ -606,6 +607,7 @@ private:
    */
   static void ProcessShielding(entt::registry &registry, entt::entity enemy,
                                const Position &enemyPos,
+                               const NoMoreDay::systems::SpatialHashGrid& spatialGrid,
                                MonsterAffixComponent &affix, size_t affixIdx,
                                float dt, int tier) {
     // Phase Shield Logic (Self)
@@ -627,23 +629,21 @@ private:
     // better for perf. The Plan asked for branchless. Let's do partial.
     affix.timers[affixIdx] = 0.0f;
 
-    // 查找附近的友军（同样是 EnemyTag）
-    auto view = registry.view<EnemyTag, Position>(entt::exclude<KilledTag>);
+    // [FIX] Use Spatial Grid Query instead of O(N) iteration
     std::vector<entt::entity> targets;
-
-    for (auto ally : view) {
-      if (ally == enemy)
-        continue; // 跳过自己
-
-      const auto &allyPos = view.get<Position>(ally);
-      float dx = allyPos.x - enemyPos.x;
-      float dy = allyPos.y - enemyPos.y;
-      float distSq = dx * dx + dy * dy;
-
-      if (distSq <= SHIELDING_RANGE * SHIELDING_RANGE) {
-        targets.push_back(ally);
-      }
-    }
+    spatialGrid.query(enemyPos, SHIELDING_RANGE, [&](entt::entity ally, const Position& allyPos) {
+        if (ally == enemy) return;
+        
+        // Filter: Only shield enemies (Shielding doesn't apply to projectiles or dead things)
+        if (registry.all_of<EnemyTag>(ally) && !registry.any_of<KilledTag>(ally)) {
+            // Distance Check (Spatial grid query gives approximate cells, need fine check)
+            float dx = allyPos.x - enemyPos.x;
+            float dy = allyPos.y - enemyPos.y;
+            if (dx*dx + dy*dy <= SHIELDING_RANGE * SHIELDING_RANGE) {
+                targets.push_back(ally);
+            }
+        }
+    });
 
     // Apply shields deferred
     for (auto ally : targets) {
@@ -667,9 +667,6 @@ private:
                                         shieldingDuration,   // lifetime
                                         true                 // isActive
         );
-
-        LOG_INFO("Shielding: Entity {} shielded entity {}",
-                 static_cast<uint32_t>(enemy), static_cast<uint32_t>(ally));
       }
     }
   }

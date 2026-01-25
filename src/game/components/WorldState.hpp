@@ -34,6 +34,7 @@ struct ActiveDimensionalState {
     // The Calculated Affixes and Rewards
     ResonanceResult resonance; 
     std::vector<MapAffix> explicitAffixes; // Specific Gameplay Modifiers (Decaying)
+    std::vector<AggregatedAffix> aggregatedAffixes; // Cached aggregated view for UI
     
     // Derived Rewards (Calculated once upon activation)
     int difficultyScore = 0;
@@ -44,24 +45,28 @@ struct ActiveDimensionalState {
     int maxDepth = 3;          // Standard Mosaic = 3 Levels
     int currentDepth = 1;
 
-    // Source Data (for UI viewing)
-    // Note: Entities in MosaicGrid are runtime IDs and not serialized here.
-    // Ideally we would snapshot the fragment item data, but for Phase 1/2 we omit.
-    MosaicGrid sourceGrid;
-    
     // State Tracking
+    int killCounter = 0;
     bool isBossKilled = false;
     bool isCompleted = false;
+
+    // Source Data (for UI viewing and Persistence)
+    // gridSnapshots stores the POD data of fragments for decay calculation after reload.
+    std::array<FragmentSnapshot, 9> gridSnapshots;
+    
+    // Runtime only grid (stores entities)
+    MosaicGrid sourceGrid;
 };
 
-// Note: sourceGrid is excluded from serialization
+// JSON Serialization
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ActiveDimensionalState, 
     isActive, seed, biome, depthLevel, 
     resonance, 
-    explicitAffixes, 
+    explicitAffixes, aggregatedAffixes,
     difficultyScore, calculatedRarity, calculatedQuantity,
     maxDepth, currentDepth,
-    isBossKilled, isCompleted
+    killCounter, isBossKilled, isCompleted,
+    gridSnapshots
 )
 
 } // namespace NoMoreDay

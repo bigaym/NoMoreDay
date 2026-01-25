@@ -6,6 +6,7 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
+#include "game/components/WorldState.hpp"
 #include "game/systems/combat/ProgressionSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include <vector>
@@ -35,6 +36,14 @@ void XPAwardingSystem::update(entt::registry& registry) {
                 playerKiller = killer;
                 if (auto* pStats = registry.try_get<PlayerStats>(killer)) {
                     pStats->current_map_kills++;
+                    
+                    // Sync to ActiveDimensionalState for persistence
+                    if (registry.ctx().contains<ActiveDimensionalState>()) {
+                        auto& state = registry.ctx().get<ActiveDimensionalState>();
+                        if (state.isActive) {
+                            state.killCounter = pStats->current_map_kills;
+                        }
+                    }
                 }
 
                 if (auto* state = registry.try_get<EnemyStateComponent>(entity)) {
@@ -84,6 +93,13 @@ void XPAwardingSystem::update(entt::registry& registry) {
         g_gcQueue.pop();
         count++;
     }
+}
+
+void XPAwardingSystem::Reset() {
+    LOG_INFO("XPAwardingSystem: Resetting GC queue via manual trigger.");
+    // 清空队列，防止跨 Session 误删新实体
+    std::queue<entt::entity> empty;
+    std::swap(g_gcQueue, empty);
 }
 
 } // namespace NoMoreDay

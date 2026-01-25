@@ -46,7 +46,11 @@ public:
   /**
    * @brief Update visual-only stats (glow, status effects)
    */
-  void UpdateStats(const std::vector<NoMoreDay::components::GPUVisualStats> &stats);
+  void Update(ResourceManager &rm,
+              const NoMoreDay::render::PersistentBuffer &entityBuffer,
+              float alpha);
+  void UpdateStats(
+      const std::vector<NoMoreDay::components::GPUVisualStats> &stats, int count = -1);
 
   // Perform GPU culling and command generation
   // viewBounds: x=minX, y=minY, z=maxX, w=maxY (Axis Aligned)

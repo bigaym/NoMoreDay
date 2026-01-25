@@ -8,6 +8,24 @@
 namespace NoMoreDay {
 
 /**
+ * @brief 用于持久化的碎片快照
+ */
+struct FragmentSnapshot {
+  bool hasFragment = false;
+  FragmentElement element = FragmentElement::None;
+  FragmentType type = FragmentType::Terrain;
+  Rarity rarity = Rarity::Common;
+  float enemyDensityMod = 1.0f;
+  int monsterLevelMod = 0;
+  int remainingLayers = 3;
+  std::string name = "";
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FragmentSnapshot, 
+    hasFragment, element, type, rarity, 
+    enemyDensityMod, monsterLevelMod, remainingLayers, name)
+
+/**
  * @brief 3x3 拼图网格数据结构
  */
 struct MosaicGrid {
