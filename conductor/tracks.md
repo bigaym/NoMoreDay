@@ -430,3 +430,12 @@ This file tracks all major tracks for the project. Each track has its own detail
 - **Status:** IN_PROGRESS
 - **Priority:** HIGH
 - **Estimated Time:** 1-2 days
+
+---
+
+## [ ] Track: GPU Sprite Offload (MDI Texture Array)
+- **Folder:** [./conductor/tracks/gpu-sprite-offload/](./conductor/tracks/gpu-sprite-offload/)
+- **Description:** 将 CPU 精灵渲染卸载至 GPU。核心实现 `GL_TEXTURE_2D_ARRAY` 支持，使 MDI 渲染管线能够直接采样多纹理精灵；整合状态效果 (冰冻/燃烧) 到 Shader；清理遗留 CPU 渲染路径。目标将 Draw Calls 从 ~1000 降至 < 10，GPU 渲染实体比例提升至 > 95%。
+- **Status:** PLANNED
+- **Priority:** CRITICAL
+- **Estimated Time:** 2 days

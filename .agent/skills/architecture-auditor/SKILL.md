@@ -5,6 +5,14 @@ description: NoMoreDay 架构合规性审计专家。在代码合并、PR 审查
 
 # Architecture Auditor (NoMoreDay Edition)
 
+## 0. 准备阶段：全量感知 (Preparation)
+在审计前，必须初始化代码感知以进行跨文件引用检查：
+
+1.  **初始化**: 调用 `set_project_directory`（**路径为当前项目根目录**）。
+2.  **深度追踪**:
+    - 使用 `find_callees` 检查函数是否在关键路径中引入了隐藏的堆分配。
+    - 使用 `find_callers` 确认修改后的 API 是否有遗漏的调用点未更新。
+
 ## 1. 审计核心 (The Audit Pillars)
 
 ### 1.1 DOD 与组件审计 (Data-Oriented Design)

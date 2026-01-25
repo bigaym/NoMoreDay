@@ -5,18 +5,17 @@ description: 专门针对 NoMoreDay (C++/EnTT) 架构的系统化调试框架。
 
 # Systematic Debugging (NoMoreDay Edition)
 
-## 核心法则 (The Iron Law)
-> **严禁在未确定根因的情况下尝试修复。任何基于猜想的补丁都是对项目质量的破坏。**
-> **严禁在未获取用户明确授权前修改逻辑代码（仅允许添加日志或测试用例）。**
-
 ## 0. 必须遵守的协议 (Mandatory Protocol)
 
 你必须严格按照以下顺序执行，**不可跳过任何步骤**：
 
-1.  **调查阶段 (Investigation)**: 使用只读工具 (read/search) 和测试运行工具分析问题。
-2.  **报告阶段 (Reporting)**: 向用户输出一份包含根因、证据和修复计划的详细报告。
-3.  **授权阶段 (Authorization)**: **显式停止**并询问用户：“是否授权执行此修复计划？”
-4.  **执行阶段 (Execution)**: 只有在获得用户肯定回答后，才可调用 `replace`/`write` 修改业务代码。
+1.  **代码感知初始化 (MANDATORY)**: 在开始调查前，必须调用 `set_project_directory` 工具初始化项目路径（**使用当前项目的根目录**）。这允许你使用 `cpp-analyzer` 像在 IDE 中一样快速定位符号和理解代码结构。
+2.  **调查阶段 (Investigation)**: 使用只读工具 (read/search/cpp-analyzer) 和测试运行工具分析问题。
+    - 使用 `get_function_signature` 确认参数类型。
+    - 使用 `find_callers` 追踪崩溃函数的调用源。
+3.  **报告阶段 (Reporting)**: 向用户输出一份包含根因、证据和修复计划的详细报告。
+4.  **授权阶段 (Authorization)**: **显式停止**并询问用户：“是否授权执行此修复计划？”
+5.  **执行阶段 (Execution)**: 只有在获得用户肯定回答后，才可调用 `replace`/`write` 修改业务代码。
 
 ---
 

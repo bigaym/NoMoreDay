@@ -5,6 +5,16 @@ description: 专为解决高复杂度问题设计的多智能体分析框架。�
 
 # Codebase Investigator (Multi-Agent Mode)
 
+## 0. 必须执行：代码感知初始化 (MANDATORY)
+在进行任何深入调查前，必须先初始化 C++ 代码感知工具，以便快速、准确地分析数据结构、函数调用和类继承关系：
+
+1.  **初始化项目路径**:
+    调用 `set_project_directory` 工具，并将路径设置为**当前项目的根目录**。
+2.  **获取代码感知**:
+    - 使用 `search_classes` 和 `get_class_info` 分析 C++ 类定义。
+    - 使用 `search_functions` 和 `get_function_signature` 获取函数原型。
+    - 使用 `find_callers` 和 `get_call_path` 追踪逻辑流。
+
 ## 1. 核心理念 (Core Philosophy)
 当面对极其复杂的代码库问题、跨系统重构或深层架构隐患时，单一视角的分析往往存在盲区。本技能通过 **模拟多智能体协作 (Simulated Multi-Agent Collaboration)**，调用不同领域的“虚拟专家”对同一问题进行多维度会诊，最终由主探员汇总形成全景视角的解决方案。
 

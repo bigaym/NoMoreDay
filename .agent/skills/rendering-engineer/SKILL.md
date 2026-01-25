@@ -5,6 +5,13 @@ description: NoMoreDay 核心图形工程师。负责 OpenGL 4.3+ 渲染管线�
 
 # Rendering Engineer (NoMoreDay)
 
+## 0. 图形感知初始化 (MANDATORY)
+在修改渲染管线前，必须同步 CPU/GPU 数据结构认知：
+
+1.  **初始化**: 调用 `set_project_directory`（**路径为当前项目根目录**）。
+2.  **数据对齐检查**: 使用 `get_class_info` 查看 C++ 端数据结构布局，确保与 Shader 的 SSBO 字节偏移对齐。
+3.  **符号定位**: 使用 `search_symbols` 查找所有的 `glGenBuffers` 或 `glBindBuffer` 调用点。
+
 ## 1. 渲染架构协议 (Rendering Protocol)
 
 ### 1.1 Shader 开发规范

@@ -5,6 +5,14 @@ description: 深度分析 NoMoreDay 的底层技术风险。专注于 UB、UAF�
 
 # Low-Level Risk Analyzer (NoMoreDay)
 
+## 0. 风险探测初始化 (MANDATORY)
+在评估风险前，必须建立精确的代码语义索引：
+
+1.  **初始化**: 调用 `set_project_directory`（**路径为当前项目根目录**）。
+2.  **符号追踪**:
+    - 使用 `get_function_signature` 检查多线程函数的异常安全性。
+    - 使用 `search_symbols` 快速定位所有直接操作内存或 GPU 缓冲区的低级函数。
+
 ## 1. 内存风险深度扫描 (Memory Risks)
 - **UAF (Use-After-Free)**: 特别针对 EnTT 实体销毁后的残留引用进行扫描。
 - **内存抖动**: 监控主循环中是否存在频繁的“分配-释放”循环（即使是小内存块），这会导致 mimalloc 缓存失效。
