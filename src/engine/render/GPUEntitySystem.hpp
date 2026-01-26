@@ -1,9 +1,11 @@
 #pragma once
 #include "engine/render/ComputeBuffer.hpp"
-#include "engine/render/GPUData.hpp"
+#include "engine/render/GPUEntitySync.hpp"
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/PersistentBuffer.hpp"
+#include "engine/render/RenderConstants.hpp"
 #include "engine/resource/ResourceManager.hpp"
+#include "game/components/Common.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
 #include <vector>
@@ -21,16 +23,19 @@ public:
     return instance;
   }
 
-  void Init(ResourceManager &rm, int maxEntities = 200000, entt::registry* registry = nullptr);
-
-  void OnGPUIndexDestroyed(entt::registry &registry, entt::entity entity);
+  void Init(ResourceManager &rm, int maxEntities = 200000,
+            entt::registry *registry = nullptr);
 
   void Update(entt::registry &registry, float dt);
   void SyncBack(entt::registry &registry);
-    void Render(const NoMoreDay::SharedContext &context, const Camera2D &camera); // Render instanced entities
-    void RenderLegacy(float alpha); // CPU-Instanced rendering (Fallback)
-  
-    void Shutdown();
+  void Render(const NoMoreDay::SharedContext &context,
+              const Camera2D &camera); // Render instanced entities
+  void RenderLegacy(float alpha);      // CPU-Instanced rendering (Fallback)
+
+  void Shutdown();
+
+  // Phase 1: Accessor for testing
+  const render::GPUSlotManager &GetSlotManager() const { return m_slotManager; }
 
 private:
   GPUEntitySystem() = default;
@@ -64,11 +69,20 @@ private:
   Shader m_gridScanShader;
 
   uint64_t m_frameCounter = 0;
-  
-  // Stable Slot Management
-  std::vector<int> m_freeSlots;
-  std::vector<entt::entity> m_slotToEntity; 
-  
+
+  // Phase 1: Slot Manager
+  NoMoreDay::render::GPUSlotManager m_slotManager;
+
+  // Phase 2: Physics Sync
+  render::GPUPhysicsSync m_physicsSync;
+
+  // Phase 3: Visual Sync
+  render::GPUVisualSync m_visualSync;
+
+  // Legacy members removed
+  // m_freeSlots removed
+  // m_slotToEntity removed
+
   static constexpr int BLOCK_SIZE = 1024;
   std::vector<bool> m_blockDirty;
 

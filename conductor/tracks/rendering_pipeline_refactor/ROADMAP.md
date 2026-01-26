@@ -42,7 +42,7 @@
 |---|---|---|---|---|
 | **T1** | `render_constants` | 无 | 🟢 已完成 | 低 |
 | **T2** | `gpu_utils_unification` | T1 | 🟢 已完成 | 中 |
-| **T3** | `gpuEntitySystem_decomposition` | T1, T2 | 🔵 待开始 | 高 |
+| **T3** | `gpuEntitySystem_decomposition` | T1, T2 | 🟢 已完成 | 高 |
 | **T4** | `mdi_renderer_refactor` | T1, T2 | 🔵 待开始 | 中 |
 | **T5** | `singleton_decoupling` | T3, T4 | 🔵 待开始 | 高 |
 

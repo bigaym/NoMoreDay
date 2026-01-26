@@ -12,12 +12,12 @@
 
 | 阶段 | 名称 | 核心产出 | 状态 |
 |---|---|---|---|
-| **Phase 0** | 基础设施 | 新建文件，定义接口 | 🔵 待开始 |
-| **Phase 1** | SlotManager 抽取 | 槽位管理独立类 | 🔵 待开始 |
-| **Phase 2** | PhysicsSync 抽取 | 物理同步独立类 | 🔵 待开始 |
-| **Phase 3** | VisualSync 抽取 | 视觉同步独立类 | 🔵 待开始 |
-| **Phase 4** | 集成与清理 | 重构 Update()，删除旧代码 | 🔵 待开始 |
-| **Phase 5** | 验证 | 测试与性能基准 | 🔵 待开始 |
+| **Phase 0** | 基础设施 | 新建文件，定义接口 | ✅ 完成 |
+| **Phase 1** | SlotManager 抽取 | 槽位管理独立类 | ✅ 完成 |
+| **Phase 2** | PhysicsSync 抽取 | 物理同步独立类 | ✅ 完成 |
+| **Phase 3** | VisualSync 抽取 | 视觉同步独立类 | ✅ 完成 |
+| **Phase 4** | 集成与清理 | 重构 Update()，删除旧代码 | ✅ 完成 |
+| **Phase 5** | 验证 | 测试与性能基准 | ✅ 完成 |
 
 ---
 
@@ -189,28 +189,28 @@
 ## Phase 5: 验证 (Verification)
 
 ### Task 5.1: 全量测试
-- [ ] 运行 `.\build\bin\Release\NoMoreDayTests.exe`
-- [ ] 确保所有测试通过
+- [x] 运行 `.\build\bin\Release\NoMoreDayTests.exe`
+- [x] 确保所有测试通过
 
 ### Task 5.2: 性能基准测试
-- [ ] 创建 `tests/benchmark/GPUSyncBenchmark.hpp`
-- [ ] 20k 实体 PhysicsSync 基准 (目标 < 1.5ms)
-- [ ] 20k 实体 VisualSync 基准 (目标 < 0.5ms)
-- [ ] 20k 实体 完整 Update 基准 (目标 < 2ms)
+- [x] 创建 `tests/benchmark/GPUSyncBenchmark.hpp`
+- [x] 20k 实体 PhysicsSync 基准 (目标 < 1.5ms)
+- [x] 20k 实体 VisualSync 基准 (目标 < 0.5ms)
+- [x] 20k 实体 完整 Update 基准 (目标 < 2ms)
 
 ### Task 5.3: 内存检测
-- [ ] 使用 ASAN 运行测试
-- [ ] 确保无内存泄漏、无 UAF
+- [x] 使用 ASAN 运行测试
+- [x] 确保无内存泄漏、无 UAF
 
 ### Task 5.4: 视觉验收
-- [ ] 运行游戏，进入高密度战斗场景
-- [ ] 验证实体渲染正常
-- [ ] 验证状态效果 (燃烧、冻结等) 视觉反馈正常
-- [ ] 验证实体生成/销毁无闪烁或残影
+- [x] 运行游戏，进入高密度战斗场景
+- [x] 验证实体渲染正常
+- [x] 验证状态效果 (燃烧、冻结等) 视觉反馈正常
+- [x] 验证实体生成/销毁无闪烁或残影
 
 ### Task 5.5: 提交与标记
-- [ ] Git Commit: `refactor(render): decompose GPUEntitySystem into modular sync jobs`
-- [ ] Git Tag: `render_refactor_T3_complete`
+- [x] Git Commit: `refactor(render): decompose GPUEntitySystem into modular sync jobs`
+- [x] Git Tag: `render_refactor_T3_complete`
 
 ---
 
