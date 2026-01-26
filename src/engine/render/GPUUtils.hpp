@@ -1,146 +1,164 @@
 #pragma once
-#include "raylib.h"
-#include "rlgl.h"
 #include "GLFW/glfw3.h"
 #include "core/logging/Logger.hpp"
-#include <cstdio>
+#include "engine/render/RenderConstants.hpp"
+#include "raylib.h"
+#include "rlgl.h"
+#include <cstdint>
+
+// Basic types for GL if not available
+#ifndef GL_SYNC_TYPEDEF_
+typedef struct __GLsync *GLsync;
+#define GL_SYNC_TYPEDEF_
+#endif
 
 namespace NoMoreDay::utils {
 
+using namespace NoMoreDay::RenderConstants;
+
 struct GPUSupportInfo {
-    int majorVersion = 0;
-    int minorVersion = 0;
-    bool computeShaderSupported = false;
-    int maxComputeWorkGroupCount[3] = {0};
-    int maxComputeWorkGroupSize[3] = {0};
-    int maxComputeWorkGroupInvocations = 0;
+  int majorVersion = 0;
+  int minorVersion = 0;
+  bool computeShaderSupported = false;
+  bool indirectDrawSupported = false;
+  bool persistentMappingSupported = false;
+  int maxComputeWorkGroupCount[3] = {0};
+  int maxComputeWorkGroupSize[3] = {0};
+  int maxComputeWorkGroupInvocations = 0;
 };
-
-// Unified OpenGL pointer for functions not in rlgl
-#ifndef APIENTRY
-    #if defined(_WIN32)
-        #define APIENTRY __stdcall
-    #else
-        #define APIENTRY
-    #endif
-#endif
-
-typedef void (APIENTRY *PFNGLMEMORYBARRIERPROC)(unsigned int barriers);
-typedef void (APIENTRY *PFNGLBINDIMAGETEXTUREPROC)(unsigned int unit, unsigned int texture, 
-    int level, unsigned char layered, int layer, unsigned int access, unsigned int format);
-
-// OpenGL constants for image binding (not in raylib headers)
-#ifndef GL_SHADER_STORAGE_BARRIER_BIT
-#define GL_SHADER_STORAGE_BARRIER_BIT 0x00002000
-#endif
-
-#ifndef GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-#define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT 0x00000020
-#endif
-
-#ifndef GL_COMMAND_BARRIER_BIT
-#define GL_COMMAND_BARRIER_BIT 0x00000040
-#endif
-
-#ifndef GL_BUFFER_UPDATE_BARRIER_BIT
-#define GL_BUFFER_UPDATE_BARRIER_BIT 0x00000200
-#endif
-
-#ifndef GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT
-#define GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT 0x00004000
-#endif
-
-#ifndef GL_WRITE_ONLY
-#define GL_WRITE_ONLY 0x88B9
-#endif
-
-#ifndef GL_READ_WRITE
-#define GL_READ_WRITE 0x88BA
-#endif
-
-#ifndef GL_RGBA8
-#define GL_RGBA8 0x8058
-#endif
 
 class GPUUtils {
 public:
-    static GPUSupportInfo CheckSupport() {
-        GPUSupportInfo info;
-        
-        // Manual binding for functions not in rlgl
-        static PFNGLMEMORYBARRIERPROC glMemoryBarrier_ptr = nullptr;
-        if (glMemoryBarrier_ptr == nullptr) {
-            glMemoryBarrier_ptr = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
-            if (glMemoryBarrier_ptr) {
-                LOG_INFO("Successfully bound glMemoryBarrier via glfwGetProcAddress.");
-            } else {
-                LOG_WARN("Failed to bind glMemoryBarrier! Compute results might be inconsistent.");
-            }
-        }
+  // === 初始化 ===
+  /**
+   * @brief 检测 GPU 能力并加载所有 GL 扩展函数。
+   * 必须在 OpenGL Context 创建后、任何渲染操作前调用。
+   */
+  static GPUSupportInfo Initialize();
 
-        // 获取 OpenGL 版本
-        int version = rlGetVersion(); 
-        LOG_INFO("OpenGL Context Version enum: {}", version);
+  /**
+   * @brief 检查是否已初始化。
+   */
+  static bool IsInitialized();
 
-        if (version == RL_OPENGL_43) {
-            info.majorVersion = 4;
-            info.minorVersion = 3;
-            info.computeShaderSupported = true;
-        } else if (version == RL_OPENGL_33) {
-            info.majorVersion = 3;
-            info.minorVersion = 3;
-        }
+  /**
+   * @brief 检查硬件能力。 (Initialize 内部调用)
+   */
+  static GPUSupportInfo CheckSupport();
 
-        LOG_INFO("Detected OpenGL Version: {}.{}", info.majorVersion, info.minorVersion);
+  // === Memory Barriers ===
+  /**
+   * @brief 发出内存屏障，确保 GPU 操作顺序。
+   * @param barriers 使用 Barrier 枚举组合 (如 Barrier::SSBO | Barrier::Command)
+   */
+  static void MemoryBarrier(Barrier barriers);
 
-        if (info.computeShaderSupported) {
-            LOG_INFO("Compute Shaders are SUPPORTED.");
-        } else {
-            LOG_WARN("Compute Shaders are NOT supported on this hardware/context.");
-        }
+  // 便捷重载，接受原始 uint32_t (用于兼容)
+  static void
+  MemoryBarrier(uint32_t barriers =
+                    0x00002000); // Default to GL_SHADER_STORAGE_BARRIER_BIT
 
-        return info;
-    }
+  // === Compute Shader ===
+  /**
+   * @brief 分派 Compute Shader，自动添加 SSBO Barrier。
+   */
+  static void DispatchCompute(uint32_t groupsX, uint32_t groupsY,
+                              uint32_t groupsZ);
 
-    static void MemoryBarrier(unsigned int barriers = GL_SHADER_STORAGE_BARRIER_BIT) {
-        static PFNGLMEMORYBARRIERPROC glMemoryBarrier_ptr = nullptr;
-        if (glMemoryBarrier_ptr == nullptr) {
-            glMemoryBarrier_ptr = (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
-        }
-        if (glMemoryBarrier_ptr) {
-            glMemoryBarrier_ptr(barriers);
-        }
-    }
+  /**
+   * @brief 分派 Compute Shader，不添加 Barrier (性能敏感场景)。
+   */
+  static void DispatchComputeNoBarrier(uint32_t groupsX, uint32_t groupsY,
+                                       uint32_t groupsZ);
 
-    /**
-     * @brief Bind a texture as an image for compute shader access
-     * @param unit Image unit (0-7 typically)
-     * @param textureId OpenGL texture ID
-     * @param level Mipmap level (usually 0)
-     * @param layered If true, all layers are bound
-     * @param layer Layer to bind if not layered
-     * @param access GL_READ_ONLY, GL_WRITE_ONLY, or GL_READ_WRITE
-     * @param format Internal format (e.g., GL_RGBA8)
-     */
-    static void BindImageTexture(unsigned int unit, unsigned int textureId, int level = 0, 
-                                  bool layered = false, int layer = 0, 
-                                  unsigned int access = GL_WRITE_ONLY, 
-                                  unsigned int format = GL_RGBA8) {
-        static PFNGLBINDIMAGETEXTUREPROC glBindImageTexture_ptr = nullptr;
-        if (glBindImageTexture_ptr == nullptr) {
-            glBindImageTexture_ptr = (PFNGLBINDIMAGETEXTUREPROC)glfwGetProcAddress("glBindImageTexture");
-            if (!glBindImageTexture_ptr) {
-                LOG_WARN("Failed to bind glBindImageTexture! Image-based compute will not work.");
-                return;
-            }
-        }
-        glBindImageTexture_ptr(unit, textureId, level, layered ? 1 : 0, layer, access, format);
-    }
+  // === Buffer Operations ===
+  static void BindBuffer(uint32_t target, uint32_t bufferId);
+  static void BindBufferBase(Binding binding, uint32_t bufferId);
+  static void BindBufferBase(uint32_t binding, uint32_t bufferId);
+  static void BindBufferRange(uint32_t target, uint32_t index,
+                              uint32_t bufferId, ptrdiff_t offset,
+                              ptrdiff_t size);
 
-    static void DispatchCompute(unsigned int numGroupsX, unsigned int numGroupsY, unsigned int numGroupsZ) {
-        rlComputeShaderDispatch(numGroupsX, numGroupsY, numGroupsZ);
-        MemoryBarrier();
-    }
+  static void GenBuffers(int n, uint32_t *buffers);
+  static void DeleteBuffers(int n, const uint32_t *buffers);
+  static void BufferData(uint32_t target, ptrdiff_t size, const void *data,
+                         uint32_t usage);
+  static void BufferSubData(uint32_t target, ptrdiff_t offset, ptrdiff_t size,
+                            const void *data);
+  static void GetBufferSubData(uint32_t target, ptrdiff_t offset,
+                               ptrdiff_t size, void *data);
+  static void BufferStorage(uint32_t target, ptrdiff_t size, const void *data,
+                            uint32_t flags);
+
+  // === Map/Unmap Operations ===
+  static void *MapBufferRange(uint32_t target, ptrdiff_t offset,
+                              ptrdiff_t length, uint32_t access);
+  static bool UnmapBuffer(uint32_t target);
+
+  // === Sync Operations ===
+  static void *FenceSync(uint32_t condition, uint32_t flags);
+  static void DeleteSync(void *sync);
+  static uint32_t ClientWaitSync(void *sync, uint32_t flags, uint64_t timeout);
+
+  // === Texture Operations ===
+  static void GenTextures(int n, uint32_t *textures);
+  static void DeleteTextures(int n, const uint32_t *textures);
+  static void BindTexture(uint32_t target, uint32_t textureId);
+  static void ActiveTexture(TextureUnit unit);
+  static void ActiveTexture(uint32_t unit);
+  static void TexParameteri(uint32_t target, uint32_t pname, int param);
+
+  // 3D/Array textures
+  static void TexStorage3D(uint32_t target, int levels, uint32_t internalformat,
+                           int width, int height, int depth);
+  static void TexSubImage3D(uint32_t target, int level, int xoffset,
+                            int yoffset, int zoffset, int width, int height,
+                            int depth, uint32_t format, uint32_t type,
+                            const void *pixels);
+
+  // === Image Binding (Compute Shader) ===
+  static void BindImageTexture(uint32_t unit, uint32_t textureId, int level = 0,
+                               bool layered = false, int layer = 0,
+                               uint32_t access = 0x88B9,  // GL_WRITE_ONLY
+                               uint32_t format = 0x8058); // GL_RGBA8
+
+  // === Indirect Draw ===
+  static void DrawArraysIndirect(uint32_t mode, size_t indirectOffset = 0);
+
+private:
+  GPUUtils() = delete;
+
+  static bool s_initialized;
+
+  // Basic Pointers
+  static void *s_glMemoryBarrier;
+  static void *s_glDrawArraysIndirect;
+  static void *s_glBindBuffer;
+  static void *s_glBindBufferBase;
+  static void *s_glActiveTexture;
+  static void *s_glBindImageTexture;
+
+  // Buffer Pointers
+  static void *s_glBufferStorage;
+  static void *s_glFenceSync;
+  static void *s_glDeleteSync;
+  static void *s_glClientWaitSync;
+  static void *s_glMapBufferRange;
+  static void *s_glUnmapBuffer;
+  static void *s_glGenBuffers;
+  static void *s_glDeleteBuffers;
+  static void *s_glBufferData;
+  static void *s_glBufferSubData;
+  static void *s_glGetBufferSubData;
+  static void *s_glBindBufferRange;
+
+  // Texture Pointers
+  static void *s_glGenTextures;
+  static void *s_glDeleteTextures;
+  static void *s_glBindTexture;
+  static void *s_glTexParameteri;
+  static void *s_glTexStorage3D;
+  static void *s_glTexSubImage3D;
 };
 
 } // namespace NoMoreDay::utils

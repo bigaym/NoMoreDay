@@ -11,20 +11,13 @@
 #include <rlgl.h>
 #include <sstream>
 
-// For glfwGetProcAddress
-#include <GLFW/glfw3.h>
-
-// OpenGL function pointers for indirect drawing
-typedef void (*PFNGLDRAWARRAYSINDIRECTPROC)(unsigned int mode,
-                                            const void *indirect);
-typedef void (*PFNGLBINDBUFFERPROC)(unsigned int target, unsigned int buffer);
-
-static PFNGLDRAWARRAYSINDIRECTPROC glDrawArraysIndirectPtr = nullptr;
-static PFNGLBINDBUFFERPROC glBindBufferPtr = nullptr;
-
 // OpenGL constants
+#ifndef GL_TRIANGLES
 #define GL_TRIANGLES 0x0004
+#endif
+#ifndef GL_DRAW_INDIRECT_BUFFER
 #define GL_DRAW_INDIRECT_BUFFER 0x8F3F
+#endif
 
 namespace NoMoreDay::systems {
 
@@ -43,18 +36,9 @@ void GPUParticleSystem::Init(int maxParticles) {
   LOG_INFO("Initializing GPUParticleSystem with {} max particles...",
            maxParticles);
 
-  // Get OpenGL extension for indirect drawing using GLFW
-  glDrawArraysIndirectPtr =
-      (PFNGLDRAWARRAYSINDIRECTPROC)glfwGetProcAddress("glDrawArraysIndirect");
-  glBindBufferPtr = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
-
-  if (!glDrawArraysIndirectPtr) {
-    LOG_ERROR("GPUParticleSystem: glDrawArraysIndirect not available!");
-    return;
-  }
-
-  if (!glBindBufferPtr) {
-    LOG_ERROR("GPUParticleSystem: glBindBuffer not available!");
+  if (!utils::GPUUtils::IsInitialized()) {
+    LOG_ERROR("GPUParticleSystem: GPUUtils must be initialized before "
+              "GPUParticleSystem!");
     return;
   }
 
@@ -410,14 +394,9 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   rlDisableBackfaceCulling(); // Ensure we see both sides
 
   // Indirect Draw using the buffer updated by GPU
-  if (glDrawArraysIndirectPtr) {
-    m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
-    glDrawArraysIndirectPtr(GL_TRIANGLES, 0);
-    glBindBufferPtr(GL_DRAW_INDIRECT_BUFFER, 0);
-  } else if (m_currentParticleCount > 0) {
-    // Fallback for safety
-    rlDrawVertexArrayInstanced(0, 6, m_currentParticleCount);
-  }
+  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
+  utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES, 0);
+  utils::GPUUtils::BindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
   // Cleanup
   rlDisableVertexArray();

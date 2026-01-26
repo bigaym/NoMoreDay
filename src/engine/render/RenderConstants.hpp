@@ -115,11 +115,43 @@ enum class Barrier : uint32_t {
   All = SSBO | Command | Buffer,
 };
 
+/**
+ * @brief Buffer Map 标志位。
+ */
+enum class MapFlag : uint32_t {
+  Read = 0x0001,       // GL_MAP_READ_BIT
+  Write = 0x0002,      // GL_MAP_WRITE_BIT
+  Persistent = 0x0040, // GL_MAP_PERSISTENT_BIT
+  Coherent = 0x0080,   // GL_MAP_COHERENT_BIT
+};
+
+inline MapFlag operator|(MapFlag a, MapFlag b) {
+  return static_cast<MapFlag>(static_cast<uint32_t>(a) |
+                              static_cast<uint32_t>(b));
+}
+
+/**
+ * @brief 同步对象标志位。
+ */
+enum class SyncFlag : uint32_t {
+  FlushCommands = 0x00000001, // GL_SYNC_FLUSH_COMMANDS_BIT
+};
+
+/**
+ * @brief OpenGL 通用常量。
+ */
+namespace GL {
+constexpr uint32_t SHADER_STORAGE_BUFFER = 0x90D2;
+constexpr uint32_t SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
+} // namespace GL
+
 inline Barrier operator|(Barrier a, Barrier b) {
   return static_cast<Barrier>(static_cast<uint32_t>(a) |
                               static_cast<uint32_t>(b));
 }
 
+inline uint32_t ToGL(MapFlag b) { return static_cast<uint32_t>(b); }
+inline uint32_t ToGL(SyncFlag b) { return static_cast<uint32_t>(b); }
 inline uint32_t ToGL(Barrier b) { return static_cast<uint32_t>(b); }
 
 // === Convenience Constants ===

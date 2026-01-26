@@ -1,6 +1,7 @@
 #define DOCTEST_CONFIG_IMPLEMENT
 #include "TestCommon.hpp"
 #include "doctest.h"
+#include "engine/render/GPUUtils.hpp"
 #include <raylib.h>
 
 using namespace NoMoreDay;
@@ -11,21 +12,21 @@ using namespace NoMoreDay;
 #include "unit/CombatFormulaTest.hpp"
 #include "unit/GroupLayoutTest.hpp"
 #include "unit/HazardSystemTests.hpp"
+#include "unit/ItemLevelScalingTest.cpp" // NEW
+#include "unit/MapAffixSystemTest.cpp"
 #include "unit/MonsterAffixTests.hpp"
 #include "unit/NemesisEvolutionTests.hpp"
+#include "unit/ResourceManagerTextureArrayTest.cpp"
 #include "unit/SIMDSpatialGridTest.hpp"
 #include "unit/StashSystemTest.hpp" // ADDED
-#include "unit/ItemLevelScalingTest.cpp" // NEW
 #include "unit/SystemMechanics.hpp"
 #include "unit/TalentModifierTest.cpp"
 #include "unit/TilemapCollisionSystemTest.cpp"
-#include "unit/MapAffixSystemTest.cpp"
-#include "unit/ResourceManagerTextureArrayTest.cpp"
 
 // --- Integration Tests ---
+#include "integration/CollisionReproTest.hpp"
 #include "integration/CombatBalanceTest.hpp"
 #include "integration/GameplaySystems.hpp"
-#include "integration/CollisionReproTest.hpp"
 #include "integration/MDIRenderTest.hpp"
 #include "integration/NemesisScalingTest.hpp"
 #include "integration/SkillSystemTests.hpp"
@@ -74,6 +75,9 @@ int main(int argc, char **argv) {
   // Some Raylib functions require a window context even if not drawing
   InitWindow(100, 100, "Headless Tests");
   SetTargetFPS(60);
+
+  // Initialize GPU Utilities
+  NoMoreDay::utils::GPUUtils::Initialize();
 
   doctest::Context context;
   context.applyCommandLine(argc, argv);

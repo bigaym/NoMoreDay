@@ -6,9 +6,21 @@
 #include <cstdint>
 #include <vector>
 
+// Unified OpenGL pointer for functions not in rlgl
+#ifndef APIENTRY
+#if defined(_WIN32)
+#define APIENTRY __stdcall
+#else
+#define APIENTRY
+#endif
+#endif
+
 // Forward declaration of GL sync primitive
 #ifndef __gl_h_
+#ifndef GL_SYNC_TYPEDEF_
 typedef struct __GLsync *GLsync;
+#define GL_SYNC_TYPEDEF_
+#endif
 #endif
 
 namespace NoMoreDay::render {
@@ -46,7 +58,7 @@ public:
   // Read data from the buffer
   // Copies from the currently mapped slot (Safe if called after BeginWrite)
   void Read(void *data, size_t size) const;
-  
+
   // Read from a specific slot index
   void ReadFromSlot(void *data, size_t size, int slotIndex) const;
 
@@ -58,14 +70,16 @@ public:
   // Offset = ((m_writeSlot - 1 + m_bufferCount) % m_bufferCount) * m_slotSize
   void BindPrevious(unsigned int bindingPoint) const;
 
-  // Bind previous slot WITHOUT waiting for Fence (Performance optimized for rendering)
+  // Bind previous slot WITHOUT waiting for Fence (Performance optimized for
+  // rendering)
   void BindPreviousNoSync(unsigned int bindingPoint) const;
 
   // Bind the slot before previous (for interpolation/sync back)
   void BindOldest(unsigned int bindingPoint) const;
 
   /**
-   * @brief Bind the buffer to a specific OpenGL target (e.g. GL_DRAW_INDIRECT_BUFFER)
+   * @brief Bind the buffer to a specific OpenGL target (e.g.
+   * GL_DRAW_INDIRECT_BUFFER)
    * @param target OpenGL buffer target
    * @param slotType 0 = Current, 1 = Previous, 2 = Oldest
    */

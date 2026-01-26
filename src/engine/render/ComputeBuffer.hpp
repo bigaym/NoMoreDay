@@ -1,4 +1,6 @@
 #pragma once
+
+#include "engine/render/GPUUtils.hpp"
 #include "rlgl.h"
 #include <GLFW/glfw3.h>
 #include <cstddef>
@@ -47,38 +49,20 @@ public:
   }
 
   // Optimize for high-frequency updates (avoid GPU sync stalls)
-  void OrphanAndUpload(const void *data, size_t size, int usage = RL_DYNAMIC_DRAW) {
-    if (m_id == 0) return;
-    
-    // Get glBufferData pointer
-    typedef void (*PFNGLBUFFERDATAPROC)(unsigned int target, ptrdiff_t size, const void *data, unsigned int usage);
-    static PFNGLBUFFERDATAPROC glBufferDataFn = nullptr;
-    if (!glBufferDataFn) {
-        glBufferDataFn = (PFNGLBUFFERDATAPROC)glfwGetProcAddress("glBufferData");
-    }
-    
-    if (glBufferDataFn) {
-        // Bind
-        Bind(0x90D2); // GL_SHADER_STORAGE_BUFFER = 0x90D2
-        
-        // Orphan (Reallocate storage, driver discards old sync requirements)
-        glBufferDataFn(0x90D2, size, nullptr, (unsigned int)usage); // Orphan
-        
-        // Upload via SubData
-        typedef void (*PFNGLBUFFERSUBDATAPROC)(unsigned int target, ptrdiff_t offset, ptrdiff_t size, const void *data);
-        static PFNGLBUFFERSUBDATAPROC glBufferSubDataFn = nullptr;
-        if (!glBufferSubDataFn) {
-            glBufferSubDataFn = (PFNGLBUFFERSUBDATAPROC)glfwGetProcAddress("glBufferSubData");
-        }
-        if (glBufferSubDataFn) {
-            glBufferSubDataFn(0x90D2, 0, size, data);
-        }
-        
-        BindBase(0); 
-    } else {
-        // Fallback
-        Update(data, size, 0);
-    }
+  void OrphanAndUpload(const void *data, size_t size,
+                       int usage = RL_DYNAMIC_DRAW) {
+    if (m_id == 0)
+      return;
+
+    // GL_SHADER_STORAGE_BUFFER = 0x90D2
+    const uint32_t target = 0x90D2;
+
+    // Bind
+    Bind(target);
+
+    // Orphan (Reallocate storage, driver discards old sync requirements)
+    utils::GPUUtils::BufferData(target, size, nullptr, (uint32_t)usage);
+    utils::GPUUtils::BufferSubData(target, 0, size, data);
   }
 
   void BindBase(unsigned int index) const {
@@ -98,16 +82,7 @@ public:
   void Bind(unsigned int target) const {
     if (m_id == 0)
       return;
-    // Use glBindBuffer directly (need to get the function pointer)
-    typedef void (*PFNGLBINDBUFFERPROC)(unsigned int target,
-                                        unsigned int buffer);
-    static PFNGLBINDBUFFERPROC glBindBufferFn = nullptr;
-    if (!glBindBufferFn) {
-      glBindBufferFn = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
-    }
-    if (glBindBufferFn) {
-      glBindBufferFn(target, m_id);
-    }
+    utils::GPUUtils::BindBuffer(target, m_id);
   }
 
   void Release() {

@@ -1,5 +1,4 @@
 #include "app/Game.hpp"
-#include "game/registry/GroupRegistry.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/persistence/SaveManager.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
@@ -10,10 +9,12 @@
 #include "engine/render/RenderSystem.hpp" // ADDED
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
+#include "game/components/WorldState.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/BuffRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/registry/GroupRegistry.hpp"
 #include "game/states/GameplayState.hpp"
 #include "game/states/MainMenuState.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
@@ -23,12 +24,12 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/world/MapAffixRegistry.hpp"
-#include "game/components/WorldState.hpp"
+
 
 #ifdef _WIN32
 #include <windows.h>
 #endif
-#include "rlgl.h"
+#include "engine/render/GPUUtils.hpp"
 
 Game::Game(int width, int height, const char *title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title) {
@@ -39,14 +40,10 @@ Game::Game(int width, int height, const char *title)
 
   InitWindow(m_screenWidth, m_screenHeight, m_title);
 
-  // After InitWindow, Raylib (especially when used as a DLL) has already
-  // initialized the OpenGL context and internal function pointers.
-  // We utilize rlgl abstraction to stay "Unified" with Raylib's state.
-  LOG_INFO("OpenGL Context initialized via Raylib (rlgl).");
-
   InitAudioDevice();
 
-  m_gpuInfo = NoMoreDay::utils::GPUUtils::CheckSupport();
+  // Initialize GPU Capability Detection and Load Extensions
+  m_gpuInfo = NoMoreDay::utils::GPUUtils::Initialize();
 
   // Register EnTT Groups EARLY (before any components are added)
   // This is critical to prevent registry corruption.
@@ -102,7 +99,7 @@ void Game::init() {
 
   NoMoreDay::ItemFactory::initialize();
   NoMoreDay::ItemFactory::loadAffixDefinitions("assets/data/affixes.json");
-  
+
   // Initialize Map Affix Registry
   NoMoreDay::MapAffixRegistry::Initialize();
 
@@ -112,8 +109,8 @@ void Game::init() {
 
   // Initialize ActiveDimensionalState in Context
   // This ensures the state is available globally for all systems
-  if(!m_registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
-      m_registry.ctx().emplace<NoMoreDay::ActiveDimensionalState>();
+  if (!m_registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+    m_registry.ctx().emplace<NoMoreDay::ActiveDimensionalState>();
   }
 
   // Initialize Stats System (Cache cleanup)
@@ -127,27 +124,31 @@ void Game::init() {
     // 1. Pre-load Entity Texture Array
     std::vector<std::string> entityPaths;
     static const std::vector<std::string> races = {
-        "skeleton", "demon", "warcraft", "cultist", "elf", "beast", "goblin", "mech", "elemental"
-    };
-    for (const auto& race : races) {
-        for (int i = 0; i < 5; ++i) {
-            entityPaths.push_back("assets/textures/monster/" + race + "_" + std::to_string(i) + ".png");
-        }
+        "skeleton", "demon",  "warcraft", "cultist",  "elf",
+        "beast",    "goblin", "mech",     "elemental"};
+    for (const auto &race : races) {
+      for (int i = 0; i < 5; ++i) {
+        entityPaths.push_back("assets/textures/monster/" + race + "_" +
+                              std::to_string(i) + ".png");
+      }
     }
     m_resourceManager.loadTextureArray(entityPaths);
 
     // 2. GPU Particle System (Indirect Drawing)
-    NoMoreDay::systems::GPUParticleSystem::Get().Init(NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
+    NoMoreDay::systems::GPUParticleSystem::Get().Init(
+        NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
 
-    NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager, 200000, &m_registry);
+    NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager, 200000,
+                                                    &m_registry);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
     // Initialize GPU Skill Effect System (Global)
-    NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(m_resourceManager, NoMoreDay::Constants::Render::MAX_SKILL_EFFECTS);
-    
+    NoMoreDay::systems::GPUSkillEffectSystem::Get().Init(
+        m_resourceManager, NoMoreDay::Constants::Render::MAX_SKILL_EFFECTS);
+
     // Initialize GPU Damage Popup System
     NoMoreDay::render::PopupRenderer::Get().Init();
-    
+
     // Initialize Instanced Label Renderer
     RenderSystem::Initialize();
   }
@@ -212,7 +213,8 @@ void Game::run() {
 
     static float fpsLogTimer = 0.0f;
     fpsLogTimer += frameTime;
-    LOG_LIMITED_DEBUG(10.0f, "Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(), frameTime * 1000.0f);
+    LOG_LIMITED_DEBUG(10.0f, "Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(),
+                      frameTime * 1000.0f);
 
     {
 

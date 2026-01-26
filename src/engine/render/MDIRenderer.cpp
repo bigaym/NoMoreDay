@@ -4,49 +4,22 @@
 #include "engine/render/RenderConstants.hpp"
 #include "raymath.h"
 #include <iostream>
+#include <vector>
 
-// OpenGL function pointers for Indirect Draw
+// OpenGL constants for Indirect Draw
 #ifndef GL_DRAW_INDIRECT_BUFFER
 #define GL_DRAW_INDIRECT_BUFFER 0x8F3F
 #endif
-
-#ifndef GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-#define GL_SHADER_IMAGE_ACCESS_BARRIER_BIT 0x00000020
-#endif
-
-#ifndef GL_COMMAND_BARRIER_BIT
-#define GL_COMMAND_BARRIER_BIT 0x00000040
-#endif
-
-#ifndef GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT
-#define GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT 0x00004000
-#endif
-
 #ifndef GL_TEXTURE_2D_ARRAY
 #define GL_TEXTURE_2D_ARRAY 0x8C1A
 #endif
-
-#ifndef GL_TEXTURE0
-#define GL_TEXTURE0 0x84C0
-#endif
-
-typedef void (*PFNGLDRAWARRAYSINDIRECTPROC)(unsigned int mode,
-                                            const void *indirect);
-static PFNGLDRAWARRAYSINDIRECTPROC glDrawArraysIndirect = nullptr;
-
-typedef void (*PFNGLBINDBUFFERPROC)(unsigned int target, unsigned int buffer);
-static PFNGLBINDBUFFERPROC glBindBuffer = nullptr;
-
-typedef void(APIENTRY *PFNGLACTIVETEXTUREPROC)(unsigned int texture);
-typedef void(APIENTRY *PFNGLMEMORYBARRIERPROC)(unsigned int barriers);
-static PFNGLACTIVETEXTUREPROC glActiveTexture = nullptr;
-static PFNGLMEMORYBARRIERPROC glMemoryBarrier = nullptr;
-
 #ifndef GL_SHADER_STORAGE_BUFFER
 #define GL_SHADER_STORAGE_BUFFER 0x90D2
 #endif
 
 namespace NoMoreDay::render {
+
+using namespace NoMoreDay::RenderConstants;
 
 MDIRenderer::~MDIRenderer() { Shutdown(); }
 
@@ -55,140 +28,122 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
     return; // Already initialized
 
   m_maxEntities = maxEntities;
+  LOG_INFO("Initializing MDI Renderer (Max Entities: {})...", maxEntities);
 
-  // Load OpenGL extensions
-  if (!glDrawArraysIndirect) {
-    glDrawArraysIndirect =
-        (PFNGLDRAWARRAYSINDIRECTPROC)glfwGetProcAddress("glDrawArraysIndirect");
-    if (!glDrawArraysIndirect) {
-      std::cerr << "[MDIRenderer] Failed to load glDrawArraysIndirect"
-                << std::endl;
-    }
-  }
-  if (!glBindBuffer) {
-    glBindBuffer = (PFNGLBINDBUFFERPROC)glfwGetProcAddress("glBindBuffer");
-  }
-  if (!glActiveTexture) {
-    glActiveTexture =
-        (PFNGLACTIVETEXTUREPROC)glfwGetProcAddress("glActiveTexture");
-  }
-  if (!glMemoryBarrier) {
-    glMemoryBarrier =
-        (PFNGLMEMORYBARRIERPROC)glfwGetProcAddress("glMemoryBarrier");
+  if (!utils::GPUUtils::IsInitialized()) {
+    LOG_ERROR("MDIRenderer: GPUUtils must be initialized before MDIRenderer!");
+    return;
   }
 
-  // Binding 1: Visible Indices (Double Buffered)
+  // 1. Load Shaders
+  m_renderShader =
+      rm.loadShader("mdi_render"_hash, "assets/shaders/entity_mdi.vert",
+                    "assets/shaders/entity_mdi.frag");
+
+  m_cullShader =
+      rm.loadComputeShader("mdi_cull"_hash, "assets/shaders/cull.compute");
+
+  // 2. Create Buffers
   m_visibleBuffer.Create(maxEntities * sizeof(uint32_t), 3);
-
-  // Binding 2: Indirect Command (Double Buffered)
   m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand), 3);
+  m_statsBuffer.Create(maxEntities * sizeof(components::GPUVisualStats), 3);
 
-  // Binding 3: Visual Stats (Double Buffered)
-  m_statsBuffer.Create(
-      maxEntities * sizeof(NoMoreDay::components::GPUVisualStats), 3);
-
-  // Load Shaders
-  // Using hashed string for IDs as per ResourceManager usage in GPUEntitySystem
-  m_cullShader = rm.loadComputeShader(entt::hashed_string{"mdi_cull"},
-                                      "assets/shaders/cull.compute");
-  m_renderShader = rm.loadShader(entt::hashed_string{"mdi_render"},
-                                 "assets/shaders/entity_mdi.vert",
-                                 "assets/shaders/entity_mdi.frag");
-
-  // Create Quad VAO (6 vertices for GL_TRIANGLES)
-  float vertices[] = {-0.5f, -0.5f, 0.5f, -0.5f, 0.5f,  0.5f,
-                      -0.5f, -0.5f, 0.5f, 0.5f,  -0.5f, 0.5f};
+  // 3. Create Quad VAO
+  float quadVertices[] = {
+      -0.5f, -0.5f, 0.0f, 0.0f, 0.5f,  -0.5f, 1.0f, 0.0f,
+      0.5f,  0.5f,  1.0f, 1.0f, -0.5f, 0.5f,  0.0f, 1.0f,
+  };
+  unsigned int quadIndices[] = {0, 1, 2, 2, 3, 0};
 
   m_quadVAO = rlLoadVertexArray();
   rlEnableVertexArray(m_quadVAO);
-
-  m_quadVBO = rlLoadVertexBuffer(vertices, sizeof(vertices), false);
-  rlSetVertexAttribute(0, 2, RL_FLOAT, 0, 0, 0); // Location 0: position (vec2)
+  m_quadVBO = rlLoadVertexBuffer(quadVertices, sizeof(quadVertices), false);
+  rlSetVertexAttribute(0, 2, RL_FLOAT, false, 4 * sizeof(float), 0);
+  rlSetVertexAttribute(1, 2, RL_FLOAT, false, 4 * sizeof(float),
+                       (int)(2 * sizeof(float)));
   rlEnableVertexAttribute(0);
+  rlEnableVertexAttribute(1);
 
+  // Vertex array element buffer
+  // Note: rlgl manages ID for us
+  rlLoadVertexBufferElement(quadIndices, sizeof(quadIndices), false);
   rlDisableVertexArray();
+
+  LOG_INFO("MDIRenderer: Initialized successfully.");
 }
 
-void MDIRenderer::UpdateStats(
-    const std::vector<NoMoreDay::components::GPUVisualStats> &stats,
-    int count) {
-  if (stats.empty())
+void MDIRenderer::Shutdown() {
+  if (m_quadVAO == 0)
     return;
+  rlUnloadVertexArray(m_quadVAO);
+  rlUnloadVertexBuffer(m_quadVBO);
+  m_quadVAO = 0;
 
-  size_t actualCount = (count < 0) ? stats.size() : (size_t)count;
-  size_t dataSize = actualCount * sizeof(NoMoreDay::components::GPUVisualStats);
+  m_visibleBuffer.Destroy();
+  m_commandBuffer.Destroy();
+  m_statsBuffer.Destroy();
+}
 
-  if (dataSize > m_statsBuffer.GetSize()) {
-    dataSize = m_statsBuffer.GetSize();
-  }
-
-  void *ptr = m_statsBuffer.BeginWrite();
-  if (ptr) {
-    memcpy(ptr, stats.data(), dataSize);
-    m_statsBuffer.Flush();
-    m_statsBuffer.Lock();
-  }
+void MDIRenderer::Update(ResourceManager &rm, const PersistentBuffer &entities,
+                         float alpha) {
+  // Convenience wrapper
 }
 
 void MDIRenderer::ResetCommand() {
-  auto *cmd = (DrawArraysIndirectCommand *)m_commandBuffer.BeginWrite();
-  cmd->count = 6;
-  cmd->instanceCount = 0; // RESET TO 0 - let Cull fill it
-  cmd->first = 0;
-  cmd->baseInstance = 0;
+  void *ptr = m_commandBuffer.BeginWrite();
+  if (ptr) {
+    DrawArraysIndirectCommand cmd = {4, 0, 0, 0}; // 4 vertices for Quad
+    memcpy(ptr, &cmd, sizeof(cmd));
+  }
   m_commandBuffer.Flush();
+  m_commandBuffer.Lock();
+}
+
+void MDIRenderer::UpdateStats(
+    const std::vector<components::GPUVisualStats> &stats, int count) {
+  if (count <= 0)
+    return;
+  void *ptr = m_statsBuffer.BeginWrite();
+  memcpy(ptr, stats.data(), count * sizeof(components::GPUVisualStats));
+  m_statsBuffer.Flush();
+  m_statsBuffer.Lock();
 }
 
 void MDIRenderer::Cull(Vector4 viewBounds) {
-  if (!m_cullShader.id) {
-    LOG_LIMITED_ERROR(5.0f, "MDI Cull Fail: Shader ID is 0!");
+  if (m_cullShader.id == 0)
     return;
-  }
 
-  // reset command buffer instance count
-  ResetCommand();
-
+  // Reset Command Counter manually if needed or in shader
+  // Assuming cull.compute handle this
   rlEnableShader(m_cullShader.id);
 
-  // Bind buffers to CURRENT write slots (RenderConstants::Binding)
-  using namespace NoMoreDay::RenderConstants;
+  // Set view bounds
+  int locBounds = rlGetLocationUniform(m_cullShader.id, "viewBounds");
+  if (locBounds != -1) {
+    float bounds[4] = {viewBounds.x, viewBounds.y, viewBounds.z, viewBounds.w};
+    rlSetUniform(locBounds, bounds, RL_SHADER_UNIFORM_VEC4, 1);
+  }
+
+  // Bind Buffers for Cull
   m_visibleBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
   m_commandBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_COMMAND));
 
-  // Set Uniforms
-  int locView = rlGetLocationUniform(m_cullShader.id, "viewBounds");
-  if (locView != -1)
-    rlSetUniform(locView, &viewBounds, RL_SHADER_UNIFORM_VEC4, 1);
+  // Dispatch
+  utils::GPUUtils::DispatchCompute((m_maxEntities + 63) / 64, 1, 1);
 
-  int locMax = rlGetLocationUniform(m_cullShader.id, "maxEntities");
-  if (locMax != -1) {
-    int me = (int)m_maxEntities;
-    rlSetUniform(locMax, &me, RL_SHADER_UNIFORM_INT, 1);
-  }
-
-  // Dispatch Compute
-  int groups = (m_maxEntities + 255) / 256;
-  rlComputeShaderDispatch(groups, 1, 1);
-
-  glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT |
-                  GL_BUFFER_UPDATE_BARRIER_BIT);
-
-  m_visibleBuffer.Lock();
-  m_commandBuffer.Lock();
+  rlDisableShader();
 }
 
 void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
                          float renderAlpha) {
-  if (m_renderShader.id == 0 || !glDrawArraysIndirect)
+  if (m_renderShader.id == 0)
     return;
 
   // 1. Flush Raylib batch
   rlDrawRenderBatchActive();
 
-  // 2. Get current matrices from Raylib (ensure we are in BeginMode2D)
-  Matrix modelview = rlGetMatrixModelview();
-  Matrix projection = rlGetMatrixProjection();
-  Matrix mvp = MatrixMultiply(modelview, projection);
+  // 2. MVP
+  Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
 
   rlEnableShader(m_renderShader.id);
 
@@ -196,10 +151,10 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   unsigned int texArray = rm.getEntityTextureArray();
   if (texArray != 0) {
     int locTex = rlGetLocationUniform(m_renderShader.id, "entityTextures");
-    if (locTex != -1 && glActiveTexture) {
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D_ARRAY, texArray);
-      int unit = 0;
+    if (locTex != -1) {
+      utils::GPUUtils::ActiveTexture(TextureUnit::TEX_ENTITY_ARRAY);
+      utils::GPUUtils::BindTexture(GL_TEXTURE_2D_ARRAY, texArray);
+      int unit = static_cast<int>(TextureUnit::TEX_ENTITY_ARRAY);
       rlSetUniform(locTex, &unit, RL_SHADER_UNIFORM_INT, 1);
     }
   }
@@ -215,63 +170,21 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
     rlSetUniform(locInterp, &renderAlpha, RL_SHADER_UNIFORM_FLOAT, 1);
 
   // 5. EXPLICITLY BIND ALL SSBOs
-  typedef void(APIENTRY * PFNGLBINDBUFFERBASEPROC)(
-      unsigned int target, unsigned int index, unsigned int buffer);
-  static PFNGLBINDBUFFERBASEPROC glBindBufferBasePtr =
-      (PFNGLBINDBUFFERBASEPROC)glfwGetProcAddress("glBindBufferBase");
-
-  // Binding 0: Entities (From external buffer) -
-  // RenderConstants::Binding::SSBO_ENTITY_DATA
-  using namespace NoMoreDay::RenderConstants;
   entities.BindPreviousNoSync(static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA));
-
-  // Binding 1: Visible Indices - RenderConstants::Binding::SSBO_VISIBLE_ID
   m_visibleBuffer.BindPreviousNoSync(
       static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
-  // Binding 3: Visual Stats - RenderConstants::Binding::SSBO_VISUAL_STATS
   m_statsBuffer.BindPreviousNoSync(
       static_cast<uint32_t>(Binding::SSBO_VISUAL_STATS));
 
-  // 6. VAO & Indirect Buffer
-  rlEnableVertexArray(m_quadVAO);
-
-  int bufferCount = m_commandBuffer.GetBufferCount();
-  int prevSlot =
-      (m_commandBuffer.GetCurrentSlot() - 1 + bufferCount) % bufferCount;
-  size_t offset = (size_t)prevSlot * m_commandBuffer.GetSize();
-
+  // Bind Command Buffer for Indirect Draw
   m_commandBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
 
-  // 7. Final Draw
-  glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT |
-                  GL_BUFFER_UPDATE_BARRIER_BIT);
-
-  glDrawArraysIndirect(GL_TRIANGLES, (void *)offset);
-
-  // Unbind
-  if (glBindBuffer)
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+  // 6. Execute Indirect Draw
+  rlEnableVertexArray(m_quadVAO);
+  utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES, 0);
   rlDisableVertexArray();
+
   rlDisableShader();
-}
-
-void MDIRenderer::Shutdown() {
-  if (m_quadVAO != 0) {
-    rlUnloadVertexArray(m_quadVAO);
-    rlUnloadVertexBuffer(m_quadVBO);
-    m_quadVAO = 0;
-  }
-  m_visibleBuffer.Destroy();
-  m_commandBuffer.Destroy();
-  m_statsBuffer.Destroy();
-
-  // Shaders are managed by ResourceManager, simply reset IDs
-  if (m_cullShader.id != 0) {
-    m_cullShader.id = 0;
-  }
-  if (m_renderShader.id != 0) {
-    m_renderShader.id = 0;
-  }
 }
 
 } // namespace NoMoreDay::render

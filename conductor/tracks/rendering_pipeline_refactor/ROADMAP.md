@@ -41,7 +41,7 @@
 | Track ID | 名称 | 依赖 | 状态 | 风险 |
 |---|---|---|---|---|
 | **T1** | `render_constants` | 无 | 🟢 已完成 | 低 |
-| **T2** | `gpu_utils_unification` | T1 | 🔵 待开始 | 中 |
+| **T2** | `gpu_utils_unification` | T1 | 🟢 已完成 | 中 |
 | **T3** | `gpuEntitySystem_decomposition` | T1, T2 | 🔵 待开始 | 高 |
 | **T4** | `mdi_renderer_refactor` | T1, T2 | 🔵 待开始 | 中 |
 | **T5** | `singleton_decoupling` | T3, T4 | 🔵 待开始 | 高 |
@@ -95,12 +95,12 @@ graph LR
 - 对外接口使用类型安全的枚举参数 (如 `GPUUtils::MemoryBarrier(Barrier::Command | Barrier::SSBO)`)。
 
 **里程碑**:
-1. [ ] 扩展 `GPUUtils` 添加 Indirect Draw / Buffer Bind API。
-2. [ ] 定义 `Barrier` 枚举以替换 `GL_xxx_BIT` 宏。
-3. [ ] 重构 `MDIRenderer.cpp` 移除手动加载代码。
-4. [ ] 确保 `ComputeBuffer::Bind/BindBase` 也通过 `GPUUtils` 调用。
+1. [x] 扩展 `GPUUtils` 添加 Indirect Draw / Buffer Bind API。
+2. [x] 定义 `Barrier` 枚举以替换 `GL_xxx_BIT` 宏。
+3. [x] 重构 `MDIRenderer.cpp` 移除手动加载代码。
+4. [x] 确保 `ComputeBuffer::Bind/BindBase` 也通过 `GPUUtils` 调用。
 
-**风险评估**: 中 (需确保兼容不同驱动，但有现有 `GPUUtils` 先例)。
+**风险评估**: 中 (已完成，Iris Xe 验证通过)。
 
 ---
 
@@ -193,7 +193,7 @@ graph LR
 
 1. **渐进式迁移**: 每个 Track 完成后可独立合并 `main`，无需等待后续 Track。
 2. **Feature Flag**: (可选) 对于 T3 的 Job 拆分，可在开发期使用 `#define USE_NEW_SYNC_JOBS` 开关。
-3. **回滚计划**: 每个 Track 完成时标记 Git Tag (如 `render_refactor_T1_complete`)。
+3. **回滚计划**: 每个 Track 完成时标记 Git Tag (如 `render_refactor_T2_complete`)。
 
 ---
 
@@ -202,7 +202,7 @@ graph LR
 | Track | 预计工时 | 备注 |
 |---|---|---|
 | T1: RenderConstants | 4h | 机械性重构 |
-| T2: GPUUtils Unification | 8h | 需仔细测试驱动兼容性 |
+| T2: GPUUtils Unification | 8h | 已完成 |
 | T3: GPUEntitySystem Decomposition | 16-24h | 核心高风险 |
 | T4: MDIRenderer Refactor | 8h | 依赖 T1, T2 |
 | T5: Singleton Decoupling | 16h | 全局影响 |
@@ -226,5 +226,5 @@ graph LR
 
 ---
 
-*路线图版本: 1.0*
+*路线图版本: 1.1*
 *最后更新: 2026-01-26*
