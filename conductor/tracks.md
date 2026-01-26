@@ -447,7 +447,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 | T1 | `render_constants` - 绑定常量标准化 | P0 | 🟢 已完成 | 4h | 低 |
 | T2 | `gpu_utils_unification` - GPU 工具层统一 | P1 | 🟢 已完成 | 8h | 中 |
 | T3 | `gpuEntitySystem_decomposition` - 职责分解 | P0 | 🟢 已完成 | 16-24h | 高 |
-| T4 | `mdi_renderer_refactor` - MDI 渲染器规范化 | P1 | 🔵 待开始 | 8h | 中 |
+| T4 | `mdi_renderer_refactor` - MDI 渲染器规范化 | P1 | 🟢 已完成 | 8h | 中 |
 | T5 | `singleton_decoupling` - 单例解耦与依赖注入 | P2 | 🔵 待开始 | 16h | 高 |
 
 ### 依赖关系:

@@ -6,17 +6,6 @@
 #include <iostream>
 #include <vector>
 
-// OpenGL constants for Indirect Draw
-#ifndef GL_DRAW_INDIRECT_BUFFER
-#define GL_DRAW_INDIRECT_BUFFER 0x8F3F
-#endif
-#ifndef GL_TEXTURE_2D_ARRAY
-#define GL_TEXTURE_2D_ARRAY 0x8C1A
-#endif
-#ifndef GL_SHADER_STORAGE_BUFFER
-#define GL_SHADER_STORAGE_BUFFER 0x90D2
-#endif
-
 namespace NoMoreDay::render {
 
 using namespace NoMoreDay::RenderConstants;
@@ -110,6 +99,8 @@ void MDIRenderer::UpdateStats(
 }
 
 void MDIRenderer::Cull(Vector4 viewBounds) {
+  using namespace NoMoreDay::RenderConstants;
+
   if (m_cullShader.id == 0)
     return;
 
@@ -128,14 +119,16 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
   m_visibleBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
   m_commandBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_COMMAND));
 
-  // Dispatch
-  utils::GPUUtils::DispatchCompute((m_maxEntities + 63) / 64, 1, 1);
+  // Dispatch - No barrier here, Render() will handle it as the Consumer
+  utils::GPUUtils::DispatchComputeNoBarrier((m_maxEntities + 63) / 64, 1, 1);
 
   rlDisableShader();
 }
 
 void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
                          float renderAlpha) {
+  using namespace NoMoreDay::RenderConstants;
+
   if (m_renderShader.id == 0)
     return;
 
@@ -153,7 +146,7 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
     int locTex = rlGetLocationUniform(m_renderShader.id, "entityTextures");
     if (locTex != -1) {
       utils::GPUUtils::ActiveTexture(TextureUnit::TEX_ENTITY_ARRAY);
-      utils::GPUUtils::BindTexture(GL_TEXTURE_2D_ARRAY, texArray);
+      utils::GPUUtils::BindTexture(GL::TEXTURE_2D_ARRAY, texArray);
       int unit = static_cast<int>(TextureUnit::TEX_ENTITY_ARRAY);
       rlSetUniform(locTex, &unit, RL_SHADER_UNIFORM_INT, 1);
     }
@@ -177,11 +170,17 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
       static_cast<uint32_t>(Binding::SSBO_VISUAL_STATS));
 
   // Bind Command Buffer for Indirect Draw
-  m_commandBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
+  m_commandBuffer.Bind(GL::DRAW_INDIRECT_BUFFER);
 
   // 6. Execute Indirect Draw
   rlEnableVertexArray(m_quadVAO);
-  utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES, 0);
+
+  // Ensure all previous commands/writes are visible to Indirect Draw
+  // Consumer Responsibility: Sync Command, SSBO, and Buffer updates
+  utils::GPUUtils::MemoryBarrier(Barrier::Command | Barrier::SSBO |
+                                 Barrier::Buffer);
+
+  utils::GPUUtils::DrawArraysIndirect(GL::TRIANGLES, 0);
   rlDisableVertexArray();
 
   rlDisableShader();

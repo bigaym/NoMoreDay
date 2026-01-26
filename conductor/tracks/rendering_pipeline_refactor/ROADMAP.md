@@ -43,7 +43,7 @@
 | **T1** | `render_constants` | 无 | 🟢 已完成 | 低 |
 | **T2** | `gpu_utils_unification` | T1 | 🟢 已完成 | 中 |
 | **T3** | `gpuEntitySystem_decomposition` | T1, T2 | 🟢 已完成 | 高 |
-| **T4** | `mdi_renderer_refactor` | T1, T2 | 🔵 待开始 | 中 |
+| T4 | `mdi_renderer_refactor` | T1, T2 | 🟢 已完成 | 中 |
 | **T5** | `singleton_decoupling` | T3, T4 | 🔵 待开始 | 高 |
 
 ```mermaid
@@ -144,10 +144,10 @@ graph LR
 - 保留 Singleton `Get()` 但计划在 T5 中消除。
 
 **里程碑**:
-1. [ ] 替换所有魔法数字为 `RenderConstants::Binding::*`。
-2. [ ] 删除 `glDrawArraysIndirect`, `glBindBuffer` 等本地函数指针。
-3. [ ] 调用 `GPUUtils::DrawArraysIndirect`, `GPUUtils::BindBuffer`。
-4. [ ] 验证 Cull/Render 流程正确性。
+1. [x] 替换所有魔法数字为 `RenderConstants::Binding::*`。
+2. [x] 删除 `glDrawArraysIndirect`, `glBindBuffer` 等本地函数指针。
+3. [x] 调用 `GPUUtils::DrawArraysIndirect`, `GPUUtils::BindBuffer`。
+4. [x] 验证 Cull/Render 流程正确性。
 
 **风险评估**: 中 (影响核心渲染路径，需视觉/性能验收)。
 

@@ -115,6 +115,11 @@ enum class Barrier : uint32_t {
   All = SSBO | Command | Buffer,
 };
 
+constexpr Barrier operator|(Barrier a, Barrier b) {
+  return static_cast<Barrier>(static_cast<uint32_t>(a) |
+                              static_cast<uint32_t>(b));
+}
+
 /**
  * @brief Buffer Map 标志位。
  */
@@ -141,18 +146,17 @@ enum class SyncFlag : uint32_t {
  * @brief OpenGL 通用常量。
  */
 namespace GL {
+constexpr uint32_t DRAW_INDIRECT_BUFFER = 0x8F3F;
 constexpr uint32_t SHADER_STORAGE_BUFFER = 0x90D2;
 constexpr uint32_t SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
+constexpr uint32_t TEXTURE_2D_ARRAY = 0x8C1A;
+constexpr uint32_t TEXTURE0 = 0x84C0;
+constexpr uint32_t TRIANGLES = 0x0004;
 } // namespace GL
 
-inline Barrier operator|(Barrier a, Barrier b) {
-  return static_cast<Barrier>(static_cast<uint32_t>(a) |
-                              static_cast<uint32_t>(b));
-}
-
-inline uint32_t ToGL(MapFlag b) { return static_cast<uint32_t>(b); }
-inline uint32_t ToGL(SyncFlag b) { return static_cast<uint32_t>(b); }
-inline uint32_t ToGL(Barrier b) { return static_cast<uint32_t>(b); }
+inline constexpr uint32_t ToGL(MapFlag b) { return static_cast<uint32_t>(b); }
+inline constexpr uint32_t ToGL(SyncFlag b) { return static_cast<uint32_t>(b); }
+inline constexpr uint32_t ToGL(Barrier b) { return static_cast<uint32_t>(b); }
 
 // === Convenience Constants ===
 namespace GPU {

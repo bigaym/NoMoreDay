@@ -93,8 +93,6 @@ private:
 
   Shader m_cullShader;
   Shader m_renderShader;
-  Shader m_resetShader; // Simple compute to reset counter if needed, or use
-                        // separate kernel in cull
 
   uint32_t m_quadVAO = 0;
   uint32_t m_quadVBO = 0;
