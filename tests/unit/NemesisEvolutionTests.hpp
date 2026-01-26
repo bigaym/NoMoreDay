@@ -6,7 +6,7 @@
 
 using namespace NoMoreDay;
 
-TEST_CASE("Player Combat History Tracking") {
+TEST_CASE("[Unit] NemesisEvolution - Combat History Tracking") {
   entt::registry registry;
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -68,7 +68,7 @@ TEST_CASE("Player Combat History Tracking") {
   CombatHistorySystem::Shutdown();
 }
 
-TEST_CASE("Nemesis Affix Selection Adaptation") {
+TEST_CASE("[Unit] NemesisEvolution - Affix Adaptation") {
   entt::registry registry;
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -94,7 +94,7 @@ TEST_CASE("Nemesis Affix Selection Adaptation") {
   CHECK((resistance & Tag::Fire) == Tag::Fire);
 }
 
-TEST_CASE("Nemesis Spawning and Component Verification") {
+TEST_CASE("[Unit] NemesisEvolution - Spawning Verification") {
   entt::registry registry;
   // Setup necessary singleton data if needed (NemesisDataStore is singleton)
   // CreateNemesisEntity is a static helper? No, it's public static in hpp?

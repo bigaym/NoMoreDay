@@ -12,7 +12,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("MDI Rendering Integration") {
+TEST_CASE("[Integration] MDIRender - MDI Rendering Integration") {
   // Note: Raylib Window should be initialized by main.cpp runner
 
   // 1. Setup Resources & Context

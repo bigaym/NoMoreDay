@@ -6,7 +6,7 @@
 #include <vector>
 #include <cstdint>
 
-TEST_CASE("GPU Flow Field Compute Test") {
+TEST_CASE("[Tech] GPUFlowField - Compute Shader Functional Test") {
     using namespace NoMoreDay;
     using namespace NoMoreDay::systems;
 

@@ -5,7 +5,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Combat Formula: Level Scaling") {
+TEST_CASE("[Unit] CombatFormula - Level Scaling") {
     SUBCASE("Level Factor calculation") {
         // Level 1: 10 + 0.5*1 + 0.05*1 = 10.55
         CHECK(CombatFormula::LevelFactor(1) == doctest::Approx(10.55f));
@@ -15,7 +15,7 @@ TEST_CASE("Combat Formula: Level Scaling") {
     }
 }
 
-TEST_CASE("Combat Formula: Armor") {
+TEST_CASE("[Unit] CombatFormula - Armor") {
     int level = 100; // LF = 560
     
     SUBCASE("Positive Armor") {
@@ -41,7 +41,7 @@ TEST_CASE("Combat Formula: Armor") {
     }
 }
 
-TEST_CASE("Combat Formula: Dodge") {
+TEST_CASE("[Unit] CombatFormula - Dodge") {
     int level = 100; // LF = 560
     
     SUBCASE("Dodge Chance Scaling") {
@@ -60,7 +60,7 @@ TEST_CASE("Combat Formula: Dodge") {
     }
 }
 
-TEST_CASE("Combat Formula: Block") {
+TEST_CASE("[Unit] CombatFormula - Block") {
     int level = 100; // LF = 560
     
     SUBCASE("Block Effectiveness") {

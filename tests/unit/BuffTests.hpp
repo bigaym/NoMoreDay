@@ -5,7 +5,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("BuffRegistry Lookups") {
+TEST_CASE("[Unit] BuffRegistry - Lookup Logic") {
     BuffRegistry::Initialize();
 
     SUBCASE("Retrieves known buffs correctly") {
@@ -27,7 +27,7 @@ TEST_CASE("BuffRegistry Lookups") {
     }
 }
 
-TEST_CASE("ActiveEffectsComponent Logic") {
+TEST_CASE("[Unit] ActiveEffectsComponent - Update and Stacking") {
     ActiveEffectsComponent component;
 
     SUBCASE("AddOrRefresh adds new effect") {
@@ -89,7 +89,7 @@ TEST_CASE("ActiveEffectsComponent Logic") {
     }
 }
 
-TEST_CASE("Buff Stacking and Duration Logic") {
+TEST_CASE("[Unit] BuffSystem - Duration and Stacking") {
     ActiveEffectsComponent container;
     
     BuffEffect b1;

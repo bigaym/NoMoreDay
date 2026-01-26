@@ -182,6 +182,8 @@ void GPUSlotManager::Init(int maxEntities, entt::registry *registry,
 
 void GPUSlotManager::Process(entt::registry &registry) {
   // 1. Reclaim slots from dead entities
+  // [OPTIMIZATION-AUDIT] Switch from O(N) traversal to Multi-component View O(N_dead + N_proj)
+  /*
   auto deadView = registry.view<GPUIndex>();
   for (auto entity : deadView) {
     if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity)) {
@@ -197,6 +199,32 @@ void GPUSlotManager::Process(entt::registry &registry) {
         gpuIdx.index = -1;
       }
     }
+  }
+  */
+
+  auto recycleSlot = [&](GPUIndex &gpuIdx) {
+    if (gpuIdx.index != -1) {
+      int slot = gpuIdx.index;
+      if (slot >= 0 && slot < m_maxEntities) {
+        m_freeSlots.push_back(slot);
+        m_slotToEntity[slot] = entt::null;
+        if (m_onRecycle)
+          m_onRecycle(slot);
+      }
+      gpuIdx.index = -1;
+    }
+  };
+
+  // Efficiently iterate ONLY dead entities
+  auto killedView = registry.view<GPUIndex, KilledTag>();
+  for (auto entity : killedView) {
+    recycleSlot(killedView.get<GPUIndex>(entity));
+  }
+
+  // Efficiently iterate ONLY projectiles (which shouldn't have GPUIndex, but cleanup just in case)
+  auto projView = registry.view<GPUIndex, NoMoreDay::Projectile>();
+  for (auto entity : projView) {
+    recycleSlot(projView.get<GPUIndex>(entity));
   }
 
   // 2. Assign slots to new entities

@@ -8,7 +8,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("DamagePipeline: Iterative Conversion Chain") {
+TEST_CASE("[Functional] DamagePipeline - Iterative Conversion Chain") {
   TestSetupScope scope;
   entt::registry registry;
   auto attacker = registry.create();
@@ -90,7 +90,7 @@ TEST_CASE("DamagePipeline: Iterative Conversion Chain") {
   }
 }
 
-TEST_CASE("DamagePipeline: Unified More Multipliers") {
+TEST_CASE("[Functional] DamagePipeline - Unified More Multipliers") {
   TestSetupScope scope;
   entt::registry registry;
   auto attacker = registry.create();

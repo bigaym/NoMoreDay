@@ -4,14 +4,14 @@
 
 using namespace NoMoreDay::utils;
 
-TEST_CASE("Branchless::BoolToMask") {
+TEST_CASE("[Unit] Branchless - BoolToMask") {
     CHECK(BoolToMask(true) == -1);
     CHECK(BoolToMask(false) == 0);
     CHECK(static_cast<uint32_t>(BoolToMask(true)) == 0xFFFFFFFF);
     CHECK(static_cast<uint32_t>(BoolToMask(false)) == 0x00000000);
 }
 
-TEST_CASE("Branchless::Select (Integer)") {
+TEST_CASE("[Unit] Branchless - Select Integer") {
     CHECK(Select(true, 10, 20) == 10);
     CHECK(Select(false, 10, 20) == 20);
     
@@ -22,7 +22,7 @@ TEST_CASE("Branchless::Select (Integer)") {
     CHECK(Select(false, 0, 100) == 100);
 }
 
-TEST_CASE("Branchless::SelectF (Float)") {
+TEST_CASE("[Unit] Branchless - Select Float") {
     const float epsilon = 1e-5f;
     
     CHECK(std::abs(SelectF(true, 10.0f, 20.0f) - 10.0f) < epsilon);
@@ -32,7 +32,7 @@ TEST_CASE("Branchless::SelectF (Float)") {
     CHECK(std::abs(SelectF(false, -5.5f, 5.5f) - 5.5f) < epsilon);
 }
 
-TEST_CASE("Branchless::MultFactor") {
+TEST_CASE("[Unit] Branchless - MultFactor") {
     const float epsilon = 1e-5f;
     
     CHECK(std::abs(MultFactor(true, 2.5f) - 2.5f) < epsilon);
@@ -42,14 +42,14 @@ TEST_CASE("Branchless::MultFactor") {
     CHECK(std::abs(MultFactor(false, 0.0f) - 1.0f) < epsilon); // Keep damage
 }
 
-TEST_CASE("Branchless::AddFactor") {
+TEST_CASE("[Unit] Branchless - AddFactor") {
     const float epsilon = 1e-5f;
     
     CHECK(std::abs(AddFactor(true, 10.0f) - 10.0f) < epsilon);
     CHECK(std::abs(AddFactor(false, 10.0f) - 0.0f) < epsilon);
 }
 
-TEST_CASE("Branchless::ClampF") {
+TEST_CASE("[Unit] Branchless - ClampF") {
     const float epsilon = 1e-5f;
     
     CHECK(std::abs(ClampF(5.0f, 0.0f, 10.0f) - 5.0f) < epsilon);

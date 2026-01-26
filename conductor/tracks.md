@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Test Case Naming Normalization
+- **Folder:** [./conductor/archive/test_normalization_20260126/](./conductor/archive/test_normalization_20260126/)
+- **Description:** 统一 NoMoreDay 项目中所有 110 个测试用例 (`TEST_CASE`) 的命名格式。引入了 `[Unit]`, `[Integration]`, `[Functional]`, `[Performance]`, `[Tech]`, `[Bugfix]` 六大分类前缀，显著提升了测试过滤 (`doctest -tc`) 与结果分析的效率，并完成了全量性能基准测试验证 (Completed on 2026-01-26)
+- **Status:** COMPLETED
+- **Priority:** MEDIUM
+- **Estimated Time:** 0.5 day
+
+---
+
 ## [x] Track: Combat Popup Polish & Fix
 - **Folder:** [./conductor/archive/combat_popup_fix_20260122/](./conductor/archive/combat_popup_fix_20260122/)
 - **Description:** 修复战斗伤害弹出数字显示为中文的问题。重构了 PopupRenderer 的索引解析逻辑，修正了 Shader 中的 UV 垂直偏移与采样行，并升级了字形生成脚本（引入原生描边与软阴影）以提升清晰度 (Completed on 2026-01-22)

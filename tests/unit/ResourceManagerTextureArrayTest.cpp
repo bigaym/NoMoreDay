@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 
-TEST_CASE("ResourceManager: Texture Array Loading (Headless)") {
+TEST_CASE("[Unit] ResourceManager - Texture Array Loading") {
     ResourceManager rm;
     rm.SetHeadless(true);
 

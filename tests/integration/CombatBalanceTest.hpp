@@ -9,7 +9,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Combat Balance: Integrated Flow") {
+TEST_CASE("[Integration] CombatBalance - Integrated Flow") {
   TestSetupScope scope;
   entt::registry registry;
 

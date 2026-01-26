@@ -6,7 +6,7 @@
 using namespace NoMoreDay::render;
 using namespace NoMoreDay::components;
 
-TEST_CASE("GPUSlotManager - Allocation and Recycling") {
+TEST_CASE("[Unit] GPUSlotManager - Allocation and Recycling") {
   entt::registry registry;
   GPUSlotManager manager;
 

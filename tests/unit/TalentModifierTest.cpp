@@ -12,7 +12,7 @@ using namespace NoMoreDay;
 
 TEST_SUITE("TalentModifierTest") {
 
-  TEST_CASE("TalentStatModifier_MaxHealth_Applied") {
+  TEST_CASE("[Unit] TalentModifier - Max Health Application") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player); // Mark as player so defaults apply
@@ -61,7 +61,7 @@ TEST_SUITE("TalentModifierTest") {
     CHECK(stats.max_health == doctest::Approx(baseHealth + 100.0f));
   }
 
-  TEST_CASE("BehaviorInjection_ShadowCaster_Applied") {
+  TEST_CASE("[Unit] TalentModifier - Behavior Injection") {
     entt::registry registry;
     auto player = registry.create();
 
@@ -75,7 +75,7 @@ TEST_SUITE("TalentModifierTest") {
     CHECK(registry.all_of<ShadowKillArrayReady>(player));
   }
 
-  TEST_CASE("AstrolabeModifier_MoveSpeed_Applied") {
+  TEST_CASE("[Unit] TalentModifier - Astrolabe Modifiers") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);

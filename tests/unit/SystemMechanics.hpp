@@ -17,7 +17,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Defense Mechanics") {
+TEST_CASE("[Unit] DefenseMechanics - Verification") {
   LoggerScope scope;
   entt::registry registry;
 
@@ -67,7 +67,7 @@ TEST_CASE("Defense Mechanics") {
   }
 }
 
-TEST_CASE("Heirloom Vault: Core Rules") {
+TEST_CASE("[Unit] HeirloomVault - Core Rules") {
     entt::registry registry;
     auto player = registry.create();
     
@@ -87,7 +87,7 @@ TEST_CASE("Heirloom Vault: Core Rules") {
     }
 }
 
-TEST_CASE("Resonance Calculator: Basic Check") {
+TEST_CASE("[Unit] ResonanceCalculator - Basic Check") {
     MosaicGrid grid;
     entt::registry registry;
     // Empty grid resonance
@@ -96,12 +96,12 @@ TEST_CASE("Resonance Calculator: Basic Check") {
 }
 
 
-TEST_CASE("Persistence System Check") {
+TEST_CASE("[Unit] PersistenceSystem - Basic Check") {
     auto& sm = SaveManager::Get();
     CHECK(&sm != nullptr);
 }
 
-TEST_CASE("Stats Optimization: Zero Allocation Check") {
+TEST_CASE("[Unit] StatsOptimization - Zero Allocation") {
     entt::registry registry;
     auto entity = registry.create();
     registry.emplace<PrimaryStats>(entity);
@@ -112,7 +112,7 @@ TEST_CASE("Stats Optimization: Zero Allocation Check") {
     CHECK(registry.get<CombatStats>(entity).health >= 0);
 }
 
-TEST_CASE("Sword Intent: Basic Accumulation") {
+TEST_CASE("[Unit] SwordIntent - Basic Accumulation") {
     entt::registry registry;
     auto player = registry.create();
     auto& si = registry.emplace<SwordIntentComponent>(player);

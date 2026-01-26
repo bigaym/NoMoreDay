@@ -8,7 +8,7 @@
 
 
 // Test case for Phase 2: EnTT Group Memory Optimization
-TEST_CASE("EnTT Group Layout Contiguity") {
+TEST_CASE("[Unit] EnTT - Group Layout Contiguity") {
   entt::registry registry;
   NoMoreDay::groups::RegisterGroups(registry);
 
@@ -42,7 +42,7 @@ TEST_CASE("EnTT Group Layout Contiguity") {
   CHECK(is_grouped);
 }
 
-TEST_CASE("RenderGroup Layout") {
+TEST_CASE("[Unit] RenderGroup - Layout Contiguity") {
   entt::registry registry;
   NoMoreDay::groups::RegisterGroups(registry);
 
@@ -62,7 +62,7 @@ TEST_CASE("RenderGroup Layout") {
   CHECK(count == 500);
 }
 
-TEST_CASE("AIGroup Layout with Exclude") {
+TEST_CASE("[Unit] AIGroup - Layout with Exclude") {
   entt::registry registry;
   NoMoreDay::groups::RegisterGroups(registry);
 

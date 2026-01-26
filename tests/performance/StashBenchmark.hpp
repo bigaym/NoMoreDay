@@ -9,7 +9,7 @@
 
 using namespace NoMoreDay;
 
-TEST_CASE("Performance: Stash System Stress Test") {
+TEST_CASE("[Performance] StashSystem - Stress Test") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);

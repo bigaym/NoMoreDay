@@ -9,7 +9,7 @@ TEST_SUITE("SIMDSpatialGrid") {
     // using namespace NoMoreDay::components; // Removed
     // Position is global
 
-    TEST_CASE("Basic Rebuild and Query") {
+    TEST_CASE("[Unit] SIMDSpatialGrid - Basic Rebuild and Query") {
         // Grid: 10x10, CellSize 10.0
         SIMDSpatialGrid grid(10, 10, 10.0f);
         entt::registry reg;
@@ -61,7 +61,7 @@ TEST_SUITE("SIMDSpatialGrid") {
         CHECK(hasE3);
     }
     
-    TEST_CASE("Boundary and Alignment") {
+    TEST_CASE("[Unit] SIMDSpatialGrid - Boundary and Alignment") {
         // Create enough entities to trigger SIMD boundary logic (e.g. > 8)
         SIMDSpatialGrid grid(10, 10, 10.0f);
         entt::registry reg;
@@ -82,7 +82,7 @@ TEST_SUITE("SIMDSpatialGrid") {
         CHECK(count == 20);
     }
 
-    TEST_CASE("Empty Grid") {
+    TEST_CASE("[Unit] SIMDSpatialGrid - Empty Grid") {
         SIMDSpatialGrid grid(10, 10, 10.0f);
         entt::registry reg;
         auto view = reg.view<Position>();

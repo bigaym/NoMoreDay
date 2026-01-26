@@ -3,8 +3,7 @@
 #include "engine/render/PersistentBuffer.hpp"
 #include <vector>
 
-TEST_SUITE("PersistentBuffer") {
-    TEST_CASE("Creation and Lifecycle") {
+    TEST_CASE("[Tech] PersistentBuffer - Creation and Lifecycle") {
         NoMoreDay::render::PersistentBuffer buffer;
         const size_t slotSize = 1024;
         buffer.Create(slotSize);
@@ -16,7 +15,7 @@ TEST_SUITE("PersistentBuffer") {
         CHECK(buffer.GetId() == 0);
     }
     
-    TEST_CASE("Write and Flush Cycle") {
+    TEST_CASE("[Tech] PersistentBuffer - Write and Flush Cycle") {
         NoMoreDay::render::PersistentBuffer buffer;
         const size_t slotSize = sizeof(int);
         buffer.Create(slotSize);
@@ -76,4 +75,4 @@ TEST_SUITE("PersistentBuffer") {
         
         buffer.Destroy();
     }
-}
+

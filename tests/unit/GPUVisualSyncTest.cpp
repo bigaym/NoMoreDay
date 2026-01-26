@@ -9,7 +9,7 @@ using namespace NoMoreDay;
 using namespace NoMoreDay::render;
 using namespace NoMoreDay::components;
 
-TEST_CASE("GPUVisualSync - Data Propagation") {
+TEST_CASE("[Unit] GPUVisualSync - Data Propagation") {
   entt::registry registry;
   GPUVisualSync visualSync;
 

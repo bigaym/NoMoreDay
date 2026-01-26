@@ -7,7 +7,7 @@
 
 using namespace NoMoreDay;
 
-TEST_CASE("HazardSystem Duration and Cleanup Test") {
+TEST_CASE("[Unit] HazardSystem - Duration and Cleanup") {
     entt::registry registry;
     systems::SpatialHashGrid grid(100, 100, 50.0f);
     
@@ -33,7 +33,7 @@ TEST_CASE("HazardSystem Duration and Cleanup Test") {
     CHECK(!registry.valid(hazardEntity));
 }
 
-TEST_CASE("HazardSystem Damage Application Test") {
+TEST_CASE("[Unit] HazardSystem - Damage Application") {
     entt::registry registry;
     systems::SpatialHashGrid grid(100, 100, 50.0f);
     
@@ -69,7 +69,7 @@ TEST_CASE("HazardSystem Damage Application Test") {
     CHECK(playerHP.current < 100.0f);
 }
 
-TEST_CASE("HazardSystem Delayed Explosion Test") {
+TEST_CASE("[Unit] HazardSystem - Delayed Explosion") {
     entt::registry registry;
     systems::SpatialHashGrid grid(100, 100, 50.0f);
     

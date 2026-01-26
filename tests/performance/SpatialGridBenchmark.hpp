@@ -5,11 +5,7 @@
 #include <chrono>
 #include <random>
 
-TEST_SUITE("Performance") {
-    using namespace NoMoreDay::systems;
-    // Position is global
-
-    TEST_CASE("SpatialGrid Benchmark") {
+    TEST_CASE("[Performance] SIMDSpatialGrid - Rebuild and Query Benchmark") {
         // Setup: 5000x5000 world, 10000 entities
         int worldW = 5000;
         int worldH = 5000;
@@ -62,4 +58,4 @@ TEST_SUITE("Performance") {
         MESSAGE("Query 1000 times (R=100): ", queryTime, " us (Avg ", avgQuery, " us/query)");
         MESSAGE("Total Hits: ", hitCountTotal);
     }
-}
+

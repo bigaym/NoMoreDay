@@ -14,7 +14,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Skill Verification: Blade Boomerang Specializations") {
+TEST_CASE("[Functional] Skill - Blade Boomerang Specializations") {
     TestSetupScope scope;
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
@@ -55,7 +55,7 @@ TEST_CASE("Skill Verification: Blade Boomerang Specializations") {
     }
 }
 
-TEST_CASE("Skill Verification: Blade Formation Specializations") {
+TEST_CASE("[Functional] Skill - Blade Formation Specializations") {
     TestSetupScope scope;
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
@@ -92,7 +92,7 @@ TEST_CASE("Skill Verification: Blade Formation Specializations") {
     }
 }
 
-TEST_CASE("Skill Verification: Blade Ward") {
+TEST_CASE("[Functional] Skill - Blade Ward") {
     TestSetupScope scope;
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
@@ -139,7 +139,7 @@ TEST_CASE("Skill Verification: Blade Ward") {
 //     }
 // }
 
-TEST_CASE("Skill Verification: Infinite Blades") {
+TEST_CASE("[Functional] Skill - Infinite Blades") {
     TestSetupScope scope;
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");

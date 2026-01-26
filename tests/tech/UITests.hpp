@@ -21,7 +21,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Skill UI - Drag and Drop Assignment") {
+TEST_CASE("[Tech] SkillUI - Drag and Drop Assignment") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
@@ -35,7 +35,7 @@ TEST_CASE("Skill UI - Drag and Drop Assignment") {
     // Simulation logic omitted but structure remains for verification
 }
 
-TEST_CASE("Skill UI - Context Menu State") {
+TEST_CASE("[Tech] SkillUI - Context Menu State") {
     UISystem::State.showContextMenu = false;
     UISystem::State.isSkillContext = false;
     
@@ -49,7 +49,7 @@ TEST_CASE("Skill UI - Context Menu State") {
     CHECK(UISystem::State.contextSourceSkillSlot == 3);
 }
 
-TEST_CASE("Skill UI - Persistence of Assignments") {
+TEST_CASE("[Tech] SkillUI - Persistence of Assignments") {
     ActiveSkillsComponent original;
     original.slots[0].id = 101;
     original.slots[0].current_charges = 2;
@@ -67,7 +67,7 @@ TEST_CASE("Skill UI - Persistence of Assignments") {
     CHECK(restored.available_talent_points == 10);
 }
 
-TEST_CASE("MonsterHealthBarSystem: Visibility and Buffs") {
+TEST_CASE("[Tech] MonsterHealthBar - Visibility and Buffs") {
     entt::registry registry;
     Camera2D camera = { {0,0}, {0,0}, 0.0f, 1.0f };
 
@@ -109,7 +109,7 @@ TEST_CASE("MonsterHealthBarSystem: Visibility and Buffs") {
     }
 }
 
-TEST_CASE("PlayerHUD: Render Logic") {
+TEST_CASE("[Tech] PlayerHUD - Render Logic") {
     entt::registry registry;
     
     // Setup UISystem state scale
@@ -138,7 +138,7 @@ TEST_CASE("PlayerHUD: Render Logic") {
     }
 }
 
-TEST_CASE("UIRenderer: Tooltip Logic Smoke Test") {
+TEST_CASE("[Tech] UIRenderer - Tooltip Logic Smoke Test") {
     entt::registry registry;
     Font font = GetFontDefault();
     

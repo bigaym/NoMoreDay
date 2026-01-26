@@ -13,7 +13,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Performance: StatsSystem Benchmark") {
+TEST_CASE("[Performance] StatsSystem - Calculation Benchmark") {
     entt::registry registry;
     const int num_entities = 1000;
     std::vector<entt::entity> entities;

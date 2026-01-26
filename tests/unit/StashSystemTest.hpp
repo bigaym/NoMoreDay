@@ -9,7 +9,7 @@
 
 using namespace NoMoreDay;
 
-TEST_CASE("StashSystem: Basic Transfer") {
+TEST_CASE("[Unit] StashSystem - Basic Transfer") {
     entt::registry registry;
     
     // Setup Player with Personal Stash
@@ -35,7 +35,7 @@ TEST_CASE("StashSystem: Basic Transfer") {
     CHECK(stash.tabs[0].items[1] == item);
 }
 
-TEST_CASE("StashSystem: Cross Stash Transfer") {
+TEST_CASE("[Unit] StashSystem - Cross Stash Transfer") {
     entt::registry registry;
     SharedStash::Get().initialize();
     
@@ -59,7 +59,7 @@ TEST_CASE("StashSystem: Cross Stash Transfer") {
     CHECK(SharedStash::Get().getItem(0, 0) == item);
 }
 
-TEST_CASE("StashSystem: Material Rejection") {
+TEST_CASE("[Unit] StashSystem - Material Rejection") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
@@ -79,7 +79,7 @@ TEST_CASE("StashSystem: Material Rejection") {
     CHECK(result == false);
 }
 
-TEST_CASE("StashSystem: Unlock Tab") {
+TEST_CASE("[Unit] StashSystem - Unlock Tab") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);

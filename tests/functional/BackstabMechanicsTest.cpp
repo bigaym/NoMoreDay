@@ -19,7 +19,7 @@ public:
   }
 };
 
-TEST_CASE("AssassinAI: Backstab Direction and Safety") {
+TEST_CASE("[Functional] AssassinAI - Backstab Direction and Safety") {
   TestSetupScope scope;
   entt::registry registry;
   auto player = registry.create();

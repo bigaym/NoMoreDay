@@ -22,7 +22,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("SkillSystem: Registry Loading") {
+TEST_CASE("[Integration] SkillSystem - Registry Loading") {
   LoggerScope scope;
   auto &registry = SkillRegistry::Get();
   registry.LoadFromJson("assets/data/skills.json");
@@ -43,7 +43,7 @@ TEST_CASE("SkillSystem: Registry Loading") {
   }
 }
 
-TEST_CASE("SkillSystem: Execution Logic") {
+TEST_CASE("[Integration] SkillSystem - Execution Logic") {
   LoggerScope scope;
   entt::registry registry;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
@@ -85,7 +85,7 @@ TEST_CASE("SkillSystem: Execution Logic") {
   }
 }
 
-TEST_CASE("SkillSystem: Sword Intent") {
+TEST_CASE("[Integration] SkillSystem - Sword Intent Logic") {
   entt::registry registry;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
   CombatEventDispatcher::Init();
@@ -148,7 +148,7 @@ TEST_CASE("SkillSystem: Sword Intent") {
   }
 }
 
-TEST_CASE("SkillSpecialization: Logic") {
+TEST_CASE("[Integration] SkillSpecialization - Talent Allocation Logic") {
   entt::registry registry;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
   auto player = registry.create();
@@ -164,7 +164,7 @@ TEST_CASE("SkillSpecialization: Logic") {
   }
 }
 
-TEST_CASE("Skill Logic: Specialized Behaviors") {
+TEST_CASE("[Integration] SkillLogic - Specialized Behaviors") {
   entt::registry registry;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
   SkillSystem::InitHooks();
@@ -218,7 +218,7 @@ TEST_CASE("Skill Logic: Specialized Behaviors") {
   }
 }
 
-TEST_CASE("Projectile Snapshotting") {
+TEST_CASE("[Integration] Projectile - Snapshotting Logic") {
   entt::registry registry;
   auto attacker = registry.create();
   auto defender = registry.create();
@@ -240,7 +240,7 @@ TEST_CASE("Projectile Snapshotting") {
 
 } // namespace NoMoreDay
 
-TEST_CASE("SkillSystem: UAF Reproduction / Reallocation Safety") {
+TEST_CASE("[Bugfix] SkillSystem - UAF Reproduction / Reallocation Safety") {
   // This test ensures that if a hook adds many new entities with SkillExecution
   // (triggering a pool reallocation), the main loop in UpdateStates doesn't
   // crash or access invalid memory.

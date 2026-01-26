@@ -6,7 +6,7 @@
 using namespace NoMoreDay;
 using namespace NoMoreDay::Constants::Combat::Scaling::Monster;
 
-TEST_CASE("MonsterScaling::PowerCurve") {
+TEST_CASE("[Unit] MonsterScaling - Power Curve") {
     // Accessing private method via Friend? No, MonsterScaling usually doesn't expose PowerCurve. 
     // Testing Public methods implicitly tests PowerCurve.
     
@@ -25,14 +25,14 @@ TEST_CASE("MonsterScaling::PowerCurve") {
     CHECK(r11.maxHealth / r1.maxHealth == doctest::Approx(2.5937f).epsilon(0.001f));
 }
 
-TEST_CASE("MonsterScaling::SyncLevel") {
+TEST_CASE("[Unit] MonsterScaling - Sync Level") {
     CHECK(MonsterScaling::SyncLevel(50, 30) == 50); // Area Higher
     CHECK(MonsterScaling::SyncLevel(20, 60) == 55); // Player Higher (60-5)
     CHECK(MonsterScaling::SyncLevel(1, 3) == 1); // Low levels
     CHECK(MonsterScaling::SyncLevel(0, 10) == 5); // Area 0 corrected to 1, then max(1, 5)
 }
 
-TEST_CASE("MonsterScaling::GetXPMultiplier") {
+TEST_CASE("[Unit] MonsterScaling - XP Multiplier") {
     // Diff <= 5 -> 1.0
     CHECK(MonsterScaling::GetXPMultiplier(50, 50) == 1.0f);
     CHECK(MonsterScaling::GetXPMultiplier(50, 55) == 1.0f);
@@ -47,7 +47,7 @@ TEST_CASE("MonsterScaling::GetXPMultiplier") {
     CHECK(MonsterScaling::GetXPMultiplier(50, 65) == doctest::Approx(0.1f));
 }
 
-TEST_CASE("MonsterScaling::ResistanceBonus") {
+TEST_CASE("[Unit] MonsterScaling - Resistance Bonus") {
     // Under 100
     MonsterScalingResult r90 = MonsterScaling::Calculate(EnemyRace::UNDEAD, 90, EnemyRarityComponent::NORMAL);
     CHECK(r90.resistanceBonus == 0.0f);
@@ -63,7 +63,7 @@ TEST_CASE("MonsterScaling::ResistanceBonus") {
     CHECK(b110.resistanceBonus == doctest::Approx(0.08f));
 }
 
-TEST_CASE("MonsterScaling::ArmorTargetDR") {
+TEST_CASE("[Unit] MonsterScaling - Armor Target DR") {
     // Level 1 -> DR 0
     MonsterScalingResult r1 = MonsterScaling::Calculate(EnemyRace::UNDEAD, 1, EnemyRarityComponent::NORMAL);
     CHECK(r1.armor == 0.0f);

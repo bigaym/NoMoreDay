@@ -12,7 +12,7 @@
 
 using namespace NoMoreDay;
 
-TEST_CASE("Monster Affix Persistence Test") {
+TEST_CASE("[Unit] MonsterAffix - Persistence") {
   entt::registry registry;
 
   // 1. Create a dummy enemy with Berserker affix
@@ -58,7 +58,7 @@ TEST_CASE("Monster Affix Persistence Test") {
   CHECK(stats.min_weapon_damage == doctest::Approx(berserkDamage));
 }
 
-TEST_CASE("Monster Affix Stat Mod Persistence Test") {
+TEST_CASE("[Unit] MonsterAffix - Stat Modifier Persistence") {
   entt::registry registry;
 
   // 1. Create enemy with Fast affix (+50% MoveSpeed)
@@ -94,7 +94,7 @@ TEST_CASE("Monster Affix Stat Mod Persistence Test") {
   CHECK(stats.move_speed == doctest::Approx(fastSpeed));
 }
 
-TEST_CASE("Monster Affix: Mirror Image Logic Test") {
+TEST_CASE("[Unit] MonsterAffix - Mirror Image Logic") {
   entt::registry registry;
 
   auto enemy = registry.create();
@@ -131,7 +131,7 @@ TEST_CASE("Monster Affix: Mirror Image Logic Test") {
   CHECK(cloneCount == 2);
 }
 
-TEST_CASE("Monster Affix: Soul Eater Progression Test") {
+TEST_CASE("[Unit] MonsterAffix - Soul Eater Progression") {
   entt::registry registry;
 
   auto eater = registry.create();
@@ -172,7 +172,7 @@ TEST_CASE("Monster Affix: Soul Eater Progression Test") {
   CHECK(stats.damage_multipliers[0] == doctest::Approx(initialDmg + 0.05f));
 }
 
-TEST_CASE("Monster Affix: Suppressor Damage Reduction Test") {
+TEST_CASE("[Unit] MonsterAffix - Suppressor Damage Reduction") {
   entt::registry registry;
 
   auto attacker = registry.create();

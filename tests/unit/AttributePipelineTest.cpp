@@ -3,7 +3,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("AttributePipeline: Tag Filter") {
+TEST_CASE("[Unit] AttributePipeline - Tag Filter") {
   // Setup
   StatModifier mod;
   mod.required_tags = Tag::Melee;
@@ -22,13 +22,13 @@ TEST_CASE("AttributePipeline: Tag Filter") {
   CHECK(mod.IsActive(Tag::Melee));
 }
 
-TEST_CASE("AttributePipeline: Struct Layout") {
+TEST_CASE("[Unit] AttributePipeline - Struct Layout") {
   // Verify StatModifier is 24 bytes (or close/aligned)
   CHECK(sizeof(StatModifier) <= 32);
   CHECK(alignof(StatModifier) == 8);
 }
 
-TEST_CASE("AttributePipeline: Calculation Logic") {
+TEST_CASE("[Unit] AttributePipeline - Calculation Logic") {
   // Setup Registry & entity
   entt::registry registry;
   auto entity = registry.create();

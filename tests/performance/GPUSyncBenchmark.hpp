@@ -32,7 +32,7 @@ CalculateGPUMetrics(const std::vector<double> &samples) {
   return {sorted.front(), sorted.back(), sum / sorted.size(), sorted[p99Idx]};
 }
 
-TEST_CASE("Benchmark: GPUEntitySync Performance") {
+TEST_CASE("[Performance] GPUEntitySync - Sync Performance Benchmark") {
   using namespace NoMoreDay::render;
   using namespace NoMoreDay::components;
 
@@ -41,8 +41,8 @@ TEST_CASE("Benchmark: GPUEntitySync Performance") {
   const int BENCH_FRAMES = 100;
 
   entt::registry registry;
-  std::vector<GPUEntity> physicsShadow(TEST_ENTITIES, {});
-  std::vector<GPUVisualStats> visualShadow(TEST_ENTITIES, {});
+  std::vector<GPUEntity> physicsShadow(TEST_ENTITIES);
+  std::vector<GPUVisualStats> visualShadow(TEST_ENTITIES);
 
   // 1. Setup Entities
   for (int i = 0; i < TEST_ENTITIES; ++i) {

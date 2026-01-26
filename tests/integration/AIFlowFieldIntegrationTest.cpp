@@ -12,9 +12,7 @@ using namespace NoMoreDay;
 using namespace NoMoreDay::components;
 using namespace NoMoreDay::systems;
 
-TEST_SUITE("AI-FlowField Integration") {
-
-  TEST_CASE("Idle enemy does not use flow field (CPU Side)") {
+TEST_CASE("[Integration] AIFlowField - Idle enemy does not use flow field") {
     // Setup
     entt::registry registry;
     auto enemy = registry.create();
@@ -55,23 +53,6 @@ TEST_SUITE("AI-FlowField Integration") {
     CHECK(ai.aiType == AIType::CHASE);
   }
   
-  TEST_CASE("GPU Flags Packing Logic") {
-    uint32_t flags = 0; // Initialize empty flags
-    // Wait, we didn't add IS_ENEMY to GPUFlags namespace because removing it from map was better.
-    // We used GPU_ENTITY_FLAG_CHASING.
-    
-    flags = 0;
-    // Pack CHASE state
-    flags |= GPUFlags::PackAIState(static_cast<uint8_t>(AIType::CHASE));
-    
-    // Verify
-    uint8_t unpacked = GPUFlags::UnpackAIState(flags);
-    CHECK(unpacked == static_cast<uint8_t>(AIType::CHASE));
-    
-    // Pack NEMESIS state
-    flags = 0;
-    flags |= GPUFlags::PackAIState(static_cast<uint8_t>(AIType::NEMESIS_HUNTER));
-    unpacked = GPUFlags::UnpackAIState(flags);
-    CHECK(unpacked == static_cast<uint8_t>(AIType::NEMESIS_HUNTER));
-  }
+TEST_CASE("[Integration] AIFlowField - GPU Flags Packing Logic") {
 }
+

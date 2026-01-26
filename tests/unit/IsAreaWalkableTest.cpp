@@ -3,7 +3,7 @@
 #include "game/systems/world/MapSystem.hpp"
 #include "game/components/Common.hpp"
 
-TEST_CASE("[World] TilemapCollisionSystem Logic") {
+TEST_CASE("[Unit] TilemapCollisionSystem - Walkability Logic") {
     NoMoreDay::MapSystem mapSystem;
     mapSystem.generateTownMap(10, 10);
     

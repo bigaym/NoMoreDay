@@ -8,7 +8,7 @@
 #include "game/components/InventoryComponent.hpp"
 #include "game/systems/ui/UISystem.hpp"
 
-TEST_CASE("Item Level Scaling and Requirements") {
+TEST_CASE("[Unit] ItemLevelScaling - Scaling and Requirements") {
     TestSetupScope scope;
     entt::registry registry;
 

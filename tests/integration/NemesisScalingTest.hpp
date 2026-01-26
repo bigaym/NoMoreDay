@@ -10,7 +10,7 @@
 
 using namespace NoMoreDay;
 
-TEST_CASE("Nemesis Scaling and Phase Shield") {
+TEST_CASE("[Integration] NemesisScaling - Nemesis Scaling and Phase Shield") {
   entt::registry registry;
   MonsterAffixSystem::Init();
 

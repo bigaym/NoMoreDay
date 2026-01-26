@@ -4,7 +4,7 @@
 
 using namespace NoMoreDay::components;
 
-TEST_CASE("GPUFlags Bit Operations") {
+TEST_CASE("[Unit] GPUFlags - Bit Operations") {
     SUBCASE("PackAIState correctly shifts bits") {
         uint8_t state = 1; // PATROL
         uint32_t packed = GPUFlags::PackAIState(state);

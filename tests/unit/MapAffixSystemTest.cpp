@@ -6,7 +6,7 @@
 
 using namespace NoMoreDay;
 
-TEST_CASE("MapAffixCalculator::DifficultyScore") {
+TEST_CASE("[Unit] MapAffixCalculator - Difficulty Score") {
     std::vector<MapAffix> affixes;
     
     // Test empty
@@ -37,7 +37,7 @@ TEST_CASE("MapAffixCalculator::DifficultyScore") {
     CHECK(MapAffixCalculator::CalculateDifficultyScore(affixes) == 110);
 }
 
-TEST_CASE("MapAffixCalculator::RewardScaling") {
+TEST_CASE("[Unit] MapAffixCalculator - Reward Scaling") {
     // DS = 0
     auto r0 = MapAffixCalculator::CalculateRewards(0);
     CHECK(r0.rarityBonus == 0.0f);
@@ -58,7 +58,7 @@ TEST_CASE("MapAffixCalculator::RewardScaling") {
     CHECK(r120.quantityBonus == doctest::Approx(1.0f));
 }
 
-TEST_CASE("MapAffixCalculator::LPProbabilityMultiplier") {
+TEST_CASE("[Unit] MapAffixCalculator - LP Probability Multiplier") {
     // Current formula: 1.0f + rarityBonus
     // Rarity Bonus 1.0 (100%) -> lpMult = 2.0
     CHECK(MapAffixCalculator::CalculateLPProbabilityMultiplier(1.0f) == doctest::Approx(2.0f));

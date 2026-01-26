@@ -28,7 +28,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Astrolabe Integration") {
+TEST_CASE("[Integration] Astrolabe - Node Activation") {
   auto &registry_data = AstrolabeRegistry::Get();
   registry_data.Load("assets/data/astrolabe.json");
 
@@ -46,7 +46,7 @@ TEST_CASE("Astrolabe Integration") {
   }
 }
 
-TEST_CASE("Combat System Integration") {
+TEST_CASE("[Integration] CombatSystem - Basic Damage Flow") {
     entt::registry registry;
     auto attacker = registry.create();
     auto defender = registry.create();
@@ -65,7 +65,7 @@ TEST_CASE("Combat System Integration") {
     CHECK(result.total_damage > 0.0f);
 }
 
-TEST_CASE("Item & Equipment Integration") {
+TEST_CASE("[Integration] ItemSystem - Equipment Flow") {
     TestSetupScope scope;
     entt::registry registry;
     auto player = registry.create();
@@ -80,7 +80,7 @@ TEST_CASE("Item & Equipment Integration") {
 
 }
 
-TEST_CASE("Material System Integration") {
+TEST_CASE("[Integration] MaterialSystem - Bank Operations") {
     MaterialBankComponent bank;
     bank.Add(1001, 10);
     CHECK(bank.GetCount(1001) == 10);
@@ -89,7 +89,7 @@ TEST_CASE("Material System Integration") {
     CHECK(bank.GetCount(1001) == 5);
 }
 
-TEST_CASE("Salvage System Integration") {
+TEST_CASE("[Integration] SalvageSystem - Item Salvaging") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<MaterialBankComponent>(player);
@@ -103,7 +103,7 @@ TEST_CASE("Salvage System Integration") {
     CHECK(registry.valid(itemEnt) == false);
 }
 
-TEST_CASE("Final Integration: Sword Cultivator Full Flow") {
+TEST_CASE("[Integration] Cultivator - Full Combat Flow") {
     entt::registry registry;
     SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
     SkillSystem::InitHooks();
@@ -129,7 +129,7 @@ TEST_CASE("Final Integration: Sword Cultivator Full Flow") {
     CHECK(!exec_view.empty());
 }
 
-TEST_CASE("Legendary Infrastructure Integration") {
+TEST_CASE("[Integration] Legendary - Infrastructure Verification") {
     TestSetupScope scope;
     entt::registry registry;
     ItemFactory::initialize();

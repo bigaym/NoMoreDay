@@ -8,7 +8,7 @@
 
 using namespace NoMoreDay::utils;
 
-TEST_CASE("Performance: Branchless Logic Benchmark") {
+TEST_CASE("[Performance] Branchless - Logic Acceleration Benchmark") {
   // Setup random data
   constexpr size_t N = 100000;
   std::vector<int> conditions(N);

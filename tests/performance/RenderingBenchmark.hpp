@@ -49,7 +49,7 @@ BenchmarkStats CalculateStats(const std::vector<double> &samples) {
           sorted[idx99]};
 }
 
-TEST_CASE("Scenario A: Particle Stress Test") {
+TEST_CASE("[Performance] ParticleSystem - Scenario A Particle Stress Test") {
   using namespace NoMoreDay::systems;
 
   GPUParticleSystem::Get().Init(100000); // Max particles
@@ -90,7 +90,7 @@ TEST_CASE("Scenario A: Particle Stress Test") {
   GPUParticleSystem::Get().Shutdown();
 }
 
-TEST_CASE("Scenario B: Popup Spam Test") {
+TEST_CASE("[Performance] PopupRenderer - Scenario B Popup Spam Test") {
   using namespace NoMoreDay::render;
 
   PopupRenderer::Get().Init();
@@ -131,7 +131,7 @@ TEST_CASE("Scenario B: Popup Spam Test") {
   PopupRenderer::Get().Shutdown();
 }
 
-TEST_CASE("Scenario C: Entity Horde Test") {
+TEST_CASE("[Performance] GPUEntitySystem - Scenario C Entity Horde Test") {
   using namespace NoMoreDay::systems;
 
   ResourceManager resources;

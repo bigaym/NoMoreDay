@@ -8,7 +8,7 @@
 #include <entt/entt.hpp>
 
 
-TEST_CASE("Hybrid Barrier: ES Mode Regeneration") {
+TEST_CASE("[Unit] HybridBarrier - ES Mode Regeneration") {
   entt::registry registry;
   auto entity = registry.create();
   auto &stats = registry.emplace<NoMoreDay::CombatStats>(entity);
@@ -40,7 +40,7 @@ TEST_CASE("Hybrid Barrier: ES Mode Regeneration") {
   CHECK(stats.barrier == 50.0f);
 }
 
-TEST_CASE("Hybrid Barrier: Damage Absorption & Delay") {
+TEST_CASE("[Unit] HybridBarrier - Damage Absorption & Delay") {
   entt::registry registry;
   auto entity = registry.create();
   auto &stats = registry.emplace<NoMoreDay::CombatStats>(entity);
@@ -75,7 +75,7 @@ TEST_CASE("Hybrid Barrier: Damage Absorption & Delay") {
   CHECK(hp.current == 90.0f);
 }
 
-TEST_CASE("Hybrid Barrier: Ward Mode Decay") {
+TEST_CASE("[Unit] HybridBarrier - Ward Mode Decay") {
   entt::registry registry;
   auto entity = registry.create();
   auto &stats = registry.emplace<NoMoreDay::CombatStats>(entity);
@@ -105,7 +105,7 @@ TEST_CASE("Hybrid Barrier: Ward Mode Decay") {
   CHECK(stats.barrier == doctest::Approx(99.5f));
 }
 
-TEST_CASE("Hybrid Barrier: Stats Calculation") {
+TEST_CASE("[Unit] HybridBarrier - Stats Calculation") {
   entt::registry registry;
   auto entity = registry.create();
   registry.emplace<NoMoreDay::CombatStats>(entity);

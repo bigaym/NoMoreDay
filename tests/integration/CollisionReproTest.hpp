@@ -9,7 +9,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("Bug Reproduction: Dash Tunneling") {
+TEST_CASE("[Bugfix] Dash - Dash Tunneling Reproduction") {
     // Setup
     entt::registry registry;
     systems::SpatialHashGrid grid(200, 200, 50);

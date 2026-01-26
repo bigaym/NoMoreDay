@@ -17,12 +17,12 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("RenderSystem - Basic Setup") {
+TEST_CASE("[Tech] RenderSystem - Basic Setup") {
   entt::registry registry;
   // Basic smoke test for RenderSystem initialization logic
 }
 
-TEST_CASE("Visual Effect Tests") {
+TEST_CASE("[Tech] EffectSystem - Visual Effects") {
   entt::registry registry;
 
   SUBCASE("Damage Popup Animation") {
@@ -42,7 +42,7 @@ TEST_CASE("Visual Effect Tests") {
   }
 }
 
-TEST_CASE("Physics Interaction Logic") {
+TEST_CASE("[Tech] PhysicsSystem - Interaction Logic") {
   entt::registry registry;
   systems::SpatialHashGrid grid(1000, 1000, 50);
 
@@ -56,7 +56,7 @@ TEST_CASE("Physics Interaction Logic") {
   }
 }
 
-TEST_CASE("GPUFlowFieldSystem Logic") {
+TEST_CASE("[Tech] GPUFlowField - System Logic") {
   ResourceManager rm;
   auto &flowSystem = systems::GPUFlowFieldSystem::Get();
   int width = 10, height = 10;
@@ -83,7 +83,7 @@ TEST_CASE("GPUFlowFieldSystem Logic") {
   flowSystem.Shutdown();
 }
 
-TEST_CASE("GPUParticleSystem Shader and Performance") {
+TEST_CASE("[Tech] GPUParticle - Shader and Performance Smoke Test") {
   auto &particleSystem = systems::GPUParticleSystem::Get();
   particleSystem.Init(1000);
 

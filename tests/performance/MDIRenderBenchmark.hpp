@@ -10,7 +10,7 @@
 #include "game/components/Common.hpp"
 #include <chrono>
 
-TEST_CASE("MDI vs Legacy Rendering Benchmark") {
+TEST_CASE("[Performance] MDIRenderer - MDI vs Legacy Rendering Benchmark") {
   // Note: Raylib Window initialized by main.cpp
 
   ResourceManager resources;
