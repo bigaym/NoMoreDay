@@ -12,7 +12,8 @@ struct SkillEffect {
     float type;
 };
 
-layout(std430, binding = 5) buffer SkillEffectBuffer { SkillEffect effects[]; };
+// Binding 来源: RenderConstants::Binding::SSBO_SKILL_EFFECTS (6)
+layout(std430, binding = 6) buffer SkillEffectBuffer { SkillEffect effects[]; };
 
 uniform mat4 mvp;
 

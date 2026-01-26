@@ -1,20 +1,21 @@
 #include "engine/render/RenderSystem.hpp"
-#include "engine/render/ComputeBuffer.hpp" // ADDED
-#include "engine/render/PopupRenderer.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "engine/physics/SpatialGrid.hpp"
+#include "engine/render/ComputeBuffer.hpp" // ADDED
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/PopupRenderer.hpp"
+#include "engine/render/RenderConstants.hpp" // ADDED for Binding constants
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
-#include "game/components/EnemyComponent.hpp" 
+#include "game/components/EnemyComponent.hpp"
 #include "game/components/ItemComponent.hpp"
+#include "game/components/Projectile.hpp"     // For Projectile visualization
+#include "game/components/SkillDefs.hpp"      // For SwordIntentComponent
 #include "game/components/StashComponent.hpp" // ADDED
-#include "game/components/Projectile.hpp" // For Projectile visualization
-#include "game/components/SkillDefs.hpp" // For SwordIntentComponent
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp" // For MoltenTrailTag
@@ -27,87 +28,102 @@
 #include "raymath.h"
 #include <algorithm>
 #include <cmath>
-#include <string>
 #include <iostream>
+#include <string>
 
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "rlgl.h"
 
 // Static Buffers
-std::vector<NoMoreDay::components::GPULabelInstance> RenderSystem::s_labelBuffer;
+std::vector<NoMoreDay::components::GPULabelInstance>
+    RenderSystem::s_labelBuffer;
 std::vector<RenderSystem::TextRenderCmd> RenderSystem::s_textQueue;
-std::vector<RenderSystem::VisibleItemCache::ItemData> RenderSystem::VisibleItemCache::visibleItems; // Phase 1
+std::vector<RenderSystem::VisibleItemCache::ItemData>
+    RenderSystem::VisibleItemCache::visibleItems; // Phase 1
 
 // Static Members Definition
 float RenderSystem::s_trauma = 0.0f;
 Shader RenderSystem::s_labelShader = {0};
 int RenderSystem::s_labelMvpLoc = -1;
-std::unique_ptr<NoMoreDay::core::ComputeBuffer> RenderSystem::s_labelInstanceBuffer = nullptr;
+std::unique_ptr<NoMoreDay::core::ComputeBuffer>
+    RenderSystem::s_labelInstanceBuffer = nullptr;
 
 // Phase 2: Beam Instancing
 struct GPUBeamInstance {
-    Vector2 position;
-    Vector2 size;
-    Vector4 color;
-    float time;
-    float padding[3];
+  Vector2 position;
+  Vector2 size;
+  Vector4 color;
+  float time;
+  float padding[3];
 };
 static Shader s_beamShader = {0};
 static int s_beamMvpLoc = -1;
-static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_beamInstanceBuffer = nullptr;
+static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_beamInstanceBuffer =
+    nullptr;
 static std::vector<GPUBeamInstance> s_beamBuffer;
 
 void RenderSystem::Initialize() {
-    // Load Instanced Label Shader
-    s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert", "assets/shaders/ui/label_instanced.frag");
-    
-    if (s_labelShader.id != 0) {
-        s_labelMvpLoc = GetShaderLocation(s_labelShader, "mvp");
-        TraceLog(LOG_INFO, "RENDER: Loaded Label Instanced Shader (ID: %d)", s_labelShader.id);
-    } else {
-        TraceLog(LOG_ERROR, "RENDER: Failed to load Label Instanced Shader!");
-    }
+  // Load Instanced Label Shader
+  s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert",
+                             "assets/shaders/ui/label_instanced.frag");
 
-    // Initialize SSBO (Binding 4 as per shader)
-    s_labelInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
-    s_labelInstanceBuffer->Create(1000 * sizeof(NoMoreDay::components::GPULabelInstance), nullptr, RL_DYNAMIC_DRAW);
-    s_labelInstanceBuffer->BindBase(4);
-    
-    // Phase 2: Beam Instancing
-    s_beamShader = LoadShader("assets/shaders/vfx/beam_instanced.vert", "assets/shaders/vfx/beam_instanced.frag");
-    if (s_beamShader.id != 0) {
-        s_beamMvpLoc = GetShaderLocation(s_beamShader, "mvp");
-        TraceLog(LOG_INFO, "RENDER: Loaded Beam Instanced Shader (ID: %d)", s_beamShader.id);
-    }
-    s_beamInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
-    s_beamInstanceBuffer->Create(1000 * sizeof(GPUBeamInstance), nullptr, RL_DYNAMIC_DRAW);
-    s_beamInstanceBuffer->BindBase(5);
-    s_beamBuffer.reserve(1000);
+  if (s_labelShader.id != 0) {
+    s_labelMvpLoc = GetShaderLocation(s_labelShader, "mvp");
+    TraceLog(LOG_INFO, "RENDER: Loaded Label Instanced Shader (ID: %d)",
+             s_labelShader.id);
+  } else {
+    TraceLog(LOG_ERROR, "RENDER: Failed to load Label Instanced Shader!");
+  }
 
-    // Reserve vector memory
-    s_labelBuffer.reserve(1000);
-    s_textQueue.reserve(1000);
-    VisibleItemCache::visibleItems.reserve(1000); // Phase 1
+  // Initialize SSBO (RenderConstants::Binding::SSBO_LABEL_INSTANCE)
+  using NoMoreDay::RenderConstants::Binding;
+  s_labelInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
+  s_labelInstanceBuffer->Create(
+      1000 * sizeof(NoMoreDay::components::GPULabelInstance), nullptr,
+      RL_DYNAMIC_DRAW);
+  s_labelInstanceBuffer->BindBase(
+      static_cast<uint32_t>(Binding::SSBO_LABEL_INSTANCE));
+
+  // Phase 2: Beam Instancing
+  s_beamShader = LoadShader("assets/shaders/vfx/beam_instanced.vert",
+                            "assets/shaders/vfx/beam_instanced.frag");
+  if (s_beamShader.id != 0) {
+    s_beamMvpLoc = GetShaderLocation(s_beamShader, "mvp");
+    TraceLog(LOG_INFO, "RENDER: Loaded Beam Instanced Shader (ID: %d)",
+             s_beamShader.id);
+  }
+  // Beam SSBO (RenderConstants::Binding::SSBO_BEAM_INSTANCE)
+  s_beamInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
+  s_beamInstanceBuffer->Create(1000 * sizeof(GPUBeamInstance), nullptr,
+                               RL_DYNAMIC_DRAW);
+  s_beamInstanceBuffer->BindBase(
+      static_cast<uint32_t>(Binding::SSBO_BEAM_INSTANCE));
+  s_beamBuffer.reserve(1000);
+
+  // Reserve vector memory
+  s_labelBuffer.reserve(1000);
+  s_textQueue.reserve(1000);
+  VisibleItemCache::visibleItems.reserve(1000); // Phase 1
 }
 
 void RenderSystem::Shutdown() {
-    if (s_labelShader.id != 0) {
-        UnloadShader(s_labelShader);
-        s_labelShader = {0};
-    }
-    s_labelInstanceBuffer.reset();
-    s_labelBuffer.clear();
-    
-    // Phase 2: Cleanup Beam
-    if (s_beamShader.id != 0) {
-        UnloadShader(s_beamShader);
-        s_beamShader = {0};
-    }
-    s_beamInstanceBuffer.reset();
-    s_beamBuffer.clear();
+  if (s_labelShader.id != 0) {
+    UnloadShader(s_labelShader);
+    s_labelShader = {0};
+  }
+  s_labelInstanceBuffer.reset();
+  s_labelBuffer.clear();
 
-    s_textQueue.clear();
-    VisibleItemCache::Clear(); // Phase 1
+  // Phase 2: Cleanup Beam
+  if (s_beamShader.id != 0) {
+    UnloadShader(s_beamShader);
+    s_beamShader = {0};
+  }
+  s_beamInstanceBuffer.reset();
+  s_beamBuffer.clear();
+
+  s_textQueue.clear();
+  VisibleItemCache::Clear(); // Phase 1
 }
 
 void RenderSystem::AddScreenShake(float intensity) {
@@ -135,9 +151,11 @@ Vector2 RenderSystem::GetShakeOffset() {
   // Simple random noise using GetTime
   float time = (float)GetTime();
   float offsetX =
-      maxOffset * shake * (2.0f * NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) - 1.0f);
+      maxOffset * shake *
+      (2.0f * NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) - 1.0f);
   float offsetY =
-      maxOffset * shake * (2.0f * NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) - 1.0f);
+      maxOffset * shake *
+      (2.0f * NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) - 1.0f);
 
   return {offsetX, offsetY};
 }
@@ -163,35 +181,41 @@ void RenderSystem::render(entt::registry &registry,
 
   // Render Stash Placeholders
   auto playerView = registry.view<PlayerTag, Position>();
-  Vector2 playerPos = {0,0};
+  Vector2 playerPos = {0, 0};
   bool hasPlayer = false;
   if (playerView.begin() != playerView.end()) {
-      playerPos = { playerView.get<Position>(playerView.front()).x, playerView.get<Position>(playerView.front()).y };
-      hasPlayer = true;
+    playerPos = {playerView.get<Position>(playerView.front()).x,
+                 playerView.get<Position>(playerView.front()).y};
+    hasPlayer = true;
   }
 
-  auto stashView = registry.view<const Position, const NoMoreDay::StashPlaceholderRender>();
+  auto stashView =
+      registry.view<const Position, const NoMoreDay::StashPlaceholderRender>();
   for (auto entity : stashView) {
-      const auto& pos = stashView.get<Position>(entity);
-      const auto& render = stashView.get<NoMoreDay::StashPlaceholderRender>(entity);
-      
-      DrawRectangle((int)pos.x, (int)pos.y, (int)render.WIDTH, (int)render.HEIGHT, render.color);
-      
-      // Draw Label
-      const char* label = "Stash";
-      if (auto* interact = registry.try_get<NoMoreDay::StashInteractableComponent>(entity)) {
-          if (interact->type == NoMoreDay::StashType::Shared) label = "Shared Stash";
-      }
-      DrawText(label, (int)pos.x, (int)pos.y - 20, 20, WHITE);
+    const auto &pos = stashView.get<Position>(entity);
+    const auto &render =
+        stashView.get<NoMoreDay::StashPlaceholderRender>(entity);
 
-      // Interaction Prompt
-      if (hasPlayer) {
-          float dx = pos.x - playerPos.x;
-          float dy = pos.y - playerPos.y;
-          if (dx*dx + dy*dy < 100.0f * 100.0f) {
-               DrawText("Press E", (int)pos.x, (int)pos.y - 45, 24, YELLOW);
-          }
+    DrawRectangle((int)pos.x, (int)pos.y, (int)render.WIDTH, (int)render.HEIGHT,
+                  render.color);
+
+    // Draw Label
+    const char *label = "Stash";
+    if (auto *interact =
+            registry.try_get<NoMoreDay::StashInteractableComponent>(entity)) {
+      if (interact->type == NoMoreDay::StashType::Shared)
+        label = "Shared Stash";
+    }
+    DrawText(label, (int)pos.x, (int)pos.y - 20, 20, WHITE);
+
+    // Interaction Prompt
+    if (hasPlayer) {
+      float dx = pos.x - playerPos.x;
+      float dy = pos.y - playerPos.y;
+      if (dx * dx + dy * dy < 100.0f * 100.0f) {
+        DrawText("Press E", (int)pos.x, (int)pos.y - 45, 24, YELLOW);
       }
+    }
   }
 
   // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
@@ -201,12 +225,15 @@ void RenderSystem::render(entt::registry &registry,
       entt::exclude<NoMoreDay::components::HoloBlade>);
 
   for (auto entity : spriteView) {
-    const auto & [pos, sprite] = spriteView.get(entity);
+    const auto &[pos, sprite] = spriteView.get(entity);
 
     // [GPU OFFLOAD] Skip CPU rendering if handled by GPU MDI
-    // Player remains on CPU path as it has special logic and NO_RENDER flag in GPU
-    if (registry.any_of<GPUIndex>(entity) && !registry.any_of<PlayerTag>(entity)) {
-        if (sprite.textureLayerIndex >= 0) continue;
+    // Player remains on CPU path as it has special logic and NO_RENDER flag in
+    // GPU
+    if (registry.any_of<GPUIndex>(entity) &&
+        !registry.any_of<PlayerTag>(entity)) {
+      if (sprite.textureLayerIndex >= 0)
+        continue;
     }
 
     float width = (float)sprite.texture.width * sprite.scale; // 宽度
@@ -219,21 +246,24 @@ void RenderSystem::render(entt::registry &registry,
 
     // [RENDER INTERPOLATION] Smooth movement between physics frames
     // GPU-managed entities use true interpolation: mix(prevPos, pos, alpha)
-    // CPU-driven entities (Players) don't need interpolation as they update every frame.
+    // CPU-driven entities (Players) don't need interpolation as they update
+    // every frame.
     float renderX = pos.x;
     float renderY = pos.y;
-    
-    if (registry.any_of<GPUIndex>(entity) && !registry.any_of<PlayerTag>(entity)) {
-        // For GPU entities, we assume the GPU already stores prevPosition
-        // But since CPU only has Position, we use velocity-based extrapolation as a fallback
-        // The proper fix is handled by MDI shader using SSBO prevPosition
-        // This path is for SpriteComponent entities which bypass MDI rendering
-        if (const auto* vel = registry.try_get<Velocity>(entity)) {
-            // Simple extrapolation based on current alpha
-            // Note: This is a fallback - MDI handles true interpolation in GPU
-            renderX += vel->vx * context.renderAlpha * (1.0f / 60.0f);
-            renderY += vel->vy * context.renderAlpha * (1.0f / 60.0f);
-        }
+
+    if (registry.any_of<GPUIndex>(entity) &&
+        !registry.any_of<PlayerTag>(entity)) {
+      // For GPU entities, we assume the GPU already stores prevPosition
+      // But since CPU only has Position, we use velocity-based extrapolation as
+      // a fallback The proper fix is handled by MDI shader using SSBO
+      // prevPosition This path is for SpriteComponent entities which bypass MDI
+      // rendering
+      if (const auto *vel = registry.try_get<Velocity>(entity)) {
+        // Simple extrapolation based on current alpha
+        // Note: This is a fallback - MDI handles true interpolation in GPU
+        renderX += vel->vx * context.renderAlpha * (1.0f / 60.0f);
+        renderY += vel->vy * context.renderAlpha * (1.0f / 60.0f);
+      }
     }
 
     Rectangle dest = {renderX, renderY, width, height};
@@ -245,32 +275,41 @@ void RenderSystem::render(entt::registry &registry,
     }
 
     // --- Monster Rarity Glow (Underlay) ---
-    if (auto* rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
-        if (rarityComp->rarity > EnemyRarityComponent::NORMAL) {
-            Color glowColor = WHITE;
-            float glowScale = 1.2f;
-            switch (rarityComp->rarity) {
-                case EnemyRarityComponent::CHAMPION: 
-                    glowColor = SKYBLUE; glowScale = 1.3f; break;
-                case EnemyRarityComponent::ELITE: 
-                    glowColor = { 255, 215, 0, 255 }; // Gold
-                    glowScale = 1.5f; break;
-                case EnemyRarityComponent::BOSS: 
-                    glowColor = { 255, 120, 0, 255 }; // Orange
-                    glowScale = 2.0f; break;
-                case EnemyRarityComponent::NEMESIS: 
-                    glowColor = { 220, 20, 60, 255 }; // Crimson
-                    glowScale = 2.5f; break;
-                default: break;
-            }
-            
-            float pulse = 0.85f + 0.15f * sinf((float)GetTime() * 3.0f);
-            float radius = (width > height ? width : height) * 0.6f * glowScale * pulse;
-            
-            // Draw multi-layered glow for premium feel
-            DrawCircleGradient((int)pos.x, (int)pos.y, radius, Fade(glowColor, 0.4f), Fade(glowColor, 0.0f));
-            DrawCircleGradient((int)pos.x, (int)pos.y, radius * 0.6f, Fade(glowColor, 0.6f), Fade(glowColor, 0.0f));
+    if (auto *rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
+      if (rarityComp->rarity > EnemyRarityComponent::NORMAL) {
+        Color glowColor = WHITE;
+        float glowScale = 1.2f;
+        switch (rarityComp->rarity) {
+        case EnemyRarityComponent::CHAMPION:
+          glowColor = SKYBLUE;
+          glowScale = 1.3f;
+          break;
+        case EnemyRarityComponent::ELITE:
+          glowColor = {255, 215, 0, 255}; // Gold
+          glowScale = 1.5f;
+          break;
+        case EnemyRarityComponent::BOSS:
+          glowColor = {255, 120, 0, 255}; // Orange
+          glowScale = 2.0f;
+          break;
+        case EnemyRarityComponent::NEMESIS:
+          glowColor = {220, 20, 60, 255}; // Crimson
+          glowScale = 2.5f;
+          break;
+        default:
+          break;
         }
+
+        float pulse = 0.85f + 0.15f * sinf((float)GetTime() * 3.0f);
+        float radius =
+            (width > height ? width : height) * 0.6f * glowScale * pulse;
+
+        // Draw multi-layered glow for premium feel
+        DrawCircleGradient((int)pos.x, (int)pos.y, radius,
+                           Fade(glowColor, 0.4f), Fade(glowColor, 0.0f));
+        DrawCircleGradient((int)pos.x, (int)pos.y, radius * 0.6f,
+                           Fade(glowColor, 0.6f), Fade(glowColor, 0.0f));
+      }
     }
 
     DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, tint);
@@ -279,10 +318,11 @@ void RenderSystem::render(entt::registry &registry,
   // GPU 粒子渲染
   NoMoreDay::systems::GPUParticleSystem::Get().Render(camera);
   NoMoreDay::systems::GPUEntitySystem::Get().Render(context, camera);
-  
+
   // GPU 伤害飘字渲染
   NoMoreDay::render::PopupRenderer::Get().Update(GetFrameTime());
-  Matrix viewProj = NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(camera);
+  Matrix viewProj =
+      NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(camera);
   NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
 
   // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent)
@@ -318,27 +358,32 @@ void RenderSystem::render(entt::registry &registry,
   }
 
   // 2.3. 渲染熔火区域 (Molten Trail Zones)
-  auto moltenView = registry.view<const Position, const NoMoreDay::MoltenTrailTag, const Radius, const ColorComponent, const DelayedDestroyComponent>();
+  auto moltenView =
+      registry
+          .view<const Position, const NoMoreDay::MoltenTrailTag, const Radius,
+                const ColorComponent, const DelayedDestroyComponent>();
   for (auto entity : moltenView) {
-    const auto& pos = moltenView.get<Position>(entity);
-    const auto& radius = moltenView.get<Radius>(entity);
-    const auto& color = moltenView.get<ColorComponent>(entity);
-    const auto& delayed = moltenView.get<DelayedDestroyComponent>(entity);
-    
+    const auto &pos = moltenView.get<Position>(entity);
+    const auto &radius = moltenView.get<Radius>(entity);
+    const auto &color = moltenView.get<ColorComponent>(entity);
+    const auto &delayed = moltenView.get<DelayedDestroyComponent>(entity);
+
     // Calculate fade based on remaining time
     float lifeRatio = delayed.timer / 3.0f; // Assuming 3s duration
     lifeRatio = std::clamp(lifeRatio, 0.0f, 1.0f);
     float alpha = lifeRatio; // Fade out as time runs out
-    
+
     // Core glow (orange-red)
     Color coreColor = color.color;
     coreColor.a = (unsigned char)(180 * alpha);
-    DrawCircleGradient((int)pos.x, (int)pos.y, radius.value, coreColor, Fade(coreColor, 0.0f));
-    
+    DrawCircleGradient((int)pos.x, (int)pos.y, radius.value, coreColor,
+                       Fade(coreColor, 0.0f));
+
     // Outer ring
     Color ringColor = {255, 50, 0, (unsigned char)(100 * alpha)};
-    DrawRing({pos.x, pos.y}, radius.value * 0.8f, radius.value, 0, 360, 16, ringColor);
-    
+    DrawRing({pos.x, pos.y}, radius.value * 0.8f, radius.value, 0, 360, 16,
+             ringColor);
+
     // Center bright spot
     Color brightSpot = {255, 200, 100, (unsigned char)(200 * alpha)};
     DrawCircle((int)pos.x, (int)pos.y, radius.value * 0.3f, brightSpot);
@@ -478,31 +523,33 @@ void RenderSystem::render(entt::registry &registry,
       break;
     }
     case VisualEffectType::SwordIntentBurst: {
-        // Sword Intent Burst: Ink Splatter + Ring
-        static Texture2D inkTex = {0};
-        if (inkTex.id == 0 && FileExists("assets/textures/vfx/vfx_ink_splatter.png")) {
-             inkTex = LoadTexture("assets/textures/vfx/vfx_ink_splatter.png");
-             SetTextureFilter(inkTex, TEXTURE_FILTER_BILINEAR);
-        }
+      // Sword Intent Burst: Ink Splatter + Ring
+      static Texture2D inkTex = {0};
+      if (inkTex.id == 0 &&
+          FileExists("assets/textures/vfx/vfx_ink_splatter.png")) {
+        inkTex = LoadTexture("assets/textures/vfx/vfx_ink_splatter.png");
+        SetTextureFilter(inkTex, TEXTURE_FILTER_BILINEAR);
+      }
 
-        // 1. Shockwave Ring
-        float radius = currentScale * 50.0f;
-        float thickness = 4.0f * (1.0f - lifeRatio);
-        DrawRing({pos.x, pos.y}, radius, radius + thickness, 0, 360, 32, color);
+      // 1. Shockwave Ring
+      float radius = currentScale * 50.0f;
+      float thickness = 4.0f * (1.0f - lifeRatio);
+      DrawRing({pos.x, pos.y}, radius, radius + thickness, 0, 360, 32, color);
 
-        // 2. Ink Splatter
-        if (inkTex.id != 0) {
-            float spin = lifeRatio * 45.0f; // Slow spin
-            float inkScale = currentScale * 1.5f; 
-            
-            Rectangle src = {0, 0, (float)inkTex.width, (float)inkTex.height};
-            Rectangle dest = {pos.x, pos.y, inkTex.width * inkScale, inkTex.height * inkScale};
-            Vector2 origin = {dest.width/2, dest.height/2};
-            
-            // Cyan tint
-            DrawTexturePro(inkTex, src, dest, origin, spin, Fade(color, 0.8f));
-        }
-        break;
+      // 2. Ink Splatter
+      if (inkTex.id != 0) {
+        float spin = lifeRatio * 45.0f; // Slow spin
+        float inkScale = currentScale * 1.5f;
+
+        Rectangle src = {0, 0, (float)inkTex.width, (float)inkTex.height};
+        Rectangle dest = {pos.x, pos.y, inkTex.width * inkScale,
+                          inkTex.height * inkScale};
+        Vector2 origin = {dest.width / 2, dest.height / 2};
+
+        // Cyan tint
+        DrawTexturePro(inkTex, src, dest, origin, spin, Fade(color, 0.8f));
+      }
+      break;
     }
     default:
       break;
@@ -560,100 +607,102 @@ void RenderSystem::render(entt::registry &registry,
     }
   });
 
-  // --- 5. 绘制物品和金币的世界标签 (Optimization: Instanced SDF Rendering + Batched Text) ---
+  // --- 5. 绘制物品和金币的世界标签 (Optimization: Instanced SDF Rendering +
+  // Batched Text) ---
   {
-  // NoMoreDay::utils::ScopedTimer itemTimer("RenderSystem::ItemsLabels", 100); // Log if > 0.1ms
-  
-  // Clear Queues
-  s_labelBuffer.clear();
-  s_textQueue.clear();
-  s_beamBuffer.clear(); // Phase 2
-  VisibleItemCache::Clear(); // Phase 1
-  
-  // Calculate visible world area (Frustum)
-  Vector2 viewTopLeft = GetScreenToWorld2D({0, 0}, camera);
-  Vector2 viewBottomRight = GetScreenToWorld2D({(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
-  Rectangle viewRect = { viewTopLeft.x - 100, viewTopLeft.y - 100, (viewBottomRight.x - viewTopLeft.x) + 200, (viewBottomRight.y - viewTopLeft.y) + 200 };
+    // NoMoreDay::utils::ScopedTimer itemTimer("RenderSystem::ItemsLabels",
+    // 100); // Log if > 0.1ms
 
-  // Static Quad Mesh (Shared for Instanced Rendering)
-  static Mesh quadMesh = { 0 };
-  if (quadMesh.vertexCount == 0) {
-      Mesh mesh = { 0 };
+    // Clear Queues
+    s_labelBuffer.clear();
+    s_textQueue.clear();
+    s_beamBuffer.clear();      // Phase 2
+    VisibleItemCache::Clear(); // Phase 1
+
+    // Calculate visible world area (Frustum)
+    Vector2 viewTopLeft = GetScreenToWorld2D({0, 0}, camera);
+    Vector2 viewBottomRight = GetScreenToWorld2D(
+        {(float)GetScreenWidth(), (float)GetScreenHeight()}, camera);
+    Rectangle viewRect = {viewTopLeft.x - 100, viewTopLeft.y - 100,
+                          (viewBottomRight.x - viewTopLeft.x) + 200,
+                          (viewBottomRight.y - viewTopLeft.y) + 200};
+
+    // Static Quad Mesh (Shared for Instanced Rendering)
+    static Mesh quadMesh = {0};
+    if (quadMesh.vertexCount == 0) {
+      Mesh mesh = {0};
       mesh.triangleCount = 2;
       mesh.vertexCount = 6;
       mesh.vertices = (float *)MemAlloc(mesh.vertexCount * 3 * sizeof(float));
       mesh.texcoords = (float *)MemAlloc(mesh.vertexCount * 2 * sizeof(float));
-      
-      float vertices[] = {
-          0.0f, 0.0f, 0.0f,
-          0.0f, 1.0f, 0.0f,
-          1.0f, 1.0f, 0.0f,
-          0.0f, 0.0f, 0.0f,
-          1.0f, 1.0f, 0.0f,
-          1.0f, 0.0f, 0.0f
-      };
-      float texcoords[] = {
-          0.0f, 0.0f,
-          0.0f, 1.0f,
-          1.0f, 1.0f,
-          0.0f, 0.0f,
-          1.0f, 1.0f,
-          1.0f, 0.0f
-      };
+
+      float vertices[] = {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f,
+                          0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f};
+      float texcoords[] = {0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+                           0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.0f};
       memcpy(mesh.vertices, vertices, sizeof(vertices));
       memcpy(mesh.texcoords, texcoords, sizeof(texcoords));
       UploadMesh(&mesh, false);
       quadMesh = mesh;
-  }
+    }
 
-  // 1. Item Collection Pass (Cull & Generate Instances)
-  auto itemView = registry.view<NoMoreDay::ItemComponent, Position>();
-  itemView.each([&](entt::entity entity, const auto& item, const auto& pos) {
+    // 1. Item Collection Pass (Cull & Generate Instances)
+    auto itemView = registry.view<NoMoreDay::ItemComponent, Position>();
+    itemView.each([&](entt::entity entity, const auto &item, const auto &pos) {
       // Frustum Culling
-      if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) return;
+      if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect))
+        return;
 
       Color rarityColor = UISystem::GetRarityColor(item.rarity);
       float scale = 1.0f;
       bool emphasized = false;
 
-      const auto* filterResult = registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
+      const auto *filterResult =
+          registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
       if (filterResult) {
-          if (!filterResult->visible) return;
-          if (filterResult->scale > 1.0f) {
-              scale = filterResult->scale;
-              emphasized = true;
-              rarityColor = filterResult->color;
-          }
+        if (!filterResult->visible)
+          return;
+        if (filterResult->scale > 1.0f) {
+          scale = filterResult->scale;
+          emphasized = true;
+          rarityColor = filterResult->color;
+        }
       }
 
       // Font Size Calculation
       int fontSize = (int)(18.0f * scale * fontScale);
-      if (fontSize < 12) fontSize = 12;
+      if (fontSize < 12)
+        fontSize = 12;
 
       // Cache Text Size
-      auto& labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
+      auto &labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
       if (!labelCache.isValid || labelCache.lastFontSize != fontSize) {
-          labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, item.name.c_str(), (float)fontSize, 1.0f) : Vector2{(float)MeasureText(item.name.c_str(), fontSize), (float)fontSize};
-          labelCache.lastFontSize = fontSize;
-          labelCache.isValid = true;
+        labelCache.cachedSize =
+            IsFontValid(font)
+                ? MeasureTextEx(font, item.name.c_str(), (float)fontSize, 1.0f)
+                : Vector2{(float)MeasureText(item.name.c_str(), fontSize),
+                          (float)fontSize};
+        labelCache.lastFontSize = fontSize;
+        labelCache.isValid = true;
       }
-      
+
       // Calculate Layout
       Vector2 textSize = labelCache.cachedSize;
       Vector2 textPos = {pos.x - textSize.x / 2.0f, pos.y - 30.0f * scale};
-      Rectangle bgRect = {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4};
-      
+      Rectangle bgRect = {textPos.x - 4, textPos.y - 2, textSize.x + 8,
+                          textSize.y + 4};
+
       // Phase 2: Beam Instancing
       if (item.rarity >= NoMoreDay::Rarity::Rare || emphasized) {
-          float beamWidth = 24.0f * scale;
-          float beamHeight = 120.0f * scale;
-          
-          GPUBeamInstance beamInst;
-          beamInst.position = {pos.x, pos.y};
-          beamInst.size = {beamWidth, beamHeight};
-          beamInst.color = ColorNormalize(rarityColor);
-          beamInst.time = (float)GetTime();
-          s_beamBuffer.push_back(beamInst);
+        float beamWidth = 24.0f * scale;
+        float beamHeight = 120.0f * scale;
+
+        GPUBeamInstance beamInst;
+        beamInst.position = {pos.x, pos.y};
+        beamInst.size = {beamWidth, beamHeight};
+        beamInst.color = ColorNormalize(rarityColor);
+        beamInst.time = (float)GetTime();
+        s_beamBuffer.push_back(beamInst);
       }
 
       // Push GPU Instance (Background + Border)
@@ -662,38 +711,50 @@ void RenderSystem::render(entt::registry &registry,
       instance.position = {bgRect.x, bgRect.y}; // Top-Left of quad
       instance.size = {bgRect.width, bgRect.height};
       instance.bgColor = ColorNormalize(Fade(BLACK, 0.7f));
-      instance.borderColor = ColorNormalize(isHovered ? WHITE : ColorAlpha(rarityColor, 0.5f));
+      instance.borderColor =
+          ColorNormalize(isHovered ? WHITE : ColorAlpha(rarityColor, 0.5f));
       instance.borderWidth = isHovered ? 2.0f : 1.0f;
       instance.cornerRadius = 4.0f; // Rounded corners
       s_labelBuffer.push_back(instance);
-      
+
       // Phase 1: Populate Shared Cache
-      VisibleItemCache::visibleItems.push_back({entity, bgRect}); // Store World Space Rect
+      VisibleItemCache::visibleItems.push_back(
+          {entity, bgRect}); // Store World Space Rect
 
       // Push Text Command
-      s_textQueue.push_back({textPos, item.name.c_str(), (float)fontSize, rarityColor, false});
-  });
+      s_textQueue.push_back(
+          {textPos, item.name.c_str(), (float)fontSize, rarityColor, false});
+    });
 
-  // 2. Gold Collection Pass
-  auto goldView = registry.view<GoldComponent, Position>();
-  goldView.each([&](entt::entity entity, const auto& gold, const auto& pos) {
-      if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) return;
+    // 2. Gold Collection Pass
+    auto goldView = registry.view<GoldComponent, Position>();
+    goldView.each([&](entt::entity entity, const auto &gold, const auto &pos) {
+      if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect))
+        return;
 
       int fontSize = (int)(16.0f * fontScale);
-      if (fontSize < 10) fontSize = 10;
-      
-      auto& labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
+      if (fontSize < 10)
+        fontSize = 10;
+
+      auto &labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
       if (!labelCache.isValid || labelCache.lastFontSize != fontSize) {
-          snprintf(labelCache.cachedText, sizeof(labelCache.cachedText), "%d 金币", gold.amount);
-          labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, labelCache.cachedText, (float)fontSize, 1.0f) : Vector2{(float)MeasureText(labelCache.cachedText, fontSize), (float)fontSize};
-          labelCache.lastFontSize = fontSize;
-          labelCache.isValid = true;
+        snprintf(labelCache.cachedText, sizeof(labelCache.cachedText),
+                 "%d 金币", gold.amount);
+        labelCache.cachedSize =
+            IsFontValid(font)
+                ? MeasureTextEx(font, labelCache.cachedText, (float)fontSize,
+                                1.0f)
+                : Vector2{(float)MeasureText(labelCache.cachedText, fontSize),
+                          (float)fontSize};
+        labelCache.lastFontSize = fontSize;
+        labelCache.isValid = true;
       }
-      
+
       Vector2 textSize = labelCache.cachedSize;
       Vector2 textPos = {pos.x - textSize.x / 2.0f, pos.y - 25.0f};
-      Rectangle bgRect = {textPos.x - 4, textPos.y - 2, textSize.x + 8, textSize.y + 4};
-      
+      Rectangle bgRect = {textPos.x - 4, textPos.y - 2, textSize.x + 8,
+                          textSize.y + 4};
+
       // Push GPU Instance
       NoMoreDay::components::GPULabelInstance instance;
       instance.position = {bgRect.x, bgRect.y};
@@ -703,89 +764,100 @@ void RenderSystem::render(entt::registry &registry,
       instance.borderWidth = 1.0f;
       instance.cornerRadius = 4.0f;
       s_labelBuffer.push_back(instance);
-      
-      // Push Text Command
-      s_textQueue.push_back({textPos, labelCache.cachedText, (float)fontSize, GOLD, false});
-  });
 
-  // 3. Rendering Pass: Beams (Instanced)
-  if (!s_beamBuffer.empty() && s_beamShader.id != 0 && s_beamInstanceBuffer) {
+      // Push Text Command
+      s_textQueue.push_back(
+          {textPos, labelCache.cachedText, (float)fontSize, GOLD, false});
+    });
+
+    // 3. Rendering Pass: Beams (Instanced)
+    if (!s_beamBuffer.empty() && s_beamShader.id != 0 && s_beamInstanceBuffer) {
       size_t requiredSize = s_beamBuffer.size() * sizeof(GPUBeamInstance);
-      
+
       // Upload Data
       if (requiredSize > s_beamInstanceBuffer->GetSize()) {
-          s_beamInstanceBuffer->Create(requiredSize * 2, s_beamBuffer.data(), RL_DYNAMIC_DRAW);
+        s_beamInstanceBuffer->Create(requiredSize * 2, s_beamBuffer.data(),
+                                     RL_DYNAMIC_DRAW);
       } else {
-          s_beamInstanceBuffer->OrphanAndUpload(s_beamBuffer.data(), requiredSize, RL_DYNAMIC_DRAW);
+        s_beamInstanceBuffer->OrphanAndUpload(s_beamBuffer.data(), requiredSize,
+                                              RL_DYNAMIC_DRAW);
       }
-      s_beamInstanceBuffer->BindBase(5);
-      
+      s_beamInstanceBuffer->BindBase(static_cast<uint32_t>(
+          NoMoreDay::RenderConstants::Binding::SSBO_BEAM_INSTANCE));
+
       // Draw Instanced
       BeginShaderMode(s_beamShader);
-      
+
       // MVP
       Matrix matMvp = rlGetMatrixModelview();
       Matrix matProj = rlGetMatrixProjection();
       Matrix matMvpFinal = MatrixMultiply(matMvp, matProj);
       SetShaderValueMatrix(s_beamShader, s_beamMvpLoc, matMvpFinal);
-      
+
       // Reuse Quad Mesh Logic (Static init)
       rlEnableVertexArray(quadMesh.vaoId);
       rlDrawVertexArrayInstanced(0, 6, (int)s_beamBuffer.size());
       rlDisableVertexArray();
-      
-      EndShaderMode();
-  }
 
-  // 4. Rendering Pass: Instanced Backgrounds (The Optimization)
-  if (!s_labelBuffer.empty() && s_labelShader.id != 0 && s_labelInstanceBuffer) {
+      EndShaderMode();
+    }
+
+    // 4. Rendering Pass: Instanced Backgrounds (The Optimization)
+    if (!s_labelBuffer.empty() && s_labelShader.id != 0 &&
+        s_labelInstanceBuffer) {
       // 4.1 Upload Data (Orphaning for performance)
-      size_t requiredSize = s_labelBuffer.size() * sizeof(NoMoreDay::components::GPULabelInstance);
-      
-      // Ensure capacity covers requirement, but prefer OrphanAndUpload for sync-free updates
+      size_t requiredSize = s_labelBuffer.size() *
+                            sizeof(NoMoreDay::components::GPULabelInstance);
+
+      // Ensure capacity covers requirement, but prefer OrphanAndUpload for
+      // sync-free updates
       if (requiredSize > s_labelInstanceBuffer->GetSize()) {
-          // Resize if needed (Create calls glBufferData internally which orphans)
-          s_labelInstanceBuffer->Create(requiredSize * 2, s_labelBuffer.data(), RL_DYNAMIC_DRAW);
+        // Resize if needed (Create calls glBufferData internally which orphans)
+        s_labelInstanceBuffer->Create(requiredSize * 2, s_labelBuffer.data(),
+                                      RL_DYNAMIC_DRAW);
       } else {
-          // Use Orphan strategy on existing buffer
-          s_labelInstanceBuffer->OrphanAndUpload(s_labelBuffer.data(), requiredSize, RL_DYNAMIC_DRAW);
+        // Use Orphan strategy on existing buffer
+        s_labelInstanceBuffer->OrphanAndUpload(s_labelBuffer.data(),
+                                               requiredSize, RL_DYNAMIC_DRAW);
       }
-      s_labelInstanceBuffer->BindBase(4);
+      s_labelInstanceBuffer->BindBase(static_cast<uint32_t>(
+          NoMoreDay::RenderConstants::Binding::SSBO_LABEL_INSTANCE));
 
       // 4.2 Draw Instanced
       BeginShaderMode(s_labelShader);
-      
+
       // Set MVP (Orthographic Projection)
       Matrix matMvp = rlGetMatrixModelview();
       Matrix matProj = rlGetMatrixProjection();
       Matrix matMvpFinal = MatrixMultiply(matMvp, matProj);
       SetShaderValueMatrix(s_labelShader, s_labelMvpLoc, matMvpFinal);
-      
+
       // Draw using rlgl abstraction
       rlEnableVertexArray(quadMesh.vaoId);
       rlDrawVertexArrayInstanced(0, 6, (int)s_labelBuffer.size());
       rlDisableVertexArray();
-      
-      EndShaderMode();
-  }
 
-  // 5. Rendering Pass: Text (Batched by Raylib)
-  if (IsFontValid(font)) {
-      for (const auto& cmd : s_textQueue) {
-          DrawTextEx(font, cmd.text, cmd.position, cmd.fontSize, 1.0f, cmd.color);
+      EndShaderMode();
+    }
+
+    // 5. Rendering Pass: Text (Batched by Raylib)
+    if (IsFontValid(font)) {
+      for (const auto &cmd : s_textQueue) {
+        DrawTextEx(font, cmd.text, cmd.position, cmd.fontSize, 1.0f, cmd.color);
       }
-  } else {
-      for (const auto& cmd : s_textQueue) {
-          DrawText(cmd.text, (int)cmd.position.x, (int)cmd.position.y, (int)cmd.fontSize, cmd.color);
+    } else {
+      for (const auto &cmd : s_textQueue) {
+        DrawText(cmd.text, (int)cmd.position.x, (int)cmd.position.y,
+                 (int)cmd.fontSize, cmd.color);
       }
-  }
+    }
   } // End of itemTimer scope
 
   // 6. Debug: GPU Flow Field Visualization
   auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
   if (flowSystem.m_debugDraw) {
     flowSystem.SyncToCPU();
-    const std::vector<Vector2>& flowField = flowSystem.GetFlowFieldCPU();
+    const std::vector<Vector2> &flowField = flowSystem.GetFlowFieldCPU();
     int width = flowSystem.GetWidth();
     int height = flowSystem.GetHeight();
     Vector2 origin = flowSystem.GetGridOrigin();

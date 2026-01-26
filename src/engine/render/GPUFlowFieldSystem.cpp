@@ -1,8 +1,9 @@
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+// RenderConstants::FlowFieldCS defines binding point semantics
+#include "engine/render/RenderConstants.hpp"
 #include "rlgl.h"
-
 
 namespace NoMoreDay::systems {
 
@@ -31,8 +32,9 @@ void GPUFlowFieldSystem::Init(ResourceManager &resources, int width,
   // 1. Cost Buffer (uint32_t for alignment)
   // Initialize with 255 (Wall)
   m_costBuffer.Create(cellCount * sizeof(uint32_t));
-  uint32_t* costPtr = (uint32_t*)m_costBuffer.BeginWrite();
-  for(size_t i=0; i<cellCount; ++i) costPtr[i] = 255;
+  uint32_t *costPtr = (uint32_t *)m_costBuffer.BeginWrite();
+  for (size_t i = 0; i < cellCount; ++i)
+    costPtr[i] = 255;
   m_costBuffer.Flush();
 
   // 2. Density Buffer
@@ -51,8 +53,9 @@ void GPUFlowFieldSystem::Init(ResourceManager &resources, int width,
   // 3. Flow Buffer (Vector2)
   // Initialize with zero
   m_flowBuffer.Create(cellCount * sizeof(Vector2));
-  Vector2* flowPtr = (Vector2*)m_flowBuffer.BeginWrite();
-  for(size_t i=0; i<cellCount; ++i) flowPtr[i] = {0.0f, 0.0f};
+  Vector2 *flowPtr = (Vector2 *)m_flowBuffer.BeginWrite();
+  for (size_t i = 0; i < cellCount; ++i)
+    flowPtr[i] = {0.0f, 0.0f};
   m_flowBuffer.Flush();
 
   // Initialize Shadow Buffer
@@ -74,21 +77,23 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
                         (targetPos.y - gridOrigin.y) / m_cellSize};
   // Simply casting to int is enough for comparison validation
   // We want to update if we move to a NEW cell, or if the grid shifts.
-  
-  bool gridChanged = (gridOrigin.x != m_lastGridOrigin.x || gridOrigin.y != m_lastGridOrigin.y);
-  // Important: Check integer grid coords for target. Float noise shouldn't trigger update.
-  bool targetChanged = ((int)targetGrid.x != (int)m_lastTargetGridPos.x || 
+
+  bool gridChanged = (gridOrigin.x != m_lastGridOrigin.x ||
+                      gridOrigin.y != m_lastGridOrigin.y);
+  // Important: Check integer grid coords for target. Float noise shouldn't
+  // trigger update.
+  bool targetChanged = ((int)targetGrid.x != (int)m_lastTargetGridPos.x ||
                         (int)targetGrid.y != (int)m_lastTargetGridPos.y);
 
   if (!m_forceUpdate && !gridChanged && !targetChanged) {
-      // Optimization: Inputs haven't changed significantly, skip heavy compute.
-      // We still update m_gridOrigin for consistency if it drifts micro-amounts?
-      // No, if we skip, we assume m_gridOrigin matches what's on GPU.
-      return;
+    // Optimization: Inputs haven't changed significantly, skip heavy compute.
+    // We still update m_gridOrigin for consistency if it drifts micro-amounts?
+    // No, if we skip, we assume m_gridOrigin matches what's on GPU.
+    return;
   }
 
   m_lastGridOrigin = gridOrigin;
-  m_lastTargetGridPos = { (float)(int)targetGrid.x, (float)(int)targetGrid.y };
+  m_lastTargetGridPos = {(float)(int)targetGrid.x, (float)(int)targetGrid.y};
   m_forceUpdate = false;
 
   m_gridOrigin = gridOrigin;
@@ -119,25 +124,26 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
     }
   }
 
-  uint32_t* costPtr = (uint32_t*)m_costBuffer.BeginWrite();
+  uint32_t *costPtr = (uint32_t *)m_costBuffer.BeginWrite();
   memcpy(costPtr, m_costCache.data(), m_costCache.size() * sizeof(uint32_t));
   m_costBuffer.Flush();
 
-  // Bind Buffers to Bindings (Must match shader layout binding = X)
+  // Bind Buffers to Bindings (RenderConstants::FlowFieldCS semantics)
   // Binding 0: Cost (readonly)
   // Binding 1: Integration (readwrite)
   // Binding 2: Flow (writeonly)
-  m_costBuffer.BindBase(0);
-  m_integrationBuffer.BindBase(1);
-  m_flowBuffer.BindBase(2);
+  using namespace NoMoreDay::RenderConstants;
+  m_costBuffer.BindBase(FlowFieldCS::COST_FIELD);
+  m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
+  m_flowBuffer.BindBase(FlowFieldCS::FLOW_FIELD);
 
   // 1. Reset Integration Field
   rlEnableShader(m_resetShader.id);
 
-  m_integrationBuffer.BindBase(1);
+  m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
 
   // Vector2 targetGrid already calculated at top of function
-  
+
   int locW = rlGetLocationUniform(m_resetShader.id, "width");
   int locH = rlGetLocationUniform(m_resetShader.id, "height");
   int locTarget = rlGetLocationUniform(m_resetShader.id, "targetPos");
@@ -150,10 +156,10 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
   rlSetUniform(locTarget, targetIVec, RL_SHADER_UNIFORM_IVEC2, 1);
 
-  m_integrationBuffer.BindBase(1);
+  m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
   rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
 
-  m_integrationBuffer2.BindBase(1);
+  m_integrationBuffer2.BindBase(FlowFieldCS::INTEGRATION_READ);
   rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
 
   utils::GPUUtils::MemoryBarrier();
@@ -169,17 +175,18 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   if (locWeight >= 0)
     rlSetUniform(locWeight, &m_densityWeight, RL_SHADER_UNIFORM_FLOAT, 1);
 
-  int passes = 64; // Reduced from 256 for performance, 64 is usually enough for local propagation
+  int passes = 64; // Reduced from 256 for performance, 64 is usually enough for
+                   // local propagation
 
   for (int i = 0; i < passes; ++i) {
     bool isEven = (i % 2 == 0);
     const auto &readBuf = isEven ? m_integrationBuffer : m_integrationBuffer2;
     const auto &writeBuf = isEven ? m_integrationBuffer2 : m_integrationBuffer;
 
-    m_costBuffer.BindBase(0);
-    readBuf.BindBase(1);
-    m_densityBuffer.BindBase(3);
-    writeBuf.BindBase(4);
+    m_costBuffer.BindBase(FlowFieldCS::COST_FIELD);
+    readBuf.BindBase(FlowFieldCS::INTEGRATION_READ);
+    m_densityBuffer.BindBase(FlowFieldCS::DENSITY_FIELD);
+    writeBuf.BindBase(FlowFieldCS::INTEGRATION_WRITE);
 
     rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
     // Explicitly only sync SSBO writes
@@ -193,31 +200,34 @@ void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
   rlSetUniform(locW, &m_width, RL_SHADER_UNIFORM_INT, 1);
   rlSetUniform(locH, &m_height, RL_SHADER_UNIFORM_INT, 1);
 
-  m_integrationBuffer.BindBase(1);
-  m_flowBuffer.BindBase(2);
+  m_integrationBuffer.BindBase(FlowFieldCS::INTEGRATION_READ);
+  m_flowBuffer.BindBase(FlowFieldCS::FLOW_FIELD);
 
   rlComputeShaderDispatch((m_width + 15) / 16, (m_height + 15) / 16, 1);
   utils::GPUUtils::MemoryBarrier();
 
   rlDisableShader();
-  
+
   m_costBuffer.Lock();
   m_flowBuffer.Lock();
 }
 
-void GPUFlowFieldSystem::UpdateCrowdDensity(const render::PersistentBuffer &entityBuffer,
-                                            int entityCount, float cellSize) {
+void GPUFlowFieldSystem::UpdateCrowdDensity(
+    const render::PersistentBuffer &entityBuffer, int entityCount,
+    float cellSize) {
   if (m_width <= 0 || m_height <= 0)
     return;
 
   int numCells = m_width * m_height;
 
+  using namespace NoMoreDay::RenderConstants;
   // 1. Clear density buffer
   rlEnableShader(m_gridClearShader.id);
   int locNumCells = rlGetLocationUniform(m_gridClearShader.id, "numCells");
   rlSetUniform(locNumCells, &numCells, RL_SHADER_UNIFORM_INT, 1);
 
-  m_densityBuffer.BindBase(2); // grid_clear uses binding 2
+  m_densityBuffer.BindBase(
+      FlowFieldCS::FLOW_FIELD); // grid_clear uses binding 2
   rlComputeShaderDispatch((numCells + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
@@ -234,8 +244,10 @@ void GPUFlowFieldSystem::UpdateCrowdDensity(const render::PersistentBuffer &enti
   rlSetUniform(rlGetLocationUniform(m_gridCountShader.id, "gridOrigin"),
                &m_gridOrigin, RL_SHADER_UNIFORM_VEC2, 1);
 
-  entityBuffer.BindBase(1);     // grid_count uses binding 1 for entities
-  m_densityBuffer.BindBase(2); // and binding 2 for cell counts
+  entityBuffer.BindBase(
+      FlowFieldCS::INTEGRATION_READ); // grid_count uses binding 1 for entities
+  m_densityBuffer.BindBase(
+      FlowFieldCS::FLOW_FIELD); // and binding 2 for cell counts
 
   rlComputeShaderDispatch((entityCount + 255) / 256, 1, 1);
   utils::GPUUtils::MemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);

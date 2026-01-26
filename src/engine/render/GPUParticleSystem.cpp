@@ -1,13 +1,15 @@
 #include "engine/render/GPUParticleSystem.hpp"
-#include "game/components/Common.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "game/components/Common.hpp"
+
+// RenderConstants::ParticleCS defines binding point semantics
+#include "engine/render/RenderConstants.hpp"
 #include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <rlgl.h>
 #include <sstream>
-
 
 // For glfwGetProcAddress
 #include <GLFW/glfw3.h>
@@ -171,17 +173,18 @@ void GPUParticleSystem::CreateBuffers() {
 
   // Emission Buffer (Triple Buffered)
   using namespace NoMoreDay::Constants::Render;
-  m_emissionBuffer.Create(PARTICLE_STAGING_RESERVE * sizeof(components::GPUParticle));
+  m_emissionBuffer.Create(PARTICLE_STAGING_RESERVE *
+                          sizeof(components::GPUParticle));
 
   std::ifstream emitFile("assets/shaders/particle_emit.compute");
   if (emitFile.is_open()) {
-      std::stringstream ss;
-      ss << emitFile.rdbuf();
-      unsigned int shId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
-      if (shId) {
-          m_emitShader.id = rlLoadComputeShaderProgram(shId);
-          m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
-      }
+    std::stringstream ss;
+    ss << emitFile.rdbuf();
+    unsigned int shId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
+    if (shId) {
+      m_emitShader.id = rlLoadComputeShaderProgram(shId);
+      m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
+    }
   }
 }
 
@@ -228,14 +231,15 @@ void GPUParticleSystem::EmitBatch(
     const std::vector<components::GPUParticle> &particles) {
   if (particles.empty())
     return;
-  
-  std::lock_guard<std::mutex> lock(m_emitMutex); 
+
+  std::lock_guard<std::mutex> lock(m_emitMutex);
   // Optimization: Resize once
   size_t freeSpace = (size_t)m_maxParticles - m_stagedParticles.size();
   size_t toAdd = std::min(particles.size(), freeSpace);
-  
+
   if (toAdd > 0) {
-      m_stagedParticles.insert(m_stagedParticles.end(), particles.begin(), particles.begin() + toAdd);
+    m_stagedParticles.insert(m_stagedParticles.end(), particles.begin(),
+                             particles.begin() + toAdd);
   }
 }
 
@@ -247,10 +251,13 @@ void GPUParticleSystem::Update(float dt) {
   core::ComputeBuffer &bufIn = m_pingPong ? m_compactBuffer : m_particleBuffer;
   core::ComputeBuffer &bufOut = m_pingPong ? m_particleBuffer : m_compactBuffer;
 
-  // 0.1 Async Readback from the "Ping" buffer (which was written to in Frame N-1)
-  core::ComputeBuffer &readCounter = m_atomicPingPong ? m_atomicBufferPong : m_atomicBufferPing;
-  core::ComputeBuffer &writeCounter = m_atomicPingPong ? m_atomicBufferPing : m_atomicBufferPong;
-  
+  // 0.1 Async Readback from the "Ping" buffer (which was written to in Frame
+  // N-1)
+  core::ComputeBuffer &readCounter =
+      m_atomicPingPong ? m_atomicBufferPong : m_atomicBufferPing;
+  core::ComputeBuffer &writeCounter =
+      m_atomicPingPong ? m_atomicBufferPing : m_atomicBufferPong;
+
   // Non-blocking read (data should be ready from previous frame)
   readCounter.Read(&m_lastKnownAliveCount, sizeof(uint32_t));
 
@@ -262,19 +269,22 @@ void GPUParticleSystem::Update(float dt) {
   rlEnableShader(m_computeShader.id);
 
   using namespace NoMoreDay::Constants::Render;
-  float clampedDt = (dt > MAX_DELTA_TIME_PARTICLES) ? DEFAULT_DELTA_TIME_PARTICLES : dt;
+  float clampedDt =
+      (dt > MAX_DELTA_TIME_PARTICLES) ? DEFAULT_DELTA_TIME_PARTICLES : dt;
   rlSetUniform(m_computeDtLoc, &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);
   rlSetUniform(m_computeTotalLoc, &m_currentParticleCount,
                RL_SHADER_UNIFORM_INT, 1);
 
-  // Bind SSBOs
-  bufIn.BindBase(0);  
-  bufOut.BindBase(1); 
-  m_indirectBuffer.BindBase(2);
-  writeCounter.BindBase(3); // Write to CURRENT counter
+  // Bind SSBOs (RenderConstants::ParticleCS semantics)
+  using namespace NoMoreDay::RenderConstants;
+  bufIn.BindBase(ParticleCS::PARTICLES_IN);
+  bufOut.BindBase(ParticleCS::PARTICLES_OUT);
+  m_indirectBuffer.BindBase(ParticleCS::INDIRECT_CMD);
+  writeCounter.BindBase(ParticleCS::ATOMIC_COUNT); // Write to CURRENT counter
 
   // Dispatch
-  int workGroups = (m_currentParticleCount + (WORKGROUP_SIZE_PARTICLES - 1)) / WORKGROUP_SIZE_PARTICLES;
+  int workGroups = (m_currentParticleCount + (WORKGROUP_SIZE_PARTICLES - 1)) /
+                   WORKGROUP_SIZE_PARTICLES;
   if (workGroups > 0) {
     rlComputeShaderDispatch(workGroups, 1, 1);
   }
@@ -287,48 +297,52 @@ void GPUParticleSystem::Update(float dt) {
   uint32_t totalAfterEmission = survivors;
 
   if (!m_stagedParticles.empty()) {
-      int newCount = (int)m_stagedParticles.size();
-      
-      // Soft limit: if we are near capacity, drop some new particles
-      if (survivors + newCount > (uint32_t)m_maxParticles * 0.95f) {
-          int allowed = std::max(0, (int)(m_maxParticles * 0.95f) - (int)survivors);
-          if (allowed < newCount) {
-              LOG_WARN("GPUParticleSystem: Approaching limit ({} / {}). Dropping {} particles.", 
-                       survivors, m_maxParticles, newCount - allowed);
-              newCount = allowed;
-          }
+    int newCount = (int)m_stagedParticles.size();
+
+    // Soft limit: if we are near capacity, drop some new particles
+    if (survivors + newCount > (uint32_t)m_maxParticles * 0.95f) {
+      int allowed = std::max(0, (int)(m_maxParticles * 0.95f) - (int)survivors);
+      if (allowed < newCount) {
+        LOG_WARN("GPUParticleSystem: Approaching limit ({} / {}). Dropping {} "
+                 "particles.",
+                 survivors, m_maxParticles, newCount - allowed);
+        newCount = allowed;
       }
+    }
 
-      if (newCount > 0 && m_emitShader.id != 0) {
-          // Upload to Persistent Buffer
-          components::GPUParticle* mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
-          if (mappedPtr) {
-              memcpy(mappedPtr, m_stagedParticles.data(), newCount * sizeof(components::GPUParticle));
-          }
-          m_emissionBuffer.Flush();
-
-          // Dispatch Emit Shader
-          rlEnableShader(m_emitShader.id);
-          rlSetUniform(m_emitCountLoc, &newCount, RL_SHADER_UNIFORM_INT, 1);
-          
-          m_emissionBuffer.BindBase(0); 
-          bufOut.BindBase(1);           
-          writeCounter.BindBase(3);   // Increment CURRENT counter
-          
-          int workGroups = (newCount + 255) / 256;
-          rlComputeShaderDispatch(workGroups, 1, 1);
-          utils::GPUUtils::MemoryBarrier();
-          rlDisableShader();
-
-          m_emissionBuffer.Lock();
-          totalAfterEmission += newCount;
+    if (newCount > 0 && m_emitShader.id != 0) {
+      // Upload to Persistent Buffer
+      components::GPUParticle *mappedPtr =
+          (components::GPUParticle *)m_emissionBuffer.BeginWrite();
+      if (mappedPtr) {
+        memcpy(mappedPtr, m_stagedParticles.data(),
+               newCount * sizeof(components::GPUParticle));
       }
-      m_stagedParticles.clear();
+      m_emissionBuffer.Flush();
+
+      // Dispatch Emit Shader
+      rlEnableShader(m_emitShader.id);
+      rlSetUniform(m_emitCountLoc, &newCount, RL_SHADER_UNIFORM_INT, 1);
+
+      m_emissionBuffer.BindBase(ParticleCS::PARTICLES_IN);
+      bufOut.BindBase(ParticleCS::PARTICLES_OUT);
+      writeCounter.BindBase(
+          ParticleCS::ATOMIC_COUNT); // Increment CURRENT counter
+
+      int workGroups = (newCount + 255) / 256;
+      rlComputeShaderDispatch(workGroups, 1, 1);
+      utils::GPUUtils::MemoryBarrier();
+      rlDisableShader();
+
+      m_emissionBuffer.Lock();
+      totalAfterEmission += newCount;
+    }
+    m_stagedParticles.clear();
   }
 
   // 4. Update Indirect Buffer for rendering using async counts
   // This ensure the RENDER step (which happens AFTER Update) uses valid counts.
-  DrawArraysIndirectCommand cmd = { 6, totalAfterEmission, 0, 0 };
+  DrawArraysIndirectCommand cmd = {6, totalAfterEmission, 0, 0};
   m_indirectBuffer.Update(&cmd, sizeof(cmd));
 
   // 5. Update state for next frame
@@ -385,9 +399,10 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   // Since we flipped m_pingPong at the end of Update, the valid data is in the
   // buffer that was the Output (which matches the NEW value of m_pingPong
   // logic)
+  using namespace NoMoreDay::RenderConstants;
   core::ComputeBuffer &bufferToRender =
       m_pingPong ? m_compactBuffer : m_particleBuffer;
-  bufferToRender.BindBase(0);
+  bufferToRender.BindBase(ParticleCS::PARTICLES_IN);
 
   // Enable VAO
   rlEnableVertexArray(m_quadVAO);
@@ -437,7 +452,7 @@ InkEffectHelper::CreateInkSplash(Vector2 pos, int count, float radius,
   return res;
 }
 
-void InkEffectHelper::AppendInkSplash(std::vector<components::GPUParticle>& res,
+void InkEffectHelper::AppendInkSplash(std::vector<components::GPUParticle> &res,
                                       Vector2 pos, int count, float radius,
                                       float force) {
   // Color palette for variety
@@ -498,14 +513,14 @@ InkEffectHelper::CreateProjectileTrail(Vector2 pos, Vector2 dir,
                                        float trailLength, int count) {
   std::vector<components::GPUParticle> res;
   res.reserve(count * 2);
-  AppendProjectileTrail(res, pos, dir, coreColor, glowColor, trailLength, count);
+  AppendProjectileTrail(res, pos, dir, coreColor, glowColor, trailLength,
+                        count);
   return res;
 }
 
 void InkEffectHelper::AppendProjectileTrail(
-    std::vector<components::GPUParticle>& res,
-    Vector2 pos, Vector2 dir, Color coreColor, Color glowColor,
-    float trailLength, int count) {
+    std::vector<components::GPUParticle> &res, Vector2 pos, Vector2 dir,
+    Color coreColor, Color glowColor, float trailLength, int count) {
 
   // Normalize direction
   float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
@@ -560,9 +575,8 @@ InkEffectHelper::CreateDashEffect(Vector2 startPos, Vector2 dir, Color color,
 }
 
 void InkEffectHelper::AppendDashEffect(
-    std::vector<components::GPUParticle>& res,
-    Vector2 startPos, Vector2 dir, Color color,
-    float dashLength, int count) {
+    std::vector<components::GPUParticle> &res, Vector2 startPos, Vector2 dir,
+    Color color, float dashLength, int count) {
 
   // Normalize direction
   float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
@@ -615,9 +629,8 @@ InkEffectHelper::CreateAreaEffect(Vector2 center, float radius, Color coreColor,
 }
 
 void InkEffectHelper::AppendAreaEffect(
-    std::vector<components::GPUParticle>& res,
-    Vector2 center, float radius, Color coreColor,
-    Color edgeColor, int count, float duration) {
+    std::vector<components::GPUParticle> &res, Vector2 center, float radius,
+    Color coreColor, Color edgeColor, int count, float duration) {
 
   for (int i = 0; i < count; ++i) {
     // Random position within area (uniform distribution)
@@ -673,8 +686,8 @@ InkEffectHelper::CreateSlashEffect(Vector2 pos, Vector2 dir, Color color,
 }
 
 void InkEffectHelper::AppendSlashEffect(
-    std::vector<components::GPUParticle>& res,
-    Vector2 pos, Vector2 dir, Color color, float length) {
+    std::vector<components::GPUParticle> &res, Vector2 pos, Vector2 dir,
+    Color color, float length) {
 
   // Normalize direction
   float len = sqrtf(dir.x * dir.x + dir.y * dir.y);

@@ -381,7 +381,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## [x] Track: Legendary Core Stash Unblock
 - **Folder:** [./conductor/archive/fix-legendary-core-stash/](./conductor/archive/fix-legendary-core-stash/)
-- **Description:** 解除仓库中 Material 类型物品（如传奇核心）的存储限制，允许玩家自由管理稀有材料 (Completed on 2026-01-24)
+- **Description:** 解除仓库中 Material 类型物品（如传奇核心）的存储限制，允许玩家自由管理稀y材料 (Completed on 2026-01-24)
 - **Status:** COMPLETED
 - **Priority:** MEDIUM
 - **Estimated Time:** 0.1 day
@@ -436,7 +436,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 ## [ ] Track: GPU Rendering Pipeline Refactor (Multi-Phase)
 - **Folder:** [./conductor/tracks/rendering_pipeline_refactor/](./conductor/tracks/rendering_pipeline_refactor/)
 - **Description:** 基于架构审计报告，系统性重构 GPU 渲染管线。消除魔法数字、统一 GL 抽象层、分解 GPUEntitySystem 职责、规范化 MDIRenderer，并解耦单例以提升可测试性。遵循 DOD 原则，目标实现代码一致性、性能提升、安全防护、高可用与低耦合。
-- **Status:** PLANNED
+- **Status:** IN_PROGRESS
 - **Priority:** HIGH
 - **Estimated Time:** 5-6 weeks (52-60h total)
 - **Risk Level:** 🔴 HIGH (涉及核心渲染路径重构)
@@ -444,7 +444,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 ### Sub-Tracks:
 | Track | Name | Priority | Status | Est. Time | Risk |
 |-------|------|----------|--------|-----------|------|
-| T1 | `render_constants` - 绑定常量标准化 | P0 | 🔵 待开始 | 4h | 低 |
+| T1 | `render_constants` - 绑定常量标准化 | P0 | 🟢 已完成 | 4h | 低 |
 | T2 | `gpu_utils_unification` - GPU 工具层统一 | P1 | 🔵 待开始 | 8h | 中 |
 | T3 | `gpuEntitySystem_decomposition` - 职责分解 | P0 | 🔵 待开始 | 16-24h | 高 |
 | T4 | `mdi_renderer_refactor` - MDI 渲染器规范化 | P1 | 🔵 待开始 | 8h | 中 |

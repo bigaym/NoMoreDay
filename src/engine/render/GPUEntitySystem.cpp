@@ -3,6 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/RenderConstants.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
@@ -10,15 +11,16 @@
 #include "game/components/Stats.hpp"
 #include "game/registry/GroupRegistry.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
+#include "raylib.h" // Added for GetFrameTime()
 #include "raymath.h"
 #include "rlgl.h"
-#include "raylib.h" // Added for GetFrameTime()
 
 namespace NoMoreDay::systems {
 
 using namespace components;
 
-void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities, entt::registry* registry) {
+void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities,
+                           entt::registry *registry) {
   m_maxEntities = maxEntities;
   LOG_INFO("Initializing GPUEntitySystem (Compute-based Physics) with {} "
            "entities...",
@@ -69,10 +71,13 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities, entt::re
   m_slotToEntity.assign(m_maxEntities, entt::null);
 
   if (registry) {
-    registry->on_destroy<GPUIndex>().connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
+    registry->on_destroy<GPUIndex>()
+        .connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
     // Added: Reclaim slot when Position or Radius is removed
-    registry->on_destroy<Position>().connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
-    registry->on_destroy<Radius>().connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
+    registry->on_destroy<Position>()
+        .connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
+    registry->on_destroy<Radius>()
+        .connect<&GPUEntitySystem::OnGPUIndexDestroyed>(this);
   }
 
   InitRender(resources);
@@ -96,7 +101,8 @@ void GPUEntitySystem::InitRender(ResourceManager &rm) {
   rlDisableVertexArray();
 }
 
-void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context, const Camera2D &camera) {
+void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context,
+                             const Camera2D &camera) {
   if (m_maxEntities > 0) {
     // Calculate View Bounds for Culling
     Vector2 worldMin = GetScreenToWorld2D({0, 0}, camera);
@@ -109,9 +115,13 @@ void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context, const Came
                           fmaxf(worldMin.y, worldMax.y) + 500.0f};
 
     auto &mdi = NoMoreDay::render::MDIRenderer::Get();
-    m_persistentEntityBuffer.BindPreviousNoSync(0); // Bind Binding 0 for Cull CS
+    // Bind Binding 0 for Cull CS - RenderConstants::Binding::SSBO_ENTITY_DATA
+    using namespace NoMoreDay::RenderConstants;
+    m_persistentEntityBuffer.BindPreviousNoSync(
+        static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA));
     mdi.Cull(viewBounds);
-    mdi.Render(*context.resources, m_persistentEntityBuffer, context.renderAlpha);
+    mdi.Render(*context.resources, m_persistentEntityBuffer,
+               context.renderAlpha);
   } else {
     RenderLegacy(context.renderAlpha);
   }
@@ -123,12 +133,13 @@ void GPUEntitySystem::RenderLegacy(float alpha) {
   Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
   rlEnableShader(m_renderShader.id);
   rlSetUniformMatrix(m_renderShader.locs[SHADER_LOC_MATRIX_MVP], mvp);
-  
+
   // Set interpolation alpha
   int alphaLoc = rlGetLocationUniform(m_renderShader.id, "renderAlpha");
   rlSetUniform(alphaLoc, &alpha, RL_SHADER_UNIFORM_FLOAT, 1);
 
-  m_persistentEntityBuffer.BindPrevious(1);
+  m_persistentEntityBuffer.BindPrevious(static_cast<uint32_t>(
+      NoMoreDay::RenderConstants::Binding::SSBO_VISIBLE_ID));
   rlEnableVertexArray(m_quadVAO);
   rlDrawVertexArrayInstanced(0, 4, m_maxEntities);
   rlDisableVertexArray();
@@ -136,8 +147,8 @@ void GPUEntitySystem::RenderLegacy(float alpha) {
 }
 
 void GPUEntitySystem::OnGPUIndexDestroyed(entt::registry &registry,
-                                        entt::entity entity) {
-  auto* gpuIdx = registry.try_get<GPUIndex>(entity);
+                                          entt::entity entity) {
+  auto *gpuIdx = registry.try_get<GPUIndex>(entity);
   if (gpuIdx && gpuIdx->index != -1) {
     int slot = gpuIdx->index;
 
@@ -184,69 +195,71 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   auto view = registry.view<Position, Radius, GPUIndex>();
 
   for (auto entity : view) {
-    auto& gpuIdx = view.get<GPUIndex>(entity);
-    
+    auto &gpuIdx = view.get<GPUIndex>(entity);
+
     if (registry.any_of<KilledTag, NoMoreDay::Projectile>(entity)) {
-        if (gpuIdx.index != -1) {
-            int slot = gpuIdx.index;
-            if (slot >= 0 && slot < m_maxEntities) {
-                m_freeSlots.push_back(slot);
-                m_slotToEntity[slot] = entt::null;
-                m_shadowBuffer[slot].radius = 0.0f;
-                m_visualStatsShadowBuffer[slot] = {};
-            }
-            gpuIdx.index = -1;
+      if (gpuIdx.index != -1) {
+        int slot = gpuIdx.index;
+        if (slot >= 0 && slot < m_maxEntities) {
+          m_freeSlots.push_back(slot);
+          m_slotToEntity[slot] = entt::null;
+          m_shadowBuffer[slot].radius = 0.0f;
+          m_visualStatsShadowBuffer[slot] = {};
         }
-        continue;
+        gpuIdx.index = -1;
+      }
+      continue;
     }
 
     if (gpuIdx.index == -1) {
-        if (!m_freeSlots.empty()) {
-            gpuIdx.index = m_freeSlots.back();
-            m_freeSlots.pop_back();
-            m_slotToEntity[gpuIdx.index] = entity;
-            
-            const auto& pos = view.get<Position>(entity);
-            const auto& radius = view.get<Radius>(entity);
-            m_shadowBuffer[gpuIdx.index].position = Vector2{pos.x, pos.y};
-            m_shadowBuffer[gpuIdx.index].prevPosition = Vector2{pos.x, pos.y};
-            m_shadowBuffer[gpuIdx.index].radius = radius.value;
-            m_shadowBuffer[gpuIdx.index].frameId = (uint32_t)m_frameCounter;
-        } else {
-            continue; 
-        }
+      if (!m_freeSlots.empty()) {
+        gpuIdx.index = m_freeSlots.back();
+        m_freeSlots.pop_back();
+        m_slotToEntity[gpuIdx.index] = entity;
+
+        const auto &pos = view.get<Position>(entity);
+        const auto &radius = view.get<Radius>(entity);
+        m_shadowBuffer[gpuIdx.index].position = Vector2{pos.x, pos.y};
+        m_shadowBuffer[gpuIdx.index].prevPosition = Vector2{pos.x, pos.y};
+        m_shadowBuffer[gpuIdx.index].radius = radius.value;
+        m_shadowBuffer[gpuIdx.index].frameId = (uint32_t)m_frameCounter;
+      } else {
+        continue;
+      }
     }
-    
+
     int slot = gpuIdx.index;
-    if (slot < 0 || slot >= m_maxEntities) continue;
-    if (slot > highWaterMark) highWaterMark = slot;
+    if (slot < 0 || slot >= m_maxEntities)
+      continue;
+    if (slot > highWaterMark)
+      highWaterMark = slot;
 
     const auto &pos = view.get<Position>(entity);
     const auto &radius = view.get<Radius>(entity);
-    
-    auto* velPtr = registry.try_get<Velocity>(entity);
+
+    auto *velPtr = registry.try_get<Velocity>(entity);
     Vector2 velocity = velPtr ? Vector2{velPtr->vx, velPtr->vy} : Vector2{0, 0};
 
     auto &gpuEntity = m_shadowBuffer[slot];
-    
+
     float dx = pos.x - gpuEntity.position.x;
     float dy = pos.y - gpuEntity.position.y;
-    if (dx*dx + dy*dy > 100.0f * 100.0f) {
-        gpuEntity.position = Vector2{pos.x, pos.y};
-        gpuEntity.prevPosition = Vector2{pos.x, pos.y};
+    if (dx * dx + dy * dy > 100.0f * 100.0f) {
+      gpuEntity.position = Vector2{pos.x, pos.y};
+      gpuEntity.prevPosition = Vector2{pos.x, pos.y};
     } else {
-        gpuEntity.prevPosition = gpuEntity.position;
-        gpuEntity.position = Vector2{pos.x, pos.y};
+      gpuEntity.prevPosition = gpuEntity.position;
+      gpuEntity.position = Vector2{pos.x, pos.y};
     }
 
     gpuEntity.velocity = velocity;
     gpuEntity.radius = radius.value;
     gpuEntity.frameId = (uint32_t)m_frameCounter;
 
-    if (auto* sprite = registry.try_get<SpriteComponent>(entity)) {
-        gpuEntity.type = sprite->textureLayerIndex;
+    if (auto *sprite = registry.try_get<SpriteComponent>(entity)) {
+      gpuEntity.type = sprite->textureLayerIndex;
     } else {
-        gpuEntity.type = NoMoreDay::Constants::GPU::SDF_CIRCLE_TYPE;
+      gpuEntity.type = NoMoreDay::Constants::GPU::SDF_CIRCLE_TYPE;
     }
 
     uint32_t flags = 0;
@@ -262,40 +275,56 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
 
     // Stats and Status Effects Sync (With Dirty Check or Logic limit)
     // Only full sync if StatsDirty component is present or every N frames
-    bool needsStatsSync = registry.any_of<StatsDirty>(entity) || (m_frameCounter % 5 == 0);
-    
+    bool needsStatsSync =
+        registry.any_of<StatsDirty>(entity) || (m_frameCounter % 5 == 0);
+
     auto &visualStats = m_visualStatsShadowBuffer[slot];
     if (needsStatsSync) {
-        if (auto *stats = registry.try_get<CombatStats>(entity)) {
-          AttributePipeline::ToGPU(*stats, visualStats);
-        } else {
-          visualStats = {};
+      if (auto *stats = registry.try_get<CombatStats>(entity)) {
+        AttributePipeline::ToGPU(*stats, visualStats);
+      } else {
+        visualStats = {};
+      }
+
+      visualStats.activeStatusMask = 0;
+      if (auto *effects = registry.try_get<ActiveEffectsComponent>(entity)) {
+        for (const auto &effect : effects->effects) {
+          switch (effect.type) {
+          case BuffType::Freeze:
+            visualStats.activeStatusMask |=
+                NoMoreDay::Constants::GPU::STATUS_FROZEN;
+            break;
+          case BuffType::Burn:
+            visualStats.activeStatusMask |=
+                NoMoreDay::Constants::GPU::STATUS_BURNING;
+            break;
+          case BuffType::Poison:
+            visualStats.activeStatusMask |=
+                NoMoreDay::Constants::GPU::STATUS_POISONED;
+            break;
+          case BuffType::Shock:
+            visualStats.activeStatusMask |=
+                NoMoreDay::Constants::GPU::STATUS_SHOCKED;
+            break;
+          default:
+            break;
+          }
         }
-        
-        visualStats.activeStatusMask = 0;
-        if (auto* effects = registry.try_get<ActiveEffectsComponent>(entity)) {
-            for (const auto& effect : effects->effects) {
-                switch (effect.type) {
-                    case BuffType::Freeze: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_FROZEN; break;
-                    case BuffType::Burn: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_BURNING; break;
-                    case BuffType::Poison: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_POISONED; break;
-                    case BuffType::Shock: visualStats.activeStatusMask |= NoMoreDay::Constants::GPU::STATUS_SHOCKED; break;
-                    default: break;
-                }
-            }
-        }
+      }
     }
     visualStats.statusTimer = currentTime;
   }
 
   // Bulk Upload
   // Optimization: Only copy up to the highest used slot index
-  size_t copyCount = std::min((size_t)highWaterMark + 128, (size_t)m_maxEntities);
-  
+  size_t copyCount =
+      std::min((size_t)highWaterMark + 128, (size_t)m_maxEntities);
+
   memcpy(gpuPtr, m_shadowBuffer.data(),
          copyCount * sizeof(components::GPUEntity));
 
-  NoMoreDay::render::MDIRenderer::Get().UpdateStats(m_visualStatsShadowBuffer, (int)copyCount);
+  NoMoreDay::render::MDIRenderer::Get().UpdateStats(m_visualStatsShadowBuffer,
+                                                    (int)copyCount);
   m_persistentEntityBuffer.Flush();
 
   GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer,

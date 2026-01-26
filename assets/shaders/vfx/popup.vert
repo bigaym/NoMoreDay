@@ -15,7 +15,8 @@ struct GPUPopupInstance {
     float padding[2];
 };
 
-layout(std430, binding = 0) buffer InstanceBuffer {
+// Binding 来源: RenderConstants::Binding::SSBO_POPUP_DATA (7)
+layout(std430, binding = 7) buffer InstanceBuffer {
     GPUPopupInstance instances[];
 };
 

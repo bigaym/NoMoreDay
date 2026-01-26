@@ -1,4 +1,5 @@
 #include "TestCommon.hpp"
+#include "engine/physics/SpatialGrid.hpp" // For SpatialHashGrid
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/NemesisComponent.hpp"
 #include "game/components/Stats.hpp"
@@ -36,7 +37,10 @@ TEST_CASE("Nemesis Scaling and Phase Shield") {
     affix->timers[1] = 3.0f; // Force Shielding cooldown
   }
 
-  MonsterAffixSystem::Update(registry, 0.1f);
+  // Create dummy grid for spatial queries (Shielding uses it)
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+
+  MonsterAffixSystem::Update(registry, 0.1f, dummyGrid);
 
   // Find the spawned Hazard
   bool hazardFound = false;
@@ -73,12 +77,12 @@ TEST_CASE("Nemesis Scaling and Phase Shield") {
   if (auto *affix = registry.try_get<MonsterAffixComponent>(nemesis)) {
     affix->timers[1] = 3.1f; // Force Shielding
   }
-  MonsterAffixSystem::Update(registry, 0.1f);
+  MonsterAffixSystem::Update(registry, 0.1f, dummyGrid);
 
   // The test below for PhaseShield remains valid.
 
   // Run update to add PhaseShieldComponent
-  MonsterAffixSystem::Update(registry, 0.1f);
+  MonsterAffixSystem::Update(registry, 0.1f, dummyGrid);
 
   CHECK(registry.any_of<PhaseShieldComponent>(nemesis));
 

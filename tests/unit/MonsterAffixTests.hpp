@@ -1,4 +1,5 @@
 #include "TestCommon.hpp"
+#include "engine/physics/SpatialGrid.hpp" // For SpatialHashGrid
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Stats.hpp"
@@ -7,6 +8,7 @@
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
+
 
 using namespace NoMoreDay;
 
@@ -37,7 +39,9 @@ TEST_CASE("Monster Affix Persistence Test") {
     hp.current = 10.0f; // 10% HP
   }
 
-  MonsterAffixSystem::Update(registry, 0.1f);
+  // Create empty grid for test (no spatial queries needed for Berserker)
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.1f, dummyGrid);
   StatsSystem::update(registry); // Must update to see changes from isBerserk
 
   // Verify Berserker is active
@@ -173,7 +177,7 @@ TEST_CASE("Monster Affix: Suppressor Damage Reduction Test") {
 
   auto attacker = registry.create();
   registry.emplace<Position>(attacker, 500.0f, 500.0f); // Far away
-  auto& attackerStats = registry.emplace<CombatStats>(attacker);
+  auto &attackerStats = registry.emplace<CombatStats>(attacker);
   attackerStats.crit_chance = 0.0f; // Disable random crits for test stability
 
   auto defender = registry.create();

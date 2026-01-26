@@ -40,7 +40,7 @@
 
 | Track ID | 名称 | 依赖 | 状态 | 风险 |
 |---|---|---|---|---|
-| **T1** | `render_constants` | 无 | 🔵 待开始 | 低 |
+| **T1** | `render_constants` | 无 | 🟢 已完成 | 低 |
 | **T2** | `gpu_utils_unification` | T1 | 🔵 待开始 | 中 |
 | **T3** | `gpuEntitySystem_decomposition` | T1, T2 | 🔵 待开始 | 高 |
 | **T4** | `mdi_renderer_refactor` | T1, T2 | 🔵 待开始 | 中 |
@@ -74,9 +74,9 @@ graph LR
 
 **里程碑**:
 1. [x] 创建 `RenderConstants.hpp`。
-2. [ ] 重构 `MDIRenderer.cpp` 使用常量。
-3. [ ] 重构 `GPUEntitySystem.cpp` 使用常量。
-4. [ ] 审计并更新所有 Compute Shader。
+2. [x] 重构 `MDIRenderer.cpp` 使用常量。
+3. [x] 重构 `GPUEntitySystem.cpp` 使用常量。
+4. [x] 审计并更新所有 Compute Shader。
 
 **风险评估**: 低 (非破坏性变更，仅符号替换)。
 

@@ -12,7 +12,9 @@ struct InstanceData {
     float padding[6];
 };
 
+// Binding 来源: RenderConstants::Binding::SSBO_ENTITY_DATA (0)
 layout(std430, binding = 0) readonly buffer Entities { InstanceData entities[]; };
+// Binding 来源: RenderConstants::Binding::SSBO_VISIBLE_ID (1)
 layout(std430, binding = 1) readonly buffer VisibleIndices { uint visibleIndices[]; };
 
 struct GPUVisualStats {
@@ -28,6 +30,7 @@ struct GPUVisualStats {
     float statusTimer;
     float padding[6];
 };
+// Binding 来源: RenderConstants::Binding::SSBO_VISUAL_STATS (3)
 layout(std430, binding = 3) readonly buffer StatsBuffer { GPUVisualStats stats[]; };
 
 uniform mat4 viewProj;
