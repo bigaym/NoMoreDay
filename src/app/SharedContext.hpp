@@ -1,26 +1,34 @@
 #pragma once
 
+#include "app/Settings.hpp"
 #include <entt/entt.hpp>
 #include <taskflow/taskflow.hpp>
-#include "app/Settings.hpp"
+
 
 class ResourceManager;
 class LevelManager;
-namespace NoMoreDay { class SceneManager; }
+namespace NoMoreDay {
+class SceneManager;
+}
 
 namespace NoMoreDay {
-    namespace systems { class SpatialHashGrid; }
-
-    struct SharedContext {
-        entt::registry* registry = nullptr;
-        ResourceManager* resources = nullptr;
-        LevelManager* levelManager = nullptr;
-        SceneManager* sceneManager = nullptr;
-        tf::Executor* executor = nullptr;
-        GameSettings* settings = nullptr;
-        systems::SpatialHashGrid* spatialGrid = nullptr;
-        float renderAlpha = 0.0f; // Interpolation factor [0, 1) for smooth rendering between physics frames
-        // Window* window; // Raylib uses global state mostly, add if wrapper exists
-    };
-
+struct RenderContext;
+namespace systems {
+class SpatialHashGrid;
 }
+
+struct SharedContext {
+  entt::registry *registry = nullptr;
+  ResourceManager *resources = nullptr;
+  LevelManager *levelManager = nullptr;
+  SceneManager *sceneManager = nullptr;
+  tf::Executor *executor = nullptr;
+  GameSettings *settings = nullptr;
+  systems::SpatialHashGrid *spatialGrid = nullptr;
+  float renderAlpha = 0.0f; // Interpolation factor [0, 1) for smooth rendering
+                            // between physics frames
+  RenderContext *renderContext = nullptr;
+  // Window* window; // Raylib uses global state mostly, add if wrapper exists
+};
+
+} // namespace NoMoreDay

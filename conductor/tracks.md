@@ -433,10 +433,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: GPU Rendering Pipeline Refactor (Multi-Phase)
+## [x] Track: GPU Rendering Pipeline Refactor (Multi-Phase)
 - **Folder:** [./conductor/tracks/rendering_pipeline_refactor/](./conductor/tracks/rendering_pipeline_refactor/)
 - **Description:** 基于架构审计报告，系统性重构 GPU 渲染管线。消除魔法数字、统一 GL 抽象层、分解 GPUEntitySystem 职责、规范化 MDIRenderer，并解耦单例以提升可测试性。遵循 DOD 原则，目标实现代码一致性、性能提升、安全防护、高可用与低耦合。
-- **Status:** IN_PROGRESS
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 5-6 weeks (52-60h total)
 - **Risk Level:** 🔴 HIGH (涉及核心渲染路径重构)
@@ -448,7 +448,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 | T2 | `gpu_utils_unification` - GPU 工具层统一 | P1 | 🟢 已完成 | 8h | 中 |
 | T3 | `gpuEntitySystem_decomposition` - 职责分解 | P0 | 🟢 已完成 | 16-24h | 高 |
 | T4 | `mdi_renderer_refactor` - MDI 渲染器规范化 | P1 | 🟢 已完成 | 8h | 中 |
-| T5 | `singleton_decoupling` - 单例解耦与依赖注入 | P2 | 🔵 待开始 | 16h | 高 |
+| T5 | `singleton_decoupling` - 单例解耦与依赖注入 | P2 | 🟢 已完成 | 16h | 高 |
 
 ### 依赖关系:
 ```

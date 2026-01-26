@@ -1,5 +1,6 @@
 #include "game/states/GameplayState.hpp"
 #include "app/SharedContext.hpp"
+#include "engine/render/RenderContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/scene/StateManager.hpp"
@@ -15,8 +16,8 @@
 #include "game/states/PauseState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/world/LevelManager.hpp"
+#include "game/systems/world/MapSystem.hpp"    // Explicit include
 #include "game/systems/world/PortalSystem.hpp" // Moved up
-#include "game/systems/world/MapSystem.hpp" // Explicit include
 #include "game/systems/world/TilemapCollisionSystem.hpp"
 
 // Systems
@@ -27,6 +28,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "game/components/WorldState.hpp"
 #include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/systems/ai/AISystem.hpp"
 #include "game/systems/combat/CombatHistorySystem.hpp"
@@ -56,21 +58,25 @@
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
-#include "game/systems/world/MovementStanceSystem.hpp"
-#include "game/components/WorldState.hpp"
 #include "game/systems/world/MapAffixCalculator.hpp"
 #include "game/systems/world/MapAffixRegistry.hpp"
+#include "game/systems/world/MovementStanceSystem.hpp"
 #include "systems/SerializationSystem.hpp"
 
 namespace NoMoreDay {
 
+GameplayState::GameplayState(StateManager &stateManager, SharedContext &context,
+                             RenderContext &renderContext)
+    : IState(stateManager, context), m_renderContext(&renderContext) {}
+
 void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
-  
+
   // [CRITICAL] Initialize Static Registries to prevent Async Race Conditions
   NoMoreDay::MapAffixRegistry::Initialize();
-  
-  // [CRITICAL] Reset Static Safety Queues to prevent Cross-Session ID Collisions
+
+  // [CRITICAL] Reset Static Safety Queues to prevent Cross-Session ID
+  // Collisions
   NoMoreDay::XPAwardingSystem::Reset();
 
   // Initialize Spatial Grid
@@ -208,10 +214,10 @@ void GameplayState::InitializeEntities() {
   registry.emplace<InventoryComponent>(player);
   registry.emplace<MaterialBankComponent>(player);
   {
-      auto& stash = registry.emplace<PersonalStashComponent>(player);
-      stash.unlockedTabs = 1;
-      stash.tabs.resize(1);
-      stash.tabs[0].name = "Stash 1";
+    auto &stash = registry.emplace<PersonalStashComponent>(player);
+    stash.unlockedTabs = 1;
+    stash.tabs.resize(1);
+    stash.tabs[0].name = "Stash 1";
   }
   registry.emplace<EquipmentComponent>(player);
   registry.emplace<AttackState>(player);
@@ -372,12 +378,12 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 1. Level & Systems
   {
-      // NoMoreDay::utils::ScopedTimer levelTimer("Update::LevelManager", 500);
-      m_context->levelManager->update(dt, registry, playerPos);
+    // NoMoreDay::utils::ScopedTimer levelTimer("Update::LevelManager", 500);
+    m_context->levelManager->update(dt, registry, playerPos);
   }
 
-  // Spatial Grid Rebuild (Exclude items/gold/dormant to keep AI/physics search fast)
-  // Move rebuild here so systems use fresh data this frame
+  // Spatial Grid Rebuild (Exclude items/gold/dormant to keep AI/physics search
+  // fast) Move rebuild here so systems use fresh data this frame
   {
     // NoMoreDay::utils::ScopedTimer gridTimer("Update::SpatialGrid", 200);
     auto gridView = registry.view<Position>(
@@ -393,63 +399,65 @@ bool GameplayState::OnUpdate(float dt) {
 
   // GPU Flow Field
   {
-  // NoMoreDay::utils::ScopedTimer flowTimer("Update::FlowField", 200);
-  auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
-  // Map already declared above
-  if (map.getWidth() > 0) {
-    using namespace NoMoreDay::Constants::World;
-    float cellSize = GRID_TILE_SIZE; // Tile size
-    int gw = flowSystem.GetWidth();
-    int gh = flowSystem.GetHeight();
+    // NoMoreDay::utils::ScopedTimer flowTimer("Update::FlowField", 200);
+    // Use RenderContext for FlowFieldSystem
+    auto &flowSystem = m_renderContext->Flow();
+    // Map already declared above
+    if (map.getWidth() > 0) {
+      using namespace NoMoreDay::Constants::World;
+      float cellSize = GRID_TILE_SIZE; // Tile size
+      int gw = flowSystem.GetWidth();
+      int gh = flowSystem.GetHeight();
 
-    // Center grid on player and snap to tile size
-    float originX =
-        floor((playerPos.x - (gw * cellSize * 0.5f)) / cellSize) * cellSize;
-    float originY =
-        floor((playerPos.y - (gh * cellSize * 0.5f)) / cellSize) * cellSize;
+      // Center grid on player and snap to tile size
+      float originX =
+          floor((playerPos.x - (gw * cellSize * 0.5f)) / cellSize) * cellSize;
+      float originY =
+          floor((playerPos.y - (gh * cellSize * 0.5f)) / cellSize) * cellSize;
 
-    flowSystem.Update(map.getCostMap(), map.getWidth(), map.getHeight(),
-                      {playerPos.x, playerPos.y}, {originX, originY});
+      flowSystem.Update(map.getCostMap(), map.getWidth(), map.getHeight(),
+                        {playerPos.x, playerPos.y}, {originX, originY});
+    }
+
+    if (m_context->sceneManager) {
+      m_portalSystem->Update(registry, dt);
+    }
+
+    // Check if PortalSystem requested MosaicEditorState
+    auto pendingView = registry.view<PendingMosaicEditorTag, PlayerTag>();
+    for (auto entity : pendingView) {
+      registry.remove<PendingMosaicEditorTag>(entity);
+      m_stateManager->PushState<MosaicEditorState>();
+      LOG_INFO("Pushed MosaicEditorState");
+    }
   }
-
-  if (m_context->sceneManager) {
-    m_portalSystem->Update(registry, dt);
-  }
-
-  // Check if PortalSystem requested MosaicEditorState
-  auto pendingView = registry.view<PendingMosaicEditorTag, PlayerTag>();
-  for (auto entity : pendingView) {
-    registry.remove<PendingMosaicEditorTag>(entity);
-    m_stateManager->PushState<MosaicEditorState>();
-    LOG_INFO("Pushed MosaicEditorState");
-  }
-}
   {
-      // NoMoreDay::utils::ScopedTimer systemsTimer("Update::Systems", 1000);
-      MovementStanceSystem::Update(registry, dt);
-      StatsSystem::UpdateBuffs(registry, dt);
-      StatsSystem::update(registry);
-      RegenerationSystem::update(registry, dt);
-      EliteModifierSystem::Update(registry, dt);
-      MonsterAffixSystem::Update(registry, dt, m_spatialGrid);
-      CombatHistorySystem::Update(registry, dt);
-      NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
-      DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
-      FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
-      XPAwardingSystem::update(registry);
-      InventorySystem::update(registry, dt);
-      // Update Skill System
-      ShadowSystem::Update(registry, dt);
-      SkillSystem::Update(registry, m_spatialGrid, dt, m_context->executor);
-      NoMoreDay::systems::SummonSystem::Update(registry, dt, m_spatialGrid);
-      MovementStanceSystem::Update(registry, dt);
-      ProjectileSystem::Update(registry, m_spatialGrid, dt);
-      NoMoreDay::systems::GhostSystem::Update(registry, dt);
+    // NoMoreDay::utils::ScopedTimer systemsTimer("Update::Systems", 1000);
+    MovementStanceSystem::Update(registry, dt);
+    StatsSystem::UpdateBuffs(registry, dt);
+    StatsSystem::update(registry);
+    RegenerationSystem::update(registry, dt);
+    EliteModifierSystem::Update(registry, dt);
+    MonsterAffixSystem::Update(registry, dt, m_spatialGrid);
+    CombatHistorySystem::Update(registry, dt);
+    NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
+    DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
+    FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
+    XPAwardingSystem::update(registry);
+    InventorySystem::update(registry, dt);
+    // Update Skill System
+    ShadowSystem::Update(registry, dt);
+    SkillSystem::Update(registry, m_spatialGrid, dt, m_context->executor);
+    NoMoreDay::systems::SummonSystem::Update(registry, dt, m_spatialGrid);
+    MovementStanceSystem::Update(registry, dt);
+    ProjectileSystem::Update(registry, m_spatialGrid, dt);
+    NoMoreDay::systems::GhostSystem::Update(registry, dt);
   }
 
   // 2. Input
   InputSystem::update(registry, m_camera);
-  UISystem::State.isTyping = false; // Reset blocking flag for next frame's UI Render pass
+  UISystem::State.isTyping =
+      false; // Reset blocking flag for next frame's UI Render pass
   // Note: UISystem::Update was here in Game.cpp.
   // Now UISystem::Update handles "Global Keys" like 'C' for char panel.
   // We should probably keep it, but it might conflict with InventoryState if
@@ -594,8 +602,9 @@ bool GameplayState::OnUpdate(float dt) {
 
       // Predictive CPU position update for DASH with Collision Check
       const auto &mapSystem = m_context->levelManager->getMapSystem();
-      PhysicsSystem::performDashStep(registry, entity, dash, pos, vel, dt, m_spatialGrid, &mapSystem);
-      
+      PhysicsSystem::performDashStep(registry, entity, dash, pos, vel, dt,
+                                     m_spatialGrid, &mapSystem);
+
       if (dash.dashTimer <= 0.0f) {
         dash.isDashing = false;
         vel.vx = 0;
@@ -616,30 +625,36 @@ bool GameplayState::OnUpdate(float dt) {
       vel.vy = input.moveY * speed;
 
       // Predictive CPU position update for immediate camera/UI response
-      // This bypasses the 2-frame GPUEntitySystem SyncBack latency for the player.
-      // [FIX] Apply Map Collision Check BEFORE position update
-      float radius = NoMoreDay::Constants::Physics::DEFAULT_ENTITY_RADIUS * 0.8f; 
-      if (registry.all_of<Radius>(entity)) radius = registry.get<Radius>(entity).value * 0.8f;
-      
+      // This bypasses the 2-frame GPUEntitySystem SyncBack latency for the
+      // player. [FIX] Apply Map Collision Check BEFORE position update
+      float radius =
+          NoMoreDay::Constants::Physics::DEFAULT_ENTITY_RADIUS * 0.8f;
+      if (registry.all_of<Radius>(entity))
+        radius = registry.get<Radius>(entity).value * 0.8f;
+
       const auto &map = m_context->levelManager->getMapSystem();
       TilemapCollisionSystem::ResolveCollision(map, pos, vel, dt, radius);
 
       pos.x += vel.vx * dt;
       pos.y += vel.vy * dt;
 
-    // [SAFETY] Position Sanity Check
-    static Position lastValidPos = pos;
-    LOG_LIMITED_DEBUG(1.0f, "[PLAYER_POS] Current: ({:.1f}, {:.1f}), Velocity: ({:.1f}, {:.1f})", pos.x, pos.y, vel.vx, vel.vy);
-    
-    if (std::isnan(pos.x) || std::isnan(pos.y) || 
-        pos.x < -2000.0f || pos.x > 15000.0f || 
-        pos.y < -2000.0f || pos.y > 15000.0f) {
-          LOG_ERROR("[CRITICAL] Player teleported to invalid position: ({:.1f}, {:.1f}). Resetting to last valid pos.", pos.x, pos.y);
-          pos = lastValidPos;
-          vel.vx = 0;
-          vel.vy = 0;
+      // [SAFETY] Position Sanity Check
+      static Position lastValidPos = pos;
+      LOG_LIMITED_DEBUG(
+          1.0f,
+          "[PLAYER_POS] Current: ({:.1f}, {:.1f}), Velocity: ({:.1f}, {:.1f})",
+          pos.x, pos.y, vel.vx, vel.vy);
+
+      if (std::isnan(pos.x) || std::isnan(pos.y) || pos.x < -2000.0f ||
+          pos.x > 15000.0f || pos.y < -2000.0f || pos.y > 15000.0f) {
+        LOG_ERROR("[CRITICAL] Player teleported to invalid position: ({:.1f}, "
+                  "{:.1f}). Resetting to last valid pos.",
+                  pos.x, pos.y);
+        pos = lastValidPos;
+        vel.vx = 0;
+        vel.vy = 0;
       } else {
-          lastValidPos = pos;
+        lastValidPos = pos;
       }
     }
 
@@ -679,8 +694,8 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 7. Physics (Taskflow)
   {
-      // NoMoreDay::utils::ScopedTimer physicsTimer("Update::Physics", 500);
-      UpdatePhysics(dt);
+    // NoMoreDay::utils::ScopedTimer physicsTimer("Update::Physics", 500);
+    UpdatePhysics(dt);
   }
 
   return true;
@@ -715,7 +730,8 @@ void GameplayState::UpdatePhysics(float dt) {
   auto resolveTask = m_taskflow.for_each(
       m_physicsEntities.begin(), m_physicsEntities.end(),
       [this, dt, &registry](entt::entity entity) {
-        if (registry.any_of<DormantTag>(entity)) return;
+        if (registry.any_of<DormantTag>(entity))
+          return;
 
         const auto &pos = registry.get<Position>(entity);
         auto &vel = registry.get<Velocity>(entity);
@@ -724,9 +740,11 @@ void GameplayState::UpdatePhysics(float dt) {
         bool isGpuManaged = registry.all_of<GPUIndex>(entity);
         bool isPlayer = registry.all_of<PlayerTag>(entity);
         bool isEnemy = registry.all_of<EnemyTag>(entity);
-        
-        // Only skip if it's neither player nor enemy (e.g. some other GPU managed VFX)
-        if (!isPlayer && !isEnemy) return;
+
+        // Only skip if it's neither player nor enemy (e.g. some other GPU
+        // managed VFX)
+        if (!isPlayer && !isEnemy)
+          return;
 
         // Only resolve collisions for solid game entities (Players and Enemies)
         if (isPlayer || isEnemy) {
@@ -738,8 +756,10 @@ void GameplayState::UpdatePhysics(float dt) {
         const auto &map = m_context->levelManager->getMapSystem();
         using namespace NoMoreDay::Constants::World;
         using namespace NoMoreDay::Constants::Physics;
-        float radius = DEFAULT_ENTITY_RADIUS * MAP_COLLISION_RADIUS_FACTOR; 
-        if (registry.all_of<Radius>(entity)) radius = registry.get<Radius>(entity).value * MAP_COLLISION_RADIUS_FACTOR;
+        float radius = DEFAULT_ENTITY_RADIUS * MAP_COLLISION_RADIUS_FACTOR;
+        if (registry.all_of<Radius>(entity))
+          radius =
+              registry.get<Radius>(entity).value * MAP_COLLISION_RADIUS_FACTOR;
 
         TilemapCollisionSystem::ResolveCollision(map, pos, vel, dt, radius);
       });
@@ -748,27 +768,29 @@ void GameplayState::UpdatePhysics(float dt) {
   auto updateTask = m_taskflow.for_each(
       m_physicsEntities.begin(), m_physicsEntities.end(),
       [dt, worldSizeW, worldSizeH, &registry](entt::entity entity) {
-        if (registry.any_of<DormantTag>(entity)) return;
+        if (registry.any_of<DormantTag>(entity))
+          return;
 
         // Player is handled in OnUpdate (Predictive).
         bool isPlayer = registry.all_of<PlayerTag>(entity);
-        if (isPlayer) return;
+        if (isPlayer)
+          return;
 
         // Enemies AND Projectiles are now handled here on CPU.
         // We integrate anything with Velocity that isn't the player or dormant.
-        
+
         auto &pos = registry.get<Position>(entity);
         auto &vel = registry.get<Velocity>(entity);
 
-        PhysicsSystem::updatePosition(registry, entity, pos, vel, dt, worldSizeW,
-                                      worldSizeH);
+        PhysicsSystem::updatePosition(registry, entity, pos, vel, dt,
+                                      worldSizeW, worldSizeH);
       });
 
   resolveTask.precede(updateTask);
 
   {
-      // NoMoreDay::utils::ScopedTimer tfTimer("Physics::Taskflow", 200);
-      m_context->executor->run(m_taskflow).wait();
+    // NoMoreDay::utils::ScopedTimer tfTimer("Physics::Taskflow", 200);
+    m_context->executor->run(m_taskflow).wait();
   }
   return;
 }
@@ -898,78 +920,92 @@ void GameplayState::OnRender() {
 
   // --- Map Affix Overlay (Tab Menu) ---
   if (IsKeyDown(KEY_TAB)) {
-      RenderMapAffixOverlay();
+    RenderMapAffixOverlay();
   }
 }
 
 void GameplayState::RenderMapAffixOverlay() {
-    auto& registry = *m_context->registry;
-    if (!registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) return;
+  auto &registry = *m_context->registry;
+  if (!registry.ctx().contains<NoMoreDay::ActiveDimensionalState>())
+    return;
 
-    const auto& state = registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
-    if (!state.isActive) return;
+  const auto &state = registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
+  if (!state.isActive)
+    return;
 
-    // Draw Background
-    float width = 350.0f;
-    float height = 450.0f;
-    float x = (GetScreenWidth() - width) / 2.0f;
-    float y = (GetScreenHeight() - height) / 2.0f;
+  // Draw Background
+  float width = 350.0f;
+  float height = 450.0f;
+  float x = (GetScreenWidth() - width) / 2.0f;
+  float y = (GetScreenHeight() - height) / 2.0f;
 
-    DrawRectangleRounded(Rectangle{x, y, width, height}, 0.05f, 8, ColorAlpha(BLACK, 0.85f));
-    DrawRectangleRoundedLinesEx(Rectangle{x, y, width, height}, 0.05f, 8, 2.0f, DARKGRAY);
+  DrawRectangleRounded(Rectangle{x, y, width, height}, 0.05f, 8,
+                       ColorAlpha(BLACK, 0.85f));
+  DrawRectangleRoundedLinesEx(Rectangle{x, y, width, height}, 0.05f, 8, 2.0f,
+                              DARKGRAY);
 
-    Font font = UISystem::GetFont();
-    UIRenderer::DrawTextUI(font, "当前维度概览 (Map Modifiers)", x + 20, y + 20, 20, GOLD, 1.0f);
-    
-    float ly = y + 60;
-    char buf[128];
+  Font font = UISystem::GetFont();
+  UIRenderer::DrawTextUI(font, "当前维度概览 (Map Modifiers)", x + 20, y + 20,
+                         20, GOLD, 1.0f);
 
-    // 0. Depth Info
-    snprintf(buf, sizeof(buf), "当前深度 (Layer): %d / %d", state.currentDepth, state.maxDepth);
-    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, SKYBLUE, 1.0f);
-    ly += 25;
+  float ly = y + 60;
+  char buf[128];
 
-    // 1. Difficulty
-    snprintf(buf, sizeof(buf), "难度系数 (DS): %d", state.difficultyScore);
-    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, RED, 1.0f);
-    ly += 25;
+  // 0. Depth Info
+  snprintf(buf, sizeof(buf), "当前深度 (Layer): %d / %d", state.currentDepth,
+           state.maxDepth);
+  UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, SKYBLUE, 1.0f);
+  ly += 25;
 
-    // 1.1 Kill Counter
-    snprintf(buf, sizeof(buf), "击杀计数 (Kills): %d", state.killCounter);
-    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, WHITE, 1.0f);
-    ly += 25;
+  // 1. Difficulty
+  snprintf(buf, sizeof(buf), "难度系数 (DS): %d", state.difficultyScore);
+  UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, RED, 1.0f);
+  ly += 25;
 
-    // 2. Rewards
-    snprintf(buf, sizeof(buf), "物品寻宝率 (Rarity): +%.0f%%", state.calculatedRarity * 100.0f);
-    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, components::Colors::RARITY_LEGENDARY, 1.0f);
-    ly += 20;
+  // 1.1 Kill Counter
+  snprintf(buf, sizeof(buf), "击杀计数 (Kills): %d", state.killCounter);
+  UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, WHITE, 1.0f);
+  ly += 25;
 
-    snprintf(buf, sizeof(buf), "物品数量 (Quantity): +%.0f%%", state.calculatedQuantity * 100.0f);
-    UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, components::Colors::RARITY_EPIC, 1.0f);
-    ly += 25;
+  // 2. Rewards
+  snprintf(buf, sizeof(buf), "物品寻宝率 (Rarity): +%.0f%%",
+           state.calculatedRarity * 100.0f);
+  UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16,
+                         components::Colors::RARITY_LEGENDARY, 1.0f);
+  ly += 20;
 
-    DrawLine(x + 20, ly, x + width - 20, ly, GRAY);
-    ly += 15;
+  snprintf(buf, sizeof(buf), "物品数量 (Quantity): +%.0f%%",
+           state.calculatedQuantity * 100.0f);
+  UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16,
+                         components::Colors::RARITY_EPIC, 1.0f);
+  ly += 25;
 
-    UIRenderer::DrawTextUI(font, "鎸戞垬璇嶇紑 (Active Challenges):", x + 25, ly, 16, LIGHTGRAY, 1.0f);
-    ly += 25;
+  DrawLine(x + 20, ly, x + width - 20, ly, GRAY);
+  ly += 15;
 
-    // 3. Cached Aggregated Affixes
-    for (const auto& agg : state.aggregatedAffixes) {
-        std::string desc = MapAffixRegistry::FormatDescription(agg.type, agg.totalValue);
+  UIRenderer::DrawTextUI(font, "鎸戞垬璇嶇紑 (Active Challenges):", x + 25, ly,
+                         16, LIGHTGRAY, 1.0f);
+  ly += 25;
 
-        Color color = WHITE;
-        if (agg.category == MapAffixCategory::Debuff) color = RED;
-        else if (agg.category == MapAffixCategory::Buff) color = GREEN;
+  // 3. Cached Aggregated Affixes
+  for (const auto &agg : state.aggregatedAffixes) {
+    std::string desc =
+        MapAffixRegistry::FormatDescription(agg.type, agg.totalValue);
 
-        UIRenderer::DrawTextUI(font, desc.c_str(), x + 30, ly, 14, color, 1.0f);
-        ly += 18;
+    Color color = WHITE;
+    if (agg.category == MapAffixCategory::Debuff)
+      color = RED;
+    else if (agg.category == MapAffixCategory::Buff)
+      color = GREEN;
 
-        if (ly > y + height - 30) {
-            UIRenderer::DrawTextUI(font, "...", x + 30, ly, 14, GRAY, 1.0f);
-            break;
-        }
+    UIRenderer::DrawTextUI(font, desc.c_str(), x + 30, ly, 14, color, 1.0f);
+    ly += 18;
+
+    if (ly > y + height - 30) {
+      UIRenderer::DrawTextUI(font, "...", x + 30, ly, 14, GRAY, 1.0f);
+      break;
     }
+  }
 }
 
 } // namespace NoMoreDay

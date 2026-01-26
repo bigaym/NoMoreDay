@@ -8,6 +8,7 @@
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/RenderConstants.hpp" // ADDED for Binding constants
+#include "engine/render/RenderContext.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
@@ -317,7 +318,11 @@ void RenderSystem::render(entt::registry &registry,
 
   // GPU 粒子渲染
   NoMoreDay::systems::GPUParticleSystem::Get().Render(camera);
-  NoMoreDay::systems::GPUEntitySystem::Get().Render(context, camera);
+  if (context.renderContext) {
+    context.renderContext->GPU().Render(context, camera);
+  } else {
+    NoMoreDay::systems::GPUEntitySystem::Get().Render(context, camera);
+  }
 
   // GPU 伤害飘字渲染
   NoMoreDay::render::PopupRenderer::Get().Update(GetFrameTime());
@@ -854,10 +859,11 @@ void RenderSystem::render(entt::registry &registry,
   } // End of itemTimer scope
 
   // 6. Debug: GPU Flow Field Visualization
-  auto &flowSystem = NoMoreDay::systems::GPUFlowFieldSystem::Get();
-  if (flowSystem.m_debugDraw) {
-    flowSystem.SyncToCPU();
-    const std::vector<Vector2> &flowField = flowSystem.GetFlowFieldCPU();
+  if (context.renderContext && context.renderContext->gpuFlowFieldSystem) {
+    auto &flowSystem = context.renderContext->Flow();
+    if (flowSystem.m_debugDraw) {
+      flowSystem.SyncToCPU();
+      const std::vector<Vector2> &flowField = flowSystem.GetFlowFieldCPU();
     int width = flowSystem.GetWidth();
     int height = flowSystem.GetHeight();
     Vector2 origin = flowSystem.GetGridOrigin();
@@ -889,7 +895,8 @@ void RenderSystem::render(entt::registry &registry,
     // Draw Grid Bounds
     DrawRectangleLines(origin.x, origin.y, width * cellSize, height * cellSize,
                        RED);
-  } // End of pixelView loop
+  } // End of debugDraw
+  } // End of context check
 
   // 6. Projectiles Submission (Dedicated Loop)
   // Iterate ALL projectiles, regardless of GPUIndex or SpriteComponent or

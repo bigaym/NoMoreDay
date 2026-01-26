@@ -2,8 +2,11 @@
 
 #include "TestCommon.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
+#include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/MDIRenderer.hpp"
 #include "engine/render/PopupRenderer.hpp"
+#include "engine/render/RenderContext.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
@@ -134,9 +137,23 @@ TEST_CASE("Scenario C: Entity Horde Test") {
   ResourceManager resources;
   const int TEST_ENTITIES = 20000;
 
-  GPUEntitySystem::Get().Init(resources, TEST_ENTITIES);
+  systems::GPUEntitySystem gpuEntitySystem;
+  render::MDIRenderer mdiRenderer;
+  RenderContext renderContext;
+  renderContext.gpuEntitySystem = &gpuEntitySystem;
+  renderContext.mdiRenderer = &mdiRenderer;
+  renderContext.gpuFlowFieldSystem = &systems::GPUFlowFieldSystem::Get();
+  renderContext.resources = &resources;
+
+  NoMoreDay::SharedContext context;
+  context.resources = &resources;
+  context.renderContext = &renderContext;
+
+  gpuEntitySystem.Init(resources, TEST_ENTITIES);
+  mdiRenderer.Init(resources, TEST_ENTITIES);
 
   entt::registry registry;
+  context.registry = &registry;
   for (int i = 0; i < TEST_ENTITIES; ++i) {
     auto e = registry.create();
     registry.emplace<::Position>(e, (float)(rand() % 4000),
@@ -166,7 +183,7 @@ TEST_CASE("Scenario C: Entity Horde Test") {
 
     // Measure Update (Sync + Upload)
     auto start = std::chrono::high_resolution_clock::now();
-    GPUEntitySystem::Get().Update(registry, DT);
+    gpuEntitySystem.Update(context, DT);
     auto end = std::chrono::high_resolution_clock::now();
 
     updateTimes.push_back(
@@ -180,7 +197,7 @@ TEST_CASE("Scenario C: Entity Horde Test") {
 
   CHECK(stats.mean_ms < 3.0);
 
-  GPUEntitySystem::Get().Shutdown();
+  gpuEntitySystem.Shutdown();
 }
 
 } // namespace NoMoreDay::tests

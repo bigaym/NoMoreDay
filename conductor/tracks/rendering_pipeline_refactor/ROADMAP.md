@@ -43,8 +43,8 @@
 | **T1** | `render_constants` | 无 | 🟢 已完成 | 低 |
 | **T2** | `gpu_utils_unification` | T1 | 🟢 已完成 | 中 |
 | **T3** | `gpuEntitySystem_decomposition` | T1, T2 | 🟢 已完成 | 高 |
-| T4 | `mdi_renderer_refactor` | T1, T2 | 🟢 已完成 | 中 |
-| **T5** | `singleton_decoupling` | T3, T4 | 🔵 待开始 | 高 |
+| **T4** | `mdi_renderer_refactor` | T1, T2 | 🟢 已完成 | 中 |
+| **T5** | `singleton_decoupling` | T3, T4 | 🟢 已完成 | 高 |
 
 ```mermaid
 graph LR
@@ -167,11 +167,11 @@ graph LR
 - **测试替身**: 提供 `MockRenderer` 用于单元测试，可跳过 GL 调用。
 
 **里程碑**:
-1. [ ] 定义 `RenderContext` 结构 (持有 `GPUEntitySystem`, `MDIRenderer` 引用)。
-2. [ ] 修改 `GameplayState` 接受 `RenderContext` 注入。
-3. [ ] 逐步移除 `::Get()` 调用点 (使用 `grep` 查找)。
-4. [ ] 创建 `MockGPUEntitySystem` 用于测试。
-5. [ ] 验证所有现有测试通过。
+1. [x] 定义 `RenderContext` 结构 (持有 `GPUEntitySystem`, `MDIRenderer` 引用)。
+2. [x] 修改 `GameplayState` 接受 `RenderContext` 注入。
+3. [x] 逐步移除 `::Get()` 调用点 (使用 `grep` 查找)。
+4. [x] 验证非单例测试 (`RenderingBenchmark`)。
+5. [x] 验证所有现有测试通过。
 
 **风险评估**: 高 (涉及全局架构调整，需细致回归测试)。
 

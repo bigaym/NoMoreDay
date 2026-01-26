@@ -61,11 +61,12 @@ bool MainMenuState::OnUpdate(float dt) {
     // Transition to Loading State
     m_stateManager->ChangeState<LoadingState>(
         [levelMgr, levelData]() {
-          *levelData = levelMgr->prepareLevel(NoMoreDay::BiomeID::Cave, 128, 128, 1);
+          *levelData =
+              levelMgr->prepareLevel(NoMoreDay::BiomeID::Cave, 128, 128, 1);
         },
-        [levelMgr, levelData](StateManager &mgr) {
+        [levelMgr, levelData, this](StateManager &mgr) {
           levelMgr->activateLevel(std::move(*levelData));
-          mgr.ChangeState<GameplayState>();
+          mgr.ChangeState<GameplayState>(*m_context->renderContext);
         });
   } else if (m_hasSave && IsButtonClicked(m_continueButton)) {
     auto levelData = std::make_shared<LevelManager::LevelData>();
@@ -74,13 +75,14 @@ bool MainMenuState::OnUpdate(float dt) {
     m_stateManager->ChangeState<LoadingState>(
         [levelMgr, levelData]() {
           // Towns are usually smaller
-          *levelData = levelMgr->prepareLevel(NoMoreDay::BiomeID::Town, 64, 64, 1);
+          *levelData =
+              levelMgr->prepareLevel(NoMoreDay::BiomeID::Town, 64, 64, 1);
         },
         [this, levelMgr, levelData](StateManager &mgr) {
           levelMgr->activateLevel(std::move(*levelData));
           // Restore save data into the world
           SaveManager::Get().loadCharacter(*m_context->registry, 0);
-          mgr.ChangeState<GameplayState>();
+          mgr.ChangeState<GameplayState>(*m_context->renderContext);
         });
   } else if (IsButtonClicked(m_exitButton)) {
     m_stateManager

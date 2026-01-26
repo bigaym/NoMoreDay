@@ -18,15 +18,22 @@ namespace NoMoreDay::systems {
 
 class GPUEntitySystem {
 public:
-  static GPUEntitySystem &Get() {
-    static GPUEntitySystem instance;
-    return instance;
-  }
+  [[deprecated("Use RenderContext injection instead")]]
+  static GPUEntitySystem &Get();
+
+  GPUEntitySystem() = default;
+  ~GPUEntitySystem() = default;
+
+  // Disable copy, allow move
+  GPUEntitySystem(const GPUEntitySystem &) = delete;
+  GPUEntitySystem &operator=(const GPUEntitySystem &) = delete;
+  GPUEntitySystem(GPUEntitySystem &&) = default;
+  GPUEntitySystem &operator=(GPUEntitySystem &&) = default;
 
   void Init(ResourceManager &rm, int maxEntities = 200000,
             entt::registry *registry = nullptr);
 
-  void Update(entt::registry &registry, float dt);
+  void Update(const NoMoreDay::SharedContext &context, float dt);
   void SyncBack(entt::registry &registry);
   void Render(const NoMoreDay::SharedContext &context,
               const Camera2D &camera); // Render instanced entities
@@ -38,7 +45,7 @@ public:
   const render::GPUSlotManager &GetSlotManager() const { return m_slotManager; }
 
 private:
-  GPUEntitySystem() = default;
+  static GPUEntitySystem *s_instance;
 
   int m_maxEntities = 0;
   NoMoreDay::render::PersistentBuffer m_persistentEntityBuffer;
@@ -87,7 +94,7 @@ private:
   std::vector<bool> m_blockDirty;
 
   // Rendering
-  Shader m_renderShader;
+  Shader m_renderShader = {0};
   unsigned int m_quadVAO = 0;
   unsigned int m_quadVBO = 0;
   void InitRender(ResourceManager &rm);

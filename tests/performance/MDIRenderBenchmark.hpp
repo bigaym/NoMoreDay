@@ -2,12 +2,13 @@
 
 #include "TestCommon.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
+#include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/MDIRenderer.hpp"
+#include "engine/render/RenderContext.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include <chrono>
-
 
 TEST_CASE("MDI vs Legacy Rendering Benchmark") {
   // Note: Raylib Window initialized by main.cpp
@@ -16,7 +17,16 @@ TEST_CASE("MDI vs Legacy Rendering Benchmark") {
   const int TEST_ENTITIES = 50000;
   LOG_WARN("Starting Rendering Benchmark with {} entities", TEST_ENTITIES);
 
-  systems::GPUEntitySystem::Get().Init(resources, TEST_ENTITIES);
+  systems::GPUEntitySystem gpuEntitySystem;
+  render::MDIRenderer mdiRenderer;
+  RenderContext renderContext;
+  renderContext.gpuEntitySystem = &gpuEntitySystem;
+  renderContext.mdiRenderer = &mdiRenderer;
+  renderContext.gpuFlowFieldSystem = &systems::GPUFlowFieldSystem::Get();
+  renderContext.resources = &resources;
+
+  gpuEntitySystem.Init(resources, TEST_ENTITIES);
+  mdiRenderer.Init(resources, TEST_ENTITIES);
 
   entt::registry registry;
   for (int i = 0; i < TEST_ENTITIES; ++i) {
@@ -29,26 +39,29 @@ TEST_CASE("MDI vs Legacy Rendering Benchmark") {
     registry.emplace<::EnemyTag>(e);
   }
 
-  // Warm up
-  systems::GPUEntitySystem::Get().Update(registry, 0.016f);
-
   // Set target FPS to 180 as requested by user
   SetTargetFPS(180);
 
   const int ITERATIONS = 500;
 
+  NoMoreDay::SharedContext context;
+  context.resources = &resources;
+  context.registry = &registry;
+  context.renderAlpha = 0.0f; // No interpolation for benchmark
+  context.renderContext = &renderContext;
+
+  // Warm up
+  gpuEntitySystem.Update(context, 0.016f);
+
   // 1. Benchmark MDI (GPU Culling + Indirect)
   // We measure multiple calls to get a stable average, then glFinish to ensure
   // GPU caught up
-  NoMoreDay::SharedContext context;
-  context.resources = &resources;
-  context.renderAlpha = 0.0f; // No interpolation for benchmark
   Camera2D camera = {0};
   camera.zoom = 1.0f;
 
   auto startMDI = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < ITERATIONS; ++i) {
-    systems::GPUEntitySystem::Get().Render(context, camera);
+    gpuEntitySystem.Render(context, camera);
   }
   glFinish();
   auto endMDI = std::chrono::high_resolution_clock::now();
@@ -59,7 +72,7 @@ TEST_CASE("MDI vs Legacy Rendering Benchmark") {
   // 2. Benchmark Legacy (Instanced, but CPU-driven submission)
   auto startLegacy = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < ITERATIONS; ++i) {
-    systems::GPUEntitySystem::Get().RenderLegacy(0.0f);
+    gpuEntitySystem.RenderLegacy(0.0f);
   }
   glFinish();
   auto endLegacy = std::chrono::high_resolution_clock::now();
@@ -75,5 +88,6 @@ TEST_CASE("MDI vs Legacy Rendering Benchmark") {
   LOG_WARN("  - MDI Potential FPS:           {:.1f}", 1000.0 / timeMDI);
   LOG_WARN("  - Legacy Potential FPS:        {:.1f}", 1000.0 / timeLegacy);
 
-  systems::GPUEntitySystem::Get().Shutdown();
+  gpuEntitySystem.Shutdown();
+  mdiRenderer.Shutdown();
 }

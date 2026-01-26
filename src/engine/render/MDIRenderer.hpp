@@ -36,10 +36,17 @@ struct DrawArraysIndirectCommand {
 
 class MDIRenderer {
 public:
-  static MDIRenderer &Get() {
-    static MDIRenderer instance;
-    return instance;
-  }
+  [[deprecated("Use RenderContext injection instead")]]
+  static MDIRenderer &Get();
+
+  MDIRenderer() = default;
+  ~MDIRenderer();
+
+  // No copy, allow move
+  MDIRenderer(const MDIRenderer &) = delete;
+  MDIRenderer &operator=(const MDIRenderer &) = delete;
+  MDIRenderer(MDIRenderer &&) = default;
+  MDIRenderer &operator=(MDIRenderer &&) = default;
 
   // Initialize MDI renderer with resource manager and max entity capacity
   void Init(ResourceManager &rm, uint32_t maxEntities);
@@ -78,12 +85,7 @@ public:
   size_t GetSize() const { return m_commandBuffer.GetSize(); }
 
 private:
-  MDIRenderer() = default;
-  ~MDIRenderer();
-
-  // No copy/move
-  MDIRenderer(const MDIRenderer &) = delete;
-  MDIRenderer &operator=(const MDIRenderer &) = delete;
+  static MDIRenderer *s_instance;
 
   PersistentBuffer m_visibleBuffer; // SSBO Binding 1 (Double Buffered)
   PersistentBuffer
@@ -91,8 +93,8 @@ private:
   PersistentBuffer
       m_statsBuffer; // SSBO Binding 3 (Double Buffered) - GPUVisualStats
 
-  Shader m_cullShader;
-  Shader m_renderShader;
+  Shader m_cullShader = {0};
+  Shader m_renderShader = {0};
 
   uint32_t m_quadVAO = 0;
   uint32_t m_quadVBO = 0;

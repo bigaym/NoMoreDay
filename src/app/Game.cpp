@@ -25,7 +25,6 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/world/MapAffixRegistry.hpp"
 
-
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -63,6 +62,12 @@ Game::Game(int width, int height, const char *title)
   m_context.levelManager = m_levelManager.get();
   m_context.executor = &m_executor;
   m_context.settings = &m_settings;
+
+  // Render Context Setup
+  m_renderContext.gpuEntitySystem = &m_gpuEntitySystem;
+  m_renderContext.mdiRenderer = &m_mdiRenderer;
+  m_renderContext.resources = &m_resourceManager;
+  m_context.renderContext = &m_renderContext;
 
   // Init SceneManager
   m_sceneManager =
@@ -138,8 +143,8 @@ void Game::init() {
     NoMoreDay::systems::GPUParticleSystem::Get().Init(
         NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
 
-    NoMoreDay::systems::GPUEntitySystem::Get().Init(m_resourceManager, 200000,
-                                                    &m_registry);
+    m_gpuEntitySystem.Init(m_resourceManager, 200000, &m_registry);
+    m_mdiRenderer.Init(m_resourceManager, 200000);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
     // Initialize GPU Skill Effect System (Global)
@@ -151,6 +156,14 @@ void Game::init() {
 
     // Initialize Instanced Label Renderer
     RenderSystem::Initialize();
+
+    // Link context
+    m_renderContext.gpuEntitySystem = &m_gpuEntitySystem;
+    m_renderContext.mdiRenderer = &m_mdiRenderer;
+    m_renderContext.gpuFlowFieldSystem =
+        &NoMoreDay::systems::GPUFlowFieldSystem::Get();
+    m_renderContext.resources = &m_resourceManager;
+    m_context.renderContext = &m_renderContext;
   }
 
   // Push Initial State
@@ -194,10 +207,10 @@ void Game::run() {
       if (m_gpuInfo.computeShaderSupported) {
         // 1. GPU -> CPU Sync Back (Get results from previous fixed update)
         // This is now stall-free because the GPU had time since last pulse.
-        NoMoreDay::systems::GPUEntitySystem::Get().SyncBack(m_registry);
+        m_gpuEntitySystem.SyncBack(m_registry);
 
         // 2. CPU -> GPU Sync & Compute Physics (Submit new pulse)
-        NoMoreDay::systems::GPUEntitySystem::Get().Update(m_registry, fixedDt);
+        m_gpuEntitySystem.Update(m_context, fixedDt);
 
         // Update particle system
         NoMoreDay::systems::GPUParticleSystem::Get().Update(fixedDt);
@@ -250,7 +263,8 @@ void Game::cleanup() {
   UISystem::Shutdown();
   NoMoreDay::render::PopupRenderer::Get().Shutdown();
   NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();
-  NoMoreDay::systems::GPUEntitySystem::Get().Shutdown();
+  m_gpuEntitySystem.Shutdown();
+  m_mdiRenderer.Shutdown();
   NoMoreDay::systems::GPUSkillEffectSystem::Get().Shutdown();
   NoMoreDay::systems::GPUFlowFieldSystem::Get().Shutdown();
   NoMoreDay::StatsSystem::Shutdown(m_registry);

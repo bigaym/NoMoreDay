@@ -10,9 +10,27 @@ namespace NoMoreDay::render {
 
 using namespace NoMoreDay::RenderConstants;
 
-MDIRenderer::~MDIRenderer() { Shutdown(); }
+MDIRenderer *MDIRenderer::s_instance = nullptr;
+
+MDIRenderer &MDIRenderer::Get() {
+  if (!s_instance) {
+    LOG_WARN("MDIRenderer::Get() called without initialization. "
+             "Consider using RenderContext injection.");
+    static MDIRenderer fallback;
+    return fallback;
+  }
+  return *s_instance;
+}
+
+MDIRenderer::~MDIRenderer() {
+  Shutdown();
+  if (s_instance == this) {
+    s_instance = nullptr;
+  }
+}
 
 void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
+  s_instance = this;
   if (m_quadVAO != 0)
     return; // Already initialized
 
@@ -62,6 +80,10 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
 }
 
 void MDIRenderer::Shutdown() {
+  if (s_instance == this) {
+    s_instance = nullptr;
+  }
+
   if (m_quadVAO == 0)
     return;
   rlUnloadVertexArray(m_quadVAO);

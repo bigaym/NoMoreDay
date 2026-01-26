@@ -4,6 +4,7 @@
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/RenderContext.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
@@ -12,15 +13,27 @@
 #include "game/registry/GroupRegistry.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
 #include "raylib.h" // Added for GetFrameTime()
-#include "raymath.h"
 #include "rlgl.h"
 
 namespace NoMoreDay::systems {
+
+GPUEntitySystem *GPUEntitySystem::s_instance = nullptr;
+
+GPUEntitySystem &GPUEntitySystem::Get() {
+  if (!s_instance) {
+    LOG_WARN("GPUEntitySystem::Get() called without initialization. "
+             "Consider using RenderContext injection.");
+    static GPUEntitySystem fallback;
+    return fallback;
+  }
+  return *s_instance;
+}
 
 using namespace components;
 
 void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities,
                            entt::registry *registry) {
+  s_instance = this;
   m_maxEntities = maxEntities;
   LOG_INFO("Initializing GPUEntitySystem (Compute-based Physics) with {} "
            "entities...",
@@ -76,7 +89,6 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities,
   // m_freeSlots/m_slotToEntity are now managed by m_slotManager
 
   InitRender(resources);
-  NoMoreDay::render::MDIRenderer::Get().Init(resources, m_maxEntities);
 }
 
 void GPUEntitySystem::InitRender(ResourceManager &rm) {
@@ -109,14 +121,20 @@ void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context,
                           fmaxf(worldMin.x, worldMax.x) + 500.0f,
                           fmaxf(worldMin.y, worldMax.y) + 500.0f};
 
-    auto &mdi = NoMoreDay::render::MDIRenderer::Get();
-    // Bind Binding 0 for Cull CS - RenderConstants::Binding::SSBO_ENTITY_DATA
-    using namespace NoMoreDay::RenderConstants;
-    m_persistentEntityBuffer.BindPreviousNoSync(
-        static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA));
-    mdi.Cull(viewBounds);
-    mdi.Render(*context.resources, m_persistentEntityBuffer,
-               context.renderAlpha);
+    m_persistentEntityBuffer.BindPreviousNoSync(static_cast<uint32_t>(
+        NoMoreDay::RenderConstants::Binding::SSBO_ENTITY_DATA));
+
+    if (context.renderContext) {
+      auto &mdi = context.renderContext->MDI();
+      mdi.Cull(viewBounds);
+      mdi.Render(*context.resources, m_persistentEntityBuffer,
+                 context.renderAlpha);
+    } else {
+      auto &mdi = NoMoreDay::render::MDIRenderer::Get();
+      mdi.Cull(viewBounds);
+      mdi.Render(*context.resources, m_persistentEntityBuffer,
+                 context.renderAlpha);
+    }
   } else {
     RenderLegacy(context.renderAlpha);
   }
@@ -143,7 +161,9 @@ void GPUEntitySystem::RenderLegacy(float alpha) {
 
 // OnGPUIndexDestroyed removed - Managed by GPUSlotManager internal callback
 
-void GPUEntitySystem::Update(entt::registry &registry, float dt) {
+void GPUEntitySystem::Update(const NoMoreDay::SharedContext &context,
+                             float dt) {
+  auto &registry = *context.registry;
   m_frameCounter++;
   float currentTime = (float)GetTime();
 
@@ -177,12 +197,22 @@ void GPUEntitySystem::Update(entt::registry &registry, float dt) {
   memcpy(gpuPtr, m_shadowBuffer.data(),
          copyCount * sizeof(components::GPUEntity));
 
-  NoMoreDay::render::MDIRenderer::Get().UpdateStats(m_visualStatsShadowBuffer,
-                                                    (int)copyCount);
+  if (context.renderContext) {
+    context.renderContext->MDI().UpdateStats(m_visualStatsShadowBuffer,
+                                             (int)copyCount);
+  } else {
+    NoMoreDay::render::MDIRenderer::Get().UpdateStats(m_visualStatsShadowBuffer,
+                                                      (int)copyCount);
+  }
   m_persistentEntityBuffer.Flush();
 
-  GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer,
-                                               m_maxEntities, 10.0f);
+  if (context.renderContext) {
+    context.renderContext->Flow().UpdateCrowdDensity(m_persistentEntityBuffer,
+                                                     m_maxEntities, 10.0f);
+  } else {
+    GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer,
+                                                 m_maxEntities, 10.0f);
+  }
 
   m_persistentEntityBuffer.Lock();
 }
@@ -200,7 +230,10 @@ void GPUEntitySystem::Shutdown() {
   m_cellOffsetBuffer.Release();
   m_entityIndicesBuffer.Release();
   m_tempCountBuffer.Release();
-  NoMoreDay::render::MDIRenderer::Get().Shutdown();
+
+  if (s_instance == this) {
+    s_instance = nullptr;
+  }
 }
 
 } // namespace NoMoreDay::systems
