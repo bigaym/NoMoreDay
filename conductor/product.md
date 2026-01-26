@@ -4,7 +4,7 @@
 NoMoreDay is a high-performance 2D Diablo-like Roguelite ARPG built with C++20 and ECS. It challenges players to survive a dark fantasy apocalypse where 10,000+ entities clash, featuring user-constructed endgame dimensions and persistent monster evolution.
 
 ## Vision Statement: The Infinite Cycle
-To create an immersive ARPG experience where the **Roguelite run loop** meets **persistent ARPG accumulation**. The project has moved past its architectural foundation and is now in the **Content & Polish Phase (V1.0 Readiness)**, with a fully functional high-performance engine supporting massive-scale combat and complex build depth.
+To create an immersive ARPG experience where the **Roguelite run loop** meets **persistent ARPG accumulation**. The project has moved past its architectural foundation, achieving **Protocol-Compliant Integrity (DOD/ECS)**, and is now in the **Content & Polish Phase (V1.0 Readiness)**, with a fully functional high-performance engine supporting massive-scale combat and complex build depth.
 
 ## Target Audience
 - **Hardcore ARPG Fans:** Players who crave complex build systems (Diablo/PoE/Last Epoch) and itemization depth.

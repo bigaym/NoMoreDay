@@ -443,7 +443,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: GPU Rendering Pipeline Refactor (Multi-Phase)
-- **Folder:** [./conductor/tracks/rendering_pipeline_refactor/](./conductor/tracks/rendering_pipeline_refactor/)
+- **Folder:** [./conductor/archive/rendering_pipeline_refactor_20260126/](./conductor/archive/rendering_pipeline_refactor_20260126/)
 - **Description:** 基于架构审计报告，系统性重构 GPU 渲染管线。消除魔法数字、统一 GL 抽象层、分解 GPUEntitySystem 职责、规范化 MDIRenderer，并解耦单例以提升可测试性。遵循 DOD 原则，目标实现代码一致性、性能提升、安全防护、高可用与低耦合。
 - **Status:** COMPLETED
 - **Priority:** HIGH

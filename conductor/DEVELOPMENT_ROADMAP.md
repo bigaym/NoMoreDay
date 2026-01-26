@@ -121,6 +121,9 @@
     - 完成物理引擎与渲染管线深度审计。
     - 修复 SSBO 结构体不匹配、ForceField 逻辑回归与 AI 休眠残影。
     - 提取物理常量并清理所有魔数。
+- [x] **GPU Pipeline Refactor & Singleton Decoupling (2026-01-26)**: 
+    - 完成 RenderConstants 标准化、GPUUtils 统一、GPUEntitySystem 职责拆分及 MDIRenderer 规范化。
+    - 全面消除单例耦合与魔法数字，确保架构符合 DOD 与 Low-Coupling 标准。
 
 ---
 
