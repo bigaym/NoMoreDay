@@ -107,7 +107,7 @@ void MDIRenderer::ResetCommand() {
     memcpy(ptr, &cmd, sizeof(cmd));
   }
   m_commandBuffer.Flush();
-  m_commandBuffer.Lock();
+  // LOCK REMOVED: Must not advance slot here, as Cull/Render usage follows
 }
 
 void MDIRenderer::UpdateStats(
@@ -120,7 +120,7 @@ void MDIRenderer::UpdateStats(
   m_statsBuffer.Lock();
 }
 
-void MDIRenderer::Cull(Vector4 viewBounds) {
+void MDIRenderer::Cull(ResourceManager &rm, const PersistentBuffer &entities, Vector4 viewBounds) {
   using namespace NoMoreDay::RenderConstants;
 
   if (m_cullShader.id == 0)
@@ -130,6 +130,13 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
   // Assuming cull.compute handle this
   rlEnableShader(m_cullShader.id);
 
+  // Set maxEntities for boundary check
+  int locMaxEntities = rlGetLocationUniform(m_cullShader.id, "maxEntities");
+  if (locMaxEntities != -1) {
+      int maxEnt = (int)m_maxEntities;
+      rlSetUniform(locMaxEntities, &maxEnt, RL_SHADER_UNIFORM_INT, 1);
+  }
+
   // Set view bounds
   int locBounds = rlGetLocationUniform(m_cullShader.id, "viewBounds");
   if (locBounds != -1) {
@@ -138,6 +145,10 @@ void MDIRenderer::Cull(Vector4 viewBounds) {
   }
 
   // Bind Buffers for Cull
+  // Bind Entity Buffer (Input) - Use Previous slot (from Update)
+  entities.BindPreviousNoSync(static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA));
+  
+  // Bind Output Buffers - Use Current slot (Base)
   m_visibleBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
   m_commandBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_COMMAND));
 
@@ -185,14 +196,19 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
     rlSetUniform(locInterp, &renderAlpha, RL_SHADER_UNIFORM_FLOAT, 1);
 
   // 5. EXPLICITLY BIND ALL SSBOs
+  // Entities: Previous (Logic Frame)
   entities.BindPreviousNoSync(static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA));
-  m_visibleBuffer.BindPreviousNoSync(
-      static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
-  m_statsBuffer.BindPreviousNoSync(
-      static_cast<uint32_t>(Binding::SSBO_VISUAL_STATS));
+  
+  // Visible & Stats: Current (Render Frame) - This was the bug (BindPrevious vs BindBase)
+  m_visibleBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID));
+  
+  // Stats should visually reflect logic, but if UpdateStats calculated them for this frame...
+  // Usually Stats are updated in Render Loop (interpolation)? No, Update loop.
+  // UpdateStats writes to Current. So Render should read Current.
+  m_statsBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_VISUAL_STATS));
 
-  // Bind Command Buffer for Indirect Draw
-  m_commandBuffer.Bind(GL::DRAW_INDIRECT_BUFFER);
+  // Bind Command Buffer for Indirect Draw (Current)
+  m_commandBuffer.Bind(GL::DRAW_INDIRECT_BUFFER); // Defaults to Current
 
   // 6. Execute Indirect Draw
   rlEnableVertexArray(m_quadVAO);
@@ -206,6 +222,10 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   rlDisableVertexArray();
 
   rlDisableShader();
+
+  // LOCK BUFFERS at end of frame usage
+  m_commandBuffer.Lock();
+  m_visibleBuffer.Lock();
 }
 
 } // namespace NoMoreDay::render

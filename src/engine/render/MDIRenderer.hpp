@@ -63,7 +63,7 @@ public:
 
   // Perform GPU culling and command generation
   // viewBounds: x=minX, y=minY, z=maxX, w=maxY (Axis Aligned)
-  void Cull(Vector4 viewBounds);
+  void Cull(ResourceManager &rm, const PersistentBuffer &entities, Vector4 viewBounds);
 
   // Execute indirect draw
   /**

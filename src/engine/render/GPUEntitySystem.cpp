@@ -126,12 +126,14 @@ void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context,
 
     if (context.renderContext) {
       auto &mdi = context.renderContext->MDI();
-      mdi.Cull(viewBounds);
+      mdi.ResetCommand(); // Reset before culling
+      mdi.Cull(*context.resources, m_persistentEntityBuffer, viewBounds);
       mdi.Render(*context.resources, m_persistentEntityBuffer,
                  context.renderAlpha);
     } else {
       auto &mdi = NoMoreDay::render::MDIRenderer::Get();
-      mdi.Cull(viewBounds);
+      mdi.ResetCommand(); // Reset before culling
+      mdi.Cull(*context.resources, m_persistentEntityBuffer, viewBounds);
       mdi.Render(*context.resources, m_persistentEntityBuffer,
                  context.renderAlpha);
     }
