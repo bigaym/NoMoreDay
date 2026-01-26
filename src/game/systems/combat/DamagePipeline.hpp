@@ -53,8 +53,8 @@ private:
     Tag hit_tags = Tag::None;
     float _padding[5] = {0.0f}; // Pad to 64 bytes (24+4+4+4+8 + 20 = 64)
   };
-  static_assert(sizeof(AttackerSnapshot) % 32 == 0,
-                "AttackerSnapshot size must be a multiple of 32");
+  static_assert(alignof(AttackerSnapshot) == 32,
+                "AttackerSnapshot must be 32-byte aligned for SIMD");
 
   static AttackerSnapshot
   CreateSnapshot(entt::registry &registry, entt::entity attacker,

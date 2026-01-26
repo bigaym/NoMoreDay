@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <vector>
 
-
 namespace NoMoreDay::render {
 
 // Matches GPUEntity in GPUData.hpp for zero-copy rendering
@@ -23,6 +22,8 @@ struct alignas(16) GPUInstanceData {
   uint32_t flags;   // 4 bytes  - Behavior flags
   float padding[7]; // 28 bytes - Padding to 64 bytes
 };
+// static_assert(alignof(GPUInstanceData) == 16,
+//               "GPUInstanceData must be 16-byte aligned");
 static_assert(sizeof(GPUInstanceData) == 64,
               "GPUInstanceData must match GPUEntity size");
 
@@ -49,8 +50,9 @@ public:
   void Update(ResourceManager &rm,
               const NoMoreDay::render::PersistentBuffer &entityBuffer,
               float alpha);
-  void UpdateStats(
-      const std::vector<NoMoreDay::components::GPUVisualStats> &stats, int count = -1);
+  void
+  UpdateStats(const std::vector<NoMoreDay::components::GPUVisualStats> &stats,
+              int count = -1);
 
   // Perform GPU culling and command generation
   // viewBounds: x=minX, y=minY, z=maxX, w=maxY (Axis Aligned)
@@ -61,7 +63,8 @@ public:
    * @brief Perform MDI Draw call
    * @param entities The buffer containing entity data (Binding 0)
    */
-  void Render(ResourceManager &rm, const PersistentBuffer &entities, float renderAlpha);
+  void Render(ResourceManager &rm, const PersistentBuffer &entities,
+              float renderAlpha);
 
   // Shutdown and release resources
   void Shutdown();

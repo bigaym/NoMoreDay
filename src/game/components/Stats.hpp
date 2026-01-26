@@ -317,8 +317,8 @@ struct alignas(8) StatModifier {
   float value = 0.0f;                     // 4B
   StatType type = StatType::Count;        // 1B
   ModifierMode mode = ModifierMode::Flat; // 1B
-  uint16_t _padding = 0;                  // 2B (Padding)
-  Tag required_tags = Tag::None;          // 8B
+  uint16_t _padding = 0;                  // 2B (Total 8B)
+  Tag required_tags = Tag::None;          // 8B (Total 16B)
 
   // Extra fields from existing code that were not in Spec snippet but exist in
   // codebase We need to keep them or remove them? Specifies "strict" layout.
@@ -382,6 +382,8 @@ struct alignas(8) StatModifier {
            ((context_tags & required_tags) == required_tags);
   }
 };
+static_assert(alignof(StatModifier) == 24 || alignof(StatModifier) == 8,
+              "StatModifier should be aligned to at least 8 bytes");
 
 inline void to_json(nlohmann::json &j, const StatModifier &m) {
   j = nlohmann::json{{"type", m.type},     {"mode", m.mode},

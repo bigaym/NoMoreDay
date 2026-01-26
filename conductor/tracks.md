@@ -433,6 +433,39 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [ ] Track: GPU Rendering Pipeline Refactor (Multi-Phase)
+- **Folder:** [./conductor/tracks/rendering_pipeline_refactor/](./conductor/tracks/rendering_pipeline_refactor/)
+- **Description:** 基于架构审计报告，系统性重构 GPU 渲染管线。消除魔法数字、统一 GL 抽象层、分解 GPUEntitySystem 职责、规范化 MDIRenderer，并解耦单例以提升可测试性。遵循 DOD 原则，目标实现代码一致性、性能提升、安全防护、高可用与低耦合。
+- **Status:** PLANNED
+- **Priority:** HIGH
+- **Estimated Time:** 5-6 weeks (52-60h total)
+- **Risk Level:** 🔴 HIGH (涉及核心渲染路径重构)
+
+### Sub-Tracks:
+| Track | Name | Priority | Status | Est. Time | Risk |
+|-------|------|----------|--------|-----------|------|
+| T1 | `render_constants` - 绑定常量标准化 | P0 | 🔵 待开始 | 4h | 低 |
+| T2 | `gpu_utils_unification` - GPU 工具层统一 | P1 | 🔵 待开始 | 8h | 中 |
+| T3 | `gpuEntitySystem_decomposition` - 职责分解 | P0 | 🔵 待开始 | 16-24h | 高 |
+| T4 | `mdi_renderer_refactor` - MDI 渲染器规范化 | P1 | 🔵 待开始 | 8h | 中 |
+| T5 | `singleton_decoupling` - 单例解耦与依赖注入 | P2 | 🔵 待开始 | 16h | 高 |
+
+### 依赖关系:
+```
+T1 ──┬── T2 ──┬── T3 ──┬── T5
+     │        │        │
+     └────────┴── T4 ──┘
+```
+
+### 核心目标:
+1. **代码一致性**: 统一 Buffer Binding 常量、GL 抽象层
+2. **性能优化**: DOD 合规，20k 实体 Update < 2ms
+3. **安全健壮性**: 消除魔法数字，类型安全绑定
+4. **可测试性**: 支持 Mock 替换，单元测试覆盖
+5. **可扩展性**: 模块化设计，为未来特性预留接口
+
+---
+
 ## [ ] Track: Next Milestone (TBD)
 - **Folder:** [./conductor/tracks/next-track/](./conductor/tracks/next-track/)
 - **Description:** 规划下一个功能模块或优化方向。
