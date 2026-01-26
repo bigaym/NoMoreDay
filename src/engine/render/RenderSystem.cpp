@@ -220,100 +220,102 @@ void RenderSystem::render(entt::registry &registry,
   }
 
   // 1. 绘制精灵 (具有 Position 和 SpriteComponent 的实体)
-  // Updated to iterate entities for ShadowVisualComponent check
-  // Exclude HoloBlade as it's handled by HoloBladeRenderSystem
-  auto spriteView = registry.view<const Position, const SpriteComponent>(
-      entt::exclude<NoMoreDay::components::HoloBlade>);
+  {
+    // Updated to iterate entities for ShadowVisualComponent check
+    // Exclude HoloBlade as it's handled by HoloBladeRenderSystem
+    auto spriteView = registry.view<const Position, const SpriteComponent>(
+        entt::exclude<NoMoreDay::components::HoloBlade>);
 
-  for (auto entity : spriteView) {
-    const auto &[pos, sprite] = spriteView.get(entity);
+    for (auto entity : spriteView) {
+      const auto &[pos, sprite] = spriteView.get(entity);
 
-    // [GPU OFFLOAD] Skip CPU rendering if handled by GPU MDI
-    // Player remains on CPU path as it has special logic and NO_RENDER flag in
-    // GPU
-    if (registry.any_of<GPUIndex>(entity) &&
-        !registry.any_of<PlayerTag>(entity)) {
-      if (sprite.textureLayerIndex >= 0)
-        continue;
-    }
-
-    float width = (float)sprite.texture.width * sprite.scale; // 宽度
-    float height = (float)sprite.texture.height * sprite.scale;
-
-    // Center the sprite on the position
-    Vector2 origin = {width / 2.0f, height / 2.0f};
-    Rectangle source = {0.0f, 0.0f, (float)sprite.texture.width,
-                        (float)sprite.texture.height};
-
-    // [RENDER INTERPOLATION] Smooth movement between physics frames
-    // GPU-managed entities use true interpolation: mix(prevPos, pos, alpha)
-    // CPU-driven entities (Players) don't need interpolation as they update
-    // every frame.
-    float renderX = pos.x;
-    float renderY = pos.y;
-
-    if (registry.any_of<GPUIndex>(entity) &&
-        !registry.any_of<PlayerTag>(entity)) {
-      // For GPU entities, we assume the GPU already stores prevPosition
-      // But since CPU only has Position, we use velocity-based extrapolation as
-      // a fallback The proper fix is handled by MDI shader using SSBO
-      // prevPosition This path is for SpriteComponent entities which bypass MDI
-      // rendering
-      if (const auto *vel = registry.try_get<Velocity>(entity)) {
-        // Simple extrapolation based on current alpha
-        // Note: This is a fallback - MDI handles true interpolation in GPU
-        renderX += vel->vx * context.renderAlpha * (1.0f / 60.0f);
-        renderY += vel->vy * context.renderAlpha * (1.0f / 60.0f);
+      // [GPU OFFLOAD] Skip CPU rendering if handled by GPU MDI
+      // Player remains on CPU path as it has special logic and NO_RENDER flag in
+      // GPU
+      if (registry.any_of<GPUIndex>(entity) &&
+          !registry.any_of<PlayerTag>(entity)) {
+        if (sprite.textureLayerIndex >= 0)
+          continue;
       }
-    }
 
-    Rectangle dest = {renderX, renderY, width, height};
+      float width = (float)sprite.texture.width * sprite.scale; // 宽度
+      float height = (float)sprite.texture.height * sprite.scale;
 
-    Color tint = WHITE;
-    if (auto *svc =
-            registry.try_get<NoMoreDay::ShadowVisualComponent>(entity)) {
-      tint = svc->color_tint;
-    }
+      // Center the sprite on the position
+      Vector2 origin = {width / 2.0f, height / 2.0f};
+      Rectangle source = {0.0f, 0.0f, (float)sprite.texture.width,
+                          (float)sprite.texture.height};
 
-    // --- Monster Rarity Glow (Underlay) ---
-    if (auto *rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
-      if (rarityComp->rarity > EnemyRarityComponent::NORMAL) {
-        Color glowColor = WHITE;
-        float glowScale = 1.2f;
-        switch (rarityComp->rarity) {
-        case EnemyRarityComponent::CHAMPION:
-          glowColor = SKYBLUE;
-          glowScale = 1.3f;
-          break;
-        case EnemyRarityComponent::ELITE:
-          glowColor = {255, 215, 0, 255}; // Gold
-          glowScale = 1.5f;
-          break;
-        case EnemyRarityComponent::BOSS:
-          glowColor = {255, 120, 0, 255}; // Orange
-          glowScale = 2.0f;
-          break;
-        case EnemyRarityComponent::NEMESIS:
-          glowColor = {220, 20, 60, 255}; // Crimson
-          glowScale = 2.5f;
-          break;
-        default:
-          break;
+      // [RENDER INTERPOLATION] Smooth movement between physics frames
+      // GPU-managed entities use true interpolation: mix(prevPos, pos, alpha)
+      // CPU-driven entities (Players) don't need interpolation as they update
+      // every frame.
+      float renderX = pos.x;
+      float renderY = pos.y;
+
+      if (registry.any_of<GPUIndex>(entity) &&
+          !registry.any_of<PlayerTag>(entity)) {
+        // For GPU entities, we assume the GPU already stores prevPosition
+        // But since CPU only has Position, we use velocity-based extrapolation as
+        // a fallback The proper fix is handled by MDI shader using SSBO
+        // prevPosition This path is for SpriteComponent entities which bypass MDI
+        // rendering
+        if (const auto *vel = registry.try_get<Velocity>(entity)) {
+          // Simple extrapolation based on current alpha
+          // Note: This is a fallback - MDI handles true interpolation in GPU
+          renderX += vel->vx * context.renderAlpha * (1.0f / 60.0f);
+          renderY += vel->vy * context.renderAlpha * (1.0f / 60.0f);
         }
-
-        float pulse = 0.85f + 0.15f * sinf((float)GetTime() * 3.0f);
-        float radius =
-            (width > height ? width : height) * 0.6f * glowScale * pulse;
-
-        // Draw multi-layered glow for premium feel
-        DrawCircleGradient((int)pos.x, (int)pos.y, radius,
-                           Fade(glowColor, 0.4f), Fade(glowColor, 0.0f));
-        DrawCircleGradient((int)pos.x, (int)pos.y, radius * 0.6f,
-                           Fade(glowColor, 0.6f), Fade(glowColor, 0.0f));
       }
-    }
 
-    DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, tint);
+      Rectangle dest = {renderX, renderY, width, height};
+
+      Color tint = WHITE;
+      if (auto *svc =
+              registry.try_get<NoMoreDay::ShadowVisualComponent>(entity)) {
+        tint = svc->color_tint;
+      }
+
+      // --- Monster Rarity Glow (Underlay) ---
+      if (auto *rarityComp = registry.try_get<EnemyRarityComponent>(entity)) {
+        if (rarityComp->rarity > EnemyRarityComponent::NORMAL) {
+          Color glowColor = WHITE;
+          float glowScale = 1.2f;
+          switch (rarityComp->rarity) {
+          case EnemyRarityComponent::CHAMPION:
+            glowColor = SKYBLUE;
+            glowScale = 1.3f;
+            break;
+          case EnemyRarityComponent::ELITE:
+            glowColor = {255, 215, 0, 255}; // Gold
+            glowScale = 1.5f;
+            break;
+          case EnemyRarityComponent::BOSS:
+            glowColor = {255, 120, 0, 255}; // Orange
+            glowScale = 2.0f;
+            break;
+          case EnemyRarityComponent::NEMESIS:
+            glowColor = {220, 20, 60, 255}; // Crimson
+            glowScale = 2.5f;
+            break;
+          default:
+            break;
+          }
+
+          float pulse = 0.85f + 0.15f * sinf((float)GetTime() * 3.0f);
+          float radius =
+              (width > height ? width : height) * 0.6f * glowScale * pulse;
+
+          // Draw multi-layered glow for premium feel
+          DrawCircleGradient((int)pos.x, (int)pos.y, radius,
+                             Fade(glowColor, 0.4f), Fade(glowColor, 0.0f));
+          DrawCircleGradient((int)pos.x, (int)pos.y, radius * 0.6f,
+                             Fade(glowColor, 0.6f), Fade(glowColor, 0.0f));
+        }
+      }
+
+      DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, tint);
+    }
   }
 
   // GPU 粒子渲染
@@ -325,10 +327,12 @@ void RenderSystem::render(entt::registry &registry,
   }
 
   // GPU 伤害飘字渲染
-  NoMoreDay::render::PopupRenderer::Get().Update(GetFrameTime());
-  Matrix viewProj =
-      NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(camera);
-  NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
+  {
+    NoMoreDay::render::PopupRenderer::Get().Update(GetFrameTime());
+    Matrix viewProj =
+        NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(camera);
+    NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
+  }
 
   // 2. 绘制基础颜色形状 (具有 Position 和 ColorComponent)
   // 注意：如果是投射物 (Projectile)，即使它有 GPUIndex，我们也允许 CPU
@@ -615,9 +619,6 @@ void RenderSystem::render(entt::registry &registry,
   // --- 5. 绘制物品和金币的世界标签 (Optimization: Instanced SDF Rendering +
   // Batched Text) ---
   {
-    // NoMoreDay::utils::ScopedTimer itemTimer("RenderSystem::ItemsLabels",
-    // 100); // Log if > 0.1ms
-
     // Clear Queues
     s_labelBuffer.clear();
     s_textQueue.clear();
@@ -653,17 +654,30 @@ void RenderSystem::render(entt::registry &registry,
 
     // 1. Item Collection Pass (Cull & Generate Instances)
     auto itemView = registry.view<NoMoreDay::ItemComponent, Position>();
+    int labelCount = 0;
+    const int MAX_RENDER_LABELS = 64; // Further reduced for performance
+
+    // Sort or filter could be added here, for now we use a simple counter and rarity check
     itemView.each([&](entt::entity entity, const auto &item, const auto &pos) {
+      if (labelCount >= MAX_RENDER_LABELS) return;
+
       // Frustum Culling
       if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect))
         return;
+
+      // ARPG Optimization: If we have too many items, only show Rares/Epics
+      // or items that passed the Loot Filter with a high scale.
+      const auto *filterResult = registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
+      if (labelCount > 32) {
+          if (item.rarity < NoMoreDay::Rarity::Rare && (!filterResult || filterResult->scale <= 1.0f)) {
+              return; 
+          }
+      }
 
       Color rarityColor = UISystem::GetRarityColor(item.rarity);
       float scale = 1.0f;
       bool emphasized = false;
 
-      const auto *filterResult =
-          registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
       if (filterResult) {
         if (!filterResult->visible)
           return;
@@ -673,6 +687,8 @@ void RenderSystem::render(entt::registry &registry,
           rarityColor = filterResult->color;
         }
       }
+
+      labelCount++;
 
       // Font Size Calculation
       int fontSize = (int)(18.0f * scale * fontScale);
@@ -734,8 +750,14 @@ void RenderSystem::render(entt::registry &registry,
     // 2. Gold Collection Pass
     auto goldView = registry.view<GoldComponent, Position>();
     goldView.each([&](entt::entity entity, const auto &gold, const auto &pos) {
+      if (labelCount >= MAX_RENDER_LABELS) return;
       if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect))
         return;
+
+      // For Gold, we only show labels if the amount is significant or if we have room
+      if (labelCount > 48 && gold.amount < 100) return;
+
+      labelCount++;
 
       int fontSize = (int)(16.0f * fontScale);
       if (fontSize < 10)
@@ -902,8 +924,9 @@ void RenderSystem::render(entt::registry &registry,
   // Iterate ALL projectiles, regardless of GPUIndex or SpriteComponent or
   // ColorComponent We want to render them via GPUSkillEffectSystem if they
   // exist.
-  auto projView = registry.view<const Position, NoMoreDay::Projectile>();
-  for (auto entity : projView) {
+  {
+    auto projView = registry.view<const Position, NoMoreDay::Projectile>();
+    for (auto entity : projView) {
     const auto &pos = projView.get<const Position>(entity);
     auto &proj = projView.get<NoMoreDay::Projectile>(entity);
 
@@ -938,6 +961,7 @@ void RenderSystem::render(entt::registry &registry,
     }
 
     NoMoreDay::systems::GPUSkillEffectSystem::Get().Submit(effect);
+    }
   }
 
   // GPU Skill Effects

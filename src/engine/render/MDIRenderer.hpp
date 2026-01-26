@@ -57,9 +57,12 @@ public:
   void Update(ResourceManager &rm,
               const NoMoreDay::render::PersistentBuffer &entityBuffer,
               float alpha);
-  void
-  UpdateStats(const std::vector<NoMoreDay::components::GPUVisualStats> &stats,
-              int count = -1);
+  void UpdateStats(const std::vector<components::GPUVisualStats> &stats,
+                   int count);
+  void UpdateStatsNoFlush(const std::vector<components::GPUVisualStats> &stats,
+                          int count);
+  void FlushStatsRange(size_t count);
+  void ResetCommand();
 
   // Perform GPU culling and command generation
   // viewBounds: x=minX, y=minY, z=maxX, w=maxY (Axis Aligned)
@@ -73,11 +76,10 @@ public:
   void Render(ResourceManager &rm, const PersistentBuffer &entities,
               float renderAlpha);
 
+  void SetMaxActiveEntities(uint32_t count) { m_maxActiveEntities = count; }
+
   // Shutdown and release resources
   void Shutdown();
-
-  // Reset command buffer (instanceCount = 0)
-  void ResetCommand();
 
   bool IsInitialized() const { return m_quadVAO != 0; }
   int GetCurrentSlot() const { return m_commandBuffer.GetCurrentSlot(); }
@@ -99,6 +101,7 @@ private:
   uint32_t m_quadVAO = 0;
   uint32_t m_quadVBO = 0;
   uint32_t m_maxEntities = 0;
+  uint32_t m_maxActiveEntities = 0;
 };
 
 } // namespace NoMoreDay::render

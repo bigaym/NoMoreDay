@@ -93,6 +93,8 @@ public:
   // === Map/Unmap Operations ===
   static void *MapBufferRange(uint32_t target, ptrdiff_t offset,
                               ptrdiff_t length, uint32_t access);
+  static void FlushMappedBufferRange(uint32_t target, ptrdiff_t offset,
+                                     ptrdiff_t length);
   static bool UnmapBuffer(uint32_t target);
 
   // === Sync Operations ===
@@ -144,6 +146,7 @@ private:
   static void *s_glDeleteSync;
   static void *s_glClientWaitSync;
   static void *s_glMapBufferRange;
+  static void *s_glFlushMappedBufferRange;
   static void *s_glUnmapBuffer;
   static void *s_glGenBuffers;
   static void *s_glDeleteBuffers;

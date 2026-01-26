@@ -124,10 +124,11 @@ constexpr Barrier operator|(Barrier a, Barrier b) {
  * @brief Buffer Map 标志位。
  */
 enum class MapFlag : uint32_t {
-  Read = 0x0001,       // GL_MAP_READ_BIT
-  Write = 0x0002,      // GL_MAP_WRITE_BIT
-  Persistent = 0x0040, // GL_MAP_PERSISTENT_BIT
-  Coherent = 0x0080,   // GL_MAP_COHERENT_BIT
+  Read = 0x0001,          // GL_MAP_READ_BIT
+  Write = 0x0002,         // GL_MAP_WRITE_BIT
+  Persistent = 0x0040,    // GL_MAP_PERSISTENT_BIT
+  Coherent = 0x0080,      // GL_MAP_COHERENT_BIT
+  FlushExplicit = 0x0010, // GL_MAP_FLUSH_EXPLICIT_BIT
 };
 
 inline MapFlag operator|(MapFlag a, MapFlag b) {

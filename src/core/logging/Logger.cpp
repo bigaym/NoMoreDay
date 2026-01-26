@@ -44,7 +44,7 @@ namespace tools
 
         // Sink 2: File (Async)
         auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>("logs/NoMoreDay.log", true);
-        fileSink->set_level(spdlog::level::debug);
+        fileSink->set_level(spdlog::level::info);
         fileSink->set_pattern("[%Y-%m-%d %T] [%l] %v");
         sinks.push_back(fileSink);
 

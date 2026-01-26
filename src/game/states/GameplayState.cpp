@@ -338,7 +338,6 @@ GameplayState::~GameplayState() {
 }
 
 bool GameplayState::OnUpdate(float dt) {
-  // NoMoreDay::utils::ScopedTimer updateTimer("Gameplay::OnUpdate", 2000);
   auto &registry = *m_context->registry;
 
   // 0. Update SceneManager (Transitions)
@@ -378,14 +377,12 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 1. Level & Systems
   {
-    // NoMoreDay::utils::ScopedTimer levelTimer("Update::LevelManager", 500);
     m_context->levelManager->update(dt, registry, playerPos);
   }
 
   // Spatial Grid Rebuild (Exclude items/gold/dormant to keep AI/physics search
   // fast) Move rebuild here so systems use fresh data this frame
   {
-    // NoMoreDay::utils::ScopedTimer gridTimer("Update::SpatialGrid", 200);
     auto gridView = registry.view<Position>(
         entt::exclude<NoMoreDay::ItemComponent, GoldComponent, DormantTag>);
     m_spatialGrid.rebuild(gridView, registry);
@@ -399,7 +396,6 @@ bool GameplayState::OnUpdate(float dt) {
 
   // GPU Flow Field
   {
-    // NoMoreDay::utils::ScopedTimer flowTimer("Update::FlowField", 200);
     // Use RenderContext for FlowFieldSystem
     auto &flowSystem = m_renderContext->Flow();
     // Map already declared above
@@ -415,8 +411,11 @@ bool GameplayState::OnUpdate(float dt) {
       float originY =
           floor((playerPos.y - (gh * cellSize * 0.5f)) / cellSize) * cellSize;
 
+      auto &gpuEntitySystem = *m_renderContext->gpuEntitySystem;
       flowSystem.Update(map.getCostMap(), map.getWidth(), map.getHeight(),
-                        {playerPos.x, playerPos.y}, {originX, originY});
+                        {playerPos.x, playerPos.y}, {originX, originY},
+                        &gpuEntitySystem.GetEntityBuffer(),
+                        gpuEntitySystem.GetMaxEntities());
     }
 
     if (m_context->sceneManager) {
@@ -432,7 +431,6 @@ bool GameplayState::OnUpdate(float dt) {
     }
   }
   {
-    // NoMoreDay::utils::ScopedTimer systemsTimer("Update::Systems", 1000);
     MovementStanceSystem::Update(registry, dt);
     StatsSystem::UpdateBuffs(registry, dt);
     StatsSystem::update(registry);
@@ -680,11 +678,15 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // 4. AI
-  AISystem::update(registry, m_spatialGrid,
-                   m_context->levelManager->getMapSystem(), playerPos, dt);
+  {
+    AISystem::update(registry, m_spatialGrid,
+                     m_context->levelManager->getMapSystem(), playerPos, dt);
+  }
 
   // 5. Combat
-  CombatSystem::update(registry, m_spatialGrid, m_camera, dt);
+  {
+    CombatSystem::update(registry, m_spatialGrid, m_camera, dt);
+  }
 
   // 6. Effects
   systems::EffectSystem::update(registry, dt);
@@ -694,7 +696,6 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 7. Physics (Taskflow)
   {
-    // NoMoreDay::utils::ScopedTimer physicsTimer("Update::Physics", 500);
     UpdatePhysics(dt);
   }
 
@@ -789,7 +790,6 @@ void GameplayState::UpdatePhysics(float dt) {
   resolveTask.precede(updateTask);
 
   {
-    // NoMoreDay::utils::ScopedTimer tfTimer("Physics::Taskflow", 200);
     m_context->executor->run(m_taskflow).wait();
   }
   return;
@@ -801,10 +801,14 @@ void GameplayState::OnRender() {
   BeginMode2D(m_camera);
   // Grid - REMOVED per user request (Dark background for void area)
   // Level
-  m_context->levelManager->render(m_camera);
+  {
+    m_context->levelManager->render(m_camera);
+  }
 
   // Entities
-  RenderSystem::render(*m_context->registry, *m_context, m_camera);
+  {
+    RenderSystem::render(*m_context->registry, *m_context, m_camera);
+  }
 
   // Monster Health Bars
   systems::MonsterHealthBarSystem::Render(registry, m_camera);
@@ -898,7 +902,9 @@ void GameplayState::OnRender() {
   // Copied logic from UISystem::Draw or call a helper?
   // I can leave `UISystem::Draw` to handle "Gameplay UI".
 
-  UISystem::Draw(registry, *m_context->levelManager, m_camera, &m_spatialGrid);
+  {
+    UISystem::Draw(registry, *m_context->levelManager, m_camera, &m_spatialGrid);
+  }
 
   // Player HUD (Resource Bars)
   systems::PlayerHUD::Draw(registry);

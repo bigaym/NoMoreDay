@@ -165,6 +165,12 @@ void GPUEntitySystem::RenderLegacy(float alpha) {
 
 void GPUEntitySystem::Update(const NoMoreDay::SharedContext &context,
                              float dt) {
+  UpdateLogic(context, dt);
+  UploadGPU(context);
+}
+
+void GPUEntitySystem::UpdateLogic(const NoMoreDay::SharedContext &context, float dt) {
+  using namespace NoMoreDay::utils;
   auto &registry = *context.registry;
   m_frameCounter++;
   float currentTime = (float)GetTime();
@@ -174,46 +180,55 @@ void GPUEntitySystem::Update(const NoMoreDay::SharedContext &context,
     m_visualStatsShadowBuffer.assign(m_maxEntities, {});
   }
 
-  // Get mapped pointer for the current frame's slot
-  components::GPUEntity *gpuPtr =
-      (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
+  // --- Step 1: CPU Logic (Perform all heavy lifting first without GPU locks) ---
+  {
+    // Phase 1: Slot Reclamation & Assignment via GPUSlotManager
+    m_slotManager.Process(registry);
 
-  // Phase 1: Slot Reclamation & Assignment via GPUSlotManager
-  m_slotManager.Process(registry);
+    // Phase 2: Physics Sync
+    m_highWaterMark =
+        m_physicsSync.Execute(registry, m_shadowBuffer, m_frameCounter);
 
-  // Phase 2: Physics Sync
-  // Logic extracted to GPUPhysicsSync::Execute
-  int highWaterMark =
-      m_physicsSync.Execute(registry, m_shadowBuffer, m_frameCounter);
+    // Phase 3: Visual Sync
+    m_visualSync.Execute(registry, m_visualStatsShadowBuffer, m_frameCounter,
+                         currentTime);
+  }
+}
 
-  // Phase 3: Visual Sync
-  // Logic extracted to GPUVisualSync::Execute
-  m_visualSync.Execute(registry, m_visualStatsShadowBuffer, m_frameCounter,
-                       currentTime);
-
+void GPUEntitySystem::UploadGPU(const NoMoreDay::SharedContext &context) {
+  using namespace NoMoreDay::utils;
+  // --- Step 2: GPU Upload (Fastest possible mapping period) ---
+  
   // Bulk Upload
   // Optimization: Only copy up to the highest used slot index
   size_t copyCount =
-      std::min((size_t)highWaterMark + 128, (size_t)m_maxEntities);
+      std::min((size_t)m_highWaterMark + 128, (size_t)m_maxEntities);
 
-  memcpy(gpuPtr, m_shadowBuffer.data(),
-         copyCount * sizeof(components::GPUEntity));
+  {
+    // 1. Entity Data Upload
+    components::GPUEntity *gpuPtr = (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
+    if (gpuPtr) {
+        memcpy(gpuPtr, m_shadowBuffer.data(), copyCount * sizeof(components::GPUEntity));
+    }
 
-  if (context.renderContext) {
-    context.renderContext->MDI().UpdateStats(m_visualStatsShadowBuffer,
-                                             (int)copyCount);
-  } else {
-    NoMoreDay::render::MDIRenderer::Get().UpdateStats(m_visualStatsShadowBuffer,
-                                                      (int)copyCount);
-  }
-  m_persistentEntityBuffer.Flush();
+    // 2. Visual Stats Upload (Now via NoFlush variant)
+    if (context.renderContext) {
+      context.renderContext->MDI().UpdateStatsNoFlush(m_visualStatsShadowBuffer, (int)copyCount);
+      context.renderContext->MDI().SetMaxActiveEntities((uint32_t)copyCount);
+    } else {
+      NoMoreDay::render::MDIRenderer::Get().UpdateStatsNoFlush(m_visualStatsShadowBuffer, (int)copyCount);
+      NoMoreDay::render::MDIRenderer::Get().SetMaxActiveEntities((uint32_t)copyCount);
+    }
 
-  if (context.renderContext) {
-    context.renderContext->Flow().UpdateCrowdDensity(m_persistentEntityBuffer,
-                                                     m_maxEntities, 10.0f);
-  } else {
-    GPUFlowFieldSystem::Get().UpdateCrowdDensity(m_persistentEntityBuffer,
-                                                 m_maxEntities, 10.0f);
+    // 3. Global Memory Barrier (This flushes all client-mapped memory to GPU)
+    size_t entitySize = copyCount * sizeof(components::GPUEntity);
+    m_persistentEntityBuffer.FlushRange(0, entitySize);
+    
+    if (context.renderContext) {
+      context.renderContext->MDI().FlushStatsRange(copyCount);
+    } else {
+      NoMoreDay::render::MDIRenderer::Get().FlushStatsRange(copyCount);
+    }
   }
 
   m_persistentEntityBuffer.Lock();

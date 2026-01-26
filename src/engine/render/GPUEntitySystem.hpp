@@ -34,6 +34,8 @@ public:
             entt::registry *registry = nullptr);
 
   void Update(const NoMoreDay::SharedContext &context, float dt);
+  void UpdateLogic(const NoMoreDay::SharedContext &context, float dt);
+  void UploadGPU(const NoMoreDay::SharedContext &context);
   void SyncBack(entt::registry &registry);
   void Render(const NoMoreDay::SharedContext &context,
               const Camera2D &camera); // Render instanced entities
@@ -41,13 +43,16 @@ public:
 
   void Shutdown();
 
-  // Phase 1: Accessor for testing
+  // Phase 1: Accessors
   const render::GPUSlotManager &GetSlotManager() const { return m_slotManager; }
+  const render::PersistentBuffer &GetEntityBuffer() const { return m_persistentEntityBuffer; }
+  int GetMaxEntities() const { return m_maxEntities; }
 
 private:
   static GPUEntitySystem *s_instance;
 
   int m_maxEntities = 0;
+  int m_highWaterMark = 0;
   NoMoreDay::render::PersistentBuffer m_persistentEntityBuffer;
   NoMoreDay::render::PersistentBuffer m_physicsOutputBuffer;
 

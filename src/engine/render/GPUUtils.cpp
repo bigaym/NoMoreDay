@@ -15,6 +15,7 @@ void *GPUUtils::s_glFenceSync = nullptr;
 void *GPUUtils::s_glDeleteSync = nullptr;
 void *GPUUtils::s_glClientWaitSync = nullptr;
 void *GPUUtils::s_glMapBufferRange = nullptr;
+void *GPUUtils::s_glFlushMappedBufferRange = nullptr;
 void *GPUUtils::s_glUnmapBuffer = nullptr;
 void *GPUUtils::s_glGenBuffers = nullptr;
 void *GPUUtils::s_glDeleteBuffers = nullptr;
@@ -54,6 +55,7 @@ GPUSupportInfo GPUUtils::Initialize() {
   s_glDeleteSync = (void *)glfwGetProcAddress("glDeleteSync");
   s_glClientWaitSync = (void *)glfwGetProcAddress("glClientWaitSync");
   s_glMapBufferRange = (void *)glfwGetProcAddress("glMapBufferRange");
+  s_glFlushMappedBufferRange = (void *)glfwGetProcAddress("glFlushMappedBufferRange");
   s_glUnmapBuffer = (void *)glfwGetProcAddress("glUnmapBuffer");
   s_glGenBuffers = (void *)glfwGetProcAddress("glGenBuffers");
   s_glDeleteBuffers = (void *)glfwGetProcAddress("glDeleteBuffers");
@@ -211,6 +213,15 @@ void *GPUUtils::MapBufferRange(uint32_t target, ptrdiff_t offset,
                                                         access);
   }
   return nullptr;
+}
+
+void GPUUtils::FlushMappedBufferRange(uint32_t target, ptrdiff_t offset,
+                                      ptrdiff_t length) {
+  if (s_glFlushMappedBufferRange) {
+    using FnType = void(APIENTRY *)(uint32_t, ptrdiff_t, ptrdiff_t);
+    reinterpret_cast<FnType>(s_glFlushMappedBufferRange)(target, offset,
+                                                         length);
+  }
 }
 
 bool GPUUtils::UnmapBuffer(uint32_t target) {

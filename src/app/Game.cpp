@@ -143,8 +143,8 @@ void Game::init() {
     NoMoreDay::systems::GPUParticleSystem::Get().Init(
         NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
 
-    m_gpuEntitySystem.Init(m_resourceManager, 200000, &m_registry);
-    m_mdiRenderer.Init(m_resourceManager, 200000);
+    m_gpuEntitySystem.Init(m_resourceManager, 30000, &m_registry);
+    m_mdiRenderer.Init(m_resourceManager, 30000);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
     // Initialize GPU Skill Effect System (Global)
@@ -181,63 +181,60 @@ void Game::run() {
   const float fixedDt = 1.0f / 60.0f;
   float accumulator = 0.0f;
 
-  while (!WindowShouldClose()) {
-    float frameTime = GetFrameTime();
-    if (frameTime > 0.25f)
-      frameTime = 0.25f;
-
-    // 1. Update Game State based on Frame Rate (Variable DT)
-    // This ensures input responsiveness (ESC, Clicks) at high refresh rates.
-    m_stateManager->Update(frameTime);
-
-    if (m_stateManager->IsEmpty()) {
-      LOG_INFO("State stack empty, exiting game loop");
-      break;
-    }
-
-    // 2. Continuous Simulation & Physics (Fixed DT)
-    accumulator += frameTime;
-    while (accumulator >= fixedDt) {
-      // Note: GameplayState::UpdatePhysics is called inside its OnUpdate,
-      // which now runs at variable rate. If we truly want fixed physics,
-      // we should separate it from the State and call it here.
-      // But for now, moving the whole Update to variable DT is the safest
-      // way to fix the input issues reported by the user.
-
-      if (m_gpuInfo.computeShaderSupported) {
-        // 1. GPU -> CPU Sync Back (Get results from previous fixed update)
-        // This is now stall-free because the GPU had time since last pulse.
-        m_gpuEntitySystem.SyncBack(m_registry);
-
-        // 2. CPU -> GPU Sync & Compute Physics (Submit new pulse)
-        m_gpuEntitySystem.Update(m_context, fixedDt);
-
-        // Update particle system
-        NoMoreDay::systems::GPUParticleSystem::Get().Update(fixedDt);
-      }
-
-      accumulator -= fixedDt;
-    }
-
-    // Update Interpolation Alpha for Rendering
-    // alpha = accumulator / fixedDt, range [0, 1)
-    // This allows smooth interpolation between physics frames
-    m_context.renderAlpha = accumulator / fixedDt;
-
-    static float fpsLogTimer = 0.0f;
-    fpsLogTimer += frameTime;
-    LOG_LIMITED_DEBUG(10.0f, "Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(),
-                      frameTime * 1000.0f);
-
-    {
-
-      BeginDrawing();
-      ClearBackground(BLACK);
-      m_stateManager->Render();
-      EndDrawing();
-    }
-  }
-}
+          while (!WindowShouldClose()) {
+            float frameTime = GetFrameTime();
+            if (frameTime > 0.25f)
+              frameTime = 0.25f;
+      
+            {
+              // 1. Update Game State based on Frame Rate (Variable DT)
+              // This ensures input responsiveness (ESC, Clicks) at high refresh rates.
+              m_stateManager->Update(frameTime);
+            }        if (m_stateManager->IsEmpty()) {
+          LOG_INFO("State stack empty, exiting game loop");
+          break;
+        }
+  
+            // 2. Continuous Simulation & Physics (Fixed DT)
+            accumulator += frameTime;
+            bool logicRan = false;
+            while (accumulator >= fixedDt) {
+              if (m_gpuInfo.computeShaderSupported) {
+                // 1. GPU -> CPU Sync Back (Get results from previous fixed update)
+                // This is now stall-free because the GPU had time since last pulse.
+                m_gpuEntitySystem.SyncBack(m_registry);
+        
+                // 2. CPU -> Shadow Sync (Logic update only, no GPU mapping here)
+                m_gpuEntitySystem.UpdateLogic(m_context, fixedDt);
+              }
+        
+              accumulator -= fixedDt;
+              logicRan = true;
+            }
+        
+            if (logicRan && m_gpuInfo.computeShaderSupported) {
+              // 3. CPU -> GPU Sync & Compute Physics (Submit new pulse once per render frame)
+              m_gpuEntitySystem.UploadGPU(m_context);
+        
+              // 4. Update particle system (Once per render frame)
+              NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
+            }  
+        // Update Interpolation Alpha for Rendering
+        // alpha = accumulator / fixedDt, range [0, 1)
+        // This allows smooth interpolation between physics frames
+        m_context.renderAlpha = accumulator / fixedDt;
+  
+        static float fpsLogTimer = 0.0f;
+        fpsLogTimer += frameTime;
+            LOG_LIMITED_DEBUG(10.0f, "Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(),
+                              frameTime * 1000.0f);
+        
+            {
+              BeginDrawing();
+              ClearBackground(BLACK);
+              m_stateManager->Render();
+              EndDrawing();
+            }      }}
 
 void Game::cleanup() {
   LOG_INFO("Cleaning up game systems...");

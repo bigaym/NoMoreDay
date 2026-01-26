@@ -51,8 +51,9 @@ void PersistentBuffer::CreatePersistent(size_t size) {
   utils::GPUUtils::GenBuffers(1, &m_bufferId);
   utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, m_bufferId);
 
+  // Use FlushExplicit instead of Coherent for better driver-side power management and performance
   uint32_t flags = ToGL(MapFlag::Write | MapFlag::Read | MapFlag::Persistent |
-                        MapFlag::Coherent);
+                        MapFlag::FlushExplicit);
 
   utils::GPUUtils::BufferStorage(GL::SHADER_STORAGE_BUFFER, m_totalSize,
                                  nullptr, flags);
@@ -121,12 +122,19 @@ void *PersistentBuffer::BeginWrite() {
 }
 
 void PersistentBuffer::Flush() {
+  FlushRange(0, m_slotSize);
+}
+
+void PersistentBuffer::FlushRange(size_t offset, size_t size) {
   if (m_mode == Mode::Persistent) {
+    if (size == 0) return;
+    size_t totalOffset = m_writeSlot * m_slotSize + offset;
+    utils::GPUUtils::FlushMappedBufferRange(GL::SHADER_STORAGE_BUFFER, totalOffset, size);
     utils::GPUUtils::MemoryBarrier(RenderConstants::Barrier::Client);
   } else {
     utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, m_bufferId);
-    utils::GPUUtils::BufferSubData(GL::SHADER_STORAGE_BUFFER, 0, m_slotSize,
-                                   m_stagingBuffer.data());
+    utils::GPUUtils::BufferSubData(GL::SHADER_STORAGE_BUFFER, offset, size,
+                                   m_stagingBuffer.data() + offset);
     utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, 0);
   }
 }

@@ -20,7 +20,7 @@ public:
   // Update with full cost map and target position
   // Will extract a window of m_width * m_height based on gridOrigin
   void Update(const std::vector<unsigned char> &fullCostMap, int mapW, int mapH,
-              Vector2 targetPos, Vector2 gridOrigin);
+              Vector2 targetPos, Vector2 gridOrigin, const render::PersistentBuffer* entityBuffer = nullptr, int entityCount = 0);
 
   // Update crowd density from GPU entity buffer
   void UpdateCrowdDensity(const render::PersistentBuffer &entityBuffer, int entityCount,

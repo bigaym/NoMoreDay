@@ -115,9 +115,26 @@ void MDIRenderer::UpdateStats(
   if (count <= 0)
     return;
   void *ptr = m_statsBuffer.BeginWrite();
-  memcpy(ptr, stats.data(), count * sizeof(components::GPUVisualStats));
+  if (ptr) {
+    memcpy(ptr, stats.data(), count * sizeof(components::GPUVisualStats));
+  }
   m_statsBuffer.Flush();
-  m_statsBuffer.Lock();
+  // LOCK removed here. We will lock at the end of Render() to ensure GPU is done.
+}
+
+void MDIRenderer::UpdateStatsNoFlush(
+    const std::vector<components::GPUVisualStats> &stats, int count) {
+  if (count <= 0)
+    return;
+  void *ptr = m_statsBuffer.BeginWrite();
+  if (ptr) {
+    memcpy(ptr, stats.data(), count * sizeof(components::GPUVisualStats));
+  }
+}
+
+void MDIRenderer::FlushStatsRange(size_t count) {
+  if (count <= 0) return;
+  m_statsBuffer.FlushRange(0, count * sizeof(components::GPUVisualStats));
 }
 
 void MDIRenderer::Cull(ResourceManager &rm, const PersistentBuffer &entities, Vector4 viewBounds) {
@@ -153,7 +170,8 @@ void MDIRenderer::Cull(ResourceManager &rm, const PersistentBuffer &entities, Ve
   m_commandBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_COMMAND));
 
   // Dispatch - No barrier here, Render() will handle it as the Consumer
-  utils::GPUUtils::DispatchComputeNoBarrier((m_maxEntities + 63) / 64, 1, 1);
+  uint32_t dispatchCount = (m_maxActiveEntities > 0) ? m_maxActiveEntities : m_maxEntities;
+  utils::GPUUtils::DispatchComputeNoBarrier((dispatchCount + 63) / 64, 1, 1);
 
   rlDisableShader();
 }
@@ -226,6 +244,7 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   // LOCK BUFFERS at end of frame usage
   m_commandBuffer.Lock();
   m_visibleBuffer.Lock();
+  m_statsBuffer.Lock();
 }
 
 } // namespace NoMoreDay::render

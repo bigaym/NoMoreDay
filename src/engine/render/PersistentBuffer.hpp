@@ -51,6 +51,7 @@ public:
 
   // Finish writing (Flush CPU cache)
   void Flush();
+  void FlushRange(size_t offset, size_t size);
 
   // Mark end of GPU usage for current frame (Insert Fence and Advance Slot)
   void Lock();

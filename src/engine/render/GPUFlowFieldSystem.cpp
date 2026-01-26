@@ -66,30 +66,28 @@ void GPUFlowFieldSystem::Init(ResourceManager &resources, int width,
 
 void GPUFlowFieldSystem::Update(const std::vector<unsigned char> &fullCostMap,
                                 int mapW, int mapH, Vector2 targetPos,
-                                Vector2 gridOrigin) {
+                                Vector2 gridOrigin, const render::PersistentBuffer* entityBuffer, int entityCount) {
   m_syncedThisFrame = false;
   if (m_width == 0 || m_height == 0)
     return;
 
   // Change Detection for Optimization
-  // Calculate Target Grid Position (Integer Coords relative to Grid Origin)
   Vector2 targetGrid = {(targetPos.x - gridOrigin.x) / m_cellSize,
                         (targetPos.y - gridOrigin.y) / m_cellSize};
-  // Simply casting to int is enough for comparison validation
-  // We want to update if we move to a NEW cell, or if the grid shifts.
 
   bool gridChanged = (gridOrigin.x != m_lastGridOrigin.x ||
                       gridOrigin.y != m_lastGridOrigin.y);
-  // Important: Check integer grid coords for target. Float noise shouldn't
-  // trigger update.
   bool targetChanged = ((int)targetGrid.x != (int)m_lastTargetGridPos.x ||
                         (int)targetGrid.y != (int)m_lastTargetGridPos.y);
 
   if (!m_forceUpdate && !gridChanged && !targetChanged) {
-    // Optimization: Inputs haven't changed significantly, skip heavy compute.
-    // We still update m_gridOrigin for consistency if it drifts micro-amounts?
-    // No, if we skip, we assume m_gridOrigin matches what's on GPU.
     return;
+  }
+
+  // If we reach here, we are doing a REAL update.
+  // This is the perfect time to update crowd density if buffer is provided.
+  if (entityBuffer && entityCount > 0) {
+      UpdateCrowdDensity(*entityBuffer, entityCount, m_cellSize);
   }
 
   m_lastGridOrigin = gridOrigin;
