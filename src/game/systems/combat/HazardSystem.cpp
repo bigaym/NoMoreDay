@@ -41,6 +41,7 @@ static Tag DamageTypeToTag(DamageType type) {
 
 void HazardSystem::Update(entt::registry &registry, float dt,
                           const systems::SpatialHashGrid &grid) {
+  NoMoreDay::utils::ScopedTimer timer("Hazard Update", 100);
   ProcessHazards(registry, dt, grid);
   ProcessFrozenOrbs(registry, dt, grid);
   ProcessVolatileOrbs(registry, dt);
@@ -334,6 +335,7 @@ void HazardSystem::ProcessVoidZones(entt::registry &registry, float dt) {
 }
 
 void HazardSystem::EmitHazardParticles(entt::registry &registry, float dt) {
+  NoMoreDay::utils::ScopedTimer timer("Hazard Particles Emit", 100);
   auto view = registry.view<HazardVisualComponent, Position>();
 
   for (auto entity : view) {

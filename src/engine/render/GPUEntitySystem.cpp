@@ -170,6 +170,7 @@ void GPUEntitySystem::Update(const NoMoreDay::SharedContext &context,
 }
 
 void GPUEntitySystem::UpdateLogic(const NoMoreDay::SharedContext &context, float dt) {
+  NoMoreDay::utils::ScopedTimer timer("Logic Update", 100);
   using namespace NoMoreDay::utils;
   auto &registry = *context.registry;
   m_frameCounter++;
@@ -196,6 +197,7 @@ void GPUEntitySystem::UpdateLogic(const NoMoreDay::SharedContext &context, float
 }
 
 void GPUEntitySystem::UploadGPU(const NoMoreDay::SharedContext &context) {
+  NoMoreDay::utils::ScopedTimer timer("Upload GPU", 50);
   using namespace NoMoreDay::utils;
   // --- Step 2: GPU Upload (Fastest possible mapping period) ---
   

@@ -377,14 +377,14 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 1. Level & Systems
   {
-    NoMoreDay::utils::ScopedTimer timer("1.1 Level Update", 500);
+    NoMoreDay::utils::ScopedTimer timer("Level Update", 200);
     m_context->levelManager->update(dt, registry, playerPos);
   }
 
   // Spatial Grid Rebuild (Exclude items/gold/dormant to keep AI/physics search
   // fast) Move rebuild here so systems use fresh data this frame
   {
-    NoMoreDay::utils::ScopedTimer timer("1.2 Spatial Rebuild", 500);
+    NoMoreDay::utils::ScopedTimer timer("Spatial Rebuild", 200);
     auto gridView = registry.view<Position>(
         entt::exclude<NoMoreDay::ItemComponent, GoldComponent, DormantTag>);
     m_spatialGrid.rebuild(gridView, registry);
@@ -398,7 +398,7 @@ bool GameplayState::OnUpdate(float dt) {
 
   // GPU Flow Field
   {
-    NoMoreDay::utils::ScopedTimer timer("1.3 FlowField", 500);
+    NoMoreDay::utils::ScopedTimer timer("FlowField Update", 200);
     // Use RenderContext for FlowFieldSystem
     auto &flowSystem = m_renderContext->Flow();
     // Map already declared above
@@ -434,7 +434,7 @@ bool GameplayState::OnUpdate(float dt) {
     }
   }
   {
-    NoMoreDay::utils::ScopedTimer timer("1.4 Systems Update", 1000);
+    NoMoreDay::utils::ScopedTimer timer("Systems Update", 200);
     MovementStanceSystem::Update(registry, dt);
     StatsSystem::UpdateBuffs(registry, dt);
     StatsSystem::update(registry);
@@ -683,7 +683,7 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 4. AI
   {
-    NoMoreDay::utils::ScopedTimer timer("1.5 AI Update", 1000);
+    NoMoreDay::utils::ScopedTimer timer("AI Update", 200);
     AISystem::update(registry, m_spatialGrid,
                      m_context->levelManager->getMapSystem(), playerPos, dt);
   }
@@ -702,7 +702,7 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 7. Physics (Taskflow)
   {
-    NoMoreDay::utils::ScopedTimer timer("1.7 Physics Total", 2000);
+    NoMoreDay::utils::ScopedTimer timer("Physics Total", 200);
     UpdatePhysics(dt);
   }
   
@@ -811,19 +811,19 @@ void GameplayState::OnRender() {
   // Grid - REMOVED per user request (Dark background for void area)
   // Level
   {
-    NoMoreDay::utils::ScopedTimer timer("4.1 Render Level", 100);
+    NoMoreDay::utils::ScopedTimer timer("Render Level", 20);
     m_context->levelManager->render(m_camera);
   }
 
   // Entities
   {
-    NoMoreDay::utils::ScopedTimer timer("4.2 Render Entities", 100);
+    NoMoreDay::utils::ScopedTimer timer("Render Entities", 20);
     RenderSystem::render(*m_context->registry, *m_context, m_camera);
   }
 
   // Monster Health Bars
   {
-      NoMoreDay::utils::ScopedTimer timer("4.3 Render HealthBars", 100);
+      NoMoreDay::utils::ScopedTimer timer("Render HealthBars", 10);
       systems::MonsterHealthBarSystem::Render(registry, m_camera);
   }
 
@@ -849,7 +849,7 @@ void GameplayState::OnRender() {
 
   // Fog
   {
-      NoMoreDay::utils::ScopedTimer timer("4.5 Render Fog", 100);
+      NoMoreDay::utils::ScopedTimer timer("Render Fog", 10);
       m_context->levelManager->getFogSystem().renderFog();
   }
 
@@ -860,7 +860,7 @@ void GameplayState::OnRender() {
 
   // Manual Draw:
   {
-      NoMoreDay::utils::ScopedTimer timer("4.6 Render Minimap", 100);
+      NoMoreDay::utils::ScopedTimer timer("Render Minimap", 10);
       UIMinimap::Draw(registry, *m_context->levelManager, &m_spatialGrid);
   }
   
@@ -871,7 +871,7 @@ void GameplayState::OnRender() {
 
   // Ground Interaction
   {
-    NoMoreDay::utils::ScopedTimer timer("4.7 Render UI Draw", 100);
+    NoMoreDay::utils::ScopedTimer timer("Render UISystem", 10);
     UISystem::Draw(registry, *m_context->levelManager, m_camera, &m_spatialGrid);
   }
 

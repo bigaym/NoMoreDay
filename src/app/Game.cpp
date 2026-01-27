@@ -201,18 +201,8 @@ void Game::run() {
             bool logicRan = false;
             while (accumulator >= fixedDt) {
               if (m_gpuInfo.computeShaderSupported) {
-                // 1. GPU -> CPU Sync Back (Get results from previous fixed update)
-                // This is now stall-free because the GPU had time since last pulse.
-                {
-                    NoMoreDay::utils::ScopedTimer timer("2.1 SyncBack", 500);
-                    m_gpuEntitySystem.SyncBack(m_registry);
-                }
-        
-                // 2. CPU -> Shadow Sync (Logic update only, no GPU mapping here)
-                {
-                    NoMoreDay::utils::ScopedTimer timer("2.2 Logic Update", 1000);
-                    m_gpuEntitySystem.UpdateLogic(m_context, fixedDt);
-                }
+                // 1. CPU -> Shadow Sync (Logic update only, no GPU mapping here)
+                m_gpuEntitySystem.UpdateLogic(m_context, fixedDt);
               }
         
               accumulator -= fixedDt;
@@ -220,17 +210,11 @@ void Game::run() {
             }
         
             if (logicRan && m_gpuInfo.computeShaderSupported) {
-              // 3. CPU -> GPU Sync & Compute Physics (Submit new pulse once per render frame)
-              {
-                  NoMoreDay::utils::ScopedTimer timer("3. UploadGPU", 500);
-                  m_gpuEntitySystem.UploadGPU(m_context);
-              }
-        
-              // 4. Update particle system (Once per render frame)
-              {
-                  NoMoreDay::utils::ScopedTimer timer("3.1 Particles", 200);
-                  NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
-              }
+              // Submit new pulse to GPU
+              m_gpuEntitySystem.UploadGPU(m_context);
+              
+              // Update particle system
+              NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
             }  
         // Update Interpolation Alpha for Rendering
         // alpha = accumulator / fixedDt, range [0, 1)
@@ -244,7 +228,7 @@ void Game::run() {
                               frameTime * 1000.0f);
         
             {
-              NoMoreDay::utils::ScopedTimer timer("4. Render Total", 1000); // Keep overall render timer but renamed
+              NoMoreDay::utils::ScopedTimer timer("Frame Render", 500); 
               BeginDrawing();
               ClearBackground(BLACK);
               m_stateManager->Render();

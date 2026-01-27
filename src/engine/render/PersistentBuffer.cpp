@@ -114,6 +114,7 @@ void PersistentBuffer::WaitForFence(void *&fencePtr) {
 
 void *PersistentBuffer::BeginWrite() {
   if (m_mode == Mode::Persistent) {
+    NoMoreDay::utils::ScopedTimer timer("Buffer BeginWrite Stall", 100);
     WaitForFence(m_fences[m_writeSlot]);
     return m_mappedPtr + m_writeSlot * m_slotSize;
   } else {

@@ -228,6 +228,7 @@ void GPUParticleSystem::EmitBatch(
 }
 
 void GPUParticleSystem::Update(float dt) {
+  NoMoreDay::utils::ScopedTimer timer("Particle Update", 50);
   if (!m_initialized)
     return;
 
@@ -372,6 +373,7 @@ Matrix GPUParticleSystem::BuildMVP(const Camera2D &camera) const {
 }
 
 void GPUParticleSystem::Render(const Camera2D &camera) {
+  NoMoreDay::utils::ScopedTimer timer("Particle Render", 50);
   if (!m_initialized || m_renderShader.id == 0)
     return;
 

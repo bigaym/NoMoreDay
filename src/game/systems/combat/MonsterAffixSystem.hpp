@@ -73,6 +73,7 @@ public:
    * @brief 主更新循环 - 处理需要 Update 的词缀
    */
   static void Update(entt::registry &registry, float dt, const NoMoreDay::systems::SpatialHashGrid& spatialGrid) {
+    NoMoreDay::utils::ScopedTimer timer("Affix Update", 100);
     auto view = registry.view<MonsterAffixComponent, Position>(
         entt::exclude<KilledTag>);
 
