@@ -1,133 +1,99 @@
-# NoMoreDay - 核心开发路线图 V1.1 (2026-01-14)
+# NoMoreDay - 核心开发路线图 V1.2 (2026-01-27)
 
 ## 📊 当前进度与代码现状分析
 
 根据对 `src/` 源代码的深度审计，对比 `@设计文档`，当前项目的真实进度如下：
 
-### ✅ 已稳固的基础设施 (Phase 1-9 & Core)
+### ✅ 已稳固的基础设施 (Phase 1-10 & Core)
 | 模块 | 状态 | 技术要点 |
 |------|------|----------|
 | **C++20 ECS 核心** | ✅ 完成 | EnTT + Taskflow 并发调度，稳定支持 10,000+ 实体 |
-| **混合护盾系统** | ✅ 完成 | **ES + Ward** 模式，支持回充延迟、动态衰减与智力维持加成 |
-| **渲染与 GPGPU** | ✅ 完成 | Raylib 2D 渲染 + GPU 流场寻路 (SSBO) + GPU 粒子 (20万级) |
-| **伤害流水线** | ✅ 完成 | **5步计算法** (Base->Convert->Inc->More->Settle)，SIMD 优化 |
-| **维度拼接系统** | ✅ 完成 | 碎片掉落、3x3 拼接、属性共鸣与地图生成集成 |
-| **极致性能优化** | ✅ 完成 | **MDI Rendering** + **EnTT Group** + **SIMD SpatialGrid** + **Branchless Combat**，稳定 180 FPS |
-| **基础 AI 行为** | ✅ 完成 | Support, Assassin, Tank, Fodder 等原型逻辑实现 |
-| **存档与传家宝** | ✅ 完成 | 物品持久化、跨存档继承、属性动态压缩 |
-| **传奇融合 (Legendary Merging)** | ✅ 完成 | Unique (LP) + Exalted 词缀继承逻辑，Ancient 稀有度实现 |
-| **基础 AI 行为** | 🔄 部分完成 | Fodder/Tank/Assassin 原型已出，Support (支援者) 逻辑尚为空 |
+| **渲染与 GPGPU** | ✅ 完成 | Raylib 2D + MDI Instancing + GPU 流场/粒子 (20万级) |
+| **伤害流水线** | ✅ 完成 | **5步计算法**，SIMD 优化，支持复杂的伤害类型转换与 Tag 交互 |
+| **维度拼接 (Mosaic)** | ✅ 完成 | 碎片掉落、3x3 地图拼接、属性共鸣与动态生成 |
+| **物品与装备** | ✅ 完成 | 掉落、词缀、传奇融合 (LP)、符文之语、材料存储 |
+| **怪物与宿敌** | ✅ 完成 | 动态等级成长、宿敌进化 (Evolution Tier)、高级精英词缀 |
+| **基础职业 (剑修)** | ✅ 完成 | 核心技能 (流云刺, 裂空斩等) 及其基础技能树已实现 |
+| **极致性能** | ✅ 完成 | 稳定 180 FPS (5.5ms 帧预算)，完成渲染管线重构与内存优化 |
 
 ### 🔍 代码审计发现的缺失 (对比设计文档)
 | 缺失项 | 现状 | 影响 |
 |------|------|------|
-| **符文语 (Runewords)** | ✅ 完成 | 33 种符文、底材匹配序列、激活逻辑与位点集成 |
-| **传奇词缀基础设施** | ✅ 完成 | uint16 ID 空间、语义化锚点、JSON 动态描述加载回调 |
-| **怪物数值成长 (Scaling)** | ✅ 完成 | 动态等级同步、HP指数增长、D3风格经验公式及抗性/护甲成长 |
-| **宿敌针对性进化** | ✅ 完成 | 基于玩家伤害类型历史的动态抗性与词缀进化 (Evolution Tier) |
-| **高级精英词缀** | ✅ 完成 | Molten, Mirror Image, Nullifier, Shielding 等高危词缀已实装 |
-| **第二职业 (Mage/Ranger)** | ❌ 尚未启动 | 目前仅有“剑修”职业及其分支 |
+| **进阶专精 (Masteries)** | ❌ 未实现 | 剑修的三个进阶流派 (剑圣/天剑/魔剑) 及核心转化机制缺失 |
+| **局外成长 (Meta)** | ❌ 未实现 | 虚空星盘 (Astrolabe) 与 传家宝 (Heirloom) 系统尚未启动 |
+| **终局循环 (Endgame)** | 🔄 部分 | 维度拼接已做，但“无尽梦魇”的腐化值 (Corruption) 与无限层逻辑未闭环 |
+| **第二职业 (Mage)** | ❌ 未启动 | 仅有剑修单一职业，缺乏远程法系验证 |
+| **战斗手感 2.0** | ❌ 未启动 | 缺乏顿帧 (Hit Stop)、动态音效混音等“打击感”核心要素 |
 
 ---
 
-## 🚀 后续规划：完善游戏深度 (Refined Roadmap)
+## 🚀 后续规划：从“原型”到“精品” (Refined Roadmap)
 
-基于以上分析，我们将路线图重构为以下三个阶段，重点解决“玩法深度”和“系统闭环”问题。
+基于当前“系统完备但深度不足”的现状，我们将后续阶段调整为优先打磨核心战斗体验与职业深度，随后扩展 Meta 循环。
 
-### 📍 Phase 9: 终局装备深度 (Endgame Gear & Crafting)
-**优先级：最高**。解决中后期刷宝动力不足的问题。
+### 📍 Phase 11: 职业深度与战斗手感 (Class Depth & Game Feel)
+**优先级：最高**。完善现有职业机制，确立标杆级的战斗体验。
 
-- [x] **实现材料存储系统 (Material Storage System)**
-    - 零实体存储 (`MaterialBankComponent`)，UI 虚拟化列表支持 100+ 种材料展示。
-    - 自动拾取、分类过滤与搜索功能。
-- [x] **实现传奇融合系统 (Legendary Merging)**
-    - 修改 `CraftingSystem::fuseItems`，实现 Unique (LP) + Exalted 的词缀抽取算法。
-    - 实现融合 UI 与 视觉效果。
-- [x] **实现符文语系统 (Runewords)**
-    - 定义 33 种符文及其在不同底材上的序列组合。
-    - 实现 `RunewordSystem`，在物品插槽填满时检查并应用特殊特效。
-- [x] **底材价值重构**
-    - 增加“底材隐性属性 (Implicit)”系统，使同类武器的不同底材具有差异化。
-- [x] **实现传奇词缀基础设施 (Legendary Affix Infra)**
-    - 将 AffixType 升级为 uint16_t (0-65535)，定义 Normal (0-999) 和 Legendary (1000-1999) 锚点。
-    - 实现 `GetAffixNameLookup` 回调接口，支持从 `legendary_affixes.json` 动态加载词缀描述。
+- [ ] **Track: Core UI Asset Generation (Skill/Talent/HUD)**
+    - **Skill & Talent**: 绘制星图/经络图背景，生成各级节点图标 (Stats/Notables/Keystones) 及流光连线纹理。
+    - **Mastery UI**: 绘制专精选择祭坛 (Ascension Altar) 及剑圣/天剑/魔剑的插画。
+    - **HUD**: 设计剑意量表 (Sword Gauge)、丹田血球、兵器架技能栏及 Buff/Debuff 边框。
+- [ ] **Track: Sword Cultivator Masteries (剑修进阶专精)**
+    - **UI 实现**: 50级专精选择界面 (Ascension Altar)。
+    - **核心机制转化**:
+        - **剑圣 (Sword Saint)**: 剑意 -> 剑流 (Crit/Speed)，实现 `七星斩` (Omnislash)。
+        - **天剑 (Sky Sword)**: 剑意 -> 灵剑实体 (Turrets)，物理 -> 元素转化，实现 `天剑降临`。
+        - **魔剑 (Demon Blade)**: 剑意 -> 嗜血 (Dmg/Vuln)，法力 -> 生命消耗，实现 `血海`。
+- [ ] **Track: Game Feel 2.0 (战斗手感升级)**
+    - **Hit Stop System**: 基于伤害阈值的全局时间冻结 (Global Time Dilation) 与实体级顿帧。
+    - **Dynamic Audio**: 基于 Soloud 的动态混音，根据怪物密度/伤害量调整音效优先级与 Pitch/Volume。
+    - **Screen Shake V2**: 引入 Trauma-based 摄像机震动，支持方向性震动 (Directional Shake)。
 
-    - **Code Risk Mitigation**: [All Phase 9 Fixes Applied]
-        - **SkillSystem**: Fixed UAF vulnerability and resolved critical test failures.
-        - **GPUFlowFieldSystem**: Fixed resource leaks.
-        - **Infrastructure**: Stabilized integration test suite.
+### 📍 Phase 12: 局外成长与终局循环 (Meta & Endgame)
+**优先级：高**。构建长线游玩的驱动力。
 
-### 📍 Phase 10: 敌人生态与宿敌进化 (Advanced AI & Nemesis)
-**优先级：高**。增强战斗的挑战性与交互性。
+- [ ] **Track: Mosaic & Environment Assets**
+    - **Mosaic UI**: 绘制 3x3 拼接台 (The Loom) 底座、Tetris 形状的地图碎片 (石板/符咒) 及词缀卡牌。
+    - **Environment**: 生成水墨风格的无缝地块 (Void Stone, Ink Grass, Dark Water) 及墙体/装饰物 (枯树, 石碑)，解决视觉缺失。
+- [ ] **Track: Void Astrolabe (虚空星盘)**
+    - 实现账号级共享存档 (`GlobalSave`)。
+    - 设计星盘 UI 与节点解锁逻辑 (使用星尘 Stardust)。
+    - 实现 Key Node 效果 (如：开局自带金币、传说掉落率加成)。
+- [ ] **Track: Heirloom System (传家宝)**
+    - 实现装备的“传家宝化”标记与属性动态压缩算法 (Level Scaling)。
+    - 实现“跨存档仓库” (Heirloom Vault) 用于新角色继承。
+- [ ] **Track: Eternal Nightmare (无尽梦魇)**
+    - 实现 **腐化值 (Corruption)** 系统：怪物属性指数成长 vs 掉落品质提升。
+    - 实现无限层生成算法与排行榜数据记录。
 
-- [x] **扩充精英词缀库**
-    - [x] **怪物数值成长 (Level Scaling)**：动态等级同步、指数级 HP/伤害增长、抗性递增。(Completed)
-    - [x] **Molten (熔火)**：路径伤害与死亡爆炸。(Completed)
-    - [x] **Mirror Image (镜像)**：受击分裂。(Completed)
-    - [x] **Nullifier (虚无)**：周期性驱散玩家 Buff。(Completed)
-    - [x] **Teleporter (闪烁)**：受到攻击或定时间隔瞬移至玩家身后。(Completed)
-    - [x] **Shielding (护盾)**：周期性为周围友军提供无敌护盾。(Completed)
-    - [x] **Environmental & Hazard**: Frozen, Toxic, Void Zone, Storm Strider. (Completed)
-    - [x] **Physics & CC**: Vortex, Waller, Entangler. (Completed)
-    - [x] **Advanced Mechanics**: Soul Eater, Suppressor, Mana Siphon. (Completed)
-- [x] **AI 行为与寻路优化**
-    - [x] **FlowField Integration**: 统一流场与 AI 索敌，消除非仇恨状态的越权移动。(Completed 2026-01-23)
-    - [ ] **AI 行为树补完**
-        - 实现 **Support (支援者)** 逻辑：`Flee` + `CastBuff` (Shield/Frenzy)。
-        - 优化 **Tank (坦克)** 逻辑：主动阻挡视线 (`BlockLineOfSight`)。
-- [x] **宿敌系统进化闭环**
-    - [x] 强化 `NemesisGenerator` 的分析逻辑：统计玩家近 50 次击杀的伤害构成。(Completed)
-    - [x] **逻辑挂载**：实装 `MonsterAffixComponent` 动态缩放与 Evolution Tier。(Completed)
-    - [x] **针对性进化**：根据玩家历史 hurt type 动态调整抗性与词缀。(Completed)
+### 📍 Phase 13: 内容扩展 (Content Expansion)
+**优先级：中**。验证架构的灵活性。
 
+- [ ] **Track: Class Prototype - Mage (灵术师)**
+    - 实现法师基础资源：**法力过载 (Mana Overload)**。
+    - 实现 3 个核心技能：
+        - **Fireball (火球)**: 投射物/爆炸。
+        - **Frost Nova (冰环)**: 范围控制/护盾。
+        - **Arcane Beam (奥术射线)**: 引导/高频伤害。
+    - 验证 AttributePipeline 对法术伤害的扩展性。
+- [ ] **Track: Audio System Integration**
+    - 全面集成音效资源，为技能、界面、环境添加音效。
 
-### 📍 Phase 11: 战斗内容与职业扩展 (Class & Combat Expansion)
-**优先级：中**。增加游戏横向可玩性。
+### 📍 Phase 14: 引导与发布准备 (Polish & Release)
+**优先级：低**。
 
-- [x] **剑修视觉升级 (Blade Ascendant VFX)**
-    - **Asset Pipeline**: 实现 SwordTrail, HoloBlade, Distortion Shaders 及 GPU 粒子配置。
-- [x] **System Integration**: 完成剑意可视化、流云刺拖尾与万剑归宗的粒子流表现。(Completed)
-- [x] **性能与逻辑修复**: 修复 SkillSystem UAF, 优化 GPU 粒子生命周期。(Completed)
-- [ ] **第二职业原型：灵术师 (Mage/Caster)**
-    - 抽象 `ClassBase`，实现高额自然回蓝机制。
-    - 设计 3 个核心法术（火球、冰环、奥术流）。
-- [ ] **战斗手感优化 (Game Feel 2.0)**
-    - 实现命中顿帧 (Hit Stop) 的精细化控制。
-    - 增加基于 Tag 的动态打击音效系统。
-
-### 📍 Phase 12: 打磨、UI 与 终局循环 (Polish & Loop)
-**优先级：中**。提升整体完整度。
-
-- [x] **UI 视觉打磨与分解 UX 重构**
-    - [x] 实现祭坛式分解界面、产出预览、批量过滤器。(Completed)
-    - [x] 增加装备槽位 Ghost Icons 和动态面板拖拽。(Completed)
-        - [x] **Inventory UI Overhaul**: 分页拖拽、右键菜单、搜索过滤。(Completed)
-    - [x] **Tooltip Upgrade**: 大图标预览与镶嵌孔显示。(Completed)
-    - [x] **实现仓库系统 (Stash System)**: 个人与账号共享仓库、10页标签解锁、带缓存的搜索高亮与一键整理功能。(Completed)
-- [ ] **成就系统与教程系统**
-- [ ] **无尽梦魇排行榜 UI 完善**
-- [ ] **音频系统 (AudioSystem) 动态混音集成**
-
-### 📍 Phase 13: 极致性能优化 (Performance Extreme Optimization)
-**优先级：已完成**。重构核心架构以支持万级实体流畅运行。
-
-- [x] **Phase 1: MDI Rendering**: GPU 驱动的 Multi-Draw Indirect 渲染管线。
-- [x] **Phase 2: EnTT Group**: 内存布局优化，通过 Group 预排序提升遍历速度。
-- [x] **Phase 3: Triple-Buffer**: 持久化映射 (Persistent Mapping) 消除 GPU 同步等待。
-- [x] **Phase 4: SIMD SpatialGrid**: 向量化加速的空间划分查询。
-- [x] **Phase 5: Branchless Combat**: 消除热点代码分支预测失败。
-- [x] **String Dependency Elimination**: 全局移除运行时字符串比较，迁移至 Enum/ID。
-- [x] **System Integrity & Audit Fixes (2026-01-24)**: 
-    - 完成物理引擎与渲染管线深度审计。
-    - 修复 SSBO 结构体不匹配、ForceField 逻辑回归与 AI 休眠残影。
-    - 提取物理常量并清理所有魔数。
-- [x] **GPU Pipeline Refactor & Singleton Decoupling (2026-01-26)**: 
-    - 完成 RenderConstants 标准化、GPUUtils 统一、GPUEntitySystem 职责拆分及 MDIRenderer 规范化。
-    - 全面消除单例耦合与魔法数字，确保架构符合 DOD 与 Low-Coupling 标准。
+- [ ] **Track: Main Menu & Polish Assets**
+    - **Visuals**: 绘制动态主菜单背景 (孤峰/巨剑)、书法风格 Logo 及魂灯样式的存档位。
+    - **Polish**: 统一全 UI 交互音效与动效。
+- [ ] **Track: Tutorial System**: 动态按键提示与机制引导。
+- [ ] **Track: Localization**: 中英文文本抽离与切换。
+- [ ] **Track: Release Build Optimization**: 最终包体瘦身与加密。
 
 ---
 
-## 📝 开发准则
-1. **安全第一**：所有新系统必须包含对应的 Unit Test。
-2. **性能导向**：复杂 AI 词缀必须在 `Taskflow` 中并行，或利用 GPU 粒子表现。
-3. **数据驱动**：新词缀、新符文语必须优先在 JSON 中定义，通过 `ItemFactory` 加载。
+## 📝 立即执行计划 (Next Steps)
+
+建议立即启动 **Phase 11**，优先完成 **剑修进阶专精**。这不仅能补全核心职业设计，还能验证复杂的“机制转化”逻辑是否在现有架构中跑通。
+
+1.  **激活 `feature-planner`** 细化 `Sword Cultivator Masteries` 的 Spec。
+2.  **激活 `feature-developer`** 开始实现专精选择 UI 与 数据层变更。
