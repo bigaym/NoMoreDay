@@ -189,6 +189,7 @@ void Game::run() {
             {
               // 1. Update Game State based on Frame Rate (Variable DT)
               // This ensures input responsiveness (ESC, Clicks) at high refresh rates.
+              NoMoreDay::utils::ScopedTimer timer("1. Update State", 2000); // 2ms threshold
               m_stateManager->Update(frameTime);
             }        if (m_stateManager->IsEmpty()) {
           LOG_INFO("State stack empty, exiting game loop");
@@ -202,10 +203,16 @@ void Game::run() {
               if (m_gpuInfo.computeShaderSupported) {
                 // 1. GPU -> CPU Sync Back (Get results from previous fixed update)
                 // This is now stall-free because the GPU had time since last pulse.
-                m_gpuEntitySystem.SyncBack(m_registry);
+                {
+                    NoMoreDay::utils::ScopedTimer timer("2.1 SyncBack", 500);
+                    m_gpuEntitySystem.SyncBack(m_registry);
+                }
         
                 // 2. CPU -> Shadow Sync (Logic update only, no GPU mapping here)
-                m_gpuEntitySystem.UpdateLogic(m_context, fixedDt);
+                {
+                    NoMoreDay::utils::ScopedTimer timer("2.2 Logic Update", 1000);
+                    m_gpuEntitySystem.UpdateLogic(m_context, fixedDt);
+                }
               }
         
               accumulator -= fixedDt;
@@ -214,10 +221,16 @@ void Game::run() {
         
             if (logicRan && m_gpuInfo.computeShaderSupported) {
               // 3. CPU -> GPU Sync & Compute Physics (Submit new pulse once per render frame)
-              m_gpuEntitySystem.UploadGPU(m_context);
+              {
+                  NoMoreDay::utils::ScopedTimer timer("3. UploadGPU", 500);
+                  m_gpuEntitySystem.UploadGPU(m_context);
+              }
         
               // 4. Update particle system (Once per render frame)
-              NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
+              {
+                  NoMoreDay::utils::ScopedTimer timer("3.1 Particles", 200);
+                  NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
+              }
             }  
         // Update Interpolation Alpha for Rendering
         // alpha = accumulator / fixedDt, range [0, 1)
@@ -226,10 +239,12 @@ void Game::run() {
   
         static float fpsLogTimer = 0.0f;
         fpsLogTimer += frameTime;
-            LOG_LIMITED_DEBUG(10.0f, "Current FPS: {}, FrameTime: {:.3f} ms", GetFPS(),
+        // Log FPS every 1.0 second at INFO level
+            LOG_LIMITED_INFO(1.0f, ">>> [PERF] FPS: {} | FrameTime: {:.3f} ms", GetFPS(),
                               frameTime * 1000.0f);
         
             {
+              NoMoreDay::utils::ScopedTimer timer("4. Render Total", 1000); // Keep overall render timer but renamed
               BeginDrawing();
               ClearBackground(BLACK);
               m_stateManager->Render();

@@ -4,21 +4,25 @@
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
-#include "game/data/AffixMapping.hpp" // Added by user instruction
+#include "game/data/AffixMapping.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/LevelManager.hpp"
+#include "engine/physics/SpatialGrid.hpp"
 #include "raylib.h"
 #include <vector>
+#include <algorithm>
 
 using namespace NoMoreDay;
 
 static Texture2D s_minimapTexture = {0};
 static int s_minimapW = 0;
 static int s_minimapH = 0;
-static std::vector<Color> s_minimapPixels;
+static std::vector<Color> s_minimapPixels; // Kept for full map context if needed, though mostly using partial now
 static bool s_debugRevealMap = false;
 static bool s_minimapDirty = true;
+// Buffer for partial updates
+static std::vector<Color> s_partialBuffer; 
 
 void UIMinimap::Cleanup() {
   if (s_minimapTexture.id != 0) {
@@ -34,7 +38,7 @@ void UIMinimap::ToggleDebugReveal() {
 }
 
 void UIMinimap::Draw(entt::registry &registry,
-                     const LevelManager &levelManager) {
+                     const LevelManager &levelManager, const NoMoreDay::systems::SpatialHashGrid* grid) {
   const auto &map = levelManager.getMapSystem();
   const auto &fog = levelManager.getFogSystem();
 
@@ -44,9 +48,8 @@ void UIMinimap::Draw(entt::registry &registry,
   Font font = UISystem::GetFont();
 
   // Layout in Logic Space
-  const float mapSize = Constants::MAP_SIZE; // Slightly larger
+  const float mapSize = Constants::MAP_SIZE;
   const float margin = Constants::MARGIN;
-  // Anchor Top-Right relative to UI_REF_WIDTH
   const float x = UI_REF_WIDTH - mapSize - margin;
   const float y = margin;
 
@@ -71,26 +74,26 @@ void UIMinimap::Draw(entt::registry &registry,
   if (gridW == 0 || gridH == 0)
     return;
 
-  auto view = registry.view<PlayerTag, Position>();
-  if (view.begin() == view.end())
+  auto viewRect = registry.view<PlayerTag, Position>();
+  if (viewRect.begin() == viewRect.end())
     return;
 
-  entt::entity playerEntity = view.front();
-  const auto &playerPos = view.get<Position>(playerEntity);
+  entt::entity playerEntity = viewRect.front();
+  const auto &playerPos = viewRect.get<Position>(playerEntity);
 
   int playerGx = static_cast<int>(playerPos.x / FogOfWarSystem::TILE_SIZE);
   int playerGy = static_cast<int>(playerPos.y / FogOfWarSystem::TILE_SIZE);
-  const int viewRadius = Constants::VIEW_RADIUS; // Increased view radius
-  float minimapScale =
-      mapSize / (float)(viewRadius * 2); // logic scale of map content
+  const int viewRadius = Constants::VIEW_RADIUS;
+  float minimapScale = mapSize / (float)(viewRadius * 2);
 
-  // 初始化纹理 (Initialize Texture)
+  // Initialize Texture
   if (s_minimapTexture.id == 0 || s_minimapW != gridW || s_minimapH != gridH) {
     if (s_minimapTexture.id != 0)
       UnloadTexture(s_minimapTexture);
     s_minimapW = gridW;
     s_minimapH = gridH;
-    s_minimapPixels.assign(gridW * gridH, BLACK);
+    s_minimapPixels.assign(gridW * gridH, BLACK); // Clear full buffer
+    // Create texture with BLACK initially
     Image img = GenImageColor(gridW, gridH, BLACK);
     s_minimapTexture = LoadTextureFromImage(img);
     UnloadImage(img);
@@ -98,38 +101,59 @@ void UIMinimap::Draw(entt::registry &registry,
     s_minimapDirty = true;
   }
 
-  // 更新纹理 (Update Texture) - Time-based refresh (~6 Hz, ~10 frames at 60
-  // FPS)
+  // Optimize: Partial Texture Update logic
+  // Update frequency can be per frame if we only update small region
   static float minimapRefreshTimer = 0.0f;
   minimapRefreshTimer += GetFrameTime();
+  
   if (minimapRefreshTimer >= Constants::REFRESH_INTERVAL || s_minimapDirty) {
-    minimapRefreshTimer = 0.0f;
-    bool changed = false;
-    for (int gy = 0; gy < gridH; ++gy) {
-      for (int gx = 0; gx < gridW; ++gx) {
-        int index = gy * gridW + gx;
-        Color oldC = s_minimapPixels[index];
-        Color c = BLACK;
+      minimapRefreshTimer = 0.0f;
+      
+      // Determine update bounds (clamped to grid)
+      int minGx = std::max(0, playerGx - viewRadius);
+      int maxGx = std::min(gridW, playerGx + viewRadius + 1);
+      int minGy = std::max(0, playerGy - viewRadius);
+      int maxGy = std::min(gridH, playerGy + viewRadius + 1);
+      
+      int uWidth = maxGx - minGx;
+      int uHeight = maxGy - minGy;
 
-        bool isExplored = fog.isExplored(gx, gy);
-        if (isExplored || s_debugRevealMap) {
-          bool isVisible = s_debugRevealMap ? true : fog.isVisible(gx, gy);
-          if (map.isWalkable(gx, gy)) {
-            // Use theme colors but darkened for minimap background
-            c = isVisible ? Color{160, 160, 160, 255} : Color{60, 60, 60, 255};
-          } else {
-            c = isVisible ? Color{80, 80, 80, 255} : Color{30, 30, 30, 255};
+      if (uWidth > 0 && uHeight > 0) {
+          // Resize partial buffer
+          if (s_partialBuffer.size() < (size_t)(uWidth * uHeight)) {
+              s_partialBuffer.resize(uWidth * uHeight);
           }
-        }
-        if (c.r != oldC.r || c.g != oldC.g || c.b != oldC.b) {
-          s_minimapPixels[index] = c;
-          changed = true;
-        }
+
+          // Only iterate potentially visible area
+          // This loop is now Small (60x60 = 3600 iterations) instead of Full Map (500x500 = 250k iterations)
+          for (int ly = 0; ly < uHeight; ++ly) {
+              int gy = minGy + ly;
+              for (int lx = 0; lx < uWidth; ++lx) {
+                  int gx = minGx + lx;
+                  
+                  // int mapIndex = gy * gridW + gx; // Only needed if we update s_minimapPixels global cache relative to map
+
+                  Color c = BLACK;
+                  bool isExplored = fog.isExplored(gx, gy);
+                  
+                  if (isExplored || s_debugRevealMap) {
+                      bool isVisible = s_debugRevealMap ? true : fog.isVisible(gx, gy);
+                      if (map.isWalkable(gx, gy)) {
+                          c = isVisible ? Color{160, 160, 160, 255} : Color{60, 60, 60, 255};
+                      } else {
+                          c = isVisible ? Color{80, 80, 80, 255} : Color{30, 30, 30, 255};
+                      }
+                  }
+                  
+                  s_partialBuffer[ly * uWidth + lx] = c;
+              }
+          }
+          
+          // Use UpdateTextureRec to upload ONLY the changed region
+          Rectangle updateRect = { (float)minGx, (float)minGy, (float)uWidth, (float)uHeight };
+          UpdateTextureRec(s_minimapTexture, updateRect, s_partialBuffer.data());
       }
-    }
-    if (changed)
-      UpdateTexture(s_minimapTexture, s_minimapPixels.data());
-    s_minimapDirty = false;
+      s_minimapDirty = false;
   }
 
   // Draw Map Texture
@@ -145,17 +169,43 @@ void UIMinimap::Draw(entt::registry &registry,
                          Fade(WHITE, 0.05f), Fade(BLACK, 0.1f));
 
   // 绘制怪物 (Draw Enemies)
-  auto enemyView = registry.view<EnemyTag, Position>();
-  for (auto entity : enemyView) {
-    const auto &enemyPos = enemyView.get<Position>(entity);
-    float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
-    float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
-    if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
-      float logicX = x + (dx + viewRadius) * minimapScale;
-      float logicY = y + (dy + viewRadius) * minimapScale;
-      DrawCircle((int)(logicX * scale), (int)(logicY * scale),
-                 Constants::ENEMY_MARKER_SIZE * scale, theme.danger);
-    }
+  if (grid) {
+     // Use Spatial Grid Query if available
+     // Search slightly larger than view to clip smoothly
+     float worldViewR = (float)viewRadius * FogOfWarSystem::TILE_SIZE * 1.5f; 
+     
+     // Callback based query
+     grid->query(Position{playerPos.x, playerPos.y}, worldViewR, [&](entt::entity entity, const Position& enemyPos) {
+         if (registry.valid(entity) && registry.all_of<EnemyTag>(entity)) {
+             // KilledTag check is done in valid? No, need to check exclude
+             if (registry.any_of<KilledTag>(entity) || registry.any_of<DormantTag>(entity)) return;
+
+             // Logic pos check
+             float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
+             float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
+             
+             if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
+                 float logicX = x + (dx + viewRadius) * minimapScale;
+                 float logicY = y + (dy + viewRadius) * minimapScale;
+                 DrawCircle((int)(logicX * scale), (int)(logicY * scale),
+                            Constants::ENEMY_MARKER_SIZE * scale, theme.danger);
+             }
+         }
+     });
+  } else {
+      // Fallback to full iteration (slow)
+      auto enemyView = registry.view<EnemyTag, Position>(entt::exclude<KilledTag, DormantTag>);
+      for (auto entity : enemyView) {
+        const auto &enemyPos = enemyView.get<Position>(entity);
+        float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
+        float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
+        if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
+          float logicX = x + (dx + viewRadius) * minimapScale;
+          float logicY = y + (dy + viewRadius) * minimapScale;
+          DrawCircle((int)(logicX * scale), (int)(logicY * scale),
+                     Constants::ENEMY_MARKER_SIZE * scale, theme.danger);
+        }
+      }
   }
 
   // Player Center (Marker)
@@ -180,7 +230,6 @@ void UIMinimap::Draw(entt::registry &registry,
           : "地下城 - 1层";
   if (levelManager.getCurrentBiomeID() != NoMoreDay::BiomeID::Town) {
     static char zoneBuf[64];
-    // Unify naming to '异界' (Otherworld) for all combat zones per user request
     snprintf(zoneBuf, sizeof(zoneBuf), "异界 - %d层",
              levelManager.getCurrentLevel());
     zoneName = zoneBuf;

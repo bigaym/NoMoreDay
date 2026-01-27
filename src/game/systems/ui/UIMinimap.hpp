@@ -2,6 +2,7 @@
 #include <entt/entt.hpp>
 
 class LevelManager;
+namespace NoMoreDay { namespace systems { class SpatialHashGrid; } }
 
 class UIMinimap {
 public:
@@ -14,7 +15,7 @@ public:
         static constexpr float PLAYER_MARKER_SIZE = 4.0f;
     };
 
-    static void Draw(entt::registry& registry, const LevelManager& levelManager);
+    static void Draw(entt::registry& registry, const LevelManager& levelManager, const NoMoreDay::systems::SpatialHashGrid* grid = nullptr);
     static void Cleanup();
     static void ToggleDebugReveal();
 };

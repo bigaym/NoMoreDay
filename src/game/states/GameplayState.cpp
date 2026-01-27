@@ -377,12 +377,14 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 1. Level & Systems
   {
+    NoMoreDay::utils::ScopedTimer timer("1.1 Level Update", 500);
     m_context->levelManager->update(dt, registry, playerPos);
   }
 
   // Spatial Grid Rebuild (Exclude items/gold/dormant to keep AI/physics search
   // fast) Move rebuild here so systems use fresh data this frame
   {
+    NoMoreDay::utils::ScopedTimer timer("1.2 Spatial Rebuild", 500);
     auto gridView = registry.view<Position>(
         entt::exclude<NoMoreDay::ItemComponent, GoldComponent, DormantTag>);
     m_spatialGrid.rebuild(gridView, registry);
@@ -396,6 +398,7 @@ bool GameplayState::OnUpdate(float dt) {
 
   // GPU Flow Field
   {
+    NoMoreDay::utils::ScopedTimer timer("1.3 FlowField", 500);
     // Use RenderContext for FlowFieldSystem
     auto &flowSystem = m_renderContext->Flow();
     // Map already declared above
@@ -431,6 +434,7 @@ bool GameplayState::OnUpdate(float dt) {
     }
   }
   {
+    NoMoreDay::utils::ScopedTimer timer("1.4 Systems Update", 1000);
     MovementStanceSystem::Update(registry, dt);
     StatsSystem::UpdateBuffs(registry, dt);
     StatsSystem::update(registry);
@@ -679,12 +683,14 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 4. AI
   {
+    NoMoreDay::utils::ScopedTimer timer("1.5 AI Update", 1000);
     AISystem::update(registry, m_spatialGrid,
                      m_context->levelManager->getMapSystem(), playerPos, dt);
   }
 
   // 5. Combat
   {
+   // NoMoreDay::utils::ScopedTimer timer("1.6 Combat Update", 500); // Combat is usually fast?
     CombatSystem::update(registry, m_spatialGrid, m_camera, dt);
   }
 
@@ -696,8 +702,11 @@ bool GameplayState::OnUpdate(float dt) {
 
   // 7. Physics (Taskflow)
   {
+    NoMoreDay::utils::ScopedTimer timer("1.7 Physics Total", 2000);
     UpdatePhysics(dt);
   }
+  
+  return true;
 
   return true;
 }
@@ -802,27 +811,35 @@ void GameplayState::OnRender() {
   // Grid - REMOVED per user request (Dark background for void area)
   // Level
   {
+    NoMoreDay::utils::ScopedTimer timer("4.1 Render Level", 100);
     m_context->levelManager->render(m_camera);
   }
 
   // Entities
   {
+    NoMoreDay::utils::ScopedTimer timer("4.2 Render Entities", 100);
     RenderSystem::render(*m_context->registry, *m_context, m_camera);
   }
 
   // Monster Health Bars
-  systems::MonsterHealthBarSystem::Render(registry, m_camera);
+  {
+      NoMoreDay::utils::ScopedTimer timer("4.3 Render HealthBars", 100);
+      systems::MonsterHealthBarSystem::Render(registry, m_camera);
+  }
 
   // Skill Range Indicators
-  auto view_chan = registry.view<ChannelingComponent, Position>();
-  for (auto entity : view_chan) {
-    auto &chan = view_chan.get<ChannelingComponent>(entity);
-    if (chan.skill_id == 7) { // Heart Sword: Shadowless
-      auto &pos = view_chan.get<Position>(entity);
-      DrawCircleLines((int)pos.x, (int)pos.y, 350.0f, ColorAlpha(GOLD, 0.2f));
-      DrawCircleLines((int)pos.x, (int)pos.y, 352.0f,
-                      ColorAlpha(ORANGE, 0.15f)); // Thicker rim
-    }
+  {
+      NoMoreDay::utils::ScopedTimer timer("4.4 Render Indicators", 100);
+      auto view_chan = registry.view<ChannelingComponent, Position>();
+      for (auto entity : view_chan) {
+        auto &chan = view_chan.get<ChannelingComponent>(entity);
+        if (chan.skill_id == 7) { // Heart Sword: Shadowless
+          auto &pos = view_chan.get<Position>(entity);
+          DrawCircleLines((int)pos.x, (int)pos.y, 350.0f, ColorAlpha(GOLD, 0.2f));
+          DrawCircleLines((int)pos.x, (int)pos.y, 352.0f,
+                          ColorAlpha(ORANGE, 0.15f)); // Thicker rim
+        }
+      }
   }
 
   // Portals
@@ -831,80 +848,35 @@ void GameplayState::OnRender() {
   }
 
   // Fog
-  m_context->levelManager->getFogSystem().renderFog();
+  {
+      NoMoreDay::utils::ScopedTimer timer("4.5 Render Fog", 100);
+      m_context->levelManager->getFogSystem().renderFog();
+  }
 
   // Ghost Snapshots
   NoMoreDay::systems::GhostSystem::Render(registry);
 
   EndMode2D();
 
-  // UI
-  // Note: UISystem::Draw draws EVERYTHING (Inventory, CharPanel, Minimap,
-  // Tooltip). Since we are moving to State-based UI, we should be careful. If
-  // InventoryState is Active (on top), it will draw Inventory. GameplayState
-  // should draw HUD (Minimap, CharPanel if it's not a state yet, MessageBox).
-  // But UISystem::Draw currently draws `if (State.showInventory) ...`.
-  // If we split InventoryState, we should ideally NOT call UISystem::Draw for
-  // inventory. But `UISystem::Draw` is all-or-nothing currently.
-
-  // Strategy:
-  // GameplayState calls `UISystem::Draw`.
-  // If `State.showInventory` is false (because we are in GameplayState), it
-  // won't draw inventory. Wait, if `InventoryState` is active,
-  // `GameplayState::OnRender` is called FIRST (Background), then
-  // `InventoryState::OnRender` (Overlay). `GameplayState::OnRender` calls
-  // `UISystem::Draw`. `InventoryState::OnRender` calls `UIInventory::Draw`. If
-  // `UISystem::Draw` checks `showInventory`, and it's true... it draws
-  // Inventory. So we get double draw? YES.
-
-  // Fix:
-  // We need to modify `UISystem::Draw` to NOT draw Inventory, or ensure
-  // `showInventory` is false when GameplayState draws? But `showInventory` IS
-  // true when InventoryState is active. So `GameplayState` calling
-  // `UISystem::Draw` will draw inventory.
-
-  // Temporary Fix:
-  // In `GameplayState::OnRender`, we can assume we only want HUD.
-  // But `UISystem::Draw` mixes HUD and Window logic.
-  // We should call `UIMinimap::Draw` and `UICharacter::Draw` manually here?
-  // And let `InventoryState` handle Inventory.
-
-  // `UISystem::Draw` implementation:
-  // 1. Draw Subsystems (Inv, Map, Char)
-  // 2. Ground Interaction
-  // 3. Global Overlays
-
-  // If we are in GameplayState, we want Ground Interaction, Minimap, CharPanel
-  // (overlay), Tooltips. If Inventory is open: GameplayState draws (Background
-  // + Ground Interaction + Minimap). InventoryState draws (Inventory +
-  // Tooltips).
-
-  // Problem: Ground Interaction (hoveredItem) might conflict.
-  // And Tooltips might be drawn twice.
-
-  // Ideally, `GameplayState` should NOT draw `UISystem::Draw` blindly.
-  // It should draw `GameplayHUD`.
-
-  // For now, to avoid double draw issues, I will rely on `UISystem::Draw`
-  // checking flags. But the flags are global.
-
-  // Let's modify `UISystem::Draw` in `src/systems/UISystem.cpp` later to be
-  // more modular? Or just call specific parts here.
-
   // Manual Draw:
-  UIMinimap::Draw(registry, *m_context->levelManager);
+  {
+      NoMoreDay::utils::ScopedTimer timer("4.6 Render Minimap", 100);
+      UIMinimap::Draw(registry, *m_context->levelManager, &m_spatialGrid);
+  }
+  
   if (UISystem::State.showCharacterPanel ||
       UISystem::State.characterPanelAlpha > 0.0f) {
     UICharacter::Draw(registry);
   }
 
   // Ground Interaction
-  // Copied logic from UISystem::Draw or call a helper?
-  // I can leave `UISystem::Draw` to handle "Gameplay UI".
-
   {
+    NoMoreDay::utils::ScopedTimer timer("4.7 Render UI Draw", 100);
     UISystem::Draw(registry, *m_context->levelManager, m_camera, &m_spatialGrid);
   }
+
+  // Monster Target Widget (Top Center)
+  systems::MonsterHealthBarSystem::RenderUI(registry);
 
   // Player HUD (Resource Bars)
   systems::PlayerHUD::Draw(registry);
