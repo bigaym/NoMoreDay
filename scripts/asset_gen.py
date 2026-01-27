@@ -1,8 +1,17 @@
 """
 NoMoreDay Asset Generator
 Purpose: Generates high-quality 2D game assets using ComfyUI (Flux.1 model).
-         Supports automatic background removal and downscaling to 128x128.
-Usage: python scripts/asset_gen.py --prompt "golden sword" --name "weapon_gold_sword"
+         Supports automatic background removal, custom output directories, and resizing.
+
+Usage: 
+  Basic:
+    python scripts/asset_gen.py --prompt "golden sword" --name "weapon_gold_sword"
+  
+  Advanced (Custom Size & Directory):
+    python scripts/asset_gen.py --prompt "potion" --target-width 64 --target-height 64 --output-dir "assets/icons"
+  
+  Background Retention:
+    python scripts/asset_gen.py --prompt "forest background" --no-remove-bg --target-width 512 --target-height 512
 """
 import websocket # type: ignore
 import uuid
@@ -246,6 +255,9 @@ def main():
     parser.add_argument("--height", type=int, default=1024, help="Height of the sprite")
     parser.add_argument("--name", type=str, default="asset", help="Output filename prefix")
     parser.add_argument("--no-remove-bg", action="store_true", help="Disable automatic background removal")
+    parser.add_argument("--target-width", type=int, default=128, help="Final asset width after downscaling")
+    parser.add_argument("--target-height", type=int, default=128, help="Final asset height after downscaling")
+    parser.add_argument("--output-dir", type=str, default=os.path.join("assets", "textures"), help="Directory to save generated assets")
     parser.add_argument("--model", type=str, default="flux-2-klein-9b.safetensors", help="Model to use (e.g., flux-2-klein-base-4b.safetensors)")
     
     args = parser.parse_args()
@@ -285,20 +297,19 @@ def main():
     workflow["5"]["inputs"]["height"] = gen_height
 
     # 3. Generate
-    output_path = os.path.abspath(os.path.join("assets", "textures"))
+    output_path = os.path.abspath(args.output_dir)
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
     image_paths = get_images(ws, workflow, output_path, args.name, not args.no_remove_bg)
     
     # Downscale for game use (Standard 128x128 for NoMoreDay assets)
-    target_size = 128 
     for img_path in image_paths:
         try:
             with Image.open(img_path) as img:
-                print(f"Standardizing {os.path.basename(img_path)} to {target_size}x{target_size}...")
+                print(f"Standardizing {os.path.basename(img_path)} to {args.target_width}x{args.target_height}...")
                 # Maintain aspect ratio by padding or just force square for icons
-                img_res = img.resize((target_size, target_size), Image.Resampling.LANCZOS)
+                img_res = img.resize((args.target_width, args.target_height), Image.Resampling.LANCZOS)
                 img_res.save(img_path, "PNG")
         except Exception as e:
             print(f"Downscaling failed: {e}")
