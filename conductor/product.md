@@ -12,7 +12,8 @@ To create an immersive ARPG experience where the **Roguelite run loop** meets **
 
 ## Core Goals & Values
 - **Tag-Driven Ecology:** Everything (skills, items, monsters) is a container of tags. This allows for emergent synergies and streamlined damage calculation. [FULLY IMPLEMENTED]
-- **VISCERAL Performance:** Technical excellence is a gameplay feature. Leveraging **Multi-Draw Indirect (MDI)** and **GPU Compute**, the game maintains fluid 60+ FPS even with 10,000+ units. [PROVEN]
+- **VISCERAL Performance:** Technical excellence is a gameplay feature. Leveraging **Multi-Draw Indirect (MDI)**, **GPU Compute**, and **Lockless Staging**, the engine maintains fluid 60+ FPS even with 10,000+ units. [PROVEN]
+- **Scalable Concurrency:** The engine is built for multi-core scaling. Featuring **thread-local RNG**, **Shared-Mutex resource caching**, and **Zero-Lock action merging**, ensuring thread safety without sacrificing frame-time stability. [HARDENED 2026-01-28]
 - **Player-Centric Endgame:** Shifting the power of map generation to the player through the Dimensional Mosaic. [FUNCTIONAL]
 
 ## Key Features
@@ -35,6 +36,7 @@ To create an immersive ARPG experience where the **Roguelite run loop** meets **
 
 ### 4. Tag-Driven Combat Engine (Implemented)
 - **5-Step Pipeline:** (Base -> Conversion -> Increased -> More -> Settle). Optimized via SIMD (xsimd) and branchless logic.
+- **Concurrent Simulation:** Physics and projectiles utilize a **Chunk-based Zero-Lock Merge** pattern, enabling linear performance scaling with thread count.
 - **Ailment Integration:** Status effects like Bleed, Ignite, and Shock are handled natively by the pipeline based on damage tags.
 - **Shadow Echoes:** Support for complex trigger builds (e.g., shadows mimicking skills) without recursive performance hits.
 
@@ -44,7 +46,7 @@ To create an immersive ARPG experience where the **Roguelite run loop** meets **
 
 ### 6. GPGPU Optimized AI & VFX (Implemented)
 - **GPU Flow Fields:** 10,000+ monsters navigate using iterative compute shaders, enabling complex flocking behaviors.
-- **Ink-Wash Particles:** 200,000+ particles rendered using Indirect Drawing and Triple Buffering, themed around traditional ink-wash aesthetics.
+- **Ink-Wash Particles:** 200,000+ particles rendered using Indirect Drawing and Triple Buffering. Powered by a **Lockless Thread-Local Staging** architecture, allowing high-frequency emission across all CPU cores.
 
 ### 7. Expanded Monster Archetypes
 - **Synergetic AI:** Support (buffing), Assassin (stealth/backstab), and Tank (blocking LOS) archetypes work together.

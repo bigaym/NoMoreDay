@@ -1,5 +1,6 @@
 #include "game/systems/item/FragmentDropSystem.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
@@ -8,9 +9,10 @@
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
 #include "game/systems/world/LevelManager.hpp"
-#include <random>
 
 namespace NoMoreDay {
+
+using utils::ThreadSafeRandom;
 
 // 静态成员初始化
 uint32_t FragmentDropSystem::s_killHandlerId = 0;
@@ -18,9 +20,6 @@ bool FragmentDropSystem::s_initialized = false;
 ::LevelManager* FragmentDropSystem::s_levelManager = nullptr;
 std::vector<FragmentDropSystem::DropRequest> FragmentDropSystem::s_pendingRequests;
 std::mutex FragmentDropSystem::s_requestMutex;
-
-// 随机数生成器
-static thread_local std::mt19937 s_fragmentRng(std::random_device{}());
 
 void FragmentDropSystem::Init() {
   if (s_initialized)
@@ -134,8 +133,7 @@ void FragmentDropSystem::OnEnemyKilled(entt::registry &registry,
   dropChance *= (1.0f + magicFind * 0.01f);
 
   // 掷骰
-  std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-  if (dist(s_fragmentRng) > dropChance) {
+  if (ThreadSafeRandom::GetFloat01() > dropChance) {
     return; // 没有掉落
   }
 
@@ -240,8 +238,7 @@ float FragmentDropSystem::GetFragmentDropChance(int victimLevel, bool isElite,
 }
 
 FragmentType FragmentDropSystem::RollFragmentType(float luck) {
-  std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-  float roll = dist(s_fragmentRng);
+  float roll = ThreadSafeRandom::GetFloat01();
 
   // 类型权重：Affix 70%, Terrain 25%, Unique 5% (+luck)
   float uniqueChance = 0.05f + luck * 0.02f;
@@ -258,8 +255,7 @@ FragmentType FragmentDropSystem::RollFragmentType(float luck) {
 
 FragmentElement
 FragmentDropSystem::RollFragmentElement(FragmentElement areaElement) {
-  std::uniform_int_distribution<int> dist(0, 5);
-  int roll = dist(s_fragmentRng);
+  int roll = ThreadSafeRandom::GetInt(0, 5);
 
   // 基于区域偏向某元素
   if (areaElement != FragmentElement::None) {
@@ -294,8 +290,7 @@ FragmentDropSystem::RollFragmentElement(FragmentElement areaElement) {
 
 Rarity FragmentDropSystem::RollFragmentRarity(float magicFind, bool isElite,
                                               bool isBoss) {
-  std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-  float roll = dist(s_fragmentRng);
+  float roll = ThreadSafeRandom::GetFloat01();
 
   // 魔法寻宝调整
   float mfBonus = magicFind * 0.003f; // 每1%MF = 0.3%更好稀有度
@@ -321,11 +316,6 @@ Rarity FragmentDropSystem::RollFragmentRarity(float magicFind, bool isElite,
 }
 
 void FragmentDropSystem::RollFragmentStats(MapFragmentComponent &fragment) {
-  std::uniform_real_distribution<float> smallDist(0.9f, 1.1f);
-  std::uniform_real_distribution<float> mediumDist(1.0f, 1.5f);
-  std::uniform_real_distribution<float> largeDist(1.2f, 2.0f);
-  std::uniform_int_distribution<int> levelDist(-2, 5);
-
   // 根据稀有度调整属性范围
   float rarityMultiplier = 1.0f;
   switch (fragment.rarity) {
@@ -349,25 +339,24 @@ void FragmentDropSystem::RollFragmentStats(MapFragmentComponent &fragment) {
   switch (fragment.type) {
   case FragmentType::Terrain:
     // 地形碎片主要影响敌人密度
-    fragment.enemyDensityMod = mediumDist(s_fragmentRng) * rarityMultiplier;
-    fragment.dropRateMod = smallDist(s_fragmentRng);
+    fragment.enemyDensityMod = ThreadSafeRandom::GetFloat(0.9f, 1.5f) * rarityMultiplier;
+    fragment.dropRateMod = ThreadSafeRandom::GetFloat(0.9f, 1.1f);
     break;
 
   case FragmentType::Affix:
     // 词缀碎片平衡影响密度和掉落
-    fragment.enemyDensityMod = smallDist(s_fragmentRng) * rarityMultiplier;
-    fragment.dropRateMod = mediumDist(s_fragmentRng) * rarityMultiplier;
-    fragment.monsterLevelMod = levelDist(s_fragmentRng);
+    fragment.enemyDensityMod = ThreadSafeRandom::GetFloat(0.9f, 1.1f) * rarityMultiplier;
+    fragment.dropRateMod = ThreadSafeRandom::GetFloat(1.0f, 1.5f) * rarityMultiplier;
+    fragment.monsterLevelMod = ThreadSafeRandom::GetInt(-2, 5);
     break;
 
   case FragmentType::Unique:
     // 特殊碎片有特殊效果
     fragment.enemyDensityMod = 1.0f;
-    fragment.dropRateMod = largeDist(s_fragmentRng) * rarityMultiplier;
+    fragment.dropRateMod = ThreadSafeRandom::GetFloat(1.2f, 2.0f) * rarityMultiplier;
 
     // 随机选择一个特殊效果
-    std::uniform_int_distribution<int> specialDist(0, 2);
-    switch (specialDist(s_fragmentRng)) {
+    switch (ThreadSafeRandom::GetInt(0, 2)) {
     case 0:
       fragment.hasBoss = true;
       break;

@@ -24,12 +24,19 @@ static const std::vector<std::string> FACTION_PREFIXES[] = {
 };
 
 // Nemesis name suffixes based on top affixes
-static const std::unordered_map<std::string, std::string> AFFIX_SUFFIXES = {
-    {"Fast", "疾风"},          {"Tanky", "巨岩"},      {"Vampiric", "血饮"},
-    {"Molten", "烈焰"},        {"Shielding", "铁壁"},  {"Mirror Image", "幻影"},
-    {"MirrorImage", "幻影"},   {"Avenger", "复仇者"},  {"Void", "破甲者"},
-    {"VoidZone", "虚空"},      {"Void Zone", "虚空"},  {"StormStrider", "雷行"},
-    {"Storm Strider", "雷行"}, {"Teleporter", "瞬身"}, {"Berserker", "狂战"}};
+static const std::unordered_map<MonsterAffixType, std::string> AFFIX_SUFFIXES = {
+    {MonsterAffixType::Fast, "疾风"},
+    {MonsterAffixType::Tanky, "巨岩"},
+    {MonsterAffixType::Vampiric, "血饮"},
+    {MonsterAffixType::Molten, "烈焰"},
+    {MonsterAffixType::Shielding, "铁壁"},
+    {MonsterAffixType::MirrorImage, "幻影"},
+    {MonsterAffixType::Avenger, "复仇者"},
+    {MonsterAffixType::Void, "破甲者"},
+    {MonsterAffixType::VoidZone, "虚空"},
+    {MonsterAffixType::StormStrider, "雷行"},
+    {MonsterAffixType::Teleporter, "瞬身"},
+    {MonsterAffixType::Berserker, "狂战"}};
 
 bool NemesisGenerator::SpawnNemesisIfReady(entt::registry &registry,
                                            const Position &spawnPos) {
@@ -88,7 +95,7 @@ entt::entity NemesisGenerator::SpawnNemesis(entt::registry &registry,
 
 std::string
 NemesisGenerator::GenerateDisplayName(FactionType faction,
-                                      const std::vector<std::string> &affixes) {
+                                      const std::vector<MonsterAffixType> &affixes) {
   // Pick a random faction prefix
   size_t faction_idx = static_cast<size_t>(faction);
   if (faction_idx >= 4) { // Safety check for FACTION_PREFIXES size
@@ -110,9 +117,9 @@ NemesisGenerator::GenerateDisplayName(FactionType faction,
   return prefix + suffix;
 }
 
-std::vector<std::string>
+std::vector<MonsterAffixType>
 NemesisGenerator::SelectAffixes(entt::registry &registry) {
-  std::vector<std::string> selected_affixes;
+  std::vector<MonsterAffixType> selected_affixes;
 
   // 1. Analyze Player History for Adaptive Traits
   auto view = registry.view<PlayerCombatHistory>();
@@ -123,27 +130,27 @@ NemesisGenerator::SelectAffixes(entt::registry &registry) {
     // Rule 1: Adaptive Resistance (Offensive Traits)
     if (totalDmg > 0) {
       if (history.damageDealtFire / totalDmg > 0.6f)
-        selected_affixes.push_back("Molten");
+        selected_affixes.push_back(MonsterAffixType::Molten);
       else if (history.damageDealtPhysical / totalDmg > 0.6f)
-        selected_affixes.push_back("Tanky"); // Was Thorns
+        selected_affixes.push_back(MonsterAffixType::Tanky); // Was Thorns
       else if (history.damageDealtCold / totalDmg > 0.6f)
-        selected_affixes.push_back("Frozen");
+        selected_affixes.push_back(MonsterAffixType::Frozen);
       else if (history.damageDealtLightning / totalDmg > 0.6f)
-        selected_affixes.push_back("Storm"); // Was Shocking
+        selected_affixes.push_back(MonsterAffixType::Storm); // Was Shocking
     }
 
     // Rule 2: Anti-Kite
     // Assuming distance units are pixels. > 300 is roughly ranged.
     if (history.avgEngagementDistance > 300.0f) {
-      selected_affixes.push_back("Fast");   // Closer gap
-      selected_affixes.push_back("Vortex"); // Pull player
+      selected_affixes.push_back(MonsterAffixType::Fast);   // Closer gap
+      selected_affixes.push_back(MonsterAffixType::Vortex); // Pull player
     }
 
     // Rule 3: Anti-Burst
     // If peak damage is extremely high relative to... something?
     // Or just if it exceeds a threshold (e.g. 5000).
     if (history.burstDamagePeak > 2000.0f) {
-      selected_affixes.push_back("Shielding"); // Was PhaseShield
+      selected_affixes.push_back(MonsterAffixType::Shielding); // Was PhaseShield
     }
   }
 
@@ -161,10 +168,10 @@ NemesisGenerator::SelectAffixes(entt::registry &registry) {
 
   // 3. Fill with random defaults if needed
   if (selected_affixes.size() < 2) {
-    static const std::vector<std::string> DEFAULT_AFFIXES = {"Fast", "Tanky",
-                                                             "Vampiric"};
+    static const std::vector<MonsterAffixType> DEFAULT_AFFIXES = {
+        MonsterAffixType::Fast, MonsterAffixType::Tanky, MonsterAffixType::Vampiric};
     while (selected_affixes.size() < 2) {
-      std::string affix = DEFAULT_AFFIXES[utils::ThreadSafeRandom::GetInt(
+      MonsterAffixType affix = DEFAULT_AFFIXES[utils::ThreadSafeRandom::GetInt(
           0, static_cast<int>(DEFAULT_AFFIXES.size() - 1))];
       if (std::find(selected_affixes.begin(), selected_affixes.end(), affix) ==
           selected_affixes.end()) {
@@ -181,7 +188,7 @@ NemesisGenerator::SelectAffixes(entt::registry &registry) {
   LOG_DEBUG("NemesisGenerator: Selected affixes: {}", [&] {
     std::string s;
     for (auto &a : selected_affixes)
-      s += a + ", ";
+      s += std::string(MonsterAffixRegistry::GetAffixNameEn(a)) + ", ";
     return s;
   }());
 
@@ -263,7 +270,7 @@ Tag NemesisGenerator::DetermineCounterResistances(entt::registry &registry) {
 
 entt::entity NemesisGenerator::CreateNemesisEntity(
     entt::registry &registry, FactionType faction,
-    const std::vector<std::string> &affixes, Tag resistances,
+    const std::vector<MonsterAffixType> &affixes, Tag resistances,
     const Position &pos, int evolution_tier) {
 
   auto entity = registry.create();
@@ -301,13 +308,9 @@ entt::entity NemesisGenerator::CreateNemesisEntity(
 
   // MonsterAffixComponent (Critical for logic)
   auto &affixComp = registry.emplace<MonsterAffixComponent>(entity);
-  for (const auto &affixName : affixes) {
-    MonsterAffixType type = MonsterAffixRegistry::GetTypeFromName(affixName);
-
+  for (const auto &type : affixes) {
     if (type != MonsterAffixType::None) {
       affixComp.AddAffix(type);
-    } else {
-      LOG_WARN("NemesisGenerator: Unknown affix string '{}'", affixName);
     }
   }
 

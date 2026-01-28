@@ -425,23 +425,21 @@ void ProjectileSystem::Update(entt::registry &registry,
     return hasAction;
   };
 
-  // Execution Flow
-  // Basic View Iterate
-  // Or Copy to vector if we want parallel
-  // Existing code copied to vector
   std::vector<entt::entity> entities;
-
-  // Reserve skipped to avoid EnTT versioning issues with size/size_hint
-
   for (auto e : view)
     entities.push_back(e);
 
-  std::vector<DeferredAction> globalActions;
-  std::mutex actionMutex;
+  if (entities.empty()) return;
 
-  auto run_parallel = [&](int start, int end) {
-    std::vector<DeferredAction> localActions;
-    localActions.reserve(32);
+  const int chunkSize = 64;
+  const int numChunks = (int)((entities.size() + chunkSize - 1) / chunkSize);
+  std::vector<std::vector<DeferredAction>> perTaskActions(numChunks);
+
+  auto run_chunk = [&](int chunkIdx) {
+    int start = chunkIdx * chunkSize;
+    int end = std::min(start + chunkSize, (int)entities.size());
+    auto& localActions = perTaskActions[chunkIdx];
+    localActions.reserve(chunkSize / 2); // Heuristic
 
     for (int i = start; i < end; ++i) {
       entt::entity e = entities[i];
@@ -454,26 +452,26 @@ void ProjectileSystem::Update(entt::registry &registry,
 
       SimulateProjectile(e, pos, vel, proj, localActions);
     }
-
-    if (!localActions.empty()) {
-      std::lock_guard<std::mutex> lock(actionMutex);
-      globalActions.insert(globalActions.end(), localActions.begin(),
-                           localActions.end());
-    }
   };
 
-  if (executor && entities.size() > 64) {
+  if (executor && numChunks > 1) {
     tf::Taskflow tf;
-    int chunkSize = 64;
-    int numChunks = (entities.size() + chunkSize - 1) / chunkSize;
-    for (int j = 0; j < numChunks; ++j) {
-      int start = j * chunkSize;
-      int end = std::min(start + chunkSize, (int)entities.size());
-      tf.emplace([=]() { run_parallel(start, end); });
-    }
+    tf.for_each_index(0, numChunks, 1, run_chunk);
     executor->run(tf).wait();
   } else {
-    run_parallel(0, entities.size());
+    for (int i = 0; i < numChunks; ++i) run_chunk(i);
+  }
+
+  // Aggregate results (Serial Phase)
+  std::vector<DeferredAction> globalActions;
+  size_t totalActions = 0;
+  for (const auto& vec : perTaskActions) totalActions += vec.size();
+  globalActions.reserve(totalActions);
+  
+  for (auto& vec : perTaskActions) {
+    globalActions.insert(globalActions.end(), 
+                         std::make_move_iterator(vec.begin()), 
+                         std::make_move_iterator(vec.end()));
   }
 
   // SERIAL PHASE: Process Deferred Actions

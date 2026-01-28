@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <unordered_map>
+#include <shared_mutex>
 #include <entt/entt.hpp>
 #include "raylib.h"
 
@@ -54,4 +55,5 @@ private:
     unsigned int m_entityTextureArray = 0;
     std::unordered_map<std::string, int> m_textureLayerMap; // name -> layer index
     bool m_headless = false;
+    mutable std::shared_mutex m_mutex;
 };

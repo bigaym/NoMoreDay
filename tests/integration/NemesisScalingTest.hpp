@@ -15,7 +15,7 @@ TEST_CASE("[Integration] NemesisScaling - Nemesis Scaling and Phase Shield") {
   MonsterAffixSystem::Init();
 
   // Setup: Tier 10 Nemesis with Molten and Shielding
-  std::vector<std::string> affixes = {"Molten", "Shielding"};
+  std::vector<MonsterAffixType> affixes = {MonsterAffixType::Molten, MonsterAffixType::Shielding};
   Tag resistances = Tag::None;
   Position spawnPos = {0, 0};
   int tier = 10;

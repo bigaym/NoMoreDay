@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/components/Common.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/TagRegistry.hpp"
 #include <cstdint>
 #include <entt/entt.hpp>
@@ -184,9 +185,10 @@ struct EnemyRarityComponent {
     BOSS = 3,      // 首领 (橙色，关卡核心)
     NEMESIS = 4    // 宿敌 (红色，跨局进化)
   };
-  Rarity rarity;
-  std::vector<std::string> affixes; // 词缀
-
-  EnemyRarityComponent(Rarity r = NORMAL) : rarity(r) {
-  }
-};
+    Rarity rarity;
+    std::vector<NoMoreDay::MonsterAffixType> affixes; // 词缀
+  
+    EnemyRarityComponent(Rarity r = NORMAL) : rarity(r) {
+    }
+  };
+  

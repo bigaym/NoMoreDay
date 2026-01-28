@@ -100,7 +100,7 @@ TEST_CASE("[Unit] NemesisEvolution - Spawning Verification") {
   // CreateNemesisEntity is a static helper? No, it's public static in hpp?
   // Let's check NemesisGenerator.hpp. It seems CreateNemesisEntity is public.
 
-  std::vector<std::string> affixes = {"Fast", "Molten"};
+  std::vector<MonsterAffixType> affixes = {MonsterAffixType::Fast, MonsterAffixType::Molten};
   Tag resistances = Tag::Fire;
   Position pos = {100.0f, 100.0f};
 
@@ -118,5 +118,5 @@ TEST_CASE("[Unit] NemesisEvolution - Spawning Verification") {
 
   auto &nemComp = registry.get<NemesisComponent>(entity);
   CHECK(nemComp.evolved_affixes.size() == 2);
-  CHECK(nemComp.evolved_affixes[0] == "Fast");
+  CHECK(nemComp.evolved_affixes[0] == MonsterAffixType::Fast);
 }

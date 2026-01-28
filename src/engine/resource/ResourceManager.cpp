@@ -48,6 +48,16 @@ ResourceManager::~ResourceManager() {
 Texture2D ResourceManager::loadTexture(entt::id_type id,
                                        const std::string &path) {
   LOG_TRACE("Loading texture, ID: {}, Path: {}", id, path);
+  
+  {
+    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    if (auto it = m_textures.find(id); it != m_textures.end()) {
+      return it->second;
+    }
+  }
+
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
+  // Re-check after acquiring write lock
   if (auto it = m_textures.find(id); it != m_textures.end()) {
     return it->second;
   }
@@ -77,6 +87,7 @@ Texture2D ResourceManager::loadTexture(entt::id_type id,
 
 void ResourceManager::registerTexture(entt::id_type id,
                                       const std::string &path) {
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
   m_texturePaths[id] = path;
 }
 
@@ -84,20 +95,37 @@ Texture2D ResourceManager::getTexture(entt::id_type id) {
   if (id == 0)
     return {0};
 
-  if (auto it = m_textures.find(id); it != m_textures.end()) {
-    return it->second;
+  {
+    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    if (auto it = m_textures.find(id); it != m_textures.end()) {
+      return it->second;
+    }
+
+    if (m_texturePaths.find(id) == m_texturePaths.end()) {
+      return {0};
+    }
   }
 
-  if (auto it = m_texturePaths.find(id); it != m_texturePaths.end()) {
-    return loadTexture(id, it->second);
+  // Need to load - path exists but texture doesn't
+  std::string path;
+  {
+      std::shared_lock<std::shared_mutex> lock(m_mutex);
+      path = m_texturePaths[id];
   }
-
-  return {0};
+  return loadTexture(id, path);
 }
 
 Font ResourceManager::loadFont(entt::id_type id, const std::string &path,
                                int fontSize, int *codepoints,
                                int codepointCount) {
+  {
+    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    if (auto it = m_fonts.find(id); it != m_fonts.end()) {
+      return it->second;
+    }
+  }
+
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
   if (auto it = m_fonts.find(id); it != m_fonts.end()) {
     return it->second;
   }
@@ -135,16 +163,25 @@ Font ResourceManager::loadFont(entt::id_type id, const std::string &path,
 }
 
 Font ResourceManager::getFont(entt::id_type id) {
+  std::shared_lock<std::shared_mutex> lock(m_mutex);
   if (m_fonts.find(id) != m_fonts.end()) {
-    return m_fonts[id];
+    return m_fonts.at(id);
   }
   return GetFontDefault();
 }
 
 Shader ResourceManager::loadShader(entt::id_type id, const std::string &vsPath,
                                    const std::string &fsPath) {
+  {
+    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    if (m_shaders.find(id) != m_shaders.end()) {
+      return m_shaders.at(id);
+    }
+  }
+
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
   if (m_shaders.find(id) != m_shaders.end()) {
-    return m_shaders[id];
+    return m_shaders.at(id);
   }
 
   if (m_headless) {
@@ -163,6 +200,13 @@ Shader ResourceManager::loadShader(entt::id_type id, const std::string &vsPath,
 
 Shader ResourceManager::loadComputeShader(entt::id_type id,
                                           const std::string &path) {
+  {
+    std::shared_lock<std::shared_mutex> lock(m_mutex);
+    if (auto it = m_shaders.find(id); it != m_shaders.end())
+      return it->second;
+  }
+
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
   if (auto it = m_shaders.find(id); it != m_shaders.end())
     return it->second;
 
@@ -215,126 +259,252 @@ Shader ResourceManager::loadComputeShader(entt::id_type id,
 }
 
 Shader ResourceManager::getShader(entt::id_type id) {
+  std::shared_lock<std::shared_mutex> lock(m_mutex);
   if (auto it = m_shaders.find(id); it != m_shaders.end())
     return it->second;
   return {0};
 }
 
 unsigned int
+
 ResourceManager::loadTextureArray(const std::vector<std::string> &paths) {
+
   if (paths.empty())
+
     return 0;
+
+
+
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
+
+
 
   const int layerWidth = 128;
+
   const int layerHeight = 128;
+
   const int layerCount = static_cast<int>(paths.size());
 
+
+
   if (m_headless) {
+
     for (int i = 0; i < layerCount; i++) {
+
       std::string name = GetFileNameWithoutExt(paths[i].c_str());
+
       m_textureLayerMap[name] = i;
+
     }
+
     m_entityTextureArray = 1;
+
     return 1;
+
   }
+
+
 
   // Create the Texture Array using unified GPUUtils
+
   unsigned int texArrayId = 0;
+
   utils::GPUUtils::GenTextures(1, &texArrayId);
+
   if (texArrayId == 0)
+
     return 0;
 
+
+
   utils::GPUUtils::BindTexture(GL_TEXTURE_2D_ARRAY, texArrayId);
+
   utils::GPUUtils::TexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, layerWidth,
+
                                 layerHeight, layerCount);
 
+
+
   // Set sampling parameters
+
   utils::GPUUtils::TexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER,
+
                                  GL_LINEAR);
+
   utils::GPUUtils::TexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER,
+
                                  GL_LINEAR);
+
   utils::GPUUtils::TexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S,
+
                                  GL_CLAMP_TO_EDGE);
+
   utils::GPUUtils::TexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T,
+
                                  GL_CLAMP_TO_EDGE);
+
+
 
   LOG_INFO("ResourceManager: Created Texture Array ID: {} ({}x{}x{})",
+
            texArrayId, layerWidth, layerHeight, layerCount);
 
+
+
   for (int i = 0; i < layerCount; i++) {
+
     const std::string &path = paths[i];
+
     if (!FileExists(path.c_str())) {
+
       LOG_WARN("ResourceManager: Sprite file not found for texture array: {}",
+
                path);
+
       continue;
+
     }
+
+
 
     Image img = LoadImage(path.c_str());
+
     if (img.data == nullptr) {
+
       LOG_WARN("ResourceManager: Failed to load image: {}", path);
+
       continue;
+
     }
+
+
 
     // Standardize image
+
     if (img.width != layerWidth || img.height != layerHeight) {
+
       ImageResize(&img, layerWidth, layerHeight);
+
     }
+
     ImageFormat(&img, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8);
 
+
+
     // Upload to specific layer
+
     utils::GPUUtils::TexSubImage3D(GL_TEXTURE_2D_ARRAY, 0, 0, 0, i, layerWidth,
+
                                    layerHeight, 1, GL_RGBA, GL_UNSIGNED_BYTE,
+
                                    img.data);
 
+
+
     // Store mapping
+
     std::string name = GetFileNameWithoutExt(path.c_str());
+
     m_textureLayerMap[name] = i;
 
+
+
     UnloadImage(img);
+
     LOG_TRACE("ResourceManager: Loaded layer {} for texture array: {}", i,
+
               name);
+
   }
+
+
 
   utils::GPUUtils::BindTexture(GL_TEXTURE_2D_ARRAY, 0);
+
   m_entityTextureArray = texArrayId;
+
   LOG_INFO("ResourceManager: Loaded Texture Array with {} layers (ID: {})",
+
            layerCount, texArrayId);
+
   return texArrayId;
+
 }
+
+
 
 int ResourceManager::getTextureLayerIndex(const std::string &name) const {
+
+  std::shared_lock<std::shared_mutex> lock(m_mutex);
+
   if (auto it = m_textureLayerMap.find(name); it != m_textureLayerMap.end()) {
+
     return it->second;
+
   }
+
   return -1;
+
 }
 
+
+
 void ResourceManager::unloadAll() {
+
+  std::unique_lock<std::shared_mutex> lock(m_mutex);
+
   for (auto &[id, tex] : m_textures) {
+
     if (tex.id != 0 && !m_headless)
+
       UnloadTexture(tex);
+
   }
+
   m_textures.clear();
+
   m_texturePaths.clear();
 
+
+
   for (auto &[id, font] : m_fonts) {
+
     if (font.texture.id != 0 && !m_headless)
+
       UnloadFont(font);
+
   }
+
   m_fonts.clear();
 
+
+
   for (auto &[id, shader] : m_shaders) {
+
     if (shader.id != 0 && !m_headless)
+
       UnloadShader(shader);
+
   }
+
   m_shaders.clear();
 
+
+
   if (m_entityTextureArray != 0) {
+
     if (!m_headless)
+
       rlUnloadTexture(m_entityTextureArray);
+
     m_entityTextureArray = 0;
+
   }
+
   m_textureLayerMap.clear();
 
+
+
   LOG_INFO("ResourceManager: All resources unloaded.");
+
 }

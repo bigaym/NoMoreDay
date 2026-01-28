@@ -3,6 +3,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/FactionComponent.hpp"
 #include "game/components/NemesisComponent.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include <entt/entt.hpp>
 #include <string>
 #include <vector>
@@ -42,12 +43,12 @@ public:
    */
   static std::string
   GenerateDisplayName(FactionType faction,
-                      const std::vector<std::string> &affixes);
+                      const std::vector<MonsterAffixType> &affixes);
 
   /**
    * @brief Select affixes based on player kill history.
    */
-  static std::vector<std::string> SelectAffixes(entt::registry &registry);
+  static std::vector<MonsterAffixType> SelectAffixes(entt::registry &registry);
 
 public:
   /**
@@ -61,7 +62,7 @@ public:
    */
   static entt::entity
   CreateNemesisEntity(entt::registry &registry, FactionType faction,
-                      const std::vector<std::string> &affixes, Tag resistances,
+                      const std::vector<MonsterAffixType> &affixes, Tag resistances,
                       const Position &pos, int evolution_tier);
 };
 

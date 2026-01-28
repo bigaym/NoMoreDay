@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game/components/FactionComponent.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/TagRegistry.hpp"
 #include <cstdint>
 #include <string>
@@ -20,7 +21,7 @@ struct NemesisComponent {
   FactionType origin_faction = FactionType::Undead;
 
   /// Affixes synthesized from player kill history
-  std::vector<std::string> evolved_affixes;
+  std::vector<MonsterAffixType> evolved_affixes;
 
   /// Counter-resistances based on player's main damage type
   Tag counter_resistances = Tag::None;
@@ -60,7 +61,7 @@ struct NemesisTag {};
 struct NemesisData {
   uint64_t nemesis_id = 0;
   FactionType faction = FactionType::Undead;
-  std::vector<std::string> affixes;
+  std::vector<MonsterAffixType> affixes;
   Tag resistances = Tag::None;
   int evolution_tier = 1;
   std::string display_name;

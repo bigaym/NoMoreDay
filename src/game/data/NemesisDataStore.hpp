@@ -3,6 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "game/components/FactionComponent.hpp"
 #include "game/components/NemesisComponent.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include <array>
 #include <deque>
 #include <filesystem>
@@ -17,9 +18,6 @@ namespace NoMoreDay {
 
 /**
  * @brief Singleton data store for Nemesis system persistence.
- *
- * Stores faction aggro values, kill affix history, and active Nemesis data
- * across game runs. Data is saved to JSON.
  */
 class NemesisDataStore {
 public:
@@ -45,19 +43,25 @@ public:
       j["faction_aggro"].push_back(faction_aggro[i]);
     }
 
-    // Save kill affix history
+    // Save kill affix history (Convert to string for persistence)
     j["kill_affix_history"] = nlohmann::json::array();
-    for (const auto &affix : kill_affix_history) {
-      j["kill_affix_history"].push_back(affix);
+    for (auto type : kill_affix_history) {
+      j["kill_affix_history"].push_back(std::string(MonsterAffixRegistry::GetAffixNameEn(type)));
     }
 
     // Save active Nemesis if present
     if (active_nemesis.has_value()) {
       const auto &nem = active_nemesis.value();
+      
+      nlohmann::json affList = nlohmann::json::array();
+      for (auto type : nem.affixes) {
+        affList.push_back(std::string(MonsterAffixRegistry::GetAffixNameEn(type)));
+      }
+
       j["active_nemesis"] = {
           {"nemesis_id", nem.nemesis_id},
           {"faction", static_cast<int>(nem.faction)},
-          {"affixes", nem.affixes},
+          {"affixes", affList},
           {"resistances", static_cast<uint64_t>(nem.resistances)},
           {"evolution_tier", nem.evolution_tier},
           {"display_name", nem.display_name},
@@ -108,26 +112,33 @@ public:
       kill_affix_history.clear();
       if (j.contains("kill_affix_history") &&
           j["kill_affix_history"].is_array()) {
-        for (const auto &affix : j["kill_affix_history"]) {
-          kill_affix_history.push_back(affix.get<std::string>());
+        for (const auto &affix_node : j["kill_affix_history"]) {
+          std::string name = affix_node.get<std::string>();
+          kill_affix_history.push_back(MonsterAffixRegistry::GetTypeFromName(name));
         }
       }
 
       // Load active Nemesis
       active_nemesis.reset();
       if (j.contains("active_nemesis") && !j["active_nemesis"].is_null()) {
+        const auto& nem_j = j["active_nemesis"];
         NemesisData nem;
-        nem.nemesis_id = j["active_nemesis"]["nemesis_id"].get<uint64_t>();
+        nem.nemesis_id = nem_j["nemesis_id"].get<uint64_t>();
         nem.faction =
-            static_cast<FactionType>(j["active_nemesis"]["faction"].get<int>());
-        nem.affixes =
-            j["active_nemesis"]["affixes"].get<std::vector<std::string>>();
+            static_cast<FactionType>(nem_j["faction"].get<int>());
+        
+        if (nem_j.contains("affixes") && nem_j["affixes"].is_array()) {
+          for (const auto& aff_node : nem_j["affixes"]) {
+            nem.affixes.push_back(MonsterAffixRegistry::GetTypeFromName(aff_node.get<std::string>()));
+          }
+        }
+        
         nem.resistances = static_cast<Tag>(
-            j["active_nemesis"]["resistances"].get<uint64_t>());
-        nem.evolution_tier = j["active_nemesis"]["evolution_tier"].get<int>();
+            nem_j["resistances"].get<uint64_t>());
+        nem.evolution_tier = nem_j["evolution_tier"].get<int>();
         nem.display_name =
-            j["active_nemesis"]["display_name"].get<std::string>();
-        nem.is_active = j["active_nemesis"]["is_active"].get<bool>();
+            nem_j["display_name"].get<std::string>();
+        nem.is_active = nem_j["is_active"].get<bool>();
         active_nemesis = nem;
       }
 
@@ -146,9 +157,10 @@ public:
   /**
    * @brief Record an elite affix from a kill (for Nemesis synthesis).
    */
-  void RecordKillAffix(const std::string &affix) {
+  void RecordKillAffix(MonsterAffixType type) {
+    if (type == MonsterAffixType::None) return;
     std::lock_guard<std::mutex> lock(m_mutex);
-    kill_affix_history.push_back(affix);
+    kill_affix_history.push_back(type);
     // Keep only last 50
     while (kill_affix_history.size() > MAX_AFFIX_HISTORY) {
       kill_affix_history.pop_front();
@@ -164,19 +176,33 @@ public:
    * @brief Get the most common affixes from kill history.
    * @param count Number of top affixes to return
    */
-  std::vector<std::string> GetTopAffixes(size_t count) const {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    std::unordered_map<std::string, int> affix_counts;
-    for (const auto &affix : kill_affix_history) {
-      affix_counts[affix]++;
+  std::vector<MonsterAffixType> GetTopAffixes(size_t count) const {
+    std::vector<MonsterAffixType> snapshot;
+    {
+      std::lock_guard<std::mutex> lock(m_mutex);
+      snapshot.assign(kill_affix_history.begin(), kill_affix_history.end());
     }
 
-    std::vector<std::pair<std::string, int>> sorted(affix_counts.begin(),
-                                                    affix_counts.end());
+    if (snapshot.empty()) return {};
+
+    // 锁外统计与排序
+    std::array<int, static_cast<size_t>(MonsterAffixType::Count)> counts{};
+    for (auto type : snapshot) {
+      counts[static_cast<size_t>(type)]++;
+    }
+
+    std::vector<std::pair<MonsterAffixType, int>> sorted;
+    sorted.reserve(static_cast<size_t>(MonsterAffixType::Count));
+    for (size_t i = 1; i < static_cast<size_t>(MonsterAffixType::Count); ++i) {
+      if (counts[i] > 0) {
+        sorted.push_back({static_cast<MonsterAffixType>(i), counts[i]});
+      }
+    }
+
     std::sort(sorted.begin(), sorted.end(),
               [](const auto &a, const auto &b) { return a.second > b.second; });
 
-    std::vector<std::string> result;
+    std::vector<MonsterAffixType> result;
     for (size_t i = 0; i < std::min(count, sorted.size()); ++i) {
       result.push_back(sorted[i].first);
     }
@@ -187,15 +213,16 @@ public:
    * @brief Reset the data store (for testing).
    */
   void Reset() {
+    std::lock_guard<std::mutex> lock(m_mutex);
     faction_aggro.fill(0.0f);
     kill_affix_history.clear();
     active_nemesis.reset();
     next_nemesis_id = 1;
   }
 
-  // Public data members
+  // Public data members (accessible for convenience but protected by m_mutex where needed)
   std::array<float, static_cast<size_t>(FactionType::Count)> faction_aggro{};
-  std::deque<std::string> kill_affix_history;
+  std::deque<MonsterAffixType> kill_affix_history;
   std::optional<NemesisData> active_nemesis;
 
   static constexpr size_t MAX_AFFIX_HISTORY = 50;
