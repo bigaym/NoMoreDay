@@ -1,0 +1,11 @@
+{
+  "id": "lock-optimization",
+  "name": "锁与并发优化",
+  "description": "修复审计报告中发现的锁竞争风险、RNG 线程不安全及高频锁瓶颈问题。",
+  "status": "planned",
+  "priority": "high",
+  "owner": "feature-planner",
+  "created_at": "2026-01-28",
+  "spec_path": "conductor/tracks/lock-optimization/spec.md",
+  "plan_path": "conductor/tracks/lock-optimization/plan.md"
+}

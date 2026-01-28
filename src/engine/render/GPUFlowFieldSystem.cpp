@@ -268,22 +268,24 @@ void GPUFlowFieldSystem::SyncToCPU() {
   m_syncedThisFrame = true;
 }
 
-std::vector<Vector2> GPUFlowFieldSystem::DownloadFlowField() const {
-
+void GPUFlowFieldSystem::DownloadFlowField(std::vector<Vector2>& out) const {
   size_t cellCount = (size_t)m_width * m_height;
-  std::vector<Vector2> flowData(cellCount);
-  m_flowBuffer.Read(flowData.data(), cellCount * sizeof(Vector2));
-  return flowData;
+  if (out.size() != cellCount) out.resize(cellCount);
+  m_flowBuffer.Read(out.data(), cellCount * sizeof(Vector2));
 }
 
 void GPUFlowFieldSystem::Shutdown() {
   LOG_INFO("Shutting down GPUFlowFieldSystem...");
   m_costBuffer.Destroy();
   m_integrationBuffer.Release();
-  // Added missing releases
   m_integrationBuffer2.Release();
   m_densityBuffer.Release();
   m_flowBuffer.Destroy();
+  
+  m_flowFieldShadow.clear();
+  m_flowFieldShadow.shrink_to_fit();
+  m_costCache.clear();
+  m_costCache.shrink_to_fit();
 }
 
 } // namespace NoMoreDay::systems

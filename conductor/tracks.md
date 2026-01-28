@@ -475,6 +475,24 @@ T1 ──┬── T2 ──┬── T3 ──┬── T5
 
 ---
 
+## [x] Track: Static Variable & Global State Optimization
+- **Folder:** [./conductor/tracks/static_variable_optimization/](./conductor/tracks/static_variable_optimization/)
+- **Description:** 系统性重构项目中的静态变量。引入了 `std::shared_mutex` 解决 StatsCache 并发查询，利用 `thread_local` 修复了 RNG 线程安全问题，消除了 SkillSystem 热路径分配，并建立了统一的静态资源生命周期管理协议 (Completed on 2026-01-28)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 2 days
+
+---
+
+## [ ] Track: Lock & Concurrency Optimization
+- **Folder:** [./conductor/tracks/lock-optimization/](./conductor/tracks/lock-optimization/)
+- **Description:** 修复审计报告中发现的锁竞争风险、RNG 线程不安全及高频锁瓶颈问题。涵盖 FragmentDropSystem、NemesisDataStore、GPUParticleSystem、ResourceManager 及 ProjectileSystem。
+- **Status:** PLANNED
+- **Priority:** HIGH
+- **Estimated Time:** 2-3 days
+
+---
+
 ## [ ] Track: Next Milestone (TBD)
 - **Folder:** [./conductor/tracks/next-track/](./conductor/tracks/next-track/)
 - **Description:** 规划下一个功能模块或优化方向。

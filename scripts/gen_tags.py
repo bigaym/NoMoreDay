@@ -14,6 +14,8 @@ def generate_header(json_path, output_path):
     header_content = """#pragma once
 #include <cstdint>
 #include <string_view>
+#include <string>
+#include <vector>
 #include <optional>
 #include <bit>
 
@@ -61,6 +63,15 @@ constexpr Tag operator~(Tag t) {
     return static_cast<Tag>(~static_cast<uint64_t>(t));
 }
 
+struct TagInfo {
+    Tag tag;
+    std::string_view id;
+};
+
+static constexpr std::array<TagInfo, COUNT_PLACEHOLDER> kTagInfoTable = {{
+TABLE_CONTENT_PLACEHOLDER
+}};
+
 constexpr bool HasTag(Tag mask, Tag tag) {
     return (mask & tag) == tag;
 }
@@ -77,15 +88,43 @@ constexpr std::string_view GetTagName(Tag tag) {
     }
 }
 
+// Helper to get Tag from string name
+constexpr std::optional<Tag> TagFromString(std::string_view name) {
+"""
+
+    for value, name in tag_to_name.items():
+         header_content += f"    if (name == \"{name}\") return Tag::{name};\n"
+
+    header_content += """    return std::nullopt;
+}
+
+// Helper to parse a list of strings into a Tag mask
+inline Tag ParseTagList(const std::vector<std::string>& tags) {
+    Tag mask = Tag::None;
+    for (const auto& str : tags) {
+        if (auto t = TagFromString(str)) {
+            mask = mask | *t;
+        }
+    }
+    return mask;
+}
+
 } // namespace NoMoreDay
 """
+
+    table_content = ""
+    for value, name in tag_to_name.items():
+        table_content += f"    {{Tag::{name}, \"{name}\"}},\n"
+    
+    header_content = header_content.replace("COUNT_PLACEHOLDER", str(len(tag_to_name)))
+    header_content = header_content.replace("TABLE_CONTENT_PLACEHOLDER", table_content)
 
     with open(output_path, 'w') as f:
         f.write(header_content)
 
 if __name__ == "__main__":
     json_path = os.path.join("assets", "data", "tags.json")
-    output_path = os.path.join("src", "core", "TagRegistry.hpp")
+    output_path = os.path.join("src", "game", "data", "TagRegistry.hpp")
     
     # Ensure directory exists
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

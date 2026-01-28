@@ -93,6 +93,7 @@ static Tag GetTagFromDamageStat(StatType type) {
 }
 
 void StatsSystem::Recalculate(entt::registry &registry, entt::entity entity) {
+  ClearCache(registry, entity);
   AttributePipeline::Calculate(registry, entity);
 }
 float StatsSystem::GetStatWithTags(entt::registry &registry,
@@ -116,9 +117,17 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   hash_combine(static_cast<uint64_t>(source_entity));
 
   uint32_t entity_id = static_cast<uint32_t>(entity);
-  auto &entity_cache = s_tagStatCache[entity_id];
-  if (entity_cache.contains(key)) {
-    return entity_cache.at(key);
+  
+  // --- Thread-Safe Cache Read ---
+  {
+    std::shared_lock lock(s_cacheMutex);
+    auto it_entity = s_tagStatCache.find(entity_id);
+    if (it_entity != s_tagStatCache.end()) {
+      auto it_stat = it_entity->second.find(key);
+      if (it_stat != it_entity->second.end()) {
+        return it_stat->second;
+      }
+    }
   }
 
   StatCalculation dynamic_calc;
@@ -344,7 +353,13 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   }
 
   float result = dynamic_calc.Result();
-  s_tagStatCache[static_cast<uint32_t>(entity)][key] = result;
+  
+  // --- Thread-Safe Cache Write ---
+  {
+    std::unique_lock lock(s_cacheMutex);
+    s_tagStatCache[entity_id][key] = result;
+  }
+  
   return result;
 }
 
@@ -428,6 +443,7 @@ void StatsSystem::UpdateBuffs(entt::registry &registry, float dt) {
 }
 
 void StatsSystem::ClearCache(entt::registry &, entt::entity entity) {
+  std::unique_lock lock(s_cacheMutex);
   uint32_t entity_id = static_cast<uint32_t>(entity);
   s_tagStatCache.erase(entity_id);
 }
@@ -440,6 +456,9 @@ void StatsSystem::Shutdown(entt::registry &registry) {
   registry.on_destroy<CombatStats>().disconnect<&StatsSystem::ClearCache>();
 }
 
-void StatsSystem::Reset() { s_tagStatCache.clear(); }
+void StatsSystem::Reset() { 
+  std::unique_lock lock(s_cacheMutex);
+  s_tagStatCache.clear(); 
+}
 
 } // namespace NoMoreDay

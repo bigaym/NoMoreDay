@@ -82,11 +82,18 @@ struct HoloBladeInternal {
         rlUnloadVertexArray(quadVAO);
         rlUnloadVertexBuffer(quadVBO);
         instanceBuffer.Release();
+        hostBuffer.clear();
+        hostBuffer.shrink_to_fit();
+        renderQueue.clear();
+        renderQueue.shrink_to_fit();
         initialized = false;
     }
 };
 
-static HoloBladeInternal s_data;
+static HoloBladeInternal& GetData() {
+    static HoloBladeInternal instance;
+    return instance;
+}
 
 struct DrawBatch {
     Texture2D texture;
@@ -96,8 +103,8 @@ struct DrawBatch {
 
 void HoloBladeRenderSystem::Render(entt::registry &registry,
                                    const NoMoreDay::SharedContext &context) {
-  s_data.Init(context);
-  if (!s_data.initialized) return;
+  GetData().Init(context);
+  if (!GetData().initialized) return;
 
   auto view = registry.view<const components::HoloBlade, const Position,
                             const SpriteComponent>();
@@ -105,33 +112,33 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
   if (view.size_hint() == 0) return;
 
   // 1. Collect entities (Zero-Alloc)
-  s_data.renderQueue.clear();
+  GetData().renderQueue.clear();
   for (auto entity : view) {
       const auto &holo = view.get<const components::HoloBlade>(entity);
       if (!holo.isVisible) continue;
       const auto &sprite = view.get<const SpriteComponent>(entity);
-      s_data.renderQueue.emplace_back(sprite.texture.id, entity);
+      GetData().renderQueue.emplace_back(sprite.texture.id, entity);
   }
 
-  if (s_data.renderQueue.empty()) return;
+  if (GetData().renderQueue.empty()) return;
 
   // 2. Sort by Texture ID to batch draw calls
-  std::sort(s_data.renderQueue.begin(), s_data.renderQueue.end(),
+  std::sort(GetData().renderQueue.begin(), GetData().renderQueue.end(),
             [](const auto& a, const auto& b) { return a.first < b.first; });
 
-  s_data.hostBuffer.clear();
+  GetData().hostBuffer.clear();
   std::vector<DrawBatch> batches;
   // Reserve roughly assuming not too many different textures per frame
   batches.reserve(10); 
 
   // 3. Generate Instance Data & Batches
-  if (!s_data.renderQueue.empty()) {
+  if (!GetData().renderQueue.empty()) {
       DrawBatch currentBatch;
       currentBatch.count = 0;
       unsigned int currentTexId = 0;
       bool firstBatch = true;
 
-      for (const auto& pair : s_data.renderQueue) {
+      for (const auto& pair : GetData().renderQueue) {
           entt::entity entity = pair.second;
           const auto &sprite = view.get<const SpriteComponent>(entity);
 
@@ -143,7 +150,7 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
               
               currentTexId = sprite.texture.id;
               currentBatch.texture = sprite.texture;
-              currentBatch.startOffset = (int)s_data.hostBuffer.size();
+              currentBatch.startOffset = (int)GetData().hostBuffer.size();
               currentBatch.count = 0;
               firstBatch = false;
           }
@@ -164,11 +171,11 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
           inst.rimStrength = holo.rimStrength;
           inst.noiseSpeed = holo.noiseSpeed;
           
-          s_data.hostBuffer.push_back(inst);
+          GetData().hostBuffer.push_back(inst);
           currentBatch.count++;
           
           // Hard cap safety
-          if (s_data.hostBuffer.size() >= 4096) break;
+          if (GetData().hostBuffer.size() >= 4096) break;
       }
       // Push final batch
       if (currentBatch.count > 0) {
@@ -176,36 +183,36 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
       }
   }
 
-  if (s_data.hostBuffer.empty()) return;
+  if (GetData().hostBuffer.empty()) return;
 
   // 4. Single GPU Upload
   // Check resize
-  if (s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance) > s_data.instanceBuffer.GetSize()) {
-       s_data.instanceBuffer.Create(s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance) * 2, nullptr, RL_DYNAMIC_DRAW);
+  if (GetData().hostBuffer.size() * sizeof(components::HoloBladeInstance) > GetData().instanceBuffer.GetSize()) {
+       GetData().instanceBuffer.Create(GetData().hostBuffer.size() * sizeof(components::HoloBladeInstance) * 2, nullptr, RL_DYNAMIC_DRAW);
   }
-  s_data.instanceBuffer.Update(s_data.hostBuffer.data(), s_data.hostBuffer.size() * sizeof(components::HoloBladeInstance));
-  s_data.instanceBuffer.BindBase(4);
+  GetData().instanceBuffer.Update(GetData().hostBuffer.data(), GetData().hostBuffer.size() * sizeof(components::HoloBladeInstance));
+  GetData().instanceBuffer.BindBase(4);
 
   // 5. Render Batches
   float time = (float)GetTime();
   rlDrawRenderBatchActive();
   
-  BeginShaderMode(s_data.holoShader);
+  BeginShaderMode(GetData().holoShader);
   
   // Update MVP matrix
   Matrix matModelView = rlGetMatrixModelview();
   Matrix matProjection = rlGetMatrixProjection();
   Matrix matMVP = MatrixMultiply(matModelView, matProjection);
   
-  SetShaderValueMatrix(s_data.holoShader, s_data.mvpLoc, matMVP);
-  SetShaderValue(s_data.holoShader, s_data.timeLoc, &time, SHADER_UNIFORM_FLOAT);
-  SetShaderValueTexture(s_data.holoShader, s_data.noiseLoc, s_data.noiseTex);
+  SetShaderValueMatrix(GetData().holoShader, GetData().mvpLoc, matMVP);
+  SetShaderValue(GetData().holoShader, GetData().timeLoc, &time, SHADER_UNIFORM_FLOAT);
+  SetShaderValueTexture(GetData().holoShader, GetData().noiseLoc, GetData().noiseTex);
 
-  rlEnableVertexArray(s_data.quadVAO);
+  rlEnableVertexArray(GetData().quadVAO);
 
   for (const auto& batch : batches) {
-      if (s_data.offsetLoc != -1) {
-          SetShaderValue(s_data.holoShader, s_data.offsetLoc, &batch.startOffset, SHADER_UNIFORM_INT);
+      if (GetData().offsetLoc != -1) {
+          SetShaderValue(GetData().holoShader, GetData().offsetLoc, &batch.startOffset, SHADER_UNIFORM_INT);
       }
 
       rlActiveTextureSlot(0);
@@ -214,8 +221,22 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
       rlDrawVertexArrayInstanced(0, 6, batch.count);
   }
   
-  rlDisableVertexArray();
-  EndShaderMode();
-}
-
-} // namespace NoMoreDay::systems
+    rlDisableVertexArray();
+  
+    EndShaderMode();
+  
+  }
+  
+  
+  
+  void HoloBladeRenderSystem::Shutdown() {
+  
+      GetData().Shutdown();
+  
+  }
+  
+  
+  
+  } // namespace NoMoreDay::systems
+  
+  

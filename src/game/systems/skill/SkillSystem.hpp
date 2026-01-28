@@ -118,6 +118,9 @@ public:
     static Tag GetEffectiveSkillTags(entt::registry& registry, entt::entity entity, uint32_t skill_id);
 
 private:
+    static inline std::map<uint32_t, CastCallback> s_skill_callbacks;
+    static inline std::vector<SkillHook> s_pre_cast_hooks;
+    static inline std::vector<SkillHook> s_post_cast_hooks;
 };
 
 }

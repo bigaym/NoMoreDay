@@ -38,7 +38,6 @@ using namespace NoMoreDay;
 
 // --- Static Member Initialization ---
 NoMoreDay::UIContext UISystem::State;
-static bool s_hasGivenTestItems = false;
 
 // --- Lifecycle ---
 

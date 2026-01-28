@@ -15,20 +15,15 @@
 
 using namespace NoMoreDay;
 
-static Texture2D s_minimapTexture = {0};
-static int s_minimapW = 0;
-static int s_minimapH = 0;
-static std::vector<Color> s_minimapPixels; // Kept for full map context if needed, though mostly using partial now
-static bool s_debugRevealMap = false;
-static bool s_minimapDirty = true;
-// Buffer for partial updates
-static std::vector<Color> s_partialBuffer; 
-
 void UIMinimap::Cleanup() {
   if (s_minimapTexture.id != 0) {
     UnloadTexture(s_minimapTexture);
     s_minimapTexture.id = 0;
   }
+  s_minimapPixels.clear();
+  s_minimapPixels.shrink_to_fit();
+  s_partialBuffer.clear();
+  s_partialBuffer.shrink_to_fit();
 }
 
 void UIMinimap::ToggleDebugReveal() {

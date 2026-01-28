@@ -1,5 +1,7 @@
 #pragma once
-#include <entt/entt.hpp>
+#include <entt/entity/registry.hpp>
+#include "raylib.h"
+#include <vector>
 
 class LevelManager;
 namespace NoMoreDay { namespace systems { class SpatialHashGrid; } }
@@ -18,4 +20,13 @@ public:
     static void Draw(entt::registry& registry, const LevelManager& levelManager, const NoMoreDay::systems::SpatialHashGrid* grid = nullptr);
     static void Cleanup();
     static void ToggleDebugReveal();
+
+private:
+    static inline Texture2D s_minimapTexture = {0};
+    static inline int s_minimapW = 0;
+    static inline int s_minimapH = 0;
+    static inline std::vector<Color> s_minimapPixels;
+    static inline bool s_debugRevealMap = false;
+    static inline bool s_minimapDirty = true;
+    static inline std::vector<Color> s_partialBuffer;
 };

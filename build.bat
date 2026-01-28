@@ -24,12 +24,19 @@ setlocal enabledelayedexpansion
 cd /d "%~dp0"
 
 set "BUILD_DIR=build"
-set "BUILD_TYPE=release"
+set "BUILD_TYPE=RelWithDebInfo"
 set "BUILD_TESTS=ON"
 set "ENABLE_LTO=OFF"
 set "GENERATOR="
 set "PARALLEL_JOBS=16"
 set "NEED_CONFIG=0"
+
+REM Auto-detect Ninja
+where ninja >nul 2>nul
+if %errorlevel%==0 (
+    set "GENERATOR=-G Ninja"
+    echo [Build] Auto-detected Ninja generator.
+)
 
 :ARGS_LOOP
 if "%~1"=="" goto :ARGS_DONE

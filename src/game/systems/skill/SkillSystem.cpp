@@ -30,12 +30,8 @@
 
 namespace NoMoreDay {
 
-static std::map<uint32_t, SkillSystem::CastCallback> s_skill_callbacks;
-static std::vector<SkillSystem::SkillHook> s_pre_cast_hooks;
-static std::vector<SkillSystem::SkillHook> s_post_cast_hooks;
-
 // Static scratch buffers to avoid per-frame allocations in hot paths
-static std::vector<entt::entity> s_entities_scratch;
+// (Replaced by local/thread_local buffers for safety and performance)
 
 void SkillSystem::InitHooks() {
   LOG_INFO("Initializing Skill Hooks...");
@@ -296,15 +292,17 @@ void SkillSystem::Update(entt::registry &registry,
   // Update Mind Blade (ID 7)
   auto mind_blade_view =
       registry.view<MindBladeComponent, MindBladeAI, Position>();
-  s_entities_scratch.clear();
+  static thread_local std::vector<entt::entity> s_mb_to_destroy;
+  s_mb_to_destroy.clear();
+
   for (auto entity : mind_blade_view) {
     auto &mc = mind_blade_view.get<MindBladeComponent>(entity);
     auto &ai = mind_blade_view.get<MindBladeAI>(entity);
     if (!skills::MindBlade::Update(registry, entity, ai, mc, dt, grid)) {
-      s_entities_scratch.push_back(entity);
+      s_mb_to_destroy.push_back(entity);
     }
   }
-  for (auto e : s_entities_scratch) {
+  for (auto e : s_mb_to_destroy) {
     registry.destroy(e);
   }
 
@@ -600,23 +598,9 @@ void SkillSystem::Update(entt::registry &registry,
 
   // Update Phantom Flash
   auto pf_view = registry.view<PhantomFlashComponent>();
-  // Use a temporary list to avoid iterator invalidation if Update removes
-  // component? PhantomFlash::Update removes component immediately if expired.
-  // View iteration is generally safe for component removal in EnTT?
-  // EnTT views are safe if we don't destroy the entity. Removing component
-  // might invalidate view iterator? Safest to collect list or use safe
-  // iteration pattern if available. Standard pattern:
-  s_entities_scratch.clear();
-  for (auto entity : pf_view) {
-    s_entities_scratch.push_back(entity);
-  }
-  for (auto entity : s_entities_scratch) {
-    if (registry.valid(entity) &&
-        registry.all_of<PhantomFlashComponent>(entity)) {
-      auto &pf = registry.get<PhantomFlashComponent>(entity);
-      skills::PhantomFlash::Update(registry, entity, pf, dt);
-    }
-  }
+  pf_view.each([&](entt::entity entity, PhantomFlashComponent &pf) {
+    skills::PhantomFlash::Update(registry, entity, pf, dt);
+  });
 }
 
 void SkillSystem::RegisterEffect(uint32_t skill_id, CastCallback callback) {
@@ -815,104 +799,67 @@ void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
 }
 
 void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
+  static thread_local std::vector<entt::entity> s_to_remove;
+  s_to_remove.clear();
+
   auto view = registry.view<SkillExecution>();
-  // 1. Collect entities to avoid iterator invalidation during hook execution
-  // Hooks (e.g. counter-attacks) may create new entities, triggering pool
-  // reallocation.
-  s_entities_scratch.assign(view.begin(), view.end());
-
-  for (auto entity : s_entities_scratch) {
+  view.each([&](entt::entity entity, SkillExecution &exec) {
     if (!registry.valid(entity))
-      continue;
+      return;
 
-    // 2. Re-fetch component to ensure pointer validity
-    auto *execPtr = registry.try_get<SkillExecution>(entity);
-    if (!execPtr)
-      continue;
-
-    auto &exec = *execPtr;
     exec.timer -= dt;
 
     if (exec.timer <= 0.0f) {
       switch (exec.state) {
       case SkillState::Preparing:
-        // Use a safe copy or re-fetch pattern if hooks are complex?
-        // Hooks passed 'exec' by reference. If hook adds entities, 'exec'
-        // reference MIGHT become invalid if the pool reallocates while we are
-        // inside the hook? No, 'exec' is a reference to the component memory.
-        // If pool reallocates, the memory moves. So passing 'exec' to hook is
-        // DANGEROUS if hook triggers reallocation.
-
-        // However, we cannot easily prevent hook from triggering reallocation.
-        // The safest way is to NOT pass reference to component, but entity ID,
-        // and let hook fetch it? But our hooks signature is:
-        // void(entt::registry&, entt::entity, SkillExecution&)
-
-        // For now, we assume hooks are "reasonably" safe OR we accept that
-        // 'exec' might be dangling if we don't fix the hook signature. BUT, the
-        // test case proves reallocation happens. The loop is safe now (we
-        // iterate vector). But the 'exec' reference passed to hook:
-        // hook(registry, entity, exec); -> crashes if reallocation happens
-        // inside hook?
-
-        // To be truly safe, we should probably:
-        // 1. Iterate hooks.
-        // 2. Inside hook loop, re-fetch component? No, hooks are just
-        // functions.
-
-        // Code Risk Analysis suggested: "Collect-then-Process".
-        // The iterator invalidation is the main crash cause in the LOOP
-        // mechanism. The reference passing is a secondary risk but harder to
-        // fix without changing API. Let's stick to the Plan: Fix the outer loop
-        // invalidation first.
-
         for (auto &hook : s_pre_cast_hooks) {
-          // If a hook triggers reallocation, 'exec' becomes invalid for
-          // SUBSEQUENT hooks and for the rest of this block! We must re-fetch
-          // if we suspect hooks are dangerous. But we can't easily re-fetch a
-          // reference we are passing to a function call that expects a ref.
-
-          // Check valid before calling?
           if (registry.valid(entity) &&
               registry.all_of<SkillExecution>(entity)) {
+            // Re-fetch in case hook caused reallocation
             hook(registry, entity, registry.get<SkillExecution>(entity));
           }
         }
-        exec.state = SkillState::Casting;
-        exec.timer = 0.05f;
+        
+        {
+          // Re-fetch again after all hooks
+          auto& current_exec = registry.get<SkillExecution>(entity);
+          current_exec.state = SkillState::Casting;
+          current_exec.timer = 0.05f;
 
-        LOG_INFO("UpdateStates: Executing skill ID {} for entity {}",
-                 exec.skill_id, (uint32_t)exec.owner);
+          LOG_INFO("UpdateStates: Executing skill ID {} for entity {}",
+                   current_exec.skill_id, (uint32_t)current_exec.owner);
 
-        // NEW: Try SkillBehaviorRegistry first (new modular system)
-        if (auto castFunc = SkillBehaviorRegistry::GetCast(exec.skill_id)) {
-          castFunc(registry, exec.owner, exec);
-        }
-        // FALLBACK: Try legacy s_skill_callbacks (for gradual migration)
-        else if (s_skill_callbacks.contains(exec.skill_id)) {
-          s_skill_callbacks[exec.skill_id](registry, exec.owner, exec);
-        } else {
-          LOG_WARN(
-              "UpdateStates: No callback found for skill ID {} on entity {}",
-              exec.skill_id, (uint32_t)entity);
+          if (auto castFunc = SkillBehaviorRegistry::GetCast(current_exec.skill_id)) {
+            castFunc(registry, current_exec.owner, current_exec);
+          } else if (s_skill_callbacks.contains(current_exec.skill_id)) {
+            s_skill_callbacks[current_exec.skill_id](registry, current_exec.owner, current_exec);
+          } else {
+            LOG_WARN("UpdateStates: No callback found for skill ID {} on entity {}",
+                     current_exec.skill_id, (uint32_t)entity);
+          }
         }
         break;
+
       case SkillState::Casting:
         exec.state = SkillState::Settle;
         exec.timer = 0.1f;
         for (auto &hook : s_post_cast_hooks) {
-          hook(registry, entity, exec);
+          if (registry.valid(entity) && registry.all_of<SkillExecution>(entity)) {
+            hook(registry, entity, registry.get<SkillExecution>(entity));
+          }
         }
         break;
+
       case SkillState::Settle:
         if (auto *anim = registry.try_get<AnimationStateComponent>(entity)) {
           anim->state = EntityAnimState::Idle;
         }
-        registry.remove<SkillExecution>(entity);
-        continue;
+        s_to_remove.push_back(entity);
+        return;
+
       default:
-        registry.remove<SkillExecution>(entity);
-        continue;
+        s_to_remove.push_back(entity);
+        return;
       }
     }
 
@@ -932,6 +879,10 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
       }
       anim->state_timer = exec.timer;
     }
+  });
+
+  if (!s_to_remove.empty()) {
+    registry.remove<SkillExecution>(s_to_remove.begin(), s_to_remove.end());
   }
 }
 

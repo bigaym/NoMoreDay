@@ -114,6 +114,7 @@ void RenderSystem::Shutdown() {
   }
   s_labelInstanceBuffer.reset();
   s_labelBuffer.clear();
+  s_labelBuffer.shrink_to_fit();
 
   // Phase 2: Cleanup Beam
   if (s_beamShader.id != 0) {
@@ -122,9 +123,15 @@ void RenderSystem::Shutdown() {
   }
   s_beamInstanceBuffer.reset();
   s_beamBuffer.clear();
+  s_beamBuffer.shrink_to_fit();
 
   s_textQueue.clear();
+  s_textQueue.shrink_to_fit();
+  
   VisibleItemCache::Clear(); // Phase 1
+  VisibleItemCache::visibleItems.shrink_to_fit();
+
+  NoMoreDay::systems::HoloBladeRenderSystem::Shutdown();
 }
 
 void RenderSystem::AddScreenShake(float intensity) {

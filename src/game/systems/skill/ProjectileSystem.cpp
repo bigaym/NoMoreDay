@@ -18,13 +18,6 @@
 
 namespace NoMoreDay {
 
-// Phase 4: Static SIMD Grid for Projectile Queries (Enemies Only)
-// Initialized with World Constants. Note: Might need resize if map size changes
-// dynamically, but currently World size is constant.
-static systems::SIMDSpatialGrid s_enemyGrid(Constants::World::GRID_COLS,
-                                            Constants::World::GRID_ROWS,
-                                            Constants::World::GRID_CELL_SIZE);
-
 // Helper struct for deferred actions
 struct DeferredAction {
   enum Type { Destroy, Damage, Pull, CounterShot, CounterSpin };

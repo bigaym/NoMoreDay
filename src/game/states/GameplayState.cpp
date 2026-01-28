@@ -20,6 +20,11 @@
 #include "game/systems/world/PortalSystem.hpp" // Moved up
 #include "game/systems/world/TilemapCollisionSystem.hpp"
 
+// Utilities (formerly in PCH)
+#include "core/utils/ScopedTimer.hpp"
+#include "core/math/PhysicsUtils.hpp"
+#include "game/components/EnemyComponent.hpp"
+
 // Systems
 #include "engine/input/InputSystem.hpp"
 #include "engine/physics/PhysicsSystem.hpp"

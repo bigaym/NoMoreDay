@@ -44,8 +44,17 @@ public:
     static void UpdatePanelDrag(NoMoreDay::UIPanelID id, float& x, float& y, float w, float h, float headerHeight);
 
 private:
+
     // Internal helpers
+
     static void DrawTooltip(entt::registry& registry, entt::entity item);
+
     static void DrawContextMenu(entt::registry& registry);
+
     static void DrawMessageBox();
+
+
+
+    static inline bool s_hasGivenTestItems = false;
+
 };

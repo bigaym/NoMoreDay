@@ -3,6 +3,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include <shared_mutex>
 #include <entt/entt.hpp>
 #include "CombatEvents.hpp"
 
@@ -68,6 +69,7 @@ public:
 private:
     static std::array<std::vector<HandlerEntry>, static_cast<size_t>(CombatEventType::Count)>& GetHandlers();
     static uint32_t& GetNextId();
+    static inline std::shared_mutex s_dispatcherMutex;
 };
 
 } // namespace NoMoreDay

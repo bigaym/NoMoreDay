@@ -6,6 +6,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_UNITY_BUILD OFF)  # Disable Unity Build globally
 
+# --- Disable Deprecated Warnings ---
+if(MSVC)
+    add_compile_options(/wd4996)
+else()
+    add_compile_options(-Wno-deprecated-declarations)
+endif()
+
 # --- Build Acceleration & Optimization Settings ---
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
@@ -125,6 +132,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(SkillBehaviors PRIVATE "-Wno-stringop-overflow")
 endif()
 
+# Enable Unity Build for Skills
+set_target_properties(SkillBehaviors PROPERTIES UNITY_BUILD ON)
+
 # --- Core Library (Static) ---
 # 递归获取所有源文件，排除 app/main.cpp 和已在 SkillBehaviors 中的文件
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS 
@@ -164,6 +174,9 @@ target_link_libraries(NoMoreDayCore
     xsimd
     SkillBehaviors
 )
+
+# Enable Unity Build for Core
+set_target_properties(NoMoreDayCore PROPERTIES UNITY_BUILD ON)
 
 # Header-only libraries include paths
 target_include_directories(NoMoreDayCore PUBLIC 

@@ -262,37 +262,45 @@ struct SetTrack {
 
 void AttributePipeline::Calculate(entt::registry &registry,
                                   entt::entity entity) {
-  if (!registry.valid(entity))
-    return;
-  auto &stats = registry.get_or_emplace<CombatStats>(entity);
+  auto components = registry.try_get<CombatStats, GlobalModifierComponent, ActiveSkillsComponent, EquipmentComponent, PrimaryStats, MovementStanceComponent>(entity);
+  auto* statsPtr = std::get<0>(components);
+  if (!statsPtr) return;
+  auto& stats = *statsPtr;
+  
   ResetCombatStats(stats);
+  
   if (registry.all_of<TitanGripTrait>(entity))
     registry.remove<TitanGripTrait>(entity);
-  if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
+
+  auto* active = std::get<2>(components);
+  if (active) {
     for (auto &s : active->specialized_slots)
       s.bonus_levels = 0;
   }
-  auto &global_mods = registry.get_or_emplace<GlobalModifierComponent>(entity);
+
+  auto* global_mods_ptr = std::get<1>(components);
+  if (!global_mods_ptr) {
+      global_mods_ptr = &registry.emplace<GlobalModifierComponent>(entity);
+  }
+  auto &global_mods = *global_mods_ptr;
   global_mods.modifiers.clear();
   global_mods.stat_modifiers.clear();
+
   std::array<StatCalculation, static_cast<size_t>(StatType::Count)> calcs;
   using namespace NoMoreDay::Constants::Combat;
+  
   bool isPlayer = registry.all_of<PlayerTag>(entity);
   bool isEnemy = registry.all_of<EnemyTag>(entity);
-  calcs[static_cast<size_t>(StatType::MaxHealth)].base =
-      isPlayer ? DEFAULT_MAX_HEALTH : 1.0f;
-  calcs[static_cast<size_t>(StatType::MaxMana)].base =
-      isPlayer ? DEFAULT_MAX_MANA : 1.0f;
+  
+  // Initialize base values
+  calcs[static_cast<size_t>(StatType::MaxHealth)].base = isPlayer ? DEFAULT_MAX_HEALTH : 1.0f;
+  calcs[static_cast<size_t>(StatType::MaxMana)].base = isPlayer ? DEFAULT_MAX_MANA : 1.0f;
   calcs[static_cast<size_t>(StatType::MoveSpeed)].base = DEFAULT_MOVE_SPEED;
-  calcs[static_cast<size_t>(StatType::CritChance)].base =
-      DEFAULT_CRIT_CHANCE * 100.0f;
-  calcs[static_cast<size_t>(StatType::CritDamage)].base =
-      DEFAULT_CRIT_DAMAGE * 100.0f;
-  calcs[static_cast<size_t>(StatType::AttackSpeed)].base =
-      DEFAULT_ATTACK_SPEED * 100.0f;
+  calcs[static_cast<size_t>(StatType::CritChance)].base = DEFAULT_CRIT_CHANCE * 100.0f;
+  calcs[static_cast<size_t>(StatType::CritDamage)].base = DEFAULT_CRIT_DAMAGE * 100.0f;
+  calcs[static_cast<size_t>(StatType::AttackSpeed)].base = DEFAULT_ATTACK_SPEED * 100.0f;
   calcs[static_cast<size_t>(StatType::CastSpeed)].base = 100.0f;
-  calcs[static_cast<size_t>(StatType::Accuracy)].base =
-      DEFAULT_ACCURACY * 100.0f;
+  calcs[static_cast<size_t>(StatType::Accuracy)].base = DEFAULT_ACCURACY * 100.0f;
   calcs[static_cast<size_t>(StatType::ProjectileSpeed)].base = 100.0f;
   calcs[static_cast<size_t>(StatType::DurationScale)].base = 100.0f;
   calcs[static_cast<size_t>(StatType::AreaScale)].base = 100.0f;
@@ -305,23 +313,15 @@ void AttributePipeline::Calculate(entt::registry &registry,
     calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].base = 100.0f;
 
   float mapHpMult = 1.0f, mapDmgMult = 1.0f, mapSpeedMult = 1.0f;
-  if (registry.ctx().contains<ActiveDimensionalState>()) {
-    const auto &ms = registry.ctx().get<ActiveDimensionalState>();
-    if (ms.isActive && isEnemy) {
-      mapHpMult *= (1.0f + ms.resonance.totalEnemyDensity * 0.05f);
-      for (const auto &a : ms.explicitAffixes) {
+  if (auto* ms = registry.ctx().find<ActiveDimensionalState>()) {
+    if (ms->isActive && isEnemy) {
+      mapHpMult *= (1.0f + ms->resonance.totalEnemyDensity * 0.05f);
+      for (const auto &a : ms->explicitAffixes) {
         switch (a.type) {
-        case MapAffixType::Enemy_ExtraHealth:
-          mapHpMult *= (1.0f + a.value);
-          break;
-        case MapAffixType::Enemy_ExtraDamage:
-          mapDmgMult *= (1.0f + a.value);
-          break;
-        case MapAffixType::Enemy_Fast:
-          mapSpeedMult *= (1.0f + a.value);
-          break;
-        default:
-          break;
+        case MapAffixType::Enemy_ExtraHealth: mapHpMult *= (1.0f + a.value); break;
+        case MapAffixType::Enemy_ExtraDamage: mapDmgMult *= (1.0f + a.value); break;
+        case MapAffixType::Enemy_Fast: mapSpeedMult *= (1.0f + a.value); break;
+        default: break;
         }
       }
     }
@@ -331,20 +331,16 @@ void AttributePipeline::Calculate(entt::registry &registry,
     auto rarity = registry.all_of<EnemyRarityComponent>(entity)
                       ? registry.get<EnemyRarityComponent>(entity).rarity
                       : EnemyRarityComponent::NORMAL;
-    auto scaled =
-        MonsterScaling::Calculate(enemy->raceType, enemy->level, rarity);
-    calcs[static_cast<size_t>(StatType::MaxHealth)].base =
-        scaled.maxHealth * mapHpMult;
+    auto scaled = MonsterScaling::Calculate(enemy->raceType, enemy->level, rarity);
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base = scaled.maxHealth * mapHpMult;
     calcs[static_cast<size_t>(StatType::Armor)].base = scaled.armor;
     const auto &raceData = kRaceData[static_cast<size_t>(enemy->raceType)];
     constexpr float NATIVE_RES = 50.0f;
     float bonus = scaled.resistanceBonus * 100.0f;
+    
     auto applyRes = [&](Tag tag, StatType t) {
-      float val = bonus;
-      if (HasTag(raceData.resistances, tag))
-        val += NATIVE_RES;
-      if (val > 0)
-        ApplyStatModifier(calcs, t, ModifierMode::Flat, val);
+      float val = bonus + (HasTag(raceData.resistances, tag) ? NATIVE_RES : 0.0f);
+      if (val > 0) ApplyStatModifier(calcs, t, ModifierMode::Flat, val);
     };
     applyRes(Tag::Physical, StatType::ResistPhysical);
     applyRes(Tag::Fire, StatType::ResistFire);
@@ -352,15 +348,13 @@ void AttributePipeline::Calculate(entt::registry &registry,
     applyRes(Tag::Lightning, StatType::ResistLightning);
     applyRes(Tag::Poison, StatType::ResistPoison);
     applyRes(Tag::Shadow, StatType::ResistShadow);
-    calcs[static_cast<size_t>(StatType::MoveSpeed)].base =
-        raceData.baseSpeed * mapSpeedMult;
+    calcs[static_cast<size_t>(StatType::MoveSpeed)].base = raceData.baseSpeed * mapSpeedMult;
   }
 
-  if (auto *primary = registry.try_get<PrimaryStats>(entity)) {
+  if (auto *primary = std::get<4>(components)) {
     calcs[static_cast<size_t>(StatType::Strength)].base = primary->strength;
     calcs[static_cast<size_t>(StatType::Dexterity)].base = primary->dexterity;
-    calcs[static_cast<size_t>(StatType::Intelligence)].base =
-        primary->intelligence;
+    calcs[static_cast<size_t>(StatType::Intelligence)].base = primary->intelligence;
     calcs[static_cast<size_t>(StatType::Vitality)].base = primary->vitality;
   }
 
@@ -369,13 +363,13 @@ void AttributePipeline::Calculate(entt::registry &registry,
   auto procAff = [&](const std::vector<Affix> &affs) {
     for (const auto &a : affs) {
       if (a.required_tags != Tag::None) {
-        StatModifier m;
-        m.type = static_cast<StatType>(a.type);
-        m.mode = ModifierMode::PercentAdd;
-        m.value = a.value;
-        m.required_tags = a.required_tags;
-        m.source = ModifierSource::Item;
-        global_mods.stat_modifiers.push_back(m);
+        global_mods.stat_modifiers.push_back({
+            .value = a.value,
+            .type = static_cast<StatType>(a.type),
+            .mode = ModifierMode::PercentAdd,
+            .required_tags = a.required_tags,
+            .source = ModifierSource::Item
+        });
       } else {
         AffixDispatcher::Get().Dispatch(ctx, a);
       }
@@ -383,7 +377,7 @@ void AttributePipeline::Calculate(entt::registry &registry,
   };
 
   Tag etags = Tag::None;
-  if (auto *stance = registry.try_get<MovementStanceComponent>(entity)) {
+  if (auto *stance = std::get<5>(components)) {
     if (stance->stance == MovementStance::SwordRiding)
       etags = etags | Tag::SwordRiding;
   }
@@ -391,7 +385,8 @@ void AttributePipeline::Calculate(entt::registry &registry,
   s_set_scratch.clear();
   bool hasMain = false, hasOff = false, is2H = false;
   float mainAtk = 0, offAtk = 0;
-  if (auto *eq = registry.try_get<EquipmentComponent>(entity)) {
+  
+  if (auto *eq = std::get<3>(components)) {
     for (const auto &eItem : eq->slots) {
       if (registry.valid(eItem) && registry.all_of<ItemComponent>(eItem)) {
         const auto &item = registry.get<ItemComponent>(eItem);
@@ -464,7 +459,7 @@ void AttributePipeline::Calculate(entt::registry &registry,
     }
     if (stats.knockback < 0.1f)
       stats.knockback = 20.0f;
-  } else if (registry.all_of<EquipmentComponent>(entity)) {
+  } else if (std::get<3>(components)) {
     stats.min_weapon_damage = 2.0f;
     stats.max_weapon_damage = 3.0f;
     stats.knockback = 10.0f;
@@ -519,8 +514,8 @@ void AttributePipeline::Calculate(entt::registry &registry,
       }
     }
   }
-  if (auto *act = registry.try_get<ActiveSkillsComponent>(entity)) {
-    for (const auto &s : act->specialized_slots) {
+  if (active) {
+    for (const auto &s : active->specialized_slots) {
       if (s.skill_id == 0)
         continue;
       const auto *tr = SkillRegistry::Get().GetSkillTree(s.skill_id);

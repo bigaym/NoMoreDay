@@ -571,7 +571,7 @@ void EnemySpawnSystem::updateDormantEntities(entt::registry &registry,
     ai.target = entt::null;
     
     // Explicitly update previous position
-    if (auto* prevPos = registry.try_get<NoMoreDay::components::PrevPosition>(entity)) {
+    if (auto* prevPos = registry.try_get<PrevPosition>(entity)) {
         prevPos->x = tx;
         prevPos->y = ty;
     }

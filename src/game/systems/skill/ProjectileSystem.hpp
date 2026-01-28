@@ -1,9 +1,9 @@
 #pragma once
 #include "engine/physics/SpatialGrid.hpp"
+#include "engine/physics/SIMDSpatialGrid.hpp"
 #include <entt/entt.hpp>
-
-
 #include "game/components/Projectile.hpp"
+#include "game/components/Common.hpp"
 #include <taskflow/taskflow.hpp>
 
 
@@ -31,6 +31,11 @@ public:
   static void ConvertToHoveringHazard(entt::registry &registry,
                                       entt::entity proj_ent,
                                       const struct Projectile &proj);
+
+private:
+  static inline systems::SIMDSpatialGrid s_enemyGrid{Constants::World::GRID_COLS,
+                                                     Constants::World::GRID_ROWS,
+                                                     Constants::World::GRID_CELL_SIZE};
 };
 
 } // namespace NoMoreDay

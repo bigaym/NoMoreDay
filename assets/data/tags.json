@@ -2,31 +2,42 @@
   "categories": [
     {
       "name": "DamageType",
-      "range": [0, 15],
+      "range": [
+        0,
+        15
+      ],
       "tags": [
         "Physical",
         "Fire",
         "Cold",
         "Lightning",
         "Shadow",
-        "Poison"
+        "Poison",
+        "Void"
       ]
     },
     {
       "name": "Form",
-      "range": [16, 31],
+      "range": [
+        16,
+        31
+      ],
       "tags": [
         "Melee",
         "Projectile",
         "Area",
         "Spell",
         "Attack",
-        "Movement"
+        "Movement",
+        "SwordSkill"
       ]
     },
     {
       "name": "Mechanism",
-      "range": [32, 47],
+      "range": [
+        32,
+        47
+      ],
       "tags": [
         "Hit",
         "Critical",
@@ -38,14 +49,19 @@
     },
     {
       "name": "State",
-      "range": [48, 63],
+      "range": [
+        48,
+        63
+      ],
       "tags": [
         "Bleeding",
         "Burning",
         "Frozen",
         "Shocked",
         "Stunned",
-        "SwordRiding"
+        "SwordRiding",
+        "Elite",
+        "Boss"
       ]
     }
   ]

@@ -78,6 +78,8 @@ namespace NoMoreDay {
 
     private:
         static std::vector<TooltipLine> GetTooltipLines(const ItemComponent& item);
+        static inline float s_uiScale = 1.0f;
+        static inline UITheme s_theme;
     };
 
 }

@@ -24,9 +24,6 @@
 
 namespace NoMoreDay {
 
-static float s_uiScale = 1.0f;
-static UITheme s_theme;
-
 void UIRenderer::SetTheme(const UITheme &theme) { s_theme = theme; }
 
 UITheme &UIRenderer::GetTheme() { return s_theme; }

@@ -15,9 +15,6 @@
 
 namespace NoMoreDay {
 
-// 真正待清理的物理实体队列，完全脱离 EnTT 标签系统以避免重复扫描
-static std::queue<entt::entity> g_gcQueue;
-
 void XPAwardingSystem::update(entt::registry& registry) {
     // 1. 处理新产生的死亡 (逻辑结算)
     // 仅查找带有 KilledTag 但尚未处理过经验 (没有 XPProcessedTag) 的实体
@@ -76,30 +73,37 @@ void XPAwardingSystem::update(entt::registry& registry) {
 
         // 关键：打上“已处理”标签，并进入销毁队列
         // 绝对不要移除 KilledTag，直到真正物理销毁！
-        for (auto entity : to_queue) {
-            registry.emplace<XPProcessedTag>(entity);
-            g_gcQueue.push(entity);
+        {
+            std::lock_guard<std::mutex> lock(s_gcMutex);
+            for (auto entity : to_queue) {
+                registry.emplace<XPProcessedTag>(entity);
+                s_gcQueue.push(entity);
+            }
         }
     }
 
     // 2. 垃圾回收：分帧物理销毁 (真正的负载均衡)
     static constexpr int GC_BUDGET = 15; 
     int count = 0;
-    while (!g_gcQueue.empty() && count < GC_BUDGET) {
-        entt::entity e = g_gcQueue.front();
-        if (registry.valid(e)) {
-            registry.destroy(e);
+    {
+        std::lock_guard<std::mutex> lock(s_gcMutex);
+        while (!s_gcQueue.empty() && count < GC_BUDGET) {
+            entt::entity e = s_gcQueue.front();
+            if (registry.valid(e)) {
+                registry.destroy(e);
+            }
+            s_gcQueue.pop();
+            count++;
         }
-        g_gcQueue.pop();
-        count++;
     }
 }
 
 void XPAwardingSystem::Reset() {
     LOG_INFO("XPAwardingSystem: Resetting GC queue via manual trigger.");
+    std::lock_guard<std::mutex> lock(s_gcMutex);
     // 清空队列，防止跨 Session 误删新实体
     std::queue<entt::entity> empty;
-    std::swap(g_gcQueue, empty);
+    std::swap(s_gcQueue, empty);
 }
 
 } // namespace NoMoreDay

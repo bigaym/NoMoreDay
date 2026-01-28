@@ -10,6 +10,7 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/HazardComponents.hpp" // For HazardComponent
 #include "game/components/NemesisComponent.hpp" // Added for Tier scaling
+#include "core/utils/ScopedTimer.hpp" // Explicit include for ScopedTimer
 
 #include "core/utils/Branchless.hpp"
 #include "game/components/PlayerState.hpp"

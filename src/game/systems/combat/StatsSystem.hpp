@@ -3,6 +3,7 @@
 #include "game/data/TagRegistry.hpp"
 #include <entt/entity/registry.hpp>
 #include <unordered_map>
+#include <shared_mutex>
 
 namespace NoMoreDay {
 
@@ -45,6 +46,7 @@ private:
   static inline std::unordered_map<uint32_t,
                                    std::unordered_map<uint64_t, float>>
       s_tagStatCache;
+  static inline std::shared_mutex s_cacheMutex;
 };
 
 } // namespace NoMoreDay

@@ -17,6 +17,7 @@ uint32_t& CombatEventDispatcher::GetNextId() {
 }
 
 uint32_t CombatEventDispatcher::Register(CombatEventType type, Handler handler, int priority) {
+    std::unique_lock lock(s_dispatcherMutex);
     auto& handlers = GetHandlers();
     size_t idx = static_cast<size_t>(type);
     
@@ -41,6 +42,7 @@ uint32_t CombatEventDispatcher::Register(CombatEventType type, Handler handler, 
 }
 
 void CombatEventDispatcher::Unregister(CombatEventType type, uint32_t handler_id) {
+    std::unique_lock lock(s_dispatcherMutex);
     auto& handlers = GetHandlers();
     size_t idx = static_cast<size_t>(type);
     
@@ -55,6 +57,7 @@ void CombatEventDispatcher::Unregister(CombatEventType type, uint32_t handler_id
 }
 
 void CombatEventDispatcher::Dispatch(entt::registry& registry, const CombatEvent& event) {
+    std::shared_lock lock(s_dispatcherMutex);
     auto& handlers = GetHandlers();
     size_t idx = static_cast<size_t>(event.type);
     
@@ -75,6 +78,7 @@ void CombatEventDispatcher::Dispatch(entt::registry& registry, const CombatEvent
 }
 
 void CombatEventDispatcher::Clear() {
+    std::unique_lock lock(s_dispatcherMutex);
     auto& handlers = GetHandlers();
     for (auto& vec : handlers) {
         vec.clear();

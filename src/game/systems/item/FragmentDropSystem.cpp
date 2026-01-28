@@ -20,7 +20,7 @@ std::vector<FragmentDropSystem::DropRequest> FragmentDropSystem::s_pendingReques
 std::mutex FragmentDropSystem::s_requestMutex;
 
 // 随机数生成器
-static std::mt19937 s_fragmentRng(std::random_device{}());
+static thread_local std::mt19937 s_fragmentRng(std::random_device{}());
 
 void FragmentDropSystem::Init() {
   if (s_initialized)

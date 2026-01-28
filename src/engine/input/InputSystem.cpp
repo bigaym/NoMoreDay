@@ -9,12 +9,6 @@
 
 namespace NoMoreDay {
 
-// --- Click-to-move state ---
-// 这是一个适用于单人游戏的简单解决方案。
-// 更好的方法是在玩家实体上使用一个 MovementTargetComponent。
-static bool s_hasMovementTarget = false;
-static Vector2 s_movementTarget = {0.0f, 0.0f};
-
 void InputSystem::update(entt::registry &registry, const Camera2D &camera)
 {
     auto view = registry.view<PlayerTag, InputComponent>();

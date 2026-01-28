@@ -14,7 +14,7 @@
 
 namespace NoMoreDay {
 
-static std::mt19937 g_drop_rng(std::random_device{}());
+static thread_local std::mt19937 g_drop_rng(std::random_device{}());
 
 // Static member initialization
 std::queue<PendingDrop> DropSystem::s_pendingDrops;

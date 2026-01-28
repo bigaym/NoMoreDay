@@ -267,7 +267,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       if (isVoid) {
         auto &mods = registry.emplace<SkillModifierComponent>(proj_ent);
         mods.damage_modifiers.push_back(
-            {Tag::Physical, Tag::Void, 1.0f, ModifierType::Convert});
+            DamageModifier{Tag::Physical, Tag::Void, 1.0f, ModifierType::Convert});
       }
 
       if (boomerang && !hoverAtApex) {

@@ -56,7 +56,7 @@ public:
 
   // Debugging
   bool m_debugDraw = false;
-  std::vector<Vector2> DownloadFlowField() const;
+  void DownloadFlowField(std::vector<Vector2>& out) const;
 
 private:
   GPUFlowFieldSystem() = default;

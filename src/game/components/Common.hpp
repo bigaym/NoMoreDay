@@ -430,6 +430,12 @@ struct Position {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Position, x, y)
 
+struct PrevPosition {
+  float x = 0.0f;
+  float y = 0.0f;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrevPosition, x, y)
+
 struct Rotation {
   float angle = 0.0f; // In degrees
 };

@@ -18,8 +18,8 @@
 
 namespace NoMoreDay {
 
-// Simple Random Helper
-static std::mt19937 g_rng;
+// Thread-local RNG for item generation
+static thread_local std::mt19937 t_rng(std::random_device{}());
 
 // Helper to pick a random texture ID from a compile-time array
 template <typename T, size_t N>
@@ -27,7 +27,7 @@ static entt::id_type pickRandomAsset(const std::array<T, N> &assets) {
   if (N == 0)
     return 0;
   std::uniform_int_distribution<size_t> dist(0, N - 1);
-  return assets[dist(g_rng)]->id;
+  return assets[dist(t_rng)]->id;
 }
 
 static entt::id_type
@@ -93,9 +93,6 @@ std::map<uint32_t, LootPool> ItemFactory::s_lootPools;
 std::vector<AffixDefinition> ItemFactory::s_affixDefinitions;
 
 void ItemFactory::initialize() {
-  std::random_device rd;
-  g_rng.seed(rd());
-
   // 加载词缀定义
   loadAffixDefinitions("assets/data/affixes.json");
   loadAffixDefinitions("assets/data/legendary_affixes.json");
@@ -375,13 +372,13 @@ static const BaseItemDef &selectBaseItem(const std::vector<BaseItemDef> &db,
     else
       break;
   }
-  if (bestIndex > 0 && std::uniform_int_distribution<>(0, 100)(g_rng) < 20)
+  if (bestIndex > 0 && std::uniform_int_distribution<>(0, 100)(t_rng) < 20)
     bestIndex--;
   return db[bestIndex];
 }
 
 Rarity ItemFactory::rollRarity(float magicFind) {
-  int roll = std::uniform_int_distribution<>(0, 10000)(g_rng);
+  int roll = std::uniform_int_distribution<>(0, 10000)(t_rng);
   int mfBoost = (int)(magicFind * 10);
   LOG_TRACE("根据魔法寻宝率 {} 掷骰稀有度，骰子结果: {}，魔法寻宝加成: {}",
             magicFind, roll, mfBoost);
@@ -411,7 +408,7 @@ static void fillAffixDetails(Affix &affix, AffixType type, int tier) {
 
   auto rollVal = [&](float base, float variance) {
     return (base * scale) +
-           std::uniform_real_distribution<>(0.0f, variance)(g_rng);
+           std::uniform_real_distribution<>(0.0f, variance)(t_rng);
   };
 
   switch (type) {
@@ -485,7 +482,7 @@ Affix ItemFactory::createAffix(AffixType type, int tier) {
         if (t.tier == tier) {
           affix.value = (t.maxValue > t.minValue)
                             ? std::uniform_real_distribution<float>(
-                                  t.minValue, t.maxValue)(g_rng)
+                                  t.minValue, t.maxValue)(t_rng)
                             : t.minValue;
           return affix;
         }
@@ -646,7 +643,7 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
         AffixType::Strength, AffixType::Dexterity, AffixType::Intelligence,
         AffixType::Vitality};
     std::uniform_int_distribution<> fDist(0, (int)fallbacks.size() - 1);
-    AffixType selectedType = fallbacks[fDist(g_rng)];
+    AffixType selectedType = fallbacks[fDist(t_rng)];
     Affix aff = createAffix(selectedType, 1);
     aff.isPrefix = isPrefix;
     return aff;
@@ -654,7 +651,7 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
 
   // 从候选池随机选择一个
   std::uniform_int_distribution<> dist(0, (int)candidates.size() - 1);
-  const AffixDefinition *selectedDef = candidates[dist(g_rng)];
+  const AffixDefinition *selectedDef = candidates[dist(t_rng)];
 
   // 选择最高可用 Tier
   int bestTierIdx = 0;
@@ -673,7 +670,7 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
   // result.name = selectedDef->nameTemplate; // REMOVED
   result.value = (tier.maxValue > tier.minValue)
                      ? std::uniform_real_distribution<float>(
-                           tier.minValue, tier.maxValue)(g_rng)
+                           tier.minValue, tier.maxValue)(t_rng)
                      : tier.minValue;
 
   return result;
@@ -707,12 +704,12 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
 
   int prefixCount = 0, suffixCount = 0;
   if (item.rarity != Rarity::Common) {
-    if (std::uniform_int_distribution<>(0, 1)(g_rng)) {
-      prefixCount = std::uniform_int_distribution<>(1, maxPrefix)(g_rng);
-      suffixCount = std::uniform_int_distribution<>(0, maxSuffix)(g_rng);
+    if (std::uniform_int_distribution<>(0, 1)(t_rng)) {
+      prefixCount = std::uniform_int_distribution<>(1, maxPrefix)(t_rng);
+      suffixCount = std::uniform_int_distribution<>(0, maxSuffix)(t_rng);
     } else {
-      prefixCount = std::uniform_int_distribution<>(0, maxPrefix)(g_rng);
-      suffixCount = std::uniform_int_distribution<>(1, maxSuffix)(g_rng);
+      prefixCount = std::uniform_int_distribution<>(0, maxPrefix)(t_rng);
+      suffixCount = std::uniform_int_distribution<>(1, maxSuffix)(t_rng);
     }
   }
 
@@ -823,7 +820,7 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
     }
 
     // 打乱候选池并按需挑选
-    std::shuffle(candidates.begin(), candidates.end(), g_rng);
+    std::shuffle(candidates.begin(), candidates.end(), t_rng);
     int toAdd = std::min(count, (int)candidates.size());
 
     for (int i = 0; i < toAdd; ++i) {
@@ -846,7 +843,7 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
       // result.name = def->nameTemplate; // REMOVED
       result.value = (tier.maxValue > tier.minValue)
                          ? std::uniform_real_distribution<float>(
-                               tier.minValue, tier.maxValue)(g_rng)
+                               tier.minValue, tier.maxValue)(t_rng)
                          : tier.minValue;
 
       item.affixes.push_back(result);
@@ -874,7 +871,7 @@ entt::entity ItemFactory::createRandomLoot(entt::registry &registry, int level,
   LOG_DEBUG("创建随机掉落物，地图等级: {}，物品等级: {}，魔法寻宝率: {}", level, level, effectiveMF);
   Rarity rarity = rollRarity(effectiveMF);
   entt::entity result;
-  if (std::uniform_int_distribution<>(0, 2)(g_rng) == 0) {
+  if (std::uniform_int_distribution<>(0, 2)(t_rng) == 0) {
     LOG_DEBUG("正在生成武器");
     result = createWeapon(registry, level, rarity);
   } else {
@@ -887,7 +884,7 @@ entt::entity ItemFactory::createRandomLoot(entt::registry &registry, int level,
         EquipmentSlot::Feet,    EquipmentSlot::Neck,  EquipmentSlot::Ring};
 
     int idx =
-        std::uniform_int_distribution<>(0, (int)validSlots.size() - 1)(g_rng);
+        std::uniform_int_distribution<>(0, (int)validSlots.size() - 1)(t_rng);
     EquipmentSlot slot = validSlots[idx];
     result = createArmor(registry, level, rarity, slot);
   }
@@ -975,11 +972,11 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   item.type = ItemType::Weapon;
   item.slot = EquipmentSlot::MainHand;
   item.rarity = rarity;
-  item.id = std::uniform_int_distribution<>(1000, 9999)(g_rng);
+  item.id = std::uniform_int_distribution<>(1000, 9999)(t_rng);
 
   // 随机选择武器类型
   const std::vector<BaseItemDef> *baseList = &WEAPON_SWORD_BASES;
-  int typeRoll = std::uniform_int_distribution<>(0, 6)(g_rng);
+  int typeRoll = std::uniform_int_distribution<>(0, 6)(t_rng);
   switch (typeRoll) {
   case 0:
     baseList = &WEAPON_SWORD_BASES;
@@ -1018,7 +1015,7 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   LOG_DEBUG("Selected base weapon: {}", base.name);
 
   float baseVal = std::uniform_real_distribution<>(base.baseStatMin,
-                                                   base.baseStatMax)(g_rng);
+                                                   base.baseStatMax)(t_rng);
   // [NEW] Level Scaling
   float multiplier = Constants::Items::GetLevelMultiplier(level);
   item.attack = baseVal * multiplier;
@@ -1029,11 +1026,11 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
       createAffix(base.implicitType,
                   1)); // Implicit usually unscaled or custom? Assume T1 for now
   item.implicits.back().value =
-      std::uniform_real_distribution<>(5.0f, 15.0f)(g_rng) + (level * 0.5f);
+      std::uniform_real_distribution<>(5.0f, 15.0f)(t_rng) + (level * 0.5f);
   item.implicits.back().tier = 0;
   // item.implicits.back().name = "固有"; // REMOVED
 
-  item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
+  item.forgingPotential = std::uniform_int_distribution<>(20, 50)(t_rng);
 
   // IMPORTANT: Legendary items (Uniques) roll LP (0-4). Sockets are
   // independent.
@@ -1049,7 +1046,7 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
          // Let's use scale strategy: shift the roll towards 100
     }
 
-    int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
+    int lpRoll = std::uniform_int_distribution<>(0, 100)(t_rng);
     
     // Boost logic: shift roll based on rarity bonus
     // 100% Rarity (+1.0) -> +15 flat roll (Moves 85->100, Massive buff for high LP)
@@ -1089,8 +1086,8 @@ entt::entity ItemFactory::createWeapon(entt::registry &registry, int level,
   if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
       socketChance = static_cast<int>(40 * (1.0f + registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity * 0.5f));
   }
-  if (std::uniform_int_distribution<>(0, 100)(g_rng) < socketChance) {
-    item.socketCount = std::uniform_int_distribution<>(1, 3)(g_rng);
+  if (std::uniform_int_distribution<>(0, 100)(t_rng) < socketChance) {
+    item.socketCount = std::uniform_int_distribution<>(1, 3)(t_rng);
     LOG_DEBUG("Weapon '{}' rolled with {} sockets", item.name,
               item.socketCount);
   }
@@ -1140,14 +1137,14 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
     if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
         socketChance = static_cast<int>(40 * (1.0f + registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity * 0.5f));
     }
-    if (std::uniform_int_distribution<>(0, 100)(g_rng) < socketChance) {
+    if (std::uniform_int_distribution<>(0, 100)(t_rng) < socketChance) {
       int maxS = 1;
       if (slot == EquipmentSlot::Chest || slot == EquipmentSlot::OffHand)
         maxS = 3;
       else if (slot == EquipmentSlot::Head || slot == EquipmentSlot::Legs)
         maxS = 2;
 
-      item.socketCount = std::uniform_int_distribution<>(1, maxS)(g_rng);
+      item.socketCount = std::uniform_int_distribution<>(1, maxS)(t_rng);
       LOG_DEBUG("Armor/Jewelry '{}' rolled with {} sockets", item.name,
                 item.socketCount);
     }
@@ -1155,7 +1152,7 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
 
   item.slot = slot;
   item.rarity = rarity;
-  item.id = std::uniform_int_distribution<>(1000, 9999)(g_rng);
+  item.id = std::uniform_int_distribution<>(1000, 9999)(t_rng);
 
   // 根据槽位选择正确的基底列表
   const std::vector<BaseItemDef> *baseList = &ARMOR_CHEST_BASES;
@@ -1200,7 +1197,7 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
   LOG_DEBUG("Selected base armor: {}", base.name);
 
   float baseVal = std::uniform_real_distribution<>(base.baseStatMin,
-                                                   base.baseStatMax)(g_rng);
+                                                   base.baseStatMax)(t_rng);
   // [NEW] Level Scaling
   float multiplier = Constants::Items::GetLevelMultiplier(level);
   item.defense = baseVal * multiplier;
@@ -1209,7 +1206,7 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
   item.implicits.push_back(createAffix(base.implicitType, 1));
   item.implicits.back().tier = 0;
 
-  item.forgingPotential = std::uniform_int_distribution<>(20, 50)(g_rng);
+  item.forgingPotential = std::uniform_int_distribution<>(20, 50)(t_rng);
 
   if (rarity == Rarity::Legendary) {
     item.name = "远古 " + item.name;
@@ -1221,7 +1218,7 @@ entt::entity ItemFactory::createArmor(entt::registry &registry, int level,
          lpBoost = registry.ctx().get<NoMoreDay::ActiveDimensionalState>().calculatedRarity;
     }
 
-    int lpRoll = std::uniform_int_distribution<>(0, 100)(g_rng);
+    int lpRoll = std::uniform_int_distribution<>(0, 100)(t_rng);
     int flatBonus = static_cast<int>(lpBoost * 15.0f);
     lpRoll = std::min(100, lpRoll + flatBonus);
 
@@ -1267,7 +1264,7 @@ entt::entity ItemFactory::createBag(entt::registry &registry, int level,
   item.type = ItemType::Bag;
   item.rarity = rarity;
   item.slot = EquipmentSlot::None;
-  item.id = std::uniform_int_distribution<>(5000, 5999)(g_rng);
+  item.id = std::uniform_int_distribution<>(5000, 5999)(t_rng);
 
   // 基础容量
   // 修改：每个背包现在提供一个完整的页面 (56格)

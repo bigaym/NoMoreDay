@@ -1,5 +1,7 @@
 #pragma once
 #include <entt/entity/registry.hpp>
+#include <queue>
+#include <mutex>
 
 namespace NoMoreDay {
 
@@ -16,6 +18,10 @@ public:
      * 应在游戏状态退出或进入时调用，防止跨 Session 指针残留。
      */
     static void Reset();
+
+private:
+    static inline std::queue<entt::entity> s_gcQueue;
+    static inline std::mutex s_gcMutex;
 };
 
 } // namespace NoMoreDay
