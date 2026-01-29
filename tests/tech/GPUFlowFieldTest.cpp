@@ -48,7 +48,8 @@ TEST_CASE("[Tech] GPUFlowField - Compute Shader Functional Test") {
     
     // 4. Download and Verify
     // Flow vectors should be normalized.
-    std::vector<Vector2> flowData = flowSystem.DownloadFlowField();
+    std::vector<Vector2> flowData;
+    flowSystem.DownloadFlowField(flowData);
     
     REQUIRE(flowData.size() == 64 * 64);
     
@@ -79,7 +80,8 @@ TEST_CASE("[Tech] GPUFlowField - Compute Shader Functional Test") {
     }
 
     // Download Flow Field
-    std::vector<Vector2> flowData2 = flowSystem.DownloadFlowField();
+    std::vector<Vector2> flowData2;
+    flowSystem.DownloadFlowField(flowData2);
     Vector2 flowAtStart = flowData2[5 * 64 + 5];
     MESSAGE("Flow at (5,5): ", flowAtStart.x, ", ", flowAtStart.y);
     

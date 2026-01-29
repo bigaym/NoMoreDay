@@ -4,6 +4,7 @@
 #include "game/components/ItemComponent.hpp"
 #include "game/components/StashComponent.hpp"
 #include "game/systems/item/ItemFactory.hpp"
+#include "game/components/InventoryComponent.hpp"
 #include <iostream>
 #include <chrono>
 

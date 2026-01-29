@@ -1,6 +1,19 @@
-# === Test Runner (Single TU) ===
+# === Test Runner ===
+
+# Find all test source files
+file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
+    "*.cpp"
+)
+list(FILTER TEST_SOURCES EXCLUDE REGEX "check_header.cpp$")
+
+# Find all header files for IDE project view
+file(GLOB_RECURSE TEST_HEADERS CONFIGURE_DEPENDS
+    "*.hpp"
+)
+
 add_executable(NoMoreDayTests
-    main.cpp
+    ${TEST_SOURCES}
+    ${TEST_HEADERS}
 )
 
 target_include_directories(NoMoreDayTests PRIVATE 
@@ -10,6 +23,9 @@ target_include_directories(NoMoreDayTests PRIVATE
 )
 
 target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayCore)
+
+# Enable Unity Build for Tests
+set_target_properties(NoMoreDayTests PROPERTIES UNITY_BUILD ON)
 
 if(WIN32)
     target_compile_definitions(NoMoreDayTests PRIVATE WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)

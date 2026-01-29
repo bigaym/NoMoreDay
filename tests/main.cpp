@@ -6,62 +6,6 @@
 
 using namespace NoMoreDay;
 
-// --- Unit Tests ---
-#include "unit/BarrierTests.hpp"
-#include "unit/BuffTests.hpp"
-#include "unit/CombatFormulaTest.hpp"
-#include "unit/GPUSlotManagerTest.cpp" // NEW
-#include "unit/GPUVisualSyncTest.cpp"
-#include "unit/GroupLayoutTest.hpp"
-#include "unit/HazardSystemTests.hpp"
-#include "unit/ItemLevelScalingTest.cpp" // NEW
-#include "unit/MapAffixSystemTest.cpp"
-#include "unit/MonsterAffixTests.hpp"
-#include "unit/NemesisEvolutionTests.hpp"
-#include "unit/ResourceManagerTextureArrayTest.cpp"
-#include "unit/SIMDSpatialGridTest.hpp"
-#include "unit/StashSystemTest.hpp" // ADDED
-#include "unit/SystemMechanics.hpp"
-#include "unit/TalentModifierTest.cpp"
-#include "unit/TilemapCollisionSystemTest.cpp"
-
-// --- Integration Tests ---
-#include "integration/CollisionReproTest.hpp"
-#include "integration/CombatBalanceTest.hpp"
-#include "integration/GameplaySystems.hpp"
-#include "integration/MDIRenderTest.hpp"
-#include "integration/NemesisScalingTest.hpp"
-#include "integration/SkillSystemTests.hpp"
-
-// --- Functional Tests ---
-#include "functional/BackstabMechanicsTest.cpp"
-#include "functional/DamagePipelineConversionTest.cpp"
-#include "functional/SkillBehaviors.hpp"
-
-// --- Unit Tests ---
-#include "unit/BranchlessTest.cpp"
-#include "unit/GPUFlagsTest.cpp"
-#include "unit/MonsterScalingTest.cpp"
-
-// --- Integration Tests ---
-#include "integration/AIFlowFieldIntegrationTest.cpp"
-
-// --- Tech & Engine Tests ---
-#include "performance/BranchlessBenchmark.hpp"
-#include "performance/StatsBenchmark.hpp"
-#include "tech/EngineTechTests.hpp"
-#include "tech/PersistentBufferTest.hpp"
-#include "tech/UITests.hpp"
-
-// --- Performance Benchmarks ---
-#include "performance/DropSystemBenchmark.hpp"
-#include "performance/GPUSyncBenchmark.hpp" // NEW
-#include "performance/MDIRenderBenchmark.hpp"
-#include "performance/RenderingBenchmark.hpp"
-#include "performance/SpatialGridBenchmark.hpp"
-#include "performance/StashBenchmark.hpp" // ADDED
-
-
 #if defined(_WIN32) && defined(__GNUC__)
 #include <windows.h>
 extern int main(int argc, char **argv);

@@ -5,6 +5,9 @@
 #include <chrono>
 #include <random>
 
+using namespace NoMoreDay;
+using namespace NoMoreDay::systems;
+
     TEST_CASE("[Performance] SIMDSpatialGrid - Rebuild and Query Benchmark") {
         // Setup: 5000x5000 world, 10000 entities
         int worldW = 5000;
