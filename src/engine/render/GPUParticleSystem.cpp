@@ -259,7 +259,10 @@ void GPUParticleSystem::Update(float dt) {
   using namespace NoMoreDay::RenderConstants;
 
   // 1. Swap buffers for ping-pong
-  core::ComputeBuffer &bufIn = m_pingPong ? m_particleBuffer : m_compactBuffer;
+  // Fix: bufIn and bufOut must be DIFFERENT for stream compaction to work.
+  // When m_pingPong is false: Read from ParticleBuffer, Write to CompactBuffer
+  // When m_pingPong is true: Read from CompactBuffer, Write to ParticleBuffer
+  core::ComputeBuffer &bufIn = m_pingPong ? m_compactBuffer : m_particleBuffer;
   core::ComputeBuffer &bufOut = m_pingPong ? m_particleBuffer : m_compactBuffer;
 
   // 0.1 Async Readback from the "Ping" buffer (which was written to in Frame
@@ -471,7 +474,7 @@ components::GPUParticle InkEffectHelper::CreateInkTrail(Vector2 pos,
   p.maxLifetime = life;
   p.scale = scale * 0.5f; // Reduced size
   p.flags = 0;
-  p.growthRate = 0.1f;
+  p.growthRate = -scale * 0.5f; // Shrink instead of grow for trails
   return p;
 }
 
@@ -511,10 +514,11 @@ void InkEffectHelper::AppendInkSplash(std::vector<components::GPUParticle> &res,
 
     // Much smaller particles: 1.5 to 3.5 instead of 10
     p.scale = 1.5f + (float)GetRandomValue(0, 200) / 100.0f;
-    p.lifetime = 0.4f + (float)GetRandomValue(0, 60) / 100.0f;
+    // Reduced lifetime: 0.1s to 0.25s (was 0.2s to 0.5s)
+    p.lifetime = 0.1f + (float)GetRandomValue(0, 15) / 100.0f;
     p.maxLifetime = p.lifetime;
     p.flags = 5;          // Soft ink splat
-    p.growthRate = -0.5f; // Shrink over time
+    p.growthRate = -1.5f; // Even faster shrink
     res.push_back(p);
   }
 }
@@ -531,11 +535,11 @@ InkEffectHelper::CreateGoldParticle(Vector2 pos, Vector2 vel, float scale) {
              (unsigned char)(std::clamp(215 + variation, 180, 255)),
              (unsigned char)(std::clamp(variation * 2, 0, 80)), 255};
 
-  p.lifetime = 0.6f;
-  p.maxLifetime = 0.6f;
+  p.lifetime = 0.3f; // Reduced from 0.6s
+  p.maxLifetime = 0.3f;
   p.scale = scale * 0.6f; // Reduced size
   p.flags = 2;            // Spark/diamond shape
-  p.growthRate = -scale * 0.8f;
+  p.growthRate = -scale * 1.5f;
   return p;
 }
 
@@ -573,10 +577,10 @@ void InkEffectHelper::AppendProjectileTrail(
     core.velocity = {-dir.x * 20.0f, -dir.y * 20.0f}; // Slight backward drift
     core.color = coreColor;
     core.scale = 1.0f - t * 0.5f; // Smaller at trail end
-    core.lifetime = 0.15f + t * 0.1f;
+    core.lifetime = 0.07f + t * 0.05f; // Reduced from 0.15s
     core.maxLifetime = core.lifetime;
     core.flags = 2; // Spark
-    core.growthRate = -1.0f;
+    core.growthRate = -2.0f;
     res.push_back(core);
 
     // Glow particle (softer, larger)
@@ -588,10 +592,10 @@ void InkEffectHelper::AppendProjectileTrail(
       glow.velocity = {0, 0};
       glow.color = glowColor;
       glow.scale = 2.0f - t * 1.0f;
-      glow.lifetime = 0.2f;
-      glow.maxLifetime = 0.2f;
+      glow.lifetime = 0.1f; // Reduced from 0.2s
+      glow.maxLifetime = 0.1f;
       glow.flags = 1; // Soft glow
-      glow.growthRate = -0.5f;
+      glow.growthRate = -1.0f;
       res.push_back(glow);
     }
   }
@@ -643,10 +647,10 @@ void InkEffectHelper::AppendDashEffect(
     p.color = color;
     p.color.a = (unsigned char)(200 - t * 80); // Fade with distance
     p.scale = 1.5f + (float)GetRandomValue(0, 100) / 100.0f;
-    p.lifetime = 0.3f + (float)GetRandomValue(0, 30) / 100.0f;
+    p.lifetime = 0.15f + (float)GetRandomValue(0, 15) / 100.0f; // Reduced from 0.3s
     p.maxLifetime = p.lifetime;
     p.flags = 13; // Ink with soft edges
-    p.growthRate = -0.8f;
+    p.growthRate = -1.5f;
     res.push_back(p);
   }
 }
@@ -686,7 +690,8 @@ void InkEffectHelper::AppendAreaEffect(
         (unsigned char)(coreColor.a * (1.0f - colorT * 0.5f))};
 
     p.scale = 1.5f + (float)GetRandomValue(0, 150) / 100.0f;
-    p.lifetime = duration * (0.7f + (float)GetRandomValue(0, 60) / 100.0f);
+    // Reduced duration scale by 50%
+    p.lifetime = duration * 0.5f * (0.7f + (float)GetRandomValue(0, 60) / 100.0f);
     p.maxLifetime = p.lifetime;
     p.flags = 1;         // Soft glow
     p.growthRate = 0.3f; // Slight growth
@@ -701,10 +706,10 @@ components::GPUParticle InkEffectHelper::CreateSpark(Vector2 pos, Vector2 vel,
   p.velocity = vel;
   p.color = color;
   p.scale = scale * 0.8f; // Small sparks
-  p.lifetime = 0.2f;
-  p.maxLifetime = 0.2f;
+  p.lifetime = 0.1f; // Reduced from 0.2s
+  p.maxLifetime = 0.1f;
   p.flags = 2;                  // Diamond/spark shape
-  p.growthRate = -scale * 2.0f; // Rapid shrink
+  p.growthRate = -scale * 4.0f; // Faster shrink
   return p;
 }
 
@@ -746,10 +751,10 @@ void InkEffectHelper::AppendSlashEffect(
 
     p.color = color;
     p.scale = 2.0f - fabsf(t) * 2.0f; // Thicker in center
-    p.lifetime = 0.15f;
-    p.maxLifetime = 0.15f;
+    p.lifetime = 0.075f; // Reduced from 0.15s
+    p.maxLifetime = 0.075f;
     p.flags = 2; // Spark
-    p.growthRate = -3.0f;
+    p.growthRate = -5.0f;
     res.push_back(p);
   }
 
@@ -759,10 +764,10 @@ void InkEffectHelper::AppendSlashEffect(
   flash.velocity = {dir.x * 50.0f, dir.y * 50.0f};
   flash.color = COLOR_WHITE_SPARK;
   flash.scale = 3.0f;
-  flash.lifetime = 0.1f;
-  flash.maxLifetime = 0.1f;
+  flash.lifetime = 0.05f; // Reduced from 0.1s
+  flash.maxLifetime = 0.05f;
   flash.flags = 1; // Glow
-  flash.growthRate = -10.0f;
+  flash.growthRate = -20.0f;
   res.push_back(flash);
 }
 

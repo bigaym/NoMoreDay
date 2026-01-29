@@ -156,8 +156,9 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
           float steerX = desiredVelX - vel.vx;
           float steerY = desiredVelY - vel.vy;
           
-          vel.vx += steerX * steerForce * dt * 0.1f;
-          vel.vy += steerY * steerForce * dt * 0.1f;
+          // Increased steering response (0.1f -> 0.5f) for snappier rotation
+          vel.vx += steerX * steerForce * dt * 0.5f;
+          vel.vy += steerY * steerForce * dt * 0.5f;
         }
       }
     }

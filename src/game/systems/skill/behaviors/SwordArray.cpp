@@ -219,7 +219,7 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
                         ? systems::InkEffectHelper::COLOR_GOLD_GLOW
                         : systems::InkEffectHelper::COLOR_SHADOW_GLOW;
   auto areaParticles = systems::InkEffectHelper::CreateAreaEffect(
-      exec.target_pos, array.radius, coreColor, edgeColor, 30, 1.0f);
+      exec.target_pos, array.radius, coreColor, edgeColor, 30, 0.5f);
   particleSys.EmitBatch(areaParticles);
 
   int ringCount = 25;

@@ -153,6 +153,7 @@ constexpr uint32_t SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
 constexpr uint32_t TEXTURE_2D_ARRAY = 0x8C1A;
 constexpr uint32_t TEXTURE0 = 0x84C0;
 constexpr uint32_t TRIANGLES = 0x0004;
+constexpr uint32_t TRIANGLE_STRIP = 0x0005;
 } // namespace GL
 
 inline constexpr uint32_t ToGL(MapFlag b) { return static_cast<uint32_t>(b); }

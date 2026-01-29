@@ -55,8 +55,11 @@ void main() {
     
     // 朝向计算
     float rotation = 0.0;
-    if (length(e.velocity) > 0.1) {
-        rotation = atan(e.velocity.y, e.velocity.x);
+    // Check GPU_ENTITY_FLAG_NO_ROTATION (1 << 3)
+    if ((e.flags & 8u) == 0u) {
+        if (length(e.velocity) > 0.1) {
+            rotation = atan(e.velocity.y, e.velocity.x);
+        }
     }
     
     float c = cos(rotation);

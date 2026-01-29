@@ -238,7 +238,8 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   utils::GPUUtils::MemoryBarrier(Barrier::Command | Barrier::SSBO |
                                  Barrier::Buffer);
 
-  utils::GPUUtils::DrawArraysIndirect(GL::TRIANGLES, 0);
+  // Use TRIANGLE_STRIP for 4-vertex Quad (BL, BR, TR, TL)
+  utils::GPUUtils::DrawArraysIndirect(GL::TRIANGLE_STRIP, 0);
   rlDisableVertexArray();
 
   rlDisableShader();

@@ -71,6 +71,11 @@ int GPUPhysicsSync::Execute(
     if (registry.all_of<PlayerTag>(entity)) {
       flags |= GPU_ENTITY_FLAG_KINEMATIC | GPU_ENTITY_FLAG_NO_RENDER;
     }
+    
+    // Monsters should not rotate based on velocity (User Requirement)
+    if (registry.any_of<EnemyTag>(entity)) {
+      flags |= GPU_ENTITY_FLAG_NO_ROTATION;
+    }
 
     if (auto *ai = registry.try_get<AIComponent>(entity)) {
       uint8_t stateVal = static_cast<uint8_t>(ai->aiType);

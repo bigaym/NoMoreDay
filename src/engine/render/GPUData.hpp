@@ -81,6 +81,8 @@ constexpr uint32_t GPU_ENTITY_FLAG_NO_RENDER =
     1 << 1; // Entity not rendered by MDI (e.g. has Sprite)
 constexpr uint32_t GPU_ENTITY_FLAG_CHASING =
     1 << 2; // Entity follows flow field steering in GPU physics
+constexpr uint32_t GPU_ENTITY_FLAG_NO_ROTATION =
+    1 << 3; // Entity maintains fixed rotation (ignores velocity alignment)
 
 // Ensure Stride is exactly 64 bytes for SSBO alignment
 static_assert(

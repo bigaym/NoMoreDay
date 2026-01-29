@@ -304,12 +304,27 @@ void ProjectileSystem::Update(entt::registry &registry,
             {pos.x - off1.x, pos.y - off1.y}, trailVel, 1.0f, 0.3f));
       } else if (skill_id == 7) {
         auto p = systems::InkEffectHelper::CreateInkTrail({pos.x, pos.y},
-                                                          trailVel, 2.0f, 0.5f);
+                                                          trailVel, 2.0f, 0.25f); // 0.5 -> 0.25
         p.color = GOLD;
         s_particles.push_back(p);
       } else {
-        s_particles.push_back(systems::InkEffectHelper::CreateInkTrail(
-            {pos.x, pos.y}, trailVel, 1.2f, 0.4f));
+        // Skill 2 (Rift Slash): Extremely short lifetime (0.07s) for peak snappiness
+        if (skill_id == 2) {
+          Color trailColor = NoMoreDay::components::Colors::BLADE_CYAN;
+          if (auto* col = registry.try_get<ColorComponent>(entity)) {
+             trailColor = col->color;
+          }
+          trailColor.a = 150;
+          
+          auto p = systems::InkEffectHelper::CreateInkTrail(
+              {pos.x, pos.y}, trailVel, 0.6f, 0.075f); // 0.15 -> 0.075
+          p.color = trailColor;
+          p.scale = 1.2f;
+          s_particles.push_back(p);
+        } else {
+           s_particles.push_back(systems::InkEffectHelper::CreateInkTrail(
+              {pos.x, pos.y}, trailVel, 1.2f, 0.2f)); // 0.4 -> 0.2
+        }
       }
     }
 
@@ -639,8 +654,8 @@ void ProjectileSystem::SpawnSplitProjectiles(entt::registry &registry,
     p.pierce = false;                      // Reset pierce
     for (auto &m : p.snapshot.damage_multipliers)
       m *= parent.split_damage_mult;
-    // Reset lifetime
-    p.lifeTime = 3.0f;
+    // Reset lifetime - Reduced from 3.0f to 0.6f to prevent visual clutter
+    p.lifeTime = 0.6f;
     p.hitLimitReached = false;
     p.hasRendered = false;
     p.hitEntities.clear();
@@ -682,7 +697,8 @@ void ProjectileSystem::SpawnExplosionProjectiles(entt::registry &registry,
     p.on_death = Projectile::OnDeathBehavior::None;
     for (auto &m : p.snapshot.damage_multipliers)
       m *= parent.explode_damage_mult;
-    p.lifeTime = 2.0f;
+    // Reduced from 2.0f to 0.4f
+    p.lifeTime = 0.4f;
     p.hitLimitReached = false;
     p.hasRendered = false;
     p.hitEntities.clear();
