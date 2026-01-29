@@ -35,6 +35,19 @@ namespace assets::ui
         constexpr assets::TextureAsset Skill_XinJianWuYing = {"ui_skill_xinjianwuying"_hs, "assets/textures/icons/skills/skill_xinjianwuying.png"};       // 心剑·无影
         constexpr assets::TextureAsset Skill_YuJianHuiXuan = {"ui_skill_yujianhuixuan"_hs, "assets/textures/icons/skills/skill_yujianhuixuan.png"};       // 御剑·回旋
         constexpr assets::TextureAsset Skill_JueYingShan = {"ui_skill_jueyingshan"_hs, "assets/textures/icons/skills/skill_jueyingshan.png"};             // 绝影闪
+
+        // 装备槽位
+        constexpr assets::TextureAsset Slot_Amulet_Mirror = {"slot_amulet_mirror"_hs, "assets/textures/equipslot/item_amulet_mirror.png"}; // 护符槽位
+        constexpr assets::TextureAsset Slot_Armor_Chest = {"slot_armor"_hs, "assets/textures/equipslot/item_armor_chest.png"}; // 胸甲槽位
+        constexpr assets::TextureAsset Slot_Boots = {"slot_boot"_hs, "assets/textures/equipslot/item_boots_flying.png"}; // 靴子槽位
+        constexpr assets::TextureAsset Slot_Gauntlets = {"slot_gauntlets"_hs, "assets/textures/equipslot/item_gauntlets_leather.png"}; // 护手槽位
+        constexpr assets::TextureAsset Slot_Helmet = {"slot_helmet"_hs, "assets/textures/equipslot/item_helmet_jade.png"}; // 头盔槽位
+        constexpr assets::TextureAsset Slot_Leggings = {"slot_leggings"_hs, "assets/textures/equipslot/item_leggings_silk.png"}; // 护腿槽位
+        constexpr assets::TextureAsset Slot_Pauldrons = {"slot_pauldrons"_hs, "assets/textures/equipslot/item_pauldrons_iron.png"}; // 肩甲槽位
+        constexpr assets::TextureAsset Slot_Ring_1 = {"slot_ring_1"_hs, "assets/textures/equipslot/item_ring_dragon.png"}; // 戒指槽位 1
+        constexpr assets::TextureAsset Slot_Ring_2 = {"slot_ring_2"_hs, "assets/textures/equipslot/item_ring_phoenix.png"}; // 戒指槽位 2
+        constexpr assets::TextureAsset Slot_Weapon_Main = {"slot_weapon_main"_hs, "assets/textures/equipslot/item_weapon_main_sword.png"}; // 主手武器槽位
+        constexpr assets::TextureAsset Slot_Weapon_Off = {"slot_weapon_off"_hs, "assets/textures/equipslot/item_weapon_off_shield.png"}; // 副手武器槽位
     }
 
     namespace fonts

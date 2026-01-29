@@ -23,14 +23,14 @@ namespace NoMoreDay::Constants::GPU {
 
 namespace NoMoreDay::components {
 
-/**
- * @brief CPU component to store previous position for interpolation.
- */
-struct PrevPosition {
-  float x = 0.0f;
-  float y = 0.0f;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrevPosition, x, y)
+// /**
+//  * @brief CPU component to store previous position for interpolation.
+//  */
+// struct PrevPosition {
+//   float x = 0.0f;
+//   float y = 0.0f;
+// };
+// NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PrevPosition, x, y)
 
 /**
  * @brief Structure for GPU particles matching SSBO layout.

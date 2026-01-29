@@ -191,8 +191,40 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
   float borderThick = (slotHint != EquipmentSlot::None) ? 2.0f : 1.0f;
   DrawRectangleLinesEx(rec, borderThick * s_uiScale, ApplyAlpha(border, alpha));
 
-  // Ghost Icon (Procedural)
-  if (item == entt::null && slotHint != EquipmentSlot::None) {
+  // Determine Background Texture
+  entt::id_type bgTextureId = assets::ui::textures::Inventory_Slot.id;
+  bool usingSpecificSlotIcon = false;
+
+  if (slotHint != EquipmentSlot::None) {
+      using namespace assets::ui::textures;
+      usingSpecificSlotIcon = true;
+      switch (slotHint) {
+          case EquipmentSlot::MainHand: bgTextureId = Slot_Weapon_Main.id; break;
+          case EquipmentSlot::OffHand:  bgTextureId = Slot_Weapon_Off.id; break;
+          case EquipmentSlot::Head:     bgTextureId = Slot_Helmet.id; break;
+          case EquipmentSlot::Shoulder: bgTextureId = Slot_Pauldrons.id; break;
+          case EquipmentSlot::Chest:    bgTextureId = Slot_Armor_Chest.id; break;
+          case EquipmentSlot::Hands:    bgTextureId = Slot_Gauntlets.id; break;
+          case EquipmentSlot::Legs:     bgTextureId = Slot_Leggings.id; break;
+          case EquipmentSlot::Feet:     bgTextureId = Slot_Boots.id; break;
+          case EquipmentSlot::Neck:     bgTextureId = Slot_Amulet_Mirror.id; break;
+          case EquipmentSlot::Ring1:    bgTextureId = Slot_Ring_1.id; break;
+          case EquipmentSlot::Ring2:    bgTextureId = Slot_Ring_2.id; break;
+          case EquipmentSlot::Ring:     bgTextureId = Slot_Ring_1.id; break;
+          default: usingSpecificSlotIcon = false; break;
+      }
+  }
+
+  // Draw Slot Background Texture if available
+  Texture2D slotBg = AssetLoadingSystem::GetTexture(bgTextureId);
+  if (slotBg.id > 0) {
+    float bgAlpha = usingSpecificSlotIcon ? 0.8f : 0.5f; // More opaque for specific icons
+    DrawTexturePro(slotBg, {0, 0, (float)slotBg.width, (float)slotBg.height},
+                   rec, {0, 0}, 0.0f, ApplyAlpha(WHITE, bgAlpha * alpha));
+  }
+
+  // Ghost Icon (Procedural) - Only if NOT using a specific slot icon
+  if (item == entt::null && slotHint != EquipmentSlot::None && !usingSpecificSlotIcon) {
       Color ghostColor = ApplyAlpha(WHITE, 0.1f * alpha);
       float cx = sx + sSize / 2;
       float cy = sy + sSize / 2;
@@ -243,14 +275,6 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
           default:
               break;
       }
-  }
-
-  // Draw Slot Background Texture if available
-  Texture2D slotBg =
-      AssetLoadingSystem::GetTexture(assets::ui::textures::Inventory_Slot.id);
-  if (slotBg.id > 0) {
-    DrawTexturePro(slotBg, {0, 0, (float)slotBg.width, (float)slotBg.height},
-                   rec, {0, 0}, 0.0f, ApplyAlpha(WHITE, 0.5f * alpha));
   }
 
   if (item != entt::null && registry.valid(item)) {

@@ -62,6 +62,20 @@ void AssetLoadingSystem::RegisterUITextures() {
   m_resourceManager->registerTexture(Context_Menu_BG.id,
                                      std::string(Context_Menu_BG.path));
 
+  // Equipment Slots
+  LOG_INFO("AssetLoadingSystem: Registering Equipment Slot Textures...");
+  m_resourceManager->registerTexture(Slot_Amulet_Mirror.id, std::string(Slot_Amulet_Mirror.path));
+  m_resourceManager->registerTexture(Slot_Armor_Chest.id, std::string(Slot_Armor_Chest.path));
+  m_resourceManager->registerTexture(Slot_Boots.id, std::string(Slot_Boots.path));
+  m_resourceManager->registerTexture(Slot_Gauntlets.id, std::string(Slot_Gauntlets.path));
+  m_resourceManager->registerTexture(Slot_Helmet.id, std::string(Slot_Helmet.path));
+  m_resourceManager->registerTexture(Slot_Leggings.id, std::string(Slot_Leggings.path));
+  m_resourceManager->registerTexture(Slot_Pauldrons.id, std::string(Slot_Pauldrons.path));
+  m_resourceManager->registerTexture(Slot_Ring_1.id, std::string(Slot_Ring_1.path));  
+  m_resourceManager->registerTexture(Slot_Ring_2.id, std::string(Slot_Ring_2.path));
+  m_resourceManager->registerTexture(Slot_Weapon_Main.id, std::string(Slot_Weapon_Main.path));
+  m_resourceManager->registerTexture(Slot_Weapon_Off.id, std::string(Slot_Weapon_Off.path));
+
   using namespace assets::ui::fonts;
   m_resourceManager->registerTexture(Fast_Font_Img.id,
                                      std::string(Fast_Font_Img.path));
