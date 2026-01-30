@@ -28,6 +28,15 @@ private:
   int m_screenWidth;
   int m_screenHeight;
   const char *m_title;
+  
+  // Window State Handling
+  bool m_isBorderlessFullscreen = false;
+  int m_windowedWidth = 0;
+  int m_windowedHeight = 0;
+  int m_windowedPosX = 0;
+  int m_windowedPosY = 0;
+
+  void toggleFullScreen();
 
   // GPU Support info
   NoMoreDay::utils::GPUSupportInfo m_gpuInfo;

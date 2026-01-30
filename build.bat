@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 REM ============================================================================
 REM NoMoreDay Build Script
 REM ============================================================================
@@ -31,11 +32,51 @@ set "GENERATOR="
 set "PARALLEL_JOBS=16"
 set "NEED_CONFIG=0"
 
-REM Auto-detect Ninja
-where ninja >nul 2>nul
-if %errorlevel%==0 (
-    set "GENERATOR=-G Ninja"
-    echo [Build] Auto-detected Ninja generator.
+REM Auto-detect Ninja (Disabled in favor of MSVC default, but kept for reference)
+REM where ninja >nul 2>nul
+REM if %errorlevel%==0 (
+REM     set "GENERATOR=-G Ninja"
+REM     echo [Build] Auto-detected Ninja generator.
+REM )
+
+REM ============================================================================
+REM Visual Studio Environment Setup
+REM ============================================================================
+set "VSWHERE_PATH=%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+if not exist "%VSWHERE_PATH%" set "VSWHERE_PATH=%ProgramFiles%\Microsoft Visual Studio\Installer\vswhere.exe"
+
+set "VS_DEV_CMD_ACTIVE=0"
+where cl.exe >nul 2>nul
+if %errorlevel%==0 set "VS_DEV_CMD_ACTIVE=1"
+
+if "!VS_DEV_CMD_ACTIVE!"=="0" (
+    if exist "%VSWHERE_PATH%" (
+        echo [Build] Searching for Visual Studio installation...
+        for /f "usebackq tokens=*" %%i in (`"%VSWHERE_PATH%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
+            set "VS_INSTALL_DIR=%%i"
+        )
+
+        if defined VS_INSTALL_DIR (
+            echo [Build] Found Visual Studio at: !VS_INSTALL_DIR!
+            if exist "!VS_INSTALL_DIR!\VC\Auxiliary\Build\vcvars64.bat" (
+                echo [Build] Activating VS x64 environment...
+                call "!VS_INSTALL_DIR!\VC\Auxiliary\Build\vcvars64.bat" >nul
+                if !errorlevel! equ 0 (
+                    echo [Build] Environment OK.
+                ) else (
+                    echo [Build] Warning: Failed to run vcvars64.bat
+                )
+            ) else (
+                echo [Build] Warning: vcvars64.bat not found.
+            )
+        ) else (
+            echo [Build] Warning: No Visual Studio installation found via vswhere.
+        )
+    ) else (
+        echo [Build] Warning: vswhere.exe not found.
+    )
+) else (
+    echo [Build] Visual Studio environment already active.
 )
 
 :ARGS_LOOP
@@ -94,6 +135,18 @@ if not exist CMakeCache.txt set "NEED_CONFIG=1"
 
 REM Configure if needed
 if "!NEED_CONFIG!"=="1" (
+    REM Default to Ninja if available, otherwise NMake Makefiles (for MSVC)
+    if not defined GENERATOR (
+        where ninja >nul 2>nul
+        if !errorlevel! equ 0 (
+            set "GENERATOR=-G Ninja"
+            echo [Build] Using Ninja generator - detected
+        ) else (
+            set "GENERATOR=-G "NMake Makefiles""
+            echo [Build] Using NMake Makefiles generator - fallback
+        )
+    )
+
     echo.
     echo ============================================================
     echo [Build] Configuring project...
@@ -101,7 +154,7 @@ if "!NEED_CONFIG!"=="1" (
     echo   Tests:         !BUILD_TESTS!
     echo   LTO:           !ENABLE_LTO!
     echo   Parallel Jobs: !PARALLEL_JOBS!
-    if defined GENERATOR echo   Generator:     Ninja
+    if defined GENERATOR echo   Generator:     !GENERATOR!
     echo ============================================================
     echo.
     

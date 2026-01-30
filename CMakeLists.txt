@@ -8,7 +8,7 @@ set(CMAKE_UNITY_BUILD OFF)  # Disable Unity Build globally
 
 # --- Disable Deprecated Warnings ---
 if(MSVC)
-    add_compile_options(/wd4996)
+    add_compile_options(/wd4996 /Zc:__cplusplus /utf-8 /bigobj)
 else()
     add_compile_options(-Wno-deprecated-declarations)
 endif()
@@ -208,6 +208,17 @@ if(WIN32)
         target_compile_options(NoMoreDayCore PUBLIC
             $<$<CONFIG:Release>:-O2 -mtune=native -fomit-frame-pointer>
             $<$<CONFIG:RelWithDebInfo>:-O2 -mtune=native>
+        )
+    elseif(MSVC)
+        # --- MSVC Performance Optimizations ---
+        # /arch:AVX2  : Enable Advanced Vector Extensions 2 (Critical for xsimd/particles)
+        # /Oi         : Generate intrinsic functions
+        # /Ot         : Favor fast code
+        # /Ob2        : Aggressive inlining
+        # /GF         : Eliminate duplicate strings
+        target_compile_options(NoMoreDayCore PUBLIC
+            $<$<CONFIG:Release>:/arch:AVX2 /Oi /Ot /Ob2 /GF>
+            $<$<CONFIG:RelWithDebInfo>:/arch:AVX2 /Oi /Ot /Ob2 /GF>
         )
     endif()
     

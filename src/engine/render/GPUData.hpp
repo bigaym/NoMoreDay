@@ -343,12 +343,7 @@ constexpr Color MIND_BLADE_CORE = {240, 255, 255, 255};
 constexpr Color INK_SILHOUETTE = {10, 10, 10, 230};
 
 // --- Map Affix Colors (地图词缀颜色) ---
-// Helpful/Positive (Player benefits)
-constexpr Color MAP_AFFIX_POSITIVESize = {100, 255, 100,
-                                          255}; // Light Green / 有益词缀
-// Harmful/Negative (Enemy strength)
-constexpr Color MAP_AFFIX_NEGATIVESize = {255, 100, 100,
-                                          255}; // Light Red / 敌人强化词缀
+
 
 // Correcting typos for easier use
 constexpr Color MAP_AFFIX_POSITIVE = {100, 255, 100, 255};

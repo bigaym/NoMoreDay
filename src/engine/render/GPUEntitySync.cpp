@@ -4,6 +4,7 @@
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
+#include "game/components/ItemComponent.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
@@ -24,7 +25,7 @@ int GPUPhysicsSync::Execute(
     std::vector<NoMoreDay::components::GPUEntity> &shadowBuffer,
     uint64_t frameCounter) {
   int highWaterMark = 0;
-  int maxShadow = (int)shadowBuffer.size();
+  int maxShadow = (int)shadowBuffer.size();    
 
   auto view = registry.view<Position, Radius, GPUIndex>();
 
@@ -75,6 +76,11 @@ int GPUPhysicsSync::Execute(
     // Monsters should not rotate based on velocity (User Requirement)
     if (registry.any_of<EnemyTag>(entity)) {
       flags |= GPU_ENTITY_FLAG_NO_ROTATION;
+    }
+
+    // Don't render item sprites (Text/Tips only)
+    if (registry.any_of<ItemComponent>(entity)) {
+      flags |= GPU_ENTITY_FLAG_NO_RENDER;
     }
 
     if (auto *ai = registry.try_get<AIComponent>(entity)) {

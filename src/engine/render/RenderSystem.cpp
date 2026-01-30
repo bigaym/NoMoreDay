@@ -234,6 +234,11 @@ void RenderSystem::render(entt::registry &registry,
         entt::exclude<NoMoreDay::components::HoloBlade>);
 
     for (auto entity : spriteView) {
+      // Skip items (Request: hide item sprites on map, keep text/tips)
+      if (registry.any_of<NoMoreDay::ItemComponent>(entity)) {
+          continue;
+      }
+
       const auto &[pos, sprite] = spriteView.get(entity);
 
       // [GPU OFFLOAD] Skip CPU rendering if handled by GPU MDI

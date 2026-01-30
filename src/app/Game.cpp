@@ -33,11 +33,42 @@
 Game::Game(int width, int height, const char *title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title) {
 
-  system("chcp 65001 > nul");
-  LOG_INFO("Initializing Game with dimensions: {}x{}, title: {}", width, height,
-           title);
+  // Configure Window Flags BEFORE InitWindow
+  // FLAG_WINDOW_RESIZABLE: Allows user resizing
+  // FLAG_MSAA_4X_HINT: Anti-aliasing
+  // NOTE: HighDPI flag removed to match previous GCC behavior.
+  // NOTE: VSYNC flag removed to allow uncapped FPS for benchmarking.
+  SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
 
   InitWindow(m_screenWidth, m_screenHeight, m_title);
+
+  // Smart Window Positioning
+  int monitor = GetCurrentMonitor();
+  int monitorW = GetMonitorWidth(monitor);
+  int monitorH = GetMonitorHeight(monitor);
+
+  // If the requested size matches the monitor resolution, we force a borderless fullscreen-like state.
+  if (m_screenWidth == monitorW && m_screenHeight == monitorH) {
+      LOG_INFO("Window size matches monitor resolution. Switching to Borderless Fullscreen.");
+      
+      // Method 1: Remove decorations and force resize/reposition
+      // We MUST reset size because Windows might have clamped the window height (Client + Border > Screen) 
+      // during InitWindow, making the client area smaller than requested.
+      SetWindowState(FLAG_WINDOW_UNDECORATED);
+      SetWindowSize(m_screenWidth, m_screenHeight); // Force restore full client size
+      SetWindowPosition(0, 0);
+      m_isBorderlessFullscreen = true;
+  } else {
+      // Center the window manually
+      SetWindowPosition((monitorW - m_screenWidth) / 2, (monitorH - m_screenHeight) / 2);
+      m_isBorderlessFullscreen = false;
+      
+      // Save initial windowed state
+      m_windowedWidth = m_screenWidth;
+      m_windowedHeight = m_screenHeight;
+      m_windowedPosX = (monitorW - m_screenWidth) / 2;
+      m_windowedPosY = (monitorH - m_screenHeight) / 2;
+  }
 
   InitAudioDevice();
 
@@ -233,7 +264,54 @@ void Game::run() {
               ClearBackground(BLACK);
               m_stateManager->Render();
               EndDrawing();
-            }      }}
+            }
+            
+            // Check for Fullscreen Toggle (Alt + Enter)
+            if ((IsKeyDown(KEY_LEFT_ALT) || IsKeyDown(KEY_RIGHT_ALT)) && IsKeyPressed(KEY_ENTER)) {
+                toggleFullScreen();
+            }
+      }}
+
+void Game::toggleFullScreen() {
+    int monitor = GetCurrentMonitor();
+    int monitorW = GetMonitorWidth(monitor);
+    int monitorH = GetMonitorHeight(monitor);
+
+    if (m_isBorderlessFullscreen) {
+        // Switch to Windowed
+        LOG_INFO("Switching to Windowed Mode...");
+        SetWindowState(FLAG_WINDOW_UNDECORATED); // Temporarily ensure state for cleaner transition
+        ClearWindowState(FLAG_WINDOW_UNDECORATED); // Add decorations back
+        
+        // Restore saved windowed size or default to safe size
+        if (m_windowedWidth == 0 || m_windowedHeight == 0) {
+            // Default to 75% of monitor size if no saved state
+            m_windowedWidth = (int)(monitorW * 0.75f);
+            m_windowedHeight = (int)(monitorH * 0.75f);
+            m_windowedPosX = (monitorW - m_windowedWidth) / 2;
+            m_windowedPosY = (monitorH - m_windowedHeight) / 2;
+        }
+
+        SetWindowSize(m_windowedWidth, m_windowedHeight);
+        SetWindowPosition(m_windowedPosX, m_windowedPosY);
+        m_isBorderlessFullscreen = false;
+    } else {
+        // Switch to Borderless Fullscreen
+        LOG_INFO("Switching to Borderless Fullscreen...");
+        
+        // Save current windowed state
+        m_windowedWidth = GetScreenWidth();
+        m_windowedHeight = GetScreenHeight();
+        Vector2 pos = GetWindowPosition();
+        m_windowedPosX = (int)pos.x;
+        m_windowedPosY = (int)pos.y;
+
+        SetWindowState(FLAG_WINDOW_UNDECORATED);
+        SetWindowSize(monitorW, monitorH);
+        SetWindowPosition(0, 0);
+        m_isBorderlessFullscreen = true;
+    }
+}
 
 void Game::cleanup() {
   LOG_INFO("Cleaning up game systems...");

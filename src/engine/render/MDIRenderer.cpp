@@ -56,11 +56,14 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
   m_statsBuffer.Create(maxEntities * sizeof(components::GPUVisualStats), 3);
 
   // 3. Create Quad VAO
+  // Reordered for GL_TRIANGLE_STRIP: TL, BL, TR, BR
   float quadVertices[] = {
-      -0.5f, -0.5f, 0.0f, 0.0f, 0.5f,  -0.5f, 1.0f, 0.0f,
-      0.5f,  0.5f,  1.0f, 1.0f, -0.5f, 0.5f,  0.0f, 1.0f,
+      -0.5f,  0.5f,  0.0f, 1.0f, // 0: TL
+      -0.5f, -0.5f,  0.0f, 0.0f, // 1: BL
+       0.5f,  0.5f,  1.0f, 1.0f, // 2: TR
+       0.5f, -0.5f,  1.0f, 0.0f, // 3: BR
   };
-  unsigned int quadIndices[] = {0, 1, 2, 2, 3, 0};
+  unsigned int quadIndices[] = {0, 1, 2, 1, 3, 2}; // Standard strip indices (unused by DrawArraysIndirect)
 
   m_quadVAO = rlLoadVertexArray();
   rlEnableVertexArray(m_quadVAO);
