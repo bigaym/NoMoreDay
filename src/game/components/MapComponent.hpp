@@ -60,8 +60,12 @@ enum class PortalType : uint8_t {
   Town,     // 回城门
   Boss,     // BOSS房入口
   Return,   // 返回门（双向）
-  NextLevel // 下一层入口 (触发维度拼接编辑器)
+  NextLevel, // 下一层入口 (触发维度拼接编辑器)
+  DimensionalGate // 维度传送门 (在城镇中选择难度并开启)
 };
+
+// 待处理的维度传送门 UI 请求
+struct PendingDimensionalGateTag {};
 
 // 传送门组件
 struct PortalComponent {
@@ -93,4 +97,20 @@ struct TownPortalCastingComponent {
 };
 
 // 待处理的维度拼接编辑器请求 (由 PortalSystem 设置，GameplayState 处理)
+// 待处理的维度拼接编辑器请求 (由 PortalSystem 设置，GameplayState 处理)
 struct PendingMosaicEditorTag {};
+
+// JSON Serialization
+NLOHMANN_JSON_SERIALIZE_ENUM(PortalType, {
+    {PortalType::Dungeon, "Dungeon"},
+    {PortalType::Town, "Town"},
+    {PortalType::Boss, "Boss"},
+    {PortalType::Return, "Return"},
+    {PortalType::NextLevel, "NextLevel"},
+    {PortalType::DimensionalGate, "DimensionalGate"}
+})
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PortalComponent, 
+    type, targetBiome, targetLevel, targetEntranceId, isOneWay, isActive,
+    originBiome, originLevel, originX, originY,
+    radius)

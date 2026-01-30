@@ -77,6 +77,13 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
           return;
         }
 
+        // [New] Handle Dimensional Gate (Town Hub)
+        if (portalComp.type == PortalType::DimensionalGate) {
+            LOG_INFO("Player triggered Dimensional Gate - opening Rift Window");
+            registry.emplace_or_replace<PendingDimensionalGateTag>(player);
+            return;
+        }
+
         // Handle other portal types - direct transition
         LOG_INFO("Player triggered portal to {} (Level {})",
                  (int)portalComp.targetBiome, portalComp.targetLevel);
@@ -308,6 +315,11 @@ void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
       continue;
 
     // Determine color based on portal type
+    // Skip procedural rendering for DimensionalGate (it uses a sprite)
+    if (portal.type == PortalType::DimensionalGate) {
+        continue;
+    }
+
     Color ringColor = PURPLE;
     Color innerColor = DARKPURPLE;
 

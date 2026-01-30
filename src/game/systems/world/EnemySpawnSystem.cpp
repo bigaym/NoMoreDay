@@ -50,9 +50,15 @@ void EnemySpawnSystem::initData(int width, int height, int level,
   m_resonanceMods = {1.0f, 0, 0.0f, 0, 1.0f, 1.0f, 1.0f};
 
   if (state) {
+    // 1. Base Level Selection (User Choice + Depth Scaling)
+    // Depth scaling: +1 Level per depth layer (Depth 1 = Base, Depth 2 = Base+1, etc.)
+    m_areaLevel = std::max(1, state->selectedBaseLevel + (state->currentDepth - 1));
+    
+    // 2. Apply Resonance Modifiers
     const auto& resonance = state->resonance;
     m_resonanceMods.densityMultiplier = resonance.totalEnemyDensity;
-    m_resonanceMods.levelBonus = resonance.totalLevelMod;
+    // Keep levelBonus separate from base level (it's from affixes/fragments)
+    m_resonanceMods.levelBonus = resonance.totalLevelMod; 
     m_resonanceMods.dropRateBonus = resonance.totalDropRate;
     m_resonanceMods.dominantElement = static_cast<int>(resonance.dominantElement);
     
@@ -80,9 +86,18 @@ void EnemySpawnSystem::initData(int width, int height, int level,
         }
     }
 
-    LOG_INFO("EnemySpawnSystem: Applying Dimensional State - Density: {:.2f}, Level: +{}, Drop: {:.2f}, HP: {:.2f}x, Dmg: {:.2f}x",
+    // Depth Scaling for Stats (HP/Dmg +10% per depth beyond 1)
+    if (state->currentDepth > 1) {
+        float depthScale = 1.0f + (float)(state->currentDepth - 1) * 0.10f;
+        m_resonanceMods.hpMultiplier *= depthScale;
+        m_resonanceMods.damageMultiplier *= depthScale;
+        m_resonanceMods.dropRateBonus *= depthScale; // Reward scaling
+    }
+
+    LOG_INFO("EnemySpawnSystem: Dimensional Rift Depth {} (Base Lv: {}) - Density: {:.2f}, Bonus Lv: +{}, Drop: {:.2f}, HP: {:.2f}x",
+             state->currentDepth, m_areaLevel,
              m_resonanceMods.densityMultiplier, m_resonanceMods.levelBonus,
-             m_resonanceMods.dropRateBonus, m_resonanceMods.hpMultiplier, m_resonanceMods.damageMultiplier);
+             m_resonanceMods.dropRateBonus, m_resonanceMods.hpMultiplier);
   }
 
   LOG_INFO("EnemySpawnSystem: Initializing level data for biome '{}'",
@@ -347,7 +362,18 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
   }
 
   int effectiveAreaLevel = m_areaLevel + m_resonanceMods.levelBonus;
-  int monsterLevel = NoMoreDay::MonsterScaling::SyncLevel(effectiveAreaLevel, playerLevel);
+  
+  // Apply new Level Calculation Logic
+  // Check if we are in Mosaic Mode (m_resonanceMods.levelBonus > 0 is a heuristic, 
+  // but better to add a flag. For now assume if density/level mods exist it's likely scaling content)
+  bool isScalingContent = (m_resonanceMods.levelBonus > 0 || m_resonanceMods.densityMultiplier > 1.0f);
+  
+  int monsterLevel = NoMoreDay::MonsterScaling::CalculateMonsterLevel(
+      effectiveAreaLevel, 
+      playerLevel, 
+      rarity, 
+      isScalingContent
+  );
   esc.level = monsterLevel;
 
   NoMoreDay::MonsterScalingResult result = NoMoreDay::MonsterScaling::Calculate(raceType, monsterLevel, rarity);

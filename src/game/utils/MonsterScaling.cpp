@@ -59,24 +59,62 @@ MonsterScalingResult MonsterScaling::Calculate(
     }
     
     // XP Calculation
-    result.xpValue = baseXP * xpMultiplier;
+    // 使用最终等级重新计算 XP (高等级怪物给更多 XP)
+    float xpOpsLevel = static_cast<float>(std::max(1, level)); 
+    // 基础经验公式: Base * (1 + 0.05)^(Lv-1)
+    // 这里我们使用传入的 level (包含了 Rarity Offset)
+    // 这意味着 Boss (Lv+3) 会自然比同级普通怪多 (1.05^3) ≈ 1.15倍基础经验
+    // 然后再乘积下面的 rarity multiplier
+    
+    // Recalculate growth based on actual entity level
+    float xpGrowth = PowerCurve(XP_GROWTH_RATE, level);
+    
+    result.xpValue = baseXP * xpGrowth * xpMultiplier;
 
     return result;
 }
 
+int MonsterScaling::CalculateMonsterLevel(
+    int areaLevel,
+    int playerLevel,
+    EnemyRarityComponent::Rarity rarity,
+    bool isEndgameContent) {
+    
+    // 1. 基础等级判定
+    // Campaign: 严格遵循区域等级 (允许玩家碾压)
+    // Endgame: 动态等级，至少匹配玩家等级 (或区域等级更高)
+    int baseLevel = areaLevel;
+    
+    if (isEndgameContent) {
+        // Mosaic/Rift 模式下，怪物等级跟随玩家，但不会低于区域基础等级
+        // 允许区域等级高于玩家(如高层深渊)
+        baseLevel = std::max(areaLevel, playerLevel);
+    } else {
+        // Campaign 模式下，允许动态浮动，但有上限 (区域等级 + 2)
+        // 这样玩家回低级图依然有割草感，但同级图有微调
+        // 这里我们暂时保持 clear 的 Zone Level 设计
+        // 如果想引入 "动态难度"，可以在这里 max(areaLevel, playerLevel - 5)
+        baseLevel = areaLevel; 
+    }
+
+    // 2. 稀有度等级偏移 (Level Offset/Suppression)
+    // Boss 高 3 级意味着玩家对 Boss 的命中率/暴击率会天然降低 (参考 WoW/PoE)
+    int rarityOffset = 0;
+    switch (rarity) {
+        case EnemyRarityComponent::NORMAL: rarityOffset = 0; break;
+        case EnemyRarityComponent::CHAMPION: rarityOffset = 1; break;
+        case EnemyRarityComponent::ELITE: rarityOffset = 2; break;
+        case EnemyRarityComponent::BOSS: rarityOffset = 3; break;
+        case EnemyRarityComponent::NEMESIS: rarityOffset = 5; break;
+    }
+
+    return std::max(1, baseLevel + rarityOffset);
+}
+
 int MonsterScaling::SyncLevel(int areaLevel, int playerLevel) {
-    int minLevel = std::max(1, playerLevel - LEVEL_SYNC_OFFSET);
-    // 区域等级至少为1
-    int effectiveAreaLevel = std::max(1, areaLevel);
-    // 怪物等级取 max(玩家-5, 区域等级)
-    // 这样当玩家远超区域等级时，怪物不会变得太弱（但也不会因为玩家等级高就无限变强，除非是动态区域）
-    // WAIT: Spec says "max(minLevel, std::max(1, areaLevel))".
-    // This design implies monsters scale UP to player level even in low zones?
-    // "Synchronize monster level with the player's level, considering a level difference of -5"
-    // Usually ARPGs do NOT scale low zones up unless it's a specific mode (Scaling Mode).
-    // But the spec says: "SymcLevel(areaLevel, playerLevel) ... return max(minLevel, ...)"
-    // So yes, monsters will scale up to at least Player-5.
-    return std::max(minLevel, effectiveAreaLevel);
+    // Deprecated or used as helper for Base Area Level determination if needed.
+    // 目前保留作为简易 fallback
+    return std::max(std::max(1, playerLevel - LEVEL_SYNC_OFFSET), std::max(1, areaLevel));
 }
 
 float MonsterScaling::GetXPMultiplier(int monsterLevel, int playerLevel) {

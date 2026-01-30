@@ -1,5 +1,6 @@
 #pragma once
 #include "engine/resource/AssetRegistry.hpp"
+#include <array>
 
 namespace assets::ui
 {
@@ -48,6 +49,56 @@ namespace assets::ui
         constexpr assets::TextureAsset Slot_Ring_2 = {"slot_ring_2"_hs, "assets/textures/equipslot/item_ring_phoenix.png"}; // 戒指槽位 2
         constexpr assets::TextureAsset Slot_Weapon_Main = {"slot_weapon_main"_hs, "assets/textures/equipslot/item_weapon_main_sword.png"}; // 主手武器槽位
         constexpr assets::TextureAsset Slot_Weapon_Off = {"slot_weapon_off"_hs, "assets/textures/equipslot/item_weapon_off_shield.png"}; // 副手武器槽位
+
+
+        // 环境
+        constexpr assets::TextureAsset Env_Bamboo_Misty = {"env_bamboo_misty"_hs, "assets/textures/env/env_bamboo_misty.png"};
+        constexpr assets::TextureAsset Env_Incense_Burner = {"env_incense_burner"_hs, "assets/textures/env/env_incense_burner.png"};
+        constexpr assets::TextureAsset Env_Portal_Abyssal = {"env_portal_abyssal"_hs, "assets/textures/env/env_portal_abyssal.png"};
+        constexpr assets::TextureAsset Env_Portal_Arcane = {"env_portal_arcane"_hs, "assets/textures/env/env_portal_arcane.png"};   // 普通传送门，用于城镇选择地图
+        constexpr assets::TextureAsset Env_Portal_Divine = {"env_portal_divine"_hs, "assets/textures/env/env_portal_divine.png"};
+        constexpr assets::TextureAsset Env_Portal_Ghostly = {"env_portal_ghostly"_hs, "assets/textures/env/env_portal_ghostly.png"};
+        constexpr assets::TextureAsset Env_Portal_Infernal = {"env_portal_infernal"_hs, "assets/textures/env/env_portal_infernal.png"};
+        constexpr assets::TextureAsset Env_Rock_Cluster = {"env_rock_cluster"_hs, "assets/textures/env/env_rock_cluster.png"};
+        constexpr assets::TextureAsset Env_Statue_Broken = {"env_statue_broken"_hs, "assets/textures/env/env_statue_broken.png"};
+        constexpr assets::TextureAsset Env_Tree_Dead = {"env_tree_dead"_hs, "assets/textures/env/env_tree_dead.png"};
+
+        constexpr std::array<const assets::TextureAsset*, 34> All = {
+            &Inventory_Slot,
+            &Equipment_Slot,
+            &Panel_Background,
+            &Context_Menu_BG,
+            &Skill_LiuYunCi,
+            &Skill_LieKongZhan,
+            &Skill_WanJianJue,
+            &Skill_JianQiHuTi,
+            &Skill_WanJianGuiZong,
+            &Skill_ZhuXianJianZhen,
+            &Skill_XinJianWuYing,
+            &Skill_YuJianHuiXuan,
+            &Skill_JueYingShan,
+            &Slot_Amulet_Mirror,
+            &Slot_Armor_Chest,
+            &Slot_Boots,
+            &Slot_Gauntlets,
+            &Slot_Helmet,
+            &Slot_Leggings,
+            &Slot_Pauldrons,
+            &Slot_Ring_1,
+            &Slot_Ring_2,
+            &Slot_Weapon_Main,
+            &Slot_Weapon_Off,
+            &Env_Bamboo_Misty,
+            &Env_Incense_Burner,
+            &Env_Portal_Abyssal,
+            &Env_Portal_Arcane,
+            &Env_Portal_Divine,
+            &Env_Portal_Ghostly,
+            &Env_Portal_Infernal,
+            &Env_Rock_Cluster,
+            &Env_Statue_Broken,
+            &Env_Tree_Dead
+        };
     }
 
     namespace fonts

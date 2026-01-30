@@ -1,6 +1,7 @@
 #include "game/systems/world/LevelManager.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/resource/ResourceManager.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/MapComponent.hpp"
 #include "game/components/StashComponent.hpp"
 #include "game/data/BiomeRegistry.hpp"
@@ -160,6 +161,25 @@ void LevelManager::spawnLevelEntities() {
        m_registry->emplace<NoMoreDay::StashInteractableComponent>(sStash, NoMoreDay::StashType::Shared);
        m_registry->emplace<NoMoreDay::StashPlaceholderRender>(sStash);
        m_registry->emplace<LocalLevelTag>(sStash);
+
+       // [New] Dimensional Gate (Arcane Portal)
+       auto gate = m_registry->create();
+       m_registry->emplace<Position>(gate, 680.0f, 400.0f);
+       m_registry->emplace<LocalLevelTag>(gate);
+       
+       PortalComponent pc;
+       pc.type = PortalType::DimensionalGate;
+       pc.isActive = true;
+       pc.radius = 40.0f;
+       m_registry->emplace<PortalComponent>(gate, pc);
+
+       // Visuals using UIAssetRegistry
+       if (m_resources) {
+           m_resources->loadTexture(assets::ui::textures::Env_Portal_Arcane.id, std::string(assets::ui::textures::Env_Portal_Arcane.path));
+           auto& sprite = m_registry->emplace<SpriteComponent>(gate);
+           sprite.texture = m_resources->getTexture(assets::ui::textures::Env_Portal_Arcane.id);
+           sprite.scale = 0.7f; 
+       }
   }
 
   LOG_INFO("Scanning map for exit portals...");

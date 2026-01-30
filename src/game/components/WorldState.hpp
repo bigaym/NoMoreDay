@@ -30,6 +30,7 @@ struct ActiveDimensionalState {
     // Configuration
     BiomeID biome = BiomeID::None;
     int depthLevel = 1;
+    int selectedBaseLevel = 1; // User-selected base level from Town (Max: Player+10)
     
     // The Calculated Affixes and Rewards
     ResonanceResult resonance; 
@@ -60,7 +61,7 @@ struct ActiveDimensionalState {
 
 // JSON Serialization
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ActiveDimensionalState, 
-    isActive, seed, biome, depthLevel, 
+    isActive, seed, biome, depthLevel, selectedBaseLevel, 
     resonance, 
     explicitAffixes, aggregatedAffixes,
     difficultyScore, calculatedRarity, calculatedQuantity,

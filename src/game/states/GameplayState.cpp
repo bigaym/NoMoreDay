@@ -132,7 +132,8 @@ void GameplayState::OnEnter() {
   // 2. Initialize Level
   m_context->levelManager->initialize(resourceManager, *m_context->registry);
   using namespace NoMoreDay::Constants::World;
-  m_context->levelManager->loadNewLevel(NoMoreDay::BiomeID::Cave,
+  // Start in Town by default (as per user request: "将初始地图设置为平安镇")
+  m_context->levelManager->loadNewLevel(NoMoreDay::BiomeID::Town,
                                         WORLD_WIDTH / 10, WORLD_HEIGHT / 10);
 
   // 3. Initialize Entities (Player)

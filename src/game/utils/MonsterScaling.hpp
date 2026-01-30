@@ -25,6 +25,13 @@ public:
     // 等级同步
     static int SyncLevel(int areaLevel, int playerLevel);
     
+    // 等级计算 (包含稀有度偏移)
+    static int CalculateMonsterLevel(
+        int areaLevel,
+        int playerLevel,
+        EnemyRarityComponent::Rarity rarity,
+        bool isEndgameContent = false);
+
     // 经验乘数 (D3 风格)
     static float GetXPMultiplier(int monsterLevel, int playerLevel);
     

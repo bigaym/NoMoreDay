@@ -1,91 +1,296 @@
 ---
 name: systematic-debugging
-description: 专门针对 NoMoreDay (C++/EnTT) 架构的系统化调试框架。在处理任何 Bug、崩溃或非预期行为前使用。遵循“根因优先”原则，包含四阶段：根因调查、模式分析、假设测试、最终实现。
+description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
 ---
 
-# Systematic Debugging (NoMoreDay Edition)
+# Systematic Debugging
 
-## 0. 必须遵守的协议 (Mandatory Protocol)
+## Overview
 
-你必须严格按照以下顺序执行，**不可跳过任何步骤**：
+Random fixes waste time and create new bugs. Quick patches mask underlying issues.
 
-1.  **代码感知初始化 (MANDATORY)**: 在开始调查前，必须调用 `set_project_directory` 工具初始化项目路径（**使用当前项目的根目录**）。这允许你使用 `cpp-analyzer` 像在 IDE 中一样快速定位符号和理解代码结构。
-2.  **调查阶段 (Investigation)**: 使用只读工具 (read/search/cpp-analyzer) 和测试运行工具分析问题。
-    - 使用 `get_function_signature` 确认参数类型。
-    - 使用 `find_callers` 追踪崩溃函数的调用源。
-3.  **报告阶段 (Reporting)**: 向用户输出一份包含根因、证据和修复计划的详细报告。
-4.  **授权阶段 (Authorization)**: **显式停止**并询问用户：“是否授权执行此修复计划？”
-5.  **执行阶段 (Execution)**: 只有在获得用户肯定回答后，才可调用 `replace`/`write` 修改业务代码。
+**Core principle:** ALWAYS find root cause before attempting fixes. Symptom fixes are failure.
 
----
+**Violating the letter of this process is violating the spirit of debugging.**
 
-## 1. 根因调查 (Root Cause Investigation)
+## The Iron Law
 
-在动手修改代码前，必须回答：**它是如何、在何处、为什么崩溃/失败的？**
-
-### 1.1 错误信息深度解析
-- **EnTT 异常**: 检查是否在 `each()` 循环中删除了实体，或在持有组件引用时触发了 `emplace`/`erase`。
-- **内存错误**: 使用 `search_file_content` 检查嫌疑组件是否为 POD。是否存在跨线程访问未保护的组件。
-- **渲染故障**: 检查 SSBO 绑定点或 Compute Shader 的局部工作组大小 (Local Workgroup Size) 是否与 C++ 端定义的常量对齐。
-
-### 1.2 证据搜集 (Read-Only)
-- **Git 回溯**: `git diff HEAD --name-only` 查看最近变动。
-- **日志分析**: 阅读 `logs/` 目录下的最新日志。
-- **调用链追踪**: 必须使用 `search_file_content` 或相关工具追踪调用链。
-
-## 2. 模式分析 (Pattern Analysis)
-
-### 2.1 寻找参照物
-- 在 `src/` 中寻找实现相同逻辑的成功用例。
-- 对比当前失败代码与成功用例在内存布局、组件组合上的差异。
-
-### 2.2 验证假设
-- 提出明确假设：“我认为 X 是根因，因为 Y。”
-- **无损验证**: 通过添加日志 (`spdlog`) 或编写独立的单元测试来验证假设，**禁止直接修改业务逻辑**。
-
-## 3. 假设测试与复现 (Testing & Reproduction)
-
-### 3.1 强制复现测试 (MANDATORY)
-- 在 `tests/unit` 或 `tests/integration` 下编写最简化的复现代码。
-- 确保运行 `.\build.bat; build/bin/tests/NoMoreDayTests.exe` (或相应测试命令) 时该测试稳定失败。
-- 如果无法编写测试，必须详细记录手动复现步骤及观测到的中间状态。
-
-## 4. 报告与授权 (Report & Authorization)
-
-**在此阶段，你必须输出如下格式的报告，并停止操作等待用户回复：**
-
-```markdown
-# 调试分析报告
-
-## 1. 根因分析 (Root Cause)
-（详细解释导致 Bug 的根本原因，引用具体代码行号）
-
-## 2. 证据 (Evidence)
-（日志片段、堆栈跟踪、测试失败结果或逻辑矛盾点）
-
-## 3. 修复方案 (Proposed Solution)
-（清晰描述将要进行的修改，包括将要修改的文件和逻辑）
-
-## 4. 验证计划 (Verification Plan)
-（如何证明 Bug 已被修复？例如：运行测试 X）
+```
+NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ```
 
-**结束语必须是：“请确认以上分析和计划是否准确。我是否可以开始执行修复？”**
+If you haven't completed Phase 1, you cannot propose fixes.
 
-## 5. 最终实现 (Implementation)
+## When to Use
 
-*(仅在获得授权后执行)*
+Use for ANY technical issue:
+- Test failures
+- Bugs in production
+- Unexpected behavior
+- Performance problems
+- Build failures
+- Integration issues
 
-### 5.1 根因修复
-- 只解决报告中确定的根因。
-- 严禁“顺手”进行无关的重构。
-- 确保修复后，之前的复现测试通过。
+**Use this ESPECIALLY when:**
+- Under time pressure (emergencies make guessing tempting)
+- "Just one quick fix" seems obvious
+- You've already tried multiple fixes
+- Previous fix didn't work
+- You don't fully understand the issue
 
-### 5.2 架构反思
-- 如果修复需要对核心架构（如 `EntityManager` 或 `RenderSystem`）进行大规模改动，或者已经尝试了 2 次以上的修复均告失败：
-  **必须停止修复，与用户讨论架构设计是否存在根本性缺陷。**
+**Don't skip when:**
+- Issue seems simple (simple bugs have root causes too)
+- You're in a hurry (rushing guarantees rework)
+- Manager wants it fixed NOW (systematic is faster than thrashing)
 
-## 集成工具
-- `search_file_content`: 用于静态分析。
-- `auditor`: 用于修复后的安全性二次审计。
-- `performance-hardening`: 若 Bug 涉及性能抖动，需咨询此技能。
+## The Four Phases
+
+You MUST complete each phase before proceeding to the next.
+
+### Phase 1: Root Cause Investigation
+
+**BEFORE attempting ANY fix:**
+
+1. **Read Error Messages Carefully**
+   - Don't skip past errors or warnings
+   - They often contain the exact solution
+   - Read stack traces completely
+   - Note line numbers, file paths, error codes
+
+2. **Reproduce Consistently**
+   - Can you trigger it reliably?
+   - What are the exact steps?
+   - Does it happen every time?
+   - If not reproducible → gather more data, don't guess
+
+3. **Check Recent Changes**
+   - What changed that could cause this?
+   - Git diff, recent commits
+   - New dependencies, config changes
+   - Environmental differences
+
+4. **Gather Evidence in Multi-Component Systems**
+
+   **WHEN system has multiple components (CI → build → signing, API → service → database):**
+
+   **BEFORE proposing fixes, add diagnostic instrumentation:**
+   ```
+   For EACH component boundary:
+     - Log what data enters component
+     - Log what data exits component
+     - Verify environment/config propagation
+     - Check state at each layer
+
+   Run once to gather evidence showing WHERE it breaks
+   THEN analyze evidence to identify failing component
+   THEN investigate that specific component
+   ```
+
+   **Example (multi-layer system):**
+   ```bash
+   # Layer 1: Workflow
+   echo "=== Secrets available in workflow: ==="
+   echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
+
+   # Layer 2: Build script
+   echo "=== Env vars in build script: ==="
+   env | grep IDENTITY || echo "IDENTITY not in environment"
+
+   # Layer 3: Signing script
+   echo "=== Keychain state: ==="
+   security list-keychains
+   security find-identity -v
+
+   # Layer 4: Actual signing
+   codesign --sign "$IDENTITY" --verbose=4 "$APP"
+   ```
+
+   **This reveals:** Which layer fails (secrets → workflow ✓, workflow → build ✗)
+
+5. **Trace Data Flow**
+
+   **WHEN error is deep in call stack:**
+
+   See `root-cause-tracing.md` in this directory for the complete backward tracing technique.
+
+   **Quick version:**
+   - Where does bad value originate?
+   - What called this with bad value?
+   - Keep tracing up until you find the source
+   - Fix at source, not at symptom
+
+### Phase 2: Pattern Analysis
+
+**Find the pattern before fixing:**
+
+1. **Find Working Examples**
+   - Locate similar working code in same codebase
+   - What works that's similar to what's broken?
+
+2. **Compare Against References**
+   - If implementing pattern, read reference implementation COMPLETELY
+   - Don't skim - read every line
+   - Understand the pattern fully before applying
+
+3. **Identify Differences**
+   - What's different between working and broken?
+   - List every difference, however small
+   - Don't assume "that can't matter"
+
+4. **Understand Dependencies**
+   - What other components does this need?
+   - What settings, config, environment?
+   - What assumptions does it make?
+
+### Phase 3: Hypothesis and Testing
+
+**Scientific method:**
+
+1. **Form Single Hypothesis**
+   - State clearly: "I think X is the root cause because Y"
+   - Write it down
+   - Be specific, not vague
+
+2. **Test Minimally**
+   - Make the SMALLEST possible change to test hypothesis
+   - One variable at a time
+   - Don't fix multiple things at once
+
+3. **Verify Before Continuing**
+   - Did it work? Yes → Phase 4
+   - Didn't work? Form NEW hypothesis
+   - DON'T add more fixes on top
+
+4. **When You Don't Know**
+   - Say "I don't understand X"
+   - Don't pretend to know
+   - Ask for help
+   - Research more
+
+### Phase 4: Implementation
+
+**Fix the root cause, not the symptom:**
+
+1. **Create Failing Test Case**
+   - Simplest possible reproduction
+   - Automated test if possible
+   - One-off test script if no framework
+   - MUST have before fixing
+   - Use the `superpowers:test-driven-development` skill for writing proper failing tests
+
+2. **Implement Single Fix**
+   - Address the root cause identified
+   - ONE change at a time
+   - No "while I'm here" improvements
+   - No bundled refactoring
+
+3. **Verify Fix**
+   - Test passes now?
+   - No other tests broken?
+   - Issue actually resolved?
+
+4. **If Fix Doesn't Work**
+   - STOP
+   - Count: How many fixes have you tried?
+   - If < 3: Return to Phase 1, re-analyze with new information
+   - **If ≥ 3: STOP and question the architecture (step 5 below)**
+   - DON'T attempt Fix #4 without architectural discussion
+
+5. **If 3+ Fixes Failed: Question Architecture**
+
+   **Pattern indicating architectural problem:**
+   - Each fix reveals new shared state/coupling/problem in different place
+   - Fixes require "massive refactoring" to implement
+   - Each fix creates new symptoms elsewhere
+
+   **STOP and question fundamentals:**
+   - Is this pattern fundamentally sound?
+   - Are we "sticking with it through sheer inertia"?
+   - Should we refactor architecture vs. continue fixing symptoms?
+
+   **Discuss with your human partner before attempting more fixes**
+
+   This is NOT a failed hypothesis - this is a wrong architecture.
+
+## Red Flags - STOP and Follow Process
+
+If you catch yourself thinking:
+- "Quick fix for now, investigate later"
+- "Just try changing X and see if it works"
+- "Add multiple changes, run tests"
+- "Skip the test, I'll manually verify"
+- "It's probably X, let me fix that"
+- "I don't fully understand but this might work"
+- "Pattern says X but I'll adapt it differently"
+- "Here are the main problems: [lists fixes without investigation]"
+- Proposing solutions before tracing data flow
+- **"One more fix attempt" (when already tried 2+)**
+- **Each fix reveals new problem in different place**
+
+**ALL of these mean: STOP. Return to Phase 1.**
+
+**If 3+ fixes failed:** Question the architecture (see Phase 4.5)
+
+## your human partner's Signals You're Doing It Wrong
+
+**Watch for these redirections:**
+- "Is that not happening?" - You assumed without verifying
+- "Will it show us...?" - You should have added evidence gathering
+- "Stop guessing" - You're proposing fixes without understanding
+- "Ultrathink this" - Question fundamentals, not just symptoms
+- "We're stuck?" (frustrated) - Your approach isn't working
+
+**When you see these:** STOP. Return to Phase 1.
+
+## Common Rationalizations
+
+| Excuse | Reality |
+|--------|---------|
+| "Issue is simple, don't need process" | Simple issues have root causes too. Process is fast for simple bugs. |
+| "Emergency, no time for process" | Systematic debugging is FASTER than guess-and-check thrashing. |
+| "Just try this first, then investigate" | First fix sets the pattern. Do it right from the start. |
+| "I'll write test after confirming fix works" | Untested fixes don't stick. Test first proves it. |
+| "Multiple fixes at once saves time" | Can't isolate what worked. Causes new bugs. |
+| "Reference too long, I'll adapt the pattern" | Partial understanding guarantees bugs. Read it completely. |
+| "I see the problem, let me fix it" | Seeing symptoms ≠ understanding root cause. |
+| "One more fix attempt" (after 2+ failures) | 3+ failures = architectural problem. Question pattern, don't fix again. |
+
+## Quick Reference
+
+| Phase | Key Activities | Success Criteria |
+|-------|---------------|------------------|
+| **1. Root Cause** | Read errors, reproduce, check changes, gather evidence | Understand WHAT and WHY |
+| **2. Pattern** | Find working examples, compare | Identify differences |
+| **3. Hypothesis** | Form theory, test minimally | Confirmed or new hypothesis |
+| **4. Implementation** | Create test, fix, verify | Bug resolved, tests pass |
+
+## When Process Reveals "No Root Cause"
+
+If systematic investigation reveals issue is truly environmental, timing-dependent, or external:
+
+1. You've completed the process
+2. Document what you investigated
+3. Implement appropriate handling (retry, timeout, error message)
+4. Add monitoring/logging for future investigation
+
+**But:** 95% of "no root cause" cases are incomplete investigation.
+
+## Supporting Techniques
+
+These techniques are part of systematic debugging and available in this directory:
+
+- **`root-cause-tracing.md`** - Trace bugs backward through call stack to find original trigger
+- **`defense-in-depth.md`** - Add validation at multiple layers after finding root cause
+- **`condition-based-waiting.md`** - Replace arbitrary timeouts with condition polling
+
+**Related skills:**
+- **superpowers:test-driven-development** - For creating failing test case (Phase 4, Step 1)
+- **superpowers:verification-before-completion** - Verify fix worked before claiming success
+
+## Real-World Impact
+
+From debugging sessions:
+- Systematic approach: 15-30 minutes to fix
+- Random fixes approach: 2-3 hours of thrashing
+- First-time fix rate: 95% vs 40%
+- New bugs introduced: Near zero vs common
