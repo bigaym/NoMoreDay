@@ -49,3 +49,5 @@ scripts/aseets
 *.rar
 .claude_consciousness.m8
 .agent/
+
+saves/

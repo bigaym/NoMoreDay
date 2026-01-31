@@ -35,6 +35,10 @@ private:
 
   Font m_titleFont;
   float m_titleOpacity = 0.0f;
+  float m_timer = 0.0f;
+
+  bool m_isGameStarting = false; // Transitioning to gameplay
+  void SpawnGPUParticles();
 };
 
 } // namespace NoMoreDay

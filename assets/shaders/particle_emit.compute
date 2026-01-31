@@ -47,6 +47,6 @@ void main() {
     uint destIdx = atomicAdd(aliveCounter, 1);
     compacted[destIdx] = p;
     
-    // NOTE: instanceCount update removed to avoid race condition.
-    // CPU will update the Indirect Buffer with the final count.
+    // Update instanceCount with the new total after addition
+    memoryBarrierBuffer();
 }

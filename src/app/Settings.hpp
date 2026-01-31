@@ -8,7 +8,7 @@ namespace NoMoreDay {
 
     struct GameSettings {
         float cameraZoom = 1.5f;
-        int targetFPS = 180;  // Target frame rate (60, 120, or 180)
+        int targetFPS = 0;  // 0 for Unlimited FPS
 
         void Save(const std::string& filePath = "settings.json") {
             nlohmann::json j;

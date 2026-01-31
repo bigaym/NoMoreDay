@@ -80,6 +80,9 @@ GameplayState::GameplayState(StateManager &stateManager, SharedContext &context,
 
 void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
+  
+  // Clear any residual particles from previous states (e.g. Main Menu)
+  systems::GPUParticleSystem::Get().Clear();
 
   // [CRITICAL] Initialize Static Registries to prevent Async Race Conditions
   NoMoreDay::MapAffixRegistry::Initialize();

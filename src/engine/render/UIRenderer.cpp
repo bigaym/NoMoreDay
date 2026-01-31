@@ -105,9 +105,13 @@ void UIRenderer::DrawButton(const Font &font, Texture2D texture,
                        dest.y + (dest.height - textSize.y) * 0.5f};
 
     if (IsFontValid(font)) {
+      // Subtle Glow/Shadow for readability
+      DrawTextEx(font, text, {textPos.x + 1.0f * scale, textPos.y + 1.0f * scale}, scaledFontSize, 1.0f * scale, Fade(BLACK, 0.6f * alpha));
+      
       DrawTextEx(font, text, textPos, scaledFontSize, 1.0f * scale,
                  Fade(textColor, alpha));
     } else {
+      DrawText(text, (int)textPos.x + 1, (int)textPos.y + 1, (int)scaledFontSize, Fade(BLACK, 0.6f * alpha));
       DrawText(text, (int)textPos.x, (int)textPos.y, (int)scaledFontSize,
                Fade(textColor, alpha));
     }

@@ -46,6 +46,19 @@ public:
   // Read from a specific slot index
   void ReadFromSlot(void *data, size_t size, int slotIndex) const;
 
+  // Get byte offset for a specific slot
+  // In COMPAT mode, this is always 0 as the buffer only has one slot.
+  size_t GetSlotOffset(int slotIndex) const { 
+      return (m_mode == Mode::Persistent) ? (slotIndex * m_slotSize) : 0; 
+  }
+  size_t GetCurrentSlotOffset() const { 
+      return (m_mode == Mode::Persistent) ? (m_writeSlot * m_slotSize) : 0; 
+  }
+  size_t GetPreviousSlotOffset() const { 
+      if (m_mode == Mode::Compat) return 0;
+      return ((m_writeSlot - 1 + m_bufferCount) % m_bufferCount) * m_slotSize; 
+  }
+
   // Bind the buffer for reading by shaders
   // Bind current write slot (for physics/update)
   void BindBase(unsigned int bindingPoint) const;

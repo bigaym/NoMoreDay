@@ -22,6 +22,7 @@ public:
     // Lifecycle
     void Init(int maxParticles = 100000);
     void Shutdown();
+    void Clear(); // Kill all active particles immediately
     
     // Per-frame operations
     void Update(float dt);
@@ -55,6 +56,11 @@ private:
     int m_currentParticleCount = 0;  // Total particles in buffer (alive + dead slots)
     int m_targetDispatchCount = 0;   // Adaptive dispatch range
     bool m_pingPong = false;         // For double buffering (input/output swap)
+    bool m_requestClear = false;     // Trigger full GPU reset in next Update
+    float m_totalTime = 0.0f;        // Total elapsed time for noise/variation
+    
+    void HardResetGPU();            // Physically zero out GPU buffers
+    void FinalizeFrame();           // Run finalize shader 
     
     // Lock-free Emission
     std::atomic<uint32_t> m_emitHead{0};
@@ -95,6 +101,7 @@ private:
     // Phase 3: Emission Buffer
     render::PersistentBuffer m_emissionBuffer;
     Shader m_emitShader = { 0 };
+    Shader m_finalizeShader = { 0 }; // Pass 3: Sync atomic to indirect
     int m_emitCountLoc = -1;
 };
 

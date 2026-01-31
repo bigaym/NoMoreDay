@@ -38,7 +38,8 @@ Game::Game(int width, int height, const char *title)
   // FLAG_WINDOW_RESIZABLE: Allows user resizing
   // FLAG_MSAA_4X_HINT: Anti-aliasing
   // NOTE: HighDPI flag removed to match previous GCC behavior.
-  // NOTE: VSYNC flag removed to allow uncapped FPS for benchmarking.
+  // Ensure VSync is disabled to allow uncapped FPS
+  // ClearConfigFlags(FLAG_VSYNC_HINT); // Not supported in this Raylib version
   SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_MSAA_4X_HINT);
 
   InitWindow(m_screenWidth, m_screenHeight, m_title);
@@ -246,10 +247,12 @@ void Game::run() {
             if (logicRan && m_gpuInfo.computeShaderSupported) {
               // Submit new pulse to GPU
               m_gpuEntitySystem.UploadGPU(m_context);
-              
-              // Update particle system
-              NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
             }  
+
+            // Update particle system (Always run to process menu particles and emissions)
+            if (m_gpuInfo.computeShaderSupported) {
+                NoMoreDay::systems::GPUParticleSystem::Get().Update(frameTime);
+            }
         // Update Interpolation Alpha for Rendering
         // alpha = accumulator / fixedDt, range [0, 1)
         // This allows smooth interpolation between physics frames

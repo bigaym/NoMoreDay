@@ -56,8 +56,8 @@ void main() {
     // Apply acceleration
     p.velocity += p.acceleration * dt;
     
-    // Apply drag (2.0 is drag coefficient)
-    p.velocity *= (1.0 - 2.0 * dt);
+    // Apply drag (0.5 is a gentler drag for longer lasting travel)
+    p.velocity *= (1.0 - 0.5 * dt);
     
     // Update position
     p.position += p.velocity * dt;
@@ -79,9 +79,6 @@ void main() {
         compacted[destIdx] = p;
     }
 
-    // Wait for all threads to finish atomic adds, then first thread updates indirect buffer
+    // Wait for all threads to finish atomic adds
     memoryBarrierBuffer();
-    if (id == 0) {
-        instanceCount = aliveCounter;
-    }
 }

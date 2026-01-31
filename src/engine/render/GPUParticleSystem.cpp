@@ -20,6 +20,8 @@
 #endif
 
 namespace NoMoreDay::systems {
+using namespace NoMoreDay::RenderConstants;
+
 
 GPUParticleSystem &GPUParticleSystem::Get() {
   static GPUParticleSystem instance;
@@ -80,7 +82,51 @@ void GPUParticleSystem::Shutdown() {
   }
 
   m_emissionBuffer.Destroy();
+  
+  if (m_finalizeShader.id != 0) {
+      rlUnloadShaderProgram(m_finalizeShader.id);
+  }
+
   m_initialized = false;
+}
+
+void GPUParticleSystem::HardResetGPU() {
+    // Deprecated: Logical Clear is sufficient and faster.
+    Clear();
+}
+
+void GPUParticleSystem::Clear() {
+  if (!m_initialized)
+    return;
+
+  // 1. Reset CPU state to stop Dispatch in Update()
+  m_lastKnownAliveCount = 0;
+  m_currentParticleCount = 0;
+  m_emitHead = 0;
+  
+  // 2. Reset ALL slots in the Triple Buffer chain
+  // This ensures that no matter which slot Render() or Update() picks up next, it sees 0.
+  // We rely on the fact that calling Lock() advances the slot index.
+  const int bufferCount = m_atomicBuffer.GetBufferCount(); // Should be 3
+  
+  uint32_t zeroAtomic = 0;
+  DrawArraysIndirectCommand zeroCmd = {6, 0, 0, 0};
+
+  for (int i = 0; i < bufferCount; ++i) {
+      // Clear Atomic Counter
+      uint32_t* atomicPtr = (uint32_t*)m_atomicBuffer.BeginWrite();
+      if (atomicPtr) *atomicPtr = zeroAtomic;
+      m_atomicBuffer.Flush();
+      m_atomicBuffer.Lock(); // Advance to next slot
+
+      // Clear Indirect Buffer
+      void* indirectPtr = m_indirectBuffer.BeginWrite();
+      if (indirectPtr) memcpy(indirectPtr, &zeroCmd, sizeof(zeroCmd));
+      m_indirectBuffer.Flush();
+      m_indirectBuffer.Lock(); // Advance to next slot
+  }
+  
+  LOG_INFO("GPUParticleSystem: Logical clear executed (All slots reset).");
 }
 
 void GPUParticleSystem::LoadShaders() {
@@ -122,6 +168,35 @@ void GPUParticleSystem::LoadShaders() {
   } else {
     LOG_ERROR("GPUParticleSystem: Render shader loading failed!");
   }
+
+  // 3. Load Emission Shader
+  std::ifstream emitFile("assets/shaders/particle_emit.compute");
+  if (emitFile.is_open()) {
+    std::stringstream ss;
+    ss << emitFile.rdbuf();
+    unsigned int emitCompId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
+    if (emitCompId != 0) {
+      m_emitShader.id = rlLoadComputeShaderProgram(emitCompId);
+      m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
+    }
+  }
+
+  // 4. Load Finalize Shader
+  std::ifstream finalizeFile("assets/shaders/particle_finalize.compute");
+  if (finalizeFile.is_open()) {
+    std::stringstream ss;
+    ss << finalizeFile.rdbuf();
+    unsigned int finCompId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
+    if (finCompId != 0) {
+      m_finalizeShader.id = rlLoadComputeShaderProgram(finCompId);
+    }
+  }
+
+  // Verify core shaders
+  if (m_computeShader.id == 0 || m_renderShader.id == 0 ||
+      m_emitShader.id == 0 || m_finalizeShader.id == 0) {
+    LOG_ERROR("GPUParticleSystem: [AG] Shader initialization incomplete!");
+  }
 }
 
 void GPUParticleSystem::CreateBuffers() {
@@ -158,16 +233,6 @@ void GPUParticleSystem::CreateBuffers() {
   m_mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
   m_emitHead = 0;
 
-  std::ifstream emitFile("assets/shaders/particle_emit.compute");
-  if (emitFile.is_open()) {
-    std::stringstream ss;
-    ss << emitFile.rdbuf();
-    unsigned int shId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
-    if (shId) {
-      m_emitShader.id = rlLoadComputeShaderProgram(shId);
-      m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
-    }
-  }
 }
 
 void GPUParticleSystem::CreateQuadVAO() {
@@ -228,7 +293,6 @@ void GPUParticleSystem::Update(float dt) {
   if (!m_initialized)
     return;
 
-  using namespace NoMoreDay::RenderConstants;
 
   // 1. Swap buffers for ping-pong
   core::ComputeBuffer &bufIn = m_pingPong ? m_compactBuffer : m_particleBuffer;
@@ -242,24 +306,34 @@ void GPUParticleSystem::Update(float dt) {
       m_readbackFrameCounter = 0;
   }
 
-  // 1. Reset current atomic counter to 0 (No OpenGL calls, just pointer write)
+  // 1. Reset current atomic counter and initialize INDIRECT buffer slot
   uint32_t* atomicPtr = (uint32_t*)m_atomicBuffer.BeginWrite();
   if (atomicPtr) {
       *atomicPtr = 0;
   }
   m_atomicBuffer.Flush();
 
+  // Initialize Indirect Buffer Command for THIS frame
+  // The GPU will later overwrite instanceCount in the compute shader
+  {
+      void* ptr = m_indirectBuffer.BeginWrite();
+      if (ptr) {
+          DrawArraysIndirectCommand cmd = {6, 0, 0, 0}; 
+          memcpy(ptr, &cmd, sizeof(cmd));
+      }
+      m_indirectBuffer.Flush();
+  }
+
   // 2. Dispatch simulation compute shader
   {
     // Phase 5: Adaptive Dispatch Range
-    // If no alive particles and no new emissions, shrink dispatch to 0
-    if (m_lastKnownAliveCount == 0 && m_emitHead.load() == 0) {
+    // If we have no alive particles AND no recent emissions, we can idle.
+    if (m_lastKnownAliveCount == 0 && m_emitHead.load() == 0 && m_currentParticleCount == 0) {
         m_targetDispatchCount = 0;
     } else {
-        // Keep a buffer of 2048 slots or the current total count, whichever is needed
-        m_targetDispatchCount = std::max((int)m_lastKnownAliveCount + 2048, (int)m_currentParticleCount);
-        // Clamp to max particles
-        m_targetDispatchCount = std::min(m_targetDispatchCount, m_maxParticles);
+        // Use the conservative estimate to ensure all particles are updated
+        m_targetDispatchCount = (int)std::max<uint32_t>(m_lastKnownAliveCount + 2048, (uint32_t)m_currentParticleCount);
+        m_targetDispatchCount = (int)std::min<uint32_t>((uint32_t)m_targetDispatchCount, (uint32_t)m_maxParticles);
     }
 
     if (m_targetDispatchCount > 0) {
@@ -286,7 +360,7 @@ void GPUParticleSystem::Update(float dt) {
         rlComputeShaderDispatch(workGroups, 1, 1);
         }
 
-        utils::GPUUtils::MemoryBarrier();
+        utils::GPUUtils::MemoryBarrier(Barrier::All);
         rlDisableShader();
     } else {
         // Idle: Skip compute, but still need to clear/reset for emission logic
@@ -296,20 +370,16 @@ void GPUParticleSystem::Update(float dt) {
 
   // 3. Emission Logic (Lock-Free)
   uint32_t survivors = m_lastKnownAliveCount;
-  uint32_t totalAfterEmission = survivors;
+  uint32_t totalAfterEmission = survivors; // declared and initialized
   
   uint32_t totalNewToEmit = m_emitHead.load();
   if (totalNewToEmit > 0) {
-      uint32_t allowedNew = std::min(totalNewToEmit, m_emissionCap);
+      uint32_t allowedNew = std::min<uint32_t>(totalNewToEmit, m_emissionCap);
       
-      // Soft limit check
-      if (survivors + allowedNew > (uint32_t)m_maxParticles * 0.95f) {
-        allowedNew = std::max(0, (int)(m_maxParticles * 0.95f) - (int)survivors);
-        if (allowedNew < totalNewToEmit) {
-          LOG_WARN("GPUParticleSystem: Throttling emission ({} -> {}).", totalNewToEmit, allowedNew);
-        }
-      }
-
+      // Accumulate to our CPU estimate so next frame's dispatch includes these
+      m_currentParticleCount += (int)allowedNew; 
+      m_currentParticleCount = (int)std::min<uint32_t>((uint32_t)m_currentParticleCount, (uint32_t)m_maxParticles);
+      
       if (allowedNew > 0 && m_emitShader.id != 0) {
           // Sync CPU writes to GPU
           m_emissionBuffer.Flush();
@@ -321,38 +391,54 @@ void GPUParticleSystem::Update(float dt) {
 
           m_emissionBuffer.BindBase(ParticleCS::PARTICLES_IN);
           bufOut.BindBase(ParticleCS::PARTICLES_OUT);
+          m_indirectBuffer.BindBase(ParticleCS::INDIRECT_CMD); // Ensure GPU can update the count
           m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
 
           int workGroups = (newCountInt + 255) / 256;
           rlComputeShaderDispatch(workGroups, 1, 1);
-          utils::GPUUtils::MemoryBarrier();
+          utils::GPUUtils::MemoryBarrier(Barrier::All);
           rlDisableShader();
 
-          totalAfterEmission += allowedNew;
+          totalAfterEmission += allowedNew; 
       }
   }
 
-  // 4. Finalize emission buffer for this frame and prepare for next
+  // 4. Finalize the frame (Copy atomic to indirect)
+  FinalizeFrame();
+
+  // 5. Finalize emission buffer and lock ALL persistent buffers for this frame
   m_emissionBuffer.Lock();
   m_mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
   m_emitHead = 0;
+  
+  m_totalTime += dt;
 
-  // 5. Update Indirect Buffer for rendering
-  {
-    // This ensures the RENDER step (which happens AFTER Update) uses valid counts.
-    DrawArraysIndirectCommand cmd = {6, totalAfterEmission, 0, 0};
-    void* ptr = m_indirectBuffer.BeginWrite();
-    if (ptr) {
-        memcpy(ptr, &cmd, sizeof(cmd));
-    }
-    m_indirectBuffer.Flush();
-    m_indirectBuffer.Lock(); // Advance slot
+  // Advance Slot for next frame
+  m_indirectBuffer.Lock(); 
+
+  // 5. Reset Particle Count Estimate only on Sync
+  if (m_readbackFrameCounter == 0) {
+      m_currentParticleCount = survivors; // Sync with actual alive count from GPU
   }
-
-  // 6. Update state for next frame
-  m_currentParticleCount = totalAfterEmission;
+  
   m_pingPong = !m_pingPong;
   m_atomicBuffer.Lock(); // Advance atomic slot and insert fence
+}
+
+void GPUParticleSystem::FinalizeFrame() {
+    if (m_finalizeShader.id == 0) return;
+
+    rlEnableShader(m_finalizeShader.id);
+    
+    // Bind current buffers
+    // Binding points must match particle_finalize.compute
+    m_indirectBuffer.BindBase(2); // INDIRECT_CMD
+    m_atomicBuffer.BindBase(3);   // ATOMIC_COUNT
+    
+    rlComputeShaderDispatch(1, 1, 1);
+    utils::GPUUtils::MemoryBarrier(Barrier::All);
+    
+    rlDisableShader();
 }
 
 Matrix GPUParticleSystem::BuildMVP(const Camera2D &camera) const {
@@ -394,7 +480,8 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   Matrix mvp = BuildMVP(camera);
 
   // Begin rendering
-  BeginBlendMode(BLEND_ADDITIVE);
+  // Use BLEND_ALPHA to support dark particles (Ink) which are invisible in BLEND_ADDITIVE
+  BeginBlendMode(BLEND_ALPHA);
   BeginShaderMode(m_renderShader);
 
   // Set MVP uniform
@@ -415,9 +502,9 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   rlDisableBackfaceCulling(); // Ensure we see both sides
 
   // Indirect Draw using the buffer updated by GPU
-  // Type 1 = Previous Slot (since Update() just locked and advanced the slot)
-  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER, 1);
-  utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES, 0);
+  // We use the PREVIOUS slot because Update() just finished writing to it and advanced the slot.
+  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER, 0); 
+  utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES, m_indirectBuffer.GetPreviousSlotOffset());
   utils::GPUUtils::BindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
   // Cleanup

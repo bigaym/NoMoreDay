@@ -324,6 +324,11 @@ constexpr Color STATUS_DANGER = {200, 50, 50, 255};  // Red/Danger
 constexpr Color STATUS_SUCCESS = {50, 200, 50, 255}; // Green/Success
 constexpr Color STATUS_INFO = {60, 160, 255, 255};   // Blue/Info
 
+// --- Main Menu / Pause Menu Colors ---
+constexpr Color MENU_BTN_TEXT_NORMAL = {220, 230, 225, 255};      // Silk White (帛白) - High contrast on dark background
+constexpr Color MENU_BTN_TEXT_HOVER = {255, 100, 80, 255};       // Bright Cinnabar (鲜朱砂) - Interact feedback
+constexpr Color MENU_BTN_TEXT_PRESS = {160, 40, 30, 255};       // Deep Cinnabar (暗朱砂) - Strong feedback
+
 // --- Blade Ascendant Theme (剑修主题) ---
 
 // Low opacity trail color (Very faint water/ink)

@@ -113,16 +113,21 @@ namespace NoMoreDay {
     void PauseState::DrawButton(const Button& btn) {
         Texture2D tex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Menu.id);
         
+        // Use a slightly darker tint for the button texture to make the light text pop
+        Color tint = Color{200, 200, 200, 255};
+        bool isPressed = btn.hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT);
+        Color textColor = isPressed ? components::Colors::MENU_BTN_TEXT_PRESS : (btn.hovered ? components::Colors::MENU_BTN_TEXT_HOVER : components::Colors::MENU_BTN_TEXT_NORMAL);
+
         UIRenderer::DrawButton(
             UISystem::GetFont(),
             tex,
             btn.bounds,
             btn.text.c_str(),
             26.0f,
-            btn.hovered ? YELLOW : WHITE,
-            WHITE,
+            textColor,
+            tint,
             btn.hovered,
-            btn.hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+            isPressed
         );
     }
 
