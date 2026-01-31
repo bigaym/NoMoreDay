@@ -386,8 +386,8 @@ void MapSystem::generateTownMap(int width, int height) {
   // Place exit portal (STAIRS_DOWN) - leads to dungeon
   // Safe bounds check
   using namespace NoMoreDay::Constants::World::Map;
-  int exitX = std::clamp(cx + TOWN_EXIT_OFFSET, 1, width - 2);
-  int exitY = std::clamp(cy - TOWN_EXIT_OFFSET, 1, height - 2);
+  int exitX = std::clamp(cx + TOWN_EXIT_X_OFFSET, 1, width - 2);
+  int exitY = std::clamp(cy + TOWN_EXIT_Y_OFFSET, 1, height - 2);
   m_mapData.grid[exitY * width + exitX].type = Tile::Type::STAIRS_DOWN;
 
   // Initialize flow field

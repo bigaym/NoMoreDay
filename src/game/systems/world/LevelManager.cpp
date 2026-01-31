@@ -161,25 +161,6 @@ void LevelManager::spawnLevelEntities() {
        m_registry->emplace<NoMoreDay::StashInteractableComponent>(sStash, NoMoreDay::StashType::Shared);
        m_registry->emplace<NoMoreDay::StashPlaceholderRender>(sStash);
        m_registry->emplace<LocalLevelTag>(sStash);
-
-       // [New] Dimensional Gate (Arcane Portal)
-       auto gate = m_registry->create();
-       m_registry->emplace<Position>(gate, 680.0f, 400.0f);
-       m_registry->emplace<LocalLevelTag>(gate);
-       
-       PortalComponent pc;
-       pc.type = PortalType::DimensionalGate;
-       pc.isActive = true;
-       pc.radius = 40.0f;
-       m_registry->emplace<PortalComponent>(gate, pc);
-
-       // Visuals using UIAssetRegistry
-       if (m_resources) {
-           m_resources->loadTexture(assets::ui::textures::Env_Portal_Arcane.id, std::string(assets::ui::textures::Env_Portal_Arcane.path));
-           auto& sprite = m_registry->emplace<SpriteComponent>(gate);
-           sprite.texture = m_resources->getTexture(assets::ui::textures::Env_Portal_Arcane.id);
-           sprite.scale = 0.7f; 
-       }
   }
 
   LOG_INFO("Scanning map for exit portals...");
@@ -206,6 +187,15 @@ void LevelManager::spawnLevelEntities() {
         if (getCurrentBiomeID() == NoMoreDay::BiomeID::Town) {
             // Town Exit -> Dimensional Gate (Triggers Level Select)
             pc.type = PortalType::DimensionalGate;
+            pc.radius = 40.0f; // Larger radius for town gate
+
+            // Add Visual Sprite for Dimensional Gate in Town
+            if (m_resources) {
+                m_resources->loadTexture(assets::ui::textures::Env_Portal_Arcane.id, std::string(assets::ui::textures::Env_Portal_Arcane.path));
+                auto& sprite = m_registry->emplace<SpriteComponent>(entity);
+                sprite.texture = m_resources->getTexture(assets::ui::textures::Env_Portal_Arcane.id);
+                sprite.scale = 0.8f; // Slightly larger
+            }
         } else {
             // Dungeon Exit -> Next Level (Triggers Mosaic directly)
             pc.type = PortalType::NextLevel;

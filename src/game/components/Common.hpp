@@ -25,7 +25,8 @@ namespace NoMoreDay::Constants
     {
       constexpr uint8_t COST_WALL = 255;        // 墙壁的寻路代价（不可通行）
       constexpr uint8_t COST_FLOOR = 1;         // 地板的寻路代价（默认）
-      constexpr int TOWN_EXIT_OFFSET = 10;      // 城镇出口的偏移量
+      constexpr int TOWN_EXIT_X_OFFSET = 12;      // 城镇出口 X 偏移 (向右移)
+constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向上)
       constexpr int FLOW_FIELD_MAX_DEPTH = 100; // 流场寻路的最大搜索深度
       constexpr float RENDER_PADDING = 4.0f;    // 地图渲染时的额外缓冲距离
     } // namespace Map

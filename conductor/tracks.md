@@ -6,7 +6,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ## [x] Track: Dimensional Level Selection & Fragment Failsafe
 - **Folder:** [./conductor/tracks/dimensional-level-select/](./conductor/tracks/dimensional-level-select/)
-- **Description:** 优化维度地图的进入体验。新增了等级选择界面，允许玩家在 (1 ~ 玩家等级+10) 范围内自定义难度。实现了默认碎片检测机制，防止空背包卡关。修复了城镇传送门触发逻辑，并将地图等级信息整合至小地图 UI。(Completed on 2026-01-31)
+- **Description:** 优化维度地图的进入体验。新增了等级选择界面，允许玩家在 (1 ~ 玩家等级+10) 范围内自定义难度。实现了默认碎片检测机制，防止空背包卡关。修复了城镇传送门触发逻辑，并对齐了传送门视觉素材与实际触发区域。 (Completed on 2026-01-31)
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 0.5 day
