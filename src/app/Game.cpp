@@ -262,7 +262,7 @@ void Game::run() {
                               frameTime * 1000.0f);
         
             {
-              NoMoreDay::utils::ScopedTimer timer("Frame Render", 500); 
+              NoMoreDay::utils::ScopedTimer timer("Frame Render", 5000); 
               BeginDrawing();
               ClearBackground(BLACK);
               m_stateManager->Render();

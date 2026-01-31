@@ -1,27 +1,10 @@
 #pragma once
 
-#include "GLFW/glfw3.h"
 #include "raylib.h"
 #include "rlgl.h"
+#include "GLFW/glfw3.h"
 #include <cstdint>
 #include <vector>
-
-// Unified OpenGL pointer for functions not in rlgl
-#ifndef APIENTRY
-#if defined(_WIN32)
-#define APIENTRY __stdcall
-#else
-#define APIENTRY
-#endif
-#endif
-
-// Forward declaration of GL sync primitive
-#ifndef __gl_h_
-#ifndef GL_SYNC_TYPEDEF_
-typedef struct __GLsync *GLsync;
-#define GL_SYNC_TYPEDEF_
-#endif
-#endif
 
 namespace NoMoreDay::render {
 

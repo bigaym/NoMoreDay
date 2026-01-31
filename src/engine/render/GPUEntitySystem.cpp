@@ -197,46 +197,34 @@ void GPUEntitySystem::UpdateLogic(const NoMoreDay::SharedContext &context, float
 }
 
 void GPUEntitySystem::UploadGPU(const NoMoreDay::SharedContext &context) {
-  NoMoreDay::utils::ScopedTimer timer("Upload GPU", 50);
+  NoMoreDay::utils::ScopedTimer timer("Upload GPU", 50); // Keep sensitive to track improvements
   using namespace NoMoreDay::utils;
-  // --- Step 2: GPU Upload (Fastest possible mapping period) ---
   
-  // Bulk Upload for Entities
-  size_t copyCount =
-      std::min((size_t)m_highWaterMark + 128, (size_t)m_maxEntities);
+  // 1. Entity Data Upload (Full bulk for physics consistency, but optimized range)
+  size_t activeCount = std::min((size_t)m_highWaterMark + 1, (size_t)m_maxEntities);
+  size_t uploadSize = activeCount * sizeof(components::GPUEntity);
 
-  {
-    // 1. Entity Data Upload
-    components::GPUEntity *gpuPtr = (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
-    if (gpuPtr) {
-        memcpy(gpuPtr, m_shadowBuffer.data(), copyCount * sizeof(components::GPUEntity));
-    }
-
-    // 2. Visual Stats Upload (Sparse)
-    if (context.renderContext) {
-      auto& mdi = context.renderContext->MDI();
-      for (uint32_t idx : m_updatedStatsIndices) {
-          mdi.UpdateStat(idx, m_visualStatsShadowBuffer[idx]);
+  if (uploadSize > 0) {
+      components::GPUEntity *gpuPtr = (components::GPUEntity *)m_persistentEntityBuffer.BeginWrite();
+      if (gpuPtr) {
+          // Only memcpy the active range
+          memcpy(gpuPtr, m_shadowBuffer.data(), uploadSize);
       }
-      mdi.FlushStatsUpdates(*context.resources);
-      mdi.SetMaxActiveEntities((uint32_t)copyCount);
-    } else {
-      auto& mdi = NoMoreDay::render::MDIRenderer::Get();
-      for (uint32_t idx : m_updatedStatsIndices) {
-          mdi.UpdateStat(idx, m_visualStatsShadowBuffer[idx]);
-      }
-      mdi.FlushStatsUpdates(*context.resources);
-      mdi.SetMaxActiveEntities((uint32_t)copyCount);
-    }
-
-    // 3. Global Memory Barrier (This flushes all client-mapped memory to GPU)
-    size_t entitySize = copyCount * sizeof(components::GPUEntity);
-    m_persistentEntityBuffer.FlushRange(0, entitySize);
+      m_persistentEntityBuffer.FlushRange(0, uploadSize);
   }
+
+  // 2. Visual Stats Upload (Sparse update via Scatter Compute)
+  if (!m_updatedStatsIndices.empty()) {
+      auto& mdi = NoMoreDay::render::MDIRenderer::Get();
+      mdi.FlushStatsUpdates(*context.resources); // This handles m_updatedStatsIndices internally
+  }
+  
+  // Update MDI active count even if no stats changed
+  auto& mdi = NoMoreDay::render::MDIRenderer::Get();
+  mdi.SetMaxActiveEntities((uint32_t)activeCount);
 
   m_persistentEntityBuffer.Lock();
 }
-
 void GPUEntitySystem::SyncBack(entt::registry &registry) {
   // CPU Authority: SyncBack is disabled to prevent stale/extrapolated GPU data
   // from overwriting the CPU source of truth.

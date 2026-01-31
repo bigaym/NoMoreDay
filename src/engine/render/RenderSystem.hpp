@@ -11,6 +11,10 @@ namespace NoMoreDay::core {
     class ComputeBuffer;
 }
 
+namespace NoMoreDay::systems {
+    class SIMDSpatialGrid;
+}
+
 class RenderSystem {
 public:
     // --- Phase 1 Optimization: Shared Visibility Cache ---
@@ -53,6 +57,12 @@ private:
     static int s_labelMvpLoc;
     static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_labelInstanceBuffer;
     
+public:
+    // Phase 4: Loot Label Spatial Optimization
+    static std::unique_ptr<NoMoreDay::systems::SIMDSpatialGrid> s_itemGrid;
+    static bool s_itemGridDirty;
+
+private:
     // Rendering Queues
     static std::vector<NoMoreDay::components::GPULabelInstance> s_labelBuffer;
     static std::vector<TextRenderCmd> s_textQueue;

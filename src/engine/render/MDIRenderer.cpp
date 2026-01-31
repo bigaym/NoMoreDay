@@ -179,7 +179,7 @@ void MDIRenderer::FlushStatsRange(size_t count) {
 }
 
 void MDIRenderer::Cull(ResourceManager &rm, const PersistentBuffer &entities, Vector4 viewBounds) {
-  NoMoreDay::utils::ScopedTimer timer("MDI Cull", 50);
+  NoMoreDay::utils::ScopedTimer timer("MDI Cull", 3000); 
   using namespace NoMoreDay::RenderConstants;
 
   if (m_cullShader.id == 0)

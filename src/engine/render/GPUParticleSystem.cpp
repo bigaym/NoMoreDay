@@ -136,20 +136,20 @@ void GPUParticleSystem::CreateBuffers() {
   m_compactBuffer.Create(totalSize);
   LOG_DEBUG("GPUParticleSystem: Created compact buffer ({} bytes)", totalSize);
 
-  // DrawIndirect buffer (16 bytes)
-  DrawArraysIndirectCommand cmd = {6, 0, 0,
-                                   0}; // 6 vertices, 0 instances initially
-  m_indirectBuffer.Create(sizeof(DrawArraysIndirectCommand));
-  m_indirectBuffer.Update(&cmd, sizeof(cmd));
-  LOG_DEBUG("GPUParticleSystem: Created indirect buffer");
+  // DrawIndirect buffer (16 bytes - Persistent/Triple Buffered)
+  m_indirectBuffer.Create(sizeof(DrawArraysIndirectCommand), 3);
+  {
+      DrawArraysIndirectCommand cmd = {6, 0, 0, 0};
+      void* ptr = m_indirectBuffer.BeginWrite();
+      if (ptr) memcpy(ptr, &cmd, sizeof(cmd));
+      m_indirectBuffer.Flush();
+      m_indirectBuffer.Lock();
+  }
+  LOG_DEBUG("GPUParticleSystem: Created persistent indirect buffer");
 
-  // Atomic counter buffers (4 bytes each)
-  uint32_t zero = 0;
-  m_atomicBufferPing.Create(sizeof(uint32_t));
-  m_atomicBufferPing.Update(&zero, sizeof(zero));
-  m_atomicBufferPong.Create(sizeof(uint32_t));
-  m_atomicBufferPong.Update(&zero, sizeof(zero));
-  LOG_DEBUG("GPUParticleSystem: Created double-buffered atomic counters");
+  // Atomic counter buffer (Persistent/Triple Buffered)
+  m_atomicBuffer.Create(sizeof(uint32_t), 3);
+  LOG_DEBUG("GPUParticleSystem: Created persistent atomic counter");
 
   // Emission Buffer (Triple Buffered)
   using namespace NoMoreDay::Constants::Render;
@@ -224,60 +224,74 @@ void GPUParticleSystem::EmitBatch(
 }
 
 void GPUParticleSystem::Update(float dt) {
-  NoMoreDay::utils::ScopedTimer timer("Particle Update", 50);
+  NoMoreDay::utils::ScopedTimer timer("Particle Update", 3000); 
   if (!m_initialized)
     return;
 
   using namespace NoMoreDay::RenderConstants;
 
   // 1. Swap buffers for ping-pong
-  // Fix: bufIn and bufOut must be DIFFERENT for stream compaction to work.
-  // When m_pingPong is false: Read from ParticleBuffer, Write to CompactBuffer
-  // When m_pingPong is true: Read from CompactBuffer, Write to ParticleBuffer
   core::ComputeBuffer &bufIn = m_pingPong ? m_compactBuffer : m_particleBuffer;
   core::ComputeBuffer &bufOut = m_pingPong ? m_particleBuffer : m_compactBuffer;
 
-  // 0.1 Async Readback from the "Ping" buffer (which was written to in Frame
-  // N-1)
-  core::ComputeBuffer &readCounter =
-      m_atomicPingPong ? m_atomicBufferPong : m_atomicBufferPing;
-  core::ComputeBuffer &writeCounter =
-      m_atomicPingPong ? m_atomicBufferPing : m_atomicBufferPong;
+  // 0.1 Throttled Readback (Once every 60 frames)
+  // This drastically reduces GPU->CPU sync stalls
+  m_readbackFrameCounter++;
+  if (m_readbackFrameCounter >= 60) {
+      m_atomicBuffer.Read(&m_lastKnownAliveCount, sizeof(uint32_t));
+      m_readbackFrameCounter = 0;
+  }
 
-  // Non-blocking read (data should be ready from previous frame)
-  readCounter.Read(&m_lastKnownAliveCount, sizeof(uint32_t));
-
-  // 1. Reset current atomic counter to 0
-  uint32_t zero = 0;
-  writeCounter.Update(&zero, sizeof(zero));
+  // 1. Reset current atomic counter to 0 (No OpenGL calls, just pointer write)
+  uint32_t* atomicPtr = (uint32_t*)m_atomicBuffer.BeginWrite();
+  if (atomicPtr) {
+      *atomicPtr = 0;
+  }
+  m_atomicBuffer.Flush();
 
   // 2. Dispatch simulation compute shader
   {
-    rlEnableShader(m_computeShader.id);
-
-    using namespace NoMoreDay::Constants::Render;
-    float clampedDt =
-        (dt > MAX_DELTA_TIME_PARTICLES) ? DEFAULT_DELTA_TIME_PARTICLES : dt;
-    rlSetUniform(m_computeDtLoc, &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);
-    rlSetUniform(m_computeTotalLoc, &m_currentParticleCount,
-                 RL_SHADER_UNIFORM_INT, 1);
-
-    // Bind SSBOs (RenderConstants::ParticleCS semantics)
-    using namespace NoMoreDay::RenderConstants;
-    bufIn.BindBase(ParticleCS::PARTICLES_IN);
-    bufOut.BindBase(ParticleCS::PARTICLES_OUT);
-    m_indirectBuffer.BindBase(ParticleCS::INDIRECT_CMD);
-    writeCounter.BindBase(ParticleCS::ATOMIC_COUNT); // Write to CURRENT counter
-
-    // Dispatch
-    int workGroups = (m_currentParticleCount + (WORKGROUP_SIZE_PARTICLES - 1)) /
-                     WORKGROUP_SIZE_PARTICLES;
-    if (workGroups > 0) {
-      rlComputeShaderDispatch(workGroups, 1, 1);
+    // Phase 5: Adaptive Dispatch Range
+    // If no alive particles and no new emissions, shrink dispatch to 0
+    if (m_lastKnownAliveCount == 0 && m_emitHead.load() == 0) {
+        m_targetDispatchCount = 0;
+    } else {
+        // Keep a buffer of 2048 slots or the current total count, whichever is needed
+        m_targetDispatchCount = std::max((int)m_lastKnownAliveCount + 2048, (int)m_currentParticleCount);
+        // Clamp to max particles
+        m_targetDispatchCount = std::min(m_targetDispatchCount, m_maxParticles);
     }
 
-    utils::GPUUtils::MemoryBarrier();
-    rlDisableShader();
+    if (m_targetDispatchCount > 0) {
+        rlEnableShader(m_computeShader.id);
+
+        using namespace NoMoreDay::Constants::Render;
+        float clampedDt =
+            (dt > MAX_DELTA_TIME_PARTICLES) ? DEFAULT_DELTA_TIME_PARTICLES : dt;
+        rlSetUniform(m_computeDtLoc, &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);
+        rlSetUniform(m_computeTotalLoc, &m_currentParticleCount,
+                    RL_SHADER_UNIFORM_INT, 1);
+
+        // Bind SSBOs (RenderConstants::ParticleCS semantics)
+        using namespace NoMoreDay::RenderConstants;
+        bufIn.BindBase(ParticleCS::PARTICLES_IN);
+        bufOut.BindBase(ParticleCS::PARTICLES_OUT);
+        m_indirectBuffer.BindBase(ParticleCS::INDIRECT_CMD);
+        m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT); // Write to CURRENT counter
+
+        // Dispatch
+        int workGroups = (m_targetDispatchCount + (WORKGROUP_SIZE_PARTICLES - 1)) /
+                        WORKGROUP_SIZE_PARTICLES;
+        if (workGroups > 0) {
+        rlComputeShaderDispatch(workGroups, 1, 1);
+        }
+
+        utils::GPUUtils::MemoryBarrier();
+        rlDisableShader();
+    } else {
+        // Idle: Skip compute, but still need to clear/reset for emission logic
+        m_currentParticleCount = 0; 
+    }
   }
 
   // 3. Emission Logic (Lock-Free)
@@ -307,7 +321,7 @@ void GPUParticleSystem::Update(float dt) {
 
           m_emissionBuffer.BindBase(ParticleCS::PARTICLES_IN);
           bufOut.BindBase(ParticleCS::PARTICLES_OUT);
-          writeCounter.BindBase(ParticleCS::ATOMIC_COUNT);
+          m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
 
           int workGroups = (newCountInt + 255) / 256;
           rlComputeShaderDispatch(workGroups, 1, 1);
@@ -327,13 +341,18 @@ void GPUParticleSystem::Update(float dt) {
   {
     // This ensures the RENDER step (which happens AFTER Update) uses valid counts.
     DrawArraysIndirectCommand cmd = {6, totalAfterEmission, 0, 0};
-    m_indirectBuffer.Update(&cmd, sizeof(cmd));
+    void* ptr = m_indirectBuffer.BeginWrite();
+    if (ptr) {
+        memcpy(ptr, &cmd, sizeof(cmd));
+    }
+    m_indirectBuffer.Flush();
+    m_indirectBuffer.Lock(); // Advance slot
   }
 
   // 6. Update state for next frame
   m_currentParticleCount = totalAfterEmission;
   m_pingPong = !m_pingPong;
-  m_atomicPingPong = !m_atomicPingPong; // Swap atomic buffers
+  m_atomicBuffer.Lock(); // Advance atomic slot and insert fence
 }
 
 Matrix GPUParticleSystem::BuildMVP(const Camera2D &camera) const {
@@ -396,7 +415,8 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   rlDisableBackfaceCulling(); // Ensure we see both sides
 
   // Indirect Draw using the buffer updated by GPU
-  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER);
+  // Type 1 = Previous Slot (since Update() just locked and advanced the slot)
+  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER, 1);
   utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES, 0);
   utils::GPUUtils::BindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 

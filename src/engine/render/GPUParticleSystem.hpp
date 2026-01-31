@@ -53,6 +53,7 @@ private:
     bool m_initialized = false;
     int m_maxParticles = 100000;
     int m_currentParticleCount = 0;  // Total particles in buffer (alive + dead slots)
+    int m_targetDispatchCount = 0;   // Adaptive dispatch range
     bool m_pingPong = false;         // For double buffering (input/output swap)
     
     // Lock-free Emission
@@ -63,13 +64,13 @@ private:
     // GPU Buffers
     core::ComputeBuffer m_particleBuffer;    // All particles
     core::ComputeBuffer m_compactBuffer;     // Compacted alive particles
-    core::ComputeBuffer m_indirectBuffer;    // DrawArraysIndirect command
-    core::ComputeBuffer m_atomicBufferPing;  // Atomic counter (Ping)
-    core::ComputeBuffer m_atomicBufferPong;  // Atomic counter (Pong)
+    render::PersistentBuffer m_indirectBuffer; // DrawArraysIndirect command (Persistent)
+    render::PersistentBuffer m_atomicBuffer; // Atomic counter (Persistent/Triple buffered)
     
     // Asynchronous state
     uint32_t m_lastKnownAliveCount = 0;      // Read from previous frame
-    bool m_atomicPingPong = false;           // Swap flag for atomic buffers
+    uint32_t m_readbackFrameCounter = 0;     // Counter to throttle synchronization
+    bool m_atomicPingPong = false;           // Deprecated: PersistentBuffer handles this internally
     
     // Shaders
     Shader m_computeShader = { 0 };

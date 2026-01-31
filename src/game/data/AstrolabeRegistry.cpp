@@ -1,9 +1,14 @@
 #include "game/data/AstrolabeRegistry.hpp"
+#include "game/components/Progression.hpp" // Crucial for AstrolabeNode definition
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay {
+
+void AstrolabeRegistry::RegisterNode(const AstrolabeNode &node) {
+    nodes[node.id] = node;
+}
 
 bool AstrolabeRegistry::Load(const std::string& path) {
     std::ifstream file(path);
@@ -20,7 +25,7 @@ bool AstrolabeRegistry::Load(const std::string& path) {
         if (data.contains("nodes") && data["nodes"].is_array()) {
             for (const auto& node_json : data["nodes"]) {
                 AstrolabeNode node = node_json.get<AstrolabeNode>();
-                uint32_t id = node.id; // 提取 ID，避免对求值顺序的依赖，提高可读性
+                uint32_t id = node.id;
                 nodes[id] = std::move(node);
             }
         }

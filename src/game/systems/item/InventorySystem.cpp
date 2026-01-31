@@ -1,6 +1,6 @@
 #include "game/systems/item/InventorySystem.hpp"
 #include "core/logging/Logger.hpp"
-#include "game/components/Stats.hpp"
+#include "engine/render/RenderSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/components/MaterialBankComponent.hpp"
@@ -70,6 +70,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
 
             LOG_INFO("Material System: Auto-banked '{}' x{} (Total: {})", itemComp->name, itemComp->quantity, newCount);
             registry.destroy(item);
+            RenderSystem::s_itemGridDirty = true;
             return true;
         }
     }
@@ -105,19 +106,11 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
                         using namespace NoMoreDay::Constants::Item;
                         vEffect.lifeTime = PICKUP_VISUAL_EFFECT_DURATION;
                         vEffect.color = WHITE;
-                        if (existingItem) {
-                             switch(existingItem->rarity) {
-                                 case Rarity::Magic: vEffect.color = SKYBLUE; break;
-                                 case Rarity::Rare: vEffect.color = YELLOW; break;
-                                 case Rarity::Legendary: vEffect.color = ORANGE; break;
-                                 default: vEffect.color = WHITE; break;
-                            }
-                        }
                         registry.emplace<VisualEffect>(effect, vEffect);
                     }
 
-                    // 全部合并完成，销毁地面实体
                     registry.destroy(item);
+                    RenderSystem::s_itemGridDirty = true;
                     return true;
                 }
             }
@@ -196,6 +189,7 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
     LOG_INFO("背包: 角色 {} 拾取了物品 '{}' ({})",
              (uint32_t)character, itemComp ? itemComp->name : "未知", (uint32_t)item);
 
+    RenderSystem::s_itemGridDirty = true;
     return true;
 }
 
@@ -230,6 +224,9 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         registry.emplace<Position>(droppedEntity, pos->x + DROP_OFFSET_X, pos->y);
         registry.emplace<Radius>(droppedEntity, 15.0f);
         registry.emplace<LocalLevelTag>(droppedEntity); // Ensure it's cleaned up on scene change
+        registry.emplace<LootTag>(droppedEntity); // Optimization for spatial grid
+        registry.emplace<LabelCacheComponent>(droppedEntity); // Pre-calculate for render
+        RenderSystem::s_itemGridDirty = true;
 
         // 恢复视觉效果 (简单处理：根据类型给颜色，或者复制原实体的 Sprite 如果有)
         if (registry.any_of<SpriteComponent>(item))
@@ -267,6 +264,9 @@ bool InventorySystem::dropItem(entt::registry &registry, entt::entity character,
         }
         registry.emplace_or_replace<LocalLevelTag>(item);
         registry.emplace_or_replace<Radius>(item, 15.0f);
+        registry.emplace_or_replace<LootTag>(item); // Optimization for spatial grid
+        registry.get_or_emplace<LabelCacheComponent>(item).Invalidate(); // Ensure re-render
+        RenderSystem::s_itemGridDirty = true;
 
         // 恢复视觉效果 (如果之前被移除了)
         if (!registry.any_of<SpriteComponent>(item) && !registry.any_of<ColorComponent>(item))
@@ -910,6 +910,7 @@ void InventorySystem::update(entt::registry &registry, float dt)
 
                     LOG_DEBUG("InventorySystem: Picked up {} gold. Total: {}", goldComp.amount, inventory.gold);
                     registry.destroy(goldEntity);
+                    RenderSystem::s_itemGridDirty = true;
                 }
                 else
                 {

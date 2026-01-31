@@ -48,6 +48,7 @@
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/RegenerationSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/item/LootGridSystem.hpp"
 #include "game/systems/combat/VisualFXSystem.hpp"
 #include "game/systems/combat/XPAwardingSystem.hpp"
 #include "game/systems/item/DropSystem.hpp"
@@ -470,6 +471,7 @@ bool GameplayState::OnUpdate(float dt) {
                 registry.emplace<NoMoreDay::MapFragmentComponent>(frag); // Default ctor is fine
                 registry.emplace<NoMoreDay::MapFragmentTag>(frag);
                 registry.emplace<PersistentTag>(frag); // Important for saves
+                registry.emplace<LootTag>(frag); // Optimization for spatial grid
                 
                 // Add to inventory using System (handles slots correctly)
                 if (InventorySystem::pickUpItem(registry, entity, frag)) {
@@ -496,6 +498,7 @@ bool GameplayState::OnUpdate(float dt) {
     CombatHistorySystem::Update(registry, dt);
     NoMoreDay::HazardSystem::Update(registry, dt, m_spatialGrid);
     DropSystem::update(registry, m_context->levelManager->getCurrentLevel());
+    NoMoreDay::systems::LootGridSystem::update(registry); // Phase 4: Loot Spatial Grid
     FragmentDropSystem::Update(registry); // 处理碎片的延迟创建请求
     XPAwardingSystem::update(registry);
     InventorySystem::update(registry, dt);
@@ -506,6 +509,7 @@ bool GameplayState::OnUpdate(float dt) {
     MovementStanceSystem::Update(registry, dt);
     ProjectileSystem::Update(registry, m_spatialGrid, dt);
     NoMoreDay::systems::GhostSystem::Update(registry, dt);
+    NoMoreDay::render::PopupRenderer::Get().Update(dt);
   }
 
   // 2. Input
@@ -857,6 +861,7 @@ void GameplayState::UpdatePhysics(float dt) {
 }
 
 void GameplayState::OnRender() {
+  NoMoreDay::utils::ScopedTimer totalTimer("Gameplay OnRender", 5000);
   auto &registry = *m_context->registry;
 
   BeginMode2D(m_camera);
@@ -869,7 +874,7 @@ void GameplayState::OnRender() {
 
   // Entities
   {
-    NoMoreDay::utils::ScopedTimer timer("Render Entities", 20);
+    NoMoreDay::utils::ScopedTimer timer("RenderSystem Total", 50);
     RenderSystem::render(*m_context->registry, *m_context, m_camera);
   }
 
@@ -945,11 +950,13 @@ void GameplayState::OnRender() {
 
   // Scene Transition Overlay
   if (m_context->sceneManager) {
+    NoMoreDay::utils::ScopedTimer timer("Render SceneOverlay", 50);
     m_context->sceneManager->RenderOverlay();
   }
 
   // --- Map Affix Overlay (Tab Menu) ---
   if (IsKeyDown(KEY_TAB)) {
+    NoMoreDay::utils::ScopedTimer timer("Render AffixOverlay", 50);
     RenderMapAffixOverlay();
   }
 }

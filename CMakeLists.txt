@@ -8,7 +8,7 @@ set(CMAKE_UNITY_BUILD OFF)  # Disable Unity Build globally
 
 # --- Disable Deprecated Warnings ---
 if(MSVC)
-    add_compile_options(/wd4996 /Zc:__cplusplus /utf-8 /bigobj)
+    add_compile_options(/wd4996 /wd4541 /Zc:__cplusplus /utf-8 /bigobj)
 else()
     add_compile_options(-Wno-deprecated-declarations)
 endif()
