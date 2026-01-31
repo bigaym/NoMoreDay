@@ -16,8 +16,12 @@ namespace assets::ui
     {
         // UI 图标和背景
         constexpr assets::TextureAsset Inventory_Slot = {"ui_inv_slot"_hs, "assets/textures/ui/slot_background.png"};
-        constexpr assets::TextureAsset Equipment_Slot = {"ui_equip_slot"_hs, "assets/textures/ui/equip_slot_background.png"};
         constexpr assets::TextureAsset Panel_Background = {"ui_panel_bg"_hs, "assets/textures/ui/panel_background.png"};
+        constexpr assets::TextureAsset Home_Page = {"ui_home_page"_hs, "assets/textures/ui/ui_home.png"};  // 主页面
+        constexpr assets::TextureAsset Button_Menu = {"ui_menu_btn"_hs, "assets/textures/ui/button_primary.png"};  // 按钮：384*126，约3:1,主要用于主界面菜单和esc菜单
+        constexpr assets::TextureAsset Button_Frost_Square = {"ui_frost_square_btn"_hs, "assets/textures/ui/btn_frost_square.png"};  // 按钮：94*94，1:1,冰蓝色风格
+        constexpr assets::TextureAsset Button_Frost_Rect = {"ui_frost_rect_btn"_hs, "assets/textures/ui/btn_frost_wide_2_1.png"};  // 按钮：106*56，2:1,冰蓝色风格
+        constexpr assets::TextureAsset Button_Frost_Square2 = {"ui_frost_square_btn2"_hs, "assets/textures/ui/btn_frost_squ2.png"};  // 按钮：102*102，1:1,冰蓝色风格，颜色较浅
 
         // 上下文菜单
         constexpr assets::TextureAsset Context_Menu_BG = {"ui_context_bg"_hs, "assets/textures/ui/context_menu_bg.png"};
@@ -63,10 +67,15 @@ namespace assets::ui
         constexpr assets::TextureAsset Env_Statue_Broken = {"env_statue_broken"_hs, "assets/textures/env/env_statue_broken.png"};
         constexpr assets::TextureAsset Env_Tree_Dead = {"env_tree_dead"_hs, "assets/textures/env/env_tree_dead.png"};
 
-        constexpr std::array<const assets::TextureAsset*, 34> All = {
+        
+        constexpr std::array<const assets::TextureAsset*, 38> All = {
             &Inventory_Slot,
-            &Equipment_Slot,
             &Panel_Background,
+            &Home_Page,
+            &Button_Menu,
+            &Button_Frost_Square,
+            &Button_Frost_Rect,
+            &Button_Frost_Square2,
             &Context_Menu_BG,
             &Skill_LiuYunCi,
             &Skill_LieKongZhan,
@@ -97,7 +106,7 @@ namespace assets::ui
             &Env_Portal_Infernal,
             &Env_Rock_Cluster,
             &Env_Statue_Broken,
-            &Env_Tree_Dead
+            &Env_Tree_Dead,
         };
     }
 

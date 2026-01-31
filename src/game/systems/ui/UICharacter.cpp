@@ -1,5 +1,7 @@
 #include "game/systems/ui/UICharacter.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
@@ -215,24 +217,16 @@ void UICharacter::Draw(entt::registry &registry) {
 
   currentY += 35.0f;
   float col1X = panelX + padding;
+  Texture2D squareTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Square.id);
+  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
 
   auto DrawBtn = [&](float bx, float by, const char *txt) -> bool {
-    float size = 22.0f;
+    float size = 26.0f;
     Rectangle r = {bx, by, size, size};
     bool hovered = CheckCollisionPointRec(mousePos, r);
     bool clicked = hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
 
-    Color bg = hovered ? theme.buttonHover : theme.buttonNormal;
-    if (clicked)
-      bg = theme.buttonPress;
-
-    DrawRectScaled(bx, by, size, size, bg);
-    DrawRectLinesScaled(r, 1.0f, theme.panelBorder);
-
-    float tw = IsFontValid(font) ? MeasureTextEx(font, txt, 18, 1.0f).x
-                                 : (float)MeasureText(txt, 18);
-    UIRenderer::DrawTextUI(font, txt, bx + (size - tw) / 2, by + 2, 18,
-                           theme.textPrimary, alpha);
+    UIRenderer::DrawButton(font, squareTex, r, txt, 20, theme.textPrimary, WHITE, hovered, hovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
     return clicked;
   };
 
@@ -257,7 +251,7 @@ void UICharacter::Draw(entt::registry &registry) {
     float btnX = col1X + 260.0f;
     if (tempVal > 0 && DrawBtn(btnX, y, "-"))
       tempVal--;
-    if (remainingPoints > 0 && DrawBtn(btnX + 30, y, "+"))
+    if (remainingPoints > 0 && DrawBtn(btnX + 35, y, "+"))
       tempVal++;
     y += rowH + 8.0f;
   };
@@ -282,7 +276,7 @@ void UICharacter::Draw(entt::registry &registry) {
   float tabW = (panelW - padding * 2) / 4;
   for (int i = 0; i < 4; ++i) {
     float tx = panelX + padding + i * tabW;
-    Rectangle tabRect = {tx, currentY, tabW, 32};
+    Rectangle tabRect = {tx, currentY, tabW - 2, 32};
     bool isSelected = (s_activeCharTab == i);
     bool isHovered = CheckCollisionPointRec(mousePos, tabRect);
     if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && isHovered) {
@@ -290,17 +284,10 @@ void UICharacter::Draw(entt::registry &registry) {
       s_charPanelScroll = 0.0f;
     }
 
-    Color bg = isSelected
-                   ? theme.panelBorderHighlight
-                   : (isHovered ? theme.buttonHover : theme.buttonNormal);
-    DrawRectScaled(tabRect.x, tabRect.y, tabRect.width, tabRect.height, bg);
-    DrawRectLinesScaled(tabRect, 1.0f, theme.panelBorder);
+    Color tabTint = isSelected ? theme.textHighlight : WHITE;
+    Color textColor = isSelected ? BLACK : theme.textSecondary;
 
-    float tw = IsFontValid(font) ? MeasureTextEx(font, tabNames[i], 18, 1.0f).x
-                                 : (float)MeasureText(tabNames[i], 18);
-    UIRenderer::DrawTextUI(
-        font, tabNames[i], tx + (tabW - tw) / 2, currentY + 8, 18,
-        isSelected ? theme.panelBackground : theme.textSecondary, alpha);
+    UIRenderer::DrawButton(font, rectTex, tabRect, tabNames[i], 18, textColor, tabTint, isHovered, isHovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
   }
   currentY += 40.0f;
 
@@ -528,22 +515,13 @@ void UICharacter::Draw(entt::registry &registry) {
 
   if (totalTemp > 0) {
     float btnY = panelY + panelH - 50.0f;
-    Rectangle confirmRect = {panelX + panelW - padding - 120, btnY, 120, 36};
+    Rectangle confirmRect = {panelX + panelW - padding - 130, btnY, 130, 40};
     bool hovered = CheckCollisionPointRec(mousePos, confirmRect);
+
+    UIRenderer::DrawButton(font, rectTex, confirmRect, "确认加点", 20, theme.textPrimary, WHITE, hovered, hovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (hovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
       attrUI.showConfirmPopup = true;
-
-    DrawRectScaled(confirmRect.x, confirmRect.y, confirmRect.width,
-                   confirmRect.height,
-                   hovered ? theme.success : Fade(theme.success, 0.8f));
-    DrawRectLinesScaled(confirmRect, 1.0f, theme.panelBorder);
-
-    float tw = IsFontValid(font) ? MeasureTextEx(font, "确认加点", 20, 1.0f).x
-                                 : (float)MeasureText("确认加点", 20);
-    UIRenderer::DrawTextUI(font, "确认加点",
-                           confirmRect.x + (confirmRect.width - tw) / 2,
-                           confirmRect.y + 8, 20, theme.textPrimary, alpha);
   }
 
   // --- 6. 确认弹窗 (Confirmation Popup) ---
@@ -551,30 +529,26 @@ void UICharacter::Draw(entt::registry &registry) {
     // 全屏半透明遮罩
     DrawRectScaled(0, 0, UI_REF_WIDTH, UI_REF_HEIGHT, {0, 0, 0, 180});
 
-    float pw = 320.0f;
-    float ph = 180.0f;
+    float pw = 360.0f;
+    float ph = 200.0f;
     float px = (UI_REF_WIDTH - pw) / 2.0f;
     float py = (UI_REF_HEIGHT - ph) / 2.0f;
 
     DrawRectScaled(px, py, pw, ph, theme.panelBackground);
     DrawRectLinesScaled({px, py, pw, ph}, 2.0f, theme.textHighlight);
 
-    UIRenderer::DrawTextUI(font, "确认分配属性点吗?", px + 45, py + 40, 22,
+    UIRenderer::DrawTextUI(font, "确认分配属性点吗?", px + 55, py + 45, 24,
                            theme.textPrimary, alpha);
 
     // 按钮
-    float btnW = 100.0f;
-    float btnH = 36.0f;
-    float btnY = py + 110.0f;
+    float btnW = 110.0f;
+    float btnH = 40.0f;
+    float btnY = py + 120.0f;
 
     // 确认按钮
     Rectangle yesRect = {px + 40, btnY, btnW, btnH};
     bool yesHover = CheckCollisionPointRec(mousePos, yesRect);
-    DrawRectScaled(yesRect.x, yesRect.y, yesRect.width, yesRect.height,
-                   yesHover ? theme.success : Fade(theme.success, 0.6f));
-    DrawRectLinesScaled(yesRect, 1.0f, theme.panelBorder);
-    UIRenderer::DrawTextUI(font, "确认", yesRect.x + 30, yesRect.y + 8, 20,
-                           theme.textPrimary, alpha);
+    UIRenderer::DrawButton(font, rectTex, yesRect, "确认", 20, theme.textPrimary, theme.success, yesHover, yesHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (yesHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       // 应用点数
@@ -596,11 +570,7 @@ void UICharacter::Draw(entt::registry &registry) {
     // 取消按钮
     Rectangle noRect = {px + pw - btnW - 40, btnY, btnW, btnH};
     bool noHover = CheckCollisionPointRec(mousePos, noRect);
-    DrawRectScaled(noRect.x, noRect.y, noRect.width, noRect.height,
-                   noHover ? theme.buttonHover : theme.buttonNormal);
-    DrawRectLinesScaled(noRect, 1.0f, theme.panelBorder);
-    UIRenderer::DrawTextUI(font, "取消", noRect.x + 30, noRect.y + 8, 20,
-                           theme.textPrimary, alpha);
+    UIRenderer::DrawButton(font, rectTex, noRect, "取消", 20, theme.textPrimary, WHITE, noHover, noHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (noHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
       attrUI.showConfirmPopup = false;

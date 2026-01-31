@@ -6,6 +6,9 @@
 #include "game/systems/world/MapSystem.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "game/components/Common.hpp"
+#include "engine/render/UIRenderer.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include <raylib.h>
 
 namespace NoMoreDay {
@@ -17,14 +20,14 @@ namespace NoMoreDay {
         float screenWidth = (float)GetScreenWidth();
         float screenHeight = (float)GetScreenHeight();
 
-        float btnWidth = 200;
-        float btnHeight = 50;
+        float btnWidth = 260;
+        float btnHeight = 70;
         float centerX = (screenWidth - btnWidth) / 2.0f;
 
-        m_resumeButton = { { centerX, screenHeight * 0.4f, btnWidth, btnHeight }, "RESUME", false };
-        m_unstuckButton = { { centerX, screenHeight * 0.4f + 70, btnWidth, btnHeight }, "UNSTUCK", false };
-        m_settingsButton = { { centerX, screenHeight * 0.4f + 140, btnWidth, btnHeight }, "SETTINGS", false };
-        m_menuButton = { { centerX, screenHeight * 0.4f + 210, btnWidth, btnHeight }, "MAIN MENU", false };
+        m_resumeButton = { { centerX, screenHeight * 0.35f, btnWidth, btnHeight }, "RESUME", false };
+        m_unstuckButton = { { centerX, screenHeight * 0.35f + 85, btnWidth, btnHeight }, "UNSTUCK", false };
+        m_settingsButton = { { centerX, screenHeight * 0.35f + 170, btnWidth, btnHeight }, "SETTINGS", false };
+        m_menuButton = { { centerX, screenHeight * 0.35f + 255, btnWidth, btnHeight }, "MAIN MENU", false };
     }
 
     void PauseState::OnEnter() {}
@@ -108,26 +111,19 @@ namespace NoMoreDay {
     }
 
     void PauseState::DrawButton(const Button& btn) {
-        Color baseColor = btn.hovered ? RAYWHITE : Color{ 50, 50, 50, 200 };
-        Color textColor = btn.hovered ? BLACK : RAYWHITE;
-
-        DrawRectangleRec(btn.bounds, baseColor);
-        DrawRectangleLinesEx(btn.bounds, 2, btn.hovered ? YELLOW : LIGHTGRAY);
-
-        Font font = UISystem::GetFont();
-        float fontSize = 20.0f;
-        float textWidth = IsFontValid(font) ? MeasureTextEx(font, btn.text.c_str(), fontSize, 1.0f).x : (float)MeasureText(btn.text.c_str(), (int)fontSize);
+        Texture2D tex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Menu.id);
         
-        Vector2 textPos = {
-            btn.bounds.x + (btn.bounds.width - textWidth) / 2.0f,
-            btn.bounds.y + (btn.bounds.height - fontSize) / 2.0f
-        };
-        
-        if (IsFontValid(font)) {
-            DrawTextEx(font, btn.text.c_str(), textPos, fontSize, 1.0f, textColor);
-        } else {
-            DrawText(btn.text.c_str(), (int)textPos.x, (int)textPos.y, (int)fontSize, textColor);
-        }
+        UIRenderer::DrawButton(
+            UISystem::GetFont(),
+            tex,
+            btn.bounds,
+            btn.text.c_str(),
+            26.0f,
+            btn.hovered ? YELLOW : WHITE,
+            WHITE,
+            btn.hovered,
+            btn.hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+        );
     }
 
     bool PauseState::IsButtonClicked(const Button& btn) {

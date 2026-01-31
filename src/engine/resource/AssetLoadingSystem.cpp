@@ -71,6 +71,18 @@ void AssetLoadingSystem::RegisterUITextures() {
   LOG_INFO("AssetLoadingSystem: Registered {} core UI textures.", count + 1);
 }
 
+void AssetLoadingSystem::LoadAllUI() {
+  if (!m_resourceManager)
+    return;
+
+  using namespace assets::ui::textures;
+  for (const auto *asset : All) {
+    if (asset) {
+      m_resourceManager->loadTexture(asset->id, std::string(asset->path));
+    }
+  }
+}
+
 void AssetLoadingSystem::LoadAllEquipment() {
   if (!m_resourceManager) {
     LOG_LIMITED_ERROR(1.0f, "AssetLoadingSystem: Not initialized!");

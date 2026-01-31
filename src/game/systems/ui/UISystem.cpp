@@ -43,6 +43,7 @@ NoMoreDay::UIContext UISystem::State;
 
 void UISystem::Initialize(ResourceManager &resourceManager) {
   AssetLoadingSystem::Initialize(resourceManager);
+  AssetLoadingSystem::LoadAllUI(); // Load core UI textures (buttons, panels, etc.)
   AssetLoadingSystem::LoadAllEquipment(); // Ensure all equipment textures are
                                           // registered
 

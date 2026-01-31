@@ -43,32 +43,39 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     float slotsStartX = startX + (panelW - (slotSize * 5 + slotPadding * 4)) / 2.0f;
     float slotsStartY = startY + 80.0f * state.scaleFactor;
 
+    Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+    Texture2D squareTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Square.id);
+
     for (int i = 0; i < 5; ++i) {
         float x = slotsStartX + i * (slotSize + slotPadding);
         float y = slotsStartY;
-        Rectangle slotRect = {x, y, slotSize, slotSize};
-
-        // Draw Slot BG
-        DrawRectangleRec(slotRect, Fade(DARKGRAY, 0.5f * alpha));
-        DrawRectangleLinesEx(slotRect, 2.0f, Fade(LIGHTGRAY, alpha));
+        Rectangle slotRect_Logic = {x / state.scaleFactor, y / state.scaleFactor, slotSize / state.scaleFactor, slotSize / state.scaleFactor};
 
         uint32_t skillId = active->specialized_slots[i].skill_id;
+        bool isHovered = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), slotRect_Logic);
         
-        // Draw Icon
-        if (skillId != 0) {
+        // Use a consistent frame for both empty and assigned slots
+        float scale = state.scaleFactor;
+        Rectangle dest_Phys = {slotRect_Logic.x * scale, slotRect_Logic.y * scale, slotRect_Logic.width * scale, slotRect_Logic.height * scale};
+        
+        DrawRectangleRec(dest_Phys, Fade(BLACK, 0.6f * alpha));
+        DrawRectangleLinesEx(dest_Phys, 2.0f * scale, Fade(isHovered ? WHITE : LIGHTGRAY, alpha));
+
+        if (skillId == 0) {
+            // Empty slots: Show low-key hint text
+            UIRenderer::DrawTextUI(state.globalFont, "Empty", (dest_Phys.x + dest_Phys.width * 0.5f) / scale - 25, (dest_Phys.y + dest_Phys.height * 0.5f) / scale - 10, 16, GRAY, alpha);
+        } else {
+            // Assigned skills: Draw Icon
             const auto* skill = SkillRegistry::Get().GetSkill(skillId);
             if (skill && skill->icon_id != 0) {
                 Texture2D icon = AssetLoadingSystem::GetTexture(skill->icon_id);
-                DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, slotRect, {0, 0}, 0.0f, Fade(WHITE, alpha));
+                Rectangle iconDest = {dest_Phys.x + 4 * scale, dest_Phys.y + 4 * scale, dest_Phys.width - 8 * scale, dest_Phys.height - 8 * scale};
+                DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, iconDest, {0, 0}, 0.0f, Fade(WHITE, alpha));
             }
-        } else {
-            UISystem::DrawTextUI("Empty", x + 10, y + 30, 16, GRAY, alpha);
         }
 
         // Handle Click (Unassign or Open Tree)
-        if (CheckCollisionPointRec(GetMousePosition(), slotRect)) {
-            DrawRectangleRec(slotRect, Fade(WHITE, 0.2f * alpha));
-
+        if (isHovered) {
             // Drop logic
             if (state.isDraggingSkill && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
                 if (state.draggedSkillId == skillId && skillId != 0) {
@@ -130,7 +137,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
 
         float x = gridStartX + col * (gridSize + slotPadding);
         float y = gridStartY + row * (gridSize + slotPadding);
-        Rectangle skillRect = {x, y, gridSize, gridSize};
+        Rectangle skillRect_Logic = {x / state.scaleFactor, y / state.scaleFactor, gridSize / state.scaleFactor, gridSize / state.scaleFactor};
 
         // Check if already specialized
         bool isSpecialized = false;
@@ -141,28 +148,34 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             }
         }
 
+        bool isHovered = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), skillRect_Logic);
+
+        // Draw simple slot instead of full button texture
+        float scale = state.scaleFactor;
+        Rectangle dest_Phys = {skillRect_Logic.x * scale, skillRect_Logic.y * scale, skillRect_Logic.width * scale, skillRect_Logic.height * scale};
+        
+        DrawRectangleRec(dest_Phys, Fade(BLACK, 0.5f * alpha));
+        DrawRectangleLinesEx(dest_Phys, 1.0f * scale, Fade(isHovered ? GOLD : GRAY, alpha));
+
         // Draw Skill Icon
         Texture2D icon = {0};
         if (skill.icon_id != 0) icon = AssetLoadingSystem::GetTexture(skill.icon_id);
         
         if (icon.id != 0) {
-            DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, skillRect, {0, 0}, 0.0f, isSpecialized ? Fade(WHITE, 0.5f * alpha) : Fade(WHITE, alpha));
+            Rectangle iconDest = {dest_Phys.x + 4 * scale, dest_Phys.y + 4 * scale, dest_Phys.width - 8 * scale, dest_Phys.height - 8 * scale};
+            float iconAlpha = isSpecialized ? 0.5f : 1.0f;
+            DrawTexturePro(icon, {0, 0, (float)icon.width, (float)icon.height}, iconDest, {0, 0}, 0.0f, Fade(WHITE, iconAlpha * alpha));
         } else {
-            DrawRectangleRec(skillRect, Fade(DARKGRAY, alpha));
-            UISystem::DrawTextUI(skill.name_key.c_str(), x, y, 14, WHITE, alpha);
+            UISystem::DrawTextUI(skill.name_key.c_str(), x, y + 10, 14, WHITE, alpha);
         }
-        
-        DrawRectangleLinesEx(skillRect, 1.0f, Fade(GRAY, alpha));
 
         if (isSpecialized) {
             // Draw "Equipped" indicator
-            UISystem::DrawTextUI("已专精", x, y + gridSize - 16, 14, GREEN, alpha);
+            UISystem::DrawTextUI("已专精", x + 5, y + gridSize - 18, 14, GREEN, alpha);
         }
 
         // Handle Click (Assign)
-        if (CheckCollisionPointRec(GetMousePosition(), skillRect)) {
-            DrawRectangleRec(skillRect, Fade(WHITE, 0.2f * alpha));
-            
+        if (isHovered) {
             // Tooltip
             state.hoveredSkillSlot = -1; // Override hotbar hover
             // Force draw tooltip immediately
@@ -173,23 +186,6 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                 state.isDraggingSkill = true;
                 LOG_INFO("Started dragging skill {}", id);
             }
-
-            // Keep the old click-to-assign-first-empty logic as a backup/shortcut?
-            // Or remove it if we want pure drag and drop. 
-            // The spec says "Allow players to drag skills", so let's support both for now.
-            /*
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !isSpecialized) {
-                // Find first empty slot
-                for (auto& s : active->specialized_slots) {
-                    if (s.skill_id == 0) {
-                        s.skill_id = id;
-                        s.allocated_points.clear();
-                        LOG_INFO("Assigned skill {} to slot", id);
-                        break;
-                    }
-                }
-            }
-            */
         }
 
         col++;

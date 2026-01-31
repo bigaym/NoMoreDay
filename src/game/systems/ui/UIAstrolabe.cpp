@@ -3,6 +3,8 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Common.hpp" // For PlayerTag
 #include "engine/render/UIRenderer.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/skill/AstrolabeSystem.hpp" // Added include
 #include "game/data/AstrolabeRegistry.hpp" // Include Registry
@@ -481,29 +483,30 @@ void UIAstrolabe::Draw(entt::registry& registry) {
         if (astroComp) {
             UISystem::DrawTextUI(TextFormat("Points: %d", astroComp->available_points), 20, 60, 24, GOLD, ui.alpha);
             
+            Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+            float scale = UIRenderer::GetScale();
+
             // Pending Points Counter
             if (!ui.plannedNodes.empty()) {
                 UISystem::DrawTextUI(TextFormat("Pending: %d", (int)ui.plannedNodes.size()), 20, 90, 20, ORANGE, ui.alpha);
                 
                 // Confirm/Reset Buttons
                 float bx = 20.0f;
-                float by = screenH - 80.0f;
-                float bw = 120.0f;
+                float by = (screenH / scale) - 80.0f;
+                float bw = 130.0f;
                 float bh = 40.0f;
                 
-                Rectangle confirmRec = { bx, by, bw, bh };
-                Rectangle resetRec = { bx + bw + 20.0f, by, bw, bh };
+                Rectangle confirmRec_Logic = { bx, by, bw, bh };
+                Rectangle resetRec_Logic = { bx + bw + 20.0f, by, bw, bh };
                 
-                Vector2 mPos = GetMousePosition();
+                Vector2 mPos_Logic = UISystem::GetMousePositionLogic();
                 
                 // Confirm Button
-                bool confirmHover = CheckCollisionPointRec(mPos, confirmRec);
-                DrawRectangleRounded(confirmRec, 0.2f, 8, Fade(confirmHover ? GREEN : DARKGREEN, ui.alpha));
-                UISystem::DrawTextUI("CONFIRM", bx + 20, by + 10, 20, WHITE, ui.alpha);
+                bool confirmHover = CheckCollisionPointRec(mPos_Logic, confirmRec_Logic);
+                UIRenderer::DrawButton(UISystem::GetFont(), rectTex, confirmRec_Logic, "确认分配", 20, WHITE, confirmHover ? GREEN : DARKGREEN, confirmHover, confirmHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), ui.alpha);
                 
                 if (confirmHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     // Activate all planned nodes in order (if possible)
-                    // Simple approach: Keep activating until no more can be activated
                     bool changed = true;
                     while (changed) {
                         changed = false;
@@ -520,9 +523,8 @@ void UIAstrolabe::Draw(entt::registry& registry) {
                 }
                 
                 // Reset Button
-                bool resetHover = CheckCollisionPointRec(mPos, resetRec);
-                DrawRectangleRounded(resetRec, 0.2f, 8, Fade(resetHover ? RED : MAROON, ui.alpha));
-                UISystem::DrawTextUI("RESET", bx + bw + 20.0f + 35, by + 10, 20, WHITE, ui.alpha);
+                bool resetHover = CheckCollisionPointRec(mPos_Logic, resetRec_Logic);
+                UIRenderer::DrawButton(UISystem::GetFont(), rectTex, resetRec_Logic, "重置规划", 20, WHITE, resetHover ? RED : MAROON, resetHover, resetHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), ui.alpha);
                 
                 if (resetHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     ui.plannedNodes.clear();
@@ -530,14 +532,13 @@ void UIAstrolabe::Draw(entt::registry& registry) {
             }
 
             // Refund Mode Toggle
-            float rx = screenW - 160.0f;
+            float rx = (screenW / scale) - 160.0f;
             float ry = 20.0f;
             float rw = 140.0f;
             float rh = 40.0f;
-            Rectangle refundRec = { rx, ry, rw, rh };
-            bool refundHover = CheckCollisionPointRec(GetMousePosition(), refundRec);
-            DrawRectangleRounded(refundRec, 0.2f, 8, Fade(ui.isRefundMode ? RED : DARKGRAY, ui.alpha));
-            UISystem::DrawTextUI(ui.isRefundMode ? "REFUNDING" : "REFUND MODE", rx + 15, ry + 10, 18, WHITE, ui.alpha);
+            Rectangle refundRec_Logic = { rx, ry, rw, rh };
+            bool refundHover = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), refundRec_Logic);
+            UIRenderer::DrawButton(UISystem::GetFont(), rectTex, refundRec_Logic, ui.isRefundMode ? "退出退点" : "退点模式", 18, WHITE, ui.isRefundMode ? RED : DARKGRAY, refundHover, refundHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), ui.alpha);
             
             if (refundHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                 ui.isRefundMode = !ui.isRefundMode;

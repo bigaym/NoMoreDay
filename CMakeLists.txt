@@ -211,6 +211,10 @@ if(WIN32)
         )
     elseif(MSVC)
         # --- MSVC Performance Optimizations ---
+        # Note: RelWithDebInfo defaults to /Ob1. We upgrade it to /Ob2 to avoid D9025 warnings.
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
+        set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
+
         # /arch:AVX2  : Enable Advanced Vector Extensions 2 (Critical for xsimd/particles)
         # /Oi         : Generate intrinsic functions
         # /Ot         : Favor fast code

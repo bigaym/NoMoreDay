@@ -1,5 +1,7 @@
 #include "game/systems/ui/UIStash.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/item/StashSystem.hpp"
 #include "engine/render/UIRenderer.hpp"
@@ -108,17 +110,12 @@ void UIStash::Draw(entt::registry& registry) {
     UIRenderer::DrawTextUI(font, title, panelX + 30, panelY + 20, 28, theme.textHighlight, alpha);
 
     // Close Button
-    float closeSize = 24.0f;
+    float closeSize = 28.0f;
     Rectangle closeRect = { panelX + panelW - closeSize - 15.0f, panelY + 15.0f, closeSize, closeSize };
     bool closeHover = CheckCollisionPointRec(mousePos, closeRect);
+    Texture2D squareTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Square.id);
     
-    // Draw close button background/hover
-    if (closeHover) {
-        DrawRectScaled(closeRect.x, closeRect.y, closeRect.width, closeRect.height, RED);
-    }
-    
-    // Draw X
-    UIRenderer::DrawTextUI(font, "x", closeRect.x + 8, closeRect.y - 2, 24, closeHover ? WHITE : theme.textSecondary, alpha);
+    UIRenderer::DrawButton(font, squareTex, closeRect, "x", 20, closeHover ? WHITE : theme.textSecondary, WHITE, closeHover, closeHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
     
     if (closeHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         Close();
@@ -172,9 +169,7 @@ void UIStash::Draw(entt::registry& registry) {
         }
         
         bool isHover = CheckCollisionPointRec(mousePos, {tabX, tabY, btnW, tabH});
-        DrawRectScaled(tabX, tabY, btnW, tabH, isHover ? theme.buttonHover : theme.buttonNormal);
-        DrawRectLinesScaled({tabX, tabY, btnW, tabH}, 1.0f, theme.panelBorder);
-        UIRenderer::DrawTextUI(font, "+", tabX + 10, tabY + 6, 20, theme.textHighlight, alpha);
+        UIRenderer::DrawButton(font, squareTex, {tabX, tabY, btnW, tabH}, "+", 20, theme.textHighlight, WHITE, isHover, isHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
         
         if (isHover) {
              int cost = StashSystem::getNextUnlockCost(registry, m_activeType);
@@ -347,23 +342,22 @@ void UIStash::Draw(entt::registry& registry) {
 
     // --- Footer Controls ---
     float footerY = panelY + panelH - 50.0f;
-    
+    Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+
     // Sort Button
-    Rectangle sortBtn = { panelX + 30.0f, footerY, 100.0f, 32.0f };
+    Rectangle sortBtn = { panelX + 30.0f, footerY, 110.0f, 36.0f };
     bool sortHover = CheckCollisionPointRec(mousePos, sortBtn);
-    DrawRectScaled(sortBtn.x, sortBtn.y, sortBtn.width, sortBtn.height, sortHover ? theme.buttonHover : theme.buttonNormal);
-    DrawRectLinesScaled(sortBtn, 1.0f, theme.panelBorder);
-    UIRenderer::DrawTextUI(font, "整理标签页", sortBtn.x + 10, sortBtn.y + 6, 18, theme.textPrimary, alpha);
+    UIRenderer::DrawButton(font, rectTex, sortBtn, "整理标签页", 18, theme.textPrimary, WHITE, sortHover, sortHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    
     if (sortHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         StashSystem::sortTab(registry, m_activeType, m_activeTabIndex, StashSortMode::RarityDesc);
     }
 
     // Auto Deposit Button
-    Rectangle depositBtn = { panelX + 140.0f, footerY, 100.0f, 32.0f };
+    Rectangle depositBtn = { panelX + 150.0f, footerY, 110.0f, 36.0f };
     bool depositHover = CheckCollisionPointRec(mousePos, depositBtn);
-    DrawRectScaled(depositBtn.x, depositBtn.y, depositBtn.width, depositBtn.height, depositHover ? theme.buttonHover : theme.buttonNormal);
-    DrawRectLinesScaled(depositBtn, 1.0f, theme.panelBorder);
-    UIRenderer::DrawTextUI(font, "存入全部", depositBtn.x + 15, depositBtn.y + 6, 18, theme.textPrimary, alpha);
+    UIRenderer::DrawButton(font, rectTex, depositBtn, "存入全部", 18, theme.textPrimary, WHITE, depositHover, depositHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    
     if (depositHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         int count = StashSystem::autoDeposit(registry, m_activeType);
         if (count > 0) {

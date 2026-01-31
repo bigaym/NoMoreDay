@@ -10,6 +10,8 @@
 #include <memory>
 #include <raylib.h>
 #include <thread>
+#include "engine/resource/UIAssetRegistry.hpp"
+#include "engine/resource/ResourceManager.hpp"
 
 namespace NoMoreDay {
 
@@ -18,16 +20,16 @@ MainMenuState::MainMenuState(StateManager &manager, SharedContext &context)
   float screenWidth = (float)GetScreenWidth();
   float screenHeight = (float)GetScreenHeight();
 
-  float btnWidth = 200;
-  float btnHeight = 50;
+  float btnWidth = 260;
+  float btnHeight = 75;
   float centerX = (screenWidth - btnWidth) / 2.0f;
 
   m_startButton = {
       {centerX, screenHeight * 0.45f, btnWidth, btnHeight}, "NEW GAME", false};
-  m_continueButton = {{centerX, screenHeight * 0.45f + 70, btnWidth, btnHeight},
+  m_continueButton = {{centerX, screenHeight * 0.45f + 95, btnWidth, btnHeight},
                       "CONTINUE",
                       false};
-  m_exitButton = {{centerX, screenHeight * 0.45f + 140, btnWidth, btnHeight},
+  m_exitButton = {{centerX, screenHeight * 0.45f + 190, btnWidth, btnHeight},
                   "EXIT",
                   false};
 
@@ -35,7 +37,9 @@ MainMenuState::MainMenuState(StateManager &manager, SharedContext &context)
 }
 
 void MainMenuState::OnEnter() {
-  // Here we could load specific menu music or assets
+  // Load main menu background
+  m_context->resources->loadTexture(assets::ui::textures::Home_Page.id,
+                                    std::string(assets::ui::textures::Home_Page.path));
   m_titleOpacity = 0.0f;
 }
 
@@ -96,36 +100,38 @@ bool MainMenuState::OnUpdate(float dt) {
 
 void MainMenuState::OnRender() {
   ClearBackground(BLACK);
+
+  // Draw Background
+  Texture2D bg = m_context->resources->getTexture(assets::ui::textures::Home_Page.id);
+  if (bg.id > 0) {
+      Rectangle source = {0.0f, 0.0f, (float)bg.width, (float)bg.height};
+      Rectangle dest = {0.0f, 0.0f, (float)GetScreenWidth(), (float)GetScreenHeight()};
+      DrawTexturePro(bg, source, dest, {0.0f, 0.0f}, 0.0f, WHITE);
+  }
+
   Font font = UISystem::GetFont();
 
-  // Draw Title
-  const char *title = "NOMOREDAY";
-  float fontSize = 80.0f;
-  float titleWidth = IsFontValid(font)
-                         ? MeasureTextEx(font, title, fontSize, 1.0f).x
-                         : (float)MeasureText(title, (int)fontSize);
+  // Draw Title -- 跳过，因为背景图有文字显示
+  // const char *title = "NOMOREDAY";
+  // float fontSize = 80.0f;
+  // float titleWidth = IsFontValid(font)
+  //                        ? MeasureTextEx(font, title, fontSize, 1.0f).x
+  //                        : (float)MeasureText(title, (int)fontSize);
 
-  if (IsFontValid(font)) {
-    DrawTextEx(
-        font, title,
-        {(GetScreenWidth() - titleWidth) / 2.0f, GetScreenHeight() * 0.2f},
-        fontSize, 1.0f, Fade(RED, m_titleOpacity));
-  } else {
-    DrawText(title, (int)(GetScreenWidth() - titleWidth) / 2,
-             (int)(GetScreenHeight() * 0.2f), (int)fontSize,
-             Fade(RED, m_titleOpacity));
-  }
+  // if (IsFontValid(font)) {
+  //   DrawTextEx(
+  //       font, title,
+  //       {(GetScreenWidth() - titleWidth) / 2.0f, GetScreenHeight() * 0.2f},
+  //       fontSize, 1.0f, Fade(RED, m_titleOpacity));
+  // } else {
+  //   DrawText(title, (int)(GetScreenWidth() - titleWidth) / 2,
+  //            (int)(GetScreenHeight() * 0.2f), (int)fontSize,
+  //            Fade(RED, m_titleOpacity));
+  // }
 
   // Draw Buttons
   DrawButton(m_startButton);
-  if (m_hasSave) {
-    DrawButton(m_continueButton);
-  } else {
-    // Draw disabled continue button
-    Button disabledBtn = m_continueButton;
-    disabledBtn.hovered = false;
-    DrawButton(disabledBtn);
-  }
+  DrawButton(m_continueButton, m_hasSave);
   DrawButton(m_exitButton);
 
   // Version Info
@@ -139,29 +145,23 @@ void MainMenuState::OnRender() {
   }
 }
 
-void MainMenuState::DrawButton(const Button &btn) {
-  Color baseColor = btn.hovered ? RAYWHITE : GRAY;
-  Color textColor = btn.hovered ? BLACK : RAYWHITE;
+void MainMenuState::DrawButton(const Button &btn, bool enabled) {
+  Texture2D tex = m_context->resources->getTexture(assets::ui::textures::Button_Menu.id);
+  
+  Color tint = enabled ? WHITE : GRAY;
+  Color textColor = enabled ? (btn.hovered ? YELLOW : WHITE) : LIGHTGRAY;
 
-  DrawRectangleRec(btn.bounds, baseColor);
-  DrawRectangleLinesEx(btn.bounds, 2, btn.hovered ? RED : LIGHTGRAY);
-
-  Font font = UISystem::GetFont();
-  float fontSize = 20.0f;
-  float textWidth =
-      IsFontValid(font)
-          ? MeasureTextEx(font, btn.text.c_str(), fontSize, 1.0f).x
-          : (float)MeasureText(btn.text.c_str(), (int)fontSize);
-
-  Vector2 textPos = {btn.bounds.x + (btn.bounds.width - textWidth) / 2.0f,
-                     btn.bounds.y + (btn.bounds.height - fontSize) / 2.0f};
-
-  if (IsFontValid(font)) {
-    DrawTextEx(font, btn.text.c_str(), textPos, fontSize, 1.0f, textColor);
-  } else {
-    DrawText(btn.text.c_str(), (int)textPos.x, (int)textPos.y, (int)fontSize,
-             textColor);
-  }
+  UIRenderer::DrawButton(
+      UISystem::GetFont(),
+      tex,
+      btn.bounds,
+      btn.text.c_str(),
+      32.0f,
+      textColor,
+      tint,
+      enabled && btn.hovered,
+      enabled && btn.hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+  );
 }
 
 bool MainMenuState::IsButtonClicked(const Button &btn) {

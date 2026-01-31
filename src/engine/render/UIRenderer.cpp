@@ -67,6 +67,53 @@ void UIRenderer::DrawTextScaled(const Font &font, const char *text, float x,
   DrawTextUI(font, text, x, y + yOffset, finalFontSize, color, alpha);
 }
 
+void UIRenderer::DrawButton(const Font &font, Texture2D texture,
+                             Rectangle bounds, const char *text, float fontSize,
+                             Color textColor, Color textureTint, bool isHovered,
+                             bool isPressed, float alpha) {
+  float scale = s_uiScale;
+  Rectangle dest = {bounds.x * scale, bounds.y * scale, bounds.width * scale,
+                    bounds.height * scale};
+
+  Color baseTint = Fade(textureTint, alpha);
+  if (isPressed) {
+    baseTint = ColorBrightness(baseTint, -0.2f);
+  } else if (isHovered) {
+    baseTint = ColorBrightness(baseTint, 0.2f);
+  }
+
+  if (texture.id > 0) {
+    Rectangle source = {0, 0, (float)texture.width, (float)texture.height};
+    DrawTexturePro(texture, source, dest, {0, 0}, 0, baseTint);
+  } else {
+    // Fallback
+    Color bg = isPressed ? s_theme.buttonPress
+                         : (isHovered ? s_theme.buttonHover : s_theme.buttonNormal);
+    DrawRectangleRec(dest, Fade(bg, alpha));
+    DrawRectangleLinesEx(dest, 1.0f * scale, Fade(s_theme.panelBorder, alpha));
+  }
+
+  if (text && text[0] != '\0') {
+    float scaledFontSize = fontSize * scale;
+    Vector2 textSize =
+        IsFontValid(font)
+            ? MeasureTextEx(font, text, scaledFontSize, 1.0f * scale)
+            : Vector2{(float)MeasureText(text, (int)scaledFontSize),
+                        scaledFontSize};
+
+    Vector2 textPos = {dest.x + (dest.width - textSize.x) * 0.5f,
+                       dest.y + (dest.height - textSize.y) * 0.5f};
+
+    if (IsFontValid(font)) {
+      DrawTextEx(font, text, textPos, scaledFontSize, 1.0f * scale,
+                 Fade(textColor, alpha));
+    } else {
+      DrawText(text, (int)textPos.x, (int)textPos.y, (int)scaledFontSize,
+               Fade(textColor, alpha));
+    }
+  }
+}
+
 Color UIRenderer::GetRarityColor(NoMoreDay::Rarity rarity) {
   switch (rarity) {
   case Rarity::Common:
@@ -1478,21 +1525,15 @@ void UIRenderer::DrawMessageBox(const Font &font, UIContext &uiContext,
                   ? (int)MeasureTextEx(font, text, fontSize * s_uiScale, 1.0f).x
                   : MeasureText(text, (int)(fontSize * s_uiScale));
 
-  float w = (textW / s_uiScale) + 60.0f;
-  float h = 50.0f;
-  float sw = w * s_uiScale;
-  float sh = h * s_uiScale;
-  float sx = ((float)GetScreenWidth() - sw) / 2.0f;
-  float sy = ((float)GetScreenHeight() - sh) / 2.0f;
+  float w_logic = (textW / s_uiScale) + 80.0f;
+  float h_logic = 60.0f;
+  float sx_logic = (UI_REF_WIDTH - w_logic) / 2.0f;
+  float sy_logic = (UI_REF_HEIGHT - h_logic) / 2.0f;
 
-  DrawRectangle((int)sx, (int)sy, (int)sw, (int)sh,
-                Fade(s_theme.panelBackground, 0.9f * alpha));
-  DrawRectangleLinesEx({sx, sy, sw, sh}, 1.0f * s_uiScale,
-                       Fade(s_theme.danger, alpha));
-
-  DrawTextUI(font, text, (sx + 30 * s_uiScale) / s_uiScale,
-             (sy + 15 * s_uiScale) / s_uiScale, fontSize, s_theme.textPrimary,
-             alpha);
+  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+  
+  // Use DrawButton as a decorative frame for the message box
+  UIRenderer::DrawButton(font, rectTex, {sx_logic, sy_logic, w_logic, h_logic}, text, fontSize, s_theme.textPrimary, WHITE, false, false, alpha);
 }
 
 } // namespace NoMoreDay

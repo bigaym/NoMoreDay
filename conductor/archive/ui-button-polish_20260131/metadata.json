@@ -1,0 +1,16 @@
+{
+  "id": "ui-button-polish_20260131",
+  "title": "UI Button Visual Polish",
+  "type": "feature",
+  "status": "complete",
+  "created": "2026-01-31T20:06:00Z",
+  "updated": "2026-01-31T20:30:00Z",
+  "phases": {
+    "total": 3,
+    "completed": 3
+  },
+  "tasks": {
+    "total": 8,
+    "completed": 8
+  }
+}

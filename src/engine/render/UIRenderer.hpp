@@ -46,6 +46,9 @@ namespace NoMoreDay {
         static void DrawTextUI(const Font& font, const char* text, float x, float y, float fontSize, Color color, float alpha = 1.0f);
         static void DrawTextScaled(const Font& font, const char* text, float x, float y, float fontSize, float maxWidth, Color color, float alpha = 1.0f);
         
+        // Generic Button
+        static void DrawButton(const Font& font, Texture2D texture, Rectangle bounds, const char* text, float fontSize, Color textColor, Color textureTint, bool isHovered, bool isPressed, float alpha = 1.0f);
+
         // Item/Slot Helpers
         static void DrawSlot(const Font& font, entt::registry& registry, float x, float y, float size, entt::entity item, const char* defaultLabel = nullptr, bool highlighted = false, bool isLocked = false, float alpha = 1.0f, EquipmentSlot slotHint = EquipmentSlot::None);
         static void DrawSkillSlot(const Font& font, float x, float y, float size, 

@@ -3,6 +3,8 @@
 #include "game/states/MosaicEditorState.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/WorldState.hpp"
 #include "core/logging/Logger.hpp"
 #include "raylib.h"
@@ -166,27 +168,29 @@ void DimensionalLevelSelectState::RenderList() {
 void DimensionalLevelSelectState::RenderButtons() {
     float screenW = (float)GetScreenWidth();
     float screenH = (float)GetScreenHeight();
-    float winX = (screenW - WINDOW_WIDTH) / 2.0f;
-    float winY = (screenH - WINDOW_HEIGHT) / 2.0f;
+    float scale = UIRenderer::GetScale();
+    float winX_Logic = (UI_REF_WIDTH - WINDOW_WIDTH) / 2.0f;
+    float winY_Logic = (UI_REF_HEIGHT - WINDOW_HEIGHT) / 2.0f;
     
-    float btnY = winY + WINDOW_HEIGHT - 60;
-    
+    float btnY_Logic = winY_Logic + WINDOW_HEIGHT - 65.0f;
+    Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+    Vector2 mouseLogic = UISystem::GetMousePositionLogic();
+
     // Confirm Button
-    Rectangle confirmRect = {winX + WINDOW_WIDTH - 140, btnY, 120, 40};
-    bool hoverConfirm = CheckCollisionPointRec(GetMousePosition(), confirmRect);
-    DrawRectangleRounded(confirmRect, 0.2f, 4, hoverConfirm ? GREEN : DARKGREEN);
-    Font font = UISystem::GetFont();
-    UIRenderer::DrawTextUI(font, "进入维度", confirmRect.x + 20, confirmRect.y + 10, 18, WHITE, 1.0f);
+    Rectangle confirmRect_Logic = {winX_Logic + WINDOW_WIDTH - 160.0f, btnY_Logic, 140.0f, 45.0f};
+    bool hoverConfirm = CheckCollisionPointRec(mouseLogic, confirmRect_Logic);
+    
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, confirmRect_Logic, "进入维度", 20, WHITE, hoverConfirm ? GREEN : DARKGREEN, hoverConfirm, hoverConfirm && IsMouseButtonDown(MOUSE_LEFT_BUTTON), 1.0f);
     
     if (hoverConfirm && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
         ConfirmSelection();
     }
 
     // Cancel Button
-    Rectangle cancelRect = {winX + 20, btnY, 100, 40};
-    bool hoverCancel = CheckCollisionPointRec(GetMousePosition(), cancelRect);
-    DrawRectangleRounded(cancelRect, 0.2f, 4, hoverCancel ? RED : MAROON);
-    UIRenderer::DrawTextUI(font, "取消", cancelRect.x + 30, cancelRect.y + 10, 18, WHITE, 1.0f);
+    Rectangle cancelRect_Logic = {winX_Logic + 20.0f, btnY_Logic, 120.0f, 45.0f};
+    bool hoverCancel = CheckCollisionPointRec(mouseLogic, cancelRect_Logic);
+    
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, cancelRect_Logic, "取消", 20, WHITE, WHITE, hoverCancel, hoverCancel && IsMouseButtonDown(MOUSE_LEFT_BUTTON), 1.0f);
 
     if (hoverCancel && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
         m_stateManager->PopState();

@@ -1,5 +1,7 @@
 #include "game/systems/ui/UIInventory.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/ItemComponent.hpp"
@@ -293,14 +295,11 @@ void UIInventory::Draw(entt::registry& registry) {
         bool isActive = (m_activeTab == index);
         bool isHovered = CheckCollisionPointRec(mousePos, {x, tabY, tabW, tabH});
         
-        Color bg = isActive ? theme.textHighlight : theme.slotBackground;
-        if (!isActive && isHovered) bg = theme.buttonHover;
-
-        DrawRectScaled(x, tabY, tabW, tabH, bg);
-        DrawRectLinesScaled({x, tabY, tabW, tabH}, 1.0f, theme.panelBorder);
-        
+        Texture2D tabTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+        Color tabTint = isActive ? theme.textHighlight : WHITE;
         Color textColor = isActive ? BLACK : theme.textPrimary;
-        UIRenderer::DrawTextUI(font, label, x + 10, tabY + 2, 18, textColor, alpha);
+
+        UIRenderer::DrawButton(font, tabTex, {x, tabY, tabW, tabH}, label, 18, textColor, tabTint, isHovered, isHovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
         if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             m_activeTab = index;
@@ -545,6 +544,7 @@ void UIInventory::Draw(entt::registry& registry) {
                 {"Rune", MaterialCategory::Rune}
             };
             
+            Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
             for (const auto& catDef : categories) {
                 float textW = MeasureTextEx(font, catDef.label, 18, 1).x;
                 float btnW = textW + 20.0f;
@@ -552,13 +552,10 @@ void UIInventory::Draw(entt::registry& registry) {
                 bool isSelected = (m_selectedCategory == catDef.cat);
                 bool isHover = CheckCollisionPointRec(mousePos, btnRect);
 
-                Color btnBg = isSelected ? theme.textHighlight : theme.buttonNormal;
-                if (!isSelected && isHover) btnBg = theme.buttonHover;
-                
-                DrawRectScaled(btnRect.x, btnRect.y, btnRect.width, btnRect.height, btnBg);
-                
+                Color btnTint = isSelected ? theme.textHighlight : WHITE;
                 Color txtColor = isSelected ? BLACK : theme.textSecondary;
-                UIRenderer::DrawTextUI(font, catDef.label, btnRect.x + 10, btnRect.y + 2, 18, txtColor, alpha);
+                
+                UIRenderer::DrawButton(font, rectTex, btnRect, catDef.label, 18, txtColor, btnTint, isHover, isHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
                 if (isHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     m_selectedCategory = catDef.cat;
@@ -675,11 +672,11 @@ void UIInventory::Draw(entt::registry& registry) {
     UIRenderer::DrawTextUI(font, TextFormat("金币: %d", inv->gold), invX + 5, bottomY, 20, theme.textHighlight, alpha);
 
     // 整理按钮
-    Rectangle sortBtnRec = {invX + invW - 120, bottomY - 5, 100, 32};
+    Rectangle sortBtnRec = {invX + invW - 130, bottomY - 5, 120, 36};
     bool sortHover = CheckCollisionPointRec(mousePos, sortBtnRec);
-    DrawRectScaled(sortBtnRec.x, sortBtnRec.y, sortBtnRec.width, sortBtnRec.height, sortHover ? theme.buttonHover : theme.buttonNormal);
-    DrawRectLinesScaled(sortBtnRec, 1.0f, theme.panelBorder);
-    UIRenderer::DrawTextUI(font, "整理背包", sortBtnRec.x + 15, sortBtnRec.y + 6, 18, theme.textPrimary, alpha);
+    Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+    UIRenderer::DrawButton(font, rectTex, sortBtnRec, "整理背包", 18, theme.textPrimary, WHITE, sortHover, sortHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    
     if (sortHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         InventorySystem::organize(registry, player);
     }

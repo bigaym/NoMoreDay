@@ -24,7 +24,7 @@ private:
     bool hovered;
   };
 
-  void DrawButton(const Button &btn);
+  void DrawButton(const Button &btn, bool enabled = true);
   bool IsButtonClicked(const Button &btn);
 
   Button m_startButton;

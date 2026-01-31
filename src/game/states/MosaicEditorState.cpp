@@ -8,6 +8,8 @@
 #include "engine/scene/SceneManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/data/AffixMapping.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/systems/world/MapAffixCalculator.hpp"
@@ -276,26 +278,20 @@ void MosaicEditorState::RenderResonancePreview() {
 }
 
 void MosaicEditorState::RenderConfirmButton() {
-  float btnX = GRID_OFFSET_X + 50;
-  float btnY = GRID_OFFSET_Y + 350;
-  float btnW = 200;
-  float btnH = 50;
-  Rectangle btnRect = {btnX, btnY, btnW, btnH};
-  Vector2 mouse = GetMousePosition();
-  bool hovered = CheckCollisionPointRec(mouse, btnRect);
+  float btnX_Logic = (GRID_OFFSET_X + 50);
+  float btnY_Logic = (GRID_OFFSET_Y + 350);
+  float btnW_Logic = 220;
+  float btnH_Logic = 55;
+  Rectangle btnRect_Logic = {btnX_Logic, btnY_Logic, btnW_Logic, btnH_Logic};
+  Vector2 mouseLogic = UISystem::GetMousePositionLogic();
+  bool hovered = CheckCollisionPointRec(mouseLogic, btnRect_Logic);
 
-  Color btnColor =
-      m_grid.GetFilledCount() == 0
-          ? Color{60, 60, 60, 255}
-          : (hovered ? Color{60, 140, 60, 255} : Color{40, 100, 40, 255});
-  DrawRectangleRounded(btnRect, 0.2f, 8, btnColor);
-  DrawRectangleRoundedLinesEx(btnRect, 0.2f, 8, 2.0f,
-                              hovered ? WHITE : DARKGREEN);
+  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+  bool canGenerate = m_grid.GetFilledCount() > 0;
 
-  Font font = UISystem::GetFont();
-  const char *text = "Generate Map";
-  float textW = MeasureTextEx(font, text, 24, 1.0f).x;
-  UIRenderer::DrawTextUI(font, text, btnX + btnW / 2 - textW / 2, btnY + 12, 24, WHITE, 1.0f);
+  Color tint = canGenerate ? (hovered ? GREEN : DARKGREEN) : GRAY;
+  
+  UIRenderer::DrawButton(UISystem::GetFont(), rectTex, btnRect_Logic, "Generate Map", 24, WHITE, tint, canGenerate && hovered, canGenerate && hovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON), 1.0f);
 }
 
 void MosaicEditorState::RenderDraggedFragment() {
@@ -321,29 +317,30 @@ void MosaicEditorState::RenderDraggedFragment() {
 
 void MosaicEditorState::RenderConfirmDialog() {
   DrawRectangle(0, 0, (float)GetScreenWidth(), (float)GetScreenHeight(), Color{0, 0, 0, 150});
-  float dlgW = 400, dlgH = 200;
-  float dlgX = ((float)GetScreenWidth() - dlgW) / 2;
-  float dlgY = ((float)GetScreenHeight() - dlgH) / 2;
+  float dlgW = 450, dlgH = 220;
+  float dlgX_Logic = (UI_REF_WIDTH - dlgW) / 2;
+  float dlgY_Logic = (UI_REF_HEIGHT - dlgH) / 2;
 
-  DrawRectangleRounded(Rectangle{dlgX, dlgY, dlgW, dlgH}, 0.1f, 8,
-                       Color{50, 50, 70, 255});
-  DrawRectangleRoundedLinesEx(Rectangle{dlgX, dlgY, dlgW, dlgH}, 0.1f, 8, 2.0f,
+  float scale = UIRenderer::GetScale();
+  DrawRectangleRounded(Rectangle{dlgX_Logic * scale, dlgY_Logic * scale, dlgW * scale, dlgH * scale}, 0.1f, 8,
+                       Color{30, 30, 45, 255});
+  DrawRectangleRoundedLinesEx(Rectangle{dlgX_Logic * scale, dlgY_Logic * scale, dlgW * scale, dlgH * scale}, 0.1f, 8, 2.0f * scale,
                               SKYBLUE);
   
   Font font = UISystem::GetFont();
-  UIRenderer::DrawTextUI(font, "Generate Map?", dlgX + 120, dlgY + 30, 24, WHITE, 1.0f);
+  UIRenderer::DrawTextUI(font, "Generate Map?", dlgX_Logic + 140, dlgY_Logic + 40, 28, WHITE, 1.0f);
 
-  Rectangle yesBtn = {dlgX + 50, dlgY + 120, 120, 40};
-  Rectangle noBtn = {dlgX + 230, dlgY + 120, 120, 40};
+  Rectangle yesBtn_Logic = {dlgX_Logic + 50, dlgY_Logic + 130, 140, 45};
+  Rectangle noBtn_Logic = {dlgX_Logic + 260, dlgY_Logic + 130, 140, 45};
   
-  bool hoveredYes = CheckCollisionPointRec(GetMousePosition(), yesBtn);
-  bool hoveredNo = CheckCollisionPointRec(GetMousePosition(), noBtn);
+  Vector2 mouseLogic = UISystem::GetMousePositionLogic();
+  bool hoveredYes = CheckCollisionPointRec(mouseLogic, yesBtn_Logic);
+  bool hoveredNo = CheckCollisionPointRec(mouseLogic, noBtn_Logic);
   
-  DrawRectangleRounded(yesBtn, 0.2f, 8, hoveredYes ? GREEN : DARKGREEN);
-  DrawRectangleRounded(noBtn, 0.2f, 8, hoveredNo ? RED : MAROON);
-  
-  UIRenderer::DrawTextUI(font, "确定", yesBtn.x + 40, yesBtn.y + 10, 20, WHITE, 1.0f);
-  UIRenderer::DrawTextUI(font, "取消", noBtn.x + 45, noBtn.y + 10, 20, WHITE, 1.0f);
+  Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+
+  UIRenderer::DrawButton(font, rectTex, yesBtn_Logic, "确定", 22, WHITE, hoveredYes ? GREEN : DARKGREEN, hoveredYes, hoveredYes && IsMouseButtonDown(MOUSE_LEFT_BUTTON), 1.0f);
+  UIRenderer::DrawButton(font, rectTex, noBtn_Logic, "取消", 22, WHITE, WHITE, hoveredNo, hoveredNo && IsMouseButtonDown(MOUSE_LEFT_BUTTON), 1.0f);
 }
 void MosaicEditorState::RenderTooltip() {
   entt::entity hoveredEntity = entt::null;

@@ -248,6 +248,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: UI Button Visual Polish
+- **Folder:** [./conductor/archive/ui-button-polish_20260131/](./conductor/archive/ui-button-polish_20260131/)
+- **Description:** 将新增加的按钮美术资源（主菜单、冰蓝色风格等）整合进现有的 UI 系统，建立统一的按钮渲染标准并重构主菜单、仓库、技能专精等界面。 (Completed on 2026-01-31)
+- **Status:** COMPLETED
+- **Priority:** MEDIUM
+- **Estimated Time:** 0.5 day
+
+---
+
 ## [ ] Track: Next Milestone (TBD)
 - **Folder:** [./conductor/tracks/next-track/](./conductor/tracks/next-track/)
 - **Description:** 规划下一个功能模块或优化方向。

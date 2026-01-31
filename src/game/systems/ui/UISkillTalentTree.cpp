@@ -83,11 +83,14 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
     UISystem::DrawTextUI(TextFormat("%s - 专精天赋", skillData->name_key.c_str()), startX + 40, startY + 30, 40, GOLD, alpha);
     UISystem::DrawTextUI(TextFormat("可用点数: %d", active->available_talent_points), startX + 40, startY + 80, 24, WHITE, alpha);
     
+    Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
+
     // Reset Button
     Rectangle resetRectLogic = {startX + 250, startY + 75, 120, 40};
     bool resetHover = CheckCollisionPointRec(mouseLogicPos, resetRectLogic);
-    DrawRectangleRec({resetRectLogic.x * scale, resetRectLogic.y * scale, resetRectLogic.width * scale, resetRectLogic.height * scale}, Fade(resetHover ? RED : MAROON, alpha));
-    UISystem::DrawTextUI("重置天赋", resetRectLogic.x + 15, resetRectLogic.y + 10, 20, WHITE, alpha);
+    
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, resetRectLogic, "重置天赋", 20, WHITE, resetHover ? RED : MAROON, resetHover, resetHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+
     if (resetHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         SkillSystem::ResetTalents(registry, player, skillId);
     }
@@ -97,8 +100,9 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
     // Back Button
     Rectangle backRectLogic = {startX + panelW - 150, startY + 30, 120, 50};
     bool backHover = CheckCollisionPointRec(mouseLogicPos, backRectLogic);
-    DrawRectangleRec({backRectLogic.x * scale, backRectLogic.y * scale, backRectLogic.width * scale, backRectLogic.height * scale}, Fade(backHover ? GRAY : DARKGRAY, alpha));
-    UISystem::DrawTextUI("返回", backRectLogic.x + 35, backRectLogic.y + 12, 22, WHITE, alpha);
+    
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, backRectLogic, "返回", 22, WHITE, WHITE, backHover, backHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+
     if (backHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         state.selectedSkillId = 0;
         return;
@@ -124,7 +128,7 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
             if (tree->nodes.count(preId)) {
                 Vector2 end = GetNodePos(tree->nodes.at(preId));
                 int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
-                DrawLineEx({start.x * scale, start.y * scale}, {end.x * scale, end.y * scale}, 4.0f * s_viewZoom * scale, Fade(prePts > 0 ? GOLD : DARKGRAY, alpha * 0.6f));
+                DrawLineEx(Vector2{start.x * scale, start.y * scale}, Vector2{end.x * scale, end.y * scale}, 4.0f * s_viewZoom * scale, Fade(prePts > 0 ? GOLD : DARKGRAY, alpha * 0.6f));
             }
         }
     }

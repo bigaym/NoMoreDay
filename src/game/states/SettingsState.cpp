@@ -1,6 +1,9 @@
 #include "game/states/SettingsState.hpp"
 #include "engine/scene/StateManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "engine/render/UIRenderer.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include <raylib.h>
 #include <iomanip>
 #include <sstream>
@@ -26,9 +29,9 @@ namespace NoMoreDay {
             false
         };
 
-        float btnWidth = 200;
-        float btnHeight = 50;
-        m_backButton = { { (screenWidth - btnWidth) / 2.0f, screenHeight * 0.7f, btnWidth, btnHeight }, "BACK", false };
+        float btnWidth = 260;
+        float btnHeight = 70;
+        m_backButton = { { (screenWidth - btnWidth) / 2.0f, screenHeight * 0.75f, btnWidth, btnHeight }, "BACK", false };
     }
 
     void SettingsState::OnEnter() {}
@@ -113,26 +116,19 @@ namespace NoMoreDay {
     }
 
     void SettingsState::DrawButton(const Button& btn) {
-        Color baseColor = btn.hovered ? RAYWHITE : Color{ 50, 50, 50, 200 };
-        Color textColor = btn.hovered ? BLACK : RAYWHITE;
-
-        DrawRectangleRec(btn.bounds, baseColor);
-        DrawRectangleLinesEx(btn.bounds, 2, btn.hovered ? YELLOW : LIGHTGRAY);
-
-        Font font = UISystem::GetFont();
-        float fontSize = 20.0f;
-        float textWidth = IsFontValid(font) ? MeasureTextEx(font, btn.text.c_str(), fontSize, 1.0f).x : (float)MeasureText(btn.text.c_str(), (int)fontSize);
+        Texture2D tex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Menu.id);
         
-        Vector2 textPos = {
-            btn.bounds.x + (btn.bounds.width - textWidth) / 2.0f,
-            btn.bounds.y + (btn.bounds.height - fontSize) / 2.0f
-        };
-        
-        if (IsFontValid(font)) {
-            DrawTextEx(font, btn.text.c_str(), textPos, fontSize, 1.0f, textColor);
-        } else {
-            DrawText(btn.text.c_str(), (int)textPos.x, (int)textPos.y, (int)fontSize, textColor);
-        }
+        UIRenderer::DrawButton(
+            UISystem::GetFont(),
+            tex,
+            btn.bounds,
+            btn.text.c_str(),
+            26.0f,
+            btn.hovered ? YELLOW : WHITE,
+            WHITE,
+            btn.hovered,
+            btn.hovered && IsMouseButtonDown(MOUSE_BUTTON_LEFT)
+        );
     }
 
     bool SettingsState::IsButtonClicked(const Button& btn) {
