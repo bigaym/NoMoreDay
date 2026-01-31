@@ -18,7 +18,16 @@ PortalSystem::PortalSystem(SceneManager &sceneManager)
     : m_sceneManager(sceneManager) {
     // Load VFX Resources
     m_vortexShader = LoadShader("assets/shaders/vfx/portal_vortex.vs", "assets/shaders/vfx/portal_vortex.fs");
+    if (m_vortexShader.id == 0) {
+        LOG_ERROR("Failed to load Portal Vortex Shader! Check assets/shaders/vfx/portal_vortex.vs and .fs");
+    } else {
+        LOG_INFO("Portal Vortex Shader loaded successfully. ID: {}", m_vortexShader.id);
+    }
+
     m_noiseTexture = LoadTexture("assets/textures/vfx/vfx_energy_noise.png");
+    if (m_noiseTexture.id == 0) {
+        LOG_ERROR("Failed to load Portal Noise Texture: assets/textures/vfx/vfx_energy_noise.png");
+    }
     
     // Get Uniform Locations
     m_locTime = GetShaderLocation(m_vortexShader, "uTime");
@@ -252,6 +261,14 @@ void PortalSystem::SpawnTownPortal(entt::registry &registry,
   auto *pos = registry.try_get<Position>(caster);
   if (!pos)
     return;
+
+  // [Fix] Remove existing Town Portals to prevent duplicates
+  auto view = registry.view<PortalComponent>();
+  for (auto entity : view) {
+      if (view.get<PortalComponent>(entity).type == PortalType::Town) {
+          registry.destroy(entity);
+      }
+  }
 
   auto portal = registry.create();
   registry.emplace<LocalLevelTag>(portal);
