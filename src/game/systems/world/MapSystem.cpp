@@ -517,16 +517,12 @@ void MapSystem::render(const Camera2D &camera) const {
 
       switch (type) {
       case Tile::Type::FLOOR:
+      case Tile::Type::STAIRS_DOWN: // Render as Floor (Entity VFX handles visual)
+      case Tile::Type::STAIRS_UP:   // Render as Floor (Entity VFX handles visual)
         color = biome.floorColor;
         break;
       case Tile::Type::WALL:
         color = biome.wallColor;
-        break;
-      case Tile::Type::STAIRS_DOWN:
-        color = RED;
-        break;
-      case Tile::Type::STAIRS_UP:
-        color = GREEN; // Make stairs up visible
         break;
       default:
         color = biome.floorColor;
