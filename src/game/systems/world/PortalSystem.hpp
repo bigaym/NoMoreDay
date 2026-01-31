@@ -13,6 +13,7 @@ namespace NoMoreDay {
 class PortalSystem {
 public:
     PortalSystem(SceneManager& sceneManager);
+    ~PortalSystem();
     
     void Update(entt::registry& registry, float dt);
     void Render(entt::registry& registry, const Camera2D& camera);
@@ -30,6 +31,14 @@ private:
     
     SceneManager& m_sceneManager;
     entt::entity m_lastTriggeredPortal = entt::null;
+
+    // VFX Resources
+    Shader m_vortexShader;
+    Texture2D m_noiseTexture;
+    int m_locTime = -1;
+    int m_locColor = -1;
+    int m_locSwirl = -1;
+    int m_locCore = -1;
 };
 
 }

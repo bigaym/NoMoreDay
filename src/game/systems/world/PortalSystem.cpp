@@ -15,7 +15,28 @@
 namespace NoMoreDay {
 
 PortalSystem::PortalSystem(SceneManager &sceneManager)
-    : m_sceneManager(sceneManager) {}
+    : m_sceneManager(sceneManager) {
+    // Load VFX Resources
+    m_vortexShader = LoadShader("assets/shaders/vfx/portal_vortex.vs", "assets/shaders/vfx/portal_vortex.fs");
+    m_noiseTexture = LoadTexture("assets/textures/vfx/vfx_energy_noise.png");
+    
+    // Get Uniform Locations
+    m_locTime = GetShaderLocation(m_vortexShader, "uTime");
+    m_locColor = GetShaderLocation(m_vortexShader, "uColor");
+    m_locSwirl = GetShaderLocation(m_vortexShader, "uSwirlStrength");
+    m_locCore = GetShaderLocation(m_vortexShader, "uCoreSize");
+    
+    // Set Default Uniforms
+    float defaultSwirl = 3.0f;
+    float defaultCore = 0.15f;
+    SetShaderValue(m_vortexShader, m_locSwirl, &defaultSwirl, SHADER_UNIFORM_FLOAT);
+    SetShaderValue(m_vortexShader, m_locCore, &defaultCore, SHADER_UNIFORM_FLOAT);
+}
+
+PortalSystem::~PortalSystem() {
+    if (m_vortexShader.id != 0) UnloadShader(m_vortexShader);
+    if (m_noiseTexture.id != 0) UnloadTexture(m_noiseTexture);
+}
 
 void PortalSystem::Update(entt::registry &registry, float dt) {
   // 1. Update casting state
@@ -307,6 +328,12 @@ void PortalSystem::CancelTownPortalCast(entt::registry &registry,
 void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
   auto view = registry.view<PortalComponent, Position>();
 
+  BeginShaderMode(m_vortexShader);
+
+  // Update Time Uniform
+  float time = (float)GetTime();
+  SetShaderValue(m_vortexShader, m_locTime, &time, SHADER_UNIFORM_FLOAT);
+
   for (auto entity : view) {
     const auto &portal = view.get<PortalComponent>(entity);
     const auto &pos = view.get<Position>(entity);
@@ -314,79 +341,65 @@ void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
     if (!portal.isActive)
       continue;
 
-    // Determine color based on portal type
-    // Skip procedural rendering for DimensionalGate (it uses a sprite)
-    if (portal.type == PortalType::DimensionalGate) {
-        continue;
-    }
+    // Skip DimensionalGate ONLY if it has a specific sprite component handling it elsewhere?
+    // User requested "Vortex effect for ALL portals".
+    // So we render for all.
+    // If DimensionalGate has a SpriteComponent, we might want to suppress it here OR overwrite it.
+    // But SpriteComponent is rendered by RenderSystem. 
+    // Ideally we should REMOVE SpriteComponent from DimensionalGate entities if we use this.
+    // Assuming we did that (or will do).
 
-    Color ringColor = PURPLE;
-    Color innerColor = DARKPURPLE;
+    Color baseColor = PURPLE;
+    float yOffsetMult = -0.1f; // Default: Slightly up for ground portals
 
     switch (portal.type) {
     case PortalType::Town:
     case PortalType::Return:
-      ringColor = GOLD;
-      innerColor = ORANGE;
+      baseColor = GOLD; break;
+    case PortalType::NextLevel:
+      baseColor = SKYBLUE; break;
+    case PortalType::DimensionalGate:
+      baseColor = {172, 226, 232, 255}; // Light Blue/Cyan matching requested RGB
+      yOffsetMult = 0.12f;             // Move down to align with archway center
       break;
     case PortalType::Boss:
-      ringColor = RED;
-      innerColor = MAROON;
-      break;
-    default:
-      break;
+      baseColor = RED; break;
     }
 
-    float pulse = 1.0f + 0.1f * sinf(portal.animationTimer * 4.0f);
-    float radius = portal.radius * pulse;
+    // Set Color Uniform (Normalized float vec4)
+    float color[4] = {
+        (float)baseColor.r / 255.0f,
+        (float)baseColor.g / 255.0f,
+        (float)baseColor.b / 255.0f,
+        (float)baseColor.a / 255.0f
+    };
+    SetShaderValue(m_vortexShader, m_locColor, color, SHADER_UNIFORM_VEC4);
 
-    // 1. Outer glow ring
-    DrawRing({pos.x, pos.y}, radius - 5.0f, radius, 0, 360, 32,
-             ColorAlpha(ringColor, 0.4f));
-    DrawRing({pos.x, pos.y}, radius - 8.0f, radius - 5.0f, 0, 360, 32,
-             ColorAlpha(ringColor, 0.6f));
+    // Calculate Aspect Ratio Size (3:5)
+    // Width = Radius * 1.5 (Reduced from 3.0 to fit better)
+    float visualWidth = portal.radius * 1.5f;
+    float visualHeight = visualWidth * (5.0f / 3.0f); // 3:5 Ratio
 
-    // 2. Inner swirl effect (rotating lines)
-    int numLines = 6;
-    for (int i = 0; i < numLines; ++i) {
-      float angle = portal.animationTimer * 2.0f + i * (2.0f * PI / numLines);
-      float innerRadius = 5.0f;
-      float outerRadius = radius - 10.0f;
+    Rectangle destRect = {
+        pos.x, 
+        pos.y + visualHeight * yOffsetMult, 
+        visualWidth, 
+        visualHeight
+    };
+    
+    Vector2 origin = {visualWidth / 2.0f, visualHeight / 2.0f};
 
-      Vector2 start = {pos.x + cosf(angle) * innerRadius,
-                       pos.y + sinf(angle) * innerRadius};
-      Vector2 end = {pos.x + cosf(angle) * outerRadius,
-                     pos.y + sinf(angle) * outerRadius};
-
-      DrawLineEx(start, end, 2.0f, ColorAlpha(innerColor, 0.5f));
-    }
-
-    // 3. Center glow
-    DrawCircle((int)pos.x, (int)pos.y, 10.0f * pulse, ColorAlpha(WHITE, 0.6f));
-    DrawCircle((int)pos.x, (int)pos.y, 6.0f * pulse,
-               ColorAlpha(ringColor, 0.8f));
-
-    // 4. Emit periodic particles
-    if (fmodf(portal.animationTimer, 0.1f) < 0.016f) {
-      auto &particleSys = systems::GPUParticleSystem::Get();
-      float pAngle = portal.animationTimer * 5.0f;
-
-      for (int i = 0; i < 2; ++i) {
-        float a = pAngle + i * PI;
-        components::GPUParticle p;
-        p.position = {pos.x + cosf(a) * (radius - 10.0f),
-                      pos.y + sinf(a) * (radius - 10.0f)};
-        p.velocity = {-sinf(a) * 40.0f, cosf(a) * 40.0f - 20.0f};
-        p.color = ringColor;
-        p.lifetime = 0.6f;
-        p.maxLifetime = 0.6f;
-        p.scale = 3.0f;
-        particleSys.Emit(p);
-      }
-    }
+    // Draw Texture with Shader
+    // Using White part of noise texture or full texture? 
+    // Shader uses texture0.
+    DrawTexturePro(m_noiseTexture, 
+                   {0, 0, (float)m_noiseTexture.width, (float)m_noiseTexture.height}, 
+                   destRect, origin, 0.0f, WHITE);
   }
+  
+  EndShaderMode();
 
-  // Render casting progress circle
+  // Render casting progress circle (Standard rendering)
   auto castingView = registry.view<TownPortalCastingComponent, Position>();
   for (auto entity : castingView) {
     const auto &casting = castingView.get<TownPortalCastingComponent>(entity);
