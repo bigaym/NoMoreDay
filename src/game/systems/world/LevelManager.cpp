@@ -202,9 +202,14 @@ void LevelManager::spawnLevelEntities() {
         pc.isActive = true;
         pc.radius = 25.0f;
 
-        // Determine type based on context?
-        // Default to NextLevel (Mosaic System)
-        pc.type = PortalType::NextLevel;
+        // Determine type based on context
+        if (getCurrentBiomeID() == NoMoreDay::BiomeID::Town) {
+            // Town Exit -> Dimensional Gate (Triggers Level Select)
+            pc.type = PortalType::DimensionalGate;
+        } else {
+            // Dungeon Exit -> Next Level (Triggers Mosaic directly)
+            pc.type = PortalType::NextLevel;
+        }
 
         // Visuals are handled by PortalSystem based on type
         m_registry->emplace<PortalComponent>(entity, pc);

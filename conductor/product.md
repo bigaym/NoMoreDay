@@ -23,6 +23,7 @@ To create an immersive ARPG experience where the **Roguelite run loop** meets **
 - **The Loom UI:** A 3x3 grid where players stitch together the next floor. 
 - **Resonance:** Placing matching elements (e.g., Fire next to Fire) triggers resonance, multiplying rewards and difficulty.
 - **Strategic Risk:** Curse fragments can be used to unlock Tier 7 (God-tier) affixes on connected tiles.
+- **Level Selection:** Players can customize the base difficulty level (up to Player Level + 10) before entering the Mosaic interface, ensuring a balanced challenge curve.
 
 ### 2. Persistent Nemesis System (Implemented)
 - **Faction Aggro:** Killing monsters of a specific faction (Undead, Void, etc.) increases their hatred.

@@ -4,6 +4,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
 #include "game/components/MaterialBankComponent.hpp"
+#include "game/components/MapFragmentComponent.hpp" // ADDED THIS LINE
 #include "game/components/EffectComponent.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include <cmath>
@@ -48,7 +49,8 @@ bool InventorySystem::pickUpItem(entt::registry &registry, entt::entity characte
         return false;
 
     // --- Material Storage System ---
-    if (itemComp->type == ItemType::Material) {
+    // Exclude Map Fragments from auto-banking (they need to remain as entities for the Mosaic Editor)
+    if (itemComp->type == ItemType::Material && !registry.any_of<MapFragmentComponent>(item)) {
         auto *materialBank = registry.try_get<NoMoreDay::MaterialBankComponent>(character);
         if (materialBank) {
             int newCount = materialBank->Add(itemComp->id, itemComp->quantity);

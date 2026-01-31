@@ -4,6 +4,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Dimensional Level Selection & Fragment Failsafe
+- **Folder:** [./conductor/tracks/dimensional-level-select/](./conductor/tracks/dimensional-level-select/)
+- **Description:** 优化维度地图的进入体验。新增了等级选择界面，允许玩家在 (1 ~ 玩家等级+10) 范围内自定义难度。实现了默认碎片检测机制，防止空背包卡关。修复了城镇传送门触发逻辑，并将地图等级信息整合至小地图 UI。(Completed on 2026-01-31)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 0.5 day
+
+---
+
 ## [x] Track: Lock & Concurrency Optimization
 - **Folder:** [./conductor/archive/lock_optimization_20260128/](./conductor/archive/lock_optimization_20260128/)
 - **Description:** 优化项目中的锁使用。引入 ThreadSafeRandom，重构 NemesisDataStore 以减少锁持有时间并消除字符串依赖，实现 GPUParticleSystem 的无锁化发射，并为 ResourceManager 添加读写锁保护 (Completed on 2026-01-28)

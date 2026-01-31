@@ -4,6 +4,7 @@
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
+#include "game/components/WorldState.hpp" // Added
 #include "game/data/AffixMapping.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
@@ -219,16 +220,27 @@ void UIMinimap::Draw(entt::registry &registry,
   DrawRectLinesScaled(x, y, mapSize, mapSize, 2.0f, theme.panelBorderHighlight);
 
   // Coordinates or Zone Name
-  const char *zoneName =
-      levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town
-          ? "宁静村落"
-          : "地下城 - 1层";
-  if (levelManager.getCurrentBiomeID() != NoMoreDay::BiomeID::Town) {
-    static char zoneBuf[64];
-    snprintf(zoneBuf, sizeof(zoneBuf), "异界 - %d层",
-             levelManager.getCurrentLevel());
-    zoneName = zoneBuf;
+  char zoneBuf[128];
+  const char* baseName = (levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town) ? "宁静村落" : "地下城";
+  
+  if (levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town) {
+      snprintf(zoneBuf, sizeof(zoneBuf), "%s", baseName);
+  } else {
+      int displayLevel = levelManager.getCurrentLevel();
+      // Check for Dimensional State for accurate difficulty level
+      if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+          const auto& state = registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
+          if (state.isActive) {
+              int difficultyLv = state.selectedBaseLevel + (state.currentDepth - 1);
+              snprintf(zoneBuf, sizeof(zoneBuf), "异界 - %d层 [Lv.%d]", state.currentDepth, difficultyLv);
+          } else {
+              snprintf(zoneBuf, sizeof(zoneBuf), "%s - %d层", baseName, displayLevel);
+          }
+      } else {
+          snprintf(zoneBuf, sizeof(zoneBuf), "%s - %d层", baseName, displayLevel);
+      }
   }
+  const char* zoneName = zoneBuf;
 
   float tw = IsFontValid(font) ? MeasureTextEx(font, zoneName, 18, 1.0f).x
                                : (float)MeasureText(zoneName, 18);

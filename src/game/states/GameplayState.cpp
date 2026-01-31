@@ -8,13 +8,16 @@
 #include "game/components/MaterialBankComponent.hpp" // Added
 #include "game/components/PlayerState.hpp"
 #include "game/components/StashComponent.hpp"
+#include "game/components/MapFragmentComponent.hpp" // Added for Fragment Check
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"
 #include "game/states/InventoryState.hpp"
 #include "game/states/MosaicEditorState.hpp"
+#include "game/states/DimensionalLevelSelectState.hpp" // Added
 #include "game/states/PauseState.hpp"
 #include "game/systems/item/ItemFactory.hpp"
+#include "game/systems/item/InventorySystem.hpp" // Added
 #include "game/systems/world/LevelManager.hpp"
 #include "game/systems/world/MapSystem.hpp"    // Explicit include
 #include "game/systems/world/PortalSystem.hpp" // Moved up
@@ -437,6 +440,49 @@ bool GameplayState::OnUpdate(float dt) {
       registry.remove<PendingMosaicEditorTag>(entity);
       m_stateManager->PushState<MosaicEditorState>();
       LOG_INFO("Pushed MosaicEditorState");
+    }
+
+    // [New] Handle Dimensional Gate (Town Hub)
+    auto pendingGateView = registry.view<PendingDimensionalGateTag, PlayerTag>();
+    for (auto entity : pendingGateView) {
+        registry.remove<PendingDimensionalGateTag>(entity);
+        
+        // 1. Fragment Check & Failsafe
+        bool hasFragment = false;
+        if (auto* inv = registry.try_get<InventoryComponent>(entity)) {
+            for (auto itemEntity : inv->items) {
+                if (registry.valid(itemEntity) && registry.all_of<NoMoreDay::MapFragmentComponent>(itemEntity)) {
+                    hasFragment = true;
+                    break;
+                }
+            }
+            
+            if (!hasFragment) {
+                // Grant Default Fragment
+                auto frag = registry.create();
+                // ItemComponent
+                auto& item = registry.emplace<NoMoreDay::ItemComponent>(frag);
+                item.name = "Empty Dimensional Fragment";
+                item.rarity = NoMoreDay::Rarity::Common;
+                item.type = NoMoreDay::ItemType::Material; 
+                
+                // MapFragmentComponent
+                registry.emplace<NoMoreDay::MapFragmentComponent>(frag); // Default ctor is fine
+                registry.emplace<NoMoreDay::MapFragmentTag>(frag);
+                registry.emplace<PersistentTag>(frag); // Important for saves
+                
+                // Add to inventory using System (handles slots correctly)
+                if (InventorySystem::pickUpItem(registry, entity, frag)) {
+                    LOG_INFO("Granted default Dimensional Fragment to player.");
+                } else {
+                    LOG_WARN("Inventory full! Could not grant default fragment.");
+                    registry.destroy(frag); // Cleanup if failed
+                }
+            }
+        }
+
+        m_stateManager->PushState<DimensionalLevelSelectState>();
+        LOG_INFO("Pushed DimensionalLevelSelectState");
     }
   }
   {

@@ -659,8 +659,8 @@ void MosaicEditorState::ConfirmAndGenerate() {
           }
       }
       
-      LOG_INFO("Dimensional State Activated: DS={}, Rarity={:.1f}%, Quant={:.1f}%", 
-               worldState.difficultyScore, worldState.calculatedRarity*100.0f, worldState.calculatedQuantity*100.0f);
+      LOG_INFO("Dimensional State Activated: BaseLv={}, DS={}, Rarity={:.1f}%, Quant={:.1f}%", 
+               worldState.selectedBaseLevel, worldState.difficultyScore, worldState.calculatedRarity*100.0f, worldState.calculatedQuantity*100.0f);
   }
 
   if (m_context && m_context->sceneManager) {
