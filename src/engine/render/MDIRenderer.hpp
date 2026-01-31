@@ -34,6 +34,12 @@ struct DrawArraysIndirectCommand {
   uint32_t baseInstance;
 };
 
+struct StatUpdateCmd {
+  uint32_t index;
+  float pad[3];
+  components::GPUVisualStats stats;
+};
+
 class MDIRenderer {
 public:
   [[deprecated("Use RenderContext injection instead")]]
@@ -57,6 +63,12 @@ public:
   void Update(ResourceManager &rm,
               const NoMoreDay::render::PersistentBuffer &entityBuffer,
               float alpha);
+  
+  // Sparse Update API
+  void UpdateStat(uint32_t entityIdx, const components::GPUVisualStats& stats);
+  void FlushStatsUpdates(ResourceManager& rm);
+
+  // Full Update API (Legacy/Alternative)
   void UpdateStats(const std::vector<components::GPUVisualStats> &stats,
                    int count);
   void UpdateStatsNoFlush(const std::vector<components::GPUVisualStats> &stats,
@@ -95,8 +107,13 @@ private:
   PersistentBuffer
       m_statsBuffer; // SSBO Binding 3 (Double Buffered) - GPUVisualStats
 
+  // Sparse Staging
+  PersistentBuffer m_statsStaging;
+  std::vector<StatUpdateCmd> m_pendingUpdates;
+
   Shader m_cullShader = {0};
   Shader m_renderShader = {0};
+  Shader m_scatterShader = {0};
 
   uint32_t m_quadVAO = 0;
   uint32_t m_quadVBO = 0;

@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <chrono>
+#include "core/utils/Time.hpp"
 
 // Start: Spdlog includes
 // Define SPDLOG_ACTIVE_LEVEL to control compile-time log stripping if needed
@@ -45,10 +46,9 @@ private:
 
 #define LOG_LIMITED_DEBUG(interval_seconds, ...) \
     do { \
-        static auto last_log_time_##__LINE__ = std::chrono::steady_clock::time_point::min(); \
-        auto now_##__LINE__ = std::chrono::steady_clock::now(); \
-        std::chrono::duration<float> diff_##__LINE__ = now_##__LINE__ - last_log_time_##__LINE__; \
-        if (diff_##__LINE__.count() >= interval_seconds) { \
+        static float last_log_time_##__LINE__ = -interval_seconds; \
+        float now_##__LINE__ = ::NoMoreDay::utils::Time::GetCurrentSeconds(); \
+        if (now_##__LINE__ - last_log_time_##__LINE__ >= (float)(interval_seconds)) { \
             LOG_DEBUG(__VA_ARGS__); \
             last_log_time_##__LINE__ = now_##__LINE__; \
         } \
@@ -56,10 +56,9 @@ private:
 
 #define LOG_LIMITED_INFO(interval_seconds, ...) \
     do { \
-        static auto last_log_time_##__LINE__ = std::chrono::steady_clock::time_point::min(); \
-        auto now_##__LINE__ = std::chrono::steady_clock::now(); \
-        std::chrono::duration<float> diff_##__LINE__ = now_##__LINE__ - last_log_time_##__LINE__; \
-        if (diff_##__LINE__.count() >= interval_seconds) { \
+        static float last_log_time_##__LINE__ = -interval_seconds; \
+        float now_##__LINE__ = ::NoMoreDay::utils::Time::GetCurrentSeconds(); \
+        if (now_##__LINE__ - last_log_time_##__LINE__ >= (float)(interval_seconds)) { \
             LOG_INFO(__VA_ARGS__); \
             last_log_time_##__LINE__ = now_##__LINE__; \
         } \
@@ -67,10 +66,9 @@ private:
 
 #define LOG_LIMITED_WARN(interval_seconds, ...) \
     do { \
-        static auto last_log_time_##__LINE__ = std::chrono::steady_clock::time_point::min(); \
-        auto now_##__LINE__ = std::chrono::steady_clock::now(); \
-        std::chrono::duration<float> diff_##__LINE__ = now_##__LINE__ - last_log_time_##__LINE__; \
-        if (diff_##__LINE__.count() >= interval_seconds) { \
+        static float last_log_time_##__LINE__ = -interval_seconds; \
+        float now_##__LINE__ = ::NoMoreDay::utils::Time::GetCurrentSeconds(); \
+        if (now_##__LINE__ - last_log_time_##__LINE__ >= (float)(interval_seconds)) { \
             LOG_WARN(__VA_ARGS__); \
             last_log_time_##__LINE__ = now_##__LINE__; \
         } \
@@ -78,10 +76,9 @@ private:
 
 #define LOG_LIMITED_ERROR(interval_seconds, ...) \
     do { \
-        static auto last_log_time_##__LINE__ = std::chrono::steady_clock::time_point::min(); \
-        auto now_##__LINE__ = std::chrono::steady_clock::now(); \
-        std::chrono::duration<float> diff_##__LINE__ = now_##__LINE__ - last_log_time_##__LINE__; \
-        if (diff_##__LINE__.count() >= interval_seconds) { \
+        static float last_log_time_##__LINE__ = -interval_seconds; \
+        float now_##__LINE__ = ::NoMoreDay::utils::Time::GetCurrentSeconds(); \
+        if (now_##__LINE__ - last_log_time_##__LINE__ >= (float)(interval_seconds)) { \
             LOG_ERROR(__VA_ARGS__); \
             last_log_time_##__LINE__ = now_##__LINE__; \
         } \

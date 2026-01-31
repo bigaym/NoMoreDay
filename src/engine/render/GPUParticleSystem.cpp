@@ -21,20 +21,6 @@
 
 namespace NoMoreDay::systems {
 
-// Thread-local staging buffer to avoid lock contention on Emit
-struct ThreadLocalParticleStaging {
-    std::vector<components::GPUParticle> buffer;
-    ThreadLocalParticleStaging() {
-        buffer.reserve(1024);
-        GPUParticleSystem::Get().RegisterThreadBuffer(&buffer);
-    }
-    ~ThreadLocalParticleStaging() {
-        GPUParticleSystem::Get().UnregisterThreadBuffer(&buffer);
-    }
-};
-
-static thread_local ThreadLocalParticleStaging t_staging;
-
 GPUParticleSystem &GPUParticleSystem::Get() {
   static GPUParticleSystem instance;
   return instance;
@@ -93,25 +79,8 @@ void GPUParticleSystem::Shutdown() {
     m_quadVAO = 0;
   }
 
-  // Buffers are cleaned up by ComputeBuffer destructor
-
   m_emissionBuffer.Destroy();
   m_initialized = false;
-}
-
-void GPUParticleSystem::RegisterThreadBuffer(
-    std::vector<components::GPUParticle> *buffer) {
-  std::lock_guard<std::mutex> lock(m_threadBuffersMutex);
-  m_allThreadBuffers.push_back(buffer);
-}
-
-void GPUParticleSystem::UnregisterThreadBuffer(
-    std::vector<components::GPUParticle> *buffer) {
-  std::lock_guard<std::mutex> lock(m_threadBuffersMutex);
-  auto it = std::find(m_allThreadBuffers.begin(), m_allThreadBuffers.end(), buffer);
-  if (it != m_allThreadBuffers.end()) {
-    m_allThreadBuffers.erase(it);
-  }
 }
 
 void GPUParticleSystem::LoadShaders() {
@@ -184,8 +153,10 @@ void GPUParticleSystem::CreateBuffers() {
 
   // Emission Buffer (Triple Buffered)
   using namespace NoMoreDay::Constants::Render;
-  m_emissionBuffer.Create(PARTICLE_STAGING_RESERVE *
-                          sizeof(components::GPUParticle));
+  m_emissionCap = PARTICLE_STAGING_RESERVE;
+  m_emissionBuffer.Create(m_emissionCap * sizeof(components::GPUParticle));
+  m_mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
+  m_emitHead = 0;
 
   std::ifstream emitFile("assets/shaders/particle_emit.compute");
   if (emitFile.is_open()) {
@@ -232,8 +203,9 @@ void GPUParticleSystem::CreateQuadVAO() {
 }
 
 void GPUParticleSystem::Emit(const components::GPUParticle &particle) {
-  if (t_staging.buffer.size() < (size_t)m_maxParticles) {
-    t_staging.buffer.push_back(particle);
+  uint32_t idx = m_emitHead.fetch_add(1);
+  if (idx < m_emissionCap) {
+    m_mappedPtr[idx] = particle;
   }
 }
 
@@ -242,12 +214,12 @@ void GPUParticleSystem::EmitBatch(
   if (particles.empty())
     return;
 
-  size_t freeSpace = (size_t)m_maxParticles - t_staging.buffer.size();
-  size_t toAdd = std::min(particles.size(), freeSpace);
-
-  if (toAdd > 0) {
-    t_staging.buffer.insert(t_staging.buffer.end(), particles.begin(),
-                             particles.begin() + toAdd);
+  uint32_t count = (uint32_t)particles.size();
+  uint32_t startIdx = m_emitHead.fetch_add(count);
+  
+  if (startIdx < m_emissionCap) {
+    uint32_t toCopy = std::min(count, m_emissionCap - startIdx);
+    memcpy(m_mappedPtr + startIdx, particles.data(), toCopy * sizeof(components::GPUParticle));
   }
 }
 
@@ -308,52 +280,29 @@ void GPUParticleSystem::Update(float dt) {
     rlDisableShader();
   }
 
-  // 3. Emission Logic with Aggregation from Threads
+  // 3. Emission Logic (Lock-Free)
   uint32_t survivors = m_lastKnownAliveCount;
   uint32_t totalAfterEmission = survivors;
-  uint32_t totalNewToEmit = 0;
-
-  // Aggregate particles from all threads
-  {
-    std::lock_guard<std::mutex> lock(m_threadBuffersMutex);
-    
-    // Calculate total new particles to emit
-    for (auto* threadBuf : m_allThreadBuffers) {
-      totalNewToEmit += (uint32_t)threadBuf->size();
-    }
-
-    if (totalNewToEmit > 0) {
-      uint32_t allowedNew = totalNewToEmit;
+  
+  uint32_t totalNewToEmit = m_emitHead.load();
+  if (totalNewToEmit > 0) {
+      uint32_t allowedNew = std::min(totalNewToEmit, m_emissionCap);
       
       // Soft limit check
-      if (survivors + totalNewToEmit > (uint32_t)m_maxParticles * 0.95f) {
+      if (survivors + allowedNew > (uint32_t)m_maxParticles * 0.95f) {
         allowedNew = std::max(0, (int)(m_maxParticles * 0.95f) - (int)survivors);
         if (allowedNew < totalNewToEmit) {
-          LOG_WARN("GPUParticleSystem: Approaching limit ({} / {}). Throttling emission.",
-                   survivors, m_maxParticles);
+          LOG_WARN("GPUParticleSystem: Throttling emission ({} -> {}).", totalNewToEmit, allowedNew);
         }
       }
 
       if (allowedNew > 0 && m_emitShader.id != 0) {
-        // Upload particles to persistent buffer in chunks or all at once
-        components::GPUParticle *mappedPtr = (components::GPUParticle *)m_emissionBuffer.BeginWrite();
-        if (mappedPtr) {
-          uint32_t copied = 0;
-          for (auto* threadBuf : m_allThreadBuffers) {
-            uint32_t toCopy = std::min((uint32_t)threadBuf->size(), allowedNew - copied);
-            if (toCopy > 0) {
-              memcpy(mappedPtr + copied, threadBuf->data(), toCopy * sizeof(components::GPUParticle));
-              copied += toCopy;
-            }
-            threadBuf->clear(); // Clear all buffers even if partially dropped
-            if (copied >= allowedNew) break;
-          }
-          
+          // Sync CPU writes to GPU
           m_emissionBuffer.Flush();
 
           // Dispatch Emit Shader
           rlEnableShader(m_emitShader.id);
-          int newCountInt = (int)copied;
+          int newCountInt = (int)allowedNew;
           rlSetUniform(m_emitCountLoc, &newCountInt, RL_SHADER_UNIFORM_INT, 1);
 
           m_emissionBuffer.BindBase(ParticleCS::PARTICLES_IN);
@@ -365,26 +314,23 @@ void GPUParticleSystem::Update(float dt) {
           utils::GPUUtils::MemoryBarrier();
           rlDisableShader();
 
-          m_emissionBuffer.Lock();
-          totalAfterEmission += copied;
-        }
-      } else {
-        // Just clear buffers if we can't emit
-        for (auto* threadBuf : m_allThreadBuffers) {
-          threadBuf->clear();
-        }
+          totalAfterEmission += allowedNew;
       }
-    }
   }
 
-  // 4. Update Indirect Buffer for rendering
+  // 4. Finalize emission buffer for this frame and prepare for next
+  m_emissionBuffer.Lock();
+  m_mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
+  m_emitHead = 0;
+
+  // 5. Update Indirect Buffer for rendering
   {
-    // This ensure the RENDER step (which happens AFTER Update) uses valid counts.
+    // This ensures the RENDER step (which happens AFTER Update) uses valid counts.
     DrawArraysIndirectCommand cmd = {6, totalAfterEmission, 0, 0};
     m_indirectBuffer.Update(&cmd, sizeof(cmd));
   }
 
-  // 5. Update state for next frame
+  // 6. Update state for next frame
   m_currentParticleCount = totalAfterEmission;
   m_pingPong = !m_pingPong;
   m_atomicPingPong = !m_atomicPingPong; // Swap atomic buffers

@@ -31,11 +31,12 @@ TEST_CASE("[Unit] GPUVisualSync - Data Propagation") {
   registry.emplace<StatsDirty>(e1); // Force sync
 
   SUBCASE("Basic Stats Sync") {
-    visualSync.Execute(registry, buffer, 1, 10.0f);
+    auto updated = visualSync.Execute(registry, buffer, 1, 10.0f);
 
     CHECK(buffer[0].weaponDamage == doctest::Approx(100.0f));
     CHECK(buffer[0].attackSpeed == doctest::Approx(2.0f));
-    CHECK(buffer[0].statusTimer == doctest::Approx(10.0f));
+    CHECK(updated.size() == 1);
+    CHECK(updated[0] == 0);
   }
 
   SUBCASE("Status Effect Sync") {
@@ -50,13 +51,13 @@ TEST_CASE("[Unit] GPUVisualSync - Data Propagation") {
     // Check if Burn bit is set
     uint32_t expected = NoMoreDay::Constants::GPU::STATUS_BURNING;
     CHECK((buffer[0].activeStatusMask & expected) == expected);
-    CHECK(buffer[0].statusTimer == doctest::Approx(12.0f));
   }
 
   SUBCASE("Dirty Flag Optimization") {
     // First run (dirty)
-    visualSync.Execute(registry, buffer, 1, 1.0f);
+    auto updated = visualSync.Execute(registry, buffer, 1, 1.0f);
     CHECK(buffer[0].weaponDamage == doctest::Approx(100.0f));
+    CHECK(updated.size() == 1);
 
     // Clear dirty, modify stats
     registry.remove<StatsDirty>(e1);
@@ -64,15 +65,15 @@ TEST_CASE("[Unit] GPUVisualSync - Data Propagation") {
     stats.max_weapon_damage = 999.0f;
 
     // Second run (not dirty, frame 2 % 5 != 0)
-    visualSync.Execute(registry, buffer, 2, 2.0f);
+    updated = visualSync.Execute(registry, buffer, 2, 2.0f);
 
     // Should NOT update stats (optimization)
     CHECK(buffer[0].weaponDamage == doctest::Approx(100.0f));
-    // But SHOULD update timer
-    CHECK(buffer[0].statusTimer == doctest::Approx(2.0f));
+    CHECK(updated.empty());
 
     // Third run (frame 5 % 5 == 0 -> periodic refresh)
-    visualSync.Execute(registry, buffer, 5, 5.0f);
+    updated = visualSync.Execute(registry, buffer, 5, 5.0f);
     CHECK(buffer[0].weaponDamage == doctest::Approx(999.0f));
+    CHECK(updated.size() == 1);
   }
 }

@@ -35,6 +35,7 @@ layout(std430, binding = 3) readonly buffer StatsBuffer { GPUVisualStats stats[]
 
 uniform mat4 viewProj;
 uniform float interpolationFactor;
+uniform float uTime;
 
 out vec2 vTexCoord;
 out vec2 vLocalPos;
@@ -42,7 +43,7 @@ flat out int vTextureIndex;
 flat out uint vFlags;
 flat out float vGlow;
 flat out uint vStatusMask;
-flat out float vStatusTimer;
+flat out float vTime;
 
 void main() {
     // 从剔除后的索引缓冲中获取真正的实体 ID
@@ -80,5 +81,5 @@ void main() {
     vFlags = e.flags;
     vGlow = s.glowIntensity;
     vStatusMask = s.activeStatusMask;
-    vStatusTimer = s.statusTimer;
+    vTime = uTime;
 }

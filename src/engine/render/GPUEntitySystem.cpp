@@ -191,7 +191,7 @@ void GPUEntitySystem::UpdateLogic(const NoMoreDay::SharedContext &context, float
         m_physicsSync.Execute(registry, m_shadowBuffer, m_frameCounter);
 
     // Phase 3: Visual Sync
-    m_visualSync.Execute(registry, m_visualStatsShadowBuffer, m_frameCounter,
+    m_updatedStatsIndices = m_visualSync.Execute(registry, m_visualStatsShadowBuffer, m_frameCounter,
                          currentTime);
   }
 }
@@ -201,8 +201,7 @@ void GPUEntitySystem::UploadGPU(const NoMoreDay::SharedContext &context) {
   using namespace NoMoreDay::utils;
   // --- Step 2: GPU Upload (Fastest possible mapping period) ---
   
-  // Bulk Upload
-  // Optimization: Only copy up to the highest used slot index
+  // Bulk Upload for Entities
   size_t copyCount =
       std::min((size_t)m_highWaterMark + 128, (size_t)m_maxEntities);
 
@@ -213,24 +212,26 @@ void GPUEntitySystem::UploadGPU(const NoMoreDay::SharedContext &context) {
         memcpy(gpuPtr, m_shadowBuffer.data(), copyCount * sizeof(components::GPUEntity));
     }
 
-    // 2. Visual Stats Upload (Now via NoFlush variant)
+    // 2. Visual Stats Upload (Sparse)
     if (context.renderContext) {
-      context.renderContext->MDI().UpdateStatsNoFlush(m_visualStatsShadowBuffer, (int)copyCount);
-      context.renderContext->MDI().SetMaxActiveEntities((uint32_t)copyCount);
+      auto& mdi = context.renderContext->MDI();
+      for (uint32_t idx : m_updatedStatsIndices) {
+          mdi.UpdateStat(idx, m_visualStatsShadowBuffer[idx]);
+      }
+      mdi.FlushStatsUpdates(*context.resources);
+      mdi.SetMaxActiveEntities((uint32_t)copyCount);
     } else {
-      NoMoreDay::render::MDIRenderer::Get().UpdateStatsNoFlush(m_visualStatsShadowBuffer, (int)copyCount);
-      NoMoreDay::render::MDIRenderer::Get().SetMaxActiveEntities((uint32_t)copyCount);
+      auto& mdi = NoMoreDay::render::MDIRenderer::Get();
+      for (uint32_t idx : m_updatedStatsIndices) {
+          mdi.UpdateStat(idx, m_visualStatsShadowBuffer[idx]);
+      }
+      mdi.FlushStatsUpdates(*context.resources);
+      mdi.SetMaxActiveEntities((uint32_t)copyCount);
     }
 
     // 3. Global Memory Barrier (This flushes all client-mapped memory to GPU)
     size_t entitySize = copyCount * sizeof(components::GPUEntity);
     m_persistentEntityBuffer.FlushRange(0, entitySize);
-    
-    if (context.renderContext) {
-      context.renderContext->MDI().FlushStatsRange(copyCount);
-    } else {
-      NoMoreDay::render::MDIRenderer::Get().FlushStatsRange(copyCount);
-    }
   }
 
   m_persistentEntityBuffer.Lock();

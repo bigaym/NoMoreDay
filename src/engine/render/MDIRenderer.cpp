@@ -50,10 +50,14 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
   m_cullShader =
       rm.loadComputeShader("mdi_cull"_hash, "assets/shaders/cull.compute");
 
+  m_scatterShader =
+      rm.loadComputeShader("mdi_scatter"_hash, "assets/shaders/scatter_stats.compute");
+
   // 2. Create Buffers
   m_visibleBuffer.Create(maxEntities * sizeof(uint32_t), 3);
   m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand), 3);
   m_statsBuffer.Create(maxEntities * sizeof(components::GPUVisualStats), 3);
+  m_statsStaging.Create(maxEntities * sizeof(StatUpdateCmd), 3);
 
   // 3. Create Quad VAO
   // Reordered for GL_TRIANGLE_STRIP: TL, BL, TR, BR
@@ -101,6 +105,40 @@ void MDIRenderer::Shutdown() {
 void MDIRenderer::Update(ResourceManager &rm, const PersistentBuffer &entities,
                          float alpha) {
   // Convenience wrapper
+}
+
+void MDIRenderer::UpdateStat(uint32_t entityIdx, const components::GPUVisualStats& stats) {
+    if (entityIdx >= m_maxEntities) return;
+    StatUpdateCmd cmd;
+    cmd.index = entityIdx;
+    cmd.stats = stats;
+    m_pendingUpdates.push_back(cmd);
+}
+
+void MDIRenderer::FlushStatsUpdates(ResourceManager& rm) {
+    if (m_pendingUpdates.empty()) return;
+    
+    uint32_t count = (uint32_t)m_pendingUpdates.size();
+    void* ptr = m_statsStaging.BeginWrite();
+    if (ptr) {
+        memcpy(ptr, m_pendingUpdates.data(), count * sizeof(StatUpdateCmd));
+    }
+    m_statsStaging.Flush();
+    
+    rlEnableShader(m_scatterShader.id);
+    int locCount = rlGetLocationUniform(m_scatterShader.id, "updateCount");
+    if (locCount != -1) {
+        rlSetUniform(locCount, &count, RL_SHADER_UNIFORM_INT, 1);
+    }
+    
+    m_statsStaging.BindBase(0); // Binding 0: Updates
+    m_statsBuffer.BindBase(1);  // Binding 1: MainStats
+    
+    utils::GPUUtils::DispatchCompute((count + 63) / 64, 1, 1);
+    rlDisableShader();
+    
+    m_statsStaging.Lock();
+    m_pendingUpdates.clear();
 }
 
 void MDIRenderer::ResetCommand() {
@@ -217,6 +255,12 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
       rlGetLocationUniform(m_renderShader.id, "interpolationFactor");
   if (locInterp != -1)
     rlSetUniform(locInterp, &renderAlpha, RL_SHADER_UNIFORM_FLOAT, 1);
+
+  int locTime = rlGetLocationUniform(m_renderShader.id, "uTime");
+  if (locTime != -1) {
+      float time = (float)GetTime();
+      rlSetUniform(locTime, &time, RL_SHADER_UNIFORM_FLOAT, 1);
+  }
 
   // 5. EXPLICITLY BIND ALL SSBOs
   // Entities: Previous (Logic Frame)

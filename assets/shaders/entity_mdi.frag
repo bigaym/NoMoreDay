@@ -6,7 +6,7 @@ flat in int vTextureIndex;
 flat in uint vFlags;
 flat in float vGlow;
 flat in uint vStatusMask;
-flat in float vStatusTimer;
+flat in float vTime;
 
 uniform sampler2DArray entityTextures;
 
@@ -27,10 +27,10 @@ void main() {
     // 状态特效发光
     vec3 statusGlow = vec3(0.0);
     if ((vStatusMask & 1u) != 0u) { // Frozen
-        statusGlow += vec3(0.2, 0.6, 1.0) * (0.3 + 0.2 * sin(vStatusTimer * 6.28));
+        statusGlow += vec3(0.2, 0.6, 1.0) * (0.3 + 0.2 * sin(vTime * 6.28));
     }
     if ((vStatusMask & 2u) != 0u) { // Burning
-        statusGlow += vec3(1.0, 0.5, 0.1) * (0.4 + 0.2 * sin(vStatusTimer * 12.56));
+        statusGlow += vec3(1.0, 0.5, 0.1) * (0.4 + 0.2 * sin(vTime * 12.56));
     }
     
     // 稀有度发光

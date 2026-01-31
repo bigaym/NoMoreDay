@@ -230,6 +230,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [ ] Track: Performance Hardening V2 (AZDO Particle & MDI)
+- **Folder:** [./conductor/tracks/performance-hardening-v2/](./conductor/tracks/performance-hardening-v2/)
+- **Description:** 极致优化大批量物体渲染。通过无锁环形缓冲区重构粒子发射，引入稀疏更新 (Sparse Update) 机制优化 MDI 实体状态同步，并将位置插值计算卸载至 GPU Vertex Shader。目标支持 50,000+ 实体稳定高帧率运行。
+- **Status:** IN_PROGRESS
+- **Priority:** HIGH
+- **Estimated Time:** 2-3 days
+
+---
+
 ## [ ] Track: Next Milestone (TBD)
 - **Folder:** [./conductor/tracks/next-track/](./conductor/tracks/next-track/)
 - **Description:** 规划下一个功能模块或优化方向。

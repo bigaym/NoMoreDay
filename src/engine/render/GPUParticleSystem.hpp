@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <mutex>
+#include <atomic>
 #include <raylib.h>
 #include <raymath.h>
 #include "engine/render/GPUData.hpp"
@@ -36,10 +37,6 @@ public:
     // Accessors
     int GetMaxParticles() const { return m_maxParticles; }
     bool IsInitialized() const { return m_initialized; }
-
-    // Thread-local support
-    void RegisterThreadBuffer(std::vector<components::GPUParticle>* buffer);
-    void UnregisterThreadBuffer(std::vector<components::GPUParticle>* buffer);
     
 private:
     GPUParticleSystem() = default;
@@ -58,10 +55,11 @@ private:
     int m_currentParticleCount = 0;  // Total particles in buffer (alive + dead slots)
     bool m_pingPong = false;         // For double buffering (input/output swap)
     
-    // Staging buffer management
-    std::vector<std::vector<components::GPUParticle>*> m_allThreadBuffers;
-    std::mutex m_threadBuffersMutex;
-    
+    // Lock-free Emission
+    std::atomic<uint32_t> m_emitHead{0};
+    components::GPUParticle* m_mappedPtr = nullptr;
+    uint32_t m_emissionCap = 0;
+
     // GPU Buffers
     core::ComputeBuffer m_particleBuffer;    // All particles
     core::ComputeBuffer m_compactBuffer;     // Compacted alive particles

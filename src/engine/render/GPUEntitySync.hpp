@@ -58,8 +58,9 @@ public:
    * @param visualBuffer 输出: GPUVisualStats 影子缓冲区
    * @param frameCounter 当前帧号
    * @param currentTime 当前游戏时间 (用于状态计时器)
+   * @return 更新了的索引列表
    */
-  void Execute(entt::registry &registry,
+  std::vector<uint32_t> Execute(entt::registry &registry,
                std::vector<NoMoreDay::components::GPUVisualStats> &visualBuffer,
                uint64_t frameCounter, float currentTime);
 

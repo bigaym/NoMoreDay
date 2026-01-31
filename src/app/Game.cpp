@@ -29,6 +29,7 @@
 #include <windows.h>
 #endif
 #include "engine/render/GPUUtils.hpp"
+#include "core/utils/Time.hpp"
 
 Game::Game(int width, int height, const char *title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title) {
@@ -214,6 +215,7 @@ void Game::run() {
   float accumulator = 0.0f;
 
           while (!WindowShouldClose()) {
+            NoMoreDay::utils::Time::Update();
             float frameTime = GetFrameTime();
             if (frameTime > 0.25f)
               frameTime = 0.25f;

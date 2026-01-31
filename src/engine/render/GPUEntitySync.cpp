@@ -104,12 +104,15 @@ int GPUPhysicsSync::Execute(
 
 void GPUVisualSync::Init(const Config &config) { m_config = config; }
 
-void GPUVisualSync::Execute(
+std::vector<uint32_t> GPUVisualSync::Execute(
     entt::registry &registry,
     std::vector<NoMoreDay::components::GPUVisualStats> &visualBuffer,
     uint64_t frameCounter, float currentTime) {
   auto view = registry.view<GPUIndex, CombatStats>();
   auto &storage = registry.storage<ActiveEffectsComponent>();
+  
+  std::vector<uint32_t> updatedIndices;
+  updatedIndices.reserve(128); // Usual sparse update count
 
   for (auto entity : view) {
     auto &gpuIdx = view.get<GPUIndex>(entity);
@@ -121,9 +124,8 @@ void GPUVisualSync::Execute(
     bool needsStatsSync = registry.any_of<StatsDirty>(entity) ||
                           (frameCounter % m_config.refreshInterval == 0);
 
-    auto &visualStats = visualBuffer[slot];
-
     if (needsStatsSync) {
+      auto &visualStats = visualBuffer[slot];
       // CombatStats is guaranteed by view
       auto &stats = view.get<CombatStats>(entity);
       // Corrected: NoMoreDay::AttributePipeline (not systems::)
@@ -159,9 +161,11 @@ void GPUVisualSync::Execute(
       if (registry.any_of<StatsDirty>(entity)) {
         registry.remove<StatsDirty>(entity);
       }
+      
+      updatedIndices.push_back((uint32_t)slot);
     }
-    visualStats.statusTimer = currentTime;
   }
+  return updatedIndices;
 }
 
 // =================================================================================================
