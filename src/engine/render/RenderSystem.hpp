@@ -45,17 +45,15 @@ private:
     static float s_trauma;
     
     // --- Instanced Label Rendering ---
-    struct TextRenderCmd {
-        Vector2 position;
-        const char* text; // Pointer to existing component string (unsafe if component deleted, but safe within frame)
-        float fontSize;
-        Color color;
-        bool centered;
-    };
-
     static Shader s_labelShader;
     static int s_labelMvpLoc;
     static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_labelInstanceBuffer;
+
+    // Task 1.4: GPU Glyph Rendering
+    static Shader s_glyphShader;
+    static int s_glyphMvpLoc;
+    static int s_glyphTexLoc;
+    static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_glyphInstanceBuffer;
     
 public:
     // Phase 4: Loot Label Spatial Optimization
@@ -65,5 +63,5 @@ public:
 private:
     // Rendering Queues
     static std::vector<NoMoreDay::components::GPULabelInstance> s_labelBuffer;
-    static std::vector<TextRenderCmd> s_textQueue;
+    static std::vector<NoMoreDay::components::GPUGlyphInstance> s_glyphBuffer; // New
 };

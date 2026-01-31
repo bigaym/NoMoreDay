@@ -25,7 +25,7 @@ public:
     void rebuild(const View& view, const entt::registry& reg);
 
     // Query the grid for entities within radius
-    // Callback: void(entt::entity, const Vector2& pos)
+    // Callback: bool(entt::entity, const Vector2& pos) - return false to stop query
     template<typename Func>
     void query(const Position& center, float radius, Func&& callback) const;
 
@@ -175,16 +175,8 @@ void SIMDSpatialGrid::query(const Position& center, float radius, Func&& callbac
                 if (xsimd::any(mask)) {
                     for (size_t j = 0; j < W; ++j) {
                         size_t idx = i + j;
-                        // Check if hit AND idx is valid (in case we padded or crossed boundary but distance check passed)
-                        // If we crossed bucket boundary, we might visit this entity again when checking next bucket?
-                        // If distSq check passes, it is within radius.
-                        // If we are iterating Bucket A, and we load an entity from Bucket B (neighbor in memory),
-                        // and it is within radius, we report it.
-                        // Later, we iterate Bucket B. We load that same entity. We report it AGAIN.
-                        // This causes duplicates!
-                        // Fix: Check idx < end.
                         if (idx < end && mask.get(j)) {
-                            callback(m_entities[idx], {m_x[idx], m_y[idx]});
+                            if (!callback(m_entities[idx], {m_x[idx], m_y[idx]})) return;
                         }
                     }
                 }

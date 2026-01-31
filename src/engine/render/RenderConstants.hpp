@@ -21,16 +21,16 @@ enum class Binding : uint32_t {
   SSBO_COMMAND = 2,      // Indirect Draw Command (MDIRenderer)
   SSBO_VISUAL_STATS = 3, // 视觉属性 (Glow, Status Effects)
 
-  // === Label / Beam Rendering ===
+  // === Label / Beam / Text Rendering ===
   SSBO_LABEL_INSTANCE = 4, // Label 实例数据 (RenderSystem)
   SSBO_BEAM_INSTANCE = 5,  // Beam 实例数据 (RenderSystem)
 
   // === VFX Systems ===
   SSBO_SKILL_EFFECTS = 6, // 技能特效实例 (GPUSkillEffectSystem)
   SSBO_POPUP_DATA = 7,    // 伤害数字弹出 (PopupRenderer)
+  SSBO_GLYPH_INSTANCE = 8, // Glyph 实例数据 (文字批量渲染)
 
   // === Reserved ===
-  SSBO_RESERVED_8 = 8,
   SSBO_RESERVED_9 = 9,
   SSBO_RESERVED_10 = 10,
   SSBO_RESERVED_11 = 11,
@@ -150,6 +150,7 @@ namespace GL {
 constexpr uint32_t DRAW_INDIRECT_BUFFER = 0x8F3F;
 constexpr uint32_t SHADER_STORAGE_BUFFER = 0x90D2;
 constexpr uint32_t SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
+constexpr uint32_t TEXTURE_2D = 0x0DE1;
 constexpr uint32_t TEXTURE_2D_ARRAY = 0x8C1A;
 constexpr uint32_t TEXTURE0 = 0x84C0;
 constexpr uint32_t TRIANGLES = 0x0004;
@@ -166,6 +167,7 @@ constexpr int MAX_ENTITIES = 200000;
 constexpr int MAX_PARTICLES = 200000;
 constexpr int MAX_SKILL_EFFECTS = 1024;
 constexpr int MAX_POPUPS = 2048;
+constexpr int MAX_GLYPHS = 4096; // 批量文字渲染上限
 } // namespace GPU
 
 } // namespace RenderConstants

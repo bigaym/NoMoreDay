@@ -32,11 +32,12 @@ TEST_SUITE("SIMDSpatialGrid") {
 
         // Query near (5, 5) with radius 2.0 -> Should find e1 only
         int count = 0;
-        grid.query({5.0f, 5.0f}, 2.0f, [&](entt::entity e, const Position& p) {
+        grid.query({5.0f, 5.0f}, 2.0f, [&](entt::entity e, const Position& p) -> bool {
             count++;
             CHECK(e == e1);
             CHECK(p.x == 5.0f);
             CHECK(p.y == 5.0f);
+            return true;
         });
         CHECK(count == 1);
 
@@ -44,8 +45,9 @@ TEST_SUITE("SIMDSpatialGrid") {
         // e2 dist = 10, e3 dist = 10. Both <= 12
         count = 0;
         std::vector<entt::entity> hits;
-        grid.query({5.0f, 5.0f}, 12.0f, [&](entt::entity e, const Position& p) {
+        grid.query({5.0f, 5.0f}, 12.0f, [&](entt::entity e, const Position& p) -> bool {
             hits.push_back(e);
+            return true;
         });
         CHECK(hits.size() == 3);
         
@@ -76,8 +78,9 @@ TEST_SUITE("SIMDSpatialGrid") {
         grid.rebuild(view, reg);
         
         int count = 0;
-        grid.query({5.0f, 5.0f}, 1.0f, [&](entt::entity e, const Position& p) {
+        grid.query({5.0f, 5.0f}, 1.0f, [&](entt::entity e, const Position& p) -> bool {
             count++;
+            return true;
         });
         CHECK(count == 20);
     }
@@ -89,8 +92,9 @@ TEST_SUITE("SIMDSpatialGrid") {
         grid.rebuild(view, reg); // Empty view
         
         int count = 0;
-        grid.query({0.0f, 0.0f}, 100.0f, [&](entt::entity e, const Position& p) {
+        grid.query({0.0f, 0.0f}, 100.0f, [&](entt::entity e, const Position& p) -> bool {
             count++;
+            return true;
         });
         CHECK(count == 0);
     }

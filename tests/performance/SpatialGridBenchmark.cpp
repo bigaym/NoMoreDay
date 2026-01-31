@@ -49,9 +49,10 @@ using namespace NoMoreDay::systems;
         
         auto startQuery = std::chrono::high_resolution_clock::now();
         for(const auto& p : queryPoints) {
-            grid.query(p, 100.0f, [&](entt::entity, const Position&) {
-                hitCountTotal++; 
-            });
+        grid.query(p, 100.0f, [&](entt::entity, const Position&) -> bool {
+            hitCountTotal++;
+            return true;
+        });
         }
         auto endQuery = std::chrono::high_resolution_clock::now();
         

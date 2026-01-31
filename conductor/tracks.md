@@ -239,6 +239,15 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [x] Track: Loot Text GPU Instancing & Layout Optimization
+- **Folder:** [./conductor/tracks/loot-text-gpu_20260131/](./conductor/tracks/loot-text-gpu_20260131/)
+- **Description:** 极致优化战利品标签渲染。通过 GPU 字形实例化（Instancing）彻底消除海量中文文本渲染带来的 CPU 提交瓶颈，并实现标签防重叠布局算法，确保 100+ 掉落物下稳定维持 400+ FPS。 (Completed on 2026-01-31)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 1-2 days
+
+---
+
 ## [ ] Track: Next Milestone (TBD)
 - **Folder:** [./conductor/tracks/next-track/](./conductor/tracks/next-track/)
 - **Description:** 规划下一个功能模块或优化方向。

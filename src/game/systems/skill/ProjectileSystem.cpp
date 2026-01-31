@@ -145,11 +145,11 @@ void ProjectileSystem::Update(entt::registry &registry,
 
           // Phase 4: Use QueryWorld
           QueryWorld({pos.x, pos.y}, seeker->range,
-                     [&](entt::entity t, const Position &tp) {
+                     [&](entt::entity t, const Position &tp) -> bool {
                        if (t == entity || t == proj.owner)
-                         return;
+                         return true;
                        if (!registry.valid(t))
-                         return;
+                         return true;
 
                        bool ownerIsPlayer =
                            registry.any_of<PlayerTag>(proj.owner);
@@ -157,11 +157,11 @@ void ProjectileSystem::Update(entt::registry &registry,
                        bool tIsEnemy = registry.any_of<EnemyTag>(t);
 
                        if (ownerIsPlayer && !tIsEnemy)
-                         return;
+                         return true;
                        if (!ownerIsPlayer && !tIsPlayer)
-                         return;
+                         return true;
                        if (registry.any_of<KilledTag>(t))
-                         return;
+                         return true;
 
                        float dx = tp.x - pos.x;
                        float dy = tp.y - pos.y;
@@ -170,6 +170,7 @@ void ProjectileSystem::Update(entt::registry &registry,
                          minDist = dist;
                          bestTarget = t;
                        }
+                       return true;
                      });
 
           if (bestTarget != entt::null) {
@@ -220,14 +221,14 @@ void ProjectileSystem::Update(entt::registry &registry,
       float pullRadius = proj.radius * PROJECTILE_PULL_RADIUS_MULTIPLIER;
       // Phase 4: Use QueryWorld
       QueryWorld({pos.x, pos.y}, pullRadius,
-                 [&](entt::entity target, const Position &tPos) {
+                 [&](entt::entity target, const Position &tPos) -> bool {
                    if (target == proj.owner || target == entity)
-                     return;
+                     return true;
                    if (!registry.valid(target) ||
                        !registry.all_of<Velocity, Position>(target))
-                     return;
+                     return true;
                    if (!registry.any_of<EnemyTag>(target))
-                     return;
+                     return true;
 
                    DeferredAction act;
                    act.type = DeferredAction::Pull;
@@ -236,6 +237,7 @@ void ProjectileSystem::Update(entt::registry &registry,
                    act.instigator = entity;
                    act.pos = {pos.x, pos.y};
                    actions.push_back(act);
+                   return true;
                  });
       if (!actions.empty() && actions.back().type == DeferredAction::Pull)
         hasAction = true;
@@ -354,16 +356,16 @@ void ProjectileSystem::Update(entt::registry &registry,
 
     QueryWorld(
         {pos.x, pos.y}, check_radius,
-        [&](entt::entity target, const Position &tPos) {
+        [&](entt::entity target, const Position &tPos) -> bool {
           if (hit && !proj.pierce)
-            return;
+            return false;
           if (proj.pierce && proj.pierceCount < 0)
-            return;
+            return false;
           if (target == proj.owner || target == entity)
-            return;
+            return true;
 
           if (!registry.valid(target))
-            return;
+            return true;
 
           bool ownerIsPlayer = registry.any_of<PlayerTag>(proj.owner);
           bool targetIsEnemy = registry.any_of<EnemyTag>(target);
@@ -371,18 +373,18 @@ void ProjectileSystem::Update(entt::registry &registry,
           bool targetIsPlayer = registry.any_of<PlayerTag>(target);
 
           if (ownerIsPlayer && !targetIsEnemy)
-            return;
+            return true;
           if (ownerIsEnemy && !targetIsPlayer)
-            return;
+            return true;
 
           for (auto e : s_uniqueHits)
             if (e == target)
-              return;
+              return true;
           s_uniqueHits.push_back(target);
 
           for (auto e : proj.hitEntities)
             if (e == target)
-              return;
+              return true;
 
           // Distance check already done by QueryWorld/query mostly, but double
           // check doesn't hurt if grid returns candidates
@@ -400,7 +402,7 @@ void ProjectileSystem::Update(entt::registry &registry,
                 hitAct.instigator = proj.owner;
                 hitAct.pos = {pos.x, pos.y};
                 actions.push_back(hitAct);
-                return;
+                return true;
               }
             }
 
@@ -417,14 +419,17 @@ void ProjectileSystem::Update(entt::registry &registry,
             if (!proj.pierce) {
               hit = true;
               proj.hitLimitReached = true;
+              return false; // Stop query after first hit if no pierce
             } else {
               proj.pierceCount--;
               if (proj.pierceCount < 0) {
                 hit = true;
                 proj.hitLimitReached = true;
+                return false;
               }
             }
           }
+          return true;
         });
 
     if (proj.hitLimitReached && (proj.hasRendered || proj.lifeTime <= 0.0f)) {

@@ -210,6 +210,26 @@ struct GPULabelInstance {
 static_assert(sizeof(GPULabelInstance) == 64, "GPULabelInstance must be 64 bytes");
 
 /**
+ * @brief Structure for individual GPU glyph instances (Text Rendering).
+ * 48 Bytes (16 * 3) for alignment.
+ */
+struct GPUGlyphInstance {
+  Vector2 position = {0.0f, 0.0f};      // 8  - Screen/World position
+  Vector2 size = {0.0f, 0.0f};          // 8  - Glyph size in pixels
+  Vector2 uvMin = {0.0f, 0.0f};         // 8  - Top-left UV
+  Vector2 uvMax = {0.0f, 0.0f};         // 8  - Bottom-right UV
+  uint32_t colorPacked = 0xFFFFFFFF;    // 4  - RGBA8 packed color
+  float scale = 1.0f;                   // 4  - Scale factor
+  float padding[2] = {0.0f};            // 8  - Padding to 48 bytes
+  
+  GPUGlyphInstance() = default;
+};
+
+// Ensure Stride is exactly 48 bytes
+static_assert(sizeof(GPUGlyphInstance) == 48,
+              "GPUGlyphInstance struct must be exactly 48 bytes for SSBO alignment");
+
+/**
  * @brief Centralized Color Manager for VFX
  * 颜色管理器：统一管理游戏内的特效颜色
  */

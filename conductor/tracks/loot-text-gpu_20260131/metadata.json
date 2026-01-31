@@ -1,0 +1,16 @@
+{
+  "id": "loot-text-gpu_20260131",
+  "title": "Loot Text GPU Instancing & Layout Optimization",
+  "type": "refactor",
+  "status": "complete",
+  "created": "2026-01-31T16:48:00Z",
+  "updated": "2026-01-31T17:45:00Z",
+  "phases": {
+    "total": 4,
+    "completed": 4
+  },
+  "tasks": {
+    "total": 13,
+    "completed": 13
+  }
+}

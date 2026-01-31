@@ -33,13 +33,15 @@
 #include <iostream>
 #include <string>
 
+#include "engine/render/LootTextBatcher.hpp"
 #include "game/systems/ui/PlayerHUD.hpp"
 #include "rlgl.h"
 
 // Static Buffers
 std::vector<NoMoreDay::components::GPULabelInstance>
     RenderSystem::s_labelBuffer;
-std::vector<RenderSystem::TextRenderCmd> RenderSystem::s_textQueue;
+std::vector<NoMoreDay::components::GPUGlyphInstance>
+    RenderSystem::s_glyphBuffer;
 std::vector<RenderSystem::VisibleItemCache::ItemData>
     RenderSystem::VisibleItemCache::visibleItems; 
 
@@ -49,6 +51,12 @@ Shader RenderSystem::s_labelShader = {0};
 int RenderSystem::s_labelMvpLoc = -1;
 std::unique_ptr<NoMoreDay::core::ComputeBuffer>
     RenderSystem::s_labelInstanceBuffer = nullptr;
+
+Shader RenderSystem::s_glyphShader = {0};
+int RenderSystem::s_glyphMvpLoc = -1;
+int RenderSystem::s_glyphTexLoc = -1;
+std::unique_ptr<NoMoreDay::core::ComputeBuffer>
+    RenderSystem::s_glyphInstanceBuffer = nullptr;
 
 // Screen Shake Implementation
 void RenderSystem::AddScreenShake(float intensity) {
@@ -117,6 +125,19 @@ void RenderSystem::Initialize() {
   s_beamInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
   s_beamInstanceBuffer->Create(500 * sizeof(GPUBeamInstance), nullptr,
                                RL_DYNAMIC_DRAW);
+
+  s_glyphShader = LoadShader("assets/shaders/ui/glyph.vert",
+                             "assets/shaders/ui/glyph.frag");
+  if (s_glyphShader.id != 0) {
+    s_glyphMvpLoc = GetShaderLocation(s_glyphShader, "mvp");
+    s_glyphTexLoc = GetShaderLocation(s_glyphShader, "uFontAtlas");
+  }
+
+  s_glyphInstanceBuffer = std::make_unique<NoMoreDay::core::ComputeBuffer>();
+  s_glyphInstanceBuffer->Create(
+      NoMoreDay::RenderConstants::GPU::MAX_GLYPHS *
+          sizeof(NoMoreDay::components::GPUGlyphInstance),
+      nullptr, RL_DYNAMIC_DRAW);
 }
 
 void RenderSystem::Shutdown() {
@@ -131,6 +152,13 @@ void RenderSystem::Shutdown() {
     s_beamShader.id = 0;
   }
   s_beamInstanceBuffer = nullptr;
+
+  if (s_glyphShader.id != 0) {
+    UnloadShader(s_glyphShader);
+    s_glyphShader.id = 0;
+  }
+  s_glyphInstanceBuffer = nullptr;
+
   s_itemGrid = nullptr;
 }
 
@@ -316,7 +344,7 @@ void RenderSystem::render(entt::registry &registry,
   // 5. Loot Labels (Optimized)
   {
     NoMoreDay::utils::ScopedTimer itemTimer("Loot Label Collection", 100);
-    s_labelBuffer.clear(); s_textQueue.clear(); s_beamBuffer.clear();
+    s_labelBuffer.clear(); s_glyphBuffer.clear(); s_beamBuffer.clear();
     VisibleItemCache::Clear();
 
     Vector2 vTL = GetScreenToWorld2D({0, 0}, camera);
@@ -328,74 +356,123 @@ void RenderSystem::render(entt::registry &registry,
       Mesh mesh = {0}; mesh.triangleCount = 2; mesh.vertexCount = 6;
       mesh.vertices = (float *)MemAlloc(18 * sizeof(float));
       mesh.texcoords = (float *)MemAlloc(12 * sizeof(float));
-      float v[] = {0,0,0, 0,1,0, 1,1,0, 0,0,0, 1,1,0, 1,0,0};
-      float t[] = {0,0, 0,1, 1,1, 0,0, 1,1, 1,0};
+      // Standard CCW Quad for Raylib (Y-down)
+      // Tri 1: TL(0,0), BL(0,1), BR(1,1)
+      // Tri 2: TL(0,0), BR(1,1), TR(1,0)
+      float v[] = { 0,0,0, 0,1,0, 1,1,0, 0,0,0, 1,1,0, 1,0,0 };
+      float t[] = { 0,0, 0,1, 1,1, 0,0, 1,1, 1,0 };
       memcpy(mesh.vertices, v, 18*sizeof(float)); memcpy(mesh.texcoords, t, 12*sizeof(float));
       UploadMesh(&mesh, false); quadMesh = mesh;
     }
 
     int labelCount = 0;
+    struct LabelCandidate {
+        entt::entity entity;
+        Vector2 pos;
+        Vector2 size;
+        Color color;
+        float scale;
+        std::string text;
+        bool isGold = false;
+        Rectangle currentRect;
+    };
+    static std::vector<LabelCandidate> s_candidates;
+    s_candidates.clear();
+
     if (s_itemGrid) {
-        s_itemGrid->query({camera.target.x, camera.target.y}, 1500.0f, [&](entt::entity entity, const Vector2& pos) {
-            if (labelCount >= 64 || !CheckCollisionPointRec({pos.x, pos.y}, viewRect)) return;
+        s_itemGrid->query({camera.target.x, camera.target.y}, 1000.0f, [&](entt::entity entity, const Vector2& pos) -> bool {
+            if (labelCount >= 64) return false;
+            if (!CheckCollisionPointRec({pos.x, pos.y}, viewRect)) return true;
 
             if (const auto *item = registry.try_get<NoMoreDay::ItemComponent>(entity)) {
                 const auto *filterResult = registry.try_get<NoMoreDay::LootFilterResultComponent>(entity);
-                if (labelCount > 32 && item->rarity < NoMoreDay::Rarity::Rare && (!filterResult || filterResult->scale <= 1.0f)) return;
+                if (labelCount > 32 && item->rarity < NoMoreDay::Rarity::Rare && (!filterResult || filterResult->scale <= 1.0f)) return true;
 
                 Color rarityColor = UISystem::GetRarityColor(item->rarity);
                 float scale = 1.0f; bool emphasized = false;
                 if (filterResult) {
-                    if (!filterResult->visible) return;
+                    if (!filterResult->visible) return true;
                     if (filterResult->scale > 1.0f) { scale = filterResult->scale; emphasized = true; rarityColor = filterResult->color; }
                 }
 
                 auto &labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
-
                 labelCount++;
                 int fSize = (int)(18.0f * scale * fontScale); if (fSize < 12) fSize = 12;
                 if (!labelCache.isValid || labelCache.lastFontSize != fSize || labelCache.lastRarityHash != (uint32_t)item->rarity) {
-                    labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, item->name.c_str(), (float)fSize, 1.0f) : Vector2{(float)MeasureText(item->name.c_str(), fSize), (float)fSize};
+                    labelCache.cachedSize = IsFontValid(font) ? ::NoMoreDay::render::LootTextBatcher::MeasureText(font, item->name, (float)fSize) : Vector2{(float)MeasureText(item->name.c_str(), fSize), (float)fSize};
                     labelCache.lastFontSize = fSize; labelCache.lastRarityHash = (uint32_t)item->rarity; labelCache.isValid = true;
                 }
 
                 Vector2 tSize = labelCache.cachedSize;
                 Rectangle bg = {pos.x - tSize.x/2 - 4, pos.y - 30.0f*scale - 2, tSize.x + 8, tSize.y + 4};
+                s_candidates.push_back({entity, pos, tSize, rarityColor, scale, item->name, false, bg});
 
                 if (item->rarity >= NoMoreDay::Rarity::Rare || emphasized) {
                     GPUBeamInstance bi; bi.position = {pos.x, pos.y}; bi.size = {24.0f*scale, 120.0f*scale};
                     bi.color = ColorNormalize(rarityColor); bi.time = (float)GetTime(); s_beamBuffer.push_back(bi);
                 }
-
-                bool hovered = (entity == UISystem::State.hoveredItem);
-                NoMoreDay::components::GPULabelInstance inst;
-                inst.position = {bg.x, bg.y}; inst.size = {bg.width, bg.height};
-                inst.bgColor = ColorNormalize(Fade(BLACK, 0.7f));
-                inst.borderColor = ColorNormalize(hovered ? WHITE : ColorAlpha(rarityColor, 0.5f));
-                inst.borderWidth = hovered ? 2.0f : 1.0f; inst.cornerRadius = 4.0f;
-                s_labelBuffer.push_back(inst);
-                VisibleItemCache::visibleItems.push_back({entity, bg});
-                s_textQueue.push_back({{pos.x - tSize.x/2, pos.y - 30.0f*scale}, item->name.c_str(), (float)fSize, rarityColor, false});
             } else if (const auto *gold = registry.try_get<GoldComponent>(entity)) {
-                if (labelCount > 48 && gold->amount < 100) return;
+                if (labelCount > 48 && gold->amount < 100) return true;
                 auto &labelCache = registry.get_or_emplace<LabelCacheComponent>(entity);
                 labelCount++;
                 int fSize = (int)(16.0f * fontScale); if (fSize < 10) fSize = 10;
                 if (!labelCache.isValid || labelCache.lastFontSize != fSize) {
                     if (!labelCache.isValid) snprintf(labelCache.cachedText, sizeof(labelCache.cachedText), "%d 金币", gold->amount);
-                    labelCache.cachedSize = IsFontValid(font) ? MeasureTextEx(font, labelCache.cachedText, (float)fSize, 1.0f) : Vector2{(float)MeasureText(labelCache.cachedText, fSize), (float)fSize};
+                    labelCache.cachedSize = IsFontValid(font) ? ::NoMoreDay::render::LootTextBatcher::MeasureText(font, labelCache.cachedText, (float)fSize) : Vector2{(float)MeasureText(labelCache.cachedText, fSize), (float)fSize};
                     labelCache.lastFontSize = fSize; labelCache.isValid = true;
                 }
                 Vector2 tSize = labelCache.cachedSize;
                 Rectangle bg = {pos.x - tSize.x/2 - 4, pos.y - 25.0f - 2, tSize.x + 8, tSize.y + 4};
-                NoMoreDay::components::GPULabelInstance inst;
-                inst.position = {bg.x, bg.y}; inst.size = {bg.width, bg.height};
-                inst.bgColor = ColorNormalize(Fade(BLACK, 0.6f)); inst.borderColor = ColorNormalize(Fade(GOLD, 0.5f));
-                inst.borderWidth = 1.0f; inst.cornerRadius = 4.0f; s_labelBuffer.push_back(inst);
-                s_textQueue.push_back({{pos.x - tSize.x/2, pos.y - 25.0f}, labelCache.cachedText, (float)fSize, GOLD, false});
+                s_candidates.push_back({entity, pos, tSize, GOLD, 1.0f, labelCache.cachedText, true, bg});
             }
+            return true;
         });
     }
+
+    // --- Anti-overlap Layout ---
+    if (!s_candidates.empty()) {
+        std::sort(s_candidates.begin(), s_candidates.end(), [](const LabelCandidate& a, const LabelCandidate& b) {
+            return a.pos.y > b.pos.y;
+        });
+
+        for (size_t i = 0; i < s_candidates.size(); ++i) {
+            auto& cand = s_candidates[i];
+            bool overlap = true; int safety = 0;
+            while (overlap && safety < 8) {
+                overlap = false;
+                for (size_t j = 0; j < i; ++j) {
+                    if (CheckCollisionRecs(cand.currentRect, s_candidates[j].currentRect)) {
+                        cand.currentRect.y = s_candidates[j].currentRect.y - cand.currentRect.height - 2;
+                        overlap = true; break;
+                    }
+                }
+                safety++;
+            }
+
+            bool hovered = (cand.entity == UISystem::State.hoveredItem);
+            NoMoreDay::components::GPULabelInstance inst;
+            inst.position = {cand.currentRect.x, cand.currentRect.y};
+            inst.size = {cand.currentRect.width, cand.currentRect.height};
+            inst.bgColor = ColorNormalize(Fade(BLACK, 0.7f));
+            inst.borderColor = ColorNormalize(hovered ? WHITE : ColorAlpha(cand.color, 0.5f));
+            inst.borderWidth = hovered ? 2.0f : 1.0f; inst.cornerRadius = 4.0f;
+            s_labelBuffer.push_back(inst);
+            VisibleItemCache::visibleItems.push_back({cand.entity, cand.currentRect});
+
+            if (IsFontValid(font)) {
+                int fSize = cand.isGold ? (int)(16.0f * fontScale) : (int)(18.0f * cand.scale * fontScale);
+                if (fSize < 10) fSize = 10;
+                ::NoMoreDay::render::LootTextBatcher::BatchString(font, cand.text, {cand.currentRect.x + 4, cand.currentRect.y + 2}, (float)fSize, cand.color, s_glyphBuffer);
+            }
+        }
+    }
+
+    // --- GPU Render Pass ---
+    rlDrawRenderBatchActive();
+    rlDisableDepthMask();
+    rlDisableDepthTest();
+    rlDisableBackfaceCulling();
+    rlSetBlendMode(RL_BLEND_ALPHA);
 
     if (!s_beamBuffer.empty() && s_beamShader.id != 0 && s_beamInstanceBuffer) {
       size_t sz = s_beamBuffer.size() * sizeof(GPUBeamInstance);
@@ -421,9 +498,32 @@ void RenderSystem::render(entt::registry &registry,
       EndShaderMode();
     }
 
-    if (IsFontValid(font)) {
-      for (const auto &cmd : s_textQueue) DrawTextEx(font, cmd.text, cmd.position, cmd.fontSize, 1.0f, cmd.color);
+    if (!s_glyphBuffer.empty() && s_glyphShader.id != 0 && s_glyphInstanceBuffer) {
+      size_t sz = s_glyphBuffer.size() * sizeof(NoMoreDay::components::GPUGlyphInstance);
+      if (sz > s_glyphInstanceBuffer->GetSize()) s_glyphInstanceBuffer->Create(sz * 2, s_glyphBuffer.data(), RL_DYNAMIC_DRAW);
+      else s_glyphInstanceBuffer->OrphanAndUpload(s_glyphBuffer.data(), sz, RL_DYNAMIC_DRAW);
+      s_glyphInstanceBuffer->BindBase(static_cast<uint32_t>(NoMoreDay::RenderConstants::Binding::SSBO_GLYPH_INSTANCE));
+      
+      BeginShaderMode(s_glyphShader);
+      Matrix mvp = MatrixMultiply(rlGetMatrixModelview(), rlGetMatrixProjection());
+      SetShaderValueMatrix(s_glyphShader, s_glyphMvpLoc, mvp);
+      
+      rlActiveTextureSlot(3);
+      rlEnableTexture(font.texture.id);
+      if (s_glyphTexLoc != -1) {
+          int texUnit = 3;
+          rlSetUniform(s_glyphTexLoc, &texUnit, RL_SHADER_UNIFORM_INT, 1);
+      }
+      
+      rlEnableVertexArray(quadMesh.vaoId);
+      rlDrawVertexArrayInstanced(0, 6, (int)s_glyphBuffer.size());
+      rlDisableVertexArray();
+      EndShaderMode();
+      rlActiveTextureSlot(0);
     }
+
+    rlDrawRenderBatchActive();
+    rlSetBlendMode(RL_BLEND_ALPHA);
   }
 
   {
