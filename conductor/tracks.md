@@ -5,7 +5,7 @@ This file tracks all major tracks for the project. Each track has its own detail
 ---
 
 ## [x] Track: Dimensional Level Selection & Fragment Failsafe
-- **Folder:** [./conductor/tracks/dimensional-level-select/](./conductor/tracks/dimensional-level-select/)
+- **Folder:** [./conductor/archive/dimensional-level-select_20260131/](./conductor/archive/dimensional-level-select_20260131/)
 - **Description:** 优化维度地图的进入体验。新增了等级选择界面，允许玩家在 (1 ~ 玩家等级+10) 范围内自定义难度。实现了默认碎片检测机制，防止空背包卡关。修复了城镇传送门触发逻辑，并对齐了传送门视觉素材与实际触发区域。 (Completed on 2026-01-31)
 - **Status:** COMPLETED
 - **Priority:** HIGH
@@ -230,17 +230,17 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Performance Hardening V2 (AZDO Particle & MDI)
-- **Folder:** [./conductor/tracks/performance-hardening-v2/](./conductor/tracks/performance-hardening-v2/)
-- **Description:** 极致优化大批量物体渲染。通过无锁环形缓冲区重构粒子发射，引入稀疏更新 (Sparse Update) 机制优化 MDI 实体状态同步，并将位置插值计算卸载至 GPU Vertex Shader。目标支持 50,000+ 实体稳定高帧率运行。
-- **Status:** IN_PROGRESS
+## [x] Track: Performance Hardening V2 (AZDO Particle & MDI)
+- **Folder:** [./conductor/archive/performance-hardening-v2_20260131/](./conductor/archive/performance-hardening-v2_20260131/)
+- **Description:** 极致优化大批量物体渲染。通过无锁环形缓冲区重构粒子发射，引入稀疏更新 (Sparse Update) 机制优化 MDI 实体状态同步，实现了粒子系统动态调度缩放与掉落物标签空间查询优化。 (Completed on 2026-01-31)
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2-3 days
 
 ---
 
 ## [x] Track: Loot Text GPU Instancing & Layout Optimization
-- **Folder:** [./conductor/tracks/loot-text-gpu_20260131/](./conductor/tracks/loot-text-gpu_20260131/)
+- **Folder:** [./conductor/archive/loot-text-gpu_20260131/](./conductor/archive/loot-text-gpu_20260131/)
 - **Description:** 极致优化战利品标签渲染。通过 GPU 字形实例化（Instancing）彻底消除海量中文文本渲染带来的 CPU 提交瓶颈，并实现标签防重叠布局算法，确保 100+ 掉落物下稳定维持 400+ FPS。 (Completed on 2026-01-31)
 - **Status:** COMPLETED
 - **Priority:** HIGH
