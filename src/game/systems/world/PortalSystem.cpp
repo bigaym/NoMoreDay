@@ -353,6 +353,7 @@ void PortalSystem::Render(entt::registry &registry, const Camera2D &camera) {
     float yOffsetMult = -0.1f; // Default: Slightly up for ground portals
 
     switch (portal.type) {
+    case PortalType::Dungeon:
     case PortalType::Town:
     case PortalType::Return:
       baseColor = GOLD; break;
