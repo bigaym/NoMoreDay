@@ -52,3 +52,11 @@
     * Popup Render (Instanced): ~0.2ms
     * Entity Simulation (20k entities): ~2.8ms (Sync + Compute)
     * Verified on Intel Iris Xe.
+
+## 6. 工具链操作规范 (Toolchain Operations)
+
+* **Tree-sitter Engine**:
+    1. **初始化序列**: 必须严格遵循 `register_project_tool` (注册项目) -> `configure` (加载配置) 的顺序。
+    2. **权限**: 仅在完成初始化后，方可调用查询与解析类工具。
+* **C++ Analyzer**:
+    1. **上下文锚定**: 在执行任何类/函数分析前，必须优先调用 `set_project_directory` 锁定项目根路径。

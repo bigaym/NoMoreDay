@@ -1,0 +1,16 @@
+{
+  "id": "ui-skill-spec_20260201",
+  "title": "Skill Specialization System",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-02-01T10:00:00Z",
+  "updated": "2026-02-01T10:00:00Z",
+  "phases": {
+    "total": 2,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 6,
+    "completed": 0
+  }
+}

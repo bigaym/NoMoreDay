@@ -25,7 +25,7 @@
 #include "game/systems/ui/UIInventory.hpp"
 #include "game/systems/ui/UIMinimap.hpp"
 #include "game/systems/ui/UISkillHub.hpp"
-#include "game/systems/ui/UISkillTalentTree.hpp" // ADDED
+#include "game/systems/ui/UISkillTalentTree.hpp"
 #include "game/systems/ui/UIStash.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include <algorithm>
@@ -513,7 +513,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
       if (State.selectedSkillId == 0) {
         UISkillHub::Draw(registry, player);
       } else {
-        UISkillTalentTree::Draw(registry, player, State.selectedSkillId);
+        NoMoreDay::SkillTreeUI::Draw(&registry, (int)player, State.selectedSkillId);
       }
     }
   }

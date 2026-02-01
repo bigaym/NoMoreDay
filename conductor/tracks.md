@@ -4,6 +4,24 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [ ] Track: Void Astrolabe (Global Passive System)
+- **Folder:** [./conductor/tracks/ui-astrolabe_20260201/](./conductor/tracks/ui-astrolabe_20260201/)
+- **Description:** Implement a Grim Dawn-inspired "Void Astrolabe" UI for the global passive talent system. This involves an infinite canvas, star-map aesthetics, and a graph-based data structure that supports arbitrary positioning and constellation groupings.
+- **Status:** PENDING
+- **Priority:** HIGH
+- **Estimated Time:** 3-4 days
+
+---
+
+## [ ] Track: Skill Specialization System
+- **Folder:** [./conductor/archive/ui-skill-spec_20260201/](./conductor/archive/ui-skill-spec_20260201/)
+- **Description:** 重构了技能专精 UI，实现了类似 Last Epoch 的“中心枢纽 + 4 分支”布局。引入了 `UISkillSpecRenderer` 进行渲染与逻辑分离，实现了基于 Tag 的视觉主题（火/冰/雷/虚空等），以及区分 Keystone (菱形)、Modifier (方形)、Passive (圆形) 的节点形状和通道式连接线。 (Completed on 2026-02-01)
+- **Status:** COMPLETED
+- **Priority:** HIGH
+- **Estimated Time:** 2-3 days
+
+---
+
 ## [x] Track: Dimensional Level Selection & Fragment Failsafe
 - **Folder:** [./conductor/archive/dimensional-level-select_20260131/](./conductor/archive/dimensional-level-select_20260131/)
 - **Description:** 优化维度地图的进入体验。新增了等级选择界面，允许玩家在 (1 ~ 玩家等级+10) 范围内自定义难度。实现了默认碎片检测机制，防止空背包卡关。修复了城镇传送门触发逻辑，并对齐了传送门视觉素材与实际触发区域。 (Completed on 2026-01-31)

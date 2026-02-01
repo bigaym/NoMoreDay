@@ -16,6 +16,9 @@ Welcome to the Conductor management layer for NoMoreDay. This index provides qui
 - [Tracks Registry](./tracks.md)
 
 ## Active Tracks
+
+- [Void Astrolabe (Global Passive System)](./tracks/ui-astrolabe_20260201/index.md)
+- [Skill Specialization System](./tracks/ui-skill-spec_20260201/index.md)
 (None)
 
 

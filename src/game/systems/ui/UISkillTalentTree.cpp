@@ -1,6 +1,7 @@
 #include "game/systems/ui/UISkillTalentTree.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/ui/UISkillHub.hpp"
+#include "game/systems/ui/UISkillSpecRenderer.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
@@ -11,9 +12,20 @@
 #include <string>
 #include <algorithm>
 
+// Redefine static members to match header
+// struct SkillTreeUI_Vec2 { float x, y; };
+
 namespace NoMoreDay {
 
-void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint32_t skillId) {
+SkillTreeUI::Vec2 SkillTreeUI::s_viewOffset = { 0, 0 };
+float SkillTreeUI::s_viewZoom = 1.0f;
+uint32_t SkillTreeUI::s_lastSkillId = 0;
+SkillTreeUI::Vec2 SkillTreeUI::s_lastMouseLogicPos = { 0, 0 };
+
+void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
+    entt::registry& registry = *static_cast<entt::registry*>(registryVoid);
+    entt::entity player = (entt::entity)playerEntity;
+
     auto& state = UISystem::State;
     if (state.skillTreeAlpha <= 0.0f) return;
 
@@ -46,17 +58,15 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
     Vector2 mouseLogicPos = UISystem::GetMousePositionLogic();
     float scale = state.scaleFactor;
 
-    // Draw Background (Screen space but logic sized via UIRenderer helpers if possible, or direct)
-    // UISystem::DrawRectangleLogic(startX, startY, panelW, panelH, Fade(BLACK, 0.95f * alpha));
-    // Since we don't have DrawRectangleLogic, we scale it manually for Raylib calls
+    // Draw Background
     DrawRectangleRec({startX * scale, startY * scale, panelW * scale, panelH * scale}, Fade(BLACK, 0.95f * alpha));
     DrawRectangleLinesEx({startX * scale, startY * scale, panelW * scale, panelH * scale}, 2.0f, Fade(DARKGRAY, alpha));
 
     // Reset view if skill changed
-    if (skillId != s_lastSkillId) {
-        s_viewOffset = { 0, 0 }; // Center (0,0)
-        s_viewZoom = 1.0f;
-        s_lastSkillId = skillId;
+    if (skillId != SkillTreeUI::s_lastSkillId) {
+        SkillTreeUI::s_viewOffset = { 0, 0 }; // Center (0,0)
+        SkillTreeUI::s_viewZoom = 1.0f;
+        SkillTreeUI::s_lastSkillId = skillId;
     }
 
     // --- Panning & Zooming Interaction ---
@@ -66,18 +76,19 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
     if (mouseInView) {
         // Panning with Right Mouse Button
         if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
-            s_viewOffset.x += (mouseLogicPos.x - s_lastMouseLogicPos.x);
-            s_viewOffset.y += (mouseLogicPos.y - s_lastMouseLogicPos.y);
+            SkillTreeUI::s_viewOffset.x += (mouseLogicPos.x - SkillTreeUI::s_lastMouseLogicPos.x);
+            SkillTreeUI::s_viewOffset.y += (mouseLogicPos.y - SkillTreeUI::s_lastMouseLogicPos.y);
         }
 
         // Zooming with Mouse Wheel
         float wheel = GetMouseWheelMove();
         if (wheel != 0) {
-            s_viewZoom += wheel * 0.1f;
-            s_viewZoom = std::clamp(s_viewZoom, 0.4f, 2.5f);
+            SkillTreeUI::s_viewZoom += wheel * 0.1f;
+            SkillTreeUI::s_viewZoom = std::clamp(SkillTreeUI::s_viewZoom, 0.4f, 2.5f);
         }
     }
-    s_lastMouseLogicPos = mouseLogicPos;
+    SkillTreeUI::s_lastMouseLogicPos.x = mouseLogicPos.x;
+    SkillTreeUI::s_lastMouseLogicPos.y = mouseLogicPos.y;
 
     // Header & Points
     UISystem::DrawTextUI(TextFormat("%s - 专精天赋", skillData->name_key.c_str()), startX + 40, startY + 30, 40, GOLD, alpha);
@@ -108,97 +119,74 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
         return;
     }
 
-    // --- Scissor Mode for Content ---
-    // Scissor needs physical screen coordinates
+    // --- Scissor Mode & Render Content ---
     BeginScissorMode((int)(viewBoundsLogic.x * scale), (int)(viewBoundsLogic.y * scale), 
                      (int)(viewBoundsLogic.width * scale), (int)(viewBoundsLogic.height * scale));
 
-    float centerX = startX + panelW / 2.0f + s_viewOffset.x;
-    float centerY = startY + panelH / 2.0f + s_viewOffset.y;
-    float gridStep = 140.0f * s_viewZoom;
+    // SkillSpecView view setup
+    SkillSpecView view;
+    float centerX = startX + panelW / 2.0f;
+    float centerY = startY + panelH / 2.0f;
+    
+    view.center = { centerX * scale, centerY * scale };
+    view.offset = { SkillTreeUI::s_viewOffset.x * scale, SkillTreeUI::s_viewOffset.y * scale };
+    view.zoom = SkillTreeUI::s_viewZoom * scale;
+    view.alpha = alpha;
+    
+    // Duplicates removed
 
-    auto GetNodePos = [&](const TalentNode& node) -> Vector2 {
-        return { centerX + node.x * gridStep, centerY + node.y * gridStep };
-    };
-
-    // --- Draw Connections ---
-    for (const auto& [id, node] : tree->nodes) {
-        Vector2 start = GetNodePos(node);
-        for (uint32_t preId : node.prerequisites) {
-            if (tree->nodes.count(preId)) {
-                Vector2 end = GetNodePos(tree->nodes.at(preId));
-                int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
-                DrawLineEx(Vector2{start.x * scale, start.y * scale}, Vector2{end.x * scale, end.y * scale}, 4.0f * s_viewZoom * scale, Fade(prePts > 0 ? GOLD : DARKGRAY, alpha * 0.6f));
-            }
-        }
-    }
-
-    // --- Draw Nodes ---
-    float nodeRadius = 45.0f * s_viewZoom;
-    uint32_t targetNodeId = 0;
-
-    for (const auto& [id, node] : tree->nodes) {
-        Vector2 pos = GetNodePos(node);
-        
-        // Culling (Logic space)
-        if (pos.x < viewBoundsLogic.x - nodeRadius || pos.x > viewBoundsLogic.x + viewBoundsLogic.width + nodeRadius ||
-            pos.y < viewBoundsLogic.y - nodeRadius || pos.y > viewBoundsLogic.y + viewBoundsLogic.height + nodeRadius) {
-            continue;
-        }
-
-        int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
-        bool isMaxed = currentPts >= node.max_points;
-        
-        bool canUnlock = true;
-        for (uint32_t preId : node.prerequisites) {
-            int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
-            if (prePts <= 0) {
-                canUnlock = false;
-                break;
-            }
-        }
-
-        Color nodeColor = DARKGRAY;
-        if (currentPts > 0) nodeColor = isMaxed ? GOLD : YELLOW;
-        else if (canUnlock) nodeColor = GRAY;
-
-        bool hovered = CheckCollisionPointCircle(mouseLogicPos, pos, nodeRadius);
-        if (hovered && mouseInView) {
-            nodeColor = ColorBrightness(nodeColor, 0.3f);
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && canUnlock && !isMaxed && active->available_talent_points > 0) {
-                targetNodeId = id; 
-            }
-        }
-
-        // Physical Position for Raylib primitives
-        Vector2 physPos = { pos.x * scale, pos.y * scale };
-        float physRadius = nodeRadius * scale;
-
-        DrawCircleV(physPos, physRadius, Fade(BLACK, 0.9f * alpha));
-        DrawCircleLinesV(physPos, physRadius, Fade(nodeColor, alpha));
-        
-        if (currentPts > 0) {
-            float pct = (float)currentPts / node.max_points;
-            DrawCircleSector(physPos, physRadius * 0.85f, 0, 360.0f * pct, 32, Fade(nodeColor, 0.4f * alpha));
-        }
-
-        // Point Text
-        int fontSize = (int)(20 * s_viewZoom);
-        const char* ptsText = TextFormat("%d/%d", currentPts, node.max_points);
-        UISystem::DrawTextUI(ptsText, pos.x - 15 * s_viewZoom, pos.y - 10 * s_viewZoom, (float)fontSize, WHITE, alpha);
-    }
+    UISkillSpecRenderer::Draw(tree, specialized, active, skillData, view);
 
     EndScissorMode();
 
-    // Interaction
-    if (targetNodeId != 0) {
-        SkillSystem::AddTalentPoint(registry, player, skillId, targetNodeId);
-    }
+    // --- Interaction Logic ---
+    // We need to check clicks. 
+    // We can use GetNodeScreenPos, but remember it returns PHYSICAL coordinates now (because we passed scaled view).
+    // But MouseLogicPos is LOGIC.
+    // So we invoke GetNodeScreenPos with the VIEW we constructed, which returns PHYSICAL coords.
+    // Then we compare with MousePhysicalPos (GetKey* returns logic, GetMousePosition returns physical?)
+    // UISystem::GetMousePositionLogic() returns Logic.
+    // Is better to keep `view.zoom = s_viewZoom` (Logic), and let Renderer handle scale?
+    // Current Renderer Impl: `gridStep = 180 * view.zoom`. Returns pos.
+    // Use Raylib Draw calls (pixel space).
+    // So if Renderer draws in Pixel Space, input to it must be scaled correctly.
+    // The way I set up `view` above (`view.zoom = s_viewZoom * scale`) means `gridStep` becomes `180 * s_viewZoom * scale`.
+    // `offset` is `s_viewOffset * scale`.
+    // `center` is `Center * scale`.
+    // Valid.
+    // So `GetNodeScreenPos` returns Pixel Coordinates.
+    
+    Vector2 mousePixelPos = GetMousePosition(); // Raylib raw mouse pos
+    uint32_t targetNodeId = 0;
+    float nodeRadiusRaw = 45.0f * s_viewZoom * scale; // Approx radius used in renderer (Base 40 * zoom, plus type variation)
 
-    // --- Tooltips (Logic Space) ---
     for (const auto& [id, node] : tree->nodes) {
-        Vector2 pos = GetNodePos(node);
-        if (CheckCollisionPointCircle(mouseLogicPos, pos, nodeRadius) && mouseInView) {
+        Vector2 pos = UISkillSpecRenderer::GetNodeScreenPos(node, view);
+        float r = UISkillSpecRenderer::GetNodeRadius(node, view);
+
+        if (CheckCollisionPointCircle(mousePixelPos, pos, r) && mouseInView) {
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                
+                // Logic check
+                int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
+                bool isMaxed = currentPts >= node.max_points;
+                
+                // Prereq check
+                bool canUnlock = true;
+                for (uint32_t preId : node.prerequisites) {
+                    int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
+                    if (prePts <= 0) {
+                        canUnlock = false; 
+                        break;
+                    }
+                }
+                
+                if (canUnlock && !isMaxed && active->available_talent_points > 0) {
+                     targetNodeId = id;
+                }
+            }
+            
+            // Tooltip
             float tx = mouseLogicPos.x + 30;
             float ty = mouseLogicPos.y + 30;
             float tw = 400;
@@ -214,10 +202,14 @@ void UISkillTalentTree::Draw(entt::registry& registry, entt::entity player, uint
             UISystem::DrawTextUI(node.name_key.c_str(), tx + 20, ty + 20, 28, GOLD, alpha);
             UISystem::DrawTextScaled(node.desc_key.c_str(), tx + 20, ty + 60, 20, tw - 40, WHITE, alpha);
 
-            if (!node.stat_modifiers.empty()) {
+             if (!node.stat_modifiers.empty()) {
                 UISystem::DrawTextUI("数值加成已启用", tx + 20, ty + th - 35, 18, SKYBLUE, alpha * 0.8f);
             }
         }
+    }
+
+    if (targetNodeId != 0) {
+        SkillSystem::AddTalentPoint(registry, player, skillId, targetNodeId);
     }
 }
 
