@@ -27,7 +27,8 @@ static Tag StringToTag(const std::string &str) {
   // Legacy capitalized names not in kTagInfoTable
   static const std::unordered_map<std::string, Tag> kLegacyTags = {
       {"DamageOverTime", Tag::DamageOverTime},
-      {"SwordRiding", Tag::SwordRiding}};
+      {"SwordRiding", Tag::SwordRiding},
+      {"sword_skill", Tag::SwordSkill}};
 
   auto it = kLegacyTags.find(str);
   if (it != kLegacyTags.end())

@@ -16,9 +16,15 @@ extern "C" int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #endif
 
 int main(int argc, char **argv) {
+  // Set Raylib log level to Warning to suppress INFO logs
+  SetTraceLogLevel(LOG_WARNING);
+
   // 设置日志级别为warning
   tools::Logger::Init();
   tools::Logger::SetLogLevel(spdlog::level::warn, 2);
+  
+  // Force global spdlog level just in case
+  spdlog::set_level(spdlog::level::warn);
 
   // Some Raylib functions require a window context even if not drawing
   InitWindow(100, 100, "Headless Tests");

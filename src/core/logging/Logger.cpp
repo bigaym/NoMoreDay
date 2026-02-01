@@ -86,7 +86,7 @@ namespace tools
             // Fallback to a simple console logger if not initialized
             // This prevents crashes in tests or early boot
             s_CoreLogger = spdlog::stdout_color_mt("NMD_FALLBACK");
-            s_CoreLogger->set_level(spdlog::level::debug);
+            s_CoreLogger->set_level(spdlog::level::warn);
         }
         return s_CoreLogger;
     }

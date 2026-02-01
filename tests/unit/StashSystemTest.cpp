@@ -59,7 +59,7 @@ TEST_CASE("[Unit] StashSystem - Cross Stash Transfer") {
     CHECK(SharedStash::Get().getItem(0, 0) == item);
 }
 
-TEST_CASE("[Unit] StashSystem - Material Rejection") {
+TEST_CASE("[Unit] StashSystem - Material Acceptance") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
@@ -71,12 +71,12 @@ TEST_CASE("[Unit] StashSystem - Material Rejection") {
     
     stash.tabs[0].items[0] = mat; // Force put (bypass system)
     
-    // Try to move it (should fail check)
+    // Try to move it (should succeed now as constraint was removed)
     bool result = StashSystem::transferItem(registry,
         StashType::Personal, 0, 0,
         StashType::Personal, 0, 1);
         
-    CHECK(result == false);
+    CHECK(result == true);
 }
 
 TEST_CASE("[Unit] StashSystem - Unlock Tab") {

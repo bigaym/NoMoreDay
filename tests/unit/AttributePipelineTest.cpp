@@ -77,8 +77,9 @@ TEST_CASE("[Unit] AttributePipeline - Calculation Logic") {
 
   // 3. Effective Armor DR:
   // Level 1.
-  // DR = 1.0 - 50 / (Armor + 50) = 1.0 - 50 / 283 = 0.8233
-  CHECK(stats.effective_armor_dr == doctest::Approx(0.8233f).epsilon(0.001f));
+  // LF = 10 + 0.5*1 + 0.05*1 = 10.55
+  // DR = 10.55 / (233 + 10.55) = 0.0433 (Multiplier) -> 1 - 0.0433 = 0.9567
+  CHECK(stats.effective_armor_dr == doctest::Approx(0.956682f).epsilon(0.001f));
 }
 
 } // namespace NoMoreDay

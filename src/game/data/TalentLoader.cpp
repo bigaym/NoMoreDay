@@ -61,13 +61,14 @@ void TalentLoader::CreateDefaultMap(AstrolabeMap& outMap) {
     outMap.constellations.clear();
     outMap.stars.clear();
 
+    // Constellation 1: Origin
     Constellation origin;
     origin.id = 1;
     origin.name_key = "Origin Constellation";
     
     StarNode root;
     root.id = 1001;
-    root.name_key = "Origin Star";
+    root.name_key = "star_origin_root";
     root.desc_key = "The starting point of your cosmic journey.";
     root.x = 0; root.y = 0;
     root.type = StarNodeType::Minor;
@@ -77,6 +78,50 @@ void TalentLoader::CreateDefaultMap(AstrolabeMap& outMap) {
     origin.star_ids.push_back(root.id);
     outMap.stars[root.id] = root;
     outMap.constellations.push_back(origin);
+
+    // Constellation 2: Blade
+    Constellation blade;
+    blade.id = 2;
+    blade.name_key = "Blade Constellation";
+    
+    StarNode blade1;
+    blade1.id = 1002;
+    blade1.name_key = "Blade Star";
+    blade1.x = 50.0f; blade1.y = 50.0f;
+    blade1.constellation_id = 2;
+    blade1.prerequisites.push_back(1001); // Connect to root for graph test
+    root.connections.push_back(1002);     // Update root connections
+    outMap.stars[1001] = root;            // Save root back
+
+    blade.star_ids.push_back(blade1.id);
+    outMap.stars[blade1.id] = blade1;
+    outMap.constellations.push_back(blade);
+
+    // Constellation 3: Guard
+    Constellation guard;
+    guard.id = 3;
+    guard.name_key = "Guard Constellation";
+
+    StarNode guard1;
+    guard1.id = 1003;
+    guard1.name_key = "Guard Star 1";
+    guard1.x = -50.0f; guard1.y = 50.0f;
+    guard1.constellation_id = 3;
+    guard1.prerequisites.push_back(1001);
+    outMap.stars[1001].connections.push_back(1003); // Use map access to update root again
+
+    StarNode guard2;
+    guard2.id = 1004;
+    guard2.name_key = "Guard Star 2";
+    guard2.x = -60.0f; guard2.y = 60.0f;
+    guard2.constellation_id = 3;
+    guard2.prerequisites.push_back(1003);
+
+    guard.star_ids.push_back(guard1.id);
+    guard.star_ids.push_back(guard2.id);
+    outMap.stars[guard1.id] = guard1;
+    outMap.stars[guard2.id] = guard2;
+    outMap.constellations.push_back(guard);
 }
 
 } // namespace NoMoreDay
