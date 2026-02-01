@@ -4,6 +4,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "rlgl.h"
+#include <filesystem>
 
 using namespace NoMoreDay;
 
@@ -289,13 +290,13 @@ ResourceManager::loadTextureArray(const std::vector<std::string> &paths) {
 
   if (m_headless) {
 
-    for (int i = 0; i < layerCount; i++) {
+        for (int i = 0; i < layerCount; i++) {
 
-      std::string name = GetFileNameWithoutExt(paths[i].c_str());
+          std::string name = std::filesystem::path(paths[i]).stem().string();
 
-      m_textureLayerMap[name] = i;
+          m_textureLayerMap[name] = i;
 
-    }
+        }
 
     m_entityTextureArray = 1;
 
@@ -401,11 +402,15 @@ ResourceManager::loadTextureArray(const std::vector<std::string> &paths) {
 
 
 
-    // Store mapping
+        // Store mapping
 
-    std::string name = GetFileNameWithoutExt(path.c_str());
 
-    m_textureLayerMap[name] = i;
+
+        std::string name = std::filesystem::path(path).stem().string();
+
+
+
+        m_textureLayerMap[name] = i;
 
 
 

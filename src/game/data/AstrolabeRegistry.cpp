@@ -1,12 +1,11 @@
 #include "game/data/AstrolabeRegistry.hpp"
-#include "game/components/Progression.hpp" // Crucial for AstrolabeNode definition
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay {
 
-void AstrolabeRegistry::RegisterNode(const AstrolabeNode &node) {
+void AstrolabeRegistry::RegisterNode(const StarNode &node) {
     nodes[node.id] = node;
 }
 
@@ -24,7 +23,7 @@ bool AstrolabeRegistry::Load(const std::string& path) {
         nodes.clear();
         if (data.contains("nodes") && data["nodes"].is_array()) {
             for (const auto& node_json : data["nodes"]) {
-                AstrolabeNode node = node_json.get<AstrolabeNode>();
+                StarNode node = node_json.get<StarNode>();
                 uint32_t id = node.id;
                 nodes[id] = std::move(node);
             }
@@ -38,7 +37,7 @@ bool AstrolabeRegistry::Load(const std::string& path) {
     }
 }
 
-const AstrolabeNode* AstrolabeRegistry::GetNode(uint32_t id) const {
+const StarNode* AstrolabeRegistry::GetNode(uint32_t id) const {
     auto it = nodes.find(id);
     if (it != nodes.end()) {
         return &it->second;
@@ -46,8 +45,13 @@ const AstrolabeNode* AstrolabeRegistry::GetNode(uint32_t id) const {
     return nullptr;
 }
 
-const std::unordered_map<uint32_t, AstrolabeNode>& AstrolabeRegistry::GetAllNodes() const {
+const std::unordered_map<uint32_t, StarNode>& AstrolabeRegistry::GetAllNodes() const {
     return nodes;
+}
+
+void AstrolabeRegistry::SetMap(const AstrolabeMap& map) {
+    nodes = map.stars;
+    LOG_INFO("AstrolabeRegistry: Synced with map ({} stars)", nodes.size());
 }
 
 }

@@ -19,6 +19,9 @@ public:
     // 如果已加载，则通过ID获取纹理
     static Texture2D GetTexture(entt::id_type id);
 
+    // 获取已加载的Shader
+    static Shader GetShader(entt::id_type id);
+
     // Load all equipment assets defined in EquipmentAssetRegistry
     static void LoadAllEquipment();
 

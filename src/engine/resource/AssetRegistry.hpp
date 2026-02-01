@@ -11,6 +11,12 @@ struct TextureAsset {
   std::string_view path;
 };
 
+struct ShaderAsset {
+  entt::id_type id;
+  std::string_view vs_path;
+  std::string_view fs_path;
+};
+
 namespace textures {
 // 武器
 constexpr TextureAsset Weapon_Sword = {
@@ -63,4 +69,10 @@ constexpr TextureAsset EquipSlot_Weapon_Minor = {
     "equipslot_weapon_min"_hs,
     "assets/textures/equipslot/item_weapon_off_shield.png"}; // 副手武器
 } // namespace textures
+
+namespace shaders {
+constexpr ShaderAsset Void_Nebula = {
+    "sh_void_nebula"_hs, "assets/shaders/void_nebula.vs",
+    "assets/shaders/void_nebula.fs"};
+} // namespace shaders
 } // namespace assets

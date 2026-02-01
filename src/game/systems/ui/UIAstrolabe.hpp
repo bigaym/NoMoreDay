@@ -1,7 +1,8 @@
 #pragma once
+#include <cstdint>
 #include <entt/entt.hpp>
-#include "raylib.h"
-#include "game/components/AstrolabeUIComponent.hpp"
+#include "game/data/TalentData.hpp"
+#include "game/systems/ui/AstrolabeRenderer.hpp"
 
 namespace NoMoreDay {
 
@@ -9,25 +10,22 @@ class UIAstrolabe {
 public:
     static void Update(entt::registry& registry);
     static void Draw(entt::registry& registry);
+    
+    static void Toggle(entt::registry& registry, entt::entity player);
+    static bool IsVisible(entt::registry& registry, entt::entity player);
 
-    // Helper to toggle UI
-    static void Toggle(entt::registry& registry, entt::entity player) {
-        auto* ui = registry.try_get<AstrolabeUIComponent>(player);
-        if (!ui) {
-            registry.emplace<AstrolabeUIComponent>(player);
-            ui = registry.try_get<AstrolabeUIComponent>(player);
-            // Initialize view
-            ui->zoom = 1.0f;
-            ui->offset = { 0.0f, 0.0f };
-        }
-        
-        ui->isOpen = !ui->isOpen;
-    }
+    static void Show();
+    static void Hide();
 
-    static bool IsVisible(entt::registry& registry, entt::entity player) {
-        auto* ui = registry.try_get<AstrolabeUIComponent>(player);
-        return ui && ui->isOpen;
-    }
+private:
+    static void DrawInternal(entt::registry& registry, entt::entity player);
+    static void EnsureLoaded();
+
+    static AstrolabeMap s_map;
+    static AstrolabeView s_view;
+    static bool s_loaded;
+    static bool s_visible;
+    static float s_alpha;
 };
 
-}
+} // namespace NoMoreDay

@@ -3,11 +3,9 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include "game/data/TalentData.hpp"
 
 namespace NoMoreDay {
-
-// Forward declaration to avoid header circular dependency
-struct AstrolabeNode;
 
 class AstrolabeRegistry {
 public:
@@ -17,15 +15,17 @@ public:
   }
 
   bool Load(const std::string &path);
-  const AstrolabeNode *GetNode(uint32_t id) const;
-  const std::unordered_map<uint32_t, AstrolabeNode> &GetAllNodes() const;
+  const StarNode *GetNode(uint32_t id) const;
+  const std::unordered_map<uint32_t, StarNode> &GetAllNodes() const;
   
-  // Implemented in .cpp to allow using the full definition of AstrolabeNode
-  void RegisterNode(const AstrolabeNode &node);
+  void RegisterNode(const StarNode &node);
+  
+  // Update from current map
+  void SetMap(const AstrolabeMap& map);
 
 private:
   AstrolabeRegistry() = default;
-  std::unordered_map<uint32_t, AstrolabeNode> nodes;
+  std::unordered_map<uint32_t, StarNode> nodes;
 };
 
 } // namespace NoMoreDay

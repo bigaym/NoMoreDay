@@ -4,10 +4,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Void Astrolabe (Global Passive System)
+## [x] Track: Void Astrolabe (Global Passive System)
 - **Folder:** [./conductor/tracks/ui-astrolabe_20260201/](./conductor/tracks/ui-astrolabe_20260201/)
-- **Description:** Implement a Grim Dawn-inspired "Void Astrolabe" UI for the global passive talent system. This involves an infinite canvas, star-map aesthetics, and a graph-based data structure that supports arbitrary positioning and constellation groupings.
-- **Status:** PENDING
+- **Description:** Implement a Grim Dawn-inspired "Void Astrolabe" UI for the global passive talent system. This involves an infinite canvas, star-map aesthetics, and a graph-based data structure that supports arbitrary positioning and constellation groupings. (Completed on 2026-02-01)
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 3-4 days
 

@@ -129,7 +129,7 @@ target_link_libraries(SkillBehaviors PRIVATE
 target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(SkillBehaviors PRIVATE "-Wno-stringop-overflow")
+    target_compile_options(SkillBehaviors PRIVATE "-Wa,-mbig-obj" "-Wno-stringop-overflow")
 endif()
 
 # Enable Unity Build for Skills

@@ -39,6 +39,11 @@ void AssetLoadingSystem::RegisterShaders() {
   m_resourceManager->loadShader(entt::hashed_string("sh_distortion"), "",
                                 "assets/shaders/vfx/distortion.fs");
 
+  // Astrolabe Shaders
+  m_resourceManager->loadShader(assets::shaders::Void_Nebula.id,
+                                std::string(assets::shaders::Void_Nebula.vs_path),
+                                std::string(assets::shaders::Void_Nebula.fs_path));
+
   // Register essential VFX textures
   m_resourceManager->registerTexture(entt::hashed_string("vfx_spirit_sword"), "assets/textures/vfx/spirit_sword.png");
   m_resourceManager->registerTexture(entt::hashed_string("vfx_noise"), "assets/textures/vfx/energy_noise.png");
@@ -179,6 +184,14 @@ Texture2D AssetLoadingSystem::GetTexture(entt::id_type id) {
     return {0};
   }
   return m_resourceManager->getTexture(id);
+}
+
+Shader AssetLoadingSystem::GetShader(entt::id_type id) {
+  if (!m_resourceManager) {
+    LOG_LIMITED_ERROR(1.0f, "AssetLoadingSystem: Not initialized!");
+    return {0};
+  }
+  return m_resourceManager->getShader(id);
 }
 
 void AssetLoadingSystem::Shutdown() {

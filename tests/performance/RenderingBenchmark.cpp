@@ -159,15 +159,13 @@ TEST_CASE("[Performance] GPUEntitySystem - Scenario C Entity Horde Test") {
     auto e = registry.create();
     registry.emplace<::Position>(e, (float)(rand() % 4000),
                                  (float)(rand() % 4000));
-    registry.emplace<::Velocity>(e, 0.0f, 0.0f); // 50% moving logic below
     registry.emplace<::Radius>(e, 2.0f);
     registry.emplace<::GPUIndex>(e, -1);
 
     if (rand() % 2 == 0) { // 50% moving
       registry.emplace<::Velocity>(e, 10.0f, 10.0f);
-      // Mark dirty logic? GPU system usually checks changes.
-      // If we just set Velocity component, does it count?
-      // GPUEntitySystem normally iterates registry to sync.
+    } else {
+      registry.emplace<::Velocity>(e, 0.0f, 0.0f);
     }
   }
 

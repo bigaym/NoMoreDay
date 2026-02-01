@@ -16,6 +16,7 @@ TEST_SUITE("TalentModifierTest") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player); // Mark as player so defaults apply
+    registry.emplace<CombatStats>(player);
 
     // Setup: Create SkillTree with MaxHealth modifier
     SkillData skill;
@@ -50,11 +51,10 @@ TEST_SUITE("TalentModifierTest") {
     // Base 100 (player default) + 50 * 2 = 200.
     // Assuming DEFAULT_MAX_HEALTH is 100. Even if not, it should be base + 100.
     // We can check if it's significantly higher than base.
-    // Or create a base player to compare.
-
     entt::registry baseReg;
     auto basePlayer = baseReg.create();
     baseReg.emplace<PlayerTag>(basePlayer);
+    baseReg.emplace<CombatStats>(basePlayer);
     AttributePipeline::Calculate(baseReg, basePlayer);
     float baseHealth = baseReg.get<CombatStats>(basePlayer).max_health;
 
@@ -79,6 +79,7 @@ TEST_SUITE("TalentModifierTest") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
+    registry.emplace<CombatStats>(player);
 
     // Register Astrolabe Node
     AstrolabeNode node;
@@ -100,6 +101,7 @@ TEST_SUITE("TalentModifierTest") {
     entt::registry baseReg;
     auto basePlayer = baseReg.create();
     baseReg.emplace<PlayerTag>(basePlayer);
+    baseReg.emplace<CombatStats>(basePlayer);
     AttributePipeline::Calculate(baseReg, basePlayer);
     float baseSpeed = baseReg.get<CombatStats>(basePlayer).raw_move_speed;
 
