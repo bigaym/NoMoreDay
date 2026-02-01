@@ -373,9 +373,9 @@ constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向�
 
   namespace Astrolabe
   {
-    constexpr float INITIAL_ZOOM = 0.4f;    // Default zoom (smaller = zoomed out)
-    constexpr float MIN_ZOOM = 0.2f;        // Minimum zoom level
-    constexpr float MAX_ZOOM = 3.0f;
+    constexpr float INITIAL_ZOOM = 2.0f;    // Default zoom (smaller = zoomed out)
+    constexpr float MIN_ZOOM = 0.4f;        // Minimum zoom level
+    constexpr float MAX_ZOOM = 5.0f;
     constexpr float PAN_SPEED = 1.0f;
     constexpr float ZOOM_SPEED = 0.12f;
 

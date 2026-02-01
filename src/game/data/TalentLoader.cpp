@@ -32,8 +32,8 @@ bool TalentLoader::LoadAstrolabe(const std::string& path, AstrolabeMap& outMap) 
         for (const auto& [id, node] : registryNodes) {
             StarNode star = node;
             // Scale up coordinates for UI visibility (Original JSON values are small)
-            star.x *= 8.0f;
-            star.y *= 8.0f;
+            star.x *= 1.0f;
+            star.y *= 1.0f;
             outMap.stars[id] = std::move(star);
         }
     }
@@ -87,7 +87,7 @@ void TalentLoader::CreateDefaultMap(AstrolabeMap& outMap) {
     StarNode blade1;
     blade1.id = 1002;
     blade1.name_key = "Blade Star";
-    blade1.x = 50.0f; blade1.y = 50.0f;
+    blade1.x = 6.25f; blade1.y = 6.25f;
     blade1.constellation_id = 2;
     blade1.prerequisites.push_back(1001); // Connect to root for graph test
     root.connections.push_back(1002);     // Update root connections
@@ -105,7 +105,7 @@ void TalentLoader::CreateDefaultMap(AstrolabeMap& outMap) {
     StarNode guard1;
     guard1.id = 1003;
     guard1.name_key = "Guard Star 1";
-    guard1.x = -50.0f; guard1.y = 50.0f;
+    guard1.x = -6.25f; guard1.y = 6.25f;
     guard1.constellation_id = 3;
     guard1.prerequisites.push_back(1001);
     outMap.stars[1001].connections.push_back(1003); // Use map access to update root again
@@ -113,7 +113,7 @@ void TalentLoader::CreateDefaultMap(AstrolabeMap& outMap) {
     StarNode guard2;
     guard2.id = 1004;
     guard2.name_key = "Guard Star 2";
-    guard2.x = -60.0f; guard2.y = 60.0f;
+    guard2.x = -7.5f; guard2.y = 7.5f;
     guard2.constellation_id = 3;
     guard2.prerequisites.push_back(1003);
 

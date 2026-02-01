@@ -1,18 +1,27 @@
 #version 330
 
-// Hybrid Galaxy Shader: Combines nebula clouds (from parallax) with star points (from pointcloud)
+// === CYBER CULTIVATION GALAXY SHADER ===
+// Style: "Ink & Void" (Dark Background, Cyan/White Energy, Sharp Filaments)
+// Tech: Minimized Void Eye + Sharp Photon Frontier + Subliminal Accretion
+// Update: v4.4 - Tightened accretion range to 1/3 (max 0.07 distance)
 
 in vec2 fragTexCoord;
 in vec4 fragColor;
 
 uniform float uTime;
 uniform vec2 uResolution;
-uniform vec2 uOffset;
-uniform float uZoom;
+uniform vec2 uOffset;      // camera.target
+uniform float uZoom;       // camera.zoom
 uniform vec2 uGalaxyCenter;
 uniform float uGalaxyScale;
 
 out vec4 finalColor;
+
+// === CONSTANTS & PALETTE ===
+const vec3 C_INK_BG    = vec3(0.005, 0.008, 0.012); 
+const vec3 C_CORE_HOT  = vec3(0.6, 0.9, 0.95);
+const vec3 C_ARM_PRI   = vec3(0.0, 0.75, 0.9);
+const vec3 C_ARM_SEC   = vec3(0.1, 0.25, 0.55);
 
 // === NOISE FUNCTIONS ===
 float hash(float n) { return fract(sin(n) * 43758.5453123); }
@@ -32,10 +41,11 @@ float noise(vec2 x) {
 }
 
 const mat2 m2 = mat2(0.8, -0.6, 0.6, 0.8);
+
 float fbm(vec2 p) {
     float f = 0.0;
     float amp = 0.5;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) { 
         f += amp * noise(p);
         p = m2 * p * 2.02;
         amp *= 0.5;
@@ -43,77 +53,89 @@ float fbm(vec2 p) {
     return f;
 }
 
-// === NEBULA LAYER (from parallax shader) ===
-vec3 GetNebulaLayer(vec2 baseUV, vec2 parallaxOffset, float depth, float speedScale, vec3 color) {
-    vec2 parallaxUV = baseUV + (parallaxOffset * depth * 0.2);
-    
-    float angle = uTime * 0.04 * speedScale;
-    float s = sin(angle);
-    float c = cos(angle);
-    mat2 rot = mat2(c, -s, s, c);
-    
-    vec2 p = rot * parallaxUV * (1.0 + depth * 0.2);
-    
-    float n = fbm(p * 2.5 + uTime * 0.01);
-    
-    float r = length(parallaxUV);
-    float mask = smoothstep(5.0, 0.1, r);
-    
-    float armAngle = atan(parallaxUV.y, parallaxUV.x);
-    float arm = cos(armAngle * 2.0 + log(r + 0.001) * 2.5 + angle);
-    mask *= pow(arm * 0.5 + 0.5, 1.1);
-    
-    return color * n * mask;
+float ridged_fbm(vec2 p) {
+    float f = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 4; i++) {
+        float n = 1.0 - abs(noise(p) * 2.0 - 1.0); 
+        n = pow(n, 2.0); 
+        f += n * amp;
+        p = m2 * p * 2.02;
+        amp *= 0.5;
+    }
+    return f;
 }
 
-// === STAR DENSITY (from pointcloud shader) ===
-float GetGalaxyDensity(vec2 uv) {
+// === GALAXY STRUCTURE ===
+vec3 GetGalaxyStructure(vec2 uv) {
     float r = length(uv);
-    float angle = atan(uv.y, uv.x);
+    float warpAmount = 0.2 * smoothstep(0.05, 0.4, r);
+    float warp = fbm(uv * 1.5 - uTime * 0.01);
+    vec2 warpedUV = uv + vec2(warp - 0.5) * warpAmount; 
     
-    float speed = 0.05;
-    float rotAngle = angle - uTime * speed * (1.0 / (r + 0.1));
+    float angle = atan(warpedUV.y, warpedUV.x);
+    float dist = length(warpedUV);
     
-    float spiralPhase = rotAngle * 2.0 + 2.5 * log(r + 0.001);
-    float armSignal = cos(spiralPhase);
+    float numArms = 2.0;
+    float twist = 12.0; 
+    float spiralPhase = angle * numArms + twist * log(dist + 0.001); 
     
-    return smoothstep(-0.3, 1.0, armSignal);
+    float armSignal = cos(spiralPhase - uTime * 0.15); 
+    float armDensity = smoothstep(-0.8, 0.6, armSignal); 
+    
+    float dustSignal = cos(spiralPhase - 0.5 - uTime * 0.15); 
+    float dustDensity = smoothstep(0.4, 0.9, dustSignal); 
+    
+    float core = exp(-dist * dist * 8.0);
+    
+    return vec3(armDensity, dustDensity, core);
 }
 
-// === STAR RENDERING (from pointcloud shader) ===
-vec3 RenderStars(vec2 uv, float scale, float density) {
+// === NEBULA RENDERING ===
+vec3 RenderNebula(vec2 uv, vec3 structure) {
+    float arm = structure.x;
+    float dust = structure.y;
+    float core = structure.z;
+    float r = length(uv);
+    float microDetail = fbm(uv * 40.0 + uTime * 0.05); 
+    float ambientGas = 0.25 * fbm(uv * 2.0) * exp(-r * 2.0); 
+    float gasDensity = arm * mix(0.5, 1.2, fbm(uv * 3.0 + uTime * 0.02));
+    gasDensity += ambientGas; 
+    vec3 gasColor = mix(C_ARM_SEC, C_ARM_PRI, structure.x * (0.6 + 0.4 * microDetail));
+    float dustNoise = ridged_fbm(uv * 4.0 - uTime * 0.02);
+    float strongDust = dust * smoothstep(0.2, 0.8, dustNoise);
+    vec3 finalGas = gasColor * gasDensity * 0.6; 
+    finalGas += C_CORE_HOT * core * 0.3; 
+    finalGas *= (1.0 - strongDust * 0.8); 
+    float fade = exp(-r * 0.8);
+    return finalGas * fade;
+}
+
+// === STAR RENDERING ===
+vec3 RenderStarLayer(vec2 uv, float scale, vec3 structure, float seedOffset) {
     vec2 gridUV = uv * scale;
     vec2 gridID = floor(gridUV);
     vec2 gridFract = fract(gridUV);
-    
     vec3 col = vec3(0.0);
-    
     for(int y = -1; y <= 1; y++) {
         for(int x = -1; x <= 1; x++) {
-            vec2 neighbor = vec2(float(x), float(y));
-            vec2 id = gridID + neighbor;
-            
-            float h = hash12(id);
-            vec2 pos = neighbor + vec2(hash12(id * 1.5), hash12(id * 2.5));
+            vec2 neighbour = vec2(float(x), float(y));
+            vec2 id = gridID + neighbour;
+            float h = hash12(id + vec2(seedOffset)); 
+            vec2 pos = neighbour + vec2(hash12(id * 1.54), hash12(id * 2.56));
             vec2 diff = pos - gridFract;
             float dist = length(diff);
-            
-            float glow = 0.005 / (dist * dist + 0.0002);
-            glow *= smoothstep(0.7, 0.0, dist);
-            
-            float twinkle = 0.6 + 0.4 * sin(uTime * (2.0 + h * 5.0));
-            
+            float glow = 0.003 / (dist * dist + 0.0001);
+            glow *= smoothstep(0.8, 0.0, dist);
+            float twinkle = 0.7 + 0.3 * sin(uTime * 2.0 + h * 10.0);
             vec2 starWorldUV = (id + vec2(0.5)) / scale;
-            float galMask = GetGalaxyDensity(starWorldUV);
-            float diskMask = smoothstep(5.0, 0.2, length(starWorldUV));
-            
-            if (h > (1.0 - density * galMask * diskMask)) {
-                // Star color: blue-white to golden
-                vec3 c1 = vec3(0.5, 0.7, 1.0);
-                vec3 c2 = vec3(1.0, 0.9, 0.6);
-                vec3 starColor = mix(c1, c2, hash12(id * 3.3));
-                
-                col += starColor * glow * twinkle * 0.8;
+            vec3 localStruct = GetGalaxyStructure(starWorldUV);
+            float densityProb = max(localStruct.x, localStruct.z * 0.5); 
+            float voidCutoff = 0.95 - (densityProb * 0.7); 
+            if (h > voidCutoff) { 
+                vec3 cStar = mix(C_ARM_SEC, C_CORE_HOT, densityProb * 0.7 + h * 0.3);
+                if (h > 0.98) { cStar = vec3(1.0); glow *= 2.0; }
+                col += cStar * glow * twinkle;
             }
         }
     }
@@ -121,44 +143,63 @@ vec3 RenderStars(vec2 uv, float scale, float density) {
 }
 
 void main() {
+    // 1. Transform Setup
     vec2 screenPos = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
     vec2 screenCenter = uResolution * 0.5;
     vec2 worldPos = (screenPos - screenCenter) / uZoom + uOffset;
+    vec2 p = (worldPos - uGalaxyCenter) * uGalaxyScale;
+    float theta = uTime * 0.02; 
+    float c = cos(theta); float s = sin(theta);
+    p = mat2(c, s, -s, c) * p;
     
-    vec2 galaxyRelative = worldPos - uGalaxyCenter;
-    vec2 uv = galaxyRelative * uGalaxyScale;
-    vec2 cameraFromCenter = (uOffset - uGalaxyCenter) * uGalaxyScale;
-    
+    // 2. Local UV and Radial calc
+    vec2 uv = p * 0.3333; 
     float r = length(uv);
+    float angle = atan(uv.y, uv.x);
     
-    // === DEEP SPACE BACKGROUND ===
-    vec3 col = vec3(0.004, 0.006, 0.015);
+    // --- BLACK HOLE PARAMETERS ---
+    float bhRadius = 0.025; 
     
-    // === NEBULA CLOUDS (from parallax) ===
-    // Purple/blue outer clouds
-    col += GetNebulaLayer(uv, cameraFromCenter, 0.1, 0.15, vec3(0.15, 0.06, 0.25)) * 0.5;
-    // Blue mid-layer
-    col += GetNebulaLayer(uv, cameraFromCenter, 0.5, 1.0, vec3(0.08, 0.2, 0.45)) * 0.8;
-    // Purple/pink inner layer
-    col += GetNebulaLayer(uv, cameraFromCenter, 1.0, 1.2, vec3(0.45, 0.3, 0.6)) * 0.9;
+    // Subtle Lensing
+    float lensFactor = 0.4 * exp(-r * 5.0);
+    vec2 lensingUV = uv * (1.0 + lensFactor);
     
-    // === STAR FIELD (from pointcloud) ===
-    // Distant background stars
-    col += RenderStars(uv, 8.0, 0.08) * 0.15;
-    // Medium density stars
-    col += RenderStars(uv, 18.0, 0.4) * 0.8;
-    // Dense core stars
-    if (r < 2.0) {
-        col += RenderStars(uv, 35.0, 0.7) * smoothstep(2.0, 0.0, r) * 0.9;
-    }
+    // 3. Render Components
+    vec3 structData = GetGalaxyStructure(lensingUV);
+    vec3 accColor = vec3(0.0);
     
-    // === BRIGHT CORE GLOW ===
-    float coreGlow = 0.15 / (r * r + 0.15);
-    col += vec3(1.0, 0.9, 0.7) * coreGlow * 0.6;
+    accColor += RenderNebula(lensingUV, structData);
+    accColor += RenderStarLayer(lensingUV, 15.0, structData, 1.0) * 0.1;
+    accColor += RenderStarLayer(lensingUV, 45.0, structData, 2.0) * 0.7; 
+    accColor += RenderStarLayer(lensingUV, 130.0, structData, 3.0) * 0.5; 
     
-    // Soft outer halo
-    float halo = 0.05 / (r + 0.25);
-    col += vec3(0.9, 0.75, 0.5) * halo * 0.25;
+    // --- REFINED DEVOURING FLOW (Radius tightened to 1/3) ---
+    float accretionTwist = angle + uTime * 2.5 + 10.0 * log(r + bhRadius * 0.5);
+    float devouringFibers = smoothstep(0.6, 1.0, sin(accretionTwist * 3.0 + fbm(uv * 15.0)));
+    // Radius reduced from 0.2 to 0.07 (approx 1/3)
+    float innerGlowMask = smoothstep(bhRadius + 0.07, bhRadius + 0.01, r);
+    accColor += C_ARM_PRI * devouringFibers * innerGlowMask * 0.5;
     
-    finalColor = vec4(col, 1.0);
+    // Sharp Photon Frontier (Ring)
+    float ringW = 0.0025; 
+    float ringIntensity = 0.012 / (abs(r - bhRadius) + ringW);
+    ringIntensity *= smoothstep(bhRadius - 0.002, bhRadius, r); 
+    ringIntensity *= smoothstep(bhRadius + 0.15, bhRadius, r); 
+    accColor += C_CORE_HOT * ringIntensity * 2.5;
+
+    // 4. Final Final Passage
+    vec3 outColor = C_INK_BG + accColor;
+    
+    // PERFECT HORIZON MASK
+    float horizonMask = smoothstep(bhRadius, bhRadius + 0.002, r); 
+    outColor *= horizonMask;
+    
+    // Shadow depth near the horizon (Radius tightened from 0.15 to 0.05)
+    float voidDepth = smoothstep(bhRadius + 0.05, bhRadius + 0.01, r);
+    outColor = mix(outColor, vec3(0.0), voidDepth * 0.7);
+
+    // Boundary fade
+    outColor *= smoothstep(2.5, 1.2, r); 
+    
+    finalColor = vec4(outColor, 1.0);
 }

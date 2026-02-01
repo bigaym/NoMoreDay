@@ -152,9 +152,9 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), s_view.camera);
     uint32_t hoverId = 0;
     for (const auto& [id, star] : s_map.stars) {
-        float r = 40.0f; 
-        if (star.type == StarNodeType::Major) r = 60.0f;
-        else if (star.type == StarNodeType::Keystone) r = 100.0f;
+        float r = 20.0f; 
+        if (star.type == StarNodeType::Major) r = 30.0f;
+        else if (star.type == StarNodeType::Keystone) r = 50.0f;
         
         if (CheckCollisionPointCircle(mouseWorld, {star.x, star.y}, r)) {
             hoverId = id;

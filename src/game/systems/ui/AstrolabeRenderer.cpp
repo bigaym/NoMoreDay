@@ -77,8 +77,8 @@ void AstrolabeRenderer::DrawConnections(const AstrolabeMap& map, const Astrolabe
                 Vector2 end = {it->second.x, it->second.y};
                 Color glowColor = { 100, 150, 255, (unsigned char)(120 * view.alpha) };
                 Color coreColor = { 200, 230, 255, (unsigned char)(200 * view.alpha) };
-                DrawLineEx(start, end, 6.0f, glowColor);
-                DrawLineEx(start, end, 2.5f, coreColor);
+                DrawLineEx(start, end, 3.0f, glowColor);
+                DrawLineEx(start, end, 1.5f, coreColor);
             }
         }
     }
@@ -88,7 +88,7 @@ void AstrolabeRenderer::DrawStars(const AstrolabeMap& map, const AstrolabeView& 
     // 1. Large Outer Glow
     for (const auto& [id, star] : map.stars) {
         Vector2 pos = {star.x, star.y};
-        float radius = (star.type == StarNodeType::Keystone) ? 100.0f : (star.type == StarNodeType::Major ? 60.0f : 40.0f);
+        float radius = (star.type == StarNodeType::Keystone) ? 50.0f : (star.type == StarNodeType::Major ? 30.0f : 20.0f);
         Color glow = { 100, 160, 255, (unsigned char)(80 * view.alpha) };
         DrawCircleGradient((int)pos.x, (int)pos.y, radius, glow, Fade(glow, 0.0f));
     }
@@ -96,7 +96,7 @@ void AstrolabeRenderer::DrawStars(const AstrolabeMap& map, const AstrolabeView& 
     // 2. Bright Core
     for (const auto& [id, star] : map.stars) {
         Vector2 pos = {star.x, star.y};
-        float radius = (star.type == StarNodeType::Keystone) ? 25.0f : (star.type == StarNodeType::Major ? 15.0f : 8.0f);
+        float radius = (star.type == StarNodeType::Keystone) ? 12.0f : (star.type == StarNodeType::Major ? 8.0f : 4.0f);
         Color color = (star.type == StarNodeType::Keystone) ? Color{255, 255, 200, (unsigned char)(255 * view.alpha)} : Color{220, 245, 255, (unsigned char)(255 * view.alpha)};
         DrawCircleV(pos, radius, color);
         DrawCircleV(pos, radius * 0.5f, WHITE);
