@@ -66,6 +66,11 @@ struct Constellation {
 struct AstrolabeMap {
     std::vector<Constellation> constellations;
     std::unordered_map<uint32_t, StarNode> stars;
+
+    void Clear() {
+        constellations.clear();
+        stars.clear();
+    }
 };
 
 // JSON Serialization helpers

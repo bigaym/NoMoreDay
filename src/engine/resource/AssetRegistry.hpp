@@ -74,5 +74,9 @@ namespace shaders {
 constexpr ShaderAsset Void_Nebula = {
     "sh_void_nebula"_hs, "assets/shaders/void_nebula.vs",
     "assets/shaders/void_nebula.fs"};
+
+constexpr ShaderAsset Galaxy_Procedural = {
+    "sh_galaxy_procedural"_hs, "assets/shaders/void_nebula.vs",
+    "assets/shaders/galaxy_procedural.fs"};
 } // namespace shaders
 } // namespace assets

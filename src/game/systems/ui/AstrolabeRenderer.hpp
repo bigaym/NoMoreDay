@@ -16,7 +16,7 @@ public:
     static void Draw(const AstrolabeMap& map, const AstrolabeView& view);
     
     // Shader management
-    static void Init(Shader voidShader);
+    static void Init(Shader galaxyShader);
     static void Unload();
 
 private:
@@ -24,7 +24,7 @@ private:
     static void DrawConnections(const AstrolabeMap& map, const AstrolabeView& view);
     static void DrawStars(const AstrolabeMap& map, const AstrolabeView& view);
     
-    static Shader s_voidShader;
+    static Shader s_shGalaxy;
     static bool s_initialized;
 };
 

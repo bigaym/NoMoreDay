@@ -101,6 +101,8 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
             "default font (??? for Chinese).");
   if (State.globalFont.texture.id == 0)
     State.globalFont = GetFontDefault();
+
+  UIAstrolabe::Initialize();
 }
 
 void UISystem::Shutdown() {
@@ -245,7 +247,12 @@ void UISystem::Update(entt::registry &registry,
   if (IsKeyPressed(KEY_N)) {
     auto view = registry.view<PlayerTag>();
     if (view.begin() != view.end()) {
-      UIAstrolabe::Toggle(registry, view.front());
+      if (!UIAstrolabe::IsVisible(registry, view.front())) {
+        UIAstrolabe::Toggle(registry, view.front());
+      } else {
+        UIAstrolabe::ResetView();
+      }
+      
       if (UIAstrolabe::IsVisible(registry, view.front())) {
         State.showInventory = false;
         State.showCharacterPanel = false;

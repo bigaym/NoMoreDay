@@ -8,6 +8,7 @@ namespace NoMoreDay {
 
 class UIAstrolabe {
 public:
+    static void Initialize();
     static void Update(entt::registry& registry);
     static void Draw(entt::registry& registry);
     
@@ -16,6 +17,7 @@ public:
 
     static void Show();
     static void Hide();
+    static void ResetView();
 
 private:
     static void DrawInternal(entt::registry& registry, entt::entity player);

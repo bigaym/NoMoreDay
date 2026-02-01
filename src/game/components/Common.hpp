@@ -371,6 +371,24 @@ constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向�
     constexpr float MIN_EFFECTIVE_PICKUP_RANGE = 50.0f; // 有效拾取的最小距离限制
   } // namespace Item
 
+  namespace Astrolabe
+  {
+    constexpr float INITIAL_ZOOM = 0.4f;    // Default zoom (smaller = zoomed out)
+    constexpr float MIN_ZOOM = 0.2f;        // Minimum zoom level
+    constexpr float MAX_ZOOM = 3.0f;
+    constexpr float PAN_SPEED = 1.0f;
+    constexpr float ZOOM_SPEED = 0.12f;
+
+    // Galaxy Rendering Constants (for background shader)
+    // Galaxy center in world coordinates - aligned with origin node (0, 0)
+    constexpr float GALAXY_CENTER_X = 0.0f;
+    constexpr float GALAXY_CENTER_Y = 0.0f;
+    // Scale factor: worldPos * SCALE -> uv. 
+    // At Zoom=1, screen edge ~1280 world units, galaxy falloff at r~5
+    // Scale = 5.0 / 1280 ≈ 0.004, using 0.003 for wider coverage
+    constexpr float GALAXY_SCALE = 0.003f;
+  } // namespace Astrolabe
+
   namespace StashConfig
   {
     constexpr int MAX_TABS = 10;

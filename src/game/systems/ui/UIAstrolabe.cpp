@@ -20,7 +20,7 @@ bool UIAstrolabe::s_loaded = false;
 bool UIAstrolabe::s_visible = false;
 float UIAstrolabe::s_alpha = 0.0f;
 
-void UIAstrolabe::EnsureLoaded() {
+void UIAstrolabe::Initialize() {
     if (s_loaded) return;
     
     // Load data
@@ -31,22 +31,33 @@ void UIAstrolabe::EnsureLoaded() {
     
     // Sync with Registry for stat application
     AstrolabeRegistry::Get().SetMap(s_map);
-    LOG_INFO("UIAstrolabe: EnsureLoaded complete. Stars: {}, First Star: ({}, {})", 
+    LOG_INFO("UIAstrolabe: Initialization complete. Stars: {}, First Star: ({}, {})", 
              s_map.stars.size(), s_map.stars.empty() ? 0 : s_map.stars.begin()->second.x, 
              s_map.stars.empty() ? 0 : s_map.stars.begin()->second.y);
     
-    // Initialize Renderer
-    Shader shader = AssetLoadingSystem::GetShader(assets::shaders::Void_Nebula.id);
-    AstrolabeRenderer::Init(shader);
+    // Initialize Renderer with galaxy shader
+    Shader galaxyShader = AssetLoadingSystem::GetShader(assets::shaders::Galaxy_Procedural.id);
+    AstrolabeRenderer::Init(galaxyShader);
     
     // Initialize View
-    s_view.camera.offset = { (float)GetScreenWidth() / 2.0f, (float)GetScreenHeight() / 2.0f };
-    s_view.camera.target = { 0, 0 };
-    s_view.camera.rotation = 0.0f;
-    s_view.camera.zoom = 0.6f; 
     s_view.resolution = { (float)GetScreenWidth(), (float)GetScreenHeight() };
+    s_view.camera.offset = { s_view.resolution.x / 2.0f, s_view.resolution.y / 2.0f };
+    s_view.camera.rotation = 0.0f;
+    ResetView();
     
     s_loaded = true;
+}
+
+void UIAstrolabe::EnsureLoaded() {
+    if (!s_loaded) Initialize();
+}
+
+void UIAstrolabe::ResetView() {
+    using namespace Constants::Astrolabe;
+    // Camera looks at origin (where talent nodes are centered)
+    // Galaxy center is offset to align with tree visual center
+    s_view.camera.target = { 0, 0 };
+    s_view.camera.zoom = INITIAL_ZOOM;
 }
 
 void UIAstrolabe::Update(entt::registry& registry) {
@@ -54,6 +65,10 @@ void UIAstrolabe::Update(entt::registry& registry) {
 
 void UIAstrolabe::Toggle(entt::registry& registry, entt::entity player) {
     s_visible = !s_visible;
+    if (s_visible) {
+        EnsureLoaded();
+        ResetView();
+    }
 }
 
 bool UIAstrolabe::IsVisible(entt::registry& registry, entt::entity player) {
@@ -95,12 +110,21 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         // Zoom with Mouse Wheel
         float wheel = GetMouseWheelMove();
         if (wheel != 0) {
+            using namespace Constants::Astrolabe;
             Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), s_view.camera);
             s_view.camera.offset = GetMousePosition();
             s_view.camera.target = mouseWorldPos;
-            s_view.camera.zoom += wheel * 0.12f * s_view.camera.zoom;
-            s_view.camera.zoom = std::clamp(s_view.camera.zoom, 0.2f, 3.0f);
+            s_view.camera.zoom += wheel * ZOOM_SPEED * s_view.camera.zoom;
+            s_view.camera.zoom = std::clamp(s_view.camera.zoom, MIN_ZOOM, MAX_ZOOM);
         }
+
+        // Center view with 'N' key if already open
+        if (IsKeyPressed(KEY_N)) {
+            ResetView();
+        }
+
+        // --- Galaxy Debug ---
+        // (Removed F5-F7 debug switches)
     }
     
     // Draw Background and Stars

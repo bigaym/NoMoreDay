@@ -1,17 +1,18 @@
 #include "game/systems/ui/AstrolabeRenderer.hpp"
+#include "game/components/Common.hpp"
 #include "rlgl.h"
 #include "raymath.h"
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay {
 
-Shader AstrolabeRenderer::s_voidShader;
+Shader AstrolabeRenderer::s_shGalaxy;
 bool AstrolabeRenderer::s_initialized = false;
 
-void AstrolabeRenderer::Init(Shader voidShader) {
-    s_voidShader = voidShader;
+void AstrolabeRenderer::Init(Shader galaxyShader) {
+    s_shGalaxy = galaxyShader;
     s_initialized = true;
-    LOG_INFO("AstrolabeRenderer: Initialized with shader ID {}", voidShader.id);
+    LOG_INFO("AstrolabeRenderer: Initialized. Shader ID: {}", galaxyShader.id);
 }
 
 void AstrolabeRenderer::Unload() {
@@ -28,21 +29,41 @@ void AstrolabeRenderer::Draw(const AstrolabeMap& map, const AstrolabeView& view)
 }
 
 void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
-    if (!s_initialized || s_voidShader.id <= 0) {
+    if (!s_initialized || s_shGalaxy.id <= 0) {
         DrawRectangle(0, 0, (int)view.resolution.x, (int)view.resolution.y, BLACK);
         return;
     }
 
-    int timeLoc = GetShaderLocation(s_voidShader, "uTime");
-    int offsetLoc = GetShaderLocation(s_voidShader, "uOffset");
-    int resLoc = GetShaderLocation(s_voidShader, "uResolution");
+    // Standard Uniforms
+    int timeLoc = GetShaderLocation(s_shGalaxy, "uTime");
+    int offsetLoc = GetShaderLocation(s_shGalaxy, "uOffset");
+    int resLoc = GetShaderLocation(s_shGalaxy, "uResolution");
+    int zoomLoc = GetShaderLocation(s_shGalaxy, "uZoom");
 
-    SetShaderValue(s_voidShader, timeLoc, &view.time, SHADER_UNIFORM_FLOAT);
+    // Galaxy-specific Uniforms
+    int galaxyCenterLoc = GetShaderLocation(s_shGalaxy, "uGalaxyCenter");
+    int galaxyScaleLoc = GetShaderLocation(s_shGalaxy, "uGalaxyScale");
+
+    float zoom = view.camera.zoom;
+    SetShaderValue(s_shGalaxy, timeLoc, &view.time, SHADER_UNIFORM_FLOAT);
     Vector2 offset = { view.camera.target.x, view.camera.target.y };
-    SetShaderValue(s_voidShader, offsetLoc, &offset, SHADER_UNIFORM_VEC2);
-    SetShaderValue(s_voidShader, resLoc, &view.resolution, SHADER_UNIFORM_VEC2);
+    SetShaderValue(s_shGalaxy, offsetLoc, &offset, SHADER_UNIFORM_VEC2);
+    SetShaderValue(s_shGalaxy, resLoc, &view.resolution, SHADER_UNIFORM_VEC2);
+    SetShaderValue(s_shGalaxy, zoomLoc, &zoom, SHADER_UNIFORM_FLOAT);
 
-    BeginShaderMode(s_voidShader);
+    // Galaxy center is FIXED at the talent tree visual center (in world coordinates)
+    using namespace Constants::Astrolabe;
+    Vector2 galaxyCenter = { GALAXY_CENTER_X, GALAXY_CENTER_Y };
+    float galaxyScale = GALAXY_SCALE;
+    SetShaderValue(s_shGalaxy, galaxyCenterLoc, &galaxyCenter, SHADER_UNIFORM_VEC2);
+    SetShaderValue(s_shGalaxy, galaxyScaleLoc, &galaxyScale, SHADER_UNIFORM_FLOAT);
+
+    // Ensure Render State
+    rlDisableDepthTest();
+    rlDisableDepthMask();
+    rlDisableBackfaceCulling();
+
+    BeginShaderMode(s_shGalaxy);
     DrawRectangle(0, 0, (int)view.resolution.x, (int)view.resolution.y, WHITE);
     EndShaderMode();
 }
