@@ -157,46 +157,102 @@ void main() {
     float r = length(uv);
     float angle = atan(uv.y, uv.x);
     
-    // --- BLACK HOLE PARAMETERS ---
-    float bhRadius = 0.025; 
+    // --- BLACK HOLE & LENSING ---
+    float bhRadius = 0.026; // Reduced by 25%
     
-    // Subtle Lensing
-    float lensFactor = 0.4 * exp(-r * 5.0);
-    vec2 lensingUV = uv * (1.0 + lensFactor);
-    
-    // 3. Render Components
-    vec3 structData = GetGalaxyStructure(lensingUV);
+    // Gravitational Lensing (Pinched UVs)
+    // Simulates light bending around the mass. Background appears "sucked" in.
+    // Distortion increases as we get closer to the center.
+    float distToCenter = r;
+    float lensStrength = 0.06; // Reduced by 25% (Mass correlated)
+    float distortion = lensStrength / (distToCenter + 0.01);
+    float alpha = smoothstep(0.0, 1.0, distortion);
+
+    // Lensing Field
+    // Tighter distortion field due to smaller mass approximation (8.0 -> 10.0)
+    vec2 lensedUV = uv * (1.0 - 0.5 * exp(-r * 10.0)); 
+
+    // 3. Render Background Galaxy (Lensed)
+    vec3 structData = GetGalaxyStructure(lensedUV);
     vec3 accColor = vec3(0.0);
     
-    accColor += RenderNebula(lensingUV, structData);
-    accColor += RenderStarLayer(lensingUV, 15.0, structData, 1.0) * 0.1;
-    accColor += RenderStarLayer(lensingUV, 45.0, structData, 2.0) * 0.7; 
-    accColor += RenderStarLayer(lensingUV, 130.0, structData, 3.0) * 0.5; 
+    // Nebula & Stars (Background)
+    accColor += RenderNebula(lensedUV, structData);
+    accColor += RenderStarLayer(lensedUV, 15.0, structData, 1.0) * 0.1;
+    accColor += RenderStarLayer(lensedUV, 45.0, structData, 2.0) * 0.7; 
+    accColor += RenderStarLayer(lensedUV, 130.0, structData, 3.0) * 0.5; 
     
-    // --- REFINED DEVOURING FLOW (Radius tightened to 1/3) ---
-    float accretionTwist = angle + uTime * 2.5 + 10.0 * log(r + bhRadius * 0.5);
-    float devouringFibers = smoothstep(0.6, 1.0, sin(accretionTwist * 3.0 + fbm(uv * 15.0)));
-    // Radius reduced from 0.2 to 0.07 (approx 1/3)
-    float innerGlowMask = smoothstep(bhRadius + 0.07, bhRadius + 0.01, r);
-    accColor += C_ARM_PRI * devouringFibers * innerGlowMask * 0.5;
+    // --- ACCRETION DISK (Volumetric/Noise Based) ---
+    // A hot, swirling disk of matter falling into the void.
+    // Fixed: Seam eliminated by using rotating cartesian coordinates for noise sampling.
+    // Fixed: Size reduced to be more subtle.
     
-    // Sharp Photon Frontier (Ring)
-    float ringW = 0.0025; 
-    float ringIntensity = 0.012 / (abs(r - bhRadius) + ringW);
-    ringIntensity *= smoothstep(bhRadius - 0.002, bhRadius, r); 
-    ringIntensity *= smoothstep(bhRadius + 0.15, bhRadius, r); 
-    accColor += C_CORE_HOT * ringIntensity * 2.5;
+    if (r > bhRadius) {
+        // 1. Tighter Fade (Exponential decay increased 50.0 -> 65.0)
+        // Scaled to match the 25% radius reduction
+        float diskFade = exp(-(r - bhRadius) * 65.0); 
+        
+        // 2. Hard limit clamping to prevent bleeding into far galaxy
+        if (diskFade > 0.001) {
+            // Coordinate transformation for the disk
+            // Differential rotation: Inner parts rotate faster.
+            float diffRot = (2.0 / (r * 15.0)); 
+            float currentAngle = angle - uTime * 0.8 - diffRot;
+            
+            // CONVERT BACK TO CARTESIAN for noise sampling
+            // This ensures perfect continuity around the circle (no seam line)
+            vec2 diskFlowUV = vec2(cos(currentAngle), sin(currentAngle)) * (r * 10.0);
+            
+            // Texture Sampling (Noise in continuous space)
+            // Stretched noise along density rings
+            float flowNoise = fbm(diskFlowUV + vec2(uTime * 0.5));
+            float detailNoise = noise(diskFlowUV * 3.0 - uTime);
+            
+            float matterDensity = flowNoise * 0.6 + detailNoise * 0.4;
+            
+            // Sharp Inner Edge (Event Horizon contact)
+            float innerEdge = smoothstep(bhRadius, bhRadius + 0.002, r);
+            
+            // Doppler / Asymmetry (Relativistic beaming)
+            // Make one side brighter adjacent to the black hole
+            float doppler = 1.0 + 0.4 * sin(angle + 0.5); 
+            
+            // Color Mapping (Temperature Gradient)
+            // Closer = Hotter (Blue/White) -> Further = Cooler (Red/Orange)
+            vec3 cHot = vec3(0.7, 0.9, 1.0); // Blue-White
+            vec3 cMid = vec3(1.0, 0.5, 0.1);  // Orange
+            vec3 cOut = vec3(0.5, 0.05, 0.02); // Deep Red
+            
+            // Remap diskFade to create color bands
+            // diskFade is 1.0 at horizon, 0.0 at edge
+            vec3 matterColor = mix(cOut, cMid, smoothstep(0.0, 0.3, diskFade));
+            matterColor = mix(matterColor, cHot, smoothstep(0.3, 0.8, diskFade * matterDensity));
+            
+            // Intensity Composition
+            float totalIntensity = matterDensity * diskFade * innerEdge * doppler * 6.0;
+            
+            // Additive Blend
+            accColor += matterColor * totalIntensity;
+        }
+    }
+
+    // --- PHOTON RING / EVENT HORIZON ---
+    // The thin ring of trapped light at 1.5 R_s
+    float photonRingR = bhRadius * 1.5; // Approx
+    float pRingGlow = 0.005 / (abs(r - bhRadius - 0.005) + 0.0001); // Hugs the horizon
+    pRingGlow *= smoothstep(0.05, 0.0, abs(r - bhRadius)); // Localization
+    accColor += C_CORE_HOT * pRingGlow * 1.5;
 
     // 4. Final Final Passage
     vec3 outColor = C_INK_BG + accColor;
     
-    // PERFECT HORIZON MASK
-    float horizonMask = smoothstep(bhRadius, bhRadius + 0.002, r); 
+    // PERFECT HORIZON MASK (The Void)
+    float horizonMask = smoothstep(bhRadius - 0.002, bhRadius, r); 
     outColor *= horizonMask;
     
-    // Shadow depth near the horizon (Radius tightened from 0.15 to 0.05)
-    float voidDepth = smoothstep(bhRadius + 0.05, bhRadius + 0.01, r);
-    outColor = mix(outColor, vec3(0.0), voidDepth * 0.7);
+    // Shadow depth near the horizon
+    float voidDepth = smoothstep(bhRadius + 0.08, bhRadius, r);
+    outColor = mix(outColor, vec3(0.0), voidDepth * 0.5);
 
     // Boundary fade
     outColor *= smoothstep(2.5, 1.2, r); 
