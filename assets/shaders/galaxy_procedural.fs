@@ -70,7 +70,7 @@ float ridged_fbm(vec2 p) {
 vec3 GetGalaxyStructure(vec2 uv) {
     float r = length(uv);
     float warpAmount = 0.2 * smoothstep(0.05, 0.4, r);
-    float warp = fbm(uv * 1.5 - uTime * 0.01);
+    float warp = fbm(uv * 1.5); // Remove uTime dependence for stability
     vec2 warpedUV = uv + vec2(warp - 0.5) * warpAmount; 
     
     float angle = atan(warpedUV.y, warpedUV.x);
@@ -80,10 +80,15 @@ vec3 GetGalaxyStructure(vec2 uv) {
     float twist = 12.0; 
     float spiralPhase = angle * numArms + twist * log(dist + 0.001); 
     
-    float armSignal = cos(spiralPhase - uTime * 0.15); 
-    float armDensity = smoothstep(-0.8, 0.6, armSignal); 
+    // Fixed: Removed -uTime * 0.15 to stop rigid rotation. 
+    // Motion is now driven by the differential rotation in main().
+    float armSignal = cos(spiralPhase); 
     
-    float dustSignal = cos(spiralPhase - 0.5 - uTime * 0.15); 
+    // WIDENED ARMS: broader smoothstep range to fill gaps
+    float armDensity = smoothstep(-1.0, 0.9, armSignal); 
+    
+    // Dust also static relative to arms
+    float dustSignal = cos(spiralPhase - 0.5); 
     float dustDensity = smoothstep(0.4, 0.9, dustSignal); 
     
     float core = exp(-dist * dist * 8.0);
@@ -97,45 +102,120 @@ vec3 RenderNebula(vec2 uv, vec3 structure) {
     float dust = structure.y;
     float core = structure.z;
     float r = length(uv);
+    
     float microDetail = fbm(uv * 40.0 + uTime * 0.05); 
-    float ambientGas = 0.25 * fbm(uv * 2.0) * exp(-r * 2.0); 
-    float gasDensity = arm * mix(0.5, 1.2, fbm(uv * 3.0 + uTime * 0.02));
-    gasDensity += ambientGas; 
+    
+    // FILLER GAS: Increased intensity and reduced falloff to fill voids
+    // Was 0.25, now 0.6. Decay 2.0 -> 1.5
+    float ambientGas = 0.6 * fbm(uv * 2.0) * exp(-r * 1.5); 
+    
+    // ARC BRIDGES: Noise that connects arms
+    float bridgeNoise = fbm(uv * 6.0 + vec2(uTime * 0.02));
+    float bridge = smoothstep(0.4, 0.8, bridgeNoise) * 0.3 * exp(-r);
+    
+    // Main Gas Density
+    // Mix between Arm-defined density and general ambient/bridge fill
+    float gasDensity = arm * mix(0.6, 1.4, fbm(uv * 3.0 + uTime * 0.02));
+    gasDensity += ambientGas + bridge; // Add filler
+    
+    // Color Mixing
     vec3 gasColor = mix(C_ARM_SEC, C_ARM_PRI, structure.x * (0.6 + 0.4 * microDetail));
+    // Make deep voids dark blue instead of black
+    gasColor = mix(C_ARM_SEC * 0.5, gasColor, smoothstep(0.1, 0.5, gasDensity)); 
+    
     float dustNoise = ridged_fbm(uv * 4.0 - uTime * 0.02);
     float strongDust = dust * smoothstep(0.2, 0.8, dustNoise);
+    
     vec3 finalGas = gasColor * gasDensity * 0.6; 
     finalGas += C_CORE_HOT * core * 0.3; 
     finalGas *= (1.0 - strongDust * 0.8); 
+    
     float fade = exp(-r * 0.8);
     return finalGas * fade;
 }
 
+// === STAR SPECTRAL ANALYSIS ===
+vec3 GetStarColor(float seed) {
+    // Spectral Classification (OBAFGKM) - Simplified for aesthetic balance
+    // We boost the probability of O/B/A stars slightly for visual flair compared to reality
+    float r = fract(sin(seed * 123.45) * 456.78);
+    
+    if (r > 0.98) return vec3(0.6, 0.7, 1.0);      // Type O (Blue)
+    if (r > 0.90) return vec3(0.7, 0.85, 1.0);     // Type B (Blue-White)
+    if (r > 0.75) return vec3(0.95, 0.98, 1.0);    // Type A (White)
+    if (r > 0.60) return vec3(1.0, 1.0, 0.9);      // Type F (Yellow-White)
+    if (r > 0.40) return vec3(1.0, 0.9, 0.6);      // Type G (Yellow - Sun)
+    if (r > 0.15) return vec3(1.0, 0.7, 0.4);      // Type K (Orange)
+    return vec3(1.0, 0.5, 0.4);                    // Type M (Red - Most common)
+}
+
 // === STAR RENDERING ===
-vec3 RenderStarLayer(vec2 uv, float scale, vec3 structure, float seedOffset) {
+vec3 RenderStarLayer(vec2 uv, float scale, vec3 structure, float seedOffset, float densityInfluence) {
     vec2 gridUV = uv * scale;
     vec2 gridID = floor(gridUV);
     vec2 gridFract = fract(gridUV);
+    
     vec3 col = vec3(0.0);
+    
+    // 3x3 Neighbour search for seamless star movement
     for(int y = -1; y <= 1; y++) {
         for(int x = -1; x <= 1; x++) {
             vec2 neighbour = vec2(float(x), float(y));
             vec2 id = gridID + neighbour;
-            float h = hash12(id + vec2(seedOffset)); 
+            
+            // Random properties
+            float h = hash12(id + vec2(seedOffset * 15.3)); 
             vec2 pos = neighbour + vec2(hash12(id * 1.54), hash12(id * 2.56));
+            
+            // Star Position
             vec2 diff = pos - gridFract;
             float dist = length(diff);
-            float glow = 0.003 / (dist * dist + 0.0001);
-            glow *= smoothstep(0.8, 0.0, dist);
-            float twinkle = 0.7 + 0.3 * sin(uTime * 2.0 + h * 10.0);
+            
+            // Star Glow Shape (Inverse Square Falloff with soft core)
+            float brightness = 0.0;
+            
+            // Twinkle System
+            // O/B stars twinkle faster (simulated energy), M stars slower
+            float spectralSeed = h * 10.0;
+            vec3 starColor = GetStarColor(spectralSeed);
+            float twinkleSpeed = 2.0 + h * 3.0; 
+            float twinkleBase = 0.7 + 0.3 * sin(uTime * twinkleSpeed + h * 6.28);
+            
+            // Galaxy Structure Masking
+            // Check if this star belongs to the galaxy arms or is a background star
             vec2 starWorldUV = (id + vec2(0.5)) / scale;
+            float distFromGalCenter = length(starWorldUV);
+            
             vec3 localStruct = GetGalaxyStructure(starWorldUV);
-            float densityProb = max(localStruct.x, localStruct.z * 0.5); 
-            float voidCutoff = 0.95 - (densityProb * 0.7); 
-            if (h > voidCutoff) { 
-                vec3 cStar = mix(C_ARM_SEC, C_CORE_HOT, densityProb * 0.7 + h * 0.3);
-                if (h > 0.98) { cStar = vec3(1.0); glow *= 2.0; }
-                col += cStar * glow * twinkle;
+            
+            // GALACTIC BULGE BIAS
+            // Make the center dense with stars regardless of spiral arms
+            float bulgeBias = exp(-distFromGalCenter * 5.0) * 1.2;
+            
+            // localStruct.z is the core gas density. We boost it for stars.
+            float structureDensity = max(localStruct.x, localStruct.z * 2.0 + bulgeBias); 
+            
+            // Probability check: 
+            // - densityInfluence 1.0 = Only exist in arms/bulge
+            // - densityInfluence 0.0 = Exist everywhere (Uniform)
+            float prob = mix(0.1, structureDensity, densityInfluence); 
+            
+            // Ensure bulge stars are always present even if densityInfluence is high
+            prob = max(prob, bulgeBias * 0.5); 
+            
+            // Size variation
+            float size = 0.002 + h * 0.003; // Base size
+            
+            // Render
+            // Scaled down by 50% as requested
+            if (h < (prob * 0.8 + 0.05) * 0.5) { 
+                brightness = size / (dist * dist + 0.00001);
+                brightness *= smoothstep(1.0, 0.1, dist); // Soft trim
+                
+                // Occasional Super Bright Star (Supernova/Giant)
+                if (h > 0.99) { brightness *= 3.0; starColor += 0.2; }
+                
+                col += starColor * brightness * twinkleBase * 1.2;
             }
         }
     }
@@ -148,113 +228,149 @@ void main() {
     vec2 screenCenter = uResolution * 0.5;
     vec2 worldPos = (screenPos - screenCenter) / uZoom + uOffset;
     vec2 p = (worldPos - uGalaxyCenter) * uGalaxyScale;
-    float theta = uTime * 0.02; 
-    float c = cos(theta); float s = sin(theta);
-    p = mat2(c, s, -s, c) * p;
-    
     // 2. Local UV and Radial calc
     vec2 uv = p * 0.3333; 
     float r = length(uv);
-    float angle = atan(uv.y, uv.x);
+    
+    // --- DIFFERENTIAL ROTATION (Keplerian-ish) ---
+    // Inner parts rotate (orbit) faster than outer parts.
+    // This creates natural spiraling and avoids the "Rigid Body" look.
+    float distSq = r * r + 0.01;
+    // Steeper curve for more contrast between inner and outer
+    float keplerSpeed = 0.5 * pow(distSq, -0.4); 
+    
+    // Slowed down significantly for majestic scale
+    float baseRot = uTime * 0.005; // Very slow background drift
+    float diffRot = uTime * keplerSpeed * 0.08; // Orbit speed
+    
+    float totalRotAngle = baseRot + diffRot;
+    float cr = cos(totalRotAngle); 
+    float sr = sin(totalRotAngle);
+    
+    // Apply rotation to the domain
+    uv = mat2(cr, sr, -sr, cr) * uv;
+    // Recalculate angle after rotation for disk alignment
+    float angle = atan(uv.y, uv.x); 
     
     // --- BLACK HOLE & LENSING ---
-    float bhRadius = 0.026; // Reduced by 25%
+    float bhRadius = 0.026; 
     
     // Gravitational Lensing (Pinched UVs)
-    // Simulates light bending around the mass. Background appears "sucked" in.
-    // Distortion increases as we get closer to the center.
     float distToCenter = r;
-    float lensStrength = 0.06; // Reduced by 25% (Mass correlated)
-    float distortion = lensStrength / (distToCenter + 0.01);
-    float alpha = smoothstep(0.0, 1.0, distortion);
-
-    // Lensing Field
-    // Tighter distortion field due to smaller mass approximation (8.0 -> 10.0)
+    float lensStrength = 0.06;
     vec2 lensedUV = uv * (1.0 - 0.5 * exp(-r * 10.0)); 
 
     // 3. Render Background Galaxy (Lensed)
     vec3 structData = GetGalaxyStructure(lensedUV);
     vec3 accColor = vec3(0.0);
     
-    // Nebula & Stars (Background)
-    accColor += RenderNebula(lensedUV, structData);
-    accColor += RenderStarLayer(lensedUV, 15.0, structData, 1.0) * 0.1;
-    accColor += RenderStarLayer(lensedUV, 45.0, structData, 2.0) * 0.7; 
-    accColor += RenderStarLayer(lensedUV, 130.0, structData, 3.0) * 0.5; 
+    // Nebula & Stars (Background - Dimmed slightly to let Core shine)
+    accColor += RenderNebula(lensedUV, structData) * 0.8;
     
-    // --- ACCRETION DISK (Volumetric/Noise Based) ---
-    // A hot, swirling disk of matter falling into the void.
-    // Fixed: Seam eliminated by using rotating cartesian coordinates for noise sampling.
-    // Fixed: Size reduced to be more subtle.
+    // Layer 1: Giant Foreground Stars (Low density, strictly in arms)
+    accColor += RenderStarLayer(lensedUV, 15.0, structData, 1.0, 1.0) * 0.1;
     
+    // Layer 2: Main Sequence Galaxy Stars (Medium density, mostly in arms)
+    accColor += RenderStarLayer(lensedUV, 60.0, structData, 2.0, 0.8) * 0.6; 
+    
+    // Layer 3: Dense Cluster Stars (High density, follows structure loosely)
+    accColor += RenderStarLayer(lensedUV, 150.0, structData, 3.0, 0.5) * 0.4; 
+    
+    // Layer 4: DEEP FIELD BACKGROUND (Uniform, very high scale, fills voids)
+    // Tiny, distant stars that exist everywhere, even in the black gaps
+    accColor += RenderStarLayer(lensedUV, 350.0, structData, 10.0, 0.0) * 0.3; 
+    
+    // --- ACCRETION DISK (Volumetric + Chromatic + Bloom) ---
     if (r > bhRadius) {
-        // 1. Tighter Fade (Exponential decay increased 50.0 -> 65.0)
         // Scaled to match the 25% radius reduction
         float diskFade = exp(-(r - bhRadius) * 65.0); 
         
-        // 2. Hard limit clamping to prevent bleeding into far galaxy
-        if (diskFade > 0.001) {
-            // Coordinate transformation for the disk
-            // Differential rotation: Inner parts rotate faster.
-            float diffRot = (2.0 / (r * 15.0)); 
-            float currentAngle = angle - uTime * 0.8 - diffRot;
-            
-            // CONVERT BACK TO CARTESIAN for noise sampling
-            // This ensures perfect continuity around the circle (no seam line)
+        // Fixed: Lowered threshold and added smooth fade-out to prevent the "Circle Line" artifact
+        if (diskFade > 0.0001) {
+             // Coordinate transformation for the disk
+            float diffRotDisk = (2.0 / (r * 15.0)); 
+            float currentAngle = angle - uTime * 0.8 - diffRotDisk;
             vec2 diskFlowUV = vec2(cos(currentAngle), sin(currentAngle)) * (r * 10.0);
             
-            // Texture Sampling (Noise in continuous space)
-            // Stretched noise along density rings
+            // Texture Sampling with "Heat" distortion
             float flowNoise = fbm(diskFlowUV + vec2(uTime * 0.5));
             float detailNoise = noise(diskFlowUV * 3.0 - uTime);
-            
             float matterDensity = flowNoise * 0.6 + detailNoise * 0.4;
             
-            // Sharp Inner Edge (Event Horizon contact)
+            // Edges
             float innerEdge = smoothstep(bhRadius, bhRadius + 0.002, r);
-            
-            // Doppler / Asymmetry (Relativistic beaming)
-            // Make one side brighter adjacent to the black hole
             float doppler = 1.0 + 0.4 * sin(angle + 0.5); 
             
-            // Color Mapping (Temperature Gradient)
-            // Closer = Hotter (Blue/White) -> Further = Cooler (Red/Orange)
-            vec3 cHot = vec3(0.7, 0.9, 1.0); // Blue-White
-            vec3 cMid = vec3(1.0, 0.5, 0.1);  // Orange
-            vec3 cOut = vec3(0.5, 0.05, 0.02); // Deep Red
+            // Color Mapping (Cyan/White Energy)
+            vec3 cHot = vec3(0.8, 0.95, 1.0);   // Cyan-White Core
+            vec3 cMid = vec3(0.2, 0.6, 0.9);   // Electric Blue
+            vec3 cOut = vec3(0.1, 0.0, 0.1);   // Dark Violet
             
-            // Remap diskFade to create color bands
-            // diskFade is 1.0 at horizon, 0.0 at edge
-            vec3 matterColor = mix(cOut, cMid, smoothstep(0.0, 0.3, diskFade));
-            matterColor = mix(matterColor, cHot, smoothstep(0.3, 0.8, diskFade * matterDensity));
+            vec3 matterColor = mix(cOut, cMid, smoothstep(0.0, 0.4, diskFade));
+            matterColor = mix(matterColor, cHot, smoothstep(0.4, 0.9, diskFade * matterDensity));
             
-            // Intensity Composition
-            float totalIntensity = matterDensity * diskFade * innerEdge * doppler * 6.0;
+            float intensity = matterDensity * diskFade * innerEdge * doppler * 6.0;
             
-            // Additive Blend
-            accColor += matterColor * totalIntensity;
+            // CRITICAL FIX: Force fade to 0 before the hard cut-off
+            float hardCutoffFade = smoothstep(0.0001, 0.005, diskFade);
+            intensity *= hardCutoffFade;
+
+            // CHROMATIC ABERRATION (Simulated)
+            // Shift red channel slightly outwards, blue slightly inwards
+            float abrIntensity = intensity; 
+            // Simple channel separation for high energy look
+            vec3 diskFinal = matterColor * intensity;
+            diskFinal.r *= smoothstep(0.0, 1.0, 1.0 + 0.1 * sin(uTime * 10.0 + r * 100.0)); // Sparkle
+            
+            accColor += diskFinal;
+
+            // FAKE BLOOM / GLOW
+            // Add a wide, soft glow around the disk
+            float bloomMask = exp(-(r - bhRadius) * 20.0) * innerEdge;
+            accColor += cMid * bloomMask * 0.5 * hardCutoffFade; // Apply fade here too
         }
     }
 
-    // --- PHOTON RING / EVENT HORIZON ---
-    // The thin ring of trapped light at 1.5 R_s
-    float photonRingR = bhRadius * 1.5; // Approx
-    float pRingGlow = 0.005 / (abs(r - bhRadius - 0.005) + 0.0001); // Hugs the horizon
-    pRingGlow *= smoothstep(0.05, 0.0, abs(r - bhRadius)); // Localization
-    accColor += C_CORE_HOT * pRingGlow * 1.5;
+    // --- PHOTON RING (With Chromatic Split) ---
+    float pRingGlow = 0.005 / (abs(r - bhRadius - 0.005) + 0.0001); 
+    pRingGlow *= smoothstep(0.05, 0.0, abs(r - bhRadius));
+    
+    // Spectral Split on the Ring
+    vec3 wRingColor = vec3(1.0, 0.9, 0.8); // Main
+    vec3 rRingColor = vec3(1.0, 0.2, 0.1); // Red shift
+    vec3 bRingColor = vec3(0.1, 0.5, 1.0); // Blue shift
+    
+    // Offset sample for CA
+    float rOffset = 0.001; 
+    float gR = 0.005 / (abs(r - bhRadius - 0.005 + rOffset) + 0.0001);
+    float gB = 0.005 / (abs(r - bhRadius - 0.005 - rOffset) + 0.0001);
+    
+    vec3 finalRing = wRingColor * pRingGlow;
+    finalRing += rRingColor * gR * 0.5; // Red fringe
+    finalRing += bRingColor * gB * 0.5; // Blue fringe
+    
+    // Bloom for Ring
+    finalRing += C_CORE_HOT * smoothstep(0.02, 0.0, abs(r - bhRadius)) * 0.8;
+    
+    accColor += finalRing * 1.5;
 
     // 4. Final Final Passage
     vec3 outColor = C_INK_BG + accColor;
     
-    // PERFECT HORIZON MASK (The Void)
+    // Perfect Horizon
     float horizonMask = smoothstep(bhRadius - 0.002, bhRadius, r); 
     outColor *= horizonMask;
     
-    // Shadow depth near the horizon
+    // Void Depth
     float voidDepth = smoothstep(bhRadius + 0.08, bhRadius, r);
     outColor = mix(outColor, vec3(0.0), voidDepth * 0.5);
 
-    // Boundary fade
+    // --- POST PROCESSING (Vignette & Grain) ---
+    // Vignette
+    float vig = 1.0 - smoothstep(1.0, 2.5, r * 1.5);
+    outColor *= vig;
+    
+    // Boundary fade (Original)
     outColor *= smoothstep(2.5, 1.2, r); 
     
     finalColor = vec4(outColor, 1.0);
