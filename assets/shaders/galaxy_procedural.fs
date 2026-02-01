@@ -45,7 +45,19 @@ const mat2 m2 = mat2(0.8, -0.6, 0.6, 0.8);
 float fbm(vec2 p) {
     float f = 0.0;
     float amp = 0.5;
-    for (int i = 0; i < 5; i++) { 
+    for (int i = 0; i < 4; i++) { // Optimized: 5 -> 4 octaves
+        f += amp * noise(p);
+        p = m2 * p * 2.02;
+        amp *= 0.5;
+    }
+    return f;
+}
+
+// Cheaper FBM for high frequency details
+float fbmLow(vec2 p) {
+    float f = 0.0;
+    float amp = 0.5;
+    for (int i = 0; i < 2; i++) { 
         f += amp * noise(p);
         p = m2 * p * 2.02;
         amp *= 0.5;
@@ -57,9 +69,7 @@ float ridged_fbm(vec2 p) {
     float f = 0.0;
     float amp = 0.5;
     for (int i = 0; i < 4; i++) {
-        float n = 1.0 - abs(noise(p) * 2.0 - 1.0); 
-        n = pow(n, 2.0); 
-        f += n * amp;
+        f += pow(1.0 - abs(noise(p) * 2.0 - 1.0), 2.0) * amp;
         p = m2 * p * 2.02;
         amp *= 0.5;
     }
@@ -103,10 +113,10 @@ vec3 RenderNebula(vec2 uv, vec3 structure) {
     float core = structure.z;
     float r = length(uv);
     
+    // Reverted to standard fbm for quality stability
     float microDetail = fbm(uv * 40.0 + uTime * 0.05); 
     
     // FILLER GAS: Increased intensity and reduced falloff to fill voids
-    // Was 0.25, now 0.6. Decay 2.0 -> 1.5
     float ambientGas = 0.6 * fbm(uv * 2.0) * exp(-r * 1.5); 
     
     // ARC BRIDGES: Noise that connects arms
@@ -114,13 +124,11 @@ vec3 RenderNebula(vec2 uv, vec3 structure) {
     float bridge = smoothstep(0.4, 0.8, bridgeNoise) * 0.3 * exp(-r);
     
     // Main Gas Density
-    // Mix between Arm-defined density and general ambient/bridge fill
     float gasDensity = arm * mix(0.6, 1.4, fbm(uv * 3.0 + uTime * 0.02));
-    gasDensity += ambientGas + bridge; // Add filler
+    gasDensity += ambientGas + bridge; 
     
     // Color Mixing
     vec3 gasColor = mix(C_ARM_SEC, C_ARM_PRI, structure.x * (0.6 + 0.4 * microDetail));
-    // Make deep voids dark blue instead of black
     gasColor = mix(C_ARM_SEC * 0.5, gasColor, smoothstep(0.1, 0.5, gasDensity)); 
     
     float dustNoise = ridged_fbm(uv * 4.0 - uTime * 0.02);
@@ -136,17 +144,14 @@ vec3 RenderNebula(vec2 uv, vec3 structure) {
 
 // === STAR SPECTRAL ANALYSIS ===
 vec3 GetStarColor(float seed) {
-    // Spectral Classification (OBAFGKM) - Simplified for aesthetic balance
-    // We boost the probability of O/B/A stars slightly for visual flair compared to reality
     float r = fract(sin(seed * 123.45) * 456.78);
-    
-    if (r > 0.98) return vec3(0.6, 0.7, 1.0);      // Type O (Blue)
-    if (r > 0.90) return vec3(0.7, 0.85, 1.0);     // Type B (Blue-White)
-    if (r > 0.75) return vec3(0.95, 0.98, 1.0);    // Type A (White)
-    if (r > 0.60) return vec3(1.0, 1.0, 0.9);      // Type F (Yellow-White)
-    if (r > 0.40) return vec3(1.0, 0.9, 0.6);      // Type G (Yellow - Sun)
-    if (r > 0.15) return vec3(1.0, 0.7, 0.4);      // Type K (Orange)
-    return vec3(1.0, 0.5, 0.4);                    // Type M (Red - Most common)
+    if (r > 0.98) return vec3(0.6, 0.7, 1.0);      
+    if (r > 0.90) return vec3(0.7, 0.85, 1.0);     
+    if (r > 0.75) return vec3(0.95, 0.98, 1.0);    
+    if (r > 0.60) return vec3(1.0, 1.0, 0.9);      
+    if (r > 0.40) return vec3(1.0, 0.9, 0.6);      
+    if (r > 0.15) return vec3(1.0, 0.7, 0.4);      
+    return vec3(1.0, 0.5, 0.4);                    
 }
 
 // === STAR RENDERING ===
@@ -157,62 +162,48 @@ vec3 RenderStarLayer(vec2 uv, float scale, vec3 structure, float seedOffset, flo
     
     vec3 col = vec3(0.0);
     
-    // 3x3 Neighbour search for seamless star movement
     for(int y = -1; y <= 1; y++) {
         for(int x = -1; x <= 1; x++) {
             vec2 neighbour = vec2(float(x), float(y));
             vec2 id = gridID + neighbour;
             
-            // Random properties
             float h = hash12(id + vec2(seedOffset * 15.3)); 
-            vec2 pos = neighbour + vec2(hash12(id * 1.54), hash12(id * 2.56));
+
+            // OPTIMIZATION: Early exit
+            if (h > 0.45) continue;
             
-            // Star Position
+            vec2 pos = neighbour + vec2(hash12(id * 1.54), hash12(id * 2.56));
             vec2 diff = pos - gridFract;
             float dist = length(diff);
             
-            // Star Glow Shape (Inverse Square Falloff with soft core)
             float brightness = 0.0;
             
-            // Twinkle System
-            // O/B stars twinkle faster (simulated energy), M stars slower
             float spectralSeed = h * 10.0;
             vec3 starColor = GetStarColor(spectralSeed);
             float twinkleSpeed = 2.0 + h * 3.0; 
             float twinkleBase = 0.7 + 0.3 * sin(uTime * twinkleSpeed + h * 6.28);
             
-            // Galaxy Structure Masking
-            // Check if this star belongs to the galaxy arms or is a background star
-            vec2 starWorldUV = (id + vec2(0.5)) / scale;
-            float distFromGalCenter = length(starWorldUV);
+            float prob = 0.1;
+            float bulgeBias = 0.0;
+
+            if (densityInfluence > 0.01) {
+                vec2 starWorldUV = (id + vec2(0.5)) / scale;
+                float distFromGalCenter = length(starWorldUV);
+                vec3 localStruct = GetGalaxyStructure(starWorldUV);
+                
+                bulgeBias = exp(-distFromGalCenter * 5.0) * 1.2;
+                float structureDensity = max(localStruct.x, localStruct.z * 2.0 + bulgeBias); 
+                prob = mix(0.1, structureDensity, densityInfluence); 
+                prob = max(prob, bulgeBias * 0.5); 
+            }
             
-            vec3 localStruct = GetGalaxyStructure(starWorldUV);
+            // FIX: Defined size correctly
+            float size = 0.002 + h * 0.003; 
             
-            // GALACTIC BULGE BIAS
-            // Make the center dense with stars regardless of spiral arms
-            float bulgeBias = exp(-distFromGalCenter * 5.0) * 1.2;
-            
-            // localStruct.z is the core gas density. We boost it for stars.
-            float structureDensity = max(localStruct.x, localStruct.z * 2.0 + bulgeBias); 
-            
-            // Probability check: 
-            // - densityInfluence 1.0 = Only exist in arms/bulge
-            // - densityInfluence 0.0 = Exist everywhere (Uniform)
-            float prob = mix(0.1, structureDensity, densityInfluence); 
-            
-            // Ensure bulge stars are always present even if densityInfluence is high
-            prob = max(prob, bulgeBias * 0.5); 
-            
-            // Size variation
-            float size = 0.002 + h * 0.003; // Base size
-            
-            // Render
-            // Scaled down by 50% as requested
             if (h < (prob * 0.8 + 0.05) * 0.5) { 
                 brightness = size / (dist * dist + 0.00001);
-                brightness *= smoothstep(1.0, 0.1, dist); // Soft trim
+                brightness *= smoothstep(1.0, 0.1, dist); 
                 
-                // Occasional Super Bright Star (Supernova/Giant)
                 if (h > 0.99) { brightness *= 3.0; starColor += 0.2; }
                 
                 col += starColor * brightness * twinkleBase * 1.2;
