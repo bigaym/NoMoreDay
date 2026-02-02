@@ -33,6 +33,4 @@ endif()
 
 if(MSVC)
     target_compile_options(NoMoreDayTests PRIVATE /bigobj /GR-)
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # target_compile_options(NoMoreDayTests PRIVATE -fno-rtti)
 endif()

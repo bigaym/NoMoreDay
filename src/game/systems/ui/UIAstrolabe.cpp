@@ -128,12 +128,12 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     }
     
     // Draw Background and Stars
-    AstrolabeRenderer::Draw(s_map, s_view);
+    static const std::set<uint32_t> emptySet;
+    auto* astroComp = registry.try_get<AstrolabeComponent>(player);
+    AstrolabeRenderer::Draw(s_map, s_view, astroComp ? astroComp->activated_nodes : emptySet);
     
     // Draw UI Overlay
     float scale = UISystem::State.scaleFactor;
-    
-    auto* astroComp = registry.try_get<AstrolabeComponent>(player);
     if (astroComp) {
         UISystem::DrawTextUI(TextFormat("可用星尘: %d", astroComp->available_points), 50, 50, 30, GOLD, s_alpha);
     }
@@ -150,20 +150,23 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     
     // Hit Test & Interaction
     Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), s_view.camera);
+    const StarNode* hoveredNode = nullptr;
     uint32_t hoverId = 0;
+
     for (const auto& [id, star] : s_map.stars) {
-        float r = 20.0f; 
-        if (star.type == StarNodeType::Major) r = 30.0f;
-        else if (star.type == StarNodeType::Keystone) r = 50.0f;
+        float r = 12.0f; 
+        if (star.type == StarNodeType::Major) r = 18.0f;
+        else if (star.type == StarNodeType::Keystone) r = 28.0f;
         
         if (CheckCollisionPointCircle(mouseWorld, {star.x, star.y}, r)) {
+            hoveredNode = &star;
             hoverId = id;
             break;
         }
     }
     
-    if (hoverId != 0) {
-        const auto& star = s_map.stars[hoverId];
+    if (hoveredNode) {
+        const auto& star = *hoveredNode;
         bool isActivated = astroComp && astroComp->activated_nodes.contains(hoverId);
         
         // Tooltip

@@ -11,7 +11,7 @@ REM   clean-all   - Clean entire build directory
 REM   notest      - Skip building tests
 REM   release     - Build in Release mode (with LTO)
 REM   debug       - Build in Debug mode
-REM   ninja       - Use Ninja generator instead of MinGW Makefiles
+REM   ninja       - Use Ninja generator
 REM   j=N         - Set parallel jobs (default: 16)
 REM
 REM Examples:
@@ -158,7 +158,15 @@ if "!NEED_CONFIG!"=="1" (
     echo ============================================================
     echo.
     
-    cmake !GENERATOR! ^
+    set "CMAKE_ARGS="
+    if "!VS_DEV_CMD_ACTIVE!"=="1" (
+        if "!GENERATOR!"=="-G Ninja" (
+            set "CMAKE_ARGS=-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl"
+            echo [Build] Enforcing MSVC compiler for Ninja...
+        )
+    )
+
+    cmake !GENERATOR! !CMAKE_ARGS! ^
         -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
         -DCMAKE_UNITY_BUILD=OFF ^
         -DBUILD_TESTING=!BUILD_TESTS! ^

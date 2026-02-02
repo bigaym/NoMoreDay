@@ -5,6 +5,7 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "core/logging/Logger.hpp"

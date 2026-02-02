@@ -9,8 +9,6 @@ set(CMAKE_UNITY_BUILD OFF)  # Disable Unity Build globally
 # --- Disable Deprecated Warnings ---
 if(MSVC)
     add_compile_options(/wd4996 /wd4541 /Zc:__cplusplus /utf-8 /bigobj)
-else()
-    add_compile_options(-Wno-deprecated-declarations)
 endif()
 
 # --- Build Acceleration & Optimization Settings ---
@@ -30,20 +28,6 @@ if(ENABLE_LTO)
         set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELWITHDEBINFO TRUE)
         message(STATUS "[Optimization] LTO (IPO) enabled globally")
         
-        # On Windows with MinGW, we must use gcc-ar/gcc-ranlib for LTO static libs
-        if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND WIN32)
-            get_filename_component(COMPILER_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
-            find_program(GCC_AR "gcc-ar" PATHS "${COMPILER_DIR}" NO_DEFAULT_PATH)
-            find_program(GCC_RANLIB "gcc-ranlib" PATHS "${COMPILER_DIR}" NO_DEFAULT_PATH)
-            if(GCC_AR)
-                set(CMAKE_AR "${GCC_AR}")
-            endif()
-            if(GCC_RANLIB)
-                set(CMAKE_RANLIB "${GCC_RANLIB}")
-            endif()
-            # Use fat lto objects to allow non-LTO-aware tools to still work as fallback
-            add_compile_options("$<$<CONFIG:Release>:-ffat-lto-objects>")
-        endif()
     else()
         message(WARNING "[Optimization] LTO not supported: ${ipo_error}")
     endif()
@@ -65,9 +49,6 @@ set(OPENGL_VERSION "4.3" CACHE STRING "Force OpenGL 4.3" FORCE)
 set(GRAPHICS "GRAPHICS_API_OPENGL_43" CACHE STRING "Force OpenGL 4.3" FORCE)
 
 add_subdirectory(third_party/raylib)
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(raylib PRIVATE "-Wno-stringop-overflow")
-endif()
 
 # Raylib's internal C files are not compatible with Unity Build due to macro and symbol conflicts.
 # We must disable Unity Build specifically for the raylib target.
@@ -128,10 +109,6 @@ target_link_libraries(SkillBehaviors PRIVATE
 )
 target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(SkillBehaviors PRIVATE "-Wa,-mbig-obj" "-Wno-stringop-overflow")
-endif()
-
 # Enable Unity Build for Skills
 set_target_properties(SkillBehaviors PROPERTIES UNITY_BUILD ON)
 
@@ -176,7 +153,7 @@ target_link_libraries(NoMoreDayCore
 )
 
 # Enable Unity Build for Core
-set_target_properties(NoMoreDayCore PROPERTIES UNITY_BUILD ON)
+set_target_properties(NoMoreDayCore PROPERTIES UNITY_BUILD OFF)
 
 # Header-only libraries include paths
 target_include_directories(NoMoreDayCore PUBLIC 
@@ -193,23 +170,7 @@ if(WIN32)
     
     target_compile_definitions(NoMoreDayCore PUBLIC GRAPHICS_API_OPENGL_43)
 
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-        # -Wno-stringop-overflow: Suppress false positives from spdlog/fmt in GCC 13/14
-        target_compile_options(NoMoreDayCore PUBLIC "-Wa,-mbig-obj" "-Wno-stringop-overflow")
-        
-        # Force console subsystem to avoid "undefined reference to WinMain"
-        # This is propagated to all targets linking NoMoreDayCore
-        target_link_options(NoMoreDayCore PUBLIC "-mconsole")
-
-        # --- Performance Optimizations ---
-        # -O2: Safe and stable optimization level
-        # -mtune=native: Tune instruction scheduling for current CPU (safe, no new instructions)
-        # NOTE: -march=native disabled as it causes crashes (likely alignment or UB issues in third-party code)
-        target_compile_options(NoMoreDayCore PUBLIC
-            $<$<CONFIG:Release>:-O2 -mtune=native -fomit-frame-pointer>
-            $<$<CONFIG:RelWithDebInfo>:-O2 -mtune=native>
-        )
-    elseif(MSVC)
+    if(MSVC)
         # --- MSVC Performance Optimizations ---
         # Note: RelWithDebInfo defaults to /Ob1. We upgrade it to /Ob2 to avoid D9025 warnings.
         set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
@@ -232,11 +193,6 @@ endif()
 # --- Main Executable ---
 add_executable(NoMoreDay src/app/main.cpp)
 target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
-
-if(WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # STRIP symbols in Release mode to drastically reduce size
-    # target_link_options(NoMoreDay PRIVATE $<$<CONFIG:Release>:-s>)
-endif()
 
 # --- Output & Assets ---
 
@@ -273,9 +229,4 @@ add_custom_command(TARGET NoMoreDay POST_BUILD
 # Set compile output encoding to UTF-8
 if(MSVC)
     target_compile_options(NoMoreDay PRIVATE /utf-8)
-endif()
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    # For GCC on Windows, ensure console output is UTF-8
-    target_compile_definitions(NoMoreDay PRIVATE "_WIN32_WINNT=0x0600" "UNICODE" "_UNICODE")
 endif()
