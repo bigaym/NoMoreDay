@@ -114,24 +114,24 @@ vec3 RenderNebula(vec2 uv, vec3 structure) {
     float r = length(uv);
     
     // Reverted to standard fbm for quality stability
-    float microDetail = fbm(uv * 40.0 + uTime * 0.05); 
+    float microDetail = fbm(uv * 40.0 - uTime * 0.05); 
     
     // FILLER GAS: Increased intensity and reduced falloff to fill voids
     float ambientGas = 0.6 * fbm(uv * 2.0) * exp(-r * 1.5); 
     
     // ARC BRIDGES: Noise that connects arms
-    float bridgeNoise = fbm(uv * 6.0 + vec2(uTime * 0.02));
+    float bridgeNoise = fbm(uv * 6.0 - vec2(uTime * 0.02));
     float bridge = smoothstep(0.4, 0.8, bridgeNoise) * 0.3 * exp(-r);
     
     // Main Gas Density
-    float gasDensity = arm * mix(0.6, 1.4, fbm(uv * 3.0 + uTime * 0.02));
+    float gasDensity = arm * mix(0.6, 1.4, fbm(uv * 3.0 - uTime * 0.02));
     gasDensity += ambientGas + bridge; 
     
     // Color Mixing
     vec3 gasColor = mix(C_ARM_SEC, C_ARM_PRI, structure.x * (0.6 + 0.4 * microDetail));
     gasColor = mix(C_ARM_SEC * 0.5, gasColor, smoothstep(0.1, 0.5, gasDensity)); 
     
-    float dustNoise = ridged_fbm(uv * 4.0 - uTime * 0.02);
+    float dustNoise = ridged_fbm(uv * 4.0 + uTime * 0.02);
     float strongDust = dust * smoothstep(0.2, 0.8, dustNoise);
     
     vec3 finalGas = gasColor * gasDensity * 0.6; 
@@ -231,8 +231,8 @@ void main() {
     float keplerSpeed = 0.5 * pow(distSq, -0.4); 
     
     // Slowed down significantly for majestic scale
-    float baseRot = uTime * 0.005; // Very slow background drift
-    float diffRot = uTime * keplerSpeed * 0.08; // Orbit speed
+    float baseRot = uTime * -0.005; // Reversed background drift
+    float diffRot = uTime * keplerSpeed * -0.08; // Reversed orbit speed
     
     float totalRotAngle = baseRot + diffRot;
     float cr = cos(totalRotAngle); 
@@ -280,12 +280,12 @@ void main() {
         if (diskFade > 0.0001) {
              // Coordinate transformation for the disk
             float diffRotDisk = (2.0 / (r * 15.0)); 
-            float currentAngle = angle - uTime * 0.8 - diffRotDisk;
+            float currentAngle = angle + uTime * 0.8 + diffRotDisk;
             vec2 diskFlowUV = vec2(cos(currentAngle), sin(currentAngle)) * (r * 10.0);
             
             // Texture Sampling with "Heat" distortion
-            float flowNoise = fbm(diskFlowUV + vec2(uTime * 0.5));
-            float detailNoise = noise(diskFlowUV * 3.0 - uTime);
+            float flowNoise = fbm(diskFlowUV - vec2(uTime * 0.5));
+            float detailNoise = noise(diskFlowUV * 3.0 + uTime);
             float matterDensity = flowNoise * 0.6 + detailNoise * 0.4;
             
             // Edges

@@ -7,8 +7,31 @@
 #include <algorithm>
 #include <cmath>
 #include "engine/resource/AssetLoadingSystem.hpp"
+#include "rlgl.h" 
 
 namespace NoMoreDay {
+
+    static void DrawRingGradient(Vector2 center, float innerRadius, float outerRadius, Color startColor, Color endColor) {
+        if (innerRadius >= outerRadius) return;
+        
+        rlBegin(RL_QUADS);
+        for (int i = 0; i < 360; i += 10) {
+            float angle1 = (float)i * DEG2RAD;
+            float angle2 = (float)(i + 10) * DEG2RAD;
+            
+            float cin1 = cosf(angle1), sin1 = sinf(angle1);
+            float cin2 = cosf(angle2), sin2 = sinf(angle2);
+            
+            rlColor4ub(startColor.r, startColor.g, startColor.b, startColor.a);
+            rlVertex2f(center.x + cin1 * innerRadius, center.y + sin1 * innerRadius);
+            rlVertex2f(center.x + cin2 * innerRadius, center.y + sin2 * innerRadius);
+            
+            rlColor4ub(endColor.r, endColor.g, endColor.b, endColor.a);
+            rlVertex2f(center.x + cin2 * outerRadius, center.y + sin2 * outerRadius);
+            rlVertex2f(center.x + cin1 * outerRadius, center.y + sin1 * outerRadius);
+        }
+        rlEnd();
+    }
 
 // Helper to get screen position
 Vector2 UISkillSpecRenderer::GetNodeScreenPos(const TalentNode& node, const SkillSpecView& view) {
@@ -65,12 +88,13 @@ void UISkillSpecRenderer::Draw(const SkillTreeDefinition* tree,
                                const SpecializedSkill* specialized, 
                                const ActiveSkillsComponent* active, 
                                const SkillData* skillData,
-                               const SkillSpecView& view) {
+                               const SkillSpecView& view,
+                               uint32_t hoveredNodeId) {
     Color theme = GetThemeColor(skillData);
     DrawBackground(view, skillData);
     DrawConnections(tree, specialized, view, theme);
     DrawHub(view, skillData);
-    DrawNodes(tree, specialized, active, view, theme);
+    DrawNodes(tree, specialized, active, view, theme, hoveredNodeId);
 }
 
 void UISkillSpecRenderer::DrawBackground(const SkillSpecView& view, const SkillData* skillData) {
@@ -177,12 +201,16 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
     }
 }
 
-void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme) {
+void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme, uint32_t hoveredNodeId) {
     for (const auto& [id, node] : tree->nodes) {
         Vector2 pos = GetNodeScreenPos(node, view);
         NodeType type = GetNodeType(node);
-        float radius = GetNodeRadius(node, view);
+        float baseRadius = GetNodeRadius(node, view);
         
+        // Hover Effect
+        bool isHovered = (id == hoveredNodeId);
+        float radius = isHovered ? baseRadius * 1.15f : baseRadius;
+
         int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
         bool isMaxed = currentPts >= node.max_points;
         bool isAllocated = currentPts > 0;
@@ -194,65 +222,110 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
             }
         }
         
-        Color baseColor = canUnlock ? Fade(theme, 0.6f) : Color{ 70, 70, 75, 255 };
+        Color baseColor = canUnlock ? Fade(theme, 0.8f) : Color{ 60, 60, 65, 255 };
         if (isAllocated) baseColor = isMaxed ? GOLD : theme;
         Color borderColor = Fade(baseColor, view.alpha);
         
         // 1. Node Background Glow (Dynamic based on allocation/availability)
+        // MOVED to outside only, as requested
         if (isAllocated) {
-            float glowSize = radius * (isMaxed ? 2.3f : 1.8f);
-            DrawCircleGradient((int)pos.x, (int)pos.y, glowSize, Fade(baseColor, 0.3f * view.alpha), Fade(BLANK, 0.0f));
+            float glowStart = radius + 2.0f;
+            float glowEnd = radius + (isMaxed ? 12.0f : 8.0f) * view.zoom;
+            DrawRingGradient(pos, glowStart, glowEnd, Fade(baseColor, 0.5f * view.alpha), Fade(BLANK, 0.0f));
         } else if (canUnlock) {
-            // Breathing effect for unlockable nodes
             float breath = (sinf((float)GetTime() * 4.0f) + 1.0f) * 0.5f;
-            float glowSize = radius * (1.3f + breath * 0.4f);
-            DrawCircleGradient((int)pos.x, (int)pos.y, glowSize, Fade(theme, (0.1f + breath * 0.15f) * view.alpha), Fade(BLANK, 0.0f));
+            float glowStart = radius + 2.0f;
+            float glowEnd = radius + (6.0f + breath * 4.0f) * view.zoom;
+            DrawRingGradient(pos, glowStart, glowEnd, Fade(theme, (0.3f + breath * 0.2f) * view.alpha), Fade(BLANK, 0.0f));
         }
 
-        // 2. Shape Base
-        Color bgColor = Fade(BLACK, 0.98f * view.alpha);
+        // 2. Shape Base & Icon Background
+        Color bgColor = Fade(BLACK, 0.95f * view.alpha);
+        // If allocated, we might want a colored background inside?
+        // Let's keep it dark for contrast with the icon/progress, but maybe tinted slightly
+        if (isAllocated) bgColor = ColorTint(bgColor, Fade(theme, 0.2f));
+
         if (type == NodeType::Keystone) {
-            DrawPoly(pos, 4, radius, 0.0f, bgColor);
-            DrawPolyLinesEx(pos, 4, radius, 0.0f, 4.0f * view.zoom, borderColor);
+            // Octagon-like via rotated squares or Poly(8)? Raylib Poly(8) is good.
+            // Let's stick to the "Diamond with heavy frame" look or Octagon.
+            // Let's try regular Octagon for "Foundation/Keystone" feel.
+            DrawPoly(pos, 8, radius, 22.5f, bgColor); // 8 sides
+            DrawPolyLinesEx(pos, 8, radius, 22.5f, 3.0f * view.zoom, borderColor);
+            
             if (isMaxed) {
-                DrawPolyLinesEx(pos, 4, radius + 5 * view.zoom, 0.0f, 1.5f * view.zoom, Fade(borderColor, 0.6f));
-                DrawPolyLinesEx(pos, 4, radius + 10 * view.zoom, 0.0f, 1.0f * view.zoom, Fade(borderColor, 0.3f));
-            } else if (canUnlock) {
-                // Subtle highlight for available keystone
-                DrawPolyLinesEx(pos, 4, radius + 3 * view.zoom, 0.0f, 1.0f * view.zoom, Fade(theme, 0.4f));
+                DrawPolyLinesEx(pos, 8, radius + 4.0f * view.zoom, 22.5f, 1.5f * view.zoom, Fade(GOLD, 0.7f * view.alpha));
             }
         } else if (type == NodeType::Modifier) {
-            DrawPoly(pos, 4, radius, 45.0f, bgColor);
-            DrawPolyLinesEx(pos, 4, radius, 45.0f, 3.5f * view.zoom, borderColor);
+            // Hexagon for Modifier
+            DrawPoly(pos, 6, radius, 0.0f, bgColor);
+            DrawPolyLinesEx(pos, 6, radius, 0.0f, 2.5f * view.zoom, borderColor);
         } else {
+            // Circle for Passive
             DrawCircleV(pos, radius, bgColor);
-            // Available passives get a slightly thicker ring
-            float borderThick = canUnlock ? 3.0f : 2.0f;
+            float borderThick = canUnlock ? 2.5f : 1.5f;
             DrawRing(pos, radius - borderThick * view.zoom, radius, 0, 360, 32, borderColor);        
         }
-        // 3. Progress Filling (SDF-like radial fill)
+
+        // 3. Progress Filling (SDF-like radial fill or Inner fill)
         if (isAllocated && !isMaxed) {
              float pct = (float)currentPts / node.max_points;
-             if (type == NodeType::Passive) {
-                 DrawCircleSector(pos, radius * 0.85f, -90, -90 + 360 * pct, 32, Fade(borderColor, 0.6f));
-             } else {
-                 float innerR = radius * 0.8f * pct;
-                 if (type == NodeType::Modifier) DrawPoly(pos, 4, innerR, 45.0f, Fade(borderColor, 0.6f));
-                 else DrawPoly(pos, 4, innerR, 0.0f, Fade(borderColor, 0.6f));
-             }
+             float innerR = radius * 0.85f;
+             
+             // Draw inner filled shape based on pct
+             // Maybe just fill the whole background partially?
+             // Let's use a "Sector" approach for all, or an inner scaling shape.
+             // Inner scaling shape looks decent.
+             
+             Color fillCol = Fade(borderColor, 0.5f);
+             if (type == NodeType::Keystone) DrawPoly(pos, 8, innerR * pct, 22.5f, fillCol);
+             else if (type == NodeType::Modifier) DrawPoly(pos, 6, innerR * pct, 0.0f, fillCol);
+             else DrawCircleV(pos, innerR * pct, fillCol);
+        }
+        else if (isMaxed) {
+             // Full fill for maxed
+             float innerR = radius * 0.85f;
+             Color fillCol = Fade(theme, 0.3f);
+             if (type == NodeType::Keystone) DrawPoly(pos, 8, innerR, 22.5f, fillCol);
+             else if (type == NodeType::Modifier) DrawPoly(pos, 6, innerR, 0.0f, fillCol);
+             else DrawCircleV(pos, innerR, fillCol);
+        }
+
+        // 4. Icons
+        if (node.icon_id > 0) {
+            Texture2D icon = AssetLoadingSystem::GetTexture(node.icon_id);
+            if (icon.id != 0) {
+                float iconSize = radius * 1.4f; 
+                Rectangle dest = { pos.x - iconSize/2, pos.y - iconSize/2, iconSize, iconSize };
+                Rectangle src = { 0, 0, (float)icon.width, (float)icon.height };
+                DrawTexturePro(icon, src, dest, {0,0}, 0.0f, Fade(WHITE, isAllocated || canUnlock ? view.alpha : 0.5f * view.alpha));
+            }
+        } else {
+            // Draw a generic glyph (dot or smaller shape) if no icon
+            if (isAllocated) {
+                DrawCircleV(pos, radius * 0.3f, Fade(theme, 0.8f * view.alpha));
+            }
         }
         
-        // 4. Points Text
-        int fontSize = (int)(22 * view.zoom);
-        const char* text = TextFormat("%d/%d", currentPts, node.max_points);
-        Vector2 textSize = MeasureTextEx(UISystem::GetFont(), text, (float)fontSize, 1.0f);
-        Vector2 textPos = {pos.x - textSize.x/2, pos.y + radius + 12 * view.zoom};
-        
-        // Higher contrast text for available nodes
-        Color textColor = isAllocated ? (isMaxed ? GOLD : WHITE) : (canUnlock ? Fade(WHITE, 0.9f) : Fade(WHITE, 0.4f));
+        // 5. Points Text (Improved with Pilled Background)
+        if (isHovered || isAllocated) {
+            int fontSize = (int)(20 * view.zoom);
+            const char* text = TextFormat("%d/%d", currentPts, node.max_points);
+            Vector2 textSize = MeasureTextEx(UISystem::GetFont(), text, (float)fontSize, 1.0f);
+            
+            float padding = 4.0f;
+            Rectangle pillHitbox = { 
+                pos.x - textSize.x/2 - padding, 
+                pos.y + radius + 14 * view.zoom - padding, 
+                textSize.x + padding*2, 
+                textSize.y + padding*2 
+            };
+            
+            DrawRectangleRounded(pillHitbox, 0.5f, 4, Fade(BLACK, 0.7f * view.alpha));
+            DrawRectangleRoundedLinesEx(pillHitbox, 0.5f, 4, 1.0f, Fade(borderColor, 0.5f * view.alpha));
 
-        DrawTextEx(UISystem::GetFont(), text, {textPos.x + 1, textPos.y + 1}, (float)fontSize, 1.0f, Fade(BLACK, 0.8f * view.alpha));
-        DrawTextEx(UISystem::GetFont(), text, textPos, (float)fontSize, 1.0f, Fade(textColor, view.alpha));
+            Color textColor = isAllocated ? (isMaxed ? GOLD : WHITE) : (canUnlock ? Fade(WHITE, 0.9f) : Fade(WHITE, 0.4f));
+            DrawTextEx(UISystem::GetFont(), text, {pillHitbox.x + padding, pillHitbox.y + padding}, (float)fontSize, 1.0f, Fade(textColor, view.alpha));
+        }
     }
 }
 

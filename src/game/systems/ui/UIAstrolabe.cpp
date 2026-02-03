@@ -121,16 +121,33 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         // Center view with 'N' key if already open
         if (IsKeyPressed(KEY_N)) {
             ResetView();
-        }
+        } 
 
         // --- Galaxy Debug ---
         // (Removed F5-F7 debug switches)
     }
     
+    // Hit Test (Pre-Calculation for Draw)
+    Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), s_view.camera);
+    const StarNode* hoveredNode = nullptr;
+    uint32_t hoverId = 0;
+
+    for (const auto& [id, star] : s_map.stars) {
+        float r = 12.0f; 
+        if (star.type == StarNodeType::Major) r = 18.0f;
+        else if (star.type == StarNodeType::Keystone) r = 28.0f;
+        
+        if (CheckCollisionPointCircle(mouseWorld, {star.x, star.y}, r)) {
+            hoveredNode = &star;
+            hoverId = id;
+            break;
+        }
+    }
+
     // Draw Background and Stars
     static const std::set<uint32_t> emptySet;
     auto* astroComp = registry.try_get<AstrolabeComponent>(player);
-    AstrolabeRenderer::Draw(s_map, s_view, astroComp ? astroComp->activated_nodes : emptySet);
+    AstrolabeRenderer::Draw(s_map, s_view, astroComp ? astroComp->activated_nodes : emptySet, hoverId);
     
     // Draw UI Overlay
     float scale = UISystem::State.scaleFactor;
@@ -148,22 +165,7 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         Hide();
     }
     
-    // Hit Test & Interaction
-    Vector2 mouseWorld = GetScreenToWorld2D(GetMousePosition(), s_view.camera);
-    const StarNode* hoveredNode = nullptr;
-    uint32_t hoverId = 0;
 
-    for (const auto& [id, star] : s_map.stars) {
-        float r = 12.0f; 
-        if (star.type == StarNodeType::Major) r = 18.0f;
-        else if (star.type == StarNodeType::Keystone) r = 28.0f;
-        
-        if (CheckCollisionPointCircle(mouseWorld, {star.x, star.y}, r)) {
-            hoveredNode = &star;
-            hoverId = id;
-            break;
-        }
-    }
     
     if (hoveredNode) {
         const auto& star = *hoveredNode;

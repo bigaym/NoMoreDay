@@ -132,42 +132,23 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     view.center = { centerX * scale, centerY * scale };
     view.offset = { SkillTreeUI::s_viewOffset.x * scale, SkillTreeUI::s_viewOffset.y * scale };
     view.zoom = SkillTreeUI::s_viewZoom * scale;
-    view.alpha = alpha;
-    
-    // Duplicates removed
+    view.alpha = alpha;  
 
-    UISkillSpecRenderer::Draw(tree, specialized, active, skillData, view);
-
-    EndScissorMode();
-
-    // --- Interaction Logic ---
-    // We need to check clicks. 
-    // We can use GetNodeScreenPos, but remember it returns PHYSICAL coordinates now (because we passed scaled view).
-    // But MouseLogicPos is LOGIC.
-    // So we invoke GetNodeScreenPos with the VIEW we constructed, which returns PHYSICAL coords.
-    // Then we compare with MousePhysicalPos (GetKey* returns logic, GetMousePosition returns physical?)
-    // UISystem::GetMousePositionLogic() returns Logic.
-    // Is better to keep `view.zoom = s_viewZoom` (Logic), and let Renderer handle scale?
-    // Current Renderer Impl: `gridStep = 180 * view.zoom`. Returns pos.
-    // Use Raylib Draw calls (pixel space).
-    // So if Renderer draws in Pixel Space, input to it must be scaled correctly.
-    // The way I set up `view` above (`view.zoom = s_viewZoom * scale`) means `gridStep` becomes `180 * s_viewZoom * scale`.
-    // `offset` is `s_viewOffset * scale`.
-    // `center` is `Center * scale`.
-    // Valid.
-    // So `GetNodeScreenPos` returns Pixel Coordinates.
-    
+    // --- Interaction Logic (Pre-Calculation) ---
     Vector2 mousePixelPos = GetMousePosition(); // Raylib raw mouse pos
     uint32_t targetNodeId = 0;
-    float nodeRadiusRaw = 45.0f * s_viewZoom * scale; // Approx radius used in renderer (Base 40 * zoom, plus type variation)
+    uint32_t hoveredNodeId = 0;
+    const TalentNode* hoveredNode = nullptr;
 
     for (const auto& [id, node] : tree->nodes) {
         Vector2 pos = UISkillSpecRenderer::GetNodeScreenPos(node, view);
         float r = UISkillSpecRenderer::GetNodeRadius(node, view);
 
         if (CheckCollisionPointCircle(mousePixelPos, pos, r) && mouseInView) {
+            hoveredNodeId = id;
+            hoveredNode = &node;
+
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                
                 // Logic check
                 int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
                 bool isMaxed = currentPts >= node.max_points;
@@ -186,26 +167,39 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
                      targetNodeId = id;
                 }
             }
-            
-            // Tooltip
-            float tx = mouseLogicPos.x + 30;
-            float ty = mouseLogicPos.y + 30;
-            float tw = 400;
-            float th = 180;
-            
-            if (tx + tw > logicW) tx -= (tw + 60);
-            if (ty + th > logicH) ty -= (th + 60);
+            // Only handle one hover
+            break; 
+        }
+    }
 
-            // Draw Tooltip Box
-            DrawRectangleRec({tx * scale, ty * scale, tw * scale, th * scale}, Fade(BLACK, 0.95f * alpha));
-            DrawRectangleLinesEx({tx * scale, ty * scale, tw * scale, th * scale}, 1.0f, Fade(GOLD, alpha));
-            
-            UISystem::DrawTextUI(node.name_key.c_str(), tx + 20, ty + 20, 28, GOLD, alpha);
-            UISystem::DrawTextScaled(node.desc_key.c_str(), tx + 20, ty + 60, 20, tw - 40, WHITE, alpha);
+    // --- Scissor Mode & Render Content ---
+    BeginScissorMode((int)(viewBoundsLogic.x * scale), (int)(viewBoundsLogic.y * scale), 
+                     (int)(viewBoundsLogic.width * scale), (int)(viewBoundsLogic.height * scale));
 
-             if (!node.stat_modifiers.empty()) {
-                UISystem::DrawTextUI("数值加成已启用", tx + 20, ty + th - 35, 18, SKYBLUE, alpha * 0.8f);
-            }
+    UISkillSpecRenderer::Draw(tree, specialized, active, skillData, view, hoveredNodeId);
+
+    EndScissorMode();
+
+    // --- Tooltip & Actions ---
+    if (hoveredNode) {
+        // Tooltip
+        float tx = mouseLogicPos.x + 30;
+        float ty = mouseLogicPos.y + 30;
+        float tw = 400;
+        float th = 180;
+        
+        if (tx + tw > logicW) tx -= (tw + 60);
+        if (ty + th > logicH) ty -= (th + 60);
+
+        // Draw Tooltip Box
+        DrawRectangleRec({tx * scale, ty * scale, tw * scale, th * scale}, Fade(BLACK, 0.95f * alpha));
+        DrawRectangleLinesEx({tx * scale, ty * scale, tw * scale, th * scale}, 1.0f, Fade(GOLD, alpha));
+        
+        UISystem::DrawTextUI(hoveredNode->name_key.c_str(), tx + 20, ty + 20, 28, GOLD, alpha);
+        UISystem::DrawTextScaled(hoveredNode->desc_key.c_str(), tx + 20, ty + 60, 20, tw - 40, WHITE, alpha);
+
+         if (!hoveredNode->stat_modifiers.empty()) {
+            UISystem::DrawTextUI("数值加成已启用", tx + 20, ty + th - 35, 18, SKYBLUE, alpha * 0.8f);
         }
     }
 

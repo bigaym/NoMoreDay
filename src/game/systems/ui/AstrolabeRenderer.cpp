@@ -19,12 +19,12 @@ void AstrolabeRenderer::Unload() {
     s_initialized = false;
 }
 
-void AstrolabeRenderer::Draw(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes) {
+void AstrolabeRenderer::Draw(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes, uint32_t hoveredNodeId) {
     DrawBackground(view);
     
     BeginMode2D(view.camera);
     DrawConnections(map, view, activatedNodes);
-    DrawStars(map, view, activatedNodes);
+    DrawStars(map, view, activatedNodes, hoveredNodeId);
     EndMode2D();
 }
 
@@ -70,7 +70,7 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
 
 void AstrolabeRenderer::DrawConnections(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes) {
     // 1. [对比度层]: 先绘制黑色的底衬线，确保在亮背景上也能看清
-    //    不需要 Additive 混合，使用默认混合 (Alpha Blend)
+    //    不需要 Additive 混合，使用默认混合 (Alpha Blend)   
     for (const auto& [id, star] : map.stars) {
         Vector2 start = {star.x, star.y};
         bool isStartActive = activatedNodes.contains(id);
@@ -128,16 +128,24 @@ void AstrolabeRenderer::DrawConnections(const AstrolabeMap& map, const Astrolabe
     EndBlendMode();
 }
 
-void AstrolabeRenderer::DrawStars(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes) {
+void AstrolabeRenderer::DrawStars(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes, uint32_t hoveredNodeId) {
     // 1. [底衬层]: 绘制半透明黑色背景 (Occlusion)
     //    用于遮挡背景银河，凸显前景星星
     for (const auto& [id, star] : map.stars) {
         Vector2 pos = {star.x, star.y};
+        bool isHovered = (id == hoveredNodeId);
+        float hoverScale = isHovered ? 1.2f : 1.0f;
         float typeScale = (star.type == StarNodeType::Keystone) ? 2.5f : (star.type == StarNodeType::Major ? 1.6f : 1.2f);
+        typeScale *= hoverScale;
+
+        // 调整：不再使用巨大的实心多边形，改回柔和的圆形渐变，且大幅缩小范围
+        // 从 18.0f 缩小到 8.0f，仅略大于节点本体，避免"黑洞"违和感
+        float occlusionRadius = 8.0f * typeScale;
         
-        Color coreBlack = {0, 0, 0, (unsigned char)(240 * view.alpha)};
+        Color coreBlack = {0, 0, 0, (unsigned char)(150 * view.alpha)}; // 大幅降低不透明度 200 -> 150
         Color edgeBlack = {0, 0, 0, 0};
-        DrawCircleGradient((int)pos.x, (int)pos.y, 18.0f * typeScale, coreBlack, edgeBlack);
+        
+        DrawCircleGradient((int)pos.x, (int)pos.y, occlusionRadius, coreBlack, edgeBlack);
     }
 
     // 2. [天体层]: 使用叠加混合模式绘制
@@ -159,14 +167,15 @@ void AstrolabeRenderer::DrawStars(const AstrolabeMap& map, const AstrolabeView& 
             if (star.prerequisites.empty() && !isActive) isAvailable = true; 
         }
 
+        bool isHovered = (id == hoveredNodeId);
+        float hoverScale = isHovered ? 1.15f : 1.0f;
         float typeScale = (star.type == StarNodeType::Keystone) ? 1.8f : (star.type == StarNodeType::Major ? 1.4f : 1.0f);
+        typeScale *= hoverScale;
         
         if (isActive) {
             // === [已激活]: 纯净恒星 (Pure Stellar Core) ===
-            // 去除了十字星芒，专注于极致的球体光感
-            
             bool isKeystone = (star.type == StarNodeType::Keystone);
-            float pulse = sin(view.time * 2.0f) * 0.05f + 1.0f; // 呼吸幅度减小，更稳重
+            float pulse = sin(view.time * 2.0f) * 0.05f + 1.0f; 
 
             Color cCore, cInner, cOuter;
             
@@ -182,67 +191,83 @@ void AstrolabeRenderer::DrawStars(const AstrolabeMap& map, const AstrolabeView& 
                 cOuter = {20, 100, 255, 100};
             }
             
-            // Adjust alpha by view
             cCore.a = (unsigned char)(cCore.a * view.alpha);
             cInner.a = (unsigned char)(cInner.a * view.alpha);
             cOuter.a = (unsigned char)(cOuter.a * view.alpha);
 
-            // 1. Core (Solid & Sharp)
-            DrawCircleV(pos, 4.5f * typeScale, cCore);
-            
-            // 2. Photosphere (Inner intense glow) - 范围适中 -> 缩小25% (12 -> 9)
-            DrawCircleGradient((int)pos.x, (int)pos.y, 9.0f * typeScale * pulse, cInner, Fade(BLACK, 0));
+            float rCore = 4.5f * typeScale;
+            float rInner = 9.0f * typeScale * pulse;
+            float rOuter = 19.0f * typeScale;
 
-            // 3. Corona (Soft ambient glow) - 范围受控 -> 缩小25% (25 -> 19)
-            DrawCircleGradient((int)pos.x, (int)pos.y, 19.0f * typeScale, cOuter, Fade(BLACK, 0));
+            if (star.type == StarNodeType::Keystone) {
+                DrawPoly(pos, 8, rCore, 22.5f + view.time * 10, cCore);
+                DrawPoly(pos, 8, rInner, 22.5f - view.time * 5, Fade(cInner, 0.5f));
+                // Outer glow is spherical
+                DrawCircleGradient((int)pos.x, (int)pos.y, rOuter, cOuter, Fade(BLACK, 0));
+            } else if (star.type == StarNodeType::Major) {
+                DrawPoly(pos, 6, rCore, 0.0f + view.time * 15, cCore);
+                DrawPoly(pos, 6, rInner, 0.0f - view.time * 8, Fade(cInner, 0.5f));
+                DrawCircleGradient((int)pos.x, (int)pos.y, rOuter, cOuter, Fade(BLACK, 0));
+            } else {
+                DrawCircleV(pos, rCore, cCore);
+                DrawCircleGradient((int)pos.x, (int)pos.y, rInner, cInner, Fade(BLACK, 0));
+                DrawCircleGradient((int)pos.x, (int)pos.y, rOuter, cOuter, Fade(BLACK, 0));
+            }
 
         } else if (isAvailable) {
             // === [可解锁]: 奇点信标 (Singularity Beacon) ===
-            // 颜色改为 [琥珀金/亮橙色]，与蓝色背景形成互补色对比，极度显眼
-            // 特效范围大幅缩小，不再是巨大的涟漪，而是紧贴的能量充能
-            
-            float pulse = sin(view.time * 6.0f) * 0.1f + 1.0f; // 快节奏呼吸，提示"点击我"
+            float pulse = sin(view.time * 4.0f) * 0.1f + 1.0f;
 
-            // Colors: Amber / Gold High Contrast
             Color cSignal = { 255, 200, 50, (unsigned char)(220 * view.alpha) };
             Color cGlow = { 255, 150, 0, (unsigned char)(150 * view.alpha) };
             
-            // 1. Core Ring (Hollow)
-            DrawRing(pos, 3.0f * typeScale, 5.0f * typeScale, 0, 360, 24, cSignal);
+            float rBase = 3.0f * typeScale;
+            float rGlow = 9.0f * typeScale * pulse;
+
+            // Shape Rendering
+            if (star.type == StarNodeType::Keystone) {
+                DrawPolyLinesEx(pos, 8, rBase * 1.5f, 22.5f, 2.0f, cSignal);
+                DrawPolyLinesEx(pos, 8, rBase * 2.0f * pulse, 22.5f, 1.0f, Fade(cSignal, 0.5f));
+            } else if (star.type == StarNodeType::Major) {
+                DrawPolyLinesEx(pos, 6, rBase * 1.5f, 0.0f, 2.0f, cSignal);
+                DrawPolyLinesEx(pos, 6, rBase * 2.0f * pulse, 0.0f, 1.0f, Fade(cSignal, 0.5f));
+            } else {
+                DrawRing(pos, rBase, rBase + 2.0f, 0, 360, 24, cSignal);
+            }
             
-            // 2. Focused Glow (Small radius) -> 缩小25% (12 -> 9)
-            DrawCircleGradient((int)pos.x, (int)pos.y, 9.0f * typeScale * pulse, cGlow, Fade(BLACK, 0));
+            // Central Glow
+            DrawCircleGradient((int)pos.x, (int)pos.y, rGlow, cGlow, Fade(BLACK, 0));
             
-            // 3. Sharp Import Ring (Tighter shrinking effect)
-            // 范围从 25 缩小到 14，更紧凑
+            // External Halo (Breathing)
             float shrink = fmod(view.time * 10.0f, 14.0f);
-            float r = 14.0f - shrink;
-            
-            if (r > 5.5f * typeScale) { // 不要缩得太里面
+            float r = 14.0f - shrink; 
+            if (r > 6.0f) {
                  Color cRing = { 255, 220, 100, (unsigned char)((r/14.0f) * 200 * view.alpha) };
-                 // 完整的细锐圆环，不再是断裂的
                  DrawRing(pos, r * typeScale, (r + 1.0f) * typeScale, 0, 360, 32, cRing);
             }
 
         } else {
             // === [未解锁]: 沉睡星核 (Sleeping Star Core) ===
-            // 风格调整：不再使用诡异的红色，改为"冷钢/深空"风格，预示着等待被点燃
-            
-            // 核心: 深邃的蓝灰，像熄灭的恒星
             Color cDormant = { 20, 30, 40, (unsigned char)(200 * view.alpha) };
-            // 边缘: 银灰色的金属光泽，清晰可见但不突兀
             Color cRim = { 120, 140, 160, (unsigned char)(120 * view.alpha) };
-            // 种子: 中心微弱的白点，暗示潜能
             Color cSeed = { 200, 220, 255, (unsigned char)(60 * view.alpha) };
 
-            // 1. Solid Cold Core
-            DrawCircleV(pos, 4.0f * typeScale, cDormant);
-            
-            // 2. Metallic Rim
-            DrawRing(pos, 5.5f * typeScale, 6.2f * typeScale, 0, 360, 32, cRim);
-            
-            // 3. Potential Seed
-            DrawCircleV(pos, 1.0f * typeScale, cSeed);
+            float rBase = 4.0f * typeScale;
+            float rRim = 5.5f * typeScale;
+
+            if (star.type == StarNodeType::Keystone) {
+                DrawPoly(pos, 8, rBase, 22.5f, cDormant);
+                DrawPolyLinesEx(pos, 8, rRim, 22.5f, 1.5f, cRim);
+                DrawCircleV(pos, 1.0f * typeScale, cSeed);
+            } else if (star.type == StarNodeType::Major) {
+                 DrawPoly(pos, 6, rBase, 0.0f, cDormant);
+                 DrawPolyLinesEx(pos, 6, rRim, 0.0f, 1.5f, cRim);
+                 DrawCircleV(pos, 1.0f * typeScale, cSeed);
+            } else {
+                DrawCircleV(pos, rBase, cDormant);
+                DrawRing(pos, rRim, rRim + 1.0f, 0, 360, 32, cRim);
+                DrawCircleV(pos, 1.0f * typeScale, cSeed);
+            }
         }
     }
     EndBlendMode();
