@@ -118,6 +118,7 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     uint32_t hoverId = 0;
     const AstrolabeTalentNode* hoveredNode = nullptr;
 
+    // 1. Check Nodes
     for (const auto& [id, node] : graph.nodes) {
         float r = Constants::Astrolabe::NODE_RADIUS_MINOR * 1.2f; 
         if (node.type == TalentNodeType::Major) r = Constants::Astrolabe::NODE_RADIUS_MAJOR * 1.2f;
@@ -127,6 +128,18 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
             hoverId = id;
             hoveredNode = &node;
             break;
+        }
+    }
+    
+    // 2. Check Profession Stars
+    const ProfessionStar* hoveredStar = nullptr;
+    if (!hoveredNode) { // Prioritize nodes
+        for (const auto& star : graph.professionStars) {
+            float r = Constants::Astrolabe::PROFESSION_STAR_RADIUS * 1.2f;
+            if (CheckCollisionPointCircle(mouseWorld, {star.x, star.y}, r)) {
+                hoveredStar = &star;
+                break;
+            }
         }
     }
 
@@ -150,20 +163,27 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         Hide();
     }
     
-    // Interaction
+    // Interaction - Node
     if (hoveredNode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
         AstrolabeSystem::addPointToNode(registry, player, graph, hoverId);
     }
     
-    // Tooltip
-    if (hoveredNode) {
-        Vector2 mousePos = GetMousePosition();
-        float tw = 350 * scale;
-        float th = 120 * scale;
-        
-        if (mousePos.x + tw + 20 > GetScreenWidth()) mousePos.x -= (tw + 40);
-        if (mousePos.y + th + 20 > GetScreenHeight()) mousePos.y -= (th + 40);
+    // Interaction - Profession Star (Take Vow)
+    if (hoveredStar && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
+        if (!astroComp->hasVow()) {
+             AstrolabeSystem::takeVow(registry, player, hoveredStar->profession);
+        }
+    }
+    
+    // Tooltip - Node
+    Vector2 mousePos = GetMousePosition();
+    float tw = 350 * scale;
+    float th = 120 * scale;
+    
+    if (mousePos.x + tw + 20 > GetScreenWidth()) mousePos.x -= (tw + 40);
+    if (mousePos.y + th + 20 > GetScreenHeight()) mousePos.y -= (th + 40);
 
+    if (hoveredNode) {
         DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
         DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(GOLD, s_alpha));
         
@@ -187,6 +207,32 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         
         int pts = astroComp->getNodePoints(hoverId);
         UIRenderer::DrawTextUI(UISystem::GetFont(), TextFormat("Points: %d / %d", pts, hoveredNode->maxPoints), mousePos.x + 250, mousePos.y + 40, 20 * scale, WHITE, s_alpha);
+    }
+    // Tooltip - Profession Star
+    else if (hoveredStar) {
+        DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
+        DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(SKYBLUE, s_alpha));
+        
+        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredStar->name_key.c_str(), mousePos.x + 40, mousePos.y + 40, 24 * scale, SKYBLUE, s_alpha);
+        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredStar->desc_key.c_str(), mousePos.x + 40, mousePos.y + 70, 16 * scale, WHITE, s_alpha);
+        
+        const char* statusText = "Available";
+        Color statusColor = GREEN;
+        
+        if (astroComp && astroComp->hasVow()) {
+            if (astroComp->isMainProfession(hoveredStar->profession)) {
+                statusText = "Main Profession";
+                statusColor = GOLD;
+            } else {
+                statusText = "Sealed (Only one Main)";
+                statusColor = PURPLE;
+            }
+        } else {
+            statusText = "Click to Vow (Irreversible)";
+            statusColor = YELLOW;
+        }
+        
+        UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, mousePos.x + 40, mousePos.y + 95, 16 * scale, statusColor, s_alpha);
     }
 }
 

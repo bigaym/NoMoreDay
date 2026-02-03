@@ -275,4 +275,13 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
+## [ ] Track: Astrolabe Visual Polish
+- **Folder:** [./conductor/tracks/astrolabe-visual-polish_20260204/](./conductor/tracks/astrolabe-visual-polish_20260204/)
+- **Description:** 补全星盘 (Astrolabe) 六扇区布局的视觉实现。增强节点状态渲染（Locked/Available/Activated/FullyActivated/Sealed），添加脉动光晕、进度环、外发光等特效，加深轨道环与扇区分界线对比度，并填充测试节点数据以验证布局。
+- **Status:** IN PROGRESS
+- **Priority:** HIGH
+- **Estimated Time:** 4-5 hours
+
+---
+
 ## [ ] Track: Next Milestone (TBD)

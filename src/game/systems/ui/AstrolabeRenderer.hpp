@@ -19,6 +19,8 @@ public:
     // Shader management
     static void Init(Shader galaxyShader);
     static void Unload();
+    
+    static float getNodeRadius(TalentNodeType type);
 
 private:
     static void DrawBackground(const AstrolabeView& view);

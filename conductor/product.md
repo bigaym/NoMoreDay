@@ -42,7 +42,7 @@ To create an immersive ARPG experience where the **Roguelite run loop** meets **
 - **Shadow Echoes:** Support for complex trigger builds (e.g., shadows mimicking skills) without recursive performance hits.
 
 ### 5. Advanced Skill Specialization
-- **Concentric Astrolabe:** A massive passive tree for global character stats with 500+ nodes.
+- **Universal Origin Astrolabe:** A unified six-sector passive system centered on a black hole. Features profession affinity unlocking and a "Vow" mechanic for deep specialization.
 - **Skill Masteries:** Active skills have unique 20-node talent trees. Blade Ascendant (剑修) is fully implemented; further classes in development.
 
 ### 6. GPGPU Optimized AI & VFX (Implemented)
