@@ -536,13 +536,27 @@ void AttributePipeline::Calculate(entt::registry &registry,
     }
   }
   if (auto *as = registry.try_get<AstrolabeComponent>(entity)) {
-    for (uint32_t nid : as->activated_nodes) {
-      if (const auto *n = AstrolabeRegistry::Get().GetNode(nid)) {
-        for (const auto &m : n->modifiers) {
-          if (m.required_tags == Tag::None)
-            ApplyStatModifier(calcs, m.type, m.mode, m.value);
+    // New system: use nodePoints map
+    if (!as->nodePoints.empty()) {
+        for (const auto& [nid, points] : as->nodePoints) {
+            if (points <= 0) continue;
+            if (const auto *n = AstrolabeRegistry::Get().GetNode(nid)) {
+                for (const auto &m : n->modifiers) {
+                    if (m.required_tags == Tag::None)
+                        ApplyStatModifier(calcs, m.type, m.mode, m.value * static_cast<float>(points));
+                }
+            }
         }
-      }
+    } else {
+        // Fallback for legacy data (activated_nodes set)
+        for (uint32_t nid : as->activated_nodes) {
+            if (const auto *n = AstrolabeRegistry::Get().GetNode(nid)) {
+                for (const auto &m : n->modifiers) {
+                    if (m.required_tags == Tag::None)
+                        ApplyStatModifier(calcs, m.type, m.mode, m.value);
+                }
+            }
+        }
     }
   }
 

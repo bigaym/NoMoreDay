@@ -275,10 +275,10 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Astrolabe Refactor (Universal Origin Layout)
+## [x] Track: Astrolabe Refactor (Universal Origin Layout)
 - **Folder:** [./conductor/tracks/astrolabe-refactor_20260204/](./conductor/tracks/astrolabe-refactor_20260204/)
 - **Description:** 将现有的"星座-连接"天赋树模型重构为"宇宙同源 (Universal Origin)"六扇区布局。核心变更包括：以黑洞为中心的 6 职业扇区向心布局、纯亲和度点数解锁机制（无前置节点依赖）、以及"职业誓约 (The Vow)"系统区分主修/辅修。**无需存档兼容，可直接重写数据格式。**
-- **Status:** PLANNED
+- **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 3-4 days (28-36h)
 - **Risk Level:** 🟢 LOW (无需存档兼容，可放开手脚)

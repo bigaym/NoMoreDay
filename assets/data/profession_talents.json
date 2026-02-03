@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "profession_stars": [
+    { "profession": 0, "name_key": "Blade Ascendant", "desc_key": "Sword Cultivator" },
+    { "profession": 1, "name_key": "Mage", "desc_key": "Elemental Master" },
+    { "profession": 2, "name_key": "Priest", "desc_key": "Healer" },
+    { "profession": 3, "name_key": "Knight", "desc_key": "Defender" },
+    { "profession": 4, "name_key": "Ranger", "desc_key": "Sharpshooter" },
+    { "profession": 5, "name_key": "Berserker", "desc_key": "Rage Warrior" }
+  ],
+  "nodes": [
+    {
+      "id": 1001,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 1,
+      "sector_index": 0,
+      "max_points": 5,
+      "name_key": "Strength",
+      "desc_key": "+{value} Max Health",
+      "modifiers": [{ "type": 4, "mode": 1, "value": 5.0 }],
+      "icon_id": "icon_strength"
+    },
+    {
+      "id": 1002,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 1,
+      "sector_index": 1,
+      "max_points": 5,
+      "name_key": "Agility",
+      "desc_key": "+{value}% Movement Speed",
+      "modifiers": [{ "type": 7, "mode": 1, "value": 2.0 }],
+      "icon_id": "icon_agility"
+    },
+    {
+        "id": 2001,
+        "profession": 0,
+        "type": "Major",
+        "tier": 2,
+        "sector_index": 0,
+        "max_points": 3,
+        "name_key": "Sword Mastery",
+        "desc_key": "+{value}% Physical Damage",
+        "damage_modifiers": [{ "source_tag": 1, "target_tag": 0, "type": 1, "value": 10.0 }],
+        "icon_id": "icon_sword"
+    },
+    {
+        "id": 3001,
+        "profession": 0,
+        "type": "Core",
+        "tier": 3,
+        "sector_index": 0,
+        "max_points": 1,
+        "name_key": "Infinite Blade",
+        "desc_key": "Unlock Sword Intent System",
+        "effects": [{ "type": 0, "value": "SwordHeartComponent" }],
+        "icon_id": "icon_infinite_blade"
+    },
+    {
+        "id": 1101,
+        "profession": 1,
+        "type": "Minor",
+        "tier": 1,
+        "sector_index": 0,
+        "max_points": 5,
+        "name_key": "Intelligence",
+        "desc_key": "+{value} Mana",
+        "modifiers": [{ "type": 5, "mode": 1, "value": 10.0 }],
+        "icon_id": "icon_int"
+    },
+    {
+        "id": 1501,
+        "profession": 5,
+        "type": "Minor",
+        "tier": 1,
+        "sector_index": 0,
+        "max_points": 5,
+        "name_key": "Rage",
+        "desc_key": "Regen Health",
+        "modifiers": [{ "type": 29, "mode": 1, "value": 1.0 }],
+        "icon_id": "icon_rage"
+    }
+  ]
+}

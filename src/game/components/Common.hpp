@@ -387,6 +387,30 @@ constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向�
     // At Zoom=1, screen edge ~1280 world units, galaxy falloff at r~5
     // Scale = 5.0 / 1280 ≈ 0.004, using 0.003 for wider coverage
     constexpr float GALAXY_SCALE = 0.003f;
+    
+    // ============================================================
+    // 六扇区布局参数 (V1.1)
+    // ============================================================
+    
+    // 职业数量
+    constexpr int PROFESSION_COUNT = 6;
+    constexpr float SECTOR_ANGLE = 360.0f / PROFESSION_COUNT;  // 60°
+    
+    // 轨道半径 (世界单位)
+    constexpr float ORBIT_R1 = 150.0f;   // 本命星轨道
+    constexpr float ORBIT_R2 = 300.0f;   // Tier 1 节点轨道
+    constexpr float ORBIT_R3 = 500.0f;   // Tier 2 节点轨道
+    constexpr float ORBIT_R4 = 750.0f;   // Tier 3 / Core 节点轨道
+    
+    // 节点大小
+    constexpr float NODE_RADIUS_MINOR = 10.0f;
+    constexpr float NODE_RADIUS_MAJOR = 16.0f;
+    constexpr float NODE_RADIUS_CORE  = 22.0f;
+    constexpr float PROFESSION_STAR_RADIUS = 35.0f;
+    
+    // 扇区 Angular Padding (避免边缘拥挤)
+    constexpr float SECTOR_PADDING_DEG = 5.0f;
+    
   } // namespace Astrolabe
 
   namespace StashConfig

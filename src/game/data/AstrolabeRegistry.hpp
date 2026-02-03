@@ -15,17 +15,18 @@ public:
   }
 
   bool Load(const std::string &path);
-  const StarNode *GetNode(uint32_t id) const;
-  const std::unordered_map<uint32_t, StarNode> &GetAllNodes() const;
   
-  void RegisterNode(const StarNode &node);
+  // Update from new graph
+  void SetGraph(const TalentGraph& graph);
+
+  const AstrolabeTalentNode *GetNode(uint32_t id) const;
+  const std::unordered_map<uint32_t, AstrolabeTalentNode> &GetAllNodes() const;
   
-  // Update from current map
-  void SetMap(const AstrolabeMap& map);
+  const TalentGraph& GetGraph() const { return graph; }
 
 private:
   AstrolabeRegistry() = default;
-  std::unordered_map<uint32_t, StarNode> nodes;
+  TalentGraph graph;
 };
 
 } // namespace NoMoreDay

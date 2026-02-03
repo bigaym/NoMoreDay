@@ -30,19 +30,25 @@ namespace NoMoreDay {
 
 TEST_CASE("[Integration] Astrolabe - Node Activation") {
   auto &registry_data = AstrolabeRegistry::Get();
-  registry_data.Load("assets/data/astrolabe.json");
+  registry_data.Load("assets/data/profession_talents.json");
+  const auto& graph = registry_data.GetGraph();
 
   entt::registry registry;
   auto entity = registry.create();
   registry.emplace<PrimaryStats>(entity);
-  registry.emplace<AstrolabeComponent>(entity);
+  auto& comp = registry.emplace<AstrolabeComponent>(entity);
+  registry.emplace<CombatStats>(entity);
+  registry.emplace<GlobalModifierComponent>(entity);
+  registry.emplace<ActiveSkillsComponent>(entity);
+  registry.emplace<EquipmentComponent>(entity);
   
   SUBCASE("Node Activation") {
-      registry.get<AstrolabeComponent>(entity).available_points = 1;
-      bool success = AstrolabeSystem::activate_node(registry, entity, 0); // Origin node
+      comp.available_points = 1;
+      // 1001 is a Minor Tier 1 node
+      bool success = AstrolabeSystem::addPointToNode(registry, entity, graph, 1001);
 
       CHECK(success == true);
-      CHECK(registry.get<AstrolabeComponent>(entity).activated_nodes.count(0) > 0);
+      CHECK(comp.getNodePoints(1001) > 0);
   }
 }
 

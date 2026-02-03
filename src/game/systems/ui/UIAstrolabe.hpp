@@ -23,7 +23,7 @@ private:
     static void DrawInternal(entt::registry& registry, entt::entity player);
     static void EnsureLoaded();
 
-    static AstrolabeMap s_map;
+    // static AstrolabeMap s_map; // Removed: Using AstrolabeRegistry
     static AstrolabeView s_view;
     static bool s_loaded;
     static bool s_visible;

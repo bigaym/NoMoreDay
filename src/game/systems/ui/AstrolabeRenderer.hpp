@@ -1,7 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "game/data/TalentData.hpp"
-#include <set>
+#include "game/components/Progression.hpp"
 
 namespace NoMoreDay {
 
@@ -14,7 +14,7 @@ struct AstrolabeView {
 
 class AstrolabeRenderer {
 public:
-    static void Draw(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes, uint32_t hoveredNodeId = 0);
+    static void Draw(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId = 0);
     
     // Shader management
     static void Init(Shader galaxyShader);
@@ -22,8 +22,9 @@ public:
 
 private:
     static void DrawBackground(const AstrolabeView& view);
-    static void DrawConnections(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes);
-    static void DrawStars(const AstrolabeMap& map, const AstrolabeView& view, const std::set<uint32_t>& activatedNodes, uint32_t hoveredNodeId);
+    static void DrawOrbits(const AstrolabeView& view);
+    static void DrawNodes(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId);
+    static void DrawProfessionStars(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp);
     
     static Shader s_shGalaxy;
     static bool s_initialized;

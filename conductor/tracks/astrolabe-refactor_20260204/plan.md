@@ -11,13 +11,13 @@
 
 | 阶段 | 名称 | 核心产出 | 预计工时 | 状态 |
 |------|------|----------|----------|------|
-| **Phase 1** | 数据模型重构 | `TalentNode`, `TalentGraph`, 组件扩展 | 4h | 🔵 待开始 |
-| **Phase 2** | 布局服务 | `TalentLayoutService` 动态坐标计算 | 3h | 🔵 待开始 |
-| **Phase 3** | 加载器重写 | `TalentLoader` 新格式支持 | 3h | 🔵 待开始 |
-| **Phase 4** | 核心系统逻辑 | `AstrolabeSystem` 亲和度/誓约机制 | 5h | 🔵 待开始 |
-| **Phase 5** | UI 渲染重构 | `AstrolabeRenderer` 扇区布局 + GPU 特效 | 8h | 🔵 待开始 |
-| **Phase 6** | UI 交互重构 | `UIAstrolabe` 誓约对话框/节点交互 | 5h | 🔵 待开始 |
-| **Phase 7** | 测试与集成 | 单元测试, 视觉验证 | 4h | 🔵 待开始 |
+| **Phase 1** | 数据模型重构 | `AstrolabeTalentNode`, `TalentGraph`, 组件扩展 | 4h | ✅ 已完成 |
+| **Phase 2** | 布局服务 | `TalentLayoutService` 动态坐标计算 | 3h | ✅ 已完成 |
+| **Phase 3** | 加载器重写 | `TalentLoader` 新格式支持 | 3h | ✅ 已完成 |
+| **Phase 4** | 核心系统逻辑 | `AstrolabeSystem` 亲和度/誓约机制 | 5h | ✅ 已完成 |
+| **Phase 5** | UI 渲染重构 | `AstrolabeRenderer` 扇区布局 + GPU 特效 | 8h | ✅ 已完成 |
+| **Phase 6** | UI 交互重构 | `UIAstrolabe` 誓约对话框/节点交互 | 5h | ✅ 已完成 |
+| **Phase 7** | 测试与集成 | 单元测试, 视觉验证 | 4h | ✅ 已完成 |
 
 ---
 
@@ -41,46 +41,49 @@
 
 **目标**: 定义新的数据类型，扩展玩家组件。
 
-### Task 1.1: 定义职业枚举和节点类型
-- [ ] 在 `TalentData.hpp` 中新增 `ProfessionID` 枚举:
-  - BladeMaster(0), Spellweaver(1), SpiritWarden(2), Guardian(3), ShadowHunter(4), Berserker(5)
-- [ ] 重命名/新增 `TalentNodeType` 枚举 (Minor, Major, Core)
-- [ ] 定义 `TierThreshold` 结构体或 constexpr (Tier 1/2/3 门槛)
+### Task 1.1: 定义职业枚举和节点类型 ✅
+- [x] 在 `TalentData.hpp` 中新增 `ProfessionID` 枚举:
+  - BladeAscendant(0), Mage(1), Priest(2), Knight(3), Ranger(4), Berserker(5)
+- [x] 新增 `TalentNodeType` 枚举 (Minor, Major, Core)
+- [x] 定义 `TierThreshold` constexpr (Tier 1/2/3 门槛: 3/8/15)
 
 **文件**: `src/game/data/TalentData.hpp`
 
-### Task 1.2: 定义新的 TalentNode 结构体
-- [ ] 创建 `TalentNode` 结构体 (参考 spec.md §2.2)
-- [ ] 包含 `profession`, `tier`, `sectorIndex`, `maxPoints` 字段
-- [ ] 复用现有 `modifiers`, `effects` 等效果字段
-- [ ] 添加 `mutable float x, y` 用于运行时坐标
+### Task 1.2: 定义新的 AstrolabeTalentNode 结构体 ✅
+- [x] 创建 `AstrolabeTalentNode` 结构体 (重命名以避免与 SkillDefs.hpp 中的 TalentNode 冲突)
+- [x] 包含 `profession`, `tier`, `sectorIndex`, `maxPoints` 字段
+- [x] 复用现有 `modifiers`, `effects` 等效果字段
+- [x] 添加 `mutable float x, y` 用于运行时坐标
 
 **文件**: `src/game/data/TalentData.hpp`
 
-### Task 1.3: 定义 TalentGraph 和 ProfessionStar
-- [ ] 创建 `ProfessionStar` 结构体 (name_key, desc_key, 坐标)
-- [ ] 创建 `TalentGraph` 结构体 (professionStars[6], nodes map)
-- [ ] 添加 JSON 序列化/反序列化函数
+### Task 1.3: 定义 TalentGraph 和 ProfessionStar ✅
+- [x] 创建 `ProfessionStar` 结构体 (profession, name_key, desc_key, 坐标)
+- [x] 创建 `TalentGraph` 结构体 (professionStars[6], nodes map, findNode() 方法)
+- [x] 添加 JSON 序列化/反序列化函数 (修复了函数定义顺序和 MSVC initializer list 限制问题)
 
 **文件**: `src/game/data/TalentData.hpp`
 
-### Task 1.4: 扩展 AstrolabeComponent
-- [ ] 添加 `professionAffinity[6]` 数组
-- [ ] 添加 `mainProfession` 字段 (-1 = 未誓约)
-- [ ] 添加 `nodePoints` map (节点 ID -> 已投入点数)
-- [ ] 添加辅助方法 `getAffinity()`, `hasVow()`, `isMainProfession()`
-- [ ] 更新 `to_json` / `from_json` 函数
+### Task 1.4: 扩展 AstrolabeComponent ✅
+- [x] 添加 `professionAffinity[6]` 数组
+- [x] 添加 `mainProfession` 字段 (-1 = 未誓约)
+- [x] 添加 `nodePoints` unordered_map (节点 ID -> 已投入点数)
+- [x] 添加辅助方法 `getAffinity()`, `hasVow()`, `isMainProfession()`, `getNodePoints()`
+- [x] 更新 `to_json` / `from_json` 函数 (含向后兼容处理)
 
 **文件**: `src/game/components/Progression.hpp`
 
-### Task 1.5: 扩展布局常量
-- [ ] 在 `Constants::Astrolabe` 中添加 `PROFESSION_COUNT`, `SECTOR_ANGLE`
-- [ ] 添加轨道半径常量 `ORBIT_R1` ~ `ORBIT_R4`
-- [ ] 添加节点大小常量
+### Task 1.5: 扩展布局常量 ✅
+- [x] 在 `Constants::Astrolabe` 中添加 `PROFESSION_COUNT` (6), `SECTOR_ANGLE` (60°)
+- [x] 添加轨道半径常量 `ORBIT_R1` (150) ~ `ORBIT_R4` (750)
+- [x] 添加节点大小常量 `NODE_RADIUS_MINOR/MAJOR/CORE`, `PROFESSION_STAR_RADIUS`
+- [x] 添加扇区边距常量 `SECTOR_PADDING_DEG`
 
 **文件**: `src/game/components/Common.hpp`
 
-**交付物**: 编译通过，新类型可用于后续阶段。
+**交付物**: ✅ 编译通过，新类型可用于后续阶段。
+
+**完成时间**: 2026-02-03 23:45
 
 ---
 

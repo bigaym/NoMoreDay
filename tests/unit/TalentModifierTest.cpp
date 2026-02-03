@@ -2,6 +2,7 @@
 #include "game/components/Progression.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
+#include "game/components/EquipmentComponent.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
@@ -80,19 +81,27 @@ TEST_SUITE("TalentModifierTest") {
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
     registry.emplace<CombatStats>(player);
+    registry.emplace<GlobalModifierComponent>(player);
+    registry.emplace<ActiveSkillsComponent>(player);
+    registry.emplace<EquipmentComponent>(player);
+    registry.emplace<PrimaryStats>(player);
 
     // Register Astrolabe Node
-    AstrolabeNode node;
+    TalentGraph graph;
+    AstrolabeTalentNode node;
     node.id = 88801;
     node.modifiers.push_back({.value = 10.0f,
                               .type = StatType::MoveSpeed,
                               .mode = ModifierMode::PercentAdd,
                               .required_tags = Tag::None});
-    AstrolabeRegistry::Get().RegisterNode(node);
+    node.profession = ProfessionID::BladeAscendant;
+    node.tier = 1;
+    graph.nodes[88801] = node;
+    AstrolabeRegistry::Get().SetGraph(graph);
 
     // Setup Player Astrolabe
     auto &astro = registry.emplace<AstrolabeComponent>(player);
-    astro.activated_nodes.insert(88801);
+    astro.nodePoints[88801] = 1;
 
     // Act
     AttributePipeline::Calculate(registry, player);
@@ -102,6 +111,11 @@ TEST_SUITE("TalentModifierTest") {
     auto basePlayer = baseReg.create();
     baseReg.emplace<PlayerTag>(basePlayer);
     baseReg.emplace<CombatStats>(basePlayer);
+    baseReg.emplace<GlobalModifierComponent>(basePlayer);
+    baseReg.emplace<ActiveSkillsComponent>(basePlayer);
+    baseReg.emplace<EquipmentComponent>(basePlayer);
+    baseReg.emplace<PrimaryStats>(basePlayer);
+    
     AttributePipeline::Calculate(baseReg, basePlayer);
     float baseSpeed = baseReg.get<CombatStats>(basePlayer).raw_move_speed;
 
