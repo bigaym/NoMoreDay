@@ -16,6 +16,7 @@ extern "C" int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 #endif
 
 int main(int argc, char **argv) {
+  printf("Test runner starting...\n");
   // Set Raylib log level to Warning to suppress INFO logs
   SetTraceLogLevel(LOG_WARNING);
 

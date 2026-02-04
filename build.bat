@@ -47,7 +47,10 @@ if not exist "%VSWHERE_PATH%" set "VSWHERE_PATH=%ProgramFiles%\Microsoft Visual 
 
 set "VS_DEV_CMD_ACTIVE=0"
 where cl.exe >nul 2>nul
-if %errorlevel%==0 set "VS_DEV_CMD_ACTIVE=1"
+if %errorlevel%==0 (
+    where rc.exe >nul 2>nul
+    if !errorlevel! equ 0 set "VS_DEV_CMD_ACTIVE=1"
+)
 
 if "!VS_DEV_CMD_ACTIVE!"=="0" (
     if exist "%VSWHERE_PATH%" (

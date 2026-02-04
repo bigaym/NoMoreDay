@@ -5,6 +5,7 @@
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/components/Progression.hpp"
 #include "game/components/PlayerState.hpp"
@@ -37,7 +38,8 @@ void UIAstrolabe::Initialize() {
     
     // Initialize Renderer
     Shader galaxyShader = AssetLoadingSystem::GetShader(assets::shaders::Galaxy_Procedural.id);
-    AstrolabeRenderer::Init(galaxyShader);
+    Shader nodeShader = AssetLoadingSystem::GetShader(assets::shaders::Talent_Node.id);
+    AstrolabeRenderer::Init(galaxyShader, nodeShader);
     
     // Initialize View
     s_view.resolution = { (float)GetScreenWidth(), (float)GetScreenHeight() };
@@ -85,7 +87,6 @@ void UIAstrolabe::Draw(entt::registry& registry) {
 void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     EnsureLoaded();
     
-    // Update alpha
     float dt = GetFrameTime();
     if (s_visible) s_alpha = std::min(1.0f, s_alpha + dt * 5.0f);
     else s_alpha = std::max(0.0f, s_alpha - dt * 5.0f);
@@ -95,26 +96,10 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     s_view.alpha = s_alpha;
     s_view.time += dt;
     s_view.resolution = { (float)GetScreenWidth(), (float)GetScreenHeight() };
-    s_view.camera.offset = { s_view.resolution.x / 2.0f, s_view.resolution.y / 2.0f };
     
-    // Camera Interaction
+    // Input Handling
     if (s_alpha > 0.1f) {
-        if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
-            Vector2 delta = GetMouseDelta();
-            s_view.camera.target = Vector2Add(s_view.camera.target, Vector2Scale(delta, -1.0f / s_view.camera.zoom));
-        }
-        
-        float wheel = GetMouseWheelMove();
-        if (wheel != 0) {
-            using namespace Constants::Astrolabe;
-            Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), s_view.camera);
-            s_view.camera.offset = GetMousePosition();
-            s_view.camera.target = mouseWorldPos;
-            s_view.camera.zoom += wheel * ZOOM_SPEED * s_view.camera.zoom;
-            s_view.camera.zoom = std::clamp(s_view.camera.zoom, MIN_ZOOM, MAX_ZOOM);
-        }
-
-        if (IsKeyPressed(KEY_N)) ResetView();
+        HandleCameraInput(dt);
     }
     
     const auto& graph = AstrolabeRegistry::Get().GetGraph();
@@ -125,12 +110,8 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     uint32_t hoverId = 0;
     const AstrolabeTalentNode* hoveredNode = nullptr;
 
-    // 1. Check Nodes
     for (const auto& [id, node] : graph.nodes) {
-        float r = Constants::Astrolabe::NODE_RADIUS_MINOR * 1.2f; 
-        if (node.type == TalentNodeType::Major) r = Constants::Astrolabe::NODE_RADIUS_MAJOR * 1.2f;
-        else if (node.type == TalentNodeType::Core) r = Constants::Astrolabe::NODE_RADIUS_CORE * 1.2f;
-        
+        float r = AstrolabeRenderer::getNodeRadius(node.type) * 1.2f; 
         if (CheckCollisionPointCircle(mouseWorld, {node.x, node.y}, r)) {
             hoverId = id;
             hoveredNode = &node;
@@ -138,9 +119,8 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         }
     }
     
-    // 2. Check Profession Stars
     const ProfessionStar* hoveredStar = nullptr;
-    if (!hoveredNode) { // Prioritize nodes
+    if (!hoveredNode) {
         for (const auto& star : graph.professionStars) {
             float r = Constants::Astrolabe::PROFESSION_STAR_RADIUS * 1.2f;
             if (CheckCollisionPointCircle(mouseWorld, {star.x, star.y}, r)) {
@@ -150,15 +130,100 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         }
     }
 
+    // Layer 1: Base Rendering
     AstrolabeRenderer::Draw(graph, s_view, astroComp, hoverId);
     
-    // Draw UI Overlay
+    // Layer 2: Interaction logic
+    HandleInteraction(registry, player, graph, astroComp, hoverId, hoveredNode, hoveredStar);
+    
+    // Layer 3: UI Overlay
     float scale = UISystem::State.scaleFactor;
-    if (astroComp) {
-        UISystem::DrawTextUI(TextFormat("可用星尘: %d", astroComp->available_points), 50, 50, 30, GOLD, s_alpha);
+    DrawOverlay(astroComp, scale);
+    
+    // Layer 4: Tooltips
+    DrawTooltips(graph, astroComp, hoverId, hoveredNode, hoveredStar, scale);
+
+    // Vow Dialog (Modal)
+    if (s_showVowDialog && astroComp && !astroComp->hasVow()) {
+        const auto& star = graph.professionStars[(int)s_pendingVowProfession];
+        DrawVowDialog(registry, player, star);
+    }
+}
+
+void UIAstrolabe::HandleCameraInput(float dt) {
+    if (IsMouseButtonDown(MOUSE_RIGHT_BUTTON)) {
+        Vector2 delta = GetMouseDelta();
+        s_view.camera.target = Vector2Add(s_view.camera.target, Vector2Scale(delta, -1.0f / s_view.camera.zoom));
+    }
+    
+    float wheel = GetMouseWheelMove();
+    if (wheel != 0) {
+        using namespace Constants::Astrolabe;
+        Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), s_view.camera);
+        s_view.camera.offset = GetMousePosition();
+        s_view.camera.target = mouseWorldPos;
+        s_view.camera.zoom += wheel * ZOOM_SPEED * s_view.camera.zoom;
+        s_view.camera.zoom = std::clamp(s_view.camera.zoom, MIN_ZOOM, MAX_ZOOM);
+    }
+
+    if (IsKeyPressed(KEY_N)) ResetView();
+}
+
+void UIAstrolabe::HandleInteraction(entt::registry& registry, entt::entity player, const TalentGraph& graph, const AstrolabeComponent* comp, uint32_t hoverId, const AstrolabeTalentNode* hoveredNode, const ProfessionStar* hoveredStar) {
+    if (s_showVowDialog || s_alpha < 0.9f) return;
+
+    // Node Interaction
+    if (hoveredNode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && comp) {
+        int required = 0;
+        auto reason = AstrolabeSystem::tryUnlockNode(graph, *comp, hoverId, &required);
         
-        // Debug Affinity display
-        UISystem::DrawTextUI(TextFormat("剑修: %d", astroComp->getAffinity(ProfessionID::BladeAscendant)), 50, 100, 20, WHITE, s_alpha);
+        if (reason == AstrolabeSystem::UnlockFailReason::Success) {
+            int currentPoints = comp->getNodePoints(hoverId);
+            bool added = AstrolabeSystem::addPointToNode(registry, player, graph, hoverId);
+            
+            if (added) {
+                EmitEnergyFlow(graph, hoveredNode->profession, *hoveredNode);
+                
+                if (comp->getNodePoints(hoverId) >= hoveredNode->maxPoints && currentPoints < hoveredNode->maxPoints) {
+                    EmitSupernova(*hoveredNode);
+                }
+            }
+        } else {
+            switch(reason) {
+                case AstrolabeSystem::UnlockFailReason::NoPoints:
+                    s_failMessage = "星尘不足!";
+                    break;
+                case AstrolabeSystem::UnlockFailReason::TierLocked:
+                    s_failMessage = TextFormat("需要 %d 点亲和度 (当前: %d)", 
+                        required, comp->getAffinity(hoveredNode->profession));
+                    break;
+                case AstrolabeSystem::UnlockFailReason::CoreSealed:
+                    s_failMessage = "核心节点需先立下誓约!";
+                    break;
+                case AstrolabeSystem::UnlockFailReason::MaxPointsReached:
+                    s_failMessage = "节点已达上限!";
+                    break;
+                default:
+                    s_failMessage = "";
+            }
+            s_failMessageTimer = 2.0f;
+        }
+    }
+    
+    // Vow Interaction
+    if (hoveredStar && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && comp) {
+        if (!comp->hasVow()) {
+            s_pendingVowProfession = hoveredStar->profession;
+            s_showVowDialog = true;
+            s_vowHoldProgress = 0.0f;
+        }
+    }
+}
+
+void UIAstrolabe::DrawOverlay(const AstrolabeComponent* comp, float scale) {
+    if (comp) {
+        UISystem::DrawTextUI(TextFormat("可用星尘: %d", comp->available_points), 50, 50, 30, GOLD, s_alpha);
+        UISystem::DrawTextUI(TextFormat("剑修亲和: %d", comp->getAffinity(ProfessionID::BladeAscendant)), 50, 100, 20, WHITE, s_alpha);
     }
     
     Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
@@ -169,54 +234,12 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     if (backHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         Hide();
     }
-    
-    // Interaction
-    if (!s_showVowDialog) {
-        // Interaction - Node
-        if (hoveredNode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
-            int required = 0;
-            auto reason = AstrolabeSystem::tryUnlockNode(graph, *astroComp, hoverId, &required);
-            
-            if (reason == AstrolabeSystem::UnlockFailReason::Success) {
-                AstrolabeSystem::addPointToNode(registry, player, graph, hoverId);
-            } else {
-                switch(reason) {
-                    case AstrolabeSystem::UnlockFailReason::NoPoints:
-                        s_failMessage = "星尘不足!";
-                        break;
-                    case AstrolabeSystem::UnlockFailReason::TierLocked:
-                        s_failMessage = TextFormat("需要 %d 点亲和度 (当前: %d)", 
-                            required, astroComp->getAffinity(hoveredNode->profession));
-                        break;
-                    case AstrolabeSystem::UnlockFailReason::CoreSealed:
-                        s_failMessage = "核心节点需先立下誓约!";
-                        break;
-                    case AstrolabeSystem::UnlockFailReason::MaxPointsReached:
-                        s_failMessage = "节点已达上限!";
-                        break;
-                    default:
-                        s_failMessage = "";
-                }
-                s_failMessageTimer = 2.0f;
-            }
-        }
-        
-        // Interaction - Profession Star (Take Vow)
-        if (hoveredStar && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
-            if (!astroComp->hasVow()) {
-                s_pendingVowProfession = hoveredStar->profession;
-                s_showVowDialog = true;
-                s_vowHoldProgress = 0.0f;
-            }
-        }
-    }
 
-    // Failure Message Rendering
+    // Fail Message
     if (s_failMessageTimer > 0.0f) {
-        s_failMessageTimer -= dt;
+        s_failMessageTimer -= GetFrameTime();
         float msgAlpha = std::min(1.0f, s_failMessageTimer);
         Font font = UISystem::GetFont();
-        
         Vector2 textSize = MeasureTextEx(font, s_failMessage.c_str(), 24 * scale, 1);
         float x = ((float)GetScreenWidth() - textSize.x) / 2;
         float y = (float)GetScreenHeight() * 0.75f;
@@ -225,8 +248,11 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
                          Fade(MAROON, 0.8f * msgAlpha * s_alpha));
         UIRenderer::DrawTextUI(font, s_failMessage.c_str(), x, y, 24 * scale, Fade(WHITE, msgAlpha * s_alpha), s_alpha);
     }
-    
-    // Tooltip - Node
+}
+
+void UIAstrolabe::DrawTooltips(const TalentGraph& graph, const AstrolabeComponent* comp, uint32_t hoverId, const AstrolabeTalentNode* hoveredNode, const ProfessionStar* hoveredStar, float scale) {
+    if (s_showVowDialog) return;
+
     Vector2 mousePos = GetMousePosition();
     float tw = 350 * scale;
     float th = 120 * scale;
@@ -234,33 +260,28 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     if (mousePos.x + tw + 20 > GetScreenWidth()) mousePos.x -= (tw + 40);
     if (mousePos.y + th + 20 > GetScreenHeight()) mousePos.y -= (th + 40);
 
-    if (hoveredNode && !s_showVowDialog) {
+    if (hoveredNode) {
         DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
         DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(GOLD, s_alpha));
         
-        // Use generic text for now
-        const char* name = hoveredNode->name_key.c_str(); // Assume it's literal for prototype
+        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredNode->name_key.c_str(), mousePos.x + 40, mousePos.y + 40, 24 * scale, GOLD, s_alpha);
         
-        UIRenderer::DrawTextUI(UISystem::GetFont(), name, mousePos.x + 40, mousePos.y + 40, 24 * scale, GOLD, s_alpha);
-        
-        auto status = AstrolabeSystem::getNodeStatus(graph, *astroComp, hoverId);
-        const char* statusText = "Unknown";
+        auto status = AstrolabeSystem::getNodeStatus(graph, *comp, hoverId);
+        const char* statusText = "Locked";
         Color statusColor = GRAY;
         switch(status) {
-            case AstrolabeSystem::NodeStatus::Locked: statusText = "Locked"; break;
             case AstrolabeSystem::NodeStatus::Available: statusText = "Available"; statusColor = GREEN; break;
             case AstrolabeSystem::NodeStatus::Activated: statusText = "Activated"; statusColor = SKYBLUE; break;
             case AstrolabeSystem::NodeStatus::FullyActivated: statusText = "Maxed"; statusColor = GOLD; break;
             case AstrolabeSystem::NodeStatus::Sealed: statusText = "Sealed"; statusColor = PURPLE; break;
+            default: break;
         }
         
         UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, mousePos.x + 40, mousePos.y + 70, 18 * scale, statusColor, s_alpha);
-        
-        int pts = astroComp->getNodePoints(hoverId);
-        UIRenderer::DrawTextUI(UISystem::GetFont(), TextFormat("Points: %d / %d", pts, hoveredNode->maxPoints), mousePos.x + 250, mousePos.y + 40, 20 * scale, WHITE, s_alpha);
+        int pts = comp->getNodePoints(hoverId);
+        UIRenderer::DrawTextUI(UISystem::GetFont(), TextFormat("Points: %d / %d", pts, hoveredNode->maxPoints), mousePos.x + 220, mousePos.y + 40, 20 * scale, WHITE, s_alpha);
     }
-    // Tooltip - Profession Star
-    else if (hoveredStar && !s_showVowDialog) {
+    else if (hoveredStar) {
         DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
         DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(SKYBLUE, s_alpha));
         
@@ -269,28 +290,71 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         
         const char* statusText = "Available";
         Color statusColor = GREEN;
-        
-        if (astroComp && astroComp->hasVow()) {
-            if (astroComp->isMainProfession(hoveredStar->profession)) {
+        if (comp->hasVow()) {
+            if (comp->isMainProfession(hoveredStar->profession)) {
                 statusText = "Main Profession";
                 statusColor = GOLD;
             } else {
-                statusText = "Sealed (Only one Main)";
+                statusText = "Sealed";
                 statusColor = PURPLE;
             }
         } else {
-            statusText = "Click to Vow (Irreversible)";
+            statusText = "Click to Vow";
             statusColor = YELLOW;
         }
-        
         UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, mousePos.x + 40, mousePos.y + 95, 16 * scale, statusColor, s_alpha);
     }
+}
 
-    // Vow Dialog
-    if (s_showVowDialog && astroComp && !astroComp->hasVow()) {
-        const auto& star = graph.professionStars[(int)s_pendingVowProfession];
-        DrawVowDialog(registry, player, star);
+void UIAstrolabe::EmitEnergyFlow(const TalentGraph& graph, ProfessionID from, const AstrolabeTalentNode& to) {
+    const auto& star = graph.professionStars[(int)from];
+    Vector2 start = { star.x, star.y };
+    Vector2 end = { to.x, to.y };
+    
+    std::vector<components::GPUParticle> particles;
+    for (int i = 0; i < 30; ++i) {
+        components::GPUParticle p;
+        p.position = start;
+        
+        Vector2 dir = Vector2Normalize(Vector2Subtract(end, start));
+        float speed = 150.0f + (float)GetRandomValue(0, 150);
+        p.velocity = Vector2Scale(dir, speed);
+        
+        // Pull towards target
+        p.acceleration = Vector2Scale(dir, 800.0f);
+        
+        p.lifetime = 0.8f;
+        p.maxLifetime = 0.8f;
+        p.scale = 2.5f;
+        p.color = GOLD;
+        p.growthRate = -1.0f;
+        
+        particles.push_back(p);
     }
+    systems::GPUParticleSystem::Get().EmitBatch(particles);
+}
+
+void UIAstrolabe::EmitSupernova(const AstrolabeTalentNode& node) {
+    Vector2 pos = { node.x, node.y };
+    
+    std::vector<components::GPUParticle> particles;
+    for (int i = 0; i < 80; ++i) {
+        components::GPUParticle p;
+        p.position = pos;
+        
+        float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+        float speed = 250.0f + (float)GetRandomValue(0, 400);
+        p.velocity = { cosf(angle) * speed, sinf(angle) * speed };
+        
+        p.lifetime = 1.2f;
+        p.maxLifetime = 1.2f;
+        p.scale = 5.0f;
+        p.growthRate = -3.0f;
+        p.color = GOLD;
+        
+        particles.push_back(p);
+    }
+    systems::GPUParticleSystem::Get().EmitBatch(particles);
 }
 
 void UIAstrolabe::DrawVowDialog(entt::registry& registry, entt::entity player, const ProfessionStar& star) {

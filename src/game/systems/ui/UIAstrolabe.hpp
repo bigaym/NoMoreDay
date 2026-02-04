@@ -22,6 +22,16 @@ public:
 private:
     static void DrawInternal(entt::registry& registry, entt::entity player);
     static void DrawVowDialog(entt::registry& registry, entt::entity player, const ProfessionStar& star);
+    
+    // Refactored components
+    static void HandleCameraInput(float dt);
+    static void HandleInteraction(entt::registry& registry, entt::entity player, const TalentGraph& graph, const AstrolabeComponent* comp, uint32_t hoverId, const AstrolabeTalentNode* hoveredNode, const ProfessionStar* hoveredStar);
+    static void DrawOverlay(const AstrolabeComponent* comp, float scale);
+    static void DrawTooltips(const TalentGraph& graph, const AstrolabeComponent* comp, uint32_t hoverId, const AstrolabeTalentNode* hoveredNode, const ProfessionStar* hoveredStar, float scale);
+    
+    static void EmitEnergyFlow(const TalentGraph& graph, ProfessionID from, const AstrolabeTalentNode& to);
+    static void EmitSupernova(const AstrolabeTalentNode& node);
+    
     static void EnsureLoaded();
 
     static AstrolabeView s_view;

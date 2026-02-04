@@ -48,6 +48,10 @@ void AssetLoadingSystem::RegisterShaders() {
                                 std::string(assets::shaders::Galaxy_Procedural.vs_path),
                                 std::string(assets::shaders::Galaxy_Procedural.fs_path));
 
+  m_resourceManager->loadShader(assets::shaders::Talent_Node.id,
+                                std::string(assets::shaders::Talent_Node.vs_path),
+                                std::string(assets::shaders::Talent_Node.fs_path));
+
   // Register essential VFX textures
   m_resourceManager->registerTexture(entt::hashed_string("vfx_spirit_sword"), "assets/textures/vfx/spirit_sword.png");
   m_resourceManager->registerTexture(entt::hashed_string("vfx_noise"), "assets/textures/vfx/energy_noise.png");

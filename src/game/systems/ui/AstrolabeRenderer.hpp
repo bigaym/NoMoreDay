@@ -17,7 +17,7 @@ public:
     static void Draw(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId = 0);
     
     // Shader management
-    static void Init(Shader galaxyShader);
+    static void Init(Shader galaxyShader, Shader nodeShader);
     static void Unload();
     
     static float getNodeRadius(TalentNodeType type);
@@ -29,6 +29,7 @@ private:
     static void DrawProfessionStars(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp);
     
     static Shader s_shGalaxy;
+    static Shader s_shNode;
     static bool s_initialized;
 };
 

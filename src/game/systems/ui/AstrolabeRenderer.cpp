@@ -8,10 +8,12 @@
 namespace NoMoreDay {
 
 Shader AstrolabeRenderer::s_shGalaxy = {0};
+Shader AstrolabeRenderer::s_shNode = {0};
 bool AstrolabeRenderer::s_initialized = false;
 
-void AstrolabeRenderer::Init(Shader galaxyShader) {
+void AstrolabeRenderer::Init(Shader galaxyShader, Shader nodeShader) {
     s_shGalaxy = galaxyShader;
+    s_shNode = nodeShader;
     s_initialized = true;
 }
 
@@ -65,12 +67,7 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
         
         Vector2 tl = GetScreenToWorld2D({0, 0}, view.camera);
         Vector2 br = GetScreenToWorld2D(view.resolution, view.camera);
-        // Expand slightly to cover rotation/zoom edges if needed, but World to Screen handles view
-        // The shader uses fragCoord + camera uniforms to reconstruct world pos, so drawing a fullscreen quad is safest
-        // But DrawRectangle takes World coordinates in Mode2D
         
-        // Actually, for a fullscreen shader effect that depends on screen coords -> world coords,
-        // we essentially want to cover the visible world area.
         DrawRectangle(tl.x - 100, tl.y - 100, (br.x - tl.x) + 200, (br.y - tl.y) + 200, BLACK);
         
         EndShaderMode();
@@ -137,7 +134,31 @@ void AstrolabeRenderer::DrawProfessionStars(const TalentGraph& graph, const Astr
 }
 
 void AstrolabeRenderer::DrawNodes(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId) {
-    using namespace Constants::Astrolabe;
+    if (!s_initialized) return;
+
+    int locTime = GetShaderLocation(s_shNode, "uTime");
+    int locStatus = GetShaderLocation(s_shNode, "uStatus");
+    int locProgress = GetShaderLocation(s_shNode, "uProgress");
+    int locBaseColor = GetShaderLocation(s_shNode, "uBaseColor");
+    
+    // Sort nodes to minimize state changes? Not strictly necessary for < 100 nodes.
+    // But we should use BeginShaderMode once if possible.
+    // However, SetShaderValue needs to be called per node.
+    // In Raylib, if we are not using instancing, we have to:
+    // BeginShaderMode -> SetUniforms -> Draw -> EndShaderMode (or Flush).
+    // Actually, calling SetShaderValue affects the currently active shader?
+    // Raylib docs: SetShaderValue sets uniform in shader program.
+    // So yes, we can BeginShaderMode, then loop (SetUniform, Draw).
+    // Note: DrawRectangle creates vertices. Raylib batches them. 
+    // If we change uniforms between Draw calls, we break the batch.
+    // Raylib will flush the batch when uniforms change IF we were using rlgl directly or if it detects it.
+    // But standard `SetShaderValue` modifies the program directly. If we have queued vertices, they might be drawn with the NEW uniform value if the draw call hasn't happened yet.
+    // Raylib's `DrawRectangle` batches into `rlgl`. 
+    // To ensure uniforms apply to the specific Draw call, we must force a batch flush (rlDrawRenderBatchActive) before changing uniforms.
+    
+    BeginShaderMode(s_shNode);
+    SetShaderValue(s_shNode, locTime, &view.time, SHADER_UNIFORM_FLOAT);
+    
     for (const auto& [id, node] : graph.nodes) {
         auto status = AstrolabeSystem::NodeStatus::Locked;
         if (comp) {
@@ -145,40 +166,30 @@ void AstrolabeRenderer::DrawNodes(const TalentGraph& graph, const AstrolabeView&
         }
         
         float r = getNodeRadius(node.type);
-        if (id == hoveredNodeId) r *= 1.2f;
+        if (id == hoveredNodeId) r *= 1.2f; // Slight zoom on hover
         
-        switch (status) {
-            case AstrolabeSystem::NodeStatus::Locked:
-                DrawCircle(node.x, node.y, r, Fade(GRAY, 0.25f * view.alpha));
-                break;
-                
-            case AstrolabeSystem::NodeStatus::Available: {
-                // Amber pulse
-                float pulse = 0.6f + 0.4f * sinf(view.time * 3.0f);
-                DrawCircle(node.x, node.y, r * 1.3f, Fade(GOLD, 0.2f * pulse * view.alpha));
-                DrawCircle(node.x, node.y, r, Fade(ORANGE, view.alpha));
-                break;
-            }
-                
-            case AstrolabeSystem::NodeStatus::Activated:
-                DrawCircle(node.x, node.y, r, Fade(SKYBLUE, view.alpha));
-                // Progress ring
-                if (comp) {
-                    float progress = (float)comp->getNodePoints(id) / node.maxPoints;
-                    DrawRing({node.x, node.y}, r+2, r+5, 0, 360 * progress, 32, Fade(SKYBLUE, view.alpha));
-                }
-                break;
-                
-            case AstrolabeSystem::NodeStatus::FullyActivated:
-                DrawCircle(node.x, node.y, r * 1.1f, Fade(GOLD, 0.5f * view.alpha)); // Outer glow
-                DrawCircle(node.x, node.y, r, Fade(GOLD, view.alpha));
-                break;
-                
-            case AstrolabeSystem::NodeStatus::Sealed:
-                DrawCircle(node.x, node.y, r, Fade(DARKPURPLE, 0.6f * view.alpha));
-                break;
+        int statusInt = (int)status;
+        float progress = 0.0f;
+        if (comp) {
+             progress = (float)comp->getNodePoints(id) / node.maxPoints;
         }
+        
+        Vector4 baseColor = {0.8f, 0.8f, 0.8f, 1.0f}; // Default Grey
+        
+        // Force flush before changing uniforms for this specific node
+        rlDrawRenderBatchActive();
+        
+        SetShaderValue(s_shNode, locStatus, &statusInt, SHADER_UNIFORM_INT);
+        SetShaderValue(s_shNode, locProgress, &progress, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(s_shNode, locBaseColor, &baseColor, SHADER_UNIFORM_VEC4);
+        
+        // Draw Quad centered at node.x, node.y with radius r
+        // DrawRectangle takes top-left.
+        // Size is 2*r.
+        DrawRectangle(node.x - r, node.y - r, r * 2, r * 2, WHITE);
     }
+    
+    EndShaderMode();
 }
 
 } // namespace NoMoreDay
