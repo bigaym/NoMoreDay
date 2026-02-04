@@ -12,6 +12,7 @@ uniform float uTime;
 uniform vec2 uResolution;
 uniform vec2 uOffset;      // camera.target
 uniform float uZoom;       // camera.zoom
+uniform vec2 uCameraOffset; // camera.offset (Added for correct world mapping)
 uniform vec2 uGalaxyCenter;
 uniform float uGalaxyScale;
 
@@ -216,7 +217,7 @@ vec3 RenderStarLayer(vec2 uv, float scale, vec3 structure, float seedOffset, flo
 void main() {
     // 1. Transform Setup
     vec2 screenPos = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
-    vec2 screenCenter = uResolution * 0.5;
+    vec2 screenCenter = uCameraOffset; // Correctly use the camera's screen-space offset
     vec2 worldPos = (screenPos - screenCenter) / uZoom + uOffset;
     vec2 p = (worldPos - uGalaxyCenter) * uGalaxyScale;
     // 2. Local UV and Radial calc

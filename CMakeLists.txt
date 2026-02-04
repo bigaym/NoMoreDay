@@ -11,13 +11,7 @@ if(MSVC)
     add_compile_options(/wd4996 /wd4541 /Zc:__cplusplus /utf-8 /bigobj)
 endif()
 
-# --- Build Acceleration & Optimization Settings ---
-find_program(CCACHE_PROGRAM ccache)
-if(CCACHE_PROGRAM)
-    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
-    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
-    message(STATUS "[Optimization] Using ccache: ${CCACHE_PROGRAM}")
-endif()
+
 
 # Global LTO (IPO) check - needs to be before target definitions
 if(ENABLE_LTO)

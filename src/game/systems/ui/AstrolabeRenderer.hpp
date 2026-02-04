@@ -30,6 +30,7 @@ private:
     
     static Shader s_shGalaxy;
     static Shader s_shNode;
+    static Texture2D s_whitePixel; // 1x1 white texture for UV-correct drawing
     static bool s_initialized;
 };
 

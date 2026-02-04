@@ -64,6 +64,7 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
     codepoints.push_back(i);
   codepoints.push_back(0x2022); // •
   codepoints.push_back(0x2605); // ★
+  codepoints.push_back(0x26A0); // ⚠️
   for (int i = 0x3000; i <= 0x303F; ++i)
     codepoints.push_back(i);
   for (int i = 0x4E00; i <= 0x9FFF; ++i)

@@ -32,12 +32,7 @@ set "GENERATOR="
 set "PARALLEL_JOBS=16"
 set "NEED_CONFIG=0"
 
-REM Auto-detect Ninja (Disabled in favor of MSVC default, but kept for reference)
-REM where ninja >nul 2>nul
-REM if %errorlevel%==0 (
-REM     set "GENERATOR=-G Ninja"
-REM     echo [Build] Auto-detected Ninja generator.
-REM )
+
 
 REM ============================================================================
 REM Visual Studio Environment Setup
