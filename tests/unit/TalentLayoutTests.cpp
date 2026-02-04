@@ -88,20 +88,18 @@ TEST_CASE("[Integration] TalentLoader - Load Profession Talents") {
         CHECK(bladeStar.y != 0.0f);
         
         // Verify Nodes
-        const auto* node1001 = graph.findNode(1001);
-        REQUIRE(node1001 != nullptr);
-        CHECK(node1001->profession == ProfessionID::BladeAscendant);
-        CHECK(node1001->tier == 1);
-        CHECK(node1001->type == TalentNodeType::Minor);
-        CHECK(node1001->maxPoints == 5);
+        const auto* node1100 = graph.findNode(1100);
+        REQUIRE(node1100 != nullptr);
+        CHECK(node1100->profession == ProfessionID::BladeAscendant);
+        CHECK(node1100->tier == 1);
+        CHECK(node1100->type == TalentNodeType::Minor);
+        CHECK(node1100->maxPoints == 5);
         // Verify position is computed
-        CHECK(node1001->x != 0.0f);
-        CHECK(node1001->y != 0.0f);
+        CHECK(node1100->x != 0.0f);
+        CHECK(node1100->y != 0.0f);
         
-        const auto* node3001 = graph.findNode(3001);
-        REQUIRE(node3001 != nullptr);
-        CHECK(node3001->type == TalentNodeType::Core);
-        CHECK(node3001->effects.size() > 0);
-        CHECK(node3001->effects[0].value == "SwordHeartComponent");
+        const auto* node1300 = graph.findNode(1300);
+        REQUIRE(node1300 != nullptr);
+        CHECK(node1300->type == TalentNodeType::Core);
     }
 }

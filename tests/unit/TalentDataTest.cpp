@@ -1,53 +1,44 @@
 #include "doctest.h"
+#include "game/data/TalentData.hpp"
 #include "game/data/TalentLoader.hpp"
 
 using namespace NoMoreDay;
 
 TEST_SUITE("TalentDataTest") {
-    TEST_CASE("[Unit] TalentLoader - Default Map Generation") {
-        AstrolabeMap map;
-        TalentLoader::CreateDefaultMap(map);
+    TEST_CASE("[Unit] TalentGraph - Serialization") {
+        TalentGraph graph;
         
-        CHECK(map.constellations.size() >= 3);
-        CHECK(map.stars.size() >= 4);
+        // Setup some test data
+        AstrolabeTalentNode n1;
+        n1.id = 1100;
+        n1.name_key = "test_node";
+        n1.profession = ProfessionID::BladeAscendant;
+        n1.type = TalentNodeType::Minor;
+        n1.maxPoints = 5;
+        graph.nodes[1100] = n1;
         
-        // Check root node
-        auto it = map.stars.find(1001);
-        REQUIRE(it != map.stars.end());
-        CHECK(it->second.name_key == "star_origin_root");
-        CHECK(it->second.connections.size() >= 2); // Connects to blade1 and guard1
-    }
-    
-    TEST_CASE("[Unit] TalentLoader - JSON Serialization") {
-        AstrolabeMap map;
-        TalentLoader::CreateDefaultMap(map);
+        graph.professionStars[(int)ProfessionID::BladeAscendant].name_key = "Blade Ascendant Star";
         
+        // Manual JSON test
         nlohmann::json j;
-        j["constellations"] = map.constellations;
-        
-        std::vector<StarNode> starList;
-        for (auto& pair : map.stars) starList.push_back(pair.second);
-        j["stars"] = starList;
+        j["nodes"] = nlohmann::json::array();
+        for (const auto& [id, node] : graph.nodes) {
+            j["nodes"].push_back(node);
+        }
         
         std::string serialized = j.dump();
-        
-        AstrolabeMap loadedMap;
         nlohmann::json j2 = nlohmann::json::parse(serialized);
         
-        if (j2.contains("constellations")) {
-            for (const auto& c_json : j2["constellations"]) {
-                loadedMap.constellations.push_back(c_json.get<Constellation>());
-            }
-        }
-        if (j2.contains("stars")) {
-            for (const auto& s_json : j2["stars"]) {
-                StarNode node = s_json.get<StarNode>();
-                loadedMap.stars[node.id] = node;
-            }
-        }
+        CHECK(j2.contains("nodes"));
+        CHECK(j2["nodes"].is_array());
+        CHECK(j2["nodes"].size() == 1);
         
-        CHECK(loadedMap.constellations.size() == map.constellations.size());
-        CHECK(loadedMap.stars.size() == map.stars.size());
-        CHECK(loadedMap.stars[1001].name_key == map.stars[1001].name_key);
+        AstrolabeTalentNode loadedNode;
+        from_json(j2["nodes"][0], loadedNode);
+        
+        CHECK(loadedNode.id == 1100);
+        CHECK(loadedNode.name_key == "test_node");
+        CHECK(loadedNode.profession == ProfessionID::BladeAscendant);
+        CHECK(loadedNode.maxPoints == 5);
     }
 }

@@ -8,6 +8,15 @@ namespace NoMoreDay {
 class AstrolabeSystem {
 public:
     enum class NodeStatus { Locked, Available, Activated, FullyActivated, Sealed };
+    
+    enum class UnlockFailReason {
+        Success,
+        NoPoints,           // 星尘不足
+        TierLocked,         // 亲和度不足
+        CoreSealed,         // 核心节点需誓约
+        MaxPointsReached,   // 节点已满
+        NodeNotFound        // 节点不存在
+    };
 
     // --- 解锁逻辑 ---
     
@@ -16,6 +25,14 @@ public:
         const TalentGraph& graph,
         const AstrolabeComponent& comp,
         uint32_t nodeId
+    );
+
+    // 尝试解锁并返回详细原因
+    static UnlockFailReason tryUnlockNode(
+        const TalentGraph& graph,
+        const AstrolabeComponent& comp,
+        uint32_t nodeId,
+        int* outRequiredAffinity = nullptr
     );
     
     // 为节点投入 1 点
@@ -59,6 +76,7 @@ public:
     );
     
     // --- 属性应用 ---
+    [[deprecated("Use AttributePipeline::Calculate directly. This is reserved for future manual refresh.")]]
     static void applyTalentStats(
         entt::registry& registry,
         entt::entity player,

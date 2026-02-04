@@ -4,11 +4,21 @@
 namespace NoMoreDay {
 
 bool AstrolabeSystem::canUnlockNode(const TalentGraph& graph, const AstrolabeComponent& comp, uint32_t nodeId) {
+    return tryUnlockNode(graph, comp, nodeId) == UnlockFailReason::Success;
+}
+
+AstrolabeSystem::UnlockFailReason AstrolabeSystem::tryUnlockNode(
+    const TalentGraph& graph,
+    const AstrolabeComponent& comp,
+    uint32_t nodeId,
+    int* outRequiredAffinity
+) {
     const auto* node = graph.findNode(nodeId);
-    if (!node) return false;
+    if (!node) return UnlockFailReason::NodeNotFound;
 
     // Check Max Points
-    if (comp.getNodePoints(nodeId) >= node->maxPoints) return false;
+    if (comp.getNodePoints(nodeId) >= node->maxPoints) 
+        return UnlockFailReason::MaxPointsReached;
     
     // Check Tier Requirement
     int affinity = comp.getAffinity(node->profession);
@@ -16,15 +26,21 @@ bool AstrolabeSystem::canUnlockNode(const TalentGraph& graph, const AstrolabeCom
     if (node->tier == 2) required = TierThreshold::TIER_2;
     else if (node->tier == 3) required = TierThreshold::TIER_3;
     
-    if (affinity < required) return false;
+    if (affinity < required) {
+        if (outRequiredAffinity) *outRequiredAffinity = required;
+        return UnlockFailReason::TierLocked;
+    }
     
     // Check Core Vow Requirement
     if (node->type == TalentNodeType::Core) {
-        if (!comp.hasVow()) return false; // Must have vowed
-        if (!comp.isMainProfession(node->profession)) return false; // Must be main
+        if (!comp.hasVow() || !comp.isMainProfession(node->profession))
+            return UnlockFailReason::CoreSealed;
     }
 
-    return true;
+    if (comp.available_points <= 0)
+        return UnlockFailReason::NoPoints;
+
+    return UnlockFailReason::Success;
 }
 
 bool AstrolabeSystem::addPointToNode(entt::registry& registry, entt::entity player, const TalentGraph& graph, uint32_t nodeId) {

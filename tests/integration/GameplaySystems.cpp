@@ -44,11 +44,11 @@ TEST_CASE("[Integration] Astrolabe - Node Activation") {
   
   SUBCASE("Node Activation") {
       comp.available_points = 1;
-      // 1001 is a Minor Tier 1 node
-      bool success = AstrolabeSystem::addPointToNode(registry, entity, graph, 1001);
+      // 1100 is a Minor Tier 1 node
+      bool success = AstrolabeSystem::addPointToNode(registry, entity, graph, 1100);
 
       CHECK(success == true);
-      CHECK(comp.getNodePoints(1001) > 0);
+      CHECK(comp.getNodePoints(1100) > 0);
   }
 }
 

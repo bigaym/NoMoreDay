@@ -20,6 +20,13 @@ bool UIAstrolabe::s_loaded = false;
 bool UIAstrolabe::s_visible = false;
 float UIAstrolabe::s_alpha = 0.0f;
 
+std::string UIAstrolabe::s_failMessage = "";
+float UIAstrolabe::s_failMessageTimer = 0.0f;
+
+ProfessionID UIAstrolabe::s_pendingVowProfession = ProfessionID::BladeAscendant;
+float UIAstrolabe::s_vowHoldProgress = 0.0f;
+bool UIAstrolabe::s_showVowDialog = false;
+
 void UIAstrolabe::Initialize() {
     if (s_loaded) return;
     
@@ -163,16 +170,60 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         Hide();
     }
     
-    // Interaction - Node
-    if (hoveredNode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
-        AstrolabeSystem::addPointToNode(registry, player, graph, hoverId);
-    }
-    
-    // Interaction - Profession Star (Take Vow)
-    if (hoveredStar && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
-        if (!astroComp->hasVow()) {
-             AstrolabeSystem::takeVow(registry, player, hoveredStar->profession);
+    // Interaction
+    if (!s_showVowDialog) {
+        // Interaction - Node
+        if (hoveredNode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
+            int required = 0;
+            auto reason = AstrolabeSystem::tryUnlockNode(graph, *astroComp, hoverId, &required);
+            
+            if (reason == AstrolabeSystem::UnlockFailReason::Success) {
+                AstrolabeSystem::addPointToNode(registry, player, graph, hoverId);
+            } else {
+                switch(reason) {
+                    case AstrolabeSystem::UnlockFailReason::NoPoints:
+                        s_failMessage = "星尘不足!";
+                        break;
+                    case AstrolabeSystem::UnlockFailReason::TierLocked:
+                        s_failMessage = TextFormat("需要 %d 点亲和度 (当前: %d)", 
+                            required, astroComp->getAffinity(hoveredNode->profession));
+                        break;
+                    case AstrolabeSystem::UnlockFailReason::CoreSealed:
+                        s_failMessage = "核心节点需先立下誓约!";
+                        break;
+                    case AstrolabeSystem::UnlockFailReason::MaxPointsReached:
+                        s_failMessage = "节点已达上限!";
+                        break;
+                    default:
+                        s_failMessage = "";
+                }
+                s_failMessageTimer = 2.0f;
+            }
         }
+        
+        // Interaction - Profession Star (Take Vow)
+        if (hoveredStar && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && astroComp && s_alpha > 0.9f) {
+            if (!astroComp->hasVow()) {
+                s_pendingVowProfession = hoveredStar->profession;
+                s_showVowDialog = true;
+                s_vowHoldProgress = 0.0f;
+            }
+        }
+    }
+
+    // Failure Message Rendering
+    if (s_failMessageTimer > 0.0f) {
+        s_failMessageTimer -= dt;
+        float msgAlpha = std::min(1.0f, s_failMessageTimer);
+        Font font = UISystem::GetFont();
+        
+        Vector2 textSize = MeasureTextEx(font, s_failMessage.c_str(), 24 * scale, 1);
+        float x = ((float)GetScreenWidth() - textSize.x) / 2;
+        float y = (float)GetScreenHeight() * 0.75f;
+        
+        DrawRectangleRec({x - 20 * scale, y - 10 * scale, textSize.x + 40 * scale, textSize.y + 20 * scale}, 
+                         Fade(MAROON, 0.8f * msgAlpha * s_alpha));
+        UIRenderer::DrawTextUI(font, s_failMessage.c_str(), x, y, 24 * scale, Fade(WHITE, msgAlpha * s_alpha), s_alpha);
     }
     
     // Tooltip - Node
@@ -183,7 +234,7 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     if (mousePos.x + tw + 20 > GetScreenWidth()) mousePos.x -= (tw + 40);
     if (mousePos.y + th + 20 > GetScreenHeight()) mousePos.y -= (th + 40);
 
-    if (hoveredNode) {
+    if (hoveredNode && !s_showVowDialog) {
         DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
         DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(GOLD, s_alpha));
         
@@ -209,7 +260,7 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         UIRenderer::DrawTextUI(UISystem::GetFont(), TextFormat("Points: %d / %d", pts, hoveredNode->maxPoints), mousePos.x + 250, mousePos.y + 40, 20 * scale, WHITE, s_alpha);
     }
     // Tooltip - Profession Star
-    else if (hoveredStar) {
+    else if (hoveredStar && !s_showVowDialog) {
         DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
         DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(SKYBLUE, s_alpha));
         
@@ -233,6 +284,84 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
         }
         
         UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, mousePos.x + 40, mousePos.y + 95, 16 * scale, statusColor, s_alpha);
+    }
+
+    // Vow Dialog
+    if (s_showVowDialog && astroComp && !astroComp->hasVow()) {
+        const auto& star = graph.professionStars[(int)s_pendingVowProfession];
+        DrawVowDialog(registry, player, star);
+    }
+}
+
+void UIAstrolabe::DrawVowDialog(entt::registry& registry, entt::entity player, const ProfessionStar& star) {
+    float scale = UISystem::State.scaleFactor;
+    Font font = UISystem::GetFont();
+    float dt = GetFrameTime();
+    float screenWidth = (float)GetScreenWidth();
+    float screenHeight = (float)GetScreenHeight();
+
+    // Dialog size
+    float w = 550.0f * scale;
+    float h = 320.0f * scale;
+    float x = (screenWidth - w) / 2;
+    float y = (screenHeight - h) / 2;
+    
+    // Background
+    DrawRectangleRec({x, y, w, h}, Fade(BLACK, 0.95f * s_alpha));
+    DrawRectangleLinesEx({x, y, w, h}, 2.0f, Fade(GOLD, s_alpha));
+    
+    // Title
+    UIRenderer::DrawTextUI(font, "⚠️ 深渊凝视 (The Vow)", x + 30 * scale, y + 30 * scale, 32 * scale, GOLD, s_alpha);
+    
+    // Profession Info
+    UIRenderer::DrawTextUI(font, TextFormat("你即将与 [%s] 职业建立不可逆转的誓约。", star.name_key.c_str()), 
+               x + 30 * scale, y + 85 * scale, 22 * scale, WHITE, s_alpha);
+    
+    // Warning text
+    UIRenderer::DrawTextUI(font, "• 解锁所有该职业的核心天赋 (Core Nodes)", x + 50 * scale, y + 130 * scale, 18 * scale, GREEN, s_alpha);
+    UIRenderer::DrawTextUI(font, "• 其他职业的核心天赋将被永久封印", x + 50 * scale, y + 160 * scale, 18 * scale, RED, s_alpha);
+    UIRenderer::DrawTextUI(font, "• 誓约一旦立下，不可更改或撤销", x + 50 * scale, y + 190 * scale, 18 * scale, ORANGE, s_alpha);
+    
+    // Hold to confirm button
+    Rectangle confirmBtn = {x + w/2 - 180*scale, y + h - 100*scale, 360*scale, 60*scale};
+    bool hover = CheckCollisionPointRec(GetMousePosition(), confirmBtn);
+    
+    // Progress bar
+    DrawRectangleRec(confirmBtn, Fade(DARKGRAY, 0.8f * s_alpha));
+    DrawRectangleRec({confirmBtn.x, confirmBtn.y, confirmBtn.width * s_vowHoldProgress, confirmBtn.height}, 
+                     Fade(GOLD, s_alpha));
+    DrawRectangleLinesEx(confirmBtn, 2.0f, Fade(hover ? GOLD : GRAY, s_alpha));
+    
+    const char* btnText = s_vowHoldProgress > 0.01f 
+        ? TextFormat("确认中... (%.1fs)", VOW_HOLD_DURATION * (1.0f - s_vowHoldProgress))
+        : "长按此处确认誓约 (2秒)";
+    
+    Vector2 textSize = MeasureTextEx(font, btnText, 20 * scale, 1);
+    UIRenderer::DrawTextUI(font, btnText, confirmBtn.x + (confirmBtn.width - textSize.x)/2, confirmBtn.y + (confirmBtn.height - textSize.y)/2, 20 * scale, WHITE, s_alpha);
+    
+    // Cancel button
+    Rectangle cancelBtn = {x + w/2 - 60*scale, y + h - 35*scale, 120*scale, 30*scale};
+    bool cancelHover = CheckCollisionPointRec(GetMousePosition(), cancelBtn);
+    
+    const char* cancelText = "[ 取消 ]";
+    Vector2 cancelSize = MeasureTextEx(font, cancelText, 18 * scale, 1);
+    UIRenderer::DrawTextUI(font, cancelText, cancelBtn.x + (cancelBtn.width - cancelSize.x)/2, cancelBtn.y, 18 * scale, cancelHover ? YELLOW : GRAY, s_alpha);
+    
+    if (cancelHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        s_showVowDialog = false;
+        s_vowHoldProgress = 0.0f;
+    }
+    
+    // Hold logic
+    if (hover && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+        s_vowHoldProgress += dt / VOW_HOLD_DURATION;
+        if (s_vowHoldProgress >= 1.0f) {
+            AstrolabeSystem::takeVow(registry, player, star.profession);
+            s_showVowDialog = false;
+            s_vowHoldProgress = 0.0f;
+        }
+    } else {
+        s_vowHoldProgress = std::max(0.0f, s_vowHoldProgress - dt * 2.0f);  // Fast decay
     }
 }
 

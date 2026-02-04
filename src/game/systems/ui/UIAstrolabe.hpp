@@ -21,13 +21,23 @@ public:
 
 private:
     static void DrawInternal(entt::registry& registry, entt::entity player);
+    static void DrawVowDialog(entt::registry& registry, entt::entity player, const ProfessionStar& star);
     static void EnsureLoaded();
 
-    // static AstrolabeMap s_map; // Removed: Using AstrolabeRegistry
     static AstrolabeView s_view;
     static bool s_loaded;
     static bool s_visible;
     static float s_alpha;
+
+    // Failure message state
+    static std::string s_failMessage;
+    static float s_failMessageTimer;
+
+    // Vow confirmation state
+    static ProfessionID s_pendingVowProfession;
+    static float s_vowHoldProgress;
+    static constexpr float VOW_HOLD_DURATION = 2.0f;
+    static bool s_showVowDialog;
 };
 
 } // namespace NoMoreDay

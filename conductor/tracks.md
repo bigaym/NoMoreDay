@@ -275,12 +275,22 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Astrolabe Visual Polish
+## [x] Track: Astrolabe Visual Polish
 - **Folder:** [./conductor/tracks/astrolabe-visual-polish_20260204/](./conductor/tracks/astrolabe-visual-polish_20260204/)
 - **Description:** 补全星盘 (Astrolabe) 六扇区布局的视觉实现。增强节点状态渲染（Locked/Available/Activated/FullyActivated/Sealed），添加脉动光晕、进度环、外发光等特效，加深轨道环与扇区分界线对比度，并填充测试节点数据以验证布局。
-- **Status:** IN PROGRESS
+- **Status:** COMPLETED (2026-02-04)
 - **Priority:** HIGH
 - **Estimated Time:** 4-5 hours
+
+---
+
+## [x] Track: Astrolabe Audit Polish (Post-Refactor Fixes)
+- **Folder:** [./conductor/tracks/astrolabe-polish/](./conductor/tracks/astrolabe-polish/)
+- **Description:** 修复星系天赋系统重构后的审计缺陷。包括：(FIX-1) 誓约二次确认机制（长按 2 秒 + 对话框）、(FIX-2) 测试数据 ID 一致性、(FIX-3) AstrolabeSystem 单元测试覆盖、(FIX-4) 解锁失败 UI 反馈、(FIX-5) GPU 节点特效 Shader (可选，已评估)、(FIX-6) 冗余 API 清理。
+- **Status:** COMPLETED (2026-02-04)
+- **Priority:** HIGH
+- **Estimated Time:** 10-12 hours (1.5-2 工作日)
+- **Depends On:** `astrolabe-refactor_20260204` (已归档)
 
 ---
 
