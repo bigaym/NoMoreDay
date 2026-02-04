@@ -16,7 +16,7 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
-#include "game/systems/skill/AstrolabeSystem.hpp"
+#include "game/systems/skill/AstrolabeSystem.hpp"    
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/ShadowSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
@@ -44,11 +44,11 @@ TEST_CASE("[Integration] Astrolabe - Node Activation") {
   
   SUBCASE("Node Activation") {
       comp.available_points = 1;
-      // 1100 is a Minor Tier 1 node
-      bool success = AstrolabeSystem::addPointToNode(registry, entity, graph, 1100);
+      // 1001 is a Minor Tier 1 node (炼体术)
+      bool success = AstrolabeSystem::addPointToNode(registry, entity, graph, 1001);
 
       CHECK(success == true);
-      CHECK(comp.getNodePoints(1100) > 0);
+      CHECK(comp.getNodePoints(1001) > 0);
   }
 }
 

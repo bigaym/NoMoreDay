@@ -535,6 +535,12 @@ void AttributePipeline::Calculate(entt::registry &registry,
       }
     }
   }
+  Tag player_tags = Tag::None;
+  if (auto* stance = registry.try_get<MovementStanceComponent>(entity)) {
+    if (stance->stance == MovementStance::SwordRiding)
+      player_tags = player_tags | Tag::SwordRiding;
+  }
+
   if (auto *as = registry.try_get<AstrolabeComponent>(entity)) {
     // New system: use nodePoints map
     if (!as->nodePoints.empty()) {
@@ -542,7 +548,7 @@ void AttributePipeline::Calculate(entt::registry &registry,
             if (points <= 0) continue;
             if (const auto *n = AstrolabeRegistry::Get().GetNode(nid)) {
                 for (const auto &m : n->modifiers) {
-                    if (m.required_tags == Tag::None)
+                    if (m.IsActive(player_tags))
                         ApplyStatModifier(calcs, m.type, m.mode, m.value * static_cast<float>(points));
                 }
             }
@@ -552,7 +558,7 @@ void AttributePipeline::Calculate(entt::registry &registry,
         for (uint32_t nid : as->activated_nodes) {
             if (const auto *n = AstrolabeRegistry::Get().GetNode(nid)) {
                 for (const auto &m : n->modifiers) {
-                    if (m.required_tags == Tag::None)
+                    if (m.IsActive(player_tags))
                         ApplyStatModifier(calcs, m.type, m.mode, m.value);
                 }
             }
@@ -564,6 +570,25 @@ void AttributePipeline::Calculate(entt::registry &registry,
   float dex = calcs[static_cast<size_t>(StatType::Dexterity)].Result();
   float intel = calcs[static_cast<size_t>(StatType::Intelligence)].Result();
   float vit = calcs[static_cast<size_t>(StatType::Vitality)].Result();
+
+  // --- Astrolabe Second Pass: Conversions & Special Effects ---
+  if (auto *as = registry.try_get<AstrolabeComponent>(entity)) {
+    if (const auto* nreg = &AstrolabeRegistry::Get()) {
+      for (const auto& [nid, points] : as->nodePoints) {
+        if (points <= 0) continue;
+        if (const auto* n = nreg->GetNode(nid)) {
+          // Apply Conversions
+          for (const auto& cv : n->conversions) {
+            float sourceVal = calcs[static_cast<size_t>(cv.source)].Result();
+            ApplyStatModifier(calcs, cv.target, ModifierMode::Flat, sourceVal * cv.ratio * points);
+          }
+          // Note: damage_modifiers are technically separate but can be handled here 
+          // as they are essentially StatType-specific multipliers for the damage array
+        }
+      }
+    }
+  }
+
   stats.effective_strength = str;
   stats.effective_dexterity = dex;
   stats.effective_intelligence = intel;

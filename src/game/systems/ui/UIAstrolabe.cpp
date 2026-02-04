@@ -255,54 +255,73 @@ void UIAstrolabe::DrawTooltips(const TalentGraph& graph, const AstrolabeComponen
 
     Vector2 mousePos = GetMousePosition();
     float tw = 350 * scale;
-    float th = 120 * scale;
+    float th = 160 * scale; // Increased height for vertical layout
     
     if (mousePos.x + tw + 20 > GetScreenWidth()) mousePos.x -= (tw + 40);
     if (mousePos.y + th + 20 > GetScreenHeight()) mousePos.y -= (th + 40);
 
+    float padding = 20;
+    float startX = mousePos.x + padding;
+    float startY = mousePos.y + padding;
+    float contentX = startX + 20 * scale;
+    float currentY = startY + 20 * scale;
+
     if (hoveredNode) {
-        DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
-        DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(GOLD, s_alpha));
+        DrawRectangleRec({startX, startY, tw, th}, Fade(BLACK, 0.95f * s_alpha));
+        DrawRectangleLinesEx({startX, startY, tw, th}, 1.0f, Fade(GOLD, s_alpha));
         
-        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredNode->name_key.c_str(), mousePos.x + 40, mousePos.y + 40, 24 * scale, GOLD, s_alpha);
+        // 1. Name
+        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredNode->name_key.c_str(), contentX, currentY, 24 * scale, GOLD, s_alpha);
+        currentY += 35 * scale;
         
+        // 2. Description
+        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredNode->desc_key.c_str(), contentX, currentY, 16 * scale, LIGHTGRAY, s_alpha);
+        currentY += 30 * scale;
+        
+        // 3. Status
         auto status = AstrolabeSystem::getNodeStatus(graph, *comp, hoverId);
-        const char* statusText = "Locked";
+        const char* statusText = "未解锁";
         Color statusColor = GRAY;
         switch(status) {
-            case AstrolabeSystem::NodeStatus::Available: statusText = "Available"; statusColor = GREEN; break;
-            case AstrolabeSystem::NodeStatus::Activated: statusText = "Activated"; statusColor = SKYBLUE; break;
-            case AstrolabeSystem::NodeStatus::FullyActivated: statusText = "Maxed"; statusColor = GOLD; break;
-            case AstrolabeSystem::NodeStatus::Sealed: statusText = "Sealed"; statusColor = PURPLE; break;
+            case AstrolabeSystem::NodeStatus::Available: statusText = "可解锁"; statusColor = GREEN; break;
+            case AstrolabeSystem::NodeStatus::Activated: statusText = "已激活"; statusColor = SKYBLUE; break;
+            case AstrolabeSystem::NodeStatus::FullyActivated: statusText = "已满级"; statusColor = GOLD; break;
+            case AstrolabeSystem::NodeStatus::Sealed: statusText = "被封印"; statusColor = PURPLE; break;
             default: break;
         }
         
-        UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, mousePos.x + 40, mousePos.y + 70, 18 * scale, statusColor, s_alpha);
+        UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, contentX, currentY, 18 * scale, statusColor, s_alpha);
+        currentY += 25 * scale;
+
+        // 4. Points
         int pts = comp->getNodePoints(hoverId);
-        UIRenderer::DrawTextUI(UISystem::GetFont(), TextFormat("Points: %d / %d", pts, hoveredNode->maxPoints), mousePos.x + 220, mousePos.y + 40, 20 * scale, WHITE, s_alpha);
+        UIRenderer::DrawTextUI(UISystem::GetFont(), TextFormat("投入点数: %d / %d", pts, hoveredNode->maxPoints), contentX, currentY, 18 * scale, WHITE, s_alpha);
     }
     else if (hoveredStar) {
-        DrawRectangleRec({mousePos.x + 20, mousePos.y + 20, tw, th}, Fade(BLACK, 0.9f * s_alpha));
-        DrawRectangleLinesEx({mousePos.x + 20, mousePos.y + 20, tw, th}, 1.0f, Fade(SKYBLUE, s_alpha));
+        DrawRectangleRec({startX, startY, tw, th}, Fade(BLACK, 0.95f * s_alpha));
+        DrawRectangleLinesEx({startX, startY, tw, th}, 1.0f, Fade(SKYBLUE, s_alpha));
         
-        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredStar->name_key.c_str(), mousePos.x + 40, mousePos.y + 40, 24 * scale, SKYBLUE, s_alpha);
-        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredStar->desc_key.c_str(), mousePos.x + 40, mousePos.y + 70, 16 * scale, WHITE, s_alpha);
+        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredStar->name_key.c_str(), contentX, currentY, 24 * scale, SKYBLUE, s_alpha);
+        currentY += 35 * scale;
+
+        UIRenderer::DrawTextUI(UISystem::GetFont(), hoveredStar->desc_key.c_str(), contentX, currentY, 16 * scale, WHITE, s_alpha);
+        currentY += 30 * scale;
         
-        const char* statusText = "Available";
+        const char* statusText = "可解锁";
         Color statusColor = GREEN;
         if (comp->hasVow()) {
             if (comp->isMainProfession(hoveredStar->profession)) {
-                statusText = "Main Profession";
+                statusText = "主修职业";
                 statusColor = GOLD;
             } else {
-                statusText = "Sealed";
+                statusText = "被封印";
                 statusColor = PURPLE;
             }
         } else {
-            statusText = "Click to Vow";
+            statusText = "点击立誓";
             statusColor = YELLOW;
         }
-        UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, mousePos.x + 40, mousePos.y + 95, 16 * scale, statusColor, s_alpha);
+        UIRenderer::DrawTextUI(UISystem::GetFont(), statusText, contentX, currentY, 16 * scale, statusColor, s_alpha);
     }
 }
 
@@ -375,14 +394,14 @@ void UIAstrolabe::DrawVowDialog(entt::registry& registry, entt::entity player, c
     DrawRectangleLinesEx({x, y, w, h}, 2.0f, Fade(GOLD, s_alpha));
     
     // Title
-    UIRenderer::DrawTextUI(font, "⚠️ 深渊凝视 (The Vow)", x + 30 * scale, y + 30 * scale, 32 * scale, GOLD, s_alpha);
+    UIRenderer::DrawTextUI(font, "[!] 深渊誓约", x + 30 * scale, y + 30 * scale, 32 * scale, GOLD, s_alpha);
     
     // Profession Info
     UIRenderer::DrawTextUI(font, TextFormat("你即将与 [%s] 职业建立不可逆转的誓约。", star.name_key.c_str()), 
                x + 30 * scale, y + 85 * scale, 22 * scale, WHITE, s_alpha);
     
     // Warning text
-    UIRenderer::DrawTextUI(font, "• 解锁所有该职业的核心天赋 (Core Nodes)", x + 50 * scale, y + 130 * scale, 18 * scale, GREEN, s_alpha);
+    UIRenderer::DrawTextUI(font, "• 解锁所有该职业的核心天赋", x + 50 * scale, y + 130 * scale, 18 * scale, GREEN, s_alpha);
     UIRenderer::DrawTextUI(font, "• 其他职业的核心天赋将被永久封印", x + 50 * scale, y + 160 * scale, 18 * scale, RED, s_alpha);
     UIRenderer::DrawTextUI(font, "• 誓约一旦立下，不可更改或撤销", x + 50 * scale, y + 190 * scale, 18 * scale, ORANGE, s_alpha);
     

@@ -82,24 +82,24 @@ TEST_CASE("[Integration] TalentLoader - Load Profession Talents") {
     if (success) {
         // Verify Profession Star
         const auto& bladeStar = graph.professionStars[(int)ProfessionID::BladeAscendant];
-        CHECK(bladeStar.name_key == "Blade Ascendant");
+        CHECK(bladeStar.name_key == "剑修");
         // Verify position is computed
         CHECK(bladeStar.x != 0.0f);
         CHECK(bladeStar.y != 0.0f);
         
         // Verify Nodes
-        const auto* node1100 = graph.findNode(1100);
-        REQUIRE(node1100 != nullptr);
-        CHECK(node1100->profession == ProfessionID::BladeAscendant);
-        CHECK(node1100->tier == 1);
-        CHECK(node1100->type == TalentNodeType::Minor);
-        CHECK(node1100->maxPoints == 5);
+        const auto* node1001 = graph.findNode(1001);
+        REQUIRE(node1001 != nullptr);
+        CHECK(node1001->profession == ProfessionID::BladeAscendant);
+        CHECK(node1001->tier == 1);
+        CHECK(node1001->type == TalentNodeType::Minor);
+        CHECK(node1001->maxPoints == 5);
         // Verify position is computed
-        CHECK(node1100->x != 0.0f);
-        CHECK(node1100->y != 0.0f);
+        CHECK(node1001->x != 0.0f);
+        CHECK(node1001->y != 0.0f);
         
-        const auto* node1300 = graph.findNode(1300);
-        REQUIRE(node1300 != nullptr);
-        CHECK(node1300->type == TalentNodeType::Core);
+        const auto* node1010 = graph.findNode(1010); // 剑意觉醒
+        REQUIRE(node1010 != nullptr);
+        CHECK(node1010->type == TalentNodeType::Core);
     }
 }

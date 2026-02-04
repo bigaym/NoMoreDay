@@ -3,611 +3,1034 @@
   "profession_stars": [
     {
       "profession": 0,
-      "name_key": "Blade Ascendant",
-      "desc_key": "Sword Cultivator"
+      "name_key": "剑修",
+      "desc_key": "御剑而行，以气化形"
     },
     {
       "profession": 1,
-      "name_key": "Mage",
-      "desc_key": "Elemental Master"
+      "name_key": "秘术师",
+      "desc_key": "掌控元素，毁灭万物"
     },
     {
       "profession": 2,
-      "name_key": "Priest",
-      "desc_key": "Healer"
+      "name_key": "神官",
+      "desc_key": "神圣治愈，净化心灵"
     },
     {
       "profession": 3,
-      "name_key": "Knight",
-      "desc_key": "Defender"
+      "name_key": "骑士",
+      "desc_key": "重甲守护，坚不可摧"
     },
     {
       "profession": 4,
-      "name_key": "Ranger",
-      "desc_key": "Sharpshooter"
+      "name_key": "游侠",
+      "desc_key": "百步穿杨，陷阱伏击"
     },
     {
       "profession": 5,
-      "name_key": "Berserker",
-      "desc_key": "Rage Warrior"
+      "name_key": "狂战士",
+      "desc_key": "怒气爆发，愈战愈勇"
     }
   ],
   "nodes": [
     {
-      "id": 1100,
+      "id": 1000,
       "profession": 0,
-      "type": "Minor",
+      "type": "Major",
       "tier": 1,
       "sector_index": 0,
-      "max_points": 5,
-      "name_key": "Blade Ascendant Minor 1",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "max_points": 1,
+      "name_key": "起源",
+      "desc_key": "修行起点",
+      "modifiers": [
+        {
+          "type": 0,
+          "mode": 0,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        },
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        },
+        {
+          "type": 2,
+          "mode": 0,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        },
+        {
+          "type": 3,
+          "mode": 0,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_origin"
     },
     {
-      "id": 1101,
+      "id": 1001,
       "profession": 0,
       "type": "Minor",
       "tier": 1,
       "sector_index": 1,
       "max_points": 5,
-      "name_key": "Blade Ascendant Minor 2",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "name_key": "炼体术",
+      "desc_key": "+10 最大生命值",
+      "modifiers": [
+        {
+          "type": 4,
+          "mode": 0,
+          "value": 10.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_hp"
     },
     {
-      "id": 1102,
+      "id": 1002,
       "profession": 0,
       "type": "Minor",
       "tier": 1,
       "sector_index": 2,
       "max_points": 5,
-      "name_key": "Blade Ascendant Minor 3",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "name_key": "聚气诀",
+      "desc_key": "+10 最大法力值",
+      "modifiers": [
+        {
+          "type": 5,
+          "mode": 0,
+          "value": 10.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_mana"
     },
     {
-      "id": 1103,
+      "id": 1003,
       "profession": 0,
       "type": "Minor",
       "tier": 1,
       "sector_index": 3,
       "max_points": 5,
-      "name_key": "Blade Ascendant Minor 4",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "name_key": "基础剑招",
+      "desc_key": "+3 物理伤害",
+      "modifiers": [
+        {
+          "type": 9,
+          "mode": 1,
+          "value": 3.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_phys"
     },
     {
-      "id": 1104,
+      "id": 1004,
       "profession": 0,
       "type": "Minor",
       "tier": 1,
       "sector_index": 4,
       "max_points": 5,
-      "name_key": "Blade Ascendant Minor 5",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "name_key": "轻身术",
+      "desc_key": "+1 移动速度",
+      "modifiers": [
+        {
+          "type": 7,
+          "mode": 1,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_speed"
     },
     {
-      "id": 1200,
+      "id": 1005,
       "profession": 0,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 0,
-      "max_points": 3,
-      "name_key": "Blade Ascendant Major 1",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
+      "type": "Minor",
+      "tier": 1,
+      "sector_index": 5,
+      "max_points": 5,
+      "name_key": "铁壁功",
+      "desc_key": "+10 护甲",
+      "modifiers": [
+        {
+          "type": 8,
+          "mode": 0,
+          "value": 10.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_armor"
     },
     {
-      "id": 1201,
+      "id": 1006,
       "profession": 0,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 2,
-      "max_points": 3,
-      "name_key": "Blade Ascendant Major 2",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
+      "type": "Minor",
+      "tier": 1,
+      "sector_index": 6,
+      "max_points": 5,
+      "name_key": "淬骨法",
+      "desc_key": "+3 力量",
+      "modifiers": [
+        {
+          "type": 0,
+          "mode": 0,
+          "value": 3.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_str"
     },
     {
-      "id": 1300,
+      "id": 1007,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 1,
+      "sector_index": 7,
+      "max_points": 5,
+      "name_key": "通感术",
+      "desc_key": "+3 敏捷",
+      "modifiers": [
+        {
+          "type": 1,
+          "mode": 0,
+          "value": 3.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_dex"
+    },
+    {
+      "id": 1008,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 1,
+      "sector_index": 8,
+      "max_points": 5,
+      "name_key": "明心诀",
+      "desc_key": "+3 智力",
+      "modifiers": [
+        {
+          "type": 2,
+          "mode": 0,
+          "value": 3.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_int"
+    },
+    {
+      "id": 1009,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 1,
+      "sector_index": 9,
+      "max_points": 5,
+      "name_key": "吐纳法",
+      "desc_key": "+5 生命回复",
+      "modifiers": [
+        {
+          "type": 39,
+          "mode": 0,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_hp_regen"
+    },
+    {
+      "id": 1010,
       "profession": 0,
       "type": "Core",
-      "tier": 3,
+      "tier": 2,
       "sector_index": 0,
       "max_points": 1,
-      "name_key": "Blade Ascendant Core",
-      "desc_key": "Unlock core mechanics",
-      "effects": [],
-      "icon_id": "icon_core"
-    },
-    {
-      "id": 2100,
-      "profession": 1,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 0,
-      "max_points": 5,
-      "name_key": "Mage Minor 1",
-      "desc_key": "Minor stat boost",
+      "name_key": "剑意觉醒",
+      "desc_key": "解锁剑意机制",
       "modifiers": [],
-      "icon_id": "icon_minor"
+      "effects": [
+        {
+          "type": 0,
+          "value": "SwordIntentUnlock",
+          "trait_id": 101
+        }
+      ],
+      "icon_id": "icon_intent"
     },
     {
-      "id": 2101,
-      "profession": 1,
-      "type": "Minor",
-      "tier": 1,
+      "id": 1011,
+      "profession": 0,
+      "type": "Core",
+      "tier": 2,
       "sector_index": 1,
-      "max_points": 5,
-      "name_key": "Mage Minor 2",
-      "desc_key": "Minor stat boost",
+      "max_points": 1,
+      "name_key": "剑心通明",
+      "desc_key": "解锁剑心通明特质",
       "modifiers": [],
-      "icon_id": "icon_minor"
+      "effects": [
+        {
+          "type": 0,
+          "value": "SwordHeart",
+          "trait_id": 100
+        }
+      ],
+      "icon_id": "icon_sword_heart"
     },
     {
-      "id": 2102,
-      "profession": 1,
-      "type": "Minor",
-      "tier": 1,
+      "id": 1012,
+      "profession": 0,
+      "type": "Major",
+      "tier": 2,
       "sector_index": 2,
-      "max_points": 5,
-      "name_key": "Mage Minor 3",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "max_points": 1,
+      "name_key": "筑基：灵泉",
+      "desc_key": "+15% 法力回复速度",
+      "modifiers": [
+        {
+          "type": 40,
+          "mode": 1,
+          "value": 15.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_mana_regen"
     },
     {
-      "id": 2103,
-      "profession": 1,
-      "type": "Minor",
-      "tier": 1,
+      "id": 1013,
+      "profession": 0,
+      "type": "Major",
+      "tier": 2,
       "sector_index": 3,
-      "max_points": 5,
-      "name_key": "Mage Minor 4",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "max_points": 1,
+      "name_key": "筑基：疾风",
+      "desc_key": "+10% 攻击速度",
+      "modifiers": [
+        {
+          "type": 17,
+          "mode": 1,
+          "value": 10.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_as"
     },
     {
-      "id": 2104,
-      "profession": 1,
+      "id": 1014,
+      "profession": 0,
       "type": "Minor",
-      "tier": 1,
+      "tier": 2,
       "sector_index": 4,
       "max_points": 5,
-      "name_key": "Mage Minor 5",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "name_key": "流云剑法",
+      "desc_key": "+2% 攻击速度",
+      "modifiers": [
+        {
+          "type": 17,
+          "mode": 1,
+          "value": 2.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_as"
     },
     {
-      "id": 2200,
-      "profession": 1,
-      "type": "Major",
+      "id": 1015,
+      "profession": 0,
+      "type": "Minor",
       "tier": 2,
-      "sector_index": 0,
-      "max_points": 3,
-      "name_key": "Mage Major 1",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
+      "sector_index": 5,
+      "max_points": 5,
+      "name_key": "弱点洞察",
+      "desc_key": "+1% 暴击率",
+      "modifiers": [
+        {
+          "type": 15,
+          "mode": 1,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_crit"
     },
     {
-      "id": 2201,
-      "profession": 1,
-      "type": "Major",
+      "id": 1016,
+      "profession": 0,
+      "type": "Minor",
       "tier": 2,
-      "sector_index": 2,
-      "max_points": 3,
-      "name_key": "Mage Major 2",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
+      "sector_index": 6,
+      "max_points": 5,
+      "name_key": "元素剑气",
+      "desc_key": "+5% 元素伤害",
+      "modifiers": [
+        {
+          "type": 10,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_ele"
     },
     {
-      "id": 2300,
-      "profession": 1,
+      "id": 1017,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 7,
+      "max_points": 5,
+      "name_key": "幻影身法",
+      "desc_key": "+1% 闪避率",
+      "modifiers": [
+        {
+          "type": 35,
+          "mode": 1,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_dodge"
+    },
+    {
+      "id": 1018,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 8,
+      "max_points": 5,
+      "name_key": "剑气护盾",
+      "desc_key": "+1% 格挡率",
+      "modifiers": [
+        {
+          "type": 36,
+          "mode": 1,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_block"
+    },
+    {
+      "id": 1019,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 9,
+      "max_points": 5,
+      "name_key": "神识锁定",
+      "desc_key": "+20 命中值",
+      "modifiers": [
+        {
+          "type": 19,
+          "mode": 0,
+          "value": 20.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_acc"
+    },
+    {
+      "id": 1020,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 10,
+      "max_points": 5,
+      "name_key": "灵力扩充",
+      "desc_key": "+5% 法力上限",
+      "modifiers": [
+        {
+          "type": 5,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_mana_pct"
+    },
+    {
+      "id": 1021,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 11,
+      "max_points": 5,
+      "name_key": "玄武之壳",
+      "desc_key": "+5% 护甲",
+      "modifiers": [
+        {
+          "type": 8,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_armor_pct"
+    },
+    {
+      "id": 1022,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 12,
+      "max_points": 5,
+      "name_key": "青龙之息",
+      "desc_key": "+5% 生命回复",
+      "modifiers": [
+        {
+          "type": 39,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_hp_regen"
+    },
+    {
+      "id": 1023,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 13,
+      "max_points": 5,
+      "name_key": "御剑术",
+      "desc_key": "+5% 投射物速度",
+      "modifiers": [
+        {
+          "type": 33,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_proj"
+    },
+    {
+      "id": 1024,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 14,
+      "max_points": 5,
+      "name_key": "剑气回响",
+      "desc_key": "+5% 范围效果",
+      "modifiers": [
+        {
+          "type": 32,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_area"
+    },
+    {
+      "id": 1025,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 15,
+      "max_points": 5,
+      "name_key": "灵力反馈",
+      "desc_key": "+2 击中回蓝",
+      "modifiers": [
+        {
+          "type": 20,
+          "mode": 0,
+          "value": 2.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_mana_on_hit"
+    },
+    {
+      "id": 1026,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 16,
+      "max_points": 5,
+      "name_key": "剑意留影",
+      "desc_key": "+2% 暴击率",
+      "modifiers": [
+        {
+          "type": 15,
+          "mode": 1,
+          "value": 2.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_crit_2"
+    },
+    {
+      "id": 1027,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 17,
+      "max_points": 5,
+      "name_key": "御剑乘风",
+      "desc_key": "+2% 移动速度",
+      "modifiers": [
+        {
+          "type": 7,
+          "mode": 1,
+          "value": 2.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_speed_2"
+    },
+    {
+      "id": 1028,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 18,
+      "max_points": 5,
+      "name_key": "剑意护体",
+      "desc_key": "+1% 全局减伤",
+      "modifiers": [
+        {
+          "type": 49,
+          "mode": 1,
+          "value": 1.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_dr"
+    },
+    {
+      "id": 1029,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 2,
+      "sector_index": 19,
+      "max_points": 5,
+      "name_key": "长生之魂",
+      "desc_key": "+5% 最大生命",
+      "modifiers": [
+        {
+          "type": 4,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_hp_2"
+    },
+    {
+      "id": 1030,
+      "profession": 0,
       "type": "Core",
       "tier": 3,
       "sector_index": 0,
       "max_points": 1,
-      "name_key": "Mage Core",
-      "desc_key": "Unlock core mechanics",
-      "effects": [],
-      "icon_id": "icon_core"
-    },
-    {
-      "id": 3100,
-      "profession": 2,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 0,
-      "max_points": 5,
-      "name_key": "Priest Minor 1",
-      "desc_key": "Minor stat boost",
+      "name_key": "剑意浩荡",
+      "desc_key": "最大剑意层数 +2",
       "modifiers": [],
-      "icon_id": "icon_minor"
+      "effects": [
+        {
+          "type": 1,
+          "value": "MaxSwordIntent:2",
+          "trait_id": 200
+        }
+      ],
+      "icon_id": "icon_intent_cap"
     },
     {
-      "id": 3101,
-      "profession": 2,
-      "type": "Minor",
-      "tier": 1,
+      "id": 1031,
+      "profession": 0,
+      "type": "Core",
+      "tier": 3,
       "sector_index": 1,
-      "max_points": 5,
-      "name_key": "Priest Minor 2",
-      "desc_key": "Minor stat boost",
+      "max_points": 1,
+      "name_key": "心剑合一",
+      "desc_key": "智力转暴伤",
       "modifiers": [],
-      "icon_id": "icon_minor"
+      "effects": [
+        {
+          "type": 3,
+          "value": "IntToCritMult:0.3",
+          "trait_id": 0
+        }
+      ],
+      "icon_id": "icon_mind_blade"
     },
     {
-      "id": 3102,
-      "profession": 2,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 2,
-      "max_points": 5,
-      "name_key": "Priest Minor 3",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 3103,
-      "profession": 2,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 3,
-      "max_points": 5,
-      "name_key": "Priest Minor 4",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 3104,
-      "profession": 2,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 4,
-      "max_points": 5,
-      "name_key": "Priest Minor 5",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 3200,
-      "profession": 2,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 0,
-      "max_points": 3,
-      "name_key": "Priest Major 1",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 3201,
-      "profession": 2,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 2,
-      "max_points": 3,
-      "name_key": "Priest Major 2",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 3300,
-      "profession": 2,
+      "id": 1032,
+      "profession": 0,
       "type": "Core",
       "tier": 3,
-      "sector_index": 0,
-      "max_points": 1,
-      "name_key": "Priest Core",
-      "desc_key": "Unlock core mechanics",
-      "effects": [],
-      "icon_id": "icon_core"
-    },
-    {
-      "id": 4100,
-      "profession": 3,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 0,
-      "max_points": 5,
-      "name_key": "Knight Minor 1",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 4101,
-      "profession": 3,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 1,
-      "max_points": 5,
-      "name_key": "Knight Minor 2",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 4102,
-      "profession": 3,
-      "type": "Minor",
-      "tier": 1,
       "sector_index": 2,
-      "max_points": 5,
-      "name_key": "Knight Minor 3",
-      "desc_key": "Minor stat boost",
+      "max_points": 1,
+      "name_key": "御剑御风",
+      "desc_key": "御剑闪避总增",
       "modifiers": [],
-      "icon_id": "icon_minor"
+      "effects": [
+        {
+          "type": 4,
+          "value": "SwordRidingMoreEvasion:15",
+          "trait_id": 0
+        }
+      ],
+      "icon_id": "icon_wind_rider"
     },
     {
-      "id": 4103,
-      "profession": 3,
+      "id": 1033,
+      "profession": 0,
       "type": "Minor",
-      "tier": 1,
+      "tier": 3,
       "sector_index": 3,
       "max_points": 5,
-      "name_key": "Knight Minor 4",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
+      "name_key": "开山之剑",
+      "desc_key": "+8% 物理伤害",
+      "modifiers": [
+        {
+          "type": 9,
+          "mode": 1,
+          "value": 8.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_phys_adv"
     },
     {
-      "id": 4104,
-      "profession": 3,
+      "id": 1034,
+      "profession": 0,
       "type": "Minor",
-      "tier": 1,
+      "tier": 3,
       "sector_index": 4,
       "max_points": 5,
-      "name_key": "Knight Minor 5",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 4200,
-      "profession": 3,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 0,
-      "max_points": 3,
-      "name_key": "Knight Major 1",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 4201,
-      "profession": 3,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 2,
-      "max_points": 3,
-      "name_key": "Knight Major 2",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 4300,
-      "profession": 3,
-      "type": "Core",
-      "tier": 3,
-      "sector_index": 0,
-      "max_points": 1,
-      "name_key": "Knight Core",
-      "desc_key": "Unlock core mechanics",
+      "name_key": "绝杀之意",
+      "desc_key": "+15% 暴击伤害",
+      "modifiers": [
+        {
+          "type": 16,
+          "mode": 1,
+          "value": 15.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
       "effects": [],
-      "icon_id": "icon_core"
+      "icon_id": "icon_crit_adv"
     },
     {
-      "id": 5100,
-      "profession": 4,
+      "id": 1035,
+      "profession": 0,
       "type": "Minor",
-      "tier": 1,
-      "sector_index": 0,
-      "max_points": 5,
-      "name_key": "Ranger Minor 1",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 5101,
-      "profession": 4,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 1,
-      "max_points": 5,
-      "name_key": "Ranger Minor 2",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 5102,
-      "profession": 4,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 2,
-      "max_points": 5,
-      "name_key": "Ranger Minor 3",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 5103,
-      "profession": 4,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 3,
-      "max_points": 5,
-      "name_key": "Ranger Minor 4",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 5104,
-      "profession": 4,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 4,
-      "max_points": 5,
-      "name_key": "Ranger Minor 5",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 5200,
-      "profession": 4,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 0,
-      "max_points": 3,
-      "name_key": "Ranger Major 1",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 5201,
-      "profession": 4,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 2,
-      "max_points": 3,
-      "name_key": "Ranger Major 2",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 5300,
-      "profession": 4,
-      "type": "Core",
       "tier": 3,
-      "sector_index": 0,
-      "max_points": 1,
-      "name_key": "Ranger Core",
-      "desc_key": "Unlock core mechanics",
+      "sector_index": 5,
+      "max_points": 5,
+      "name_key": "破妄之气",
+      "desc_key": "+5% 护甲穿透",
+      "modifiers": [
+        {
+          "type": 21,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
       "effects": [],
-      "icon_id": "icon_core"
+      "icon_id": "icon_pen"
     },
     {
-      "id": 6100,
-      "profession": 5,
+      "id": 1036,
+      "profession": 0,
       "type": "Minor",
-      "tier": 1,
-      "sector_index": 0,
-      "max_points": 5,
-      "name_key": "Berserker Minor 1",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 6101,
-      "profession": 5,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 1,
-      "max_points": 5,
-      "name_key": "Berserker Minor 2",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 6102,
-      "profession": 5,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 2,
-      "max_points": 5,
-      "name_key": "Berserker Minor 3",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 6103,
-      "profession": 5,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 3,
-      "max_points": 5,
-      "name_key": "Berserker Minor 4",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 6104,
-      "profession": 5,
-      "type": "Minor",
-      "tier": 1,
-      "sector_index": 4,
-      "max_points": 5,
-      "name_key": "Berserker Minor 5",
-      "desc_key": "Minor stat boost",
-      "modifiers": [],
-      "icon_id": "icon_minor"
-    },
-    {
-      "id": 6200,
-      "profession": 5,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 0,
-      "max_points": 3,
-      "name_key": "Berserker Major 1",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 6201,
-      "profession": 5,
-      "type": "Major",
-      "tier": 2,
-      "sector_index": 2,
-      "max_points": 3,
-      "name_key": "Berserker Major 2",
-      "desc_key": "Major stat boost",
-      "damage_modifiers": [],
-      "icon_id": "icon_major"
-    },
-    {
-      "id": 6300,
-      "profession": 5,
-      "type": "Core",
       "tier": 3,
-      "sector_index": 0,
-      "max_points": 1,
-      "name_key": "Berserker Core",
-      "desc_key": "Unlock core mechanics",
+      "sector_index": 6,
+      "max_points": 5,
+      "name_key": "金刚之躯",
+      "desc_key": "+3% 全抗性",
+      "modifiers": [
+        {
+          "type": 28,
+          "mode": 1,
+          "value": 3.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
       "effects": [],
-      "icon_id": "icon_core"
+      "icon_id": "icon_res"
+    },
+    {
+      "id": 1037,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 7,
+      "max_points": 5,
+      "name_key": "无痕步法",
+      "desc_key": "+2% 移动速度",
+      "modifiers": [
+        {
+          "type": 7,
+          "mode": 1,
+          "value": 2.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_speed_adv"
+    },
+    {
+      "id": 1038,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 8,
+      "max_points": 5,
+      "name_key": "长生神魂",
+      "desc_key": "+5% 最大生命值",
+      "modifiers": [
+        {
+          "type": 4,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_hp_adv"
+    },
+    {
+      "id": 1039,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 9,
+      "max_points": 5,
+      "name_key": "剑域扩张",
+      "desc_key": "+5% 范围效果",
+      "modifiers": [
+        {
+          "type": 32,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_area_adv"
+    },
+    {
+      "id": 1040,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 10,
+      "max_points": 5,
+      "name_key": "万剑天劫",
+      "desc_key": "+2% 全局减伤",
+      "modifiers": [
+        {
+          "type": 49,
+          "mode": 1,
+          "value": 2.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_dr_adv"
+    },
+    {
+      "id": 1041,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 11,
+      "max_points": 5,
+      "name_key": "灵力回响",
+      "desc_key": "+5% 法力回复",
+      "modifiers": [
+        {
+          "type": 40,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_mana_adv"
+    },
+    {
+      "id": 1042,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 12,
+      "max_points": 5,
+      "name_key": "化神：无我",
+      "desc_key": "+5% 全属性加成",
+      "modifiers": [
+        {
+          "type": 2,
+          "mode": 1,
+          "value": 5.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_int_adv"
+    },
+    {
+      "id": 1043,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 13,
+      "max_points": 5,
+      "name_key": "剑道感悟",
+      "desc_key": "+2% 经验获取",
+      "modifiers": [
+        {
+          "type": 9,
+          "mode": 1,
+          "value": 2.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_exp"
+    },
+    {
+      "id": 1044,
+      "profession": 0,
+      "type": "Minor",
+      "tier": 3,
+      "sector_index": 14,
+      "max_points": 5,
+      "name_key": "不灭剑心",
+      "desc_key": "+10% 格挡评级",
+      "modifiers": [
+        {
+          "type": 48,
+          "mode": 1,
+          "value": 10.0,
+          "required_tags": 0,
+          "source": 2,
+          "source_id": 0
+        }
+      ],
+      "effects": [],
+      "icon_id": "icon_block_adv"
     }
   ]
 }

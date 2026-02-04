@@ -3,21 +3,33 @@
 #include "game/systems/skill/TalentLayoutService.hpp"
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
+#include "rlgl.h"
 #include <algorithm>
 
 namespace NoMoreDay {
 
 Shader AstrolabeRenderer::s_shGalaxy = {0};
 Shader AstrolabeRenderer::s_shNode = {0};
+Texture2D AstrolabeRenderer::s_whitePixel = {0};
 bool AstrolabeRenderer::s_initialized = false;
 
 void AstrolabeRenderer::Init(Shader galaxyShader, Shader nodeShader) {
     s_shGalaxy = galaxyShader;
     s_shNode = nodeShader;
+    
+    // Create 1x1 white texture for UV-correct drawing
+    Image img = GenImageColor(1, 1, WHITE);
+    s_whitePixel = LoadTextureFromImage(img);
+    UnloadImage(img);
+    
     s_initialized = true;
 }
 
 void AstrolabeRenderer::Unload() {
+    if (s_whitePixel.id != 0) {
+        UnloadTexture(s_whitePixel);
+        s_whitePixel = {0};
+    }
     s_initialized = false;
 }
 
@@ -44,12 +56,16 @@ void AstrolabeRenderer::Draw(const TalentGraph& graph, const AstrolabeView& view
 
 void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
     using namespace Constants::Astrolabe;
-    if (s_initialized) {
+    if (s_initialized && s_shGalaxy.id > 0) {
+        BeginShaderMode(s_shGalaxy);
+
+
         // Set Uniforms
         int locTime = GetShaderLocation(s_shGalaxy, "uTime");
         int locRes = GetShaderLocation(s_shGalaxy, "uResolution");
         int locOffset = GetShaderLocation(s_shGalaxy, "uOffset");
         int locZoom = GetShaderLocation(s_shGalaxy, "uZoom");
+        int locCamOffset = GetShaderLocation(s_shGalaxy, "uCameraOffset");
         int locCenter = GetShaderLocation(s_shGalaxy, "uGalaxyCenter");
         int locScale = GetShaderLocation(s_shGalaxy, "uGalaxyScale");
 
@@ -57,13 +73,13 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
         SetShaderValue(s_shGalaxy, locRes, &view.resolution, SHADER_UNIFORM_VEC2);
         SetShaderValue(s_shGalaxy, locOffset, &view.camera.target, SHADER_UNIFORM_VEC2);
         SetShaderValue(s_shGalaxy, locZoom, &view.camera.zoom, SHADER_UNIFORM_FLOAT);
+        SetShaderValue(s_shGalaxy, locCamOffset, &view.camera.offset, SHADER_UNIFORM_VEC2);
         
         Vector2 center = { GALAXY_CENTER_X, GALAXY_CENTER_Y };
         float scale = GALAXY_SCALE;
         SetShaderValue(s_shGalaxy, locCenter, &center, SHADER_UNIFORM_VEC2);
         SetShaderValue(s_shGalaxy, locScale, &scale, SHADER_UNIFORM_FLOAT);
 
-        BeginShaderMode(s_shGalaxy);
         
         Vector2 tl = GetScreenToWorld2D({0, 0}, view.camera);
         Vector2 br = GetScreenToWorld2D(view.resolution, view.camera);
@@ -134,30 +150,20 @@ void AstrolabeRenderer::DrawProfessionStars(const TalentGraph& graph, const Astr
 }
 
 void AstrolabeRenderer::DrawNodes(const TalentGraph& graph, const AstrolabeView& view, const AstrolabeComponent* comp, uint32_t hoveredNodeId) {
-    if (!s_initialized) return;
+    if (!s_initialized || s_shNode.id == 0) return;
+
+    // Begin Shader Mode for the entire batch
+
+    BeginShaderMode(s_shNode);
 
     int locTime = GetShaderLocation(s_shNode, "uTime");
-    int locStatus = GetShaderLocation(s_shNode, "uStatus");
-    int locProgress = GetShaderLocation(s_shNode, "uProgress");
     int locBaseColor = GetShaderLocation(s_shNode, "uBaseColor");
     
-    // Sort nodes to minimize state changes? Not strictly necessary for < 100 nodes.
-    // But we should use BeginShaderMode once if possible.
-    // However, SetShaderValue needs to be called per node.
-    // In Raylib, if we are not using instancing, we have to:
-    // BeginShaderMode -> SetUniforms -> Draw -> EndShaderMode (or Flush).
-    // Actually, calling SetShaderValue affects the currently active shader?
-    // Raylib docs: SetShaderValue sets uniform in shader program.
-    // So yes, we can BeginShaderMode, then loop (SetUniform, Draw).
-    // Note: DrawRectangle creates vertices. Raylib batches them. 
-    // If we change uniforms between Draw calls, we break the batch.
-    // Raylib will flush the batch when uniforms change IF we were using rlgl directly or if it detects it.
-    // But standard `SetShaderValue` modifies the program directly. If we have queued vertices, they might be drawn with the NEW uniform value if the draw call hasn't happened yet.
-    // Raylib's `DrawRectangle` batches into `rlgl`. 
-    // To ensure uniforms apply to the specific Draw call, we must force a batch flush (rlDrawRenderBatchActive) before changing uniforms.
-    
-    BeginShaderMode(s_shNode);
+    // Set Global Uniforms ONCE
     SetShaderValue(s_shNode, locTime, &view.time, SHADER_UNIFORM_FLOAT);
+    Vector4 baseColorVec = {0.8f, 0.8f, 0.8f, 1.0f};
+    SetShaderValue(s_shNode, locBaseColor, &baseColorVec, SHADER_UNIFORM_VEC4);
+
     
     for (const auto& [id, node] : graph.nodes) {
         auto status = AstrolabeSystem::NodeStatus::Locked;
@@ -166,7 +172,7 @@ void AstrolabeRenderer::DrawNodes(const TalentGraph& graph, const AstrolabeView&
         }
         
         float r = getNodeRadius(node.type);
-        if (id == hoveredNodeId) r *= 1.2f; // Slight zoom on hover
+        if (id == hoveredNodeId) r *= 1.2f; 
         
         int statusInt = (int)status;
         float progress = 0.0f;
@@ -174,21 +180,29 @@ void AstrolabeRenderer::DrawNodes(const TalentGraph& graph, const AstrolabeView&
              progress = (float)comp->getNodePoints(id) / node.maxPoints;
         }
         
-        Vector4 baseColor = {0.8f, 0.8f, 0.8f, 1.0f}; // Default Grey
+        int shapeType = 0; // Circle
+        if (node.type == TalentNodeType::Major) shapeType = 1; // Hexagon
+        else if (node.type == TalentNodeType::Core) shapeType = 2; // Octagon
+
+        // Encode data into Vertex Color (Tint)
+        // R = Status (0, 1, 2, 3, 4)
+        // G = Shape (0, 1, 2)
+        // B = Progress (0-255)
+        // A = Opacity (0-255)
         
-        // Force flush before changing uniforms for this specific node
-        rlDrawRenderBatchActive();
+        Color encodedColor;
+        encodedColor.r = (unsigned char)statusInt;
+        encodedColor.g = (unsigned char)shapeType;
+        encodedColor.b = (unsigned char)(progress * 255.0f);
+        encodedColor.a = (unsigned char)(255.0f * view.alpha); // Fade support
         
-        SetShaderValue(s_shNode, locStatus, &statusInt, SHADER_UNIFORM_INT);
-        SetShaderValue(s_shNode, locProgress, &progress, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(s_shNode, locBaseColor, &baseColor, SHADER_UNIFORM_VEC4);
-        
-        // Draw Quad centered at node.x, node.y with radius r
-        // DrawRectangle takes top-left.
-        // Size is 2*r.
-        DrawRectangle(node.x - r, node.y - r, r * 2, r * 2, WHITE);
+        // Draw geometry into the batch
+        Rectangle srcRect = { 0, 0, 1, 1 };
+        Rectangle dstRect = { node.x - r, node.y - r, r * 2, r * 2 };
+        DrawTexturePro(s_whitePixel, srcRect, dstRect, {0, 0}, 0.0f, encodedColor);
     }
     
+    // End Shader Mode and Flush Batch
     EndShaderMode();
 }
 
