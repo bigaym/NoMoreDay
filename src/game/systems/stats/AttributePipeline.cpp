@@ -574,6 +574,9 @@ void AttributePipeline::Calculate(entt::registry &registry,
   // --- Astrolabe Second Pass: Conversions & Special Effects ---
   if (auto *as = registry.try_get<AstrolabeComponent>(entity)) {
     if (const auto* nreg = &AstrolabeRegistry::Get()) {
+      std::set<TraitID> active_traits;
+      float bonus_max_sword_intent = 0.0f;
+
       for (const auto& [nid, points] : as->nodePoints) {
         if (points <= 0) continue;
         if (const auto* n = nreg->GetNode(nid)) {
@@ -582,9 +585,48 @@ void AttributePipeline::Calculate(entt::registry &registry,
             float sourceVal = calcs[static_cast<size_t>(cv.source)].Result();
             ApplyStatModifier(calcs, cv.target, ModifierMode::Flat, sourceVal * cv.ratio * points);
           }
-          // Note: damage_modifiers are technically separate but can be handled here 
-          // as they are essentially StatType-specific multipliers for the damage array
+          
+          // Process Effects
+          for (const auto& eff : n->effects) {
+            if (eff.type == AstrolabeEffectType::GrantComponent) {
+               if (eff.trait_id != TraitID::None) active_traits.insert(eff.trait_id);
+            } else if (eff.type == AstrolabeEffectType::ModifyIntent) {
+               if (eff.trait_id == TraitID::MaxSwordIntent) {
+                   bonus_max_sword_intent += eff.numeric_value * static_cast<float>(points);
+               }
+            } else if (eff.type == AstrolabeEffectType::SpecialBehavior) {
+               if (eff.ratio > 0.0f && eff.value.starts_with("IntToCritMult")) {
+                   float intel = calcs[static_cast<size_t>(StatType::Intelligence)].Result();
+                   ApplyStatModifier(calcs, StatType::CritDamage, ModifierMode::Flat, intel * eff.ratio * static_cast<float>(points));
+               }
+            }
+          }
         }
+      }
+
+      // Apply Trait Components (Safety Check: Only mutate if necessary)
+      if (active_traits.contains(TraitID::SwordIntentUnlock)) {
+          int new_max = SkillConstants::DEFAULT_MAX_SWORD_INTENT + static_cast<int>(bonus_max_sword_intent);
+          if (auto* sic = registry.try_get<SwordIntentComponent>(entity)) {
+              if (sic->max_stacks != new_max) sic->max_stacks = new_max;
+          } else {
+              auto& sic_new = registry.emplace<SwordIntentComponent>(entity);
+              sic_new.max_stacks = new_max;
+          }
+      } else {
+          if (registry.all_of<SwordIntentComponent>(entity)) {
+              registry.remove<SwordIntentComponent>(entity);
+          }
+      }
+
+      if (active_traits.contains(TraitID::SwordHeart)) {
+          if (!registry.all_of<SwordHeartComponent>(entity)) {
+              registry.emplace<SwordHeartComponent>(entity);
+          }
+      } else {
+          if (registry.all_of<SwordHeartComponent>(entity)) {
+              registry.remove<SwordHeartComponent>(entity);
+          }
       }
     }
   }

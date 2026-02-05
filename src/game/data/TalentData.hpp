@@ -70,6 +70,8 @@ struct AstrolabeNodeEffect {
     AstrolabeEffectType type;
     TraitID trait_id = TraitID::None;
     std::string value; // e.g., "SwordHeart"
+    float numeric_value = 0.0f; // Pre-parsed numeric value (e.g. for ModifyIntent)
+    float ratio = 0.0f; // Pre-parsed ratio (e.g. for conversions like IntToCritMult:0.3)
 };
 
 struct StarNode {
@@ -133,6 +135,7 @@ struct AstrolabeTalentNode {
     std::vector<DamageModifier> damage_modifiers;
     std::vector<StatConversion> conversions;
     std::vector<AstrolabeNodeEffect> effects;
+    std::vector<uint32_t> prerequisites; // Restore Topology
     
     std::string icon_id;
     
@@ -223,6 +226,27 @@ inline void from_json(const nlohmann::json& j, AstrolabeNodeEffect& e) {
     j.at("type").get_to(e.type);
     if (j.contains("trait_id")) j.at("trait_id").get_to(e.trait_id);
     j.at("value").get_to(e.value);
+
+    // Pre-parsing optimization
+    e.numeric_value = 0.0f;
+    e.ratio = 0.0f;
+    
+    if (e.type == AstrolabeEffectType::ModifyIntent) {
+        if (e.trait_id == TraitID::MaxSwordIntent) {
+            try {
+                e.numeric_value = std::stof(e.value);
+            } catch(...) {}
+        }
+    } else if (e.type == AstrolabeEffectType::SpecialBehavior) {
+        if (e.value.starts_with("IntToCritMult")) {
+            size_t colon = e.value.find(':');
+            if (colon != std::string::npos) {
+                try {
+                    e.ratio = std::stof(e.value.substr(colon + 1));
+                } catch(...) {}
+            }
+        }
+    }
 }
 
 inline void to_json(nlohmann::json& j, const AstrolabeTalentNode& n) {
@@ -238,6 +262,7 @@ inline void to_json(nlohmann::json& j, const AstrolabeTalentNode& n) {
     j["damage_modifiers"] = n.damage_modifiers;
     j["conversions"] = n.conversions;
     j["effects"] = n.effects;
+    j["prerequisites"] = n.prerequisites;
     j["icon_id"] = n.icon_id;
 }
 inline void from_json(const nlohmann::json& j, AstrolabeTalentNode& n) {
@@ -263,6 +288,7 @@ inline void from_json(const nlohmann::json& j, AstrolabeTalentNode& n) {
             n.effects.push_back(std::move(eff));
         }
     }
+    if (j.contains("prerequisites")) j.at("prerequisites").get_to(n.prerequisites);
     if (j.contains("icon_id")) j.at("icon_id").get_to(n.icon_id);
 }
 

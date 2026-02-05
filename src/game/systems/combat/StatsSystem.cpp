@@ -132,15 +132,28 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
 
   StatCalculation dynamic_calc;
 
-  Tag combined_query_tags = tags;
+  Tag player_tags = Tag::None;
   if (auto *stanceComp = registry.try_get<MovementStanceComponent>(entity)) {
     if (stanceComp->stance == MovementStance::SwordRiding) {
-      combined_query_tags = combined_query_tags | Tag::SwordRiding;
+      player_tags = Tag::SwordRiding;
     }
   }
+  Tag combined_query_tags = tags | player_tags;
 
   // 1. 获取 CombatStats 中已烘焙的基础值或百分比值
   switch (type) {
+  case StatType::Strength:
+    dynamic_calc.base = combat->effective_strength;
+    break;
+  case StatType::Dexterity:
+    dynamic_calc.base = combat->effective_dexterity;
+    break;
+  case StatType::Intelligence:
+    dynamic_calc.base = combat->effective_intelligence;
+    break;
+  case StatType::Vitality:
+    dynamic_calc.base = combat->effective_vitality;
+    break;
   case StatType::PhysicalDamage:
     dynamic_calc.base = 100.0f;
     dynamic_calc.percent_add = combat->damage_percent_add[0];
@@ -272,11 +285,18 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
       }
 
       if (type_match) {
-        bool tags_match = (mod.required_tags == Tag::None ||
-                           HasTag(combined_query_tags, mod.required_tags));
+        // Check if modifier was already baked in AttributePipeline
+        // AttributePipeline applies modifiers if required_tags is None or if player_tags satisfy the requirement.
+        bool is_baked = (mod.required_tags == Tag::None);
+        if (!is_baked && player_tags != Tag::None) {
+             is_baked = HasTag(player_tags, mod.required_tags);
+        }
 
-        if (tags_match) {
-          ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
+        if (!is_baked) {
+             bool tags_match = HasTag(combined_query_tags, mod.required_tags);
+             if (tags_match) {
+                  ApplyStatCalculation(dynamic_calc, mod.mode, mod.value * scale);
+             }
         }
       }
     }
@@ -288,9 +308,11 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
 
   if (auto *astrolabe = registry.try_get<AstrolabeComponent>(entity)) {
     const auto &reg = AstrolabeRegistry::Get();
-    for (uint32_t node_id : astrolabe->activated_nodes) {
-      if (const auto *node = reg.GetNode(node_id)) {
-        apply_if_tags_match(node->modifiers);
+    for (const auto& [node_id, points] : astrolabe->nodePoints) {
+      if (points > 0) {
+        if (const auto *node = reg.GetNode(node_id)) {
+          apply_if_tags_match(node->modifiers, static_cast<float>(points));
+        }
       }
     }
   }

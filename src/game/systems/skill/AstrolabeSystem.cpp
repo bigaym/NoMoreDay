@@ -1,5 +1,6 @@
 #include "game/systems/skill/AstrolabeSystem.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
 
 namespace NoMoreDay {
 
@@ -65,7 +66,7 @@ bool AstrolabeSystem::addPointToNode(entt::registry& registry, entt::entity play
     comp.activated_nodes.insert(nodeId);
     
     // Recalculate stats
-    AttributePipeline::Calculate(registry, player);
+    StatsSystem::Recalculate(registry, player);
     
     return true;
 }
@@ -81,7 +82,7 @@ bool AstrolabeSystem::takeVow(entt::registry& registry, entt::entity player, Pro
     comp.mainProfession = static_cast<int>(profession);
     
     // Trigger Recalc (Core nodes might unlock or stats might change if Vow grants bonuses)
-    AttributePipeline::Calculate(registry, player);
+    StatsSystem::Recalculate(registry, player);
     
     return true;
 }
@@ -114,7 +115,7 @@ std::pair<int, int> AstrolabeSystem::getNodePoints(const TalentGraph& graph, con
 }
 
 void AstrolabeSystem::applyTalentStats(entt::registry& registry, entt::entity player, const TalentGraph& graph) {
-    AttributePipeline::Calculate(registry, player);
+    StatsSystem::Recalculate(registry, player);
 }
 
 } // namespace NoMoreDay
