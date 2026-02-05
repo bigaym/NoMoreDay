@@ -31,9 +31,7 @@ venv/
 
 # Logs
 *.log
-*.png
 logs/
-*.txt   
 
 # Gemini
 .gemini/
@@ -52,3 +50,4 @@ scripts/aseets
 .agent/
 
 saves/
+scripts/assets
