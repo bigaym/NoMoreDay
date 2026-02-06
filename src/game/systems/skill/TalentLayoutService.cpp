@@ -8,118 +8,40 @@
 
 namespace NoMoreDay {
 
-struct LayoutRNG {
-    std::mt19937 gen;
-    LayoutRNG(uint32_t seed) : gen(seed) {}
-    float nextFloat(float min, float max) {
-        std::uniform_real_distribution<float> dist(min, max);
-        return dist(gen);
-    }
-};
-
 void TalentLayoutService::computeNodePositions(TalentGraph& graph) {
-    LayoutRNG rng(54321);
-
     // 1. Profession Stars
     for (int i = 0; i < Constants::Astrolabe::PROFESSION_COUNT; ++i) {
         auto prof = static_cast<ProfessionID>(i);
         float angleDeg = getSectorCenterAngle(prof);
         float angleRad = angleDeg * DEG2RAD;
-        float r = 250.0f; // Inner ring further out
+        float r = Constants::Astrolabe::ORBIT_R1;
 
         graph.professionStars[i].x = r * cos(angleRad);
         graph.professionStars[i].y = r * sin(angleRad);
         graph.professionStars[i].profession = prof;
     }
 
-    // 2. Group nodes
+    // 2. Group nodes for layout
     using GroupKey = std::pair<ProfessionID, uint8_t>;
     std::map<GroupKey, std::vector<AstrolabeTalentNode*>> groupedNodes;
     for (auto& [id, node] : graph.nodes) {
         groupedNodes[{node.profession, node.tier}].push_back(&node);
     }
 
-    const float GOLDEN_ANGLE = 137.508f * DEG2RAD;
-    const float SPIRAL_C = 55.0f; // More spread internally
-    const float MIN_NODE_DIST = 75.0f; // Safe breathing room
-
-    std::vector<Vector2> allPlacedPositions;
-
-    // 3. Organic Multi-Band Growth
+    // 3. Deterministic Layout (Sector-based)
     for (auto& [key, nodes] : groupedNodes) {
         ProfessionID prof = key.first;
         uint8_t tier = key.second;
+        uint8_t count = (uint8_t)nodes.size();
+
+        float r = getOrbitRadius(tier);
         
-        std::sort(nodes.begin(), nodes.end(), [](const AstrolabeTalentNode* a, const AstrolabeTalentNode* b) {
-            return a->id < b->id;
-        });
-
-        // Group by prefix for clusters
-        std::map<std::string, std::vector<AstrolabeTalentNode*>> clusters;
-        std::vector<std::string> clusterOrder;
-        for (auto* n : nodes) {
-            std::string prefix = n->name_key.substr(0, 6);
-            if (clusters.find(prefix) == clusters.end()) clusterOrder.push_back(prefix);
-            clusters[prefix].push_back(n);
-        }
-
-        // Define Tier Bands (Tightened for better coordination)
-        float minR = 0, maxR = 0;
-        switch (tier) {
-            case 1: minR = 220.0f;  maxR = 380.0f;  break; 
-            case 2: minR = 480.0f;  maxR = 750.0f;  break; 
-            case 3: minR = 850.0f;  maxR = 1200.0f; break;
-            default: minR = 1300.0f; maxR = 1600.0f; break;
-        }
-
-        float centerAngle = getSectorCenterAngle(prof);
-        float sectorSpan = Constants::Astrolabe::SECTOR_ANGLE; 
-        float padding = 10.0f; // Less padding to allow clusters to fill width
-        float minAngle = centerAngle - (sectorSpan / 2.0f) + padding;
-        float maxAngle = centerAngle + (sectorSpan / 2.0f) - padding;
-
-        for (size_t cIdx = 0; cIdx < clusterOrder.size(); ++cIdx) {
-            const auto& prefix = clusterOrder[cIdx];
-            auto& clusterNodes = clusters[prefix];
+        for (auto* node : nodes) {
+            float angleDeg = computeNodeAngle(prof, tier, node->sectorIndex, count);
+            float angleRad = angleDeg * DEG2RAD;
             
-            float angleProgress = (clusterOrder.size() > 1) ? (float)cIdx / (clusterOrder.size() - 1) : 0.5f;
-            float targetAngle = minAngle + angleProgress * (maxAngle - minAngle);
-            
-            bool anchorPlaced = false;
-            Vector2 anchor;
-            int attempts = 0;
-
-            while(!anchorPlaced && attempts < 50) {
-                float r = rng.nextFloat(minR, maxR);
-                float a = targetAngle + rng.nextFloat(-8.0f, 8.0f); // More angular jitter
-                anchor = { r * cos(a * DEG2RAD), r * sin(a * DEG2RAD) };
-                
-                bool collision = false;
-                for(const auto& pos : allPlacedPositions) {
-                    float dx = pos.x - anchor.x;
-                    float dy = pos.y - anchor.y;
-                    if(dx*dx + dy*dy < (MIN_NODE_DIST * 1.8f * MIN_NODE_DIST * 1.8f)) {
-                        collision = true; break;
-                    }
-                }
-                if(!collision) anchorPlaced = true;
-                attempts++;
-            }
-
-            // Grow nodes around anchor
-            for (size_t nIdx = 0; nIdx < clusterNodes.size(); ++nIdx) {
-                auto* node = clusterNodes[nIdx];
-                // Slightly tighter spirals
-                float r = (SPIRAL_C * 0.8f) * sqrtf((float)nIdx + 0.5f);
-                float theta = (float)nIdx * GOLDEN_ANGLE;
-                
-                float lx = r * cos(theta);
-                float ly = r * sin(theta);
-                
-                node->x = anchor.x + lx;
-                node->y = anchor.y + ly;
-                allPlacedPositions.push_back({node->x, node->y});
-            }
+            node->x = r * cos(angleRad);
+            node->y = r * sin(angleRad);
         }
     }
 }
@@ -139,11 +61,12 @@ float TalentLayoutService::getSectorCenterAngle(ProfessionID profession) {
 
 float TalentLayoutService::getOrbitRadius(uint8_t tier) {
     using namespace Constants::Astrolabe;
-    // Step-based growth: R2 is base for Tier 1, then adds spacing
-    float base = ORBIT_R2;
-    float step = 120.0f; // Gap between major tiers
-    
-    return base + (tier - 1) * step;
+    switch(tier) {
+        case 1: return ORBIT_R2; // 300
+        case 2: return ORBIT_R3; // 500
+        case 3: return ORBIT_R4; // 750
+        default: return ORBIT_R4 + (tier - 3) * 250.0f;
+    }
 }
 
 float TalentLayoutService::computeNodeAngle(ProfessionID profession, uint8_t tier, uint8_t sectorIndex, uint8_t totalNodesInTier) {

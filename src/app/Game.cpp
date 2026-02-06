@@ -128,7 +128,7 @@ void Game::init() {
 
   // Global Static Inits
   NoMoreDay::CombatEventDispatcher::Init();
-  NoMoreDay::AstrolabeRegistry::Get().Load("assets/data/profession_talents.json");
+  NoMoreDay::AstrolabeRegistry::Get().Load();
   NoMoreDay::MaterialRegistry::Get().LoadMaterials(
       "assets/data/materials.json");
   NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");

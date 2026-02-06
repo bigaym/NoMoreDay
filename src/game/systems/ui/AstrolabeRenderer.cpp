@@ -48,10 +48,35 @@ void AstrolabeRenderer::Draw(const TalentGraph& graph, const AstrolabeView& view
     
     DrawBackground(view);
     DrawOrbits(view);
+    DrawConnections(graph, comp, view.alpha);
     DrawProfessionStars(graph, view, comp);
     DrawNodes(graph, view, comp, hoveredNodeId);
     
     EndMode2D();
+}
+
+void AstrolabeRenderer::DrawConnections(const TalentGraph& graph, const AstrolabeComponent* comp, float alpha) {
+    if (alpha <= 0.0f) return;
+
+    for (const auto& [id, node] : graph.nodes) {
+        // Draw lines to prerequisites
+        for (uint32_t parentId : node.prerequisites) {
+            const AstrolabeTalentNode* parent = graph.findNode(parentId);
+            if (parent) {
+                Vector2 start = { parent->x, parent->y };
+                Vector2 end = { node.x, node.y };
+                
+                bool unlocked = false;
+                if (comp) {
+                    auto status = AstrolabeSystem::getNodeStatus(graph, *comp, id);
+                    unlocked = (status != AstrolabeSystem::NodeStatus::Locked && status != AstrolabeSystem::NodeStatus::Sealed);
+                }
+                
+                Color color = unlocked ? GOLD : Fade(GOLD, 0.2f);
+                DrawLineEx(start, end, 3.0f, Fade(color, alpha));
+            }
+        }
+    }
 }
 
 void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {

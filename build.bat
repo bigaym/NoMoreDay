@@ -135,13 +135,26 @@ REM Configure if needed
 if "!NEED_CONFIG!"=="1" (
     REM Default to Ninja if available, otherwise NMake Makefiles (for MSVC)
     if not defined GENERATOR (
-        where ninja >nul 2>nul
-        if !errorlevel! equ 0 (
-            set "GENERATOR=-G Ninja"
-            echo [Build] Using Ninja generator - detected
-        ) else (
-            set "GENERATOR=-G "NMake Makefiles""
-            echo [Build] Using NMake Makefiles generator - fallback
+        REM Priority: VS2022 > Ninja > NMake
+        if defined VS_INSTALL_DIR (
+             echo !VS_INSTALL_DIR! | findstr /C:"2022" >nul
+             if !errorlevel! equ 0 (
+                 set "GENERATOR=-G "Visual Studio 17 2022" -A x64"
+                 echo [Build] Using Visual Studio 2022 generator
+             ) else (
+                 echo [Build] Visual Studio found but not 2022 ^(Path: !VS_INSTALL_DIR!^). Falling back to Ninja/NMake.
+             )
+        )
+        
+        if not defined GENERATOR (
+            where ninja >nul 2>nul
+            if !errorlevel! equ 0 (
+                set "GENERATOR=-G Ninja"
+                echo [Build] Using Ninja generator - detected
+            ) else (
+                set "GENERATOR=-G "NMake Makefiles""
+                echo [Build] Using NMake Makefiles generator - fallback
+            )
         )
     )
 

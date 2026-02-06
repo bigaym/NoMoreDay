@@ -403,13 +403,16 @@ constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向�
     constexpr float ORBIT_R4 = 750.0f;   // Tier 3 / Core 节点轨道
     
     // 节点大小
-    constexpr float NODE_RADIUS_MINOR = 10.0f;
-    constexpr float NODE_RADIUS_MAJOR = 16.0f;
-    constexpr float NODE_RADIUS_CORE  = 22.0f;
+    constexpr float NODE_RADIUS_MINOR = 12.0f;
+    constexpr float NODE_RADIUS_MAJOR = 12.0f;
+    constexpr float NODE_RADIUS_CORE  = 16.0f;
     constexpr float PROFESSION_STAR_RADIUS = 35.0f;
     
     // 扇区 Angular Padding (避免边缘拥挤)
     constexpr float SECTOR_PADDING_DEG = 5.0f;
+
+    // File Paths
+    constexpr const char* TALENT_DATA_PATH = "assets/data/profession_talents.json";
     
   } // namespace Astrolabe
 

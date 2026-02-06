@@ -15,6 +15,7 @@ public:
   }
 
   bool Load(const std::string &path);
+  bool Load(); // Uses default path defined in Common.hpp
   
   // Update from new graph
   void SetGraph(const TalentGraph& graph);

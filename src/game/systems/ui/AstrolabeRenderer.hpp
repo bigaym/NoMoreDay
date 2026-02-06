@@ -22,6 +22,8 @@ public:
     
     static float getNodeRadius(TalentNodeType type);
 
+    static void DrawConnections(const TalentGraph& graph, const AstrolabeComponent* comp, float alpha);
+
 private:
     static void DrawBackground(const AstrolabeView& view);
     static void DrawOrbits(const AstrolabeView& view);

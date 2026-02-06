@@ -5,7 +5,7 @@ Completed tracks are archived in [./conductor/archive/tracks_archive.md](./condu
 
 ---
 
-## [ ] Track: Astrolabe Audit Fixes & Polish
+## [x] Track: Astrolabe Audit Fixes & Polish
 - **Folder:** [./conductor/tracks/astrolabe-audit-fix_20260205/](./conductor/tracks/astrolabe-audit-fix_20260205/)
 - **Description:** 修复星盘系统审计中发现的核心问题，包括恢复节点拓扑连接数据、实现连接线渲染、修复属性计算中的誓约漏洞、修正窗口缩放导致的 UI 偏移，以及消除硬编码路径。
 - **Status:** IN PROGRESS

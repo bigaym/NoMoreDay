@@ -1,8 +1,13 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/TalentLoader.hpp"
+#include "game/components/Common.hpp"
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay {
+
+bool AstrolabeRegistry::Load() {
+    return Load(Constants::Astrolabe::TALENT_DATA_PATH);
+}
 
 bool AstrolabeRegistry::Load(const std::string& path) {
     TalentGraph graph;

@@ -547,6 +547,13 @@ void AttributePipeline::Calculate(entt::registry &registry,
         for (const auto& [nid, points] : as->nodePoints) {
             if (points <= 0) continue;
             if (const auto *n = AstrolabeRegistry::Get().GetNode(nid)) {
+                // FIX: Check Seal Status
+                if (n->type == TalentNodeType::Core) {
+                    if (as->hasVow() && !as->isMainProfession(n->profession)) {
+                        continue; // Skip stats from sealed nodes
+                    }
+                }
+
                 for (const auto &m : n->modifiers) {
                     if (m.IsActive(player_tags))
                         ApplyStatModifier(calcs, m.type, m.mode, m.value * static_cast<float>(points));

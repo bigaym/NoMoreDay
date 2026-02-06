@@ -32,7 +32,7 @@ void UIAstrolabe::Initialize() {
     if (s_loaded) return;
     
     // Load data via Registry
-    if (!AstrolabeRegistry::Get().Load("assets/data/profession_talents.json")) {
+    if (!AstrolabeRegistry::Get().Load()) {
         LOG_WARN("UIAstrolabe: Failed to load profession talents.");
     }
     
@@ -96,6 +96,8 @@ void UIAstrolabe::DrawInternal(entt::registry& registry, entt::entity player) {
     s_view.alpha = s_alpha;
     s_view.time += dt;
     s_view.resolution = { (float)GetScreenWidth(), (float)GetScreenHeight() };
+    // FIX: Update camera offset on resize
+    s_view.camera.offset = { s_view.resolution.x / 2.0f, s_view.resolution.y / 2.0f };
     
     // Input Handling
     if (s_alpha > 0.1f) {
