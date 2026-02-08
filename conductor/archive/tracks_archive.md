@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Astrolabe Logic Completion & Combat Integration
+- **Folder:** [./conductor/archive/astrolabe-logic-completion_20260205/](./conductor/archive/astrolabe-logic-completion_20260205/)
+- **Description:** 解决天赋数值缩放不匹配、核心机制组件（如图/剑意/剑心）挂载失效及特殊转换效果缺失的问题。确保天赋星盘逻辑与战斗系统深度耦合。
+- **Status:** COMPLETED (2026-02-08)
+- **Priority:** HIGH
+- **Estimated Time:** 2-3 days
+
+---
+
 ## [x] Track: Astrolabe VFX & Architecture Polish
 - **Folder:** [./conductor/archive/astrolabe-vfx-polish_20260204/](./conductor/archive/astrolabe-vfx-polish_20260204/)
 - **Description:** 补全星盘系统的视觉与架构优化。包括实现高级 GPU 节点着色器 (talent_node.fs)、能量流动粒子反馈、超新星点满特效。同时修复 CMake 构建系统无法识别新测试的问题，并对 UIAstrolabe 进行职责解耦重构。

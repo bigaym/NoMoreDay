@@ -190,35 +190,49 @@ target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
 
 # --- Output & Assets ---
 
-# 1. Set Output Directory to build/bin
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
-set_target_properties(NoMoreDay PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+# 1. Set Output Directory to project root / bin
+set(OUTPUT_BIN_DIR "${CMAKE_SOURCE_DIR}/bin")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_BIN_DIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_BIN_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_BIN_DIR}")
+
+# Set Target specific properties
+set_target_properties(NoMoreDay PROPERTIES 
+    RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_BIN_DIR}"
+    VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+)
+
+# 2. Generate a script in bin/ to create symlinks manually (requires Admin)
+set(LINK_SCRIPT "${OUTPUT_BIN_DIR}/link_assets.bat")
+file(WRITE ${LINK_SCRIPT} 
+    "@echo off\n"
+    "echo [Assets] This script requires Administrative privileges to create symlinks.\n"
+    "cd /d \"%~dp0\"\n"
+    "if exist assets (\n"
+    "    echo [Assets] 'assets' already exists (folder or link). Skipping.\n"
+    ") else (\n"
+    "    echo [Assets] Creating symlink: bin\\assets -> ..\\assets\n"
+    "    mklink /d assets \"..\\assets\"\n"
+    ")\n"
+    "pause\n"
+)
+
+# 3. Copy dependency DLLs
+add_custom_command(TARGET NoMoreDay POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:spdlog>
+    "${OUTPUT_BIN_DIR}/"
+    COMMENT "Copying DLLs to bin directory..."
+)
 
 # --- Tests ---
 option(BUILD_TESTING "Build tests" ON)
 if(BUILD_TESTING)
     enable_testing()
     add_subdirectory(tests)
+    # Ensure tests also output to bin or their own directory if preferred, 
+    # but the user asked for "bin" in root.
 endif()
-
-# 2. Copy Assets Folder (Robust Cross-Platform)
-# Symlinks on Windows via CMake can be flaky due to permissions or shell differences.
-# copy_directory is safe and effective for this scale.   
-
-# 手动创建软链接
-# add_custom_command(TARGET NoMoreDay POST_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy_directory
-#     "${CMAKE_SOURCE_DIR}/assets"
-#     "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/assets"
-#     COMMENT "Copying assets to output directory..."
-# )
-
-add_custom_command(TARGET NoMoreDay POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:spdlog>
-    "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/"
-    COMMENT "Copying dependency DLLs..."
-)
 
 # Set compile output encoding to UTF-8
 if(MSVC)

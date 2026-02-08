@@ -5,6 +5,9 @@
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/components/AIComponent.hpp"
+#include "game/components/Projectile.hpp"
+#include "game/components/ItemComponent.hpp"
 #include "raylib.h"
 
 
@@ -117,21 +120,60 @@ void SceneManager::Update(float dt) {
 
   case State::LOADING:
     {
+      LOG_INFO("Performing Aggressive Entity Cleanup...");
+      int destroyedCount = 0;
+
+      // 1. Destroy all LocalLevelTag entities (Standard)
+      // Collect first to avoid iterator invalidation
       auto view = m_registry.view<LocalLevelTag>();
-      std::vector<entt::entity> entities;
+      std::vector<entt::entity> localEntities;
+      localEntities.reserve(view.size());
       for (auto entity : view) {
-        entities.push_back(entity);
+        localEntities.push_back(entity);
       }
       
-      if (!entities.empty()) {
-        LOG_INFO("Clearing {} local entities...", entities.size());
-        for (auto entity : entities) {
-          if (m_registry.valid(entity)) {
-            m_registry.destroy(entity);
-          }
+      for (auto entity : localEntities) {
+        if (m_registry.valid(entity)) {
+          m_registry.destroy(entity);
+          destroyedCount++;
         }
       }
-      LOG_INFO("Cleared local entities");
+
+      // 2. Safety Net: Destroy Enemies (including Dormant) missing LocalLevelTag
+      auto viewEnemies = m_registry.view<EnemyTag>();
+      std::vector<entt::entity> orphanEnemies;
+      for (auto entity : viewEnemies) {
+          // If valid and NOT PersistentTag (Monsters should never be persistent)
+          if (m_registry.valid(entity) && !m_registry.any_of<PersistentTag>(entity)) {
+              orphanEnemies.push_back(entity);
+          }
+      }
+      
+      for (auto entity : orphanEnemies) {
+          if (m_registry.valid(entity)) {
+               m_registry.destroy(entity);
+               destroyedCount++;
+               LOG_WARN("Cleanup: Destroyed orphaned Enemy entity {} (missing LocalLevelTag?)", (uint32_t)entity);
+          }
+      }
+
+      // 3. Safety Net: Destroy Projectiles
+      auto viewProj = m_registry.view<Projectile>();
+      std::vector<entt::entity> orphanProjs;
+      for (auto entity : viewProj) {
+          if (m_registry.valid(entity) && !m_registry.any_of<PersistentTag>(entity)) {
+              orphanProjs.push_back(entity);
+          }
+      }
+
+      for (auto entity : orphanProjs) {
+          if (m_registry.valid(entity)) {
+              m_registry.destroy(entity);
+              destroyedCount++;
+          }
+      }
+
+      LOG_INFO("Cleared {} local entities total.", destroyedCount);
     }
 
     // 2. Start Async Load

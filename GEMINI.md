@@ -43,7 +43,7 @@
 ## 4. 环境与资源
 
 * **构建**: `.\build.bat`。
-* **测试**: `./build/bin/NoMoreDayTests.exe`。
+* **测试**: `./bin/NoMoreDayTests.exe`。
 * **规范**: 参考 `conductor/code_standard.md`。
 
 ## 5. Performance Baselines (Verified 2026-01-23)
