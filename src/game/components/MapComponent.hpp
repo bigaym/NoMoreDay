@@ -10,6 +10,7 @@ struct Tile {
   enum class Type : uint8_t { WALL, FLOOR, DOOR, STAIRS_UP, STAIRS_DOWN };
 
   Type type = Type::WALL;
+  bool isAirWall = false; // Visual-only wall; still blocked by Tile::Type::WALL.
   uint8_t visibility = 0; // 0=未探索, 1=已探索, 2=可见 (合并了 bool isExplored)
 
   [[nodiscard]] constexpr bool isWalkable() const noexcept {

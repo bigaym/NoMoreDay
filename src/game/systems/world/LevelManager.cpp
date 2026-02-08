@@ -134,6 +134,35 @@ void LevelManager::activateLevel(LevelData &&data) {
   m_currentResonance = data.resonance;
   m_isMosaicLevel = data.isMosaic;
 
+  const auto &biomeConfig = NoMoreDay::BiomeRegistry::Get().GetBiome(data.biome);
+  if (biomeConfig.hasFeature(NoMoreDay::BiomeFeature::AirWall) &&
+      !biomeConfig.backgroundShader.empty()) {
+    m_airWallRenderer = std::make_unique<NoMoreDay::AirWallRenderer>();
+    m_airWallRenderer->Initialize(biomeConfig.backgroundShader);
+  } else {
+    m_airWallRenderer.reset();
+  }
+
+  if (m_visualFilterShader.id != 0) {
+    UnloadShader(m_visualFilterShader);
+    m_visualFilterShader = {0};
+  }
+  m_visualFilterTimeLoc = -1;
+  m_visualFilterCameraLoc = -1;
+  m_visualFilterZoomLoc = -1;
+  m_visualFilterScreenLoc = -1;
+  if (!biomeConfig.visualFilterShader.empty()) {
+    m_visualFilterShader = LoadShader(nullptr, biomeConfig.visualFilterShader.c_str());
+    if (m_visualFilterShader.id != 0) {
+      m_visualFilterTimeLoc = GetShaderLocation(m_visualFilterShader, "time");
+      m_visualFilterCameraLoc =
+          GetShaderLocation(m_visualFilterShader, "cameraOffset");
+      m_visualFilterZoomLoc = GetShaderLocation(m_visualFilterShader, "zoom");
+      m_visualFilterScreenLoc =
+          GetShaderLocation(m_visualFilterShader, "screenSize");
+    }
+  }
+
   // GPU Initialization (Must be on Main Thread)
   if (m_fogSystem && m_resources) {
     m_fogSystem->initialize(*m_resources, data.width, data.height);
@@ -239,11 +268,55 @@ void LevelManager::update(float dt, entt::registry &registry,
 
 void LevelManager::render(const Camera2D &camera) {
   if (m_mapSystem) {
-    m_mapSystem->render(camera);
+    if (m_airWallRenderer) {
+      const auto &mapData = m_mapSystem->getMapData();
+      m_airWallRenderer->RenderBackground(camera, mapData.grid, mapData.width,
+                                          mapData.height, static_cast<float>(GetTime()));
+    }
+    if (m_visualFilterShader.id != 0) {
+      const float time = static_cast<float>(GetTime());
+      const Vector2 cameraOffset = camera.target;
+      const float zoom = camera.zoom;
+      const float screenSize[2] = {static_cast<float>(GetScreenWidth()),
+                                   static_cast<float>(GetScreenHeight())};
+      if (m_visualFilterTimeLoc >= 0) {
+        SetShaderValue(m_visualFilterShader, m_visualFilterTimeLoc, &time,
+                       SHADER_UNIFORM_FLOAT);
+      }
+      if (m_visualFilterCameraLoc >= 0) {
+        SetShaderValue(m_visualFilterShader, m_visualFilterCameraLoc,
+                       &cameraOffset, SHADER_UNIFORM_VEC2);
+      }
+      if (m_visualFilterZoomLoc >= 0) {
+        SetShaderValue(m_visualFilterShader, m_visualFilterZoomLoc, &zoom,
+                       SHADER_UNIFORM_FLOAT);
+      }
+      if (m_visualFilterScreenLoc >= 0) {
+        SetShaderValue(m_visualFilterShader, m_visualFilterScreenLoc, screenSize,
+                       SHADER_UNIFORM_VEC2);
+      }
+      BeginShaderMode(m_visualFilterShader);
+      m_mapSystem->render(camera);
+      EndShaderMode();
+    } else {
+      m_mapSystem->render(camera);
+    }
   }
 }
 
 void LevelManager::cleanup() {
+  if (m_visualFilterShader.id != 0) {
+    UnloadShader(m_visualFilterShader);
+    m_visualFilterShader = {0};
+  }
+  m_visualFilterTimeLoc = -1;
+  m_visualFilterCameraLoc = -1;
+  m_visualFilterZoomLoc = -1;
+  m_visualFilterScreenLoc = -1;
+  if (m_airWallRenderer) {
+    m_airWallRenderer->Shutdown();
+    m_airWallRenderer.reset();
+  }
   m_mapSystem.reset();
   m_enemySystem.reset();
   m_fogSystem.reset();

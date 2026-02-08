@@ -9,6 +9,14 @@
 #include <limits>
 #include <queue>
 
+namespace {
+void MarkAirWalls(std::vector<Tile> &grid, bool enableAirWall) {
+  for (Tile &tile : grid) {
+    tile.isAirWall = enableAirWall && tile.type == Tile::Type::WALL;
+  }
+}
+} // namespace
+
 MapSystem::MapSystem() : m_gen(std::random_device{}()) {}
 
 MapSystem::~MapSystem() {
@@ -330,6 +338,8 @@ void MapSystem::generateCaveMap(int width, int height) {
   m_mapData.width = mapData.width;
   m_mapData.height = mapData.height;
   m_mapData.grid = std::move(mapData.grid);
+  MarkAirWalls(m_mapData.grid,
+               biome.hasFeature(NoMoreDay::BiomeFeature::AirWall));
 
   // 初始化流场大小
   m_flowField.resize(m_mapData.width * m_mapData.height);
@@ -393,6 +403,7 @@ void MapSystem::generateTownMap(int width, int height) {
   // Initialize flow field
   m_flowField.resize(m_mapData.width * m_mapData.height);
   m_distanceField.resize(m_mapData.width * m_mapData.height);
+  MarkAirWalls(m_mapData.grid, false);
 
   // Initialize cached cost map
   using namespace NoMoreDay::Constants::World::Map;
@@ -434,6 +445,8 @@ void MapSystem::generateMosaicMap(int width, int height,
   m_mapData.width = mapData.width;
   m_mapData.height = mapData.height;
   m_mapData.grid = std::move(mapData.grid);
+  MarkAirWalls(m_mapData.grid,
+               biome.hasFeature(NoMoreDay::BiomeFeature::AirWall));
 
   // 初始化流场大小
   m_flowField.resize(m_mapData.width * m_mapData.height);
@@ -512,7 +525,8 @@ void MapSystem::render(const Camera2D &camera) const {
   // 渲染所有瓦片 - GPU FogOfWarSystem 负责在顶层绘制迷雾遮罩
   for (int y = startY; y < endY; ++y) {
     for (int x = startX; x < endX; ++x) {
-      Tile::Type type = getTileType(x, y);
+      const Tile &tile = m_mapData.grid[y * m_mapData.width + x];
+      Tile::Type type = tile.type;
       Color color = BLACK;
 
       switch (type) {
@@ -522,6 +536,9 @@ void MapSystem::render(const Camera2D &camera) const {
         color = biome.floorColor;
         break;
       case Tile::Type::WALL:
+        if (tile.isAirWall) {
+          continue;
+        }
         color = biome.wallColor;
         break;
       default:

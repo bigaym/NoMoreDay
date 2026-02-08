@@ -79,9 +79,9 @@ src/game/data/BiomeRegistry.cpp (LoadFromJSON方法)
 > **目标**: 实现空气墙渲染管线和特殊物理效果
 
 ### Task 2.1: 空气墙标记系统 ⏱️ 1h
-- [ ] 扩展 `Tile` 结构添加 `isAirWall` 标记 (或使用现有type+biome判断)
-- [ ] 修改 `MapSystem::render()` 跳过空气墙瓦片的墙壁渲染
-- [ ] 确保物理层仍然阻挡移动
+- [x] 扩展 `Tile` 结构添加 `isAirWall` 标记 (或使用现有type+biome判断)
+- [x] 修改 `MapSystem::render()` 跳过空气墙瓦片的墙壁渲染
+- [x] 确保物理层仍然阻挡移动
 
 **文件修改**:
 ```
@@ -90,10 +90,10 @@ src/game/systems/world/MapSystem.cpp
 ```
 
 ### Task 2.2: AirWallRenderer 实现 ⏱️ 2h
-- [ ] 创建 `AirWallRenderer` 类
-- [ ] 实现 `Initialize()`: 加载背景Shader
-- [ ] 实现 `RenderBackground()`: 渲染星空/云海背景
-- [ ] 集成到渲染管线 (在地图渲染之前)
+- [x] 创建 `AirWallRenderer` 类
+- [x] 实现 `Initialize()`: 加载背景Shader
+- [x] 实现 `RenderBackground()`: 渲染星空/云海背景
+- [x] 集成到渲染管线 (在地图渲染之前)
 
 **新建文件**:
 ```
@@ -102,9 +102,9 @@ src/game/systems/render/AirWallRenderer.cpp
 ```
 
 ### Task 2.3: 背景Shader编写 ⏱️ 1.5h
-- [ ] `sky_background.fs`: 星空效果 (用于漂浮群岛、云顶天宫)
-- [ ] `coral_background.fs`: 深海效果 (用于珊瑚遗迹)
-- [ ] 统一 uniform 接口 (time, cameraOffset, zoom)
+- [x] `sky_background.fs`: 星空效果 (用于漂浮群岛、云顶天宫)
+- [x] `coral_background.fs`: 深海效果 (用于珊瑚遗迹)
+- [x] 统一 uniform 接口 (time, cameraOffset, zoom)
 
 **新建文件**:
 ```
@@ -113,9 +113,9 @@ assets/shaders/backgrounds/coral_background.fs
 ```
 
 ### Task 2.4: 视觉滤镜后处理 ⏱️ 1.5h
-- [ ] `abyss_fog.fs`: 深渊迷雾效果
-- [ ] `coral_filter.fs`: 蓝色深海滤镜
-- [ ] 修改渲染管线支持后处理Shader
+- [x] `abyss_fog.fs`: 深渊迷雾效果
+- [x] `coral_filter.fs`: 蓝色深海滤镜
+- [x] 修改渲染管线支持后处理Shader
 
 **新建文件**:
 ```
@@ -124,9 +124,14 @@ assets/shaders/filters/coral_filter.fs
 ```
 
 ### Task 2.5: 特殊物理组件 ⏱️ 1h
-- [ ] 实现低重力: `gravityMultiplier` 应用到 PhysicsSystem
-- [ ] 实现摩擦力修改: `frictionMultiplier` 应用到 MovementSystem
-- [ ] 创建 `BiomeEffectComponent` 缓存当前群落效果
+- [x] （评估后跳过，当前版本）实现低重力: `gravityMultiplier` 应用到 PhysicsSystem
+- [x] （评估后跳过，当前版本）实现摩擦力修改: `frictionMultiplier` 应用到 MovementSystem
+- [x] （评估后跳过，当前版本）创建 `BiomeEffectComponent` 缓存当前群落效果
+
+**跳过原因（2026-02-08）**:
+- 当前工程不存在 `MovementSystem`（计划文件路径失效），玩家移动在 `GameplayState` 内直接写入 `Velocity`，基础阻尼在 `PhysicsSystem::updatePosition()` 统一处理。
+- 当前战斗/位移逻辑是二维平面速度模型，不存在可复用的“重力轴”机制；`gravityMultiplier` 现阶段无稳定语义，强行接入会影响冲刺、投射物与怪物速度一致性。
+- 若后续需要该特性，建议在新增统一运动域组件（如 `BiomeEffectComponent` + 统一速度系数管线）后再落地，而不是在当前分散逻辑中临时打补丁。
 
 **文件修改**:
 ```

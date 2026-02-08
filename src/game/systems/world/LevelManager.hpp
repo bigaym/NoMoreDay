@@ -2,6 +2,7 @@
 
 #include "game/components/Common.hpp"
 #include "game/data/MosaicData.hpp"
+#include "game/systems/render/AirWallRenderer.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/MapSystem.hpp"
@@ -105,6 +106,12 @@ private:
   std::unique_ptr<MapSystem> m_mapSystem;
   std::unique_ptr<EnemySpawnSystem> m_enemySystem;
   std::unique_ptr<FogOfWarSystem> m_fogSystem;
+  std::unique_ptr<NoMoreDay::AirWallRenderer> m_airWallRenderer;
+  Shader m_visualFilterShader = {0};
+  int m_visualFilterTimeLoc = -1;
+  int m_visualFilterCameraLoc = -1;
+  int m_visualFilterZoomLoc = -1;
+  int m_visualFilterScreenLoc = -1;
 
   // 当前关卡信息
   std::string m_currentBiome;
