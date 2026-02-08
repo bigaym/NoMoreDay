@@ -105,11 +105,10 @@ void GPUParticleSystem::Clear() {
   m_emitHead = 0;
   
   // 2. Reset ALL slots in the Triple Buffer chain
-  // This ensures that no matter which slot Render() or Update() picks up next, it sees 0.
-  // We rely on the fact that calling Lock() advances the slot index.
-  const int bufferCount = m_atomicBuffer.GetBufferCount(); // Should be 3
+  const int bufferCount = m_atomicBuffer.GetBufferCount(); 
   
   uint32_t zeroAtomic = 0;
+  // Physically reset the indirect command to 0 instances to force stop rendering
   DrawArraysIndirectCommand zeroCmd = {6, 0, 0, 0};
 
   for (int i = 0; i < bufferCount; ++i) {
@@ -117,16 +116,16 @@ void GPUParticleSystem::Clear() {
       uint32_t* atomicPtr = (uint32_t*)m_atomicBuffer.BeginWrite();
       if (atomicPtr) *atomicPtr = zeroAtomic;
       m_atomicBuffer.Flush();
-      m_atomicBuffer.Lock(); // Advance to next slot
+      m_atomicBuffer.Lock(); // Advance
 
-      // Clear Indirect Buffer
+      // Clear Indirect Buffer - Critical to stop rendering immediately
       void* indirectPtr = m_indirectBuffer.BeginWrite();
       if (indirectPtr) memcpy(indirectPtr, &zeroCmd, sizeof(zeroCmd));
       m_indirectBuffer.Flush();
-      m_indirectBuffer.Lock(); // Advance to next slot
+      m_indirectBuffer.Lock(); // Advance
   }
   
-  LOG_INFO("GPUParticleSystem: Logical clear executed (All slots reset).");
+  LOG_INFO("GPUParticleSystem: Logical and Physical clear executed (All slots and GPU counters reset).");
 }
 
 void GPUParticleSystem::LoadShaders() {

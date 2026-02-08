@@ -46,6 +46,7 @@ void MainMenuState::OnEnter() {
 
 void MainMenuState::OnExit() {
   // Cleanup
+  systems::GPUParticleSystem::Get().Clear();
 }
 
 bool MainMenuState::OnUpdate(float dt) {

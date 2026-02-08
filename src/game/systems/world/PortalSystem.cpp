@@ -193,6 +193,7 @@ void PortalSystem::AdvanceRiftLayer(entt::registry &registry, entt::entity playe
         LOG_INFO("Rift Completed at depth {}!", state.currentDepth - 1);
         state.isActive = false;
         state.isCompleted = true;
+        m_sceneManager.ClearOriginInfo();
         m_sceneManager.RequestTransition(BiomeID::Town, 1, "");
         return;
     }

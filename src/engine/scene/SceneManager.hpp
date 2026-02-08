@@ -32,6 +32,7 @@ public:
     // Origin tracking for return portals
     void SetOriginInfo(BiomeID biome, int level, float x, float y);
     void SetOriginInfo(const std::string& biome, int level, float x, float y);
+    void ClearOriginInfo();
     
     const std::string& GetCurrentBiomeKey() const { return m_currentBiomeKey; }
     BiomeID GetCurrentBiome() const { return m_currentBiome; }

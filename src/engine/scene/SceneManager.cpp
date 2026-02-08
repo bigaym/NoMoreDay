@@ -103,6 +103,15 @@ void SceneManager::SetOriginInfo(const std::string &biome, int level, float x,
   LOG_DEBUG("Origin set: {} L{} at ({:.1f}, {:.1f})", biome, level, x, y);
 }
 
+void SceneManager::ClearOriginInfo() {
+  m_originBiome = BiomeID::None;
+  m_originBiomeKey = "";
+  m_originLevel = 0;
+  m_originX = 0.0f;
+  m_originY = 0.0f;
+  LOG_DEBUG("Origin info cleared");
+}
+
 void SceneManager::Update(float dt) {
   if (!m_isTransitioning)
     return;
