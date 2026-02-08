@@ -20,23 +20,31 @@
 #include <cctype>
 #include <cmath>
 #include <random>
+#include <string_view>
 #include <unordered_map>
 
 namespace {
-int RaceFromName(std::string raceName) {
-  std::transform(raceName.begin(), raceName.end(), raceName.begin(),
-                 [](unsigned char c) { return (char)std::tolower(c); });
-  static const std::unordered_map<std::string, int> kRaceMap = {
-      {"undead", EnemyRace::UNDEAD},   {"skeleton", EnemyRace::UNDEAD},
-      {"demon", EnemyRace::DEMON},     {"corrupted", EnemyRace::CORRUPTED},
-      {"warcraft", EnemyRace::CORRUPTED},
-      {"cultist", EnemyRace::CULTIST}, {"elf", EnemyRace::ElVES},
-      {"elves", EnemyRace::ElVES},     {"beast", EnemyRace::BEAST},
-      {"animal", EnemyRace::BEAST},    {"goblin", EnemyRace::GOBLIN},
-      {"machine", EnemyRace::MACHINE}, {"mech", EnemyRace::MACHINE},
-      {"elemental", EnemyRace::ELEMENTAL}};
-  auto it = kRaceMap.find(raceName);
-  if (it != kRaceMap.end()) {
+static const std::unordered_map<std::string, int> kRaceNameMap = {
+    {"undead", EnemyRace::UNDEAD},   {"skeleton", EnemyRace::UNDEAD},
+    {"demon", EnemyRace::DEMON},     {"corrupted", EnemyRace::CORRUPTED},
+    {"warcraft", EnemyRace::CORRUPTED},
+    {"cultist", EnemyRace::CULTIST}, {"elf", EnemyRace::ElVES},
+    {"elves", EnemyRace::ElVES},     {"beast", EnemyRace::BEAST},
+    {"animal", EnemyRace::BEAST},    {"goblin", EnemyRace::GOBLIN},
+    {"machine", EnemyRace::MACHINE}, {"mech", EnemyRace::MACHINE},
+    {"elemental", EnemyRace::ELEMENTAL}};
+
+std::string NormalizeRaceName(std::string_view raceName) {
+  std::string lowered(raceName);
+  std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+  return lowered;
+}
+
+int RaceFromName(std::string_view raceName) {
+  const auto lowered = NormalizeRaceName(raceName);
+  const auto it = kRaceNameMap.find(lowered);
+  if (it != kRaceNameMap.end()) {
     return it->second;
   }
   return EnemyRace::UNDEAD;
@@ -64,7 +72,8 @@ void EnemySpawnSystem::initializeLevel(int width, int height, int level,
 void EnemySpawnSystem::initData(int width, int height, int level,
                                 const MapSystem &mapSystem,
                                 NoMoreDay::BiomeID biomeId,
-                                const NoMoreDay::ActiveDimensionalState *state) {  m_mapWidth = width;
+                                const NoMoreDay::ActiveDimensionalState *state) {
+  m_mapWidth = width;
   m_mapHeight = height;
   m_areaLevel = level;
   m_spawnData.clear();
@@ -141,37 +150,7 @@ void EnemySpawnSystem::initData(int width, int height, int level,
   }
 
   // 1. 种族池逻辑
-  std::vector<int> availableRaces;
-  if (biomeConfig.enemyPool.empty()) {
-    // Default pool if none specified
-    availableRaces = {EnemyRace::UNDEAD, EnemyRace::DEMON};
-  } else {
-    static const std::unordered_map<std::string, int> kRaceMap = {
-        {"undead", EnemyRace::UNDEAD},
-        {"skeleton", EnemyRace::UNDEAD},
-        {"demon", EnemyRace::DEMON},
-        {"corrupted", EnemyRace::CORRUPTED},
-        {"warcraft", EnemyRace::CORRUPTED},
-        {"cultist", EnemyRace::CULTIST},
-        {"elf", EnemyRace::ElVES},
-        {"elves", EnemyRace::ElVES},
-        {"beast", EnemyRace::BEAST},
-        {"animal", EnemyRace::BEAST},
-        {"goblin", EnemyRace::GOBLIN},
-        {"machine", EnemyRace::MACHINE},
-        {"mech", EnemyRace::MACHINE},
-        {"elemental", EnemyRace::ELEMENTAL}};
-
-    for (const auto &raceName : biomeConfig.enemyPool) {
-      auto it = kRaceMap.find(raceName);
-      if (it != kRaceMap.end()) {
-        availableRaces.push_back(it->second);
-      }
-    }
-    if (availableRaces.empty()) {
-      availableRaces = {EnemyRace::UNDEAD, EnemyRace::DEMON};
-    }
-  }
+  selectRace(biomeConfig);
 
   // 2. 群聚生成 - 大幅增加密度 (5~10倍)
   using namespace NoMoreDay::Constants::Enemy;
@@ -216,7 +195,7 @@ void EnemySpawnSystem::initData(int width, int height, int level,
     if (!foundCenter)
       continue;
 
-    int race = availableRaces[i % availableRaces.size()];
+    const int race = selectRace();
     int enemyCount = static_cast<int>(
         countDist(m_gen) *
         std::min(1.5f,
@@ -283,6 +262,34 @@ void EnemySpawnSystem::initData(int width, int height, int level,
 }
 
 void EnemySpawnSystem::initTextures() {
+}
+
+void EnemySpawnSystem::selectRace(const NoMoreDay::BiomeConfig &config) {
+  m_availableRaces.clear();
+
+  for (const auto &raceName : config.enemyPool) {
+    const auto normalized = NormalizeRaceName(raceName);
+    const auto it = kRaceNameMap.find(normalized);
+    if (it == kRaceNameMap.end()) {
+      LOG_WARN("EnemySpawnSystem: Unknown race '{}' in biome '{}', ignored",
+               raceName, config.id);
+      continue;
+    }
+    // Repeated names in enemyPool naturally create weighted probability.
+    m_availableRaces.push_back(it->second);
+  }
+
+  if (m_availableRaces.empty()) {
+    m_availableRaces = {EnemyRace::UNDEAD, EnemyRace::DEMON};
+  }
+}
+
+int EnemySpawnSystem::selectRace() {
+  if (m_availableRaces.empty()) {
+    return EnemyRace::UNDEAD;
+  }
+  std::uniform_int_distribution<size_t> pick(0, m_availableRaces.size() - 1u);
+  return m_availableRaces[pick(m_gen)];
 }
 
 void EnemySpawnSystem::updateEnemySpawning(const Position &playerPos,

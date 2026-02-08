@@ -3,6 +3,7 @@
 #include <vector>
 #include <queue>
 #include "raylib.h"
+#include "game/components/Common.hpp"
 
 namespace NoMoreDay {
 
@@ -10,6 +11,7 @@ struct PendingDrop {
     entt::entity killer;
     entt::entity victim_snapshot; // We store data needed for drop instead of the entity itself
     Vector2 pos;
+    NoMoreDay::BiomeID biome = NoMoreDay::BiomeID::None;
     uint32_t poolId;
     int tableMinRolls;
     int tableMaxRolls;
