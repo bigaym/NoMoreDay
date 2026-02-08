@@ -1,0 +1,79 @@
+#include "doctest.h"
+#include "game/data/BiomeRegistry.hpp"
+#include <array>
+#include <filesystem>
+#include <stdexcept>
+#include <string>
+
+using namespace NoMoreDay;
+
+namespace {
+std::filesystem::path ResolveBiomeJsonPath() {
+  constexpr std::array<const char *, 4> kCandidates = {
+      "assets/data/biomes.json",
+      "../assets/data/biomes.json",
+      "../../assets/data/biomes.json",
+      "../../../assets/data/biomes.json",
+  };
+
+  for (const char *candidate : kCandidates) {
+    const auto path = std::filesystem::path(candidate);
+    if (std::filesystem::exists(path)) {
+      return std::filesystem::absolute(path);
+    }
+  }
+
+  throw std::runtime_error("Unable to locate assets/data/biomes.json from test cwd");
+}
+} // namespace
+
+TEST_CASE("[Unit] BiomeRegistry - V2 Load And Feature Flags") {
+  const auto jsonPath = ResolveBiomeJsonPath();
+  BiomeRegistry::Get().LoadFromJSON(jsonPath.string());
+
+  constexpr std::array<BiomeID, 27> kExpectedBiomeIds = {
+      BiomeID::Town,         BiomeID::Town_SwordImmortal, BiomeID::Town_Mage,
+      BiomeID::Town_Mech,    BiomeID::Town_Shadow,        BiomeID::Town_Beast,
+      BiomeID::Town_Radiant, BiomeID::Cave,               BiomeID::SunPrairie,
+      BiomeID::IceTundra,    BiomeID::CrimsonWaste,       BiomeID::DustSea,
+      BiomeID::VoidFlats,    BiomeID::EmeraldWet,         BiomeID::AshPlain,
+      BiomeID::GloomSpire,   BiomeID::MagmaVeins,         BiomeID::JadeMine,
+      BiomeID::DrownedLib,   BiomeID::ClockCore,          BiomeID::AncientCrypt,
+      BiomeID::CrystalLab,   BiomeID::FloatingIsle,       BiomeID::CoralRuin,
+      BiomeID::WhisperWood,  BiomeID::HolyArena,          BiomeID::HiveNest,
+  };
+
+  for (BiomeID id : kExpectedBiomeIds) {
+    CHECK(BiomeRegistry::Get().HasBiome(id));
+  }
+  CHECK(BiomeRegistry::Get().HasBiome(BiomeID::SkyPalace));
+  CHECK(BiomeRegistry::Get().HasBiome(BiomeID::AbyssalGap));
+
+  CHECK(BiomeRegistry::Get().HasBiome("town"));
+  CHECK(BiomeRegistry::Get().HasBiome("cave"));
+  CHECK(BiomeRegistry::Get().HasBiome("floating_isle"));
+  CHECK(BiomeRegistry::Get().HasBiome("abyssal_gap"));
+
+  const auto &town = BiomeRegistry::Get().GetBiome(BiomeID::Town);
+  CHECK(town.id == "town");
+  CHECK(town.style == BiomeStyle::Town);
+  CHECK(town.isSafeZone);
+  CHECK_FALSE(town.hasFeature(BiomeFeature::AirWall));
+
+  const auto &cave = BiomeRegistry::Get().GetBiome(BiomeID::Cave);
+  CHECK(cave.id == "cave");
+  CHECK(cave.style == BiomeStyle::Open);
+  CHECK(cave.numericId == BiomeID::Cave);
+
+  const auto &floating = BiomeRegistry::Get().GetBiome("floating_isle");
+  CHECK(floating.numericId == BiomeID::FloatingIsle);
+  CHECK(floating.style == BiomeStyle::Special);
+  CHECK(floating.hasFeature(BiomeFeature::AirWall));
+  CHECK_FALSE(floating.hasFeature(BiomeFeature::LimitedVision));
+
+  const auto &abyss = BiomeRegistry::Get().GetBiome(BiomeID::AbyssalGap);
+  CHECK(abyss.style == BiomeStyle::Special);
+  CHECK(abyss.hasFeature(BiomeFeature::LimitedVision));
+  CHECK(abyss.hasFeature(BiomeFeature::VisualFilter));
+  CHECK(abyss.visionRadius == doctest::Approx(150.0f));
+}

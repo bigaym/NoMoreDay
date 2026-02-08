@@ -24,9 +24,9 @@
 > **目标**: 建立完整的群落数据基础设施
 
 ### Task 1.1: BiomeID 枚举扩展 ⏱️ 0.5h
-- [ ] 在 `Common.hpp` 中扩展 `BiomeID` 枚举
-- [ ] 添加所有 27 种群落ID (城镇6 + 战斗21)
-- [ ] 确保 `Town=1`, `Cave=10` 保持兼容
+- [x] 在 `Common.hpp` 中扩展 `BiomeID` 枚举
+- [x] 添加所有 27 种群落ID (城镇6 + 战斗21)
+- [x] 确保 `Town=1`, `Cave=10` 保持兼容
 
 **文件修改**:
 ```
@@ -34,9 +34,9 @@ src/game/components/Common.hpp
 ```
 
 ### Task 1.2: BiomeStyle 和 BiomeFeature 定义 ⏱️ 0.5h
-- [ ] 定义 `BiomeStyle` 枚举 (Town, Open, Maze, Special)
-- [ ] 定义 `BiomeFeature` 位掩码枚举
-- [ ] 添加辅助宏/函数用于位操作
+- [x] 定义 `BiomeStyle` 枚举 (Town, Open, Maze, Special)
+- [x] 定义 `BiomeFeature` 位掩码枚举
+- [x] 添加辅助宏/函数用于位操作
 
 **文件修改**:
 ```
@@ -44,10 +44,10 @@ src/game/components/Common.hpp
 ```
 
 ### Task 1.3: BiomeConfig 结构体扩展 ⏱️ 1h
-- [ ] 扩展 `BiomeConfig` 添加新字段
-- [ ] 添加 `style`, `features`, 特殊机制参数
-- [ ] 添加视觉属性 (ambientColor, backgroundShader, visualFilterShader)
-- [ ] 实现 `hasFeature()` 便捷方法
+- [x] 扩展 `BiomeConfig` 添加新字段
+- [x] 添加 `style`, `features`, 特殊机制参数
+- [x] 添加视觉属性 (ambientColor, backgroundShader, visualFilterShader)
+- [x] 实现 `hasFeature()` 便捷方法
 
 **文件修改**:
 ```
@@ -56,10 +56,10 @@ src/game/data/BiomeRegistry.cpp
 ```
 
 ### Task 1.4: biomes.json 扩展与解析 ⏱️ 2h
-- [ ] 升级 `biomes.json` schema 到 version 2
-- [ ] 添加全部 27 种群落配置
-- [ ] 实现新字段的 JSON 解析逻辑
-- [ ] 添加 `features` 字符串数组到位掩码的转换
+- [x] 升级 `biomes.json` schema 到 version 2
+- [x] 添加全部 27 种群落配置
+- [x] 实现新字段的 JSON 解析逻辑
+- [x] 添加 `features` 字符串数组到位掩码的转换
 
 **文件修改**:
 ```
@@ -68,9 +68,9 @@ src/game/data/BiomeRegistry.cpp (LoadFromJSON方法)
 ```
 
 ### Task 1.5: 单元测试 - BiomeRegistry ⏱️ 0.5h
-- [ ] 测试 JSON 加载完整性
-- [ ] 测试 `GetBiome(BiomeID)` 和 `GetBiome(std::string)`
-- [ ] 测试 `hasFeature()` 位掩码逻辑
+- [x] 测试 JSON 加载完整性
+- [x] 测试 `GetBiome(BiomeID)` 和 `GetBiome(std::string)`
+- [x] 测试 `hasFeature()` 位掩码逻辑
 
 ---
 
