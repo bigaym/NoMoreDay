@@ -2,6 +2,7 @@
 #include "engine/scene/StateManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "engine/render/RenderSystem.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include <raylib.h>
@@ -29,6 +30,15 @@ namespace NoMoreDay {
             false
         };
 
+        m_shakeSlider = {
+            { centerX, screenHeight * 0.5f, sliderWidth, sliderHeight },
+            &m_context->settings->shakeIntensity,
+            0.0f,
+            2.0f,
+            "Screen Shake Intensity",
+            false
+        };
+
         float btnWidth = 260;
         float btnHeight = 70;
         m_backButton = { { (screenWidth - btnWidth) / 2.0f, screenHeight * 0.75f, btnWidth, btnHeight }, "BACK", false };
@@ -44,7 +54,13 @@ namespace NoMoreDay {
 
     bool SettingsState::OnUpdate(float dt) {
         UpdateSlider(m_zoomSlider);
+        UpdateSlider(m_shakeSlider);
         
+        // Push update to RenderSystem immediately so we can see it in real-time
+        if (m_context->settings) {
+            RenderSystem::SetShakeMultiplier(m_context->settings->shakeIntensity);
+        }
+
         m_backButton.hovered = CheckCollisionPointRec(GetMousePosition(), m_backButton.bounds);
 
         if (IsButtonClicked(m_backButton) || IsKeyReleased(KEY_ESCAPE)) {
@@ -69,6 +85,7 @@ namespace NoMoreDay {
         }
 
         DrawSlider(m_zoomSlider);
+        DrawSlider(m_shakeSlider);
         DrawButton(m_backButton);
     }
 

@@ -730,6 +730,7 @@ bool GameplayState::OnUpdate(float dt) {
     // Sync Zoom from settings
     if (m_context->settings) {
       m_camera.zoom = m_context->settings->cameraZoom;
+      RenderSystem::SetShakeMultiplier(m_context->settings->shakeIntensity);
     }
 
     // Screen Shake
@@ -737,10 +738,10 @@ bool GameplayState::OnUpdate(float dt) {
     Vector2 shake = RenderSystem::GetShakeOffset();
 
     // Reset offset to center then apply shake
-    m_camera.offset = {(float)GetScreenWidth() / 2.0f,
-                       (float)GetScreenHeight() / 2.0f};
-    m_camera.offset.x += shake.x;
-    m_camera.offset.y += shake.y;
+    m_camera.offset = { floorf((float)GetScreenWidth() / 2.0f),
+                       floorf((float)GetScreenHeight() / 2.0f) };
+    m_camera.offset.x += roundf(shake.x);
+    m_camera.offset.y += roundf(shake.y);
   }
 
   // 4. AI

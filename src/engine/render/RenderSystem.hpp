@@ -40,9 +40,11 @@ public:
     static void AddScreenShake(float intensity);
     static void UpdateShake(float dt);
     static Vector2 GetShakeOffset();
+    static void SetShakeMultiplier(float multiplier) { s_shakeMultiplier = multiplier; }
 
 private:
     static float s_trauma;
+    static float s_shakeMultiplier;
     
     // --- Instanced Label Rendering ---
     static Shader s_labelShader;

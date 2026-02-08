@@ -47,6 +47,7 @@ std::vector<RenderSystem::VisibleItemCache::ItemData>
 
 // Static Members Definition
 float RenderSystem::s_trauma = 0.0f;
+float RenderSystem::s_shakeMultiplier = 1.0f;
 Shader RenderSystem::s_labelShader = {0};
 int RenderSystem::s_labelMvpLoc = -1;
 std::unique_ptr<NoMoreDay::core::ComputeBuffer>
@@ -60,19 +61,22 @@ std::unique_ptr<NoMoreDay::core::ComputeBuffer>
 
 // Screen Shake Implementation
 void RenderSystem::AddScreenShake(float intensity) {
-    s_trauma = std::clamp(s_trauma + intensity, 0.0f, 1.0f);
+    if (s_shakeMultiplier < 1e-4f) return;
+    s_trauma = std::clamp(s_trauma + intensity * s_shakeMultiplier, 0.0f, 1.0f);
 }
 
 void RenderSystem::UpdateShake(float dt) {
-    if (s_trauma > 0.0f) {
+    if (s_trauma > 1e-4f) {
         s_trauma = std::max(0.0f, s_trauma - dt * 1.5f);
+    } else {
+        s_trauma = 0.0f;
     }
 }
 
 Vector2 RenderSystem::GetShakeOffset() {
-    if (s_trauma <= 0.0f) return {0, 0};
+    if (s_trauma < 1e-4f || s_shakeMultiplier < 1e-4f) return {0, 0};
     float shake = s_trauma * s_trauma;
-    float maxOffset = 15.0f * shake;
+    float maxOffset = 15.0f * shake * s_shakeMultiplier;
     return {
         (float)NoMoreDay::utils::ThreadSafeRandom::GetFloat(-1.0f, 1.0f) * maxOffset,
         (float)NoMoreDay::utils::ThreadSafeRandom::GetFloat(-1.0f, 1.0f) * maxOffset

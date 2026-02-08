@@ -39,6 +39,7 @@ namespace NoMoreDay {
         bool IsButtonClicked(const Button& btn);
 
         Slider m_zoomSlider;
+        Slider m_shakeSlider;
         Button m_backButton;
     };
 
