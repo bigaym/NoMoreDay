@@ -3,6 +3,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/data/BiomeRegistry.hpp"
+#include "game/systems/world/BiomeMapGenerator.hpp"
 #include "game/systems/world/MosaicMapGenerator.hpp"
 #include <algorithm>
 #include <cmath>
@@ -357,13 +358,32 @@ void MapSystem::generateCaveMap(int width, int height) {
 
 void MapSystem::generateMap(int width, int height, const std::string &biome) {
   m_currentBiomeId = biome;
+  const auto &biomeConfig = NoMoreDay::BiomeRegistry::Get().GetBiome(biome);
 
-  // Town gets a special open layout
-  if (NoMoreDay::BiomeRegistry::Get().GetBiome(biome).numericId ==
-      NoMoreDay::BiomeID::Town) {
+  // Town biomes keep dedicated safe-zone layout.
+  if (biomeConfig.style == NoMoreDay::BiomeStyle::Town) {
     generateTownMap(width, height);
   } else {
-    generateCaveMap(width, height);
+    NoMoreDay::BiomeMapGenerator generator;
+    auto mapData =
+        generator.GenerateForBiome(width, height, biomeConfig, m_gen());
+
+    m_mapData.width = mapData.width;
+    m_mapData.height = mapData.height;
+    m_mapData.grid = std::move(mapData.grid);
+    MarkAirWalls(m_mapData.grid,
+                 biomeConfig.hasFeature(NoMoreDay::BiomeFeature::AirWall));
+
+    m_flowField.resize(m_mapData.width * m_mapData.height);
+    m_distanceField.resize(m_mapData.width * m_mapData.height);
+
+    using namespace NoMoreDay::Constants::World::Map;
+    m_cachedCostMap.resize(m_mapData.grid.size());
+    for (size_t i = 0; i < m_mapData.grid.size(); i++) {
+      m_cachedCostMap[i] =
+          m_mapData.grid[i].isWalkable() ? COST_FLOOR : COST_WALL;
+    }
+    m_costMapDirty = false;
   }
 }
 

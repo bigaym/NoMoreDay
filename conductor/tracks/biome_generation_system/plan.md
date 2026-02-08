@@ -146,9 +146,9 @@ src/game/systems/combat/MovementSystem.cpp
 > **目标**: 实现三类风格的地图生成策略
 
 ### Task 3.1: IBiomeStrategy 接口定义 ⏱️ 0.5h
-- [ ] 定义 `IBiomeStrategy` 虚基类
-- [ ] 定义 `GenerateTerrain()` 和 `PlaceSpecialStructures()` 接口
-- [ ] 定义通用参数结构体
+- [x] 定义 `IBiomeStrategy` 虚基类
+- [x] 定义 `GenerateTerrain()` 和 `PlaceSpecialStructures()` 接口
+- [x] 定义通用参数结构体
 
 **新建文件**:
 ```
@@ -156,10 +156,10 @@ src/game/systems/world/BiomeStrategies.hpp
 ```
 
 ### Task 3.2: OpenBiomeStrategy (A组) ⏱️ 2h
-- [ ] 实现低墙率 CA 生成 (wallProb 0.15-0.22)
-- [ ] 减少平滑迭代次数 (2-3次) 保持空旷
-- [ ] 稀疏障碍物放置
-- [ ] 验证: 生成地图 >70% 为地板
+- [x] 实现低墙率 CA 生成 (wallProb 0.15-0.22)
+- [x] 减少平滑迭代次数 (2-3次) 保持空旷
+- [x] 稀疏障碍物放置
+- [x] 验证: 生成地图 >70% 为地板
 
 **新建文件**:
 ```
@@ -167,11 +167,11 @@ src/game/systems/world/OpenBiomeStrategy.cpp
 ```
 
 ### Task 3.3: MazeBiomeStrategy (B组) ⏱️ 3h
-- [ ] 实现高墙率 CA 生成 (wallProb 0.38-0.48)
-- [ ] 增加平滑迭代次数 (5-6次) 形成走廊
-- [ ] 走廊宽度控制 (2-3格)
-- [ ] 死胡同检测与标记 (用于宝箱放置)
-- [ ] 验证: 生成地图有明显的通道结构
+- [x] 实现高墙率 CA 生成 (wallProb 0.38-0.48)
+- [x] 增加平滑迭代次数 (5-6次) 形成走廊
+- [x] 走廊宽度控制 (2-3格)
+- [x] 死胡同检测与标记 (用于宝箱放置)
+- [x] 验证: 生成地图有明显的通道结构
 
 **新建文件**:
 ```
@@ -179,11 +179,11 @@ src/game/systems/world/MazeBiomeStrategy.cpp
 ```
 
 ### Task 3.4: SpecialBiomeStrategy (C组) ⏱️ 4h
-- [ ] 实现浮空平台生成 (FloatingIsle, SkyPalace)
-- [ ] 实现桥梁连接算法
-- [ ] 实现中心竞技场 (HolyArena)
-- [ ] 实现动态刷怪墙放置 (HiveNest)
-- [ ] 空气墙区域标记
+- [x] 实现浮空平台生成 (FloatingIsle, SkyPalace)
+- [x] 实现桥梁连接算法
+- [x] 实现中心竞技场 (HolyArena)
+- [x] 实现动态刷怪墙放置 (HiveNest)
+- [x] 空气墙区域标记
 
 **新建文件**:
 ```
@@ -191,10 +191,10 @@ src/game/systems/world/SpecialBiomeStrategy.cpp
 ```
 
 ### Task 3.5: BiomeMapGenerator 集成 ⏱️ 1h
-- [ ] 创建 `BiomeMapGenerator` 类
-- [ ] 实现 `CreateStrategy(BiomeStyle)` 工厂方法
-- [ ] 实现 `GenerateForBiome()` 主入口
-- [ ] 集成到 `MapSystem::generateMap()`
+- [x] 创建 `BiomeMapGenerator` 类
+- [x] 实现 `CreateStrategy(BiomeStyle)` 工厂方法
+- [x] 实现 `GenerateForBiome()` 主入口
+- [x] 集成到 `MapSystem::generateMap()`
 
 **新建文件**:
 ```
@@ -203,9 +203,9 @@ src/game/systems/world/BiomeMapGenerator.cpp
 ```
 
 ### Task 3.6: 连通性与出口放置 ⏱️ 1h
-- [ ] 确保所有策略生成的地图连通
-- [ ] 统一出口放置逻辑 (楼梯、传送门)
-- [ ] 特殊结构出口位置验证
+- [x] 确保所有策略生成的地图连通
+- [x] 统一出口放置逻辑 (楼梯、传送门)
+- [x] 特殊结构出口位置验证
 
 ---
 

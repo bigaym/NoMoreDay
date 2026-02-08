@@ -109,6 +109,14 @@ void EnemySpawnSystem::initData(int width, int height, int level,
     return;
   }
 
+  using namespace NoMoreDay::Constants::Enemy;
+  const int clampedMaxEnemies = std::clamp(
+      biomeConfig.maxEnemies, BIOME_MAX_ENEMIES_MIN, BIOME_MAX_ENEMIES_MAX);
+  if (biomeConfig.maxEnemies != clampedMaxEnemies) {
+    LOG_INFO("EnemySpawnSystem: maxEnemies clamped from {} to {} for biome {}",
+             biomeConfig.maxEnemies, clampedMaxEnemies, biomeConfig.id);
+  }
+
   // 1. 种族池逻辑
   std::vector<int> availableRaces;
   if (biomeConfig.enemyPool.empty()) {
@@ -137,6 +145,9 @@ void EnemySpawnSystem::initData(int width, int height, int level,
         availableRaces.push_back(it->second);
       }
     }
+    if (availableRaces.empty()) {
+      availableRaces = {EnemyRace::UNDEAD, EnemyRace::DEMON};
+    }
   }
 
   // 2. 群聚生成 - 大幅增加密度 (5~10倍)
@@ -150,7 +161,9 @@ void EnemySpawnSystem::initData(int width, int height, int level,
   // Ensure strict min/max
   if (biomeConfig.maxEnemies > 0) {
     // 允许生成更多，限制在 maxEnemies 范围内
-    clusterCount = std::min(clusterCount, biomeConfig.maxEnemies / 5);
+    clusterCount =
+        std::min(clusterCount,
+                 std::max(1, clampedMaxEnemies / MIN_CLUSTER_ENEMY_COUNT));
   }
   if (clusterCount < 1)
     clusterCount = 1;
@@ -162,6 +175,10 @@ void EnemySpawnSystem::initData(int width, int height, int level,
       MIN_CLUSTER_ENEMY_COUNT,
       MAX_CLUSTER_ENEMY_COUNT); // 每群 5-12 只 (原来 3-6)
   for (int i = 0; i < clusterCount; ++i) {
+    if (static_cast<int>(m_spawnData.size()) >= clampedMaxEnemies) {
+      break;
+    }
+
     int cx, cy;
     bool foundCenter = false;
     for (int attempt = 0; attempt < 20; ++attempt) {
@@ -181,6 +198,10 @@ void EnemySpawnSystem::initData(int width, int height, int level,
         countDist(m_gen) *
         std::min(1.5f,
                  m_resonanceMods.densityMultiplier)); // 也会稍微增加单群数量
+
+    const int remainingSlots =
+        clampedMaxEnemies - static_cast<int>(m_spawnData.size());
+    enemyCount = std::min(enemyCount, std::max(0, remainingSlots));
 
     for (int j = 0; j < enemyCount; ++j) {
       std::uniform_real_distribution<float> angleDist(0.0f, 6.283185f);

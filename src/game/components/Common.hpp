@@ -354,6 +354,9 @@ constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向�
 
     constexpr float DEFAULT_SPRITE_SCALE = 0.3f;     // 默认怪物贴图缩放
     constexpr float DEFAULT_COLLISION_RADIUS = 5.0f; // 怪物默认物理碰撞半径
+    constexpr int NEXT_LEVEL_PORTAL_KILL_REQUIREMENT = 100;
+    constexpr int BIOME_MAX_ENEMIES_MIN = 150;
+    constexpr int BIOME_MAX_ENEMIES_MAX = 5000;
   } // namespace Enemy
 
   // 物品、背包与拾取相关
