@@ -15,6 +15,7 @@
 
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/AstrolabeSystem.hpp"    
 #include "game/systems/skill/SkillSystem.hpp"
@@ -25,6 +26,7 @@
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/systems/item/SalvageSystem.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
+#include "engine/physics/SpatialGrid.hpp"
 
 namespace NoMoreDay {
 

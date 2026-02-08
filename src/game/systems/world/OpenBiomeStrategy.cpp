@@ -1,5 +1,6 @@
 #include "game/systems/world/BiomeStrategies.hpp"
 #include <algorithm>
+#include <cmath>
 #include <random>
 
 namespace {
@@ -38,6 +39,68 @@ void SmoothIteration(const std::vector<Tile> &src, std::vector<Tile> &dst,
         dst[idx].type = (wallCount > birthLimit) ? Tile::Type::WALL
                                                  : Tile::Type::FLOOR;
       }
+    }
+  }
+}
+
+bool IsOpenCombatBiome(const NoMoreDay::BiomeConfig &config) {
+  return config.numericId >= NoMoreDay::BiomeID::SunPrairie &&
+         config.numericId <= NoMoreDay::BiomeID::AshPlain;
+}
+
+float ComputeWallRatio(const std::vector<Tile> &grid) {
+  if (grid.empty()) {
+    return 0.0f;
+  }
+
+  size_t wallCount = 0;
+  for (const Tile &tile : grid) {
+    if (tile.type == Tile::Type::WALL) {
+      ++wallCount;
+    }
+  }
+
+  return static_cast<float>(wallCount) / static_cast<float>(grid.size());
+}
+
+void EnforceOpenCombatWallBand(std::vector<Tile> &grid, int width, int height,
+                               std::mt19937 &gen) {
+  constexpr float kMinWallRatio = 0.15f;
+  constexpr float kMaxWallRatio = 0.22f;
+
+  const int totalTiles = width * height;
+  const int minWalls = static_cast<int>(std::ceil(totalTiles * kMinWallRatio));
+  const int maxWalls = static_cast<int>(std::floor(totalTiles * kMaxWallRatio));
+
+  int wallCount = 0;
+  std::vector<int> floors;
+  std::vector<int> walls;
+  floors.reserve(static_cast<size_t>(totalTiles));
+  walls.reserve(static_cast<size_t>(totalTiles));
+
+  for (int y = 1; y < height - 1; ++y) {
+    for (int x = 1; x < width - 1; ++x) {
+      const int idx = y * width + x;
+      if (grid[idx].type == Tile::Type::WALL) {
+        ++wallCount;
+        walls.push_back(idx);
+      } else {
+        floors.push_back(idx);
+      }
+    }
+  }
+
+  if (wallCount < minWalls) {
+    std::shuffle(floors.begin(), floors.end(), gen);
+    const int need = std::min(minWalls - wallCount, static_cast<int>(floors.size()));
+    for (int i = 0; i < need; ++i) {
+      grid[floors[static_cast<size_t>(i)]].type = Tile::Type::WALL;
+    }
+  } else if (wallCount > maxWalls) {
+    std::shuffle(walls.begin(), walls.end(), gen);
+    const int need = std::min(wallCount - maxWalls, static_cast<int>(walls.size()));
+    for (int i = 0; i < need; ++i) {
+      grid[walls[static_cast<size_t>(i)]].type = Tile::Type::FLOOR;
     }
   }
 }
@@ -81,6 +144,7 @@ void OpenBiomeStrategy::PlaceSpecialStructures(
     std::vector<Tile> &grid, const BiomeGenerationParams &params) {
   const int width = params.width;
   const int height = params.height;
+  const BiomeConfig &config = *params.config;
   std::mt19937 gen(params.seed ^ 0x6A09E667u);
   std::uniform_real_distribution<float> dist(0.0f, 1.0f);
 
@@ -106,6 +170,10 @@ void OpenBiomeStrategy::PlaceSpecialStructures(
         grid[idx - width].type = Tile::Type::WALL;
       }
     }
+  }
+
+  if (IsOpenCombatBiome(config)) {
+    EnforceOpenCombatWallBand(grid, width, height, gen);
   }
 }
 
