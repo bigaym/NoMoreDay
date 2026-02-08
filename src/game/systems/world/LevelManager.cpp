@@ -7,6 +7,7 @@
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/MosaicData.hpp"
 #include "game/components/WorldState.hpp"
+#include <algorithm>
 
 
 LevelManager::LevelManager() : m_currentLevel(1) {}
@@ -256,13 +257,20 @@ void LevelManager::update(float dt, entt::registry &registry,
     for (auto [entity, vision] : view.each()) {
       viewRadius = vision.radius;
     }
+    const auto &biomeConfig =
+        NoMoreDay::BiomeRegistry::Get().GetBiome(m_currentBiome);
+    if (biomeConfig.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
+        biomeConfig.visionRadius > 0.0f) {
+      viewRadius = std::min(viewRadius, biomeConfig.visionRadius);
+    }
     m_fogSystem->updateVisibility(playerPos, viewRadius);
 
     // GPU FogOfWarSystem 直接生成纹理, 无需同步到 MapSystem
     // 渲染时 FogSystem 和 MapSystem 独立渲染
 
     // 更新敌人生成状态
-    m_enemySystem->updateEnemySpawning(playerPos, registry);
+    m_enemySystem->updateEnemySpawning(playerPos, registry, dt,
+                                       m_mapSystem.get());
   }
 }
 

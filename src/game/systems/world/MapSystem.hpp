@@ -2,7 +2,10 @@
 
 #include "engine/physics/SpatialGrid.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/DestructibleTileComponent.hpp"
 #include "game/components/MapComponent.hpp"
+#include "game/components/SpawnerWallComponent.hpp"
+#include "game/components/SpeedZoneComponent.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
 #include <memory>
@@ -10,6 +13,7 @@
 #include <span>
 
 namespace NoMoreDay {
+struct BiomeConfig;
 struct MosaicGrid;
 struct ResonanceResult;
 } // namespace NoMoreDay
@@ -88,6 +92,9 @@ private:
 
   std::vector<unsigned char> m_cachedCostMap;
   bool m_costMapDirty = true;
+  std::vector<DestructibleTileComponent> m_destructibleTiles;
+  std::vector<SpawnerWallComponent> m_spawnerWalls;
+  std::vector<SpeedZoneComponent> m_speedZones;
 
 public:
   MapSystem();
@@ -126,6 +133,16 @@ public:
 
   const std::vector<unsigned char> &getCostMap() const {
     return m_cachedCostMap;
+  }
+  bool applyTileDamageAt(int x, int y, float damage);
+  int applyRadialTileDamage(const Position &center, float radius, float damage);
+  float getSpeedMultiplierAtWorld(float worldX, float worldY) const;
+  std::vector<SpawnerWallComponent> &getSpawnerWalls() { return m_spawnerWalls; }
+  const std::vector<SpawnerWallComponent> &getSpawnerWalls() const {
+    return m_spawnerWalls;
+  }
+  const std::vector<SpeedZoneComponent> &getSpeedZones() const {
+    return m_speedZones;
   }
 
   // 可见性管理
@@ -179,6 +196,8 @@ private:
 
   // 初始化雾纹理
   void initializeFogTexture(int width, int height);
+  void initializeBiomeInteractionLayers(
+      const NoMoreDay::BiomeConfig &biomeConfig);
 };
 
 // Forward declaration if not already included

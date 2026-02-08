@@ -63,7 +63,9 @@ public:
   void initTextures();
 
   // 更新生成/销毁逻辑
-  void updateEnemySpawning(const Position &playerPos, entt::registry &registry);
+  void updateEnemySpawning(const Position &playerPos, entt::registry &registry,
+                           float dt = 0.016f,
+                           MapSystem *mapSystem = nullptr);
   
   // Spec 2.3: Re-schedule dormant entities
   void updateDormantEntities(entt::registry& registry, const Position& playerPos, int gridW, int gridH);
@@ -73,4 +75,6 @@ private:
   void spawnEnemy(entt::registry &registry, EnemySpawnData &data);
   // 具体的销毁逻辑
   void despawnEnemy(entt::registry &registry, EnemySpawnData &data);
+  void updateSpawnerWalls(entt::registry &registry, MapSystem &mapSystem,
+                          const Position &playerPos, float dt);
 };

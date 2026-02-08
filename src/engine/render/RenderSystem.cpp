@@ -19,6 +19,7 @@
 #include "game/components/SkillDefs.hpp"      
 #include "game/components/StashComponent.hpp" 
 #include "game/components/vfx/HoloBladeComponent.hpp"
+#include "game/data/BiomeRegistry.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp" 
 #include "game/systems/item/LootFilter.hpp"
@@ -27,6 +28,8 @@
 #include "game/systems/vfx/HoloBladeRenderSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/systems/vfx/TrailSystem.hpp"
+#include "game/systems/world/FogOfWarSystem.hpp"
+#include "game/systems/world/LevelManager.hpp"
 #include "raymath.h"
 #include <algorithm>
 #include <cmath>
@@ -193,6 +196,17 @@ void RenderSystem::render(entt::registry &registry,
                  playerView.get<Position>(playerView.front()).y};
     hasPlayer = true;
   }
+  const auto *levelManager = context.levelManager;
+  bool limitEnemyVision = false;
+  const FogOfWarSystem *fogSystem = nullptr;
+  if (levelManager) {
+    const auto &biome =
+        NoMoreDay::BiomeRegistry::Get().GetBiome(levelManager->getCurrentBiomeID());
+    limitEnemyVision =
+        biome.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
+        biome.visionRadius > 0.0f;
+    fogSystem = &levelManager->getFogSystem();
+  }
 
   auto stashView =
       registry.view<const Position, const NoMoreDay::StashPlaceholderRender>();
@@ -233,6 +247,14 @@ void RenderSystem::render(entt::registry &registry,
 
       float renderX = pos.x;
       float renderY = pos.y;
+      if (limitEnemyVision && fogSystem && registry.any_of<EnemyTag>(entity)) {
+        using namespace NoMoreDay::Constants::World;
+        const int gx = static_cast<int>(renderX / GRID_TILE_SIZE);
+        const int gy = static_cast<int>(renderY / GRID_TILE_SIZE);
+        if (!fogSystem->isVisible(gx, gy)) {
+          continue;
+        }
+      }
       if (!isPlayer && registry.any_of<GPUIndex>(entity)) {
         if (auto *prevPos = registry.try_get<PrevPosition>(entity)) {
           renderX = Lerp(prevPos->x, pos.x, context.renderAlpha);

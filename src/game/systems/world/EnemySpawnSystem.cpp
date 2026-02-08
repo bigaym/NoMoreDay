@@ -17,8 +17,31 @@
 #include "game/components/WorldState.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <random>
+#include <unordered_map>
+
+namespace {
+int RaceFromName(std::string raceName) {
+  std::transform(raceName.begin(), raceName.end(), raceName.begin(),
+                 [](unsigned char c) { return (char)std::tolower(c); });
+  static const std::unordered_map<std::string, int> kRaceMap = {
+      {"undead", EnemyRace::UNDEAD},   {"skeleton", EnemyRace::UNDEAD},
+      {"demon", EnemyRace::DEMON},     {"corrupted", EnemyRace::CORRUPTED},
+      {"warcraft", EnemyRace::CORRUPTED},
+      {"cultist", EnemyRace::CULTIST}, {"elf", EnemyRace::ElVES},
+      {"elves", EnemyRace::ElVES},     {"beast", EnemyRace::BEAST},
+      {"animal", EnemyRace::BEAST},    {"goblin", EnemyRace::GOBLIN},
+      {"machine", EnemyRace::MACHINE}, {"mech", EnemyRace::MACHINE},
+      {"elemental", EnemyRace::ELEMENTAL}};
+  auto it = kRaceMap.find(raceName);
+  if (it != kRaceMap.end()) {
+    return it->second;
+  }
+  return EnemyRace::UNDEAD;
+}
+} // namespace
 
 EnemySpawnSystem::EnemySpawnSystem()
     : m_mapWidth(0), m_mapHeight(0), m_gen(std::random_device{}()) {
@@ -263,7 +286,8 @@ void EnemySpawnSystem::initTextures() {
 }
 
 void EnemySpawnSystem::updateEnemySpawning(const Position &playerPos,
-                                           entt::registry &registry) {
+                                           entt::registry &registry, float dt,
+                                           MapSystem *mapSystem) {
   int activeCount = 0;
   for (const auto& d : m_spawnData) if (d.isAlive) activeCount++;
   LOG_LIMITED_INFO(5.0f, "[SpawnSystem] Active Entities: {} / Total Spawn Points: {}", activeCount, m_spawnData.size());
@@ -307,6 +331,10 @@ void EnemySpawnSystem::updateEnemySpawning(const Position &playerPos,
   }
   
   startIndex = endIndex;
+
+  if (mapSystem) {
+    updateSpawnerWalls(registry, *mapSystem, playerPos, dt);
+  }
 }
 
 void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
@@ -563,6 +591,56 @@ void EnemySpawnSystem::despawnEnemy(entt::registry &registry,
   }
   data.entityId = entt::null;
   data.isAlive = false;
+}
+
+void EnemySpawnSystem::updateSpawnerWalls(entt::registry &registry,
+                                          MapSystem &mapSystem,
+                                          const Position &playerPos, float dt) {
+  auto &spawners = mapSystem.getSpawnerWalls();
+  if (spawners.empty()) {
+    return;
+  }
+
+  using namespace NoMoreDay::Constants::World;
+  for (auto &spawner : spawners) {
+    if (!spawner.isActive) {
+      continue;
+    }
+    if (spawner.currentSpawns >= spawner.maxSpawns) {
+      spawner.isActive = false;
+      continue;
+    }
+
+    const Position worldPos = {(spawner.gridX + 0.5f) * GRID_TILE_SIZE,
+                               (spawner.gridY + 0.5f) * GRID_TILE_SIZE};
+    const float dx = worldPos.x - playerPos.x;
+    const float dy = worldPos.y - playerPos.y;
+    const float distSq = dx * dx + dy * dy;
+    if (distSq > m_deactivationDistance * m_deactivationDistance) {
+      continue;
+    }
+
+    spawner.spawnTimer += dt;
+    if (spawner.spawnTimer < spawner.spawnInterval) {
+      continue;
+    }
+    spawner.spawnTimer = 0.0f;
+
+    EnemySpawnData data;
+    std::uniform_real_distribution<float> jitter(-6.0f, 6.0f);
+    data.position = {worldPos.x + jitter(m_gen), worldPos.y + jitter(m_gen)};
+    data.enemyType = spawner.spawnPool.empty()
+                         ? EnemyRace::CORRUPTED
+                         : RaceFromName(spawner.spawnPool[m_gen() %
+                                                          spawner.spawnPool.size()]);
+    data.enemyVariant = static_cast<int>(m_gen() % 5u);
+    data.isAlive = false;
+    data.entityId = entt::null;
+    data.allowRespawn = false;
+
+    spawnEnemy(registry, data);
+    spawner.currentSpawns++;
+  }
 }
 
 void EnemySpawnSystem::updateDormantEntities(entt::registry &registry,

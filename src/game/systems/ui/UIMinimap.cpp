@@ -179,6 +179,13 @@ void UIMinimap::Draw(entt::registry &registry,
              // Logic pos check
              float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
              float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
+             const int enemyGx =
+                 static_cast<int>(enemyPos.x / FogOfWarSystem::TILE_SIZE);
+             const int enemyGy =
+                 static_cast<int>(enemyPos.y / FogOfWarSystem::TILE_SIZE);
+             if (!s_debugRevealMap && !fog.isVisible(enemyGx, enemyGy)) {
+                 return;
+             }
              
              if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
                  float logicX = x + (dx + viewRadius) * minimapScale;
@@ -195,6 +202,13 @@ void UIMinimap::Draw(entt::registry &registry,
         const auto &enemyPos = enemyView.get<Position>(entity);
         float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
         float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
+        const int enemyGx =
+            static_cast<int>(enemyPos.x / FogOfWarSystem::TILE_SIZE);
+        const int enemyGy =
+            static_cast<int>(enemyPos.y / FogOfWarSystem::TILE_SIZE);
+        if (!s_debugRevealMap && !fog.isVisible(enemyGx, enemyGy)) {
+          continue;
+        }
         if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
           float logicX = x + (dx + viewRadius) * minimapScale;
           float logicY = y + (dy + viewRadius) * minimapScale;
