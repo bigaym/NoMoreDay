@@ -85,12 +85,16 @@ LevelManager::prepareMosaicLevel(const NoMoreDay::MosaicGrid &grid,
                                  const NoMoreDay::ResonanceResult &resonance,
                                  entt::registry *registry, int width,
                                  int height) {
-  LOG_INFO("Preparing mosaic level data for biome: {} ({}x{})", 
-           static_cast<int>(resonance.primaryBiome), width,
+  const auto effectiveBiome = (resonance.primaryBiome == NoMoreDay::BiomeID::None)
+                                  ? NoMoreDay::BiomeID::Cave
+                                  : resonance.primaryBiome;
+
+  LOG_INFO("Preparing mosaic level data for biome: {} ({}x{})",
+           static_cast<int>(effectiveBiome), width,
            height);
 
   LevelData data;
-  data.biome = resonance.primaryBiome;
+  data.biome = effectiveBiome;
   data.width = width;
   data.height = height;
   data.level = m_currentLevel + 1; // Increment level depth
@@ -111,7 +115,7 @@ LevelManager::prepareMosaicLevel(const NoMoreDay::MosaicGrid &grid,
   } else {
       LOG_WARN("ActiveDimensionalState missing during Mosaic Load!");
   }
-  data.enemy->initData(width, height, data.level, *data.map, resonance.primaryBiome, statePtr);
+  data.enemy->initData(width, height, data.level, *data.map, effectiveBiome, statePtr);
 
   return data;
 }

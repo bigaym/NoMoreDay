@@ -9,6 +9,7 @@
 #include "game/components/Projectile.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "raylib.h"
+#include <cmath>
 
 
 namespace NoMoreDay {
@@ -73,6 +74,9 @@ void SceneManager::RequestMosaicTransition(
   m_targetBiome = (resonance.primaryBiome == NoMoreDay::BiomeID::None)
                       ? NoMoreDay::BiomeID::Cave
                       : resonance.primaryBiome;
+  if (m_pendingResonance.primaryBiome == NoMoreDay::BiomeID::None) {
+    m_pendingResonance.primaryBiome = m_targetBiome;
+  }
   m_targetBiomeKey = BiomeRegistry::Get().GetBiome(m_targetBiome).id;
   m_targetLevel = 1; // Rifts always start at level 1 contextually
 
@@ -338,6 +342,56 @@ void SceneManager::ApplyLoadedLevel() {
     }
   }
 
+  // Rift resume spawn override: restore to the last town-exit position when possible.
+  if (m_targetEntranceId == "rift_resume" &&
+      m_registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+    auto& state = m_registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
+    if (NoMoreDay::HasInProgressRift(state)) {
+      constexpr float kTileSize = 10.0f;
+      const int baseX = static_cast<int>(std::floor(state.lastExitPosition.x / kTileSize));
+      const int baseY = static_cast<int>(std::floor(state.lastExitPosition.y / kTileSize));
+
+      auto tryResolveWalkable = [&](int tileX, int tileY, int maxRadius, int& outX, int& outY) -> bool {
+        if (mapSystem.isWalkable(tileX, tileY)) {
+          outX = tileX;
+          outY = tileY;
+          return true;
+        }
+
+        for (int r = 1; r <= maxRadius; ++r) {
+          for (int dx = -r; dx <= r; ++dx) {
+            for (int dy = -r; dy <= r; ++dy) {
+              const int tx = tileX + dx;
+              const int ty = tileY + dy;
+              if (mapSystem.isWalkable(tx, ty)) {
+                outX = tx;
+                outY = ty;
+                return true;
+              }
+            }
+          }
+        }
+        return false;
+      };
+
+      int resolvedX = baseX;
+      int resolvedY = baseY;
+      if (tryResolveWalkable(baseX, baseY, 20, resolvedX, resolvedY)) {
+        spawnX = resolvedX * kTileSize + 5.0f;
+        spawnY = resolvedY * kTileSize + 5.0f;
+        if (resolvedX == baseX && resolvedY == baseY) {
+          LOG_INFO("Rift resume restored to exact exit position ({:.1f}, {:.1f})",
+                   state.lastExitPosition.x, state.lastExitPosition.y);
+        } else {
+          LOG_WARN("Rift resume fallback to nearest walkable tile ({}, {}) from ({:.1f}, {:.1f})",
+                   resolvedX, resolvedY, state.lastExitPosition.x, state.lastExitPosition.y);
+        }
+      } else {
+        LOG_WARN("Rift resume position not walkable and no nearby walkable tile found. Using default spawn.");
+      }
+    }
+  }
+
   auto view = m_registry.view<PersistentTag, Position>();
   for (auto entity : view) {
     auto &pos = view.get<Position>(entity);
@@ -355,6 +409,7 @@ void SceneManager::ApplyLoadedLevel() {
 
   // Spawn return portal if coming from a dungeon to town
   if (m_targetBiome == NoMoreDay::BiomeID::Town &&
+      m_targetEntranceId != "rift_complete_return" &&
       m_originBiome != NoMoreDay::BiomeID::None &&
       m_originBiome != NoMoreDay::BiomeID::Town) {
     auto returnPortal = m_registry.create();

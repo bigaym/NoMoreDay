@@ -152,6 +152,14 @@ void Game::init() {
     m_registry.ctx().emplace<NoMoreDay::ActiveDimensionalState>();
   }
 
+  // Expose SharedContext through registry context for systems that operate on
+  // registry-only interfaces (e.g. CombatSystem static calls).
+  if (!m_registry.ctx().contains<NoMoreDay::SharedContext *>()) {
+    m_registry.ctx().emplace<NoMoreDay::SharedContext *>(&m_context);
+  } else {
+    m_registry.ctx().get<NoMoreDay::SharedContext *>() = &m_context;
+  }
+
   // Initialize Stats System (Cache cleanup)
   NoMoreDay::StatsSystem::Initialize(m_registry);
 

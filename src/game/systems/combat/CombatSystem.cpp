@@ -1,7 +1,9 @@
 #include "game/systems/combat/CombatSystem.hpp"
+#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/PhysicsUtils.hpp"
 #include "core/utils/Branchless.hpp"
+#include "engine/scene/SceneManager.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/AIComponent.hpp"
@@ -700,6 +702,36 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
       registry.remove<AIComponent>(target);
     if (registry.all_of<SpriteComponent>(target))
       registry.remove<SpriteComponent>(target);
+
+    // Player death flow: recover resources and return to town instead of
+    // entering the generic KilledTag GC pipeline.
+    if (registry.all_of<PlayerTag>(target)) {
+      hp.current = hp.max;
+
+      if (auto *stats = registry.try_get<NoMoreDay::CombatStats>(target)) {
+        stats->health = stats->max_health;
+        stats->mana = stats->max_mana;
+        stats->barrier = stats->max_barrier;
+      }
+
+      if (auto *playerStats = registry.try_get<PlayerStats>(target)) {
+        playerStats->deathCount++;
+      }
+
+      if (registry.ctx().contains<NoMoreDay::SharedContext *>()) {
+        NoMoreDay::SharedContext *ctx =
+            registry.ctx().get<NoMoreDay::SharedContext *>();
+        if (ctx && ctx->sceneManager) {
+          ctx->sceneManager->ClearOriginInfo();
+          ctx->sceneManager->RequestTransition(NoMoreDay::BiomeID::Town, 1,
+                                               "player_death_return");
+        }
+      }
+
+      LOG_INFO("Player {} died and was returned to town with full HP/MP.",
+               static_cast<uint32_t>(target));
+      return true;
+    }
 
     registry.emplace<KilledTag>(target, attacker);
 

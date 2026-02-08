@@ -6,6 +6,20 @@
 #include "../data/MosaicData.hpp" 
 #include "Common.hpp"
 
+namespace nlohmann {
+template <>
+struct adl_serializer<::Vector2> {
+    static void to_json(json& j, const ::Vector2& p) {
+        j = json{{"x", p.x}, {"y", p.y}};
+    }
+
+    static void from_json(const json& j, ::Vector2& p) {
+        j.at("x").get_to(p.x);
+        j.at("y").get_to(p.y);
+    }
+};
+} // namespace nlohmann
+
 namespace NoMoreDay {
 
 // Serialization for BiomeID
@@ -50,6 +64,7 @@ struct ActiveDimensionalState {
     int killCounter = 0;
     bool isBossKilled = false;
     bool isCompleted = false;
+    Vector2 lastExitPosition{0.0f, 0.0f}; // Last known position before returning to town
 
     // Source Data (for UI viewing and Persistence)
     // gridSnapshots stores the POD data of fragments for decay calculation after reload.
@@ -66,8 +81,40 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ActiveDimensionalState,
     explicitAffixes, aggregatedAffixes,
     difficultyScore, calculatedRarity, calculatedQuantity,
     maxDepth, currentDepth,
-    killCounter, isBossKilled, isCompleted,
+    killCounter, isBossKilled, isCompleted, lastExitPosition,
     gridSnapshots
 )
+
+struct RiftCompletionPromptState {
+    bool isPending = false;
+};
+
+inline bool HasInProgressRift(const ActiveDimensionalState& state) noexcept {
+    return state.isActive && !state.isCompleted;
+}
+
+inline void ClearRiftInstanceData(ActiveDimensionalState& state) {
+    state.isActive = false;
+    state.isCompleted = true;
+    state.seed = 0;
+    state.biome = BiomeID::None;
+    state.depthLevel = 1;
+    state.maxDepth = 3;
+    state.currentDepth = 1;
+    state.killCounter = 0;
+    state.isBossKilled = false;
+    state.lastExitPosition = {0.0f, 0.0f};
+    state.difficultyScore = 0;
+    state.calculatedRarity = 0.0f;
+    state.calculatedQuantity = 0.0f;
+    state.resonance = ResonanceResult{};
+    state.explicitAffixes.clear();
+    state.aggregatedAffixes.clear();
+
+    for (auto& snap : state.gridSnapshots) {
+        snap = FragmentSnapshot{};
+    }
+    state.sourceGrid.Clear();
+}
 
 } // namespace NoMoreDay

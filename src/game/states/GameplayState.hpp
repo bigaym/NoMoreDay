@@ -34,6 +34,11 @@ private:
   void InitializeEntities();
   void UpdatePhysics(float dt);
   void RenderMapAffixOverlay();
+  void EnsurePlayerHasDimensionalFragment(entt::registry& registry, entt::entity player);
+  void OpenDimensionalLevelSelect(entt::registry& registry, entt::entity player);
+  void ClearActiveRiftForNewRun(entt::registry& registry);
+  bool HandleRiftDialogs(entt::registry& registry);
+  void RenderRiftDialogs();
 
   Camera2D m_camera = {0};
   tf::Taskflow m_taskflow;
@@ -44,6 +49,11 @@ private:
   // Portal System
   std::unique_ptr<PortalSystem> m_portalSystem;
   RenderContext *m_renderContext = nullptr;
+
+  bool m_showGateResumeOrNewDialog = false;
+  bool m_showGateStartNewConfirmDialog = false;
+  bool m_showRiftCompletedDialog = false;
+  entt::entity m_gateDialogPlayer = entt::null;
 };
 
 } // namespace NoMoreDay

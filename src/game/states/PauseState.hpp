@@ -31,6 +31,9 @@ namespace NoMoreDay {
         Button m_unstuckButton;
         Button m_settingsButton;
         Button m_menuButton;
+
+        bool m_confirmMainMenu = false;
+        float m_inputDebounce = 0.0f;
     };
 
 }

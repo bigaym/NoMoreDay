@@ -63,6 +63,7 @@ private:
 
   // 纭瀵硅瘽妗
   bool m_showConfirmDialog = false;
+  bool m_showActiveRiftBlockedDialog = false;
 
   // 渲染方法
   void RenderBackground();
@@ -74,6 +75,7 @@ private:
   void RenderDraggedFragment();
   void RenderTooltip();
   void RenderConfirmDialog();
+  void RenderActiveRiftBlockedDialog();
 
   // 交互方法
   void HandleInput();

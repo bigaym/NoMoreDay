@@ -4,6 +4,14 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: fix-portal-rift-resume_20260208
+- **Folder:** [./conductor/archive/fix-portal-rift-resume_20260208/](./conductor/archive/fix-portal-rift-resume_20260208/)
+- **Description:** 修复维度裂隙恢复流程，包括继续/新开确认、回城点恢复、3层完成后的重拼接分流、Portal 安全删除，以及相关稳定性问题（字体、回城门、暂停与死亡回城逻辑）。
+- **Status:** COMPLETED (2026-02-08)
+- **Priority:** P0
+
+---
+
 ## [x] Track: TODO Closure Core Loop (2026-02-08)
 - **Folder:** [./conductor/archive/todo-closure-core-loop_20260208/](./conductor/archive/todo-closure-core-loop_20260208/)
 - **Description:** 闭环修复核心循环中的遗留 TODO。包括 SkillSystem 反击伤害接入 DamagePipeline，以及 SaveManager 存档头信息（玩家名、游玩时长）的动态化实现。

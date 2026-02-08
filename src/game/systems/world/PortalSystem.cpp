@@ -11,6 +11,7 @@
 #include "raymath.h"
 #include <cmath>
 #include <algorithm>
+#include <vector>
 
 namespace NoMoreDay {
 
@@ -93,6 +94,12 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
 
         // Handle NextLevel portals
         if (portalComp.type == PortalType::NextLevel) {
+          if (registry.ctx().contains<RiftCompletionPromptState>() &&
+              registry.ctx().get<RiftCompletionPromptState>().isPending) {
+              LOG_INFO("Rift completion prompt already pending. Ignoring NextLevel trigger.");
+              return;
+          }
+
           if (registry.ctx().contains<ActiveDimensionalState>()) {
               auto& state = registry.ctx().get<ActiveDimensionalState>();
               if (state.isActive) {
@@ -120,6 +127,14 @@ void PortalSystem::UpdatePortalCollision(entt::registry &registry) {
 
         // Trigger auto-save when entering town
         if (portalComp.targetBiome == NoMoreDay::BiomeID::Town) {
+          if (registry.ctx().contains<ActiveDimensionalState>()) {
+            auto& state = registry.ctx().get<ActiveDimensionalState>();
+            if (HasInProgressRift(state)) {
+              state.lastExitPosition = {pPos.x, pPos.y};
+              LOG_INFO("Recorded rift exit position at ({:.1f}, {:.1f})", pPos.x, pPos.y);
+            }
+          }
+
           LOG_INFO("Entering Town - triggering auto-save");
           if (NoMoreDay::SaveManager::Get().IsInitialized()) {
             NoMoreDay::SaveManager::Get().saveCharacterAsync(registry, 0);
@@ -190,11 +205,13 @@ void PortalSystem::AdvanceRiftLayer(entt::registry &registry, entt::entity playe
     for (const auto& snap : state.gridSnapshots) if (snap.hasFragment) { hasFragments = true; break; }
 
     if (!hasFragments || state.currentDepth > state.maxDepth) {
-        LOG_INFO("Rift Completed at depth {}!", state.currentDepth - 1);
+        LOG_INFO("Rift cycle completed at depth {}. Waiting for player decision.", state.currentDepth - 1);
         state.isActive = false;
         state.isCompleted = true;
-        m_sceneManager.ClearOriginInfo();
-        m_sceneManager.RequestTransition(BiomeID::Town, 1, "");
+        if (!registry.ctx().contains<RiftCompletionPromptState>()) {
+            registry.ctx().emplace<RiftCompletionPromptState>();
+        }
+        registry.ctx().get<RiftCompletionPromptState>().isPending = true;
         return;
     }
 
@@ -265,10 +282,18 @@ void PortalSystem::SpawnTownPortal(entt::registry &registry,
 
   // [Fix] Remove existing Town Portals to prevent duplicates
   auto view = registry.view<PortalComponent>();
+  std::vector<entt::entity> toDestroy;
   for (auto entity : view) {
       if (view.get<PortalComponent>(entity).type == PortalType::Town) {
-          registry.destroy(entity);
+          toDestroy.push_back(entity);
       }
+  }
+
+  // Destroy in a second pass to avoid invalidating EnTT views during iteration.
+  for (auto entity : toDestroy) {
+    if (registry.valid(entity)) {
+      registry.destroy(entity);
+    }
   }
 
   auto portal = registry.create();

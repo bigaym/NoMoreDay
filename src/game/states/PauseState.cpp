@@ -9,6 +9,7 @@
 #include "engine/render/UIRenderer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
+#include "game/systems/ui/UICommon.hpp"
 #include <raylib.h>
 
 namespace NoMoreDay {
@@ -17,8 +18,8 @@ namespace NoMoreDay {
     PauseState::PauseState(StateManager& manager, SharedContext& context)
         : IState(manager, context) 
     {
-        float screenWidth = (float)GetScreenWidth();
-        float screenHeight = (float)GetScreenHeight();
+        float screenWidth = UI_REF_WIDTH;
+        float screenHeight = UI_REF_HEIGHT;
 
         float btnWidth = 260;
         float btnHeight = 70;
@@ -30,21 +31,36 @@ namespace NoMoreDay {
         m_menuButton = { { centerX, screenHeight * 0.35f + 255, btnWidth, btnHeight }, "MAIN MENU", false };
     }
 
-    void PauseState::OnEnter() {}
-    void PauseState::OnExit() {}
+    void PauseState::OnEnter() {
+        m_confirmMainMenu = false;
+        m_menuButton.text = "MAIN MENU";
+        m_inputDebounce = 0.15f; // Avoid click-through from gameplay frame.
+        LOG_INFO("PauseState: Entered.");
+    }
+
+    void PauseState::OnExit() {
+        LOG_INFO("PauseState: Exited.");
+    }
 
     bool PauseState::OnUpdate(float dt) {
-        Vector2 mousePos = GetMousePosition();
+        m_inputDebounce = std::max(0.0f, m_inputDebounce - dt);
+
+        Vector2 mousePos = UISystem::GetMousePositionLogic();
         
         m_resumeButton.hovered = CheckCollisionPointRec(mousePos, m_resumeButton.bounds);
         m_unstuckButton.hovered = CheckCollisionPointRec(mousePos, m_unstuckButton.bounds);
         m_settingsButton.hovered = CheckCollisionPointRec(mousePos, m_settingsButton.bounds);
         m_menuButton.hovered = CheckCollisionPointRec(mousePos, m_menuButton.bounds);
 
-        if (IsButtonClicked(m_resumeButton) || IsKeyPressed(KEY_ESCAPE)) {
+        const bool canClick = (m_inputDebounce <= 0.0f);
+
+        if ((canClick && IsButtonClicked(m_resumeButton)) || IsKeyPressed(KEY_ESCAPE)) {
+            LOG_INFO("PauseState: Resume requested.");
+            m_confirmMainMenu = false;
+            m_menuButton.text = "MAIN MENU";
             m_stateManager->PopState();
         }
-        else if (IsButtonClicked(m_unstuckButton)) {
+        else if (canClick && IsButtonClicked(m_unstuckButton)) {
             if (m_context->registry && m_context->levelManager) {
                 auto view = m_context->registry->view<PlayerTag, Position>();
                 if (view.begin() != view.end()) {
@@ -72,17 +88,28 @@ namespace NoMoreDay {
                         }
                     }
                     if (found) {
+                        LOG_INFO("PauseState: Unstuck succeeded.");
                         m_stateManager->PopState();
                     }
                 }
             }
         }
-        else if (IsButtonClicked(m_settingsButton)) {
+        else if (canClick && IsButtonClicked(m_settingsButton)) {
+            LOG_INFO("PauseState: Opening SettingsState.");
+            m_confirmMainMenu = false;
+            m_menuButton.text = "MAIN MENU";
             m_stateManager->PushState<SettingsState>();
         }
-        else if (IsButtonClicked(m_menuButton)) {
-            m_stateManager->ClearStates();
-            m_stateManager->PushState<MainMenuState>();
+        else if (canClick && IsButtonClicked(m_menuButton)) {
+            if (!m_confirmMainMenu) {
+                m_confirmMainMenu = true;
+                m_menuButton.text = "CONFIRM MENU";
+                LOG_WARN("PauseState: Main menu requested. Waiting second confirmation.");
+            } else {
+                LOG_WARN("PauseState: Returning to MainMenuState (clear state stack).");
+                m_stateManager->ClearStates();
+                m_stateManager->PushState<MainMenuState>();
+            }
         }
 
         return false; // PAUSE underlying states
@@ -94,15 +121,7 @@ namespace NoMoreDay {
         
         Font font = UISystem::GetFont();
         const char* text = "PAUSED";
-        float fontSize = 40.0f;
-        
-        float textWidth = IsFontValid(font) ? MeasureTextEx(font, text, fontSize, 1.0f).x : (float)MeasureText(text, (int)fontSize);
-
-        if (IsFontValid(font)) {
-            DrawTextEx(font, text, { (GetScreenWidth() - textWidth) / 2.0f, GetScreenHeight() * 0.25f }, fontSize, 1.0f, RAYWHITE);
-        } else {
-            DrawText(text, (int)(GetScreenWidth() - textWidth) / 2, (int)(GetScreenHeight() * 0.25f), (int)fontSize, RAYWHITE);
-        }
+        UIRenderer::DrawTextUI(font, text, UI_REF_WIDTH * 0.5f - 120.0f, UI_REF_HEIGHT * 0.25f, 40.0f, RAYWHITE, 1.0f);
 
         DrawButton(m_resumeButton);
         DrawButton(m_unstuckButton);

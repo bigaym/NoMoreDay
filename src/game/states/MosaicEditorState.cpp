@@ -28,6 +28,7 @@ void MosaicEditorState::OnEnter() {
   m_hoveredCellIndex = -1;
   m_hoveredInventoryIndex = -1;
   m_showConfirmDialog = false;
+  m_showActiveRiftBlockedDialog = false;
   m_inventoryScrollOffset = 0;
 }
 
@@ -64,6 +65,9 @@ void MosaicEditorState::OnRender() {
   RenderTooltip(); // Draw tooltip on top
   if (m_showConfirmDialog) {
     RenderConfirmDialog();
+  }
+  if (m_showActiveRiftBlockedDialog) {
+    RenderActiveRiftBlockedDialog();
   }
 }
 
@@ -433,10 +437,25 @@ void MosaicEditorState::HandleInput() {
   m_hoveredInventoryIndex = GetInventoryIndexAtPos(mouse);
 
   if (IsKeyPressed(KEY_ESCAPE)) {
-    if (m_showConfirmDialog)
+    if (m_showActiveRiftBlockedDialog) {
+      m_showActiveRiftBlockedDialog = false;
+    } else if (m_showConfirmDialog) {
       m_showConfirmDialog = false;
-    else
+    } else {
       m_stateManager->PopState();
+    }
+    return;
+  }
+
+  if (m_showActiveRiftBlockedDialog) {
+    if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
+      Rectangle okBtn{(GetScreenWidth() - 160.0f) * 0.5f,
+                      (GetScreenHeight() - 220.0f) * 0.5f + 150.0f,
+                      160.0f, 44.0f};
+      if (CheckCollisionPointRec(mouse, okBtn)) {
+        m_showActiveRiftBlockedDialog = false;
+      }
+    }
     return;
   }
 
@@ -603,6 +622,16 @@ void MosaicEditorState::ConfirmAndGenerate() {
   LOG_INFO("MosaicEditorState: Generating map with {} fragments",
            m_grid.GetFilledCount());
 
+  if (m_context->registry->ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+      const auto& activeState = m_context->registry->ctx().get<NoMoreDay::ActiveDimensionalState>();
+      if (NoMoreDay::HasInProgressRift(activeState)) {
+          LOG_WARN("MosaicEditorState blocked: active in-progress rift cannot be overwritten.");
+          m_showConfirmDialog = false;
+          m_showActiveRiftBlockedDialog = true;
+          return;
+      }
+  }
+
   RecalculateResonance(); // Ensure resonance data is fresh
 
   // --- Map Affix & Persistence Logic ---
@@ -622,7 +651,11 @@ void MosaicEditorState::ConfirmAndGenerate() {
       worldState.isActive = true;
       // Simple seed generation (time + grid hash)
       worldState.seed = static_cast<uint32_t>(GetTime() * 1000) ^ m_grid.GetFilledCount(); 
-      worldState.biome = m_cachedResonance.primaryBiome;
+      const auto effectiveBiome = (m_cachedResonance.primaryBiome == NoMoreDay::BiomeID::None)
+                                      ? NoMoreDay::BiomeID::Cave
+                                      : m_cachedResonance.primaryBiome;
+      worldState.biome = effectiveBiome;
+      m_cachedResonance.primaryBiome = effectiveBiome;
       worldState.currentDepth = 1;
       worldState.maxDepth = 3; // Default
       worldState.resonance = m_cachedResonance;
@@ -631,6 +664,7 @@ void MosaicEditorState::ConfirmAndGenerate() {
       worldState.isBossKilled = false;
       worldState.isCompleted = false;
       worldState.killCounter = 0;
+      worldState.lastExitPosition = {0.0f, 0.0f};
       
       // 4. Snapshot the grid for persistence
       for (int i = 0; i < MosaicGrid::TOTAL_CELLS; ++i) {
@@ -660,6 +694,11 @@ void MosaicEditorState::ConfirmAndGenerate() {
                worldState.selectedBaseLevel, worldState.difficultyScore, worldState.calculatedRarity*100.0f, worldState.calculatedQuantity*100.0f);
   }
 
+  if (!m_context->registry->ctx().contains<NoMoreDay::RiftCompletionPromptState>()) {
+    m_context->registry->ctx().emplace<NoMoreDay::RiftCompletionPromptState>();
+  }
+  m_context->registry->ctx().get<NoMoreDay::RiftCompletionPromptState>().isPending = false;
+
   if (m_context && m_context->sceneManager) {
     m_context->sceneManager->RequestMosaicTransition(m_grid, m_cachedResonance);
   } else if (m_context && m_context->levelManager) {
@@ -673,6 +712,28 @@ void MosaicEditorState::ConfirmAndGenerate() {
 
   m_showConfirmDialog = false;
   m_stateManager->PopState();
+}
+
+void MosaicEditorState::RenderActiveRiftBlockedDialog() {
+  DrawRectangle(0, 0, (float)GetScreenWidth(), (float)GetScreenHeight(), Color{0, 0, 0, 150});
+  const float dlgW = 560.0f;
+  const float dlgH = 220.0f;
+  const float dlgX = ((float)GetScreenWidth() - dlgW) * 0.5f;
+  const float dlgY = ((float)GetScreenHeight() - dlgH) * 0.5f;
+
+  DrawRectangleRounded(Rectangle{dlgX, dlgY, dlgW, dlgH}, 0.1f, 8, Color{45, 32, 32, 255});
+  DrawRectangleRoundedLinesEx(Rectangle{dlgX, dlgY, dlgW, dlgH}, 0.1f, 8, 2.0f, ORANGE);
+
+  DrawText("无法创建新裂隙", (int)(dlgX + 170.0f), (int)(dlgY + 30.0f), 34, WHITE);
+  DrawText("已有进行中的维度裂隙，请先继续或放弃后再新建。",
+           (int)(dlgX + 45.0f), (int)(dlgY + 90.0f), 24, LIGHTGRAY);
+
+  Rectangle okBtn{dlgX + (dlgW - 160.0f) * 0.5f, dlgY + 150.0f, 160.0f, 44.0f};
+  const Vector2 mouse = GetMousePosition();
+  const bool hovered = CheckCollisionPointRec(mouse, okBtn);
+  DrawRectangleRounded(okBtn, 0.2f, 4, hovered ? GRAY : DARKGRAY);
+  DrawRectangleRoundedLinesEx(okBtn, 0.2f, 4, 2.0f, RAYWHITE);
+  DrawText("知道了", (int)(okBtn.x + 44.0f), (int)(okBtn.y + 11.0f), 22, WHITE);
 }
 
 Rectangle MosaicEditorState::GetCellRect(int x, int y) const {
