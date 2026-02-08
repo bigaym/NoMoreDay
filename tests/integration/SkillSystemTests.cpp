@@ -238,6 +238,51 @@ TEST_CASE("[Integration] Projectile - Snapshotting Logic") {
         doctest::Approx(1.5f));
 }
 
+TEST_CASE("[Integration] SkillSystem - Phantom Flash Counter Uses Pipeline") {
+  entt::registry registry;
+  CombatEventDispatcher::Clear();
+  SkillSystem::InitHooks();
+
+  auto victim = registry.create();
+  registry.emplace<Position>(victim, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(victim);
+  registry.emplace<HealthComponent>(victim, 100.0f, 100.0f);
+  auto &pf = registry.emplace<PhantomFlashComponent>(victim);
+  pf.counter_window = 0.5f;
+  pf.triggered = false;
+
+  auto attacker = registry.create();
+  registry.emplace<Position>(attacker, 5.0f, 0.0f);
+  registry.emplace<CombatStats>(attacker);
+  registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
+
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateTakeDamage(
+                    victim, attacker, 9, Tag::Melee, 10.0f, false));
+
+  CHECK(pf.triggered);
+  CHECK(registry.get<HealthComponent>(attacker).current < 100.0f);
+
+  auto victim2 = registry.create();
+  registry.emplace<Position>(victim2, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(victim2);
+  auto &pf2 = registry.emplace<PhantomFlashComponent>(victim2);
+  pf2.counter_window = 0.5f;
+  pf2.triggered = false;
+
+  auto noStatsAttacker = registry.create();
+  registry.emplace<Position>(noStatsAttacker, 5.0f, 0.0f);
+  registry.emplace<HealthComponent>(noStatsAttacker, 80.0f, 80.0f);
+
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateTakeDamage(
+                    victim2, noStatsAttacker, 9, Tag::Melee, 10.0f, false));
+
+  CHECK(pf2.triggered);
+  CHECK(registry.get<HealthComponent>(noStatsAttacker).current ==
+        doctest::Approx(80.0f));
+}
+
 } // namespace NoMoreDay
 
 TEST_CASE("[Bugfix] SkillSystem - UAF Reproduction / Reallocation Safety") {

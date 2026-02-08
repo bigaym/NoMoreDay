@@ -213,15 +213,39 @@ void SkillSystem::InitHooks() {
               }
 
               // Add counter-attack tag or logic?
-              // For now, let the skill behavior handle it if we cast it,
-              // OR just apply damage directly here.
-              // Applying damage directly is simpler for a universal counter.
-
-              // Simple Counter Damage: 200% of incoming damage? Or Stat based?
-              // Let's settle for flat damage for now.
               if (auto *victim_stats = registry.try_get<CombatStats>(victim)) {
-                // TODO: Calculate damage
+                if (victim_stats->damage_multipliers[0] <= 0.0f) {
+                  victim_stats->damage_multipliers[0] = 1.0f;
+                }
+                DamagePool counterPool;
+                const float baseCounterDamage =
+                    (std::max)(25.0f, victim_stats->damage_multipliers[0] * 100.0f);
+                counterPool.Add(Tag::Physical, baseCounterDamage);
+
+                const auto counterResult = DamagePipeline::Calculate(
+                    registry, victim, attacker, exec.skill_id, counterPool,
+                    Tag::Hit | Tag::Melee, exec_ent);
+                if (counterResult.total_damage > 0.0f) {
+                  CombatSystem::ApplyDamage(registry, attacker,
+                                            counterResult.total_damage, victim,
+                                            counterResult.is_crit);
+                }
+
+                LOG_INFO(
+                    "Phantom Flash Counter resolved: victim={} attacker={} "
+                    "damage={}",
+                    (uint32_t)victim, (uint32_t)attacker,
+                    counterResult.total_damage);
+              } else {
+                LOG_WARN("Phantom Flash Counter skipped: victim {} has no "
+                         "CombatStats",
+                         (uint32_t)victim);
               }
+            }
+            else {
+              LOG_WARN("Phantom Flash Counter skipped: attacker {} has no "
+                       "CombatStats",
+                       (uint32_t)attacker);
             }
           }
         }
@@ -597,10 +621,17 @@ void SkillSystem::Update(entt::registry &registry,
   }
 
   // Update Phantom Flash
+  std::vector<entt::entity> pf_to_remove;
   auto pf_view = registry.view<PhantomFlashComponent>();
   pf_view.each([&](entt::entity entity, PhantomFlashComponent &pf) {
-    skills::PhantomFlash::Update(registry, entity, pf, dt);
+    if (skills::PhantomFlash::Update(registry, entity, pf, dt)) {
+      pf_to_remove.push_back(entity);
+    }
   });
+
+  for (auto e : pf_to_remove) {
+    registry.remove<PhantomFlashComponent>(e);
+  }
 }
 
 void SkillSystem::RegisterEffect(uint32_t skill_id, CastCallback callback) {

@@ -21,7 +21,7 @@ struct SaveHeader {
   std::string name;
   std::string characterClass;
   int level = 1;
-  double playtime = 0.0;
+  int64_t playtime = 0;
   int64_t timestamp = 0;
   uint32_t version = 1;
 

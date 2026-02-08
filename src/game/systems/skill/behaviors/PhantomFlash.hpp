@@ -10,8 +10,11 @@ struct PhantomFlash : SkillBehaviorBase<PhantomFlash> {
   static void DoCast(entt::registry &registry, entt::entity owner,
                      SkillExecution &exec);
 
-  // Update Logic (Called by SkillSystem)
-  static void Update(entt::registry &registry, entt::entity entity,
+  /**
+   * @brief Update logic for Phantom Flash counter state.
+   * @return true if the counter state should be removed (timed out or triggered).
+   */
+  static bool Update(entt::registry &registry, entt::entity entity,
                      PhantomFlashComponent &pf, float dt);
 };
 

@@ -6,6 +6,7 @@
 #include "engine/scene/StateManager.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp" // Added
+#include "game/components/PlayerProfile.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/StashComponent.hpp"
 #include "game/components/MapFragmentComponent.hpp" // Added for Fragment Check
@@ -215,6 +216,8 @@ void GameplayState::InitializeEntities() {
   registry.emplace<Radius>(player, 5.0f);
   registry.emplace<GPUIndex>(player, -1);
   registry.emplace<PlayerTag>(player);
+  registry.emplace<PlayerName>(player);
+  registry.emplace<PlayerPlaytime>(player, 0, static_cast<double>(GetTime()));
   registry.emplace<PersistentTag>(player);
   registry.emplace<InputComponent>(player);
   registry.emplace<PlayerLevel>(player);

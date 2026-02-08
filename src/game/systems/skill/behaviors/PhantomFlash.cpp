@@ -62,12 +62,11 @@ void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
            (uint32_t)owner);
 }
 
-void PhantomFlash::Update(entt::registry &registry, entt::entity entity,
+bool PhantomFlash::Update(entt::registry &registry, entt::entity entity,
                           PhantomFlashComponent &pf, float dt) {
   pf.counter_window -= dt;
   if (pf.counter_window <= 0.0f || pf.triggered) {
-    registry.remove<PhantomFlashComponent>(entity);
-    return;
+    return true;
   }
 
   // Optional: Visual effect for "Counter Ready" state?
@@ -87,6 +86,8 @@ void PhantomFlash::Update(entt::registry &registry, entt::entity entity,
       particleSys.Emit(p);
     }
   }
+
+  return false;
 }
 
 REGISTER_SKILL_BEHAVIOR(PhantomFlash)

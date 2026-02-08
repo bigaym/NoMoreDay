@@ -15,8 +15,10 @@ TEST_CASE("[Functional] DamagePipeline - Iterative Conversion Chain") {
   auto defender = registry.create();
 
   registry.emplace<CombatStats>(attacker);
-  registry.get<CombatStats>(attacker).min_weapon_damage = 0.0f;
-  registry.get<CombatStats>(attacker).max_weapon_damage = 0.0f;
+  auto &attStats = registry.get<CombatStats>(attacker);
+  attStats.min_weapon_damage = 0.0f;
+  attStats.max_weapon_damage = 0.0f;
+  attStats.crit_chance = 0.0f;
 
   auto &defStats = registry.emplace<CombatStats>(defender);
   defStats.cached_area_level = 1;
@@ -42,7 +44,7 @@ TEST_CASE("[Functional] DamagePipeline - Iterative Conversion Chain") {
     mods.modifiers.push_back(conv2);
 
     auto res = DamagePipeline::Calculate(registry, attacker, defender, 0, base,
-                                         Tag::Hit);
+                                         Tag::Hit, entt::null, true);
 
         // Result: 50 Physical, 50 Cold (Lightning all converted to Cold)
 
@@ -104,7 +106,7 @@ TEST_CASE("[Functional] DamagePipeline - Iterative Conversion Chain") {
 
         auto res = DamagePipeline::Calculate(registry, attacker, defender, 0,
 
-                                             coldPool, Tag::Hit);
+                                             coldPool, Tag::Hit, entt::null, true);
 
     
 
@@ -122,7 +124,7 @@ TEST_CASE("[Functional] DamagePipeline - Iterative Conversion Chain") {
     DamagePool firePool;
     firePool.values[1] = 100.0f; // Fire
     auto res2 = DamagePipeline::Calculate(registry, attacker, defender, 0,
-                                          firePool, Tag::Hit);
+                                          firePool, Tag::Hit, entt::null, true);
     CHECK(res2.final_pool.values[1] == doctest::Approx(100.0f));
     CHECK(res2.final_pool.values[2] == doctest::Approx(0.0f));
   }
@@ -134,7 +136,7 @@ TEST_CASE("[Functional] DamagePipeline - Unified More Multipliers") {
   auto attacker = registry.create();
   auto defender = registry.create();
 
-  registry.emplace<CombatStats>(attacker);
+  registry.emplace<CombatStats>(attacker).crit_chance = 0.0f;
   registry.emplace<CombatStats>(defender).cached_area_level = 1;
 
   DamagePool base;
@@ -159,7 +161,7 @@ TEST_CASE("[Functional] DamagePipeline - Unified More Multipliers") {
 
     // Calculation: 100 * 1.2 * 1.5 = 180
     auto res = DamagePipeline::Calculate(registry, attacker, defender, 0, base,
-                                         Tag::Hit);
+                                         Tag::Hit, entt::null, true);
     CHECK(res.total_damage == doctest::Approx(180.0f));
   }
 }

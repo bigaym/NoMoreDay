@@ -4,7 +4,10 @@
 #include "engine/persistence/SharedStash.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
+#include "game/components/PlayerProfile.hpp"
 #include "game/systems/item/ItemFactory.hpp"
+#include "raylib.h"
+#include <cmath>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -90,9 +93,19 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
   }
 
   // Header
-  data.header.name = "Hero"; // TODO: Implement name selection
+  data.header.name = "玩家0";
+  if (const auto *playerName = registry.try_get<PlayerName>(playerEntity);
+      playerName && !playerName->value.empty()) {
+    data.header.name = playerName->value;
+  }
   data.header.characterClass = "SwordCultivator";
-  data.header.playtime = 0; // TODO: Implement playtime tracking
+  data.header.playtime = 0;
+  if (const auto *playtime = registry.try_get<PlayerPlaytime>(playerEntity)) {
+    const double now = static_cast<double>(GetTime());
+    const double elapsed = (std::max)(0.0, now - playtime->session_start_time);
+    data.header.playtime = playtime->NonNegativeAccumulated() +
+                           static_cast<int64_t>(std::floor(elapsed));
+  }
   data.header.timestamp = std::time(nullptr);
   data.header.version = 1;
 
@@ -111,6 +124,12 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
 
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
+  registry.emplace<PlayerName>(player, data.header.name.empty()
+                                           ? std::string("玩家0")
+                                           : data.header.name);
+  registry.emplace<PlayerPlaytime>(
+      player, (std::max)(int64_t{0}, data.header.playtime),
+      static_cast<double>(GetTime()));
   registry.emplace<Position>(player, data.position);
   registry.emplace<PrimaryStats>(player, data.primaryStats);
 

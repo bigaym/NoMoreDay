@@ -14,6 +14,8 @@
 #include "engine/persistence/SaveManager.hpp"
 #include "game/data/ResonanceCalculator.hpp"
 #include "game/systems/item/HeirloomVault.hpp"
+#include "game/components/PlayerProfile.hpp"
+#include "raylib.h"
 
 namespace NoMoreDay {
 
@@ -99,6 +101,34 @@ TEST_CASE("[Unit] ResonanceCalculator - Basic Check") {
 TEST_CASE("[Unit] PersistenceSystem - Basic Check") {
     auto& sm = SaveManager::Get();
     CHECK(&sm != nullptr);
+}
+
+TEST_CASE("[Unit] SaveManager - Header Name And Playtime Snapshot") {
+    entt::registry registry;
+    auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
+    registry.emplace<Position>(player, 1.0f, 2.0f);
+    registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
+    registry.emplace<PlayerName>(player, "玩家0");
+    registry.emplace<PlayerPlaytime>(
+        player, 120, static_cast<double>(GetTime()) - 5.2);
+
+    auto data = SaveManager::Get().createSnapshot(registry);
+    CHECK(data.header.name == "玩家0");
+    CHECK(data.header.playtime >= 125);
+
+    data.header.playtime = 200;
+    entt::registry restoredRegistry;
+    SaveManager::Get().restoreFromSnapshot(restoredRegistry, data);
+
+    auto restoredView = restoredRegistry.view<PlayerTag, PlayerPlaytime>();
+    REQUIRE(restoredView.begin() != restoredView.end());
+    auto restoredPlayer = *restoredView.begin();
+    auto &playtime = restoredRegistry.get<PlayerPlaytime>(restoredPlayer);
+    playtime.session_start_time -= 3.1;
+
+    auto data2 = SaveManager::Get().createSnapshot(restoredRegistry);
+    CHECK(data2.header.playtime >= 203);
 }
 
 TEST_CASE("[Unit] StatsOptimization - Zero Allocation") {
