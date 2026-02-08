@@ -11,17 +11,109 @@
 #include "game/components/Stats.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/LootFilter.hpp"
+#include <algorithm>
 #include <random>
 
 namespace NoMoreDay {
 
 static thread_local std::mt19937 g_drop_rng(std::random_device{}());
 
+namespace {
+struct MaterialDropBonus {
+  uint32_t materialId = 0;
+  float chance = 0.0f;
+  uint32_t minAmount = 1;
+  uint32_t maxAmount = 1;
+};
+
+struct BiomeLootModifier {
+  float dropChanceMultiplier = 1.0f;
+  int bonusRolls = 0;
+  float magicFindBonus = 0.0f;
+  std::vector<MaterialDropBonus> bonusMaterials;
+};
+
+const BiomeLootModifier &GetBiomeLootModifier(BiomeID biome) {
+  static const BiomeLootModifier kDefault{};
+  static const BiomeLootModifier kJadeMine{
+      1.08f, 0, 10.0f, {{1002, 0.18f, 1, 2}}};
+  static const BiomeLootModifier kMagmaVeins{
+      1.05f, 0, 0.0f, {{1001, 0.22f, 1, 2}, {1002, 0.08f, 1, 1}}};
+  static const BiomeLootModifier kClockCore{
+      1.04f, 0, 5.0f, {{3002, 0.05f, 1, 1}}};
+  static const BiomeLootModifier kHolyArena{
+      1.06f, 1, 15.0f, {{3001, 0.06f, 1, 1}}};
+  static const BiomeLootModifier kAbyssalGap{
+      1.03f, 0, 0.0f, {{2002, 0.10f, 1, 1}}};
+  static const BiomeLootModifier kCrystalLab{
+      1.03f, 0, 5.0f, {{2001, 0.12f, 1, 2}}};
+
+  switch (biome) {
+  case BiomeID::JadeMine:
+    return kJadeMine;
+  case BiomeID::MagmaVeins:
+    return kMagmaVeins;
+  case BiomeID::ClockCore:
+    return kClockCore;
+  case BiomeID::HolyArena:
+    return kHolyArena;
+  case BiomeID::AbyssalGap:
+    return kAbyssalGap;
+  case BiomeID::CrystalLab:
+    return kCrystalLab;
+  default:
+    return kDefault;
+  }
+}
+
+BiomeID ResolveCurrentBiome(entt::registry &registry) {
+  if (registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+    const auto &state = registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
+    if (state.isActive) {
+      return state.biome;
+    }
+  }
+  return BiomeID::None;
+}
+
+void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pending) {
+  const auto &modifier = GetBiomeLootModifier(pending.biome);
+  if (modifier.bonusMaterials.empty()) {
+    return;
+  }
+
+  std::uniform_real_distribution<float> chanceDist(0.0f, 1.0f);
+  for (const auto &bonus : modifier.bonusMaterials) {
+    if (chanceDist(g_drop_rng) > bonus.chance) {
+      continue;
+    }
+
+    std::uniform_int_distribution<uint32_t> amountDist(bonus.minAmount,
+                                                        bonus.maxAmount);
+    const uint32_t amount = amountDist(g_drop_rng);
+    auto material = ItemFactory::createMaterial(
+        registry, bonus.materialId, static_cast<int>(amount));
+    if (material == entt::null) {
+      continue;
+    }
+
+    registry.emplace_or_replace<Position>(material, pending.pos.x, pending.pos.y);
+    registry.emplace<Radius>(material, 15.0f);
+    registry.emplace<LocalLevelTag>(material);
+    registry.emplace<LootTag>(material);
+    registry.emplace<LabelCacheComponent>(material);
+    RenderSystem::s_itemGridDirty = true;
+  }
+}
+} // namespace
+
 // Static member initialization
 std::queue<PendingDrop> DropSystem::s_pendingDrops;
 
 void DropSystem::update(entt::registry &registry, int areaLevel) {
   auto view = registry.view<KilledTag, DropTableComponent, Position>();
+  const BiomeID currentBiome = ResolveCurrentBiome(registry);
+  const auto &biomeModifier = GetBiomeLootModifier(currentBiome);
 
   // 1. Move killed entities into the pending queue and remove the tags so they
   // don't get processed twice
@@ -33,6 +125,7 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
     PendingDrop pending;
     pending.killer = killedTag.killer;
     pending.pos = {pos.x, pos.y};
+    pending.biome = currentBiome;
     pending.poolId = table.poolId;
     pending.tableMinRolls = table.minRolls;
     pending.tableMaxRolls = table.maxRolls;
@@ -47,6 +140,15 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
         pending.goldBonus = combat->gold_bonus;
       }
     }
+
+    pending.dropChance =
+        std::clamp(pending.dropChance * biomeModifier.dropChanceMultiplier, 0.0f,
+                   1.0f);
+    pending.tableMinRolls =
+        std::max(0, pending.tableMinRolls + biomeModifier.bonusRolls);
+    pending.tableMaxRolls = std::max(
+        pending.tableMinRolls, pending.tableMaxRolls + biomeModifier.bonusRolls);
+    pending.magicFind += biomeModifier.magicFindBonus;
 
     // If victim has extra rarity, we should ideally snapshot it too.
     // For simplicity, we add rarity bonus rolls if it's an elite/boss here.
@@ -165,6 +267,7 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
       }
     }
 
+    SpawnBiomeMaterialBonus(registry, pending);
     s_pendingDrops.pop();
     processedCount++;
   }
@@ -177,11 +280,17 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
 
   const auto &table = registry.get<DropTableComponent>(victim);
   const auto &pos = registry.get<Position>(victim);
+  const BiomeID currentBiome = ResolveCurrentBiome(registry);
+  const auto &biomeModifier = GetBiomeLootModifier(currentBiome);
 
   // 获取玩家的魔法寻宝率和金币加成
   float mf = 0.0f;
   float goldBonus = 0.0f;
   int dropLevel = areaLevel;
+  float dropChance = std::clamp(table.dropChance * biomeModifier.dropChanceMultiplier,
+                                0.0f, 1.0f);
+  int minRolls = std::max(0, table.minRolls + biomeModifier.bonusRolls);
+  int maxRolls = std::max(minRolls, table.maxRolls + biomeModifier.bonusRolls);
 
   // 1. 获取基础掉落等级 (如果敌人等级更高，则使用敌人等级)
   if (registry.all_of<EnemyStateComponent>(victim)) {
@@ -198,6 +307,7 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
       goldBonus = combat.gold_bonus;
     }
   }
+  mf += biomeModifier.magicFindBonus;
 
   // 3. 稀有度对掉落质量的额外影响
   float rarityMFBoost = 0.0f;
@@ -223,7 +333,7 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
     return;
 
   // Determine roll count
-  std::uniform_int_distribution<int> rollDist(table.minRolls, table.maxRolls + extraRolls);
+  std::uniform_int_distribution<int> rollDist(minRolls, maxRolls + extraRolls);
   int rolls = rollDist(g_drop_rng);
 
   // Apply Dimensional Quantity
@@ -241,7 +351,7 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
   for (int i = 0; i < rolls; ++i) {
     // 检查掉落几率
     std::uniform_real_distribution<float> chanceDist(0.0f, 1.0f);
-    if (chanceDist(g_drop_rng) > table.dropChance)
+    if (chanceDist(g_drop_rng) > dropChance)
       continue;
 
     // Roll on the pool
@@ -384,6 +494,11 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
       }
     }
   }
+
+  PendingDrop pending;
+  pending.pos = {pos.x, pos.y};
+  pending.biome = currentBiome;
+  SpawnBiomeMaterialBonus(registry, pending);
 }
 
 } // namespace NoMoreDay

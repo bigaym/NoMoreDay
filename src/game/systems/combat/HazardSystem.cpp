@@ -1,4 +1,5 @@
 #include "game/systems/combat/HazardSystem.hpp"
+#include "app/SharedContext.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "engine/physics/SpatialGrid.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -8,7 +9,9 @@
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
+#include "game/systems/world/LevelManager.hpp"
 #include "raymath.h"
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -426,6 +429,15 @@ void HazardSystem::DealAreaDamage(entt::registry &registry, Position center,
               result.is_crit, damageTag);
         }
       });
+
+  if (registry.ctx().contains<NoMoreDay::SharedContext *>()) {
+    auto *shared = registry.ctx().get<NoMoreDay::SharedContext *>();
+    if (shared && shared->levelManager) {
+      const float tileDamage = std::max(8.0f, damage * 0.3f);
+      shared->levelManager->getMapSystem().applyRadialTileDamage(
+          center, radius, tileDamage);
+    }
+  }
 }
 
 static void CreateToxicPool(entt::registry &registry, const Position &pos,

@@ -22,11 +22,13 @@ struct EnemySpawnData {
 namespace NoMoreDay {
 struct ResonanceResult;
 struct ActiveDimensionalState;
+struct BiomeConfig;
 }
 
 class EnemySpawnSystem {
 private:
   std::vector<EnemySpawnData> m_spawnData;
+  std::vector<int> m_availableRaces;
   int m_mapWidth;
   int m_mapHeight;
   std::mt19937 m_gen;
@@ -63,7 +65,9 @@ public:
   void initTextures();
 
   // 更新生成/销毁逻辑
-  void updateEnemySpawning(const Position &playerPos, entt::registry &registry);
+  void updateEnemySpawning(const Position &playerPos, entt::registry &registry,
+                           float dt = 0.016f,
+                           MapSystem *mapSystem = nullptr);
   
   // Spec 2.3: Re-schedule dormant entities
   void updateDormantEntities(entt::registry& registry, const Position& playerPos, int gridW, int gridH);
@@ -71,6 +75,10 @@ public:
 private:
   // 具体的生成逻辑
   void spawnEnemy(entt::registry &registry, EnemySpawnData &data);
+  void selectRace(const NoMoreDay::BiomeConfig &config);
+  int selectRace();
   // 具体的销毁逻辑
   void despawnEnemy(entt::registry &registry, EnemySpawnData &data);
+  void updateSpawnerWalls(entt::registry &registry, MapSystem &mapSystem,
+                          const Position &playerPos, float dt);
 };

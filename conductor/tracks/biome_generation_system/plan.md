@@ -146,9 +146,9 @@ src/game/systems/combat/MovementSystem.cpp
 > **目标**: 实现三类风格的地图生成策略
 
 ### Task 3.1: IBiomeStrategy 接口定义 ⏱️ 0.5h
-- [ ] 定义 `IBiomeStrategy` 虚基类
-- [ ] 定义 `GenerateTerrain()` 和 `PlaceSpecialStructures()` 接口
-- [ ] 定义通用参数结构体
+- [x] 定义 `IBiomeStrategy` 虚基类
+- [x] 定义 `GenerateTerrain()` 和 `PlaceSpecialStructures()` 接口
+- [x] 定义通用参数结构体
 
 **新建文件**:
 ```
@@ -156,10 +156,10 @@ src/game/systems/world/BiomeStrategies.hpp
 ```
 
 ### Task 3.2: OpenBiomeStrategy (A组) ⏱️ 2h
-- [ ] 实现低墙率 CA 生成 (wallProb 0.15-0.22)
-- [ ] 减少平滑迭代次数 (2-3次) 保持空旷
-- [ ] 稀疏障碍物放置
-- [ ] 验证: 生成地图 >70% 为地板
+- [x] 实现低墙率 CA 生成 (wallProb 0.15-0.22)
+- [x] 减少平滑迭代次数 (2-3次) 保持空旷
+- [x] 稀疏障碍物放置
+- [x] 验证: 生成地图 >70% 为地板
 
 **新建文件**:
 ```
@@ -167,11 +167,11 @@ src/game/systems/world/OpenBiomeStrategy.cpp
 ```
 
 ### Task 3.3: MazeBiomeStrategy (B组) ⏱️ 3h
-- [ ] 实现高墙率 CA 生成 (wallProb 0.38-0.48)
-- [ ] 增加平滑迭代次数 (5-6次) 形成走廊
-- [ ] 走廊宽度控制 (2-3格)
-- [ ] 死胡同检测与标记 (用于宝箱放置)
-- [ ] 验证: 生成地图有明显的通道结构
+- [x] 实现高墙率 CA 生成 (wallProb 0.38-0.48)
+- [x] 增加平滑迭代次数 (5-6次) 形成走廊
+- [x] 走廊宽度控制 (2-3格)
+- [x] 死胡同检测与标记 (用于宝箱放置)
+- [x] 验证: 生成地图有明显的通道结构
 
 **新建文件**:
 ```
@@ -179,11 +179,11 @@ src/game/systems/world/MazeBiomeStrategy.cpp
 ```
 
 ### Task 3.4: SpecialBiomeStrategy (C组) ⏱️ 4h
-- [ ] 实现浮空平台生成 (FloatingIsle, SkyPalace)
-- [ ] 实现桥梁连接算法
-- [ ] 实现中心竞技场 (HolyArena)
-- [ ] 实现动态刷怪墙放置 (HiveNest)
-- [ ] 空气墙区域标记
+- [x] 实现浮空平台生成 (FloatingIsle, SkyPalace)
+- [x] 实现桥梁连接算法
+- [x] 实现中心竞技场 (HolyArena)
+- [x] 实现动态刷怪墙放置 (HiveNest)
+- [x] 空气墙区域标记
 
 **新建文件**:
 ```
@@ -191,10 +191,10 @@ src/game/systems/world/SpecialBiomeStrategy.cpp
 ```
 
 ### Task 3.5: BiomeMapGenerator 集成 ⏱️ 1h
-- [ ] 创建 `BiomeMapGenerator` 类
-- [ ] 实现 `CreateStrategy(BiomeStyle)` 工厂方法
-- [ ] 实现 `GenerateForBiome()` 主入口
-- [ ] 集成到 `MapSystem::generateMap()`
+- [x] 创建 `BiomeMapGenerator` 类
+- [x] 实现 `CreateStrategy(BiomeStyle)` 工厂方法
+- [x] 实现 `GenerateForBiome()` 主入口
+- [x] 集成到 `MapSystem::generateMap()`
 
 **新建文件**:
 ```
@@ -203,9 +203,9 @@ src/game/systems/world/BiomeMapGenerator.cpp
 ```
 
 ### Task 3.6: 连通性与出口放置 ⏱️ 1h
-- [ ] 确保所有策略生成的地图连通
-- [ ] 统一出口放置逻辑 (楼梯、传送门)
-- [ ] 特殊结构出口位置验证
+- [x] 确保所有策略生成的地图连通
+- [x] 统一出口放置逻辑 (楼梯、传送门)
+- [x] 特殊结构出口位置验证
 
 ---
 
@@ -214,10 +214,10 @@ src/game/systems/world/BiomeMapGenerator.cpp
 > **目标**: 实现群落特殊机制
 
 ### Task 4.1: DestructibleTileComponent ⏱️ 1.5h
-- [ ] 定义 `DestructibleTileComponent` 组件
-- [ ] 实现可破坏瓦片的伤害接收
-- [ ] 实现破坏后地形变化 (WALL -> FLOOR)
-- [ ] 添加破坏特效和残骸
+- [x] 定义 `DestructibleTileComponent` 组件
+- [x] 实现可破坏瓦片的伤害接收
+- [x] 实现破坏后地形变化 (WALL -> FLOOR)
+- [x] 添加破坏特效和残骸
 
 **新建文件**:
 ```
@@ -231,10 +231,10 @@ src/game/systems/world/MapSystem.cpp
 ```
 
 ### Task 4.2: SpawnerWallComponent ⏱️ 2h
-- [ ] 定义 `SpawnerWallComponent` 组件
-- [ ] 实现定时刷怪逻辑
-- [ ] 与 `EnemySpawnSystem` 集成
-- [ ] 添加视觉效果 (触手墙壁动画)
+- [x] 定义 `SpawnerWallComponent` 组件
+- [x] 实现定时刷怪逻辑
+- [x] 与 `EnemySpawnSystem` 集成
+- [x] 添加视觉效果 (触手墙壁动画)
 
 **新建文件**:
 ```
@@ -247,10 +247,10 @@ src/game/systems/world/EnemySpawnSystem.cpp
 ```
 
 ### Task 4.3: SpeedZoneComponent ⏱️ 1h
-- [ ] 定义 `SpeedZoneComponent` 组件
-- [ ] 实现加速带触发逻辑
-- [ ] 与 `MovementSystem` 集成
-- [ ] 添加视觉效果 (流线粒子)
+- [x] 定义 `SpeedZoneComponent` 组件
+- [x] 实现加速带触发逻辑
+- [x] 与 `MovementSystem` 集成
+- [x] 添加视觉效果 (流线粒子)
 
 **新建文件**:
 ```
@@ -258,10 +258,10 @@ src/game/components/SpeedZoneComponent.hpp
 ```
 
 ### Task 4.4: 迷雾视野系统 ⏱️ 1.5h
-- [ ] 修改 `FogOfWar` 支持群落配置的视野限制
-- [ ] 实现 `visionRadius` 参数应用
-- [ ] 限制超出视野范围的敌人渲染
-- [ ] 与后处理滤镜联动
+- [x] 修改 `FogOfWar` 支持群落配置的视野限制
+- [x] 实现 `visionRadius` 参数应用
+- [x] 限制超出视野范围的敌人渲染
+- [x] 与后处理滤镜联动
 
 **文件修改**:
 ```
@@ -276,9 +276,9 @@ src/game/systems/render/RenderSystem.cpp
 > **目标**: 完成怪物池与群落的绑定
 
 ### Task 5.1: 种族名称映射表 ⏱️ 0.5h
-- [ ] 创建 `kRaceNameMap` 静态映射表
-- [ ] 支持 JSON 中的字符串到 `EnemyRace::Type` 转换
-- [ ] 添加大小写不敏感匹配
+- [x] 创建 `kRaceNameMap` 静态映射表
+- [x] 支持 JSON 中的字符串到 `EnemyRace::Type` 转换
+- [x] 添加大小写不敏感匹配
 
 **文件修改**:
 ```
@@ -286,9 +286,9 @@ src/game/systems/world/EnemySpawnSystem.cpp
 ```
 
 ### Task 5.2: EnemySpawnSystem 适配 ⏱️ 1.5h
-- [ ] 修改 `initData()` 读取群落 `enemyPool`
-- [ ] 实现 `selectRace()` 基于权重随机选择
-- [ ] 验证城镇 `isSafeZone` 不刷怪
+- [x] 修改 `initData()` 读取群落 `enemyPool`
+- [x] 实现 `selectRace()` 基于权重随机选择
+- [x] 验证城镇 `isSafeZone` 不刷怪
 
 **文件修改**:
 ```
@@ -297,13 +297,13 @@ src/game/systems/world/EnemySpawnSystem.cpp
 ```
 
 ### Task 5.3: 掉落表关联 (可选) ⏱️ 1h
-- [ ] 扩展 `LootTable` 支持群落修正
-- [ ] 特定群落增加特定材料掉率
-- [ ] 与 `ItemDropSystem` 集成
+- [x] 扩展 `LootTable` 支持群落修正
+- [x] 特定群落增加特定材料掉率
+- [x] 与 `ItemDropSystem` 集成
 
 **文件修改**:
 ```
-src/game/systems/loot/ItemDropSystem.cpp
+src/game/systems/item/DropSystem.cpp
 ```
 
 ---

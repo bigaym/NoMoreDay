@@ -1,11 +1,67 @@
 #include "game/data/ResonanceCalculator.hpp"
 #include "core/logging/Logger.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include <algorithm>
+#include <array>
 #include <unordered_map>
+#include <vector>
 
 
 namespace NoMoreDay {
+namespace {
+using utils::ThreadSafeRandom;
+
+static constexpr std::array<BiomeID, 22> kCombatBiomePool = {
+    BiomeID::Cave,         BiomeID::SunPrairie,  BiomeID::IceTundra,
+    BiomeID::CrimsonWaste, BiomeID::DustSea,     BiomeID::VoidFlats,
+    BiomeID::EmeraldWet,   BiomeID::AshPlain,    BiomeID::GloomSpire,
+    BiomeID::MagmaVeins,   BiomeID::JadeMine,    BiomeID::DrownedLib,
+    BiomeID::ClockCore,    BiomeID::AncientCrypt, BiomeID::CrystalLab,
+    BiomeID::FloatingIsle, BiomeID::CoralRuin,   BiomeID::WhisperWood,
+    BiomeID::HolyArena,    BiomeID::HiveNest,    BiomeID::SkyPalace,
+    BiomeID::AbyssalGap,
+};
+
+template <size_t N>
+BiomeID PickRandomBiome(const std::array<BiomeID, N> &pool) {
+  const int idx = ThreadSafeRandom::GetInt(0, static_cast<int>(N) - 1);
+  return pool[static_cast<size_t>(idx)];
+}
+
+BiomeID SelectBiomeFromCombatPool(FragmentElement dominantElement) {
+  switch (dominantElement) {
+  case FragmentElement::Fire: {
+    static constexpr std::array<BiomeID, 5> kPool = {
+        BiomeID::CrimsonWaste, BiomeID::MagmaVeins, BiomeID::AshPlain,
+        BiomeID::HolyArena, BiomeID::HiveNest};
+    return PickRandomBiome(kPool);
+  }
+  case FragmentElement::Cold: {
+    static constexpr std::array<BiomeID, 5> kPool = {
+        BiomeID::IceTundra, BiomeID::CrystalLab, BiomeID::DrownedLib,
+        BiomeID::AbyssalGap, BiomeID::CoralRuin};
+    return PickRandomBiome(kPool);
+  }
+  case FragmentElement::Lightning: {
+    static constexpr std::array<BiomeID, 5> kPool = {
+        BiomeID::ClockCore, BiomeID::SkyPalace, BiomeID::VoidFlats,
+        BiomeID::FloatingIsle, BiomeID::DustSea};
+    return PickRandomBiome(kPool);
+  }
+  case FragmentElement::Shadow: {
+    static constexpr std::array<BiomeID, 5> kPool = {
+        BiomeID::WhisperWood, BiomeID::AncientCrypt, BiomeID::GloomSpire,
+        BiomeID::AbyssalGap, BiomeID::CoralRuin};
+    return PickRandomBiome(kPool);
+  }
+  case FragmentElement::Chaos:
+  case FragmentElement::None:
+  default:
+    return PickRandomBiome(kCombatBiomePool);
+  }
+}
+} // namespace
 
 // 静态常量定义
 constexpr int ResonanceCalculator::DX[4];
@@ -21,6 +77,7 @@ ResonanceResult ResonanceCalculator::Calculate(MosaicGrid &grid,
   // 统计元素分布
   std::unordered_map<FragmentElement, int> elementCounts;
   int totalFragments = 0;
+  std::vector<BiomeID> overrideBiomeCandidates;
 
   // 第一遍：收集所有碎片属性
   for (int i = 0; i < MosaicGrid::TOTAL_CELLS; ++i) {
@@ -49,10 +106,16 @@ ResonanceResult ResonanceCalculator::Calculate(MosaicGrid &grid,
       result.hasTreasure = true;
 
     // 生物群系 (使用第一个非空的覆盖)
-    if (!fragment->biomeOverride.empty() &&
-        result.primaryBiome == NoMoreDay::BiomeID::Cave) {
-      result.primaryBiome =
-          BiomeRegistry::Get().GetBiome(fragment->biomeOverride).numericId;
+    if (!fragment->biomeOverride.empty()) {
+      const auto &overrideBiome =
+          BiomeRegistry::Get().GetBiome(fragment->biomeOverride);
+      if (overrideBiome.numericId != BiomeID::None &&
+          overrideBiome.style != BiomeStyle::Town) {
+        overrideBiomeCandidates.push_back(overrideBiome.numericId);
+      } else {
+        LOG_WARN("Invalid biomeOverride '{}' in fragment, ignored",
+                 fragment->biomeOverride);
+      }
     }
   }
 
@@ -70,6 +133,14 @@ ResonanceResult ResonanceCalculator::Calculate(MosaicGrid &grid,
   }
 
   // 第二遍：计算相邻共鸣加成 (加法加成)
+  if (!overrideBiomeCandidates.empty()) {
+    const int idx = ThreadSafeRandom::GetInt(
+        0, static_cast<int>(overrideBiomeCandidates.size()) - 1);
+    result.primaryBiome = overrideBiomeCandidates[static_cast<size_t>(idx)];
+  } else {
+    result.primaryBiome = SelectBiomeFromCombatPool(result.dominantElement);
+  }
+
   float additiveResonanceBonus = 0.0f;
   for (int y = 0; y < MosaicGrid::SIZE; ++y) {
     for (int x = 0; x < MosaicGrid::SIZE; ++x) {

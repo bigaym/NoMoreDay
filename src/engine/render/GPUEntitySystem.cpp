@@ -8,9 +8,12 @@
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/EnemyComponent.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
+#include "game/data/BiomeRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"
+#include "game/systems/world/LevelManager.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
 #include "raylib.h" // Added for GetFrameTime()
 #include "rlgl.h"
@@ -193,6 +196,32 @@ void GPUEntitySystem::UpdateLogic(const NoMoreDay::SharedContext &context, float
     // Phase 3: Visual Sync
     m_updatedStatsIndices = m_visualSync.Execute(registry, m_visualStatsShadowBuffer, m_frameCounter,
                          currentTime);
+  }
+
+  if (context.levelManager) {
+    const auto biomeId = context.levelManager->getCurrentBiomeID();
+    const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(biomeId);
+    if (biome.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
+        biome.visionRadius > 0.0f) {
+      auto enemyView = registry.view<EnemyTag, Position, GPUIndex>();
+      for (auto entity : enemyView) {
+        const auto &pos = enemyView.get<Position>(entity);
+        const auto &gpuIdx = enemyView.get<GPUIndex>(entity);
+        const int slot = gpuIdx.index;
+        if (slot < 0 || slot >= (int)m_shadowBuffer.size()) {
+          continue;
+        }
+        using namespace NoMoreDay::Constants::World;
+        const int gx = static_cast<int>(pos.x / GRID_TILE_SIZE);
+        const int gy = static_cast<int>(pos.y / GRID_TILE_SIZE);
+        const bool visible = context.levelManager->getFogSystem().isVisible(gx, gy);
+        if (visible) {
+          m_shadowBuffer[slot].flags &= ~GPU_ENTITY_FLAG_NO_RENDER;
+        } else {
+          m_shadowBuffer[slot].flags |= GPU_ENTITY_FLAG_NO_RENDER;
+        }
+      }
+    }
   }
 }
 

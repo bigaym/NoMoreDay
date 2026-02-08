@@ -669,6 +669,8 @@ bool GameplayState::OnUpdate(float dt) {
       if (registry.all_of<CombatStats>(entity)) {
         speed = registry.get<CombatStats>(entity).move_speed;
       }
+      speed *= m_context->levelManager->getMapSystem().getSpeedMultiplierAtWorld(
+          pos.x, pos.y);
       vel.vx = input.moveX * speed;
       vel.vy = input.moveY * speed;
 
@@ -824,7 +826,7 @@ void GameplayState::UpdatePhysics(float dt) {
   // Phase 2: Update Positions
   auto updateTask = m_taskflow.for_each(
       m_physicsEntities.begin(), m_physicsEntities.end(),
-      [dt, worldSizeW, worldSizeH, &registry](entt::entity entity) {
+      [dt, worldSizeW, worldSizeH, &registry, &map](entt::entity entity) {
         if (registry.any_of<DormantTag>(entity))
           return;
 
@@ -838,6 +840,12 @@ void GameplayState::UpdatePhysics(float dt) {
 
         auto &pos = registry.get<Position>(entity);
         auto &vel = registry.get<Velocity>(entity);
+        const float speedZoneMul =
+            map.getSpeedMultiplierAtWorld(pos.x, pos.y);
+        if (speedZoneMul > 1.0f) {
+          vel.vx *= speedZoneMul;
+          vel.vy *= speedZoneMul;
+        }
 
         PhysicsSystem::updatePosition(registry, entity, pos, vel, dt,
                                       worldSizeW, worldSizeH);

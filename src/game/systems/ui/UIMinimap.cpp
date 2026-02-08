@@ -179,6 +179,13 @@ void UIMinimap::Draw(entt::registry &registry,
              // Logic pos check
              float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
              float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
+             const int enemyGx =
+                 static_cast<int>(enemyPos.x / FogOfWarSystem::TILE_SIZE);
+             const int enemyGy =
+                 static_cast<int>(enemyPos.y / FogOfWarSystem::TILE_SIZE);
+             if (!s_debugRevealMap && !fog.isVisible(enemyGx, enemyGy)) {
+                 return;
+             }
              
              if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
                  float logicX = x + (dx + viewRadius) * minimapScale;
@@ -195,6 +202,13 @@ void UIMinimap::Draw(entt::registry &registry,
         const auto &enemyPos = enemyView.get<Position>(entity);
         float dx = (enemyPos.x - playerPos.x) / FogOfWarSystem::TILE_SIZE;
         float dy = (enemyPos.y - playerPos.y) / FogOfWarSystem::TILE_SIZE;
+        const int enemyGx =
+            static_cast<int>(enemyPos.x / FogOfWarSystem::TILE_SIZE);
+        const int enemyGy =
+            static_cast<int>(enemyPos.y / FogOfWarSystem::TILE_SIZE);
+        if (!s_debugRevealMap && !fog.isVisible(enemyGx, enemyGy)) {
+          continue;
+        }
         if (std::abs(dx) <= viewRadius && std::abs(dy) <= viewRadius) {
           float logicX = x + (dx + viewRadius) * minimapScale;
           float logicY = y + (dy + viewRadius) * minimapScale;
@@ -250,13 +264,16 @@ void UIMinimap::Draw(entt::registry &registry,
   // 1. Kill Count (Below Minimap Level Name)
   auto *pStats = registry.try_get<PlayerStats>(playerEntity);
   if (pStats && levelManager.getCurrentBiomeID() != NoMoreDay::BiomeID::Town) {
+    using namespace NoMoreDay::Constants::Enemy;
     char killBuf[64];
-    Color killColor = (pStats->current_map_kills >= 100) ? theme.success
-                                                         : theme.textSecondary;
+    Color killColor =
+        (pStats->current_map_kills >= NEXT_LEVEL_PORTAL_KILL_REQUIREMENT)
+            ? theme.success
+            : theme.textSecondary;
 
-    if (pStats->current_map_kills < 100) {
-      snprintf(killBuf, sizeof(killBuf), "击杀: %u / 100",
-               pStats->current_map_kills);
+    if (pStats->current_map_kills < NEXT_LEVEL_PORTAL_KILL_REQUIREMENT) {
+      snprintf(killBuf, sizeof(killBuf), "击杀: %u / %d",
+               pStats->current_map_kills, NEXT_LEVEL_PORTAL_KILL_REQUIREMENT);
     } else {
       snprintf(killBuf, sizeof(killBuf), "击杀: %u (出口已标位)",
                pStats->current_map_kills);
@@ -268,7 +285,7 @@ void UIMinimap::Draw(entt::registry &registry,
                            y + mapSize + 35.0f, 16, killColor, 1.0f);
 
     // 2. Navigation Arrow (Points to NextLevel Portal)
-    if (pStats->current_map_kills >= 100) {
+    if (pStats->current_map_kills >= NEXT_LEVEL_PORTAL_KILL_REQUIREMENT) {
       entt::entity exitPortal = entt::null;
       auto portalView = registry.view<PortalComponent, Position>();
       for (auto e : portalView) {

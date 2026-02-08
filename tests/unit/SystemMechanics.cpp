@@ -13,11 +13,34 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "engine/persistence/SaveManager.hpp"
 #include "game/data/ResonanceCalculator.hpp"
+#include "game/data/BiomeRegistry.hpp"
 #include "game/systems/item/HeirloomVault.hpp"
 #include "game/components/PlayerProfile.hpp"
 #include "raylib.h"
+#include <array>
+#include <filesystem>
+#include <stdexcept>
 
 namespace NoMoreDay {
+namespace {
+std::filesystem::path ResolveBiomeJsonPathForSystemMechanicsTest() {
+  constexpr std::array<const char *, 4> kCandidates = {
+      "assets/data/biomes.json",
+      "../assets/data/biomes.json",
+      "../../assets/data/biomes.json",
+      "../../../assets/data/biomes.json",
+  };
+
+  for (const char *candidate : kCandidates) {
+    const auto path = std::filesystem::path(candidate);
+    if (std::filesystem::exists(path)) {
+      return std::filesystem::absolute(path);
+    }
+  }
+
+  throw std::runtime_error("Unable to locate assets/data/biomes.json from test cwd");
+}
+} // namespace
 
 TEST_CASE("[Unit] DefenseMechanics - Verification") {
   LoggerScope scope;
@@ -95,6 +118,53 @@ TEST_CASE("[Unit] ResonanceCalculator - Basic Check") {
     // Empty grid resonance
     auto result = ResonanceCalculator::Calculate(grid, registry);
     CHECK(result.totalEnemyDensity == 1.0f);
+}
+
+TEST_CASE("[Unit] ResonanceCalculator - Uses Dimensional Combat Biome Pool") {
+    const auto biomePath = ResolveBiomeJsonPathForSystemMechanicsTest().string();
+    BiomeRegistry::Get().LoadFromJSON(biomePath);
+    CHECK(BiomeRegistry::Get().HasBiome("sky_palace"));
+    MosaicGrid grid;
+    entt::registry registry;
+
+    auto fragmentEntity = registry.create();
+    auto& fragment = registry.emplace<MapFragmentComponent>(fragmentEntity);
+    fragment.element = FragmentElement::Fire;
+    fragment.type = FragmentType::Terrain;
+    grid.cells[0] = fragmentEntity;
+
+    auto result = ResonanceCalculator::Calculate(grid, registry);
+
+    constexpr std::array<BiomeID, 5> kFirePool = {
+        BiomeID::CrimsonWaste, BiomeID::MagmaVeins, BiomeID::AshPlain,
+        BiomeID::HolyArena, BiomeID::HiveNest};
+
+    bool inPool = false;
+    for (BiomeID id : kFirePool) {
+        if (result.primaryBiome == id) {
+            inPool = true;
+            break;
+        }
+    }
+    CHECK(inPool);
+}
+
+TEST_CASE("[Unit] ResonanceCalculator - biomeOverride Takes Priority") {
+    const auto biomePath = ResolveBiomeJsonPathForSystemMechanicsTest().string();
+    BiomeRegistry::Get().LoadFromJSON(biomePath);
+    REQUIRE(BiomeRegistry::Get().HasBiome("sky_palace"));
+    MosaicGrid grid;
+    entt::registry registry;
+
+    auto fragmentEntity = registry.create();
+    auto& fragment = registry.emplace<MapFragmentComponent>(fragmentEntity);
+    fragment.element = FragmentElement::Fire;
+    fragment.type = FragmentType::Terrain;
+    fragment.biomeOverride = "sky_palace";
+    grid.cells[0] = fragmentEntity;
+
+    auto result = ResonanceCalculator::Calculate(grid, registry);
+    CHECK(result.primaryBiome == BiomeID::SkyPalace);
 }
 
 
