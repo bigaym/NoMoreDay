@@ -10,55 +10,46 @@ using namespace entt::literals;
 namespace assets::monsters {
 
     namespace general {
-        // 野兽
         inline constexpr TextureAsset beast_0 = { "monster_beast_0"_hs, "assets/textures/monster/beast_0.png" };
         inline constexpr TextureAsset beast_1 = { "monster_beast_1"_hs, "assets/textures/monster/beast_1.png" };
         inline constexpr TextureAsset beast_2 = { "monster_beast_2"_hs, "assets/textures/monster/beast_2.png" };
         inline constexpr TextureAsset beast_3 = { "monster_beast_3"_hs, "assets/textures/monster/beast_3.png" };
         inline constexpr TextureAsset beast_4 = { "monster_beast_4"_hs, "assets/textures/monster/beast_4.png" };
-        // 邪教徒
         inline constexpr TextureAsset cultist_0 = { "monster_cultist_0"_hs, "assets/textures/monster/cultist_0.png" };
         inline constexpr TextureAsset cultist_1 = { "monster_cultist_1"_hs, "assets/textures/monster/cultist_1.png" };
         inline constexpr TextureAsset cultist_2 = { "monster_cultist_2"_hs, "assets/textures/monster/cultist_2.png" };
         inline constexpr TextureAsset cultist_3 = { "monster_cultist_3"_hs, "assets/textures/monster/cultist_3.png" };
         inline constexpr TextureAsset cultist_4 = { "monster_cultist_4"_hs, "assets/textures/monster/cultist_4.png" };
-        // 恶魔
         inline constexpr TextureAsset demon_0 = { "monster_demon_0"_hs, "assets/textures/monster/demon_0.png" };
         inline constexpr TextureAsset demon_1 = { "monster_demon_1"_hs, "assets/textures/monster/demon_1.png" };
         inline constexpr TextureAsset demon_2 = { "monster_demon_2"_hs, "assets/textures/monster/demon_2.png" };
         inline constexpr TextureAsset demon_3 = { "monster_demon_3"_hs, "assets/textures/monster/demon_3.png" };
         inline constexpr TextureAsset demon_4 = { "monster_demon_4"_hs, "assets/textures/monster/demon_4.png" };
-        // 元素
         inline constexpr TextureAsset elemental_0 = { "monster_elemental_0"_hs, "assets/textures/monster/elemental_0.png" };
         inline constexpr TextureAsset elemental_1 = { "monster_elemental_1"_hs, "assets/textures/monster/elemental_1.png" };
         inline constexpr TextureAsset elemental_2 = { "monster_elemental_2"_hs, "assets/textures/monster/elemental_2.png" };
         inline constexpr TextureAsset elemental_3 = { "monster_elemental_3"_hs, "assets/textures/monster/elemental_3.png" };
         inline constexpr TextureAsset elemental_4 = { "monster_elemental_4"_hs, "assets/textures/monster/elemental_4.png" };
-        // 精灵
         inline constexpr TextureAsset elf_0 = { "monster_elf_0"_hs, "assets/textures/monster/elf_0.png" };
         inline constexpr TextureAsset elf_1 = { "monster_elf_1"_hs, "assets/textures/monster/elf_1.png" };
         inline constexpr TextureAsset elf_2 = { "monster_elf_2"_hs, "assets/textures/monster/elf_2.png" };
         inline constexpr TextureAsset elf_3 = { "monster_elf_3"_hs, "assets/textures/monster/elf_3.png" };
         inline constexpr TextureAsset elf_4 = { "monster_elf_4"_hs, "assets/textures/monster/elf_4.png" };
-        // 哥布林
         inline constexpr TextureAsset goblin_0 = { "monster_goblin_0"_hs, "assets/textures/monster/goblin_0.png" };
         inline constexpr TextureAsset goblin_1 = { "monster_goblin_1"_hs, "assets/textures/monster/goblin_1.png" };
         inline constexpr TextureAsset goblin_2 = { "monster_goblin_2"_hs, "assets/textures/monster/goblin_2.png" };
         inline constexpr TextureAsset goblin_3 = { "monster_goblin_3"_hs, "assets/textures/monster/goblin_3.png" };
         inline constexpr TextureAsset goblin_4 = { "monster_goblin_4"_hs, "assets/textures/monster/goblin_4.png" };
-        // 机械
         inline constexpr TextureAsset mech_0 = { "monster_mech_0"_hs, "assets/textures/monster/mech_0.png" };
         inline constexpr TextureAsset mech_1 = { "monster_mech_1"_hs, "assets/textures/monster/mech_1.png" };
         inline constexpr TextureAsset mech_2 = { "monster_mech_2"_hs, "assets/textures/monster/mech_2.png" };
         inline constexpr TextureAsset mech_3 = { "monster_mech_3"_hs, "assets/textures/monster/mech_3.png" };
         inline constexpr TextureAsset mech_4 = { "monster_mech_4"_hs, "assets/textures/monster/mech_4.png" };
-        // 骷髅
         inline constexpr TextureAsset skeleton_0 = { "monster_skeleton_0"_hs, "assets/textures/monster/skeleton_0.png" };
         inline constexpr TextureAsset skeleton_1 = { "monster_skeleton_1"_hs, "assets/textures/monster/skeleton_1.png" };
         inline constexpr TextureAsset skeleton_2 = { "monster_skeleton_2"_hs, "assets/textures/monster/skeleton_2.png" };
         inline constexpr TextureAsset skeleton_3 = { "monster_skeleton_3"_hs, "assets/textures/monster/skeleton_3.png" };
         inline constexpr TextureAsset skeleton_4 = { "monster_skeleton_4"_hs, "assets/textures/monster/skeleton_4.png" };
-        // 兽人
         inline constexpr TextureAsset warcraft_0 = { "monster_warcraft_0"_hs, "assets/textures/monster/warcraft_0.png" };
         inline constexpr TextureAsset warcraft_1 = { "monster_warcraft_1"_hs, "assets/textures/monster/warcraft_1.png" };
         inline constexpr TextureAsset warcraft_2 = { "monster_warcraft_2"_hs, "assets/textures/monster/warcraft_2.png" };

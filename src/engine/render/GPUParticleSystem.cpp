@@ -144,6 +144,7 @@ void GPUParticleSystem::LoadShaders() {
         LOG_INFO("GPUParticleSystem: Compute shader loaded (ID: {})",
                  m_computeShader.id);
         m_computeDtLoc = rlGetLocationUniform(m_computeShader.id, "dt");
+        m_computeTimeLoc = rlGetLocationUniform(m_computeShader.id, "time");
         m_computeTotalLoc =
             rlGetLocationUniform(m_computeShader.id, "totalParticles");
       } else {
@@ -342,6 +343,7 @@ void GPUParticleSystem::Update(float dt) {
         float clampedDt =
             (dt > MAX_DELTA_TIME_PARTICLES) ? DEFAULT_DELTA_TIME_PARTICLES : dt;
         rlSetUniform(m_computeDtLoc, &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);
+        rlSetUniform(m_computeTimeLoc, &m_totalTime, RL_SHADER_UNIFORM_FLOAT, 1);
         rlSetUniform(m_computeTotalLoc, &m_currentParticleCount,
                     RL_SHADER_UNIFORM_INT, 1);
 

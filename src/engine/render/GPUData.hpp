@@ -46,7 +46,8 @@ struct GPUParticle {
   float scale = 0.0f;                          // 4
   uint32_t flags = 0;                          // 4
   float growthRate = 0.0f;                     // 4
-  float padding[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // 16
+  float rotation = 0.0f;                       // 4
+  float padding[3] = {0.0f, 0.0f, 0.0f};       // 12
 
   GPUParticle() = default;
 };

@@ -13,7 +13,8 @@ struct Particle {
     float scale;        // 4 bytes
     uint flags;         // 4 bytes
     float growthRate;   // 4 bytes
-    float pad[4];       // 16 bytes padding
+    float rotation;     // 4 bytes
+    float pad[3];       // 12 bytes padding
 }; // Total: 64 bytes
 
 // SSBOs
@@ -39,6 +40,14 @@ layout(std430, binding = 3) buffer AtomicCounterBuffer {
 // Uniforms
 uniform float dt;
 uniform int totalParticles;
+uniform float time; // Add time for procedural movement
+
+// Physics Flags (High bits of p.flags)
+const uint PHYSICS_FLAG_NO_DRAG = 1 << 8;
+const uint PHYSICS_FLAG_WANDER  = 1 << 9;
+const uint PHYSICS_FLAG_SINE_X  = 1 << 10;
+const uint PHYSICS_FLAG_VORTEX  = 1 << 11; // Swirl around acceleration as center
+const uint PHYSICS_FLAG_ALIGN_TO_VEL = 1 << 12; // Auto-rotate to match velocity direction
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
@@ -53,12 +62,53 @@ void main() {
     
     // === Physics Update ===
     
-    // Apply acceleration
-    p.velocity += p.acceleration * dt;
+    // Apply Vortex logic if flag is set
+    // In this mode, p.acceleration is treated as the center of the vortex
+    if ((p.flags & PHYSICS_FLAG_VORTEX) != 0) {
+        vec2 toCenter = p.position - p.acceleration;
+        float dist = length(toCenter);
+        if (dist > 1.0) {
+            // Tangential force for swirling
+            vec2 tangent = vec2(-toCenter.y, toCenter.x) / dist;
+            // Strength decreases with distance, but maintains a minimum swirl
+            float swirlStrength = 200.0 * (1.0 + sin(time * 0.5 + float(id % 5)));
+            p.velocity += tangent * (swirlStrength / (dist * 0.01 + 1.0)) * dt;
+            
+            // Slight inward attraction to keep the "entwined" feel
+            p.velocity -= (toCenter / dist) * 20.0 * dt;
+        }
+    } else {
+        // Normal acceleration
+        p.velocity += p.acceleration * dt;
+    }
     
-    // Apply drag (0.5 is a gentler drag for longer lasting travel)
-    p.velocity *= (1.0 - 0.5 * dt);
+    // Apply drag (only if NO_DRAG flag is not set)
+    if ((p.flags & PHYSICS_FLAG_NO_DRAG) == 0) {
+        p.velocity *= (1.0 - 0.5 * dt);
+    }
     
+    // Apply Sine Sway (Enhanced for "Streamline" feel)
+    if ((p.flags & PHYSICS_FLAG_SINE_X) != 0) {
+        // Multi-frequency sine for organic flowing
+        float sway = sin(time * 1.5 + p.position.y * 0.01) * 30.0;
+        sway += cos(time * 3.2 + float(id)) * 10.0;
+        p.position.x += sway * dt;
+    }
+
+    // Apply Random Wander (Fluid flow variant)
+    if ((p.flags & PHYSICS_FLAG_WANDER) != 0) {
+        float angle = time * 2.0 + (p.position.x + p.position.y) * 0.005;
+        vec2 flow = vec2(cos(angle), sin(angle)) * 25.0;
+        p.velocity += flow * dt;
+    }
+    
+    // Apply rotation alignment if flag is set
+    if ((p.flags & PHYSICS_FLAG_ALIGN_TO_VEL) != 0) {
+        if (length(p.velocity) > 0.1) {
+            p.rotation = atan(p.velocity.y, p.velocity.x);
+        }
+    }
+
     // Update position
     p.position += p.velocity * dt;
     

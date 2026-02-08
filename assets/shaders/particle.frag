@@ -9,15 +9,18 @@ in vec2 vTexCoord;
 out vec4 finalColor;
 
 void main() {
+    // Shape ID is in the lower 8 bits
+    uint shapeId = vFlags & 0xFFu;
+
     // Distance from center (for circular shapes)
     float d = distance(vTexCoord, vec2(0.5));
     
     // Start with vertex color alpha
     float alpha = fragColor.a;
     
-    // === Shape Rendering Based on Flags ===
+    // === Shape Rendering Based on Shape ID ===
     
-    if (vFlags == 0u) {
+    if (shapeId == 0u) {
         // Default: Small soft circle with tight edge
         alpha *= smoothstep(0.5, 0.2, d);
     }

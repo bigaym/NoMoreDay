@@ -14,7 +14,8 @@ struct Particle {
     float scale;
     uint flags;
     float growthRate;
-    float pad[4];
+    float rotation;
+    float pad[3];
 };
 
 // Compacted particles buffer (only alive particles)
@@ -58,12 +59,18 @@ void main() {
     vFlags = p.flags;
     vTexCoord = vertexPos + 0.5;  // Convert to [0, 1] range
     
+    // Calculate rotation matrix
+    float cosR = cos(p.rotation);
+    float sinR = sin(p.rotation);
+    mat2 rotMat = mat2(cosR, sinR, -sinR, cosR);
+
     // Calculate world position
-    // vertexPos is in [-0.5, 0.5], scale by particle size
-    // Reduced multiplier from 2.0 to 1.0 for smaller particle appearance
-    float lifetimeScale = sqrt(lifetimeRatio);  // Gentle size fade at end of life
-    float finalScale = p.scale * lifetimeScale * 1.0;  // Reduced from 2.0
-    vec2 worldPos = vertexPos * finalScale + p.position;
+    float lifetimeScale = sqrt(lifetimeRatio);
+    float finalScale = p.scale * lifetimeScale;
+    
+    // Apply rotation before translation
+    vec2 rotatedPos = rotMat * vertexPos;
+    vec2 worldPos = rotatedPos * finalScale + p.position;
     
     // Apply MVP transform
     gl_Position = mvp * vec4(worldPos, 0.0, 1.0);

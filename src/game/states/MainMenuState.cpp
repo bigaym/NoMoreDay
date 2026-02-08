@@ -142,9 +142,9 @@ void MainMenuState::OnRender() {
   menuCamera.zoom = 1.0f; 
   
   auto& ps = systems::GPUParticleSystem::Get();
-  if (ps.IsInitialized()) {
+  if (!m_isGameStarting && ps.IsInitialized()) {
       ps.Render(menuCamera);
-  } else {
+  } else if (!ps.IsInitialized()) {
       LOG_LIMITED_WARN(5.0f, "MainMenuState: GPUParticleSystem NOT initialized during render!");
   }
 
@@ -229,46 +229,47 @@ void MainMenuState::SpawnGPUParticles() {
     static float spawnTimer = 0.0f;
     spawnTimer += GetFrameTime();
     
-    if (spawnTimer > 0.05f) { 
+    // Physics Flags (Subtle drift only)
+    const uint32_t FLAG_NO_DRAG = 1 << 8;
+    const uint32_t FLAG_WANDER  = 1 << 9;
+    const uint32_t FLAG_SINE_X  = 1 << 10;
+    
+    if (spawnTimer > 0.08f) { // Faster spawn to fill space
         spawnTimer = 0.0f;
-        
         auto& ps = systems::GPUParticleSystem::Get();
-        if (!ps.IsInitialized()) {
-            LOG_LIMITED_WARN(5.0f, "MainMenuState: Cannot spawn particles, GPUParticleSystem NOT initialized!");
-            return;
-        }
+        if (!ps.IsInitialized()) return;
 
-        int count = GetRandomValue(2, 6); // More particles per burst
-        LOG_LIMITED_DEBUG(1.0f, "MainMenuState: Emitting {} GPU particles...", count);
+        int count = GetRandomValue(2, 4); 
         
         for (int i = 0; i < count; ++i) {
             components::GPUParticle p;
-            // Spread particles across the width
-            p.position = {(float)GetRandomValue(-200, GetScreenWidth() + 200), -50.0f};
             
-            // Random downward drift with horizontal sway (Slower as requested)
-            float speedY = (float)GetRandomValue(120, 360); // Halved from 240-720
-            float speedX = (float)GetRandomValue(-80, 80);  // Halved from -160-160
-            p.velocity = {speedX, speedY};
+            // Spawn across the whole screen width, mostly from edges
+            p.position = { 
+                (float)GetRandomValue(-100, GetScreenWidth() + 100), 
+                (float)GetRandomValue(-100, GetScreenHeight() + 100) 
+            };
             
-            // Gentler acceleration 
-            p.acceleration = {sinf(m_timer * 0.3f + (float)i) * 10.0f, 5.0f}; 
+            // Very slow drift
+            p.velocity = { (float)GetRandomValue(-25, 25), (float)GetRandomValue(-20, 10) };
+            p.acceleration = { 0, 0 };
             
-            bool isAsh = GetRandomValue(0, 100) < 35;
-            if (isAsh) {
-                p.color = {220, 230, 255, (unsigned char)GetRandomValue(180, 255)}; 
-                p.flags = 1; 
-                p.scale = (float)GetRandomValue(8, 20); 
+            int typeRoll = GetRandomValue(0, 100);
+            if (typeRoll < 50) {
+                // Faint Ink Dust (Darker, slightly larger)
+                p.color = {30, 30, 40, (unsigned char)GetRandomValue(120, 180)}; 
+                p.flags = 0 | FLAG_NO_DRAG | FLAG_WANDER; 
+                p.scale = (float)GetRandomValue(6, 12); 
             } else {
-                p.color = {5, 5, 10, (unsigned char)GetRandomValue(180, 255)}; 
-                p.flags = 13; 
-                p.scale = (float)GetRandomValue(12, 24); 
+                // Faint Spirit Dust (Pale Cyan, smaller glow)
+                p.color = {180, 245, 255, (unsigned char)GetRandomValue(100, 160)}; 
+                p.flags = 1 | FLAG_NO_DRAG | FLAG_SINE_X;
+                p.scale = (float)GetRandomValue(4, 8); 
             }
             
-            p.lifetime = (float)GetRandomValue(15, 25); // Longer existence
+            p.lifetime = (float)GetRandomValue(12, 25);
             p.maxLifetime = p.lifetime;
-            p.growthRate = -0.02f; // Much slower shrinking to prevent early "disappearance"
-            
+            p.growthRate = 0.02f; // Slight growth instead of shrinking to keep visible
             ps.Emit(p);
         }
     }

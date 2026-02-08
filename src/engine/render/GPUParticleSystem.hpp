@@ -84,6 +84,7 @@ private:
     
     // Shader uniform locations
     int m_computeDtLoc = -1;
+    int m_computeTimeLoc = -1;
     int m_computeTotalLoc = -1;
     int m_renderMvpLoc = -1;
     
