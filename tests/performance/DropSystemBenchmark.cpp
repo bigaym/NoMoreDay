@@ -14,7 +14,7 @@
 
 namespace NoMoreDay {
 
-TEST_CASE("[Performance] DropSystem - Mass Drop Generation" * doctest::skip(true)) {
+TEST_CASE("[Performance] DropSystem - Mass Drop Generation") {
     TestSetupScope scope;
     entt::registry registry;
     

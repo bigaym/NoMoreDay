@@ -1,12 +1,21 @@
-# Archived Project Tracks
+﻿# Archived Project Tracks
 
 This file contains completed and archived tracks.
 
 ---
 
-## [x] Track: 剑修技能行为修复与补全 (blade_ascendant_fix_20260210)
+## [x] Track: Performance Test Expansion (performance_test_expansion_20260210)
+- **Folder:** [./conductor/archive/performance_test_expansion_20260210/](./conductor/archive/performance_test_expansion_20260210/)
+- **Description:** Expand performance coverage from 9 to 21 systems, covering per-frame hot paths (combat, physics, AI, projectile, skill) and event/loading paths (spawn, save/load, item factory, fog/flow GPU systems), and establish baseline metrics.
+- **Status:** COMPLETED (2026-02-10)
+- **Priority:** P1 MEDIUM
+- **Estimated Time:** 2-3 days
+- **Archive Reason:** Completed - Work finished successfully
+
+---
+## [x] Track: 鍓戜慨鎶€鑳借涓轰慨澶嶄笌琛ュ叏 (blade_ascendant_fix_20260210)
 - **Folder:** [./conductor/archive/blade_ascendant_fix_20260210/](./conductor/archive/blade_ascendant_fix_20260210/)
-- **Description:** 修复剑修技能实现与 `skills.json` 的偏差，完成 ID 常量化、关键 ID 错位修正、元素分支补全、缺失机制落地以及自动化 ID 守卫测试；并完成游戏内回归验证（含灵剑发射投射物颜色继承修复）。
+- **Description:** 淇鍓戜慨鎶€鑳藉疄鐜颁笌 `skills.json` 鐨勫亸宸紝瀹屾垚 ID 甯搁噺鍖栥€佸叧閿?ID 閿欎綅淇銆佸厓绱犲垎鏀ˉ鍏ㄣ€佺己澶辨満鍒惰惤鍦颁互鍙婅嚜鍔ㄥ寲 ID 瀹堝崼娴嬭瘯锛涘苟瀹屾垚娓告垙鍐呭洖褰掗獙璇侊紙鍚伒鍓戝彂灏勬姇灏勭墿棰滆壊缁ф壙淇锛夈€?
 - **Review:** [blade_ascendant_review_20260210.md](../reviews/blade_ascendant_review_20260210.md)
 - **Status:** COMPLETED (2026-02-10)
 - **Priority:** P0 URGENT
@@ -16,7 +25,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: fix-portal-rift-resume_20260208
 - **Folder:** [./conductor/archive/fix-portal-rift-resume_20260208/](./conductor/archive/fix-portal-rift-resume_20260208/)
-- **Description:** 修复维度裂隙恢复流程，包括继续/新开确认、回城点恢复、3层完成后的重拼接分流、Portal 安全删除，以及相关稳定性问题（字体、回城门、暂停与死亡回城逻辑）。
+- **Description:** 淇缁村害瑁傞殭鎭㈠娴佺▼锛屽寘鎷户缁?鏂板紑纭銆佸洖鍩庣偣鎭㈠銆?灞傚畬鎴愬悗鐨勯噸鎷兼帴鍒嗘祦銆丳ortal 瀹夊叏鍒犻櫎锛屼互鍙婄浉鍏崇ǔ瀹氭€ч棶棰橈紙瀛椾綋銆佸洖鍩庨棬銆佹殏鍋滀笌姝讳骸鍥炲煄閫昏緫锛夈€?
 - **Status:** COMPLETED (2026-02-08)
 - **Priority:** P0
 
@@ -24,7 +33,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: TODO Closure Core Loop (2026-02-08)
 - **Folder:** [./conductor/archive/todo-closure-core-loop_20260208/](./conductor/archive/todo-closure-core-loop_20260208/)
-- **Description:** 闭环修复核心循环中的遗留 TODO。包括 SkillSystem 反击伤害接入 DamagePipeline，以及 SaveManager 存档头信息（玩家名、游玩时长）的动态化实现。
+- **Description:** 闂幆淇鏍稿績寰幆涓殑閬楃暀 TODO銆傚寘鎷?SkillSystem 鍙嶅嚮浼ゅ鎺ュ叆 DamagePipeline锛屼互鍙?SaveManager 瀛樻。澶翠俊鎭紙鐜╁鍚嶃€佹父鐜╂椂闀匡級鐨勫姩鎬佸寲瀹炵幇銆?
 - **Status:** COMPLETED (2026-02-08)
 - **Priority:** P0
 - **Estimated Time:** 8-10 hours
@@ -33,7 +42,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: Astrolabe Logic Completion & Combat Integration
 - **Folder:** [./conductor/archive/astrolabe-logic-completion_20260205/](./conductor/archive/astrolabe-logic-completion_20260205/)
-- **Description:** 解决天赋数值缩放不匹配、核心机制组件（如图/剑意/剑心）挂载失效及特殊转换效果缺失的问题。确保天赋星盘逻辑与战斗系统深度耦合。
+- **Description:** 瑙ｅ喅澶╄祴鏁板€肩缉鏀句笉鍖归厤銆佹牳蹇冩満鍒剁粍浠讹紙濡傚浘/鍓戞剰/鍓戝績锛夋寕杞藉け鏁堝強鐗规畩杞崲鏁堟灉缂哄け鐨勯棶棰樸€傜‘淇濆ぉ璧嬫槦鐩橀€昏緫涓庢垬鏂楃郴缁熸繁搴﹁€﹀悎銆?
 - **Status:** COMPLETED (2026-02-08)
 - **Priority:** HIGH
 - **Estimated Time:** 2-3 days
@@ -42,7 +51,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: Astrolabe VFX & Architecture Polish
 - **Folder:** [./conductor/archive/astrolabe-vfx-polish_20260204/](./conductor/archive/astrolabe-vfx-polish_20260204/)
-- **Description:** 补全星盘系统的视觉与架构优化。包括实现高级 GPU 节点着色器 (talent_node.fs)、能量流动粒子反馈、超新星点满特效。同时修复 CMake 构建系统无法识别新测试的问题，并对 UIAstrolabe 进行职责解耦重构。
+- **Description:** 琛ュ叏鏄熺洏绯荤粺鐨勮瑙変笌鏋舵瀯浼樺寲銆傚寘鎷疄鐜伴珮绾?GPU 鑺傜偣鐫€鑹插櫒 (talent_node.fs)銆佽兘閲忔祦鍔ㄧ矑瀛愬弽棣堛€佽秴鏂版槦鐐规弧鐗规晥銆傚悓鏃朵慨澶?CMake 鏋勫缓绯荤粺鏃犳硶璇嗗埆鏂版祴璇曠殑闂锛屽苟瀵?UIAstrolabe 杩涜鑱岃矗瑙ｈ€﹂噸鏋勩€?
 - **Status:** COMPLETED (2026-02-05)
 - **Priority:** HIGH
 - **Estimated Time:** 1.5 days
@@ -51,7 +60,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: Astrolabe Audit Polish (Post-Refactor Fixes)
 - **Folder:** [./conductor/archive/astrolabe-polish_20260204/](./conductor/archive/astrolabe-polish_20260204/)
-- **Description:** 修复星系天赋系统重构后的审计缺陷。包括：(FIX-1) 誓约二次确认机制、(FIX-2) 测试数据 ID 一致性、(FIX-3) AstrolabeSystem 单元测试覆盖、(FIX-4) 解锁失败 UI 反馈、(FIX-5) GPU 节点特效 Shader、(FIX-6) 冗余 API 清理。
+- **Description:** 淇鏄熺郴澶╄祴绯荤粺閲嶆瀯鍚庣殑瀹¤缂洪櫡銆傚寘鎷細(FIX-1) 瑾撶害浜屾纭鏈哄埗銆?FIX-2) 娴嬭瘯鏁版嵁 ID 涓€鑷存€с€?FIX-3) AstrolabeSystem 鍗曞厓娴嬭瘯瑕嗙洊銆?FIX-4) 瑙ｉ攣澶辫触 UI 鍙嶉銆?FIX-5) GPU 鑺傜偣鐗规晥 Shader銆?FIX-6) 鍐椾綑 API 娓呯悊銆?
 - **Status:** COMPLETED (2026-02-04)
 - **Priority:** HIGH
 - **Estimated Time:** 10-12 hours
@@ -60,7 +69,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: Astrolabe System Refactor (Six-Sector Layout)
 - **Folder:** [./conductor/archive/astrolabe-refactor_20260204/](./conductor/archive/astrolabe-refactor_20260204/)
-- **Description:** 将天赋系统从星座依赖模型重构为六扇区同源布局。引入了动态坐标计算、职业亲和度解锁机制以及主修誓约限制。
+- **Description:** 灏嗗ぉ璧嬬郴缁熶粠鏄熷骇渚濊禆妯″瀷閲嶆瀯涓哄叚鎵囧尯鍚屾簮甯冨眬銆傚紩鍏ヤ簡鍔ㄦ€佸潗鏍囪绠椼€佽亴涓氫翰鍜屽害瑙ｉ攣鏈哄埗浠ュ強涓讳慨瑾撶害闄愬埗銆?
 - **Status:** COMPLETED (2026-02-04)
 - **Priority:** HIGH
 - **Estimated Time:** 3-4 days
@@ -78,7 +87,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: Skill Specialization System
 - **Folder:** [./conductor/archive/ui-skill-spec_20260201/](./conductor/archive/ui-skill-spec_20260201/)
-- **Description:** 重构了技能专精 UI，实现了类似 Last Epoch 的“中心枢纽 + 4 分支”布局。
+- **Description:** 閲嶆瀯浜嗘妧鑳戒笓绮?UI锛屽疄鐜颁簡绫讳技 Last Epoch 鐨勨€滀腑蹇冩灑绾?+ 4 鍒嗘敮鈥濆竷灞€銆?
 - **Status:** COMPLETED
 - **Priority:** HIGH
 - **Estimated Time:** 2-3 days
@@ -87,7 +96,7 @@ This file contains completed and archived tracks.
 
 ## [x] Track: Dimensional Level Selection & Fragment Failsafe
 - **Folder:** [./conductor/archive/dimensional-level-select_20260131/](./conductor/archive/dimensional-level-select_20260131/)
-- **Description:** 优化维度地图的进入体验。新增了等级选择界面，实现了默认碎片检测机制。
+- **Description:** 浼樺寲缁村害鍦板浘鐨勮繘鍏ヤ綋楠屻€傛柊澧炰簡绛夌骇閫夋嫨鐣岄潰锛屽疄鐜颁簡榛樿纰庣墖妫€娴嬫満鍒躲€?
 - **Status:** COMPLETED
 - **Priority:** HIGH
 
@@ -95,26 +104,27 @@ This file contains completed and archived tracks.
 
 ## [x] Track: Lock & Concurrency Optimization
 - **Folder:** [./conductor/archive/lock_optimization_20260128/](./conductor/archive/lock_optimization_20260128/)
-- **Description:** 优化项目中的锁使用。引入 ThreadSafeRandom，实现 GPUParticleSystem 的无锁化发射。
+- **Description:** 浼樺寲椤圭洰涓殑閿佷娇鐢ㄣ€傚紩鍏?ThreadSafeRandom锛屽疄鐜?GPUParticleSystem 鐨勬棤閿佸寲鍙戝皠銆?
 - **Status:** COMPLETED
 
 ---
 
 ## [x] Track: Static Variable & Global State Optimization
 - **Folder:** [./conductor/archive/static_variable_optimization_20260128/](./conductor/archive/static_variable_optimization_20260128/)
-- **Description:** 系统性重构项目中的静态变量。引入了 `std::shared_mutex` 解决 StatsCache 并发查询。
+- **Description:** 绯荤粺鎬ч噸鏋勯」鐩腑鐨勯潤鎬佸彉閲忋€傚紩鍏ヤ簡 `std::shared_mutex` 瑙ｅ喅 StatsCache 骞跺彂鏌ヨ銆?
 - **Status:** COMPLETED
 
 ---
 
 ## [x] Track: Test Case Naming Normalization
 - **Folder:** [./conductor/archive/test_normalization_20260126/](./conductor/archive/test_normalization_20260126/)
-- **Description:** 统一 NoMoreDay 项目中所有测试用例的命名格式。
+- **Description:** 缁熶竴 NoMoreDay 椤圭洰涓墍鏈夋祴璇曠敤渚嬬殑鍛藉悕鏍煎紡銆?
 - **Status:** COMPLETED
 
 ---
 
 ## [x] Track: GPU Rendering Pipeline Refactor
 - **Folder:** [./conductor/archive/rendering_pipeline_refactor_20260126/](./conductor/archive/rendering_pipeline_refactor_20260126/)
-- **Description:** 基于架构审计报告，系统性重构 GPU 渲染管线。
+- **Description:** 鍩轰簬鏋舵瀯瀹¤鎶ュ憡锛岀郴缁熸€ч噸鏋?GPU 娓叉煋绠＄嚎銆?
 - **Status:** COMPLETED
+

@@ -160,7 +160,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["beast", "goblin"],
-      "maxEnemies": 90,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -180,7 +180,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["beast", "elves"],
-      "maxEnemies": 120,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -200,7 +200,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["beast", "elemental"],
-      "maxEnemies": 110,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -220,7 +220,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["demon", "corrupted"],
-      "maxEnemies": 125,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -240,7 +240,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 280.0,
       "enemyPool": ["goblin", "machine"],
-      "maxEnemies": 120,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -261,7 +261,7 @@
       "visionRadius": 0.0,
       "visualFilterShader": "assets/shaders/filters/void_desaturate.fs",
       "enemyPool": ["corrupted", "demon"],
-      "maxEnemies": 130,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -281,7 +281,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["beast", "elves"],
-      "maxEnemies": 115,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -301,7 +301,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["undead", "corrupted"],
-      "maxEnemies": 125,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
 
@@ -322,7 +322,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 230.0,
       "enemyPool": ["undead", "cultist"],
-      "maxEnemies": 150,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -342,7 +342,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["demon", "elemental"],
-      "maxEnemies": 160,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -362,7 +362,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["goblin", "machine"],
-      "maxEnemies": 150,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -382,7 +382,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["undead", "cultist"],
-      "maxEnemies": 145,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -402,7 +402,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["machine", "cultist"],
-      "maxEnemies": 155,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -422,7 +422,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 210.0,
       "enemyPool": ["undead", "demon"],
-      "maxEnemies": 165,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -443,7 +443,7 @@
       "visionRadius": 0.0,
       "visualFilterShader": "assets/shaders/filters/crystal_bloom.fs",
       "enemyPool": ["machine", "elemental"],
-      "maxEnemies": 150,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
 
@@ -465,7 +465,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["elves", "elemental"],
-      "maxEnemies": 170,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -487,7 +487,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["elemental", "corrupted"],
-      "maxEnemies": 165,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -507,7 +507,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 220.0,
       "enemyPool": ["beast", "elves"],
-      "maxEnemies": 160,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -527,7 +527,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["cultist", "demon"],
-      "maxEnemies": 175,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -547,7 +547,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 0.0,
       "enemyPool": ["beast", "corrupted"],
-      "maxEnemies": 190,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -568,7 +568,7 @@
       "gravityMultiplier": 0.75,
       "visionRadius": 0.0,
       "enemyPool": ["elves", "elemental"],
-      "maxEnemies": 180,
+      "maxEnemies": 5000,
       "isSafeZone": false
     },
     {
@@ -589,7 +589,7 @@
       "gravityMultiplier": 1.0,
       "visionRadius": 150.0,
       "enemyPool": ["undead", "demon"],
-      "maxEnemies": 200,
+      "maxEnemies": 5000,
       "isSafeZone": false
     }
   ]

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
 #include "app/SharedContext.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
@@ -11,44 +12,10 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
-#include <algorithm>
 #include <chrono>
-#include <numeric>
 #include <vector>
 
 namespace NoMoreDay::tests {
-
-// Helper for collecting statistics
-struct BenchmarkStats {
-  double min_ms;
-  double max_ms;
-  double mean_ms;
-  double p01_low_ms; // 1% Low (actually 99th percentile of slowness? or 1%
-                     // fastest? usually 1% low FPS means 99th percentile frame
-                     // time)
-  // "1% Low" usually refers to FPS. For duration, we probably want 99th
-  // percentile (slowest frames). Let's interpret "1% Low" as "99th percentile
-  // time" (the slow spikes).
-  double p99_ms;
-};
-
-BenchmarkStats CalculateStats(const std::vector<double> &samples) {
-  if (samples.empty())
-    return {0, 0, 0, 0, 0};
-  std::vector<double> sorted = samples;
-  std::sort(sorted.begin(), sorted.end());
-
-  double sum = std::accumulate(sorted.begin(), sorted.end(), 0.0);
-  double mean = sum / sorted.size();
-
-  size_t idx99 = (size_t)(sorted.size() * 0.99);
-  if (idx99 >= sorted.size())
-    idx99 = sorted.size() - 1;
-
-  return {sorted.front(), sorted.back(), mean,
-          0.0, // placeholder
-          sorted[idx99]};
-}
 
 TEST_CASE("[Performance] ParticleSystem - Scenario A Particle Stress Test") {
   using namespace NoMoreDay::systems;
@@ -82,9 +49,7 @@ TEST_CASE("[Performance] ParticleSystem - Scenario A Particle Stress Test") {
   }
 
   BenchmarkStats stats = CalculateStats(updateTimes);
-  LOG_WARN(
-      "Scenario A (Particles): Mean={:.3f}ms, P99={:.3f}ms (Target: < 0.5ms)",
-      stats.mean_ms, stats.p99_ms);
+  LOG_BENCHMARK("Scenario A (Particles)", stats, "< 0.5ms");
 
   CHECK(stats.mean_ms < 0.5);
 
@@ -124,8 +89,7 @@ TEST_CASE("[Performance] PopupRenderer - Scenario B Popup Spam Test") {
   }
 
   BenchmarkStats stats = CalculateStats(renderTimes);
-  LOG_WARN("Scenario B (Popups): Mean={:.3f}ms, P99={:.3f}ms (Target: < 0.3ms)",
-           stats.mean_ms, stats.p99_ms);
+  LOG_BENCHMARK("Scenario B (Popups)", stats, "< 0.3ms");
 
   CHECK(stats.mean_ms < 0.3);
 
@@ -190,9 +154,7 @@ TEST_CASE("[Performance] GPUEntitySystem - Scenario C Entity Horde Test") {
   }
 
   BenchmarkStats stats = CalculateStats(updateTimes);
-  LOG_WARN(
-      "Scenario C (Entities): Mean={:.3f}ms, P99={:.3f}ms (Target: < 3.0ms)",
-      stats.mean_ms, stats.p99_ms);
+  LOG_BENCHMARK("Scenario C (Entities)", stats, "< 3.0ms");
 
   CHECK(stats.mean_ms < 3.0);
 

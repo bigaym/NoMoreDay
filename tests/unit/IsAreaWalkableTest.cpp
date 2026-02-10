@@ -9,11 +9,11 @@ TEST_CASE("[Unit] TilemapCollisionSystem - Walkability Logic") {
     
     SUBCASE("IsAreaWalkable") {
         Vector2 centerPos = {50.0f, 50.0f};
-        CHECK(TilemapCollisionSystem::IsAreaWalkable(mapSystem, centerPos, 4.0f) == true);
+        CHECK(NoMoreDay::TilemapCollisionSystem::IsAreaWalkable(mapSystem, centerPos, 4.0f) == true);
         
         Vector2 wallPos = {5.0f, 5.0f}; // Tile 0,0 Wall
         // Radius 4 extends 1 to 9. Inside Tile 0.
-        CHECK(TilemapCollisionSystem::IsAreaWalkable(mapSystem, wallPos, 4.0f) == false);
+        CHECK(NoMoreDay::TilemapCollisionSystem::IsAreaWalkable(mapSystem, wallPos, 4.0f) == false);
         
         Vector2 nearWall = {14.0f, 50.0f}; // Tile 1,5.
         // Radius 4. 10 to 18.
@@ -21,12 +21,12 @@ TEST_CASE("[Unit] TilemapCollisionSystem - Walkability Logic") {
         // Min X = 10. Max X = 18.
         // Tile Min = 1. Tile Max = 1.
         // Should be True.
-        CHECK(TilemapCollisionSystem::IsAreaWalkable(mapSystem, nearWall, 4.0f) == true);
+        CHECK(NoMoreDay::TilemapCollisionSystem::IsAreaWalkable(mapSystem, nearWall, 4.0f) == true);
         
         Vector2 touchingWall = {13.0f, 50.0f}; 
         // Radius 4. 9 to 17.
         // Tile Min = 0 (Wall). Tile Max = 1 (Floor).
         // Should be False.
-        CHECK(TilemapCollisionSystem::IsAreaWalkable(mapSystem, touchingWall, 4.0f) == false);
+        CHECK(NoMoreDay::TilemapCollisionSystem::IsAreaWalkable(mapSystem, touchingWall, 4.0f) == false);
     }
 }

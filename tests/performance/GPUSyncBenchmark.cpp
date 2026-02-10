@@ -1,36 +1,16 @@
 #pragma once
 
+#include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
 #include "engine/render/GPUEntitySync.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
-#include <algorithm>
 #include <chrono>
-#include <numeric>
 #include <vector>
 
 
 namespace NoMoreDay::tests {
-
-struct GPUSyncBenchmarkStats {
-  double min_ms;
-  double max_ms;
-  double mean_ms;
-  double p99_ms;
-};
-
-static GPUSyncBenchmarkStats
-CalculateGPUMetrics(const std::vector<double> &samples) {
-  if (samples.empty())
-    return {0, 0, 0, 0};
-  std::vector<double> sorted = samples;
-  std::sort(sorted.begin(), sorted.end());
-  double sum = std::accumulate(sorted.begin(), sorted.end(), 0.0);
-  size_t p99Idx = (size_t)(sorted.size() * 0.99);
-  p99Idx = std::min(p99Idx, sorted.size() - 1);
-  return {sorted.front(), sorted.back(), sum / sorted.size(), sorted[p99Idx]};
-}
 
 TEST_CASE("[Performance] GPUEntitySync - Sync Performance Benchmark") {
   using namespace NoMoreDay::render;
@@ -106,14 +86,12 @@ TEST_CASE("[Performance] GPUEntitySync - Sync Performance Benchmark") {
     frameCounter++;
   }
 
-  auto pStats = CalculateGPUMetrics(physicsTimes);
-  auto vStats = CalculateGPUMetrics(visualTimes);
+  const BenchmarkStats pStats = CalculateStats(physicsTimes);
+  const BenchmarkStats vStats = CalculateStats(visualTimes);
 
   LOG_WARN("=== GPUEntitySync Benchmark ({} Entities) ===", TEST_ENTITIES);
-  LOG_WARN("PhysicsSync: Mean={:.3f}ms, P99={:.3f}ms (Target < 1.5ms)",
-           pStats.mean_ms, pStats.p99_ms);
-  LOG_WARN("VisualSync:  Mean={:.3f}ms, P99={:.3f}ms (Target < 0.5ms)",
-           vStats.mean_ms, vStats.p99_ms);
+  LOG_BENCHMARK("PhysicsSync", pStats, "< 1.5ms");
+  LOG_BENCHMARK("VisualSync", vStats, "< 0.5ms");
 
   CHECK(pStats.mean_ms < 1.5);
   CHECK(vStats.mean_ms < 0.5);
