@@ -636,6 +636,9 @@ struct SpriteComponent
 // 用于标识玩家实体的标签
 struct PlayerTag{};
 
+// 穿透/相位标签：临时忽略体积碰撞与地图碰撞
+struct PhaseTag {};
+
 // 存储实体的原始输入状态
 struct InputComponent
 {

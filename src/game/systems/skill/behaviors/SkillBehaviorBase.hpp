@@ -5,6 +5,17 @@
 
 namespace NoMoreDay {
 
+struct ElementalConversion {
+  Tag source_element = Tag::Physical;
+  Tag target_element = Tag::None;
+  Color projectile_color = WHITE;
+  Color glow_color = WHITE;
+
+  [[nodiscard]] bool IsActive() const noexcept {
+    return target_element != Tag::None;
+  }
+};
+
 /**
  * @brief CRTP base class for skill behaviors.
  * 
@@ -22,6 +33,33 @@ struct SkillBehaviorBase {
     // MSVC fix: Derived is incomplete during base class instantiation in CRTP.
     // static constexpr uint32_t SkillId = Derived::kSkillId;
     
+    [[nodiscard]] static ElementalConversion ResolveElementalConversion(
+        uint32_t element_node_id, int points) noexcept {
+        (void)element_node_id;
+
+        ElementalConversion conv;
+        switch (points) {
+        case 1: // Fire
+            conv.target_element = Tag::Fire;
+            conv.projectile_color = {255, 80, 20, 255};
+            conv.glow_color = {255, 160, 60, 180};
+            break;
+        case 2: // Ice / Frost
+            conv.target_element = Tag::Cold;
+            conv.projectile_color = {100, 200, 255, 255};
+            conv.glow_color = {150, 220, 255, 180};
+            break;
+        case 3: // Lightning
+            conv.target_element = Tag::Lightning;
+            conv.projectile_color = {200, 180, 255, 255};
+            conv.glow_color = {230, 200, 255, 180};
+            break;
+        default:
+            break;
+        }
+        return conv;
+    }
+
     /**
      * @brief Called when the skill effect should be executed.
      * Derived class MUST implement DoCast().

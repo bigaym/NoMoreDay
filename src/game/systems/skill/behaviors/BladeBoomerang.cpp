@@ -25,6 +25,34 @@
 
 namespace NoMoreDay::skills {
 
+namespace BladeBoomerangNodes {
+// 基础分支 / Base
+constexpr uint32_t Speed = 800;     // 疾速 / Speed
+constexpr uint32_t Sharp = 801;     // 锋锐 / Sharp
+
+// 投掷分支 / Throw branch
+constexpr uint32_t AgileBlade = 810; // 灵动之刃 / Agile Blade
+constexpr uint32_t FastRecycle = 811; // 快速回收 / Fast Recycle
+constexpr uint32_t BreakAir = 812;    // 破空 / Break Air
+constexpr uint32_t PhantomSpin = 813; // 幻影回旋 / Phantom Spin
+
+// 牵引分支 / Pull branch
+constexpr uint32_t MagnetField = 830; // 磁力场 / Magnet Field
+constexpr uint32_t CatchBlade = 831;  // 接剑 / Catch Blade
+constexpr uint32_t GravityField = 832; // 重力场 / Gravity Field
+constexpr uint32_t BlackHole = 833;   // 剑气黑洞 / Black Hole
+
+// 停留分支 / Hover branch
+constexpr uint32_t HoverCut = 850;    // 滞空切割 / Hover Cut
+constexpr uint32_t Bleed = 851;       // 放血 / Bleed
+constexpr uint32_t Tear = 852;        // 撕裂 / Tear
+
+// 元素分支 / Element branch
+constexpr uint32_t PathResidue = 870; // 路径残留 / Path Residue
+constexpr uint32_t GuardQi = 871;     // 护体剑气 / Guard Qi
+constexpr uint32_t ElementStorm = 872; // 元素风暴 / Element Storm
+} // namespace BladeBoomerangNodes
+
 struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
   static constexpr uint32_t kSkillId = 8;
 
@@ -35,7 +63,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     if (!pos || !stats)
       return;
 
-    const auto *skillData = SkillRegistry::Get().GetSkill(8);
+    const auto *skillData = SkillRegistry::Get().GetSkill(kSkillId);
     float speed = skillData ? skillData->GetParam("speed", 400.0f) : 400.0f;
     float returnTimer =
         skillData ? skillData->GetParam("return_timer", 0.45f) : 0.45f;
@@ -58,39 +86,42 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
           // Talent: Po Kong (破空) - ID 812
-          if (spec.allocated_points.contains(812)) {
+          if (spec.allocated_points.contains(BladeBoomerangNodes::BreakAir)) {
             float bonus =
-                (speed / 100.0f) * 0.1f * spec.allocated_points.at(812);
+                (speed / 100.0f) * 0.1f *
+                spec.allocated_points.at(BladeBoomerangNodes::BreakAir);
             moreDamageFromSpeed += bonus;
           }
 
           // Talent: Huan Ying Hui Xuan (幻影回旋) - ID 813
-          if (spec.allocated_points.contains(813) &&
-              spec.allocated_points.at(813) > 0) {
+          if (spec.allocated_points.contains(BladeBoomerangNodes::PhantomSpin) &&
+              spec.allocated_points.at(BladeBoomerangNodes::PhantomSpin) > 0) {
             extraProjectiles = 2;
           }
 
           // Talent: Ci Li Chang (磁力场) - ID 830
-          if (spec.allocated_points.contains(830) &&
-              spec.allocated_points.at(830) > 0) {
+          if (spec.allocated_points.contains(BladeBoomerangNodes::MagnetField) &&
+              spec.allocated_points.at(BladeBoomerangNodes::MagnetField) > 0) {
             hasPull = true;
             pullStrength = basePull;
           }
 
           // Talent: Zhong Li Chang (重力场) - ID 832
-          if (spec.allocated_points.contains(832)) {
-            pullStrength += gravityPull * spec.allocated_points.at(832);
+          if (spec.allocated_points.contains(BladeBoomerangNodes::GravityField)) {
+            pullStrength +=
+                gravityPull *
+                spec.allocated_points.at(BladeBoomerangNodes::GravityField);
           }
 
           // Talent: Jian Qi Hei Dong (剑气黑洞) - ID 833
-          if (spec.allocated_points.contains(833) &&
-              spec.allocated_points.at(833) > 0) {
+          if (spec.allocated_points.contains(BladeBoomerangNodes::BlackHole) &&
+              spec.allocated_points.at(BladeBoomerangNodes::BlackHole) > 0) {
             pullStrength *= 2.0f; // Black hole effect
             radius *= 1.5f;
           }
 
           // Talent: Zhi Kong Qie Ge (滞空切割) - ID 850
-          if (spec.allocated_points.contains(850)) {
+          if (spec.allocated_points.contains(BladeBoomerangNodes::HoverCut)) {
             hasZhiKong = true;
           }
           break;
@@ -166,8 +197,8 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
           // Talent: Fang Xue (放血) - ID 851
-          if (spec.allocated_points.contains(851) &&
-              spec.allocated_points.at(851) > 0) {
+          if (spec.allocated_points.contains(BladeBoomerangNodes::Bleed) &&
+              spec.allocated_points.at(BladeBoomerangNodes::Bleed) > 0) {
             auto &effects =
                 registry.get_or_emplace<ActiveEffectsComponent>(target);
             BuffEffect bleed;
@@ -180,7 +211,8 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
             bleed.source = attacker;
 
             // Slow effect (SpeedDown)
-            float slowAmount = 10.0f * spec.allocated_points.at(851);
+            float slowAmount =
+                10.0f * spec.allocated_points.at(BladeBoomerangNodes::Bleed);
             bleed.modifiers.push_back({.value = -slowAmount,
                                        .type = StatType::MoveSpeed,
                                        .mode = ModifierMode::PercentAdd});

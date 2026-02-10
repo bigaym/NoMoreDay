@@ -16,6 +16,35 @@
 
 namespace NoMoreDay::skills {
 
+namespace SwordArrayNodes {
+// 基础分支 / Base
+constexpr uint32_t WideArea = 600; // 广域 / Wide Area
+constexpr uint32_t Extreme = 601;  // 极刑 / Extreme Punishment
+
+// 召唤分支 / Summon branch
+constexpr uint32_t TwinArray = 610;   // 双生剑阵 / Twin Array
+constexpr uint32_t QiResonance = 611; // 剑气共鸣 / Qi Resonance
+constexpr uint32_t DashBurst = 612;   // 流云穿阵 / Dash Burst
+constexpr uint32_t ZhuxianMap = 613;  // 诛仙剑图 / Zhuxian Map
+
+// 控制分支 / Control branch
+constexpr uint32_t SlowPressure = 630; // 迟缓剑压 / Slow Pressure
+constexpr uint32_t ArmorIntent = 631;  // 破甲剑意 / Armor Intent
+constexpr uint32_t WeakField = 632;    // 虚弱领域 / Weak Field
+constexpr uint32_t ExecuteField = 633; // 绝命领域 / Execute Field
+
+// 增益分支 / Buff branch
+constexpr uint32_t CoreEye = 650;       // 阵眼核心 / Core Eye
+constexpr uint32_t ManaSpring = 651;    // 灵力泉涌 / Mana Spring
+constexpr uint32_t MindUnity = 652;     // 意念合一 / Mind Unity
+constexpr uint32_t SwordGodField = 653; // 剑神领域 / Sword God Field
+
+// 元素分支 / Element branch
+constexpr uint32_t ElementField = 670;   // 元素领域 / Element Field
+constexpr uint32_t SpiritArmorPen = 671; // 灵根破甲 / Spirit Armor Pen
+constexpr uint32_t ShiftArray = 672;     // 移形换阵 / Shift Array
+} // namespace SwordArrayNodes
+
 void SwordArray::Update(entt::registry &registry, entt::entity entity,
                         SwordArrayComponent &array, float dt,
                         const systems::SpatialHashGrid &grid) {
@@ -124,9 +153,10 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
       targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
 
       DamagePool base;
-      base.Add(Tag::Physical, 20.0f); // Default for ID 6
+      base.Add(Tag::Physical, 20.0f); // Default for Skill 6
 
-      DamagePipeline::CalculateBatch(registry, array.owner, targets, 6, base,
+      DamagePipeline::CalculateBatch(registry, array.owner, targets, kSkillId,
+                                     base,
                                      Tag::Area | Tag::SwordSkill | Tag::Hit,
                                      entity);
 
@@ -250,17 +280,17 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
     }
   }
 
-  if (exec.active_nodes.test(610 % 100)) {
+  if (exec.active_nodes.test(SwordArrayNodes::TwinArray % 100)) {
     array.has_slow = true;
   }
-  if (exec.active_nodes.test(611 % 100)) {
+  if (exec.active_nodes.test(SwordArrayNodes::QiResonance % 100)) {
     array.has_armor_shred = true;
   }
-  if (exec.active_nodes.test(612 % 100)) {
+  if (exec.active_nodes.test(SwordArrayNodes::DashBurst % 100)) {
     array.has_execute = true;
   }
 
-  registry.emplace<SkillComponent>(array_ent, 6u, owner);
+  registry.emplace<SkillComponent>(array_ent, kSkillId, owner);
   LOG_INFO("Sword Array summoned at ({}, {}) by entity {}", exec.target_pos.x,
            exec.target_pos.y, (uint32_t)owner);
 }

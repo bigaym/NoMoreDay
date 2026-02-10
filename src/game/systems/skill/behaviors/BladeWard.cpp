@@ -15,6 +15,35 @@
 
 namespace NoMoreDay::skills {
 
+namespace BladeWardNodes {
+// 基础分支 / Base
+constexpr uint32_t GoldenBell = 400; // 金钟 / Golden Bell
+constexpr uint32_t CloudShift = 401; // 拨云 / Cloud Shift
+
+// 防御分支 / Defense branch
+constexpr uint32_t ThickAccum = 410; // 厚积薄发 / Thick Accumulation
+constexpr uint32_t FiveGuard = 411;  // 五行御守 / Five Element Guard
+constexpr uint32_t Mountain = 412;   // 不动如山 / Immovable Mountain
+
+// 格挡分支 / Block branch
+constexpr uint32_t IntentBlock = 430;   // 剑意格挡 / Intent Block
+constexpr uint32_t ShieldWall = 431;    // 剑盾屏障 / Shield Wall
+constexpr uint32_t BloodShield = 432;   // 鲜血护盾 / Blood Shield
+constexpr uint32_t PerfectBlock = 433;  // 完美格挡 / Perfect Block
+
+// 机动分支 / Mobility branch
+constexpr uint32_t PhantomStep = 450;   // 幻影步 / Phantom Step
+constexpr uint32_t BlinkCounter = 451;  // 瞬身反击 / Blink Counter
+constexpr uint32_t AgileCounter = 452;  // 灵动反击 / Agile Counter
+
+// 反制分支 / Counter branch
+constexpr uint32_t CounterBlade = 470;  // 反制剑气 / Counter Blade
+constexpr uint32_t RainbowQi = 471;     // 剑气如虹 / Rainbow Qi
+constexpr uint32_t ElectroField = 472;  // 静电场 / Electro Field
+constexpr uint32_t BladeStorm = 473;    // 剑刃风暴 / Blade Storm
+
+} // namespace BladeWardNodes
+
 struct BladeWard : SkillBehaviorBase<BladeWard> {
   static constexpr uint32_t kSkillId = 4;
 
@@ -30,17 +59,19 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
 
     // Check for specialized skill points (talents)
     if (exec.active_nodes.test(
-            400 % 100)) { // Talent 400: Increased Physical Damage Reduction
+            BladeWardNodes::GoldenBell %
+            100)) { // Talent 400: Increased Physical Damage Reduction
       // Assuming 400 is a binary node for now, or we'd need to query levels
       // from somewhere else
       phys_dr += 5.0f; // Example value, adjust if talent has levels
     }
     if (exec.active_nodes.test(
-            401 % 100)) {    // Talent 401: Increased Elemental Resistance
+            BladeWardNodes::CloudShift %
+            100)) {          // Talent 401: Increased Interception Chance
       elemental_res += 3.0f; // Example value
     }
-    if (exec.active_nodes.test(410 %
-                               100)) { // Talent 410: Increased Block Chance
+    if (exec.active_nodes.test(BladeWardNodes::IntentBlock %
+                               100)) { // Talent 430: Increased Block Chance
       block_inc += 5.0f;               // Example value
     }
 
@@ -58,16 +89,18 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     // Get the ActiveSkillsComponent to check specialized slots
     auto active = registry.try_get<ActiveSkillsComponent>(owner);
     if (active) {
-      // 210: Elemental Resistance
-      if (active->specialized_slots[0].allocated_points.contains(210)) {
+      // 411: Elemental Resistance
+      if (active->specialized_slots[0].allocated_points.contains(
+              BladeWardNodes::FiveGuard)) {
         float elemental_res = 15.0f;
         ward_buff.modifiers.push_back({.value = elemental_res,
                                        .type = StatType::ResistAll,
                                        .mode = ModifierMode::Flat});
       }
 
-      // 220: Block Chance
-      if (active->specialized_slots[0].allocated_points.contains(220)) {
+      // 430: Block Chance
+      if (active->specialized_slots[0].allocated_points.contains(
+              BladeWardNodes::IntentBlock)) {
         float block_inc = 10.0f;
         ward_buff.modifiers.push_back({.value = block_inc,
                                        .type = StatType::BlockChance,
@@ -87,22 +120,23 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     // Talent 401/470: Interception/Counter
     // Using 401 (Interception Chance Increase) as verified in skills.json
     if (exec.active_nodes.test(
-            420 % 100)) { // Talent 420: Increased Interception Chance
+            BladeWardNodes::CloudShift %
+            100)) { // Talent 401: Increased Interception Chance
       ward.interception_chance += 0.25f; // +25% chance
     }
 
     // Talent 470: Counter Shot
-    if (exec.active_nodes.test(470 % 100)) {
+    if (exec.active_nodes.test(BladeWardNodes::CounterBlade % 100)) {
       ward.trigger_counter = true;
     }
 
     // Talent 473: Blade Storm (Counter Spin)
-    if (exec.active_nodes.test(473 % 100)) {
+    if (exec.active_nodes.test(BladeWardNodes::BladeStorm % 100)) {
       ward.counter_spin = true;
     }
 
     // Talent 4xx: Solidified (Hypothetical ID 412 "Immovable")
-    if (exec.active_nodes.test(412 %
+    if (exec.active_nodes.test(BladeWardNodes::Mountain %
                                100)) { // Talent 412: Solidified (Immovable)
       ward.is_solidified = true;
       LOG_INFO("Blade Ward (412): Solidified (Immovable)");

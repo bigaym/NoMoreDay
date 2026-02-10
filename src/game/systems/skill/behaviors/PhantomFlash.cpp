@@ -10,13 +10,41 @@
 
 namespace NoMoreDay::skills {
 
+namespace PhantomFlashNodes {
+// 基础分支 / Base
+constexpr uint32_t Identify = 900;  // 识破 / Identify
+constexpr uint32_t Aftermind = 901; // 残心 / Aftermind
+
+// 反制分支 / Counter branch
+constexpr uint32_t SwiftCounter = 910;  // 神速反制 / Swift Counter
+constexpr uint32_t StunPressure = 911;  // 震慑剑压 / Stun Pressure
+constexpr uint32_t QiBurst = 912;       // 气劲爆发 / Qi Burst
+constexpr uint32_t ShadowCombo = 913;   // 影杀连斩 / Shadow Combo
+
+// 隐匿分支 / Stealth branch
+constexpr uint32_t ShadowHide = 930;    // 影遁 / Shadow Hide
+constexpr uint32_t ShadowStay = 931;    // 幽影长存 / Shadow Stay
+constexpr uint32_t FatalAmbush = 932;   // 致命奇袭 / Fatal Ambush
+constexpr uint32_t ShadowTwin = 933;    // 影之双生 / Shadow Twin
+
+// 机动分支 / Mobility branch
+constexpr uint32_t AgileBody = 950;     // 灵动之躯 / Agile Body
+constexpr uint32_t FlowReset = 951;     // 流光重置 / Flow Reset
+constexpr uint32_t QiOverflow = 952;    // 气劲充盈 / Qi Overflow
+constexpr uint32_t ShadowDance = 953;   // 影之舞 / Shadow Dance
+
+// 元素分支 / Element branch
+constexpr uint32_t ElementShield = 970; // 元素护盾 / Element Shield
+constexpr uint32_t HeavenShock = 971;   // 天罚反震 / Heaven Shock
+} // namespace PhantomFlashNodes
+
 void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
                           SkillExecution &exec) {
   auto *pos = registry.try_get<Position>(owner);
   if (!pos)
     return;
 
-  const auto *skillData = SkillRegistry::Get().GetSkill(9);
+  const auto *skillData = SkillRegistry::Get().GetSkill(PhantomFlash::kSkillId);
   float dashSpeed =
       skillData ? skillData->GetParam("dash_speed", 500.0f) : 500.0f;
   float dashDist = skillData ? skillData->GetParam("dash_dist", 50.0f) : 50.0f;

@@ -53,6 +53,8 @@ struct Projectile {
   // Split Config
   uint8_t split_count = 3;
   float split_damage_mult = 0.5f;
+  float split_speed_mult = 0.8f;
+  float split_radius_mult = 0.6f;
   float split_spread = 0.6f; // Radians
 
   // Explode Config

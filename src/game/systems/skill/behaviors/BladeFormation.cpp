@@ -5,13 +5,13 @@
  * 召唤围绕玩家盘旋的灵剑自动攻击敌人。
  *
  * 天赋分支:
- * - 300 多重灵剑: 增加灵剑数量
- * - 301 疾风剑意: 提高攻击频率
- * - 302 索敌范围: 扩大搜索半径
- * - 310 归一: 合并为巨剑
- * - 311 天崩地裂: 暴击震波
- * - 321 气劲回流: 命中回蓝
- * - 322 不灭剑魂: 免死一次
+ * - 300 剑池: 增加灵剑数量
+ * - 301 疾风意: 提高攻击频率
+ * - 310 索敌范围: 扩大搜索半径
+ * - 311 无尽剑匣: 灵剑数量翻倍, 单发伤害降低
+ * - 330 巨剑降临: 合并为巨剑
+ * - 351 气劲回流: 命中回蓝
+ * - 353 不灭剑魂: 免死一次
  */
 
 #include "SkillBehaviorBase.hpp"
@@ -24,15 +24,41 @@
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
-
 using namespace entt::literals;
-
-#include "engine/render/GPUParticleSystem.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
 
 #include "core/logging/Logger.hpp"
 
 namespace NoMoreDay::skills {
+
+namespace BladeFormationNodes {
+// 基础分支 / Base
+constexpr uint32_t SwordPool = 300;      // 剑池 / Sword Pool
+constexpr uint32_t SwiftIntent = 301;    // 疾风意 / Swift Intent
+
+// 索敌分支 / Tracking branch
+constexpr uint32_t SearchRange = 310;    // 索敌范围 / Search Range
+constexpr uint32_t InfiniteSheath = 311; // 无尽剑匣 / Infinite Sheath
+constexpr uint32_t SpiritInfusion = 312; // 灵力灌注 / Spirit Infusion
+constexpr uint32_t Godspeed = 313;       // 神速 / Godspeed
+
+// 巨剑分支 / Giant sword branch
+constexpr uint32_t GiantSword = 330;     // 巨剑降临 / Giant Sword
+constexpr uint32_t WeakpointLock = 331;  // 弱点锁定 / Weakpoint Lock
+constexpr uint32_t DeadlyEdge = 332;     // 致命锋芒 / Deadly Edge
+constexpr uint32_t SwordPressure = 333;  // 剑压 / Sword Pressure
+
+// 防御分支 / Defense branch
+constexpr uint32_t SpiritGuard = 350;    // 灵剑护体 / Spirit Guard
+constexpr uint32_t QiReflow = 351;       // 气劲回流 / Qi Reflow
+constexpr uint32_t ShadowTrack = 352;    // 剑影随行 / Shadow Track
+constexpr uint32_t Immortality = 353;    // 不灭剑魂 / Immortality
+
+// 元素分支 / Element branch
+constexpr uint32_t ElementEnchant = 370;  // 元素附魔 / Element Enchant
+constexpr uint32_t SpiritCharge = 371;    // 灵剑充能 / Spirit Charge
+constexpr uint32_t SpellResonance = 372;  // 法术共鸣 / Spell Resonance
+constexpr uint32_t AllBladesReturn = 373; // 万剑归宗 / All Blades Return
+} // namespace BladeFormationNodes
 
 struct BladeFormation : SkillBehaviorBase<BladeFormation> {
   static constexpr uint32_t kSkillId = 3;
@@ -44,41 +70,59 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     int extraSwords = 0;
     float freqInc = 0.0f;
     float searchInc = 0.0f;
+    ElementalConversion swordElementConv;
 
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
-        if (spec.skill_id == 3) {
-          if (spec.allocated_points.contains(300))
-            extraSwords = spec.allocated_points.at(300);
-          if (spec.allocated_points.contains(301))
-            freqInc = spec.allocated_points.at(301) * 0.1f;
-          // Tag 310 in JSON is actually "Range" (索敌范围), unlike "Giant
-          // Sword" (330)
-          if (spec.allocated_points.contains(310))
-            searchInc = spec.allocated_points.at(310) * 0.2f;
+        if (spec.skill_id == kSkillId) {
+          if (spec.allocated_points.contains(BladeFormationNodes::SwordPool))
+            extraSwords = spec.allocated_points.at(BladeFormationNodes::SwordPool);
+          if (spec.allocated_points.contains(BladeFormationNodes::SwiftIntent))
+            freqInc = spec.allocated_points.at(BladeFormationNodes::SwiftIntent) * 0.1f;
+          if (spec.allocated_points.contains(BladeFormationNodes::SearchRange))
+            searchInc = spec.allocated_points.at(BladeFormationNodes::SearchRange) * 0.2f;
+          if (spec.allocated_points.contains(BladeFormationNodes::ElementEnchant) &&
+              spec.allocated_points.at(BladeFormationNodes::ElementEnchant) > 0) {
+            swordElementConv = ResolveElementalConversion(
+                BladeFormationNodes::ElementEnchant,
+                spec.allocated_points.at(BladeFormationNodes::ElementEnchant));
+          }
           break;
         }
       }
     }
 
+    // Reset transient flags for each cast.
+    formation.has_giant_sword = false;
+    formation.mana_on_hit = false;
+    formation.melee_orbit = false;
+    formation.immortality_ready = false;
+    formation.damage_penalty = 1.0f;
+
     // Talent Flags using active_nodes
-    if (exec.active_nodes.test(330 % 100))
+    if (exec.active_nodes.test(BladeFormationNodes::GiantSword % 100))
       formation.has_giant_sword = true; // Giant Sword
-    if (exec.active_nodes.test(311 % 100))
-      formation.shockwave_on_crit = true;
-    if (exec.active_nodes.test(321 % 100))
+    if (exec.active_nodes.test(BladeFormationNodes::QiReflow % 100))
       formation.mana_on_hit = true;
-    if (exec.active_nodes.test(352 % 100))
+    if (exec.active_nodes.test(BladeFormationNodes::ShadowTrack % 100))
       formation.melee_orbit =
           true; // Talent 352: Melee Orbit (Sword Shadow Tracking)
 
     // Immortality (353)
-    if (exec.active_nodes.test(353 % 100)) {
+    if (exec.active_nodes.test(BladeFormationNodes::Immortality % 100)) {
       formation.immortality_ready = true;
       LOG_INFO("Blade Formation (353): Immortality Shield Ready");
     }
+    if (!exec.active_nodes.test(BladeFormationNodes::ElementEnchant % 100)) {
+      swordElementConv = {};
+    }
 
     formation.max_swords = 1 + extraSwords;
+    if (exec.active_nodes.test(BladeFormationNodes::InfiniteSheath % 100)) {
+      formation.max_swords *= 2;
+      formation.damage_penalty = 0.6f; // 无尽剑匣: 单发伤害 -40%
+      LOG_INFO("Blade Formation (311): Infinite Sheath activated");
+    }
     if (formation.has_giant_sword) {
       formation.max_swords = 1;      // Limit to 1
       formation.is_empowered = true; // Visual indicator for Giant Sword
@@ -94,6 +138,30 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         exec.is_empowered; // Keep original empowered state if not giant sword
 
     // --- MANAGE SPIRIT SWORDS ---
+    auto applySwordEnchant = [&](entt::entity sword) {
+      Color swordColor = swordElementConv.IsActive()
+                             ? swordElementConv.projectile_color
+                             : (formation.is_empowered ? GOLD
+                                                       : Color{150, 220, 255, 220});
+      swordColor.a = formation.is_empowered ? 255 : 220;
+
+      if (auto *holo = registry.try_get<components::HoloBlade>(sword)) {
+        holo->holoColor = swordColor;
+      }
+      registry.emplace_or_replace<ColorComponent>(sword, swordColor);
+
+      if (swordElementConv.IsActive()) {
+        SkillModifierComponent mods;
+        mods.damage_modifiers.push_back(
+            DamageModifier{Tag::Physical, swordElementConv.target_element,
+                           1.0f, ModifierType::Convert});
+        registry.emplace_or_replace<SkillModifierComponent>(
+            sword, std::move(mods));
+      } else {
+        registry.remove<SkillModifierComponent>(sword);
+      }
+    };
+
     std::vector<entt::entity> existing_swords;
     auto view = registry.view<SpiritSwordTag, SummonComponent>();
     for (auto entity : view) {
@@ -106,6 +174,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     for (auto entity : existing_swords) {
       auto &s = registry.get<SummonComponent>(entity);
       s.lifetime = s.max_lifetime;
+      applySwordEnchant(entity);
     }
 
     int current_count = (int)existing_swords.size();
@@ -132,7 +201,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
 
         auto &summon = registry.emplace<SummonComponent>(sword);
         summon.owner = owner;
-        summon.skill_id = 3;
+        summon.skill_id = kSkillId;
         summon.lifetime = 10.0f;
         summon.max_lifetime = 10.0f;
         summon.icon_id = skillIcon;
@@ -162,6 +231,8 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         ai.attack_timer =
             (float)total_index * (ai.attack_interval / formation.max_swords);
         ai.orbit_angle = (float)total_index / formation.max_swords * 2.0f * PI;
+
+        applySwordEnchant(sword);
       }
       LOG_INFO("Blade Formation: Spawned {} new swords.", needed);
     } else {
@@ -173,33 +244,18 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
 
   static void DoHit(entt::registry &registry, entt::entity attacker,
                     entt::entity target, Tag hit_tags, bool is_crit) {
+    (void)target;
+    (void)hit_tags;
+    (void)is_crit;
     auto *formation = registry.try_get<BladeFormationComponent>(attacker);
     if (!formation)
       return;
 
-    // Node 311: Shockwave
-    if (is_crit && formation->shockwave_on_crit) {
-      if (registry.all_of<Position>(target)) {
-        const auto &tPos = registry.get<Position>(target);
-        auto &particleSys = systems::GPUParticleSystem::Get();
-        auto splash = systems::InkEffectHelper::CreateInkSplash(
-            {tPos.x, tPos.y}, 12, 10.0f, 150.0f);
-        for (auto &p : splash) {
-          p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
-          particleSys.Emit(p);
-        }
-        // Apply direct damage
-        CombatSystem::ApplyDamage(registry, target, 15.0f, attacker, false,
-                                  true);
-        LOG_INFO("Blade Formation (311): Shockwave triggered");
-      }
-    }
-
-    // Node 321: Mana on Hit
+    // Node 351: Mana on Hit (Qi Reflow)
     if (formation->mana_on_hit) {
       if (auto *stats = registry.try_get<CombatStats>(attacker)) {
         stats->mana = std::min(stats->max_mana, stats->mana + 2.0f);
-        LOG_DEBUG("Blade Formation (321): Restored 2 mana");
+        LOG_DEBUG("Blade Formation (351): Restored 2 mana");
       }
     }
   }

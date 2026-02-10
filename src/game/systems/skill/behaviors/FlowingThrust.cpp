@@ -84,6 +84,20 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, startPos));
     float speed = 400.0f;
 
+    ElementalConversion elementalConv;
+    if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
+      for (const auto &spec : active->specialized_slots) {
+        if (spec.skill_id != kSkillId)
+          continue;
+        auto it = spec.allocated_points.find(FlowingThrustNodes::ElementShift);
+        if (it != spec.allocated_points.end() && it->second > 0) {
+          elementalConv = ResolveElementalConversion(
+              FlowingThrustNodes::ElementShift, it->second);
+        }
+        break;
+      }
+    }
+
     // Apply burst velocity to owner
     if (auto *vel = registry.try_get<Velocity>(owner)) {
       vel->vx = dir.x * speed;
@@ -93,8 +107,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     // Talent 170: ElementShift (Phys -> Elemental)
     // We apply a temporary tag or handle it in DoHit.
     // For visual effects, we might want to change the particle color here.
-    bool is_elemental =
-        exec.active_nodes.test(FlowingThrustNodes::ElementShift % 100);
+    bool is_elemental = elementalConv.IsActive();
 
     // Talent 130: Shadow (Spawn Shadow Echo)
     // Prevent recursion: Don't spawn shadow if owner is already a shadow
@@ -167,7 +180,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
 
       Color glowColor =
           is_elemental
-              ? SKYBLUE
+              ? elementalConv.glow_color
               : (exec.is_empowered ? GOLD : components::Colors::INK_TRAIL_PALE);
       glowColor.a = 20;        // Low alpha for glow/edge
       trail.color = glowColor; // Edge color
@@ -208,7 +221,6 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     float moreDamageMult = 1.0f;
     bool forcePierce = false;
     bool spawnShadow = false;
-    bool isFrost = false;
 
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
@@ -229,7 +241,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           if (spec.allocated_points.contains(
                   FlowingThrustNodes::ElementShift) &&
               spec.allocated_points.at(FlowingThrustNodes::ElementShift) > 0) {
-            isFrost = true; // Maps to Elemental logic
+            elementalConv = ResolveElementalConversion(
+                FlowingThrustNodes::ElementShift,
+                spec.allocated_points.at(FlowingThrustNodes::ElementShift));
           }
 
           // Talent: Momentum (势如破竹) - ID 112
@@ -259,6 +273,8 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                                        .mode = ModifierMode::PercentAdd});
             effects.AddOrRefresh(swift);
             registry.get_or_emplace<StatsDirty>(owner);
+            // Windrunner: phase through collision during this dash.
+            registry.emplace_or_replace<PhaseTag>(owner);
             LOG_INFO("Feng Xing swiftness applied to entity {}",
                      (uint32_t)owner);
           }
@@ -332,7 +348,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     registry.emplace<Velocity>(proj_ent, dir.x * speed, dir.y * speed);
     registry.emplace<ColorComponent>(
         proj_ent,
-        isFrost ? BLUE : NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT);
+        elementalConv.IsActive()
+            ? elementalConv.projectile_color
+            : NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT);
 
     auto &proj = registry.emplace<Projectile>(proj_ent);
     proj.owner = owner;
@@ -358,11 +376,12 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
       registry.emplace<CombatStats>(proj_ent, proj.snapshot);
     }
 
-    if (isFrost) {
+    if (elementalConv.IsActive()) {
       auto &skillMods = registry.emplace<SkillModifierComponent>(proj_ent);
       skillMods.damage_modifiers.push_back(
-          {Tag::Physical, Tag::Cold, 1.0f, ModifierType::Convert});
-      LOG_INFO("Flowing Thrust converted to Cold");
+          {Tag::Physical, elementalConv.target_element, 1.0f,
+           ModifierType::Convert});
+      LOG_INFO("Flowing Thrust converted from Physical to elemental damage");
     }
 
     registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
@@ -395,14 +414,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           */
 
           // ID 150: Weak Point (Was 130)
-          // We check if target is at full HP.
+          // Vital Sense crit logic is handled in DamagePipeline pre-crit stage.
           if (spec.allocated_points.contains(FlowingThrustNodes::WeakPoint)) {
-            if (auto *t_stats = registry.try_get<CombatStats>(target)) {
-              if (t_stats->health >= t_stats->max_health * 0.99f) {
-                // Logic to be implemented or handled by modifiers
-                // Currently just a placeholder for logic hook
-              }
-            }
+            (void)target;
           }
 
           // ID 170: ElementShift (Was 140)

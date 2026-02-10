@@ -653,10 +653,11 @@ bool GameplayState::OnUpdate(float dt) {
       PhysicsSystem::performDashStep(registry, entity, dash, pos, vel, dt,
                                      m_spatialGrid, &mapSystem);
 
-      if (dash.dashTimer <= 0.0f) {
+      if (!dash.isDashing || dash.dashTimer <= 0.0f) {
         dash.isDashing = false;
         vel.vx = 0;
         vel.vy = 0;
+        registry.remove<PhaseTag>(entity);
 
         // Stop Trail
         if (auto *trail = registry.try_get<components::MotionTrail>(entity)) {

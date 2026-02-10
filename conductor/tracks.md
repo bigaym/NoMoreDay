@@ -30,4 +30,3 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 ---
 
 ## [ ] Track: Next Milestone (TBD)
-

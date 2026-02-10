@@ -4,6 +4,16 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: 剑修技能行为修复与补全 (blade_ascendant_fix_20260210)
+- **Folder:** [./conductor/archive/blade_ascendant_fix_20260210/](./conductor/archive/blade_ascendant_fix_20260210/)
+- **Description:** 修复剑修技能实现与 `skills.json` 的偏差，完成 ID 常量化、关键 ID 错位修正、元素分支补全、缺失机制落地以及自动化 ID 守卫测试；并完成游戏内回归验证（含灵剑发射投射物颜色继承修复）。
+- **Review:** [blade_ascendant_review_20260210.md](../reviews/blade_ascendant_review_20260210.md)
+- **Status:** COMPLETED (2026-02-10)
+- **Priority:** P0 URGENT
+- **Estimated Time:** 3-4 days (~21h)
+
+---
+
 ## [x] Track: fix-portal-rift-resume_20260208
 - **Folder:** [./conductor/archive/fix-portal-rift-resume_20260208/](./conductor/archive/fix-portal-rift-resume_20260208/)
 - **Description:** 修复维度裂隙恢复流程，包括继续/新开确认、回城点恢复、3层完成后的重拼接分流、Portal 安全删除，以及相关稳定性问题（字体、回城门、暂停与死亡回城逻辑）。

@@ -50,6 +50,7 @@ void PhysicsSystem::performDashStep(entt::registry& registry, entt::entity entit
     }
     // Reduced radius for map collision to match GameplayState logic and prevent sticking
     float collisionRadius = std::max(1.0f, entityRadius * MAP_COLLISION_RADIUS_FACTOR); 
+    const bool isPhasing = registry.any_of<PhaseTag>(entity);
     
     for (int i = 0; i < steps; ++i) {
         float nextX = currX + stepX;
@@ -57,44 +58,46 @@ void PhysicsSystem::performDashStep(entt::registry& registry, entt::entity entit
         
         bool hit = false;
         
-        // A. Check Tilemap (Static World)
-        if (map) {
-             // Use IsAreaWalkable to check the full body of the entity against the map area
-             // This prevents tunneling through corners or "staircase" tiles
-             if (!NoMoreDay::TilemapCollisionSystem::IsAreaWalkable(*map, {nextX, nextY}, collisionRadius)) {
-                 // LOG_INFO("Dash Collision: Hit Wall at ({:.2f}, {:.2f})", nextX, nextY);
-                 hit = true;
-             }
-        }
+        if (!isPhasing) {
+            // A. Check Tilemap (Static World)
+            if (map) {
+                 // Use IsAreaWalkable to check the full body of the entity against the map area
+                 // This prevents tunneling through corners or "staircase" tiles
+                 if (!NoMoreDay::TilemapCollisionSystem::IsAreaWalkable(*map, {nextX, nextY}, collisionRadius)) {
+                     // LOG_INFO("Dash Collision: Hit Wall at ({:.2f}, {:.2f})", nextX, nextY);
+                     hit = true;
+                 }
+            }
 
-        // B. Check Dynamic Entities (via Grid)
-        if (!hit) {
-            // Query around next position
-            // Search radius needs to include the entity radius + check margin
-            grid.query({nextX, nextY}, entityRadius + 20.0f, [&](entt::entity neighbor, const Position& nPos) {
-                if (hit) return; // Already hit in this step
-                if (neighbor == entity) return;
-                
-                if (registry.any_of<ColliderComponent>(neighbor)) {
-                    const auto& col = registry.get<ColliderComponent>(neighbor);
-                    if (col.type == ColliderType::Static) {
-                         // Circle-AABB Check
-                         float hw = col.width * 0.5f;
-                         float hh = col.height * 0.5f;
-                         
-                         float closestX = std::clamp(nextX, nPos.x - hw, nPos.x + hw);
-                         float closestY = std::clamp(nextY, nPos.y - hh, nPos.y + hh);
-                         
-                         float cdx = nextX - closestX;
-                         float cdy = nextY - closestY;
-                         float dSq = cdx*cdx + cdy*cdy;
-                         
-                         if (dSq < entityRadius * entityRadius) {
-                             hit = true;
-                         }
+            // B. Check Dynamic Entities (via Grid)
+            if (!hit) {
+                // Query around next position
+                // Search radius needs to include the entity radius + check margin
+                grid.query({nextX, nextY}, entityRadius + 20.0f, [&](entt::entity neighbor, const Position& nPos) {
+                    if (hit) return; // Already hit in this step
+                    if (neighbor == entity) return;
+                    
+                    if (registry.any_of<ColliderComponent>(neighbor)) {
+                        const auto& col = registry.get<ColliderComponent>(neighbor);
+                        if (col.type == ColliderType::Static) {
+                             // Circle-AABB Check
+                             float hw = col.width * 0.5f;
+                             float hh = col.height * 0.5f;
+                             
+                             float closestX = std::clamp(nextX, nPos.x - hw, nPos.x + hw);
+                             float closestY = std::clamp(nextY, nPos.y - hh, nPos.y + hh);
+                             
+                             float cdx = nextX - closestX;
+                             float cdy = nextY - closestY;
+                             float dSq = cdx*cdx + cdy*cdy;
+                             
+                             if (dSq < entityRadius * entityRadius) {
+                                 hit = true;
+                             }
+                        }
                     }
-                }
-            });
+                });
+            }
         }
         
         if (hit) {
@@ -103,6 +106,7 @@ void PhysicsSystem::performDashStep(entt::registry& registry, entt::entity entit
             dash.dashTimer = 0.0f; 
             vel.vx = 0;
             vel.vy = 0;
+            registry.remove<PhaseTag>(entity);
             
             // Stop at current position (before hitting wall)
             break; 
@@ -122,6 +126,8 @@ void PhysicsSystem::resolveCollisions(entt::entity entity, const Position &pos,
                                       NoMoreDay::systems::SpatialHashGrid &grid,
                                       const entt::registry &registry,
                                       float dt) {
+  if (registry.any_of<PhaseTag>(entity))
+    return;
 
   // 参数
   using namespace NoMoreDay::Constants::Physics;

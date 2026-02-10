@@ -173,7 +173,15 @@ void SummonSystem::UpdateSpiritSwords(entt::registry &registry, float dt,
           for (auto &m : proxyStats.damage_multipliers)
             m *= 0.5f; // 50% Damage for small swords
         }
+        if (formation) {
+          for (auto &m : proxyStats.damage_multipliers) {
+            m *= formation->damage_penalty;
+          }
+        }
         registry.emplace<CombatStats>(proxy, proxyStats);
+      }
+      if (auto *swordMods = registry.try_get<SkillModifierComponent>(entity)) {
+        registry.emplace<SkillModifierComponent>(proxy, *swordMods);
       }
 
       NoMoreDay::SkillSystem::ShadowCast(registry, proxy, 2, {pos.x, pos.y},

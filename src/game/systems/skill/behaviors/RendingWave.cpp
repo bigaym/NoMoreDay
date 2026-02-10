@@ -29,6 +29,35 @@
 
 namespace NoMoreDay::skills {
 
+namespace RendingWaveNodes {
+// 基础分支 / Base
+constexpr uint32_t SwordQi = 200;     // 剑气纵横 / Sword Qi
+constexpr uint32_t Focus = 201;       // 凝神 / Focus
+
+// 投射分支 / Projectile branch
+constexpr uint32_t MultiWave = 210;   // 多重剑气 / Multi Wave
+constexpr uint32_t SplitBlade = 211;  // 碎裂之刃 / Split Blade
+constexpr uint32_t ChainReact = 212;  // 连锁反应 / Chain Reaction
+constexpr uint32_t BladeBurst = 213;  // 万剑归宗 / Blade Burst
+
+// 回旋分支 / Boomerang branch
+constexpr uint32_t Boomerang = 230;   // 回旋劲 / Boomerang
+constexpr uint32_t GravityTrap = 231; // 引力陷阱 / Gravity Trap
+constexpr uint32_t OverlapHit = 232;  // 重叠打击 / Overlap Hit
+constexpr uint32_t TimeLock = 233;    // 时空锁定 / Time Lock
+
+// 剑意分支 / Intent branch
+constexpr uint32_t VoidConvert = 250; // 灵力转化 / Void Convert
+constexpr uint32_t VoidErode = 251;   // 虚空侵蚀 / Void Erode
+constexpr uint32_t IntentBurst = 252; // 剑意爆发 / Intent Burst
+constexpr uint32_t IntentGain = 253;  // 剑意汲取 / Intent Gain
+
+// 元素分支 / Element branch
+constexpr uint32_t ElementForm = 270;     // 元素形态 / Element Form
+constexpr uint32_t AilmentSpread = 271;   // 异常扩散 / Ailment Spread
+constexpr uint32_t SpiritArmorPen = 272;  // 灵根破甲 / Spirit Armor Pen
+} // namespace RendingWaveNodes
+
 struct RendingWave : SkillBehaviorBase<RendingWave> {
   static constexpr uint32_t kSkillId = 2;
 
@@ -82,6 +111,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     float damagePenalty = 1.0f;
     bool boomerang = false;
     bool isVoid = false;
+    ElementalConversion elementalConv;
     bool splitOnDeath = false;
     bool explodeOnHit = false;
     bool hoverAtApex = false;
@@ -91,48 +121,57 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
           // Talent: Jian Qi Zong Heng (剑气纵横) - ID 200
-          if (spec.allocated_points.contains(200)) {
-            int pts = spec.allocated_points.at(200);
+          if (spec.allocated_points.contains(RendingWaveNodes::SwordQi)) {
+            int pts = spec.allocated_points.at(RendingWaveNodes::SwordQi);
             baseRadius *= (1.0f + pts * 0.1f);
             talentWidthBonus = pts * 10.0f;
           }
 
           // Talent: Duo Zhong Jian Qi (多重剑气) - ID 210
-          if (spec.allocated_points.contains(210)) {
-            int pts = spec.allocated_points.at(210);
+          if (spec.allocated_points.contains(RendingWaveNodes::MultiWave)) {
+            int pts = spec.allocated_points.at(RendingWaveNodes::MultiWave);
             extraWaves = pts;
             static constexpr float penalties[] = {1.0f, 0.75f, 0.8f, 0.85f};
             damagePenalty = penalties[std::min(pts, 3)];
           }
 
           // Talent: Sui Lie Zhi Ren (碎裂之刃) - ID 211
-          if (spec.allocated_points.contains(211)) {
+          if (spec.allocated_points.contains(RendingWaveNodes::SplitBlade)) {
             splitOnDeath = true;
           }
 
           // Talent: Wan Jian Gui Zong (万剑归宗) - ID 213
-          if (spec.allocated_points.contains(213)) {
+          if (spec.allocated_points.contains(RendingWaveNodes::BladeBurst)) {
             explodeOnHit = true;
           }
 
           // Talent: Hui Xuan Jin (回旋劲) - ID 230
-          if (spec.allocated_points.contains(230)) {
+          if (spec.allocated_points.contains(RendingWaveNodes::Boomerang)) {
             boomerang = true;
           }
 
           // Talent: Shi Kong Suo Ding (时空锁定) - ID 233
-          if (spec.allocated_points.contains(233)) {
+          if (spec.allocated_points.contains(RendingWaveNodes::TimeLock)) {
             hoverAtApex = true;
           }
 
           // Talent: Ling Li Zhuan Hua (灵力转化) - ID 250
-          if (spec.allocated_points.contains(250)) {
+          if (spec.allocated_points.contains(RendingWaveNodes::VoidConvert) &&
+              spec.allocated_points.at(RendingWaveNodes::VoidConvert) > 0) {
             isVoid = true;
           }
 
+          // Talent: Element Form (元素形态) - ID 270
+          if (spec.allocated_points.contains(RendingWaveNodes::ElementForm) &&
+              spec.allocated_points.at(RendingWaveNodes::ElementForm) > 0) {
+            elementalConv = ResolveElementalConversion(
+                RendingWaveNodes::ElementForm,
+                spec.allocated_points.at(RendingWaveNodes::ElementForm));
+          }
+
           // Talent: Jian Yi Bao Fa (剑意爆发) - ID 252
-          if (spec.allocated_points.contains(252) &&
-              spec.allocated_points.at(252) > 0) {
+          if (spec.allocated_points.contains(RendingWaveNodes::IntentBurst) &&
+              spec.allocated_points.at(RendingWaveNodes::IntentBurst) > 0) {
             if (auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
               if (intent->stacks >= 10) {
                 exec.is_empowered = true;
@@ -146,6 +185,49 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             }
           }
           break;
+        }
+      }
+    }
+
+    if (isVoid && elementalConv.IsActive()) {
+      LOG_WARN("Rending Wave: VoidConvert (250) and ElementForm (270) are both "
+               "active, ElementForm will be ignored.");
+      elementalConv = {};
+    }
+
+    // Visual fallback for proxy casters (e.g. spirit swords): when local talent
+    // points do not provide conversion info, infer color from inherited
+    // Physical->X Convert modifiers on the owner.
+    bool visualIsVoid = isVoid;
+    ElementalConversion visualElementalConv = elementalConv;
+    if (!visualIsVoid && !visualElementalConv.IsActive()) {
+      if (const auto *ownerMods =
+              registry.try_get<SkillModifierComponent>(owner)) {
+        for (const auto &mod : ownerMods->damage_modifiers) {
+          if (mod.type != ModifierType::Convert ||
+              mod.source_tag != Tag::Physical || mod.value <= 0.0f) {
+            continue;
+          }
+
+          if (mod.target_tag == Tag::Void) {
+            visualIsVoid = true;
+            break;
+          }
+          if (mod.target_tag == Tag::Fire) {
+            visualElementalConv = ResolveElementalConversion(
+                RendingWaveNodes::ElementForm, 1);
+            break;
+          }
+          if (mod.target_tag == Tag::Cold) {
+            visualElementalConv = ResolveElementalConversion(
+                RendingWaveNodes::ElementForm, 2);
+            break;
+          }
+          if (mod.target_tag == Tag::Lightning) {
+            visualElementalConv = ResolveElementalConversion(
+                RendingWaveNodes::ElementForm, 3);
+            break;
+          }
         }
       }
     }
@@ -183,7 +265,10 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       Color glowColor =
           exec.is_empowered
               ? systems::InkEffectHelper::COLOR_GOLD_GLOW
-              : (isVoid ? PURPLE : systems::InkEffectHelper::COLOR_FROST_LIGHT);
+              : (visualIsVoid ? PURPLE
+                        : (visualElementalConv.IsActive()
+                               ? visualElementalConv.glow_color
+                               : systems::InkEffectHelper::COLOR_FROST_LIGHT));
 
       // Optimization: Use thread-local buffer to avoid heap allocation per
       // projectile
@@ -206,10 +291,12 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       registry.emplace<Velocity>(proj_ent, dir.x * baseSpeed,
                                  dir.y * baseSpeed);
       registry.emplace<ColorComponent>(
-          proj_ent, isVoid ? PURPLE
-                           : (exec.is_empowered
-                                  ? GOLD
-                                  : NoMoreDay::components::Colors::BLADE_CYAN));
+          proj_ent, visualIsVoid ? PURPLE
+                           : (visualElementalConv.IsActive()
+                                  ? visualElementalConv.projectile_color
+                                  : (exec.is_empowered
+                                         ? GOLD
+                                         : NoMoreDay::components::Colors::BLADE_CYAN)));
 
       auto &proj = registry.emplace<Projectile>(proj_ent);
       proj.owner = owner;
@@ -238,6 +325,9 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       if (splitOnDeath) {
         proj.on_death = Projectile::OnDeathBehavior::Split;
         proj.split_count = 3;
+        proj.split_damage_mult = 0.5f;
+        proj.split_speed_mult = 0.8f;
+        proj.split_radius_mult = 0.6f;
       }
       if (explodeOnHit) {
         proj.on_death = Projectile::OnDeathBehavior::Explode;
@@ -264,10 +354,31 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       registry.emplace<CombatStats>(proj_ent, proj.snapshot);
       registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
 
+      SkillModifierComponent *projMods = nullptr;
+      auto ensureProjMods = [&]() -> SkillModifierComponent & {
+        if (!projMods) {
+          projMods = &registry.emplace<SkillModifierComponent>(proj_ent);
+        }
+        return *projMods;
+      };
+
+      if (auto *ownerMods = registry.try_get<SkillModifierComponent>(owner)) {
+        auto &mods = ensureProjMods();
+        mods.damage_modifiers.insert(mods.damage_modifiers.end(),
+                                     ownerMods->damage_modifiers.begin(),
+                                     ownerMods->damage_modifiers.end());
+      }
+
       if (isVoid) {
-        auto &mods = registry.emplace<SkillModifierComponent>(proj_ent);
+        auto &mods = ensureProjMods();
         mods.damage_modifiers.push_back(
-            DamageModifier{Tag::Physical, Tag::Void, 1.0f, ModifierType::Convert});
+            DamageModifier{Tag::Physical, Tag::Void, 1.0f,
+                           ModifierType::Convert});
+      } else if (elementalConv.IsActive()) {
+        auto &mods = ensureProjMods();
+        mods.damage_modifiers.push_back(
+            DamageModifier{Tag::Physical, elementalConv.target_element, 1.0f,
+                           ModifierType::Convert});
       }
 
       if (boomerang && !hoverAtApex) {
@@ -289,8 +400,8 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
           // Talent: Jian Yi Ji Qu (剑意汲取) - ID 253
-          if (spec.allocated_points.contains(253)) {
-            int pts = spec.allocated_points.at(253);
+          if (spec.allocated_points.contains(RendingWaveNodes::IntentGain)) {
+            int pts = spec.allocated_points.at(RendingWaveNodes::IntentGain);
             if (pts > 0 && GetRandomValue(0, 100) < 10 * pts) {
               if (auto *intent =
                       registry.try_get<SwordIntentComponent>(attacker)) {

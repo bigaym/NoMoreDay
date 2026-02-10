@@ -646,17 +646,20 @@ void ProjectileSystem::SpawnSplitProjectiles(entt::registry &registry,
   for (int i = 0; i < parent.split_count; ++i) {
     float angle = startAngle + i * angleStep;
     Vector2 dir = Vector2Rotate(baseDir, angle);
+    float childSpeed = parent.speed * parent.split_speed_mult;
 
     auto child = registry.create();
     registry.emplace<Position>(child, pos);
-    registry.emplace<Velocity>(child, dir.x * parent.speed,
-                               dir.y * parent.speed);
+    registry.emplace<Velocity>(child, dir.x * childSpeed,
+                               dir.y * childSpeed);
 
     // Clone Projectile
     auto &p = registry.emplace<Projectile>(child, parent);
     p.on_death =
         Projectile::OnDeathBehavior::None; // Prevent infinite recursion
     p.pierce = false;                      // Reset pierce
+    p.speed = childSpeed;
+    p.radius = parent.radius * parent.split_radius_mult;
     for (auto &m : p.snapshot.damage_multipliers)
       m *= parent.split_damage_mult;
     // Reset lifetime - Reduced from 3.0f to 0.6f to prevent visual clutter

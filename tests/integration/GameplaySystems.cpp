@@ -27,8 +27,92 @@
 #include "game/systems/item/SalvageSystem.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
 #include "engine/physics/SpatialGrid.hpp"
+#include <array>
+#include <filesystem>
+#include <fstream>
+#include <regex>
+#include <unordered_set>
 
 namespace NoMoreDay {
+
+namespace {
+
+std::filesystem::path FindProjectRoot() {
+  std::array<std::filesystem::path, 4> candidates = {
+      std::filesystem::current_path(),
+      std::filesystem::current_path() / "..",
+      std::filesystem::current_path() / "../..",
+      std::filesystem::current_path() / "../../.."};
+
+  for (const auto &candidate : candidates) {
+    const auto root = std::filesystem::weakly_canonical(candidate);
+    if (std::filesystem::exists(root / "assets/data/skills.json") &&
+        std::filesystem::exists(root / "src/game/systems/skill/behaviors")) {
+      return root;
+    }
+  }
+
+  return std::filesystem::current_path();
+}
+
+std::unordered_set<uint32_t>
+LoadTalentNodeIds(const std::filesystem::path &skillsJsonPath) {
+  std::unordered_set<uint32_t> ids;
+  std::ifstream in(skillsJsonPath);
+  REQUIRE(in.is_open());
+
+  nlohmann::json j;
+  in >> j;
+  REQUIRE(j.contains("skills"));
+
+  for (const auto &skill : j["skills"]) {
+    if (!skill.contains("talent_tree"))
+      continue;
+    for (const auto &node : skill["talent_tree"]) {
+      if (node.contains("id")) {
+        ids.insert(node["id"].get<uint32_t>());
+      }
+    }
+  }
+
+  return ids;
+}
+
+std::vector<uint32_t>
+ExtractNodeConstantsFromCpp(const std::filesystem::path &cppPath) {
+  std::ifstream in(cppPath);
+  REQUIRE(in.is_open());
+
+  std::string content((std::istreambuf_iterator<char>(in)),
+                      std::istreambuf_iterator<char>());
+
+  std::vector<uint32_t> constants;
+  std::regex namespaceRe(
+      R"(namespace\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{([\s\S]*?)\}\s*//\s*namespace\s+\1)");
+  std::regex constRe(
+      R"(constexpr\s+uint32_t\s+[A-Za-z_][A-Za-z0-9_]*\s*=\s*([0-9]+)\s*;)");
+
+  auto begin = std::sregex_iterator(content.begin(), content.end(), namespaceRe);
+  auto end = std::sregex_iterator();
+
+  for (auto it = begin; it != end; ++it) {
+    const std::string nsName = (*it)[1].str();
+    if (!nsName.ends_with("Nodes")) {
+      continue;
+    }
+
+    const std::string nsBody = (*it)[2].str();
+    auto cb = std::sregex_iterator(nsBody.begin(), nsBody.end(), constRe);
+    auto ce = std::sregex_iterator();
+    for (auto cit = cb; cit != ce; ++cit) {
+      constants.push_back(static_cast<uint32_t>(std::stoul((*cit)[1].str())));
+    }
+  }
+
+  return constants;
+}
+
+} // namespace
 
 TEST_CASE("[Integration] Astrolabe - Node Activation") {
   auto &registry_data = AstrolabeRegistry::Get();
@@ -159,6 +243,36 @@ TEST_CASE("[Integration] Legendary - Infrastructure Verification") {
         }
     }
     CHECK(hasLegendaryAffix);
+}
+
+TEST_CASE("[Integration] Skill Nodes - IDs must exist in skills.json") {
+  const auto root = FindProjectRoot();
+  const auto legalIds = LoadTalentNodeIds(root / "assets/data/skills.json");
+  REQUIRE(!legalIds.empty());
+
+  const std::array<std::filesystem::path, 9> behaviorFiles = {
+      "src/game/systems/skill/behaviors/FlowingThrust.cpp",
+      "src/game/systems/skill/behaviors/RendingWave.cpp",
+      "src/game/systems/skill/behaviors/BladeFormation.cpp",
+      "src/game/systems/skill/behaviors/BladeWard.cpp",
+      "src/game/systems/skill/behaviors/InfiniteBlades.cpp",
+      "src/game/systems/skill/behaviors/SwordArray.cpp",
+      "src/game/systems/skill/behaviors/MindBlade.cpp",
+      "src/game/systems/skill/behaviors/BladeBoomerang.cpp",
+      "src/game/systems/skill/behaviors/PhantomFlash.cpp"};
+
+  for (const auto &relativeFile : behaviorFiles) {
+    const auto fullPath = root / relativeFile;
+    const auto constants = ExtractNodeConstantsFromCpp(fullPath);
+
+    REQUIRE_MESSAGE(!constants.empty(), "No Nodes constants found in ",
+                    fullPath.string());
+
+    for (uint32_t id : constants) {
+      CHECK_MESSAGE(legalIds.contains(id), "Unknown talent node ID ", id,
+                    " in ", fullPath.string());
+    }
+  }
 }
 
 } // namespace NoMoreDay

@@ -22,6 +22,33 @@
 
 namespace NoMoreDay::skills {
 
+namespace MindBladeNodes {
+// 基础分支 / Base
+constexpr uint32_t Focus = 700;      // 专注 / Focus
+constexpr uint32_t Reserve = 701;    // 积蓄 / Reserve
+
+// 心流分支 / Mindflow branch
+constexpr uint32_t Mindflow = 710;   // 心流积蓄 / Mindflow
+constexpr uint32_t Selfless = 711;   // 无我境界 / Selfless
+constexpr uint32_t SwordWave = 712;  // 剑气激荡 / Sword Wave
+constexpr uint32_t HeavenMan = 713;  // 天人合一 / Heaven and Man
+
+// 锁定分支 / Lock branch
+constexpr uint32_t MindLock = 730;   // 神识锁定 / Mind Lock
+constexpr uint32_t Trackless = 731;  // 无影追踪 / Trackless
+constexpr uint32_t WeakInsight = 732; // 破绽洞察 / Weak Insight
+constexpr uint32_t MindSuppress = 733; // 神识压制 / Mind Suppress
+
+// 智力分支 / Intelligence branch
+constexpr uint32_t MindUnity = 750;   // 意念合一 / Mind Unity
+constexpr uint32_t MultiMind = 751;   // 多重思维 / Multi Mind
+constexpr uint32_t OneLaw = 752;      // 万法归一 / One Law
+
+// 元素分支 / Element branch
+constexpr uint32_t RayFocus = 770;    // 射线聚焦 / Ray Focus
+constexpr uint32_t VoidRift = 771;    // 虚空裂痕 / Void Rift
+} // namespace MindBladeNodes
+
 // Implementations
 
 void MindBlade::OnCast(entt::registry &registry, entt::entity owner,
@@ -53,7 +80,8 @@ void MindBlade::OnCast(entt::registry &registry, entt::entity owner,
   // Optional: Add visual component
   // registry.emplace<SpriteComponent>(blade, ...);
 
-  LOG_INFO("Mind Blade (ID 9) spawned for entity {}", (uint32_t)owner);
+  LOG_INFO("Mind Blade (ID {}) spawned for entity {}", kSkillId,
+           (uint32_t)owner);
 }
 
 bool MindBlade::Update(entt::registry &registry, entt::entity entity,

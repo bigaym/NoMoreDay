@@ -1,6 +1,7 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "game/components/AdvancedAffixComponents.hpp" // InvulnerableComponent, SuppressorComponent
+#include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp" // PhantomFlashComponent
 #include "game/components/Projectile.hpp"
@@ -357,20 +358,38 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
             registry, attacker, StatType::CritChance, inst.tags, skill_id,
             source_entity);
 
-        // Talent: Weakness Insight (ID 130)
+        // Talent: Vital Sense (ID 150)
         if (skill_id == 1) {
           if (auto *active =
                   registry.try_get<ActiveSkillsComponent>(attacker)) {
             for (const auto &spec : active->specialized_slots) {
               if (spec.skill_id == 1) {
-                if (spec.allocated_points.contains(130) &&
-                    spec.allocated_points.at(130) > 0) {
-                  // Check if defender is full health
+                if (spec.allocated_points.contains(150) &&
+                    spec.allocated_points.at(150) > 0) {
+                  bool isFullHealth = false;
                   if (auto *hp = registry.try_get<HealthComponent>(defender)) {
-                    if (hp->current >= hp->max) {
-                      crit_chance += 10.0f * spec.allocated_points.at(
-                                                 130); // +10% per point
+                    isFullHealth = hp->current >= hp->max * 0.99f;
+                  } else if (auto *defStats =
+                                 registry.try_get<CombatStats>(defender)) {
+                    isFullHealth =
+                        defStats->health >= defStats->max_health * 0.99f;
+                  }
+
+                  bool isControlled = false;
+                  if (auto *effects =
+                          registry.try_get<ActiveEffectsComponent>(defender)) {
+                    for (const auto &effect : effects->effects) {
+                      if (effect.type == BuffType::Stun ||
+                          effect.type == BuffType::Freeze ||
+                          effect.type == BuffType::Root) {
+                        isControlled = true;
+                        break;
+                      }
                     }
+                  }
+
+                  if (isFullHealth || isControlled) {
+                    crit_chance = std::min(100.0f, crit_chance * 2.0f);
                   }
                 }
                 break;

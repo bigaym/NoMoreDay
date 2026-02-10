@@ -518,6 +518,7 @@ struct SpiritSwordAI {
 struct BladeFormationComponent {
   int max_swords = 1;
   int current_swords = 0;
+  float damage_penalty = 1.0f; // Talent 311: 无尽剑匣
   float attack_interval = 1.0f;
   float attack_timer = 0.0f;
   float search_radius = 200.0f;
@@ -526,10 +527,9 @@ struct BladeFormationComponent {
   SpiritSwordMode mode = SpiritSwordMode::Guardian;
 
   // Talent Flags
-  bool has_giant_sword = false;   // Talent 310
-  bool shockwave_on_crit = false; // Talent 311
-  bool mana_on_hit = false;       // Talent 321
-  bool immortality_ready = false; // Talent 322
+  bool has_giant_sword = false;   // Talent 330
+  bool mana_on_hit = false;       // Talent 351
+  bool immortality_ready = false; // Talent 353
   bool melee_orbit = false;       // Talent 352 (Melee Orbit)
 };
 
@@ -557,7 +557,7 @@ struct ChannelingComponent {
   bool is_empowered = false;
   float total_duration = 0.0f;
   uint64_t cast_id = 0;
-  bool extra_projectiles = false; // Talent 520
+  bool extra_projectiles = false; // Talent 551
   bool consume_intent =
       false; // If true, will try to consume intent for effects
   bool burst_finisher = false;   // Talent 513: Trigger finisher on channel end

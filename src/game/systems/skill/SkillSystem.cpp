@@ -722,6 +722,12 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
   registry.emplace_or_replace<CombatStats>(
       shadow, exec.snapshot.stats); // Ensure stats are on the entity
 
+  if (auto *mods = registry.try_get<SkillModifierComponent>(owner)) {
+    registry.emplace_or_replace<SkillModifierComponent>(shadow, *mods);
+  } else if (shadow != owner && registry.all_of<SkillModifierComponent>(shadow)) {
+    registry.remove<SkillModifierComponent>(shadow);
+  }
+
   registry.emplace<ShadowCastTag>(exec_ent);
   LOG_INFO("Shadow casting skill: {}", data->name_key);
   return true;
