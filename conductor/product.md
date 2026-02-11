@@ -30,7 +30,13 @@ To create an immersive ARPG experience where the **Roguelite run loop** meets **
 - **Dynamic Evolution:** At 100% aggro, a Nemesis spawns. It is dynamically generated to **counter the player's build** (e.g., gaining Ice Resist if the player uses Ice skills).
 - **Hunter AI:** Nemeses are not static bosses; they actively hunt the player across the floor with dedicated "Red Alert" BGM.
 
-### 3. Infinite Progression: Eternal Nightmare
+### 3. Procedural Biome Generation (Implemented)
+- **27 Unique Styles:** 6 Town skins and 21 combat biomes categorized into Open (low wall), Maze (high wall), and Special (air-walls/floating) types.
+- **Data-Driven Ecology:** Biome-specific monster pools (9 races), drop weights, and interactive features (Destructible terrain, Spawner walls).
+- **Environmental Mechanics:** Unique gameplay modifiers per biome, including low gravity, friction scaling, and "Vision Fog" fog-of-war.
+- **Atmospheric Shaders:** Integrated post-processing filters (Abyss fog, Coral depth) and dynamic backgrounds (Procedural sky/void) to distinguish each environment.
+
+### 4. Infinite Progression: Eternal Nightmare
 - **Corruption System:** As players descend deeper into the nightmare, Corruption increases monster stats exponentially while boosting the drop rate of T7 affixes.
 - **Heirloom Vault:** Rare Mythic items can be marked as "Heirlooms," allowing them to be inherited by a new character via the account-wide persistence layer.
 - **Dynamic Scaling:** Heirlooms have their stats compressed at low levels, scaling back to full power as the character grows.

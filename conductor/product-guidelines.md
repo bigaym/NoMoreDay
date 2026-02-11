@@ -5,8 +5,14 @@
 - **Theme:** **Otherworldly Fantasy (Eldritch Cultivation).** The environments and procedural generation should reflect a ruined world invaded by alien dimensions, where "Cultivation" is a desperate struggle against the void.
 
 ## Visual Identity
+
 - **Style:** **High-Fidelity Pixel Art.** A retro-modern aesthetic that supports the dark fantasy theme.
-- **VFX Language:** **Ink-Wash Cultivation Style (水墨修仙风).** Use fluid, high-performance GPU particles to create an ethereal yet visceral combat experience. The implementation uses **Indirect Drawing** and **Triple Buffering** to ensure zero-stutter rendering of 200k+ particles.
+
+- **Atmospheric Filters:** Biome-specific post-processing shaders (Abyss fog, Coral filters) are used to reinforce the emotional tone of different dimensions.
+
+- **VFX Language:** **Ink-Wash Cultivation Style (水墨修仙风).** Use fluid, high-performance GPU particles to create an ethereal yet visceral combat experience.
+
+ The implementation uses **Indirect Drawing** and **Triple Buffering** to ensure zero-stutter rendering of 200k+ particles.
 - **Pipeline:** **AI-Driven Asset Generation.** Successfully utilizing the `scripts/asset_gen.py` pipeline (ComfyUI/SDXL based) to generate consistent 2D assets, enabling rapid iteration of monster variants and environment props.
 
 ## Design Pillars
