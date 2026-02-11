@@ -39,8 +39,13 @@ private:
   void ClearActiveRiftForNewRun(entt::registry& registry);
   bool HandleRiftDialogs(entt::registry& registry);
   void RenderRiftDialogs();
+  void UpdateSceneRT();
 
   Camera2D m_camera = {0};
+  RenderTexture2D m_sceneRT = {0};
+  Shader m_activeFilterShader = {0};
+  std::string m_lastFilterPath;
+
   tf::Taskflow m_taskflow;
   systems::SpatialHashGrid m_spatialGrid{
       100, 100, 50}; // Initial size, resized in OnEnter/Init

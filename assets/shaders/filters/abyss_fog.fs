@@ -9,15 +9,31 @@ uniform float time;
 uniform vec2 cameraOffset;
 uniform float zoom;
 uniform vec2 screenSize;
+uniform vec2 playerPos;      // Player position in screen space (normalized 0-1 or pixels)
+uniform float visionRadius;  // Vision radius in pixels
 
 void main() {
     vec4 base = texture(texture0, fragTexCoord) * fragColor;
-    vec2 uv = gl_FragCoord.xy / max(screenSize, vec2(1.0));
+    
+    // Calculate fragment position in pixels
+    vec2 fragPos = fragTexCoord * screenSize;
+    
+    // Calculate distance to player in pixels
+    float dist = length(fragPos - playerPos);
+    
+    // Smooth transition for vision
+    // visionRadius is in world units or pixels? Spec says radius.
+    // If it's world units, we need to multiply by zoom.
+    float effectiveRadius = visionRadius; 
+    float visibility = 1.0 - smoothstep(effectiveRadius * 0.6, effectiveRadius, dist);
+    
+    // Add some animated noise to the fog edge
+    float noise = sin(fragTexCoord.x * 20.0 + time) * cos(fragTexCoord.y * 20.0 - time * 0.5) * 0.05;
+    visibility = clamp(visibility + noise, 0.0, 1.0);
 
-    float noise = sin((uv.x + cameraOffset.x * 0.0002) * 19.0 + time * 0.6) *
-                  cos((uv.y + cameraOffset.y * 0.0002) * 17.0 - time * 0.4);
-    float fog = smoothstep(0.1, 1.0, uv.y) * 0.4 + noise * 0.08;
-
-    vec3 fogColor = vec3(0.03, 0.02, 0.06);
-    finalColor = vec4(mix(base.rgb, fogColor, clamp(fog, 0.0, 0.7)), base.a);
+    // Deep abyss color
+    vec3 fogColor = vec3(0.02, 0.01, 0.04);
+    
+    // Mix scene with fog
+    finalColor = vec4(mix(fogColor, base.rgb, visibility), base.a);
 }

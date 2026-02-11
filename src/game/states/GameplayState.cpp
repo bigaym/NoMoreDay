@@ -82,6 +82,8 @@ GameplayState::GameplayState(StateManager &stateManager, SharedContext &context,
 void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
   
+  m_sceneRT = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+
   // Clear any residual particles from previous states (e.g. Main Menu)
   systems::GPUParticleSystem::Get().Clear();
 
@@ -340,6 +342,17 @@ void GameplayState::InitializeEntities() {
 
 void GameplayState::OnExit() {
   LOG_INFO("Exiting GameplayState...");
+
+  if (m_sceneRT.id != 0) {
+    UnloadRenderTexture(m_sceneRT);
+    m_sceneRT = {0};
+  }
+  if (m_activeFilterShader.id != 0) {
+    UnloadShader(m_activeFilterShader);
+    m_activeFilterShader = {0};
+    m_lastFilterPath.clear();
+  }
+
   NoMoreDay::XPAwardingSystem::Reset(); // Cleanup static GC queue
   EliteModifierSystem::Shutdown();
 
@@ -355,6 +368,27 @@ GameplayState::~GameplayState() {
 
 bool GameplayState::OnUpdate(float dt) {
   auto &registry = *m_context->registry;
+
+  UpdateSceneRT();
+
+  // Load/Update Filter Shader based on Biome
+  const auto &biome =
+      NoMoreDay::BiomeRegistry::Get().GetBiome(m_context->levelManager->getCurrentBiomeID());
+  if (biome.hasFeature(NoMoreDay::BiomeFeature::VisualFilter) &&
+      !biome.visualFilterShader.empty()) {
+    if (m_lastFilterPath != biome.visualFilterShader) {
+      if (m_activeFilterShader.id != 0) {
+        UnloadShader(m_activeFilterShader);
+      }
+      m_activeFilterShader = LoadShader(nullptr, biome.visualFilterShader.c_str());
+      m_lastFilterPath = biome.visualFilterShader;
+      LOG_INFO("Loaded visual filter shader: {}", m_lastFilterPath);
+    }
+  } else if (m_activeFilterShader.id != 0) {
+    UnloadShader(m_activeFilterShader);
+    m_activeFilterShader = {0};
+    m_lastFilterPath.clear();
+  }
 
   // 0. Update SceneManager (Transitions)
   if (m_context->sceneManager) {
@@ -864,8 +898,11 @@ void GameplayState::OnRender() {
   NoMoreDay::utils::ScopedTimer totalTimer("Gameplay OnRender", 5000);
   auto &registry = *m_context->registry;
 
+  // 1. Render World to Texture
+  BeginTextureMode(m_sceneRT);
+  ClearBackground(BLACK);
   BeginMode2D(m_camera);
-  // Grid - REMOVED per user request (Dark background for void area)
+  
   // Level
   {
     NoMoreDay::utils::ScopedTimer timer("Render Level", 20);
@@ -914,7 +951,61 @@ void GameplayState::OnRender() {
   NoMoreDay::systems::GhostSystem::Render(registry);
 
   EndMode2D();
+  EndTextureMode();
 
+  // 2. Draw Scene Texture to Screen with Filter
+  if (m_activeFilterShader.id != 0) {
+    BeginShaderMode(m_activeFilterShader);
+    
+    // Set Uniforms
+    float time = static_cast<float>(GetTime());
+    Vector2 camOffset = m_camera.target;
+    float zoom = m_camera.zoom;
+    Vector2 screenSize = { static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight()) };
+    
+    int locTime = GetShaderLocation(m_activeFilterShader, "time");
+    int locCam = GetShaderLocation(m_activeFilterShader, "cameraOffset");
+    int locZoom = GetShaderLocation(m_activeFilterShader, "zoom");
+    int locScreen = GetShaderLocation(m_activeFilterShader, "screenSize");
+    int locPlayer = GetShaderLocation(m_activeFilterShader, "playerPos");
+    int locVision = GetShaderLocation(m_activeFilterShader, "visionRadius");
+    
+    if (locTime != -1) SetShaderValue(m_activeFilterShader, locTime, &time, SHADER_UNIFORM_FLOAT);
+    if (locCam != -1) SetShaderValue(m_activeFilterShader, locCam, &camOffset, SHADER_UNIFORM_VEC2);
+    if (locZoom != -1) SetShaderValue(m_activeFilterShader, locZoom, &zoom, SHADER_UNIFORM_FLOAT);
+    if (locScreen != -1) SetShaderValue(m_activeFilterShader, locScreen, &screenSize, SHADER_UNIFORM_VEC2);
+
+    if (locPlayer != -1 || locVision != -1) {
+      auto pView = registry.view<PlayerTag, Position>();
+      if (pView.begin() != pView.end()) {
+        const auto &pos = pView.get<Position>(pView.front());
+        Vector2 screenPlayer = GetWorldToScreen2D({pos.x, pos.y}, m_camera);
+        // Flip Y for screenPlayer because GL_FRAGCOORD is y-up
+        screenPlayer.y = (float)GetScreenHeight() - screenPlayer.y;
+        
+        if (locPlayer != -1) SetShaderValue(m_activeFilterShader, locPlayer, &screenPlayer, SHADER_UNIFORM_VEC2);
+        
+        if (locVision != -1) {
+          float vRad = biome.visionRadius;
+          if (vRad <= 0.0f) {
+            auto *vis = registry.try_get<VisionComponent>(pView.front());
+            vRad = vis ? vis->radius : 600.0f;
+          }
+          // Convert world radius to screen radius
+          vRad *= zoom;
+          SetShaderValue(m_activeFilterShader, locVision, &vRad, SHADER_UNIFORM_FLOAT);
+        }
+      }
+    }
+
+    // Note: y-flip the texture because RenderTexture is y-up in OpenGL
+    DrawTextureRec(m_sceneRT.texture, { 0, 0, (float)m_sceneRT.texture.width, -(float)m_sceneRT.texture.height }, { 0, 0 }, WHITE);
+    EndShaderMode();
+  } else {
+    DrawTextureRec(m_sceneRT.texture, { 0, 0, (float)m_sceneRT.texture.width, -(float)m_sceneRT.texture.height }, { 0, 0 }, WHITE);
+  }
+
+  // 3. Render UI (Directly to screen)
   // Manual Draw:
   {
       NoMoreDay::utils::ScopedTimer timer("Render Minimap", 10);
@@ -1271,6 +1362,18 @@ void GameplayState::RenderMapAffixOverlay() {
       UIRenderer::DrawTextUI(font, "...", x + 30, ly, 14, GRAY, 1.0f);
       break;
     }
+  }
+}
+
+void GameplayState::UpdateSceneRT() {
+  if (m_sceneRT.texture.width != GetScreenWidth() ||
+      m_sceneRT.texture.height != GetScreenHeight()) {
+    if (m_sceneRT.id != 0) {
+      UnloadRenderTexture(m_sceneRT);
+    }
+    m_sceneRT = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+    LOG_INFO("GameplayState: Resized Scene RenderTexture to {}x{}",
+             GetScreenWidth(), GetScreenHeight());
   }
 }
 
