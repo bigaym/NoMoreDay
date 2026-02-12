@@ -1,70 +1,65 @@
 # GPU 渲染系统 2.0 实施进度追踪
 
-> **对应设计文档**: [GPU_Rendering_System_2.md](../设计文档/特效和UI/GPU_Rendering_System_2.md)
-> **总负责人**: Feature Planner / Rendering Engineer
-> **起始日期**: 2026-02-12
+> **对应设计文档**: [GPU_Rendering_System_2.md](../设计文档/特效和UI/GPU_Rendering_System_2.md)  
+> **起始日期**: 2026-02-12  
+> **最后更新**: 2026-02-12
 
 ---
 
-## 总体进度仪表盘
+## 总体进度
 
 | 阶段 | 名称 | 状态 | 对应 Track | 关键产出 |
 |---|---|---|---|---|
-| **Phase 0** | **基础设施 (Foundation)** | ✅ **已完成** | `rendering_foundation_migration_20260212` | RenderGraph, FBO Pool, TierManager, 拆解 RenderSystem |
-| **Phase 1** | **HDR + 后处理管线** | ⏳ 待启动 | TBD | HDR SceneBuffer, Bloom, Tonemapping, FXAA |
-| **Phase 2** | **动态光照系统** | ⏳ 待启动 | TBD | 2D Lighting, LightAccumulationPass, Tier 回退 |
-| **Phase 3** | **粒子 & 轨迹增强** | ⏳ 待启动 | TBD | 纹理粒子, 序列帧, GPU TrailRenderer |
-| **Phase 4** | **材质 & VFX 序列器** | ⏳ 待启动 | TBD | 材质系统, VFXTimeline, Distortion Pass |
-| **Phase 5** | **打磨 & 高级特性** | ⏳ 待启动 | TBD | Color Grading, Volumetric Light, Profiler HUD |
+| **Phase 0** | 基础设施 (Foundation) | ✅ 已完成 | `rendering_foundation_migration_20260212` | RenderGraph、资源池、质量分级、RenderSystem 拆分 |
+| **Phase 1** | HDR + 后处理管线 | 🔵 开发完成，验收中 | `hdr_postprocess_pipeline_20260212` | HDR SceneBuffer、Bloom、Tonemap、FXAA、Vignette、基准测试 |
+| **Phase 2** | 动态光照系统 | ⏳ 未启动 | TBD | 2D Lighting、LightAccumulationPass |
+| **Phase 3** | 粒子与轨迹增强 | ⏳ 未启动 | TBD | 纹理粒子、GPU TrailRenderer |
+| **Phase 4** | 材质与 VFX 序列器 | ⏳ 未启动 | TBD | 材质系统、VFXTimeline、Distortion Pass |
+| **Phase 5** | 打磨与高级特性 | ⏳ 未启动 | TBD | Color Grading、Volumetric Light、Profiler HUD |
 
 ---
 
-## 详细验收记录
+## Phase 0 验收记录
 
-### Phase 0: 基础设施 (Foundation)
-- [x] **RenderGraph 核心**
-    - [x] `RenderGraph` 类定义与实现
-    - [x] `RenderPass` 基类与接口定义
-    - [x] Pass 注册与执行顺序解析
-- [x] **资源管理**
-    - [x] `TransientResourcePool` 实现
-    - [x] FBO 申请/回收逻辑验证
-- [x] **QualityTierManager**
-    - [x] 配置类定义
-    - [x] 自动检测逻辑 (`GL_RENDERER` 解析)
-    - [x] 基础配置项读取
-- [x] **Pass 拆解 (重构)**
-    - [x] `ScenePass` (迁移 MDI/Sprite 渲染)
-    - [x] `VFXPass` (迁移 Particle/Skill)
-    - [x] `UIWorldPass` (迁移 Popup/Label)
-    - [x] `CompositePass` (最终合成)
-- [x] **验证**
-    - [x] GL 状态污染防回归 (`ScopedGLState` + 集成测试)
-    - [x] 基准测试执行完成（注意：核显环境下部分性能阈值偏保守）
+- [x] RenderGraph 核心结构完成
+- [x] TransientResourcePool 资源申请/回收完成
+- [x] QualityTierManager 自动检测与配置读取完成
+- [x] Scene/VFX/UIWorld/Composite 四个 Pass 拆分完成
+- [x] 基础集成与回归测试通过
 
 归档位置: `conductor/archive/rendering_foundation_migration_20260212/`
 
-### Phase 1: HDR + 后处理管线
-*待规划...*
+---
 
-### Phase 2: 动态光照系统
-*待规划...*
+## Phase 1 当前进展（hdr_postprocess_pipeline_20260212）
 
-### Phase 3: 粒子 & 轨迹增强
-*待规划...*
+### 已完成（代码与构建）
+- [x] `GPUUtils` 扩展：FBO/RBO/Texture2D/Viewport/Blend/DrawArrays 封装
+- [x] `FramebufferHandle` / `FramebufferManager` / `FullscreenQuad`
+- [x] `RenderConfig` Phase 1 字段 + `QualityTierManager` 四档参数
+- [x] HDR `SceneBuffer` 生命周期与渲染重定向
+- [x] `PostProcessPass` 主链路：Bloom → Tonemap → FXAA → Vignette
+- [x] 后处理 Shader 资产新增（`assets/shaders/postprocess/*`）
+- [x] `RenderSystem` 集成 PostProcessPass 与 Composite 输出
+- [x] `tests/unit/PostProcessTest.cpp` 新增并通过
+- [x] `tests/performance/PostProcessBenchmark.cpp` 新增并通过
+- [x] GPU Timer Query 性能测试（含分段估算）可运行
+- [x] `build.bat` 构建通过
 
-### Phase 4: 材质 & VFX 序列器
-*待规划...*
-
-### Phase 5: 打磨 & 高级特性
-*待规划...*
+### 待完成（运行验收）
+- [ ] Low Tier 与 Phase 0 像素级截图对比
+- [ ] Ultra Tier 视觉验收截图（Bloom/Tonemap/FXAA/Vignette）
+- [ ] Resize 20 次稳定性验证
+- [ ] 30 分钟压力战斗稳定性验证
+- [ ] 目标机门槛性能验收（Bloom ≤ 0.5ms，Tonemap+FXAA+Vignette ≤ 0.4ms）
 
 ---
 
-## 风险与阻碍 (Risk Log)
+## 风险与状态
 
 | ID | 描述 | 状态 | 缓解措施 |
 |---|---|---|---|
-| R-001 | Raylib `rlgl` 状态与自定义管线冲突 | ⚠️ 监控 | 实施 `ScopedGLState` 并在 Pass 边界强制 Flush |
-| R-002 | 集显 (Iris Xe) FBO 显存压力 | ⚠️ 监控 | 严格的 `TransientResourcePool` 复用，必要时降级分辨率 |
+| R-001 | rlgl 状态与自定义后处理管线冲突 | 监控中 | Pass 边界强制 Flush + ScopedGLState |
+| R-002 | 集显平台 HDR/FBO 性能不稳定 | 监控中 | 低档回退路径 + Mip 等级可降档 |
+| R-003 | 最终视觉/稳定性结果依赖长时间实机运行 | 进行中 | 补全截图与长压测验收 |
 

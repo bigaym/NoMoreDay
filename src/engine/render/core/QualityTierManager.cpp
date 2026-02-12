@@ -162,24 +162,56 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.dynamicLightingEnabled = false;
     m_config.maxParticles = 30000;
     m_config.shadowResolution = 0;
+    m_config.bloomMipLevels = 0;
+    m_config.bloomThreshold = 1.0f;
+    m_config.bloomIntensity = 0.0f;
+    m_config.bloomKnee = 0.1f;
+    m_config.fxaaEnabled = false;
+    m_config.vignetteEnabled = false;
+    m_config.vignetteIntensity = 0.0f;
+    m_config.vignetteRadius = 0.75f;
     break;
   case QualityTier::Medium:
-    m_config.bloomEnabled = false;
+    m_config.bloomEnabled = true;
     m_config.dynamicLightingEnabled = true;
     m_config.maxParticles = 60000;
     m_config.shadowResolution = 512;
+    m_config.bloomMipLevels = 3;
+    m_config.bloomThreshold = 1.2f;
+    m_config.bloomIntensity = 0.6f;
+    m_config.bloomKnee = 0.1f;
+    m_config.fxaaEnabled = true;
+    m_config.vignetteEnabled = true;
+    m_config.vignetteIntensity = 0.2f;
+    m_config.vignetteRadius = 0.75f;
     break;
   case QualityTier::High:
     m_config.bloomEnabled = true;
     m_config.dynamicLightingEnabled = true;
     m_config.maxParticles = 120000;
     m_config.shadowResolution = 1024;
+    m_config.bloomMipLevels = 5;
+    m_config.bloomThreshold = 1.0f;
+    m_config.bloomIntensity = 0.8f;
+    m_config.bloomKnee = 0.1f;
+    m_config.fxaaEnabled = true;
+    m_config.vignetteEnabled = true;
+    m_config.vignetteIntensity = 0.3f;
+    m_config.vignetteRadius = 0.75f;
     break;
   case QualityTier::Ultra:
     m_config.bloomEnabled = true;
     m_config.dynamicLightingEnabled = true;
     m_config.maxParticles = 200000;
     m_config.shadowResolution = 2048;
+    m_config.bloomMipLevels = 7;
+    m_config.bloomThreshold = 0.8f;
+    m_config.bloomIntensity = 1.0f;
+    m_config.bloomKnee = 0.1f;
+    m_config.fxaaEnabled = true;
+    m_config.vignetteEnabled = true;
+    m_config.vignetteIntensity = 0.35f;
+    m_config.vignetteRadius = 0.75f;
     break;
   }
 }

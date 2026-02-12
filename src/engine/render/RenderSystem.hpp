@@ -4,6 +4,7 @@
 #include "app/SharedContext.hpp"
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/resources/FramebufferHandle.hpp"
 #include <vector>
 
 // Forward declaration for GPU buffer
@@ -66,4 +67,5 @@ private:
     // Rendering Queues
     static std::vector<NoMoreDay::components::GPULabelInstance> s_labelBuffer;
     static std::vector<NoMoreDay::components::GPUGlyphInstance> s_glyphBuffer; // New
+    static NoMoreDay::render::resources::FramebufferHandle s_hdrSceneBuffer;
 };

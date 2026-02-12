@@ -16,6 +16,16 @@ struct RenderConfig {
   bool dynamicLightingEnabled = false;
   int maxParticles = 20000;
   int shadowResolution = 0;
+
+  int bloomMipLevels = 0;
+  float bloomThreshold = 1.0f;
+  float bloomIntensity = 0.8f;
+  float bloomKnee = 0.1f;
+
+  bool fxaaEnabled = false;
+  bool vignetteEnabled = false;
+  float vignetteIntensity = 0.3f;
+  float vignetteRadius = 0.75f;
 };
 
 inline const char *ToString(QualityTier tier) {

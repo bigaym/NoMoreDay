@@ -10,15 +10,19 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/passes/CompositePass.hpp"
+#include "engine/render/passes/PostProcessPass.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/passes/ScenePass.hpp"
 #include "engine/render/passes/UIWorldPass.hpp"
 #include "engine/render/passes/VFXPass.hpp"
+#include "engine/render/resources/FramebufferManager.hpp"
+#include "engine/render/resources/FullscreenQuad.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/RenderConstants.hpp" 
 #include "engine/render/RenderContext.hpp"
+#include "engine/render/GPUUtils.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
@@ -57,6 +61,7 @@ std::vector<NoMoreDay::components::GPULabelInstance>
     RenderSystem::s_labelBuffer;
 std::vector<NoMoreDay::components::GPUGlyphInstance>
     RenderSystem::s_glyphBuffer;
+NoMoreDay::render::resources::FramebufferHandle RenderSystem::s_hdrSceneBuffer;
 std::vector<RenderSystem::VisibleItemCache::ItemData>
     RenderSystem::VisibleItemCache::visibleItems; 
 
@@ -141,6 +146,7 @@ struct RenderFrameData {
 };
 
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
+std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
 
 Mesh &GetLabelQuadMesh() {
   static Mesh quadMesh = {0};
@@ -726,10 +732,45 @@ void ExecuteCompositePass() {
   rlSetBlendMode(RL_BLEND_ALPHA);
 }
 
+void ExecuteCompositePass(
+    const NoMoreDay::render::resources::FramebufferHandle *hdrBuffer) {
+  if (hdrBuffer == nullptr || !hdrBuffer->IsValid()) {
+    ExecuteCompositePass();
+    return;
+  }
+
+  constexpr uint32_t kGLFramebuffer = 0x8D40;
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
+  NoMoreDay::utils::GPUUtils::Viewport(0, 0, GetScreenWidth(), GetScreenHeight());
+
+  Texture2D hdrTexture = {};
+  hdrTexture.id = hdrBuffer->colorTexture;
+  hdrTexture.width = hdrBuffer->width;
+  hdrTexture.height = hdrBuffer->height;
+  hdrTexture.mipmaps = 1;
+  hdrTexture.format = PIXELFORMAT_UNCOMPRESSED_R16G16B16A16;
+
+  const Rectangle source = {0.0f, 0.0f, static_cast<float>(hdrTexture.width),
+                            -static_cast<float>(hdrTexture.height)};
+  const Rectangle target = {0.0f, 0.0f, static_cast<float>(GetScreenWidth()),
+                            static_cast<float>(GetScreenHeight())};
+  DrawTexturePro(hdrTexture, source, target, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
+}
+
 } // namespace
 
 void RenderSystem::Initialize() {
   NoMoreDay::render::core::QualityTierManager::Get().Initialize("settings.json");
+  if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
+    const int screenWidth = GetScreenWidth();
+    const int screenHeight = GetScreenHeight();
+    if (screenWidth > 0 && screenHeight > 0) {
+      s_hdrSceneBuffer = NoMoreDay::render::resources::FramebufferManager::Create(
+          screenWidth, screenHeight, 0x881A, false); // GL_RGBA16F
+    }
+  }
+  g_postProcessPass = std::make_shared<NoMoreDay::render::passes::PostProcessPass>();
+  g_postProcessPass->Initialize();
 
   s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert",
                              "assets/shaders/ui/label_instanced.frag");
@@ -792,6 +833,12 @@ void RenderSystem::Shutdown() {
   }
   s_glyphInstanceBuffer = nullptr;
 
+  NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
+  if (g_postProcessPass) {
+    g_postProcessPass->Shutdown();
+    g_postProcessPass.reset();
+  }
+  NoMoreDay::render::resources::FullscreenQuad::Shutdown();
   s_itemGrid = nullptr;
   g_transientPool.Shutdown();
 }
@@ -812,11 +859,35 @@ void RenderSystem::render(entt::registry &registry,
   BuildRenderFrameData(frame);
 
   g_transientPool.BeginFrame();
+  const auto &renderConfig =
+      NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+  const bool useHdrSceneBuffer = renderConfig.bloomEnabled;
+
+  if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
+    const int screenWidth = GetScreenWidth();
+    const int screenHeight = GetScreenHeight();
+    if (!s_hdrSceneBuffer.IsValid()) {
+      s_hdrSceneBuffer = NoMoreDay::render::resources::FramebufferManager::Create(
+          screenWidth, screenHeight, 0x881A, false); // GL_RGBA16F
+    } else if (s_hdrSceneBuffer.width != screenWidth ||
+               s_hdrSceneBuffer.height != screenHeight) {
+      NoMoreDay::render::resources::FramebufferManager::Resize(
+          s_hdrSceneBuffer, screenWidth, screenHeight);
+    }
+  }
 
   NoMoreDay::render::graph::RenderGraph graph;
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::ScenePass>(
-      [&frame](NoMoreDay::render::graph::RenderContext &) {
+      [&frame, useHdrSceneBuffer](NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
+        if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid()) {
+          constexpr uint32_t kGLFramebuffer = 0x8D40;
+          NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
+                                                      s_hdrSceneBuffer.fbo);
+          NoMoreDay::utils::GPUUtils::Viewport(0, 0, s_hdrSceneBuffer.width,
+                                               s_hdrSceneBuffer.height);
+          ClearBackground(BLANK);
+        }
         ExecuteScenePass(frame);
       }));
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXPass>(
@@ -829,10 +900,20 @@ void RenderSystem::render(entt::registry &registry,
         NoMoreDay::render::core::ScopedGLState scopedState;
         ExecuteUIWorldPass(frame);
       }));
+  if (useHdrSceneBuffer && g_postProcessPass != nullptr) {
+    graph.AddPass(g_postProcessPass);
+  }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::CompositePass>(
-      [](NoMoreDay::render::graph::RenderContext &) {
+      [useHdrSceneBuffer](NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
-        ExecuteCompositePass();
+        if (g_postProcessPass != nullptr &&
+            g_postProcessPass->GetOutputBuffer().IsValid()) {
+          ExecuteCompositePass(&g_postProcessPass->GetOutputBuffer());
+        } else if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid()) {
+          ExecuteCompositePass(&s_hdrSceneBuffer);
+        } else {
+          ExecuteCompositePass();
+        }
       }));
 
   NoMoreDay::render::graph::RenderContext graphContext = {};
@@ -841,6 +922,9 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.camera = &camera;
   graphContext.transientPool = &g_transientPool;
   graphContext.qualityManager = &NoMoreDay::render::core::QualityTierManager::Get();
+  graphContext.hdrSceneBuffer =
+      useHdrSceneBuffer ? s_hdrSceneBuffer
+                        : NoMoreDay::render::resources::FramebufferHandle{};
 
   graph.Build();
   graph.Execute(graphContext);

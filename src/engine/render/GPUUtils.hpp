@@ -109,6 +109,11 @@ public:
   static void ActiveTexture(TextureUnit unit);
   static void ActiveTexture(uint32_t unit);
   static void TexParameteri(uint32_t target, uint32_t pname, int param);
+  static void TexImage2D(uint32_t target, int level, int internalformat,
+                         int width, int height, int border, uint32_t format,
+                         uint32_t type, const void *pixels);
+  static void TexStorage2D(uint32_t target, int levels, uint32_t internalformat,
+                           int width, int height);
 
   // 3D/Array textures
   static void TexStorage3D(uint32_t target, int levels, uint32_t internalformat,
@@ -126,6 +131,32 @@ public:
 
   // === Indirect Draw ===
   static void DrawArraysIndirect(uint32_t mode, size_t indirectOffset = 0);
+  static void DrawArrays(uint32_t mode, int first, int count);
+
+  // === Framebuffer Operations ===
+  static void GenFramebuffers(int n, uint32_t *framebuffers);
+  static void DeleteFramebuffers(int n, const uint32_t *framebuffers);
+  static void BindFramebuffer(uint32_t target, uint32_t framebuffer);
+  static void FramebufferTexture2D(uint32_t target, uint32_t attachment,
+                                   uint32_t textarget, uint32_t texture,
+                                   int level);
+  static void FramebufferRenderbuffer(uint32_t target, uint32_t attachment,
+                                      uint32_t renderbuffertarget,
+                                      uint32_t renderbuffer);
+  static uint32_t CheckFramebufferStatus(uint32_t target);
+
+  // === Renderbuffer Operations ===
+  static void GenRenderbuffers(int n, uint32_t *renderbuffers);
+  static void DeleteRenderbuffers(int n, const uint32_t *renderbuffers);
+  static void BindRenderbuffer(uint32_t target, uint32_t renderbuffer);
+  static void RenderbufferStorage(uint32_t target, uint32_t internalformat,
+                                  int width, int height);
+
+  // === Raster State ===
+  static void Viewport(int x, int y, int width, int height);
+  static void Enable(uint32_t cap);
+  static void Disable(uint32_t cap);
+  static void BlendFunc(uint32_t sfactor, uint32_t dfactor);
 
 private:
   GPUUtils() = delete;
@@ -160,8 +191,29 @@ private:
   static void *s_glDeleteTextures;
   static void *s_glBindTexture;
   static void *s_glTexParameteri;
+  static void *s_glTexImage2D;
+  static void *s_glTexStorage2D;
   static void *s_glTexStorage3D;
   static void *s_glTexSubImage3D;
+
+  // Framebuffer/Renderbuffer Pointers
+  static void *s_glGenFramebuffers;
+  static void *s_glDeleteFramebuffers;
+  static void *s_glBindFramebuffer;
+  static void *s_glFramebufferTexture2D;
+  static void *s_glFramebufferRenderbuffer;
+  static void *s_glCheckFramebufferStatus;
+  static void *s_glGenRenderbuffers;
+  static void *s_glDeleteRenderbuffers;
+  static void *s_glBindRenderbuffer;
+  static void *s_glRenderbufferStorage;
+
+  // Draw/State Pointers
+  static void *s_glDrawArrays;
+  static void *s_glViewport;
+  static void *s_glEnable;
+  static void *s_glDisable;
+  static void *s_glBlendFunc;
 };
 
 } // namespace NoMoreDay::utils

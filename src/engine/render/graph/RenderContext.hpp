@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/resources/FramebufferHandle.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
 
@@ -23,6 +24,7 @@ struct RenderContext {
   const Camera2D *camera = nullptr;
   resources::TransientResourcePool *transientPool = nullptr;
   core::QualityTierManager *qualityManager = nullptr;
+  resources::FramebufferHandle hdrSceneBuffer = {};
 
   bool IsValid() const {
     return registry != nullptr && shared != nullptr && camera != nullptr;

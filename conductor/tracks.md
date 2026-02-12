@@ -11,26 +11,11 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 > **文档**: [spec.md](./archive/rendering_foundation_migration_20260212/spec.md) | [plan.md](./archive/rendering_foundation_migration_20260212/plan.md)
 > **状态**: COMPLETED (2026-02-12), 已归档
 
-## [x] Track: Biome Generation System (biome_generation_system_20260208)
+## [ ] Track: HDR + 后处理管线 (hdr_postprocess_pipeline_20260212)
 
-> **鐩爣**: 瀹炵幇瀹屾暣鐨勭敓鐗╃兢钀藉湴鍥剧敓鎴愮郴缁燂紝鏀寔 27 绉嶇兢钀介鏍?> **鏂囨。**: [spec.md](./tracks/biome_generation_system/spec.md) | [plan.md](./tracks/biome_generation_system/plan.md)
-> **棰勮宸ユ椂**: 7-10 澶?
-### Sub-Tracks
-
-| Sub-Track | 名称 | 状态 | 进度 |
-|-----------|------|------|------|
-| **1.x** | 数据驱动层 (BiomeConfig, JSON, 枚举) | ✅ 已完成 | 100% |
-| **2.x** | 渲染与物理增强 (空气墙, Shader, 物理) | ✅ 已完成 | 100% |
-| **3.x** | 生成算法演进 (A/B/C组策略) | ✅ 已完成 | 100% |
-| **4.x** | 动态交互逻辑 (可破坏, 刷怪墙/加速带) | ✅ 已完成 | 100% |
-| **5.x** | 生态集成 (怪物池, 掉落表) | ✅ 已完成 | 100% |
-| **6.x** | 测试与打磨 | ✅ 已完成 | 100% |
-
-### 蹇€熼摼鎺?
-- 璁捐鏂囨。: [鍦板浘鐢熺墿缇よ惤涓庡煄闀囩毊鑲よ璁?md](../璁捐鏂囨。/鍦板浘鐢熺墿缇よ惤涓庡煄闀囩毊鑲よ璁?md)
-- 鐜版湁瀹炵幇: `src/game/systems/world/MapSystem.cpp`, `src/game/data/BiomeRegistry.hpp`
-
----
-
-## [ ] Track: Next Milestone (TBD)
+> **目标**: 将 LDR 直出管线升级为 HDR → Bloom → Tonemap → FXAA → Vignette → LDR 完整后处理链路，为视觉特效提供物理正确的发光基础。
+> **文档**: [spec.md](./tracks/hdr_postprocess_pipeline_20260212/spec.md) | [plan.md](./tracks/hdr_postprocess_pipeline_20260212/plan.md)
+> **状态**: IN_PROGRESS (开发完成，验收中)
+> **Phase**: GPU 渲染系统 2.0 — Phase 1
+> **预估工时**: 5~6 天
 

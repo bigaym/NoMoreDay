@@ -1,4 +1,5 @@
 #include "engine/render/GPUUtils.hpp"
+#include <algorithm>
 
 namespace NoMoreDay::utils {
 
@@ -28,8 +29,25 @@ void *GPUUtils::s_glGenTextures = nullptr;
 void *GPUUtils::s_glDeleteTextures = nullptr;
 void *GPUUtils::s_glBindTexture = nullptr;
 void *GPUUtils::s_glTexParameteri = nullptr;
+void *GPUUtils::s_glTexImage2D = nullptr;
+void *GPUUtils::s_glTexStorage2D = nullptr;
 void *GPUUtils::s_glTexStorage3D = nullptr;
 void *GPUUtils::s_glTexSubImage3D = nullptr;
+void *GPUUtils::s_glGenFramebuffers = nullptr;
+void *GPUUtils::s_glDeleteFramebuffers = nullptr;
+void *GPUUtils::s_glBindFramebuffer = nullptr;
+void *GPUUtils::s_glFramebufferTexture2D = nullptr;
+void *GPUUtils::s_glFramebufferRenderbuffer = nullptr;
+void *GPUUtils::s_glCheckFramebufferStatus = nullptr;
+void *GPUUtils::s_glGenRenderbuffers = nullptr;
+void *GPUUtils::s_glDeleteRenderbuffers = nullptr;
+void *GPUUtils::s_glBindRenderbuffer = nullptr;
+void *GPUUtils::s_glRenderbufferStorage = nullptr;
+void *GPUUtils::s_glDrawArrays = nullptr;
+void *GPUUtils::s_glViewport = nullptr;
+void *GPUUtils::s_glEnable = nullptr;
+void *GPUUtils::s_glDisable = nullptr;
+void *GPUUtils::s_glBlendFunc = nullptr;
 
 GPUSupportInfo GPUUtils::Initialize() {
   if (s_initialized) {
@@ -69,8 +87,32 @@ GPUSupportInfo GPUUtils::Initialize() {
   s_glDeleteTextures = (void *)glfwGetProcAddress("glDeleteTextures");
   s_glBindTexture = (void *)glfwGetProcAddress("glBindTexture");
   s_glTexParameteri = (void *)glfwGetProcAddress("glTexParameteri");
+  s_glTexImage2D = (void *)glfwGetProcAddress("glTexImage2D");
+  s_glTexStorage2D = (void *)glfwGetProcAddress("glTexStorage2D");
   s_glTexStorage3D = (void *)glfwGetProcAddress("glTexStorage3D");
   s_glTexSubImage3D = (void *)glfwGetProcAddress("glTexSubImage3D");
+
+  // Load Framebuffer Functions
+  s_glGenFramebuffers = (void *)glfwGetProcAddress("glGenFramebuffers");
+  s_glDeleteFramebuffers = (void *)glfwGetProcAddress("glDeleteFramebuffers");
+  s_glBindFramebuffer = (void *)glfwGetProcAddress("glBindFramebuffer");
+  s_glFramebufferTexture2D =
+      (void *)glfwGetProcAddress("glFramebufferTexture2D");
+  s_glFramebufferRenderbuffer =
+      (void *)glfwGetProcAddress("glFramebufferRenderbuffer");
+  s_glCheckFramebufferStatus =
+      (void *)glfwGetProcAddress("glCheckFramebufferStatus");
+  s_glGenRenderbuffers = (void *)glfwGetProcAddress("glGenRenderbuffers");
+  s_glDeleteRenderbuffers = (void *)glfwGetProcAddress("glDeleteRenderbuffers");
+  s_glBindRenderbuffer = (void *)glfwGetProcAddress("glBindRenderbuffer");
+  s_glRenderbufferStorage = (void *)glfwGetProcAddress("glRenderbufferStorage");
+
+  // Load Draw/State Functions
+  s_glDrawArrays = (void *)glfwGetProcAddress("glDrawArrays");
+  s_glViewport = (void *)glfwGetProcAddress("glViewport");
+  s_glEnable = (void *)glfwGetProcAddress("glEnable");
+  s_glDisable = (void *)glfwGetProcAddress("glDisable");
+  s_glBlendFunc = (void *)glfwGetProcAddress("glBlendFunc");
 
   // Verify Critical Functions
   info.indirectDrawSupported = (s_glDrawArraysIndirect != nullptr);
@@ -293,6 +335,37 @@ void GPUUtils::TexParameteri(uint32_t target, uint32_t pname, int param) {
   }
 }
 
+void GPUUtils::TexImage2D(uint32_t target, int level, int internalformat,
+                          int width, int height, int border, uint32_t format,
+                          uint32_t type, const void *pixels) {
+  if (s_glTexImage2D) {
+    using FnType = void(APIENTRY *)(uint32_t, int, int, int, int, int, uint32_t,
+                                    uint32_t, const void *);
+    reinterpret_cast<FnType>(s_glTexImage2D)(target, level, internalformat,
+                                             width, height, border, format,
+                                             type, pixels);
+  } else {
+    glTexImage2D(target, level, internalformat, width, height, border, format,
+                 type, pixels);
+  }
+}
+
+void GPUUtils::TexStorage2D(uint32_t target, int levels, uint32_t internalformat,
+                            int width, int height) {
+  if (s_glTexStorage2D) {
+    using FnType = void(APIENTRY *)(uint32_t, int, uint32_t, int, int);
+    reinterpret_cast<FnType>(s_glTexStorage2D)(target, levels, internalformat,
+                                               width, height);
+  } else {
+    for (int level = 0; level < levels; ++level) {
+      const int mipWidth = std::max(width >> level, 1);
+      const int mipHeight = std::max(height >> level, 1);
+      TexImage2D(target, level, static_cast<int>(internalformat), mipWidth,
+                 mipHeight, 0, 0x1908, 0x1401, nullptr); // GL_RGBA/GL_UNSIGNED_BYTE
+    }
+  }
+}
+
 void GPUUtils::GenTextures(int n, uint32_t *textures) {
   if (s_glGenTextures) {
     using FnType = void(APIENTRY *)(int, uint32_t *);
@@ -318,6 +391,132 @@ void GPUUtils::TexStorage3D(uint32_t target, int levels,
     using FnType = void(APIENTRY *)(uint32_t, int, uint32_t, int, int, int);
     reinterpret_cast<FnType>(s_glTexStorage3D)(target, levels, internalformat,
                                                width, height, depth);
+  }
+}
+
+void GPUUtils::GenFramebuffers(int n, uint32_t *framebuffers) {
+  if (s_glGenFramebuffers) {
+    using FnType = void(APIENTRY *)(int, uint32_t *);
+    reinterpret_cast<FnType>(s_glGenFramebuffers)(n, framebuffers);
+  }
+}
+
+void GPUUtils::DeleteFramebuffers(int n, const uint32_t *framebuffers) {
+  if (s_glDeleteFramebuffers) {
+    using FnType = void(APIENTRY *)(int, const uint32_t *);
+    reinterpret_cast<FnType>(s_glDeleteFramebuffers)(n, framebuffers);
+  }
+}
+
+void GPUUtils::BindFramebuffer(uint32_t target, uint32_t framebuffer) {
+  if (s_glBindFramebuffer) {
+    using FnType = void(APIENTRY *)(uint32_t, uint32_t);
+    reinterpret_cast<FnType>(s_glBindFramebuffer)(target, framebuffer);
+  }
+}
+
+void GPUUtils::FramebufferTexture2D(uint32_t target, uint32_t attachment,
+                                    uint32_t textarget, uint32_t texture,
+                                    int level) {
+  if (s_glFramebufferTexture2D) {
+    using FnType =
+        void(APIENTRY *)(uint32_t, uint32_t, uint32_t, uint32_t, int);
+    reinterpret_cast<FnType>(s_glFramebufferTexture2D)(
+        target, attachment, textarget, texture, level);
+  }
+}
+
+void GPUUtils::FramebufferRenderbuffer(uint32_t target, uint32_t attachment,
+                                       uint32_t renderbuffertarget,
+                                       uint32_t renderbuffer) {
+  if (s_glFramebufferRenderbuffer) {
+    using FnType =
+        void(APIENTRY *)(uint32_t, uint32_t, uint32_t, uint32_t);
+    reinterpret_cast<FnType>(s_glFramebufferRenderbuffer)(
+        target, attachment, renderbuffertarget, renderbuffer);
+  }
+}
+
+uint32_t GPUUtils::CheckFramebufferStatus(uint32_t target) {
+  if (s_glCheckFramebufferStatus) {
+    using FnType = uint32_t(APIENTRY *)(uint32_t);
+    return reinterpret_cast<FnType>(s_glCheckFramebufferStatus)(target);
+  }
+  return 0;
+}
+
+void GPUUtils::GenRenderbuffers(int n, uint32_t *renderbuffers) {
+  if (s_glGenRenderbuffers) {
+    using FnType = void(APIENTRY *)(int, uint32_t *);
+    reinterpret_cast<FnType>(s_glGenRenderbuffers)(n, renderbuffers);
+  }
+}
+
+void GPUUtils::DeleteRenderbuffers(int n, const uint32_t *renderbuffers) {
+  if (s_glDeleteRenderbuffers) {
+    using FnType = void(APIENTRY *)(int, const uint32_t *);
+    reinterpret_cast<FnType>(s_glDeleteRenderbuffers)(n, renderbuffers);
+  }
+}
+
+void GPUUtils::BindRenderbuffer(uint32_t target, uint32_t renderbuffer) {
+  if (s_glBindRenderbuffer) {
+    using FnType = void(APIENTRY *)(uint32_t, uint32_t);
+    reinterpret_cast<FnType>(s_glBindRenderbuffer)(target, renderbuffer);
+  }
+}
+
+void GPUUtils::RenderbufferStorage(uint32_t target, uint32_t internalformat,
+                                   int width, int height) {
+  if (s_glRenderbufferStorage) {
+    using FnType = void(APIENTRY *)(uint32_t, uint32_t, int, int);
+    reinterpret_cast<FnType>(s_glRenderbufferStorage)(target, internalformat,
+                                                      width, height);
+  }
+}
+
+void GPUUtils::DrawArrays(uint32_t mode, int first, int count) {
+  if (s_glDrawArrays) {
+    using FnType = void(APIENTRY *)(uint32_t, int, int);
+    reinterpret_cast<FnType>(s_glDrawArrays)(mode, first, count);
+  } else {
+    glDrawArrays(mode, first, count);
+  }
+}
+
+void GPUUtils::Viewport(int x, int y, int width, int height) {
+  if (s_glViewport) {
+    using FnType = void(APIENTRY *)(int, int, int, int);
+    reinterpret_cast<FnType>(s_glViewport)(x, y, width, height);
+  } else {
+    glViewport(x, y, width, height);
+  }
+}
+
+void GPUUtils::Enable(uint32_t cap) {
+  if (s_glEnable) {
+    using FnType = void(APIENTRY *)(uint32_t);
+    reinterpret_cast<FnType>(s_glEnable)(cap);
+  } else {
+    glEnable(cap);
+  }
+}
+
+void GPUUtils::Disable(uint32_t cap) {
+  if (s_glDisable) {
+    using FnType = void(APIENTRY *)(uint32_t);
+    reinterpret_cast<FnType>(s_glDisable)(cap);
+  } else {
+    glDisable(cap);
+  }
+}
+
+void GPUUtils::BlendFunc(uint32_t sfactor, uint32_t dfactor) {
+  if (s_glBlendFunc) {
+    using FnType = void(APIENTRY *)(uint32_t, uint32_t);
+    reinterpret_cast<FnType>(s_glBlendFunc)(sfactor, dfactor);
+  } else {
+    glBlendFunc(sfactor, dfactor);
   }
 }
 
