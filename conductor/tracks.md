@@ -5,6 +5,12 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
+## [x] Track: Rendering Foundation Migration (rendering_foundation_migration_20260212)
+
+> **目标**: 建立 RenderGraph 架构，拆解 RenderSystem 巨型函数，引入 FBO 池化与画质分级管理，为 HDR/后处理铺平道路。
+> **文档**: [spec.md](./archive/rendering_foundation_migration_20260212/spec.md) | [plan.md](./archive/rendering_foundation_migration_20260212/plan.md)
+> **状态**: COMPLETED (2026-02-12), 已归档
+
 ## [x] Track: Biome Generation System (biome_generation_system_20260208)
 
 > **鐩爣**: 瀹炵幇瀹屾暣鐨勭敓鐗╃兢钀藉湴鍥剧敓鎴愮郴缁燂紝鏀寔 27 绉嶇兢钀介鏍?> **鏂囨。**: [spec.md](./tracks/biome_generation_system/spec.md) | [plan.md](./tracks/biome_generation_system/plan.md)

@@ -11,6 +11,7 @@
 #include "game/components/StashComponent.hpp"
 #include "game/components/MapFragmentComponent.hpp" // Added for Fragment Check
 #include "game/data/PlayerCombatHistory.hpp"
+#include "game/data/BiomeRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"
 #include "game/states/InventoryState.hpp"
@@ -380,7 +381,7 @@ bool GameplayState::OnUpdate(float dt) {
       if (m_activeFilterShader.id != 0) {
         UnloadShader(m_activeFilterShader);
       }
-      m_activeFilterShader = LoadShader(nullptr, biome.visualFilterShader.c_str());
+      m_activeFilterShader = LoadShader(0, biome.visualFilterShader.c_str());
       m_lastFilterPath = biome.visualFilterShader;
       LOG_INFO("Loaded visual filter shader: {}", m_lastFilterPath);
     }
@@ -897,6 +898,8 @@ void GameplayState::UpdatePhysics(float dt) {
 void GameplayState::OnRender() {
   NoMoreDay::utils::ScopedTimer totalTimer("Gameplay OnRender", 5000);
   auto &registry = *m_context->registry;
+  const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(
+      m_context->levelManager->getCurrentBiomeID());
 
   // 1. Render World to Texture
   BeginTextureMode(m_sceneRT);

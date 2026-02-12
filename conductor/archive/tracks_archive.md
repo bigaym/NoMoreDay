@@ -4,6 +4,14 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Rendering Foundation Migration (rendering_foundation_migration_20260212)
+- **Folder:** [./conductor/archive/rendering_foundation_migration_20260212/](./conductor/archive/rendering_foundation_migration_20260212/)
+- **Description:** Complete Phase 0 rendering foundation migration: RenderGraph scaffolding, RenderPass拆分（Scene/VFX/UIWorld/Composite）, TransientResourcePool, QualityTierManager, ScopedGLState guard, and integration regression test.
+- **Status:** COMPLETED (2026-02-12)
+- **Priority:** HIGH
+- **Archive Reason:** Completed - task delivered and validated in build + tests
+
+---
 ## [x] Track: Performance Test Expansion (performance_test_expansion_20260210)
 - **Folder:** [./conductor/archive/performance_test_expansion_20260210/](./conductor/archive/performance_test_expansion_20260210/)
 - **Description:** Expand performance coverage from 9 to 21 systems, covering per-frame hot paths (combat, physics, AI, projectile, skill) and event/loading paths (spawn, save/load, item factory, fog/flow GPU systems), and establish baseline metrics.
@@ -127,4 +135,5 @@ This file contains completed and archived tracks.
 - **Folder:** [./conductor/archive/rendering_pipeline_refactor_20260126/](./conductor/archive/rendering_pipeline_refactor_20260126/)
 - **Description:** 鍩轰簬鏋舵瀯瀹¤鎶ュ憡锛岀郴缁熸€ч噸鏋?GPU 娓叉煋绠＄嚎銆?
 - **Status:** COMPLETED
+
 

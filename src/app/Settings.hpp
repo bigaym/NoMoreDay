@@ -10,12 +10,14 @@ namespace NoMoreDay {
         float cameraZoom = 1.5f;
         float shakeIntensity = 1.0f;
         int targetFPS = 0;  // 0 for Unlimited FPS
+        std::string renderQualityTier = "Medium";
 
         void Save(const std::string& filePath = "settings.json") {
             nlohmann::json j;
             j["cameraZoom"] = cameraZoom;
             j["shakeIntensity"] = shakeIntensity;
             j["targetFPS"] = targetFPS;
+            j["renderQualityTier"] = renderQualityTier;
             
             std::ofstream file(filePath);
             if (file.is_open()) {
@@ -37,6 +39,7 @@ namespace NoMoreDay {
                 if (j.contains("cameraZoom")) cameraZoom = j["cameraZoom"].get<float>();
                 if (j.contains("shakeIntensity")) shakeIntensity = j["shakeIntensity"].get<float>();
                 if (j.contains("targetFPS")) targetFPS = j["targetFPS"].get<int>();
+                if (j.contains("renderQualityTier")) renderQualityTier = j["renderQualityTier"].get<std::string>();
             } catch (...) {
                 // Fallback to defaults on error
             }
