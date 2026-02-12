@@ -77,10 +77,13 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
 }
 
 void QualityTierManager::ForceTier(QualityTier tier) {
+  const QualityTier previous = m_tier;
   m_tier = tier;
   m_fromSettings = false;
   m_initialized = true;
   UpdateConfigForTier(tier);
+  LOG_INFO("QualityTierManager: ForceTier {} -> {}", ToString(previous),
+           ToString(m_tier));
 }
 
 bool QualityTierManager::TryLoadTierFromSettings(
@@ -161,6 +164,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.bloomEnabled = false;
     m_config.dynamicLightingEnabled = false;
     m_config.maxParticles = 30000;
+    m_config.maxLights = 0;
+    m_config.ambientIntensity = 0.5f;
+    m_config.ambientColorR = 0.15f;
+    m_config.ambientColorG = 0.15f;
+    m_config.ambientColorB = 0.2f;
     m_config.shadowResolution = 0;
     m_config.bloomMipLevels = 0;
     m_config.bloomThreshold = 1.0f;
@@ -175,6 +183,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.bloomEnabled = true;
     m_config.dynamicLightingEnabled = true;
     m_config.maxParticles = 60000;
+    m_config.maxLights = 32;
+    m_config.ambientIntensity = 0.3f;
+    m_config.ambientColorR = 0.15f;
+    m_config.ambientColorG = 0.15f;
+    m_config.ambientColorB = 0.2f;
     m_config.shadowResolution = 512;
     m_config.bloomMipLevels = 3;
     m_config.bloomThreshold = 1.2f;
@@ -189,6 +202,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.bloomEnabled = true;
     m_config.dynamicLightingEnabled = true;
     m_config.maxParticles = 120000;
+    m_config.maxLights = 128;
+    m_config.ambientIntensity = 0.25f;
+    m_config.ambientColorR = 0.15f;
+    m_config.ambientColorG = 0.15f;
+    m_config.ambientColorB = 0.2f;
     m_config.shadowResolution = 1024;
     m_config.bloomMipLevels = 5;
     m_config.bloomThreshold = 1.0f;
@@ -203,6 +221,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.bloomEnabled = true;
     m_config.dynamicLightingEnabled = true;
     m_config.maxParticles = 200000;
+    m_config.maxLights = 256;
+    m_config.ambientIntensity = 0.2f;
+    m_config.ambientColorR = 0.15f;
+    m_config.ambientColorG = 0.15f;
+    m_config.ambientColorB = 0.2f;
     m_config.shadowResolution = 2048;
     m_config.bloomMipLevels = 7;
     m_config.bloomThreshold = 0.8f;

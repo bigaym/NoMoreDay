@@ -30,8 +30,10 @@ enum class Binding : uint32_t {
   SSBO_POPUP_DATA = 7,    // 伤害数字弹出 (PopupRenderer)
   SSBO_GLYPH_INSTANCE = 8, // Glyph 实例数据 (文字批量渲染)
 
+  // === Lighting System (Phase 2) ===
+  SSBO_LIGHT_DATA = 9, // GPULight SSBO (LightingPass)
+
   // === Reserved ===
-  SSBO_RESERVED_9 = 9,
   SSBO_RESERVED_10 = 10,
   SSBO_RESERVED_11 = 11,
   SSBO_RESERVED_12 = 12,

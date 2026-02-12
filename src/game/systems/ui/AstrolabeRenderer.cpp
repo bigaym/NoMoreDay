@@ -1,4 +1,5 @@
 #include "game/systems/ui/AstrolabeRenderer.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "game/systems/skill/AstrolabeSystem.hpp"
 #include "game/systems/skill/TalentLayoutService.hpp"
 #include "core/logging/Logger.hpp"
@@ -12,6 +13,17 @@ Shader AstrolabeRenderer::s_shGalaxy = {0};
 Shader AstrolabeRenderer::s_shNode = {0};
 Texture2D AstrolabeRenderer::s_whitePixel = {0};
 bool AstrolabeRenderer::s_initialized = false;
+namespace {
+int s_locGalaxyTime = -1;
+int s_locGalaxyResolution = -1;
+int s_locGalaxyOffset = -1;
+int s_locGalaxyZoom = -1;
+int s_locGalaxyCameraOffset = -1;
+int s_locGalaxyCenter = -1;
+int s_locGalaxyScale = -1;
+int s_locGalaxyQualityTier = -1;
+int s_prevGalaxyQualityTier = -1;
+} // namespace
 
 void AstrolabeRenderer::Init(Shader galaxyShader, Shader nodeShader) {
     s_shGalaxy = galaxyShader;
@@ -21,6 +33,17 @@ void AstrolabeRenderer::Init(Shader galaxyShader, Shader nodeShader) {
     Image img = GenImageColor(1, 1, WHITE);
     s_whitePixel = LoadTextureFromImage(img);
     UnloadImage(img);
+
+    if (s_shGalaxy.id != 0) {
+        s_locGalaxyTime = GetShaderLocation(s_shGalaxy, "uTime");
+        s_locGalaxyResolution = GetShaderLocation(s_shGalaxy, "uResolution");
+        s_locGalaxyOffset = GetShaderLocation(s_shGalaxy, "uOffset");
+        s_locGalaxyZoom = GetShaderLocation(s_shGalaxy, "uZoom");
+        s_locGalaxyCameraOffset = GetShaderLocation(s_shGalaxy, "uCameraOffset");
+        s_locGalaxyCenter = GetShaderLocation(s_shGalaxy, "uGalaxyCenter");
+        s_locGalaxyScale = GetShaderLocation(s_shGalaxy, "uGalaxyScale");
+        s_locGalaxyQualityTier = GetShaderLocation(s_shGalaxy, "uQualityTier");
+    }
     
     s_initialized = true;
 }
@@ -83,27 +106,49 @@ void AstrolabeRenderer::DrawBackground(const AstrolabeView& view) {
     using namespace Constants::Astrolabe;
     if (s_initialized && s_shGalaxy.id > 0) {
         BeginShaderMode(s_shGalaxy);
+        const int qualityTier = static_cast<int>(
+            render::core::QualityTierManager::Get().GetTier());
+        if (qualityTier != s_prevGalaxyQualityTier) {
+            LOG_INFO("AstrolabeRenderer: Galaxy background quality tier={}",
+                     qualityTier);
+            s_prevGalaxyQualityTier = qualityTier;
+        }
 
-
-        // Set Uniforms
-        int locTime = GetShaderLocation(s_shGalaxy, "uTime");
-        int locRes = GetShaderLocation(s_shGalaxy, "uResolution");
-        int locOffset = GetShaderLocation(s_shGalaxy, "uOffset");
-        int locZoom = GetShaderLocation(s_shGalaxy, "uZoom");
-        int locCamOffset = GetShaderLocation(s_shGalaxy, "uCameraOffset");
-        int locCenter = GetShaderLocation(s_shGalaxy, "uGalaxyCenter");
-        int locScale = GetShaderLocation(s_shGalaxy, "uGalaxyScale");
-
-        SetShaderValue(s_shGalaxy, locTime, &view.time, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(s_shGalaxy, locRes, &view.resolution, SHADER_UNIFORM_VEC2);
-        SetShaderValue(s_shGalaxy, locOffset, &view.camera.target, SHADER_UNIFORM_VEC2);
-        SetShaderValue(s_shGalaxy, locZoom, &view.camera.zoom, SHADER_UNIFORM_FLOAT);
-        SetShaderValue(s_shGalaxy, locCamOffset, &view.camera.offset, SHADER_UNIFORM_VEC2);
+        if (s_locGalaxyTime >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyTime, &view.time,
+                           SHADER_UNIFORM_FLOAT);
+        }
+        if (s_locGalaxyResolution >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyResolution, &view.resolution,
+                           SHADER_UNIFORM_VEC2);
+        }
+        if (s_locGalaxyOffset >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyOffset, &view.camera.target,
+                           SHADER_UNIFORM_VEC2);
+        }
+        if (s_locGalaxyZoom >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyZoom, &view.camera.zoom,
+                           SHADER_UNIFORM_FLOAT);
+        }
+        if (s_locGalaxyCameraOffset >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyCameraOffset,
+                           &view.camera.offset, SHADER_UNIFORM_VEC2);
+        }
         
         Vector2 center = { GALAXY_CENTER_X, GALAXY_CENTER_Y };
         float scale = GALAXY_SCALE;
-        SetShaderValue(s_shGalaxy, locCenter, &center, SHADER_UNIFORM_VEC2);
-        SetShaderValue(s_shGalaxy, locScale, &scale, SHADER_UNIFORM_FLOAT);
+        if (s_locGalaxyCenter >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyCenter, &center,
+                           SHADER_UNIFORM_VEC2);
+        }
+        if (s_locGalaxyScale >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyScale, &scale,
+                           SHADER_UNIFORM_FLOAT);
+        }
+        if (s_locGalaxyQualityTier >= 0) {
+            SetShaderValue(s_shGalaxy, s_locGalaxyQualityTier, &qualityTier,
+                           SHADER_UNIFORM_INT);
+        }
 
         
         Vector2 tl = GetScreenToWorld2D({0, 0}, view.camera);

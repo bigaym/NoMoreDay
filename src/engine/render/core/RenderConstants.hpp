@@ -16,6 +16,11 @@ struct RenderConfig {
   bool dynamicLightingEnabled = false;
   int maxParticles = 20000;
   int shadowResolution = 0;
+  int maxLights = 0;
+  float ambientIntensity = 0.3f;
+  float ambientColorR = 0.15f;
+  float ambientColorG = 0.15f;
+  float ambientColorB = 0.2f;
 
   int bloomMipLevels = 0;
   float bloomThreshold = 1.0f;

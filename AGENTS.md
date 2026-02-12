@@ -1,75 +1,91 @@
 ﻿# AGENTS.md
 
-Guidance for coding agents working in `NoMoreDay` on Windows.
+NoMoreDay 开发代理规则（Windows）。
 
-## 1) Environment Baseline (Windows)
-- OS/Shell: Windows + PowerShell.
-- Build entry: always use `build.bat` from repo root.
-- Compiler: MSVC (Visual Studio environment initialized by `build.bat`).
-- Primary logs:
-  - Runtime log: `bin/logs/NoMoreDay.log`
-  - Build output: console output from `build.bat`
+## 1) 环境与命令
+- Shell: Windows PowerShell。
+- 同一行多命令使用 `;`，不要用 `&&`。
+- 构建入口固定为仓库根目录 `build.bat`（MSVC 环境）。
+- 关键日志：
+  - 运行日志：`bin/logs/NoMoreDay.log`
+  - 构建输出：`build.bat` 控制台
 
-## 2) Encoding Rules (Critical)
-- All markdown/text docs must be UTF-8.
-- Prefer UTF-8 with BOM for Chinese-heavy docs to avoid VS Code mis-detection.
-- If garbled text appears:
-  1. In VS Code: `Reopen with Encoding -> UTF-8`
-  2. Ensure workspace has `.vscode/settings.json` with:
+## 2) 编码规则（强制）
+- 文本/Markdown 一律 UTF-8；中文文档优先 UTF-8 with BOM。
+- 常规编辑优先 `apply_patch`。
+- 禁止用 `Set-Content`/`Out-File` 重写含非 ASCII 的 `.md/.cpp/.hpp`。
+- 编辑后必须做 UTF-8 校验：
+  - `python -c "from pathlib import Path; Path('file').read_text(encoding='utf-8')"`
+- 乱码排查顺序：
+  1. VS Code: `Reopen with Encoding -> UTF-8`
+  2. 检查 `.vscode/settings.json`：
      - `files.encoding = utf8`
      - `files.autoGuessEncoding = false`
+- 认知约束：乱码通常源于错误解码/重编码链路（ACP/GBK/终端码页），非 BOM 本身。
 
-## 3) Build & Verify Workflow
-1. Run: `build.bat`
-2. If build fails, fix compile errors first; do not continue with runtime assumptions.
-3. Re-run: `build.bat` until success.
-4. Then launch game and validate behavior in gameplay.
-5. For rendering bugs, always collect evidence from both:
-   - on-screen behavior
-   - `bin/logs/NoMoreDay.log`
+## 3) 构建与验证流程
+1. 运行 `build.bat`。
+2. 若失败，先修编译错误，再继续。
+3. 直到 `build.bat` 成功。
+4. 启动游戏进行运行验证。
+5. 渲染问题必须同时保留：
+   - 屏幕表现证据
+   - `bin/logs/NoMoreDay.log` 证据
 
-## 4) Render Pipeline Safety Checks
-When touching render code, verify these invariants:
-- Scene target ownership is explicit (default framebuffer vs offscreen framebuffer).
-- No pass should hardcode output to FBO 0 unless it is truly final screen composite.
-- Preserve frame order:
-  - Input -> Player Movement -> AI -> Combat -> Spatial Grid Rebuild -> Physics
-- Keep Low Tier fallback path working (Phase 0-compatible behavior).
-- Resize path must recreate/resize framebuffer resources safely.
+## 4) Bug 追踪规则
+- 统一登记：`conductor/bug_registry.md`。
+- 新增前先查重（症状/根因/路径相同视为同类）。
+- Bug ID 规范：`BUG-YYYYMMDD-XXX`。
+- 以下场景必须建档：
+  - 运行时崩溃
+  - 可见渲染异常
+  - 最近改动引入回归
+- 每条记录至少包含：
+  - ID/日期/严重级别/状态
+  - 症状/复现步骤/触发条件
+  - 根因/关联文件/解决方案
+  - 验证结果/回归防护/备注
+- 状态流转：`Open -> In Progress -> Resolved -> Verified -> Closed`。
+- 无验证证据不得标记 `Closed`。
+- 修复后必须同步更新：代码 + `conductor/bug_registry.md`。
 
-## 5) Project Architecture Notes
-- ECS architecture via EnTT.
-- Systems are split across gameplay and render subsystems.
-- GPU-focused rendering includes:
+## 5) 渲染管线安全约束
+- 明确场景目标归属（默认 framebuffer vs 离屏 framebuffer）。
+- 除最终屏幕合成外，不得硬编码输出到 FBO 0。
+- 保持帧序：`Input -> Player Movement -> AI -> Combat -> Spatial Grid Rebuild -> Physics`。
+- Low Tier 回退路径必须可用（Phase 0 兼容）。
+- Resize 必须安全重建/重设 framebuffer 资源。
+
+## 6) 架构与平台约束
+- 架构：EnTT ECS；Gameplay 与 Render 子系统分离。
+- 关键渲染模块：
   - `RenderSystem`
   - `GPUEntitySystem`
   - `MDIRenderer`
   - `PostProcessPass`
   - `FramebufferManager`
+- Windows 约束：
+  - 定义 `WIN32_LEAN_AND_MEAN` 与 `NOMINMAX`
+  - 处理 `DrawText`（WinAPI vs raylib）冲突
+  - 以 MSVC 为主（可存在 MinGW 配置）
 
-## 6) Platform-Specific Constraints
-- Define `WIN32_LEAN_AND_MEAN` and `NOMINMAX` for Windows conflicts.
-- Windows API `DrawText` can conflict with raylib `DrawText`; keep existing macro strategy.
-- MinGW-specific options may exist, but MSVC is primary in this workspace.
+## 7) Git 与变更纪律
+- 最小化、聚焦修改。
+- 不回退与当前任务无关的用户改动。
+- 未经明确要求，禁止破坏性 git 命令。
+- 若发现意外无关改动，先停下并询问用户。
 
-## 7) Git & Change Discipline
-- Make minimal, focused edits.
-- Do not revert unrelated user changes.
-- Do not use destructive git commands unless explicitly requested.
-- If unexpected unrelated changes appear during work, stop and ask before proceeding.
+## 8) 完成定义（DoD）
+- 代码已落地。
+- `build.bat` 成功。
+- 运行行为已验证（如适用）。
+- 已清晰汇报结果与变更文件。
 
-## 8) Definition of Done for Agent Tasks
-A task is done only when all are true:
-- Code edits applied.
-- `build.bat` succeeds.
-- Runtime behavior validated (if applicable).
-- Key result and changed files reported clearly.
-
-## 9) Quick Commands
+## 9) 常用命令
 - Build: `build.bat`
-- Tail runtime log: `Get-Content bin/logs/NoMoreDay.log -Tail 200`
-- Search symbols/text: `rg "pattern" src`
+- Tail log: `Get-Content bin/logs/NoMoreDay.log -Tail 200`
+- Search: `rg "pattern" src`
 
 ---
 
-Maintainers can extend this file with track-specific rules, but keep this document concise and executable.
+维护原则：可执行、可检查、少歧义；新增规则优先短句和清单化。

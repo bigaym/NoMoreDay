@@ -86,6 +86,10 @@ Game::Game(int width, int height, const char *title)
   // Load settings first so targetFPS is available
   m_settings.Load();
   SetTargetFPS(m_settings.targetFPS); // Use FPS from settings (default: 180)
+  LOG_INFO("Settings loaded: tier={}, targetFPS={}, cameraZoom={:.1f}, shake={:.1f}",
+           std::string(NoMoreDay::GameSettings::RenderQualityTierToStringView(
+               m_settings.renderQualityTier)),
+           m_settings.targetFPS, m_settings.cameraZoom, m_settings.shakeIntensity);
   LOG_INFO("Target FPS set to: {}", m_settings.targetFPS);
 
   // Fill Context

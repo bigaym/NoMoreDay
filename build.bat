@@ -61,6 +61,7 @@ if "!VS_DEV_CMD_ACTIVE!"=="0" (
                 call "!VS_INSTALL_DIR!\VC\Auxiliary\Build\vcvars64.bat" >nul
                 if !errorlevel! equ 0 (
                     echo [Build] Environment OK.
+                    set "VS_DEV_CMD_ACTIVE=1"
                 ) else (
                     echo [Build] Warning: Failed to run vcvars64.bat
                 )
@@ -130,6 +131,33 @@ cd "%BUILD_DIR%"
 
 REM Check if configuration is needed
 if not exist CMakeCache.txt set "NEED_CONFIG=1"
+
+REM Detect stale MinGW cache and force reconfigure to avoid mingw32-make path
+if exist CMakeCache.txt (
+    findstr /C:"CMAKE_GENERATOR:INTERNAL=MinGW Makefiles" CMakeCache.txt >nul
+    if !errorlevel! equ 0 (
+        echo [Build] Detected MinGW CMake cache. Forcing MSVC reconfigure...
+        del /f /q CMakeCache.txt >nul 2>nul
+        if exist CMakeFiles rmdir /s /q CMakeFiles
+        set "NEED_CONFIG=1"
+    )
+
+    findstr /I /C:"mingw32-make.exe" CMakeCache.txt >nul
+    if !errorlevel! equ 0 (
+        echo [Build] Detected mingw32-make in cache. Forcing MSVC reconfigure...
+        del /f /q CMakeCache.txt >nul 2>nul
+        if exist CMakeFiles rmdir /s /q CMakeFiles
+        set "NEED_CONFIG=1"
+    )
+
+    findstr /I /R /C:"^CMAKE_CXX_COMPILER:STRING=.*g++\.exe$" CMakeCache.txt >nul
+    if !errorlevel! equ 0 (
+        echo [Build] Detected MinGW compiler cache. Forcing MSVC reconfigure...
+        del /f /q CMakeCache.txt >nul 2>nul
+        if exist CMakeFiles rmdir /s /q CMakeFiles
+        set "NEED_CONFIG=1"
+    )
+)
 
 REM Configure if needed
 if "!NEED_CONFIG!"=="1" (

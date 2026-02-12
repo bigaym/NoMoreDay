@@ -15,6 +15,7 @@ uniform float uZoom;       // camera.zoom
 uniform vec2 uCameraOffset; // camera.offset (Added for correct world mapping)
 uniform vec2 uGalaxyCenter;
 uniform float uGalaxyScale;
+uniform int uQualityTier;   // 0=Low,1=Medium,2=High,3=Ultra
 
 out vec4 finalColor;
 
@@ -256,24 +257,24 @@ void main() {
     vec3 structData = GetGalaxyStructure(lensedUV);
     vec3 accColor = vec3(0.0);
     
-    // Nebula & Stars (Background - Dimmed slightly to let Core shine)
-    accColor += RenderNebula(lensedUV, structData) * 0.8;
-    
-    // Layer 1: Giant Foreground Stars (Low density, strictly in arms)
-    accColor += RenderStarLayer(lensedUV, 15.0, structData, 1.0, 1.0) * 0.1;
-    
-    // Layer 2: Main Sequence Galaxy Stars (Medium density, mostly in arms)
-    accColor += RenderStarLayer(lensedUV, 60.0, structData, 2.0, 0.8) * 0.6; 
-    
-    // Layer 3: Dense Cluster Stars (High density, follows structure loosely)
-    accColor += RenderStarLayer(lensedUV, 150.0, structData, 3.0, 0.5) * 0.4; 
-    
-    // Layer 4: DEEP FIELD BACKGROUND (Uniform, very high scale, fills voids)
-    // Tiny, distant stars that exist everywhere, even in the black gaps
-    accColor += RenderStarLayer(lensedUV, 350.0, structData, 10.0, 0.0) * 0.3; 
+    // Nebula & Stars (quality-tier gated to reduce cost on low/mid)
+    if (uQualityTier <= 0) {
+        accColor += RenderNebula(lensedUV, structData) * 0.65;
+        accColor += RenderStarLayer(lensedUV, 50.0, structData, 2.0, 0.45) * 0.35;
+    } else if (uQualityTier == 1) {
+        accColor += RenderNebula(lensedUV, structData) * 0.72;
+        accColor += RenderStarLayer(lensedUV, 60.0, structData, 2.0, 0.7) * 0.5;
+        accColor += RenderStarLayer(lensedUV, 180.0, structData, 3.0, 0.35) * 0.2;
+    } else {
+        accColor += RenderNebula(lensedUV, structData) * 0.8;
+        accColor += RenderStarLayer(lensedUV, 15.0, structData, 1.0, 1.0) * 0.1;
+        accColor += RenderStarLayer(lensedUV, 60.0, structData, 2.0, 0.8) * 0.6;
+        accColor += RenderStarLayer(lensedUV, 150.0, structData, 3.0, 0.5) * 0.4;
+        accColor += RenderStarLayer(lensedUV, 350.0, structData, 10.0, 0.0) * 0.3;
+    }
     
     // --- ACCRETION DISK (Volumetric + Chromatic + Bloom) ---
-    if (r > bhRadius) {
+    if (uQualityTier >= 2 && r > bhRadius) {
         // Scaled to match the 25% radius reduction
         float diskFade = exp(-(r - bhRadius) * 65.0); 
         
@@ -323,28 +324,26 @@ void main() {
         }
     }
 
-    // --- PHOTON RING (With Chromatic Split) ---
-    float pRingGlow = 0.005 / (abs(r - bhRadius - 0.005) + 0.0001); 
+    // --- PHOTON RING ---
+    float pRingGlow = 0.005 / (abs(r - bhRadius - 0.005) + 0.0001);
     pRingGlow *= smoothstep(0.05, 0.0, abs(r - bhRadius));
-    
-    // Spectral Split on the Ring
-    vec3 wRingColor = vec3(1.0, 0.9, 0.8); // Main
-    vec3 rRingColor = vec3(1.0, 0.2, 0.1); // Red shift
-    vec3 bRingColor = vec3(0.1, 0.5, 1.0); // Blue shift
-    
-    // Offset sample for CA
-    float rOffset = 0.001; 
-    float gR = 0.005 / (abs(r - bhRadius - 0.005 + rOffset) + 0.0001);
-    float gB = 0.005 / (abs(r - bhRadius - 0.005 - rOffset) + 0.0001);
-    
-    vec3 finalRing = wRingColor * pRingGlow;
-    finalRing += rRingColor * gR * 0.5; // Red fringe
-    finalRing += bRingColor * gB * 0.5; // Blue fringe
-    
-    // Bloom for Ring
-    finalRing += C_CORE_HOT * smoothstep(0.02, 0.0, abs(r - bhRadius)) * 0.8;
-    
-    accColor += finalRing * 1.5;
+    if (uQualityTier <= 1) {
+        vec3 simpleRing = vec3(0.75, 0.85, 0.95) * pRingGlow;
+        simpleRing += C_CORE_HOT * smoothstep(0.02, 0.0, abs(r - bhRadius)) * 0.45;
+        accColor += simpleRing * 0.9;
+    } else {
+        vec3 wRingColor = vec3(1.0, 0.9, 0.8);
+        vec3 rRingColor = vec3(1.0, 0.2, 0.1);
+        vec3 bRingColor = vec3(0.1, 0.5, 1.0);
+        float rOffset = 0.001;
+        float gR = 0.005 / (abs(r - bhRadius - 0.005 + rOffset) + 0.0001);
+        float gB = 0.005 / (abs(r - bhRadius - 0.005 - rOffset) + 0.0001);
+        vec3 finalRing = wRingColor * pRingGlow;
+        finalRing += rRingColor * gR * 0.5;
+        finalRing += bRingColor * gB * 0.5;
+        finalRing += C_CORE_HOT * smoothstep(0.02, 0.0, abs(r - bhRadius)) * 0.8;
+        accColor += finalRing * 1.5;
+    }
 
     // 4. Final Final Passage
     vec3 outColor = C_INK_BG + accColor;

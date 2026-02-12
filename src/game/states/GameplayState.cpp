@@ -5,6 +5,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/scene/StateManager.hpp"
 #include "game/components/InventoryComponent.hpp"
+#include "game/components/LightComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp" // Added
 #include "game/components/PlayerProfile.hpp"
 #include "game/components/PlayerState.hpp"
@@ -247,6 +248,17 @@ void GameplayState::InitializeEntities() {
   registry.emplace<MovementStanceComponent>(player);
   registry.emplace<MovementAccumulator>(player);
   registry.emplace<PlayerCombatHistory>(player);
+  {
+    auto &light = registry.emplace<LightComponent>(player);
+    light.type = components::LightType::PointLight;
+    light.radius = 150.0f;
+    light.intensity = 0.4f;
+    light.colorR = 1.0f;
+    light.colorG = 0.95f;
+    light.colorB = 0.88f;
+    light.priority = 255;
+    light.enabled = true;
+  }
 
   // Set up Inventory
 

@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | **Phase 0** | 基础设施 (Foundation) | ✅ 已完成 | `rendering_foundation_migration_20260212` | RenderGraph、资源池、质量分级、RenderSystem 拆分 |
 | **Phase 1** | HDR + 后处理管线 | 🔵 开发完成，验收中 | `hdr_postprocess_pipeline_20260212` | HDR SceneBuffer、Bloom、Tonemap、FXAA、Vignette、基准测试 |
-| **Phase 2** | 动态光照系统 | ⏳ 未启动 | TBD | 2D Lighting、LightAccumulationPass |
+| **Phase 2** | 动态光照系统 | 📋 已规划 | `dynamic_lighting_system_20260212` | GPULight SSBO、LightManager、LightingPass、光源挂载 |
 | **Phase 3** | 粒子与轨迹增强 | ⏳ 未启动 | TBD | 纹理粒子、GPU TrailRenderer |
 | **Phase 4** | 材质与 VFX 序列器 | ⏳ 未启动 | TBD | 材质系统、VFXTimeline、Distortion Pass |
 | **Phase 5** | 打磨与高级特性 | ⏳ 未启动 | TBD | Color Grading、Volumetric Light、Profiler HUD |

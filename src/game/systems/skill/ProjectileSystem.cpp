@@ -2,7 +2,9 @@
 #include "core/logging/Logger.hpp"
 #include "core/math/PhysicsUtils.hpp"
 #include "engine/physics/SIMDSpatialGrid.hpp" // Phase 4 Integration
+#include "engine/render/GPUData.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/lighting/LightManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
@@ -562,6 +564,51 @@ void ProjectileSystem::Update(entt::registry &registry,
 
       CombatSystem::ApplyDamage(registry, target, finalDamage, act.instigator,
                                 result.is_crit);
+      {
+        components::GPULight flash = {};
+        flash.posX = act.pos.x;
+        flash.posY = act.pos.y;
+        flash.radius = Constants::Lighting::EXPLOSION_RADIUS;
+        flash.intensity = Constants::Lighting::EXPLOSION_INTENSITY;
+        flash.colorR = 1.0f;
+        flash.colorG = 1.0f;
+        flash.colorB = 1.0f;
+        switch (skill_id) {
+        case 1: // Flowing Thrust
+          flash.radius = 180.0f;
+          flash.intensity = 2.0f;
+          flash.colorR = 1.0f;
+          flash.colorG = 0.9f;
+          flash.colorB = 0.75f;
+          break;
+        case 2: // Rending Wave
+          flash.radius = 240.0f;
+          flash.intensity = 3.0f;
+          flash.colorR = 0.65f;
+          flash.colorG = 0.85f;
+          flash.colorB = 1.0f;
+          break;
+        case 7:
+          flash.radius = 210.0f;
+          flash.intensity = 2.5f;
+          flash.colorR = 1.0f;
+          flash.colorG = 0.75f;
+          flash.colorB = 0.35f;
+          break;
+        case 8:
+        case 9:
+          flash.radius = 220.0f;
+          flash.intensity = 2.8f;
+          flash.colorR = 0.78f;
+          flash.colorG = 0.92f;
+          flash.colorB = 1.0f;
+          break;
+        default:
+          break;
+        }
+        flash.colorA = 1.0f;
+        render::lighting::LightManager::Get().AddTransientLight(flash);
+      }
 
       if (skill_id == 2) {
         for (int i = 0; i < 12; ++i) {

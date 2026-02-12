@@ -10,6 +10,8 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/passes/CompositePass.hpp"
+#include "engine/render/lighting/LightManager.hpp"
+#include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/passes/ScenePass.hpp"
@@ -147,6 +149,7 @@ struct RenderFrameData {
 
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
 std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
+std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
 
 struct CompositeTargetState {
   uint32_t framebuffer = 0;
@@ -480,6 +483,10 @@ void ExecuteUIWorldPass(RenderFrameData &frame) {
     frame.glyphBuffer->clear();
   }
   s_beamBuffer.clear();
+  const bool enableLootBeams =
+      NoMoreDay::render::core::QualityTierManager::Get()
+          .GetConfig()
+          .dynamicLightingEnabled;
 
   const Vector2 vTL = GetScreenToWorld2D({0, 0}, frame.camera);
   const Vector2 vBR =
@@ -569,7 +576,8 @@ void ExecuteUIWorldPass(RenderFrameData &frame) {
             s_candidates.push_back(
                 {entity, pos, tSize, rarityColor, scale, item->name, false, bg});
 
-            if (item->rarity >= NoMoreDay::Rarity::Rare || emphasized) {
+            if ((item->rarity >= NoMoreDay::Rarity::Rare || emphasized) &&
+                enableLootBeams) {
               GPUBeamInstance bi;
               bi.position = {pos.x, pos.y};
               bi.size = {24.0f * scale, 120.0f * scale};
@@ -798,6 +806,7 @@ void ExecuteCompositePass(
 
 void RenderSystem::Initialize() {
   NoMoreDay::render::core::QualityTierManager::Get().Initialize("settings.json");
+  NoMoreDay::render::lighting::LightManager::Get().Initialize();
   if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
     const int screenHeight = GetScreenHeight();
@@ -808,6 +817,8 @@ void RenderSystem::Initialize() {
   }
   g_postProcessPass = std::make_shared<NoMoreDay::render::passes::PostProcessPass>();
   g_postProcessPass->Initialize();
+  g_lightingPass = std::make_shared<NoMoreDay::render::passes::LightingPass>();
+  g_lightingPass->Initialize();
 
   s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert",
                              "assets/shaders/ui/label_instanced.frag");
@@ -871,6 +882,11 @@ void RenderSystem::Shutdown() {
   s_glyphInstanceBuffer = nullptr;
 
   NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
+  NoMoreDay::render::lighting::LightManager::Get().Shutdown();
+  if (g_lightingPass) {
+    g_lightingPass->Shutdown();
+    g_lightingPass.reset();
+  }
   if (g_postProcessPass) {
     g_postProcessPass->Shutdown();
     g_postProcessPass.reset();
@@ -899,11 +915,23 @@ void RenderSystem::render(entt::registry &registry,
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
-  // RenderSystem is called from GameplayState inside BeginTextureMode(m_sceneRT).
-  // In this case, internal full-screen postprocess/composite should be bypassed;
-  // final screen-space composition happens later in GameplayState.
+  // RenderSystem can be called from GameplayState inside BeginTextureMode(m_sceneRT).
+  // In that path we keep the old behavior and bypass internal full-screen composite
+  // to avoid camera-space/fullscreen conflicts in offscreen targets.
   const bool useHdrSceneBuffer =
       renderConfig.bloomEnabled && (compositeTarget.framebuffer == 0);
+  static bool s_prevUseHdrSceneBuffer = false;
+  static uint32_t s_prevCompositeFramebuffer = 0;
+  if (s_prevUseHdrSceneBuffer != useHdrSceneBuffer ||
+      s_prevCompositeFramebuffer != compositeTarget.framebuffer) {
+    LOG_INFO("RenderSystem: HDR chain {} (bloom={}, dynamicLighting={}, compositeFbo={})",
+             useHdrSceneBuffer ? "enabled" : "disabled",
+             renderConfig.bloomEnabled ? 1 : 0,
+             renderConfig.dynamicLightingEnabled ? 1 : 0,
+             compositeTarget.framebuffer);
+    s_prevUseHdrSceneBuffer = useHdrSceneBuffer;
+    s_prevCompositeFramebuffer = compositeTarget.framebuffer;
+  }
 
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
@@ -911,10 +939,55 @@ void RenderSystem::render(entt::registry &registry,
     if (!s_hdrSceneBuffer.IsValid()) {
       s_hdrSceneBuffer = NoMoreDay::render::resources::FramebufferManager::Create(
           screenWidth, screenHeight, 0x881A, false); // GL_RGBA16F
+      if (s_hdrSceneBuffer.IsValid()) {
+        const double approxMb =
+            (static_cast<double>(screenWidth) * static_cast<double>(screenHeight) *
+             8.0) /
+            (1024.0 * 1024.0);
+        LOG_INFO("RenderSystem: created HDR scene buffer {}x{} (~{:.2f} MB)",
+                 screenWidth, screenHeight, approxMb);
+      }
+      if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
+        g_lightingPass->OnResize(screenWidth, screenHeight);
+      }
     } else if (s_hdrSceneBuffer.width != screenWidth ||
                s_hdrSceneBuffer.height != screenHeight) {
       NoMoreDay::render::resources::FramebufferManager::Resize(
           s_hdrSceneBuffer, screenWidth, screenHeight);
+      const double approxMb =
+          (static_cast<double>(screenWidth) * static_cast<double>(screenHeight) *
+           8.0) /
+          (1024.0 * 1024.0);
+      LOG_INFO("RenderSystem: resized HDR scene buffer {}x{} (~{:.2f} MB)",
+               screenWidth, screenHeight, approxMb);
+      if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
+        g_lightingPass->OnResize(screenWidth, screenHeight);
+      }
+    }
+  }
+
+  if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled && g_lightingPass) {
+    NoMoreDay::render::lighting::LightManager::Get().Update(
+        registry, camera, renderConfig.maxLights, static_cast<float>(GetTime()));
+
+    static double s_lastLightingDiagLogTime = 0.0;
+    const double now = GetTime();
+    if ((now - s_lastLightingDiagLogTime) >= 10.0) {
+      const auto &stats = NoMoreDay::render::lighting::LightManager::Get().GetDebugStats();
+      const double hdrApproxMb =
+          (s_hdrSceneBuffer.IsValid()
+               ? (static_cast<double>(s_hdrSceneBuffer.width) *
+                  static_cast<double>(s_hdrSceneBuffer.height) * 8.0)
+               : 0.0) /
+          (1024.0 * 1024.0); // RGBA16F ~= 8 bytes/pixel
+      LOG_INFO(
+          "RenderSystem: LightingDiag tier={} allowed={} ecs={} transient={} "
+          "candidates={} selected={} dropped={} hdr={}x{} (~{:.2f} MB)",
+          static_cast<int>(NoMoreDay::render::core::QualityTierManager::Get().GetTier()),
+          stats.allowedLights, stats.ecsLights, stats.transientLights,
+          stats.candidatesAfterCull, stats.selectedLights, stats.droppedByBudget,
+          s_hdrSceneBuffer.width, s_hdrSceneBuffer.height, hdrApproxMb);
+      s_lastLightingDiagLogTime = now;
     }
   }
 
@@ -932,6 +1005,10 @@ void RenderSystem::render(entt::registry &registry,
         }
         ExecuteScenePass(frame);
       }));
+  if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled &&
+      g_lightingPass != nullptr) {
+    graph.AddPass(g_lightingPass);
+  }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXPass>(
       [&frame](NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;

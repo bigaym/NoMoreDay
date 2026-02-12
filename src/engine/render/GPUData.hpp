@@ -21,6 +21,28 @@ namespace NoMoreDay::Constants::GPU {
   constexpr uint32_t STATUS_SHOCKED = 1 << 3;
 }
 
+namespace NoMoreDay::Constants::Lighting {
+constexpr float FIRE_RADIUS = 120.0f;
+constexpr float FIRE_INTENSITY = 1.5f;
+constexpr float FIRE_COLOR_R = 1.0f;
+constexpr float FIRE_COLOR_G = 0.7f;
+constexpr float FIRE_COLOR_B = 0.3f;
+
+constexpr float SKILL_ICE_RADIUS = 80.0f;
+constexpr float SKILL_ICE_INTENSITY = 2.0f;
+constexpr float SKILL_ICE_COLOR_R = 0.5f;
+constexpr float SKILL_ICE_COLOR_G = 0.8f;
+constexpr float SKILL_ICE_COLOR_B = 1.0f;
+
+constexpr float EXPLOSION_RADIUS = 300.0f;
+constexpr float EXPLOSION_INTENSITY = 5.0f;
+
+constexpr float AMBIENT_FIREFLY_RADIUS = 40.0f;
+constexpr float AMBIENT_FIREFLY_INTENSITY = 0.5f;
+
+constexpr int MAX_LIGHTS = 256;
+}
+
 namespace NoMoreDay::components {
 
 // /**
@@ -55,6 +77,26 @@ struct GPUParticle {
 // Ensure Stride is exactly 64 bytes
 static_assert(sizeof(GPUParticle) == 64,
               "GPUParticle struct must be exactly 64 bytes for SSBO alignment");
+
+enum class LightType : uint8_t {
+  PointLight = 0,
+  SpotLight = 1,
+  AmbientZone = 2,
+};
+
+struct GPULight {
+  float posX = 0.0f;
+  float posY = 0.0f;
+  float radius = 100.0f;
+  float intensity = 1.0f;
+  float colorR = 1.0f;
+  float colorG = 1.0f;
+  float colorB = 1.0f;
+  float colorA = 1.0f;
+};
+
+static_assert(sizeof(GPULight) == 32,
+              "GPULight struct must be exactly 32 bytes for SSBO alignment");
 
 /**
  * @brief Structure for GPU entities (Physics & Sorting).

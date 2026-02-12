@@ -1,0 +1,54 @@
+#pragma once
+
+#include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/GPUData.hpp"
+
+#include <entt/entt.hpp>
+#include <memory>
+#include <vector>
+
+#include "raylib.h"
+
+namespace NoMoreDay::render::lighting {
+
+class LightManager {
+public:
+  struct DebugStats {
+    int ecsLights = 0;
+    int transientLights = 0;
+    int candidatesAfterCull = 0;
+    int selectedLights = 0;
+    int droppedByBudget = 0;
+    int allowedLights = 0;
+  };
+
+  static LightManager &Get();
+
+  void Initialize();
+  void Shutdown();
+
+  void Update(entt::registry &registry, const Camera2D &camera, int maxLights,
+              float gameTime);
+
+  void Bind() const;
+
+  [[nodiscard]] int GetActiveLightCount() const { return m_activeLightCount; }
+  [[nodiscard]] const DebugStats &GetDebugStats() const { return m_debugStats; }
+  [[nodiscard]] const std::vector<components::GPULight> &
+  GetActiveLightsCpu() const {
+    return m_stagingBuffer;
+  }
+
+  void AddTransientLight(const components::GPULight &light);
+
+private:
+  LightManager() = default;
+
+  std::unique_ptr<::NoMoreDay::core::ComputeBuffer> m_lightBuffer;
+  std::vector<components::GPULight> m_stagingBuffer;
+  std::vector<components::GPULight> m_transientLights;
+  int m_activeLightCount = 0;
+  DebugStats m_debugStats = {};
+};
+
+} // namespace NoMoreDay::render::lighting

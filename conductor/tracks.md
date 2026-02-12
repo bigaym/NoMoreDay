@@ -19,3 +19,11 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 > **Phase**: GPU 渲染系统 2.0 — Phase 1
 > **预估工时**: 5~6 天
 
+## [ ] Track: 动态 2D 光照系统 (dynamic_lighting_system_20260212)
+
+> **目标**: 引入动态 2D 光照系统——点光源衰减、环境光区域、光源管理器与 LightingPass，为场景营造氛围光影效果。
+> **文档**: [spec.md](./tracks/dynamic_lighting_system_20260212/spec.md) | [plan.md](./tracks/dynamic_lighting_system_20260212/plan.md)
+> **状态**: PLANNED (依赖 Phase 1 验收通过)
+> **Phase**: GPU 渲染系统 2.0 — Phase 2
+> **预估工时**: 4~5 天
+
