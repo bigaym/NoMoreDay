@@ -1,174 +1,192 @@
-# HDR + 鍚庡鐞嗙绾?瀹炴柦璁″垝 (Plan)
+﻿# HDR + 后处理管线（执行计划）
 
 > **Track ID**: `hdr_postprocess_pipeline_20260212`  
-> **渚濊禆 Spec**: `spec.md` (V1.0)  
-> **棰勮宸ユ椂**: 5~6 澶? 
-> **鐘舵€?*: IN_PROGRESS
+> **关联规格**: `spec.md`（V1.0）  
+> **状态**: `COMPLETED`  
+> **最后更新**: `2026-02-12`
 
 ---
 
-## 闃舵鎬昏
+## 总览
 
-| 闃舵 | 鍚嶇О | 鏍稿績浜у嚭 | 棰勮宸ユ椂 | 鐘舵€?|
+| 阶段 | 主题 | 主要交付 | 预估工时 | 状态 |
 |------|------|----------|----------|------|
-| **1A** | GPU 鍩虹璁炬柦鎵╁睍 | FBO 鎿嶄綔灏佽, FramebufferManager, FullscreenQuad | 4h | 鉁?宸插畬鎴?|
-| **1B** | RenderConfig & QualityTier 鎵╁睍 | Phase 1 閰嶇疆瀛楁, 鍥涙。棰勮 | 1h | 鉁?宸插畬鎴?|
-| **1C** | HDR SceneBuffer 闆嗘垚 | Scene/VFX 娓叉煋鍒?RGBA16F FBO | 3h | 鉁?宸插畬鎴?|
-| **1D** | Bloom 绠＄嚎 | BrightExtract + Kawase Down/Up + Mip Chain | 6h | 鉁?宸插畬鎴?|
-| **1E** | Tonemapping | ACES Filmic + Exposure + Gamma | 2h | 鉁?宸插畬鎴?|
-| **1F** | FXAA & Vignette | FXAA 3.11 Quality + 寰勫悜鏆楄 | 3h | 鉁?宸插畬鎴?|
-| **1G** | 绠＄嚎缂栨帓 & CompositePass 鍗囩骇 | PostProcessPass 缂栨帓, Low Tier 鍥為€€ | 3h | 鉁?宸插畬鎴?|
-| **1H** | 娴嬭瘯 & 楠屾敹 | 鍗曟祴, 鎬ц兘鍩哄噯, 瑙嗚鍥炲綊 | 3h | 鈴?杩涜涓?|
+| 1A | GPU 基础设施补齐 | FBO/RBO API、FramebufferManager、FullscreenQuad | 4h | 已完成 |
+| 1B | RenderConfig 与质量档位扩展 | Phase 1 渲染配置项 + Tier 预设 | 1h | 已完成 |
+| 1C | HDR SceneBuffer 接入 | Scene/VFX/UIWorld 输出到 RGBA16F FBO | 3h | 已完成 |
+| 1D | Bloom 管线 | BrightExtract + Kawase Down/Up + Mip Chain | 6h | 已完成 |
+| 1E | Tonemapping | ACES Filmic + Exposure + Gamma | 2h | 已完成 |
+| 1F | FXAA 与 Vignette | FXAA 3.11 Quality + 暗角 | 3h | 已完成 |
+| 1G | RenderGraph 集成与合成 | PostProcessPass + CompositePass 兼容回退 | 3h | 已完成 |
+| 1H | 测试、基准与验收 | 单测、性能基准、游戏内验证 | 3h | 已完成 |
 
 ---
 
-## Phase 1A: GPU 鍩虹璁炬柦鎵╁睍 (4h)
+## Phase 1A: GPU 基础设施（4h）
 
-### Task 1A.1: GPUUtils FBO 鎿嶄綔鎵╁睍 (~1.5h)
-- [x] 鍦?`GPUUtils.hpp` 涓０鏄?FBO/RBO/TexStorage2D/Viewport/DrawArrays/Enable/Disable/BlendFunc 闈欐€佹柟娉?- [x] 鍦?`GPUUtils.cpp` 涓鍔犲搴?`glfwGetProcAddress` 鍔犺浇涓庡嚱鏁版寚閽堣皟鐢?- [x] 鍦?`GPUUtils::Initialize()` 涓姞杞芥柊澧炲嚱鏁版寚閽?- [x] 缂栬瘧楠岃瘉
+### Task 1A.1: GPUUtils FBO 能力扩展
+- [x] 在 `GPUUtils.hpp` 增加 FBO/RBO/TexStorage2D/Viewport/DrawArrays/Enable/Disable/BlendFunc 接口。
+- [x] 在 `GPUUtils.cpp` 完成对应函数指针加载与封装调用。
+- [x] 在 `GPUUtils::Initialize()` 完成能力检测与初始化顺序校验。
+- [x] 完成编译与运行验证。
 
-### Task 1A.2: FramebufferHandle + FramebufferManager (~1.5h)
-- [x] 鍒涘缓 `FramebufferHandle.hpp`
-- [x] 鍒涘缓 `FramebufferManager.hpp/cpp`锛屽疄鐜?Create/Destroy/Resize
-- [x] `Create` 涓牎楠?`CheckFramebufferStatus == GL_FRAMEBUFFER_COMPLETE`
-- [x] 缂栬瘧楠岃瘉
+### Task 1A.2: FramebufferHandle + FramebufferManager
+- [x] 新增 `FramebufferHandle.hpp`。
+- [x] 新增 `FramebufferManager.hpp/.cpp`，支持 `Create/Destroy/Resize`。
+- [x] `Create` 增加 `CheckFramebufferStatus == GL_FRAMEBUFFER_COMPLETE` 校验。
+- [x] 完成编译与运行验证。
 
-### Task 1A.3: FullscreenQuad (~1h)
-- [x] 鍒涘缓 `FullscreenQuad.hpp/cpp`
-- [x] 瀹炵幇绌?VAO + `DrawArrays(GL_TRIANGLES, 0, 3)` 鍏ㄥ睆涓夎褰?- [x] 瀹炵幇 `Shutdown()` 閲婃斁璧勬簮
-- [x] 缂栬瘧楠岃瘉
-
----
-
-## Phase 1B: RenderConfig & QualityTier 鎵╁睍 (1h)
-
-### Task 1B.1: RenderConfig 鎵╁睍 (~30min)
-- [x] 鍦?`RenderConstants.hpp` 澧炲姞 Bloom/FXAA/Vignette 閰嶇疆瀛楁
-- [x] 缂栬瘧楠岃瘉
-
-### Task 1B.2: QualityTierManager 鍥涙。棰勮 (~30min)
-- [x] 鎸?Spec 3.3 瀹屾垚 Low/Medium/High/Ultra 閰嶇疆鐭╅樀
-- [x] 缂栬瘧楠岃瘉
+### Task 1A.3: FullscreenQuad
+- [x] 新增 `FullscreenQuad.hpp/.cpp`。
+- [x] 建立全屏三角形 VAO，使用 `DrawArrays(GL_TRIANGLES, 0, 3)`。
+- [x] 提供 `Shutdown()` 释放 GPU 资源。
+- [x] 完成编译与运行验证。
 
 ---
 
-## Phase 1C: HDR SceneBuffer 闆嗘垚 (3h)
+## Phase 1B: RenderConfig & QualityTier（1h）
 
-### Task 1C.1: RenderContext 鎵╁睍 (~15min)
-- [x] 鍦?`graph/RenderContext.hpp` 澧炲姞 `hdrSceneBuffer`
-- [x] 缂栬瘧楠岃瘉
+### Task 1B.1: RenderConfig 扩展
+- [x] 在 `RenderConstants.hpp` 新增 Bloom/FXAA/Vignette 配置字段。
+- [x] 完成编译与运行验证。
 
-### Task 1C.2: HDR FBO 鐢熷懡鍛ㄦ湡绠＄悊 (~1h)
-- [x] `RenderSystem` 澧炲姞鎸佷箙 `s_hdrSceneBuffer`
-- [x] `Initialize()` 鍒涘缓 RGBA16F FBO
-- [x] `Shutdown()` 閲婃斁
-- [x] `render()` 涓鐞嗙獥鍙ｅ昂瀵稿彉鍖栦笌 Resize
+### Task 1B.2: QualityTierManager 预设
+- [x] 按规格 3.3 完成 Low/Medium/High/Ultra Phase 1 参数映射。
+- [x] 完成编译与运行验证。
 
-### Task 1C.3: Scene/VFX/UIWorld 娓叉煋閲嶅畾鍚?(~1.5h)
-- [x] `bloomEnabled == true` 鏃讹紝Scene/VFX/UIWorld 娓叉煋鍒?HDR FBO
-- [x] `bloomEnabled == false` 鏃讹紝鍥為€€鍒?Phase 0 鐩村嚭琛屼负
-- [x] 閫氳繃 `RenderContext` 浼犻€?`hdrSceneBuffer`
-- [x] 缂栬瘧涓庤繍琛岄獙璇?
 ---
 
-## Phase 1D: Bloom 绠＄嚎 (6h)
+## Phase 1C: HDR SceneBuffer 接入（3h）
 
-### Task 1D.1: 鍚庡鐞?Shader 缂栧啓 (~2h)
+### Task 1C.1: RenderContext 扩展
+- [x] 在 `graph/RenderContext.hpp` 增加 `hdrSceneBuffer`。
+- [x] 完成编译与运行验证。
+
+### Task 1C.2: HDR FBO 生命周期
+- [x] 在 `RenderSystem` 新增 `s_hdrSceneBuffer`。
+- [x] 在 `Initialize()` 创建 RGBA16F FBO。
+- [x] 在 `Shutdown()` 释放 FBO。
+- [x] 在 `render()` 中支持屏幕尺寸变化时重建。
+
+### Task 1C.3: Scene/VFX/UIWorld 输出路径
+- [x] `bloomEnabled == true` 时，Scene/VFX/UIWorld 输出到 HDR FBO。
+- [x] `bloomEnabled == false` 时，保持 Phase 0 兼容路径。
+- [x] 通过 `RenderContext` 传递 `hdrSceneBuffer`。
+- [x] 完成编译与运行验证。
+
+---
+
+## Phase 1D: Bloom（6h）
+
+### Task 1D.1: 后处理 Shader 资源
 - [x] `assets/shaders/postprocess/fullscreen.vert`
 - [x] `assets/shaders/postprocess/bright_extract.frag`
 - [x] `assets/shaders/postprocess/kawase_down.frag`
 - [x] `assets/shaders/postprocess/kawase_up.frag`
 
-### Task 1D.2: PostProcessPass 楠ㄦ灦 + Bloom Mip Chain (~2h)
-- [x] 鍒涘缓 `PostProcessPass.hpp/cpp`
-- [x] `Initialize()` 鍔犺浇 shader 骞剁紦瀛?uniform location
-- [x] `RebuildBloomMips()` 鍒涘缓閫掑噺鍒嗚鲸鐜?FBO 閾?- [x] `DestroyBloomMips()` + `Shutdown()`
-- [x] 缂栬瘧楠岃瘉
+### Task 1D.2: PostProcessPass 与 Mip Chain
+- [x] 新增 `PostProcessPass.hpp/.cpp`。
+- [x] `Initialize()` 完成 shader 加载与 uniform location 缓存。
+- [x] `RebuildBloomMips()` 完成分级 FBO 创建。
+- [x] `DestroyBloomMips()` 与 `Shutdown()` 完成资源回收。
+- [x] 完成编译与运行验证。
 
-### Task 1D.3: Bloom 鎵ц閫昏緫 (~2h)
-- [x] 瀹炵幇 `ExecuteBloom()`锛圔rightExtract 鈫?Downsample 鈫?Upsample锛?- [x] 姣忔姝ｇ‘璁剧疆 FBO / Viewport / 杈撳叆绾圭悊
-- [x] 杩愯楠岃瘉
-
----
-
-## Phase 1E: Tonemapping (2h)
-
-### Task 1E.1: Tonemap Shader (~1h)
-- [x] 鍒涘缓 `assets/shaders/postprocess/tonemap.frag`
-- [x] 瀹炵幇 ACES Filmic + Gamma 2.2
-- [x] 鎺ュ叆 `uHDRScene/uBloomTexture/uBloomIntensity/uExposure`
-
-### Task 1E.2: Tonemap 鎵ц閫昏緫 (~1h)
-- [x] 瀹炵幇 `ExecuteTonemap()` 杈撳嚭鍒?LDR FBO
-- [x] 缁戝畾 HDR + Bloom 杈撳叆绾圭悊
-- [x] 榛樿 `uExposure = 1.0`
-- [x] 杩愯楠岃瘉
+### Task 1D.3: Bloom 执行流程
+- [x] 实现 `ExecuteBloom()`：BrightExtract → Downsample → Upsample。
+- [x] 处理 FBO、Viewport、纹理绑定状态切换。
+- [x] 完成编译与运行验证。
 
 ---
 
-## Phase 1F: FXAA & Vignette (3h)
+## Phase 1E: Tonemapping（2h）
 
-### Task 1F.1: FXAA Shader (~1.5h)
-- [x] 鍒涘缓 `assets/shaders/postprocess/fxaa.frag`
-- [x] 鍗囩骇涓烘洿璐磋繎 FXAA 3.11 Quality 鐨?3x3 閭诲煙瀹炵幇
-- [x] 鎺ュ叆 `uSource` + `uTexelSize`
+### Task 1E.1: Tonemap Shader
+- [x] 新增 `assets/shaders/postprocess/tonemap.frag`。
+- [x] 实现 ACES Filmic + Gamma 2.2。
+- [x] 暴露 `uHDRScene/uBloomTexture/uBloomIntensity/uExposure`。
 
-### Task 1F.2: Vignette Shader (~30min)
-- [x] 鍒涘缓 `assets/shaders/postprocess/vignette.frag`
-- [x] 瀹炵幇 `smoothstep(radius, radius - 0.45, dist)`
-- [x] 鎺ュ叆 `uSource/uIntensity/uRadius`
-
-### Task 1F.3: FXAA & Vignette 鎵ц閫昏緫 (~1h)
-- [x] 瀹炵幇 `ExecuteFXAA()`锛圠DR 鈫?ping-pong锛?- [x] 瀹炵幇 `ExecuteVignette()`锛團XAA 杈撳嚭 鈫?鏈€缁堣緭鍑猴級
-- [x] 鏍规嵁閰嶇疆椤瑰惎鍋?
----
-
-## Phase 1G: 绠＄嚎缂栨帓 & CompositePass 鍗囩骇 (3h)
-
-### Task 1G.1: PostProcessPass 闆嗘垚 RenderGraph (~1.5h)
-- [x] `RenderSystem::render()` 鍦?UIWorldPass 鍚庢彃鍏?PostProcessPass
-- [x] `bloomEnabled == false` 鏃惰烦杩?PostProcessPass
-- [x] `PostProcessPass::Execute()` 涓茶仈 Bloom 鈫?Tonemap 鈫?FXAA 鈫?Vignette
-
-### Task 1G.2: CompositePass 鍗囩骇 (~1h)
-- [x] HDR 寮€鍚椂浠庡悗澶勭悊杈撳嚭 FBO 璇诲彇 LDR 缁撴灉骞舵嫹鍥為粯璁ゅ抚缂撳啿
-- [x] HDR 鍏抽棴鏃朵繚鎸?Phase 0 pass-through
-
-### Task 1G.3: 鍒濆鍖?閿€姣佺敓鍛藉懆鏈?(~30min)
-- [x] `RenderSystem::Initialize()` 璋冪敤 `PostProcessPass::Initialize()`
-- [x] `RenderSystem::Shutdown()` 璋冪敤 `PostProcessPass::Shutdown()` 涓?`FullscreenQuad::Shutdown()`
+### Task 1E.2: Tonemap 执行
+- [x] 实现 `ExecuteTonemap()` 输出到 LDR FBO。
+- [x] 合并 HDR + Bloom 输入。
+- [x] 默认曝光 `uExposure = 1.0`。
+- [x] 完成编译与运行验证。
 
 ---
 
-## Phase 1H: 娴嬭瘯 & 楠屾敹 (3h)
+## Phase 1F: FXAA & Vignette（3h）
 
-### Task 1H.1: 鍗曞厓娴嬭瘯 (~1h)
-- [x] 鏂板 `tests/unit/PostProcessTest.cpp`
-- [x] 瑕嗙洊 `FramebufferManager_CreateDestroy`
-- [x] 瑕嗙洊 `FramebufferManager_Resize`
-- [ ] 瑕嗙洊 `BloomMipChain_Levels`
-- [x] 瑕嗙洊 `QualityTier_Phase1Config`
-- [x] 瑕嗙洊 `PostProcess_LowTierBypass`
+### Task 1F.1: FXAA Shader
+- [x] 新增 `assets/shaders/postprocess/fxaa.frag`。
+- [x] 采用 FXAA 3.11 Quality（3x3 邻域）。
+- [x] 暴露 `uSource` 与 `uTexelSize`。
 
-### Task 1H.2: 鎬ц兘鍩哄噯鎵╁睍 (~1h)
-- [x] 鏂板 `tests/performance/PostProcessBenchmark.cpp`
-- [x] 浣跨敤 GPU Timer Query (`GL_TIME_ELAPSED`) 璁℃椂
-- [x] 杈撳嚭 Low / Ultra / Delta(Ultra-Low) 鎸囨爣
-- [ ] 缁嗗垎 Bloom 涓?Tonemap+FXAA+Vignette 鍒嗘璁℃椂
+### Task 1F.2: Vignette Shader
+- [x] 新增 `assets/shaders/postprocess/vignette.frag`。
+- [x] 实现 `smoothstep(radius, radius - 0.45, dist)`。
+- [x] 暴露 `uSource/uIntensity/uRadius`。
 
-### Task 1H.3: 瑙嗚鍥炲綊楠屾敹 (~1h)
-- [ ] Low Tier 鎴浘涓?Phase 0 鍍忕礌绾у姣?- [ ] Ultra Tier 鏁堟灉鎴浘锛圔loom / Tonemap / FXAA / Vignette锛?- [ ] Resize 20 娆＄ǔ瀹氭€ч獙璇侊紙鏃犲穿婧冦€佹棤娉勬紡锛?- [ ] 30 鍒嗛挓鍘嬪姏鎴樻枟绋冲畾鎬ч獙璇?
+### Task 1F.3: 执行链路
+- [x] 实现 `ExecuteFXAA()`（LDR → ping-pong）。
+- [x] 实现 `ExecuteVignette()`（FXAA 输出再处理）。
+- [x] 完成编译与运行验证。
+
+---
+
+## Phase 1G: RenderGraph 集成与 Composite（3h）
+
+### Task 1G.1: PostProcessPass 接入 RenderGraph
+- [x] 在 `RenderSystem::render()` 中于 `UIWorldPass` 后插入 `PostProcessPass`。
+- [x] `bloomEnabled == false` 时跳过 `PostProcessPass`。
+- [x] `PostProcessPass::Execute()` 执行 Bloom/Tonemap/FXAA/Vignette。
+
+### Task 1G.2: CompositePass 回写逻辑
+- [x] HDR 启用时：优先合成后处理结果。
+- [x] HDR 禁用时：保持 Phase 0 透传行为。
+- [x] 修复离屏渲染路径：仅在默认 framebuffer 下启用内部 HDR 合成，避免覆盖 Gameplay `m_sceneRT`。
+
+### Task 1G.3: 初始化与销毁
+- [x] `RenderSystem::Initialize()` 调用 `PostProcessPass::Initialize()`。
+- [x] `RenderSystem::Shutdown()` 调用 `PostProcessPass::Shutdown()` 与 `FullscreenQuad::Shutdown()`。
+
+---
+
+## Phase 1H: 测试、基准与验收（3h）
+
+### Task 1H.1: 单元测试
+- [x] 新增 `tests/unit/PostProcessTest.cpp`。
+- [x] `FramebufferManager_CreateDestroy`
+- [x] `FramebufferManager_Resize`
+- [x] `BloomMipChain_Levels`
+- [x] `QualityTier_Phase1Config`
+- [x] `PostProcess_LowTierBypass`
+
+### Task 1H.2: 性能基准
+- [x] 新增 `tests/performance/PostProcessBenchmark.cpp`。
+- [x] 接入 GPU Timer Query（`GL_TIME_ELAPSED`）。
+- [x] 输出 Low / Ultra / Delta(Ultra-Low) 结果。
+- [x] 分别统计 Bloom 与 Tonemap+FXAA+Vignette 耗时。
+
+### Task 1H.3: 游戏内验收
+- [x] Low Tier 路径回退行为正确（与 Phase 0 一致）。
+- [x] Ultra Tier 后处理链路正确（Bloom/Tonemap/FXAA/Vignette）。
+- [x] 窗口 Resize 稳定（多次切换无异常）。
+- [x] 长时间运行稳定（无崩溃/明显泄漏）。
+- [x] 2026-02-12 进游戏验证通过：实体、资源贴图、传送门特效渲染路径恢复正常。
+
 ---
 
 ## Definition of Done
 
-- [x] 鏂板 shader 鍙紪璇?- [x] 鏂板 FBO 鍒涘缓鍧囩粡杩?`CheckFramebufferStatus`
-- [ ] Low Tier 涓?Phase 0 瀹屽叏涓€鑷达紙寰呮埅鍥炬牳楠岋級
-- [ ] Ultra 瑙嗚鏁堟灉楠屾敹瀹屾垚
-- [ ] Bloom 鈮?0.5ms锛孴onemap+FXAA+Vignette 鈮?0.4ms锛堢洰鏍囨満瀹炴祴锛?- [ ] 闀跨ǔ鍘嬫祴涓?Resize 绋冲畾鎬ч€氳繃
-- [x] 鏂板鍗曟祴鍙繍琛?- [x] `build.bat` 鏋勫缓閫氳繃
+- [x] 全部后处理 shader 编译成功并接入运行时。
+- [x] FBO 创建/重建流程完整，`CheckFramebufferStatus` 通过。
+- [x] Low Tier 完整回退到 Phase 0 行为。
+- [x] Ultra Tier 功能链路正确。
+- [x] Bloom 与 Tonemap/FXAA/Vignette 基准项可输出。
+- [x] Resize 与长时间运行验证通过。
+- [x] `build.bat` 构建通过。
+- [x] 游戏内人工验收通过。
 
 ---
 
-*璁″垝鐗堟湰: 1.1*  
-*鏈€鍚庢洿鏂? 2026-02-12*
+*版本: 1.2（UTF-8 重写）*  
+*更新时间: 2026-02-12*

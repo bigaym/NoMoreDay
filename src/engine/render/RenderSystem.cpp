@@ -148,6 +148,36 @@ struct RenderFrameData {
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
 std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
 
+struct CompositeTargetState {
+  uint32_t framebuffer = 0;
+  int viewportX = 0;
+  int viewportY = 0;
+  int viewportWidth = 0;
+  int viewportHeight = 0;
+};
+
+CompositeTargetState CaptureCompositeTargetState() {
+  CompositeTargetState state = {};
+  state.viewportWidth = GetScreenWidth();
+  state.viewportHeight = GetScreenHeight();
+
+#if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_43)
+  constexpr uint32_t kGLFramebufferBinding = 0x8CA6;
+  constexpr uint32_t kGLViewport = 0x0BA2;
+  GLint boundFramebuffer = 0;
+  GLint viewport[4] = {0, 0, state.viewportWidth, state.viewportHeight};
+  glGetIntegerv(kGLFramebufferBinding, &boundFramebuffer);
+  glGetIntegerv(kGLViewport, viewport);
+  state.framebuffer = static_cast<uint32_t>(boundFramebuffer);
+  state.viewportX = viewport[0];
+  state.viewportY = viewport[1];
+  state.viewportWidth = viewport[2];
+  state.viewportHeight = viewport[3];
+#endif
+
+  return state;
+}
+
 Mesh &GetLabelQuadMesh() {
   static Mesh quadMesh = {0};
   if (quadMesh.vertexCount != 0) {
@@ -733,15 +763,19 @@ void ExecuteCompositePass() {
 }
 
 void ExecuteCompositePass(
-    const NoMoreDay::render::resources::FramebufferHandle *hdrBuffer) {
+    const NoMoreDay::render::resources::FramebufferHandle *hdrBuffer,
+    const CompositeTargetState &targetState) {
   if (hdrBuffer == nullptr || !hdrBuffer->IsValid()) {
     ExecuteCompositePass();
     return;
   }
 
   constexpr uint32_t kGLFramebuffer = 0x8D40;
-  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
-  NoMoreDay::utils::GPUUtils::Viewport(0, 0, GetScreenWidth(), GetScreenHeight());
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
+                                              targetState.framebuffer);
+  NoMoreDay::utils::GPUUtils::Viewport(
+      targetState.viewportX, targetState.viewportY, targetState.viewportWidth,
+      targetState.viewportHeight);
 
   Texture2D hdrTexture = {};
   hdrTexture.id = hdrBuffer->colorTexture;
@@ -752,8 +786,11 @@ void ExecuteCompositePass(
 
   const Rectangle source = {0.0f, 0.0f, static_cast<float>(hdrTexture.width),
                             -static_cast<float>(hdrTexture.height)};
-  const Rectangle target = {0.0f, 0.0f, static_cast<float>(GetScreenWidth()),
-                            static_cast<float>(GetScreenHeight())};
+  const Rectangle target = {
+      static_cast<float>(targetState.viewportX),
+      static_cast<float>(targetState.viewportY),
+      static_cast<float>(targetState.viewportWidth),
+      static_cast<float>(targetState.viewportHeight)};
   DrawTexturePro(hdrTexture, source, target, Vector2{0.0f, 0.0f}, 0.0f, WHITE);
 }
 
@@ -857,11 +894,16 @@ void RenderSystem::render(entt::registry &registry,
   frame.labelInstanceBuffer = s_labelInstanceBuffer.get();
   frame.glyphInstanceBuffer = s_glyphInstanceBuffer.get();
   BuildRenderFrameData(frame);
+  const CompositeTargetState compositeTarget = CaptureCompositeTargetState();
 
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
-  const bool useHdrSceneBuffer = renderConfig.bloomEnabled;
+  // RenderSystem is called from GameplayState inside BeginTextureMode(m_sceneRT).
+  // In this case, internal full-screen postprocess/composite should be bypassed;
+  // final screen-space composition happens later in GameplayState.
+  const bool useHdrSceneBuffer =
+      renderConfig.bloomEnabled && (compositeTarget.framebuffer == 0);
 
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
@@ -904,13 +946,15 @@ void RenderSystem::render(entt::registry &registry,
     graph.AddPass(g_postProcessPass);
   }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::CompositePass>(
-      [useHdrSceneBuffer](NoMoreDay::render::graph::RenderContext &) {
+      [useHdrSceneBuffer, compositeTarget](
+          NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
         if (g_postProcessPass != nullptr &&
             g_postProcessPass->GetOutputBuffer().IsValid()) {
-          ExecuteCompositePass(&g_postProcessPass->GetOutputBuffer());
+          ExecuteCompositePass(&g_postProcessPass->GetOutputBuffer(),
+                               compositeTarget);
         } else if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid()) {
-          ExecuteCompositePass(&s_hdrSceneBuffer);
+          ExecuteCompositePass(&s_hdrSceneBuffer, compositeTarget);
         } else {
           ExecuteCompositePass();
         }
