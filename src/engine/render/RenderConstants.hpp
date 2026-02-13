@@ -59,6 +59,7 @@ constexpr uint32_t INDIRECT_CMD = 2;  // DrawIndirect Command
 constexpr uint32_t ATOMIC_COUNT = 3;  // 原子计数器
 constexpr uint32_t FORCE_FIELDS = 4;  // ForceField SSBO (readonly)
 constexpr uint32_t SUB_EMISSION = 5;  // Sub-emission buffer
+constexpr uint32_t SUB_EMIT_COUNTER = 6; // Sub-emission atomic counter
 } // namespace ParticleCS
 
 namespace TrailBinding {

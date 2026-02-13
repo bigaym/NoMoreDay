@@ -24,8 +24,13 @@
 - [x] A 阶段完成：`GPUParticle` ABI 扩展、`RenderConfig`/`QualityTier` 扩展、`RenderConstants` 绑定扩展
 - [x] B 阶段核心完成：`ParticleTextureManager`、`particle.*` shader ABI/采样改造、粒子 Alpha/Additive 双通道渲染
 - [x] C 阶段核心完成：`GPUTrailRenderer`、`trail` shader、`TrailSystem` GPU 路径切换、VFX 回调接入 GPU Trail 渲染
-- [ ] 运行验收待补：纹理粒子与 GPU Trail 的屏幕表现证据 + `bin/logs/NoMoreDay.log` 证据
-- [ ] D/E/F 阶段尚未开始（力场、子发射器、完整测试与归档）
+- [x] D 阶段完成：`ForceFieldManager`、`particle.compute` 力场采样、`GPUParticleSystem` 力场绑定
+- [x] E 阶段完成：子发射缓冲区与计数器、死亡检测写入、`particle_sub_emit.compute` 回灌主粒子池
+- [x] F.1/F.2/F.3 完成：VFXPass 集成、单测与全量测试通过、`ParticleTrailBenchmark` 通过
+- [x] 运行日志验收完成（2026-02-13）：短时运行 `bin/RelWithDebInfo/NoMoreDay.exe`，日志见 `logs/NoMoreDay.log`
+  - 关键证据：`GPUParticleSystem` 初始化/关闭、`ParticleTextureManager` 三层贴图加载、`ForceFieldManager: Initialized with 16 slots`
+- [ ] 屏幕表现证据待补：纹理粒子与 GPU Trail 的实际画面截图/录屏
+- [ ] F.4 待完成：追踪文档归档与 Track 关闭
 
 ---
 

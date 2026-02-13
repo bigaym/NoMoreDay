@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/particle/ForceFieldManager.hpp"
 #include "engine/render/particle/ParticleTextureManager.hpp"
 #include "game/components/Common.hpp"
 
@@ -58,6 +59,8 @@ void GPUParticleSystem::Init(int maxParticles) {
       "assets/shaders/textures/particles/smoke_01.png");
   render::ParticleTextureManager::Get().LoadLayer(
       "assets/shaders/textures/particles/spark_01.png");
+  render::ForceFieldManager::Get().Init(
+      NoMoreDay::Constants::GPU::MAX_FORCE_FIELDS);
 
   using namespace NoMoreDay::RenderConstants;
   m_initialized = true;
@@ -80,6 +83,18 @@ void GPUParticleSystem::Shutdown() {
   if (m_renderShader.id != 0) {
     UnloadShader(m_renderShader);
   }
+  if (m_emitShader.id != 0) {
+    rlUnloadShaderProgram(m_emitShader.id);
+    m_emitShader.id = 0;
+  }
+  if (m_subEmitShader.id != 0) {
+    rlUnloadShaderProgram(m_subEmitShader.id);
+    m_subEmitShader.id = 0;
+  }
+  if (m_finalizeShader.id != 0) {
+    rlUnloadShaderProgram(m_finalizeShader.id);
+    m_finalizeShader.id = 0;
+  }
 
   // VAO/VBO cleanup
   if (m_quadVBO != 0) {
@@ -92,11 +107,10 @@ void GPUParticleSystem::Shutdown() {
   }
 
   m_emissionBuffer.Destroy();
+  m_subEmissionBuffer.Release();
+  m_subEmitCountBuffer.Destroy();
   render::ParticleTextureManager::Get().Shutdown();
-  
-  if (m_finalizeShader.id != 0) {
-      rlUnloadShaderProgram(m_finalizeShader.id);
-  }
+  render::ForceFieldManager::Get().Shutdown();
 
   m_initialized = false;
 }
@@ -158,6 +172,10 @@ void GPUParticleSystem::LoadShaders() {
         m_computeTimeLoc = rlGetLocationUniform(m_computeShader.id, "time");
         m_computeTotalLoc =
             rlGetLocationUniform(m_computeShader.id, "totalParticles");
+        m_computeForceFieldCountLoc =
+            rlGetLocationUniform(m_computeShader.id, "forceFieldCount");
+        m_computeSubEmitterEnabledLoc =
+            rlGetLocationUniform(m_computeShader.id, "subEmitterEnabled");
       } else {
         LOG_ERROR("GPUParticleSystem: Compute shader linking failed!");
       }
@@ -187,19 +205,40 @@ void GPUParticleSystem::LoadShaders() {
   if (emitFile.is_open()) {
     std::stringstream ss;
     ss << emitFile.rdbuf();
-    unsigned int emitCompId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
+    unsigned int emitCompId =
+        rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
     if (emitCompId != 0) {
       m_emitShader.id = rlLoadComputeShaderProgram(emitCompId);
-      m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
+      if (m_emitShader.id != 0) {
+        m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
+      }
     }
   }
 
-  // 4. Load Finalize Shader
+  // 4. Load Sub-Emission Merge Shader
+  std::ifstream subEmitFile("assets/shaders/particle_sub_emit.compute");
+  if (subEmitFile.is_open()) {
+    std::stringstream ss;
+    ss << subEmitFile.rdbuf();
+    unsigned int subEmitCompId =
+        rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
+    if (subEmitCompId != 0) {
+      m_subEmitShader.id = rlLoadComputeShaderProgram(subEmitCompId);
+      if (m_subEmitShader.id != 0) {
+        m_subEmitCountLoc = rlGetLocationUniform(m_subEmitShader.id, "subEmitCount");
+        m_subEmitMaxParticlesLoc =
+            rlGetLocationUniform(m_subEmitShader.id, "maxParticles");
+      }
+    }
+  }
+
+  // 5. Load Finalize Shader
   std::ifstream finalizeFile("assets/shaders/particle_finalize.compute");
   if (finalizeFile.is_open()) {
     std::stringstream ss;
     ss << finalizeFile.rdbuf();
-    unsigned int finCompId = rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
+    unsigned int finCompId =
+        rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
     if (finCompId != 0) {
       m_finalizeShader.id = rlLoadComputeShaderProgram(finCompId);
     }
@@ -207,7 +246,8 @@ void GPUParticleSystem::LoadShaders() {
 
   // Verify core shaders
   if (m_computeShader.id == 0 || m_renderShader.id == 0 ||
-      m_emitShader.id == 0 || m_finalizeShader.id == 0) {
+      m_emitShader.id == 0 || m_subEmitShader.id == 0 ||
+      m_finalizeShader.id == 0) {
     LOG_ERROR("GPUParticleSystem: [AG] Shader initialization incomplete!");
   }
 }
@@ -245,6 +285,21 @@ void GPUParticleSystem::CreateBuffers() {
   m_emissionBuffer.Create(m_emissionCap * sizeof(components::GPUParticle));
   m_mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
   m_emitHead = 0;
+
+  // Sub-emission payload buffer (generated on GPU when particles die)
+  m_subEmissionCap = 2048;
+  m_subEmissionBuffer.Create(static_cast<size_t>(m_subEmissionCap) *
+                             sizeof(components::GPUParticle));
+
+  // Sub-emission atomic counter (triple-buffered to avoid GPU/CPU stalls)
+  m_subEmitCountBuffer.Create(sizeof(uint32_t), 3);
+  uint32_t *subEmitCountPtr =
+      static_cast<uint32_t *>(m_subEmitCountBuffer.BeginWrite());
+  if (subEmitCountPtr != nullptr) {
+    *subEmitCountPtr = 0;
+  }
+  m_subEmitCountBuffer.Flush();
+  m_subEmitCountBuffer.Lock();
 
 }
 
@@ -306,6 +361,18 @@ void GPUParticleSystem::Update(float dt) {
   if (!m_initialized)
     return;
 
+  bool forceFieldEnabled = false;
+  bool subEmitterEnabled = false;
+  if (render::core::QualityTierManager::Get().IsInitialized()) {
+    const auto &config = render::core::QualityTierManager::Get().GetConfig();
+    forceFieldEnabled = config.forceFieldEnabled;
+    subEmitterEnabled = config.subEmitterEnabled;
+  }
+
+  auto &forceFieldManager = render::ForceFieldManager::Get();
+  if (forceFieldManager.IsInitialized()) {
+    forceFieldManager.SyncToGPU();
+  }
 
   // 1. Swap buffers for ping-pong
   core::ComputeBuffer &bufIn = m_pingPong ? m_compactBuffer : m_particleBuffer;
@@ -325,6 +392,15 @@ void GPUParticleSystem::Update(float dt) {
       *atomicPtr = 0;
   }
   m_atomicBuffer.Flush();
+  uint32_t *subEmitCountPtr = nullptr;
+  if (subEmitterEnabled) {
+    subEmitCountPtr =
+        static_cast<uint32_t *>(m_subEmitCountBuffer.BeginWrite());
+    if (subEmitCountPtr != nullptr) {
+      *subEmitCountPtr = 0;
+    }
+    m_subEmitCountBuffer.Flush();
+  }
 
   // Initialize Indirect Buffer Command for THIS frame
   // The GPU will later overwrite instanceCount in the compute shader
@@ -359,6 +435,17 @@ void GPUParticleSystem::Update(float dt) {
         rlSetUniform(m_computeTimeLoc, &m_totalTime, RL_SHADER_UNIFORM_FLOAT, 1);
         rlSetUniform(m_computeTotalLoc, &m_currentParticleCount,
                     RL_SHADER_UNIFORM_INT, 1);
+        const int forceFieldCount =
+            forceFieldEnabled ? forceFieldManager.GetActiveCount() : 0;
+        const int subEmitterEnabledInt = subEmitterEnabled ? 1 : 0;
+        if (m_computeForceFieldCountLoc >= 0) {
+          rlSetUniform(m_computeForceFieldCountLoc, &forceFieldCount,
+                       RL_SHADER_UNIFORM_INT, 1);
+        }
+        if (m_computeSubEmitterEnabledLoc >= 0) {
+          rlSetUniform(m_computeSubEmitterEnabledLoc, &subEmitterEnabledInt,
+                       RL_SHADER_UNIFORM_INT, 1);
+        }
 
         // Bind SSBOs (RenderConstants::ParticleCS semantics)
         using namespace NoMoreDay::RenderConstants;
@@ -366,6 +453,13 @@ void GPUParticleSystem::Update(float dt) {
         bufOut.BindBase(ParticleCS::PARTICLES_OUT);
         m_indirectBuffer.BindBase(ParticleCS::INDIRECT_CMD);
         m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT); // Write to CURRENT counter
+        if (forceFieldManager.IsInitialized()) {
+          forceFieldManager.BindSSBO(ParticleCS::FORCE_FIELDS);
+        }
+        if (subEmitterEnabled) {
+          m_subEmissionBuffer.BindBase(ParticleCS::SUB_EMISSION);
+          m_subEmitCountBuffer.BindBase(ParticleCS::SUB_EMIT_COUNTER);
+        }
 
         // Dispatch
         int workGroups = (m_targetDispatchCount + (WORKGROUP_SIZE_PARTICLES - 1)) /
@@ -384,7 +478,7 @@ void GPUParticleSystem::Update(float dt) {
 
   // 3. Emission Logic (Lock-Free)
   uint32_t survivors = m_lastKnownAliveCount;
-  uint32_t totalAfterEmission = survivors; // declared and initialized
+  uint32_t totalAfterEmission = survivors;
   
   uint32_t totalNewToEmit = m_emitHead.load();
   if (totalNewToEmit > 0) {
@@ -417,25 +511,70 @@ void GPUParticleSystem::Update(float dt) {
       }
   }
 
-  // 4. Finalize the frame (Copy atomic to indirect)
+  // 4. Merge GPU-generated sub-emissions into the compact output buffer.
+  if (subEmitterEnabled && m_subEmitShader.id != 0) {
+    uint32_t subEmitCount = 0;
+    m_subEmitCountBuffer.ReadFromSlot(&subEmitCount, sizeof(uint32_t),
+                                      m_subEmitCountBuffer.GetCurrentSlot());
+    subEmitCount = std::min(subEmitCount, m_subEmissionCap);
+
+    if (subEmitCount > 0) {
+      rlEnableShader(m_subEmitShader.id);
+      const int subEmitCountInt = static_cast<int>(subEmitCount);
+      if (m_subEmitCountLoc >= 0) {
+        rlSetUniform(m_subEmitCountLoc, &subEmitCountInt, RL_SHADER_UNIFORM_INT,
+                     1);
+      }
+      if (m_subEmitMaxParticlesLoc >= 0) {
+        rlSetUniform(m_subEmitMaxParticlesLoc, &m_maxParticles,
+                     RL_SHADER_UNIFORM_INT, 1);
+      }
+
+      using namespace NoMoreDay::RenderConstants;
+      m_subEmissionBuffer.BindBase(ParticleCS::SUB_EMISSION);
+      m_subEmitCountBuffer.BindBase(ParticleCS::SUB_EMIT_COUNTER);
+      bufOut.BindBase(ParticleCS::PARTICLES_OUT);
+      m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
+
+      const int workGroups = (subEmitCountInt + 255) / 256;
+      if (workGroups > 0) {
+        rlComputeShaderDispatch(workGroups, 1, 1);
+      }
+      utils::GPUUtils::MemoryBarrier(Barrier::All);
+      rlDisableShader();
+
+      totalAfterEmission += subEmitCount;
+    }
+  }
+
+  // 5. Finalize the frame (Copy atomic to indirect)
   FinalizeFrame();
 
-  // 5. Finalize emission buffer and lock ALL persistent buffers for this frame
+  // 6. Finalize emission buffer and lock ALL persistent buffers for this frame
   m_emissionBuffer.Lock();
   m_mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
   m_emitHead = 0;
+  if (subEmitterEnabled) {
+    if (subEmitCountPtr != nullptr) {
+      *subEmitCountPtr = 0;
+    }
+    m_subEmitCountBuffer.Flush();
+  }
   
   m_totalTime += dt;
 
   // Advance Slot for next frame
   m_indirectBuffer.Lock(); 
 
-  // 5. Reset Particle Count Estimate only on Sync
+  // 7. Reset Particle Count Estimate only on sync readback frame
   if (m_readbackFrameCounter == 0) {
-      m_currentParticleCount = survivors; // Sync with actual alive count from GPU
+      m_currentParticleCount = static_cast<int>(totalAfterEmission);
   }
   
   m_pingPong = !m_pingPong;
+  if (subEmitterEnabled) {
+    m_subEmitCountBuffer.Lock();
+  }
   m_atomicBuffer.Lock(); // Advance atomic slot and insert fence
 }
 

@@ -196,8 +196,8 @@ Phase A ──→ Phase B ──┬──→ Phase F
 > **可并行**: 与 Phase C 并行
 
 ### Task D.1: ForceFieldManager 实现 (1.5h)
-- [ ] **新建** `src/engine/render/particle/ForceFieldManager.hpp`
-- [ ] **新建** `src/engine/render/particle/ForceFieldManager.cpp`
+- [x] **新建** `src/engine/render/particle/ForceFieldManager.hpp`
+- [x] **新建** `src/engine/render/particle/ForceFieldManager.cpp`
   - `Init()`: 创建 SSBO (32 × MAX_FORCE_FIELDS)
   - `AddForceField()`: 分配槽位，返回 ID
   - `RemoveForceField()`: 标记无效 (strength = 0)
@@ -208,7 +208,7 @@ Phase A ──→ Phase B ──┬──→ Phase F
 **交付物**: ForceFieldManager 实现
 
 ### Task D.2: Compute Shader 力场采样 (2h)
-- [ ] **修改** `assets/shaders/particle.compute`
+- [x] **修改** `assets/shaders/particle.compute`
   - 新增 `layout(std430, binding = 4) readonly buffer ForceFieldBuffer { ForceField fields[]; }`
   - 新增 `uniform int forceFieldCount` uniform
   - 在物理更新阶段遍历力场，按类型施加力：
@@ -220,7 +220,7 @@ Phase A ──→ Phase B ──┬──→ Phase F
 **交付物**: particle.compute 力场集成
 
 ### Task D.3: GPUParticleSystem 力场绑定 (0.5h)
-- [ ] **修改** `src/engine/render/GPUParticleSystem.cpp`
+- [x] **修改** `src/engine/render/GPUParticleSystem.cpp`
   - `Update()`: 检查 `RenderConfig::forceFieldEnabled`
     - 如果启用，在 compute dispatch 前绑定 `ForceFieldManager` SSBO 到 `ParticleCS::FORCE_FIELDS`
     - 设置 `forceFieldCount` uniform
@@ -238,17 +238,17 @@ Phase A ──→ Phase B ──┬──→ Phase F
 > **Tier 限制**: 仅 High / Ultra 启用
 
 ### Task E.1: 子发射缓冲区 (1h)
-- [ ] **修改** `src/engine/render/GPUParticleSystem.hpp`
+- [x] **修改** `src/engine/render/GPUParticleSystem.hpp`
   - 新增 `ComputeBuffer m_subEmissionBuffer` （子发射输出缓冲）
   - 新增 `PersistentBuffer m_subEmitCountBuffer` （子发射原子计数）
-- [ ] **修改** `src/engine/render/GPUParticleSystem.cpp`
+- [x] **修改** `src/engine/render/GPUParticleSystem.cpp`
   - `CreateBuffers()`: 创建子发射缓冲区 (MAX_SUB_EMISSIONS = 2048 × 64 bytes)
 - [ ] **验证**: 缓冲区创建无 GL 错误
 
 **交付物**: 子发射缓冲区基础设施
 
 ### Task E.2: Compute 死亡检测 (2h)
-- [ ] **修改** `assets/shaders/particle.compute`
+- [x] **修改** `assets/shaders/particle.compute`
   - 新增 `layout(std430, binding = 5) buffer SubEmissionBuffer { Particle subEmissions[]; }`
   - 新增 `layout(std430, binding = 6) buffer SubEmitCounter { uint subEmitCount; }`
   - 新增 `uniform int subEmitterEnabled`
@@ -262,11 +262,11 @@ Phase A ──→ Phase B ──┬──→ Phase F
 **交付物**: 死亡检测 + 子发射数据生成
 
 ### Task E.3: 子发射集成到主粒子池 (2h)
-- [ ] **新建** `assets/shaders/particle_sub_emit.compute`
+- [x] **新建** `assets/shaders/particle_sub_emit.compute`
   - 读取 SubEmissionBuffer 中的新粒子
   - 追加到主粒子池的末尾（使用 aliveCounter 原子递增）
   - 更新 IndirectDraw 命令
-- [ ] **修改** `src/engine/render/GPUParticleSystem.cpp`
+- [x] **修改** `src/engine/render/GPUParticleSystem.cpp`
   - `Update()`: 在主 compute 完成后、FinalizeFrame 前：
     - 读取 SubEmitCounter
     - 如果 > 0，dispatch `particle_sub_emit.compute`
@@ -284,44 +284,44 @@ Phase A ──→ Phase B ──┬──→ Phase F
 > **前置依赖**: Phase B + C + D + E 全部完成
 
 ### Task F.1: VFXPass 总集成 (1h)
-- [ ] **修改** `src/engine/render/passes/VFXPass.cpp`
+- [x] **修改** `src/engine/render/passes/VFXPass.cpp`
   - 确保 Execute 回调中渲染顺序：
     1. `GPUParticleSystem::Render()` （粒子，含纹理粒子）
     2. `GPUTrailRenderer::Render()` （GPU 轨迹）
     3. 现有 HoloBlade / SkillEffect 渲染
   - 确保 HDR SceneColor 上下文正确（所有 VFX 输出到 HDR Buffer）
-- [ ] **确认**: `RenderSystem` 中 VFXPass 回调已正确注册上述调用
-- [ ] **验证**: 完整渲染管线无 GL 状态泄漏
+- [x] **确认**: `RenderSystem` 中 VFXPass 回调已正确注册上述调用
+- [x] **验证**: 完整渲染管线无 GL 状态泄漏
 
 **交付物**: VFXPass 完整集成
 
 ### Task F.2: 回归测试 (1.5h)
-- [ ] **新建** `tests/unit/ParticleTextureTest.cpp`
+- [x] **新建** `tests/unit/ParticleTextureTest.cpp`
   - 测试 GPUParticle 结构 ABI (sizeof, offsetof)
   - 测试 ParticleTextureManager 初始化/加载/释放
   - 测试 `textureIndex = -1` 默认行为向下兼容
-- [ ] **新建** `tests/unit/TrailRendererTest.cpp`
+- [x] **新建** `tests/unit/TrailRendererTest.cpp`
   - 测试 GPUTrailRenderer 分配/释放/溢出
   - 测试 AppendPoint 环形写入逻辑
   - 测试 GPUTrailPoint 和 GPUTrailHeader ABI
-- [ ] **新建** `tests/unit/ForceFieldTest.cpp`
+- [x] **新建** `tests/unit/ForceFieldTest.cpp`
   - 测试 ForceFieldManager 添加/移除/超限
   - 测试 GPUForceField ABI
-- [ ] **运行** 现有全部测试用例确认零回归:
+- [x] **运行** 现有全部测试用例确认零回归:
   ```powershell
   .\build\bin\Release\NoMoreDayTests.exe
   ```
-- [ ] **验证**: 所有测试通过
+- [x] **验证**: 所有测试通过
 
 **交付物**: 3 个新测试文件 + 全量通过报告
 
 ### Task F.3: 性能基准测试 (1h)
-- [ ] **新建** `tests/performance/ParticleTrailBenchmark.cpp`
+- [x] **新建** `tests/performance/ParticleTrailBenchmark.cpp`
   - 场景 1: 纹理粒子 10k 个，VFXPass 耗时 < 0.8ms
   - 场景 2: 力场 16 个 + 粒子 50k 个，Compute 耗时 < 0.5ms
   - 场景 3: GPU Trail 256 条 × 48 点，Render 耗时 < 0.3ms
   - 场景 4: 子发射器 1k 死亡/帧，Sub-Emit Dispatch < 0.2ms
-- [ ] **验证**: 所有场景通过阈值
+- [x] **验证**: 所有场景通过阈值
 
 **交付物**: 性能基准报告
 

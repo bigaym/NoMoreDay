@@ -2,6 +2,7 @@
 
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
+#include "rlgl.h"
 
 namespace NoMoreDay::render::passes {
 
@@ -13,9 +14,12 @@ void VFXPass::Setup(graph::RenderGraphBuilder &builder) {
 }
 
 void VFXPass::Execute(graph::RenderContext &context) {
+  // Keep pass boundaries explicit to avoid leaking stale rlgl batch state.
+  rlDrawRenderBatchActive();
   if (m_callback) {
     m_callback(context);
   }
+  rlDrawRenderBatchActive();
 }
 
 const char *VFXPass::GetName() const { return "VFXPass"; }

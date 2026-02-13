@@ -32,5 +32,5 @@ if(WIN32)
 endif()
 
 if(MSVC)
-    target_compile_options(NoMoreDayTests PRIVATE /bigobj /GR-)
+    target_compile_options(NoMoreDayTests PRIVATE /bigobj /GR- /FS)
 endif()

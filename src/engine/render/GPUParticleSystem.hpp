@@ -86,6 +86,8 @@ private:
     int m_computeDtLoc = -1;
     int m_computeTimeLoc = -1;
     int m_computeTotalLoc = -1;
+    int m_computeForceFieldCountLoc = -1;
+    int m_computeSubEmitterEnabledLoc = -1;
     int m_renderMvpLoc = -1;
     int m_renderAtlasLoc = -1;
     int m_renderBlendPassLoc = -1;
@@ -103,9 +105,15 @@ private:
 
     // Phase 3: Emission Buffer
     render::PersistentBuffer m_emissionBuffer;
+    core::ComputeBuffer m_subEmissionBuffer;
+    render::PersistentBuffer m_subEmitCountBuffer;
     Shader m_emitShader = { 0 };
+    Shader m_subEmitShader = { 0 };
     Shader m_finalizeShader = { 0 }; // Pass 3: Sync atomic to indirect
     int m_emitCountLoc = -1;
+    int m_subEmitCountLoc = -1;
+    int m_subEmitMaxParticlesLoc = -1;
+    uint32_t m_subEmissionCap = 2048;
 };
 
 /**

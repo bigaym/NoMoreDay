@@ -364,9 +364,10 @@ void ExecuteScenePass(RenderFrameData &frame) {
 void ExecuteVFXPass(RenderFrameData &frame) {
   Matrix viewProj = NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(
       frame.camera);
-  NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
+  // Keep VFX order stable: particles -> trails -> effect overlays.
   NoMoreDay::systems::GPUParticleSystem::Get().Render(frame.camera);
   NoMoreDay::render::GPUTrailRenderer::Get().Render(frame.camera);
+  NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
 
   auto effectView = frame.registry.view<const Position, const AttackEffect>();
   effectView.each([](const auto &pos, const auto &effect) {

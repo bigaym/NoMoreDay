@@ -19,6 +19,17 @@ struct Particle {
     float subEmitParam; // 4 bytes
 }; // Total: 64 bytes
 
+struct ForceField {
+    float posX;
+    float posY;
+    float radius;
+    float strength;
+    uint type;           // 0=Radial, 1=Vortex, 2=Noise
+    float falloff;
+    float noiseFrequency;
+    float padding;
+};
+
 // SSBOs
 layout(std430, binding = 0) buffer ParticleBuffer {
     Particle particles[];
@@ -39,10 +50,24 @@ layout(std430, binding = 3) buffer AtomicCounterBuffer {
     uint aliveCounter;
 };
 
+layout(std430, binding = 4) readonly buffer ForceFieldBuffer {
+    ForceField fields[];
+};
+
+layout(std430, binding = 5) buffer SubEmissionBuffer {
+    Particle subEmissions[];
+};
+
+layout(std430, binding = 6) buffer SubEmitCounter {
+    uint subEmitCount;
+};
+
 // Uniforms
 uniform float dt;
 uniform int totalParticles;
 uniform float time; // Add time for procedural movement
+uniform int forceFieldCount;
+uniform int subEmitterEnabled;
 
 // Physics Flags (High bits of p.flags)
 const uint PHYSICS_FLAG_NO_DRAG = 1 << 8;
@@ -50,6 +75,81 @@ const uint PHYSICS_FLAG_WANDER  = 1 << 9;
 const uint PHYSICS_FLAG_SINE_X  = 1 << 10;
 const uint PHYSICS_FLAG_VORTEX  = 1 << 11; // Swirl around acceleration as center
 const uint PHYSICS_FLAG_ALIGN_TO_VEL = 1 << 12; // Auto-rotate to match velocity direction
+const uint MAX_SUB_EMISSIONS = 2048u;
+const float EPSILON = 1e-4;
+
+float Hash01(float seed) {
+    return fract(sin(seed) * 43758.5453123);
+}
+
+void SpawnSubEmission(in Particle src, vec2 velocity) {
+    uint writeIdx = atomicAdd(subEmitCount, 1u);
+    if (writeIdx >= MAX_SUB_EMISSIONS) {
+        return;
+    }
+
+    Particle sub = src;
+    sub.position = src.position;
+    sub.velocity = velocity;
+    sub.acceleration = vec2(0.0);
+    sub.lifetime = max(0.05, src.maxLifetime * 0.4);
+    sub.maxLifetime = sub.lifetime;
+    sub.scale = max(0.05, src.scale * 0.65);
+    sub.growthRate = src.growthRate * 0.5;
+
+    // Disable recursive sub-emission by clearing the top 8 bits.
+    sub.animData = (src.animData & 0x00FFFFFFu);
+    sub.subEmitParam = 0.0;
+
+    subEmissions[writeIdx] = sub;
+}
+
+void ApplyForceFields(inout Particle p, uint id) {
+    if (forceFieldCount <= 0) {
+        return;
+    }
+
+    vec2 accumulatedAccel = vec2(0.0);
+    const int count = min(forceFieldCount, 16);
+
+    for (int i = 0; i < count; ++i) {
+        ForceField f = fields[i];
+        if (f.radius <= EPSILON || abs(f.strength) <= EPSILON) {
+            continue;
+        }
+
+        vec2 center = vec2(f.posX, f.posY);
+        vec2 fromCenter = p.position - center;
+        float dist = length(fromCenter);
+        if (dist > f.radius || dist <= EPSILON) {
+            continue;
+        }
+
+        vec2 dir = fromCenter / dist;
+        float attenuation = 1.0 / pow(max(dist, 1.0), max(f.falloff, 0.0));
+
+        if (f.type == 0u) {
+            // Radial: positive strength repels, negative attracts.
+            accumulatedAccel += dir * (f.strength * attenuation);
+        } else if (f.type == 1u) {
+            // Vortex: tangential swirl with a weak inward pull.
+            vec2 tangent = vec2(-dir.y, dir.x);
+            vec2 inward = -dir * (abs(f.strength) * 0.15);
+            accumulatedAccel += (tangent * f.strength + inward) * attenuation;
+        } else if (f.type == 2u) {
+            // Noise field based on position and time.
+            float freq = max(f.noiseFrequency, 0.01);
+            float phase = time * freq + float(i) * 13.37 + float(id) * 0.17;
+            vec2 n = vec2(
+                sin((p.position.x + center.x) * 0.07 * freq + phase),
+                cos((p.position.y + center.y) * 0.09 * freq + phase * 1.3)
+            );
+            accumulatedAccel += n * (f.strength * attenuation);
+        }
+    }
+
+    p.velocity += accumulatedAccel * dt;
+}
 
 void main() {
     uint id = gl_GlobalInvocationID.x;
@@ -61,6 +161,8 @@ void main() {
     
     // Skip already dead particles
     if (p.lifetime <= 0.0) return;
+
+    float prevLifetime = p.lifetime;
     
     // === Physics Update ===
     
@@ -103,6 +205,9 @@ void main() {
         vec2 flow = vec2(cos(angle), sin(angle)) * 25.0;
         p.velocity += flow * dt;
     }
+
+    // Optional global force fields (Phase 3).
+    ApplyForceFields(p, id);
     
     // Apply rotation alignment if flag is set
     if ((p.flags & PHYSICS_FLAG_ALIGN_TO_VEL) != 0) {
@@ -120,6 +225,29 @@ void main() {
     
     // Update lifetime
     p.lifetime -= dt;
+
+    // Emit children only once when crossing alive->dead this frame.
+    if (subEmitterEnabled != 0 && prevLifetime > 0.0 && p.lifetime <= 0.0) {
+        uint subType = (p.animData >> 24) & 0xFFu;
+        if (subType > 0u) {
+            int baseCount = (subType == 1u) ? 8 : 6;
+            // subEmitParam is a strength coefficient (Option B).
+            float coeff = max(p.subEmitParam, 0.0);
+            if (coeff <= 0.0) {
+                coeff = 1.0;
+            }
+            int burstCount = int(clamp(round(float(baseCount) * coeff), 1.0, 32.0));
+
+            float speedBase = max(length(p.velocity), 20.0);
+            for (int i = 0; i < burstCount; ++i) {
+                float seed = float(id) * 19.19 + float(i) * 31.73 + time * 7.0;
+                float angle = Hash01(seed) * 6.28318530718;
+                float speed = speedBase * (0.35 + Hash01(seed + 11.0) * 0.95);
+                vec2 dir = vec2(cos(angle), sin(angle));
+                SpawnSubEmission(p, dir * speed);
+            }
+        }
+    }
     
     // === Write Back ===
     particles[id] = p;
