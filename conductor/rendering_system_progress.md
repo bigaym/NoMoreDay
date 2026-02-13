@@ -97,3 +97,20 @@
 | R-001 | rlgl 状态与自定义后处理管线冲突 | 已解决 | Pass 边界强制 Flush + ScopedGLState |
 | R-002 | 集显平台 HDR/FBO 性能不稳定 | 监控中 | 低档位回退路径 + Mip 等级可降阶 |
 | R-003 | 最终视觉/稳定性结果依赖长时间实机运行 | 进行中 | 补全截图与长压测验收 |
+
+---
+
+## Phase 4 Acceptance Update (2026-02-13)
+
+- Build: `build.bat` passed.
+- Tests: `NoMoreDayTests.exe` full suite passed (`219` cases / `1755` assertions).
+- New benchmarks (`tests/performance/MaterialVFXBenchmark.cpp`) passed:
+  - `MaterialManager::SyncToGPU`: mean `0.000ms` (target `< 0.05ms`)
+  - `VFXSequencerSystem::Update (100 players)`: mean `0.001ms` (target `< 0.1ms`)
+  - `DistortionPass::Execute (2K@8)`: mean `0.007ms` (target `< 0.3ms`)
+- Runtime evidence:
+  - screenshots: `conductor/tracks/material_vfx_sequencer_20260213/evidence/1.png`, `conductor/tracks/material_vfx_sequencer_20260213/evidence/2.png`, `conductor/tracks/material_vfx_sequencer_20260213/evidence/3.png`, `conductor/tracks/material_vfx_sequencer_20260213/evidence/4_ultra.png`, `conductor/tracks/material_vfx_sequencer_20260213/evidence/4_low.png`
+  - logs: `bin/logs/NoMoreDay.log` shows `VFXSequenceManager: loaded 10 sequence assets from assets/vfx` and no GL error record during smoke run.
+- Remaining:
+  - complete full visual pass for all 10 prefab sequences
+  - execute track archive/close (L2)

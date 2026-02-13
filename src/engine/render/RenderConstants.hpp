@@ -40,6 +40,8 @@ enum class Binding : uint32_t {
   // === Material / Distortion (Phase 4) ===
   SSBO_MATERIAL_DATA = 12,
   SSBO_DISTORTION_DATA = 13,
+  MATERIAL_SSBO = SSBO_MATERIAL_DATA,
+  DISTORTION_SSBO = SSBO_DISTORTION_DATA,
 
   // === Reserved ===
   SSBO_RESERVED_10 = SSBO_TRAIL_HEADERS,

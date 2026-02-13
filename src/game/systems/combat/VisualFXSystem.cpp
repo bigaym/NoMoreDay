@@ -2,14 +2,48 @@
 #include "core/utils/FrameRateUtils.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/vfx/VFXSequenceManager.hpp"
 #include "game/components/Combat.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "raymath.h"
+#include <string>
 
 namespace NoMoreDay::systems {
+namespace {
+
+std::string ResolveHitSequenceName(uint32_t skillId) {
+  switch (skillId) {
+  case 1:
+    return "SwordSlash";
+  case 2:
+    return "LightningStrike";
+  case 7:
+    return "BladeFormation";
+  default:
+    return "";
+  }
+}
+
+bool TryPlaySequence(entt::registry &registry, entt::entity source, entt::entity target,
+                     const std::string &sequenceName) {
+  if (sequenceName.empty() || !registry.valid(source)) {
+    return false;
+  }
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  if (manager.GetSequence(sequenceName) == nullptr) {
+    return false;
+  }
+
+  manager.Play(registry, source, sequenceName,
+               registry.valid(target) ? target : entt::null, false);
+  return true;
+}
+
+} // namespace
 
 void VisualFXSystem::Initialize(entt::registry &registry) {
   // 1. On Hit VFX
@@ -20,6 +54,11 @@ void VisualFXSystem::Initialize(entt::registry &registry) {
           return;
         const auto &pos = r.get<Position>(evt.target);
         Vector2 p = {pos.x, pos.y};
+
+        const std::string seqName = ResolveHitSequenceName(evt.skill_id);
+        if (TryPlaySequence(r, evt.source, evt.target, seqName)) {
+          return;
+        }
 
         auto &particleSys = GPUParticleSystem::Get();
 
@@ -50,6 +89,10 @@ void VisualFXSystem::Initialize(entt::registry &registry) {
         if (!r.valid(evt.target) || !r.all_of<Position>(evt.target))
           return;
         const auto &pos = r.get<Position>(evt.target);
+
+        if (TryPlaySequence(r, evt.source, evt.target, "CriticalHit")) {
+          return;
+        }
 
         auto &particleSys = GPUParticleSystem::Get();
 

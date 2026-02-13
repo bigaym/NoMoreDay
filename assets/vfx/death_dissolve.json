@@ -1,0 +1,32 @@
+{
+  "vfx_schema_version": 1,
+  "name": "DeathDissolve",
+  "duration": 1.0,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "MaterialSwap",
+      "anchor": "Target",
+      "params": {
+        "materialId": "ShadowVoid",
+        "duration": 0.6
+      }
+    },
+    {
+      "time": 0.12,
+      "type": "Particle",
+      "anchor": "Target",
+      "params": {
+        "materialId": "ShadowVoid",
+        "count": 10,
+        "speed": 42.0,
+        "speedVariance": 15.0,
+        "lifetime": 0.58,
+        "scale": 1.2,
+        "spreadAngle": 170.0,
+        "blendMode": 0
+      }
+    }
+  ]
+}

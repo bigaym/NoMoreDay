@@ -1,0 +1,85 @@
+{
+  "vfx_schema_version": 1,
+  "name": "FireExplosion",
+  "duration": 0.9,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Particle",
+      "anchor": "Impact",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 8,
+        "speed": 105.0,
+        "speedVariance": 30.0,
+        "lifetime": 0.36,
+        "scale": 14.0,
+        "spreadAngle": 360.0,
+        "blendMode": 1
+      }
+    },
+    {
+      "time": 0.0,
+      "type": "Light",
+      "anchor": "Impact",
+      "params": {
+        "radius": 96.0,
+        "intensity": 1.7,
+        "color": [1.0, 0.55, 0.2],
+        "duration": 0.24,
+        "fadeInRatio": 0.08,
+        "fadeOutRatio": 0.65
+      }
+    },
+    {
+      "time": 0.03,
+      "type": "Distortion",
+      "anchor": "Impact",
+      "minTier": "High",
+      "params": {
+        "radius": 170.0,
+        "strength": 0.58,
+        "duration": 0.34,
+        "speed": 460.0
+      }
+    },
+    {
+      "time": 0.04,
+      "type": "Light",
+      "anchor": "Impact",
+      "minTier": "High",
+      "params": {
+        "radius": 240.0,
+        "intensity": 6.8,
+        "color": [1.0, 0.7, 0.3],
+        "duration": 0.16,
+        "fadeInRatio": 0.04,
+        "fadeOutRatio": 0.66
+      }
+    },
+    {
+      "time": 0.06,
+      "type": "Particle",
+      "anchor": "Impact",
+      "minTier": "High",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 40,
+        "speed": 220.0,
+        "speedVariance": 80.0,
+        "lifetime": 0.36,
+        "scale": 26.0,
+        "spreadAngle": 360.0,
+        "blendMode": 1
+      }
+    },
+    {
+      "time": 0.03,
+      "type": "Shake",
+      "params": {
+        "intensity": 0.12
+      }
+    }
+  ]
+}

@@ -39,6 +39,8 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/vfx/VFXSequenceManager.hpp"
+#include "engine/vfx/VFXSequencerSystem.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/systems/ai/AISystem.hpp"
@@ -75,6 +77,8 @@
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include "systems/SerializationSystem.hpp"
 
+#include <filesystem>
+
 namespace NoMoreDay {
 
 GameplayState::GameplayState(StateManager &stateManager, SharedContext &context,
@@ -104,6 +108,12 @@ void GameplayState::OnEnter() {
 
   // Initialize Visual FX (Events)
   systems::VisualFXSystem::Initialize(*m_context->registry);
+  vfx::VFXSequenceManager::Get().Initialize();
+  if (std::filesystem::is_directory("assets/vfx")) {
+    vfx::VFXSequenceManager::Get().LoadFromJson("assets/vfx");
+  } else {
+    LOG_WARN("GameplayState: assets/vfx not found, sequencer assets skipped");
+  }
 
   // Initialize Elite Modifiers (SoulLink, Avenger)
   // Initialize Elite Modifiers (SoulLink, Avenger)
@@ -371,6 +381,7 @@ void GameplayState::OnExit() {
 
   CombatHistorySystem::Shutdown();
   FragmentDropSystem::Shutdown();
+  vfx::VFXSequenceManager::Get().Shutdown();
   // Cleanup logic if needed.
   // Note: Game::cleanup will handle the global registry clear.
 }
@@ -792,6 +803,8 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // 6. Effects
+  vfx::VFXSequenceManager::Get().TryHotReload();
+  vfx::VFXSequencerSystem::Update(registry, dt);
   systems::EffectSystem::update(registry, dt);
   systems::VisualFXSystem::Update(registry, dt);
   systems::TrailSystem::Update(registry, dt);

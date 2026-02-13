@@ -1,0 +1,39 @@
+{
+  "vfx_schema_version": 1,
+  "name": "CriticalHit",
+  "duration": 0.45,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Particle",
+      "anchor": "Impact",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 7,
+        "speed": 95.0,
+        "speedVariance": 26.0,
+        "lifetime": 0.22,
+        "scale": 0.75,
+        "spreadAngle": 220.0,
+        "blendMode": 1
+      }
+    },
+    {
+      "time": 0.0,
+      "type": "Shake",
+      "params": {
+        "intensity": 0.14
+      }
+    },
+    {
+      "time": 0.0,
+      "type": "Sound",
+      "params": {
+        "soundId": "",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    }
+  ]
+}

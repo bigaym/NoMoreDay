@@ -6,6 +6,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
+#include <filesystem>
 
 using namespace NoMoreDay;
 
@@ -66,4 +68,45 @@ TEST_CASE("[Unit] Material - Flags Pack Unpack") {
 
   CHECK(components::GPUFlags::UnpackMaterialId(flags) == 1234);
   CHECK((flags & 0xFFu) == 0xABu);
+}
+
+TEST_CASE("[Unit] Material - Invalid Json Does Not Override Existing State") {
+  auto &manager = render::MaterialManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+
+  const int loaded = manager.LoadFromJson("assets/data/materials_vfx.json");
+  REQUIRE(loaded >= 5);
+
+  const int fireId = manager.GetMaterialId("FireExplosion");
+  REQUIRE(fireId >= render::MaterialManager::PRESET_RESERVE);
+  const auto before = manager.GetMaterial(fireId);
+  const int countBefore = manager.GetMaterialCount();
+
+  const std::filesystem::path invalidPath =
+      std::filesystem::path("bin") / "tmp_materials_invalid.json";
+  {
+    std::ofstream file(invalidPath, std::ios::binary);
+    REQUIRE(file.is_open());
+    file << "{ \"material_schema_version\": 99, \"materials\": [] }";
+  }
+
+  const int invalidLoaded = manager.LoadFromJson(invalidPath.string());
+  CHECK(invalidLoaded == 0);
+  CHECK(manager.GetMaterialCount() == countBefore);
+
+  const int fireIdAfter = manager.GetMaterialId("FireExplosion");
+  CHECK(fireIdAfter == fireId);
+  const auto after = manager.GetMaterial(fireIdAfter);
+  CHECK(after.baseColorR == doctest::Approx(before.baseColorR));
+  CHECK(after.baseColorG == doctest::Approx(before.baseColorG));
+  CHECK(after.baseColorB == doctest::Approx(before.baseColorB));
+  CHECK(after.baseColorA == doctest::Approx(before.baseColorA));
+  CHECK(after.emissiveIntensity == doctest::Approx(before.emissiveIntensity));
+  CHECK(after.shader == before.shader);
+  CHECK(after.blendMode == before.blendMode);
+
+  std::error_code ec;
+  std::filesystem::remove(invalidPath, ec);
+  manager.Shutdown();
 }

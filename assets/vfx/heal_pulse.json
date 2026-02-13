@@ -1,0 +1,36 @@
+{
+  "vfx_schema_version": 1,
+  "name": "HealPulse",
+  "duration": 0.7,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Particle",
+      "anchor": "Caster",
+      "params": {
+        "materialId": "Default",
+        "count": 9,
+        "speed": 52.0,
+        "speedVariance": 16.0,
+        "lifetime": 0.55,
+        "scale": 1.25,
+        "spreadAngle": 360.0,
+        "blendMode": 0
+      }
+    },
+    {
+      "time": 0.0,
+      "type": "Light",
+      "anchor": "Caster",
+      "params": {
+        "radius": 92.0,
+        "intensity": 1.5,
+        "color": [0.45, 1.0, 0.62],
+        "duration": 0.42,
+        "fadeInRatio": 0.15,
+        "fadeOutRatio": 0.5
+      }
+    }
+  ]
+}

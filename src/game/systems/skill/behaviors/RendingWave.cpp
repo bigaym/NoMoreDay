@@ -1,15 +1,15 @@
-/**
+﻿/**
  * @file RendingWave.cpp
- * @brief 裂空斩 (ID 2) - 投射物技能行为实现
+ * @brief 瑁傜┖鏂?(ID 2) - 鎶曞皠鐗╂妧鑳借涓哄疄鐜?
  *
- * 发射扇形剑气波，可穿透敌人。
+ * 鍙戝皠鎵囧舰鍓戞皵娉紝鍙┛閫忔晫浜恒€?
  *
- * 天赋分支:
- * - 210 多重剑气: 额外投射物
- * - 230 回旋劲: 回旋镖效果
- * - 250 灵力转化: 物理转虚空
- * - 252 剑意爆发: 满层爆发
- * - 253 剑意汲取: 命中回剑意
+ * 澶╄祴鍒嗘敮:
+ * - 210 澶氶噸鍓戞皵: 棰濆鎶曞皠鐗?
+ * - 230 鍥炴棆鍔? 鍥炴棆闀栨晥鏋?
+ * - 250 鐏靛姏杞寲: 鐗╃悊杞櫄绌?
+ * - 252 鍓戞剰鐖嗗彂: 婊″眰鐖嗗彂
+ * - 253 鍓戞剰姹插彇: 鍛戒腑鍥炲墤鎰?
  */
 
 #include "SkillBehaviorBase.hpp"
@@ -18,6 +18,7 @@
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/vfx/VFXSequenceManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/SkillDefs.hpp"
@@ -25,37 +26,58 @@
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "raymath.h"
+#include <string>
 
 
 namespace NoMoreDay::skills {
+namespace {
+
+bool TryPlayRendingWaveSequence(entt::registry &registry, entt::entity owner,
+                                const std::string &sequenceName,
+                                Vector2 targetPos) {
+  if (!registry.valid(owner) || sequenceName.empty()) {
+    return false;
+  }
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  if (manager.GetSequence(sequenceName) == nullptr) {
+    return false;
+  }
+
+  manager.Play(registry, owner, sequenceName, entt::null, false, targetPos.x,
+               targetPos.y, true);
+  return true;
+}
+
+} // namespace
 
 namespace RendingWaveNodes {
-// 基础分支 / Base
-constexpr uint32_t SwordQi = 200;     // 剑气纵横 / Sword Qi
-constexpr uint32_t Focus = 201;       // 凝神 / Focus
+// 鍩虹鍒嗘敮 / Base
+constexpr uint32_t SwordQi = 200;     // 鍓戞皵绾垫í / Sword Qi
+constexpr uint32_t Focus = 201;       // 鍑濈 / Focus
 
-// 投射分支 / Projectile branch
-constexpr uint32_t MultiWave = 210;   // 多重剑气 / Multi Wave
-constexpr uint32_t SplitBlade = 211;  // 碎裂之刃 / Split Blade
-constexpr uint32_t ChainReact = 212;  // 连锁反应 / Chain Reaction
-constexpr uint32_t BladeBurst = 213;  // 万剑归宗 / Blade Burst
+// 鎶曞皠鍒嗘敮 / Projectile branch
+constexpr uint32_t MultiWave = 210;   // 澶氶噸鍓戞皵 / Multi Wave
+constexpr uint32_t SplitBlade = 211;  // 纰庤涔嬪垉 / Split Blade
+constexpr uint32_t ChainReact = 212;  // 杩為攣鍙嶅簲 / Chain Reaction
+constexpr uint32_t BladeBurst = 213;  // 涓囧墤褰掑畻 / Blade Burst
 
-// 回旋分支 / Boomerang branch
-constexpr uint32_t Boomerang = 230;   // 回旋劲 / Boomerang
-constexpr uint32_t GravityTrap = 231; // 引力陷阱 / Gravity Trap
-constexpr uint32_t OverlapHit = 232;  // 重叠打击 / Overlap Hit
-constexpr uint32_t TimeLock = 233;    // 时空锁定 / Time Lock
+// 鍥炴棆鍒嗘敮 / Boomerang branch
+constexpr uint32_t Boomerang = 230;   // 鍥炴棆鍔?/ Boomerang
+constexpr uint32_t GravityTrap = 231; // 寮曞姏闄烽槺 / Gravity Trap
+constexpr uint32_t OverlapHit = 232;  // 閲嶅彔鎵撳嚮 / Overlap Hit
+constexpr uint32_t TimeLock = 233;    // 鏃剁┖閿佸畾 / Time Lock
 
-// 剑意分支 / Intent branch
-constexpr uint32_t VoidConvert = 250; // 灵力转化 / Void Convert
-constexpr uint32_t VoidErode = 251;   // 虚空侵蚀 / Void Erode
-constexpr uint32_t IntentBurst = 252; // 剑意爆发 / Intent Burst
-constexpr uint32_t IntentGain = 253;  // 剑意汲取 / Intent Gain
+// 鍓戞剰鍒嗘敮 / Intent branch
+constexpr uint32_t VoidConvert = 250; // 鐏靛姏杞寲 / Void Convert
+constexpr uint32_t VoidErode = 251;   // 铏氱┖渚佃殌 / Void Erode
+constexpr uint32_t IntentBurst = 252; // 鍓戞剰鐖嗗彂 / Intent Burst
+constexpr uint32_t IntentGain = 253;  // 鍓戞剰姹插彇 / Intent Gain
 
-// 元素分支 / Element branch
-constexpr uint32_t ElementForm = 270;     // 元素形态 / Element Form
-constexpr uint32_t AilmentSpread = 271;   // 异常扩散 / Ailment Spread
-constexpr uint32_t SpiritArmorPen = 272;  // 灵根破甲 / Spirit Armor Pen
+// 鍏冪礌鍒嗘敮 / Element branch
+constexpr uint32_t ElementForm = 270;     // 鍏冪礌褰㈡€?/ Element Form
+constexpr uint32_t AilmentSpread = 271;   // 寮傚父鎵╂暎 / Ailment Spread
+constexpr uint32_t SpiritArmorPen = 272;  // 鐏垫牴鐮寸敳 / Spirit Armor Pen
 } // namespace RendingWaveNodes
 
 struct RendingWave : SkillBehaviorBase<RendingWave> {
@@ -105,6 +127,8 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
     Vector2 baseDir =
         Vector2Normalize(Vector2Subtract(exec.target_pos, {pos->x, pos->y}));
+    TryPlayRendingWaveSequence(registry, owner, "LightningStrike",
+                               exec.target_pos);
 
     // --- TALENT BRANCH LOGIC ---
     int extraWaves = 0;
@@ -120,14 +144,14 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
-          // Talent: Jian Qi Zong Heng (剑气纵横) - ID 200
+          // Talent: Jian Qi Zong Heng (鍓戞皵绾垫í) - ID 200
           if (spec.allocated_points.contains(RendingWaveNodes::SwordQi)) {
             int pts = spec.allocated_points.at(RendingWaveNodes::SwordQi);
             baseRadius *= (1.0f + pts * 0.1f);
             talentWidthBonus = pts * 10.0f;
           }
 
-          // Talent: Duo Zhong Jian Qi (多重剑气) - ID 210
+          // Talent: Duo Zhong Jian Qi (澶氶噸鍓戞皵) - ID 210
           if (spec.allocated_points.contains(RendingWaveNodes::MultiWave)) {
             int pts = spec.allocated_points.at(RendingWaveNodes::MultiWave);
             extraWaves = pts;
@@ -135,33 +159,33 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
             damagePenalty = penalties[std::min(pts, 3)];
           }
 
-          // Talent: Sui Lie Zhi Ren (碎裂之刃) - ID 211
+          // Talent: Sui Lie Zhi Ren (纰庤涔嬪垉) - ID 211
           if (spec.allocated_points.contains(RendingWaveNodes::SplitBlade)) {
             splitOnDeath = true;
           }
 
-          // Talent: Wan Jian Gui Zong (万剑归宗) - ID 213
+          // Talent: Wan Jian Gui Zong (涓囧墤褰掑畻) - ID 213
           if (spec.allocated_points.contains(RendingWaveNodes::BladeBurst)) {
             explodeOnHit = true;
           }
 
-          // Talent: Hui Xuan Jin (回旋劲) - ID 230
+          // Talent: Hui Xuan Jin (鍥炴棆鍔? - ID 230
           if (spec.allocated_points.contains(RendingWaveNodes::Boomerang)) {
             boomerang = true;
           }
 
-          // Talent: Shi Kong Suo Ding (时空锁定) - ID 233
+          // Talent: Shi Kong Suo Ding (鏃剁┖閿佸畾) - ID 233
           if (spec.allocated_points.contains(RendingWaveNodes::TimeLock)) {
             hoverAtApex = true;
           }
 
-          // Talent: Ling Li Zhuan Hua (灵力转化) - ID 250
+          // Talent: Ling Li Zhuan Hua (鐏靛姏杞寲) - ID 250
           if (spec.allocated_points.contains(RendingWaveNodes::VoidConvert) &&
               spec.allocated_points.at(RendingWaveNodes::VoidConvert) > 0) {
             isVoid = true;
           }
 
-          // Talent: Element Form (元素形态) - ID 270
+          // Talent: Element Form (鍏冪礌褰㈡€? - ID 270
           if (spec.allocated_points.contains(RendingWaveNodes::ElementForm) &&
               spec.allocated_points.at(RendingWaveNodes::ElementForm) > 0) {
             elementalConv = ResolveElementalConversion(
@@ -169,7 +193,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
                 spec.allocated_points.at(RendingWaveNodes::ElementForm));
           }
 
-          // Talent: Jian Yi Bao Fa (剑意爆发) - ID 252
+          // Talent: Jian Yi Bao Fa (鍓戞剰鐖嗗彂) - ID 252
           if (spec.allocated_points.contains(RendingWaveNodes::IntentBurst) &&
               spec.allocated_points.at(RendingWaveNodes::IntentBurst) > 0) {
             if (auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
@@ -241,7 +265,10 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     if (exec.is_empowered) {
       totalCount *= 2;
       LOG_INFO("Empowered Rending Wave: Double projectiles!");
-      RenderSystem::AddScreenShake(0.2f);
+      if (!TryPlayRendingWaveSequence(registry, owner, "FireExplosion",
+                                      exec.target_pos)) {
+        RenderSystem::AddScreenShake(0.2f);
+      }
     }
 
     float spread = 0.4f + (totalCount * 0.05f);
@@ -399,7 +426,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
-          // Talent: Jian Yi Ji Qu (剑意汲取) - ID 253
+          // Talent: Jian Yi Ji Qu (鍓戞剰姹插彇) - ID 253
           if (spec.allocated_points.contains(RendingWaveNodes::IntentGain)) {
             int pts = spec.allocated_points.at(RendingWaveNodes::IntentGain);
             if (pts > 0 && GetRandomValue(0, 100) < 10 * pts) {

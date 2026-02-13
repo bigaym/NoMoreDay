@@ -14,6 +14,7 @@ constexpr uint32_t kGLDepthAttachment = 0x8D00;
 constexpr uint32_t kGLFramebufferComplete = 0x8CD5;
 constexpr uint32_t kGLDepthComponent24 = 0x81A6;
 constexpr uint32_t kGLRgba = 0x1908;
+constexpr uint32_t kGLRg = 0x8227;
 constexpr uint32_t kGLHalfFloat = 0x140B;
 constexpr uint32_t kGLUnsignedByte = 0x1401;
 constexpr uint32_t kGLTextureMinFilter = 0x2801;
@@ -23,6 +24,7 @@ constexpr uint32_t kGLTextureWrapT = 0x2803;
 constexpr uint32_t kGLLinear = 0x2601;
 constexpr uint32_t kGLClampToEdge = 0x812F;
 constexpr uint32_t kGLRgba16f = 0x881A;
+constexpr uint32_t kGLRg16f = 0x822F;
 
 } // namespace
 
@@ -49,11 +51,18 @@ FramebufferHandle FramebufferManager::Create(int width, int height,
   NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2D, kGLTextureWrapT,
                                             kGLClampToEdge);
 
-  const uint32_t textureType =
-      (internalFormat == kGLRgba16f) ? kGLHalfFloat : kGLUnsignedByte;
+  uint32_t uploadFormat = kGLRgba;
+  uint32_t textureType = kGLUnsignedByte;
+  if (internalFormat == kGLRgba16f) {
+    uploadFormat = kGLRgba;
+    textureType = kGLHalfFloat;
+  } else if (internalFormat == kGLRg16f) {
+    uploadFormat = kGLRg;
+    textureType = kGLHalfFloat;
+  }
   NoMoreDay::utils::GPUUtils::TexImage2D(
       kGLTexture2D, 0, static_cast<int>(internalFormat), width, height, 0,
-      kGLRgba, textureType, nullptr);
+      uploadFormat, textureType, nullptr);
   NoMoreDay::utils::GPUUtils::FramebufferTexture2D(
       kGLFramebuffer, kGLColorAttachment0, kGLTexture2D, handle.colorTexture,
       0);

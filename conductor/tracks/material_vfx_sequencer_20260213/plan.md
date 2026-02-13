@@ -13,16 +13,16 @@
 |------|------|----------|----------|------|
 | **A** | 材质数据层 | `GPUMaterialData`, `MaterialInstance`, `MaterialDefs.hpp` | 2h | ✅ |
 | **B** | 材质管理器 | `MaterialManager`, SSBO 上传/绑定, 预设注册 | 3h | ✅ |
-| **C** | 材质 JSON 管线 | JSON 解析, 热重载, Schema 校验 | 2h | 🚧 |
-| **D** | 材质 Shader 集成 | 粒子/实体 Shader 消费 materialId | 3h | 🚧 |
-| **E** | VFX 数据模型 | `VFXEvent`, `VFXSequenceAsset`, `VFXPlayerComponent` | 2h | ⏳ |
-| **F** | VFX 序列管理器 | `VFXSequenceManager`, JSON 加载, 播放 API | 3h | ⏳ |
-| **G** | VFX 序列器系统 | `VFXSequencerSystem`, 事件分发, 子系统调用 | 4h | ⏳ |
-| **H** | Screen Distortion Pass | `DistortionPass`, FBO, Shader, Pipeline 插入 | 4h | ⏳ |
-| **I** | RenderConfig 扩展 | QualityTier Phase 4 配置, Binding 注册 | 1h | 🚧 |
-| **J** | 预制 VFX 序列库 | 10+ JSON 序列资产, 游戏集成 | 4h | ⏳ |
-| **K** | 单测与性能验证 | MaterialTest, VFXSequencerTest, DistortionBenchmark | 3h | 🚧 |
-| **L** | 文档归档 | 进度更新, Track 关闭 | 0.5h | ⏳ |
+| **C** | 材质 JSON 管线 | JSON 解析, 热重载, Schema 校验 | 2h | ✅ |
+| **D** | 材质 Shader 集成 | 粒子/实体 Shader 消费 materialId | 3h | ✅ |
+| **E** | VFX 数据模型 | `VFXEvent`, `VFXSequenceAsset`, `VFXPlayerComponent` | 2h | ✅ |
+| **F** | VFX 序列管理器 | `VFXSequenceManager`, JSON 加载, 播放 API | 3h | ✅ |
+| **G** | VFX 序列器系统 | `VFXSequencerSystem`, 事件分发, 子系统调用 | 4h | ✅ |
+| **H** | Screen Distortion Pass | `DistortionPass`, FBO, Shader, Pipeline 插入 | 4h | 🚧 |
+| **I** | RenderConfig 扩展 | QualityTier Phase 4 配置, Binding 注册 | 1h | ✅ |
+| **J** | 预制 VFX 序列库 | 10+ JSON 序列资产, 游戏集成 | 4h | 🚧 |
+| **K** | 单测与性能验证 | MaterialTest, VFXSequencerTest, DistortionBenchmark | 3h | ✅ |
+| **L** | 文档归档 | 进度更新, Track 关闭 | 0.5h | 🚧 |
 
 **依赖图:**
 ```
@@ -85,7 +85,7 @@ H ← I ───────┘
 
 ### Task C.2: 热重载支持
 - [x] 实现 `TryHotReload()`: 检查文件修改时间, 仅在 `RenderConfig::hotReloadEnabled` 时生效
-- [ ] 双缓冲策略: 新材质解析成功后原子替换, 失败不影响当前
+- [x] 双缓冲策略: 新材质解析成功后原子替换, 失败不影响当前
 
 ### Task C.3: 创建初始 JSON 资产
 - [x] 新建 `assets/data/materials_vfx.json`
@@ -109,7 +109,7 @@ H ← I ───────┘
 ### Task D.3: GPUParticle materialId 打包
 - [x] 修改 `GPUParticleSystem::Emit()` 或发射调用方: 将 materialId 打包入 flags 高 16 位
 - [x] 辅助函数: `PackMaterialId(uint32_t& flags, int materialId)` / `UnpackMaterialId(uint32_t flags)`
-- [ ] 验证: 发射带 materialId 的粒子, 渲染颜色由材质驱动
+- [x] 验证: 发射带 materialId 的粒子, 渲染颜色由材质驱动（见 `evidence/2.png`、`evidence/4_ultra.png`、`evidence/4_low.png`）
 
 ### Task D.4: RenderSystem 集成 MaterialManager
 - [x] 在 `RenderSystem::Initialize()` 中调用 `MaterialManager::Get().Initialize()`
@@ -121,96 +121,96 @@ H ← I ───────┘
 ## Phase E: VFX 数据模型 (VFX Data Model)
 
 ### Task E.1: VFX 核心结构体定义
-- [ ] 新建 `src/engine/vfx/VFXTypes.hpp`
-- [ ] 定义 `AnchorType` 枚举
-- [ ] 定义 `EventType` 枚举
-- [ ] 定义各参数结构: `ParticleEventParams`, `TrailEventParams`, `LightEventParams`, `ShakeEventParams`, `DistortionEventParams`, `SoundEventParams`, `MaterialSwapParams`
-- [ ] 定义 `EventParams = std::variant<...>`
-- [ ] 定义 `VFXEvent` 和 `VFXSequenceAsset`
+- [x] 新建 `src/engine/vfx/VFXTypes.hpp`
+- [x] 定义 `AnchorType` 枚举
+- [x] 定义 `EventType` 枚举
+- [x] 定义各参数结构: `ParticleEventParams`, `TrailEventParams`, `LightEventParams`, `ShakeEventParams`, `DistortionEventParams`, `SoundEventParams`, `MaterialSwapParams`
+- [x] 定义 `EventParams = std::variant<...>`
+- [x] 定义 `VFXEvent` 和 `VFXSequenceAsset`
 
 ### Task E.2: VFX 播放器组件
-- [ ] 新建 `src/engine/vfx/VFXPlayerComponent.hpp`
-- [ ] 定义 `VFXPlayerComponent` ECS 组件
-- [ ] 验证: 编译通过, 所有结构体大小合规
+- [x] 新建 `src/engine/vfx/VFXPlayerComponent.hpp`
+- [x] 定义 `VFXPlayerComponent` ECS 组件
+- [x] 验证: 编译通过, 所有结构体大小合规
 
 ---
 
 ## Phase F: VFX 序列管理器 (VFX Sequence Manager)
 
 ### Task F.1: VFXSequenceManager 核心实现
-- [ ] 新建 `src/engine/vfx/VFXSequenceManager.hpp` 和 `.cpp`
-- [ ] 实现单例 `Get()`
-- [ ] 实现 `Initialize()` / `Shutdown()`
+- [x] 新建 `src/engine/vfx/VFXSequenceManager.hpp` 和 `.cpp`
+- [x] 实现单例 `Get()`
+- [x] 实现 `Initialize()` / `Shutdown()`
 
 ### Task F.2: JSON 加载
-- [ ] 实现 `LoadFromJson(path)`: 扫描 `assets/vfx/` 目录下所有 `.json` 文件
-- [ ] 解析 `vfx_schema_version`, `name`, `duration`, `minTier`, `events[]`
-- [ ] 事件参数解析: 根据 `type` 字段构造对应 variant
-- [ ] materialId 字段: 支持字符串名称 (通过 MaterialManager 查找 ID)
-- [ ] 回退: 解析失败跳过该序列 + 日志
+- [x] 实现 `LoadFromJson(path)`: 扫描 `assets/vfx/` 目录下所有 `.json` 文件
+- [x] 解析 `vfx_schema_version`, `name`, `duration`, `minTier`, `events[]`
+- [x] 事件参数解析: 根据 `type` 字段构造对应 variant
+- [x] materialId 字段: 支持字符串名称 (通过 MaterialManager 查找 ID)
+- [x] 回退: 解析失败跳过该序列 + 日志
 
 ### Task F.3: 播放控制 API
-- [ ] 实现 `Play(registry, entity, sequenceName, target, loop)`: 挂载 `VFXPlayerComponent`
-- [ ] 实现 `Stop(registry, entity)`: 移除 `VFXPlayerComponent`
-- [ ] 实现 `GetSequence()`, `GetSequenceId()`
+- [x] 实现 `Play(registry, entity, sequenceName, target, loop)`: 挂载 `VFXPlayerComponent`
+- [x] 实现 `Stop(registry, entity)`: 移除 `VFXPlayerComponent`
+- [x] 实现 `GetSequence()`, `GetSequenceId()`
 
 ### Task F.4: 热重载
-- [ ] 实现 `TryHotReload()`: 监听文件修改时间, 重新解析变更文件
-- [ ] 验证: 手动修改 JSON 后调用热重载, 序列数据更新
+- [x] 实现 `TryHotReload()`: 监听文件修改时间, 重新解析变更文件
+- [x] 验证: 手动修改 JSON 后调用热重载, 序列数据更新
 
 ---
 
 ## Phase G: VFX 序列器系统 (VFX Sequencer System)
 
 ### Task G.1: VFXSequencerSystem 核心循环
-- [ ] 新建 `src/engine/vfx/VFXSequencerSystem.hpp` 和 `.cpp`
-- [ ] 实现 `Update(registry, dt)`:
+- [x] 新建 `src/engine/vfx/VFXSequencerSystem.hpp` 和 `.cpp`
+- [x] 实现 `Update(registry, dt)`:
   1. 遍历所有 `VFXPlayerComponent`
   2. 递增 `elapsed`
   3. 检查 `events[nextEventIdx].time <= elapsed` → 触发
   4. 序列结束: loop 则重置, 否则移除组件
 
 ### Task G.2: 事件分发
-- [ ] 实现 `DispatchEvent()`: 计算世界坐标 (基于 AnchorType + 实体 Position)
-- [ ] QualityTier 检查: 事件的 `minTier > currentTier` 则跳过
-- [ ] `vfxSequenceDetail` 检查: minimal 模式只触发 Low tier 事件
+- [x] 实现 `DispatchEvent()`: 计算世界坐标 (基于 AnchorType + 实体 Position)
+- [x] QualityTier 检查: 事件的 `minTier > currentTier` 则跳过
+- [x] `vfxSequenceDetail` 检查: minimal 模式只触发 Low tier 事件
 
 ### Task G.3: 各事件执行器
-- [ ] `ExecuteParticle()`: 构建 `GPUParticle`, 打包 materialId, 调用 `GPUParticleSystem::Emit()`
-- [ ] `ExecuteTrail()`: 调用 `TrailSystem` GPU 路径
-- [ ] `ExecuteLight()`: 调用 `LightManager::AddTransientLight()` (需确认现有接口)
-- [ ] `ExecuteShake()`: 调用 `RenderSystem::AddScreenShake()`
-- [ ] `ExecuteDistortion()`: 调用 `DistortionPass::AddDistortionSource()`
-- [ ] `ExecuteSound()`: 调用现有音频接口
+- [x] `ExecuteParticle()`: 构建 `GPUParticle`, 打包 materialId, 调用 `GPUParticleSystem::Emit()`
+- [x] `ExecuteTrail()`: 调用 `TrailSystem` GPU 路径
+- [x] `ExecuteLight()`: 调用 `LightManager::AddTransientLight()` (需确认现有接口)
+- [x] `ExecuteShake()`: 调用 `RenderSystem::AddScreenShake()`
+- [x] `ExecuteDistortion()`: 调用 `DistortionPass::AddDistortionSource()`
+- [x] `ExecuteSound()`: 调用现有音频接口
 
 ### Task G.4: GameplayState 集成
-- [ ] 在 `GameplayState::Update()` 中调用 `VFXSequencerSystem::Update()`
-- [ ] 在 `GameplayState::Initialize()` 中调用 `VFXSequenceManager::Get().Initialize()` 和 `LoadFromJson()`
-- [ ] 验证: 手动触发 Play(), 事件按时间线正确执行
+- [x] 在 `GameplayState::Update()` 中调用 `VFXSequencerSystem::Update()`
+- [x] 在 `GameplayState::Initialize()` 中调用 `VFXSequenceManager::Get().Initialize()` 和 `LoadFromJson()`
+- [x] 验证: 手动触发 Play(), 事件按时间线正确执行
 
 ---
 
 ## Phase H: Screen Distortion Pass
 
 ### Task H.1: DistortionPass 核心实现
-- [ ] 新建 `src/engine/render/passes/DistortionPass.hpp` 和 `.cpp`
-- [ ] 实现 `Initialize()`: 创建 Distortion FBO (RG16F), 创建 SSBO
-- [ ] 实现 `Shutdown()` / `OnResize()`
-- [ ] 实现 `AddDistortionSource()`: 追加到 `m_sources[]`, 递增 `m_activeCount`
+- [x] 新建 `src/engine/render/passes/DistortionPass.hpp` 和 `.cpp`
+- [x] 实现 `Initialize()`: 创建 Distortion FBO (RG16F), 创建 SSBO
+- [x] 实现 `Shutdown()` / `OnResize()`
+- [x] 实现 `AddDistortionSource()`: 追加到 `m_sources[]`, 递增 `m_activeCount`
 
 ### Task H.2: Distortion 写入 Shader
-- [ ] 新建 `assets/shaders/postprocess/distortion_write.frag`
-- [ ] 逻辑: 对每个扭曲源画环形渐变扭曲到 Distortion Buffer
-- [ ] 使用 SSBO 传入 GPUDistortionSource[]
+- [x] 新建 `assets/shaders/postprocess/distortion_write.frag`
+- [x] 逻辑: 对每个扭曲源画环形渐变扭曲到 Distortion Buffer
+- [x] 使用 SSBO 传入 GPUDistortionSource[]
 
 ### Task H.3: Distortion 应用 Shader
-- [ ] 新建 `assets/shaders/postprocess/distortion_apply.frag`
-- [ ] 逻辑: 采样 LDR + Distortion Buffer, 偏移 UV 输出最终画面
+- [x] 新建 `assets/shaders/postprocess/distortion_apply.frag`
+- [x] 逻辑: 采样 LDR + Distortion Buffer, 偏移 UV 输出最终画面
 
 ### Task H.4: Pipeline 集成
-- [ ] `RenderSystem` 中在 PostProcessPass 之后、CompositePass 之前插入 DistortionPass
-- [ ] 仅当 `RenderConfig::distortionEnabled` 为 true 时执行
-- [ ] 每帧开始清零 `m_activeCount`
+- [x] `RenderSystem` 中在 PostProcessPass 之后、CompositePass 之前插入 DistortionPass
+- [x] 仅当 `RenderConfig::distortionEnabled` 为 true 时执行
+- [x] 每帧开始清零 `m_activeCount`（在 `DistortionPass::Execute()` 末尾统一 `ResetSources()`，并在 pass 不启用时显式清零）
 - [ ] 验证: 手动 AddDistortionSource, 屏幕出现环形扭曲效果
 
 ---
@@ -222,16 +222,16 @@ H ← I ───────┘
 - [x] `QualityTierManager::UpdateConfigForTier()`: 添加四档配置
 
 ### Task I.2: Binding Point 注册
-- [ ] `RenderConstants.hpp`: 新增 `Binding::MATERIAL_SSBO = 8`, `Binding::DISTORTION_SSBO = 9`
-- [ ] 验证: 不与已有绑定点冲突
+- [x] `RenderConstants.hpp`: 新增 `Binding::MATERIAL_SSBO` 与 `Binding::DISTORTION_SSBO`（别名映射到 Phase 4 实际槽位）
+- [x] 验证: 不与已有绑定点冲突
 
 ---
 
 ## Phase J: 预制 VFX 序列库 (Prefab Library)
 
 ### Task J.1: 创建 VFX JSON 资产
-- [ ] 新建 `assets/vfx/` 目录
-- [ ] 编写 10 个 JSON 序列文件:
+- [x] 新建 `assets/vfx/` 目录
+- [x] 编写 10 个 JSON 序列文件:
   - `sword_slash.json`
   - `fire_explosion.json`
   - `ice_shatter.json`
@@ -244,13 +244,13 @@ H ← I ───────┘
   - `item_drop_legendary.json`
 
 ### Task J.2: 技能系统集成
-- [ ] 在 `VisualFXSystem::Initialize()` 的 CombatEvent 回调中, 替换硬编码粒子为 `VFXSequenceManager::Get().Play()`
-- [ ] 在技能行为 (FlowingThrust, RendingWave 等) 中, 替换硬编码 ScreenShake/Particle 为 VFX 序列
-- [ ] 保留兼容路径: 若对应 VFX 序列不存在, 回退到原有硬编码逻辑
+- [x] 在 `VisualFXSystem::Initialize()` 的 CombatEvent 回调中, 替换硬编码粒子为 `VFXSequenceManager::Get().Play()`
+- [x] 在技能行为 (FlowingThrust, RendingWave 等) 中, 替换硬编码 ScreenShake/Particle 为 VFX 序列
+- [x] 保留兼容路径: 若对应 VFX 序列不存在, 回退到原有硬编码逻辑
 
 ### Task J.3: 验证
 - [ ] 逐个验证 10 个序列在游戏中的视觉表现
-- [ ] 确认 QualityTier 降级正确 (Low 模式跳过 Distortion 事件)
+- [x] 确认 QualityTier 降级正确 (Low 模式跳过 Distortion 事件)（用户实机截图 `evidence/4_ultra.png`、`evidence/4_low.png`）
 
 ---
 
@@ -262,35 +262,61 @@ H ← I ───────┘
 - [x] 测试: GPUMaterialData 布局 (sizeof/offsetof 断言)
 
 ### Task K.2: VFX 序列器单测
-- [ ] 新建 `tests/unit/VFXSequencerTest.cpp`
-- [ ] 测试: JSON 加载、事件排序、播放器推进、循环/结束、QualityTier 过滤
-- [ ] 测试: 无效 JSON 回退 (不崩溃)
+- [x] 新建 `tests/unit/VFXSequencerTest.cpp`
+- [x] 测试: JSON 加载、事件排序、播放器推进、循环/结束、QualityTier 过滤
+- [x] 测试: 无效 JSON 回退 (不崩溃)
 
 ### Task K.3: Distortion Pass 测试
-- [ ] 新建 `tests/unit/DistortionTest.cpp`
-- [ ] 测试: DistortionSource 添加/清零、最大数量限制
+- [x] 新建 `tests/unit/DistortionTest.cpp`
+- [x] 测试: DistortionSource 添加/清零、最大数量限制
 
 ### Task K.4: 性能基准
-- [ ] 扩展 `tests/performance/` 或新建 `MaterialVFXBenchmark.cpp`
-- [ ] 基准: MaterialManager SSBO 同步 < 0.05ms
-- [ ] 基准: VFXSequencerSystem 100 活跃播放器 < 0.1ms
-- [ ] 基准: DistortionPass 2K@8 活跃源 < 0.3ms
+- [x] 扩展 `tests/performance/` 或新建 `MaterialVFXBenchmark.cpp`
+- [x] 基准: MaterialManager SSBO 同步 < 0.05ms
+- [x] 基准: VFXSequencerSystem 100 活跃播放器 < 0.1ms
+- [x] 基准: DistortionPass 2K@8 活跃源 < 0.3ms
 
 ### Task K.5: 全量回归
-- [ ] 运行 `NoMoreDayTests.exe`, 全量测试通过
-- [ ] 短时实机运行, 日志无 GL 错误/泄漏
+- [x] 运行 `NoMoreDayTests.exe`, 全量测试通过
+- [x] 短时实机运行, 日志无 GL 错误/泄漏
 
 ---
 
 ## Phase L: 文档归档
 
 ### Task L.1: 更新进度
-- [ ] 更新 `conductor/rendering_system_progress.md`: Phase 4 验收记录
-- [ ] 更新 `conductor/tracks.md`: Track 状态 → COMPLETED
+- [x] 更新 `conductor/rendering_system_progress.md`: Phase 4 验收记录
+- [x] 更新 `conductor/tracks.md`: Track 状态同步（仍保留 IN_PROGRESS，待完成 L2 归档关闭）
 
 ### Task L.2: 归档
 - [ ] 归档到 `conductor/archive/material_vfx_sequencer_20260213/`
 - [ ] 关闭 Track
+
+---
+
+## Phase M: 回归保护与画质差异修复（下一轮实施）
+
+> 背景：当前验证中发现“离屏路径强开内部 HDR/Distortion”会触发 `BUG-20260212-001` 风险；同时 `4_low`/`4_ultra` 差异不明显。
+
+### Task M.1: 恢复并锁定 BUG-20260212-001 安全门控
+- [x] 恢复 `RenderSystem` 的离屏安全门控（内部 HDR 链路仅默认 framebuffer 路径启用）
+- [x] 在关键代码处增加注释，明确禁止直接在离屏 RT 复用默认 framebuffer 的后处理链路
+- [ ] 验证：复现场景下不再出现异常底色/资源渲染异常
+
+### Task M.2: 增强 Low/Ultra 可见差异（不依赖 Distortion）
+- [x] 调整 `assets/vfx/sword_slash.json`：增加 High/Ultra 可见增强事件（如额外 Particle/Light）
+- [x] 调整 `assets/vfx/lightning_strike.json` 或 `assets/vfx/fire_explosion.json`：补充高档位可见事件
+- [x] 保持 Low 档性能安全（仅触发基础事件）
+
+### Task M.3: 重新验证截图证据
+- [ ] 采集 `Low`/`Ultra` 同位置同技能对比图（至少一组 Q，一组右键）
+- [ ] 采集进入 Gameplay 的稳定渲染图（验证 BUG-20260212-001 未回归）
+- [ ] 证据文件落地到 `conductor/tracks/material_vfx_sequencer_20260213/evidence/`
+
+### Task M.4: 日志与回归检查
+- [x] 检查 `bin/logs/NoMoreDay.log`，确认无 GL error 相关记录
+- [x] 确认日志存在 VFX 序列加载与技能触发记录
+- [x] 更新 `conductor/bug_registry.md`：记录本次回归风险处理结果
 
 ---
 

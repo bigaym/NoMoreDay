@@ -1,19 +1,19 @@
-/**
+﻿/**
  * @file FlowingThrust.cpp
- * @brief 流云刺 (ID 1) - 突刺技能行为实现
+ * @brief 娴佷簯鍒?(ID 1) - 绐佸埡鎶€鑳借涓哄疄鐜?
  *
- * 冲刺向目标方向，沿途造成物理伤害。
+ * 鍐插埡鍚戠洰鏍囨柟鍚戯紝娌块€旈€犳垚鐗╃悊浼ゅ銆?
  *
- * 天赋分支:
- * - 110 贯日: 无限穿透
- * - 112 风行: 释放后获得移速加成
- * - 113 迅捷之刃: 移速转化为伤害
- * - 114 势如破竹: 远距离增伤
- * - 120 留影: 生成残影重复施法
- * - 121 剑意盈盈: 命中时概率获得剑意
- * - 124 影杀阵: 强化时触发
- * - 130 洞悉弱点: 对满血敌人暴击率提升
- * - 140 寒霜刺: 物理转冰霜
+ * 澶╄祴鍒嗘敮:
+ * - 110 璐棩: 鏃犻檺绌块€?
+ * - 112 椋庤: 閲婃斁鍚庤幏寰楃Щ閫熷姞鎴?
+ * - 113 杩呮嵎涔嬪垉: 绉婚€熻浆鍖栦负浼ゅ
+ * - 114 鍔垮鐮寸: 杩滆窛绂诲浼?
+ * - 120 鐣欏奖: 鐢熸垚娈嬪奖閲嶅鏂芥硶
+ * - 121 鍓戞剰鐩堢泩: 鍛戒腑鏃舵鐜囪幏寰楀墤鎰?
+ * - 124 褰辨潃闃? 寮哄寲鏃惰Е鍙?
+ * - 130 娲炴倝寮辩偣: 瀵规弧琛€鏁屼汉鏆村嚮鐜囨彁鍗?
+ * - 140 瀵掗湝鍒? 鐗╃悊杞啺闇?
  */
 
 #include "SkillBehaviorBase.hpp"
@@ -31,41 +31,61 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/vfx/VFXSequenceManager.hpp"
 #include "raymath.h"
+#include <string>
 
 namespace NoMoreDay::skills {
+namespace {
+
+bool TryPlayFlowingThrustSequence(entt::registry &registry, entt::entity owner,
+                         const std::string &sequenceName) {
+  if (!registry.valid(owner) || sequenceName.empty()) {
+    return false;
+  }
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  if (manager.GetSequence(sequenceName) == nullptr) {
+    return false;
+  }
+
+  manager.Play(registry, owner, sequenceName);
+  return true;
+}
+
+} // namespace
 
 namespace FlowingThrustNodes {
-// 基础分支
-constexpr uint32_t Speed = 100;      // 迅捷之刃
-constexpr uint32_t CritChance = 101; // 剑心
+// 鍩虹鍒嗘敮
+constexpr uint32_t Speed = 100;      // 杩呮嵎涔嬪垉
+constexpr uint32_t CritChance = 101; // 鍓戝績
 
-// 贯穿分支 (左上)
-constexpr uint32_t Pierce = 110;     // 贯日
-constexpr uint32_t Charges = 111;    // 连环
-constexpr uint32_t Momentum = 112;   // 势如破竹
-constexpr uint32_t Windrunner = 113; // 风行者
-constexpr uint32_t SwordEcho = 114;  // 剑气回响
+// 璐┛鍒嗘敮 (宸︿笂)
+constexpr uint32_t Pierce = 110;     // 璐棩
+constexpr uint32_t Charges = 111;    // 杩炵幆
+constexpr uint32_t Momentum = 112;   // 鍔垮鐮寸
+constexpr uint32_t Windrunner = 113; // 椋庤鑰?
+constexpr uint32_t SwordEcho = 114;  // 鍓戞皵鍥炲搷
 
-// 残影分支 (右上)
-constexpr uint32_t Shadow = 130;       // 留影
-constexpr uint32_t Teleport = 131;     // 移形换位
-constexpr uint32_t ShadowDomain = 132; // 影域
-constexpr uint32_t PrisonSlash = 133;  // 瞬狱影杀
-constexpr uint32_t Phantom = 134;      // 虚实相生
+// 娈嬪奖鍒嗘敮 (鍙充笂)
+constexpr uint32_t Shadow = 130;       // 鐣欏奖
+constexpr uint32_t Teleport = 131;     // 绉诲舰鎹綅
+constexpr uint32_t ShadowDomain = 132; // 褰卞煙
+constexpr uint32_t PrisonSlash = 133;  // 鐬嫳褰辨潃
+constexpr uint32_t Phantom = 134;      // 铏氬疄鐩哥敓
 
-// 暴击分支 (左下)
-constexpr uint32_t WeakPoint = 150;  // 要害感知
-constexpr uint32_t Bleed = 151;      // 重创
-constexpr uint32_t FatalBlow = 152;  // 绝命一击
-constexpr uint32_t AllIn = 153;      // 孤注一掷
-constexpr uint32_t ArmorBreak = 154; // 破甲之志
+// 鏆村嚮鍒嗘敮 (宸︿笅)
+constexpr uint32_t WeakPoint = 150;  // 瑕佸鎰熺煡
+constexpr uint32_t Bleed = 151;      // 閲嶅垱
+constexpr uint32_t FatalBlow = 152;  // 缁濆懡涓€鍑?
+constexpr uint32_t AllIn = 153;      // 瀛ゆ敞涓€鎺?
+constexpr uint32_t ArmorBreak = 154; // 鐮寸敳涔嬪織
 
-// 元素分支 (右下)
-constexpr uint32_t ElementShift = 170; // 元素幻化
-constexpr uint32_t ElementBody = 171;  // 元素身法
-constexpr uint32_t QiShield = 172;     // 气劲护体
-constexpr uint32_t Agility = 173;      // 灵动
+// 鍏冪礌鍒嗘敮 (鍙充笅)
+constexpr uint32_t ElementShift = 170; // 鍏冪礌骞诲寲
+constexpr uint32_t ElementBody = 171;  // 鍏冪礌韬硶
+constexpr uint32_t QiShield = 172;     // 姘斿姴鎶や綋
+constexpr uint32_t Agility = 173;      // 鐏靛姩
 } // namespace FlowingThrustNodes
 
 struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
@@ -83,6 +103,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     Vector2 startPos = {pos->x, pos->y};
     Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, startPos));
     float speed = 400.0f;
+    TryPlayFlowingThrustSequence(registry, owner, "SwordSlash");
 
     ElementalConversion elementalConv;
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
@@ -192,17 +213,19 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     // 2. End Point Burst - Removed per feedback
 
     if (exec.is_empowered) {
-      auto &particleSys = systems::GPUParticleSystem::Get();
-      auto goldParticles = systems::InkEffectHelper::CreateInkSplash(
-          startPos, 12, 10.0f, 150.0f);
-      for (auto &p : goldParticles) {
-        p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
-        p.flags |= 2;
-        particleSys.Emit(p);
+      if (!TryPlayFlowingThrustSequence(registry, owner, "CriticalHit")) {
+        auto &particleSys = systems::GPUParticleSystem::Get();
+        auto goldParticles = systems::InkEffectHelper::CreateInkSplash(
+            startPos, 12, 10.0f, 150.0f);
+        for (auto &p : goldParticles) {
+          p.color = systems::InkEffectHelper::COLOR_GOLD_CORE;
+          p.flags |= 2;
+          particleSys.Emit(p);
+        }
+        RenderSystem::AddScreenShake(0.15f);
       }
-      RenderSystem::AddScreenShake(0.15f);
 
-      // Talent: Prison Slash (瞬狱影杀) - ID 133 (Was 124)
+      // Talent: Prison Slash (鐬嫳褰辨潃) - ID 133 (Was 124)
       if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
         for (const auto &spec : active->specialized_slots) {
           if (spec.skill_id == 1 &&
@@ -225,19 +248,19 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == 1) {
-          // Talent: Guan Ri (贯日) - ID 110
+          // Talent: Guan Ri (璐棩) - ID 110
           if (spec.allocated_points.contains(FlowingThrustNodes::Pierce) &&
               spec.allocated_points.at(FlowingThrustNodes::Pierce) > 0) {
             forcePierce = true;
           }
 
-          // Talent: Liu Ying (留影) - ID 130
+          // Talent: Liu Ying (鐣欏奖) - ID 130
           if (spec.allocated_points.contains(FlowingThrustNodes::Shadow) &&
               spec.allocated_points.at(FlowingThrustNodes::Shadow) > 0) {
             spawnShadow = true;
           }
 
-          // Talent: Element Shift (元素幻化) - ID 170
+          // Talent: Element Shift (鍏冪礌骞诲寲) - ID 170
           if (spec.allocated_points.contains(
                   FlowingThrustNodes::ElementShift) &&
               spec.allocated_points.at(FlowingThrustNodes::ElementShift) > 0) {
@@ -246,7 +269,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                 spec.allocated_points.at(FlowingThrustNodes::ElementShift));
           }
 
-          // Talent: Momentum (势如破竹) - ID 112
+          // Talent: Momentum (鍔垮鐮寸) - ID 112
           if (spec.allocated_points.contains(FlowingThrustNodes::Momentum) &&
               spec.allocated_points.at(FlowingThrustNodes::Momentum) > 0) {
             float dist = Vector2Distance(startPos, exec.target_pos);
@@ -257,7 +280,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
             }
           }
 
-          // Talent: Feng Xing (风行者) - ID 113
+          // Talent: Feng Xing (椋庤鑰? - ID 113
           if (spec.allocated_points.contains(FlowingThrustNodes::Windrunner) &&
               spec.allocated_points.at(FlowingThrustNodes::Windrunner) > 0) {
             auto &effects =
@@ -279,7 +302,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
                      (uint32_t)owner);
           }
 
-          // Talent: Xun Jie Zhi Ren (迅捷之刃) - ID 100
+          // Talent: Xun Jie Zhi Ren (杩呮嵎涔嬪垉) - ID 100
           if (spec.allocated_points.contains(FlowingThrustNodes::Speed) &&
               spec.allocated_points.at(FlowingThrustNodes::Speed) > 0) {
             if (auto *combat = registry.try_get<CombatStats>(owner)) {

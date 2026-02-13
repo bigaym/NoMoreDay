@@ -1,0 +1,45 @@
+{
+  "vfx_schema_version": 1,
+  "name": "IceShatter",
+  "duration": 0.75,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Particle",
+      "anchor": "Impact",
+      "params": {
+        "materialId": "IceCrystal",
+        "count": 12,
+        "speed": 120.0,
+        "speedVariance": 35.0,
+        "lifetime": 0.5,
+        "scale": 0.9,
+        "spreadAngle": 330.0,
+        "blendMode": 0
+      }
+    },
+    {
+      "time": 0.0,
+      "type": "Light",
+      "anchor": "Impact",
+      "params": {
+        "radius": 105.0,
+        "intensity": 1.9,
+        "color": [0.42, 0.78, 1.0],
+        "duration": 0.26,
+        "fadeInRatio": 0.1,
+        "fadeOutRatio": 0.55
+      }
+    },
+    {
+      "time": 0.01,
+      "type": "Sound",
+      "params": {
+        "soundId": "",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "vfx_schema_version": 1,
+  "name": "ShadowNova",
+  "duration": 0.85,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Particle",
+      "anchor": "Impact",
+      "params": {
+        "materialId": "ShadowVoid",
+        "count": 16,
+        "speed": 95.0,
+        "speedVariance": 28.0,
+        "lifetime": 0.5,
+        "scale": 1.0,
+        "spreadAngle": 360.0,
+        "blendMode": 0
+      }
+    },
+    {
+      "time": 0.0,
+      "type": "Distortion",
+      "anchor": "Impact",
+      "minTier": "High",
+      "params": {
+        "radius": 150.0,
+        "strength": 0.5,
+        "duration": 0.34,
+        "speed": 380.0
+      }
+    },
+    {
+      "time": 0.01,
+      "type": "Light",
+      "anchor": "Impact",
+      "params": {
+        "radius": 126.0,
+        "intensity": 2.2,
+        "color": [0.53, 0.22, 0.86],
+        "duration": 0.36,
+        "fadeInRatio": 0.1,
+        "fadeOutRatio": 0.6
+      }
+    }
+  ]
+}

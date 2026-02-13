@@ -860,3 +860,31 @@ namespace NoMoreDay::render::core::Binding {
 
 *规格版本: 1.0*
 *最后更新: 2026-02-13*
+
+---
+
+## 12. 修订补充（2026-02-13）
+
+### 12.1 背景
+
+在尝试让离屏路径（`GameplayState` 中 `BeginTextureMode(m_sceneRT)`）也启用内部 HDR/PostProcess/Distortion 后，出现了与 `BUG-20260212-001` 相同的回归风险（场景底色异常与渲染稳定性问题）。  
+因此，Phase 4 后续改动必须区分“默认 framebuffer 路径”与“离屏 RT 路径”的后处理策略。
+
+### 12.2 强制约束（本 Track 后续执行必须遵守）
+
+1. 保持 `BUG-20260212-001` 的安全门控不被破坏：
+   - 内部 HDR 链路仅在默认 framebuffer 路径启用（即保留 `compositeTarget.framebuffer == 0` 条件）。
+2. 在未实现“离屏 RT 专用后处理链”前，禁止直接复用当前默认 framebuffer 的 Composite/HDR/Distortion 执行路径。
+3. 画质差异验证不得只依赖 Distortion 事件：
+   - 必须提供至少一个不依赖 Distortion 的高档位可见差异（例如高档位额外粒子/光照事件）。
+
+### 12.3 下一步目标（下一轮实施）
+
+1. 回归保护：
+   - 明确恢复并锁定 `BUG-20260212-001` 安全门控逻辑。
+2. 可见差异：
+   - 在 `SwordSlash` 与/或 `RendingWave` 序列中加入 High/Ultra 专属可见事件（非 Distortion）。
+3. 验证闭环：
+   - 提供 `Low` vs `Ultra` 同场景同技能对比截图；
+   - 日志中确认无 GL error；
+   - 复测 `BUG-20260212-001` 不复现。

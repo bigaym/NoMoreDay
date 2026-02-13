@@ -1,0 +1,49 @@
+{
+  "vfx_schema_version": 1,
+  "name": "BladeFormation",
+  "duration": 0.9,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Light",
+      "anchor": "Caster",
+      "params": {
+        "radius": 116.0,
+        "intensity": 1.9,
+        "color": [0.72, 0.9, 1.0],
+        "duration": 0.45,
+        "fadeInRatio": 0.12,
+        "fadeOutRatio": 0.45
+      }
+    },
+    {
+      "time": 0.05,
+      "type": "Trail",
+      "anchor": "Caster",
+      "params": {
+        "materialId": "HoloBlade",
+        "duration": 0.25,
+        "widthStart": 10.0,
+        "widthEnd": 2.0,
+        "colorStart": "0xC8E6FFFF",
+        "colorEnd": "0xC8E6FF00"
+      }
+    },
+    {
+      "time": 0.06,
+      "type": "Particle",
+      "anchor": "Caster",
+      "params": {
+        "materialId": "HoloBlade",
+        "count": 10,
+        "speed": 62.0,
+        "speedVariance": 20.0,
+        "lifetime": 0.4,
+        "scale": 1.1,
+        "spreadAngle": 260.0,
+        "blendMode": 0
+      }
+    }
+  ]
+}

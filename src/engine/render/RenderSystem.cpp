@@ -12,6 +12,7 @@
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "engine/render/passes/CompositePass.hpp"
+#include "engine/render/passes/DistortionPass.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
@@ -152,6 +153,7 @@ struct RenderFrameData {
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
 std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
 std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
+std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
 
 struct CompositeTargetState {
   uint32_t framebuffer = 0;
@@ -808,6 +810,21 @@ void ExecuteCompositePass(
 
 } // namespace
 
+void RenderSystem::AddDistortionSource(float worldX, float worldY, float radius,
+                                       float strength) {
+  if (g_distortionPass == nullptr) {
+    return;
+  }
+
+  const auto &config =
+      NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+  if (!config.distortionEnabled) {
+    return;
+  }
+
+  g_distortionPass->AddDistortionSource(worldX, worldY, radius, strength);
+}
+
 void RenderSystem::Initialize() {
   NoMoreDay::render::core::QualityTierManager::Get().Initialize("settings.json");
   NoMoreDay::render::MaterialManager::Get().Initialize();
@@ -826,6 +843,8 @@ void RenderSystem::Initialize() {
   g_postProcessPass->Initialize();
   g_lightingPass = std::make_shared<NoMoreDay::render::passes::LightingPass>();
   g_lightingPass->Initialize();
+  g_distortionPass = std::make_shared<NoMoreDay::render::passes::DistortionPass>();
+  g_distortionPass->Initialize();
 
   s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert",
                              "assets/shaders/ui/label_instanced.frag");
@@ -899,6 +918,10 @@ void RenderSystem::Shutdown() {
     g_postProcessPass->Shutdown();
     g_postProcessPass.reset();
   }
+  if (g_distortionPass) {
+    g_distortionPass->Shutdown();
+    g_distortionPass.reset();
+  }
   NoMoreDay::render::GPUTrailRenderer::Get().Shutdown();
   NoMoreDay::render::resources::FullscreenQuad::Shutdown();
   s_itemGrid = nullptr;
@@ -930,9 +953,9 @@ void RenderSystem::render(entt::registry &registry,
     NoMoreDay::render::MaterialManager::Get().BindSSBO(
         static_cast<int>(NoMoreDay::RenderConstants::Binding::SSBO_MATERIAL_DATA));
   }
-  // RenderSystem can be called from GameplayState inside BeginTextureMode(m_sceneRT).
-  // In that path we keep the old behavior and bypass internal full-screen composite
-  // to avoid camera-space/fullscreen conflicts in offscreen targets.
+  // Safety gate for BUG-20260212-001:
+  // internal HDR/post-process/distortion chain is only valid for the default
+  // framebuffer path. Offscreen RT path must use its dedicated pipeline.
   const bool useHdrSceneBuffer =
       renderConfig.bloomEnabled && (compositeTarget.framebuffer == 0);
   static bool s_prevUseHdrSceneBuffer = false;
@@ -946,6 +969,12 @@ void RenderSystem::render(entt::registry &registry,
              compositeTarget.framebuffer);
     s_prevUseHdrSceneBuffer = useHdrSceneBuffer;
     s_prevCompositeFramebuffer = compositeTarget.framebuffer;
+  }
+  const bool useDistortionPass =
+      useHdrSceneBuffer && renderConfig.distortionEnabled &&
+      (g_postProcessPass != nullptr) && (g_distortionPass != nullptr);
+  if (!useDistortionPass && g_distortionPass != nullptr) {
+    g_distortionPass->ResetSources();
   }
 
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
@@ -1037,11 +1066,20 @@ void RenderSystem::render(entt::registry &registry,
   if (useHdrSceneBuffer && g_postProcessPass != nullptr) {
     graph.AddPass(g_postProcessPass);
   }
+  if (useDistortionPass && g_distortionPass != nullptr &&
+      g_postProcessPass != nullptr) {
+    g_distortionPass->SetInputBuffer(&g_postProcessPass->GetOutputBuffer());
+    graph.AddPass(g_distortionPass);
+  }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::CompositePass>(
-      [useHdrSceneBuffer, compositeTarget](
+      [useHdrSceneBuffer, useDistortionPass, compositeTarget](
           NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
-        if (g_postProcessPass != nullptr &&
+        if (useDistortionPass && g_distortionPass != nullptr &&
+            g_distortionPass->GetOutputBuffer().IsValid()) {
+          ExecuteCompositePass(&g_distortionPass->GetOutputBuffer(),
+                               compositeTarget);
+        } else if (useHdrSceneBuffer && g_postProcessPass != nullptr &&
             g_postProcessPass->GetOutputBuffer().IsValid()) {
           ExecuteCompositePass(&g_postProcessPass->GetOutputBuffer(),
                                compositeTarget);

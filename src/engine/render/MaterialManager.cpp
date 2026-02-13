@@ -254,6 +254,86 @@ int MaterialManager::LoadFromJson(const std::string &path) {
     return 0;
   }
 
+  auto stagedMaterials = m_materials;
+  auto stagedGpuMaterials = m_gpuMaterials;
+  auto stagedRegistered = m_registered;
+  auto stagedNameToId = m_nameToId;
+
+  const MaterialInstance defaultMaterial = MaterialPresets::Default();
+  const components::GPUMaterialData defaultGpu = ToGpuData(defaultMaterial);
+  for (int id = PRESET_RESERVE; id < MAX_MATERIALS; ++id) {
+    stagedMaterials[id] = defaultMaterial;
+    stagedGpuMaterials[id] = defaultGpu;
+    stagedRegistered[id] = false;
+  }
+
+  for (auto it = stagedNameToId.begin(); it != stagedNameToId.end();) {
+    if (it->second >= PRESET_RESERVE) {
+      it = stagedNameToId.erase(it);
+    } else {
+      ++it;
+    }
+  }
+
+  int stagedMaterialCount = 0;
+  int stagedGpuUploadCount = 0;
+  for (int id = 0; id < MAX_MATERIALS; ++id) {
+    if (stagedRegistered[id]) {
+      ++stagedMaterialCount;
+      stagedGpuUploadCount = std::max(stagedGpuUploadCount, id + 1);
+    }
+  }
+
+  int stagedNextDynamicId = PRESET_RESERVE;
+  while (stagedNextDynamicId < MAX_MATERIALS &&
+         stagedRegistered[stagedNextDynamicId]) {
+    ++stagedNextDynamicId;
+  }
+
+  const auto stageMarkSlot = [&](int id, const MaterialInstance &material,
+                                 const std::string &name) {
+    if (id < 0 || id >= MAX_MATERIALS) {
+      return;
+    }
+
+    if (!stagedRegistered[id]) {
+      stagedRegistered[id] = true;
+      ++stagedMaterialCount;
+    }
+
+    stagedMaterials[id] = material;
+    stagedGpuMaterials[id] = ToGpuData(material);
+    stagedGpuUploadCount = std::max(stagedGpuUploadCount, id + 1);
+    if (!name.empty()) {
+      stagedNameToId[name] = id;
+    }
+  };
+
+  const auto stageRegisterMaterial =
+      [&](const MaterialInstance &material, const std::string &name) -> int {
+    if (!name.empty()) {
+      const auto existing = stagedNameToId.find(name);
+      if (existing != stagedNameToId.end()) {
+        stageMarkSlot(existing->second, material, name);
+        return existing->second;
+      }
+    }
+
+    while (stagedNextDynamicId < MAX_MATERIALS &&
+           stagedRegistered[stagedNextDynamicId]) {
+      ++stagedNextDynamicId;
+    }
+    if (stagedNextDynamicId >= MAX_MATERIALS) {
+      LOG_WARN("MaterialManager: max material capacity {} reached",
+               MAX_MATERIALS);
+      return -1;
+    }
+
+    const int id = stagedNextDynamicId++;
+    stageMarkSlot(id, material, name);
+    return id;
+  };
+
   int loaded = 0;
   for (const auto &item : document["materials"]) {
     if (!item.is_object()) {
@@ -275,7 +355,7 @@ int MaterialManager::LoadFromJson(const std::string &path) {
       ParseTextureSlots(item, material);
 
       const std::string name = item["name"].get<std::string>();
-      if (RegisterMaterial(material, name) >= 0) {
+      if (stageRegisterMaterial(material, name) >= 0) {
         ++loaded;
       }
     } catch (const std::exception &e) {
@@ -290,6 +370,15 @@ int MaterialManager::LoadFromJson(const std::string &path) {
     m_lastModified = {};
   }
   m_jsonPath = path;
+
+  m_materials = std::move(stagedMaterials);
+  m_gpuMaterials = std::move(stagedGpuMaterials);
+  m_registered = std::move(stagedRegistered);
+  m_nameToId = std::move(stagedNameToId);
+  m_materialCount = stagedMaterialCount;
+  m_nextDynamicId = stagedNextDynamicId;
+  m_gpuUploadCount = stagedGpuUploadCount;
+  m_dirty = true;
 
   LOG_INFO("MaterialManager: loaded {} materials from {}", loaded, path);
   return loaded;

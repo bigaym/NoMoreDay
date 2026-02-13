@@ -9,7 +9,7 @@ NoMoreDay 开发代理规则（Windows）。
 - 构建入口固定为仓库根目录 `build.bat`（MSVC 环境）。
 - 关键日志：
   - 运行日志：`bin/logs/NoMoreDay.log`
-  - 构建输出：`build.bat` 控制台
+  - 构建输出：`.\build.bat` 控制台
 
 ## 2) 编码规则（强制）
 - 文本/Markdown 一律 UTF-8；中文文档优先 UTF-8 with BOM。
@@ -25,7 +25,7 @@ NoMoreDay 开发代理规则（Windows）。
 - 认知约束：乱码通常源于错误解码/重编码链路（ACP/GBK/终端码页），非 BOM 本身。
 
 ## 3) 构建与验证流程
-1. 运行 `build.bat`。
+1. 运行 `.\build.bat`。
 2. 若失败，先修编译错误，再继续。
 3. 直到 `build.bat` 成功。
 4. 启动游戏进行运行验证。

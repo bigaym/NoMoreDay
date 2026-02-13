@@ -39,6 +39,8 @@ public:
 
     // Screen Shake API
     static void AddScreenShake(float intensity);
+    static void AddDistortionSource(float worldX, float worldY, float radius,
+                                    float strength);
     static void UpdateShake(float dt);
     static Vector2 GetShakeOffset();
     static void SetShakeMultiplier(float multiplier) { s_shakeMultiplier = multiplier; }

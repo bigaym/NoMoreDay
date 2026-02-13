@@ -1,0 +1,45 @@
+{
+  "vfx_schema_version": 1,
+  "name": "ItemDrop_Legendary",
+  "duration": 1.2,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Light",
+      "anchor": "World",
+      "params": {
+        "radius": 170.0,
+        "intensity": 1.9,
+        "color": [1.0, 0.83, 0.4],
+        "duration": 1.0,
+        "fadeInRatio": 0.08,
+        "fadeOutRatio": 0.3
+      }
+    },
+    {
+      "time": 0.02,
+      "type": "Particle",
+      "anchor": "World",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 12,
+        "speed": 60.0,
+        "speedVariance": 18.0,
+        "lifetime": 0.8,
+        "scale": 1.05,
+        "spreadAngle": 360.0,
+        "blendMode": 1
+      }
+    },
+    {
+      "time": 0.02,
+      "type": "Sound",
+      "params": {
+        "soundId": "",
+        "volume": 1.0,
+        "pitch": 1.0
+      }
+    }
+  ]
+}

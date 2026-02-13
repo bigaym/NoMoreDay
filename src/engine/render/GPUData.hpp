@@ -115,6 +115,20 @@ struct GPUMaterialData {
 static_assert(sizeof(GPUMaterialData) == 64,
               "GPUMaterialData struct must be exactly 64 bytes for SSBO alignment");
 
+/**
+ * @brief Structure for GPU distortion sources (screen-space shockwaves).
+ * STRICTLY 16 BYTES for std430 alignment.
+ */
+struct GPUDistortionSource {
+  float posX = 0.0f;
+  float posY = 0.0f;
+  float radius = 0.0f;
+  float strength = 0.0f;
+};
+
+static_assert(sizeof(GPUDistortionSource) == 16,
+              "GPUDistortionSource must be 16 bytes for SSBO alignment");
+
 struct GPUTrailPoint {
   float posX = 0.0f;
   float posY = 0.0f;
