@@ -7,14 +7,14 @@
 
 namespace NoMoreDay::render::passes {
 
-class LightingPass final : public graph::RenderPass {
+class VolumetricLightPass final : public graph::RenderPass {
 public:
-  LightingPass();
-  ~LightingPass() override;
+  VolumetricLightPass();
+  ~VolumetricLightPass() override;
 
   void Setup(graph::RenderGraphBuilder &builder) override;
   void Execute(graph::RenderContext &context) override;
-  const char *GetName() const override { return "LightingPass"; }
+  const char *GetName() const override { return "VolumetricLightPass"; }
 
   bool Initialize();
   void Shutdown();
@@ -25,13 +25,15 @@ public:
 private:
   void DrawFullscreen(Shader shader, uint32_t sourceTexture);
 
-  Shader m_lightAccumShader = {0};
-  resources::FramebufferHandle m_litBuffer = {};
+  Shader m_volumetricShader = {0};
+  resources::FramebufferHandle m_outputBuffer = {};
 
   int m_sceneTexLoc = -1;
-  int m_ambientColorLoc = -1;
-  int m_ambientIntensityLoc = -1;
   int m_lightCountLoc = -1;
+  int m_sampleCountLoc = -1;
+  int m_scatteringLoc = -1;
+  int m_decayLoc = -1;
+  int m_exposureLoc = -1;
   int m_cameraOffsetLoc = -1;
   int m_screenSizeLoc = -1;
 

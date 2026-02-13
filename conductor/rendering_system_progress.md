@@ -2,7 +2,7 @@
 
 > **对应设计文档**: [GPU_Rendering_System_2.md](../设计文档/特效和UI/GPU_Rendering_System_2.md)
 > **起始日期**: 2026-02-12
-> **最后更新**: 2026-02-13
+> **最后更新**: 2026-02-14
 
 ---
 
@@ -15,7 +15,7 @@
 | **Phase 2** | 动态光照系统 | ✅ 已完成 | `dynamic_lighting_system_20260212` | GPULight SSBO、LightManager、LightingPass、光源挂载 |
 | **Phase 3** | 粒子与轨迹增强 | 🚧 进行中 | `particle_trail_enhancement_20260213` | 纹理粒子、GPU TrailRenderer |
 | **Phase 4** | 材质与 VFX 序列器 | ✅ 已完成 | `material_vfx_sequencer_20260213` | 材质系统、VFXTimeline、Distortion Pass |
-| **Phase 5** | 打磨与高级特性 | ⏳ 未启动 | TBD | Color Grading、Volumetric Light、Profiler HUD |
+| **Phase 5** | 打磨与高级特性 | 🚧 进行中（代码完成，验收中） | `polishing_advanced_features_20260213` | Color Grading、Volumetric Light、Profiler HUD、Shader Hot Reload |
 
 ---
 
@@ -51,6 +51,18 @@
   - 关键证据：`GPUParticleSystem` 初始化/关闭、`ParticleTextureManager` 三层贴图加载、`ForceFieldManager: Initialized with 16 slots`
 - [ ] 屏幕表现证据待补：纹理粒子与 GPU Trail 的实际画面截图/录屏
 - [ ] F.4 待完成：追踪文档归档与 Track 关闭
+
+---
+
+## Phase 5 规划记录 (polishing_advanced_features_20260213)
+
+- [x] Track 文档已创建：`spec.md` 与 `plan.md` 已落地
+- [x] 范围确认：Color Grading LUT、Ultra 体积光、Pass Profiler HUD、Shader 热重载
+- [x] 架构边界确认：保持 RenderGraph 主链，默认 framebuffer/HDR 路径约束不变
+- [x] 已完成：Phase A/B/C/D/E 代码实现与构建接入
+- [x] 已完成：Phase F.2 性能基准扩展（`RenderingBenchmark.cpp`）
+- [ ] 待验收：Phase F.3 运行画面证据（LUT 开关、Volumetric on/off、Profiler HUD）
+- [ ] 待验收：Shader Hot Reload 成功/失败日志证据补齐
 
 ---
 

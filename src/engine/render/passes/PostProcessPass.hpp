@@ -20,6 +20,7 @@ public:
   bool Initialize();
   void Shutdown();
   void OnResize(int width, int height);
+  bool ReloadShaders();
 
   [[nodiscard]] const resources::FramebufferHandle &GetOutputBuffer() const {
     return m_finalOutputBuffer;
@@ -37,8 +38,10 @@ private:
 
   void ExecuteBloom(const graph::RenderContext &context);
   void ExecuteTonemap(const graph::RenderContext &context);
-  void ExecuteFXAA(const graph::RenderContext &context);
   void ExecuteVignette(const graph::RenderContext &context);
+  void ExecuteColorGrading(const graph::RenderContext &context);
+  void ExecuteFXAA(const graph::RenderContext &context);
+  bool LoadColorGradingLUT(int lutSize);
 
   void RebuildBloomMips(int baseWidth, int baseHeight, int mipLevels);
   void DestroyBloomMips();
@@ -53,6 +56,8 @@ private:
   Shader m_tonemapShader = {0};
   Shader m_fxaaShader = {0};
   Shader m_vignetteShader = {0};
+  Shader m_colorGradingShader = {0};
+  Texture2D m_colorGradingLut = {0};
 
   resources::FramebufferHandle m_ldrBuffer = {};
   resources::FramebufferHandle m_pingPongBuffer = {};
@@ -65,10 +70,15 @@ private:
   int m_fxaaTexelSizeLoc = -1;
   int m_vignetteIntensityLoc = -1;
   int m_vignetteRadiusLoc = -1;
+  int m_colorGradingSceneLoc = -1;
+  int m_colorGradingLutLoc = -1;
+  int m_colorGradingIntensityLoc = -1;
+  int m_colorGradingLutSizeLoc = -1;
 
   int m_cachedWidth = 0;
   int m_cachedHeight = 0;
   int m_cachedBloomMips = -1;
+  int m_cachedLutSize = 0;
   bool m_initialized = false;
 };
 

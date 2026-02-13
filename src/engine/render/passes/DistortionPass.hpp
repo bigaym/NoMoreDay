@@ -22,6 +22,7 @@ public:
   bool Initialize();
   void Shutdown();
   void OnResize(int width, int height);
+  bool ReloadShaders();
 
   void SetInputBuffer(const resources::FramebufferHandle *inputBuffer) {
     m_inputBuffer = inputBuffer;

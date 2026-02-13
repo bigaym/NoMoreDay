@@ -12,6 +12,10 @@ namespace NoMoreDay::render::core {
 class QualityTierManager;
 }
 
+namespace NoMoreDay::render::debug {
+class RenderProfiler;
+}
+
 namespace NoMoreDay::render::resources {
 class TransientResourcePool;
 }
@@ -24,6 +28,7 @@ struct RenderContext {
   const Camera2D *camera = nullptr;
   resources::TransientResourcePool *transientPool = nullptr;
   core::QualityTierManager *qualityManager = nullptr;
+  debug::RenderProfiler *renderProfiler = nullptr;
   resources::FramebufferHandle hdrSceneBuffer = {};
 
   bool IsValid() const {

@@ -9,10 +9,13 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/RenderContext.hpp"
+#include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <vector>
 
 namespace NoMoreDay::tests {
@@ -159,6 +162,142 @@ TEST_CASE("[Performance] GPUEntitySystem - Scenario C Entity Horde Test") {
   CHECK(stats.mean_ms < 3.0);
 
   gpuEntitySystem.Shutdown();
+}
+
+TEST_CASE("[Performance] PostProcess - Scenario D ColorGrading Sampling Cost") {
+  constexpr int kFps = 60;
+  constexpr int kTotalFrames = 240; // 4 seconds
+  constexpr int kPixels = 512;      // lightweight synthetic batch
+  constexpr float kLutSize = 16.0f;
+  constexpr float kIntensity = 0.85f;
+  constexpr float kInvLut = 1.0f / kLutSize;
+
+  std::vector<double> frameTimes;
+  frameTimes.reserve(kTotalFrames);
+
+  volatile float sink = 0.0f;
+  for (int frame = 0; frame < kTotalFrames; ++frame) {
+    const auto start = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < kPixels; ++i) {
+      const float t = static_cast<float>(frame * kPixels + i) * 0.0137f;
+      const float r = std::fmod(std::sin(t) * 0.5f + 0.5f, 1.0f);
+      const float g = std::fmod(std::sin(t * 1.7f) * 0.5f + 0.5f, 1.0f);
+      const float b = std::fmod(std::sin(t * 2.3f) * 0.5f + 0.5f, 1.0f);
+
+      const float blue = b * (kLutSize - 1.0f);
+      const float z0 = std::floor(blue);
+      const float z1 = std::min(z0 + 1.0f, kLutSize - 1.0f);
+      const float zf = blue - z0;
+
+      const float lut0r = (r * (kLutSize - 1.0f) + z0) * kInvLut;
+      const float lut0g = (g * (kLutSize - 1.0f)) * kInvLut;
+      const float lut1r = (r * (kLutSize - 1.0f) + z1) * kInvLut;
+      const float lut1g = (g * (kLutSize - 1.0f)) * kInvLut;
+
+      const float gradedR = lut0r * (1.0f - zf) + lut1r * zf;
+      const float gradedG = lut0g * (1.0f - zf) + lut1g * zf;
+      const float gradedB = b * 0.9f + 0.1f * r;
+
+      sink += (r * (1.0f - kIntensity) + gradedR * kIntensity) +
+              (g * (1.0f - kIntensity) + gradedG * kIntensity) +
+              (b * (1.0f - kIntensity) + gradedB * kIntensity);
+    }
+
+    const auto end = std::chrono::high_resolution_clock::now();
+    frameTimes.push_back(
+        std::chrono::duration<double, std::milli>(end - start).count());
+  }
+
+  BenchmarkStats stats = CalculateStats(frameTimes);
+  LOG_BENCHMARK("Scenario D (ColorGrading)", stats, "< 0.25ms");
+  CHECK(stats.mean_ms < 0.25);
+  CHECK(sink >= 0.0f);
+}
+
+TEST_CASE("[Performance] Lighting - Scenario E Volumetric Integration Cost") {
+  constexpr int kTotalFrames = 240;
+  constexpr int kScreenSamples = 64;
+  constexpr int kRaySteps = 48;
+  constexpr float kScattering = 0.16f;
+  constexpr float kDecay = 0.95f;
+
+  std::vector<double> frameTimes;
+  frameTimes.reserve(kTotalFrames);
+
+  volatile float sink = 0.0f;
+  for (int frame = 0; frame < kTotalFrames; ++frame) {
+    const auto start = std::chrono::high_resolution_clock::now();
+
+    for (int p = 0; p < kScreenSamples; ++p) {
+      float illum = 0.0f;
+      float transmittance = 1.0f;
+      const float phase = static_cast<float>(frame + p) * 0.021f;
+
+      for (int s = 0; s < kRaySteps; ++s) {
+        const float noise = std::sin(phase + static_cast<float>(s) * 0.11f) *
+                                0.5f +
+                            0.5f;
+        illum += noise * transmittance * kScattering;
+        transmittance *= kDecay;
+      }
+
+      sink += illum;
+    }
+
+    const auto end = std::chrono::high_resolution_clock::now();
+    frameTimes.push_back(
+        std::chrono::duration<double, std::milli>(end - start).count());
+  }
+
+  BenchmarkStats stats = CalculateStats(frameTimes);
+  LOG_BENCHMARK("Scenario E (Volumetric)", stats, "< 0.80ms");
+  CHECK(stats.mean_ms < 0.80);
+  CHECK(sink >= 0.0f);
+}
+
+TEST_CASE("[Performance] Debug - Scenario F Profiler HUD Overhead") {
+  using namespace NoMoreDay::render::debug;
+
+  constexpr int kTotalFrames = 300;
+  constexpr std::array<RenderPassId, 8> kPasses = {
+      RenderPassId::Scene,     RenderPassId::Lighting, RenderPassId::Volumetric,
+      RenderPassId::VFX,       RenderPassId::UIWorld,  RenderPassId::PostProcess,
+      RenderPassId::Distortion, RenderPassId::Composite};
+
+  RenderProfiler profiler;
+  // Seed one sample for each pass so HUD read path has stable input.
+  profiler.BeginFrame();
+  for (RenderPassId pass : kPasses) {
+    profiler.BeginPass(pass);
+    profiler.EndPass(pass);
+  }
+  profiler.EndFrame();
+
+  std::vector<double> frameTimes;
+  frameTimes.reserve(kTotalFrames);
+  volatile float sink = 0.0f;
+
+  for (int frame = 0; frame < kTotalFrames; ++frame) {
+    const auto start = std::chrono::high_resolution_clock::now();
+
+    // HUD refresh at 12Hz (every 5 frames @60FPS) to match practical debug usage.
+    if ((frame % 5) == 0) {
+      for (RenderPassId pass : kPasses) {
+        const auto stat = profiler.GetStats(pass);
+        sink += stat.cpuMeanMs + stat.cpuP95Ms + stat.budgetMs;
+      }
+    }
+
+    const auto end = std::chrono::high_resolution_clock::now();
+    frameTimes.push_back(
+        std::chrono::duration<double, std::milli>(end - start).count());
+  }
+
+  BenchmarkStats stats = CalculateStats(frameTimes);
+  LOG_BENCHMARK("Scenario F (ProfilerHUD)", stats, "< 0.15ms");
+  CHECK(stats.mean_ms < 0.15);
+  CHECK(sink >= 0.0f);
 }
 
 } // namespace NoMoreDay::tests

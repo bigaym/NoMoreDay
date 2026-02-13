@@ -25,6 +25,10 @@ constexpr uint32_t kGLTexture2D = 0x0DE1;
 constexpr uint32_t kGLTexture0 = 0x84C0;
 constexpr uint32_t kGLColorBufferBit = 0x00004000;
 constexpr uint32_t kGLRgba16f = 0x881A;
+constexpr const char *kFullscreenVertexShader =
+    "assets/shaders/postprocess/fullscreen.vert";
+constexpr const char *kLightingFragmentShader =
+    "assets/shaders/lighting/light_accumulation.frag";
 
 void BindFramebufferAndViewport(const resources::FramebufferHandle &handle) {
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, handle.fbo);
@@ -47,9 +51,7 @@ bool LightingPass::Initialize() {
     return true;
   }
 
-  m_lightAccumShader =
-      LoadShader("assets/shaders/postprocess/fullscreen.vert",
-                 "assets/shaders/lighting/light_accumulation.frag");
+  m_lightAccumShader = LoadShader(kFullscreenVertexShader, kLightingFragmentShader);
   if (m_lightAccumShader.id == 0) {
     LOG_ERROR("LightingPass shader initialization failed");
     Shutdown();
@@ -65,6 +67,28 @@ bool LightingPass::Initialize() {
   m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
 
   m_initialized = true;
+  return true;
+}
+
+bool LightingPass::ReloadShaders() {
+  Shader reloaded = LoadShader(kFullscreenVertexShader, kLightingFragmentShader);
+  if (reloaded.id == 0) {
+    LOG_WARN("LightingPass: shader reload failed, keeping previous program");
+    return false;
+  }
+
+  if (m_lightAccumShader.id != 0) {
+    UnloadShader(m_lightAccumShader);
+  }
+  m_lightAccumShader = reloaded;
+
+  m_sceneTexLoc = GetShaderLocation(m_lightAccumShader, "uSceneTex");
+  m_ambientColorLoc = GetShaderLocation(m_lightAccumShader, "uAmbientColor");
+  m_ambientIntensityLoc = GetShaderLocation(m_lightAccumShader, "uAmbientIntensity");
+  m_lightCountLoc = GetShaderLocation(m_lightAccumShader, "uLightCount");
+  m_cameraOffsetLoc = GetShaderLocation(m_lightAccumShader, "uCameraOffset");
+  m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
+  LOG_INFO("LightingPass: shader hot reloaded");
   return true;
 }
 

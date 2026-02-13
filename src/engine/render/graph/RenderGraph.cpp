@@ -1,6 +1,10 @@
 #include "engine/render/graph/RenderGraph.hpp"
 
+#include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/graph/RenderContext.hpp"
+
+#include <chrono>
+#include <optional>
 
 namespace NoMoreDay::render::graph {
 
@@ -39,7 +43,19 @@ void RenderGraph::Execute(RenderContext &context) {
     Build();
   }
   for (Node &node : m_nodes) {
+    const auto passId = (context.renderProfiler != nullptr)
+                            ? debug::RenderProfiler::FromPassName(
+                                  node.pass->GetName())
+                            : std::optional<debug::RenderPassId>{};
+    if (context.renderProfiler != nullptr && passId.has_value()) {
+      context.renderProfiler->BeginPass(*passId);
+    }
+
     node.pass->Execute(context);
+
+    if (context.renderProfiler != nullptr && passId.has_value()) {
+      context.renderProfiler->EndPass(*passId);
+    }
   }
 }
 

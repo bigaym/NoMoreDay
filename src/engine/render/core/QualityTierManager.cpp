@@ -196,6 +196,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.materialSystemEnabled = true;
     m_config.vfxSequenceDetail = 0;
     m_config.hotReloadEnabled = kHotReloadEnabled;
+    m_config.colorGradingEnabled = false;
+    m_config.colorGradingLutSize = 0;
+    m_config.colorGradingIntensity = 1.0f;
+    m_config.volumetricLightEnabled = false;
+    m_config.volumetricSampleCount = 0;
+    m_config.volumetricScattering = 0.0f;
+    m_config.volumetricDecay = 0.0f;
+    m_config.profilerHudEnabled = false;
+    m_config.shaderHotReloadEnabled = false;
     break;
   case QualityTier::Medium:
     m_config.bloomEnabled = true;
@@ -227,6 +236,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.materialSystemEnabled = true;
     m_config.vfxSequenceDetail = 1;
     m_config.hotReloadEnabled = kHotReloadEnabled;
+    m_config.colorGradingEnabled = false;
+    m_config.colorGradingLutSize = 0;
+    m_config.colorGradingIntensity = 1.0f;
+    m_config.volumetricLightEnabled = false;
+    m_config.volumetricSampleCount = 0;
+    m_config.volumetricScattering = 0.0f;
+    m_config.volumetricDecay = 0.0f;
+    m_config.profilerHudEnabled = false;
+    m_config.shaderHotReloadEnabled = false;
     break;
   case QualityTier::High:
     m_config.bloomEnabled = true;
@@ -258,6 +276,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.materialSystemEnabled = true;
     m_config.vfxSequenceDetail = 2;
     m_config.hotReloadEnabled = kHotReloadEnabled;
+    m_config.colorGradingEnabled = true;
+    m_config.colorGradingLutSize = 16;
+    m_config.colorGradingIntensity = 1.0f;
+    m_config.volumetricLightEnabled = false;
+    m_config.volumetricSampleCount = 0;
+    m_config.volumetricScattering = 0.0f;
+    m_config.volumetricDecay = 0.0f;
+    m_config.profilerHudEnabled = kHotReloadEnabled;
+    m_config.shaderHotReloadEnabled = kHotReloadEnabled;
     break;
   case QualityTier::Ultra:
     m_config.bloomEnabled = true;
@@ -289,6 +316,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.materialSystemEnabled = true;
     m_config.vfxSequenceDetail = 2;
     m_config.hotReloadEnabled = kHotReloadEnabled;
+    m_config.colorGradingEnabled = true;
+    m_config.colorGradingLutSize = 32;
+    m_config.colorGradingIntensity = 1.0f;
+    m_config.volumetricLightEnabled = true;
+    m_config.volumetricSampleCount = 48;
+    m_config.volumetricScattering = 0.16f;
+    m_config.volumetricDecay = 0.95f;
+    m_config.profilerHudEnabled = kHotReloadEnabled;
+    m_config.shaderHotReloadEnabled = kHotReloadEnabled;
     break;
   }
 }

@@ -47,6 +47,21 @@ struct RenderConfig {
   bool materialSystemEnabled = false;
   int vfxSequenceDetail = 0; // 0=minimal, 1=reduced, 2=full
   bool hotReloadEnabled = false;
+
+  // Phase 5 - Color Grading
+  bool colorGradingEnabled = false;
+  int colorGradingLutSize = 0; // 0=off, 16 or 32
+  float colorGradingIntensity = 1.0f;
+
+  // Phase 5 - Volumetric Light
+  bool volumetricLightEnabled = false;
+  int volumetricSampleCount = 0; // 0=off, Ultra defaults 48
+  float volumetricScattering = 0.0f;
+  float volumetricDecay = 0.0f;
+
+  // Phase 5 - Debug/Dev
+  bool profilerHudEnabled = false;
+  bool shaderHotReloadEnabled = false;
 };
 
 inline const char *ToString(QualityTier tier) {

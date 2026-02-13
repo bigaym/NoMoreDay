@@ -22,6 +22,12 @@ constexpr uint32_t kGLTexture2D = 0x0DE1;
 constexpr uint32_t kGLTexture0 = 0x84C0;
 constexpr uint32_t kGLRgba8 = 0x8058;
 constexpr uint32_t kGLRg16f = 0x822F;
+constexpr const char *kFullscreenVertexShader =
+    "assets/shaders/postprocess/fullscreen.vert";
+constexpr const char *kDistortionWriteFragmentShader =
+    "assets/shaders/postprocess/distortion_write.frag";
+constexpr const char *kDistortionApplyFragmentShader =
+    "assets/shaders/postprocess/distortion_apply.frag";
 
 void BindFramebufferAndViewport(const resources::FramebufferHandle &handle) {
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, handle.fbo);
@@ -44,12 +50,10 @@ bool DistortionPass::Initialize() {
     return true;
   }
 
-  m_distortionWriteShader = LoadShader(
-      "assets/shaders/postprocess/fullscreen.vert",
-      "assets/shaders/postprocess/distortion_write.frag");
-  m_distortionApplyShader = LoadShader(
-      "assets/shaders/postprocess/fullscreen.vert",
-      "assets/shaders/postprocess/distortion_apply.frag");
+  m_distortionWriteShader =
+      LoadShader(kFullscreenVertexShader, kDistortionWriteFragmentShader);
+  m_distortionApplyShader =
+      LoadShader(kFullscreenVertexShader, kDistortionApplyFragmentShader);
   if (m_distortionWriteShader.id == 0 || m_distortionApplyShader.id == 0) {
     LOG_ERROR("DistortionPass shader initialization failed");
     Shutdown();
@@ -80,6 +84,42 @@ bool DistortionPass::Initialize() {
   NoMoreDay::utils::GPUUtils::BindBuffer(kGLShaderStorageBuffer, 0);
 
   m_initialized = true;
+  return true;
+}
+
+bool DistortionPass::ReloadShaders() {
+  Shader writeShader =
+      LoadShader(kFullscreenVertexShader, kDistortionWriteFragmentShader);
+  Shader applyShader =
+      LoadShader(kFullscreenVertexShader, kDistortionApplyFragmentShader);
+  if (writeShader.id == 0 || applyShader.id == 0) {
+    if (writeShader.id != 0) {
+      UnloadShader(writeShader);
+    }
+    if (applyShader.id != 0) {
+      UnloadShader(applyShader);
+    }
+    LOG_WARN("DistortionPass: shader reload failed, keeping previous program");
+    return false;
+  }
+
+  if (m_distortionWriteShader.id != 0) {
+    UnloadShader(m_distortionWriteShader);
+  }
+  if (m_distortionApplyShader.id != 0) {
+    UnloadShader(m_distortionApplyShader);
+  }
+  m_distortionWriteShader = writeShader;
+  m_distortionApplyShader = applyShader;
+
+  m_sourceCountLoc = GetShaderLocation(m_distortionWriteShader, "uSourceCount");
+  m_cameraOffsetLoc = GetShaderLocation(m_distortionWriteShader, "uCameraOffset");
+  m_screenSizeLoc = GetShaderLocation(m_distortionWriteShader, "uScreenSize");
+  m_applySceneLoc = GetShaderLocation(m_distortionApplyShader, "uSceneTexture");
+  m_applyDistortionLoc =
+      GetShaderLocation(m_distortionApplyShader, "uDistortionTexture");
+  m_applyScaleLoc = GetShaderLocation(m_distortionApplyShader, "uDistortionScale");
+  LOG_INFO("DistortionPass: shader hot reloaded");
   return true;
 }
 

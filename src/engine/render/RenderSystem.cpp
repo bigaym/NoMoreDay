@@ -11,11 +11,14 @@
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
+#include "engine/render/dev/ShaderHotReloadManager.hpp"
+#include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
+#include "engine/render/passes/VolumetricLightPass.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/passes/ScenePass.hpp"
 #include "engine/render/passes/UIWorldPass.hpp"
@@ -153,7 +156,10 @@ struct RenderFrameData {
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
 std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
 std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
+std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass;
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
+std::unique_ptr<NoMoreDay::render::debug::RenderProfiler> g_renderProfiler;
+std::unique_ptr<NoMoreDay::render::dev::ShaderHotReloadManager> g_shaderHotReloadManager;
 
 struct CompositeTargetState {
   uint32_t framebuffer = 0;
@@ -843,8 +849,69 @@ void RenderSystem::Initialize() {
   g_postProcessPass->Initialize();
   g_lightingPass = std::make_shared<NoMoreDay::render::passes::LightingPass>();
   g_lightingPass->Initialize();
+  g_volumetricPass =
+      std::make_shared<NoMoreDay::render::passes::VolumetricLightPass>();
   g_distortionPass = std::make_shared<NoMoreDay::render::passes::DistortionPass>();
   g_distortionPass->Initialize();
+  g_renderProfiler = std::make_unique<NoMoreDay::render::debug::RenderProfiler>();
+  g_shaderHotReloadManager =
+      std::make_unique<NoMoreDay::render::dev::ShaderHotReloadManager>();
+  g_shaderHotReloadManager->SetPollIntervalSeconds(0.5);
+  g_shaderHotReloadManager->Register(
+      {.debugName = "PostProcess.BrightExtract",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/bright_extract.frag"},
+      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "PostProcess.KawaseDown",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/kawase_down.frag"},
+      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "PostProcess.KawaseUp",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/kawase_up.frag"},
+      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "PostProcess.Tonemap",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/tonemap.frag"},
+      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "PostProcess.FXAA",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/fxaa.frag"},
+      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "PostProcess.Vignette",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/vignette.frag"},
+      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "PostProcess.ColorGrading",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/color_grading.frag"},
+      []() { return g_postProcessPass && g_postProcessPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "Lighting.Accumulation",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/lighting/light_accumulation.frag"},
+      []() { return g_lightingPass && g_lightingPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "Lighting.Volumetric",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/lighting/volumetric_light.frag"},
+      []() { return g_volumetricPass && g_volumetricPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "Distortion.Apply",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/distortion_apply.frag"},
+      []() { return g_distortionPass && g_distortionPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "Distortion.Write",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/postprocess/distortion_write.frag"},
+      []() { return g_distortionPass && g_distortionPass->ReloadShaders(); });
 
   s_labelShader = LoadShader("assets/shaders/ui/label_instanced.vert",
                              "assets/shaders/ui/label_instanced.frag");
@@ -914,6 +981,10 @@ void RenderSystem::Shutdown() {
     g_lightingPass->Shutdown();
     g_lightingPass.reset();
   }
+  if (g_volumetricPass) {
+    g_volumetricPass->Shutdown();
+    g_volumetricPass.reset();
+  }
   if (g_postProcessPass) {
     g_postProcessPass->Shutdown();
     g_postProcessPass.reset();
@@ -922,6 +993,11 @@ void RenderSystem::Shutdown() {
     g_distortionPass->Shutdown();
     g_distortionPass.reset();
   }
+  if (g_shaderHotReloadManager) {
+    g_shaderHotReloadManager->Clear();
+    g_shaderHotReloadManager.reset();
+  }
+  g_renderProfiler.reset();
   NoMoreDay::render::GPUTrailRenderer::Get().Shutdown();
   NoMoreDay::render::resources::FullscreenQuad::Shutdown();
   s_itemGrid = nullptr;
@@ -947,6 +1023,17 @@ void RenderSystem::render(entt::registry &registry,
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+#if defined(NDEBUG)
+  constexpr bool kDevHotReloadAllowed = false;
+#else
+  constexpr bool kDevHotReloadAllowed = true;
+#endif
+  const bool shaderHotReloadEnabled =
+      kDevHotReloadAllowed && renderConfig.shaderHotReloadEnabled;
+  if (g_shaderHotReloadManager) {
+    g_shaderHotReloadManager->SetEnabled(shaderHotReloadEnabled);
+    g_shaderHotReloadManager->PollAndReload();
+  }
   if (renderConfig.materialSystemEnabled) {
     NoMoreDay::render::MaterialManager::Get().TryHotReload();
     NoMoreDay::render::MaterialManager::Get().SyncToGPU();
@@ -973,9 +1060,17 @@ void RenderSystem::render(entt::registry &registry,
   const bool useDistortionPass =
       useHdrSceneBuffer && renderConfig.distortionEnabled &&
       (g_postProcessPass != nullptr) && (g_distortionPass != nullptr);
+  const bool useVolumetricPass =
+      useHdrSceneBuffer && renderConfig.volumetricLightEnabled &&
+      (g_volumetricPass != nullptr);
   if (!useDistortionPass && g_distortionPass != nullptr) {
     g_distortionPass->ResetSources();
   }
+  static bool s_prevUseVolumetricPass = false;
+  if (s_prevUseVolumetricPass && !useVolumetricPass && g_volumetricPass != nullptr) {
+    g_volumetricPass->Shutdown();
+  }
+  s_prevUseVolumetricPass = useVolumetricPass;
 
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
@@ -994,6 +1089,9 @@ void RenderSystem::render(entt::registry &registry,
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
         g_lightingPass->OnResize(screenWidth, screenHeight);
       }
+      if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
+        g_volumetricPass->OnResize(screenWidth, screenHeight);
+      }
     } else if (s_hdrSceneBuffer.width != screenWidth ||
                s_hdrSceneBuffer.height != screenHeight) {
       NoMoreDay::render::resources::FramebufferManager::Resize(
@@ -1006,6 +1104,9 @@ void RenderSystem::render(entt::registry &registry,
                screenWidth, screenHeight, approxMb);
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
         g_lightingPass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
+        g_volumetricPass->OnResize(screenWidth, screenHeight);
       }
     }
   }
@@ -1053,6 +1154,9 @@ void RenderSystem::render(entt::registry &registry,
       g_lightingPass != nullptr) {
     graph.AddPass(g_lightingPass);
   }
+  if (useVolumetricPass && g_volumetricPass != nullptr) {
+    graph.AddPass(g_volumetricPass);
+  }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXPass>(
       [&frame](NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
@@ -1096,12 +1200,44 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.camera = &camera;
   graphContext.transientPool = &g_transientPool;
   graphContext.qualityManager = &NoMoreDay::render::core::QualityTierManager::Get();
+  graphContext.renderProfiler =
+      (renderConfig.profilerHudEnabled && g_renderProfiler != nullptr)
+          ? g_renderProfiler.get()
+          : nullptr;
   graphContext.hdrSceneBuffer =
       useHdrSceneBuffer ? s_hdrSceneBuffer
                         : NoMoreDay::render::resources::FramebufferHandle{};
 
+  if (graphContext.renderProfiler != nullptr) {
+    graphContext.renderProfiler->BeginFrame();
+  }
   graph.Build();
   graph.Execute(graphContext);
+  if (graphContext.renderProfiler != nullptr) {
+    graphContext.renderProfiler->EndFrame();
+
+    static double s_lastProfilerLog = 0.0;
+    const double now = GetTime();
+    if ((now - s_lastProfilerLog) >= 5.0) {
+      const auto passStats = graphContext.renderProfiler->GetAllStats();
+      for (size_t i = 0; i < passStats.size(); ++i) {
+        const auto passId = static_cast<NoMoreDay::render::debug::RenderPassId>(i);
+        const auto &stats = passStats[i];
+        const float overPct = (stats.budgetMs > 0.0f)
+                                  ? std::max(0.0f, (stats.gpuMeanMs - stats.budgetMs) /
+                                                       stats.budgetMs * 100.0f)
+                                  : 0.0f;
+        LOG_INFO("RenderProfiler[{}]: CPU(mean={:.3f},p95={:.3f}) GPU(mean={:.3f},p95={:.3f}) budget={:.3f} over={:.1f}%",
+                 NoMoreDay::render::debug::RenderProfiler::ToString(passId),
+                 stats.cpuMeanMs, stats.cpuP95Ms, stats.gpuMeanMs, stats.gpuP95Ms,
+                 stats.budgetMs, overPct);
+      }
+      s_lastProfilerLog = now;
+    }
+
+    NoMoreDay::render::debug::DrawProfilerHud(*graphContext.renderProfiler, 14.0f,
+                                               14.0f);
+  }
 
   g_transientPool.EndFrame();
 }
