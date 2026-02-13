@@ -178,6 +178,13 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.vignetteEnabled = false;
     m_config.vignetteIntensity = 0.0f;
     m_config.vignetteRadius = 0.75f;
+    m_config.particleTexturesEnabled = false;
+    m_config.subEmitterEnabled = false;
+    m_config.forceFieldEnabled = false;
+    m_config.maxForceFields = 0;
+    m_config.trailEnabled = false;
+    m_config.trailMaxPoints = 0;
+    m_config.maxTrails = 0;
     break;
   case QualityTier::Medium:
     m_config.bloomEnabled = true;
@@ -197,6 +204,13 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.vignetteEnabled = true;
     m_config.vignetteIntensity = 0.2f;
     m_config.vignetteRadius = 0.75f;
+    m_config.particleTexturesEnabled = true;
+    m_config.subEmitterEnabled = false;
+    m_config.forceFieldEnabled = false;
+    m_config.maxForceFields = 0;
+    m_config.trailEnabled = true;
+    m_config.trailMaxPoints = 32;
+    m_config.maxTrails = 128;
     break;
   case QualityTier::High:
     m_config.bloomEnabled = true;
@@ -216,6 +230,13 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.vignetteEnabled = true;
     m_config.vignetteIntensity = 0.3f;
     m_config.vignetteRadius = 0.75f;
+    m_config.particleTexturesEnabled = true;
+    m_config.subEmitterEnabled = true;
+    m_config.forceFieldEnabled = true;
+    m_config.maxForceFields = 8;
+    m_config.trailEnabled = true;
+    m_config.trailMaxPoints = 48;
+    m_config.maxTrails = 256;
     break;
   case QualityTier::Ultra:
     m_config.bloomEnabled = true;
@@ -235,6 +256,13 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.vignetteEnabled = true;
     m_config.vignetteIntensity = 0.35f;
     m_config.vignetteRadius = 0.75f;
+    m_config.particleTexturesEnabled = true;
+    m_config.subEmitterEnabled = true;
+    m_config.forceFieldEnabled = true;
+    m_config.maxForceFields = 16;
+    m_config.trailEnabled = true;
+    m_config.trailMaxPoints = 64;
+    m_config.maxTrails = 512;
     break;
   }
 }

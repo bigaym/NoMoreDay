@@ -4,6 +4,23 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: HDR + 后处理管线 (hdr_postprocess_pipeline_20260212)
+- **Folder:** [./conductor/archive/hdr_postprocess_pipeline_20260212/](./conductor/archive/hdr_postprocess_pipeline_20260212/)
+- **Description:** 实现完整 HDR 渲染链：RGBA16F 场景缓冲区、Bloom 提取与模糊、Tone Mapping、FXAA 抗锯齿以及暗角特效，并确立性能基准。
+- **Status:** COMPLETED (2026-02-13)
+- **Priority:** HIGH
+- **Archive Reason:** 完成并通过 Architecture Audit 审计，性能达标。
+
+---
+
+## [x] Track: 动态 2D 光照系统 (dynamic_lighting_system_20260212)
+- **Folder:** [./conductor/archive/dynamic_lighting_system_20260212/](./conductor/archive/dynamic_lighting_system_20260212/)
+- **Description:** 引入动态 2D 光照系统，包括 GPULight SSBO、LightManager、LightingPass 以及相应的 Shader 实现，支持多光源剔除与优先级排序。
+- **Status:** COMPLETED (2026-02-13)
+- **Priority:** HIGH
+- **Archive Reason:** 完成并通过 Architecture Audit 审计，性能达标（256 光源 < 1.0ms）。
+
+---
 ## [x] Track: Rendering Foundation Migration (rendering_foundation_migration_20260212)
 - **Folder:** [./conductor/archive/rendering_foundation_migration_20260212/](./conductor/archive/rendering_foundation_migration_20260212/)
 - **Description:** Complete Phase 0 rendering foundation migration: RenderGraph scaffolding, RenderPass拆分（Scene/VFX/UIWorld/Composite）, TransientResourcePool, QualityTierManager, ScopedGLState guard, and integration regression test.

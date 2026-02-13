@@ -12,6 +12,9 @@ namespace NoMoreDay::Constants::GPU {
   constexpr int TEXTURE_LAYER_SIZE = 128;       // Standardized sprite size (px)
   constexpr int MAX_TEXTURE_LAYERS = 256;       // Max sprites in primary array
   constexpr int SDF_CIRCLE_TYPE = -1;           // Special type for SDF rendering
+  constexpr int MAX_FORCE_FIELDS = 16;
+  constexpr int MAX_TRAILS = 512;
+  constexpr int MAX_TRAIL_POINTS_PER_TRAIL = 64;
   
   // Status Visual Indices (packed into activeStatusMask bits)
   constexpr uint32_t STATUS_NONE = 0;
@@ -69,7 +72,12 @@ struct GPUParticle {
   uint32_t flags = 0;                          // 4
   float growthRate = 0.0f;                     // 4
   float rotation = 0.0f;                       // 4
-  float padding[3] = {0.0f, 0.0f, 0.0f};       // 12
+  int16_t textureIndex = -1;                   // 2
+  uint16_t subUV = 0;                          // 2 (rows << 8) | cols
+  uint16_t animFrameCount = 0;                 // 2
+  uint8_t blendMode = 0;                       // 1 (0=Alpha, 1=Additive)
+  uint8_t subEmitterType = 0;                  // 1 (0=None)
+  float subEmitterParam = 0.0f;                // 4
 
   GPUParticle() = default;
 };
@@ -77,6 +85,54 @@ struct GPUParticle {
 // Ensure Stride is exactly 64 bytes
 static_assert(sizeof(GPUParticle) == 64,
               "GPUParticle struct must be exactly 64 bytes for SSBO alignment");
+
+struct GPUTrailPoint {
+  float posX = 0.0f;
+  float posY = 0.0f;
+  float dirX = 0.0f;
+  float dirY = 0.0f;
+  float width = 0.0f;
+  float lifetime = 0.0f;
+  uint32_t colorPacked = 0;
+  uint32_t flags = 0;
+};
+
+static_assert(sizeof(GPUTrailPoint) == 32,
+              "GPUTrailPoint struct must be exactly 32 bytes for SSBO alignment");
+
+struct GPUTrailHeader {
+  int32_t headIndex = 0;
+  int32_t pointCount = 0;
+  int32_t maxPoints = 64;
+  float maxLifetime = 0.5f;
+  float widthStart = 8.0f;
+  float widthEnd = 1.0f;
+  uint32_t colorStart = 0xFFFFFFFF;
+  uint32_t colorEnd = 0x00000000;
+};
+
+static_assert(sizeof(GPUTrailHeader) == 32,
+              "GPUTrailHeader struct must be exactly 32 bytes");
+
+enum class ForceFieldType : uint32_t {
+  Radial = 0,
+  Vortex = 1,
+  Noise = 2,
+};
+
+struct GPUForceField {
+  float posX = 0.0f;
+  float posY = 0.0f;
+  float radius = 100.0f;
+  float strength = 50.0f;
+  uint32_t type = 0;
+  float falloff = 1.0f;
+  float noiseFrequency = 1.0f;
+  float padding = 0.0f;
+};
+
+static_assert(sizeof(GPUForceField) == 32,
+              "GPUForceField struct must be exactly 32 bytes");
 
 enum class LightType : uint8_t {
   PointLight = 0,

@@ -9,6 +9,7 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/LightingPass.hpp"
@@ -365,6 +366,7 @@ void ExecuteVFXPass(RenderFrameData &frame) {
       frame.camera);
   NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
   NoMoreDay::systems::GPUParticleSystem::Get().Render(frame.camera);
+  NoMoreDay::render::GPUTrailRenderer::Get().Render(frame.camera);
 
   auto effectView = frame.registry.view<const Position, const AttackEffect>();
   effectView.each([](const auto &pos, const auto &effect) {
@@ -891,6 +893,7 @@ void RenderSystem::Shutdown() {
     g_postProcessPass->Shutdown();
     g_postProcessPass.reset();
   }
+  NoMoreDay::render::GPUTrailRenderer::Get().Shutdown();
   NoMoreDay::render::resources::FullscreenQuad::Shutdown();
   s_itemGrid = nullptr;
   g_transientPool.Shutdown();

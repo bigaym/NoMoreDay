@@ -31,6 +31,15 @@ struct RenderConfig {
   bool vignetteEnabled = false;
   float vignetteIntensity = 0.3f;
   float vignetteRadius = 0.75f;
+
+  bool particleTexturesEnabled = false;
+  bool subEmitterEnabled = false;
+  bool forceFieldEnabled = false;
+  int maxForceFields = 0;
+
+  bool trailEnabled = false;
+  int trailMaxPoints = 0;
+  int maxTrails = 0;
 };
 
 inline const char *ToString(QualityTier tier) {

@@ -27,6 +27,10 @@ struct MotionTrail {
   float emitTimer = 0.0f;
   float particleSize = 3.0f;
   Color coreColor = WHITE; // Bright center color
+
+  // GPU Trail Path (Phase 3)
+  int gpuTrailId = -1;
+  bool useGPUTrail = false;
 };
 
 

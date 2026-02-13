@@ -87,6 +87,8 @@ private:
     int m_computeTimeLoc = -1;
     int m_computeTotalLoc = -1;
     int m_renderMvpLoc = -1;
+    int m_renderAtlasLoc = -1;
+    int m_renderBlendPassLoc = -1;
     
     // VAO for quad rendering
     unsigned int m_quadVAO = 0;

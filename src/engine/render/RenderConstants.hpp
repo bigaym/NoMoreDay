@@ -33,9 +33,13 @@ enum class Binding : uint32_t {
   // === Lighting System (Phase 2) ===
   SSBO_LIGHT_DATA = 9, // GPULight SSBO (LightingPass)
 
+  // === Trail System (Phase 3) ===
+  SSBO_TRAIL_HEADERS = 10,
+  SSBO_TRAIL_POINTS = 11,
+
   // === Reserved ===
-  SSBO_RESERVED_10 = 10,
-  SSBO_RESERVED_11 = 11,
+  SSBO_RESERVED_10 = SSBO_TRAIL_HEADERS,
+  SSBO_RESERVED_11 = SSBO_TRAIL_POINTS,
   SSBO_RESERVED_12 = 12,
   SSBO_RESERVED_13 = 13,
   SSBO_RESERVED_14 = 14,
@@ -53,7 +57,14 @@ constexpr uint32_t PARTICLES_IN = 0;  // 输入粒子数组
 constexpr uint32_t PARTICLES_OUT = 1; // 输出粒子数组 (Compact)
 constexpr uint32_t INDIRECT_CMD = 2;  // DrawIndirect Command
 constexpr uint32_t ATOMIC_COUNT = 3;  // 原子计数器
+constexpr uint32_t FORCE_FIELDS = 4;  // ForceField SSBO (readonly)
+constexpr uint32_t SUB_EMISSION = 5;  // Sub-emission buffer
 } // namespace ParticleCS
+
+namespace TrailBinding {
+constexpr uint32_t HEADERS = 10;
+constexpr uint32_t POINTS = 11;
+} // namespace TrailBinding
 
 /**
  * @brief Compute Shader 本地 SSBO Binding (流场系统)。

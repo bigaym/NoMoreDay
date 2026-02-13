@@ -1,18 +1,94 @@
 #include "game/systems/vfx/TrailSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/vfx/MotionTrailComponent.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "raymath.h"
 #include "rlgl.h"
+#include <algorithm>
 
 namespace NoMoreDay::systems {
+namespace {
+uint32_t PackColorRGBA8(const Color &c) {
+  return static_cast<uint32_t>(c.r) | (static_cast<uint32_t>(c.g) << 8u) |
+         (static_cast<uint32_t>(c.b) << 16u) |
+         (static_cast<uint32_t>(c.a) << 24u);
+}
+} // namespace
 
 void TrailSystem::Update(entt::registry &registry, float dt) {
+  bool trailEnabled = false;
+  int maxTrails = 0;
+  int trailMaxPoints = 0;
+  if (NoMoreDay::render::core::QualityTierManager::Get().IsInitialized()) {
+    const auto &cfg = NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+    trailEnabled = cfg.trailEnabled;
+    maxTrails = cfg.maxTrails;
+    trailMaxPoints = cfg.trailMaxPoints;
+  }
+
+  auto &gpuTrailRenderer = NoMoreDay::render::GPUTrailRenderer::Get();
+  if (trailEnabled && maxTrails > 0 && trailMaxPoints > 1 &&
+      !gpuTrailRenderer.IsInitialized()) {
+    gpuTrailRenderer.Init(maxTrails, trailMaxPoints);
+  }
+
   auto view = registry.view<components::MotionTrail, Position>();
 
   for (auto entity : view) {
     auto &trail = view.get<components::MotionTrail>(entity);
     const auto &pos = view.get<Position>(entity);
+    const bool useGpuTrailPath =
+        trailEnabled && trail.useGPUTrail && !trail.useParticles &&
+        gpuTrailRenderer.IsInitialized();
+
+    if (useGpuTrailPath) {
+      if (trail.gpuTrailId < 0) {
+        components::GPUTrailHeader header = {};
+        header.maxPoints = trailMaxPoints;
+        header.maxLifetime = std::max(0.05f, trail.lifetime);
+        header.widthStart = std::max(0.5f, trail.maxWidth);
+        header.widthEnd = std::max(0.1f, trail.maxWidth * 0.12f);
+        header.colorStart = PackColorRGBA8(trail.color);
+        header.colorEnd = PackColorRGBA8({trail.color.r, trail.color.g, trail.color.b, 0});
+        trail.gpuTrailId = gpuTrailRenderer.AllocateTrail(header);
+      }
+
+      if (trail.isActive && trail.gpuTrailId >= 0) {
+        Vector2 currentPos = {pos.x, pos.y};
+        bool shouldAppend = trail.points.empty();
+        if (!shouldAppend) {
+          const float dist =
+              Vector2Distance(trail.points.back().position, currentPos);
+          shouldAppend = dist >= trail.minDistance;
+        }
+
+        if (shouldAppend) {
+          Vector2 dir = {1.0f, 0.0f};
+          if (!trail.points.empty()) {
+            dir = Vector2Subtract(currentPos, trail.points.back().position);
+          }
+
+          gpuTrailRenderer.AppendPoint(trail.gpuTrailId, currentPos, dir,
+                                       trail.maxWidth, PackColorRGBA8(trail.color));
+
+          trail.points.push_back({currentPos, 1.0f, 0.0f, 0.0f});
+          if (trail.points.size() > 2) {
+            trail.points.erase(trail.points.begin());
+          }
+        }
+      } else if (!trail.isActive) {
+        trail.points.clear();
+      }
+
+      continue;
+    }
+
+    if (trail.gpuTrailId >= 0 && gpuTrailRenderer.IsInitialized()) {
+      gpuTrailRenderer.FreeTrail(trail.gpuTrailId);
+      trail.gpuTrailId = -1;
+    }
 
     // 1. Update existing points (Mesh Only)
     // Particle trails don't use 'points', particles manage their own lifetime.
@@ -105,14 +181,26 @@ void TrailSystem::Update(entt::registry &registry, float dt) {
       }
     }
   }
+
+  if (gpuTrailRenderer.IsInitialized()) {
+    gpuTrailRenderer.Update(dt);
+  }
 }
 
 void TrailSystem::Render(entt::registry &registry, Shader trailShader) {
+  bool trailEnabled = false;
+  if (NoMoreDay::render::core::QualityTierManager::Get().IsInitialized()) {
+    trailEnabled = NoMoreDay::render::core::QualityTierManager::Get()
+                       .GetConfig()
+                       .trailEnabled;
+  }
+
   auto view = registry.view<const components::MotionTrail>();
 
   for (auto entity : view) {
     const auto &trail = view.get<const components::MotionTrail>(entity);
-    if (trail.useParticles || trail.points.size() < 2)
+    const bool skipCpuTrail = trailEnabled && trail.useGPUTrail;
+    if (trail.useParticles || skipCpuTrail || trail.points.size() < 2)
       continue;
 
     BeginShaderMode(trailShader);

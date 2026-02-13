@@ -1,6 +1,8 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/particle/ParticleTextureManager.hpp"
 #include "game/components/Common.hpp"
 
 // RenderConstants::ParticleCS defines binding point semantics
@@ -48,6 +50,14 @@ void GPUParticleSystem::Init(int maxParticles) {
   LoadShaders();
   CreateBuffers();
   CreateQuadVAO();
+  render::ParticleTextureManager::Get().Init(
+      64, NoMoreDay::Constants::GPU::TEXTURE_LAYER_SIZE);
+  render::ParticleTextureManager::Get().LoadLayer(
+      "assets/shaders/textures/particles/fire_01.png");
+  render::ParticleTextureManager::Get().LoadLayer(
+      "assets/shaders/textures/particles/smoke_01.png");
+  render::ParticleTextureManager::Get().LoadLayer(
+      "assets/shaders/textures/particles/spark_01.png");
 
   using namespace NoMoreDay::RenderConstants;
   m_initialized = true;
@@ -82,6 +92,7 @@ void GPUParticleSystem::Shutdown() {
   }
 
   m_emissionBuffer.Destroy();
+  render::ParticleTextureManager::Get().Shutdown();
   
   if (m_finalizeShader.id != 0) {
       rlUnloadShaderProgram(m_finalizeShader.id);
@@ -165,6 +176,8 @@ void GPUParticleSystem::LoadShaders() {
     LOG_INFO("GPUParticleSystem: Render shader loaded (ID: {})",
              m_renderShader.id);
     m_renderMvpLoc = GetShaderLocation(m_renderShader, "mvp");
+    m_renderAtlasLoc = GetShaderLocation(m_renderShader, "particleAtlas");
+    m_renderBlendPassLoc = GetShaderLocation(m_renderShader, "uBlendPass");
   } else {
     LOG_ERROR("GPUParticleSystem: Render shader loading failed!");
   }
@@ -480,38 +493,67 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   // Build MVP matrix
   Matrix mvp = BuildMVP(camera);
 
-  // Begin rendering
-  // Use BLEND_ALPHA to support dark particles (Ink) which are invisible in BLEND_ADDITIVE
-  BeginBlendMode(BLEND_ALPHA);
-  BeginShaderMode(m_renderShader);
-
-  // Set MVP uniform
+  // Set buffer state shared by both passes.
   SetShaderValueMatrix(m_renderShader, m_renderMvpLoc, mvp);
 
-  // Bind the buffer containing the valid particles for this frame
-  // Since we flipped m_pingPong at the end of Update, the valid data is in the
-  // buffer that was the Output (which matches the NEW value of m_pingPong
-  // logic)
+  bool bindTextureAtlas = false;
+  if (render::core::QualityTierManager::Get().IsInitialized()) {
+    const auto &config = render::core::QualityTierManager::Get().GetConfig();
+    bindTextureAtlas = config.particleTexturesEnabled &&
+                       render::ParticleTextureManager::Get().IsInitialized() &&
+                       render::ParticleTextureManager::Get().GetLayerCount() > 0;
+  }
+  if (m_renderAtlasLoc >= 0) {
+    const int atlasUnit = static_cast<int>(TextureUnit::TEX_PARTICLE_ATLAS);
+    SetShaderValue(m_renderShader, m_renderAtlasLoc, &atlasUnit,
+                   SHADER_UNIFORM_INT);
+  }
+  if (bindTextureAtlas) {
+    render::ParticleTextureManager::Get().Bind(
+        static_cast<uint32_t>(TextureUnit::TEX_PARTICLE_ATLAS));
+  }
+
+  // Bind the buffer containing the valid particles for this frame.
   using namespace NoMoreDay::RenderConstants;
   core::ComputeBuffer &bufferToRender =
       m_pingPong ? m_compactBuffer : m_particleBuffer;
   bufferToRender.BindBase(ParticleCS::PARTICLES_IN);
 
-  // Enable VAO
+  // Enable VAO once for both blend passes.
   rlEnableVertexArray(m_quadVAO);
   rlDisableDepthTest();       // Ensure depth test is off
   rlDisableBackfaceCulling(); // Ensure we see both sides
 
-  // Indirect Draw using the buffer updated by GPU
-  // We use the PREVIOUS slot because Update() just finished writing to it and advanced the slot.
-  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER, 0); 
-  utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES, m_indirectBuffer.GetPreviousSlotOffset());
+  // We use the PREVIOUS slot because Update() just finished writing to it and
+  // advanced the slot.
+  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER, 0);
+
+  auto drawPass = [&](int blendPass, int raylibBlendMode) {
+    BeginBlendMode(raylibBlendMode);
+    BeginShaderMode(m_renderShader);
+    if (m_renderBlendPassLoc >= 0) {
+      SetShaderValue(m_renderShader, m_renderBlendPassLoc, &blendPass,
+                     SHADER_UNIFORM_INT);
+    }
+    utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES,
+                                        m_indirectBuffer.GetPreviousSlotOffset());
+    EndShaderMode();
+    EndBlendMode();
+  };
+
+  // Pass 0: Alpha particles
+  drawPass(0, BLEND_ALPHA);
+  // Pass 1: Additive particles
+  drawPass(1, BLEND_ADDITIVE);
+
   utils::GPUUtils::BindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
 
   // Cleanup
+  if (bindTextureAtlas) {
+    render::ParticleTextureManager::Get().Unbind(
+        static_cast<uint32_t>(TextureUnit::TEX_PARTICLE_ATLAS));
+  }
   rlDisableVertexArray();
-  EndShaderMode();
-  EndBlendMode();
 }
 
 // ==================== InkEffectHelper Implementation ====================

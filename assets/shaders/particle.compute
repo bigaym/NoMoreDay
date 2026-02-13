@@ -14,7 +14,9 @@ struct Particle {
     uint flags;         // 4 bytes
     float growthRate;   // 4 bytes
     float rotation;     // 4 bytes
-    float pad[3];       // 12 bytes padding
+    int texInfo;        // 4 bytes
+    uint animData;      // 4 bytes
+    float subEmitParam; // 4 bytes
 }; // Total: 64 bytes
 
 // SSBOs
