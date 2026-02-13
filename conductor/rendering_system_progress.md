@@ -14,8 +14,22 @@
 | **Phase 1** | HDR + 后处理管线 | ✅ 已完成 | `hdr_postprocess_pipeline_20260212` | HDR SceneBuffer、Bloom、Tonemap、FXAA、Vignette、基准测试 |
 | **Phase 2** | 动态光照系统 | ✅ 已完成 | `dynamic_lighting_system_20260212` | GPULight SSBO、LightManager、LightingPass、光源挂载 |
 | **Phase 3** | 粒子与轨迹增强 | 🚧 进行中 | `particle_trail_enhancement_20260213` | 纹理粒子、GPU TrailRenderer |
-| **Phase 4** | 材质与 VFX 序列器 | ⏳ 未启动 | TBD | 材质系统、VFXTimeline、Distortion Pass |
+| **Phase 4** | 材质与 VFX 序列器 | 🚧 进行中 (43/118) | `material_vfx_sequencer_20260213` | 材质系统、VFXTimeline、Distortion Pass |
 | **Phase 5** | 打磨与高级特性 | ⏳ 未启动 | TBD | Color Grading、Volumetric Light、Profiler HUD |
+
+---
+
+## Phase 4 Progress (material_vfx_sequencer_20260213)
+
+- [x] Phase A 完成：`GPUMaterialData`、`MaterialDefs.hpp`、预设材质常量
+- [x] Phase B 完成：`MaterialManager`（注册/查询/SSBO 同步/绑定）
+- [x] Phase C 基本完成：`materials_vfx.json`、JSON 解析、热重载入口
+- [x] Phase D 基本完成：`material_abi.glslinc`、粒子 shader 材质采样、`materialId` 打包
+- [x] Phase I 部分完成：Phase 4 渲染配置字段与 Tier 参数已接入
+- [x] Phase K 部分完成：`MaterialTest` 已新增并通过
+- [ ] 待完成：E/F/G/H/J/K/L（VFX 序列器、DistortionPass、预制资产、性能与归档）
+
+当前任务勾选：`43 / 118`（约 `36.4%`）。
 
 ---
 

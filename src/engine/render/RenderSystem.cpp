@@ -9,6 +9,7 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/MaterialManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/lighting/LightManager.hpp"
@@ -809,6 +810,9 @@ void ExecuteCompositePass(
 
 void RenderSystem::Initialize() {
   NoMoreDay::render::core::QualityTierManager::Get().Initialize("settings.json");
+  NoMoreDay::render::MaterialManager::Get().Initialize();
+  NoMoreDay::render::MaterialManager::Get().LoadFromJson(
+      "assets/data/materials_vfx.json");
   NoMoreDay::render::lighting::LightManager::Get().Initialize();
   if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
@@ -885,6 +889,7 @@ void RenderSystem::Shutdown() {
   s_glyphInstanceBuffer = nullptr;
 
   NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
+  NoMoreDay::render::MaterialManager::Get().Shutdown();
   NoMoreDay::render::lighting::LightManager::Get().Shutdown();
   if (g_lightingPass) {
     g_lightingPass->Shutdown();
@@ -919,6 +924,12 @@ void RenderSystem::render(entt::registry &registry,
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+  if (renderConfig.materialSystemEnabled) {
+    NoMoreDay::render::MaterialManager::Get().TryHotReload();
+    NoMoreDay::render::MaterialManager::Get().SyncToGPU();
+    NoMoreDay::render::MaterialManager::Get().BindSSBO(
+        static_cast<int>(NoMoreDay::RenderConstants::Binding::SSBO_MATERIAL_DATA));
+  }
   // RenderSystem can be called from GameplayState inside BeginTextureMode(m_sceneRT).
   // In that path we keep the old behavior and bypass internal full-screen composite
   // to avoid camera-space/fullscreen conflicts in offscreen targets.

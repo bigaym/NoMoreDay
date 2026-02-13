@@ -1,0 +1,17 @@
+#ifndef MATERIAL_SSBO_BINDING
+#define MATERIAL_SSBO_BINDING 12
+#endif
+
+struct MaterialData {
+    vec4 baseColor;
+    vec4 emissive;      // rgb + intensity in w
+    float distortion;
+    uint blendMode;     // 0=Alpha,1=Additive,2=Multiply
+    uint shaderVariant;
+    uint flags;
+    ivec4 textureSlots;
+};
+
+layout(std430, binding = MATERIAL_SSBO_BINDING) readonly buffer MaterialBuffer {
+    MaterialData materials[];
+};

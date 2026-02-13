@@ -30,7 +30,10 @@ public:
     
     // Particle emission
     void Emit(const components::GPUParticle& particle);
+    void Emit(const components::GPUParticle& particle, int materialId);
     void EmitBatch(const std::vector<components::GPUParticle>& particles);
+    void EmitBatch(const std::vector<components::GPUParticle>& particles,
+                   int materialId);
     
     // Matrix helper
     Matrix BuildMVP(const Camera2D& camera) const;
@@ -91,6 +94,7 @@ private:
     int m_renderMvpLoc = -1;
     int m_renderAtlasLoc = -1;
     int m_renderBlendPassLoc = -1;
+    int m_renderMaterialCountLoc = -1;
     
     // VAO for quad rendering
     unsigned int m_quadVAO = 0;

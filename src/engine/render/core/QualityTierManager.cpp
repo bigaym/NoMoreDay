@@ -159,6 +159,12 @@ QualityTier QualityTierManager::DetectTierFromRenderer(
 }
 
 void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
+#if defined(NDEBUG)
+  constexpr bool kHotReloadEnabled = false;
+#else
+  constexpr bool kHotReloadEnabled = true;
+#endif
+
   switch (tier) {
   case QualityTier::Low:
     m_config.bloomEnabled = false;
@@ -185,6 +191,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.trailEnabled = false;
     m_config.trailMaxPoints = 0;
     m_config.maxTrails = 0;
+    m_config.distortionEnabled = false;
+    m_config.maxMaterials = 32;
+    m_config.materialSystemEnabled = true;
+    m_config.vfxSequenceDetail = 0;
+    m_config.hotReloadEnabled = kHotReloadEnabled;
     break;
   case QualityTier::Medium:
     m_config.bloomEnabled = true;
@@ -211,6 +222,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.trailEnabled = true;
     m_config.trailMaxPoints = 32;
     m_config.maxTrails = 128;
+    m_config.distortionEnabled = false;
+    m_config.maxMaterials = 64;
+    m_config.materialSystemEnabled = true;
+    m_config.vfxSequenceDetail = 1;
+    m_config.hotReloadEnabled = kHotReloadEnabled;
     break;
   case QualityTier::High:
     m_config.bloomEnabled = true;
@@ -237,6 +253,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.trailEnabled = true;
     m_config.trailMaxPoints = 48;
     m_config.maxTrails = 256;
+    m_config.distortionEnabled = true;
+    m_config.maxMaterials = 128;
+    m_config.materialSystemEnabled = true;
+    m_config.vfxSequenceDetail = 2;
+    m_config.hotReloadEnabled = kHotReloadEnabled;
     break;
   case QualityTier::Ultra:
     m_config.bloomEnabled = true;
@@ -263,6 +284,11 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_config.trailEnabled = true;
     m_config.trailMaxPoints = 64;
     m_config.maxTrails = 512;
+    m_config.distortionEnabled = true;
+    m_config.maxMaterials = 256;
+    m_config.materialSystemEnabled = true;
+    m_config.vfxSequenceDetail = 2;
+    m_config.hotReloadEnabled = kHotReloadEnabled;
     break;
   }
 }

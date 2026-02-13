@@ -40,6 +40,13 @@ struct RenderConfig {
   bool trailEnabled = false;
   int trailMaxPoints = 0;
   int maxTrails = 0;
+
+  // Phase 4
+  bool distortionEnabled = false;
+  int maxMaterials = 0;
+  bool materialSystemEnabled = false;
+  int vfxSequenceDetail = 0; // 0=minimal, 1=reduced, 2=full
+  bool hotReloadEnabled = false;
 };
 
 inline const char *ToString(QualityTier tier) {

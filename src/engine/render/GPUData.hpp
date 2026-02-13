@@ -86,6 +86,35 @@ struct GPUParticle {
 static_assert(sizeof(GPUParticle) == 64,
               "GPUParticle struct must be exactly 64 bytes for SSBO alignment");
 
+/**
+ * @brief Structure for GPU material data (SSBO).
+ * STRICTLY 64 BYTES (16 * 4) for std430 alignment.
+ */
+struct GPUMaterialData {
+  float baseColorR = 1.0f;
+  float baseColorG = 1.0f;
+  float baseColorB = 1.0f;
+  float baseColorA = 1.0f;
+
+  float emissiveR = 0.0f;
+  float emissiveG = 0.0f;
+  float emissiveB = 0.0f;
+  float emissiveIntensity = 0.0f;
+
+  float distortion = 0.0f;
+  uint32_t blendMode = 0;
+  uint32_t shaderVariant = 0;
+  uint32_t flags = 0;
+
+  int32_t textureSlot0 = -1;
+  int32_t textureSlot1 = -1;
+  int32_t textureSlot2 = -1;
+  int32_t textureSlot3 = -1;
+};
+
+static_assert(sizeof(GPUMaterialData) == 64,
+              "GPUMaterialData struct must be exactly 64 bytes for SSBO alignment");
+
 struct GPUTrailPoint {
   float posX = 0.0f;
   float posY = 0.0f;
@@ -191,12 +220,26 @@ static_assert(
 namespace GPUFlags {
   constexpr uint32_t AI_STATE_SHIFT = 8;
   constexpr uint32_t AI_STATE_MASK = 0xFF << AI_STATE_SHIFT;
+  constexpr uint32_t MATERIAL_ID_SHIFT = 16;
+  constexpr uint32_t MATERIAL_ID_MASK = 0xFFFFu << MATERIAL_ID_SHIFT;
   
   inline constexpr uint32_t PackAIState(uint8_t state) {
     return static_cast<uint32_t>(state) << AI_STATE_SHIFT;
   }
   inline constexpr uint8_t UnpackAIState(uint32_t flags) {
     return static_cast<uint8_t>((flags & AI_STATE_MASK) >> AI_STATE_SHIFT);
+  }
+
+  inline constexpr void PackMaterialId(uint32_t &flags, int materialId) {
+    uint32_t clamped = 0;
+    if (materialId > 0) {
+      clamped = static_cast<uint32_t>(materialId > 0xFFFF ? 0xFFFF : materialId);
+    }
+    flags = (flags & ~MATERIAL_ID_MASK) | (clamped << MATERIAL_ID_SHIFT);
+  }
+
+  inline constexpr int UnpackMaterialId(uint32_t flags) {
+    return static_cast<int>((flags & MATERIAL_ID_MASK) >> MATERIAL_ID_SHIFT);
   }
 }
 

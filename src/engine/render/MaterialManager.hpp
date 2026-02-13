@@ -1,0 +1,61 @@
+#pragma once
+
+#include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/GPUData.hpp"
+#include "engine/render/MaterialDefs.hpp"
+
+#include <array>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+
+namespace NoMoreDay::render {
+
+class MaterialManager {
+public:
+  static MaterialManager &Get();
+
+  void Initialize();
+  void Shutdown();
+
+  int RegisterMaterial(const MaterialInstance &mat, const std::string &name = "");
+  int LoadFromJson(const std::string &path);
+  void TryHotReload();
+
+  [[nodiscard]] const MaterialInstance &GetMaterial(int materialId) const;
+  [[nodiscard]] int GetMaterialId(const std::string &name) const;
+  [[nodiscard]] int GetMaterialCount() const { return m_materialCount; }
+
+  void SyncToGPU();
+  void BindSSBO(int bindingPoint) const;
+
+  static constexpr int MAX_MATERIALS = 256;
+  static constexpr int PRESET_RESERVE = 8;
+
+private:
+  MaterialManager() = default;
+
+  int RegisterPresetMaterial(int id, const MaterialInstance &mat,
+                             const std::string &name);
+  void RegisterPresets();
+  [[nodiscard]] components::GPUMaterialData ToGpuData(
+      const MaterialInstance &material) const;
+  void MarkSlot(int id, const MaterialInstance &material, const std::string &name);
+
+  std::array<MaterialInstance, MAX_MATERIALS> m_materials{};
+  std::array<components::GPUMaterialData, MAX_MATERIALS> m_gpuMaterials{};
+  std::array<bool, MAX_MATERIALS> m_registered{};
+  std::unordered_map<std::string, int> m_nameToId;
+
+  int m_materialCount = 0;
+  int m_nextDynamicId = PRESET_RESERVE;
+  int m_gpuUploadCount = 0;
+  bool m_dirty = true;
+  bool m_initialized = false;
+
+  ::NoMoreDay::core::ComputeBuffer m_ssbo;
+  std::string m_jsonPath;
+  std::filesystem::file_time_type m_lastModified{};
+};
+
+} // namespace NoMoreDay::render

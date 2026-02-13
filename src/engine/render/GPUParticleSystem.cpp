@@ -1,6 +1,7 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/MaterialManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/particle/ForceFieldManager.hpp"
 #include "engine/render/particle/ParticleTextureManager.hpp"
@@ -10,6 +11,7 @@
 #include "engine/render/RenderConstants.hpp"
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <rlgl.h>
 #include <sstream>
@@ -24,6 +26,95 @@
 
 namespace NoMoreDay::systems {
 using namespace NoMoreDay::RenderConstants;
+
+namespace {
+
+constexpr int kMaxShaderIncludeDepth = 8;
+
+bool ReadTextFile(const std::filesystem::path &path, std::string &out) {
+  std::ifstream file(path);
+  if (!file.is_open()) {
+    return false;
+  }
+  std::stringstream ss;
+  ss << file.rdbuf();
+  out = ss.str();
+  return true;
+}
+
+std::string ResolveShaderIncludes(const std::filesystem::path &path, int depth) {
+  if (depth > kMaxShaderIncludeDepth) {
+    LOG_ERROR("GPUParticleSystem: shader include depth exceeded at {}",
+              path.string());
+    return {};
+  }
+
+  std::string source;
+  if (!ReadTextFile(path, source)) {
+    LOG_ERROR("GPUParticleSystem: failed to read shader file {}", path.string());
+    return {};
+  }
+
+  std::stringstream input(source);
+  std::ostringstream output;
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string includeTag = "#include \"";
+    const size_t start = line.find(includeTag);
+    if (start == std::string::npos) {
+      output << line << '\n';
+      continue;
+    }
+
+    const size_t pathStart = start + includeTag.size();
+    const size_t endQuote = line.find('\"', pathStart);
+    if (endQuote == std::string::npos) {
+      output << line << '\n';
+      continue;
+    }
+
+    const std::string relative = line.substr(pathStart, endQuote - pathStart);
+    const std::filesystem::path includePath = path.parent_path() / relative;
+    const std::string included = ResolveShaderIncludes(includePath, depth + 1);
+    output << included << '\n';
+  }
+
+  return output.str();
+}
+
+Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
+                              const std::filesystem::path &fragmentPath) {
+  Shader shader = {};
+  const std::string vertexSrc = ResolveShaderIncludes(vertexPath, 0);
+  const std::string fragmentSrc = ResolveShaderIncludes(fragmentPath, 0);
+  if (vertexSrc.empty() || fragmentSrc.empty()) {
+    return shader;
+  }
+
+  unsigned int vsId = rlCompileShader(vertexSrc.c_str(), RL_VERTEX_SHADER);
+  unsigned int fsId = rlCompileShader(fragmentSrc.c_str(), RL_FRAGMENT_SHADER);
+  if (vsId == 0 || fsId == 0) {
+    LOG_ERROR("GPUParticleSystem: shader compile failed for {} / {}",
+              vertexPath.string(), fragmentPath.string());
+    return shader;
+  }
+
+  const unsigned int programId = rlLoadShaderProgram(vsId, fsId);
+  if (programId == 0) {
+    LOG_ERROR("GPUParticleSystem: shader link failed for {} / {}",
+              vertexPath.string(), fragmentPath.string());
+    return shader;
+  }
+
+  shader.id = programId;
+  shader.locs = static_cast<int *>(RL_CALLOC(RL_MAX_SHADER_LOCATIONS, sizeof(int)));
+  for (int i = 0; i < RL_MAX_SHADER_LOCATIONS; ++i) {
+    shader.locs[i] = -1;
+  }
+  return shader;
+}
+
+} // namespace
 
 
 GPUParticleSystem &GPUParticleSystem::Get() {
@@ -187,15 +278,16 @@ void GPUParticleSystem::LoadShaders() {
         "GPUParticleSystem: Could not open assets/shaders/particle.compute");
   }
 
-  // 2. Load Render Shaders
-  m_renderShader = LoadShader("assets/shaders/particle.vert",
-                              "assets/shaders/particle.frag");
+  // 2. Load Render Shaders (with local #include support for ABI snippets)
+  m_renderShader = LoadShaderWithIncludes("assets/shaders/particle.vert",
+                                          "assets/shaders/particle.frag");
   if (m_renderShader.id != 0) {
     LOG_INFO("GPUParticleSystem: Render shader loaded (ID: {})",
              m_renderShader.id);
     m_renderMvpLoc = GetShaderLocation(m_renderShader, "mvp");
     m_renderAtlasLoc = GetShaderLocation(m_renderShader, "particleAtlas");
     m_renderBlendPassLoc = GetShaderLocation(m_renderShader, "uBlendPass");
+    m_renderMaterialCountLoc = GetShaderLocation(m_renderShader, "uMaterialCount");
   } else {
     LOG_ERROR("GPUParticleSystem: Render shader loading failed!");
   }
@@ -336,14 +428,26 @@ void GPUParticleSystem::CreateQuadVAO() {
 }
 
 void GPUParticleSystem::Emit(const components::GPUParticle &particle) {
+  Emit(particle, 0);
+}
+
+void GPUParticleSystem::Emit(const components::GPUParticle &particle,
+                             int materialId) {
+  components::GPUParticle packed = particle;
+  components::GPUFlags::PackMaterialId(packed.flags, materialId);
   uint32_t idx = m_emitHead.fetch_add(1);
   if (idx < m_emissionCap) {
-    m_mappedPtr[idx] = particle;
+    m_mappedPtr[idx] = packed;
   }
 }
 
 void GPUParticleSystem::EmitBatch(
     const std::vector<components::GPUParticle> &particles) {
+  EmitBatch(particles, 0);
+}
+
+void GPUParticleSystem::EmitBatch(
+    const std::vector<components::GPUParticle> &particles, int materialId) {
   if (particles.empty())
     return;
 
@@ -352,7 +456,17 @@ void GPUParticleSystem::EmitBatch(
   
   if (startIdx < m_emissionCap) {
     uint32_t toCopy = std::min(count, m_emissionCap - startIdx);
-    memcpy(m_mappedPtr + startIdx, particles.data(), toCopy * sizeof(components::GPUParticle));
+    if (materialId <= 0) {
+      memcpy(m_mappedPtr + startIdx, particles.data(),
+             toCopy * sizeof(components::GPUParticle));
+      return;
+    }
+
+    for (uint32_t i = 0; i < toCopy; ++i) {
+      components::GPUParticle packed = particles[i];
+      components::GPUFlags::PackMaterialId(packed.flags, materialId);
+      m_mappedPtr[startIdx + i] = packed;
+    }
   }
 }
 
@@ -645,6 +759,11 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   if (m_renderAtlasLoc >= 0) {
     const int atlasUnit = static_cast<int>(TextureUnit::TEX_PARTICLE_ATLAS);
     SetShaderValue(m_renderShader, m_renderAtlasLoc, &atlasUnit,
+                   SHADER_UNIFORM_INT);
+  }
+  if (m_renderMaterialCountLoc >= 0) {
+    const int materialCount = render::MaterialManager::Get().GetMaterialCount();
+    SetShaderValue(m_renderShader, m_renderMaterialCountLoc, &materialCount,
                    SHADER_UNIFORM_INT);
   }
   if (bindTextureAtlas) {
