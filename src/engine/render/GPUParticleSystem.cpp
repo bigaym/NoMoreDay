@@ -529,13 +529,17 @@ void GPUParticleSystem::Update(float dt) {
 
   // 2. Dispatch simulation compute shader
   {
+    const uint32_t pendingEmit = m_emitHead.load();
+
     // Phase 5: Adaptive Dispatch Range
-    // If we have no alive particles AND no recent emissions, we can idle.
-    if (m_lastKnownAliveCount == 0 && m_emitHead.load() == 0 && m_currentParticleCount == 0) {
+    // If we have no alive particles AND no pending emissions, we can idle.
+    if (m_lastKnownAliveCount == 0 && pendingEmit == 0 && m_currentParticleCount == 0) {
         m_targetDispatchCount = 0;
     } else {
         // Use the conservative estimate to ensure all particles are updated
-        m_targetDispatchCount = (int)std::max<uint32_t>(m_lastKnownAliveCount + 2048, (uint32_t)m_currentParticleCount);
+        // If lastKnown is 0 but pendingEmit > 0, we still need to run simulation 
+        // on existing slots if m_currentParticleCount > 0
+        m_targetDispatchCount = (int)std::max({m_lastKnownAliveCount + 2048, (uint32_t)m_currentParticleCount, pendingEmit});
         m_targetDispatchCount = (int)std::min<uint32_t>((uint32_t)m_targetDispatchCount, (uint32_t)m_maxParticles);
     }
 
@@ -584,9 +588,6 @@ void GPUParticleSystem::Update(float dt) {
 
         utils::GPUUtils::MemoryBarrier(Barrier::All);
         rlDisableShader();
-    } else {
-        // Idle: Skip compute, but still need to clear/reset for emission logic
-        m_currentParticleCount = 0; 
     }
   }
 
@@ -680,10 +681,8 @@ void GPUParticleSystem::Update(float dt) {
   // Advance Slot for next frame
   m_indirectBuffer.Lock(); 
 
-  // 7. Reset Particle Count Estimate only on sync readback frame
-  if (m_readbackFrameCounter == 0) {
-      m_currentParticleCount = static_cast<int>(totalAfterEmission);
-  }
+  // 7. Reset Particle Count Estimate 
+  m_currentParticleCount = static_cast<int>(totalAfterEmission);
   
   m_pingPong = !m_pingPong;
   if (subEmitterEnabled) {
@@ -743,6 +742,9 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   if (!m_initialized || m_renderShader.id == 0)
     return;
 
+  // Flush any pending raylib draw calls before we start manual GL drawing
+  rlDrawRenderBatchActive();
+
   // Build MVP matrix
   Matrix mvp = BuildMVP(camera);
 
@@ -789,6 +791,9 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   auto drawPass = [&](int blendPass, int raylibBlendMode) {
     BeginBlendMode(raylibBlendMode);
     BeginShaderMode(m_renderShader);
+    
+    rlEnableVertexArray(m_quadVAO); // Re-ensure VAO is active for this pass
+
     if (m_renderBlendPassLoc >= 0) {
       SetShaderValue(m_renderShader, m_renderBlendPassLoc, &blendPass,
                      SHADER_UNIFORM_INT);

@@ -162,6 +162,7 @@ private:
   GPUUtils() = delete;
 
   static bool s_initialized;
+  static GPUSupportInfo s_info;
 
   // Basic Pointers
   static void *s_glMemoryBarrier;

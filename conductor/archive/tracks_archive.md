@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: 材质与 VFX 序列器 (material_vfx_sequencer_20260213)
+- **Folder:** [./conductor/archive/material_vfx_sequencer_20260213/](./conductor/archive/material_vfx_sequencer_20260213/)
+- **Description:** 实现数据驱动的材质系统（constexpr预设+JSON+SSBO）、VFX序列器（JSON时间线→多层视觉编排）和屏幕扭曲通路（DistortionPass），使新技能特效可纯数据驱动创建。
+- **Status:** COMPLETED (2026-02-13)
+- **Priority:** HIGH
+- **Archive Reason:** 完成 Phase 4 所有开发与验证任务，包括粒子系统修复 (BUG-20260213-001) 与画质分级确认。
+
+---
+
 ## [x] Track: HDR + 后处理管线 (hdr_postprocess_pipeline_20260212)
 - **Folder:** [./conductor/archive/hdr_postprocess_pipeline_20260212/](./conductor/archive/hdr_postprocess_pipeline_20260212/)
 - **Description:** 实现完整 HDR 渲染链：RGBA16F 场景缓冲区、Bloom 提取与模糊、Tone Mapping、FXAA 抗锯齿以及暗角特效，并确立性能基准。

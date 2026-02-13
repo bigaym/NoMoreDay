@@ -4,6 +4,7 @@
 namespace NoMoreDay::utils {
 
 bool GPUUtils::s_initialized = false;
+GPUSupportInfo GPUUtils::s_info = {};
 void *GPUUtils::s_glMemoryBarrier = nullptr;
 void *GPUUtils::s_glDrawArraysIndirect = nullptr;
 void *GPUUtils::s_glBindBuffer = nullptr;
@@ -51,10 +52,11 @@ void *GPUUtils::s_glBlendFunc = nullptr;
 
 GPUSupportInfo GPUUtils::Initialize() {
   if (s_initialized) {
-    return CheckSupport();
+    return s_info;
   }
 
-  GPUSupportInfo info = CheckSupport();
+  // Detect basic version
+  s_info = CheckSupport();
 
   // Load Base Functions
   s_glMemoryBarrier = (void *)glfwGetProcAddress("glMemoryBarrier");
@@ -115,22 +117,24 @@ GPUSupportInfo GPUUtils::Initialize() {
   s_glBlendFunc = (void *)glfwGetProcAddress("glBlendFunc");
 
   // Verify Critical Functions
-  info.indirectDrawSupported = (s_glDrawArraysIndirect != nullptr);
-  info.persistentMappingSupported =
+  s_info.indirectDrawSupported = (s_glDrawArraysIndirect != nullptr);
+  s_info.persistentMappingSupported =
       (s_glBufferStorage != nullptr && s_glFenceSync != nullptr);
 
   s_initialized = true;
   LOG_INFO("GPUUtils initialized. GL {}.{}, Indirect: {}, Persistent: {}, "
            "Compute: {}",
-           info.majorVersion, info.minorVersion, info.indirectDrawSupported,
-           info.persistentMappingSupported, info.computeShaderSupported);
+           s_info.majorVersion, s_info.minorVersion, s_info.indirectDrawSupported,
+           s_info.persistentMappingSupported, s_info.computeShaderSupported);
 
-  return info;
+  return s_info;
 }
 
 bool GPUUtils::IsInitialized() { return s_initialized; }
 
 GPUSupportInfo GPUUtils::CheckSupport() {
+  if (s_initialized) return s_info;
+  
   GPUSupportInfo info;
   int version = rlGetVersion();
   if (version == RL_OPENGL_43) {

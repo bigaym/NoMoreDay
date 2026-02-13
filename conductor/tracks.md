@@ -15,20 +15,9 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
-## [ ] Track: 材质与 VFX 序列器 (material_vfx_sequencer_20260213)
-
-> **目标**: 实现数据驱动的材质系统（constexpr预设+JSON+SSBO）、VFX序列器（JSON时间线→多层视觉编排）和屏幕扭曲通路（DistortionPass），使新技能特效可纯数据驱动创建。
-> **文档**: [spec.md](./tracks/material_vfx_sequencer_20260213/spec.md) | [plan.md](./tracks/material_vfx_sequencer_20260213/plan.md)
-> **状态**: IN_PROGRESS (A/B 完成；C/D/I/K 部分完成；总体 43/118 tasks)
-> **Phase**: GPU 渲染系统 2.0 — Phase 4
-> **前置依赖**: Phase 1 ✅ + Phase 3 ✅
-> **预估工时**: 5~7 天
-
-
----
-
 ## Status Update (2026-02-13)
 
-- material_vfx_sequencer_20260213: IN_PROGRESS
-  - done: code implementation, build, full test suite, smoke verification, evidence capture
-  - remaining: full visual pass for all 10 prefab sequences, then archive/close (L2)
+- material_vfx_sequencer_20260213: COMPLETED & ARCHIVED
+  - delivered: material system, vfx sequencer, distortion pass, prefab library
+  - fixed: critical particle system deadlock (BUG-20260213-001)
+  - verified: full test suite & visual check

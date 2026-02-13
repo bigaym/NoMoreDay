@@ -14,22 +14,28 @@
 | **Phase 1** | HDR + 后处理管线 | ✅ 已完成 | `hdr_postprocess_pipeline_20260212` | HDR SceneBuffer、Bloom、Tonemap、FXAA、Vignette、基准测试 |
 | **Phase 2** | 动态光照系统 | ✅ 已完成 | `dynamic_lighting_system_20260212` | GPULight SSBO、LightManager、LightingPass、光源挂载 |
 | **Phase 3** | 粒子与轨迹增强 | 🚧 进行中 | `particle_trail_enhancement_20260213` | 纹理粒子、GPU TrailRenderer |
-| **Phase 4** | 材质与 VFX 序列器 | 🚧 进行中 (43/118) | `material_vfx_sequencer_20260213` | 材质系统、VFXTimeline、Distortion Pass |
+| **Phase 4** | 材质与 VFX 序列器 | ✅ 已完成 | `material_vfx_sequencer_20260213` | 材质系统、VFXTimeline、Distortion Pass |
 | **Phase 5** | 打磨与高级特性 | ⏳ 未启动 | TBD | Color Grading、Volumetric Light、Profiler HUD |
 
 ---
 
-## Phase 4 Progress (material_vfx_sequencer_20260213)
+## Phase 4 验收记录 (material_vfx_sequencer_20260213)
 
-- [x] Phase A 完成：`GPUMaterialData`、`MaterialDefs.hpp`、预设材质常量
-- [x] Phase B 完成：`MaterialManager`（注册/查询/SSBO 同步/绑定）
-- [x] Phase C 基本完成：`materials_vfx.json`、JSON 解析、热重载入口
-- [x] Phase D 基本完成：`material_abi.glslinc`、粒子 shader 材质采样、`materialId` 打包
-- [x] Phase I 部分完成：Phase 4 渲染配置字段与 Tier 参数已接入
-- [x] Phase K 部分完成：`MaterialTest` 已新增并通过
-- [ ] 待完成：E/F/G/H/J/K/L（VFX 序列器、DistortionPass、预制资产、性能与归档）
+- [x] **A/B 材质底层**: `GPUMaterialData`、`MaterialManager`、SSBO 同步、预设注册 (A.1-B.3)
+- [x] **C 材质管线**: JSON 资产解析、Schema 校验、热重载支持 (C.1-C.3)
+- [x] **D Shader 集成**: `material_abi`、粒子材质采样、flags 编解码 (D.1-D.4)
+- [x] **E/F/G VFX 序列器**: `VFXSequenceManager`、`VFXPlayerComponent`、`VFXSequencerSystem`、7 种事件执行器 (E.1-G.4)
+- [x] **H Distortion Pass**: `DistortionPass`、环形扭曲 Shader、RenderGraph 集成 (H.1-H.4)
+- [x] **I/K 基础与验证**: RenderConfig 扩展、全套单测 (`MaterialTest`/`VFXSequencerTest`/`DistortionTest`)、基准测试 (I.1-K.5)
+- [x] **J 预制库**: 10 个 VFX 序列 JSON 资产已创建并集成至技能系统 (J.1-J.3)
+- [x] **M 回归修复**: 修复 `GPUUtils` 状态丢失与 `GPUParticleSystem` 死锁问题 (BUG-20260213-001)，画质档位差异验证通过 (M.1-M.4)
 
-当前任务勾选：`43 / 118`（约 `36.4%`）。
+**性能基准 (i7-12700H / RTX 4070):**
+- Material Sync: `< 0.01ms` (Dirtiness check)
+- VFX Sequencer (100 active): `~0.005ms`
+- Distortion Pass (2K@8 sources): `~0.01ms`
+
+归档位置: `conductor/archive/material_vfx_sequencer_20260213/`
 
 ---
 

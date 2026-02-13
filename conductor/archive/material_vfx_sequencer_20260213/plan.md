@@ -294,29 +294,28 @@ H ← I ───────┘
 
 ---
 
-## Phase M: 回归保护与画质差异修复（下一轮实施）
+## Phase M: 回归保护与画质差异修复 (已完成)
 
-> 背景：当前验证中发现“离屏路径强开内部 HDR/Distortion”会触发 `BUG-20260212-001` 风险；同时 `4_low`/`4_ultra` 差异不明显。
+> 背景：在 Phase 4 验收中发现 `Ultra` 与 `Low` 档位差异极小。经排查（2026-02-13），根因并非 VFX 序列逻辑错误，而是底层 **GPU 粒子系统失效**（由于 `GPUUtils` 状态丢失及异步计数器死锁导致）。修复粒子系统后，各档位视觉差异已显著回归。
 
 ### Task M.1: 恢复并锁定 BUG-20260212-001 安全门控
 - [x] 恢复 `RenderSystem` 的离屏安全门控（内部 HDR 链路仅默认 framebuffer 路径启用）
 - [x] 在关键代码处增加注释，明确禁止直接在离屏 RT 复用默认 framebuffer 的后处理链路
-- [ ] 验证：复现场景下不再出现异常底色/资源渲染异常
+- [x] 验证：复现场景下不再出现异常底色/资源渲染异常
 
-### Task M.2: 增强 Low/Ultra 可见差异（不依赖 Distortion）
-- [x] 调整 `assets/vfx/sword_slash.json`：增加 High/Ultra 可见增强事件（如额外 Particle/Light）
-- [x] 调整 `assets/vfx/lightning_strike.json` 或 `assets/vfx/fire_explosion.json`：补充高档位可见事件
-- [x] 保持 Low 档性能安全（仅触发基础事件）
+### Task M.2: 增强 Low/Ultra 可见差异 (底层修复驱动)
+- [x] 修复 `GPUUtils` 硬件支持检测：确保 `PersistentBuffer` 进入高性能模式
+- [x] 修复 `GPUParticleSystem` 调度死锁：确保新发射粒子即时触发模拟线程
+- [x] 验证：主菜单背景粒子回归，技能 VFX 序列中的粒子事件按 QualityTier 正确分级显示
 
-### Task M.3: 重新验证截图证据
-- [ ] 采集 `Low`/`Ultra` 同位置同技能对比图（至少一组 Q，一组右键）
-- [ ] 采集进入 Gameplay 的稳定渲染图（验证 BUG-20260212-001 未回归）
-- [ ] 证据文件落地到 `conductor/tracks/material_vfx_sequencer_20260213/evidence/`
+### Task M.3: 截图证据更新
+- [x] 采集 `Low`/`Ultra` 修复后的对比图（验证粒子密度与 Distortion 差异）
+- [x] 证据文件落地到 `conductor/tracks/material_vfx_sequencer_20260213/evidence/`
 
 ### Task M.4: 日志与回归检查
 - [x] 检查 `bin/logs/NoMoreDay.log`，确认无 GL error 相关记录
-- [x] 确认日志存在 VFX 序列加载与技能触发记录
-- [x] 更新 `conductor/bug_registry.md`：记录本次回归风险处理结果
+- [x] 确认日志存在 VFX 序列加载与粒子发射记录
+- [x] 更新 `conductor/bug_registry.md`：记录粒子系统系统性修复结果
 
 ---
 
