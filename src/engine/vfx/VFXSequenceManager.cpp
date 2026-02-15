@@ -362,6 +362,10 @@ int VFXSequenceManager::LoadFromJson(const std::string &path) {
     Initialize();
   }
 
+  // Sequence assets resolve material names to runtime IDs during parse.
+  // Ensure preset registry is available even when caller hasn't initialized render systems yet.
+  render::MaterialManager::Get().Initialize();
+
   std::error_code ec;
   const fs::path input(path);
   std::vector<fs::path> files;

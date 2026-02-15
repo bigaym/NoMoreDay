@@ -3,7 +3,7 @@
 > Track ID: `render-risk-msvc-hardening_20260215`  
 > Type: `bug+refactor`  
 > Priority: `P0`  
-> Status: `Pending`  
+> Status: `Resolved`  
 > Date: `2026-02-15`
 
 ## 1. Context and Evidence
@@ -99,14 +99,14 @@ Governance data additions:
 
 ## 6. Acceptance Criteria
 
-- [ ] AC-01: Root CMake hard-fails on non-MSVC compiler.
-- [ ] AC-02: No GCC/MinGW fallback logic remains in `build.bat` and root `CMakeLists.txt`.
-- [ ] AC-03: `build.bat` fails immediately when no supported VS generator is available.
-- [ ] AC-04: `build.bat analyze` runs successfully from a normal developer workspace.
-- [ ] AC-05: `build.bat perf` runs successfully from a normal developer workspace.
-- [ ] AC-06: VFX runtime no longer emits unknown-material fallback warnings for shipped baseline assets.
-- [ ] AC-07: MDI benchmark expectation is corrected by optimization or by explicit scenario-specific gating policy.
-- [ ] AC-08: All risk/exception decisions are documented in track validation notes with evidence.
+- [x] AC-01: Root CMake hard-fails on non-MSVC compiler.
+- [x] AC-02: No GCC/MinGW fallback logic remains in `build.bat` and root `CMakeLists.txt`.
+- [x] AC-03: `build.bat` fails immediately when no supported VS generator is available.
+- [x] AC-04: `build.bat analyze` runs successfully from a normal developer workspace.
+- [x] AC-05: `build.bat perf` runs successfully from a normal developer workspace.
+- [x] AC-06: VFX runtime no longer emits unknown-material fallback warnings for shipped baseline assets.
+- [x] AC-07: MDI benchmark expectation is corrected by optimization or by explicit scenario-specific gating policy.
+- [x] AC-08: All risk/exception decisions are documented in track validation notes with evidence.
 
 ## 6.1 Acceptance Code Mapping
 

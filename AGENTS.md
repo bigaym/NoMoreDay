@@ -106,6 +106,26 @@ NoMoreDay 开发代理规则（Windows）。
 3. **专家推荐 (Recommended)**: 明确给出 Agent 的推荐倾向，并引用 `AGENTS.md`、`code_standard.md` 或性能基准作为理由。
 4. **决策影响**: 简述选择不同方案对后续开发（如：存档兼容性、渲染性能、工作量）的具体影响。
 
+## 11) Track 完成首尾工作（强制）
+当一个 track 进入完成收尾阶段时，按以下顺序执行：
+
+1. 编译与测试检查
+   - 执行并确认必要验证（如 `build.bat`、`build.bat analyze`、`build.bat perf`）。
+   - 若本轮已完成且有可复核证据（日志/文档）则可跳过重复执行。
+2. 更新文档与追踪
+   - 更新 track 内 `plan.md`（任务勾选、阶段进度、验收状态）。
+   - 同步更新 `conductor` 下追踪与产品相关文档（如 `tracks.md`、`validation.md`、`spec.md`、`metadata.json`、必要的 product/roadmap 文档）。
+3. 归档 track 目录（必须使用命令行 `move`）
+   - 直接移动 track 文件夹到归档目录：  
+     `move conductor\tracks\<track_id> conductor\archive\`
+4. 提交修改并记录说明
+   - 提交代码与文档变更。
+   - 使用 `git notes` 记录详细修改说明与验证证据，例如：  
+     `git notes add -m "<detail>"`
+5. Memory MCP 收尾记忆
+   - 若可用 Memory MCP，先清理上下文无关/干扰信息，再保存本次关键决策、结果、风险与后续事项。
+   - 首尾工作完成后再结束本轮任务。
+
 ---
 
 维护原则：可执行、可检查、少歧义；新增规则优先短句和清单化。

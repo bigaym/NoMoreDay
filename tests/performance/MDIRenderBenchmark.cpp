@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
 #include "app/SharedContext.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
@@ -9,86 +10,153 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
-#include <chrono>
 
-TEST_CASE("[Performance] MDIRenderer - MDI vs Legacy Rendering Benchmark") {
-  // Note: Raylib Window initialized by main.cpp
+#include <algorithm>
+#include <random>
+#include <vector>
+
+namespace NoMoreDay::tests {
+namespace mdi_render_benchmark_detail {
+
+constexpr int kEntityCount = 50000;
+constexpr int kWarmupFrames = 24;
+constexpr int kBenchFrames = 140;
+
+void LogThresholdWarn(const char *name, const BenchmarkStats &stats,
+                      double meanTarget, double p99Target) {
+  if (stats.mean_ms > meanTarget || stats.p99_ms > p99Target) {
+    LOG_WARN("{} exceeded target. Mean={:.3f}ms (target {:.3f}ms), "
+             "P99={:.3f}ms (target {:.3f}ms)",
+             name, stats.mean_ms, meanTarget, stats.p99_ms, p99Target);
+  }
+}
+
+void PopulateEntities(entt::registry &registry, int count, float worldSpan) {
+  std::mt19937 rng(240215);
+  std::uniform_real_distribution<float> posDist(0.0f, worldSpan);
+
+  for (int i = 0; i < count; ++i) {
+    const auto entity = registry.create();
+    registry.emplace<::Position>(entity, posDist(rng), posDist(rng));
+    registry.emplace<::Velocity>(entity, 0.0f, 0.0f);
+    registry.emplace<::Radius>(entity, 2.0f);
+    registry.emplace<::GPUIndex>(entity, -1);
+    registry.emplace<::EnemyTag>(entity);
+  }
+}
+
+BenchmarkStats MeasureMdiRender(systems::GPUEntitySystem &gpuEntitySystem,
+                                const NoMoreDay::SharedContext &context,
+                                const Camera2D &camera) {
+  for (int i = 0; i < kWarmupFrames; ++i) {
+    gpuEntitySystem.Render(context, camera);
+    glFinish();
+  }
+
+  std::vector<double> samples;
+  samples.reserve(kBenchFrames);
+  for (int i = 0; i < kBenchFrames; ++i) {
+    ScopedTimer timer(samples);
+    gpuEntitySystem.Render(context, camera);
+    glFinish();
+  }
+  return CalculateStats(samples);
+}
+
+BenchmarkStats MeasureLegacyRender(systems::GPUEntitySystem &gpuEntitySystem) {
+  for (int i = 0; i < kWarmupFrames; ++i) {
+    gpuEntitySystem.RenderLegacy(0.0f);
+    glFinish();
+  }
+
+  std::vector<double> samples;
+  samples.reserve(kBenchFrames);
+  for (int i = 0; i < kBenchFrames; ++i) {
+    ScopedTimer timer(samples);
+    gpuEntitySystem.RenderLegacy(0.0f);
+    glFinish();
+  }
+  return CalculateStats(samples);
+}
+
+Camera2D MakeCamera(float targetX, float targetY, float zoom) {
+  Camera2D camera = {};
+  const int screenWidth = std::max(GetScreenWidth(), 1280);
+  const int screenHeight = std::max(GetScreenHeight(), 720);
+  camera.target = {targetX, targetY};
+  camera.offset = {0.5f * static_cast<float>(screenWidth),
+                   0.5f * static_cast<float>(screenHeight)};
+  camera.rotation = 0.0f;
+  camera.zoom = zoom;
+  return camera;
+}
+
+} // namespace mdi_render_benchmark_detail
+
+TEST_CASE("[Performance] MDIRenderer - Scenario Gate (50k)") {
+  TestSetupScope scope;
 
   ResourceManager resources;
-  const int TEST_ENTITIES = 50000;
-  LOG_WARN("Starting Rendering Benchmark with {} entities", TEST_ENTITIES);
-
   systems::GPUEntitySystem gpuEntitySystem;
   render::MDIRenderer mdiRenderer;
-  RenderContext renderContext;
+
+  RenderContext renderContext = {};
   renderContext.gpuEntitySystem = &gpuEntitySystem;
   renderContext.mdiRenderer = &mdiRenderer;
   renderContext.gpuFlowFieldSystem = &systems::GPUFlowFieldSystem::Get();
   renderContext.resources = &resources;
 
-  gpuEntitySystem.Init(resources, TEST_ENTITIES);
-  mdiRenderer.Init(resources, TEST_ENTITIES);
+  gpuEntitySystem.Init(resources, mdi_render_benchmark_detail::kEntityCount);
+  mdiRenderer.Init(resources, mdi_render_benchmark_detail::kEntityCount);
 
   entt::registry registry;
-  for (int i = 0; i < TEST_ENTITIES; ++i) {
-    auto e = registry.create();
-    registry.emplace<::Position>(e, (float)(rand() % 4000),
-                                 (float)(rand() % 4000));
-    registry.emplace<::Velocity>(e, 0.0f, 0.0f);
-    registry.emplace<::Radius>(e, 2.0f);
-    registry.emplace<::GPUIndex>(e, -1);
-    registry.emplace<::EnemyTag>(e);
-  }
+  mdi_render_benchmark_detail::PopulateEntities(
+      registry, mdi_render_benchmark_detail::kEntityCount, 4000.0f);
 
-  // Set target FPS to 180 as requested by user
-  SetTargetFPS(180);
-
-  const int ITERATIONS = 500;
-
-  NoMoreDay::SharedContext context;
+  NoMoreDay::SharedContext context = {};
   context.resources = &resources;
   context.registry = &registry;
-  context.renderAlpha = 0.0f; // No interpolation for benchmark
+  context.renderAlpha = 0.0f;
   context.renderContext = &renderContext;
+  gpuEntitySystem.Update(context, 1.0f / 60.0f);
 
-  // Warm up
-  gpuEntitySystem.Update(context, 0.016f);
+  const Camera2D allVisibleCamera =
+      mdi_render_benchmark_detail::MakeCamera(2000.0f, 2000.0f, 1.0f);
+  const Camera2D sparseVisibilityCamera =
+      mdi_render_benchmark_detail::MakeCamera(120.0f, 120.0f, 1.0f);
 
-  // 1. Benchmark MDI (GPU Culling + Indirect)
-  // We measure multiple calls to get a stable average, then glFinish to ensure
-  // GPU caught up
-  Camera2D camera = {0};
-  camera.zoom = 1.0f;
+  const BenchmarkStats mdiAllVisible = mdi_render_benchmark_detail::MeasureMdiRender(
+      gpuEntitySystem, context, allVisibleCamera);
+  const BenchmarkStats mdiSparseVisibility =
+      mdi_render_benchmark_detail::MeasureMdiRender(gpuEntitySystem, context,
+                                                    sparseVisibilityCamera);
+  const BenchmarkStats legacyReference =
+      mdi_render_benchmark_detail::MeasureLegacyRender(gpuEntitySystem);
 
-  auto startMDI = std::chrono::high_resolution_clock::now();
-  for (int i = 0; i < ITERATIONS; ++i) {
-    gpuEntitySystem.Render(context, camera);
-  }
-  glFinish();
-  auto endMDI = std::chrono::high_resolution_clock::now();
-  double timeMDI =
-      std::chrono::duration<double, std::milli>(endMDI - startMDI).count() /
-      ITERATIONS;
+  LOG_BENCHMARK("MDI Scenario A (all-visible pipeline)", mdiAllVisible,
+                "< 1.2ms / < 2.5ms");
+  mdi_render_benchmark_detail::LogThresholdWarn(
+      "MDI Scenario A (all-visible pipeline)", mdiAllVisible, 1.2, 2.5);
 
-  // 2. Benchmark Legacy (Instanced, but CPU-driven submission)
-  auto startLegacy = std::chrono::high_resolution_clock::now();
-  for (int i = 0; i < ITERATIONS; ++i) {
-    gpuEntitySystem.RenderLegacy(0.0f);
-  }
-  glFinish();
-  auto endLegacy = std::chrono::high_resolution_clock::now();
-  double timeLegacy =
-      std::chrono::duration<double, std::milli>(endLegacy - startLegacy)
-          .count() /
-      ITERATIONS;
+  LOG_BENCHMARK("MDI Scenario B (sparse-visibility pipeline)",
+                mdiSparseVisibility, "< 1.2ms / < 2.5ms");
+  mdi_render_benchmark_detail::LogThresholdWarn(
+      "MDI Scenario B (sparse-visibility pipeline)", mdiSparseVisibility, 1.2,
+      2.5);
 
-  LOG_WARN("Benchmark Results ({} entities):", TEST_ENTITIES);
-  LOG_WARN("  - MDI Render Time (CPU+GPU):    {:.4f} ms", timeMDI);
-  LOG_WARN("  - Legacy Render Time (CPU+GPU): {:.4f} ms", timeLegacy);
-  LOG_WARN("  - Improvement:                  {:.1f}x", timeLegacy / timeMDI);
-  LOG_WARN("  - MDI Potential FPS:           {:.1f}", 1000.0 / timeMDI);
-  LOG_WARN("  - Legacy Potential FPS:        {:.1f}", 1000.0 / timeLegacy);
+  LOG_BENCHMARK("Legacy Reference (submission-only path)", legacyReference,
+                "< 0.35ms / < 0.90ms");
+  mdi_render_benchmark_detail::LogThresholdWarn(
+      "Legacy Reference (submission-only path)", legacyReference, 0.35, 0.90);
+
+  // Contract: compare labeled scenarios, not a single blended MDI/Legacy ratio.
+  CHECK(mdiAllVisible.mean_ms > 0.0);
+  CHECK(mdiSparseVisibility.mean_ms > 0.0);
+  CHECK(legacyReference.mean_ms > 0.0);
+  CHECK(mdiSparseVisibility.mean_ms <= (mdiAllVisible.mean_ms * 1.5 + 0.05));
 
   gpuEntitySystem.Shutdown();
   mdiRenderer.Shutdown();
 }
+
+} // namespace NoMoreDay::tests

@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Render Risk Closure and MSVC Hard Cutover (render-risk-msvc-hardening_20260215)
+- **Folder:** [./conductor/archive/render-risk-msvc-hardening_20260215/](./conductor/archive/render-risk-msvc-hardening_20260215/)
+- **Description:** 完成 MSVC-only 工具链硬切换、静态分析入口稳定化、MDI 基准契约场景化改造、VFX 材质回退噪声清理，以及构建测试产物路径统一到根 `bin/`。
+- **Status:** COMPLETED (2026-02-15)
+- **Priority:** P0
+- **Archive Reason:** Track 全部阶段（1-5）完成，`build.bat` / `build.bat analyze` / `build.bat perf` 均通过，验证证据已归档。
+
+---
+
 ## [x] Track: 材质与 VFX 序列器 (material_vfx_sequencer_20260213)
 - **Folder:** [./conductor/archive/material_vfx_sequencer_20260213/](./conductor/archive/material_vfx_sequencer_20260213/)
 - **Description:** 实现数据驱动的材质系统（constexpr预设+JSON+SSBO）、VFX序列器（JSON时间线→多层视觉编排）和屏幕扭曲通路（DistortionPass），使新技能特效可纯数据驱动创建。

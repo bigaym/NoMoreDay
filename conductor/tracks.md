@@ -5,9 +5,9 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
-## [ ] Track: Render Risk Closure and MSVC Hard Cutover (render-risk-msvc-hardening_20260215)
+## [x] Track: Render Risk Closure and MSVC Hard Cutover (render-risk-msvc-hardening_20260215) [COMPLETED]
 
-> **Status**: PENDING  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: bug+refactor  
 > **Focus**: Close test/analysis-backed render risks and enforce strict MSVC-only toolchain policy.
@@ -58,6 +58,7 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ## Status Update (2026-02-15)
 
+- render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
 - gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**
 - tier_detection_autodegrade_20260215: **COMPLETED & ARCHIVED**

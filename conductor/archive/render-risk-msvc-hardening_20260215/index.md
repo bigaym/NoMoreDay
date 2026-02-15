@@ -1,7 +1,7 @@
 # Track: Render Risk Closure and MSVC Hard Cutover
 
 **ID:** `render-risk-msvc-hardening_20260215`  
-**Status:** In Progress  
+**Status:** Resolved  
 **Type:** bug+refactor
 
 ## Core Documents
@@ -11,8 +11,8 @@
 
 ## Progress
 
-- Phases: `2/5` complete
-- Tasks: `9/18` complete
+- Phases: `5/5` complete
+- Tasks: `18/18` complete
 
 ## Links
 

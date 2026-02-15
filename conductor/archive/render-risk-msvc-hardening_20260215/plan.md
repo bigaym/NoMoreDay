@@ -31,38 +31,38 @@ Verification:
 
 ## Phase 3: Rendering Risk Closure from Test Evidence (P1)
 
-- [ ] Task 3.1: Investigate MDI vs legacy benchmark inversion; identify whether issue is implementation, scene setup, or metric design.
-- [ ] Task 3.2: Apply fix or redefine benchmark contract with scenario labels and acceptance thresholds.
-- [ ] Task 3.3: Eliminate baseline VFX material fallback warnings by reconciling sequence material references with registry IDs.
-- [ ] Task 3.4: Re-check over-target hotspots (FlowField, ItemFactory) and classify as fix-now vs documented exception.
+- [x] Task 3.1: Investigate MDI vs legacy benchmark inversion; identify whether issue is implementation, scene setup, or metric design.
+- [x] Task 3.2: Apply fix or redefine benchmark contract with scenario labels and acceptance thresholds.
+- [x] Task 3.3: Eliminate baseline VFX material fallback warnings by reconciling sequence material references with registry IDs.
+- [x] Task 3.4: Re-check over-target hotspots (FlowField, ItemFactory) and classify as fix-now vs documented exception.
 
 Verification:
-- [ ] Performance suite passes with updated/validated budget policy.
-- [ ] Baseline VFX asset load has no unknown-material fallback spam.
-- [ ] Acceptance: AC-06, AC-07.
+- [x] Performance suite passes with updated/validated budget policy.
+- [x] Baseline VFX asset load has no unknown-material fallback spam.
+- [x] Acceptance: AC-06, AC-07.
 
 ## Phase 4: Test and Gate Consolidation (P1)
 
-- [ ] Task 4.1: Ensure full sequence is stable: `build.bat`, `build.bat analyze`, `build.bat perf`.
-- [ ] Task 4.2: Add regression guard(s) to prevent reintroduction of GCC/MinGW paths.
-- [ ] Task 4.3: Add/extend tests for toolchain policy and benchmark gate assumptions where feasible.
+- [x] Task 4.1: Ensure full sequence is stable: `build.bat`, `build.bat analyze`, `build.bat perf`.
+- [x] Task 4.2: Add regression guard(s) to prevent reintroduction of GCC/MinGW paths.
+- [x] Task 4.3: Add/extend tests for toolchain policy and benchmark gate assumptions where feasible.
 
 Verification:
-- [ ] Non-performance tests pass.
-- [ ] Performance tests pass.
-- [ ] Toolchain policy checks pass.
-- [ ] Acceptance: AC-05.
+- [x] Non-performance tests pass.
+- [x] Performance tests pass.
+- [x] Toolchain policy checks pass.
+- [x] Acceptance: AC-05.
 
 ## Phase 5: Documentation and Closeout (P2)
 
-- [ ] Task 5.1: Record all decisions and deviations (if any) with concrete evidence.
-- [ ] Task 5.2: Update `conductor/bug_registry.md` when fixes correspond to tracked bug entries.
-- [ ] Task 5.3: Produce track `validation.md` with command matrix and outcomes.
+- [x] Task 5.1: Record all decisions and deviations (if any) with concrete evidence.
+- [x] Task 5.2: Update `conductor/bug_registry.md` when fixes correspond to tracked bug entries.
+- [x] Task 5.3: Produce track `validation.md` with command matrix and outcomes.
 
 Verification:
-- [ ] Evidence package is complete and reproducible.
-- [ ] Track can be moved to `Resolved` with objective proof.
-- [ ] Acceptance: AC-08.
+- [x] Evidence package is complete and reproducible.
+- [x] Track can be moved to `Resolved` with objective proof.
+- [x] Acceptance: AC-08.
 
 ## Estimated Task Count
 

@@ -333,6 +333,8 @@ REM ============================================================================
 REM 5. Post-Build Execution (Tests)
 REM ============================================================================
 set "TEST_EXE=..\bin\NoMoreDayTests.exe"
+if not exist "!TEST_EXE!" set "TEST_EXE=..\bin\!BUILD_TYPE!\NoMoreDayTests.exe"
+echo [Test] Using test executable: !TEST_EXE!
 
 if "!BUILD_TESTS!"=="ON" if "!RUN_TESTS!"=="ON" (
     if exist "!TEST_EXE!" (
