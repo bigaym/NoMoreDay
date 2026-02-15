@@ -5,6 +5,15 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
+## [ ] Track: Render Risk Closure and MSVC Hard Cutover (render-risk-msvc-hardening_20260215)
+
+> **Status**: PENDING  
+> **Priority**: P0  
+> **Type**: bug+refactor  
+> **Focus**: Close test/analysis-backed render risks and enforce strict MSVC-only toolchain policy.
+
+---
+
 ## [x] Track: Tier Detection & Auto-Degrade (tier_detection_autodegrade_20260215) [COMPLETED]
 
 > **Status**: COMPLETED (Archived in `conductor/archive/`)  

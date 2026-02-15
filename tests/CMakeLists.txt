@@ -16,10 +16,10 @@ add_executable(NoMoreDayTests
     ${TEST_HEADERS}
 )
 
-target_include_directories(NoMoreDayTests PRIVATE 
+target_include_directories(NoMoreDayTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(NoMoreDayTests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/doctest
     ${CMAKE_SOURCE_DIR}/third_party/entt
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(NoMoreDayTests PRIVATE NoMoreDayCore)

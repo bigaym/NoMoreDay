@@ -16,7 +16,6 @@ REM   asan        - Enable Address Sanitizer (ASan)
 REM   perf        - Run performance tests after build
 REM   check       - Run JSON validation and static analysis only
 REM   includes    - Build with /showIncludes to analyze dependencies
-REM   ninja       - Use Ninja generator
 REM   j=N         - Set parallel jobs (default: 16)
 REM
 REM Examples:
@@ -27,7 +26,6 @@ REM
 REM Default generator priority:
 REM   1) Visual Studio 2022 (v17)
 REM   2) Visual Studio 2026 (v18)
-REM   3) Ninja
 REM ============================================================================
 
 setlocal enabledelayedexpansion
@@ -48,6 +46,8 @@ set "PARALLEL_JOBS=16"
 set "NEED_CONFIG=0"
 set "VS_INSTALL_DIR="
 set "VS_SELECTED_GENERATOR="
+set "SUPPORTED_GENERATOR_A=Visual Studio 17 2022"
+set "SUPPORTED_GENERATOR_B=Visual Studio 18 2026"
 
 REM ============================================================================
 REM Visual Studio Environment Setup
@@ -93,8 +93,8 @@ if "!VS_DEV_CMD_ACTIVE!"=="0" (
         )
         if defined VS_INSTALL_VERSION (
             for /f "tokens=1 delims=." %%v in ("!VS_INSTALL_VERSION!") do (
-                if "%%v"=="17" set "VS_SELECTED_GENERATOR=Visual Studio 17 2022"
-                if "%%v"=="18" set "VS_SELECTED_GENERATOR=Visual Studio 18 2026"
+                if "%%v"=="17" set "VS_SELECTED_GENERATOR=!SUPPORTED_GENERATOR_A!"
+                if "%%v"=="18" set "VS_SELECTED_GENERATOR=!SUPPORTED_GENERATOR_B!"
             )
         )
     )
@@ -121,11 +121,27 @@ if "!VS_DEV_CMD_ACTIVE!"=="0" (
     echo [Build] Visual Studio environment already active.
     if defined VisualStudioVersion (
         for /f "tokens=1 delims=." %%v in ("!VisualStudioVersion!") do (
-            if "%%v"=="17" set "VS_SELECTED_GENERATOR=Visual Studio 17 2022"
-            if "%%v"=="18" set "VS_SELECTED_GENERATOR=Visual Studio 18 2026"
+            if "%%v"=="17" set "VS_SELECTED_GENERATOR=!SUPPORTED_GENERATOR_A!"
+            if "%%v"=="18" set "VS_SELECTED_GENERATOR=!SUPPORTED_GENERATOR_B!"
         )
         if defined VS_SELECTED_GENERATOR echo [Build] Active VS maps to generator: !VS_SELECTED_GENERATOR!
     )
+)
+
+if not defined VS_SELECTED_GENERATOR (
+    if defined VSINSTALLDIR (
+        echo(!VSINSTALLDIR! | findstr /i /c:"\2022\" >nul
+        if !errorlevel! equ 0 set "VS_SELECTED_GENERATOR=!SUPPORTED_GENERATOR_A!"
+        echo(!VSINSTALLDIR! | findstr /i /c:"\18\" >nul
+        if !errorlevel! equ 0 set "VS_SELECTED_GENERATOR=!SUPPORTED_GENERATOR_B!"
+    )
+)
+
+if not defined VS_SELECTED_GENERATOR (
+    echo [Build] ERROR: No supported Visual Studio generator detected.
+    echo [Build] Supported generators: "!SUPPORTED_GENERATOR_A!" or "!SUPPORTED_GENERATOR_B!".
+    echo [Build] Install MSVC C++ build tools and rerun from a VS Developer Command Prompt.
+    exit /b 1
 )
 
 :ARGS_LOOP
@@ -175,11 +191,6 @@ if /i "%~1"=="debug" (
     set "BUILD_TYPE=Debug"
     set "NEED_CONFIG=1"
 )
-if /i "%~1"=="ninja" (
-    set "GENERATOR_NAME=Ninja"
-    set "NEED_CONFIG=1"
-)
-
 REM Parse j=N parameter for parallel jobs
 echo %~1 | findstr /i /r "^j=[0-9]*$" >nul
 if not errorlevel 1 (
@@ -217,6 +228,41 @@ REM Create build directory if needed
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 cd "%BUILD_DIR%"
 
+if exist CMakeCache.txt (
+    set "CACHE_GENERATOR="
+    set "CACHE_CXX_COMPILER="
+
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"CMAKE_GENERATOR:INTERNAL=" CMakeCache.txt') do (
+        set "CACHE_GENERATOR=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"CMAKE_CXX_COMPILER:FILEPATH=" CMakeCache.txt') do (
+        set "CACHE_CXX_COMPILER=%%B"
+    )
+
+    if defined CACHE_GENERATOR (
+        if /i not "!CACHE_GENERATOR!"=="!SUPPORTED_GENERATOR_A!" if /i not "!CACHE_GENERATOR!"=="!SUPPORTED_GENERATOR_B!" (
+            echo [Build] ERROR: Existing CMake generator "!CACHE_GENERATOR!" is unsupported.
+            echo [Build] This project is MSVC-only. Remove build cache with: build.bat clean-all
+            exit /b 1
+        )
+
+        if /i not "!CACHE_GENERATOR!"=="!VS_SELECTED_GENERATOR!" (
+            echo [Build] ERROR: Cached generator "!CACHE_GENERATOR!" conflicts with selected "!VS_SELECTED_GENERATOR!".
+            echo [Build] Run "build.bat clean-all" and configure again with a supported MSVC generator.
+            exit /b 1
+        )
+    )
+
+    if defined CACHE_CXX_COMPILER (
+        echo(!CACHE_CXX_COMPILER! | findstr /i /c:"cl.exe" >nul
+        if !errorlevel! neq 0 (
+            echo [Build] ERROR: Cached C++ compiler is non-MSVC: !CACHE_CXX_COMPILER!
+            echo [Build] Run "build.bat clean-all" before rebuilding with MSVC.
+            exit /b 1
+        )
+    )
+)
+
 REM ============================================================================
 REM 2. CMake Configuration
 REM ============================================================================
@@ -224,12 +270,13 @@ if not exist CMakeCache.txt set "NEED_CONFIG=1"
 
 if "!NEED_CONFIG!"=="1" (
     if not defined GENERATOR_NAME (
-        if defined VS_SELECTED_GENERATOR (
-             set "GENERATOR_NAME=!VS_SELECTED_GENERATOR!"
-        ) else (
-             echo [Build] Warning: No preferred Visual Studio toolchain found, falling back to Ninja.
-             set "GENERATOR_NAME=Ninja"
-        )
+        set "GENERATOR_NAME=!VS_SELECTED_GENERATOR!"
+    )
+
+    if /i not "!GENERATOR_NAME!"=="!SUPPORTED_GENERATOR_A!" if /i not "!GENERATOR_NAME!"=="!SUPPORTED_GENERATOR_B!" (
+        echo [Build] ERROR: Unsupported generator "!GENERATOR_NAME!".
+        echo [Build] Supported generators: "!SUPPORTED_GENERATOR_A!" or "!SUPPORTED_GENERATOR_B!".
+        exit /b 1
     )
 
     echo.
@@ -249,21 +296,12 @@ if "!NEED_CONFIG!"=="1" (
     if "!ENABLE_ASAN!"=="ON"    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ASAN=ON"
     if "!SHOW_INCLUDES!"=="ON"  set "CMAKE_OPTS=!CMAKE_OPTS! -DCMAKE_CXX_FLAGS="/showIncludes""
 
-    if /i "!GENERATOR_NAME!"=="Ninja" (
-        cmake -G Ninja !CMAKE_OPTS! ^
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
-            -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
-            -DBUILD_TESTING=!BUILD_TESTS! ^
-            -DENABLE_LTO=!ENABLE_LTO! ^
-            ..
-    ) else (
-        cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
-            -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
-            -DBUILD_TESTING=!BUILD_TESTS! ^
-            -DENABLE_LTO=!ENABLE_LTO! ^
-            ..
-    )
+    cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
+        -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
+        -DBUILD_TESTING=!BUILD_TESTS! ^
+        -DENABLE_LTO=!ENABLE_LTO! ^
+        ..
     
     if errorlevel 1 exit /b 1
 
@@ -278,8 +316,18 @@ if "!NEED_CONFIG!"=="1" (
 REM ============================================================================
 REM 4. Build
 REM ============================================================================
-cmake --build . --config !BUILD_TYPE! -j !PARALLEL_JOBS!
-if errorlevel 1 exit /b 1
+set "BUILD_LOG=%TEMP%\nomoreday_build_%RANDOM%_%RANDOM%.log"
+cmake --build . --config !BUILD_TYPE! -j !PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+set "BUILD_EXIT=!errorlevel!"
+
+if "!ENABLE_ANALYZE!"=="ON" (
+    type "!BUILD_LOG!" | findstr /v /i /c:"third_party"
+) else (
+    type "!BUILD_LOG!"
+)
+
+if exist "!BUILD_LOG!" del /f /q "!BUILD_LOG!" >nul 2>nul
+if not "!BUILD_EXIT!"=="0" exit /b !BUILD_EXIT!
 
 REM ============================================================================
 REM 5. Post-Build Execution (Tests)

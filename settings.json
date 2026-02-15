@@ -1,5 +1,30 @@
 {
     "cameraZoom": 2.0,
-    "targetFPS": 180,
-    "renderQualityTier": "Medium"
+    "renderQualityAutoDetect": {
+        "benchmarkScore": 124.2760009765625,
+        "benchmarkTier": "Ultra",
+        "capability": {
+            "maxArrayTextureLayers": 2048,
+            "maxComputeWorkGroupInvocations": 1024,
+            "maxComputeWorkGroupSize": [
+                1024,
+                1024,
+                64
+            ],
+            "maxImageUnits": 8,
+            "maxShaderStorageBufferBindings": 96,
+            "maxTextureSize": 32768,
+            "valid": true
+        },
+        "capabilityTier": "Ultra",
+        "degradeLevel": 0,
+        "reason": "settings_override",
+        "renderer": "NVIDIA GeForce RTX 4070 SUPER/PCIe/SSE2",
+        "selectedTier": "Medium",
+        "source": "settings_override",
+        "updatedAtUtc": "2026-02-15T11:56:01Z",
+        "version": 1
+    },
+    "renderQualityTier": "Medium",
+    "targetFPS": 180
 }

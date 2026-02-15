@@ -6,29 +6,28 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_UNITY_BUILD OFF)
 
+if(NOT MSVC)
+    message(FATAL_ERROR "[Toolchain] NoMoreDay requires MSVC. GCC/MinGW/Clang toolchains are unsupported.")
+endif()
+
 # --- Project Options ---
 option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
 option(ENABLE_ANALYZE "Enable MSVC Static Analysis" OFF)
 
+add_library(NoMoreDayAnalyzeFlags INTERFACE)
+
 # --- Address Sanitizer Configuration ---
 if(ENABLE_ASAN)
-    if(MSVC)
-        message(STATUS "[Security] Enabling Address Sanitizer for MSVC")
-        # ASan requires /Zi (not /ZI) and disabling incremental linking
-        add_compile_options(/fsanitize=address /Zi)
-        add_link_options(/INCREMENTAL:NO)
-        # For MSVC, we need to link the ASan library explicitly in some cases, 
-        # but CMake 3.20+ usually handles it.
-    else()
-        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
-        add_link_options(-fsanitize=address)
-    endif()
+    message(STATUS "[Security] Enabling Address Sanitizer for MSVC")
+    # ASan requires /Zi (not /ZI) and disabling incremental linking.
+    add_compile_options(/fsanitize=address /Zi)
+    add_link_options(/INCREMENTAL:NO)
 endif()
 
 # --- MSVC Static Analysis ---
-if(ENABLE_ANALYZE AND MSVC)
+if(ENABLE_ANALYZE)
     message(STATUS "[Analysis] Enabling MSVC Static Analysis")
-    add_compile_options(/analyze)
+    target_compile_options(NoMoreDayAnalyzeFlags INTERFACE /analyze /external:anglebrackets /external:W0)
 endif()
 
 # --- Disable Deprecated Warnings ---
@@ -111,8 +110,8 @@ add_custom_target(GenerateTags DEPENDS ${TAG_HEADER})
 file(GLOB_RECURSE SKILL_BEHAVIORS_SOURCES CONFIGURE_DEPENDS "src/game/systems/skill/behaviors/*.cpp")
 
 add_library(SkillBehaviors OBJECT ${SKILL_BEHAVIORS_SOURCES})
-target_include_directories(SkillBehaviors PRIVATE 
-    src
+target_include_directories(SkillBehaviors PRIVATE src)
+target_include_directories(SkillBehaviors SYSTEM PRIVATE
     third_party/json/include
     third_party/raylib/src
     third_party/raylib/src/external
@@ -123,7 +122,7 @@ target_link_libraries(SkillBehaviors PRIVATE
     glfw 
     spdlog::spdlog 
     EnTT::EnTT 
-    Taskflow 
+    Taskflow
     xsimd
 )
 target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
@@ -170,13 +169,14 @@ target_link_libraries(NoMoreDayCore
     xsimd
     SkillBehaviors
 )
+target_link_libraries(NoMoreDayCore PRIVATE NoMoreDayAnalyzeFlags)
 
 # Enable Unity Build for Core
 set_target_properties(NoMoreDayCore PROPERTIES UNITY_BUILD OFF)
 
 # Header-only libraries include paths
-target_include_directories(NoMoreDayCore PUBLIC 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+target_include_directories(NoMoreDayCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(NoMoreDayCore SYSTEM PUBLIC
     third_party/json/include
     third_party/raylib/src
     third_party/raylib/src/external
@@ -212,6 +212,7 @@ endif()
 # --- Main Executable ---
 add_executable(NoMoreDay src/app/main.cpp)
 target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
+target_link_libraries(NoMoreDay PRIVATE NoMoreDayAnalyzeFlags)
 
 # --- Output & Assets ---
 
