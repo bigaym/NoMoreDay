@@ -83,6 +83,15 @@ struct MaterialSwapParams {
   float duration = 0.5f;
 };
 
+/**
+ * @brief Component added to entities currently undergoing a material swap.
+ */
+struct ActiveMaterialSwap {
+  int materialId = 0;
+  float remaining = 0.0f;
+  float duration = 0.0f;
+};
+
 using EventParams =
     std::variant<ParticleEventParams, TrailEventParams, LightEventParams,
                  ShakeEventParams, DistortionEventParams, SoundEventParams,

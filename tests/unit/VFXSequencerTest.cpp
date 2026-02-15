@@ -361,10 +361,10 @@ TEST_CASE("[Unit] VFXSequencer - MaterialSwap Runtime Lifetime") {
 
   vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
   vfx::VFXSequencerSystem::Update(registry, 0.01f);
-  CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() == 1);
+  CHECK(registry.all_of<vfx::ActiveMaterialSwap>(entity));
 
   vfx::VFXSequencerSystem::Update(registry, 0.10f);
-  CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() == 0);
+  CHECK(registry.all_of<vfx::ActiveMaterialSwap>(entity) == false);
 
   manager.Shutdown();
   CleanupDir(dir);
@@ -399,7 +399,7 @@ TEST_CASE("[Unit] VFXSequencer - MaterialSwap Fallback On Low Detail") {
 
   vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
   vfx::VFXSequencerSystem::Update(registry, 0.01f);
-  CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() == 0);
+  CHECK(registry.all_of<vfx::ActiveMaterialSwap>(entity) == false);
 
   manager.Shutdown();
   CleanupDir(dir);

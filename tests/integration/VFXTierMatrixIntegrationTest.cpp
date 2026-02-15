@@ -101,9 +101,9 @@ TEST_CASE("[Integration] VFX - Tier Matrix Load/Reload/Resize/Restore") {
 
     const bool expectMaterialSwap = static_cast<int>(tier) >= static_cast<int>(Tier::Medium);
     if (expectMaterialSwap) {
-      CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() > 0);
+      CHECK(registry.all_of<vfx::ActiveMaterialSwap>(entity));
     } else {
-      CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() == 0);
+      CHECK(registry.all_of<vfx::ActiveMaterialSwap>(entity) == false);
     }
     CHECK(vfx::VFXSequencerSystem::GetActiveDistortionCountForTesting() <=
           static_cast<size_t>(

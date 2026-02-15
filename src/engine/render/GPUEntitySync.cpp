@@ -1,5 +1,6 @@
 #include "engine/render/GPUEntitySync.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/vfx/VFXTypes.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
@@ -87,6 +88,11 @@ int GPUPhysicsSync::Execute(
       uint8_t stateVal = static_cast<uint8_t>(ai->aiType);
       flags |= GPUFlags::PackAIState(stateVal);
     }
+
+    if (auto *swap = registry.try_get<vfx::ActiveMaterialSwap>(entity)) {
+      GPUFlags::PackMaterialId(flags, swap->materialId);
+    }
+
     gpuEntity.flags = flags;
   }
 
