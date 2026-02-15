@@ -5,20 +5,16 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
-## [ ] Track: Tier Detection & Auto-Degrade (tier_detection_autodegrade_20260215) [ACTIVE]
+## [x] Track: Tier Detection & Auto-Degrade (tier_detection_autodegrade_20260215) [COMPLETED]
 
-> **Goal**: Add hardware capability probe and runtime budget-driven auto-degrade policies.  
-> **Docs**: [spec.md](./tracks/tier_detection_autodegrade_20260215/spec.md) | [plan.md](./tracks/tier_detection_autodegrade_20260215/plan.md)  
-> **Status**: PENDING  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P1
 
 ---
 
-## [ ] Track: VFX Material Pipeline Completion (vfx_material_pipeline_completion_20260215) [ACTIVE]
+## [x] Track: VFX Material Pipeline Completion (vfx_material_pipeline_completion_20260215) [COMPLETED]
 
-> **Goal**: Complete missing VFX/material runtime wiring (MaterialSwap, distortion cap policy, lighting contract cleanup).  
-> **Docs**: [spec.md](./tracks/vfx_material_pipeline_completion_20260215/spec.md) | [plan.md](./tracks/vfx_material_pipeline_completion_20260215/plan.md)  
-> **Status**: PENDING  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P2
 
 ---
@@ -55,10 +51,8 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
 - gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**
-- tier_detection_autodegrade_20260215: **ACTIVE**
-  - mode: capability probe + runtime auto-degrade.
-- vfx_material_pipeline_completion_20260215: **ACTIVE**
-  - mode: close functional gaps without visual regressions.
+- tier_detection_autodegrade_20260215: **COMPLETED & ARCHIVED**
+- vfx_material_pipeline_completion_20260215: **COMPLETED & ARCHIVED**
 - polishing_advanced_features_20260213: **COMPLETED & ARCHIVED**
 - particle_trail_enhancement_20260213: **COMPLETED & ARCHIVED**
 - material_vfx_sequencer_20260213: **COMPLETED & ARCHIVED**
