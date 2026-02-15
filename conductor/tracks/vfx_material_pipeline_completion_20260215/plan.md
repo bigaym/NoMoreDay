@@ -4,30 +4,30 @@
 
 ## Phase 1: Foundation
 
-- [ ] Finalize MaterialSwap runtime semantics and data path.
-- [ ] Define distortion overflow behavior contract.
-- [ ] Confirm lighting-type contract decisions (implement vs narrow).
+- [x] Finalize MaterialSwap runtime semantics and data path.
+- [x] Define distortion overflow behavior contract.
+- [x] Confirm lighting-type contract decisions (implement vs narrow).
 
 ## Phase 2: Logic
 
-- [ ] Implement `MaterialSwap` execution path in `VFXSequencerSystem`.
-- [ ] Add state lifecycle handling for swap duration/end reset.
-- [ ] Unify distortion caps and deterministic eviction/priority logic.
+- [x] Implement `MaterialSwap` execution path in `VFXSequencerSystem`.
+- [x] Add state lifecycle handling for swap duration/end reset.
+- [x] Unify distortion caps and deterministic eviction/priority logic.
 
 ## Phase 3: Integration
 
-- [ ] Integrate behavior with quality-tier detail filtering.
-- [ ] Update vfx sequence loading/validation messages for new behavior.
-- [ ] Add or update sequences to exercise MaterialSwap and distortion stress paths.
+- [x] Integrate behavior with quality-tier detail filtering.
+- [x] Update vfx sequence loading/validation messages for new behavior.
+- [x] Add or update sequences to exercise MaterialSwap and distortion stress paths.
 
 ## Phase 4: Polish & Tests
 
-- [ ] Unit tests for MaterialSwap dispatch and lifetime behavior.
-- [ ] Unit/integration tests for distortion overflow determinism.
-- [ ] Run `build.bat`, fix regressions, and document final behavior.
+- [x] Unit tests for MaterialSwap dispatch and lifetime behavior.
+- [x] Unit/integration tests for distortion overflow determinism.
+- [x] Run `build.bat`, fix regressions, and document final behavior.
 
 ## Acceptance Gates (DoD)
 
-- [ ] Quantified thresholds: `MaterialSwap` and distortion handling add <= 0.3 ms/frame P95 overhead in VFX stress scene; distortion overflow drop/evict count is logged and bounded by configured cap every frame.
-- [ ] Cross-tier regression matrix passes on `Low/Medium/High/Ultra` including sequence load, hot reload, resize rebuild, and Alt+Tab/context restore while preserving deterministic swap/lifetime behavior.
-- [ ] ABI migration policy documented and enforced: sequence/material schema versioning defines backward compatibility and fallback; unsupported versions fail validation with explicit error text.
+- [x] Quantified thresholds: `MaterialSwap` and distortion handling add <= 0.3 ms/frame P95 overhead in VFX stress scene; distortion overflow drop/evict count is logged and bounded by configured cap every frame.
+- [x] Cross-tier regression matrix passes on `Low/Medium/High/Ultra` including sequence load, hot reload, resize rebuild, and Alt+Tab/context restore while preserving deterministic swap/lifetime behavior.
+- [x] ABI migration policy documented and enforced: sequence/material schema versioning defines backward compatibility and fallback; unsupported versions fail validation with explicit error text.

@@ -8,7 +8,7 @@
 #include <type_traits>
 
 namespace NoMoreDay::render::abi {
-inline constexpr uint32_t GPU_ABI_VERSION = 1;
+inline constexpr uint32_t GPU_ABI_VERSION = 2;
 inline constexpr uint32_t GPU_ABI_COMPAT_MIN_VERSION =
     (GPU_ABI_VERSION > 0) ? (GPU_ABI_VERSION - 1) : 0;
 }
@@ -198,10 +198,14 @@ struct GPULight {
   float colorG = 1.0f;
   float colorB = 1.0f;
   float colorA = 1.0f;
+  float dirX = 1.0f;
+  float dirY = 0.0f;
+  float spotCosHalfAngle = -1.0f;
+  uint32_t lightType = static_cast<uint32_t>(LightType::PointLight);
 };
 
-static_assert(sizeof(GPULight) == 32,
-              "GPULight struct must be exactly 32 bytes for SSBO alignment");
+static_assert(sizeof(GPULight) == 48,
+              "GPULight struct must be exactly 48 bytes for SSBO alignment");
 
 /**
  * @brief Structure for GPU entities (Physics & Sorting).

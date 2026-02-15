@@ -4,6 +4,7 @@
 #include "engine/vfx/VFXTypes.hpp"
 
 #include <entt/entt.hpp>
+#include <cstddef>
 
 #include "raylib.h"
 
@@ -12,6 +13,11 @@ namespace NoMoreDay::vfx {
 class VFXSequencerSystem {
 public:
   static void Update(entt::registry &registry, float dt);
+  static void ResetRuntimeStateForTesting();
+  static size_t GetActiveDistortionCountForTesting();
+  static size_t GetActiveMaterialSwapCountForTesting();
+  static size_t GetDistortionOverflowDropCountForTesting();
+  static size_t GetDistortionOverflowEvictCountForTesting();
 
 private:
   static void DispatchEvent(entt::registry &registry, entt::entity source,
@@ -26,6 +32,10 @@ private:
   static void ExecuteShake(const ShakeEventParams &params);
   static void ExecuteDistortion(Vector2 worldPos,
                                 const DistortionEventParams &params);
+  static void ExecuteMaterialSwap(entt::registry &registry, entt::entity source,
+                                  const VFXPlayerComponent &player,
+                                  AnchorType anchor,
+                                  const MaterialSwapParams &params);
   static void ExecuteSound(const SoundEventParams &params);
 };
 

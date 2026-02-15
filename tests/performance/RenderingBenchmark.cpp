@@ -8,17 +8,33 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/PopupRenderer.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/RenderContext.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
 #include <vector>
 
 namespace NoMoreDay::tests {
+
+double ComputePercentileMs(std::vector<double> samples, double percentile) {
+  if (samples.empty()) {
+    return 0.0;
+  }
+  std::sort(samples.begin(), samples.end());
+  const double clamped = std::clamp(percentile, 0.0, 1.0);
+  size_t index = static_cast<size_t>(
+      std::floor(clamped * static_cast<double>(samples.size() - 1)));
+  if (index >= samples.size()) {
+    index = samples.size() - 1;
+  }
+  return samples[index];
+}
 
 TEST_CASE("[Performance] ParticleSystem - Scenario A Particle Stress Test") {
   using namespace NoMoreDay::systems;
@@ -298,6 +314,62 @@ TEST_CASE("[Performance] Debug - Scenario F Profiler HUD Overhead") {
   LOG_BENCHMARK("Scenario F (ProfilerHUD)", stats, "< 0.15ms");
   CHECK(stats.mean_ms < 0.15);
   CHECK(sink >= 0.0f);
+}
+
+TEST_CASE("[Performance] Rendering - Scenario G Tier AutoDegrade Profiles") {
+  using Tier = NoMoreDay::render::core::QualityTier;
+  struct Profile {
+    Tier tier = Tier::Medium;
+    int degradeCycles = 0;
+    int recoverCycles = 0;
+  };
+
+  constexpr std::array<Profile, 4> kProfiles = {
+      Profile{Tier::Low, 2, 2},
+      Profile{Tier::Medium, 3, 3},
+      Profile{Tier::High, 4, 4},
+      Profile{Tier::Ultra, 5, 5},
+  };
+
+  auto &manager = NoMoreDay::render::core::QualityTierManager::Get();
+  std::vector<double> samples;
+  samples.reserve(256);
+
+  for (const auto &profile : kProfiles) {
+    manager.ForceTier(profile.tier);
+    manager.ResetAutoDegrade("bench_profile_start");
+
+    const auto thresholds =
+        NoMoreDay::render::core::QualityTierManager::GetAutoDegradeBudgetThresholds(
+            profile.tier);
+    const float pressureMs = thresholds.degradeTriggerMs + 1.0f;
+    const float recoverMs = std::max(0.0f, thresholds.recoverTriggerMs - 1.0f);
+
+    for (int i = 0; i < profile.degradeCycles; ++i) {
+      const auto start = std::chrono::high_resolution_clock::now();
+      manager.IncreaseAutoDegradeLevel("bench_overflow", pressureMs,
+                                       thresholds.degradeTriggerMs);
+      const auto end = std::chrono::high_resolution_clock::now();
+      samples.push_back(
+          std::chrono::duration<double, std::milli>(end - start).count());
+    }
+
+    for (int i = 0; i < profile.recoverCycles; ++i) {
+      const auto start = std::chrono::high_resolution_clock::now();
+      manager.DecreaseAutoDegradeLevel("bench_recover", recoverMs,
+                                       thresholds.recoverTriggerMs);
+      const auto end = std::chrono::high_resolution_clock::now();
+      samples.push_back(
+          std::chrono::duration<double, std::milli>(end - start).count());
+    }
+  }
+
+  REQUIRE(!samples.empty());
+  const BenchmarkStats stats = CalculateStats(samples);
+  const double p95Ms = ComputePercentileMs(samples, 0.95);
+  LOG_BENCHMARK("Scenario G (TierAutoDegrade)", stats, "< 0.05ms");
+  CHECK(stats.mean_ms < 0.05);
+  CHECK(p95Ms < 0.08);
 }
 
 } // namespace NoMoreDay::tests

@@ -2,6 +2,7 @@
 
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/passes/DistortionPass.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
 #include "engine/vfx/VFXSequencerSystem.hpp"
 #include "game/components/Common.hpp"
@@ -11,6 +12,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <nlohmann/json.hpp>
 #include <string>
 #include <thread>
 
@@ -328,4 +330,155 @@ TEST_CASE("[Unit] VFXSequencer - QualityTier Filtering") {
 
   manager.Shutdown();
   CleanupDir(dir);
+}
+
+TEST_CASE("[Unit] VFXSequencer - MaterialSwap Runtime Lifetime") {
+  const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_material_swap");
+  WriteTextFile(
+      dir / "material_swap.json",
+      R"({
+  "vfx_schema_version": 1,
+  "name": "MaterialSwapSeq",
+  "duration": 0.2,
+  "events": [
+    { "time": 0.00, "type": "MaterialSwap", "anchor": "Caster",
+      "params": { "materialId": 7, "duration": 0.05 } }
+  ]
+})");
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+  REQUIRE(manager.LoadFromJson(dir.string()) == 1);
+
+  render::core::QualityTierManager::Get().ForceTier(
+      render::core::QualityTier::High);
+
+  entt::registry registry;
+  const entt::entity entity = registry.create();
+  registry.emplace<Position>(entity, 0.0f, 0.0f);
+  manager.Play(registry, entity, "MaterialSwapSeq");
+
+  vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
+  vfx::VFXSequencerSystem::Update(registry, 0.01f);
+  CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() == 1);
+
+  vfx::VFXSequencerSystem::Update(registry, 0.10f);
+  CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() == 0);
+
+  manager.Shutdown();
+  CleanupDir(dir);
+}
+
+TEST_CASE("[Unit] VFXSequencer - MaterialSwap Fallback On Low Detail") {
+  const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_material_fallback");
+  WriteTextFile(
+      dir / "material_swap_low.json",
+      R"({
+  "vfx_schema_version": 1,
+  "name": "MaterialSwapLow",
+  "duration": 0.2,
+  "events": [
+    { "time": 0.00, "type": "MaterialSwap", "anchor": "Caster",
+      "params": { "materialId": 7, "duration": 0.10 } }
+  ]
+})");
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+  REQUIRE(manager.LoadFromJson(dir.string()) == 1);
+
+  render::core::QualityTierManager::Get().ForceTier(
+      render::core::QualityTier::Low);
+
+  entt::registry registry;
+  const entt::entity entity = registry.create();
+  registry.emplace<Position>(entity, 0.0f, 0.0f);
+  manager.Play(registry, entity, "MaterialSwapLow");
+
+  vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
+  vfx::VFXSequencerSystem::Update(registry, 0.01f);
+  CHECK(vfx::VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() == 0);
+
+  manager.Shutdown();
+  CleanupDir(dir);
+}
+
+TEST_CASE("[Unit] VFXSequencer - Distortion Overflow Deterministic Cap") {
+  using nlohmann::json;
+
+  const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_distortion_cap");
+  constexpr int kEventCount =
+      NoMoreDay::render::passes::DistortionPass::MAX_DISTORTION_SOURCES + 12;
+
+  json events = json::array();
+  for (int i = 0; i < kEventCount; ++i) {
+    events.push_back({
+        {"time", 0.0},
+        {"type", "Distortion"},
+        {"anchor", "Caster"},
+        {"params",
+         {{"radius", 140.0 + i}, {"strength", 0.2 + i * 0.01}, {"duration", 0.4}, {"speed", 300.0}}},
+    });
+  }
+
+  const json document = {
+      {"vfx_schema_version", 1},
+      {"name", "DistortionOverflow"},
+      {"duration", 0.5},
+      {"events", events},
+  };
+  WriteTextFile((dir / "distortion_overflow.json"), document.dump(2));
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+  REQUIRE(manager.LoadFromJson(dir.string()) == 1);
+
+  render::core::QualityTierManager::Get().ForceTier(
+      render::core::QualityTier::Ultra);
+
+  entt::registry registry;
+  const entt::entity entity = registry.create();
+  registry.emplace<Position>(entity, 0.0f, 0.0f);
+  manager.Play(registry, entity, "DistortionOverflow");
+
+  vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
+  vfx::VFXSequencerSystem::Update(registry, 0.01f);
+
+  CHECK(vfx::VFXSequencerSystem::GetActiveDistortionCountForTesting() ==
+        static_cast<size_t>(
+            NoMoreDay::render::passes::DistortionPass::MAX_DISTORTION_SOURCES));
+  CHECK(vfx::VFXSequencerSystem::GetDistortionOverflowDropCountForTesting() +
+            vfx::VFXSequencerSystem::GetDistortionOverflowEvictCountForTesting() >
+        0);
+
+  manager.Shutdown();
+  CleanupDir(dir);
+}
+
+TEST_CASE("[Unit] VFXSequencer - Asset Stress Sequences Available") {
+  auto &manager = vfx::VFXSequenceManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+
+  const int loaded = manager.LoadFromJson("assets/vfx");
+  REQUIRE(loaded > 0);
+
+  const int materialSwapId = manager.GetSequenceId("MaterialSwapCombo");
+  const int distortionStressId = manager.GetSequenceId("DistortionOverflowStress");
+  REQUIRE(materialSwapId >= 0);
+  REQUIRE(distortionStressId >= 0);
+
+  const auto *materialSwap = manager.GetSequence(materialSwapId);
+  const auto *distortionStress = manager.GetSequence(distortionStressId);
+  REQUIRE(materialSwap != nullptr);
+  REQUIRE(distortionStress != nullptr);
+  CHECK(materialSwap->events.size() >= 3);
+  CHECK(distortionStress->events.size() >
+        static_cast<size_t>(
+            NoMoreDay::render::passes::DistortionPass::MAX_DISTORTION_SOURCES));
+
+  manager.Shutdown();
 }

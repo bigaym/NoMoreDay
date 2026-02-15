@@ -14,6 +14,8 @@
 namespace NoMoreDay::render::lighting {
 namespace {
 
+constexpr float kPi = 3.14159265358979323846f;
+
 struct LightCandidate {
   components::GPULight gpuLight = {};
   uint8_t priority = 0;
@@ -43,6 +45,87 @@ float ComputeFlickerIntensity(const LightComponent &light, entt::entity entity,
       std::sin(gameTime * std::max(0.0f, light.flickerSpeed) + entityPhase);
   const float scale = 1.0f + light.flickerAmplitude * wave;
   return std::max(0.0f, light.intensity * scale);
+}
+
+Vector2 NormalizeDirection(Vector2 direction) {
+  const float lenSq = direction.x * direction.x + direction.y * direction.y;
+  if (lenSq <= 1e-8f) {
+    return {1.0f, 0.0f};
+  }
+  const float invLen = 1.0f / std::sqrt(lenSq);
+  return {direction.x * invLen, direction.y * invLen};
+}
+
+uint32_t ToRawLightType(components::LightType type) {
+  switch (type) {
+  case components::LightType::PointLight:
+    return static_cast<uint32_t>(components::LightType::PointLight);
+  case components::LightType::SpotLight:
+    return static_cast<uint32_t>(components::LightType::SpotLight);
+  case components::LightType::AmbientZone:
+    return static_cast<uint32_t>(components::LightType::AmbientZone);
+  }
+  return static_cast<uint32_t>(components::LightType::PointLight);
+}
+
+components::GPULight BuildGpuLight(const Position &position,
+                                   const LightComponent &light,
+                                   entt::entity entity, float gameTime) {
+  components::GPULight gpuLight = {};
+  gpuLight.posX = position.x;
+  gpuLight.posY = position.y;
+  gpuLight.radius = std::max(0.0f, light.radius);
+  gpuLight.intensity = ComputeFlickerIntensity(light, entity, gameTime);
+  gpuLight.colorR = light.colorR;
+  gpuLight.colorG = light.colorG;
+  gpuLight.colorB = light.colorB;
+  gpuLight.colorA = 1.0f;
+  gpuLight.lightType = ToRawLightType(light.type);
+
+  if (light.type == components::LightType::SpotLight) {
+    const float directionRadians = light.spotDirection * (kPi / 180.0f);
+    const Vector2 direction =
+        NormalizeDirection({std::cos(directionRadians), std::sin(directionRadians)});
+    gpuLight.dirX = direction.x;
+    gpuLight.dirY = direction.y;
+
+    const float clampedAngle = std::clamp(light.spotAngle, 0.0f, 360.0f);
+    const float halfAngleRadians = (clampedAngle * 0.5f) * (kPi / 180.0f);
+    gpuLight.spotCosHalfAngle =
+        (clampedAngle >= 360.0f) ? -1.0f : std::cos(halfAngleRadians);
+  } else {
+    gpuLight.dirX = 1.0f;
+    gpuLight.dirY = 0.0f;
+    gpuLight.spotCosHalfAngle = -1.0f;
+  }
+
+  return gpuLight;
+}
+
+components::GPULight SanitizeRuntimeLight(const components::GPULight &source) {
+  components::GPULight light = source;
+  light.radius = std::max(0.0f, light.radius);
+  light.intensity = std::max(0.0f, light.intensity);
+
+  const uint32_t point = static_cast<uint32_t>(components::LightType::PointLight);
+  const uint32_t spot = static_cast<uint32_t>(components::LightType::SpotLight);
+  const uint32_t ambient = static_cast<uint32_t>(components::LightType::AmbientZone);
+  if (light.lightType != point && light.lightType != spot && light.lightType != ambient) {
+    light.lightType = point;
+  }
+
+  if (light.lightType == spot) {
+    const Vector2 normalized = NormalizeDirection({light.dirX, light.dirY});
+    light.dirX = normalized.x;
+    light.dirY = normalized.y;
+    light.spotCosHalfAngle = std::clamp(light.spotCosHalfAngle, -1.0f, 1.0f);
+  } else {
+    light.dirX = 1.0f;
+    light.dirY = 0.0f;
+    light.spotCosHalfAngle = -1.0f;
+  }
+
+  return light;
 }
 
 } // namespace
@@ -111,15 +194,7 @@ void LightManager::Update(entt::registry &registry, const Camera2D &camera,
       continue;
     }
 
-    components::GPULight gpuLight = {};
-    gpuLight.posX = position.x;
-    gpuLight.posY = position.y;
-    gpuLight.radius = std::max(0.0f, light.radius);
-    gpuLight.intensity = ComputeFlickerIntensity(light, entity, gameTime);
-    gpuLight.colorR = light.colorR;
-    gpuLight.colorG = light.colorG;
-    gpuLight.colorB = light.colorB;
-    gpuLight.colorA = 1.0f;
+    components::GPULight gpuLight = BuildGpuLight(position, light, entity, gameTime);
 
     if (gpuLight.radius <= 0.0f || gpuLight.intensity <= 0.0f) {
       continue;
@@ -134,7 +209,8 @@ void LightManager::Update(entt::registry &registry, const Camera2D &camera,
   }
 
   m_debugStats.transientLights = static_cast<int>(m_transientLights.size());
-  for (const components::GPULight &transient : m_transientLights) {
+  for (const components::GPULight &transientRaw : m_transientLights) {
+    const components::GPULight transient = SanitizeRuntimeLight(transientRaw);
     if (transient.radius <= 0.0f || transient.intensity <= 0.0f) {
       continue;
     }

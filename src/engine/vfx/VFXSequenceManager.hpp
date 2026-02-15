@@ -36,6 +36,9 @@ public:
   void Stop(entt::registry &registry, entt::entity entity);
 
   static constexpr int MAX_SEQUENCES = 256;
+  // Schema compatibility policy:
+  // - current writer/reader version is VFX_SCHEMA_VERSION.
+  // - missing or unsupported version is rejected with explicit diagnostics.
   static constexpr int VFX_SCHEMA_VERSION = 1;
 
 private:

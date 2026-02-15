@@ -23,6 +23,11 @@ REM Examples:
 REM   build.bat                    - Default RelWithDebInfo build
 REM   build.bat asan               - Build with ASan enabled
 REM   build.bat includes > inc.log - Analyze header dependencies
+REM
+REM Default generator priority:
+REM   1) Visual Studio 2022 (v17)
+REM   2) Visual Studio 2026 (v18)
+REM   3) Ninja
 REM ============================================================================
 
 setlocal enabledelayedexpansion
@@ -38,9 +43,11 @@ set "ENABLE_ANALYZE=OFF"
 set "ENABLE_ASAN=OFF"
 set "SHOW_INCLUDES=OFF"
 set "ONLY_CHECK=OFF"
-set "GENERATOR="
+set "GENERATOR_NAME="
 set "PARALLEL_JOBS=16"
 set "NEED_CONFIG=0"
+set "VS_INSTALL_DIR="
+set "VS_SELECTED_GENERATOR="
 
 REM ============================================================================
 REM Visual Studio Environment Setup
@@ -56,34 +63,69 @@ if %errorlevel%==0 (
 )
 
 if "!VS_DEV_CMD_ACTIVE!"=="0" (
-    if exist "%VSWHERE_PATH%" (
-        echo [Build] Searching for Visual Studio installation...
+    echo [Build] Searching for Visual Studio installation...
+
+    REM Prefer VS 2022 (v17)
+    for %%E in (Community Professional Enterprise BuildTools) do (
+        if not defined VS_INSTALL_DIR if exist "%ProgramFiles%\Microsoft Visual Studio\2022\%%E\VC\Auxiliary\Build\vcvars64.bat" (
+            set "VS_INSTALL_DIR=%ProgramFiles%\Microsoft Visual Studio\2022\%%E"
+            set "VS_SELECTED_GENERATOR=Visual Studio 17 2022"
+        )
+    )
+
+    REM Then VS 2026 (v18)
+    if not defined VS_INSTALL_DIR (
+        for %%E in (Community Professional Enterprise BuildTools) do (
+            if not defined VS_INSTALL_DIR if exist "%ProgramFiles%\Microsoft Visual Studio\18\%%E\VC\Auxiliary\Build\vcvars64.bat" (
+                set "VS_INSTALL_DIR=%ProgramFiles%\Microsoft Visual Studio\18\%%E"
+                set "VS_SELECTED_GENERATOR=Visual Studio 18 2026"
+            )
+        )
+    )
+
+    REM Final fallback: whatever vswhere reports
+    if not defined VS_INSTALL_DIR if exist "%VSWHERE_PATH%" (
         for /f "usebackq tokens=*" %%i in (`"%VSWHERE_PATH%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do (
             set "VS_INSTALL_DIR=%%i"
         )
+        for /f "usebackq tokens=*" %%i in (`"%VSWHERE_PATH%" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion`) do (
+            set "VS_INSTALL_VERSION=%%i"
+        )
+        if defined VS_INSTALL_VERSION (
+            for /f "tokens=1 delims=." %%v in ("!VS_INSTALL_VERSION!") do (
+                if "%%v"=="17" set "VS_SELECTED_GENERATOR=Visual Studio 17 2022"
+                if "%%v"=="18" set "VS_SELECTED_GENERATOR=Visual Studio 18 2026"
+            )
+        )
+    )
 
-        if defined VS_INSTALL_DIR (
-            echo [Build] Found Visual Studio at: !VS_INSTALL_DIR!
-            if exist "!VS_INSTALL_DIR!\VC\Auxiliary\Build\vcvars64.bat" (
-                echo [Build] Activating VS x64 environment...
-                call "!VS_INSTALL_DIR!\VC\Auxiliary\Build\vcvars64.bat" >nul
-                if !errorlevel! equ 0 (
-                    echo [Build] Environment OK.
-                    set "VS_DEV_CMD_ACTIVE=1"
-                ) else (
-                    echo [Build] Warning: Failed to run vcvars64.bat
-                )
+    if defined VS_INSTALL_DIR (
+        echo [Build] Found Visual Studio at: !VS_INSTALL_DIR!
+        if defined VS_SELECTED_GENERATOR echo [Build] Selected CMake generator: !VS_SELECTED_GENERATOR!
+        if exist "!VS_INSTALL_DIR!\VC\Auxiliary\Build\vcvars64.bat" (
+            echo [Build] Activating VS x64 environment...
+            call "!VS_INSTALL_DIR!\VC\Auxiliary\Build\vcvars64.bat" >nul
+            if !errorlevel! equ 0 (
+                echo [Build] Environment OK.
+                set "VS_DEV_CMD_ACTIVE=1"
             ) else (
-                echo [Build] Warning: vcvars64.bat not found.
+                echo [Build] Warning: Failed to run vcvars64.bat
             )
         ) else (
-            echo [Build] Warning: No Visual Studio installation found via vswhere.
+            echo [Build] Warning: vcvars64.bat not found.
         )
     ) else (
-        echo [Build] Warning: vswhere.exe not found.
+        echo [Build] Warning: No supported Visual Studio installation found.
     )
 ) else (
     echo [Build] Visual Studio environment already active.
+    if defined VisualStudioVersion (
+        for /f "tokens=1 delims=." %%v in ("!VisualStudioVersion!") do (
+            if "%%v"=="17" set "VS_SELECTED_GENERATOR=Visual Studio 17 2022"
+            if "%%v"=="18" set "VS_SELECTED_GENERATOR=Visual Studio 18 2026"
+        )
+        if defined VS_SELECTED_GENERATOR echo [Build] Active VS maps to generator: !VS_SELECTED_GENERATOR!
+    )
 )
 
 :ARGS_LOOP
@@ -134,7 +176,7 @@ if /i "%~1"=="debug" (
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="ninja" (
-    set "GENERATOR=-G Ninja"
+    set "GENERATOR_NAME=Ninja"
     set "NEED_CONFIG=1"
 )
 
@@ -181,11 +223,12 @@ REM ============================================================================
 if not exist CMakeCache.txt set "NEED_CONFIG=1"
 
 if "!NEED_CONFIG!"=="1" (
-    if not defined GENERATOR (
-        if defined VS_INSTALL_DIR (
-             set "GENERATOR=-G "Visual Studio 17 2022" -A x64"
+    if not defined GENERATOR_NAME (
+        if defined VS_SELECTED_GENERATOR (
+             set "GENERATOR_NAME=!VS_SELECTED_GENERATOR!"
         ) else (
-             set "GENERATOR=-G Ninja"
+             echo [Build] Warning: No preferred Visual Studio toolchain found, falling back to Ninja.
+             set "GENERATOR_NAME=Ninja"
         )
     )
 
@@ -197,6 +240,7 @@ if "!NEED_CONFIG!"=="1" (
     echo   Analyze:       !ENABLE_ANALYZE!
     echo   ASan:          !ENABLE_ASAN!
     echo   LTO:           !ENABLE_LTO!
+    echo   Generator:     !GENERATOR_NAME!
     echo ============================================================
     echo.
     
@@ -205,12 +249,21 @@ if "!NEED_CONFIG!"=="1" (
     if "!ENABLE_ASAN!"=="ON"    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ASAN=ON"
     if "!SHOW_INCLUDES!"=="ON"  set "CMAKE_OPTS=!CMAKE_OPTS! -DCMAKE_CXX_FLAGS="/showIncludes""
 
-    cmake !GENERATOR! !CMAKE_OPTS! ^
-        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
-        -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
-        -DBUILD_TESTING=!BUILD_TESTS! ^
-        -DENABLE_LTO=!ENABLE_LTO! ^
-        ..
+    if /i "!GENERATOR_NAME!"=="Ninja" (
+        cmake -G Ninja !CMAKE_OPTS! ^
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
+            -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
+            -DBUILD_TESTING=!BUILD_TESTS! ^
+            -DENABLE_LTO=!ENABLE_LTO! ^
+            ..
+    ) else (
+        cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
+            -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
+            -DBUILD_TESTING=!BUILD_TESTS! ^
+            -DENABLE_LTO=!ENABLE_LTO! ^
+            ..
+    )
     
     if errorlevel 1 exit /b 1
 

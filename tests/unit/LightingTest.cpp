@@ -13,7 +13,7 @@
 using namespace NoMoreDay;
 
 TEST_CASE("[Unit] Lighting - GPULight ABI Layout") {
-  CHECK(sizeof(components::GPULight) == 32);
+  CHECK(sizeof(components::GPULight) == 48);
   CHECK(offsetof(components::GPULight, posX) == 0);
   CHECK(offsetof(components::GPULight, posY) == 4);
   CHECK(offsetof(components::GPULight, radius) == 8);
@@ -22,6 +22,10 @@ TEST_CASE("[Unit] Lighting - GPULight ABI Layout") {
   CHECK(offsetof(components::GPULight, colorG) == 20);
   CHECK(offsetof(components::GPULight, colorB) == 24);
   CHECK(offsetof(components::GPULight, colorA) == 28);
+  CHECK(offsetof(components::GPULight, dirX) == 32);
+  CHECK(offsetof(components::GPULight, dirY) == 36);
+  CHECK(offsetof(components::GPULight, spotCosHalfAngle) == 40);
+  CHECK(offsetof(components::GPULight, lightType) == 44);
 }
 
 TEST_CASE("[Unit] Lighting - QualityTier Config") {
@@ -160,4 +164,57 @@ TEST_CASE("[Unit] Lighting - Low Tier Bypasses LightingPass") {
   pass.Execute(context);
 
   CHECK(pass.IsInitialized() == false);
+}
+
+TEST_CASE("[Unit] Lighting - LightType Mapping Spot Ambient Point") {
+  entt::registry registry;
+  Camera2D camera = {};
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+  camera.zoom = 1.0f;
+
+  const entt::entity spotEntity = registry.create();
+  registry.emplace<Position>(spotEntity, 40.0f, 0.0f);
+  auto &spot = registry.emplace<LightComponent>(spotEntity);
+  spot.type = components::LightType::SpotLight;
+  spot.spotDirection = 90.0f;
+  spot.spotAngle = 60.0f;
+  spot.priority = 240;
+
+  const entt::entity ambientEntity = registry.create();
+  registry.emplace<Position>(ambientEntity, 20.0f, 0.0f);
+  auto &ambient = registry.emplace<LightComponent>(ambientEntity);
+  ambient.type = components::LightType::AmbientZone;
+  ambient.priority = 200;
+
+  const entt::entity pointEntity = registry.create();
+  registry.emplace<Position>(pointEntity, 0.0f, 0.0f);
+  auto &point = registry.emplace<LightComponent>(pointEntity);
+  point.type = components::LightType::PointLight;
+  point.priority = 160;
+
+  auto &manager = render::lighting::LightManager::Get();
+  manager.Shutdown();
+  manager.Update(registry, camera, 8, 0.0f);
+
+  const auto &lights = manager.GetActiveLightsCpu();
+  REQUIRE(lights.size() == 3);
+
+  const auto &spotGpu = lights[0];
+  CHECK(spotGpu.lightType ==
+        static_cast<uint32_t>(components::LightType::SpotLight));
+  CHECK(spotGpu.dirX == doctest::Approx(0.0f).epsilon(0.001f));
+  CHECK(spotGpu.dirY == doctest::Approx(1.0f).epsilon(0.001f));
+  CHECK(spotGpu.spotCosHalfAngle == doctest::Approx(0.8660254f).epsilon(0.001f));
+
+  const auto &ambientGpu = lights[1];
+  CHECK(ambientGpu.lightType ==
+        static_cast<uint32_t>(components::LightType::AmbientZone));
+  CHECK(ambientGpu.spotCosHalfAngle == doctest::Approx(-1.0f));
+
+  const auto &pointGpu = lights[2];
+  CHECK(pointGpu.lightType ==
+        static_cast<uint32_t>(components::LightType::PointLight));
+  CHECK(pointGpu.dirX == doctest::Approx(1.0f));
+  CHECK(pointGpu.dirY == doctest::Approx(0.0f));
 }

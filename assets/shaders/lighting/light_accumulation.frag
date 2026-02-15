@@ -11,10 +11,18 @@ uniform vec2 uCameraOffset;
 uniform vec2 uScreenSize;
 
 struct GPULight {
-    vec2 position;
+    float posX;
+    float posY;
     float radius;
     float intensity;
-    vec4 color;
+    float colorR;
+    float colorG;
+    float colorB;
+    float colorA;
+    float dirX;
+    float dirY;
+    float spotCosHalfAngle;
+    uint lightType;
 };
 
 layout(std430, binding = 9) readonly buffer LightBuffer {
@@ -31,6 +39,19 @@ float calcAttenuation(float dist, float radius) {
     return atten * atten;
 }
 
+float calcSpotFactor(vec2 lightDir, vec2 toPixelDir, float spotCosHalfAngle) {
+    if (spotCosHalfAngle <= -0.9999) {
+        return 1.0;
+    }
+    float cone = dot(normalize(lightDir), normalize(toPixelDir));
+    if (cone <= spotCosHalfAngle) {
+        return 0.0;
+    }
+    float denom = max(1e-4, 1.0 - spotCosHalfAngle);
+    float t = clamp((cone - spotCosHalfAngle) / denom, 0.0, 1.0);
+    return t * t;
+}
+
 void main() {
     vec4 sceneColor = texture(uSceneTex, vTexCoord);
     vec2 worldPos = vTexCoord * uScreenSize + uCameraOffset;
@@ -38,14 +59,35 @@ void main() {
     vec3 totalLight = uAmbientColor * uAmbientIntensity;
 
     for (int i = 0; i < uLightCount; ++i) {
-        vec2 lightPos = lights[i].position;
+        vec2 lightPos = vec2(lights[i].posX, lights[i].posY);
         float radius = lights[i].radius;
         float intensity = lights[i].intensity;
-        vec3 lightColor = lights[i].color.rgb;
+        vec3 lightColor = vec3(lights[i].colorR, lights[i].colorG, lights[i].colorB);
+        uint lightType = lights[i].lightType;
 
         float dist = distance(worldPos, lightPos);
         float atten = calcAttenuation(dist, radius);
-        totalLight += lightColor * intensity * atten;
+        if (atten <= 0.0 || intensity <= 0.0) {
+            continue;
+        }
+
+        if (lightType == 2u) {
+            // AmbientZone: radial area ambient contribution.
+            totalLight += lightColor * intensity * atten;
+            continue;
+        }
+
+        float spotFactor = 1.0;
+        if (lightType == 1u) {
+            vec2 toPixel = worldPos - lightPos;
+            spotFactor = calcSpotFactor(vec2(lights[i].dirX, lights[i].dirY), toPixel,
+                                        lights[i].spotCosHalfAngle);
+            if (spotFactor <= 0.0) {
+                continue;
+            }
+        }
+
+        totalLight += lightColor * intensity * atten * spotFactor;
     }
 
     fragColor = vec4(sceneColor.rgb * totalLight, sceneColor.a);

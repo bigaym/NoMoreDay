@@ -1,0 +1,74 @@
+{
+  "vfx_schema_version": 1,
+  "name": "MaterialSwapCombo",
+  "duration": 0.45,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "MaterialSwap",
+      "anchor": "Caster",
+      "minTier": "Medium",
+      "params": {
+        "materialId": "FireGlow",
+        "duration": 0.18
+      }
+    },
+    {
+      "time": 0.02,
+      "type": "Particle",
+      "anchor": "Caster",
+      "minTier": "Medium",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 18,
+        "speed": 95.0,
+        "speedVariance": 24.0,
+        "lifetime": 0.24,
+        "scale": 1.1,
+        "spreadAngle": 110.0,
+        "blendMode": 1
+      }
+    },
+    {
+      "time": 0.07,
+      "type": "Trail",
+      "anchor": "Caster",
+      "minTier": "Medium",
+      "params": {
+        "materialId": "FireGlow",
+        "duration": 0.18,
+        "widthStart": 11.0,
+        "widthEnd": 2.2,
+        "colorStart": "0xFFD27AFF",
+        "colorEnd": "0xFFD27A00"
+      }
+    },
+    {
+      "time": 0.12,
+      "type": "MaterialSwap",
+      "anchor": "Caster",
+      "minTier": "High",
+      "params": {
+        "materialId": "HoloBlade",
+        "duration": 0.14
+      }
+    },
+    {
+      "time": 0.16,
+      "type": "Particle",
+      "anchor": "Caster",
+      "minTier": "High",
+      "params": {
+        "materialId": "HoloBlade",
+        "count": 12,
+        "speed": 140.0,
+        "speedVariance": 36.0,
+        "lifetime": 0.2,
+        "scale": 0.8,
+        "spreadAngle": 120.0,
+        "blendMode": 1
+      }
+    }
+  ]
+}

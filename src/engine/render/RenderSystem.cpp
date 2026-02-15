@@ -54,11 +54,14 @@
 #include "game/systems/world/LevelManager.hpp"
 #include "raymath.h"
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <iomanip>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #include "engine/render/LootTextBatcher.hpp"
@@ -202,6 +205,147 @@ bool IsHdrScenePipelineRequested(
     const NoMoreDay::render::core::RenderConfig &config) {
   return config.dynamicLightingEnabled || config.volumetricLightEnabled ||
          IsHdrPostProcessRequested(config);
+}
+
+struct AutoDegradeRuntimeState {
+  bool initialized = false;
+  NoMoreDay::render::core::QualityTier trackedTier =
+      NoMoreDay::render::core::QualityTier::Medium;
+  double overBudgetSince = 0.0;
+  double underBudgetSince = 0.0;
+  double lastTransitionAt = 0.0;
+};
+
+AutoDegradeRuntimeState g_autoDegradeState = {};
+
+float PickPassCostMs(const NoMoreDay::render::debug::PassTimingStats &stats) {
+  return (stats.gpuMeanMs > 0.0f) ? stats.gpuMeanMs : stats.cpuMeanMs;
+}
+
+float ComputeAggregateFrameCostMs(
+    const std::array<NoMoreDay::render::debug::PassTimingStats,
+                     static_cast<size_t>(
+                         NoMoreDay::render::debug::RenderPassId::Count)>
+        &passStats) {
+  float sumMs = 0.0f;
+  for (const auto &stats : passStats) {
+    sumMs += PickPassCostMs(stats);
+  }
+  return sumMs;
+}
+
+float ComputeAggregateBudgetMs(
+    const std::array<NoMoreDay::render::debug::PassTimingStats,
+                     static_cast<size_t>(
+                         NoMoreDay::render::debug::RenderPassId::Count)>
+        &passStats) {
+  float sumMs = 0.0f;
+  for (const auto &stats : passStats) {
+    sumMs += stats.budgetMs;
+  }
+  return sumMs;
+}
+
+std::string BuildPassTimingSummary(
+    const std::array<NoMoreDay::render::debug::PassTimingStats,
+                     static_cast<size_t>(
+                         NoMoreDay::render::debug::RenderPassId::Count)>
+        &passStats) {
+  std::ostringstream oss;
+  oss << std::fixed << std::setprecision(3);
+  for (size_t i = 0; i < passStats.size(); ++i) {
+    const auto passId = static_cast<NoMoreDay::render::debug::RenderPassId>(i);
+    if (i > 0) {
+      oss << ", ";
+    }
+    oss << NoMoreDay::render::debug::RenderProfiler::ToString(passId) << "="
+        << PickPassCostMs(passStats[i]);
+  }
+  return oss.str();
+}
+
+void UpdateAutoDegradePolicy(
+    const std::array<NoMoreDay::render::debug::PassTimingStats,
+                     static_cast<size_t>(
+                         NoMoreDay::render::debug::RenderPassId::Count)>
+        &passStats,
+    double nowSeconds) {
+  auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
+  if (!qualityManager.IsInitialized()) {
+    return;
+  }
+
+  const auto tier = qualityManager.GetTier();
+  const auto thresholds =
+      NoMoreDay::render::core::QualityTierManager::GetAutoDegradeBudgetThresholds(
+          tier);
+  if (!g_autoDegradeState.initialized || g_autoDegradeState.trackedTier != tier) {
+    g_autoDegradeState.initialized = true;
+    g_autoDegradeState.trackedTier = tier;
+    g_autoDegradeState.overBudgetSince = 0.0;
+    g_autoDegradeState.underBudgetSince = 0.0;
+    g_autoDegradeState.lastTransitionAt = nowSeconds;
+    qualityManager.ResetAutoDegrade("tier_changed");
+    return;
+  }
+
+  const float frameMs = ComputeAggregateFrameCostMs(passStats);
+  const float budgetMs = ComputeAggregateBudgetMs(passStats);
+  const bool overBudget = frameMs > thresholds.degradeTriggerMs;
+  const bool underBudget = frameMs < thresholds.recoverTriggerMs;
+  const bool cooldownReady =
+      (nowSeconds - g_autoDegradeState.lastTransitionAt) >=
+      static_cast<double>(thresholds.cooldownSeconds);
+  const std::string timingSummary = BuildPassTimingSummary(passStats);
+
+  if (overBudget) {
+    if (g_autoDegradeState.overBudgetSince <= 0.0) {
+      g_autoDegradeState.overBudgetSince = nowSeconds;
+    }
+    g_autoDegradeState.underBudgetSince = 0.0;
+    const bool sustainedOverload =
+        (nowSeconds - g_autoDegradeState.overBudgetSince) >=
+        static_cast<double>(thresholds.sustainSeconds);
+    if (cooldownReady && sustainedOverload &&
+        qualityManager.IncreaseAutoDegradeLevel("budget_overflow", frameMs, budgetMs)) {
+      g_autoDegradeState.lastTransitionAt = nowSeconds;
+      g_autoDegradeState.overBudgetSince = 0.0;
+      LOG_WARN(
+          "RenderAutoDegrade: action=degrade reason=budget_overflow tier={} level={} "
+          "frameMs={:.3f} budgetMs={:.3f} triggerMs={:.3f} recoverMs={:.3f} "
+          "passTimings=[{}]",
+          NoMoreDay::render::core::ToString(tier), qualityManager.GetAutoDegradeLevel(),
+          frameMs, budgetMs, thresholds.degradeTriggerMs, thresholds.recoverTriggerMs,
+          timingSummary);
+    }
+    return;
+  }
+
+  if (underBudget) {
+    if (g_autoDegradeState.underBudgetSince <= 0.0) {
+      g_autoDegradeState.underBudgetSince = nowSeconds;
+    }
+    g_autoDegradeState.overBudgetSince = 0.0;
+    const bool sustainedRecovery =
+        (nowSeconds - g_autoDegradeState.underBudgetSince) >=
+        static_cast<double>(thresholds.sustainSeconds);
+    if (cooldownReady && sustainedRecovery &&
+        qualityManager.DecreaseAutoDegradeLevel("budget_recovered", frameMs, budgetMs)) {
+      g_autoDegradeState.lastTransitionAt = nowSeconds;
+      g_autoDegradeState.underBudgetSince = 0.0;
+      LOG_INFO(
+          "RenderAutoDegrade: action=recover reason=budget_recovered tier={} level={} "
+          "frameMs={:.3f} budgetMs={:.3f} triggerMs={:.3f} recoverMs={:.3f} "
+          "passTimings=[{}]",
+          NoMoreDay::render::core::ToString(tier), qualityManager.GetAutoDegradeLevel(),
+          frameMs, budgetMs, thresholds.degradeTriggerMs, thresholds.recoverTriggerMs,
+          timingSummary);
+    }
+    return;
+  }
+
+  g_autoDegradeState.overBudgetSince = 0.0;
+  g_autoDegradeState.underBudgetSince = 0.0;
 }
 
 Mesh &GetLabelQuadMesh() {
@@ -1282,9 +1426,7 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.transientPool = &g_transientPool;
   graphContext.qualityManager = &NoMoreDay::render::core::QualityTierManager::Get();
   graphContext.renderProfiler =
-      (renderConfig.profilerHudEnabled && g_renderProfiler != nullptr)
-          ? g_renderProfiler.get()
-          : nullptr;
+      (g_renderProfiler != nullptr) ? g_renderProfiler.get() : nullptr;
   graphContext.hdrSceneBuffer =
       useHdrSceneBuffer ? s_hdrSceneBuffer
                         : NoMoreDay::render::resources::FramebufferHandle{};
@@ -1297,27 +1439,31 @@ void RenderSystem::render(entt::registry &registry,
   if (graphContext.renderProfiler != nullptr) {
     graphContext.renderProfiler->EndFrame();
 
-    static double s_lastProfilerLog = 0.0;
-    const double now = GetTime();
-    if ((now - s_lastProfilerLog) >= 5.0) {
-      const auto passStats = graphContext.renderProfiler->GetAllStats();
-      for (size_t i = 0; i < passStats.size(); ++i) {
-        const auto passId = static_cast<NoMoreDay::render::debug::RenderPassId>(i);
-        const auto &stats = passStats[i];
-        const float overPct = (stats.budgetMs > 0.0f)
-                                  ? std::max(0.0f, (stats.gpuMeanMs - stats.budgetMs) /
-                                                       stats.budgetMs * 100.0f)
-                                  : 0.0f;
-        LOG_INFO("RenderProfiler[{}]: CPU(mean={:.3f},p95={:.3f}) GPU(mean={:.3f},p95={:.3f}) budget={:.3f} over={:.1f}%",
-                 NoMoreDay::render::debug::RenderProfiler::ToString(passId),
-                 stats.cpuMeanMs, stats.cpuP95Ms, stats.gpuMeanMs, stats.gpuP95Ms,
-                 stats.budgetMs, overPct);
-      }
-      s_lastProfilerLog = now;
-    }
+    const auto passStats = graphContext.renderProfiler->GetAllStats();
+    UpdateAutoDegradePolicy(passStats, GetTime());
 
-    NoMoreDay::render::debug::DrawProfilerHud(*graphContext.renderProfiler, 14.0f,
-                                               14.0f);
+    if (renderConfig.profilerHudEnabled) {
+      static double s_lastProfilerLog = 0.0;
+      const double now = GetTime();
+      if ((now - s_lastProfilerLog) >= 5.0) {
+        for (size_t i = 0; i < passStats.size(); ++i) {
+          const auto passId = static_cast<NoMoreDay::render::debug::RenderPassId>(i);
+          const auto &stats = passStats[i];
+          const float overPct = (stats.budgetMs > 0.0f)
+                                    ? std::max(0.0f, (stats.gpuMeanMs - stats.budgetMs) /
+                                                         stats.budgetMs * 100.0f)
+                                    : 0.0f;
+          LOG_INFO("RenderProfiler[{}]: CPU(mean={:.3f},p95={:.3f}) GPU(mean={:.3f},p95={:.3f}) budget={:.3f} over={:.1f}%",
+                   NoMoreDay::render::debug::RenderProfiler::ToString(passId),
+                   stats.cpuMeanMs, stats.cpuP95Ms, stats.gpuMeanMs, stats.gpuP95Ms,
+                   stats.budgetMs, overPct);
+        }
+        s_lastProfilerLog = now;
+      }
+
+      NoMoreDay::render::debug::DrawProfilerHud(*graphContext.renderProfiler, 14.0f,
+                                                 14.0f);
+    }
   }
 
   g_transientPool.EndFrame();

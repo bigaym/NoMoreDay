@@ -244,11 +244,19 @@ bool ParseSequenceFile(const fs::path &filePath, VFXSequenceAsset &outSequence) 
     return false;
   }
 
-  const int schemaVersion = document.value("vfx_schema_version", 0);
+  if (!document.contains("vfx_schema_version") ||
+      !document["vfx_schema_version"].is_number_integer()) {
+    LOG_ERROR(
+        "VFXSequenceManager: missing required integer vfx_schema_version in {}",
+        filePath.string());
+    return false;
+  }
+
+  const int schemaVersion = document["vfx_schema_version"].get<int>();
   if (schemaVersion != VFXSequenceManager::VFX_SCHEMA_VERSION) {
-    LOG_WARN("VFXSequenceManager: unsupported schema {} in {} (expected {})",
-             schemaVersion, filePath.string(),
-             VFXSequenceManager::VFX_SCHEMA_VERSION);
+    LOG_ERROR(
+        "VFXSequenceManager: unsupported schema version {} in {} (supported={})",
+        schemaVersion, filePath.string(), VFXSequenceManager::VFX_SCHEMA_VERSION);
     return false;
   }
 
@@ -296,6 +304,16 @@ bool ParseSequenceFile(const fs::path &filePath, VFXSequenceAsset &outSequence) 
       event.anchor = ParseAnchorType(eventNode);
       event.minTier = ParseQualityTier(eventNode, "minTier", sequence.minTier);
       event.params = ParseEventParams(eventType, paramsNode);
+
+      if (event.type == EventType::MaterialSwap) {
+        const auto *materialSwap = std::get_if<MaterialSwapParams>(&event.params);
+        if (materialSwap != nullptr && materialSwap->materialId <= 0) {
+          LOG_WARN(
+              "VFXSequenceManager: MaterialSwap in {} has invalid materialId, "
+              "runtime will fallback",
+              filePath.string());
+        }
+      }
       sequence.events.push_back(std::move(event));
     }
   }
