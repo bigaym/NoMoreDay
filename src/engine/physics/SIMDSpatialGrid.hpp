@@ -53,68 +53,71 @@ private:
 
 template<typename View>
 void SIMDSpatialGrid::rebuild(const View& view, const entt::registry& reg) {
-    m_x.clear();
-    m_y.clear();
-    m_cellHash.clear();
-    m_entities.clear();
-
-    // 1. Collect Data - Reserve if possible
-    size_t size = 0;
+    // 1. Collect Data into local buffers
+    size_t size_hint = 0;
     if constexpr (requires { view.size_hint(); }) {
-        size = view.size_hint();
+        size_hint = view.size_hint();
     } else if constexpr (requires { view.size(); }) {
-        size = view.size();
+        size_hint = view.size();
     }
-    
-    if (size > 0) {
-        m_x.reserve(size);
-        m_y.reserve(size);
-        m_cellHash.reserve(size);
-        m_entities.reserve(size);
-    }
+
+    std::vector<float> tempX; tempX.reserve(size_hint);
+    std::vector<float> tempY; tempY.reserve(size_hint);
+    std::vector<uint32_t> tempHash; tempHash.reserve(size_hint);
+    std::vector<entt::entity> tempEntities; tempEntities.reserve(size_hint);
 
     for (auto entity : view) {
         const auto& pos = view.template get<Position>(entity);
-        m_x.push_back(pos.x);
-        m_y.push_back(pos.y);
-        m_cellHash.push_back(getHash(pos.x, pos.y));
-        m_entities.push_back(entity);
+        tempX.push_back(pos.x);
+        tempY.push_back(pos.y);
+        tempHash.push_back(getHash(pos.x, pos.y));
+        tempEntities.push_back(entity);
     }
 
-    if (m_entities.empty()) return;
+    if (tempEntities.empty()) {
+        m_x.clear();
+        m_y.clear();
+        m_cellHash.clear();
+        m_entities.clear();
+        m_buckets.assign(m_bucketCount, ~0u);
+        return;
+    }
 
     // 2. Sort by Cell Hash
-    std::vector<size_t> indices(m_entities.size());
+    std::vector<size_t> indices(tempEntities.size());
     std::iota(indices.begin(), indices.end(), 0);
 
     std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
-        return m_cellHash[a] < m_cellHash[b];
+        return tempHash[a] < tempHash[b];
     });
 
-    // 3. Reorder SOA data
-    AlignedVector<float> newX; newX.reserve(m_entities.size());
-    AlignedVector<float> newY; newY.reserve(m_entities.size());
-    std::vector<uint32_t> newHash; newHash.reserve(m_entities.size());
-    std::vector<entt::entity> newEntities; newEntities.reserve(m_entities.size());
-
-    for (size_t i : indices) {
-        newX.push_back(m_x[i]);
-        newY.push_back(m_y[i]);
-        newHash.push_back(m_cellHash[i]);
-        newEntities.push_back(m_entities[i]);
-    }
-
-    // Pad to SIMD width
+    // 3. Reorder and Pad to SIMD width
     using batch = xsimd::batch<float>;
     constexpr size_t W = batch::size;
-    
-    while (newX.size() % W != 0) {
+    // Calculate padded size and add one extra batch for safety (Total Padding >= W)
+    size_t paddedSize = ((tempEntities.size() + W - 1) / W) * W + W;
+
+    AlignedVector<float> newX; newX.reserve(paddedSize);
+    AlignedVector<float> newY; newY.reserve(paddedSize);
+    std::vector<uint32_t> newHash; newHash.reserve(paddedSize);
+    std::vector<entt::entity> newEntities; newEntities.reserve(paddedSize);
+
+    for (size_t i : indices) {
+        newX.push_back(tempX[i]);
+        newY.push_back(tempY[i]);
+        newHash.push_back(tempHash[i]);
+        newEntities.push_back(tempEntities[i]);
+    }
+
+    // Fill padding
+    while (newX.size() < paddedSize) {
         newX.push_back(std::numeric_limits<float>::infinity());
         newY.push_back(std::numeric_limits<float>::infinity());
         newHash.push_back(~0u);
         newEntities.push_back(entt::null);
     }
 
+    // Atomic-ish update of state
     m_x = std::move(newX);
     m_y = std::move(newY);
     m_cellHash = std::move(newHash);

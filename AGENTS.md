@@ -25,15 +25,23 @@ NoMoreDay 开发代理规则（Windows）。
 - 认知约束：乱码通常源于错误解码/重编码链路（ACP/GBK/终端码页），非 BOM 本身。
 
 ## 3) 构建与验证流程
-1. 运行 `.\build.bat`。
-2. 若失败，先修编译错误，再继续。
-3. 直到 `build.bat` 成功。
-4. 启动游戏进行运行验证。
-5. 渲染问题必须同时保留：
-   - 屏幕表现证据
-   - `bin/logs/NoMoreDay.log` 证据
+1. 默认构建：`.\build.bat`。
+2. 质量保证：
+   - **ASan 扫描**: `.\build.bat asan` (检测内存越界/UAF)。在涉及 ECS 核心系统修改后必跑。
+   - **静态分析**: `.\build.bat analyze` (检测潜在逻辑风险)。
+   - **资产校验**: `build.bat` 会自动运行 `python scripts/validate_json.py`。
+   - **依赖分析**: `.\build.bat includes` (分析头文件包含树)。
+3. 性能测试：`.\build.bat perf` (运行带 performance 标签的测试用例)。
+4. 若失败，先修编译/校验错误，再继续。
 
-## 4) Bug 追踪规则
+## 4) 现代流水线规范
+- **代码数据库**: 编译后自动生成 `compile_commands.json` 软链接至根目录。
+- **格式化**: 强制遵循 `.clang-format` 规范 (4空, 大括号换行, 120列)。
+- **资产安全**: 所有 JSON 必须通过 Python 校验脚本验证。
+- **内存安全**: 优先在 `RelWithDebInfo` 配置下启用 ASan 以平衡调试性能与错误捕捉。
+- **头文件**: 定期检查 `includes.log` 保持编译链简洁。
+
+## 5) Bug 追踪规则
 - 统一登记：`conductor/bug_registry.md`。
 - 新增前先查重（症状/根因/路径相同视为同类）。
 - Bug ID 规范：`BUG-YYYYMMDD-XXX`。

@@ -4,19 +4,35 @@
 #include "engine/render/GPUUtils.hpp"
 #include <raylib.h>
 
+#include <filesystem>
+#include <iostream>
+
 using namespace NoMoreDay;
 
-#if defined(_WIN32) && defined(__GNUC__)
-#include <windows.h>
-extern int main(int argc, char **argv);
-extern "C" int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
-                              LPSTR lpCmdLine, int nCmdShow) {
-  return main(__argc, __argv);
+namespace fs = std::filesystem;
+
+void AnchorWorkingDirectory() {
+    fs::path current = fs::current_path();
+    // Try to find 'assets' in current or parent directories (up to 3 levels)
+    for (int i = 0; i < 4; ++i) {
+        if (fs::exists(current / "assets")) {
+            fs::current_path(current);
+            std::cout << "[Test] Working directory anchored to: " << current.string() << std::endl;
+            return;
+        }
+        if (current.has_parent_path()) {
+            current = current.parent_path();
+        } else {
+            break;
+        }
+    }
+    std::cerr << "[Test] Warning: Could not find 'assets' folder in search path!" << std::endl;
 }
-#endif
 
 int main(int argc, char **argv) {
   printf("Test runner starting...\n");
+  AnchorWorkingDirectory();
+  
   // Set Raylib log level to Warning to suppress INFO logs
   SetTraceLogLevel(LOG_WARNING);
 

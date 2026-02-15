@@ -11,14 +11,18 @@ REM   clean-all   - Clean entire build directory
 REM   notest      - Skip building tests
 REM   release     - Build in Release mode (with LTO)
 REM   debug       - Build in Debug mode
+REM   analyze     - Enable MSVC Static Analysis (/analyze)
+REM   asan        - Enable Address Sanitizer (ASan)
+REM   perf        - Run performance tests after build
+REM   check       - Run JSON validation and static analysis only
+REM   includes    - Build with /showIncludes to analyze dependencies
 REM   ninja       - Use Ninja generator
 REM   j=N         - Set parallel jobs (default: 16)
 REM
 REM Examples:
 REM   build.bat                    - Default RelWithDebInfo build
-REM   build.bat release            - Optimized Release build with LTO
-REM   build.bat ninja notest       - Fast build with Ninja, no tests
-REM   build.bat clean release j=8  - Clean and rebuild Release with 8 jobs
+REM   build.bat asan               - Build with ASan enabled
+REM   build.bat includes > inc.log - Analyze header dependencies
 REM ============================================================================
 
 setlocal enabledelayedexpansion
@@ -27,12 +31,16 @@ cd /d "%~dp0"
 set "BUILD_DIR=build"
 set "BUILD_TYPE=RelWithDebInfo"
 set "BUILD_TESTS=ON"
+set "RUN_TESTS=ON"
+set "RUN_PERF=OFF"
 set "ENABLE_LTO=OFF"
+set "ENABLE_ANALYZE=OFF"
+set "ENABLE_ASAN=OFF"
+set "SHOW_INCLUDES=OFF"
+set "ONLY_CHECK=OFF"
 set "GENERATOR="
 set "PARALLEL_JOBS=16"
 set "NEED_CONFIG=0"
-
-
 
 REM ============================================================================
 REM Visual Studio Environment Setup
@@ -82,22 +90,38 @@ if "!VS_DEV_CMD_ACTIVE!"=="0" (
 if "%~1"=="" goto :ARGS_DONE
 
 if /i "%~1"=="clean" (
-    echo [Build] Cleaning CMake cache ^(preserving objects^)...
+    echo [Build] Cleaning CMake cache...
     if exist "%BUILD_DIR%\CMakeCache.txt" del /f /q "%BUILD_DIR%\CMakeCache.txt"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="clean-all" (
-    echo [Build] Cleaning full build environment...
+    echo [Build] Cleaning full build directory...
     if exist "%BUILD_DIR%" rmdir /s /q "%BUILD_DIR%"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="notest" (
     set "BUILD_TESTS=OFF"
+    set "RUN_TESTS=OFF"
     set "NEED_CONFIG=1"
 )
-if /i "%~1"=="rwb" (
-    set "BUILD_TYPE=RelWithDebInfo"
-    set "ENABLE_LTO=OFF"
+if /i "%~1"=="analyze" (
+    set "ENABLE_ANALYZE=ON"
+    set "NEED_CONFIG=1"
+)
+if /i "%~1"=="asan" (
+    set "ENABLE_ASAN=ON"
+    set "NEED_CONFIG=1"
+)
+if /i "%~1"=="includes" (
+    set "SHOW_INCLUDES=ON"
+    set "NEED_CONFIG=1"
+)
+if /i "%~1"=="check" (
+    set "ONLY_CHECK=ON"
+)
+if /i "%~1"=="perf" (
+    set "RUN_PERF=ON"
+    set "BUILD_TYPE=Release"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="release" (
@@ -125,64 +149,36 @@ goto :ARGS_LOOP
 
 :ARGS_DONE
 
+REM ============================================================================
+REM 1. Pre-build Validation (JSON)
+REM ============================================================================
+echo [Build] Validating assets...
+python scripts\validate_json.py
+if errorlevel 1 (
+    echo [Build] Asset validation failed! Aborting.
+    exit /b 1
+)
+
+if "!ONLY_CHECK!"=="1" (
+    echo [Build] Check mode: Skipping compilation.
+    exit /b 0
+)
+
 REM Create build directory if needed
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 cd "%BUILD_DIR%"
 
-REM Check if configuration is needed
+REM ============================================================================
+REM 2. CMake Configuration
+REM ============================================================================
 if not exist CMakeCache.txt set "NEED_CONFIG=1"
 
-REM Detect stale MinGW cache and force reconfigure to avoid mingw32-make path
-if exist CMakeCache.txt (
-    findstr /C:"CMAKE_GENERATOR:INTERNAL=MinGW Makefiles" CMakeCache.txt >nul
-    if !errorlevel! equ 0 (
-        echo [Build] Detected MinGW CMake cache. Forcing MSVC reconfigure...
-        del /f /q CMakeCache.txt >nul 2>nul
-        if exist CMakeFiles rmdir /s /q CMakeFiles
-        set "NEED_CONFIG=1"
-    )
-
-    findstr /I /C:"mingw32-make.exe" CMakeCache.txt >nul
-    if !errorlevel! equ 0 (
-        echo [Build] Detected mingw32-make in cache. Forcing MSVC reconfigure...
-        del /f /q CMakeCache.txt >nul 2>nul
-        if exist CMakeFiles rmdir /s /q CMakeFiles
-        set "NEED_CONFIG=1"
-    )
-
-    findstr /I /R /C:"^CMAKE_CXX_COMPILER:STRING=.*g++\.exe$" CMakeCache.txt >nul
-    if !errorlevel! equ 0 (
-        echo [Build] Detected MinGW compiler cache. Forcing MSVC reconfigure...
-        del /f /q CMakeCache.txt >nul 2>nul
-        if exist CMakeFiles rmdir /s /q CMakeFiles
-        set "NEED_CONFIG=1"
-    )
-)
-
-REM Configure if needed
 if "!NEED_CONFIG!"=="1" (
-    REM Default to Ninja if available, otherwise NMake Makefiles (for MSVC)
     if not defined GENERATOR (
-        REM Priority: VS2022 > Ninja > NMake
         if defined VS_INSTALL_DIR (
-             echo !VS_INSTALL_DIR! | findstr /C:"2022" >nul
-             if !errorlevel! equ 0 (
-                 set "GENERATOR=-G "Visual Studio 17 2022" -A x64"
-                 echo [Build] Using Visual Studio 2022 generator
-             ) else (
-                 echo [Build] Visual Studio found but not 2022 ^(Path: !VS_INSTALL_DIR!^). Falling back to Ninja/NMake.
-             )
-        )
-        
-        if not defined GENERATOR (
-            where ninja >nul 2>nul
-            if !errorlevel! equ 0 (
-                set "GENERATOR=-G Ninja"
-                echo [Build] Using Ninja generator - detected
-            ) else (
-                set "GENERATOR=-G "NMake Makefiles""
-                echo [Build] Using NMake Makefiles generator - fallback
-            )
+             set "GENERATOR=-G "Visual Studio 17 2022" -A x64"
+        ) else (
+             set "GENERATOR=-G Ninja"
         )
     )
 
@@ -191,46 +187,75 @@ if "!NEED_CONFIG!"=="1" (
     echo [Build] Configuring project...
     echo   Build Type:    !BUILD_TYPE!
     echo   Tests:         !BUILD_TESTS!
+    echo   Analyze:       !ENABLE_ANALYZE!
+    echo   ASan:          !ENABLE_ASAN!
     echo   LTO:           !ENABLE_LTO!
-    echo   Parallel Jobs: !PARALLEL_JOBS!
-    if defined GENERATOR echo   Generator:     !GENERATOR!
     echo ============================================================
     echo.
     
-    set "CMAKE_ARGS="
-    if "!VS_DEV_CMD_ACTIVE!"=="1" (
-        if "!GENERATOR!"=="-G Ninja" (
-            set "CMAKE_ARGS=-DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl"
-            echo [Build] Enforcing MSVC compiler for Ninja...
-        )
-    )
+    set "CMAKE_OPTS="
+    if "!ENABLE_ANALYZE!"=="ON" set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ANALYZE=ON"
+    if "!ENABLE_ASAN!"=="ON"    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ASAN=ON"
+    if "!SHOW_INCLUDES!"=="ON"  set "CMAKE_OPTS=!CMAKE_OPTS! -DCMAKE_CXX_FLAGS="/showIncludes""
 
-    cmake !GENERATOR! !CMAKE_ARGS! ^
+    cmake !GENERATOR! !CMAKE_OPTS! ^
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
         -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
-        -DCMAKE_UNITY_BUILD=OFF ^
         -DBUILD_TESTING=!BUILD_TESTS! ^
         -DENABLE_LTO=!ENABLE_LTO! ^
         ..
     
-    if errorlevel 1 (
-        echo [Build] Configuration failed!
-        exit /b 1
+    if errorlevel 1 exit /b 1
+
+    REM 3. Symlink compile_commands.json to root for LSP
+    if exist compile_commands.json (
+        echo [Build] Linking compile_commands.json...
+        if exist "..\compile_commands.json" del /f /q "..\compile_commands.json"
+        mklink "..\compile_commands.json" "compile_commands.json" >nul
     )
 )
 
-REM Build
-echo.
-echo [Build] Building with !PARALLEL_JOBS! parallel jobs...
+REM ============================================================================
+REM 4. Build
+REM ============================================================================
 cmake --build . --config !BUILD_TYPE! -j !PARALLEL_JOBS!
+if errorlevel 1 exit /b 1
 
-if errorlevel 1 (
-    echo [Build] Build failed!
-    exit /b 1
+REM ============================================================================
+REM 5. Post-Build Execution (Tests)
+REM ============================================================================
+set "TEST_EXE=..\bin\NoMoreDayTests.exe"
+
+if "!BUILD_TESTS!"=="ON" if "!RUN_TESTS!"=="ON" (
+    if exist "!TEST_EXE!" (
+        echo.
+        echo ============================================================
+        echo [Test] Running Unit Tests...
+        echo ============================================================
+        "!TEST_EXE!" --test-case-exclude=*performance*
+        if errorlevel 1 (
+            echo [Test] Unit Tests FAILED!
+            exit /b 1
+        )
+    ) else (
+        echo [Test] Warning: Test executable not found at !TEST_EXE!
+    )
+)
+
+if "!RUN_PERF!"=="ON" (
+    if exist "!TEST_EXE!" (
+        echo.
+        echo ============================================================
+        echo [Test] Running Performance Benchmarks...
+        echo ============================================================
+        "!TEST_EXE!" --test-case=*performance*
+        if errorlevel 1 (
+            echo [Test] Performance Tests FAILED!
+            exit /b 1
+        )
+    )
 )
 
 echo.
-echo [Build] Build completed successfully!
-echo   Output: %CD%\bin\
-
+echo [Build] All steps completed successfully!
 cd ..

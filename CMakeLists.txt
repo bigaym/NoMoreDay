@@ -4,7 +4,32 @@ project(NoMoreDay VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_UNITY_BUILD OFF)  # Disable Unity Build globally
+set(CMAKE_UNITY_BUILD OFF)
+
+# --- Project Options ---
+option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
+option(ENABLE_ANALYZE "Enable MSVC Static Analysis" OFF)
+
+# --- Address Sanitizer Configuration ---
+if(ENABLE_ASAN)
+    if(MSVC)
+        message(STATUS "[Security] Enabling Address Sanitizer for MSVC")
+        # ASan requires /Zi (not /ZI) and disabling incremental linking
+        add_compile_options(/fsanitize=address /Zi)
+        add_link_options(/INCREMENTAL:NO)
+        # For MSVC, we need to link the ASan library explicitly in some cases, 
+        # but CMake 3.20+ usually handles it.
+    else()
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        add_link_options(-fsanitize=address)
+    endif()
+endif()
+
+# --- MSVC Static Analysis ---
+if(ENABLE_ANALYZE AND MSVC)
+    message(STATUS "[Analysis] Enabling MSVC Static Analysis")
+    add_compile_options(/analyze)
+endif()
 
 # --- Disable Deprecated Warnings ---
 if(MSVC)

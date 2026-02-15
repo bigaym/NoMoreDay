@@ -158,14 +158,19 @@ TEST_CASE("[Unit] VFXSequencer - Hot Reload") {
   "events": []
 })");
 
+  // Forcefully advance the write time to ensure it's detectable
+  // Some file systems have low resolution for last_write_time
+  const auto newWriteTime = beforeWriteTime + std::chrono::seconds(2);
+  std::filesystem::last_write_time(file, newWriteTime);
+
   bool timestampChanged = false;
   for (int attempt = 0; attempt < 20; ++attempt) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(20));
     const auto nowWriteTime = std::filesystem::last_write_time(file);
     if (nowWriteTime > beforeWriteTime) {
       timestampChanged = true;
       break;
     }
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   REQUIRE(timestampChanged);
 
