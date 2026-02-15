@@ -5,12 +5,16 @@
 
 namespace NoMoreDay::render::passes {
 
-CompositePass::CompositePass(ExecuteCallback callback)
-    : m_callback(std::move(callback)) {}
+CompositePass::CompositePass(graph::RenderResourceTag inputResourceTag,
+                             graph::RenderOwnerTag inputOwnerTag,
+                             ExecuteCallback callback)
+    : m_inputResourceTag(inputResourceTag), m_inputOwnerTag(inputOwnerTag),
+      m_callback(std::move(callback)) {}
 
 void CompositePass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read("SceneColor");
-  builder.Write("BackBuffer");
+  builder.Read(m_inputResourceTag, m_inputOwnerTag);
+  builder.Write(graph::RenderResourceTag::FinalOutputColor,
+                graph::RenderOwnerTag::Composite);
 }
 
 void CompositePass::Execute(graph::RenderContext &context) {

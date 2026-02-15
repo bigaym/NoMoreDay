@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/resources/FramebufferHandle.hpp"
 #include "raylib.h"
 #include <cstdint>
 #include <vector>
@@ -11,7 +12,8 @@ public:
   TransientResourcePool() = default;
   ~TransientResourcePool();
 
-  RenderTexture2D AcquireColorTarget(int width, int height);
+  FramebufferHandle AcquireColorTarget(int width, int height,
+                                       uint32_t internalFormat = 0x8058);
   void BeginFrame();
   void EndFrame();
   void Shutdown();
@@ -20,9 +22,10 @@ public:
 
 private:
   struct Entry {
-    RenderTexture2D texture = {};
+    FramebufferHandle handle = {};
     int width = 0;
     int height = 0;
+    uint32_t internalFormat = 0x8058;
     bool inUse = false;
     uint64_t lastTouchedFrame = 0;
   };

@@ -36,6 +36,7 @@ public:
   void Stop(entt::registry &registry, entt::entity entity);
 
   static constexpr int MAX_SEQUENCES = 256;
+  static constexpr int VFX_SCHEMA_VERSION = 1;
 
 private:
   VFXSequenceManager() = default;

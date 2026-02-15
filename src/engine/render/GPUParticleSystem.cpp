@@ -114,6 +114,14 @@ Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
   return shader;
 }
 
+unsigned int LoadComputeShaderWithIncludes(const std::filesystem::path &path) {
+  const std::string source = ResolveShaderIncludes(path, 0);
+  if (source.empty()) {
+    return 0;
+  }
+  return rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
+}
+
 } // namespace
 
 
@@ -246,36 +254,26 @@ void GPUParticleSystem::Clear() {
 
 void GPUParticleSystem::LoadShaders() {
   // 1. Load Compute Shader
-  // Using existing V2 shader files as we are porting V2 code
-  std::ifstream compFile("assets/shaders/particle.compute");
-  if (compFile.is_open()) {
-    std::stringstream ss;
-    ss << compFile.rdbuf();
-    std::string source = ss.str();
-
-    unsigned int compId = rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
-    if (compId != 0) {
-      m_computeShader.id = rlLoadComputeShaderProgram(compId);
-      if (m_computeShader.id != 0) {
-        LOG_INFO("GPUParticleSystem: Compute shader loaded (ID: {})",
-                 m_computeShader.id);
-        m_computeDtLoc = rlGetLocationUniform(m_computeShader.id, "dt");
-        m_computeTimeLoc = rlGetLocationUniform(m_computeShader.id, "time");
-        m_computeTotalLoc =
-            rlGetLocationUniform(m_computeShader.id, "totalParticles");
-        m_computeForceFieldCountLoc =
-            rlGetLocationUniform(m_computeShader.id, "forceFieldCount");
-        m_computeSubEmitterEnabledLoc =
-            rlGetLocationUniform(m_computeShader.id, "subEmitterEnabled");
-      } else {
-        LOG_ERROR("GPUParticleSystem: Compute shader linking failed!");
-      }
+  unsigned int compId =
+      LoadComputeShaderWithIncludes("assets/shaders/particle.compute");
+  if (compId != 0) {
+    m_computeShader.id = rlLoadComputeShaderProgram(compId);
+    if (m_computeShader.id != 0) {
+      LOG_INFO("GPUParticleSystem: Compute shader loaded (ID: {})",
+               m_computeShader.id);
+      m_computeDtLoc = rlGetLocationUniform(m_computeShader.id, "dt");
+      m_computeTimeLoc = rlGetLocationUniform(m_computeShader.id, "time");
+      m_computeTotalLoc =
+          rlGetLocationUniform(m_computeShader.id, "totalParticles");
+      m_computeForceFieldCountLoc =
+          rlGetLocationUniform(m_computeShader.id, "forceFieldCount");
+      m_computeSubEmitterEnabledLoc =
+          rlGetLocationUniform(m_computeShader.id, "subEmitterEnabled");
     } else {
-      LOG_ERROR("GPUParticleSystem: Compute shader compilation failed!");
+      LOG_ERROR("GPUParticleSystem: Compute shader linking failed!");
     }
   } else {
-    LOG_ERROR(
-        "GPUParticleSystem: Could not open assets/shaders/particle.compute");
+    LOG_ERROR("GPUParticleSystem: Compute shader compilation failed!");
   }
 
   // 2. Load Render Shaders (with local #include support for ABI snippets)
@@ -293,47 +291,38 @@ void GPUParticleSystem::LoadShaders() {
   }
 
   // 3. Load Emission Shader
-  std::ifstream emitFile("assets/shaders/particle_emit.compute");
-  if (emitFile.is_open()) {
-    std::stringstream ss;
-    ss << emitFile.rdbuf();
-    unsigned int emitCompId =
-        rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
-    if (emitCompId != 0) {
-      m_emitShader.id = rlLoadComputeShaderProgram(emitCompId);
-      if (m_emitShader.id != 0) {
-        m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
-      }
+  const unsigned int emitCompId =
+      LoadComputeShaderWithIncludes("assets/shaders/particle_emit.compute");
+  if (emitCompId != 0) {
+    m_emitShader.id = rlLoadComputeShaderProgram(emitCompId);
+    if (m_emitShader.id != 0) {
+      m_emitCountLoc = rlGetLocationUniform(m_emitShader.id, "emitCount");
     }
+  } else {
+    LOG_ERROR("GPUParticleSystem: particle_emit.compute compilation failed!");
   }
 
   // 4. Load Sub-Emission Merge Shader
-  std::ifstream subEmitFile("assets/shaders/particle_sub_emit.compute");
-  if (subEmitFile.is_open()) {
-    std::stringstream ss;
-    ss << subEmitFile.rdbuf();
-    unsigned int subEmitCompId =
-        rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
-    if (subEmitCompId != 0) {
-      m_subEmitShader.id = rlLoadComputeShaderProgram(subEmitCompId);
-      if (m_subEmitShader.id != 0) {
-        m_subEmitCountLoc = rlGetLocationUniform(m_subEmitShader.id, "subEmitCount");
-        m_subEmitMaxParticlesLoc =
-            rlGetLocationUniform(m_subEmitShader.id, "maxParticles");
-      }
+  const unsigned int subEmitCompId =
+      LoadComputeShaderWithIncludes("assets/shaders/particle_sub_emit.compute");
+  if (subEmitCompId != 0) {
+    m_subEmitShader.id = rlLoadComputeShaderProgram(subEmitCompId);
+    if (m_subEmitShader.id != 0) {
+      m_subEmitCountLoc = rlGetLocationUniform(m_subEmitShader.id, "subEmitCount");
+      m_subEmitMaxParticlesLoc =
+          rlGetLocationUniform(m_subEmitShader.id, "maxParticles");
     }
+  } else {
+    LOG_ERROR("GPUParticleSystem: particle_sub_emit.compute compilation failed!");
   }
 
   // 5. Load Finalize Shader
-  std::ifstream finalizeFile("assets/shaders/particle_finalize.compute");
-  if (finalizeFile.is_open()) {
-    std::stringstream ss;
-    ss << finalizeFile.rdbuf();
-    unsigned int finCompId =
-        rlCompileShader(ss.str().c_str(), RL_COMPUTE_SHADER);
-    if (finCompId != 0) {
-      m_finalizeShader.id = rlLoadComputeShaderProgram(finCompId);
-    }
+  const unsigned int finalizeCompId =
+      LoadComputeShaderWithIncludes("assets/shaders/particle_finalize.compute");
+  if (finalizeCompId != 0) {
+    m_finalizeShader.id = rlLoadComputeShaderProgram(finalizeCompId);
+  } else {
+    LOG_ERROR("GPUParticleSystem: particle_finalize.compute compilation failed!");
   }
 
   // Verify core shaders
@@ -698,8 +687,8 @@ void GPUParticleSystem::FinalizeFrame() {
     
     // Bind current buffers
     // Binding points must match particle_finalize.compute
-    m_indirectBuffer.BindBase(2); // INDIRECT_CMD
-    m_atomicBuffer.BindBase(3);   // ATOMIC_COUNT
+    m_indirectBuffer.BindBase(ParticleCS::INDIRECT_CMD);
+    m_atomicBuffer.BindBase(ParticleCS::ATOMIC_COUNT);
     
     rlComputeShaderDispatch(1, 1, 1);
     utils::GPUUtils::MemoryBarrier(Barrier::All);

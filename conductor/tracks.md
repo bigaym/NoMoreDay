@@ -5,28 +5,10 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
-## [ ] Track: RenderGraph Contract Hardening (rendergraph_contract_hardening_20260215) [ACTIVE]
-
-> **Goal**: Enforce render target ownership, pass resource contract checks, and stable pass boundaries.  
-> **Docs**: [spec.md](./tracks/rendergraph_contract_hardening_20260215/spec.md) | [plan.md](./tracks/rendergraph_contract_hardening_20260215/plan.md)  
-> **Status**: PENDING  
-> **Priority**: P0
-
----
-
 ## [ ] Track: Tier Detection & Auto-Degrade (tier_detection_autodegrade_20260215) [ACTIVE]
 
 > **Goal**: Add hardware capability probe and runtime budget-driven auto-degrade policies.  
 > **Docs**: [spec.md](./tracks/tier_detection_autodegrade_20260215/spec.md) | [plan.md](./tracks/tier_detection_autodegrade_20260215/plan.md)  
-> **Status**: PENDING  
-> **Priority**: P1
-
----
-
-## [ ] Track: GPU ABI & Binding Governance (gpu_abi_binding_governance_20260215) [ACTIVE]
-
-> **Goal**: Establish ABI versioning/generation and binding collision governance.  
-> **Docs**: [spec.md](./tracks/gpu_abi_binding_governance_20260215/spec.md) | [plan.md](./tracks/gpu_abi_binding_governance_20260215/plan.md)  
 > **Status**: PENDING  
 > **Priority**: P1
 
@@ -38,6 +20,20 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 > **Docs**: [spec.md](./tracks/vfx_material_pipeline_completion_20260215/spec.md) | [plan.md](./tracks/vfx_material_pipeline_completion_20260215/plan.md)  
 > **Status**: PENDING  
 > **Priority**: P2
+
+---
+
+## [x] Track: RenderGraph Contract Hardening (rendergraph_contract_hardening_20260215) [COMPLETED]
+
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
+> **Priority**: P0
+
+---
+
+## [x] Track: GPU ABI & Binding Governance (gpu_abi_binding_governance_20260215) [COMPLETED]
+
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
+> **Priority**: P1
 
 ---
 
@@ -57,18 +53,12 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ## Status Update (2026-02-15)
 
-- rendergraph_contract_hardening_20260215: **ACTIVE**
-  - mode: stability-first, strong compatibility.
+- rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
+- gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**
 - tier_detection_autodegrade_20260215: **ACTIVE**
   - mode: capability probe + runtime auto-degrade.
-- gpu_abi_binding_governance_20260215: **ACTIVE**
-  - mode: ABI contract and binding governance.
 - vfx_material_pipeline_completion_20260215: **ACTIVE**
   - mode: close functional gaps without visual regressions.
 - polishing_advanced_features_20260213: **COMPLETED & ARCHIVED**
-  - delivered: Color Grading (LUT 16/32), Volumetric Light, Render Profiler HUD, Shader Hot Reload.
 - particle_trail_enhancement_20260213: **COMPLETED & ARCHIVED**
-  - delivered: Textured particles, GPU Trails, Sub-emitters, Force fields.
 - material_vfx_sequencer_20260213: **COMPLETED & ARCHIVED**
-  - delivered: material system, vfx sequencer, distortion pass.
-

@@ -1,25 +1,10 @@
 #version 430
+#include "generated/gpu_abi.glslinc"
 
 layout(location = 0) in vec2 vertexPos;
 
-struct Particle {
-    vec2 position;
-    vec2 velocity;
-    vec2 acceleration;
-    uint color;
-    float lifetime;
-    float maxLifetime;
-    float scale;
-    uint flags;
-    float growthRate;
-    float rotation;
-    int texInfo;      // lower 16 = textureIndex, upper 16 = subUV
-    uint animData;    // [15:0]=frameCount, [23:16]=blendMode, [31:24]=subEmitterType
-    float subEmitParam;
-};
-
-layout(std430, binding = 0) readonly buffer CompactBuffer {
-    Particle particles[];
+layout(std430, binding = GPU_PARTICLE_SSBO_BINDING) readonly buffer CompactBuffer {
+    GPUParticle particles[];
 };
 
 uniform mat4 mvp;
@@ -33,7 +18,7 @@ out flat uint vBlendMode;
 
 void main() {
     uint id = gl_InstanceID;
-    Particle p = particles[id];
+    GPUParticle p = particles[id];
 
     if (p.lifetime <= 0.0 || p.scale <= 0.0) {
         gl_Position = vec4(-9999.0, -9999.0, 0.0, 1.0);
@@ -41,10 +26,10 @@ void main() {
     }
 
     vec4 col = vec4(
-        float(p.color & 0xFFu) / 255.0,
-        float((p.color >> 8) & 0xFFu) / 255.0,
-        float((p.color >> 16) & 0xFFu) / 255.0,
-        float((p.color >> 24) & 0xFFu) / 255.0
+        float(p.colorPacked & 0xFFu) / 255.0,
+        float((p.colorPacked >> 8) & 0xFFu) / 255.0,
+        float((p.colorPacked >> 16) & 0xFFu) / 255.0,
+        float((p.colorPacked >> 24) & 0xFFu) / 255.0
     );
 
     float lifetimeRatio = clamp(p.lifetime / p.maxLifetime, 0.0, 1.0);

@@ -7,6 +7,7 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
+#include "engine/render/resources/TransientResourcePool.hpp"
 #include <algorithm>
 
 namespace NoMoreDay::render::passes {
@@ -37,6 +38,14 @@ void BindFramebufferAndViewport(const resources::FramebufferHandle &handle) {
   NoMoreDay::utils::GPUUtils::Viewport(0, 0, handle.width, handle.height);
 }
 
+void ReleaseBuffer(resources::FramebufferHandle &handle, bool pooled) {
+  if (!pooled) {
+    resources::FramebufferManager::Destroy(handle);
+  } else {
+    handle = {};
+  }
+}
+
 } // namespace
 
 PostProcessPass::PostProcessPass() = default;
@@ -44,8 +53,10 @@ PostProcessPass::PostProcessPass() = default;
 PostProcessPass::~PostProcessPass() { Shutdown(); }
 
 void PostProcessPass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read("SceneColor");
-  builder.Write("PostProcessColor");
+  builder.Read(graph::RenderResourceTag::SceneHdrColor,
+               graph::RenderOwnerTag::PostProcess);
+  builder.Write(graph::RenderResourceTag::PostProcessLdrColor,
+                graph::RenderOwnerTag::PostProcess);
 }
 
 bool PostProcessPass::Initialize() {
@@ -211,8 +222,10 @@ void PostProcessPass::Shutdown() {
   }
 
   DestroyBloomMips();
-  resources::FramebufferManager::Destroy(m_ldrBuffer);
-  resources::FramebufferManager::Destroy(m_pingPongBuffer);
+  ReleaseBuffer(m_ldrBuffer, m_ldrBufferPooled);
+  ReleaseBuffer(m_pingPongBuffer, m_pingPongBufferPooled);
+  m_ldrBufferPooled = false;
+  m_pingPongBufferPooled = false;
   m_finalOutputBuffer = {};
   m_cachedWidth = 0;
   m_cachedHeight = 0;
@@ -228,11 +241,49 @@ void PostProcessPass::OnResize(int width, int height) {
 
   m_cachedWidth = width;
   m_cachedHeight = height;
-  resources::FramebufferManager::Resize(m_ldrBuffer, width, height);
-  resources::FramebufferManager::Resize(m_pingPongBuffer, width, height);
+  if (!m_ldrBufferPooled) {
+    resources::FramebufferManager::Resize(m_ldrBuffer, width, height);
+  }
+  if (!m_pingPongBufferPooled) {
+    resources::FramebufferManager::Resize(m_pingPongBuffer, width, height);
+  }
 }
 
-void PostProcessPass::EnsureWorkingBuffers(int width, int height) {
+void PostProcessPass::EnsureWorkingBuffers(const graph::RenderContext &context,
+                                           int width, int height) {
+  const bool usePool = context.transientPool != nullptr;
+
+  if (usePool) {
+    if (!m_ldrBufferPooled) {
+      resources::FramebufferManager::Destroy(m_ldrBuffer);
+    }
+    if (!m_pingPongBufferPooled) {
+      resources::FramebufferManager::Destroy(m_pingPongBuffer);
+    }
+
+    m_ldrBuffer = context.transientPool->AcquireColorTarget(width, height, kGLRgba8);
+    m_pingPongBuffer =
+        context.transientPool->AcquireColorTarget(width, height, kGLRgba8);
+    m_ldrBufferPooled = m_ldrBuffer.IsValid();
+    m_pingPongBufferPooled = m_pingPongBuffer.IsValid();
+    if (m_ldrBufferPooled && m_pingPongBufferPooled) {
+      return;
+    }
+
+    LOG_WARN("PostProcessPass: transient pool acquire failed, fallback to persistent buffers");
+    m_ldrBufferPooled = false;
+    m_pingPongBufferPooled = false;
+  } else {
+    if (m_ldrBufferPooled) {
+      m_ldrBuffer = {};
+      m_ldrBufferPooled = false;
+    }
+    if (m_pingPongBufferPooled) {
+      m_pingPongBuffer = {};
+      m_pingPongBufferPooled = false;
+    }
+  }
+
   if (!m_ldrBuffer.IsValid()) {
     m_ldrBuffer = resources::FramebufferManager::Create(width, height, kGLRgba8, false);
   } else if (m_ldrBuffer.width != width || m_ldrBuffer.height != height) {
@@ -249,17 +300,20 @@ void PostProcessPass::EnsureWorkingBuffers(int width, int height) {
 
 void PostProcessPass::DestroyBloomMips() {
   for (auto &mip : m_bloomMips) {
-    resources::FramebufferManager::Destroy(mip.fbo);
+    ReleaseBuffer(mip.fbo, mip.pooled);
   }
   m_bloomMips.clear();
 }
 
-void PostProcessPass::RebuildBloomMips(int baseWidth, int baseHeight, int mipLevels) {
+void PostProcessPass::RebuildBloomMips(const graph::RenderContext &context,
+                                       int baseWidth, int baseHeight,
+                                       int mipLevels) {
   DestroyBloomMips();
   if (mipLevels <= 0 || baseWidth <= 0 || baseHeight <= 0) {
     return;
   }
 
+  const bool usePool = context.transientPool != nullptr;
   m_bloomMips.reserve(static_cast<size_t>(mipLevels));
   int width = baseWidth;
   int height = baseHeight;
@@ -269,7 +323,16 @@ void PostProcessPass::RebuildBloomMips(int baseWidth, int baseHeight, int mipLev
     BloomMip mip = {};
     mip.width = width;
     mip.height = height;
-    mip.fbo = resources::FramebufferManager::Create(width, height, kGLRgba16f, false);
+    if (usePool) {
+      mip.fbo =
+          context.transientPool->AcquireColorTarget(width, height, kGLRgba16f);
+      mip.pooled = mip.fbo.IsValid();
+    }
+    if (!mip.fbo.IsValid()) {
+      mip.pooled = false;
+      mip.fbo = resources::FramebufferManager::Create(width, height, kGLRgba16f,
+                                                      false);
+    }
     if (!mip.fbo.IsValid()) {
       LOG_ERROR("PostProcessPass bloom mip {} creation failed", level);
       DestroyBloomMips();
@@ -362,6 +425,7 @@ void PostProcessPass::ExecuteFXAA(const graph::RenderContext &context) {
   DrawFullscreen(m_fxaaShader, m_ldrBuffer.colorTexture);
 
   std::swap(m_ldrBuffer, m_pingPongBuffer);
+  std::swap(m_ldrBufferPooled, m_pingPongBufferPooled);
 }
 
 void PostProcessPass::ExecuteVignette(const graph::RenderContext &context) {
@@ -379,6 +443,7 @@ void PostProcessPass::ExecuteVignette(const graph::RenderContext &context) {
   DrawFullscreen(m_vignetteShader, m_ldrBuffer.colorTexture);
 
   std::swap(m_ldrBuffer, m_pingPongBuffer);
+  std::swap(m_ldrBufferPooled, m_pingPongBufferPooled);
 }
 
 bool PostProcessPass::LoadColorGradingLUT(int lutSize) {
@@ -461,6 +526,7 @@ void PostProcessPass::ExecuteColorGrading(const graph::RenderContext &context) {
   EndShaderMode();
 
   std::swap(m_ldrBuffer, m_pingPongBuffer);
+  std::swap(m_ldrBufferPooled, m_pingPongBufferPooled);
 }
 
 void PostProcessPass::Execute(graph::RenderContext &context) {
@@ -483,12 +549,21 @@ void PostProcessPass::Execute(graph::RenderContext &context) {
     m_cachedHeight = height;
     OnResize(width, height);
   }
-  EnsureWorkingBuffers(width, height);
+  EnsureWorkingBuffers(context, width, height);
 
   const int bloomMipLevels = std::max(0, config.bloomMipLevels);
-  if (m_cachedBloomMips != bloomMipLevels) {
+  const bool useTransientPool = context.transientPool != nullptr;
+  bool bloomNeedsRebuild = (m_cachedBloomMips != bloomMipLevels);
+  if (!bloomNeedsRebuild && !useTransientPool && !m_bloomMips.empty()) {
+    const int expectedFirstMipWidth = std::max(width / 2, 1);
+    const int expectedFirstMipHeight = std::max(height / 2, 1);
+    bloomNeedsRebuild =
+        (m_bloomMips.front().width != expectedFirstMipWidth ||
+         m_bloomMips.front().height != expectedFirstMipHeight);
+  }
+  if (useTransientPool || bloomNeedsRebuild) {
     m_cachedBloomMips = bloomMipLevels;
-    RebuildBloomMips(width, height, bloomMipLevels);
+    RebuildBloomMips(context, width, height, bloomMipLevels);
   }
 
   if (config.bloomEnabled && !m_bloomMips.empty()) {

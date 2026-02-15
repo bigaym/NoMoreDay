@@ -6,6 +6,7 @@
 #include "rlgl.h"
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/RenderConstants.hpp"
 #include "core/logging/Logger.hpp"
 #include <vector>
 #include <algorithm>
@@ -191,7 +192,8 @@ void HoloBladeRenderSystem::Render(entt::registry &registry,
        GetData().instanceBuffer.Create(GetData().hostBuffer.size() * sizeof(components::HoloBladeInstance) * 2, nullptr, RL_DYNAMIC_DRAW);
   }
   GetData().instanceBuffer.Update(GetData().hostBuffer.data(), GetData().hostBuffer.size() * sizeof(components::HoloBladeInstance));
-  GetData().instanceBuffer.BindBase(4);
+  GetData().instanceBuffer.BindBase(
+      NoMoreDay::RenderConstants::HoloBladeBinding::INSTANCE);
 
   // 5. Render Batches
   float time = (float)GetTime();

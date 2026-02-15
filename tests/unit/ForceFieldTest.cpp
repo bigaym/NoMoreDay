@@ -1,6 +1,7 @@
 #include "doctest.h"
 
 #include "engine/render/GPUData.hpp"
+#include "engine/render/RenderConstants.hpp"
 #include "engine/render/particle/ForceFieldManager.hpp"
 
 #include <cstddef>
@@ -48,7 +49,7 @@ TEST_CASE("[Unit] ForceField - Add Remove And Capacity") {
   CHECK(mgr.GetActiveCount() == 2);
 
   mgr.SyncToGPU();
-  mgr.BindSSBO(4);
+  mgr.BindSSBO(NoMoreDay::RenderConstants::ParticleCS::FORCE_FIELDS);
   mgr.ClearAll();
   CHECK(mgr.GetActiveCount() == 0);
   mgr.Shutdown();

@@ -1,5 +1,7 @@
 #include "engine/render/resources/TransientResourcePool.hpp"
 
+#include "engine/render/resources/FramebufferManager.hpp"
+
 namespace NoMoreDay::render::resources {
 namespace {
 constexpr uint64_t kFrameRetention = 120;
@@ -7,34 +9,39 @@ constexpr uint64_t kFrameRetention = 120;
 
 TransientResourcePool::~TransientResourcePool() { Shutdown(); }
 
-RenderTexture2D TransientResourcePool::AcquireColorTarget(int width, int height) {
+FramebufferHandle TransientResourcePool::AcquireColorTarget(int width, int height,
+                                                            uint32_t internalFormat) {
   if (width <= 0 || height <= 0) {
     return {};
   }
 
   for (Entry &entry : m_entries) {
-    if (!entry.inUse && entry.width == width && entry.height == height) {
+    if (!entry.inUse && entry.width == width && entry.height == height &&
+        entry.internalFormat == internalFormat) {
       entry.inUse = true;
       entry.lastTouchedFrame = m_frameIndex;
-      return entry.texture;
+      return entry.handle;
     }
   }
 
   Entry created = {};
-  created.texture = LoadRenderTexture(width, height);
+  created.handle =
+      FramebufferManager::Create(width, height, internalFormat, false);
   created.width = width;
   created.height = height;
+  created.internalFormat = internalFormat;
   created.inUse = true;
   created.lastTouchedFrame = m_frameIndex;
 
-  if (created.texture.id == 0) {
-    LOG_ERROR("TransientResourcePool: Failed to create render target {}x{}",
-              width, height);
+  if (!created.handle.IsValid()) {
+    LOG_ERROR(
+        "TransientResourcePool: Failed to create render target {}x{} format=0x{:X}",
+        width, height, internalFormat);
     return {};
   }
 
   m_entries.push_back(created);
-  return created.texture;
+  return created.handle;
 }
 
 void TransientResourcePool::BeginFrame() {
@@ -60,7 +67,7 @@ void TransientResourcePool::EndFrame() {
       }
       ++writeIndex;
     } else {
-      UnloadRenderTexture(m_entries[readIndex].texture);
+      FramebufferManager::Destroy(m_entries[readIndex].handle);
     }
   }
 
@@ -69,10 +76,7 @@ void TransientResourcePool::EndFrame() {
 
 void TransientResourcePool::Shutdown() {
   for (Entry &entry : m_entries) {
-    if (entry.texture.id != 0) {
-      UnloadRenderTexture(entry.texture);
-      entry.texture = {};
-    }
+    FramebufferManager::Destroy(entry.handle);
   }
   m_entries.clear();
 }

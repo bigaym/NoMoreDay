@@ -12,8 +12,8 @@ struct HoloBladeInstance {
     vec2 padding;
 };
 
-// Use Binding 4 to avoid conflict with particles (1) or skill effects (5)
-layout(std430, binding = 4) readonly buffer InstanceBuffer {
+// Binding source: RenderConstants::HoloBladeBinding::INSTANCE (14)
+layout(std430, binding = 14) readonly buffer InstanceBuffer {
     HoloBladeInstance instances[];
 };
 

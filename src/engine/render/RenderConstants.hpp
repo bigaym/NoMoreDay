@@ -1,4 +1,5 @@
 #pragma once
+#include <array>
 #include <cstdint>
 
 namespace NoMoreDay {
@@ -40,15 +41,17 @@ enum class Binding : uint32_t {
   // === Material / Distortion (Phase 4) ===
   SSBO_MATERIAL_DATA = 12,
   SSBO_DISTORTION_DATA = 13,
+  SSBO_HOLOBLADE_INSTANCE = 14,
   MATERIAL_SSBO = SSBO_MATERIAL_DATA,
   DISTORTION_SSBO = SSBO_DISTORTION_DATA,
+  HOLOBLADE_SSBO = SSBO_HOLOBLADE_INSTANCE,
 
   // === Reserved ===
   SSBO_RESERVED_10 = SSBO_TRAIL_HEADERS,
   SSBO_RESERVED_11 = SSBO_TRAIL_POINTS,
   SSBO_RESERVED_12 = SSBO_MATERIAL_DATA,
   SSBO_RESERVED_13 = SSBO_DISTORTION_DATA,
-  SSBO_RESERVED_14 = 14,
+  SSBO_RESERVED_14 = SSBO_HOLOBLADE_INSTANCE,
   SSBO_RESERVED_15 = 15, // OpenGL 4.3 最低保证 16 个 SSBO Binding
 };
 
@@ -58,6 +61,36 @@ enum class Binding : uint32_t {
  * 这些是临时绑定点，仅在粒子系统 Compute Shader 执行期间有效。
  * 必须与 particle.compute / particle_emit.compute 中的 binding 保持一致。
  */
+namespace BindingGovernance {
+constexpr std::array<uint32_t, 11> kGlobalSharedSSBOBindings = {
+    static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA),
+    static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID),
+    static_cast<uint32_t>(Binding::SSBO_COMMAND),
+    static_cast<uint32_t>(Binding::SSBO_VISUAL_STATS),
+    static_cast<uint32_t>(Binding::SSBO_LABEL_INSTANCE),
+    static_cast<uint32_t>(Binding::SSBO_BEAM_INSTANCE),
+    static_cast<uint32_t>(Binding::SSBO_SKILL_EFFECTS),
+    static_cast<uint32_t>(Binding::SSBO_POPUP_DATA),
+    static_cast<uint32_t>(Binding::SSBO_GLYPH_INSTANCE),
+    static_cast<uint32_t>(Binding::SSBO_LIGHT_DATA),
+    static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE),
+};
+
+constexpr bool HasUniqueGlobalBindings() {
+  for (std::size_t i = 0; i < kGlobalSharedSSBOBindings.size(); ++i) {
+    for (std::size_t j = i + 1; j < kGlobalSharedSSBOBindings.size(); ++j) {
+      if (kGlobalSharedSSBOBindings[i] == kGlobalSharedSSBOBindings[j]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+} // namespace BindingGovernance
+
+static_assert(BindingGovernance::HasUniqueGlobalBindings(),
+              "RenderConstants::Binding contains duplicated global SSBO slots");
+
 namespace ParticleCS {
 constexpr uint32_t PARTICLES_IN = 0;  // 输入粒子数组
 constexpr uint32_t PARTICLES_OUT = 1; // 输出粒子数组 (Compact)
@@ -72,6 +105,21 @@ namespace TrailBinding {
 constexpr uint32_t HEADERS = 10;
 constexpr uint32_t POINTS = 11;
 } // namespace TrailBinding
+
+namespace HoloBladeBinding {
+constexpr uint32_t INSTANCE =
+    static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE);
+} // namespace HoloBladeBinding
+
+namespace StatsScatterCS {
+constexpr uint32_t UPDATES = 0;
+constexpr uint32_t MAIN_STATS = 1;
+} // namespace StatsScatterCS
+
+namespace FogOfWarCS {
+constexpr uint32_t VISIBILITY_BUFFER = 0;
+constexpr uint32_t OUTPUT_IMAGE = 0;
+} // namespace FogOfWarCS
 
 /**
  * @brief Compute Shader 本地 SSBO Binding (流场系统)。

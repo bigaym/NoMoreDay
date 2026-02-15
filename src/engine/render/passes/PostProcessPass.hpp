@@ -34,6 +34,7 @@ private:
     resources::FramebufferHandle fbo;
     int width = 0;
     int height = 0;
+    bool pooled = false;
   };
 
   void ExecuteBloom(const graph::RenderContext &context);
@@ -43,9 +44,11 @@ private:
   void ExecuteFXAA(const graph::RenderContext &context);
   bool LoadColorGradingLUT(int lutSize);
 
-  void RebuildBloomMips(int baseWidth, int baseHeight, int mipLevels);
+  void RebuildBloomMips(const graph::RenderContext &context, int baseWidth,
+                        int baseHeight, int mipLevels);
   void DestroyBloomMips();
-  void EnsureWorkingBuffers(int width, int height);
+  void EnsureWorkingBuffers(const graph::RenderContext &context, int width,
+                           int height);
   void DrawFullscreen(Shader shader, uint32_t sourceTexture);
 
   std::vector<BloomMip> m_bloomMips;
@@ -62,6 +65,8 @@ private:
   resources::FramebufferHandle m_ldrBuffer = {};
   resources::FramebufferHandle m_pingPongBuffer = {};
   resources::FramebufferHandle m_finalOutputBuffer = {};
+  bool m_ldrBufferPooled = false;
+  bool m_pingPongBufferPooled = false;
 
   int m_bloomThresholdLoc = -1;
   int m_bloomKneeLoc = -1;

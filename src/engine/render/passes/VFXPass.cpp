@@ -9,8 +9,10 @@ namespace NoMoreDay::render::passes {
 VFXPass::VFXPass(ExecuteCallback callback) : m_callback(std::move(callback)) {}
 
 void VFXPass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read("SceneColor");
-  builder.Write("SceneColor");
+  builder.Read(graph::RenderResourceTag::SceneHdrColor,
+               graph::RenderOwnerTag::VFX);
+  builder.Write(graph::RenderResourceTag::SceneHdrColor,
+                graph::RenderOwnerTag::VFX);
 }
 
 void VFXPass::Execute(graph::RenderContext &context) {

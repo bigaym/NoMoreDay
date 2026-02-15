@@ -41,8 +41,10 @@ VolumetricLightPass::VolumetricLightPass() = default;
 VolumetricLightPass::~VolumetricLightPass() { Shutdown(); }
 
 void VolumetricLightPass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read("SceneColor");
-  builder.Write("SceneColor");
+  builder.Read(graph::RenderResourceTag::SceneHdrColor,
+               graph::RenderOwnerTag::Volumetric);
+  builder.Write(graph::RenderResourceTag::SceneHdrColor,
+                graph::RenderOwnerTag::Volumetric);
 }
 
 bool VolumetricLightPass::Initialize() {

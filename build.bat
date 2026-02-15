@@ -152,6 +152,13 @@ goto :ARGS_LOOP
 REM ============================================================================
 REM 1. Pre-build Validation (JSON)
 REM ============================================================================
+echo [Build] Generating render ABI includes...
+python tools\render_abi\generate_gpu_abi.py
+if errorlevel 1 (
+    echo [Build] Render ABI generation failed! Aborting.
+    exit /b 1
+)
+
 echo [Build] Validating assets...
 python scripts\validate_json.py
 if errorlevel 1 (

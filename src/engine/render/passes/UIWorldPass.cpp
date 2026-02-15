@@ -9,8 +9,10 @@ UIWorldPass::UIWorldPass(ExecuteCallback callback)
     : m_callback(std::move(callback)) {}
 
 void UIWorldPass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read("SceneColor");
-  builder.Write("SceneColor");
+  builder.Read(graph::RenderResourceTag::SceneHdrColor,
+               graph::RenderOwnerTag::UIWorld);
+  builder.Write(graph::RenderResourceTag::SceneHdrColor,
+                graph::RenderOwnerTag::UIWorld);
 }
 
 void UIWorldPass::Execute(graph::RenderContext &context) {

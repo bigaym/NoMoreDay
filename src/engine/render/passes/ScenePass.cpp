@@ -8,8 +8,10 @@ namespace NoMoreDay::render::passes {
 ScenePass::ScenePass(ExecuteCallback callback) : m_callback(std::move(callback)) {}
 
 void ScenePass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Write("SceneColor");
-  builder.Write("SceneDepth");
+  builder.Write(graph::RenderResourceTag::SceneHdrColor,
+                graph::RenderOwnerTag::Scene);
+  builder.Write(graph::RenderResourceTag::SceneDepth,
+                graph::RenderOwnerTag::Scene);
 }
 
 void ScenePass::Execute(graph::RenderContext &context) {

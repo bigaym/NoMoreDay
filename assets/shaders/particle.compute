@@ -1,23 +1,9 @@
 #version 430
+#include "generated/gpu_abi.glslinc"
 
 layout(local_size_x = 256) in;
 
-// Particle structure - MUST match C++ GPUParticle exactly (64 bytes)
-struct Particle {
-    vec2 position;      // 8 bytes
-    vec2 velocity;      // 8 bytes
-    vec2 acceleration;  // 8 bytes
-    uint color;         // 4 bytes (packed RGBA)
-    float lifetime;     // 4 bytes
-    float maxLifetime;  // 4 bytes
-    float scale;        // 4 bytes
-    uint flags;         // 4 bytes
-    float growthRate;   // 4 bytes
-    float rotation;     // 4 bytes
-    int texInfo;        // 4 bytes
-    uint animData;      // 4 bytes
-    float subEmitParam; // 4 bytes
-}; // Total: 64 bytes
+#define Particle GPUParticle
 
 struct ForceField {
     float posX;
@@ -31,7 +17,7 @@ struct ForceField {
 };
 
 // SSBOs
-layout(std430, binding = 0) buffer ParticleBuffer {
+layout(std430, binding = GPU_PARTICLE_SSBO_BINDING) buffer ParticleBuffer {
     Particle particles[];
 };
 

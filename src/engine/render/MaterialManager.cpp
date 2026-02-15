@@ -244,8 +244,10 @@ int MaterialManager::LoadFromJson(const std::string &path) {
     return 0;
   }
 
-  if (document.value("material_schema_version", 0) != 1) {
-    LOG_ERROR("MaterialManager: unsupported schema in {}", path);
+  const int schemaVersion = document.value("material_schema_version", 0);
+  if (schemaVersion != MaterialManager::MATERIAL_SCHEMA_VERSION) {
+    LOG_ERROR("MaterialManager: unsupported schema {} in {} (expected {})",
+              schemaVersion, path, MaterialManager::MATERIAL_SCHEMA_VERSION);
     return 0;
   }
 
@@ -446,11 +448,11 @@ void MaterialManager::SyncToGPU() {
   m_dirty = false;
 }
 
-void MaterialManager::BindSSBO(int bindingPoint) const {
-  if (m_ssbo.GetId() == 0 || bindingPoint < 0) {
+void MaterialManager::BindSSBO(NoMoreDay::RenderConstants::Binding binding) const {
+  if (m_ssbo.GetId() == 0) {
     return;
   }
-  m_ssbo.BindBase(static_cast<unsigned int>(bindingPoint));
+  m_ssbo.BindBase(static_cast<unsigned int>(binding));
 }
 
 components::GPUMaterialData

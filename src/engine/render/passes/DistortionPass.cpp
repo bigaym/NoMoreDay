@@ -8,6 +8,7 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
+#include "engine/render/resources/TransientResourcePool.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -34,6 +35,14 @@ void BindFramebufferAndViewport(const resources::FramebufferHandle &handle) {
   NoMoreDay::utils::GPUUtils::Viewport(0, 0, handle.width, handle.height);
 }
 
+void ReleaseBuffer(resources::FramebufferHandle &handle, bool pooled) {
+  if (!pooled) {
+    resources::FramebufferManager::Destroy(handle);
+  } else {
+    handle = {};
+  }
+}
+
 } // namespace
 
 DistortionPass::DistortionPass() = default;
@@ -41,8 +50,10 @@ DistortionPass::DistortionPass() = default;
 DistortionPass::~DistortionPass() { Shutdown(); }
 
 void DistortionPass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read("PostProcessColor");
-  builder.Write("DistortionColor");
+  builder.Read(graph::RenderResourceTag::PostProcessLdrColor,
+               graph::RenderOwnerTag::Distortion);
+  builder.Write(graph::RenderResourceTag::DistortionLdrColor,
+                graph::RenderOwnerTag::Distortion);
 }
 
 bool DistortionPass::Initialize() {
@@ -133,8 +144,10 @@ void DistortionPass::Shutdown() {
     m_distortionApplyShader = {};
   }
 
-  resources::FramebufferManager::Destroy(m_distortionBuffer);
-  resources::FramebufferManager::Destroy(m_applyBuffer);
+  ReleaseBuffer(m_distortionBuffer, m_distortionBufferPooled);
+  ReleaseBuffer(m_applyBuffer, m_applyBufferPooled);
+  m_distortionBufferPooled = false;
+  m_applyBufferPooled = false;
   m_finalOutputBuffer = {};
 
   if (m_ssbo != 0) {
@@ -155,20 +168,59 @@ void DistortionPass::OnResize(int width, int height) {
 
   m_cachedWidth = width;
   m_cachedHeight = height;
-  resources::FramebufferManager::Resize(m_distortionBuffer, width, height);
-  resources::FramebufferManager::Resize(m_applyBuffer, width, height);
+  if (!m_distortionBufferPooled) {
+    resources::FramebufferManager::Resize(m_distortionBuffer, width, height);
+  }
+  if (!m_applyBufferPooled) {
+    resources::FramebufferManager::Resize(m_applyBuffer, width, height);
+  }
 }
 
-void DistortionPass::EnsureWorkingBuffers(int width, int height) {
+void DistortionPass::EnsureWorkingBuffers(const graph::RenderContext &context,
+                                          int width, int height) {
+  const bool usePool = context.transientPool != nullptr;
+  if (usePool) {
+    if (!m_distortionBufferPooled) {
+      resources::FramebufferManager::Destroy(m_distortionBuffer);
+    }
+    if (!m_applyBufferPooled) {
+      resources::FramebufferManager::Destroy(m_applyBuffer);
+    }
+
+    m_distortionBuffer =
+        context.transientPool->AcquireColorTarget(width, height, kGLRg16f);
+    m_applyBuffer = context.transientPool->AcquireColorTarget(width, height, kGLRgba8);
+    m_distortionBufferPooled = m_distortionBuffer.IsValid();
+    m_applyBufferPooled = m_applyBuffer.IsValid();
+    if (m_distortionBufferPooled && m_applyBufferPooled) {
+      return;
+    }
+
+    LOG_WARN("DistortionPass: transient pool acquire failed, fallback to persistent buffers");
+    m_distortionBufferPooled = false;
+    m_applyBufferPooled = false;
+  } else {
+    if (m_distortionBufferPooled) {
+      m_distortionBuffer = {};
+      m_distortionBufferPooled = false;
+    }
+    if (m_applyBufferPooled) {
+      m_applyBuffer = {};
+      m_applyBufferPooled = false;
+    }
+  }
+
   if (!m_distortionBuffer.IsValid()) {
     m_distortionBuffer =
         resources::FramebufferManager::Create(width, height, kGLRg16f, false);
-  } else if (m_distortionBuffer.width != width || m_distortionBuffer.height != height) {
+  } else if (m_distortionBuffer.width != width ||
+             m_distortionBuffer.height != height) {
     resources::FramebufferManager::Resize(m_distortionBuffer, width, height);
   }
 
   if (!m_applyBuffer.IsValid()) {
-    m_applyBuffer = resources::FramebufferManager::Create(width, height, kGLRgba8, false);
+    m_applyBuffer =
+        resources::FramebufferManager::Create(width, height, kGLRgba8, false);
   } else if (m_applyBuffer.width != width || m_applyBuffer.height != height) {
     resources::FramebufferManager::Resize(m_applyBuffer, width, height);
   }
@@ -218,7 +270,7 @@ void DistortionPass::Execute(graph::RenderContext &context) {
   if (m_cachedWidth != width || m_cachedHeight != height) {
     OnResize(width, height);
   }
-  EnsureWorkingBuffers(width, height);
+  EnsureWorkingBuffers(context, width, height);
   if (!m_distortionBuffer.IsValid() || !m_applyBuffer.IsValid()) {
     m_finalOutputBuffer = *m_inputBuffer;
     ResetSources();

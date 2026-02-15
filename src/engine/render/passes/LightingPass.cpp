@@ -42,8 +42,10 @@ LightingPass::LightingPass() = default;
 LightingPass::~LightingPass() { Shutdown(); }
 
 void LightingPass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read("SceneColor");
-  builder.Write("SceneColor");
+  builder.Read(graph::RenderResourceTag::SceneHdrColor,
+               graph::RenderOwnerTag::Lighting);
+  builder.Write(graph::RenderResourceTag::SceneHdrColor,
+                graph::RenderOwnerTag::Lighting);
 }
 
 bool LightingPass::Initialize() {

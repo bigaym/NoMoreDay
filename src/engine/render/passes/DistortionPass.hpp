@@ -38,11 +38,14 @@ public:
   static constexpr int MAX_DISTORTION_SOURCES = 32;
 
 private:
-  void EnsureWorkingBuffers(int width, int height);
+  void EnsureWorkingBuffers(const graph::RenderContext &context, int width,
+                            int height);
 
   resources::FramebufferHandle m_distortionBuffer = {};
   resources::FramebufferHandle m_applyBuffer = {};
   resources::FramebufferHandle m_finalOutputBuffer = {};
+  bool m_distortionBufferPooled = false;
+  bool m_applyBufferPooled = false;
   const resources::FramebufferHandle *m_inputBuffer = nullptr;
 
   Shader m_distortionWriteShader = {0};

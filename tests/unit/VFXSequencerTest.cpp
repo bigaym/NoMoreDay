@@ -209,6 +209,28 @@ TEST_CASE("[Unit] VFXSequencer - Invalid Schema Fallback") {
   CleanupDir(dir);
 }
 
+TEST_CASE("[Unit] VFXSequencer - Missing Schema Version Is Rejected") {
+  const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_missing_schema");
+  const std::filesystem::path file = dir / "missing_schema.json";
+  WriteTextFile(file,
+                R"({
+  "name": "MissingSchema",
+  "duration": 1.0,
+  "events": []
+})");
+
+  auto &manager = vfx::VFXSequenceManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+
+  const int loaded = manager.LoadFromJson(dir.string());
+  CHECK(loaded == 0);
+  CHECK(manager.GetSequence("MissingSchema") == nullptr);
+
+  manager.Shutdown();
+  CleanupDir(dir);
+}
+
 TEST_CASE("[Unit] VFXSequencer - Player Advance Loop And End") {
   const std::filesystem::path dir = MakeTempVfxDir("tmp_vfx_seq_runtime");
   WriteTextFile(

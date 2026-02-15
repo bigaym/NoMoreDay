@@ -1,0 +1,54 @@
+{
+  "gpu_abi": {
+    "bindings": {
+      "GPU_PARTICLE_SSBO_BINDING": 0,
+      "GPU_MATERIAL_SSBO_BINDING": "SSBO_MATERIAL_DATA",
+      "GPU_DISTORTION_SSBO_BINDING": "SSBO_DISTORTION_DATA"
+    },
+    "structs": [
+      {
+        "name": "GPUParticle",
+        "fields": [
+          { "type": "vec2", "name": "position" },
+          { "type": "vec2", "name": "velocity" },
+          { "type": "vec2", "name": "acceleration" },
+          { "type": "uint", "name": "colorPacked" },
+          { "type": "float", "name": "lifetime" },
+          { "type": "float", "name": "maxLifetime" },
+          { "type": "float", "name": "scale" },
+          { "type": "uint", "name": "flags" },
+          { "type": "float", "name": "growthRate" },
+          { "type": "float", "name": "rotation" },
+          { "type": "int", "name": "texInfo" },
+          { "type": "uint", "name": "animData" },
+          { "type": "float", "name": "subEmitParam" }
+        ]
+      },
+      {
+        "name": "GPUDistortionSource",
+        "fields": [
+          { "type": "float", "name": "posX" },
+          { "type": "float", "name": "posY" },
+          { "type": "float", "name": "radius" },
+          { "type": "float", "name": "strength" }
+        ]
+      }
+    ]
+  },
+  "material_abi": {
+    "struct_name": "MaterialData",
+    "buffer_name": "MaterialBuffer",
+    "binding_macro": "GPU_MATERIAL_SSBO_BINDING",
+    "exposed_binding_macro": "MATERIAL_SSBO_BINDING",
+    "fields": [
+      { "type": "vec4", "name": "baseColor" },
+      { "type": "vec4", "name": "emissive" },
+      { "type": "float", "name": "distortion" },
+      { "type": "uint", "name": "blendMode" },
+      { "type": "uint", "name": "shaderVariant" },
+      { "type": "uint", "name": "flags" },
+      { "type": "ivec4", "name": "textureSlots" }
+    ]
+  }
+}
+

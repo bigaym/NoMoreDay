@@ -131,8 +131,8 @@ void MDIRenderer::FlushStatsUpdates(ResourceManager& rm) {
         rlSetUniform(locCount, &count, RL_SHADER_UNIFORM_INT, 1);
     }
     
-    m_statsStaging.BindBase(0); // Binding 0: Updates
-    m_statsBuffer.BindBase(1);  // Binding 1: MainStats
+    m_statsStaging.BindBase(StatsScatterCS::UPDATES);
+    m_statsBuffer.BindBase(StatsScatterCS::MAIN_STATS);
     
     utils::GPUUtils::DispatchCompute((count + 63) / 64, 1, 1);
     rlDisableShader();

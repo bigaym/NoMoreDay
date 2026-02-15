@@ -110,3 +110,29 @@ TEST_CASE("[Unit] Material - Invalid Json Does Not Override Existing State") {
   std::filesystem::remove(invalidPath, ec);
   manager.Shutdown();
 }
+
+TEST_CASE("[Unit] Material - Missing Schema Version Is Rejected") {
+  auto &manager = render::MaterialManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+
+  const int loaded = manager.LoadFromJson("assets/data/materials_vfx.json");
+  REQUIRE(loaded >= 5);
+  const int countBefore = manager.GetMaterialCount();
+
+  const std::filesystem::path invalidPath =
+      std::filesystem::path("bin") / "tmp_materials_missing_schema.json";
+  {
+    std::ofstream file(invalidPath, std::ios::binary);
+    REQUIRE(file.is_open());
+    file << "{ \"materials\": [] }";
+  }
+
+  const int invalidLoaded = manager.LoadFromJson(invalidPath.string());
+  CHECK(invalidLoaded == 0);
+  CHECK(manager.GetMaterialCount() == countBefore);
+
+  std::error_code ec;
+  std::filesystem::remove(invalidPath, ec);
+  manager.Shutdown();
+}

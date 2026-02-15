@@ -245,9 +245,10 @@ bool ParseSequenceFile(const fs::path &filePath, VFXSequenceAsset &outSequence) 
   }
 
   const int schemaVersion = document.value("vfx_schema_version", 0);
-  if (schemaVersion != 1) {
-    LOG_WARN("VFXSequenceManager: unsupported schema {} in {}", schemaVersion,
-             filePath.string());
+  if (schemaVersion != VFXSequenceManager::VFX_SCHEMA_VERSION) {
+    LOG_WARN("VFXSequenceManager: unsupported schema {} in {} (expected {})",
+             schemaVersion, filePath.string(),
+             VFXSequenceManager::VFX_SCHEMA_VERSION);
     return false;
   }
 

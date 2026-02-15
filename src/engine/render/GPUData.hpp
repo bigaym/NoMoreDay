@@ -7,6 +7,12 @@
 #include <stdint.h>
 #include <type_traits>
 
+namespace NoMoreDay::render::abi {
+inline constexpr uint32_t GPU_ABI_VERSION = 1;
+inline constexpr uint32_t GPU_ABI_COMPAT_MIN_VERSION =
+    (GPU_ABI_VERSION > 0) ? (GPU_ABI_VERSION - 1) : 0;
+}
+
 namespace NoMoreDay::Constants::GPU {
   // Texture Array Constraints
   constexpr int TEXTURE_LAYER_SIZE = 128;       // Standardized sprite size (px)

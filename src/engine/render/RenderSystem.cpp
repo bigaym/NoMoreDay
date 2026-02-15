@@ -5,6 +5,7 @@
 #include "engine/render/ComputeBuffer.hpp" 
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
+#include "engine/render/GPUABIContract.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -189,6 +190,18 @@ CompositeTargetState CaptureCompositeTargetState() {
 #endif
 
   return state;
+}
+
+bool IsHdrPostProcessRequested(
+    const NoMoreDay::render::core::RenderConfig &config) {
+  return config.bloomEnabled || config.fxaaEnabled || config.vignetteEnabled ||
+         (config.colorGradingEnabled && config.colorGradingLutSize > 0);
+}
+
+bool IsHdrScenePipelineRequested(
+    const NoMoreDay::render::core::RenderConfig &config) {
+  return config.dynamicLightingEnabled || config.volumetricLightEnabled ||
+         IsHdrPostProcessRequested(config);
 }
 
 Mesh &GetLabelQuadMesh() {
@@ -832,6 +845,18 @@ void RenderSystem::AddDistortionSource(float worldX, float worldY, float radius,
 }
 
 void RenderSystem::Initialize() {
+#if defined(NDEBUG)
+  constexpr bool kHardFailGpuAbiMismatch = false;
+#else
+  constexpr bool kHardFailGpuAbiMismatch = true;
+#endif
+  const bool abiCompatible = NoMoreDay::render::abi::ValidateGeneratedShaderABI(
+      "assets/shaders/generated/gpu_abi.glslinc", kHardFailGpuAbiMismatch);
+  if (!abiCompatible) {
+    LOG_ERROR("RenderSystem: startup aborted due incompatible GPU ABI contract.");
+    return;
+  }
+
   NoMoreDay::render::core::QualityTierManager::Get().Initialize("settings.json");
   NoMoreDay::render::MaterialManager::Get().Initialize();
   NoMoreDay::render::MaterialManager::Get().LoadFromJson(
@@ -1038,23 +1063,31 @@ void RenderSystem::render(entt::registry &registry,
     NoMoreDay::render::MaterialManager::Get().TryHotReload();
     NoMoreDay::render::MaterialManager::Get().SyncToGPU();
     NoMoreDay::render::MaterialManager::Get().BindSSBO(
-        static_cast<int>(NoMoreDay::RenderConstants::Binding::SSBO_MATERIAL_DATA));
+        NoMoreDay::RenderConstants::Binding::SSBO_MATERIAL_DATA);
   }
   // Safety gate for BUG-20260212-001:
   // internal HDR/post-process/distortion chain is only valid for the default
   // framebuffer path. Offscreen RT path must use its dedicated pipeline.
+  const bool hdrPipelineRequested = IsHdrScenePipelineRequested(renderConfig);
   const bool useHdrSceneBuffer =
-      renderConfig.bloomEnabled && (compositeTarget.framebuffer == 0);
+      hdrPipelineRequested && (compositeTarget.framebuffer == 0);
   static bool s_prevUseHdrSceneBuffer = false;
+  static bool s_prevHdrPipelineRequested = false;
   static uint32_t s_prevCompositeFramebuffer = 0;
   if (s_prevUseHdrSceneBuffer != useHdrSceneBuffer ||
+      s_prevHdrPipelineRequested != hdrPipelineRequested ||
       s_prevCompositeFramebuffer != compositeTarget.framebuffer) {
-    LOG_INFO("RenderSystem: HDR chain {} (bloom={}, dynamicLighting={}, compositeFbo={})",
+    LOG_INFO("RenderSystem: HDR chain {} (requested={}, bloom={}, postFx={}, "
+             "dynamicLighting={}, volumetric={}, compositeFbo={})",
              useHdrSceneBuffer ? "enabled" : "disabled",
+             hdrPipelineRequested ? 1 : 0,
              renderConfig.bloomEnabled ? 1 : 0,
+             IsHdrPostProcessRequested(renderConfig) ? 1 : 0,
              renderConfig.dynamicLightingEnabled ? 1 : 0,
+             renderConfig.volumetricLightEnabled ? 1 : 0,
              compositeTarget.framebuffer);
     s_prevUseHdrSceneBuffer = useHdrSceneBuffer;
+    s_prevHdrPipelineRequested = hdrPipelineRequested;
     s_prevCompositeFramebuffer = compositeTarget.framebuffer;
   }
   const bool useDistortionPass =
@@ -1136,6 +1169,12 @@ void RenderSystem::render(entt::registry &registry,
     }
   }
 
+  using NoMoreDay::render::graph::RenderOwnerTag;
+  using NoMoreDay::render::graph::RenderResourceTag;
+
+  RenderOwnerTag sceneHdrOwner = RenderOwnerTag::Unknown;
+  RenderOwnerTag ldrOwner = RenderOwnerTag::Unknown;
+
   NoMoreDay::render::graph::RenderGraph graph;
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::ScenePass>(
       [&frame, useHdrSceneBuffer](NoMoreDay::render::graph::RenderContext &) {
@@ -1150,32 +1189,74 @@ void RenderSystem::render(entt::registry &registry,
         }
         ExecuteScenePass(frame);
       }));
+  sceneHdrOwner = RenderOwnerTag::Scene;
+
   if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled &&
       g_lightingPass != nullptr) {
     graph.AddPass(g_lightingPass);
+    sceneHdrOwner = RenderOwnerTag::Lighting;
   }
   if (useVolumetricPass && g_volumetricPass != nullptr) {
     graph.AddPass(g_volumetricPass);
+    sceneHdrOwner = RenderOwnerTag::Volumetric;
   }
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXPass>(
       [&frame](NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
         ExecuteVFXPass(frame);
       }));
+  sceneHdrOwner = RenderOwnerTag::VFX;
+
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::UIWorldPass>(
       [&frame](NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
         ExecuteUIWorldPass(frame);
       }));
+  sceneHdrOwner = RenderOwnerTag::UIWorld;
+
   if (useHdrSceneBuffer && g_postProcessPass != nullptr) {
     graph.AddPass(g_postProcessPass);
+    ldrOwner = RenderOwnerTag::PostProcess;
   }
   if (useDistortionPass && g_distortionPass != nullptr &&
       g_postProcessPass != nullptr) {
     g_distortionPass->SetInputBuffer(&g_postProcessPass->GetOutputBuffer());
     graph.AddPass(g_distortionPass);
+    ldrOwner = RenderOwnerTag::Distortion;
   }
+
+  RenderResourceTag compositeInputResource = RenderResourceTag::SceneHdrColor;
+  RenderOwnerTag compositeInputOwner = sceneHdrOwner;
+  if (ldrOwner == RenderOwnerTag::PostProcess) {
+    compositeInputResource = RenderResourceTag::PostProcessLdrColor;
+    compositeInputOwner = RenderOwnerTag::PostProcess;
+  } else if (ldrOwner == RenderOwnerTag::Distortion) {
+    compositeInputResource = RenderResourceTag::DistortionLdrColor;
+    compositeInputOwner = RenderOwnerTag::Distortion;
+  }
+
+  static RenderOwnerTag s_prevSceneHdrOwner = RenderOwnerTag::Unknown;
+  static RenderOwnerTag s_prevLdrOwner = RenderOwnerTag::Unknown;
+  static RenderResourceTag s_prevCompositeInput = RenderResourceTag::Custom;
+  static RenderOwnerTag s_prevCompositeInputOwner = RenderOwnerTag::Unknown;
+  if (s_prevSceneHdrOwner != sceneHdrOwner || s_prevLdrOwner != ldrOwner ||
+      s_prevCompositeInput != compositeInputResource ||
+      s_prevCompositeInputOwner != compositeInputOwner) {
+    LOG_INFO(
+        "RenderSystem: ownership transition sceneHdr={} ldr={} compositeIn={} "
+        "compositeOwner={}",
+        NoMoreDay::render::graph::ToOwnerName(sceneHdrOwner),
+        NoMoreDay::render::graph::ToOwnerName(ldrOwner),
+        NoMoreDay::render::graph::ToResourceName(compositeInputResource),
+        NoMoreDay::render::graph::ToOwnerName(compositeInputOwner));
+    s_prevSceneHdrOwner = sceneHdrOwner;
+    s_prevLdrOwner = ldrOwner;
+    s_prevCompositeInput = compositeInputResource;
+    s_prevCompositeInputOwner = compositeInputOwner;
+  }
+
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::CompositePass>(
+      compositeInputResource, compositeInputOwner,
       [useHdrSceneBuffer, useDistortionPass, compositeTarget](
           NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
@@ -1184,7 +1265,7 @@ void RenderSystem::render(entt::registry &registry,
           ExecuteCompositePass(&g_distortionPass->GetOutputBuffer(),
                                compositeTarget);
         } else if (useHdrSceneBuffer && g_postProcessPass != nullptr &&
-            g_postProcessPass->GetOutputBuffer().IsValid()) {
+                   g_postProcessPass->GetOutputBuffer().IsValid()) {
           ExecuteCompositePass(&g_postProcessPass->GetOutputBuffer(),
                                compositeTarget);
         } else if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid()) {

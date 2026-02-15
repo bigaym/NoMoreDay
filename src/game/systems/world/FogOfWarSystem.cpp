@@ -1,6 +1,7 @@
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/RenderConstants.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"
 #include "rlgl.h"
@@ -119,12 +120,13 @@ void FogOfWarSystem::updateVisibility(const Position &playerPos,
   rlSetUniform(locRadius, &gridRadius, RL_SHADER_UNIFORM_FLOAT, 1);
 
   // 绑定 SSBO
-  m_visibilityBuffer.BindBase(0);
+  m_visibilityBuffer.BindBase(NoMoreDay::RenderConstants::FogOfWarCS::VISIBILITY_BUFFER);
 
   // 绑定输出纹理为 Image (binding = 0)
   // 使用 GPUUtils 封装的 glBindImageTexture (使用默认参数 GL_WRITE_ONLY,
   // GL_RGBA8)
-  NoMoreDay::utils::GPUUtils::BindImageTexture(0, m_fogTexture.id);
+  NoMoreDay::utils::GPUUtils::BindImageTexture(
+      NoMoreDay::RenderConstants::FogOfWarCS::OUTPUT_IMAGE, m_fogTexture.id);
 
   // 调度 Compute Shader
   using namespace NoMoreDay::Constants::World::Fog;

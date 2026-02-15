@@ -3,6 +3,7 @@
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/MaterialDefs.hpp"
+#include "engine/render/RenderConstants.hpp"
 
 #include <array>
 #include <filesystem>
@@ -27,10 +28,11 @@ public:
   [[nodiscard]] int GetMaterialCount() const { return m_materialCount; }
 
   void SyncToGPU();
-  void BindSSBO(int bindingPoint) const;
+  void BindSSBO(NoMoreDay::RenderConstants::Binding binding) const;
 
   static constexpr int MAX_MATERIALS = 256;
   static constexpr int PRESET_RESERVE = 8;
+  static constexpr int MATERIAL_SCHEMA_VERSION = 1;
 
 private:
   MaterialManager() = default;
