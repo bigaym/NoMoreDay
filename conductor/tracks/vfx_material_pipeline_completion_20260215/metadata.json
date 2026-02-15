@@ -1,0 +1,17 @@
+{
+  "id": "vfx_material_pipeline_completion_20260215",
+  "title": "VFX Material Pipeline Completion",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-02-15T00:00:00Z",
+  "updated": "2026-02-15T00:00:00Z",
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 12,
+    "completed": 0
+  }
+}
+

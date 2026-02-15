@@ -1,0 +1,17 @@
+{
+  "id": "gpu_abi_binding_governance_20260215",
+  "title": "GPU ABI and Binding Governance",
+  "type": "refactor",
+  "status": "pending",
+  "created": "2026-02-15T00:00:00Z",
+  "updated": "2026-02-15T00:00:00Z",
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 12,
+    "completed": 0
+  }
+}
+
