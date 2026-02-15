@@ -14,6 +14,31 @@ PersistentBuffer::PersistentBuffer() = default;
 
 PersistentBuffer::~PersistentBuffer() { Destroy(); }
 
+PersistentBuffer::PersistentBuffer(PersistentBuffer &&other) noexcept {
+  *this = std::move(other);
+}
+
+PersistentBuffer &PersistentBuffer::operator=(PersistentBuffer &&other) noexcept {
+  if (this != &other) {
+    Destroy();
+    m_bufferId = other.m_bufferId;
+    m_slotSize = other.m_slotSize;
+    m_mode = other.m_mode;
+    m_totalSize = other.m_totalSize;
+    m_mappedPtr = other.m_mappedPtr;
+    m_writeSlot = other.m_writeSlot;
+    m_bufferCount = other.m_bufferCount;
+    m_fences = std::move(other.m_fences);
+    m_stagingBuffer = std::move(other.m_stagingBuffer);
+
+    other.m_bufferId = 0;
+    other.m_mappedPtr = nullptr;
+    other.m_writeSlot = 0;
+    other.m_bufferCount = 0;
+  }
+  return *this;
+}
+
 bool PersistentBuffer::IsSupported() {
   return utils::GPUUtils::IsInitialized() &&
          utils::GPUUtils::CheckSupport().persistentMappingSupported;
@@ -29,6 +54,8 @@ void PersistentBuffer::Create(size_t slotSize, int bufferCount,
   m_bufferCount = bufferCount;
   if (m_bufferCount < 2)
     m_bufferCount = 2;
+
+  m_writeSlot = 0; // Reset slot index
 
   if (IsSupported()) {
     m_mode = Mode::Persistent;
@@ -46,32 +73,41 @@ void PersistentBuffer::Create(size_t slotSize, int bufferCount,
 
 void PersistentBuffer::CreatePersistent(size_t size) {
   m_totalSize = size * m_bufferCount;
-  m_fences.resize(m_bufferCount, nullptr);
+  m_fences.assign(m_bufferCount, nullptr); // Use assign to reset all to nullptr
 
   utils::GPUUtils::GenBuffers(1, &m_bufferId);
   utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, m_bufferId);
 
-  // Use FlushExplicit instead of Coherent for better driver-side power management and performance
-  uint32_t flags = ToGL(MapFlag::Write | MapFlag::Read | MapFlag::Persistent |
-                        MapFlag::FlushExplicit);
+  // Storage flags: Must NOT include FlushExplicit (0x0010) as it is only for MapRange
+  uint32_t storageFlags = ToGL(MapFlag::Write | MapFlag::Read | MapFlag::Persistent);
 
   utils::GPUUtils::BufferStorage(GL::SHADER_STORAGE_BUFFER, m_totalSize,
-                                 nullptr, flags);
+                                 nullptr, storageFlags);
+
+  // Map flags: CAN include FlushExplicit
+  uint32_t mapFlags = storageFlags | ToGL(MapFlag::FlushExplicit);
 
   m_mappedPtr = (uint8_t *)utils::GPUUtils::MapBufferRange(
-      GL::SHADER_STORAGE_BUFFER, 0, m_totalSize, flags);
+      GL::SHADER_STORAGE_BUFFER, 0, m_totalSize, mapFlags);
 
   utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, 0);
 
   if (!m_mappedPtr) {
     LOG_ERROR("PersistentBuffer: Failed to map buffer!");
+    
+    // Clean up the failed persistent buffer before falling back to Compat
+    utils::GPUUtils::DeleteBuffers(1, &m_bufferId);
+    m_bufferId = 0;
+    
     m_mode = Mode::Compat;
     CreateCompat(size);
   }
 }
 
 void PersistentBuffer::CreateCompat(size_t size) {
-  utils::GPUUtils::GenBuffers(1, &m_bufferId);
+  if (m_bufferId == 0) {
+      utils::GPUUtils::GenBuffers(1, &m_bufferId);
+  }
   utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, m_bufferId);
   utils::GPUUtils::BufferData(GL::SHADER_STORAGE_BUFFER, size, nullptr,
                               0x88E8); // GL_DYNAMIC_DRAW
@@ -128,9 +164,14 @@ void PersistentBuffer::Flush() {
 
 void PersistentBuffer::FlushRange(size_t offset, size_t size) {
   if (m_mode == Mode::Persistent) {
-    if (size == 0) return;
+    if (size == 0 || m_bufferId == 0) return;
     size_t totalOffset = m_writeSlot * m_slotSize + offset;
+    
+    // [FIX] glFlushMappedBufferRange requires the buffer to be bound to the specified target
+    utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, m_bufferId);
     utils::GPUUtils::FlushMappedBufferRange(GL::SHADER_STORAGE_BUFFER, totalOffset, size);
+    utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, 0);
+    
     utils::GPUUtils::MemoryBarrier(RenderConstants::Barrier::Client);
   } else {
     utils::GPUUtils::BindBuffer(GL::SHADER_STORAGE_BUFFER, m_bufferId);

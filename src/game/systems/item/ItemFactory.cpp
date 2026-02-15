@@ -705,11 +705,11 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
   int prefixCount = 0, suffixCount = 0;
   if (item.rarity != Rarity::Common) {
     if (std::uniform_int_distribution<>(0, 1)(t_rng)) {
-      prefixCount = std::uniform_int_distribution<>(1, maxPrefix)(t_rng);
-      suffixCount = std::uniform_int_distribution<>(0, maxSuffix)(t_rng);
+      prefixCount = (maxPrefix > 0) ? std::uniform_int_distribution<>(1, maxPrefix)(t_rng) : 0;
+      suffixCount = (maxSuffix >= 0) ? std::uniform_int_distribution<>(0, maxSuffix)(t_rng) : 0;
     } else {
-      prefixCount = std::uniform_int_distribution<>(0, maxPrefix)(t_rng);
-      suffixCount = std::uniform_int_distribution<>(1, maxSuffix)(t_rng);
+      prefixCount = (maxPrefix >= 0) ? std::uniform_int_distribution<>(0, maxPrefix)(t_rng) : 0;
+      suffixCount = (maxSuffix > 0) ? std::uniform_int_distribution<>(1, maxSuffix)(t_rng) : 0;
     }
   }
 

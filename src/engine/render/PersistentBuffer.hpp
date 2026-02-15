@@ -18,6 +18,14 @@ public:
   PersistentBuffer();
   ~PersistentBuffer();
 
+  // Disable copy
+  PersistentBuffer(const PersistentBuffer &) = delete;
+  PersistentBuffer &operator=(const PersistentBuffer &) = delete;
+
+  // Allow move
+  PersistentBuffer(PersistentBuffer &&other) noexcept;
+  PersistentBuffer &operator=(PersistentBuffer &&other) noexcept;
+
   // Check if hardware supports persistent mapping
   static bool IsSupported();
 

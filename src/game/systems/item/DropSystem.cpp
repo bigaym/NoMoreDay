@@ -90,7 +90,7 @@ void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pendin
     }
 
     std::uniform_int_distribution<uint32_t> amountDist(bonus.minAmount,
-                                                        bonus.maxAmount);
+                                                        std::max(bonus.minAmount, bonus.maxAmount));
     const uint32_t amount = amountDist(g_drop_rng);
     auto material = ItemFactory::createMaterial(
         registry, bonus.materialId, static_cast<int>(amount));
@@ -222,7 +222,7 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
     if (pool && !pool->entries.empty()) {
       // Roll on the pool (simplified GenerateDrops logic)
       std::uniform_int_distribution<int> rollDist(pending.tableMinRolls,
-                                                  pending.tableMaxRolls);
+                                                  std::max(pending.tableMinRolls, pending.tableMaxRolls));
       int rolls = rollDist(g_drop_rng);
 
       for (int i = 0; i < rolls; ++i) {
@@ -289,7 +289,7 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
               RenderSystem::s_itemGridDirty = true;
             } else if (entry.type == LootEntryType::Gold) {
               std::uniform_int_distribution<uint32_t> amountDist(
-                  entry.minAmount, entry.maxAmount);
+                  entry.minAmount, std::max(entry.minAmount, entry.maxAmount));
               uint32_t amount = amountDist(g_drop_rng);
               amount =
                   (uint32_t)((float)amount *

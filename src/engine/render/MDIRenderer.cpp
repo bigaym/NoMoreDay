@@ -286,7 +286,9 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
                                  Barrier::Buffer);
 
   // Use TRIANGLE_STRIP for 4-vertex Quad (BL, BR, TR, TL)
-  utils::GPUUtils::DrawArraysIndirect(GL::TRIANGLE_STRIP, 0);
+  // [FIX] Use GetCurrentSlotOffset because m_commandBuffer is a PersistentBuffer and Cull wrote to current slot.
+  // Render() hasn't called Lock() yet, so Current matches Cull's slot.
+  utils::GPUUtils::DrawArraysIndirect(GL::TRIANGLE_STRIP, m_commandBuffer.GetCurrentSlotOffset());
   rlDisableVertexArray();
 
   rlDisableShader();

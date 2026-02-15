@@ -175,7 +175,7 @@ void EnemySpawnSystem::initData(int width, int height, int level,
   using namespace NoMoreDay::Constants::Enemy;
   std::uniform_int_distribution<int> countDist(
       MIN_CLUSTER_ENEMY_COUNT,
-      MAX_CLUSTER_ENEMY_COUNT); // 每群 5-12 只 (原来 3-6)
+      std::max(MIN_CLUSTER_ENEMY_COUNT, MAX_CLUSTER_ENEMY_COUNT)); // 每群 5-12 只 (原来 3-6)
   for (int i = 0; i < clusterCount; ++i) {
     if (static_cast<int>(m_spawnData.size()) >= clampedMaxEnemies) {
       break;
