@@ -1,0 +1,29 @@
+{
+  "id": "v3_shadow_pipeline_20260215",
+  "title": "V3 Shadow Pipeline",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-02-15T00:00:00Z",
+  "updated": "2026-02-16T00:00:00Z",
+  "designDoc": "设计文档/特效和UI/GPU_Rendering_System_3.md",
+  "designSections": [
+    "§5"
+  ],
+  "stepMapping": "Step B (第2-4周)",
+  "phases": {
+    "total": 6,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 27,
+    "completed": 0
+  },
+  "dependencies": [
+    "v3_baseline_contracts_20260216"
+  ],
+  "dependedBy": [
+    "v3_material_lighting_depth_20260215",
+    "v3_vfx_lighting_integration_20260215",
+    "v3_validation_and_release_gate_20260215"
+  ]
+}

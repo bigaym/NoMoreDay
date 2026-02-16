@@ -5,6 +5,101 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
+## V3 渲染系统升级 — Track 依赖图
+
+```
+Step A: v3_baseline_contracts_20260216 (第1周)
+    │
+    ├─── Step B: v3_shadow_pipeline_20260215 (第2-4周)
+    │       │
+    ├─── Step C: v3_clustered_lighting_20260215 (第3-5周)
+    │       │
+    │       ▼
+    ├─── Step D: v3_material_lighting_depth_20260215 (第4-6周)
+    │       │    (depends on: baseline + shadow)
+    │       │
+    │       ▼
+    ├─── Step E: v3_vfx_lighting_integration_20260215 (第6-8周)
+    │            (depends on: baseline + shadow + clustered + material)
+    │
+    ▼
+Step F: v3_validation_and_release_gate_20260215 (第8-10周)
+         (depends on: ALL feature tracks)
+```
+
+---
+
+## [ ] Track: V3 Baseline Contracts (v3_baseline_contracts_20260216) [PENDING]
+
+> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Priority**: P0  
+> **Type**: foundation  
+> **Step**: A (第 1 周)  
+> **Focus**: RenderConfig V3 扩展、ABI V3 upgrade、Pass 顺序锁定、Binding 治理、Frame Ownership 合同、Feature Flag 基础设施。所有后续 V3 Track 的前置依赖。  
+> **Tasks**: 0/20
+
+---
+
+## [ ] Track: V3 Shadow Pipeline (v3_shadow_pipeline_20260215) [PENDING]
+
+> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Priority**: P0  
+> **Type**: feature  
+> **Step**: B (第 2-4 周)  
+> **Depends On**: `v3_baseline_contracts_20260216`  
+> **Focus**: 2.5D Hybrid Shadow 系统，含 SDF + Atlas 分档、chunk 缓存、确定性淘汰与回退。  
+> **Tasks**: 0/27
+
+---
+
+## [ ] Track: V3 Clustered 2D Lighting (v3_clustered_lighting_20260215) [PENDING]
+
+> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Priority**: P0  
+> **Type**: feature  
+> **Step**: C (第 3-5 周)  
+> **Depends On**: `v3_baseline_contracts_20260216`  
+> **Focus**: Compute-driven light culling，z-layer 映射，≥128 lights 性能 ≥25% 提升。  
+> **Tasks**: 0/25
+
+---
+
+## [ ] Track: V3 Material Lighting Depth (v3_material_lighting_depth_20260215) [PENDING]
+
+> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Priority**: P1  
+> **Type**: feature  
+> **Step**: D (第 4-6 周)  
+> **Depends On**: `v3_baseline_contracts_20260216`, `v3_shadow_pipeline_20260215`  
+> **Focus**: Material 2.0 schema、BRDF-lite shader、Texture2DArray 管理、双缓冲热重载。  
+> **Tasks**: 0/27
+
+---
+
+## [ ] Track: V3 VFX Lighting Integration (v3_vfx_lighting_integration_20260215) [PENDING]
+
+> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Priority**: P1  
+> **Type**: feature  
+> **Step**: E (第 6-8 周)  
+> **Depends On**: `v3_baseline_contracts_20260216` + Shadow + Clustered + Material  
+> **Focus**: VFX schema v3、3 类新事件、tierPolicy、预算估计器、预览工具、12 个模板序列。  
+> **Tasks**: 0/33
+
+---
+
+## [ ] Track: V3 Validation and Release Gate (v3_validation_and_release_gate_20260215) [PENDING]
+
+> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Priority**: P0  
+> **Type**: quality  
+> **Step**: F (第 8-10 周)  
+> **Depends On**: ALL V3 feature tracks  
+> **Focus**: 4 层门禁（功能/契约/性能/稳定性）、截图差异回归、30 分钟压力测试、风险验证、回退演练。  
+> **Tasks**: 0/37
+
+---
+
 ## [x] Track: Render Risk Closure and MSVC Hard Cutover (render-risk-msvc-hardening_20260215) [COMPLETED]
 
 > **Status**: COMPLETED (Archived in `conductor/archive/`)  
@@ -56,7 +151,20 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
-## Status Update (2026-02-15)
+## Status Update (2026-02-16)
+
+### V3 Active Tracks (Total: 169 tasks)
+
+| Track | Step | Phase/Tasks | Status |
+|---|---|---|---|
+| v3_baseline_contracts_20260216 | A | 5P / 20T | **PENDING** |
+| v3_shadow_pipeline_20260215 | B | 6P / 27T | **PENDING** |
+| v3_clustered_lighting_20260215 | C | 4P / 25T | **PENDING** |
+| v3_material_lighting_depth_20260215 | D | 5P / 27T | **PENDING** |
+| v3_vfx_lighting_integration_20260215 | E | 6P / 33T | **PENDING** |
+| v3_validation_and_release_gate_20260215 | F | 8P / 37T | **PENDING** |
+
+### Archived Tracks
 
 - render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**

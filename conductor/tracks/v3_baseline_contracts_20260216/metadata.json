@@ -1,0 +1,31 @@
+{
+    "id": "v3_baseline_contracts_20260216",
+    "title": "V3 Baseline Contracts",
+    "type": "foundation",
+    "status": "pending",
+    "created": "2026-02-16T00:00:00Z",
+    "updated": "2026-02-16T00:00:00Z",
+    "designDoc": "设计文档/特效和UI/GPU_Rendering_System_3.md",
+    "designSections": [
+        "§3",
+        "§4",
+        "§9-§14"
+    ],
+    "stepMapping": "Step A (第1周)",
+    "phases": {
+        "total": 5,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 20,
+        "completed": 0
+    },
+    "dependencies": [],
+    "dependedBy": [
+        "v3_shadow_pipeline_20260215",
+        "v3_clustered_lighting_20260215",
+        "v3_material_lighting_depth_20260215",
+        "v3_vfx_lighting_integration_20260215",
+        "v3_validation_and_release_gate_20260215"
+    ]
+}
