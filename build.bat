@@ -16,6 +16,9 @@ REM   asan        - Enable Address Sanitizer (ASan)
 REM   perf        - Run performance tests after build
 REM   check       - Run JSON validation and static analysis only
 REM   includes    - Build with /showIncludes to analyze dependencies
+REM   noci        - Run tests directly instead of through ctest labels
+REM   nofastbuild - Disable fast MSVC build options (/MP + multitool)
+REM   noruntimeopt- Disable extra runtime optimization flags
 REM   j=N         - Set parallel jobs (default: 16)
 REM
 REM Examples:
@@ -40,6 +43,9 @@ set "ENABLE_LTO=OFF"
 set "ENABLE_ANALYZE=OFF"
 set "ENABLE_ASAN=OFF"
 set "SHOW_INCLUDES=OFF"
+set "ENABLE_FAST_BUILD=ON"
+set "ENABLE_RUNTIME_OPT=ON"
+set "USE_CTEST=ON"
 set "ONLY_CHECK=OFF"
 set "GENERATOR_NAME="
 set "PARALLEL_JOBS=16"
@@ -174,6 +180,17 @@ if /i "%~1"=="includes" (
     set "SHOW_INCLUDES=ON"
     set "NEED_CONFIG=1"
 )
+if /i "%~1"=="nofastbuild" (
+    set "ENABLE_FAST_BUILD=OFF"
+    set "NEED_CONFIG=1"
+)
+if /i "%~1"=="noruntimeopt" (
+    set "ENABLE_RUNTIME_OPT=OFF"
+    set "NEED_CONFIG=1"
+)
+if /i "%~1"=="noci" (
+    set "USE_CTEST=OFF"
+)
 if /i "%~1"=="check" (
     set "ONLY_CHECK=ON"
 )
@@ -219,7 +236,7 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if "!ONLY_CHECK!"=="1" (
+if /i "!ONLY_CHECK!"=="ON" (
     echo [Build] Check mode: Skipping compilation.
     exit /b 0
 )
@@ -231,12 +248,36 @@ cd "%BUILD_DIR%"
 if exist CMakeCache.txt (
     set "CACHE_GENERATOR="
     set "CACHE_CXX_COMPILER="
+    set "CACHE_ENABLE_ANALYZE="
+    set "CACHE_ENABLE_ASAN="
+    set "CACHE_ENABLE_SHOW_INCLUDES="
+    set "CACHE_ENABLE_FAST_BUILD="
+    set "CACHE_ENABLE_RUNTIME_OPT="
+    set "CACHE_BUILD_TESTING="
 
     for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"CMAKE_GENERATOR:INTERNAL=" CMakeCache.txt') do (
         set "CACHE_GENERATOR=%%B"
     )
     for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"CMAKE_CXX_COMPILER:FILEPATH=" CMakeCache.txt') do (
         set "CACHE_CXX_COMPILER=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"ENABLE_ANALYZE:BOOL=" CMakeCache.txt') do (
+        set "CACHE_ENABLE_ANALYZE=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"ENABLE_ASAN:BOOL=" CMakeCache.txt') do (
+        set "CACHE_ENABLE_ASAN=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"ENABLE_SHOW_INCLUDES:BOOL=" CMakeCache.txt') do (
+        set "CACHE_ENABLE_SHOW_INCLUDES=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"ENABLE_FAST_BUILD:BOOL=" CMakeCache.txt') do (
+        set "CACHE_ENABLE_FAST_BUILD=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"ENABLE_RUNTIME_OPT:BOOL=" CMakeCache.txt') do (
+        set "CACHE_ENABLE_RUNTIME_OPT=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"BUILD_TESTING:BOOL=" CMakeCache.txt') do (
+        set "CACHE_BUILD_TESTING=%%B"
     )
 
     if defined CACHE_GENERATOR (
@@ -259,6 +300,48 @@ if exist CMakeCache.txt (
             echo [Build] ERROR: Cached C++ compiler is non-MSVC: !CACHE_CXX_COMPILER!
             echo [Build] Run "build.bat clean-all" before rebuilding with MSVC.
             exit /b 1
+        )
+    )
+
+    if defined CACHE_ENABLE_ANALYZE (
+        if /i not "!CACHE_ENABLE_ANALYZE!"=="!ENABLE_ANALYZE!" (
+            echo [Build] Reconfigure required: ENABLE_ANALYZE !CACHE_ENABLE_ANALYZE! -> !ENABLE_ANALYZE!
+            set "NEED_CONFIG=1"
+        )
+    )
+
+    if defined CACHE_ENABLE_ASAN (
+        if /i not "!CACHE_ENABLE_ASAN!"=="!ENABLE_ASAN!" (
+            echo [Build] Reconfigure required: ENABLE_ASAN !CACHE_ENABLE_ASAN! -> !ENABLE_ASAN!
+            set "NEED_CONFIG=1"
+        )
+    )
+
+    if defined CACHE_ENABLE_SHOW_INCLUDES (
+        if /i not "!CACHE_ENABLE_SHOW_INCLUDES!"=="!SHOW_INCLUDES!" (
+            echo [Build] Reconfigure required: ENABLE_SHOW_INCLUDES !CACHE_ENABLE_SHOW_INCLUDES! -> !SHOW_INCLUDES!
+            set "NEED_CONFIG=1"
+        )
+    )
+
+    if defined CACHE_ENABLE_FAST_BUILD (
+        if /i not "!CACHE_ENABLE_FAST_BUILD!"=="!ENABLE_FAST_BUILD!" (
+            echo [Build] Reconfigure required: ENABLE_FAST_BUILD !CACHE_ENABLE_FAST_BUILD! -> !ENABLE_FAST_BUILD!
+            set "NEED_CONFIG=1"
+        )
+    )
+
+    if defined CACHE_ENABLE_RUNTIME_OPT (
+        if /i not "!CACHE_ENABLE_RUNTIME_OPT!"=="!ENABLE_RUNTIME_OPT!" (
+            echo [Build] Reconfigure required: ENABLE_RUNTIME_OPT !CACHE_ENABLE_RUNTIME_OPT! -> !ENABLE_RUNTIME_OPT!
+            set "NEED_CONFIG=1"
+        )
+    )
+
+    if defined CACHE_BUILD_TESTING (
+        if /i not "!CACHE_BUILD_TESTING!"=="!BUILD_TESTS!" (
+            echo [Build] Reconfigure required: BUILD_TESTING !CACHE_BUILD_TESTING! -> !BUILD_TESTS!
+            set "NEED_CONFIG=1"
         )
     )
 )
@@ -286,15 +369,20 @@ if "!NEED_CONFIG!"=="1" (
     echo   Tests:         !BUILD_TESTS!
     echo   Analyze:       !ENABLE_ANALYZE!
     echo   ASan:          !ENABLE_ASAN!
+    echo   ShowIncludes:  !SHOW_INCLUDES!
+    echo   FastBuild:     !ENABLE_FAST_BUILD!
+    echo   RuntimeOpt:    !ENABLE_RUNTIME_OPT!
     echo   LTO:           !ENABLE_LTO!
     echo   Generator:     !GENERATOR_NAME!
     echo ============================================================
     echo.
     
     set "CMAKE_OPTS="
-    if "!ENABLE_ANALYZE!"=="ON" set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ANALYZE=ON"
-    if "!ENABLE_ASAN!"=="ON"    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ASAN=ON"
-    if "!SHOW_INCLUDES!"=="ON"  set "CMAKE_OPTS=!CMAKE_OPTS! -DCMAKE_CXX_FLAGS="/showIncludes""
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ANALYZE=!ENABLE_ANALYZE!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_ASAN=!ENABLE_ASAN!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_SHOW_INCLUDES=!SHOW_INCLUDES!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_FAST_BUILD=!ENABLE_FAST_BUILD!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_RUNTIME_OPT=!ENABLE_RUNTIME_OPT!"
 
     cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
@@ -317,7 +405,7 @@ REM ============================================================================
 REM 4. Build
 REM ============================================================================
 set "BUILD_LOG=%TEMP%\nomoreday_build_%RANDOM%_%RANDOM%.log"
-cmake --build . --config !BUILD_TYPE! -j !PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+cmake --build . --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
 set "BUILD_EXIT=!errorlevel!"
 
 if "!ENABLE_ANALYZE!"=="ON" (
@@ -335,33 +423,62 @@ REM ============================================================================
 set "TEST_EXE=..\bin\NoMoreDayTests.exe"
 if not exist "!TEST_EXE!" set "TEST_EXE=..\bin\!BUILD_TYPE!\NoMoreDayTests.exe"
 echo [Test] Using test executable: !TEST_EXE!
+set "CTEST_AVAILABLE=0"
+set "RUN_WITH_CTEST=0"
+where ctest >nul 2>nul
+if !errorlevel! equ 0 set "CTEST_AVAILABLE=1"
+if "!USE_CTEST!"=="ON" if "!CTEST_AVAILABLE!"=="1" set "RUN_WITH_CTEST=1"
 
 if "!BUILD_TESTS!"=="ON" if "!RUN_TESTS!"=="ON" (
-    if exist "!TEST_EXE!" (
+    if "!RUN_WITH_CTEST!"=="1" (
         echo.
         echo ============================================================
-        echo [Test] Running Unit Tests...
+        echo [Test] Running CTest CI suite...
         echo ============================================================
-        "!TEST_EXE!" --test-case-exclude=*performance*
+        ctest --test-dir . -C !BUILD_TYPE! --output-on-failure -L ci
         if errorlevel 1 (
-            echo [Test] Unit Tests FAILED!
+            echo [Test] CTest CI suite FAILED!
             exit /b 1
         )
     ) else (
-        echo [Test] Warning: Test executable not found at !TEST_EXE!
+        if exist "!TEST_EXE!" (
+            echo.
+            echo ============================================================
+            echo [Test] Running Unit Tests...
+            echo ============================================================
+            "!TEST_EXE!" --test-case-exclude=*performance*
+            if errorlevel 1 (
+                echo [Test] Unit Tests FAILED!
+                exit /b 1
+            )
+        ) else (
+            echo [Test] Warning: Test executable not found at !TEST_EXE!
+        )
     )
 )
 
 if "!RUN_PERF!"=="ON" (
-    if exist "!TEST_EXE!" (
+    if "!RUN_WITH_CTEST!"=="1" (
         echo.
         echo ============================================================
-        echo [Test] Running Performance Benchmarks...
+        echo [Test] Running CTest performance suite...
         echo ============================================================
-        "!TEST_EXE!" --test-case=*performance*
+        ctest --test-dir . -C !BUILD_TYPE! --output-on-failure -L performance
         if errorlevel 1 (
-            echo [Test] Performance Tests FAILED!
+            echo [Test] CTest performance suite FAILED!
             exit /b 1
+        )
+    ) else (
+        if exist "!TEST_EXE!" (
+            echo.
+            echo ============================================================
+            echo [Test] Running Performance Benchmarks...
+            echo ============================================================
+            "!TEST_EXE!" --test-case=*performance*
+            if errorlevel 1 (
+                echo [Test] Performance Tests FAILED!
+                exit /b 1
+            )
         )
     )
 )

@@ -26,14 +26,29 @@ NoMoreDay 开发代理规则（Windows）。
 - 认知约束：乱码通常源于错误解码/重编码链路（ACP/GBK/终端码页），非 BOM 本身。
 
 ## 3) 构建与验证流程
-1. 默认构建：`.\build.bat`。
-2. 质量保证：
-   - **ASan 扫描**: `.\build.bat asan` (检测内存越界/UAF)。在涉及 ECS 核心系统修改后必跑。
-   - **静态分析**: `.\build.bat analyze` (检测潜在逻辑风险)。
-   - **资产校验**: `build.bat` 会自动运行 `python scripts/validate_json.py`。
-   - **依赖分析**: `.\build.bat includes` (分析头文件包含树)。
-3. 性能测试：`.\build.bat perf` (运行带 performance 标签的测试用例)。
-4. 若失败，先修编译/校验错误，再继续。
+1. 默认构建：`.\build.bat`
+   - 默认执行 CTest `ci` 标签（`nmd.tests.ci.nonperf`），用于快速回归。
+2. 快速仅编译：`.\build.bat notest`
+   - 跳过测试，适合频繁增量编译。
+3. 质量保证：
+   - **ASan 扫描**: `.\build.bat asan`（检测内存越界/UAF）。涉及 ECS 核心系统修改后必跑。
+   - **静态分析**: `.\build.bat analyze`（MSVC `/analyze`）。
+     - 分析范围限定在项目自有目标（`NoMoreDayCore/NoMoreDay/SkillBehaviors`），不分析 `third_party` 代码文件。
+   - **资产校验**: `build.bat` 自动运行 `python scripts/validate_json.py`。
+   - **依赖分析**: `.\build.bat includes`（分析头文件包含树）。
+4. 性能测试：`.\build.bat perf`
+   - 自动执行 CTest `performance` 标签（`nmd.tests.performance`）。
+5. CTest 精细化执行（MSVC 多配置生成器必须带 `-C`）：
+   - `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure`
+   - `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure`
+   - `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure`
+   - `ctest --test-dir build -C Release -L performance --output-on-failure`
+6. 常用构建参数：
+   - `noci`: 测试回退为直接运行 `NoMoreDayTests.exe`（不走 ctest）。
+   - `nofastbuild`: 关闭快速构建优化（`/MP` + MultiToolTask）。
+   - `noruntimeopt`: 关闭额外运行时优化（`/Gw /Gy` + `Release` 链接优化）。
+   - `j=N`: 设置并行任务数。
+7. 若失败，先修编译/校验错误，再继续。
 
 ## 4) 现代流水线规范
 - **代码数据库**: 编译后自动生成 `compile_commands.json` 软链接至根目录。
@@ -92,7 +107,14 @@ NoMoreDay 开发代理规则（Windows）。
 - 已清晰汇报结果与变更文件。
 
 ## 9) 常用命令
-- Build: `build.bat`
+- Build (default + CI tests): `build.bat`
+- Build only: `build.bat notest`
+- Analyze: `build.bat analyze`
+- Perf: `build.bat perf`
+- CTest CI: `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure`
+- CTest Unit: `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure`
+- CTest Integration: `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure`
+- CTest Performance: `ctest --test-dir build -C Release -L performance --output-on-failure`
 - Tail log: `Get-Content bin/logs/NoMoreDay.log -Tail 200`
 - Search: `rg "pattern" src`
 

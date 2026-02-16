@@ -41,3 +41,48 @@ endif()
 if(MSVC)
     target_compile_options(NoMoreDayTests PRIVATE /bigobj /GR- /FS)
 endif()
+
+if(MSVC AND ENABLE_RUNTIME_OPT)
+    target_link_options(NoMoreDayTests PRIVATE
+        $<$<CONFIG:Release>:/OPT:REF /OPT:ICF>
+    )
+endif()
+
+option(NMD_ENABLE_CTEST_INTEGRATION "Register doctest groups into CTest" ON)
+if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
+    add_test(NAME nmd.tests.ci.nonperf
+        COMMAND NoMoreDayTests --test-case-exclude=*Performance*
+    )
+    set_tests_properties(nmd.tests.ci.nonperf PROPERTIES
+        LABELS "ci;nonperf"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
+
+    add_test(NAME nmd.tests.performance
+        COMMAND NoMoreDayTests --test-case=*Performance*
+    )
+    set_tests_properties(nmd.tests.performance PROPERTIES
+        LABELS "performance"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 1200
+    )
+
+    add_test(NAME nmd.tests.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*
+    )
+    set_tests_properties(nmd.tests.unit PROPERTIES
+        LABELS "unit"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.integration
+        COMMAND NoMoreDayTests --test-case=[Integration]*
+    )
+    set_tests_properties(nmd.tests.integration PROPERTIES
+        LABELS "integration"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
+endif()

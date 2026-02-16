@@ -13,6 +13,9 @@ endif()
 # --- Project Options ---
 option(ENABLE_ASAN "Enable Address Sanitizer" OFF)
 option(ENABLE_ANALYZE "Enable MSVC Static Analysis" OFF)
+option(ENABLE_SHOW_INCLUDES "Enable MSVC /showIncludes dependency tracing" OFF)
+option(ENABLE_FAST_BUILD "Enable faster MSVC developer build settings" ON)
+option(ENABLE_RUNTIME_OPT "Enable additional runtime optimization flags for MSVC" ON)
 
 add_library(NoMoreDayAnalyzeFlags INTERFACE)
 
@@ -30,9 +33,26 @@ if(ENABLE_ANALYZE)
     target_compile_options(NoMoreDayAnalyzeFlags INTERFACE /analyze /external:anglebrackets /external:W0)
 endif()
 
+if(MSVC AND ENABLE_SHOW_INCLUDES)
+    message(STATUS "[Analysis] Enabling /showIncludes output")
+    add_compile_options(/showIncludes)
+endif()
+
 # --- Disable Deprecated Warnings ---
 if(MSVC)
     add_compile_options(/wd4996 /wd4541 /Zc:__cplusplus /utf-8 /bigobj)
+endif()
+
+if(MSVC AND ENABLE_FAST_BUILD)
+    if(ENABLE_ANALYZE)
+        message(STATUS "[Optimization] Fast build enabled (UseMultiToolTask, /MP skipped for /analyze stability)")
+    else()
+        message(STATUS "[Optimization] Enabling fast MSVC build options (/MP + UseMultiToolTask)")
+        add_compile_options(/MP)
+    endif()
+    set(CMAKE_VS_GLOBALS
+        "UseMultiToolTask=true;EnforceProcessCountAcrossBuilds=true"
+    )
 endif()
 
 
@@ -124,6 +144,7 @@ target_link_libraries(SkillBehaviors PRIVATE
     EnTT::EnTT 
     Taskflow
     xsimd
+    NoMoreDayAnalyzeFlags
 )
 target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
 
@@ -204,6 +225,13 @@ if(WIN32)
             $<$<CONFIG:Release>:/arch:AVX2 /Oi /Ot /Ob2 /GF>
             $<$<CONFIG:RelWithDebInfo>:/arch:AVX2 /Oi /Ot /Ob2 /GF>
         )
+
+        if(ENABLE_RUNTIME_OPT)
+            # Improve linker-level dead code/data elimination opportunities.
+            target_compile_options(NoMoreDayCore PUBLIC
+                $<$<CONFIG:Release>:/Gw /Gy>
+            )
+        endif()
     endif()
     
     target_compile_definitions(NoMoreDayCore PUBLIC WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
@@ -213,6 +241,12 @@ endif()
 add_executable(NoMoreDay src/app/main.cpp)
 target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
 target_link_libraries(NoMoreDay PRIVATE NoMoreDayAnalyzeFlags)
+
+if(MSVC AND ENABLE_RUNTIME_OPT)
+    target_link_options(NoMoreDay PRIVATE
+        $<$<CONFIG:Release>:/OPT:REF /OPT:ICF>
+    )
+endif()
 
 # --- Output & Assets ---
 
