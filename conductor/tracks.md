@@ -29,14 +29,14 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## [ ] Track: V3 Baseline Contracts (v3_baseline_contracts_20260216) [PENDING]
+## [x] Track: V3 Baseline Contracts (v3_baseline_contracts_20260216) [COMPLETED]
 
-> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: foundation  
 > **Step**: A (第 1 周)  
 > **Focus**: RenderConfig V3 扩展、ABI V3 upgrade、Pass 顺序锁定、Binding 治理、Frame Ownership 合同、Feature Flag 基础设施。所有后续 V3 Track 的前置依赖。  
-> **Tasks**: 0/20
+> **Tasks**: 20/20
 
 ---
 
@@ -151,13 +151,12 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## Status Update (2026-02-16)
+## Status Update (2026-02-17)
 
-### V3 Active Tracks (Total: 169 tasks)
+### V3 Active Tracks (Total: 149 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| v3_baseline_contracts_20260216 | A | 5P / 20T | **PENDING** |
 | v3_shadow_pipeline_20260215 | B | 6P / 27T | **PENDING** |
 | v3_clustered_lighting_20260215 | C | 4P / 25T | **PENDING** |
 | v3_material_lighting_depth_20260215 | D | 5P / 27T | **PENDING** |
@@ -166,6 +165,7 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ### Archived Tracks
 
+- v3_baseline_contracts_20260216: **COMPLETED & ARCHIVED**
 - render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
 - gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**

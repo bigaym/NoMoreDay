@@ -11,13 +11,16 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <limits>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
+#include <utility>
 
 namespace NoMoreDay::render::core {
 namespace {
@@ -28,6 +31,20 @@ constexpr uint32_t kGLMaxComputeWorkGroupSize = 0x91BF;
 constexpr uint32_t kGLMaxTextureSize = 0x0D33;
 constexpr uint32_t kGLMaxArrayTextureLayers = 0x88FF;
 constexpr uint32_t kGLMaxImageUnits = 0x8F38;
+constexpr const char *kRenderKey = "render";
+constexpr const char *kRenderV3Key = "v3";
+constexpr const char *kRenderV3FlatEnabledKey = "render.v3.enabled";
+constexpr std::array<QualityTierManager::AutoDegradeStep, 6>
+    kV3AutoDegradeSequence = {
+        QualityTierManager::AutoDegradeStep::ReduceBloom,
+        QualityTierManager::AutoDegradeStep::DisableDistortion,
+        QualityTierManager::AutoDegradeStep::LimitDynamicLights,
+        QualityTierManager::AutoDegradeStep::ReduceClusteredPressure,
+        QualityTierManager::AutoDegradeStep::HybridShadowToSDF,
+        QualityTierManager::AutoDegradeStep::DisableHighMaterialBranch,
+    };
+constexpr uint32_t kClusteredDegradedTileSize = 64;
+constexpr uint32_t kClusteredDegradedMaxZSlices = 2;
 
 std::string ToLower(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
@@ -37,6 +54,54 @@ std::string ToLower(std::string value) {
 
 bool Contains(std::string_view haystack, std::string_view needle) {
   return haystack.find(needle) != std::string_view::npos;
+}
+
+const char *ToString(ShadowMode mode) {
+  switch (mode) {
+  case ShadowMode::Off:
+    return "off";
+  case ShadowMode::SDF:
+    return "sdf";
+  case ShadowMode::Hybrid:
+    return "hybrid";
+  }
+  return "off";
+}
+
+bool ParseShadowMode(std::string value, ShadowMode &outMode) {
+  value = ToLower(std::move(value));
+  if (value == "off") {
+    outMode = ShadowMode::Off;
+    return true;
+  }
+  if (value == "sdf") {
+    outMode = ShadowMode::SDF;
+    return true;
+  }
+  if (value == "hybrid") {
+    outMode = ShadowMode::Hybrid;
+    return true;
+  }
+  return false;
+}
+
+void WriteV3ConfigToJson(nlohmann::json &jsonSettings, const RenderConfig &config) {
+  nlohmann::json v3 = nlohmann::json::object();
+  v3["enabled"] = config.v3Enabled;
+  v3["shadowEnabled"] = config.shadowEnabled;
+  v3["shadowMode"] = ToString(config.shadowMode);
+  v3["maxShadowedLights"] = config.maxShadowedLights;
+  v3["shadowAtlasSize"] = config.shadowAtlasSize;
+  v3["shadowSoftness"] = config.shadowSoftness;
+  v3["clusteredLightingEnabled"] = config.clusteredLightingEnabled;
+  v3["clusterTileSize"] = config.clusterTileSize;
+  v3["clusterZSliceCount"] = config.clusterZSliceCount;
+  v3["normalLightingEnabled"] = config.normalLightingEnabled;
+  v3["specularEnabled"] = config.specularEnabled;
+  v3["materialQualityLevel"] = config.materialQualityLevel;
+
+  jsonSettings[kRenderV3FlatEnabledKey] = config.v3Enabled;
+  jsonSettings[kRenderKey][kRenderV3Key] = std::move(v3);
 }
 
 bool ParseTierString(std::string value, QualityTier &outTier) {
@@ -112,6 +177,46 @@ QualityTierManager::GetAutoDegradeBudgetThresholds(QualityTier tier) {
   return {.degradeTriggerMs = 10.5f, .recoverTriggerMs = 8.2f};
 }
 
+const std::array<QualityTierManager::AutoDegradeStep, 6> &
+QualityTierManager::GetV3AutoDegradeSequence() {
+  return kV3AutoDegradeSequence;
+}
+
+QualityTierManager::V3CapabilityMatrixEntry
+QualityTierManager::GetV3CapabilityMatrix(QualityTier tier) {
+  switch (tier) {
+  case QualityTier::Low:
+    return {.shadowMode = ShadowMode::Off,
+            .clusteredLighting = V3FeatureLevel::Off,
+            .materialHighBranch = V3FeatureLevel::Off,
+            .volumetricQuality = V3FeatureLevel::Off,
+            .distortion = V3FeatureLevel::Off};
+  case QualityTier::Medium:
+    return {.shadowMode = ShadowMode::Off,
+            .clusteredLighting = V3FeatureLevel::Optional,
+            .materialHighBranch = V3FeatureLevel::Off,
+            .volumetricQuality = V3FeatureLevel::Basic,
+            .distortion = V3FeatureLevel::Basic};
+  case QualityTier::High:
+    return {.shadowMode = ShadowMode::SDF,
+            .clusteredLighting = V3FeatureLevel::On,
+            .materialHighBranch = V3FeatureLevel::Partial,
+            .volumetricQuality = V3FeatureLevel::On,
+            .distortion = V3FeatureLevel::On};
+  case QualityTier::Ultra:
+    return {.shadowMode = ShadowMode::Hybrid,
+            .clusteredLighting = V3FeatureLevel::On,
+            .materialHighBranch = V3FeatureLevel::Full,
+            .volumetricQuality = V3FeatureLevel::Full,
+            .distortion = V3FeatureLevel::On};
+  }
+  return {.shadowMode = ShadowMode::Off,
+          .clusteredLighting = V3FeatureLevel::Off,
+          .materialHighBranch = V3FeatureLevel::Off,
+          .volumetricQuality = V3FeatureLevel::Off,
+          .distortion = V3FeatureLevel::Off};
+}
+
 void QualityTierManager::Initialize(const std::string &settingsPath,
                                     bool forceRedetect) {
   if (m_initialized && !forceRedetect) {
@@ -121,6 +226,7 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_rendererString = QueryRendererString();
   m_fromSettings = false;
   m_autoDegradeLevel = 0;
+  m_v3Config = {};
 
   m_capabilitySnapshot = ProbeCapabilities();
   const QualityTier capabilityTier = DetectTierFromCapabilities(m_capabilitySnapshot);
@@ -148,6 +254,7 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_selectionMetadata.selectedTier = chosenTier;
   m_selectionMetadata.benchmarkScore = benchmarkScore;
   m_selectionMetadata.reasonCode = reasonCode;
+  TryLoadV3ConfigFromSettings(settingsPath, m_v3Config);
   UpdateConfigForTier(chosenTier);
   m_initialized = true;
 
@@ -190,6 +297,30 @@ void QualityTierManager::ForceTier(QualityTier tier) {
   UpdateConfigForTier(tier);
   LOG_INFO("QualityTierManager: ForceTier {} -> {} (degradeLevel={})",
            ToString(previous), ToString(m_tier), m_autoDegradeLevel);
+}
+
+bool QualityTierManager::SetV3Enabled(bool enabled,
+                                      const std::string &settingsPath) {
+  const bool previous = m_v3Config.v3Enabled;
+  const bool changed = (previous != enabled);
+  m_v3Config.v3Enabled = enabled;
+  ApplyV3ConfigOverrides(m_baseConfig);
+  ApplyV3ConfigOverrides(m_config);
+
+  if (changed) {
+    LOG_INFO("QualityTierManager: render.v3.enabled {} -> {}", previous ? 1 : 0,
+             enabled ? 1 : 0);
+    if (m_v3ToggleCallback) {
+      m_v3ToggleCallback(enabled);
+    }
+  }
+
+  PersistSelectionMetadata(settingsPath);
+  return changed;
+}
+
+void QualityTierManager::SetV3ToggleCallback(V3ToggleCallback callback) {
+  m_v3ToggleCallback = std::move(callback);
 }
 
 bool QualityTierManager::IncreaseAutoDegradeLevel(std::string_view reasonCode,
@@ -280,6 +411,207 @@ bool QualityTierManager::TryLoadTierFromSettings(
   return false;
 }
 
+bool QualityTierManager::TryLoadV3ConfigFromSettings(
+    const std::string &settingsPath, RenderConfig &outConfig) const {
+  if (!std::filesystem::exists(settingsPath)) {
+    LOG_WARN("QualityTierManager: {} missing render.v3 settings, defaults applied",
+             settingsPath);
+    return false;
+  }
+
+  nlohmann::json jsonSettings;
+  try {
+    std::ifstream file(settingsPath);
+    if (!file.is_open()) {
+      LOG_WARN("QualityTierManager: failed to open {} for V3 config", settingsPath);
+      return false;
+    }
+    file >> jsonSettings;
+  } catch (...) {
+    LOG_WARN("QualityTierManager: failed to parse {} for V3 config", settingsPath);
+    return false;
+  }
+
+  const nlohmann::json *v3Node = nullptr;
+  if (jsonSettings.contains(kRenderKey) && jsonSettings[kRenderKey].is_object()) {
+    const auto &renderNode = jsonSettings[kRenderKey];
+    if (renderNode.contains(kRenderV3Key) && renderNode[kRenderV3Key].is_object()) {
+      v3Node = &renderNode[kRenderV3Key];
+    } else if (renderNode.contains(kRenderV3Key)) {
+      LOG_WARN(
+          "QualityTierManager: {} has invalid render.v3 section, defaults applied",
+          settingsPath);
+    }
+  } else if (jsonSettings.contains(kRenderKey)) {
+    LOG_WARN("QualityTierManager: {} has invalid render section, defaults applied",
+             settingsPath);
+  }
+
+  bool hasInvalidValue = false;
+  auto readBool = [&](const char *key, bool &target) {
+    if (v3Node == nullptr || !v3Node->contains(key)) {
+      LOG_WARN("QualityTierManager: {} missing render.v3.{}, default used",
+               settingsPath, key);
+      return;
+    }
+    const auto &value = (*v3Node)[key];
+    if (!value.is_boolean()) {
+      LOG_WARN("QualityTierManager: {} invalid render.v3.{} (expected bool), "
+               "default used",
+               settingsPath, key);
+      hasInvalidValue = true;
+      return;
+    }
+    target = value.get<bool>();
+  };
+
+  auto readUInt32 = [&](const char *key, uint32_t &target) {
+    if (v3Node == nullptr || !v3Node->contains(key)) {
+      LOG_WARN("QualityTierManager: {} missing render.v3.{}, default used",
+               settingsPath, key);
+      return;
+    }
+    const auto &value = (*v3Node)[key];
+    if (!value.is_number_integer() && !value.is_number_unsigned()) {
+      LOG_WARN("QualityTierManager: {} invalid render.v3.{} (expected uint32), "
+               "default used",
+               settingsPath, key);
+      hasInvalidValue = true;
+      return;
+    }
+
+    if (value.is_number_unsigned()) {
+      const uint64_t parsedUnsigned = value.get<uint64_t>();
+      if (parsedUnsigned > static_cast<uint64_t>(std::numeric_limits<uint32_t>::max())) {
+        LOG_WARN("QualityTierManager: {} out-of-range render.v3.{}={}, default used",
+                 settingsPath, key, parsedUnsigned);
+        hasInvalidValue = true;
+        return;
+      }
+      target = static_cast<uint32_t>(parsedUnsigned);
+      return;
+    }
+
+    const int64_t parsedSigned = value.get<int64_t>();
+    if (parsedSigned < 0 ||
+        parsedSigned > static_cast<int64_t>(std::numeric_limits<uint32_t>::max())) {
+      LOG_WARN("QualityTierManager: {} out-of-range render.v3.{}={}, default used",
+               settingsPath, key, parsedSigned);
+      hasInvalidValue = true;
+      return;
+    }
+    target = static_cast<uint32_t>(parsedSigned);
+  };
+
+  auto readNonNegativeFloat = [&](const char *key, float &target) {
+    if (v3Node == nullptr || !v3Node->contains(key)) {
+      LOG_WARN("QualityTierManager: {} missing render.v3.{}, default used",
+               settingsPath, key);
+      return;
+    }
+    const auto &value = (*v3Node)[key];
+    if (!value.is_number()) {
+      LOG_WARN("QualityTierManager: {} invalid render.v3.{} (expected number), "
+               "default used",
+               settingsPath, key);
+      hasInvalidValue = true;
+      return;
+    }
+
+    const float parsed = value.get<float>();
+    if (!std::isfinite(parsed) || parsed < 0.0f) {
+      LOG_WARN("QualityTierManager: {} out-of-range render.v3.{}={:.3f}, "
+               "default used",
+               settingsPath, key, parsed);
+      hasInvalidValue = true;
+      return;
+    }
+    target = parsed;
+  };
+
+  if (jsonSettings.contains(kRenderV3FlatEnabledKey)) {
+    const auto &value = jsonSettings[kRenderV3FlatEnabledKey];
+    if (!value.is_boolean()) {
+      LOG_WARN("QualityTierManager: {} invalid {} (expected bool), default used",
+               settingsPath, kRenderV3FlatEnabledKey);
+      hasInvalidValue = true;
+    } else {
+      outConfig.v3Enabled = value.get<bool>();
+    }
+  } else {
+    readBool("enabled", outConfig.v3Enabled);
+  }
+
+  if (v3Node == nullptr) {
+    LOG_WARN("QualityTierManager: {} missing render.v3 object, V3 defaults used",
+             settingsPath);
+    return !hasInvalidValue;
+  }
+
+  readBool("shadowEnabled", outConfig.shadowEnabled);
+
+  if (v3Node->contains("shadowMode")) {
+    const auto &shadowModeValue = (*v3Node)["shadowMode"];
+    if (shadowModeValue.is_string()) {
+      ShadowMode parsedMode = outConfig.shadowMode;
+      if (ParseShadowMode(shadowModeValue.get<std::string>(), parsedMode)) {
+        outConfig.shadowMode = parsedMode;
+      } else {
+        LOG_WARN("QualityTierManager: {} invalid render.v3.shadowMode, default used",
+                 settingsPath);
+        hasInvalidValue = true;
+      }
+    } else if (shadowModeValue.is_number_integer()) {
+      const int modeValue = shadowModeValue.get<int>();
+      if (modeValue >= static_cast<int>(ShadowMode::Off) &&
+          modeValue <= static_cast<int>(ShadowMode::Hybrid)) {
+        outConfig.shadowMode = static_cast<ShadowMode>(modeValue);
+      } else {
+        LOG_WARN(
+            "QualityTierManager: {} out-of-range render.v3.shadowMode={}, default "
+            "used",
+            settingsPath, modeValue);
+        hasInvalidValue = true;
+      }
+    } else {
+      LOG_WARN("QualityTierManager: {} invalid render.v3.shadowMode type, "
+               "default used",
+               settingsPath);
+      hasInvalidValue = true;
+    }
+  } else {
+    LOG_WARN("QualityTierManager: {} missing render.v3.shadowMode, default used",
+             settingsPath);
+  }
+
+  readUInt32("maxShadowedLights", outConfig.maxShadowedLights);
+  readUInt32("shadowAtlasSize", outConfig.shadowAtlasSize);
+  readNonNegativeFloat("shadowSoftness", outConfig.shadowSoftness);
+  readBool("clusteredLightingEnabled", outConfig.clusteredLightingEnabled);
+  readUInt32("clusterTileSize", outConfig.clusterTileSize);
+  readUInt32("clusterZSliceCount", outConfig.clusterZSliceCount);
+  readBool("normalLightingEnabled", outConfig.normalLightingEnabled);
+  readBool("specularEnabled", outConfig.specularEnabled);
+  readUInt32("materialQualityLevel", outConfig.materialQualityLevel);
+
+  return !hasInvalidValue;
+}
+
+void QualityTierManager::ApplyV3ConfigOverrides(RenderConfig &config) const {
+  config.shadowEnabled = m_v3Config.shadowEnabled;
+  config.shadowMode = m_v3Config.shadowMode;
+  config.maxShadowedLights = m_v3Config.maxShadowedLights;
+  config.shadowAtlasSize = m_v3Config.shadowAtlasSize;
+  config.shadowSoftness = m_v3Config.shadowSoftness;
+  config.clusteredLightingEnabled = m_v3Config.clusteredLightingEnabled;
+  config.clusterTileSize = m_v3Config.clusterTileSize;
+  config.clusterZSliceCount = m_v3Config.clusterZSliceCount;
+  config.normalLightingEnabled = m_v3Config.normalLightingEnabled;
+  config.specularEnabled = m_v3Config.specularEnabled;
+  config.materialQualityLevel = m_v3Config.materialQualityLevel;
+  config.v3Enabled = m_v3Config.v3Enabled;
+}
+
 void QualityTierManager::PersistSelectionMetadata(
     const std::string &settingsPath) const {
   if (settingsPath.empty()) {
@@ -340,6 +672,7 @@ void QualityTierManager::PersistSelectionMetadata(
                            {"maxImageUnits", caps.maxImageUnits},
                            {"valid", caps.valid}};
   jsonSettings["renderQualityAutoDetect"] = std::move(detail);
+  WriteV3ConfigToJson(jsonSettings, m_v3Config);
 
   try {
     std::ofstream out(settingsPath, std::ios::trunc);
@@ -662,6 +995,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     break;
   }
 
+  ApplyV3ConfigOverrides(m_baseConfig);
   ApplyAutoDegradeLevel();
 }
 
@@ -669,35 +1003,43 @@ void QualityTierManager::ApplyAutoDegradeLevel() {
   m_config = m_baseConfig;
   const int level = std::clamp(m_autoDegradeLevel, 0, kAutoDegradeMaxLevel);
 
-  // 1) Reduce bloom mips.
-  if (level >= 1 && m_config.bloomEnabled) {
+  // 1) Reduce bloom level.
+  if (level >= static_cast<int>(AutoDegradeStep::ReduceBloom) &&
+      m_config.bloomEnabled) {
     m_config.bloomMipLevels = std::max(1, m_config.bloomMipLevels - 2);
   }
 
   // 2) Disable distortion.
-  if (level >= 2) {
+  if (level >= static_cast<int>(AutoDegradeStep::DisableDistortion)) {
     m_config.distortionEnabled = false;
   }
 
-  // 3) Reduce max lights.
-  if (level >= 3 && m_config.maxLights > 0) {
+  // 3) Limit dynamic lights.
+  if (level >= static_cast<int>(AutoDegradeStep::LimitDynamicLights) &&
+      m_config.maxLights > 0) {
     m_config.maxLights = std::max(4, m_config.maxLights / 2);
   }
 
-  // 4) Reduce particle/sub-emitter budgets.
-  if (level >= 4) {
-    m_config.maxParticles = std::max(30000, m_config.maxParticles / 2);
-    m_config.subEmitterEnabled = false;
-    m_config.maxTrails = std::max(0, m_config.maxTrails / 2);
-    m_config.vfxSequenceDetail = std::min(m_config.vfxSequenceDetail, 1);
+  // 4) Reduce clustered high-pressure parameters.
+  if (level >= static_cast<int>(AutoDegradeStep::ReduceClusteredPressure) &&
+      m_config.clusteredLightingEnabled) {
+    m_config.clusterTileSize =
+        std::max(m_config.clusterTileSize, kClusteredDegradedTileSize);
+    m_config.clusterZSliceCount =
+        std::min(m_config.clusterZSliceCount, kClusteredDegradedMaxZSlices);
   }
 
-  // 5) Drop optional volumetric features.
-  if (level >= 5) {
-    m_config.volumetricLightEnabled = false;
-    m_config.volumetricSampleCount = 0;
-    m_config.volumetricScattering = 0.0f;
-    m_config.volumetricDecay = 0.0f;
+  // 5) Hybrid shadow degrades to SDF.
+  if (level >= static_cast<int>(AutoDegradeStep::HybridShadowToSDF) &&
+      m_config.shadowMode == ShadowMode::Hybrid) {
+    m_config.shadowMode = ShadowMode::SDF;
+  }
+
+  // 6) Disable high-end material branches.
+  if (level >= static_cast<int>(AutoDegradeStep::DisableHighMaterialBranch)) {
+    m_config.normalLightingEnabled = false;
+    m_config.specularEnabled = false;
+    m_config.materialQualityLevel = 0;
   }
 }
 

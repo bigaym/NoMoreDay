@@ -16,9 +16,13 @@
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
+#include "engine/render/passes/ShadowBuildPass.hpp"
+#include "engine/render/passes/ShadowPreparePass.hpp"
+#include "engine/render/passes/ShadowResolvePass.hpp"
 #include "engine/render/passes/VolumetricLightPass.hpp"
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/passes/ScenePass.hpp"
@@ -164,6 +168,36 @@ std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
 std::unique_ptr<NoMoreDay::render::debug::RenderProfiler> g_renderProfiler;
 std::unique_ptr<NoMoreDay::render::dev::ShaderHotReloadManager> g_shaderHotReloadManager;
+
+void ReleaseV3RuntimeResourcesSkeleton() {
+  if (g_distortionPass != nullptr) {
+    g_distortionPass->ResetSources();
+  }
+  LOG_INFO("RenderSystem: V3 runtime toggle disabled, released V3 placeholder "
+           "resources.");
+}
+
+void HandleV3RuntimeToggle(bool v3Enabled) {
+  static bool initialized = false;
+  static bool previous = false;
+
+  if (!initialized) {
+    previous = v3Enabled;
+    initialized = true;
+    return;
+  }
+  if (previous == v3Enabled) {
+    return;
+  }
+
+  if (!v3Enabled) {
+    ReleaseV3RuntimeResourcesSkeleton();
+  } else {
+    LOG_INFO("RenderSystem: V3 runtime toggle enabled (baseline no-op passes).");
+  }
+
+  previous = v3Enabled;
+}
 
 struct CompositeTargetState {
   uint32_t framebuffer = 0;
@@ -1001,7 +1035,10 @@ void RenderSystem::Initialize() {
     return;
   }
 
-  NoMoreDay::render::core::QualityTierManager::Get().Initialize("settings.json");
+  auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
+  qualityManager.Initialize("settings.json");
+  qualityManager.SetV3ToggleCallback(
+      [](bool enabled) { HandleV3RuntimeToggle(enabled); });
   NoMoreDay::render::MaterialManager::Get().Initialize();
   NoMoreDay::render::MaterialManager::Get().LoadFromJson(
       "assets/data/materials_vfx.json");
@@ -1192,6 +1229,7 @@ void RenderSystem::render(entt::registry &registry,
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+  HandleV3RuntimeToggle(renderConfig.v3Enabled);
 #if defined(NDEBUG)
   constexpr bool kDevHotReloadAllowed = false;
 #else
@@ -1334,6 +1372,13 @@ void RenderSystem::render(entt::registry &registry,
         ExecuteScenePass(frame);
       }));
   sceneHdrOwner = RenderOwnerTag::Scene;
+
+  if (renderConfig.v3Enabled) {
+    graph.AddPass(std::make_shared<NoMoreDay::render::passes::LightCullingPass>());
+    graph.AddPass(std::make_shared<NoMoreDay::render::passes::ShadowPreparePass>());
+    graph.AddPass(std::make_shared<NoMoreDay::render::passes::ShadowBuildPass>());
+    graph.AddPass(std::make_shared<NoMoreDay::render::passes::ShadowResolvePass>());
+  }
 
   if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled &&
       g_lightingPass != nullptr) {

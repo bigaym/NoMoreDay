@@ -32,6 +32,67 @@
           { "type": "float", "name": "radius" },
           { "type": "float", "name": "strength" }
         ]
+      },
+      {
+        "name": "GPUShadowCaster",
+        "fields": [
+          { "type": "float", "name": "posX" },
+          { "type": "float", "name": "posY" },
+          { "type": "float", "name": "radius" },
+          { "type": "float", "name": "occluderHeight" },
+          { "type": "uint", "name": "shapeIndex" },
+          { "type": "uint", "name": "dynamicFlag" },
+          { "type": "uint", "name": "reserved0" },
+          { "type": "uint", "name": "reserved1" }
+        ]
+      },
+      {
+        "name": "GPUShadowLight",
+        "fields": [
+          { "type": "uint", "name": "lightId" },
+          { "type": "uint", "name": "shadowType" },
+          { "type": "uint", "name": "reserved0" },
+          { "type": "uint", "name": "reserved1" },
+          { "type": "vec4", "name": "atlasRect" },
+          { "type": "vec4", "name": "penumbraParams" }
+        ]
+      },
+      {
+        "name": "GPUShadowAtlasMeta",
+        "fields": [
+          { "type": "uint", "name": "tileIndex" },
+          { "type": "uint", "name": "lastUsedFrame" },
+          { "type": "float", "name": "priorityScore" },
+          { "type": "float", "name": "occupancy" }
+        ]
+      },
+      {
+        "name": "GPUClusterHeader",
+        "fields": [
+          { "type": "uint", "name": "offset" },
+          { "type": "uint", "name": "count" },
+          { "type": "uint", "name": "overflowCount" },
+          { "type": "uint", "name": "reserved" }
+        ]
+      },
+      {
+        "name": "GPUClusterLightIndex",
+        "fields": [
+          { "type": "uint", "name": "lightIndex" }
+        ]
+      },
+      {
+        "name": "GPUMaterialDataV2",
+        "fields": [
+          { "type": "vec4", "name": "baseColor" },
+          { "type": "vec4", "name": "emissiveAndIntensity" },
+          { "type": "vec4", "name": "pbrLite" },
+          { "type": "vec4", "name": "textureSlots" },
+          { "type": "vec4", "name": "detailParams" },
+          { "type": "vec4", "name": "reserved0" },
+          { "type": "vec4", "name": "reserved1" },
+          { "type": "vec4", "name": "reserved2" }
+        ]
       }
     ]
   },
@@ -51,4 +112,3 @@
     ]
   }
 }
-

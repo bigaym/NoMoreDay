@@ -11,6 +11,25 @@ enum class QualityTier : uint8_t {
   Ultra = 3,
 };
 
+enum class ShadowMode : uint8_t {
+  Off = 0,
+  SDF = 1,
+  Hybrid = 2,
+};
+
+// V3 pass budget contract (ms), aligned with GPU_Rendering_System_3.md §15.2.
+inline constexpr float kBudgetLightCulling_Normal = 0.15f;
+inline constexpr float kBudgetLightCulling_High = 0.30f;
+inline constexpr float kBudgetLightCulling_Extreme = 0.45f;
+
+inline constexpr float kBudgetShadow_Normal = 0.40f;
+inline constexpr float kBudgetShadow_High = 0.90f;
+inline constexpr float kBudgetShadow_Extreme = 1.30f;
+
+inline constexpr float kBudgetLighting_Normal = 0.60f;
+inline constexpr float kBudgetLighting_High = 1.00f;
+inline constexpr float kBudgetLighting_Extreme = 1.30f;
+
 struct RenderConfig {
   bool bloomEnabled = false;
   bool dynamicLightingEnabled = false;
@@ -62,6 +81,20 @@ struct RenderConfig {
   // Phase 5 - Debug/Dev
   bool profilerHudEnabled = false;
   bool shaderHotReloadEnabled = false;
+
+  // V3 Baseline Contracts (Step A)
+  bool shadowEnabled = false;
+  ShadowMode shadowMode = ShadowMode::Off;
+  uint32_t maxShadowedLights = 4;
+  uint32_t shadowAtlasSize = 2048;
+  float shadowSoftness = 1.0f;
+  bool clusteredLightingEnabled = false;
+  uint32_t clusterTileSize = 32;
+  uint32_t clusterZSliceCount = 4;
+  bool normalLightingEnabled = false;
+  bool specularEnabled = false;
+  uint32_t materialQualityLevel = 0;
+  bool v3Enabled = false;
 };
 
 inline const char *ToString(QualityTier tier) {

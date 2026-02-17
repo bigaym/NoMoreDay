@@ -1,14 +1,17 @@
 #include "engine/render/graph/RenderGraph.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "rlgl.h"
 
+#include <algorithm>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -96,6 +99,54 @@ RenderOwnerTag ExpectedFirstWriter(RenderResourceTag resourceTag) {
 
 bool IsKnownResource(RenderResourceTag resourceTag) {
   return resourceTag != RenderResourceTag::Custom;
+}
+
+enum class PassContractStage : int {
+  Scene = 0,
+  LightCulling = 1,
+  Shadow = 2,
+  Lighting = 3,
+  Volumetric = 4,
+  VFX = 5,
+  UIWorld = 6,
+  PostProcess = 7,
+  Distortion = 8,
+  Composite = 9,
+};
+
+std::optional<PassContractStage> ResolvePassContractStage(std::string_view passName) {
+  if (passName == "ScenePass") {
+    return PassContractStage::Scene;
+  }
+  if (passName == "LightCullingPass") {
+    return PassContractStage::LightCulling;
+  }
+  if (passName == "ShadowPreparePass" || passName == "ShadowBuildPass" ||
+      passName == "ShadowResolvePass") {
+    return PassContractStage::Shadow;
+  }
+  if (passName == "LightingPass") {
+    return PassContractStage::Lighting;
+  }
+  if (passName == "VolumetricLightPass") {
+    return PassContractStage::Volumetric;
+  }
+  if (passName == "VFXPass") {
+    return PassContractStage::VFX;
+  }
+  if (passName == "UIWorldPass") {
+    return PassContractStage::UIWorld;
+  }
+  if (passName == "PostProcessPass") {
+    return PassContractStage::PostProcess;
+  }
+  if (passName == "DistortionPass") {
+    return PassContractStage::Distortion;
+  }
+  if (passName == "CompositePass") {
+    return PassContractStage::Composite;
+  }
+  return std::nullopt;
 }
 
 } // namespace
@@ -200,7 +251,7 @@ void RenderGraph::Execute(RenderContext &context) {
   for (Node &node : m_nodes) {
     // Standardized pass boundary: flush previous batched draws and restore GL
     // state after each pass to reduce cross-pass state leakage.
-    rlDrawRenderBatchActive();
+    NoMoreDay::render::core::ApplyRlglFlushTemplate();
     const NoMoreDay::render::core::ScopedGLState scopedState;
     const auto passId = (context.renderProfiler != nullptr)
                             ? debug::RenderProfiler::FromPassName(
@@ -211,7 +262,7 @@ void RenderGraph::Execute(RenderContext &context) {
     }
 
     node.pass->Execute(context);
-    rlDrawRenderBatchActive();
+    NoMoreDay::render::core::ApplyRlglFlushTemplate();
 
     if (context.renderProfiler != nullptr && passId.has_value()) {
       context.renderProfiler->EndPass(*passId);
@@ -220,6 +271,48 @@ void RenderGraph::Execute(RenderContext &context) {
 }
 
 void RenderGraph::ValidateBuildContracts() {
+  // Pass order contract:
+  // Scene -> LightCulling -> Shadow -> Lighting -> Volumetric ->
+  // VFX -> UIWorld -> PostProcess -> Distortion -> Composite
+  int lastStage = -1;
+  bool seenComposite = false;
+  std::unordered_set<int> seenSingularStages;
+  for (const Node &node : m_nodes) {
+    const auto stage = ResolvePassContractStage(node.passName);
+    if (!stage.has_value()) {
+      continue;
+    }
+
+    const int stageValue = static_cast<int>(*stage);
+    if (stageValue < lastStage) {
+      AddValidationDiagnostic(
+          ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+          "(order)",
+          "pass order violation against locked contract sequence");
+    }
+    lastStage = std::max(lastStage, stageValue);
+
+    const bool isShadowStage = (*stage == PassContractStage::Shadow);
+    if (!isShadowStage && !seenSingularStages.insert(stageValue).second) {
+      AddValidationDiagnostic(ValidationDiagnostic::Severity::Error, node.passIndex,
+                              node.passName, "(order)",
+                              "duplicate pass stage in locked contract sequence");
+    }
+
+    if (*stage == PassContractStage::Composite) {
+      seenComposite = true;
+      if (node.passIndex + 1 != m_nodes.size()) {
+        AddValidationDiagnostic(
+            ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+            "BackBuffer", "Composite pass must be the final stage");
+      }
+    } else if (seenComposite) {
+      AddValidationDiagnostic(ValidationDiagnostic::Severity::Error, node.passIndex,
+                              node.passName, "(order)",
+                              "no pass is allowed after Composite stage");
+    }
+  }
+
   std::unordered_map<std::string, size_t> firstWriterPass;
 
   for (const Node &node : m_nodes) {

@@ -2,9 +2,9 @@
     "id": "v3_baseline_contracts_20260216",
     "title": "V3 Baseline Contracts",
     "type": "foundation",
-    "status": "pending",
+    "status": "completed",
     "created": "2026-02-16T00:00:00Z",
-    "updated": "2026-02-16T00:00:00Z",
+    "updated": "2026-02-17T13:42:25Z",
     "designDoc": "设计文档/特效和UI/GPU_Rendering_System_3.md",
     "designSections": [
         "§3",
@@ -14,11 +14,11 @@
     "stepMapping": "Step A (第1周)",
     "phases": {
         "total": 5,
-        "completed": 0
+        "completed": 5
     },
     "tasks": {
         "total": 20,
-        "completed": 0
+        "completed": 20
     },
     "dependencies": [],
     "dependedBy": [

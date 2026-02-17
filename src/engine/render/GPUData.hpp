@@ -8,7 +8,7 @@
 #include <type_traits>
 
 namespace NoMoreDay::render::abi {
-inline constexpr uint32_t GPU_ABI_VERSION = 2;
+inline constexpr uint32_t GPU_ABI_VERSION = 3;
 inline constexpr uint32_t GPU_ABI_COMPAT_MIN_VERSION =
     (GPU_ABI_VERSION > 0) ? (GPU_ABI_VERSION - 1) : 0;
 }
@@ -206,6 +206,92 @@ struct GPULight {
 
 static_assert(sizeof(GPULight) == 48,
               "GPULight struct must be exactly 48 bytes for SSBO alignment");
+
+// V3 Baseline ABI placeholders (Step A)
+struct GPUShadowCaster {
+  float posX = 0.0f;
+  float posY = 0.0f;
+  float radius = 0.0f;
+  float occluderHeight = 0.0f;
+  uint32_t shapeIndex = 0;
+  uint32_t dynamicFlag = 0;
+  uint32_t reserved0 = 0;
+  uint32_t reserved1 = 0;
+};
+static_assert(std::is_standard_layout_v<GPUShadowCaster>,
+              "GPUShadowCaster must be standard layout");
+static_assert(sizeof(GPUShadowCaster) == 32,
+              "GPUShadowCaster struct must be exactly 32 bytes");
+static_assert(alignof(GPUShadowCaster) == alignof(float),
+              "GPUShadowCaster alignment mismatch");
+
+struct GPUShadowLight {
+  uint32_t lightId = 0;
+  uint32_t shadowType = 0;
+  uint32_t reserved0 = 0;
+  uint32_t reserved1 = 0;
+  float atlasRect[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+  float penumbraParams[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+};
+static_assert(std::is_standard_layout_v<GPUShadowLight>,
+              "GPUShadowLight must be standard layout");
+static_assert(sizeof(GPUShadowLight) == 48,
+              "GPUShadowLight struct must be exactly 48 bytes");
+static_assert(alignof(GPUShadowLight) == alignof(float),
+              "GPUShadowLight alignment mismatch");
+
+struct GPUShadowAtlasMeta {
+  uint32_t tileIndex = 0;
+  uint32_t lastUsedFrame = 0;
+  float priorityScore = 0.0f;
+  float occupancy = 0.0f;
+};
+static_assert(std::is_standard_layout_v<GPUShadowAtlasMeta>,
+              "GPUShadowAtlasMeta must be standard layout");
+static_assert(sizeof(GPUShadowAtlasMeta) == 16,
+              "GPUShadowAtlasMeta struct must be exactly 16 bytes");
+static_assert(alignof(GPUShadowAtlasMeta) == alignof(float),
+              "GPUShadowAtlasMeta alignment mismatch");
+
+struct GPUClusterHeader {
+  uint32_t offset = 0;
+  uint32_t count = 0;
+  uint32_t overflowCount = 0;
+  uint32_t reserved = 0;
+};
+static_assert(std::is_standard_layout_v<GPUClusterHeader>,
+              "GPUClusterHeader must be standard layout");
+static_assert(sizeof(GPUClusterHeader) == 16,
+              "GPUClusterHeader struct must be exactly 16 bytes");
+static_assert(alignof(GPUClusterHeader) == alignof(uint32_t),
+              "GPUClusterHeader alignment mismatch");
+
+struct GPUClusterLightIndex {
+  uint32_t lightIndex = 0;
+};
+static_assert(std::is_standard_layout_v<GPUClusterLightIndex>,
+              "GPUClusterLightIndex must be standard layout");
+static_assert(sizeof(GPUClusterLightIndex) == 4,
+              "GPUClusterLightIndex struct must be exactly 4 bytes");
+static_assert(alignof(GPUClusterLightIndex) == alignof(uint32_t),
+              "GPUClusterLightIndex alignment mismatch");
+
+struct alignas(16) GPUMaterialDataV2 {
+  Vector4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
+  Vector4 emissiveAndIntensity = {0.0f, 0.0f, 0.0f, 0.0f};
+  Vector4 pbrLite = {0.5f, 0.5f, 1.0f, 0.0f};
+  Vector4 textureSlots = {-1.0f, -1.0f, -1.0f, -1.0f};
+  Vector4 detailParams = {1.0f, 0.0f, 0.0f, 0.0f};
+  Vector4 reserved0 = {0.0f, 0.0f, 0.0f, 0.0f};
+  Vector4 reserved1 = {0.0f, 0.0f, 0.0f, 0.0f};
+  Vector4 reserved2 = {0.0f, 0.0f, 0.0f, 0.0f};
+};
+static_assert(std::is_standard_layout_v<GPUMaterialDataV2>,
+              "GPUMaterialDataV2 must be standard layout");
+static_assert(sizeof(GPUMaterialDataV2) == 128,
+              "GPUMaterialDataV2 struct must be exactly 128 bytes");
+static_assert(alignof(GPUMaterialDataV2) == 16,
+              "GPUMaterialDataV2 alignment must be 16 bytes");
 
 /**
  * @brief Structure for GPU entities (Physics & Sorting).

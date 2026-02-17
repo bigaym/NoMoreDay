@@ -21,6 +21,30 @@ def parse_gpu_abi_version(gpu_data_hpp: Path) -> int:
     return int(match.group(1))
 
 
+def parse_cpp_struct_names(gpu_data_hpp: Path) -> set[str]:
+    text = read_text(gpu_data_hpp)
+    return set(
+        re.findall(
+            r"(?:\balignas\s*\([^)]*\)\s*)?\bstruct\s+(?:alignas\s*\([^)]*\)\s*)?([A-Za-z_]\w*)\s*\{",
+            text,
+        )
+    )
+
+
+def validate_manifest_structs_in_cpp(manifest: dict[str, Any], gpu_data_hpp: Path) -> None:
+    cpp_structs = parse_cpp_struct_names(gpu_data_hpp)
+    missing: list[str] = []
+    for struct_item in manifest["gpu_abi"]["structs"]:
+        name = struct_item["name"]
+        if name not in cpp_structs:
+            missing.append(name)
+    if missing:
+        joined = ", ".join(missing)
+        raise RuntimeError(
+            f"Manifest GPU ABI structs missing in {gpu_data_hpp}: {joined}"
+        )
+
+
 def parse_binding_enum(render_constants_hpp: Path) -> dict[str, int]:
     text = read_text(render_constants_hpp)
     enum_match = re.search(r"enum\s+class\s+Binding\s*:\s*uint32_t\s*{(.*?)};", text, re.S)
@@ -155,6 +179,7 @@ def main() -> int:
 
     start = time.perf_counter()
     manifest = json.loads(read_text(args.manifest))
+    validate_manifest_structs_in_cpp(manifest, args.gpu_data)
     version = parse_gpu_abi_version(args.gpu_data)
     binding_enum = parse_binding_enum(args.render_constants)
 
@@ -181,4 +206,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

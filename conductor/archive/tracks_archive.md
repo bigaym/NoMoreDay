@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V3 Baseline Contracts (v3_baseline_contracts_20260216)
+- **Folder:** [./conductor/archive/v3_baseline_contracts_20260216/](./conductor/archive/v3_baseline_contracts_20260216/)
+- **Description:** 完成 V3 基线契约落地：RenderConfig V3 字段与 Feature Flag、GPU ABI V3、Binding 治理、RenderGraph 顺序/Ownership 合同、Tier 能力矩阵与降级序列常量。
+- **Status:** COMPLETED (2026-02-17)
+- **Priority:** P0
+- **Archive Reason:** Track 全阶段与 DoD 已完成；`build.bat`、`build.bat analyze`、`ctest unit/integration/performance` 验证通过。
+
+---
+
 ## [x] Track: Render Risk Closure and MSVC Hard Cutover (render-risk-msvc-hardening_20260215)
 - **Folder:** [./conductor/archive/render-risk-msvc-hardening_20260215/](./conductor/archive/render-risk-msvc-hardening_20260215/)
 - **Description:** 完成 MSVC-only 工具链硬切换、静态分析入口稳定化、MDI 基准契约场景化改造、VFX 材质回退噪声清理，以及构建测试产物路径统一到根 `bin/`。

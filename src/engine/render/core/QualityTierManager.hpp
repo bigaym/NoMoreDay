@@ -2,6 +2,7 @@
 
 #include "engine/render/core/RenderConstants.hpp"
 #include <array>
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -9,11 +10,39 @@ namespace NoMoreDay::render::core {
 
 class QualityTierManager {
 public:
+  using V3ToggleCallback = std::function<void(bool enabled)>;
+
   struct AutoDegradeBudgetThresholds {
     float degradeTriggerMs = 0.0f;
     float recoverTriggerMs = 0.0f;
     float sustainSeconds = 3.0f;
     float cooldownSeconds = 3.0f;
+  };
+
+  enum class V3FeatureLevel : uint8_t {
+    Off = 0,
+    Basic = 1,
+    Optional = 2,
+    On = 3,
+    Partial = 4,
+    Full = 5,
+  };
+
+  enum class AutoDegradeStep : uint8_t {
+    ReduceBloom = 1,
+    DisableDistortion = 2,
+    LimitDynamicLights = 3,
+    ReduceClusteredPressure = 4,
+    HybridShadowToSDF = 5,
+    DisableHighMaterialBranch = 6,
+  };
+
+  struct V3CapabilityMatrixEntry {
+    ShadowMode shadowMode = ShadowMode::Off;
+    V3FeatureLevel clusteredLighting = V3FeatureLevel::Off;
+    V3FeatureLevel materialHighBranch = V3FeatureLevel::Off;
+    V3FeatureLevel volumetricQuality = V3FeatureLevel::Off;
+    V3FeatureLevel distortion = V3FeatureLevel::Off;
   };
 
   struct CapabilitySnapshot {
@@ -44,6 +73,8 @@ public:
   static QualityTierManager &Get();
   static AutoDegradeBudgetThresholds
   GetAutoDegradeBudgetThresholds(QualityTier tier);
+  static const std::array<AutoDegradeStep, 6> &GetV3AutoDegradeSequence();
+  static V3CapabilityMatrixEntry GetV3CapabilityMatrix(QualityTier tier);
 
   void Initialize(const std::string &settingsPath = "settings.json",
                   bool forceRedetect = false);
@@ -62,6 +93,9 @@ public:
   int GetAutoDegradeLevel() const { return m_autoDegradeLevel; }
 
   void ForceTier(QualityTier tier);
+  bool SetV3Enabled(bool enabled,
+                    const std::string &settingsPath = "settings.json");
+  void SetV3ToggleCallback(V3ToggleCallback callback);
   bool IncreaseAutoDegradeLevel(std::string_view reasonCode,
                                 float observedFrameMs, float budgetMs);
   bool DecreaseAutoDegradeLevel(std::string_view reasonCode,
@@ -70,7 +104,7 @@ public:
 
 private:
   static constexpr int kSelectionMetadataVersion = 1;
-  static constexpr int kAutoDegradeMaxLevel = 5;
+  static constexpr int kAutoDegradeMaxLevel = 6;
 
   QualityTierManager() = default;
 
@@ -85,6 +119,9 @@ private:
   QualityTier DetectTierFromRenderer(std::string_view renderer) const;
   void UpdateConfigForTier(QualityTier tier);
   void ApplyAutoDegradeLevel();
+  bool TryLoadV3ConfigFromSettings(const std::string &settingsPath,
+                                   RenderConfig &outConfig) const;
+  void ApplyV3ConfigOverrides(RenderConfig &config) const;
   std::string QueryRendererString() const;
 
   bool m_initialized = false;
@@ -93,6 +130,8 @@ private:
   int m_autoDegradeLevel = 0;
   RenderConfig m_baseConfig = {};
   RenderConfig m_config = {};
+  RenderConfig m_v3Config = {};
+  V3ToggleCallback m_v3ToggleCallback = {};
   std::string m_rendererString;
   CapabilitySnapshot m_capabilitySnapshot = {};
   TierSelectionMetadata m_selectionMetadata = {};

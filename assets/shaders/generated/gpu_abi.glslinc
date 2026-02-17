@@ -2,8 +2,8 @@
 #ifndef NOMOREDAY_GPU_ABI_GLSLINC
 #define NOMOREDAY_GPU_ABI_GLSLINC
 
-#define GPU_ABI_VERSION 2
-#define GPU_ABI_COMPAT_MIN_VERSION 1
+#define GPU_ABI_VERSION 3
+#define GPU_ABI_COMPAT_MIN_VERSION 2
 
 #ifndef GPU_PARTICLE_SSBO_BINDING
 #define GPU_PARTICLE_SSBO_BINDING 0
@@ -38,6 +38,55 @@ struct GPUDistortionSource {
     float posY;
     float radius;
     float strength;
+};
+
+struct GPUShadowCaster {
+    float posX;
+    float posY;
+    float radius;
+    float occluderHeight;
+    uint shapeIndex;
+    uint dynamicFlag;
+    uint reserved0;
+    uint reserved1;
+};
+
+struct GPUShadowLight {
+    uint lightId;
+    uint shadowType;
+    uint reserved0;
+    uint reserved1;
+    vec4 atlasRect;
+    vec4 penumbraParams;
+};
+
+struct GPUShadowAtlasMeta {
+    uint tileIndex;
+    uint lastUsedFrame;
+    float priorityScore;
+    float occupancy;
+};
+
+struct GPUClusterHeader {
+    uint offset;
+    uint count;
+    uint overflowCount;
+    uint reserved;
+};
+
+struct GPUClusterLightIndex {
+    uint lightIndex;
+};
+
+struct GPUMaterialDataV2 {
+    vec4 baseColor;
+    vec4 emissiveAndIntensity;
+    vec4 pbrLite;
+    vec4 textureSlots;
+    vec4 detailParams;
+    vec4 reserved0;
+    vec4 reserved1;
+    vec4 reserved2;
 };
 
 #endif // NOMOREDAY_GPU_ABI_GLSLINC

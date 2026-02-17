@@ -142,7 +142,7 @@ PerfStats RunGraphFrameBenchmark(bool validationEnabled, int frames) {
                         RenderOwnerTag::Composite);
         }, kPassWorkloadIterations));
 
-    RenderContext context = {};
+    NoMoreDay::render::graph::RenderContext context = {};
     const auto start = std::chrono::high_resolution_clock::now();
     graph.Build();
     graph.Execute(context);

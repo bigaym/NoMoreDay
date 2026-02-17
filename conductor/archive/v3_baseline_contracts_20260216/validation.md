@@ -32,7 +32,20 @@
 
 ## 6. Evidence Checklist
 
-- [ ] Unit tests report attached.
-- [ ] Integration checks report attached.
-- [ ] ABI snapshot output attached.
-- [ ] RenderGraph contract report attached.
+- [x] Unit tests report attached.
+- [x] Integration checks report attached.
+- [x] ABI snapshot output attached.
+- [x] RenderGraph contract report attached.
+
+## 7. Verification Evidence (2026-02-17)
+
+1. Build and CI quick regression:
+   - `.\build.bat` (pass)
+2. Static analysis gate:
+   - `.\build.bat clean-all analyze` (pass)
+3. Perf gate:
+   - `cmake --build build --config Release --target NoMoreDayTests --parallel` (pass)
+   - `ctest --test-dir build -C Release -L performance --output-on-failure` (pass)
+4. Unit/integration gates:
+   - `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` (pass)
+   - `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` (pass)

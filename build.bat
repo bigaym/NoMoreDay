@@ -48,7 +48,7 @@ set "ENABLE_RUNTIME_OPT=ON"
 set "USE_CTEST=ON"
 set "ONLY_CHECK=OFF"
 set "GENERATOR_NAME="
-set "PARALLEL_JOBS=16"
+set "PARALLEL_JOBS=7"
 set "NEED_CONFIG=0"
 set "VS_INSTALL_DIR="
 set "VS_SELECTED_GENERATOR="
@@ -226,6 +226,12 @@ echo [Build] Generating render ABI includes...
 python tools\render_abi\generate_gpu_abi.py
 if errorlevel 1 (
     echo [Build] Render ABI generation failed! Aborting.
+    exit /b 1
+)
+echo [Build] Checking render ABI struct governance...
+python tools\render_abi\check_no_manual_abi_structs.py
+if errorlevel 1 (
+    echo [Build] Render ABI governance check failed! Aborting.
     exit /b 1
 )
 

@@ -10,7 +10,7 @@
 
 namespace NoMoreDay::render::graph {
 
-constexpr uint32_t RENDERGRAPH_CONTRACT_VERSION = 1;
+constexpr uint32_t RENDERGRAPH_CONTRACT_VERSION = 2;
 
 enum class RenderResourceTag : uint8_t {
   Custom = 0,

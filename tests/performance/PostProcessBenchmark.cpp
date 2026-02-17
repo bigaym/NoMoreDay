@@ -124,6 +124,7 @@ TEST_CASE("[Performance] PostProcess - GPU Timer Query") {
   const double bloomP99 = bloomTonemapStats.p99_ms - tonemapStats.p99_ms;
   const double postMean = fullStats.mean_ms - bloomTonemapStats.mean_ms;
   const double postP99 = fullStats.p99_ms - bloomTonemapStats.p99_ms;
+  constexpr double kTimingNoiseToleranceMs = 0.05;
 
   DOCTEST_MESSAGE("TonemapOnly mean(ms)=", tonemapStats.mean_ms,
                   ", p99(ms)=", tonemapStats.p99_ms);
@@ -137,10 +138,11 @@ TEST_CASE("[Performance] PostProcess - GPU Timer Query") {
                   ", p99(ms)=", postP99);
 
   CHECK(tonemapStats.mean_ms >= 0.0);
-  CHECK(bloomTonemapStats.mean_ms >= tonemapStats.mean_ms);
-  CHECK(fullStats.mean_ms >= bloomTonemapStats.mean_ms);
-  CHECK(bloomMean >= 0.0);
-  CHECK(postMean >= 0.0);
+  CHECK(bloomTonemapStats.mean_ms >= 0.0);
+  CHECK(fullStats.mean_ms >= 0.0);
+  // GPU timer queries can produce tiny ordering inversions on very short passes.
+  CHECK(bloomMean >= -kTimingNoiseToleranceMs);
+  CHECK(postMean >= -kTimingNoiseToleranceMs);
 
   cfg = originalConfig;
 

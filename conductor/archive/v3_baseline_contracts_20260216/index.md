@@ -1,7 +1,7 @@
 # Track: V3 Baseline Contracts
 
 **ID:** `v3_baseline_contracts_20260216`  
-**Status:** Pending  
+**Status:** Completed  
 **Type:** Foundation  
 **Step Mapping:** Step A（第 1 周）
 
@@ -9,6 +9,7 @@
 
 - [Specification](./spec.md)
 - [Implementation Plan](./plan.md)
+- [Validation](./validation.md)
 - [Metadata](./metadata.json)
 
 ## Quick Links

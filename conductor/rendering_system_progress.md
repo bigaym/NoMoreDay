@@ -2,7 +2,7 @@
 
 > **对应设计文档**: [GPU_Rendering_System_2.md](../设计文档/特效和UI/GPU_Rendering_System_2.md) | [GPU_Rendering_System_3.md](../设计文档/特效和UI/GPU_Rendering_System_3.md)  
 > **起始日期**: 2026-02-12  
-> **最后更新**: 2026-02-16
+> **最后更新**: 2026-02-17
 
 ---
 
@@ -25,14 +25,14 @@
 
 | Step | 名称 | 周期 | 状态 | 对应 Track | Tasks | 关键产出 |
 |---|---|---|---|---|---:|---|
-| **A** | V3 基线与契约 | 第1周 | 📋 计划中 | `v3_baseline_contracts_20260216` | 0/20 | RenderConfig V3、ABI V3、Pass 顺序锁定、Binding 治理、Feature Flag |
+| **A** | V3 基线与契约 | 第1周 | ✅ 已完成 | `v3_baseline_contracts_20260216` | 20/20 | RenderConfig V3、ABI V3、Pass 顺序锁定、Binding 治理、Feature Flag |
 | **B** | 阴影系统 | 第2-4周 | 📋 计划中 | `v3_shadow_pipeline_20260215` | 0/27 | SDF + Hybrid Shadow、ShadowPrepare/Build/Resolve、Atlas 分配器 |
 | **C** | Clustered Lighting | 第3-5周 | 📋 计划中 | `v3_clustered_lighting_20260215` | 0/25 | LightCullingPass (compute)、z-layer 映射、≥128 lights 优化 |
 | **D** | Material 2.0 | 第4-6周 | 📋 计划中 | `v3_material_lighting_depth_20260215` | 0/27 | Schema v2、BRDF-lite、Texture2DArray、双缓冲热重载 |
 | **E** | VFX 联动 | 第6-8周 | 📋 计划中 | `v3_vfx_lighting_integration_20260215` | 0/33 | Schema v3、3 类新事件、tierPolicy、预算估计器、12 模板 |
 | **F** | 全链路验收 | 第8-10周 | 📋 计划中 | `v3_validation_and_release_gate_20260215` | 0/37 | 4 层门禁、截图差异、压力测试、风险验证、回退演练 |
 
-**V3 总任务数**: 169
+**V3 总任务数**: 169（完成 20，剩余 149）
 
 ---
 
