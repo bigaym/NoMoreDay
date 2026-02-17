@@ -15,7 +15,8 @@ inline void ApplyRlglFlushTemplate() {
 inline void ApplyComputeToFragmentBarrierTemplate() {
   constexpr uint32_t kComputeToFragmentMask =
       static_cast<uint32_t>(NoMoreDay::RenderConstants::Barrier::SSBO) |
-      static_cast<uint32_t>(NoMoreDay::RenderConstants::Barrier::Buffer);
+      static_cast<uint32_t>(NoMoreDay::RenderConstants::Barrier::Buffer) |
+      static_cast<uint32_t>(NoMoreDay::RenderConstants::Barrier::Image);
   NoMoreDay::utils::GPUUtils::MemoryBarrier(kComputeToFragmentMask);
 }
 

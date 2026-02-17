@@ -3,10 +3,12 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/lighting/LightManager.hpp"
+#include "engine/render/passes/ShadowResolvePass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
 
@@ -67,6 +69,8 @@ bool LightingPass::Initialize() {
   m_lightCountLoc = GetShaderLocation(m_lightAccumShader, "uLightCount");
   m_cameraOffsetLoc = GetShaderLocation(m_lightAccumShader, "uCameraOffset");
   m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
+  m_shadowMaskTexLoc = GetShaderLocation(m_lightAccumShader, "uShadowMaskTex");
+  m_shadowEnabledLoc = GetShaderLocation(m_lightAccumShader, "uShadowEnabled");
 
   m_initialized = true;
   return true;
@@ -90,6 +94,8 @@ bool LightingPass::ReloadShaders() {
   m_lightCountLoc = GetShaderLocation(m_lightAccumShader, "uLightCount");
   m_cameraOffsetLoc = GetShaderLocation(m_lightAccumShader, "uCameraOffset");
   m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
+  m_shadowMaskTexLoc = GetShaderLocation(m_lightAccumShader, "uShadowMaskTex");
+  m_shadowEnabledLoc = GetShaderLocation(m_lightAccumShader, "uShadowEnabled");
   LOG_INFO("LightingPass: shader hot reloaded");
   return true;
 }
@@ -100,8 +106,14 @@ void LightingPass::Shutdown() {
     m_lightAccumShader = {};
   }
   resources::FramebufferManager::Destroy(m_litBuffer);
+  m_shadowMaskTexLoc = -1;
+  m_shadowEnabledLoc = -1;
   m_cachedWidth = 0;
   m_cachedHeight = 0;
+  m_frameIndex = 0;
+  m_lastShadowApplied = false;
+  m_lastUsedV2Fallback = false;
+  m_lastShadowFallbackReason.clear();
   m_initialized = false;
 }
 
@@ -137,6 +149,11 @@ void LightingPass::DrawFullscreen(Shader shader, uint32_t sourceTexture) {
 }
 
 void LightingPass::Execute(graph::RenderContext &context) {
+  ++m_frameIndex;
+  m_lastShadowApplied = false;
+  m_lastUsedV2Fallback = false;
+  m_lastShadowFallbackReason.clear();
+
   const auto *qualityManager = context.qualityManager;
   if (qualityManager == nullptr || context.camera == nullptr) {
     return;
@@ -206,6 +223,44 @@ void LightingPass::Execute(graph::RenderContext &context) {
   if (m_screenSizeLoc >= 0) {
     SetShaderValue(m_lightAccumShader, m_screenSizeLoc, screenSize,
                    SHADER_UNIFORM_VEC2);
+  }
+
+  const bool wantsShadow = config.shadowEnabled &&
+                           (config.shadowMode != core::ShadowMode::Off);
+  int shadowEnabled = 0;
+  if (wantsShadow && m_shadowResolvePass == nullptr) {
+    m_lastUsedV2Fallback = true;
+    m_lastShadowFallbackReason = "shadow resolve pass not bound";
+  } else if (wantsShadow && m_shadowResolvePass->HadFailureThisFrame()) {
+    m_lastUsedV2Fallback = true;
+    m_lastShadowFallbackReason = m_shadowResolvePass->GetLastFailureReason();
+  } else if (wantsShadow &&
+             (!m_shadowResolvePass->IsShadowReadyForCurrentFrame() ||
+              !m_shadowResolvePass->HasShadowMask())) {
+    m_lastUsedV2Fallback = true;
+    m_lastShadowFallbackReason = "shadow mask unavailable for current frame";
+  } else if (wantsShadow) {
+    constexpr uint32_t kGLTexture1 = 0x84C1;
+    constexpr uint32_t kGLTexture2D = 0x0DE1;
+    constexpr int kShadowMaskTexUnit = 1;
+    shadowEnabled = 1;
+    m_lastShadowApplied = true;
+    core::ApplyComputeToFragmentBarrierTemplate();
+    NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture1);
+    NoMoreDay::utils::GPUUtils::BindTexture(
+        kGLTexture2D, m_shadowResolvePass->GetShadowMaskTexture());
+    if (m_shadowMaskTexLoc >= 0) {
+      SetShaderValue(m_lightAccumShader, m_shadowMaskTexLoc, &kShadowMaskTexUnit,
+                     SHADER_UNIFORM_INT);
+    }
+  }
+  if (m_lastUsedV2Fallback && !m_lastShadowFallbackReason.empty()) {
+    LOG_WARN("ShadowFallback: frame={} reason={} fallback=V2Lighting", m_frameIndex,
+             m_lastShadowFallbackReason);
+  }
+  if (m_shadowEnabledLoc >= 0) {
+    SetShaderValue(m_lightAccumShader, m_shadowEnabledLoc, &shadowEnabled,
+                   SHADER_UNIFORM_INT);
   }
 
   DrawFullscreen(m_lightAccumShader, context.hdrSceneBuffer.colorTexture);

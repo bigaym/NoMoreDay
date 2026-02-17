@@ -68,7 +68,7 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Config Roundtrip") {
   const auto &cfg = manager.GetConfig();
   CHECK(cfg.v3Enabled == true);
   CHECK(cfg.shadowEnabled == true);
-  CHECK(cfg.shadowMode == render::core::ShadowMode::Hybrid);
+  CHECK(cfg.shadowMode == render::core::ShadowMode::SDF);
   CHECK(cfg.maxShadowedLights == 7);
   CHECK(cfg.shadowAtlasSize == 4096);
   CHECK(cfg.shadowSoftness == doctest::Approx(1.75f));
@@ -91,13 +91,14 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Config Roundtrip") {
   manager.Initialize(settingsPath.string(), true);
   const auto &reloaded = manager.GetConfig();
   CHECK(reloaded.v3Enabled == true);
-  CHECK(reloaded.shadowMode == render::core::ShadowMode::Hybrid);
+  CHECK(reloaded.shadowMode == render::core::ShadowMode::SDF);
 }
 
 TEST_CASE("[Unit] QualityTierManager - Render V3 Missing Fields Use Defaults") {
   const auto settingsPath = MakeTempSettingsPath("render_v3_missing_fields.json");
   WriteJson(settingsPath,
-            {{"render",
+            {{"renderQualityTier", "Medium"},
+             {"render",
               {{"v3",
                 {
                     {"enabled", true},
@@ -124,7 +125,8 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Missing Fields Use Defaults") {
 TEST_CASE("[Unit] QualityTierManager - Render V3 Invalid Values Rejected") {
   const auto settingsPath = MakeTempSettingsPath("render_v3_invalid_values.json");
   WriteJson(settingsPath,
-            {{"render.v3.enabled", "not_bool"},
+            {{"renderQualityTier", "Medium"},
+             {"render.v3.enabled", "not_bool"},
              {"render",
               {{"v3",
                 {{"enabled", "bad"},
@@ -156,6 +158,37 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Invalid Values Rejected") {
   CHECK(cfg.normalLightingEnabled == false);
   CHECK(cfg.specularEnabled == false);
   CHECK(cfg.materialQualityLevel == 0);
+}
+
+TEST_CASE("[Unit] QualityTierManager - Shadow Tier Policy Linkage") {
+  const auto settingsPath = MakeTempSettingsPath("render_v3_tier_shadow_policy.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render",
+              {{"v3",
+                {{"enabled", true},
+                 {"shadowEnabled", false},
+                 {"shadowMode", "hybrid"},
+                 {"maxShadowedLights", 3},
+                 {"shadowAtlasSize", 1024}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+
+  manager.ForceTier(render::core::QualityTier::Medium);
+  CHECK(manager.GetConfig().shadowEnabled == false);
+  CHECK(manager.GetConfig().shadowMode == render::core::ShadowMode::Off);
+
+  manager.ForceTier(render::core::QualityTier::High);
+  CHECK(manager.GetConfig().shadowEnabled == true);
+  CHECK(manager.GetConfig().shadowMode == render::core::ShadowMode::SDF);
+  CHECK(manager.GetConfig().maxShadowedLights >= 4u);
+
+  manager.ForceTier(render::core::QualityTier::Ultra);
+  CHECK(manager.GetConfig().shadowEnabled == true);
+  CHECK(manager.GetConfig().shadowMode == render::core::ShadowMode::Hybrid);
+  CHECK(manager.GetConfig().maxShadowedLights >= 8u);
+  CHECK(manager.GetConfig().shadowAtlasSize >= 2048u);
 }
 
 TEST_CASE("[Unit] QualityTierManager - Settings Override Precedence") {

@@ -1,0 +1,40 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, binding = 15) readonly buffer ShadowCasterWords {
+    vec4 casterWords[];
+};
+
+layout(rg16f, binding = 0) uniform writeonly image2D uShadowSdfImage;
+
+uniform ivec2 uResolution;
+uniform int uOccluderCount;
+uniform vec2 uCameraOffset;
+uniform vec2 uScreenSize;
+
+float distanceToCaster(int casterIndex, vec2 worldPos) {
+    vec4 caster0 = casterWords[casterIndex * 2];
+    vec2 casterPos = caster0.xy;
+    float casterRadius = max(caster0.z, 0.001);
+    return length(worldPos - casterPos) - casterRadius;
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uResolution.x || pixel.y >= uResolution.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uResolution);
+    vec2 worldPos = uCameraOffset + uv * uScreenSize;
+
+    float minSignedDistance = 10000.0;
+    if (uOccluderCount > 0) {
+        for (int i = 0; i < uOccluderCount; ++i) {
+            minSignedDistance = min(minSignedDistance, distanceToCaster(i, worldPos));
+        }
+    }
+
+    imageStore(uShadowSdfImage, pixel, vec4(minSignedDistance, 0.0, 0.0, 1.0));
+}

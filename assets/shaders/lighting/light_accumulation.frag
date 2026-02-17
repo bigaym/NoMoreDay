@@ -4,9 +4,11 @@ in vec2 vTexCoord;
 out vec4 fragColor;
 
 uniform sampler2D uSceneTex;
+uniform sampler2D uShadowMaskTex;
 uniform vec3 uAmbientColor;
 uniform float uAmbientIntensity;
 uniform int uLightCount;
+uniform int uShadowEnabled;
 uniform vec2 uCameraOffset;
 uniform vec2 uScreenSize;
 
@@ -71,6 +73,11 @@ void main() {
             continue;
         }
 
+        float shadowFactor = 1.0;
+        if (uShadowEnabled != 0) {
+            shadowFactor = texture(uShadowMaskTex, vTexCoord).r;
+        }
+
         if (lightType == 2u) {
             // AmbientZone: radial area ambient contribution.
             totalLight += lightColor * intensity * atten;
@@ -87,7 +94,7 @@ void main() {
             }
         }
 
-        totalLight += lightColor * intensity * atten * spotFactor;
+        totalLight += lightColor * intensity * atten * spotFactor * shadowFactor;
     }
 
     fragColor = vec4(sceneColor.rgb * totalLight, sceneColor.a);

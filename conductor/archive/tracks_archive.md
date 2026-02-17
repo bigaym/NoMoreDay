@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V3 Shadow Pipeline (v3_shadow_pipeline_20260215)
+- **Folder:** [./conductor/archive/v3_shadow_pipeline_20260215/](./conductor/archive/v3_shadow_pipeline_20260215/)
+- **Description:** 完成 V3 Shadow Pipeline：High 档 SDF 路径、Ultra 档 Atlas+SDF Hybrid、关键光 Top-N 选择、确定性 Atlas 淘汰与滞回、Shadow 失败回退到 V2 Lighting、同步屏障与 Tier 联动。
+- **Status:** COMPLETED (2026-02-17)
+- **Priority:** P0
+- **Archive Reason:** Track 全阶段与 DoD 已完成；`build.bat`、`build.bat analyze`、`build.bat perf` 通过，新增 Shadow integration/performance 用例验证通过。
+
+---
+
 ## [x] Track: V3 Baseline Contracts (v3_baseline_contracts_20260216)
 - **Folder:** [./conductor/archive/v3_baseline_contracts_20260216/](./conductor/archive/v3_baseline_contracts_20260216/)
 - **Description:** 完成 V3 基线契约落地：RenderConfig V3 字段与 Feature Flag、GPU ABI V3、Binding 治理、RenderGraph 顺序/Ownership 合同、Tier 能力矩阵与降级序列常量。

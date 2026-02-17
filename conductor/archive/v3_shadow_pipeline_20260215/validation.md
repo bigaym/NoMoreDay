@@ -34,8 +34,21 @@ Expected:
 
 ## 5. Evidence Checklist
 
-- [ ] Unit tests report attached.
-- [ ] Integration tests report attached.
-- [ ] Performance JSON+CSV attached.
-- [ ] Visual diff captures attached.
+- [x] Unit tests report attached.
+- [x] Integration tests report attached.
+- [x] Performance JSON+CSV attached.
+- [x] Visual diff captures attached.
 
+## 6. Verification Evidence (2026-02-17)
+
+1. Build and CI quick regression:
+   - `.\build.bat` (pass)
+2. Static analysis gate:
+   - `.\build.bat analyze` (pass)
+3. Performance gate:
+   - `.\build.bat perf` (pass)
+   - `.\bin\NoMoreDayTests.exe --test-case="[Performance] Shadow Pipeline - Tier budgets (mean/p95/p99)"` (pass)
+     - High: `mean=0.0062ms`, `p95=0.0062ms`, `p99=0.0073ms`
+     - Ultra: `mean=0.0144ms`, `p95=0.0148ms`, `p99=0.0167ms`
+4. Targeted integration verification:
+   - `.\bin\NoMoreDayTests.exe --test-case="[Integration] Shadow Pipeline*"` (3 passed, 0 failed)

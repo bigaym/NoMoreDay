@@ -166,6 +166,9 @@ std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
 std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
 std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass;
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
+std::shared_ptr<NoMoreDay::render::passes::ShadowPreparePass> g_shadowPreparePass;
+std::shared_ptr<NoMoreDay::render::passes::ShadowBuildPass> g_shadowBuildPass;
+std::shared_ptr<NoMoreDay::render::passes::ShadowResolvePass> g_shadowResolvePass;
 std::unique_ptr<NoMoreDay::render::debug::RenderProfiler> g_renderProfiler;
 std::unique_ptr<NoMoreDay::render::dev::ShaderHotReloadManager> g_shaderHotReloadManager;
 
@@ -1055,6 +1058,14 @@ void RenderSystem::Initialize() {
   g_postProcessPass->Initialize();
   g_lightingPass = std::make_shared<NoMoreDay::render::passes::LightingPass>();
   g_lightingPass->Initialize();
+  g_shadowPreparePass =
+      std::make_shared<NoMoreDay::render::passes::ShadowPreparePass>();
+  g_shadowBuildPass = std::make_shared<NoMoreDay::render::passes::ShadowBuildPass>();
+  g_shadowResolvePass =
+      std::make_shared<NoMoreDay::render::passes::ShadowResolvePass>();
+  g_shadowBuildPass->SetPreparePass(g_shadowPreparePass.get());
+  g_shadowResolvePass->SetBuildPass(g_shadowBuildPass.get());
+  g_lightingPass->SetShadowResolvePass(g_shadowResolvePass.get());
   g_volumetricPass =
       std::make_shared<NoMoreDay::render::passes::VolumetricLightPass>();
   g_distortionPass = std::make_shared<NoMoreDay::render::passes::DistortionPass>();
@@ -1199,6 +1210,17 @@ void RenderSystem::Shutdown() {
     g_distortionPass->Shutdown();
     g_distortionPass.reset();
   }
+  if (g_shadowResolvePass) {
+    g_shadowResolvePass->Shutdown();
+    g_shadowResolvePass.reset();
+  }
+  if (g_shadowBuildPass) {
+    g_shadowBuildPass->Shutdown();
+    g_shadowBuildPass.reset();
+  }
+  if (g_shadowPreparePass) {
+    g_shadowPreparePass.reset();
+  }
   if (g_shaderHotReloadManager) {
     g_shaderHotReloadManager->Clear();
     g_shaderHotReloadManager.reset();
@@ -1304,6 +1326,12 @@ void RenderSystem::render(entt::registry &registry,
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
         g_lightingPass->OnResize(screenWidth, screenHeight);
       }
+      if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
+        g_shadowBuildPass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_shadowResolvePass && s_hdrSceneBuffer.IsValid()) {
+        g_shadowResolvePass->OnResize(screenWidth, screenHeight);
+      }
       if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
         g_volumetricPass->OnResize(screenWidth, screenHeight);
       }
@@ -1319,6 +1347,12 @@ void RenderSystem::render(entt::registry &registry,
                screenWidth, screenHeight, approxMb);
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
         g_lightingPass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
+        g_shadowBuildPass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_shadowResolvePass && s_hdrSceneBuffer.IsValid()) {
+        g_shadowResolvePass->OnResize(screenWidth, screenHeight);
       }
       if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
         g_volumetricPass->OnResize(screenWidth, screenHeight);
@@ -1375,9 +1409,15 @@ void RenderSystem::render(entt::registry &registry,
 
   if (renderConfig.v3Enabled) {
     graph.AddPass(std::make_shared<NoMoreDay::render::passes::LightCullingPass>());
-    graph.AddPass(std::make_shared<NoMoreDay::render::passes::ShadowPreparePass>());
-    graph.AddPass(std::make_shared<NoMoreDay::render::passes::ShadowBuildPass>());
-    graph.AddPass(std::make_shared<NoMoreDay::render::passes::ShadowResolvePass>());
+    if (g_shadowPreparePass != nullptr) {
+      graph.AddPass(g_shadowPreparePass);
+    }
+    if (g_shadowBuildPass != nullptr) {
+      graph.AddPass(g_shadowBuildPass);
+    }
+    if (g_shadowResolvePass != nullptr) {
+      graph.AddPass(g_shadowResolvePass);
+    }
   }
 
   if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled &&

@@ -238,5 +238,18 @@ constexpr int MAX_POPUPS = 2048;
 constexpr int MAX_GLYPHS = 4096; // 批量文字渲染上限
 } // namespace GPU
 
+namespace Shadow {
+// Baseline constants for V3 shadow pipeline.
+constexpr uint32_t kMaxShadowCasters = 8192;
+constexpr float kShadowChunkSize = 512.0f;
+constexpr float kCameraNeighborhoodRadius = 1024.0f;
+constexpr uint32_t kAtlasEvictionHysteresis = 2;
+} // namespace Shadow
+
+namespace ShadowCS {
+constexpr uint32_t kOccluderBinding = static_cast<uint32_t>(Binding::SSBO_RESERVED_15);
+constexpr uint32_t kSdfImageBinding = 0;
+} // namespace ShadowCS
+
 } // namespace RenderConstants
 } // namespace NoMoreDay

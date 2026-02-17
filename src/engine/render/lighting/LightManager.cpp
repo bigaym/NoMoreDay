@@ -146,6 +146,8 @@ void LightManager::Initialize() {
       sizeof(components::GPULight));
   m_stagingBuffer.reserve(
       static_cast<size_t>(NoMoreDay::Constants::Lighting::MAX_LIGHTS));
+  m_activeLightRecords.reserve(
+      static_cast<size_t>(NoMoreDay::Constants::Lighting::MAX_LIGHTS));
   m_transientLights.reserve(
       static_cast<size_t>(NoMoreDay::Constants::Lighting::MAX_LIGHTS));
 }
@@ -153,6 +155,7 @@ void LightManager::Initialize() {
 void LightManager::Shutdown() {
   m_lightBuffer.reset();
   m_stagingBuffer.clear();
+  m_activeLightRecords.clear();
   m_transientLights.clear();
   m_activeLightCount = 0;
   m_debugStats = {};
@@ -165,6 +168,7 @@ void LightManager::Update(entt::registry &registry, const Camera2D &camera,
   m_debugStats = {};
   m_debugStats.allowedLights = allowedLights;
   m_stagingBuffer.clear();
+  m_activeLightRecords.clear();
   m_activeLightCount = 0;
 
   if (allowedLights == 0) {
@@ -236,8 +240,11 @@ void LightManager::Update(entt::registry &registry, const Camera2D &camera,
   const size_t finalCount =
       std::min(static_cast<size_t>(allowedLights), candidates.size());
   m_stagingBuffer.reserve(static_cast<size_t>(allowedLights));
+  m_activeLightRecords.reserve(static_cast<size_t>(allowedLights));
   for (size_t i = 0; i < finalCount; ++i) {
     m_stagingBuffer.push_back(candidates[i].gpuLight);
+    m_activeLightRecords.push_back(
+        {.gpuLight = candidates[i].gpuLight, .priority = candidates[i].priority});
   }
 
   m_activeLightCount = static_cast<int>(m_stagingBuffer.size());

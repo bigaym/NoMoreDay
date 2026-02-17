@@ -129,6 +129,33 @@ QualityTier MinTier(QualityTier lhs, QualityTier rhs) {
   return (static_cast<int>(lhs) < static_cast<int>(rhs)) ? lhs : rhs;
 }
 
+void ApplyTierShadowPolicy(RenderConfig &config, QualityTier tier) {
+  if (!config.v3Enabled) {
+    config.shadowEnabled = false;
+    config.shadowMode = ShadowMode::Off;
+    return;
+  }
+
+  switch (tier) {
+  case QualityTier::Low:
+  case QualityTier::Medium:
+    config.shadowEnabled = false;
+    config.shadowMode = ShadowMode::Off;
+    break;
+  case QualityTier::High:
+    config.shadowEnabled = true;
+    config.shadowMode = ShadowMode::SDF;
+    config.maxShadowedLights = std::max(config.maxShadowedLights, 4u);
+    break;
+  case QualityTier::Ultra:
+    config.shadowEnabled = true;
+    config.shadowMode = ShadowMode::Hybrid;
+    config.maxShadowedLights = std::max(config.maxShadowedLights, 8u);
+    config.shadowAtlasSize = std::max(config.shadowAtlasSize, 2048u);
+    break;
+  }
+}
+
 const char *ToString(QualityTierManager::TierSelectionSource source) {
   switch (source) {
   case QualityTierManager::TierSelectionSource::CapabilityAndBenchmark:
@@ -996,6 +1023,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
   }
 
   ApplyV3ConfigOverrides(m_baseConfig);
+  ApplyTierShadowPolicy(m_baseConfig, tier);
   ApplyAutoDegradeLevel();
 }
 
