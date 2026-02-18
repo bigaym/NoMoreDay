@@ -17,6 +17,7 @@
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
+#include "engine/render/lighting/ClusteredLightingState.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
@@ -163,6 +164,7 @@ struct RenderFrameData {
 
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
 std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
+std::shared_ptr<NoMoreDay::render::passes::LightCullingPass> g_lightCullingPass;
 std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
 std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass;
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
@@ -176,6 +178,7 @@ void ReleaseV3RuntimeResourcesSkeleton() {
   if (g_distortionPass != nullptr) {
     g_distortionPass->ResetSources();
   }
+  NoMoreDay::render::lighting::ClusteredLightingState::Get().Shutdown();
   LOG_INFO("RenderSystem: V3 runtime toggle disabled, released V3 placeholder "
            "resources.");
 }
@@ -1056,6 +1059,8 @@ void RenderSystem::Initialize() {
   }
   g_postProcessPass = std::make_shared<NoMoreDay::render::passes::PostProcessPass>();
   g_postProcessPass->Initialize();
+  g_lightCullingPass =
+      std::make_shared<NoMoreDay::render::passes::LightCullingPass>();
   g_lightingPass = std::make_shared<NoMoreDay::render::passes::LightingPass>();
   g_lightingPass->Initialize();
   g_shadowPreparePass =
@@ -1066,6 +1071,7 @@ void RenderSystem::Initialize() {
   g_shadowBuildPass->SetPreparePass(g_shadowPreparePass.get());
   g_shadowResolvePass->SetBuildPass(g_shadowBuildPass.get());
   g_lightingPass->SetShadowResolvePass(g_shadowResolvePass.get());
+  g_lightingPass->SetLightCullingPass(g_lightCullingPass.get());
   g_volumetricPass =
       std::make_shared<NoMoreDay::render::passes::VolumetricLightPass>();
   g_distortionPass = std::make_shared<NoMoreDay::render::passes::DistortionPass>();
@@ -1194,6 +1200,10 @@ void RenderSystem::Shutdown() {
   NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
   NoMoreDay::render::MaterialManager::Get().Shutdown();
   NoMoreDay::render::lighting::LightManager::Get().Shutdown();
+  NoMoreDay::render::lighting::ClusteredLightingState::Get().Shutdown();
+  if (g_lightCullingPass) {
+    g_lightCullingPass.reset();
+  }
   if (g_lightingPass) {
     g_lightingPass->Shutdown();
     g_lightingPass.reset();
@@ -1408,7 +1418,9 @@ void RenderSystem::render(entt::registry &registry,
   sceneHdrOwner = RenderOwnerTag::Scene;
 
   if (renderConfig.v3Enabled) {
-    graph.AddPass(std::make_shared<NoMoreDay::render::passes::LightCullingPass>());
+    if (g_lightCullingPass != nullptr) {
+      graph.AddPass(g_lightCullingPass);
+    }
     if (g_shadowPreparePass != nullptr) {
       graph.AddPass(g_shadowPreparePass);
     }

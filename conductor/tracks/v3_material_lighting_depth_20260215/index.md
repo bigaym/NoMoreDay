@@ -1,7 +1,7 @@
 # Track: V3 Material Lighting Depth
 
 **ID:** `v3_material_lighting_depth_20260215`  
-**Status:** Pending  
+**Status:** Pending (Includes Clustered Perf Carry-Over)  
 **Type:** Feature
 
 ## Documents
@@ -16,4 +16,3 @@
 - [Back to Tracks](../../tracks.md)
 - [Product Context](../../product.md)
 - [Tech Stack](../../tech-stack.md)
-

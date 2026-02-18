@@ -1,5 +1,11 @@
 # V3 Material Lighting Depth Plan
 
+## 2026-02-18 Carry-Over From Clustered Lighting
+
+- [ ] **D0.1**: Baseline and profile 128-light clustered path with Material 2.0 enabled, and classify bottlenecks (culling compute, light list density, fragment accumulation).
+- [ ] **D0.2**: Implement at least one optimization pass for clustered+material coupling (data layout, loop reduction, or tier policy tuning) with deterministic output parity.
+- [ ] **D0.3**: Restore strict uplift gate for 128-light A/B (`clustered vs V2`) to `>=5%` mean improvement under the agreed benchmark profile.
+
 > **Track ID**: `v3_material_lighting_depth_20260215`  
 > **TDD Policy**: unit -> integration -> perf  
 > **实施路线**: Step D（第 4-6 周）  

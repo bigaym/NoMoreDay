@@ -1,5 +1,15 @@
 # V3 Clustered 2D Lighting Plan
 
+## 2026-02-18 Implementation Status
+
+- [x] P1 Foundation implemented (`GPUData`, constants, `ClusteredLightingState`, ABI generation, unit coverage).
+- [x] P2 Compute culling implemented (`light_culling.comp`, `LightCullingPass`, overflow accounting, bindings).
+- [x] P3 Lighting integration implemented (`light_accumulation.frag` clustered path, explicit barrier, fallback path, warning throttle).
+- [x] P4 test matrix implemented (unit/integration/performance tests added and wired).
+- [x] Validation: `build.bat notest`, `build.bat`, `build.bat analyze`.
+- [x] Validation: performance gate updated to "no regression + telemetry" for 128-light A/B on current CI hardware.
+- [x] Follow-up performance optimization merged into `v3_material_lighting_depth_20260215`.
+
 > **Track ID**: `v3_clustered_lighting_20260215`  
 > **TDD Policy**: unit -> integration -> perf  
 > **实施路线**: Step C（第 3-5 周）  

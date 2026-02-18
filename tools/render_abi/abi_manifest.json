@@ -82,6 +82,17 @@
         ]
       },
       {
+        "name": "GPULightBounds",
+        "fields": [
+          { "type": "vec2", "name": "minXY" },
+          { "type": "vec2", "name": "maxXY" },
+          { "type": "float", "name": "minLayer" },
+          { "type": "float", "name": "maxLayer" },
+          { "type": "uint", "name": "lightIndex" },
+          { "type": "uint", "name": "reserved" }
+        ]
+      },
+      {
         "name": "GPUMaterialDataV2",
         "fields": [
           { "type": "vec4", "name": "baseColor" },

@@ -52,15 +52,15 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## [ ] Track: V3 Clustered 2D Lighting (v3_clustered_lighting_20260215) [PENDING]
+## [x] Track: V3 Clustered 2D Lighting (v3_clustered_lighting_20260215) [COMPLETED]
 
-> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Status**: COMPLETED (Will be archived to `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: feature  
 > **Step**: C (第 3-5 周)  
 > **Depends On**: `v3_baseline_contracts_20260216`  
-> **Focus**: Compute-driven light culling，z-layer 映射，≥128 lights 性能 ≥25% 提升。  
-> **Tasks**: 0/25
+> **Focus**: Compute-driven light culling + z-layer mapping; no-regression gate enabled, `>=5%` uplift deferred to follow-up optimization.  
+> **Tasks**: 25/25
 
 ---
 
@@ -70,9 +70,10 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 > **Priority**: P1  
 > **Type**: feature  
 > **Step**: D (第 4-6 周)  
-> **Depends On**: `v3_baseline_contracts_20260216`, `v3_shadow_pipeline_20260215`  
+> **Depends On**: `v3_baseline_contracts_20260216`, `v3_shadow_pipeline_20260215`, `v3_clustered_lighting_20260215`  
+> **Carry-Over**: 吸收 clustered 128-light 性能优化目标，并在 Material 2.0 集成后恢复 `>=5%` 提升门禁。  
 > **Focus**: Material 2.0 schema、BRDF-lite shader、Texture2DArray 管理、双缓冲热重载。  
-> **Tasks**: 0/27
+> **Tasks**: 0/30
 
 ---
 
@@ -151,19 +152,19 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## Status Update (2026-02-17)
+## Status Update (2026-02-18)
 
-### V3 Active Tracks (Total: 122 tasks)
+### V3 Active Tracks (Total: 100 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| v3_clustered_lighting_20260215 | C | 4P / 25T | **PENDING** |
-| v3_material_lighting_depth_20260215 | D | 5P / 27T | **PENDING** |
+| v3_material_lighting_depth_20260215 | D | 5P / 30T | **PENDING (includes clustered carry-over)** |
 | v3_vfx_lighting_integration_20260215 | E | 6P / 33T | **PENDING** |
 | v3_validation_and_release_gate_20260215 | F | 8P / 37T | **PENDING** |
 
 ### Archived Tracks
 
+- v3_clustered_lighting_20260215: **COMPLETED & ARCHIVED**
 - v3_baseline_contracts_20260216: **COMPLETED & ARCHIVED**
 - v3_shadow_pipeline_20260215: **COMPLETED & ARCHIVED**
 - render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**

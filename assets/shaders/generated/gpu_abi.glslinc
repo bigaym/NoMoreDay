@@ -78,6 +78,15 @@ struct GPUClusterLightIndex {
     uint lightIndex;
 };
 
+struct GPULightBounds {
+    vec2 minXY;
+    vec2 maxXY;
+    float minLayer;
+    float maxLayer;
+    uint lightIndex;
+    uint reserved;
+};
+
 struct GPUMaterialDataV2 {
     vec4 baseColor;
     vec4 emissiveAndIntensity;

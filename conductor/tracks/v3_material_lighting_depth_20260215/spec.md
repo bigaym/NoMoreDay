@@ -3,9 +3,18 @@
 > **Track ID**: `v3_material_lighting_depth_20260215`  
 > **Type**: `feature`  
 > **Priority**: P1  
-> **Depends On**: `v3_baseline_contracts_20260216`, `v3_shadow_pipeline_20260215`  
+> **Depends On**: `v3_baseline_contracts_20260216`, `v3_shadow_pipeline_20260215`, `v3_clustered_lighting_20260215`  
 > **对应设计文档**: [GPU_Rendering_System_3.md §7](../../设计文档/特效和UI/GPU_Rendering_System_3.md)  
 > **实施路线**: Step D（第 4-6 周）
+
+## 0. Carry-Over Objective (Merged)
+
+This track absorbs the deferred clustered-lighting optimization objective from
+`v3_clustered_lighting_20260215`.
+
+1. Keep clustered 128-light benchmark non-regression as a hard safety contract.
+2. Recover and re-establish `>=5%` mean improvement target for the clustered 128-light A/B profile after Material 2.0 integration.
+3. Keep fallback determinism and visual parity guarantees unchanged.
 
 ## 1. Goal
 

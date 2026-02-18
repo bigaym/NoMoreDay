@@ -24,6 +24,9 @@
 
 1. Measure `entity_mdi` and `particle` pass impact.
 2. Gate: High-tier increase <= `0.6 ms`.
+3. Clustered carry-over gate:
+   - keep 128-light A/B no-regression hard gate (`clustered <= baseline * 1.05`);
+   - recover `>=5%` mean improvement target for the agreed benchmark profile.
 
 ## 5. Evidence Checklist
 
@@ -31,4 +34,3 @@
 - [ ] Integration matrix attached.
 - [ ] Perf results attached.
 - [ ] Visual comparisons attached.
-

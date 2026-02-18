@@ -3,6 +3,7 @@
 #include "engine/render/GPUData.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/lighting/LightManager.hpp"
+#include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "game/components/Common.hpp"
@@ -164,6 +165,17 @@ TEST_CASE("[Unit] Lighting - Low Tier Bypasses LightingPass") {
   pass.Execute(context);
 
   CHECK(pass.IsInitialized() == false);
+}
+
+TEST_CASE("[Unit] Lighting - LightCullingPass fails without prerequisites") {
+  render::passes::LightCullingPass pass;
+  render::graph::RenderContext context = {};
+  pass.Execute(context);
+
+  CHECK(pass.HadFailureThisFrame());
+  CHECK(!pass.SucceededThisFrame());
+  CHECK(!pass.IsClusterDataReadyForCurrentFrame());
+  CHECK(!pass.GetLastFailureReason().empty());
 }
 
 TEST_CASE("[Unit] Lighting - LightType Mapping Spot Ambient Point") {

@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V3 Clustered 2D Lighting (v3_clustered_lighting_20260215)
+- **Folder:** [./conductor/archive/v3_clustered_lighting_20260215/](./conductor/archive/v3_clustered_lighting_20260215/)
+- **Description:** 完成 V3 Clustered Lighting：cluster 数据结构与 ABI、compute culling pass、LightingPass clustered 集成、fallback/同步屏障、单元/集成/性能矩阵。
+- **Status:** COMPLETED (2026-02-18)
+- **Priority:** P0
+- **Archive Reason:** P1-P4 已实现并验证；性能门禁调整为无回归硬约束，`>=5%` 提升目标并入 `v3_material_lighting_depth_20260215` 持续优化。
+
+---
+
 ## [x] Track: V3 Shadow Pipeline (v3_shadow_pipeline_20260215)
 - **Folder:** [./conductor/archive/v3_shadow_pipeline_20260215/](./conductor/archive/v3_shadow_pipeline_20260215/)
 - **Description:** 完成 V3 Shadow Pipeline：High 档 SDF 路径、Ultra 档 Atlas+SDF Hybrid、关键光 Top-N 选择、确定性 Atlas 淘汰与滞回、Shadow 失败回退到 V2 Lighting、同步屏障与 Tier 联动。

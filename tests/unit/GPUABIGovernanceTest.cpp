@@ -107,6 +107,14 @@ TEST_CASE("[Unit] GPU ABI - V3 layout snapshot placeholders") {
   CHECK(alignof(GPUClusterLightIndex) == alignof(uint32_t));
   CHECK(offsetof(GPUClusterLightIndex, lightIndex) == 0);
 
+  CHECK(std::is_standard_layout_v<GPULightBounds>);
+  CHECK(sizeof(GPULightBounds) == 32);
+  CHECK(alignof(GPULightBounds) == alignof(float));
+  CHECK(offsetof(GPULightBounds, minXY) == 0);
+  CHECK(offsetof(GPULightBounds, maxXY) == 8);
+  CHECK(offsetof(GPULightBounds, minLayer) == 16);
+  CHECK(offsetof(GPULightBounds, lightIndex) == 24);
+
   CHECK(std::is_standard_layout_v<GPUMaterialDataV2>);
   CHECK(sizeof(GPUMaterialDataV2) == 128);
   CHECK(alignof(GPUMaterialDataV2) == 16);

@@ -4,7 +4,7 @@
   "type": "feature",
   "status": "pending",
   "created": "2026-02-15T00:00:00Z",
-  "updated": "2026-02-16T00:00:00Z",
+  "updated": "2026-02-18T00:00:00Z",
   "designDoc": "设计文档/特效和UI/GPU_Rendering_System_3.md",
   "designSections": [
     "§7"
@@ -15,12 +15,13 @@
     "completed": 0
   },
   "tasks": {
-    "total": 27,
+    "total": 30,
     "completed": 0
   },
   "dependencies": [
     "v3_baseline_contracts_20260216",
-    "v3_shadow_pipeline_20260215"
+    "v3_shadow_pipeline_20260215",
+    "v3_clustered_lighting_20260215"
   ],
   "dependedBy": [
     "v3_vfx_lighting_integration_20260215",

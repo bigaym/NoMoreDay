@@ -276,6 +276,21 @@ static_assert(sizeof(GPUClusterLightIndex) == 4,
 static_assert(alignof(GPUClusterLightIndex) == alignof(uint32_t),
               "GPUClusterLightIndex alignment mismatch");
 
+struct GPULightBounds {
+  Vector2 minXY = {0.0f, 0.0f};
+  Vector2 maxXY = {0.0f, 0.0f};
+  float minLayer = 0.0f;
+  float maxLayer = 0.0f;
+  uint32_t lightIndex = 0;
+  uint32_t reserved = 0;
+};
+static_assert(std::is_standard_layout_v<GPULightBounds>,
+              "GPULightBounds must be standard layout");
+static_assert(sizeof(GPULightBounds) == 32,
+              "GPULightBounds struct must be exactly 32 bytes");
+static_assert(alignof(GPULightBounds) == alignof(float),
+              "GPULightBounds alignment mismatch");
+
 struct alignas(16) GPUMaterialDataV2 {
   Vector4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
   Vector4 emissiveAndIntensity = {0.0f, 0.0f, 0.0f, 0.0f};

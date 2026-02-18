@@ -9,6 +9,7 @@
 namespace NoMoreDay::render::passes {
 
 class ShadowResolvePass;
+class LightCullingPass;
 
 class LightingPass final : public graph::RenderPass {
 public:
@@ -27,6 +28,9 @@ public:
   void SetShadowResolvePass(const ShadowResolvePass *shadowResolvePass) {
     m_shadowResolvePass = shadowResolvePass;
   }
+  void SetLightCullingPass(const LightCullingPass *lightCullingPass) {
+    m_lightCullingPass = lightCullingPass;
+  }
   [[nodiscard]] bool WasShadowAppliedLastFrame() const {
     return m_lastShadowApplied;
   }
@@ -35,6 +39,15 @@ public:
   }
   [[nodiscard]] const std::string &GetLastShadowFallbackReason() const {
     return m_lastShadowFallbackReason;
+  }
+  [[nodiscard]] bool WasClusteredAppliedLastFrame() const {
+    return m_lastClusteredApplied;
+  }
+  [[nodiscard]] bool UsedClusteredFallbackLastFrame() const {
+    return m_lastClusteredFallback;
+  }
+  [[nodiscard]] const std::string &GetLastClusteredFallbackReason() const {
+    return m_lastClusteredFallbackReason;
   }
 
 private:
@@ -51,6 +64,12 @@ private:
   int m_screenSizeLoc = -1;
   int m_shadowMaskTexLoc = -1;
   int m_shadowEnabledLoc = -1;
+  int m_clusteredLightingEnabledLoc = -1;
+  int m_clusterGridXLoc = -1;
+  int m_clusterGridYLoc = -1;
+  int m_clusterGridZLoc = -1;
+  int m_clusterTileSizeWorldLoc = -1;
+  int m_layerBandWorldUnitsLoc = -1;
 
   int m_cachedWidth = 0;
   int m_cachedHeight = 0;
@@ -58,8 +77,13 @@ private:
   bool m_lastShadowApplied = false;
   bool m_lastUsedV2Fallback = false;
   std::string m_lastShadowFallbackReason;
+  bool m_lastClusteredApplied = false;
+  bool m_lastClusteredFallback = false;
+  std::string m_lastClusteredFallbackReason;
+  double m_lastClusteredWarnTime = -1000.0;
   bool m_initialized = false;
   const ShadowResolvePass *m_shadowResolvePass = nullptr;
+  const LightCullingPass *m_lightCullingPass = nullptr;
 };
 
 } // namespace NoMoreDay::render::passes

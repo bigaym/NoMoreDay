@@ -30,6 +30,11 @@ inline constexpr float kBudgetLighting_Normal = 0.60f;
 inline constexpr float kBudgetLighting_High = 1.00f;
 inline constexpr float kBudgetLighting_Extreme = 1.30f;
 
+inline constexpr uint32_t kDefaultClusterTileSize = 32u;
+inline constexpr uint32_t kDefaultClusterZSliceCount = 4u;
+inline constexpr uint32_t kMaxLightsPerCluster = 64u;
+inline constexpr uint32_t kMaxTotalClusteredLights = 4096u;
+
 struct RenderConfig {
   bool bloomEnabled = false;
   bool dynamicLightingEnabled = false;
@@ -89,8 +94,8 @@ struct RenderConfig {
   uint32_t shadowAtlasSize = 2048;
   float shadowSoftness = 1.0f;
   bool clusteredLightingEnabled = false;
-  uint32_t clusterTileSize = 32;
-  uint32_t clusterZSliceCount = 4;
+  uint32_t clusterTileSize = kDefaultClusterTileSize;
+  uint32_t clusterZSliceCount = kDefaultClusterZSliceCount;
   bool normalLightingEnabled = false;
   bool specularEnabled = false;
   uint32_t materialQualityLevel = 0;

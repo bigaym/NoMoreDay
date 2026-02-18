@@ -6,6 +6,7 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
 #include "engine/render/passes/ScenePass.hpp"
@@ -41,8 +42,14 @@ void BuildDefaultPathGraph(
 
   const bool useHdrPath = IsHdrPipelineRequested(cfg);
   const bool useDistortion = useHdrPath && cfg.distortionEnabled;
+  const bool useClustered =
+      useHdrPath && cfg.v3Enabled && cfg.dynamicLightingEnabled &&
+      cfg.clusteredLightingEnabled;
 
   graph.AddPass(std::make_shared<passes::ScenePass>());
+  if (useClustered) {
+    graph.AddPass(std::make_shared<passes::LightCullingPass>());
+  }
   if (useHdrPath && cfg.dynamicLightingEnabled) {
     graph.AddPass(std::make_shared<passes::LightingPass>());
   }

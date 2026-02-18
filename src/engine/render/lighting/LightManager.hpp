@@ -38,6 +38,9 @@ public:
   void Bind() const;
 
   [[nodiscard]] int GetActiveLightCount() const { return m_activeLightCount; }
+  [[nodiscard]] uint32_t GetLightBufferId() const {
+    return (m_lightBuffer != nullptr) ? m_lightBuffer->GetId() : 0u;
+  }
   [[nodiscard]] const DebugStats &GetDebugStats() const { return m_debugStats; }
   [[nodiscard]] const std::vector<components::GPULight> &
   GetActiveLightsCpu() const {

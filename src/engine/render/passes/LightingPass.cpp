@@ -2,12 +2,15 @@
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/core/BindingRegistry.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
+#include "engine/render/lighting/ClusteredLightingState.hpp"
 #include "engine/render/lighting/LightManager.hpp"
+#include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/passes/ShadowResolvePass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
@@ -27,6 +30,8 @@ constexpr uint32_t kGLTexture2D = 0x0DE1;
 constexpr uint32_t kGLTexture0 = 0x84C0;
 constexpr uint32_t kGLColorBufferBit = 0x00004000;
 constexpr uint32_t kGLRgba16f = 0x881A;
+constexpr uint32_t kGLShaderStorageBarrierBit = 0x00002000;
+constexpr double kClusterFallbackWarnWindowSeconds = 5.0;
 constexpr const char *kFullscreenVertexShader =
     "assets/shaders/postprocess/fullscreen.vert";
 constexpr const char *kLightingFragmentShader =
@@ -71,6 +76,15 @@ bool LightingPass::Initialize() {
   m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
   m_shadowMaskTexLoc = GetShaderLocation(m_lightAccumShader, "uShadowMaskTex");
   m_shadowEnabledLoc = GetShaderLocation(m_lightAccumShader, "uShadowEnabled");
+  m_clusteredLightingEnabledLoc =
+      GetShaderLocation(m_lightAccumShader, "uClusteredLightingEnabled");
+  m_clusterGridXLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridX");
+  m_clusterGridYLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridY");
+  m_clusterGridZLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridZ");
+  m_clusterTileSizeWorldLoc =
+      GetShaderLocation(m_lightAccumShader, "uClusterTileSizeWorld");
+  m_layerBandWorldUnitsLoc =
+      GetShaderLocation(m_lightAccumShader, "uLayerBandWorldUnits");
 
   m_initialized = true;
   return true;
@@ -96,6 +110,15 @@ bool LightingPass::ReloadShaders() {
   m_screenSizeLoc = GetShaderLocation(m_lightAccumShader, "uScreenSize");
   m_shadowMaskTexLoc = GetShaderLocation(m_lightAccumShader, "uShadowMaskTex");
   m_shadowEnabledLoc = GetShaderLocation(m_lightAccumShader, "uShadowEnabled");
+  m_clusteredLightingEnabledLoc =
+      GetShaderLocation(m_lightAccumShader, "uClusteredLightingEnabled");
+  m_clusterGridXLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridX");
+  m_clusterGridYLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridY");
+  m_clusterGridZLoc = GetShaderLocation(m_lightAccumShader, "uClusterGridZ");
+  m_clusterTileSizeWorldLoc =
+      GetShaderLocation(m_lightAccumShader, "uClusterTileSizeWorld");
+  m_layerBandWorldUnitsLoc =
+      GetShaderLocation(m_lightAccumShader, "uLayerBandWorldUnits");
   LOG_INFO("LightingPass: shader hot reloaded");
   return true;
 }
@@ -108,12 +131,22 @@ void LightingPass::Shutdown() {
   resources::FramebufferManager::Destroy(m_litBuffer);
   m_shadowMaskTexLoc = -1;
   m_shadowEnabledLoc = -1;
+  m_clusteredLightingEnabledLoc = -1;
+  m_clusterGridXLoc = -1;
+  m_clusterGridYLoc = -1;
+  m_clusterGridZLoc = -1;
+  m_clusterTileSizeWorldLoc = -1;
+  m_layerBandWorldUnitsLoc = -1;
   m_cachedWidth = 0;
   m_cachedHeight = 0;
   m_frameIndex = 0;
   m_lastShadowApplied = false;
   m_lastUsedV2Fallback = false;
   m_lastShadowFallbackReason.clear();
+  m_lastClusteredApplied = false;
+  m_lastClusteredFallback = false;
+  m_lastClusteredFallbackReason.clear();
+  m_lastClusteredWarnTime = -1000.0;
   m_initialized = false;
 }
 
@@ -153,6 +186,9 @@ void LightingPass::Execute(graph::RenderContext &context) {
   m_lastShadowApplied = false;
   m_lastUsedV2Fallback = false;
   m_lastShadowFallbackReason.clear();
+  m_lastClusteredApplied = false;
+  m_lastClusteredFallback = false;
+  m_lastClusteredFallbackReason.clear();
 
   const auto *qualityManager = context.qualityManager;
   if (qualityManager == nullptr || context.camera == nullptr) {
@@ -261,6 +297,90 @@ void LightingPass::Execute(graph::RenderContext &context) {
   if (m_shadowEnabledLoc >= 0) {
     SetShaderValue(m_lightAccumShader, m_shadowEnabledLoc, &shadowEnabled,
                    SHADER_UNIFORM_INT);
+  }
+
+  int clusteredLightingEnabled = 0;
+  if (config.v3Enabled && config.clusteredLightingEnabled) {
+    if (m_lightCullingPass == nullptr) {
+      m_lastClusteredFallback = true;
+      m_lastClusteredFallbackReason = "light culling pass not bound";
+    } else if (m_lightCullingPass->HadFailureThisFrame()) {
+      m_lastClusteredFallback = true;
+      m_lastClusteredFallbackReason = m_lightCullingPass->GetLastFailureReason();
+    } else if (!m_lightCullingPass->IsClusterDataReadyForCurrentFrame()) {
+      m_lastClusteredFallback = true;
+      m_lastClusteredFallbackReason = "cluster data unavailable for current frame";
+    } else {
+      auto &clusterState = lighting::ClusteredLightingState::Get();
+      const auto &grid = clusterState.GetGrid();
+      if (grid.clusterCount == 0u || clusterState.GetClusterHeaderBufferId() == 0u ||
+          clusterState.GetClusterLightIndexBufferId() == 0u) {
+        m_lastClusteredFallback = true;
+        m_lastClusteredFallbackReason = "cluster buffers unavailable";
+      } else {
+        uint32_t headerBinding = 0u;
+        uint32_t indexBinding = 0u;
+        if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                               "CLUSTER_HEADER_OUT",
+                                               headerBinding) ||
+            !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                               "CLUSTER_INDEX_OUT",
+                                               indexBinding)) {
+          m_lastClusteredFallback = true;
+          m_lastClusteredFallbackReason = "cluster binding resolution failed";
+        } else {
+          // Explicit compute->fragment SSBO sync point (auditable contract).
+          NoMoreDay::utils::GPUUtils::MemoryBarrier(kGLShaderStorageBarrierBit);
+          NoMoreDay::utils::GPUUtils::BindBufferBase(
+              headerBinding, clusterState.GetClusterHeaderBufferId());
+          NoMoreDay::utils::GPUUtils::BindBufferBase(
+              indexBinding, clusterState.GetClusterLightIndexBufferId());
+
+          const int gridX = static_cast<int>(grid.tilesX);
+          const int gridY = static_cast<int>(grid.tilesY);
+          const int gridZ = static_cast<int>(grid.slicesZ);
+          const float clusterTileSizeWorld =
+              static_cast<float>(config.clusterTileSize) / zoom;
+          const float layerBandWorldUnits =
+              lighting::ClusteredLightingState::kDefaultLayerBandWorldUnits;
+          if (m_clusterGridXLoc >= 0) {
+            SetShaderValue(m_lightAccumShader, m_clusterGridXLoc, &gridX,
+                           SHADER_UNIFORM_INT);
+          }
+          if (m_clusterGridYLoc >= 0) {
+            SetShaderValue(m_lightAccumShader, m_clusterGridYLoc, &gridY,
+                           SHADER_UNIFORM_INT);
+          }
+          if (m_clusterGridZLoc >= 0) {
+            SetShaderValue(m_lightAccumShader, m_clusterGridZLoc, &gridZ,
+                           SHADER_UNIFORM_INT);
+          }
+          if (m_clusterTileSizeWorldLoc >= 0) {
+            SetShaderValue(m_lightAccumShader, m_clusterTileSizeWorldLoc,
+                           &clusterTileSizeWorld, SHADER_UNIFORM_FLOAT);
+          }
+          if (m_layerBandWorldUnitsLoc >= 0) {
+            SetShaderValue(m_lightAccumShader, m_layerBandWorldUnitsLoc,
+                           &layerBandWorldUnits, SHADER_UNIFORM_FLOAT);
+          }
+
+          clusteredLightingEnabled = 1;
+          m_lastClusteredApplied = true;
+        }
+      }
+    }
+  }
+  if (m_clusteredLightingEnabledLoc >= 0) {
+    SetShaderValue(m_lightAccumShader, m_clusteredLightingEnabledLoc,
+                   &clusteredLightingEnabled, SHADER_UNIFORM_INT);
+  }
+  if (m_lastClusteredFallback && !m_lastClusteredFallbackReason.empty()) {
+    const double now = GetTime();
+    if ((now - m_lastClusteredWarnTime) >= kClusterFallbackWarnWindowSeconds) {
+      LOG_WARN("ClusteredLightingFallback: frame={} reason={} fallback=V2Lighting",
+               m_frameIndex, m_lastClusteredFallbackReason);
+      m_lastClusteredWarnTime = now;
+    }
   }
 
   DrawFullscreen(m_lightAccumShader, context.hdrSceneBuffer.colorTexture);
