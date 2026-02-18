@@ -45,6 +45,13 @@ private:
   RenderTexture2D m_sceneRT = {0};
   Shader m_activeFilterShader = {0};
   std::string m_lastFilterPath;
+  int m_filterLocTime = -1;
+  int m_filterLocCam = -1;
+  int m_filterLocZoom = -1;
+  int m_filterLocScreen = -1;
+  int m_filterLocPlayer = -1;
+  int m_filterLocVision = -1;
+  float m_vfxHotReloadAccumulator = 0.0f;
 
   tf::Taskflow m_taskflow;
   systems::SpatialHashGrid m_spatialGrid{

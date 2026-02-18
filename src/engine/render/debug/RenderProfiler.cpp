@@ -16,6 +16,7 @@ constexpr size_t ToIndex(RenderPassId passId) {
 
 constexpr uint32_t kGLTimeElapsed = 0x88BF;
 constexpr uint32_t kGLQueryResult = 0x8866;
+constexpr uint32_t kGLQueryResultAvailable = 0x8867;
 
 float ComputeMean(const std::vector<float> &values) {
   if (values.empty()) {
@@ -59,7 +60,7 @@ RenderProfiler::RenderProfiler() {
   }
 
   if (m_gpuTimingAvailable) {
-    LOG_INFO("RenderProfiler: GPU timer query path enabled");
+    LOG_INFO("RenderProfiler: GPU timer query path enabled (non-blocking poll)");
   } else if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
     LOG_WARN("RenderProfiler: GPU timer query unavailable, fallback to CPU-only mode");
   }
@@ -131,9 +132,15 @@ void RenderProfiler::EndPass(RenderPassId passId) {
     m_gpuApi.endQuery(kGLTimeElapsed);
     state.gpuRunning = false;
 
-    uint64_t elapsedNs = 0;
-    m_gpuApi.getQueryObjectUi64v(state.gpuQueryId, kGLQueryResult, &elapsedNs);
-    gpuMs = static_cast<float>(elapsedNs) * 1.0e-6f;
+    // Do not block the render thread waiting for GPU completion.
+    uint64_t queryAvailable = 0;
+    m_gpuApi.getQueryObjectUi64v(state.gpuQueryId, kGLQueryResultAvailable,
+                                 &queryAvailable);
+    if (queryAvailable != 0) {
+      uint64_t elapsedNs = 0;
+      m_gpuApi.getQueryObjectUi64v(state.gpuQueryId, kGLQueryResult, &elapsedNs);
+      gpuMs = static_cast<float>(elapsedNs) * 1.0e-6f;
+    }
   }
 
   PassTimingSample &sample = state.samples[static_cast<size_t>(state.writeIndex)];

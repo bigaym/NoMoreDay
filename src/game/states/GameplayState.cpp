@@ -108,6 +108,7 @@ void GameplayState::OnEnter() {
 
   // Initialize Visual FX (Events)
   systems::VisualFXSystem::Initialize(*m_context->registry);
+  m_vfxHotReloadAccumulator = 0.0f;
   vfx::VFXSequenceManager::Get().Initialize();
   if (std::filesystem::is_directory("assets/vfx")) {
     vfx::VFXSequenceManager::Get().LoadFromJson("assets/vfx");
@@ -374,6 +375,12 @@ void GameplayState::OnExit() {
     UnloadShader(m_activeFilterShader);
     m_activeFilterShader = {0};
     m_lastFilterPath.clear();
+    m_filterLocTime = -1;
+    m_filterLocCam = -1;
+    m_filterLocZoom = -1;
+    m_filterLocScreen = -1;
+    m_filterLocPlayer = -1;
+    m_filterLocVision = -1;
   }
 
   NoMoreDay::XPAwardingSystem::Reset(); // Cleanup static GC queue
@@ -406,12 +413,24 @@ bool GameplayState::OnUpdate(float dt) {
       }
       m_activeFilterShader = LoadShader(0, biome.visualFilterShader.c_str());
       m_lastFilterPath = biome.visualFilterShader;
+      m_filterLocTime = GetShaderLocation(m_activeFilterShader, "time");
+      m_filterLocCam = GetShaderLocation(m_activeFilterShader, "cameraOffset");
+      m_filterLocZoom = GetShaderLocation(m_activeFilterShader, "zoom");
+      m_filterLocScreen = GetShaderLocation(m_activeFilterShader, "screenSize");
+      m_filterLocPlayer = GetShaderLocation(m_activeFilterShader, "playerPos");
+      m_filterLocVision = GetShaderLocation(m_activeFilterShader, "visionRadius");
       LOG_INFO("Loaded visual filter shader: {}", m_lastFilterPath);
     }
   } else if (m_activeFilterShader.id != 0) {
     UnloadShader(m_activeFilterShader);
     m_activeFilterShader = {0};
     m_lastFilterPath.clear();
+    m_filterLocTime = -1;
+    m_filterLocCam = -1;
+    m_filterLocZoom = -1;
+    m_filterLocScreen = -1;
+    m_filterLocPlayer = -1;
+    m_filterLocVision = -1;
   }
 
   // 0. Update SceneManager (Transitions)
@@ -803,7 +822,12 @@ bool GameplayState::OnUpdate(float dt) {
   }
 
   // 6. Effects
-  vfx::VFXSequenceManager::Get().TryHotReload();
+  m_vfxHotReloadAccumulator += dt;
+  if (m_vfxHotReloadAccumulator >= 0.5f) {
+    // Hot-reload path touches filesystem metadata; polling at 2 Hz is enough in gameplay.
+    vfx::VFXSequenceManager::Get().TryHotReload();
+    m_vfxHotReloadAccumulator = 0.0f;
+  }
   vfx::VFXSequencerSystem::Update(registry, dt);
   systems::EffectSystem::update(registry, dt);
   systems::VisualFXSystem::Update(registry, dt);
@@ -991,19 +1015,12 @@ void GameplayState::OnRender() {
     float zoom = m_camera.zoom;
     Vector2 screenSize = { static_cast<float>(GetScreenWidth()), static_cast<float>(GetScreenHeight()) };
     
-    int locTime = GetShaderLocation(m_activeFilterShader, "time");
-    int locCam = GetShaderLocation(m_activeFilterShader, "cameraOffset");
-    int locZoom = GetShaderLocation(m_activeFilterShader, "zoom");
-    int locScreen = GetShaderLocation(m_activeFilterShader, "screenSize");
-    int locPlayer = GetShaderLocation(m_activeFilterShader, "playerPos");
-    int locVision = GetShaderLocation(m_activeFilterShader, "visionRadius");
-    
-    if (locTime != -1) SetShaderValue(m_activeFilterShader, locTime, &time, SHADER_UNIFORM_FLOAT);
-    if (locCam != -1) SetShaderValue(m_activeFilterShader, locCam, &camOffset, SHADER_UNIFORM_VEC2);
-    if (locZoom != -1) SetShaderValue(m_activeFilterShader, locZoom, &zoom, SHADER_UNIFORM_FLOAT);
-    if (locScreen != -1) SetShaderValue(m_activeFilterShader, locScreen, &screenSize, SHADER_UNIFORM_VEC2);
+    if (m_filterLocTime != -1) SetShaderValue(m_activeFilterShader, m_filterLocTime, &time, SHADER_UNIFORM_FLOAT);
+    if (m_filterLocCam != -1) SetShaderValue(m_activeFilterShader, m_filterLocCam, &camOffset, SHADER_UNIFORM_VEC2);
+    if (m_filterLocZoom != -1) SetShaderValue(m_activeFilterShader, m_filterLocZoom, &zoom, SHADER_UNIFORM_FLOAT);
+    if (m_filterLocScreen != -1) SetShaderValue(m_activeFilterShader, m_filterLocScreen, &screenSize, SHADER_UNIFORM_VEC2);
 
-    if (locPlayer != -1 || locVision != -1) {
+    if (m_filterLocPlayer != -1 || m_filterLocVision != -1) {
       auto pView = registry.view<PlayerTag, Position>();
       if (pView.begin() != pView.end()) {
         const auto &pos = pView.get<Position>(pView.front());
@@ -1011,9 +1028,9 @@ void GameplayState::OnRender() {
         // Flip Y for screenPlayer because GL_FRAGCOORD is y-up
         screenPlayer.y = (float)GetScreenHeight() - screenPlayer.y;
         
-        if (locPlayer != -1) SetShaderValue(m_activeFilterShader, locPlayer, &screenPlayer, SHADER_UNIFORM_VEC2);
+        if (m_filterLocPlayer != -1) SetShaderValue(m_activeFilterShader, m_filterLocPlayer, &screenPlayer, SHADER_UNIFORM_VEC2);
         
-        if (locVision != -1) {
+        if (m_filterLocVision != -1) {
           float vRad = biome.visionRadius;
           if (vRad <= 0.0f) {
             auto *vis = registry.try_get<VisionComponent>(pView.front());
@@ -1021,7 +1038,7 @@ void GameplayState::OnRender() {
           }
           // Convert world radius to screen radius
           vRad *= zoom;
-          SetShaderValue(m_activeFilterShader, locVision, &vRad, SHADER_UNIFORM_FLOAT);
+          SetShaderValue(m_activeFilterShader, m_filterLocVision, &vRad, SHADER_UNIFORM_FLOAT);
         }
       }
     }
