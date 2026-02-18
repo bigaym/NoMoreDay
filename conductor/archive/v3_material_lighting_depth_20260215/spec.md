@@ -10,11 +10,13 @@
 ## 0. Carry-Over Objective (Merged)
 
 This track absorbs the deferred clustered-lighting optimization objective from
-`v3_clustered_lighting_20260215`.
+`v3_clustered_lighting_20260215` for integration-phase implementation.
 
 1. Keep clustered 128-light benchmark non-regression as a hard safety contract.
-2. Recover and re-establish `>=5%` mean improvement target for the clustered 128-light A/B profile after Material 2.0 integration.
+2. Complete clustered+material coupling optimization work and evidence collection.
 3. Keep fallback determinism and visual parity guarantees unchanged.
+4. Release-gate uplift target (`>=5%` mean improvement for clustered 128-light A/B)
+   is owned by `v3_validation_and_release_gate_20260215` (Step F).
 
 ## 1. Goal
 

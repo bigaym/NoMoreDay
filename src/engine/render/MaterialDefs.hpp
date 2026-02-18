@@ -38,7 +38,14 @@ struct MaterialInstance {
   ShaderVariant shader = ShaderVariant::Default;
   uint8_t padding0 = 0;
 
+  // textureSlots: [albedo, reserved1, roughness, reserved3]
   int16_t textureSlots[4] = {-1, -1, -1, -1};
+  int16_t normalMapSlot = -1;
+  float roughness = 0.6f;
+  float specular = 0.2f;
+  float ao = 1.0f;
+  float heightBias = 0.0f;
+  float detailNormalScale = 1.0f;
 };
 
 namespace MaterialPresets {

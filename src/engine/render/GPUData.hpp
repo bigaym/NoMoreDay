@@ -276,6 +276,27 @@ static_assert(sizeof(GPUClusterLightIndex) == 4,
 static_assert(alignof(GPUClusterLightIndex) == alignof(uint32_t),
               "GPUClusterLightIndex alignment mismatch");
 
+struct GPUClusterPackedLight {
+  float posX = 0.0f;
+  float posY = 0.0f;
+  float radius = 0.0f;
+  float invRadiusSq = 0.0f;
+  float colorTimesIntensityR = 0.0f;
+  float colorTimesIntensityG = 0.0f;
+  float colorTimesIntensityB = 0.0f;
+  float spotCosHalfAngle = -1.0f;
+  float dirX = 1.0f;
+  float dirY = 0.0f;
+  float reserved0 = 0.0f;
+  uint32_t lightType = 0;
+};
+static_assert(std::is_standard_layout_v<GPUClusterPackedLight>,
+              "GPUClusterPackedLight must be standard layout");
+static_assert(sizeof(GPUClusterPackedLight) == 48,
+              "GPUClusterPackedLight struct must be exactly 48 bytes");
+static_assert(alignof(GPUClusterPackedLight) == alignof(float),
+              "GPUClusterPackedLight alignment mismatch");
+
 struct GPULightBounds {
   Vector2 minXY = {0.0f, 0.0f};
   Vector2 maxXY = {0.0f, 0.0f};
@@ -294,7 +315,7 @@ static_assert(alignof(GPULightBounds) == alignof(float),
 struct alignas(16) GPUMaterialDataV2 {
   Vector4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
   Vector4 emissiveAndIntensity = {0.0f, 0.0f, 0.0f, 0.0f};
-  Vector4 pbrLite = {0.5f, 0.5f, 1.0f, 0.0f};
+  Vector4 pbrLite = {0.6f, 0.2f, 1.0f, 0.0f};
   Vector4 textureSlots = {-1.0f, -1.0f, -1.0f, -1.0f};
   Vector4 detailParams = {1.0f, 0.0f, 0.0f, 0.0f};
   Vector4 reserved0 = {0.0f, 0.0f, 0.0f, 0.0f};

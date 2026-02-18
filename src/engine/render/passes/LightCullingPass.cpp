@@ -188,6 +188,7 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
   uint32_t lightListBinding = 0u;
   uint32_t headerBinding = 0u;
   uint32_t indexBinding = 0u;
+  uint32_t packedLightBinding = 0u;
   uint32_t boundsBinding = 0u;
   uint32_t counterBinding = 0u;
   if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
@@ -196,6 +197,8 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
                                          "CLUSTER_HEADER_OUT", headerBinding) ||
       !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
                                          "CLUSTER_INDEX_OUT", indexBinding) ||
+      !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                         "CLUSTER_LIGHT_OUT", packedLightBinding) ||
       !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
                                          "LIGHT_BOUNDS_IN", boundsBinding) ||
       !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
@@ -254,6 +257,8 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
                                              clusterState.GetClusterHeaderBufferId());
   NoMoreDay::utils::GPUUtils::BindBufferBase(indexBinding,
                                              clusterState.GetClusterLightIndexBufferId());
+  NoMoreDay::utils::GPUUtils::BindBufferBase(
+      packedLightBinding, clusterState.GetClusterPackedLightBufferId());
   NoMoreDay::utils::GPUUtils::BindBufferBase(boundsBinding,
                                              clusterState.GetLightBoundsBufferId());
   NoMoreDay::utils::GPUUtils::BindBufferBase(counterBinding,

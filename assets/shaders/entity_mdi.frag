@@ -9,8 +9,22 @@ flat in uint vStatusMask;
 flat in float vTime;
 
 uniform sampler2DArray entityTextures;
+uniform int uMaterialQualityLevel;
+uniform int uNormalLightingEnabled;
+uniform int uSpecularEnabled;
+uniform float uShadowFactor;
 
 out vec4 fragColor;
+
+float ComputeSpecular(vec3 N, vec3 L, vec3 V, float roughness, float strength) {
+    if (strength <= 0.0) {
+        return 0.0;
+    }
+    vec3 H = normalize(L + V);
+    float ndoth = max(dot(N, H), 0.0);
+    float shininess = mix(48.0, 6.0, clamp(roughness, 0.0, 1.0));
+    return pow(ndoth, shininess) * strength;
+}
 
 void main() {
     // 基础颜色 (纹理或 SDF)
@@ -38,5 +52,19 @@ void main() {
         statusGlow += vec3(vGlow * 0.4, vGlow * 0.4, vGlow * 0.6);
     }
     
-    fragColor = vec4(baseColor.rgb + statusGlow, baseColor.a);
+    vec3 litColor = baseColor.rgb;
+    if (uMaterialQualityLevel > 0 && uNormalLightingEnabled != 0) {
+        vec3 N = normalize(vec3(vLocalPos * 0.6, 1.0));
+        vec3 L = normalize(vec3(0.35, 0.45, 0.82));
+        vec3 V = vec3(0.0, 0.0, 1.0);
+        float roughness = (uMaterialQualityLevel >= 2) ? 0.6 : 0.85;
+        float specularStrength =
+            (uSpecularEnabled != 0 && uMaterialQualityLevel >= 2) ? 0.2 : 0.0;
+        float diffuse = max(dot(N, L), 0.0);
+        float specular = ComputeSpecular(N, L, V, roughness, specularStrength);
+        float brdf = clamp(diffuse + specular, 0.0, 2.0);
+        litColor *= (0.25 + 0.75 * brdf) * clamp(uShadowFactor, 0.0, 1.0);
+    }
+
+    fragColor = vec4(litColor + statusGlow, baseColor.a);
 }

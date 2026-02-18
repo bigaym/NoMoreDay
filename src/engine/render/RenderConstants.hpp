@@ -164,6 +164,8 @@ enum class TextureUnit : uint32_t {
   TEX_PARTICLE_ATLAS = 1, // Particle Atlas
   TEX_SKILL_SDF = 2,      // Skill SDF Texture
   TEX_FONT_ATLAS = 3,     // Font Atlas for Popups
+  TEX_MATERIAL_NORMAL_ARRAY = 4,
+  TEX_MATERIAL_ROUGHNESS_ARRAY = 5,
 };
 
 /**

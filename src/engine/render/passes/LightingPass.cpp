@@ -314,18 +314,23 @@ void LightingPass::Execute(graph::RenderContext &context) {
       auto &clusterState = lighting::ClusteredLightingState::Get();
       const auto &grid = clusterState.GetGrid();
       if (grid.clusterCount == 0u || clusterState.GetClusterHeaderBufferId() == 0u ||
-          clusterState.GetClusterLightIndexBufferId() == 0u) {
+          clusterState.GetClusterLightIndexBufferId() == 0u ||
+          clusterState.GetClusterPackedLightBufferId() == 0u) {
         m_lastClusteredFallback = true;
         m_lastClusteredFallbackReason = "cluster buffers unavailable";
       } else {
         uint32_t headerBinding = 0u;
         uint32_t indexBinding = 0u;
+        uint32_t packedLightBinding = 0u;
         if (!core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
                                                "CLUSTER_HEADER_OUT",
                                                headerBinding) ||
             !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
                                                "CLUSTER_INDEX_OUT",
-                                               indexBinding)) {
+                                               indexBinding) ||
+            !core::BindingRegistry::TryResolve(core::BindingDomain::LightCulling,
+                                               "CLUSTER_LIGHT_OUT",
+                                               packedLightBinding)) {
           m_lastClusteredFallback = true;
           m_lastClusteredFallbackReason = "cluster binding resolution failed";
         } else {
@@ -335,6 +340,8 @@ void LightingPass::Execute(graph::RenderContext &context) {
               headerBinding, clusterState.GetClusterHeaderBufferId());
           NoMoreDay::utils::GPUUtils::BindBufferBase(
               indexBinding, clusterState.GetClusterLightIndexBufferId());
+          NoMoreDay::utils::GPUUtils::BindBufferBase(
+              packedLightBinding, clusterState.GetClusterPackedLightBufferId());
 
           const int gridX = static_cast<int>(grid.tilesX);
           const int gridY = static_cast<int>(grid.tilesY);

@@ -32,6 +32,7 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
+#include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/RenderConstants.hpp" 
@@ -1048,6 +1049,7 @@ void RenderSystem::Initialize() {
   NoMoreDay::render::MaterialManager::Get().Initialize();
   NoMoreDay::render::MaterialManager::Get().LoadFromJson(
       "assets/data/materials_vfx.json");
+  NoMoreDay::render::TextureArrayManager::Get().Initialize(64, 128);
   NoMoreDay::render::lighting::LightManager::Get().Initialize();
   if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
@@ -1199,6 +1201,7 @@ void RenderSystem::Shutdown() {
 
   NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
   NoMoreDay::render::MaterialManager::Get().Shutdown();
+  NoMoreDay::render::TextureArrayManager::Get().Shutdown();
   NoMoreDay::render::lighting::LightManager::Get().Shutdown();
   NoMoreDay::render::lighting::ClusteredLightingState::Get().Shutdown();
   if (g_lightCullingPass) {
@@ -1345,6 +1348,8 @@ void RenderSystem::render(entt::registry &registry,
       if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
         g_volumetricPass->OnResize(screenWidth, screenHeight);
       }
+      NoMoreDay::render::TextureArrayManager::Get().RebuildForResize(
+          screenWidth, screenHeight);
     } else if (s_hdrSceneBuffer.width != screenWidth ||
                s_hdrSceneBuffer.height != screenHeight) {
       NoMoreDay::render::resources::FramebufferManager::Resize(
@@ -1367,6 +1372,8 @@ void RenderSystem::render(entt::registry &registry,
       if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
         g_volumetricPass->OnResize(screenWidth, screenHeight);
       }
+      NoMoreDay::render::TextureArrayManager::Get().RebuildForResize(
+          screenWidth, screenHeight);
     }
   }
 

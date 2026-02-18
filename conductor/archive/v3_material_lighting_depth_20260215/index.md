@@ -1,7 +1,7 @@
 # Track: V3 Material Lighting Depth
 
 **ID:** `v3_material_lighting_depth_20260215`  
-**Status:** Pending (Includes Clustered Perf Carry-Over)  
+**Status:** Completed (Carry-Over uplift gate migrated to Step F release gate)  
 **Type:** Feature
 
 ## Documents

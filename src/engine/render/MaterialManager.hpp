@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace NoMoreDay::render {
 
@@ -32,7 +33,8 @@ public:
 
   static constexpr int MAX_MATERIALS = 256;
   static constexpr int PRESET_RESERVE = 8;
-  static constexpr int MATERIAL_SCHEMA_VERSION = 1;
+  static constexpr int MATERIAL_SCHEMA_MIN_VERSION = 1;
+  static constexpr int MATERIAL_SCHEMA_VERSION = 2;
 
 private:
   MaterialManager() = default;
@@ -40,14 +42,15 @@ private:
   int RegisterPresetMaterial(int id, const MaterialInstance &mat,
                              const std::string &name);
   void RegisterPresets();
-  [[nodiscard]] components::GPUMaterialData ToGpuData(
+  [[nodiscard]] components::GPUMaterialDataV2 ToGpuData(
       const MaterialInstance &material) const;
   void MarkSlot(int id, const MaterialInstance &material, const std::string &name);
 
   std::array<MaterialInstance, MAX_MATERIALS> m_materials{};
-  std::array<components::GPUMaterialData, MAX_MATERIALS> m_gpuMaterials{};
+  std::array<components::GPUMaterialDataV2, MAX_MATERIALS> m_gpuMaterials{};
   std::array<bool, MAX_MATERIALS> m_registered{};
   std::unordered_map<std::string, int> m_nameToId;
+  std::unordered_set<std::string> m_v1WarnedAssets;
 
   int m_materialCount = 0;
   int m_nextDynamicId = PRESET_RESERVE;

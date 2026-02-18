@@ -5,8 +5,10 @@
 #include "engine/render/core/QualityTierManager.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <fstream>
+#include <memory>
 #include <nlohmann/json.hpp>
 
 namespace NoMoreDay::render {
@@ -14,94 +16,326 @@ namespace {
 
 using json = nlohmann::json;
 
+constexpr std::array<const char *, 14> kSchemaV2RequiredFields = {
+    "name",          "baseColor", "emissive",     "emissiveIntensity",
+    "distortion",    "blendMode", "shader",       "textureSlots",
+    "normalMapSlot", "roughness", "specular",     "ao",
+    "heightBias",    "detailNormalScale"};
+
+constexpr std::array<const char *, 14> kSchemaV2AllowedFields = {
+    "name",          "baseColor", "emissive",     "emissiveIntensity",
+    "distortion",    "blendMode", "shader",       "textureSlots",
+    "normalMapSlot", "roughness", "specular",     "ao",
+    "heightBias",    "detailNormalScale"};
+
 std::string ToLower(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
   return value;
 }
 
-BlendMode ParseBlendMode(const json &item) {
-  if (!item.contains("blendMode") || !item["blendMode"].is_string()) {
-    return BlendMode::Alpha;
+bool ContainsField(const json &item, const char *field) {
+  return item.contains(field);
+}
+
+bool IsSchemaV2AllowedField(const std::string &field) {
+  return std::find_if(
+             kSchemaV2AllowedFields.begin(), kSchemaV2AllowedFields.end(),
+             [&](const char *value) { return field == value; }) !=
+         kSchemaV2AllowedFields.end();
+}
+
+bool ParseBlendMode(const json &item, BlendMode &out, bool strict,
+                    std::string &error) {
+  if (!ContainsField(item, "blendMode")) {
+    if (strict) {
+      error = "missing required field 'blendMode'";
+      return false;
+    }
+    out = BlendMode::Alpha;
+    return true;
+  }
+  if (!item["blendMode"].is_string()) {
+    error = "field 'blendMode' must be string";
+    return false;
   }
 
   const std::string blend = ToLower(item["blendMode"].get<std::string>());
   if (blend == "additive") {
-    return BlendMode::Additive;
+    out = BlendMode::Additive;
+    return true;
   }
   if (blend == "multiply") {
-    return BlendMode::Multiply;
+    out = BlendMode::Multiply;
+    return true;
   }
-  return BlendMode::Alpha;
+  if (blend == "alpha") {
+    out = BlendMode::Alpha;
+    return true;
+  }
+  if (strict) {
+    error = "field 'blendMode' has unsupported value '" + blend + "'";
+    return false;
+  }
+
+  out = BlendMode::Alpha;
+  return true;
 }
 
-ShaderVariant ParseShaderVariant(const json &item) {
-  if (!item.contains("shader") || !item["shader"].is_string()) {
-    return ShaderVariant::Default;
+bool ParseShaderVariant(const json &item, ShaderVariant &out, bool strict,
+                        std::string &error) {
+  if (!ContainsField(item, "shader")) {
+    if (strict) {
+      error = "missing required field 'shader'";
+      return false;
+    }
+    out = ShaderVariant::Default;
+    return true;
+  }
+  if (!item["shader"].is_string()) {
+    error = "field 'shader' must be string";
+    return false;
   }
 
   const std::string shader = ToLower(item["shader"].get<std::string>());
   if (shader == "ink") {
-    return ShaderVariant::Ink;
+    out = ShaderVariant::Ink;
+    return true;
   }
   if (shader == "hologram") {
-    return ShaderVariant::Hologram;
+    out = ShaderVariant::Hologram;
+    return true;
   }
   if (shader == "fire") {
-    return ShaderVariant::Fire;
+    out = ShaderVariant::Fire;
+    return true;
   }
   if (shader == "ice") {
-    return ShaderVariant::Ice;
+    out = ShaderVariant::Ice;
+    return true;
   }
   if (shader == "lightning") {
-    return ShaderVariant::Lightning;
+    out = ShaderVariant::Lightning;
+    return true;
   }
   if (shader == "dissolve") {
-    return ShaderVariant::Dissolve;
+    out = ShaderVariant::Dissolve;
+    return true;
   }
-  return ShaderVariant::Default;
+  if (shader == "default") {
+    out = ShaderVariant::Default;
+    return true;
+  }
+  if (strict) {
+    error = "field 'shader' has unsupported value '" + shader + "'";
+    return false;
+  }
+
+  out = ShaderVariant::Default;
+  return true;
 }
 
-void ParseBaseColor(const json &item, MaterialInstance &material) {
-  if (!item.contains("baseColor") || !item["baseColor"].is_array()) {
-    return;
+bool ParseFloat(const json &item, const char *field, float &out, bool strict,
+                std::string &error) {
+  if (!ContainsField(item, field)) {
+    if (strict) {
+      error = std::string("missing required field '") + field + "'";
+      return false;
+    }
+    return true;
+  }
+  const json &node = item[field];
+  if (!node.is_number()) {
+    error = std::string("field '") + field + "' must be number";
+    return false;
+  }
+  out = node.get<float>();
+  return true;
+}
+
+bool ParseInt16(const json &item, const char *field, int16_t &out, bool strict,
+                std::string &error) {
+  if (!ContainsField(item, field)) {
+    if (strict) {
+      error = std::string("missing required field '") + field + "'";
+      return false;
+    }
+    return true;
+  }
+  const json &node = item[field];
+  if (!node.is_number_integer()) {
+    error = std::string("field '") + field + "' must be integer";
+    return false;
+  }
+  out = static_cast<int16_t>(node.get<int>());
+  return true;
+}
+
+bool ParseBaseColor(const json &item, MaterialInstance &material, bool strict,
+                    std::string &error) {
+  if (!ContainsField(item, "baseColor")) {
+    if (strict) {
+      error = "missing required field 'baseColor'";
+      return false;
+    }
+    return true;
+  }
+  const json &arr = item["baseColor"];
+  if (!arr.is_array() || arr.size() != 4) {
+    error = "field 'baseColor' must be float[4]";
+    return false;
+  }
+  for (size_t i = 0; i < arr.size(); ++i) {
+    if (!arr[i].is_number()) {
+      error = "field 'baseColor' must contain numbers";
+      return false;
+    }
   }
 
-  const json &arr = item["baseColor"];
-  if (arr.size() != 4) {
-    return;
-  }
   material.baseColorR = arr[0].get<float>();
   material.baseColorG = arr[1].get<float>();
   material.baseColorB = arr[2].get<float>();
   material.baseColorA = arr[3].get<float>();
+  return true;
 }
 
-void ParseEmissive(const json &item, MaterialInstance &material) {
-  if (item.contains("emissive") && item["emissive"].is_array() &&
-      item["emissive"].size() == 3) {
+bool ParseEmissive(const json &item, MaterialInstance &material, bool strict,
+                   std::string &error) {
+  if (!ContainsField(item, "emissive")) {
+    if (strict) {
+      error = "missing required field 'emissive'";
+      return false;
+    }
+  } else {
     const json &arr = item["emissive"];
+    if (!arr.is_array() || arr.size() != 3) {
+      error = "field 'emissive' must be float[3]";
+      return false;
+    }
+    for (size_t i = 0; i < arr.size(); ++i) {
+      if (!arr[i].is_number()) {
+        error = "field 'emissive' must contain numbers";
+        return false;
+      }
+    }
     material.emissiveR = arr[0].get<float>();
     material.emissiveG = arr[1].get<float>();
     material.emissiveB = arr[2].get<float>();
   }
-  if (item.contains("emissiveIntensity")) {
-    material.emissiveIntensity = item.value("emissiveIntensity", 0.0f);
-  }
+
+  return ParseFloat(item, "emissiveIntensity", material.emissiveIntensity, strict,
+                    error);
 }
 
-void ParseTextureSlots(const json &item, MaterialInstance &material) {
-  if (!item.contains("textureSlots") || !item["textureSlots"].is_array()) {
-    return;
+bool ParseTextureSlots(const json &item, MaterialInstance &material, bool strict,
+                       std::string &error) {
+  if (!ContainsField(item, "textureSlots")) {
+    if (strict) {
+      error = "missing required field 'textureSlots'";
+      return false;
+    }
+    return true;
   }
-
   const json &arr = item["textureSlots"];
-  if (arr.size() != 4) {
-    return;
+  if (!arr.is_array() || arr.size() != 4) {
+    error = "field 'textureSlots' must be int[4]";
+    return false;
   }
   for (size_t i = 0; i < 4; ++i) {
+    if (!arr[i].is_number_integer()) {
+      error = "field 'textureSlots' must contain integers";
+      return false;
+    }
     material.textureSlots[i] = static_cast<int16_t>(arr[i].get<int>());
   }
+  return true;
+}
+
+bool ValidateV2MaterialObject(const json &item, std::string &error) {
+  if (!item.is_object()) {
+    error = "material entry must be object";
+    return false;
+  }
+
+  for (auto it = item.begin(); it != item.end(); ++it) {
+    if (!IsSchemaV2AllowedField(it.key())) {
+      error = "unsupported field '" + it.key() + "'";
+      return false;
+    }
+  }
+
+  for (const char *field : kSchemaV2RequiredFields) {
+    if (!item.contains(field)) {
+      error = std::string("missing required field '") + field + "'";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool ParseMaterialEntry(const json &item, int schemaVersion, MaterialInstance &material,
+                        std::string &name, std::string &error) {
+  const bool strict = schemaVersion >= MaterialManager::MATERIAL_SCHEMA_VERSION;
+  material = MaterialPresets::Default();
+
+  if (strict && !ValidateV2MaterialObject(item, error)) {
+    return false;
+  }
+
+  if (!item.is_object()) {
+    error = "material entry must be object";
+    return false;
+  }
+  if (!ContainsField(item, "name") || !item["name"].is_string()) {
+    error = "field 'name' is required and must be string";
+    return false;
+  }
+  name = item["name"].get<std::string>();
+  if (name.empty()) {
+    error = "field 'name' cannot be empty";
+    return false;
+  }
+
+  if (!ParseBlendMode(item, material.blendMode, strict, error)) {
+    return false;
+  }
+  if (!ParseShaderVariant(item, material.shader, strict, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "distortion", material.distortion, strict, error)) {
+    return false;
+  }
+  if (!ParseBaseColor(item, material, strict, error)) {
+    return false;
+  }
+  if (!ParseEmissive(item, material, strict, error)) {
+    return false;
+  }
+  if (!ParseTextureSlots(item, material, strict, error)) {
+    return false;
+  }
+  if (!ParseInt16(item, "normalMapSlot", material.normalMapSlot, strict, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "roughness", material.roughness, strict, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "specular", material.specular, strict, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "ao", material.ao, strict, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "heightBias", material.heightBias, strict, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "detailNormalScale", material.detailNormalScale, strict,
+                  error)) {
+    return false;
+  }
+
+  return true;
 }
 
 } // namespace
@@ -124,9 +358,10 @@ void MaterialManager::Initialize() {
   m_dirty = true;
   m_jsonPath.clear();
   m_lastModified = {};
+  m_v1WarnedAssets.clear();
 
   const MaterialInstance defaultMaterial = MaterialPresets::Default();
-  const components::GPUMaterialData defaultGpu = ToGpuData(defaultMaterial);
+  const components::GPUMaterialDataV2 defaultGpu = ToGpuData(defaultMaterial);
   m_materials.fill(defaultMaterial);
   m_gpuMaterials.fill(defaultGpu);
 
@@ -134,7 +369,7 @@ void MaterialManager::Initialize() {
 
   if (utils::GPUUtils::IsInitialized()) {
     m_ssbo.Create(static_cast<size_t>(MAX_MATERIALS) *
-                      sizeof(components::GPUMaterialData),
+                      sizeof(components::GPUMaterialDataV2),
                   nullptr, RL_DYNAMIC_DRAW);
   }
 
@@ -152,6 +387,7 @@ void MaterialManager::Shutdown() {
   m_dirty = true;
   m_jsonPath.clear();
   m_lastModified = {};
+  m_v1WarnedAssets.clear();
   m_initialized = false;
 }
 
@@ -244,29 +480,48 @@ int MaterialManager::LoadFromJson(const std::string &path) {
     return 0;
   }
 
-  const int schemaVersion = document.value("material_schema_version", 0);
-  if (schemaVersion != MaterialManager::MATERIAL_SCHEMA_VERSION) {
-    LOG_ERROR("MaterialManager: unsupported schema {} in {} (expected {})",
-              schemaVersion, path, MaterialManager::MATERIAL_SCHEMA_VERSION);
+  if (!document.contains("material_schema_version") ||
+      !document["material_schema_version"].is_number_integer()) {
+    LOG_ERROR(
+        "MaterialManager: schema_validation_failed path={} reason=missing_or_invalid_material_schema_version",
+        path);
     return 0;
+  }
+
+  const int schemaVersion = document["material_schema_version"].get<int>();
+  if (schemaVersion < MATERIAL_SCHEMA_MIN_VERSION ||
+      schemaVersion > MATERIAL_SCHEMA_VERSION) {
+    LOG_ERROR(
+        "MaterialManager: schema_validation_failed path={} reason=unsupported_schema version={} supported=[{},{}]",
+        path, schemaVersion, MATERIAL_SCHEMA_MIN_VERSION, MATERIAL_SCHEMA_VERSION);
+    return 0;
+  }
+  if (schemaVersion == MATERIAL_SCHEMA_MIN_VERSION &&
+      m_v1WarnedAssets.insert(path).second) {
+    LOG_WARN(
+        "MaterialManager: schema_compatibility path={} schema={} action=apply_defaults target_schema={}",
+        path, schemaVersion, MATERIAL_SCHEMA_VERSION);
   }
 
   if (!document.contains("materials") || !document["materials"].is_array()) {
-    LOG_WARN("MaterialManager: no 'materials' array in {}", path);
+    LOG_WARN("MaterialManager: schema_validation_failed path={} reason=no_materials_array",
+             path);
     return 0;
   }
 
-  auto stagedMaterials = m_materials;
-  auto stagedGpuMaterials = m_gpuMaterials;
-  auto stagedRegistered = m_registered;
+  auto stagedMaterials = std::make_unique<decltype(m_materials)>(m_materials);
+  auto stagedGpuMaterials =
+      std::make_unique<decltype(m_gpuMaterials)>(m_gpuMaterials);
+  auto stagedRegistered =
+      std::make_unique<decltype(m_registered)>(m_registered);
   auto stagedNameToId = m_nameToId;
 
   const MaterialInstance defaultMaterial = MaterialPresets::Default();
-  const components::GPUMaterialData defaultGpu = ToGpuData(defaultMaterial);
+  const components::GPUMaterialDataV2 defaultGpu = ToGpuData(defaultMaterial);
   for (int id = PRESET_RESERVE; id < MAX_MATERIALS; ++id) {
-    stagedMaterials[id] = defaultMaterial;
-    stagedGpuMaterials[id] = defaultGpu;
-    stagedRegistered[id] = false;
+    (*stagedMaterials)[id] = defaultMaterial;
+    (*stagedGpuMaterials)[id] = defaultGpu;
+    (*stagedRegistered)[id] = false;
   }
 
   for (auto it = stagedNameToId.begin(); it != stagedNameToId.end();) {
@@ -280,7 +535,7 @@ int MaterialManager::LoadFromJson(const std::string &path) {
   int stagedMaterialCount = 0;
   int stagedGpuUploadCount = 0;
   for (int id = 0; id < MAX_MATERIALS; ++id) {
-    if (stagedRegistered[id]) {
+    if ((*stagedRegistered)[id]) {
       ++stagedMaterialCount;
       stagedGpuUploadCount = std::max(stagedGpuUploadCount, id + 1);
     }
@@ -288,7 +543,7 @@ int MaterialManager::LoadFromJson(const std::string &path) {
 
   int stagedNextDynamicId = PRESET_RESERVE;
   while (stagedNextDynamicId < MAX_MATERIALS &&
-         stagedRegistered[stagedNextDynamicId]) {
+         (*stagedRegistered)[stagedNextDynamicId]) {
     ++stagedNextDynamicId;
   }
 
@@ -298,13 +553,13 @@ int MaterialManager::LoadFromJson(const std::string &path) {
       return;
     }
 
-    if (!stagedRegistered[id]) {
-      stagedRegistered[id] = true;
+    if (!(*stagedRegistered)[id]) {
+      (*stagedRegistered)[id] = true;
       ++stagedMaterialCount;
     }
 
-    stagedMaterials[id] = material;
-    stagedGpuMaterials[id] = ToGpuData(material);
+    (*stagedMaterials)[id] = material;
+    (*stagedGpuMaterials)[id] = ToGpuData(material);
     stagedGpuUploadCount = std::max(stagedGpuUploadCount, id + 1);
     if (!name.empty()) {
       stagedNameToId[name] = id;
@@ -322,7 +577,7 @@ int MaterialManager::LoadFromJson(const std::string &path) {
     }
 
     while (stagedNextDynamicId < MAX_MATERIALS &&
-           stagedRegistered[stagedNextDynamicId]) {
+           (*stagedRegistered)[stagedNextDynamicId]) {
       ++stagedNextDynamicId;
     }
     if (stagedNextDynamicId >= MAX_MATERIALS) {
@@ -336,33 +591,29 @@ int MaterialManager::LoadFromJson(const std::string &path) {
     return id;
   };
 
+  const bool strictSchema = schemaVersion >= MATERIAL_SCHEMA_VERSION;
   int loaded = 0;
-  for (const auto &item : document["materials"]) {
-    if (!item.is_object()) {
-      continue;
-    }
-    if (!item.contains("name") || !item["name"].is_string()) {
-      LOG_WARN("MaterialManager: skipped material without valid name");
-      continue;
-    }
-
-    try {
-      MaterialInstance material = MaterialPresets::Default();
-      material.blendMode = ParseBlendMode(item);
-      material.shader = ParseShaderVariant(item);
-      material.distortion = item.value("distortion", 0.0f);
-
-      ParseBaseColor(item, material);
-      ParseEmissive(item, material);
-      ParseTextureSlots(item, material);
-
-      const std::string name = item["name"].get<std::string>();
-      if (stageRegisterMaterial(material, name) >= 0) {
-        ++loaded;
+  for (size_t index = 0; index < document["materials"].size(); ++index) {
+    const auto &item = document["materials"][index];
+    MaterialInstance material = MaterialPresets::Default();
+    std::string name;
+    std::string error;
+    if (!ParseMaterialEntry(item, schemaVersion, material, name, error)) {
+      if (strictSchema) {
+        LOG_ERROR(
+            "MaterialManager: schema_validation_failed path={} entry={} reason={}",
+            path, index, error);
+        return 0;
       }
-    } catch (const std::exception &e) {
-      LOG_WARN("MaterialManager: failed to parse one material entry ({})",
-               e.what());
+
+      LOG_WARN(
+          "MaterialManager: schema_compatibility_skipped path={} entry={} reason={}",
+          path, index, error);
+      continue;
+    }
+
+    if (stageRegisterMaterial(material, name) >= 0) {
+      ++loaded;
     }
   }
 
@@ -373,16 +624,17 @@ int MaterialManager::LoadFromJson(const std::string &path) {
   }
   m_jsonPath = path;
 
-  m_materials = std::move(stagedMaterials);
-  m_gpuMaterials = std::move(stagedGpuMaterials);
-  m_registered = std::move(stagedRegistered);
+  m_materials = std::move(*stagedMaterials);
+  m_gpuMaterials = std::move(*stagedGpuMaterials);
+  m_registered = std::move(*stagedRegistered);
   m_nameToId = std::move(stagedNameToId);
   m_materialCount = stagedMaterialCount;
   m_nextDynamicId = stagedNextDynamicId;
   m_gpuUploadCount = stagedGpuUploadCount;
   m_dirty = true;
 
-  LOG_INFO("MaterialManager: loaded {} materials from {}", loaded, path);
+  LOG_INFO("MaterialManager: loaded {} materials from {} (schema={})", loaded,
+           path, schemaVersion);
   return loaded;
 }
 
@@ -437,13 +689,13 @@ void MaterialManager::SyncToGPU() {
   }
   if (m_ssbo.GetId() == 0) {
     m_ssbo.Create(static_cast<size_t>(MAX_MATERIALS) *
-                      sizeof(components::GPUMaterialData),
+                      sizeof(components::GPUMaterialDataV2),
                   nullptr, RL_DYNAMIC_DRAW);
   }
 
   const int uploadCount = std::max(1, m_gpuUploadCount);
   const size_t bytes =
-      static_cast<size_t>(uploadCount) * sizeof(components::GPUMaterialData);
+      static_cast<size_t>(uploadCount) * sizeof(components::GPUMaterialDataV2);
   m_ssbo.OrphanAndUpload(m_gpuMaterials.data(), bytes, RL_DYNAMIC_DRAW);
   m_dirty = false;
 }
@@ -455,24 +707,22 @@ void MaterialManager::BindSSBO(NoMoreDay::RenderConstants::Binding binding) cons
   m_ssbo.BindBase(static_cast<unsigned int>(binding));
 }
 
-components::GPUMaterialData
+components::GPUMaterialDataV2
 MaterialManager::ToGpuData(const MaterialInstance &material) const {
-  components::GPUMaterialData gpu = {};
-  gpu.baseColorR = material.baseColorR;
-  gpu.baseColorG = material.baseColorG;
-  gpu.baseColorB = material.baseColorB;
-  gpu.baseColorA = material.baseColorA;
-  gpu.emissiveR = material.emissiveR;
-  gpu.emissiveG = material.emissiveG;
-  gpu.emissiveB = material.emissiveB;
-  gpu.emissiveIntensity = material.emissiveIntensity;
-  gpu.distortion = material.distortion;
-  gpu.blendMode = static_cast<uint32_t>(material.blendMode);
-  gpu.shaderVariant = static_cast<uint32_t>(material.shader);
-  gpu.textureSlot0 = material.textureSlots[0];
-  gpu.textureSlot1 = material.textureSlots[1];
-  gpu.textureSlot2 = material.textureSlots[2];
-  gpu.textureSlot3 = material.textureSlots[3];
+  components::GPUMaterialDataV2 gpu = {};
+  gpu.baseColor = {material.baseColorR, material.baseColorG, material.baseColorB,
+                   material.baseColorA};
+  gpu.emissiveAndIntensity = {material.emissiveR, material.emissiveG,
+                              material.emissiveB, material.emissiveIntensity};
+  gpu.pbrLite = {material.roughness, material.specular, material.ao,
+                 material.heightBias};
+  gpu.textureSlots = {static_cast<float>(material.textureSlots[0]),
+                      static_cast<float>(material.normalMapSlot),
+                      static_cast<float>(material.textureSlots[2]),
+                      static_cast<float>(material.textureSlots[3])};
+  gpu.detailParams = {material.detailNormalScale,
+                      static_cast<float>(material.blendMode),
+                      static_cast<float>(material.shader), material.distortion};
   return gpu;
 }
 

@@ -48,12 +48,31 @@ struct ClusterLightIndexData {
     uint lightIndex;
 };
 
+struct ClusterPackedLightData {
+    float posX;
+    float posY;
+    float radius;
+    float invRadiusSq;
+    float colorTimesIntensityR;
+    float colorTimesIntensityG;
+    float colorTimesIntensityB;
+    float spotCosHalfAngle;
+    float dirX;
+    float dirY;
+    float reserved0;
+    uint lightType;
+};
+
 layout(std430, binding = 1) readonly buffer ClusterHeaderBuffer {
     ClusterHeaderData clusterHeaders[];
 };
 
 layout(std430, binding = 2) readonly buffer ClusterIndexBuffer {
     ClusterLightIndexData clusterIndices[];
+};
+
+layout(std430, binding = 5) readonly buffer ClusterPackedLightBuffer {
+    ClusterPackedLightData clusterLights[];
 };
 
 const int kRenderLayerMin = -32;
@@ -143,6 +162,41 @@ void accumulateSingleLight(vec2 worldPos, float shadowFactor, uint lightIndex,
     totalLight += lightColor * intensity * atten * spotFactor * shadowFactor;
 }
 
+void accumulatePackedLight(vec2 worldPos, float shadowFactor,
+                           ClusterPackedLightData light,
+                           inout vec3 totalLight) {
+    vec2 lightPos = vec2(light.posX, light.posY);
+    vec2 delta = worldPos - lightPos;
+    float normalizedDistSq = dot(delta, delta) * light.invRadiusSq;
+    if (normalizedDistSq >= 1.0) {
+        return;
+    }
+
+    float atten = 1.0 - normalizedDistSq;
+    atten *= atten;
+    vec3 lightColorTimesIntensity =
+        vec3(light.colorTimesIntensityR, light.colorTimesIntensityG,
+             light.colorTimesIntensityB);
+    uint lightType = light.lightType;
+
+    if (lightType == 2u) {
+        totalLight += lightColorTimesIntensity * atten;
+        return;
+    }
+
+    float spotFactor = 1.0;
+    if (lightType == 1u) {
+        vec2 toPixel = worldPos - lightPos;
+        spotFactor = calcSpotFactor(vec2(light.dirX, light.dirY), toPixel,
+                                    light.spotCosHalfAngle);
+        if (spotFactor <= 0.0) {
+            return;
+        }
+    }
+
+    totalLight += lightColorTimesIntensity * atten * spotFactor * shadowFactor;
+}
+
 void main() {
     vec4 sceneColor = texture(uSceneTex, vTexCoord);
     vec2 worldPos = vTexCoord * uScreenSize + uCameraOffset;
@@ -158,8 +212,8 @@ void main() {
         if (clusterId >= 0) {
             ClusterHeaderData header = clusterHeaders[clusterId];
             for (uint i = 0u; i < header.count; ++i) {
-                uint lightIndex = clusterIndices[header.offset + i].lightIndex;
-                accumulateSingleLight(worldPos, shadowFactor, lightIndex, totalLight);
+                ClusterPackedLightData light = clusterLights[header.offset + i];
+                accumulatePackedLight(worldPos, shadowFactor, light, totalLight);
             }
         }
     } else {

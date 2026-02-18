@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "raymath.h"
 #include <iostream>
 #include <vector>
@@ -260,6 +261,50 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   if (locTime != -1) {
       float time = (float)GetTime();
       rlSetUniform(locTime, &time, RL_SHADER_UNIFORM_FLOAT, 1);
+  }
+
+  int materialQualityLevel = 0;
+  int normalLightingEnabled = 0;
+  int specularEnabled = 0;
+  float shadowFactor = 1.0f;
+  if (core::QualityTierManager::Get().IsInitialized()) {
+    const auto tier = core::QualityTierManager::Get().GetTier();
+    const auto &config = core::QualityTierManager::Get().GetConfig();
+    if (tier == core::QualityTier::Low || tier == core::QualityTier::Medium) {
+      materialQualityLevel = 0;
+      normalLightingEnabled = 0;
+      specularEnabled = 0;
+    } else if (tier == core::QualityTier::High) {
+      materialQualityLevel = std::max(1, static_cast<int>(config.materialQualityLevel));
+      normalLightingEnabled = 1;
+      specularEnabled = 0;
+    } else {
+      materialQualityLevel = std::max(2, static_cast<int>(config.materialQualityLevel));
+      normalLightingEnabled = config.normalLightingEnabled ? 1 : 0;
+      specularEnabled = config.specularEnabled ? 1 : 0;
+    }
+    shadowFactor = config.shadowEnabled ? 0.95f : 1.0f;
+  }
+
+  const int locMaterialQuality =
+      rlGetLocationUniform(m_renderShader.id, "uMaterialQualityLevel");
+  if (locMaterialQuality != -1) {
+    rlSetUniform(locMaterialQuality, &materialQualityLevel, RL_SHADER_UNIFORM_INT,
+                 1);
+  }
+  const int locNormalLighting =
+      rlGetLocationUniform(m_renderShader.id, "uNormalLightingEnabled");
+  if (locNormalLighting != -1) {
+    rlSetUniform(locNormalLighting, &normalLightingEnabled, RL_SHADER_UNIFORM_INT,
+                 1);
+  }
+  const int locSpecular = rlGetLocationUniform(m_renderShader.id, "uSpecularEnabled");
+  if (locSpecular != -1) {
+    rlSetUniform(locSpecular, &specularEnabled, RL_SHADER_UNIFORM_INT, 1);
+  }
+  const int locShadowFactor = rlGetLocationUniform(m_renderShader.id, "uShadowFactor");
+  if (locShadowFactor != -1) {
+    rlSetUniform(locShadowFactor, &shadowFactor, RL_SHADER_UNIFORM_FLOAT, 1);
   }
 
   // 5. EXPLICITLY BIND ALL SSBOs

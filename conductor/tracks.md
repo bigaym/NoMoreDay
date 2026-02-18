@@ -59,21 +59,22 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 > **Type**: feature  
 > **Step**: C (第 3-5 周)  
 > **Depends On**: `v3_baseline_contracts_20260216`  
-> **Focus**: Compute-driven light culling + z-layer mapping; no-regression gate enabled, `>=5%` uplift deferred to follow-up optimization.  
+> **Focus**: Compute-driven light culling + z-layer mapping; no-regression gate enabled, uplift recovery delegated to Step F release gate.  
 > **Tasks**: 25/25
 
 ---
 
-## [ ] Track: V3 Material Lighting Depth (v3_material_lighting_depth_20260215) [PENDING]
+## [x] Track: V3 Material Lighting Depth (v3_material_lighting_depth_20260215) [COMPLETED]
 
-> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature  
 > **Step**: D (第 4-6 周)  
 > **Depends On**: `v3_baseline_contracts_20260216`, `v3_shadow_pipeline_20260215`, `v3_clustered_lighting_20260215`  
-> **Carry-Over**: 吸收 clustered 128-light 性能优化目标，并在 Material 2.0 集成后恢复 `>=5%` 提升门禁。  
+> **Carry-Over Migration**: strict clustered 128-light `>=5%` uplift gate is moved to `v3_validation_and_release_gate_20260215` (`F4.6`).  
+> **Carry-Over**: clustered+material coupling optimization and evidence are tracked in this track; release uplift gate moved to Step F.
 > **Focus**: Material 2.0 schema、BRDF-lite shader、Texture2DArray 管理、双缓冲热重载。  
-> **Tasks**: 0/30
+> **Tasks**: 30/30
 
 ---
 
@@ -96,6 +97,7 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 > **Type**: quality  
 > **Step**: F (第 8-10 周)  
 > **Depends On**: ALL V3 feature tracks  
+> **Carry-Over Intake**: owns `v3_material_lighting_depth_20260215` D0.3 (`F4.6`).
 > **Focus**: 4 层门禁（功能/契约/性能/稳定性）、截图差异回归、30 分钟压力测试、风险验证、回退演练。  
 > **Tasks**: 0/37
 
@@ -154,11 +156,10 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ## Status Update (2026-02-18)
 
-### V3 Active Tracks (Total: 100 tasks)
+### V3 Active Tracks (Total: 70 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| v3_material_lighting_depth_20260215 | D | 5P / 30T | **PENDING (includes clustered carry-over)** |
 | v3_vfx_lighting_integration_20260215 | E | 6P / 33T | **PENDING** |
 | v3_validation_and_release_gate_20260215 | F | 8P / 37T | **PENDING** |
 
@@ -167,6 +168,7 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 - v3_clustered_lighting_20260215: **COMPLETED & ARCHIVED**
 - v3_baseline_contracts_20260216: **COMPLETED & ARCHIVED**
 - v3_shadow_pipeline_20260215: **COMPLETED & ARCHIVED**
+- v3_material_lighting_depth_20260215: **COMPLETED & ARCHIVED**
 - render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
 - gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**

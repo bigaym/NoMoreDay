@@ -26,12 +26,13 @@ constexpr std::array<BindingEntry, 11> kGlobalBindings = {{
 }};
 
 // Pass-local domains are isolated; values may overlap across different domains.
-constexpr std::array<BindingEntry, 5> kLightCullingBindings = {{
+constexpr std::array<BindingEntry, 6> kLightCullingBindings = {{
     {"LIGHT_LIST_IN", 0u},
     {"CLUSTER_HEADER_OUT", 1u},
     {"CLUSTER_INDEX_OUT", 2u},
     {"LIGHT_BOUNDS_IN", 3u},
     {"CLUSTER_COUNTER", 4u},
+    {"CLUSTER_LIGHT_OUT", 5u},
 }};
 
 constexpr std::array<BindingEntry, 2> kShadowPrepareBindings = {{

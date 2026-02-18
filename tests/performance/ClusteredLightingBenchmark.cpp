@@ -61,9 +61,10 @@ void PopulateLights(entt::registry &registry, int count, float radius = 120.0f,
   for (int i = 0; i < count; ++i) {
     const int row = i / cols;
     const int col = i % cols;
+    const float posX = startX + static_cast<float>(col) * spacing;
+    const float posY = startY + static_cast<float>(row) * spacing;
     const entt::entity e = registry.create();
-    registry.emplace<Position>(e, startX + static_cast<float>(col) * spacing,
-                               startY + static_cast<float>(row) * spacing);
+    registry.emplace<Position>(e, posX, posY);
 
     auto &light = registry.emplace<NoMoreDay::LightComponent>(e);
     light.enabled = true;

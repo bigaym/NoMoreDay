@@ -4,12 +4,21 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V3 Material Lighting Depth (v3_material_lighting_depth_20260215)
+- **Folder:** [./conductor/archive/v3_material_lighting_depth_20260215/](./conductor/archive/v3_material_lighting_depth_20260215/)
+- **Description:** 完成 Material 2.0：schema v2、BRDF-lite、Texture2DArray 管理、双缓冲热重载，并完成 clustered+material 耦合优化（packed light payload）。
+- **Status:** COMPLETED (2026-02-18)
+- **Priority:** P1
+- **Archive Reason:** D1-D5 与 DoD 验证完成；clustered 128-light `>=5%` uplift 门禁责任迁移至 `v3_validation_and_release_gate_20260215` (`F4.6`)。
+
+---
+
 ## [x] Track: V3 Clustered 2D Lighting (v3_clustered_lighting_20260215)
 - **Folder:** [./conductor/archive/v3_clustered_lighting_20260215/](./conductor/archive/v3_clustered_lighting_20260215/)
 - **Description:** 完成 V3 Clustered Lighting：cluster 数据结构与 ABI、compute culling pass、LightingPass clustered 集成、fallback/同步屏障、单元/集成/性能矩阵。
 - **Status:** COMPLETED (2026-02-18)
 - **Priority:** P0
-- **Archive Reason:** P1-P4 已实现并验证；性能门禁调整为无回归硬约束，`>=5%` 提升目标并入 `v3_material_lighting_depth_20260215` 持续优化。
+- **Archive Reason:** P1-P4 已实现并验证；性能门禁调整为无回归硬约束，`>=5%` 提升目标由 `v3_validation_and_release_gate_20260215` (`F4.6`) 持续收敛。
 
 ---
 

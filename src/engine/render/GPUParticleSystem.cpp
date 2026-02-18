@@ -5,6 +5,7 @@
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/particle/ForceFieldManager.hpp"
 #include "engine/render/particle/ParticleTextureManager.hpp"
+#include "engine/render/resource/TextureArrayManager.hpp"
 #include "game/components/Common.hpp"
 
 // RenderConstants::ParticleCS defines binding point semantics
@@ -160,6 +161,8 @@ void GPUParticleSystem::Init(int maxParticles) {
       "assets/shaders/textures/particles/spark_01.png");
   render::ForceFieldManager::Get().Init(
       NoMoreDay::Constants::GPU::MAX_FORCE_FIELDS);
+  render::TextureArrayManager::Get().Initialize(
+      64, NoMoreDay::Constants::GPU::TEXTURE_LAYER_SIZE);
 
   using namespace NoMoreDay::RenderConstants;
   m_initialized = true;
@@ -209,6 +212,7 @@ void GPUParticleSystem::Shutdown() {
   m_subEmissionBuffer.Release();
   m_subEmitCountBuffer.Destroy();
   render::ParticleTextureManager::Get().Shutdown();
+  render::TextureArrayManager::Get().Shutdown();
   render::ForceFieldManager::Get().Shutdown();
 
   m_initialized = false;
@@ -286,6 +290,17 @@ void GPUParticleSystem::LoadShaders() {
     m_renderAtlasLoc = GetShaderLocation(m_renderShader, "particleAtlas");
     m_renderBlendPassLoc = GetShaderLocation(m_renderShader, "uBlendPass");
     m_renderMaterialCountLoc = GetShaderLocation(m_renderShader, "uMaterialCount");
+    m_renderNormalArrayLoc =
+        GetShaderLocation(m_renderShader, "materialNormalArray");
+    m_renderRoughnessArrayLoc =
+        GetShaderLocation(m_renderShader, "materialRoughnessArray");
+    m_renderMaterialQualityLoc =
+        GetShaderLocation(m_renderShader, "uMaterialQualityLevel");
+    m_renderNormalLightingEnabledLoc =
+        GetShaderLocation(m_renderShader, "uNormalLightingEnabled");
+    m_renderSpecularEnabledLoc =
+        GetShaderLocation(m_renderShader, "uSpecularEnabled");
+    m_renderShadowFactorLoc = GetShaderLocation(m_renderShader, "uShadowFactor");
   } else {
     LOG_ERROR("GPUParticleSystem: Render shader loading failed!");
   }
@@ -757,6 +772,69 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
     SetShaderValue(m_renderShader, m_renderMaterialCountLoc, &materialCount,
                    SHADER_UNIFORM_INT);
   }
+  int materialQualityLevel = 0;
+  int normalLightingEnabled = 0;
+  int specularEnabled = 0;
+  float shadowFactor = 1.0f;
+  if (render::core::QualityTierManager::Get().IsInitialized()) {
+    const auto tier = render::core::QualityTierManager::Get().GetTier();
+    const auto &cfg = render::core::QualityTierManager::Get().GetConfig();
+    if (tier == render::core::QualityTier::Low ||
+        tier == render::core::QualityTier::Medium) {
+      materialQualityLevel = 0;
+      normalLightingEnabled = 0;
+      specularEnabled = 0;
+    } else if (tier == render::core::QualityTier::High) {
+      materialQualityLevel = std::max(1, static_cast<int>(cfg.materialQualityLevel));
+      normalLightingEnabled = 1;
+      specularEnabled = 0;
+    } else {
+      materialQualityLevel = std::max(2, static_cast<int>(cfg.materialQualityLevel));
+      normalLightingEnabled = cfg.normalLightingEnabled ? 1 : 0;
+      specularEnabled = cfg.specularEnabled ? 1 : 0;
+    }
+    shadowFactor = cfg.shadowEnabled ? 0.95f : 1.0f;
+  }
+  if (m_renderMaterialQualityLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderMaterialQualityLoc,
+                   &materialQualityLevel, SHADER_UNIFORM_INT);
+  }
+  if (m_renderNormalLightingEnabledLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderNormalLightingEnabledLoc,
+                   &normalLightingEnabled, SHADER_UNIFORM_INT);
+  }
+  if (m_renderSpecularEnabledLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderSpecularEnabledLoc, &specularEnabled,
+                   SHADER_UNIFORM_INT);
+  }
+  if (m_renderShadowFactorLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderShadowFactorLoc, &shadowFactor,
+                   SHADER_UNIFORM_FLOAT);
+  }
+
+  const int normalUnit =
+      static_cast<int>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY);
+  if (m_renderNormalArrayLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderNormalArrayLoc, &normalUnit,
+                   SHADER_UNIFORM_INT);
+  }
+  const int roughnessUnit =
+      static_cast<int>(TextureUnit::TEX_MATERIAL_ROUGHNESS_ARRAY);
+  if (m_renderRoughnessArrayLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderRoughnessArrayLoc, &roughnessUnit,
+                   SHADER_UNIFORM_INT);
+  }
+
+  bool boundMaterialArrays = false;
+  if (materialQualityLevel > 0 && render::TextureArrayManager::Get().IsInitialized()) {
+    render::TextureArrayManager::Get().Bind(
+        render::TextureArraySemantic::Normal,
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));
+    render::TextureArrayManager::Get().Bind(
+        render::TextureArraySemantic::Roughness,
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_ROUGHNESS_ARRAY));
+    boundMaterialArrays = true;
+  }
   if (bindTextureAtlas) {
     render::ParticleTextureManager::Get().Bind(
         static_cast<uint32_t>(TextureUnit::TEX_PARTICLE_ATLAS));
@@ -804,6 +882,12 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
   if (bindTextureAtlas) {
     render::ParticleTextureManager::Get().Unbind(
         static_cast<uint32_t>(TextureUnit::TEX_PARTICLE_ATLAS));
+  }
+  if (boundMaterialArrays) {
+    render::TextureArrayManager::Get().Unbind(
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));
+    render::TextureArrayManager::Get().Unbind(
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_ROUGHNESS_ARRAY));
   }
   rlDisableVertexArray();
 }

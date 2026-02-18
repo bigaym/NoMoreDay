@@ -113,6 +113,9 @@ bool ClusteredLightingState::EnsureBufferCapacity(const uint32_t clusterCount,
   const size_t indexBytes =
       static_cast<size_t>(core::kMaxTotalClusteredLights) *
       sizeof(components::GPUClusterLightIndex);
+  const size_t packedLightBytes =
+      static_cast<size_t>(core::kMaxTotalClusteredLights) *
+      sizeof(components::GPUClusterPackedLight);
   const size_t boundsBytes =
       static_cast<size_t>(std::max(1u, maxLightBounds)) *
       sizeof(components::GPULightBounds);
@@ -125,6 +128,10 @@ bool ClusteredLightingState::EnsureBufferCapacity(const uint32_t clusterCount,
       m_clusterLightIndexBuffer.GetSize() < indexBytes) {
     m_clusterLightIndexBuffer.Create(indexBytes, nullptr, RL_DYNAMIC_DRAW);
   }
+  if (m_clusterPackedLightBuffer.GetId() == 0 ||
+      m_clusterPackedLightBuffer.GetSize() < packedLightBytes) {
+    m_clusterPackedLightBuffer.Create(packedLightBytes, nullptr, RL_DYNAMIC_DRAW);
+  }
   if (m_lightBoundsBuffer.GetId() == 0 || m_lightBoundsBuffer.GetSize() < boundsBytes) {
     m_lightBoundsBuffer.Create(boundsBytes, nullptr, RL_DYNAMIC_DRAW);
   }
@@ -135,6 +142,7 @@ bool ClusteredLightingState::EnsureBufferCapacity(const uint32_t clusterCount,
 
   const bool buffersReady = m_clusterHeaderBuffer.GetId() != 0 &&
                             m_clusterLightIndexBuffer.GetId() != 0 &&
+                            m_clusterPackedLightBuffer.GetId() != 0 &&
                             m_lightBoundsBuffer.GetId() != 0 &&
                             m_clusterCounterBuffer.GetId() != 0;
   if (!buffersReady) {
@@ -237,6 +245,7 @@ bool ClusteredLightingState::ReadBackClusterLightIndices() {
 void ClusteredLightingState::Shutdown() {
   m_clusterHeaderBuffer.Release();
   m_clusterLightIndexBuffer.Release();
+  m_clusterPackedLightBuffer.Release();
   m_lightBoundsBuffer.Release();
   m_clusterCounterBuffer.Release();
   m_clusterHeadersScratch.clear();

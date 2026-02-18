@@ -95,6 +95,12 @@ private:
     int m_renderAtlasLoc = -1;
     int m_renderBlendPassLoc = -1;
     int m_renderMaterialCountLoc = -1;
+    int m_renderNormalArrayLoc = -1;
+    int m_renderRoughnessArrayLoc = -1;
+    int m_renderMaterialQualityLoc = -1;
+    int m_renderNormalLightingEnabledLoc = -1;
+    int m_renderSpecularEnabledLoc = -1;
+    int m_renderShadowFactorLoc = -1;
     
     // VAO for quad rendering
     unsigned int m_quadVAO = 0;

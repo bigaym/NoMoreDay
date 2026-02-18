@@ -38,7 +38,8 @@
 - [ ] **F4.3**: 实现 stress_144 性能 profile 测试场景（极限场景 ≥144 FPS）。
 - [ ] **F4.4**: 实现 V3 新增 Pass 单独计时验证（LightCulling/Shadow/Lighting 各 Pass 预算达标）。
 - [ ] **F4.5**: 实现回归比较器：当前结果 vs 存储基线，>10% 回归触发阻断。
-- [ ] **F4.6**: 实现 ≥128 lights Clustered Lighting 专项对比（≥25% 改善验证）。
+- [ ] **F4.6**: 承接 `v3_material_lighting_depth_20260215` 的 D0.3：
+  在约定基准配置下恢复 clustered 128-light A/B 提升门禁到 `>=5%` mean improvement。
 
 ## Phase 5: 稳定性门禁（Stability Gate）
 

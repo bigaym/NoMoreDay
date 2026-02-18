@@ -114,12 +114,13 @@
     "exposed_binding_macro": "MATERIAL_SSBO_BINDING",
     "fields": [
       { "type": "vec4", "name": "baseColor" },
-      { "type": "vec4", "name": "emissive" },
-      { "type": "float", "name": "distortion" },
-      { "type": "uint", "name": "blendMode" },
-      { "type": "uint", "name": "shaderVariant" },
-      { "type": "uint", "name": "flags" },
-      { "type": "ivec4", "name": "textureSlots" }
+      { "type": "vec4", "name": "emissiveAndIntensity" },
+      { "type": "vec4", "name": "pbrLite" },
+      { "type": "vec4", "name": "textureSlots" },
+      { "type": "vec4", "name": "detailParams" },
+      { "type": "vec4", "name": "reserved0" },
+      { "type": "vec4", "name": "reserved1" },
+      { "type": "vec4", "name": "reserved2" }
     ]
   }
 }

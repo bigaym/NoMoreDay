@@ -37,6 +37,21 @@ struct ClusterLightIndexData {
     uint lightIndex;
 };
 
+struct ClusterPackedLightData {
+    float posX;
+    float posY;
+    float radius;
+    float invRadiusSq;
+    float colorTimesIntensityR;
+    float colorTimesIntensityG;
+    float colorTimesIntensityB;
+    float spotCosHalfAngle;
+    float dirX;
+    float dirY;
+    float reserved0;
+    uint lightType;
+};
+
 struct LightBoundsData {
     vec2 minXY;
     vec2 maxXY;
@@ -57,6 +72,10 @@ layout(std430, binding = 1) buffer ClusterHeaderBuffer {
 layout(std430, binding = 2) buffer ClusterIndexBuffer {
     ClusterLightIndexData indices[];
 } gClusterIndexBuffer;
+
+layout(std430, binding = 5) buffer ClusterPackedLightBuffer {
+    ClusterPackedLightData lights[];
+} gClusterPackedLightBuffer;
 
 layout(std430, binding = 3) readonly buffer LightBoundsBuffer {
     LightBoundsData bounds[];
@@ -241,7 +260,32 @@ void main() {
     gClusterHeaderBuffer.headers[clusterId] = header;
 
     for (uint i = 0u; i < clampedWriteCount; ++i) {
-        gClusterIndexBuffer.indices[writeOffset + i].lightIndex = selectedIndices[i];
+        uint selectedLightIndex = selectedIndices[i];
+        gClusterIndexBuffer.indices[writeOffset + i].lightIndex = selectedLightIndex;
+
+        LightData light = gLightBuffer.lights[selectedLightIndex];
+        float radiusSq = max(light.radius * light.radius, 1e-6);
+        vec2 packedDir = vec2(light.dirX, light.dirY);
+        float dirLenSq = dot(packedDir, packedDir);
+        if (dirLenSq > 1e-8) {
+            packedDir *= inversesqrt(dirLenSq);
+        } else {
+            packedDir = vec2(1.0, 0.0);
+        }
+
+        ClusterPackedLightData packed;
+        packed.posX = light.posX;
+        packed.posY = light.posY;
+        packed.radius = light.radius;
+        packed.invRadiusSq = 1.0 / radiusSq;
+        packed.colorTimesIntensityR = light.colorR * light.intensity;
+        packed.colorTimesIntensityG = light.colorG * light.intensity;
+        packed.colorTimesIntensityB = light.colorB * light.intensity;
+        packed.spotCosHalfAngle = light.spotCosHalfAngle;
+        packed.dirX = packedDir.x;
+        packed.dirY = packedDir.y;
+        packed.reserved0 = 0.0;
+        packed.lightType = light.lightType;
+        gClusterPackedLightBuffer.lights[writeOffset + i] = packed;
     }
 }
-

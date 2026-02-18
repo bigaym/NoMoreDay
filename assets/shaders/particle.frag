@@ -9,10 +9,31 @@ in vec2 vAtlasUV;
 in flat uint vBlendMode;
 
 uniform sampler2DArray particleAtlas;
+uniform sampler2DArray materialNormalArray;
+uniform sampler2DArray materialRoughnessArray;
 uniform int uBlendPass;
 uniform int uMaterialCount;
+uniform int uMaterialQualityLevel;
+uniform int uNormalLightingEnabled;
+uniform int uSpecularEnabled;
+uniform float uShadowFactor;
 
 out vec4 finalColor;
+
+int DecodeSlot(float slotValue) {
+    return int(floor(slotValue + 0.5));
+}
+
+float ComputeSpecular(vec3 N, vec3 L, vec3 V, float roughness, float specularStrength) {
+    if (specularStrength <= 0.0) {
+        return 0.0;
+    }
+    vec3 H = normalize(L + V);
+    float ndoth = max(dot(N, H), 0.0);
+    float clampedRoughness = clamp(roughness, 0.0, 1.0);
+    float shininess = mix(64.0, 4.0, clampedRoughness);
+    return pow(ndoth, shininess) * specularStrength;
+}
 
 void main() {
     uint materialId = (vFlags >> 16u) & 0xFFFFu;
@@ -22,7 +43,8 @@ void main() {
     uint effectiveBlend = vBlendMode;
     if (hasMaterial) {
         mat = materials[materialId];
-        effectiveBlend = (mat.blendMode == 2u) ? 0u : mat.blendMode;
+        uint materialBlend = uint(clamp(mat.detailParams.y, 0.0, 2.0));
+        effectiveBlend = (materialBlend == 2u) ? 0u : materialBlend;
     }
 
     if (int(effectiveBlend) != uBlendPass) {
@@ -79,7 +101,43 @@ void main() {
     if (hasMaterial) {
         rgb *= mat.baseColor.rgb;
         alpha *= mat.baseColor.a;
-        rgb += mat.emissive.rgb * mat.emissive.w;
+        rgb += mat.emissiveAndIntensity.rgb * mat.emissiveAndIntensity.w;
+
+        vec3 N = vec3(0.0, 0.0, 1.0);
+        float roughness = clamp(mat.pbrLite.x, 0.0, 1.0);
+        float specularStrength = clamp(mat.pbrLite.y, 0.0, 1.0);
+        float ao = clamp(mat.pbrLite.z, 0.0, 1.0);
+
+        if (uMaterialQualityLevel > 0 && uNormalLightingEnabled != 0) {
+            int normalSlot = DecodeSlot(mat.textureSlots.y);
+            if (normalSlot >= 0) {
+                vec3 packedNormal = texture(materialNormalArray, vec3(vAtlasUV, float(normalSlot))).xyz;
+                N = normalize(packedNormal * 2.0 - 1.0);
+            }
+
+            if (uMaterialQualityLevel >= 2) {
+                int roughnessSlot = DecodeSlot(mat.textureSlots.z);
+                if (roughnessSlot >= 0) {
+                    roughness = texture(materialRoughnessArray, vec3(vAtlasUV, float(roughnessSlot))).r;
+                }
+            } else {
+                specularStrength = 0.0;
+            }
+        } else {
+            specularStrength = 0.0;
+        }
+
+        if (uSpecularEnabled == 0 || uMaterialQualityLevel < 2) {
+            specularStrength = 0.0;
+        }
+
+        vec3 L = normalize(vec3(0.35, 0.45, 0.82));
+        vec3 V = vec3(0.0, 0.0, 1.0);
+        float diffuse = max(dot(N, L), 0.0);
+        float specular = ComputeSpecular(N, L, V, roughness, specularStrength);
+        float shadow = clamp(uShadowFactor, 0.0, 1.0);
+        float brdf = clamp(diffuse + specular, 0.0, 2.0);
+        rgb *= (0.25 + 0.75 * brdf) * ao * shadow;
     }
 
     finalColor = vec4(rgb, alpha);

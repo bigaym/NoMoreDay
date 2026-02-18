@@ -51,6 +51,9 @@ public:
   [[nodiscard]] uint32_t GetClusterLightIndexBufferId() const noexcept {
     return m_clusterLightIndexBuffer.GetId();
   }
+  [[nodiscard]] uint32_t GetClusterPackedLightBufferId() const noexcept {
+    return m_clusterPackedLightBuffer.GetId();
+  }
   [[nodiscard]] uint32_t GetLightBoundsBufferId() const noexcept {
     return m_lightBoundsBuffer.GetId();
   }
@@ -98,6 +101,7 @@ private:
 
   NoMoreDay::core::ComputeBuffer m_clusterHeaderBuffer;
   NoMoreDay::core::ComputeBuffer m_clusterLightIndexBuffer;
+  NoMoreDay::core::ComputeBuffer m_clusterPackedLightBuffer;
   NoMoreDay::core::ComputeBuffer m_lightBoundsBuffer;
   NoMoreDay::core::ComputeBuffer m_clusterCounterBuffer;
 
