@@ -1,7 +1,7 @@
 # Track: Render V3 Clustered Shader Hardening
 
 **ID:** `render_v3_clustered_shader_hardening_20260218`  
-**Status:** Pending  
+**Status:** Complete  
 **Type:** Bugfix
 
 ## Documents

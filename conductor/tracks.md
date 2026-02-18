@@ -155,9 +155,9 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## [ ] Track: Render V3 Clustered Shader Hardening (render_v3_clustered_shader_hardening_20260218)
+## [x] Track: Render V3 Clustered Shader Hardening (render_v3_clustered_shader_hardening_20260218)
 
-> **Status**: PENDING  
+> **Status**: COMPLETED (待归档到 `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: bugfix  
 > **Depends On**: `v3_clustered_lighting_20260215`, `v3_validation_and_release_gate_20260215`  
@@ -187,11 +187,10 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ## Status Update (2026-02-18)
 
-### V3 Active Tracks (Total: 45 tasks)
+### V3 Active Tracks (Total: 29 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| render_v3_clustered_shader_hardening_20260218 | C/F corrective | 0/16 | PENDING |
 | render_v3_material_phase_shift_gpu_sync_20260218 | D/E corrective | 0/15 | PENDING |
 | render_v3_release_gate_strict_closeout_20260218 | F strict closeout | 0/14 | PENDING |
 
@@ -204,6 +203,7 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 - v3_vfx_lighting_integration_20260215: **COMPLETED & ARCHIVED**
 - v3_validation_and_release_gate_20260215: **COMPLETED & ARCHIVED**
 - render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**
+- render_v3_clustered_shader_hardening_20260218: **COMPLETED & ARCHIVED**
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
 - gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**
 - tier_detection_autodegrade_20260215: **COMPLETED & ARCHIVED**

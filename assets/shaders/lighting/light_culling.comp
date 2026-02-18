@@ -273,19 +273,19 @@ void main() {
             packedDir = vec2(1.0, 0.0);
         }
 
-        ClusterPackedLightData packed;
-        packed.posX = light.posX;
-        packed.posY = light.posY;
-        packed.radius = light.radius;
-        packed.invRadiusSq = 1.0 / radiusSq;
-        packed.colorTimesIntensityR = light.colorR * light.intensity;
-        packed.colorTimesIntensityG = light.colorG * light.intensity;
-        packed.colorTimesIntensityB = light.colorB * light.intensity;
-        packed.spotCosHalfAngle = light.spotCosHalfAngle;
-        packed.dirX = packedDir.x;
-        packed.dirY = packedDir.y;
-        packed.reserved0 = 0.0;
-        packed.lightType = light.lightType;
-        gClusterPackedLightBuffer.lights[writeOffset + i] = packed;
+        ClusterPackedLightData packedLight;
+        packedLight.posX = light.posX;
+        packedLight.posY = light.posY;
+        packedLight.radius = light.radius;
+        packedLight.invRadiusSq = 1.0 / radiusSq;
+        packedLight.colorTimesIntensityR = light.colorR * light.intensity;
+        packedLight.colorTimesIntensityG = light.colorG * light.intensity;
+        packedLight.colorTimesIntensityB = light.colorB * light.intensity;
+        packedLight.spotCosHalfAngle = light.spotCosHalfAngle;
+        packedLight.dirX = packedDir.x;
+        packedLight.dirY = packedDir.y;
+        packedLight.reserved0 = 0.0;
+        packedLight.lightType = light.lightType;
+        gClusterPackedLightBuffer.lights[writeOffset + i] = packedLight;
     }
 }

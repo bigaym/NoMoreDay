@@ -3,6 +3,7 @@
 #include "app/SharedContext.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/core/BindingRegistry.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/lighting/ClusteredLightingState.hpp"
 #include "engine/render/lighting/LightManager.hpp"
@@ -51,6 +52,30 @@ void EnableClusteredConfig(NoMoreDay::render::core::RenderConfig &cfg) {
   cfg.maxLights = 256;
 }
 
+void ExpectLightCullingBindingsAligned() {
+  using namespace NoMoreDay::render::core;
+
+  uint32_t binding = 0u;
+  REQUIRE(BindingRegistry::TryResolve(BindingDomain::LightCulling, "LIGHT_LIST_IN",
+                                      binding));
+  CHECK(binding == 0u);
+  REQUIRE(BindingRegistry::TryResolve(BindingDomain::LightCulling,
+                                      "CLUSTER_HEADER_OUT", binding));
+  CHECK(binding == 1u);
+  REQUIRE(BindingRegistry::TryResolve(BindingDomain::LightCulling, "CLUSTER_INDEX_OUT",
+                                      binding));
+  CHECK(binding == 2u);
+  REQUIRE(BindingRegistry::TryResolve(BindingDomain::LightCulling, "LIGHT_BOUNDS_IN",
+                                      binding));
+  CHECK(binding == 3u);
+  REQUIRE(BindingRegistry::TryResolve(BindingDomain::LightCulling, "CLUSTER_COUNTER",
+                                      binding));
+  CHECK(binding == 4u);
+  REQUIRE(BindingRegistry::TryResolve(BindingDomain::LightCulling, "CLUSTER_LIGHT_OUT",
+                                      binding));
+  CHECK(binding == 5u);
+}
+
 } // namespace
 
 TEST_CASE("[Integration] Clustered Lighting - Fallback when culling pass missing") {
@@ -93,6 +118,8 @@ TEST_CASE("[Integration] Clustered Lighting - Fallback when culling pass missing
 
 TEST_CASE("[Integration] Clustered Lighting - Deterministic overflow and index output") {
   using namespace NoMoreDay;
+
+  ExpectLightCullingBindingsAligned();
 
   if (!utils::GPUUtils::IsInitialized()) {
     utils::GPUUtils::Initialize();
@@ -173,6 +200,51 @@ TEST_CASE("[Integration] Clustered Lighting - Deterministic overflow and index o
 
   render::lighting::ClusteredLightingState::Get().Shutdown();
   render::lighting::LightManager::Get().Shutdown();
+  render::resources::FramebufferManager::Destroy(hdr);
+}
+
+TEST_CASE("[Integration] Clustered Lighting - Forced shader load failure keeps deterministic fallback") {
+  using namespace NoMoreDay;
+
+  if (!utils::GPUUtils::IsInitialized()) {
+    utils::GPUUtils::Initialize();
+  }
+
+  auto &qm = render::core::QualityTierManager::Get();
+  qm.ForceTier(render::core::QualityTier::Ultra);
+  auto &cfg = const_cast<render::core::RenderConfig &>(qm.GetConfig());
+  EnableClusteredConfig(cfg);
+
+  Camera2D camera = {};
+  camera.zoom = 1.0f;
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+
+  auto hdr = render::resources::FramebufferManager::Create(1024, 768, kHdrRgba16f);
+  REQUIRE(hdr.IsValid());
+
+  ResourceManager resources;
+  SharedContext shared = {};
+  shared.resources = &resources;
+
+  entt::registry registry;
+  render::graph::RenderContext context = {};
+  context.registry = &registry;
+  context.qualityManager = &qm;
+  context.camera = &camera;
+  context.shared = &shared;
+  context.hdrSceneBuffer = hdr;
+
+  render::passes::LightCullingPass cullingPass;
+  cullingPass.SetComputeShaderPathForTesting(
+      "assets/shaders/lighting/light_culling_missing_for_test.comp");
+  cullingPass.Execute(context);
+
+  CHECK(cullingPass.HadFailureThisFrame());
+  CHECK_FALSE(cullingPass.SucceededThisFrame());
+  CHECK_FALSE(cullingPass.IsClusterDataReadyForCurrentFrame());
+  CHECK(cullingPass.GetLastFailureReason() == "failed to initialize light culling shader");
+
   render::resources::FramebufferManager::Destroy(hdr);
 }
 

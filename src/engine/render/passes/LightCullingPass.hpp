@@ -34,6 +34,7 @@ public:
   [[nodiscard]] const std::string &GetLastFailureReason() const noexcept {
     return m_lastFailureReason;
   }
+  void SetComputeShaderPathForTesting(const std::string &path);
 
 private:
   bool Initialize(::ResourceManager &resources);
@@ -58,6 +59,7 @@ private:
   bool m_lastExecuteFailure = false;
   bool m_lastExecuteSuccess = false;
   std::string m_lastFailureReason;
+  std::string m_computeShaderPath = "assets/shaders/lighting/light_culling.comp";
 };
 
 } // namespace NoMoreDay::render::passes

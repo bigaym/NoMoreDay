@@ -49,7 +49,7 @@ bool LightCullingPass::Initialize(::ResourceManager &resources) {
   }
 
   m_lightCullingShader = resources.loadComputeShader(
-      "light_culling_compute"_hs, "assets/shaders/lighting/light_culling.comp");
+      "light_culling_compute"_hs, m_computeShaderPath);
   if (m_lightCullingShader.id == 0) {
     LOG_ERROR("LightCullingPass: failed to load compute shader");
     Shutdown();
@@ -89,6 +89,11 @@ void LightCullingPass::Shutdown() {
   m_lastExecuteSuccess = false;
   m_lastOverflowCount = 0;
   m_lastFailureReason.clear();
+}
+
+void LightCullingPass::SetComputeShaderPathForTesting(const std::string &path) {
+  m_computeShaderPath = path;
+  m_initialized = false;
 }
 
 void LightCullingPass::ReportFailure(const char *reason) {

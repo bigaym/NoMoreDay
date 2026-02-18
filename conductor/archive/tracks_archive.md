@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Render V3 Clustered Shader Hardening (render_v3_clustered_shader_hardening_20260218)
+- **Folder:** [./conductor/archive/render_v3_clustered_shader_hardening_20260218/](./conductor/archive/render_v3_clustered_shader_hardening_20260218/)
+- **Description:** 修复 clustered light culling compute shader 编译失败，恢复 `LightCullingPass` 成功路径并补充 deterministic fallback 回归测试。
+- **Status:** COMPLETED (2026-02-18)
+- **Priority:** P0
+- **Archive Reason:** `light_culling.comp` 保留词冲突已修复；`build.bat`/`build.bat analyze`/integration 通过；clustered 性能用例通过，`build.bat perf` 仍有与本 track 无关的 ParticleTrail 门限失败（另行跟踪）。
+
+---
+
 ## [x] Track: V3 Validation and Release Gate (v3_validation_and_release_gate_20260215)
 - **Folder:** [./conductor/archive/v3_validation_and_release_gate_20260215/](./conductor/archive/v3_validation_and_release_gate_20260215/)
 - **Description:** 完成 V3 发布门禁闭环：4 层 gate matrix、release gate runner、stability/screenshot 工具、build `gate` 集成、功能/契约/性能/风险验证联动。
