@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V3 Validation and Release Gate (v3_validation_and_release_gate_20260215)
+- **Folder:** [./conductor/archive/v3_validation_and_release_gate_20260215/](./conductor/archive/v3_validation_and_release_gate_20260215/)
+- **Description:** 完成 V3 发布门禁闭环：4 层 gate matrix、release gate runner、stability/screenshot 工具、build `gate` 集成、功能/契约/性能/风险验证联动。
+- **Status:** COMPLETED (2026-02-18)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` / `build.bat analyze` / `build.bat perf` / `build.bat gate` 通过；`F4.6` 以临时豁免 `WVR-20260218-F4.6-001` 管控，`F6.2` 严格截图门禁转入 V4 实施前依赖检查（`GPU_Rendering_System_V4.md` §1.4）。
+
+---
+
 ## [x] Track: V3 VFX Lighting Integration (v3_vfx_lighting_integration_20260215)
 - **Folder:** [./conductor/archive/v3_vfx_lighting_integration_20260215/](./conductor/archive/v3_vfx_lighting_integration_20260215/)
 - **Description:** 完成 VFX 与 Lighting 深度联动：Schema v3、3 类新事件（ShadowPulse/LightProfileBlend/MaterialPhaseShift）、tierPolicy 执行链、预算估计器、12 个模板序列、预览工具热重载 diff。

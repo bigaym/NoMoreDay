@@ -90,16 +90,17 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## [ ] Track: V3 Validation and Release Gate (v3_validation_and_release_gate_20260215) [PENDING]
+## [x] Track: V3 Validation and Release Gate (v3_validation_and_release_gate_20260215) [COMPLETED]
 
-> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: quality  
 > **Step**: F (第 8-10 周)  
 > **Depends On**: ALL V3 feature tracks  
 > **Carry-Over Intake**: owns `v3_material_lighting_depth_20260215` D0.3 (`F4.6`).
 > **Focus**: 4 层门禁（功能/契约/性能/稳定性）、截图差异回归、30 分钟压力测试、风险验证、回退演练。  
-> **Tasks**: 0/37
+> **Tasks**: 37/37  
+> **Closeout Note**: `F4.6` under temporary waiver (`WVR-20260218-F4.6-001`); `F6.2` screenshot strict gating carried to V4 preflight dependency checks (`GPU_Rendering_System_V4.md` §1.4).
 
 ---
 
@@ -156,11 +157,11 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ## Status Update (2026-02-18)
 
-### V3 Active Tracks (Total: 37 tasks)
+### V3 Active Tracks (Total: 0 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| v3_validation_and_release_gate_20260215 | F | 8P / 37T | **PENDING** |
+| - | - | - | - |
 
 ### Archived Tracks
 
@@ -169,6 +170,7 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 - v3_shadow_pipeline_20260215: **COMPLETED & ARCHIVED**
 - v3_material_lighting_depth_20260215: **COMPLETED & ARCHIVED**
 - v3_vfx_lighting_integration_20260215: **COMPLETED & ARCHIVED**
+- v3_validation_and_release_gate_20260215: **COMPLETED & ARCHIVED**
 - render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
 - gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**

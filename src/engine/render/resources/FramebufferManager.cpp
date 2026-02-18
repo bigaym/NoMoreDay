@@ -3,6 +3,8 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 
+#include <atomic>
+
 namespace NoMoreDay::render::resources {
 namespace {
 
@@ -25,6 +27,21 @@ constexpr uint32_t kGLLinear = 0x2601;
 constexpr uint32_t kGLClampToEdge = 0x812F;
 constexpr uint32_t kGLRgba16f = 0x881A;
 constexpr uint32_t kGLRg16f = 0x822F;
+constexpr uint64_t kBytesPerPixelRgba8 = 4u;
+constexpr uint64_t kBytesPerPixelRgba16f = 8u;
+constexpr uint64_t kBytesPerPixelRg16f = 4u;
+constexpr uint64_t kBytesPerDepthRbo = 4u;
+std::atomic<uint64_t> s_trackedBytes = 0u;
+
+uint64_t BytesPerPixel(uint32_t internalFormat) {
+  if (internalFormat == kGLRgba16f) {
+    return kBytesPerPixelRgba16f;
+  }
+  if (internalFormat == kGLRg16f) {
+    return kBytesPerPixelRg16f;
+  }
+  return kBytesPerPixelRgba8;
+}
 
 } // namespace
 
@@ -89,6 +106,15 @@ FramebufferHandle FramebufferManager::Create(int width, int height,
   handle.width = width;
   handle.height = height;
   handle.internalFormat = internalFormat;
+  const uint64_t colorBytes =
+      static_cast<uint64_t>(width) * static_cast<uint64_t>(height) *
+      BytesPerPixel(internalFormat);
+  const uint64_t depthBytes =
+      withDepth ? (static_cast<uint64_t>(width) * static_cast<uint64_t>(height) *
+                   kBytesPerDepthRbo)
+                : 0u;
+  handle.trackedBytes = colorBytes + depthBytes;
+  s_trackedBytes.fetch_add(handle.trackedBytes, std::memory_order_relaxed);
 
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
   NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, 0);
@@ -100,6 +126,16 @@ FramebufferHandle FramebufferManager::Create(int width, int height,
 }
 
 void FramebufferManager::Destroy(FramebufferHandle &handle) {
+  if (handle.trackedBytes > 0u) {
+    const uint64_t tracked = s_trackedBytes.load(std::memory_order_relaxed);
+    if (tracked >= handle.trackedBytes) {
+      s_trackedBytes.fetch_sub(handle.trackedBytes, std::memory_order_relaxed);
+    } else {
+      s_trackedBytes.store(0u, std::memory_order_relaxed);
+    }
+    handle.trackedBytes = 0u;
+  }
+
   if (handle.depthRbo != 0) {
     NoMoreDay::utils::GPUUtils::DeleteRenderbuffers(1, &handle.depthRbo);
     handle.depthRbo = 0;
@@ -128,6 +164,14 @@ void FramebufferManager::Resize(FramebufferHandle &handle, int newWidth,
   const bool withDepth = handle.depthRbo != 0;
   Destroy(handle);
   handle = Create(newWidth, newHeight, format, withDepth);
+}
+
+uint64_t FramebufferManager::GetTrackedBytes() {
+  return s_trackedBytes.load(std::memory_order_relaxed);
+}
+
+void FramebufferManager::ResetTrackedBytesForTesting() {
+  s_trackedBytes.store(0u, std::memory_order_relaxed);
 }
 
 } // namespace NoMoreDay::render::resources

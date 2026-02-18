@@ -12,6 +12,8 @@ public:
 
   static void Destroy(FramebufferHandle &handle);
   static void Resize(FramebufferHandle &handle, int newWidth, int newHeight);
+  [[nodiscard]] static uint64_t GetTrackedBytes();
+  static void ResetTrackedBytesForTesting();
 };
 
 } // namespace NoMoreDay::render::resources

@@ -1,0 +1,576 @@
+{
+  "version": "1.0.0",
+  "artifactVersion": "1.0.0",
+  "createdAtUtc": "2026-02-18T00:00:00Z",
+  "profilesFile": "conductor/validation/v3_perf_profiles.json",
+  "baselineFile": "conductor/validation/v3_perf_baseline.json",
+  "screenshotManifest": "conductor/validation/v3_screenshot_manifest.json",
+  "layers": [
+    {
+      "id": "foundation",
+      "title": "Phase 1 Foundation",
+      "checks": [
+        {
+          "id": "foundation_schema_matrix",
+          "taskId": "F1.1",
+          "title": "Gate matrix schema is parseable",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 30,
+          "command": [
+            "python",
+            "-c",
+            "import json, pathlib; json.loads(pathlib.Path('conductor/validation/v3_gate_matrix.json').read_text(encoding='utf-8')); print('ok')"
+          ]
+        },
+        {
+          "id": "foundation_artifact_schema",
+          "taskId": "F1.2",
+          "title": "Artifact schema is parseable",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 30,
+          "command": [
+            "python",
+            "-c",
+            "import json, pathlib; json.loads(pathlib.Path('conductor/validation/v3_gate_artifact.schema.json').read_text(encoding='utf-8')); print('ok')"
+          ]
+        },
+        {
+          "id": "foundation_v3_feature_flag_ready",
+          "taskId": "F1.3",
+          "title": "render.v3.enabled roundtrip contract",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 180,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Unit] QualityTierManager - Render V3 Config Roundtrip"
+          ]
+        },
+        {
+          "id": "foundation_budget_constants",
+          "taskId": "F1.4",
+          "title": "V3 pass budget constants contract",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 180,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Unit] QualityTierManager - V3 Budget Constants Contract"
+          ]
+        },
+        {
+          "id": "foundation_profiles_defined",
+          "taskId": "F1.5",
+          "title": "baseline_270/combat_180/stress_144 profiles exist",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 30,
+          "command": [
+            "python",
+            "-c",
+            "import json, pathlib; d=json.loads(pathlib.Path('conductor/validation/v3_perf_profiles.json').read_text(encoding='utf-8')); ids={p['id'] for p in d['profiles']}; assert {'baseline_270','combat_180','stress_144'}.issubset(ids); print('ok')"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "functional",
+      "title": "Phase 2 Functional Gate",
+      "checks": [
+        {
+          "id": "functional_default_framebuffer",
+          "taskId": "F2.1",
+          "title": "Default framebuffer path validation",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 180,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] RenderGraph - Default framebuffer HDR ownership path stays valid"
+          ]
+        },
+        {
+          "id": "functional_offscreen_framebuffer",
+          "taskId": "F2.2",
+          "title": "Offscreen framebuffer path validation",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 180,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] RenderGraph - Offscreen ownership path stays valid"
+          ]
+        },
+        {
+          "id": "functional_multi_resolution",
+          "taskId": "F2.3",
+          "title": "720p/1080p/1440p multi-resolution stability",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] RenderGraph - Tier Matrix Stability and Ownership Paths"
+          ]
+        },
+        {
+          "id": "functional_tier_matrix",
+          "taskId": "F2.4",
+          "title": "Low/Medium/High/Ultra tier matrix",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] VFX - Tier Matrix Load/Reload/Resize/Restore"
+          ]
+        },
+        {
+          "id": "functional_resize_stability",
+          "taskId": "F2.5",
+          "title": "Continuous resize stability",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 360,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] Lighting - Stability (Resize + Tier Switch Stress)"
+          ]
+        },
+        {
+          "id": "functional_context_restore",
+          "taskId": "F2.6",
+          "title": "Alt+Tab/context restore behavior",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] Shadow Pipeline - Resize/context restore and ownership stability"
+          ]
+        },
+        {
+          "id": "functional_hot_reload",
+          "taskId": "F2.7",
+          "title": "Shader/Material/VFX hot-reload stability",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] VFX Lighting - Preview HotReload Diff Hook"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contract",
+      "title": "Phase 3 Contract Gate",
+      "checks": [
+        {
+          "id": "contract_abi_layout",
+          "taskId": "F3.1",
+          "title": "GPU ABI layout snapshot and version contract",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 180,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Unit] GPU ABI - V3 layout snapshot placeholders"
+          ]
+        },
+        {
+          "id": "contract_binding_conflict",
+          "taskId": "F3.2",
+          "title": "Binding registry conflict checks",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 180,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Unit] Render Binding Governance - Shader binding registry alignment"
+          ]
+        },
+        {
+          "id": "contract_rendergraph",
+          "taskId": "F3.3",
+          "title": "RenderGraph order/frame ownership contract",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] RenderGraph V3 Contracts*"
+          ]
+        },
+        {
+          "id": "contract_schema_versions",
+          "taskId": "F3.4",
+          "title": "material_v2 and vfx_v3 schema checks",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Unit] Material - Schema v2 Strict Validation and Parsing,[Unit] VFXSequencer - SchemaV3 Parse TierPolicy And New Events"
+          ]
+        },
+        {
+          "id": "contract_report_export",
+          "taskId": "F3.5",
+          "title": "Contract gate report exported as JSON/CSV",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "report_export"
+          }
+        }
+      ]
+    },
+    {
+      "id": "performance",
+      "title": "Phase 4 Performance Gate",
+      "checks": [
+        {
+          "id": "perf_baseline_270",
+          "taskId": "F4.1",
+          "title": "baseline_270 profile",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 360,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Performance] MDIRenderer - Scenario Gate (50k)"
+          ],
+          "metric": {
+            "name": "baseline_270_fps",
+            "pattern": "RELEASE_GATE_METRIC\\s+baseline_270_fps=([-0-9.]+)"
+          }
+        },
+        {
+          "id": "perf_combat_180",
+          "taskId": "F4.2",
+          "title": "combat_180 profile",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 360,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Performance] MaterialVFX - MaterialSwap+Distortion Stress P95"
+          ],
+          "metric": {
+            "name": "combat_180_fps",
+            "pattern": "RELEASE_GATE_METRIC\\s+combat_180_fps=([-0-9.]+)"
+          }
+        },
+        {
+          "id": "perf_stress_144",
+          "taskId": "F4.3",
+          "title": "stress_144 profile",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 360,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Performance] bench_rendering_system - RenderGraph Contract Validation Guard"
+          ],
+          "metric": {
+            "name": "stress_144_fps",
+            "pattern": "RELEASE_GATE_METRIC\\s+stress_144_fps=([-0-9.]+)"
+          }
+        },
+        {
+          "id": "perf_pass_budgets",
+          "taskId": "F4.4",
+          "title": "LightCulling/Shadow/Lighting pass budgets",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 360,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Performance] LightingPass - GPU Timer Query,[Performance] Shadow Pipeline - Tier budgets (mean/p95/p99),[Performance] Material Lighting - Tier overhead budgets"
+          ]
+        },
+        {
+          "id": "perf_regression_compare",
+          "taskId": "F4.5",
+          "title": "Current vs baseline regression comparator (>10% block)",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "baseline_regression"
+          }
+        },
+        {
+          "id": "perf_clustered_uplift",
+          "taskId": "F4.6",
+          "title": "Clustered 128-light mean improvement >= 5%",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 420,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Performance] Clustered Lighting - 128 lights A/B no regression"
+          ],
+          "metric": {
+            "name": "clustered_128_improvement_pct",
+            "pattern": "RELEASE_GATE_METRIC\\s+clustered_128_improvement_pct=([-0-9.]+)"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stability",
+      "title": "Phase 5 Stability Gate",
+      "checks": [
+        {
+          "id": "stability_30min_script",
+          "taskId": "F5.1",
+          "title": "30-minute stress script and sampling",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 90,
+          "command": [
+            "python",
+            "scripts/v3_stability_stress.py",
+            "--duration-minutes",
+            "30",
+            "--dry-run"
+          ]
+        },
+        {
+          "id": "stability_vram_growth",
+          "taskId": "F5.2",
+          "title": "VRAM proxy growth check",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] ReleaseGate - Framebuffer tracked bytes stable under resize stress"
+          ]
+        },
+        {
+          "id": "stability_context_restore_black_screen",
+          "taskId": "F5.3",
+          "title": "Context restore no black screen regression",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] Shadow Pipeline - Resize/context restore and ownership stability"
+          ]
+        },
+        {
+          "id": "stability_tier_switch",
+          "taskId": "F5.4",
+          "title": "Rapid tier switching stability",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 360,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] Lighting - Stability (Resize + Tier Switch Stress)"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "screenshot",
+      "title": "Phase 6 Screenshot Regression",
+      "checks": [
+        {
+          "id": "screenshot_manifest",
+          "taskId": "F6.1",
+          "title": "Six key scenarios defined",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 30,
+          "command": [
+            "python",
+            "-c",
+            "import json, pathlib; d=json.loads(pathlib.Path('conductor/validation/v3_screenshot_manifest.json').read_text(encoding='utf-8')); assert len(d['scenarios'])>=6; print('ok')"
+          ]
+        },
+        {
+          "id": "screenshot_compare",
+          "taskId": "F6.2",
+          "title": "SSIM/pixel-diff screenshot comparison",
+          "type": "screenshot",
+          "critical": false
+        },
+        {
+          "id": "screenshot_review_mark",
+          "taskId": "F6.3",
+          "title": "Auto review mark and diff generation",
+          "type": "derived",
+          "critical": false,
+          "derived": {
+            "kind": "screenshot_review"
+          }
+        }
+      ]
+    },
+    {
+      "id": "rollback_risk",
+      "title": "Phase 7 Rollback and Risks",
+      "checks": [
+        {
+          "id": "rollback_shadow_failure",
+          "taskId": "F7.1",
+          "title": "Inject shadow pass failure and fallback to V2",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] Shadow Pipeline - Tier linkage and fallback behavior"
+          ]
+        },
+        {
+          "id": "rollback_perf_injection",
+          "taskId": "F7.2",
+          "title": "Inject >10% regression and generate block report",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "perf_injection"
+          }
+        },
+        {
+          "id": "rollback_toggle_runtime",
+          "taskId": "F7.3",
+          "title": "Runtime render.v3.enabled V3/V2 switching",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] ReleaseGate - Runtime render.v3.enabled toggle path"
+          ]
+        },
+        {
+          "id": "risk_atlas_overflow",
+          "taskId": "F7.4",
+          "title": "R-V3-001 atlas overflow deterministic eviction",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] Shadow Pipeline - Atlas overflow stress is deterministic"
+          ]
+        },
+        {
+          "id": "risk_cluster_overflow",
+          "taskId": "F7.5",
+          "title": "R-V3-002 clustered overflow no light leakage regression",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] Clustered Lighting - Deterministic overflow and index output"
+          ]
+        },
+        {
+          "id": "risk_abi_offset",
+          "taskId": "F7.6",
+          "title": "R-V3-003 ABI version tamper blocks pipeline",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 180,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Unit] GPU ABI - Version mismatch hard fail policy"
+          ]
+        },
+        {
+          "id": "risk_tier_jitter",
+          "taskId": "F7.7",
+          "title": "R-V3-004 tier degrade/recovery hysteresis",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Unit] QualityTierManager - AutoDegrade Sequence And Recovery"
+          ]
+        },
+        {
+          "id": "risk_hot_reload_interrupt",
+          "taskId": "F7.8",
+          "title": "R-V3-005 hot reload interruption without black screen",
+          "type": "command",
+          "critical": true,
+          "timeoutSeconds": 240,
+          "command": [
+            "{test_exe}",
+            "--test-case=[Integration] VFX - Tier Matrix Load/Reload/Resize/Restore"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "release_closeout",
+      "title": "Phase 8 Closeout",
+      "checks": [
+        {
+          "id": "closeout_runner_integrated",
+          "taskId": "F8.1",
+          "title": "Runner integrated into build.bat",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "build_integration"
+          }
+        },
+        {
+          "id": "closeout_full_report",
+          "taskId": "F8.2",
+          "title": "Full gate summary artifact exported",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "report_export"
+          }
+        },
+        {
+          "id": "closeout_release_checklist",
+          "taskId": "F8.3",
+          "title": "release_checklist.md exists",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "file_exists",
+            "path": "conductor/tracks/v3_validation_and_release_gate_20260215/release_checklist.md"
+          }
+        },
+        {
+          "id": "closeout_handoff_doc",
+          "taskId": "F8.4",
+          "title": "handoff.md exists",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "file_exists",
+            "path": "conductor/tracks/v3_validation_and_release_gate_20260215/handoff.md"
+          }
+        },
+        {
+          "id": "closeout_final_verification_recorded",
+          "taskId": "F8.5",
+          "title": "Final build/analyze/perf verification recorded",
+          "type": "derived",
+          "critical": true,
+          "derived": {
+            "kind": "final_verification"
+          }
+        }
+      ]
+    }
+  ]
+}

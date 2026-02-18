@@ -14,6 +14,7 @@ REM   debug       - Build in Debug mode
 REM   analyze     - Enable MSVC Static Analysis (/analyze)
 REM   asan        - Enable Address Sanitizer (ASan)
 REM   perf        - Run performance tests after build
+REM   gate        - Run V3 release gate runner after build/test
 REM   check       - Run JSON validation and static analysis only
 REM   includes    - Build with /showIncludes to analyze dependencies
 REM   noci        - Run tests directly instead of through ctest labels
@@ -39,6 +40,7 @@ set "BUILD_TYPE=RelWithDebInfo"
 set "BUILD_TESTS=ON"
 set "RUN_TESTS=ON"
 set "RUN_PERF=OFF"
+set "RUN_GATE=OFF"
 set "ENABLE_LTO=OFF"
 set "ENABLE_ANALYZE=OFF"
 set "ENABLE_ASAN=OFF"
@@ -198,6 +200,9 @@ if /i "%~1"=="perf" (
     set "RUN_PERF=ON"
     set "BUILD_TYPE=Release"
     set "NEED_CONFIG=1"
+)
+if /i "%~1"=="gate" (
+    set "RUN_GATE=ON"
 )
 if /i "%~1"=="release" (
     set "BUILD_TYPE=Release"
@@ -486,6 +491,23 @@ if "!RUN_PERF!"=="ON" (
                 exit /b 1
             )
         )
+    )
+)
+
+if "!RUN_GATE!"=="ON" (
+    echo.
+    echo ============================================================
+    echo [Gate] Running V3 release gate runner...
+    echo ============================================================
+    pushd ..
+    set "GATE_ARGS=--build-dir build --config !BUILD_TYPE! --output-dir bin/release_gate --allow-missing-screenshots"
+    if "!RUN_PERF!"=="ON" set "GATE_ARGS=!GATE_ARGS! --final-verification"
+    python scripts\v3_release_gate.py !GATE_ARGS!
+    set "GATE_EXIT=!errorlevel!"
+    popd
+    if not "!GATE_EXIT!"=="0" (
+        echo [Gate] V3 release gate FAILED!
+        exit /b 1
     )
 )
 

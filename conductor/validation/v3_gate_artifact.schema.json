@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nomoreday.local/schemas/v3_gate_artifact.schema.json",
+  "title": "NoMoreDay V3 Release Gate Artifact",
+  "type": "object",
+  "required": [
+    "version",
+    "runId",
+    "createdAtUtc",
+    "status",
+    "fallbackTriggered",
+    "summary",
+    "checks",
+    "metrics"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "runId": {
+      "type": "string"
+    },
+    "createdAtUtc": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail"
+      ]
+    },
+    "fallbackTriggered": {
+      "type": "boolean"
+    },
+    "fallbackReasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total",
+        "passed",
+        "failed",
+        "warning"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer"
+        },
+        "passed": {
+          "type": "integer"
+        },
+        "failed": {
+          "type": "integer"
+        },
+        "warning": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "taskId",
+          "layer",
+          "status",
+          "critical"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "taskId": {
+            "type": "string"
+          },
+          "layer": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "warning",
+              "skipped"
+            ]
+          },
+          "critical": {
+            "type": "boolean"
+          },
+          "durationSeconds": {
+            "type": "number"
+          },
+          "message": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    }
+  },
+  "additionalProperties": false
+}

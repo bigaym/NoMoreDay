@@ -12,6 +12,7 @@
 #include "game/components/Common.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <random>
 #include <vector>
 
@@ -154,6 +155,9 @@ TEST_CASE("[Performance] MDIRenderer - Scenario Gate (50k)") {
   CHECK(mdiSparseVisibility.mean_ms > 0.0);
   CHECK(legacyReference.mean_ms > 0.0);
   CHECK(mdiSparseVisibility.mean_ms <= (mdiAllVisible.mean_ms * 1.5 + 0.05));
+
+  const double baselineFps = 1000.0 / std::max(0.0001, mdiAllVisible.mean_ms);
+  std::cout << "RELEASE_GATE_METRIC baseline_270_fps=" << baselineFps << "\n";
 
   gpuEntitySystem.Shutdown();
   mdiRenderer.Shutdown();

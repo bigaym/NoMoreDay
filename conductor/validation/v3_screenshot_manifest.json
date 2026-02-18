@@ -1,0 +1,45 @@
+{
+  "version": "1.0.0",
+  "thresholds": {
+    "ssimMin": 0.95,
+    "pixelDiffMaxPercent": 2.0
+  },
+  "scenarios": [
+    {
+      "id": "idle",
+      "baseline": "conductor/validation/screenshots/baseline/idle.png",
+      "candidate": "conductor/validation/screenshots/candidate/idle.png",
+      "diff": "bin/release_gate/screenshots/idle.diff.png"
+    },
+    {
+      "id": "combat",
+      "baseline": "conductor/validation/screenshots/baseline/combat.png",
+      "candidate": "conductor/validation/screenshots/candidate/combat.png",
+      "diff": "bin/release_gate/screenshots/combat.diff.png"
+    },
+    {
+      "id": "boss",
+      "baseline": "conductor/validation/screenshots/baseline/boss.png",
+      "candidate": "conductor/validation/screenshots/candidate/boss.png",
+      "diff": "bin/release_gate/screenshots/boss.diff.png"
+    },
+    {
+      "id": "multi_light",
+      "baseline": "conductor/validation/screenshots/baseline/multi_light.png",
+      "candidate": "conductor/validation/screenshots/candidate/multi_light.png",
+      "diff": "bin/release_gate/screenshots/multi_light.diff.png"
+    },
+    {
+      "id": "indoor",
+      "baseline": "conductor/validation/screenshots/baseline/indoor.png",
+      "candidate": "conductor/validation/screenshots/candidate/indoor.png",
+      "diff": "bin/release_gate/screenshots/indoor.diff.png"
+    },
+    {
+      "id": "outdoor",
+      "baseline": "conductor/validation/screenshots/baseline/outdoor.png",
+      "candidate": "conductor/validation/screenshots/candidate/outdoor.png",
+      "diff": "bin/release_gate/screenshots/outdoor.diff.png"
+    }
+  ]
+}

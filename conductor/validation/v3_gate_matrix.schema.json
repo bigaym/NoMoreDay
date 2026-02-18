@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nomoreday.local/schemas/v3_gate_matrix.schema.json",
+  "title": "NoMoreDay V3 Release Gate Matrix",
+  "type": "object",
+  "required": [
+    "version",
+    "artifactVersion",
+    "createdAtUtc",
+    "profilesFile",
+    "baselineFile",
+    "screenshotManifest",
+    "layers"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "artifactVersion": {
+      "type": "string"
+    },
+    "createdAtUtc": {
+      "type": "string"
+    },
+    "profilesFile": {
+      "type": "string"
+    },
+    "baselineFile": {
+      "type": "string"
+    },
+    "screenshotManifest": {
+      "type": "string"
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "checks"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "title",
+                "taskId",
+                "type",
+                "critical"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "taskId": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "command",
+                    "derived",
+                    "screenshot"
+                  ]
+                },
+                "critical": {
+                  "type": "boolean"
+                },
+                "timeoutSeconds": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "command": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "metric": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "pattern"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "pattern": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": true
+                },
+                "derived": {
+                  "type": "object"
+                },
+                "notes": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

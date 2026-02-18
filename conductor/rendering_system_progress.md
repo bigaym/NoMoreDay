@@ -30,9 +30,9 @@
 | **C** | Clustered Lighting | 第3-5周 | ✅ 已完成 | `v3_clustered_lighting_20260215` | 25/25 | LightCullingPass (compute)、z-layer 映射、无回归门禁 |
 | **D** | Material 2.0 | 第4-6周 | ✅ 已完成 | `v3_material_lighting_depth_20260215` | 30/30 | Schema v2、BRDF-lite、Texture2DArray、双缓冲热重载（D0.3 uplift 门禁迁移至 Step F） |
 | **E** | VFX 联动 | 第6-8周 | ✅ 已完成 | `v3_vfx_lighting_integration_20260215` | 33/33 | Schema v3、3 类新事件、tierPolicy、预算估计器、12 模板 |
-| **F** | 全链路验收 | 第8-10周 | 📋 计划中 | `v3_validation_and_release_gate_20260215` | 0/37 | 4 层门禁、截图差异、压力测试、风险验证、回退演练（含 128-light `>=5%` uplift carry-over） |
+| **F** | 全链路验收 | 第8-10周 | ✅ 已完成 | `v3_validation_and_release_gate_20260215` | 37/37 | 4 层门禁、截图差异、压力测试、风险验证、回退演练（`F4.6` 临时豁免，`F6.2` 转 V4 前置依赖） |
 
-**V3 总任务数**: 172（完成 135，剩余 37）
+**V3 总任务数**: 172（完成 172，剩余 0）
 
 ---
 

@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <numeric>
 #include <string>
@@ -185,6 +186,8 @@ TEST_CASE(
       baseline.meanMs, baseline.p95Ms, baseline.p99Ms, withValidation.meanMs,
       withValidation.p95Ms, withValidation.p99Ms, overheadP95Ms,
       p95RegressionRatio);
+  const double stressFps = 1000.0 / std::max(0.0001, withValidation.p95Ms);
+  std::cout << "RELEASE_GATE_METRIC stress_144_fps=" << stressFps << "\n";
 
   CHECK(overheadP95Ms <= 0.2);
   CHECK(p95RegressionRatio <= 1.05);

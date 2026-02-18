@@ -57,6 +57,21 @@ V3（`GPU_Rendering_System_3.md`）完成后，引擎将具备：
 - 不包含全局光照（GI 属于 V5 范畴）
 - 不替换 Raylib 底层框架
 
+### 1.4 V4 实施前依赖检查（承接 V3 未完成项）
+
+以下依赖项来自 `v3_validation_and_release_gate_20260215` 收尾阶段的已知未闭环内容，
+必须在 V4 编码实施前逐项确认：
+
+| 依赖 ID | 来源 | 当前状态（2026-02-18） | 解除条件（进入稳定开发） | 验证证据 |
+|---|---|---|---|---|
+| `DEP-V3-F4.6` | `F4.6 perf_clustered_uplift` | 临时豁免中（`WVR-20260218-F4.6-001`），`clustered_128_improvement_pct=0.502 < 5.0` | 移除豁免，且连续 3 次 release perf 满足 `>=5.0%` | `bin/release_gate/v3_gate_report.json` + `conductor/validation/v3_gate_waivers.json` |
+| `DEP-V3-F6.2` | `F6.2 screenshot_compare` | 截图基线未就绪（上游系统尚未全部接入），当前通过 `--allow-missing-screenshots` 降级 | 补齐 6 个关键场景 baseline/candidate 数据，截图比较转为无 warning | `conductor/validation/v3_screenshot_manifest.json` + `bin/release_gate/screenshots/screenshot_report.json` |
+
+实施规则：
+1. V4-A 开工前，先执行一次 `build.bat gate`，确认以上依赖状态与文档一致。
+2. 若 `DEP-V3-F4.6` 仍处于豁免，必须在迭代计划中单列性能修复任务并绑定 `BUG-20260218-001`。
+3. 若 `DEP-V3-F6.2` 尚未解除，V4 阶段验收不得宣称“视觉回归全绿”，仅可标记为“截图门禁待上游完成”。
+
 ---
 
 ## 2. 版本对照表

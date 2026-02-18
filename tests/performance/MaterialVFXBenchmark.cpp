@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <nlohmann/json.hpp>
 #include <vector>
 
@@ -332,6 +333,9 @@ TEST_CASE("[Performance] MaterialVFX - MaterialSwap+Distortion Stress P95") {
   CHECK(NoMoreDay::vfx::VFXSequencerSystem::GetDistortionOverflowDropCountForTesting() +
             NoMoreDay::vfx::VFXSequencerSystem::GetDistortionOverflowEvictCountForTesting() >
         0);
+
+  const double combatFps = 1000.0 / std::max(0.0001, p95Ms);
+  std::cout << "RELEASE_GATE_METRIC combat_180_fps=" << combatFps << "\n";
 
   manager.Shutdown();
   std::error_code ec;

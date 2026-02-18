@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "regressionLimitPercent": 10.0,
+  "profiles": [
+    {
+      "id": "baseline_270",
+      "metric": "baseline_270_fps",
+      "minFps": 270.0
+    },
+    {
+      "id": "combat_180",
+      "metric": "combat_180_fps",
+      "minFps": 180.0
+    },
+    {
+      "id": "stress_144",
+      "metric": "stress_144_fps",
+      "minFps": 144.0
+    }
+  ],
+  "clusteredUpliftGate": {
+    "metric": "clustered_128_improvement_pct",
+    "minImprovementPercent": 5.0
+  }
+}

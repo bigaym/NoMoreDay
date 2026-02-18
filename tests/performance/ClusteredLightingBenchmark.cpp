@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <iostream>
 #include <vector>
 
 namespace {
@@ -178,21 +179,53 @@ TEST_CASE("[Performance] Clustered Lighting - 128 lights A/B no regression") {
   lightingPass.SetLightCullingPass(&cullingPass);
 
   constexpr int kFrames = 120;
-  const auto v2Stats = MeasureLightingPath(false, 128, kFrames, queryApi, cullingPass,
-                                           lightingPass, context, registry, camera, cfg);
-  const auto clusteredStats = MeasureLightingPath(
-      true, 128, kFrames, queryApi, cullingPass, lightingPass, context, registry,
-      camera, cfg);
+  constexpr int kTrials = 3;
 
-  const double denom = std::max(v2Stats.mean_ms, 0.0001);
-  const double improvement = (v2Stats.mean_ms - clusteredStats.mean_ms) / denom;
-  const double maxAllowed = v2Stats.mean_ms * 1.05;
-  DOCTEST_MESSAGE("Clustered(128) mean(ms)=", clusteredStats.mean_ms,
-                  ", V2 mean(ms)=", v2Stats.mean_ms,
-                  ", improvement=", improvement * 100.0, "%");
+  std::vector<double> v2Means;
+  std::vector<double> clusteredMeans;
+  std::vector<double> improvementPctSamples;
+  v2Means.reserve(kTrials);
+  clusteredMeans.reserve(kTrials);
+  improvementPctSamples.reserve(kTrials);
 
-  CHECK(v2Stats.mean_ms > 0.0);
-  CHECK(clusteredStats.mean_ms <= maxAllowed);
+  for (int trial = 0; trial < kTrials; ++trial) {
+    const auto v2Stats =
+        MeasureLightingPath(false, 128, kFrames, queryApi, cullingPass, lightingPass,
+                            context, registry, camera, cfg);
+    const auto clusteredStats = MeasureLightingPath(
+        true, 128, kFrames, queryApi, cullingPass, lightingPass, context, registry,
+        camera, cfg);
+
+    const double denom = std::max(v2Stats.mean_ms, 0.0001);
+    const double improvementPct =
+        ((v2Stats.mean_ms - clusteredStats.mean_ms) / denom) * 100.0;
+    v2Means.push_back(v2Stats.mean_ms);
+    clusteredMeans.push_back(clusteredStats.mean_ms);
+    improvementPctSamples.push_back(improvementPct);
+
+    CHECK(v2Stats.mean_ms > 0.0);
+  }
+
+  auto medianOf = [](std::vector<double> values) -> double {
+    std::sort(values.begin(), values.end());
+    return values[values.size() / 2];
+  };
+
+  const double v2MeanMedian = medianOf(v2Means);
+  const double clusteredMeanMedian = medianOf(clusteredMeans);
+  const double improvementPctMedian = medianOf(improvementPctSamples);
+  const double maxAllowedMedian = v2MeanMedian * 1.05;
+
+  DOCTEST_MESSAGE("Clustered(128) median mean(ms)=", clusteredMeanMedian,
+                  ", V2 median mean(ms)=", v2MeanMedian,
+                  ", median improvement=", improvementPctMedian, "%");
+  std::cout << "RELEASE_GATE_METRIC clustered_128_v2_mean_ms=" << v2MeanMedian
+            << "\n";
+  std::cout << "RELEASE_GATE_METRIC clustered_128_mean_ms="
+            << clusteredMeanMedian << "\n";
+  std::cout << "RELEASE_GATE_METRIC clustered_128_improvement_pct="
+            << improvementPctMedian << "\n";
+  CHECK(clusteredMeanMedian <= maxAllowedMedian);
 
   lightingPass.Shutdown();
   render::lighting::ClusteredLightingState::Get().Shutdown();
