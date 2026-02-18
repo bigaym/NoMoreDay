@@ -155,13 +155,45 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
+## [ ] Track: Render V3 Clustered Shader Hardening (render_v3_clustered_shader_hardening_20260218)
+
+> **Status**: PENDING  
+> **Priority**: P0  
+> **Type**: bugfix  
+> **Depends On**: `v3_clustered_lighting_20260215`, `v3_validation_and_release_gate_20260215`  
+> **Focus**: recover clustered compute shader compile/execution path, restore integration stability, and keep deterministic fallback contract.
+
+---
+
+## [ ] Track: Render V3 Material Phase Shift GPU Sync (render_v3_material_phase_shift_gpu_sync_20260218)
+
+> **Status**: PENDING  
+> **Priority**: P0  
+> **Type**: bugfix  
+> **Depends On**: `v3_material_lighting_depth_20260215`, `v3_vfx_lighting_integration_20260215`  
+> **Focus**: ensure `MaterialPhaseShift` runtime events actually propagate to GPU material payload and restore baseline deterministically.
+
+---
+
+## [ ] Track: Render V3 Release Gate Strict Closeout (render_v3_release_gate_strict_closeout_20260218)
+
+> **Status**: PENDING  
+> **Priority**: P1  
+> **Type**: quality  
+> **Depends On**: `render_v3_clustered_shader_hardening_20260218`, `render_v3_material_phase_shift_gpu_sync_20260218`, `v3_validation_and_release_gate_20260215`  
+> **Focus**: close Step F strict-gate debt, synchronize waiver/bug status with evidence, and produce current release posture.
+
+---
+
 ## Status Update (2026-02-18)
 
-### V3 Active Tracks (Total: 0 tasks)
+### V3 Active Tracks (Total: 45 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| - | - | - | - |
+| render_v3_clustered_shader_hardening_20260218 | C/F corrective | 0/16 | PENDING |
+| render_v3_material_phase_shift_gpu_sync_20260218 | D/E corrective | 0/15 | PENDING |
+| render_v3_release_gate_strict_closeout_20260218 | F strict closeout | 0/14 | PENDING |
 
 ### Archived Tracks
 

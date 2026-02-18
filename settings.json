@@ -1,28 +1,45 @@
 {
     "cameraZoom": 2.0,
+    "render": {
+        "v3": {
+            "clusterTileSize": 32,
+            "clusterZSliceCount": 4,
+            "clusteredLightingEnabled": false,
+            "enabled": false,
+            "materialQualityLevel": 0,
+            "maxShadowedLights": 4,
+            "normalLightingEnabled": false,
+            "shadowAtlasSize": 2048,
+            "shadowEnabled": false,
+            "shadowMode": "off",
+            "shadowSoftness": 1.0,
+            "specularEnabled": false
+        }
+    },
+    "render.v3.enabled": false,
     "renderQualityAutoDetect": {
-        "benchmarkScore": 124.2760009765625,
+        "benchmarkScore": 129.2563934326172,
         "benchmarkTier": "Ultra",
         "capability": {
-            "maxArrayTextureLayers": 2048,
+            "maxArrayTextureLayers": 8192,
             "maxComputeWorkGroupInvocations": 1024,
             "maxComputeWorkGroupSize": [
                 1024,
                 1024,
-                64
+                1024
             ],
-            "maxImageUnits": 8,
+            "maxImageUnits": 48,
             "maxShaderStorageBufferBindings": 96,
-            "maxTextureSize": 32768,
+            "maxTextureSize": 16384,
             "valid": true
         },
         "capabilityTier": "Ultra",
         "degradeLevel": 0,
         "reason": "settings_override",
-        "renderer": "NVIDIA GeForce RTX 4070 SUPER/PCIe/SSE2",
+        "renderer": "AMD Radeon(TM) Graphics",
         "selectedTier": "Medium",
         "source": "settings_override",
-        "updatedAtUtc": "2026-02-15T11:56:01Z",
+        "updatedAtUtc": "2026-02-18T01:58:01Z",
         "version": 1
     },
     "renderQualityTier": "Medium",

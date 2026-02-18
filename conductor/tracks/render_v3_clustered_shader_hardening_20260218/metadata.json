@@ -1,0 +1,31 @@
+{
+  "id": "render_v3_clustered_shader_hardening_20260218",
+  "title": "Render V3 Clustered Shader Hardening",
+  "type": "bugfix",
+  "status": "pending",
+  "created": "2026-02-18T00:00:00Z",
+  "updated": "2026-02-18T00:00:00Z",
+  "designDoc": "design docs: GPU_Rendering_System_3.md section 6/13/16/20",
+  "designSections": [
+    "6",
+    "13",
+    "16",
+    "20"
+  ],
+  "stepMapping": "Step C + Step F corrective closeout",
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 16,
+    "completed": 0
+  },
+  "dependencies": [
+    "v3_clustered_lighting_20260215",
+    "v3_validation_and_release_gate_20260215"
+  ],
+  "dependedBy": [
+    "render_v3_release_gate_strict_closeout_20260218"
+  ]
+}
