@@ -1,0 +1,30 @@
+﻿Track closeout: v3_material_lighting_depth_20260215
+
+Scope:
+- Completed Material 2.0 delivery across schema/data/shader/runtime/tests.
+- Added clustered+material coupling optimization using packed clustered light payload path:
+  compute writes packed lights -> lighting fragment consumes packed SSBO directly.
+- Migrated clustered uplift carry-over gate ownership:
+  D0.3 moved from material track to v3_validation_and_release_gate_20260215/F4.6.
+
+Archive and docs:
+- Moved track folder using command-line move:
+  conductor\\tracks\\v3_material_lighting_depth_20260215 -> conductor\\archive\\
+- Updated conductor docs:
+  tracks.md, rendering_system_progress.md, archive/tracks_archive.md,
+  v3_validation_and_release_gate_20260215/plan.md.
+
+Validation evidence:
+- build.bat: PASS
+- build.bat analyze: PASS
+- build.bat perf: PASS
+- Targeted integration:
+  [Integration] Clustered Lighting - Deterministic overflow and index output: PASS
+  [Integration] Clustered Lighting - Culling to lighting consumption path: PASS
+- Targeted performance:
+  [Performance] Clustered Lighting - Low-light no regression: PASS
+  [Performance] Clustered Lighting - 128 lights A/B no regression: sampled improvement -2.99417% (no-regression contract still pass)
+
+DoD status:
+- Material track implementation and acceptance completed.
+- Strict clustered >=5% uplift gate remains open and is formally carried into Step F release gate.
