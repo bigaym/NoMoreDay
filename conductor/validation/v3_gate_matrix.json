@@ -546,7 +546,7 @@
           "critical": true,
           "derived": {
             "kind": "file_exists",
-            "path": "conductor/tracks/v3_validation_and_release_gate_20260215/release_checklist.md"
+            "path": "conductor/archive/v3_validation_and_release_gate_20260215/release_checklist.md"
           }
         },
         {
@@ -557,7 +557,7 @@
           "critical": true,
           "derived": {
             "kind": "file_exists",
-            "path": "conductor/tracks/v3_validation_and_release_gate_20260215/handoff.md"
+            "path": "conductor/archive/v3_validation_and_release_gate_20260215/handoff.md"
           }
         },
         {

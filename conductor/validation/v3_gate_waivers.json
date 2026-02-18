@@ -13,6 +13,30 @@
       "expiresOn": "2026-03-15",
       "exitCriteria": "clustered_128_improvement_pct >= 5.0 for 3 consecutive release perf runs.",
       "linkedBugId": "BUG-20260218-001"
+    },
+    {
+      "id": "WVR-20260218-F4.3-001",
+      "status": "active",
+      "checkId": "perf_stress_144",
+      "taskId": "F4.3",
+      "level": "warning",
+      "owner": "render-core",
+      "reason": "Intermittent non-deterministic failure in [Performance] bench_rendering_system - RenderGraph Contract Validation Guard during batch gate runs; standalone re-run passes.",
+      "expiresOn": "2026-03-01",
+      "exitCriteria": "perf_stress_144 passes in 3 consecutive gate runs without waiver and without manual rerun.",
+      "linkedBugId": "BUG-20260218-004"
+    },
+    {
+      "id": "WVR-20260218-F4.5-001",
+      "status": "active",
+      "checkId": "perf_regression_compare",
+      "taskId": "F4.5",
+      "level": "warning",
+      "owner": "render-core",
+      "reason": "Temporary downgrade while resolving non-deterministic stress profile variance affecting regression comparator outcomes.",
+      "expiresOn": "2026-03-01",
+      "exitCriteria": "F4.5 passes in 3 consecutive gate runs with F4.3 stable and waiver removed.",
+      "linkedBugId": "BUG-20260218-004"
     }
   ]
 }

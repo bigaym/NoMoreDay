@@ -1,10 +1,10 @@
 {
   "version": "1.0.0",
-  "updatedAtUtc": "2026-02-18T10:18:43Z",
+  "updatedAtUtc": "2026-02-18T13:34:57Z",
   "metrics": {
-    "baseline_270_fps": 3168.74,
+    "baseline_270_fps": 884.492,
     "combat_180_fps": 192308.0,
-    "stress_144_fps": 11806.4,
-    "clustered_128_improvement_pct": 0.501742
+    "stress_144_fps": 11350.7,
+    "clustered_128_improvement_pct": -2.14894
   }
 }

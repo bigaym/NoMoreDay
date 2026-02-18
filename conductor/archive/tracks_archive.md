@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Render V3 Release Gate Strict Closeout (render_v3_release_gate_strict_closeout_20260218)
+- **Folder:** [./conductor/archive/render_v3_release_gate_strict_closeout_20260218/](./conductor/archive/render_v3_release_gate_strict_closeout_20260218/)
+- **Description:** 收敛 Step F 严格收口遗留项，刷新 gate artifact，完成 waiver/bug/evidence 同步并输出当前 V3 发布姿态。
+- **Status:** COMPLETED (2026-02-18)
+- **Priority:** P1
+- **Archive Reason:** `build.bat`、`build.bat analyze`、`ctest -C Release -L performance`、`build.bat gate`、`v3_release_gate.py --final-verification` 全部通过；最终 gate `checks=43 pass=41 warning=2 fail=0`，`F4.6` 维持既有豁免，`F6.2` 继续按 V4 前置依赖管理，并新增 `F4.3/F4.5` 非确定性门禁豁免与 `BUG-20260218-004` 跟踪。
+
+---
+
 ## [x] Track: Render V3 Material Phase Shift GPU Sync (render_v3_material_phase_shift_gpu_sync_20260218)
 - **Folder:** [./conductor/archive/render_v3_material_phase_shift_gpu_sync_20260218/](./conductor/archive/render_v3_material_phase_shift_gpu_sync_20260218/)
 - **Description:** 修复 `MaterialPhaseShift` 运行态事件到 GPU 材质 payload 的同步路径，确保激活阶段生效并在到期后恢复基线。
