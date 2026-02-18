@@ -1,0 +1,46 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_EnvWaterRippleBurst",
+  "duration": 0.9,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Distortion",
+      "tierPolicy": "skip",
+      "params": {
+        "radius": 128.0,
+        "strength": 0.28,
+        "duration": 0.45,
+        "speed": 280.0
+      }
+    },
+    {
+      "time": 0.04,
+      "type": "MaterialPhaseShift",
+      "minTier": "High",
+      "tierPolicy": "degrade",
+      "params": {
+        "roughnessScale": 1.25,
+        "specularScale": 1.15,
+        "emissiveScale": 0.9,
+        "duration": 0.3
+      }
+    },
+    {
+      "time": 0.08,
+      "type": "Light",
+      "tierPolicy": "skip",
+      "params": {
+        "radius": 82.0,
+        "intensity": 1.0,
+        "duration": 0.35,
+        "color": [
+          0.42,
+          0.72,
+          1.0
+        ]
+      }
+    }
+  ]
+}

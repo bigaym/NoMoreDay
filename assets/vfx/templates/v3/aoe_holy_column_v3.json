@@ -1,0 +1,42 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_AoEHolyColumn",
+  "duration": 1.2,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "LightProfileBlend",
+      "minTier": "Medium",
+      "tierPolicy": "degrade",
+      "params": {
+        "profileA": 0,
+        "profileB": 1,
+        "blendTime": 0.35
+      }
+    },
+    {
+      "time": 0.05,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "HoloBlade",
+        "count": 34,
+        "speed": 140.0,
+        "lifetime": 0.7
+      }
+    },
+    {
+      "time": 0.08,
+      "type": "MaterialPhaseShift",
+      "minTier": "High",
+      "tierPolicy": "degrade",
+      "params": {
+        "roughnessScale": 0.8,
+        "specularScale": 1.6,
+        "emissiveScale": 1.35,
+        "duration": 0.5
+      }
+    }
+  ]
+}

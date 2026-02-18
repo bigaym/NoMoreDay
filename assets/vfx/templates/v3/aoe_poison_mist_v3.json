@@ -1,0 +1,35 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_AoEPoisonMist",
+  "duration": 1.4,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "ShadowVoid",
+        "count": 42,
+        "speed": 110.0,
+        "lifetime": 0.85,
+        "scale": 1.3
+      }
+    },
+    {
+      "time": 0.1,
+      "type": "Light",
+      "tierPolicy": "skip",
+      "params": {
+        "radius": 100.0,
+        "intensity": 1.4,
+        "duration": 0.9,
+        "color": [
+          0.48,
+          0.86,
+          0.42
+        ]
+      }
+    }
+  ]
+}

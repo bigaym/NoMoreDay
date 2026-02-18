@@ -24,7 +24,16 @@ enum class EventType : uint8_t {
   Distortion,
   Sound,
   MaterialSwap,
+  ShadowPulse,
+  LightProfileBlend,
+  MaterialPhaseShift,
   Count,
+};
+
+enum class TierPolicy : uint8_t {
+  Strict = 0,
+  Degrade,
+  Skip,
 };
 
 struct ParticleEventParams {
@@ -83,6 +92,25 @@ struct MaterialSwapParams {
   float duration = 0.5f;
 };
 
+struct ShadowPulseParams {
+  float softnessScale = 1.0f;
+  float intensityScale = 1.0f;
+  float duration = 0.25f;
+};
+
+struct LightProfileBlendParams {
+  uint32_t profileA = 0;
+  uint32_t profileB = 0;
+  float blendTime = 0.5f;
+};
+
+struct MaterialPhaseShiftParams {
+  float roughnessScale = 1.0f;
+  float specularScale = 1.0f;
+  float emissiveScale = 1.0f;
+  float duration = 0.5f;
+};
+
 /**
  * @brief Component added to entities currently undergoing a material swap.
  */
@@ -95,7 +123,8 @@ struct ActiveMaterialSwap {
 using EventParams =
     std::variant<ParticleEventParams, TrailEventParams, LightEventParams,
                  ShakeEventParams, DistortionEventParams, SoundEventParams,
-                 MaterialSwapParams>;
+                 MaterialSwapParams, ShadowPulseParams, LightProfileBlendParams,
+                 MaterialPhaseShiftParams>;
 
 struct VFXEvent {
   float time = 0.0f;
@@ -103,6 +132,7 @@ struct VFXEvent {
   AnchorType anchor = AnchorType::Caster;
   EventParams params;
   render::core::QualityTier minTier = render::core::QualityTier::Low;
+  TierPolicy tierPolicy = TierPolicy::Skip;
 };
 
 struct VFXSequenceAsset {

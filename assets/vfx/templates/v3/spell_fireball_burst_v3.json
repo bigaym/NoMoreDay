@@ -1,0 +1,46 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_SpellFireballBurst",
+  "duration": 1.0,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "LightProfileBlend",
+      "minTier": "Medium",
+      "tierPolicy": "degrade",
+      "params": {
+        "profileA": 0,
+        "profileB": 3,
+        "blendTime": 0.25
+      }
+    },
+    {
+      "time": 0.15,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 36,
+        "speed": 210.0,
+        "lifetime": 0.45,
+        "scale": 1.1
+      }
+    },
+    {
+      "time": 0.2,
+      "type": "Light",
+      "tierPolicy": "skip",
+      "params": {
+        "radius": 132.0,
+        "intensity": 2.8,
+        "duration": 0.4,
+        "color": [
+          1.0,
+          0.55,
+          0.22
+        ]
+      }
+    }
+  ]
+}

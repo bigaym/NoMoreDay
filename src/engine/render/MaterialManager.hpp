@@ -27,6 +27,12 @@ public:
   [[nodiscard]] const MaterialInstance &GetMaterial(int materialId) const;
   [[nodiscard]] int GetMaterialId(const std::string &name) const;
   [[nodiscard]] int GetMaterialCount() const { return m_materialCount; }
+  void SetRuntimePhaseShift(float roughnessScale, float specularScale,
+                            float emissiveScale);
+  void ResetRuntimePhaseShift();
+  [[nodiscard]] bool HasRuntimePhaseShift() const {
+    return m_runtimePhaseShiftActive;
+  }
 
   void SyncToGPU();
   void BindSSBO(NoMoreDay::RenderConstants::Binding binding) const;
@@ -57,6 +63,10 @@ private:
   int m_gpuUploadCount = 0;
   bool m_dirty = true;
   bool m_initialized = false;
+  bool m_runtimePhaseShiftActive = false;
+  float m_runtimeRoughnessScale = 1.0f;
+  float m_runtimeSpecularScale = 1.0f;
+  float m_runtimeEmissiveScale = 1.0f;
 
   ::NoMoreDay::core::ComputeBuffer m_ssbo;
   std::string m_jsonPath;

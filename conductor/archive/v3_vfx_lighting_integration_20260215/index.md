@@ -1,7 +1,7 @@
 # Track: V3 VFX Lighting Integration
 
 **ID:** `v3_vfx_lighting_integration_20260215`  
-**Status:** Pending  
+**Status:** Completed (Archived in `conductor/archive/`)  
 **Type:** Feature
 
 ## Documents
@@ -16,4 +16,3 @@
 - [Back to Tracks](../../tracks.md)
 - [Product Context](../../product.md)
 - [Tech Stack](../../tech-stack.md)
-

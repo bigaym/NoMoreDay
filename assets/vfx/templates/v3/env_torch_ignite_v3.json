@@ -1,0 +1,30 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_EnvTorchIgnite",
+  "duration": 0.7,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "LightProfileBlend",
+      "minTier": "Medium",
+      "tierPolicy": "degrade",
+      "params": {
+        "profileA": 0,
+        "profileB": 1,
+        "blendTime": 0.2
+      }
+    },
+    {
+      "time": 0.03,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 12,
+        "speed": 90.0,
+        "lifetime": 0.4
+      }
+    }
+  ]
+}

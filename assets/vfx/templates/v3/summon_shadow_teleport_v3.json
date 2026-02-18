@@ -1,0 +1,41 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_SummonShadowTeleport",
+  "duration": 0.95,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Distortion",
+      "tierPolicy": "skip",
+      "params": {
+        "radius": 120.0,
+        "strength": 0.45,
+        "duration": 0.3,
+        "speed": 260.0
+      }
+    },
+    {
+      "time": 0.04,
+      "type": "ShadowPulse",
+      "minTier": "High",
+      "tierPolicy": "degrade",
+      "params": {
+        "softnessScale": 1.5,
+        "intensityScale": 1.2,
+        "duration": 0.3
+      }
+    },
+    {
+      "time": 0.12,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "ShadowVoid",
+        "count": 20,
+        "speed": 170.0,
+        "lifetime": 0.5
+      }
+    }
+  ]
+}

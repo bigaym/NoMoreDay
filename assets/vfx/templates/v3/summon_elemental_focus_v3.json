@@ -1,0 +1,42 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_SummonElementalFocus",
+  "duration": 1.25,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "MaterialPhaseShift",
+      "minTier": "High",
+      "tierPolicy": "degrade",
+      "params": {
+        "roughnessScale": 0.9,
+        "specularScale": 1.3,
+        "emissiveScale": 1.55,
+        "duration": 0.65
+      }
+    },
+    {
+      "time": 0.08,
+      "type": "LightProfileBlend",
+      "minTier": "Medium",
+      "tierPolicy": "degrade",
+      "params": {
+        "profileA": 1,
+        "profileB": 2,
+        "blendTime": 0.5
+      }
+    },
+    {
+      "time": 0.18,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "IceCrystal",
+        "count": 26,
+        "speed": 120.0,
+        "lifetime": 0.6
+      }
+    }
+  ]
+}

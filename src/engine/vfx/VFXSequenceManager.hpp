@@ -37,9 +37,10 @@ public:
 
   static constexpr int MAX_SEQUENCES = 256;
   // Schema compatibility policy:
-  // - current writer/reader version is VFX_SCHEMA_VERSION.
-  // - missing or unsupported version is rejected with explicit diagnostics.
-  static constexpr int VFX_SCHEMA_VERSION = 1;
+  // - current writer/reader version is VFX_SCHEMA_VERSION (v3).
+  // - supports loading v1/v2/v3 with compatibility defaults for missing v3 fields.
+  static constexpr int VFX_SCHEMA_MIN_COMPAT_VERSION = 1;
+  static constexpr int VFX_SCHEMA_VERSION = 3;
 
 private:
   VFXSequenceManager() = default;

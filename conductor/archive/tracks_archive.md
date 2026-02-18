@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V3 VFX Lighting Integration (v3_vfx_lighting_integration_20260215)
+- **Folder:** [./conductor/archive/v3_vfx_lighting_integration_20260215/](./conductor/archive/v3_vfx_lighting_integration_20260215/)
+- **Description:** 完成 VFX 与 Lighting 深度联动：Schema v3、3 类新事件（ShadowPulse/LightProfileBlend/MaterialPhaseShift）、tierPolicy 执行链、预算估计器、12 个模板序列、预览工具热重载 diff。
+- **Status:** COMPLETED (2026-02-18)
+- **Priority:** P1
+- **Archive Reason:** P1-P6 与 DoD 验收完成；`build.bat`、`build.bat analyze`、`build.bat perf` 通过，新增 VFX integration/performance 矩阵用例验证通过。
+
+---
+
 ## [x] Track: V3 Material Lighting Depth (v3_material_lighting_depth_20260215)
 - **Folder:** [./conductor/archive/v3_material_lighting_depth_20260215/](./conductor/archive/v3_material_lighting_depth_20260215/)
 - **Description:** 完成 Material 2.0：schema v2、BRDF-lite、Texture2DArray 管理、双缓冲热重载，并完成 clustered+material 耦合优化（packed light payload）。

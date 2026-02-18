@@ -1,0 +1,41 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_MeleeComboRhythm",
+  "duration": 0.8,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "LightProfileBlend",
+      "minTier": "Medium",
+      "tierPolicy": "degrade",
+      "params": {
+        "profileA": 1,
+        "profileB": 2,
+        "blendTime": 0.2
+      }
+    },
+    {
+      "time": 0.18,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "HoloBlade",
+        "count": 16,
+        "speed": 180.0,
+        "lifetime": 0.24
+      }
+    },
+    {
+      "time": 0.38,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 24,
+        "speed": 220.0,
+        "lifetime": 0.2
+      }
+    }
+  ]
+}

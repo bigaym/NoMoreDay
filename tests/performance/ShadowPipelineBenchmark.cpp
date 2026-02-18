@@ -1,6 +1,7 @@
 #include "BenchmarkUtils.hpp"
 #include "doctest.h"
 
+#include "core/logging/Logger.hpp"
 #include "engine/render/core/RenderConstants.hpp"
 #include "engine/render/shadow/ShadowAtlasAllocator.hpp"
 

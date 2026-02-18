@@ -1,0 +1,39 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_MeleeHeavyQuake",
+  "duration": 0.65,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "Shake",
+      "tierPolicy": "skip",
+      "params": {
+        "intensity": 0.2
+      }
+    },
+    {
+      "time": 0.03,
+      "type": "MaterialPhaseShift",
+      "minTier": "High",
+      "tierPolicy": "degrade",
+      "params": {
+        "roughnessScale": 0.75,
+        "specularScale": 1.2,
+        "emissiveScale": 1.0,
+        "duration": 0.3
+      }
+    },
+    {
+      "time": 0.08,
+      "type": "Distortion",
+      "tierPolicy": "skip",
+      "params": {
+        "radius": 140.0,
+        "strength": 0.4,
+        "duration": 0.35,
+        "speed": 320.0
+      }
+    }
+  ]
+}

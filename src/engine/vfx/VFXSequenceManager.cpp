@@ -50,6 +50,37 @@ ParseQualityTier(const json &node, const char *key,
   return ParseQualityTierString(node[key].get<std::string>(), fallback);
 }
 
+bool ParseTierPolicy(const json &eventNode, const fs::path &filePath,
+                     TierPolicy &outPolicy) {
+  if (!eventNode.contains("tierPolicy")) {
+    outPolicy = TierPolicy::Skip;
+    return true;
+  }
+  if (!eventNode["tierPolicy"].is_string()) {
+    LOG_ERROR("VFXSequenceManager: invalid tierPolicy type in {}",
+              filePath.string());
+    return false;
+  }
+
+  const std::string value = ToLower(eventNode["tierPolicy"].get<std::string>());
+  if (value == "strict") {
+    outPolicy = TierPolicy::Strict;
+    return true;
+  }
+  if (value == "degrade") {
+    outPolicy = TierPolicy::Degrade;
+    return true;
+  }
+  if (value == "skip") {
+    outPolicy = TierPolicy::Skip;
+    return true;
+  }
+
+  LOG_ERROR("VFXSequenceManager: unsupported tierPolicy '{}' in {}", value,
+            filePath.string());
+  return false;
+}
+
 AnchorType ParseAnchorType(const json &eventNode) {
   if (!eventNode.contains("anchor") || !eventNode["anchor"].is_string()) {
     return AnchorType::Caster;
@@ -98,6 +129,18 @@ bool ParseEventType(const std::string &typeName, EventType &outType) {
     outType = EventType::MaterialSwap;
     return true;
   }
+  if (type == "shadowpulse" || type == "shadow_pulse") {
+    outType = EventType::ShadowPulse;
+    return true;
+  }
+  if (type == "lightprofileblend" || type == "light_profile_blend") {
+    outType = EventType::LightProfileBlend;
+    return true;
+  }
+  if (type == "materialphaseshift" || type == "material_phase_shift") {
+    outType = EventType::MaterialPhaseShift;
+    return true;
+  }
   return false;
 }
 
@@ -143,6 +186,22 @@ uint32_t ParseColorValue(const json &paramsNode, const char *key,
     } catch (const std::exception &) {
       return fallback;
     }
+  }
+  return fallback;
+}
+
+uint32_t ParseUIntField(const json &paramsNode, const char *key, uint32_t fallback) {
+  if (!paramsNode.contains(key)) {
+    return fallback;
+  }
+
+  const json &value = paramsNode[key];
+  if (value.is_number_unsigned()) {
+    return value.get<uint32_t>();
+  }
+  if (value.is_number_integer()) {
+    const int signedValue = value.get<int>();
+    return signedValue < 0 ? fallback : static_cast<uint32_t>(signedValue);
   }
   return fallback;
 }
@@ -221,11 +280,95 @@ EventParams ParseEventParams(EventType type, const json &paramsNode) {
     params.duration = paramsNode.value("duration", params.duration);
     return params;
   }
+  case EventType::ShadowPulse: {
+    ShadowPulseParams params;
+    params.softnessScale = paramsNode.value("softnessScale", params.softnessScale);
+    params.intensityScale = paramsNode.value("intensityScale", params.intensityScale);
+    params.duration = paramsNode.value("duration", params.duration);
+    return params;
+  }
+  case EventType::LightProfileBlend: {
+    LightProfileBlendParams params;
+    params.profileA = ParseUIntField(paramsNode, "profileA", params.profileA);
+    params.profileB = ParseUIntField(paramsNode, "profileB", params.profileB);
+    params.blendTime = paramsNode.value("blendTime", params.blendTime);
+    return params;
+  }
+  case EventType::MaterialPhaseShift: {
+    MaterialPhaseShiftParams params;
+    params.roughnessScale = paramsNode.value("roughnessScale", params.roughnessScale);
+    params.specularScale = paramsNode.value("specularScale", params.specularScale);
+    params.emissiveScale = paramsNode.value("emissiveScale", params.emissiveScale);
+    params.duration = paramsNode.value("duration", params.duration);
+    return params;
+  }
   case EventType::Count:
     break;
   }
 
   return ParticleEventParams{};
+}
+
+bool ValidateEventParams(const EventType type, const EventParams &params,
+                         const fs::path &filePath) {
+  switch (type) {
+  case EventType::ShadowPulse: {
+    const auto *parsed = std::get_if<ShadowPulseParams>(&params);
+    if (parsed == nullptr) {
+      LOG_ERROR("VFXSequenceManager: ShadowPulse payload decode failed in {}",
+                filePath.string());
+      return false;
+    }
+    if (parsed->duration <= 0.0f || parsed->softnessScale < 0.0f ||
+        parsed->intensityScale < 0.0f) {
+      LOG_ERROR(
+          "VFXSequenceManager: ShadowPulse payload invalid in {} "
+          "(duration={}, softnessScale={}, intensityScale={})",
+          filePath.string(), parsed->duration, parsed->softnessScale,
+          parsed->intensityScale);
+      return false;
+    }
+    return true;
+  }
+  case EventType::LightProfileBlend: {
+    const auto *parsed = std::get_if<LightProfileBlendParams>(&params);
+    if (parsed == nullptr) {
+      LOG_ERROR(
+          "VFXSequenceManager: LightProfileBlend payload decode failed in {}",
+          filePath.string());
+      return false;
+    }
+    if (parsed->blendTime <= 0.0f) {
+      LOG_ERROR(
+          "VFXSequenceManager: LightProfileBlend payload invalid in {} "
+          "(blendTime={})",
+          filePath.string(), parsed->blendTime);
+      return false;
+    }
+    return true;
+  }
+  case EventType::MaterialPhaseShift: {
+    const auto *parsed = std::get_if<MaterialPhaseShiftParams>(&params);
+    if (parsed == nullptr) {
+      LOG_ERROR(
+          "VFXSequenceManager: MaterialPhaseShift payload decode failed in {}",
+          filePath.string());
+      return false;
+    }
+    if (parsed->duration <= 0.0f || parsed->roughnessScale < 0.0f ||
+        parsed->specularScale < 0.0f || parsed->emissiveScale < 0.0f) {
+      LOG_ERROR(
+          "VFXSequenceManager: MaterialPhaseShift payload invalid in {} "
+          "(duration={}, roughnessScale={}, specularScale={}, emissiveScale={})",
+          filePath.string(), parsed->duration, parsed->roughnessScale,
+          parsed->specularScale, parsed->emissiveScale);
+      return false;
+    }
+    return true;
+  }
+  default:
+    return true;
+  }
 }
 
 bool ParseSequenceFile(const fs::path &filePath, VFXSequenceAsset &outSequence) {
@@ -253,11 +396,19 @@ bool ParseSequenceFile(const fs::path &filePath, VFXSequenceAsset &outSequence) 
   }
 
   const int schemaVersion = document["vfx_schema_version"].get<int>();
-  if (schemaVersion != VFXSequenceManager::VFX_SCHEMA_VERSION) {
+  if (schemaVersion < VFXSequenceManager::VFX_SCHEMA_MIN_COMPAT_VERSION ||
+      schemaVersion > VFXSequenceManager::VFX_SCHEMA_VERSION) {
     LOG_ERROR(
-        "VFXSequenceManager: unsupported schema version {} in {} (supported={})",
-        schemaVersion, filePath.string(), VFXSequenceManager::VFX_SCHEMA_VERSION);
+        "VFXSequenceManager: unsupported schema version {} in {} "
+        "(supported range={}..{})",
+        schemaVersion, filePath.string(),
+        VFXSequenceManager::VFX_SCHEMA_MIN_COMPAT_VERSION,
+        VFXSequenceManager::VFX_SCHEMA_VERSION);
     return false;
+  }
+  if (schemaVersion < VFXSequenceManager::VFX_SCHEMA_VERSION) {
+    LOG_INFO("VFXSequenceManager: loading compatibility schema version {} from {}",
+             schemaVersion, filePath.string());
   }
 
   const std::string name =
@@ -303,7 +454,13 @@ bool ParseSequenceFile(const fs::path &filePath, VFXSequenceAsset &outSequence) 
       event.type = eventType;
       event.anchor = ParseAnchorType(eventNode);
       event.minTier = ParseQualityTier(eventNode, "minTier", sequence.minTier);
+      if (!ParseTierPolicy(eventNode, filePath, event.tierPolicy)) {
+        return false;
+      }
       event.params = ParseEventParams(eventType, paramsNode);
+      if (!ValidateEventParams(eventType, event.params, filePath)) {
+        return false;
+      }
 
       if (event.type == EventType::MaterialSwap) {
         const auto *materialSwap = std::get_if<MaterialSwapParams>(&event.params);

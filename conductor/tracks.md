@@ -78,15 +78,15 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## [ ] Track: V3 VFX Lighting Integration (v3_vfx_lighting_integration_20260215) [PENDING]
+## [x] Track: V3 VFX Lighting Integration (v3_vfx_lighting_integration_20260215) [COMPLETED]
 
-> **Status**: PENDING (Active in `conductor/tracks/`)  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature  
 > **Step**: E (第 6-8 周)  
 > **Depends On**: `v3_baseline_contracts_20260216` + Shadow + Clustered + Material  
 > **Focus**: VFX schema v3、3 类新事件、tierPolicy、预算估计器、预览工具、12 个模板序列。  
-> **Tasks**: 0/33
+> **Tasks**: 33/33
 
 ---
 
@@ -156,11 +156,10 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ## Status Update (2026-02-18)
 
-### V3 Active Tracks (Total: 70 tasks)
+### V3 Active Tracks (Total: 37 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| v3_vfx_lighting_integration_20260215 | E | 6P / 33T | **PENDING** |
 | v3_validation_and_release_gate_20260215 | F | 8P / 37T | **PENDING** |
 
 ### Archived Tracks
@@ -169,6 +168,7 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 - v3_baseline_contracts_20260216: **COMPLETED & ARCHIVED**
 - v3_shadow_pipeline_20260215: **COMPLETED & ARCHIVED**
 - v3_material_lighting_depth_20260215: **COMPLETED & ARCHIVED**
+- v3_vfx_lighting_integration_20260215: **COMPLETED & ARCHIVED**
 - render-risk-msvc-hardening_20260215: **COMPLETED & ARCHIVED**
 - rendergraph_contract_hardening_20260215: **COMPLETED & ARCHIVED**
 - gpu_abi_binding_governance_20260215: **COMPLETED & ARCHIVED**

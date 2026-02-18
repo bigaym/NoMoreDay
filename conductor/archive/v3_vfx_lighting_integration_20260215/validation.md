@@ -28,8 +28,17 @@
 
 ## 5. Evidence Checklist
 
-- [ ] Unit test report attached.
-- [ ] Integration report attached.
-- [ ] Template list and validation summary attached.
-- [ ] Budget estimator output attached.
+- [x] Unit test report attached.
+- [x] Integration report attached.
+- [x] Template list and validation summary attached.
+- [x] Budget estimator output attached.
 
+## 6. Command Evidence
+
+1. `build.bat` (RelWithDebInfo + CTest `ci`) passed.
+2. `build.bat analyze` passed (MSVC `/analyze`, project scope only).
+3. `build.bat perf` passed (Release + CTest `performance`).
+4. `bin/NoMoreDayTests.exe --test-case="[Integration] VFX Lighting*" --no-breaks` passed:
+   - 3/3 integration cases passed (`E6.1`, `E6.2`, `E6.3`).
+5. `bin/NoMoreDayTests.exe --test-case="[Performance] VFXLightingIntegration*" --no-breaks` passed:
+   - 1/1 performance case passed (`E6.4`).

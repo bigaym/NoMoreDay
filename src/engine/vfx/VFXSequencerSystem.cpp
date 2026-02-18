@@ -14,6 +14,7 @@
 #include "game/components/vfx/MotionTrailComponent.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <vector>
 
@@ -41,6 +42,29 @@ struct ActiveDistortionRuntime {
   float elapsed = 0.0f;
 };
 
+struct ActiveShadowPulseRuntime {
+  ShadowPulseParams params = {};
+  float elapsed = 0.0f;
+};
+
+struct ActiveLightProfileBlendRuntime {
+  LightProfileBlendParams params = {};
+  float elapsed = 0.0f;
+};
+
+struct ActiveMaterialPhaseShiftRuntime {
+  MaterialPhaseShiftParams params = {};
+  float elapsed = 0.0f;
+};
+
+struct LightProfileModifier {
+  float radiusScale = 1.0f;
+  float intensityScale = 1.0f;
+  float colorR = 1.0f;
+  float colorG = 1.0f;
+  float colorB = 1.0f;
+};
+
 // MaterialSwap logic is now managed via ActiveMaterialSwap component in registry.
 
 enum class DispatchSkipReason : uint8_t {
@@ -51,11 +75,60 @@ enum class DispatchSkipReason : uint8_t {
 
 std::vector<ActiveLightRuntime> g_activeLights;
 std::vector<ActiveDistortionRuntime> g_activeDistortions;
+std::vector<ActiveShadowPulseRuntime> g_activeShadowPulses;
+std::vector<ActiveLightProfileBlendRuntime> g_activeLightProfileBlends;
+std::vector<ActiveMaterialPhaseShiftRuntime> g_activeMaterialPhaseShifts;
 size_t g_distortionOverflowDrops = 0;
 size_t g_distortionOverflowEvictions = 0;
 double g_lastSkipLogAt = 0.0;
+bool g_shadowSoftnessOverrideActive = false;
+float g_shadowSoftnessBase = 1.0f;
 
 float Clamp01(float value) { return std::clamp(value, 0.0f, 1.0f); }
+
+const char *ToString(const TierPolicy policy) {
+  switch (policy) {
+  case TierPolicy::Strict:
+    return "strict";
+  case TierPolicy::Degrade:
+    return "degrade";
+  case TierPolicy::Skip:
+    return "skip";
+  }
+  return "unknown";
+}
+
+const char *ToString(const EventType type) {
+  switch (type) {
+  case EventType::Particle:
+    return "Particle";
+  case EventType::Trail:
+    return "Trail";
+  case EventType::Light:
+    return "Light";
+  case EventType::Shake:
+    return "Shake";
+  case EventType::Distortion:
+    return "Distortion";
+  case EventType::Sound:
+    return "Sound";
+  case EventType::MaterialSwap:
+    return "MaterialSwap";
+  case EventType::ShadowPulse:
+    return "ShadowPulse";
+  case EventType::LightProfileBlend:
+    return "LightProfileBlend";
+  case EventType::MaterialPhaseShift:
+    return "MaterialPhaseShift";
+  case EventType::Count:
+    break;
+  }
+  return "Unknown";
+}
+
+float DecayScale(float targetScale, float progress) {
+  return 1.0f + (targetScale - 1.0f) * (1.0f - Clamp01(progress));
+}
 
 float RandomRange(float minValue, float maxValue) {
   if (maxValue <= minValue) {
@@ -171,6 +244,98 @@ const char *ToString(DispatchSkipReason reason) {
   return "unknown";
 }
 
+DispatchSkipReason EvaluateEventCapabilityGate(const VFXEvent &event,
+                                               render::core::QualityTier currentTier,
+                                               int detailLevel) {
+  switch (event.type) {
+  case EventType::ShadowPulse:
+    if (static_cast<int>(currentTier) <
+            static_cast<int>(render::core::QualityTier::High) ||
+        detailLevel < 2) {
+      return DispatchSkipReason::TierGate;
+    }
+    break;
+  case EventType::LightProfileBlend:
+    if (static_cast<int>(currentTier) <
+            static_cast<int>(render::core::QualityTier::Medium) ||
+        detailLevel <= 0) {
+      return DispatchSkipReason::TierGate;
+    }
+    break;
+  case EventType::MaterialPhaseShift:
+    if (static_cast<int>(currentTier) <
+            static_cast<int>(render::core::QualityTier::High) ||
+        detailLevel < 2) {
+      return DispatchSkipReason::TierGate;
+    }
+    break;
+  default:
+    break;
+  }
+  return DispatchSkipReason::None;
+}
+
+LightProfileModifier GetLightProfile(const uint32_t profileId) {
+  static constexpr std::array<LightProfileModifier, 4> kProfiles = {{
+      {0.85f, 0.85f, 1.00f, 0.92f, 0.80f},
+      {1.00f, 1.00f, 1.00f, 1.00f, 1.00f},
+      {1.25f, 1.15f, 0.76f, 0.86f, 1.00f},
+      {1.40f, 1.30f, 0.90f, 0.74f, 1.00f},
+  }};
+  const size_t index = static_cast<size_t>(profileId);
+  if (index < kProfiles.size()) {
+    return kProfiles[index];
+  }
+  return kProfiles[0];
+}
+
+LightProfileModifier LerpLightProfile(const LightProfileModifier &from,
+                                      const LightProfileModifier &to, const float t) {
+  const float clamped = Clamp01(t);
+  auto lerp = [clamped](float lhs, float rhs) {
+    return lhs + (rhs - lhs) * clamped;
+  };
+  LightProfileModifier result = {};
+  result.radiusScale = lerp(from.radiusScale, to.radiusScale);
+  result.intensityScale = lerp(from.intensityScale, to.intensityScale);
+  result.colorR = lerp(from.colorR, to.colorR);
+  result.colorG = lerp(from.colorG, to.colorG);
+  result.colorB = lerp(from.colorB, to.colorB);
+  return result;
+}
+
+LightProfileModifier GetActiveLightProfileModifier() {
+  if (g_activeLightProfileBlends.empty()) {
+    return {};
+  }
+
+  const ActiveLightProfileBlendRuntime &runtime = g_activeLightProfileBlends.back();
+  const float blendTime = std::max(runtime.params.blendTime, 0.001f);
+  const float t = Clamp01(runtime.elapsed / blendTime);
+  return LerpLightProfile(GetLightProfile(runtime.params.profileA),
+                          GetLightProfile(runtime.params.profileB), t);
+}
+
+float GetActiveShadowIntensityScale() {
+  float scale = 1.0f;
+  for (const auto &pulse : g_activeShadowPulses) {
+    const float duration = std::max(pulse.params.duration, 0.001f);
+    const float progress = Clamp01(pulse.elapsed / duration);
+    scale *= std::max(0.0f, DecayScale(pulse.params.intensityScale, progress));
+  }
+  return std::max(0.0f, scale);
+}
+
+float GetActiveShadowSoftnessScale() {
+  float scale = 1.0f;
+  for (const auto &pulse : g_activeShadowPulses) {
+    const float duration = std::max(pulse.params.duration, 0.001f);
+    const float progress = Clamp01(pulse.elapsed / duration);
+    scale *= std::max(0.0f, DecayScale(pulse.params.softnessScale, progress));
+  }
+  return std::max(0.0f, scale);
+}
+
 int ResolveMaterialSwapOverride(entt::registry &registry, entt::entity entity) {
   if (auto *swap = registry.try_get<ActiveMaterialSwap>(entity)) {
     return swap->materialId;
@@ -243,14 +408,18 @@ float ComputeLightEnvelope(float elapsed, const LightEventParams &params) {
 
 void EmitTransientLight(const Vector2 &position, const LightEventParams &params,
                         float intensityScale) {
+  const float shadowScale = GetActiveShadowIntensityScale();
+  const LightProfileModifier profile = GetActiveLightProfileModifier();
   components::GPULight light = {};
   light.posX = position.x;
   light.posY = position.y;
-  light.radius = std::max(0.0f, params.radius);
-  light.intensity = std::max(0.0f, params.intensity * std::max(0.0f, intensityScale));
-  light.colorR = std::clamp(params.colorR, 0.0f, 1.0f);
-  light.colorG = std::clamp(params.colorG, 0.0f, 1.0f);
-  light.colorB = std::clamp(params.colorB, 0.0f, 1.0f);
+  light.radius = std::max(0.0f, params.radius * std::max(0.0f, profile.radiusScale));
+  light.intensity = std::max(
+      0.0f, params.intensity * std::max(0.0f, intensityScale) * shadowScale *
+                std::max(0.0f, profile.intensityScale));
+  light.colorR = std::clamp(params.colorR * profile.colorR, 0.0f, 1.0f);
+  light.colorG = std::clamp(params.colorG * profile.colorG, 0.0f, 1.0f);
+  light.colorB = std::clamp(params.colorB * profile.colorB, 0.0f, 1.0f);
   light.colorA = 1.0f;
   light.lightType = static_cast<uint32_t>(components::LightType::PointLight);
   render::lighting::LightManager::Get().AddTransientLight(light);
@@ -350,6 +519,95 @@ void UpdateMaterialSwapRuntimes(entt::registry &registry, float dt) {
   }
 }
 
+void UpdateShadowPulseRuntimes(float dt) {
+  if (g_activeShadowPulses.empty()) {
+    if (g_shadowSoftnessOverrideActive) {
+      auto &qualityManager = render::core::QualityTierManager::Get();
+      if (qualityManager.IsInitialized()) {
+        auto &config =
+            const_cast<render::core::RenderConfig &>(qualityManager.GetConfig());
+        config.shadowSoftness = g_shadowSoftnessBase;
+      }
+      g_shadowSoftnessOverrideActive = false;
+    }
+    return;
+  }
+
+  for (auto &runtime : g_activeShadowPulses) {
+    runtime.elapsed += dt;
+  }
+  std::erase_if(g_activeShadowPulses, [](const ActiveShadowPulseRuntime &runtime) {
+    return runtime.elapsed >= runtime.params.duration;
+  });
+
+  if (g_activeShadowPulses.empty()) {
+    return;
+  }
+
+  auto &qualityManager = render::core::QualityTierManager::Get();
+  if (!qualityManager.IsInitialized()) {
+    return;
+  }
+
+  auto &config =
+      const_cast<render::core::RenderConfig &>(qualityManager.GetConfig());
+  if (!g_shadowSoftnessOverrideActive) {
+    g_shadowSoftnessBase = std::max(0.0001f, config.shadowSoftness);
+    g_shadowSoftnessOverrideActive = true;
+  }
+  config.shadowSoftness =
+      std::max(0.0001f, g_shadowSoftnessBase * GetActiveShadowSoftnessScale());
+}
+
+void UpdateLightProfileBlendRuntimes(float dt) {
+  if (g_activeLightProfileBlends.empty()) {
+    return;
+  }
+
+  for (auto &runtime : g_activeLightProfileBlends) {
+    runtime.elapsed += dt;
+  }
+  std::erase_if(g_activeLightProfileBlends,
+                [](const ActiveLightProfileBlendRuntime &runtime) {
+                  return runtime.elapsed >= runtime.params.blendTime;
+                });
+}
+
+void UpdateMaterialPhaseShiftRuntimes(float dt) {
+  auto &materials = render::MaterialManager::Get();
+  if (g_activeMaterialPhaseShifts.empty()) {
+    if (materials.HasRuntimePhaseShift()) {
+      materials.ResetRuntimePhaseShift();
+    }
+    return;
+  }
+
+  for (auto &runtime : g_activeMaterialPhaseShifts) {
+    runtime.elapsed += dt;
+  }
+  std::erase_if(g_activeMaterialPhaseShifts,
+                [](const ActiveMaterialPhaseShiftRuntime &runtime) {
+                  return runtime.elapsed >= runtime.params.duration;
+                });
+
+  if (g_activeMaterialPhaseShifts.empty()) {
+    materials.ResetRuntimePhaseShift();
+    return;
+  }
+
+  float roughnessScale = 1.0f;
+  float specularScale = 1.0f;
+  float emissiveScale = 1.0f;
+  for (const auto &runtime : g_activeMaterialPhaseShifts) {
+    const float duration = std::max(runtime.params.duration, 0.001f);
+    const float progress = Clamp01(runtime.elapsed / duration);
+    roughnessScale *= std::max(0.0f, DecayScale(runtime.params.roughnessScale, progress));
+    specularScale *= std::max(0.0f, DecayScale(runtime.params.specularScale, progress));
+    emissiveScale *= std::max(0.0f, DecayScale(runtime.params.emissiveScale, progress));
+  }
+  materials.SetRuntimePhaseShift(roughnessScale, specularScale, emissiveScale);
+}
+
 } // namespace
 
 void VFXSequencerSystem::Update(entt::registry &registry, float dt) {
@@ -358,6 +616,9 @@ void VFXSequencerSystem::Update(entt::registry &registry, float dt) {
   }
 
   UpdateTrailRuntimes(registry, dt);
+  UpdateShadowPulseRuntimes(dt);
+  UpdateLightProfileBlendRuntimes(dt);
+  UpdateMaterialPhaseShiftRuntimes(dt);
   UpdateActiveLights(dt);
   UpdateActiveDistortions(dt);
   UpdateMaterialSwapRuntimes(registry, dt);
@@ -393,6 +654,7 @@ void VFXSequencerSystem::Update(entt::registry &registry, float dt) {
     }
 
     player.elapsed += dt;
+    bool abortEventChain = false;
 
     while (player.nextEventIdx >= 0 &&
            player.nextEventIdx < static_cast<int>(sequence->events.size())) {
@@ -401,24 +663,49 @@ void VFXSequencerSystem::Update(entt::registry &registry, float dt) {
         break;
       }
 
-      const DispatchSkipReason skipReason =
-          EvaluateDispatchGate(event, currentTier, detailLevel);
+      DispatchSkipReason skipReason = EvaluateDispatchGate(event, currentTier, detailLevel);
       if (skipReason == DispatchSkipReason::None) {
-        DispatchEvent(registry, entity, event, player);
+        skipReason = EvaluateEventCapabilityGate(event, currentTier, detailLevel);
+      }
+
+      if (skipReason == DispatchSkipReason::None) {
+        DispatchEvent(registry, entity, event, player, DispatchMode::Normal);
       } else {
-        const double now = GetTime();
-        if ((now - g_lastSkipLogAt) >= 1.0 &&
-            (event.type == EventType::MaterialSwap ||
-             event.type == EventType::Distortion)) {
-          LOG_INFO(
-              "VFXSequencerSystem: EventSkipped reason={} sequence={} type={} tier={} "
-              "detail={}",
-              ToString(skipReason), sequence->name, static_cast<int>(event.type),
-              static_cast<int>(currentTier), detailLevel);
-          g_lastSkipLogAt = now;
+        if (event.tierPolicy == TierPolicy::Strict) {
+          LOG_ERROR(
+              "VFXSequencerSystem: EventPolicyFailed policy={} reason={} sequence={} "
+              "type={} tier={} detail={} action=abort_chain",
+              ToString(event.tierPolicy), ToString(skipReason), sequence->name,
+              ToString(event.type), static_cast<int>(currentTier), detailLevel);
+          abortEventChain = true;
+          break;
+        }
+
+        if (event.tierPolicy == TierPolicy::Degrade) {
+          LOG_WARN(
+              "VFXSequencerSystem: EventPolicyDegrade policy={} reason={} sequence={} "
+              "type={} tier={} detail={} action=dispatch_degraded",
+              ToString(event.tierPolicy), ToString(skipReason), sequence->name,
+              ToString(event.type), static_cast<int>(currentTier), detailLevel);
+          DispatchEvent(registry, entity, event, player, DispatchMode::Degraded);
+        } else {
+          const double now = GetTime();
+          if ((now - g_lastSkipLogAt) >= 1.0) {
+            LOG_INFO(
+                "VFXSequencerSystem: EventPolicySkip policy={} reason={} sequence={} "
+                "type={} tier={} detail={} action=skip",
+                ToString(event.tierPolicy), ToString(skipReason), sequence->name,
+                ToString(event.type), static_cast<int>(currentTier), detailLevel);
+            g_lastSkipLogAt = now;
+          }
         }
       }
       ++player.nextEventIdx;
+    }
+
+    if (abortEventChain) {
+      toStop.push_back(entity);
+      continue;
     }
 
     if (player.elapsed >= sequence->duration) {
@@ -440,7 +727,8 @@ void VFXSequencerSystem::Update(entt::registry &registry, float dt) {
 
 void VFXSequencerSystem::DispatchEvent(entt::registry &registry, entt::entity source,
                                        const VFXEvent &event,
-                                       const VFXPlayerComponent &player) {
+                                       const VFXPlayerComponent &player,
+                                       DispatchMode mode) {
   const Vector2 worldPos = ResolveAnchor(registry, source, player, event.anchor);
   const entt::entity materialContextEntity =
       ResolveMaterialSwapTargetEntity(registry, source, player, event.anchor);
@@ -492,6 +780,21 @@ void VFXSequencerSystem::DispatchEvent(entt::registry &registry, entt::entity so
   case EventType::MaterialSwap:
     if (const auto *params = std::get_if<MaterialSwapParams>(&event.params)) {
       ExecuteMaterialSwap(registry, source, player, event.anchor, *params);
+    }
+    break;
+  case EventType::ShadowPulse:
+    if (const auto *params = std::get_if<ShadowPulseParams>(&event.params)) {
+      ExecuteShadowPulse(*params, mode);
+    }
+    break;
+  case EventType::LightProfileBlend:
+    if (const auto *params = std::get_if<LightProfileBlendParams>(&event.params)) {
+      ExecuteLightProfileBlend(*params, mode);
+    }
+    break;
+  case EventType::MaterialPhaseShift:
+    if (const auto *params = std::get_if<MaterialPhaseShiftParams>(&event.params)) {
+      ExecuteMaterialPhaseShift(*params, mode);
     }
     break;
   case EventType::Count:
@@ -696,6 +999,51 @@ void VFXSequencerSystem::ExecuteMaterialSwap(entt::registry &registry,
            entt::to_integral(target), params.materialId, duration);
 }
 
+void VFXSequencerSystem::ExecuteShadowPulse(const ShadowPulseParams &params,
+                                            DispatchMode mode) {
+  ShadowPulseParams effective = params;
+  if (mode == DispatchMode::Degraded) {
+    effective.softnessScale = 1.0f;
+    effective.intensityScale = std::max(0.0f, params.intensityScale * 0.5f);
+    effective.duration = std::max(1.0f / 60.0f, params.duration * 0.5f);
+    RenderSystem::AddScreenShake(std::max(0.0f, effective.intensityScale * 0.02f));
+  }
+
+  ActiveShadowPulseRuntime runtime = {};
+  runtime.params = effective;
+  runtime.elapsed = 0.0f;
+  g_activeShadowPulses.push_back(runtime);
+}
+
+void VFXSequencerSystem::ExecuteLightProfileBlend(const LightProfileBlendParams &params,
+                                                  DispatchMode mode) {
+  LightProfileBlendParams effective = params;
+  if (mode == DispatchMode::Degraded) {
+    effective.blendTime = std::max(1.0f / 60.0f, params.blendTime * 0.5f);
+  }
+
+  ActiveLightProfileBlendRuntime runtime = {};
+  runtime.params = effective;
+  runtime.elapsed = 0.0f;
+  g_activeLightProfileBlends.push_back(runtime);
+}
+
+void VFXSequencerSystem::ExecuteMaterialPhaseShift(
+    const MaterialPhaseShiftParams &params, DispatchMode mode) {
+  MaterialPhaseShiftParams effective = params;
+  if (mode == DispatchMode::Degraded) {
+    effective.roughnessScale = 1.0f;
+    effective.specularScale = 1.0f;
+    effective.emissiveScale = std::max(1.0f, params.emissiveScale * 0.75f);
+    effective.duration = std::max(1.0f / 60.0f, params.duration * 0.5f);
+  }
+
+  ActiveMaterialPhaseShiftRuntime runtime = {};
+  runtime.params = effective;
+  runtime.elapsed = 0.0f;
+  g_activeMaterialPhaseShifts.push_back(runtime);
+}
+
 void VFXSequencerSystem::ExecuteSound(const SoundEventParams &params) {
   if (params.soundId.empty()) {
     return;
@@ -711,10 +1059,24 @@ void VFXSequencerSystem::ExecuteSound(const SoundEventParams &params) {
 }
 
 void VFXSequencerSystem::ResetRuntimeStateForTesting() {
+  g_activeShadowPulses.clear();
+  g_activeLightProfileBlends.clear();
+  g_activeMaterialPhaseShifts.clear();
   g_activeLights.clear();
   g_activeDistortions.clear();
   g_distortionOverflowDrops = 0;
   g_distortionOverflowEvictions = 0;
+  g_lastSkipLogAt = 0.0;
+  if (g_shadowSoftnessOverrideActive) {
+    auto &qualityManager = render::core::QualityTierManager::Get();
+    if (qualityManager.IsInitialized()) {
+      auto &config =
+          const_cast<render::core::RenderConfig &>(qualityManager.GetConfig());
+      config.shadowSoftness = g_shadowSoftnessBase;
+    }
+  }
+  g_shadowSoftnessOverrideActive = false;
+  render::MaterialManager::Get().ResetRuntimePhaseShift();
 }
 
 size_t VFXSequencerSystem::GetActiveDistortionCountForTesting() {
@@ -725,6 +1087,18 @@ size_t VFXSequencerSystem::GetActiveMaterialSwapCountForTesting() {
   // This now requires registry access, so it's handled in the test itself or we use a fallback.
   // For compatibility with existing test headers, returning 0 but the test should be updated.
   return 0; 
+}
+
+size_t VFXSequencerSystem::GetActiveShadowPulseCountForTesting() {
+  return g_activeShadowPulses.size();
+}
+
+size_t VFXSequencerSystem::GetActiveLightProfileBlendCountForTesting() {
+  return g_activeLightProfileBlends.size();
+}
+
+size_t VFXSequencerSystem::GetActiveMaterialPhaseShiftCountForTesting() {
+  return g_activeMaterialPhaseShifts.size();
 }
 
 size_t VFXSequencerSystem::GetDistortionOverflowDropCountForTesting() {

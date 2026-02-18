@@ -359,6 +359,10 @@ void MaterialManager::Initialize() {
   m_jsonPath.clear();
   m_lastModified = {};
   m_v1WarnedAssets.clear();
+  m_runtimePhaseShiftActive = false;
+  m_runtimeRoughnessScale = 1.0f;
+  m_runtimeSpecularScale = 1.0f;
+  m_runtimeEmissiveScale = 1.0f;
 
   const MaterialInstance defaultMaterial = MaterialPresets::Default();
   const components::GPUMaterialDataV2 defaultGpu = ToGpuData(defaultMaterial);
@@ -388,6 +392,10 @@ void MaterialManager::Shutdown() {
   m_jsonPath.clear();
   m_lastModified = {};
   m_v1WarnedAssets.clear();
+  m_runtimePhaseShiftActive = false;
+  m_runtimeRoughnessScale = 1.0f;
+  m_runtimeSpecularScale = 1.0f;
+  m_runtimeEmissiveScale = 1.0f;
   m_initialized = false;
 }
 
@@ -680,6 +688,36 @@ int MaterialManager::GetMaterialId(const std::string &name) const {
   return it->second;
 }
 
+void MaterialManager::SetRuntimePhaseShift(float roughnessScale,
+                                           float specularScale,
+                                           float emissiveScale) {
+  const float clampedRoughness = std::max(0.0f, roughnessScale);
+  const float clampedSpecular = std::max(0.0f, specularScale);
+  const float clampedEmissive = std::max(0.0f, emissiveScale);
+  const bool changed = (!m_runtimePhaseShiftActive) ||
+                       (m_runtimeRoughnessScale != clampedRoughness) ||
+                       (m_runtimeSpecularScale != clampedSpecular) ||
+                       (m_runtimeEmissiveScale != clampedEmissive);
+  m_runtimePhaseShiftActive = true;
+  m_runtimeRoughnessScale = clampedRoughness;
+  m_runtimeSpecularScale = clampedSpecular;
+  m_runtimeEmissiveScale = clampedEmissive;
+  if (changed) {
+    m_dirty = true;
+  }
+}
+
+void MaterialManager::ResetRuntimePhaseShift() {
+  if (!m_runtimePhaseShiftActive) {
+    return;
+  }
+  m_runtimePhaseShiftActive = false;
+  m_runtimeRoughnessScale = 1.0f;
+  m_runtimeSpecularScale = 1.0f;
+  m_runtimeEmissiveScale = 1.0f;
+  m_dirty = true;
+}
+
 void MaterialManager::SyncToGPU() {
   if (!m_initialized || !m_dirty) {
     return;
@@ -712,9 +750,17 @@ MaterialManager::ToGpuData(const MaterialInstance &material) const {
   components::GPUMaterialDataV2 gpu = {};
   gpu.baseColor = {material.baseColorR, material.baseColorG, material.baseColorB,
                    material.baseColorA};
-  gpu.emissiveAndIntensity = {material.emissiveR, material.emissiveG,
-                              material.emissiveB, material.emissiveIntensity};
-  gpu.pbrLite = {material.roughness, material.specular, material.ao,
+  const float roughnessScale = m_runtimePhaseShiftActive ? m_runtimeRoughnessScale : 1.0f;
+  const float specularScale = m_runtimePhaseShiftActive ? m_runtimeSpecularScale : 1.0f;
+  const float emissiveScale = m_runtimePhaseShiftActive ? m_runtimeEmissiveScale : 1.0f;
+
+  gpu.emissiveAndIntensity = {
+      material.emissiveR,
+      material.emissiveG,
+      material.emissiveB,
+      std::max(0.0f, material.emissiveIntensity * emissiveScale)};
+  gpu.pbrLite = {std::max(0.0f, material.roughness * roughnessScale),
+                 std::max(0.0f, material.specular * specularScale), material.ao,
                  material.heightBias};
   gpu.textureSlots = {static_cast<float>(material.textureSlots[0]),
                       static_cast<float>(material.normalMapSlot),

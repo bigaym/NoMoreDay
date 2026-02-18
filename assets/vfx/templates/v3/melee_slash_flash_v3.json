@@ -1,0 +1,46 @@
+{
+  "vfx_schema_version": 3,
+  "name": "V3Template_MeleeSlashFlash",
+  "duration": 0.45,
+  "minTier": "Low",
+  "events": [
+    {
+      "time": 0.0,
+      "type": "ShadowPulse",
+      "minTier": "High",
+      "tierPolicy": "degrade",
+      "params": {
+        "softnessScale": 1.35,
+        "intensityScale": 1.25,
+        "duration": 0.2
+      }
+    },
+    {
+      "time": 0.06,
+      "type": "Particle",
+      "tierPolicy": "skip",
+      "params": {
+        "materialId": "FireGlow",
+        "count": 20,
+        "speed": 160.0,
+        "lifetime": 0.28,
+        "scale": 0.95
+      }
+    },
+    {
+      "time": 0.1,
+      "type": "Light",
+      "tierPolicy": "skip",
+      "params": {
+        "radius": 96.0,
+        "intensity": 2.0,
+        "duration": 0.25,
+        "color": [
+          1.0,
+          0.82,
+          0.56
+        ]
+      }
+    }
+  ]
+}
