@@ -13,13 +13,13 @@ REM   release     - Build in Release mode (with LTO)
 REM   debug       - Build in Debug mode
 REM   analyze     - Enable MSVC Static Analysis (/analyze)
 REM   asan        - Enable Address Sanitizer (ASan)
-REM   perf        - Run performance tests after build
 REM   gate        - Run V3 release gate runner after build/test
 REM   check       - Run JSON validation and static analysis only
 REM   includes    - Build with /showIncludes to analyze dependencies
-REM   noci        - Run tests directly instead of through ctest labels
 REM   nofastbuild - Disable fast MSVC build options (/MP + multitool)
 REM   noruntimeopt- Disable extra runtime optimization flags
+REM   nocache     - Disable compiler cache launcher
+REM   cache=TOOL  - Select compiler cache tool: auto/sccache/ccache/clcache
 REM   j=N         - Set parallel jobs (default: 16)
 REM
 REM Examples:
@@ -38,8 +38,6 @@ cd /d "%~dp0"
 set "BUILD_DIR=build"
 set "BUILD_TYPE=RelWithDebInfo"
 set "BUILD_TESTS=ON"
-set "RUN_TESTS=ON"
-set "RUN_PERF=OFF"
 set "RUN_GATE=OFF"
 set "ENABLE_LTO=OFF"
 set "ENABLE_ANALYZE=OFF"
@@ -47,7 +45,9 @@ set "ENABLE_ASAN=OFF"
 set "SHOW_INCLUDES=OFF"
 set "ENABLE_FAST_BUILD=ON"
 set "ENABLE_RUNTIME_OPT=ON"
-set "USE_CTEST=ON"
+set "ENABLE_COMPILER_CACHE=ON"
+set "COMPILER_CACHE_TOOL=AUTO"
+set "CCACHE_FALLBACK_EXE=C:/Users/yuminao/AppData/Local/Microsoft/WinGet/Packages/Ccache.Ccache_Microsoft.Winget.Source_8wekyb3d8bbwe/ccache-4.12.2-windows-x86_64/ccache.exe"
 set "ONLY_CHECK=OFF"
 set "GENERATOR_NAME="
 set "PARALLEL_JOBS=7"
@@ -167,7 +167,6 @@ if /i "%~1"=="clean-all" (
 )
 if /i "%~1"=="notest" (
     set "BUILD_TESTS=OFF"
-    set "RUN_TESTS=OFF"
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="analyze" (
@@ -190,16 +189,13 @@ if /i "%~1"=="noruntimeopt" (
     set "ENABLE_RUNTIME_OPT=OFF"
     set "NEED_CONFIG=1"
 )
-if /i "%~1"=="noci" (
-    set "USE_CTEST=OFF"
-)
 if /i "%~1"=="check" (
     set "ONLY_CHECK=ON"
 )
 if /i "%~1"=="perf" (
-    set "RUN_PERF=ON"
-    set "BUILD_TYPE=Release"
-    set "NEED_CONFIG=1"
+    echo [Build] ERROR: 'perf' option is deprecated.
+    echo [Build] Use CTest directly: ctest --test-dir build -C Release -L performance --output-on-failure
+    exit /b 1
 )
 if /i "%~1"=="gate" (
     set "RUN_GATE=ON"
@@ -211,6 +207,15 @@ if /i "%~1"=="release" (
 )
 if /i "%~1"=="debug" (
     set "BUILD_TYPE=Debug"
+    set "NEED_CONFIG=1"
+)
+if /i "%~1"=="nocache" (
+    set "ENABLE_COMPILER_CACHE=OFF"
+    set "NEED_CONFIG=1"
+)
+echo %~1 | findstr /i /r "^cache=.*$" >nul
+if not errorlevel 1 (
+    for /f "tokens=2 delims==" %%a in ("%~1") do set "COMPILER_CACHE_TOOL=%%a"
     set "NEED_CONFIG=1"
 )
 REM Parse j=N parameter for parallel jobs
@@ -264,6 +269,9 @@ if exist CMakeCache.txt (
     set "CACHE_ENABLE_SHOW_INCLUDES="
     set "CACHE_ENABLE_FAST_BUILD="
     set "CACHE_ENABLE_RUNTIME_OPT="
+    set "CACHE_ENABLE_COMPILER_CACHE="
+    set "CACHE_COMPILER_CACHE_TOOL="
+    set "CACHE_CCACHE_FALLBACK_PATH="
     set "CACHE_BUILD_TESTING="
 
     for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"CMAKE_GENERATOR:INTERNAL=" CMakeCache.txt') do (
@@ -286,6 +294,15 @@ if exist CMakeCache.txt (
     )
     for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"ENABLE_RUNTIME_OPT:BOOL=" CMakeCache.txt') do (
         set "CACHE_ENABLE_RUNTIME_OPT=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"NMD_ENABLE_COMPILER_CACHE:BOOL=" CMakeCache.txt') do (
+        set "CACHE_ENABLE_COMPILER_CACHE=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"NMD_COMPILER_CACHE_TOOL:STRING=" CMakeCache.txt') do (
+        set "CACHE_COMPILER_CACHE_TOOL=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"NMD_CCACHE_DEFAULT_PATH:FILEPATH=" CMakeCache.txt') do (
+        set "CACHE_CCACHE_FALLBACK_PATH=%%B"
     )
     for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"BUILD_TESTING:BOOL=" CMakeCache.txt') do (
         set "CACHE_BUILD_TESTING=%%B"
@@ -348,6 +365,24 @@ if exist CMakeCache.txt (
             set "NEED_CONFIG=1"
         )
     )
+    if defined CACHE_ENABLE_COMPILER_CACHE (
+        if /i not "!CACHE_ENABLE_COMPILER_CACHE!"=="!ENABLE_COMPILER_CACHE!" (
+            echo [Build] Reconfigure required: NMD_ENABLE_COMPILER_CACHE !CACHE_ENABLE_COMPILER_CACHE! -> !ENABLE_COMPILER_CACHE!
+            set "NEED_CONFIG=1"
+        )
+    )
+    if defined CACHE_COMPILER_CACHE_TOOL (
+        if /i not "!CACHE_COMPILER_CACHE_TOOL!"=="!COMPILER_CACHE_TOOL!" (
+            echo [Build] Reconfigure required: NMD_COMPILER_CACHE_TOOL !CACHE_COMPILER_CACHE_TOOL! -> !COMPILER_CACHE_TOOL!
+            set "NEED_CONFIG=1"
+        )
+    )
+    if defined CACHE_CCACHE_FALLBACK_PATH (
+        if /i not "!CACHE_CCACHE_FALLBACK_PATH!"=="!CCACHE_FALLBACK_EXE!" (
+            echo [Build] Reconfigure required: NMD_CCACHE_DEFAULT_PATH !CACHE_CCACHE_FALLBACK_PATH! -> !CCACHE_FALLBACK_EXE!
+            set "NEED_CONFIG=1"
+        )
+    )
 
     if defined CACHE_BUILD_TESTING (
         if /i not "!CACHE_BUILD_TESTING!"=="!BUILD_TESTS!" (
@@ -383,6 +418,8 @@ if "!NEED_CONFIG!"=="1" (
     echo   ShowIncludes:  !SHOW_INCLUDES!
     echo   FastBuild:     !ENABLE_FAST_BUILD!
     echo   RuntimeOpt:    !ENABLE_RUNTIME_OPT!
+    echo   CompilerCache: !ENABLE_COMPILER_CACHE! ^(!COMPILER_CACHE_TOOL!^)
+    echo   CcacheFallback: !CCACHE_FALLBACK_EXE!
     echo   LTO:           !ENABLE_LTO!
     echo   Generator:     !GENERATOR_NAME!
     echo ============================================================
@@ -394,6 +431,9 @@ if "!NEED_CONFIG!"=="1" (
     set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_SHOW_INCLUDES=!SHOW_INCLUDES!"
     set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_FAST_BUILD=!ENABLE_FAST_BUILD!"
     set "CMAKE_OPTS=!CMAKE_OPTS! -DENABLE_RUNTIME_OPT=!ENABLE_RUNTIME_OPT!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DNMD_ENABLE_COMPILER_CACHE=!ENABLE_COMPILER_CACHE!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DNMD_COMPILER_CACHE_TOOL=!COMPILER_CACHE_TOOL!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DNMD_CCACHE_DEFAULT_PATH:FILEPATH=!CCACHE_FALLBACK_EXE!"
 
     cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
@@ -429,70 +469,13 @@ if exist "!BUILD_LOG!" del /f /q "!BUILD_LOG!" >nul 2>nul
 if not "!BUILD_EXIT!"=="0" exit /b !BUILD_EXIT!
 
 REM ============================================================================
-REM 5. Post-Build Execution (Tests)
+REM 5. Post-Build Notes (Tests via CTest only)
 REM ============================================================================
-set "TEST_EXE=..\bin\NoMoreDayTests.exe"
-if not exist "!TEST_EXE!" set "TEST_EXE=..\bin\!BUILD_TYPE!\NoMoreDayTests.exe"
-echo [Test] Using test executable: !TEST_EXE!
-set "CTEST_AVAILABLE=0"
-set "RUN_WITH_CTEST=0"
-where ctest >nul 2>nul
-if !errorlevel! equ 0 set "CTEST_AVAILABLE=1"
-if "!USE_CTEST!"=="ON" if "!CTEST_AVAILABLE!"=="1" set "RUN_WITH_CTEST=1"
-
-if "!BUILD_TESTS!"=="ON" if "!RUN_TESTS!"=="ON" (
-    if "!RUN_WITH_CTEST!"=="1" (
-        echo.
-        echo ============================================================
-        echo [Test] Running CTest CI suite...
-        echo ============================================================
-        ctest --test-dir . -C !BUILD_TYPE! --output-on-failure -L ci
-        if errorlevel 1 (
-            echo [Test] CTest CI suite FAILED!
-            exit /b 1
-        )
-    ) else (
-        if exist "!TEST_EXE!" (
-            echo.
-            echo ============================================================
-            echo [Test] Running Unit Tests...
-            echo ============================================================
-            "!TEST_EXE!" --test-case-exclude=*performance*
-            if errorlevel 1 (
-                echo [Test] Unit Tests FAILED!
-                exit /b 1
-            )
-        ) else (
-            echo [Test] Warning: Test executable not found at !TEST_EXE!
-        )
-    )
-)
-
-if "!RUN_PERF!"=="ON" (
-    if "!RUN_WITH_CTEST!"=="1" (
-        echo.
-        echo ============================================================
-        echo [Test] Running CTest performance suite...
-        echo ============================================================
-        ctest --test-dir . -C !BUILD_TYPE! --output-on-failure -L performance
-        if errorlevel 1 (
-            echo [Test] CTest performance suite FAILED!
-            exit /b 1
-        )
-    ) else (
-        if exist "!TEST_EXE!" (
-            echo.
-            echo ============================================================
-            echo [Test] Running Performance Benchmarks...
-            echo ============================================================
-            "!TEST_EXE!" --test-case=*performance*
-            if errorlevel 1 (
-                echo [Test] Performance Tests FAILED!
-                exit /b 1
-            )
-        )
-    )
-)
+echo [Test] Test execution is managed separately via CTest.
+echo [Test] Examples:
+echo [Test]   ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure
+echo [Test]   ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+echo [Test]   ctest --test-dir build -C Release -L performance --output-on-failure
 
 if "!RUN_GATE!"=="ON" (
     echo.
@@ -501,7 +484,6 @@ if "!RUN_GATE!"=="ON" (
     echo ============================================================
     pushd ..
     set "GATE_ARGS=--build-dir build --config !BUILD_TYPE! --output-dir bin/release_gate --allow-missing-screenshots"
-    if "!RUN_PERF!"=="ON" set "GATE_ARGS=!GATE_ARGS! --final-verification"
     python scripts\v3_release_gate.py !GATE_ARGS!
     set "GATE_EXIT=!errorlevel!"
     popd
