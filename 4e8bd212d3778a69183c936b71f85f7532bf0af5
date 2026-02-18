@@ -1,0 +1,25 @@
+﻿Track closeout: v3_vfx_lighting_integration_20260215 (Step E)
+
+Scope delivered:
+- Implemented P1-P5 core: schema v3 events (ShadowPulse/LightProfileBlend/MaterialPhaseShift), tierPolicy parsing/execution, runtime handlers, MaterialManager phase-shift bridge, budget estimator, 12 v3 template assets, preview CLI.
+- Implemented Phase 6 matrix:
+  - tests/integration/VFXLightingIntegrationTest.cpp (E6.1/E6.2/E6.3)
+  - tests/performance/VFXLightingIntegrationBenchmark.cpp (E6.4)
+  - tools/vfx_preview/preview_v3.py extended with --hot-reload-check and --diff-out
+  - fixed Unity-group build regression: tests/performance/ShadowPipelineBenchmark.cpp include Logger
+
+Validation evidence (2026-02-18):
+- build.bat : PASS (ci nonperf)
+- build.bat analyze : PASS
+- build.bat perf : PASS
+- .\bin\NoMoreDayTests.exe --test-case="[Integration] VFX Lighting*" --no-breaks : 3/3 PASS
+- .\bin\NoMoreDayTests.exe --test-case="[Performance] VFXLightingIntegration*" --no-breaks : 1/1 PASS
+
+Closeout actions:
+- Updated plan/validation to mark E6.1-E6.5 + acceptance gates done.
+- Updated conductor/tracks.md, conductor/rendering_system_progress.md, conductor/archive/tracks_archive.md, metadata status/counters.
+- Archived track folder via command-line move:
+  move conductor\tracks\v3_vfx_lighting_integration_20260215 conductor\archive\
+
+Residual:
+- settings.json left uncommitted intentionally (pre-existing unrelated user modification).
