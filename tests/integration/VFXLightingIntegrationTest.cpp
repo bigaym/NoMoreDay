@@ -1,5 +1,6 @@
 #include "doctest.h"
 
+#include "engine/render/MaterialManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
@@ -203,5 +204,70 @@ TEST_CASE("[Integration] VFX Lighting - Preview HotReload Diff Hook") {
   CHECK(diffText.find("--- before") != std::string::npos);
   CHECK(diffText.find("+++ after") != std::string::npos);
 
+  CleanupDirVfxLightingIntegration(dir);
+}
+
+TEST_CASE("[Integration] VFX Lighting - MaterialPhaseShift GPU Payload Transition") {
+  const std::filesystem::path dir =
+      MakeTempDirVfxLightingIntegration("tmp_vfx_phase_shift_payload_transition");
+
+  WriteJsonVfxLightingIntegration(
+      dir / "phase_shift_payload.json",
+      {{"vfx_schema_version", 3},
+       {"name", "PhaseShiftPayload"},
+       {"duration", 0.4},
+       {"events",
+        nlohmann::json::array(
+            {{{"time", 0.0},
+              {"type", "MaterialPhaseShift"},
+              {"tierPolicy", "degrade"},
+              {"params",
+               {{"roughnessScale", 0.6},
+                {"specularScale", 1.4},
+                {"emissiveScale", 1.2},
+                {"duration", 0.1}}}}})}});
+
+  auto &materials = NoMoreDay::render::MaterialManager::Get();
+  materials.Shutdown();
+  materials.Initialize();
+  const int fireGlowId = materials.GetMaterialId("FireGlow");
+  REQUIRE(fireGlowId >= 0);
+  const auto baselineGpu = materials.GetGpuMaterialForTesting(fireGlowId);
+
+  auto &manager = NoMoreDay::vfx::VFXSequenceManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+  REQUIRE(manager.LoadFromJson(dir.string()) == 1);
+
+  NoMoreDay::render::core::QualityTierManager::Get().ForceTier(
+      NoMoreDay::render::core::QualityTier::High);
+
+  entt::registry registry;
+  const entt::entity entity = registry.create();
+  registry.emplace<Position>(entity, 10.0f, 20.0f);
+  manager.Play(registry, entity, "PhaseShiftPayload");
+
+  NoMoreDay::vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
+  NoMoreDay::vfx::VFXSequencerSystem::Update(registry, 1.0f / 60.0f);
+  CHECK(NoMoreDay::vfx::VFXSequencerSystem::GetActiveMaterialPhaseShiftCountForTesting() ==
+        1);
+  NoMoreDay::vfx::VFXSequencerSystem::Update(registry, 1.0f / 60.0f);
+  const auto shiftedGpu = materials.GetGpuMaterialForTesting(fireGlowId);
+  CHECK(shiftedGpu.pbrLite.x != doctest::Approx(baselineGpu.pbrLite.x));
+  CHECK(shiftedGpu.pbrLite.y != doctest::Approx(baselineGpu.pbrLite.y));
+  CHECK(shiftedGpu.emissiveAndIntensity.w !=
+        doctest::Approx(baselineGpu.emissiveAndIntensity.w));
+
+  NoMoreDay::vfx::VFXSequencerSystem::Update(registry, 0.25f);
+  CHECK(NoMoreDay::vfx::VFXSequencerSystem::GetActiveMaterialPhaseShiftCountForTesting() ==
+        0);
+  const auto restoredGpu = materials.GetGpuMaterialForTesting(fireGlowId);
+  CHECK(restoredGpu.pbrLite.x == doctest::Approx(baselineGpu.pbrLite.x));
+  CHECK(restoredGpu.pbrLite.y == doctest::Approx(baselineGpu.pbrLite.y));
+  CHECK(restoredGpu.emissiveAndIntensity.w ==
+        doctest::Approx(baselineGpu.emissiveAndIntensity.w));
+
+  manager.Shutdown();
+  materials.Shutdown();
   CleanupDirVfxLightingIntegration(dir);
 }

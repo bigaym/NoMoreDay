@@ -33,6 +33,8 @@ public:
   [[nodiscard]] bool HasRuntimePhaseShift() const {
     return m_runtimePhaseShiftActive;
   }
+  [[nodiscard]] const components::GPUMaterialDataV2 &
+  GetGpuMaterialForTesting(int materialId) const;
 
   void SyncToGPU();
   void BindSSBO(NoMoreDay::RenderConstants::Binding binding) const;
@@ -51,6 +53,7 @@ private:
   [[nodiscard]] components::GPUMaterialDataV2 ToGpuData(
       const MaterialInstance &material) const;
   void MarkSlot(int id, const MaterialInstance &material, const std::string &name);
+  void RebuildGpuBufferCache();
 
   std::array<MaterialInstance, MAX_MATERIALS> m_materials{};
   std::array<components::GPUMaterialDataV2, MAX_MATERIALS> m_gpuMaterials{};

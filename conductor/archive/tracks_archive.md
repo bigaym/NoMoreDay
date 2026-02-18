@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Render V3 Material Phase Shift GPU Sync (render_v3_material_phase_shift_gpu_sync_20260218)
+- **Folder:** [./conductor/archive/render_v3_material_phase_shift_gpu_sync_20260218/](./conductor/archive/render_v3_material_phase_shift_gpu_sync_20260218/)
+- **Description:** 修复 `MaterialPhaseShift` 运行态事件到 GPU 材质 payload 的同步路径，确保激活阶段生效并在到期后恢复基线。
+- **Status:** COMPLETED (2026-02-18)
+- **Priority:** P0
+- **Archive Reason:** `MaterialManager` 新增运行态重建路径并通过 `build.bat`、`build.bat analyze`、`ctest -L unit`、`ctest -L integration` 验证；新增单元/集成断言覆盖“下一帧生效 + 到期恢复”生命周期。
+
+---
+
 ## [x] Track: Render V3 Clustered Shader Hardening (render_v3_clustered_shader_hardening_20260218)
 - **Folder:** [./conductor/archive/render_v3_clustered_shader_hardening_20260218/](./conductor/archive/render_v3_clustered_shader_hardening_20260218/)
 - **Description:** 修复 clustered light culling compute shader 编译失败，恢复 `LightCullingPass` 成功路径并补充 deterministic fallback 回归测试。

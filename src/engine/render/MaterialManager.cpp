@@ -442,6 +442,15 @@ void MaterialManager::MarkSlot(int id, const MaterialInstance &material,
   m_dirty = true;
 }
 
+void MaterialManager::RebuildGpuBufferCache() {
+  const MaterialInstance defaultMaterial = MaterialPresets::Default();
+  const components::GPUMaterialDataV2 defaultGpu = ToGpuData(defaultMaterial);
+  const int uploadCount = std::max(1, m_gpuUploadCount);
+  for (int id = 0; id < uploadCount && id < MAX_MATERIALS; ++id) {
+    m_gpuMaterials[id] = m_registered[id] ? ToGpuData(m_materials[id]) : defaultGpu;
+  }
+}
+
 int MaterialManager::RegisterMaterial(const MaterialInstance &mat,
                                       const std::string &name) {
   if (!m_initialized) {
@@ -703,6 +712,7 @@ void MaterialManager::SetRuntimePhaseShift(float roughnessScale,
   m_runtimeSpecularScale = clampedSpecular;
   m_runtimeEmissiveScale = clampedEmissive;
   if (changed) {
+    RebuildGpuBufferCache();
     m_dirty = true;
   }
 }
@@ -715,6 +725,7 @@ void MaterialManager::ResetRuntimePhaseShift() {
   m_runtimeRoughnessScale = 1.0f;
   m_runtimeSpecularScale = 1.0f;
   m_runtimeEmissiveScale = 1.0f;
+  RebuildGpuBufferCache();
   m_dirty = true;
 }
 
@@ -743,6 +754,15 @@ void MaterialManager::BindSSBO(NoMoreDay::RenderConstants::Binding binding) cons
     return;
   }
   m_ssbo.BindBase(static_cast<unsigned int>(binding));
+}
+
+const components::GPUMaterialDataV2 &
+MaterialManager::GetGpuMaterialForTesting(int materialId) const {
+  static const components::GPUMaterialDataV2 kFallback = {};
+  if (materialId < 0 || materialId >= MAX_MATERIALS) {
+    return kFallback;
+  }
+  return m_gpuMaterials[materialId];
 }
 
 components::GPUMaterialDataV2

@@ -640,6 +640,13 @@ TEST_CASE("[Unit] VFXSequencer - MaterialPhaseShift Runtime Lifecycle") {
   REQUIRE(manager.LoadFromJson(dir.string()) == 1);
   render::core::QualityTierManager::Get().ForceTier(render::core::QualityTier::High);
 
+  auto &materials = render::MaterialManager::Get();
+  materials.Shutdown();
+  materials.Initialize();
+  const int fireGlowId = materials.GetMaterialId("FireGlow");
+  REQUIRE(fireGlowId >= 0);
+  const auto baselineGpu = materials.GetGpuMaterialForTesting(fireGlowId);
+
   entt::registry registry;
   const entt::entity entity = registry.create();
   registry.emplace<Position>(entity, 0.0f, 0.0f);
@@ -648,11 +655,23 @@ TEST_CASE("[Unit] VFXSequencer - MaterialPhaseShift Runtime Lifecycle") {
   vfx::VFXSequencerSystem::ResetRuntimeStateForTesting();
   vfx::VFXSequencerSystem::Update(registry, 0.02f);
   CHECK(vfx::VFXSequencerSystem::GetActiveMaterialPhaseShiftCountForTesting() == 1);
+  vfx::VFXSequencerSystem::Update(registry, 0.02f);
+  const auto shiftedGpu = materials.GetGpuMaterialForTesting(fireGlowId);
+  CHECK(shiftedGpu.pbrLite.x != doctest::Approx(baselineGpu.pbrLite.x));
+  CHECK(shiftedGpu.pbrLite.y != doctest::Approx(baselineGpu.pbrLite.y));
+  CHECK(shiftedGpu.emissiveAndIntensity.w !=
+        doctest::Approx(baselineGpu.emissiveAndIntensity.w));
 
   vfx::VFXSequencerSystem::Update(registry, 0.20f);
   CHECK(vfx::VFXSequencerSystem::GetActiveMaterialPhaseShiftCountForTesting() == 0);
+  const auto restoredGpu = materials.GetGpuMaterialForTesting(fireGlowId);
+  CHECK(restoredGpu.pbrLite.x == doctest::Approx(baselineGpu.pbrLite.x));
+  CHECK(restoredGpu.pbrLite.y == doctest::Approx(baselineGpu.pbrLite.y));
+  CHECK(restoredGpu.emissiveAndIntensity.w ==
+        doctest::Approx(baselineGpu.emissiveAndIntensity.w));
 
   manager.Shutdown();
+  materials.Shutdown();
   CleanupDir(dir);
 }
 
