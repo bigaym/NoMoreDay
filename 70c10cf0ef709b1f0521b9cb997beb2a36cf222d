@@ -1,0 +1,18 @@
+﻿Track render_v3_clustered_shader_hardening_20260218 closeout
+
+Key fix:
+- Resolved clustered compute shader compile regression in assets/shaders/lighting/light_culling.comp by renaming reserved identifier packed -> packedLight (error lines 277/289).
+- Added LightCullingPass::SetComputeShaderPathForTesting for deterministic negative-path validation.
+- Extended ClusteredLightingIntegrationTest with binding alignment assertions and forced-shader-missing fallback assertion.
+
+Validation evidence:
+- build.bat: PASS (CI nonperf).
+- build.bat analyze: PASS (existing analyzer warnings only).
+- ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure: PASS.
+- build.bat perf: FAIL due unrelated [Performance] ParticleTrail - Scenario 4 SubEmitter 1k/frame threshold (dispatchOverheadMs=0.261125 > 0.2).
+- Clustered-only perf rerun (bin\\NoMoreDayTests.exe -tc="[Performance] Clustered Lighting*"): PASS with RELEASE_GATE_METRIC lines emitted.
+
+Docs/Tracking:
+- Updated bug registry with BUG-20260218-002 (Verified).
+- Archived track folder to conductor/archive/render_v3_clustered_shader_hardening_20260218.
+- Updated conductor/tracks.md and conductor/archive/tracks_archive.md.
