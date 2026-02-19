@@ -1,0 +1,1 @@
+v4_validation_release_gate_20260219 sync: build.bat PASS; ctest labels PASS (ci/unit/integration/performance). Track moved to in_progress with 24/30 tasks complete, 3/5 phases complete. Release posture NO-GO due blockers: 4.1/4.2/4.3/5.1/5.2/5.7. Includes user-approved commit of concurrent .agent/skills/feature-developer/SKILL.md change.
