@@ -25,6 +25,7 @@ enum class RenderOwnerTag : uint8_t {
   Unknown = 0,
   Scene,
   Lighting,
+  HeightShadow,
   Volumetric,
   VFX,
   UIWorld,
@@ -76,6 +77,8 @@ constexpr const char *ToOwnerName(RenderOwnerTag ownerTag) {
     return "Scene";
   case RenderOwnerTag::Lighting:
     return "Lighting";
+  case RenderOwnerTag::HeightShadow:
+    return "HeightShadow";
   case RenderOwnerTag::Volumetric:
     return "Volumetric";
   case RenderOwnerTag::VFX:

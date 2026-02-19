@@ -49,7 +49,7 @@ constexpr float EXPLOSION_INTENSITY = 5.0f;
 constexpr float AMBIENT_FIREFLY_RADIUS = 40.0f;
 constexpr float AMBIENT_FIREFLY_INTENSITY = 0.5f;
 
-constexpr int MAX_LIGHTS = 256;
+constexpr int MAX_LIGHTS = 4096;
 }
 
 namespace NoMoreDay::components {
@@ -187,6 +187,8 @@ enum class LightType : uint8_t {
   PointLight = 0,
   SpotLight = 1,
   AmbientZone = 2,
+  AreaLight = 3,
+  LineLight = 4,
 };
 
 struct GPULight {
@@ -201,11 +203,15 @@ struct GPULight {
   float dirX = 1.0f;
   float dirY = 0.0f;
   float spotCosHalfAngle = -1.0f;
+  float spotOuterCos = -1.0f;
   uint32_t lightType = static_cast<uint32_t>(LightType::PointLight);
+  uint32_t shadowMapIndex = 0u;
+  uint32_t priority = 0u;
+  uint32_t flags = 0u;
 };
 
-static_assert(sizeof(GPULight) == 48,
-              "GPULight struct must be exactly 48 bytes for SSBO alignment");
+static_assert(sizeof(GPULight) == 64,
+              "GPULight struct must be exactly 64 bytes for SSBO alignment");
 
 // V3 Baseline ABI placeholders (Step A)
 struct GPUShadowCaster {
@@ -255,9 +261,9 @@ static_assert(alignof(GPUShadowAtlasMeta) == alignof(float),
 
 struct GPUClusterHeader {
   uint32_t offset = 0;
-  uint32_t count = 0;
-  uint32_t overflowCount = 0;
-  uint32_t reserved = 0;
+  uint32_t pointCount = 0;
+  uint32_t spotCount = 0;
+  uint32_t areaCount = 0;
 };
 static_assert(std::is_standard_layout_v<GPUClusterHeader>,
               "GPUClusterHeader must be standard layout");
@@ -265,6 +271,23 @@ static_assert(sizeof(GPUClusterHeader) == 16,
               "GPUClusterHeader struct must be exactly 16 bytes");
 static_assert(alignof(GPUClusterHeader) == alignof(uint32_t),
               "GPUClusterHeader alignment mismatch");
+
+struct GPUClusterCounters {
+  uint32_t writeCursor = 0;
+  uint32_t overflowPoint = 0;
+  uint32_t overflowSpot = 0;
+  uint32_t overflowArea = 0;
+  uint32_t overflowLine = 0;
+  uint32_t reserved0 = 0;
+  uint32_t reserved1 = 0;
+  uint32_t reserved2 = 0;
+};
+static_assert(std::is_standard_layout_v<GPUClusterCounters>,
+              "GPUClusterCounters must be standard layout");
+static_assert(sizeof(GPUClusterCounters) == 32,
+              "GPUClusterCounters struct must be exactly 32 bytes");
+static_assert(alignof(GPUClusterCounters) == alignof(uint32_t),
+              "GPUClusterCounters alignment mismatch");
 
 struct GPUClusterLightIndex {
   uint32_t lightIndex = 0;
@@ -285,15 +308,19 @@ struct GPUClusterPackedLight {
   float colorTimesIntensityG = 0.0f;
   float colorTimesIntensityB = 0.0f;
   float spotCosHalfAngle = -1.0f;
+  float spotOuterCos = -1.0f;
   float dirX = 1.0f;
   float dirY = 0.0f;
-  float reserved0 = 0.0f;
   uint32_t lightType = 0;
+  uint32_t shadowMapIndex = 0u;
+  uint32_t flags = 0u;
+  uint32_t reserved0 = 0u;
+  uint32_t reserved1 = 0u;
 };
 static_assert(std::is_standard_layout_v<GPUClusterPackedLight>,
               "GPUClusterPackedLight must be standard layout");
-static_assert(sizeof(GPUClusterPackedLight) == 48,
-              "GPUClusterPackedLight struct must be exactly 48 bytes");
+static_assert(sizeof(GPUClusterPackedLight) == 64,
+              "GPUClusterPackedLight struct must be exactly 64 bytes");
 static_assert(alignof(GPUClusterPackedLight) == alignof(float),
               "GPUClusterPackedLight alignment mismatch");
 

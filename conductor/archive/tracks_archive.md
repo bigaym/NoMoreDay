@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V4 Advanced Lighting (v4_advanced_lighting_20260219)
+- **Folder:** [./conductor/archive/v4_advanced_lighting_20260219/](./conductor/archive/v4_advanced_lighting_20260219/)
+- **Description:** 完成 V4-C 高级光照交付：Clustered Forward+ V4（4096 光源、多类型剔除、V4 ABI）、HeightShadowPass（raymarch/self-shadow/POM）、全局高度场 chunk 增量更新基线、`shadowMapIndex` 与 clustered 运行时耦合。
+- **Status:** COMPLETED (2026-02-19)
+- **Priority:** P1
+- **Archive Reason:** `build.bat`、`build.bat analyze`、`ctest -C RelWithDebInfo -L unit/integration` 通过；`ctest -C Release -L performance` 失败为既有非本 Track 阻塞（`ParticleTrail Scenario4 dispatchOverheadMs=0.246931 > 0.2`），已在 track `validation.md` 中留证并挂接既有风险项。
+
+---
+
 ## [x] Track: V4 2D PBR Material Pipeline (v4_pbr_material_pipeline_20260219)
 - **Folder:** [./conductor/archive/v4_pbr_material_pipeline_20260219/](./conductor/archive/v4_pbr_material_pipeline_20260219/)
 - **Description:** 完成 V4-B 材质管线升级：Material Schema V3（`GPUMaterialDataV3` 128B）、四层贴图语义（Albedo/Normal/Mask/Detail）、BRDF-Lite（GGX/Schlick-GGX/Schlick Fresnel）着色整合，以及离线美术资产工具链与示例内容。

@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <bit>
 #include <cmath>
+#include <vector>
 
 namespace NoMoreDay::render::passes {
 namespace {
@@ -168,6 +169,12 @@ void ShadowPreparePass::Execute(graph::RenderContext &context) {
   const auto ranked = RankTopNForAtlas(inputs, *context.camera, screenWidth,
                                        screenHeight, config.maxShadowedLights);
 
+  auto &lightManager = NoMoreDay::render::lighting::LightManager::Get();
+  lightManager.ClearShadowMapIndices();
+  std::vector<NoMoreDay::render::lighting::LightManager::ShadowMapAssignment>
+      assignments;
+  assignments.reserve(ranked.size());
+
   m_preparedLights.reserve(ranked.size());
   for (const ShadowPreparedLight &candidate : ranked) {
     const auto allocation = m_atlasAllocator.AcquireTile(
@@ -177,13 +184,20 @@ void ShadowPreparePass::Execute(graph::RenderContext &context) {
       light.atlasTileIndex = allocation.tileIndex;
       ComputeAtlasRect(allocation.tileIndex, light.atlasRect);
       light.usesAtlas = true;
+      light.gpuLight.shadowMapIndex = allocation.tileIndex + 1u;
+      light.gpuLight.flags |= 0x1u;
+      assignments.push_back({.lightIndex = light.lightIndex,
+                             .shadowMapIndex = light.gpuLight.shadowMapIndex});
       ++m_atlasAllocatedCount;
     } else {
       light.usesAtlas = false;
+      light.gpuLight.shadowMapIndex = 0u;
+      light.gpuLight.flags &= ~0x1u;
       ++m_atlasOverflowCount;
     }
     m_preparedLights.push_back(light);
   }
+  lightManager.ApplyShadowMapAssignments(assignments);
 
   if (m_atlasOverflowCount > 0u || m_lastLoggedOverflow > 0u) {
     LOG_WARN(

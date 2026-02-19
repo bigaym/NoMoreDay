@@ -23,14 +23,18 @@ struct LightData {
     float dirX;
     float dirY;
     float spotCosHalfAngle;
+    float spotOuterCos;
     uint lightType;
+    uint shadowMapIndex;
+    uint priority;
+    uint flags;
 };
 
 struct ClusterHeaderData {
     uint offset;
-    uint count;
-    uint overflowCount;
-    uint reserved;
+    uint pointCount;
+    uint spotCount;
+    uint areaCount;
 };
 
 struct ClusterLightIndexData {
@@ -46,10 +50,14 @@ struct ClusterPackedLightData {
     float colorTimesIntensityG;
     float colorTimesIntensityB;
     float spotCosHalfAngle;
+    float spotOuterCos;
     float dirX;
     float dirY;
-    float reserved0;
     uint lightType;
+    uint shadowMapIndex;
+    uint flags;
+    uint reserved0;
+    uint reserved1;
 };
 
 struct LightBoundsData {
@@ -83,11 +91,20 @@ layout(std430, binding = 3) readonly buffer LightBoundsBuffer {
 
 layout(std430, binding = 4) buffer ClusterCounterBuffer {
     uint writeCursor;
+    uint overflowPoint;
+    uint overflowSpot;
+    uint overflowArea;
+    uint overflowLine;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
 } gClusterCounterBuffer;
 
 const int kRenderLayerMin = -32;
 const int kRenderLayerSpan = 64;
 const uint kSpotLightType = 1u;
+const uint kAreaLightType = 3u;
+const uint kLineLightType = 4u;
 const uint kSelectionArraySize = 64u;
 
 bool IntersectsAabb(vec2 aMin, vec2 aMax, vec2 bMin, vec2 bMax) {
@@ -111,29 +128,39 @@ void ComputeClusterLayerRange(uint slice, int sliceCount, out int outMinLayer, o
     outMaxLayer = (kRenderLayerMin + endExclusive) - 1;
 }
 
-bool IntersectsFine(in LightData light, vec2 clusterMin, vec2 clusterMax) {
+bool sphereAABBIntersect(in LightData light, vec2 clusterMin, vec2 clusterMax) {
     vec2 lightPos = vec2(light.posX, light.posY);
     vec2 closest = clamp(lightPos, clusterMin, clusterMax);
     vec2 delta = lightPos - closest;
     float radius = max(light.radius, 0.0);
-    if (dot(delta, delta) > (radius * radius)) {
+    return dot(delta, delta) <= (radius * radius);
+}
+
+bool coneAABBIntersect(in LightData light, vec2 clusterMin, vec2 clusterMax) {
+    vec2 lightPos = vec2(light.posX, light.posY);
+    vec2 center = (clusterMin + clusterMax) * 0.5;
+    vec2 toCenter = center - lightPos;
+    float toCenterLenSq = dot(toCenter, toCenter);
+    if (toCenterLenSq <= 1e-8) {
+        return true;
+    }
+    vec2 lightDir = normalize(vec2(light.dirX, light.dirY));
+    vec2 toCenterDir = normalize(toCenter);
+    float cone = dot(lightDir, toCenterDir);
+    float coneOuter = (light.spotOuterCos <= -0.9999) ? light.spotCosHalfAngle : light.spotOuterCos;
+    return cone >= coneOuter;
+}
+
+bool intersectsFine(in LightData light, vec2 clusterMin, vec2 clusterMax) {
+    if (!sphereAABBIntersect(light, clusterMin, clusterMax)) {
         return false;
     }
-
     if (light.lightType == kSpotLightType) {
-        vec2 center = (clusterMin + clusterMax) * 0.5;
-        vec2 toCenter = center - lightPos;
-        float toCenterLenSq = dot(toCenter, toCenter);
-        if (toCenterLenSq <= 1e-8) {
-            return true;
-        }
-        vec2 lightDir = normalize(vec2(light.dirX, light.dirY));
-        vec2 toCenterDir = normalize(toCenter);
-        float cone = dot(lightDir, toCenterDir);
-        if (cone < light.spotCosHalfAngle) {
+        if (!coneAABBIntersect(light, clusterMin, clusterMax)) {
             return false;
         }
     }
+    // Area/Line currently reuse sphere gate in V4 baseline.
     return true;
 }
 
@@ -179,7 +206,10 @@ void main() {
     uint selectedPriorities[kSelectionArraySize];
     float selectedIntensities[kSelectionArraySize];
     uint selectedCount = 0u;
-    uint overflowCount = 0u;
+    uint overflowPoint = 0u;
+    uint overflowSpot = 0u;
+    uint overflowArea = 0u;
+    uint overflowLine = 0u;
     uint maxPerCluster = min(uint(uMaxLightsPerCluster), kSelectionArraySize);
 
     uint lightCount = max(0, uLightCount);
@@ -201,7 +231,7 @@ void main() {
         if (light.intensity <= 0.0 || light.radius <= 0.0) {
             continue;
         }
-        if (!IntersectsFine(light, clusterMin, clusterMax)) {
+        if (!intersectsFine(light, clusterMin, clusterMax)) {
             continue;
         }
 
@@ -237,9 +267,25 @@ void main() {
             selectedIndices[insertPos] = lightIndex;
             selectedPriorities[insertPos] = candidatePriority;
             selectedIntensities[insertPos] = candidateIntensity;
-            ++overflowCount;
+            if (light.lightType == kSpotLightType) {
+                ++overflowSpot;
+            } else if (light.lightType == kAreaLightType) {
+                ++overflowArea;
+            } else if (light.lightType == kLineLightType) {
+                ++overflowLine;
+            } else {
+                ++overflowPoint;
+            }
         } else {
-            ++overflowCount;
+            if (light.lightType == kSpotLightType) {
+                ++overflowSpot;
+            } else if (light.lightType == kAreaLightType) {
+                ++overflowArea;
+            } else if (light.lightType == kLineLightType) {
+                ++overflowLine;
+            } else {
+                ++overflowPoint;
+            }
         }
     }
 
@@ -250,14 +296,43 @@ void main() {
     if (writeOffset < uint(uMaxTotalClusteredLights)) {
         clampedWriteCount = min(writeCount, uint(uMaxTotalClusteredLights) - writeOffset);
     }
-    overflowCount += (writeCount - clampedWriteCount);
+    const uint droppedByGlobalCap = writeCount - clampedWriteCount;
+    overflowPoint += droppedByGlobalCap;
+
+    uint pointCount = 0u;
+    uint spotCount = 0u;
+    uint areaCount = 0u;
+    for (uint i = 0u; i < clampedWriteCount; ++i) {
+        const uint selectedLightIndex = selectedIndices[i];
+        const uint lightType = gLightBuffer.lights[selectedLightIndex].lightType;
+        if (lightType == kSpotLightType) {
+            ++spotCount;
+        } else if (lightType == kAreaLightType || lightType == kLineLightType) {
+            ++areaCount;
+        } else {
+            ++pointCount;
+        }
+    }
 
     ClusterHeaderData header;
     header.offset = writeOffset;
-    header.count = clampedWriteCount;
-    header.overflowCount = overflowCount;
-    header.reserved = 0u;
+    header.pointCount = pointCount;
+    header.spotCount = spotCount;
+    header.areaCount = areaCount;
     gClusterHeaderBuffer.headers[clusterId] = header;
+
+    if (overflowPoint > 0u) {
+        atomicAdd(gClusterCounterBuffer.overflowPoint, overflowPoint);
+    }
+    if (overflowSpot > 0u) {
+        atomicAdd(gClusterCounterBuffer.overflowSpot, overflowSpot);
+    }
+    if (overflowArea > 0u) {
+        atomicAdd(gClusterCounterBuffer.overflowArea, overflowArea);
+    }
+    if (overflowLine > 0u) {
+        atomicAdd(gClusterCounterBuffer.overflowLine, overflowLine);
+    }
 
     for (uint i = 0u; i < clampedWriteCount; ++i) {
         uint selectedLightIndex = selectedIndices[i];
@@ -282,10 +357,14 @@ void main() {
         packedLight.colorTimesIntensityG = light.colorG * light.intensity;
         packedLight.colorTimesIntensityB = light.colorB * light.intensity;
         packedLight.spotCosHalfAngle = light.spotCosHalfAngle;
+        packedLight.spotOuterCos = light.spotOuterCos;
         packedLight.dirX = packedDir.x;
         packedLight.dirY = packedDir.y;
-        packedLight.reserved0 = 0.0;
         packedLight.lightType = light.lightType;
+        packedLight.shadowMapIndex = light.shadowMapIndex;
+        packedLight.flags = light.flags;
+        packedLight.reserved0 = 0u;
+        packedLight.reserved1 = 0u;
         gClusterPackedLightBuffer.lights[writeOffset + i] = packedLight;
     }
 }

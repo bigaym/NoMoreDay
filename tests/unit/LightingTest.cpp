@@ -10,11 +10,12 @@
 #include "game/components/LightComponent.hpp"
 
 #include <cstddef>
+#include <span>
 
 using namespace NoMoreDay;
 
 TEST_CASE("[Unit] Lighting - GPULight ABI Layout") {
-  CHECK(sizeof(components::GPULight) == 48);
+  CHECK(sizeof(components::GPULight) == 64);
   CHECK(offsetof(components::GPULight, posX) == 0);
   CHECK(offsetof(components::GPULight, posY) == 4);
   CHECK(offsetof(components::GPULight, radius) == 8);
@@ -26,7 +27,11 @@ TEST_CASE("[Unit] Lighting - GPULight ABI Layout") {
   CHECK(offsetof(components::GPULight, dirX) == 32);
   CHECK(offsetof(components::GPULight, dirY) == 36);
   CHECK(offsetof(components::GPULight, spotCosHalfAngle) == 40);
-  CHECK(offsetof(components::GPULight, lightType) == 44);
+  CHECK(offsetof(components::GPULight, spotOuterCos) == 44);
+  CHECK(offsetof(components::GPULight, lightType) == 48);
+  CHECK(offsetof(components::GPULight, shadowMapIndex) == 52);
+  CHECK(offsetof(components::GPULight, priority) == 56);
+  CHECK(offsetof(components::GPULight, flags) == 60);
 }
 
 TEST_CASE("[Unit] Lighting - QualityTier Config") {
@@ -39,15 +44,15 @@ TEST_CASE("[Unit] Lighting - QualityTier Config") {
 
   qm.ForceTier(render::core::QualityTier::Medium);
   CHECK(qm.GetConfig().dynamicLightingEnabled == true);
-  CHECK(qm.GetConfig().maxLights == 32);
+  CHECK(qm.GetConfig().maxLights == 256);
   CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.3f));
 
   qm.ForceTier(render::core::QualityTier::High);
-  CHECK(qm.GetConfig().maxLights == 128);
+  CHECK(qm.GetConfig().maxLights == 1024);
   CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.25f));
 
   qm.ForceTier(render::core::QualityTier::Ultra);
-  CHECK(qm.GetConfig().maxLights == 256);
+  CHECK(qm.GetConfig().maxLights == 4096);
   CHECK(qm.GetConfig().ambientIntensity == doctest::Approx(0.2f));
 }
 
@@ -145,6 +150,41 @@ TEST_CASE("[Unit] Lighting - Transient Light One Frame") {
 
   manager.Update(registry, camera, 4, 0.0f);
   CHECK(manager.GetActiveLightCount() == 0);
+}
+
+TEST_CASE("[Unit] Lighting - Shadow map assignment syncs active light data") {
+  entt::registry registry;
+  const entt::entity e = registry.create();
+  registry.emplace<Position>(e, 32.0f, 32.0f);
+  auto &light = registry.emplace<LightComponent>(e);
+  light.priority = 200u;
+  light.radius = 120.0f;
+  light.intensity = 1.0f;
+
+  Camera2D camera = {};
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+  camera.zoom = 1.0f;
+
+  auto &manager = render::lighting::LightManager::Get();
+  manager.Shutdown();
+  manager.Update(registry, camera, 4, 0.0f);
+  REQUIRE(manager.GetActiveLightCount() == 1);
+  CHECK(manager.GetActiveLightsCpu()[0].shadowMapIndex == 0u);
+
+  const render::lighting::LightManager::ShadowMapAssignment assignment = {
+      .lightIndex = 0u, .shadowMapIndex = 3u};
+  manager.ApplyShadowMapAssignments(
+      std::span<const render::lighting::LightManager::ShadowMapAssignment>(
+          &assignment, 1u));
+
+  REQUIRE(manager.GetActiveLightsCpu().size() == 1u);
+  CHECK(manager.GetActiveLightsCpu()[0].shadowMapIndex == 3u);
+  CHECK((manager.GetActiveLightsCpu()[0].flags & 0x1u) != 0u);
+
+  manager.ClearShadowMapIndices();
+  CHECK(manager.GetActiveLightsCpu()[0].shadowMapIndex == 0u);
+  CHECK((manager.GetActiveLightsCpu()[0].flags & 0x1u) == 0u);
 }
 
 TEST_CASE("[Unit] Lighting - Low Tier Bypasses LightingPass") {

@@ -7,11 +7,11 @@ TEST_CASE("[Unit] ClusteredLightingState - Cluster index encode/decode") {
   using NoMoreDay::render::lighting::ClusteredLightingState;
 
   const auto grid =
-      ClusteredLightingState::ComputeClusterGridDimensions(1920, 1080, 32, 4);
+      ClusteredLightingState::ComputeClusterGridDimensions(1920, 1080, 32, 8);
   REQUIRE(grid.tilesX == 60);
   REQUIRE(grid.tilesY == 34);
-  REQUIRE(grid.slicesZ == 4);
-  REQUIRE(grid.clusterCount == 8160);
+  REQUIRE(grid.slicesZ == 8);
+  REQUIRE(grid.clusterCount == 16320);
 
   const uint32_t index =
       ClusteredLightingState::BuildClusterIndex(7, 5, 2, grid.tilesX, grid.tilesY);
@@ -28,14 +28,14 @@ TEST_CASE("[Unit] ClusteredLightingState - Cluster index encode/decode") {
 TEST_CASE("[Unit] ClusteredLightingState - Render layer to z-slice boundaries") {
   using NoMoreDay::render::lighting::ClusteredLightingState;
 
-  constexpr uint32_t kSlices = 4;
+  constexpr uint32_t kSlices = 8;
   CHECK(ClusteredLightingState::MapRenderLayerToZSlice(-999, kSlices) == 0u);
   CHECK(ClusteredLightingState::MapRenderLayerToZSlice(
             ClusteredLightingState::kRenderLayerMin, kSlices) == 0u);
-  CHECK(ClusteredLightingState::MapRenderLayerToZSlice(0, kSlices) == 2u);
+  CHECK(ClusteredLightingState::MapRenderLayerToZSlice(0, kSlices) == 4u);
   CHECK(ClusteredLightingState::MapRenderLayerToZSlice(
-            ClusteredLightingState::kRenderLayerMax, kSlices) == 3u);
-  CHECK(ClusteredLightingState::MapRenderLayerToZSlice(999, kSlices) == 3u);
+            ClusteredLightingState::kRenderLayerMax, kSlices) == 7u);
+  CHECK(ClusteredLightingState::MapRenderLayerToZSlice(999, kSlices) == 7u);
 }
 
 TEST_CASE("[Unit] ClusteredLightingState - WorldY mapping boundaries") {
@@ -55,8 +55,7 @@ TEST_CASE("[Unit] ClusteredLighting - Constants contract") {
   using namespace NoMoreDay::render::core;
 
   CHECK(kDefaultClusterTileSize == 32u);
-  CHECK(kDefaultClusterZSliceCount == 4u);
+  CHECK(kDefaultClusterZSliceCount == 8u);
   CHECK(kMaxLightsPerCluster == 64u);
   CHECK(kMaxTotalClusteredLights == 4096u);
 }
-

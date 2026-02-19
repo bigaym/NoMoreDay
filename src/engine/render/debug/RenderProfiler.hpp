@@ -11,14 +11,15 @@ namespace NoMoreDay::render::debug {
 enum class RenderPassId : uint8_t {
   Scene = 0,
   Lighting = 1,
-  Volumetric = 2,
-  VFX = 3,
-  GPUText = 4,
-  GPULoot = 5,
-  UIWorld = 6,
-  PostProcess = 7,
-  Distortion = 8,
-  Composite = 9,
+  HeightShadow = 2,
+  Volumetric = 3,
+  VFX = 4,
+  GPUText = 5,
+  GPULoot = 6,
+  UIWorld = 7,
+  PostProcess = 8,
+  Distortion = 9,
+  Composite = 10,
   Count
 };
 

@@ -24,7 +24,11 @@ struct GPULight {
     float dirX;
     float dirY;
     float spotCosHalfAngle;
+    float spotOuterCos;
     uint lightType;
+    uint shadowMapIndex;
+    uint priority;
+    uint flags;
 };
 
 layout(std430, binding = 9) readonly buffer LightBuffer {

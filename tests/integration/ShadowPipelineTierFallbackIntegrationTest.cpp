@@ -153,10 +153,10 @@ TEST_CASE("[Integration] Shadow Pipeline - Resize/context restore and ownership 
 
   graph::RenderGraph defaultGraph;
   defaultGraph.AddPass(std::make_shared<passes::ScenePass>());
-  defaultGraph.AddPass(std::make_shared<passes::LightCullingPass>());
   defaultGraph.AddPass(std::make_shared<passes::ShadowPreparePass>());
   defaultGraph.AddPass(std::make_shared<passes::ShadowBuildPass>());
   defaultGraph.AddPass(std::make_shared<passes::ShadowResolvePass>());
+  defaultGraph.AddPass(std::make_shared<passes::LightCullingPass>());
   defaultGraph.AddPass(std::make_shared<passes::LightingPass>());
   defaultGraph.AddPass(std::make_shared<passes::VFXPass>());
   defaultGraph.AddPass(std::make_shared<passes::UIWorldPass>());

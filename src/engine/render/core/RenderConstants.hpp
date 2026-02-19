@@ -20,7 +20,7 @@ enum class ShadowMode : uint8_t {
 // V3 pass budget contract (ms), aligned with GPU_Rendering_System_3.md §15.2.
 inline constexpr float kBudgetLightCulling_Normal = 0.15f;
 inline constexpr float kBudgetLightCulling_High = 0.30f;
-inline constexpr float kBudgetLightCulling_Extreme = 0.45f;
+inline constexpr float kBudgetLightCulling_Extreme = 0.60f;
 
 inline constexpr float kBudgetShadow_Normal = 0.40f;
 inline constexpr float kBudgetShadow_High = 0.90f;
@@ -28,10 +28,14 @@ inline constexpr float kBudgetShadow_Extreme = 1.30f;
 
 inline constexpr float kBudgetLighting_Normal = 0.60f;
 inline constexpr float kBudgetLighting_High = 1.00f;
-inline constexpr float kBudgetLighting_Extreme = 1.30f;
+inline constexpr float kBudgetLighting_Extreme = 1.40f;
+
+inline constexpr float kBudgetHeightShadow_Normal = 0.30f;
+inline constexpr float kBudgetHeightShadow_High = 0.60f;
+inline constexpr float kBudgetHeightShadow_Extreme = 0.90f;
 
 inline constexpr uint32_t kDefaultClusterTileSize = 32u;
-inline constexpr uint32_t kDefaultClusterZSliceCount = 4u;
+inline constexpr uint32_t kDefaultClusterZSliceCount = 8u;
 inline constexpr uint32_t kMaxLightsPerCluster = 64u;
 inline constexpr uint32_t kMaxTotalClusteredLights = 4096u;
 
@@ -100,6 +104,15 @@ struct RenderConfig {
   bool specularEnabled = false;
   uint32_t materialQualityLevel = 0;
   bool v3Enabled = false;
+
+  // V4 advanced lighting controls.
+  bool clusteredLightingV4Enabled = false;
+  bool heightShadowEnabled = false;
+  uint32_t heightShadowSteps = 0;
+  bool selfShadowEnabled = false;
+  uint32_t selfShadowSteps = 0;
+  bool pomEnabled = false;
+  uint32_t pomLayers = 0;
 
   // V4 GPU text feature routing.
   bool gpuTextEnabled = false;

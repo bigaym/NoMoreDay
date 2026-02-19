@@ -64,6 +64,10 @@ uint32_t ToRawLightType(components::LightType type) {
     return static_cast<uint32_t>(components::LightType::SpotLight);
   case components::LightType::AmbientZone:
     return static_cast<uint32_t>(components::LightType::AmbientZone);
+  case components::LightType::AreaLight:
+    return static_cast<uint32_t>(components::LightType::AreaLight);
+  case components::LightType::LineLight:
+    return static_cast<uint32_t>(components::LightType::LineLight);
   }
   return static_cast<uint32_t>(components::LightType::PointLight);
 }
@@ -93,11 +97,16 @@ components::GPULight BuildGpuLight(const Position &position,
     const float halfAngleRadians = (clampedAngle * 0.5f) * (kPi / 180.0f);
     gpuLight.spotCosHalfAngle =
         (clampedAngle >= 360.0f) ? -1.0f : std::cos(halfAngleRadians);
+    gpuLight.spotOuterCos = gpuLight.spotCosHalfAngle;
   } else {
     gpuLight.dirX = 1.0f;
     gpuLight.dirY = 0.0f;
     gpuLight.spotCosHalfAngle = -1.0f;
+    gpuLight.spotOuterCos = -1.0f;
   }
+  gpuLight.shadowMapIndex = 0u;
+  gpuLight.priority = static_cast<uint32_t>(light.priority);
+  gpuLight.flags = 0u;
 
   return gpuLight;
 }
@@ -110,7 +119,11 @@ components::GPULight SanitizeRuntimeLight(const components::GPULight &source) {
   const uint32_t point = static_cast<uint32_t>(components::LightType::PointLight);
   const uint32_t spot = static_cast<uint32_t>(components::LightType::SpotLight);
   const uint32_t ambient = static_cast<uint32_t>(components::LightType::AmbientZone);
-  if (light.lightType != point && light.lightType != spot && light.lightType != ambient) {
+  const uint32_t area = static_cast<uint32_t>(components::LightType::AreaLight);
+  const uint32_t line = static_cast<uint32_t>(components::LightType::LineLight);
+  if (light.lightType != point && light.lightType != spot &&
+      light.lightType != ambient && light.lightType != area &&
+      light.lightType != line) {
     light.lightType = point;
   }
 
@@ -119,10 +132,12 @@ components::GPULight SanitizeRuntimeLight(const components::GPULight &source) {
     light.dirX = normalized.x;
     light.dirY = normalized.y;
     light.spotCosHalfAngle = std::clamp(light.spotCosHalfAngle, -1.0f, 1.0f);
+    light.spotOuterCos = std::clamp(light.spotOuterCos, -1.0f, 1.0f);
   } else {
     light.dirX = 1.0f;
     light.dirY = 0.0f;
     light.spotCosHalfAngle = -1.0f;
+    light.spotOuterCos = -1.0f;
   }
 
   return light;
@@ -283,6 +298,67 @@ void LightManager::AddTransientLight(const components::GPULight &light) {
     return;
   }
   m_transientLights.push_back(light);
+}
+
+void LightManager::ClearShadowMapIndices() {
+  if (m_stagingBuffer.empty()) {
+    return;
+  }
+
+  bool changed = false;
+  for (size_t i = 0; i < m_stagingBuffer.size(); ++i) {
+    if (m_stagingBuffer[i].shadowMapIndex != 0u ||
+        ((m_stagingBuffer[i].flags & 0x1u) != 0u)) {
+      m_stagingBuffer[i].shadowMapIndex = 0u;
+      m_stagingBuffer[i].flags &= ~0x1u;
+      changed = true;
+    }
+    if (i < m_activeLightRecords.size()) {
+      m_activeLightRecords[i].gpuLight.shadowMapIndex = m_stagingBuffer[i].shadowMapIndex;
+      m_activeLightRecords[i].gpuLight.flags = m_stagingBuffer[i].flags;
+    }
+  }
+
+  if (!changed || m_lightBuffer == nullptr || m_activeLightCount <= 0 ||
+      !NoMoreDay::utils::GPUUtils::IsInitialized()) {
+    return;
+  }
+  m_lightBuffer->OrphanAndUpload(
+      m_stagingBuffer.data(),
+      static_cast<size_t>(m_activeLightCount) * sizeof(components::GPULight));
+}
+
+void LightManager::ApplyShadowMapAssignments(
+    const std::span<const ShadowMapAssignment> assignments) {
+  if (assignments.empty() || m_stagingBuffer.empty()) {
+    return;
+  }
+
+  bool changed = false;
+  for (const ShadowMapAssignment &assignment : assignments) {
+    if (assignment.lightIndex >= m_stagingBuffer.size()) {
+      continue;
+    }
+
+    components::GPULight &light = m_stagingBuffer[assignment.lightIndex];
+    if (light.shadowMapIndex != assignment.shadowMapIndex) {
+      light.shadowMapIndex = assignment.shadowMapIndex;
+      changed = true;
+    }
+    light.flags = (assignment.shadowMapIndex != 0u) ? (light.flags | 0x1u)
+                                                     : (light.flags & ~0x1u);
+    if (assignment.lightIndex < m_activeLightRecords.size()) {
+      m_activeLightRecords[assignment.lightIndex].gpuLight = light;
+    }
+  }
+
+  if (!changed || m_lightBuffer == nullptr || m_activeLightCount <= 0 ||
+      !NoMoreDay::utils::GPUUtils::IsInitialized()) {
+    return;
+  }
+  m_lightBuffer->OrphanAndUpload(
+      m_stagingBuffer.data(),
+      static_cast<size_t>(m_activeLightCount) * sizeof(components::GPULight));
 }
 
 } // namespace NoMoreDay::render::lighting

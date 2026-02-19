@@ -193,6 +193,8 @@ const char *RenderProfiler::ToString(RenderPassId passId) {
     return "Scene";
   case RenderPassId::Lighting:
     return "Lighting";
+  case RenderPassId::HeightShadow:
+    return "HeightShadow";
   case RenderPassId::Volumetric:
     return "Volumetric";
   case RenderPassId::VFX:
@@ -221,6 +223,9 @@ std::optional<RenderPassId> RenderProfiler::FromPassName(std::string_view passNa
   }
   if (passName == "LightingPass") {
     return RenderPassId::Lighting;
+  }
+  if (passName == "HeightShadowPass") {
+    return RenderPassId::HeightShadow;
   }
   if (passName == "VolumetricLightPass") {
     return RenderPassId::Volumetric;
@@ -255,6 +260,8 @@ float RenderProfiler::GetBudgetMs(RenderPassId passId) {
     return 1.20f;
   case RenderPassId::Lighting:
     return 0.80f;
+  case RenderPassId::HeightShadow:
+    return 0.90f;
   case RenderPassId::Volumetric:
     return 0.80f;
   case RenderPassId::VFX:

@@ -100,7 +100,16 @@ TEST_CASE("[Unit] GPU ABI - V4 layout snapshot placeholders") {
   CHECK(sizeof(GPUClusterHeader) == 16);
   CHECK(alignof(GPUClusterHeader) == alignof(uint32_t));
   CHECK(offsetof(GPUClusterHeader, offset) == 0);
-  CHECK(offsetof(GPUClusterHeader, overflowCount) == 8);
+  CHECK(offsetof(GPUClusterHeader, pointCount) == 4);
+  CHECK(offsetof(GPUClusterHeader, spotCount) == 8);
+  CHECK(offsetof(GPUClusterHeader, areaCount) == 12);
+
+  CHECK(std::is_standard_layout_v<GPUClusterCounters>);
+  CHECK(sizeof(GPUClusterCounters) == 32);
+  CHECK(alignof(GPUClusterCounters) == alignof(uint32_t));
+  CHECK(offsetof(GPUClusterCounters, writeCursor) == 0);
+  CHECK(offsetof(GPUClusterCounters, overflowPoint) == 4);
+  CHECK(offsetof(GPUClusterCounters, overflowLine) == 16);
 
   CHECK(std::is_standard_layout_v<GPUClusterLightIndex>);
   CHECK(sizeof(GPUClusterLightIndex) == 4);

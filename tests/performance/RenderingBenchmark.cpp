@@ -277,10 +277,12 @@ TEST_CASE("[Performance] Debug - Scenario F Profiler HUD Overhead") {
   using namespace NoMoreDay::render::debug;
 
   constexpr int kTotalFrames = 300;
-  constexpr std::array<RenderPassId, 10> kPasses = {
-      RenderPassId::Scene,     RenderPassId::Lighting, RenderPassId::Volumetric,
-      RenderPassId::VFX,       RenderPassId::GPUText,  RenderPassId::GPULoot,
-      RenderPassId::UIWorld,   RenderPassId::PostProcess, RenderPassId::Distortion,
+  constexpr std::array<RenderPassId, 11> kPasses = {
+      RenderPassId::Scene,      RenderPassId::Lighting,
+      RenderPassId::HeightShadow, RenderPassId::Volumetric,
+      RenderPassId::VFX,        RenderPassId::GPUText,
+      RenderPassId::GPULoot,    RenderPassId::UIWorld,
+      RenderPassId::PostProcess, RenderPassId::Distortion,
       RenderPassId::Composite};
 
   RenderProfiler profiler;

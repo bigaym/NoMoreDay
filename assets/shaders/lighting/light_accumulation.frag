@@ -30,7 +30,11 @@ struct GPULight {
     float dirX;
     float dirY;
     float spotCosHalfAngle;
+    float spotOuterCos;
     uint lightType;
+    uint shadowMapIndex;
+    uint priority;
+    uint flags;
 };
 
 layout(std430, binding = 9) readonly buffer LightBuffer {
@@ -39,9 +43,9 @@ layout(std430, binding = 9) readonly buffer LightBuffer {
 
 struct ClusterHeaderData {
     uint offset;
-    uint count;
-    uint overflowCount;
-    uint reserved;
+    uint pointCount;
+    uint spotCount;
+    uint areaCount;
 };
 
 struct ClusterLightIndexData {
@@ -57,10 +61,14 @@ struct ClusterPackedLightData {
     float colorTimesIntensityG;
     float colorTimesIntensityB;
     float spotCosHalfAngle;
+    float spotOuterCos;
     float dirX;
     float dirY;
-    float reserved0;
     uint lightType;
+    uint shadowMapIndex;
+    uint flags;
+    uint reserved0;
+    uint reserved1;
 };
 
 layout(std430, binding = 1) readonly buffer ClusterHeaderBuffer {
@@ -101,6 +109,14 @@ float calcSpotFactor(vec2 lightDir, vec2 toPixelDir, float spotCosHalfAngle) {
     return t * t;
 }
 
+float distanceToLineSegment(vec2 p, vec2 a, vec2 b) {
+    vec2 ab = b - a;
+    float denom = max(dot(ab, ab), 1e-6);
+    float t = clamp(dot(p - a, ab) / denom, 0.0, 1.0);
+    vec2 closest = a + ab * t;
+    return distance(p, closest);
+}
+
 int mapRenderLayerToSlice(int layer, int slices) {
     if (slices <= 0) {
         return 0;
@@ -137,6 +153,10 @@ void accumulateSingleLight(vec2 worldPos, float shadowFactor, uint lightIndex,
     vec3 lightColor = vec3(lights[lightIndex].colorR, lights[lightIndex].colorG,
                            lights[lightIndex].colorB);
     uint lightType = lights[lightIndex].lightType;
+    float perLightShadow =
+        (uShadowEnabled != 0 && lights[lightIndex].shadowMapIndex != 0u)
+            ? shadowFactor
+            : 1.0;
 
     float dist = distance(worldPos, lightPos);
     float atten = calcAttenuation(dist, radius);
@@ -146,6 +166,27 @@ void accumulateSingleLight(vec2 worldPos, float shadowFactor, uint lightIndex,
 
     if (lightType == 2u) {
         totalLight += lightColor * intensity * atten;
+        return;
+    }
+
+    if (lightType == 3u) {
+        vec2 axis = normalize(vec2(lights[lightIndex].dirX, lights[lightIndex].dirY));
+        vec2 rel = worldPos - lightPos;
+        float halfLen = max(radius * 0.5, 1e-4);
+        float along = clamp(dot(rel, axis), -halfLen, halfLen);
+        vec2 closest = lightPos + axis * along;
+        float areaAtten = calcAttenuation(distance(worldPos, closest), radius);
+        totalLight += lightColor * intensity * areaAtten * perLightShadow;
+        return;
+    }
+    if (lightType == 4u) {
+        vec2 axis = normalize(vec2(lights[lightIndex].dirX, lights[lightIndex].dirY));
+        float halfLen = max(radius * 0.5, 1e-4);
+        vec2 a = lightPos - axis * halfLen;
+        vec2 b = lightPos + axis * halfLen;
+        float d = distanceToLineSegment(worldPos, a, b);
+        float lineAtten = calcAttenuation(d, radius);
+        totalLight += lightColor * intensity * lineAtten * perLightShadow;
         return;
     }
 
@@ -159,7 +200,7 @@ void accumulateSingleLight(vec2 worldPos, float shadowFactor, uint lightIndex,
         }
     }
 
-    totalLight += lightColor * intensity * atten * spotFactor * shadowFactor;
+    totalLight += lightColor * intensity * atten * spotFactor * perLightShadow;
 }
 
 void accumulatePackedLight(vec2 worldPos, float shadowFactor,
@@ -178,9 +219,32 @@ void accumulatePackedLight(vec2 worldPos, float shadowFactor,
         vec3(light.colorTimesIntensityR, light.colorTimesIntensityG,
              light.colorTimesIntensityB);
     uint lightType = light.lightType;
+    float perLightShadow =
+        (uShadowEnabled != 0 && light.shadowMapIndex != 0u) ? shadowFactor : 1.0;
 
     if (lightType == 2u) {
         totalLight += lightColorTimesIntensity * atten;
+        return;
+    }
+
+    if (lightType == 3u) {
+        vec2 axis = normalize(vec2(light.dirX, light.dirY));
+        float halfLen = max(light.radius * 0.5, 1e-4);
+        vec2 rel = worldPos - lightPos;
+        float along = clamp(dot(rel, axis), -halfLen, halfLen);
+        vec2 closest = lightPos + axis * along;
+        float areaAtten = calcAttenuation(distance(worldPos, closest), light.radius);
+        totalLight += lightColorTimesIntensity * areaAtten * perLightShadow;
+        return;
+    }
+    if (lightType == 4u) {
+        vec2 axis = normalize(vec2(light.dirX, light.dirY));
+        float halfLen = max(light.radius * 0.5, 1e-4);
+        vec2 a = lightPos - axis * halfLen;
+        vec2 b = lightPos + axis * halfLen;
+        float d = distanceToLineSegment(worldPos, a, b);
+        float lineAtten = calcAttenuation(d, light.radius);
+        totalLight += lightColorTimesIntensity * lineAtten * perLightShadow;
         return;
     }
 
@@ -194,7 +258,7 @@ void accumulatePackedLight(vec2 worldPos, float shadowFactor,
         }
     }
 
-    totalLight += lightColorTimesIntensity * atten * spotFactor * shadowFactor;
+    totalLight += lightColorTimesIntensity * atten * spotFactor * perLightShadow;
 }
 
 void main() {
@@ -211,7 +275,8 @@ void main() {
         int clusterId = computeClusterId(worldPos);
         if (clusterId >= 0) {
             ClusterHeaderData header = clusterHeaders[clusterId];
-            for (uint i = 0u; i < header.count; ++i) {
+            uint totalCount = header.pointCount + header.spotCount + header.areaCount;
+            for (uint i = 0u; i < totalCount; ++i) {
                 ClusterPackedLightData light = clusterLights[header.offset + i];
                 accumulatePackedLight(worldPos, shadowFactor, light, totalLight);
             }

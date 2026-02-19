@@ -1,7 +1,7 @@
 # Track: V4 Advanced Lighting
 
 **ID:** v4_advanced_lighting_20260219  
-**Status:** Pending  
+**Status:** Completed  
 **Type:** feature  
 **Priority:** P1  
 **Phase:** V4-C (Week 6-9)
@@ -10,11 +10,12 @@
 
 - [技术规格书 (Specification)](./spec.md)
 - [执行计划 (Implementation Plan)](./plan.md)
+- [验证记录 (Validation)](./validation.md)
 
 ## 进度概览 (Progress)
 
-- **Phases**: 0/5 complete
-- **Tasks**: 0/28 complete
+- **Phases**: 5/5 complete
+- **Tasks**: 28/28 complete
 
 ---
 

@@ -5,6 +5,7 @@
 
 #include <entt/entt.hpp>
 #include <memory>
+#include <span>
 #include <vector>
 
 #include "raylib.h"
@@ -16,6 +17,10 @@ public:
   struct ActiveLightRecord {
     components::GPULight gpuLight = {};
     uint8_t priority = 0;
+  };
+  struct ShadowMapAssignment {
+    uint32_t lightIndex = 0u;
+    uint32_t shadowMapIndex = 0u;
   };
 
   struct DebugStats {
@@ -52,6 +57,8 @@ public:
   }
 
   void AddTransientLight(const components::GPULight &light);
+  void ClearShadowMapIndices();
+  void ApplyShadowMapAssignments(std::span<const ShadowMapAssignment> assignments);
   void SetDisableViewCullingForTesting(bool disabled) noexcept {
     m_disableViewCullingForTesting = disabled;
   }

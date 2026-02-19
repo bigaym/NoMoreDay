@@ -20,6 +20,7 @@
 #include "engine/render/passes/DistortionPass.hpp"
 #include "engine/render/passes/GPULootPass.hpp"
 #include "engine/render/passes/GPUTextPass.hpp"
+#include "engine/render/passes/HeightShadowPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/lighting/ClusteredLightingState.hpp"
 #include "engine/render/lighting/LightManager.hpp"
@@ -174,6 +175,7 @@ NoMoreDay::render::resources::TransientResourcePool g_transientPool;
 std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
 std::shared_ptr<NoMoreDay::render::passes::LightCullingPass> g_lightCullingPass;
 std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
+std::shared_ptr<NoMoreDay::render::passes::HeightShadowPass> g_heightShadowPass;
 std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass;
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
 std::shared_ptr<NoMoreDay::render::passes::ShadowPreparePass> g_shadowPreparePass;
@@ -1103,6 +1105,8 @@ void RenderSystem::Initialize() {
   g_lightCullingPass =
       std::make_shared<NoMoreDay::render::passes::LightCullingPass>();
   g_lightingPass = std::make_shared<NoMoreDay::render::passes::LightingPass>();
+  g_heightShadowPass =
+      std::make_shared<NoMoreDay::render::passes::HeightShadowPass>();
   g_lightingPass->Initialize();
   g_shadowPreparePass =
       std::make_shared<NoMoreDay::render::passes::ShadowPreparePass>();
@@ -1161,6 +1165,13 @@ void RenderSystem::Initialize() {
        .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
        .fragmentPath = "assets/shaders/lighting/light_accumulation.frag"},
       []() { return g_lightingPass && g_lightingPass->ReloadShaders(); });
+  g_shaderHotReloadManager->Register(
+      {.debugName = "Lighting.HeightShadow",
+       .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
+       .fragmentPath = "assets/shaders/lighting/height_shadow_apply.frag"},
+      []() {
+        return g_heightShadowPass && g_heightShadowPass->ReloadShaders();
+      });
   g_shaderHotReloadManager->Register(
       {.debugName = "Lighting.Volumetric",
        .vertexPath = "assets/shaders/postprocess/fullscreen.vert",
@@ -1252,6 +1263,10 @@ void RenderSystem::Shutdown() {
   if (g_lightingPass) {
     g_lightingPass->Shutdown();
     g_lightingPass.reset();
+  }
+  if (g_heightShadowPass) {
+    g_heightShadowPass->Shutdown();
+    g_heightShadowPass.reset();
   }
   if (g_volumetricPass) {
     g_volumetricPass->Shutdown();
@@ -1385,6 +1400,9 @@ void RenderSystem::render(entt::registry &registry,
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
         g_lightingPass->OnResize(screenWidth, screenHeight);
       }
+      if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
+        g_heightShadowPass->OnResize(screenWidth, screenHeight);
+      }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
       }
@@ -1408,6 +1426,9 @@ void RenderSystem::render(entt::registry &registry,
                screenWidth, screenHeight, approxMb);
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
         g_lightingPass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
+        g_heightShadowPass->OnResize(screenWidth, screenHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
@@ -1471,9 +1492,6 @@ void RenderSystem::render(entt::registry &registry,
   sceneHdrOwner = RenderOwnerTag::Scene;
 
   if (renderConfig.v3Enabled) {
-    if (g_lightCullingPass != nullptr) {
-      graph.AddPass(g_lightCullingPass);
-    }
     if (g_shadowPreparePass != nullptr) {
       graph.AddPass(g_shadowPreparePass);
     }
@@ -1483,12 +1501,20 @@ void RenderSystem::render(entt::registry &registry,
     if (g_shadowResolvePass != nullptr) {
       graph.AddPass(g_shadowResolvePass);
     }
+    if (g_lightCullingPass != nullptr) {
+      graph.AddPass(g_lightCullingPass);
+    }
   }
 
   if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled &&
       g_lightingPass != nullptr) {
     graph.AddPass(g_lightingPass);
     sceneHdrOwner = RenderOwnerTag::Lighting;
+  }
+  if (useHdrSceneBuffer && renderConfig.heightShadowEnabled &&
+      g_heightShadowPass != nullptr) {
+    graph.AddPass(g_heightShadowPass);
+    sceneHdrOwner = RenderOwnerTag::HeightShadow;
   }
   if (useVolumetricPass && g_volumetricPass != nullptr) {
     graph.AddPass(g_volumetricPass);

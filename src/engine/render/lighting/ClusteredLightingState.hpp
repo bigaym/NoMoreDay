@@ -66,6 +66,18 @@ public:
   [[nodiscard]] uint32_t GetLastOverflowSum() const noexcept {
     return m_lastOverflowSum;
   }
+  [[nodiscard]] uint32_t GetLastOverflowPoint() const noexcept {
+    return m_lastOverflowPoint;
+  }
+  [[nodiscard]] uint32_t GetLastOverflowSpot() const noexcept {
+    return m_lastOverflowSpot;
+  }
+  [[nodiscard]] uint32_t GetLastOverflowArea() const noexcept {
+    return m_lastOverflowArea;
+  }
+  [[nodiscard]] uint32_t GetLastOverflowLine() const noexcept {
+    return m_lastOverflowLine;
+  }
   [[nodiscard]] uint32_t GetLastWrittenIndexCount() const noexcept {
     return m_lastWrittenIndexCount;
   }
@@ -96,6 +108,10 @@ private:
   uint32_t m_zSliceCount = core::kDefaultClusterZSliceCount;
   uint32_t m_uploadedLightBoundsCount = 0;
   uint32_t m_lastOverflowSum = 0;
+  uint32_t m_lastOverflowPoint = 0;
+  uint32_t m_lastOverflowSpot = 0;
+  uint32_t m_lastOverflowArea = 0;
+  uint32_t m_lastOverflowLine = 0;
   uint32_t m_lastWrittenIndexCount = 0;
   ClusterGridDimensions m_grid = {};
 

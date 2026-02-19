@@ -155,7 +155,11 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
 
   const auto &records =
       lighting::LightManager::Get().GetActiveLightRecordsCpu();
-  const uint32_t lightCount = static_cast<uint32_t>(records.size());
+  uint32_t lightCount = static_cast<uint32_t>(records.size());
+  const bool useV4Clustering = config.clusteredLightingV4Enabled;
+  if (!useV4Clustering) {
+    lightCount = std::min<uint32_t>(lightCount, 256u);
+  }
   if (!clusterState.BeginFrame(
           m_frameIndex, static_cast<uint32_t>(context.hdrSceneBuffer.width),
           static_cast<uint32_t>(context.hdrSceneBuffer.height), config.clusterTileSize,
@@ -165,7 +169,7 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
   }
 
   std::vector<components::GPULightBounds> bounds;
-  bounds.reserve(records.size());
+  bounds.reserve(static_cast<size_t>(lightCount));
   for (uint32_t i = 0; i < lightCount; ++i) {
     const auto &record = records[static_cast<size_t>(i)];
     const components::GPULight &light = record.gpuLight;
@@ -254,7 +258,8 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     rlSetUniform(m_maxLightsPerClusterLoc, &maxPerCluster, RL_SHADER_UNIFORM_INT, 1);
   }
   if (m_maxTotalClusteredLightsLoc >= 0) {
-    const int maxTotal = static_cast<int>(core::kMaxTotalClusteredLights);
+    const int maxTotal = static_cast<int>(
+        useV4Clustering ? core::kMaxTotalClusteredLights : 256u);
     rlSetUniform(m_maxTotalClusteredLightsLoc, &maxTotal, RL_SHADER_UNIFORM_INT, 1);
   }
 

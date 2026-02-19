@@ -116,7 +116,7 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Missing Fields Use Defaults") {
   CHECK(cfg.shadowSoftness == doctest::Approx(1.0f));
   CHECK(cfg.clusteredLightingEnabled == false);
   CHECK(cfg.clusterTileSize == 32);
-  CHECK(cfg.clusterZSliceCount == 4);
+  CHECK(cfg.clusterZSliceCount == 8);
   CHECK(cfg.normalLightingEnabled == false);
   CHECK(cfg.specularEnabled == false);
   CHECK(cfg.materialQualityLevel == 0);
@@ -154,7 +154,7 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Invalid Values Rejected") {
   CHECK(cfg.shadowSoftness == doctest::Approx(1.0f));
   CHECK(cfg.clusteredLightingEnabled == false);
   CHECK(cfg.clusterTileSize == 32);
-  CHECK(cfg.clusterZSliceCount == 4);
+  CHECK(cfg.clusterZSliceCount == 8);
   CHECK(cfg.normalLightingEnabled == false);
   CHECK(cfg.specularEnabled == false);
   CHECK(cfg.materialQualityLevel == 0);
@@ -340,16 +340,19 @@ TEST_CASE("[Unit] QualityTierManager - AutoDegrade Threshold Contract") {
   }
 }
 
-TEST_CASE("[Unit] QualityTierManager - V3 Budget Constants Contract") {
+TEST_CASE("[Unit] QualityTierManager - V4 Budget Constants Contract") {
   CHECK(render::core::kBudgetLightCulling_Normal == doctest::Approx(0.15f));
   CHECK(render::core::kBudgetLightCulling_High == doctest::Approx(0.30f));
-  CHECK(render::core::kBudgetLightCulling_Extreme == doctest::Approx(0.45f));
+  CHECK(render::core::kBudgetLightCulling_Extreme == doctest::Approx(0.60f));
   CHECK(render::core::kBudgetShadow_Normal == doctest::Approx(0.40f));
   CHECK(render::core::kBudgetShadow_High == doctest::Approx(0.90f));
   CHECK(render::core::kBudgetShadow_Extreme == doctest::Approx(1.30f));
   CHECK(render::core::kBudgetLighting_Normal == doctest::Approx(0.60f));
   CHECK(render::core::kBudgetLighting_High == doctest::Approx(1.00f));
-  CHECK(render::core::kBudgetLighting_Extreme == doctest::Approx(1.30f));
+  CHECK(render::core::kBudgetLighting_Extreme == doctest::Approx(1.40f));
+  CHECK(render::core::kBudgetHeightShadow_Normal == doctest::Approx(0.30f));
+  CHECK(render::core::kBudgetHeightShadow_High == doctest::Approx(0.60f));
+  CHECK(render::core::kBudgetHeightShadow_Extreme == doctest::Approx(0.90f));
 }
 
 TEST_CASE("[Unit] QualityTierManager - V3 Capability Matrix Contract") {
@@ -458,7 +461,7 @@ TEST_CASE("[Unit] QualityTierManager - AutoDegrade Sequence And Recovery") {
 
   CHECK(manager.IncreaseAutoDegradeLevel("unit_test", 20.0f, 16.0f) == true);
   CHECK(manager.GetAutoDegradeLevel() == 3);
-  CHECK(manager.GetConfig().maxLights == 128);
+  CHECK(manager.GetConfig().maxLights == 1024);
 
   CHECK(manager.IncreaseAutoDegradeLevel("unit_test", 20.0f, 16.0f) == true);
   CHECK(manager.GetAutoDegradeLevel() == 4);

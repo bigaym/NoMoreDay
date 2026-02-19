@@ -146,10 +146,10 @@ TEST_CASE("[Integration] RenderGraph V3 Contracts - V3 no-op pass chain stays va
 
   graph::RenderGraph graph;
   graph.AddPass(std::make_shared<passes::ScenePass>());
-  graph.AddPass(std::make_shared<passes::LightCullingPass>());
   graph.AddPass(std::make_shared<passes::ShadowPreparePass>());
   graph.AddPass(std::make_shared<passes::ShadowBuildPass>());
   graph.AddPass(std::make_shared<passes::ShadowResolvePass>());
+  graph.AddPass(std::make_shared<passes::LightCullingPass>());
   graph.AddPass(std::make_shared<passes::VFXPass>());
   graph.AddPass(std::make_shared<passes::UIWorldPass>());
   graph.AddPass(std::make_shared<passes::CompositePass>(

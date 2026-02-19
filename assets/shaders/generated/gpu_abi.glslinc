@@ -113,9 +113,20 @@ struct GPUShadowAtlasMeta {
 
 struct GPUClusterHeader {
     uint offset;
-    uint count;
-    uint overflowCount;
-    uint reserved;
+    uint pointCount;
+    uint spotCount;
+    uint areaCount;
+};
+
+struct GPUClusterCounters {
+    uint writeCursor;
+    uint overflowPoint;
+    uint overflowSpot;
+    uint overflowArea;
+    uint overflowLine;
+    uint reserved0;
+    uint reserved1;
+    uint reserved2;
 };
 
 struct GPUClusterLightIndex {

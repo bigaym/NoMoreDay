@@ -119,7 +119,7 @@ bool ClusteredLightingState::EnsureBufferCapacity(const uint32_t clusterCount,
   const size_t boundsBytes =
       static_cast<size_t>(std::max(1u, maxLightBounds)) *
       sizeof(components::GPULightBounds);
-  constexpr size_t kCounterBytes = sizeof(uint32_t);
+  constexpr size_t kCounterBytes = sizeof(components::GPUClusterCounters);
 
   if (m_clusterHeaderBuffer.GetId() == 0 || m_clusterHeaderBuffer.GetSize() < headerBytes) {
     m_clusterHeaderBuffer.Create(headerBytes, nullptr, RL_DYNAMIC_DRAW);
@@ -164,6 +164,10 @@ bool ClusteredLightingState::BeginFrame(const uint32_t frameIndex,
                                         m_zSliceCount);
   m_uploadedLightBoundsCount = 0;
   m_lastOverflowSum = 0;
+  m_lastOverflowPoint = 0;
+  m_lastOverflowSpot = 0;
+  m_lastOverflowArea = 0;
+  m_lastOverflowLine = 0;
   m_lastWrittenIndexCount = 0;
   m_clusterLightIndicesReadback.clear();
   if (m_grid.clusterCount == 0u) {
@@ -180,8 +184,8 @@ bool ClusteredLightingState::BeginFrame(const uint32_t frameIndex,
       static_cast<size_t>(m_clusterHeadersScratch.size()) *
           sizeof(components::GPUClusterHeader),
       0);
-  const uint32_t zeroCounter = 0u;
-  m_clusterCounterBuffer.Update(&zeroCounter, sizeof(zeroCounter), 0);
+  const components::GPUClusterCounters zeroCounters = {};
+  m_clusterCounterBuffer.Update(&zeroCounters, sizeof(zeroCounters), 0);
   return true;
 }
 
@@ -212,17 +216,21 @@ bool ClusteredLightingState::ReadBackClusterHeaders() {
           sizeof(components::GPUClusterHeader),
       0);
 
-  uint64_t overflowSum = 0u;
-  for (const components::GPUClusterHeader &header : m_clusterHeadersReadback) {
-    overflowSum += header.overflowCount;
-  }
-  m_lastOverflowSum = static_cast<uint32_t>(std::min<uint64_t>(
-      overflowSum, std::numeric_limits<uint32_t>::max()));
-
-  uint32_t writeCursor = 0u;
-  m_clusterCounterBuffer.Read(&writeCursor, sizeof(writeCursor), 0);
+  components::GPUClusterCounters counters = {};
+  m_clusterCounterBuffer.Read(&counters, sizeof(counters), 0);
+  m_lastOverflowPoint = counters.overflowPoint;
+  m_lastOverflowSpot = counters.overflowSpot;
+  m_lastOverflowArea = counters.overflowArea;
+  m_lastOverflowLine = counters.overflowLine;
+  const uint64_t overflowSum =
+      static_cast<uint64_t>(m_lastOverflowPoint) +
+      static_cast<uint64_t>(m_lastOverflowSpot) +
+      static_cast<uint64_t>(m_lastOverflowArea) +
+      static_cast<uint64_t>(m_lastOverflowLine);
+  m_lastOverflowSum = static_cast<uint32_t>(
+      std::min<uint64_t>(overflowSum, std::numeric_limits<uint32_t>::max()));
   m_lastWrittenIndexCount =
-      std::min(writeCursor, core::kMaxTotalClusteredLights);
+      std::min(counters.writeCursor, core::kMaxTotalClusteredLights);
   return true;
 }
 
@@ -256,6 +264,10 @@ void ClusteredLightingState::Shutdown() {
   m_zSliceCount = core::kDefaultClusterZSliceCount;
   m_uploadedLightBoundsCount = 0;
   m_lastOverflowSum = 0;
+  m_lastOverflowPoint = 0;
+  m_lastOverflowSpot = 0;
+  m_lastOverflowArea = 0;
+  m_lastOverflowLine = 0;
   m_lastWrittenIndexCount = 0;
   m_grid = {};
 }

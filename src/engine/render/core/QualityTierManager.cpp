@@ -98,11 +98,18 @@ void WriteV3ConfigToJson(nlohmann::json &jsonSettings, const RenderConfig &confi
   v3["shadowAtlasSize"] = config.shadowAtlasSize;
   v3["shadowSoftness"] = config.shadowSoftness;
   v3["clusteredLightingEnabled"] = config.clusteredLightingEnabled;
+  v3["clusteredLightingV4Enabled"] = config.clusteredLightingV4Enabled;
   v3["clusterTileSize"] = config.clusterTileSize;
   v3["clusterZSliceCount"] = config.clusterZSliceCount;
   v3["normalLightingEnabled"] = config.normalLightingEnabled;
   v3["specularEnabled"] = config.specularEnabled;
   v3["materialQualityLevel"] = config.materialQualityLevel;
+  v3["heightShadowEnabled"] = config.heightShadowEnabled;
+  v3["heightShadowSteps"] = config.heightShadowSteps;
+  v3["selfShadowEnabled"] = config.selfShadowEnabled;
+  v3["selfShadowSteps"] = config.selfShadowSteps;
+  v3["pomEnabled"] = config.pomEnabled;
+  v3["pomLayers"] = config.pomLayers;
 
   jsonSettings[kRenderV3FlatEnabledKey] = config.v3Enabled;
   jsonSettings[kRenderKey][kRenderV3Key] = std::move(v3);
@@ -684,11 +691,18 @@ bool QualityTierManager::TryLoadV3ConfigFromSettings(
   readUInt32("shadowAtlasSize", outConfig.shadowAtlasSize);
   readNonNegativeFloat("shadowSoftness", outConfig.shadowSoftness);
   readBool("clusteredLightingEnabled", outConfig.clusteredLightingEnabled);
+  readBool("clusteredLightingV4Enabled", outConfig.clusteredLightingV4Enabled);
   readUInt32("clusterTileSize", outConfig.clusterTileSize);
   readUInt32("clusterZSliceCount", outConfig.clusterZSliceCount);
   readBool("normalLightingEnabled", outConfig.normalLightingEnabled);
   readBool("specularEnabled", outConfig.specularEnabled);
   readUInt32("materialQualityLevel", outConfig.materialQualityLevel);
+  readBool("heightShadowEnabled", outConfig.heightShadowEnabled);
+  readUInt32("heightShadowSteps", outConfig.heightShadowSteps);
+  readBool("selfShadowEnabled", outConfig.selfShadowEnabled);
+  readUInt32("selfShadowSteps", outConfig.selfShadowSteps);
+  readBool("pomEnabled", outConfig.pomEnabled);
+  readUInt32("pomLayers", outConfig.pomLayers);
 
   return !hasInvalidValue;
 }
@@ -798,11 +812,18 @@ void QualityTierManager::ApplyV3ConfigOverrides(RenderConfig &config) const {
   config.shadowAtlasSize = m_v3Config.shadowAtlasSize;
   config.shadowSoftness = m_v3Config.shadowSoftness;
   config.clusteredLightingEnabled = m_v3Config.clusteredLightingEnabled;
+  config.clusteredLightingV4Enabled = m_v3Config.clusteredLightingV4Enabled;
   config.clusterTileSize = m_v3Config.clusterTileSize;
   config.clusterZSliceCount = m_v3Config.clusterZSliceCount;
   config.normalLightingEnabled = m_v3Config.normalLightingEnabled;
   config.specularEnabled = m_v3Config.specularEnabled;
   config.materialQualityLevel = m_v3Config.materialQualityLevel;
+  config.heightShadowEnabled = m_v3Config.heightShadowEnabled;
+  config.heightShadowSteps = m_v3Config.heightShadowSteps;
+  config.selfShadowEnabled = m_v3Config.selfShadowEnabled;
+  config.selfShadowSteps = m_v3Config.selfShadowSteps;
+  config.pomEnabled = m_v3Config.pomEnabled;
+  config.pomLayers = m_v3Config.pomLayers;
   config.v3Enabled = m_v3Config.v3Enabled;
 }
 
@@ -1070,12 +1091,20 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = false;
     m_baseConfig.gpuLootEnabled = false;
     m_baseConfig.gpuLootGlowEnabled = false;
+    m_baseConfig.clusteredLightingEnabled = false;
+    m_baseConfig.clusteredLightingV4Enabled = false;
+    m_baseConfig.heightShadowEnabled = false;
+    m_baseConfig.heightShadowSteps = 0;
+    m_baseConfig.selfShadowEnabled = false;
+    m_baseConfig.selfShadowSteps = 0;
+    m_baseConfig.pomEnabled = false;
+    m_baseConfig.pomLayers = 0;
     break;
   case QualityTier::Medium:
     m_baseConfig.bloomEnabled = true;
     m_baseConfig.dynamicLightingEnabled = true;
     m_baseConfig.maxParticles = 60000;
-    m_baseConfig.maxLights = 32;
+    m_baseConfig.maxLights = 256;
     m_baseConfig.ambientIntensity = 0.3f;
     m_baseConfig.ambientColorR = 0.15f;
     m_baseConfig.ambientColorG = 0.15f;
@@ -1114,12 +1143,20 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = false;
     m_baseConfig.gpuLootEnabled = false;
     m_baseConfig.gpuLootGlowEnabled = false;
+    m_baseConfig.clusteredLightingEnabled = true;
+    m_baseConfig.clusteredLightingV4Enabled = false;
+    m_baseConfig.heightShadowEnabled = false;
+    m_baseConfig.heightShadowSteps = 0;
+    m_baseConfig.selfShadowEnabled = false;
+    m_baseConfig.selfShadowSteps = 0;
+    m_baseConfig.pomEnabled = false;
+    m_baseConfig.pomLayers = 0;
     break;
   case QualityTier::High:
     m_baseConfig.bloomEnabled = true;
     m_baseConfig.dynamicLightingEnabled = true;
     m_baseConfig.maxParticles = 120000;
-    m_baseConfig.maxLights = 128;
+    m_baseConfig.maxLights = 1024;
     m_baseConfig.ambientIntensity = 0.25f;
     m_baseConfig.ambientColorR = 0.15f;
     m_baseConfig.ambientColorG = 0.15f;
@@ -1158,12 +1195,20 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = true;
     m_baseConfig.gpuLootEnabled = true;
     m_baseConfig.gpuLootGlowEnabled = false;
+    m_baseConfig.clusteredLightingEnabled = true;
+    m_baseConfig.clusteredLightingV4Enabled = true;
+    m_baseConfig.heightShadowEnabled = true;
+    m_baseConfig.heightShadowSteps = 16;
+    m_baseConfig.selfShadowEnabled = true;
+    m_baseConfig.selfShadowSteps = 4;
+    m_baseConfig.pomEnabled = false;
+    m_baseConfig.pomLayers = 0;
     break;
   case QualityTier::Ultra:
     m_baseConfig.bloomEnabled = true;
     m_baseConfig.dynamicLightingEnabled = true;
     m_baseConfig.maxParticles = 200000;
-    m_baseConfig.maxLights = 256;
+    m_baseConfig.maxLights = 4096;
     m_baseConfig.ambientIntensity = 0.2f;
     m_baseConfig.ambientColorR = 0.15f;
     m_baseConfig.ambientColorG = 0.15f;
@@ -1202,6 +1247,14 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = true;
     m_baseConfig.gpuLootEnabled = true;
     m_baseConfig.gpuLootGlowEnabled = true;
+    m_baseConfig.clusteredLightingEnabled = true;
+    m_baseConfig.clusteredLightingV4Enabled = true;
+    m_baseConfig.heightShadowEnabled = true;
+    m_baseConfig.heightShadowSteps = 64;
+    m_baseConfig.selfShadowEnabled = true;
+    m_baseConfig.selfShadowSteps = 8;
+    m_baseConfig.pomEnabled = true;
+    m_baseConfig.pomLayers = 16;
     break;
   }
 
@@ -1239,7 +1292,13 @@ void QualityTierManager::ApplyAutoDegradeLevel() {
   // 3) Limit dynamic lights.
   if (level >= static_cast<int>(AutoDegradeStep::LimitDynamicLights) &&
       m_config.maxLights > 0) {
-    m_config.maxLights = std::max(4, m_config.maxLights / 2);
+    if (m_config.maxLights > 1024) {
+      m_config.maxLights = 1024;
+    } else if (m_config.maxLights > 256) {
+      m_config.maxLights = 256;
+    } else {
+      m_config.maxLights = std::max(4, m_config.maxLights / 2);
+    }
   }
 
   // 4) Reduce clustered high-pressure parameters.
@@ -1262,6 +1321,21 @@ void QualityTierManager::ApplyAutoDegradeLevel() {
     m_config.normalLightingEnabled = false;
     m_config.specularEnabled = false;
     m_config.materialQualityLevel = 0;
+    m_config.selfShadowEnabled = false;
+    m_config.selfShadowSteps = 0;
+    m_config.pomEnabled = false;
+    m_config.pomLayers = 0;
+  }
+
+  // V4: HeightShadow quality chain 64 -> 16 -> Off.
+  if (m_config.heightShadowEnabled) {
+    if (level >= static_cast<int>(AutoDegradeStep::ReduceClusteredPressure)) {
+      m_config.heightShadowSteps = std::min<uint32_t>(m_config.heightShadowSteps, 16u);
+    }
+    if (level >= static_cast<int>(AutoDegradeStep::HybridShadowToSDF)) {
+      m_config.heightShadowEnabled = false;
+      m_config.heightShadowSteps = 0;
+    }
   }
 }
 

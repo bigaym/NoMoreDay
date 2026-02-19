@@ -122,9 +122,22 @@
         "name": "GPUClusterHeader",
         "fields": [
           { "type": "uint", "name": "offset" },
-          { "type": "uint", "name": "count" },
-          { "type": "uint", "name": "overflowCount" },
-          { "type": "uint", "name": "reserved" }
+          { "type": "uint", "name": "pointCount" },
+          { "type": "uint", "name": "spotCount" },
+          { "type": "uint", "name": "areaCount" }
+        ]
+      },
+      {
+        "name": "GPUClusterCounters",
+        "fields": [
+          { "type": "uint", "name": "writeCursor" },
+          { "type": "uint", "name": "overflowPoint" },
+          { "type": "uint", "name": "overflowSpot" },
+          { "type": "uint", "name": "overflowArea" },
+          { "type": "uint", "name": "overflowLine" },
+          { "type": "uint", "name": "reserved0" },
+          { "type": "uint", "name": "reserved1" },
+          { "type": "uint", "name": "reserved2" }
         ]
       },
       {

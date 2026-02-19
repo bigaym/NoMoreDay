@@ -302,16 +302,16 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 
 ---
 
-## [ ] Track 4: V4 Advanced Lighting (v4_advanced_lighting_20260219) [PENDING]
+## [x] Track 4: V4 Advanced Lighting (v4_advanced_lighting_20260219) [COMPLETED]
 
-> **Status**: 📋 Pending  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature  
 > **Phase**: V4-C (Week 6-9)  
 > **Depends On**: `v4_pbr_material_pipeline_20260219`  
 > **Focus**: Clustered Forward+ V4 (4096 光源 + Area/Line Light + 球体/锥体精筛) + HeightShadowPass (64-step Raymarching + Self-Shadow) + POM (Ultra 专属)。  
-> **Tasks**: 0/28  
-> **Location**: [`conductor/tracks/v4_advanced_lighting_20260219/`](./tracks/v4_advanced_lighting_20260219/index.md)
+> **Tasks**: 28/28  
+> **Location**: [`conductor/archive/v4_advanced_lighting_20260219/`](./archive/v4_advanced_lighting_20260219/index.md)
 
 ---
 
@@ -410,10 +410,10 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v4_gpu_text_rendering_20260219 | V4-A | 13/20 | P0 | 🚧 In Progress |
 | v4_gpu_loot_rendering_20260219 | V4-A | 18/18 | P0 | ✅ Completed |
 | v4_pbr_material_pipeline_20260219 | V4-B | 25/25 | P1 | ✅ Completed |
-| v4_advanced_lighting_20260219 | V4-C | 0/28 | P1 | 📋 Pending |
+| v4_advanced_lighting_20260219 | V4-C | 28/28 | P1 | ✅ Completed |
 | v4_validation_release_gate_20260219 | V4 Gate | 0/30 | P0 | 📋 Pending |
 | v5_jfa_distance_field_20260219 | V5-A | 0/22 | P0 | 📋 Pending |
 | v5_radiance_cascades_gi_20260219 | V5-A/B | 0/35 | P0 | 📋 Pending |
 | v5_sph_fluid_exploration_20260219 | V5-B | 0/18 | P2 | 📋 Pending |
 | v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **11/229** | — | — |
+| **合计** | — | **39/229** | — | — |

@@ -47,9 +47,10 @@ void EnableClusteredConfig(NoMoreDay::render::core::RenderConfig &cfg) {
   cfg.v3Enabled = true;
   cfg.dynamicLightingEnabled = true;
   cfg.clusteredLightingEnabled = true;
+  cfg.clusteredLightingV4Enabled = true;
   cfg.clusterTileSize = 256;
-  cfg.clusterZSliceCount = 4;
-  cfg.maxLights = 256;
+  cfg.clusterZSliceCount = 8;
+  cfg.maxLights = 4096;
 }
 
 void ExpectLightCullingBindingsAligned() {
@@ -181,8 +182,9 @@ TEST_CASE("[Integration] Clustered Lighting - Deterministic overflow and index o
   CHECK(headersA.size() == headersB.size());
   CHECK(indicesA.size() == indicesB.size());
   for (size_t i = 0; i < headersA.size(); ++i) {
-    CHECK(headersA[i].count == headersB[i].count);
-    CHECK(headersA[i].overflowCount == headersB[i].overflowCount);
+    CHECK(headersA[i].pointCount == headersB[i].pointCount);
+    CHECK(headersA[i].spotCount == headersB[i].spotCount);
+    CHECK(headersA[i].areaCount == headersB[i].areaCount);
   }
   std::vector<uint32_t> flatA;
   std::vector<uint32_t> flatB;
