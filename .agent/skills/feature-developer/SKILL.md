@@ -1,6 +1,6 @@
 ---
 name: feature-developer
-description: 负责 NoMoreDay 功能的编码实现。它严格遵循 feature-planner 产出的规格说明书 (Spec) 和执行计划 (Plan)。它是高效、合规的代码执行机器。当方案已确定，需要开始实际编码、编写测试或进行功能落地时激活。
+description: 负责 NoMoreDay Track 的落地执行与收尾。严格按 feature-planner 产出的 Spec/Plan 推进，并遵循当前五阶段工作流：Context（先读 memory MCP）-> Implement（最小改动实现）-> Verify（先 build.bat，再按需 CTest）-> TrackSync（同步 plan/validation/metadata/tracks 与 bug_registry）-> Closeout（归档、提交、git notes、memory 收尾）。当方案已确定，需要进入编码、验证、文档同步和闭环交付时激活。
 ---
 
 # Feature Developer (The Executor)

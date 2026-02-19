@@ -128,13 +128,13 @@
 | # | Phase | 名称 | 周期 | 状态 | 对应 Track | Tasks | 关键产出 |
 |---|---|---|---|---|---|---:|---|
 | 0 | Pre-flight | V3 Debt Closure | Week 0-1 | In Progress | `v4_preflight_v3_closure_20260219` | 7/8 | F4.6 连续 3 次通过；F6.2 经用户批准临时延期（截图不可用） |
-| 1 | V4-A | GPU Text (MSDF) | Week 1-3 | 📋 Pending | `v4_gpu_text_rendering_20260219` | 0/20 | MSDF Atlas、Compute 排版、MDI 绘制 |
-| 2 | V4-A | GPU Loot Rendering | Week 1-3 | 📋 Pending | `v4_gpu_loot_rendering_20260219` | 0/18 | MDI 合批、FrustumCull、力导向避让 |
-| 3 | V4-B | 2D PBR Material | Week 3-6 | 📋 Pending | `v4_pbr_material_pipeline_20260219` | 0/25 | GPUMaterialDataV3、BRDF-Lite、ABI V4 |
-| 4 | V4-C | Advanced Lighting | Week 6-9 | 📋 Pending | `v4_advanced_lighting_20260219` | 0/28 | 4096 光源、HeightShadow、POM |
-| 5 | Gate | Validation & Release | Week 9-11 | 📋 Pending | `v4_validation_release_gate_20260219` | 0/30 | 5 维度门禁、回退验证、发布判定 |
+| 1 | V4-A | GPU Text (MSDF) | Week 1-3 | 🚧 In Progress | `v4_gpu_text_rendering_20260219` | 21/21 | MSDF Atlas、Compute 排版、MDI 绘制 |
+| 2 | V4-A | GPU Loot Rendering | Week 1-3 | ✅ Completed | `v4_gpu_loot_rendering_20260219` | 18/18 | MDI 合批、FrustumCull、力导向避让 |
+| 3 | V4-B | 2D PBR Material | Week 3-6 | ✅ Completed | `v4_pbr_material_pipeline_20260219` | 25/25 | GPUMaterialDataV3、BRDF-Lite、ABI V4 |
+| 4 | V4-C | Advanced Lighting | Week 6-9 | ✅ Completed | `v4_advanced_lighting_20260219` | 28/28 | 4096 光源、HeightShadow、POM |
+| 5 | Gate | Validation & Release | Week 9-11 | 🚧 In Progress | `v4_validation_release_gate_20260219` | 24/30 | 5 维度门禁、回退验证、发布判定 |
 
-**V4 总任务数**: 129（完成 0，剩余 129）
+**V4 总任务数**: 130（完成 123，剩余 7）
 
 ---
 
