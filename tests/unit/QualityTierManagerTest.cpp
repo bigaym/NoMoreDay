@@ -160,6 +160,59 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Invalid Values Rejected") {
   CHECK(cfg.materialQualityLevel == 0);
 }
 
+TEST_CASE("[Unit] QualityTierManager - GPUText Tier Matrix Policy") {
+  const auto settingsPath = MakeTempSettingsPath("gpu_text_tier_matrix.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"v3", {{"enabled", false}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+
+  manager.ForceTier(render::core::QualityTier::Low);
+  CHECK(manager.GetConfig().gpuTextEnabled == false);
+  CHECK(manager.GetConfig().gpuTextAdvancedAnimation == false);
+
+  manager.ForceTier(render::core::QualityTier::Medium);
+  CHECK(manager.GetConfig().gpuTextEnabled == true);
+  CHECK(manager.GetConfig().gpuTextAdvancedAnimation == false);
+
+  manager.ForceTier(render::core::QualityTier::High);
+  CHECK(manager.GetConfig().gpuTextEnabled == true);
+  CHECK(manager.GetConfig().gpuTextAdvancedAnimation == true);
+
+  manager.ForceTier(render::core::QualityTier::Ultra);
+  CHECK(manager.GetConfig().gpuTextEnabled == true);
+  CHECK(manager.GetConfig().gpuTextAdvancedAnimation == true);
+}
+
+TEST_CASE("[Unit] QualityTierManager - GPUText Feature Flag Route Switch") {
+  const auto settingsPath = MakeTempSettingsPath("gpu_text_feature_flag_switch.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"gpuText", {{"enabled", true}}}, {"v3", {{"enabled", false}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().gpuTextEnabled == true);
+  CHECK(manager.GetConfig().gpuTextAdvancedAnimation == true);
+
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"gpuText", {{"enabled", false}}}, {"v3", {{"enabled", false}}}}}});
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().gpuTextEnabled == false);
+  CHECK(manager.GetConfig().gpuTextAdvancedAnimation == false);
+
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "Medium"},
+             {"render.gpuText.enabled", true},
+             {"render", {{"v3", {{"enabled", false}}}}}});
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().gpuTextEnabled == true);
+  CHECK(manager.GetConfig().gpuTextAdvancedAnimation == false);
+}
+
 TEST_CASE("[Unit] QualityTierManager - Shadow Tier Policy Linkage") {
   const auto settingsPath = MakeTempSettingsPath("render_v3_tier_shadow_policy.json");
   WriteJson(settingsPath,

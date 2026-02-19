@@ -2,21 +2,23 @@
     "id": "v4_gpu_text_rendering_20260219",
     "title": "V4 GPU Text Rendering (MSDF)",
     "type": "feature",
-    "status": "pending",
+    "status": "in_progress",
     "created": "2026-02-19T10:54:00+08:00",
-    "updated": "2026-02-19T10:54:00+08:00",
+    "updated": "2026-02-19T18:20:00+08:00",
     "priority": "P0",
     "phase": "V4-A",
     "depends_on": [
         "v4_preflight_v3_closure_20260219"
     ],
     "master_spec": "conductor/specs/rendering_engine_v4_master_spec.md",
+    "current_phase": 5,
+    "current_task": "completed",
     "phases": {
         "total": 5,
-        "completed": 0
+        "completed": 5
     },
     "tasks": {
-        "total": 20,
-        "completed": 0
+        "total": 21,
+        "completed": 21
     }
 }

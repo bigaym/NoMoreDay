@@ -15,6 +15,8 @@ namespace NoMoreDay::render {
  * - Single DrawArraysInstanced call for thousands of popups.
  * - Supports billboard rendering and basic animations (scaling, fading).
  */
+// DEPRECATED(v4_gpu_text_rendering): CPU popup renderer fallback path.
+// Primary text route should use GPUTextSystem when enabled by tier/feature flag.
 class PopupRenderer {
 public:
     static PopupRenderer& Get();

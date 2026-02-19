@@ -34,6 +34,45 @@
         ]
       },
       {
+        "name": "GPUTextCommand",
+        "fields": [
+          { "type": "float", "name": "worldPosX" },
+          { "type": "float", "name": "worldPosY" },
+          { "type": "uint", "name": "stringId" },
+          { "type": "uint", "name": "colorAndFlags" }
+        ]
+      },
+      {
+        "name": "GPUGlyphMetrics",
+        "fields": [
+          { "type": "float", "name": "uvMinX" },
+          { "type": "float", "name": "uvMinY" },
+          { "type": "float", "name": "uvMaxX" },
+          { "type": "float", "name": "uvMaxY" },
+          { "type": "float", "name": "offsetX" },
+          { "type": "float", "name": "offsetY" },
+          { "type": "float", "name": "sizeX" },
+          { "type": "float", "name": "sizeY" },
+          { "type": "float", "name": "advance" },
+          { "type": "float", "name": "reserved" }
+        ]
+      },
+      {
+        "name": "GPUTextQuad",
+        "fields": [
+          { "type": "float", "name": "screenPosX" },
+          { "type": "float", "name": "screenPosY" },
+          { "type": "float", "name": "sizeX" },
+          { "type": "float", "name": "sizeY" },
+          { "type": "float", "name": "uvMinX" },
+          { "type": "float", "name": "uvMinY" },
+          { "type": "float", "name": "uvMaxX" },
+          { "type": "float", "name": "uvMaxY" },
+          { "type": "uint", "name": "colorPacked" },
+          { "type": "float", "name": "opacity" }
+        ]
+      },
+      {
         "name": "GPUShadowCaster",
         "fields": [
           { "type": "float", "name": "posX" },

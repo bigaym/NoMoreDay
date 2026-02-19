@@ -1,0 +1,155 @@
+#version 430
+#include "generated/gpu_abi.glslinc"
+
+layout(local_size_x = 256) in;
+
+layout(std430, binding = 0) readonly buffer TextCommandBuffer {
+    GPUTextCommand commands[];
+};
+
+layout(std430, binding = 1) readonly buffer GlyphMetricsBuffer {
+    GPUGlyphMetrics glyphMetrics[];
+};
+
+layout(std430, binding = 2) readonly buffer StringGlyphIndexBuffer {
+    uint glyphIndices[];
+};
+
+layout(std430, binding = 3) buffer TextQuadBuffer {
+    GPUTextQuad quads[];
+};
+
+layout(std430, binding = 4) buffer TextCounterBuffer {
+    uint quadCount;
+};
+
+layout(std430, binding = 5) readonly buffer StringMetaBuffer {
+    // x: glyph start offset in glyphIndices
+    // y: lower 16 bits = glyphCount, high 8 bits (16-23) = anim style
+    uvec2 stringMeta[];
+};
+
+uniform uint uCommandCount;
+uniform uint uGlyphMetricCount;
+uniform uint uMaxQuadCount;
+uniform uint uStringMetaCount;
+uniform float uTime;
+uniform float uAnimDuration;
+
+shared uint sGlyphCount[256];
+shared uint sPrefix[256];
+shared uint sGroupBase;
+shared uint sGroupTotal;
+
+float easeOutBack(float t) {
+    const float c1 = 1.70158;
+    const float c3 = c1 + 1.0;
+    float x = t - 1.0;
+    return 1.0 + c3*x*x*x + c1*x*x;
+}
+
+void applyAnimation(in uint style, in float t, inout vec2 pos, inout float scale, inout float opacity) {
+    if (style == 0u) {
+        pos.y -= 42.0*t;
+    } else if (style == 1u) {
+        const float v0 = 70.0;
+        const float g = 160.0;
+        pos.y -= (v0*t - 0.5*g*t*t);
+    } else if (style == 2u) {
+        const float fadeStart = 0.35;
+        float ft = clamp((t - fadeStart)/(1.0 - fadeStart), 0.0, 1.0);
+        opacity *= (1.0 - smoothstep(0.0, 1.0, ft));
+    } else if (style == 3u) {
+        scale *= (1.0 + 0.22*sin(12.0*t)*exp(-3.0*t));
+    } else if (style == 4u) {
+        scale *= mix(2.0, 1.0, easeOutBack(clamp(t, 0.0, 1.0)));
+    }
+}
+
+void main() {
+    const uint id = gl_GlobalInvocationID.x;
+    const uint lid = gl_LocalInvocationID.x;
+    if (id >= uCommandCount || uGlyphMetricCount == 0u || uStringMetaCount == 0u) {
+        sGlyphCount[lid] = 0u;
+        sPrefix[lid] = 0u;
+        barrier();
+        return;
+    }
+
+    const GPUTextCommand cmd = commands[id];
+    if (cmd.stringId >= uStringMetaCount) {
+        sGlyphCount[lid] = 0u;
+        sPrefix[lid] = 0u;
+        barrier();
+        return;
+    }
+
+    uvec2 meta = stringMeta[cmd.stringId];
+    uint glyphStart = meta.x;
+    uint glyphCount = meta.y & 0xFFFFu;
+    uint style = (cmd.colorAndFlags >> 24u) & 0xFFu;
+    if (style == 0u) {
+        style = (meta.y >> 16u) & 0xFFu;
+    }
+    glyphCount = min(glyphCount, 64u);
+
+    sGlyphCount[lid] = glyphCount;
+    sPrefix[lid] = glyphCount;
+    barrier();
+
+    // Inclusive scan
+    for (uint offset = 1u; offset < 256u; offset <<= 1u) {
+        uint v = sPrefix[lid];
+        if (lid >= offset) {
+            v += sPrefix[lid - offset];
+        }
+        barrier();
+        sPrefix[lid] = v;
+        barrier();
+    }
+
+    uint inclusive = sPrefix[lid];
+    uint exclusive = inclusive - glyphCount;
+
+    if (lid == 255u) {
+        sGroupTotal = inclusive;
+        sGroupBase = atomicAdd(quadCount, sGroupTotal);
+    }
+    barrier();
+
+    float t = fract(uTime + float(id) * 0.173) * max(0.0001, uAnimDuration);
+    t = clamp(t / max(0.0001, uAnimDuration), 0.0, 1.0);
+
+    for (uint i = 0u; i < glyphCount; ++i) {
+        uint outIndex = sGroupBase + exclusive + i;
+        if (outIndex >= uMaxQuadCount) {
+            break;
+        }
+
+        uint indexPos = glyphStart + i;
+        uint metricIndex = 0u;
+        if (indexPos < glyphIndices.length()) {
+            metricIndex = glyphIndices[indexPos] % uGlyphMetricCount;
+        }
+        GPUGlyphMetrics gm = glyphMetrics[metricIndex];
+
+        vec2 pos = vec2(cmd.worldPosX + gm.offsetX + gm.advance * float(i),
+                        cmd.worldPosY + gm.offsetY);
+        float scale = 1.0;
+        float opacity = 1.0;
+        applyAnimation(style, t, pos, scale, opacity);
+
+        GPUTextQuad q;
+        q.screenPosX = pos.x;
+        q.screenPosY = pos.y;
+        q.sizeX = gm.sizeX * scale;
+        q.sizeY = gm.sizeY * scale;
+        q.uvMinX = gm.uvMinX;
+        q.uvMinY = gm.uvMinY;
+        q.uvMaxX = gm.uvMaxX;
+        q.uvMaxY = gm.uvMaxY;
+        q.colorPacked = (cmd.colorAndFlags & 0x00FFFFFFu) | 0xFF000000u;
+        q.opacity = opacity;
+        quads[outIndex] = q;
+    }
+}

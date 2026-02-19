@@ -10,12 +10,14 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/GPUTextSystem.hpp"
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "engine/render/dev/ShaderHotReloadManager.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/GPUTextPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/lighting/ClusteredLightingState.hpp"
 #include "engine/render/lighting/LightManager.hpp"
@@ -161,6 +163,7 @@ struct RenderFrameData {
   int glyphTexLoc = -1;
   NoMoreDay::core::ComputeBuffer *labelInstanceBuffer = nullptr;
   NoMoreDay::core::ComputeBuffer *glyphInstanceBuffer = nullptr;
+  bool gpuTextEnabled = false;
 };
 
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
@@ -574,7 +577,9 @@ void ExecuteVFXPass(RenderFrameData &frame) {
   // Keep VFX order stable: particles -> trails -> effect overlays.
   NoMoreDay::systems::GPUParticleSystem::Get().Render(frame.camera);
   NoMoreDay::render::GPUTrailRenderer::Get().Render(frame.camera);
-  NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
+  if (!frame.gpuTextEnabled) {
+    NoMoreDay::render::PopupRenderer::Get().Render(viewProj);
+  }
 
   auto effectView = frame.registry.view<const Position, const AttackEffect>();
   effectView.each([](const auto &pos, const auto &effect) {
@@ -653,36 +658,51 @@ void ExecuteVFXPass(RenderFrameData &frame) {
   NoMoreDay::systems::GPUSkillEffectSystem::Get().Render(frame.camera);
 }
 
+void ExecuteGPUTextPass(RenderFrameData &frame) {
+  if (!frame.gpuTextEnabled) {
+    return;
+  }
+  Matrix viewProj =
+      NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(frame.camera);
+  NoMoreDay::render::GPUTextSystem::Get().Render(viewProj);
+}
+
 void ExecuteUIWorldPass(RenderFrameData &frame) {
-  auto popupView = frame.registry.view<const Position, const DamagePopup>();
-  popupView.each([&frame](const auto &pos, const auto &popup) {
-    const float alpha =
-        (popup.timer > popup.lifeTime * 0.5f)
-            ? 1.0f -
-                  ((popup.timer - popup.lifeTime * 0.5f) /
-                   (popup.lifeTime * 0.5f))
-            : 1.0f;
-    Color color = popup.color;
-    color.a = static_cast<unsigned char>(255 * alpha);
-    const char *text = popup.isStatus
-                           ? popup.statusText.c_str()
-                           : (popup.isDodge
-                                  ? "Dodge"
-                                  : (popup.isMiss
-                                         ? "Miss"
-                                         : (popup.isBlock
-                                                ? TextFormat("Block %d",
-                                                             static_cast<int>(popup.damage))
-                                                : TextFormat("%d",
-                                                             static_cast<int>(popup.damage)))));
-    const float fontSize = (popup.isCrit ? 36.0f : 28.0f) * popup.currentScale *
-                           frame.fontScale;
-    if (IsFontValid(frame.font)) {
-      DrawTextEx(frame.font, text, {pos.x + 2, pos.y + 2}, fontSize, 1.0f,
-                 Fade(BLACK, alpha * 0.8f));
-      DrawTextEx(frame.font, text, {pos.x, pos.y}, fontSize, 1.0f, color);
-    }
-  });
+  if (!frame.gpuTextEnabled) {
+    auto popupView = frame.registry.view<const Position, const DamagePopup>();
+    popupView.each([&frame](const auto &pos, const auto &popup) {
+      const float alpha =
+          (popup.timer > popup.lifeTime * 0.5f)
+              ? 1.0f -
+                    ((popup.timer - popup.lifeTime * 0.5f) /
+                     (popup.lifeTime * 0.5f))
+              : 1.0f;
+      Color color = popup.color;
+      color.a = static_cast<unsigned char>(255 * alpha);
+      const char *text = popup.isStatus
+                             ? popup.statusText.c_str()
+                             : (popup.isDodge
+                                    ? "Dodge"
+                                    : (popup.isMiss
+                                           ? "Miss"
+                                           : (popup.isBlock
+                                                  ? TextFormat(
+                                                        "Block %d",
+                                                        static_cast<int>(
+                                                            popup.damage))
+                                                  : TextFormat(
+                                                        "%d",
+                                                        static_cast<int>(
+                                                            popup.damage)))));
+      const float fontSize =
+          (popup.isCrit ? 36.0f : 28.0f) * popup.currentScale * frame.fontScale;
+      if (IsFontValid(frame.font)) {
+        DrawTextEx(frame.font, text, {pos.x + 2, pos.y + 2}, fontSize, 1.0f,
+                   Fade(BLACK, alpha * 0.8f));
+        DrawTextEx(frame.font, text, {pos.x, pos.y}, fontSize, 1.0f, color);
+      }
+    });
+  }
 
   NoMoreDay::utils::ScopedTimer itemTimer("Loot Label Collection", 100);
   RenderSystem::VisibleItemCache::Clear();
@@ -1264,6 +1284,7 @@ void RenderSystem::render(entt::registry &registry,
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+  frame.gpuTextEnabled = renderConfig.gpuTextEnabled;
   HandleV3RuntimeToggle(renderConfig.v3Enabled);
 #if defined(NDEBUG)
   constexpr bool kDevHotReloadAllowed = false;
@@ -1454,6 +1475,15 @@ void RenderSystem::render(entt::registry &registry,
         ExecuteVFXPass(frame);
       }));
   sceneHdrOwner = RenderOwnerTag::VFX;
+
+  if (frame.gpuTextEnabled) {
+    graph.AddPass(std::make_shared<NoMoreDay::render::passes::GPUTextPass>(
+        [&frame](NoMoreDay::render::graph::RenderContext &) {
+          NoMoreDay::render::core::ScopedGLState scopedState;
+          ExecuteGPUTextPass(frame);
+        }));
+    sceneHdrOwner = RenderOwnerTag::VFX;
+  }
 
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::UIWorldPass>(
       [&frame](NoMoreDay::render::graph::RenderContext &) {

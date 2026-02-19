@@ -3,6 +3,7 @@
 #include "engine/render/core/RenderConstants.hpp"
 #include <array>
 #include <functional>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -127,6 +128,8 @@ private:
   void ApplyAutoDegradeLevel();
   bool TryLoadV3ConfigFromSettings(const std::string &settingsPath,
                                    RenderConfig &outConfig) const;
+  std::optional<bool>
+  TryLoadGpuTextEnabledOverride(const std::string &settingsPath) const;
   void ApplyV3ConfigOverrides(RenderConfig &config) const;
   std::string QueryRendererString() const;
 
@@ -137,6 +140,7 @@ private:
   RenderConfig m_baseConfig = {};
   RenderConfig m_config = {};
   RenderConfig m_v3Config = {};
+  std::optional<bool> m_gpuTextEnabledOverride = std::nullopt;
   V3ToggleCallback m_v3ToggleCallback = {};
   std::string m_rendererString;
   CapabilitySnapshot m_capabilitySnapshot = {};

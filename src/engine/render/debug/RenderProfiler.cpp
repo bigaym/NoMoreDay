@@ -197,6 +197,8 @@ const char *RenderProfiler::ToString(RenderPassId passId) {
     return "Volumetric";
   case RenderPassId::VFX:
     return "VFX";
+  case RenderPassId::GPUText:
+    return "GPUText";
   case RenderPassId::UIWorld:
     return "UIWorld";
   case RenderPassId::PostProcess:
@@ -224,6 +226,9 @@ std::optional<RenderPassId> RenderProfiler::FromPassName(std::string_view passNa
   if (passName == "VFXPass") {
     return RenderPassId::VFX;
   }
+  if (passName == "GPUTextPass") {
+    return RenderPassId::GPUText;
+  }
   if (passName == "UIWorldPass") {
     return RenderPassId::UIWorld;
   }
@@ -249,6 +254,8 @@ float RenderProfiler::GetBudgetMs(RenderPassId passId) {
     return 0.80f;
   case RenderPassId::VFX:
     return 1.00f;
+  case RenderPassId::GPUText:
+    return 0.15f;
   case RenderPassId::UIWorld:
     return 0.60f;
   case RenderPassId::PostProcess:

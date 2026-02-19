@@ -28,8 +28,9 @@ enum class Binding : uint32_t {
 
   // === VFX Systems ===
   SSBO_SKILL_EFFECTS = 6, // 技能特效实例 (GPUSkillEffectSystem)
-  SSBO_POPUP_DATA = 7,    // 伤害数字弹出 (PopupRenderer)
+  SSBO_POPUP_DATA = 7,     // 伤害数字弹出 (PopupRenderer)
   SSBO_GLYPH_INSTANCE = 8, // Glyph 实例数据 (文字批量渲染)
+  SSBO_TEXT_QUAD = SSBO_GLYPH_INSTANCE, // V4 GPUTextPass alias
 
   // === Lighting System (Phase 2) ===
   SSBO_LIGHT_DATA = 9, // GPULight SSBO (LightingPass)
@@ -110,6 +111,19 @@ namespace HoloBladeBinding {
 constexpr uint32_t INSTANCE =
     static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE);
 } // namespace HoloBladeBinding
+
+namespace TextPassBinding {
+constexpr uint32_t QUAD_SSBO = static_cast<uint32_t>(Binding::SSBO_TEXT_QUAD);
+} // namespace TextPassBinding
+
+namespace TextLayoutCS {
+constexpr uint32_t COMMAND_BUFFER = 0;
+constexpr uint32_t GLYPH_METRICS = 1;
+constexpr uint32_t GLYPH_INDICES = 2;
+constexpr uint32_t QUAD_BUFFER = 3;
+constexpr uint32_t COUNTER_BUFFER = 4;
+constexpr uint32_t STRING_META = 5;
+} // namespace TextLayoutCS
 
 namespace StatsScatterCS {
 constexpr uint32_t UPDATES = 0;

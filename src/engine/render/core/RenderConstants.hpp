@@ -100,6 +100,10 @@ struct RenderConfig {
   bool specularEnabled = false;
   uint32_t materialQualityLevel = 0;
   bool v3Enabled = false;
+
+  // V4 GPU text feature routing.
+  bool gpuTextEnabled = false;
+  bool gpuTextAdvancedAnimation = false;
 };
 
 inline const char *ToString(QualityTier tier) {

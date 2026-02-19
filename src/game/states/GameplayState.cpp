@@ -38,7 +38,9 @@
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/GPUTextSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
 #include "engine/vfx/VFXSequencerSystem.hpp"
 #include "game/components/WorldState.hpp"
@@ -399,6 +401,7 @@ GameplayState::~GameplayState() {
 
 bool GameplayState::OnUpdate(float dt) {
   auto &registry = *m_context->registry;
+  NoMoreDay::render::GPUTextSystem::Get().BeginFrame();
 
   UpdateSceneRT();
 
@@ -577,6 +580,14 @@ bool GameplayState::OnUpdate(float dt) {
     ProjectileSystem::Update(registry, m_spatialGrid, dt);
     NoMoreDay::systems::GhostSystem::Update(registry, dt);
     NoMoreDay::render::PopupRenderer::Get().Update(dt);
+    const auto &renderConfig =
+        NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+    if (renderConfig.gpuTextEnabled) {
+      const float animDuration =
+          renderConfig.gpuTextAdvancedAnimation ? 1.0f : 0.6f;
+      NoMoreDay::render::GPUTextSystem::Get().DispatchLayout(
+          static_cast<float>(GetTime()), animDuration);
+    }
   }
 
   // 2. Input

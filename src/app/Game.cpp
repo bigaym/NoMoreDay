@@ -6,7 +6,9 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/PopupRenderer.hpp"
+#include "engine/render/GPUTextSystem.hpp"
 #include "engine/render/RenderSystem.hpp" // ADDED
+#include "engine/render/resource/MSDFAtlasLoader.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
 #include "game/components/WorldState.hpp"
@@ -30,6 +32,102 @@
 #endif
 #include "engine/render/GPUUtils.hpp"
 #include "core/utils/Time.hpp"
+#include <algorithm>
+#include <string_view>
+#include <unordered_map>
+
+namespace {
+
+using NoMoreDay::render::GPUTextStringMeta;
+
+void AppendAsciiString(const std::unordered_map<uint32_t, uint32_t> &codepointToMetric,
+                       const std::string_view text, const uint8_t animStyle,
+                       std::vector<uint32_t> &glyphIndices,
+                       std::vector<GPUTextStringMeta> &meta) {
+  GPUTextStringMeta entry = {};
+  entry.glyphOffset = static_cast<uint32_t>(glyphIndices.size());
+  entry.animStyle = animStyle;
+
+  for (const char ch : text) {
+    const uint32_t cp = static_cast<uint8_t>(ch);
+    const auto it = codepointToMetric.find(cp);
+    if (it == codepointToMetric.end()) {
+      continue;
+    }
+    glyphIndices.push_back(it->second);
+  }
+
+  entry.glyphCount = static_cast<uint16_t>(
+      std::min<size_t>(glyphIndices.size() - entry.glyphOffset, 0xFFFFu));
+  meta.push_back(entry);
+}
+
+void InitializeGPUTextBootstrap(ResourceManager &resourceManager) {
+  using namespace NoMoreDay::render;
+  using namespace NoMoreDay::components;
+
+  auto &textSystem = GPUTextSystem::Get();
+  textSystem.Init(resourceManager, 4096, 16384);
+
+  MSDFAtlasData atlasData;
+  constexpr const char *kAtlasPath =
+      "assets/textures/fonts/msdf/v4_msdf_gb2312_4096.png";
+  constexpr const char *kMetricsPath =
+      "assets/textures/fonts/msdf/v4_msdf_gb2312_4096.metrics.bin";
+  if (!MSDFAtlasLoader::Load(kAtlasPath, kMetricsPath, MSDFAtlasCompression::None,
+                             atlasData)) {
+    return;
+  }
+
+  std::vector<GPUGlyphMetrics> gpuMetrics;
+  gpuMetrics.reserve(atlasData.glyphs.size());
+  std::unordered_map<uint32_t, uint32_t> codepointToMetric;
+  codepointToMetric.reserve(atlasData.glyphs.size());
+
+  for (size_t i = 0; i < atlasData.glyphs.size(); ++i) {
+    const auto &src = atlasData.glyphs[i];
+    GPUGlyphMetrics dst = {};
+    dst.uvMinX = src.uvRect[0];
+    dst.uvMinY = src.uvRect[1];
+    dst.uvMaxX = src.uvRect[2];
+    dst.uvMaxY = src.uvRect[3];
+    dst.offsetX = src.bearing[0];
+    dst.offsetY = src.bearing[1];
+    dst.sizeX = src.size[0];
+    dst.sizeY = src.size[1];
+    dst.advance = src.advance;
+    gpuMetrics.push_back(dst);
+    codepointToMetric.emplace(src.codepoint, static_cast<uint32_t>(i));
+  }
+  textSystem.UploadGlyphMetrics(gpuMetrics);
+
+  std::vector<uint32_t> glyphIndices;
+  std::vector<GPUTextStringMeta> meta;
+  glyphIndices.reserve(256);
+  meta.reserve(16);
+
+  for (uint32_t cp = '0'; cp <= '9'; ++cp) {
+    const auto it = codepointToMetric.find(cp);
+    GPUTextStringMeta entry = {};
+    entry.glyphOffset = static_cast<uint32_t>(glyphIndices.size());
+    entry.glyphCount = (it != codepointToMetric.end()) ? 1u : 0u;
+    entry.animStyle = 0u;
+    if (it != codepointToMetric.end()) {
+      glyphIndices.push_back(it->second);
+    }
+    meta.push_back(entry);
+  }
+
+  AppendAsciiString(codepointToMetric, "CRIT", 4u, glyphIndices, meta);
+  AppendAsciiString(codepointToMetric, "STATUS", 2u, glyphIndices, meta);
+
+  textSystem.UploadStringTable(glyphIndices, meta);
+  textSystem.SetAtlasTexture(atlasData.texture, true);
+  atlasData.texture = {};
+  MSDFAtlasLoader::Unload(atlasData);
+}
+
+} // namespace
 
 Game::Game(int width, int height, const char *title)
     : m_screenWidth(width), m_screenHeight(height), m_title(title) {
@@ -199,6 +297,7 @@ void Game::init() {
 
     // Initialize GPU Damage Popup System
     NoMoreDay::render::PopupRenderer::Get().Init();
+    InitializeGPUTextBootstrap(m_resourceManager);
 
     // Initialize Instanced Label Renderer
     RenderSystem::Initialize();
@@ -353,6 +452,7 @@ void Game::cleanup() {
 
   RenderSystem::Shutdown(); // ADDED
   UISystem::Shutdown();
+  NoMoreDay::render::GPUTextSystem::Get().Shutdown();
   NoMoreDay::render::PopupRenderer::Get().Shutdown();
   NoMoreDay::systems::GPUParticleSystem::Get().Shutdown();
   m_gpuEntitySystem.Shutdown();

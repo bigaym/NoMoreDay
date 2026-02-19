@@ -108,10 +108,11 @@ enum class PassContractStage : int {
   Lighting = 3,
   Volumetric = 4,
   VFX = 5,
-  UIWorld = 6,
-  PostProcess = 7,
-  Distortion = 8,
-  Composite = 9,
+  GPUText = 6,
+  UIWorld = 7,
+  PostProcess = 8,
+  Distortion = 9,
+  Composite = 10,
 };
 
 std::optional<PassContractStage> ResolvePassContractStage(std::string_view passName) {
@@ -133,6 +134,9 @@ std::optional<PassContractStage> ResolvePassContractStage(std::string_view passN
   }
   if (passName == "VFXPass") {
     return PassContractStage::VFX;
+  }
+  if (passName == "GPUTextPass") {
+    return PassContractStage::GPUText;
   }
   if (passName == "UIWorldPass") {
     return PassContractStage::UIWorld;
@@ -273,7 +277,7 @@ void RenderGraph::Execute(RenderContext &context) {
 void RenderGraph::ValidateBuildContracts() {
   // Pass order contract:
   // Scene -> LightCulling -> Shadow -> Lighting -> Volumetric ->
-  // VFX -> UIWorld -> PostProcess -> Distortion -> Composite
+  // VFX -> GPUText -> UIWorld -> PostProcess -> Distortion -> Composite
   int lastStage = -1;
   bool seenComposite = false;
   std::unordered_set<int> seenSingularStages;

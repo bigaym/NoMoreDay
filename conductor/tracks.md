@@ -263,15 +263,15 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 
 ---
 
-## [ ] Track 1: V4 GPU Text Rendering — MSDF (v4_gpu_text_rendering_20260219) [PENDING]
+## [~] Track 1: V4 GPU Text Rendering — MSDF (v4_gpu_text_rendering_20260219) [IN PROGRESS]
 
-> **Status**: 📋 Pending  
+> **Status**: 🚧 In Progress  
 > **Priority**: P0  
 > **Type**: feature  
 > **Phase**: V4-A (Week 1-3)  
 > **Depends On**: `v4_preflight_v3_closure_20260219`  
 > **Focus**: MSDF 字体图集 + Compute Shader 排版 + MDI 绘制 + GPU 文字动画（飘字/重力/暴击放大），消灭 CPU 文字渲染瓶颈。  
-> **Tasks**: 0/20  
+> **Tasks**: 13/20  
 > **Location**: [`conductor/tracks/v4_gpu_text_rendering_20260219/`](./tracks/v4_gpu_text_rendering_20260219/index.md)
 
 ---
@@ -407,7 +407,7 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | Track | Phase | Tasks | Priority | Status |
 |---|---|---:|:---:|---|
 | v4_preflight_v3_closure_20260219 | V4 Pre-flight | 7/8 | P0 | 🚧 In Progress |
-| v4_gpu_text_rendering_20260219 | V4-A | 0/20 | P0 | 📋 Pending |
+| v4_gpu_text_rendering_20260219 | V4-A | 13/20 | P0 | 🚧 In Progress |
 | v4_gpu_loot_rendering_20260219 | V4-A | 0/18 | P0 | 📋 Pending |
 | v4_pbr_material_pipeline_20260219 | V4-B | 0/25 | P1 | 📋 Pending |
 | v4_advanced_lighting_20260219 | V4-C | 0/28 | P1 | 📋 Pending |

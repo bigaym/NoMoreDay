@@ -40,6 +40,39 @@ struct GPUDistortionSource {
     float strength;
 };
 
+struct GPUTextCommand {
+    float worldPosX;
+    float worldPosY;
+    uint stringId;
+    uint colorAndFlags;
+};
+
+struct GPUGlyphMetrics {
+    float uvMinX;
+    float uvMinY;
+    float uvMaxX;
+    float uvMaxY;
+    float offsetX;
+    float offsetY;
+    float sizeX;
+    float sizeY;
+    float advance;
+    float reserved;
+};
+
+struct GPUTextQuad {
+    float screenPosX;
+    float screenPosY;
+    float sizeX;
+    float sizeY;
+    float uvMinX;
+    float uvMinY;
+    float uvMaxX;
+    float uvMaxY;
+    uint colorPacked;
+    float opacity;
+};
+
 struct GPUShadowCaster {
     float posX;
     float posY;

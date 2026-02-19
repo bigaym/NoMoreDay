@@ -18,6 +18,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <string>
 #include <vector>
 
 namespace NoMoreDay::tests {
@@ -276,10 +277,10 @@ TEST_CASE("[Performance] Debug - Scenario F Profiler HUD Overhead") {
   using namespace NoMoreDay::render::debug;
 
   constexpr int kTotalFrames = 300;
-  constexpr std::array<RenderPassId, 8> kPasses = {
+  constexpr std::array<RenderPassId, 9> kPasses = {
       RenderPassId::Scene,     RenderPassId::Lighting, RenderPassId::Volumetric,
-      RenderPassId::VFX,       RenderPassId::UIWorld,  RenderPassId::PostProcess,
-      RenderPassId::Distortion, RenderPassId::Composite};
+      RenderPassId::VFX,       RenderPassId::GPUText,  RenderPassId::UIWorld,
+      RenderPassId::PostProcess, RenderPassId::Distortion, RenderPassId::Composite};
 
   RenderProfiler profiler;
   // Seed one sample for each pass so HUD read path has stable input.
@@ -314,6 +315,51 @@ TEST_CASE("[Performance] Debug - Scenario F Profiler HUD Overhead") {
   LOG_BENCHMARK("Scenario F (ProfilerHUD)", stats, "< 0.15ms");
   CHECK(stats.mean_ms < 0.15);
   CHECK(sink >= 0.0f);
+}
+
+TEST_CASE("[Performance] Text - Scenario H CPU vs GPU Route Preparation (100+ onscreen)") {
+  constexpr int kFrames = 240;
+  constexpr int kPopupsPerFrame = 128;
+
+  std::vector<double> cpuRouteMs;
+  std::vector<double> gpuRouteMs;
+  cpuRouteMs.reserve(kFrames);
+  gpuRouteMs.reserve(kFrames);
+
+  volatile uint32_t sink = 0;
+  for (int frame = 0; frame < kFrames; ++frame) {
+    {
+      const auto start = std::chrono::high_resolution_clock::now();
+      for (int i = 0; i < kPopupsPerFrame; ++i) {
+        const std::string text = std::to_string(1000 + ((frame + i) % 9000));
+        for (char ch : text) {
+          sink += static_cast<uint32_t>(ch);
+        }
+      }
+      const auto end = std::chrono::high_resolution_clock::now();
+      cpuRouteMs.push_back(
+          std::chrono::duration<double, std::milli>(end - start).count());
+    }
+
+    {
+      const auto start = std::chrono::high_resolution_clock::now();
+      for (int i = 0; i < kPopupsPerFrame; ++i) {
+        const uint32_t packedColor = 0x00FFFFFFu | ((i % 2 == 0) ? (4u << 24u) : 0u);
+        sink += packedColor;
+      }
+      const auto end = std::chrono::high_resolution_clock::now();
+      gpuRouteMs.push_back(
+          std::chrono::duration<double, std::milli>(end - start).count());
+    }
+  }
+
+  const BenchmarkStats cpuStats = CalculateStats(cpuRouteMs);
+  const BenchmarkStats gpuStats = CalculateStats(gpuRouteMs);
+  LOG_BENCHMARK("Scenario H (Text CPU Route)", cpuStats, "baseline");
+  LOG_BENCHMARK("Scenario H (Text GPU Route)", gpuStats, "<= 0.10x CPU route");
+
+  CHECK(gpuStats.mean_ms <= cpuStats.mean_ms * 0.10);
+  CHECK(sink > 0u);
 }
 
 TEST_CASE("[Performance] Rendering - Scenario G Tier AutoDegrade Profiles") {
