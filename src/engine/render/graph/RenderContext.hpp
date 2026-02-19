@@ -3,6 +3,7 @@
 #include "engine/render/resources/FramebufferHandle.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
+#include <cstdint>
 
 namespace NoMoreDay {
 struct SharedContext;
@@ -30,6 +31,9 @@ struct RenderContext {
   core::QualityTierManager *qualityManager = nullptr;
   debug::RenderProfiler *renderProfiler = nullptr;
   resources::FramebufferHandle hdrSceneBuffer = {};
+  uint32_t giDistanceFieldTexture = 0u;
+  int giDistanceFieldWidth = 0;
+  int giDistanceFieldHeight = 0;
 
   bool IsValid() const {
     return registry != nullptr && shared != nullptr && camera != nullptr;

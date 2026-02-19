@@ -6,8 +6,11 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/HeightShadowPass.hpp"
+#include "engine/render/passes/JFAPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/passes/LightingPass.hpp"
+#include "engine/render/passes/OccluderExtractPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
 #include "engine/render/passes/ScenePass.hpp"
 #include "engine/render/passes/UIWorldPass.hpp"
@@ -45,6 +48,7 @@ void BuildDefaultPathGraph(
   const bool useClustered =
       useHdrPath && cfg.v3Enabled && cfg.dynamicLightingEnabled &&
       cfg.clusteredLightingEnabled;
+  const bool useGiPath = useHdrPath && cfg.giEnabled;
 
   graph.AddPass(std::make_shared<passes::ScenePass>());
   if (useClustered) {
@@ -52,6 +56,13 @@ void BuildDefaultPathGraph(
   }
   if (useHdrPath && cfg.dynamicLightingEnabled) {
     graph.AddPass(std::make_shared<passes::LightingPass>());
+  }
+  if (useHdrPath && cfg.heightShadowEnabled) {
+    graph.AddPass(std::make_shared<passes::HeightShadowPass>());
+  }
+  if (useGiPath) {
+    graph.AddPass(std::make_shared<passes::OccluderExtractPass>());
+    graph.AddPass(std::make_shared<passes::JFAPass>());
   }
   if (useHdrPath && cfg.volumetricLightEnabled) {
     graph.AddPass(std::make_shared<passes::VolumetricLightPass>());

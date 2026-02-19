@@ -16,6 +16,14 @@ add_executable(NoMoreDayTests
     ${TEST_HEADERS}
 )
 
+# Keep new V5 JFA tests out of Unity amalgamation to avoid TU-local helper
+# collisions with existing contract test helpers.
+set_source_files_properties(
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/RenderGraphV5ContractsIntegrationTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/JFADistanceFieldEvaluatorTest.cpp
+    PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
+)
+
 target_include_directories(NoMoreDayTests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(NoMoreDayTests SYSTEM PRIVATE
     ${CMAKE_SOURCE_DIR}/third_party/doctest

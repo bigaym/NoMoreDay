@@ -1,7 +1,7 @@
 # Track: V5 JFA Distance Field Pipeline
 
 **ID:** v5_jfa_distance_field_20260219  
-**Status:** Pending  
+**Status:** Completed (Conditional)  
 **Type:** feature  
 **Priority:** P0  
 **Phase:** V5-A (Week 0-3 after V4)
@@ -14,8 +14,9 @@
 
 ## 进度概览 (Progress)
 
-- **Phases**: 0/4 complete
-- **Tasks**: 0/22 complete
+- **Phases**: 4/4 complete
+- **Tasks**: 22/22 complete
+- **Non-blocking risk linkage**: `BUG-20260219-004` (performance label intermittent, unrelated to this track scope)
 
 ---
 

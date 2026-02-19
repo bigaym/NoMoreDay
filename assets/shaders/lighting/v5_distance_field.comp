@@ -1,0 +1,45 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rg16ui, binding = 1) uniform readonly uimage2D uSeedIn;
+layout(r16f, binding = 3) uniform writeonly image2D uDistanceOut;
+
+uniform sampler2D uMaskTexture;
+uniform ivec2 uWorkResolution;
+uniform ivec2 uFullResolution;
+
+const uint INVALID_COORD = 0xFFFFu;
+
+bool isValidSeed(uvec2 seed) {
+    return seed.x != INVALID_COORD && seed.y != INVALID_COORD;
+}
+
+vec2 toFullCoord(ivec2 workPixel) {
+    vec2 uv = (vec2(workPixel) + vec2(0.5)) / vec2(uWorkResolution);
+    return uv * vec2(uFullResolution);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uWorkResolution.x || pixel.y >= uWorkResolution.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uWorkResolution);
+    uvec2 seed = imageLoad(uSeedIn, pixel).xy;
+
+    float distanceValue = float(max(uFullResolution.x, uFullResolution.y) * 2);
+    if (isValidSeed(seed)) {
+        vec2 fullCoord = toFullCoord(pixel);
+        vec2 seedCoord = vec2(seed) + vec2(0.5);
+        distanceValue = length(fullCoord - seedCoord);
+    }
+
+    float maskValue = texture(uMaskTexture, uv).r;
+    if (maskValue > 0.5) {
+        distanceValue = -distanceValue;
+    }
+
+    imageStore(uDistanceOut, pixel, vec4(distanceValue, 0.0, 0.0, 1.0));
+}

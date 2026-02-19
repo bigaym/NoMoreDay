@@ -21,10 +21,12 @@
 #include "engine/render/passes/GPULootPass.hpp"
 #include "engine/render/passes/GPUTextPass.hpp"
 #include "engine/render/passes/HeightShadowPass.hpp"
+#include "engine/render/passes/JFAPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/lighting/ClusteredLightingState.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/passes/LightingPass.hpp"
+#include "engine/render/passes/OccluderExtractPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
 #include "engine/render/passes/ShadowBuildPass.hpp"
 #include "engine/render/passes/ShadowPreparePass.hpp"
@@ -176,6 +178,8 @@ std::shared_ptr<NoMoreDay::render::passes::PostProcessPass> g_postProcessPass;
 std::shared_ptr<NoMoreDay::render::passes::LightCullingPass> g_lightCullingPass;
 std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
 std::shared_ptr<NoMoreDay::render::passes::HeightShadowPass> g_heightShadowPass;
+std::shared_ptr<NoMoreDay::render::passes::OccluderExtractPass> g_occluderExtractPass;
+std::shared_ptr<NoMoreDay::render::passes::JFAPass> g_jfaPass;
 std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass;
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
 std::shared_ptr<NoMoreDay::render::passes::ShadowPreparePass> g_shadowPreparePass;
@@ -1107,6 +1111,10 @@ void RenderSystem::Initialize() {
   g_lightingPass = std::make_shared<NoMoreDay::render::passes::LightingPass>();
   g_heightShadowPass =
       std::make_shared<NoMoreDay::render::passes::HeightShadowPass>();
+  g_occluderExtractPass =
+      std::make_shared<NoMoreDay::render::passes::OccluderExtractPass>();
+  g_jfaPass = std::make_shared<NoMoreDay::render::passes::JFAPass>();
+  g_jfaPass->SetOccluderExtractPass(g_occluderExtractPass.get());
   g_lightingPass->Initialize();
   g_shadowPreparePass =
       std::make_shared<NoMoreDay::render::passes::ShadowPreparePass>();
@@ -1121,6 +1129,10 @@ void RenderSystem::Initialize() {
       std::make_shared<NoMoreDay::render::passes::VolumetricLightPass>();
   g_distortionPass = std::make_shared<NoMoreDay::render::passes::DistortionPass>();
   g_distortionPass->Initialize();
+  if (s_hdrSceneBuffer.IsValid() && qualityManager.GetConfig().giEnabled) {
+    g_occluderExtractPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
+    g_jfaPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
+  }
   g_renderProfiler = std::make_unique<NoMoreDay::render::debug::RenderProfiler>();
   g_shaderHotReloadManager =
       std::make_unique<NoMoreDay::render::dev::ShaderHotReloadManager>();
@@ -1268,6 +1280,14 @@ void RenderSystem::Shutdown() {
     g_heightShadowPass->Shutdown();
     g_heightShadowPass.reset();
   }
+  if (g_jfaPass) {
+    g_jfaPass->Shutdown();
+    g_jfaPass.reset();
+  }
+  if (g_occluderExtractPass) {
+    g_occluderExtractPass->Shutdown();
+    g_occluderExtractPass.reset();
+  }
   if (g_volumetricPass) {
     g_volumetricPass->Shutdown();
     g_volumetricPass.reset();
@@ -1403,6 +1423,11 @@ void RenderSystem::render(entt::registry &registry,
       if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
         g_heightShadowPass->OnResize(screenWidth, screenHeight);
       }
+      if (g_occluderExtractPass && g_jfaPass && s_hdrSceneBuffer.IsValid() &&
+          renderConfig.giEnabled) {
+        g_occluderExtractPass->OnResize(screenWidth, screenHeight);
+        g_jfaPass->OnResize(screenWidth, screenHeight);
+      }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
       }
@@ -1429,6 +1454,11 @@ void RenderSystem::render(entt::registry &registry,
       }
       if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
         g_heightShadowPass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_occluderExtractPass && g_jfaPass && s_hdrSceneBuffer.IsValid() &&
+          renderConfig.giEnabled) {
+        g_occluderExtractPass->OnResize(screenWidth, screenHeight);
+        g_jfaPass->OnResize(screenWidth, screenHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
@@ -1515,6 +1545,11 @@ void RenderSystem::render(entt::registry &registry,
       g_heightShadowPass != nullptr) {
     graph.AddPass(g_heightShadowPass);
     sceneHdrOwner = RenderOwnerTag::HeightShadow;
+  }
+  if (useHdrSceneBuffer && renderConfig.giEnabled &&
+      g_occluderExtractPass != nullptr && g_jfaPass != nullptr) {
+    graph.AddPass(g_occluderExtractPass);
+    graph.AddPass(g_jfaPass);
   }
   if (useVolumetricPass && g_volumetricPass != nullptr) {
     graph.AddPass(g_volumetricPass);
@@ -1624,6 +1659,9 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.hdrSceneBuffer =
       useHdrSceneBuffer ? s_hdrSceneBuffer
                         : NoMoreDay::render::resources::FramebufferHandle{};
+  graphContext.giDistanceFieldTexture = 0u;
+  graphContext.giDistanceFieldWidth = 0;
+  graphContext.giDistanceFieldHeight = 0;
 
   if (graphContext.renderProfiler != nullptr) {
     graphContext.renderProfiler->BeginFrame();

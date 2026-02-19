@@ -1,0 +1,21 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(r8, binding = 0) uniform readonly image2D uStaticMask;
+layout(r8, binding = 1) uniform readonly image2D uDynamicMask;
+layout(r8, binding = 2) uniform writeonly image2D uCombinedMask;
+
+uniform ivec2 uResolution;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uResolution.x || pixel.y >= uResolution.y) {
+        return;
+    }
+
+    float staticValue = imageLoad(uStaticMask, pixel).r;
+    float dynamicValue = imageLoad(uDynamicMask, pixel).r;
+    float composed = max(staticValue, dynamicValue);
+    imageStore(uCombinedMask, pixel, vec4(composed, 0.0, 0.0, 1.0));
+}

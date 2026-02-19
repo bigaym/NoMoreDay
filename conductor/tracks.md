@@ -349,17 +349,18 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 
 ---
 
-## [ ] Track 6: V5 JFA Distance Field (v5_jfa_distance_field_20260219) [PENDING]
+## [x] Track 6: V5 JFA Distance Field (v5_jfa_distance_field_20260219) [COMPLETED]
 
-> **Status**: 📋 Pending  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: feature  
 > **Phase**: V5-A (Week 0-3 after V4)  
 > **Depends On**: `v4_validation_release_gate_20260219`  
 > **Early-Start Exception**: `v4_pbr_material_pipeline_20260219`（含 Emission 通道）完成后，可提前启动 JFA 预研分支  
 > **Focus**: Jump Flood Algorithm O(log N) 距离场生成 — OccluderExtract + Seed Init + JFA 传播 + JFA+1 补偿 + DistanceCS，为 GI 提供空间加速结构。  
-> **Tasks**: 0/22  
-> **Location**: [`conductor/tracks/v5_jfa_distance_field_20260219/`](./tracks/v5_jfa_distance_field_20260219/index.md)
+> **Tasks**: 22/22  
+> **Location**: [`conductor/archive/v5_jfa_distance_field_20260219/`](./archive/v5_jfa_distance_field_20260219/index.md)
+> **Closeout Note**: `ctest -C Release -L performance` fail is non-blocking and linked to existing `BUG-20260219-004` (ParticleTrail Scenario 4 threshold).
 
 ---
 
@@ -413,8 +414,8 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v4_pbr_material_pipeline_20260219 | V4-B | 25/25 | P1 | ✅ Completed |
 | v4_advanced_lighting_20260219 | V4-C | 28/28 | P1 | ✅ Completed |
 | v4_validation_release_gate_20260219 | V4 Gate | 30/30 | P0 | ✅ Completed |
-| v5_jfa_distance_field_20260219 | V5-A | 0/22 | P0 | 📋 Pending |
+| v5_jfa_distance_field_20260219 | V5-A | 22/22 | P0 | ✅ Completed |
 | v5_radiance_cascades_gi_20260219 | V5-A/B | 0/35 | P0 | 📋 Pending |
 | v5_sph_fluid_exploration_20260219 | V5-B | 0/18 | P2 | 📋 Pending |
 | v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **77/230** | — | — |
+| **合计** | — | **99/230** | — | — |

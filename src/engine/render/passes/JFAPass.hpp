@@ -1,0 +1,122 @@
+#pragma once
+
+#include "engine/render/graph/RenderPass.hpp"
+#include "engine/render/resources/FramebufferHandle.hpp"
+
+#include "raylib.h"
+#include <cstdint>
+#include <string>
+
+class ResourceManager;
+
+namespace NoMoreDay::render::passes {
+
+class OccluderExtractPass;
+
+class JFAPass final : public graph::RenderPass {
+public:
+  JFAPass();
+  ~JFAPass() override;
+
+  void Setup(graph::RenderGraphBuilder &builder) override;
+  void Execute(graph::RenderContext &context) override;
+  const char *GetName() const override { return "JFAPass"; }
+
+  bool Initialize(ResourceManager &resources);
+  void Shutdown();
+  void OnResize(int width, int height);
+
+  void SetOccluderExtractPass(const OccluderExtractPass *pass) noexcept {
+    m_occluderExtractPass = pass;
+  }
+
+  [[nodiscard]] bool HasDistanceField() const noexcept {
+    return m_distanceFieldFull.IsValid();
+  }
+  [[nodiscard]] uint32_t GetDistanceFieldTexture() const noexcept {
+    return m_distanceFieldFull.colorTexture;
+  }
+  [[nodiscard]] int GetDistanceFieldWidth() const noexcept {
+    return m_distanceFieldFull.width;
+  }
+  [[nodiscard]] int GetDistanceFieldHeight() const noexcept {
+    return m_distanceFieldFull.height;
+  }
+  [[nodiscard]] bool UsedFallbackPlus2ThisFrame() const noexcept {
+    return m_usedFallbackPlus2ThisFrame;
+  }
+  [[nodiscard]] uint32_t GetLastOverflowCount() const noexcept {
+    return m_lastOverflowCount;
+  }
+  [[nodiscard]] const std::string &GetLastFailureReason() const noexcept {
+    return m_lastFailureReason;
+  }
+  void SetForceFallbackPlus2ForTesting(bool enabled) noexcept {
+    m_forceFallbackPlus2ForTesting = enabled;
+  }
+  void SetIncrementalExperimentEnabledForTesting(bool enabled) noexcept {
+    m_incrementalExperimentEnabled = enabled;
+  }
+
+private:
+  bool EnsureResources(int fullWidth, int fullHeight, bool halfResolution);
+  bool RunSeedInit(uint32_t occluderMaskTexture, int fullWidth, int fullHeight);
+  bool RunJumpFloodStep(int stepSize, int fullWidth, int fullHeight,
+                        uint32_t inputSeedTexture, uint32_t outputSeedTexture);
+  bool RunDistanceResolve(uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
+                          uint32_t inputSeedTexture, uint32_t outputDistanceTexture);
+  bool RunUpsample(int fullWidth, int fullHeight);
+  bool ClearOverflowCounter();
+  uint32_t ReadOverflowCounter() const;
+  void ReportFailure(const char *reason);
+  void MarkSuccess();
+  void LogBarrierAuditOnce();
+
+  const OccluderExtractPass *m_occluderExtractPass = nullptr;
+
+  Shader m_seedInitShader = {};
+  Shader m_jumpFloodShader = {};
+  Shader m_distanceResolveShader = {};
+  Shader m_upsampleShader = {};
+
+  resources::FramebufferHandle m_seedPing = {};
+  resources::FramebufferHandle m_seedPong = {};
+  resources::FramebufferHandle m_distanceFieldWork = {};
+  resources::FramebufferHandle m_distanceFieldFull = {};
+
+  int m_seedInitWorkResolutionLoc = -1;
+  int m_seedInitFullResolutionLoc = -1;
+  int m_seedInitMaskTextureLoc = -1;
+
+  int m_jumpStepSizeLoc = -1;
+  int m_jumpWorkResolutionLoc = -1;
+  int m_jumpFullResolutionLoc = -1;
+
+  int m_distanceWorkResolutionLoc = -1;
+  int m_distanceFullResolutionLoc = -1;
+  int m_distanceMaskTextureLoc = -1;
+
+  int m_upsampleHalfResolutionLoc = -1;
+  int m_upsampleFullResolutionLoc = -1;
+
+  uint32_t m_overflowCounterBuffer = 0u;
+
+  int m_fullWidth = 0;
+  int m_fullHeight = 0;
+  int m_workWidth = 0;
+  int m_workHeight = 0;
+  uint32_t m_frameIndex = 0;
+  uint32_t m_lastOverflowCount = 0;
+
+  bool m_initialized = false;
+  bool m_halfResolutionMode = false;
+  bool m_usedFallbackPlus2ThisFrame = false;
+  bool m_forceFallbackPlus2ForTesting = false;
+  bool m_incrementalExperimentEnabled = false;
+  bool m_lastExecuteFailure = false;
+  bool m_lastExecuteSuccess = false;
+  bool m_barrierAuditLogged = false;
+  std::string m_lastFailureReason;
+};
+
+} // namespace NoMoreDay::render::passes

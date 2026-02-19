@@ -1,0 +1,30 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rg16ui, binding = 2) uniform writeonly uimage2D uSeedOut;
+uniform sampler2D uMaskTexture;
+uniform ivec2 uWorkResolution;
+uniform ivec2 uFullResolution;
+
+const uint INVALID_COORD = 0xFFFFu;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uWorkResolution.x || pixel.y >= uWorkResolution.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uWorkResolution);
+    vec4 maskSample = texture(uMaskTexture, uv);
+
+    ivec2 fullPixel = ivec2(clamp(uv * vec2(uFullResolution), vec2(0.0),
+                                  vec2(uFullResolution) - vec2(1.0)));
+
+    uvec4 seed = uvec4(INVALID_COORD, INVALID_COORD, 0u, 0u);
+    if (maskSample.r > 0.5) {
+        seed = uvec4(uint(fullPixel.x), uint(fullPixel.y), 0u, 0u);
+    }
+
+    imageStore(uSeedOut, pixel, seed);
+}

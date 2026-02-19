@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V5 JFA Distance Field (v5_jfa_distance_field_20260219)
+- **Folder:** [./conductor/archive/v5_jfa_distance_field_20260219/](./conductor/archive/v5_jfa_distance_field_20260219/)
+- **Description:** 完成 V5 JFA 距离场管线交付：`OccluderExtractPass`（静/动态遮挡提取+合成）、`JFAPass`（SeedInit/JumpFlood/JFA+1/Distance + half-res 上采样 + interval + JFA+2 fallback）、RenderGraph 契约与 RenderSystem 生命周期接线、以及 EDT/JFA 误差评估工具链与测试覆盖。
+- **Status:** COMPLETED (2026-02-19)
+- **Priority:** P0
+- **Archive Reason:** `build.bat`、`ctest -C RelWithDebInfo -L ci/unit/integration` 全部通过；`ctest -C Release -L performance` 失败为既有非本 Track 阻塞项 `BUG-20260219-004`（ParticleTrail Scenario 4），已在 track 验证文档中挂接。
+
+---
+
 ## [x] Track: V4 Validation & Release Gate (v4_validation_release_gate_20260219)
 - **Folder:** [./conductor/archive/v4_validation_release_gate_20260219/](./conductor/archive/v4_validation_release_gate_20260219/)
 - **Description:** 完成 V4 五维门禁收口与轨道归档。功能/契约/主干验证已闭环，稳定性与回退按“可执行放宽”策略补齐证据，结论更新为 `CONDITIONAL-GO (V5 implementation unblocked)`。

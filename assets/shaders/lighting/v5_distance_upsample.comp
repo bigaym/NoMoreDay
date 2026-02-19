@@ -1,0 +1,39 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(r16f, binding = 0) uniform readonly image2D uHalfDistance;
+layout(r16f, binding = 1) uniform writeonly image2D uFullDistance;
+
+uniform ivec2 uHalfResolution;
+uniform ivec2 uFullResolution;
+
+float loadHalfDistance(ivec2 pixel) {
+    ivec2 clampedPixel =
+        clamp(pixel, ivec2(0, 0), uHalfResolution - ivec2(1, 1));
+    return imageLoad(uHalfDistance, clampedPixel).r;
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uFullResolution.x || pixel.y >= uFullResolution.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uFullResolution);
+    vec2 halfCoord = uv * vec2(uHalfResolution) - vec2(0.5);
+
+    ivec2 base = ivec2(floor(halfCoord));
+    vec2 frac = fract(halfCoord);
+
+    float d00 = loadHalfDistance(base);
+    float d10 = loadHalfDistance(base + ivec2(1, 0));
+    float d01 = loadHalfDistance(base + ivec2(0, 1));
+    float d11 = loadHalfDistance(base + ivec2(1, 1));
+
+    float dx0 = mix(d00, d10, frac.x);
+    float dx1 = mix(d01, d11, frac.x);
+    float upsampled = mix(dx0, dx1, frac.y);
+
+    imageStore(uFullDistance, pixel, vec4(upsampled, 0.0, 0.0, 1.0));
+}

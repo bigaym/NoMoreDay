@@ -1,0 +1,73 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rg16ui, binding = 1) uniform readonly uimage2D uSeedIn;
+layout(rg16ui, binding = 2) uniform writeonly uimage2D uSeedOut;
+
+layout(std430, binding = 0) buffer OverflowCounter {
+    uint overflowCount;
+};
+
+uniform int uStepSize;
+uniform ivec2 uWorkResolution;
+uniform ivec2 uFullResolution;
+
+const uint INVALID_COORD = 0xFFFFu;
+
+bool isValidSeed(uvec2 seed) {
+    return seed.x != INVALID_COORD && seed.y != INVALID_COORD;
+}
+
+vec2 toFullCoord(ivec2 workPixel) {
+    vec2 uv = (vec2(workPixel) + vec2(0.5)) / vec2(uWorkResolution);
+    return uv * vec2(uFullResolution);
+}
+
+float distanceSqToSeed(ivec2 workPixel, uvec2 seed) {
+    vec2 currentFull = toFullCoord(workPixel);
+    vec2 seedFull = vec2(seed) + vec2(0.5);
+    vec2 delta = currentFull - seedFull;
+    return dot(delta, delta);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uWorkResolution.x || pixel.y >= uWorkResolution.y) {
+        return;
+    }
+
+    uvec4 currentSeedWord = imageLoad(uSeedIn, pixel);
+    uvec2 bestSeed = currentSeedWord.xy;
+    float bestDistSq = isValidSeed(bestSeed)
+        ? distanceSqToSeed(pixel, bestSeed)
+        : 3.402823e+38;
+
+    for (int offsetY = -1; offsetY <= 1; ++offsetY) {
+        for (int offsetX = -1; offsetX <= 1; ++offsetX) {
+            ivec2 samplePixel = pixel + ivec2(offsetX, offsetY) * uStepSize;
+            if (samplePixel.x < 0 || samplePixel.y < 0 ||
+                samplePixel.x >= uWorkResolution.x ||
+                samplePixel.y >= uWorkResolution.y) {
+                continue;
+            }
+
+            uvec2 candidateSeed = imageLoad(uSeedIn, samplePixel).xy;
+            if (!isValidSeed(candidateSeed)) {
+                continue;
+            }
+
+            float candidateDistSq = distanceSqToSeed(pixel, candidateSeed);
+            if (candidateDistSq < bestDistSq) {
+                bestDistSq = candidateDistSq;
+                bestSeed = candidateSeed;
+            }
+        }
+    }
+
+    if (!isValidSeed(bestSeed)) {
+        atomicAdd(overflowCount, 1u);
+    }
+
+    imageStore(uSeedOut, pixel, uvec4(bestSeed, 0u, 0u));
+}
