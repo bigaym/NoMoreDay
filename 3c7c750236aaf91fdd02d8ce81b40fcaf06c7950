@@ -1,0 +1,1 @@
+v4_gpu_text_rendering: completed P4/P5; applied plan-B risk handling by recording BUG-20260219-001/002/003 in conductor/bug_registry.md; commit includes GPUText pass integration, tier/feature routing, tests, and track sync docs.
