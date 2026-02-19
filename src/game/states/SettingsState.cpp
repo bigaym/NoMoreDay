@@ -60,9 +60,30 @@ namespace NoMoreDay {
             ">",
             false};
 
+        float toggleButtonW = 140.0f;
+        float toggleButtonH = 48.0f;
+        float toggleButtonX = qualityCenterX + 110.0f;
+        float toggleBaseY = screenHeight * 0.55f;
+        float toggleRowGap = screenHeight * 0.065f;
+        m_v3ToggleButton = {{toggleButtonX, toggleBaseY, toggleButtonW, toggleButtonH},
+                            "TOGGLE",
+                            false};
+        m_clusteredToggleButton = {
+            {toggleButtonX, toggleBaseY + toggleRowGap, toggleButtonW, toggleButtonH},
+            "TOGGLE",
+            false};
+        m_normalToggleButton = {
+            {toggleButtonX, toggleBaseY + toggleRowGap * 2.0f, toggleButtonW, toggleButtonH},
+            "TOGGLE",
+            false};
+        m_specularToggleButton = {
+            {toggleButtonX, toggleBaseY + toggleRowGap * 3.0f, toggleButtonW, toggleButtonH},
+            "TOGGLE",
+            false};
+
         float btnWidth = 260;
         float btnHeight = 70;
-        m_backButton = { { (screenWidth - btnWidth) / 2.0f, screenHeight * 0.75f, btnWidth, btnHeight }, "BACK", false };
+        m_backButton = { { (screenWidth - btnWidth) / 2.0f, screenHeight * 0.87f, btnWidth, btnHeight }, "BACK", false };
     }
 
     void SettingsState::OnEnter() {
@@ -118,11 +139,29 @@ namespace NoMoreDay {
                 CheckCollisionPointRec(mousePos, m_qualityLeftButton.bounds);
             m_qualityRightButton.hovered =
                 CheckCollisionPointRec(mousePos, m_qualityRightButton.bounds);
+            m_v3ToggleButton.hovered =
+                CheckCollisionPointRec(mousePos, m_v3ToggleButton.bounds);
+            m_clusteredToggleButton.hovered =
+                CheckCollisionPointRec(mousePos, m_clusteredToggleButton.bounds);
+            m_normalToggleButton.hovered =
+                CheckCollisionPointRec(mousePos, m_normalToggleButton.bounds);
+            m_specularToggleButton.hovered =
+                CheckCollisionPointRec(mousePos, m_specularToggleButton.bounds);
 
             if (IsButtonClicked(m_qualityLeftButton)) {
                 CycleRenderQualityTier(-1);
             } else if (IsButtonClicked(m_qualityRightButton)) {
                 CycleRenderQualityTier(+1);
+            }
+
+            if (IsButtonClicked(m_v3ToggleButton)) {
+                ToggleGraphicsOption(GraphicsOption::V3Enabled);
+            } else if (IsButtonClicked(m_clusteredToggleButton)) {
+                ToggleGraphicsOption(GraphicsOption::ClusteredLighting);
+            } else if (IsButtonClicked(m_normalToggleButton)) {
+                ToggleGraphicsOption(GraphicsOption::NormalLighting);
+            } else if (IsButtonClicked(m_specularToggleButton)) {
+                ToggleGraphicsOption(GraphicsOption::Specular);
             }
         }
 
@@ -163,6 +202,24 @@ namespace NoMoreDay {
             DrawQualityTierSelector();
             DrawButton(m_qualityLeftButton);
             DrawButton(m_qualityRightButton);
+            DrawGraphicsToggleRow("V3 Rendering",
+                                  GetGraphicsOptionValueText(GraphicsOption::V3Enabled),
+                                  GetScreenHeight() * 0.55f);
+            DrawGraphicsToggleRow(
+                "Clustered Lighting",
+                GetGraphicsOptionValueText(GraphicsOption::ClusteredLighting),
+                GetScreenHeight() * 0.615f);
+            DrawGraphicsToggleRow(
+                "Normal Lighting",
+                GetGraphicsOptionValueText(GraphicsOption::NormalLighting),
+                GetScreenHeight() * 0.68f);
+            DrawGraphicsToggleRow("Specular Highlights",
+                                  GetGraphicsOptionValueText(GraphicsOption::Specular),
+                                  GetScreenHeight() * 0.745f);
+            DrawButton(m_v3ToggleButton);
+            DrawButton(m_clusteredToggleButton);
+            DrawButton(m_normalToggleButton);
+            DrawButton(m_specularToggleButton);
         }
 
         DrawButton(m_backButton);
@@ -292,6 +349,73 @@ namespace NoMoreDay {
                      static_cast<int>(labelY), 24, RAYWHITE);
             DrawText(valueText.c_str(), static_cast<int>(centerX - valueW * 0.5f),
                      static_cast<int>(valueY), 32, GOLD);
+        }
+    }
+
+    void SettingsState::DrawGraphicsToggleRow(const std::string& label,
+                                              const std::string& valueText,
+                                              float y) const {
+        Font font = UISystem::GetFont();
+        const float labelX = GetScreenWidth() * 0.32f;
+        const float valueX = GetScreenWidth() * 0.52f;
+        const float valueY = y + 8.0f;
+
+        if (IsFontValid(font)) {
+            DrawTextEx(font, label.c_str(), {labelX, y}, 24.0f, 1.0f, RAYWHITE);
+            DrawTextEx(font, valueText.c_str(), {valueX, valueY}, 28.0f, 1.0f, GOLD);
+        } else {
+            DrawText(label.c_str(), static_cast<int>(labelX), static_cast<int>(y), 24,
+                     RAYWHITE);
+            DrawText(valueText.c_str(), static_cast<int>(valueX),
+                     static_cast<int>(valueY), 28, GOLD);
+        }
+    }
+
+    std::string SettingsState::GetGraphicsOptionValueText(GraphicsOption option) const {
+        const auto& config =
+            render::core::QualityTierManager::Get().GetConfig();
+        switch (option) {
+        case GraphicsOption::V3Enabled:
+            return config.v3Enabled ? "ON" : "OFF";
+        case GraphicsOption::ClusteredLighting:
+            return config.clusteredLightingEnabled ? "ON" : "OFF";
+        case GraphicsOption::NormalLighting:
+            return config.normalLightingEnabled ? "ON" : "OFF";
+        case GraphicsOption::Specular:
+            return config.specularEnabled ? "ON" : "OFF";
+        }
+        return "OFF";
+    }
+
+    void SettingsState::ToggleGraphicsOption(GraphicsOption option) {
+        auto& qualityManager = render::core::QualityTierManager::Get();
+        const auto& config = qualityManager.GetConfig();
+
+        switch (option) {
+        case GraphicsOption::V3Enabled: {
+            const bool next = !config.v3Enabled;
+            qualityManager.SetV3Enabled(next);
+            LOG_INFO("SettingsState: V3 rendering -> {}", next ? "ON" : "OFF");
+            break;
+        }
+        case GraphicsOption::ClusteredLighting: {
+            const bool next = !config.clusteredLightingEnabled;
+            qualityManager.SetClusteredLightingEnabled(next);
+            LOG_INFO("SettingsState: Clustered lighting -> {}", next ? "ON" : "OFF");
+            break;
+        }
+        case GraphicsOption::NormalLighting: {
+            const bool next = !config.normalLightingEnabled;
+            qualityManager.SetNormalLightingEnabled(next);
+            LOG_INFO("SettingsState: Normal lighting -> {}", next ? "ON" : "OFF");
+            break;
+        }
+        case GraphicsOption::Specular: {
+            const bool next = !config.specularEnabled;
+            qualityManager.SetSpecularEnabled(next);
+            LOG_INFO("SettingsState: Specular highlights -> {}", next ? "ON" : "OFF");
+            break;
+        }
         }
     }
 

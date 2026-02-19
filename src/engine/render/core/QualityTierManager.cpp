@@ -346,6 +346,57 @@ bool QualityTierManager::SetV3Enabled(bool enabled,
   return changed;
 }
 
+bool QualityTierManager::SetClusteredLightingEnabled(
+    bool enabled, const std::string &settingsPath) {
+  const bool previous = m_v3Config.clusteredLightingEnabled;
+  const bool changed = (previous != enabled);
+  m_v3Config.clusteredLightingEnabled = enabled;
+  ApplyV3ConfigOverrides(m_baseConfig);
+  ApplyAutoDegradeLevel();
+
+  if (changed) {
+    LOG_INFO("QualityTierManager: render.v3.clusteredLightingEnabled {} -> {}",
+             previous ? 1 : 0, enabled ? 1 : 0);
+  }
+
+  PersistSelectionMetadata(settingsPath);
+  return changed;
+}
+
+bool QualityTierManager::SetNormalLightingEnabled(
+    bool enabled, const std::string &settingsPath) {
+  const bool previous = m_v3Config.normalLightingEnabled;
+  const bool changed = (previous != enabled);
+  m_v3Config.normalLightingEnabled = enabled;
+  ApplyV3ConfigOverrides(m_baseConfig);
+  ApplyAutoDegradeLevel();
+
+  if (changed) {
+    LOG_INFO("QualityTierManager: render.v3.normalLightingEnabled {} -> {}",
+             previous ? 1 : 0, enabled ? 1 : 0);
+  }
+
+  PersistSelectionMetadata(settingsPath);
+  return changed;
+}
+
+bool QualityTierManager::SetSpecularEnabled(
+    bool enabled, const std::string &settingsPath) {
+  const bool previous = m_v3Config.specularEnabled;
+  const bool changed = (previous != enabled);
+  m_v3Config.specularEnabled = enabled;
+  ApplyV3ConfigOverrides(m_baseConfig);
+  ApplyAutoDegradeLevel();
+
+  if (changed) {
+    LOG_INFO("QualityTierManager: render.v3.specularEnabled {} -> {}", previous ? 1 : 0,
+             enabled ? 1 : 0);
+  }
+
+  PersistSelectionMetadata(settingsPath);
+  return changed;
+}
+
 void QualityTierManager::SetV3ToggleCallback(V3ToggleCallback callback) {
   m_v3ToggleCallback = std::move(callback);
 }

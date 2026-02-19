@@ -95,6 +95,12 @@ public:
   void ForceTier(QualityTier tier);
   bool SetV3Enabled(bool enabled,
                     const std::string &settingsPath = "settings.json");
+  bool SetClusteredLightingEnabled(
+      bool enabled, const std::string &settingsPath = "settings.json");
+  bool SetNormalLightingEnabled(bool enabled,
+                                const std::string &settingsPath = "settings.json");
+  bool SetSpecularEnabled(bool enabled,
+                          const std::string &settingsPath = "settings.json");
   void SetV3ToggleCallback(V3ToggleCallback callback);
   bool IncreaseAutoDegradeLevel(std::string_view reasonCode,
                                 float observedFrameMs, float budgetMs);

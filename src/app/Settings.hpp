@@ -68,7 +68,17 @@ namespace NoMoreDay {
         }
 
         void Save(const std::string& filePath = "settings.json") {
-            nlohmann::json j;
+            nlohmann::json j = nlohmann::json::object();
+            if (std::filesystem::exists(filePath)) {
+                try {
+                    std::ifstream in(filePath);
+                    if (in.is_open()) {
+                        in >> j;
+                    }
+                } catch (...) {
+                    j = nlohmann::json::object();
+                }
+            }
             j["cameraZoom"] = cameraZoom;
             j["shakeIntensity"] = shakeIntensity;
             j["targetFPS"] = targetFPS;

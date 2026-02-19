@@ -2,7 +2,7 @@
 
 > **对应设计文档**: [GPU_Rendering_System_2.md](../设计文档/特效和UI/GPU_Rendering_System_2.md) | [GPU_Rendering_System_3.md](../设计文档/特效和UI/GPU_Rendering_System_3.md)  
 > **起始日期**: 2026-02-12  
-> **最后更新**: 2026-02-18
+> **最后更新**: 2026-02-19
 
 ---
 
@@ -33,6 +33,11 @@
 | **F** | 全链路验收 | 第8-10周 | ✅ 已完成 | `v3_validation_and_release_gate_20260215` | 37/37 | 4 层门禁、截图差异、压力测试、风险验证、回退演练（`F4.6` 临时豁免，`F6.2` 转 V4 前置依赖） |
 
 **V3 总任务数**: 172（完成 172，剩余 0）
+
+### 维护补充（2026-02-19）
+
+- [x] 设置系统与渲染配置闭环补齐：`SettingsState` 图形页新增 V3 可调开关（V3 总开关 / Clustered Lighting / Normal Lighting / Specular Highlights），并通过 `QualityTierManager` 持久化到 `settings.json` 的 `render.v3`。
+- [x] 修复 `GameSettings::Save` 覆盖写入导致的配置丢失风险：改为“读取现有 JSON 后合并更新基础设置字段”，避免覆盖 `render.v3` 与自动检测元数据。
 
 ---
 

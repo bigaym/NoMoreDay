@@ -24,6 +24,13 @@ namespace NoMoreDay {
             Graphics = 1
         };
 
+        enum class GraphicsOption : uint8_t {
+            V3Enabled = 0,
+            ClusteredLighting = 1,
+            NormalLighting = 2,
+            Specular = 3
+        };
+
         struct Slider {
             Rectangle bounds;
             float* value;
@@ -46,6 +53,11 @@ namespace NoMoreDay {
         void ApplyRenderQualityTier();
         void CycleRenderQualityTier(int direction);
         void DrawQualityTierSelector() const;
+        void DrawGraphicsToggleRow(const std::string& label,
+                                   const std::string& valueText,
+                                   float y) const;
+        void ToggleGraphicsOption(GraphicsOption option);
+        std::string GetGraphicsOptionValueText(GraphicsOption option) const;
 
         Slider m_zoomSlider;
         Slider m_shakeSlider;
@@ -53,6 +65,10 @@ namespace NoMoreDay {
         Button m_graphicsTabButton;
         Button m_qualityLeftButton;
         Button m_qualityRightButton;
+        Button m_v3ToggleButton;
+        Button m_clusteredToggleButton;
+        Button m_normalToggleButton;
+        Button m_specularToggleButton;
         Button m_backButton;
         Tab m_activeTab = Tab::Gameplay;
     };
