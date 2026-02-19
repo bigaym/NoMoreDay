@@ -216,16 +216,16 @@ void main() {
 
 ### 4.2 级联架构设计
 
-| 级联层 | 空间分辨率 | 探针间距 | 射线数/探针 | 射线长度 | 角度覆盖 |
+| 级联层 | 空间分辨率 | 探针间距 | 射线数/探针（Balanced） | 射线长度 | 角度覆盖 |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | **L0** | 屏幕 1:1 | 1px | 4 | 0-4px | 4×90° |
 | **L1** | 1/2 | 2px | 4 | 4-8px | 4×90° |
-| **L2** | 1/4 | 4px | 4 | 8-16px | 4×90° |
-| **L3** | 1/8 | 8px | 4 | 16-32px | 4×90° |
-| **L4** | 1/16 | 16px | 4 | 32-64px | 4×90° |
-| **L5** | 1/32 | 32px | 4 | 64-128px+ | 4×90° |
+| **L2** | 1/4 | 4px | 8 | 8-16px | 8×45° |
+| **L3** | 1/8 | 8px | 8 | 16-32px | 8×45° |
+| **L4** | 1/16 | 16px | 12 | 32-64px | 12×30° |
+| **L5** | 1/32 | 32px | 12 | 64-128px+ | 12×30° |
 
-> 4 条射线 × 90° 覆盖 = 360° 全方向。每层仅负责一段距离，合并后得到从近到远的完整辐射度。
+> 默认采用 `Balanced` 角分辨率增长策略。V5-A 固定该 profile，V5-B 才允许评估更激进配置（例如 L4/L5=16）。
 
 ### 4.3 渲染管线
 
@@ -302,7 +302,7 @@ vec4 traceRaySDF(vec2 origin, vec2 dir, float minDist, float maxDist,
 vec4 mergeCascade(vec2 probeWorldPos, int level,
                   sampler2D upperLevelTex, sampler2D sdfTex, sampler2D emissiveTex,
                   vec2 screenSize) {
-    int numRays = 4;
+    int numRays = getCascadeRayCount(level); // 例如 [4,4,8,8,12,12]
     float baseInterval = 4.0; // 基础射线长度（像素）
     float nearRange = pow(2.0, float(level)) * baseInterval;
     float farRange  = nearRange * 2.0;
@@ -663,7 +663,7 @@ V5-B: 完整 6 级联 + SDF 优化 + SPH 探索 + Holographic RC 评估
 ```cpp
 struct RadianceCascadeConfig {
     uint32_t numLevels;         // 4  级联层数 (4 or 6)
-    uint32_t raysPerProbe;      // 4  每探针射线数 (4 or 8)
+    uint32_t raysPerProbe;      // 4  L0 基准射线数（每级射线由 profile 派生）
     float    baseInterval;      // 4  基础射线长度（像素）
     float    temporalWeight;    // 4  时域混合权重 (0.85-0.95)
     uint32_t halfResolution;    // 4  L0 是否 half-res (0/1)
@@ -711,20 +711,19 @@ static_assert(sizeof(GPUFluidConfig) == 32);
 ### Radiance Cascades
 1. Jason Bourg — Radiance Cascades: <https://jason.today/rc>
 2. radiance-cascades.com: <https://radiance-cascades.com/>
-3. Holographic Radiance Cascades (arXiv 2025): <https://arxiv.org/abs/2505.xxxxx> *(ID 待确认)*
-4. Reddit — Realtime 2D GI with RC in Unity: <https://reddit.com/r/gamedev> *(多个讨论帖)*
+3. Holographic Radiance Cascades (arXiv 2025): <https://arxiv.org/abs/2505.02041>
 
 ### JFA 距离场
-5. demofox — Jump Flooding Voronoi: <https://blog.demofox.org/2016/02/29/fast-voronoi-diagrams-and-distance-field-textures-on-the-gpu-with-the-jump-flooding-algorithm/>
-6. Wikipedia — Jump Flooding Algorithm: <https://en.wikipedia.org/wiki/Jump_flooding_algorithm>
-7. GMShaders — JFA for Outlines/Glow: <https://gmshaders.com/tutorials/jfa/>
+4. Rong, G. and Tan, T.-S. — Jump Flooding in GPU with Applications to Voronoi Diagram and Distance Transform (I3D 2006): <https://doi.org/10.1145/1111411.1111431>
+5. Rong, G. and Tan, T.-S. — Variants of Jump Flooding Algorithm for Computing Discrete Voronoi Diagrams (ISVD 2006): <https://www.comp.nus.edu.sg/~tants/jfa-variants.html>
+6. Cao, T.-T. et al. — Parallel Banding Algorithm to Compute Exact Distance Transform with the GPU (I3D 2010): <https://doi.org/10.1145/1730804.1730818>
 
 ### SPH 流体
-8. Müller et al. — Particle-Based Fluid Simulation: <https://matthias-research.github.io/pages/publications/sca03.pdf>
+7. Müller et al. — Particle-Based Fluid Simulation for Interactive Applications: <https://matthias-research.github.io/pages/publications/sca03.pdf>
 
 ### OpenGL Compute
-9. LearnOpenGL — Compute Shaders: <https://learnopengl.com/Guest-Articles/2022/Compute-Shaders/Introduction>
-10. Khronos — glMemoryBarrier: <https://docs.gl/gl4/glMemoryBarrier>
+8. Khronos OpenGL Wiki — glMemoryBarrier: <https://wikis.khronos.org/opengl/GlMemoryBarrier>
+9. OpenGL Shading Language 4.60 Specification (memory model / barriers): <https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.60.pdf>
 
 ---
 

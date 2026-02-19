@@ -121,6 +121,19 @@ struct RenderConfig {
   // V4 GPU loot feature routing.
   bool gpuLootEnabled = false;
   bool gpuLootGlowEnabled = false;
+
+  // V5 GI feature routing.
+  bool giEnabled = false;
+  uint32_t giCascadeLevels = 0;
+  bool giHalfResolution = false;
+  float giTemporalWeight = 0.9f;
+  uint32_t giSdfUpdateInterval = 1;
+  float giIntensity = 1.0f;
+  bool giHolographicEnabled = false;
+
+  // V5 fluid feature routing.
+  bool fluidEnabled = false;
+  uint32_t fluidMaxParticles = 0;
 };
 
 inline const char *ToString(QualityTier tier) {

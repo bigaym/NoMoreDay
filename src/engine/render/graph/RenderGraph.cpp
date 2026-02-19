@@ -27,6 +27,7 @@ bool IsWriterAllowedForResource(RenderResourceTag resourceTag,
     return ownerTag == RenderOwnerTag::Scene ||
            ownerTag == RenderOwnerTag::Lighting ||
            ownerTag == RenderOwnerTag::HeightShadow ||
+           ownerTag == RenderOwnerTag::GIComposite ||
            ownerTag == RenderOwnerTag::Volumetric ||
            ownerTag == RenderOwnerTag::VFX ||
            ownerTag == RenderOwnerTag::UIWorld;
@@ -38,6 +39,14 @@ bool IsWriterAllowedForResource(RenderResourceTag resourceTag,
     return ownerTag == RenderOwnerTag::Distortion;
   case RenderResourceTag::FinalOutputColor:
     return ownerTag == RenderOwnerTag::Composite;
+  case RenderResourceTag::OccluderMask:
+    return ownerTag == RenderOwnerTag::OccluderExtract;
+  case RenderResourceTag::DistanceField:
+    return ownerTag == RenderOwnerTag::JFA;
+  case RenderResourceTag::EmissiveBuffer:
+    return ownerTag == RenderOwnerTag::RadianceCascades;
+  case RenderResourceTag::RadianceMap:
+    return ownerTag == RenderOwnerTag::RadianceCascades;
   case RenderResourceTag::Custom:
   default:
     return true;
@@ -56,6 +65,14 @@ bool IsFirstWriterValid(RenderResourceTag resourceTag, RenderOwnerTag ownerTag) 
     return ownerTag == RenderOwnerTag::Distortion;
   case RenderResourceTag::FinalOutputColor:
     return ownerTag == RenderOwnerTag::Composite;
+  case RenderResourceTag::OccluderMask:
+    return ownerTag == RenderOwnerTag::OccluderExtract;
+  case RenderResourceTag::DistanceField:
+    return ownerTag == RenderOwnerTag::JFA;
+  case RenderResourceTag::EmissiveBuffer:
+    return ownerTag == RenderOwnerTag::RadianceCascades;
+  case RenderResourceTag::RadianceMap:
+    return ownerTag == RenderOwnerTag::RadianceCascades;
   case RenderResourceTag::Custom:
   default:
     return true;
@@ -68,6 +85,7 @@ bool IsAdditionalWriterValid(RenderResourceTag resourceTag,
   case RenderResourceTag::SceneHdrColor:
     return ownerTag == RenderOwnerTag::Lighting ||
            ownerTag == RenderOwnerTag::HeightShadow ||
+           ownerTag == RenderOwnerTag::GIComposite ||
            ownerTag == RenderOwnerTag::Volumetric ||
            ownerTag == RenderOwnerTag::VFX ||
            ownerTag == RenderOwnerTag::UIWorld;
@@ -77,6 +95,10 @@ bool IsAdditionalWriterValid(RenderResourceTag resourceTag,
   case RenderResourceTag::PostProcessLdrColor:
   case RenderResourceTag::DistortionLdrColor:
   case RenderResourceTag::FinalOutputColor:
+  case RenderResourceTag::OccluderMask:
+  case RenderResourceTag::DistanceField:
+  case RenderResourceTag::EmissiveBuffer:
+  case RenderResourceTag::RadianceMap:
   default:
     return false;
   }
@@ -93,6 +115,14 @@ RenderOwnerTag ExpectedFirstWriter(RenderResourceTag resourceTag) {
     return RenderOwnerTag::Distortion;
   case RenderResourceTag::FinalOutputColor:
     return RenderOwnerTag::Composite;
+  case RenderResourceTag::OccluderMask:
+    return RenderOwnerTag::OccluderExtract;
+  case RenderResourceTag::DistanceField:
+    return RenderOwnerTag::JFA;
+  case RenderResourceTag::EmissiveBuffer:
+    return RenderOwnerTag::RadianceCascades;
+  case RenderResourceTag::RadianceMap:
+    return RenderOwnerTag::RadianceCascades;
   case RenderResourceTag::Custom:
   default:
     return RenderOwnerTag::Unknown;
@@ -109,14 +139,18 @@ enum class PassContractStage : int {
   LightCulling = 2,
   Lighting = 3,
   HeightShadow = 4,
-  Volumetric = 5,
-  VFX = 6,
-  GPUText = 7,
-  GPULoot = 8,
-  UIWorld = 9,
-  PostProcess = 10,
-  Distortion = 11,
-  Composite = 12,
+  OccluderExtract = 5,
+  JFA = 6,
+  RadianceCascades = 7,
+  GIComposite = 8,
+  Volumetric = 9,
+  VFX = 10,
+  GPUText = 11,
+  GPULoot = 12,
+  UIWorld = 13,
+  PostProcess = 14,
+  Distortion = 15,
+  Composite = 16,
 };
 
 std::optional<PassContractStage> ResolvePassContractStage(std::string_view passName) {
@@ -135,6 +169,18 @@ std::optional<PassContractStage> ResolvePassContractStage(std::string_view passN
   }
   if (passName == "HeightShadowPass") {
     return PassContractStage::HeightShadow;
+  }
+  if (passName == "OccluderExtractPass") {
+    return PassContractStage::OccluderExtract;
+  }
+  if (passName == "JFAPass") {
+    return PassContractStage::JFA;
+  }
+  if (passName == "RadianceCascadesPass") {
+    return PassContractStage::RadianceCascades;
+  }
+  if (passName == "GICompositePass") {
+    return PassContractStage::GIComposite;
   }
   if (passName == "VolumetricLightPass") {
     return PassContractStage::Volumetric;
@@ -286,8 +332,10 @@ void RenderGraph::Execute(RenderContext &context) {
 
 void RenderGraph::ValidateBuildContracts() {
   // Pass order contract:
-  // Scene -> Shadow -> LightCulling -> Lighting -> HeightShadow -> Volumetric ->
-  // VFX -> GPUText -> GPULoot -> UIWorld -> PostProcess -> Distortion -> Composite
+  // Scene -> Shadow -> LightCulling -> Lighting -> HeightShadow
+  // -> OccluderExtract -> JFA -> RadianceCascades -> GIComposite
+  // -> Volumetric -> VFX -> GPUText -> GPULoot -> UIWorld
+  // -> PostProcess -> Distortion -> Composite
   int lastStage = -1;
   bool seenComposite = false;
   std::unordered_set<int> seenSingularStages;

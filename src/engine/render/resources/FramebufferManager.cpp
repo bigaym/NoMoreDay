@@ -16,29 +16,48 @@ constexpr uint32_t kGLDepthAttachment = 0x8D00;
 constexpr uint32_t kGLFramebufferComplete = 0x8CD5;
 constexpr uint32_t kGLDepthComponent24 = 0x81A6;
 constexpr uint32_t kGLRgba = 0x1908;
+constexpr uint32_t kGLRed = 0x1903;
 constexpr uint32_t kGLRg = 0x8227;
+constexpr uint32_t kGLRgInteger = 0x8228;
 constexpr uint32_t kGLHalfFloat = 0x140B;
 constexpr uint32_t kGLUnsignedByte = 0x1401;
+constexpr uint32_t kGLUnsignedShort = 0x1403;
 constexpr uint32_t kGLTextureMinFilter = 0x2801;
 constexpr uint32_t kGLTextureMagFilter = 0x2800;
 constexpr uint32_t kGLTextureWrapS = 0x2802;
 constexpr uint32_t kGLTextureWrapT = 0x2803;
 constexpr uint32_t kGLLinear = 0x2601;
+constexpr uint32_t kGLNearest = 0x2600;
 constexpr uint32_t kGLClampToEdge = 0x812F;
+constexpr uint32_t kGLR8 = 0x8229;
+constexpr uint32_t kGLR16f = 0x822D;
 constexpr uint32_t kGLRgba16f = 0x881A;
 constexpr uint32_t kGLRg16f = 0x822F;
+constexpr uint32_t kGLRg16ui = 0x823A;
 constexpr uint64_t kBytesPerPixelRgba8 = 4u;
+constexpr uint64_t kBytesPerPixelR8 = 1u;
+constexpr uint64_t kBytesPerPixelR16f = 2u;
 constexpr uint64_t kBytesPerPixelRgba16f = 8u;
 constexpr uint64_t kBytesPerPixelRg16f = 4u;
+constexpr uint64_t kBytesPerPixelRg16ui = 4u;
 constexpr uint64_t kBytesPerDepthRbo = 4u;
 std::atomic<uint64_t> s_trackedBytes = 0u;
 
 uint64_t BytesPerPixel(uint32_t internalFormat) {
+  if (internalFormat == kGLR8) {
+    return kBytesPerPixelR8;
+  }
+  if (internalFormat == kGLR16f) {
+    return kBytesPerPixelR16f;
+  }
   if (internalFormat == kGLRgba16f) {
     return kBytesPerPixelRgba16f;
   }
   if (internalFormat == kGLRg16f) {
     return kBytesPerPixelRg16f;
+  }
+  if (internalFormat == kGLRg16ui) {
+    return kBytesPerPixelRg16ui;
   }
   return kBytesPerPixelRgba8;
 }
@@ -59,10 +78,6 @@ FramebufferHandle FramebufferManager::Create(int width, int height,
 
   NoMoreDay::utils::GPUUtils::GenTextures(1, &handle.colorTexture);
   NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, handle.colorTexture);
-  NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2D, kGLTextureMinFilter,
-                                            kGLLinear);
-  NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2D, kGLTextureMagFilter,
-                                            kGLLinear);
   NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2D, kGLTextureWrapS,
                                             kGLClampToEdge);
   NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2D, kGLTextureWrapT,
@@ -70,13 +85,34 @@ FramebufferHandle FramebufferManager::Create(int width, int height,
 
   uint32_t uploadFormat = kGLRgba;
   uint32_t textureType = kGLUnsignedByte;
-  if (internalFormat == kGLRgba16f) {
+  uint32_t minFilter = kGLLinear;
+  uint32_t magFilter = kGLLinear;
+  if (internalFormat == kGLR8) {
+    uploadFormat = kGLRed;
+    textureType = kGLUnsignedByte;
+    minFilter = kGLNearest;
+    magFilter = kGLNearest;
+  } else if (internalFormat == kGLR16f) {
+    uploadFormat = kGLRed;
+    textureType = kGLHalfFloat;
+    minFilter = kGLNearest;
+    magFilter = kGLNearest;
+  } else if (internalFormat == kGLRgba16f) {
     uploadFormat = kGLRgba;
     textureType = kGLHalfFloat;
   } else if (internalFormat == kGLRg16f) {
     uploadFormat = kGLRg;
     textureType = kGLHalfFloat;
+  } else if (internalFormat == kGLRg16ui) {
+    uploadFormat = kGLRgInteger;
+    textureType = kGLUnsignedShort;
+    minFilter = kGLNearest;
+    magFilter = kGLNearest;
   }
+  NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2D, kGLTextureMinFilter,
+                                            static_cast<int>(minFilter));
+  NoMoreDay::utils::GPUUtils::TexParameteri(kGLTexture2D, kGLTextureMagFilter,
+                                            static_cast<int>(magFilter));
   NoMoreDay::utils::GPUUtils::TexImage2D(
       kGLTexture2D, 0, static_cast<int>(internalFormat), width, height, 0,
       uploadFormat, textureType, nullptr);

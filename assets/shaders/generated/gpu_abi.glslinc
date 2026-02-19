@@ -2,8 +2,8 @@
 #ifndef NOMOREDAY_GPU_ABI_GLSLINC
 #define NOMOREDAY_GPU_ABI_GLSLINC
 
-#define GPU_ABI_VERSION 4
-#define GPU_ABI_COMPAT_MIN_VERSION 3
+#define GPU_ABI_VERSION 5
+#define GPU_ABI_COMPAT_MIN_VERSION 4
 
 #ifndef GPU_PARTICLE_SSBO_BINDING
 #define GPU_PARTICLE_SSBO_BINDING 0
@@ -82,6 +82,37 @@ struct GPULootInstance {
     uint rarityColor;
     float glowIntensity;
     uint flags;
+};
+
+struct RadianceCascadeConfig {
+    uint numLevels;
+    uint raysPerProbe;
+    float baseInterval;
+    float temporalWeight;
+    uint halfResolution;
+    uint sdfUpdateInterval;
+    float giIntensity;
+    uint reserved;
+};
+
+struct GPUFluidParticle {
+    vec2 position;
+    vec2 velocity;
+    float density;
+    float pressure;
+    vec4 color;
+    float lifetime;
+    uint flags;
+};
+
+struct GPUFluidConfig {
+    float smoothingRadius;
+    float restDensity;
+    float stiffness;
+    float viscosity;
+    vec2 gravity;
+    float surfaceTension;
+    uint maxParticles;
 };
 
 struct GPUShadowCaster {

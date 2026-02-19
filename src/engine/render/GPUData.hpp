@@ -8,7 +8,7 @@
 #include <type_traits>
 
 namespace NoMoreDay::render::abi {
-inline constexpr uint32_t GPU_ABI_VERSION = 4;
+inline constexpr uint32_t GPU_ABI_VERSION = 5;
 inline constexpr uint32_t GPU_ABI_COMPAT_MIN_VERSION =
     (GPU_ABI_VERSION > 0) ? (GPU_ABI_VERSION - 1) : 0;
 }
@@ -574,6 +574,64 @@ static_assert(std::is_standard_layout_v<GPULootInstance>,
               "GPULootInstance must be standard layout");
 static_assert(sizeof(GPULootInstance) == 32,
               "GPULootInstance struct must be exactly 32 bytes");
+
+/**
+ * @brief V5 radiance cascade runtime configuration payload.
+ * 32 bytes.
+ */
+struct RadianceCascadeConfig {
+  uint32_t numLevels = 0;
+  uint32_t raysPerProbe = 0;
+  float baseInterval = 0.0f;
+  float temporalWeight = 0.9f;
+  uint32_t halfResolution = 0;
+  uint32_t sdfUpdateInterval = 1;
+  float giIntensity = 1.0f;
+  uint32_t reserved = 0;
+};
+
+static_assert(std::is_standard_layout_v<RadianceCascadeConfig>,
+              "RadianceCascadeConfig must be standard layout");
+static_assert(sizeof(RadianceCascadeConfig) == 32,
+              "RadianceCascadeConfig struct must be exactly 32 bytes");
+
+/**
+ * @brief V5 SPH particle payload.
+ * 48 bytes.
+ */
+struct GPUFluidParticle {
+  Vector2 position = {0.0f, 0.0f};   // 8
+  Vector2 velocity = {0.0f, 0.0f};   // 8
+  float density = 0.0f;              // 4
+  float pressure = 0.0f;             // 4
+  Vector4 color = {1.0f, 1.0f, 1.0f, 1.0f}; // 16
+  float lifetime = 0.0f;             // 4
+  uint32_t flags = 0;                // 4
+};
+
+static_assert(std::is_standard_layout_v<GPUFluidParticle>,
+              "GPUFluidParticle must be standard layout");
+static_assert(sizeof(GPUFluidParticle) == 48,
+              "GPUFluidParticle struct must be exactly 48 bytes");
+
+/**
+ * @brief V5 SPH runtime config payload.
+ * 32 bytes.
+ */
+struct GPUFluidConfig {
+  float smoothingRadius = 0.0f;  // 4
+  float restDensity = 0.0f;      // 4
+  float stiffness = 0.0f;        // 4
+  float viscosity = 0.0f;        // 4
+  Vector2 gravity = {0.0f, -9.8f}; // 8
+  float surfaceTension = 0.0f;   // 4
+  uint32_t maxParticles = 0;     // 4
+};
+
+static_assert(std::is_standard_layout_v<GPUFluidConfig>,
+              "GPUFluidConfig must be standard layout");
+static_assert(sizeof(GPUFluidConfig) == 32,
+              "GPUFluidConfig struct must be exactly 32 bytes");
 
 /**
  * @brief Structure for GPU Visual Stats (Attribute Sync).

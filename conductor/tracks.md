@@ -332,6 +332,7 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 
 > **主控规格书**: [`rendering_engine_v5_master_spec.md`](./specs/rendering_engine_v5_master_spec.md)  
 > **设计文档**: [`GPU_Rendering_System_V5.md`](../设计文档/特效和UI/GPU_Rendering_System_V5.md)
+> **2026-02-19 全面回顾与重规划**: [`v5_rendering_review_20260219.md`](./tracks/v5_rendering_review_20260219.md)
 
 ```
 V4 验收完成 (v4_validation_release_gate_20260219)

@@ -1,7 +1,7 @@
 # V5 Validation & Release Gate 规格说明书
 
 > **Track ID**: `v5_validation_release_gate_20260219`  
-> **设计参考**: [`GPU_Rendering_System_V5.md` §9](../../../设计文档/特效和UI/GPU_Rendering_System_V5.md)  
+> **设计参考**: [`GPU_Rendering_System_V5.md` §12](../../../设计文档/特效和UI/GPU_Rendering_System_V5.md)  
 > **主控规格书**: [`rendering_engine_v5_master_spec.md`](../../specs/rendering_engine_v5_master_spec.md)  
 > **状态**: 📋 Pending
 

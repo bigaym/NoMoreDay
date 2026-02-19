@@ -10,7 +10,7 @@
 
 namespace NoMoreDay::render::graph {
 
-constexpr uint32_t RENDERGRAPH_CONTRACT_VERSION = 2;
+constexpr uint32_t RENDERGRAPH_CONTRACT_VERSION = 3;
 
 enum class RenderResourceTag : uint8_t {
   Custom = 0,
@@ -19,6 +19,10 @@ enum class RenderResourceTag : uint8_t {
   PostProcessLdrColor,
   DistortionLdrColor,
   FinalOutputColor,
+  OccluderMask,
+  DistanceField,
+  EmissiveBuffer,
+  RadianceMap,
 };
 
 enum class RenderOwnerTag : uint8_t {
@@ -26,6 +30,10 @@ enum class RenderOwnerTag : uint8_t {
   Scene,
   Lighting,
   HeightShadow,
+  OccluderExtract,
+  JFA,
+  RadianceCascades,
+  GIComposite,
   Volumetric,
   VFX,
   UIWorld,
@@ -46,6 +54,14 @@ constexpr const char *ToResourceName(RenderResourceTag resourceTag) {
     return "DistortionColor";
   case RenderResourceTag::FinalOutputColor:
     return "BackBuffer";
+  case RenderResourceTag::OccluderMask:
+    return "OccluderMask";
+  case RenderResourceTag::DistanceField:
+    return "DistanceField";
+  case RenderResourceTag::EmissiveBuffer:
+    return "EmissiveBuffer";
+  case RenderResourceTag::RadianceMap:
+    return "RadianceMap";
   case RenderResourceTag::Custom:
   default:
     return "";
@@ -68,6 +84,18 @@ constexpr RenderResourceTag ToResourceTag(std::string_view resourceName) {
   if (resourceName == "BackBuffer") {
     return RenderResourceTag::FinalOutputColor;
   }
+  if (resourceName == "OccluderMask") {
+    return RenderResourceTag::OccluderMask;
+  }
+  if (resourceName == "DistanceField") {
+    return RenderResourceTag::DistanceField;
+  }
+  if (resourceName == "EmissiveBuffer") {
+    return RenderResourceTag::EmissiveBuffer;
+  }
+  if (resourceName == "RadianceMap") {
+    return RenderResourceTag::RadianceMap;
+  }
   return RenderResourceTag::Custom;
 }
 
@@ -79,6 +107,14 @@ constexpr const char *ToOwnerName(RenderOwnerTag ownerTag) {
     return "Lighting";
   case RenderOwnerTag::HeightShadow:
     return "HeightShadow";
+  case RenderOwnerTag::OccluderExtract:
+    return "OccluderExtract";
+  case RenderOwnerTag::JFA:
+    return "JFA";
+  case RenderOwnerTag::RadianceCascades:
+    return "RadianceCascades";
+  case RenderOwnerTag::GIComposite:
+    return "GIComposite";
   case RenderOwnerTag::Volumetric:
     return "Volumetric";
   case RenderOwnerTag::VFX:

@@ -1,7 +1,7 @@
 # SPH Fluid Simulation (Exploration) 规格说明书
 
 > **Track ID**: `v5_sph_fluid_exploration_20260219`  
-> **设计参考**: [`GPU_Rendering_System_V5.md` §6](../../../设计文档/特效和UI/GPU_Rendering_System_V5.md)  
+> **设计参考**: [`GPU_Rendering_System_V5.md` §5](../../../设计文档/特效和UI/GPU_Rendering_System_V5.md)  
 > **主控规格书**: [`rendering_engine_v5_master_spec.md`](../../specs/rendering_engine_v5_master_spec.md)  
 > **状态**: 📋 Pending  
 > **⚠️ 类型**: exploration — 不阻断 V5 核心交付
@@ -48,10 +48,9 @@ struct GPUFluidConfig {
     float     restDensity;       // 4
     float     stiffness;         // 4
     float     viscosity;         // 4
-    float     gravity;           // 4
+    glm::vec2 gravity;           // 8
+    float     surfaceTension;    // 4
     uint32_t  maxParticles;      // 4
-    float     timeStep;          // 4
-    float     particleRenderSize;// 4
 };
 static_assert(sizeof(GPUFluidConfig) == 32);
 ```

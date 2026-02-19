@@ -35,9 +35,13 @@ constexpr const char *kRenderKey = "render";
 constexpr const char *kRenderV3Key = "v3";
 constexpr const char *kRenderGpuTextKey = "gpuText";
 constexpr const char *kRenderGpuLootKey = "gpuLoot";
+constexpr const char *kRenderGiKey = "gi";
+constexpr const char *kRenderFluidKey = "fluid";
 constexpr const char *kRenderV3FlatEnabledKey = "render.v3.enabled";
 constexpr const char *kRenderGpuTextFlatEnabledKey = "render.gpuText.enabled";
 constexpr const char *kRenderGpuLootFlatEnabledKey = "render.gpuLoot.enabled";
+constexpr const char *kRenderGiFlatEnabledKey = "render.gi.enabled";
+constexpr const char *kRenderFluidFlatEnabledKey = "render.fluid.enabled";
 constexpr std::array<QualityTierManager::AutoDegradeStep, 6>
     kV3AutoDegradeSequence = {
         QualityTierManager::AutoDegradeStep::ReduceBloom,
@@ -123,6 +127,23 @@ void WriteV3ConfigToJson(nlohmann::json &jsonSettings, const RenderConfig &confi
   gpuLoot["enabled"] = config.gpuLootEnabled;
   jsonSettings[kRenderGpuLootFlatEnabledKey] = config.gpuLootEnabled;
   jsonSettings[kRenderKey][kRenderGpuLootKey] = std::move(gpuLoot);
+
+  nlohmann::json gi = nlohmann::json::object();
+  gi["enabled"] = config.giEnabled;
+  gi["cascadeLevels"] = config.giCascadeLevels;
+  gi["halfResolution"] = config.giHalfResolution;
+  gi["temporalWeight"] = config.giTemporalWeight;
+  gi["sdfUpdateInterval"] = config.giSdfUpdateInterval;
+  gi["intensity"] = config.giIntensity;
+  gi["holographicEnabled"] = config.giHolographicEnabled;
+  jsonSettings[kRenderGiFlatEnabledKey] = config.giEnabled;
+  jsonSettings[kRenderKey][kRenderGiKey] = std::move(gi);
+
+  nlohmann::json fluid = nlohmann::json::object();
+  fluid["enabled"] = config.fluidEnabled;
+  fluid["maxParticles"] = config.fluidMaxParticles;
+  jsonSettings[kRenderFluidFlatEnabledKey] = config.fluidEnabled;
+  jsonSettings[kRenderKey][kRenderFluidKey] = std::move(fluid);
 }
 
 bool ParseTierString(std::string value, QualityTier &outTier) {
@@ -277,6 +298,8 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_v3Config = {};
   m_gpuTextEnabledOverride = std::nullopt;
   m_gpuLootEnabledOverride = std::nullopt;
+  m_giEnabledOverride = std::nullopt;
+  m_fluidEnabledOverride = std::nullopt;
 
   m_capabilitySnapshot = ProbeCapabilities();
   const QualityTier capabilityTier = DetectTierFromCapabilities(m_capabilitySnapshot);
@@ -307,6 +330,8 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   TryLoadV3ConfigFromSettings(settingsPath, m_v3Config);
   m_gpuTextEnabledOverride = TryLoadGpuTextEnabledOverride(settingsPath);
   m_gpuLootEnabledOverride = TryLoadGpuLootEnabledOverride(settingsPath);
+  m_giEnabledOverride = TryLoadGiEnabledOverride(settingsPath);
+  m_fluidEnabledOverride = TryLoadFluidEnabledOverride(settingsPath);
   UpdateConfigForTier(chosenTier);
   m_initialized = true;
 
@@ -805,6 +830,103 @@ QualityTierManager::TryLoadGpuLootEnabledOverride(
   return std::nullopt;
 }
 
+std::optional<bool>
+QualityTierManager::TryLoadGiEnabledOverride(
+    const std::string &settingsPath) const {
+  if (!std::filesystem::exists(settingsPath)) {
+    return std::nullopt;
+  }
+
+  nlohmann::json jsonSettings;
+  try {
+    std::ifstream file(settingsPath);
+    if (!file.is_open()) {
+      return std::nullopt;
+    }
+    file >> jsonSettings;
+  } catch (...) {
+    return std::nullopt;
+  }
+
+  if (jsonSettings.contains(kRenderGiFlatEnabledKey)) {
+    const auto &value = jsonSettings[kRenderGiFlatEnabledKey];
+    if (!value.is_boolean()) {
+      LOG_WARN("QualityTierManager: {} invalid {} (expected bool), ignored",
+               settingsPath, kRenderGiFlatEnabledKey);
+      return std::nullopt;
+    }
+    return value.get<bool>();
+  }
+
+  if (jsonSettings.contains(kRenderKey) && jsonSettings[kRenderKey].is_object()) {
+    const auto &renderNode = jsonSettings[kRenderKey];
+    if (renderNode.contains(kRenderGiKey) && renderNode[kRenderGiKey].is_object()) {
+      const auto &giNode = renderNode[kRenderGiKey];
+      if (giNode.contains("enabled")) {
+        const auto &enabledValue = giNode["enabled"];
+        if (!enabledValue.is_boolean()) {
+          LOG_WARN("QualityTierManager: {} invalid render.gi.enabled "
+                   "(expected bool), ignored",
+                   settingsPath);
+          return std::nullopt;
+        }
+        return enabledValue.get<bool>();
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
+std::optional<bool>
+QualityTierManager::TryLoadFluidEnabledOverride(
+    const std::string &settingsPath) const {
+  if (!std::filesystem::exists(settingsPath)) {
+    return std::nullopt;
+  }
+
+  nlohmann::json jsonSettings;
+  try {
+    std::ifstream file(settingsPath);
+    if (!file.is_open()) {
+      return std::nullopt;
+    }
+    file >> jsonSettings;
+  } catch (...) {
+    return std::nullopt;
+  }
+
+  if (jsonSettings.contains(kRenderFluidFlatEnabledKey)) {
+    const auto &value = jsonSettings[kRenderFluidFlatEnabledKey];
+    if (!value.is_boolean()) {
+      LOG_WARN("QualityTierManager: {} invalid {} (expected bool), ignored",
+               settingsPath, kRenderFluidFlatEnabledKey);
+      return std::nullopt;
+    }
+    return value.get<bool>();
+  }
+
+  if (jsonSettings.contains(kRenderKey) && jsonSettings[kRenderKey].is_object()) {
+    const auto &renderNode = jsonSettings[kRenderKey];
+    if (renderNode.contains(kRenderFluidKey) &&
+        renderNode[kRenderFluidKey].is_object()) {
+      const auto &fluidNode = renderNode[kRenderFluidKey];
+      if (fluidNode.contains("enabled")) {
+        const auto &enabledValue = fluidNode["enabled"];
+        if (!enabledValue.is_boolean()) {
+          LOG_WARN("QualityTierManager: {} invalid render.fluid.enabled "
+                   "(expected bool), ignored",
+                   settingsPath);
+          return std::nullopt;
+        }
+        return enabledValue.get<bool>();
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
 void QualityTierManager::ApplyV3ConfigOverrides(RenderConfig &config) const {
   config.shadowEnabled = m_v3Config.shadowEnabled;
   config.shadowMode = m_v3Config.shadowMode;
@@ -1091,6 +1213,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = false;
     m_baseConfig.gpuLootEnabled = false;
     m_baseConfig.gpuLootGlowEnabled = false;
+    m_baseConfig.giEnabled = false;
+    m_baseConfig.giCascadeLevels = 0;
+    m_baseConfig.giHalfResolution = false;
+    m_baseConfig.giTemporalWeight = 0.0f;
+    m_baseConfig.giSdfUpdateInterval = 0;
+    m_baseConfig.giIntensity = 0.0f;
+    m_baseConfig.giHolographicEnabled = false;
+    m_baseConfig.fluidEnabled = false;
+    m_baseConfig.fluidMaxParticles = 0;
     m_baseConfig.clusteredLightingEnabled = false;
     m_baseConfig.clusteredLightingV4Enabled = false;
     m_baseConfig.heightShadowEnabled = false;
@@ -1143,6 +1274,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = false;
     m_baseConfig.gpuLootEnabled = false;
     m_baseConfig.gpuLootGlowEnabled = false;
+    m_baseConfig.giEnabled = false;
+    m_baseConfig.giCascadeLevels = 0;
+    m_baseConfig.giHalfResolution = false;
+    m_baseConfig.giTemporalWeight = 0.0f;
+    m_baseConfig.giSdfUpdateInterval = 0;
+    m_baseConfig.giIntensity = 0.0f;
+    m_baseConfig.giHolographicEnabled = false;
+    m_baseConfig.fluidEnabled = false;
+    m_baseConfig.fluidMaxParticles = 0;
     m_baseConfig.clusteredLightingEnabled = true;
     m_baseConfig.clusteredLightingV4Enabled = false;
     m_baseConfig.heightShadowEnabled = false;
@@ -1195,6 +1335,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = true;
     m_baseConfig.gpuLootEnabled = true;
     m_baseConfig.gpuLootGlowEnabled = false;
+    m_baseConfig.giEnabled = true;
+    m_baseConfig.giCascadeLevels = 4;
+    m_baseConfig.giHalfResolution = true;
+    m_baseConfig.giTemporalWeight = 0.92f;
+    m_baseConfig.giSdfUpdateInterval = 2;
+    m_baseConfig.giIntensity = 1.0f;
+    m_baseConfig.giHolographicEnabled = false;
+    m_baseConfig.fluidEnabled = false;
+    m_baseConfig.fluidMaxParticles = 0;
     m_baseConfig.clusteredLightingEnabled = true;
     m_baseConfig.clusteredLightingV4Enabled = true;
     m_baseConfig.heightShadowEnabled = true;
@@ -1247,6 +1396,15 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuTextAdvancedAnimation = true;
     m_baseConfig.gpuLootEnabled = true;
     m_baseConfig.gpuLootGlowEnabled = true;
+    m_baseConfig.giEnabled = true;
+    m_baseConfig.giCascadeLevels = 6;
+    m_baseConfig.giHalfResolution = false;
+    m_baseConfig.giTemporalWeight = 0.88f;
+    m_baseConfig.giSdfUpdateInterval = 1;
+    m_baseConfig.giIntensity = 1.0f;
+    m_baseConfig.giHolographicEnabled = false;
+    m_baseConfig.fluidEnabled = true;
+    m_baseConfig.fluidMaxParticles = 10000;
     m_baseConfig.clusteredLightingEnabled = true;
     m_baseConfig.clusteredLightingV4Enabled = true;
     m_baseConfig.heightShadowEnabled = true;
@@ -1266,6 +1424,30 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.gpuLootEnabled = m_gpuLootEnabledOverride.value();
     if (!m_baseConfig.gpuLootEnabled || tier != QualityTier::Ultra) {
       m_baseConfig.gpuLootGlowEnabled = false;
+    }
+  }
+  if (m_giEnabledOverride.has_value()) {
+    m_baseConfig.giEnabled = m_giEnabledOverride.value();
+    if (!m_baseConfig.giEnabled) {
+      m_baseConfig.giCascadeLevels = 0;
+      m_baseConfig.giIntensity = 0.0f;
+    } else {
+      if (m_baseConfig.giCascadeLevels == 0) {
+        m_baseConfig.giCascadeLevels =
+            (tier == QualityTier::Ultra) ? 6u : 4u;
+      }
+      if (m_baseConfig.giIntensity <= 0.0f) {
+        m_baseConfig.giIntensity = 1.0f;
+      }
+    }
+  }
+  if (m_fluidEnabledOverride.has_value()) {
+    m_baseConfig.fluidEnabled = m_fluidEnabledOverride.value();
+    if (!m_baseConfig.fluidEnabled) {
+      m_baseConfig.fluidMaxParticles = 0;
+    } else if (m_baseConfig.fluidMaxParticles == 0) {
+      m_baseConfig.fluidMaxParticles =
+          (tier == QualityTier::Ultra) ? 10000u : 5000u;
     }
   }
 
@@ -1336,6 +1518,28 @@ void QualityTierManager::ApplyAutoDegradeLevel() {
       m_config.heightShadowEnabled = false;
       m_config.heightShadowSteps = 0;
     }
+  }
+
+  // V5: progressively reduce GI quality under pressure, then disable.
+  if (m_config.giEnabled) {
+    if (level >= static_cast<int>(AutoDegradeStep::ReduceClusteredPressure)) {
+      m_config.giHalfResolution = true;
+      m_config.giCascadeLevels = std::min<uint32_t>(m_config.giCascadeLevels, 4u);
+      m_config.giSdfUpdateInterval = std::max<uint32_t>(m_config.giSdfUpdateInterval, 2u);
+    }
+    if (level >= static_cast<int>(AutoDegradeStep::HybridShadowToSDF)) {
+      m_config.giSdfUpdateInterval = std::max<uint32_t>(m_config.giSdfUpdateInterval, 4u);
+    }
+    if (level >= static_cast<int>(AutoDegradeStep::DisableHighMaterialBranch)) {
+      m_config.giEnabled = false;
+      m_config.giCascadeLevels = 0;
+      m_config.giIntensity = 0.0f;
+    }
+  }
+
+  if (level >= static_cast<int>(AutoDegradeStep::DisableHighMaterialBranch)) {
+    m_config.fluidEnabled = false;
+    m_config.fluidMaxParticles = 0;
   }
 }
 

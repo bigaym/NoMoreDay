@@ -10,6 +10,7 @@
 
 - [技术规格书 (Specification)](./spec.md)
 - [执行计划 (Implementation Plan)](./plan.md)
+- [验证记录 (Validation)](./validation.md)
 
 ## 进度概览 (Progress)
 

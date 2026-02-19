@@ -195,6 +195,14 @@ const char *RenderProfiler::ToString(RenderPassId passId) {
     return "Lighting";
   case RenderPassId::HeightShadow:
     return "HeightShadow";
+  case RenderPassId::OccluderExtract:
+    return "OccluderExtract";
+  case RenderPassId::JFA:
+    return "JFA";
+  case RenderPassId::RadianceCascades:
+    return "RadianceCascades";
+  case RenderPassId::GIComposite:
+    return "GIComposite";
   case RenderPassId::Volumetric:
     return "Volumetric";
   case RenderPassId::VFX:
@@ -226,6 +234,18 @@ std::optional<RenderPassId> RenderProfiler::FromPassName(std::string_view passNa
   }
   if (passName == "HeightShadowPass") {
     return RenderPassId::HeightShadow;
+  }
+  if (passName == "OccluderExtractPass") {
+    return RenderPassId::OccluderExtract;
+  }
+  if (passName == "JFAPass") {
+    return RenderPassId::JFA;
+  }
+  if (passName == "RadianceCascadesPass") {
+    return RenderPassId::RadianceCascades;
+  }
+  if (passName == "GICompositePass") {
+    return RenderPassId::GIComposite;
   }
   if (passName == "VolumetricLightPass") {
     return RenderPassId::Volumetric;
@@ -262,6 +282,14 @@ float RenderProfiler::GetBudgetMs(RenderPassId passId) {
     return 0.80f;
   case RenderPassId::HeightShadow:
     return 0.90f;
+  case RenderPassId::OccluderExtract:
+    return 0.10f;
+  case RenderPassId::JFA:
+    return 0.40f;
+  case RenderPassId::RadianceCascades:
+    return 1.20f;
+  case RenderPassId::GIComposite:
+    return 0.05f;
   case RenderPassId::Volumetric:
     return 0.80f;
   case RenderPassId::VFX:

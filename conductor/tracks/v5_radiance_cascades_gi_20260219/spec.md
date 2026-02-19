@@ -13,14 +13,16 @@
 
 ## 2. 级联架构
 
-| 级联层 | 空间分辨率 | 探针间距 | 射线数/探针 | 射线长度 | 角度覆盖 |
+| 级联层 | 空间分辨率 | 探针间距 | 射线数/探针（Balanced） | 射线长度 | 角度覆盖 |
 |:---:|:---:|:---:|:---:|:---:|:---:|
 | **L0** | 屏幕 1:1 | 1px | 4 | 0-4px | 4×90° |
 | **L1** | 1/2 | 2px | 4 | 4-8px | 4×90° |
-| **L2** | 1/4 | 4px | 4 | 8-16px | 4×90° |
-| **L3** | 1/8 | 8px | 4 | 16-32px | 4×90° |
-| **L4** | 1/16 | 16px | 4 | 32-64px | 4×90° |
-| **L5** | 1/32 | 32px | 4 | 64-128px+ | 4×90° |
+| **L2** | 1/4 | 4px | 8 | 8-16px | 8×45° |
+| **L3** | 1/8 | 8px | 8 | 16-32px | 8×45° |
+| **L4** | 1/16 | 16px | 12 | 32-64px | 12×30° |
+| **L5** | 1/32 | 32px | 12 | 64-128px+ | 12×30° |
+
+> 说明：默认采用 `Balanced` 角分辨率增长策略。V5-A 先锁定该策略，V5-B 再评估更激进 profile（例如 L4/L5=16）是否值得。
 
 ## 3. Emissive Buffer
 
@@ -61,7 +63,7 @@ vec3 finalGI = mix(currentFrameGI, previousFrameGI, temporalWeight);
 ```cpp
 struct RadianceCascadeConfig {
     uint32_t numLevels;         // 4  级联层数 (4 or 6)
-    uint32_t raysPerProbe;      // 4  每探针射线数 (4 or 8)
+    uint32_t raysPerProbe;      // 4  L0 基准射线数（每级射线由 profile 派生）
     float    baseInterval;      // 4  基础射线长度
     float    temporalWeight;    // 4  时域混合权重
     uint32_t halfResolution;    // 4  是否 half-res

@@ -277,5 +277,22 @@ constexpr uint32_t kOccluderBinding = static_cast<uint32_t>(Binding::SSBO_RESERV
 constexpr uint32_t kSdfImageBinding = 0;
 } // namespace ShadowCS
 
+namespace V5GI {
+// Texture internal formats (OpenGL enums) for V5 JFA/GI resources.
+constexpr uint32_t kOccluderMaskFormat = 0x8229; // GL_R8
+constexpr uint32_t kDistanceFieldFormat = 0x822D; // GL_R16F
+constexpr uint32_t kSeedFieldFormat = 0x823A; // GL_RG16UI
+constexpr uint32_t kEmissiveFormat = 0x881A; // GL_RGBA16F
+constexpr uint32_t kRadianceFormat = 0x881A; // GL_RGBA16F
+
+// Reserved image bindings for V5 compute pipelines.
+constexpr uint32_t kOccluderMaskImageBinding = 0;
+constexpr uint32_t kSeedInputImageBinding = 1;
+constexpr uint32_t kSeedOutputImageBinding = 2;
+constexpr uint32_t kDistanceFieldImageBinding = 3;
+constexpr uint32_t kEmissiveImageBinding = 4;
+constexpr uint32_t kRadianceImageBinding = 5;
+} // namespace V5GI
+
 } // namespace RenderConstants
 } // namespace NoMoreDay

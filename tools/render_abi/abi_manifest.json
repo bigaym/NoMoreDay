@@ -86,6 +86,43 @@
         ]
       },
       {
+        "name": "RadianceCascadeConfig",
+        "fields": [
+          { "type": "uint", "name": "numLevels" },
+          { "type": "uint", "name": "raysPerProbe" },
+          { "type": "float", "name": "baseInterval" },
+          { "type": "float", "name": "temporalWeight" },
+          { "type": "uint", "name": "halfResolution" },
+          { "type": "uint", "name": "sdfUpdateInterval" },
+          { "type": "float", "name": "giIntensity" },
+          { "type": "uint", "name": "reserved" }
+        ]
+      },
+      {
+        "name": "GPUFluidParticle",
+        "fields": [
+          { "type": "vec2", "name": "position" },
+          { "type": "vec2", "name": "velocity" },
+          { "type": "float", "name": "density" },
+          { "type": "float", "name": "pressure" },
+          { "type": "vec4", "name": "color" },
+          { "type": "float", "name": "lifetime" },
+          { "type": "uint", "name": "flags" }
+        ]
+      },
+      {
+        "name": "GPUFluidConfig",
+        "fields": [
+          { "type": "float", "name": "smoothingRadius" },
+          { "type": "float", "name": "restDensity" },
+          { "type": "float", "name": "stiffness" },
+          { "type": "float", "name": "viscosity" },
+          { "type": "vec2", "name": "gravity" },
+          { "type": "float", "name": "surfaceTension" },
+          { "type": "uint", "name": "maxParticles" }
+        ]
+      },
+      {
         "name": "GPUShadowCaster",
         "fields": [
           { "type": "float", "name": "posX" },
