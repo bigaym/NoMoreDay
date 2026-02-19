@@ -1,0 +1,80 @@
+{
+  "material_schema_version": 3,
+  "materials": [
+    {
+      "name": "V4PlayerPBR",
+      "baseColor": [1.0, 1.0, 1.0, 1.0],
+      "emissive": [0.0, 0.0, 0.0],
+      "emissiveIntensity": 0.0,
+      "distortion": 0.0,
+      "blendMode": "Alpha",
+      "shader": "Default",
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.55,
+      "metallic": 0.05,
+      "specular": 0.25,
+      "ao": 1.0,
+      "heightBias": 0.02,
+      "detailNormalScale": 1.0,
+      "fresnelControl": [0.04, 0.3, 0.1, 0.0],
+      "uvParams": [1.0, 1.0, 0.0, 0.0],
+      "textureMaps": {
+        "albedo": "assets/textures/pbr_v4/player/player_albedo.png",
+        "normal": "assets/textures/pbr_v4/player/player_normal.png",
+        "mask": "assets/textures/pbr_v4/player/player_mask.png",
+        "detail": "assets/textures/defaults/detail_flat.png"
+      }
+    },
+    {
+      "name": "V4MonsterPBR",
+      "baseColor": [1.0, 1.0, 1.0, 1.0],
+      "emissive": [0.0, 0.0, 0.0],
+      "emissiveIntensity": 0.0,
+      "distortion": 0.0,
+      "blendMode": "Alpha",
+      "shader": "Default",
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.65,
+      "metallic": 0.0,
+      "specular": 0.15,
+      "ao": 1.0,
+      "heightBias": 0.03,
+      "detailNormalScale": 1.0,
+      "fresnelControl": [0.04, 0.32, 0.08, 0.0],
+      "uvParams": [1.0, 1.0, 0.0, 0.0],
+      "textureMaps": {
+        "albedo": "assets/textures/pbr_v4/monster/monster_albedo.png",
+        "normal": "assets/textures/pbr_v4/monster/monster_normal.png",
+        "mask": "assets/textures/pbr_v4/monster/monster_mask.png",
+        "detail": "assets/textures/defaults/detail_flat.png"
+      }
+    },
+    {
+      "name": "V4PillarPBR",
+      "baseColor": [1.0, 1.0, 1.0, 1.0],
+      "emissive": [0.0, 0.0, 0.0],
+      "emissiveIntensity": 0.0,
+      "distortion": 0.0,
+      "blendMode": "Alpha",
+      "shader": "Default",
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.75,
+      "metallic": 0.0,
+      "specular": 0.12,
+      "ao": 1.0,
+      "heightBias": 0.02,
+      "detailNormalScale": 1.0,
+      "fresnelControl": [0.04, 0.34, 0.05, 0.0],
+      "uvParams": [1.0, 1.0, 0.0, 0.0],
+      "textureMaps": {
+        "albedo": "assets/textures/pbr_v4/environment/pillar_albedo.png",
+        "normal": "assets/textures/pbr_v4/environment/pillar_normal.png",
+        "mask": "assets/textures/pbr_v4/environment/pillar_mask.png",
+        "detail": "assets/textures/defaults/detail_flat.png"
+      }
+    }
+  ]
+}

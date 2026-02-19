@@ -145,16 +145,16 @@
         ]
       },
       {
-        "name": "GPUMaterialDataV2",
+        "name": "GPUMaterialDataV3",
         "fields": [
           { "type": "vec4", "name": "baseColor" },
           { "type": "vec4", "name": "emissiveAndIntensity" },
-          { "type": "vec4", "name": "pbrLite" },
+          { "type": "vec4", "name": "pbrParams" },
           { "type": "vec4", "name": "textureSlots" },
-          { "type": "vec4", "name": "detailParams" },
+          { "type": "vec4", "name": "fresnelControl" },
+          { "type": "vec4", "name": "uvParams" },
           { "type": "vec4", "name": "reserved0" },
-          { "type": "vec4", "name": "reserved1" },
-          { "type": "vec4", "name": "reserved2" }
+          { "type": "vec4", "name": "reserved1" }
         ]
       }
     ]
@@ -167,12 +167,12 @@
     "fields": [
       { "type": "vec4", "name": "baseColor" },
       { "type": "vec4", "name": "emissiveAndIntensity" },
-      { "type": "vec4", "name": "pbrLite" },
+      { "type": "vec4", "name": "pbrParams" },
       { "type": "vec4", "name": "textureSlots" },
-      { "type": "vec4", "name": "detailParams" },
+      { "type": "vec4", "name": "fresnelControl" },
+      { "type": "vec4", "name": "uvParams" },
       { "type": "vec4", "name": "reserved0" },
-      { "type": "vec4", "name": "reserved1" },
-      { "type": "vec4", "name": "reserved2" }
+      { "type": "vec4", "name": "reserved1" }
     ]
   }
 }

@@ -9,8 +9,11 @@
 namespace NoMoreDay::render {
 
 enum class TextureArraySemantic : uint8_t {
-  Normal = 0,
-  Roughness = 1,
+  Albedo = 0,
+  Normal = 1,
+  Mask = 2,
+  Detail = 3,
+  Roughness = Mask,
 };
 
 class TextureArrayManager {
@@ -75,7 +78,7 @@ private:
   bool m_initialized = false;
   int m_maxLayers = 64;
   int m_layerSize = 128;
-  std::array<ArrayState, 2> m_states;
+  std::array<ArrayState, 4> m_states;
 };
 
 } // namespace NoMoreDay::render

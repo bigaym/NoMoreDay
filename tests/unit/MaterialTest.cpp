@@ -33,15 +33,16 @@ void CleanupPath(const std::filesystem::path &path) {
 
 } // namespace
 
-TEST_CASE("[Unit] Material - GPUMaterialDataV2 ABI Layout") {
-  CHECK(sizeof(components::GPUMaterialDataV2) == 128);
-  CHECK(alignof(components::GPUMaterialDataV2) == 16);
-  CHECK(offsetof(components::GPUMaterialDataV2, baseColor) == 0);
-  CHECK(offsetof(components::GPUMaterialDataV2, emissiveAndIntensity) == 16);
-  CHECK(offsetof(components::GPUMaterialDataV2, pbrLite) == 32);
-  CHECK(offsetof(components::GPUMaterialDataV2, textureSlots) == 48);
-  CHECK(offsetof(components::GPUMaterialDataV2, detailParams) == 64);
-  CHECK(offsetof(components::GPUMaterialDataV2, reserved2) == 112);
+TEST_CASE("[Unit] Material - GPUMaterialDataV3 ABI Layout") {
+  CHECK(sizeof(components::GPUMaterialDataV3) == 128);
+  CHECK(alignof(components::GPUMaterialDataV3) == 16);
+  CHECK(offsetof(components::GPUMaterialDataV3, baseColor) == 0);
+  CHECK(offsetof(components::GPUMaterialDataV3, emissiveAndIntensity) == 16);
+  CHECK(offsetof(components::GPUMaterialDataV3, pbrParams) == 32);
+  CHECK(offsetof(components::GPUMaterialDataV3, textureSlots) == 48);
+  CHECK(offsetof(components::GPUMaterialDataV3, fresnelControl) == 64);
+  CHECK(offsetof(components::GPUMaterialDataV3, uvParams) == 80);
+  CHECK(offsetof(components::GPUMaterialDataV3, reserved1) == 112);
 }
 
 TEST_CASE("[Unit] Material - Preset Registration") {
@@ -82,6 +83,10 @@ TEST_CASE("[Unit] Material - Schema v1 Compatibility Loading") {
   CHECK(fire.emissiveIntensity == doctest::Approx(3.0f));
   CHECK(fire.normalMapSlot == -1);
   CHECK(fire.roughness == doctest::Approx(0.6f));
+  CHECK(fire.metallic == doctest::Approx(0.0f));
+  CHECK(fire.fresnelF0 == doctest::Approx(0.04f));
+  CHECK(fire.rimSuppress == doctest::Approx(0.3f));
+  CHECK(fire.roughnessBias == doctest::Approx(0.1f));
   CHECK(fire.specular == doctest::Approx(0.2f));
   CHECK(fire.ao == doctest::Approx(1.0f));
   CHECK(fire.detailNormalScale == doctest::Approx(1.0f));
@@ -153,7 +158,7 @@ TEST_CASE("[Unit] Material - BRDF-lite same-light different-material divergence"
   CHECK(diff > 0.05f);
 }
 
-TEST_CASE("[Unit] Material - Schema v2 Strict Validation and Parsing") {
+TEST_CASE("[Unit] Material - Schema v3 Strict Validation and Parsing") {
   auto &manager = render::MaterialManager::Get();
   manager.Shutdown();
   manager.Initialize();
@@ -161,7 +166,7 @@ TEST_CASE("[Unit] Material - Schema v2 Strict Validation and Parsing") {
   const auto path = MakeTempPath("tmp_materials_schema_v2_ok.json");
   WriteTextFile(path, R"json(
 {
-  "material_schema_version": 2,
+  "material_schema_version": 3,
   "materials": [
     {
       "name": "Schema2Material",
@@ -174,10 +179,13 @@ TEST_CASE("[Unit] Material - Schema v2 Strict Validation and Parsing") {
       "textureSlots": [12, -1, 8, -1],
       "normalMapSlot": 7,
       "roughness": 0.45,
+      "metallic": 0.15,
       "specular": 0.35,
       "ao": 0.92,
       "heightBias": 0.03,
-      "detailNormalScale": 1.25
+      "detailNormalScale": 1.25,
+      "fresnelControl": [0.06, 0.25, 0.08, 0.0],
+      "uvParams": [1.0, 1.0, 0.0, 0.0]
     }
   ]
 }
@@ -195,10 +203,56 @@ TEST_CASE("[Unit] Material - Schema v2 Strict Validation and Parsing") {
   CHECK(mat.textureSlots[0] == 12);
   CHECK(mat.textureSlots[2] == 8);
   CHECK(mat.roughness == doctest::Approx(0.45f));
+  CHECK(mat.metallic == doctest::Approx(0.15f));
   CHECK(mat.specular == doctest::Approx(0.35f));
   CHECK(mat.ao == doctest::Approx(0.92f));
   CHECK(mat.heightBias == doctest::Approx(0.03f));
   CHECK(mat.detailNormalScale == doctest::Approx(1.25f));
+
+  CleanupPath(path);
+  manager.Shutdown();
+}
+
+TEST_CASE("[Unit] Material - Schema v2 Auto-maps to V3 defaults without crash") {
+  auto &manager = render::MaterialManager::Get();
+  manager.Shutdown();
+  manager.Initialize();
+
+  const auto path = MakeTempPath("tmp_materials_schema_v2_to_v3_defaults.json");
+  WriteTextFile(path, R"json(
+{
+  "material_schema_version": 2,
+  "materials": [
+    {
+      "name": "Schema2Compat",
+      "baseColor": [0.2, 0.3, 0.4, 1.0],
+      "emissive": [0.0, 0.0, 0.0],
+      "emissiveIntensity": 0.0,
+      "distortion": 0.0,
+      "blendMode": "Alpha",
+      "shader": "Default",
+      "textureSlots": [-1, -1, -1, -1],
+      "normalMapSlot": -1,
+      "roughness": 0.5,
+      "specular": 0.2,
+      "ao": 1.0,
+      "heightBias": 0.0
+    }
+  ]
+}
+)json");
+
+  CHECK(manager.LoadFromJson(path.string()) == 1);
+  const int id = manager.GetMaterialId("Schema2Compat");
+  REQUIRE(id >= render::MaterialManager::PRESET_RESERVE);
+  const auto &mat = manager.GetMaterial(id);
+  CHECK(mat.fresnelF0 == doctest::Approx(0.04f));
+  CHECK(mat.rimSuppress == doctest::Approx(0.3f));
+  CHECK(mat.roughnessBias == doctest::Approx(0.1f));
+  CHECK(mat.uvScaleX == doctest::Approx(1.0f));
+  CHECK(mat.uvScaleY == doctest::Approx(1.0f));
+  CHECK(mat.uvScrollX == doctest::Approx(0.0f));
+  CHECK(mat.uvScrollY == doctest::Approx(0.0f));
 
   CleanupPath(path);
   manager.Shutdown();
@@ -268,7 +322,7 @@ TEST_CASE("[Unit] Material - Missing Schema Version Is Rejected") {
   manager.Shutdown();
 }
 
-TEST_CASE("[Unit] Material - Schema v2 Rejects Missing and Unknown Fields") {
+TEST_CASE("[Unit] Material - Schema v3 Rejects Missing and Unknown Fields") {
   auto &manager = render::MaterialManager::Get();
   manager.Shutdown();
   manager.Initialize();
@@ -277,10 +331,10 @@ TEST_CASE("[Unit] Material - Schema v2 Rejects Missing and Unknown Fields") {
   REQUIRE(loaded >= 5);
   const int countBefore = manager.GetMaterialCount();
 
-  const auto missingFieldPath = MakeTempPath("tmp_materials_schema_v2_missing.json");
+  const auto missingFieldPath = MakeTempPath("tmp_materials_schema_v3_missing.json");
   WriteTextFile(missingFieldPath, R"json(
 {
-  "material_schema_version": 2,
+  "material_schema_version": 3,
   "materials": [
     {
       "name": "MissingFieldMaterial",
@@ -293,6 +347,7 @@ TEST_CASE("[Unit] Material - Schema v2 Rejects Missing and Unknown Fields") {
       "textureSlots": [-1, -1, -1, -1],
       "normalMapSlot": -1,
       "roughness": 0.6,
+      "metallic": 0.0,
       "specular": 0.2,
       "ao": 1.0,
       "heightBias": 0.0
@@ -304,10 +359,10 @@ TEST_CASE("[Unit] Material - Schema v2 Rejects Missing and Unknown Fields") {
   CHECK(manager.LoadFromJson(missingFieldPath.string()) == 0);
   CHECK(manager.GetMaterialCount() == countBefore);
 
-  const auto unknownFieldPath = MakeTempPath("tmp_materials_schema_v2_unknown.json");
+  const auto unknownFieldPath = MakeTempPath("tmp_materials_schema_v3_unknown.json");
   WriteTextFile(unknownFieldPath, R"json(
 {
-  "material_schema_version": 2,
+  "material_schema_version": 3,
   "materials": [
     {
       "name": "UnknownFieldMaterial",
@@ -320,10 +375,13 @@ TEST_CASE("[Unit] Material - Schema v2 Rejects Missing and Unknown Fields") {
       "textureSlots": [-1, -1, -1, -1],
       "normalMapSlot": -1,
       "roughness": 0.6,
+      "metallic": 0.0,
       "specular": 0.2,
       "ao": 1.0,
       "heightBias": 0.0,
       "detailNormalScale": 1.0,
+      "fresnelControl": [0.04, 0.3, 0.1, 0.0],
+      "uvParams": [1.0, 1.0, 0.0, 0.0],
       "unsupportedField": 123
     }
   ]

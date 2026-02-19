@@ -657,16 +657,18 @@ TEST_CASE("[Unit] VFXSequencer - MaterialPhaseShift Runtime Lifecycle") {
   CHECK(vfx::VFXSequencerSystem::GetActiveMaterialPhaseShiftCountForTesting() == 1);
   vfx::VFXSequencerSystem::Update(registry, 0.02f);
   const auto shiftedGpu = materials.GetGpuMaterialForTesting(fireGlowId);
-  CHECK(shiftedGpu.pbrLite.x != doctest::Approx(baselineGpu.pbrLite.x));
-  CHECK(shiftedGpu.pbrLite.y != doctest::Approx(baselineGpu.pbrLite.y));
+  CHECK(shiftedGpu.pbrParams.x != doctest::Approx(baselineGpu.pbrParams.x));
+  CHECK(shiftedGpu.fresnelControl.x !=
+        doctest::Approx(baselineGpu.fresnelControl.x));
   CHECK(shiftedGpu.emissiveAndIntensity.w !=
         doctest::Approx(baselineGpu.emissiveAndIntensity.w));
 
   vfx::VFXSequencerSystem::Update(registry, 0.20f);
   CHECK(vfx::VFXSequencerSystem::GetActiveMaterialPhaseShiftCountForTesting() == 0);
   const auto restoredGpu = materials.GetGpuMaterialForTesting(fireGlowId);
-  CHECK(restoredGpu.pbrLite.x == doctest::Approx(baselineGpu.pbrLite.x));
-  CHECK(restoredGpu.pbrLite.y == doctest::Approx(baselineGpu.pbrLite.y));
+  CHECK(restoredGpu.pbrParams.x == doctest::Approx(baselineGpu.pbrParams.x));
+  CHECK(restoredGpu.fresnelControl.x ==
+        doctest::Approx(baselineGpu.fresnelControl.x));
   CHECK(restoredGpu.emissiveAndIntensity.w ==
         doctest::Approx(baselineGpu.emissiveAndIntensity.w));
 

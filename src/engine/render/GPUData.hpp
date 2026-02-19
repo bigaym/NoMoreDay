@@ -8,7 +8,7 @@
 #include <type_traits>
 
 namespace NoMoreDay::render::abi {
-inline constexpr uint32_t GPU_ABI_VERSION = 3;
+inline constexpr uint32_t GPU_ABI_VERSION = 4;
 inline constexpr uint32_t GPU_ABI_COMPAT_MIN_VERSION =
     (GPU_ABI_VERSION > 0) ? (GPU_ABI_VERSION - 1) : 0;
 }
@@ -328,6 +328,23 @@ static_assert(sizeof(GPUMaterialDataV2) == 128,
               "GPUMaterialDataV2 struct must be exactly 128 bytes");
 static_assert(alignof(GPUMaterialDataV2) == 16,
               "GPUMaterialDataV2 alignment must be 16 bytes");
+
+struct alignas(16) GPUMaterialDataV3 {
+  Vector4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
+  Vector4 emissiveAndIntensity = {0.0f, 0.0f, 0.0f, 0.0f};
+  Vector4 pbrParams = {0.6f, 0.0f, 1.0f, 0.0f};
+  Vector4 textureSlots = {-1.0f, -1.0f, -1.0f, -1.0f};
+  Vector4 fresnelControl = {0.04f, 0.3f, 0.1f, 0.0f};
+  Vector4 uvParams = {1.0f, 1.0f, 0.0f, 0.0f};
+  Vector4 reserved0 = {0.0f, 0.0f, 0.0f, 0.0f};
+  Vector4 reserved1 = {0.0f, 0.0f, 0.0f, 0.0f};
+};
+static_assert(std::is_standard_layout_v<GPUMaterialDataV3>,
+              "GPUMaterialDataV3 must be standard layout");
+static_assert(sizeof(GPUMaterialDataV3) == 128,
+              "GPUMaterialDataV3 struct must be exactly 128 bytes");
+static_assert(alignof(GPUMaterialDataV3) == 16,
+              "GPUMaterialDataV3 alignment must be 16 bytes");
 
 /**
  * @brief Structure for GPU entities (Physics & Sorting).

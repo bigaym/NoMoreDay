@@ -2,8 +2,8 @@
 #ifndef NOMOREDAY_GPU_ABI_GLSLINC
 #define NOMOREDAY_GPU_ABI_GLSLINC
 
-#define GPU_ABI_VERSION 3
-#define GPU_ABI_COMPAT_MIN_VERSION 2
+#define GPU_ABI_VERSION 4
+#define GPU_ABI_COMPAT_MIN_VERSION 3
 
 #ifndef GPU_PARTICLE_SSBO_BINDING
 #define GPU_PARTICLE_SSBO_BINDING 0
@@ -131,15 +131,15 @@ struct GPULightBounds {
     uint reserved;
 };
 
-struct GPUMaterialDataV2 {
+struct GPUMaterialDataV3 {
     vec4 baseColor;
     vec4 emissiveAndIntensity;
-    vec4 pbrLite;
+    vec4 pbrParams;
     vec4 textureSlots;
-    vec4 detailParams;
+    vec4 fresnelControl;
+    vec4 uvParams;
     vec4 reserved0;
     vec4 reserved1;
-    vec4 reserved2;
 };
 
 #endif // NOMOREDAY_GPU_ABI_GLSLINC

@@ -10,7 +10,8 @@ in flat uint vBlendMode;
 
 uniform sampler2DArray particleAtlas;
 uniform sampler2DArray materialNormalArray;
-uniform sampler2DArray materialRoughnessArray;
+uniform sampler2DArray materialMaskArray;
+uniform sampler2DArray materialDetailArray;
 uniform int uBlendPass;
 uniform int uMaterialCount;
 uniform int uMaterialQualityLevel;
@@ -35,6 +36,43 @@ float ComputeSpecular(vec3 N, vec3 L, vec3 V, float roughness, float specularStr
     return pow(ndoth, shininess) * specularStrength;
 }
 
+float DistributionGGX(float NdotH, float roughness) {
+    float a = max(0.05, roughness);
+    float a2 = a * a;
+    float denom = NdotH * NdotH * (a2 - 1.0) + 1.0;
+    return a2 / max(0.0001, 3.14159265 * denom * denom);
+}
+
+float GeometrySchlickGGX(float NdotX, float roughness) {
+    float r = roughness + 1.0;
+    float k = (r * r) * 0.125;
+    return NdotX / max(0.0001, NdotX * (1.0 - k) + k);
+}
+
+vec3 FresnelSchlick(float cosTheta, vec3 F0) {
+    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
+vec3 BrdfLite(vec3 baseColor, vec3 N, vec3 L, vec3 V, float roughness,
+              float metallic, float ao, vec3 F0, float rimSuppress) {
+    vec3 H = normalize(L + V);
+    float NdotL = max(dot(N, L), 0.0);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotH = max(dot(N, H), 0.0);
+    float HdotV = max(dot(H, V), 0.0);
+
+    float D = DistributionGGX(NdotH, roughness);
+    float G = GeometrySchlickGGX(NdotL, roughness) * GeometrySchlickGGX(NdotV, roughness);
+    vec3 F = FresnelSchlick(HdotV, F0);
+    float rimFactor = mix(1.0, rimSuppress, step(0.7, 1.0 - NdotV));
+    F *= rimFactor;
+
+    vec3 kd = (1.0 - F) * (1.0 - metallic);
+    vec3 diffuse = kd * baseColor / 3.14159265;
+    vec3 spec = (D * G * F) / max(0.0001, 4.0 * NdotL * NdotV);
+    return (diffuse + spec) * NdotL * max(0.0, ao);
+}
+
 void main() {
     uint materialId = (vFlags >> 16u) & 0xFFFFu;
     bool hasMaterial = materialId > 0u && materialId < uint(max(uMaterialCount, 0));
@@ -43,8 +81,6 @@ void main() {
     uint effectiveBlend = vBlendMode;
     if (hasMaterial) {
         mat = materials[materialId];
-        uint materialBlend = uint(clamp(mat.detailParams.y, 0.0, 2.0));
-        effectiveBlend = (materialBlend == 2u) ? 0u : materialBlend;
     }
 
     if (int(effectiveBlend) != uBlendPass) {
@@ -104,9 +140,13 @@ void main() {
         rgb += mat.emissiveAndIntensity.rgb * mat.emissiveAndIntensity.w;
 
         vec3 N = vec3(0.0, 0.0, 1.0);
-        float roughness = clamp(mat.pbrLite.x, 0.0, 1.0);
-        float specularStrength = clamp(mat.pbrLite.y, 0.0, 1.0);
-        float ao = clamp(mat.pbrLite.z, 0.0, 1.0);
+        float roughness = clamp(mat.pbrParams.x, 0.0, 1.0);
+        float metallic = clamp(mat.pbrParams.y, 0.0, 1.0);
+        float ao = clamp(mat.pbrParams.z, 0.0, 1.0);
+        float roughnessBias = mat.fresnelControl.z;
+        float rimSuppress = clamp(mat.fresnelControl.y, 0.0, 1.0);
+        float f0Override = clamp(mat.fresnelControl.x, 0.0, 1.0);
+        float detailScale = clamp(mat.textureSlots.w, -1.0, 1024.0);
 
         if (uMaterialQualityLevel > 0 && uNormalLightingEnabled != 0) {
             int normalSlot = DecodeSlot(mat.textureSlots.y);
@@ -115,29 +155,38 @@ void main() {
                 N = normalize(packedNormal * 2.0 - 1.0);
             }
 
-            if (uMaterialQualityLevel >= 2) {
-                int roughnessSlot = DecodeSlot(mat.textureSlots.z);
-                if (roughnessSlot >= 0) {
-                    roughness = texture(materialRoughnessArray, vec3(vAtlasUV, float(roughnessSlot))).r;
-                }
-            } else {
-                specularStrength = 0.0;
+            int maskSlot = DecodeSlot(mat.textureSlots.z);
+            if (maskSlot >= 0) {
+                vec4 maskTex = texture(materialMaskArray, vec3(vAtlasUV, float(maskSlot)));
+                roughness = mix(roughness, maskTex.r, float(uMaterialQualityLevel >= 2));
+                metallic = mix(metallic, maskTex.g, float(uMaterialQualityLevel >= 2));
+                ao = min(ao, maskTex.b);
             }
-        } else {
-            specularStrength = 0.0;
-        }
 
-        if (uSpecularEnabled == 0 || uMaterialQualityLevel < 2) {
-            specularStrength = 0.0;
+            if (uMaterialQualityLevel >= 3 && detailScale >= 0.0) {
+                int detailSlot = DecodeSlot(mat.textureSlots.w);
+                if (detailSlot >= 0) {
+                    vec3 detailNormal = texture(materialDetailArray, vec3(vAtlasUV * 2.0, float(detailSlot))).xyz * 2.0 - 1.0;
+                    N = normalize(mix(N, detailNormal, 0.25));
+                }
+            }
         }
 
         vec3 L = normalize(vec3(0.35, 0.45, 0.82));
         vec3 V = vec3(0.0, 0.0, 1.0);
-        float diffuse = max(dot(N, L), 0.0);
-        float specular = ComputeSpecular(N, L, V, roughness, specularStrength);
         float shadow = clamp(uShadowFactor, 0.0, 1.0);
-        float brdf = clamp(diffuse + specular, 0.0, 2.0);
-        rgb *= (0.25 + 0.75 * brdf) * ao * shadow;
+        roughness = clamp(roughness + roughnessBias, 0.0, 1.0);
+
+        if (uMaterialQualityLevel <= 0) {
+            rgb *= ao * shadow;
+        } else if (uMaterialQualityLevel == 1 || uSpecularEnabled == 0) {
+            float diffuse = max(dot(N, L), 0.0);
+            rgb *= (0.2 + 0.8 * diffuse) * ao * shadow;
+        } else {
+            vec3 F0 = mix(vec3(f0Override), rgb, metallic);
+            vec3 lit = BrdfLite(rgb, N, L, V, roughness, metallic, ao, F0, rimSuppress);
+            rgb = lit * shadow + mat.emissiveAndIntensity.rgb * mat.emissiveAndIntensity.w;
+        }
     }
 
     finalColor = vec4(rgb, alpha);

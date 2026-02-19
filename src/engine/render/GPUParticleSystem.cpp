@@ -292,8 +292,9 @@ void GPUParticleSystem::LoadShaders() {
     m_renderMaterialCountLoc = GetShaderLocation(m_renderShader, "uMaterialCount");
     m_renderNormalArrayLoc =
         GetShaderLocation(m_renderShader, "materialNormalArray");
-    m_renderRoughnessArrayLoc =
-        GetShaderLocation(m_renderShader, "materialRoughnessArray");
+    m_renderMaskArrayLoc = GetShaderLocation(m_renderShader, "materialMaskArray");
+    m_renderDetailArrayLoc =
+        GetShaderLocation(m_renderShader, "materialDetailArray");
     m_renderMaterialQualityLoc =
         GetShaderLocation(m_renderShader, "uMaterialQualityLevel");
     m_renderNormalLightingEnabledLoc =
@@ -789,7 +790,7 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
       normalLightingEnabled = 1;
       specularEnabled = 0;
     } else {
-      materialQualityLevel = std::max(2, static_cast<int>(cfg.materialQualityLevel));
+      materialQualityLevel = std::max(3, static_cast<int>(cfg.materialQualityLevel));
       normalLightingEnabled = cfg.normalLightingEnabled ? 1 : 0;
       specularEnabled = cfg.specularEnabled ? 1 : 0;
     }
@@ -818,10 +819,15 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
     SetShaderValue(m_renderShader, m_renderNormalArrayLoc, &normalUnit,
                    SHADER_UNIFORM_INT);
   }
-  const int roughnessUnit =
-      static_cast<int>(TextureUnit::TEX_MATERIAL_ROUGHNESS_ARRAY);
-  if (m_renderRoughnessArrayLoc >= 0) {
-    SetShaderValue(m_renderShader, m_renderRoughnessArrayLoc, &roughnessUnit,
+  const int maskUnit = static_cast<int>(TextureUnit::TEX_MATERIAL_MASK_ARRAY);
+  if (m_renderMaskArrayLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderMaskArrayLoc, &maskUnit,
+                   SHADER_UNIFORM_INT);
+  }
+  const int detailUnit =
+      static_cast<int>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY);
+  if (m_renderDetailArrayLoc >= 0) {
+    SetShaderValue(m_renderShader, m_renderDetailArrayLoc, &detailUnit,
                    SHADER_UNIFORM_INT);
   }
 
@@ -831,8 +837,11 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
         render::TextureArraySemantic::Normal,
         static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));
     render::TextureArrayManager::Get().Bind(
-        render::TextureArraySemantic::Roughness,
-        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_ROUGHNESS_ARRAY));
+        render::TextureArraySemantic::Mask,
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_MASK_ARRAY));
+    render::TextureArrayManager::Get().Bind(
+        render::TextureArraySemantic::Detail,
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY));
     boundMaterialArrays = true;
   }
   if (bindTextureAtlas) {
@@ -887,7 +896,9 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
     render::TextureArrayManager::Get().Unbind(
         static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));
     render::TextureArrayManager::Get().Unbind(
-        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_ROUGHNESS_ARRAY));
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_MASK_ARRAY));
+    render::TextureArrayManager::Get().Unbind(
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY));
   }
   rlDisableVertexArray();
 }

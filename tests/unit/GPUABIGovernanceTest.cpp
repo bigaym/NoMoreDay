@@ -69,12 +69,12 @@ TEST_CASE("[Unit] GPU ABI - No manual GLSL struct duplication gate") {
   CHECK(elapsedMs <= 2000.0);
 }
 
-TEST_CASE("[Unit] GPU ABI - V3 layout snapshot placeholders") {
+TEST_CASE("[Unit] GPU ABI - V4 layout snapshot placeholders") {
   using namespace NoMoreDay::components;
   using namespace NoMoreDay::render::abi;
 
-  CHECK(GPU_ABI_VERSION == 3u);
-  CHECK(GPU_ABI_COMPAT_MIN_VERSION == 2u);
+  CHECK(GPU_ABI_VERSION == 4u);
+  CHECK(GPU_ABI_COMPAT_MIN_VERSION == 3u);
 
   CHECK(std::is_standard_layout_v<GPUShadowCaster>);
   CHECK(sizeof(GPUShadowCaster) == 32);
@@ -115,12 +115,13 @@ TEST_CASE("[Unit] GPU ABI - V3 layout snapshot placeholders") {
   CHECK(offsetof(GPULightBounds, minLayer) == 16);
   CHECK(offsetof(GPULightBounds, lightIndex) == 24);
 
-  CHECK(std::is_standard_layout_v<GPUMaterialDataV2>);
-  CHECK(sizeof(GPUMaterialDataV2) == 128);
-  CHECK(alignof(GPUMaterialDataV2) == 16);
-  CHECK(offsetof(GPUMaterialDataV2, baseColor) == 0);
-  CHECK(offsetof(GPUMaterialDataV2, pbrLite) == 32);
-  CHECK(offsetof(GPUMaterialDataV2, reserved2) == 112);
+  CHECK(std::is_standard_layout_v<GPUMaterialDataV3>);
+  CHECK(sizeof(GPUMaterialDataV3) == 128);
+  CHECK(alignof(GPUMaterialDataV3) == 16);
+  CHECK(offsetof(GPUMaterialDataV3, baseColor) == 0);
+  CHECK(offsetof(GPUMaterialDataV3, pbrParams) == 32);
+  CHECK(offsetof(GPUMaterialDataV3, uvParams) == 80);
+  CHECK(offsetof(GPUMaterialDataV3, reserved1) == 112);
 
   CHECK(std::is_standard_layout_v<GPULootInstance>);
   CHECK(sizeof(GPULootInstance) == 32);

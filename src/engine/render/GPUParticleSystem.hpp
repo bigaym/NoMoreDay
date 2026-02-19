@@ -96,7 +96,8 @@ private:
     int m_renderBlendPassLoc = -1;
     int m_renderMaterialCountLoc = -1;
     int m_renderNormalArrayLoc = -1;
-    int m_renderRoughnessArrayLoc = -1;
+    int m_renderMaskArrayLoc = -1;
+    int m_renderDetailArrayLoc = -1;
     int m_renderMaterialQualityLoc = -1;
     int m_renderNormalLightingEnabledLoc = -1;
     int m_renderSpecularEnabledLoc = -1;

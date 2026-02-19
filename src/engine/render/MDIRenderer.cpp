@@ -1,8 +1,10 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/MaterialManager.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/resource/TextureArrayManager.hpp"
 #include "raymath.h"
 #include <iostream>
 #include <vector>
@@ -279,7 +281,7 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
       normalLightingEnabled = 1;
       specularEnabled = 0;
     } else {
-      materialQualityLevel = std::max(2, static_cast<int>(config.materialQualityLevel));
+      materialQualityLevel = std::max(3, static_cast<int>(config.materialQualityLevel));
       normalLightingEnabled = config.normalLightingEnabled ? 1 : 0;
       specularEnabled = config.specularEnabled ? 1 : 0;
     }
@@ -306,6 +308,30 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   if (locShadowFactor != -1) {
     rlSetUniform(locShadowFactor, &shadowFactor, RL_SHADER_UNIFORM_FLOAT, 1);
   }
+  const int locMaterialCount =
+      rlGetLocationUniform(m_renderShader.id, "uMaterialCount");
+  if (locMaterialCount != -1) {
+    const int materialCount = MaterialManager::Get().GetMaterialCount();
+    rlSetUniform(locMaterialCount, &materialCount, RL_SHADER_UNIFORM_INT, 1);
+  }
+  const int normalUnit = static_cast<int>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY);
+  const int locNormalArray =
+      rlGetLocationUniform(m_renderShader.id, "materialNormalArray");
+  if (locNormalArray != -1) {
+    rlSetUniform(locNormalArray, &normalUnit, RL_SHADER_UNIFORM_INT, 1);
+  }
+  const int maskUnit = static_cast<int>(TextureUnit::TEX_MATERIAL_MASK_ARRAY);
+  const int locMaskArray =
+      rlGetLocationUniform(m_renderShader.id, "materialMaskArray");
+  if (locMaskArray != -1) {
+    rlSetUniform(locMaskArray, &maskUnit, RL_SHADER_UNIFORM_INT, 1);
+  }
+  const int detailUnit = static_cast<int>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY);
+  const int locDetailArray =
+      rlGetLocationUniform(m_renderShader.id, "materialDetailArray");
+  if (locDetailArray != -1) {
+    rlSetUniform(locDetailArray, &detailUnit, RL_SHADER_UNIFORM_INT, 1);
+  }
 
   // 5. EXPLICITLY BIND ALL SSBOs
   // Entities: Previous (Logic Frame)
@@ -321,6 +347,21 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
 
   // Bind Command Buffer for Indirect Draw (Current)
   m_commandBuffer.Bind(GL::DRAW_INDIRECT_BUFFER); // Defaults to Current
+  MaterialManager::Get().BindSSBO(Binding::SSBO_MATERIAL_DATA);
+
+  bool boundMaterialArrays = false;
+  if (materialQualityLevel > 0 && TextureArrayManager::Get().IsInitialized()) {
+    TextureArrayManager::Get().Bind(
+        TextureArraySemantic::Normal,
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));
+    TextureArrayManager::Get().Bind(
+        TextureArraySemantic::Mask,
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_MASK_ARRAY));
+    TextureArrayManager::Get().Bind(
+        TextureArraySemantic::Detail,
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY));
+    boundMaterialArrays = true;
+  }
 
   // 6. Execute Indirect Draw
   rlEnableVertexArray(m_quadVAO);
@@ -337,6 +378,14 @@ void MDIRenderer::Render(ResourceManager &rm, const PersistentBuffer &entities,
   rlDisableVertexArray();
 
   rlDisableShader();
+  if (boundMaterialArrays) {
+    TextureArrayManager::Get().Unbind(
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_NORMAL_ARRAY));
+    TextureArrayManager::Get().Unbind(
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_MASK_ARRAY));
+    TextureArrayManager::Get().Unbind(
+        static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY));
+  }
 
   // LOCK BUFFERS at end of frame usage
   m_commandBuffer.Lock();

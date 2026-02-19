@@ -11,12 +11,12 @@
 struct MaterialData {
     vec4 baseColor;
     vec4 emissiveAndIntensity;
-    vec4 pbrLite;
+    vec4 pbrParams;
     vec4 textureSlots;
-    vec4 detailParams;
+    vec4 fresnelControl;
+    vec4 uvParams;
     vec4 reserved0;
     vec4 reserved1;
-    vec4 reserved2;
 };
 
 layout(std430, binding = MATERIAL_SSBO_BINDING) readonly buffer MaterialBuffer {

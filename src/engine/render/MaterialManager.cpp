@@ -3,6 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/resource/TextureArrayManager.hpp"
 
 #include <algorithm>
 #include <array>
@@ -28,6 +29,14 @@ constexpr std::array<const char *, 14> kSchemaV2AllowedFields = {
     "normalMapSlot", "roughness", "specular",     "ao",
     "heightBias",    "detailNormalScale"};
 
+constexpr std::array<const char *, 23> kSchemaV3AllowedFields = {
+    "name",          "baseColor",       "emissive",          "emissiveIntensity",
+    "distortion",    "blendMode",       "shader",            "textureSlots",
+    "normalMapSlot", "roughness",       "metallic",          "specular",
+    "ao",            "heightBias",      "detailNormalScale", "fresnelControl",
+    "uvParams",      "fresnelF0",       "rimSuppress",       "roughnessBias",
+    "textureMaps",   "uvScale",         "uvScroll"};
+
 std::string ToLower(std::string value) {
   std::transform(value.begin(), value.end(), value.begin(),
                  [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -38,11 +47,12 @@ bool ContainsField(const json &item, const char *field) {
   return item.contains(field);
 }
 
-bool IsSchemaV2AllowedField(const std::string &field) {
-  return std::find_if(
-             kSchemaV2AllowedFields.begin(), kSchemaV2AllowedFields.end(),
-             [&](const char *value) { return field == value; }) !=
-         kSchemaV2AllowedFields.end();
+template <size_t N>
+bool IsAllowedField(const std::array<const char *, N> &allowedFields,
+                    const std::string &field) {
+  return std::find_if(allowedFields.begin(), allowedFields.end(),
+                      [&](const char *value) { return field == value; }) !=
+         allowedFields.end();
 }
 
 bool ParseBlendMode(const json &item, BlendMode &out, bool strict,
@@ -251,6 +261,78 @@ bool ParseTextureSlots(const json &item, MaterialInstance &material, bool strict
   return true;
 }
 
+bool ParseVec4Field(const json &item, const char *field, float &x, float &y,
+                    float &z, float &w, std::string &error) {
+  if (!ContainsField(item, field)) {
+    return true;
+  }
+  const json &arr = item[field];
+  if (!arr.is_array() || arr.size() != 4) {
+    error = std::string("field '") + field + "' must be float[4]";
+    return false;
+  }
+  for (size_t i = 0; i < 4; ++i) {
+    if (!arr[i].is_number()) {
+      error = std::string("field '") + field + "' must contain numbers";
+      return false;
+    }
+  }
+  x = arr[0].get<float>();
+  y = arr[1].get<float>();
+  z = arr[2].get<float>();
+  w = arr[3].get<float>();
+  return true;
+}
+
+bool ParseVec2Field(const json &item, const char *field, float &x, float &y,
+                    std::string &error) {
+  if (!ContainsField(item, field)) {
+    return true;
+  }
+  const json &arr = item[field];
+  if (!arr.is_array() || arr.size() != 2) {
+    error = std::string("field '") + field + "' must be float[2]";
+    return false;
+  }
+  for (size_t i = 0; i < 2; ++i) {
+    if (!arr[i].is_number()) {
+      error = std::string("field '") + field + "' must contain numbers";
+      return false;
+    }
+  }
+  x = arr[0].get<float>();
+  y = arr[1].get<float>();
+  return true;
+}
+
+bool ParseTextureMaps(const json &item, MaterialInstance &material,
+                      std::string &error) {
+  if (!ContainsField(item, "textureMaps")) {
+    return true;
+  }
+  const json &maps = item["textureMaps"];
+  if (!maps.is_object()) {
+    error = "field 'textureMaps' must be object";
+    return false;
+  }
+  auto parseMap = [&](const char *key, std::string &target) -> bool {
+    if (!maps.contains(key)) {
+      return true;
+    }
+    if (!maps[key].is_string()) {
+      error = std::string("field 'textureMaps.") + key + "' must be string";
+      return false;
+    }
+    target = maps[key].get<std::string>();
+    return true;
+  };
+
+  return parseMap("albedo", material.albedoMapPath) &&
+         parseMap("normal", material.normalMapPath) &&
+         parseMap("mask", material.maskMapPath) &&
+         parseMap("detail", material.detailMapPath);
+}
+
 bool ValidateV2MaterialObject(const json &item, std::string &error) {
   if (!item.is_object()) {
     error = "material entry must be object";
@@ -258,7 +340,7 @@ bool ValidateV2MaterialObject(const json &item, std::string &error) {
   }
 
   for (auto it = item.begin(); it != item.end(); ++it) {
-    if (!IsSchemaV2AllowedField(it.key())) {
+    if (!IsAllowedField(kSchemaV2AllowedFields, it.key())) {
       error = "unsupported field '" + it.key() + "'";
       return false;
     }
@@ -274,12 +356,32 @@ bool ValidateV2MaterialObject(const json &item, std::string &error) {
   return true;
 }
 
+bool ValidateV3MaterialObject(const json &item, std::string &error) {
+  if (!item.is_object()) {
+    error = "material entry must be object";
+    return false;
+  }
+  for (auto it = item.begin(); it != item.end(); ++it) {
+    if (!IsAllowedField(kSchemaV3AllowedFields, it.key())) {
+      error = "unsupported field '" + it.key() + "'";
+      return false;
+    }
+  }
+  for (const char *field : kSchemaV2RequiredFields) {
+    if (!item.contains(field)) {
+      error = std::string("missing required field '") + field + "'";
+      return false;
+    }
+  }
+  return true;
+}
+
 bool ParseMaterialEntry(const json &item, int schemaVersion, MaterialInstance &material,
                         std::string &name, std::string &error) {
   const bool strict = schemaVersion >= MaterialManager::MATERIAL_SCHEMA_VERSION;
   material = MaterialPresets::Default();
 
-  if (strict && !ValidateV2MaterialObject(item, error)) {
+  if (strict && !ValidateV3MaterialObject(item, error)) {
     return false;
   }
 
@@ -324,6 +426,9 @@ bool ParseMaterialEntry(const json &item, int schemaVersion, MaterialInstance &m
   if (!ParseFloat(item, "specular", material.specular, strict, error)) {
     return false;
   }
+  if (!ParseFloat(item, "metallic", material.metallic, false, error)) {
+    return false;
+  }
   if (!ParseFloat(item, "ao", material.ao, strict, error)) {
     return false;
   }
@@ -334,7 +439,42 @@ bool ParseMaterialEntry(const json &item, int schemaVersion, MaterialInstance &m
                   error)) {
     return false;
   }
+  float fresnelReserved = 0.0f;
+  if (!ParseVec4Field(item, "fresnelControl", material.fresnelF0,
+                      material.rimSuppress, material.roughnessBias,
+                      fresnelReserved, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "fresnelF0", material.fresnelF0, false, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "rimSuppress", material.rimSuppress, false, error)) {
+    return false;
+  }
+  if (!ParseFloat(item, "roughnessBias", material.roughnessBias, false, error)) {
+    return false;
+  }
+  if (!ParseVec4Field(item, "uvParams", material.uvScaleX, material.uvScaleY,
+                      material.uvScrollX, material.uvScrollY, error)) {
+    return false;
+  }
+  if (!ParseVec2Field(item, "uvScale", material.uvScaleX, material.uvScaleY,
+                      error)) {
+    return false;
+  }
+  if (!ParseVec2Field(item, "uvScroll", material.uvScrollX, material.uvScrollY,
+                      error)) {
+    return false;
+  }
+  if (!ParseTextureMaps(item, material, error)) {
+    return false;
+  }
 
+  if (material.normalMapSlot >= 0) {
+    material.textureSlots[1] = material.normalMapSlot;
+  } else {
+    material.normalMapSlot = material.textureSlots[1];
+  }
   return true;
 }
 
@@ -365,7 +505,7 @@ void MaterialManager::Initialize() {
   m_runtimeEmissiveScale = 1.0f;
 
   const MaterialInstance defaultMaterial = MaterialPresets::Default();
-  const components::GPUMaterialDataV2 defaultGpu = ToGpuData(defaultMaterial);
+  const components::GPUMaterialDataV3 defaultGpu = ToGpuData(defaultMaterial);
   m_materials.fill(defaultMaterial);
   m_gpuMaterials.fill(defaultGpu);
 
@@ -373,7 +513,7 @@ void MaterialManager::Initialize() {
 
   if (utils::GPUUtils::IsInitialized()) {
     m_ssbo.Create(static_cast<size_t>(MAX_MATERIALS) *
-                      sizeof(components::GPUMaterialDataV2),
+                      sizeof(components::GPUMaterialDataV3),
                   nullptr, RL_DYNAMIC_DRAW);
   }
 
@@ -433,8 +573,10 @@ void MaterialManager::MarkSlot(int id, const MaterialInstance &material,
     ++m_materialCount;
   }
 
-  m_materials[id] = material;
-  m_gpuMaterials[id] = ToGpuData(material);
+  MaterialInstance stagedMaterial = material;
+  RefreshMaterialTextureLayers(stagedMaterial);
+  m_materials[id] = stagedMaterial;
+  m_gpuMaterials[id] = ToGpuData(stagedMaterial);
   m_gpuUploadCount = std::max(m_gpuUploadCount, id + 1);
   if (!name.empty()) {
     m_nameToId[name] = id;
@@ -444,10 +586,63 @@ void MaterialManager::MarkSlot(int id, const MaterialInstance &material,
 
 void MaterialManager::RebuildGpuBufferCache() {
   const MaterialInstance defaultMaterial = MaterialPresets::Default();
-  const components::GPUMaterialDataV2 defaultGpu = ToGpuData(defaultMaterial);
+  const components::GPUMaterialDataV3 defaultGpu = ToGpuData(defaultMaterial);
   const int uploadCount = std::max(1, m_gpuUploadCount);
   for (int id = 0; id < uploadCount && id < MAX_MATERIALS; ++id) {
-    m_gpuMaterials[id] = m_registered[id] ? ToGpuData(m_materials[id]) : defaultGpu;
+    if (m_registered[id]) {
+      RefreshMaterialTextureLayers(m_materials[id]);
+      m_gpuMaterials[id] = ToGpuData(m_materials[id]);
+    } else {
+      m_gpuMaterials[id] = defaultGpu;
+    }
+  }
+}
+
+void MaterialManager::RefreshMaterialTextureLayers(MaterialInstance &material) const {
+  auto &arrays = render::TextureArrayManager::Get();
+  if (!arrays.IsInitialized()) {
+    arrays.Initialize();
+  }
+
+  if (!material.albedoMapPath.empty()) {
+    material.textureSlots[0] = static_cast<int16_t>(
+        arrays.LoadLayer(render::TextureArraySemantic::Albedo,
+                         material.albedoMapPath));
+  }
+  if (!material.normalMapPath.empty()) {
+    material.textureSlots[1] = static_cast<int16_t>(
+        arrays.LoadLayer(render::TextureArraySemantic::Normal,
+                         material.normalMapPath));
+  } else if (material.normalMapSlot >= 0 && material.textureSlots[1] < 0) {
+    material.textureSlots[1] = material.normalMapSlot;
+  }
+  if (!material.maskMapPath.empty()) {
+    material.textureSlots[2] = static_cast<int16_t>(
+        arrays.LoadLayer(render::TextureArraySemantic::Mask, material.maskMapPath));
+  }
+  if (!material.detailMapPath.empty()) {
+    material.textureSlots[3] = static_cast<int16_t>(
+        arrays.LoadLayer(render::TextureArraySemantic::Detail,
+                         material.detailMapPath));
+  }
+  if (material.textureSlots[0] < 0) {
+    material.textureSlots[0] = static_cast<int16_t>(
+        arrays.GetDefaultLayer(render::TextureArraySemantic::Albedo));
+  }
+  if (material.textureSlots[1] < 0) {
+    material.textureSlots[1] = static_cast<int16_t>(
+        arrays.GetDefaultLayer(render::TextureArraySemantic::Normal));
+  }
+  if (material.textureSlots[2] < 0) {
+    material.textureSlots[2] = static_cast<int16_t>(
+        arrays.GetDefaultLayer(render::TextureArraySemantic::Mask));
+  }
+  if (material.textureSlots[3] < 0) {
+    material.textureSlots[3] = static_cast<int16_t>(
+        arrays.GetDefaultLayer(render::TextureArraySemantic::Detail));
+  }
+  if (material.normalMapSlot >= 0 || !material.normalMapPath.empty()) {
+    material.normalMapSlot = material.textureSlots[1];
   }
 }
 
@@ -513,7 +708,7 @@ int MaterialManager::LoadFromJson(const std::string &path) {
         path, schemaVersion, MATERIAL_SCHEMA_MIN_VERSION, MATERIAL_SCHEMA_VERSION);
     return 0;
   }
-  if (schemaVersion == MATERIAL_SCHEMA_MIN_VERSION &&
+  if (schemaVersion < MATERIAL_SCHEMA_VERSION &&
       m_v1WarnedAssets.insert(path).second) {
     LOG_WARN(
         "MaterialManager: schema_compatibility path={} schema={} action=apply_defaults target_schema={}",
@@ -534,7 +729,7 @@ int MaterialManager::LoadFromJson(const std::string &path) {
   auto stagedNameToId = m_nameToId;
 
   const MaterialInstance defaultMaterial = MaterialPresets::Default();
-  const components::GPUMaterialDataV2 defaultGpu = ToGpuData(defaultMaterial);
+  const components::GPUMaterialDataV3 defaultGpu = ToGpuData(defaultMaterial);
   for (int id = PRESET_RESERVE; id < MAX_MATERIALS; ++id) {
     (*stagedMaterials)[id] = defaultMaterial;
     (*stagedGpuMaterials)[id] = defaultGpu;
@@ -575,8 +770,10 @@ int MaterialManager::LoadFromJson(const std::string &path) {
       ++stagedMaterialCount;
     }
 
-    (*stagedMaterials)[id] = material;
-    (*stagedGpuMaterials)[id] = ToGpuData(material);
+    MaterialInstance stagedMaterial = material;
+    RefreshMaterialTextureLayers(stagedMaterial);
+    (*stagedMaterials)[id] = stagedMaterial;
+    (*stagedGpuMaterials)[id] = ToGpuData(stagedMaterial);
     stagedGpuUploadCount = std::max(stagedGpuUploadCount, id + 1);
     if (!name.empty()) {
       stagedNameToId[name] = id;
@@ -738,13 +935,13 @@ void MaterialManager::SyncToGPU() {
   }
   if (m_ssbo.GetId() == 0) {
     m_ssbo.Create(static_cast<size_t>(MAX_MATERIALS) *
-                      sizeof(components::GPUMaterialDataV2),
+                      sizeof(components::GPUMaterialDataV3),
                   nullptr, RL_DYNAMIC_DRAW);
   }
 
   const int uploadCount = std::max(1, m_gpuUploadCount);
   const size_t bytes =
-      static_cast<size_t>(uploadCount) * sizeof(components::GPUMaterialDataV2);
+      static_cast<size_t>(uploadCount) * sizeof(components::GPUMaterialDataV3);
   m_ssbo.OrphanAndUpload(m_gpuMaterials.data(), bytes, RL_DYNAMIC_DRAW);
   m_dirty = false;
 }
@@ -756,18 +953,18 @@ void MaterialManager::BindSSBO(NoMoreDay::RenderConstants::Binding binding) cons
   m_ssbo.BindBase(static_cast<unsigned int>(binding));
 }
 
-const components::GPUMaterialDataV2 &
+const components::GPUMaterialDataV3 &
 MaterialManager::GetGpuMaterialForTesting(int materialId) const {
-  static const components::GPUMaterialDataV2 kFallback = {};
+  static const components::GPUMaterialDataV3 kFallback = {};
   if (materialId < 0 || materialId >= MAX_MATERIALS) {
     return kFallback;
   }
   return m_gpuMaterials[materialId];
 }
 
-components::GPUMaterialDataV2
+components::GPUMaterialDataV3
 MaterialManager::ToGpuData(const MaterialInstance &material) const {
-  components::GPUMaterialDataV2 gpu = {};
+  components::GPUMaterialDataV3 gpu = {};
   gpu.baseColor = {material.baseColorR, material.baseColorG, material.baseColorB,
                    material.baseColorA};
   const float roughnessScale = m_runtimePhaseShiftActive ? m_runtimeRoughnessScale : 1.0f;
@@ -779,16 +976,22 @@ MaterialManager::ToGpuData(const MaterialInstance &material) const {
       material.emissiveG,
       material.emissiveB,
       std::max(0.0f, material.emissiveIntensity * emissiveScale)};
-  gpu.pbrLite = {std::max(0.0f, material.roughness * roughnessScale),
-                 std::max(0.0f, material.specular * specularScale), material.ao,
-                 material.heightBias};
-  gpu.textureSlots = {static_cast<float>(material.textureSlots[0]),
-                      static_cast<float>(material.normalMapSlot),
-                      static_cast<float>(material.textureSlots[2]),
-                      static_cast<float>(material.textureSlots[3])};
-  gpu.detailParams = {material.detailNormalScale,
-                      static_cast<float>(material.blendMode),
-                      static_cast<float>(material.shader), material.distortion};
+  const float biasedRoughness =
+      std::max(0.0f, material.roughness * roughnessScale + material.roughnessBias);
+  gpu.pbrParams = {std::clamp(biasedRoughness, 0.0f, 1.0f),
+                   std::clamp(material.metallic, 0.0f, 1.0f),
+                   std::clamp(material.ao, 0.0f, 1.0f), material.heightBias};
+  gpu.textureSlots = {
+      static_cast<float>(material.textureSlots[0]),
+      static_cast<float>(material.textureSlots[1]),
+      static_cast<float>(material.textureSlots[2]),
+      static_cast<float>(material.textureSlots[3])};
+  gpu.fresnelControl = {
+      std::clamp(material.fresnelF0 * specularScale, 0.0f, 1.0f),
+      std::clamp(material.rimSuppress, 0.0f, 1.0f),
+      std::clamp(material.roughnessBias, -1.0f, 1.0f), 0.0f};
+  gpu.uvParams = {material.uvScaleX, material.uvScaleY, material.uvScrollX,
+                  material.uvScrollY};
   return gpu;
 }
 

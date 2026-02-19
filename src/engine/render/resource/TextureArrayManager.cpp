@@ -23,13 +23,17 @@ constexpr uint32_t kGLTextureWrapT = 0x2803;
 constexpr uint32_t kGLLinear = 0x2601;
 constexpr uint32_t kGLClampToEdge = 0x812F;
 
-constexpr std::array<const char *, 2> kDefaultTexturePaths = {
+constexpr std::array<const char *, 4> kDefaultTexturePaths = {
+    "assets/textures/defaults/albedo_white.png",
     "assets/textures/defaults/normal_flat.png",
-    "assets/textures/defaults/roughness_midgray.png"};
+    "assets/textures/defaults/mask_neutral.png",
+    "assets/textures/defaults/detail_flat.png"};
 
-constexpr std::array<std::array<unsigned char, 4>, 2> kDefaultPixels = {
+constexpr std::array<std::array<unsigned char, 4>, 4> kDefaultPixels = {
+    std::array<unsigned char, 4>{255, 255, 255, 255},
     std::array<unsigned char, 4>{128, 128, 255, 255},
-    std::array<unsigned char, 4>{153, 153, 153, 255}};
+    std::array<unsigned char, 4>{153, 0, 255, 0},
+    std::array<unsigned char, 4>{128, 128, 255, 255}};
 
 } // namespace
 

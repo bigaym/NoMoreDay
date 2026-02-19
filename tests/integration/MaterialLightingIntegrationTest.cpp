@@ -42,8 +42,8 @@ TEST_CASE("[Integration] Material Lighting - Cross-tier particle shader ABI path
 
   const std::string materialAbi = ReadText("assets/shaders/generated/material_abi.glslinc");
   REQUIRE(!materialAbi.empty());
-  CHECK(materialAbi.find("vec4 pbrLite;") != std::string::npos);
-  CHECK(materialAbi.find("vec4 detailParams;") != std::string::npos);
+  CHECK(materialAbi.find("vec4 pbrParams;") != std::string::npos);
+  CHECK(materialAbi.find("vec4 fresnelControl;") != std::string::npos);
 
   auto &qm = render::core::QualityTierManager::Get();
   qm.Initialize("settings.json");
@@ -88,7 +88,7 @@ TEST_CASE("[Integration] Material Lighting - Schema v2 hot reload updates runtim
       std::filesystem::path("bin") / "tmp_material_hot_reload_schema_v2.json";
   WriteText(path, R"json(
 {
-  "material_schema_version": 2,
+  "material_schema_version": 3,
   "materials": [
     {
       "name": "HotReloadMaterial",
@@ -101,10 +101,13 @@ TEST_CASE("[Integration] Material Lighting - Schema v2 hot reload updates runtim
       "textureSlots": [-1, -1, -1, -1],
       "normalMapSlot": -1,
       "roughness": 0.65,
+      "metallic": 0.1,
       "specular": 0.15,
       "ao": 1.0,
       "heightBias": 0.0,
-      "detailNormalScale": 1.0
+      "detailNormalScale": 1.0,
+      "fresnelControl": [0.04, 0.3, 0.1, 0.0],
+      "uvParams": [1.0, 1.0, 0.0, 0.0]
     }
   ]
 }
@@ -118,7 +121,7 @@ TEST_CASE("[Integration] Material Lighting - Schema v2 hot reload updates runtim
   std::this_thread::sleep_for(std::chrono::milliseconds(20));
   WriteText(path, R"json(
 {
-  "material_schema_version": 2,
+  "material_schema_version": 3,
   "materials": [
     {
       "name": "HotReloadMaterial",
@@ -131,10 +134,13 @@ TEST_CASE("[Integration] Material Lighting - Schema v2 hot reload updates runtim
       "textureSlots": [-1, -1, -1, -1],
       "normalMapSlot": -1,
       "roughness": 0.25,
+      "metallic": 0.25,
       "specular": 0.35,
       "ao": 0.9,
       "heightBias": 0.02,
-      "detailNormalScale": 1.1
+      "detailNormalScale": 1.1,
+      "fresnelControl": [0.06, 0.24, 0.06, 0.0],
+      "uvParams": [1.0, 1.0, 0.0, 0.0]
     }
   ]
 }

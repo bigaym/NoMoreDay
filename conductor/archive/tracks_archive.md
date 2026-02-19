@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V4 2D PBR Material Pipeline (v4_pbr_material_pipeline_20260219)
+- **Folder:** [./conductor/archive/v4_pbr_material_pipeline_20260219/](./conductor/archive/v4_pbr_material_pipeline_20260219/)
+- **Description:** 完成 V4-B 材质管线升级：Material Schema V3（`GPUMaterialDataV3` 128B）、四层贴图语义（Albedo/Normal/Mask/Detail）、BRDF-Lite（GGX/Schlick-GGX/Schlick Fresnel）着色整合，以及离线美术资产工具链与示例内容。
+- **Status:** COMPLETED (2026-02-19)
+- **Priority:** P1
+- **Archive Reason:** `build.bat`、`ctest -C RelWithDebInfo -L ci/unit/integration` 全部通过；`ctest -C Release -L performance` 仅出现既有非本 Track 阻塞失败（`BUG-20260218-002`，`ParticleTrail Scenario4 dispatchOverheadMs=0.246364 > 0.2`），已在 validation 中记录并挂接。
+
+---
+
 ## [x] Track: Render V3 Release Gate Perf Reliability (render_v3_release_gate_perf_reliability_20260218)
 - **Folder:** [./conductor/archive/render_v3_release_gate_perf_reliability_20260218/](./conductor/archive/render_v3_release_gate_perf_reliability_20260218/)
 - **Description:** 关闭 Step F 残留性能门禁可靠性问题，完成 `F4.6` 无豁免达标并退役 `WVR-20260218-F4.6-001`，同步 bug/waiver/evidence 收尾。

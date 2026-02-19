@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 namespace NoMoreDay::render {
 
@@ -38,14 +39,26 @@ struct MaterialInstance {
   ShaderVariant shader = ShaderVariant::Default;
   uint8_t padding0 = 0;
 
-  // textureSlots: [albedo, reserved1, roughness, reserved3]
+  // textureSlots: [albedo, normal, mask, detail]
   int16_t textureSlots[4] = {-1, -1, -1, -1};
   int16_t normalMapSlot = -1;
   float roughness = 0.6f;
+  float metallic = 0.0f;
   float specular = 0.2f;
   float ao = 1.0f;
   float heightBias = 0.0f;
   float detailNormalScale = 1.0f;
+  float fresnelF0 = 0.04f;
+  float rimSuppress = 0.3f;
+  float roughnessBias = 0.1f;
+  float uvScaleX = 1.0f;
+  float uvScaleY = 1.0f;
+  float uvScrollX = 0.0f;
+  float uvScrollY = 0.0f;
+  std::string albedoMapPath;
+  std::string normalMapPath;
+  std::string maskMapPath;
+  std::string detailMapPath;
 };
 
 namespace MaterialPresets {
