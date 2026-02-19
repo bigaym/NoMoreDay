@@ -1,0 +1,22 @@
+{
+    "id": "v4_advanced_lighting_20260219",
+    "title": "V4 Advanced Lighting (Clustered Forward+ V4 + HeightShadow)",
+    "type": "feature",
+    "status": "pending",
+    "created": "2026-02-19T10:54:00+08:00",
+    "updated": "2026-02-19T10:54:00+08:00",
+    "priority": "P1",
+    "phase": "V4-C",
+    "depends_on": [
+        "v4_pbr_material_pipeline_20260219"
+    ],
+    "master_spec": "conductor/specs/rendering_engine_v4_master_spec.md",
+    "phases": {
+        "total": 5,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 28,
+        "completed": 0
+    }
+}

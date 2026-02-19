@@ -1,0 +1,25 @@
+{
+    "id": "v4_validation_release_gate_20260219",
+    "title": "V4 Validation & Release Gate",
+    "type": "quality",
+    "status": "pending",
+    "created": "2026-02-19T10:54:00+08:00",
+    "updated": "2026-02-19T10:54:00+08:00",
+    "priority": "P0",
+    "phase": "V4 Gate",
+    "depends_on": [
+        "v4_gpu_text_rendering_20260219",
+        "v4_gpu_loot_rendering_20260219",
+        "v4_pbr_material_pipeline_20260219",
+        "v4_advanced_lighting_20260219"
+    ],
+    "master_spec": "conductor/specs/rendering_engine_v4_master_spec.md",
+    "phases": {
+        "total": 5,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 30,
+        "completed": 0
+    }
+}

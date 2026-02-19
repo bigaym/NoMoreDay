@@ -1,0 +1,23 @@
+{
+    "id": "v5_sph_fluid_exploration_20260219",
+    "title": "V5 SPH Fluid Simulation (Exploration)",
+    "type": "feature",
+    "status": "pending",
+    "created": "2026-02-19T10:54:00+08:00",
+    "updated": "2026-02-19T10:54:00+08:00",
+    "priority": "P2",
+    "phase": "V5-B",
+    "depends_on": [
+        "v5_jfa_distance_field_20260219"
+    ],
+    "master_spec": "conductor/specs/rendering_engine_v5_master_spec.md",
+    "exploration": true,
+    "phases": {
+        "total": 4,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 18,
+        "completed": 0
+    }
+}

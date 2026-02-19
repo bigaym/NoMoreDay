@@ -37,7 +37,7 @@
 ### 维护补充（2026-02-19）
 
 - [x] 设置系统与渲染配置闭环补齐：`SettingsState` 图形页新增 V3 可调开关（V3 总开关 / Clustered Lighting / Normal Lighting / Specular Highlights），并通过 `QualityTierManager` 持久化到 `settings.json` 的 `render.v3`。
-- [x] 修复 `GameSettings::Save` 覆盖写入导致的配置丢失风险：改为“读取现有 JSON 后合并更新基础设置字段”，避免覆盖 `render.v3` 与自动检测元数据。
+- [x] 修复 `GameSettings::Save` 覆盖写入导致的配置丢失风险：改为"读取现有 JSON 后合并更新基础设置字段"，避免覆盖 `render.v3` 与自动检测元数据。
 
 ---
 
@@ -84,7 +84,7 @@
 
 ---
 
-## 风险与状态
+## 风险与状态（V2/V3）
 
 | ID | 描述 | 状态 | 缓解措施 |
 |---|---|---|---|
@@ -102,12 +102,81 @@
 ## 后续演进路线
 
 > **V4 设计文档**: [GPU_Rendering_System_V4.md](../设计文档/特效和UI/GPU_Rendering_System_V4.md)  
-> **V5 设计文档**: [GPU_Rendering_System_V5.md](../设计文档/特效和UI/GPU_Rendering_System_V5.md)
+> **V5 设计文档**: [GPU_Rendering_System_V5.md](../设计文档/特效和UI/GPU_Rendering_System_V5.md)  
+> **V4 主控规格书**: [rendering_engine_v4_master_spec.md](./specs/rendering_engine_v4_master_spec.md)  
+> **V5 主控规格书**: [rendering_engine_v5_master_spec.md](./specs/rendering_engine_v5_master_spec.md)
 
-| 阶段 | 名称 | 状态 | 关键产出 |
-|---|---|---|---|
-| **V4-A** | GPU 驱动子系统 | 📋 设计完成 | MSDF 文字渲染, GPU 战利品避让 |
-| **V4-B** | 2D PBR 材质标准 | 📋 设计完成 | Albedo/Normal/Mask 管线, BRDF-Lite Shader |
-| **V4-C** | Clustered Forward+ 完整体 | 📋 设计完成 | 4096 光源, 高度图光影 |
-| **V5-A** | GI 基础设施 | 📋 设计完成 | JFA 距离场, 辐射级联原型 |
-| **V5-B** | 完整 GI + 流体 | 📋 设计完成 | 6 级联全分辨率, SPH 流体 |
+---
+
+## 记忆对齐更新（2026-02-19）
+
+- V4 依赖口径统一：`v4_pbr_material_pipeline_20260219` 依赖 `v4_gpu_text_rendering_20260219` 与 `v4_gpu_loot_rendering_20260219`，确保 V4-A 完成后进入统一 ABI V4 迁移窗口。
+- V5 门禁口径统一：`v5_validation_release_gate_20260219` 的阻断依赖仅为 `v5_jfa_distance_field_20260219` 与 `v5_radiance_cascades_gi_20260219`；`v5_sph_fluid_exploration_20260219` 作为 GO/NO-GO 决策输入，不阻断核心发布。
+- V5 验收指标量化：GI 拖影、叠加亮度比、极限场景回退性能、显存漂移、SDF 增量误差已转换为可测阈值（以 Track 9 spec/plan 为准）。
+- V5 JFA 验收补充：half-res 上采样质量新增 RMS/P95 量化指标，替代“视觉可接受”类主观描述。
+
+---
+
+## V4 总体进度
+
+> **设计文档**: [GPU_Rendering_System_V4.md](../设计文档/特效和UI/GPU_Rendering_System_V4.md)  
+> **主控规格书**: [rendering_engine_v4_master_spec.md](./specs/rendering_engine_v4_master_spec.md)
+
+| # | Phase | 名称 | 周期 | 状态 | 对应 Track | Tasks | 关键产出 |
+|---|---|---|---|---|---|---:|---|
+| 0 | Pre-flight | V3 Debt Closure | Week 0-1 | 📋 Pending | `v4_preflight_v3_closure_20260219` | 0/8 | V3 遗留闭环、风险确认、V4 绿灯 |
+| 1 | V4-A | GPU Text (MSDF) | Week 1-3 | 📋 Pending | `v4_gpu_text_rendering_20260219` | 0/20 | MSDF Atlas、Compute 排版、MDI 绘制 |
+| 2 | V4-A | GPU Loot Rendering | Week 1-3 | 📋 Pending | `v4_gpu_loot_rendering_20260219` | 0/18 | MDI 合批、FrustumCull、力导向避让 |
+| 3 | V4-B | 2D PBR Material | Week 3-6 | 📋 Pending | `v4_pbr_material_pipeline_20260219` | 0/25 | GPUMaterialDataV3、BRDF-Lite、ABI V4 |
+| 4 | V4-C | Advanced Lighting | Week 6-9 | 📋 Pending | `v4_advanced_lighting_20260219` | 0/28 | 4096 光源、HeightShadow、POM |
+| 5 | Gate | Validation & Release | Week 9-11 | 📋 Pending | `v4_validation_release_gate_20260219` | 0/30 | 5 维度门禁、回退验证、发布判定 |
+
+**V4 总任务数**: 129（完成 0，剩余 129）
+
+---
+
+## V5 总体进度
+
+> **设计文档**: [GPU_Rendering_System_V5.md](../设计文档/特效和UI/GPU_Rendering_System_V5.md)  
+> **主控规格书**: [rendering_engine_v5_master_spec.md](./specs/rendering_engine_v5_master_spec.md)
+
+| # | Phase | 名称 | 周期 | 状态 | 对应 Track | Tasks | 关键产出 |
+|---|---|---|---|---|---|---:|---|
+| 6 | V5-A | JFA Distance Field | Week 0-3 | 📋 Pending | `v5_jfa_distance_field_20260219` | 0/22 | JFA 距离场、OccluderExtract、增量更新 |
+| 7 | V5-A/B | Radiance Cascades GI | Week 3-8 | 📋 Pending | `v5_radiance_cascades_gi_20260219` | 0/35 | Emissive Buffer、6 级联 GI、时域稳定 |
+| 8 | V5-B | SPH Fluid (⚠️探索) | Week 5-8 | 📋 Pending | `v5_sph_fluid_exploration_20260219` | 0/18 | SPH 核心、GI 交互、GO/NO-GO |
+| 9 | Gate | Validation & Release | Week 8-10 | 📋 Pending | `v5_validation_release_gate_20260219` | 0/25 | 核心+可选门禁、架构评估 |
+
+**V5 总任务数**: 100（完成 0，剩余 100）
+
+---
+
+## 里程碑时间线（V2→V5 全景）
+
+```
+V2 (已完成 · Phases 0-5)                    V3 (已完成 · Steps A-F · 172 tasks)
+═══════════════════════                      ═══════════════════════════════════
+Phase 0→1→2→3→4→5                            Step A → B/C → D → E → F → Bugfix Gate
+                                                                              ↓
+V4 Pre-flight → V4-A (Text+Loot) → V4-B (PBR) → V4-C (Light) → V4 Gate
+                                                                        ↓
+V5-A (JFA → Radiance Cascades) → V5-B (Full GI + SPH⚠️) → V5 Gate
+                                                                ↓
+                                                   渲染引擎成熟体完成
+```
+
+---
+
+## V4/V5 风险追踪
+
+| ID | 描述 | 概率 | 状态 | 缓解 | 监控 Track |
+|---|---|:---:|---|---|---|
+| V4-R01 | MSDF 中文字形超出单张图集 | 中 | 监控中 | 双图集 + LRU | Track 1 |
+| V4-R02 | 力导向避让不收敛 | 低 | 监控中 | 阻尼衰减 + 3帧锁定 | Track 2 |
+| V4-R03 | 2D PBR 法线过于统一 | 中 | 监控中 | Roughness bias + Fresnel 抑制 | Track 3 |
+| V4-R04 | 4096 光源 Cluster 溢出 | 中 | 监控中 | 优先级裁剪 + 降级 | Track 4 |
+| V4-R07 | ABI V4 迁移致 V3 回归 | 中 | 监控中 | V3→V4 兼容映射 | Track 5 |
+| V5-R01 | JFA 精度不足致 GI 漏光 | 中 | 监控中 | JFA+1/+2 补偿 | Track 6 |
+| V5-R03 | 帧预算不足（极限场景） | 高 | 监控中 | half-res + 帧间隔 + 关闭 | Track 7+9 |
+| V5-R06 | SPH 粒子不稳定 | 中 | 监控中 | Leapfrog + CFL | Track 8 |
+| V5-R07 | OGL 4.3 计算天花板 | 低 | 监控中 | 预研 Vulkan (V6) | Track 9 |

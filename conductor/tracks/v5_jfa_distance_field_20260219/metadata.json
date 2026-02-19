@@ -1,0 +1,22 @@
+{
+    "id": "v5_jfa_distance_field_20260219",
+    "title": "V5 JFA Distance Field Pipeline",
+    "type": "feature",
+    "status": "pending",
+    "created": "2026-02-19T10:54:00+08:00",
+    "updated": "2026-02-19T10:54:00+08:00",
+    "priority": "P0",
+    "phase": "V5-A",
+    "depends_on": [
+        "v4_validation_release_gate_20260219"
+    ],
+    "master_spec": "conductor/specs/rendering_engine_v5_master_spec.md",
+    "phases": {
+        "total": 4,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 22,
+        "completed": 0
+    }
+}
