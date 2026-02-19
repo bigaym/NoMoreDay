@@ -73,6 +73,17 @@ struct GPUTextQuad {
     float opacity;
 };
 
+struct GPULootInstance {
+    float worldPosX;
+    float worldPosY;
+    float labelOffsetX;
+    float labelOffsetY;
+    uint itemId;
+    uint rarityColor;
+    float glowIntensity;
+    uint flags;
+};
+
 struct GPUShadowCaster {
     float posX;
     float posY;

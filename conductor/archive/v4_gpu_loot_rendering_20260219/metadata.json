@@ -2,21 +2,23 @@
     "id": "v4_gpu_loot_rendering_20260219",
     "title": "V4 GPU Loot Rendering",
     "type": "feature",
-    "status": "pending",
+    "status": "completed",
     "created": "2026-02-19T10:54:00+08:00",
-    "updated": "2026-02-19T10:54:00+08:00",
+    "updated": "2026-02-19T22:10:00+08:00",
     "priority": "P0",
     "phase": "V4-A",
     "depends_on": [
         "v4_preflight_v3_closure_20260219"
     ],
     "master_spec": "conductor/specs/rendering_engine_v4_master_spec.md",
+    "current_phase": 4,
+    "current_task": "done",
     "phases": {
         "total": 4,
-        "completed": 0
+        "completed": 4
     },
     "tasks": {
         "total": 18,
-        "completed": 0
+        "completed": 18
     }
 }

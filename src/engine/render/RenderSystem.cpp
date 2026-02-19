@@ -11,12 +11,14 @@
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/GPUTextSystem.hpp"
+#include "engine/render/GPULootSystem.hpp"
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "engine/render/dev/ShaderHotReloadManager.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/GPULootPass.hpp"
 #include "engine/render/passes/GPUTextPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
 #include "engine/render/lighting/ClusteredLightingState.hpp"
@@ -164,6 +166,8 @@ struct RenderFrameData {
   NoMoreDay::core::ComputeBuffer *labelInstanceBuffer = nullptr;
   NoMoreDay::core::ComputeBuffer *glyphInstanceBuffer = nullptr;
   bool gpuTextEnabled = false;
+  bool gpuLootEnabled = false;
+  bool gpuLootGlowEnabled = false;
 };
 
 NoMoreDay::render::resources::TransientResourcePool g_transientPool;
@@ -667,6 +671,17 @@ void ExecuteGPUTextPass(RenderFrameData &frame) {
   NoMoreDay::render::GPUTextSystem::Get().Render(viewProj);
 }
 
+void ExecuteGPULootPass(RenderFrameData &frame) {
+  if (!frame.gpuLootEnabled) {
+    return;
+  }
+  auto &gpuLoot = NoMoreDay::render::GPULootSystem::Get();
+  gpuLoot.Dispatch(frame.camera, GetScreenWidth(), GetScreenHeight(), true);
+  Matrix viewProj =
+      NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(frame.camera);
+  gpuLoot.Render(viewProj, frame.gpuLootGlowEnabled);
+}
+
 void ExecuteUIWorldPass(RenderFrameData &frame) {
   if (!frame.gpuTextEnabled) {
     auto popupView = frame.registry.view<const Position, const DamagePopup>();
@@ -702,6 +717,10 @@ void ExecuteUIWorldPass(RenderFrameData &frame) {
         DrawTextEx(frame.font, text, {pos.x, pos.y}, fontSize, 1.0f, color);
       }
     });
+  }
+
+  if (frame.gpuLootEnabled) {
+    return;
   }
 
   NoMoreDay::utils::ScopedTimer itemTimer("Loot Label Collection", 100);
@@ -1198,6 +1217,8 @@ void RenderSystem::Initialize() {
       NoMoreDay::RenderConstants::GPU::MAX_GLYPHS *
           sizeof(NoMoreDay::components::GPUGlyphInstance),
       nullptr, RL_DYNAMIC_DRAW);
+
+  NoMoreDay::render::GPULootSystem::Get().Init();
 }
 
 void RenderSystem::Shutdown() {
@@ -1218,6 +1239,7 @@ void RenderSystem::Shutdown() {
     s_glyphShader.id = 0;
   }
   s_glyphInstanceBuffer = nullptr;
+  NoMoreDay::render::GPULootSystem::Get().Shutdown();
 
   NoMoreDay::render::resources::FramebufferManager::Destroy(s_hdrSceneBuffer);
   NoMoreDay::render::MaterialManager::Get().Shutdown();
@@ -1284,7 +1306,10 @@ void RenderSystem::render(entt::registry &registry,
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+  NoMoreDay::render::GPULootSystem::Get().SyncDroppedItems(registry);
   frame.gpuTextEnabled = renderConfig.gpuTextEnabled;
+  frame.gpuLootEnabled = renderConfig.gpuLootEnabled;
+  frame.gpuLootGlowEnabled = renderConfig.gpuLootGlowEnabled;
   HandleV3RuntimeToggle(renderConfig.v3Enabled);
 #if defined(NDEBUG)
   constexpr bool kDevHotReloadAllowed = false;
@@ -1481,6 +1506,15 @@ void RenderSystem::render(entt::registry &registry,
         [&frame](NoMoreDay::render::graph::RenderContext &) {
           NoMoreDay::render::core::ScopedGLState scopedState;
           ExecuteGPUTextPass(frame);
+        }));
+    sceneHdrOwner = RenderOwnerTag::VFX;
+  }
+
+  if (frame.gpuLootEnabled) {
+    graph.AddPass(std::make_shared<NoMoreDay::render::passes::GPULootPass>(
+        [&frame](NoMoreDay::render::graph::RenderContext &) {
+          NoMoreDay::render::core::ScopedGLState scopedState;
+          ExecuteGPULootPass(frame);
         }));
     sceneHdrOwner = RenderOwnerTag::VFX;
   }

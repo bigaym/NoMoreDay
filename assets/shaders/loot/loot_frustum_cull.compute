@@ -1,0 +1,36 @@
+#version 430
+#include "generated/gpu_abi.glslinc"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 15) readonly buffer LootInstanceBuffer {
+  GPULootInstance instances[];
+};
+
+layout(std430, binding = 1) writeonly buffer VisibleIndexBuffer {
+  uint visibleIndices[];
+};
+
+layout(std430, binding = 2) buffer CounterBuffer {
+  uint visibleCount;
+};
+
+uniform int uInstanceCount;
+uniform vec4 uViewRect; // minX, minY, maxX, maxY
+
+void main() {
+  uint idx = gl_GlobalInvocationID.x;
+  if (idx >= uint(uInstanceCount)) {
+    return;
+  }
+
+  GPULootInstance inst = instances[idx];
+  vec2 pos = vec2(inst.worldPosX, inst.worldPosY);
+  if (pos.x < uViewRect.x || pos.x > uViewRect.z ||
+      pos.y < uViewRect.y || pos.y > uViewRect.w) {
+    return;
+  }
+
+  uint outIndex = atomicAdd(visibleCount, 1u);
+  visibleIndices[outIndex] = idx;
+}

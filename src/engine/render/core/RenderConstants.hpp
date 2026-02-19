@@ -104,6 +104,10 @@ struct RenderConfig {
   // V4 GPU text feature routing.
   bool gpuTextEnabled = false;
   bool gpuTextAdvancedAnimation = false;
+
+  // V4 GPU loot feature routing.
+  bool gpuLootEnabled = false;
+  bool gpuLootGlowEnabled = false;
 };
 
 inline const char *ToString(QualityTier tier) {

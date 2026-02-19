@@ -34,8 +34,10 @@ constexpr uint32_t kGLMaxImageUnits = 0x8F38;
 constexpr const char *kRenderKey = "render";
 constexpr const char *kRenderV3Key = "v3";
 constexpr const char *kRenderGpuTextKey = "gpuText";
+constexpr const char *kRenderGpuLootKey = "gpuLoot";
 constexpr const char *kRenderV3FlatEnabledKey = "render.v3.enabled";
 constexpr const char *kRenderGpuTextFlatEnabledKey = "render.gpuText.enabled";
+constexpr const char *kRenderGpuLootFlatEnabledKey = "render.gpuLoot.enabled";
 constexpr std::array<QualityTierManager::AutoDegradeStep, 6>
     kV3AutoDegradeSequence = {
         QualityTierManager::AutoDegradeStep::ReduceBloom,
@@ -109,6 +111,11 @@ void WriteV3ConfigToJson(nlohmann::json &jsonSettings, const RenderConfig &confi
   gpuText["enabled"] = config.gpuTextEnabled;
   jsonSettings[kRenderGpuTextFlatEnabledKey] = config.gpuTextEnabled;
   jsonSettings[kRenderKey][kRenderGpuTextKey] = std::move(gpuText);
+
+  nlohmann::json gpuLoot = nlohmann::json::object();
+  gpuLoot["enabled"] = config.gpuLootEnabled;
+  jsonSettings[kRenderGpuLootFlatEnabledKey] = config.gpuLootEnabled;
+  jsonSettings[kRenderKey][kRenderGpuLootKey] = std::move(gpuLoot);
 }
 
 bool ParseTierString(std::string value, QualityTier &outTier) {
@@ -262,6 +269,7 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_autoDegradeLevel = 0;
   m_v3Config = {};
   m_gpuTextEnabledOverride = std::nullopt;
+  m_gpuLootEnabledOverride = std::nullopt;
 
   m_capabilitySnapshot = ProbeCapabilities();
   const QualityTier capabilityTier = DetectTierFromCapabilities(m_capabilitySnapshot);
@@ -291,6 +299,7 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_selectionMetadata.reasonCode = reasonCode;
   TryLoadV3ConfigFromSettings(settingsPath, m_v3Config);
   m_gpuTextEnabledOverride = TryLoadGpuTextEnabledOverride(settingsPath);
+  m_gpuLootEnabledOverride = TryLoadGpuLootEnabledOverride(settingsPath);
   UpdateConfigForTier(chosenTier);
   m_initialized = true;
 
@@ -733,6 +742,55 @@ QualityTierManager::TryLoadGpuTextEnabledOverride(
   return std::nullopt;
 }
 
+std::optional<bool>
+QualityTierManager::TryLoadGpuLootEnabledOverride(
+    const std::string &settingsPath) const {
+  if (!std::filesystem::exists(settingsPath)) {
+    return std::nullopt;
+  }
+
+  nlohmann::json jsonSettings;
+  try {
+    std::ifstream file(settingsPath);
+    if (!file.is_open()) {
+      return std::nullopt;
+    }
+    file >> jsonSettings;
+  } catch (...) {
+    return std::nullopt;
+  }
+
+  if (jsonSettings.contains(kRenderGpuLootFlatEnabledKey)) {
+    const auto &value = jsonSettings[kRenderGpuLootFlatEnabledKey];
+    if (!value.is_boolean()) {
+      LOG_WARN("QualityTierManager: {} invalid {} (expected bool), ignored",
+               settingsPath, kRenderGpuLootFlatEnabledKey);
+      return std::nullopt;
+    }
+    return value.get<bool>();
+  }
+
+  if (jsonSettings.contains(kRenderKey) && jsonSettings[kRenderKey].is_object()) {
+    const auto &renderNode = jsonSettings[kRenderKey];
+    if (renderNode.contains(kRenderGpuLootKey) &&
+        renderNode[kRenderGpuLootKey].is_object()) {
+      const auto &gpuLootNode = renderNode[kRenderGpuLootKey];
+      if (gpuLootNode.contains("enabled")) {
+        const auto &enabledValue = gpuLootNode["enabled"];
+        if (!enabledValue.is_boolean()) {
+          LOG_WARN("QualityTierManager: {} invalid render.gpuLoot.enabled "
+                   "(expected bool), ignored",
+                   settingsPath);
+          return std::nullopt;
+        }
+        return enabledValue.get<bool>();
+      }
+    }
+  }
+
+  return std::nullopt;
+}
+
 void QualityTierManager::ApplyV3ConfigOverrides(RenderConfig &config) const {
   config.shadowEnabled = m_v3Config.shadowEnabled;
   config.shadowMode = m_v3Config.shadowMode;
@@ -1010,6 +1068,8 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.shaderHotReloadEnabled = false;
     m_baseConfig.gpuTextEnabled = false;
     m_baseConfig.gpuTextAdvancedAnimation = false;
+    m_baseConfig.gpuLootEnabled = false;
+    m_baseConfig.gpuLootGlowEnabled = false;
     break;
   case QualityTier::Medium:
     m_baseConfig.bloomEnabled = true;
@@ -1052,6 +1112,8 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.shaderHotReloadEnabled = false;
     m_baseConfig.gpuTextEnabled = true;
     m_baseConfig.gpuTextAdvancedAnimation = false;
+    m_baseConfig.gpuLootEnabled = false;
+    m_baseConfig.gpuLootGlowEnabled = false;
     break;
   case QualityTier::High:
     m_baseConfig.bloomEnabled = true;
@@ -1094,6 +1156,8 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.shaderHotReloadEnabled = kHotReloadEnabled;
     m_baseConfig.gpuTextEnabled = true;
     m_baseConfig.gpuTextAdvancedAnimation = true;
+    m_baseConfig.gpuLootEnabled = true;
+    m_baseConfig.gpuLootGlowEnabled = false;
     break;
   case QualityTier::Ultra:
     m_baseConfig.bloomEnabled = true;
@@ -1136,12 +1200,20 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.shaderHotReloadEnabled = kHotReloadEnabled;
     m_baseConfig.gpuTextEnabled = true;
     m_baseConfig.gpuTextAdvancedAnimation = true;
+    m_baseConfig.gpuLootEnabled = true;
+    m_baseConfig.gpuLootGlowEnabled = true;
     break;
   }
 
   if (m_gpuTextEnabledOverride.has_value() && !m_gpuTextEnabledOverride.value()) {
     m_baseConfig.gpuTextEnabled = false;
     m_baseConfig.gpuTextAdvancedAnimation = false;
+  }
+  if (m_gpuLootEnabledOverride.has_value()) {
+    m_baseConfig.gpuLootEnabled = m_gpuLootEnabledOverride.value();
+    if (!m_baseConfig.gpuLootEnabled || tier != QualityTier::Ultra) {
+      m_baseConfig.gpuLootGlowEnabled = false;
+    }
   }
 
   ApplyV3ConfigOverrides(m_baseConfig);

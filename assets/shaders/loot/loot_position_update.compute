@@ -1,0 +1,37 @@
+#version 430
+#include "generated/gpu_abi.glslinc"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 15) buffer LootInstanceBuffer {
+  GPULootInstance instances[];
+};
+
+layout(std430, binding = 1) readonly buffer VisibleIndexBuffer {
+  uint visibleIndices[];
+};
+
+layout(std430, binding = 4) readonly buffer ForceBuffer {
+  vec2 forces[];
+};
+
+uniform int uVisibleCount;
+uniform float uDamping;
+uniform float uMaxOffset;
+
+void main() {
+  uint i = gl_GlobalInvocationID.x;
+  if (i >= uint(uVisibleCount)) {
+    return;
+  }
+
+  uint lootIndex = visibleIndices[i];
+  GPULootInstance inst = instances[lootIndex];
+  vec2 currentOffset = vec2(inst.labelOffsetX, inst.labelOffsetY);
+  vec2 nextOffset = currentOffset * uDamping + forces[lootIndex];
+  nextOffset = clamp(nextOffset, vec2(-uMaxOffset), vec2(uMaxOffset));
+
+  inst.labelOffsetX = nextOffset.x;
+  inst.labelOffsetY = nextOffset.y;
+  instances[lootIndex] = inst;
+}

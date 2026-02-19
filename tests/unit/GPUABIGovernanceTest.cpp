@@ -121,4 +121,12 @@ TEST_CASE("[Unit] GPU ABI - V3 layout snapshot placeholders") {
   CHECK(offsetof(GPUMaterialDataV2, baseColor) == 0);
   CHECK(offsetof(GPUMaterialDataV2, pbrLite) == 32);
   CHECK(offsetof(GPUMaterialDataV2, reserved2) == 112);
+
+  CHECK(std::is_standard_layout_v<GPULootInstance>);
+  CHECK(sizeof(GPULootInstance) == 32);
+  CHECK(alignof(GPULootInstance) == alignof(float));
+  CHECK(offsetof(GPULootInstance, worldPosX) == 0);
+  CHECK(offsetof(GPULootInstance, labelOffsetX) == 8);
+  CHECK(offsetof(GPULootInstance, itemId) == 16);
+  CHECK(offsetof(GPULootInstance, glowIntensity) == 24);
 }

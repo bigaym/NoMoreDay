@@ -1,7 +1,7 @@
 # Track: V4 GPU Loot Rendering
 
 **ID:** v4_gpu_loot_rendering_20260219  
-**Status:** Pending  
+**Status:** In Progress  
 **Type:** feature  
 **Priority:** P0  
 **Phase:** V4-A (Week 1-3)
@@ -13,8 +13,8 @@
 
 ## 进度概览 (Progress)
 
-- **Phases**: 0/4 complete
-- **Tasks**: 0/18 complete
+- **Phases**: 1/4 complete
+- **Tasks**: 4/18 complete
 
 ---
 

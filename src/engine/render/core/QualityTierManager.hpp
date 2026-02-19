@@ -130,6 +130,8 @@ private:
                                    RenderConfig &outConfig) const;
   std::optional<bool>
   TryLoadGpuTextEnabledOverride(const std::string &settingsPath) const;
+  std::optional<bool>
+  TryLoadGpuLootEnabledOverride(const std::string &settingsPath) const;
   void ApplyV3ConfigOverrides(RenderConfig &config) const;
   std::string QueryRendererString() const;
 
@@ -141,6 +143,7 @@ private:
   RenderConfig m_config = {};
   RenderConfig m_v3Config = {};
   std::optional<bool> m_gpuTextEnabledOverride = std::nullopt;
+  std::optional<bool> m_gpuLootEnabledOverride = std::nullopt;
   V3ToggleCallback m_v3ToggleCallback = {};
   std::string m_rendererString;
   CapabilitySnapshot m_capabilitySnapshot = {};

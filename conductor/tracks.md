@@ -276,16 +276,16 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 
 ---
 
-## [ ] Track 2: V4 GPU Loot Rendering (v4_gpu_loot_rendering_20260219) [PENDING]
+## [x] Track 2: V4 GPU Loot Rendering (v4_gpu_loot_rendering_20260219) [COMPLETED]
 
-> **Status**: 📋 Pending  
+> **Status**: 🚧 In Progress  
 > **Priority**: P0  
 > **Type**: feature  
 > **Phase**: V4-A (Week 1-3)  
 > **Depends On**: `v4_preflight_v3_closure_20260219`  
 > **Focus**: MDI 自动合批 + FrustumCull + GPU 力导向标签避让（GridHash → Repulsion → PositionUpdate），支持同屏 1000+ 战利品。  
-> **Tasks**: 0/18  
-> **Location**: [`conductor/tracks/v4_gpu_loot_rendering_20260219/`](./tracks/v4_gpu_loot_rendering_20260219/index.md)
+> **Tasks**: 18/18  
+> **Location**: [`conductor/archive/v4_gpu_loot_rendering_20260219/`](./archive/v4_gpu_loot_rendering_20260219/index.md)
 
 ---
 
@@ -408,7 +408,7 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 |---|---|---:|:---:|---|
 | v4_preflight_v3_closure_20260219 | V4 Pre-flight | 7/8 | P0 | 🚧 In Progress |
 | v4_gpu_text_rendering_20260219 | V4-A | 13/20 | P0 | 🚧 In Progress |
-| v4_gpu_loot_rendering_20260219 | V4-A | 0/18 | P0 | 📋 Pending |
+| v4_gpu_loot_rendering_20260219 | V4-A | 18/18 | P0 | ✅ Completed |
 | v4_pbr_material_pipeline_20260219 | V4-B | 0/25 | P1 | 📋 Pending |
 | v4_advanced_lighting_20260219 | V4-C | 0/28 | P1 | 📋 Pending |
 | v4_validation_release_gate_20260219 | V4 Gate | 0/30 | P0 | 📋 Pending |
@@ -416,4 +416,4 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v5_radiance_cascades_gi_20260219 | V5-A/B | 0/35 | P0 | 📋 Pending |
 | v5_sph_fluid_exploration_20260219 | V5-B | 0/18 | P2 | 📋 Pending |
 | v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **7/229** | — | — |
+| **合计** | — | **11/229** | — | — |

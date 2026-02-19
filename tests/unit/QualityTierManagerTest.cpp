@@ -213,6 +213,59 @@ TEST_CASE("[Unit] QualityTierManager - GPUText Feature Flag Route Switch") {
   CHECK(manager.GetConfig().gpuTextAdvancedAnimation == false);
 }
 
+TEST_CASE("[Unit] QualityTierManager - GPULoot Tier Matrix Policy") {
+  const auto settingsPath = MakeTempSettingsPath("gpu_loot_tier_matrix.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"v3", {{"enabled", false}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+
+  manager.ForceTier(render::core::QualityTier::Low);
+  CHECK(manager.GetConfig().gpuLootEnabled == false);
+  CHECK(manager.GetConfig().gpuLootGlowEnabled == false);
+
+  manager.ForceTier(render::core::QualityTier::Medium);
+  CHECK(manager.GetConfig().gpuLootEnabled == false);
+  CHECK(manager.GetConfig().gpuLootGlowEnabled == false);
+
+  manager.ForceTier(render::core::QualityTier::High);
+  CHECK(manager.GetConfig().gpuLootEnabled == true);
+  CHECK(manager.GetConfig().gpuLootGlowEnabled == false);
+
+  manager.ForceTier(render::core::QualityTier::Ultra);
+  CHECK(manager.GetConfig().gpuLootEnabled == true);
+  CHECK(manager.GetConfig().gpuLootGlowEnabled == true);
+}
+
+TEST_CASE("[Unit] QualityTierManager - GPULoot Feature Flag Route Switch") {
+  const auto settingsPath = MakeTempSettingsPath("gpu_loot_feature_flag_switch.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"gpuLoot", {{"enabled", true}}}, {"v3", {{"enabled", false}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().gpuLootEnabled == true);
+  CHECK(manager.GetConfig().gpuLootGlowEnabled == false);
+
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"gpuLoot", {{"enabled", false}}}, {"v3", {{"enabled", false}}}}}});
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().gpuLootEnabled == false);
+  CHECK(manager.GetConfig().gpuLootGlowEnabled == false);
+
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "Ultra"},
+             {"render.gpuLoot.enabled", true},
+             {"render", {{"v3", {{"enabled", false}}}}}});
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().gpuLootEnabled == true);
+  CHECK(manager.GetConfig().gpuLootGlowEnabled == true);
+}
+
 TEST_CASE("[Unit] QualityTierManager - Shadow Tier Policy Linkage") {
   const auto settingsPath = MakeTempSettingsPath("render_v3_tier_shadow_policy.json");
   WriteJson(settingsPath,

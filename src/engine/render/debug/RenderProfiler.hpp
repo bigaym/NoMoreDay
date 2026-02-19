@@ -14,10 +14,11 @@ enum class RenderPassId : uint8_t {
   Volumetric = 2,
   VFX = 3,
   GPUText = 4,
-  UIWorld = 5,
-  PostProcess = 6,
-  Distortion = 7,
-  Composite = 8,
+  GPULoot = 5,
+  UIWorld = 6,
+  PostProcess = 7,
+  Distortion = 8,
+  Composite = 9,
   Count
 };
 

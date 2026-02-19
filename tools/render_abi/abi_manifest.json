@@ -73,6 +73,19 @@
         ]
       },
       {
+        "name": "GPULootInstance",
+        "fields": [
+          { "type": "float", "name": "worldPosX" },
+          { "type": "float", "name": "worldPosY" },
+          { "type": "float", "name": "labelOffsetX" },
+          { "type": "float", "name": "labelOffsetY" },
+          { "type": "uint", "name": "itemId" },
+          { "type": "uint", "name": "rarityColor" },
+          { "type": "float", "name": "glowIntensity" },
+          { "type": "uint", "name": "flags" }
+        ]
+      },
+      {
         "name": "GPUShadowCaster",
         "fields": [
           { "type": "float", "name": "posX" },

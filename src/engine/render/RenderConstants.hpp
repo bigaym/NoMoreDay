@@ -43,6 +43,7 @@ enum class Binding : uint32_t {
   SSBO_MATERIAL_DATA = 12,
   SSBO_DISTORTION_DATA = 13,
   SSBO_HOLOBLADE_INSTANCE = 14,
+  SSBO_LOOT_INSTANCE = 15,
   MATERIAL_SSBO = SSBO_MATERIAL_DATA,
   DISTORTION_SSBO = SSBO_DISTORTION_DATA,
   HOLOBLADE_SSBO = SSBO_HOLOBLADE_INSTANCE,
@@ -53,7 +54,7 @@ enum class Binding : uint32_t {
   SSBO_RESERVED_12 = SSBO_MATERIAL_DATA,
   SSBO_RESERVED_13 = SSBO_DISTORTION_DATA,
   SSBO_RESERVED_14 = SSBO_HOLOBLADE_INSTANCE,
-  SSBO_RESERVED_15 = 15, // OpenGL 4.3 最低保证 16 个 SSBO Binding
+  SSBO_RESERVED_15 = SSBO_LOOT_INSTANCE, // OpenGL 4.3 最低保证 16 个 SSBO Binding
 };
 
 /**
@@ -63,7 +64,7 @@ enum class Binding : uint32_t {
  * 必须与 particle.compute / particle_emit.compute 中的 binding 保持一致。
  */
 namespace BindingGovernance {
-constexpr std::array<uint32_t, 11> kGlobalSharedSSBOBindings = {
+constexpr std::array<uint32_t, 12> kGlobalSharedSSBOBindings = {
     static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA),
     static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID),
     static_cast<uint32_t>(Binding::SSBO_COMMAND),
@@ -75,6 +76,7 @@ constexpr std::array<uint32_t, 11> kGlobalSharedSSBOBindings = {
     static_cast<uint32_t>(Binding::SSBO_GLYPH_INSTANCE),
     static_cast<uint32_t>(Binding::SSBO_LIGHT_DATA),
     static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE),
+    static_cast<uint32_t>(Binding::SSBO_LOOT_INSTANCE),
 };
 
 constexpr bool HasUniqueGlobalBindings() {
@@ -115,6 +117,11 @@ constexpr uint32_t INSTANCE =
 namespace TextPassBinding {
 constexpr uint32_t QUAD_SSBO = static_cast<uint32_t>(Binding::SSBO_TEXT_QUAD);
 } // namespace TextPassBinding
+
+namespace LootPassBinding {
+constexpr uint32_t INSTANCE_SSBO =
+    static_cast<uint32_t>(Binding::SSBO_LOOT_INSTANCE);
+} // namespace LootPassBinding
 
 namespace TextLayoutCS {
 constexpr uint32_t COMMAND_BUFFER = 0;

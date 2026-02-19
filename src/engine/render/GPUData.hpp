@@ -512,6 +512,26 @@ static_assert(sizeof(GPUTextQuad) == 40,
               "GPUTextQuad struct must be exactly 40 bytes");
 
 /**
+ * @brief GPU loot instance payload for V4 loot rendering path.
+ * 32 bytes.
+ */
+struct GPULootInstance {
+  float worldPosX = 0.0f;         // 4
+  float worldPosY = 0.0f;         // 4
+  float labelOffsetX = 0.0f;      // 4
+  float labelOffsetY = -24.0f;    // 4
+  uint32_t itemId = 0;            // 4
+  uint32_t rarityColor = 0;       // 4 (RGBA8 packed)
+  float glowIntensity = 0.0f;     // 4
+  uint32_t flags = 0;             // 4
+};
+
+static_assert(std::is_standard_layout_v<GPULootInstance>,
+              "GPULootInstance must be standard layout");
+static_assert(sizeof(GPULootInstance) == 32,
+              "GPULootInstance struct must be exactly 32 bytes");
+
+/**
  * @brief Structure for GPU Visual Stats (Attribute Sync).
  * STRICTLY 64 BYTES (16 * 4) for alignment.
  * Used for dynamic visual effects based on character stats (glow, speed, etc).

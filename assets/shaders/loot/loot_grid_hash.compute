@@ -1,0 +1,39 @@
+#version 430
+#include "generated/gpu_abi.glslinc"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 15) readonly buffer LootInstanceBuffer {
+  GPULootInstance instances[];
+};
+
+layout(std430, binding = 1) readonly buffer VisibleIndexBuffer {
+  uint visibleIndices[];
+};
+
+layout(std430, binding = 5) buffer GridCountBuffer {
+  uint gridCounts[];
+};
+
+uniform int uVisibleCount;
+uniform float uGridCellSize;
+uniform int uGridWidth;
+uniform int uGridHeight;
+
+void main() {
+  uint i = gl_GlobalInvocationID.x;
+  if (i >= uint(uVisibleCount) || uGridCellSize <= 0.0 || uGridWidth <= 0 || uGridHeight <= 0) {
+    return;
+  }
+
+  uint lootIdx = visibleIndices[i];
+  GPULootInstance inst = instances[lootIdx];
+  vec2 p = vec2(inst.worldPosX + inst.labelOffsetX, inst.worldPosY + inst.labelOffsetY);
+
+  int gx = int(floor(p.x / uGridCellSize));
+  int gy = int(floor(p.y / uGridCellSize));
+  gx = clamp(gx, 0, uGridWidth - 1);
+  gy = clamp(gy, 0, uGridHeight - 1);
+  uint cellIndex = uint(gy * uGridWidth + gx);
+  atomicAdd(gridCounts[cellIndex], 1u);
+}

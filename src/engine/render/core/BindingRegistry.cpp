@@ -10,7 +10,7 @@ namespace {
 
 using NoMoreDay::RenderConstants::Binding;
 
-constexpr std::array<BindingEntry, 11> kGlobalBindings = {{
+constexpr std::array<BindingEntry, 12> kGlobalBindings = {{
     {"SSBO_ENTITY_DATA", static_cast<uint32_t>(Binding::SSBO_ENTITY_DATA)},
     {"SSBO_VISIBLE_ID", static_cast<uint32_t>(Binding::SSBO_VISIBLE_ID)},
     {"SSBO_COMMAND", static_cast<uint32_t>(Binding::SSBO_COMMAND)},
@@ -23,6 +23,7 @@ constexpr std::array<BindingEntry, 11> kGlobalBindings = {{
     {"SSBO_LIGHT_DATA", static_cast<uint32_t>(Binding::SSBO_LIGHT_DATA)},
     {"SSBO_HOLOBLADE_INSTANCE",
      static_cast<uint32_t>(Binding::SSBO_HOLOBLADE_INSTANCE)},
+    {"SSBO_LOOT_INSTANCE", static_cast<uint32_t>(Binding::SSBO_LOOT_INSTANCE)},
 }};
 
 // Pass-local domains are isolated; values may overlap across different domains.

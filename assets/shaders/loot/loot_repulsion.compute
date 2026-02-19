@@ -1,0 +1,62 @@
+#version 430
+#include "generated/gpu_abi.glslinc"
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout(std430, binding = 15) readonly buffer LootInstanceBuffer {
+  GPULootInstance instances[];
+};
+
+layout(std430, binding = 1) readonly buffer VisibleIndexBuffer {
+  uint visibleIndices[];
+};
+
+layout(std430, binding = 4) writeonly buffer ForceBuffer {
+  vec2 forces[];
+};
+
+uniform int uVisibleCount;
+uniform float uMinDistance;
+uniform float uStiffness;
+uniform float uMaxForce;
+uniform float uDamping;
+
+void main() {
+  uint i = gl_GlobalInvocationID.x;
+  if (i >= uint(uVisibleCount)) {
+    return;
+  }
+
+  uint selfLootIndex = visibleIndices[i];
+  GPULootInstance selfInst = instances[selfLootIndex];
+  vec2 selfPos = vec2(selfInst.worldPosX + selfInst.labelOffsetX,
+                      selfInst.worldPosY + selfInst.labelOffsetY);
+
+  vec2 force = vec2(0.0);
+  for (uint j = 0u; j < uint(uVisibleCount); ++j) {
+    if (j == i) {
+      continue;
+    }
+
+    uint otherLootIndex = visibleIndices[j];
+    GPULootInstance otherInst = instances[otherLootIndex];
+    vec2 otherPos = vec2(otherInst.worldPosX + otherInst.labelOffsetX,
+                         otherInst.worldPosY + otherInst.labelOffsetY);
+
+    vec2 delta = selfPos - otherPos;
+    float distSq = dot(delta, delta);
+    float minDist = max(uMinDistance, 1.0);
+    if (distSq < (minDist * minDist)) {
+      float dist = max(sqrt(distSq), 0.001);
+      vec2 dir = delta / dist;
+      float strength = (minDist - dist) * uStiffness;
+      force += dir * strength;
+    }
+  }
+
+  float forceLen = length(force);
+  if (forceLen > uMaxForce) {
+    force *= (uMaxForce / forceLen);
+  }
+  forces[selfLootIndex] = force * uDamping;
+}
