@@ -147,6 +147,9 @@ void LightingPass::Shutdown() {
   m_lastClusteredFallback = false;
   m_lastClusteredFallbackReason.clear();
   m_lastClusteredWarnTime = -1000.0;
+  m_lastClusterSyncFrame = 0;
+  m_hasClusterSyncFrame = false;
+  m_skipResolveForTesting = false;
   m_initialized = false;
 }
 
@@ -334,8 +337,15 @@ void LightingPass::Execute(graph::RenderContext &context) {
           m_lastClusteredFallback = true;
           m_lastClusteredFallbackReason = "cluster binding resolution failed";
         } else {
-          // Explicit compute->fragment SSBO sync point (auditable contract).
-          NoMoreDay::utils::GPUUtils::MemoryBarrier(kGLShaderStorageBarrierBit);
+          const uint32_t clusterFrame = clusterState.GetFrameIndex();
+          if (!m_hasClusterSyncFrame || m_lastClusterSyncFrame != clusterFrame) {
+            // Explicit compute->fragment SSBO sync point (auditable contract).
+            // Cluster data is immutable after culling in the current frame, so one
+            // barrier per cluster frame is sufficient.
+            NoMoreDay::utils::GPUUtils::MemoryBarrier(kGLShaderStorageBarrierBit);
+            m_lastClusterSyncFrame = clusterFrame;
+            m_hasClusterSyncFrame = true;
+          }
           NoMoreDay::utils::GPUUtils::BindBufferBase(
               headerBinding, clusterState.GetClusterHeaderBufferId());
           NoMoreDay::utils::GPUUtils::BindBufferBase(
@@ -391,6 +401,13 @@ void LightingPass::Execute(graph::RenderContext &context) {
   }
 
   DrawFullscreen(m_lightAccumShader, context.hdrSceneBuffer.colorTexture);
+
+  if (m_skipResolveForTesting) {
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
+                                                context.hdrSceneBuffer.fbo);
+    NoMoreDay::utils::GPUUtils::Viewport(0, 0, width, height);
+    return;
+  }
 
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer, m_litBuffer.fbo);
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,

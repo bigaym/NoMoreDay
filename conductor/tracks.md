@@ -185,13 +185,24 @@ Step F: v3_validation_and_release_gate_20260215 (第8-10周)
 
 ---
 
-## Status Update (2026-02-18)
+## [x] Track: Render V3 Release Gate Perf Reliability (render_v3_release_gate_perf_reliability_20260218)
+
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
+> **Priority**: P0  
+> **Type**: bugfix+quality  
+> **Depends On**: `v3_validation_and_release_gate_20260215`, `render_v3_release_gate_strict_closeout_20260218`  
+> **Focus**: close remaining Open bugs `BUG-20260218-001` and `BUG-20260218-004`, remove F4.3/F4.5/F4.6 waivers, and restore strict release-gate reliability.
+> **Closeout Note**: 2026-02-19 三次连续 Release gate 均 `pass`，`WVR-20260218-F4.6-001` 已退役；仅保留 `F6.2` 截图 warning（V4 依赖项）。
+
+---
+
+## Status Update (2026-02-19)
 
 ### V3 Active Tracks (Total: 0 tasks)
 
 | Track | Step | Phase/Tasks | Status |
 |---|---|---|---|
-| (none) | - | - | - |
+| render_v3_release_gate_perf_reliability_20260218 | Step F carry-over | 4/4 phases, 15/15 tasks | COMPLETED |
 
 ### Archived Tracks
 

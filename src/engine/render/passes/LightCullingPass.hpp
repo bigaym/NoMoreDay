@@ -35,6 +35,9 @@ public:
     return m_lastFailureReason;
   }
   void SetComputeShaderPathForTesting(const std::string &path);
+  void SetReadbackEnabledForTesting(bool enabled) noexcept {
+    m_readbackEnabledForTesting = enabled;
+  }
 
 private:
   bool Initialize(::ResourceManager &resources);
@@ -58,6 +61,7 @@ private:
   bool m_clusterDataReadyForCurrentFrame = false;
   bool m_lastExecuteFailure = false;
   bool m_lastExecuteSuccess = false;
+  bool m_readbackEnabledForTesting = true;
   std::string m_lastFailureReason;
   std::string m_computeShaderPath = "assets/shaders/lighting/light_culling.comp";
 };

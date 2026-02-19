@@ -159,6 +159,7 @@ void LightManager::Shutdown() {
   m_transientLights.clear();
   m_activeLightCount = 0;
   m_debugStats = {};
+  m_disableViewCullingForTesting = false;
 }
 
 void LightManager::Update(entt::registry &registry, const Camera2D &camera,
@@ -203,7 +204,8 @@ void LightManager::Update(entt::registry &registry, const Camera2D &camera,
     if (gpuLight.radius <= 0.0f || gpuLight.intensity <= 0.0f) {
       continue;
     }
-    if (!IntersectsView(gpuLight, viewMinX, viewMinY, viewMaxX, viewMaxY)) {
+    if (!m_disableViewCullingForTesting &&
+        !IntersectsView(gpuLight, viewMinX, viewMinY, viewMaxX, viewMaxY)) {
       continue;
     }
 
@@ -218,7 +220,8 @@ void LightManager::Update(entt::registry &registry, const Camera2D &camera,
     if (transient.radius <= 0.0f || transient.intensity <= 0.0f) {
       continue;
     }
-    if (!IntersectsView(transient, viewMinX, viewMinY, viewMaxX, viewMaxY)) {
+    if (!m_disableViewCullingForTesting &&
+        !IntersectsView(transient, viewMinX, viewMinY, viewMaxX, viewMaxY)) {
       continue;
     }
 

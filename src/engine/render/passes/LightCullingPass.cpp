@@ -88,6 +88,7 @@ void LightCullingPass::Shutdown() {
   m_lastExecuteFailure = false;
   m_lastExecuteSuccess = false;
   m_lastOverflowCount = 0;
+  m_readbackEnabledForTesting = true;
   m_lastFailureReason.clear();
 }
 
@@ -276,11 +277,15 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
 
   NoMoreDay::utils::GPUUtils::MemoryBarrier(kGLShaderStorageBarrierBit);
 
-  if (!clusterState.ReadBackClusterHeaders()) {
-    ReportFailure("failed to read back cluster headers");
-    return;
+  if (m_readbackEnabledForTesting) {
+    if (!clusterState.ReadBackClusterHeaders()) {
+      ReportFailure("failed to read back cluster headers");
+      return;
+    }
+    m_lastOverflowCount = clusterState.GetLastOverflowSum();
+  } else {
+    m_lastOverflowCount = 0;
   }
-  m_lastOverflowCount = clusterState.GetLastOverflowSum();
   m_clusterDataReadyForCurrentFrame = true;
   MarkSuccess();
   core::ApplyRlglFlushTemplate();

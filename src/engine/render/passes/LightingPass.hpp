@@ -31,6 +31,9 @@ public:
   void SetLightCullingPass(const LightCullingPass *lightCullingPass) {
     m_lightCullingPass = lightCullingPass;
   }
+  void SetSkipResolveForTesting(bool skipResolveForTesting) {
+    m_skipResolveForTesting = skipResolveForTesting;
+  }
   [[nodiscard]] bool WasShadowAppliedLastFrame() const {
     return m_lastShadowApplied;
   }
@@ -81,6 +84,9 @@ private:
   bool m_lastClusteredFallback = false;
   std::string m_lastClusteredFallbackReason;
   double m_lastClusteredWarnTime = -1000.0;
+  uint32_t m_lastClusterSyncFrame = 0;
+  bool m_hasClusterSyncFrame = false;
+  bool m_skipResolveForTesting = false;
   bool m_initialized = false;
   const ShadowResolvePass *m_shadowResolvePass = nullptr;
   const LightCullingPass *m_lightCullingPass = nullptr;

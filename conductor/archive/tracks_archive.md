@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Render V3 Release Gate Perf Reliability (render_v3_release_gate_perf_reliability_20260218)
+- **Folder:** [./conductor/archive/render_v3_release_gate_perf_reliability_20260218/](./conductor/archive/render_v3_release_gate_perf_reliability_20260218/)
+- **Description:** 关闭 Step F 残留性能门禁可靠性问题，完成 `F4.6` 无豁免达标并退役 `WVR-20260218-F4.6-001`，同步 bug/waiver/evidence 收尾。
+- **Status:** COMPLETED (2026-02-19)
+- **Priority:** P0
+- **Archive Reason:** `build.bat`、`build.bat analyze` 通过；`ctest --test-dir build -C Release -L performance` 通过（同会话存在已记录的非本 track 阻塞间歇失败）；连续 3 次 `v3_release_gate.py --final-verification` 全部 `checks=43 pass=42 warning=1 fail=0`，`waiverHits` 为空，`clustered_128_improvement_pct` 连续高于 5%。
+
+---
+
 ## [x] Track: Render V3 Release Gate Strict Closeout (render_v3_release_gate_strict_closeout_20260218)
 - **Folder:** [./conductor/archive/render_v3_release_gate_strict_closeout_20260218/](./conductor/archive/render_v3_release_gate_strict_closeout_20260218/)
 - **Description:** 收敛 Step F 严格收口遗留项，刷新 gate artifact，完成 waiver/bug/evidence 同步并输出当前 V3 发布姿态。

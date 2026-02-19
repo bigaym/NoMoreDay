@@ -52,6 +52,9 @@ public:
   }
 
   void AddTransientLight(const components::GPULight &light);
+  void SetDisableViewCullingForTesting(bool disabled) noexcept {
+    m_disableViewCullingForTesting = disabled;
+  }
 
 private:
   LightManager() = default;
@@ -62,6 +65,7 @@ private:
   std::vector<components::GPULight> m_transientLights;
   int m_activeLightCount = 0;
   DebugStats m_debugStats = {};
+  bool m_disableViewCullingForTesting = false;
 };
 
 } // namespace NoMoreDay::render::lighting

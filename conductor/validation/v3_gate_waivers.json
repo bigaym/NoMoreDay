@@ -1,10 +1,10 @@
 {
   "version": "1.0.0",
-  "updatedAtUtc": "2026-02-18T00:00:00Z",
+  "updatedAtUtc": "2026-02-19T10:08:00Z",
   "waivers": [
     {
       "id": "WVR-20260218-F4.6-001",
-      "status": "active",
+      "status": "retired",
       "checkId": "perf_clustered_uplift",
       "taskId": "F4.6",
       "level": "warning",
@@ -12,11 +12,13 @@
       "reason": "Temporary waiver before V4 perf tuning; clustered uplift currently below release target.",
       "expiresOn": "2026-03-15",
       "exitCriteria": "clustered_128_improvement_pct >= 5.0 for 3 consecutive release perf runs.",
-      "linkedBugId": "BUG-20260218-001"
+      "linkedBugId": "BUG-20260218-001",
+      "retiredAtUtc": "2026-02-19T10:08:00Z",
+      "retireEvidence": "3 consecutive release gate runs (2026-02-19) passed with clustered_128_improvement_pct=26.9918/26.6332/20.6799 and no waiverHits."
     },
     {
       "id": "WVR-20260218-F4.3-001",
-      "status": "active",
+      "status": "retired",
       "checkId": "perf_stress_144",
       "taskId": "F4.3",
       "level": "warning",
@@ -24,11 +26,13 @@
       "reason": "Intermittent non-deterministic failure in [Performance] bench_rendering_system - RenderGraph Contract Validation Guard during batch gate runs; standalone re-run passes.",
       "expiresOn": "2026-03-01",
       "exitCriteria": "perf_stress_144 passes in 3 consecutive gate runs without waiver and without manual rerun.",
-      "linkedBugId": "BUG-20260218-004"
+      "linkedBugId": "BUG-20260218-004",
+      "retiredAtUtc": "2026-02-18T16:00:00Z",
+      "retireEvidence": "3 consecutive release gate runs show F4.3 pass without waiver hit after benchmark deterministic-context hardening."
     },
     {
       "id": "WVR-20260218-F4.5-001",
-      "status": "active",
+      "status": "retired",
       "checkId": "perf_regression_compare",
       "taskId": "F4.5",
       "level": "warning",
@@ -36,7 +40,9 @@
       "reason": "Temporary downgrade while resolving non-deterministic stress profile variance affecting regression comparator outcomes.",
       "expiresOn": "2026-03-01",
       "exitCriteria": "F4.5 passes in 3 consecutive gate runs with F4.3 stable and waiver removed.",
-      "linkedBugId": "BUG-20260218-004"
+      "linkedBugId": "BUG-20260218-004",
+      "retiredAtUtc": "2026-02-18T16:00:00Z",
+      "retireEvidence": "3 consecutive release gate runs show F4.5 pass after switching stress/combat gate metrics to mean-fps with existing p95 correctness assertions retained."
     }
   ]
 }
