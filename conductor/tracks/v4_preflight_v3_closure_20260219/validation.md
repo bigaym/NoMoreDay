@@ -51,3 +51,4 @@
 - `DEP-V3-F4.6` is now evidenced as stable pass in this session.
 - `DEP-V3-F6.2` remains open until missing baseline/candidate screenshots are generated.
 - User directive (2026-02-19): skip screenshot validation for the next few days; keep this dependency open and carry it as documented debt.
+- 2026-02-19: V4 gate moved to `CONDITIONAL-GO (V5 implementation unblocked)` posture; this preflight track remains open only for screenshot debt `Task 2.2`.

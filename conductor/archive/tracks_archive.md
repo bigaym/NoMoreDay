@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V4 Validation & Release Gate (v4_validation_release_gate_20260219)
+- **Folder:** [./conductor/archive/v4_validation_release_gate_20260219/](./conductor/archive/v4_validation_release_gate_20260219/)
+- **Description:** 完成 V4 五维门禁收口与轨道归档。功能/契约/主干验证已闭环，稳定性与回退按“可执行放宽”策略补齐证据，结论更新为 `CONDITIONAL-GO (V5 implementation unblocked)`。
+- **Status:** COMPLETED (2026-02-19)
+- **Priority:** P0
+- **Archive Reason:** 完成 `Task 5.7` 归档收尾；轨道文档与全局索引已同步；`performance` 标签保留非本任务阻塞项（`BUG-20260219-004`）单独跟踪，不阻塞 V5 实施。
+
+---
+
 ## [x] Track: V4 Advanced Lighting (v4_advanced_lighting_20260219)
 - **Folder:** [./conductor/archive/v4_advanced_lighting_20260219/](./conductor/archive/v4_advanced_lighting_20260219/)
 - **Description:** 完成 V4-C 高级光照交付：Clustered Forward+ V4（4096 光源、多类型剔除、V4 ABI）、HeightShadowPass（raymarch/self-shadow/POM）、全局高度场 chunk 增量更新基线、`shadowMapIndex` 与 clustered 运行时耦合。

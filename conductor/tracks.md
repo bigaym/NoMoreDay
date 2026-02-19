@@ -278,7 +278,7 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 
 ## [x] Track 2: V4 GPU Loot Rendering (v4_gpu_loot_rendering_20260219) [COMPLETED]
 
-> **Status**: 🚧 In Progress  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: feature  
 > **Phase**: V4-A (Week 1-3)  
@@ -315,16 +315,16 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 
 ---
 
-## [~] Track 5: V4 Validation & Release Gate (v4_validation_release_gate_20260219) [IN PROGRESS]
+## [x] Track 5: V4 Validation & Release Gate (v4_validation_release_gate_20260219) [COMPLETED]
 
-> **Status**: 🚧 In Progress  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: quality  
 > **Phase**: V4 Gate (Week 9-11)  
 > **Depends On**: ALL V4 feature tracks  
 > **Focus**: 5 维度门禁（功能/性能/契约/稳定性/回退），V4→V3 回退验证，V4 发布判定。  
-> **Tasks**: 24/30  
-> **Location**: [`conductor/tracks/v4_validation_release_gate_20260219/`](./tracks/v4_validation_release_gate_20260219/index.md)
+> **Tasks**: 30/30  
+> **Location**: [`conductor/archive/v4_validation_release_gate_20260219/`](./archive/v4_validation_release_gate_20260219/index.md)
 
 ---
 
@@ -411,9 +411,9 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v4_gpu_loot_rendering_20260219 | V4-A | 18/18 | P0 | ✅ Completed |
 | v4_pbr_material_pipeline_20260219 | V4-B | 25/25 | P1 | ✅ Completed |
 | v4_advanced_lighting_20260219 | V4-C | 28/28 | P1 | ✅ Completed |
-| v4_validation_release_gate_20260219 | V4 Gate | 24/30 | P0 | 🚧 In Progress |
+| v4_validation_release_gate_20260219 | V4 Gate | 30/30 | P0 | ✅ Completed |
 | v5_jfa_distance_field_20260219 | V5-A | 0/22 | P0 | 📋 Pending |
 | v5_radiance_cascades_gi_20260219 | V5-A/B | 0/35 | P0 | 📋 Pending |
 | v5_sph_fluid_exploration_20260219 | V5-B | 0/18 | P2 | 📋 Pending |
 | v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **71/230** | — | — |
+| **合计** | — | **77/230** | — | — |

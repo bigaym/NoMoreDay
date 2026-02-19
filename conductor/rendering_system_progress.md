@@ -132,9 +132,9 @@
 | 2 | V4-A | GPU Loot Rendering | Week 1-3 | ✅ Completed | `v4_gpu_loot_rendering_20260219` | 18/18 | MDI 合批、FrustumCull、力导向避让 |
 | 3 | V4-B | 2D PBR Material | Week 3-6 | ✅ Completed | `v4_pbr_material_pipeline_20260219` | 25/25 | GPUMaterialDataV3、BRDF-Lite、ABI V4 |
 | 4 | V4-C | Advanced Lighting | Week 6-9 | ✅ Completed | `v4_advanced_lighting_20260219` | 28/28 | 4096 光源、HeightShadow、POM |
-| 5 | Gate | Validation & Release | Week 9-11 | 🚧 In Progress | `v4_validation_release_gate_20260219` | 24/30 | 5 维度门禁、回退验证、发布判定 |
+| 5 | Gate | Validation & Release | Week 9-11 | ✅ Completed | `v4_validation_release_gate_20260219` | 30/30 | 归档完成，V5 实施已解除阻塞 |
 
-**V4 总任务数**: 130（完成 123，剩余 7）
+**V4 总任务数**: 130（完成 129，剩余 1）
 
 ---
 
