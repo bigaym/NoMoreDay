@@ -251,14 +251,14 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 
 ---
 
-## [ ] Track 0: V4 Pre-flight — V3 Debt Closure (v4_preflight_v3_closure_20260219) [PENDING]
+## [~] Track 0: V4 Pre-flight — V3 Debt Closure (v4_preflight_v3_closure_20260219) [IN PROGRESS]
 
-> **Status**: 📋 Pending  
+> **Status**: 🚧 In Progress  
 > **Priority**: P0  
 > **Type**: quality/chore  
 > **Phase**: V4 Pre-flight (Week 0-1)  
 > **Focus**: 闭环 V3 遗留依赖（DEP-V3-F4.6 性能豁免, DEP-V3-F6.2 截图基线），确认 V3 风险项，为 V4 开工亮绿灯。  
-> **Tasks**: 0/8  
+> **Tasks**: 7/8  
 > **Location**: [`conductor/tracks/v4_preflight_v3_closure_20260219/`](./tracks/v4_preflight_v3_closure_20260219/index.md)
 
 ---
@@ -406,7 +406,7 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 
 | Track | Phase | Tasks | Priority | Status |
 |---|---|---:|:---:|---|
-| v4_preflight_v3_closure_20260219 | V4 Pre-flight | 0/8 | P0 | 📋 Pending |
+| v4_preflight_v3_closure_20260219 | V4 Pre-flight | 7/8 | P0 | 🚧 In Progress |
 | v4_gpu_text_rendering_20260219 | V4-A | 0/20 | P0 | 📋 Pending |
 | v4_gpu_loot_rendering_20260219 | V4-A | 0/18 | P0 | 📋 Pending |
 | v4_pbr_material_pipeline_20260219 | V4-B | 0/25 | P1 | 📋 Pending |
@@ -416,4 +416,4 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v5_radiance_cascades_gi_20260219 | V5-A/B | 0/35 | P0 | 📋 Pending |
 | v5_sph_fluid_exploration_20260219 | V5-B | 0/18 | P2 | 📋 Pending |
 | v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **0/229** | — | — |
+| **合计** | — | **7/229** | — | — |

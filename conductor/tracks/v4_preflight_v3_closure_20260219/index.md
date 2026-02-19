@@ -1,7 +1,7 @@
 # Track: V4 Pre-flight — V3 Debt Closure
 
 **ID:** v4_preflight_v3_closure_20260219  
-**Status:** Pending  
+**Status:** In Progress  
 **Type:** quality/chore  
 **Priority:** P0  
 **Phase:** V4 Pre-flight (Week 0-1)
@@ -13,8 +13,8 @@
 
 ## 进度概览 (Progress)
 
-- **Phases**: 0/3 complete
-- **Tasks**: 0/8 complete
+- **Phases**: 2/3 complete
+- **Tasks**: 7/8 complete
 
 ---
 

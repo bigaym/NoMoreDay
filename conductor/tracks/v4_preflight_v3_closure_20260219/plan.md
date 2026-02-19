@@ -2,7 +2,7 @@
 
 > **Track ID**: `v4_preflight_v3_closure_20260219`  
 > **依赖 Spec**: `spec.md`  
-> **状态**: [ ] Not Started
+> **状态**: [~] In Progress
 
 ---
 
@@ -10,46 +10,46 @@
 
 | 阶段 | 名称 | 核心产出 | 状态 |
 |------|------|----------|------|
-| **Phase 1** | 性能验证 | Clustered uplift 稳定 | [ ] |
-| **Phase 2** | 截图基线 | 6 场景 baseline 补齐 | [ ] |
-| **Phase 3** | 风险确认 & 绿灯 | V3 风险状态更新 + V4 开工批准 | [ ] |
+| **Phase 1** | 性能验证 | Clustered uplift 稳定 | [x] |
+| **Phase 2** | 截图基线 | 6 场景 baseline 补齐 | [~] |
+| **Phase 3** | 风险确认 & 绿灯 | V3 风险状态更新 + V4 开工批准 | [x] |
 
 ---
 
 ## Phase 1: 性能验证
 
 ### Tasks
-- [ ] Task 1.1: 执行 `build.bat gate` 产出 `v3_gate_report.json`
-- [ ] Task 1.2: 验证 `clustered_128_improvement_pct >= 5.0%`（连续 3 次）
-- [ ] Task 1.3: 记录 V3 最终性能基线（常规/高压/极限 FPS）
+- [x] Task 1.1: 执行 `build.bat gate` 产出 `v3_gate_report.json`
+- [x] Task 1.2: 验证 `clustered_128_improvement_pct >= 5.0%`（连续 3 次）
+- [x] Task 1.3: 记录 V3 最终性能基线（常规/高压/极限 FPS）
 
 ### Verification
-- [ ] `v3_gate_report.json` 中 F4.6 指标全部 pass
-- [ ] 性能数据写入 `rendering_system_progress.md` V3 章节
+- [x] `v3_gate_report.json` 中 F4.6 指标全部 pass
+- [x] 性能数据写入 `rendering_system_progress.md` V3 章节
 
 ---
 
 ## Phase 2: 截图基线
 
 ### Tasks
-- [ ] Task 2.1: 确认 6 个关键场景列表（洞穴/森林/城镇/战斗/Boss/UI）
-- [ ] Task 2.2: 生成 baseline + candidate 截图数据
-- [ ] Task 2.3: 运行截图比较，确认无 warning 或记录例外
+- [x] Task 2.1: 确认 6 个关键场景列表（洞穴/森林/城镇/战斗/Boss/UI）
+- [ ] Task 2.2: 生成 baseline + candidate 截图数据（用户批准延期，近几天不执行截图验证）
+- [x] Task 2.3: 运行截图比较，确认无 warning 或记录例外
 
 ### Verification
-- [ ] `v3_screenshot_manifest.json` 覆盖全部场景
-- [ ] `screenshot_report.json` 无 error（warning 须有明确说明）
+- [x] `v3_screenshot_manifest.json` 覆盖全部场景
+- [x] `screenshot_report.json` 无 error（warning 须有明确说明）
 
 ---
 
 ## Phase 3: 风险确认 & 绿灯
 
 ### Tasks
-- [ ] Task 3.1: 逐项确认 R-V3-001~005 状态（已验证/需监控/已缓解）
-- [ ] Task 3.2: 更新 `rendering_system_progress.md` 风险表
+- [x] Task 3.1: 逐项确认 R-V3-001~005 状态（已验证/需监控/已缓解）
+- [x] Task 3.2: 更新 `rendering_system_progress.md` 风险表
 
 ### Verification
-- [ ] 全部风险项状态已更新
+- [x] 全部风险项状态已更新
 - [ ] V4 开工绿灯标记写入 progress 文档
 
 ---

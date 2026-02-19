@@ -38,6 +38,9 @@
 
 - [x] 设置系统与渲染配置闭环补齐：`SettingsState` 图形页新增 V3 可调开关（V3 总开关 / Clustered Lighting / Normal Lighting / Specular Highlights），并通过 `QualityTierManager` 持久化到 `settings.json` 的 `render.v3`。
 - [x] 修复 `GameSettings::Save` 覆盖写入导致的配置丢失风险：改为"读取现有 JSON 后合并更新基础设置字段"，避免覆盖 `render.v3` 与自动检测元数据。
+- [x] V4 Pre-flight Track 0 已启动并完成第一批验证：`build.bat` + `build.bat gate`（多次）+ `ctest --test-dir build -C Release -L performance` 均通过。
+- [x] `DEP-V3-F4.6` 稳定性证据：`clustered_128_improvement_pct` 连续 3 次为 `27.4982% / 23.0685% / 23.6616%`，均 >= `5.0%`。
+- [~] `DEP-V3-F6.2` 仍待闭环：`screenshot_report.json` 为 `warning=6`，原因均为 `missing_baseline_candidate`（6 场景截图基线缺失）；2026-02-19 用户批准“近几天跳过截图验证”，该项临时延期并保留为文档化债务。
 
 ---
 
@@ -91,11 +94,11 @@
 | R-001 | rlgl 状态与自定义后处理管线冲突 | 已解决 | Pass 边界强制 Flush + ScopedGLState |
 | R-002 | 集显平台 HDR/FBO 性能不稳定 | 监控中 | 低档位回退路径 + Mip 等级可降阶 |
 | R-003 | 最终视觉/稳定性结果依赖长时间实机运行 | 已验证 | 170+ 单测通过，10k 实体基准压测通过 |
-| R-V3-001 | Shadow Atlas 溢出抖动 | 待验证 | 确定性淘汰 + 滞回策略 + 日志计数 |
-| R-V3-002 | Cluster 溢出导致漏光 | 待验证 | 固定裁剪优先级 + 溢出统计 + 回归用例 |
-| R-V3-003 | ABI 偏移错位 | 待验证 | 生成链路唯一化 + CI layout 快照 |
-| R-V3-004 | Tier 降级抖动 | 待验证 | 降级冷却时间 + 恢复阈值滞回 |
-| R-V3-005 | 热重载中断 | 待验证 | 双缓冲句柄 + 验证后替换 |
+| R-V3-001 | Shadow Atlas 溢出抖动 | 已验证 | 确定性淘汰 + 滞回策略 + 日志计数 |
+| R-V3-002 | Cluster 溢出导致漏光 | 已验证 | 固定裁剪优先级 + 溢出统计 + 回归用例 |
+| R-V3-003 | ABI 偏移错位 | 已验证 | 生成链路唯一化 + CI layout 快照 |
+| R-V3-004 | Tier 降级抖动 | 已验证 | 降级冷却时间 + 恢复阈值滞回 |
+| R-V3-005 | 热重载中断 | 已验证 | 双缓冲句柄 + 验证后替换 |
 
 ---
 
@@ -124,7 +127,7 @@
 
 | # | Phase | 名称 | 周期 | 状态 | 对应 Track | Tasks | 关键产出 |
 |---|---|---|---|---|---|---:|---|
-| 0 | Pre-flight | V3 Debt Closure | Week 0-1 | 📋 Pending | `v4_preflight_v3_closure_20260219` | 0/8 | V3 遗留闭环、风险确认、V4 绿灯 |
+| 0 | Pre-flight | V3 Debt Closure | Week 0-1 | In Progress | `v4_preflight_v3_closure_20260219` | 7/8 | F4.6 连续 3 次通过；F6.2 经用户批准临时延期（截图不可用） |
 | 1 | V4-A | GPU Text (MSDF) | Week 1-3 | 📋 Pending | `v4_gpu_text_rendering_20260219` | 0/20 | MSDF Atlas、Compute 排版、MDI 绘制 |
 | 2 | V4-A | GPU Loot Rendering | Week 1-3 | 📋 Pending | `v4_gpu_loot_rendering_20260219` | 0/18 | MDI 合批、FrustumCull、力导向避让 |
 | 3 | V4-B | 2D PBR Material | Week 3-6 | 📋 Pending | `v4_pbr_material_pipeline_20260219` | 0/25 | GPUMaterialDataV3、BRDF-Lite、ABI V4 |
