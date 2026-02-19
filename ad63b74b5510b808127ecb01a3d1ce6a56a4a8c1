@@ -1,0 +1,1 @@
+Track v4_gpu_loot_rendering_20260219 closed: implemented GPULoot compute+indirect pipeline, integrated GPULootPass/RenderGraph/Profiler/QualityTier flags, verified via build + ctest(ci/unit/integration/performance), and archived track.
