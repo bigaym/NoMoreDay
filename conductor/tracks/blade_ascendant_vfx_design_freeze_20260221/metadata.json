@@ -1,0 +1,21 @@
+{
+  "id": "blade_ascendant_vfx_design_freeze_20260221",
+  "title": "Blade Ascendant VFX Design Freeze",
+  "type": "design",
+  "status": "pending",
+  "created": "2026-02-21T10:30:00-08:00",
+  "updated": "2026-02-21T11:05:00-08:00",
+  "priority": "P0",
+  "phase": "Design Freeze",
+  "depends_on": [
+    "blade_ascendant_skill_behaviors_20260221"
+  ],
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 18,
+    "completed": 0
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "blade_ascendant_skill_rendering_integration_20260221",
+  "title": "Blade Ascendant Skill Rendering Integration",
+  "type": "feature",
+  "status": "pending",
+  "created": "2026-02-21T10:00:00-08:00",
+  "updated": "2026-02-21T10:00:00-08:00",
+  "priority": "P1",
+  "phase": "Integration",
+  "depends_on": [
+    "blade_ascendant_vfx_design_freeze_20260221"
+  ],
+  "phases": {
+    "total": 4,
+    "completed": 0
+  },
+  "tasks": {
+    "total": 20,
+    "completed": 0
+  }
+}

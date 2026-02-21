@@ -5,6 +5,67 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
+## Blade Ascendant Skill Refactor Tracks (2026-02-21)
+
+```
+T0: blade_ascendant_skill_contracts_20260221 (P0, Foundation)
+  -> T1: blade_ascendant_skill_behaviors_20260221 (P0, Logic)
+    -> T1.5: blade_ascendant_vfx_design_freeze_20260221 (P0, Design Freeze)
+      -> T2: blade_ascendant_skill_rendering_integration_20260221 (P1, Integration)
+        -> T3: blade_ascendant_skill_validation_gate_20260221 (P0, Gate)
+```
+
+## [ ] Track T0: Blade Ascendant Skill Contracts Refactor (blade_ascendant_skill_contracts_20260221)
+
+> **Status**: Pending  
+> **Priority**: P0  
+> **Type**: refactor/foundation  
+> **Focus**: 技能合同化数据层、节点角色/触发/互斥/范围声明落地，作为后续行为与渲染重构基线。  
+> **Tasks**: 0/18  
+> **Location**: [`conductor/tracks/blade_ascendant_skill_contracts_20260221/`](./tracks/blade_ascendant_skill_contracts_20260221/index.md)
+
+## [ ] Track T1: Blade Ascendant Skill Behaviors Refactor (blade_ascendant_skill_behaviors_20260221)
+
+> **Status**: Pending  
+> **Priority**: P0  
+> **Type**: refactor/feature  
+> **Depends On**: `blade_ascendant_skill_contracts_20260221`  
+> **Focus**: 9 技能行为重构为合同驱动执行，统一剑意/御剑步/Trigger 防环与元素互斥逻辑。  
+> **Tasks**: 0/24  
+> **Location**: [`conductor/tracks/blade_ascendant_skill_behaviors_20260221/`](./tracks/blade_ascendant_skill_behaviors_20260221/index.md)
+
+## [ ] Track T1.5: Blade Ascendant VFX Design Freeze (blade_ascendant_vfx_design_freeze_20260221)
+
+> **Status**: Pending  
+> **Priority**: P0  
+> **Type**: design/spec  
+> **Depends On**: `blade_ascendant_skill_behaviors_20260221`  
+> **Focus**: 冻结剑修技能特效设计输入，明确事件契约、RenderGraph 接入、Tier 回退与预算门限。  
+> **Tasks**: 0/18  
+> **Location**: [`conductor/tracks/blade_ascendant_vfx_design_freeze_20260221/`](./tracks/blade_ascendant_vfx_design_freeze_20260221/index.md)
+
+## [ ] Track T2: Blade Ascendant Skill Rendering Integration (blade_ascendant_skill_rendering_integration_20260221)
+
+> **Status**: Pending  
+> **Priority**: P1  
+> **Type**: feature/integration  
+> **Depends On**: `blade_ascendant_vfx_design_freeze_20260221`  
+> **Focus**: 新技能行为与 RenderGraph/VFX 管线对齐，保证 FBO 归属合同、SSBO 约束与 Low Tier 回退路径。  
+> **Tasks**: 0/20  
+> **Location**: [`conductor/tracks/blade_ascendant_skill_rendering_integration_20260221/`](./tracks/blade_ascendant_skill_rendering_integration_20260221/index.md)
+
+## [ ] Track T3: Blade Ascendant Skill Validation Gate (blade_ascendant_skill_validation_gate_20260221)
+
+> **Status**: Pending  
+> **Priority**: P0  
+> **Type**: quality  
+> **Depends On**: `blade_ascendant_skill_rendering_integration_20260221`  
+> **Focus**: 功能/合同/性能/稳定性/回退五维门禁与证据闭环。  
+> **Tasks**: 0/16  
+> **Location**: [`conductor/tracks/blade_ascendant_skill_validation_gate_20260221/`](./tracks/blade_ascendant_skill_validation_gate_20260221/index.md)
+
+---
+
 ## V3 渲染系统升级 — Track 依赖图
 
 ```
@@ -391,7 +452,7 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 > **Closeout Note**: Exploration baseline `fluid_reference_10k_mean_ms=1.4305` (`target=0.80ms`) not met; decision = `NO-GO`.
 
 ---
-
+.
 ## [x] Track 9: V5 Validation & Release Gate (v5_validation_release_gate_20260219) [COMPLETED]
 
 > **Status**: ✅ Completed (Core GO, SPH NO-GO, Archived in `conductor/archive/`)  
