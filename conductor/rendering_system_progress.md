@@ -2,7 +2,7 @@
 
 > **对应设计文档**: [GPU_Rendering_System_2.md](../设计文档/特效和UI/GPU_Rendering_System_2.md) | [GPU_Rendering_System_3.md](../设计文档/特效和UI/GPU_Rendering_System_3.md)  
 > **起始日期**: 2026-02-12  
-> **最后更新**: 2026-02-19
+> **最后更新**: 2026-02-21
 
 ---
 
@@ -146,11 +146,11 @@
 | # | Phase | 名称 | 周期 | 状态 | 对应 Track | Tasks | 关键产出 |
 |---|---|---|---|---|---|---:|---|
 | 6 | V5-A | JFA Distance Field | Week 0-3 | ✅ Completed | `v5_jfa_distance_field_20260219` | 22/22 | JFA 距离场、OccluderExtract、增量更新（performance 非阻塞项挂接 BUG-20260219-004） |
-| 7 | V5-A/B | Radiance Cascades GI | Week 3-8 | 📋 Pending | `v5_radiance_cascades_gi_20260219` | 0/35 | Emissive Buffer、6 级联 GI、时域稳定 |
-| 8 | V5-B | SPH Fluid (⚠️探索) | Week 5-8 | 📋 Pending | `v5_sph_fluid_exploration_20260219` | 0/18 | SPH 核心、GI 交互、GO/NO-GO |
-| 9 | Gate | Validation & Release | Week 8-10 | 📋 Pending | `v5_validation_release_gate_20260219` | 0/25 | 核心+可选门禁、架构评估 |
+| 7 | V5-A/B | Radiance Cascades GI | Week 3-8 | ✅ Completed | `v5_radiance_cascades_gi_20260219` | 35/35 | Emissive Buffer、6 级联 GI、时域稳定 |
+| 8 | V5-B | SPH Fluid (⚠️探索) | Week 5-8 | ✅ Completed (NO-GO) | `v5_sph_fluid_exploration_20260219` | 18/18 | SPH 探索闭环，保留非阻塞 NO-GO 结论 |
+| 9 | Gate | Validation & Release | Week 8-10 | ✅ Completed (GO) | `v5_validation_release_gate_20260219` | 31/31 | 核心门禁通过，V5 core released |
 
-**V5 总任务数**: 100（完成 22，剩余 78）
+**V5 总任务数**: 106（完成 106，剩余 0）
 
 ---
 

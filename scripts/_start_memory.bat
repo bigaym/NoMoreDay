@@ -1,0 +1,1 @@
+$env:MCP_SERVER_HOST='127.0.0.1'; $env:MCP_SERVER_PORT='8000'; & 'F:\Environment\conda\python.exe' -u -m mcp_memory_service.mcp_server

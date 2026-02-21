@@ -31,7 +31,7 @@
 ### 2.2 已修正项（2026-02-19）
 
 1. `conductor/tracks/v5_sph_fluid_exploration_20260219/index.md` 与 `.../spec.md` 已对齐到设计文档 `§5`。  
-2. `conductor/tracks/v5_validation_release_gate_20260219/index.md` 与 `.../spec.md` 已对齐到设计文档 `§12`。  
+2. `conductor/archive/v5_validation_release_gate_20260219/index.md` 与 `.../spec.md` 已对齐到设计文档 `§12`。  
 3. SPH `GPUFluidConfig` 已与设计文档附录一致（`vec2 gravity` + `surfaceTension` + `maxParticles`）。
 
 ---

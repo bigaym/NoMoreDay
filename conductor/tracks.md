@@ -392,17 +392,18 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 
 ---
 
-## [ ] Track 9: V5 Validation & Release Gate (v5_validation_release_gate_20260219) [PENDING]
+## [x] Track 9: V5 Validation & Release Gate (v5_validation_release_gate_20260219) [COMPLETED]
 
-> **Status**: 📋 Pending  
+> **Status**: ✅ Completed (Core GO, SPH NO-GO, Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: quality  
 > **Phase**: V5 Gate (Week 8-10 after V4)  
 > **Depends On**: `v5_jfa_distance_field_20260219`, `v5_radiance_cascades_gi_20260219`  
 > **Optional Input**: `v5_sph_fluid_exploration_20260219` 仅作为 GO/NO-GO 决策输入，不阻断 V5 核心发布门禁  
 > **Focus**: 核心交付门禁（JFA 精度 + GI 间接光照 + 时域稳定 + 性能 + 契约 + 稳定性 + 回退）+ 可选 SPH 决策 + 架构前瞻评估。  
-> **Tasks**: 0/25  
-> **Location**: [`conductor/tracks/v5_validation_release_gate_20260219/`](./tracks/v5_validation_release_gate_20260219/index.md)
+> **Tasks**: 31/31  
+> **Location**: [`conductor/archive/v5_validation_release_gate_20260219/`](./archive/v5_validation_release_gate_20260219/index.md)
+> **Release Decision**: `GO (V5 core GI released)`; optional SPH branch stays `NO-GO`.
 
 ---
 
@@ -419,5 +420,5 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v5_jfa_distance_field_20260219 | V5-A | 22/22 | P0 | ✅ Completed |
 | v5_radiance_cascades_gi_20260219 | V5-A/B | 35/35 | P0 | ✅ Completed |
 | v5_sph_fluid_exploration_20260219 | V5-B | 18/18 | P2 | ✅ Completed (NO-GO) |
-| v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **152/230** | — | — |
+| v5_validation_release_gate_20260219 | V5 Gate | 31/31 | P0 | ✅ Completed |
+| **合计** | — | **235/236** | — | — |

@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: V5 Validation & Release Gate (v5_validation_release_gate_20260219)
+- **Folder:** [./conductor/archive/v5_validation_release_gate_20260219/](./conductor/archive/v5_validation_release_gate_20260219/)
+- **Description:** 完成 V5 发布门禁闭环。核心 JFA+GI 门禁通过（功能/性能/契约/稳定性/回退），产出 `validation.md` 与 `release_posture.md`；SPH 探索结论维持 `NO-GO` 且不阻断核心发布。
+- **Status:** COMPLETED (2026-02-21)
+- **Priority:** P0
+- **Archive Reason:** `.\build.bat`、`ctest -C RelWithDebInfo -L ci/unit/integration`、`ctest -C Release -L performance` 全部通过；关键指标满足门禁（`combat_180_fps=190455`、`baseline_270_fps=941.072`、`gi_ultra_standard_mean_ms=1.88112`、`vram_proxy_delta_bytes=0`）；最终决策 `GO (V5 core GI released)`，SPH 为非阻塞 `NO-GO`。
+
+---
+
 ## [x] Track: V5 JFA Distance Field (v5_jfa_distance_field_20260219)
 - **Folder:** [./conductor/archive/v5_jfa_distance_field_20260219/](./conductor/archive/v5_jfa_distance_field_20260219/)
 - **Description:** 完成 V5 JFA 距离场管线交付：`OccluderExtractPass`（静/动态遮挡提取+合成）、`JFAPass`（SeedInit/JumpFlood/JFA+1/Distance + half-res 上采样 + interval + JFA+2 fallback）、RenderGraph 契约与 RenderSystem 生命周期接线、以及 EDT/JFA 误差评估工具链与测试覆盖。
