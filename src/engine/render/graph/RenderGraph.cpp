@@ -28,6 +28,7 @@ bool IsWriterAllowedForResource(RenderResourceTag resourceTag,
            ownerTag == RenderOwnerTag::Lighting ||
            ownerTag == RenderOwnerTag::HeightShadow ||
            ownerTag == RenderOwnerTag::GIComposite ||
+           ownerTag == RenderOwnerTag::FluidSimulation ||
            ownerTag == RenderOwnerTag::Volumetric ||
            ownerTag == RenderOwnerTag::VFX ||
            ownerTag == RenderOwnerTag::UIWorld;
@@ -86,6 +87,7 @@ bool IsAdditionalWriterValid(RenderResourceTag resourceTag,
     return ownerTag == RenderOwnerTag::Lighting ||
            ownerTag == RenderOwnerTag::HeightShadow ||
            ownerTag == RenderOwnerTag::GIComposite ||
+           ownerTag == RenderOwnerTag::FluidSimulation ||
            ownerTag == RenderOwnerTag::Volumetric ||
            ownerTag == RenderOwnerTag::VFX ||
            ownerTag == RenderOwnerTag::UIWorld;
@@ -143,14 +145,15 @@ enum class PassContractStage : int {
   JFA = 6,
   RadianceCascades = 7,
   GIComposite = 8,
-  Volumetric = 9,
-  VFX = 10,
-  GPUText = 11,
-  GPULoot = 12,
-  UIWorld = 13,
-  PostProcess = 14,
-  Distortion = 15,
-  Composite = 16,
+  FluidSimulation = 9,
+  Volumetric = 10,
+  VFX = 11,
+  GPUText = 12,
+  GPULoot = 13,
+  UIWorld = 14,
+  PostProcess = 15,
+  Distortion = 16,
+  Composite = 17,
 };
 
 std::optional<PassContractStage> ResolvePassContractStage(std::string_view passName) {
@@ -181,6 +184,9 @@ std::optional<PassContractStage> ResolvePassContractStage(std::string_view passN
   }
   if (passName == "GICompositePass") {
     return PassContractStage::GIComposite;
+  }
+  if (passName == "FluidSimulationPass") {
+    return PassContractStage::FluidSimulation;
   }
   if (passName == "VolumetricLightPass") {
     return PassContractStage::Volumetric;
@@ -334,6 +340,7 @@ void RenderGraph::ValidateBuildContracts() {
   // Pass order contract:
   // Scene -> Shadow -> LightCulling -> Lighting -> HeightShadow
   // -> OccluderExtract -> JFA -> RadianceCascades -> GIComposite
+  // -> FluidSimulation
   // -> Volumetric -> VFX -> GPUText -> GPULoot -> UIWorld
   // -> PostProcess -> Distortion -> Composite
   int lastStage = -1;

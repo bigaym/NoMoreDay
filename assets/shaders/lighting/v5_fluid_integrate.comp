@@ -1,0 +1,97 @@
+﻿#version 430 core
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct FluidParticle {
+    vec2 position;
+    vec2 velocity;
+    float density;
+    float pressure;
+    vec4 color;
+    float lifetime;
+    uint flags;
+};
+
+struct FluidConfig {
+    float smoothingRadius;
+    float restDensity;
+    float stiffness;
+    float viscosity;
+    vec2 gravity;
+    float surfaceTension;
+    uint maxParticles;
+};
+
+layout(std430, binding = 0) readonly buffer ParticlesIn {
+    FluidParticle particlesIn[];
+};
+
+layout(std430, binding = 5) writeonly buffer ParticlesOut {
+    FluidParticle particlesOut[];
+};
+
+layout(std430, binding = 6) readonly buffer FluidConfigBuffer {
+    FluidConfig config;
+};
+
+uniform sampler2D uDistanceFieldTex;
+uniform int uParticleCount;
+uniform float uDeltaTime;
+uniform vec2 uBoundsMin;
+uniform vec2 uBoundsMax;
+uniform vec2 uEmitter;
+uniform int uFrameIndex;
+uniform vec2 uCameraOffset;
+uniform vec2 uScreenSize;
+uniform int uUseDistanceField;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    uint count = uint(max(uParticleCount, 0));
+    if (idx >= count) {
+        return;
+    }
+
+    FluidParticle p = particlesIn[idx];
+    float dt = max(uDeltaTime, 0.0);
+    p.position += p.velocity * dt;
+
+    if (p.position.x < uBoundsMin.x) {
+        p.position.x = uBoundsMin.x;
+        p.velocity.x *= -0.42;
+    }
+    if (p.position.y < uBoundsMin.y) {
+        p.position.y = uBoundsMin.y;
+        p.velocity.y *= -0.42;
+    }
+    if (p.position.x > uBoundsMax.x) {
+        p.position.x = uBoundsMax.x;
+        p.velocity.x *= -0.42;
+    }
+    if (p.position.y > uBoundsMax.y) {
+        p.position.y = uBoundsMax.y;
+        p.velocity.y *= -0.42;
+    }
+
+    if (uUseDistanceField != 0 && uScreenSize.x > 0.0 && uScreenSize.y > 0.0) {
+        vec2 uv = (p.position - uCameraOffset) / uScreenSize;
+        if (uv.x >= 0.0 && uv.y >= 0.0 && uv.x <= 1.0 && uv.y <= 1.0) {
+            float sdf = texture(uDistanceFieldTex, uv).r;
+            if (sdf < 0.5) {
+                p.velocity *= 0.75;
+                p.position += normalize(p.position - uEmitter + vec2(0.001, 0.001)) * 0.5;
+            }
+        }
+    }
+
+    p.lifetime += dt * 0.1;
+    if (p.lifetime > 1.0) {
+        p.lifetime = 0.0;
+        float lane = float(int(idx) % 64 - 32);
+        p.position = vec2(uEmitter.x + lane * 0.8, uEmitter.y);
+        p.velocity *= 0.2;
+    }
+
+    particlesOut[idx] = p;
+}
+

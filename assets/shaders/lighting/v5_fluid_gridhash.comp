@@ -1,0 +1,49 @@
+﻿#version 430 core
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct FluidParticle {
+    vec2 position;
+    vec2 velocity;
+    float density;
+    float pressure;
+    vec4 color;
+    float lifetime;
+    uint flags;
+};
+
+layout(std430, binding = 0) readonly buffer ParticlesIn {
+    FluidParticle particles[];
+};
+
+layout(std430, binding = 1) writeonly buffer CellCoords {
+    uint cellCoord[];
+};
+
+layout(std430, binding = 2) buffer CellCounts {
+    uint cellCounts[];
+};
+
+uniform int uParticleCount;
+uniform float uCellSize;
+uniform vec2 uGridOrigin;
+uniform ivec2 uGridDim;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    if (idx >= uint(max(uParticleCount, 0))) {
+        return;
+    }
+
+    vec2 world = particles[idx].position;
+    vec2 local = (world - uGridOrigin) / max(uCellSize, 0.0001);
+    int cx = clamp(int(floor(local.x)), 0, max(0, uGridDim.x - 1));
+    int cy = clamp(int(floor(local.y)), 0, max(0, uGridDim.y - 1));
+    uint cell = uint(cy * max(1, uGridDim.x) + cx);
+
+    cellCoord[idx] = cell;
+    if (cell < cellCounts.length()) {
+        atomicAdd(cellCounts[cell], 1u);
+    }
+}
+

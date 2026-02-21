@@ -1,0 +1,91 @@
+﻿#version 430 core
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct FluidParticle {
+    vec2 position;
+    vec2 velocity;
+    float density;
+    float pressure;
+    vec4 color;
+    float lifetime;
+    uint flags;
+};
+
+struct FluidConfig {
+    float smoothingRadius;
+    float restDensity;
+    float stiffness;
+    float viscosity;
+    vec2 gravity;
+    float surfaceTension;
+    uint maxParticles;
+};
+
+layout(std430, binding = 0) readonly buffer ParticlesIn {
+    FluidParticle particlesIn[];
+};
+
+layout(std430, binding = 3) readonly buffer NeighborIndices {
+    uint neighborIndices[];
+};
+
+layout(std430, binding = 4) readonly buffer NeighborCounts {
+    uint neighborCounts[];
+};
+
+layout(std430, binding = 5) writeonly buffer ParticlesOut {
+    FluidParticle particlesOut[];
+};
+
+layout(std430, binding = 6) readonly buffer FluidConfigBuffer {
+    FluidConfig config;
+};
+
+uniform int uParticleCount;
+uniform int uMaxNeighbors;
+uniform float uDeltaTime;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    uint count = uint(max(uParticleCount, 0));
+    if (idx >= count) {
+        return;
+    }
+
+    FluidParticle p = particlesIn[idx];
+    vec2 force = config.gravity;
+
+    float h = max(config.smoothingRadius, 0.0001);
+    float h2 = h * h;
+    float spiky = -30.0 / (3.14159265359 * pow(h, 5.0));
+    float visc = 20.0 / (3.14159265359 * pow(h, 5.0));
+
+    uint maxNeighbors = uint(max(uMaxNeighbors, 0));
+    uint neighborCount = min(neighborCounts[idx], maxNeighbors);
+    uint base = idx * maxNeighbors;
+    for (uint n = 0u; n < neighborCount; ++n) {
+        uint j = neighborIndices[base + n];
+        if (j >= count) {
+            continue;
+        }
+        FluidParticle q = particlesIn[j];
+        vec2 delta = p.position - q.position;
+        float r2 = dot(delta, delta);
+        if (r2 <= 1e-8 || r2 >= h2) {
+            continue;
+        }
+
+        float r = sqrt(r2);
+        vec2 dir = delta / r;
+        float pressureTerm = (p.pressure + q.pressure) * 0.5;
+        float densityTerm = max(0.0001, q.density);
+        force += -dir * (pressureTerm / densityTerm) * spiky * pow(h - r, 2.0);
+        force += config.viscosity * (q.velocity - p.velocity) * visc * (h - r);
+    }
+
+    float dt = max(uDeltaTime, 0.0);
+    p.velocity += force * dt;
+    particlesOut[idx] = p;
+}
+

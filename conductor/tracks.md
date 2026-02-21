@@ -378,16 +378,17 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 
 ---
 
-## [ ] Track 8: V5 SPH Fluid Simulation — Exploration (v5_sph_fluid_exploration_20260219) [PENDING]
+## [x] Track 8: V5 SPH Fluid Simulation — Exploration (v5_sph_fluid_exploration_20260219) [COMPLETED]
 
-> **Status**: 📋 Pending  
+> **Status**: ✅ Completed (NO-GO, Archived in `conductor/archive/`)  
 > **Priority**: P2 ⚠️ 探索性质，不阻断 V5 核心交付  
 > **Type**: feature (exploration)  
 > **Phase**: V5-B (Week 5-8 after V4)  
 > **Depends On**: `v5_jfa_distance_field_20260219`  
 > **Focus**: GPU SPH 流体模拟（血液/水面/岩浆）— NeighborSearch + Density + Force + Leapfrog + Render + GI 交互。含 GO/NO-GO 决策点。  
-> **Tasks**: 0/18  
-> **Location**: [`conductor/tracks/v5_sph_fluid_exploration_20260219/`](./tracks/v5_sph_fluid_exploration_20260219/index.md)
+> **Tasks**: 18/18  
+> **Location**: [`conductor/archive/v5_sph_fluid_exploration_20260219/`](./archive/v5_sph_fluid_exploration_20260219/index.md)
+> **Closeout Note**: Exploration baseline `fluid_reference_10k_mean_ms=1.4305` (`target=0.80ms`) not met; decision = `NO-GO`.
 
 ---
 
@@ -417,6 +418,6 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v4_validation_release_gate_20260219 | V4 Gate | 30/30 | P0 | ✅ Completed |
 | v5_jfa_distance_field_20260219 | V5-A | 22/22 | P0 | ✅ Completed |
 | v5_radiance_cascades_gi_20260219 | V5-A/B | 35/35 | P0 | ✅ Completed |
-| v5_sph_fluid_exploration_20260219 | V5-B | 0/18 | P2 | 📋 Pending |
+| v5_sph_fluid_exploration_20260219 | V5-B | 18/18 | P2 | ✅ Completed (NO-GO) |
 | v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **134/230** | — | — |
+| **合计** | — | **152/230** | — | — |

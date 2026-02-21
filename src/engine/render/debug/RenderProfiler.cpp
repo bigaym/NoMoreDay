@@ -203,6 +203,8 @@ const char *RenderProfiler::ToString(RenderPassId passId) {
     return "RadianceCascades";
   case RenderPassId::GIComposite:
     return "GIComposite";
+  case RenderPassId::FluidSimulation:
+    return "FluidSimulation";
   case RenderPassId::Volumetric:
     return "Volumetric";
   case RenderPassId::VFX:
@@ -247,6 +249,9 @@ std::optional<RenderPassId> RenderProfiler::FromPassName(std::string_view passNa
   if (passName == "GICompositePass") {
     return RenderPassId::GIComposite;
   }
+  if (passName == "FluidSimulationPass") {
+    return RenderPassId::FluidSimulation;
+  }
   if (passName == "VolumetricLightPass") {
     return RenderPassId::Volumetric;
   }
@@ -290,6 +295,8 @@ float RenderProfiler::GetBudgetMs(RenderPassId passId) {
     return 1.20f;
   case RenderPassId::GIComposite:
     return 0.05f;
+  case RenderPassId::FluidSimulation:
+    return 0.30f;
   case RenderPassId::Volumetric:
     return 0.80f;
   case RenderPassId::VFX:

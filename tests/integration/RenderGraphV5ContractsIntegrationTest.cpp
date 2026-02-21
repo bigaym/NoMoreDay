@@ -2,6 +2,7 @@
 
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/passes/CompositePass.hpp"
+#include "engine/render/passes/FluidSimulationPass.hpp"
 #include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/HeightShadowPass.hpp"
 #include "engine/render/passes/JFAPass.hpp"
@@ -118,6 +119,7 @@ TEST_CASE("[Integration] RenderGraph V5 Contracts - Radiance and GI composite ch
   graph.AddPass(std::make_shared<passes::JFAPass>());
   graph.AddPass(std::make_shared<passes::RadianceCascadesPass>());
   graph.AddPass(std::make_shared<passes::GICompositePass>());
+  graph.AddPass(std::make_shared<passes::FluidSimulationPass>());
   graph.AddPass(std::make_shared<passes::VFXPass>());
   graph.AddPass(std::make_shared<passes::UIWorldPass>());
   graph.AddPass(std::make_shared<passes::CompositePass>(
@@ -125,5 +127,5 @@ TEST_CASE("[Integration] RenderGraph V5 Contracts - Radiance and GI composite ch
 
   CHECK_NOTHROW(graph.Build());
   CHECK(!graph.HasValidationErrors());
-  CHECK(graph.GetPassCount() == 10);
+  CHECK(graph.GetPassCount() == 11);
 }

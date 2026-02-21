@@ -1,7 +1,7 @@
 # Track: V5 SPH Fluid Simulation (Exploration)
 
 **ID:** v5_sph_fluid_exploration_20260219  
-**Status:** Pending  
+**Status:** Completed (NO-GO)  
 **Type:** feature (exploration)  
 **Priority:** P2  
 **Phase:** V5-B (Week 5-8 after V4)
@@ -13,12 +13,12 @@
 
 ## 进度概览 (Progress)
 
-- **Phases**: 0/4 complete
-- **Tasks**: 0/18 complete
+- **Phases**: 4/4 complete
+- **Tasks**: 18/18 complete
 
 ## ⚠️ 预研声明
 
-本 Track 为探索性质。若效果/性能不满意，可不纳入正式发布。
+本 Track 为探索性质。当前结论为 **NO-GO**，不纳入 V5 正式发布门禁。
 
 ---
 

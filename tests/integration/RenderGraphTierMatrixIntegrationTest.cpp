@@ -6,6 +6,7 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/FluidSimulationPass.hpp"
 #include "engine/render/passes/HeightShadowPass.hpp"
 #include "engine/render/passes/JFAPass.hpp"
 #include "engine/render/passes/LightCullingPass.hpp"
@@ -67,6 +68,9 @@ void BuildDefaultPathGraph(
     graph.AddPass(std::make_shared<passes::JFAPass>());
     graph.AddPass(std::make_shared<passes::RadianceCascadesPass>());
     graph.AddPass(std::make_shared<passes::GICompositePass>());
+  }
+  if (useHdrPath && cfg.fluidEnabled) {
+    graph.AddPass(std::make_shared<passes::FluidSimulationPass>());
   }
   if (useHdrPath && cfg.volumetricLightEnabled) {
     graph.AddPass(std::make_shared<passes::VolumetricLightPass>());

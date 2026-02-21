@@ -18,6 +18,7 @@
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/FluidSimulationPass.hpp"
 #include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/GPULootPass.hpp"
 #include "engine/render/passes/GPUTextPass.hpp"
@@ -185,6 +186,7 @@ std::shared_ptr<NoMoreDay::render::passes::JFAPass> g_jfaPass;
 std::shared_ptr<NoMoreDay::render::passes::RadianceCascadesPass>
     g_radianceCascadesPass;
 std::shared_ptr<NoMoreDay::render::passes::GICompositePass> g_giCompositePass;
+std::shared_ptr<NoMoreDay::render::passes::FluidSimulationPass> g_fluidSimulationPass;
 std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass;
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
 std::shared_ptr<NoMoreDay::render::passes::ShadowPreparePass> g_shadowPreparePass;
@@ -1123,6 +1125,10 @@ void RenderSystem::Initialize() {
   g_radianceCascadesPass =
       std::make_shared<NoMoreDay::render::passes::RadianceCascadesPass>();
   g_giCompositePass = std::make_shared<NoMoreDay::render::passes::GICompositePass>();
+  g_fluidSimulationPass =
+      std::make_shared<NoMoreDay::render::passes::FluidSimulationPass>();
+  g_fluidSimulationPass->SetOccluderExtractPass(g_occluderExtractPass.get());
+  g_fluidSimulationPass->SetRadiancePass(g_radianceCascadesPass.get());
   g_lightingPass->Initialize();
   g_shadowPreparePass =
       std::make_shared<NoMoreDay::render::passes::ShadowPreparePass>();
@@ -1142,6 +1148,10 @@ void RenderSystem::Initialize() {
     g_jfaPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
     g_radianceCascadesPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
     g_giCompositePass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
+  }
+  if (s_hdrSceneBuffer.IsValid() && qualityManager.GetConfig().fluidEnabled &&
+      g_fluidSimulationPass != nullptr) {
+    g_fluidSimulationPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
   }
   g_renderProfiler = std::make_unique<NoMoreDay::render::debug::RenderProfiler>();
   g_shaderHotReloadManager =
@@ -1302,6 +1312,10 @@ void RenderSystem::Shutdown() {
     g_giCompositePass->Shutdown();
     g_giCompositePass.reset();
   }
+  if (g_fluidSimulationPass) {
+    g_fluidSimulationPass->Shutdown();
+    g_fluidSimulationPass.reset();
+  }
   if (g_occluderExtractPass) {
     g_occluderExtractPass->Shutdown();
     g_occluderExtractPass.reset();
@@ -1425,6 +1439,9 @@ void RenderSystem::render(entt::registry &registry,
     g_volumetricPass->Shutdown();
   }
   s_prevUseVolumetricPass = useVolumetricPass;
+  if (!renderConfig.fluidEnabled && g_fluidSimulationPass != nullptr) {
+    g_fluidSimulationPass->Shutdown();
+  }
 
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
@@ -1452,6 +1469,10 @@ void RenderSystem::render(entt::registry &registry,
         g_jfaPass->OnResize(screenWidth, screenHeight);
         g_radianceCascadesPass->OnResize(screenWidth, screenHeight);
         g_giCompositePass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_fluidSimulationPass && s_hdrSceneBuffer.IsValid() &&
+          renderConfig.fluidEnabled) {
+        g_fluidSimulationPass->OnResize(screenWidth, screenHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
@@ -1486,6 +1507,10 @@ void RenderSystem::render(entt::registry &registry,
         g_jfaPass->OnResize(screenWidth, screenHeight);
         g_radianceCascadesPass->OnResize(screenWidth, screenHeight);
         g_giCompositePass->OnResize(screenWidth, screenHeight);
+      }
+      if (g_fluidSimulationPass && s_hdrSceneBuffer.IsValid() &&
+          renderConfig.fluidEnabled) {
+        g_fluidSimulationPass->OnResize(screenWidth, screenHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
@@ -1581,6 +1606,11 @@ void RenderSystem::render(entt::registry &registry,
     graph.AddPass(g_radianceCascadesPass);
     graph.AddPass(g_giCompositePass);
     sceneHdrOwner = RenderOwnerTag::GIComposite;
+  }
+  if (useHdrSceneBuffer && renderConfig.fluidEnabled &&
+      g_fluidSimulationPass != nullptr) {
+    graph.AddPass(g_fluidSimulationPass);
+    sceneHdrOwner = RenderOwnerTag::FluidSimulation;
   }
   if (useVolumetricPass && g_volumetricPass != nullptr) {
     graph.AddPass(g_volumetricPass);

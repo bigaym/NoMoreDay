@@ -34,6 +34,7 @@ enum class RenderOwnerTag : uint8_t {
   JFA,
   RadianceCascades,
   GIComposite,
+  FluidSimulation,
   Volumetric,
   VFX,
   UIWorld,
@@ -115,6 +116,8 @@ constexpr const char *ToOwnerName(RenderOwnerTag ownerTag) {
     return "RadianceCascades";
   case RenderOwnerTag::GIComposite:
     return "GIComposite";
+  case RenderOwnerTag::FluidSimulation:
+    return "FluidSimulation";
   case RenderOwnerTag::Volumetric:
     return "Volumetric";
   case RenderOwnerTag::VFX:

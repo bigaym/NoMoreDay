@@ -1,0 +1,83 @@
+﻿#version 430 core
+
+layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+struct FluidParticle {
+    vec2 position;
+    vec2 velocity;
+    float density;
+    float pressure;
+    vec4 color;
+    float lifetime;
+    uint flags;
+};
+
+struct FluidConfig {
+    float smoothingRadius;
+    float restDensity;
+    float stiffness;
+    float viscosity;
+    vec2 gravity;
+    float surfaceTension;
+    uint maxParticles;
+};
+
+layout(std430, binding = 0) readonly buffer ParticlesIn {
+    FluidParticle particlesIn[];
+};
+
+layout(std430, binding = 3) readonly buffer NeighborIndices {
+    uint neighborIndices[];
+};
+
+layout(std430, binding = 4) readonly buffer NeighborCounts {
+    uint neighborCounts[];
+};
+
+layout(std430, binding = 5) writeonly buffer ParticlesOut {
+    FluidParticle particlesOut[];
+};
+
+layout(std430, binding = 6) readonly buffer FluidConfigBuffer {
+    FluidConfig config;
+};
+
+uniform int uParticleCount;
+uniform int uMaxNeighbors;
+
+void main() {
+    uint idx = gl_GlobalInvocationID.x;
+    uint count = uint(max(uParticleCount, 0));
+    if (idx >= count) {
+        return;
+    }
+
+    FluidParticle p = particlesIn[idx];
+
+    float h = max(config.smoothingRadius, 0.0001);
+    float h2 = h * h;
+    float poly6 = 4.0 / (3.14159265359 * pow(h, 8.0));
+    float density = poly6 * pow(h2, 3.0);
+
+    uint maxNeighbors = uint(max(uMaxNeighbors, 0));
+    uint neighborCount = min(neighborCounts[idx], maxNeighbors);
+    uint base = idx * maxNeighbors;
+    for (uint n = 0u; n < neighborCount; ++n) {
+        uint j = neighborIndices[base + n];
+        if (j >= count) {
+            continue;
+        }
+        vec2 delta = p.position - particlesIn[j].position;
+        float r2 = dot(delta, delta);
+        if (r2 >= h2) {
+            continue;
+        }
+        float diff = h2 - r2;
+        density += poly6 * diff * diff * diff;
+    }
+
+    p.density = density;
+    p.pressure = max(0.0, config.stiffness * (density - config.restDensity));
+    particlesOut[idx] = p;
+}
+
