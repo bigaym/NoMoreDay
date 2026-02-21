@@ -1,0 +1,1 @@
+Track v5_radiance_cascades_gi_20260219 closeout: completed task 1.3 material emission via GPUMaterialDataV3 Mask.A, added GI tier/perf/stability tests, verification passed (build.bat, build.bat analyze, ctest unit/integration/ci/performance), archived track under conductor/archive.
