@@ -1,0 +1,1 @@
+Track v5_radiance_cascades_gi_20260219 sync: added RadianceCascadesPass + GICompositePass + GI shaders, integrated RenderGraph chain; build.bat PASS, ctest(RelWithDebInfo:ci/integration) PASS, ctest(Release:performance) FAIL non-blocking linked BUG-20260219-004 (dispatchOverheadMs=0.259455).
