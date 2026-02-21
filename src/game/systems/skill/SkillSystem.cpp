@@ -33,6 +33,86 @@ namespace NoMoreDay {
 // Static scratch buffers to avoid per-frame allocations in hot paths
 // (Replaced by local/thread_local buffers for safety and performance)
 
+namespace {
+
+const SpecializedSkill *FindSpecializedSkill(const ActiveSkillsComponent &active,
+                                             uint32_t skill_id,
+                                             int preferred_slot) {
+  if (preferred_slot >= 0 &&
+      preferred_slot < static_cast<int>(active.specialized_slots.size())) {
+    const auto &spec = active.specialized_slots[preferred_slot];
+    if (spec.skill_id == skill_id) {
+      return &spec;
+    }
+  }
+  for (const auto &spec : active.specialized_slots) {
+    if (spec.skill_id == skill_id) {
+      return &spec;
+    }
+  }
+  return nullptr;
+}
+
+void TickTriggerCooldowns(SkillContractRuntimeComponent &runtime, float dt) {
+  for (auto it = runtime.trigger_cooldowns.begin();
+       it != runtime.trigger_cooldowns.end();) {
+    it->second -= dt;
+    if (it->second <= 0.0f) {
+      it = runtime.trigger_cooldowns.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+bool ValidateContractCastConstraints(
+    const SkillRegistry &registry_data, const SkillContract *contract,
+    const SpecializedSkill *specialized, uint32_t skill_id,
+    std::vector<uint32_t> *allocated_transmuters,
+    std::vector<std::pair<uint32_t, float>> *allocated_triggers) {
+  if (!contract || !specialized) {
+    return true;
+  }
+
+  uint32_t transmuter_count = 0;
+  uint32_t trigger_count = 0;
+  allocated_transmuters->clear();
+  allocated_triggers->clear();
+
+  for (const auto &[node_id, points] : specialized->allocated_points) {
+    if (points <= 0) {
+      continue;
+    }
+    const auto *node_contract = registry_data.GetNodeContract(skill_id, node_id);
+    if (!node_contract) {
+      continue;
+    }
+    if (node_contract->role == SpecNodeRole::Transmuter) {
+      ++transmuter_count;
+      allocated_transmuters->push_back(node_id);
+    } else if (node_contract->role == SpecNodeRole::Trigger) {
+      ++trigger_count;
+      allocated_triggers->push_back(
+          {node_id, node_contract->trigger.internal_cooldown});
+    }
+  }
+
+  if (transmuter_count > contract->max_transmuters) {
+    LOG_WARN("TryCast blocked: skill {} has {} transmuters > max {}",
+             skill_id, transmuter_count,
+             static_cast<uint32_t>(contract->max_transmuters));
+    return false;
+  }
+  if (trigger_count > contract->max_triggers) {
+    LOG_WARN("TryCast blocked: skill {} has {} triggers > max {}", skill_id,
+             trigger_count, static_cast<uint32_t>(contract->max_triggers));
+    return false;
+  }
+  return true;
+}
+
+} // namespace
+
 void SkillSystem::InitHooks() {
   LOG_INFO("Initializing Skill Hooks...");
   SkillBehaviorRegistry::Initialize();
@@ -793,6 +873,9 @@ void SkillSystem::UpdateCooldowns(entt::registry &registry, float dt) {
   auto view = registry.view<ActiveSkillsComponent>();
   for (auto entity : view) {
     auto &active = view.get<ActiveSkillsComponent>(entity);
+    if (auto *runtime = registry.try_get<SkillContractRuntimeComponent>(entity)) {
+      TickTriggerCooldowns(*runtime, dt);
+    }
     for (auto &slot : active.slots) {
       if (slot.id == 0)
         continue;
@@ -947,6 +1030,19 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     return false;
   }
 
+  const SpecializedSkill *specialized =
+      FindSpecializedSkill(*active, slot.id, slot_index);
+  const auto *skill_contract = SkillRegistry::Get().GetSkillContract(slot.id);
+  static thread_local std::vector<uint32_t> s_allocated_transmuters;
+  static thread_local std::vector<std::pair<uint32_t, float>>
+      s_allocated_triggers;
+  if (!ValidateContractCastConstraints(SkillRegistry::Get(), skill_contract,
+                                       specialized, slot.id,
+                                       &s_allocated_transmuters,
+                                       &s_allocated_triggers)) {
+    return false;
+  }
+
   if (slot.current_charges <= 0) {
     LOG_TRACE("TryCast: Skill {} has no charges ({} / {})", data->name_key,
               slot.current_charges, data->max_charges);
@@ -1049,17 +1145,28 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   exec.target_pos = target_pos;
 
   // Populate active_nodes from Specialization
-  if (slot_index >= 0 && slot_index < (int)active->specialized_slots.size()) {
-    const auto &spec = active->specialized_slots[slot_index];
-    if (spec.skill_id == slot.id) {
-      for (auto const &[node_id, points] : spec.allocated_points) {
-        if (points > 0) {
-          // ID Convention: SkillID * 100 + Index (0-99)
-          uint32_t bit_idx = node_id % 100;
-          if (bit_idx < 128) {
-            exec.active_nodes.set(bit_idx);
-          }
+  if (specialized) {
+    for (auto const &[node_id, points] : specialized->allocated_points) {
+      if (points > 0) {
+        // ID Convention: SkillID * 100 + Index (0-99)
+        uint32_t bit_idx = node_id % 100;
+        if (bit_idx < 128) {
+          exec.active_nodes.set(bit_idx);
         }
+      }
+    }
+  }
+
+  if (specialized && skill_contract) {
+    auto &runtime = registry.get_or_emplace<SkillContractRuntimeComponent>(entity);
+    runtime.version = kSkillContractRuntimeVersion;
+    if (!s_allocated_transmuters.empty()) {
+      runtime.active_transmuter_node_by_skill[slot.id] =
+          s_allocated_transmuters.front();
+    }
+    for (const auto &[node_id, internal_cd] : s_allocated_triggers) {
+      if (internal_cd > 0.0f) {
+        runtime.trigger_cooldowns[node_id] = internal_cd;
       }
     }
   }
@@ -1271,6 +1378,34 @@ Tag SkillSystem::GetEffectiveSkillTags(entt::registry &registry,
   }
 
   return tags;
+}
+
+uint32_t SkillSystem::GetActiveTransmuterNode(const entt::registry &registry,
+                                              entt::entity entity,
+                                              uint32_t skill_id) {
+  const auto *runtime = registry.try_get<SkillContractRuntimeComponent>(entity);
+  if (!runtime) {
+    return 0;
+  }
+  auto it = runtime->active_transmuter_node_by_skill.find(skill_id);
+  if (it == runtime->active_transmuter_node_by_skill.end()) {
+    return 0;
+  }
+  return it->second;
+}
+
+bool SkillSystem::NodeAffectsSwordIntent(const entt::registry &,
+                                         uint32_t skill_id, uint32_t node_id) {
+  const auto *node_contract =
+      SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+  return node_contract ? node_contract->affects_sword_intent : false;
+}
+
+bool SkillSystem::NodeAffectsSwordStep(const entt::registry &, uint32_t skill_id,
+                                       uint32_t node_id) {
+  const auto *node_contract =
+      SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+  return node_contract ? node_contract->affects_sword_step : false;
 }
 
 } // namespace NoMoreDay

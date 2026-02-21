@@ -1,5 +1,6 @@
 #pragma once
 #include "game/components/Stats.hpp"
+#include "game/data/SkillContract.hpp"
 #include "game/data/TagRegistry.hpp"
 #include "raylib.h"
 #include <array>
@@ -321,6 +322,12 @@ inline void from_json(const nlohmann::json &j, ActiveSkillsComponent &c) {
   if (j.contains("available_talent_points"))
     j.at("available_talent_points").get_to(c.available_talent_points);
 }
+
+struct SkillContractRuntimeComponent {
+  uint32_t version = kSkillContractRuntimeVersion;
+  std::unordered_map<uint32_t, uint32_t> active_transmuter_node_by_skill;
+  std::unordered_map<uint32_t, float> trigger_cooldowns;
+};
 
 struct SkillComponent {
   uint32_t skill_id = 0;

@@ -80,6 +80,9 @@ float UISkillSpecRenderer::GetNodeRadius(const TalentNode& node, const SkillSpec
     float baseRadius = 40.0f * view.zoom;
     NodeType type = GetNodeType(node);
     if (type == NodeType::Keystone) return baseRadius * 1.35f;
+    if (type == NodeType::Trigger) return baseRadius * 1.1f;
+    if (type == NodeType::Transmuter) return baseRadius * 1.1f;
+    if (type == NodeType::Synergy) return baseRadius * 1.0f;
     if (type == NodeType::Modifier) return baseRadius * 0.95f;
     return baseRadius * 0.75f;
 }
@@ -202,9 +205,23 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
 }
 
 void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme, uint32_t hoveredNodeId) {
+    const uint32_t skillId = tree ? tree->skill_id : 0;
     for (const auto& [id, node] : tree->nodes) {
         Vector2 pos = GetNodeScreenPos(node, view);
         NodeType type = GetNodeType(node);
+        const NodeContractData* contract = nullptr;
+        if (skillId != 0) {
+            contract = SkillRegistry::Get().GetNodeContract(skillId, id);
+            if (contract) {
+                switch (contract->role) {
+                    case SpecNodeRole::Trigger: type = NodeType::Trigger; break;
+                    case SpecNodeRole::Synergy: type = NodeType::Synergy; break;
+                    case SpecNodeRole::Transmuter: type = NodeType::Transmuter; break;
+                    case SpecNodeRole::Keystone: type = NodeType::Keystone; break;
+                    default: break;
+                }
+            }
+        }
         float baseRadius = GetNodeRadius(node, view);
         
         // Hover Effect
@@ -255,7 +272,13 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
             if (isMaxed) {
                 DrawPolyLinesEx(pos, 8, radius + 4.0f * view.zoom, 22.5f, 1.5f * view.zoom, Fade(GOLD, 0.7f * view.alpha));
             }
-        } else if (type == NodeType::Modifier) {
+        } else if (type == NodeType::Trigger) {
+            DrawPoly(pos, 3, radius, -90.0f, bgColor);
+            DrawPolyLinesEx(pos, 3, radius, -90.0f, 2.5f * view.zoom, borderColor);
+        } else if (type == NodeType::Transmuter) {
+            DrawPoly(pos, 4, radius, 45.0f, bgColor);
+            DrawPolyLinesEx(pos, 4, radius, 45.0f, 2.5f * view.zoom, borderColor);
+        } else if (type == NodeType::Synergy || type == NodeType::Modifier) {
             // Hexagon for Modifier
             DrawPoly(pos, 6, radius, 0.0f, bgColor);
             DrawPolyLinesEx(pos, 6, radius, 0.0f, 2.5f * view.zoom, borderColor);
@@ -277,18 +300,22 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
              // Inner scaling shape looks decent.
              
              Color fillCol = Fade(borderColor, 0.5f);
-             if (type == NodeType::Keystone) DrawPoly(pos, 8, innerR * pct, 22.5f, fillCol);
-             else if (type == NodeType::Modifier) DrawPoly(pos, 6, innerR * pct, 0.0f, fillCol);
-             else DrawCircleV(pos, innerR * pct, fillCol);
-        }
-        else if (isMaxed) {
+              if (type == NodeType::Keystone) DrawPoly(pos, 8, innerR * pct, 22.5f, fillCol);
+              else if (type == NodeType::Trigger) DrawPoly(pos, 3, innerR * pct, -90.0f, fillCol);
+              else if (type == NodeType::Transmuter) DrawPoly(pos, 4, innerR * pct, 45.0f, fillCol);
+              else if (type == NodeType::Modifier || type == NodeType::Synergy) DrawPoly(pos, 6, innerR * pct, 0.0f, fillCol);
+              else DrawCircleV(pos, innerR * pct, fillCol);
+         }
+         else if (isMaxed) {
              // Full fill for maxed
              float innerR = radius * 0.85f;
              Color fillCol = Fade(theme, 0.3f);
              if (type == NodeType::Keystone) DrawPoly(pos, 8, innerR, 22.5f, fillCol);
-             else if (type == NodeType::Modifier) DrawPoly(pos, 6, innerR, 0.0f, fillCol);
+             else if (type == NodeType::Trigger) DrawPoly(pos, 3, innerR, -90.0f, fillCol);
+             else if (type == NodeType::Transmuter) DrawPoly(pos, 4, innerR, 45.0f, fillCol);
+             else if (type == NodeType::Modifier || type == NodeType::Synergy) DrawPoly(pos, 6, innerR, 0.0f, fillCol);
              else DrawCircleV(pos, innerR, fillCol);
-        }
+         }
 
         // 4. Icons
         if (node.icon_id > 0) {
@@ -325,6 +352,27 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
 
             Color textColor = isAllocated ? (isMaxed ? GOLD : WHITE) : (canUnlock ? Fade(WHITE, 0.9f) : Fade(WHITE, 0.4f));
             DrawTextEx(UISystem::GetFont(), text, {pillHitbox.x + padding, pillHitbox.y + padding}, (float)fontSize, 1.0f, Fade(textColor, view.alpha));
+        }
+
+        if (contract) {
+            const char* badge = nullptr;
+            switch (contract->role) {
+                case SpecNodeRole::Trigger: badge = "TRG"; break;
+                case SpecNodeRole::Synergy: badge = "SYN"; break;
+                case SpecNodeRole::Transmuter: badge = "TRN"; break;
+                case SpecNodeRole::Keystone: badge = "KEY"; break;
+                default: break;
+            }
+            if (badge) {
+                const float badgeFont = 12.0f * view.zoom;
+                Vector2 badgeSize = MeasureTextEx(UISystem::GetFont(), badge, badgeFont, 1.0f);
+                Vector2 badgePos = {pos.x + radius - badgeSize.x - 2.0f * view.zoom, pos.y - radius - 10.0f * view.zoom};
+                DrawRectangleRounded({badgePos.x - 3.0f * view.zoom, badgePos.y - 2.0f * view.zoom,
+                                      badgeSize.x + 6.0f * view.zoom, badgeSize.y + 4.0f * view.zoom},
+                                      0.2f, 3, Fade(BLACK, 0.75f * view.alpha));
+                DrawTextEx(UISystem::GetFont(), badge, badgePos, badgeFont, 1.0f,
+                           Fade(WHITE, view.alpha));
+            }
         }
     }
 }

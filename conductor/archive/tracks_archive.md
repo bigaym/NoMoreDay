@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant Skill Contracts Refactor (blade_ascendant_skill_contracts_20260221)
+- **Folder:** [./conductor/archive/blade_ascendant_skill_contracts_20260221/](./conductor/archive/blade_ascendant_skill_contracts_20260221/)
+- **Description:** Completed the Blade Ascendant skill contract foundation refactor: compact contract config + generator pipeline, registry/runtime contract validation, scope-policy integration, UI node-role/scope rendering, and save/load runtime state persistence.
+- **Status:** COMPLETED (2026-02-21)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` PASS, `ctest -C RelWithDebInfo -L ci/unit/integration` PASS, `python scripts/gen_skill_contracts.py --check` PASS. Track tasks/phases closed at `18/18`, `4/4`.
+
+---
+
 ## [x] Track: V5 Validation & Release Gate (v5_validation_release_gate_20260219)
 - **Folder:** [./conductor/archive/v5_validation_release_gate_20260219/](./conductor/archive/v5_validation_release_gate_20260219/)
 - **Description:** 完成 V5 发布门禁闭环。核心 JFA+GI 门禁通过（功能/性能/契约/稳定性/回退），产出 `validation.md` 与 `release_posture.md`；SPH 探索结论维持 `NO-GO` 且不阻断核心发布。

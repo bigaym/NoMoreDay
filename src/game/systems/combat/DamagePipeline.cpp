@@ -101,6 +101,21 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
   }
   Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
   Tag combined_hit_tags = skill_tags | additional_tags;
+  auto can_apply_scope = [&](ScopePolicy scope, uint32_t source_skill_id) {
+    switch (scope) {
+    case ScopePolicy::SkillOnly:
+      return source_skill_id == skill_id;
+    case ScopePolicy::GlobalAlways:
+      return true;
+    case ScopePolicy::GlobalWhileBuffActive:
+      if (const auto *chan = registry.try_get<ChannelingComponent>(attacker)) {
+        return chan->skill_id == source_skill_id;
+      }
+      return false;
+    default:
+      return false;
+    }
+  };
 
   // Optimization: Access modifiers directly instead of copying to a vector
   auto *global_mods = registry.try_get<GlobalModifierComponent>(attacker);
@@ -203,13 +218,26 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     // Talent modifiers
     if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &spec : active->specialized_slots) {
-        if (spec.skill_id == skill_id) {
-          if (const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id)) {
-            for (auto [node_id, pts] : spec.allocated_points) {
-              if (tree->nodes.contains(node_id)) {
-                for (const auto &mod : tree->nodes.at(node_id).damage_modifiers)
-                  ProcessMod(mod);
-              }
+        if (spec.skill_id == 0) {
+          continue;
+        }
+        const uint32_t source_skill_id = spec.skill_id;
+        if (const auto *tree = SkillRegistry::Get().GetSkillTree(source_skill_id)) {
+          for (auto [node_id, pts] : spec.allocated_points) {
+            if (pts <= 0 || !tree->nodes.contains(node_id)) {
+              continue;
+            }
+            ScopePolicy scope = ScopePolicy::SkillOnly;
+            if (const auto *node_contract =
+                    SkillRegistry::Get().GetNodeContract(source_skill_id,
+                                                         node_id)) {
+              scope = node_contract->scope_policy;
+            }
+            if (!can_apply_scope(scope, source_skill_id)) {
+              continue;
+            }
+            for (const auto &mod : tree->nodes.at(node_id).damage_modifiers) {
+              ProcessMod(mod);
             }
           }
         }
@@ -312,23 +340,33 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     }
     if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &specialized : active->specialized_slots) {
-        if (specialized.skill_id == skill_id) {
-          if (const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id)) {
-            for (auto [node_id, pts] : specialized.allocated_points) {
-              if (tree->nodes.contains(node_id)) {
-                for (const auto &dmod :
-                     tree->nodes.at(node_id).damage_modifiers) {
-                  if (dmod.type == ModifierType::More &&
-                      (dmod.source_tag == Tag::None ||
-                       HasTag(inst.tags, dmod.source_tag))) {
-                    final_more *=
-                        std::pow(1.0f + dmod.value, static_cast<float>(pts));
-                  }
-                }
+        if (specialized.skill_id == 0) {
+          continue;
+        }
+        const uint32_t source_skill_id = specialized.skill_id;
+        if (const auto *tree = SkillRegistry::Get().GetSkillTree(source_skill_id)) {
+          for (auto [node_id, pts] : specialized.allocated_points) {
+            if (pts <= 0 || !tree->nodes.contains(node_id)) {
+              continue;
+            }
+            ScopePolicy scope = ScopePolicy::SkillOnly;
+            if (const auto *node_contract =
+                    SkillRegistry::Get().GetNodeContract(source_skill_id,
+                                                         node_id)) {
+              scope = node_contract->scope_policy;
+            }
+            if (!can_apply_scope(scope, source_skill_id)) {
+              continue;
+            }
+            for (const auto &dmod : tree->nodes.at(node_id).damage_modifiers) {
+              if (dmod.type == ModifierType::More &&
+                  (dmod.source_tag == Tag::None ||
+                   HasTag(inst.tags, dmod.source_tag))) {
+                final_more *=
+                    std::pow(1.0f + dmod.value, static_cast<float>(pts));
               }
             }
           }
-          break;
         }
       }
     }

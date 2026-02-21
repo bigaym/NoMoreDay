@@ -201,6 +201,40 @@ TEST_CASE("[Unit] SaveManager - Header Name And Playtime Snapshot") {
     CHECK(data2.header.playtime >= 203);
 }
 
+TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
+    entt::registry registry;
+    auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
+    registry.emplace<Position>(player, 1.0f, 2.0f);
+    registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
+    registry.emplace<ActiveSkillsComponent>(player);
+
+    auto& runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+    runtime.version = kSkillContractRuntimeVersion;
+    runtime.active_transmuter_node_by_skill[8] = 870;
+    runtime.trigger_cooldowns[114] = 1.25f;
+    runtime.trigger_cooldowns[971] = 0.5f;
+
+    const auto snapshot = SaveManager::Get().createSnapshot(registry);
+    CHECK(snapshot.skill_contract_runtime.version == kSkillContractRuntimeVersion);
+    CHECK(snapshot.skill_contract_runtime.skills.size() >= 1);
+
+    entt::registry restored;
+    SaveManager::Get().restoreFromSnapshot(restored, snapshot);
+    auto view = restored.view<PlayerTag, SkillContractRuntimeComponent>();
+    REQUIRE(view.begin() != view.end());
+    auto restoredPlayer = *view.begin();
+    const auto& restoredRuntime =
+        restored.get<SkillContractRuntimeComponent>(restoredPlayer);
+
+    REQUIRE(restoredRuntime.active_transmuter_node_by_skill.contains(8));
+    CHECK(restoredRuntime.active_transmuter_node_by_skill.at(8) == 870);
+    REQUIRE(restoredRuntime.trigger_cooldowns.contains(114));
+    CHECK(restoredRuntime.trigger_cooldowns.at(114) == doctest::Approx(1.25f));
+    REQUIRE(restoredRuntime.trigger_cooldowns.contains(971));
+    CHECK(restoredRuntime.trigger_cooldowns.at(971) == doctest::Approx(0.5f));
+}
+
 TEST_CASE("[Unit] StatsOptimization - Zero Allocation") {
     entt::registry registry;
     auto entity = registry.create();

@@ -35,7 +35,7 @@ private:
     static void DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme, uint32_t hoveredNodeId);
     
     // Helper to determine node shape/type
-    enum class NodeType { Passive, Modifier, Keystone };
+    enum class NodeType { Passive, Modifier, Keystone, Trigger, Synergy, Transmuter };
     static NodeType GetNodeType(const TalentNode& node);
     
     static Color GetThemeColor(const SkillData* skillData);

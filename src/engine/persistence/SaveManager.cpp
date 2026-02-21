@@ -11,6 +11,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 
@@ -58,6 +59,28 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
   // Progression
   if (registry.all_of<ActiveSkillsComponent>(playerEntity))
     data.skills = registry.get<ActiveSkillsComponent>(playerEntity);
+  if (registry.all_of<SkillContractRuntimeComponent>(playerEntity)) {
+    const auto &runtime =
+        registry.get<SkillContractRuntimeComponent>(playerEntity);
+    data.skill_contract_runtime.version = runtime.version;
+
+    std::unordered_map<uint32_t, SkillContractRuntimeSkillSaveData> by_skill;
+    for (const auto &[skill_id, transmuter_node] :
+         runtime.active_transmuter_node_by_skill) {
+      by_skill[skill_id].skill_id = skill_id;
+      by_skill[skill_id].active_transmuter_node = transmuter_node;
+    }
+    for (const auto &[node_id, remaining] : runtime.trigger_cooldowns) {
+      const uint32_t skill_id = node_id / 100;
+      auto &entry = by_skill[skill_id];
+      entry.skill_id = skill_id;
+      entry.trigger_cooldowns.push_back({.node_id = node_id, .remaining = remaining});
+    }
+    data.skill_contract_runtime.skills.reserve(by_skill.size());
+    for (auto &[_, entry] : by_skill) {
+      data.skill_contract_runtime.skills.push_back(std::move(entry));
+    }
+  }
   if (registry.all_of<AstrolabeComponent>(playerEntity))
     data.astrolabe = registry.get<AstrolabeComponent>(playerEntity);
 
@@ -156,6 +179,21 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
 
   // Skills & Astrolabe
   registry.emplace<ActiveSkillsComponent>(player, data.skills);
+  auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+  runtime.version = data.skill_contract_runtime.version;
+  runtime.active_transmuter_node_by_skill.clear();
+  runtime.trigger_cooldowns.clear();
+  for (const auto &entry : data.skill_contract_runtime.skills) {
+    if (entry.active_transmuter_node != 0) {
+      runtime.active_transmuter_node_by_skill[entry.skill_id] =
+          entry.active_transmuter_node;
+    }
+    for (const auto &cd : entry.trigger_cooldowns) {
+      if (cd.remaining > 0.0f) {
+        runtime.trigger_cooldowns[cd.node_id] = cd.remaining;
+      }
+    }
+  }
   registry.emplace<AstrolabeComponent>(player, data.astrolabe);
   registry.emplace<PlayerCombatHistory>(player, data.combatHistory);
 

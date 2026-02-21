@@ -3,6 +3,7 @@
 #include "game/components/Progression.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
+#include "game/data/SkillContract.hpp"
 #include "game/data/PlayerCombatHistory.hpp"
 #include "game/data/SerializedItem.hpp"
 #include "game/data/StashData.hpp"
@@ -29,6 +30,26 @@ struct SaveHeader {
                                  playtime, timestamp, version)
 };
 
+struct TriggerCooldownSaveData {
+  uint32_t node_id = 0;
+  float remaining = 0.0f;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(TriggerCooldownSaveData, node_id, remaining)
+};
+
+struct SkillContractRuntimeSkillSaveData {
+  uint32_t skill_id = 0;
+  uint32_t active_transmuter_node = 0;
+  std::vector<TriggerCooldownSaveData> trigger_cooldowns;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(SkillContractRuntimeSkillSaveData, skill_id,
+                                 active_transmuter_node, trigger_cooldowns)
+};
+
+struct SkillContractRuntimeSaveData {
+  uint32_t version = kSkillContractRuntimeVersion;
+  std::vector<SkillContractRuntimeSkillSaveData> skills;
+  NLOHMANN_DEFINE_TYPE_INTRUSIVE(SkillContractRuntimeSaveData, version, skills)
+};
+
 /**
  * @brief Root DTO for character persistence.
  */
@@ -50,6 +71,7 @@ struct CharacterSaveData {
 
   // Progression Systems
   ActiveSkillsComponent skills;
+  SkillContractRuntimeSaveData skill_contract_runtime;
   AstrolabeComponent astrolabe;
   PlayerCombatHistory combatHistory;
 
@@ -68,6 +90,7 @@ inline void to_json(nlohmann::json& j, const CharacterSaveData& p) {
         {"inventory", p.inventory},
         {"equipment", p.equipment},
         {"skills", p.skills},
+        {"skill_contract_runtime", p.skill_contract_runtime},
         {"astrolabe", p.astrolabe},
         {"combatHistory", p.combatHistory}
     };
@@ -85,6 +108,9 @@ inline void from_json(const nlohmann::json& j, CharacterSaveData& p) {
     j.at("inventory").get_to(p.inventory);
     j.at("equipment").get_to(p.equipment);
     j.at("skills").get_to(p.skills);
+    if (j.contains("skill_contract_runtime")) {
+        j.at("skill_contract_runtime").get_to(p.skill_contract_runtime);
+    }
     j.at("astrolabe").get_to(p.astrolabe);
     j.at("combatHistory").get_to(p.combatHistory);
     

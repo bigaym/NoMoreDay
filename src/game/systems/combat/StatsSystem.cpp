@@ -352,24 +352,50 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   }
 
   // 3. 处理技能专精天赋 (Skill Specialization Talents)
-  if (skill_id != 0) {
-    if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
-      bool found_specialized = false;
-      for (const auto &specialized : active->specialized_slots) {
-        if (specialized.skill_id == skill_id) {
-          found_specialized = true;
-          const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id);
-          if (tree) {
-            for (auto [node_id, pts] : specialized.allocated_points) {
-              auto node_it = tree->nodes.find(node_id);
-              if (node_it != tree->nodes.end()) {
-                apply_if_tags_match(node_it->second.stat_modifiers,
-                                    static_cast<float>(pts));
-              }
-            }
-          }
-          break;
+  if (auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
+    auto can_apply_scope = [&](ScopePolicy scope, uint32_t source_skill_id) {
+      switch (scope) {
+      case ScopePolicy::SkillOnly:
+        return (skill_id != 0 && source_skill_id == skill_id);
+      case ScopePolicy::GlobalAlways:
+        return true;
+      case ScopePolicy::GlobalWhileBuffActive:
+        if (const auto *chan = registry.try_get<ChannelingComponent>(entity)) {
+          return chan->skill_id == source_skill_id;
         }
+        return false;
+      default:
+        return false;
+      }
+    };
+
+    for (const auto &specialized : active->specialized_slots) {
+      if (specialized.skill_id == 0) {
+        continue;
+      }
+      const auto source_skill_id = specialized.skill_id;
+      const auto *tree = SkillRegistry::Get().GetSkillTree(source_skill_id);
+      if (!tree) {
+        continue;
+      }
+      for (auto [node_id, pts] : specialized.allocated_points) {
+        if (pts <= 0) {
+          continue;
+        }
+        auto node_it = tree->nodes.find(node_id);
+        if (node_it == tree->nodes.end()) {
+          continue;
+        }
+        ScopePolicy scope = ScopePolicy::SkillOnly;
+        if (const auto *node_contract =
+                SkillRegistry::Get().GetNodeContract(source_skill_id, node_id)) {
+          scope = node_contract->scope_policy;
+        }
+        if (!can_apply_scope(scope, source_skill_id)) {
+          continue;
+        }
+        apply_if_tags_match(node_it->second.stat_modifiers,
+                            static_cast<float>(pts));
       }
     }
   }

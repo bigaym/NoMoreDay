@@ -23,6 +23,28 @@ float SkillTreeUI::s_viewZoom = 1.0f;
 uint32_t SkillTreeUI::s_lastSkillId = 0;
 SkillTreeUI::Vec2 SkillTreeUI::s_lastMouseLogicPos = { 0, 0 };
 
+namespace {
+
+const char* NodeRoleToText(SpecNodeRole role) {
+    switch (role) {
+    case SpecNodeRole::Keystone: return "Keystone";
+    case SpecNodeRole::Trigger: return "Trigger";
+    case SpecNodeRole::Synergy: return "Synergy";
+    case SpecNodeRole::Transmuter: return "Transmuter";
+    default: return "Passive";
+    }
+}
+
+const char* ScopePolicyToText(ScopePolicy scope) {
+    switch (scope) {
+    case ScopePolicy::GlobalAlways: return "GlobalAlways";
+    case ScopePolicy::GlobalWhileBuffActive: return "GlobalWhileBuffActive";
+    default: return "SkillOnly";
+    }
+}
+
+} // namespace
+
 void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     entt::registry& registry = *static_cast<entt::registry*>(registryVoid);
     entt::entity player = (entt::entity)playerEntity;
@@ -182,11 +204,12 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
 
     // --- Tooltip & Actions ---
     if (hoveredNode) {
+        const NodeContractData* nodeContract = SkillRegistry::Get().GetNodeContract(skillId, hoveredNodeId);
         // Tooltip
         float tx = mouseLogicPos.x + 30;
         float ty = mouseLogicPos.y + 30;
         float tw = 400;
-        float th = 180;
+        float th = 220;
         
         if (tx + tw > logicW) tx -= (tw + 60);
         if (ty + th > logicH) ty -= (th + 60);
@@ -200,6 +223,12 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
 
          if (!hoveredNode->stat_modifiers.empty()) {
             UISystem::DrawTextUI("数值加成已启用", tx + 20, ty + th - 35, 18, SKYBLUE, alpha * 0.8f);
+        }
+        if (nodeContract) {
+            UISystem::DrawTextUI(TextFormat("Role: %s", NodeRoleToText(nodeContract->role)),
+                                 tx + 20, ty + th - 70, 18, ORANGE, alpha * 0.9f);
+            UISystem::DrawTextUI(TextFormat("Scope: %s", ScopePolicyToText(nodeContract->scope_policy)),
+                                 tx + 20, ty + th - 48, 18, SKYBLUE, alpha * 0.9f);
         }
     }
 

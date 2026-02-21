@@ -116,6 +116,13 @@ public:
      * @return Tag The combined tag mask with talent modifications applied
      */
     static Tag GetEffectiveSkillTags(entt::registry& registry, entt::entity entity, uint32_t skill_id);
+    static uint32_t GetActiveTransmuterNode(const entt::registry& registry,
+                                            entt::entity entity,
+                                            uint32_t skill_id);
+    static bool NodeAffectsSwordIntent(const entt::registry& registry,
+                                       uint32_t skill_id, uint32_t node_id);
+    static bool NodeAffectsSwordStep(const entt::registry& registry,
+                                     uint32_t skill_id, uint32_t node_id);
 
 private:
     static inline std::map<uint32_t, CastCallback> s_skill_callbacks;
