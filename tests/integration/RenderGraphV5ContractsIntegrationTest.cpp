@@ -2,10 +2,12 @@
 
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/passes/CompositePass.hpp"
+#include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/HeightShadowPass.hpp"
 #include "engine/render/passes/JFAPass.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/OccluderExtractPass.hpp"
+#include "engine/render/passes/RadianceCascadesPass.hpp"
 #include "engine/render/passes/ScenePass.hpp"
 #include "engine/render/passes/UIWorldPass.hpp"
 #include "engine/render/passes/VFXPass.hpp"
@@ -103,4 +105,25 @@ TEST_CASE("[Integration] RenderGraph V5 Contracts - DistanceField read-before-wr
 #endif
   CHECK(graph.HasValidationErrors());
   CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "read-before-write"));
+}
+
+TEST_CASE("[Integration] RenderGraph V5 Contracts - Radiance and GI composite chain stays valid") {
+  using namespace NoMoreDay::render;
+
+  graph::RenderGraph graph;
+  graph.AddPass(std::make_shared<passes::ScenePass>());
+  graph.AddPass(std::make_shared<passes::LightingPass>());
+  graph.AddPass(std::make_shared<passes::HeightShadowPass>());
+  graph.AddPass(std::make_shared<passes::OccluderExtractPass>());
+  graph.AddPass(std::make_shared<passes::JFAPass>());
+  graph.AddPass(std::make_shared<passes::RadianceCascadesPass>());
+  graph.AddPass(std::make_shared<passes::GICompositePass>());
+  graph.AddPass(std::make_shared<passes::VFXPass>());
+  graph.AddPass(std::make_shared<passes::UIWorldPass>());
+  graph.AddPass(std::make_shared<passes::CompositePass>(
+      graph::RenderResourceTag::SceneHdrColor, graph::RenderOwnerTag::UIWorld));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  CHECK(graph.GetPassCount() == 10);
 }

@@ -18,6 +18,7 @@
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
+#include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/GPULootPass.hpp"
 #include "engine/render/passes/GPUTextPass.hpp"
 #include "engine/render/passes/HeightShadowPass.hpp"
@@ -28,6 +29,7 @@
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/OccluderExtractPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
+#include "engine/render/passes/RadianceCascadesPass.hpp"
 #include "engine/render/passes/ShadowBuildPass.hpp"
 #include "engine/render/passes/ShadowPreparePass.hpp"
 #include "engine/render/passes/ShadowResolvePass.hpp"
@@ -180,6 +182,9 @@ std::shared_ptr<NoMoreDay::render::passes::LightingPass> g_lightingPass;
 std::shared_ptr<NoMoreDay::render::passes::HeightShadowPass> g_heightShadowPass;
 std::shared_ptr<NoMoreDay::render::passes::OccluderExtractPass> g_occluderExtractPass;
 std::shared_ptr<NoMoreDay::render::passes::JFAPass> g_jfaPass;
+std::shared_ptr<NoMoreDay::render::passes::RadianceCascadesPass>
+    g_radianceCascadesPass;
+std::shared_ptr<NoMoreDay::render::passes::GICompositePass> g_giCompositePass;
 std::shared_ptr<NoMoreDay::render::passes::VolumetricLightPass> g_volumetricPass;
 std::shared_ptr<NoMoreDay::render::passes::DistortionPass> g_distortionPass;
 std::shared_ptr<NoMoreDay::render::passes::ShadowPreparePass> g_shadowPreparePass;
@@ -1115,6 +1120,9 @@ void RenderSystem::Initialize() {
       std::make_shared<NoMoreDay::render::passes::OccluderExtractPass>();
   g_jfaPass = std::make_shared<NoMoreDay::render::passes::JFAPass>();
   g_jfaPass->SetOccluderExtractPass(g_occluderExtractPass.get());
+  g_radianceCascadesPass =
+      std::make_shared<NoMoreDay::render::passes::RadianceCascadesPass>();
+  g_giCompositePass = std::make_shared<NoMoreDay::render::passes::GICompositePass>();
   g_lightingPass->Initialize();
   g_shadowPreparePass =
       std::make_shared<NoMoreDay::render::passes::ShadowPreparePass>();
@@ -1132,6 +1140,8 @@ void RenderSystem::Initialize() {
   if (s_hdrSceneBuffer.IsValid() && qualityManager.GetConfig().giEnabled) {
     g_occluderExtractPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
     g_jfaPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
+    g_radianceCascadesPass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
+    g_giCompositePass->OnResize(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
   }
   g_renderProfiler = std::make_unique<NoMoreDay::render::debug::RenderProfiler>();
   g_shaderHotReloadManager =
@@ -1284,6 +1294,14 @@ void RenderSystem::Shutdown() {
     g_jfaPass->Shutdown();
     g_jfaPass.reset();
   }
+  if (g_radianceCascadesPass) {
+    g_radianceCascadesPass->Shutdown();
+    g_radianceCascadesPass.reset();
+  }
+  if (g_giCompositePass) {
+    g_giCompositePass->Shutdown();
+    g_giCompositePass.reset();
+  }
   if (g_occluderExtractPass) {
     g_occluderExtractPass->Shutdown();
     g_occluderExtractPass.reset();
@@ -1346,6 +1364,11 @@ void RenderSystem::render(entt::registry &registry,
   frame.gpuLootEnabled = renderConfig.gpuLootEnabled;
   frame.gpuLootGlowEnabled = renderConfig.gpuLootGlowEnabled;
   HandleV3RuntimeToggle(renderConfig.v3Enabled);
+  static bool s_prevGiEnabled = false;
+  if (!renderConfig.giEnabled && s_prevGiEnabled && g_giCompositePass != nullptr) {
+    g_giCompositePass->InvalidateHistory();
+  }
+  s_prevGiEnabled = renderConfig.giEnabled;
 #if defined(NDEBUG)
   constexpr bool kDevHotReloadAllowed = false;
 #else
@@ -1423,10 +1446,12 @@ void RenderSystem::render(entt::registry &registry,
       if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
         g_heightShadowPass->OnResize(screenWidth, screenHeight);
       }
-      if (g_occluderExtractPass && g_jfaPass && s_hdrSceneBuffer.IsValid() &&
-          renderConfig.giEnabled) {
+      if (g_occluderExtractPass && g_jfaPass && g_radianceCascadesPass &&
+          g_giCompositePass && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled) {
         g_occluderExtractPass->OnResize(screenWidth, screenHeight);
         g_jfaPass->OnResize(screenWidth, screenHeight);
+        g_radianceCascadesPass->OnResize(screenWidth, screenHeight);
+        g_giCompositePass->OnResize(screenWidth, screenHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
@@ -1455,10 +1480,12 @@ void RenderSystem::render(entt::registry &registry,
       if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
         g_heightShadowPass->OnResize(screenWidth, screenHeight);
       }
-      if (g_occluderExtractPass && g_jfaPass && s_hdrSceneBuffer.IsValid() &&
-          renderConfig.giEnabled) {
+      if (g_occluderExtractPass && g_jfaPass && g_radianceCascadesPass &&
+          g_giCompositePass && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled) {
         g_occluderExtractPass->OnResize(screenWidth, screenHeight);
         g_jfaPass->OnResize(screenWidth, screenHeight);
+        g_radianceCascadesPass->OnResize(screenWidth, screenHeight);
+        g_giCompositePass->OnResize(screenWidth, screenHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
         g_shadowBuildPass->OnResize(screenWidth, screenHeight);
@@ -1547,9 +1574,13 @@ void RenderSystem::render(entt::registry &registry,
     sceneHdrOwner = RenderOwnerTag::HeightShadow;
   }
   if (useHdrSceneBuffer && renderConfig.giEnabled &&
-      g_occluderExtractPass != nullptr && g_jfaPass != nullptr) {
+      g_occluderExtractPass != nullptr && g_jfaPass != nullptr &&
+      g_radianceCascadesPass != nullptr && g_giCompositePass != nullptr) {
     graph.AddPass(g_occluderExtractPass);
     graph.AddPass(g_jfaPass);
+    graph.AddPass(g_radianceCascadesPass);
+    graph.AddPass(g_giCompositePass);
+    sceneHdrOwner = RenderOwnerTag::GIComposite;
   }
   if (useVolumetricPass && g_volumetricPass != nullptr) {
     graph.AddPass(g_volumetricPass);
@@ -1662,6 +1693,12 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.giDistanceFieldTexture = 0u;
   graphContext.giDistanceFieldWidth = 0;
   graphContext.giDistanceFieldHeight = 0;
+  graphContext.giEmissiveTexture = 0u;
+  graphContext.giEmissiveWidth = 0;
+  graphContext.giEmissiveHeight = 0;
+  graphContext.giRadianceTexture = 0u;
+  graphContext.giRadianceWidth = 0;
+  graphContext.giRadianceHeight = 0;
 
   if (graphContext.renderProfiler != nullptr) {
     graphContext.renderProfiler->BeginFrame();

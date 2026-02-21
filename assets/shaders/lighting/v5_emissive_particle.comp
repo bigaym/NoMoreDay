@@ -1,0 +1,34 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, binding = 0) buffer ParticleCounter {
+    uint particleWrites;
+};
+
+layout(rgba16f, binding = 4) uniform writeonly image2D uParticleEmissiveOut;
+
+uniform sampler2D uSceneTexture;
+uniform ivec2 uResolution;
+uniform float uThreshold;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uResolution.x || pixel.y >= uResolution.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uResolution);
+    vec3 sceneColor = texture(uSceneTexture, uv).rgb;
+    float luma = dot(sceneColor, vec3(0.2126, 0.7152, 0.0722));
+
+    vec3 particleEmission = vec3(0.0);
+    if (luma > uThreshold) {
+        float energy = clamp((luma - uThreshold) * 1.5, 0.0, 4.0);
+        particleEmission = sceneColor * energy * 0.5;
+        atomicAdd(particleWrites, 1u);
+    }
+
+    imageStore(uParticleEmissiveOut, pixel, vec4(particleEmission, 1.0));
+}
+

@@ -1,0 +1,23 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(rgba16f, binding = 0) uniform readonly image2D uEmissiveBase;
+layout(rgba16f, binding = 1) uniform readonly image2D uParticleEmissive;
+layout(rgba16f, binding = 4) uniform writeonly image2D uEmissiveCombined;
+
+uniform ivec2 uResolution;
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uResolution.x || pixel.y >= uResolution.y) {
+        return;
+    }
+
+    vec3 baseEmission = imageLoad(uEmissiveBase, pixel).rgb;
+    vec3 particleEmission = imageLoad(uParticleEmissive, pixel).rgb;
+    vec3 merged = baseEmission + particleEmission * 0.8;
+
+    imageStore(uEmissiveCombined, pixel, vec4(merged, 1.0));
+}
+

@@ -1,0 +1,105 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, binding = 2) readonly buffer RadianceConfigBuffer {
+    uint cfgNumLevels;
+    uint cfgRaysPerProbe;
+    float cfgBaseInterval;
+    float cfgTemporalWeight;
+    uint cfgHalfResolution;
+    uint cfgSdfUpdateInterval;
+    float cfgGiIntensity;
+    uint cfgReserved;
+};
+
+layout(r16f, binding = 3) uniform readonly image2D uDistanceField;
+layout(rgba16f, binding = 5) uniform writeonly image2D uRadianceOut;
+
+uniform sampler2D uEmissiveTexture;
+uniform sampler2D uParentRadiance;
+uniform ivec2 uFullResolution;
+uniform ivec2 uCascadeResolution;
+uniform int uCascadeLevel;
+uniform int uCascadeCount;
+uniform int uRaysPerProbe;
+uniform float uRayMinLength;
+uniform float uRayMaxLength;
+uniform int uParentValid;
+uniform int uHolographicMode;
+
+float sampleDistanceField(vec2 uv) {
+    vec2 clampedUv = clamp(uv, vec2(0.0), vec2(0.99999));
+    ivec2 pixel = ivec2(clampedUv * vec2(uFullResolution));
+    return imageLoad(uDistanceField, pixel).r;
+}
+
+vec3 traceRaySDF(vec2 originUv, vec2 direction) {
+    float maxDimension = float(max(uFullResolution.x, uFullResolution.y));
+    float t = max(0.0, uRayMinLength);
+    vec3 radiance = vec3(0.0);
+
+    for (int step = 0; step < 24 && t <= uRayMaxLength; ++step) {
+        vec2 sampleUv = originUv + direction * (t / max(maxDimension, 1.0));
+        if (sampleUv.x < 0.0 || sampleUv.y < 0.0 ||
+            sampleUv.x >= 1.0 || sampleUv.y >= 1.0) {
+            break;
+        }
+
+        float sdf = sampleDistanceField(sampleUv);
+        if (sdf < 0.0) {
+            break;
+        }
+
+        vec3 emission = texture(uEmissiveTexture, sampleUv).rgb;
+        float weight = 1.0 / (1.0 + t * 0.02);
+        radiance += emission * weight;
+
+        float stepSize = max(abs(sdf), 0.75);
+        if (uHolographicMode != 0) {
+            stepSize = max(stepSize * 0.75, 0.5);
+        }
+        t += stepSize;
+    }
+    return radiance;
+}
+
+vec3 mergeCascade(vec3 nearField, vec2 uv) {
+    if (uParentValid == 0) {
+        return nearField;
+    }
+
+    vec3 farField = texture(uParentRadiance, uv).rgb;
+    float levelRatio =
+        float(max(uCascadeLevel, 0)) / float(max(uCascadeCount - 1, 1));
+    float farBlend = mix(0.35, 0.8, clamp(levelRatio, 0.0, 1.0));
+    return mix(nearField, farField, farBlend);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uCascadeResolution.x || pixel.y >= uCascadeResolution.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uCascadeResolution);
+    vec3 emissiveBase = texture(uEmissiveTexture, uv).rgb * 0.25;
+
+    int rays = max(uRaysPerProbe, 1);
+    vec3 traced = vec3(0.0);
+    for (int ray = 0; ray < rays; ++ray) {
+        float angle = (float(ray) + 0.5) / float(rays) * 6.28318530718;
+        if (uHolographicMode != 0) {
+            float hash = fract(
+                sin(dot(vec2(pixel), vec2(12.9898, 78.233))) * 43758.5453);
+            angle += hash * 0.6;
+        }
+        vec2 direction = vec2(cos(angle), sin(angle));
+        traced += traceRaySDF(uv, direction);
+    }
+
+    vec3 localRadiance = emissiveBase + traced / float(rays);
+    vec3 merged = mergeCascade(localRadiance, uv);
+    imageStore(uRadianceOut, pixel, vec4(merged, 1.0));
+}
+

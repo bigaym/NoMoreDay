@@ -1,7 +1,7 @@
 # Track: V5 Radiance Cascades GI
 
 **ID:** v5_radiance_cascades_gi_20260219  
-**Status:** Pending  
+**Status:** In Progress  
 **Type:** feature  
 **Priority:** P0  
 **Phase:** V5-A/B (Week 3-8 after V4)
@@ -10,11 +10,12 @@
 
 - [技术规格书 (Specification)](./spec.md)
 - [执行计划 (Implementation Plan)](./plan.md)
+- [验证记录 (Validation)](./validation.md)
 
 ## 进度概览 (Progress)
 
-- **Phases**: 0/5 complete
-- **Tasks**: 0/35 complete
+- **Phases**: 2/5 complete
+- **Tasks**: 24/35 complete
 
 ---
 

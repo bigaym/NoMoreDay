@@ -1,0 +1,58 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
+
+layout(std430, binding = 9) readonly buffer LightWords {
+    vec4 lightWords[];
+};
+
+layout(rgba16f, binding = 4) uniform writeonly image2D uEmissiveOut;
+
+uniform sampler2D uSceneTexture;
+uniform ivec2 uResolution;
+uniform int uLightCount;
+uniform vec2 uCameraOffset;
+uniform vec2 uScreenSize;
+
+vec3 sampleLightEmissive(vec2 worldPos) {
+    vec3 lightEnergy = vec3(0.0);
+    for (int i = 0; i < uLightCount; ++i) {
+        vec4 l0 = lightWords[i * 4];
+        vec4 l1 = lightWords[i * 4 + 1];
+        vec2 lightPos = l0.xy;
+        float lightRadius = max(l0.z, 0.001);
+        float lightIntensity = max(l0.w, 0.0);
+        vec3 lightColor = max(l1.rgb, vec3(0.0));
+
+        float d = distance(worldPos, lightPos);
+        if (d > lightRadius) {
+            continue;
+        }
+
+        float norm = clamp(1.0 - (d / lightRadius), 0.0, 1.0);
+        float falloff = norm * norm;
+        lightEnergy += lightColor * lightIntensity * falloff;
+    }
+    return lightEnergy;
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= uResolution.x || pixel.y >= uResolution.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uResolution);
+    vec2 worldPos = uCameraOffset + uv * uScreenSize;
+
+    vec3 sceneColor = texture(uSceneTexture, uv).rgb;
+    vec3 lightEmission = sampleLightEmissive(worldPos) * 0.35;
+
+    // Approximate Mask.A emission by extracting high-energy fragments.
+    vec3 materialEmission = max(sceneColor - vec3(0.75), vec3(0.0)) * 1.8;
+    vec3 emissive = max(materialEmission, lightEmission);
+    emissive = min(emissive, vec3(8.0));
+
+    imageStore(uEmissiveOut, pixel, vec4(emissive, 1.0));
+}
+

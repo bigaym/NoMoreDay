@@ -2,7 +2,7 @@
 
 > **Track ID**: `v5_radiance_cascades_gi_20260219`  
 > **依赖**: `v5_jfa_distance_field_20260219`  
-> **状态**: [ ] Not Started
+> **状态**: [~] In Progress (2026-02-21 实装同步)
 
 ---
 
@@ -10,23 +10,23 @@
 
 | 阶段 | 名称 | 核心产出 | 状态 |
 |------|------|----------|------|
-| **Phase 1** | Emissive Buffer | 发光体投影 + Buffer 管理 | [ ] |
-| **Phase 2** | 级联原型 | 4 级联 + half-res + 基础合并 | [ ] |
-| **Phase 3** | GI 合成 | RadianceMap → LitHDR 叠加 + 时域混合 | [ ] |
-| **Phase 4** | 完整体 | 6 级联 + full-res + 优化 | [ ] |
-| **Phase 5** | 探索 & 验证 | Holographic RC 评估 + 全链路验证 | [ ] |
+| **Phase 1** | Emissive Buffer | 发光体投影 + Buffer 管理 | [~] |
+| **Phase 2** | 级联原型 | 4 级联 + half-res + 基础合并 | [x] |
+| **Phase 3** | GI 合成 | RadianceMap → LitHDR 叠加 + 时域混合 | [x] |
+| **Phase 4** | 完整体 | 6 级联 + full-res + 优化 | [~] |
+| **Phase 5** | 探索 & 验证 | Holographic RC 评估 + 全链路验证 | [~] |
 
 ---
 
 ## Phase 1: Emissive Buffer
 
 ### Tasks
-- [ ] Task 1.1: 创建 Emissive Buffer 纹理（RGBA16F, 屏幕分辨率）
-- [ ] Task 1.2: 场景灯光 → Emissive Buffer 投影（从 LightManager 读取）
+- [x] Task 1.1: 创建 Emissive Buffer 纹理（RGBA16F, 屏幕分辨率）
+- [x] Task 1.2: 场景灯光 → Emissive Buffer 投影（从 LightManager 读取）
 - [ ] Task 1.3: 材质 Emission 通道 → Emissive Buffer（从 GPUMaterialDataV3 Mask.A 读取）
-- [ ] Task 1.4: VFX 粒子 emissive → Emissive Buffer（独立 sub-buffer + 原子合并）
-- [ ] Task 1.5: 在 `RenderConstants` 注册 Emissive Buffer binding
-- [ ] Task 1.6: Emissive Buffer debug 可视化
+- [x] Task 1.4: VFX 粒子 emissive → Emissive Buffer（独立 sub-buffer + 原子合并）
+- [x] Task 1.5: 在 `RenderConstants` 注册 Emissive Buffer binding
+- [x] Task 1.6: Emissive Buffer debug 可视化
 
 ### Verification
 - [ ] 发光体在 Emissive Buffer 中可辨（debug 视图）
@@ -37,13 +37,13 @@
 ## Phase 2: 级联原型 (V5-A)
 
 ### Tasks
-- [ ] Task 2.1: 实现 `RadianceCascadeConfig` 结构 + SSBO 上传
-- [ ] Task 2.2: 实现 `traceRaySDF()` GLSL 函数（SDF 空间跳跃加速）
-- [ ] Task 2.3: 实现单级联 Compute Shader（射线追踪 + 发光体采样）
-- [ ] Task 2.4: 实现 `mergeCascade()` 合并算法（上级辐射度 + 近场贡献）
-- [ ] Task 2.5: 实现 4 级联 half-res 管线（L0-L3 自顶向下合并）
-- [ ] Task 2.6: 级联纹理数组管理（按级别分层绑定）
-- [ ] Task 2.7: glMemoryBarrier 级联间同步点
+- [x] Task 2.1: 实现 `RadianceCascadeConfig` 结构 + SSBO 上传
+- [x] Task 2.2: 实现 `traceRaySDF()` GLSL 函数（SDF 空间跳跃加速）
+- [x] Task 2.3: 实现单级联 Compute Shader（射线追踪 + 发光体采样）
+- [x] Task 2.4: 实现 `mergeCascade()` 合并算法（上级辐射度 + 近场贡献）
+- [x] Task 2.5: 实现 4 级联 half-res 管线（L0-L3 自顶向下合并）
+- [x] Task 2.6: 级联纹理数组管理（按级别分层绑定）
+- [x] Task 2.7: glMemoryBarrier 级联间同步点
 
 ### Verification
 - [ ] 4 级联 GI 在洞穴场景呈现间接光照
@@ -54,13 +54,13 @@
 ## Phase 3: GI 合成
 
 ### Tasks
-- [ ] Task 3.1: 实现 `GICompositePass`（RadianceMap → LitHDR 叠加）
-- [ ] Task 3.2: `giIntensity` 强度乘数可配置
-- [ ] Task 3.3: 实现时域混合（currentFrame vs previousFrame blend）
-- [ ] Task 3.4: 相机运动自适应 temporalWeight 调节
-- [ ] Task 3.5: 光源突变时重置 temporal history
-- [ ] Task 3.6: Feature Flag `render.gi.enabled` 实现
-- [ ] Task 3.7: RenderGraph 完整集成（4 个新 Pass 串联）
+- [x] Task 3.1: 实现 `GICompositePass`（RadianceMap → LitHDR 叠加）
+- [x] Task 3.2: `giIntensity` 强度乘数可配置
+- [x] Task 3.3: 实现时域混合（currentFrame vs previousFrame blend）
+- [x] Task 3.4: 相机运动自适应 temporalWeight 调节
+- [x] Task 3.5: 光源突变时重置 temporal history
+- [x] Task 3.6: Feature Flag `render.gi.enabled` 实现
+- [x] Task 3.7: RenderGraph 完整集成（4 个新 Pass 串联）
 
 ### Verification
 - [ ] GI 叠加后无过曝/过暗
@@ -72,9 +72,9 @@
 ## Phase 4: 完整体 (V5-B)
 
 ### Tasks
-- [ ] Task 4.1: 扩展到 6 级联 full-res（L0-L5）
-- [ ] Task 4.2: L0 射线增至 8（Ultra 档质量提升）
-- [ ] Task 4.3: SDF 增量更新与 GI 联动（减少 full-res 帧开销）
+- [x] Task 4.1: 扩展到 6 级联 full-res（L0-L5）
+- [x] Task 4.2: L0 射线增至 8（Ultra 档质量提升）
+- [x] Task 4.3: SDF 增量更新与 GI 联动（减少 full-res 帧开销）
 - [ ] Task 4.4: Ultra 档 vs High 档 GI 质量对比
 - [ ] Task 4.5: 帧预算腾挪验证（V4 Pass 联合降级）
 - [ ] Task 4.6: 6 级联 ≤ 2.5ms @1080p 性能验证
@@ -88,9 +88,9 @@
 ## Phase 5: 探索 & 验证
 
 ### Tasks
-- [ ] Task 5.1: Holographic RC 论文复现原型
+- [x] Task 5.1: Holographic RC 论文复现原型
 - [ ] Task 5.2: Holographic RC vs 标准 RC 性能/质量对比
-- [ ] Task 5.3: OGL 4.3 兼容性评估
+- [x] Task 5.3: OGL 4.3 兼容性评估
 - [ ] Task 5.4: 全 Tier 矩阵验证（Low/Med=Off, High=4-cascade, Ultra=6-cascade）
 - [ ] Task 5.5: 3+ 场景类型 GI 视觉回归
 - [ ] Task 5.6: GI 长时间运行稳定性（30 分钟无显存增长）

@@ -34,6 +34,12 @@ struct RenderContext {
   uint32_t giDistanceFieldTexture = 0u;
   int giDistanceFieldWidth = 0;
   int giDistanceFieldHeight = 0;
+  uint32_t giEmissiveTexture = 0u;
+  int giEmissiveWidth = 0;
+  int giEmissiveHeight = 0;
+  uint32_t giRadianceTexture = 0u;
+  int giRadianceWidth = 0;
+  int giRadianceHeight = 0;
 
   bool IsValid() const {
     return registry != nullptr && shared != nullptr && camera != nullptr;
