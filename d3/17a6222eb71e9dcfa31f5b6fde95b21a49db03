@@ -1,0 +1,1 @@
+Follow-up closeout evidence: build.bat analyze PASS and ctest -C Release -L performance PASS; appended to archived track validation.md.
