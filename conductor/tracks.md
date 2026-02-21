@@ -364,17 +364,17 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 
 ---
 
-## [~] Track 7: V5 Radiance Cascades GI (v5_radiance_cascades_gi_20260219) [IN PROGRESS]
+## [x] Track 7: V5 Radiance Cascades GI (v5_radiance_cascades_gi_20260219) [COMPLETED]
 
-> **Status**: 🚧 In Progress  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: feature  
 > **Phase**: V5-A/B (Week 3-8 after V4)  
 > **Depends On**: `v5_jfa_distance_field_20260219`  
 > **Focus**: 辐射级联全局光照核心 — Emissive Buffer + 6 级联射线追踪 + SDF 加速 + GI Composite + 时域稳定 + Holographic RC 探索。  
-> **Tasks**: 24/35  
-> **Location**: [`conductor/tracks/v5_radiance_cascades_gi_20260219/`](./tracks/v5_radiance_cascades_gi_20260219/index.md)
-> **Latest Validation**: `build.bat` / `ctest -C RelWithDebInfo -L ci` / `ctest -C RelWithDebInfo -L integration` 均 PASS；`ctest -C Release -L performance` 失败点为既有 `BUG-20260219-004`（non-blocking）。
+> **Tasks**: 35/35  
+> **Location**: [`conductor/archive/v5_radiance_cascades_gi_20260219/`](./archive/v5_radiance_cascades_gi_20260219/index.md)
+> **Latest Validation**: `.\build.bat` / `.\build.bat analyze` / `ctest -C RelWithDebInfo -L unit|integration|ci` / `ctest -C Release -L performance` all PASS.
 
 ---
 
@@ -416,7 +416,7 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 | v4_advanced_lighting_20260219 | V4-C | 28/28 | P1 | ✅ Completed |
 | v4_validation_release_gate_20260219 | V4 Gate | 30/30 | P0 | ✅ Completed |
 | v5_jfa_distance_field_20260219 | V5-A | 22/22 | P0 | ✅ Completed |
-| v5_radiance_cascades_gi_20260219 | V5-A/B | 24/35 | P0 | 🚧 In Progress |
+| v5_radiance_cascades_gi_20260219 | V5-A/B | 35/35 | P0 | ✅ Completed |
 | v5_sph_fluid_exploration_20260219 | V5-B | 0/18 | P2 | 📋 Pending |
 | v5_validation_release_gate_20260219 | V5 Gate | 0/25 | P0 | 📋 Pending |
-| **合计** | — | **123/230** | — | — |
+| **合计** | — | **134/230** | — | — |

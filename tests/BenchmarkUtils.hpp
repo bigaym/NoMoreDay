@@ -1,5 +1,7 @@
 #pragma once
 
+#include "core/logging/Logger.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <numeric>

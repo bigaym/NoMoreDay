@@ -45,14 +45,9 @@ void main() {
     vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uResolution);
     vec2 worldPos = uCameraOffset + uv * uScreenSize;
 
-    vec3 sceneColor = texture(uSceneTexture, uv).rgb;
     vec3 lightEmission = sampleLightEmissive(worldPos) * 0.35;
-
-    // Approximate Mask.A emission by extracting high-energy fragments.
-    vec3 materialEmission = max(sceneColor - vec3(0.75), vec3(0.0)) * 1.8;
-    vec3 emissive = max(materialEmission, lightEmission);
+    vec3 emissive = lightEmission;
     emissive = min(emissive, vec3(8.0));
 
     imageStore(uEmissiveOut, pixel, vec4(emissive, 1.0));
 }
-

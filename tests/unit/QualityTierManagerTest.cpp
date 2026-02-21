@@ -266,6 +266,36 @@ TEST_CASE("[Unit] QualityTierManager - GPULoot Feature Flag Route Switch") {
   CHECK(manager.GetConfig().gpuLootGlowEnabled == true);
 }
 
+TEST_CASE("[Unit] QualityTierManager - GI Tier Matrix Policy") {
+  const auto settingsPath = MakeTempSettingsPath("gi_tier_matrix.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"v3", {{"enabled", false}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+
+  manager.ForceTier(render::core::QualityTier::Low);
+  CHECK(manager.GetConfig().giEnabled == false);
+  CHECK(manager.GetConfig().giCascadeLevels == 0u);
+
+  manager.ForceTier(render::core::QualityTier::Medium);
+  CHECK(manager.GetConfig().giEnabled == false);
+  CHECK(manager.GetConfig().giCascadeLevels == 0u);
+
+  manager.ForceTier(render::core::QualityTier::High);
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.GetConfig().giCascadeLevels == 4u);
+  CHECK(manager.GetConfig().giHalfResolution == true);
+  CHECK(manager.GetConfig().giSdfUpdateInterval == 2u);
+
+  manager.ForceTier(render::core::QualityTier::Ultra);
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.GetConfig().giCascadeLevels == 6u);
+  CHECK(manager.GetConfig().giHalfResolution == false);
+  CHECK(manager.GetConfig().giSdfUpdateInterval == 1u);
+}
+
 TEST_CASE("[Unit] QualityTierManager - Shadow Tier Policy Linkage") {
   const auto settingsPath = MakeTempSettingsPath("render_v3_tier_shadow_policy.json");
   WriteJson(settingsPath,
@@ -450,6 +480,10 @@ TEST_CASE("[Unit] QualityTierManager - AutoDegrade Sequence And Recovery") {
   CHECK(manager.GetConfig().specularEnabled == true);
   CHECK(manager.GetConfig().materialQualityLevel == 2);
   CHECK(manager.GetConfig().distortionEnabled == true);
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.GetConfig().giCascadeLevels == 6u);
+  CHECK(manager.GetConfig().giHalfResolution == false);
+  CHECK(manager.GetConfig().giSdfUpdateInterval == 1u);
 
   CHECK(manager.IncreaseAutoDegradeLevel("unit_test", 20.0f, 16.0f) == true);
   CHECK(manager.GetAutoDegradeLevel() == 1);
@@ -467,16 +501,24 @@ TEST_CASE("[Unit] QualityTierManager - AutoDegrade Sequence And Recovery") {
   CHECK(manager.GetAutoDegradeLevel() == 4);
   CHECK(manager.GetConfig().clusterTileSize == 64);
   CHECK(manager.GetConfig().clusterZSliceCount == 2);
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.GetConfig().giHalfResolution == true);
+  CHECK(manager.GetConfig().giCascadeLevels == 4u);
+  CHECK(manager.GetConfig().giSdfUpdateInterval >= 2u);
 
   CHECK(manager.IncreaseAutoDegradeLevel("unit_test", 20.0f, 16.0f) == true);
   CHECK(manager.GetAutoDegradeLevel() == 5);
   CHECK(manager.GetConfig().shadowMode == render::core::ShadowMode::SDF);
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.GetConfig().giSdfUpdateInterval >= 4u);
 
   CHECK(manager.IncreaseAutoDegradeLevel("unit_test", 20.0f, 16.0f) == true);
   CHECK(manager.GetAutoDegradeLevel() == 6);
   CHECK(manager.GetConfig().normalLightingEnabled == false);
   CHECK(manager.GetConfig().specularEnabled == false);
   CHECK(manager.GetConfig().materialQualityLevel == 0);
+  CHECK(manager.GetConfig().giEnabled == false);
+  CHECK(manager.GetConfig().giCascadeLevels == 0u);
 
   CHECK(manager.IncreaseAutoDegradeLevel("unit_test", 20.0f, 16.0f) == false);
   CHECK(manager.GetAutoDegradeLevel() == 6);
@@ -487,6 +529,10 @@ TEST_CASE("[Unit] QualityTierManager - AutoDegrade Sequence And Recovery") {
   CHECK(manager.GetConfig().normalLightingEnabled == true);
   CHECK(manager.GetConfig().specularEnabled == true);
   CHECK(manager.GetConfig().materialQualityLevel == 2);
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.GetConfig().giCascadeLevels == 4u);
+  CHECK(manager.GetConfig().giHalfResolution == true);
+  CHECK(manager.GetConfig().giSdfUpdateInterval >= 4u);
 
   manager.ResetAutoDegrade("unit_test");
   CHECK(manager.GetAutoDegradeLevel() == 0);
@@ -497,4 +543,8 @@ TEST_CASE("[Unit] QualityTierManager - AutoDegrade Sequence And Recovery") {
   CHECK(manager.GetConfig().normalLightingEnabled == true);
   CHECK(manager.GetConfig().specularEnabled == true);
   CHECK(manager.GetConfig().materialQualityLevel == 2);
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.GetConfig().giCascadeLevels == 6u);
+  CHECK(manager.GetConfig().giHalfResolution == false);
+  CHECK(manager.GetConfig().giSdfUpdateInterval == 1u);
 }

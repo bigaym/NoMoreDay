@@ -12,9 +12,11 @@
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/OccluderExtractPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
+#include "engine/render/passes/RadianceCascadesPass.hpp"
 #include "engine/render/passes/ScenePass.hpp"
 #include "engine/render/passes/UIWorldPass.hpp"
 #include "engine/render/passes/VFXPass.hpp"
+#include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/VolumetricLightPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
@@ -63,6 +65,8 @@ void BuildDefaultPathGraph(
   if (useGiPath) {
     graph.AddPass(std::make_shared<passes::OccluderExtractPass>());
     graph.AddPass(std::make_shared<passes::JFAPass>());
+    graph.AddPass(std::make_shared<passes::RadianceCascadesPass>());
+    graph.AddPass(std::make_shared<passes::GICompositePass>());
   }
   if (useHdrPath && cfg.volumetricLightEnabled) {
     graph.AddPass(std::make_shared<passes::VolumetricLightPass>());

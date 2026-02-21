@@ -53,6 +53,8 @@ private:
   bool ClearParticleCounter();
   uint32_t ReadParticleCounter() const;
   bool RunEmissiveBuild(const graph::RenderContext &context, int width, int height);
+  bool RunMaterialEmissive(const graph::RenderContext &context, int width,
+                           int height);
   bool RunParticleEmissive(const graph::RenderContext &context, int width,
                            int height);
   bool RunEmissiveMerge(int width, int height);
@@ -69,6 +71,7 @@ private:
   void LogBarrierAuditOnce();
 
   Shader m_emissiveBuildShader = {};
+  Shader m_materialEmissiveShader = {};
   Shader m_particleEmissiveShader = {};
   Shader m_emissiveMergeShader = {};
   Shader m_radianceCascadeShader = {};
@@ -78,6 +81,13 @@ private:
   int m_emissiveSceneTextureLoc = -1;
   int m_emissiveCameraOffsetLoc = -1;
   int m_emissiveScreenSizeLoc = -1;
+
+  int m_materialResolutionLoc = -1;
+  int m_materialMaskArrayLoc = -1;
+  int m_materialMaskLayerLoc = -1;
+  int m_materialDispatchOriginLoc = -1;
+  int m_materialDispatchSizeLoc = -1;
+  int m_materialEmissionLoc = -1;
 
   int m_particleResolutionLoc = -1;
   int m_particleSceneTextureLoc = -1;
@@ -110,6 +120,7 @@ private:
   uint32_t m_cachedCascadeLevels = 0u;
   bool m_cachedHalfResolution = false;
   uint32_t m_frameIndex = 0u;
+  uint32_t m_lastMaterialStampCount = 0u;
   uint32_t m_lastParticleWriteCount = 0u;
   bool m_initialized = false;
   bool m_barrierAuditLogged = false;

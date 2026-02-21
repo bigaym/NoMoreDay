@@ -3,6 +3,7 @@
 #include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/MaterialManager.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
@@ -10,8 +11,11 @@
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/lighting/LightManager.hpp"
+#include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
+#include "engine/vfx/VFXTypes.hpp"
+#include "game/components/Common.hpp"
 
 #include <entt/entt.hpp>
 #include <algorithm>
@@ -23,8 +27,10 @@ namespace {
 using namespace entt::literals;
 
 constexpr uint32_t kGLTexture2D = 0x0DE1;
+constexpr uint32_t kGLTexture2DArray = 0x8C1A;
 constexpr uint32_t kGLTexture0 = 0x84C0;
 constexpr uint32_t kGLReadOnly = 0x88B8;
+constexpr uint32_t kGLReadWrite = 0x88BA;
 constexpr uint32_t kGLWriteOnly = 0x88B9;
 constexpr uint32_t kGLR16f = 0x822D;
 constexpr uint32_t kGLRgba16f = 0x881A;
@@ -62,6 +68,9 @@ bool RadianceCascadesPass::Initialize(ResourceManager &resources) {
   m_emissiveBuildShader = resources.loadComputeShader(
       "v5_emissive_build_compute"_hs,
       "assets/shaders/lighting/v5_emissive_build.comp");
+  m_materialEmissiveShader = resources.loadComputeShader(
+      "v5_emissive_material_compute"_hs,
+      "assets/shaders/lighting/v5_emissive_material.comp");
   m_particleEmissiveShader = resources.loadComputeShader(
       "v5_emissive_particle_compute"_hs,
       "assets/shaders/lighting/v5_emissive_particle.comp");
@@ -72,8 +81,9 @@ bool RadianceCascadesPass::Initialize(ResourceManager &resources) {
       "v5_radiance_cascade_compute"_hs,
       "assets/shaders/lighting/v5_radiance_cascade.comp");
 
-  if (m_emissiveBuildShader.id == 0 || m_particleEmissiveShader.id == 0 ||
-      m_emissiveMergeShader.id == 0 || m_radianceCascadeShader.id == 0) {
+  if (m_emissiveBuildShader.id == 0 || m_materialEmissiveShader.id == 0 ||
+      m_particleEmissiveShader.id == 0 || m_emissiveMergeShader.id == 0 ||
+      m_radianceCascadeShader.id == 0) {
     Shutdown();
     return false;
   }
@@ -88,6 +98,19 @@ bool RadianceCascadesPass::Initialize(ResourceManager &resources) {
       rlGetLocationUniform(m_emissiveBuildShader.id, "uCameraOffset");
   m_emissiveScreenSizeLoc =
       rlGetLocationUniform(m_emissiveBuildShader.id, "uScreenSize");
+
+  m_materialResolutionLoc =
+      rlGetLocationUniform(m_materialEmissiveShader.id, "uResolution");
+  m_materialMaskArrayLoc =
+      rlGetLocationUniform(m_materialEmissiveShader.id, "uMaskArray");
+  m_materialMaskLayerLoc =
+      rlGetLocationUniform(m_materialEmissiveShader.id, "uMaskLayer");
+  m_materialDispatchOriginLoc =
+      rlGetLocationUniform(m_materialEmissiveShader.id, "uDispatchOrigin");
+  m_materialDispatchSizeLoc =
+      rlGetLocationUniform(m_materialEmissiveShader.id, "uDispatchSize");
+  m_materialEmissionLoc =
+      rlGetLocationUniform(m_materialEmissiveShader.id, "uEmission");
 
   m_particleResolutionLoc =
       rlGetLocationUniform(m_particleEmissiveShader.id, "uResolution");
@@ -135,6 +158,7 @@ bool RadianceCascadesPass::Initialize(ResourceManager &resources) {
 
 void RadianceCascadesPass::Shutdown() {
   m_emissiveBuildShader = {};
+  m_materialEmissiveShader = {};
   m_particleEmissiveShader = {};
   m_emissiveMergeShader = {};
   m_radianceCascadeShader = {};
@@ -154,6 +178,13 @@ void RadianceCascadesPass::Shutdown() {
   m_emissiveSceneTextureLoc = -1;
   m_emissiveCameraOffsetLoc = -1;
   m_emissiveScreenSizeLoc = -1;
+
+  m_materialResolutionLoc = -1;
+  m_materialMaskArrayLoc = -1;
+  m_materialMaskLayerLoc = -1;
+  m_materialDispatchOriginLoc = -1;
+  m_materialDispatchSizeLoc = -1;
+  m_materialEmissionLoc = -1;
 
   m_particleResolutionLoc = -1;
   m_particleSceneTextureLoc = -1;
@@ -178,6 +209,7 @@ void RadianceCascadesPass::Shutdown() {
   m_cachedCascadeLevels = 0u;
   m_cachedHalfResolution = false;
   m_frameIndex = 0u;
+  m_lastMaterialStampCount = 0u;
   m_lastParticleWriteCount = 0u;
   m_initialized = false;
   m_barrierAuditLogged = false;
@@ -329,6 +361,133 @@ bool RadianceCascadesPass::RunEmissiveBuild(const graph::RenderContext &context,
   const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
                                kTextureFetchBarrierBit;
   NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  return true;
+}
+
+bool RadianceCascadesPass::RunMaterialEmissive(
+    const graph::RenderContext &context, const int width, const int height) {
+  m_lastMaterialStampCount = 0u;
+  if (m_materialEmissiveShader.id == 0 || !m_emissiveBase.IsValid() ||
+      context.registry == nullptr || context.camera == nullptr) {
+    return false;
+  }
+
+  auto &textureArrays = NoMoreDay::render::TextureArrayManager::Get();
+  if (!textureArrays.IsInitialized()) {
+    textureArrays.Initialize();
+  }
+  const uint32_t maskArrayTexture =
+      textureArrays.GetTextureId(NoMoreDay::render::TextureArraySemantic::Mask);
+  if (maskArrayTexture == 0u) {
+    return true;
+  }
+
+  const float zoom = std::max(context.camera->zoom, 0.0001f);
+  const float cameraOffset[2] = {
+      context.camera->target.x - (context.camera->offset.x / zoom),
+      context.camera->target.y - (context.camera->offset.y / zoom),
+  };
+
+  rlEnableShader(m_materialEmissiveShader.id);
+  const int resolution[2] = {width, height};
+  if (m_materialResolutionLoc >= 0) {
+    rlSetUniform(m_materialResolutionLoc, resolution, RL_SHADER_UNIFORM_IVEC2, 1);
+  }
+  const int maskTextureUnit = 0;
+  if (m_materialMaskArrayLoc >= 0) {
+    rlSetUniform(m_materialMaskArrayLoc, &maskTextureUnit, RL_SHADER_UNIFORM_INT, 1);
+  }
+
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2DArray, maskArrayTexture);
+  NoMoreDay::utils::GPUUtils::BindImageTexture(
+      RenderConstants::V5GI::kEmissiveImageBinding, m_emissiveBase.colorTexture, 0,
+      false, 0, kGLReadWrite, kGLRgba16f);
+
+  auto view = context.registry->view<const Position,
+                                     const NoMoreDay::vfx::ActiveMaterialSwap>(
+      entt::exclude<KilledTag>);
+  uint32_t stampCount = 0u;
+  for (const auto entity : view) {
+    const auto &swap = view.get<NoMoreDay::vfx::ActiveMaterialSwap>(entity);
+    if (swap.materialId <= 0) {
+      continue;
+    }
+
+    const auto &gpuMaterial =
+        MaterialManager::Get().GetGpuMaterialForTesting(swap.materialId);
+    const int maskLayer = static_cast<int>(std::lround(gpuMaterial.textureSlots.z));
+    if (maskLayer < 0) {
+      continue;
+    }
+
+    const float emissiveIntensity = std::max(0.0f, gpuMaterial.emissiveAndIntensity.w);
+    const float emissiveR = std::max(0.0f, gpuMaterial.emissiveAndIntensity.x);
+    const float emissiveG = std::max(0.0f, gpuMaterial.emissiveAndIntensity.y);
+    const float emissiveB = std::max(0.0f, gpuMaterial.emissiveAndIntensity.z);
+    if (emissiveIntensity <= 0.0001f ||
+        (emissiveR + emissiveG + emissiveB) <= 0.0001f) {
+      continue;
+    }
+
+    const auto &position = view.get<Position>(entity);
+    float worldHalfExtent = 24.0f;
+    if (const auto *radius = context.registry->try_get<Radius>(entity)) {
+      worldHalfExtent = std::max(worldHalfExtent, radius->value);
+    }
+    if (const auto *sprite = context.registry->try_get<SpriteComponent>(entity);
+        sprite != nullptr && sprite->texture.id != 0) {
+      const float spriteHalfExtent = 0.5f *
+                                     std::max(static_cast<float>(sprite->texture.width),
+                                              static_cast<float>(sprite->texture.height)) *
+                                     std::max(0.05f, sprite->scale);
+      worldHalfExtent = std::max(worldHalfExtent, spriteHalfExtent);
+    }
+
+    const int halfExtentPixels =
+        std::max(2, static_cast<int>(std::ceil(worldHalfExtent * zoom)));
+    const int dispatchSize[2] = {halfExtentPixels * 2, halfExtentPixels * 2};
+    const int centerPx[2] = {
+        static_cast<int>(std::floor((position.x - cameraOffset[0]) * zoom)),
+        static_cast<int>(std::floor((position.y - cameraOffset[1]) * zoom)),
+    };
+    const int dispatchOrigin[2] = {centerPx[0] - halfExtentPixels,
+                                   centerPx[1] - halfExtentPixels};
+    if (dispatchOrigin[0] >= width || dispatchOrigin[1] >= height ||
+        (dispatchOrigin[0] + dispatchSize[0]) <= 0 ||
+        (dispatchOrigin[1] + dispatchSize[1]) <= 0) {
+      continue;
+    }
+
+    if (m_materialMaskLayerLoc >= 0) {
+      rlSetUniform(m_materialMaskLayerLoc, &maskLayer, RL_SHADER_UNIFORM_INT, 1);
+    }
+    if (m_materialDispatchOriginLoc >= 0) {
+      rlSetUniform(m_materialDispatchOriginLoc, dispatchOrigin, RL_SHADER_UNIFORM_IVEC2,
+                   1);
+    }
+    if (m_materialDispatchSizeLoc >= 0) {
+      rlSetUniform(m_materialDispatchSizeLoc, dispatchSize, RL_SHADER_UNIFORM_IVEC2, 1);
+    }
+    const float emission[4] = {emissiveR, emissiveG, emissiveB, emissiveIntensity};
+    if (m_materialEmissionLoc >= 0) {
+      rlSetUniform(m_materialEmissionLoc, emission, RL_SHADER_UNIFORM_VEC4, 1);
+    }
+
+    NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
+        DivUp(static_cast<uint32_t>(dispatchSize[0]), kGLComputeGroupSize),
+        DivUp(static_cast<uint32_t>(dispatchSize[1]), kGLComputeGroupSize), 1u);
+    NoMoreDay::utils::GPUUtils::MemoryBarrier(
+        static_cast<uint32_t>(RenderConstants::Barrier::Image));
+    ++stampCount;
+  }
+
+  rlDisableShader();
+  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
+  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
+                               kTextureFetchBarrierBit;
+  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+  m_lastMaterialStampCount = stampCount;
   return true;
 }
 
@@ -576,6 +735,7 @@ void RadianceCascadesPass::LogBarrierAuditOnce() {
   }
   m_barrierAuditLogged = true;
   LOG_INFO("RadianceCascadesPass barrier audit: emissive=Image|TextureFetch, "
+           "material=Image|TextureFetch, "
            "particle=Image|Buffer|TextureFetch, merge=Image|TextureFetch, "
            "cascade=Image|TextureFetch");
 }
@@ -585,6 +745,7 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
   m_lastExecuteFailure = false;
   m_lastExecuteSuccess = false;
   m_lastFailureReason.clear();
+  m_lastMaterialStampCount = 0u;
   m_lastParticleWriteCount = 0u;
 
   if (context.qualityManager == nullptr || context.shared == nullptr ||
@@ -626,6 +787,10 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
     ReportFailure("emissive build failed");
     return;
   }
+  if (!RunMaterialEmissive(context, width, height)) {
+    ReportFailure("material emissive pass failed");
+    return;
+  }
   if (!RunParticleEmissive(context, width, height)) {
     ReportFailure("particle emissive pass failed");
     return;
@@ -649,9 +814,9 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
   if ((m_frameIndex % 120u) == 0u) {
     LOG_INFO(
         "RadianceCascadesPass debug: frame={} cascades={} halfRes={} "
-        "radiance={}x{} particleWrites={} holographic={}",
+        "radiance={}x{} materialStamps={} particleWrites={} holographic={}",
         m_frameIndex, cascadeLevels, halfResolution ? 1 : 0, m_cascadeRadiance[0].width,
-        m_cascadeRadiance[0].height, m_lastParticleWriteCount,
+        m_cascadeRadiance[0].height, m_lastMaterialStampCount, m_lastParticleWriteCount,
         config.giHolographicEnabled ? 1 : 0);
   }
 

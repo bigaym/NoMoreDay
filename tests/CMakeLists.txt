@@ -20,7 +20,12 @@ add_executable(NoMoreDayTests
 # collisions with existing contract test helpers.
 set_source_files_properties(
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/RenderGraphV5ContractsIntegrationTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/ReleaseGateIntegrationTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/integration/ShadowPipelineTierFallbackIntegrationTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/JFADistanceFieldEvaluatorTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/performance/MaterialLightingBenchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/performance/PostProcessBenchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/performance/RadianceCascadesBenchmark.cpp
     PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON
 )
 
