@@ -27,6 +27,15 @@ Track `blade_ascendant_skill_contracts_20260221` closed with contract model inte
    - Command: `python scripts/gen_skill_contracts.py --check`
    - Result: PASS (`skill_contract` blocks up to date)
 
+6. Static Analysis Build
+   - Command: `.\build.bat analyze`
+   - Result: PASS
+   - Notes: MSVC static analysis warnings reported; build completed successfully.
+
+7. Performance Label
+   - Command: `ctest --test-dir build -C Release -L performance --output-on-failure`
+   - Result: PASS (1/1)
+
 ## Additional Notes
 
 - No new blocking failures observed in this track validation cycle.
