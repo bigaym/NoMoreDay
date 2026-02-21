@@ -1374,9 +1374,26 @@ void RenderSystem::render(entt::registry &registry,
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
   NoMoreDay::render::GPULootSystem::Get().SyncDroppedItems(registry);
-  frame.gpuTextEnabled = renderConfig.gpuTextEnabled;
-  frame.gpuLootEnabled = renderConfig.gpuLootEnabled;
-  frame.gpuLootGlowEnabled = renderConfig.gpuLootGlowEnabled;
+  const bool gpuTextRuntimeReady =
+      NoMoreDay::render::GPUTextSystem::Get().IsInitialized();
+  const bool gpuLootRuntimeReady =
+      NoMoreDay::render::GPULootSystem::Get().IsInitialized();
+  frame.gpuTextEnabled = renderConfig.gpuTextEnabled && gpuTextRuntimeReady;
+  frame.gpuLootEnabled = renderConfig.gpuLootEnabled && gpuLootRuntimeReady;
+  frame.gpuLootGlowEnabled =
+      renderConfig.gpuLootGlowEnabled && gpuLootRuntimeReady;
+  static bool s_loggedGpuTextFallback = false;
+  static bool s_loggedGpuLootFallback = false;
+  if (renderConfig.gpuTextEnabled && !gpuTextRuntimeReady && !s_loggedGpuTextFallback) {
+    LOG_WARN("RenderSystem: gpuText enabled in config but GPUTextSystem is not ready; "
+             "falling back to CPU popup rendering.");
+    s_loggedGpuTextFallback = true;
+  }
+  if (renderConfig.gpuLootEnabled && !gpuLootRuntimeReady && !s_loggedGpuLootFallback) {
+    LOG_WARN("RenderSystem: gpuLoot enabled in config but GPULootSystem is not ready; "
+             "falling back to CPU loot label rendering.");
+    s_loggedGpuLootFallback = true;
+  }
   HandleV3RuntimeToggle(renderConfig.v3Enabled);
   static bool s_prevGiEnabled = false;
   if (!renderConfig.giEnabled && s_prevGiEnabled && g_giCompositePass != nullptr) {

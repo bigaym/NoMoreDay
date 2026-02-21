@@ -5,6 +5,9 @@
 #include "engine/render/GPUUtils.hpp"
 #include "rlgl.h"
 #include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <unordered_set>
 
 using namespace NoMoreDay;
 
@@ -39,6 +42,94 @@ using namespace NoMoreDay;
 #ifndef GL_LINEAR
 #define GL_LINEAR 0x2601
 #endif
+
+namespace {
+
+bool ReadTextFileUtf8(const std::filesystem::path &path, std::string &outText) {
+  std::ifstream file(path, std::ios::in | std::ios::binary);
+  if (!file.is_open()) {
+    return false;
+  }
+  std::ostringstream buffer;
+  buffer << file.rdbuf();
+  outText = buffer.str();
+  return true;
+}
+
+bool PreprocessShaderIncludesImpl(const std::filesystem::path &path,
+                                  std::string &outText,
+                                  std::unordered_set<std::string> &includeStack,
+                                  int depth) {
+  if (depth > 32) {
+    LOG_ERROR("ResourceManager: shader include nesting too deep: {}", path.string());
+    return false;
+  }
+
+  const std::filesystem::path normalizedPath =
+      std::filesystem::absolute(path).lexically_normal();
+  const std::string key = normalizedPath.string();
+  if (!includeStack.insert(key).second) {
+    LOG_ERROR("ResourceManager: cyclic shader include detected: {}", key);
+    return false;
+  }
+
+  std::string fileText;
+  if (!ReadTextFileUtf8(normalizedPath, fileText)) {
+    includeStack.erase(key);
+    LOG_ERROR("ResourceManager: failed to read shader source '{}'", normalizedPath.string());
+    return false;
+  }
+
+  std::istringstream input(fileText);
+  std::string line;
+  std::ostringstream output;
+  while (std::getline(input, line)) {
+    std::string trimmed = line;
+    const size_t firstNonWs = trimmed.find_first_not_of(" \t");
+    if (firstNonWs != std::string::npos) {
+      trimmed = trimmed.substr(firstNonWs);
+    }
+
+    if (trimmed.rfind("#include \"", 0) == 0) {
+      const size_t begin = std::string("#include \"").size();
+      const size_t end = trimmed.find('"', begin);
+      if (end == std::string::npos) {
+        includeStack.erase(key);
+        LOG_ERROR("ResourceManager: malformed include in '{}': {}",
+                  normalizedPath.string(), line);
+        return false;
+      }
+      const std::string includeRel = trimmed.substr(begin, end - begin);
+      const std::filesystem::path includePath = normalizedPath.parent_path() / includeRel;
+
+      std::string includeText;
+      if (!PreprocessShaderIncludesImpl(includePath, includeText, includeStack, depth + 1)) {
+        includeStack.erase(key);
+        return false;
+      }
+      output << includeText << '\n';
+      continue;
+    }
+
+    output << line << '\n';
+  }
+
+  outText = output.str();
+  includeStack.erase(key);
+  return true;
+}
+
+bool PreprocessShaderIncludes(const std::string &path, std::string &outText) {
+  if (path.empty()) {
+    outText.clear();
+    return true;
+  }
+  std::unordered_set<std::string> includeStack;
+  return PreprocessShaderIncludesImpl(std::filesystem::path(path), outText,
+                                      includeStack, 0);
+}
+
+} // namespace
 
 ResourceManager::~ResourceManager() {
   LOG_INFO("Shutting down ResourceManager...");
@@ -194,7 +285,32 @@ Shader ResourceManager::loadShader(entt::id_type id, const std::string &vsPath,
     return dummy;
   }
 
-  Shader shader = LoadShader(vsPath.c_str(), fsPath.c_str());
+  std::string vertexSource;
+  std::string fragmentSource;
+  const char *vertexSourcePtr = nullptr;
+  const char *fragmentSourcePtr = nullptr;
+
+  if (!vsPath.empty()) {
+    if (!PreprocessShaderIncludes(vsPath, vertexSource)) {
+      LOG_ERROR("ResourceManager: Failed to preprocess vertex shader '{}'", vsPath);
+      return {0};
+    }
+    vertexSourcePtr = vertexSource.c_str();
+  }
+
+  if (!fsPath.empty()) {
+    if (!PreprocessShaderIncludes(fsPath, fragmentSource)) {
+      LOG_ERROR("ResourceManager: Failed to preprocess fragment shader '{}'", fsPath);
+      return {0};
+    }
+    fragmentSourcePtr = fragmentSource.c_str();
+  }
+
+  Shader shader = LoadShaderFromMemory(vertexSourcePtr, fragmentSourcePtr);
+  if (shader.id == 0) {
+    LOG_ERROR("ResourceManager: Failed to load shader VS='{}' FS='{}'", vsPath, fsPath);
+    return {0};
+  }
   m_shaders[id] = shader;
   return shader;
 }
@@ -226,19 +342,23 @@ Shader ResourceManager::loadComputeShader(entt::id_type id,
     return {0};
   }
 
-  char *source = LoadFileText(path.c_str());
-  if (source == nullptr)
+  std::string source;
+  if (!PreprocessShaderIncludes(path, source)) {
+    LOG_ERROR("ResourceManager: Failed to preprocess compute shader '{}'", path);
     return {0};
+  }
+  if (source.empty()) {
+    LOG_ERROR("ResourceManager: Empty compute shader source '{}'", path);
+    return {0};
+  }
 
   // Unified rlgl loading
-  unsigned int shaderId = rlCompileShader(source, RL_COMPUTE_SHADER);
+  unsigned int shaderId = rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
   unsigned int programId = 0;
 
   if (shaderId != 0) {
     programId = rlLoadComputeShaderProgram(shaderId);
   }
-
-  UnloadFileText(source);
 
   if (programId == 0) {
     LOG_ERROR(

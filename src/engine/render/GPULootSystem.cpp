@@ -10,6 +10,10 @@
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
+#include <unordered_set>
 
 namespace NoMoreDay::render {
 namespace {
@@ -32,20 +36,99 @@ constexpr uint32_t kGLTriangles = 0x0004;
 using MultiDrawArraysIndirectCountFn = void(APIENTRY *)(uint32_t, const void *,
                                                         int32_t, int32_t);
 
+bool ReadTextFileUtf8(const std::filesystem::path &path, std::string &outText) {
+  std::ifstream file(path, std::ios::in | std::ios::binary);
+  if (!file.is_open()) {
+    return false;
+  }
+  std::ostringstream buffer;
+  buffer << file.rdbuf();
+  outText = buffer.str();
+  return true;
+}
+
+bool PreprocessShaderIncludesImpl(const std::filesystem::path &path,
+                                  std::string &outText,
+                                  std::unordered_set<std::string> &includeStack,
+                                  int depth) {
+  if (depth > 32) {
+    LOG_ERROR("GPULootSystem: shader include nesting too deep: {}", path.string());
+    return false;
+  }
+
+  const std::filesystem::path normalizedPath =
+      std::filesystem::absolute(path).lexically_normal();
+  const std::string key = normalizedPath.string();
+  if (!includeStack.insert(key).second) {
+    LOG_ERROR("GPULootSystem: cyclic shader include detected: {}", key);
+    return false;
+  }
+
+  std::string fileText;
+  if (!ReadTextFileUtf8(normalizedPath, fileText)) {
+    includeStack.erase(key);
+    LOG_ERROR("GPULootSystem: failed to read compute shader: {}", normalizedPath.string());
+    return false;
+  }
+
+  std::istringstream input(fileText);
+  std::ostringstream output;
+  std::string line;
+  while (std::getline(input, line)) {
+    std::string trimmed = line;
+    const size_t firstNonWs = trimmed.find_first_not_of(" \t");
+    if (firstNonWs != std::string::npos) {
+      trimmed = trimmed.substr(firstNonWs);
+    }
+
+    if (trimmed.rfind("#include \"", 0) == 0) {
+      const size_t begin = std::string("#include \"").size();
+      const size_t end = trimmed.find('"', begin);
+      if (end == std::string::npos) {
+        includeStack.erase(key);
+        LOG_ERROR("GPULootSystem: malformed include in '{}': {}",
+                  normalizedPath.string(), line);
+        return false;
+      }
+
+      const std::string includeRel = trimmed.substr(begin, end - begin);
+      const std::filesystem::path includePath = normalizedPath.parent_path() / includeRel;
+      std::string includeText;
+      if (!PreprocessShaderIncludesImpl(includePath, includeText, includeStack, depth + 1)) {
+        includeStack.erase(key);
+        return false;
+      }
+      output << includeText << '\n';
+      continue;
+    }
+
+    output << line << '\n';
+  }
+
+  outText = output.str();
+  includeStack.erase(key);
+  return true;
+}
+
+bool PreprocessShaderIncludes(const std::string &path, std::string &outText) {
+  std::unordered_set<std::string> includeStack;
+  return PreprocessShaderIncludesImpl(std::filesystem::path(path), outText,
+                                      includeStack, 0);
+}
+
 Shader LoadComputeShaderFromFile(const char *path) {
   if (!FileExists(path)) {
     LOG_ERROR("GPULootSystem: compute shader file missing: {}", path);
     return {};
   }
 
-  char *source = LoadFileText(path);
-  if (source == nullptr) {
-    LOG_ERROR("GPULootSystem: failed to read compute shader: {}", path);
+  std::string source;
+  if (!PreprocessShaderIncludes(path, source) || source.empty()) {
+    LOG_ERROR("GPULootSystem: failed to preprocess compute shader: {}", path);
     return {};
   }
 
-  const unsigned int shaderId = rlCompileShader(source, RL_COMPUTE_SHADER);
-  UnloadFileText(source);
+  const unsigned int shaderId = rlCompileShader(source.c_str(), RL_COMPUTE_SHADER);
   if (shaderId == 0) {
     LOG_ERROR("GPULootSystem: failed to compile compute shader: {}", path);
     return {};

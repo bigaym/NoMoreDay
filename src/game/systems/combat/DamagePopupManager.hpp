@@ -25,7 +25,8 @@ public:
     void Emit(Vector2 pos, float amount, bool isCrit, Color color, bool isStatus = false, const std::string& statusText = "") {
         const auto &qualityManager = render::core::QualityTierManager::Get();
         const bool useGpuText =
-            qualityManager.IsInitialized() && qualityManager.GetConfig().gpuTextEnabled;
+            qualityManager.IsInitialized() && qualityManager.GetConfig().gpuTextEnabled &&
+            render::GPUTextSystem::Get().IsInitialized();
         const bool useAdvancedAnim =
             qualityManager.IsInitialized() &&
             qualityManager.GetConfig().gpuTextAdvancedAnimation;

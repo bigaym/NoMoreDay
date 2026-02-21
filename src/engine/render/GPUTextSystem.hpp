@@ -46,6 +46,7 @@ public:
   void Render(const Matrix &viewProj) const;
   void SetAtlasTexture(Texture2D atlas, bool takeOwnership);
 
+  [[nodiscard]] bool IsInitialized() const noexcept { return m_initialized; }
   [[nodiscard]] uint32_t GetLastQuadCount() const noexcept { return m_lastQuadCount; }
   [[nodiscard]] const NoMoreDay::core::ComputeBuffer &GetQuadBuffer() const noexcept {
     return m_quadBuffer;

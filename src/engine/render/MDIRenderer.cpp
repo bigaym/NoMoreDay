@@ -56,6 +56,13 @@ void MDIRenderer::Init(ResourceManager &rm, uint32_t maxEntities) {
   m_scatterShader =
       rm.loadComputeShader("mdi_scatter"_hash, "assets/shaders/scatter_stats.compute");
 
+  if (m_renderShader.id == 0 || m_cullShader.id == 0 || m_scatterShader.id == 0) {
+    LOG_ERROR(
+        "MDIRenderer: shader initialization failed (render={}, cull={}, scatter={})",
+        m_renderShader.id, m_cullShader.id, m_scatterShader.id);
+    return;
+  }
+
   // 2. Create Buffers
   m_visibleBuffer.Create(maxEntities * sizeof(uint32_t), 3);
   m_commandBuffer.Create(sizeof(DrawArraysIndirectCommand), 3);
