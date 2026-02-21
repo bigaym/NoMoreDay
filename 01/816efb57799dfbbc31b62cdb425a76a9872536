@@ -1,0 +1,1 @@
+track=v5_sph_fluid_exploration_20260219; decision=NO-GO; reason=fluid_reference_10k_target_hit=0; metrics(mean_ms=1.4305,p99_ms=1.6659); verification=build+analyze+ctest(ci/unit/integration/performance)
