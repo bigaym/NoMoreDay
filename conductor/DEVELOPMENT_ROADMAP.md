@@ -41,6 +41,7 @@
     - **Mastery UI**: 绘制专精选择祭坛 (Ascension Altar) 及剑圣/天剑/魔剑的插画。
     - **HUD**: 设计剑意量表 (Sword Gauge)、丹田血球、兵器架技能栏及 Buff/Debuff 边框。
 - [ ] **Track: Sword Cultivator Masteries (剑修进阶专精)**
+    - **现状 (2026-02-21)**: 已完成“技能专精树合同 + 抗性削弱五型分配 + 同质化审计/完善计划”，并对 3.1~3.9 补齐“关键节点清单/范围声明归一化”（`设计文档/职业设计草案_剑修.md` §3.0 + 各技能段落）。
     - **UI 实现**: 50级专精选择界面 (Ascension Altar)。
     - **核心机制转化**:
         - **剑圣 (Sword Saint)**: 剑意 -> 剑流 (Crit/Speed)，实现 `七星斩` (Omnislash)。
