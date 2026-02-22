@@ -123,6 +123,68 @@
       ]
     },
     {
+      "name": "skill1_buff_enter_swift",
+      "priority": 112,
+      "selector": {
+        "skillId": 1,
+        "eventType": "BuffEnter",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "TrailStroke",
+          "count": 2,
+          "radius": 9.0,
+          "speed": 260.0,
+          "alpha": 0.68,
+          "width": 8.0,
+          "trailLength": 0.16
+        },
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 16.0,
+          "angle": 24.0,
+          "softness": 0.32,
+          "type": 2.0,
+          "speed": 240.0,
+          "alpha": 0.7
+        }
+      ]
+    },
+    {
+      "name": "skill1_buff_exit_swift",
+      "priority": 112,
+      "selector": {
+        "skillId": 1,
+        "eventType": "BuffExit",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 14.0,
+          "angle": 360.0,
+          "softness": 0.4,
+          "type": 1.0,
+          "speed": 80.0,
+          "alpha": 0.62
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 6,
+          "radius": 10.0,
+          "speed": 120.0,
+          "alpha": 0.5,
+          "lifetime": 0.16,
+          "spread": 20.0
+        }
+      ]
+    },
+    {
       "name": "skill2_cast_impact",
       "priority": 108,
       "selector": {

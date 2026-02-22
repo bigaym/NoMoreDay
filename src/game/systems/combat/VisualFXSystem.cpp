@@ -107,55 +107,9 @@ void VisualFXSystem::Initialize(entt::registry &registry) {
 }
 
 void VisualFXSystem::Update(entt::registry &registry, float dt) {
-  // Sword Intent Aura
-  auto view = registry.view<SwordIntentComponent, Position>();
+  // Sword Intent global visuals are owned by SwordIntentVisualSystem to avoid
+  // duplicate emissions and to keep quality-tier fallback centralized.
   auto &particleSys = GPUParticleSystem::Get();
-
-  for (auto entity : view) {
-    auto &intent = view.get<SwordIntentComponent>(entity);
-    const auto &pos = view.get<Position>(entity);
-
-    if (intent.stacks > 0) {
-      // Density based on stacks
-      float density = intent.stacks * 5.0f; // Particles per second
-      if (utils::FrameRateUtils::ShouldTrigger(density, dt)) {
-        components::GPUParticle p;
-        p.position = {pos.x + (float)GetRandomValue(-20, 20),
-                      pos.y + (float)GetRandomValue(-40, 0)};
-        p.velocity = {0, -50.0f};
-        p.acceleration = {0, 0};
-        p.color = ColorAlpha(WHITE, 0.3f + (intent.stacks * 0.05f));
-        p.lifetime = 0.6f;
-        p.maxLifetime = 0.6f;
-        p.scale = 1.5f;
-        p.flags = 2; // Spark
-        particleSys.Emit(p);
-      }
-
-      // Max Stacks Burst (Gold Aura)
-      if (intent.stacks >= intent.max_stacks) {
-        if (utils::FrameRateUtils::ShouldTrigger(10.0f, dt)) {
-          components::GPUParticle p;
-          p.position = {pos.x + (float)GetRandomValue(-15, 15),
-                        pos.y - 20.0f + (float)GetRandomValue(-10, 10)};
-          p.velocity = {(float)GetRandomValue(-20, 20),
-                        (float)GetRandomValue(-50, -20)};
-          p.acceleration = {0, 0};
-          p.color = GOLD;
-          p.lifetime = 0.4f;
-          p.maxLifetime = 0.4f;
-          p.scale = 2.0f;
-          p.flags = 2;
-          particleSys.Emit(p);
-        }
-
-        // Periodic small shake at max stacks
-        if (utils::FrameRateUtils::ShouldTrigger(2.0f, dt)) {
-          RenderSystem::AddScreenShake(0.05f);
-        }
-      }
-    }
-  }
 
   // 2. Blade Ward Visuals (Orbiting Swords)
   auto ward_view = registry.view<BladeWardComponent, Position>();

@@ -589,6 +589,15 @@ void ExecuteScenePass(RenderFrameData &frame) {
 }
 
 void ExecuteVFXPass(RenderFrameData &frame) {
+  auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
+  const auto &vfxConfig = qualityManager.IsInitialized()
+                              ? qualityManager.GetConfig()
+                              : NoMoreDay::render::core::RenderConfig{};
+  const uint8_t vfxTier = qualityManager.IsInitialized()
+                              ? static_cast<uint8_t>(qualityManager.GetTier())
+                              : static_cast<uint8_t>(
+                                    NoMoreDay::render::core::QualityTier::Medium);
+
   Matrix viewProj = NoMoreDay::systems::GPUParticleSystem::Get().BuildMVP(
       frame.camera);
   // Keep VFX order stable: particles -> trails -> effect overlays.
@@ -638,6 +647,24 @@ void ExecuteVFXPass(RenderFrameData &frame) {
       DrawPoly({pos.x, pos.y}, 4, 15.0f * currentScale, lifeRatio * 180.0f,
                color);
       break;
+    case VisualEffectType::SwordIntentBurst: {
+      const float radius = 26.0f + currentScale * 36.0f;
+      DrawRing({pos.x, pos.y}, radius * 0.65f, radius, 0.0f, 360.0f, 28,
+               Fade(color, 0.42f));
+      DrawCircleLinesV({pos.x, pos.y}, radius * 0.9f, Fade(WHITE, 0.45f));
+      DrawPolyLinesEx({pos.x, pos.y}, 6, radius * 0.72f, lifeRatio * 120.0f, 2.0f,
+                      Fade(color, 0.62f));
+
+      const bool distortionAllowed =
+          vfxConfig.distortionEnabled &&
+          vfxTier >=
+              static_cast<uint8_t>(NoMoreDay::render::core::QualityTier::High);
+      if (distortionAllowed && effect.param1 < 0.5f && lifeRatio < 0.2f) {
+        RenderSystem::AddDistortionSource(pos.x, pos.y, radius, 0.16f);
+        effect.param1 = 1.0f;
+      }
+      break;
+    }
     default:
       break;
     }
@@ -705,34 +732,113 @@ void ExecuteVFXPass(RenderFrameData &frame) {
   s_resistOverlayRequests.clear();
   NoMoreDay::systems::GPUSkillEffectSystem::Get().DrainResistOverlayRequests(
       s_resistOverlayRequests);
+  const bool lowTier =
+      vfxTier <= static_cast<uint8_t>(NoMoreDay::render::core::QualityTier::Low);
+  const bool highTier =
+      vfxTier >= static_cast<uint8_t>(NoMoreDay::render::core::QualityTier::High);
   for (const auto &request : s_resistOverlayRequests) {
+    const auto type =
+        static_cast<NoMoreDay::SkillVfxResistDebuffType>(request.resistDebuffType);
     Color overlayColor = WHITE;
-    switch (request.resistDebuffType) {
-    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeA):
+    switch (type) {
+    case NoMoreDay::SkillVfxResistDebuffType::TypeA:
       overlayColor = Color{255, 180, 60, 220};
       break;
-    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeB):
+    case NoMoreDay::SkillVfxResistDebuffType::TypeB:
       overlayColor = Color{220, 80, 80, 220};
       break;
-    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeC):
+    case NoMoreDay::SkillVfxResistDebuffType::TypeC:
       overlayColor = Color{120, 220, 255, 220};
       break;
-    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeD):
+    case NoMoreDay::SkillVfxResistDebuffType::TypeD:
       overlayColor = Color{180, 140, 255, 220};
       break;
-    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeE):
+    case NoMoreDay::SkillVfxResistDebuffType::TypeE:
       overlayColor = Color{255, 120, 210, 220};
       break;
-    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::None):
+    case NoMoreDay::SkillVfxResistDebuffType::None:
     default:
       overlayColor = WHITE;
       break;
     }
 
-    const float radius = std::clamp(16.0f * request.intensity, 10.0f, 36.0f);
-    DrawCircleLinesV(request.worldPos, radius, Fade(overlayColor, 0.8f));
-    DrawRing(request.worldPos, radius * 0.65f, radius, 0.0f, 360.0f, 24,
-             Fade(overlayColor, 0.25f));
+    const float radius = std::clamp(15.0f * request.intensity, 9.0f, 34.0f);
+    const Vector2 center = request.worldPos;
+    DrawCircleLinesV(center, radius, Fade(overlayColor, 0.88f));
+
+    Vector2 axisDir = {1.0f, 0.0f};
+    switch (type) {
+    case NoMoreDay::SkillVfxResistDebuffType::TypeA:
+      axisDir = {1.0f, 0.0f};
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::TypeB:
+      axisDir = {0.0f, 1.0f};
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::TypeC:
+      axisDir = {0.7f, 0.7f};
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::TypeD:
+      axisDir = {-0.7f, 0.7f};
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::TypeE:
+      axisDir = {-1.0f, 0.0f};
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::None:
+    default:
+      axisDir = {1.0f, 0.0f};
+      break;
+    }
+    axisDir = Vector2Normalize(axisDir);
+
+    if (lowTier) {
+      const Vector2 start = Vector2Subtract(center, Vector2Scale(axisDir, radius * 0.58f));
+      const Vector2 end = Vector2Add(center, Vector2Scale(axisDir, radius * 0.58f));
+      DrawLineEx(start, end, 2.0f, Fade(overlayColor, 0.92f));
+      continue;
+    }
+
+    DrawRing(center, radius * 0.62f, radius, 0.0f, 360.0f, 24,
+             Fade(overlayColor, 0.28f));
+    switch (type) {
+    case NoMoreDay::SkillVfxResistDebuffType::TypeA: {
+      for (int i = 0; i < 3; ++i) {
+        const float angle = (i * 120.0f) * DEG2RAD;
+        const Vector2 dir = {std::cos(angle), std::sin(angle)};
+        DrawLineEx(center, Vector2Add(center, Vector2Scale(dir, radius * 0.72f)), 2.0f,
+                   Fade(overlayColor, 0.85f));
+      }
+      break;
+    }
+    case NoMoreDay::SkillVfxResistDebuffType::TypeB: {
+      const Vector2 diagA = Vector2Scale(Vector2Normalize(Vector2{1.0f, 1.0f}), radius * 0.62f);
+      const Vector2 diagB =
+          Vector2Scale(Vector2Normalize(Vector2{1.0f, -1.0f}), radius * 0.62f);
+      DrawLineEx(Vector2Subtract(center, diagA), Vector2Add(center, diagA), 2.0f,
+                 Fade(overlayColor, 0.86f));
+      DrawLineEx(Vector2Subtract(center, diagB), Vector2Add(center, diagB), 2.0f,
+                 Fade(overlayColor, 0.86f));
+      break;
+    }
+    case NoMoreDay::SkillVfxResistDebuffType::TypeC:
+      DrawRing(center, radius * 0.36f, radius * 0.78f, 40.0f, 180.0f, 20,
+               Fade(overlayColor, 0.4f));
+      DrawRing(center, radius * 0.36f, radius * 0.78f, 220.0f, 340.0f, 20,
+               Fade(overlayColor, 0.4f));
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::TypeD:
+      DrawPolyLinesEx(center, 4, radius * 0.7f, 45.0f, 2.0f, Fade(overlayColor, 0.88f));
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::TypeE:
+      DrawPolyLinesEx(center, 5, radius * 0.72f, -18.0f, 2.0f, Fade(overlayColor, 0.88f));
+      break;
+    case NoMoreDay::SkillVfxResistDebuffType::None:
+    default:
+      break;
+    }
+
+    if (highTier) {
+      DrawCircleV(center, 2.0f + radius * 0.05f, Fade(WHITE, 0.65f));
+    }
   }
 }
 

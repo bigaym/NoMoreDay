@@ -2,9 +2,9 @@
   "id": "blade_ascendant_vfx_global_systems_20260222",
   "title": "Blade Ascendant VFX Global Systems (Sword Intent / Yujian Step / Resist)",
   "type": "feature",
-  "status": "pending",
+  "status": "completed",
   "created": "2026-02-22T12:00:00+08:00",
-  "updated": "2026-02-22T12:00:00+08:00",
+  "updated": "2026-02-22T20:55:00+08:00",
   "priority": "P1",
   "phase": "Feature",
   "depends_on": [
@@ -12,11 +12,10 @@
   ],
   "phases": {
     "total": 4,
-    "completed": 0
+    "completed": 4
   },
   "tasks": {
     "total": 18,
-    "completed": 0
+    "completed": 18
   }
 }
-

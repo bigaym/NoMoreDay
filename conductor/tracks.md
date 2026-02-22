@@ -117,15 +117,15 @@ TVFX-A: blade_ascendant_vfx_infrastructure_20260222 (P0, Foundation)
 > **Tasks**: 16/16  
 > **Location**: [`conductor/archive/blade_ascendant_vfx_keystone_trigger_20260222/`](./archive/blade_ascendant_vfx_keystone_trigger_20260222/index.md)
 
-## [ ] Track TVFX-E: Blade Ascendant VFX Global Systems (blade_ascendant_vfx_global_systems_20260222)
+## [x] Track TVFX-E: Blade Ascendant VFX Global Systems (blade_ascendant_vfx_global_systems_20260222)
 
-> **Status**: 🚧 Pending  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature  
 > **Depends On**: `blade_ascendant_vfx_infrastructure_20260222`  
-> **Focus**: 剑意/御剑步/抗性削弱五型全局体系（可回退、可区分、预算可控）。  
-> **Tasks**: 0/18  
-> **Location**: [`conductor/tracks/blade_ascendant_vfx_global_systems_20260222/`](./tracks/blade_ascendant_vfx_global_systems_20260222/index.md)
+> **Focus**: Sword Intent/Yujian Step/Resist debuff global VFX system with readable fallback and controlled budget.  
+> **Tasks**: 18/18  
+> **Location**: [`conductor/archive/blade_ascendant_vfx_global_systems_20260222/`](./archive/blade_ascendant_vfx_global_systems_20260222/index.md)
 
 ## [ ] Track TVFX-F: Blade Ascendant VFX Validation Gate (blade_ascendant_vfx_validation_gate_20260222)
 

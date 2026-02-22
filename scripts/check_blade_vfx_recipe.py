@@ -167,6 +167,7 @@ def validate_recipe_config(data: dict[str, Any]) -> None:
     _validate_base_form_coverage(recipes)
     _validate_transmutation_coverage(recipes)
     _validate_keystone_trigger_synergy_coverage(recipes)
+    _validate_global_system_coverage(recipes)
 
 
 def _normalize_event_name(value: Any) -> str | None:
@@ -301,6 +302,38 @@ def _validate_keystone_trigger_synergy_coverage(recipes: list[dict[str, Any]]) -
         _fail("trigger coverage missing: require TriggerProc recipe with Trigger role mask")
     if not has_synergy_role_triggerproc:
         _fail("synergy coverage missing: require TriggerProc recipe with Synergy role mask")
+
+
+def _validate_global_system_coverage(recipes: list[dict[str, Any]]) -> None:
+    has_skill1_buff_enter = False
+    has_skill1_buff_exit = False
+    has_resist_overlay_action = False
+
+    for recipe in recipes:
+        selector = recipe.get("selector")
+        if not isinstance(selector, dict):
+            continue
+
+        skill_id = selector.get("skillId")
+        event_name = _normalize_event_name(selector.get("eventType", "*"))
+
+        if skill_id == 1 and event_name == "BuffEnter":
+            has_skill1_buff_enter = True
+        if skill_id == 1 and event_name == "BuffExit":
+            has_skill1_buff_exit = True
+
+        actions = recipe.get("actions")
+        if isinstance(actions, list):
+            for action in actions:
+                if isinstance(action, dict) and action.get("kind") == "ResistOverlay":
+                    has_resist_overlay_action = True
+
+    if not has_skill1_buff_enter:
+        _fail("global coverage missing: skill 1 BuffEnter recipe for Sword Step state")
+    if not has_skill1_buff_exit:
+        _fail("global coverage missing: skill 1 BuffExit recipe for Sword Step state")
+    if not has_resist_overlay_action:
+        _fail("global coverage missing: require at least one ResistOverlay action recipe")
 
 
 def main() -> int:

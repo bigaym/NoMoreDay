@@ -21,11 +21,34 @@ void TrailSystem::Update(entt::registry &registry, float dt) {
   bool trailEnabled = false;
   int maxTrails = 0;
   int trailMaxPoints = 0;
+  int vfxDetail = 1;
+  int autoDegradeLevel = 0;
+  uint8_t tier = static_cast<uint8_t>(NoMoreDay::render::core::QualityTier::Medium);
   if (NoMoreDay::render::core::QualityTierManager::Get().IsInitialized()) {
-    const auto &cfg = NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
+    auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
+    const auto &cfg = qualityManager.GetConfig();
     trailEnabled = cfg.trailEnabled;
     maxTrails = cfg.maxTrails;
     trailMaxPoints = cfg.trailMaxPoints;
+    vfxDetail = std::clamp(cfg.vfxSequenceDetail, 0, 2);
+    autoDegradeLevel = std::clamp(qualityManager.GetAutoDegradeLevel(), 0, 6);
+    tier = static_cast<uint8_t>(qualityManager.GetTier());
+  }
+
+  int trailSampleStride = 1;
+  if (tier <= static_cast<uint8_t>(NoMoreDay::render::core::QualityTier::Low)) {
+    trailSampleStride = 3;
+  } else if (tier <=
+             static_cast<uint8_t>(NoMoreDay::render::core::QualityTier::Medium)) {
+    trailSampleStride = 2;
+  }
+  if (vfxDetail == 0) {
+    trailSampleStride = std::max(trailSampleStride, 3);
+  } else if (vfxDetail == 1) {
+    trailSampleStride = std::max(trailSampleStride, 2);
+  }
+  if (autoDegradeLevel >= 3) {
+    trailSampleStride = std::max(trailSampleStride, 2);
   }
 
   auto &gpuTrailRenderer = NoMoreDay::render::GPUTrailRenderer::Get();
@@ -61,7 +84,8 @@ void TrailSystem::Update(entt::registry &registry, float dt) {
         if (!shouldAppend) {
           const float dist =
               Vector2Distance(trail.points.back().position, currentPos);
-          shouldAppend = dist >= trail.minDistance;
+          shouldAppend =
+              dist >= (trail.minDistance * static_cast<float>(trailSampleStride));
         }
 
         if (shouldAppend) {

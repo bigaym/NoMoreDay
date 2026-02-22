@@ -298,3 +298,67 @@ TEST_CASE("[Unit] SkillVfxEvent - Recipe Coverage Keystone Trigger Synergy") {
   CHECK(hasTriggerRoleTriggerProc);
   CHECK(hasSynergyRoleTriggerProc);
 }
+
+TEST_CASE("[Unit] SkillVfxEvent - Recipe Coverage Global Systems") {
+  const std::filesystem::path recipePath =
+      std::filesystem::path("assets") / "data" / "vfx" / "blade_ascendant_v3.json";
+  std::ifstream input(recipePath);
+  REQUIRE(input.good());
+
+  const nlohmann::json root = nlohmann::json::parse(input);
+  REQUIRE(root.contains("recipes"));
+  REQUIRE(root["recipes"].is_array());
+
+  bool hasSkill1BuffEnter = false;
+  bool hasSkill1BuffExit = false;
+  bool hasResistOverlayAction = false;
+
+  for (const auto &recipe : root["recipes"]) {
+    if (!recipe.is_object() || !recipe.contains("selector")) {
+      continue;
+    }
+    const auto &selector = recipe["selector"];
+    if (!selector.is_object()) {
+      continue;
+    }
+
+    const bool isSkill1 =
+        selector.contains("skillId") && selector["skillId"].is_number_integer() &&
+        selector["skillId"].get<int>() == 1;
+    if (isSkill1 && selector.contains("eventType")) {
+      const auto &eventType = selector["eventType"];
+      if (eventType.is_string()) {
+        const std::string eventName = eventType.get<std::string>();
+        if (eventName == "BuffEnter") {
+          hasSkill1BuffEnter = true;
+        } else if (eventName == "BuffExit") {
+          hasSkill1BuffExit = true;
+        }
+      } else if (eventType.is_number_integer()) {
+        const int eventId = eventType.get<int>();
+        if (eventId == static_cast<int>(NoMoreDay::SkillVfxEventType::BuffEnter)) {
+          hasSkill1BuffEnter = true;
+        } else if (eventId ==
+                   static_cast<int>(NoMoreDay::SkillVfxEventType::BuffExit)) {
+          hasSkill1BuffExit = true;
+        }
+      }
+    }
+
+    if (recipe.contains("actions") && recipe["actions"].is_array()) {
+      for (const auto &action : recipe["actions"]) {
+        if (!action.is_object() || !action.contains("kind") ||
+            !action["kind"].is_string()) {
+          continue;
+        }
+        if (action["kind"].get<std::string>() == "ResistOverlay") {
+          hasResistOverlayAction = true;
+        }
+      }
+    }
+  }
+
+  CHECK(hasSkill1BuffEnter);
+  CHECK(hasSkill1BuffExit);
+  CHECK(hasResistOverlayAction);
+}

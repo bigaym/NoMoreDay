@@ -885,6 +885,38 @@ void SkillSystem::Update(entt::registry &registry,
   UpdateStates(registry, dt);
   UpdateSwordIntent(registry, dt);
 
+  // Emit Sword Step lifecycle VFX events from buff state edges.
+  static thread_local std::unordered_set<entt::entity> s_prevSwordStepEntities;
+  static thread_local std::unordered_set<entt::entity> s_currSwordStepEntities;
+  s_currSwordStepEntities.clear();
+  constexpr uint32_t kFlowingThrustSkillId = 1u;
+  auto effects_view = registry.view<ActiveEffectsComponent>();
+  for (auto entity : effects_view) {
+    const auto &effects = effects_view.get<ActiveEffectsComponent>(entity);
+    if (!HasSwordStepBuff(&effects)) {
+      continue;
+    }
+    s_currSwordStepEntities.insert(entity);
+    if (s_prevSwordStepEntities.contains(entity)) {
+      continue;
+    }
+
+    const SkillExecutionContext swordStepEnterContext = BuildSkillVfxContextFromEvent(
+        registry, entity, kFlowingThrustSkillId, 0u,
+        ResolveEntityWorldPosition(registry, entity));
+    EmitSkillVfxEvent(swordStepEnterContext, SkillVfxEventType::BuffEnter, 0.85f);
+  }
+  for (auto entity : s_prevSwordStepEntities) {
+    if (s_currSwordStepEntities.contains(entity) || !registry.valid(entity)) {
+      continue;
+    }
+    const SkillExecutionContext swordStepExitContext = BuildSkillVfxContextFromEvent(
+        registry, entity, kFlowingThrustSkillId, 0u,
+        ResolveEntityWorldPosition(registry, entity));
+    EmitSkillVfxEvent(swordStepExitContext, SkillVfxEventType::BuffExit, 0.8f);
+  }
+  s_prevSwordStepEntities.swap(s_currSwordStepEntities);
+
   // Keep Sword Step phase state aligned with its owning buff lifecycle.
   static thread_local std::vector<entt::entity> s_phase_to_remove;
   s_phase_to_remove.clear();

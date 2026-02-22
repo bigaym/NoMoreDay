@@ -31,6 +31,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant VFX Global Systems (blade_ascendant_vfx_global_systems_20260222)
+- **Folder:** [./conductor/archive/blade_ascendant_vfx_global_systems_20260222/](./conductor/archive/blade_ascendant_vfx_global_systems_20260222/)
+- **Description:** Completed global VFX system rollout for Sword Intent, Yujian Step, and Resist debuff overlays with ownership cleanup, staged SwordStep events, tier-aware trail sampling fallback, and shape-distinguishable resist overlays in `VFXPass` without adding a new pass.
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P1
+- **Archive Reason:** `python scripts/check_blade_vfx_recipe.py --check` PASS; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; `ctest --test-dir build -C Release -L performance --output-on-failure` PASS; `build.bat analyze` PASS (existing warnings only).
+
+---
+
 ## [x] Track: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
 - **Folder:** [./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/](./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/)
 - **Description:** 完成剑修 VFX 基础设施落地：`SkillVfxEvent` 扩展（元素/抗性削弱/Transmuter/Keystone）、`GPUSkillEffectSystem` 配方驱动骨架、粒子/尾迹/扭曲/overlay 动作适配、Tier 回退映射与校验脚本。
