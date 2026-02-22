@@ -1,0 +1,1 @@
+T3 closed: build/unit/integration/contract-check PASS; performance label failed only on existing non-blocking BUG-20260219-004 (ParticleTrail Scenario4 dispatchOverheadMs=0.256455/0.218223); release posture CONDITIONAL-GO.
