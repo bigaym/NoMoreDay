@@ -127,15 +127,15 @@ TVFX-A: blade_ascendant_vfx_infrastructure_20260222 (P0, Foundation)
 > **Tasks**: 18/18  
 > **Location**: [`conductor/archive/blade_ascendant_vfx_global_systems_20260222/`](./archive/blade_ascendant_vfx_global_systems_20260222/index.md)
 
-## [ ] Track TVFX-F: Blade Ascendant VFX Validation Gate (blade_ascendant_vfx_validation_gate_20260222)
+## [x] Track TVFX-F: Blade Ascendant VFX Validation Gate (blade_ascendant_vfx_validation_gate_20260222)
 
-> **Status**: 🚧 Pending  
+> **Status**: Completed (Archived in `conductor/archive/`, conditional-go with linked non-blocking perf issue)  
 > **Priority**: P0  
 > **Type**: quality  
 > **Depends On**: `blade_ascendant_vfx_base_forms_20260222`, `blade_ascendant_vfx_transmutation_20260222`, `blade_ascendant_vfx_keystone_trigger_20260222`, `blade_ascendant_vfx_global_systems_20260222`  
-> **Focus**: 功能/合同/Tier 回退/预算/稳定性 五维门禁与证据闭环（对齐 V3 验收清单）。  
-> **Tasks**: 0/16  
-> **Location**: [`conductor/tracks/blade_ascendant_vfx_validation_gate_20260222/`](./tracks/blade_ascendant_vfx_validation_gate_20260222/index.md)
+> **Focus**: Final VFX V3 gate closure for functional/contract/fallback/budget evidence with explicit non-blocking performance linkage.  
+> **Tasks**: 16/16  
+> **Location**: [`conductor/archive/blade_ascendant_vfx_validation_gate_20260222/`](./archive/blade_ascendant_vfx_validation_gate_20260222/index.md)
 
 ---
 

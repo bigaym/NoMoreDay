@@ -40,6 +40,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant VFX Validation Gate (blade_ascendant_vfx_validation_gate_20260222)
+- **Folder:** [./conductor/archive/blade_ascendant_vfx_validation_gate_20260222/](./conductor/archive/blade_ascendant_vfx_validation_gate_20260222/)
+- **Description:** Completed final VFX V3 gate closure for Blade Ascendant with functional/contract/fallback evidence and full build+test sweep. Gate posture is conditional-go due to one historical non-blocking performance failure linked to `BUG-20260219-004`.
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P0
+- **Archive Reason:** `python scripts/check_blade_vfx_recipe.py --check` PASS; `build.bat` first run failed due stale Ninja generator then recovered with `build.bat clean-all`; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` PASS; `ctest --test-dir build -C Release -L performance --output-on-failure` failed only on existing non-blocking `BUG-20260219-004` (`ParticleTrail Scenario 4`, `dispatchOverheadMs=0.205426`); `build.bat analyze` PASS (existing warnings only).
+
+---
+
 ## [x] Track: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
 - **Folder:** [./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/](./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/)
 - **Description:** 完成剑修 VFX 基础设施落地：`SkillVfxEvent` 扩展（元素/抗性削弱/Transmuter/Keystone）、`GPUSkillEffectSystem` 配方驱动骨架、粒子/尾迹/扭曲/overlay 动作适配、Tier 回退映射与校验脚本。
