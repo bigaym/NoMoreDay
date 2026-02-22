@@ -46,6 +46,19 @@ constexpr std::array<SkillCapEntry, 10> kSkillCaps = {{
     {4, 3, 2},         // 9: Phantom Trance
 }};
 
+constexpr std::array<SkillCapEntry, 10> kTriggerCaps = {{
+    {0, 0, 0},   // 0: invalid
+    {12, 9, 6},  // 1: Flowing Thrust
+    {14, 10, 7}, // 2: Rending Wave
+    {8, 6, 4},   // 3: Blade Formation
+    {6, 5, 4},   // 4: Blade Ward
+    {14, 10, 7}, // 5: Infinite Blades
+    {6, 4, 3},   // 6: Sword Array
+    {18, 13, 9}, // 7: Mind Blade
+    {10, 7, 5},  // 8: Blade Boomerang
+    {6, 4, 3},   // 9: Phantom Trance
+}};
+
 Color ResolveSkillColor(const uint32_t skillId) {
   switch (skillId) {
   case 1:
@@ -334,6 +347,22 @@ uint8_t ResolveLegacyElementType(const SkillVfxEvent &event) {
   return static_cast<uint8_t>(SkillVfxElementType::Physical);
 }
 
+int ResolveRoleMaskPriority(const uint32_t mask) {
+  if (mask == SkillVfxNodeRoleMask::None) {
+    return 0;
+  }
+  if ((mask & SkillVfxNodeRoleMask::Keystone) != 0u) {
+    return 4;
+  }
+  if ((mask & SkillVfxNodeRoleMask::Trigger) != 0u) {
+    return 3;
+  }
+  if ((mask & SkillVfxNodeRoleMask::Synergy) != 0u) {
+    return 2;
+  }
+  return 1;
+}
+
 } // namespace
 
 void GPUSkillEffectSystem::Init(ResourceManager &rm, int maxEffects) {
@@ -352,6 +381,9 @@ void GPUSkillEffectSystem::Init(ResourceManager &rm, int maxEffects) {
   m_pendingDistortion.clear();
   m_pendingResistOverlay.clear();
   m_skillFrameCounts.fill(0);
+  m_triggerFrameCounts.fill(0);
+  m_triggerCarryBlend.fill(0.0f);
+  m_triggerDedupKeys.clear();
   m_recipes.clear();
 
   m_gpuBuffer.Create(m_maxEffects * sizeof(components::GPUSkillEffect), nullptr,
@@ -448,6 +480,92 @@ int GPUSkillEffectSystem::ResolveSkillCap(const uint32_t skillId,
     return entry.medium;
   }
   return entry.high;
+}
+
+int GPUSkillEffectSystem::ResolveTriggerCap(const uint32_t skillId,
+                                            const uint8_t tier) const {
+  if (skillId >= kTriggerCaps.size()) {
+    return 0;
+  }
+  const SkillCapEntry &entry = kTriggerCaps[skillId];
+  if (tier <= static_cast<uint8_t>(render::core::QualityTier::Low)) {
+    return entry.low;
+  }
+  if (tier <= static_cast<uint8_t>(render::core::QualityTier::Medium)) {
+    return entry.medium;
+  }
+  return entry.high;
+}
+
+bool GPUSkillEffectSystem::ConsumeTriggerBudget(const SkillVfxEvent &event,
+                                                const uint8_t tier,
+                                                float &actionScale,
+                                                float &intensityScale) {
+  actionScale = 1.0f;
+  intensityScale = 1.0f;
+  if (event.type != SkillVfxEventType::TriggerProc) {
+    return true;
+  }
+  if (event.skillId >= m_triggerFrameCounts.size() ||
+      event.skillId >= m_triggerCarryBlend.size()) {
+    return false;
+  }
+
+  const int triggerCap = ResolveTriggerCap(event.skillId, tier);
+  if (triggerCap <= 0) {
+    return false;
+  }
+
+  int &counter = m_triggerFrameCounts[event.skillId];
+  ++counter;
+
+  if (counter <= triggerCap) {
+    const float carry = m_triggerCarryBlend[event.skillId];
+    m_triggerCarryBlend[event.skillId] = 0.0f;
+    intensityScale += carry * 0.35f;
+    return true;
+  }
+
+  const int overflow = counter - triggerCap;
+  const int stride = std::clamp(2 + overflow / std::max(1, triggerCap), 2, 6);
+  if ((overflow % stride) != 0) {
+    m_triggerCarryBlend[event.skillId] =
+        std::min(m_triggerCarryBlend[event.skillId] + 0.08f, 0.6f);
+    return false;
+  }
+
+  actionScale = std::max(0.25f, 1.0f / static_cast<float>(stride));
+  intensityScale = std::max(0.65f, actionScale);
+  const float carry = m_triggerCarryBlend[event.skillId];
+  m_triggerCarryBlend[event.skillId] = 0.0f;
+  intensityScale += carry * 0.35f;
+  return true;
+}
+
+bool GPUSkillEffectSystem::ShouldCullDuplicateTrigger(
+    const SkillVfxEvent &event) {
+  if (event.type != SkillVfxEventType::TriggerProc || event.castId == 0u) {
+    return false;
+  }
+
+  const auto quantize = [](const float value) -> int64_t {
+    return static_cast<int64_t>(std::llround(value * 0.1f));
+  };
+
+  const int64_t qx = quantize(event.target.x);
+  const int64_t qy = quantize(event.target.y);
+  size_t key = 0xcbf29ce484222325ull;
+  const auto hashCombine = [&key](const size_t v) {
+    key ^= v + 0x9e3779b97f4a7c15ull + (key << 6) + (key >> 2);
+  };
+  hashCombine(static_cast<size_t>(event.skillId));
+  hashCombine(static_cast<size_t>(event.castId));
+  hashCombine(static_cast<size_t>(qx));
+  hashCombine(static_cast<size_t>(qy));
+
+  const auto [it, inserted] = m_triggerDedupKeys.insert(key);
+  (void)it;
+  return !inserted;
 }
 
 bool GPUSkillEffectSystem::QueueDistortion(const float worldX,
@@ -679,6 +797,7 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
 
   const SkillVfxRecipe *matched = nullptr;
   int bestPriority = std::numeric_limits<int>::min();
+  int bestRolePriority = std::numeric_limits<int>::min();
   int bestSpecificity = std::numeric_limits<int>::min();
 
   for (const SkillVfxRecipe &recipe : m_recipes) {
@@ -713,11 +832,17 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
     specificity += (selector.resistDebuffType == -1) ? 0 : 2;
     specificity +=
         (selector.requiredNodeRoleMask == SkillVfxNodeRoleMask::None) ? 0 : 1;
+    const int rolePriority =
+        ResolveRoleMaskPriority(selector.requiredNodeRoleMask);
 
     if (!matched || recipe.priority > bestPriority ||
-        (recipe.priority == bestPriority && specificity > bestSpecificity)) {
+        (recipe.priority == bestPriority && rolePriority > bestRolePriority) ||
+        (recipe.priority == bestPriority &&
+         rolePriority == bestRolePriority &&
+         specificity > bestSpecificity)) {
       matched = &recipe;
       bestPriority = recipe.priority;
+      bestRolePriority = rolePriority;
       bestSpecificity = specificity;
     }
   }
@@ -727,16 +852,39 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
   }
 
   const VfxFallbackPolicy policy = BuildVfxFallbackPolicy(normalized);
-  const int cap = ResolveSkillCap(normalized.skillId, policy.tier);
+  int cap = ResolveSkillCap(normalized.skillId, policy.tier);
+  if (normalized.type == SkillVfxEventType::TriggerProc) {
+    cap = std::min(cap, ResolveTriggerCap(normalized.skillId, policy.tier));
+  }
   if (cap <= 0) {
     return true;
+  }
+
+  float triggerActionScale = 1.0f;
+  float triggerIntensityScale = 1.0f;
+  if (!ConsumeTriggerBudget(normalized, policy.tier, triggerActionScale,
+                            triggerIntensityScale)) {
+    return true;
+  }
+  if (normalized.type == SkillVfxEventType::TriggerProc) {
+    const bool hasKeystone =
+        HasSkillVfxNodeRole(normalized.nodeRoleMask, SkillVfxNodeRoleMask::Keystone);
+    const bool hasTrigger =
+        HasSkillVfxNodeRole(normalized.nodeRoleMask, SkillVfxNodeRoleMask::Trigger);
+    const bool hasSynergy =
+        HasSkillVfxNodeRole(normalized.nodeRoleMask, SkillVfxNodeRoleMask::Synergy);
+    if (hasSynergy && !hasTrigger && !hasKeystone) {
+      triggerActionScale *= 0.72f;
+      triggerIntensityScale *= 0.86f;
+    }
   }
 
   const Color baseColor =
       ResolveElementColor(normalized.elementType, ResolveSkillColor(normalized.skillId));
   const Vector2 direction =
       NormalizedDirection(normalized.origin, normalized.target);
-  const float intensity = ClampIntensity(normalized.intensity);
+  const float intensity =
+      ClampIntensity(normalized.intensity * triggerIntensityScale);
 
   auto emitOverlay = [&](const SkillVfxRecipeAction &action, const Vector2 pos,
                          const Vector2 vel) {
@@ -748,7 +896,7 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
     effect.flags = EncodeSkillEffectFlags(normalized.elementType);
     effect.type = action.type;
 
-    const float alpha = std::clamp(action.alpha, 0.05f, 1.0f);
+    const float alpha = std::clamp(action.alpha * triggerActionScale, 0.05f, 1.0f);
     const float glowAlpha = policy.allowSecondaryGlow ? 0.45f * alpha : 0.0f;
     effect.coreColor = ColorNormalize(ColorAlpha(baseColor, alpha));
     effect.glowColor = ColorNormalize(ColorAlpha(WHITE, glowAlpha));
@@ -790,7 +938,9 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
       particle.lifetime = action.lifetime;
       particle.scale = std::max(2.0f, action.radius * 0.25f);
       particle.growthRate = -particle.scale / std::max(action.lifetime, 0.05f);
-      particle.color = ColorAlpha(baseColor, action.alpha);
+      particle.color =
+          ColorAlpha(baseColor, std::clamp(action.alpha * triggerActionScale,
+                                           0.05f, 1.0f));
       particle.blendMode = 1;
       particles.push_back(particle);
     }
@@ -810,7 +960,10 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
     header.maxLifetime = std::max(0.05f, action.trailLength);
     header.widthStart = action.width;
     header.widthEnd = std::max(1.0f, action.width * 0.45f);
-    header.colorStart = static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, action.alpha)));
+    const float trailAlpha =
+        std::clamp(action.alpha * triggerActionScale, 0.05f, 1.0f);
+    header.colorStart =
+        static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, trailAlpha)));
     header.colorEnd =
         static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, 0.0f)));
 
@@ -829,14 +982,15 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
       trailRenderer.AppendPoint(
           trailId, pos, direction,
           std::max(1.0f, action.width * (1.0f - 0.15f * static_cast<float>(i))),
-          static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, action.alpha))));
+          static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, trailAlpha))));
     }
   };
 
   auto resolveScaledCount = [&](const SkillVfxRecipeAction &action) {
     const int scaledCount = std::max(
         1, static_cast<int>(std::round(static_cast<float>(action.count) *
-                                       policy.particleEmissionScale)));
+                                       policy.particleEmissionScale *
+                                       triggerActionScale)));
     return (cap > 0) ? std::min(scaledCount, cap) : scaledCount;
   };
 
@@ -907,16 +1061,38 @@ void GPUSkillEffectSystem::EmitLegacySkillEventVisual(
   const bool disableSecondaryGlow = !policy.allowSecondaryGlow;
   const bool allowDistortion = policy.allowDistortion;
 
-  const int cap = ResolveSkillCap(event.skillId, policy.tier);
+  int cap = ResolveSkillCap(event.skillId, policy.tier);
+  if (event.type == SkillVfxEventType::TriggerProc) {
+    cap = std::min(cap, ResolveTriggerCap(event.skillId, policy.tier));
+  }
   if (cap <= 0) {
     return;
+  }
+
+  float triggerActionScale = 1.0f;
+  float triggerIntensityScale = 1.0f;
+  if (!ConsumeTriggerBudget(event, policy.tier, triggerActionScale,
+                            triggerIntensityScale)) {
+    return;
+  }
+  if (event.type == SkillVfxEventType::TriggerProc) {
+    const bool hasKeystone =
+        HasSkillVfxNodeRole(event.nodeRoleMask, SkillVfxNodeRoleMask::Keystone);
+    const bool hasTrigger =
+        HasSkillVfxNodeRole(event.nodeRoleMask, SkillVfxNodeRoleMask::Trigger);
+    const bool hasSynergy =
+        HasSkillVfxNodeRole(event.nodeRoleMask, SkillVfxNodeRoleMask::Synergy);
+    if (hasSynergy && !hasTrigger && !hasKeystone) {
+      triggerActionScale *= 0.72f;
+      triggerIntensityScale *= 0.86f;
+    }
   }
 
   const uint8_t elementType = ResolveLegacyElementType(event);
   const Color baseColor =
       ResolveElementColor(elementType, ResolveSkillColor(event.skillId));
   const Vector2 direction = NormalizedDirection(event.origin, event.target);
-  const float intensity = ClampIntensity(event.intensity);
+  const float intensity = ClampIntensity(event.intensity * triggerIntensityScale);
 
   auto emitEffect = [&](Vector2 pos, Vector2 vel, float radius, float angle,
                         float softness, float type, float alphaScale) {
@@ -929,8 +1105,10 @@ void GPUSkillEffectSystem::EmitLegacySkillEventVisual(
     effect.flags = EncodeSkillEffectFlags(elementType);
     effect.type = type;
 
-    const float coreAlpha = std::clamp(0.9f * alphaScale, 0.25f, 1.0f);
-    const float glowAlpha = disableSecondaryGlow ? 0.0f : 0.5f * alphaScale;
+    const float coreAlpha =
+        std::clamp(0.9f * alphaScale * triggerActionScale, 0.25f, 1.0f);
+    const float glowAlpha =
+        disableSecondaryGlow ? 0.0f : 0.5f * alphaScale * triggerActionScale;
     effect.coreColor = ColorNormalize(ColorAlpha(baseColor, coreAlpha));
     effect.glowColor = ColorNormalize(ColorAlpha(WHITE, glowAlpha));
     TrySubmitCapped(event.skillId, cap, effect);
@@ -1154,6 +1332,9 @@ void GPUSkillEffectSystem::StageSkillEvents() {
     return;
   }
   for (const SkillVfxEvent &event : m_pendingEvents) {
+    if (ShouldCullDuplicateTrigger(event)) {
+      continue;
+    }
     EmitSkillEventVisual(event);
   }
   m_pendingEvents.clear();
@@ -1162,6 +1343,9 @@ void GPUSkillEffectSystem::StageSkillEvents() {
 void GPUSkillEffectSystem::Render(const Camera2D &camera) {
   (void)camera;
   m_skillFrameCounts.fill(0);
+  m_triggerFrameCounts.fill(0);
+  m_triggerCarryBlend.fill(0.0f);
+  m_triggerDedupKeys.clear();
   StageSkillEvents();
   if (m_currentCount == 0 || m_shader.id == 0) {
     m_currentCount = 0;
@@ -1212,6 +1396,9 @@ void GPUSkillEffectSystem::Shutdown() {
   m_pendingDistortion.clear();
   m_pendingResistOverlay.clear();
   m_skillFrameCounts.fill(0);
+  m_triggerFrameCounts.fill(0);
+  m_triggerCarryBlend.fill(0.0f);
+  m_triggerDedupKeys.clear();
   m_recipes.clear();
 }
 

@@ -860,6 +860,278 @@
       ]
     },
     {
+      "name": "skill6_keystone_activate_field",
+      "priority": 126,
+      "selector": {
+        "skillId": 6,
+        "eventType": "KeystoneActivate",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Keystone"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 42.0,
+          "angle": 360.0,
+          "softness": 0.6,
+          "type": 1.0,
+          "speed": 60.0,
+          "alpha": 0.92
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 18.0,
+          "speed": 220.0,
+          "alpha": 0.72,
+          "width": 10.0,
+          "trailLength": 0.22
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 32.0,
+          "distortionStrength": 0.2
+        }
+      ]
+    },
+    {
+      "name": "skill8_keystone_activate_recall",
+      "priority": 126,
+      "selector": {
+        "skillId": 8,
+        "eventType": "KeystoneActivate",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Keystone"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 34.0,
+          "angle": 360.0,
+          "softness": 0.56,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 2,
+          "radius": 16.0,
+          "speed": 260.0,
+          "alpha": 0.62,
+          "width": 8.0,
+          "trailLength": 0.2
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 26.0,
+          "distortionStrength": 0.16
+        }
+      ]
+    },
+    {
+      "name": "skill9_keystone_activate_phantom",
+      "priority": 126,
+      "selector": {
+        "skillId": 9,
+        "eventType": "KeystoneActivate",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Keystone"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 38.0,
+          "angle": 360.0,
+          "softness": 0.6,
+          "type": 1.0,
+          "speed": 90.0,
+          "alpha": 0.94
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 12,
+          "radius": 18.0,
+          "speed": 200.0,
+          "alpha": 0.68,
+          "lifetime": 0.24,
+          "spread": 22.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 30.0,
+          "distortionStrength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill6_keystone_buff_enter_sustain",
+      "priority": 120,
+      "selector": {
+        "skillId": 6,
+        "eventType": "BuffEnter",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Keystone"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 54.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.55
+        }
+      ]
+    },
+    {
+      "name": "skill9_keystone_buff_enter_sustain",
+      "priority": 120,
+      "selector": {
+        "skillId": 9,
+        "eventType": "BuffEnter",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Keystone"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 30.0,
+          "angle": 360.0,
+          "softness": 0.48,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.56
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 10.0,
+          "speed": 180.0,
+          "alpha": 0.42,
+          "width": 6.0,
+          "trailLength": 0.16
+        }
+      ]
+    },
+    {
+      "name": "skill9_keystone_buff_exit_release",
+      "priority": 120,
+      "selector": {
+        "skillId": 9,
+        "eventType": "BuffExit",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Keystone"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 36.0,
+          "angle": 360.0,
+          "softness": 0.6,
+          "type": 1.0,
+          "speed": 40.0,
+          "alpha": 0.78
+        }
+      ]
+    },
+    {
+      "name": "generic_triggerproc_trigger_primary",
+      "priority": 104,
+      "selector": {
+        "skillId": "*",
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Trigger"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 16.0,
+          "angle": 24.0,
+          "softness": 0.32,
+          "type": 2.0,
+          "speed": 260.0,
+          "alpha": 0.8
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 6,
+          "radius": 10.0,
+          "speed": 210.0,
+          "alpha": 0.6,
+          "lifetime": 0.2,
+          "spread": 24.0
+        }
+      ]
+    },
+    {
+      "name": "generic_triggerproc_synergy_secondary",
+      "priority": 104,
+      "selector": {
+        "skillId": "*",
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Synergy"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 12.0,
+          "angle": 20.0,
+          "softness": 0.3,
+          "type": 2.0,
+          "speed": 180.0,
+          "alpha": 0.5
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 8.0,
+          "speed": 160.0,
+          "alpha": 0.4,
+          "width": 5.0,
+          "trailLength": 0.12
+        }
+      ]
+    },
+    {
       "name": "generic_resist_overlay",
       "priority": 80,
       "selector": {

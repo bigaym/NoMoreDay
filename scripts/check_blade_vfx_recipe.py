@@ -77,6 +77,8 @@ REQUIRED_TRANSMUTATION_ELEMENTS = {
     9: {1, 2},
 }
 
+REQUIRED_KEYSTONE_TEMPLATE_COUNT = 2
+
 
 def _fail(message: str) -> None:
     raise ValueError(message)
@@ -164,6 +166,7 @@ def validate_recipe_config(data: dict[str, Any]) -> None:
 
     _validate_base_form_coverage(recipes)
     _validate_transmutation_coverage(recipes)
+    _validate_keystone_trigger_synergy_coverage(recipes)
 
 
 def _normalize_event_name(value: Any) -> str | None:
@@ -237,6 +240,67 @@ def _validate_transmutation_coverage(recipes: list[dict[str, Any]]) -> None:
 
     if missing:
         _fail("transmutation coverage missing required element recipes: " + " | ".join(missing))
+
+
+def _normalize_roles(selector: dict[str, Any]) -> set[str]:
+    value = selector.get("requiredNodeRoleMask", 0)
+    if isinstance(value, list):
+        return {role for role in value if isinstance(role, str) and role in VALID_ROLE_NAMES}
+    if isinstance(value, int):
+        roles: set[str] = set()
+        if value & 0x1:
+            roles.add("Keystone")
+        if value & 0x2:
+            roles.add("Trigger")
+        if value & 0x4:
+            roles.add("Synergy")
+        if value & 0x8:
+            roles.add("Transmuter")
+        return roles
+    return set()
+
+
+def _validate_keystone_trigger_synergy_coverage(recipes: list[dict[str, Any]]) -> None:
+    keystone_activate_templates = 0
+    has_keystone_sustain = False
+    has_trigger_role_triggerproc = False
+    has_synergy_role_triggerproc = False
+
+    for recipe in recipes:
+        selector = recipe.get("selector")
+        if not isinstance(selector, dict):
+            continue
+
+        event_name = _normalize_event_name(selector.get("eventType", "*"))
+        roles = _normalize_roles(selector)
+        skill_id = selector.get("skillId")
+
+        if (
+            event_name == "KeystoneActivate"
+            and isinstance(skill_id, int)
+            and "Keystone" in roles
+        ):
+            keystone_activate_templates += 1
+
+        if event_name in {"BuffEnter", "BuffExit"} and "Keystone" in roles:
+            has_keystone_sustain = True
+
+        if event_name == "TriggerProc" and "Trigger" in roles:
+            has_trigger_role_triggerproc = True
+        if event_name == "TriggerProc" and "Synergy" in roles:
+            has_synergy_role_triggerproc = True
+
+    if keystone_activate_templates < REQUIRED_KEYSTONE_TEMPLATE_COUNT:
+        _fail(
+            "keystone coverage missing: need at least "
+            f"{REQUIRED_KEYSTONE_TEMPLATE_COUNT} skill-scoped KeystoneActivate templates"
+        )
+    if not has_keystone_sustain:
+        _fail("keystone coverage missing: require Keystone BuffEnter/BuffExit sustain recipe")
+    if not has_trigger_role_triggerproc:
+        _fail("trigger coverage missing: require TriggerProc recipe with Trigger role mask")
+    if not has_synergy_role_triggerproc:
+        _fail("synergy coverage missing: require TriggerProc recipe with Synergy role mask")
 
 
 def main() -> int:

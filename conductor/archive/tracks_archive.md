@@ -22,6 +22,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant VFX Keystone / Trigger / Synergy (blade_ascendant_vfx_keystone_trigger_20260222)
+- **Folder:** [./conductor/archive/blade_ascendant_vfx_keystone_trigger_20260222/](./conductor/archive/blade_ascendant_vfx_keystone_trigger_20260222/)
+- **Description:** Completed keystone/trigger/synergy VFX rollout with selector role precedence (`Keystone > Trigger > Synergy > Base`), cast-linked TriggerProc dedupe, per-skill trigger caps + sampling/merge strategy, and recipe/test coverage for keystone sustain and role-specific trigger feedback.
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P1
+- **Archive Reason:** `python scripts/check_blade_vfx_recipe.py --check` PASS; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; `build.bat analyze` PASS (existing warnings only); `ctest --test-dir build -C Release -L performance --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
 - **Folder:** [./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/](./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/)
 - **Description:** 完成剑修 VFX 基础设施落地：`SkillVfxEvent` 扩展（元素/抗性削弱/Transmuter/Keystone）、`GPUSkillEffectSystem` 配方驱动骨架、粒子/尾迹/扭曲/overlay 动作适配、Tier 回退映射与校验脚本。

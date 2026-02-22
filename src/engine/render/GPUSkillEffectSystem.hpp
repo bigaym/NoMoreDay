@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 
 namespace NoMoreDay::systems {
 
@@ -95,6 +96,9 @@ private:
     std::vector<DistortionRequest> m_pendingDistortion;
     std::vector<ResistOverlayRequest> m_pendingResistOverlay;
     std::array<int, 10> m_skillFrameCounts = {};
+    std::array<int, 10> m_triggerFrameCounts = {};
+    std::array<float, 10> m_triggerCarryBlend = {};
+    std::unordered_set<size_t> m_triggerDedupKeys;
     std::vector<SkillVfxRecipe> m_recipes;
 
     core::ComputeBuffer m_gpuBuffer; // SSBO
@@ -112,7 +116,10 @@ private:
     void LoadBuiltinRecipes();
     bool TrySubmitCapped(uint32_t skillId, int cap, const components::GPUSkillEffect& effect);
     int ResolveSkillCap(uint32_t skillId, uint8_t tier) const;
+    int ResolveTriggerCap(uint32_t skillId, uint8_t tier) const;
     bool QueueDistortion(float worldX, float worldY, float radius, float strength);
+    bool ConsumeTriggerBudget(const SkillVfxEvent& event, uint8_t tier, float& actionScale, float& intensityScale);
+    bool ShouldCullDuplicateTrigger(const SkillVfxEvent& event);
 };
 
 } // namespace NoMoreDay::systems

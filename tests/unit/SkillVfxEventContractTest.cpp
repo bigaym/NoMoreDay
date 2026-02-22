@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -174,4 +175,126 @@ TEST_CASE("[Unit] SkillVfxEvent - Recipe Coverage Transmutation Elements") {
     INFO("missing cold transmutation recipe for skillId=" << skillId);
     CHECK(hasElementRecipe(skillId, 2));
   }
+}
+
+TEST_CASE("[Unit] SkillVfxEvent - Recipe Coverage Keystone Trigger Synergy") {
+  const std::filesystem::path recipePath =
+      std::filesystem::path("assets") / "data" / "vfx" / "blade_ascendant_v3.json";
+  std::ifstream input(recipePath);
+  REQUIRE(input.good());
+
+  const nlohmann::json root = nlohmann::json::parse(input);
+  REQUIRE(root.contains("recipes"));
+  REQUIRE(root["recipes"].is_array());
+
+  auto normalizeEventName = [](const nlohmann::json &eventType) -> std::string {
+    if (eventType.is_string()) {
+      return eventType.get<std::string>();
+    }
+    if (eventType.is_number_integer()) {
+      const int eventId = eventType.get<int>();
+      if (eventId == static_cast<int>(NoMoreDay::SkillVfxEventType::CastStart)) {
+        return "CastStart";
+      }
+      if (eventId == static_cast<int>(NoMoreDay::SkillVfxEventType::CastImpact)) {
+        return "CastImpact";
+      }
+      if (eventId == static_cast<int>(NoMoreDay::SkillVfxEventType::TriggerProc)) {
+        return "TriggerProc";
+      }
+      if (eventId ==
+          static_cast<int>(NoMoreDay::SkillVfxEventType::EmpoweredConsume)) {
+        return "EmpoweredConsume";
+      }
+      if (eventId == static_cast<int>(NoMoreDay::SkillVfxEventType::BuffEnter)) {
+        return "BuffEnter";
+      }
+      if (eventId == static_cast<int>(NoMoreDay::SkillVfxEventType::BuffExit)) {
+        return "BuffExit";
+      }
+      if (eventId ==
+          static_cast<int>(NoMoreDay::SkillVfxEventType::TransmuterSwitch)) {
+        return "TransmuterSwitch";
+      }
+      if (eventId ==
+          static_cast<int>(NoMoreDay::SkillVfxEventType::KeystoneActivate)) {
+        return "KeystoneActivate";
+      }
+    }
+    return {};
+  };
+
+  auto normalizeRoleMask = [](const nlohmann::json &selector) -> uint32_t {
+    if (!selector.is_object() || !selector.contains("requiredNodeRoleMask")) {
+      return NoMoreDay::SkillVfxNodeRoleMask::None;
+    }
+    const auto &value = selector["requiredNodeRoleMask"];
+    if (value.is_number_unsigned()) {
+      return value.get<uint32_t>();
+    }
+    if (!value.is_array()) {
+      return NoMoreDay::SkillVfxNodeRoleMask::None;
+    }
+    uint32_t mask = NoMoreDay::SkillVfxNodeRoleMask::None;
+    for (const auto &item : value) {
+      if (!item.is_string()) {
+        continue;
+      }
+      const std::string token = item.get<std::string>();
+      if (token == "Keystone") {
+        mask |= NoMoreDay::SkillVfxNodeRoleMask::Keystone;
+      } else if (token == "Trigger") {
+        mask |= NoMoreDay::SkillVfxNodeRoleMask::Trigger;
+      } else if (token == "Synergy") {
+        mask |= NoMoreDay::SkillVfxNodeRoleMask::Synergy;
+      } else if (token == "Transmuter") {
+        mask |= NoMoreDay::SkillVfxNodeRoleMask::Transmuter;
+      }
+    }
+    return mask;
+  };
+
+  int keystoneActivateTemplates = 0;
+  bool hasKeystoneSustain = false;
+  bool hasTriggerRoleTriggerProc = false;
+  bool hasSynergyRoleTriggerProc = false;
+
+  for (const auto &recipe : root["recipes"]) {
+    if (!recipe.is_object() || !recipe.contains("selector")) {
+      continue;
+    }
+    const auto &selector = recipe["selector"];
+    if (!selector.is_object()) {
+      continue;
+    }
+
+    const std::string eventName =
+        normalizeEventName(selector.value("eventType", nlohmann::json("*")));
+    const uint32_t roleMask = normalizeRoleMask(selector);
+    const bool isKeystone =
+        NoMoreDay::HasSkillVfxNodeRole(roleMask, NoMoreDay::SkillVfxNodeRoleMask::Keystone);
+    const bool isTrigger =
+        NoMoreDay::HasSkillVfxNodeRole(roleMask, NoMoreDay::SkillVfxNodeRoleMask::Trigger);
+    const bool isSynergy =
+        NoMoreDay::HasSkillVfxNodeRole(roleMask, NoMoreDay::SkillVfxNodeRoleMask::Synergy);
+
+    if (eventName == "KeystoneActivate" && isKeystone &&
+        selector.contains("skillId") && selector["skillId"].is_number_integer()) {
+      ++keystoneActivateTemplates;
+    }
+    if ((eventName == "BuffEnter" || eventName == "BuffExit") && isKeystone) {
+      hasKeystoneSustain = true;
+    }
+    if (eventName == "TriggerProc" && isTrigger) {
+      hasTriggerRoleTriggerProc = true;
+    }
+    if (eventName == "TriggerProc" && isSynergy) {
+      hasSynergyRoleTriggerProc = true;
+    }
+  }
+
+  CHECK(keystoneActivateTemplates >= 2);
+  CHECK(hasKeystoneSustain);
+  CHECK(hasTriggerRoleTriggerProc);
+  CHECK(hasSynergyRoleTriggerProc);
 }
