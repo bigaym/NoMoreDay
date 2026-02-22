@@ -44,15 +44,15 @@ T0: blade_ascendant_skill_contracts_20260221 (P0, Foundation)
 > **Tasks**: 18/18  
 > **Location**: [`conductor/archive/blade_ascendant_vfx_design_freeze_20260221/`](./archive/blade_ascendant_vfx_design_freeze_20260221/index.md)
 
-## [ ] Track T2: Blade Ascendant Skill Rendering Integration (blade_ascendant_skill_rendering_integration_20260221)
+## [x] Track T2: Blade Ascendant Skill Rendering Integration (blade_ascendant_skill_rendering_integration_20260221)
 
-> **Status**: Pending  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature/integration  
 > **Depends On**: `blade_ascendant_vfx_design_freeze_20260221`  
 > **Focus**: 新技能行为与 RenderGraph/VFX 管线对齐，保证 FBO 归属合同、SSBO 约束与 Low Tier 回退路径。  
-> **Tasks**: 0/20  
-> **Location**: [`conductor/tracks/blade_ascendant_skill_rendering_integration_20260221/`](./tracks/blade_ascendant_skill_rendering_integration_20260221/index.md)
+> **Tasks**: 20/20  
+> **Location**: [`conductor/archive/blade_ascendant_skill_rendering_integration_20260221/`](./archive/blade_ascendant_skill_rendering_integration_20260221/index.md)
 
 ## [ ] Track T3: Blade Ascendant Skill Validation Gate (blade_ascendant_skill_validation_gate_20260221)
 

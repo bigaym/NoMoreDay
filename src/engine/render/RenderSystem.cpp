@@ -673,6 +673,17 @@ void ExecuteVFXPass(RenderFrameData &frame) {
     NoMoreDay::systems::GPUSkillEffectSystem::Get().Submit(eff);
   }
   NoMoreDay::systems::GPUSkillEffectSystem::Get().Render(frame.camera);
+
+  static thread_local std::vector<
+      NoMoreDay::systems::GPUSkillEffectSystem::DistortionRequest>
+      s_skillDistortionRequests;
+  s_skillDistortionRequests.clear();
+  NoMoreDay::systems::GPUSkillEffectSystem::Get().DrainDistortionRequests(
+      s_skillDistortionRequests);
+  for (const auto &request : s_skillDistortionRequests) {
+    RenderSystem::AddDistortionSource(request.worldX, request.worldY,
+                                      request.radius, request.strength);
+  }
 }
 
 void ExecuteGPUTextPass(RenderFrameData &frame) {

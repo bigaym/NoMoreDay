@@ -4,11 +4,14 @@
 #include "engine/physics/SpatialGrid.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/render/core/QualityTierManager.hpp"
 #include "game/components/AIComponent.hpp" // For EnemyTag
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp" // For Position
 #include "game/components/EffectComponent.hpp"
+#include "game/components/SkillVfxEvent.hpp"
 #include "game/components/PlayerState.hpp" // For DashComponent
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
@@ -78,6 +81,87 @@ uint8_t QueryCastDepth(uint64_t cast_id) {
 uint64_t NextCastId() {
   static uint64_t s_next_cast_id = 1;
   return s_next_cast_id++;
+}
+
+uint8_t ResolveCurrentQualityTier() {
+  auto &qualityManager = render::core::QualityTierManager::Get();
+  if (!qualityManager.IsInitialized()) {
+    return static_cast<uint8_t>(render::core::QualityTier::Medium);
+  }
+  return static_cast<uint8_t>(qualityManager.GetTier());
+}
+
+Vector2 ResolveEntityWorldPosition(const entt::registry &registry,
+                                   entt::entity entity,
+                                   Vector2 fallback = {0.0f, 0.0f}) {
+  if (!registry.valid(entity) || !registry.all_of<Position>(entity)) {
+    return fallback;
+  }
+  const auto &position = registry.get<Position>(entity);
+  return {position.x, position.y};
+}
+
+SkillExecutionContext BuildSkillVfxContext(entt::registry &registry,
+                                           const SkillExecution &exec) {
+  SkillExecutionContext context = {};
+  context.skill_id = exec.skill_id;
+  context.cast_id = exec.cast_id;
+  context.is_empowered = exec.is_empowered;
+  context.is_shadow_cast =
+      registry.valid(exec.owner) && registry.any_of<ShadowCastTag>(exec.owner);
+  context.caster = exec.owner;
+  context.origin = ResolveEntityWorldPosition(registry, exec.owner, exec.target_pos);
+  context.target = exec.target_pos;
+  if (context.target.x == 0.0f && context.target.y == 0.0f) {
+    context.target = context.origin;
+  }
+  context.effective_tags =
+      (registry.valid(exec.owner))
+          ? SkillSystem::GetEffectiveSkillTags(registry, exec.owner, exec.skill_id)
+          : Tag::None;
+  return context;
+}
+
+SkillExecutionContext BuildSkillVfxContextFromEvent(entt::registry &registry,
+                                                    entt::entity caster,
+                                                    uint32_t skill_id,
+                                                    uint64_t cast_id,
+                                                    Vector2 target,
+                                                    Tag tags = Tag::None) {
+  SkillExecutionContext context = {};
+  context.skill_id = skill_id;
+  context.cast_id = cast_id;
+  context.caster = caster;
+  context.origin = ResolveEntityWorldPosition(registry, caster, target);
+  context.target = target;
+  context.effective_tags = (tags != Tag::None)
+                               ? tags
+                               : (registry.valid(caster)
+                                      ? SkillSystem::GetEffectiveSkillTags(
+                                            registry, caster, skill_id)
+                                      : Tag::None);
+  return context;
+}
+
+void EmitSkillVfxEvent(const SkillExecutionContext &context,
+                       const SkillVfxEventType type,
+                       const float intensity = 1.0f,
+                       const uint32_t nodeRoleMask = 0u) {
+  if (context.skill_id == 0) {
+    return;
+  }
+
+  SkillVfxEvent event = {};
+  event.skillId = context.skill_id;
+  event.castId = context.cast_id;
+  event.type = type;
+  event.origin = context.origin;
+  event.target = context.target;
+  event.effectiveTags = context.effective_tags;
+  event.nodeRoleMask = nodeRoleMask;
+  event.qualityTier = ResolveCurrentQualityTier();
+  event.intensity = std::clamp(intensity, 0.25f, 3.0f);
+  systems::GPUSkillEffectSystem::Get().SubmitSkillEvent(event);
 }
 
 const SpecializedSkill *FindSpecializedSkill(const ActiveSkillsComponent &active,
@@ -310,6 +394,15 @@ void SkillSystem::InitHooks() {
           return;
         }
 
+        if (evt.skill_id != 0) {
+          Vector2 impact = ResolveEntityWorldPosition(
+              registry, evt.target, ResolveEntityWorldPosition(registry, caster));
+          SkillExecutionContext hitContext = BuildSkillVfxContextFromEvent(
+              registry, caster, evt.skill_id, evt.castId, impact, evt.tags);
+          EmitSkillVfxEvent(hitContext, SkillVfxEventType::TriggerProc,
+                            evt.isCrit ? 1.15f : 1.0f);
+        }
+
         auto *intent = registry.try_get<SwordIntentComponent>(caster);
         if (intent && HasTag(evt.tags, Tag::Hit)) {
           bool gain_stack = false;
@@ -490,6 +583,20 @@ void SkillSystem::InitHooks() {
                   "trigger_skill={} depth={}",
                   static_cast<uint32_t>(caster), evt.skill_id, node_id,
                   trigger_skill_id, trigger_exec.trigger_depth);
+
+              const SkillExecutionContext triggerContext =
+                  BuildSkillVfxContextFromEvent(registry, caster, evt.skill_id,
+                                                evt.castId, trigger_target,
+                                                evt.tags);
+              EmitSkillVfxEvent(triggerContext, SkillVfxEventType::TriggerProc,
+                                1.05f);
+
+              const SkillExecutionContext triggeredSkillContext =
+                  BuildSkillVfxContextFromEvent(
+                      registry, caster, trigger_skill_id, trigger_exec.cast_id,
+                      trigger_target);
+              EmitSkillVfxEvent(triggeredSkillContext,
+                                SkillVfxEventType::CastStart, 0.9f);
             }
           }
         }
@@ -953,6 +1060,9 @@ void SkillSystem::Update(entt::registry &registry,
     auto &ward = ward_view.get<BladeWardComponent>(entity);
     ward.remaining -= dt;
     if (ward.remaining <= 0.0f) {
+      SkillExecutionContext wardExitContext = BuildSkillVfxContextFromEvent(
+          registry, entity, 4u, 0u, ResolveEntityWorldPosition(registry, entity));
+      EmitSkillVfxEvent(wardExitContext, SkillVfxEventType::BuffExit, 0.9f);
       registry.remove<BladeWardComponent>(entity);
       continue;
     }
@@ -972,6 +1082,9 @@ void SkillSystem::Update(entt::registry &registry,
   });
 
   for (auto e : pf_to_remove) {
+    SkillExecutionContext phantomExitContext = BuildSkillVfxContextFromEvent(
+        registry, e, 9u, 0u, ResolveEntityWorldPosition(registry, e));
+    EmitSkillVfxEvent(phantomExitContext, SkillVfxEventType::BuffExit, 1.0f);
     registry.remove<PhantomFlashComponent>(e);
   }
 }
@@ -1029,6 +1142,8 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
 
   exec.cast_id = NextCastId();
   RememberCastDepth(exec.cast_id, exec.trigger_depth);
+  EmitSkillVfxEvent(BuildSkillVfxContext(registry, exec),
+                    SkillVfxEventType::CastStart, 0.85f);
 
   // Check if the caller provided a snapshot (either via ShadowComponent or
   // manual call)
@@ -1207,6 +1322,15 @@ void SkillSystem::UpdateStates(entt::registry &registry, float dt) {
           auto& current_exec = registry.get<SkillExecution>(entity);
           current_exec.state = SkillState::Casting;
           current_exec.timer = 0.05f;
+
+          const SkillExecutionContext vfxContext =
+              BuildSkillVfxContext(registry, current_exec);
+          EmitSkillVfxEvent(vfxContext, SkillVfxEventType::CastImpact,
+                            current_exec.is_empowered ? 1.2f : 1.0f);
+          if (current_exec.skill_id == 3 || current_exec.skill_id == 4 ||
+              current_exec.skill_id == 6 || current_exec.skill_id == 9) {
+            EmitSkillVfxEvent(vfxContext, SkillVfxEventType::BuffEnter, 1.0f);
+          }
 
           LOG_INFO("UpdateStates: Executing skill ID {} for entity {}",
                    current_exec.skill_id, (uint32_t)current_exec.owner);
@@ -1419,6 +1543,10 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
       runtime.active_transmuter_node_by_skill.erase(slot.id);
     }
   }
+
+  const SkillExecutionContext castStartContext = BuildSkillVfxContext(registry, exec);
+  EmitSkillVfxEvent(castStartContext, SkillVfxEventType::CastStart,
+                    exec.is_empowered ? 1.15f : 1.0f);
 
   LOG_INFO("TryCast SUCCESS: Entity {} casting skill ID {} ({})",
            (uint32_t)entity, slot.id, data->name_key);
@@ -1725,6 +1853,12 @@ bool SkillSystem::ConsumeSwordIntent(entt::registry &registry,
       registry, CombatEventFactory::CreateResourceConsumed(
                     entity, Tag::SwordSkill, static_cast<float>(amount),
                     source_skill_id));
+  if (source_skill_id != 0) {
+    SkillExecutionContext consumeContext = BuildSkillVfxContextFromEvent(
+        registry, entity, source_skill_id, 0u,
+        ResolveEntityWorldPosition(registry, entity));
+    EmitSkillVfxEvent(consumeContext, SkillVfxEventType::EmpoweredConsume, 1.1f);
+  }
   LOG_INFO("SwordIntent consume: entity={} skill={} delta={} stacks={}/{}",
            static_cast<uint32_t>(entity), source_skill_id, amount, intent->stacks,
            intent->max_stacks);

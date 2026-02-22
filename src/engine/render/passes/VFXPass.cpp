@@ -11,6 +11,8 @@ VFXPass::VFXPass(ExecuteCallback callback) : m_callback(std::move(callback)) {}
 void VFXPass::Setup(graph::RenderGraphBuilder &builder) {
   builder.Read(graph::RenderResourceTag::SceneHdrColor,
                graph::RenderOwnerTag::VFX);
+  builder.Read(graph::RenderResourceTag::SceneDepth,
+               graph::RenderOwnerTag::VFX);
   builder.Write(graph::RenderResourceTag::SceneHdrColor,
                 graph::RenderOwnerTag::VFX);
 }
