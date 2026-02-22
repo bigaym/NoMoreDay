@@ -87,15 +87,15 @@ TVFX-A: blade_ascendant_vfx_infrastructure_20260222 (P0, Foundation)
 > **Tasks**: 22/22  
 > **Location**: [`conductor/archive/blade_ascendant_vfx_infrastructure_20260222/`](./archive/blade_ascendant_vfx_infrastructure_20260222/index.md)
 
-## [ ] Track TVFX-B: Blade Ascendant VFX Base Forms (blade_ascendant_vfx_base_forms_20260222)
+## [x] Track TVFX-B: Blade Ascendant VFX Base Forms (blade_ascendant_vfx_base_forms_20260222)
 
-> **Status**: 🚧 Pending  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature  
 > **Depends On**: `blade_ascendant_vfx_infrastructure_20260222`  
 > **Focus**: 3.1-3.9 基础形态 VFX 完整落地 + Low/Medium 回退矩阵。  
-> **Tasks**: 0/20  
-> **Location**: [`conductor/tracks/blade_ascendant_vfx_base_forms_20260222/`](./tracks/blade_ascendant_vfx_base_forms_20260222/index.md)
+> **Tasks**: 20/20  
+> **Location**: [`conductor/archive/blade_ascendant_vfx_base_forms_20260222/`](./archive/blade_ascendant_vfx_base_forms_20260222/index.md)
 
 ## [ ] Track TVFX-C: Blade Ascendant VFX Transmutation (blade_ascendant_vfx_transmutation_20260222)
 

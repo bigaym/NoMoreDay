@@ -83,6 +83,7 @@ struct VfxFallbackPolicy {
   uint8_t tier = static_cast<uint8_t>(render::core::QualityTier::Medium);
   float particleEmissionScale = 1.0f;
   int trailSampleStride = 1;
+  bool allowTrailStroke = true;
   bool allowDistortion = false;
   bool allowSecondaryGlow = true;
   bool allowEnvironmentParticles = true;
@@ -100,6 +101,8 @@ VfxFallbackPolicy BuildVfxFallbackPolicy(const SkillVfxEvent &event) {
 
   VfxFallbackPolicy policy = {};
   policy.tier = tier;
+  policy.allowTrailStroke = !qualityManager.IsInitialized() ||
+                            qualityManager.GetConfig().trailEnabled;
   policy.allowDistortion = qualityManager.IsInitialized() &&
                            qualityManager.GetConfig().distortionEnabled &&
                            tier >= static_cast<uint8_t>(render::core::QualityTier::High);
@@ -668,9 +671,7 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
         !GPUParticleSystem::Get().IsInitialized()) {
       return;
     }
-    const int count =
-        std::max(1, static_cast<int>(std::round(static_cast<float>(action.count) *
-                                                policy.particleEmissionScale)));
+    const int count = std::max(1, action.count);
     std::vector<components::GPUParticle> particles;
     particles.reserve(static_cast<size_t>(count));
     for (int i = 0; i < count; ++i) {
@@ -699,6 +700,9 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
   };
 
   auto emitTrail = [&](const SkillVfxRecipeAction &action) {
+    if (!policy.allowTrailStroke) {
+      return;
+    }
     auto &trailRenderer = render::GPUTrailRenderer::Get();
     if (!trailRenderer.IsInitialized()) {
       return;
@@ -731,10 +735,35 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
     }
   };
 
+  auto resolveScaledCount = [&](const SkillVfxRecipeAction &action) {
+    const int scaledCount = std::max(
+        1, static_cast<int>(std::round(static_cast<float>(action.count) *
+                                       policy.particleEmissionScale)));
+    return (cap > 0) ? std::min(scaledCount, cap) : scaledCount;
+  };
+
+  auto emitResistOverlay = [&](const SkillVfxRecipeAction &action,
+                               const Vector2 &pos) {
+    if (normalized.resistDebuffType ==
+        static_cast<uint8_t>(SkillVfxResistDebuffType::None)) {
+      return;
+    }
+    ResistOverlayRequest request = {};
+    request.worldPos = pos;
+    request.resistDebuffType = normalized.resistDebuffType;
+    request.intensity = std::clamp(action.alpha * intensity, 0.1f, 2.0f);
+    m_pendingResistOverlay.push_back(request);
+  };
+
   for (const SkillVfxRecipeAction &action : matched->actions) {
-    const int count =
-        std::max(1, static_cast<int>(std::round(static_cast<float>(action.count) *
-                                                policy.particleEmissionScale)));
+    const int count = resolveScaledCount(action);
+    if (action.kind == RecipeActionKind::ParticleBurst) {
+      SkillVfxRecipeAction scaledAction = action;
+      scaledAction.count = count;
+      emitParticles(scaledAction);
+      continue;
+    }
+
     for (int i = 0; i < count; ++i) {
       const float t = (count == 1) ? 0.5f
                                    : static_cast<float>(i + 1) /
@@ -745,9 +774,6 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
       case RecipeActionKind::Overlay:
         emitOverlay(action, pos, vel);
         break;
-      case RecipeActionKind::ParticleBurst:
-        emitParticles(action);
-        break;
       case RecipeActionKind::TrailStroke:
         emitTrail(action);
         break;
@@ -755,14 +781,9 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
         emitDistortion(action, pos);
         break;
       case RecipeActionKind::ResistOverlay:
-        if (normalized.resistDebuffType !=
-            static_cast<uint8_t>(SkillVfxResistDebuffType::None)) {
-          ResistOverlayRequest request = {};
-          request.worldPos = pos;
-          request.resistDebuffType = normalized.resistDebuffType;
-          request.intensity = std::clamp(action.alpha * intensity, 0.1f, 2.0f);
-          m_pendingResistOverlay.push_back(request);
-        }
+        emitResistOverlay(action, pos);
+        break;
+      case RecipeActionKind::ParticleBurst:
         break;
       }
     }

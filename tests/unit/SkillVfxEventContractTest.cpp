@@ -58,7 +58,7 @@ TEST_CASE("[Unit] SkillVfxEvent - Role Mask Bits") {
   CHECK(!NoMoreDay::HasSkillVfxNodeRole(mask, NoMoreDay::SkillVfxNodeRoleMask::Trigger));
 }
 
-TEST_CASE("[Unit] SkillVfxEvent - Recipe Smoke Coverage Skill1 Core Events") {
+TEST_CASE("[Unit] SkillVfxEvent - Recipe Smoke Coverage Base Forms Core Events") {
   const std::filesystem::path recipePath =
       std::filesystem::path("assets") / "data" / "vfx" / "blade_ascendant_v3.json";
   std::ifstream input(recipePath);
@@ -68,7 +68,18 @@ TEST_CASE("[Unit] SkillVfxEvent - Recipe Smoke Coverage Skill1 Core Events") {
   REQUIRE(root.contains("recipes"));
   REQUIRE(root["recipes"].is_array());
 
-  auto hasEventRecipe = [&](const std::string &eventName) {
+  const std::array<std::pair<std::string, int>, 8> eventMap = {{
+      {"CastStart", 0},
+      {"CastImpact", 1},
+      {"TriggerProc", 2},
+      {"EmpoweredConsume", 3},
+      {"BuffEnter", 4},
+      {"BuffExit", 5},
+      {"TransmuterSwitch", 6},
+      {"KeystoneActivate", 7},
+  }};
+
+  auto hasEventRecipe = [&](const int skillId, const std::string &eventName) {
     for (const auto &recipe : root["recipes"]) {
       if (!recipe.is_object() || !recipe.contains("selector")) {
         continue;
@@ -77,21 +88,48 @@ TEST_CASE("[Unit] SkillVfxEvent - Recipe Smoke Coverage Skill1 Core Events") {
       if (!selector.is_object()) {
         continue;
       }
-      if (!selector.contains("skillId") || selector["skillId"] != 1) {
+      if (!selector.contains("skillId") || !selector["skillId"].is_number_integer() ||
+          selector["skillId"].get<int>() != skillId) {
         continue;
       }
-      if (!selector.contains("eventType") || !selector["eventType"].is_string()) {
+      if (!selector.contains("eventType")) {
         continue;
       }
-      if (selector["eventType"].get<std::string>() == eventName) {
+      const auto &eventType = selector["eventType"];
+      if (eventType.is_string() && eventType.get<std::string>() == eventName) {
         return true;
+      }
+      if (eventType.is_number_integer()) {
+        const int eventId = eventType.get<int>();
+        for (const auto &[name, id] : eventMap) {
+          if (name == eventName && id == eventId) {
+            return true;
+          }
+        }
       }
     }
     return false;
   };
 
-  CHECK(hasEventRecipe("CastStart"));
-  CHECK(hasEventRecipe("CastImpact"));
-  CHECK(hasEventRecipe("TriggerProc"));
-  CHECK(hasEventRecipe("EmpoweredConsume"));
+  const std::array<std::pair<int, std::array<const char *, 5>>, 9> coverage = {{
+      {1, {"CastStart", "CastImpact", "TriggerProc", "EmpoweredConsume", ""}},
+      {2, {"CastImpact", "TriggerProc", "", "", ""}},
+      {3, {"CastStart", "CastImpact", "TriggerProc", "BuffEnter", ""}},
+      {4, {"CastStart", "CastImpact", "TriggerProc", "BuffEnter", ""}},
+      {5, {"CastStart", "CastImpact", "EmpoweredConsume", "", ""}},
+      {6, {"CastStart", "TriggerProc", "BuffEnter", "", ""}},
+      {7, {"CastImpact", "TriggerProc", "", "", ""}},
+      {8, {"CastStart", "CastImpact", "TriggerProc", "BuffExit", ""}},
+      {9, {"CastStart", "CastImpact", "TriggerProc", "BuffEnter", "BuffExit"}},
+  }};
+
+  for (const auto &[skillId, events] : coverage) {
+    for (const char *eventName : events) {
+      if (eventName[0] == '\0') {
+        continue;
+      }
+      INFO("missing recipe for skillId=" << skillId << " event=" << eventName);
+      CHECK(hasEventRecipe(skillId, eventName));
+    }
+  }
 }

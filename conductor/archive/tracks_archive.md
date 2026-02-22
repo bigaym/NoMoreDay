@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant VFX Base Forms (blade_ascendant_vfx_base_forms_20260222)
+- **Folder:** [./conductor/archive/blade_ascendant_vfx_base_forms_20260222/](./conductor/archive/blade_ascendant_vfx_base_forms_20260222/)
+- **Description:** Completed base-form VFX rollout for Blade Ascendant skills 3.1-3.9 with recipe-driven entries in `assets/data/vfx/blade_ascendant_v3.json`, runtime fallback tuning, and validator/unit coverage expansion.
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P1
+- **Archive Reason:** `python scripts/check_blade_vfx_recipe.py --check` PASS; `build.bat clean-all` PASS; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
 - **Folder:** [./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/](./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/)
 - **Description:** 完成剑修 VFX 基础设施落地：`SkillVfxEvent` 扩展（元素/抗性削弱/Transmuter/Keystone）、`GPUSkillEffectSystem` 配方驱动骨架、粒子/尾迹/扭曲/overlay 动作适配、Tier 回退映射与校验脚本。

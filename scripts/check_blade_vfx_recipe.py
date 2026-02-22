@@ -42,6 +42,29 @@ VALID_ROLE_NAMES = {
     "Transmuter",
 }
 
+EVENT_NAME_TO_ID = {
+    "CastStart": 0,
+    "CastImpact": 1,
+    "TriggerProc": 2,
+    "EmpoweredConsume": 3,
+    "BuffEnter": 4,
+    "BuffExit": 5,
+    "TransmuterSwitch": 6,
+    "KeystoneActivate": 7,
+}
+
+REQUIRED_BASE_FORM_EVENTS = {
+    1: {"CastStart", "CastImpact", "TriggerProc", "EmpoweredConsume"},
+    2: {"CastImpact", "TriggerProc"},
+    3: {"CastStart", "CastImpact", "TriggerProc", "BuffEnter"},
+    4: {"CastStart", "CastImpact", "TriggerProc", "BuffEnter"},
+    5: {"CastStart", "CastImpact", "EmpoweredConsume"},
+    6: {"CastStart", "TriggerProc", "BuffEnter"},
+    7: {"CastImpact", "TriggerProc"},
+    8: {"CastStart", "CastImpact", "TriggerProc", "BuffExit"},
+    9: {"CastStart", "CastImpact", "TriggerProc", "BuffEnter", "BuffExit"},
+}
+
 
 def _fail(message: str) -> None:
     raise ValueError(message)
@@ -126,6 +149,45 @@ def validate_recipe_config(data: dict[str, Any]) -> None:
             alpha = action.get("alpha", 1.0)
             if not isinstance(alpha, (int, float)) or alpha < 0.0 or alpha > 1.0:
                 _fail(f"{action_prefix}.alpha must be in [0,1]")
+
+    _validate_base_form_coverage(recipes)
+
+
+def _normalize_event_name(value: Any) -> str | None:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, int):
+        for event_name, event_id in EVENT_NAME_TO_ID.items():
+            if event_id == value:
+                return event_name
+    return None
+
+
+def _validate_base_form_coverage(recipes: list[dict[str, Any]]) -> None:
+    discovered: dict[int, set[str]] = {skill_id: set() for skill_id in REQUIRED_BASE_FORM_EVENTS}
+
+    for recipe in recipes:
+        selector = recipe.get("selector")
+        if not isinstance(selector, dict):
+            continue
+
+        skill_id = selector.get("skillId")
+        if not isinstance(skill_id, int) or skill_id not in discovered:
+            continue
+
+        event_name = _normalize_event_name(selector.get("eventType", "*"))
+        if event_name is None or event_name == "*":
+            continue
+        discovered[skill_id].add(event_name)
+
+    missing: list[str] = []
+    for skill_id, required_events in REQUIRED_BASE_FORM_EVENTS.items():
+        missing_events = sorted(required_events - discovered[skill_id])
+        if missing_events:
+            missing.append(f"skill {skill_id}: {', '.join(missing_events)}")
+
+    if missing:
+        _fail("base form coverage missing required event recipes: " + " | ".join(missing))
 
 
 def main() -> int:

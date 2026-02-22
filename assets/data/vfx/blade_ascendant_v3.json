@@ -3,7 +3,7 @@
   "recipes": [
     {
       "name": "skill1_cast_start",
-      "priority": 100,
+      "priority": 110,
       "selector": {
         "skillId": 1,
         "eventType": "CastStart",
@@ -34,7 +34,7 @@
     },
     {
       "name": "skill1_cast_impact",
-      "priority": 100,
+      "priority": 110,
       "selector": {
         "skillId": 1,
         "eventType": "CastImpact",
@@ -65,7 +65,7 @@
     },
     {
       "name": "skill1_trigger_proc",
-      "priority": 100,
+      "priority": 110,
       "selector": {
         "skillId": 1,
         "eventType": "TriggerProc",
@@ -78,7 +78,7 @@
           "count": 1,
           "radius": 15.0,
           "angle": 18.0,
-          "softness": 0.30,
+          "softness": 0.3,
           "type": 2.0,
           "speed": 320.0,
           "alpha": 0.85
@@ -96,7 +96,7 @@
     },
     {
       "name": "skill1_empowered_consume",
-      "priority": 100,
+      "priority": 110,
       "selector": {
         "skillId": 1,
         "eventType": "EmpoweredConsume",
@@ -123,6 +123,687 @@
       ]
     },
     {
+      "name": "skill2_cast_impact",
+      "priority": 108,
+      "selector": {
+        "skillId": 2,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "TrailStroke",
+          "count": 2,
+          "radius": 8.0,
+          "speed": 220.0,
+          "alpha": 0.5,
+          "width": 7.0,
+          "trailLength": 0.16
+        },
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 12.0,
+          "angle": 40.0,
+          "softness": 0.28,
+          "type": 3.0,
+          "speed": 180.0,
+          "alpha": 0.52
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 18.0,
+          "distortionStrength": 0.1
+        }
+      ]
+    },
+    {
+      "name": "skill2_trigger_proc",
+      "priority": 108,
+      "selector": {
+        "skillId": 2,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 10.0,
+          "angle": 36.0,
+          "softness": 0.28,
+          "type": 3.0,
+          "speed": 170.0,
+          "alpha": 0.42
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 6.0,
+          "speed": 190.0,
+          "alpha": 0.36,
+          "width": 6.0,
+          "trailLength": 0.14
+        }
+      ]
+    },
+    {
+      "name": "skill3_cast_start",
+      "priority": 106,
+      "selector": {
+        "skillId": 3,
+        "eventType": "CastStart",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "ParticleBurst",
+          "count": 12,
+          "radius": 10.0,
+          "speed": 100.0,
+          "alpha": 0.65,
+          "lifetime": 0.2,
+          "spread": 42.0
+        },
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 34.0,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 60.0,
+          "alpha": 0.4
+        }
+      ]
+    },
+    {
+      "name": "skill3_buff_enter",
+      "priority": 106,
+      "selector": {
+        "skillId": 3,
+        "eventType": "BuffEnter",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 10.0,
+          "speed": 90.0,
+          "alpha": 0.58,
+          "lifetime": 0.2,
+          "spread": 38.0
+        }
+      ]
+    },
+    {
+      "name": "skill3_cast_impact",
+      "priority": 106,
+      "selector": {
+        "skillId": 3,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 20.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 80.0,
+          "alpha": 0.8
+        }
+      ]
+    },
+    {
+      "name": "skill3_trigger_proc",
+      "priority": 106,
+      "selector": {
+        "skillId": 3,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 20.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 80.0,
+          "alpha": 0.75
+        }
+      ]
+    },
+    {
+      "name": "skill4_cast_start",
+      "priority": 106,
+      "selector": {
+        "skillId": 4,
+        "eventType": "CastStart",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 30.0,
+          "angle": 360.0,
+          "softness": 0.45,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.85
+        }
+      ]
+    },
+    {
+      "name": "skill4_buff_enter",
+      "priority": 106,
+      "selector": {
+        "skillId": 4,
+        "eventType": "BuffEnter",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 30.0,
+          "angle": 360.0,
+          "softness": 0.45,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.78
+        }
+      ]
+    },
+    {
+      "name": "skill4_cast_impact",
+      "priority": 106,
+      "selector": {
+        "skillId": 4,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 12.0,
+          "angle": 20.0,
+          "softness": 0.3,
+          "type": 2.0,
+          "speed": 200.0,
+          "alpha": 0.9
+        }
+      ]
+    },
+    {
+      "name": "skill4_trigger_proc",
+      "priority": 106,
+      "selector": {
+        "skillId": 4,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 12.0,
+          "angle": 20.0,
+          "softness": 0.3,
+          "type": 2.0,
+          "speed": 200.0,
+          "alpha": 0.88
+        }
+      ]
+    },
+    {
+      "name": "skill5_cast_start",
+      "priority": 106,
+      "selector": {
+        "skillId": 5,
+        "eventType": "CastStart",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 82.0,
+          "angle": 360.0,
+          "softness": 0.6,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.55
+        }
+      ]
+    },
+    {
+      "name": "skill5_cast_impact",
+      "priority": 106,
+      "selector": {
+        "skillId": 5,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "ParticleBurst",
+          "count": 96,
+          "radius": 10.0,
+          "speed": 280.0,
+          "alpha": 0.6,
+          "lifetime": 0.22,
+          "spread": 120.0
+        },
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 14.0,
+          "angle": 24.0,
+          "softness": 0.32,
+          "type": 2.0,
+          "speed": 280.0,
+          "alpha": 0.45
+        }
+      ]
+    },
+    {
+      "name": "skill5_empowered_consume",
+      "priority": 106,
+      "selector": {
+        "skillId": 5,
+        "eventType": "EmpoweredConsume",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 36.0,
+          "angle": 360.0,
+          "softness": 0.4,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 1.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 44.0,
+          "distortionStrength": 0.4
+        }
+      ]
+    },
+    {
+      "name": "skill6_cast_start",
+      "priority": 106,
+      "selector": {
+        "skillId": 6,
+        "eventType": "CastStart",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 64.0,
+          "angle": 360.0,
+          "softness": 0.55,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.75
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 68.0,
+          "distortionStrength": 0.24
+        }
+      ]
+    },
+    {
+      "name": "skill6_buff_enter",
+      "priority": 106,
+      "selector": {
+        "skillId": 6,
+        "eventType": "BuffEnter",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 60.0,
+          "angle": 360.0,
+          "softness": 0.55,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.68
+        }
+      ]
+    },
+    {
+      "name": "skill6_trigger_proc",
+      "priority": 106,
+      "selector": {
+        "skillId": 6,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 13.0,
+          "speed": 180.0,
+          "alpha": 0.65,
+          "lifetime": 0.18,
+          "spread": 40.0
+        }
+      ]
+    },
+    {
+      "name": "skill7_cast_impact",
+      "priority": 108,
+      "selector": {
+        "skillId": 7,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "TrailStroke",
+          "count": 3,
+          "radius": 11.0,
+          "speed": 520.0,
+          "alpha": 1.0,
+          "width": 10.0,
+          "trailLength": 0.12
+        },
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 12.0,
+          "angle": 10.0,
+          "softness": 0.3,
+          "type": 2.0,
+          "speed": 520.0,
+          "alpha": 0.85
+        }
+      ]
+    },
+    {
+      "name": "skill7_trigger_proc",
+      "priority": 108,
+      "selector": {
+        "skillId": 7,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "TrailStroke",
+          "count": 2,
+          "radius": 11.0,
+          "speed": 520.0,
+          "alpha": 0.95,
+          "width": 9.0,
+          "trailLength": 0.12
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 6,
+          "radius": 6.0,
+          "speed": 220.0,
+          "alpha": 0.8,
+          "lifetime": 0.12,
+          "spread": 18.0
+        }
+      ]
+    },
+    {
+      "name": "skill8_cast_start",
+      "priority": 106,
+      "selector": {
+        "skillId": 8,
+        "eventType": "CastStart",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 18.0,
+          "angle": 360.0,
+          "softness": 0.45,
+          "type": 1.0,
+          "speed": 240.0,
+          "alpha": 0.95
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 4,
+          "radius": 10.0,
+          "speed": 240.0,
+          "alpha": 0.55,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill8_cast_impact",
+      "priority": 106,
+      "selector": {
+        "skillId": 8,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 18.0,
+          "angle": 360.0,
+          "softness": 0.45,
+          "type": 1.0,
+          "speed": 240.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 4,
+          "radius": 10.0,
+          "speed": 240.0,
+          "alpha": 0.5,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill8_trigger_proc",
+      "priority": 106,
+      "selector": {
+        "skillId": 8,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 24.0,
+          "angle": 360.0,
+          "softness": 0.55,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.8
+        }
+      ]
+    },
+    {
+      "name": "skill8_buff_exit",
+      "priority": 106,
+      "selector": {
+        "skillId": 8,
+        "eventType": "BuffExit",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 24.0,
+          "angle": 360.0,
+          "softness": 0.55,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.75
+        }
+      ]
+    },
+    {
+      "name": "skill9_cast_start",
+      "priority": 106,
+      "selector": {
+        "skillId": 9,
+        "eventType": "CastStart",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 28.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.75
+        }
+      ]
+    },
+    {
+      "name": "skill9_buff_enter",
+      "priority": 106,
+      "selector": {
+        "skillId": 9,
+        "eventType": "BuffEnter",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 28.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.7
+        }
+      ]
+    },
+    {
+      "name": "skill9_trigger_proc",
+      "priority": 106,
+      "selector": {
+        "skillId": 9,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 16.0,
+          "angle": 20.0,
+          "softness": 0.34,
+          "type": 2.0,
+          "speed": 260.0,
+          "alpha": 0.9
+        }
+      ]
+    },
+    {
+      "name": "skill9_cast_impact",
+      "priority": 106,
+      "selector": {
+        "skillId": 9,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 34.0,
+          "angle": 360.0,
+          "softness": 0.6,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 1.0
+        }
+      ]
+    },
+    {
+      "name": "skill9_buff_exit",
+      "priority": 106,
+      "selector": {
+        "skillId": 9,
+        "eventType": "BuffExit",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 34.0,
+          "angle": 360.0,
+          "softness": 0.6,
+          "type": 1.0,
+          "speed": 0.0,
+          "alpha": 0.95
+        }
+      ]
+    },
+    {
       "name": "generic_transmuter_switch",
       "priority": 90,
       "selector": {
@@ -140,7 +821,7 @@
           "count": 1,
           "radius": 26.0,
           "angle": 360.0,
-          "softness": 0.50,
+          "softness": 0.5,
           "type": 1.0,
           "speed": 180.0,
           "alpha": 0.75
