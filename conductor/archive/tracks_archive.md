@@ -22,6 +22,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant Skill Validation Gate (blade_ascendant_skill_validation_gate_20260221)
+- **Folder:** [./conductor/archive/blade_ascendant_skill_validation_gate_20260221/](./conductor/archive/blade_ascendant_skill_validation_gate_20260221/)
+- **Description:** Closed the five-dimension Blade Ascendant rollout gate with consolidated functional/contract/stability/fallback evidence and release posture output.
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` PASS; `ctest -C RelWithDebInfo -L ci/unit/integration` PASS (`ci` had one transient first-run failure but replay passed); `python scripts/gen_skill_contracts.py --check` PASS; `ctest -C Release -L performance` failed only on existing non-blocking `BUG-20260219-004` (`ParticleTrail Scenario 4`, `dispatchOverheadMs=0.256455` / verbose `0.218223`), linked in validation.
+
+---
+
 ## [x] Track: Blade Ascendant VFX Design Freeze (blade_ascendant_vfx_design_freeze_20260221)
 - **Folder:** [./conductor/archive/blade_ascendant_vfx_design_freeze_20260221/](./conductor/archive/blade_ascendant_vfx_design_freeze_20260221/)
 - **Description:** Completed VFX design freeze package for Blade Ascendant: frozen 9-skill VFX matrix, RenderGraph contract matrix, tier fallback matrix, and downstream T2/T3 spec handoff references.

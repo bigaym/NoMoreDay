@@ -54,15 +54,15 @@ T0: blade_ascendant_skill_contracts_20260221 (P0, Foundation)
 > **Tasks**: 20/20  
 > **Location**: [`conductor/archive/blade_ascendant_skill_rendering_integration_20260221/`](./archive/blade_ascendant_skill_rendering_integration_20260221/index.md)
 
-## [ ] Track T3: Blade Ascendant Skill Validation Gate (blade_ascendant_skill_validation_gate_20260221)
+## [x] Track T3: Blade Ascendant Skill Validation Gate (blade_ascendant_skill_validation_gate_20260221)
 
-> **Status**: Pending  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: quality  
 > **Depends On**: `blade_ascendant_skill_rendering_integration_20260221`  
 > **Focus**: 功能/合同/性能/稳定性/回退五维门禁与证据闭环。  
-> **Tasks**: 0/16  
-> **Location**: [`conductor/tracks/blade_ascendant_skill_validation_gate_20260221/`](./tracks/blade_ascendant_skill_validation_gate_20260221/index.md)
+> **Tasks**: 16/16  
+> **Location**: [`conductor/archive/blade_ascendant_skill_validation_gate_20260221/`](./archive/blade_ascendant_skill_validation_gate_20260221/index.md)
 
 ---
 
