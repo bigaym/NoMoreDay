@@ -315,18 +315,36 @@ void ProjectileSystem::Update(entt::registry &registry,
         // Skill 2 (Rift Slash): Extremely short lifetime (0.07s) for peak snappiness
         if (skill_id == 2) {
           Color trailColor = NoMoreDay::components::Colors::BLADE_CYAN;
-          if (auto* col = registry.try_get<ColorComponent>(entity)) {
-             trailColor = col->color;
+          if (auto *col = registry.try_get<ColorComponent>(entity)) {
+            trailColor = col->color;
           }
-          trailColor.a = 150;
-          
-          auto p = systems::InkEffectHelper::CreateInkTrail(
-              {pos.x, pos.y}, trailVel, 0.6f, 0.075f); // 0.15 -> 0.075
-          p.color = trailColor;
-          p.scale = 1.2f;
-          s_particles.push_back(p);
+
+          const float speed = sqrtf(vel.vx * vel.vx + vel.vy * vel.vy);
+          Vector2 dir = {1.0f, 0.0f};
+          if (speed > 1e-4f) {
+            dir = {vel.vx / speed, vel.vy / speed};
+          }
+
+          const int sampleCount = 3;
+          for (int i = 0; i < sampleCount; ++i) {
+            const float t = static_cast<float>(i) /
+                            static_cast<float>(sampleCount - 1);
+            const float backOffset = 2.0f + 6.0f * t;
+            Vector2 samplePos = {pos.x - dir.x * backOffset,
+                                 pos.y - dir.y * backOffset};
+
+            auto trail = systems::InkEffectHelper::CreateInkTrail(
+                samplePos, Vector2Scale(trailVel, 0.55f + 0.1f * (1.0f - t)),
+                0.42f + 0.08f * (1.0f - t), 0.085f + 0.02f * t);
+            trail.color = trailColor;
+            trail.color.a = static_cast<unsigned char>(150.0f - 40.0f * t);
+            trail.flags = 13;          // Soft edge ink, avoids hard dot look.
+            trail.growthRate = -1.1f;  // Slight shrink keeps line compact.
+            trail.scale = 0.52f - 0.10f * t;
+            s_particles.push_back(trail);
+          }
         } else {
-           s_particles.push_back(systems::InkEffectHelper::CreateInkTrail(
+          s_particles.push_back(systems::InkEffectHelper::CreateInkTrail(
               {pos.x, pos.y}, trailVel, 1.2f, 0.2f)); // 0.4 -> 0.2
         }
       }
@@ -582,11 +600,11 @@ void ProjectileSystem::Update(entt::registry &registry,
           flash.colorB = 0.75f;
           break;
         case 2: // Rending Wave
-          flash.radius = 240.0f;
-          flash.intensity = 3.0f;
-          flash.colorR = 0.65f;
-          flash.colorG = 0.85f;
-          flash.colorB = 1.0f;
+          flash.radius = 42.0f;
+          flash.intensity = 0.42f;
+          flash.colorR = 0.52f;
+          flash.colorG = 0.75f;
+          flash.colorB = 0.92f;
           break;
         case 7:
           flash.radius = 210.0f;
@@ -611,18 +629,18 @@ void ProjectileSystem::Update(entt::registry &registry,
       }
 
       if (skill_id == 2) {
-        for (int i = 0; i < 12; ++i) {
+        for (int i = 0; i < 3; ++i) {
           components::GPUParticle p;
           p.position = act.pos;
           float angle = (float)GetRandomValue(0, 360) * (PI / 180.0f);
-          float speed = (float)GetRandomValue(100, 300);
+          float speed = (float)GetRandomValue(45, 110);
           p.velocity = {cosf(angle) * speed, sinf(angle) * speed};
-          p.color = {200, 250, 255, 200};
-          p.lifetime = 0.3f + (float)GetRandomValue(0, 20) / 100.0f;
+          p.color = {165, 215, 255, 130};
+          p.lifetime = 0.08f + (float)GetRandomValue(0, 5) / 100.0f;
           p.maxLifetime = p.lifetime;
-          p.scale = 2.0f + (float)GetRandomValue(0, 20) / 10.0f;
-          p.flags = 2;
-          p.growthRate = -5.0f;
+          p.scale = 0.14f + (float)GetRandomValue(0, 10) / 100.0f;
+          p.flags = 13;
+          p.growthRate = -1.2f;
           particleSys.Emit(p);
         }
       }

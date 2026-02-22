@@ -259,12 +259,28 @@ void GPUSkillEffectSystem::EmitSkillEventVisual(const SkillVfxEvent &event) {
   }
   case 2: {
     if (event.type == SkillVfxEventType::CastImpact) {
-      emitEffect(event.target, Vector2Scale(direction, 220.0f), 28.0f * intensity,
-                 72.0f, 0.4f, 3.0f, 1.0f);
-      emitDistortion(event.target, 48.0f * intensity, 0.35f);
+      const int bladeSamples = reduceTrailSampling ? 1 : 2;
+      for (int i = 0; i < bladeSamples; ++i) {
+        const float t = (bladeSamples == 1)
+                            ? 0.82f
+                            : (0.68f + 0.16f * static_cast<float>(i));
+        const Vector2 samplePos = Vector2Lerp(event.origin, event.target, t);
+        const float sampleRadius =
+            (reduceTrailSampling ? 8.0f : (7.0f + 0.8f * static_cast<float>(i))) *
+            intensity;
+        emitEffect(samplePos, Vector2Scale(direction, 220.0f + 20.0f * i),
+                   sampleRadius, 34.0f, 0.28f, 2.0f, 0.5f);
+      }
+
+      emitEffect(event.target, Vector2Scale(direction, 180.0f), 12.0f * intensity,
+                 40.0f, 0.28f, 3.0f, 0.52f);
+      emitDistortion(event.target, 18.0f * intensity, 0.10f);
     } else if (event.type == SkillVfxEventType::TriggerProc) {
-      emitEffect(event.target, Vector2Scale(direction, 180.0f), 22.0f * intensity,
-                 70.0f, 0.45f, 3.0f, 0.65f);
+      emitEffect(event.target, Vector2Scale(direction, 170.0f), 10.0f * intensity,
+                 36.0f, 0.28f, 3.0f, 0.42f);
+      const Vector2 trailPos = Vector2Lerp(event.origin, event.target, 0.76f);
+      emitEffect(trailPos, Vector2Scale(direction, 190.0f), 6.0f * intensity,
+                 30.0f, 0.24f, 2.0f, 0.36f);
     }
     return;
   }

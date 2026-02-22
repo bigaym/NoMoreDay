@@ -10,12 +10,12 @@
       "anchor": "Caster",
       "params": {
         "materialId": "LightningArc",
-        "count": 3,
-        "speed": 100.0,
-        "speedVariance": 25.0,
-        "lifetime": 0.2,
-        "scale": 9.0,
-        "spreadAngle": 220.0,
+        "count": 2,
+        "speed": 70.0,
+        "speedVariance": 15.0,
+        "lifetime": 0.12,
+        "scale": 0.9,
+        "spreadAngle": 180.0,
         "blendMode": 1
       }
     },
@@ -24,12 +24,12 @@
       "type": "Light",
       "anchor": "Caster",
       "params": {
-        "radius": 68.0,
-        "intensity": 1.1,
+        "radius": 24.0,
+        "intensity": 0.35,
         "color": [0.9, 0.92, 1.0],
-        "duration": 0.14,
-        "fadeInRatio": 0.08,
-        "fadeOutRatio": 0.68
+        "duration": 0.08,
+        "fadeInRatio": 0.06,
+        "fadeOutRatio": 0.7
       }
     },
     {
@@ -45,10 +45,10 @@
       "anchor": "Impact",
       "minTier": "High",
       "params": {
-        "radius": 165.0,
-        "strength": 0.55,
-        "duration": 0.3,
-        "speed": 520.0
+        "radius": 48.0,
+        "strength": 0.12,
+        "duration": 0.16,
+        "speed": 360.0
       }
     },
     {
@@ -57,11 +57,11 @@
       "anchor": "Impact",
       "minTier": "High",
       "params": {
-        "radius": 220.0,
-        "intensity": 6.2,
+        "radius": 52.0,
+        "intensity": 0.9,
         "color": [0.82, 0.9, 1.0],
-        "duration": 0.12,
-        "fadeInRatio": 0.03,
+        "duration": 0.08,
+        "fadeInRatio": 0.05,
         "fadeOutRatio": 0.72
       }
     },
@@ -71,12 +71,12 @@
       "anchor": "Caster",
       "minTier": "High",
       "params": {
-        "radius": 200.0,
-        "intensity": 7.0,
+        "radius": 38.0,
+        "intensity": 0.75,
         "color": [0.78, 0.9, 1.0],
-        "duration": 0.16,
-        "fadeInRatio": 0.04,
-        "fadeOutRatio": 0.7
+        "duration": 0.1,
+        "fadeInRatio": 0.05,
+        "fadeOutRatio": 0.72
       }
     },
     {
@@ -86,12 +86,12 @@
       "minTier": "High",
       "params": {
         "materialId": "LightningArc",
-        "count": 24,
-        "speed": 180.0,
-        "speedVariance": 70.0,
-        "lifetime": 0.28,
-        "scale": 20.0,
-        "spreadAngle": 300.0,
+        "count": 6,
+        "speed": 120.0,
+        "speedVariance": 35.0,
+        "lifetime": 0.16,
+        "scale": 1.1,
+        "spreadAngle": 220.0,
         "blendMode": 1
       }
     },
@@ -102,11 +102,11 @@
       "minTier": "High",
       "params": {
         "materialId": "LightningArc",
-        "count": 44,
-        "speed": 300.0,
-        "speedVariance": 120.0,
-        "lifetime": 0.42,
-        "scale": 24.0,
+        "count": 8,
+        "speed": 140.0,
+        "speedVariance": 45.0,
+        "lifetime": 0.2,
+        "scale": 1.25,
         "spreadAngle": 360.0,
         "blendMode": 1
       }
@@ -117,10 +117,10 @@
       "anchor": "Impact",
       "minTier": "High",
       "params": {
-        "radius": 148.0,
-        "intensity": 4.4,
+        "radius": 40.0,
+        "intensity": 0.65,
         "color": [0.86, 0.9, 1.0],
-        "duration": 0.18,
+        "duration": 0.12,
         "fadeInRatio": 0.08,
         "fadeOutRatio": 0.68
       }

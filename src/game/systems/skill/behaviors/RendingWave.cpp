@@ -281,9 +281,13 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
       // --- VISUAL EFFECTS ---
       auto &particleSys = systems::GPUParticleSystem::Get();
-      Color coreColor = exec.is_empowered
-                            ? systems::InkEffectHelper::COLOR_GOLD_CORE
-                            : systems::InkEffectHelper::COLOR_SWORD_QI;
+      Color coreColor =
+          exec.is_empowered
+              ? systems::InkEffectHelper::COLOR_GOLD_CORE
+              : (visualIsVoid ? PURPLE
+                        : (visualElementalConv.IsActive()
+                               ? visualElementalConv.projectile_color
+                               : systems::InkEffectHelper::COLOR_SWORD_QI));
       Color glowColor =
           exec.is_empowered
               ? systems::InkEffectHelper::COLOR_GOLD_GLOW
@@ -291,6 +295,8 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
                         : (visualElementalConv.IsActive()
                                ? visualElementalConv.glow_color
                                : systems::InkEffectHelper::COLOR_FROST_LIGHT));
+      coreColor.a = std::min<unsigned char>(coreColor.a, 170);
+      glowColor.a = std::min<unsigned char>(glowColor.a, 85);
 
       // Optimization: Use thread-local buffer to avoid heap allocation per
       // projectile
@@ -300,7 +306,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
 
       systems::InkEffectHelper::AppendProjectileTrail(
           s_trailBuffer, {ownerPos.x, ownerPos.y}, dir, coreColor, glowColor,
-          25.0f, 4);
+          8.0f, 2);
       particleSys.EmitBatch(s_trailBuffer);
 
       auto proj_ent = registry.create();

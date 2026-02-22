@@ -658,8 +658,22 @@ void ExecuteVFXPass(RenderFrameData &frame) {
       eff.velocity = {vel->vx, vel->vy};
     }
     eff.position = {ax, ay};
-    eff.radius = (proj.radius > 1.0f) ? proj.radius : 5.0f;
-    eff.sectorAngle = (proj.arcWidth > 0.0f) ? proj.arcWidth : 45.0f;
+    uint32_t projectileSkillId = 0u;
+    if (const auto *skillComp =
+            frame.registry.try_get<NoMoreDay::SkillComponent>(entity)) {
+      projectileSkillId = skillComp->skill_id;
+    }
+
+    float visualRadius = (proj.radius > 1.0f) ? proj.radius : 5.0f;
+    float visualArc = (proj.arcWidth > 0.0f) ? proj.arcWidth : 45.0f;
+    if (projectileSkillId == 2u) {
+      // Skill 2 moon blades are intentionally rendered slimmer than their
+      // gameplay radius to avoid oversized crescents while keeping hit logic.
+      visualRadius = std::clamp(visualRadius * 0.62f, 8.0f, 22.0f);
+      visualArc = std::clamp(visualArc * 0.72f, 30.0f, 70.0f);
+    }
+    eff.radius = visualRadius;
+    eff.sectorAngle = visualArc;
     eff.type = static_cast<float>(proj.visualType);
     eff.softness = 0.5f;
 
