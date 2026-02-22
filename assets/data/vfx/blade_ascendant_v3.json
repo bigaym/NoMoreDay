@@ -1,0 +1,199 @@
+{
+  "version": 1,
+  "recipes": [
+    {
+      "name": "skill1_cast_start",
+      "priority": 100,
+      "selector": {
+        "skillId": 1,
+        "eventType": "CastStart",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "TrailStroke",
+          "count": 3,
+          "radius": 10.0,
+          "speed": 260.0,
+          "alpha": 0.8,
+          "width": 9.0,
+          "trailLength": 0.2
+        },
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 14.0,
+          "angle": 24.0,
+          "softness": 0.35,
+          "type": 2.0,
+          "speed": 260.0,
+          "alpha": 0.75
+        }
+      ]
+    },
+    {
+      "name": "skill1_cast_impact",
+      "priority": 100,
+      "selector": {
+        "skillId": 1,
+        "eventType": "CastImpact",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 22.0,
+          "angle": 360.0,
+          "softness": 0.45,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 1.0
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 12,
+          "radius": 20.0,
+          "speed": 160.0,
+          "alpha": 0.75,
+          "lifetime": 0.28,
+          "spread": 24.0
+        }
+      ]
+    },
+    {
+      "name": "skill1_trigger_proc",
+      "priority": 100,
+      "selector": {
+        "skillId": 1,
+        "eventType": "TriggerProc",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 15.0,
+          "angle": 18.0,
+          "softness": 0.30,
+          "type": 2.0,
+          "speed": 320.0,
+          "alpha": 0.85
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 14.0,
+          "speed": 220.0,
+          "alpha": 0.65,
+          "lifetime": 0.24,
+          "spread": 20.0
+        }
+      ]
+    },
+    {
+      "name": "skill1_empowered_consume",
+      "priority": 100,
+      "selector": {
+        "skillId": 1,
+        "eventType": "EmpoweredConsume",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 26.0,
+          "angle": 360.0,
+          "softness": 0.45,
+          "type": 1.0,
+          "speed": 80.0,
+          "alpha": 1.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 36.0,
+          "distortionStrength": 0.22
+        }
+      ]
+    },
+    {
+      "name": "generic_transmuter_switch",
+      "priority": 90,
+      "selector": {
+        "skillId": "*",
+        "eventType": "TransmuterSwitch",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Transmuter"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 26.0,
+          "angle": 360.0,
+          "softness": 0.50,
+          "type": 1.0,
+          "speed": 180.0,
+          "alpha": 0.75
+        }
+      ]
+    },
+    {
+      "name": "generic_keystone_activate",
+      "priority": 90,
+      "selector": {
+        "skillId": "*",
+        "eventType": "KeystoneActivate",
+        "elementType": "*",
+        "resistDebuffType": "*",
+        "requiredNodeRoleMask": [
+          "Keystone"
+        ]
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 30.0,
+          "angle": 360.0,
+          "softness": 0.55,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.95
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 28.0,
+          "distortionStrength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "generic_resist_overlay",
+      "priority": 80,
+      "selector": {
+        "skillId": "*",
+        "eventType": "*",
+        "elementType": "*",
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "ResistOverlay",
+          "count": 1,
+          "alpha": 0.8
+        }
+      ]
+    }
+  ]
+}

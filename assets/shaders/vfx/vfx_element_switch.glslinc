@@ -1,0 +1,20 @@
+#ifndef NMD_VFX_ELEMENT_SWITCH_GLSLINC
+#define NMD_VFX_ELEMENT_SWITCH_GLSLINC
+
+vec3 NmdSelectElementPalette(int elementType, vec3 fallbackColor) {
+  if (elementType == 1) {
+    return vec3(1.00, 0.47, 0.16); // Fire
+  }
+  if (elementType == 2) {
+    return vec3(0.47, 0.82, 1.00); // Cold
+  }
+  if (elementType == 3) {
+    return vec3(0.98, 0.96, 0.51); // Lightning
+  }
+  if (elementType == 4) {
+    return vec3(0.69, 0.37, 1.00); // Void
+  }
+  return fallbackColor; // Physical / unknown
+}
+
+#endif // NMD_VFX_ELEMENT_SWITCH_GLSLINC

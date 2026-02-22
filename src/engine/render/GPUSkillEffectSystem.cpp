@@ -1,14 +1,21 @@
 #include "engine/render/GPUSkillEffectSystem.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
+#include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "raymath.h"
 #include "rlgl.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <fstream>
+#include <limits>
+#include <nlohmann/json.hpp>
+#include <unordered_map>
+#include <utility>
 
 namespace NoMoreDay::systems {
 namespace {
@@ -72,6 +79,164 @@ Vector2 NormalizedDirection(Vector2 from, Vector2 to) {
   return Vector2Normalize(direction);
 }
 
+struct VfxFallbackPolicy {
+  uint8_t tier = static_cast<uint8_t>(render::core::QualityTier::Medium);
+  float particleEmissionScale = 1.0f;
+  int trailSampleStride = 1;
+  bool allowDistortion = false;
+  bool allowSecondaryGlow = true;
+  bool allowEnvironmentParticles = true;
+  bool useAfterimageSpriteFallback = false;
+};
+
+VfxFallbackPolicy BuildVfxFallbackPolicy(const SkillVfxEvent &event) {
+  auto &qualityManager = render::core::QualityTierManager::Get();
+  const uint8_t runtimeTier =
+      qualityManager.IsInitialized()
+          ? static_cast<uint8_t>(qualityManager.GetTier())
+          : static_cast<uint8_t>(render::core::QualityTier::Medium);
+  const uint8_t eventTier = std::min<uint8_t>(event.qualityTier, 3u);
+  const uint8_t tier = std::min(runtimeTier, eventTier);
+
+  VfxFallbackPolicy policy = {};
+  policy.tier = tier;
+  policy.allowDistortion = qualityManager.IsInitialized() &&
+                           qualityManager.GetConfig().distortionEnabled &&
+                           tier >= static_cast<uint8_t>(render::core::QualityTier::High);
+
+  if (qualityManager.IsInitialized()) {
+    const int detail = std::clamp(qualityManager.GetConfig().vfxSequenceDetail, 0, 2);
+    if (detail == 0) {
+      policy.particleEmissionScale *= 0.5f;
+      policy.trailSampleStride = 2;
+      policy.allowSecondaryGlow = false;
+    } else if (detail == 1) {
+      policy.particleEmissionScale *= 0.75f;
+    }
+
+    const int degradeLevel =
+        std::clamp(qualityManager.GetAutoDegradeLevel(), 0, 6);
+    if (degradeLevel >= 1) {
+      policy.particleEmissionScale *= 0.5f;
+    }
+    if (degradeLevel >= 2) {
+      policy.allowDistortion = false;
+    }
+    if (degradeLevel >= 3) {
+      policy.trailSampleStride = std::max(policy.trailSampleStride, 2);
+    }
+    if (degradeLevel >= 4) {
+      policy.allowSecondaryGlow = false;
+    }
+    if (degradeLevel >= 5) {
+      policy.allowEnvironmentParticles = false;
+    }
+    if (degradeLevel >= 6) {
+      policy.useAfterimageSpriteFallback = true;
+    }
+  }
+
+  if (tier <= static_cast<uint8_t>(render::core::QualityTier::Low)) {
+    policy.particleEmissionScale = std::min(policy.particleEmissionScale, 0.5f);
+    policy.trailSampleStride = std::max(policy.trailSampleStride, 2);
+    policy.allowSecondaryGlow = false;
+  } else if (tier <= static_cast<uint8_t>(render::core::QualityTier::Medium)) {
+    policy.particleEmissionScale = std::min(policy.particleEmissionScale, 0.75f);
+    policy.trailSampleStride = std::max(policy.trailSampleStride, 2);
+  }
+
+  policy.particleEmissionScale = std::clamp(policy.particleEmissionScale, 0.1f, 1.0f);
+  return policy;
+}
+
+Color ResolveElementColor(const uint8_t elementType, const Color fallback) {
+  switch (static_cast<SkillVfxElementType>(elementType)) {
+  case SkillVfxElementType::Fire:
+    return Color{255, 120, 40, 255};
+  case SkillVfxElementType::Cold:
+    return Color{120, 210, 255, 255};
+  case SkillVfxElementType::Lightning:
+    return Color{250, 245, 130, 255};
+  case SkillVfxElementType::Void:
+    return Color{175, 95, 255, 255};
+  case SkillVfxElementType::Physical:
+  default:
+    return fallback;
+  }
+}
+
+int ParseSelectorInt(const nlohmann::json &value, const int wildcard = -1) {
+  if (value.is_null()) {
+    return wildcard;
+  }
+  if (value.is_number_integer()) {
+    return value.get<int>();
+  }
+  if (value.is_string()) {
+    const std::string token = value.get<std::string>();
+    if (token == "*") {
+      return wildcard;
+    }
+    static const std::unordered_map<std::string, int> kEventMap = {
+        {"CastStart", static_cast<int>(SkillVfxEventType::CastStart)},
+        {"CastImpact", static_cast<int>(SkillVfxEventType::CastImpact)},
+        {"TriggerProc", static_cast<int>(SkillVfxEventType::TriggerProc)},
+        {"EmpoweredConsume", static_cast<int>(SkillVfxEventType::EmpoweredConsume)},
+        {"BuffEnter", static_cast<int>(SkillVfxEventType::BuffEnter)},
+        {"BuffExit", static_cast<int>(SkillVfxEventType::BuffExit)},
+        {"TransmuterSwitch", static_cast<int>(SkillVfxEventType::TransmuterSwitch)},
+        {"KeystoneActivate", static_cast<int>(SkillVfxEventType::KeystoneActivate)},
+    };
+    if (auto it = kEventMap.find(token); it != kEventMap.end()) {
+      return it->second;
+    }
+  }
+  return wildcard;
+}
+
+GPUSkillEffectSystem::RecipeActionKind ParseActionKind(
+    const nlohmann::json &value) {
+  if (value.is_number_integer()) {
+    return static_cast<GPUSkillEffectSystem::RecipeActionKind>(
+        std::clamp(value.get<int>(), 0, 4));
+  }
+  if (value.is_string()) {
+    const std::string token = value.get<std::string>();
+    if (token == "ParticleBurst") {
+      return GPUSkillEffectSystem::RecipeActionKind::ParticleBurst;
+    }
+    if (token == "TrailStroke") {
+      return GPUSkillEffectSystem::RecipeActionKind::TrailStroke;
+    }
+    if (token == "DistortionPulse") {
+      return GPUSkillEffectSystem::RecipeActionKind::DistortionPulse;
+    }
+    if (token == "ResistOverlay") {
+      return GPUSkillEffectSystem::RecipeActionKind::ResistOverlay;
+    }
+  }
+  return GPUSkillEffectSystem::RecipeActionKind::Overlay;
+}
+
+uint8_t ResolveLegacyElementType(const SkillVfxEvent &event) {
+  if (event.elementType != static_cast<uint8_t>(SkillVfxElementType::Physical)) {
+    return event.elementType;
+  }
+  if (HasTag(event.effectiveTags, Tag::Void)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Void);
+  }
+  if (HasTag(event.effectiveTags, Tag::Lightning)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Lightning);
+  }
+  if (HasTag(event.effectiveTags, Tag::Cold)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Cold);
+  }
+  if (HasTag(event.effectiveTags, Tag::Fire)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Fire);
+  }
+  return static_cast<uint8_t>(SkillVfxElementType::Physical);
+}
+
 } // namespace
 
 void GPUSkillEffectSystem::Init(ResourceManager &rm, int maxEffects) {
@@ -88,13 +253,16 @@ void GPUSkillEffectSystem::Init(ResourceManager &rm, int maxEffects) {
   m_currentCount = 0;
   m_pendingEvents.clear();
   m_pendingDistortion.clear();
+  m_pendingResistOverlay.clear();
   m_skillFrameCounts.fill(0);
+  m_recipes.clear();
 
   m_gpuBuffer.Create(m_maxEffects * sizeof(components::GPUSkillEffect), nullptr,
                      RL_DYNAMIC_DRAW);
   m_shader = LoadShader("assets/shaders/sh_skill_effect.vs",
                         "assets/shaders/sh_skill_effect.fs");
   m_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(m_shader, "mvp");
+  LoadSkillVfxRecipes("assets/data/vfx/blade_ascendant_v3.json");
 
   InitRender();
 }
@@ -137,6 +305,16 @@ void GPUSkillEffectSystem::DrainDistortionRequests(
   }
   out.insert(out.end(), m_pendingDistortion.begin(), m_pendingDistortion.end());
   m_pendingDistortion.clear();
+}
+
+void GPUSkillEffectSystem::DrainResistOverlayRequests(
+    std::vector<ResistOverlayRequest> &out) {
+  if (m_pendingResistOverlay.empty()) {
+    return;
+  }
+  out.insert(out.end(), m_pendingResistOverlay.begin(),
+             m_pendingResistOverlay.end());
+  m_pendingResistOverlay.clear();
 }
 
 bool GPUSkillEffectSystem::TrySubmitCapped(
@@ -184,30 +362,440 @@ bool GPUSkillEffectSystem::QueueDistortion(const float worldX,
   return true;
 }
 
+void GPUSkillEffectSystem::LoadBuiltinRecipes() {
+  m_recipes.clear();
+
+  auto makeSelector = [](const int skillId, const SkillVfxEventType eventType) {
+    SkillVfxRecipeSelector selector = {};
+    selector.skillId = skillId;
+    selector.eventType = static_cast<int>(eventType);
+    selector.elementType = -1;
+    selector.resistDebuffType = -1;
+    selector.requiredNodeRoleMask = SkillVfxNodeRoleMask::None;
+    return selector;
+  };
+  auto makeAction = [](const RecipeActionKind kind, const int count,
+                       const float radius, const float angle,
+                       const float softness, const float type,
+                       const float speed, const float alpha,
+                       const float spread, const float distortionStrength,
+                       const float width, const float lifetime,
+                       const float trailLength) {
+    SkillVfxRecipeAction action = {};
+    action.kind = kind;
+    action.count = count;
+    action.radius = radius;
+    action.angle = angle;
+    action.softness = softness;
+    action.type = type;
+    action.speed = speed;
+    action.alpha = alpha;
+    action.spread = spread;
+    action.distortionStrength = distortionStrength;
+    action.width = width;
+    action.lifetime = lifetime;
+    action.trailLength = trailLength;
+    return action;
+  };
+
+  SkillVfxRecipe castStart = {};
+  castStart.name = "skill1_cast_start";
+  castStart.priority = 100;
+  castStart.selector = makeSelector(1, SkillVfxEventType::CastStart);
+  castStart.actions.push_back(makeAction(RecipeActionKind::TrailStroke, 3, 10.0f,
+                                         360.0f, 0.35f, 2.0f, 260.0f, 0.8f, 0.0f,
+                                         0.1f, 9.0f, 0.2f, 0.2f));
+  castStart.actions.push_back(makeAction(RecipeActionKind::Overlay, 1, 14.0f,
+                                         24.0f, 0.35f, 2.0f, 260.0f, 0.75f, 0.0f,
+                                         0.1f, 8.0f, 0.2f, 0.2f));
+  m_recipes.push_back(castStart);
+
+  SkillVfxRecipe castImpact = {};
+  castImpact.name = "skill1_cast_impact";
+  castImpact.priority = 100;
+  castImpact.selector = makeSelector(1, SkillVfxEventType::CastImpact);
+  castImpact.actions.push_back(makeAction(RecipeActionKind::Overlay, 1, 22.0f,
+                                          360.0f, 0.45f, 1.0f, 120.0f, 1.0f, 0.0f,
+                                          0.1f, 8.0f, 0.2f, 0.2f));
+  castImpact.actions.push_back(makeAction(RecipeActionKind::ParticleBurst, 12, 20.0f,
+                                          360.0f, 0.35f, 1.0f, 160.0f, 0.75f,
+                                          24.0f, 0.1f, 6.0f, 0.28f, 0.2f));
+  m_recipes.push_back(castImpact);
+
+  SkillVfxRecipe triggerProc = {};
+  triggerProc.name = "skill1_trigger_proc";
+  triggerProc.priority = 100;
+  triggerProc.selector = makeSelector(1, SkillVfxEventType::TriggerProc);
+  triggerProc.actions.push_back(makeAction(RecipeActionKind::Overlay, 1, 15.0f,
+                                           18.0f, 0.30f, 2.0f, 320.0f, 0.85f,
+                                           0.0f, 0.1f, 8.0f, 0.2f, 0.2f));
+  triggerProc.actions.push_back(makeAction(RecipeActionKind::ParticleBurst, 8, 14.0f,
+                                           360.0f, 0.35f, 1.0f, 220.0f, 0.65f,
+                                           20.0f, 0.1f, 6.0f, 0.24f, 0.2f));
+  m_recipes.push_back(triggerProc);
+
+  SkillVfxRecipe empowered = {};
+  empowered.name = "skill1_empowered_consume";
+  empowered.priority = 100;
+  empowered.selector = makeSelector(1, SkillVfxEventType::EmpoweredConsume);
+  empowered.actions.push_back(makeAction(RecipeActionKind::Overlay, 1, 26.0f,
+                                         360.0f, 0.45f, 1.0f, 80.0f, 1.0f, 0.0f,
+                                         0.1f, 8.0f, 0.2f, 0.2f));
+  empowered.actions.push_back(makeAction(RecipeActionKind::DistortionPulse, 1,
+                                         36.0f, 360.0f, 0.35f, 1.0f, 80.0f, 1.0f,
+                                         0.0f, 0.22f, 8.0f, 0.2f, 0.2f));
+  m_recipes.push_back(empowered);
+}
+
+void GPUSkillEffectSystem::LoadSkillVfxRecipes(const std::string &path) {
+  m_recipes.clear();
+
+  std::ifstream input(path);
+  if (!input.good()) {
+    LOG_WARN("SkillVFX recipe config missing at '{}', using builtin defaults",
+             path);
+    LoadBuiltinRecipes();
+    return;
+  }
+
+  try {
+    const nlohmann::json root = nlohmann::json::parse(input);
+    if (!root.contains("recipes") || !root["recipes"].is_array()) {
+      LOG_WARN("SkillVFX recipe config '{}' missing 'recipes' array", path);
+      LoadBuiltinRecipes();
+      return;
+    }
+
+    for (const auto &entry : root["recipes"]) {
+      if (!entry.is_object()) {
+        continue;
+      }
+      SkillVfxRecipe recipe = {};
+      recipe.name = entry.value("name", std::string("unnamed"));
+      recipe.priority = entry.value("priority", 0);
+
+      const nlohmann::json selector =
+          entry.value("selector", nlohmann::json::object());
+      recipe.selector.skillId = ParseSelectorInt(
+          selector.contains("skillId") ? selector["skillId"] : nlohmann::json(), -1);
+      recipe.selector.eventType = ParseSelectorInt(
+          selector.contains("eventType") ? selector["eventType"] : nlohmann::json(),
+          -1);
+      recipe.selector.elementType = ParseSelectorInt(
+          selector.contains("elementType") ? selector["elementType"]
+                                           : nlohmann::json(),
+          -1);
+      recipe.selector.resistDebuffType = ParseSelectorInt(
+          selector.contains("resistDebuffType") ? selector["resistDebuffType"]
+                                                : nlohmann::json(),
+          -1);
+      recipe.selector.requiredNodeRoleMask = SkillVfxNodeRoleMask::None;
+      if (selector.contains("requiredNodeRoleMask")) {
+        const nlohmann::json &roleMaskValue = selector["requiredNodeRoleMask"];
+        if (roleMaskValue.is_number_unsigned()) {
+          recipe.selector.requiredNodeRoleMask = roleMaskValue.get<uint32_t>();
+        } else if (roleMaskValue.is_array()) {
+          uint32_t mask = SkillVfxNodeRoleMask::None;
+          for (const auto &item : roleMaskValue) {
+            if (!item.is_string()) {
+              continue;
+            }
+            const std::string token = item.get<std::string>();
+            if (token == "Keystone") {
+              mask |= SkillVfxNodeRoleMask::Keystone;
+            } else if (token == "Trigger") {
+              mask |= SkillVfxNodeRoleMask::Trigger;
+            } else if (token == "Synergy") {
+              mask |= SkillVfxNodeRoleMask::Synergy;
+            } else if (token == "Transmuter") {
+              mask |= SkillVfxNodeRoleMask::Transmuter;
+            }
+          }
+          recipe.selector.requiredNodeRoleMask = mask;
+        }
+      }
+
+      if (!entry.contains("actions") || !entry["actions"].is_array()) {
+        continue;
+      }
+      for (const auto &actionJson : entry["actions"]) {
+        if (!actionJson.is_object()) {
+          continue;
+        }
+        SkillVfxRecipeAction action = {};
+        action.kind = ParseActionKind(actionJson.contains("kind")
+                                          ? actionJson["kind"]
+                                          : nlohmann::json("Overlay"));
+        action.count = std::max(1, actionJson.value("count", 1));
+        action.radius = std::max(0.1f, actionJson.value("radius", 16.0f));
+        action.angle = actionJson.value("angle", 360.0f);
+        action.softness = std::max(0.1f, actionJson.value("softness", 0.35f));
+        action.type = actionJson.value("type", 1.0f);
+        action.speed = actionJson.value("speed", 140.0f);
+        action.alpha = std::clamp(actionJson.value("alpha", 1.0f), 0.05f, 1.0f);
+        action.spread = std::max(0.0f, actionJson.value("spread", 0.0f));
+        action.distortionStrength =
+            std::max(0.0f, actionJson.value("distortionStrength", 0.1f));
+        action.width = std::max(1.0f, actionJson.value("width", 8.0f));
+        action.lifetime = std::max(0.03f, actionJson.value("lifetime", 0.2f));
+        action.trailLength = std::max(0.03f, actionJson.value("trailLength", 0.2f));
+        recipe.actions.push_back(action);
+      }
+
+      if (!recipe.actions.empty()) {
+        m_recipes.push_back(std::move(recipe));
+      }
+    }
+  } catch (const std::exception &ex) {
+    LOG_WARN("SkillVFX recipe parse failed for '{}': {}", path, ex.what());
+    LoadBuiltinRecipes();
+    return;
+  }
+
+  if (m_recipes.empty()) {
+    LOG_WARN("SkillVFX recipe config '{}' has no valid entries; using builtin",
+             path);
+    LoadBuiltinRecipes();
+    return;
+  }
+
+  LOG_INFO("SkillVFX recipe system loaded {} recipes from '{}'", m_recipes.size(),
+           path);
+}
+
+bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
+  if (m_recipes.empty()) {
+    return false;
+  }
+
+  SkillVfxEvent normalized = event;
+  normalized.elementType = ResolveLegacyElementType(event);
+  if (normalized.resistDebuffType >
+      static_cast<uint8_t>(SkillVfxResistDebuffType::TypeE)) {
+    normalized.resistDebuffType =
+        static_cast<uint8_t>(SkillVfxResistDebuffType::None);
+  }
+
+  const SkillVfxRecipe *matched = nullptr;
+  int bestPriority = std::numeric_limits<int>::min();
+  int bestSpecificity = std::numeric_limits<int>::min();
+
+  for (const SkillVfxRecipe &recipe : m_recipes) {
+    const SkillVfxRecipeSelector &selector = recipe.selector;
+    if (selector.skillId != -1 && static_cast<uint32_t>(selector.skillId) !=
+                                      normalized.skillId) {
+      continue;
+    }
+    if (selector.eventType != -1 &&
+        selector.eventType != static_cast<int>(normalized.type)) {
+      continue;
+    }
+    if (selector.elementType != -1 &&
+        selector.elementType != static_cast<int>(normalized.elementType)) {
+      continue;
+    }
+    if (selector.resistDebuffType != -1 &&
+        selector.resistDebuffType !=
+            static_cast<int>(normalized.resistDebuffType)) {
+      continue;
+    }
+    if (selector.requiredNodeRoleMask != SkillVfxNodeRoleMask::None &&
+        (normalized.nodeRoleMask & selector.requiredNodeRoleMask) !=
+            selector.requiredNodeRoleMask) {
+      continue;
+    }
+
+    int specificity = 0;
+    specificity += (selector.skillId == -1) ? 0 : 5;
+    specificity += (selector.eventType == -1) ? 0 : 4;
+    specificity += (selector.elementType == -1) ? 0 : 3;
+    specificity += (selector.resistDebuffType == -1) ? 0 : 2;
+    specificity +=
+        (selector.requiredNodeRoleMask == SkillVfxNodeRoleMask::None) ? 0 : 1;
+
+    if (!matched || recipe.priority > bestPriority ||
+        (recipe.priority == bestPriority && specificity > bestSpecificity)) {
+      matched = &recipe;
+      bestPriority = recipe.priority;
+      bestSpecificity = specificity;
+    }
+  }
+
+  if (!matched) {
+    return false;
+  }
+
+  const VfxFallbackPolicy policy = BuildVfxFallbackPolicy(normalized);
+  const int cap = ResolveSkillCap(normalized.skillId, policy.tier);
+  if (cap <= 0) {
+    return true;
+  }
+
+  const Color baseColor =
+      ResolveElementColor(normalized.elementType, ResolveSkillColor(normalized.skillId));
+  const Vector2 direction =
+      NormalizedDirection(normalized.origin, normalized.target);
+  const float intensity = ClampIntensity(normalized.intensity);
+
+  auto emitOverlay = [&](const SkillVfxRecipeAction &action, const Vector2 pos,
+                         const Vector2 vel) {
+    components::GPUSkillEffect effect = {};
+    effect.position = pos;
+    effect.velocity = vel;
+    effect.radius = std::max(2.0f, action.radius * intensity);
+    effect.sectorAngle = action.angle;
+    effect.softness = action.softness;
+    effect.type = action.type;
+
+    const float alpha = std::clamp(action.alpha, 0.05f, 1.0f);
+    const float glowAlpha = policy.allowSecondaryGlow ? 0.45f * alpha : 0.0f;
+    effect.coreColor = ColorNormalize(ColorAlpha(baseColor, alpha));
+    effect.glowColor = ColorNormalize(ColorAlpha(WHITE, glowAlpha));
+    TrySubmitCapped(normalized.skillId, cap, effect);
+  };
+
+  auto emitDistortion = [&](const SkillVfxRecipeAction &action,
+                            const Vector2 center) {
+    if (!policy.allowDistortion) {
+      return;
+    }
+    QueueDistortion(center.x, center.y, action.radius * intensity,
+                    action.distortionStrength);
+  };
+
+  auto emitParticles = [&](const SkillVfxRecipeAction &action) {
+    if (!policy.allowEnvironmentParticles ||
+        !GPUParticleSystem::Get().IsInitialized()) {
+      return;
+    }
+    const int count =
+        std::max(1, static_cast<int>(std::round(static_cast<float>(action.count) *
+                                                policy.particleEmissionScale)));
+    std::vector<components::GPUParticle> particles;
+    particles.reserve(static_cast<size_t>(count));
+    for (int i = 0; i < count; ++i) {
+      const float ratio =
+          (count == 1) ? 0.5f : static_cast<float>(i) / static_cast<float>(count - 1);
+      const Vector2 samplePos =
+          Vector2Lerp(normalized.origin, normalized.target, ratio);
+      const float spreadX =
+          static_cast<float>(GetRandomValue(-100, 100)) * (action.spread / 100.0f);
+      const float spreadY =
+          static_cast<float>(GetRandomValue(-100, 100)) * (action.spread / 100.0f);
+
+      components::GPUParticle particle = {};
+      particle.position = {samplePos.x + spreadX, samplePos.y + spreadY};
+      particle.velocity = Vector2Scale(direction, action.speed * intensity);
+      particle.acceleration = {0.0f, 0.0f};
+      particle.maxLifetime = action.lifetime;
+      particle.lifetime = action.lifetime;
+      particle.scale = std::max(2.0f, action.radius * 0.25f);
+      particle.growthRate = -particle.scale / std::max(action.lifetime, 0.05f);
+      particle.color = ColorAlpha(baseColor, action.alpha);
+      particle.blendMode = 1;
+      particles.push_back(particle);
+    }
+    GPUParticleSystem::Get().EmitBatch(particles);
+  };
+
+  auto emitTrail = [&](const SkillVfxRecipeAction &action) {
+    auto &trailRenderer = render::GPUTrailRenderer::Get();
+    if (!trailRenderer.IsInitialized()) {
+      return;
+    }
+    components::GPUTrailHeader header = {};
+    header.maxPoints = std::max(2, 8 / std::max(1, policy.trailSampleStride));
+    header.maxLifetime = std::max(0.05f, action.trailLength);
+    header.widthStart = action.width;
+    header.widthEnd = std::max(1.0f, action.width * 0.45f);
+    header.colorStart = static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, action.alpha)));
+    header.colorEnd =
+        static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, 0.0f)));
+
+    const int trailId = trailRenderer.AllocateTrail(header);
+    if (trailId < 0) {
+      return;
+    }
+
+    const Vector2 step = Vector2Scale(direction, action.speed * 0.012f);
+    const int pointCount = std::max(2, 4 / std::max(1, policy.trailSampleStride));
+    for (int i = 0; i < pointCount; ++i) {
+      const Vector2 pos = {
+          normalized.origin.x + step.x * static_cast<float>(i),
+          normalized.origin.y + step.y * static_cast<float>(i),
+      };
+      trailRenderer.AppendPoint(
+          trailId, pos, direction,
+          std::max(1.0f, action.width * (1.0f - 0.15f * static_cast<float>(i))),
+          static_cast<uint32_t>(ColorToInt(ColorAlpha(baseColor, action.alpha))));
+    }
+  };
+
+  for (const SkillVfxRecipeAction &action : matched->actions) {
+    const int count =
+        std::max(1, static_cast<int>(std::round(static_cast<float>(action.count) *
+                                                policy.particleEmissionScale)));
+    for (int i = 0; i < count; ++i) {
+      const float t = (count == 1) ? 0.5f
+                                   : static_cast<float>(i + 1) /
+                                         static_cast<float>(count + 1);
+      const Vector2 pos = Vector2Lerp(normalized.origin, normalized.target, t);
+      const Vector2 vel = Vector2Scale(direction, action.speed);
+      switch (action.kind) {
+      case RecipeActionKind::Overlay:
+        emitOverlay(action, pos, vel);
+        break;
+      case RecipeActionKind::ParticleBurst:
+        emitParticles(action);
+        break;
+      case RecipeActionKind::TrailStroke:
+        emitTrail(action);
+        break;
+      case RecipeActionKind::DistortionPulse:
+        emitDistortion(action, pos);
+        break;
+      case RecipeActionKind::ResistOverlay:
+        if (normalized.resistDebuffType !=
+            static_cast<uint8_t>(SkillVfxResistDebuffType::None)) {
+          ResistOverlayRequest request = {};
+          request.worldPos = pos;
+          request.resistDebuffType = normalized.resistDebuffType;
+          request.intensity = std::clamp(action.alpha * intensity, 0.1f, 2.0f);
+          m_pendingResistOverlay.push_back(request);
+        }
+        break;
+      }
+    }
+  }
+
+  return true;
+}
+
 void GPUSkillEffectSystem::EmitSkillEventVisual(const SkillVfxEvent &event) {
+  if (EmitRecipeDrivenVisual(event)) {
+    return;
+  }
+  EmitLegacySkillEventVisual(event);
+}
+
+void GPUSkillEffectSystem::EmitLegacySkillEventVisual(
+    const SkillVfxEvent &event) {
   auto &qualityManager = render::core::QualityTierManager::Get();
-  const uint8_t runtimeTier =
-      qualityManager.IsInitialized()
-          ? static_cast<uint8_t>(qualityManager.GetTier())
-          : static_cast<uint8_t>(render::core::QualityTier::Medium);
-  const uint8_t eventTier = std::min<uint8_t>(event.qualityTier, 3u);
-  const uint8_t tier = std::min(runtimeTier, eventTier);
+  (void)qualityManager;
+  const VfxFallbackPolicy policy = BuildVfxFallbackPolicy(event);
+  const bool reduceEmission = policy.particleEmissionScale < 0.99f;
+  const bool reduceTrailSampling = policy.trailSampleStride > 1;
+  const bool disableSecondaryGlow = !policy.allowSecondaryGlow;
+  const bool allowDistortion = policy.allowDistortion;
 
-  const bool lowOrMedium =
-      tier <= static_cast<uint8_t>(render::core::QualityTier::Medium);
-  const bool reduceEmission = lowOrMedium;
-  const bool reduceTrailSampling = lowOrMedium;
-  const bool disableSecondaryGlow = lowOrMedium;
-  const bool allowDistortion =
-      qualityManager.IsInitialized() && qualityManager.GetConfig().distortionEnabled &&
-      tier >= static_cast<uint8_t>(render::core::QualityTier::High);
-
-  const int cap = ResolveSkillCap(event.skillId, tier);
+  const int cap = ResolveSkillCap(event.skillId, policy.tier);
   if (cap <= 0) {
     return;
   }
 
-  const Color baseColor = ResolveSkillColor(event.skillId);
+  const uint8_t elementType = ResolveLegacyElementType(event);
+  const Color baseColor =
+      ResolveElementColor(elementType, ResolveSkillColor(event.skillId));
   const Vector2 direction = NormalizedDirection(event.origin, event.target);
   const float intensity = ClampIntensity(event.intensity);
 
@@ -234,6 +822,31 @@ void GPUSkillEffectSystem::EmitSkillEventVisual(const SkillVfxEvent &event) {
     }
     QueueDistortion(center.x, center.y, radius, strength);
   };
+
+  if (event.resistDebuffType !=
+          static_cast<uint8_t>(SkillVfxResistDebuffType::None) &&
+      (event.type == SkillVfxEventType::CastImpact ||
+       event.type == SkillVfxEventType::TriggerProc)) {
+    ResistOverlayRequest request = {};
+    request.worldPos = event.target;
+    request.resistDebuffType = event.resistDebuffType;
+    request.intensity = std::clamp(intensity, 0.1f, 2.0f);
+    m_pendingResistOverlay.push_back(request);
+  }
+
+  if (event.type == SkillVfxEventType::TransmuterSwitch) {
+    emitEffect(event.origin, {0.0f, 0.0f}, 26.0f * intensity, 360.0f, 0.5f,
+               1.0f, 0.75f);
+    emitEffect(event.origin, Vector2Scale(direction, 180.0f), 16.0f * intensity,
+               24.0f, 0.3f, 2.0f, 0.65f);
+    return;
+  }
+  if (event.type == SkillVfxEventType::KeystoneActivate) {
+    emitEffect(event.origin, {0.0f, 0.0f}, 32.0f * intensity, 360.0f, 0.55f,
+               1.0f, 0.95f);
+    emitDistortion(event.origin, 28.0f * intensity, 0.18f);
+    return;
+  }
 
   switch (event.skillId) {
   case 1: {
@@ -477,7 +1090,9 @@ void GPUSkillEffectSystem::Shutdown() {
   m_hostBuffer.clear();
   m_pendingEvents.clear();
   m_pendingDistortion.clear();
+  m_pendingResistOverlay.clear();
   m_skillFrameCounts.fill(0);
+  m_recipes.clear();
 }
 
 } // namespace NoMoreDay::systems

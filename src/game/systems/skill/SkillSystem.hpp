@@ -5,6 +5,7 @@
 #include "raylib.h"
 #include "game/data/TagRegistry.hpp"
 #include "game/components/SkillDefs.hpp"
+#include "game/components/SkillVfxEvent.hpp"
 
 namespace NoMoreDay {
 namespace systems { class SpatialHashGrid; }
@@ -40,6 +41,10 @@ struct SkillExecutionContext {
     bool is_empowered = false;
     bool is_shadow_cast = false;
     Tag effective_tags = Tag::None;
+    uint32_t node_role_mask = SkillVfxNodeRoleMask::None;
+    uint8_t element_type = static_cast<uint8_t>(SkillVfxElementType::Physical);
+    uint8_t resist_debuff_type =
+        static_cast<uint8_t>(SkillVfxResistDebuffType::None);
     entt::entity caster = entt::null;
     Vector2 origin{0, 0};
     Vector2 target{0, 0};

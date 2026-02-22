@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
+- **Folder:** [./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/](./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/)
+- **Description:** 完成剑修 VFX 基础设施落地：`SkillVfxEvent` 扩展（元素/抗性削弱/Transmuter/Keystone）、`GPUSkillEffectSystem` 配方驱动骨架、粒子/尾迹/扭曲/overlay 动作适配、Tier 回退映射与校验脚本。
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P0
+- **Archive Reason:** `python scripts/check_blade_vfx_recipe.py --check` PASS；`build.bat notest` PASS；`build.bat` PASS；`ctest -C RelWithDebInfo -L unit/ci` PASS；`build.bat analyze` PASS（仅既有 warning）；`ctest -C Release -L performance` PASS。
+
+---
+
 ## [x] Track: Blade Ascendant Skill Contracts Refactor (blade_ascendant_skill_contracts_20260221)
 - **Folder:** [./conductor/archive/blade_ascendant_skill_contracts_20260221/](./conductor/archive/blade_ascendant_skill_contracts_20260221/)
 - **Description:** Completed the Blade Ascendant skill contract foundation refactor: compact contract config + generator pipeline, registry/runtime contract validation, scope-policy integration, UI node-role/scope rendering, and save/load runtime state persistence.

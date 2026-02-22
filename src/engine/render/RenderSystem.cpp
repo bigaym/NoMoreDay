@@ -698,6 +698,42 @@ void ExecuteVFXPass(RenderFrameData &frame) {
     RenderSystem::AddDistortionSource(request.worldX, request.worldY,
                                       request.radius, request.strength);
   }
+
+  static thread_local std::vector<
+      NoMoreDay::systems::GPUSkillEffectSystem::ResistOverlayRequest>
+      s_resistOverlayRequests;
+  s_resistOverlayRequests.clear();
+  NoMoreDay::systems::GPUSkillEffectSystem::Get().DrainResistOverlayRequests(
+      s_resistOverlayRequests);
+  for (const auto &request : s_resistOverlayRequests) {
+    Color overlayColor = WHITE;
+    switch (request.resistDebuffType) {
+    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeA):
+      overlayColor = Color{255, 180, 60, 220};
+      break;
+    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeB):
+      overlayColor = Color{220, 80, 80, 220};
+      break;
+    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeC):
+      overlayColor = Color{120, 220, 255, 220};
+      break;
+    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeD):
+      overlayColor = Color{180, 140, 255, 220};
+      break;
+    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::TypeE):
+      overlayColor = Color{255, 120, 210, 220};
+      break;
+    case static_cast<uint8_t>(NoMoreDay::SkillVfxResistDebuffType::None):
+    default:
+      overlayColor = WHITE;
+      break;
+    }
+
+    const float radius = std::clamp(16.0f * request.intensity, 10.0f, 36.0f);
+    DrawCircleLinesV(request.worldPos, radius, Fade(overlayColor, 0.8f));
+    DrawRing(request.worldPos, radius * 0.65f, radius, 0.0f, 360.0f, 24,
+             Fade(overlayColor, 0.25f));
+  }
 }
 
 void ExecuteGPUTextPass(RenderFrameData &frame) {

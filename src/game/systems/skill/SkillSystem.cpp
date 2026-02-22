@@ -101,6 +101,167 @@ Vector2 ResolveEntityWorldPosition(const entt::registry &registry,
   return {position.x, position.y};
 }
 
+const SpecializedSkill *FindSpecializedSkillContext(
+    const ActiveSkillsComponent *active, const uint32_t skill_id) {
+  if (!active) {
+    return nullptr;
+  }
+  for (const auto &spec : active->specialized_slots) {
+    if (spec.skill_id == skill_id) {
+      return &spec;
+    }
+  }
+  return nullptr;
+}
+
+uint8_t EncodeElementTypeFromTags(const Tag tags) {
+  if (HasTag(tags, Tag::Void)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Void);
+  }
+  if (HasTag(tags, Tag::Lightning)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Lightning);
+  }
+  if (HasTag(tags, Tag::Cold)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Cold);
+  }
+  if (HasTag(tags, Tag::Fire)) {
+    return static_cast<uint8_t>(SkillVfxElementType::Fire);
+  }
+  return static_cast<uint8_t>(SkillVfxElementType::Physical);
+}
+
+uint8_t EncodeResistDebuffType(const ResistModel model) {
+  switch (model) {
+  case ResistModel::TypeA_Penetration:
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::TypeA);
+  case ResistModel::TypeB_Shred:
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::TypeB);
+  case ResistModel::TypeC_Exposure:
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::TypeC);
+  case ResistModel::TypeD_StatToPenetration:
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::TypeD);
+  case ResistModel::TypeE_CapSuppression:
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::TypeE);
+  case ResistModel::None:
+  default:
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::None);
+  }
+}
+
+uint32_t BuildSkillVfxNodeRoleMask(const entt::registry &registry,
+                                   entt::entity caster,
+                                   const uint32_t skill_id) {
+  if (!registry.valid(caster)) {
+    return SkillVfxNodeRoleMask::None;
+  }
+  const auto *active = registry.try_get<ActiveSkillsComponent>(caster);
+  const SpecializedSkill *specialized =
+      FindSpecializedSkillContext(active, skill_id);
+  if (!specialized) {
+    return SkillVfxNodeRoleMask::None;
+  }
+
+  const uint32_t activeTransmuter =
+      SkillSystem::GetActiveTransmuterNode(registry, caster, skill_id);
+  uint32_t mask = SkillVfxNodeRoleMask::None;
+  for (const auto &[node_id, points] : specialized->allocated_points) {
+    if (points <= 0) {
+      continue;
+    }
+    const auto *node_contract = SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+    if (!node_contract) {
+      continue;
+    }
+    switch (node_contract->role) {
+    case SpecNodeRole::Keystone:
+      mask |= SkillVfxNodeRoleMask::Keystone;
+      break;
+    case SpecNodeRole::Trigger:
+      mask |= SkillVfxNodeRoleMask::Trigger;
+      break;
+    case SpecNodeRole::Synergy:
+      mask |= SkillVfxNodeRoleMask::Synergy;
+      break;
+    case SpecNodeRole::Transmuter:
+      if (activeTransmuter == 0 || node_id == activeTransmuter) {
+        mask |= SkillVfxNodeRoleMask::Transmuter;
+      }
+      break;
+    case SpecNodeRole::Passive:
+    default:
+      break;
+    }
+  }
+  return mask;
+}
+
+uint8_t ResolveSkillVfxElementType(const entt::registry &registry,
+                                   entt::entity caster,
+                                   const uint32_t skill_id,
+                                   const Tag effective_tags) {
+  if (!registry.valid(caster)) {
+    return EncodeElementTypeFromTags(effective_tags);
+  }
+
+  const uint32_t activeTransmuter =
+      SkillSystem::GetActiveTransmuterNode(registry, caster, skill_id);
+  if (activeTransmuter != 0) {
+    const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id);
+    if (tree) {
+      if (auto it = tree->nodes.find(activeTransmuter); it != tree->nodes.end()) {
+        const uint8_t nodeElement = EncodeElementTypeFromTags(it->second.add_tags);
+        if (nodeElement != static_cast<uint8_t>(SkillVfxElementType::Physical)) {
+          return nodeElement;
+        }
+      }
+    }
+  }
+  return EncodeElementTypeFromTags(effective_tags);
+}
+
+uint8_t ResolveSkillVfxResistDebuffType(const entt::registry &registry,
+                                        entt::entity caster,
+                                        const uint32_t skill_id) {
+  if (!registry.valid(caster)) {
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::None);
+  }
+  const auto *active = registry.try_get<ActiveSkillsComponent>(caster);
+  const SpecializedSkill *specialized =
+      FindSpecializedSkillContext(active, skill_id);
+  if (!specialized) {
+    return static_cast<uint8_t>(SkillVfxResistDebuffType::None);
+  }
+
+  const uint32_t activeTransmuter =
+      SkillSystem::GetActiveTransmuterNode(registry, caster, skill_id);
+  if (activeTransmuter != 0) {
+    const auto *node_contract =
+        SkillRegistry::Get().GetNodeContract(skill_id, activeTransmuter);
+    if (node_contract) {
+      const uint8_t encoded = EncodeResistDebuffType(node_contract->resist_model);
+      if (encoded != static_cast<uint8_t>(SkillVfxResistDebuffType::None)) {
+        return encoded;
+      }
+    }
+  }
+
+  for (const auto &[node_id, points] : specialized->allocated_points) {
+    if (points <= 0) {
+      continue;
+    }
+    const auto *node_contract = SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+    if (!node_contract) {
+      continue;
+    }
+    const uint8_t encoded = EncodeResistDebuffType(node_contract->resist_model);
+    if (encoded != static_cast<uint8_t>(SkillVfxResistDebuffType::None)) {
+      return encoded;
+    }
+  }
+
+  return static_cast<uint8_t>(SkillVfxResistDebuffType::None);
+}
+
 SkillExecutionContext BuildSkillVfxContext(entt::registry &registry,
                                            const SkillExecution &exec) {
   SkillExecutionContext context = {};
@@ -119,6 +280,12 @@ SkillExecutionContext BuildSkillVfxContext(entt::registry &registry,
       (registry.valid(exec.owner))
           ? SkillSystem::GetEffectiveSkillTags(registry, exec.owner, exec.skill_id)
           : Tag::None;
+  context.node_role_mask =
+      BuildSkillVfxNodeRoleMask(registry, exec.owner, exec.skill_id);
+  context.element_type = ResolveSkillVfxElementType(
+      registry, exec.owner, exec.skill_id, context.effective_tags);
+  context.resist_debuff_type =
+      ResolveSkillVfxResistDebuffType(registry, exec.owner, exec.skill_id);
   return context;
 }
 
@@ -140,6 +307,11 @@ SkillExecutionContext BuildSkillVfxContextFromEvent(entt::registry &registry,
                                       ? SkillSystem::GetEffectiveSkillTags(
                                             registry, caster, skill_id)
                                       : Tag::None);
+  context.node_role_mask = BuildSkillVfxNodeRoleMask(registry, caster, skill_id);
+  context.element_type =
+      ResolveSkillVfxElementType(registry, caster, skill_id, context.effective_tags);
+  context.resist_debuff_type =
+      ResolveSkillVfxResistDebuffType(registry, caster, skill_id);
   return context;
 }
 
@@ -158,10 +330,25 @@ void EmitSkillVfxEvent(const SkillExecutionContext &context,
   event.origin = context.origin;
   event.target = context.target;
   event.effectiveTags = context.effective_tags;
-  event.nodeRoleMask = nodeRoleMask;
+  event.nodeRoleMask = context.node_role_mask | nodeRoleMask;
   event.qualityTier = ResolveCurrentQualityTier();
   event.intensity = std::clamp(intensity, 0.25f, 3.0f);
+  event.elementType = context.element_type;
+  event.resistDebuffType = context.resist_debuff_type;
   systems::GPUSkillEffectSystem::Get().SubmitSkillEvent(event);
+
+  if (type == SkillVfxEventType::CastStart) {
+    if (HasSkillVfxNodeRole(event.nodeRoleMask, SkillVfxNodeRoleMask::Transmuter)) {
+      SkillVfxEvent transmuterEvent = event;
+      transmuterEvent.type = SkillVfxEventType::TransmuterSwitch;
+      systems::GPUSkillEffectSystem::Get().SubmitSkillEvent(transmuterEvent);
+    }
+    if (HasSkillVfxNodeRole(event.nodeRoleMask, SkillVfxNodeRoleMask::Keystone)) {
+      SkillVfxEvent keystoneEvent = event;
+      keystoneEvent.type = SkillVfxEventType::KeystoneActivate;
+      systems::GPUSkillEffectSystem::Get().SubmitSkillEvent(keystoneEvent);
+    }
+  }
 }
 
 const SpecializedSkill *FindSpecializedSkill(const ActiveSkillsComponent &active,
@@ -589,7 +776,7 @@ void SkillSystem::InitHooks() {
                                                 evt.castId, trigger_target,
                                                 evt.tags);
               EmitSkillVfxEvent(triggerContext, SkillVfxEventType::TriggerProc,
-                                1.05f);
+                                1.05f, SkillVfxNodeRoleMask::Trigger);
 
               const SkillExecutionContext triggeredSkillContext =
                   BuildSkillVfxContextFromEvent(

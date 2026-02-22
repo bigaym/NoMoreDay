@@ -77,15 +77,15 @@ TVFX-A: blade_ascendant_vfx_infrastructure_20260222 (P0, Foundation)
     -> TVFX-F: blade_ascendant_vfx_validation_gate_20260222 (P0, Gate)
 ```
 
-## [ ] Track TVFX-A: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
+## [x] Track TVFX-A: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
 
-> **Status**: 🚧 Pending  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: refactor/foundation  
 > **Depends On**: `blade_ascendant_skill_rendering_integration_20260221`  
 > **Focus**: 事件契约扩展 + 配方驱动骨架 + Tier/回退钩子（复用粒子/尾迹/扭曲管线，不新增全局 SSBO binding）。  
-> **Tasks**: 0/22  
-> **Location**: [`conductor/tracks/blade_ascendant_vfx_infrastructure_20260222/`](./tracks/blade_ascendant_vfx_infrastructure_20260222/index.md)
+> **Tasks**: 22/22  
+> **Location**: [`conductor/archive/blade_ascendant_vfx_infrastructure_20260222/`](./archive/blade_ascendant_vfx_infrastructure_20260222/index.md)
 
 ## [ ] Track TVFX-B: Blade Ascendant VFX Base Forms (blade_ascendant_vfx_base_forms_20260222)
 

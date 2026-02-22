@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "nomoreday/blade_ascendant_v3.schema.json",
+  "title": "BladeAscendantV3RecipeSchema",
+  "type": "object",
+  "required": [
+    "version",
+    "recipes"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "recipes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "selector",
+          "actions"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "selector": {
+            "type": "object",
+            "properties": {
+              "skillId": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "*"
+                    ]
+                  }
+                ]
+              },
+              "eventType": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "elementType": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "*"
+                    ]
+                  }
+                ]
+              },
+              "resistDebuffType": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 5
+                  },
+                  {
+                    "type": "string",
+                    "enum": [
+                      "*"
+                    ]
+                  }
+                ]
+              },
+              "requiredNodeRoleMask": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "Keystone",
+                        "Trigger",
+                        "Synergy",
+                        "Transmuter"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          },
+          "actions": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "Overlay",
+                    "ParticleBurst",
+                    "TrailStroke",
+                    "DistortionPulse",
+                    "ResistOverlay"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "radius": {
+                  "type": "number",
+                  "minimum": 0.1
+                },
+                "angle": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 360.0
+                },
+                "softness": {
+                  "type": "number",
+                  "minimum": 0.1
+                },
+                "type": {
+                  "type": "number"
+                },
+                "speed": {
+                  "type": "number"
+                },
+                "alpha": {
+                  "type": "number",
+                  "minimum": 0.0,
+                  "maximum": 1.0
+                },
+                "spread": {
+                  "type": "number",
+                  "minimum": 0.0
+                },
+                "distortionStrength": {
+                  "type": "number",
+                  "minimum": 0.0
+                },
+                "width": {
+                  "type": "number",
+                  "minimum": 1.0
+                },
+                "lifetime": {
+                  "type": "number",
+                  "minimum": 0.03
+                },
+                "trailLength": {
+                  "type": "number",
+                  "minimum": 0.03
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
