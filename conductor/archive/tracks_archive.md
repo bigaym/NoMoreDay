@@ -13,6 +13,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant Skill Behaviors Refactor (blade_ascendant_skill_behaviors_20260221)
+- **Folder:** [./conductor/archive/blade_ascendant_skill_behaviors_20260221/](./conductor/archive/blade_ascendant_skill_behaviors_20260221/)
+- **Description:** Completed behavior guard hardening, Blade Ascendant 9-skill behavior alignment, sword-intent/sword-step lifecycle unification, and regression coverage expansion.
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P0
+- **Archive Reason:** `build.bat`/`build.bat analyze`/`build.bat release` PASS; `ctest -C RelWithDebInfo -L ci/unit/integration` PASS; `ctest -C Release -L performance` failed only on existing non-blocking `BUG-20260219-004` (`ParticleTrail Scenario 4`, `dispatchOverheadMs=0.269578`), linked in track validation.
+
+---
+
 ## [x] Track: V5 Validation & Release Gate (v5_validation_release_gate_20260219)
 - **Folder:** [./conductor/archive/v5_validation_release_gate_20260219/](./conductor/archive/v5_validation_release_gate_20260219/)
 - **Description:** 完成 V5 发布门禁闭环。核心 JFA+GI 门禁通过（功能/性能/契约/稳定性/回退），产出 `validation.md` 与 `release_posture.md`；SPH 探索结论维持 `NO-GO` 且不阻断核心发布。

@@ -24,15 +24,15 @@ T0: blade_ascendant_skill_contracts_20260221 (P0, Foundation)
 > **Tasks**: 18/18  
 > **Location**: [`conductor/archive/blade_ascendant_skill_contracts_20260221/`](./archive/blade_ascendant_skill_contracts_20260221/index.md)
 
-## [ ] Track T1: Blade Ascendant Skill Behaviors Refactor (blade_ascendant_skill_behaviors_20260221)
+## [x] Track T1: Blade Ascendant Skill Behaviors Refactor (blade_ascendant_skill_behaviors_20260221)
 
-> **Status**: Pending  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: refactor/feature  
 > **Depends On**: `blade_ascendant_skill_contracts_20260221`  
 > **Focus**: 9 技能行为重构为合同驱动执行，统一剑意/御剑步/Trigger 防环与元素互斥逻辑。  
-> **Tasks**: 0/24  
-> **Location**: [`conductor/tracks/blade_ascendant_skill_behaviors_20260221/`](./tracks/blade_ascendant_skill_behaviors_20260221/index.md)
+> **Tasks**: 24/24  
+> **Location**: [`conductor/archive/blade_ascendant_skill_behaviors_20260221/`](./archive/blade_ascendant_skill_behaviors_20260221/index.md)
 
 ## [ ] Track T1.5: Blade Ascendant VFX Design Freeze (blade_ascendant_vfx_design_freeze_20260221)
 

@@ -24,7 +24,9 @@
 #include "game/systems/skill/behaviors/SwordArray.hpp"
 #include "raymath.h"
 #include <algorithm>
+#include <deque>
 #include <map>
+#include <unordered_map>
 #include <unordered_set>
 
 
@@ -34,6 +36,49 @@ namespace NoMoreDay {
 // (Replaced by local/thread_local buffers for safety and performance)
 
 namespace {
+
+constexpr uint8_t kMaxTriggerDepth = 2;
+constexpr size_t kCastDepthRetention = 4096;
+constexpr const char *kDiagTriggerCooldown = "SKILL_GUARD_TRIGGER_CD";
+constexpr const char *kDiagTriggerDepth = "SKILL_GUARD_TRIGGER_DEPTH";
+constexpr const char *kDiagTransmuterMutex = "SKILL_GUARD_TRANSMUTER_MUTEX";
+constexpr const char *kDiagScopePolicy = "SKILL_GUARD_SCOPE_POLICY";
+constexpr const char *kDiagTriggerSkillUnavailable =
+    "SKILL_GUARD_TRIGGER_SKILL_UNAVAILABLE";
+constexpr const char *kDiagTriggerManaBlocked = "SKILL_GUARD_TRIGGER_MANA";
+
+std::unordered_map<uint64_t, uint8_t> g_cast_depth;
+std::deque<uint64_t> g_cast_depth_order;
+
+void RememberCastDepth(uint64_t cast_id, uint8_t depth) {
+  if (cast_id == 0) {
+    return;
+  }
+  g_cast_depth[cast_id] = depth;
+  g_cast_depth_order.push_back(cast_id);
+  while (g_cast_depth_order.size() > kCastDepthRetention) {
+    const uint64_t stale = g_cast_depth_order.front();
+    g_cast_depth_order.pop_front();
+    if (auto it = g_cast_depth.find(stale); it != g_cast_depth.end()) {
+      g_cast_depth.erase(it);
+    }
+  }
+}
+
+uint8_t QueryCastDepth(uint64_t cast_id) {
+  if (cast_id == 0) {
+    return 0;
+  }
+  if (auto it = g_cast_depth.find(cast_id); it != g_cast_depth.end()) {
+    return it->second;
+  }
+  return 0;
+}
+
+uint64_t NextCastId() {
+  static uint64_t s_next_cast_id = 1;
+  return s_next_cast_id++;
+}
 
 const SpecializedSkill *FindSpecializedSkill(const ActiveSkillsComponent &active,
                                              uint32_t skill_id,
@@ -53,6 +98,49 @@ const SpecializedSkill *FindSpecializedSkill(const ActiveSkillsComponent &active
   return nullptr;
 }
 
+int FindSkillSlotById(const ActiveSkillsComponent &active, uint32_t skill_id) {
+  for (int i = 0; i < static_cast<int>(active.slots.size()); ++i) {
+    if (active.slots[i].id == skill_id) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+void PopulateActiveNodesFromSpecialized(const SpecializedSkill *specialized,
+                                        SkillExecution &exec) {
+  if (!specialized) {
+    return;
+  }
+  for (auto const &[node_id, points] : specialized->allocated_points) {
+    if (points <= 0) {
+      continue;
+    }
+    const uint32_t bit_idx = node_id % 100;
+    if (bit_idx < 128) {
+      exec.active_nodes.set(bit_idx);
+    }
+  }
+}
+
+bool HasSwordStepBuff(const ActiveEffectsComponent *effects) {
+  if (!effects) {
+    return false;
+  }
+  for (const auto &effect : effects->effects) {
+    if (effect.id == "flowing_thrust_swift" && effect.remaining > 0.0f) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void LogGuardBlocked(const char *code, uint32_t skill_id, uint32_t node_id,
+                     entt::entity caster, const char *reason) {
+  LOG_WARN("[{}] skill={} node={} caster={} reason={}", code, skill_id, node_id,
+           static_cast<uint32_t>(caster), reason ? reason : "");
+}
+
 void TickTriggerCooldowns(SkillContractRuntimeComponent &runtime, float dt) {
   for (auto it = runtime.trigger_cooldowns.begin();
        it != runtime.trigger_cooldowns.end();) {
@@ -69,7 +157,7 @@ bool ValidateContractCastConstraints(
     const SkillRegistry &registry_data, const SkillContract *contract,
     const SpecializedSkill *specialized, uint32_t skill_id,
     std::vector<uint32_t> *allocated_transmuters,
-    std::vector<std::pair<uint32_t, float>> *allocated_triggers) {
+    std::vector<uint32_t> *allocated_triggers) {
   if (!contract || !specialized) {
     return true;
   }
@@ -92,8 +180,7 @@ bool ValidateContractCastConstraints(
       allocated_transmuters->push_back(node_id);
     } else if (node_contract->role == SpecNodeRole::Trigger) {
       ++trigger_count;
-      allocated_triggers->push_back(
-          {node_id, node_contract->trigger.internal_cooldown});
+      allocated_triggers->push_back(node_id);
     }
   }
 
@@ -107,6 +194,33 @@ bool ValidateContractCastConstraints(
     LOG_WARN("TryCast blocked: skill {} has {} triggers > max {}", skill_id,
              trigger_count, static_cast<uint32_t>(contract->max_triggers));
     return false;
+  }
+
+  if (allocated_transmuters->size() > 1) {
+    // Keep one transmuter active at runtime to enforce mutual exclusion.
+    uint32_t selected = 0;
+    for (const uint32_t preferred : contract->transmuter_node_ids) {
+      if (preferred == 0) {
+        continue;
+      }
+      if (std::find(allocated_transmuters->begin(), allocated_transmuters->end(),
+                    preferred) != allocated_transmuters->end()) {
+        selected = preferred;
+        break;
+      }
+    }
+    if (selected == 0) {
+      selected = allocated_transmuters->front();
+    }
+    allocated_transmuters->erase(
+        std::remove_if(allocated_transmuters->begin(),
+                       allocated_transmuters->end(),
+                       [selected](uint32_t node_id) {
+                         return node_id != selected;
+                       }),
+        allocated_transmuters->end());
+    LOG_WARN("[{}] skill={} selected_transmuter={} conflicting_transmuters={}",
+             kDiagTransmuterMutex, skill_id, selected, transmuter_count);
   }
   return true;
 }
@@ -161,29 +275,26 @@ void SkillSystem::InitHooks() {
     if (registry.any_of<ShadowCastTag>(execution_ent))
       return;
 
-    if (auto *intent = registry.try_get<SwordIntentComponent>(caster)) {
-      if (intent->stacks >= intent->max_stacks) {
-        exec.is_empowered = true;
-        intent->stacks = 0;
-        registry.get_or_emplace<StatsDirty>(caster); // NEW: Notify stats system
-        LOG_INFO("Skill {} empowered by Sword Intent for entity {}",
-                 exec.skill_id, (uint32_t)caster);
+    if (SkillSystem::ConsumeSwordIntent(
+            registry, caster, SkillConstants::DEFAULT_MAX_SWORD_INTENT,
+            exec.skill_id)) {
+      exec.is_empowered = true;
+      LOG_INFO("Skill {} empowered by Sword Intent for entity {}", exec.skill_id,
+               static_cast<uint32_t>(caster));
 
-        // Spawn Sword Intent Burst Visual Effect
-        if (auto *pos = registry.try_get<Position>(caster)) {
-          auto vfxEntity = registry.create();
-          registry.emplace<Position>(vfxEntity, *pos);
-          registry.emplace<VisualEffect>(
-              vfxEntity,
-              VisualEffect{
-                  .type = VisualEffectType::SwordIntentBurst,
-                  .timer = 0.0f,
-                  .lifeTime = 0.4f,
-                  .startScale = 0.2f,
-                  .endScale = 1.8f,
-                  .color =
-                      NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT});
-        }
+      // Spawn Sword Intent Burst Visual Effect
+      if (auto *pos = registry.try_get<Position>(caster)) {
+        auto vfxEntity = registry.create();
+        registry.emplace<Position>(vfxEntity, *pos);
+        registry.emplace<VisualEffect>(
+            vfxEntity,
+            VisualEffect{
+                .type = VisualEffectType::SwordIntentBurst,
+                .timer = 0.0f,
+                .lifeTime = 0.4f,
+                .startScale = 0.2f,
+                .endScale = 1.8f,
+                .color = NoMoreDay::Constants::Visuals::COLOR_BLADE_ASCENDANT});
       }
     }
   });
@@ -200,56 +311,190 @@ void SkillSystem::InitHooks() {
         }
 
         auto *intent = registry.try_get<SwordIntentComponent>(caster);
-        if (intent) {
-          // Only trigger sword intent gain for skills with Hit tag
-          if (HasTag(evt.tags, Tag::Hit)) {
-            bool gainStack = false;
-            float currentTime = (float)GetTime();
+        if (intent && HasTag(evt.tags, Tag::Hit)) {
+          bool gain_stack = false;
+          const float current_time = static_cast<float>(GetTime());
+          const bool is_continuous =
+              HasTag(evt.tags, Tag::Channeled) || HasTag(evt.tags, Tag::Aura);
 
-            // Check if skill is Continuous (Channeled or Aura)
-            bool isContinuous =
-                HasTag(evt.tags, Tag::Channeled) || HasTag(evt.tags, Tag::Aura);
+          // Use cast_id if available, otherwise fallback to skill_id.
+          const uint64_t tracking_key =
+              (evt.castId != 0) ? evt.castId : static_cast<uint64_t>(evt.skill_id);
+          auto &tracking = intent->hit_tracking[tracking_key];
 
-            // Use cast_id if available, otherwise fallback to skill_id (less
-            // reliable for rapid casts)
-            uint64_t trackingKey =
-                (evt.castId != 0) ? evt.castId : (uint64_t)evt.skill_id;
-
-            auto &tracking = intent->hit_tracking[trackingKey];
-
-            if (isContinuous) {
-              // Continuous Skills: Max 1 stack per second per cast
-              float timeSinceLastGain = currentTime - tracking.last_gain_time;
-
-              if (timeSinceLastGain >= 1.0f) {
-                gainStack = true;
-                tracking.last_gain_time = currentTime;
-                tracking.stacks_gained++;
-              }
-            } else {
-              // Instant/Hit Skills: One stack per CAST
-              if (tracking.stacks_gained == 0) {
-                gainStack = true;
-                tracking.last_gain_time = currentTime;
-                tracking.stacks_gained++;
-              }
+          if (is_continuous) {
+            // Continuous Skills: Max 1 stack per second per cast.
+            const float time_since_last_gain =
+                current_time - tracking.last_gain_time;
+            if (time_since_last_gain >= 1.0f) {
+              gain_stack = true;
+              tracking.last_gain_time = current_time;
+              tracking.stacks_gained++;
             }
+          } else if (tracking.stacks_gained == 0) {
+            // Instant/Hit Skills: One stack per cast.
+            gain_stack = true;
+            tracking.last_gain_time = current_time;
+            tracking.stacks_gained++;
+          }
 
-            if (gainStack && intent->stacks < intent->max_stacks) {
-              intent->stacks++;
-              intent->time_since_last_gain = 0.0f;
-              intent->decay_tick_timer = 0.0f;
-              registry.get_or_emplace<StatsDirty>(
-                  caster); // NEW: Notify stats system
-              LOG_INFO("Sword Intent: Entity {} gained stack via skill {} hit. "
-                       "Stacks: {}/{}",
-                       (uint32_t)caster, evt.skill_id, intent->stacks,
-                       intent->max_stacks);
+          if (gain_stack) {
+            SkillSystem::GainSwordIntent(registry, caster, 1, evt.skill_id);
+          }
+        }
+
+        // Unified Sword Step linkage: on-hit mana return and crit extension.
+        if (HasTag(evt.tags, Tag::Hit) && registry.any_of<PhaseTag>(caster)) {
+          auto *effects = registry.try_get<ActiveEffectsComponent>(caster);
+          if (HasSwordStepBuff(effects)) {
+            if (auto *stats = registry.try_get<CombatStats>(caster)) {
+              stats->mana = std::min(stats->max_mana, stats->mana + 1.0f);
+              registry.get_or_emplace<StatsDirty>(caster);
+            }
+            if (evt.isCrit && effects) {
+              for (auto &effect : effects->effects) {
+                if (effect.id == "flowing_thrust_swift") {
+                  effect.remaining =
+                      std::min(effect.duration + 0.5f, effect.remaining + 0.2f);
+                  break;
+                }
+              }
             }
           }
         }
 
-        // Dispatch to specific Skill Behavior
+        // Contract-driven trigger handling with guard rails.
+        if (evt.skill_id != 0) {
+          auto *active = registry.try_get<ActiveSkillsComponent>(caster);
+          const SpecializedSkill *specialized =
+              active ? FindSpecializedSkill(*active, evt.skill_id, -1) : nullptr;
+          if (specialized) {
+            auto &runtime =
+                registry.get_or_emplace<SkillContractRuntimeComponent>(caster);
+            runtime.version = kSkillContractRuntimeVersion;
+
+            uint8_t parent_depth = QueryCastDepth(evt.castId);
+            if (evt.castId != 0 && parent_depth == 0) {
+              auto exec_view = registry.view<SkillExecution>();
+              for (auto exec_entity : exec_view) {
+                const auto &exec = exec_view.get<SkillExecution>(exec_entity);
+                if (exec.cast_id == evt.castId) {
+                  parent_depth = exec.trigger_depth;
+                  RememberCastDepth(evt.castId, parent_depth);
+                  break;
+                }
+              }
+            }
+
+            Vector2 trigger_target = {0.0f, 0.0f};
+            if (registry.valid(evt.target) && registry.all_of<Position>(evt.target)) {
+              const auto &pos = registry.get<Position>(evt.target);
+              trigger_target = {pos.x, pos.y};
+            } else if (registry.valid(caster) && registry.all_of<Position>(caster)) {
+              const auto &pos = registry.get<Position>(caster);
+              trigger_target = {pos.x, pos.y};
+            }
+
+            for (const auto &[node_id, points] : specialized->allocated_points) {
+              if (points <= 0) {
+                continue;
+              }
+              const auto *node_contract =
+                  SkillRegistry::Get().GetNodeContract(evt.skill_id, node_id);
+              if (!node_contract ||
+                  node_contract->role != SpecNodeRole::Trigger) {
+                continue;
+              }
+              if (!SkillSystem::CanApplyScopePolicy(
+                      registry, caster, evt.skill_id, evt.skill_id,
+                      node_contract->scope_policy)) {
+                LogGuardBlocked(kDiagScopePolicy, evt.skill_id, node_id, caster,
+                                "scope policy rejected");
+                continue;
+              }
+              if (runtime.trigger_cooldowns.contains(node_id)) {
+                LogGuardBlocked(kDiagTriggerCooldown, evt.skill_id, node_id,
+                                caster, "trigger cooldown active");
+                continue;
+              }
+              if (parent_depth >= kMaxTriggerDepth) {
+                LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id, caster,
+                                "max trigger depth reached");
+                continue;
+              }
+              // Counter window should not recursively dispatch trigger chains.
+              if (evt.skill_id == 9) {
+                if (const auto *pf =
+                        registry.try_get<PhantomFlashComponent>(caster)) {
+                  if (pf->counter_window > 0.0f && !pf->triggered) {
+                    LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id,
+                                    caster,
+                                    "counter window suppresses trigger chain");
+                    continue;
+                  }
+                }
+              }
+
+              const uint32_t trigger_skill_id =
+                  node_contract->trigger.trigger_skill_id;
+              if (trigger_skill_id == 0) {
+                continue;
+              }
+              const auto *trigger_skill =
+                  SkillRegistry::Get().GetSkill(trigger_skill_id);
+              if (!trigger_skill) {
+                LogGuardBlocked(kDiagTriggerSkillUnavailable, evt.skill_id,
+                                node_id, caster, "trigger skill not found");
+                continue;
+              }
+              if (node_contract->trigger.consumes_mana) {
+                if (auto *stats = registry.try_get<CombatStats>(caster)) {
+                  if (stats->mana < trigger_skill->mana_cost) {
+                    LogGuardBlocked(kDiagTriggerManaBlocked, evt.skill_id,
+                                    node_id, caster, "insufficient mana");
+                    continue;
+                  }
+                  stats->mana -= trigger_skill->mana_cost;
+                }
+              }
+
+              auto trigger_exec_entity = registry.create();
+              registry.emplace<LocalLevelTag>(trigger_exec_entity);
+              auto &trigger_exec =
+                  registry.emplace<SkillExecution>(trigger_exec_entity);
+              trigger_exec.skill_id = trigger_skill_id;
+              trigger_exec.owner = caster;
+              trigger_exec.slot_index =
+                  active ? FindSkillSlotById(*active, trigger_skill_id) : -1;
+              trigger_exec.target_pos = trigger_target;
+              trigger_exec.cast_id = NextCastId();
+              trigger_exec.state = SkillState::Preparing;
+              trigger_exec.timer = 0.0f;
+              trigger_exec.trigger_depth = static_cast<uint8_t>(parent_depth + 1);
+              RememberCastDepth(trigger_exec.cast_id, trigger_exec.trigger_depth);
+
+              if (active) {
+                const SpecializedSkill *trigger_specialized =
+                    FindSpecializedSkill(*active, trigger_skill_id, -1);
+                PopulateActiveNodesFromSpecialized(trigger_specialized,
+                                                   trigger_exec);
+              }
+
+              if (node_contract->trigger.internal_cooldown > 0.0f) {
+                runtime.trigger_cooldowns[node_id] =
+                    node_contract->trigger.internal_cooldown;
+              }
+
+              LOG_INFO(
+                  "Trigger dispatched: caster={} source_skill={} node={} "
+                  "trigger_skill={} depth={}",
+                  static_cast<uint32_t>(caster), evt.skill_id, node_id,
+                  trigger_skill_id, trigger_exec.trigger_depth);
+            }
+          }
+        }
+
+        // Dispatch to specific Skill Behavior.
         if (evt.skill_id != 0) {
           if (auto hitFunc = SkillBehaviorRegistry::GetHit(evt.skill_id)) {
             hitFunc(registry, evt.source, evt.target, evt.tags, evt.isCrit);
@@ -286,6 +531,9 @@ void SkillSystem::InitHooks() {
               exec.owner = victim;
               exec.state = SkillState::Preparing;
               exec.timer = 0.0f; // Instant
+              exec.cast_id = NextCastId();
+              exec.trigger_depth = 0;
+              RememberCastDepth(exec.cast_id, exec.trigger_depth);
 
               if (registry.all_of<Position>(attacker)) {
                 const auto &attr_pos = registry.get<Position>(attacker);
@@ -342,6 +590,20 @@ void SkillSystem::Update(entt::registry &registry,
   UpdateCooldowns(registry, dt);
   UpdateStates(registry, dt);
   UpdateSwordIntent(registry, dt);
+
+  // Keep Sword Step phase state aligned with its owning buff lifecycle.
+  static thread_local std::vector<entt::entity> s_phase_to_remove;
+  s_phase_to_remove.clear();
+  auto phase_view = registry.view<PhaseTag>();
+  for (auto entity : phase_view) {
+    const auto *effects = registry.try_get<ActiveEffectsComponent>(entity);
+    if (!HasSwordStepBuff(effects)) {
+      s_phase_to_remove.push_back(entity);
+    }
+  }
+  for (auto entity : s_phase_to_remove) {
+    registry.remove<PhaseTag>(entity);
+  }
 
   // Update Blade Formation (ID 3)
   auto formation_view = registry.view<BladeFormationComponent, Position>();
@@ -763,10 +1025,10 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
   exec.state = SkillState::Preparing;
   exec.timer = 0.05f;
   exec.target_pos = target_pos;
+  exec.trigger_depth = 0;
 
-  // Generate unique cast ID for shadow
-  static uint64_t s_shadowCastId = 1000000;
-  exec.cast_id = s_shadowCastId++;
+  exec.cast_id = NextCastId();
+  RememberCastDepth(exec.cast_id, exec.trigger_depth);
 
   // Check if the caller provided a snapshot (either via ShadowComponent or
   // manual call)
@@ -1034,8 +1296,7 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
       FindSpecializedSkill(*active, slot.id, slot_index);
   const auto *skill_contract = SkillRegistry::Get().GetSkillContract(slot.id);
   static thread_local std::vector<uint32_t> s_allocated_transmuters;
-  static thread_local std::vector<std::pair<uint32_t, float>>
-      s_allocated_triggers;
+  static thread_local std::vector<uint32_t> s_allocated_triggers;
   if (!ValidateContractCastConstraints(SkillRegistry::Get(), skill_contract,
                                        specialized, slot.id,
                                        &s_allocated_transmuters,
@@ -1132,8 +1393,7 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   }
   slot.current_charges--;
 
-  static uint64_t s_nextCastId = 1;
-  uint64_t cast_id = s_nextCastId++;
+  const uint64_t cast_id = NextCastId();
 
   auto &exec = registry.emplace<SkillExecution>(entity);
   exec.skill_id = slot.id;
@@ -1143,19 +1403,11 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   exec.state = SkillState::Preparing;
   exec.timer = 0.1f;
   exec.target_pos = target_pos;
+  exec.trigger_depth = 0;
+  RememberCastDepth(exec.cast_id, exec.trigger_depth);
 
   // Populate active_nodes from Specialization
-  if (specialized) {
-    for (auto const &[node_id, points] : specialized->allocated_points) {
-      if (points > 0) {
-        // ID Convention: SkillID * 100 + Index (0-99)
-        uint32_t bit_idx = node_id % 100;
-        if (bit_idx < 128) {
-          exec.active_nodes.set(bit_idx);
-        }
-      }
-    }
-  }
+  PopulateActiveNodesFromSpecialized(specialized, exec);
 
   if (specialized && skill_contract) {
     auto &runtime = registry.get_or_emplace<SkillContractRuntimeComponent>(entity);
@@ -1163,11 +1415,8 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     if (!s_allocated_transmuters.empty()) {
       runtime.active_transmuter_node_by_skill[slot.id] =
           s_allocated_transmuters.front();
-    }
-    for (const auto &[node_id, internal_cd] : s_allocated_triggers) {
-      if (internal_cd > 0.0f) {
-        runtime.trigger_cooldowns[node_id] = internal_cd;
-      }
+    } else {
+      runtime.active_transmuter_node_by_skill.erase(slot.id);
     }
   }
 
@@ -1406,6 +1655,80 @@ bool SkillSystem::NodeAffectsSwordStep(const entt::registry &, uint32_t skill_id
   const auto *node_contract =
       SkillRegistry::Get().GetNodeContract(skill_id, node_id);
   return node_contract ? node_contract->affects_sword_step : false;
+}
+
+bool SkillSystem::CanApplyScopePolicy(const entt::registry &registry,
+                                      entt::entity entity,
+                                      uint32_t context_skill_id,
+                                      uint32_t source_skill_id,
+                                      ScopePolicy scope) {
+  switch (scope) {
+  case ScopePolicy::SkillOnly:
+    return context_skill_id != 0 && context_skill_id == source_skill_id;
+  case ScopePolicy::GlobalAlways:
+    return true;
+  case ScopePolicy::GlobalWhileBuffActive:
+    if (const auto *chan = registry.try_get<ChannelingComponent>(entity)) {
+      if (chan->skill_id == source_skill_id) {
+        return true;
+      }
+    }
+    if (source_skill_id == 9) {
+      if (const auto *pf = registry.try_get<PhantomFlashComponent>(entity)) {
+        return pf->counter_window > 0.0f && !pf->triggered;
+      }
+    }
+    return false;
+  default:
+    return false;
+  }
+}
+
+bool SkillSystem::GainSwordIntent(entt::registry &registry, entt::entity entity,
+                                  int amount, uint32_t source_skill_id) {
+  if (amount <= 0) {
+    return false;
+  }
+  auto *intent = registry.try_get<SwordIntentComponent>(entity);
+  if (!intent) {
+    return false;
+  }
+  const int before = intent->stacks;
+  intent->stacks = std::min(intent->max_stacks, intent->stacks + amount);
+  if (intent->stacks == before) {
+    return false;
+  }
+  intent->time_since_last_gain = 0.0f;
+  intent->decay_tick_timer = 0.0f;
+  registry.get_or_emplace<StatsDirty>(entity);
+  LOG_INFO("SwordIntent gain: entity={} skill={} delta={} stacks={}/{}",
+           static_cast<uint32_t>(entity), source_skill_id, intent->stacks - before,
+           intent->stacks, intent->max_stacks);
+  return true;
+}
+
+bool SkillSystem::ConsumeSwordIntent(entt::registry &registry,
+                                     entt::entity entity, int amount,
+                                     uint32_t source_skill_id) {
+  if (amount <= 0) {
+    return false;
+  }
+  auto *intent = registry.try_get<SwordIntentComponent>(entity);
+  if (!intent || intent->stacks < amount) {
+    return false;
+  }
+  intent->stacks -= amount;
+  intent->time_since_last_gain = 0.0f;
+  intent->decay_tick_timer = 0.0f;
+  registry.get_or_emplace<StatsDirty>(entity);
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateResourceConsumed(
+                    entity, Tag::SwordSkill, static_cast<float>(amount),
+                    source_skill_id));
+  LOG_INFO("SwordIntent consume: entity={} skill={} delta={} stacks={}/{}",
+           static_cast<uint32_t>(entity), source_skill_id, amount, intent->stacks,
+           intent->max_stacks);
+  return true;
 }
 
 } // namespace NoMoreDay

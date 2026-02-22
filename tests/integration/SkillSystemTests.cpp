@@ -283,6 +283,95 @@ TEST_CASE("[Integration] SkillSystem - Phantom Flash Counter Uses Pipeline") {
         doctest::Approx(80.0f));
 }
 
+TEST_CASE(
+    "[Integration] SkillBehaviorRegistry - Blade Ascendant key branches run") {
+  entt::registry registry;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  CombatEventDispatcher::Clear();
+  SkillSystem::InitHooks();
+
+  auto player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  registry.emplace<Velocity>(player, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(player).mana = 500.0f;
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.specialized_slots[0].skill_id = 2;
+  active.specialized_slots[0].allocated_points[230] = 1; // Rending boomerang
+  active.specialized_slots[1].skill_id = 8;
+  active.specialized_slots[1].allocated_points[813] = 1; // Boomerang split
+
+  for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
+    CAPTURE(skill_id);
+    CHECK(SkillBehaviorRegistry::HasBehavior(skill_id));
+  }
+
+  SUBCASE("Rending Wave boomerang branch creates boomerang projectiles") {
+    SkillExecution exec;
+    exec.skill_id = 2;
+    exec.owner = player;
+    exec.cast_id = 501;
+    exec.target_pos = {120.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(2);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto boomerangs = registry.view<Projectile, BoomerangComponent>();
+    CHECK(boomerangs.begin() != boomerangs.end());
+  }
+
+  SUBCASE("Blade Formation giant sword branch toggles giant state") {
+    SkillExecution exec;
+    exec.skill_id = 3;
+    exec.owner = player;
+    exec.cast_id = 502;
+    exec.target_pos = {40.0f, 0.0f};
+    exec.active_nodes.set(330 % 100);
+
+    auto cast = SkillBehaviorRegistry::GetCast(3);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    REQUIRE(registry.all_of<BladeFormationComponent>(player));
+    CHECK(registry.get<BladeFormationComponent>(player).has_giant_sword);
+  }
+
+  SUBCASE("Blade Boomerang phantom spin branch emits multi projectiles") {
+    SkillExecution exec;
+    exec.skill_id = 8;
+    exec.owner = player;
+    exec.cast_id = 503;
+    exec.target_pos = {150.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(8);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto projectiles = registry.view<Projectile, BoomerangComponent>();
+    int count = 0;
+    for (auto entity : projectiles) {
+      (void)entity;
+      ++count;
+    }
+    CHECK(count >= 3);
+  }
+
+  SUBCASE("Phantom Flash main branch enters counter window") {
+    SkillExecution exec;
+    exec.skill_id = 9;
+    exec.owner = player;
+    exec.cast_id = 504;
+    exec.target_pos = {80.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(9);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    REQUIRE(registry.all_of<PhantomFlashComponent>(player));
+    CHECK(registry.get<PhantomFlashComponent>(player).counter_window > 0.0f);
+  }
+}
+
 } // namespace NoMoreDay
 
 TEST_CASE("[Bugfix] SkillSystem - UAF Reproduction / Reallocation Safety") {

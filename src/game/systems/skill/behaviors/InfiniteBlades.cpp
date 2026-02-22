@@ -57,15 +57,13 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
 
     // Talent: Yi Qi Bao Fa (意气爆发) - ID 551
     if (exec.active_nodes.test(InfiniteBladesNodes::IntentBurst % 100)) {
-      if (auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
-        if (intent->stacks >= 10) {
-          intent->stacks = 0; // Consume all
-          chan.extra_projectiles = true;
-          chan.consume_intent =
-              true; // Mark for damage multiplier logic in system
-          LOG_INFO("Infinite Blades (551): Consumed all intent for double "
-                   "projectiles and damage boost.");
-        }
+      if (SkillSystem::ConsumeSwordIntent(
+              registry, owner, SkillConstants::DEFAULT_MAX_SWORD_INTENT,
+              kSkillId)) {
+        chan.extra_projectiles = true;
+        chan.consume_intent = true; // Mark for damage multiplier logic in system
+        LOG_INFO("Infinite Blades (551): Consumed all intent for double "
+                 "projectiles and damage boost.");
       }
     }
 

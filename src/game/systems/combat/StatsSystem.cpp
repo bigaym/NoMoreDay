@@ -361,7 +361,14 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
         return true;
       case ScopePolicy::GlobalWhileBuffActive:
         if (const auto *chan = registry.try_get<ChannelingComponent>(entity)) {
-          return chan->skill_id == source_skill_id;
+          if (chan->skill_id == source_skill_id) {
+            return true;
+          }
+        }
+        if (source_skill_id == 9) {
+          if (const auto *pf = registry.try_get<PhantomFlashComponent>(entity)) {
+            return pf->counter_window > 0.0f && !pf->triggered;
+          }
         }
         return false;
       default:
@@ -386,13 +393,25 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
         if (node_it == tree->nodes.end()) {
           continue;
         }
+        const NodeContractData *node_contract =
+            SkillRegistry::Get().GetNodeContract(source_skill_id, node_id);
         ScopePolicy scope = ScopePolicy::SkillOnly;
-        if (const auto *node_contract =
-                SkillRegistry::Get().GetNodeContract(source_skill_id, node_id)) {
+        if (node_contract) {
           scope = node_contract->scope_policy;
         }
         if (!can_apply_scope(scope, source_skill_id)) {
           continue;
+        }
+        if (node_contract && node_contract->role == SpecNodeRole::Transmuter) {
+          if (const auto *runtime =
+                  registry.try_get<SkillContractRuntimeComponent>(entity)) {
+            auto it =
+                runtime->active_transmuter_node_by_skill.find(source_skill_id);
+            if (it != runtime->active_transmuter_node_by_skill.end() &&
+                it->second != 0 && it->second != node_id) {
+              continue;
+            }
+          }
         }
         apply_if_tags_match(node_it->second.stat_modifiers,
                             static_cast<float>(pts));

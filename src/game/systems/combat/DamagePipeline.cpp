@@ -109,7 +109,14 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
       return true;
     case ScopePolicy::GlobalWhileBuffActive:
       if (const auto *chan = registry.try_get<ChannelingComponent>(attacker)) {
-        return chan->skill_id == source_skill_id;
+        if (chan->skill_id == source_skill_id) {
+          return true;
+        }
+      }
+      if (source_skill_id == 9) {
+        if (const auto *pf = registry.try_get<PhantomFlashComponent>(attacker)) {
+          return pf->counter_window > 0.0f && !pf->triggered;
+        }
       }
       return false;
     default:
@@ -228,13 +235,22 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
               continue;
             }
             ScopePolicy scope = ScopePolicy::SkillOnly;
-            if (const auto *node_contract =
-                    SkillRegistry::Get().GetNodeContract(source_skill_id,
-                                                         node_id)) {
+            const NodeContractData *node_contract =
+                SkillRegistry::Get().GetNodeContract(source_skill_id, node_id);
+            if (node_contract) {
               scope = node_contract->scope_policy;
             }
             if (!can_apply_scope(scope, source_skill_id)) {
               continue;
+            }
+            if (node_contract &&
+                node_contract->role == SpecNodeRole::Transmuter) {
+              const uint32_t active_transmuter =
+                  SkillSystem::GetActiveTransmuterNode(registry, attacker,
+                                                       source_skill_id);
+              if (active_transmuter != 0 && active_transmuter != node_id) {
+                continue;
+              }
             }
             for (const auto &mod : tree->nodes.at(node_id).damage_modifiers) {
               ProcessMod(mod);
@@ -350,13 +366,22 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
               continue;
             }
             ScopePolicy scope = ScopePolicy::SkillOnly;
-            if (const auto *node_contract =
-                    SkillRegistry::Get().GetNodeContract(source_skill_id,
-                                                         node_id)) {
+            const NodeContractData *node_contract =
+                SkillRegistry::Get().GetNodeContract(source_skill_id, node_id);
+            if (node_contract) {
               scope = node_contract->scope_policy;
             }
             if (!can_apply_scope(scope, source_skill_id)) {
               continue;
+            }
+            if (node_contract &&
+                node_contract->role == SpecNodeRole::Transmuter) {
+              const uint32_t active_transmuter =
+                  SkillSystem::GetActiveTransmuterNode(registry, attacker,
+                                                       source_skill_id);
+              if (active_transmuter != 0 && active_transmuter != node_id) {
+                continue;
+              }
             }
             for (const auto &dmod : tree->nodes.at(node_id).damage_modifiers) {
               if (dmod.type == ModifierType::More &&

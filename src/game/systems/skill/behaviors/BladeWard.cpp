@@ -89,22 +89,27 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     // Get the ActiveSkillsComponent to check specialized slots
     auto active = registry.try_get<ActiveSkillsComponent>(owner);
     if (active) {
-      // 411: Elemental Resistance
-      if (active->specialized_slots[0].allocated_points.contains(
-              BladeWardNodes::FiveGuard)) {
-        float elemental_res = 15.0f;
-        ward_buff.modifiers.push_back({.value = elemental_res,
-                                       .type = StatType::ResistAll,
-                                       .mode = ModifierMode::Flat});
-      }
+      for (const auto &spec : active->specialized_slots) {
+        if (spec.skill_id != kSkillId) {
+          continue;
+        }
 
-      // 430: Block Chance
-      if (active->specialized_slots[0].allocated_points.contains(
-              BladeWardNodes::IntentBlock)) {
-        float block_inc = 10.0f;
-        ward_buff.modifiers.push_back({.value = block_inc,
-                                       .type = StatType::BlockChance,
-                                       .mode = ModifierMode::Flat});
+        // 411: Elemental Resistance
+        if (spec.allocated_points.contains(BladeWardNodes::FiveGuard)) {
+          float elemental_res = 15.0f;
+          ward_buff.modifiers.push_back({.value = elemental_res,
+                                         .type = StatType::ResistAll,
+                                         .mode = ModifierMode::Flat});
+        }
+
+        // 430: Block Chance
+        if (spec.allocated_points.contains(BladeWardNodes::IntentBlock)) {
+          float block_inc = 10.0f;
+          ward_buff.modifiers.push_back({.value = block_inc,
+                                         .type = StatType::BlockChance,
+                                         .mode = ModifierMode::Flat});
+        }
+        break;
       }
     }
 

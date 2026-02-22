@@ -30,7 +30,25 @@ struct SkillExecution {
     SkillSnapshot snapshot;
 
     bool is_empowered = false;
+    uint8_t trigger_depth = 0;
     std::bitset<128> active_nodes;
+};
+
+struct SkillExecutionContext {
+    uint32_t skill_id = 0;
+    uint64_t cast_id = 0;
+    bool is_empowered = false;
+    bool is_shadow_cast = false;
+    Tag effective_tags = Tag::None;
+    entt::entity caster = entt::null;
+    Vector2 origin{0, 0};
+    Vector2 target{0, 0};
+};
+
+struct TriggerBudget {
+    uint8_t depth = 0;
+    uint8_t max_depth = 2;
+    bool exhausted = false;
 };
 
 class SkillSystem {
@@ -123,6 +141,19 @@ public:
                                        uint32_t skill_id, uint32_t node_id);
     static bool NodeAffectsSwordStep(const entt::registry& registry,
                                      uint32_t skill_id, uint32_t node_id);
+    static bool CanApplyScopePolicy(const entt::registry& registry,
+                                    entt::entity entity,
+                                    uint32_t context_skill_id,
+                                    uint32_t source_skill_id,
+                                    ScopePolicy scope);
+    static bool GainSwordIntent(entt::registry& registry,
+                                entt::entity entity,
+                                int amount,
+                                uint32_t source_skill_id);
+    static bool ConsumeSwordIntent(entt::registry& registry,
+                                   entt::entity entity,
+                                   int amount,
+                                   uint32_t source_skill_id);
 
 private:
     static inline std::map<uint32_t, CastCallback> s_skill_callbacks;

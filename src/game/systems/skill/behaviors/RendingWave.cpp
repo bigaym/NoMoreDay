@@ -196,16 +196,11 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
           // Talent: Jian Yi Bao Fa (鍓戞剰鐖嗗彂) - ID 252
           if (spec.allocated_points.contains(RendingWaveNodes::IntentBurst) &&
               spec.allocated_points.at(RendingWaveNodes::IntentBurst) > 0) {
-            if (auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
-              if (intent->stacks >= 10) {
-                exec.is_empowered = true;
-                intent->stacks = 0;
-                LOG_INFO(
-                    "Sword Intent Burst (252) triggered for Rending Wave!");
-                CombatEventDispatcher::Dispatch(
-                    registry, CombatEventFactory::CreateResourceConsumed(
-                                  owner, Tag::SwordSkill, 10.0f, kSkillId));
-              }
+            if (SkillSystem::ConsumeSwordIntent(
+                    registry, owner, SkillConstants::DEFAULT_MAX_SWORD_INTENT,
+                    kSkillId)) {
+              exec.is_empowered = true;
+              LOG_INFO("Sword Intent Burst (252) triggered for Rending Wave!");
             }
           }
           break;
@@ -430,15 +425,8 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
           if (spec.allocated_points.contains(RendingWaveNodes::IntentGain)) {
             int pts = spec.allocated_points.at(RendingWaveNodes::IntentGain);
             if (pts > 0 && GetRandomValue(0, 100) < 10 * pts) {
-              if (auto *intent =
-                      registry.try_get<SwordIntentComponent>(attacker)) {
-                if (intent->stacks < intent->max_stacks) {
-                  intent->stacks++;
-                  intent->time_since_last_gain = 0.0f;
-                  intent->decay_tick_timer = 0.0f;
-                  LOG_DEBUG("Rending Wave (253): Gained Intent via Hit");
-                }
-              }
+              SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId);
+              LOG_DEBUG("Rending Wave (253): Gained Intent via Hit");
             }
           }
           break;
