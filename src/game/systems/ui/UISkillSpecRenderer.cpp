@@ -357,10 +357,10 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
         if (contract) {
             const char* badge = nullptr;
             switch (contract->role) {
-                case SpecNodeRole::Trigger: badge = "TRG"; break;
-                case SpecNodeRole::Synergy: badge = "SYN"; break;
-                case SpecNodeRole::Transmuter: badge = "TRN"; break;
-                case SpecNodeRole::Keystone: badge = "KEY"; break;
+                case SpecNodeRole::Trigger: badge = "触发"; break;
+                case SpecNodeRole::Synergy: badge = "联动"; break;
+                case SpecNodeRole::Transmuter: badge = "转化"; break;
+                case SpecNodeRole::Keystone: badge = "核心"; break;
                 default: break;
             }
             if (badge) {

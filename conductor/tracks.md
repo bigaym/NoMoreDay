@@ -66,6 +66,79 @@ T0: blade_ascendant_skill_contracts_20260221 (P0, Foundation)
 
 ---
 
+## Blade Ascendant VFX Refactor Tracks (2026-02-22)
+
+```
+TVFX-A: blade_ascendant_vfx_infrastructure_20260222 (P0, Foundation)
+  -> TVFX-B: blade_ascendant_vfx_base_forms_20260222 (P1, Base Forms)
+    -> TVFX-C: blade_ascendant_vfx_transmutation_20260222 (P1, Element Variants)
+      -> TVFX-D: blade_ascendant_vfx_keystone_trigger_20260222 (P1, Keystone/Trigger)
+  -> TVFX-E: blade_ascendant_vfx_global_systems_20260222 (P1, Global Systems)
+    -> TVFX-F: blade_ascendant_vfx_validation_gate_20260222 (P0, Gate)
+```
+
+## [ ] Track TVFX-A: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
+
+> **Status**: 🚧 Pending  
+> **Priority**: P0  
+> **Type**: refactor/foundation  
+> **Depends On**: `blade_ascendant_skill_rendering_integration_20260221`  
+> **Focus**: 事件契约扩展 + 配方驱动骨架 + Tier/回退钩子（复用粒子/尾迹/扭曲管线，不新增全局 SSBO binding）。  
+> **Tasks**: 0/22  
+> **Location**: [`conductor/tracks/blade_ascendant_vfx_infrastructure_20260222/`](./tracks/blade_ascendant_vfx_infrastructure_20260222/index.md)
+
+## [ ] Track TVFX-B: Blade Ascendant VFX Base Forms (blade_ascendant_vfx_base_forms_20260222)
+
+> **Status**: 🚧 Pending  
+> **Priority**: P1  
+> **Type**: feature  
+> **Depends On**: `blade_ascendant_vfx_infrastructure_20260222`  
+> **Focus**: 3.1-3.9 基础形态 VFX 完整落地 + Low/Medium 回退矩阵。  
+> **Tasks**: 0/20  
+> **Location**: [`conductor/tracks/blade_ascendant_vfx_base_forms_20260222/`](./tracks/blade_ascendant_vfx_base_forms_20260222/index.md)
+
+## [ ] Track TVFX-C: Blade Ascendant VFX Transmutation (blade_ascendant_vfx_transmutation_20260222)
+
+> **Status**: 🚧 Pending  
+> **Priority**: P1  
+> **Type**: feature  
+> **Depends On**: `blade_ascendant_vfx_base_forms_20260222`  
+> **Focus**: 元素变转视觉差异（事件驱动切换 + 色板/纹理/行为联动），不新增 SSBO 结构体。  
+> **Tasks**: 0/18  
+> **Location**: [`conductor/tracks/blade_ascendant_vfx_transmutation_20260222/`](./tracks/blade_ascendant_vfx_transmutation_20260222/index.md)
+
+## [ ] Track TVFX-D: Blade Ascendant VFX Keystone / Trigger / Synergy (blade_ascendant_vfx_keystone_trigger_20260222)
+
+> **Status**: 🚧 Pending  
+> **Priority**: P1  
+> **Type**: feature  
+> **Depends On**: `blade_ascendant_vfx_transmutation_20260222`  
+> **Focus**: Keystone/Trigger/Synergy 的强判读反馈 + 高频触发场景 cap/采样策略。  
+> **Tasks**: 0/16  
+> **Location**: [`conductor/tracks/blade_ascendant_vfx_keystone_trigger_20260222/`](./tracks/blade_ascendant_vfx_keystone_trigger_20260222/index.md)
+
+## [ ] Track TVFX-E: Blade Ascendant VFX Global Systems (blade_ascendant_vfx_global_systems_20260222)
+
+> **Status**: 🚧 Pending  
+> **Priority**: P1  
+> **Type**: feature  
+> **Depends On**: `blade_ascendant_vfx_infrastructure_20260222`  
+> **Focus**: 剑意/御剑步/抗性削弱五型全局体系（可回退、可区分、预算可控）。  
+> **Tasks**: 0/18  
+> **Location**: [`conductor/tracks/blade_ascendant_vfx_global_systems_20260222/`](./tracks/blade_ascendant_vfx_global_systems_20260222/index.md)
+
+## [ ] Track TVFX-F: Blade Ascendant VFX Validation Gate (blade_ascendant_vfx_validation_gate_20260222)
+
+> **Status**: 🚧 Pending  
+> **Priority**: P0  
+> **Type**: quality  
+> **Depends On**: `blade_ascendant_vfx_base_forms_20260222`, `blade_ascendant_vfx_transmutation_20260222`, `blade_ascendant_vfx_keystone_trigger_20260222`, `blade_ascendant_vfx_global_systems_20260222`  
+> **Focus**: 功能/合同/Tier 回退/预算/稳定性 五维门禁与证据闭环（对齐 V3 验收清单）。  
+> **Tasks**: 0/16  
+> **Location**: [`conductor/tracks/blade_ascendant_vfx_validation_gate_20260222/`](./tracks/blade_ascendant_vfx_validation_gate_20260222/index.md)
+
+---
+
 ## V3 渲染系统升级 — Track 依赖图
 
 ```

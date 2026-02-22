@@ -27,19 +27,19 @@ namespace {
 
 const char* NodeRoleToText(SpecNodeRole role) {
     switch (role) {
-    case SpecNodeRole::Keystone: return "Keystone";
-    case SpecNodeRole::Trigger: return "Trigger";
-    case SpecNodeRole::Synergy: return "Synergy";
-    case SpecNodeRole::Transmuter: return "Transmuter";
-    default: return "Passive";
+    case SpecNodeRole::Keystone: return "核心";
+    case SpecNodeRole::Trigger: return "触发";
+    case SpecNodeRole::Synergy: return "联动";
+    case SpecNodeRole::Transmuter: return "转化";
+    default: return "被动";
     }
 }
 
 const char* ScopePolicyToText(ScopePolicy scope) {
     switch (scope) {
-    case ScopePolicy::GlobalAlways: return "GlobalAlways";
-    case ScopePolicy::GlobalWhileBuffActive: return "GlobalWhileBuffActive";
-    default: return "SkillOnly";
+    case ScopePolicy::GlobalAlways: return "全局常驻";
+    case ScopePolicy::GlobalWhileBuffActive: return "增益期间全局";
+    default: return "仅本技能";
     }
 }
 
@@ -225,9 +225,9 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
             UISystem::DrawTextUI("数值加成已启用", tx + 20, ty + th - 35, 18, SKYBLUE, alpha * 0.8f);
         }
         if (nodeContract) {
-            UISystem::DrawTextUI(TextFormat("Role: %s", NodeRoleToText(nodeContract->role)),
+            UISystem::DrawTextUI(TextFormat("定位: %s", NodeRoleToText(nodeContract->role)),
                                  tx + 20, ty + th - 70, 18, ORANGE, alpha * 0.9f);
-            UISystem::DrawTextUI(TextFormat("Scope: %s", ScopePolicyToText(nodeContract->scope_policy)),
+            UISystem::DrawTextUI(TextFormat("范围: %s", ScopePolicyToText(nodeContract->scope_policy)),
                                  tx + 20, ty + th - 48, 18, SKYBLUE, alpha * 0.9f);
         }
     }
