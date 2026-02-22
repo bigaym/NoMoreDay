@@ -444,7 +444,7 @@ struct GPUSkillEffect {
   Vector4 glowColor = {1.0f, 1.0f, 1.0f, 1.0f}; // 16
   float radius = 0.0f;                          // 4
   float sectorAngle = 0.0f;                     // 4 (Degrees)
-  float softness = 0.0f;                        // 4
+  uint32_t flags = 0u;                          // 4 (low 4 bits: elementType)
   float type = 0.0f; // 4 (0=Fan/Sector, 1=Annulus/Circle, 2=Beam)
 
   GPUSkillEffect() = default;

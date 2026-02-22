@@ -875,6 +875,699 @@
           "alpha": 0.8
         }
       ]
+    },
+    {
+      "name": "skill1_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 1,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 23.1,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 15.4,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 26.4,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill1_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 1,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 22.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 12.1,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 11.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill2_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 2,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 13.65,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 10.0,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 15.6,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill2_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 2,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 13.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 9.0,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 8.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill3_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 3,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 22.05,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 14.7,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 25.2,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill3_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 3,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 21.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 11.55,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 10.5,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill4_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 4,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 14.7,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 10.0,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 16.8,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill4_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 4,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 14.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 9.0,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 8.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill5_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 5,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 29.4,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 19.6,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 33.6,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill5_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 5,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 28.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 15.4,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 14.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill6_elem_fire_triggerproc",
+      "priority": 140,
+      "selector": {
+        "skillId": 6,
+        "eventType": "TriggerProc",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 18.9,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 12.6,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 21.6,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill6_elem_cold_triggerproc",
+      "priority": 140,
+      "selector": {
+        "skillId": 6,
+        "eventType": "TriggerProc",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 18.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 9.9,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 9.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill7_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 7,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 15.75,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 10.5,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 18.0,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill7_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 7,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 15.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 9.0,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 8.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill8_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 8,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 21.0,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 14.0,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 24.0,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill8_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 8,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 20.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 11.0,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 10.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
+    },
+    {
+      "name": "skill9_elem_fire_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 9,
+        "eventType": "CastImpact",
+        "elementType": 1,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 27.3,
+          "angle": 360.0,
+          "softness": 0.42,
+          "type": 1.0,
+          "speed": 160.0,
+          "alpha": 0.9
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 10,
+          "radius": 18.2,
+          "speed": 210.0,
+          "alpha": 0.72,
+          "lifetime": 0.24,
+          "spread": 30.0
+        },
+        {
+          "kind": "DistortionPulse",
+          "count": 1,
+          "radius": 31.2,
+          "distortionStrength": 0.12
+        }
+      ]
+    },
+    {
+      "name": "skill9_elem_cold_castimpact",
+      "priority": 140,
+      "selector": {
+        "skillId": 9,
+        "eventType": "CastImpact",
+        "elementType": 2,
+        "resistDebuffType": "*"
+      },
+      "actions": [
+        {
+          "kind": "Overlay",
+          "count": 1,
+          "radius": 26.0,
+          "angle": 360.0,
+          "softness": 0.5,
+          "type": 1.0,
+          "speed": 120.0,
+          "alpha": 0.82
+        },
+        {
+          "kind": "ParticleBurst",
+          "count": 8,
+          "radius": 14.3,
+          "speed": 150.0,
+          "alpha": 0.66,
+          "lifetime": 0.28,
+          "spread": 18.0
+        },
+        {
+          "kind": "TrailStroke",
+          "count": 1,
+          "radius": 13.0,
+          "speed": 170.0,
+          "alpha": 0.58,
+          "width": 7.0,
+          "trailLength": 0.18
+        }
+      ]
     }
   ]
 }

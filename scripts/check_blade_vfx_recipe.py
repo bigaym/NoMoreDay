@@ -65,6 +65,18 @@ REQUIRED_BASE_FORM_EVENTS = {
     9: {"CastStart", "CastImpact", "TriggerProc", "BuffEnter", "BuffExit"},
 }
 
+REQUIRED_TRANSMUTATION_ELEMENTS = {
+    1: {1, 2},  # Fire + Cold
+    2: {1, 2},
+    3: {1, 2},
+    4: {1, 2},
+    5: {1, 2},
+    6: {1, 2},
+    7: {1, 2},
+    8: {1, 2},
+    9: {1, 2},
+}
+
 
 def _fail(message: str) -> None:
     raise ValueError(message)
@@ -151,6 +163,7 @@ def validate_recipe_config(data: dict[str, Any]) -> None:
                 _fail(f"{action_prefix}.alpha must be in [0,1]")
 
     _validate_base_form_coverage(recipes)
+    _validate_transmutation_coverage(recipes)
 
 
 def _normalize_event_name(value: Any) -> str | None:
@@ -188,6 +201,42 @@ def _validate_base_form_coverage(recipes: list[dict[str, Any]]) -> None:
 
     if missing:
         _fail("base form coverage missing required event recipes: " + " | ".join(missing))
+
+
+def _normalize_element_selector(value: Any) -> int | None:
+    if isinstance(value, int) and 0 <= value <= 4:
+        return value
+    return None
+
+
+def _validate_transmutation_coverage(recipes: list[dict[str, Any]]) -> None:
+    discovered: dict[int, set[int]] = {
+        skill_id: set() for skill_id in REQUIRED_TRANSMUTATION_ELEMENTS
+    }
+
+    for recipe in recipes:
+        selector = recipe.get("selector")
+        if not isinstance(selector, dict):
+            continue
+
+        skill_id = selector.get("skillId")
+        if not isinstance(skill_id, int) or skill_id not in discovered:
+            continue
+
+        element_type = _normalize_element_selector(selector.get("elementType", "*"))
+        if element_type is None or element_type == 0:
+            continue
+
+        discovered[skill_id].add(element_type)
+
+    missing: list[str] = []
+    for skill_id, required_elements in REQUIRED_TRANSMUTATION_ELEMENTS.items():
+        missing_elements = sorted(required_elements - discovered[skill_id])
+        if missing_elements:
+            missing.append(f"skill {skill_id}: elementType {missing_elements}")
+
+    if missing:
+        _fail("transmutation coverage missing required element recipes: " + " | ".join(missing))
 
 
 def main() -> int:

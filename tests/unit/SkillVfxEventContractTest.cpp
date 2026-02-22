@@ -133,3 +133,45 @@ TEST_CASE("[Unit] SkillVfxEvent - Recipe Smoke Coverage Base Forms Core Events")
     }
   }
 }
+
+TEST_CASE("[Unit] SkillVfxEvent - Recipe Coverage Transmutation Elements") {
+  const std::filesystem::path recipePath =
+      std::filesystem::path("assets") / "data" / "vfx" / "blade_ascendant_v3.json";
+  std::ifstream input(recipePath);
+  REQUIRE(input.good());
+
+  const nlohmann::json root = nlohmann::json::parse(input);
+  REQUIRE(root.contains("recipes"));
+  REQUIRE(root["recipes"].is_array());
+
+  auto hasElementRecipe = [&](const int skillId, const int elementType) {
+    for (const auto &recipe : root["recipes"]) {
+      if (!recipe.is_object() || !recipe.contains("selector")) {
+        continue;
+      }
+      const auto &selector = recipe["selector"];
+      if (!selector.is_object()) {
+        continue;
+      }
+      if (!selector.contains("skillId") || !selector["skillId"].is_number_integer() ||
+          selector["skillId"].get<int>() != skillId) {
+        continue;
+      }
+      if (!selector.contains("elementType") ||
+          !selector["elementType"].is_number_integer()) {
+        continue;
+      }
+      if (selector["elementType"].get<int>() == elementType) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (int skillId = 1; skillId <= 9; ++skillId) {
+    INFO("missing fire transmutation recipe for skillId=" << skillId);
+    CHECK(hasElementRecipe(skillId, 1));
+    INFO("missing cold transmutation recipe for skillId=" << skillId);
+    CHECK(hasElementRecipe(skillId, 2));
+  }
+}

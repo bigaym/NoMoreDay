@@ -8,7 +8,7 @@ struct SkillEffect {
     vec4 glowColor;
     float radius;
     float sectorAngle;
-    float softness;
+    uint flags;
     float type;
 };
 
@@ -24,7 +24,7 @@ out vec4 passGlowColor;
 out vec2 passDirection; // Direction vector from velocity
 out float passAngle;    // Sector Angle (in radians)
 out float passRadius;   // Radius for SDF calculation
-out float passSoftness;
+flat out uint passFlags;
 out float passType;
 
 void main() {
@@ -66,6 +66,6 @@ void main() {
     // So 0.8 is the hard edge in local space.
     passRadius = 0.8; 
     
-    passSoftness = e.softness;
+    passFlags = e.flags;
     passType = e.type;
 }

@@ -675,7 +675,7 @@ void ExecuteVFXPass(RenderFrameData &frame) {
     eff.radius = visualRadius;
     eff.sectorAngle = visualArc;
     eff.type = static_cast<float>(proj.visualType);
-    eff.softness = 0.5f;
+    eff.flags = 0u;
 
     if (const auto *col = frame.registry.try_get<ColorComponent>(entity)) {
       eff.coreColor = ColorNormalize(col->color);

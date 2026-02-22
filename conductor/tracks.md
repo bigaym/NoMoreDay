@@ -97,15 +97,15 @@ TVFX-A: blade_ascendant_vfx_infrastructure_20260222 (P0, Foundation)
 > **Tasks**: 20/20  
 > **Location**: [`conductor/archive/blade_ascendant_vfx_base_forms_20260222/`](./archive/blade_ascendant_vfx_base_forms_20260222/index.md)
 
-## [ ] Track TVFX-C: Blade Ascendant VFX Transmutation (blade_ascendant_vfx_transmutation_20260222)
+## [x] Track TVFX-C: Blade Ascendant VFX Transmutation (blade_ascendant_vfx_transmutation_20260222)
 
-> **Status**: 🚧 Pending  
+> **Status**: ✅ Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature  
 > **Depends On**: `blade_ascendant_vfx_base_forms_20260222`  
 > **Focus**: 元素变转视觉差异（事件驱动切换 + 色板/纹理/行为联动），不新增 SSBO 结构体。  
-> **Tasks**: 0/18  
-> **Location**: [`conductor/tracks/blade_ascendant_vfx_transmutation_20260222/`](./tracks/blade_ascendant_vfx_transmutation_20260222/index.md)
+> **Tasks**: 18/18  
+> **Location**: [`conductor/archive/blade_ascendant_vfx_transmutation_20260222/`](./archive/blade_ascendant_vfx_transmutation_20260222/index.md)
 
 ## [ ] Track TVFX-D: Blade Ascendant VFX Keystone / Trigger / Synergy (blade_ascendant_vfx_keystone_trigger_20260222)
 

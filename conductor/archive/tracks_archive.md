@@ -13,6 +13,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Blade Ascendant VFX Transmutation (blade_ascendant_vfx_transmutation_20260222)
+- **Folder:** [./conductor/archive/blade_ascendant_vfx_transmutation_20260222/](./conductor/archive/blade_ascendant_vfx_transmutation_20260222/)
+- **Description:** Completed element variant rollout for Blade Ascendant skills: shader-side element palette switch via `GPUSkillEffect.flags`, Fire/Cold per-skill recipe variants, and deterministic procedural generation of transmutation texture placeholders.
+- **Status:** COMPLETED (2026-02-22)
+- **Priority:** P1
+- **Archive Reason:** `python scripts/gen_blade_vfx_assets.py` PASS; `python scripts/check_blade_vfx_recipe.py --check` PASS; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `build.bat analyze` PASS (existing warnings only); `ctest --test-dir build -C Release -L performance --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Blade Ascendant VFX Infrastructure (blade_ascendant_vfx_infrastructure_20260222)
 - **Folder:** [./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/](./conductor/archive/blade_ascendant_vfx_infrastructure_20260222/)
 - **Description:** 完成剑修 VFX 基础设施落地：`SkillVfxEvent` 扩展（元素/抗性削弱/Transmuter/Keystone）、`GPUSkillEffectSystem` 配方驱动骨架、粒子/尾迹/扭曲/overlay 动作适配、Tier 回退映射与校验脚本。

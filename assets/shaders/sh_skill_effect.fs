@@ -6,10 +6,12 @@ in vec4 passGlowColor;
 in vec2 passDirection; // Direction the projectile is facing
 in float passAngle;    // Sector Half-Angle? No, assuming full angle spread for now.
 in float passRadius;   // The radius boundary in local space (e.g. 0.8)
-in float passSoftness;
+flat in uint passFlags;
 in float passType;
 
 out vec4 finalColor;
+
+#include "vfx/vfx_element_switch.glslinc"
 
 // --- SDF Functions (2D) ---
 
@@ -161,7 +163,8 @@ void main() {
     rimFactor = pow(rimFactor, 4.0); // Make the rim sharp/thin
     
     vec3 rimColor = vec3(1.0, 1.0, 1.0); // Pure White Rim
-    vec3 bodyColor = passCoreColor.rgb;  // Cyan/Ink Body
+    int elementType = int(passFlags & 0xFu);
+    vec3 bodyColor = NmdSelectElementPalette(elementType, passCoreColor.rgb);
     
     // Mix Body and Rim
     vec3 finalInnerColor = mix(bodyColor, rimColor, rimFactor);
@@ -170,7 +173,8 @@ void main() {
     // 2. Glow Logic (Outside dist > 0)
     // Reduce brightness
     float glowFactor = 1.0 - smoothstep(0.0, passRadius * 0.5, dist); // Quicker falloff
-    vec3 finalGlowColor = passGlowColor.rgb;
+    vec3 finalGlowColor =
+        NmdSelectElementPalette(elementType, passGlowColor.rgb);
     float finalGlowAlpha = passGlowColor.a * glowFactor * 0.4; // Reduced intesity (was 0.8)
     
     // Composite

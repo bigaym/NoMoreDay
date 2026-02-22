@@ -11,9 +11,11 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <limits>
 #include <nlohmann/json.hpp>
+#include <sstream>
 #include <unordered_map>
 #include <utility>
 
@@ -22,6 +24,8 @@ namespace {
 
 constexpr size_t kMaxQueuedSkillEvents = 4096u;
 constexpr size_t kMaxQueuedDistortion = 32u;
+constexpr int kMaxShaderIncludeDepth = 8;
+constexpr uint32_t kSkillEffectElementMask = 0x0Fu;
 
 struct SkillCapEntry {
   int high = 0;
@@ -65,6 +69,96 @@ Color ResolveSkillColor(const uint32_t skillId) {
   default:
     return WHITE;
   }
+}
+
+bool ReadTextFile(const std::filesystem::path &path, std::string &out) {
+  std::ifstream file(path);
+  if (!file.is_open()) {
+    return false;
+  }
+  std::stringstream ss;
+  ss << file.rdbuf();
+  out = ss.str();
+  return true;
+}
+
+std::string ResolveShaderIncludes(const std::filesystem::path &path, int depth) {
+  if (depth > kMaxShaderIncludeDepth) {
+    LOG_ERROR("GPUSkillEffectSystem: shader include depth exceeded at {}",
+              path.string());
+    return {};
+  }
+
+  std::string source;
+  if (!ReadTextFile(path, source)) {
+    LOG_ERROR("GPUSkillEffectSystem: failed to read shader file {}",
+              path.string());
+    return {};
+  }
+
+  std::stringstream input(source);
+  std::ostringstream output;
+  std::string line;
+  while (std::getline(input, line)) {
+    const std::string includeTag = "#include \"";
+    const size_t start = line.find(includeTag);
+    if (start == std::string::npos) {
+      output << line << '\n';
+      continue;
+    }
+
+    const size_t pathStart = start + includeTag.size();
+    const size_t endQuote = line.find('"', pathStart);
+    if (endQuote == std::string::npos) {
+      output << line << '\n';
+      continue;
+    }
+
+    const std::string relative = line.substr(pathStart, endQuote - pathStart);
+    const std::filesystem::path includePath = path.parent_path() / relative;
+    const std::string included = ResolveShaderIncludes(includePath, depth + 1);
+    output << included << '\n';
+  }
+
+  return output.str();
+}
+
+Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
+                              const std::filesystem::path &fragmentPath) {
+  Shader shader = {};
+  const std::string vertexSrc = ResolveShaderIncludes(vertexPath, 0);
+  const std::string fragmentSrc = ResolveShaderIncludes(fragmentPath, 0);
+  if (vertexSrc.empty() || fragmentSrc.empty()) {
+    return shader;
+  }
+
+  unsigned int vsId = rlCompileShader(vertexSrc.c_str(), RL_VERTEX_SHADER);
+  unsigned int fsId = rlCompileShader(fragmentSrc.c_str(), RL_FRAGMENT_SHADER);
+  if (vsId == 0 || fsId == 0) {
+    LOG_ERROR("GPUSkillEffectSystem: shader compile failed for {} / {}",
+              vertexPath.string(), fragmentPath.string());
+    return shader;
+  }
+
+  const unsigned int programId = rlLoadShaderProgram(vsId, fsId);
+  if (programId == 0) {
+    LOG_ERROR("GPUSkillEffectSystem: shader link failed for {} / {}",
+              vertexPath.string(), fragmentPath.string());
+    return shader;
+  }
+
+  shader.id = programId;
+  shader.locs = static_cast<int *>(RL_CALLOC(RL_MAX_SHADER_LOCATIONS, sizeof(int)));
+  for (int i = 0; i < RL_MAX_SHADER_LOCATIONS; ++i) {
+    shader.locs[i] = -1;
+  }
+  return shader;
+}
+
+uint32_t EncodeSkillEffectFlags(const uint8_t elementType) {
+  const uint8_t clamped =
+      std::min<uint8_t>(elementType, static_cast<uint8_t>(SkillVfxElementType::Void));
+  return static_cast<uint32_t>(clamped) & kSkillEffectElementMask;
 }
 
 float ClampIntensity(const float value) {
@@ -262,8 +356,12 @@ void GPUSkillEffectSystem::Init(ResourceManager &rm, int maxEffects) {
 
   m_gpuBuffer.Create(m_maxEffects * sizeof(components::GPUSkillEffect), nullptr,
                      RL_DYNAMIC_DRAW);
-  m_shader = LoadShader("assets/shaders/sh_skill_effect.vs",
-                        "assets/shaders/sh_skill_effect.fs");
+  m_shader = LoadShaderWithIncludes("assets/shaders/sh_skill_effect.vs",
+                                    "assets/shaders/sh_skill_effect.fs");
+  if (m_shader.id == 0) {
+    m_shader = LoadShader("assets/shaders/sh_skill_effect.vs",
+                          "assets/shaders/sh_skill_effect.fs");
+  }
   m_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(m_shader, "mvp");
   LoadSkillVfxRecipes("assets/data/vfx/blade_ascendant_v3.json");
 
@@ -647,7 +745,7 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
     effect.velocity = vel;
     effect.radius = std::max(2.0f, action.radius * intensity);
     effect.sectorAngle = action.angle;
-    effect.softness = action.softness;
+    effect.flags = EncodeSkillEffectFlags(normalized.elementType);
     effect.type = action.type;
 
     const float alpha = std::clamp(action.alpha, 0.05f, 1.0f);
@@ -822,12 +920,13 @@ void GPUSkillEffectSystem::EmitLegacySkillEventVisual(
 
   auto emitEffect = [&](Vector2 pos, Vector2 vel, float radius, float angle,
                         float softness, float type, float alphaScale) {
+    (void)softness;
     components::GPUSkillEffect effect = {};
     effect.position = pos;
     effect.velocity = vel;
     effect.radius = std::max(2.0f, radius);
     effect.sectorAngle = angle;
-    effect.softness = std::max(0.1f, softness);
+    effect.flags = EncodeSkillEffectFlags(elementType);
     effect.type = type;
 
     const float coreAlpha = std::clamp(0.9f * alphaScale, 0.25f, 1.0f);
