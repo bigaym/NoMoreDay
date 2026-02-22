@@ -34,15 +34,15 @@ T0: blade_ascendant_skill_contracts_20260221 (P0, Foundation)
 > **Tasks**: 24/24  
 > **Location**: [`conductor/archive/blade_ascendant_skill_behaviors_20260221/`](./archive/blade_ascendant_skill_behaviors_20260221/index.md)
 
-## [ ] Track T1.5: Blade Ascendant VFX Design Freeze (blade_ascendant_vfx_design_freeze_20260221)
+## [x] Track T1.5: Blade Ascendant VFX Design Freeze (blade_ascendant_vfx_design_freeze_20260221)
 
-> **Status**: Pending  
+> **Status**: COMPLETED (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: design/spec  
 > **Depends On**: `blade_ascendant_skill_behaviors_20260221`  
 > **Focus**: 冻结剑修技能特效设计输入，明确事件契约、RenderGraph 接入、Tier 回退与预算门限。  
-> **Tasks**: 0/18  
-> **Location**: [`conductor/tracks/blade_ascendant_vfx_design_freeze_20260221/`](./tracks/blade_ascendant_vfx_design_freeze_20260221/index.md)
+> **Tasks**: 18/18  
+> **Location**: [`conductor/archive/blade_ascendant_vfx_design_freeze_20260221/`](./archive/blade_ascendant_vfx_design_freeze_20260221/index.md)
 
 ## [ ] Track T2: Blade Ascendant Skill Rendering Integration (blade_ascendant_skill_rendering_integration_20260221)
 
