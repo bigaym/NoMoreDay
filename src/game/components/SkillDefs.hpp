@@ -550,6 +550,9 @@ struct SwordArrayComponent {
   bool is_empowered = false;
   uint64_t cast_id = 0;
 
+  Color core_color = {150, 50, 255, 255};
+  Color glow_color = {200, 100, 255, 255};
+
   // Talent Flags
   bool has_slow = false;        // Talent 610
   bool has_armor_shred = false; // Talent 611

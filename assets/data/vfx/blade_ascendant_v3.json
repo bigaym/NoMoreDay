@@ -1060,7 +1060,7 @@
           "radius": 54.0,
           "angle": 360.0,
           "softness": 0.5,
-          "type": 1.0,
+          "type": 6.0,
           "speed": 0.0,
           "alpha": 0.55
         }

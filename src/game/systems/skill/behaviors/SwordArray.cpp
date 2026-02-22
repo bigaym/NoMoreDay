@@ -12,6 +12,8 @@
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
+#include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
 namespace NoMoreDay::skills {
@@ -230,10 +232,51 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
   array.is_empowered = exec.is_empowered;
   array.cast_id = exec.cast_id;
 
+  // Enhance sizing with AreaScale and Talents
+  float areaScale = 1.0f;
+  const auto *skillData = SkillRegistry::Get().GetSkill(exec.skill_id);
+  if (skillData) {
+      float areaStat = StatsSystem::GetStatWithTags(registry, owner, StatType::AreaScale, skillData->tags, exec.skill_id);
+      if (areaStat > 0.1f) areaScale = areaStat / 100.0f;
+  }
+  areaScale = std::clamp(areaScale, 0.1f, 5.0f);
+
+  ElementalConversion elementalConv;
+  if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
+    for (const auto &spec : active->specialized_slots) {
+      if (spec.skill_id == kSkillId) {
+        if (spec.allocated_points.contains(600)) { // SwordArrayNodes::WideArea
+          areaScale *= (1.0f + spec.allocated_points.at(600) * 0.15f);
+        }
+        if (spec.allocated_points.contains(670) && spec.allocated_points.at(670) > 0) { // ElementField
+          elementalConv = ResolveElementalConversion(670, spec.allocated_points.at(670));
+        }
+        break;
+      }
+    }
+  }
+
+  array.radius *= areaScale;
+
+  Color coreColor = exec.is_empowered
+                        ? systems::InkEffectHelper::COLOR_GOLD_CORE
+                        : systems::InkEffectHelper::COLOR_SHADOW_CORE;
+  Color edgeColor = exec.is_empowered
+                        ? systems::InkEffectHelper::COLOR_GOLD_GLOW
+                        : systems::InkEffectHelper::COLOR_SHADOW_GLOW;
+
+  if (elementalConv.IsActive() && !exec.is_empowered) {
+    coreColor = elementalConv.projectile_color;
+    edgeColor = elementalConv.glow_color;
+  }
+  
+  array.core_color = coreColor;
+  array.glow_color = edgeColor;
+
   auto &ve = registry.emplace<VisualEffect>(array_ent);
   ve.type = VisualEffectType::AoeArray;
   ve.lifeTime = array.duration;
-  ve.color = exec.is_empowered ? GOLD : PURPLE;
+  ve.color = exec.is_empowered ? GOLD : coreColor;
 
   auto &ae = registry.emplace<ArrayEffect>(array_ent);
   ae.radius = array.radius;
@@ -242,15 +285,30 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
 
   auto &particleSys = systems::GPUParticleSystem::Get();
 
-  Color coreColor = exec.is_empowered
-                        ? systems::InkEffectHelper::COLOR_GOLD_CORE
-                        : systems::InkEffectHelper::COLOR_SHADOW_CORE;
-  Color edgeColor = exec.is_empowered
-                        ? systems::InkEffectHelper::COLOR_GOLD_GLOW
-                        : systems::InkEffectHelper::COLOR_SHADOW_GLOW;
-  auto areaParticles = systems::InkEffectHelper::CreateAreaEffect(
-      exec.target_pos, array.radius, coreColor, edgeColor, 30, 0.5f);
-  particleSys.EmitBatch(areaParticles);
+  // Dense bursting effect directly from center, extending out to radius
+  int splashCount = 45;
+  std::vector<components::GPUParticle> splashParticles;
+  splashParticles.reserve(splashCount);
+  for (int i = 0; i < splashCount; ++i) {
+      float angle = (float)GetRandomValue(0, 360) * DEG2RAD;
+      float speed = (float)GetRandomValue(60, 200) * (array.radius / 75.0f);
+      Vector2 dir = {cosf(angle), sinf(angle)};
+      
+      components::GPUParticle p;
+      p.position = {exec.target_pos.x + dir.x * 5.0f, exec.target_pos.y + dir.y * 5.0f};
+      p.velocity = {dir.x * speed, dir.y * speed};
+      
+      // Simulate high drag using acceleration vector opposite to velocity
+      float dragFactor = 3.5f;
+      p.acceleration = {-p.velocity.x * dragFactor, -p.velocity.y * dragFactor};
+      
+      p.color = {coreColor.r, coreColor.g, coreColor.b, 230};
+      p.scale = (float)GetRandomValue(25, 50) / 10.0f;
+      p.maxLifetime = (array.radius * 0.9f) / speed; 
+      p.lifetime = p.maxLifetime;
+      splashParticles.push_back(p);
+  }
+  particleSys.EmitBatch(splashParticles);
 
   int ringCount = 25;
   for (int i = 0; i < ringCount; ++i) {

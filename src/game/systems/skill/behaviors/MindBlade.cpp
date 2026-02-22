@@ -187,6 +187,9 @@ bool MindBlade::Update(entt::registry &registry, entt::entity entity,
       auto proj = registry.create();
       registry.emplace<Position>(proj, pos.x, pos.y);
       registry.emplace<LocalLevelTag>(proj);
+      
+      // FIX: Add SkillComponent to projectile for attribution and modifiers
+      registry.emplace<SkillComponent>(proj, kSkillId, comp.owner);
 
       Vector2 dir =
           Vector2Normalize(Vector2Subtract({t_pos.x, t_pos.y}, {pos.x, pos.y}));
@@ -199,6 +202,30 @@ bool MindBlade::Update(entt::registry &registry, entt::entity entity,
       // Copy owner stats for snapshot
       if (registry.all_of<CombatStats>(comp.owner)) {
         p.snapshot = registry.get<CombatStats>(comp.owner);
+      }
+      
+      // FIX: Pass SkillModifierComponent to the projectile 
+      if (const auto *ownerMods = registry.try_get<SkillModifierComponent>(comp.owner)) {
+        auto &projMods = registry.emplace<SkillModifierComponent>(proj);
+        // Add existing damage modifiers
+        projMods.damage_modifiers = ownerMods->damage_modifiers;
+      }
+      
+      // Support elemental conversion via active skill slots
+      if (auto *active = registry.try_get<ActiveSkillsComponent>(comp.owner)) {
+        for (const auto &spec : active->specialized_slots) {
+          if (spec.skill_id == kSkillId) {
+            // Check Void Rift (771) - convert Physical to Void
+            if (spec.allocated_points.contains(MindBladeNodes::VoidRift) &&
+                spec.allocated_points.at(MindBladeNodes::VoidRift) > 0) {
+              auto *projMods = registry.try_get<SkillModifierComponent>(proj);
+              if (!projMods) projMods = &registry.emplace<SkillModifierComponent>(proj);
+              projMods->damage_modifiers.push_back(
+                  DamageModifier{Tag::Physical, Tag::Void, 1.0f, ModifierType::Convert});
+            }
+            break;
+          }
+        }
       }
 
       // Set Base Damage based on INT

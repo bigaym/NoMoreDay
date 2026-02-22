@@ -153,6 +153,28 @@ void main() {
         float ringRadius = passRadius * 0.82;
         float ringHalfWidth = passRadius * 0.11;
         dist = abs(length(ep) - ringRadius) - ringHalfWidth;
+    } else if (passType < 6.5) {
+        // Type 6: Magic Array / Formation 
+        float rOuter = passRadius * 0.98;
+        float rInner = passRadius * 0.85;
+        float rCore  = passRadius * 0.25;
+        
+        // Outer thick ring
+        float ring1 = abs(length(p) - rOuter) - passRadius * 0.025;
+        // Inner thin ring
+        float ring2 = abs(length(p) - rInner) - passRadius * 0.015;
+        // Center core ring
+        float ring3 = abs(length(p) - rCore) - passRadius * 0.02;
+        
+        // 6-pointed star (Hexagram) via polar cosine
+        float a = atan(p.y, p.x);
+        float r = length(p);
+        float starDist = abs(r - rInner * (0.60 + 0.40 * cos(a * 6.0))) - passRadius * 0.015;
+        
+        // Additional geometric lines: Triangles
+        float tri1 = abs(max(abs(p.x)*0.866025 + p.y*0.5, -p.y) - rInner*0.4) - passRadius * 0.01;
+        
+        dist = min(min(ring1, ring2), min(ring3, min(starDist, tri1)));
     } else {
         dist = sdCircle(p, passRadius);
     }
@@ -201,6 +223,13 @@ void main() {
         // Elliptical shield keeps a tighter and cleaner edge glow.
         float ringGlowFactor = 1.0 - smoothstep(0.0, passRadius * 0.12, dist);
         finalGlowAlpha = passGlowColor.a * ringGlowFactor * 0.56;
+    }
+    if (passType >= 5.5 && passType < 6.5) {
+        // Magic Array glow is soft but contained within the outer boundary
+        float arrayGlowFactor = 1.0 - smoothstep(0.0, passRadius * 0.2, dist);
+        // Base ground illumination from the array's core filling the void
+        float groundIllum = 1.0 - smoothstep(passRadius * 0.2, passRadius, length(pBase));
+        finalGlowAlpha = max(passGlowColor.a * arrayGlowFactor * 0.6, passGlowColor.a * groundIllum * 0.2);
     }
     
     // Composite

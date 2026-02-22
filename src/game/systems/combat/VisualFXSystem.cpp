@@ -185,6 +185,59 @@ void VisualFXSystem::Update(entt::registry &registry, float dt) {
         "[BladeWardVFX] wards={} submitted={} sampleRemaining={:.2f} visibility={:.2f}",
         wardCount, submittedEffects, sampleRemaining, sampleVisibility);
   }
+
+  // 3. Sword Array Visuals (Type 6: Magic Grid Formation)
+  auto array_view = registry.view<SwordArrayComponent, Position>();
+  for (auto entity : array_view) {
+    const auto &arrayInfo = array_view.get<SwordArrayComponent>(entity);
+    const auto &pos = array_view.get<Position>(entity);
+
+    // Fade in / out based on duration (from SwordArray :: Update we see duration decreases to 0)
+    // Assume max duration was 5.0f. Use simple crossfade based on remaining time.
+    const float remaining = arrayInfo.duration;
+    const float fadeIn = std::clamp((5.0f - remaining) / 0.3f, 0.0f, 1.0f);
+    const float fadeOut = std::clamp(remaining / 0.4f, 0.0f, 1.0f);
+    const float visibility = std::min(fadeIn, fadeOut);
+    
+    // Slower rotation for the array
+    float rotateAngle = wardTimer * 1.5f;
+
+    components::GPUSkillEffect formation = {};
+    formation.position = {pos.x, pos.y};
+    formation.velocity = {std::cos(rotateAngle), std::sin(rotateAngle)};
+    formation.radius = arrayInfo.radius;
+    formation.sectorAngle = 360.0f;
+    formation.type = 6.0f;
+    formation.flags = 0u;
+    
+    // Core and glow colors pulled from the component, which supports elemental conversion
+    Color coreC = arrayInfo.core_color;
+    Color glowC = arrayInfo.glow_color;
+    
+    formation.coreColor = {
+        coreC.r / 255.0f, 
+        coreC.g / 255.0f, 
+        coreC.b / 255.0f, 
+        0.85f * visibility
+    };
+    formation.glowColor = {
+        glowC.r / 255.0f, 
+        glowC.g / 255.0f, 
+        glowC.b / 255.0f, 
+        0.65f * visibility
+    };
+
+    skillFx.Submit(formation);
+
+    // Optional: add a counter-rotating inner layer for complexity
+    components::GPUSkillEffect innerFormation = formation;
+    float counterAngle = -wardTimer * 2.2f + 1.0f;
+    innerFormation.velocity = {std::cos(counterAngle), std::sin(counterAngle)};
+    innerFormation.radius = arrayInfo.radius * 0.75f;
+    innerFormation.coreColor.w *= 0.7f;
+    innerFormation.glowColor.w *= 0.5f;
+    skillFx.Submit(innerFormation);
+  }
 }
 
 } // namespace NoMoreDay::systems
