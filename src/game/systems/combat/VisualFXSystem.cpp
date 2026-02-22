@@ -1,5 +1,7 @@
 #include "game/systems/combat/VisualFXSystem.hpp"
+#include "core/logging/Logger.hpp"
 #include "core/utils/FrameRateUtils.hpp"
+#include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
@@ -9,6 +11,7 @@
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "raymath.h"
+#include <algorithm>
 #include <string>
 
 namespace NoMoreDay::systems {
@@ -109,34 +112,78 @@ void VisualFXSystem::Initialize(entt::registry &registry) {
 void VisualFXSystem::Update(entt::registry &registry, float dt) {
   // Sword Intent global visuals are owned by SwordIntentVisualSystem to avoid
   // duplicate emissions and to keep quality-tier fallback centralized.
-  auto &particleSys = GPUParticleSystem::Get();
+  auto &skillFx = GPUSkillEffectSystem::Get();
 
-  // 2. Blade Ward Visuals (Orbiting Swords)
+  // 2. Blade Ward Visuals (Option A refined: persistent elliptical shield)
   auto ward_view = registry.view<BladeWardComponent, Position>();
+  static float wardTimer = 0.0f;
+  wardTimer += dt;
+  int wardCount = 0;
+  int submittedEffects = 0;
+  float sampleRemaining = 0.0f;
+  float sampleVisibility = 0.0f;
   for (auto entity : ward_view) {
     const auto &ward = ward_view.get<BladeWardComponent>(entity);
     const auto &pos = ward_view.get<Position>(entity);
+    ++wardCount;
 
-    static float wardTimer = 0.0f;
-    wardTimer += dt;
+    const float wardDuration = std::max(0.01f, ward.duration);
+    const float fadeIn = std::clamp((wardDuration - ward.remaining) / 0.24f,
+                                    0.0f, 1.0f);
+    const float fadeOut = std::clamp(ward.remaining / 0.35f, 0.0f, 1.0f);
+    const float visibility = std::min(fadeIn, fadeOut);
+    const float shimmer = 0.5f + 0.5f * std::sin(wardTimer * 1.8f);
 
-    if (utils::FrameRateUtils::ShouldTrigger(
-            15.0f * std::max(1, ward.sword_count), dt)) {
-      for (int i = 0; i < ward.sword_count; ++i) {
-        components::GPUParticle p;
-        float angle =
-            wardTimer * 3.0f + (i * 2.0f * PI / std::max(1, ward.sword_count));
-        float r = 35.0f;
-        p.position = {pos.x + cosf(angle) * r, pos.y + sinf(angle) * r};
-        p.velocity = {0, 0};
-        p.color = ColorAlpha(SKYBLUE, 0.4f);
-        p.lifetime = 0.15f;
-        p.maxLifetime = 0.15f;
-        p.scale = 2.0f;
-        p.flags = 13; // Sword shape
-        particleSys.Emit(p);
-      }
-    }
+    components::GPUSkillEffect coreShield = {};
+    coreShield.position = {pos.x, pos.y};
+    coreShield.velocity = {0.0f, 0.0f};
+    coreShield.radius = 50.0f;
+    coreShield.sectorAngle = 360.0f;
+    coreShield.type = 5.0f;
+    coreShield.flags = 0u;
+    coreShield.coreColor = {0.30f, 0.72f, 1.00f, 0.42f * visibility};
+    coreShield.glowColor = {0.52f, 0.88f, 1.00f, 0.36f * visibility};
+    skillFx.Submit(coreShield);
+    ++submittedEffects;
+
+    components::GPUSkillEffect outerShield = coreShield;
+    outerShield.radius = 58.0f;
+    outerShield.coreColor = {0.36f, 0.78f, 1.00f, 0.24f * visibility};
+    outerShield.glowColor = {0.64f, 0.93f, 1.00f, 0.24f * visibility};
+    skillFx.Submit(outerShield);
+    ++submittedEffects;
+
+    // Elliptical flow shell: low-alpha moving glint, no sector/fan artifact.
+    components::GPUSkillEffect flowShield = coreShield;
+    const float flowAngle = wardTimer * 2.8f;
+    flowShield.velocity = {std::cos(flowAngle), std::sin(flowAngle)};
+    flowShield.radius = 54.0f;
+    flowShield.coreColor = {0.70f, 0.93f, 1.00f, 0.24f * visibility};
+    flowShield.glowColor = {0.86f, 0.98f, 1.00f,
+                            (0.30f + 0.10f * shimmer) * visibility};
+    skillFx.Submit(flowShield);
+    ++submittedEffects;
+
+    components::GPUSkillEffect counterFlowShield = flowShield;
+    const float counterFlowAngle = -wardTimer * 2.1f + 1.3f;
+    counterFlowShield.velocity = {std::cos(counterFlowAngle),
+                                  std::sin(counterFlowAngle)};
+    counterFlowShield.radius = 52.0f;
+    counterFlowShield.coreColor = {0.66f, 0.90f, 1.00f, 0.14f * visibility};
+    counterFlowShield.glowColor = {0.84f, 0.97f, 1.00f,
+                                   (0.22f + 0.07f * shimmer) * visibility};
+    skillFx.Submit(counterFlowShield);
+    ++submittedEffects;
+
+    sampleRemaining = ward.remaining;
+    sampleVisibility = visibility;
+  }
+
+  if (wardCount > 0) {
+    LOG_LIMITED_INFO(
+        1.0f,
+        "[BladeWardVFX] wards={} submitted={} sampleRemaining={:.2f} visibility={:.2f}",
+        wardCount, submittedEffects, sampleRemaining, sampleVisibility);
   }
 }
 

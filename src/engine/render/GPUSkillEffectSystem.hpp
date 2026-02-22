@@ -104,6 +104,7 @@ private:
     core::ComputeBuffer m_gpuBuffer; // SSBO
     
     Shader m_shader = { 0 };
+    int m_timeLoc = -1;
     unsigned int m_quadVAO = 0;
     unsigned int m_quadVBO = 0;
     

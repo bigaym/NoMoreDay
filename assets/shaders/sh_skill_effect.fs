@@ -8,6 +8,7 @@ in float passAngle;    // Sector Half-Angle? No, assuming full angle spread for 
 in float passRadius;   // The radius boundary in local space (e.g. 0.8)
 flat in uint passFlags;
 in float passType;
+uniform float uTime;
 
 out vec4 finalColor;
 
@@ -56,6 +57,7 @@ void main() {
     float angle = atan(passDirection.y, passDirection.x);
     // Rotate localPos by angle (which results in -angle rotation due to matrix implementation)
     vec2 p = rotate(localPos, angle);
+    vec2 pBase = localPos;
     
     float dist = 0.0;
     
@@ -118,7 +120,7 @@ void main() {
         
         // Union: min(dBlade, dGuard)
         dist = min(dBlade, dGuard);
-    } else {
+    } else if (passType < 3.5) {
         // Type 3: Crescent Wave (Moon / Sword Wave)
         // Convex shape facing Right (+X).
         
@@ -139,6 +141,20 @@ void main() {
         // Hard clip the back to prevent wrapping artifacts if parameters are extreme
         // Ensure x > -rOuter
         // dist = max(dist, -p.x - rOuter);
+    } else if (passType < 4.5) {
+        // Type 4: Shield Ring (Annulus)
+        float ringRadius = passRadius * 0.84;
+        float ringHalfWidth = passRadius * 0.11;
+        dist = abs(length(p) - ringRadius) - ringHalfWidth;
+    } else if (passType < 5.5) {
+        // Type 5: Elliptical Shield Ring
+        const vec2 ellipseAxis = vec2(0.82, 1.08); // X narrower, Y taller.
+        vec2 ep = vec2(pBase.x / ellipseAxis.x, pBase.y / ellipseAxis.y);
+        float ringRadius = passRadius * 0.82;
+        float ringHalfWidth = passRadius * 0.11;
+        dist = abs(length(ep) - ringRadius) - ringHalfWidth;
+    } else {
+        dist = sdCircle(p, passRadius);
     }
     
     // SDF Rendering logic
@@ -176,6 +192,16 @@ void main() {
     vec3 finalGlowColor =
         NmdSelectElementPalette(elementType, passGlowColor.rgb);
     float finalGlowAlpha = passGlowColor.a * glowFactor * 0.4; // Reduced intesity (was 0.8)
+    if (passType >= 3.5 && passType < 4.5) {
+        // Shield ring should have tight glow, not a large breathing haze.
+        float ringGlowFactor = 1.0 - smoothstep(0.0, passRadius * 0.14, dist);
+        finalGlowAlpha = passGlowColor.a * ringGlowFactor * 0.52;
+    }
+    if (passType >= 4.5 && passType < 5.5) {
+        // Elliptical shield keeps a tighter and cleaner edge glow.
+        float ringGlowFactor = 1.0 - smoothstep(0.0, passRadius * 0.12, dist);
+        finalGlowAlpha = passGlowColor.a * ringGlowFactor * 0.56;
+    }
     
     // Composite
     if (dist <= 0.0) {
@@ -185,6 +211,94 @@ void main() {
         color = finalGlowColor;
         alpha = finalGlowAlpha;
     }
+
+    if (passType >= 2.5 && passType < 3.5) {
+        // Skill 2 crescent:
+        // Primary emissive focus is on the blade arc; inner disc stays nearly transparent.
+        float pr = max(passRadius, 1e-4);
+        float px = p.x / pr;
+
+        float edgeMask = 1.0 - smoothstep(pr * 0.02, pr * 0.30, abs(dist));
+        float bladeForwardMask = smoothstep(-0.18, 0.95, px);
+        vec2 bladeSourceCenter = vec2(pr * 0.64, 0.0);
+        float bladeSourceDist = length(p - bladeSourceCenter);
+        float bladeSourceMask = 1.0 - smoothstep(pr * 0.16, pr * 1.02, bladeSourceDist);
+        float bladeGlowMask = clamp(edgeMask * bladeForwardMask * bladeSourceMask, 0.0, 1.0);
+
+        float outsideDist = max(dist, 0.0);
+        float outerAura =
+            (1.0 - smoothstep(pr * 0.02, pr * 0.42, outsideDist)) * bladeForwardMask;
+
+        vec3 bladeGlowColor = mix(finalGlowColor, vec3(1.0), 0.48);
+        color += bladeGlowColor * (bladeGlowMask * 1.02 + outerAura * 0.58);
+        color = mix(color, vec3(1.0), bladeGlowMask * 0.38 + outerAura * 0.16);
+        alpha = max(alpha, passGlowColor.a * (bladeGlowMask * 0.52 + outerAura * 0.24));
+
+        // Inner-disc remnant: extremely faint and highly transparent.
+        float rInner = pr * 0.85;
+        float shift = pr * 0.25;
+        vec2 sourceCenter = vec2(-shift, 0.0);
+        float sourceDist = length(p - sourceCenter);
+        float holeMask = smoothstep(0.0, pr * 0.05, dist);
+        float innerMask = 1.0 - smoothstep(rInner * 0.72, rInner * 1.01, sourceDist);
+        float sourceMask = holeMask * innerMask;
+        float innerRimMask = 1.0 - smoothstep(pr * 0.015, pr * 0.11, abs(sourceDist - rInner));
+        float cavityClipMask = smoothstep(rInner * 1.06, rInner * 1.14, sourceDist);
+
+        // Hard suppress cavity glow and inner-rim visibility.
+        color *= (1.0 - sourceMask * 0.98);
+        alpha *= (1.0 - sourceMask * 0.995);
+        alpha *= (1.0 - innerRimMask * 0.90);
+        color *= cavityClipMask;
+        alpha *= cavityClipMask;
+    }
+
+    if (passType >= 4.5 && passType < 5.5) {
+        // Moving blue sheen bound to ellipse rim (no sector artifacts).
+        const vec2 ellipseAxis = vec2(0.82, 1.08);
+        vec2 ep = vec2(pBase.x / ellipseAxis.x, pBase.y / ellipseAxis.y);
+        vec2 epDir = normalize(ep + vec2(1e-4, 1e-4));
+        vec2 flowDir = normalize(passDirection + vec2(1e-4, 1e-4));
+        float theta = atan(ep.y, ep.x);
+        float ellipseLen = length(ep);
+
+        float ringMask = 1.0 - smoothstep(passRadius * 0.03, passRadius * 0.16, abs(dist));
+        float sweep = pow(max(dot(epDir, flowDir), 0.0), 6.0);
+        float trail = pow(max(dot(epDir, -flowDir), 0.0), 9.0);
+        float bandA = 0.5 + 0.5 * sin(theta * 10.0 - uTime * 4.8 + ellipseLen * 7.0);
+        float bandB = 0.5 + 0.5 * sin(theta * 14.0 + uTime * 5.4 - ellipseLen * 9.0);
+        float flowMask =
+            ringMask * (sweep * 0.78 + trail * 0.28 + pow(bandA, 4.0) * 0.72 + pow(bandB, 5.0) * 0.58);
+
+        vec3 sheenColor = mix(passGlowColor.rgb, vec3(0.95, 0.99, 1.00), 0.45);
+        color += sheenColor * flowMask * 0.72;
+        alpha = max(alpha, passGlowColor.a * flowMask * 0.62);
+
+        // Dynamic membrane inside ellipse body.
+        float fillMask = 1.0 - smoothstep(passRadius * 0.78, passRadius * 1.04, ellipseLen);
+        float membraneNoise = 0.5 + 0.5 * sin(ep.x * 18.0 + ep.y * 13.0 + uTime * 2.7);
+        float membrane = fillMask * (0.26 + 0.74 * membraneNoise);
+        vec3 membraneColor = mix(vec3(0.26, 0.62, 0.96), vec3(0.70, 0.90, 1.00), membraneNoise * 0.60);
+        color = mix(color, membraneColor, membrane * 0.46);
+        alpha = max(alpha, passCoreColor.a * membrane * 0.58);
+
+        // Electric rim sparks around the ellipse boundary.
+        float arcNoise = 0.5 + 0.5 * sin(theta * 32.0 + uTime * 8.6 +
+                                         sin(theta * 7.0 - uTime * 3.7) * 2.1);
+        float arcMask = ringMask * pow(arcNoise, 9.0);
+        vec3 arcColor = vec3(0.80, 0.95, 1.00);
+        color += arcColor * arcMask * 0.88;
+        alpha = max(alpha, passGlowColor.a * arcMask * 0.46);
+
+        // Moving specular highlight, similar to a glossy shield shell.
+        vec2 specDir = normalize(vec2(cos(uTime * 1.4), sin(uTime * 1.4)));
+        float specular = pow(max(dot(epDir, specDir), 0.0), 22.0) * ringMask;
+        color += vec3(1.0) * specular * 0.52;
+        alpha = max(alpha, passGlowColor.a * specular * 0.35);
+    }
+
+    color = clamp(color, vec3(0.0), vec3(1.0));
+    alpha = clamp(alpha, 0.0, 1.0);
     
     finalColor = vec4(color, alpha);
 }

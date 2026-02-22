@@ -294,8 +294,9 @@ void LightingPass::Execute(graph::RenderContext &context) {
     }
   }
   if (m_lastUsedV2Fallback && !m_lastShadowFallbackReason.empty()) {
-    LOG_WARN("ShadowFallback: frame={} reason={} fallback=V2Lighting", m_frameIndex,
-             m_lastShadowFallbackReason);
+    LOG_LIMITED_WARN(
+        1.0f, "ShadowFallback: frame={} reason={} fallback=V2Lighting",
+        m_frameIndex, m_lastShadowFallbackReason);
   }
   if (m_shadowEnabledLoc >= 0) {
     SetShaderValue(m_lightAccumShader, m_shadowEnabledLoc, &shadowEnabled,

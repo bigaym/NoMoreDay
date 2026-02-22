@@ -445,7 +445,7 @@ struct GPUSkillEffect {
   float radius = 0.0f;                          // 4
   float sectorAngle = 0.0f;                     // 4 (Degrees)
   uint32_t flags = 0u;                          // 4 (low 4 bits: elementType)
-  float type = 0.0f; // 4 (0=Fan/Sector, 1=Annulus/Circle, 2=Beam)
+  float type = 0.0f; // 4 (0=Fan,1=Disc,2=Blade,3=Crescent,4=Ring,5=EllipseRing)
 
   GPUSkillEffect() = default;
 };

@@ -118,6 +118,8 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
 
     // BladeWardComponent Logic
     auto &ward = registry.get_or_emplace<BladeWardComponent>(owner);
+    ward.duration = ward_buff.duration;
+    ward.remaining = ward_buff.duration;
     ward.sword_count = 3;
     ward.interception_chance = 0.3f;
     ward.is_solidified = false;

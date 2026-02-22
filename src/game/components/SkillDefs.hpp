@@ -456,6 +456,7 @@ struct SwordIntentComponent {
  * @brief Logic state for Blade Ward (ID 4)
  */
 struct BladeWardComponent {
+  float duration = 10.0f;
   float remaining = 10.0f;
   int sword_count = 3;
   float interception_chance = 0.15f;

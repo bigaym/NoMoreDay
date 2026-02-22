@@ -395,6 +395,7 @@ void GPUSkillEffectSystem::Init(ResourceManager &rm, int maxEffects) {
                           "assets/shaders/sh_skill_effect.fs");
   }
   m_shader.locs[SHADER_LOC_MATRIX_MVP] = GetShaderLocation(m_shader, "mvp");
+  m_timeLoc = GetShaderLocation(m_shader, "uTime");
   LoadSkillVfxRecipes("assets/data/vfx/blade_ascendant_v3.json");
 
   InitRender();
@@ -1366,6 +1367,10 @@ void GPUSkillEffectSystem::Render(const Camera2D &camera) {
 
   rlEnableShader(m_shader.id);
   rlSetUniformMatrix(m_shader.locs[SHADER_LOC_MATRIX_MVP], finalMvp);
+  if (m_timeLoc >= 0) {
+    const float timeSeconds = static_cast<float>(GetTime());
+    rlSetUniform(m_timeLoc, &timeSeconds, SHADER_UNIFORM_FLOAT, 1);
+  }
 
   using NoMoreDay::RenderConstants::Binding;
   m_gpuBuffer.BindBase(static_cast<uint32_t>(Binding::SSBO_SKILL_EFFECTS));
@@ -1387,6 +1392,7 @@ void GPUSkillEffectSystem::Shutdown() {
   rlUnloadVertexBuffer(m_quadVBO);
 
   m_shader.id = 0;
+  m_timeLoc = -1;
   m_quadVAO = 0;
   m_quadVBO = 0;
   m_maxEffects = 0;

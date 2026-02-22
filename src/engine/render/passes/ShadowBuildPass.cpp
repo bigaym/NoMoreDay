@@ -77,8 +77,9 @@ void ShadowBuildPass::ReportFailure(const char *reason) {
   m_lastExecuteFailure = true;
   m_lastExecuteSuccess = false;
   m_lastFailureReason = reason;
-  LOG_WARN("ShadowFallback: frame={} reason={} fallback=V2Lighting", m_frameIndex,
-           m_lastFailureReason);
+  LOG_LIMITED_WARN(
+      1.0f, "ShadowFallback: frame={} reason={} fallback=V2Lighting",
+      m_frameIndex, m_lastFailureReason);
 }
 
 void ShadowBuildPass::MarkSuccess() {

@@ -1277,7 +1277,26 @@ void SkillSystem::Update(entt::registry &registry,
   auto ward_view = registry.view<BladeWardComponent>();
   for (auto entity : ward_view) {
     auto &ward = ward_view.get<BladeWardComponent>(entity);
-    ward.remaining -= dt;
+
+    const auto *effects = registry.try_get<ActiveEffectsComponent>(entity);
+    const BuffEffect *wardBuff = nullptr;
+    if (effects != nullptr) {
+      for (const auto &effect : effects->effects) {
+        if (effect.id == "blade_ward") {
+          wardBuff = &effect;
+          break;
+        }
+      }
+    }
+
+    if (wardBuff != nullptr) {
+      ward.duration = std::max(0.01f, wardBuff->duration);
+      ward.remaining = wardBuff->remaining;
+    } else {
+      // Fallback path for missing buff entry: decay locally and exit.
+      ward.remaining -= dt;
+    }
+
     if (ward.remaining <= 0.0f) {
       SkillExecutionContext wardExitContext = BuildSkillVfxContextFromEvent(
           registry, entity, 4u, 0u, ResolveEntityWorldPosition(registry, entity));

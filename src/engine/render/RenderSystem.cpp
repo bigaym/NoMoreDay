@@ -694,10 +694,10 @@ void ExecuteVFXPass(RenderFrameData &frame) {
     float visualRadius = (proj.radius > 1.0f) ? proj.radius : 5.0f;
     float visualArc = (proj.arcWidth > 0.0f) ? proj.arcWidth : 45.0f;
     if (projectileSkillId == 2u) {
-      // Skill 2 moon blades are intentionally rendered slimmer than their
-      // gameplay radius to avoid oversized crescents while keeping hit logic.
-      visualRadius = std::clamp(visualRadius * 0.62f, 8.0f, 22.0f);
-      visualArc = std::clamp(visualArc * 0.72f, 30.0f, 70.0f);
+      // Skill 2 moon blades remain slightly slimmer than gameplay hit size,
+      // but should still scale with specialization (e.g. larger blade nodes).
+      visualRadius = std::max(8.0f, visualRadius * 0.62f);
+      visualArc = std::max(30.0f, visualArc * 0.72f);
     }
     eff.radius = visualRadius;
     eff.sectorAngle = visualArc;
@@ -1757,7 +1757,7 @@ void RenderSystem::render(entt::registry &registry,
       }));
   sceneHdrOwner = RenderOwnerTag::Scene;
 
-  if (renderConfig.v3Enabled) {
+  if (renderConfig.v3Enabled && useHdrSceneBuffer) {
     if (g_shadowPreparePass != nullptr) {
       graph.AddPass(g_shadowPreparePass);
     }
@@ -1770,6 +1770,12 @@ void RenderSystem::render(entt::registry &registry,
     if (g_lightCullingPass != nullptr) {
       graph.AddPass(g_lightCullingPass);
     }
+  } else if (renderConfig.v3Enabled && !useHdrSceneBuffer) {
+    LOG_LIMITED_WARN(
+        3.0f,
+        "RenderSystem: skip V3 shadow/cluster passes because HDR scene buffer is disabled "
+        "(compositeFbo={})",
+        compositeTarget.framebuffer);
   }
 
   if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled &&

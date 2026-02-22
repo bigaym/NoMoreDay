@@ -102,8 +102,8 @@ void LightCullingPass::ReportFailure(const char *reason) {
   m_lastExecuteFailure = true;
   m_lastExecuteSuccess = false;
   m_lastFailureReason = (reason != nullptr) ? reason : "unknown";
-  LOG_WARN("LightCullingPass fallback: frame={} reason={}", m_frameIndex,
-           m_lastFailureReason);
+  LOG_LIMITED_WARN(1.0f, "LightCullingPass fallback: frame={} reason={}",
+                   m_frameIndex, m_lastFailureReason);
 }
 
 void LightCullingPass::MarkSuccess() {

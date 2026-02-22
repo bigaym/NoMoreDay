@@ -1224,7 +1224,7 @@
       "name_key": "剑气护体",
       "desc_key": "旋转剑影环绕自身，拦截投射物并提供减伤。",
       "mana_cost": 30.0,
-      "cooldown": 15.0,
+      "cooldown": 1.0,
       "tags": [
         "Physical",
         "Spell",
@@ -1620,7 +1620,7 @@
       "name_key": "万剑归宗",
       "desc_key": "引导技能，向全屏发射密集剑气。",
       "mana_cost": 100.0,
-      "cooldown": 60.0,
+      "cooldown": 1.0,
       "tags": [
         "Physical",
         "Spell",
@@ -1981,7 +1981,7 @@
       "name_key": "剑阵·诛仙",
       "desc_key": "在目标区域召唤持续伤害剑阵。",
       "mana_cost": 50.0,
-      "cooldown": 10.0,
+      "cooldown": 1.0,
       "tags": [
         "Physical",
         "Spell",
@@ -3014,7 +3014,7 @@
       "name_key": "绝影闪",
       "desc_key": "看破状态，受到攻击立即反击。",
       "mana_cost": 30.0,
-      "cooldown": 8.0,
+      "cooldown": 1.0,
       "tags": [
         "Physical",
         "Attack",
