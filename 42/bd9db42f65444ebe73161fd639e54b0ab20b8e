@@ -1,0 +1,1 @@
+Visual enhancements for the procedural galaxy background rendering. Key changes: 1. Converted to trailing spiral arms. 2. Implemented a faux-3D Gargantua-style accretion disk. 3. Added a simulated gravitational lens. 4. Carved out a central Core Void.
