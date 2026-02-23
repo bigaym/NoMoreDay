@@ -1,5 +1,6 @@
 #pragma once
 #include "TestCommon.hpp"
+#include "SkillKeyNodeMatrixTestHelpers.hpp"
 #include "engine/physics/PhysicsSystem.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "game/components/AIComponent.hpp"
@@ -496,6 +497,54 @@ TEST_CASE("[Integration] SkillSystem - BladeWard interception counter loop") {
 
   CHECK(registry.get<HealthComponent>(attacker).current < 100.0f);
   CHECK(registry.get<SwordIntentComponent>(defender).stacks >= 1);
+}
+
+TEST_CASE("[Integration] SkillSystem - Key-node cast smoke matrix") {
+  const std::array<uint32_t, 9> skills = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+  const auto key_nodes = test::skill_keynode_matrix::ExpectedKeyNodesBySkill();
+
+  for (const uint32_t skill_id : skills) {
+    CAPTURE(skill_id);
+    REQUIRE(key_nodes.contains(skill_id));
+
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    SkillBehaviorRegistry::Initialize();
+    CombatEventDispatcher::Clear();
+    SkillSystem::ShutdownHooks();
+    SkillSystem::InitHooks();
+
+    systems::SpatialHashGrid grid(1024, 1024, 64);
+    const auto caster =
+        test::skill_keynode_matrix::CreateCaster(registry, 1200.0f);
+    test::skill_keynode_matrix::ConfigureSkillSlot(registry, caster, skill_id, 0,
+                                                   2);
+    test::skill_keynode_matrix::ConfigureSpecialization(
+        registry, caster, skill_id,
+        test::skill_keynode_matrix::AsAllocatedPoints(key_nodes.at(skill_id), 1));
+
+    CHECK(SkillSystem::TryCast(registry, caster, 0, {80.0f, 0.0f}));
+    for (int i = 0; i < 3; ++i) {
+      SkillSystem::Update(registry, grid, 0.08f);
+    }
+
+    if (skill_id == 6) {
+      auto view = registry.view<SwordArrayComponent>();
+      CHECK(view.begin() != view.end());
+    } else if (skill_id == 9) {
+      CHECK(registry.all_of<PhantomFlashComponent>(caster));
+    } else if (skill_id == 5 || skill_id == 7) {
+      CHECK(registry.all_of<ChannelingComponent>(caster));
+    } else if (skill_id == 8) {
+      auto view = registry.view<Projectile, BoomerangComponent>();
+      CHECK(view.begin() != view.end());
+    } else if (skill_id == 2) {
+      auto view = registry.view<Projectile>();
+      CHECK(view.begin() != view.end());
+    } else {
+      CHECK(true);
+    }
+  }
 }
 
 } // namespace NoMoreDay

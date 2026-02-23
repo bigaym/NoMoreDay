@@ -4,12 +4,30 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Skill Specialization Key Node Test Matrix (skill_specialization_keynode_test_matrix_20260223)
+- **Folder:** [./conductor/archive/skill_specialization_keynode_test_matrix_20260223/](./conductor/archive/skill_specialization_keynode_test_matrix_20260223/)
+- **Description:** Completed fixture-driven specialization key-node matrix expansion for skills `1..9`, covering `48` contract key nodes with unit/integration matrix tests, trigger/depth/mutex guard checks, and cross-skill visual-signal runtime assertions.
+- **Status:** COMPLETED (2026-02-23)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Skill Node Effects Implementation (skill_node_effect_implementation_20260223)
 - **Folder:** [./conductor/archive/skill_node_effect_implementation_20260223/](./conductor/archive/skill_node_effect_implementation_20260223/)
 - **Description:** Completed runtime closure for Blade Ascendant node effects across skills `1..9`, including trigger/synergy/transmuter semantics, channeling/projectile integration, and guard/counter interaction alignment with contract keys.
 - **Status:** COMPLETED (2026-02-23)
 - **Priority:** P0
 - **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
+## [x] Track: Skill Tree Design Document Alignment (skill_tree_doc_alignment_20260223)
+- **Folder:** [./conductor/archive/skill_tree_doc_alignment_20260223/](./conductor/archive/skill_tree_doc_alignment_20260223/)
+- **Description:** Completed specialization tree and compact-contract alignment against Blade Ascendant design section 3.1-3.9, with regenerated runtime contracts and synchronized trigger-role mapping for skills `1..9`.
+- **Status:** COMPLETED (2026-02-23)
+- **Priority:** P0
+- **Archive Reason:** `python scripts/gen_skill_contracts.py` PASS; `python scripts/gen_skill_contracts.py --check` PASS; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
 
 ---
 

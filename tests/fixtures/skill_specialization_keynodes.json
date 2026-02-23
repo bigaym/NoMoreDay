@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "skills": [
+    {
+      "skill_id": 1,
+      "key_nodes": [113, 114, 130, 152, 170, 171],
+      "expected_layers": ["CastState", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    },
+    {
+      "skill_id": 2,
+      "key_nodes": [230, 233, 250, 252, 270],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    },
+    {
+      "skill_id": 3,
+      "key_nodes": [330, 352, 370, 371, 373],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy"]
+    },
+    {
+      "skill_id": 4,
+      "key_nodes": [430, 451, 452, 470, 471],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    },
+    {
+      "skill_id": 5,
+      "key_nodes": [530, 533, 552, 570, 571],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    },
+    {
+      "skill_id": 6,
+      "key_nodes": [630, 633, 652, 670, 671],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    },
+    {
+      "skill_id": 7,
+      "key_nodes": [713, 730, 750, 752, 770],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    },
+    {
+      "skill_id": 8,
+      "key_nodes": [813, 830, 831, 852, 870, 871],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    },
+    {
+      "skill_id": 9,
+      "key_nodes": [913, 930, 950, 951, 952, 970],
+      "expected_layers": ["CastState", "RuntimeTick", "CombatEvent", "TagConversion", "GuardPolicy", "VisualSignalGuard"]
+    }
+  ]
+}
+

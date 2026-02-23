@@ -1,4 +1,5 @@
 #include "TestCommon.hpp"
+#include "SkillKeyNodeMatrixTestHelpers.hpp"
 #include "engine/physics/SpatialGrid.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
@@ -325,6 +326,49 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     const auto *intent = registry.try_get<SwordIntentComponent>(player);
     REQUIRE(intent != nullptr);
     CHECK(intent->stacks >= 1);
+  }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key nodes") {
+  auto &skill_registry = SkillRegistry::Get();
+  skill_registry.LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+
+  const std::array<std::pair<uint32_t, uint32_t>, 7> trigger_matrix = {{
+      {3u, 373u},
+      {4u, 451u},
+      {5u, 533u},
+      {6u, 633u},
+      {7u, 713u},
+      {8u, 831u},
+      {9u, 951u},
+  }};
+
+  for (const auto &[skill_id, trigger_node] : trigger_matrix) {
+    CAPTURE(skill_id);
+    CAPTURE(trigger_node);
+
+    entt::registry registry;
+    CombatEventDispatcher::Clear();
+    SkillSystem::ShutdownHooks();
+    SkillSystem::InitHooks();
+
+    const auto caster =
+        test::skill_keynode_matrix::CreateCaster(registry, 800.0f);
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry);
+    test::skill_keynode_matrix::ConfigureSpecialization(
+        registry, caster, skill_id, {{trigger_node, 1}});
+
+    const auto before = registry.storage<SkillExecution>().size();
+    test::skill_keynode_matrix::DispatchSkillHit(
+        registry, caster, target, skill_id, static_cast<uint64_t>(9900 + skill_id));
+    const auto after = registry.storage<SkillExecution>().size();
+    CHECK(after > before);
+
+    const auto *runtime =
+        registry.try_get<SkillContractRuntimeComponent>(caster);
+    REQUIRE(runtime != nullptr);
+    CHECK(runtime->trigger_cooldowns.contains(trigger_node));
   }
 }
 

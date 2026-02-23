@@ -34,3 +34,10 @@
 - `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` -> PASS
 - `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` -> PASS
 
+## Re-Alignment Addendum (2026-02-23)
+
+- A second design-config audit is recorded at:
+  - `conductor/specs/blade_ascendant_design_config_alignment_20260223.md`
+- Decision: current config remains the compatibility baseline (no disruptive ID reshuffle in this pass).
+- Follow-up implementation track created for semantic closure of newly aligned nodes:
+  - `skill_node_effect_implementation_20260223`

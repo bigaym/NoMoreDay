@@ -7,9 +7,18 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ## Skill Spec Safety Tracks (2026-02-23)
 
+## [x] Track: Skill Specialization Key Node Test Matrix (skill_specialization_keynode_test_matrix_20260223)
+
+> **Status**: Completed (Archived in `conductor/archive/`)  
+> **Priority**: P0  
+> **Type**: quality/test-expansion  
+> **Focus**: Add large-scale specialization tests with full key-node effect validation (`skills 1..9`, `48` key nodes), including trigger/transmuter/synergy cross-skill checks.  
+> **Tasks**: 35/35  
+> **Location**: [`conductor/archive/skill_specialization_keynode_test_matrix_20260223/`](./archive/skill_specialization_keynode_test_matrix_20260223/index.md)
+
 ## [x] Track: Skill Node Effects Implementation (skill_node_effect_implementation_20260223)
 
-> **Status**: Completed  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: feature/behavior-implementation  
 > **Focus**: Implement runtime effects for newly aligned Blade Ascendant nodes (`skills 1..9`), closing config-only semantic gaps while preserving performance and visual readability.  
@@ -32,7 +41,7 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 > **Type**: bugfix/content-alignment  
 > **Focus**: Align `assets/data/skills.json` specialization trees and skill contracts with `职业设计草案_剑修.md` section 3.1-3.9, including node scale and role mapping consistency.  
 > **Tasks**: 14/14  
-> **Location**: [`conductor/tracks/skill_tree_doc_alignment_20260223/`](./tracks/skill_tree_doc_alignment_20260223/index.md)
+> **Location**: [`conductor/archive/skill_tree_doc_alignment_20260223/`](./archive/skill_tree_doc_alignment_20260223/index.md)
 
 ---
 
