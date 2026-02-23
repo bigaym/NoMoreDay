@@ -1,0 +1,1 @@
+track=skill_node_effect_implementation_20260223; verify=build.bat+ctest(unit/integration/ci) PASS; archive=conductor/archive/skill_node_effect_implementation_20260223; focus=node effect runtime closure + tests + track sync
