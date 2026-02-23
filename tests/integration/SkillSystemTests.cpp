@@ -420,6 +420,84 @@ TEST_CASE(
   }
 }
 
+TEST_CASE("[Integration] SkillSystem - Boomerang Catch node restores resources") {
+  entt::registry registry;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  systems::SpatialHashGrid grid(100, 100, 50);
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  auto &stats = registry.emplace<CombatStats>(player);
+  stats.mana = 10.0f;
+  stats.max_mana = 100.0f;
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0].id = 8;
+  active.slots[0].cooldown = 2.0f;
+  active.specialized_slots[0].skill_id = 8;
+  active.specialized_slots[0].allocated_points[831] = 2;
+
+  auto projEnt = registry.create();
+  registry.emplace<Position>(projEnt, 0.5f, 0.0f);
+  registry.emplace<Velocity>(projEnt, -10.0f, 0.0f);
+  auto &proj = registry.emplace<Projectile>(projEnt);
+  proj.owner = player;
+  proj.radius = 12.0f;
+  proj.speed = 400.0f;
+  proj.lifeTime = 2.0f;
+  registry.emplace<SkillComponent>(projEnt, 8u, player);
+  auto &boom = registry.emplace<BoomerangComponent>(projEnt);
+  boom.owner = player;
+  boom.phase = BoomerangComponent::Returning;
+  boom.returnSpeed = 400.0f;
+
+  ProjectileSystem::Update(registry, grid, 0.016f);
+
+  CHECK(stats.mana > 10.0f);
+  CHECK(active.slots[0].cooldown < 2.0f);
+  CHECK_FALSE(registry.valid(projEnt));
+}
+
+TEST_CASE("[Integration] SkillSystem - BladeWard interception counter loop") {
+  entt::registry registry;
+  systems::SpatialHashGrid grid(100, 100, 50);
+
+  auto defender = registry.create();
+  registry.emplace<PlayerTag>(defender);
+  registry.emplace<Position>(defender, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(defender);
+  registry.emplace<SwordIntentComponent>(defender).stacks = 0;
+  auto &ward = registry.emplace<BladeWardComponent>(defender);
+  ward.sword_count = 2;
+  ward.interception_chance = 1.0f;
+  ward.trigger_counter = true;
+  ward.has_blink_counter = true;
+  ward.has_agile_counter = true;
+  ward.has_rainbow_qi = true;
+
+  auto attacker = registry.create();
+  registry.emplace<EnemyTag>(attacker);
+  registry.emplace<Position>(attacker, 2.0f, 0.0f);
+  registry.emplace<CombatStats>(attacker);
+  registry.emplace<HealthComponent>(attacker, 100.0f, 100.0f);
+
+  auto projEnt = registry.create();
+  registry.emplace<Position>(projEnt, 0.0f, 0.0f);
+  registry.emplace<Velocity>(projEnt, 0.0f, 0.0f);
+  auto &proj = registry.emplace<Projectile>(projEnt);
+  proj.owner = attacker;
+  proj.radius = 20.0f;
+  proj.speed = 0.0f;
+  proj.lifeTime = 1.0f;
+  registry.emplace<SkillComponent>(projEnt, 2u, attacker);
+
+  ProjectileSystem::Update(registry, grid, 0.016f);
+
+  CHECK(registry.get<HealthComponent>(attacker).current < 100.0f);
+  CHECK(registry.get<SwordIntentComponent>(defender).stacks >= 1);
+}
+
 } // namespace NoMoreDay
 
 TEST_CASE("[Bugfix] SkillSystem - UAF Reproduction / Reallocation Safety") {

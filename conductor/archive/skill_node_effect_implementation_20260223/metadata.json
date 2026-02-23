@@ -1,0 +1,16 @@
+{
+  "id": "skill_node_effect_implementation_20260223",
+  "title": "Skill Node Effects Implementation",
+  "type": "feature",
+  "status": "completed",
+  "created": "2026-02-23T11:00:00Z",
+  "updated": "2026-02-23T14:01:26Z",
+  "phases": {
+    "total": 5,
+    "completed": 5
+  },
+  "tasks": {
+    "total": 22,
+    "completed": 22
+  }
+}

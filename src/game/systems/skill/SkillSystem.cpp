@@ -828,6 +828,17 @@ void SkillSystem::InitHooks() {
             LOG_INFO("Phantom Flash Counter Triggered for entity {}!",
                      (uint32_t)victim);
 
+            if (pf->flow_reset) {
+              if (auto *active = registry.try_get<ActiveSkillsComponent>(victim)) {
+                for (auto &slot : active->slots) {
+                  if (slot.id != 8 || slot.cooldown <= 0.0f) {
+                    continue;
+                  }
+                  slot.cooldown = std::max(0.0f, slot.cooldown - 1.5f);
+                }
+              }
+            }
+
             // Logic: Deal counter damage to attacker
             if (registry.all_of<CombatStats>(attacker)) {
               // Create a "Counter Strike" execution
@@ -855,7 +866,10 @@ void SkillSystem::InitHooks() {
                 DamagePool counterPool;
                 const float baseCounterDamage =
                     (std::max)(25.0f, victim_stats->damage_multipliers[0] * 100.0f);
-                counterPool.Add(Tag::Physical, baseCounterDamage);
+                const Tag counterTag =
+                    (pf->enchant_tag != Tag::None) ? pf->enchant_tag : Tag::Physical;
+                const float counterScale = pf->synergy_shadow_hide ? 1.2f : 1.0f;
+                counterPool.Add(counterTag, baseCounterDamage * counterScale);
 
                 const auto counterResult = DamagePipeline::Calculate(
                     registry, victim, attacker, exec.skill_id, counterPool,
@@ -1121,18 +1135,33 @@ void SkillSystem::Update(entt::registry &registry,
         cutPos = {pos.x + 50.0f, pos.y};
       }
 
-      const Tag effectiveTags = GetEffectiveSkillTags(registry, entity, 7u);
-      const uint8_t elementType = EncodeElementTypeFromTags(effectiveTags);
-      bool hasVoidRift = false;
-      if (const auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
-        for (const auto &spec : active->specialized_slots) {
-          if (spec.skill_id == 7u) {
-            hasVoidRift = spec.allocated_points.contains(771u) &&
-                          spec.allocated_points.at(771u) > 0;
-            break;
-          }
+      if (chan.synergy_lock) {
+        float bestDistSq = 450.0f * 450.0f;
+        entt::entity bestTarget = entt::null;
+        grid.query({pos.x, pos.y}, 450.0f,
+                   [&](entt::entity e, const Position &ep) {
+                     if (!registry.any_of<EnemyTag>(e) ||
+                         registry.any_of<KilledTag>(e)) {
+                       return;
+                     }
+                     float distSq = Vector2DistanceSqr({pos.x, pos.y}, {ep.x, ep.y});
+                     if (distSq < bestDistSq) {
+                       bestDistSq = distSq;
+                       bestTarget = e;
+                     }
+                   });
+        if (registry.valid(bestTarget) && registry.all_of<Position>(bestTarget)) {
+          const auto &tp = registry.get<Position>(bestTarget);
+          cutPos = {tp.x, tp.y};
         }
       }
+
+      Tag effectiveTags = GetEffectiveSkillTags(registry, entity, 7u);
+      if (chan.conversion_tag != Tag::None) {
+        effectiveTags = (effectiveTags & ~Tag::Physical) | chan.conversion_tag;
+      }
+      const uint8_t elementType = EncodeElementTypeFromTags(effectiveTags);
+      const bool hasVoidRift = (chan.conversion_tag == Tag::Void);
       const bool isCold = HasTag(effectiveTags, Tag::Cold);
       const bool isLightning = HasTag(effectiveTags, Tag::Lightning);
       const bool isEmpowered = chan.is_empowered;
@@ -1270,6 +1299,15 @@ void SkillSystem::Update(entt::registry &registry,
           Color swordColor = chan.is_empowered
                                  ? GOLD
                                  : ColorAlpha(Color{0, 170, 255, 255}, 0.5f);
+          if (chan.conversion_tag == Tag::Fire) {
+            swordColor = ORANGE;
+          } else if (chan.conversion_tag == Tag::Cold) {
+            swordColor = SKYBLUE;
+          } else if (chan.conversion_tag == Tag::Lightning) {
+            swordColor = PURPLE;
+          } else if (chan.conversion_tag == Tag::Void) {
+            swordColor = Color{120, 90, 180, 255};
+          }
           registry.emplace<ColorComponent>(proj_ent, swordColor);
 
           auto &proj = registry.emplace<Projectile>(proj_ent);
@@ -1285,14 +1323,22 @@ void SkillSystem::Update(entt::registry &registry,
             proj.snapshot = *stats;
             // Scale damage: 35% per sword
             for (auto &mult : proj.snapshot.damage_multipliers) {
-              mult *= 0.35f;
+              mult *= (0.35f * chan.bonus_damage_mult);
             }
+            proj.snapshot.crit_chance += chan.bonus_crit_chance;
+            proj.snapshot.armor_pen += chan.bonus_armor_pen;
           }
 
           // CRITICAL: Add SkillComponent so DamagePipeline knows this is Skill
           // 5
           auto &sc = registry.emplace<SkillComponent>(proj_ent);
           sc.skill_id = 5;
+          if (chan.conversion_tag != Tag::None) {
+            auto &mods = registry.emplace<SkillModifierComponent>(proj_ent);
+            mods.damage_modifiers.push_back(
+                DamageModifier{Tag::Physical, chan.conversion_tag, 1.0f,
+                               ModifierType::Convert});
+          }
 
           // VFX: Flash on spawn
           auto &particleSys = systems::GPUParticleSystem::Get();
@@ -1307,7 +1353,7 @@ void SkillSystem::Update(entt::registry &registry,
           particleSys.Emit(p);
         }
 
-        chan.tick_timer = 0.2f; // Reset timer (Must match tick_interval)
+        chan.tick_timer = std::max(0.08f, chan.tick_interval);
 
       } else if (chan.skill_id == 7) {
         // 1. Calculate Cut Position (Clamped to Range)
@@ -1335,7 +1381,8 @@ void SkillSystem::Update(entt::registry &registry,
         // 2. VFX: random-angle high-frequency cut lines (1-2 per tick)
         auto &particleSys = systems::GPUParticleSystem::Get();
         const int slashCount =
-            isEmpowered ? GetRandomValue(4, 8) : GetRandomValue(2, 4);
+            (isEmpowered ? GetRandomValue(4, 8) : GetRandomValue(2, 4)) +
+            ((chan.bonus_damage_mult > 1.2f) ? 1 : 0);
         for (int s = 0; s < slashCount; ++s) {
           const float slashAngle =
               static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
@@ -1420,7 +1467,7 @@ void SkillSystem::Update(entt::registry &registry,
         auto &proj = registry.emplace<Projectile>(exec_ent);
         proj.owner = entity;
         proj.cast_id = chan.cast_id;
-        proj.radius = 60.0f; // AoE size
+        proj.radius = 60.0f * std::clamp(chan.bonus_damage_mult, 1.0f, 1.35f);
         proj.speed = 0.0f;
         proj.lifeTime = 0.1f; // Instant hit (one frame)
         proj.pierce = true;
@@ -1428,17 +1475,22 @@ void SkillSystem::Update(entt::registry &registry,
 
         // Link stats
         if (auto *stats = registry.try_get<CombatStats>(entity)) {
-          // We can use SkillExecution to snapshot or just pass stats via new
-          // Projectile system features? ProjectileSystem reads owner's stats
-          // via DamagePipeline usually, OR it reads 'proj.snapshot' if we add
-          // it to Projectile component? Looking at ProjectileSystem.cpp:204, it
-          // reads registry.get<CombatStats>(entity) aka Projectile Entity? No,
-          // "damage_attacker = proj.owner". So as long as owner has stats, we
-          // are good.
+          proj.snapshot = *stats;
+          for (auto &mult : proj.snapshot.damage_multipliers) {
+            mult *= chan.bonus_damage_mult;
+          }
+          proj.snapshot.crit_chance += chan.bonus_crit_chance;
+          proj.snapshot.armor_pen += chan.bonus_armor_pen;
         }
 
         auto &sc = registry.emplace<SkillComponent>(exec_ent);
         sc.skill_id = 7;
+        if (chan.conversion_tag != Tag::None) {
+          auto &mods = registry.emplace<SkillModifierComponent>(exec_ent);
+          mods.damage_modifiers.push_back(
+              DamageModifier{Tag::Physical, chan.conversion_tag, 1.0f,
+                             ModifierType::Convert});
+        }
 
         chan.tick_timer = chan.tick_interval;
       }
@@ -1495,6 +1547,18 @@ void SkillSystem::Update(entt::registry &registry,
     SkillExecutionContext phantomExitContext = BuildSkillVfxContextFromEvent(
         registry, e, 9u, 0u, ResolveEntityWorldPosition(registry, e));
     EmitSkillVfxEvent(phantomExitContext, SkillVfxEventType::BuffExit, 1.0f);
+    if (auto *mods = registry.try_get<SkillModifierComponent>(e)) {
+      mods->damage_modifiers.erase(
+          std::remove_if(mods->damage_modifiers.begin(),
+                         mods->damage_modifiers.end(),
+                         [](const DamageModifier &mod) {
+                           return mod.type == ModifierType::GainExtra &&
+                                  mod.source_tag == Tag::Physical &&
+                                  (mod.target_tag == Tag::Cold ||
+                                   mod.target_tag == Tag::Lightning);
+                         }),
+          mods->damage_modifiers.end());
+    }
     registry.remove<PhantomFlashComponent>(e);
   }
 }

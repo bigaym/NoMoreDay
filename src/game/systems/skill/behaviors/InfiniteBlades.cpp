@@ -7,6 +7,7 @@
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include <algorithm>
 
 namespace NoMoreDay::skills {
 
@@ -54,6 +55,11 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     chan.target_pos = exec.target_pos;
     chan.is_empowered = exec.is_empowered;
     chan.cast_id = exec.cast_id;
+    chan.conversion_tag = Tag::None;
+    chan.bonus_damage_mult = 1.0f;
+    chan.bonus_crit_chance = 0.0f;
+    chan.bonus_armor_pen = 0.0f;
+    chan.synergy_lock = false;
 
     // Talent: Yi Qi Bao Fa (意气爆发) - ID 551
     if (exec.active_nodes.test(InfiniteBladesNodes::IntentBurst % 100)) {
@@ -70,11 +76,65 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
     // Talent: Full Screen Lock (530)
     if (exec.active_nodes.test(InfiniteBladesNodes::MindLock % 100)) {
       chan.full_screen_lock = true;
+      chan.synergy_lock = true;
     }
 
     // Talent: Burst Finisher (513)
     if (exec.active_nodes.test(InfiniteBladesNodes::BurstFinisher % 100)) {
       chan.burst_finisher = true;
+    }
+
+    if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
+      for (const auto &spec : active->specialized_slots) {
+        if (spec.skill_id != kSkillId) {
+          continue;
+        }
+
+        // Contract key node 570: transmuter conversion snapshot for channel ticks.
+        if (auto it = spec.allocated_points.find(InfiniteBladesNodes::ElementFall);
+            it != spec.allocated_points.end() && it->second > 0) {
+          const ElementalConversion conv =
+              ResolveElementalConversion(InfiniteBladesNodes::ElementFall, it->second);
+          chan.conversion_tag = conv.target_element;
+        }
+
+        // Contract key node 571: penetration-like scaling.
+        if (auto it = spec.allocated_points.find(InfiniteBladesNodes::ElementPen);
+            it != spec.allocated_points.end() && it->second > 0) {
+          chan.bonus_armor_pen = static_cast<float>(it->second) * 6.0f;
+        }
+
+        // Contract sword-intent key node 552.
+        if (auto it = spec.allocated_points.find(InfiniteBladesNodes::MindUnify);
+            it != spec.allocated_points.end() && it->second > 0) {
+          int stacks = 0;
+          if (const auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
+            stacks = intent->stacks;
+          }
+          const float perStack = 0.015f * static_cast<float>(it->second);
+          chan.bonus_damage_mult +=
+              std::clamp(static_cast<float>(stacks) * perStack, 0.0f, 0.45f);
+          chan.bonus_crit_chance += 1.5f * static_cast<float>(it->second);
+        }
+
+        // Contract trigger key node 533: reinforce trigger window.
+        if (spec.allocated_points.contains(InfiniteBladesNodes::HeartPierce) &&
+            spec.allocated_points.at(InfiniteBladesNodes::HeartPierce) > 0) {
+          chan.bonus_damage_mult += 0.12f;
+          chan.bonus_crit_chance += 6.0f;
+        }
+        if (spec.allocated_points.contains(InfiniteBladesNodes::FastChannel) &&
+            spec.allocated_points.at(InfiniteBladesNodes::FastChannel) > 0) {
+          chan.tick_interval *= 0.8f;
+        }
+        if (spec.allocated_points.contains(InfiniteBladesNodes::SpiritResonance) &&
+            spec.allocated_points.at(InfiniteBladesNodes::SpiritResonance) > 0) {
+          chan.bonus_damage_mult +=
+              0.04f * static_cast<float>(spec.allocated_points.at(
+                          InfiniteBladesNodes::SpiritResonance));
+        }
+        break;
+      }
     }
 
     // Talent: Sword Intent Resonance (500)

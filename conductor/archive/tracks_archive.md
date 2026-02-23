@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Skill Node Effects Implementation (skill_node_effect_implementation_20260223)
+- **Folder:** [./conductor/archive/skill_node_effect_implementation_20260223/](./conductor/archive/skill_node_effect_implementation_20260223/)
+- **Description:** Completed runtime closure for Blade Ascendant node effects across skills `1..9`, including trigger/synergy/transmuter semantics, channeling/projectile integration, and guard/counter interaction alignment with contract keys.
+- **Status:** COMPLETED (2026-02-23)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Blade Ascendant VFX Base Forms (blade_ascendant_vfx_base_forms_20260222)
 - **Folder:** [./conductor/archive/blade_ascendant_vfx_base_forms_20260222/](./conductor/archive/blade_ascendant_vfx_base_forms_20260222/)
 - **Description:** Completed base-form VFX rollout for Blade Ascendant skills 3.1-3.9 with recipe-driven entries in `assets/data/vfx/blade_ascendant_v3.json`, runtime fallback tuning, and validator/unit coverage expansion.

@@ -111,6 +111,39 @@ void ProjectileSystem::Update(entt::registry &registry,
 
           using namespace NoMoreDay::Constants::Skill;
           if (dist < PROJECTILE_RETURN_THRESHOLD) {
+            const auto *skillComp = registry.try_get<SkillComponent>(entity);
+            if (skillComp && skillComp->skill_id == 8 &&
+                registry.valid(bc->owner)) {
+              auto *active = registry.try_get<ActiveSkillsComponent>(bc->owner);
+              auto *stats = registry.try_get<CombatStats>(bc->owner);
+              if (active) {
+                for (const auto &spec : active->specialized_slots) {
+                  if (spec.skill_id != 8) {
+                    continue;
+                  }
+                  auto it = spec.allocated_points.find(831u);
+                  if (it != spec.allocated_points.end() && it->second > 0) {
+                    const float manaGain = 2.0f * static_cast<float>(it->second);
+                    if (stats) {
+                      stats->mana += manaGain;
+                      if (stats->mana > stats->max_mana) {
+                        stats->mana = stats->max_mana;
+                      }
+                    }
+                    for (auto &slot : active->slots) {
+                      if (slot.id != 8 || slot.cooldown <= 0.0f) {
+                        continue;
+                      }
+                      slot.cooldown -= 0.35f * static_cast<float>(it->second);
+                      if (slot.cooldown < 0.0f) {
+                        slot.cooldown = 0.0f;
+                      }
+                    }
+                    break;
+                  }
+                }
+              }
+            }
             actions.push_back({DeferredAction::Destroy, entity});
             return true;
           }
@@ -555,6 +588,29 @@ void ProjectileSystem::Update(entt::registry &registry,
       }
 
       if (intercepted) {
+        if (auto *ward = registry.try_get<BladeWardComponent>(target)) {
+          if (ward->trigger_counter && registry.valid(act.instigator) &&
+              registry.all_of<CombatStats>(act.instigator)) {
+            DamagePool counterPool;
+            counterPool.Add(ward->has_rainbow_qi ? Tag::Lightning : Tag::Physical,
+                            ward->has_blink_counter ? 55.0f : 35.0f);
+            const auto counterResult = DamagePipeline::Calculate(
+                registry, target, act.instigator, 4, counterPool,
+                Tag::Hit | Tag::Melee, target);
+            if (counterResult.total_damage > 0.0f) {
+              CombatSystem::ApplyDamage(registry, act.instigator,
+                                        counterResult.total_damage, target,
+                                        counterResult.is_crit);
+            }
+            if (ward->has_agile_counter) {
+              SkillSystem::GainSwordIntent(registry, target, 1, 4);
+            }
+            if (ward->counter_spin) {
+              particleSys.Emit(systems::InkEffectHelper::CreateGoldParticle(
+                  act.pos, {0.0f, -80.0f}, 1.2f));
+            }
+          }
+        }
         if (registry.valid(projEnt))
           registry.destroy(projEnt);
         continue;

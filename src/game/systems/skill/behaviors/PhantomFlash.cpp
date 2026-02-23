@@ -3,10 +3,13 @@
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
+#include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 #include "raymath.h"
+#include <algorithm>
 
 namespace NoMoreDay::skills {
 
@@ -85,6 +88,80 @@ void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
   auto &pf = registry.emplace_or_replace<PhantomFlashComponent>(owner);
   pf.counter_window = 0.5f;
   pf.triggered = false;
+  pf.flow_reset = false;
+  pf.synergy_shadow_hide = false;
+  pf.intent_overflow = 0;
+  pf.enchant_tag = Tag::None;
+
+  const uint32_t activeTransmuter =
+      SkillSystem::GetActiveTransmuterNode(registry, owner, PhantomFlash::kSkillId);
+  if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
+    for (const auto &spec : active->specialized_slots) {
+      if (spec.skill_id != PhantomFlash::kSkillId) {
+        continue;
+      }
+
+      if (auto it = spec.allocated_points.find(PhantomFlashNodes::ShadowHide);
+          it != spec.allocated_points.end() && it->second > 0) {
+        pf.synergy_shadow_hide = true;
+        pf.counter_window += 0.2f;
+      }
+      if (auto it = spec.allocated_points.find(PhantomFlashNodes::FlowReset);
+          it != spec.allocated_points.end() && it->second > 0) {
+        pf.flow_reset = true;
+      }
+      if (auto it = spec.allocated_points.find(PhantomFlashNodes::QiOverflow);
+          it != spec.allocated_points.end() && it->second > 0) {
+        pf.intent_overflow = it->second;
+      }
+
+      if (activeTransmuter == PhantomFlashNodes::ElementShield &&
+          spec.allocated_points.contains(PhantomFlashNodes::ElementShield) &&
+          spec.allocated_points.at(PhantomFlashNodes::ElementShield) > 0) {
+        pf.enchant_tag = Tag::Cold;
+      } else if (activeTransmuter == PhantomFlashNodes::AgileBody &&
+                 spec.allocated_points.contains(PhantomFlashNodes::AgileBody) &&
+                 spec.allocated_points.at(PhantomFlashNodes::AgileBody) > 0) {
+        pf.enchant_tag = Tag::Lightning;
+      }
+      break;
+    }
+  }
+
+  if (pf.intent_overflow > 0) {
+    SkillSystem::GainSwordIntent(registry, owner, std::min(3, pf.intent_overflow),
+                                 PhantomFlash::kSkillId);
+  }
+
+  auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
+  if (pf.synergy_shadow_hide) {
+    BuffEffect shadowHide;
+    shadowHide.id = "phantom_flash_shadow_hide";
+    shadowHide.name = "Shadow Hide";
+    shadowHide.type = BuffType::SpeedUp;
+    shadowHide.duration = pf.counter_window;
+    shadowHide.remaining = pf.counter_window;
+    shadowHide.modifiers.push_back({.value = 20.0f,
+                                    .type = StatType::MoveSpeed,
+                                    .mode = ModifierMode::PercentAdd});
+    shadowHide.modifiers.push_back({.value = 10.0f,
+                                    .type = StatType::DodgeChance,
+                                    .mode = ModifierMode::Flat});
+    effects.AddOrRefresh(shadowHide);
+  }
+
+  if (pf.enchant_tag != Tag::None) {
+    auto &mods = registry.get_or_emplace<SkillModifierComponent>(owner);
+    mods.damage_modifiers.erase(
+        std::remove_if(mods.damage_modifiers.begin(), mods.damage_modifiers.end(),
+                       [](const DamageModifier &mod) {
+                         return mod.type == ModifierType::GainExtra &&
+                                mod.source_tag == Tag::Physical;
+                       }),
+        mods.damage_modifiers.end());
+    mods.damage_modifiers.push_back(
+        DamageModifier{Tag::Physical, pf.enchant_tag, 0.5f, ModifierType::GainExtra});
+  }
 
   LOG_INFO("Phantom Flash: Counter state active for entity {}",
            (uint32_t)owner);

@@ -7,6 +7,15 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ## Skill Spec Safety Tracks (2026-02-23)
 
+## [x] Track: Skill Node Effects Implementation (skill_node_effect_implementation_20260223)
+
+> **Status**: Completed  
+> **Priority**: P0  
+> **Type**: feature/behavior-implementation  
+> **Focus**: Implement runtime effects for newly aligned Blade Ascendant nodes (`skills 1..9`), closing config-only semantic gaps while preserving performance and visual readability.  
+> **Tasks**: 22/22  
+> **Location**: [`conductor/archive/skill_node_effect_implementation_20260223/`](./archive/skill_node_effect_implementation_20260223/index.md)
+
 ## [x] Track: Skill Spec Safety and UI Hardening (skill_spec_safety_ui_hardening_20260223)
 
 > **Status**: Completed  

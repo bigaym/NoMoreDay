@@ -21,6 +21,7 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raymath.h"
+#include <algorithm>
 
 namespace NoMoreDay::skills {
 
@@ -142,6 +143,48 @@ void MindBlade::OnCast(entt::registry &registry, entt::entity owner,
   chan.is_empowered = exec.is_empowered;
   chan.total_duration = 0.0f;
   chan.cast_id = exec.cast_id;
+  chan.conversion_tag = Tag::None;
+  chan.bonus_damage_mult = 1.0f;
+  chan.bonus_crit_chance = 0.0f;
+  chan.synergy_lock = false;
+
+  const uint32_t activeTransmuter =
+      SkillSystem::GetActiveTransmuterNode(registry, owner, kSkillId);
+  if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
+    for (const auto &spec : active->specialized_slots) {
+      if (spec.skill_id != kSkillId) {
+        continue;
+      }
+      if (spec.allocated_points.contains(MindBladeNodes::MindLock) &&
+          spec.allocated_points.at(MindBladeNodes::MindLock) > 0) {
+        chan.synergy_lock = true;
+      }
+      if (activeTransmuter == MindBladeNodes::RayFocus &&
+          spec.allocated_points.contains(MindBladeNodes::RayFocus) &&
+          spec.allocated_points.at(MindBladeNodes::RayFocus) > 0) {
+        chan.conversion_tag = Tag::Lightning;
+      } else if (activeTransmuter == MindBladeNodes::MindUnity &&
+                 spec.allocated_points.contains(MindBladeNodes::MindUnity) &&
+                 spec.allocated_points.at(MindBladeNodes::MindUnity) > 0) {
+        chan.conversion_tag = Tag::Void;
+        chan.bonus_damage_mult += 0.15f;
+      }
+      if (spec.allocated_points.contains(MindBladeNodes::OneLaw) &&
+          spec.allocated_points.at(MindBladeNodes::OneLaw) > 0) {
+        int stacks = 0;
+        if (const auto *intent = registry.try_get<SwordIntentComponent>(owner)) {
+          stacks = intent->stacks;
+        }
+        chan.bonus_damage_mult += std::clamp(stacks * 0.02f, 0.0f, 0.3f);
+        chan.bonus_crit_chance += 5.0f;
+      }
+      if (spec.allocated_points.contains(MindBladeNodes::HeavenMan) &&
+          spec.allocated_points.at(MindBladeNodes::HeavenMan) > 0) {
+        chan.bonus_crit_chance += 8.0f;
+      }
+      break;
+    }
+  }
 
   LOG_INFO("Mind Blade channeling started for entity {} (cast_id={})",
            (uint32_t)owner, static_cast<unsigned long long>(exec.cast_id));
@@ -276,15 +319,31 @@ bool MindBlade::Update(entt::registry &registry, entt::entity entity,
       
       // Support elemental conversion via active skill slots
       if (auto *active = registry.try_get<ActiveSkillsComponent>(comp.owner)) {
+        const uint32_t activeTransmuter =
+            SkillSystem::GetActiveTransmuterNode(registry, comp.owner, kSkillId);
         for (const auto &spec : active->specialized_slots) {
           if (spec.skill_id == kSkillId) {
-            // Check Void Rift (771) - convert Physical to Void
-            if (spec.allocated_points.contains(MindBladeNodes::VoidRift) &&
-                spec.allocated_points.at(MindBladeNodes::VoidRift) > 0) {
-              auto *projMods = registry.try_get<SkillModifierComponent>(proj);
-              if (!projMods) projMods = &registry.emplace<SkillModifierComponent>(proj);
+            auto *projMods = registry.try_get<SkillModifierComponent>(proj);
+            if (!projMods) {
+              projMods = &registry.emplace<SkillModifierComponent>(proj);
+            }
+            if (activeTransmuter == MindBladeNodes::RayFocus &&
+                spec.allocated_points.contains(MindBladeNodes::RayFocus) &&
+                spec.allocated_points.at(MindBladeNodes::RayFocus) > 0) {
+              projMods->damage_modifiers.push_back(DamageModifier{
+                  Tag::Physical, Tag::Lightning, 1.0f, ModifierType::Convert});
+            } else if (activeTransmuter == MindBladeNodes::MindUnity &&
+                       spec.allocated_points.contains(MindBladeNodes::MindUnity) &&
+                       spec.allocated_points.at(MindBladeNodes::MindUnity) > 0) {
               projMods->damage_modifiers.push_back(
-                  DamageModifier{Tag::Physical, Tag::Void, 1.0f, ModifierType::Convert});
+                  DamageModifier{Tag::Physical, Tag::Void, 1.0f,
+                                 ModifierType::Convert});
+            } else if (spec.allocated_points.contains(MindBladeNodes::VoidRift) &&
+                       spec.allocated_points.at(MindBladeNodes::VoidRift) > 0) {
+              // Legacy compatibility.
+              projMods->damage_modifiers.push_back(
+                  DamageModifier{Tag::Physical, Tag::Void, 1.0f,
+                                 ModifierType::Convert});
             }
             break;
           }

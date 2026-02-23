@@ -463,12 +463,19 @@ struct BladeWardComponent {
   bool is_solidified = false;   // "Solidified" talent: swords are not consumed
   bool trigger_counter = false; // Talent 470
   bool counter_spin = false;    // Talent 473
+  bool has_blink_counter = false; // Talent 451
+  bool has_agile_counter = false; // Talent 452
+  bool has_rainbow_qi = false;    // Talent 471
 };
 
 struct PhantomFlashComponent {
   float counter_window = 0.5f;
   float knockback_bonus = 0.0f;
   bool triggered = false;
+  bool flow_reset = false;          // Talent 951
+  bool synergy_shadow_hide = false; // Talent 930
+  int intent_overflow = 0;          // Talent 952 points
+  Tag enchant_tag = Tag::None;      // Selected transmuter element
 };
 
 struct MindBladeAI {
@@ -553,10 +560,11 @@ struct SwordArrayComponent {
   Color core_color = {150, 50, 255, 255};
   Color glow_color = {200, 100, 255, 255};
 
-  // Talent Flags
-  bool has_slow = false;        // Talent 610
-  bool has_armor_shred = false; // Talent 611
-  bool has_execute = false;     // Talent 612
+  // Talent Flags (contract-aligned key nodes)
+  bool has_slow = false;             // Talent 630
+  bool has_armor_shred = false;      // Talent 631 / 671
+  bool has_execute = false;          // Talent 633
+  bool gain_intent_on_tick = false;  // Talent 652
 };
 
 struct ChannelingComponent {
@@ -573,6 +581,11 @@ struct ChannelingComponent {
       false; // If true, will try to consume intent for effects
   bool burst_finisher = false;   // Talent 513: Trigger finisher on channel end
   bool full_screen_lock = false; // Talent 530: Target all enemies
+  Tag conversion_tag = Tag::None; // Talent transmuter conversion
+  float bonus_damage_mult = 1.0f;
+  float bonus_crit_chance = 0.0f;
+  float bonus_armor_pen = 0.0f;
+  bool synergy_lock = false; // Skill 7 node 730
 };
 
 } // namespace NoMoreDay

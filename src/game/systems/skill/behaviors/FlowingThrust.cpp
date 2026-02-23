@@ -244,6 +244,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     float moreDamageMult = 1.0f;
     bool forcePierce = false;
     bool spawnShadow = false;
+    bool hasElementBody = false;
 
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
@@ -267,6 +268,10 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
             elementalConv = ResolveElementalConversion(
                 FlowingThrustNodes::ElementShift,
                 spec.allocated_points.at(FlowingThrustNodes::ElementShift));
+          }
+          if (spec.allocated_points.contains(FlowingThrustNodes::ElementBody) &&
+              spec.allocated_points.at(FlowingThrustNodes::ElementBody) > 0) {
+            hasElementBody = true;
           }
 
           // Talent: Momentum (鍔垮鐮寸) - ID 112
@@ -348,6 +353,21 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           mult *= 0.3f;
       }
       LOG_INFO("Liu Ying: Shadow Echo created for Flowing Thrust");
+    }
+
+    // Contract transmuter support node 171: add short elemental body buff.
+    if (hasElementBody && elementalConv.IsActive()) {
+      auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
+      BuffEffect body;
+      body.id = "flowing_thrust_element_body";
+      body.name = "Element Body";
+      body.type = BuffType::Shield;
+      body.duration = 1.5f;
+      body.remaining = 1.5f;
+      body.modifiers.push_back({.value = 8.0f,
+                                .type = StatType::ResistAll,
+                                .mode = ModifierMode::Flat});
+      effects.AddOrRefresh(body);
     }
 
     // 2. Spawn a "Thrust" projectile

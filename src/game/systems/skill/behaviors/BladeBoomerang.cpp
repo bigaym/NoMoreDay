@@ -16,6 +16,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
 
 
 #include "core/logging/Logger.hpp"
@@ -80,8 +81,13 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     float pullStrength = 0.0f;
     int extraProjectiles = 0;
     float moreDamageFromSpeed = 1.0f;
+    Tag conversionTag = Tag::None;
+    Color conversionColor = ORANGE;
 
     bool hasZhiKong = false;
+    bool hasCatch = false;
+    const uint32_t activeTransmuter =
+        SkillSystem::GetActiveTransmuterNode(registry, owner, kSkillId);
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
@@ -106,6 +112,12 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
             pullStrength = basePull;
           }
 
+          // Talent: Catch Blade (接剑) - ID 831
+          if (spec.allocated_points.contains(BladeBoomerangNodes::CatchBlade) &&
+              spec.allocated_points.at(BladeBoomerangNodes::CatchBlade) > 0) {
+            hasCatch = true;
+          }
+
           // Talent: Zhong Li Chang (重力场) - ID 832
           if (spec.allocated_points.contains(BladeBoomerangNodes::GravityField)) {
             pullStrength +=
@@ -123,6 +135,31 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
           // Talent: Zhi Kong Qie Ge (滞空切割) - ID 850
           if (spec.allocated_points.contains(BladeBoomerangNodes::HoverCut)) {
             hasZhiKong = true;
+          }
+
+          // Contract transmuters 870/871 via runtime-selected mutex node.
+          if (activeTransmuter == BladeBoomerangNodes::PathResidue &&
+              spec.allocated_points.contains(BladeBoomerangNodes::PathResidue) &&
+              spec.allocated_points.at(BladeBoomerangNodes::PathResidue) > 0) {
+            conversionTag = Tag::Fire;
+            conversionColor = ORANGE;
+          } else if (activeTransmuter == BladeBoomerangNodes::GuardQi &&
+                     spec.allocated_points.contains(BladeBoomerangNodes::GuardQi) &&
+                     spec.allocated_points.at(BladeBoomerangNodes::GuardQi) > 0) {
+            conversionTag = Tag::Lightning;
+            conversionColor = PURPLE;
+
+            auto &effects = registry.get_or_emplace<ActiveEffectsComponent>(owner);
+            BuffEffect guard;
+            guard.id = "blade_boomerang_guard_qi";
+            guard.name = "Guard Qi";
+            guard.type = BuffType::Shield;
+            guard.duration = 2.0f;
+            guard.remaining = 2.0f;
+            guard.modifiers.push_back({.value = 10.0f,
+                                       .type = StatType::ResistAll,
+                                       .mode = ModifierMode::Flat});
+            effects.AddOrRefresh(guard);
           }
           break;
         }
@@ -142,7 +179,9 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
       registry.emplace<LocalLevelTag>(proj_ent);
       registry.emplace<Position>(proj_ent, pos->x, pos->y);
       registry.emplace<Velocity>(proj_ent, p_dir.x * speed, p_dir.y * speed);
-      registry.emplace<ColorComponent>(proj_ent, ORANGE);
+      registry.emplace<ColorComponent>(proj_ent, conversionTag == Tag::None
+                                                     ? ORANGE
+                                                     : conversionColor);
 
       auto &proj = registry.emplace<Projectile>(proj_ent);
       proj.owner = owner;
@@ -170,12 +209,18 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
 
       registry.emplace<CombatStats>(proj_ent, proj.snapshot);
       registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
+      if (conversionTag != Tag::None) {
+        auto &mods = registry.emplace<SkillModifierComponent>(proj_ent);
+        mods.damage_modifiers.push_back(
+            DamageModifier{Tag::Physical, conversionTag, 1.0f,
+                           ModifierType::Convert});
+      }
 
       auto &bc = registry.emplace<BoomerangComponent>(proj_ent);
       bc.owner = owner;
-      bc.returnTimer = returnTimer;
+      bc.returnTimer = hasCatch ? returnTimer * 0.85f : returnTimer;
       bc.phase = BoomerangComponent::Outward;
-      bc.returnSpeed = speed * 1.5f;
+      bc.returnSpeed = hasCatch ? speed * 1.8f : speed * 1.5f;
 
       if (hasZhiKong) {
         // Talent 850 Logic handled in BoomerangSystem,
@@ -218,6 +263,26 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
                                        .mode = ModifierMode::PercentAdd});
 
             effects.AddOrRefresh(bleed);
+          }
+
+          // Contract sword-intent key node 852: tear bleeding target to gain intent.
+          if (spec.allocated_points.contains(BladeBoomerangNodes::Tear) &&
+              spec.allocated_points.at(BladeBoomerangNodes::Tear) > 0) {
+            const auto *targetEffects =
+                registry.try_get<ActiveEffectsComponent>(target);
+            bool hasBleed = false;
+            if (targetEffects) {
+              for (const auto &effect : targetEffects->effects) {
+                if (effect.id == "blade_boomerang_bleed" &&
+                    effect.remaining > 0.0f) {
+                  hasBleed = true;
+                  break;
+                }
+              }
+            }
+            if (hasBleed) {
+              SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId);
+            }
           }
           break;
         }

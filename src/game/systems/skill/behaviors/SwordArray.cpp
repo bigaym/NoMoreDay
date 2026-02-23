@@ -154,6 +154,10 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
       std::sort(targets.begin(), targets.end());
       targets.erase(std::unique(targets.begin(), targets.end()), targets.end());
 
+      if (array.gain_intent_on_tick) {
+        SkillSystem::GainSwordIntent(registry, array.owner, 1, kSkillId);
+      }
+
       DamagePool base;
       base.Add(Tag::Physical, 20.0f); // Default for Skill 6
 
@@ -198,7 +202,7 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
           StatModifier m;
           m.type = StatType::Armor;
           m.mode = ModifierMode::PercentAdd;
-          m.value = -5.0f;
+          m.value = -8.0f;
           m.required_tags = Tag::None;
           m.source = ModifierSource::Buff;
           shred.modifiers.push_back(m);
@@ -338,6 +342,25 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
     }
   }
 
+  // Contract key node 630 (synergy): area slow pressure.
+  if (exec.active_nodes.test(SwordArrayNodes::SlowPressure % 100)) {
+    array.has_slow = true;
+  }
+  // Contract key node 631/671: armor pressure and transmuter-penetration follow-up.
+  if (exec.active_nodes.test(SwordArrayNodes::ArmorIntent % 100) ||
+      exec.active_nodes.test(SwordArrayNodes::SpiritArmorPen % 100)) {
+    array.has_armor_shred = true;
+  }
+  // Contract key node 633 (trigger branch payload).
+  if (exec.active_nodes.test(SwordArrayNodes::ExecuteField % 100)) {
+    array.has_execute = true;
+  }
+  // Contract sword-intent key node 652.
+  if (exec.active_nodes.test(SwordArrayNodes::MindUnity % 100)) {
+    array.gain_intent_on_tick = true;
+  }
+
+  // Legacy compatibility: keep historical IDs alive if old saves still set them.
   if (exec.active_nodes.test(SwordArrayNodes::TwinArray % 100)) {
     array.has_slow = true;
   }

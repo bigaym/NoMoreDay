@@ -27,6 +27,7 @@
 using namespace entt::literals;
 
 #include "core/logging/Logger.hpp"
+#include <algorithm>
 
 namespace NoMoreDay::skills {
 
@@ -70,6 +71,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     int extraSwords = 0;
     float freqInc = 0.0f;
     float searchInc = 0.0f;
+    int spiritChargePts = 0;
     ElementalConversion swordElementConv;
 
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
@@ -86,6 +88,10 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
             swordElementConv = ResolveElementalConversion(
                 BladeFormationNodes::ElementEnchant,
                 spec.allocated_points.at(BladeFormationNodes::ElementEnchant));
+          }
+          if (spec.allocated_points.contains(BladeFormationNodes::SpiritCharge)) {
+            spiritChargePts =
+                std::max(0, spec.allocated_points.at(BladeFormationNodes::SpiritCharge));
           }
           break;
         }
@@ -132,6 +138,11 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     formation.attack_interval = 1.0f / (1.0f + freqInc);
     if (formation.has_giant_sword)
       formation.attack_interval *= 2.0f; // Slower attack
+    if (spiritChargePts > 0 && swordElementConv.IsActive()) {
+      const float haste = 1.0f - 0.08f * static_cast<float>(spiritChargePts);
+      formation.attack_interval *= (haste < 0.55f ? 0.55f : haste);
+      formation.damage_penalty *= 1.0f + 0.05f * static_cast<float>(spiritChargePts);
+    }
 
     formation.search_radius = 200.0f * (1.0f + searchInc);
     formation.is_empowered =

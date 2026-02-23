@@ -7,6 +7,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -226,6 +227,104 @@ TEST_CASE("[Unit] SkillBehaviorGuard - SwordStep phase lifecycle follows buff") 
 
     SkillSystem::Update(registry, grid, 0.016f);
     CHECK(registry.any_of<PhaseTag>(player));
+  }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state") {
+  entt::registry registry;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+
+  SUBCASE("Skill 5 channel nodes populate runtime channel fields") {
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player).mana = 200.0f;
+    registry.emplace<SwordIntentComponent>(player).stacks = 6;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 5;
+    active.specialized_slots[0].allocated_points[570] = 2; // ElementFall -> cold
+    active.specialized_slots[0].allocated_points[571] = 3; // ElementPen
+    active.specialized_slots[0].allocated_points[552] = 2; // MindUnify
+
+    SkillExecution exec;
+    exec.skill_id = 5;
+    exec.owner = player;
+    exec.target_pos = {30.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(5);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    const auto *chan = registry.try_get<ChannelingComponent>(player);
+    REQUIRE(chan != nullptr);
+    CHECK(chan->conversion_tag == Tag::Cold);
+    CHECK(chan->bonus_armor_pen == doctest::Approx(18.0f));
+    CHECK(chan->bonus_damage_mult > 1.0f);
+    CHECK(chan->bonus_crit_chance > 0.0f);
+  }
+
+  SUBCASE("Skill 6 key-node mapping drives SwordArray flags") {
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player);
+
+    SkillExecution exec;
+    exec.skill_id = 6;
+    exec.owner = player;
+    exec.target_pos = {20.0f, 0.0f};
+    exec.active_nodes.set(630 % 100); // SlowPressure
+    exec.active_nodes.set(633 % 100); // ExecuteField
+    exec.active_nodes.set(652 % 100); // MindUnity
+
+    auto cast = SkillBehaviorRegistry::GetCast(6);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<SwordArrayComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto arrayEntity = *view.begin();
+    const auto &array = view.get<SwordArrayComponent>(arrayEntity);
+    CHECK(array.has_slow);
+    CHECK(array.has_execute);
+    CHECK(array.gain_intent_on_tick);
+  }
+
+  SUBCASE("Skill 9 key nodes set PhantomFlash runtime fields") {
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player).mana = 200.0f;
+    registry.emplace<SwordIntentComponent>(player).stacks = 0;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 9;
+    active.specialized_slots[0].allocated_points[930] = 1;
+    active.specialized_slots[0].allocated_points[951] = 1;
+    active.specialized_slots[0].allocated_points[952] = 2;
+    active.specialized_slots[0].allocated_points[970] = 1;
+
+    auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+    runtime.active_transmuter_node_by_skill[9] = 970;
+
+    SkillExecution exec;
+    exec.skill_id = 9;
+    exec.owner = player;
+    exec.target_pos = {10.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(9);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    const auto *pf = registry.try_get<PhantomFlashComponent>(player);
+    REQUIRE(pf != nullptr);
+    CHECK(pf->synergy_shadow_hide);
+    CHECK(pf->flow_reset);
+    CHECK(pf->intent_overflow == 2);
+    CHECK(pf->enchant_tag == Tag::Cold);
+
+    const auto *intent = registry.try_get<SwordIntentComponent>(player);
+    REQUIRE(intent != nullptr);
+    CHECK(intent->stacks >= 1);
   }
 }
 

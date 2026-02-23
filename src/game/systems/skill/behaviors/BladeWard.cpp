@@ -123,6 +123,11 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
     ward.sword_count = 3;
     ward.interception_chance = 0.3f;
     ward.is_solidified = false;
+    ward.has_blink_counter = false;
+    ward.has_agile_counter = false;
+    ward.has_rainbow_qi = false;
+    ward.trigger_counter = false;
+    ward.counter_spin = false;
 
     // Talent 401/470: Interception/Counter
     // Using 401 (Interception Chance Increase) as verified in skills.json
@@ -132,9 +137,28 @@ struct BladeWard : SkillBehaviorBase<BladeWard> {
       ward.interception_chance += 0.25f; // +25% chance
     }
 
+    // Talent 451: Blink Counter (key trigger branch)
+    if (exec.active_nodes.test(BladeWardNodes::BlinkCounter % 100)) {
+      ward.has_blink_counter = true;
+      ward.trigger_counter = true;
+      ward.interception_chance += 0.1f;
+    }
+
     // Talent 470: Counter Shot
     if (exec.active_nodes.test(BladeWardNodes::CounterBlade % 100)) {
       ward.trigger_counter = true;
+    }
+
+    // Talent 452: Agile Counter (sword intent loop)
+    if (exec.active_nodes.test(BladeWardNodes::AgileCounter % 100)) {
+      ward.has_agile_counter = true;
+      ward.sword_count += 1;
+    }
+
+    // Talent 471: Rainbow Qi (transmuter follow-up)
+    if (exec.active_nodes.test(BladeWardNodes::RainbowQi % 100)) {
+      ward.has_rainbow_qi = true;
+      ward.interception_chance += 0.15f;
     }
 
     // Talent 473: Blade Storm (Counter Spin)
