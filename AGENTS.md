@@ -22,11 +22,14 @@ NoMoreDay 开发代理规则（Windows / PowerShell）。
 每次任务按以下状态顺序推进：
 
 1. `Context`  
-   - MUST：先读取 memory MCP（近期决策、进行中 track、约束）再读代码。
+   - MUST：仅在**第一次会话开始**时读取 memory MCP（近期决策、进行中 track、约束）再读代码。
+   - MUST NOT：同一会话后续多轮重复读取 memory MCP（除非用户明确要求或当前上下文不足）。
 2. `Implement`  
    - MUST：最小化、聚焦修改；不改无关文件。
 3. `Verify`  
-   - MUST：先构建，再按需要执行 CTest。
+   - MUST：在规划的 track 完成后执行验证（先构建，再按需要执行 CTest）。
+   - MUST：提交前再执行一次验证，确保未引入新 bug。
+   - MUST NOT：在手测修改阶段逐次执行构建/CTest（除非用户明确要求）。
 4. `TrackSync`  
    - MUST：更新 track 文档、验证证据、必要时更新 bug_registry。
 5. `Closeout`  
@@ -66,6 +69,12 @@ NoMoreDay 开发代理规则（Windows / PowerShell）。
 ---
 
 ## 4. 构建与测试规则（已解耦）
+
+### 4.0 执行时机（必须）
+
+- 手测修改阶段：MUST NOT 强制执行构建/CTest。
+- Track 计划项完成后：MUST 执行一次完整验证（`build.bat` + 按需 CTest）。
+- 提交前：MUST 再执行一次验证，作为最终回归检查。
 
 ### 4.1 构建
 
@@ -133,6 +142,16 @@ NoMoreDay 开发代理规则（Windows / PowerShell）。
   - `Input -> Player Movement -> AI -> Combat -> Spatial Grid Rebuild -> Physics`
 - Low Tier 回退路径 MUST 可用。
 - Resize 时 framebuffer 资源 MUST 安全重建/重设。
+
+### 7.1 GPU 重构后渲染引导（必须）
+
+- 权威参考文档：`设计文档/特效和UI/GPU_Rendering_Quick_Reference.md`
+- MUST 以 RenderGraph 为唯一渲染编排入口（`Build/Execute/Validate`）。
+- MUST 保持契约一致：`GPU_ABI_VERSION = 5`、`RENDERGRAPH_CONTRACT_VERSION = 3`。
+- MUST 遵循图形 API 基线：OpenGL 4.3+（MSVC-only, Windows）。
+- MUST 维持帧序约束：`Input -> Player Movement -> AI -> Combat -> Spatial Grid -> Physics -> Render`。
+- MUST 遵循输出约束：仅 `CompositePass` 可写 `BackBuffer(FBO 0)`，其余 pass 写离屏目标。
+- MUST 注意 SSBO 绑定预算：全局 0-15 已占满，新增数据优先使用 Compute 本地 binding 或时间片复用。
 
 ---
 
