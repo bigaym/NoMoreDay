@@ -164,6 +164,54 @@ TEST_CASE("[Integration] SkillSpecialization - Talent Allocation Logic") {
   }
 }
 
+TEST_CASE("[Integration] SkillSpecialization - Runtime state cleanup on reset/clear") {
+  entt::registry registry;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  auto player = registry.create();
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.available_talent_points = 0;
+
+  SUBCASE("ResetTalents clears target skill runtime state only") {
+    active.specialized_slots[0].skill_id = 1;
+    active.specialized_slots[0].allocated_points[114] = 1;
+    active.specialized_slots[0].allocated_points[170] = 1;
+    active.specialized_slots[1].skill_id = 2;
+    active.specialized_slots[1].allocated_points[233] = 1;
+
+    auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+    runtime.active_transmuter_node_by_skill[1] = 170;
+    runtime.active_transmuter_node_by_skill[2] = 270;
+    runtime.trigger_cooldowns[114] = 1.5f;
+    runtime.trigger_cooldowns[233] = 2.0f;
+
+    CHECK(SkillSystem::ResetTalents(registry, player, 1));
+    CHECK(active.available_talent_points == 2);
+    CHECK_FALSE(runtime.active_transmuter_node_by_skill.contains(1));
+    CHECK(runtime.active_transmuter_node_by_skill.contains(2));
+    CHECK_FALSE(runtime.trigger_cooldowns.contains(114));
+    CHECK(runtime.trigger_cooldowns.contains(233));
+  }
+
+  SUBCASE("ClearAllTalents clears all specialization runtime state") {
+    active.specialized_slots[0].skill_id = 1;
+    active.specialized_slots[0].allocated_points[114] = 1;
+    active.specialized_slots[1].skill_id = 8;
+    active.specialized_slots[1].allocated_points[870] = 1;
+    active.specialized_slots[1].allocated_points[871] = 1;
+
+    auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+    runtime.active_transmuter_node_by_skill[1] = 170;
+    runtime.active_transmuter_node_by_skill[8] = 870;
+    runtime.trigger_cooldowns[114] = 1.0f;
+    runtime.trigger_cooldowns[831] = 2.0f;
+
+    CHECK(SkillSystem::ClearAllTalents(registry, player));
+    CHECK(active.available_talent_points == 3);
+    CHECK(runtime.active_transmuter_node_by_skill.empty());
+    CHECK(runtime.trigger_cooldowns.empty());
+  }
+}
+
 TEST_CASE("[Integration] SkillLogic - Specialized Behaviors") {
   entt::registry registry;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");

@@ -2,15 +2,15 @@
   "id": "skill_spec_safety_ui_hardening_20260223",
   "title": "Skill Spec Safety and UI Hardening",
   "type": "bugfix",
-  "status": "pending",
+  "status": "completed",
   "created": "2026-02-23T00:00:00Z",
-  "updated": "2026-02-23T00:00:00Z",
+  "updated": "2026-02-23T10:30:00Z",
   "phases": {
     "total": 4,
-    "completed": 0
+    "completed": 4
   },
   "tasks": {
     "total": 16,
-    "completed": 0
+    "completed": 16
   }
 }

@@ -142,10 +142,6 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         return;
     }
 
-    // --- Scissor Mode & Render Content ---
-    BeginScissorMode((int)(viewBoundsLogic.x * scale), (int)(viewBoundsLogic.y * scale), 
-                     (int)(viewBoundsLogic.width * scale), (int)(viewBoundsLogic.height * scale));
-
     // SkillSpecView view setup
     SkillSpecView view;
     float centerX = startX + panelW / 2.0f;

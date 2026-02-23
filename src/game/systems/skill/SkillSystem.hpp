@@ -102,6 +102,7 @@ public:
      * @brief Initialize default skill hooks (Flowing Thrust, etc.).
      */
     static void InitHooks();
+    static void ShutdownHooks();
 
     /**
      * @brief Called when a skill hit occurs to process interactions like Sword Intent.
@@ -164,6 +165,9 @@ private:
     static inline std::map<uint32_t, CastCallback> s_skill_callbacks;
     static inline std::vector<SkillHook> s_pre_cast_hooks;
     static inline std::vector<SkillHook> s_post_cast_hooks;
+    static inline uint32_t s_onSkillHitHandlerId = 0;
+    static inline uint32_t s_onTakeDamageHandlerId = 0;
+    static inline bool s_hooksInitialized = false;
 };
 
 }

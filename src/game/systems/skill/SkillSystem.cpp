@@ -499,6 +499,19 @@ bool ValidateContractCastConstraints(
 } // namespace
 
 void SkillSystem::InitHooks() {
+  if (s_hooksInitialized) {
+    if (s_onSkillHitHandlerId != 0) {
+      CombatEventDispatcher::Unregister(CombatEventType::OnSkillHit,
+                                        s_onSkillHitHandlerId);
+      s_onSkillHitHandlerId = 0;
+    }
+    if (s_onTakeDamageHandlerId != 0) {
+      CombatEventDispatcher::Unregister(CombatEventType::OnTakeDamage,
+                                        s_onTakeDamageHandlerId);
+      s_onTakeDamageHandlerId = 0;
+    }
+  }
+
   LOG_INFO("Initializing Skill Hooks...");
   SkillBehaviorRegistry::Initialize();
   ClearHooks();
@@ -571,7 +584,7 @@ void SkillSystem::InitHooks() {
   });
 
   // 2. Sword Intent Gain on Hit
-  CombatEventDispatcher::Register(
+  s_onSkillHitHandlerId = CombatEventDispatcher::Register(
       CombatEventType::OnSkillHit,
       [](entt::registry &registry, const CombatEvent &evt) {
         // evt.source is the actual caster (fixed in DamagePipeline)
@@ -798,7 +811,7 @@ void SkillSystem::InitHooks() {
       50);
 
   // 3. Phantom Flash Counter (Defensive)
-  CombatEventDispatcher::Register(
+  s_onTakeDamageHandlerId = CombatEventDispatcher::Register(
       CombatEventType::OnTakeDamage,
       [](entt::registry &registry, const CombatEvent &evt) {
         entt::entity victim =
@@ -874,8 +887,26 @@ void SkillSystem::InitHooks() {
       },
       50);
 
+  s_hooksInitialized = true;
   LOG_INFO("Skill Hooks initialized. Skills are now loaded from "
            "SkillBehaviorRegistry.");
+}
+
+void SkillSystem::ShutdownHooks() {
+  if (s_onSkillHitHandlerId != 0) {
+    CombatEventDispatcher::Unregister(CombatEventType::OnSkillHit,
+                                      s_onSkillHitHandlerId);
+    s_onSkillHitHandlerId = 0;
+  }
+  if (s_onTakeDamageHandlerId != 0) {
+    CombatEventDispatcher::Unregister(CombatEventType::OnTakeDamage,
+                                      s_onTakeDamageHandlerId);
+    s_onTakeDamageHandlerId = 0;
+  }
+
+  ClearHooks();
+  s_skill_callbacks.clear();
+  s_hooksInitialized = false;
 }
 
 void SkillSystem::Update(entt::registry &registry,
@@ -2050,12 +2081,23 @@ bool SkillSystem::ResetTalents(entt::registry &registry, entt::entity entity,
     return false;
 
   int points_to_refund = 0;
+  static thread_local std::vector<uint32_t> s_reset_node_ids;
+  s_reset_node_ids.clear();
   for (auto [node_id, pts] : specialized->allocated_points) {
     points_to_refund += pts;
+    if (pts > 0) {
+      s_reset_node_ids.push_back(node_id);
+    }
   }
 
   active->available_talent_points += points_to_refund;
   specialized->allocated_points.clear();
+  if (auto *runtime = registry.try_get<SkillContractRuntimeComponent>(entity)) {
+    runtime->active_transmuter_node_by_skill.erase(skill_id);
+    for (const uint32_t node_id : s_reset_node_ids) {
+      runtime->trigger_cooldowns.erase(node_id);
+    }
+  }
 
   registry.get_or_emplace<StatsDirty>(entity);
   LOG_INFO("Entity {} reset talents for Skill {}. Refunded {} points.",
@@ -2082,6 +2124,10 @@ bool SkillSystem::ClearAllTalents(entt::registry &registry,
   }
 
   active->available_talent_points += total_refunded;
+  if (auto *runtime = registry.try_get<SkillContractRuntimeComponent>(entity)) {
+    runtime->active_transmuter_node_by_skill.clear();
+    runtime->trigger_cooldowns.clear();
+  }
   registry.get_or_emplace<StatsDirty>(entity);
   LOG_INFO("Entity {} cleared all talents. Refunded {} points.",
            (uint32_t)entity, total_refunded);
@@ -2108,15 +2154,59 @@ Tag SkillSystem::GetEffectiveSkillTags(entt::registry &registry,
     if (spec.skill_id != skill_id)
       continue;
 
-    // Get the skill tree definition
     const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id);
     if (!tree)
       break;
 
-    // Apply tag modifications from allocated talent nodes
+    const auto *contract = SkillRegistry::Get().GetSkillContract(skill_id);
+    const auto *runtime =
+        registry.try_get<SkillContractRuntimeComponent>(entity);
+
+    uint32_t selected_transmuter = 0;
+    if (runtime) {
+      const auto it = runtime->active_transmuter_node_by_skill.find(skill_id);
+      if (it != runtime->active_transmuter_node_by_skill.end()) {
+        selected_transmuter = it->second;
+      }
+    }
+    if (selected_transmuter == 0 && contract) {
+      for (const uint32_t preferred : contract->transmuter_node_ids) {
+        if (preferred == 0) {
+          continue;
+        }
+        auto it = spec.allocated_points.find(preferred);
+        if (it != spec.allocated_points.end() && it->second > 0) {
+          selected_transmuter = preferred;
+          break;
+        }
+      }
+    }
+    if (selected_transmuter == 0) {
+      for (const auto &[node_id, points] : spec.allocated_points) {
+        if (points <= 0) {
+          continue;
+        }
+        const auto *node_contract =
+            SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+        if (!node_contract || node_contract->role != SpecNodeRole::Transmuter) {
+          continue;
+        }
+        if (selected_transmuter == 0 || node_id < selected_transmuter) {
+          selected_transmuter = node_id;
+        }
+      }
+    }
+
     for (const auto &[node_id, points] : spec.allocated_points) {
       if (points <= 0)
         continue;
+
+      const auto *node_contract =
+          SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+      if (node_contract && node_contract->role == SpecNodeRole::Transmuter &&
+          selected_transmuter != 0 && node_id != selected_transmuter) {
+        continue;
+      }
 
       auto it = tree->nodes.find(node_id);
       if (it == tree->nodes.end())

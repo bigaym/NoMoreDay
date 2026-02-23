@@ -10,6 +10,31 @@
 
 namespace NoMoreDay {
 
+TEST_CASE("[Unit] SkillBehaviorGuard - InitHooks idempotency avoids duplicate handlers") {
+  entt::registry registry;
+  CombatEventDispatcher::Clear();
+  SkillSystem::ShutdownHooks();
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+
+  SkillSystem::InitHooks();
+  SkillSystem::InitHooks();
+
+  auto caster = registry.create();
+  registry.emplace<Position>(caster, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(caster).mana = 200.0f;
+  auto &intent = registry.emplace<SwordIntentComponent>(caster);
+  intent.stacks = 0;
+
+  auto target = registry.create();
+  registry.emplace<Position>(target, 8.0f, 0.0f);
+
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateSkillHit(
+                    caster, target, 1, Tag::Hit | Tag::Melee, false, 6101));
+
+  CHECK(intent.stacks == 1);
+}
+
 TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
   entt::registry registry;
   CombatEventDispatcher::Clear();
@@ -134,6 +159,46 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
     pf.triggered = true;
     CHECK_FALSE(SkillSystem::CanApplyScopePolicy(
         registry, player, 9, 9, ScopePolicy::GlobalWhileBuffActive));
+  }
+
+  SUBCASE("Effective tags apply only active transmuter tags") {
+    auto player = registry.create();
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 8;
+    active.specialized_slots[0].allocated_points[870] = 1;
+    active.specialized_slots[0].allocated_points[871] = 1;
+
+    auto *tree = const_cast<SkillTreeDefinition *>(SkillRegistry::Get().GetSkillTree(8));
+    REQUIRE(tree != nullptr);
+    auto it870 = tree->nodes.find(870);
+    auto it871 = tree->nodes.find(871);
+    REQUIRE(it870 != tree->nodes.end());
+    REQUIRE(it871 != tree->nodes.end());
+
+    const Tag old870 = it870->second.add_tags;
+    const Tag old871 = it871->second.add_tags;
+    it870->second.add_tags = Tag::Fire;
+    it871->second.add_tags = Tag::Cold;
+
+    auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+    runtime.active_transmuter_node_by_skill[8] = 870;
+
+    Tag tags = SkillSystem::GetEffectiveSkillTags(registry, player, 8);
+    CHECK(HasTag(tags, Tag::Fire));
+    CHECK_FALSE(HasTag(tags, Tag::Cold));
+
+    runtime.active_transmuter_node_by_skill[8] = 871;
+    tags = SkillSystem::GetEffectiveSkillTags(registry, player, 8);
+    CHECK_FALSE(HasTag(tags, Tag::Fire));
+    CHECK(HasTag(tags, Tag::Cold));
+
+    runtime.active_transmuter_node_by_skill.erase(8);
+    tags = SkillSystem::GetEffectiveSkillTags(registry, player, 8);
+    CHECK(HasTag(tags, Tag::Fire));
+    CHECK_FALSE(HasTag(tags, Tag::Cold));
+
+    it870->second.add_tags = old870;
+    it871->second.add_tags = old871;
   }
 }
 

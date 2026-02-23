@@ -7,13 +7,13 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ## Skill Spec Safety Tracks (2026-02-23)
 
-## [ ] Track: Skill Spec Safety and UI Hardening (skill_spec_safety_ui_hardening_20260223)
+## [x] Track: Skill Spec Safety and UI Hardening (skill_spec_safety_ui_hardening_20260223)
 
-> **Status**: Pending  
+> **Status**: Completed  
 > **Priority**: P0  
 > **Type**: bugfix/hardening  
 > **Focus**: Fix specialization runtime safety (hook lifecycle, reset cleanup, transmuter tag consistency) and specialization UI render integrity (scissor balance).  
-> **Tasks**: 0/16  
+> **Tasks**: 16/16  
 > **Location**: [`conductor/tracks/skill_spec_safety_ui_hardening_20260223/`](./tracks/skill_spec_safety_ui_hardening_20260223/index.md)
 
 ## [x] Track: Skill Tree Design Document Alignment (skill_tree_doc_alignment_20260223)

@@ -1,7 +1,7 @@
 # Track: Skill Spec Safety and UI Hardening
 
 **ID:** `skill_spec_safety_ui_hardening_20260223`  
-**Status:** Pending  
+**Status:** Completed  
 **Type:** bugfix/hardening  
 **Priority:** P0
 
@@ -9,11 +9,12 @@
 
 - [Specification](./spec.md)
 - [Implementation Plan](./plan.md)
+- [Validation Evidence](./validation.md)
 
 ## Progress
 
-- **Phases:** 0/4 complete
-- **Tasks:** 0/16 complete
+- **Phases:** 4/4 complete
+- **Tasks:** 16/16 complete
 
 ## Scope Summary
 
@@ -27,4 +28,3 @@
 - [Back to Tracks](../../tracks.md)
 - [Tech Stack](../../tech-stack.md)
 - [Code Standard](../../code_standard.md)
-

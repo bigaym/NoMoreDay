@@ -16,6 +16,10 @@
 #include "game/components/Stats.hpp"
 #include "game/components/Buff.hpp"
 #include "game/systems/ui/PlayerHUD.hpp"
+#include <array>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <entt/entt.hpp>
 #include <raylib.h>
 
@@ -47,6 +51,43 @@ TEST_CASE("[Tech] SkillUI - Context Menu State") {
     CHECK(UISystem::State.showContextMenu == true);
     CHECK(UISystem::State.isSkillContext == true);
     CHECK(UISystem::State.contextSourceSkillSlot == 3);
+}
+
+TEST_CASE("[Tech] SkillUI - UISkillTalentTree scissor scope balanced") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    auto countOccur = [&source](const std::string& needle) {
+        size_t count = 0;
+        size_t pos = 0;
+        while ((pos = source.find(needle, pos)) != std::string::npos) {
+            ++count;
+            pos += needle.size();
+        }
+        return count;
+    };
+
+    CHECK(countOccur("BeginScissorMode(") == countOccur("EndScissorMode()"));
 }
 
 TEST_CASE("[Tech] SkillUI - Persistence of Assignments") {
