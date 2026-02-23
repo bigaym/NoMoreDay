@@ -12,6 +12,8 @@
 #include <cfloat>
 #include "engine/physics/SpatialGrid.hpp"      // Added
 #include "engine/render/GPUParticleSystem.hpp" // Added
+#include "engine/render/GPUSkillEffectSystem.hpp"
+#include "engine/render/GPUData.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Combat.hpp"
 #include "game/components/Common.hpp" // Added for Position, Vector2
@@ -53,35 +55,96 @@ constexpr uint32_t VoidRift = 771;    // 虚空裂痕 / Void Rift
 
 void MindBlade::OnCast(entt::registry &registry, entt::entity owner,
                        SkillExecution &exec) {
-  // Spawn a new Mind Blade entity relative to owner
-  auto blade = registry.create();
-
-  // Initial position slightly offset from owner
-  Vector2 spawn_pos = exec.target_pos; // Usually mouse pos or owner pos
+  auto ownerPos = Vector2{0.0f, 0.0f};
   if (registry.valid(owner) && registry.all_of<Position>(owner)) {
-    const auto &owner_pos = registry.get<Position>(owner);
-    spawn_pos = {owner_pos.x, owner_pos.y - 50.0f}; // Start above head
+    const auto &pos = registry.get<Position>(owner);
+    ownerPos = {pos.x, pos.y};
   }
 
-  registry.emplace<Position>(blade, spawn_pos.x, spawn_pos.y);
-  registry.emplace<Velocity>(blade, 0.0f, 0.0f);
-  registry.emplace<LocalLevelTag>(blade);
+  // CastStart: energy gathers in hand (cyan -> dark purple, short inward collapse).
+  auto &particleSys = systems::GPUParticleSystem::Get();
+  for (int i = 0; i < 12; ++i) {
+    const float angle = static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
+    const float radius = static_cast<float>(GetRandomValue(10, 26));
+    Vector2 spawn = {ownerPos.x + cosf(angle) * radius,
+                     ownerPos.y - 28.0f + sinf(angle) * radius};
+    Vector2 toCore = Vector2Normalize(Vector2Subtract(
+        Vector2{ownerPos.x, ownerPos.y - 28.0f}, spawn));
 
-  // Add components
-  auto &mc = registry.emplace<MindBladeComponent>(blade);
-  mc.owner = owner;
-  mc.intelligence_scaling = 1.0f;
-  mc.stack_count = 1;
+    components::GPUParticle p = {};
+    p.position = spawn;
+    p.velocity = Vector2Scale(toCore, static_cast<float>(GetRandomValue(90, 160)));
+    p.acceleration = {0.0f, 0.0f};
+    p.color = (i % 2 == 0) ? Color{195, 248, 245, 220} : Color{110, 80, 170, 210};
+    p.scale = 3.0f;
+    p.lifetime = 0.20f;
+    p.maxLifetime = 0.20f;
+    p.flags = 2;
+    p.growthRate = -6.0f;
+    particleSys.Emit(p);
+  }
 
-  auto &ai = registry.emplace<MindBladeAI>(blade);
-  ai.base_interval = 0.8f; // Fire every 0.8s
-  ai.range = 600.0f;
+  // CastStart: visible hand core so startup is readable even in particle-light tiers.
+  {
+    components::GPUSkillEffect handCore = {};
+    handCore.position = {ownerPos.x, ownerPos.y - 28.0f};
+    handCore.velocity = {0.0f, 0.0f};
+    handCore.coreColor = {0.70f, 0.92f, 1.00f, 0.86f};
+    handCore.glowColor = {0.48f, 0.32f, 0.78f, 0.78f};
+    handCore.radius = 14.0f;
+    handCore.sectorAngle = 360.0f;
+    handCore.type = 1.0f;
+    handCore.flags = NoMoreDay::render::skillfx::PackSkillEffectFlags(0u, 7u);
+    systems::GPUSkillEffectSystem::Get().Submit(handCore);
+  }
 
-  // Optional: Add visual component
-  // registry.emplace<SpriteComponent>(blade, ...);
+  // CastStart: crack preview at cursor (thin flicker lines, ~100ms).
+  for (int i = 0; i < 8; ++i) {
+    const float angle = static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
+    const float len = static_cast<float>(GetRandomValue(8, 18));
+    Vector2 dir = {cosf(angle), sinf(angle)};
 
-  LOG_INFO("Mind Blade (ID {}) spawned for entity {}", kSkillId,
-           (uint32_t)owner);
+    components::GPUParticle p = {};
+    p.position = {exec.target_pos.x + dir.x * len * 0.5f,
+                  exec.target_pos.y + dir.y * len * 0.5f};
+    p.velocity = Vector2Scale(dir, static_cast<float>(GetRandomValue(30, 70)));
+    p.acceleration = {0.0f, 0.0f};
+    p.color = Color{210, 245, 255, 180};
+    p.scale = 2.0f;
+    p.lifetime = 0.10f;
+    p.maxLifetime = 0.10f;
+    p.flags = 2;
+    p.growthRate = -8.0f;
+    particleSys.Emit(p);
+  }
+
+  // CastStart: cursor crack preview body (short, thin slash) to match prototype.
+  {
+    components::GPUSkillEffect crackPreview = {};
+    crackPreview.position = exec.target_pos;
+    crackPreview.velocity = {1.0f, 0.0f};
+    crackPreview.coreColor = {0.82f, 0.94f, 1.00f, 0.74f};
+    crackPreview.glowColor = {0.54f, 0.74f, 1.00f, 0.62f};
+    crackPreview.radius = 18.0f;
+    crackPreview.sectorAngle = 0.0f;
+    crackPreview.type = 2.0f;
+    crackPreview.flags = NoMoreDay::render::skillfx::PackSkillEffectFlags(0u, 7u);
+    systems::GPUSkillEffectSystem::Get().Submit(crackPreview);
+  }
+
+  // Mind Blade is a channeled skill in current design.
+  auto &chan = registry.emplace_or_replace<ChannelingComponent>(owner);
+  chan.skill_id = kSkillId;
+  chan.channel_timer = 0.25f;   // Must be refreshed by input hold
+  chan.tick_interval = 0.3f;    // Matches design baseline: every 0.3s
+  chan.tick_timer = -0.01f;     // Fire first tick immediately
+  chan.target_pos = exec.target_pos;
+  chan.is_empowered = exec.is_empowered;
+  chan.total_duration = 0.0f;
+  chan.cast_id = exec.cast_id;
+
+  LOG_INFO("Mind Blade channeling started for entity {} (cast_id={})",
+           (uint32_t)owner, static_cast<unsigned long long>(exec.cast_id));
 }
 
 bool MindBlade::Update(entt::registry &registry, entt::entity entity,

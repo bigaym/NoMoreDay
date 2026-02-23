@@ -25,7 +25,15 @@ out vec2 passDirection; // Direction vector from velocity
 out float passAngle;    // Sector Angle (in radians)
 out float passRadius;   // Radius for SDF calculation
 flat out uint passFlags;
+flat out uint passSkillId;
 out float passType;
+
+const uint NMD_SKILLFX_SKILL_SHIFT = 4u;
+const uint NMD_SKILLFX_SKILL_MASK = (0xFFu << NMD_SKILLFX_SKILL_SHIFT);
+
+uint NmdDecodeSkillId(uint flags) {
+    return (flags & NMD_SKILLFX_SKILL_MASK) >> NMD_SKILLFX_SKILL_SHIFT;
+}
 
 void main() {
     uint id = gl_InstanceID;
@@ -67,5 +75,6 @@ void main() {
     passRadius = 0.8; 
     
     passFlags = e.flags;
+    passSkillId = NmdDecodeSkillId(e.flags);
     passType = e.type;
 }

@@ -647,6 +647,38 @@ void ProjectileSystem::Update(entt::registry &registry,
 
       if (knockback > 0)
         Utils::ApplyKnockback(registry, target, act.pos, knockback);
+
+      if (skill_id == 7) {
+        // Impact: converging white sparks into rift center.
+        for (int i = 0; i < 4; ++i) {
+          const float a = static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
+          const float r = static_cast<float>(GetRandomValue(6, 14));
+          const Vector2 start = {act.pos.x + cosf(a) * r, act.pos.y + sinf(a) * r};
+          const Vector2 toCenter = Vector2Normalize(Vector2Subtract(act.pos, start));
+
+          components::GPUParticle spark = {};
+          spark.position = start;
+          spark.velocity = Vector2Scale(toCenter, static_cast<float>(GetRandomValue(70, 120)));
+          spark.acceleration = {0.0f, 0.0f};
+          spark.color = Color{245, 250, 255, 210};
+          spark.scale = 2.0f;
+          spark.lifetime = 0.10f;
+          spark.maxLifetime = 0.10f;
+          spark.flags = 2;
+          spark.growthRate = -8.0f;
+          particleSys.Emit(spark);
+        }
+
+        // Impact: tiny pull visual toward center (~1px equivalent).
+        if (registry.all_of<Velocity, Position>(target)) {
+          auto &tp = registry.get<Position>(target);
+          auto &tv = registry.get<Velocity>(target);
+          const Vector2 pullDir =
+              Vector2Normalize(Vector2Subtract(act.pos, Vector2{tp.x, tp.y}));
+          tv.vx += pullDir.x * 12.0f;
+          tv.vy += pullDir.y * 12.0f;
+        }
+      }
     } else if (act.type == DeferredAction::CounterSpin) {
       entt::entity projEnt = act.entity;
       entt::entity owner = act.target;

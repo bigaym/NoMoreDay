@@ -26,18 +26,26 @@ void ShadowPreparePass::Setup(graph::RenderGraphBuilder &builder) {
 
 uint32_t ShadowPreparePass::BuildStableLightId(
     const components::GPULight &light, const uint32_t fallbackIndex) noexcept {
+  // NOTE:
+  // Shadow atlas identity must be stable across frames. Do NOT include per-frame
+  // varying values such as position/intensity/flicker here, otherwise the same
+  // logical light churns tile IDs every frame and quickly exhausts atlas slots
+  // (observed as requested>0, allocated=0, overflow>0).
   uint32_t hash = 2166136261u;
   const auto mix = [&hash](const uint32_t v) noexcept {
     hash ^= v;
     hash *= 16777619u;
   };
 
-  mix(std::bit_cast<uint32_t>(light.posX));
-  mix(std::bit_cast<uint32_t>(light.posY));
-  mix(std::bit_cast<uint32_t>(light.radius));
-  mix(std::bit_cast<uint32_t>(light.intensity));
-  mix(light.lightType);
+  // fallbackIndex is sourced from active-light ordering and is the best
+  // available runtime-stable key in current LightManager contract.
   mix(fallbackIndex);
+  mix(light.lightType);
+  mix(light.priority & 0xFFu);
+
+  // Radius/type buckets help reduce accidental collisions without introducing
+  // frame-to-frame instability.
+  mix(std::bit_cast<uint32_t>(light.radius));
   if (hash == 0u) {
     hash = 1u;
   }

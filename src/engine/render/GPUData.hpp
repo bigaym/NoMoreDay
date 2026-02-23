@@ -52,6 +52,29 @@ constexpr float AMBIENT_FIREFLY_INTENSITY = 0.5f;
 constexpr int MAX_LIGHTS = 4096;
 }
 
+namespace NoMoreDay::render::skillfx {
+inline constexpr uint32_t kElementBits = 4u;
+inline constexpr uint32_t kElementMask = (1u << kElementBits) - 1u; // low 4 bits
+inline constexpr uint32_t kSkillIdShift = kElementBits;
+inline constexpr uint32_t kSkillIdBits = 8u;
+inline constexpr uint32_t kSkillIdMask = ((1u << kSkillIdBits) - 1u) << kSkillIdShift;
+
+inline constexpr uint32_t PackSkillEffectFlags(const uint8_t elementType,
+                                               const uint32_t skillId) {
+  const uint32_t e = static_cast<uint32_t>(elementType) & kElementMask;
+  const uint32_t s = (skillId << kSkillIdShift) & kSkillIdMask;
+  return e | s;
+}
+
+inline constexpr uint8_t UnpackSkillEffectElementType(const uint32_t flags) {
+  return static_cast<uint8_t>(flags & kElementMask);
+}
+
+inline constexpr uint32_t UnpackSkillEffectSkillId(const uint32_t flags) {
+  return (flags & kSkillIdMask) >> kSkillIdShift;
+}
+} // namespace NoMoreDay::render::skillfx
+
 namespace NoMoreDay::components {
 
 // /**
@@ -444,7 +467,7 @@ struct GPUSkillEffect {
   Vector4 glowColor = {1.0f, 1.0f, 1.0f, 1.0f}; // 16
   float radius = 0.0f;                          // 4
   float sectorAngle = 0.0f;                     // 4 (Degrees)
-  uint32_t flags = 0u;                          // 4 (low 4 bits: elementType)
+  uint32_t flags = 0u; // 4 (low 4 bits: elementType, next 8 bits: skillId)
   float type = 0.0f; // 4 (0=Fan,1=Disc,2=Blade,3=Crescent,4=Ring,5=EllipseRing)
 
   GPUSkillEffect() = default;

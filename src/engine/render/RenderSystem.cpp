@@ -674,8 +674,6 @@ void ExecuteVFXPass(RenderFrameData &frame) {
   for (auto entity : projView) {
     const auto &pos = projView.get<const Position>(entity);
     auto &proj = projView.get<NoMoreDay::Projectile>(entity);
-    proj.hasRendered = true;
-
     NoMoreDay::components::GPUSkillEffect eff;
     float ax = pos.x;
     float ay = pos.y;
@@ -690,6 +688,12 @@ void ExecuteVFXPass(RenderFrameData &frame) {
             frame.registry.try_get<NoMoreDay::SkillComponent>(entity)) {
       projectileSkillId = skillComp->skill_id;
     }
+    // Skill 7 channel tick uses stationary projectile as logic-only hitbox.
+    // Skip projectile mesh rendering to avoid default fan sector artifact.
+    if (projectileSkillId == 7u && proj.speed <= 0.01f) {
+      continue;
+    }
+    proj.hasRendered = true;
 
     float visualRadius = (proj.radius > 1.0f) ? proj.radius : 5.0f;
     float visualArc = (proj.arcWidth > 0.0f) ? proj.arcWidth : 45.0f;
@@ -702,7 +706,14 @@ void ExecuteVFXPass(RenderFrameData &frame) {
     eff.radius = visualRadius;
     eff.sectorAngle = visualArc;
     eff.type = static_cast<float>(proj.visualType);
-    eff.flags = 0u;
+    eff.flags = NoMoreDay::render::skillfx::PackSkillEffectFlags(0u,
+                                                                  projectileSkillId);
+    if (projectileSkillId == 0u) {
+      LOG_LIMITED_WARN(1.0f,
+                       "RenderSystem: projectile GPUSkillEffect missing skillId "
+                       "for entity {}",
+                       static_cast<uint32_t>(entity));
+    }
 
     if (const auto *col = frame.registry.try_get<ColorComponent>(entity)) {
       eff.coreColor = ColorNormalize(col->color);
@@ -1208,11 +1219,34 @@ void ExecuteCompositePass(
   }
 
   constexpr uint32_t kGLFramebuffer = 0x8D40;
-  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
-                                              targetState.framebuffer);
-  NoMoreDay::utils::GPUUtils::Viewport(
-      targetState.viewportX, targetState.viewportY, targetState.viewportWidth,
-      targetState.viewportHeight);
+  constexpr uint32_t kGLReadFramebuffer = 0x8CA8;
+  constexpr uint32_t kGLDrawFramebuffer = 0x8CA9;
+  constexpr uint32_t kGLColorBufferBit = 0x00004000;
+
+  // Gameplay offscreen path renders within BeginMode2D; avoid DrawTexturePro
+  // there because camera transform can corrupt full-screen composite.
+  if (targetState.framebuffer != 0u) {
+    rlDrawRenderBatchActive();
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer,
+                                                hdrBuffer->fbo);
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,
+                                                targetState.framebuffer);
+    rlBlitFramebuffer(
+        0, 0, hdrBuffer->width, hdrBuffer->height, targetState.viewportX,
+        targetState.viewportY, targetState.viewportX + targetState.viewportWidth,
+        targetState.viewportY + targetState.viewportHeight, kGLColorBufferBit);
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer,
+                                                targetState.framebuffer);
+    NoMoreDay::utils::GPUUtils::Viewport(
+        targetState.viewportX, targetState.viewportY, targetState.viewportWidth,
+        targetState.viewportHeight);
+    return;
+  }
+
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0u);
+  NoMoreDay::utils::GPUUtils::Viewport(targetState.viewportX, targetState.viewportY,
+                                       targetState.viewportWidth,
+                                       targetState.viewportHeight);
 
   Texture2D hdrTexture = {};
   hdrTexture.id = hdrBuffer->colorTexture;
@@ -1584,48 +1618,63 @@ void RenderSystem::render(entt::registry &registry,
     NoMoreDay::render::MaterialManager::Get().BindSSBO(
         NoMoreDay::RenderConstants::Binding::SSBO_MATERIAL_DATA);
   }
-  // Safety gate for BUG-20260212-001:
-  // internal HDR/post-process/distortion chain is only valid for the default
-  // framebuffer path. Offscreen RT path must use its dedicated pipeline.
+  // Render path split:
+  // - default backbuffer path
+  // - gameplay offscreen composite path (BeginTextureMode target)
+  // Offscreen composite uses framebuffer blit to avoid camera-transform
+  // contamination when called inside BeginMode2D.
   const bool hdrPipelineRequested = IsHdrScenePipelineRequested(renderConfig);
-  const bool useHdrSceneBuffer =
-      hdrPipelineRequested && (compositeTarget.framebuffer == 0);
+  const bool isOffscreenCompositeTarget = (compositeTarget.framebuffer != 0u);
+  const bool useHdrSceneBuffer = hdrPipelineRequested;
+  const bool offscreenV3SafeMode = isOffscreenCompositeTarget;
+  const bool offscreenPostProcessOnly = false;
   static bool s_prevUseHdrSceneBuffer = false;
   static bool s_prevHdrPipelineRequested = false;
   static uint32_t s_prevCompositeFramebuffer = 0;
+  static bool s_prevOffscreenV3SafeMode = false;
   if (s_prevUseHdrSceneBuffer != useHdrSceneBuffer ||
       s_prevHdrPipelineRequested != hdrPipelineRequested ||
-      s_prevCompositeFramebuffer != compositeTarget.framebuffer) {
+      s_prevCompositeFramebuffer != compositeTarget.framebuffer ||
+      s_prevOffscreenV3SafeMode != offscreenV3SafeMode) {
     LOG_INFO("RenderSystem: HDR chain {} (requested={}, bloom={}, postFx={}, "
-             "dynamicLighting={}, volumetric={}, compositeFbo={})",
+             "dynamicLighting={}, volumetric={}, compositeFbo={}, path={}, "
+             "offscreenSafeMode={}, offscreenPostFXOnly={})",
              useHdrSceneBuffer ? "enabled" : "disabled",
              hdrPipelineRequested ? 1 : 0,
              renderConfig.bloomEnabled ? 1 : 0,
              IsHdrPostProcessRequested(renderConfig) ? 1 : 0,
              renderConfig.dynamicLightingEnabled ? 1 : 0,
              renderConfig.volumetricLightEnabled ? 1 : 0,
-             compositeTarget.framebuffer);
+             compositeTarget.framebuffer,
+             isOffscreenCompositeTarget ? "offscreen" : "backbuffer",
+             offscreenV3SafeMode ? 1 : 0,
+             offscreenPostProcessOnly ? 1 : 0);
     s_prevUseHdrSceneBuffer = useHdrSceneBuffer;
     s_prevHdrPipelineRequested = hdrPipelineRequested;
     s_prevCompositeFramebuffer = compositeTarget.framebuffer;
+    s_prevOffscreenV3SafeMode = offscreenV3SafeMode;
+  }
+  if (offscreenV3SafeMode) {
+    LOG_LIMITED_INFO(
+        3.0f,
+        "RenderSystem: offscreen V3 safe mode active (skip color-rewrite passes to "
+        "avoid black-frame regression)");
   }
   const bool useDistortionPass =
-      useHdrSceneBuffer && renderConfig.distortionEnabled &&
+      useHdrSceneBuffer && !offscreenV3SafeMode && renderConfig.distortionEnabled &&
       (g_postProcessPass != nullptr) && (g_distortionPass != nullptr);
   const bool useVolumetricPass =
-      useHdrSceneBuffer && renderConfig.volumetricLightEnabled &&
+      useHdrSceneBuffer && !offscreenV3SafeMode &&
+      renderConfig.volumetricLightEnabled &&
       (g_volumetricPass != nullptr);
   if (!useDistortionPass && g_distortionPass != nullptr) {
     g_distortionPass->ResetSources();
   }
-  static bool s_prevUseVolumetricPass = false;
-  if (s_prevUseVolumetricPass && !useVolumetricPass && g_volumetricPass != nullptr) {
-    g_volumetricPass->Shutdown();
-  }
-  s_prevUseVolumetricPass = useVolumetricPass;
-  if (!renderConfig.fluidEnabled && g_fluidSimulationPass != nullptr) {
-    g_fluidSimulationPass->Shutdown();
-  }
+  // NOTE:
+  // Avoid heavy runtime Shutdown() calls during frame/render-path toggles.
+  // They can cause visible hitch spikes when leaving gameplay or switching
+  // between offscreen/backbuffer paths. Pass execution is already gated; keep
+  // resources alive and release them in RenderSystem::Shutdown().
 
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
     const int screenWidth = GetScreenWidth();
@@ -1710,7 +1759,27 @@ void RenderSystem::render(entt::registry &registry,
     }
   }
 
-  if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled && g_lightingPass) {
+  // Gameplay offscreen path renders level/tilemap before RenderSystem::render().
+  // Seed HDR scene buffer from current composite target so V3 passes operate on
+  // full scene content instead of a blank background.
+  if (useHdrSceneBuffer && isOffscreenCompositeTarget && s_hdrSceneBuffer.IsValid()) {
+    constexpr uint32_t kGLReadFramebuffer = 0x8CA8;
+    constexpr uint32_t kGLDrawFramebuffer = 0x8CA9;
+    constexpr uint32_t kGLColorBufferBit = 0x00004000;
+    rlDrawRenderBatchActive();
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLReadFramebuffer,
+                                                compositeTarget.framebuffer);
+    NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLDrawFramebuffer,
+                                                s_hdrSceneBuffer.fbo);
+    rlBlitFramebuffer(compositeTarget.viewportX, compositeTarget.viewportY,
+                      compositeTarget.viewportX + compositeTarget.viewportWidth,
+                      compositeTarget.viewportY + compositeTarget.viewportHeight, 0,
+                      0, s_hdrSceneBuffer.width, s_hdrSceneBuffer.height,
+                      kGLColorBufferBit);
+  }
+
+  if (useHdrSceneBuffer && !offscreenV3SafeMode &&
+      renderConfig.dynamicLightingEnabled && g_lightingPass) {
     NoMoreDay::render::lighting::LightManager::Get().Update(
         registry, camera, renderConfig.maxLights, static_cast<float>(GetTime()));
 
@@ -1743,7 +1812,8 @@ void RenderSystem::render(entt::registry &registry,
 
   NoMoreDay::render::graph::RenderGraph graph;
   graph.AddPass(std::make_shared<NoMoreDay::render::passes::ScenePass>(
-      [&frame, useHdrSceneBuffer](NoMoreDay::render::graph::RenderContext &) {
+      [&frame, useHdrSceneBuffer, isOffscreenCompositeTarget](
+          NoMoreDay::render::graph::RenderContext &) {
         NoMoreDay::render::core::ScopedGLState scopedState;
         if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid()) {
           constexpr uint32_t kGLFramebuffer = 0x8D40;
@@ -1751,7 +1821,9 @@ void RenderSystem::render(entt::registry &registry,
                                                       s_hdrSceneBuffer.fbo);
           NoMoreDay::utils::GPUUtils::Viewport(0, 0, s_hdrSceneBuffer.width,
                                                s_hdrSceneBuffer.height);
-          ClearBackground(BLANK);
+          if (!isOffscreenCompositeTarget) {
+            ClearBackground(BLANK);
+          }
         }
         ExecuteScenePass(frame);
       }));
@@ -1778,17 +1850,19 @@ void RenderSystem::render(entt::registry &registry,
         compositeTarget.framebuffer);
   }
 
-  if (useHdrSceneBuffer && renderConfig.dynamicLightingEnabled &&
+  if (useHdrSceneBuffer && !offscreenV3SafeMode &&
+      renderConfig.dynamicLightingEnabled &&
       g_lightingPass != nullptr) {
     graph.AddPass(g_lightingPass);
     sceneHdrOwner = RenderOwnerTag::Lighting;
   }
-  if (useHdrSceneBuffer && renderConfig.heightShadowEnabled &&
+  if (useHdrSceneBuffer && !offscreenV3SafeMode &&
+      renderConfig.heightShadowEnabled &&
       g_heightShadowPass != nullptr) {
     graph.AddPass(g_heightShadowPass);
     sceneHdrOwner = RenderOwnerTag::HeightShadow;
   }
-  if (useHdrSceneBuffer && renderConfig.giEnabled &&
+  if (useHdrSceneBuffer && !offscreenV3SafeMode && renderConfig.giEnabled &&
       g_occluderExtractPass != nullptr && g_jfaPass != nullptr &&
       g_radianceCascadesPass != nullptr && g_giCompositePass != nullptr) {
     graph.AddPass(g_occluderExtractPass);
@@ -1797,7 +1871,7 @@ void RenderSystem::render(entt::registry &registry,
     graph.AddPass(g_giCompositePass);
     sceneHdrOwner = RenderOwnerTag::GIComposite;
   }
-  if (useHdrSceneBuffer && renderConfig.fluidEnabled &&
+  if (useHdrSceneBuffer && !offscreenV3SafeMode && renderConfig.fluidEnabled &&
       g_fluidSimulationPass != nullptr) {
     graph.AddPass(g_fluidSimulationPass);
     sceneHdrOwner = RenderOwnerTag::FluidSimulation;
@@ -1838,7 +1912,9 @@ void RenderSystem::render(entt::registry &registry,
       }));
   sceneHdrOwner = RenderOwnerTag::UIWorld;
 
-  if (useHdrSceneBuffer && g_postProcessPass != nullptr) {
+  if (useHdrSceneBuffer &&
+      (!offscreenV3SafeMode || offscreenPostProcessOnly) &&
+      g_postProcessPass != nullptr) {
     graph.AddPass(g_postProcessPass);
     ldrOwner = RenderOwnerTag::PostProcess;
   }

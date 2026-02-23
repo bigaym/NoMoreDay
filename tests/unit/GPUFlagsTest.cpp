@@ -55,4 +55,18 @@ TEST_CASE("[Unit] GPUFlags - Bit Operations") {
         CHECK((flags & GPU_ENTITY_FLAG_KINEMATIC) != 0);
         CHECK((flags & GPU_ENTITY_FLAG_CHASING) != 0);
     }
+
+    SUBCASE("Skill Effect Flags pack/unpack") {
+        using namespace NoMoreDay::render::skillfx;
+        const uint32_t packed = PackSkillEffectFlags(3u, 7u);
+        CHECK(UnpackSkillEffectElementType(packed) == 3u);
+        CHECK(UnpackSkillEffectSkillId(packed) == 7u);
+    }
+
+    SUBCASE("Skill Effect Flags clamp by mask") {
+        using namespace NoMoreDay::render::skillfx;
+        const uint32_t packed = PackSkillEffectFlags(0xFFu, 0x1FFu);
+        CHECK(UnpackSkillEffectElementType(packed) == (0xFFu & kElementMask));
+        CHECK(UnpackSkillEffectSkillId(packed) == (0x1FFu & ((1u << kSkillIdBits) - 1u)));
+    }
 }

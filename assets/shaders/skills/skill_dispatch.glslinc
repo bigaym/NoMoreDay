@@ -1,0 +1,34 @@
+#include "skill_01_flowing_thrust.glslinc"
+#include "skill_02_rending_wave.glslinc"
+#include "skill_03_blade_formation.glslinc"
+#include "skill_04_blade_ward.glslinc"
+#include "skill_05_infinite_blades.glslinc"
+#include "skill_06_sword_array.glslinc"
+#include "skill_07_mind_blade.glslinc"
+#include "skill_08_blade_boomerang.glslinc"
+#include "skill_09_phantom_flash.glslinc"
+
+vec4 NmdDispatchSkillFragment(in NmdSkillFragParams params) {
+    switch (params.skillId) {
+    case 1u:
+        return RenderSkill01(params);
+    case 2u:
+        return RenderSkill02(params);
+    case 3u:
+        return RenderSkill03(params);
+    case 4u:
+        return RenderSkill04(params);
+    case 5u:
+        return RenderSkill05(params);
+    case 6u:
+        return RenderSkill06(params);
+    case 7u:
+        return RenderSkill07(params);
+    case 8u:
+        return RenderSkill08(params);
+    case 9u:
+        return RenderSkill09(params);
+    default:
+        return NmdRenderGenericByType(params);
+    }
+}

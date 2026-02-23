@@ -1,0 +1,244 @@
+#include "../vfx/vfx_element_switch.glslinc"
+
+struct NmdSkillFragParams {
+    vec2 localPos;
+    vec4 coreColor;
+    vec4 glowColor;
+    vec2 direction;
+    float angle;
+    float radius;
+    float type;
+    uint flags;
+    uint skillId;
+    float time;
+};
+
+const uint NMD_SKILLFX_ELEMENT_MASK = 0xFu;
+const uint NMD_SKILLFX_SKILL_SHIFT = 4u;
+const uint NMD_SKILLFX_SKILL_MASK = (0xFFu << NMD_SKILLFX_SKILL_SHIFT);
+
+int NmdDecodeElementType(uint flags) {
+    return int(flags & NMD_SKILLFX_ELEMENT_MASK);
+}
+
+uint NmdDecodeSkillId(uint flags) {
+    return (flags & NMD_SKILLFX_SKILL_MASK) >> NMD_SKILLFX_SKILL_SHIFT;
+}
+
+float sdCircle(vec2 p, float r) {
+    return length(p) - r;
+}
+
+float sdBox(vec2 p, vec2 b) {
+    vec2 d = abs(p) - b;
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+}
+
+float sdPie(vec2 p, vec2 c, float r) {
+    p.x = abs(p.x);
+    float l = length(p) - r;
+    float m = length(p - c * clamp(dot(p, c), 0.0, r));
+    return max(l, m * sign(c.y * p.x - c.x * p.y));
+}
+
+vec2 rotate(vec2 v, float a) {
+    float s = sin(a);
+    float c = cos(a);
+    return mat2(c, -s, s, c) * v;
+}
+
+vec4 NmdRenderGenericByType(in NmdSkillFragParams params) {
+    vec2 dir = normalize(params.direction + vec2(1e-5, 1e-5));
+    float angle = atan(dir.y, dir.x);
+    vec2 p = rotate(params.localPos, angle);
+    vec2 pBase = params.localPos;
+
+    float passRadius = params.radius;
+    float passType = params.type;
+    float dist = 0.0;
+
+    if (passType < 0.5) {
+        float halfAngle = params.angle * 0.5;
+        vec2 c = vec2(cos(halfAngle), sin(halfAngle));
+        dist = sdPie(p, c, passRadius);
+    } else if (passType < 1.5) {
+        dist = sdCircle(p, passRadius);
+    } else if (passType < 2.5) {
+        float halfLen = passRadius;
+        float baseHalfWidth = passRadius * 0.25;
+        float t = clamp((p.x + halfLen) / (2.0 * halfLen), 0.0, 1.0);
+        float widthScale = 1.0;
+        if (t < 0.2) {
+            widthScale = smoothstep(0.0, 0.2, t);
+        } else {
+            widthScale = mix(1.0, 0.15, (t - 0.2) / 0.8);
+        }
+        float currentHalfWidth = baseHalfWidth * widthScale;
+        float dx = abs(p.x) - halfLen;
+        float dy = abs(p.y) - currentHalfWidth;
+        float dBlade = max(dx, dy);
+
+        float guardPos = -halfLen * 0.7;
+        vec2 guardSize = vec2(passRadius * 0.1, passRadius * 0.45);
+        float dGuard = sdBox(p - vec2(guardPos, 0.0), guardSize);
+        dist = min(dBlade, dGuard);
+    } else if (passType < 3.5) {
+        float rOuter = passRadius;
+        float rInner = passRadius * 0.85;
+        float shift = passRadius * 0.25;
+        float d1 = length(p) - rOuter;
+        float d2 = length(p - vec2(-shift, 0.0)) - rInner;
+        dist = max(d1, -d2);
+    } else if (passType < 4.5) {
+        float ringRadius = passRadius * 0.84;
+        float ringHalfWidth = passRadius * 0.11;
+        dist = abs(length(p) - ringRadius) - ringHalfWidth;
+    } else if (passType < 5.5) {
+        const vec2 ellipseAxis = vec2(0.82, 1.08);
+        vec2 ep = vec2(pBase.x / ellipseAxis.x, pBase.y / ellipseAxis.y);
+        float ringRadius = passRadius * 0.82;
+        float ringHalfWidth = passRadius * 0.11;
+        dist = abs(length(ep) - ringRadius) - ringHalfWidth;
+    } else if (passType < 6.5) {
+        float rOuter = passRadius * 0.98;
+        float rInner = passRadius * 0.85;
+        float rCore = passRadius * 0.25;
+
+        float ring1 = abs(length(p) - rOuter) - passRadius * 0.025;
+        float ring2 = abs(length(p) - rInner) - passRadius * 0.015;
+        float ring3 = abs(length(p) - rCore) - passRadius * 0.02;
+
+        float a = atan(p.y, p.x);
+        float r = length(p);
+        float starDist =
+            abs(r - rInner * (0.60 + 0.40 * cos(a * 6.0))) - passRadius * 0.015;
+        float tri1 = abs(max(abs(p.x) * 0.866025 + p.y * 0.5, -p.y) - rInner * 0.4) -
+                     passRadius * 0.01;
+
+        dist = min(min(ring1, ring2), min(ring3, min(starDist, tri1)));
+    } else {
+        dist = sdCircle(p, passRadius);
+    }
+
+    float rimFactor = smoothstep(-passRadius * 0.8, 0.0, dist);
+    rimFactor = pow(rimFactor, 4.0);
+
+    int elementType = NmdDecodeElementType(params.flags);
+    vec3 rimColor = vec3(1.0, 1.0, 1.0);
+    vec3 bodyColor = NmdSelectElementPalette(elementType, params.coreColor.rgb);
+    vec3 finalInnerColor = mix(bodyColor, rimColor, rimFactor);
+    float finalInnerAlpha = params.coreColor.a;
+
+    float glowFactor = 1.0 - smoothstep(0.0, passRadius * 0.5, dist);
+    vec3 finalGlowColor = NmdSelectElementPalette(elementType, params.glowColor.rgb);
+    float finalGlowAlpha = params.glowColor.a * glowFactor * 0.4;
+    if (passType >= 3.5 && passType < 4.5) {
+        float ringGlowFactor = 1.0 - smoothstep(0.0, passRadius * 0.14, dist);
+        finalGlowAlpha = params.glowColor.a * ringGlowFactor * 0.52;
+    }
+    if (passType >= 4.5 && passType < 5.5) {
+        float ringGlowFactor = 1.0 - smoothstep(0.0, passRadius * 0.12, dist);
+        finalGlowAlpha = params.glowColor.a * ringGlowFactor * 0.56;
+    }
+    if (passType >= 5.5 && passType < 6.5) {
+        float arrayGlowFactor = 1.0 - smoothstep(0.0, passRadius * 0.2, dist);
+        float groundIllum = 1.0 - smoothstep(passRadius * 0.2, passRadius, length(pBase));
+        finalGlowAlpha =
+            max(params.glowColor.a * arrayGlowFactor * 0.6,
+                params.glowColor.a * groundIllum * 0.2);
+    }
+
+    vec3 color;
+    float alpha;
+    if (dist <= 0.0) {
+        color = finalInnerColor;
+        alpha = finalInnerAlpha;
+    } else {
+        color = finalGlowColor;
+        alpha = finalGlowAlpha;
+    }
+
+    if (passType >= 2.5 && passType < 3.5) {
+        float pr = max(passRadius, 1e-4);
+        float px = p.x / pr;
+
+        float edgeMask = 1.0 - smoothstep(pr * 0.02, pr * 0.30, abs(dist));
+        float bladeForwardMask = smoothstep(-0.18, 0.95, px);
+        vec2 bladeSourceCenter = vec2(pr * 0.64, 0.0);
+        float bladeSourceDist = length(p - bladeSourceCenter);
+        float bladeSourceMask = 1.0 - smoothstep(pr * 0.16, pr * 1.02, bladeSourceDist);
+        float bladeGlowMask = clamp(edgeMask * bladeForwardMask * bladeSourceMask, 0.0, 1.0);
+
+        float outsideDist = max(dist, 0.0);
+        float outerAura =
+            (1.0 - smoothstep(pr * 0.02, pr * 0.42, outsideDist)) * bladeForwardMask;
+
+        vec3 bladeGlowColor = mix(finalGlowColor, vec3(1.0), 0.48);
+        color += bladeGlowColor * (bladeGlowMask * 1.02 + outerAura * 0.58);
+        color = mix(color, vec3(1.0), bladeGlowMask * 0.38 + outerAura * 0.16);
+        alpha = max(alpha, params.glowColor.a * (bladeGlowMask * 0.52 + outerAura * 0.24));
+
+        float rInner = pr * 0.85;
+        float shift = pr * 0.25;
+        vec2 sourceCenter = vec2(-shift, 0.0);
+        float sourceDist = length(p - sourceCenter);
+        float holeMask = smoothstep(0.0, pr * 0.05, dist);
+        float innerMask = 1.0 - smoothstep(rInner * 0.72, rInner * 1.01, sourceDist);
+        float sourceMask = holeMask * innerMask;
+        float innerRimMask = 1.0 - smoothstep(pr * 0.015, pr * 0.11, abs(sourceDist - rInner));
+        float cavityClipMask = smoothstep(rInner * 1.06, rInner * 1.14, sourceDist);
+
+        color *= (1.0 - sourceMask * 0.98);
+        alpha *= (1.0 - sourceMask * 0.995);
+        alpha *= (1.0 - innerRimMask * 0.90);
+        color *= cavityClipMask;
+        alpha *= cavityClipMask;
+    }
+
+    if (passType >= 4.5 && passType < 5.5) {
+        const vec2 ellipseAxis = vec2(0.82, 1.08);
+        vec2 ep = vec2(pBase.x / ellipseAxis.x, pBase.y / ellipseAxis.y);
+        vec2 epDir = normalize(ep + vec2(1e-4, 1e-4));
+        vec2 flowDir = normalize(dir + vec2(1e-4, 1e-4));
+        float theta = atan(ep.y, ep.x);
+        float ellipseLen = length(ep);
+
+        float ringMask = 1.0 - smoothstep(passRadius * 0.03, passRadius * 0.16, abs(dist));
+        float sweep = pow(max(dot(epDir, flowDir), 0.0), 6.0);
+        float trail = pow(max(dot(epDir, -flowDir), 0.0), 9.0);
+        float bandA = 0.5 + 0.5 * sin(theta * 10.0 - params.time * 4.8 + ellipseLen * 7.0);
+        float bandB = 0.5 + 0.5 * sin(theta * 14.0 + params.time * 5.4 - ellipseLen * 9.0);
+        float flowMask =
+            ringMask *
+            (sweep * 0.78 + trail * 0.28 + pow(bandA, 4.0) * 0.72 + pow(bandB, 5.0) * 0.58);
+
+        vec3 sheenColor = mix(params.glowColor.rgb, vec3(0.95, 0.99, 1.00), 0.45);
+        color += sheenColor * flowMask * 0.72;
+        alpha = max(alpha, params.glowColor.a * flowMask * 0.62);
+
+        float fillMask = 1.0 - smoothstep(passRadius * 0.78, passRadius * 1.04, ellipseLen);
+        float membraneNoise =
+            0.5 + 0.5 * sin(ep.x * 18.0 + ep.y * 13.0 + params.time * 2.7);
+        float membrane = fillMask * (0.26 + 0.74 * membraneNoise);
+        vec3 membraneColor =
+            mix(vec3(0.26, 0.62, 0.96), vec3(0.70, 0.90, 1.00), membraneNoise * 0.60);
+        color = mix(color, membraneColor, membrane * 0.46);
+        alpha = max(alpha, params.coreColor.a * membrane * 0.58);
+
+        float arcNoise = 0.5 + 0.5 * sin(theta * 32.0 + params.time * 8.6 +
+                                         sin(theta * 7.0 - params.time * 3.7) * 2.1);
+        float arcMask = ringMask * pow(arcNoise, 9.0);
+        vec3 arcColor = vec3(0.80, 0.95, 1.00);
+        color += arcColor * arcMask * 0.88;
+        alpha = max(alpha, params.glowColor.a * arcMask * 0.46);
+
+        vec2 specDir = normalize(vec2(cos(params.time * 1.4), sin(params.time * 1.4)));
+        float specular = pow(max(dot(epDir, specDir), 0.0), 22.0) * ringMask;
+        color += vec3(1.0) * specular * 0.52;
+        alpha = max(alpha, params.glowColor.a * specular * 0.35);
+    }
+
+    color = clamp(color, vec3(0.0), vec3(1.0));
+    alpha = clamp(alpha, 0.0, 1.0);
+    return vec4(color, alpha);
+}

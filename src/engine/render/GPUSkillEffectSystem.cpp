@@ -25,8 +25,6 @@ namespace {
 constexpr size_t kMaxQueuedSkillEvents = 4096u;
 constexpr size_t kMaxQueuedDistortion = 32u;
 constexpr int kMaxShaderIncludeDepth = 8;
-constexpr uint32_t kSkillEffectElementMask = 0x0Fu;
-
 struct SkillCapEntry {
   int high = 0;
   int medium = 0;
@@ -168,10 +166,11 @@ Shader LoadShaderWithIncludes(const std::filesystem::path &vertexPath,
   return shader;
 }
 
-uint32_t EncodeSkillEffectFlags(const uint8_t elementType) {
+uint32_t EncodeSkillEffectFlags(const uint8_t elementType,
+                                const uint32_t skillId) {
   const uint8_t clamped =
       std::min<uint8_t>(elementType, static_cast<uint8_t>(SkillVfxElementType::Void));
-  return static_cast<uint32_t>(clamped) & kSkillEffectElementMask;
+  return NoMoreDay::render::skillfx::PackSkillEffectFlags(clamped, skillId);
 }
 
 float ClampIntensity(const float value) {
@@ -894,7 +893,13 @@ bool GPUSkillEffectSystem::EmitRecipeDrivenVisual(const SkillVfxEvent &event) {
     effect.velocity = vel;
     effect.radius = std::max(2.0f, action.radius * intensity);
     effect.sectorAngle = action.angle;
-    effect.flags = EncodeSkillEffectFlags(normalized.elementType);
+    effect.flags = EncodeSkillEffectFlags(normalized.elementType,
+                                          normalized.skillId);
+    if (normalized.skillId == 0u) {
+      LOG_LIMITED_WARN(1.0f,
+                       "GPUSkillEffectSystem: recipe overlay missing skillId, "
+                       "using fallback routing");
+    }
     effect.type = action.type;
 
     const float alpha = std::clamp(action.alpha * triggerActionScale, 0.05f, 1.0f);
@@ -1103,7 +1108,12 @@ void GPUSkillEffectSystem::EmitLegacySkillEventVisual(
     effect.velocity = vel;
     effect.radius = std::max(2.0f, radius);
     effect.sectorAngle = angle;
-    effect.flags = EncodeSkillEffectFlags(elementType);
+    effect.flags = EncodeSkillEffectFlags(elementType, event.skillId);
+    if (event.skillId == 0u) {
+      LOG_LIMITED_WARN(1.0f,
+                       "GPUSkillEffectSystem: legacy effect missing skillId, "
+                       "using fallback routing");
+    }
     effect.type = type;
 
     const float coreAlpha =

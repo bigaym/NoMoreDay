@@ -25,6 +25,7 @@ constexpr float kDefaultGoldLabelOffsetY = -20.0f;
 
 constexpr uint32_t kWorkGroupSize = 64u;
 constexpr uint32_t kIndirectBufferBinding = 3u;
+constexpr uint32_t kLootRenderInstanceBinding = 0u;
 constexpr uint32_t kVisibleIndexBinding = 1u;
 constexpr uint32_t kCounterBinding = 2u;
 constexpr uint32_t kForceBinding = 4u;
@@ -32,9 +33,84 @@ constexpr uint32_t kGridBinding = 5u;
 
 constexpr uint32_t kGLDrawIndirectBuffer = 0x8F3F;
 constexpr uint32_t kGLTriangles = 0x0004;
+constexpr uint32_t kGLVertexShader = 0x8B31;
+constexpr uint32_t kGLFragmentShader = 0x8B30;
+constexpr uint32_t kGLCompileStatus = 0x8B81;
+constexpr uint32_t kGLInfoLogLength = 0x8B84;
 
 using MultiDrawArraysIndirectCountFn = void(APIENTRY *)(uint32_t, const void *,
                                                         int32_t, int32_t);
+using CreateShaderFn = uint32_t(APIENTRY *)(uint32_t);
+using ShaderSourceFn = void(APIENTRY *)(uint32_t, int32_t, const char *const *,
+                                         const int32_t *);
+using CompileShaderFn = void(APIENTRY *)(uint32_t);
+using GetShaderIvFn = void(APIENTRY *)(uint32_t, uint32_t, int32_t *);
+using GetShaderInfoLogFn = void(APIENTRY *)(uint32_t, int32_t, int32_t *, char *);
+using DeleteShaderFn = void(APIENTRY *)(uint32_t);
+
+uint32_t CompileShaderWithGLFallback(const uint32_t stage, const std::string &source,
+                                     const char *label) {
+  static CreateShaderFn createShader = nullptr;
+  static ShaderSourceFn shaderSource = nullptr;
+  static CompileShaderFn compileShader = nullptr;
+  static GetShaderIvFn getShaderIv = nullptr;
+  static GetShaderInfoLogFn getShaderInfoLog = nullptr;
+  static DeleteShaderFn deleteShader = nullptr;
+  static bool loaded = false;
+
+  if (!loaded) {
+    createShader = reinterpret_cast<CreateShaderFn>(glfwGetProcAddress("glCreateShader"));
+    shaderSource = reinterpret_cast<ShaderSourceFn>(glfwGetProcAddress("glShaderSource"));
+    compileShader = reinterpret_cast<CompileShaderFn>(glfwGetProcAddress("glCompileShader"));
+    getShaderIv = reinterpret_cast<GetShaderIvFn>(glfwGetProcAddress("glGetShaderiv"));
+    getShaderInfoLog =
+        reinterpret_cast<GetShaderInfoLogFn>(glfwGetProcAddress("glGetShaderInfoLog"));
+    deleteShader = reinterpret_cast<DeleteShaderFn>(glfwGetProcAddress("glDeleteShader"));
+    loaded = true;
+  }
+
+  if (createShader == nullptr || shaderSource == nullptr || compileShader == nullptr ||
+      getShaderIv == nullptr || getShaderInfoLog == nullptr || deleteShader == nullptr) {
+    LOG_ERROR("GPULootSystem: OpenGL fallback compiler unavailable for '{}'", label);
+    return 0u;
+  }
+
+  const uint32_t shaderId = createShader(stage);
+  if (shaderId == 0u) {
+    LOG_ERROR("GPULootSystem: OpenGL fallback failed to create shader '{}'", label);
+    return 0u;
+  }
+
+  const char *srcPtr = source.c_str();
+  const int32_t srcLen = static_cast<int32_t>(source.size());
+  shaderSource(shaderId, 1, &srcPtr, &srcLen);
+  compileShader(shaderId);
+
+  int32_t status = 0;
+  getShaderIv(shaderId, kGLCompileStatus, &status);
+  if (status == 1) {
+    LOG_WARN("GPULootSystem: OpenGL fallback compiled shader '{}' after rlCompileShader "
+             "failed",
+             label);
+    return shaderId;
+  }
+
+  int32_t infoLen = 0;
+  getShaderIv(shaderId, kGLInfoLogLength, &infoLen);
+  std::string infoLog;
+  if (infoLen > 1) {
+    infoLog.resize(static_cast<size_t>(infoLen), '\0');
+    int32_t written = 0;
+    getShaderInfoLog(shaderId, infoLen, &written, infoLog.data());
+    if (written > 0 && written < infoLen) {
+      infoLog.resize(static_cast<size_t>(written));
+    }
+  }
+  LOG_ERROR("GPULootSystem: OpenGL fallback compile failed for '{}': {}",
+            label, infoLog.empty() ? "no info log" : infoLog);
+  deleteShader(shaderId);
+  return 0u;
+}
 
 bool ReadTextFileUtf8(const std::filesystem::path &path, std::string &outText) {
   std::ifstream file(path, std::ios::in | std::ios::binary);
@@ -114,6 +190,82 @@ bool PreprocessShaderIncludes(const std::string &path, std::string &outText) {
   std::unordered_set<std::string> includeStack;
   return PreprocessShaderIncludesImpl(std::filesystem::path(path), outText,
                                       includeStack, 0);
+}
+
+Shader LoadShaderFromFilesWithIncludes(const char *vertexPath,
+                                       const char *fragmentPath) {
+  if (!FileExists(vertexPath)) {
+    LOG_ERROR("GPULootSystem: vertex shader file missing: {}", vertexPath);
+    return {};
+  }
+  if (!FileExists(fragmentPath)) {
+    LOG_ERROR("GPULootSystem: fragment shader file missing: {}", fragmentPath);
+    return {};
+  }
+
+  std::string vsSource;
+  if (!PreprocessShaderIncludes(vertexPath, vsSource) || vsSource.empty()) {
+    LOG_ERROR("GPULootSystem: failed to preprocess vertex shader: {}", vertexPath);
+    return {};
+  }
+
+  std::string fsSource;
+  if (!PreprocessShaderIncludes(fragmentPath, fsSource) || fsSource.empty()) {
+    LOG_ERROR("GPULootSystem: failed to preprocess fragment shader: {}", fragmentPath);
+    return {};
+  }
+
+  auto compileStage = [](const int stage, const std::string &source,
+                         const char *label) -> unsigned int {
+    const unsigned int shaderId = rlCompileShader(source.c_str(), stage);
+    if (shaderId == 0u) {
+      std::istringstream stream(source);
+      std::string line;
+      std::ostringstream firstLines;
+      int lineNo = 0;
+      while (lineNo < 12 && std::getline(stream, line)) {
+        ++lineNo;
+        firstLines << lineNo << ": " << line << '\n';
+      }
+      LOG_ERROR("GPULootSystem: {} shader compile failed (first lines):\n{}",
+                label, firstLines.str());
+      const uint32_t glStage =
+          (stage == RL_VERTEX_SHADER) ? kGLVertexShader : kGLFragmentShader;
+      return CompileShaderWithGLFallback(glStage, source, label);
+    }
+    return shaderId;
+  };
+
+  const unsigned int vertexShaderId =
+      compileStage(RL_VERTEX_SHADER, vsSource, vertexPath);
+  if (vertexShaderId == 0u) {
+    LOG_ERROR("GPULootSystem: failed to compile vertex shader '{}'", vertexPath);
+    return {};
+  }
+
+  const unsigned int fragmentShaderId =
+      compileStage(RL_FRAGMENT_SHADER, fsSource, fragmentPath);
+  if (fragmentShaderId == 0u) {
+    LOG_ERROR("GPULootSystem: failed to compile fragment shader '{}'", fragmentPath);
+    return {};
+  }
+
+  const unsigned int programId = rlLoadShaderProgram(vertexShaderId, fragmentShaderId);
+  if (programId == 0u) {
+    LOG_ERROR("GPULootSystem: failed to link render shader pair: {} + {}",
+              vertexPath, fragmentPath);
+    return {};
+  }
+
+  Shader shader = {};
+  shader.id = programId;
+  shader.locs = static_cast<int *>(RL_MALLOC(32 * sizeof(int)));
+  if (shader.locs != nullptr) {
+    for (int i = 0; i < 32; ++i) {
+      shader.locs[i] = -1;
+    }
+  }
+  return shader;
 }
 
 Shader LoadComputeShaderFromFile(const char *path) {
@@ -232,13 +384,25 @@ void GPULootSystem::Init(const uint32_t maxInstances) {
       LoadComputeShaderFromFile("assets/shaders/loot/loot_repulsion.compute");
   m_positionUpdateShader =
       LoadComputeShaderFromFile("assets/shaders/loot/loot_position_update.compute");
+  // Try raylib file-path loader first; if it fails, fall back to explicit
+  // compile path so we can capture stage-level diagnostics.
   m_renderShader = LoadShader("assets/shaders/loot/loot_quad.vert",
                               "assets/shaders/loot/loot_quad.frag");
+  if (m_renderShader.id == 0) {
+    LOG_WARN("GPULootSystem: LoadShader(file-path) failed for loot render pair, "
+             "falling back to explicit compile path");
+    m_renderShader = LoadShaderFromFilesWithIncludes(
+        "assets/shaders/loot/loot_quad.vert", "assets/shaders/loot/loot_quad.frag");
+  }
 
   if (m_cullShader.id == 0 || m_indirectArgsShader.id == 0 ||
       m_gridHashShader.id == 0 || m_repulsionShader.id == 0 ||
       m_positionUpdateShader.id == 0 || m_renderShader.id == 0) {
-    LOG_ERROR("GPULootSystem: shader init failed");
+    LOG_ERROR(
+        "GPULootSystem: shader init failed ids[cull={}, indirect={}, grid={}, "
+        "repulsion={}, position={}, render={}]",
+        m_cullShader.id, m_indirectArgsShader.id, m_gridHashShader.id,
+        m_repulsionShader.id, m_positionUpdateShader.id, m_renderShader.id);
     Shutdown();
     return;
   }
@@ -425,7 +589,8 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
       std::min(worldTL.x, worldBR.x) - 80.0f, std::min(worldTL.y, worldBR.y) - 80.0f,
       std::max(worldTL.x, worldBR.x) + 80.0f, std::max(worldTL.y, worldBR.y) + 80.0f};
 
-  m_instanceBuffer.BindBase(NoMoreDay::RenderConstants::LootPassBinding::INSTANCE_SSBO);
+  // Render shader uses a dedicated low binding index for wider GLSL compiler compatibility.
+  m_instanceBuffer.BindBase(kLootRenderInstanceBinding);
   m_visibleIndexBuffer.BindBase(kVisibleIndexBinding);
   m_counterBuffer.BindBase(kCounterBinding);
   m_indirectBuffer.BindBase(kIndirectBufferBinding);

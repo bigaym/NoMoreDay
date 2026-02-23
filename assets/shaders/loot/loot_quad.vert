@@ -1,11 +1,10 @@
-#version 430
-#include "generated/gpu_abi.glslinc"
+#version 430 core
 
 layout(location = 0) in vec2 aPos;
 layout(location = 1) in vec2 aUV;
 
-layout(std430, binding = 15) readonly buffer LootInstanceBuffer {
-  GPULootInstance instances[];
+layout(std430, binding = 0) readonly buffer LootInstanceBuffer {
+  uvec4 lootWords[];
 };
 
 layout(std430, binding = 1) readonly buffer VisibleIndexBuffer {
@@ -20,27 +19,35 @@ out float vGlow;
 flat out uint vFlags;
 flat out uint vItemId;
 
-vec4 unpackColor(uint packed) {
-  float r = float((packed >> 24u) & 0xFFu) / 255.0;
-  float g = float((packed >> 16u) & 0xFFu) / 255.0;
-  float b = float((packed >> 8u) & 0xFFu) / 255.0;
-  float a = float((packed) & 0xFFu) / 255.0;
-  return vec4(r, g, b, a);
+vec4 unpackColor(uint packedColor) {
+  // unpackUnorm4x8 returns bytes low->high as x,y,z,w; our packed color is
+  // high->low as R,G,B,A, so remap to RGBA explicitly.
+  vec4 unpacked = unpackUnorm4x8(packedColor);
+  return vec4(unpacked.w, unpacked.z, unpacked.y, unpacked.x);
 }
 
 void main() {
   uint lootIndex = visibleIndices[gl_InstanceID];
-  GPULootInstance inst = instances[lootIndex];
+  uint base = lootIndex * 2u;
+  uvec4 w0 = lootWords[base + 0u];
+  uvec4 w1 = lootWords[base + 1u];
 
-  bool isGold = (inst.flags & 1u) != 0u;
+  vec2 worldPos = vec2(uintBitsToFloat(w0.x), uintBitsToFloat(w0.y));
+  vec2 labelOffset = vec2(uintBitsToFloat(w0.z), uintBitsToFloat(w0.w));
+  uint itemId = w1.x;
+  uint rarityColor = w1.y;
+  float glowIntensity = uintBitsToFloat(w1.z);
+  uint flags = w1.w;
+
+  bool isGold = (flags & 1u) != 0u;
   vec2 size = isGold ? vec2(72.0, 20.0) : vec2(92.0, 24.0);
-  vec2 center = vec2(inst.worldPosX + inst.labelOffsetX, inst.worldPosY + inst.labelOffsetY);
-  vec2 worldPos = center + aPos * size;
+  vec2 center = worldPos + labelOffset;
+  vec2 finalPos = center + aPos * size;
 
-  gl_Position = uMVP * vec4(worldPos, 0.0, 1.0);
+  gl_Position = uMVP * vec4(finalPos, 0.0, 1.0);
   vUV = aUV;
-  vRarityColor = unpackColor(inst.rarityColor);
-  vGlow = inst.glowIntensity;
-  vFlags = inst.flags;
-  vItemId = inst.itemId;
+  vRarityColor = unpackColor(rarityColor);
+  vGlow = glowIntensity;
+  vFlags = flags;
+  vItemId = itemId;
 }

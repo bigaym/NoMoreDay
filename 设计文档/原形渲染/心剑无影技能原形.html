@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>心剑·无影 - 技能原形预览</title>
+    <style>
+        :root {
+            --bg-color: #050508;
+            --panel-bg: rgba(20, 20, 30, 0.85);
+            --accent-color: #4facfe;
+            --text-color: #e0e0e0;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 顶部状态显示 */
+        #status-bar {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+        }
+
+        #skill-title {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(79, 172, 254, 0.8);
+            margin-bottom: 5px;
+        }
+
+        #current-mode {
+            font-size: 14px;
+            color: var(--accent-color);
+            background: rgba(0,0,0,0.5);
+            padding: 2px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--accent-color);
+        }
+
+        /* 控制面板区 */
+        #ui-panel {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: var(--panel-bg);
+            padding: 15px 25px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            display: flex;
+            gap: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 100px;
+        }
+
+        .btn:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: var(--accent-color);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: var(--accent-color);
+            color: black;
+            font-weight: bold;
+            box-shadow: 0 0 15px var(--accent-color);
+        }
+
+        .btn .key-hint {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        /* 引导提示 */
+        #instruction {
+            position: absolute;
+            top: 80px;
+            width: 100%;
+            text-align: center;
+            opacity: 0.6;
+            font-size: 13px;
+            pointer-events: none;
+        }
+
+        /* 全屏特效层 */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            background: black;
+            opacity: 0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="status-bar">
+        <div id="skill-title">心剑 · 无影</div>
+        <div id="current-mode">基础形态 (Base Form)</div>
+    </div>
+
+    <div id="instruction">按住鼠标左键开始引导 · 移动光标撕裂空间</div>
+
+    <div id="canvas-container">
+        <canvas id="mainCanvas"></canvas>
+    </div>
+
+    <div id="overlay"></div>
+
+    <div id="ui-panel">
+        <div class="btn active" onclick="setMode('base')">
+            <span>基础形态</span>
+            <span class="key-hint">Base Form</span>
+        </div>
+        <div class="btn" onclick="setMode('cold')">
+            <span>天外冰晶</span>
+            <span class="key-hint">Glacial</span>
+        </div>
+        <div class="btn" onclick="setMode('lightning')">
+            <span>神雷天罡</span>
+            <span class="key-hint">Lightning</span>
+        </div>
+        <div class="btn" onclick="setMode('collapse')">
+            <span>碎空爆</span>
+            <span class="key-hint">Collapse</span>
+        </div>
+        <div class="btn" onclick="setMode('empowered')">
+            <span>神通增强</span>
+            <span class="key-hint">Empowered</span>
+        </div>
+    </div>
+
+    <script>
+        /** @type {HTMLCanvasElement} */
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('overlay');
+        const modeLabel = document.getElementById('current-mode');
+
+        let width, height;
+        let isChanneling = false;
+        let mouseX = 0, mouseY = 0;
+        let charX, charY; // 角色模拟位置
+        let frameCount = 0;
+        let currentMode = 'base';
+        let chargeValue = 0; // 用于碎空爆蓄力
+
+        // 粒子系统
+        let particles = [];
+        let swordSlashes = [];
+        let shockwaves = [];
+
+        class Particle {
+            constructor(x, y, options = {}) {
+                this.x = x;
+                this.y = y;
+                this.vx = options.vx || (Math.random() - 0.5) * 4;
+                this.vy = options.vy || (Math.random() - 0.5) * 4;
+                this.life = 1.0;
+                this.decay = options.decay || 0.02;
+                this.size = options.size || Math.random() * 3 + 1;
+                this.color = options.color || '#4facfe';
+                this.type = options.type || 'normal'; // 'normal', 'shard', 'spark'
+                this.angle = Math.random() * Math.PI * 2;
+                this.spin = (Math.random() - 0.5) * 0.2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                this.angle += this.spin;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.life;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.angle);
+                ctx.fillStyle = this.color;
+                
+                if (this.type === 'shard') {
+                    // 几何棱形
+                    ctx.beginPath();
+                    ctx.moveTo(0, -this.size * 2);
+                    ctx.lineTo(this.size, 0);
+                    ctx.lineTo(0, this.size * 2);
+                    ctx.lineTo(-this.size, 0);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        class SwordSlash {
+            constructor(x, y, color) {
+                const angle = Math.random() * Math.PI * 2;
+                const len = 40 + Math.random() * 60;
+                this.x1 = x + Math.cos(angle) * -len;
+                this.y1 = y + Math.sin(angle) * -len;
+                this.x2 = x + Math.cos(angle) * len;
+                this.y2 = y + Math.sin(angle) * len;
+                this.life = 1.0;
+                this.decay = 0.15;
+                this.color = color || 'rgba(200, 240, 255, 0.8)';
+            }
+            update() { this.life -= this.decay; }
+            draw() {
+                ctx.save();
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 2 * this.life;
+                ctx.globalAlpha = this.life;
+                ctx.beginPath();
+                ctx.moveTo(this.x1, this.y1);
+                ctx.lineTo(this.x2, this.y2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            charX = width / 2;
+            charY = height * 0.7;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            
+            const titles = {
+                'base': '基础形态 (Base Form)',
+                'cold': '天外冰晶 (Glacial Shards)',
+                'lightning': '神雷天罡 (Orbital Strike)',
+                'collapse': '碎空爆 (Spatial Collapse)',
+                'empowered': '神通形态 (Empowered)'
+            };
+            modeLabel.innerText = titles[mode];
+            chargeValue = 0;
+        }
+
+        // 核心渲染循环
+        function animate() {
+            frameCount++;
+            ctx.fillStyle = 'rgba(5, 5, 8, 0.2)'; // 拖尾效果
+            ctx.fillRect(0, 0, width, height);
+
+            drawCharacter();
+
+            if (isChanneling) {
+                renderSkill();
+            }
+
+            // 更新与绘制物体
+            particles = particles.filter(p => p.life > 0);
+            particles.forEach(p => { p.update(); p.draw(); });
+
+            swordSlashes = swordSlashes.filter(s => s.life > 0);
+            swordSlashes.forEach(s => { s.update(); s.draw(); });
+
+            requestAnimationFrame(animate);
+        }
+
+        function drawCharacter() {
+            // 角色占位符
+            ctx.save();
+            ctx.translate(charX, charY);
+            
+            // 灵力连接线
+            if (isChanneling) {
+                const alpha = currentMode === 'empowered' ? 0.4 : 0.15;
+                ctx.strokeStyle = currentMode === 'empowered' ? '#fff' : 'rgba(79, 172, 254, '+alpha+')';
+                ctx.lineWidth = currentMode === 'empowered' ? 2 : 1;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(0, -40);
+                ctx.lineTo(mouseX - charX, mouseY - charY);
+                ctx.stroke();
+            }
+
+            // 角色身体
+            ctx.fillStyle = '#1a1a2e';
+            ctx.beginPath();
+            ctx.arc(0, 0, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = varColor();
+            ctx.stroke();
+
+            // 引导起手球
+            if (isChanneling && frameCount % 60 < 20) {
+                const grad = ctx.createRadialGradient(0, -45, 0, 0, -45, 15);
+                grad.addColorStop(0, '#fff');
+                grad.addColorStop(1, '#4facfe');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(0, -45, 8 + Math.sin(frameCount*0.2)*2, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function varColor() {
+            switch(currentMode) {
+                case 'cold': return '#a1c4fd';
+                case 'lightning': return '#c56cf0';
+                case 'collapse': return '#6a11cb';
+                case 'empowered': return '#fff';
+                default: return '#4facfe';
+            }
+        }
+
+        function renderSkill() {
+            const centerX = mouseX;
+            const centerY = mouseY;
+            let radius = currentMode === 'empowered' ? 45 : 30;
+
+            switch (currentMode) {
+                case 'base':
+                    drawDistortion(centerX, centerY, radius);
+                    if (frameCount % 10 === 0) swordSlashes.push(new SwordSlash(centerX, centerY));
+                    if (frameCount % 15 === 0) spawnParticles(centerX, centerY, 2, 'shard', '#222');
+                    break;
+
+                case 'cold':
+                    drawIceCrystal(centerX, centerY);
+                    if (frameCount % 20 === 0) {
+                        for(let i=0; i<3; i++) {
+                            const angle = Math.random() * Math.PI * 2;
+                            particles.push(new Particle(centerX, centerY, {
+                                vx: Math.cos(angle) * 5,
+                                vy: Math.sin(angle) * 5,
+                                color: '#e0f7fa',
+                                decay: 0.01,
+                                size: 4,
+                                type: 'shard'
+                            }));
+                        }
+                    }
+                    break;
+
+                case 'lightning':
+                    if (frameCount % 30 === 0) triggerLightning(centerX, centerY);
+                    drawShockedGround(centerX, centerY);
+                    break;
+
+                case 'collapse':
+                    chargeValue += 0.015;
+                    if (chargeValue > 1.2) {
+                        triggerCollapseExplosion(centerX, centerY);
+                        chargeValue = 0;
+                    } else {
+                        drawVortex(centerX, centerY, chargeValue);
+                    }
+                    break;
+
+                case 'empowered':
+                    drawDistortion(centerX, centerY, radius * 1.5, true);
+                    if (frameCount % 4 === 0) {
+                        const s = new SwordSlash(centerX, centerY, 'rgba(255,255,255,0.9)');
+                        swordSlashes.push(s);
+                    }
+                    // 水墨纹理模拟 (高频黑色粒子)
+                    if (frameCount % 5 === 0) spawnParticles(centerX, centerY, 5, 'shard', '#000');
+                    break;
+            }
+        }
+
+        function drawDistortion(x, y, r, empowered = false) {
+            ctx.save();
+            const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
+            const color = empowered ? 'rgba(0,0,0,0.8)' : 'rgba(79, 172, 254, 0.1)';
+            grad.addColorStop(0, 'rgba(255,255,255,0.2)');
+            grad.addColorStop(0.5, color);
+            grad.addColorStop(1, 'transparent');
+            
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(x, y, r + Math.sin(frameCount * 0.1) * 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 边缘空间裂痕
+            ctx.strokeStyle = empowered ? '#fff' : 'rgba(79, 172, 254, 0.4)';
+            ctx.lineWidth = 0.5;
+            for(let i=0; i<3; i++) {
+                ctx.beginPath();
+                ctx.arc(x, y, r * (0.8 + Math.random()*0.4), Math.random(), Math.random() + 0.5);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawIceCrystal(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(frameCount * 0.05);
+            ctx.fillStyle = '#a1c4fd';
+            for(let i=0; i<3; i++) {
+                ctx.rotate(Math.PI * 2 / 3);
+                ctx.beginPath();
+                ctx.moveTo(0, -20);
+                ctx.lineTo(10, 0);
+                ctx.lineTo(0, 10);
+                ctx.lineTo(-10, 0);
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function triggerLightning(x, y) {
+            // 雷柱
+            ctx.save();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 15;
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#c56cf0';
+            ctx.beginPath();
+            let curX = x;
+            ctx.moveTo(x, 0);
+            for(let i=0; i<10; i++) {
+                curX += (Math.random()-0.5) * 40;
+                ctx.lineTo(curX, (height / 10) * i);
+            }
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.restore();
+
+            // 地面反馈
+            for(let i=0; i<10; i++) {
+                particles.push(new Particle(x, y, {
+                    color: '#c56cf0',
+                    vx: (Math.random()-0.5)*15,
+                    vy: (Math.random()-0.5)*15,
+                    decay: 0.05
+                }));
+            }
+        }
+
+        function drawShockedGround(x, y) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(197, 108, 240, 0.4)';
+            ctx.beginPath();
+            ctx.arc(x, y, 40, 0, Math.PI * 2);
+            ctx.stroke();
+            // 电弧跳跃
+            if (frameCount % 5 === 0) {
+                ctx.beginPath();
+                ctx.moveTo(x + (Math.random()-0.5)*80, y + (Math.random()-0.5)*80);
+                ctx.lineTo(x + (Math.random()-0.5)*80, y + (Math.random()-0.5)*80);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawVortex(x, y, progress) {
+            const r = 100 * (1 - progress);
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(-frameCount * 0.2);
+            
+            const grad = ctx.createRadialGradient(0,0,0, 0,0, r + 20);
+            grad.addColorStop(0, '#000');
+            grad.addColorStop(0.8, '#6a11cb');
+            grad.addColorStop(1, 'transparent');
+            
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, r + 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 吸附粒子效果
+            if (frameCount % 2 === 0) {
+                const ang = Math.random() * Math.PI * 2;
+                const dist = r + 50 + Math.random() * 50;
+                particles.push(new Particle(x + Math.cos(ang)*dist, y + Math.sin(ang)*dist, {
+                    vx: -Math.cos(ang) * 6,
+                    vy: -Math.sin(ang) * 6,
+                    color: '#fff',
+                    decay: 0.1,
+                    size: 1
+                }));
+            }
+            ctx.restore();
+        }
+
+        function triggerCollapseExplosion(x, y) {
+            // 暗场 Flash
+            overlay.style.opacity = 1;
+            setTimeout(() => overlay.style.opacity = 0, 40);
+
+            // 震动
+            canvas.style.transform = `translate(${(Math.random()-0.5)*10}px, ${(Math.random()-0.5)*10}px)`;
+            setTimeout(() => canvas.style.transform = '', 120);
+
+            // 冲击波粒子
+            for(let i=0; i<40; i++) {
+                const ang = (Math.PI * 2 / 40) * i;
+                particles.push(new Particle(x, y, {
+                    vx: Math.cos(ang) * 12,
+                    vy: Math.sin(ang) * 12,
+                    color: i % 2 === 0 ? '#fff' : '#6a11cb',
+                    size: 8,
+                    decay: 0.02,
+                    type: 'shard'
+                }));
+            }
+        }
+
+        function spawnParticles(x, y, count, type, color) {
+            for(let i=0; i<count; i++) {
+                particles.push(new Particle(x, y, { type, color }));
+            }
+        }
+
+        // 事件监听
+        window.addEventListener('mousedown', (e) => { 
+            if (e.button === 0) isChanneling = true; 
+        });
+        window.addEventListener('mouseup', () => { 
+            if (currentMode === 'collapse' && chargeValue > 0.3) {
+                triggerCollapseExplosion(mouseX, mouseY);
+                chargeValue = 0;
+            }
+            isChanneling = false; 
+        });
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+        window.addEventListener('resize', resize);
+
+        // 初始化
+        resize();
+        animate();
+
+    </script>
+</body>
+</html>

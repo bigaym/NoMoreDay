@@ -1,0 +1,254 @@
+float NmdSkill7Sat(float x) {
+    return clamp(x, 0.0, 1.0);
+}
+
+float NmdSkill7DistributionGGX(float ndoth, float roughness) {
+    float a = max(0.05, roughness);
+    float a2 = a * a;
+    float d = ndoth * ndoth * (a2 - 1.0) + 1.0;
+    return a2 / max(0.0001, 3.14159265 * d * d);
+}
+
+float NmdSkill7GeometrySchlickGGX(float ndotx, float roughness) {
+    float r = roughness + 1.0;
+    float k = (r * r) * 0.125;
+    return ndotx / max(0.0001, ndotx * (1.0 - k) + k);
+}
+
+vec3 NmdSkill7FresnelSchlick(float cosTheta, vec3 f0) {
+    return f0 + (1.0 - f0) * pow(NmdSkill7Sat(1.0 - cosTheta), 5.0);
+}
+
+vec3 NmdSkill7BrdfLite(vec3 baseColor, vec3 n, vec3 l, vec3 v,
+                       float roughness, float metallic, float ao,
+                       vec3 f0) {
+    vec3 h = normalize(l + v);
+    float ndotl = max(dot(n, l), 0.0);
+    float ndotv = max(dot(n, v), 0.0);
+    float ndoth = max(dot(n, h), 0.0);
+    float hdotv = max(dot(h, v), 0.0);
+
+    float d = NmdSkill7DistributionGGX(ndoth, roughness);
+    float g = NmdSkill7GeometrySchlickGGX(ndotl, roughness) *
+              NmdSkill7GeometrySchlickGGX(ndotv, roughness);
+    vec3 f = NmdSkill7FresnelSchlick(hdotv, f0);
+
+    vec3 kd = (1.0 - f) * (1.0 - metallic);
+    vec3 diffuse = kd * baseColor / 3.14159265;
+    vec3 spec = (d * g * f) / max(0.0001, 4.0 * ndotl * ndotv);
+    return (diffuse + spec) * ndotl * max(0.0, ao);
+}
+
+float NmdSkill7AnisoSpec(vec3 n, vec3 t, vec3 b, vec3 l, vec3 v,
+                         float roughT, float roughB, float strength) {
+    float ndotl = max(dot(n, l), 0.0);
+    float ndotv = max(dot(n, v), 0.0);
+    if (ndotl <= 0.0 || ndotv <= 0.0 || strength <= 0.0) {
+        return 0.0;
+    }
+    vec3 h = normalize(l + v);
+    float ndoth = max(dot(n, h), 1e-4);
+    float tdoth = dot(t, h);
+    float bdoth = dot(b, h);
+    float at = max(0.04, roughT);
+    float ab = max(0.04, roughB);
+    float exponent =
+        -((tdoth * tdoth) / (at * at) + (bdoth * bdoth) / (ab * ab)) / max(ndoth * ndoth, 1e-4);
+    float d = exp(exponent) / max(1e-4, 3.14159265 * at * ab * ndoth * ndoth * ndoth * ndoth);
+    float g = NmdSkill7GeometrySchlickGGX(ndotl, max(at, ab)) *
+              NmdSkill7GeometrySchlickGGX(ndotv, max(at, ab));
+    return strength * d * g * ndotl;
+}
+
+vec3 NmdSkill7ElementTint(int elementType) {
+    if (elementType == 2) { // Cold
+        return vec3(0.72, 0.90, 1.00);
+    }
+    if (elementType == 3) { // Lightning
+        return vec3(0.78, 0.64, 1.00);
+    }
+    if (elementType == 4) { // Void
+        return vec3(0.56, 0.46, 0.92);
+    }
+    return vec3(0.36, 0.82, 1.00);
+}
+
+vec4 NmdRenderSkill7Slash(in NmdSkillFragParams params) {
+    vec2 dir = normalize(params.direction + vec2(1e-5, 1e-5));
+    float a = atan(dir.y, dir.x);
+    vec2 p = rotate(params.localPos, a);
+
+    float bladeBody = sdBox(p, vec2(0.84, 0.16));
+    float bladeTip = sdCircle(p - vec2(0.84, 0.0), 0.19);
+    float d = min(bladeBody, bladeTip);
+
+    float bodyMask = 1.0 - smoothstep(0.0, 0.18, d);
+    float edgeMask = 1.0 - smoothstep(0.0, 0.08, abs(d));
+
+    float streakLine = exp(-abs(p.y) * 24.0) * (1.0 - smoothstep(0.55, 0.95, abs(p.x)));
+    float streakNoise = 0.5 + 0.5 * sin(p.x * 72.0 + params.time * 18.0);
+    float streakFlash = streakLine * pow(streakNoise, 6.0);
+
+    vec2 grad = vec2(dFdx(d), dFdy(d));
+    vec3 n = normalize(vec3(-grad * 10.5, 1.0));
+    vec3 l = normalize(vec3(0.32, 0.52, 0.79));
+    vec3 v = vec3(0.0, 0.0, 1.0);
+    vec3 t = normalize(vec3(dir, 0.0));
+    vec3 b = normalize(cross(n, t));
+    if (length(b) < 1e-4) {
+        b = vec3(-t.y, t.x, 0.0);
+    }
+    t = normalize(cross(b, n));
+
+    int elementType = NmdDecodeElementType(params.flags);
+    vec3 base = NmdSelectElementPalette(elementType, NmdSkill7ElementTint(elementType));
+    float roughness = mix(0.48, 0.12, edgeMask);
+    float metallic = mix(0.32, 0.64, edgeMask);
+    vec3 f0 = mix(vec3(0.06), base, metallic);
+    vec3 lit = NmdSkill7BrdfLite(base, n, l, v, roughness, metallic, 1.0, f0);
+
+    // Brushed-metal anisotropic lobe aligned with slash direction.
+    float aniso = NmdSkill7AnisoSpec(n, t, b, l, v, 0.08, 0.34, 0.85);
+    vec3 anisoColor = mix(base, vec3(1.0), 0.72) * aniso;
+
+    // Clearcoat lobe for crisp blade edge glint.
+    vec3 h = normalize(l + v);
+    float clearNdoth = max(dot(n, h), 0.0);
+    float clearcoat = pow(clearNdoth, mix(80.0, 180.0, edgeMask)) *
+                      max(dot(n, l), 0.0) * (0.35 + 0.65 * edgeMask);
+
+    vec3 emissive = mix(base * 0.28, vec3(0.86, 0.95, 1.0), edgeMask * 0.58);
+    emissive += vec3(0.90, 0.98, 1.0) * streakFlash * 0.70;
+
+    float alpha = bodyMask * 0.96 + edgeMask * 0.42 + streakFlash * 0.52;
+    vec3 color = lit * 1.42 + anisoColor * 1.18 + vec3(1.0) * clearcoat * 0.92 +
+                 emissive * (0.44 + 0.30 * edgeMask);
+    return vec4(clamp(color, vec3(0.0), vec3(1.0)), NmdSkill7Sat(alpha * params.coreColor.a));
+}
+
+vec4 NmdRenderSkill7BaseRift(in NmdSkillFragParams params) {
+    vec2 p = params.localPos;
+    float r = length(p);
+    float theta = atan(p.y, p.x);
+    int elementType = NmdDecodeElementType(params.flags);
+    vec3 tint = NmdSkill7ElementTint(elementType);
+
+    float ringDist = abs(r - 0.58) - 0.13;
+    float ringMask = 1.0 - smoothstep(0.0, 0.09, ringDist);
+
+    float coreMask = 1.0 - smoothstep(0.18, 0.56, r);
+    float swirl = 0.5 + 0.5 * sin(theta * 9.0 + params.time * 6.0 + r * 17.0);
+    float crack = pow(0.5 + 0.5 * sin(theta * 24.0 - params.time * 14.0), 8.0);
+
+    vec3 n = normalize(vec3(normalize(p + vec2(1e-5, 1e-5)) * 0.38, 1.0));
+    vec3 l = normalize(vec3(0.36, 0.44, 0.82));
+    vec3 v = vec3(0.0, 0.0, 1.0);
+    vec3 base = mix(vec3(0.14, 0.12, 0.24), tint * 0.35, 0.45);
+    vec3 f0 = vec3(0.06);
+    vec3 lit = NmdSkill7BrdfLite(base, n, l, v, 0.72, 0.08, 1.0, f0);
+
+    vec3 rimColor = mix(tint * 0.40, vec3(0.86, 0.96, 1.0), swirl);
+    vec3 coreColor = mix(vec3(0.08, 0.06, 0.16), tint * 0.45, swirl);
+    vec3 emissive = rimColor * ringMask * 1.10 + vec3(0.86, 0.96, 1.0) * crack * ringMask * 0.65;
+
+    vec3 color = lit * (0.68 + 0.42 * coreMask) + coreColor * coreMask * 0.58 + emissive;
+    float alpha = ringMask * 0.86 + coreMask * 0.34;
+    return vec4(clamp(color, vec3(0.0), vec3(1.0)), NmdSkill7Sat(alpha * params.coreColor.a));
+}
+
+vec4 NmdRenderSkill7ColdRift(in NmdSkillFragParams params) {
+    vec2 p = params.localPos;
+    float r = length(p);
+    float theta = atan(p.y, p.x);
+
+    float core = 1.0 - smoothstep(0.14, 0.55, r);
+    float ring = 1.0 - smoothstep(0.00, 0.08, abs(r - 0.62) - 0.11);
+    float crystal = pow(max(cos(theta * 6.0), 0.0), 5.0) * (1.0 - smoothstep(0.20, 0.88, r));
+    float crack = pow(0.5 + 0.5 * sin(theta * 18.0 + params.time * 8.0), 10.0) * ring;
+
+    vec3 icy = vec3(0.74, 0.92, 1.0);
+    vec3 deep = vec3(0.16, 0.22, 0.36);
+    vec3 color = mix(deep, icy, core * 0.72) + icy * ring * 0.95 + vec3(0.95, 1.0, 1.0) * crystal * 0.9;
+    color += vec3(0.84, 0.96, 1.0) * crack * 0.7;
+    float alpha = core * 0.48 + ring * 0.86 + crystal * 0.28;
+    return vec4(clamp(color, vec3(0.0), vec3(1.0)), NmdSkill7Sat(alpha * params.coreColor.a));
+}
+
+vec4 NmdRenderSkill7LightningRift(in NmdSkillFragParams params) {
+    vec2 p = params.localPos;
+    float r = length(p);
+    float theta = atan(p.y, p.x);
+
+    float ring = 1.0 - smoothstep(0.00, 0.07, abs(r - 0.60) - 0.10);
+    float core = 1.0 - smoothstep(0.10, 0.52, r);
+    float arcA = pow(0.5 + 0.5 * sin(theta * 14.0 + params.time * 20.0), 11.0);
+    float arcB = pow(0.5 + 0.5 * sin(theta * 20.0 - params.time * 16.0), 13.0);
+    float arc = ring * max(arcA, arcB);
+
+    vec3 vio = vec3(0.74, 0.56, 1.0);
+    vec3 cyan = vec3(0.62, 0.88, 1.0);
+    vec3 color = mix(vec3(0.12, 0.09, 0.22), vio, core * 0.65);
+    color += cyan * ring * 0.74 + vec3(1.0) * arc * 1.25;
+    float alpha = core * 0.40 + ring * 0.80 + arc * 0.50;
+    return vec4(clamp(color, vec3(0.0), vec3(1.0)), NmdSkill7Sat(alpha * params.coreColor.a));
+}
+
+vec4 NmdRenderSkill7CollapseRift(in NmdSkillFragParams params) {
+    vec2 p = params.localPos;
+    float r = length(p);
+    float theta = atan(p.y, p.x);
+
+    float innerHole = smoothstep(0.08, 0.18, r);
+    float outer = 1.0 - smoothstep(0.18, 0.90, r);
+    float swirl = 0.5 + 0.5 * sin(theta * 8.0 - params.time * 7.5 + r * 19.0);
+    float fracture = pow(0.5 + 0.5 * sin(theta * 22.0 + params.time * 12.0), 9.0) *
+                     (1.0 - smoothstep(0.20, 0.78, r));
+
+    vec3 dark = vec3(0.02, 0.02, 0.04);
+    vec3 voidEdge = vec3(0.42, 0.32, 0.78);
+    vec3 color = mix(dark, voidEdge, outer * (0.35 + 0.65 * swirl));
+    color += vec3(0.92, 0.96, 1.0) * fracture * 0.42;
+    color *= innerHole;
+    float alpha = outer * 0.88 * innerHole + fracture * 0.28;
+    return vec4(clamp(color, vec3(0.0), vec3(1.0)), NmdSkill7Sat(alpha * params.coreColor.a));
+}
+
+vec4 NmdRenderSkill7EmpoweredRift(in NmdSkillFragParams params) {
+    vec2 p = params.localPos;
+    float r = length(p);
+    float theta = atan(p.y, p.x);
+
+    float ring = 1.0 - smoothstep(0.00, 0.09, abs(r - 0.62) - 0.10);
+    float core = 1.0 - smoothstep(0.08, 0.58, r);
+    float slashA = exp(-abs(sin(theta * 2.0 + params.time * 10.0)) * 18.0);
+    float slashB = exp(-abs(cos(theta * 3.0 - params.time * 8.0)) * 18.0);
+    float slash = (slashA + slashB) * (1.0 - smoothstep(0.12, 0.90, r));
+
+    vec3 color = vec3(0.16, 0.22, 0.42) * core;
+    color += vec3(0.56, 0.82, 1.0) * ring * 0.85;
+    color += vec3(1.0) * slash * 0.9;
+    float alpha = core * 0.50 + ring * 0.90 + slash * 0.35;
+    return vec4(clamp(color, vec3(0.0), vec3(1.0)), NmdSkill7Sat(alpha * params.coreColor.a));
+}
+
+vec4 RenderSkill07(in NmdSkillFragParams params) {
+    if (params.type >= 1.5 && params.type < 2.5) {
+        return NmdRenderSkill7Slash(params);
+    }
+    if (params.type >= 2.5 && params.type < 3.5) {
+        return NmdRenderSkill7CollapseRift(params);
+    }
+    if (params.type >= 3.5 && params.type < 4.5) {
+        return NmdRenderSkill7BaseRift(params);
+    }
+    if (params.type >= 4.5 && params.type < 5.5) {
+        return NmdRenderSkill7ColdRift(params);
+    }
+    if (params.type >= 5.5 && params.type < 6.5) {
+        return NmdRenderSkill7LightningRift(params);
+    }
+    if (params.type >= 6.5 && params.type < 7.5) {
+        return NmdRenderSkill7EmpoweredRift(params);
+    }
+    return NmdRenderGenericByType(params);
+}

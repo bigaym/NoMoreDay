@@ -1072,6 +1072,115 @@ void SkillSystem::Update(entt::registry &registry,
       }
     }
 
+    // Skill 7 continuous channel visuals:
+    // - persistent distortion at cursor
+    // - very thin caster->cursor guiding link (alpha ~0.1)
+    if (chan.skill_id == 7) {
+      Vector2 diff = Vector2Subtract(chan.target_pos, {pos.x, pos.y});
+      float dist = Vector2Length(diff);
+      float max_range = 350.0f;
+      Vector2 cutPos = chan.target_pos;
+      Vector2 dir = {1.0f, 0.0f};
+      if (dist > 0.001f) {
+        dir = Vector2Scale(diff, 1.0f / dist);
+        if (dist > max_range) {
+          cutPos = {pos.x + dir.x * max_range, pos.y + dir.y * max_range};
+        }
+      } else {
+        cutPos = {pos.x + 50.0f, pos.y};
+      }
+
+      const Tag effectiveTags = GetEffectiveSkillTags(registry, entity, 7u);
+      const uint8_t elementType = EncodeElementTypeFromTags(effectiveTags);
+      bool hasVoidRift = false;
+      if (const auto *active = registry.try_get<ActiveSkillsComponent>(entity)) {
+        for (const auto &spec : active->specialized_slots) {
+          if (spec.skill_id == 7u) {
+            hasVoidRift = spec.allocated_points.contains(771u) &&
+                          spec.allocated_points.at(771u) > 0;
+            break;
+          }
+        }
+      }
+      const bool isCold = HasTag(effectiveTags, Tag::Cold);
+      const bool isLightning = HasTag(effectiveTags, Tag::Lightning);
+      const bool isEmpowered = chan.is_empowered;
+
+      // Persistent rift core: non-particle body for readability.
+      {
+        components::GPUSkillEffect riftRing = {};
+        riftRing.position = cutPos;
+        riftRing.velocity = Vector2Scale(dir, 40.0f);
+        riftRing.coreColor =
+            isEmpowered ? Vector4{0.22f, 0.30f, 0.48f, 0.98f}
+                        : (hasVoidRift ? Vector4{0.08f, 0.07f, 0.14f, 0.95f}
+                                       : Vector4{0.18f, 0.24f, 0.38f, 0.90f});
+        riftRing.glowColor =
+            isLightning ? Vector4{0.72f, 0.56f, 1.00f, 0.90f}
+                        : (isCold ? Vector4{0.76f, 0.92f, 1.00f, 0.88f}
+                                  : Vector4{0.46f, 0.74f, 1.00f, 0.84f});
+        riftRing.radius = 24.0f;
+        riftRing.sectorAngle = 360.0f;
+        riftRing.type = isEmpowered   ? 7.0f
+                        : hasVoidRift ? 3.0f
+                        : isLightning ? 6.0f
+                        : isCold      ? 5.0f
+                                      : 4.0f;
+        riftRing.flags =
+            NoMoreDay::render::skillfx::PackSkillEffectFlags(elementType, 7u);
+        systems::GPUSkillEffectSystem::Get().Submit(riftRing);
+        LOG_LIMITED_INFO(
+            1.0f,
+            "Skill7VFX channel: riftType={:.0f} element={} empowered={} void={} cold={} lightning={}",
+            riftRing.type, static_cast<uint32_t>(elementType), isEmpowered ? 1 : 0,
+            hasVoidRift ? 1 : 0, isCold ? 1 : 0, isLightning ? 1 : 0);
+      }
+      const float distortionRadius = isEmpowered ? 34.0f : (hasVoidRift ? 32.0f : 28.0f);
+      const float distortionStrength =
+          isEmpowered ? 0.30f : (hasVoidRift ? 0.26f : 0.22f);
+      RenderSystem::AddDistortionSource(cutPos.x, cutPos.y, distortionRadius,
+                                        distortionStrength);
+
+      auto &particleSys = systems::GPUParticleSystem::Get();
+      if ((float)GetRandomValue(0, 1000) < 700.0f * dt) {
+        constexpr int kSamples = 6;
+        for (int i = 1; i <= kSamples; ++i) {
+          const float t = static_cast<float>(i) / static_cast<float>(kSamples + 1);
+          const Vector2 samplePos = Vector2Lerp({pos.x, pos.y}, cutPos, t);
+          components::GPUParticle link = {};
+          link.position = samplePos;
+          link.velocity = {0.0f, 0.0f};
+          link.acceleration = {0.0f, 0.0f};
+          link.color = isEmpowered ? Color{236, 246, 255, 96}
+                                   : Color{185, 225, 240, 48};
+          link.scale = isEmpowered ? 3.2f : 2.6f;
+          link.lifetime = 0.13f;
+          link.maxLifetime = 0.13f;
+          link.flags = 1;
+          link.growthRate = -4.0f;
+          particleSys.Emit(link);
+        }
+      }
+
+      if (isLightning && (float)GetRandomValue(0, 1000) < 800.0f * dt) {
+        for (int i = 0; i < 2; ++i) {
+          components::GPUParticle arc = {};
+          arc.position = {cutPos.x + (float)GetRandomValue(-18, 18),
+                          cutPos.y + (float)GetRandomValue(-18, 18)};
+          arc.velocity = {(float)GetRandomValue(-40, 40),
+                          (float)GetRandomValue(-40, 40)};
+          arc.acceleration = {0.0f, 0.0f};
+          arc.color = Color{220, 188, 255, 215};
+          arc.scale = 4.4f;
+          arc.lifetime = 0.18f;
+          arc.maxLifetime = 0.18f;
+          arc.flags = 2;
+          arc.growthRate = -9.0f;
+          particleSys.Emit(arc);
+        }
+      }
+    }
+
     if (chan.tick_timer <= 0.0f) {
       if (chan.skill_id == 5) {
         // Infinite Blades (Wan Jian Gui Zong)
@@ -1170,11 +1279,6 @@ void SkillSystem::Update(entt::registry &registry,
         chan.tick_timer = 0.2f; // Reset timer (Must match tick_interval)
 
       } else if (chan.skill_id == 7) {
-        // Heart Sword: Shadowless (Spatial Cut)
-        LOG_INFO("[DEBUG-SKILL7] TICK TRIGGERED! Emitting Spatial Cut VFX at "
-                 "tick_timer={:.3f}",
-                 chan.tick_timer);
-
         // 1. Calculate Cut Position (Clamped to Range)
         Vector2 diff = Vector2Subtract(chan.target_pos, {pos.x, pos.y});
         float dist = Vector2Length(diff);
@@ -1191,53 +1295,90 @@ void SkillSystem::Update(entt::registry &registry,
           cutPos = {pos.x + 50.0f, pos.y};
         }
 
-        LOG_INFO("[DEBUG-SKILL7] Cut position: ({:.1f},{:.1f}), dir: "
-                 "({:.2f},{:.2f})",
-                 cutPos.x, cutPos.y, dir.x, dir.y);
+        const Tag effectiveTags = GetEffectiveSkillTags(registry, entity, 7u);
+        const uint8_t elementType = EncodeElementTypeFromTags(effectiveTags);
+        const bool isCold = HasTag(effectiveTags, Tag::Cold);
+        const bool isLightning = HasTag(effectiveTags, Tag::Lightning);
+        const bool isEmpowered = chan.is_empowered;
 
-        // 2. VFX: Spatial Cut (Perpendicular Line)
+        // 2. VFX: random-angle high-frequency cut lines (1-2 per tick)
         auto &particleSys = systems::GPUParticleSystem::Get();
-        Vector2 perp = {-dir.y, dir.x};
-        float cutWidth = 100.0f;
+        const int slashCount =
+            isEmpowered ? GetRandomValue(4, 8) : GetRandomValue(2, 4);
+        for (int s = 0; s < slashCount; ++s) {
+          const float slashAngle =
+              static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
+          const Vector2 slashDir = {cosf(slashAngle), sinf(slashAngle)};
+          const float halfLen =
+              isEmpowered ? static_cast<float>(GetRandomValue(20, 34))
+                          : static_cast<float>(GetRandomValue(16, 26));
+          constexpr int kSegments = 12;
+          for (int i = 0; i < kSegments; ++i) {
+            const float t = static_cast<float>(i) / static_cast<float>(kSegments - 1);
+            const float offset = (t - 0.5f) * (halfLen * 2.0f);
+            const Vector2 pPos = {cutPos.x + slashDir.x * offset,
+                                  cutPos.y + slashDir.y * offset};
 
-        int emittedCount = 0;
-        for (int i = 0; i < 15; ++i) {
-          float t = (float)i / 14.0f;
-          float offset = (t - 0.5f) * cutWidth;
-          Vector2 pPos = {cutPos.x + perp.x * offset,
-                          cutPos.y + perp.y * offset};
+            components::GPUParticle cut = {};
+            cut.position = pPos;
+            cut.velocity = Vector2Scale(slashDir, static_cast<float>(GetRandomValue(20, 60)));
+            cut.acceleration = {0.0f, 0.0f};
+            cut.color = isLightning ? Color{214, 188, 255, 220}
+                        : (isCold ? Color{210, 245, 255, 218}
+                                  : Color{200, 242, 255, 210});
+            cut.scale = isEmpowered ? 5.0f : 4.0f;
+            cut.lifetime = 0.20f;
+            cut.maxLifetime = 0.20f;
+            cut.flags = 2;
+            cut.growthRate = -10.5f;
+            particleSys.Emit(cut);
+          }
 
-          // Core Spark - Golden flash along the cut line
-          components::GPUParticle spark;
-          spark.position = pPos;
-          spark.velocity = Vector2Scale(dir, 60.0f);
-          spark.acceleration = {0.0f, 0.0f};
-          spark.color = GOLD;
-          spark.scale = 4.0f; // Smaller spark
-          spark.lifetime = 0.3f;
-          spark.maxLifetime = 0.3f;
-          spark.flags = 2;          // Spark/diamond shape
-          spark.growthRate = -6.0f; // Shrink to nothing
-          particleSys.Emit(spark);
-
-          // Outer Glow - Softer surrounding effect
-          components::GPUParticle glow;
-          glow.position = pPos;
-          glow.velocity = Vector2Scale(dir, 30.0f);
-          glow.acceleration = {0.0f, 0.0f};
-          glow.color = ColorAlpha(ORANGE, 0.5f);
-          glow.scale = 6.0f; // Smaller glow
-          glow.lifetime = 0.4f;
-          glow.maxLifetime = 0.4f;
-          glow.flags = 1;         // Soft glow
-          glow.growthRate = 3.0f; // Expand slightly
-          particleSys.Emit(glow);
-
-          emittedCount += 2;
+          // Add a short non-particle slash body to avoid "only thin particles".
+          components::GPUSkillEffect slashBody = {};
+          slashBody.position = cutPos;
+          slashBody.velocity = Vector2Scale(slashDir, 900.0f);
+          slashBody.coreColor = isLightning ? Vector4{0.66f, 0.58f, 1.00f, 0.96f}
+                               : (isCold ? Vector4{0.72f, 0.90f, 1.00f, 0.96f}
+                                         : Vector4{0.42f, 0.82f, 1.00f, 0.95f});
+          slashBody.glowColor = isLightning ? Vector4{0.90f, 0.84f, 1.00f, 0.90f}
+                               : (isCold ? Vector4{0.88f, 0.96f, 1.00f, 0.90f}
+                                         : Vector4{0.24f, 0.56f, 0.96f, 0.88f});
+          slashBody.radius = halfLen * 1.35f;
+          slashBody.sectorAngle = 0.0f;
+          slashBody.type = 2.0f;
+          slashBody.flags =
+              NoMoreDay::render::skillfx::PackSkillEffectFlags(elementType, 7u);
+          systems::GPUSkillEffectSystem::Get().Submit(slashBody);
         }
 
-        LOG_DEBUG("[MindBlade] Emitted {} VFX particles at ({:.1f},{:.1f})",
-                  emittedCount, cutPos.x, cutPos.y);
+        // 3. Edge shard fragments: dark geometric debris, slow outward.
+        const int shardCount = GetRandomValue(2, 4); // doubled
+        LOG_LIMITED_INFO(
+            1.0f,
+            "Skill7VFX tick: slashCount={} segments={} shardCount={} elem={} empowered={}",
+            slashCount, 12, shardCount, static_cast<uint32_t>(elementType),
+            isEmpowered ? 1 : 0);
+        for (int i = 0; i < shardCount; ++i) {
+          const float a = static_cast<float>(GetRandomValue(0, 359)) * DEG2RAD;
+          const float r = static_cast<float>(GetRandomValue(12, 20));
+          const Vector2 spawn = {cutPos.x + cosf(a) * r, cutPos.y + sinf(a) * r};
+
+          components::GPUParticle shard = {};
+          shard.position = spawn;
+          shard.velocity = {cosf(a) * static_cast<float>(GetRandomValue(8, 20)),
+                            sinf(a) * static_cast<float>(GetRandomValue(8, 20))};
+          shard.acceleration = {0.0f, 0.0f};
+          shard.color = isCold ? Color{62, 72, 90, 190}
+                      : (isLightning ? Color{74, 54, 110, 190}
+                                     : Color{36, 40, 52, 180});
+          shard.scale = 4.8f;
+          shard.lifetime = 0.62f;
+          shard.maxLifetime = 0.62f;
+          shard.flags = 2;
+          shard.growthRate = -1.5f;
+          particleSys.Emit(shard);
+        }
 
         // 3. Logic: Spawn "Cut" Hitbox (Stationary Projectile)
         auto exec_ent = registry.create();

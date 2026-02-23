@@ -1,4 +1,4 @@
-#version 430
+#version 430 core
 
 in vec2 vUV;
 in vec4 vRarityColor;

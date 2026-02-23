@@ -1,0 +1,3 @@
+vec4 RenderSkill05(in NmdSkillFragParams params) {
+    return NmdRenderGenericByType(params);
+}
