@@ -1,0 +1,6 @@
+Visual enhancements for the procedural galaxy background rendering.
+Key changes:
+1. Converted to trailing spiral arms by inverting the logarithmic winding direction across all layers.
+2. Implemented a faux-3D Gargantua-style accretion disk using tilted screen-space UVs and doppler-beaming color shifts.
+3. Added a simulated gravitational lens for the accretion disk situated behind the black hole.
+4. Carved out a central 'Core Void' to prevent the galactic bulge and gas layers from washing out the black hole visuals.
