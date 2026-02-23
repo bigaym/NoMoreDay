@@ -53,6 +53,15 @@
           ]
         },
         {
+          "id": 102,
+          "name_key": "剑心洞明",
+          "desc_key": "流云刺的基础暴击率增加 2%...10%。",
+          "max_points": 5,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 110,
           "name_key": "贯日",
           "desc_key": "攻击现在穿透所有敌人。击杀敌人时有 50% 几率重置冷却。",
@@ -106,6 +115,15 @@
           "prerequisites": [
             113
           ]
+        },
+        {
+          "id": 115,
+          "name_key": "无止境",
+          "desc_key": "击杀敌人时有 20%...60% 几率立即回复 1 次充能。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 130,
@@ -170,6 +188,15 @@
           ]
         },
         {
+          "id": 135,
+          "name_key": "虚实相生",
+          "desc_key": "离开残影所在区域时，获得相当于你敏捷值 200%...600% 的临时护盾 (Ward)，持续 3s。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 150,
           "name_key": "要害感知",
           "desc_key": "对满血或受控敌人的暴击率翻倍。",
@@ -232,6 +259,15 @@
           ]
         },
         {
+          "id": 155,
+          "name_key": "斩断因果",
+          "desc_key": "使用强化版流云刺击杀敌人时，有 25%...75% 几率立即重置其冷却时间；此效果触发时额外回复 1 层剑意。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 170,
           "name_key": "元素幻化",
           "desc_key": "将 100% 物理伤害转化为 **火焰(Fire)**、**冰霜(Frost)** 或 **闪电(Lightning)**。",
@@ -277,8 +313,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 1,
-        "min_nodes": 21,
-        "max_nodes": 21,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -325,8 +361,8 @@
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 2,
-              "effectiveness": 0.2,
-              "internal_cooldown": 1.0,
+              "effectiveness": 0.6,
+              "internal_cooldown": 3.0,
               "consumes_mana": false
             }
           },
@@ -521,6 +557,15 @@
           ]
         },
         {
+          "id": 202,
+          "name_key": "锋芒",
+          "desc_key": "基础物理伤害增加 10%...50%。",
+          "max_points": 5,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 210,
           "name_key": "多重剑气",
           "desc_key": "投射物数量 +1/+2/+3，伤害降低 25%/20%/15%。",
@@ -563,6 +608,24 @@
           "prerequisites": [
             212
           ]
+        },
+        {
+          "id": 214,
+          "name_key": "星环护体",
+          "desc_key": "剑气不再向外飞行，而是环绕在你周身旋转 3 秒，对触碰的敌人造成持续多次切割伤害。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 215,
+          "name_key": "灵剑追击",
+          "desc_key": "当你拥有活跃的 [灵剑决] 时，每次施放裂空斩会令 1 柄灵剑伴飞剑气同行，到达末端后对最近敌人进行一次额外攻击（20% 效力，继承剑气的元素标签）。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 230,
@@ -609,6 +672,24 @@
           ]
         },
         {
+          "id": 234,
+          "name_key": "时空停滞",
+          "desc_key": "剑气到达最远端时不再折返，而是原地停滞并高速旋转 2s，化为高频段伤害的微型剑气风暴。",
+          "max_points": 1,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 235,
+          "name_key": "御剑引力",
+          "desc_key": "处于“御剑步”状态时，引力陷阱/时空停滞的牵引半径和效果增加 15%...45%，且折返的剑气有 50%...150% 几率施加护甲击碎（超过100%的部分有相应概率额外施加1层）。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 250,
           "name_key": "灵力转化",
           "desc_key": "物理伤害转化为 **虚空(Void)**（受智力加成），获得虚空标签。",
@@ -651,6 +732,24 @@
           ]
         },
         {
+          "id": 254,
+          "name_key": "回响斩",
+          "desc_key": "消耗剑意施放裂空斩时，自动向你背后方向触发一道额外的裂空斩（使用其已专精版本，40% 效力，不消耗法力，CD: 2s）。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 255,
+          "name_key": "意念回流",
+          "desc_key": "消耗剑意的裂空斩每命中一名敌人，有 10%...30% 几率回复 1 层剑意。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 270,
           "name_key": "元素形态",
           "desc_key": "",
@@ -682,13 +781,22 @@
           "prerequisites": [
             270
           ]
+        },
+        {
+          "id": 273,
+          "name_key": "感电传导",
+          "desc_key": "被感电的敌人被闪电剑气命中时，感电会向 1...3 名附近敌人连锁传导，每次传导造成基础伤害 30% 的闪电伤害。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 2,
-        "min_nodes": 17,
-        "max_nodes": 17,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -727,6 +835,34 @@
             }
           },
           {
+            "node_id": 214,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 215,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 230,
             "role": "Synergy",
             "resist_model": "None",
@@ -742,6 +878,20 @@
           },
           {
             "node_id": 233,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 2,
+              "effectiveness": 0.4,
+              "internal_cooldown": 2.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 234,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -788,6 +938,20 @@
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 254,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -879,6 +1043,15 @@
           "prerequisites": []
         },
         {
+          "id": 302,
+          "name_key": "锋灵",
+          "desc_key": "灵剑造成的物理伤害增加 10%...50%。",
+          "max_points": 5,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 310,
           "name_key": "索敌范围",
           "desc_key": "追踪半径增加 20%...60%。",
@@ -937,6 +1110,24 @@
           ]
         },
         {
+          "id": 314,
+          "name_key": "集中号令",
+          "desc_key": "灵剑现在会优先攻击你最近一次使用其他技能命中的目标。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 315,
+          "name_key": "御剑共振",
+          "desc_key": "处于“御剑步”状态时，灵剑攻击频率增加 20%...60%，且灵剑命中有 10%...30% 几率为你回复 1 层剑意。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 330,
           "name_key": "巨剑降临",
           "desc_key": "只能拥有一柄灵剑，但体积/伤害/范围大幅提升，频率减半。",
@@ -979,6 +1170,24 @@
           "prerequisites": [
             332
           ]
+        },
+        {
+          "id": 334,
+          "name_key": "碎岩",
+          "desc_key": "巨剑命中时有 33%...100% 几率击晕普通敌人 0.5s，并施加 1 层护甲击碎。",
+          "max_points": 3,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 335,
+          "name_key": "巨剑裂空",
+          "desc_key": "巨剑暴击时，从巨剑位置向目标方向触发一道 [裂空斩]（使用其已专精版本，30% 效力，CD: 4s，不消耗法力）。",
+          "max_points": 1,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 350,
@@ -1032,6 +1241,24 @@
           ]
         },
         {
+          "id": 354,
+          "name_key": "法术共鸣",
+          "desc_key": "灵剑协同施法，当你施放任意法术时，所有灵剑同步向该方向发射微型剑气飞弹（20% 效力）。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 355,
+          "name_key": "剑阵共鸣",
+          "desc_key": "当你处于 [剑阵·诛仙] 范围内时，灵剑获得 50% 攻击速度加成，且命中时附加剑阵当前的元素属性（若剑阵已转化元素）。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 370,
           "name_key": "元素附魔",
           "desc_key": "转化为 火/冰/雷 伤害。",
@@ -1079,8 +1306,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 3,
-        "min_nodes": 18,
-        "max_nodes": 18,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -1119,8 +1346,36 @@
             }
           },
           {
+            "node_id": 314,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 330,
             "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 335,
+            "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
@@ -1148,6 +1403,34 @@
           },
           {
             "node_id": 353,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 354,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 355,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -1204,15 +1487,15 @@
           },
           {
             "node_id": 373,
-            "role": "Keystone",
+            "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
+              "trigger_skill_id": 2,
+              "effectiveness": 0.3,
+              "internal_cooldown": 4.0,
               "consumes_mana": false
             }
           }
@@ -1255,6 +1538,15 @@
           "prerequisites": []
         },
         {
+          "id": 402,
+          "name_key": "持久",
+          "desc_key": "技能维持的法力消耗降低 15%...45%。",
+          "max_points": 3,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 410,
           "name_key": "厚积薄发",
           "desc_key": "每 500 护甲提供 1% 伤害减免 (Max 15%)。",
@@ -1293,6 +1585,33 @@
           "prerequisites": [
             410
           ]
+        },
+        {
+          "id": 413,
+          "name_key": "破釜沉舟",
+          "desc_key": "当你的生命值低于 35% 时，护甲值翻倍且剑气护体的基础减伤变为 24%。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": -3.0,
+          "prerequisites": []
+        },
+        {
+          "id": 414,
+          "name_key": "御剑防壁",
+          "desc_key": "处于“御剑步”状态时，剑气护体的减伤效果提升 10%...30%，且护甲增加效果翻倍。",
+          "max_points": 3,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 415,
+          "name_key": "坚韧回生",
+          "desc_key": "剑气护体开启期间，每秒回复 0.5%...1.5% 缺失生命值。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 430,
@@ -1346,6 +1665,24 @@
           ]
         },
         {
+          "id": 434,
+          "name_key": "无瑕之御",
+          "desc_key": "每过 5 秒，下一次受到的击中伤害 (Hit) 将被完全抵消（100% 减伤）。",
+          "max_points": 1,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 435,
+          "name_key": "剑意格御",
+          "desc_key": "成功格挡时有 15%...45% 几率回复 1 层剑意，回复的剑意使你下次攻击暴击率额外 +5%。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 450,
           "name_key": "幻影步",
           "desc_key": "闪避率 +3%...15%。",
@@ -1384,6 +1721,33 @@
           "prerequisites": [
             451
           ]
+        },
+        {
+          "id": 453,
+          "name_key": "流风余韵",
+          "desc_key": "触发瞬身反打时，回复自身 5%...15% 缺失生命值。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
+          "id": 454,
+          "name_key": "御剑闪步",
+          "desc_key": "处于“御剑步”状态时，闪避等级额外 +50...150，且闪避成功后刷新御剑步的持续时间。",
+          "max_points": 3,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 455,
+          "name_key": "以攻代守",
+          "desc_key": "闪避成功后 2s 内，你的下一次攻击造成 20% 总增 (More) 伤害，且必定获得 1 层剑意。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 470,
@@ -1433,8 +1797,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 4,
-        "min_nodes": 16,
-        "max_nodes": 16,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -1460,6 +1824,20 @@
           },
           {
             "node_id": 412,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 413,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -1529,7 +1907,7 @@
             }
           },
           {
-            "node_id": 451,
+            "node_id": 434,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -1543,11 +1921,39 @@
             }
           },
           {
+            "node_id": 451,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 1,
+              "effectiveness": 1.0,
+              "internal_cooldown": 2.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 452,
             "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 455,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -1654,6 +2060,15 @@
           "prerequisites": []
         },
         {
+          "id": 502,
+          "name_key": "陨铁",
+          "desc_key": "天降剑气的物理伤害增加 10%...50%，且有微小的溅射范围。",
+          "max_points": 5,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 510,
           "name_key": "灵力共振",
           "desc_key": "每引导 0.5s，伤害提升 10%...30%。",
@@ -1696,6 +2111,24 @@
           "prerequisites": [
             510
           ]
+        },
+        {
+          "id": 514,
+          "name_key": "剑刃风暴",
+          "desc_key": "被击杀的敌人会向周围碎裂出小剑气产生 30%...90% 的分裂伤害。",
+          "max_points": 3,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 515,
+          "name_key": "万剑归阵",
+          "desc_key": "当你引导万剑归宗且鼠标指针位于 [剑阵·诛仙] 的法阵范围内时，所有天降剑气会集中轰击该剑阵区域，且剑阵的持续时间判定暂停。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 530,
@@ -1742,6 +2175,24 @@
           ]
         },
         {
+          "id": 534,
+          "name_key": "天剑降世",
+          "desc_key": "当你结束一段至少 2 秒的引导时，召唤一柄通天巨剑轰击光标位置，造成 800% 物理范围伤害并击飞敌人。",
+          "max_points": 1,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 535,
+          "name_key": "余波",
+          "desc_key": "通天巨剑的爆炸范围增加 20%...60%，且必定击晕所有受波及的普通敌人。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 550,
           "name_key": "剑意回流",
           "desc_key": "命中 5%...25% 几率回 1 法力。",
@@ -1786,6 +2237,24 @@
           ]
         },
         {
+          "id": 554,
+          "name_key": "意气爆发",
+          "desc_key": "若引导开始时拥有满层 (10层) 剑意，将消耗所有剑意，使本次引导期间的所有剑气获得 100% 暴击率加成。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 555,
+          "name_key": "意念合一",
+          "desc_key": "触发意气爆发出消耗满层剑意时，暴击伤害倍率额外增加 20%...80%。",
+          "max_points": 4,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 570,
           "name_key": "元素陨落",
           "desc_key": "",
@@ -1817,13 +2286,22 @@
           "prerequisites": [
             571
           ]
+        },
+        {
+          "id": 573,
+          "name_key": "绝对零度",
+          "desc_key": "暴雪内的敌人一旦被冻结，每次受到冰霜伤害会延长冻结时间 0.1s...0.3s，且暴雪对冻结敌人的击碎伤害提升 15%...45%。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 5,
-        "min_nodes": 17,
-        "max_nodes": 17,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -1862,6 +2340,20 @@
             }
           },
           {
+            "node_id": 515,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 530,
             "role": "Synergy",
             "resist_model": "None",
@@ -1877,6 +2369,20 @@
           },
           {
             "node_id": 533,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 5,
+              "effectiveness": 1.0,
+              "internal_cooldown": 2.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 534,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -1919,6 +2425,20 @@
           },
           {
             "node_id": 553,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 554,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -2014,6 +2534,15 @@
           "prerequisites": []
         },
         {
+          "id": 602,
+          "name_key": "极刑",
+          "desc_key": "阵内敌人受到的每秒基础物理伤害增加 10%...50%。",
+          "max_points": 5,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 610,
           "name_key": "双生剑阵",
           "desc_key": "最大剑阵数量 +1。",
@@ -2058,6 +2587,24 @@
           ]
         },
         {
+          "id": 614,
+          "name_key": "流云穿阵",
+          "desc_key": "当你的位移技能（如 [流云刺] 或 [绝影闪]）穿过自己的剑阵时，瞬间引爆剑阵对阵内敌人造成 150% 的物理爆发伤害，随后剑阵消失。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 615,
+          "name_key": "御剑阵威",
+          "desc_key": "处于“御剑步”状态时站在剑阵内，剑阵的伤害判定频率增加 20%...60%。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 630,
           "name_key": "迟缓剑压",
           "desc_key": "移速降低 10%...50%。",
@@ -2100,6 +2647,24 @@
           "prerequisites": [
             632
           ]
+        },
+        {
+          "id": 634,
+          "name_key": "剑阵牢笼",
+          "desc_key": "生成瞬间在剑阵边缘构筑不可跨越的实体剑墙，敌人无法进出，但剑阵半径固定缩小 30%。",
+          "max_points": 1,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 635,
+          "name_key": "阵斩回响",
+          "desc_key": "当绝命法场处决一名敌人时，从法场中心向外触发一次 [裂空斩]（使用其已专精版本，50% 效力，CD: 3s，不消耗法力）。",
+          "max_points": 1,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 650,
@@ -2160,6 +2725,24 @@
           ]
         },
         {
+          "id": 654,
+          "name_key": "剑神领域",
+          "desc_key": "被光环覆盖期间，你的技能冷却回复速度 (CDR) 提升 10%...30%。",
+          "max_points": 3,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 655,
+          "name_key": "法阵回护",
+          "desc_key": "站在剑阵内时，每秒获得相当于你智力值 50%...150% 的护盾 (Ward)。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 670,
           "name_key": "元素领域",
           "desc_key": "",
@@ -2191,13 +2774,22 @@
           "prerequisites": [
             670
           ]
+        },
+        {
+          "id": 673,
+          "name_key": "连珠落雷",
+          "desc_key": "雷池的落雷目标增加 1...3 名，且被雷击的敌人之间产生电弧造成额外闪电伤害。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 6,
-        "min_nodes": 17,
-        "max_nodes": 17,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -2264,6 +2856,20 @@
             }
           },
           {
+            "node_id": 614,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 630,
             "role": "Synergy",
             "resist_model": "None",
@@ -2279,6 +2885,34 @@
           },
           {
             "node_id": 633,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 2,
+              "effectiveness": 0.5,
+              "internal_cooldown": 3.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 634,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 635,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -2402,6 +3036,15 @@
           "prerequisites": []
         },
         {
+          "id": 702,
+          "name_key": "裂空",
+          "desc_key": "空间撕裂的基础范围半径 (Area) 增加 10%...40%。",
+          "max_points": 4,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 710,
           "name_key": "心流积蓄",
           "desc_key": "获得心流层数，每层 More +8%...40% 伤害。",
@@ -2444,6 +3087,24 @@
           "prerequisites": [
             712
           ]
+        },
+        {
+          "id": 714,
+          "name_key": "寂灭",
+          "desc_key": "被 `碎空爆` 直接击杀的敌人不会留下尸体，并在其死亡位置自动触发一次小型的 [万剑归宗] 落剑（使用已专精版本，无消耗，不受引导加成，对同一触发区域有 3s 冷却）。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 715,
+          "name_key": "破绽洞察",
+          "desc_key": "处于撕裂中心极小范围内的敌人，受到的暴击伤害倍率额外增加 20%...60%。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 730,
@@ -2490,6 +3151,24 @@
           ]
         },
         {
+          "id": 734,
+          "name_key": "神游脱战",
+          "desc_key": "施用该技能时按下位移键，将立即消耗 30 法力打断引导并向该方向瞬移一段距离（变为 [Movement] 技能），随后 2s 内移速 +15%。",
+          "max_points": 1,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 735,
+          "name_key": "精准切割",
+          "desc_key": "如果某个撕裂中心一定半径内只有一名敌人（孤立目标），对其造成的伤害总增 (More) 15%...60%。",
+          "max_points": 4,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 750,
           "name_key": "意念合一",
           "desc_key": "伤害额外受益于智力。",
@@ -2523,6 +3202,33 @@
           ]
         },
         {
+          "id": 753,
+          "name_key": "意念风暴",
+          "desc_key": "引导时，每秒最多可消耗 2 层剑意。每消耗 1 层，在此期间的撕裂伤害总增 (More) 20%。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
+          "id": 754,
+          "name_key": "剑意化无",
+          "desc_key": "消耗剑意时，如果你拥有活跃的 [灵剑决] 飞剑，所有飞剑会立刻瞬移至撕裂中心对敌人进行一次高频穿刺（继承飞剑的伤害和特效，单次 30% 效力）。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 755,
+          "name_key": "心念反哺",
+          "desc_key": "空间撕裂每击杀一名敌人，为你回复自身 3...9 点法力；若击杀的是精英及以上残骸，必定回复 1 层剑意。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 770,
           "name_key": "射线聚焦",
           "desc_key": "",
@@ -2543,13 +3249,31 @@
           "prerequisites": [
             770
           ]
+        },
+        {
+          "id": 772,
+          "name_key": "神雷天罡",
+          "desc_key": "物理伤害完全转化为 **闪电 (Lightning)**，获得 [Lightning] 标签。光标位置每 0.5s 落下一次聚焦雷柱。单次伤害极高，且击中后留下一片存在 2s 的感电区域。*与 [天外冰晶] 互斥。*",
+          "max_points": 1,
+          "x": 1.5,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
+          "id": 773,
+          "name_key": "天劫落雷",
+          "desc_key": "每次落雷对主目标造成的伤害总增 (More) 15%...45%，雷柱留下的感电区域使阵内敌人遭受雷击时的暴击几率被动增加 5%...15%。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 7,
-        "min_nodes": 15,
-        "max_nodes": 15,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -2575,6 +3299,20 @@
           },
           {
             "node_id": 713,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 5,
+              "effectiveness": 0.35,
+              "internal_cooldown": 3.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 714,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
@@ -2616,6 +3354,20 @@
             }
           },
           {
+            "node_id": 734,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 750,
             "role": "Transmuter",
             "resist_model": "None",
@@ -2644,6 +3396,34 @@
             }
           },
           {
+            "node_id": 753,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 754,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 770,
             "role": "Transmuter",
             "resist_model": "None",
@@ -2661,6 +3441,20 @@
             "node_id": 771,
             "role": "Keystone",
             "resist_model": "TypeE_CapSuppression",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 772,
+            "role": "Keystone",
+            "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
@@ -2719,6 +3513,15 @@
           "prerequisites": []
         },
         {
+          "id": 802,
+          "name_key": "锋锐",
+          "desc_key": "本技能附加的物理点伤增加 5...25，暴击率增加 2%...10%。",
+          "max_points": 5,
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
           "id": 810,
           "name_key": "灵动之刃",
           "desc_key": "敏捷增加飞行速度。",
@@ -2770,6 +3573,24 @@
           ]
         },
         {
+          "id": 814,
+          "name_key": "拔血流云",
+          "desc_key": "当你使用 [流云刺] 击中正处于 [御剑·回旋] 滞空切割范围内的倒霉敌人时，流云刺会瞬间拔出其身上所有的“流血”层数，造成一次爆发性的物理真实伤害（彻底结算其剩余的流血伤害总额）。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 815,
+          "name_key": "风眼",
+          "desc_key": "飞剑折返回到你手中时，它在本次飞行中附带造成的流血伤害的 100% 会化为一股治疗波治疗你。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 830,
           "name_key": "磁力场",
           "desc_key": "折返时牵引轻型敌人。",
@@ -2814,6 +3635,24 @@
           ]
         },
         {
+          "id": 834,
+          "name_key": "御剑接踵",
+          "desc_key": "若你在“御剑步”状态时接住飞剑，不仅保留上述所有效果，御剑步的持续时间延长 0.5s...1.5s，并使下一次投掷不消耗法力。",
+          "max_points": 3,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 835,
+          "name_key": "回旋游步",
+          "desc_key": "飞剑在折返并击杀敌人后，每次接剑会瞬间为你解除身上的减速和定身效果，并获得短暂的 20% 移速爆发。",
+          "max_points": 1,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 850,
           "name_key": "滞空切割",
           "desc_key": "在折返点停留 0.4s...1.2s 持续切割。",
@@ -2847,6 +3686,33 @@
           ]
         },
         {
+          "id": 853,
+          "name_key": "心剑合一",
+          "desc_key": "你每拥有 1 层剑意，飞剑的飞行速度、折返速度和判定体积额外增加 2%...6%。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
+          "id": 854,
+          "name_key": "巨阙",
+          "desc_key": "你不能再投掷幻影侧翼剑。飞剑变得极其巨大，击中时必定打断敌人动作并造成巨大硬直，且附加你总护甲值 5% 的基础物理伤害。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 855,
+          "name_key": "巨剑共鸣",
+          "desc_key": "若你装备了 [灵剑决] 的【巨剑术】节点，当你掷出此技能的巨剑并且暴击时，将同步触发一次无消耗的 [灵剑决] 天降巨剑打击该目标（该触发效果有 3s 冷却）。",
+          "max_points": 1,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 870,
           "name_key": "路径残留",
           "desc_key": "",
@@ -2878,13 +3744,22 @@
           "prerequisites": [
             870
           ]
+        },
+        {
+          "id": 873,
+          "name_key": "高压电弧",
+          "desc_key": "回旋弹射电弧的触发频率增加 30%...90%，且每次接住飞剑时引发一次以自身为中心的强力电磁爆发。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 8,
-        "min_nodes": 16,
-        "max_nodes": 16,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -2909,6 +3784,34 @@
             }
           },
           {
+            "node_id": 814,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 815,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 830,
             "role": "Synergy",
             "resist_model": "None",
@@ -2924,15 +3827,15 @@
           },
           {
             "node_id": 831,
-            "role": "Keystone",
+            "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
+              "trigger_skill_id": 3,
+              "effectiveness": 0.5,
+              "internal_cooldown": 3.0,
               "consumes_mana": false
             }
           },
@@ -2951,11 +3854,53 @@
             }
           },
           {
+            "node_id": 835,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 852,
             "role": "Passive",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 854,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 855,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
@@ -3011,7 +3956,7 @@
     },
     {
       "id": 9,
-      "name_key": "绝影闪",
+      "name_key": "绝影绝剑",
       "desc_key": "看破状态，受到攻击立即反击。",
       "mana_cost": 30.0,
       "cooldown": 1.0,
@@ -3049,6 +3994,15 @@
           "max_points": 3,
           "x": 0.0,
           "y": 1.5,
+          "prerequisites": []
+        },
+        {
+          "id": 902,
+          "name_key": "身轻如燕",
+          "desc_key": "绝影状态持续期间，额外移动速度增加 10%...30%，直接闪避率（Dodge）增加 10%...30%。",
+          "max_points": 3,
+          "x": 0.0,
+          "y": 3.0,
           "prerequisites": []
         },
         {
@@ -3096,6 +4050,24 @@
           ]
         },
         {
+          "id": 914,
+          "name_key": "灵流穿透",
+          "desc_key": "绝影期间每穿透一个敌人，就对其施加一层持续 3 秒的“衰弱”诅咒，使其造成的伤害降低 6%...18%。",
+          "max_points": 3,
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 915,
+          "name_key": "虚境馈赠",
+          "desc_key": "绝影状态持续期间，每秒回复 2...6 点法力，且额外获得 10%...30% 的全域伤害减免。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
           "id": 930,
           "name_key": "影遁",
           "desc_key": "反击后隐身 1.5s。",
@@ -3138,6 +4110,24 @@
           "prerequisites": [
             932
           ]
+        },
+        {
+          "id": 934,
+          "name_key": "剑随心动",
+          "desc_key": "`逆脉` 状态下进一步增加你的攻击速度和施法速度 5%...15%。",
+          "max_points": 3,
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 935,
+          "name_key": "逆命反噬",
+          "desc_key": "在 `逆脉` 状态下每次近战攻击命中敌人，有 20% 几率自发向距离最近的敌人投掷一枚无消耗的 [御剑·回旋] 飞剑（使用已专精版本，单次触发有 0.5s 冷却）。",
+          "max_points": 1,
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 950,
@@ -3191,6 +4181,24 @@
           ]
         },
         {
+          "id": 954,
+          "name_key": "时光逆流",
+          "desc_key": "绝影状态结束时（无论是被打破还是自然耗尽），你身上**所有其他处于冷却中的技能**的剩余冷却时间立刻缩短 3 秒，是极佳的技能循环发动机。",
+          "max_points": 1,
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
+          "id": 955,
+          "name_key": "全神贯注",
+          "desc_key": "在绝影短短几秒内，为了让你能肆意倾泻火力，施放其他任何技能的法力消耗降低 20%...60%。",
+          "max_points": 3,
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
+        },
+        {
           "id": 970,
           "name_key": "元素护盾",
           "desc_key": "",
@@ -3211,13 +4219,31 @@
           "prerequisites": [
             970
           ]
+        },
+        {
+          "id": 972,
+          "name_key": "疾空惊雷",
+          "desc_key": "结束时的爆发变为连环落雷。绝影期间被一层雷电护盾包裹，每秒电击一次靠近的敌人获取雷电抗性；爆发结束后 4 秒内，所有近战攻击额外附加基础物理伤害 50% 的 **闪电 (Lightning)** 伤害，并必定施加感电。*与 [天山雪隐] 互斥。*",
+          "max_points": 1,
+          "x": 1.5,
+          "y": 3.0,
+          "prerequisites": []
+        },
+        {
+          "id": 973,
+          "name_key": "过载护盾",
+          "desc_key": "处于疾空惊雷包裹期间，移动与攻击速度额外增加 10%...30%，受击有 30% 几率释放连环弹射闪电。",
+          "max_points": 3,
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 9,
-        "min_nodes": 16,
-        "max_nodes": 16,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -3270,6 +4296,20 @@
             }
           },
           {
+            "node_id": 935,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 950,
             "role": "Transmuter",
             "resist_model": "None",
@@ -3285,15 +4325,15 @@
           },
           {
             "node_id": 951,
-            "role": "Keystone",
+            "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
-              "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
+              "trigger_skill_id": 8,
+              "effectiveness": 0.6,
+              "internal_cooldown": 0.5,
               "consumes_mana": false
             }
           },
@@ -3326,6 +4366,20 @@
             }
           },
           {
+            "node_id": 954,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
             "node_id": 970,
             "role": "Transmuter",
             "resist_model": "None",
@@ -3344,6 +4398,20 @@
             "role": "Keystone",
             "resist_model": "TypeD_StatToPenetration",
             "scope_policy": "GlobalWhileBuffActive",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 972,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {

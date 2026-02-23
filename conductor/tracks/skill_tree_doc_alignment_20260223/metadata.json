@@ -1,0 +1,16 @@
+{
+  "id": "skill_tree_doc_alignment_20260223",
+  "title": "Skill Tree Design Document Alignment",
+  "type": "bugfix",
+  "status": "completed",
+  "created": "2026-02-23T00:00:00Z",
+  "updated": "2026-02-23T08:00:00Z",
+  "phases": {
+    "total": 4,
+    "completed": 4
+  },
+  "tasks": {
+    "total": 14,
+    "completed": 14
+  }
+}

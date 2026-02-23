@@ -46,6 +46,25 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
     CHECK(after_second == after_first);
   }
 
+  SUBCASE("Skill 2 trigger contract dispatches and records cooldown") {
+    active.specialized_slots[0].skill_id = 2;
+    active.specialized_slots[0].allocated_points.clear();
+    active.specialized_slots[0].allocated_points[233] = 1; // Skill 2 trigger node
+
+    const auto before = registry.storage<SkillExecution>().size();
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      caster, target, 2, Tag::Hit | Tag::Projectile, false, 5001));
+
+    const auto after = registry.storage<SkillExecution>().size();
+    CHECK(after > before);
+
+    const auto *runtime =
+        registry.try_get<SkillContractRuntimeComponent>(caster);
+    REQUIRE(runtime != nullptr);
+    CHECK(runtime->trigger_cooldowns.contains(233));
+  }
+
   SUBCASE("Trigger depth guard blocks depth > 2") {
     auto &runtime =
         registry.get_or_emplace<SkillContractRuntimeComponent>(caster);
