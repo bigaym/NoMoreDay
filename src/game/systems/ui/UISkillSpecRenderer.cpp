@@ -33,25 +33,32 @@ namespace NoMoreDay {
         rlEnd();
     }
 
-// Helper to get screen position
-Vector2 UISkillSpecRenderer::GetNodeScreenPos(const TalentNode& node, const SkillSpecView& view) {
-    if (node.x == 0 && node.y == 0) {
-        return { view.center.x + view.offset.x, view.center.y + view.offset.y };
+    static bool IsPrerequisiteSatisfiedOr(const TalentNode& node, const SkillTreeDefinition* tree,
+                                          const SpecializedSkill* specialized) {
+        if (!tree || !specialized || node.prerequisites.empty()) {
+            return true;
+        }
+
+        bool hasValidPrereq = false;
+        for (uint32_t preId : node.prerequisites) {
+            if (preId == 0 || !tree->nodes.contains(preId)) {
+                continue;
+            }
+            hasValidPrereq = true;
+            int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
+            if (prePts > 0) {
+                return true;
+            }
+        }
+        return !hasValidPrereq;
     }
 
-    // Last Epoch Style: Radial-Structured Grid
-    // We treat node.x and node.y as grid coordinates, but apply a radial expansion
-    // to make the tree feel organic and fill the widescreen properly.
-    
-    float spacingX = 140.0f * view.zoom;
-    float spacingY = 120.0f * view.zoom; // Slightly tighter vertically for standard POV
-    
-    // Applying a slight "fisheye" expansion to prevent clusters from overlapping
-    float r = std::sqrt(node.x * node.x + node.y * node.y);
-    float expansion = 1.0f + 0.15f * std::log1p(r);
-    
-    float finalX = node.x * spacingX * expansion;
-    float finalY = node.y * spacingY * expansion;
+// Helper to get screen position
+Vector2 UISkillSpecRenderer::GetNodeScreenPos(const TalentNode& node, const SkillSpecView& view) {
+    const float spacingX = 85.0f * view.zoom;
+    const float spacingY = 70.0f * view.zoom;
+    const float finalX = node.x * spacingX;
+    const float finalY = node.y * spacingY;
 
     return { view.center.x + view.offset.x + finalX, 
              view.center.y + view.offset.y + finalY };
@@ -152,7 +159,8 @@ void UISkillSpecRenderer::DrawHub(const SkillSpecView& view, const SkillData* sk
 
 void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const SkillSpecView& view, Color theme) {
     float lineThick = 9.0f * view.zoom;
-    Color colorLocked = Color{ 45, 45, 50, (unsigned char)(200 * view.alpha) };
+    Color colorLocked = Color{ 78, 82, 96, (unsigned char)(245 * view.alpha) };
+    Color colorLockedHighlight = Color{ 125, 132, 152, (unsigned char)(180 * view.alpha) };
     Color colorAvailable = Fade(theme, 0.4f * view.alpha); // Brighter than locked
 
     auto DrawLink = [&](Vector2 p1, Vector2 p2, bool active, bool available) {
@@ -176,18 +184,22 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
             DrawLineEx(p1, p2, lineThick, colorAvailable);
             DrawLineEx(p1, p2, lineThick * 0.3f, Fade(WHITE, 0.2f * view.alpha));
         } else {
-            // Locked: Very dark/subtle
+            // Locked: Keep readable on dark background, but still clearly weaker than available.
+            DrawLineEx(p1, p2, lineThick + 2.0f * view.zoom, Fade(BLACK, 0.38f * view.alpha));
             DrawLineEx(p1, p2, lineThick, colorLocked);
+            DrawLineEx(p1, p2, lineThick * 0.30f, colorLockedHighlight);
         }
     };
 
     for (const auto& [id, node] : tree->nodes) {
         Vector2 targetPos = GetNodeScreenPos(node, view);
         bool nodeAlloc = specialized->allocated_points.contains(id) && specialized->allocated_points.at(id) > 0;
+        bool hasValidPrereq = false;
         
         // 1. Explicit Prerequisites
         for (uint32_t preId : node.prerequisites) {
             if (tree->nodes.count(preId)) {
+                hasValidPrereq = true;
                 Vector2 sourcePos = GetNodeScreenPos(tree->nodes.at(preId), view);
                 bool preAlloc = specialized->allocated_points.contains(preId) && specialized->allocated_points.at(preId) > 0;
                 
@@ -196,8 +208,8 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
             }
         }
         
-        // 2. Implicit connection to Root (Hub)
-        if (node.prerequisites.empty()) {
+        // 2. Connection to Root (Hub) for root-level nodes (empty or prereq=0)
+        if (!hasValidPrereq) {
              Vector2 sourcePos = { view.center.x + view.offset.x, view.center.y + view.offset.y };
              DrawLink(sourcePos, targetPos, nodeAlloc, true); // Root links always available
         }
@@ -232,12 +244,7 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
         bool isMaxed = currentPts >= node.max_points;
         bool isAllocated = currentPts > 0;
         
-        bool canUnlock = true;
-        for (uint32_t preId : node.prerequisites) {
-            if (!specialized->allocated_points.contains(preId) || specialized->allocated_points.at(preId) <= 0) {
-                canUnlock = false; break;
-            }
-        }
+        bool canUnlock = IsPrerequisiteSatisfiedOr(node, tree, specialized);
         
         Color baseColor = canUnlock ? Fade(theme, 0.8f) : Color{ 60, 60, 65, 255 };
         if (isAllocated) baseColor = isMaxed ? GOLD : theme;

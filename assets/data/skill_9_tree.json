@@ -1,0 +1,325 @@
+{
+  "skills": [
+    {
+      "id": 9,
+      "talent_tree": [
+        {
+          "id": 900,
+          "name_key": "识破",
+          "x": -1.78,
+          "y": -1.48,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 901,
+          "name_key": "残心",
+          "x": -1.57,
+          "y": 2.08,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 902,
+          "name_key": "身轻如燕",
+          "x": 1.75,
+          "y": -1.92,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 903,
+          "name_key": "神速反制",
+          "x": 3.08,
+          "y": 1.68,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 910,
+          "name_key": "震慑剑压",
+          "x": -3.18,
+          "y": -0.07,
+          "prerequisites": [
+            {
+              "node_id": 900,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 911,
+          "name_key": "气劲爆发",
+          "x": -1.41,
+          "y": -2.15,
+          "prerequisites": [
+            {
+              "node_id": 900,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 912,
+          "name_key": "影杀连斩",
+          "x": -2.58,
+          "y": -0.14,
+          "prerequisites": [
+            {
+              "node_id": 910,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 913,
+          "name_key": "灵流穿透",
+          "x": -1.13,
+          "y": -2.81,
+          "prerequisites": [
+            {
+              "node_id": 912,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 914,
+          "name_key": "虚境馈赠",
+          "x": -1.91,
+          "y": -2.27,
+          "prerequisites": [
+            {
+              "node_id": 911,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 930,
+          "name_key": "影遁",
+          "x": 2.98,
+          "y": -1.13,
+          "prerequisites": [
+            {
+              "node_id": 902,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 931,
+          "name_key": "幽影长存",
+          "x": 0.84,
+          "y": -2.58,
+          "prerequisites": [
+            {
+              "node_id": 930,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 932,
+          "name_key": "致命奇袭",
+          "x": -3.51,
+          "y": -1.88,
+          "prerequisites": [
+            {
+              "node_id": 930,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 933,
+          "name_key": "影之双生",
+          "x": 4.84,
+          "y": -0.22,
+          "prerequisites": [
+            {
+              "node_id": 930,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 934,
+          "name_key": "剑随心动",
+          "x": 2.79,
+          "y": -0.15,
+          "prerequisites": [
+            {
+              "node_id": 931,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 935,
+          "name_key": "逆命反噬",
+          "x": 3.19,
+          "y": -2.32,
+          "prerequisites": [
+            {
+              "node_id": 934,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 950,
+          "name_key": "灵动之躯",
+          "x": 2.8,
+          "y": 0.87,
+          "prerequisites": [
+            {
+              "node_id": 903,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 951,
+          "name_key": "流光重置",
+          "x": 0.29,
+          "y": 3.38,
+          "prerequisites": [
+            {
+              "node_id": 950,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 952,
+          "name_key": "气劲充盈",
+          "x": 2.45,
+          "y": 2.25,
+          "prerequisites": [
+            {
+              "node_id": 951,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 953,
+          "name_key": "影之舞",
+          "x": 3.04,
+          "y": 1.65,
+          "prerequisites": [
+            {
+              "node_id": 950,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 954,
+          "name_key": "时光逆流",
+          "x": 1.86,
+          "y": 2.47,
+          "prerequisites": [
+            {
+              "node_id": 953,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 955,
+          "name_key": "全神贯注",
+          "x": 2.54,
+          "y": -1.43,
+          "prerequisites": [
+            {
+              "node_id": 953,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 970,
+          "name_key": "元素护盾",
+          "x": 0.08,
+          "y": 3.45,
+          "prerequisites": [
+            {
+              "node_id": 901,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 971,
+          "name_key": "天罚反震",
+          "x": -2.59,
+          "y": 0.84,
+          "prerequisites": [
+            {
+              "node_id": 901,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 972,
+          "name_key": "疾空惊雷",
+          "x": -3.32,
+          "y": 2.01,
+          "prerequisites": [
+            {
+              "node_id": 971,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 973,
+          "name_key": "过载护盾",
+          "x": 2.17,
+          "y": 2.63,
+          "prerequisites": [
+            {
+              "node_id": 970,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 974,
+          "name_key": "空明心境",
+          "x": -3.29,
+          "y": 2.29,
+          "prerequisites": [
+            {
+              "node_id": 950,
+              "required_points": 2
+            },
+            {
+              "node_id": 970,
+              "required_points": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

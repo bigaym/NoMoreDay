@@ -2106,15 +2106,24 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
     return false;
   }
 
+  bool has_valid_prereq = false;
+  bool prereq_satisfied = node.prerequisites.empty();
   for (uint32_t pre_id : node.prerequisites) {
+    if (pre_id == 0 || !tree->nodes.contains(pre_id)) {
+      continue;
+    }
+    has_valid_prereq = true;
     int pre_pts = specialized->allocated_points.contains(pre_id)
                       ? specialized->allocated_points.at(pre_id)
                       : 0;
-    if (pre_pts <= 0) {
-      LOG_WARN("Cannot add talent point: Prerequisite {} not met for node {}",
-               pre_id, node_id);
-      return false;
+    if (pre_pts > 0) {
+      prereq_satisfied = true;
+      break;
     }
+  }
+  if (!prereq_satisfied && has_valid_prereq) {
+    LOG_WARN("Cannot add talent point: no prerequisite met for node {}", node_id);
+    return false;
   }
 
   active->available_talent_points--;

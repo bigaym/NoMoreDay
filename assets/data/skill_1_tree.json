@@ -1,0 +1,349 @@
+{
+  "skills": [
+    {
+      "id": 1,
+      "talent_tree": [
+        {
+          "id": 100,
+          "name_key": "迅捷之刃",
+          "x": -3.41,
+          "y": 1.51,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 101,
+          "name_key": "气聚",
+          "x": -2.95,
+          "y": -1.36,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 102,
+          "name_key": "剑心洞明",
+          "x": 1.28,
+          "y": 2.58,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 103,
+          "name_key": "流云劲",
+          "x": 3.27,
+          "y": 0.25,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 110,
+          "name_key": "贯日",
+          "x": -2.34,
+          "y": -2.18,
+          "prerequisites": [
+            {
+              "node_id": 101,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 111,
+          "name_key": "连环",
+          "x": -3.53,
+          "y": 0.31,
+          "prerequisites": [
+            {
+              "node_id": 110,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 112,
+          "name_key": "势如破竹",
+          "x": -2.59,
+          "y": -1.76,
+          "prerequisites": [
+            {
+              "node_id": 100,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 113,
+          "name_key": "风行者",
+          "x": -1.69,
+          "y": -2.02,
+          "prerequisites": [
+            {
+              "node_id": 111,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 114,
+          "name_key": "御风而行",
+          "x": -3.23,
+          "y": -1.01,
+          "prerequisites": [
+            {
+              "node_id": 113,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 115,
+          "name_key": "无止境",
+          "x": 0.04,
+          "y": -2.61,
+          "prerequisites": [
+            {
+              "node_id": 110,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 130,
+          "name_key": "留影",
+          "x": -2.37,
+          "y": 2.14,
+          "prerequisites": [
+            {
+              "node_id": 100,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 131,
+          "name_key": "影域",
+          "x": -1.87,
+          "y": 2.13,
+          "prerequisites": [
+            {
+              "node_id": 130,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 132,
+          "name_key": "影之突袭",
+          "x": -3.58,
+          "y": -0.17,
+          "prerequisites": [
+            {
+              "node_id": 130,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 133,
+          "name_key": "移形换位",
+          "x": -0.88,
+          "y": 2.59,
+          "prerequisites": [
+            {
+              "node_id": 132,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 134,
+          "name_key": "瞬狱影爆",
+          "x": -2.52,
+          "y": -0.33,
+          "prerequisites": [
+            {
+              "node_id": 133,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 135,
+          "name_key": "虚实相生",
+          "x": 2.35,
+          "y": 2.47,
+          "prerequisites": [
+            {
+              "node_id": 130,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 150,
+          "name_key": "要害感知",
+          "x": 2.27,
+          "y": 2.63,
+          "prerequisites": [
+            {
+              "node_id": 102,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 151,
+          "name_key": "重创",
+          "x": 3.72,
+          "y": 0.69,
+          "prerequisites": [
+            {
+              "node_id": 150,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 152,
+          "name_key": "动脉割裂",
+          "x": 0.98,
+          "y": 2.64,
+          "prerequisites": [
+            {
+              "node_id": 151,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 153,
+          "name_key": "饮血刃",
+          "x": 3.6,
+          "y": 1.38,
+          "prerequisites": [
+            {
+              "node_id": 152,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 154,
+          "name_key": "孤注一掷",
+          "x": -0.73,
+          "y": 3.21,
+          "prerequisites": [
+            {
+              "node_id": 150,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 155,
+          "name_key": "斩断因果",
+          "x": 2.43,
+          "y": 1.56,
+          "prerequisites": [
+            {
+              "node_id": 154,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 170,
+          "name_key": "劫火",
+          "x": 2.51,
+          "y": -1.78,
+          "prerequisites": [
+            {
+              "node_id": 103,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 171,
+          "name_key": "业火焚途",
+          "x": 2.46,
+          "y": -1.98,
+          "prerequisites": [
+            {
+              "node_id": 170,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 172,
+          "name_key": "凛风",
+          "x": 2.49,
+          "y": 1.84,
+          "prerequisites": [
+            {
+              "node_id": 103,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 173,
+          "name_key": "霜凝寒骨",
+          "x": 4.32,
+          "y": 0.73,
+          "prerequisites": [
+            {
+              "node_id": 172,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 174,
+          "name_key": "灵根侵蚀",
+          "x": 2.15,
+          "y": 1.56,
+          "prerequisites": [
+            {
+              "node_id": 170,
+              "required_points": 1
+            },
+            {
+              "node_id": 172,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 175,
+          "name_key": "元素余韵",
+          "x": 3.44,
+          "y": -0.13,
+          "prerequisites": [
+            {
+              "node_id": 174,
+              "required_points": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

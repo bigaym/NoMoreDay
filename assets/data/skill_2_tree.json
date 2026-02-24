@@ -1,0 +1,349 @@
+{
+  "skills": [
+    {
+      "id": 2,
+      "talent_tree": [
+        {
+          "id": 200,
+          "name_key": "剑气纵横",
+          "x": -3.78,
+          "y": -0.46,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 201,
+          "name_key": "凝神",
+          "x": -2.18,
+          "y": 2.74,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 202,
+          "name_key": "锋芒",
+          "x": 1.7,
+          "y": 3.62,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 203,
+          "name_key": "气劲爆发",
+          "x": 3.47,
+          "y": -0.72,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 210,
+          "name_key": "多重剑气",
+          "x": -2.5,
+          "y": 1.18,
+          "prerequisites": [
+            {
+              "node_id": 200,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 211,
+          "name_key": "碎裂之刃",
+          "x": -0.18,
+          "y": -3.24,
+          "prerequisites": [
+            {
+              "node_id": 210,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 212,
+          "name_key": "连锁反应",
+          "x": -0.48,
+          "y": -2.48,
+          "prerequisites": [
+            {
+              "node_id": 211,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 213,
+          "name_key": "万剑归宗-残篇",
+          "x": -2.68,
+          "y": -0.14,
+          "prerequisites": [
+            {
+              "node_id": 212,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 214,
+          "name_key": "星环护体",
+          "x": 0,
+          "y": -3.76,
+          "prerequisites": [
+            {
+              "node_id": 200,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 215,
+          "name_key": "灵剑追击",
+          "x": -3.22,
+          "y": 0.5,
+          "prerequisites": [
+            {
+              "node_id": 211,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 230,
+          "name_key": "回旋劲",
+          "x": 1.95,
+          "y": 2.18,
+          "prerequisites": [
+            {
+              "node_id": 202,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 231,
+          "name_key": "重叠打击",
+          "x": 0.94,
+          "y": 3.28,
+          "prerequisites": [
+            {
+              "node_id": 230,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 232,
+          "name_key": "引力陷阱",
+          "x": 3.17,
+          "y": 1.48,
+          "prerequisites": [
+            {
+              "node_id": 230,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 233,
+          "name_key": "深渊边缘",
+          "x": 2.52,
+          "y": 3.36,
+          "prerequisites": [
+            {
+              "node_id": 232,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 234,
+          "name_key": "时空停滞",
+          "x": 0.32,
+          "y": 3.79,
+          "prerequisites": [
+            {
+              "node_id": 232,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 235,
+          "name_key": "御剑引力",
+          "x": 3.28,
+          "y": 1.1,
+          "prerequisites": [
+            {
+              "node_id": 232,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 250,
+          "name_key": "剑气烙印",
+          "x": -2.22,
+          "y": 2.4,
+          "prerequisites": [
+            {
+              "node_id": 201,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 251,
+          "name_key": "剑意爆发",
+          "x": 0.2,
+          "y": 2.62,
+          "prerequisites": [
+            {
+              "node_id": 250,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 252,
+          "name_key": "无底深渊",
+          "x": -2.84,
+          "y": 0.76,
+          "prerequisites": [
+            {
+              "node_id": 251,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 253,
+          "name_key": "湮灭波",
+          "x": 1.87,
+          "y": 2.34,
+          "prerequisites": [
+            {
+              "node_id": 251,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 254,
+          "name_key": "回响斩",
+          "x": -4.14,
+          "y": -2,
+          "prerequisites": [
+            {
+              "node_id": 251,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 255,
+          "name_key": "意念回流",
+          "x": -2.13,
+          "y": 2.21,
+          "prerequisites": [
+            {
+              "node_id": 253,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 270,
+          "name_key": "霜寒之刃",
+          "x": 2,
+          "y": 2.43,
+          "prerequisites": [
+            {
+              "node_id": 203,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 271,
+          "name_key": "冰晶碎裂",
+          "x": 5.14,
+          "y": -1.02,
+          "prerequisites": [
+            {
+              "node_id": 270,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 272,
+          "name_key": "雷光",
+          "x": 0.54,
+          "y": -2.17,
+          "prerequisites": [
+            {
+              "node_id": 203,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 273,
+          "name_key": "感电传导",
+          "x": 1.77,
+          "y": -2.59,
+          "prerequisites": [
+            {
+              "node_id": 272,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 274,
+          "name_key": "灵根亲和",
+          "x": 4.56,
+          "y": 0.12,
+          "prerequisites": [
+            {
+              "node_id": 272,
+              "required_points": 1
+            },
+            {
+              "node_id": 270,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 275,
+          "name_key": "异常扩散",
+          "x": 4.2,
+          "y": 0.04,
+          "prerequisites": [
+            {
+              "node_id": 274,
+              "required_points": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

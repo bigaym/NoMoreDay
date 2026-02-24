@@ -1,0 +1,349 @@
+{
+  "skills": [
+    {
+      "id": 6,
+      "talent_tree": [
+        {
+          "id": 600,
+          "name_key": "灵气流转",
+          "x": -3.32,
+          "y": 1.84,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 601,
+          "name_key": "虚空法网",
+          "x": -3.12,
+          "y": -0.79,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 602,
+          "name_key": "极刑",
+          "x": 1,
+          "y": -2.95,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 603,
+          "name_key": "阵基稳固",
+          "x": 3,
+          "y": 2.42,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 610,
+          "name_key": "双生剑阵",
+          "x": -1.98,
+          "y": 1.24,
+          "prerequisites": [
+            {
+              "node_id": 600,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 611,
+          "name_key": "三才阵",
+          "x": 1.88,
+          "y": 2.86,
+          "prerequisites": [
+            {
+              "node_id": 610,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 612,
+          "name_key": "剑气共鸣",
+          "x": -2.54,
+          "y": 1.54,
+          "prerequisites": [
+            {
+              "node_id": 610,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 613,
+          "name_key": "千丝万缕",
+          "x": -2.3,
+          "y": 0.92,
+          "prerequisites": [
+            {
+              "node_id": 612,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 614,
+          "name_key": "流云穿阵",
+          "x": -2.55,
+          "y": -2.66,
+          "prerequisites": [
+            {
+              "node_id": 601,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 615,
+          "name_key": "御剑阵威",
+          "x": -4,
+          "y": 0.22,
+          "prerequisites": [
+            {
+              "node_id": 601,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 630,
+          "name_key": "迟缓剑压",
+          "x": -1.18,
+          "y": -2.6,
+          "prerequisites": [
+            {
+              "node_id": 602,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 631,
+          "name_key": "破甲剑意",
+          "x": 1.98,
+          "y": -2.15,
+          "prerequisites": [
+            {
+              "node_id": 630,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 632,
+          "name_key": "虚弱领域",
+          "x": 2.55,
+          "y": 0.42,
+          "prerequisites": [
+            {
+              "node_id": 631,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 633,
+          "name_key": "绝命法场",
+          "x": 2.24,
+          "y": -2.44,
+          "prerequisites": [
+            {
+              "node_id": 632,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 634,
+          "name_key": "剑阵牢笼",
+          "x": -1.76,
+          "y": -2.37,
+          "prerequisites": [
+            {
+              "node_id": 630,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 635,
+          "name_key": "阵斩回响",
+          "x": 3.89,
+          "y": -0.84,
+          "prerequisites": [
+            {
+              "node_id": 633,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 650,
+          "name_key": "阵眼",
+          "x": -4.54,
+          "y": -1.82,
+          "prerequisites": [
+            {
+              "node_id": 601,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 651,
+          "name_key": "灵力泉涌",
+          "x": -2.57,
+          "y": -1.65,
+          "prerequisites": [
+            {
+              "node_id": 650,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 652,
+          "name_key": "意念合一",
+          "x": 1.31,
+          "y": -3.08,
+          "prerequisites": [
+            {
+              "node_id": 651,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 653,
+          "name_key": "随身剑垒",
+          "x": -3.05,
+          "y": 1.12,
+          "prerequisites": [
+            {
+              "node_id": 650,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 654,
+          "name_key": "剑神领域",
+          "x": 1.25,
+          "y": 2.3,
+          "prerequisites": [
+            {
+              "node_id": 653,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 655,
+          "name_key": "法阵回护",
+          "x": 0.93,
+          "y": -3.1,
+          "prerequisites": [
+            {
+              "node_id": 650,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 670,
+          "name_key": "焚天烈焰阵",
+          "x": 0.64,
+          "y": 2.8,
+          "prerequisites": [
+            {
+              "node_id": 603,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 671,
+          "name_key": "炼狱余火",
+          "x": 2.91,
+          "y": 0.86,
+          "prerequisites": [
+            {
+              "node_id": 670,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 672,
+          "name_key": "九幽雷池",
+          "x": 1.43,
+          "y": -1.79,
+          "prerequisites": [
+            {
+              "node_id": 603,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 673,
+          "name_key": "连珠落雷",
+          "x": 2.67,
+          "y": 0.05,
+          "prerequisites": [
+            {
+              "node_id": 672,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 674,
+          "name_key": "法阵侵蚀",
+          "x": 3.42,
+          "y": -2.1,
+          "prerequisites": [
+            {
+              "node_id": 670,
+              "required_points": 1
+            },
+            {
+              "node_id": 672,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 675,
+          "name_key": "移形换阵",
+          "x": 3.8,
+          "y": -0.07,
+          "prerequisites": [
+            {
+              "node_id": 674,
+              "required_points": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

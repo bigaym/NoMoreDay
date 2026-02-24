@@ -1,0 +1,349 @@
+{
+  "skills": [
+    {
+      "id": 3,
+      "talent_tree": [
+        {
+          "id": 300,
+          "name_key": "剑池充盈",
+          "x": -2.76,
+          "y": 0.99,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 301,
+          "name_key": "疾风意",
+          "x": 0.72,
+          "y": 3.04,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 302,
+          "name_key": "锋灵",
+          "x": 2.74,
+          "y": -1.78,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 303,
+          "name_key": "五行归元",
+          "x": 4.09,
+          "y": 1.64,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 310,
+          "name_key": "索敌范围",
+          "x": -1.06,
+          "y": 3.39,
+          "prerequisites": [
+            {
+              "node_id": 300,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 311,
+          "name_key": "无尽剑匣",
+          "x": -3.66,
+          "y": -0.93,
+          "prerequisites": [
+            {
+              "node_id": 300,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 312,
+          "name_key": "灵力网络",
+          "x": -1.84,
+          "y": 2.5,
+          "prerequisites": [
+            {
+              "node_id": 311,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 313,
+          "name_key": "神速",
+          "x": -0.34,
+          "y": 3.02,
+          "prerequisites": [
+            {
+              "node_id": 301,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 314,
+          "name_key": "集中号令",
+          "x": 1.1,
+          "y": 2.34,
+          "prerequisites": [
+            {
+              "node_id": 310,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 315,
+          "name_key": "御剑共振",
+          "x": -2.54,
+          "y": 0.98,
+          "prerequisites": [
+            {
+              "node_id": 310,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 330,
+          "name_key": "巨剑降临",
+          "x": -0.48,
+          "y": -3.52,
+          "prerequisites": [
+            {
+              "node_id": 302,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 331,
+          "name_key": "弱点锁定",
+          "x": -3.76,
+          "y": -2.58,
+          "prerequisites": [
+            {
+              "node_id": 330,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 332,
+          "name_key": "致命锋芒",
+          "x": -2.72,
+          "y": -2.78,
+          "prerequisites": [
+            {
+              "node_id": 331,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 333,
+          "name_key": "剑压",
+          "x": 0.44,
+          "y": -3.12,
+          "prerequisites": [
+            {
+              "node_id": 330,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 334,
+          "name_key": "碎岩",
+          "x": 1.9,
+          "y": -2.96,
+          "prerequisites": [
+            {
+              "node_id": 333,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 335,
+          "name_key": "巨剑裂空",
+          "x": 1.22,
+          "y": -3.4,
+          "prerequisites": [
+            {
+              "node_id": 331,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 350,
+          "name_key": "灵剑护体",
+          "x": -1.02,
+          "y": -3.34,
+          "prerequisites": [
+            {
+              "node_id": 300,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 351,
+          "name_key": "剑影环身",
+          "x": -3.07,
+          "y": -1.55,
+          "prerequisites": [
+            {
+              "node_id": 350,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 352,
+          "name_key": "反击剑网",
+          "x": -2.21,
+          "y": -0.37,
+          "prerequisites": [
+            {
+              "node_id": 351,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 353,
+          "name_key": "不灭剑魂",
+          "x": 1.34,
+          "y": -2.44,
+          "prerequisites": [
+            {
+              "node_id": 350,
+              "required_points": 5
+            }
+          ]
+        },
+        {
+          "id": 354,
+          "name_key": "法术共鸣",
+          "x": -3.6,
+          "y": -1.3,
+          "prerequisites": [
+            {
+              "node_id": 302,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 355,
+          "name_key": "剑阵共鸣",
+          "x": -1.75,
+          "y": -3.98,
+          "prerequisites": [
+            {
+              "node_id": 350,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 370,
+          "name_key": "地火明夷",
+          "x": 1.31,
+          "y": 3.2,
+          "prerequisites": [
+            {
+              "node_id": 303,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 371,
+          "name_key": "灼魂剑舞",
+          "x": 3.14,
+          "y": 1.29,
+          "prerequisites": [
+            {
+              "node_id": 370,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 372,
+          "name_key": "紫电紫雷",
+          "x": 2.43,
+          "y": -1.38,
+          "prerequisites": [
+            {
+              "node_id": 303,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 373,
+          "name_key": "雷弧连锁",
+          "x": 2.45,
+          "y": -1.94,
+          "prerequisites": [
+            {
+              "node_id": 372,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 374,
+          "name_key": "灵剑蚀甲",
+          "x": 2.18,
+          "y": 2.66,
+          "prerequisites": [
+            {
+              "node_id": 372,
+              "required_points": 1
+            },
+            {
+              "node_id": 370,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 375,
+          "name_key": "灵剑充能",
+          "x": 4.1,
+          "y": -0.4,
+          "prerequisites": [
+            {
+              "node_id": 374,
+              "required_points": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

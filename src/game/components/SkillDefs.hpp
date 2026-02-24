@@ -170,8 +170,16 @@ inline void from_json(const nlohmann::json &j, TalentNode &n) {
     j.at("icon_id").get_to(n.icon_id);
   if (j.contains("max_points"))
     j.at("max_points").get_to(n.max_points);
-  if (j.contains("prerequisites"))
-    j.at("prerequisites").get_to(n.prerequisites);
+  if (j.contains("prerequisites") && j.at("prerequisites").is_array()) {
+    n.prerequisites.clear();
+    for (const auto &pre : j.at("prerequisites")) {
+      if (pre.is_number_unsigned()) {
+        n.prerequisites.push_back(pre.get<uint32_t>());
+      } else if (pre.is_object() && pre.contains("node_id")) {
+        n.prerequisites.push_back(pre.at("node_id").get<uint32_t>());
+      }
+    }
+  }
   if (j.contains("stat_modifiers"))
     j.at("stat_modifiers").get_to(n.stat_modifiers);
   if (j.contains("damage_modifiers"))

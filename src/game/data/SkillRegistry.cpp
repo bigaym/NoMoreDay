@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <fstream>
+#include <functional>
 #include <limits>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -72,6 +73,69 @@ uint8_t ClampToU8(int value, int fallback) {
     return static_cast<uint8_t>(fallback);
   }
   return static_cast<uint8_t>(value);
+}
+
+void ApplyPrerequisiteAnchoredLayout(SkillTreeDefinition &tree) {
+  if (tree.nodes.empty()) {
+    return;
+  }
+
+  std::unordered_map<uint32_t, std::pair<float, float>> local_offset;
+  std::unordered_map<uint32_t, std::pair<float, float>> resolved_pos;
+  std::unordered_map<uint32_t, uint8_t> state;
+
+  for (const auto &[id, node] : tree.nodes) {
+    local_offset[id] = {node.x, node.y};
+    state[id] = 0;
+  }
+
+  std::function<std::pair<float, float>(uint32_t)> resolve_node =
+      [&](uint32_t node_id) -> std::pair<float, float> {
+    auto node_it = tree.nodes.find(node_id);
+    if (node_it == tree.nodes.end()) {
+      return {0.0f, 0.0f};
+    }
+
+    if (state[node_id] == 2) {
+      return resolved_pos[node_id];
+    }
+    if (state[node_id] == 1) {
+      // Cycle fallback: keep local offset to avoid deadlock.
+      return local_offset[node_id];
+    }
+
+    state[node_id] = 1;
+    const auto &node = node_it->second;
+    const auto offset = local_offset[node_id];
+
+    std::pair<float, float> anchor = {0.0f, 0.0f};
+    if (!node.prerequisites.empty()) {
+      const uint32_t first_pre = node.prerequisites.front();
+      if (first_pre != 0 && tree.nodes.contains(first_pre)) {
+        anchor = resolve_node(first_pre);
+      }
+    }
+
+    const std::pair<float, float> absolute = {anchor.first + offset.first,
+                                              anchor.second + offset.second};
+    resolved_pos[node_id] = absolute;
+    state[node_id] = 2;
+    return absolute;
+  };
+
+  for (const auto &[id, node] : tree.nodes) {
+    (void)node;
+    resolve_node(id);
+  }
+
+  for (auto &[id, node] : tree.nodes) {
+    const auto it = resolved_pos.find(id);
+    if (it == resolved_pos.end()) {
+      continue;
+    }
+    node.x = it->second.first;
+    node.y = it->second.second;
+  }
 }
 
 SkillContractDefinition BuildDefaultContract(
@@ -426,6 +490,7 @@ void SkillRegistry::LoadFromJson(const std::string &path) {
         TalentNode node = nodeItem.get<TalentNode>();
         tree.nodes[node.id] = node;
       }
+      ApplyPrerequisiteAnchoredLayout(tree);
       skill_trees_[data.id] = tree;
     }
 

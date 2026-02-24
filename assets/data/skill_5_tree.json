@@ -1,0 +1,349 @@
+{
+  "skills": [
+    {
+      "id": 5,
+      "talent_tree": [
+        {
+          "id": 500,
+          "name_key": "剑雨绵绵",
+          "x": 1.12,
+          "y": 3.26,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 501,
+          "name_key": "剑意共鸣",
+          "x": -3.96,
+          "y": 2.66,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 502,
+          "name_key": "陨铁",
+          "x": 2.94,
+          "y": -0.82,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 503,
+          "name_key": "灵动引导",
+          "x": -3.12,
+          "y": -0.75,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 510,
+          "name_key": "神识锁定",
+          "x": 0.56,
+          "y": 2.58,
+          "prerequisites": [
+            {
+              "node_id": 500,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 511,
+          "name_key": "无处遁形",
+          "x": 3.28,
+          "y": 0.7,
+          "prerequisites": [
+            {
+              "node_id": 510,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 512,
+          "name_key": "天降命印",
+          "x": 3.54,
+          "y": 0.7,
+          "prerequisites": [
+            {
+              "node_id": 511,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 513,
+          "name_key": "天诛",
+          "x": 3.6,
+          "y": 1.6,
+          "prerequisites": [
+            {
+              "node_id": 512,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 514,
+          "name_key": "剑刃风暴",
+          "x": 1.96,
+          "y": -2.66,
+          "prerequisites": [
+            {
+              "node_id": 510,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 515,
+          "name_key": "万剑归阵",
+          "x": 3.96,
+          "y": -0.84,
+          "prerequisites": [
+            {
+              "node_id": 512,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 530,
+          "name_key": "气定神闲",
+          "x": -1.9,
+          "y": 2.66,
+          "prerequisites": [
+            {
+              "node_id": 501,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 531,
+          "name_key": "不坏剑身",
+          "x": -5.82,
+          "y": 1.12,
+          "prerequisites": [
+            {
+              "node_id": 530,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 532,
+          "name_key": "剑气充盈",
+          "x": -5.52,
+          "y": -2.38,
+          "prerequisites": [
+            {
+              "node_id": 530,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 533,
+          "name_key": "巨剑术",
+          "x": 2.6,
+          "y": 1.78,
+          "prerequisites": [
+            {
+              "node_id": 502,
+              "required_points": 4
+            }
+          ]
+        },
+        {
+          "id": 534,
+          "name_key": "天剑降世",
+          "x": -1.52,
+          "y": 2.56,
+          "prerequisites": [
+            {
+              "node_id": 530,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 535,
+          "name_key": "余波",
+          "x": -3.92,
+          "y": 0.84,
+          "prerequisites": [
+            {
+              "node_id": 534,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 550,
+          "name_key": "御剑行",
+          "x": -2.55,
+          "y": -1.11,
+          "prerequisites": [
+            {
+              "node_id": 503,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 551,
+          "name_key": "御剑风雷",
+          "x": 0.95,
+          "y": -2.75,
+          "prerequisites": [
+            {
+              "node_id": 550,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 552,
+          "name_key": "随影",
+          "x": -2.96,
+          "y": 1.21,
+          "prerequisites": [
+            {
+              "node_id": 550,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 553,
+          "name_key": "剑意回流",
+          "x": -2.48,
+          "y": -1.39,
+          "prerequisites": [
+            {
+              "node_id": 550,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 554,
+          "name_key": "意气爆发",
+          "x": -2.69,
+          "y": -0.99,
+          "prerequisites": [
+            {
+              "node_id": 553,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 555,
+          "name_key": "意念合一",
+          "x": -1.93,
+          "y": -1.55,
+          "prerequisites": [
+            {
+              "node_id": 554,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 570,
+          "name_key": "天火流星",
+          "x": -0.88,
+          "y": -2.38,
+          "prerequisites": [
+            {
+              "node_id": 502,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 571,
+          "name_key": "末日余烬",
+          "x": 0.99,
+          "y": -2.51,
+          "prerequisites": [
+            {
+              "node_id": 570,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 572,
+          "name_key": "凛冬暴雪",
+          "x": 3.6,
+          "y": -0.57,
+          "prerequisites": [
+            {
+              "node_id": 502,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 573,
+          "name_key": "绝对零度",
+          "x": 3.26,
+          "y": -0.85,
+          "prerequisites": [
+            {
+              "node_id": 572,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 574,
+          "name_key": "灵根感应",
+          "x": 3.21,
+          "y": -0.4,
+          "prerequisites": [
+            {
+              "node_id": 570,
+              "required_points": 1
+            },
+            {
+              "node_id": 572,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 575,
+          "name_key": "天灾",
+          "x": 3.08,
+          "y": -1.94,
+          "prerequisites": [
+            {
+              "node_id": 574,
+              "required_points": 2
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

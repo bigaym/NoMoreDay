@@ -25,14 +25,9 @@
           "name_key": "迅捷之刃",
           "desc_key": "攻击速度增加 5%/10%/15%/20%。",
           "max_points": 5,
-          "x": -3.41,
-          "y": 1.51,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": -1.5,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": [
             {
               "type": 16,
@@ -46,14 +41,9 @@
           "name_key": "气聚",
           "desc_key": "施放时法力消耗降低 15%...45%。",
           "max_points": 5,
-          "x": -2.95,
-          "y": -1.36,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -61,14 +51,9 @@
           "name_key": "剑心洞明",
           "desc_key": "流云刺的基础暴击率增加 2%...10%。",
           "max_points": 5,
-          "x": 1.28,
-          "y": 2.58,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": -1.5,
+          "y": 3.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -76,14 +61,9 @@
           "name_key": "流云劲",
           "desc_key": "流云刺造成的伤害提升 10%...40%。",
           "max_points": 4,
-          "x": 3.27,
-          "y": 0.25,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": -1.5,
+          "y": -3.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -91,12 +71,12 @@
           "name_key": "贯日",
           "desc_key": "*{需求: 气聚 2/3}* 冷却时间减少 1s，但伤害降低 15%。",
           "max_points": 1,
-          "x": -2.34,
-          "y": -2.18,
+          "x": -3.0,
+          "y": 1.5,
           "prerequisites": [
             {
               "node_id": 101,
-              "required_points": 2
+              "required_points": 3
             }
           ]
         },
@@ -105,8 +85,8 @@
           "name_key": "连环",
           "desc_key": "*{需求: 贯日}* 最大充能次数 +1/+2，但单次充能时间增加 15%。",
           "max_points": 3,
-          "x": -3.53,
-          "y": 0.31,
+          "x": -4.5,
+          "y": 3.0,
           "prerequisites": [
             {
               "node_id": 110,
@@ -119,12 +99,12 @@
           "name_key": "势如破竹",
           "desc_key": "*{需求: 迅捷之刃 2/4}* 位移距离增加 10%...40%，每多移动 10 码，该次伤害总增 (More) 2%。",
           "max_points": 5,
-          "x": -2.59,
-          "y": -1.76,
+          "x": -3.0,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 100,
-              "required_points": 2
+              "node_id": 111,
+              "required_points": 3
             }
           ]
         },
@@ -133,12 +113,16 @@
           "name_key": "风行者",
           "desc_key": "*{需求: 连环 2/2}* 施放后获得 \"疾风\" 状态 (2s)：移速 +40%，下一次移动无视体积碰撞，且立即激活“御剑步”效果（详见 2.3 战斗模式）。",
           "max_points": 1,
-          "x": -1.69,
-          "y": -2.02,
+          "x": -6.0,
+          "y": 0.0,
           "prerequisites": [
             {
               "node_id": 111,
               "required_points": 2
+            },
+            {
+              "node_id": 112,
+              "required_points": 3
             }
           ]
         },
@@ -147,12 +131,12 @@
           "name_key": "御风而行",
           "desc_key": "*{需求: 风行者}* 处于“御剑步”状态期间，你的近战攻击获得 8%...24% 额外暴击率，且每次近战击中回复 3...9 点法力。",
           "max_points": 5,
-          "x": -3.23,
-          "y": -1.01,
+          "x": 0.0,
+          "y": 0.0,
           "prerequisites": [
             {
               "node_id": 113,
-              "required_points": 1
+              "required_points": 3
             }
           ],
           "stat_modifiers": []
@@ -162,11 +146,11 @@
           "name_key": "无止境",
           "desc_key": "*{需求: 贯日}* 击杀敌人时有 20%...60% 几率立即回复 1 次充能。",
           "max_points": 3,
-          "x": 0.04,
-          "y": -2.61,
+          "x": -7.5,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 110,
+              "node_id": 114,
               "required_points": 1
             }
           ]
@@ -176,12 +160,12 @@
           "name_key": "留影",
           "desc_key": "*{需求: 迅捷之刃 3/4}* 施放时在起点留下一个残影，持续 4s。残影会自动模仿你下一个近战攻击技能（施加 40% 伤害）。",
           "max_points": 3,
-          "x": -2.37,
-          "y": 2.14,
+          "x": 1.5,
+          "y": 0.0,
           "prerequisites": [
             {
               "node_id": 100,
-              "required_points": 3
+              "required_points": 1
             }
           ]
         },
@@ -190,12 +174,12 @@
           "name_key": "影域",
           "desc_key": "*{需求: 留影}* 残影模仿的技能区域/范围增加 15%/30%/45%。",
           "max_points": 3,
-          "x": -1.87,
-          "y": 2.13,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 130,
-              "required_points": 1
+              "required_points": 2
             }
           ],
           "stat_modifiers": [
@@ -211,14 +195,9 @@
           "name_key": "影之突袭",
           "desc_key": "*{需求: 留影}* 当你拥有残影时施放此技能，残影也会向你的目标位置发起一次流云刺。",
           "max_points": 5,
-          "x": -3.58,
-          "y": -0.17,
-          "prerequisites": [
-            {
-              "node_id": 130,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -226,12 +205,12 @@
           "name_key": "移形换位",
           "desc_key": "*{需求: 影之突袭}* 你的流云刺不再是突进，而是瞬间传送到目标位置（获得 [Teleport] 标签，失去 [Movement] 标签），并在起点和终点各引发一次物理范围爆炸。",
           "max_points": 1,
-          "x": -0.88,
-          "y": 2.59,
+          "x": 3.0,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 132,
-              "required_points": 1
+              "node_id": 130,
+              "required_points": 2
             }
           ]
         },
@@ -240,14 +219,9 @@
           "name_key": "瞬狱影爆",
           "desc_key": "*{需求: 移形换位}* 传送爆炸的伤害增加 25%...75%，半径增加 20%...60%。若终点爆炸命中 3 名以上敌人，额外向最近敌人方向触发一次 [裂空斩]（使用其已专精版本，60% 效力，CD: 3s，不消耗法力）。",
           "max_points": 5,
-          "x": -2.52,
-          "y": -0.33,
-          "prerequisites": [
-            {
-              "node_id": 133,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -255,12 +229,16 @@
           "name_key": "虚实相生",
           "desc_key": "*{需求: 留影}* 离开残影所在区域时，获得相当于你敏捷值 200%...600% 的临时护盾 (Ward)，持续 3s。",
           "max_points": 3,
-          "x": 2.35,
-          "y": 2.47,
+          "x": 4.5,
+          "y": 0.0,
           "prerequisites": [
             {
-              "node_id": 130,
+              "node_id": 131,
               "required_points": 1
+            },
+            {
+              "node_id": 132,
+              "required_points": 2
             }
           ]
         },
@@ -269,12 +247,12 @@
           "name_key": "要害感知",
           "desc_key": "*{需求: 剑心洞明 3/5}* 对高生命值(>80%)或受控敌人的暴击倍率增加 15%...60%。",
           "max_points": 4,
-          "x": 2.27,
-          "y": 2.63,
+          "x": 1.5,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 102,
-              "required_points": 3
+              "node_id": 101,
+              "required_points": 2
             }
           ]
         },
@@ -283,8 +261,8 @@
           "name_key": "重创",
           "desc_key": "*{需求: 要害感知 2/4}* 命中时有 25%...100% 几率造成“流血”（物理持续伤害）。",
           "max_points": 3,
-          "x": 3.72,
-          "y": 0.69,
+          "x": 1.5,
+          "y": 4.5,
           "prerequisites": [
             {
               "node_id": 150,
@@ -297,14 +275,9 @@
           "name_key": "动脉割裂",
           "desc_key": "*{需求: 重创 3/4}* 对“流血”状态的敌人，流云刺命中时有 75%...225% 几率施加护甲击碎 (Armor Shred)（超过100%的部分有相应概率额外施加1层）。",
           "max_points": 5,
-          "x": 0.98,
-          "y": 2.64,
-          "prerequisites": [
-            {
-              "node_id": 151,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -312,14 +285,9 @@
           "name_key": "饮血刃",
           "desc_key": "*{需求: 动脉割裂 2/3}* 击中流血敌人会治疗自身（相当于造成的流血伤害的 100%）。",
           "max_points": 5,
-          "x": 3.6,
-          "y": 1.38,
-          "prerequisites": [
-            {
-              "node_id": 152,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -327,12 +295,12 @@
           "name_key": "孤注一掷",
           "desc_key": "*{需求: 要害感知 4/4}* 流云刺不再拥有充能，且冷却时间增加至 8s、法力消耗翻倍，但必定暴击且伤害总增 (More) 100%。",
           "max_points": 1,
-          "x": -0.73,
-          "y": 3.21,
+          "x": 0.0,
+          "y": 7.5,
           "prerequisites": [
             {
-              "node_id": 150,
-              "required_points": 4
+              "node_id": 152,
+              "required_points": 3
             }
           ]
         },
@@ -341,12 +309,12 @@
           "name_key": "斩断因果",
           "desc_key": "*{需求: 孤注一掷}* 使用强化版流云刺击杀敌人时，有 25%...75% 几率立即重置其冷却时间；此效果触发时额外回复 1 层剑意。",
           "max_points": 3,
-          "x": 2.43,
-          "y": 1.56,
+          "x": 1.5,
+          "y": 6.0,
           "prerequisites": [
             {
-              "node_id": 154,
-              "required_points": 1
+              "node_id": 151,
+              "required_points": 2
             }
           ]
         },
@@ -355,14 +323,9 @@
           "name_key": "劫火",
           "desc_key": "*{需求: 流云劲 2/4}* 将基础物理伤害完全转化为 **火焰 (Fire)**，获得 [Fire] 标签。流云刺点燃命中的敌人，并在突进路径上留下一条持续 2s 的燃烧余烬。*与 [凛风] 互斥。*",
           "max_points": 5,
-          "x": 2.51,
-          "y": -1.78,
-          "prerequisites": [
-            {
-              "node_id": 103,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -370,14 +333,9 @@
           "name_key": "业火焚途",
           "desc_key": "*{需求: 劫火}* 燃烧余烬的持续时间增加 0.5s...1.5s，路径宽度增加。站在自己铺设的火焰余烬上时，你获得 6%...18% 火焰伤害加成。",
           "max_points": 5,
-          "x": 2.46,
-          "y": -1.98,
-          "prerequisites": [
-            {
-              "node_id": 170,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -385,14 +343,9 @@
           "name_key": "凛风",
           "desc_key": "*{需求: 流云劲 2/4}* 将基础物理伤害完全转化为 **冰霜 (Cold)**，获得 [Cold] 标签。流云刺使命中的敌人减速 30%，对已被冻结的敌人造成 50% 额外伤害。*与 [劫火] 互斥。*",
           "max_points": 5,
-          "x": 2.49,
-          "y": 1.84,
-          "prerequisites": [
-            {
-              "node_id": 103,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -400,14 +353,9 @@
           "name_key": "霜凝寒骨",
           "desc_key": "*{需求: 凛风}* 每次命中减速的敌人时额外施加 1 层“寒冷”。寒冷叠满冻结敌人后，流云刺命中冻结目标有 15%...45% 几率触发“碎裂”——对周围敌人造成上一次暴击伤害 30% 的冰霜溅射。",
           "max_points": 5,
-          "x": 4.32,
-          "y": 0.73,
-          "prerequisites": [
-            {
-              "node_id": 172,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -415,18 +363,9 @@
           "name_key": "灵根侵蚀",
           "desc_key": "*{需求: 任意 Transmuter}* 流云刺每命中一名带有对应元素异常状态（点燃/寒冷）的敌人，施加 1 层\"元素侵蚀\"，每层降低目标对应元素抗性 3...12 点（固定值），最多 5 层，持续 4 秒（命中刷新）。",
           "max_points": 5,
-          "x": 2.15,
-          "y": 1.56,
-          "prerequisites": [
-            {
-              "node_id": 170,
-              "required_points": 1
-            },
-            {
-              "node_id": 172,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -434,29 +373,24 @@
           "name_key": "元素余韵",
           "desc_key": "*{需求: 灵根侵蚀 2/4}* 命中带有对应元素异常状态（点燃/寒冷）的敌人时，有 20%...60% 几率将该异常传染给 200 码内的 1 名附近敌人（每次传染有 1s 冷却）。",
           "max_points": 5,
-          "x": 3.44,
-          "y": -0.13,
-          "prerequisites": [
-            {
-              "node_id": 174,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         }
       ],
       "skill_contract": {
         "version": 1,
         "skill_id": 1,
-        "min_nodes": 28,
-        "max_nodes": 28,
+        "min_nodes": 25,
+        "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
         "has_synergy_node": true,
         "transmuter_node_ids": [
           170,
-          172
+          171
         ],
         "nodes": [
           {
@@ -659,14 +593,9 @@
           "name_key": "剑气纵横",
           "desc_key": "剑气宽度和飞行距离增加 10%...40%。",
           "max_points": 5,
-          "x": -3.78,
-          "y": -0.46,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": -1.5,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": [
             {
               "type": 31,
@@ -680,12 +609,16 @@
           "name_key": "凝神",
           "desc_key": "法力消耗降低 1...4 点。",
           "max_points": 5,
-          "x": -2.18,
-          "y": 2.74,
+          "x": 0.0,
+          "y": -6.0,
           "prerequisites": [
             {
-              "node_id": 0,
+              "node_id": 271,
               "required_points": 1
+            },
+            {
+              "node_id": 273,
+              "required_points": 2
             }
           ],
           "stat_modifiers": [
@@ -706,28 +639,18 @@
           "name_key": "锋芒",
           "desc_key": "基础物理伤害增加 10%...50%。",
           "max_points": 5,
-          "x": 1.7,
-          "y": 3.62,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": -1.5,
+          "prerequisites": []
         },
         {
           "id": 203,
           "name_key": "气劲爆发",
           "desc_key": "剑气造成的异常状态效果提升 15%...60%。",
           "max_points": 4,
-          "x": 3.47,
-          "y": -0.72,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 1.5,
+          "y": -1.5,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -735,12 +658,12 @@
           "name_key": "多重剑气",
           "desc_key": "*{需求: 剑气纵横 2/4}* 投射物数量 +1/+2/+3，但呈扇形发射，且每发伤害降低 25%/20%/15%。",
           "max_points": 3,
-          "x": -2.5,
-          "y": 1.18,
+          "x": -3.0,
+          "y": 1.5,
           "prerequisites": [
             {
               "node_id": 200,
-              "required_points": 2
+              "required_points": 3
             }
           ]
         },
@@ -749,8 +672,8 @@
           "name_key": "碎裂之刃",
           "desc_key": "*{需求: 多重剑气 2/3}* 每道剑气在命中第一个敌人或达到最大距离时，会直接分裂成 3 道较小的追踪剑气。",
           "max_points": 1,
-          "x": -0.18,
-          "y": -3.24,
+          "x": -4.5,
+          "y": 3.0,
           "prerequisites": [
             {
               "node_id": 210,
@@ -763,14 +686,9 @@
           "name_key": "连锁反应",
           "desc_key": "*{需求: 碎裂之刃}* 小剑气的追踪角度强化 15%...45%，速度提升。",
           "max_points": 5,
-          "x": -0.48,
-          "y": -2.48,
-          "prerequisites": [
-            {
-              "node_id": 211,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -778,11 +696,15 @@
           "name_key": "万剑归宗-残篇",
           "desc_key": "*{需求: 连锁反应 2/3}* 剑气不再穿透，命中目标时直接引爆，向四周散落 8 道微型穿刺剑气。",
           "max_points": 1,
-          "x": -2.68,
-          "y": -0.14,
+          "x": -4.5,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 212,
+              "node_id": 214,
+              "required_points": 1
+            },
+            {
+              "node_id": 210,
               "required_points": 2
             }
           ]
@@ -792,12 +714,12 @@
           "name_key": "星环护体",
           "desc_key": "*{需求: 剑气纵横 4/4}* 剑气不再向外飞行，而是环绕在你周身旋转 3 秒，对触碰的敌人造成持续多次切割伤害。",
           "max_points": 1,
-          "x": 0,
-          "y": -3.76,
+          "x": -7.5,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 200,
-              "required_points": 4
+              "node_id": 212,
+              "required_points": 2
             }
           ]
         },
@@ -806,12 +728,12 @@
           "name_key": "灵剑追击",
           "desc_key": "*{需求: 碎裂之刃}* 当你拥有活跃的 [灵剑决] 时，每次施放裂空斩会令 1 柄灵剑伴飞剑气同行，到达末端后对最近敌人进行一次额外攻击（20% 效力，继承剑气的元素标签）。",
           "max_points": 1,
-          "x": -3.22,
-          "y": 0.5,
+          "x": -3.0,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 211,
-              "required_points": 1
+              "node_id": 200,
+              "required_points": 3
             }
           ]
         },
@@ -820,22 +742,17 @@
           "name_key": "回旋劲",
           "desc_key": "*{需求: 锋芒 3/5}* 剑气飞行至最大距离后会向你折返，折返时造成的伤害减少 30%。",
           "max_points": 1,
-          "x": 1.95,
-          "y": 2.18,
-          "prerequisites": [
-            {
-              "node_id": 202,
-              "required_points": 3
-            }
-          ]
+          "x": 1.5,
+          "y": 0.0,
+          "prerequisites": []
         },
         {
           "id": 231,
           "name_key": "重叠打击",
           "desc_key": "*{需求: 回旋劲}* 折返击中敌人的伤害总增 (More) +15%...60%。",
           "max_points": 3,
-          "x": 0.94,
-          "y": 3.28,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 230,
@@ -848,8 +765,8 @@
           "name_key": "引力陷阱",
           "desc_key": "*{需求: 回旋劲}* 剑气在折返的瞬间，会在最远端生成一个微型黑洞，将周围轻型敌人牵引至中心。",
           "max_points": 3,
-          "x": 3.17,
-          "y": 1.48,
+          "x": 3.0,
+          "y": 1.5,
           "prerequisites": [
             {
               "node_id": 230,
@@ -862,14 +779,9 @@
           "name_key": "深渊边缘",
           "desc_key": "*{需求: 引力陷阱}* 黑洞牵引范围增加 20%...60%，黑洞消散时附加击晕效果。",
           "max_points": 5,
-          "x": 2.52,
-          "y": 3.36,
-          "prerequisites": [
-            {
-              "node_id": 232,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -877,14 +789,9 @@
           "name_key": "时空停滞",
           "desc_key": "*{需求: 引力陷阱}* 剑气到达最远端时不再折返，而是原地停滞并高速旋转 2s，化为高频段伤害的微型剑气风暴。",
           "max_points": 5,
-          "x": 0.32,
-          "y": 3.79,
-          "prerequisites": [
-            {
-              "node_id": 232,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -892,12 +799,16 @@
           "name_key": "御剑引力",
           "desc_key": "*{需求: 引力陷阱}* 处于“御剑步”状态时，引力陷阱/时空停滞的牵引半径和效果增加 15%...45%，且折返的剑气有 50%...150% 几率施加护甲击碎（超过100%的部分有相应概率额外施加1层）。",
           "max_points": 3,
-          "x": 3.28,
-          "y": 1.1,
+          "x": 4.5,
+          "y": -3.0,
           "prerequisites": [
             {
+              "node_id": 231,
+              "required_points": 2
+            },
+            {
               "node_id": 232,
-              "required_points": 1
+              "required_points": 2
             }
           ]
         },
@@ -906,12 +817,16 @@
           "name_key": "剑气烙印",
           "desc_key": "*{需求: 凝神 3/4}* 裂空斩命中时有 25%...100% 几率施加一层“剑气烙印”（使目标受到的暴击伤害增加 4%，最多 5 层，持续 4 秒，命中刷新）。",
           "max_points": 3,
-          "x": -2.22,
-          "y": 2.4,
+          "x": 0.0,
+          "y": 6.0,
           "prerequisites": [
             {
-              "node_id": 201,
-              "required_points": 3
+              "node_id": 253,
+              "required_points": 2
+            },
+            {
+              "node_id": 254,
+              "required_points": 1
             }
           ]
         },
@@ -920,12 +835,12 @@
           "name_key": "剑意爆发",
           "desc_key": "*{需求: 剑气烙印 2/4}* 当你拥有至少 5 层剑意时施放裂空斩，将消耗所有剑意。每消耗 1 层使该次裂空斩的范围增加 8% 且暴击率增加 3%。",
           "max_points": 1,
-          "x": 0.2,
-          "y": 2.62,
+          "x": 1.5,
+          "y": 3.0,
           "prerequisites": [
             {
               "node_id": 250,
-              "required_points": 2
+              "required_points": 1
             }
           ]
         },
@@ -934,14 +849,9 @@
           "name_key": "无底深渊",
           "desc_key": "*{需求: 剑意爆发}* 施放消耗剑意的裂空斩时，有 10%...30% 几率返还全额法力消耗。",
           "max_points": 5,
-          "x": -2.84,
-          "y": 0.76,
-          "prerequisites": [
-            {
-              "node_id": 251,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -949,12 +859,16 @@
           "name_key": "湮灭波",
           "desc_key": "*{需求: 剑意爆发}* 当消耗满层 (10层) 剑意时，裂空斩化为一道横贯屏幕的巨型剑气波，伤害总增 (More) 80%，并无视敌方 50% 物理抗性。",
           "max_points": 1,
-          "x": 1.87,
-          "y": 2.34,
+          "x": 6.0,
+          "y": 0.0,
           "prerequisites": [
             {
-              "node_id": 251,
+              "node_id": 233,
               "required_points": 1
+            },
+            {
+              "node_id": 235,
+              "required_points": 2
             }
           ]
         },
@@ -963,11 +877,11 @@
           "name_key": "回响斩",
           "desc_key": "*{需求: 剑意爆发}* 消耗剑意施放裂空斩时，自动向你背后方向触发一道额外的裂空斩（使用其已专精版本，40% 效力，不消耗法力，CD: 2s）。",
           "max_points": 1,
-          "x": -4.14,
-          "y": -2,
+          "x": 3.0,
+          "y": 4.5,
           "prerequisites": [
             {
-              "node_id": 251,
+              "node_id": 252,
               "required_points": 1
             }
           ]
@@ -977,14 +891,9 @@
           "name_key": "意念回流",
           "desc_key": "*{需求: 湮灭波}* 消耗剑意的裂空斩每命中一名敌人，有 10%...30% 几率回复 1 层剑意。",
           "max_points": 5,
-          "x": -2.13,
-          "y": 2.21,
-          "prerequisites": [
-            {
-              "node_id": 253,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -992,11 +901,11 @@
           "name_key": "霜寒之刃",
           "desc_key": "*{需求: 气劲爆发 2/4}* 将基础物理伤害完全转化为 **冰霜 (Cold)**，获得 [Cold] 标签。命中时 100% 施加寒冷，满血敌人强制冻结 1s。*与 [雷光] 互斥。*",
           "max_points": 3,
-          "x": 2,
-          "y": 2.43,
+          "x": 3.0,
+          "y": -4.5,
           "prerequisites": [
             {
-              "node_id": 203,
+              "node_id": 272,
               "required_points": 2
             }
           ]
@@ -1006,11 +915,11 @@
           "name_key": "冰晶碎裂",
           "desc_key": "*{需求: 霜寒之刃}* 被冻结的敌人被冰霜剑气命中时触发“冰爆”，对周围敌人造成本次命中伤害 20%...60% 的冰霜范围伤害，并对波及敌人施加 1 层寒冷。",
           "max_points": 3,
-          "x": 5.14,
-          "y": -1.02,
+          "x": -6.0,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 270,
+              "node_id": 211,
               "required_points": 1
             }
           ]
@@ -1020,12 +929,12 @@
           "name_key": "雷光",
           "desc_key": "*{需求: 气劲爆发 2/4}* 将基础物理伤害完全转化为 **闪电 (Lightning)**，获得 [Lightning] 标签。弹道速度增加 100%，暴击时附带感电效果。*与 [霜寒之刃] 互斥。*",
           "max_points": 3,
-          "x": 0.54,
-          "y": -2.17,
+          "x": 1.5,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 203,
-              "required_points": 1
+              "node_id": 202,
+              "required_points": 3
             }
           ]
         },
@@ -1034,14 +943,9 @@
           "name_key": "感电传导",
           "desc_key": "*{需求: 雷光}* 被感电的敌人被闪电剑气命中时，感电会向 1...3 名附近敌人连锁传导，每次传导造成基础伤害 30% 的闪电伤害。",
           "max_points": 5,
-          "x": 1.77,
-          "y": -2.59,
-          "prerequisites": [
-            {
-              "node_id": 272,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1049,18 +953,9 @@
           "name_key": "灵根亲和",
           "desc_key": "*{需求: 任意 Transmuter}* 裂空斩及其触发效果的对应元素抗性穿透增加 5%...20%（霜寒→冰霜穿透，雷光→闪电穿透），仅适用于本技能。",
           "max_points": 5,
-          "x": 4.56,
-          "y": 0.12,
-          "prerequisites": [
-            {
-              "node_id": 272,
-              "required_points": 1
-            },
-            {
-              "node_id": 270,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1068,11 +963,11 @@
           "name_key": "异常扩散",
           "desc_key": "*{需求: 灵根亲和 2/4}* 裂空斩击杀带有对应元素异常状态（寒冷/感电）的敌人时，将该异常以 150% 效力传染给周围 300...900 码内的至多 5 名敌人，且每传染一名敌人回复 2 点法力。",
           "max_points": 1,
-          "x": 4.2,
-          "y": 0.04,
+          "x": -3.0,
+          "y": -4.5,
           "prerequisites": [
             {
-              "node_id": 274,
+              "node_id": 270,
               "required_points": 2
             }
           ]
@@ -1315,56 +1210,36 @@
           "name_key": "剑池充盈",
           "desc_key": "在场最大灵剑数量 +1/2/3/4。",
           "max_points": 3,
-          "x": -2.76,
-          "y": 0.99,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 301,
           "name_key": "疾风意",
           "desc_key": "灵剑的自动攻击频率增加 8%...40%。",
           "max_points": 5,
-          "x": 0.72,
-          "y": 3.04,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 1.5,
+          "prerequisites": []
         },
         {
           "id": 302,
           "name_key": "锋灵",
           "desc_key": "灵剑造成的物理伤害增加 10%...50%。",
           "max_points": 5,
-          "x": 2.74,
-          "y": -1.78,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 303,
           "name_key": "五行归元",
           "desc_key": "灵剑的属性伤害转换效率提升 10%...40%。",
           "max_points": 4,
-          "x": 4.09,
-          "y": 1.64,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": -3.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1372,12 +1247,12 @@
           "name_key": "索敌范围",
           "desc_key": "*{需求: 剑池充盈 2/4}* 追踪半径增加 20%...60%，且灵剑飞行速度增加。",
           "max_points": 3,
-          "x": -1.06,
-          "y": 3.39,
+          "x": -1.5,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 300,
-              "required_points": 2
+              "required_points": 1
             }
           ],
           "stat_modifiers": [
@@ -1393,12 +1268,12 @@
           "name_key": "无尽剑匣",
           "desc_key": "*{需求: 剑池充盈 4/4}* 灵剑上限翻倍，但单发伤害降低 40%。",
           "max_points": 1,
-          "x": -3.66,
-          "y": -0.93,
+          "x": -3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 300,
-              "required_points": 4
+              "required_points": 1
             }
           ]
         },
@@ -1407,14 +1282,9 @@
           "name_key": "灵力网络",
           "desc_key": "*{需求: 无尽剑匣}* 每存在一柄灵剑，你的法力回复速度增加 3...9 点/秒（固定值），且维持技能的法力消耗降低 5%...15%。",
           "max_points": 5,
-          "x": -1.84,
-          "y": 2.5,
-          "prerequisites": [
-            {
-              "node_id": 311,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1422,12 +1292,12 @@
           "name_key": "神速",
           "desc_key": "*{需求: 疾风意 4/5}* 灵剑的攻击频率现在完全受角色攻击速度 (Attack Speed) 的 75% 加成。",
           "max_points": 1,
-          "x": -0.34,
-          "y": 3.02,
+          "x": -3.0,
+          "y": -3.0,
           "prerequisites": [
             {
               "node_id": 301,
-              "required_points": 4
+              "required_points": 1
             }
           ]
         },
@@ -1436,28 +1306,18 @@
           "name_key": "集中号令",
           "desc_key": "*{需求: 索敌范围 2/3}* 灵剑现在会优先攻击你最近一次使用其他技能命中的目标。",
           "max_points": 1,
-          "x": 1.1,
-          "y": 2.34,
-          "prerequisites": [
-            {
-              "node_id": 310,
-              "required_points": 2
-            }
-          ]
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 315,
           "name_key": "御剑共振",
           "desc_key": "*{需求: 索敌范围 2/3}* 处于“御剑步”状态时，灵剑攻击频率增加 20%...60%，且灵剑命中有 10%...30% 几率为你回复 1 层剑意。",
           "max_points": 5,
-          "x": -2.54,
-          "y": 0.98,
-          "prerequisites": [
-            {
-              "node_id": 310,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1465,12 +1325,12 @@
           "name_key": "巨剑降临",
           "desc_key": "*{需求: 锋灵 3/5}* 你最多只能拥有一柄灵剑，但其体积、基础伤害、范围均提升 150%，攻击频率降低 50%。",
           "max_points": 1,
-          "x": -0.48,
-          "y": -3.52,
+          "x": 1.5,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 302,
-              "required_points": 3
+              "node_id": 300,
+              "required_points": 1
             }
           ]
         },
@@ -1479,8 +1339,8 @@
           "name_key": "弱点锁定",
           "desc_key": "*{需求: 巨剑降临}* 巨剑的暴击率 +5%...25%，暴击是对周围造成范围伤害。",
           "max_points": 5,
-          "x": -3.76,
-          "y": -2.58,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 330,
@@ -1493,12 +1353,12 @@
           "name_key": "致命锋芒",
           "desc_key": "*{需求: 弱点锁定 3/5}* 巨剑的暴击伤害倍率 +25%...100%。",
           "max_points": 5,
-          "x": -2.72,
-          "y": -2.78,
+          "x": 1.5,
+          "y": -3.0,
           "prerequisites": [
             {
               "node_id": 331,
-              "required_points": 3
+              "required_points": 1
             }
           ]
         },
@@ -1507,11 +1367,11 @@
           "name_key": "剑压",
           "desc_key": "*{需求: 巨剑降临}* 巨剑命中时使敌人受到的所有物理伤害增加 (Taken) 5%...15%。",
           "max_points": 3,
-          "x": 0.44,
-          "y": -3.12,
+          "x": 3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 330,
+              "node_id": 332,
               "required_points": 1
             }
           ]
@@ -1521,28 +1381,18 @@
           "name_key": "碎岩",
           "desc_key": "*{需求: 剑压 2/3}* 巨剑命中时有 33%...100% 几率击晕普通敌人 0.5s，并施加 1 层护甲击碎。",
           "max_points": 3,
-          "x": 1.9,
-          "y": -2.96,
-          "prerequisites": [
-            {
-              "node_id": 333,
-              "required_points": 2
-            }
-          ]
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 335,
           "name_key": "巨剑裂空",
           "desc_key": "*{需求: 弱点锁定 3/5}* 巨剑暴击时，从巨剑位置向目标方向触发一道 [裂空斩]（使用其已专精版本，30% 效力，CD: 4s，不消耗法力）。",
           "max_points": 5,
-          "x": 1.22,
-          "y": -3.4,
-          "prerequisites": [
-            {
-              "node_id": 331,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1550,12 +1400,12 @@
           "name_key": "灵剑护体",
           "desc_key": "*{需求: 剑池充盈 2/4}* 每柄灵剑为你提供 1%...5% 的全局伤害减免。",
           "max_points": 5,
-          "x": -1.02,
-          "y": -3.34,
+          "x": -1.5,
+          "y": 1.5,
           "prerequisites": [
             {
               "node_id": 300,
-              "required_points": 2
+              "required_points": 1
             }
           ]
         },
@@ -1564,40 +1414,30 @@
           "name_key": "剑影环身",
           "desc_key": "*{需求: 灵剑护体 3/5}* 灵剑不再飞出攻击，而是始终环绕自身高速旋转，对触碰的敌人持续造成近战物理伤害（吃近战加成）。",
           "max_points": 1,
-          "x": -3.07,
-          "y": -1.55,
-          "prerequisites": [
-            {
-              "node_id": 350,
-              "required_points": 3
-            }
-          ]
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 352,
           "name_key": "反击剑网",
           "desc_key": "*{需求: 剑影环身}* 每环绕一柄灵剑，你的格挡几率增加 2%...6%。",
           "max_points": 1,
-          "x": -2.21,
-          "y": -0.37,
-          "prerequisites": [
-            {
-              "node_id": 351,
-              "required_points": 1
-            }
-          ]
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 353,
           "name_key": "不灭剑魂",
           "desc_key": "*{需求: 灵剑护体 5/5}* 受到致命伤时，若拥有至少 3 柄灵剑，消耗所有灵剑抵消伤害并回复 4% 最大生命/柄 (CD: 90s)。",
           "max_points": 1,
-          "x": 1.34,
-          "y": -2.44,
+          "x": -3.0,
+          "y": 3.0,
           "prerequisites": [
             {
               "node_id": 350,
-              "required_points": 5
+              "required_points": 1
             }
           ]
         },
@@ -1606,14 +1446,9 @@
           "name_key": "法术共鸣",
           "desc_key": "*{需求: 锋灵 4/5}* 灵剑协同施法，当你施放任意法术时，所有灵剑同步向该方向发射微型剑气飞弹（20% 效力）。",
           "max_points": 5,
-          "x": -3.6,
-          "y": -1.3,
-          "prerequisites": [
-            {
-              "node_id": 302,
-              "required_points": 4
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1621,14 +1456,9 @@
           "name_key": "剑阵共鸣",
           "desc_key": "*{需求: 灵剑护体 3/5}* 当你处于 [剑阵·诛仙] 范围内时，灵剑获得 50% 攻击速度加成，且命中时附加剑阵当前的元素属性（若剑阵已转化元素）。",
           "max_points": 5,
-          "x": -1.75,
-          "y": -3.98,
-          "prerequisites": [
-            {
-              "node_id": 350,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1636,14 +1466,9 @@
           "name_key": "地火明夷",
           "desc_key": "*{需求: 五行归元 2/4}* 转化为 **火焰 (Fire)** 伤害，获得 [Fire] 标签。命中时必定附加“点燃烧灼”。*与 [紫电紫雷] 互斥。*",
           "max_points": 5,
-          "x": 1.31,
-          "y": 3.2,
-          "prerequisites": [
-            {
-              "node_id": 303,
-              "required_points": 2
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1651,11 +1476,11 @@
           "name_key": "灼魂剑舞",
           "desc_key": "*{需求: 地火明夷}* 被点燃的敌人每秒额外受到火焰持续伤害（基于活跃灵剑数量缩放），且点燃持续时间增加 20%...60%。",
           "max_points": 1,
-          "x": 3.14,
-          "y": 1.29,
+          "x": 3.0,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 370,
+              "node_id": 372,
               "required_points": 1
             }
           ]
@@ -1665,14 +1490,9 @@
           "name_key": "紫电紫雷",
           "desc_key": "*{需求: 五行归元 2/4}* 转化为 **闪电 (Lightning)** 伤害，获得 [Lightning] 标签。变为瞬移攻击，击中后短暂停留并释放静电场。*与 [地火明夷] 互斥。*",
           "max_points": 5,
-          "x": 2.43,
-          "y": -1.38,
-          "prerequisites": [
-            {
-              "node_id": 303,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1680,11 +1500,11 @@
           "name_key": "雷弧连锁",
           "desc_key": "*{需求: 紫电紫雷}* 灵剑攻击感电敌人时产生闪电弧，向 1...3 名附近敌人连锁传导，每次跳跃造成基础伤害 15%...45% 的闪电伤害。",
           "max_points": 1,
-          "x": 2.45,
-          "y": -1.94,
+          "x": 1.5,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 372,
+              "node_id": 371,
               "required_points": 1
             }
           ]
@@ -1694,30 +1514,21 @@
           "name_key": "灵剑蚀甲",
           "desc_key": "*{需求: 任意 Transmuter}* 灵剑每攻击一次带有对应元素异常状态（点燃/感电）的敌人，降低其对应元素抗性 2...8 点（最多 8 层），灵剑停止攻击后 debuff 持续 4 秒后消散。",
           "max_points": 1,
-          "x": 2.18,
-          "y": 2.66,
-          "prerequisites": [
-            {
-              "node_id": 372,
-              "required_points": 1
-            },
-            {
-              "node_id": 370,
-              "required_points": 1
-            }
-          ]
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 375,
           "name_key": "灵剑充能",
           "desc_key": "*{需求: 灵剑蚀甲 2/4}* 灵剑每攻击 4/3/2 次，下一次攻击必定造成双倍元素伤害并引爆范围内的该元素异常。",
           "max_points": 3,
-          "x": 4.1,
-          "y": -0.4,
+          "x": 3.0,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 374,
-              "required_points": 2
+              "node_id": 370,
+              "required_points": 1
             }
           ]
         }
@@ -1943,14 +1754,9 @@
           "name_key": "金钟罩",
           "desc_key": "开启时护甲增加 15%...60%。",
           "max_points": 5,
-          "x": -2.36,
-          "y": 1.26,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -1958,42 +1764,27 @@
           "name_key": "拨云见日",
           "desc_key": "投射物偏转几率增加 4%...16%。",
           "max_points": 3,
-          "x": 3.81,
-          "y": 0.9,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 402,
           "name_key": "持久",
           "desc_key": "技能维持的法力消耗降低 15%...45%。",
           "max_points": 3,
-          "x": 0.35,
-          "y": 3.3,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 403,
           "name_key": "剑压外放",
           "desc_key": "反击剑气的触发几率或范围增加 10%...40%。",
           "max_points": 4,
-          "x": -1.98,
-          "y": -2.5,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": -4.5,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2001,14 +1792,9 @@
           "name_key": "厚积薄发",
           "desc_key": "*{需求: 金钟罩 3/4}* 护甲的减伤效果提升 10%...30%，且每有 1000 点护甲，额外提供 1% 伤害减免。",
           "max_points": 5,
-          "x": 0.01,
-          "y": 3.51,
-          "prerequisites": [
-            {
-              "node_id": 400,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2016,12 +1802,12 @@
           "name_key": "五行御守",
           "desc_key": "*{需求: 金钟罩 2/4}* 全元素抗性 +6%...24%。",
           "max_points": 5,
-          "x": -5.07,
-          "y": 1.28,
+          "x": -3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 400,
-              "required_points": 2
+              "required_points": 1
             }
           ],
           "stat_modifiers": [
@@ -2037,12 +1823,12 @@
           "name_key": "不动如山",
           "desc_key": "*{需求: 厚积薄发 2/3}* 开启时完全免疫击退、硬直和冰冻效果，但你的移动速度固定降低 15%（无法通过修正减免此惩罚）。",
           "max_points": 1,
-          "x": -2.71,
-          "y": 1.8,
+          "x": -1.5,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 410,
-              "required_points": 2
+              "node_id": 400,
+              "required_points": 1
             }
           ]
         },
@@ -2051,42 +1837,27 @@
           "name_key": "破釜沉舟",
           "desc_key": "*{需求: 不动如山}* 当你的生命值低于 35% 时，护甲值翻倍且剑气护体的基础减伤变为 24%。",
           "max_points": 1,
-          "x": -3.61,
-          "y": 0.52,
-          "prerequisites": [
-            {
-              "node_id": 412,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": -3.0,
+          "prerequisites": []
         },
         {
           "id": 414,
           "name_key": "御剑防壁",
           "desc_key": "*{需求: 金钟罩 2/4}* 处于“御剑步”状态时，剑气护体的减伤效果提升 10%...30%，且护甲增加效果翻倍。",
           "max_points": 3,
-          "x": -4.07,
-          "y": -1.3,
-          "prerequisites": [
-            {
-              "node_id": 400,
-              "required_points": 2
-            }
-          ]
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 415,
           "name_key": "坚韧回生",
           "desc_key": "*{需求: 厚积薄发 2/3}* 剑气护体开启期间，每秒回复 0.5%...1.5% 缺失生命值。",
           "max_points": 5,
-          "x": -2.85,
-          "y": -0.56,
-          "prerequisites": [
-            {
-              "node_id": 410,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2094,12 +1865,12 @@
           "name_key": "剑意格挡",
           "desc_key": "*{需求: 拨云见日 3/4}* 额外获得 4%...20% 格挡率。",
           "max_points": 5,
-          "x": 1.21,
-          "y": 3.03,
+          "x": 1.5,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 401,
-              "required_points": 3
+              "required_points": 1
             }
           ],
           "stat_modifiers": [
@@ -2115,12 +1886,12 @@
           "name_key": "势不可挡",
           "desc_key": "*{需求: 剑意格挡 2/5}* 格挡效率提升 15%...60%。",
           "max_points": 1,
-          "x": 2.38,
-          "y": -1.09,
+          "x": -1.5,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 430,
-              "required_points": 2
+              "node_id": 410,
+              "required_points": 1
             }
           ]
         },
@@ -2129,12 +1900,12 @@
           "name_key": "剑盾屏障",
           "desc_key": "*{需求: 剑意格挡 4/5}* 每次成功格挡，获得 10...30 点护盾 (Ward)。",
           "max_points": 1,
-          "x": -0.11,
-          "y": 2.96,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 430,
-              "required_points": 4
+              "required_points": 1
             }
           ]
         },
@@ -2143,28 +1914,18 @@
           "name_key": "鲜血壁垒",
           "desc_key": "*{需求: 剑盾屏障 2/3}* 剑气护体不再消耗法力，改为消耗你的最大生命值，但你可以通过汲取生命获取大量护甲。",
           "max_points": 3,
-          "x": 4.25,
-          "y": 1.13,
-          "prerequisites": [
-            {
-              "node_id": 432,
-              "required_points": 2
-            }
-          ]
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 434,
           "name_key": "无瑕之御",
           "desc_key": "*{需求: 势不可挡 4/4}* 每过 5 秒，下一次受到的击中伤害 (Hit) 将被完全抵消（100% 减伤）。",
           "max_points": 5,
-          "x": 3.55,
-          "y": 1.71,
-          "prerequisites": [
-            {
-              "node_id": 431,
-              "required_points": 4
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2172,14 +1933,9 @@
           "name_key": "剑意格御",
           "desc_key": "*{需求: 剑意格挡 3/5}* 成功格挡时有 15%...45% 几率回复 1 层剑意，回复的剑意使你下次攻击暴击率额外 +5%。",
           "max_points": 5,
-          "x": 3.25,
-          "y": 1.75,
-          "prerequisites": [
-            {
-              "node_id": 430,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2187,12 +1943,12 @@
           "name_key": "幻影步",
           "desc_key": "*{需求: 拨云见日 2/4}* 闪避等级加成 +15%...60%。",
           "max_points": 5,
-          "x": 0.35,
-          "y": -2.98,
+          "x": -1.5,
+          "y": 1.5,
           "prerequisites": [
             {
               "node_id": 401,
-              "required_points": 2
+              "required_points": 1
             }
           ],
           "stat_modifiers": [
@@ -2208,12 +1964,12 @@
           "name_key": "借力打力",
           "desc_key": "*{需求: 幻影步 2/4}* 每次成功闪避，移动速度和攻击速度提升增加 5%...15% (持续2秒)。",
           "max_points": 1,
-          "x": 4.6,
-          "y": 0.94,
+          "x": 3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 450,
-              "required_points": 2
+              "node_id": 430,
+              "required_points": 1
             }
           ]
         },
@@ -2222,56 +1978,36 @@
           "name_key": "瞬身反打",
           "desc_key": "*{需求: 借力打力 3/3}* 闪避成功时，自动向攻击者释放一次无消耗的 [流云刺]（使用其已专精版本，CD: 2s）。",
           "max_points": 1,
-          "x": 4.2,
-          "y": 0.58,
-          "prerequisites": [
-            {
-              "node_id": 451,
-              "required_points": 3
-            }
-          ]
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 453,
           "name_key": "流风余韵",
           "desc_key": "*{需求: 瞬身反打}* 触发瞬身反打时，回复自身 5%...15% 缺失生命值。",
           "max_points": 3,
-          "x": 2.25,
-          "y": -3.67,
-          "prerequisites": [
-            {
-              "node_id": 452,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 454,
           "name_key": "御剑闪步",
           "desc_key": "*{需求: 幻影步 2/4}* 处于“御剑步”状态时，闪避等级额外 +50...150，且闪避成功后刷新御剑步的持续时间。",
           "max_points": 3,
-          "x": 3.8,
-          "y": -2.16,
-          "prerequisites": [
-            {
-              "node_id": 450,
-              "required_points": 2
-            }
-          ]
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 455,
           "name_key": "以攻代守",
           "desc_key": "*{需求: 借力打力 2/3}* 闪避成功后 2s 内，你的下一次攻击造成 20% 总增 (More) 伤害，且必定获得 1 层剑意。",
           "max_points": 5,
-          "x": 2.25,
-          "y": -3.38,
-          "prerequisites": [
-            {
-              "node_id": 451,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2279,14 +2015,9 @@
           "name_key": "剑气反震",
           "desc_key": "*{需求: 剑压外放 2/4}* 当你偏转投射物、格挡或被近战击中时，会向四周发射 5 道反击剑气（造成物理伤害）。",
           "max_points": 5,
-          "x": -2.15,
-          "y": -3.15,
-          "prerequisites": [
-            {
-              "node_id": 403,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2294,28 +2025,18 @@
           "name_key": "以眼还眼",
           "desc_key": "*{需求: 剑气反震}* 反击剑气的伤害总增 (More) +20%...80%，飞行距离增加。",
           "max_points": 1,
-          "x": 3.9,
-          "y": -0.39,
-          "prerequisites": [
-            {
-              "node_id": 470,
-              "required_points": 1
-            }
-          ]
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 472,
           "name_key": "雷霆法环",
           "desc_key": "*{需求: 剑压外放 2/4}* 剑气护体转化为 **闪电 (Lightning)** 光环，获得 [Lightning] 标签。每隔 0.5s 持续电击极近距离的敌人。反击剑气变为追踪闪电球。*与 [霜铠] 互斥。*",
           "max_points": 5,
-          "x": -4.1,
-          "y": -0.49,
-          "prerequisites": [
-            {
-              "node_id": 403,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2323,14 +2044,9 @@
           "name_key": "雷贯长虹",
           "desc_key": "*{需求: 雷霆法环}* 闪电光环的电击频率增加 30%...90%，被感电的敌人移速降低 10%...30%，且感电敌人被电击时受到的伤害增加 15%。",
           "max_points": 5,
-          "x": -3.88,
-          "y": -1.66,
-          "prerequisites": [
-            {
-              "node_id": 472,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2338,14 +2054,9 @@
           "name_key": "霜铠",
           "desc_key": "*{需求: 剑气反震}* 剑气护体转化为 **冰霜 (Cold)** 护盾，获得 [Cold] 标签。反击时不再发射剑气，而是以自身为中心爆发冰龙卷，强制击退敌人并施加寒冷。*与 [雷霆法环] 互斥。*",
           "max_points": 5,
-          "x": -2.1,
-          "y": -3.49,
-          "prerequisites": [
-            {
-              "node_id": 470,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2353,11 +2064,11 @@
           "name_key": "永冻领域",
           "desc_key": "*{需求: 霜铠}* 冰龙卷的范围增加 20%...60%，触发频率提高。被击退的冻结敌人着地时触发“冰碎”，对落点周围敌人造成冰霜范围伤害。",
           "max_points": 1,
-          "x": 4.12,
-          "y": -0.55,
+          "x": 3.0,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 474,
+              "node_id": 470,
               "required_points": 1
             }
           ]
@@ -2367,18 +2078,9 @@
           "name_key": "元素曝光",
           "desc_key": "*{需求: 任意 Transmuter}* 被剑气护体的反击/光环效果命中的敌人获得“元素暴露”状态：受到的对应元素伤害增加 4%...16%（不可叠加），持续 3 秒（命中刷新）。",
           "max_points": 5,
-          "x": 0.6,
-          "y": -4.19,
-          "prerequisites": [
-            {
-              "node_id": 473,
-              "required_points": 1
-            },
-            {
-              "node_id": 474,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         }
       ],
@@ -2634,56 +2336,36 @@
           "name_key": "剑雨绵绵",
           "desc_key": "引导时的法力消耗降低 10%...40%。",
           "max_points": 1,
-          "x": 1.12,
-          "y": 3.26,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 501,
           "name_key": "剑意共鸣",
           "desc_key": "随着引导时间增加，发射频率逐步提升，最高增加 15%...75% (2秒达最大)。",
           "max_points": 5,
-          "x": -3.96,
-          "y": 2.66,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": []
         },
         {
           "id": 502,
           "name_key": "陨铁",
           "desc_key": "天降剑气的物理伤害增加 10%...50%，且有微小的溅射范围。",
           "max_points": 5,
-          "x": 2.94,
-          "y": -0.82,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 503,
           "name_key": "灵动引导",
           "desc_key": "引导期间的移动速度惩罚降低 10%...40%。",
           "max_points": 4,
-          "x": -3.12,
-          "y": -0.75,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 1.5,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2691,14 +2373,9 @@
           "name_key": "神识锁定",
           "desc_key": "*{需求: 剑雨绵绵 2/4}* 剑气不再随机降落，而是自动锁定你鼠标光标附近的敌人。但法力消耗增加 30%。",
           "max_points": 5,
-          "x": 0.56,
-          "y": 2.58,
-          "prerequisites": [
-            {
-              "node_id": 500,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2706,14 +2383,9 @@
           "name_key": "无处遁形",
           "desc_key": "*{需求: 神识锁定}* 锁定半径增加 15%...45%，且剑气下落速度加快。",
           "max_points": 5,
-          "x": 3.28,
-          "y": 0.7,
-          "prerequisites": [
-            {
-              "node_id": 510,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2721,12 +2393,12 @@
           "name_key": "天降命印",
           "desc_key": "*{需求: 无处遁形 2/3}* 命中时有 20%...100% 几率在敌人身上留下“命印”（最高 5 层），每层使其受到的该技能伤害增加 3%。叠满 5 层后，命中该目标时剑气会向周围溅射 20% 伤害。",
           "max_points": 1,
-          "x": 3.54,
-          "y": 0.7,
+          "x": 3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 511,
-              "required_points": 4
+              "node_id": 532,
+              "required_points": 1
             }
           ]
         },
@@ -2735,28 +2407,18 @@
           "name_key": "天诛",
           "desc_key": "*{需求: 天降命印 4/5}* 每当拥有满层命印的目标被剑气命中时，额外触发一柄穿透性的必爆主剑随之落下，造成 300% 基础伤害（该效果对同一目标有 2s 冷却）。",
           "max_points": 1,
-          "x": 3.6,
-          "y": 1.6,
-          "prerequisites": [
-            {
-              "node_id": 512,
-              "required_points": 1
-            }
-          ]
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 514,
           "name_key": "剑刃风暴",
           "desc_key": "*{需求: 神识锁定}* 被击杀的敌人会向周围碎裂出小剑气产生 30%...90% 的分裂伤害。",
           "max_points": 5,
-          "x": 1.96,
-          "y": -2.66,
-          "prerequisites": [
-            {
-              "node_id": 510,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2764,14 +2426,9 @@
           "name_key": "万剑归阵",
           "desc_key": "*{需求: 天降命印 3/5}* 当你引导万剑归宗且鼠标指针位于 [剑阵·诛仙] 的法阵范围内时，所有天降剑气会集中轰击该剑阵区域，且剑阵的持续时间判定暂停。",
           "max_points": 5,
-          "x": 3.96,
-          "y": -0.84,
-          "prerequisites": [
-            {
-              "node_id": 512,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2779,12 +2436,12 @@
           "name_key": "气定神闲",
           "desc_key": "*{需求: 剑意共鸣 3/5}* 引导时受到的所有伤害降低 6%...24%。",
           "max_points": 5,
-          "x": -1.9,
-          "y": 2.66,
+          "x": -3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 501,
-              "required_points": 3
+              "required_points": 1
             }
           ]
         },
@@ -2793,12 +2450,12 @@
           "name_key": "不坏剑身",
           "desc_key": "*{需求: 气定神闲 2/4}* 引导期间获得 15...45 护甲/持续秒数（最高叠加 10 层），停止引导后 2s 清空。",
           "max_points": 3,
-          "x": -5.82,
-          "y": 1.12,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 530,
-              "required_points": 2
+              "required_points": 1
             }
           ]
         },
@@ -2807,26 +2464,21 @@
           "name_key": "剑气充盈",
           "desc_key": "*{需求: 气定神闲 2/4}* 引导期间每秒回复 10...30 点护盾 (Ward)。",
           "max_points": 3,
-          "x": -5.52,
-          "y": -2.38,
-          "prerequisites": [
-            {
-              "node_id": 530,
-              "required_points": 2
-            }
-          ]
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 533,
           "name_key": "巨剑术",
           "desc_key": "*{需求: 陨铁 4/5}* 降落的剑气数量减半，但体积增加 100%，基础伤害增加 150%，变成范围重击。",
           "max_points": 5,
-          "x": 2.6,
-          "y": 1.78,
+          "x": 1.5,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 502,
-              "required_points": 4
+              "node_id": 531,
+              "required_points": 1
             }
           ]
         },
@@ -2835,12 +2487,12 @@
           "name_key": "天剑降世",
           "desc_key": "*{需求: 气定神闲 3/4}* 当你结束一段至少 2 秒的引导时，召唤一柄通天巨剑轰击光标位置，造成 800% 物理范围伤害并击飞敌人。",
           "max_points": 1,
-          "x": -1.52,
-          "y": 2.56,
+          "x": -3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 530,
-              "required_points": 3
+              "node_id": 510,
+              "required_points": 1
             }
           ]
         },
@@ -2849,14 +2501,9 @@
           "name_key": "余波",
           "desc_key": "*{需求: 天剑降世}* 通天巨剑的爆炸范围增加 20%...60%，且必定击晕所有受波及的普通敌人。",
           "max_points": 5,
-          "x": -3.92,
-          "y": 0.84,
-          "prerequisites": [
-            {
-              "node_id": 534,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2864,12 +2511,12 @@
           "name_key": "御剑行",
           "desc_key": "*{需求: 剑雨绵绵 3/4}* 你可以在引导万剑归宗时保持移动，但移动速度固定降低 40% 且无法使用位移技能。",
           "max_points": 1,
-          "x": -2.55,
-          "y": -1.11,
+          "x": -3.0,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 503,
-              "required_points": 3
+              "node_id": 550,
+              "required_points": 1
             }
           ]
         },
@@ -2878,25 +2525,20 @@
           "name_key": "御剑风雷",
           "desc_key": "*{需求: 御剑行}* 若你在处于“御剑步”状态时开始引导，引导期间无视御剑行的移速惩罚，且闪避等级增加 50...150。",
           "max_points": 3,
-          "x": 0.95,
-          "y": -2.75,
-          "prerequisites": [
-            {
-              "node_id": 550,
-              "required_points": 1
-            }
-          ]
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 552,
           "name_key": "随影",
           "desc_key": "*{需求: 御剑行}* 剑气雨不再全屏随机落雷，而是改为固定在你周围半径内的圆形区域持续降下。",
           "max_points": 5,
-          "x": -2.96,
-          "y": 1.21,
+          "x": -1.5,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 550,
+              "node_id": 500,
               "required_points": 1
             }
           ]
@@ -2906,14 +2548,9 @@
           "name_key": "剑意回流",
           "desc_key": "*{需求: 御剑行}* 引导期间每击杀一名敌人或累计连击命中 10 次，回复 1...4 层剑意。",
           "max_points": 5,
-          "x": -2.48,
-          "y": -1.39,
-          "prerequisites": [
-            {
-              "node_id": 550,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2921,12 +2558,12 @@
           "name_key": "意气爆发",
           "desc_key": "*{需求: 剑意回流 2/4}* 若引导开始时拥有满层 (10层) 剑意，将消耗所有剑意，使本次引导期间的所有剑气获得 100% 暴击率加成。",
           "max_points": 5,
-          "x": -2.69,
-          "y": -0.99,
+          "x": -1.5,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 553,
-              "required_points": 2
+              "node_id": 551,
+              "required_points": 1
             }
           ]
         },
@@ -2935,26 +2572,21 @@
           "name_key": "意念合一",
           "desc_key": "*{需求: 意气爆发}* 触发意气爆发出消耗满层剑意时，暴击伤害倍率额外增加 20%...80%。",
           "max_points": 1,
-          "x": -1.93,
-          "y": -1.55,
-          "prerequisites": [
-            {
-              "node_id": 554,
-              "required_points": 1
-            }
-          ]
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 570,
           "name_key": "天火流星",
           "desc_key": "*{需求: 陨铁 2/5}* 将基础物理伤害完全转化为 **火焰 (Fire)**，获得 [Fire] 标签。剑气变为陨石落地引发爆炸，发射频率大幅下降 (-60%)，但单次伤害和影响范围极大提升。*与 [凛冬暴雪] 互斥。*",
           "max_points": 5,
-          "x": -0.88,
-          "y": -2.38,
+          "x": 3.0,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 502,
-              "required_points": 2
+              "node_id": 570,
+              "required_points": 1
             }
           ]
         },
@@ -2963,14 +2595,9 @@
           "name_key": "末日余烬",
           "desc_key": "*{需求: 天火流星}* 陨石落地后留下燃烧区域，对经过的敌人每秒造成本次命中伤害 10%...30% 的持续火焰伤害（DoT），持续 3 秒。",
           "max_points": 5,
-          "x": 0.99,
-          "y": -2.51,
-          "prerequisites": [
-            {
-              "node_id": 570,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -2978,12 +2605,12 @@
           "name_key": "凛冬暴雪",
           "desc_key": "*{需求: 陨铁 2/5}* 将基础物理伤害完全转化为 **冰霜 (Cold)**，获得 [Cold] 标签。不再发射实体剑气，而是以缓慢降落的冰锥和极寒旋风覆盖屏幕，造成高频的低基础伤害并迅速叠加“寒冷”直至冻结。*与 [天火流星] 互斥。*",
           "max_points": 1,
-          "x": 3.6,
-          "y": -0.57,
+          "x": 1.5,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 502,
-              "required_points": 2
+              "node_id": 571,
+              "required_points": 1
             }
           ]
         },
@@ -2992,14 +2619,9 @@
           "name_key": "绝对零度",
           "desc_key": "*{需求: 凛冬暴雪}* 暴雪内的敌人一旦被冻结，每次受到冰霜伤害会延长冻结时间 0.1s...0.3s，且暴雪对冻结敌人的击碎伤害提升 15%...45%。",
           "max_points": 5,
-          "x": 3.26,
-          "y": -0.85,
-          "prerequisites": [
-            {
-              "node_id": 572,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3007,18 +2629,9 @@
           "name_key": "灵根感应",
           "desc_key": "*{需求: 任意 Transmuter}* 你的智力 (Int) 每 30/24/18/12 点提供 1% 对应元素穿透（天火→火焰穿透，凛冬→冰霜穿透），此穿透上限为 30%，仅适用于本技能。",
           "max_points": 5,
-          "x": 3.21,
-          "y": -0.4,
-          "prerequisites": [
-            {
-              "node_id": 570,
-              "required_points": 1
-            },
-            {
-              "node_id": 572,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3026,14 +2639,9 @@
           "name_key": "天灾",
           "desc_key": "*{需求: 灵根感应 2/4}* 万剑归宗触发对应的元素异常状态（点燃/寒冷）的几率增加 30%...90%。",
           "max_points": 3,
-          "x": 3.08,
-          "y": -1.94,
-          "prerequisites": [
-            {
-              "node_id": 574,
-              "required_points": 2
-            }
-          ]
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         }
       ],
       "skill_contract": {
@@ -3259,14 +2867,9 @@
           "name_key": "灵气流转",
           "desc_key": "剑阵持续时间增加 0.5s/1.0s/1.5s/2.0s。",
           "max_points": 5,
-          "x": -3.32,
-          "y": 1.84,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3274,42 +2877,27 @@
           "name_key": "虚空法网",
           "desc_key": "剑阵的基础半径增加 15%...60%。",
           "max_points": 1,
-          "x": -3.12,
-          "y": -0.79,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 602,
           "name_key": "极刑",
           "desc_key": "阵内敌人受到的每秒基础物理伤害增加 10%...50%。",
           "max_points": 5,
-          "x": 1,
-          "y": -2.95,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 1.5,
+          "prerequisites": []
         },
         {
           "id": 603,
           "name_key": "阵基稳固",
           "desc_key": "剑阵的基础法力消耗降低 5%...20%，且施法范围增加 10%...40%。",
           "max_points": 5,
-          "x": 3,
-          "y": 2.42,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3317,12 +2905,12 @@
           "name_key": "双生剑阵",
           "desc_key": "*{需求: 灵气流转 3/4}* 剑阵的最大同时存在数量上限 +1，但单个阵的伤害降低 15%。",
           "max_points": 1,
-          "x": -1.98,
-          "y": 1.24,
+          "x": -1.5,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 600,
-              "required_points": 3
+              "required_points": 1
             }
           ]
         },
@@ -3331,8 +2919,8 @@
           "name_key": "三才阵",
           "desc_key": "*{需求: 双生剑阵}* 剑阵最大上限再 +1，但法力消耗增加 30%。",
           "max_points": 3,
-          "x": 1.88,
-          "y": 2.86,
+          "x": -3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 610,
@@ -3345,11 +2933,11 @@
           "name_key": "剑气共鸣",
           "desc_key": "*{需求: 双生剑阵}* 当敌人同时处于多个剑阵重叠区域时，受到的伤害总增 (More) 20%...60%。",
           "max_points": 1,
-          "x": -2.54,
-          "y": 1.54,
+          "x": -1.5,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 610,
+              "node_id": 611,
               "required_points": 1
             }
           ]
@@ -3359,28 +2947,18 @@
           "name_key": "千丝万缕",
           "desc_key": "*{需求: 剑气共鸣 2/3}* 每两个存在的剑阵中心会自动生成极具杀伤力的能量连线。触碰连线的敌人受到大量切割伤害并被减速 50%。",
           "max_points": 1,
-          "x": -2.3,
-          "y": 0.92,
-          "prerequisites": [
-            {
-              "node_id": 612,
-              "required_points": 2
-            }
-          ]
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 614,
           "name_key": "流云穿阵",
           "desc_key": "*{需求: 虚空法网 3/4}* 当你的位移技能（如 [流云刺] 或 [绝影闪]）穿过自己的剑阵时，瞬间引爆剑阵对阵内敌人造成 150% 的物理爆发伤害，随后剑阵消失。",
           "max_points": 5,
-          "x": -2.55,
-          "y": -2.66,
-          "prerequisites": [
-            {
-              "node_id": 601,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3388,14 +2966,9 @@
           "name_key": "御剑阵威",
           "desc_key": "*{需求: 虚空法网 2/4}* 处于“御剑步”状态时站在剑阵内，剑阵的伤害判定频率增加 20%...60%。",
           "max_points": 5,
-          "x": -4,
-          "y": 0.22,
-          "prerequisites": [
-            {
-              "node_id": 601,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3403,14 +2976,9 @@
           "name_key": "迟缓剑压",
           "desc_key": "*{需求: 极刑 2/5}* 处于阵内的敌人移动速度降低 10%...40%。",
           "max_points": 5,
-          "x": -1.18,
-          "y": -2.6,
-          "prerequisites": [
-            {
-              "node_id": 602,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3418,14 +2986,9 @@
           "name_key": "破甲剑意",
           "desc_key": "*{需求: 迟缓剑压 3/4}* 剑阵内的每次伤害判定有 50%...200% 几率对敌人施加护甲击碎 (Armor Shred)（超过100%的部分有相应概率额外施加1层）。",
           "max_points": 5,
-          "x": 1.98,
-          "y": -2.15,
-          "prerequisites": [
-            {
-              "node_id": 630,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3433,14 +2996,9 @@
           "name_key": "虚弱领域",
           "desc_key": "*{需求: 破甲剑意 2/4}* 被影响的敌人造成的伤害降低 (Less) 6%...18%。",
           "max_points": 5,
-          "x": 2.55,
-          "y": 0.42,
-          "prerequisites": [
-            {
-              "node_id": 631,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3448,11 +3006,11 @@
           "name_key": "绝命法场",
           "desc_key": "*{需求: 虚弱领域 2/3}* 剑阵的每次判定会直接斩杀生命值低于 12% 的非 Boss 敌人；对 Boss 造成的伤害总增 (More) 20%。",
           "max_points": 5,
-          "x": 2.24,
-          "y": -2.44,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 632,
+              "node_id": 630,
               "required_points": 1
             }
           ]
@@ -3462,14 +3020,9 @@
           "name_key": "剑阵牢笼",
           "desc_key": "*{需求: 迟缓剑压 4/4}* 生成瞬间在剑阵边缘构筑不可跨越的实体剑墙，敌人无法进出，但剑阵半径固定缩小 30%。",
           "max_points": 5,
-          "x": -1.76,
-          "y": -2.37,
-          "prerequisites": [
-            {
-              "node_id": 630,
-              "required_points": 4
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3477,14 +3030,9 @@
           "name_key": "阵斩回响",
           "desc_key": "*{需求: 绝命法场}* 当绝命法场处决一名敌人时，从法场中心向外触发一次 [裂空斩]（使用其已专精版本，50% 效力，CD: 3s，不消耗法力）。",
           "max_points": 5,
-          "x": 3.89,
-          "y": -0.84,
-          "prerequisites": [
-            {
-              "node_id": 633,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3492,12 +3040,12 @@
           "name_key": "阵眼",
           "desc_key": "*{需求: 虚空法网 2/4}* 当你站在自己施放的剑阵范围内，你造成的**全局伤害**增加 15%...60%。",
           "max_points": 5,
-          "x": -4.54,
-          "y": -1.82,
+          "x": -3.0,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 601,
-              "required_points": 2
+              "node_id": 650,
+              "required_points": 1
             }
           ]
         },
@@ -3506,14 +3054,9 @@
           "name_key": "灵力泉涌",
           "desc_key": "*{需求: 阵眼 2/4}* 处于剑阵内时，你每秒额外回复 2...8 点法力。",
           "max_points": 5,
-          "x": -2.57,
-          "y": -1.65,
-          "prerequisites": [
-            {
-              "node_id": 650,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3521,26 +3064,21 @@
           "name_key": "意念合一",
           "desc_key": "*{需求: 灵力泉涌 2/4}* 在阵内时，每秒有 33%...100% 几率自然生成 1 层剑意。",
           "max_points": 3,
-          "x": 1.31,
-          "y": -3.08,
-          "prerequisites": [
-            {
-              "node_id": 651,
-              "required_points": 2
-            }
-          ]
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 653,
           "name_key": "随身剑垒",
           "desc_key": "*{需求: 阵眼 4/4}* 剑阵不再生成于鼠标指定位置，而是直接生成在你的脚下并**随你移动**（变为光环机制），但造成的伤害降低 50%。",
           "max_points": 5,
-          "x": -3.05,
-          "y": 1.12,
+          "x": -1.5,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 650,
-              "required_points": 4
+              "node_id": 600,
+              "required_points": 1
             }
           ],
           "stat_modifiers": [
@@ -3556,14 +3094,9 @@
           "name_key": "剑神领域",
           "desc_key": "*{需求: 随身剑垒}* 被光环覆盖期间，你的技能冷却回复速度 (CDR) 提升 10%...30%。",
           "max_points": 5,
-          "x": 1.25,
-          "y": 2.3,
-          "prerequisites": [
-            {
-              "node_id": 653,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3571,26 +3104,21 @@
           "name_key": "法阵回护",
           "desc_key": "*{需求: 阵眼 2/4}* 站在剑阵内时，每秒获得相当于你智力值 50%...150% 的护盾 (Ward)。",
           "max_points": 3,
-          "x": 0.93,
-          "y": -3.1,
-          "prerequisites": [
-            {
-              "node_id": 650,
-              "required_points": 2
-            }
-          ]
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 670,
           "name_key": "焚天烈焰阵",
           "desc_key": "*{需求: 阵基稳固 2/4}* 将基础物理伤害完全转化为 **火焰 (Fire)**，获得 [Fire] 标签。地面化为熔岩，命中时必然附加多层\"烧灼\"。*与 [九幽雷池] 互斥。*",
           "max_points": 3,
-          "x": 0.64,
-          "y": 2.8,
+          "x": 3.0,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 603,
-              "required_points": 2
+              "node_id": 670,
+              "required_points": 1
             }
           ]
         },
@@ -3599,14 +3127,9 @@
           "name_key": "炼狱余火",
           "desc_key": "*{需求: 焚天烈焰阵}* 火阵区域内的点燃伤害增加 20%...60%，且敌人离开火阵后继续燃烧 3 秒。",
           "max_points": 5,
-          "x": 2.91,
-          "y": 0.86,
-          "prerequisites": [
-            {
-              "node_id": 670,
-              "required_points": 1
-            }
-          ],
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3614,12 +3137,12 @@
           "name_key": "九幽雷池",
           "desc_key": "*{需求: 阵基稳固 2/4}* 将基础物理伤害完全转化为 **闪电 (Lightning)**，获得 [Lightning] 标签。不再造成 0.5s 一次的平稳范围伤害，而是每隔 1s 向阵内随机 2-3 名敌人劈下极高额单体瞬爆落雷。*与 [焚天烈焰阵] 互斥。*",
           "max_points": 1,
-          "x": 1.43,
-          "y": -1.79,
+          "x": 1.5,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 603,
-              "required_points": 2
+              "node_id": 670,
+              "required_points": 1
             }
           ]
         },
@@ -3628,14 +3151,9 @@
           "name_key": "连珠落雷",
           "desc_key": "*{需求: 九幽雷池}* 雷池的落雷目标增加 1...3 名，且被雷击的敌人之间产生电弧造成额外闪电伤害。",
           "max_points": 5,
-          "x": 2.67,
-          "y": 0.05,
-          "prerequisites": [
-            {
-              "node_id": 672,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3643,15 +3161,11 @@
           "name_key": "法阵侵蚀",
           "desc_key": "*{需求: 任意 Transmuter}* 剑阵内的敌人每秒被施加 1...4 层“法阵侵蚀”，每层降低对应元素抗性 2 点（焚天→火焰抗性，雷池→闪电抗性），最多 10 层。敌人离开剑阵后 debuff 持续 3 秒后消散。",
           "max_points": 1,
-          "x": 3.42,
-          "y": -2.1,
+          "x": 3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 670,
-              "required_points": 1
-            },
-            {
-              "node_id": 672,
+              "node_id": 632,
               "required_points": 1
             }
           ]
@@ -3661,14 +3175,9 @@
           "name_key": "移形换阵",
           "desc_key": "*{需求: 任意 Transmuter}* 在技能持续期间，你可以无冷却再次按下该技能键（消耗一半法力），将最近的剑阵瞬间挪到光标位置并重置一半持续时间。",
           "max_points": 5,
-          "x": 3.8,
-          "y": -0.07,
-          "prerequisites": [
-            {
-              "node_id": 674,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         }
       ],
@@ -3909,14 +3418,9 @@
           "name_key": "神识凝聚",
           "desc_key": "引导消耗降低 10%...40%。",
           "max_points": 5,
-          "x": -1.96,
-          "y": 2.06,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3924,14 +3428,9 @@
           "name_key": "无影无形",
           "desc_key": "撕裂剑气的基础物理伤害增加 10%...50%。",
           "max_points": 5,
-          "x": -2.62,
-          "y": -1.4,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3939,28 +3438,18 @@
           "name_key": "裂空",
           "desc_key": "空间撕裂的基础范围半径 (Area)增加 10%...40%。",
           "max_points": 4,
-          "x": 2.64,
-          "y": 1.98,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 703,
           "name_key": "心念映射",
           "desc_key": "引导时的视野范围或追踪范围增加 10%...40%。",
           "max_points": 5,
-          "x": 1.94,
-          "y": -2.26,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3968,14 +3457,9 @@
           "name_key": "心流叠加",
           "desc_key": "*{需求: 无影无形 2/5}* 引导时间每持续 0.5s，撕裂造成的伤害总增 (More) 5%...25%，最高可叠加 4 层计算。",
           "max_points": 5,
-          "x": -2,
-          "y": -1.52,
-          "prerequisites": [
-            {
-              "node_id": 701,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3983,14 +3467,9 @@
           "name_key": "碎空爆",
           "desc_key": "*{需求: 心流叠加 3/5}* 引导期间不再持续造成伤害，而是将所有伤害积蓄。停止引导时，在光标处引爆一次极其恐怖的坍缩爆炸（基于引导层数计算范围和倍率）。",
           "max_points": 5,
-          "x": -2.22,
-          "y": -1.78,
-          "prerequisites": [
-            {
-              "node_id": 710,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -3998,14 +3477,9 @@
           "name_key": "虚无牵引",
           "desc_key": "*{需求: 碎空爆}* `碎空爆` 蓄力期间产生强大的引力场，将周围 200...600 半径内的所有轻/中型敌人缓慢拖拽至中心。",
           "max_points": 5,
-          "x": -2.8,
-          "y": -0.42,
-          "prerequisites": [
-            {
-              "node_id": 711,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4013,14 +3487,9 @@
           "name_key": "精神透支",
           "desc_key": "*{需求: 碎空爆}* `碎空爆` 蓄力层数叠满的速度增加 20%...60%，但满层后若继续引导，每秒流失你最大生命值的 5%。",
           "max_points": 5,
-          "x": -0.68,
-          "y": -2.2,
-          "prerequisites": [
-            {
-              "node_id": 711,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4028,26 +3497,21 @@
           "name_key": "寂灭",
           "desc_key": "*{需求: 碎空爆}* 被 `碎空爆` 直接击杀的敌人不会留下尸体，并在其死亡位置自动触发一次小型的 [万剑归宗] 落剑（使用已专精版本，无消耗，不受引导加成，对同一触发区域有 3s 冷却）。",
           "max_points": 1,
-          "x": 1.64,
-          "y": -2.84,
-          "prerequisites": [
-            {
-              "node_id": 711,
-              "required_points": 1
-            }
-          ]
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 715,
           "name_key": "破绽洞察",
           "desc_key": "*{需求: 裂空 3/4}* 处于撕裂中心极小范围内的敌人，受到的暴击伤害倍率额外增加 20%...60%。",
           "max_points": 5,
-          "x": -0.32,
-          "y": 3.56,
+          "x": 1.5,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 702,
-              "required_points": 3
+              "node_id": 730,
+              "required_points": 1
             }
           ]
         },
@@ -4056,14 +3520,9 @@
           "name_key": "神识多开",
           "desc_key": "*{需求: 裂空 2/4}* 引导时，不仅在光标位置撕裂，还会随机在屏幕内的另一名敌人脚下生成一个较小的追踪撕裂场（造成 50% 基础伤害）。",
           "max_points": 5,
-          "x": 1.94,
-          "y": 2.34,
-          "prerequisites": [
-            {
-              "node_id": 702,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4071,14 +3530,9 @@
           "name_key": "千面阵",
           "desc_key": "*{需求: 神识多开}* 额外生成的低倍率追踪撕裂数量再增加 1...3 个。",
           "max_points": 5,
-          "x": 2.32,
-          "y": 3.68,
-          "prerequisites": [
-            {
-              "node_id": 730,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4086,14 +3540,9 @@
           "name_key": "步影随行",
           "desc_key": "*{需求: 神识多开}* 引导时你可以进行微步移动（移速保留且固定为正常移速的 30%），但此时引导的基础法力消耗增加 50%。",
           "max_points": 5,
-          "x": 2.8,
-          "y": 1.26,
-          "prerequisites": [
-            {
-              "node_id": 730,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4101,14 +3550,9 @@
           "name_key": "御剑神游",
           "desc_key": "*{需求: 步影随行}* 处于“御剑步”状态时，神识多开和千面阵生成的额外小撕裂场的半径增加 20%...60%，且造成 100% 基础伤害。",
           "max_points": 5,
-          "x": 1.4,
-          "y": 3,
-          "prerequisites": [
-            {
-              "node_id": 732,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4116,42 +3560,27 @@
           "name_key": "神游脱战",
           "desc_key": "*{需求: 步影随行}* 施用该技能时按下位移键，将立即消耗 30 法力打断引导并向该方向瞬移一段距离（变为 [Movement] 技能），随后 2s 内移速 +15%。",
           "max_points": 1,
-          "x": 4.46,
-          "y": 1.2,
-          "prerequisites": [
-            {
-              "node_id": 732,
-              "required_points": 1
-            }
-          ]
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 735,
           "name_key": "精准切割",
           "desc_key": "*{需求: 裂空 1/4}* 如果某个撕裂中心一定半径内只有一名敌人（孤立目标），对其造成的伤害总增 (More) 15%...60%。",
           "max_points": 4,
-          "x": 2.38,
-          "y": -1.58,
-          "prerequisites": [
-            {
-              "node_id": 702,
-              "required_points": 1
-            }
-          ]
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 750,
           "name_key": "引力坍缩",
           "desc_key": "*{需求: 无影无形 3/5}* 每次撕裂有 25%...100% 几率产生微拉扯效果，将撕裂外围的轻中型敌人向中心扯动。",
           "max_points": 5,
-          "x": -2.28,
-          "y": 2.14,
-          "prerequisites": [
-            {
-              "node_id": 700,
-              "required_points": 3
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4159,14 +3588,9 @@
           "name_key": "空间粉碎",
           "desc_key": "*{需求: 引力坍缩 2/4}* 每次撕裂命中有 60%...180% 几率施加护甲击碎（超过100%的部分额外施加1层），且护甲击碎 10 层以上的敌人护甲效率额外降低 15%。",
           "max_points": 5,
-          "x": -2.22,
-          "y": 1.42,
-          "prerequisites": [
-            {
-              "node_id": 750,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4174,14 +3598,9 @@
           "name_key": "深渊侵蚀",
           "desc_key": "*{需求: 空间粉碎}* 被击中时附加 1...3 层流血状态，且处于粉碎圈内的敌人受到的所有流血伤害加速爆发 20%。",
           "max_points": 5,
-          "x": -2.98,
-          "y": 1.6,
-          "prerequisites": [
-            {
-              "node_id": 751,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4189,56 +3608,36 @@
           "name_key": "意念风暴",
           "desc_key": "*{需求: 空间粉碎}* 引导时，每秒最多可消耗 2 层剑意。每消耗 1 层，在此期间的撕裂伤害总增 (More) 20%。",
           "max_points": 1,
-          "x": -1.34,
-          "y": -2.34,
-          "prerequisites": [
-            {
-              "node_id": 751,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 754,
           "name_key": "剑意化无",
           "desc_key": "*{需求: 意念风暴}* 消耗剑意时，如果你拥有活跃的 [灵剑决] 飞剑，所有飞剑会立刻瞬移至撕裂中心对敌人进行一次高频穿刺（继承飞剑的伤害和特效，单次 30% 效力）。",
           "max_points": 1,
-          "x": 0.4,
-          "y": -3.1,
-          "prerequisites": [
-            {
-              "node_id": 753,
-              "required_points": 1
-            }
-          ]
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 755,
           "name_key": "心念反哺",
           "desc_key": "*{需求: 意念风暴}* 空间撕裂每击杀一名敌人，为你回复自身 3...9 点法力；若击杀的是精英及以上残骸，必定回复 1 层剑意。",
           "max_points": 3,
-          "x": -2.18,
-          "y": -0.14,
-          "prerequisites": [
-            {
-              "node_id": 753,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 770,
           "name_key": "天外冰晶",
           "desc_key": "*{需求: 心念映射 2/4}* 物理伤害完全转化为 **冰霜 (Cold)**，获得 [Cold] 标签。在光标处凝结出巨大冰刺并碎裂。命中附带寒冷，并且碎裂的冰片会像强力投射物一样向外飞出。*与 [神雷天罡] 互斥。*",
           "max_points": 5,
-          "x": 3.46,
-          "y": -2.73,
-          "prerequisites": [
-            {
-              "node_id": 703,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4246,14 +3645,9 @@
           "name_key": "极寒碎骨",
           "desc_key": "*{需求: 天外冰晶}* 冰刺碎裂命中冻结敌人时，造成的击碎伤害提升 20%...60%，且碎冰弹片必定强制穿透并施加 1 层寒冷。",
           "max_points": 5,
-          "x": -1.66,
-          "y": -2.15,
-          "prerequisites": [
-            {
-              "node_id": 770,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4261,46 +3655,27 @@
           "name_key": "神雷天罡",
           "desc_key": "*{需求: 心念映射 2/4}* 物理伤害完全转化为 **闪电 (Lightning)**，获得 [Lightning] 标签。光标位置每 0.5s 落下一次聚焦雷柱。单次伤害极高，且击中后留下一片存在 2s 的感电区域。*与 [天外冰晶] 互斥。*",
           "max_points": 1,
-          "x": 3.94,
-          "y": 0.68,
-          "prerequisites": [
-            {
-              "node_id": 703,
-              "required_points": 2
-            }
-          ]
+          "x": 1.5,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 773,
           "name_key": "天劫落雷",
           "desc_key": "*{需求: 神雷天罡}* 每次落雷对主目标造成的伤害总增 (More) 15%...45%，雷柱留下的感电区域使阵内敌人遭受雷击时的暴击几率被动增加 5%...15%。",
           "max_points": 3,
-          "x": 4.96,
-          "y": -0.58,
-          "prerequisites": [
-            {
-              "node_id": 772,
-              "required_points": 1
-            }
-          ]
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 774,
           "name_key": "异常切割",
           "desc_key": "*{需求: 任意 Transmuter}* 每次冰刺或雷柱对带有对应异常状态（寒冷/感电）的敌人造成伤害时，基础伤害总增 (More) 10%...30%。",
           "max_points": 5,
-          "x": 4.02,
-          "y": 1.63,
-          "prerequisites": [
-            {
-              "node_id": 770,
-              "required_points": 1
-            },
-            {
-              "node_id": 772,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4308,14 +3683,9 @@
           "name_key": "心念灭抗",
           "desc_key": "*{需求: 任意 Transmuter}* 处于空间撕裂中心范围内的敌人，其对应元素抗性上限被压制 3%...12%（冰晶→冰霜抗性上限，神雷→闪电抗性上限），此效果可影响 Boss 级敌人。",
           "max_points": 5,
-          "x": 0.21,
-          "y": -3.01,
-          "prerequisites": [
-            {
-              "node_id": 774,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         }
       ],
@@ -4549,14 +3919,9 @@
           "name_key": "轻巧",
           "desc_key": "基础法力消耗降低 1...4 点，攻击速度增加 4%...16%。",
           "max_points": 5,
-          "x": -3.36,
-          "y": -1.64,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4564,42 +3929,27 @@
           "name_key": "疾速",
           "desc_key": "飞剑的飞行速度增加 15%...60%，同时提高等比例的飞行最远距离。",
           "max_points": 5,
-          "x": -2.83,
-          "y": 1.73,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": []
         },
         {
           "id": 802,
           "name_key": "锋锐",
           "desc_key": "本技能附加的物理点伤增加 5...25，暴击率增加 2%...10%。",
           "max_points": 5,
-          "x": 2.1,
-          "y": -1.58,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 803,
           "name_key": "回力感应",
           "desc_key": "飞剑折返时的判定体积或伤害提升 10%...40%。",
           "max_points": 5,
-          "x": 3,
-          "y": 2.4,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4607,12 +3957,12 @@
           "name_key": "滞空切割",
           "desc_key": "*{需求: 疾速 3/4}* 飞剑在到达最远端时不再立刻折返，而是在该位置高速旋转滞留 0.8s，期间每 0.2s 造成区域持续切割伤害，随后再收回。",
           "max_points": 3,
-          "x": -1.95,
-          "y": 1.83,
+          "x": -1.5,
+          "y": 1.5,
           "prerequisites": [
             {
               "node_id": 801,
-              "required_points": 3
+              "required_points": 1
             }
           ]
         },
@@ -4621,11 +3971,11 @@
           "name_key": "放血",
           "desc_key": "*{需求: 滞空切割}* 飞剑的每一次击中都有 25%...100% 几率施加一层“流血”。",
           "max_points": 3,
-          "x": -2.38,
+          "x": -3.0,
           "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 810,
+              "node_id": 850,
               "required_points": 1
             }
           ]
@@ -4635,14 +3985,9 @@
           "name_key": "撕裂伤口",
           "desc_key": "*{需求: 放血 2/4}* 对“流血”状态敌人的暴击倍率增加 15%...60%。",
           "max_points": 5,
-          "x": -2.58,
-          "y": 1.58,
-          "prerequisites": [
-            {
-              "node_id": 811,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4650,14 +3995,9 @@
           "name_key": "剑鸣",
           "desc_key": "*{需求: 滞空切割}* 飞剑滞留旋转的每次切割产生音爆，有 30%...90% 几率施加护甲击碎 (Armor Shred)，且使被影响敌人身上的护甲击碎持续时间延长 1 秒。",
           "max_points": 5,
-          "x": 0.31,
-          "y": 3.18,
-          "prerequisites": [
-            {
-              "node_id": 810,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4665,40 +4005,30 @@
           "name_key": "拔血流云",
           "desc_key": "*{需求: 放血 4/4}* 当你使用 [流云刺] 击中正处于 [御剑·回旋] 滞空切割范围内的倒霉敌人时，流云刺会瞬间拔出其身上所有的“流血”层数，造成一次爆发性的物理真实伤害（彻底结算其剩余的流血伤害总额）。",
           "max_points": 1,
-          "x": -2.14,
-          "y": -1.24,
-          "prerequisites": [
-            {
-              "node_id": 811,
-              "required_points": 4
-            }
-          ]
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 815,
           "name_key": "风眼",
           "desc_key": "*{需求: 滞空切割}* 飞剑折返回到你手中时，它在本次飞行中附带造成的流血伤害的 100% 会化为一股治疗波治疗你。",
           "max_points": 1,
-          "x": -3.02,
-          "y": -1.89,
-          "prerequisites": [
-            {
-              "node_id": 810,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 830,
           "name_key": "幻影回旋",
           "desc_key": "*{需求: 轻巧 3/4}* 额外掷出 2 柄侧翼的虚影飞剑（呈扇形散开），单发基础伤害降低 30%，但都会折返。",
           "max_points": 1,
-          "x": -2.36,
-          "y": -1.46,
+          "x": -3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 800,
-              "required_points": 3
+              "node_id": 811,
+              "required_points": 1
             }
           ]
         },
@@ -4707,14 +4037,9 @@
           "name_key": "无尽刃舞",
           "desc_key": "*{需求: 幻影回旋}* 侧翼飞剑的发射偏移角度缩小 10%...30%（更容易全中同一个目标），且每柄剑穿透敌人时伤害不再衰减。",
           "max_points": 5,
-          "x": -2.47,
-          "y": -1.73,
-          "prerequisites": [
-            {
-              "node_id": 830,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4722,12 +4047,12 @@
           "name_key": "接剑",
           "desc_key": "*{需求: 锋锐 2/5}* 当你接住折返的任何一柄飞剑时，回复 2...6 点法力。",
           "max_points": 1,
-          "x": 1.15,
-          "y": -2.8,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 802,
-              "required_points": 2
+              "node_id": 830,
+              "required_points": 1
             }
           ]
         },
@@ -4736,14 +4061,9 @@
           "name_key": "连环劲",
           "desc_key": "*{需求: 接剑 2/3}* 接住飞剑后的 2 秒内，你下一次掷出该技能的攻击速度提升 15%...45%，可无限叠加刷新。",
           "max_points": 5,
-          "x": 1.5,
-          "y": -2.31,
-          "prerequisites": [
-            {
-              "node_id": 832,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4751,40 +4071,30 @@
           "name_key": "御剑接踵",
           "desc_key": "*{需求: 接剑 1/3}* 若你在“御剑步”状态时接住飞剑，不仅保留上述所有效果，御剑步的持续时间延长 0.5s...1.5s，并使下一次投掷不消耗法力。",
           "max_points": 3,
-          "x": -3.09,
-          "y": -0.66,
-          "prerequisites": [
-            {
-              "node_id": 832,
-              "required_points": 1
-            }
-          ]
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 835,
           "name_key": "回旋游步",
           "desc_key": "*{需求: 连环劲 3/3}* 飞剑在折返并击杀敌人后，每次接剑会瞬间为你解除身上的减速和定身效果，并获得短暂的 20% 移速爆发。",
           "max_points": 1,
-          "x": 3.88,
-          "y": -1.16,
-          "prerequisites": [
-            {
-              "node_id": 833,
-              "required_points": 3
-            }
-          ]
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 850,
           "name_key": "磁力场",
           "desc_key": "*{需求: 锋锐 4/5}* 飞剑在折返的过程中，会把沿途受击的轻型/中型敌人缓慢向你所在的位置强行牵引。",
           "max_points": 1,
-          "x": 3.38,
-          "y": -0.88,
+          "x": 1.5,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 802,
-              "required_points": 4
+              "node_id": 800,
+              "required_points": 1
             }
           ]
         },
@@ -4793,14 +4103,9 @@
           "name_key": "重力网",
           "desc_key": "*{需求: 磁力场}* 牵引范围和飞剑的判定体积增加 15%...60%。",
           "max_points": 5,
-          "x": 1.08,
-          "y": -2.69,
-          "prerequisites": [
-            {
-              "node_id": 850,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4808,14 +4113,9 @@
           "name_key": "意随剑舞",
           "desc_key": "*{需求: 磁力场}* 飞剑每次在折返时命中敌人，有 15%...45% 的几率为自身叠加 1 层剑意。",
           "max_points": 5,
-          "x": 2.98,
-          "y": -0.78,
-          "prerequisites": [
-            {
-              "node_id": 850,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4823,56 +4123,36 @@
           "name_key": "心剑合一",
           "desc_key": "*{需求: 意随剑舞 2/3}* 你每拥有 1 层剑意，飞剑的飞行速度、折返速度和判定体积额外增加 2%...6%。",
           "max_points": 3,
-          "x": 2.13,
-          "y": -2.49,
-          "prerequisites": [
-            {
-              "node_id": 852,
-              "required_points": 2
-            }
-          ]
+          "x": -3.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 854,
           "name_key": "巨阙",
           "desc_key": "*{需求: 幻影回旋 (需互斥侧翼)}* 你不能再投掷幻影侧翼剑。飞剑变得极其巨大，击中时必定打断敌人动作并造成巨大硬直，且附加你总护甲值 5% 的基础物理伤害。",
           "max_points": 1,
-          "x": 1.44,
-          "y": -2.98,
-          "prerequisites": [
-            {
-              "node_id": 830,
-              "required_points": 1
-            }
-          ]
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 855,
           "name_key": "巨剑共鸣",
           "desc_key": "*{需求: 巨阙}* 若你装备了 [灵剑决] 的【巨剑术】节点，当你掷出此技能的巨剑并且暴击时，将同步触发一次无消耗的 [灵剑决] 天降巨剑打击该目标（该触发效果有 3s 冷却）。",
           "max_points": 1,
-          "x": -3.18,
-          "y": -1.57,
-          "prerequisites": [
-            {
-              "node_id": 854,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 870,
           "name_key": "劫灰路径",
           "desc_key": "*{需求: 回力感应 2/4}* 将基础物理伤害完全转化为 **火焰 (Fire)**，获得 [Fire] 标签。飞剑来回飞行路线会残留持续 3s 的燃烧火焰路径。*与 [电磁回旋] 互斥。*",
           "max_points": 5,
-          "x": 1.34,
-          "y": 3.46,
-          "prerequisites": [
-            {
-              "node_id": 803,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4880,14 +4160,9 @@
           "name_key": "燎原之势",
           "desc_key": "*{需求: 劫灰路径}* 处于燃烧路径上的敌人受到的火焰伤害总增 (More) 15%...45%，并降低其火焰抗性。",
           "max_points": 5,
-          "x": 2.62,
-          "y": 1.93,
-          "prerequisites": [
-            {
-              "node_id": 870,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4895,14 +4170,9 @@
           "name_key": "电磁回旋",
           "desc_key": "*{需求: 回力感应 2/4}* 将基础物理伤害完全转化为 **闪电 (Lightning)**，获得 [Lightning] 标签。飞剑带有极强电磁场，能直接无视大部分地形障碍穿过，并在沿途对四周不断发射自动索敌的电弧。*与 [劫灰路径] 互斥。*",
           "max_points": 5,
-          "x": 3.08,
-          "y": -1.56,
-          "prerequisites": [
-            {
-              "node_id": 803,
-              "required_points": 2
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4910,32 +4180,18 @@
           "name_key": "高压电弧",
           "desc_key": "*{需求: 电磁回旋}* 回旋弹射电弧的触发频率增加 30%...90%，且每次接住飞剑时引发一次以自身为中心的强力电磁爆发。",
           "max_points": 3,
-          "x": 5.31,
-          "y": 1.58,
-          "prerequisites": [
-            {
-              "node_id": 872,
-              "required_points": 1
-            }
-          ]
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 874,
           "name_key": "元素尾迹",
           "desc_key": "*{需求: 任意 Transmuter}* 路径残留的宽度和持续时间增加 15%...45%。",
           "max_points": 5,
-          "x": 4.03,
-          "y": -1.37,
-          "prerequisites": [
-            {
-              "node_id": 870,
-              "required_points": 1
-            },
-            {
-              "node_id": 872,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4943,18 +4199,9 @@
           "name_key": "灵根破壁",
           "desc_key": "*{需求: 任意 Transmuter}* 飞剑击中处于元素路径或残留区域内的敌人时，本次攻击的对应元素穿透提升 6%...24%，仅适用于本技能。",
           "max_points": 5,
-          "x": 1.13,
-          "y": -2.45,
-          "prerequisites": [
-            {
-              "node_id": 870,
-              "required_points": 1
-            },
-            {
-              "node_id": 872,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         },
         {
@@ -4962,14 +4209,9 @@
           "name_key": "元素护体",
           "desc_key": "*{需求: 元素尾迹}* 当你站在自己铺设的元素路径（火焰/闪电区域）上时，获得 15% 对应元素的绝对伤害减免。",
           "max_points": 5,
-          "x": 4.23,
-          "y": 1.11,
-          "prerequisites": [
-            {
-              "node_id": 874,
-              "required_points": 1
-            }
-          ],
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": [],
           "stat_modifiers": []
         }
       ],
@@ -5201,53 +4443,38 @@
           "name_key": "识破",
           "desc_key": "反击伤害增加 20%...100%。",
           "max_points": 5,
-          "x": -1.78,
-          "y": -1.48,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 0.0,
+          "prerequisites": []
         },
         {
           "id": 901,
           "name_key": "残心",
           "desc_key": "反击姿态持续时间增加 0.2s/0.4s/0.6s。",
           "max_points": 3,
-          "x": -1.57,
-          "y": 2.08,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 1.5,
+          "prerequisites": []
         },
         {
           "id": 902,
           "name_key": "身轻如燕",
           "desc_key": "绝影状态持续期间，额外移动速度增加 10%...30%，直接闪避率（Dodge）增加 10%...30%。",
           "max_points": 3,
-          "x": 1.75,
-          "y": -1.92,
-          "prerequisites": [
-            {
-              "node_id": 0,
-              "required_points": 1
-            }
-          ]
+          "x": 0.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 903,
           "name_key": "神速反制",
           "desc_key": "反击后攻速移速提升。",
           "max_points": 3,
-          "x": 3.08,
-          "y": 1.68,
+          "x": -1.5,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 0,
+              "node_id": 900,
               "required_points": 1
             }
           ]
@@ -5257,12 +4484,12 @@
           "name_key": "震慑剑压",
           "desc_key": "反击造成眩晕。",
           "max_points": 3,
-          "x": -3.18,
-          "y": -0.07,
+          "x": -3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 900,
-              "required_points": 3
+              "required_points": 1
             }
           ]
         },
@@ -5271,11 +4498,11 @@
           "name_key": "气劲爆发",
           "desc_key": "反击获得 1...5 层剑意。",
           "max_points": 5,
-          "x": -1.41,
-          "y": -2.15,
+          "x": -1.5,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 900,
+              "node_id": 911,
               "required_points": 1
             }
           ]
@@ -5285,11 +4512,11 @@
           "name_key": "影杀连斩",
           "desc_key": "反击造成 3 次 150% 斩击。",
           "max_points": 1,
-          "x": -2.58,
-          "y": -0.14,
+          "x": -3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 910,
+              "node_id": 912,
               "required_points": 1
             }
           ]
@@ -5299,39 +4526,29 @@
           "name_key": "灵流穿透",
           "desc_key": "绝影期间每穿透一个敌人，就对其施加一层持续 3 秒的“衰弱”诅咒，使其造成的伤害降低 6%...18%。",
           "max_points": 3,
-          "x": -1.13,
-          "y": -2.81,
-          "prerequisites": [
-            {
-              "node_id": 912,
-              "required_points": 1
-            }
-          ]
+          "x": -1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 914,
           "name_key": "虚境馈赠",
           "desc_key": "绝影状态持续期间，每秒回复 2...6 点法力，且额外获得 10%...30% 的全域伤害减免。",
           "max_points": 3,
-          "x": -1.91,
-          "y": -2.27,
-          "prerequisites": [
-            {
-              "node_id": 911,
-              "required_points": 2
-            }
-          ]
+          "x": -3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 930,
           "name_key": "影遁",
           "desc_key": "反击后隐身 1.5s。",
           "max_points": 1,
-          "x": 2.98,
-          "y": -1.13,
+          "x": 1.5,
+          "y": -1.5,
           "prerequisites": [
             {
-              "node_id": 902,
+              "node_id": 900,
               "required_points": 1
             }
           ]
@@ -5341,12 +4558,12 @@
           "name_key": "幽影长存",
           "desc_key": "隐身时间增加。",
           "max_points": 3,
-          "x": 0.84,
-          "y": -2.58,
+          "x": 3.0,
+          "y": -1.5,
           "prerequisites": [
             {
               "node_id": 930,
-              "required_points": 2
+              "required_points": 1
             }
           ]
         },
@@ -5355,8 +4572,8 @@
           "name_key": "致命奇袭",
           "desc_key": "破隐一击暴击率 +20%...100%，伤害 More +30%。",
           "max_points": 5,
-          "x": -3.51,
-          "y": -1.88,
+          "x": 1.5,
+          "y": -3.0,
           "prerequisites": [
             {
               "node_id": 930,
@@ -5369,11 +4586,11 @@
           "name_key": "影之双生",
           "desc_key": "反击时自动施放 [裂空斩]（分身）。",
           "max_points": 1,
-          "x": 4.84,
-          "y": -0.22,
+          "x": 3.0,
+          "y": -3.0,
           "prerequisites": [
             {
-              "node_id": 930,
+              "node_id": 932,
               "required_points": 1
             }
           ]
@@ -5383,40 +4600,30 @@
           "name_key": "剑随心动",
           "desc_key": "`逆脉` 状态下进一步增加你的攻击速度和施法速度 5%...15%。",
           "max_points": 3,
-          "x": 2.79,
-          "y": -0.15,
-          "prerequisites": [
-            {
-              "node_id": 931,
-              "required_points": 1
-            }
-          ]
+          "x": 1.5,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 935,
           "name_key": "逆命反噬",
           "desc_key": "在 `逆脉` 状态下每次近战攻击命中敌人，有 20% 几率自发向距离最近的敌人投掷一枚无消耗的 [御剑·回旋] 飞剑（使用已专精版本，单次触发有 0.5s 冷却）。",
           "max_points": 1,
-          "x": 3.19,
-          "y": -2.32,
-          "prerequisites": [
-            {
-              "node_id": 934,
-              "required_points": 2
-            }
-          ]
+          "x": 3.0,
+          "y": -4.5,
+          "prerequisites": []
         },
         {
           "id": 950,
           "name_key": "灵动之躯",
           "desc_key": "使用后闪避率提升。",
           "max_points": 5,
-          "x": 2.8,
-          "y": 0.87,
+          "x": -1.5,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 903,
-              "required_points": 2
+              "node_id": 901,
+              "required_points": 1
             }
           ],
           "stat_modifiers": [
@@ -5432,12 +4639,12 @@
           "name_key": "流光重置",
           "desc_key": "闪避成功有几率重置冷却。",
           "max_points": 1,
-          "x": 0.29,
-          "y": 3.38,
+          "x": -3.0,
+          "y": 1.5,
           "prerequisites": [
             {
               "node_id": 950,
-              "required_points": 3
+              "required_points": 1
             }
           ]
         },
@@ -5446,8 +4653,8 @@
           "name_key": "气劲充盈",
           "desc_key": "重置时回蓝。",
           "max_points": 3,
-          "x": 2.45,
-          "y": 2.25,
+          "x": -1.5,
+          "y": 3.0,
           "prerequisites": [
             {
               "node_id": 951,
@@ -5460,12 +4667,12 @@
           "name_key": "影之舞",
           "desc_key": "额外充能+1，闪避几率回充能。",
           "max_points": 1,
-          "x": 3.04,
-          "y": 1.65,
+          "x": -3.0,
+          "y": 3.0,
           "prerequisites": [
             {
-              "node_id": 950,
-              "required_points": 2
+              "node_id": 951,
+              "required_points": 1
             }
           ]
         },
@@ -5474,40 +4681,30 @@
           "name_key": "时光逆流",
           "desc_key": "绝影状态结束时（无论是被打破还是自然耗尽），你身上**所有其他处于冷却中的技能**的剩余冷却时间立刻缩短 3 秒，是极佳的技能循环发动机。",
           "max_points": 1,
-          "x": 1.86,
-          "y": 2.47,
-          "prerequisites": [
-            {
-              "node_id": 953,
-              "required_points": 1
-            }
-          ]
+          "x": -1.5,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 955,
           "name_key": "全神贯注",
           "desc_key": "在绝影短短几秒内，为了让你能肆意倾泻火力，施放其他任何技能的法力消耗降低 20%...60%。",
           "max_points": 3,
-          "x": 2.54,
-          "y": -1.43,
-          "prerequisites": [
-            {
-              "node_id": 953,
-              "required_points": 1
-            }
-          ]
+          "x": -3.0,
+          "y": 4.5,
+          "prerequisites": []
         },
         {
           "id": 970,
           "name_key": "元素护盾",
           "desc_key": "",
           "max_points": 3,
-          "x": 0.08,
-          "y": 3.45,
+          "x": 1.5,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 901,
-              "required_points": 3
+              "node_id": 903,
+              "required_points": 2
             }
           ]
         },
@@ -5516,12 +4713,12 @@
           "name_key": "天罚反震",
           "desc_key": "反击触发元素爆炸 (200% 范围伤害)。",
           "max_points": 1,
-          "x": -2.59,
-          "y": 0.84,
+          "x": 3.0,
+          "y": 1.5,
           "prerequisites": [
             {
-              "node_id": 901,
-              "required_points": 3
+              "node_id": 970,
+              "required_points": 1
             }
           ]
         },
@@ -5530,46 +4727,27 @@
           "name_key": "疾空惊雷",
           "desc_key": "结束时的爆发变为连环落雷。绝影期间被一层雷电护盾包裹，每秒电击一次靠近的敌人获取雷电抗性；爆发结束后 4 秒内，所有近战攻击额外附加基础物理伤害 50% 的 **闪电 (Lightning)** 伤害，并必定施加感电。*与 [天山雪隐] 互斥。*",
           "max_points": 1,
-          "x": -3.32,
-          "y": 2.01,
-          "prerequisites": [
-            {
-              "node_id": 971,
-              "required_points": 1
-            }
-          ]
+          "x": 1.5,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 973,
           "name_key": "过载护盾",
           "desc_key": "处于疾空惊雷包裹期间，移动与攻击速度额外增加 10%...30%，受击有 30% 几率释放连环弹射闪电。",
           "max_points": 3,
-          "x": 2.17,
-          "y": 2.63,
-          "prerequisites": [
-            {
-              "node_id": 970,
-              "required_points": 1
-            }
-          ]
+          "x": 3.0,
+          "y": 3.0,
+          "prerequisites": []
         },
         {
           "id": 974,
           "name_key": "空明心境",
           "desc_key": "绝影期间的法力回复和冷却回复提升 10%...40%。",
           "max_points": 4,
-          "x": -3.29,
-          "y": 2.29,
-          "prerequisites": [
-            {
-              "node_id": 950,
-              "required_points": 2
-            },
-            {
-              "node_id": 970,
-              "required_points": 2
-            }
-          ],
+          "x": 1.5,
+          "y": 1.5,
+          "prerequisites": [],
           "stat_modifiers": []
         }
       ],

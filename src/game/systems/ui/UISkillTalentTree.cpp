@@ -12,6 +12,7 @@
 #include "raymath.h"
 #include <string>
 #include <algorithm>
+#include <vector>
 
 // Redefine static members to match header
 // struct SkillTreeUI_Vec2 { float x, y; };
@@ -40,6 +41,101 @@ const char* ScopePolicyToText(ScopePolicy scope) {
     case ScopePolicy::GlobalAlways: return "全局常驻";
     case ScopePolicy::GlobalWhileBuffActive: return "增益期间全局";
     default: return "仅本技能";
+    }
+}
+
+bool IsPrerequisiteSatisfiedOr(const TalentNode& node, const SkillTreeDefinition& tree,
+                               const SpecializedSkill& specialized) {
+    if (node.prerequisites.empty()) {
+        return true;
+    }
+
+    bool hasValidPrereq = false;
+    for (uint32_t preId : node.prerequisites) {
+        if (preId == 0 || !tree.nodes.contains(preId)) {
+            continue;
+        }
+        hasValidPrereq = true;
+        int prePts = specialized.allocated_points.contains(preId) ? specialized.allocated_points.at(preId) : 0;
+        if (prePts > 0) {
+            return true;
+        }
+    }
+    return !hasValidPrereq;
+}
+
+void DrawWrappedTextUI(const Font& font, const char* text, float x, float y, float width, float height,
+                       float fontSize, Color color, float alpha, float scale) {
+    if (!text || text[0] == '\0' || width <= 0.0f || height <= 0.0f) {
+        return;
+    }
+
+    const float sX = x * scale;
+    const float sY = y * scale;
+    const float sWidth = width * scale;
+    const float sMaxY = (y + height) * scale;
+    const float sFont = fontSize * scale;
+    const float sSpacing = 1.0f * scale;
+    const float sLineH = sFont + 4.0f * scale;
+
+    std::vector<std::string> lines;
+    std::string currentLine;
+    const char* ptr = text;
+
+    while (*ptr != '\0') {
+        int bytes = 0;
+        int cp = GetCodepoint(ptr, &bytes);
+        if (bytes <= 0) {
+            break;
+        }
+
+        if (cp == '\r') {
+            ptr += bytes;
+            continue;
+        }
+        if (cp == '\n') {
+            lines.push_back(currentLine);
+            currentLine.clear();
+            ptr += bytes;
+            continue;
+        }
+
+        int glyphBytes = 0;
+        const char* glyphPtr = CodepointToUTF8(cp, &glyphBytes);
+        std::string glyph(glyphPtr, glyphBytes);
+        std::string testLine = currentLine + glyph;
+
+        const float testW = IsFontValid(font)
+            ? MeasureTextEx(font, testLine.c_str(), sFont, sSpacing).x
+            : static_cast<float>(MeasureText(testLine.c_str(), static_cast<int>(sFont)));
+
+        if (testW <= sWidth || currentLine.empty()) {
+            currentLine = std::move(testLine);
+        } else {
+            lines.push_back(currentLine);
+            currentLine = std::move(glyph);
+        }
+
+        ptr += bytes;
+    }
+
+    if (!currentLine.empty()) {
+        lines.push_back(currentLine);
+    }
+
+    float drawY = sY;
+    const Color finalColor = Fade(color, alpha);
+    for (const auto& line : lines) {
+        if (drawY + sLineH > sMaxY) {
+            break;
+        }
+        if (IsFontValid(font)) {
+            DrawTextEx(font, line.c_str(), {sX, drawY}, sFont, sSpacing, finalColor);
+        } else {
+            DrawText(line.c_str(), static_cast<int>(sX), static_cast<int>(drawY),
+                     static_cast<int>(sFont), finalColor);
+        }
+        drawY += sLineH;
     }
 }
 
@@ -172,14 +268,7 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
                 bool isMaxed = currentPts >= node.max_points;
                 
                 // Prereq check
-                bool canUnlock = true;
-                for (uint32_t preId : node.prerequisites) {
-                    int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
-                    if (prePts <= 0) {
-                        canUnlock = false; 
-                        break;
-                    }
-                }
+                bool canUnlock = IsPrerequisiteSatisfiedOr(node, *tree, *specialized);
                 
                 if (canUnlock && !isMaxed && active->available_talent_points > 0) {
                      targetNodeId = id;
@@ -204,8 +293,8 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         // Tooltip
         float tx = mouseLogicPos.x + 30;
         float ty = mouseLogicPos.y + 30;
-        float tw = 400;
-        float th = 220;
+        float tw = 440;
+        float th = 280;
         
         if (tx + tw > logicW) tx -= (tw + 60);
         if (ty + th > logicH) ty -= (th + 60);
@@ -215,16 +304,35 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         DrawRectangleLinesEx({tx * scale, ty * scale, tw * scale, th * scale}, 1.0f, Fade(GOLD, alpha));
         
         UISystem::DrawTextUI(hoveredNode->name_key.c_str(), tx + 20, ty + 20, 28, GOLD, alpha);
-        UISystem::DrawTextScaled(hoveredNode->desc_key.c_str(), tx + 20, ty + 60, 20, tw - 40, WHITE, alpha);
-
-         if (!hoveredNode->stat_modifiers.empty()) {
-            UISystem::DrawTextUI("数值加成已启用", tx + 20, ty + th - 35, 18, SKYBLUE, alpha * 0.8f);
-        }
+        
+        std::vector<std::pair<std::string, Color>> footerLines;
         if (nodeContract) {
-            UISystem::DrawTextUI(TextFormat("定位: %s", NodeRoleToText(nodeContract->role)),
-                                 tx + 20, ty + th - 70, 18, ORANGE, alpha * 0.9f);
-            UISystem::DrawTextUI(TextFormat("范围: %s", ScopePolicyToText(nodeContract->scope_policy)),
-                                 tx + 20, ty + th - 48, 18, SKYBLUE, alpha * 0.9f);
+            footerLines.emplace_back(TextFormat("定位: %s", NodeRoleToText(nodeContract->role)), ORANGE);
+            footerLines.emplace_back(TextFormat("范围: %s", ScopePolicyToText(nodeContract->scope_policy)), SKYBLUE);
+        }
+        if (!hoveredNode->stat_modifiers.empty()) {
+            footerLines.emplace_back("数值加成已启用", SKYBLUE);
+        }
+
+        const float footerFont = 22.0f;
+        const float footerLineH = 24.0f;
+        const float footerBottomPad = 16.0f;
+        const float footerTopPad = 10.0f;
+        const float footerBlockH = footerLines.empty() ? 0.0f :
+            (footerTopPad + footerLineH * static_cast<float>(footerLines.size()));
+
+        const float descX = tx + 20.0f;
+        const float descY = ty + 64.0f;
+        const float descW = tw - 40.0f;
+        const float descH = std::max(56.0f, th - (descY - ty) - footerBlockH - footerBottomPad);
+        DrawWrappedTextUI(UISystem::GetFont(), hoveredNode->desc_key.c_str(), descX, descY, descW, descH, 20.0f, WHITE, alpha, scale);
+
+        if (!footerLines.empty()) {
+            float lineY = ty + th - footerBottomPad - footerLineH * static_cast<float>(footerLines.size());
+            for (const auto& line : footerLines) {
+                UISystem::DrawTextUI(line.first.c_str(), tx + 20.0f, lineY, footerFont, line.second, alpha * 0.9f);
+                lineY += footerLineH;
+            }
         }
     }
 

@@ -1,0 +1,349 @@
+{
+  "skills": [
+    {
+      "id": 7,
+      "talent_tree": [
+        {
+          "id": 700,
+          "name_key": "神识凝聚",
+          "x": -1.96,
+          "y": 2.06,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 701,
+          "name_key": "无影无形",
+          "x": -2.62,
+          "y": -1.4,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 702,
+          "name_key": "裂空",
+          "x": 2.64,
+          "y": 1.98,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 703,
+          "name_key": "心念映射",
+          "x": 1.94,
+          "y": -2.26,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 710,
+          "name_key": "心流叠加",
+          "x": -2,
+          "y": -1.52,
+          "prerequisites": [
+            {
+              "node_id": 701,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 711,
+          "name_key": "碎空爆",
+          "x": -2.22,
+          "y": -1.78,
+          "prerequisites": [
+            {
+              "node_id": 710,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 712,
+          "name_key": "虚无牵引",
+          "x": -2.8,
+          "y": -0.42,
+          "prerequisites": [
+            {
+              "node_id": 711,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 713,
+          "name_key": "精神透支",
+          "x": -0.68,
+          "y": -2.2,
+          "prerequisites": [
+            {
+              "node_id": 711,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 714,
+          "name_key": "寂灭",
+          "x": 1.64,
+          "y": -2.84,
+          "prerequisites": [
+            {
+              "node_id": 711,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 715,
+          "name_key": "破绽洞察",
+          "x": -0.32,
+          "y": 3.56,
+          "prerequisites": [
+            {
+              "node_id": 702,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 730,
+          "name_key": "神识多开",
+          "x": 1.94,
+          "y": 2.34,
+          "prerequisites": [
+            {
+              "node_id": 702,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 731,
+          "name_key": "千面阵",
+          "x": 2.32,
+          "y": 3.68,
+          "prerequisites": [
+            {
+              "node_id": 730,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 732,
+          "name_key": "步影随行",
+          "x": 2.8,
+          "y": 1.26,
+          "prerequisites": [
+            {
+              "node_id": 730,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 733,
+          "name_key": "御剑神游",
+          "x": 1.4,
+          "y": 3,
+          "prerequisites": [
+            {
+              "node_id": 732,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 734,
+          "name_key": "神游脱战",
+          "x": 4.46,
+          "y": 1.2,
+          "prerequisites": [
+            {
+              "node_id": 732,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 735,
+          "name_key": "精准切割",
+          "x": 2.38,
+          "y": -1.58,
+          "prerequisites": [
+            {
+              "node_id": 702,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 750,
+          "name_key": "引力坍缩",
+          "x": -2.28,
+          "y": 2.14,
+          "prerequisites": [
+            {
+              "node_id": 700,
+              "required_points": 3
+            }
+          ]
+        },
+        {
+          "id": 751,
+          "name_key": "空间粉碎",
+          "x": -2.22,
+          "y": 1.42,
+          "prerequisites": [
+            {
+              "node_id": 750,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 752,
+          "name_key": "深渊侵蚀",
+          "x": -2.98,
+          "y": 1.6,
+          "prerequisites": [
+            {
+              "node_id": 751,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 753,
+          "name_key": "意念风暴",
+          "x": -1.34,
+          "y": -2.34,
+          "prerequisites": [
+            {
+              "node_id": 751,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 754,
+          "name_key": "剑意化无",
+          "x": 0.4,
+          "y": -3.1,
+          "prerequisites": [
+            {
+              "node_id": 753,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 755,
+          "name_key": "心念反哺",
+          "x": -2.18,
+          "y": -0.14,
+          "prerequisites": [
+            {
+              "node_id": 753,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 770,
+          "name_key": "天外冰晶",
+          "x": 3.46,
+          "y": -2.73,
+          "prerequisites": [
+            {
+              "node_id": 703,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 771,
+          "name_key": "极寒碎骨",
+          "x": -1.66,
+          "y": -2.15,
+          "prerequisites": [
+            {
+              "node_id": 770,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 772,
+          "name_key": "神雷天罡",
+          "x": 3.94,
+          "y": 0.68,
+          "prerequisites": [
+            {
+              "node_id": 703,
+              "required_points": 2
+            }
+          ]
+        },
+        {
+          "id": 773,
+          "name_key": "天劫落雷",
+          "x": 4.96,
+          "y": -0.58,
+          "prerequisites": [
+            {
+              "node_id": 772,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 774,
+          "name_key": "异常切割",
+          "x": 4.02,
+          "y": 1.63,
+          "prerequisites": [
+            {
+              "node_id": 770,
+              "required_points": 1
+            },
+            {
+              "node_id": 772,
+              "required_points": 1
+            }
+          ]
+        },
+        {
+          "id": 775,
+          "name_key": "心念灭抗",
+          "x": 0.21,
+          "y": -3.01,
+          "prerequisites": [
+            {
+              "node_id": 774,
+              "required_points": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
