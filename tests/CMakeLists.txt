@@ -6,14 +6,8 @@ file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS
 )
 list(FILTER TEST_SOURCES EXCLUDE REGEX "check_header.cpp$")
 
-# Find all header files for IDE project view
-file(GLOB_RECURSE TEST_HEADERS CONFIGURE_DEPENDS
-    "*.hpp"
-)
-
 add_executable(NoMoreDayTests
     ${TEST_SOURCES}
-    ${TEST_HEADERS}
 )
 
 # Keep new V5 JFA tests out of Unity amalgamation to avoid TU-local helper

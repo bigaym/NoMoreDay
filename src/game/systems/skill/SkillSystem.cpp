@@ -2108,7 +2108,8 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
 
   bool has_valid_prereq = false;
   bool prereq_satisfied = node.prerequisites.empty();
-  for (uint32_t pre_id : node.prerequisites) {
+  for (const auto &pre_req : node.prerequisites) {
+    const uint32_t pre_id = pre_req.node_id;
     if (pre_id == 0 || !tree->nodes.contains(pre_id)) {
       continue;
     }
@@ -2116,7 +2117,9 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
     int pre_pts = specialized->allocated_points.contains(pre_id)
                       ? specialized->allocated_points.at(pre_id)
                       : 0;
-    if (pre_pts > 0) {
+    const int required_points =
+        (pre_req.required_points > 0) ? pre_req.required_points : 1;
+    if (pre_pts >= required_points) {
       prereq_satisfied = true;
       break;
     }

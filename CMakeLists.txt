@@ -193,8 +193,7 @@ set_target_properties(SkillBehaviors PROPERTIES UNITY_BUILD ON)
 # --- Core Library (Static) ---
 # 递归获取所有源文件，排除 app/main.cpp 和已在 SkillBehaviors 中的文件
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS 
-    "src/*.cpp" 
-    "src/*.hpp"
+    "src/*.cpp"
 )
 
 # 移除 main.cpp (由主程序目标使用)

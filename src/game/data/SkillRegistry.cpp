@@ -110,7 +110,7 @@ void ApplyPrerequisiteAnchoredLayout(SkillTreeDefinition &tree) {
 
     std::pair<float, float> anchor = {0.0f, 0.0f};
     if (!node.prerequisites.empty()) {
-      const uint32_t first_pre = node.prerequisites.front();
+      const uint32_t first_pre = node.prerequisites.front().node_id;
       if (first_pre != 0 && tree.nodes.contains(first_pre)) {
         anchor = resolve_node(first_pre);
       }

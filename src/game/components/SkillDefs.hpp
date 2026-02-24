@@ -101,6 +101,45 @@ struct DamageModifier {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DamageModifier, source_tag, target_tag,
                                    value, type)
 
+struct TalentPrerequisite {
+  uint32_t node_id = 0;
+  int required_points = 1;
+};
+
+inline void to_json(nlohmann::json &j, const TalentPrerequisite &p) {
+  j = nlohmann::json{{"node_id", p.node_id},
+                     {"required_points", p.required_points}};
+}
+
+inline void from_json(const nlohmann::json &j, TalentPrerequisite &p) {
+  if (j.is_number_unsigned()) {
+    p.node_id = j.get<uint32_t>();
+    p.required_points = 1;
+    return;
+  }
+  if (j.is_number_integer()) {
+    const int64_t raw = j.get<int64_t>();
+    if (raw >= 0) {
+      p.node_id = static_cast<uint32_t>(raw);
+      p.required_points = 1;
+      return;
+    }
+  }
+
+  if (j.is_object()) {
+    if (j.contains("node_id")) {
+      j.at("node_id").get_to(p.node_id);
+    }
+    if (j.contains("required_points")) {
+      j.at("required_points").get_to(p.required_points);
+    }
+  }
+
+  if (p.required_points <= 0) {
+    p.required_points = 1;
+  }
+}
+
 /**
  * @brief Represents a node in a skill's specialization talent tree.
  */
@@ -112,7 +151,7 @@ struct TalentNode {
   uint32_t icon_id = 0;    // Added for UI Polish
   int max_points = 1;
 
-  std::vector<uint32_t> prerequisites;
+  std::vector<TalentPrerequisite> prerequisites;
   std::vector<StatModifier> stat_modifiers;
   std::vector<DamageModifier> damage_modifiers;
 
@@ -174,9 +213,22 @@ inline void from_json(const nlohmann::json &j, TalentNode &n) {
     n.prerequisites.clear();
     for (const auto &pre : j.at("prerequisites")) {
       if (pre.is_number_unsigned()) {
-        n.prerequisites.push_back(pre.get<uint32_t>());
+        n.prerequisites.push_back(
+            TalentPrerequisite{pre.get<uint32_t>(), 1});
+      } else if (pre.is_number_integer()) {
+        const int64_t raw = pre.get<int64_t>();
+        if (raw >= 0) {
+          n.prerequisites.push_back(
+              TalentPrerequisite{static_cast<uint32_t>(raw), 1});
+        }
       } else if (pre.is_object() && pre.contains("node_id")) {
-        n.prerequisites.push_back(pre.at("node_id").get<uint32_t>());
+        TalentPrerequisite req;
+        req.node_id = pre.at("node_id").get<uint32_t>();
+        req.required_points = pre.value("required_points", 1);
+        if (req.required_points <= 0) {
+          req.required_points = 1;
+        }
+        n.prerequisites.push_back(req);
       }
     }
   }

@@ -51,13 +51,15 @@ bool IsPrerequisiteSatisfiedOr(const TalentNode& node, const SkillTreeDefinition
     }
 
     bool hasValidPrereq = false;
-    for (uint32_t preId : node.prerequisites) {
+    for (const auto& pre : node.prerequisites) {
+        const uint32_t preId = pre.node_id;
         if (preId == 0 || !tree.nodes.contains(preId)) {
             continue;
         }
         hasValidPrereq = true;
         int prePts = specialized.allocated_points.contains(preId) ? specialized.allocated_points.at(preId) : 0;
-        if (prePts > 0) {
+        const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
+        if (prePts >= requiredPoints) {
             return true;
         }
     }

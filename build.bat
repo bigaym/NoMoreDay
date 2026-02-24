@@ -19,6 +19,8 @@ REM   includes    - Build with /showIncludes to analyze dependencies
 REM   nofastbuild - Disable fast MSVC build options (/MP + multitool)
 REM   noruntimeopt- Disable extra runtime optimization flags
 REM   nocache     - Disable compiler cache launcher
+REM   novalidate  - Skip pre-build validation scripts (JSON/ABI checks)
+REM   nostaleclean- Skip stale build-process cleanup before build
 REM   cache=TOOL  - Select compiler cache tool: auto/sccache/ccache/clcache
 REM   j=N         - Set parallel jobs (default: 16)
 REM
@@ -38,6 +40,7 @@ cd /d "%~dp0"
 set "BUILD_DIR=build"
 set "BUILD_TYPE=RelWithDebInfo"
 set "BUILD_TESTS=ON"
+set "BUILD_TEST_TARGET=ON"
 set "RUN_GATE=OFF"
 set "ENABLE_LTO=OFF"
 set "ENABLE_ANALYZE=OFF"
@@ -46,6 +49,8 @@ set "SHOW_INCLUDES=OFF"
 set "ENABLE_FAST_BUILD=ON"
 set "ENABLE_RUNTIME_OPT=ON"
 set "ENABLE_COMPILER_CACHE=ON"
+set "ENABLE_PRECHECKS=ON"
+set "ENABLE_STALE_CLEAN=ON"
 set "COMPILER_CACHE_TOOL=AUTO"
 set "CCACHE_FALLBACK_EXE=C:/Users/yuminao/AppData/Local/Microsoft/WinGet/Packages/Ccache.Ccache_Microsoft.Winget.Source_8wekyb3d8bbwe/ccache-4.12.2-windows-x86_64/ccache.exe"
 set "ONLY_CHECK=OFF"
@@ -166,8 +171,7 @@ if /i "%~1"=="clean-all" (
     set "NEED_CONFIG=1"
 )
 if /i "%~1"=="notest" (
-    set "BUILD_TESTS=OFF"
-    set "NEED_CONFIG=1"
+    set "BUILD_TEST_TARGET=OFF"
 )
 if /i "%~1"=="analyze" (
     set "ENABLE_ANALYZE=ON"
@@ -213,6 +217,12 @@ if /i "%~1"=="nocache" (
     set "ENABLE_COMPILER_CACHE=OFF"
     set "NEED_CONFIG=1"
 )
+if /i "%~1"=="novalidate" (
+    set "ENABLE_PRECHECKS=OFF"
+)
+if /i "%~1"=="nostaleclean" (
+    set "ENABLE_STALE_CLEAN=OFF"
+)
 echo %~1 | findstr /i /r "^cache=.*$" >nul
 if not errorlevel 1 (
     for /f "tokens=2 delims==" %%a in ("%~1") do set "COMPILER_CACHE_TOOL=%%a"
@@ -232,24 +242,36 @@ goto :ARGS_LOOP
 REM ============================================================================
 REM 1. Pre-build Validation (JSON)
 REM ============================================================================
-echo [Build] Generating render ABI includes...
-python tools\render_abi\generate_gpu_abi.py
-if errorlevel 1 (
-    echo [Build] Render ABI generation failed! Aborting.
-    exit /b 1
-)
-echo [Build] Checking render ABI struct governance...
-python tools\render_abi\check_no_manual_abi_structs.py
-if errorlevel 1 (
-    echo [Build] Render ABI governance check failed! Aborting.
-    exit /b 1
+if /i "!ENABLE_STALE_CLEAN!"=="ON" (
+    echo [Build] Cleaning stale build processes...
+    powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\cleanup_stale_build_processes.ps1" -RepoRoot "%CD%" -MinAgeSeconds 30
+    if errorlevel 1 (
+        echo [Build] Warning: stale process cleanup failed, continuing.
+    )
 )
 
-echo [Build] Validating assets...
-python scripts\validate_json.py
-if errorlevel 1 (
-    echo [Build] Asset validation failed! Aborting.
-    exit /b 1
+if /i "!ENABLE_PRECHECKS!"=="ON" (
+    echo [Build] Generating render ABI includes...
+    python tools\render_abi\generate_gpu_abi.py
+    if errorlevel 1 (
+        echo [Build] Render ABI generation failed! Aborting.
+        exit /b 1
+    )
+    echo [Build] Checking render ABI struct governance...
+    python tools\render_abi\check_no_manual_abi_structs.py
+    if errorlevel 1 (
+        echo [Build] Render ABI governance check failed! Aborting.
+        exit /b 1
+    )
+
+    echo [Build] Validating assets...
+    python scripts\validate_json.py
+    if errorlevel 1 (
+        echo [Build] Asset validation failed! Aborting.
+        exit /b 1
+    )
+) else (
+    echo [Build] Pre-check scripts skipped ^(novalidate^).
 )
 
 if /i "!ONLY_CHECK!"=="ON" (
@@ -455,17 +477,21 @@ if "!NEED_CONFIG!"=="1" (
 REM ============================================================================
 REM 4. Build
 REM ============================================================================
-set "BUILD_LOG=%TEMP%\nomoreday_build_%RANDOM%_%RANDOM%.log"
-cmake --build . --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
-set "BUILD_EXIT=!errorlevel!"
-
 if "!ENABLE_ANALYZE!"=="ON" (
+    set "BUILD_LOG=%TEMP%\nomoreday_build_%RANDOM%_%RANDOM%.log"
+    set "CMAKE_BUILD_TARGETS=NoMoreDay"
+    if /i "!BUILD_TEST_TARGET!"=="ON" set "CMAKE_BUILD_TARGETS=ALL_BUILD"
+    cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+    set "BUILD_EXIT=!errorlevel!"
     type "!BUILD_LOG!" | findstr /v /i /c:"third_party"
+    if exist "!BUILD_LOG!" del /f /q "!BUILD_LOG!" >nul 2>nul
 ) else (
-    type "!BUILD_LOG!"
+    set "CMAKE_BUILD_TARGETS=NoMoreDay"
+    if /i "!BUILD_TEST_TARGET!"=="ON" set "CMAKE_BUILD_TARGETS=ALL_BUILD"
+    cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS!
+    set "BUILD_EXIT=!errorlevel!"
 )
 
-if exist "!BUILD_LOG!" del /f /q "!BUILD_LOG!" >nul 2>nul
 if not "!BUILD_EXIT!"=="0" exit /b !BUILD_EXIT!
 
 REM ============================================================================

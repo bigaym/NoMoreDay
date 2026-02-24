@@ -40,13 +40,15 @@ namespace NoMoreDay {
         }
 
         bool hasValidPrereq = false;
-        for (uint32_t preId : node.prerequisites) {
+        for (const auto& pre : node.prerequisites) {
+            const uint32_t preId = pre.node_id;
             if (preId == 0 || !tree->nodes.contains(preId)) {
                 continue;
             }
             hasValidPrereq = true;
             int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
-            if (prePts > 0) {
+            const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
+            if (prePts >= requiredPoints) {
                 return true;
             }
         }
@@ -163,7 +165,38 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
     Color colorLockedHighlight = Color{ 125, 132, 152, (unsigned char)(180 * view.alpha) };
     Color colorAvailable = Fade(theme, 0.4f * view.alpha); // Brighter than locked
 
-    auto DrawLink = [&](Vector2 p1, Vector2 p2, bool active, bool available) {
+    auto DrawRequirementDots = [&](Vector2 p1, Vector2 p2, bool active, bool available, int requiredPoints) {
+        if (requiredPoints <= 0) {
+            return;
+        }
+
+        const int dotCount = std::max(1, std::min(requiredPoints, 8));
+        const Vector2 delta = Vector2Subtract(p2, p1);
+        const float length = Vector2Length(delta);
+        if (length < 1.0f) {
+            return;
+        }
+
+        const Vector2 dir = Vector2Scale(delta, 1.0f / length);
+        const Vector2 mid = Vector2Lerp(p1, p2, 0.5f);
+        const float spacing = std::max(12.0f * view.zoom, lineThick * 1.35f);
+        const float halfSpan = (dotCount - 1) * spacing * 0.5f;
+
+        Color dotColor = colorLockedHighlight;
+        if (available) {
+            dotColor = active ? Fade(WHITE, 0.95f * view.alpha) : Fade(theme, 0.9f * view.alpha);
+        }
+
+        const float dotRadius = std::max(2.2f * view.zoom, lineThick * 0.28f);
+        for (int i = 0; i < dotCount; ++i) {
+            const float offset = -halfSpan + i * spacing;
+            const Vector2 pos = Vector2Add(mid, Vector2Scale(dir, offset));
+            DrawCircleV(pos, dotRadius + 1.3f * view.zoom, Fade(BLACK, 0.8f * view.alpha));
+            DrawCircleV(pos, dotRadius, dotColor);
+        }
+    };
+
+    auto DrawLink = [&](Vector2 p1, Vector2 p2, bool active, bool available, int requiredPoints) {
         // Multi-layered line rendering
         if (active) {
             // Active: High-energy glow
@@ -189,6 +222,8 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
             DrawLineEx(p1, p2, lineThick, colorLocked);
             DrawLineEx(p1, p2, lineThick * 0.30f, colorLockedHighlight);
         }
+
+        DrawRequirementDots(p1, p2, active, available, requiredPoints);
     };
 
     for (const auto& [id, node] : tree->nodes) {
@@ -197,21 +232,24 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
         bool hasValidPrereq = false;
         
         // 1. Explicit Prerequisites
-        for (uint32_t preId : node.prerequisites) {
+        for (const auto& pre : node.prerequisites) {
+            const uint32_t preId = pre.node_id;
             if (tree->nodes.count(preId)) {
                 hasValidPrereq = true;
                 Vector2 sourcePos = GetNodeScreenPos(tree->nodes.at(preId), view);
-                bool preAlloc = specialized->allocated_points.contains(preId) && specialized->allocated_points.at(preId) > 0;
+                const int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
+                const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
+                bool preAlloc = prePts >= requiredPoints;
                 
                 // A link is "available" if the source is allocated
-                DrawLink(sourcePos, targetPos, preAlloc && nodeAlloc, preAlloc);
+                DrawLink(sourcePos, targetPos, preAlloc && nodeAlloc, preAlloc, requiredPoints);
             }
         }
         
         // 2. Connection to Root (Hub) for root-level nodes (empty or prereq=0)
         if (!hasValidPrereq) {
              Vector2 sourcePos = { view.center.x + view.offset.x, view.center.y + view.offset.y };
-             DrawLink(sourcePos, targetPos, nodeAlloc, true); // Root links always available
+             DrawLink(sourcePos, targetPos, nodeAlloc, true, 0); // Root links always available
         }
     }
 }
