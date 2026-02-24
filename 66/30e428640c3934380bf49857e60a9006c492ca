@@ -1,0 +1,1 @@
+Skill spec UI: prerequisites OR unlock; prerequisite-anchored layout (pre[0]==0 anchors to hub); reduced node spacing; improved locked link visibility; tooltip auto-wrap and footer stacking. Verified with build.bat + ctest unit.
