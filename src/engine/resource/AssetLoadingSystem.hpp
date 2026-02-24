@@ -40,6 +40,9 @@ public:
     // Register all buff icons
     static void RegisterBuffs();
 
+    // Register skill specialization node icons
+    static void RegisterSkillNodeIcons();
+
     static void Shutdown();
 
 private:

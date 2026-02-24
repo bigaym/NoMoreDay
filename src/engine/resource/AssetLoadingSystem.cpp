@@ -4,6 +4,7 @@
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/resource/RuneAssetRegistry.hpp"
 #include "engine/resource/BuffAssetRegistry.hpp"
+#include "engine/resource/SkillNodeAssetRegistry.hpp"
 
 namespace NoMoreDay {
 
@@ -16,6 +17,7 @@ void AssetLoadingSystem::Initialize(ResourceManager &resourceManager) {
   RegisterShaders();    // Load shaders
   RegisterRunes();      // Register Rune assets
   RegisterBuffs();      // Register Buff assets
+  RegisterSkillNodeIcons(); // Register specialization node icons
   LOG_INFO("AssetLoadingSystem 已初始化。");
 }
 
@@ -164,6 +166,22 @@ void AssetLoadingSystem::RegisterBuffs() {
       }
   }
   LOG_INFO("Registered {} buff assets.", count);
+}
+
+void AssetLoadingSystem::RegisterSkillNodeIcons() {
+  if (!m_resourceManager) {
+    return;
+  }
+
+  int count = 0;
+  for (const auto *asset : assets::skill_nodes::All) {
+    if (!asset) {
+      continue;
+    }
+    m_resourceManager->registerTexture(asset->id, std::string(asset->path));
+    count++;
+  }
+  LOG_INFO("Registered {} skill node icons.", count);
 }
 
 Font AssetLoadingSystem::LoadUIFont(const std::string &path, int fontSize) {

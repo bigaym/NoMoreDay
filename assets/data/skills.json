@@ -39,7 +39,8 @@
               "mode": 1,
               "value": 5.0
             }
-          ]
+          ],
+          "icon_id": 3972182783
         },
         {
           "id": 101,
@@ -54,7 +55,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3955405164
         },
         {
           "id": 102,
@@ -69,7 +71,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 4005738021
         },
         {
           "id": 103,
@@ -84,7 +87,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3988960402
         },
         {
           "id": 110,
@@ -98,7 +102,8 @@
               "node_id": 101,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3871369974
         },
         {
           "id": 111,
@@ -112,7 +117,8 @@
               "node_id": 110,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3888147593
         },
         {
           "id": 112,
@@ -126,7 +132,8 @@
               "node_id": 100,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3837814736
         },
         {
           "id": 113,
@@ -140,7 +147,8 @@
               "node_id": 111,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3854592355
         },
         {
           "id": 114,
@@ -155,7 +163,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3938480450
         },
         {
           "id": 115,
@@ -169,7 +178,8 @@
               "node_id": 110,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3955258069
         },
         {
           "id": 130,
@@ -183,7 +193,8 @@
               "node_id": 100,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 2059092932
         },
         {
           "id": 131,
@@ -204,7 +215,8 @@
               "mode": 1,
               "value": 15.0
             }
-          ]
+          ],
+          "icon_id": 2075870551
         },
         {
           "id": 132,
@@ -219,7 +231,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2092648170
         },
         {
           "id": 133,
@@ -233,7 +246,8 @@
               "node_id": 132,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2109425789
         },
         {
           "id": 134,
@@ -248,7 +262,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1991982456
         },
         {
           "id": 135,
@@ -262,7 +277,8 @@
               "node_id": 130,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2008760075
         },
         {
           "id": 150,
@@ -276,7 +292,8 @@
               "node_id": 102,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 4004899378
         },
         {
           "id": 151,
@@ -290,7 +307,8 @@
               "node_id": 150,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 4021676997
         },
         {
           "id": 152,
@@ -305,7 +323,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3971344140
         },
         {
           "id": 153,
@@ -320,7 +339,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3988121759
         },
         {
           "id": 154,
@@ -334,7 +354,8 @@
               "node_id": 150,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 3937788902
         },
         {
           "id": 155,
@@ -348,7 +369,8 @@
               "node_id": 154,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3954566521
         },
         {
           "id": 170,
@@ -363,7 +385,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3803273760
         },
         {
           "id": 171,
@@ -378,7 +401,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3820051379
         },
         {
           "id": 172,
@@ -393,7 +417,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3836828998
         },
         {
           "id": 173,
@@ -408,7 +433,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3853606617
         },
         {
           "id": 174,
@@ -427,7 +453,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3870384236
         },
         {
           "id": 175,
@@ -442,7 +469,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3887161855
         }
       ],
       "skill_contract": {
@@ -673,7 +701,8 @@
               "mode": 1,
               "value": 10.0
             }
-          ]
+          ],
+          "icon_id": 1801066794
         },
         {
           "id": 201,
@@ -699,7 +728,8 @@
               "mode": 1,
               "value": 10.0
             }
-          ]
+          ],
+          "icon_id": 1817844413
         },
         {
           "id": 202,
@@ -713,7 +743,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1767511556
         },
         {
           "id": 203,
@@ -728,7 +759,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1784289175
         },
         {
           "id": 210,
@@ -742,7 +774,8 @@
               "node_id": 200,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1364995795
         },
         {
           "id": 211,
@@ -756,7 +789,8 @@
               "node_id": 210,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1348218176
         },
         {
           "id": 212,
@@ -771,7 +805,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1398551033
         },
         {
           "id": 213,
@@ -785,7 +820,8 @@
               "node_id": 212,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1381773414
         },
         {
           "id": 214,
@@ -799,7 +835,8 @@
               "node_id": 200,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 1432106271
         },
         {
           "id": 215,
@@ -813,7 +850,8 @@
               "node_id": 211,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1415328652
         },
         {
           "id": 230,
@@ -827,7 +865,8 @@
               "node_id": 202,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 1700253985
         },
         {
           "id": 231,
@@ -841,7 +880,8 @@
               "node_id": 230,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1683476366
         },
         {
           "id": 232,
@@ -855,7 +895,8 @@
               "node_id": 230,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1666698747
         },
         {
           "id": 233,
@@ -870,7 +911,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1649921128
         },
         {
           "id": 234,
@@ -885,7 +927,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1767364461
         },
         {
           "id": 235,
@@ -899,7 +942,8 @@
               "node_id": 232,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1750586842
         },
         {
           "id": 250,
@@ -913,7 +957,8 @@
               "node_id": 201,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 3915782263
         },
         {
           "id": 251,
@@ -927,7 +972,8 @@
               "node_id": 250,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3899004644
         },
         {
           "id": 252,
@@ -942,7 +988,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3949337501
         },
         {
           "id": 253,
@@ -956,7 +1003,8 @@
               "node_id": 251,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3932559882
         },
         {
           "id": 254,
@@ -970,7 +1018,8 @@
               "node_id": 251,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3848671787
         },
         {
           "id": 255,
@@ -985,7 +1034,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3831894168
         },
         {
           "id": 270,
@@ -999,7 +1049,8 @@
               "node_id": 203,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3714156645
         },
         {
           "id": 271,
@@ -1013,7 +1064,8 @@
               "node_id": 270,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3697379026
         },
         {
           "id": 272,
@@ -1027,7 +1079,8 @@
               "node_id": 203,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3680601407
         },
         {
           "id": 273,
@@ -1042,7 +1095,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3663823788
         },
         {
           "id": 274,
@@ -1061,7 +1115,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3647046169
         },
         {
           "id": 275,
@@ -1075,7 +1130,8 @@
               "node_id": 274,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3630268550
         }
       ],
       "skill_contract": {
@@ -1322,7 +1378,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3388034293
         },
         {
           "id": 301,
@@ -1336,7 +1393,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3371256674
         },
         {
           "id": 302,
@@ -1350,7 +1408,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3354479055
         },
         {
           "id": 303,
@@ -1365,7 +1424,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3337701436
         },
         {
           "id": 310,
@@ -1386,7 +1446,8 @@
               "mode": 1,
               "value": 20.0
             }
-          ]
+          ],
+          "icon_id": 3287221484
         },
         {
           "id": 311,
@@ -1400,7 +1461,8 @@
               "node_id": 300,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 3303999103
         },
         {
           "id": 312,
@@ -1415,7 +1477,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3320776722
         },
         {
           "id": 313,
@@ -1429,7 +1492,8 @@
               "node_id": 301,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 3337554341
         },
         {
           "id": 314,
@@ -1443,7 +1507,8 @@
               "node_id": 310,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3220111008
         },
         {
           "id": 315,
@@ -1458,7 +1523,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3236888627
         },
         {
           "id": 330,
@@ -1472,7 +1538,8 @@
               "node_id": 302,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 3488847102
         },
         {
           "id": 331,
@@ -1486,7 +1553,8 @@
               "node_id": 330,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3505624721
         },
         {
           "id": 332,
@@ -1500,7 +1568,8 @@
               "node_id": 331,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 3455291864
         },
         {
           "id": 333,
@@ -1514,7 +1583,8 @@
               "node_id": 330,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3472069483
         },
         {
           "id": 334,
@@ -1528,7 +1598,8 @@
               "node_id": 333,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3555957578
         },
         {
           "id": 335,
@@ -1543,7 +1614,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3572735197
         },
         {
           "id": 350,
@@ -1557,7 +1629,8 @@
               "node_id": 300,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1273318824
         },
         {
           "id": 351,
@@ -1571,7 +1644,8 @@
               "node_id": 350,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 1290096443
         },
         {
           "id": 352,
@@ -1585,7 +1659,8 @@
               "node_id": 351,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1306874062
         },
         {
           "id": 353,
@@ -1599,7 +1674,8 @@
               "node_id": 350,
               "required_points": 5
             }
-          ]
+          ],
+          "icon_id": 1323651681
         },
         {
           "id": 354,
@@ -1614,7 +1690,8 @@
               "required_points": 4
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1340429300
         },
         {
           "id": 355,
@@ -1629,7 +1706,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1357206919
         },
         {
           "id": 370,
@@ -1644,7 +1722,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1474944442
         },
         {
           "id": 371,
@@ -1658,7 +1737,8 @@
               "node_id": 370,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1491722061
         },
         {
           "id": 372,
@@ -1673,7 +1753,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1441389204
         },
         {
           "id": 373,
@@ -1687,7 +1768,8 @@
               "node_id": 372,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1458166823
         },
         {
           "id": 374,
@@ -1705,7 +1787,8 @@
               "node_id": 370,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1407833966
         },
         {
           "id": 375,
@@ -1719,7 +1802,8 @@
               "node_id": 374,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1424611585
         }
       ],
       "skill_contract": {
@@ -1951,7 +2035,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1369623208
         },
         {
           "id": 401,
@@ -1965,7 +2050,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1386400827
         },
         {
           "id": 402,
@@ -1979,7 +2065,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1403178446
         },
         {
           "id": 403,
@@ -1994,7 +2081,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1419956065
         },
         {
           "id": 410,
@@ -2009,7 +2097,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1470436017
         },
         {
           "id": 411,
@@ -2030,7 +2119,8 @@
               "mode": 0,
               "value": 5.0
             }
-          ]
+          ],
+          "icon_id": 1453658398
         },
         {
           "id": 412,
@@ -2044,7 +2134,8 @@
               "node_id": 410,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1436880779
         },
         {
           "id": 413,
@@ -2058,7 +2149,8 @@
               "node_id": 412,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1420103160
         },
         {
           "id": 414,
@@ -2072,7 +2164,8 @@
               "node_id": 400,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1537546493
         },
         {
           "id": 415,
@@ -2087,7 +2180,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1520768874
         },
         {
           "id": 430,
@@ -2108,7 +2202,8 @@
               "mode": 0,
               "value": 4.0
             }
-          ]
+          ],
+          "icon_id": 3282713059
         },
         {
           "id": 431,
@@ -2122,7 +2217,8 @@
               "node_id": 430,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3265935440
         },
         {
           "id": 432,
@@ -2136,7 +2232,8 @@
               "node_id": 430,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 3316268297
         },
         {
           "id": 433,
@@ -2150,7 +2247,8 @@
               "node_id": 432,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3299490678
         },
         {
           "id": 434,
@@ -2165,7 +2263,8 @@
               "required_points": 4
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3349823535
         },
         {
           "id": 435,
@@ -2180,7 +2279,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3333045916
         },
         {
           "id": 450,
@@ -2201,7 +2301,8 @@
               "mode": 0,
               "value": 3.0
             }
-          ]
+          ],
+          "icon_id": 3484338677
         },
         {
           "id": 451,
@@ -2215,7 +2316,8 @@
               "node_id": 450,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3467561058
         },
         {
           "id": 452,
@@ -2229,7 +2331,8 @@
               "node_id": 451,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 3450783439
         },
         {
           "id": 453,
@@ -2243,7 +2346,8 @@
               "node_id": 452,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 3434005820
         },
         {
           "id": 454,
@@ -2257,7 +2361,8 @@
               "node_id": 450,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3417228201
         },
         {
           "id": 455,
@@ -2272,7 +2377,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3400450582
         },
         {
           "id": 470,
@@ -2287,7 +2393,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1538532231
         },
         {
           "id": 471,
@@ -2301,7 +2408,8 @@
               "node_id": 470,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1521754612
         },
         {
           "id": 472,
@@ -2316,7 +2424,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1572087469
         },
         {
           "id": 473,
@@ -2331,7 +2440,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1555309850
         },
         {
           "id": 474,
@@ -2346,7 +2456,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1471421755
         },
         {
           "id": 475,
@@ -2360,7 +2471,8 @@
               "node_id": 474,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1454644136
         },
         {
           "id": 476,
@@ -2379,7 +2491,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1504976993
         }
       ],
       "skill_contract": {
@@ -2641,7 +2754,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2956590707
         },
         {
           "id": 501,
@@ -2655,7 +2769,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2939813088
         },
         {
           "id": 502,
@@ -2669,7 +2784,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2990145945
         },
         {
           "id": 503,
@@ -2684,7 +2800,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2973368326
         },
         {
           "id": 510,
@@ -2699,7 +2816,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1245126474
         },
         {
           "id": 511,
@@ -2714,7 +2832,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1261904093
         },
         {
           "id": 512,
@@ -2728,7 +2847,8 @@
               "node_id": 511,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 1211571236
         },
         {
           "id": 513,
@@ -2742,7 +2862,8 @@
               "node_id": 512,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1228348855
         },
         {
           "id": 514,
@@ -2757,7 +2878,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1178015998
         },
         {
           "id": 515,
@@ -2772,7 +2894,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1194793617
         },
         {
           "id": 530,
@@ -2786,7 +2909,8 @@
               "node_id": 501,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 1043500856
         },
         {
           "id": 531,
@@ -2800,7 +2924,8 @@
               "node_id": 530,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1060278475
         },
         {
           "id": 532,
@@ -2814,7 +2939,8 @@
               "node_id": 530,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1077056094
         },
         {
           "id": 533,
@@ -2828,7 +2954,8 @@
               "node_id": 502,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 1093833713
         },
         {
           "id": 534,
@@ -2842,7 +2969,8 @@
               "node_id": 530,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 1110611332
         },
         {
           "id": 535,
@@ -2857,7 +2985,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1127388951
         },
         {
           "id": 550,
@@ -2871,7 +3000,8 @@
               "node_id": 503,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 1111597070
         },
         {
           "id": 551,
@@ -2885,7 +3015,8 @@
               "node_id": 550,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1128374689
         },
         {
           "id": 552,
@@ -2899,7 +3030,8 @@
               "node_id": 550,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1078041832
         },
         {
           "id": 553,
@@ -2914,7 +3046,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 1094819451
         },
         {
           "id": 554,
@@ -2928,7 +3061,8 @@
               "node_id": 553,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 1178707546
         },
         {
           "id": 555,
@@ -2942,7 +3076,8 @@
               "node_id": 554,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 1195485165
         },
         {
           "id": 570,
@@ -2956,7 +3091,8 @@
               "node_id": 502,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3057403516
         },
         {
           "id": 571,
@@ -2971,7 +3107,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3074181135
         },
         {
           "id": 572,
@@ -2985,7 +3122,8 @@
               "node_id": 502,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3090958754
         },
         {
           "id": 573,
@@ -3000,7 +3138,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 3107736373
         },
         {
           "id": 574,
@@ -3019,7 +3158,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2990293040
         },
         {
           "id": 575,
@@ -3033,7 +3173,8 @@
               "node_id": 574,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 3007070659
         }
       ],
       "skill_contract": {
@@ -3267,7 +3408,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 806263070
         },
         {
           "id": 601,
@@ -3281,7 +3423,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 823040689
         },
         {
           "id": 602,
@@ -3295,7 +3438,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 772707832
         },
         {
           "id": 603,
@@ -3310,7 +3454,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 789485451
         },
         {
           "id": 610,
@@ -3324,7 +3469,8 @@
               "node_id": 600,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 907075879
         },
         {
           "id": 611,
@@ -3338,7 +3484,8 @@
               "node_id": 610,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 890298260
         },
         {
           "id": 612,
@@ -3352,7 +3499,8 @@
               "node_id": 610,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 940631117
         },
         {
           "id": 613,
@@ -3366,7 +3514,8 @@
               "node_id": 612,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 923853498
         },
         {
           "id": 614,
@@ -3381,7 +3530,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 839965403
         },
         {
           "id": 615,
@@ -3396,7 +3546,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 823187784
         },
         {
           "id": 630,
@@ -3411,7 +3562,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 705450261
         },
         {
           "id": 631,
@@ -3426,7 +3578,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 688672642
         },
         {
           "id": 632,
@@ -3441,7 +3594,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 671895023
         },
         {
           "id": 633,
@@ -3455,7 +3609,8 @@
               "node_id": 632,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 655117404
         },
         {
           "id": 634,
@@ -3470,7 +3625,8 @@
               "required_points": 4
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 638339785
         },
         {
           "id": 635,
@@ -3485,7 +3641,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 621562166
         },
         {
           "id": 650,
@@ -3499,7 +3656,8 @@
               "node_id": 601,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 2651256707
         },
         {
           "id": 651,
@@ -3514,7 +3672,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2634479088
         },
         {
           "id": 652,
@@ -3528,7 +3687,8 @@
               "node_id": 651,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 2684811945
         },
         {
           "id": 653,
@@ -3549,7 +3709,8 @@
               "mode": 1,
               "value": 28.0
             }
-          ]
+          ],
+          "icon_id": 2668034326
         },
         {
           "id": 654,
@@ -3564,7 +3725,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2718367183
         },
         {
           "id": 655,
@@ -3578,7 +3740,8 @@
               "node_id": 650,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 2701589564
         },
         {
           "id": 670,
@@ -3592,7 +3755,8 @@
               "node_id": 603,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 838979665
         },
         {
           "id": 671,
@@ -3607,7 +3771,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 822202046
         },
         {
           "id": 672,
@@ -3621,7 +3786,8 @@
               "node_id": 603,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 805424427
         },
         {
           "id": 673,
@@ -3636,7 +3802,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 788646808
         },
         {
           "id": 674,
@@ -3654,7 +3821,8 @@
               "node_id": 672,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 906090141
         },
         {
           "id": 675,
@@ -3669,7 +3837,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 889312522
         }
       ],
       "skill_contract": {
@@ -3917,7 +4086,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 240575625
         },
         {
           "id": 701,
@@ -3932,7 +4102,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 223798006
         },
         {
           "id": 702,
@@ -3946,7 +4117,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 207020387
         },
         {
           "id": 703,
@@ -3961,7 +4133,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 190242768
         },
         {
           "id": 710,
@@ -3976,7 +4149,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2287194880
         },
         {
           "id": 711,
@@ -3991,7 +4165,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2303972499
         },
         {
           "id": 712,
@@ -4006,7 +4181,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2320750118
         },
         {
           "id": 713,
@@ -4021,7 +4197,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2337527737
         },
         {
           "id": 714,
@@ -4035,7 +4212,8 @@
               "node_id": 711,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2354305356
         },
         {
           "id": 715,
@@ -4049,7 +4227,8 @@
               "node_id": 702,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 2371082975
         },
         {
           "id": 730,
@@ -4064,7 +4243,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 341388434
         },
         {
           "id": 731,
@@ -4079,7 +4259,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 358166053
         },
         {
           "id": 732,
@@ -4094,7 +4275,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 307833196
         },
         {
           "id": 733,
@@ -4109,7 +4291,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 324610815
         },
         {
           "id": 734,
@@ -4123,7 +4306,8 @@
               "node_id": 732,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 274277958
         },
         {
           "id": 735,
@@ -4137,7 +4321,8 @@
               "node_id": 702,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 291055577
         },
         {
           "id": 750,
@@ -4152,7 +4337,8 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 543014052
         },
         {
           "id": 751,
@@ -4167,7 +4353,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 559791671
         },
         {
           "id": 752,
@@ -4182,7 +4369,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 576569290
         },
         {
           "id": 753,
@@ -4196,7 +4384,8 @@
               "node_id": 751,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 593346909
         },
         {
           "id": 754,
@@ -4210,7 +4399,8 @@
               "node_id": 753,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 475903576
         },
         {
           "id": 755,
@@ -4224,7 +4414,8 @@
               "node_id": 753,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 492681195
         },
         {
           "id": 770,
@@ -4239,7 +4430,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2355291094
         },
         {
           "id": 771,
@@ -4254,7 +4446,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2372068713
         },
         {
           "id": 772,
@@ -4268,7 +4461,8 @@
               "node_id": 703,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 2321735856
         },
         {
           "id": 773,
@@ -4282,7 +4476,8 @@
               "node_id": 772,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2338513475
         },
         {
           "id": 774,
@@ -4301,7 +4496,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2422401570
         },
         {
           "id": 775,
@@ -4316,7 +4512,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2439179189
         }
       ],
       "skill_contract": {
@@ -4557,7 +4754,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 374819484
         },
         {
           "id": 801,
@@ -4571,7 +4769,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 391597103
         },
         {
           "id": 802,
@@ -4585,7 +4784,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 408374722
         },
         {
           "id": 803,
@@ -4600,7 +4800,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 425152341
         },
         {
           "id": 810,
@@ -4614,7 +4815,8 @@
               "node_id": 801,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 475632293
         },
         {
           "id": 811,
@@ -4628,7 +4830,8 @@
               "node_id": 810,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 458854674
         },
         {
           "id": 812,
@@ -4643,7 +4846,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 442077055
         },
         {
           "id": 813,
@@ -4658,7 +4862,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 425299436
         },
         {
           "id": 814,
@@ -4672,7 +4877,8 @@
               "node_id": 811,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 408521817
         },
         {
           "id": 815,
@@ -4686,7 +4892,8 @@
               "node_id": 810,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 391744198
         },
         {
           "id": 830,
@@ -4700,7 +4907,8 @@
               "node_id": 800,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 677257911
         },
         {
           "id": 831,
@@ -4715,7 +4923,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 660480292
         },
         {
           "id": 832,
@@ -4729,7 +4938,8 @@
               "node_id": 802,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 710813149
         },
         {
           "id": 833,
@@ -4744,7 +4954,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 694035530
         },
         {
           "id": 834,
@@ -4758,7 +4969,8 @@
               "node_id": 832,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 610147435
         },
         {
           "id": 835,
@@ -4772,7 +4984,8 @@
               "node_id": 833,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 593369816
         },
         {
           "id": 850,
@@ -4786,7 +4999,8 @@
               "node_id": 802,
               "required_points": 4
             }
-          ]
+          ],
+          "icon_id": 2756696929
         },
         {
           "id": 851,
@@ -4801,7 +5015,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2739919310
         },
         {
           "id": 852,
@@ -4816,7 +5031,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2723141691
         },
         {
           "id": 853,
@@ -4830,7 +5046,8 @@
               "node_id": 852,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 2706364072
         },
         {
           "id": 854,
@@ -4844,7 +5061,8 @@
               "node_id": 830,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2823807405
         },
         {
           "id": 855,
@@ -4858,7 +5076,8 @@
               "node_id": 854,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2807029786
         },
         {
           "id": 870,
@@ -4873,7 +5092,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2421438739
         },
         {
           "id": 871,
@@ -4888,7 +5108,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2404661120
         },
         {
           "id": 872,
@@ -4903,7 +5124,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2454993977
         },
         {
           "id": 873,
@@ -4917,7 +5139,8 @@
               "node_id": 872,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2438216358
         },
         {
           "id": 874,
@@ -4936,7 +5159,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2488549215
         },
         {
           "id": 875,
@@ -4955,7 +5179,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2471771596
         },
         {
           "id": 876,
@@ -4970,7 +5195,8 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2522104453
         }
       ],
       "skill_contract": {
@@ -5208,7 +5434,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2498670791
         },
         {
           "id": 901,
@@ -5222,7 +5449,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2481893172
         },
         {
           "id": 902,
@@ -5236,7 +5464,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2532226029
         },
         {
           "id": 903,
@@ -5250,7 +5479,8 @@
               "node_id": 0,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2515448410
         },
         {
           "id": 910,
@@ -5264,7 +5494,8 @@
               "node_id": 900,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 250322750
         },
         {
           "id": 911,
@@ -5278,7 +5509,8 @@
               "node_id": 900,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 267100369
         },
         {
           "id": 912,
@@ -5292,7 +5524,8 @@
               "node_id": 910,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 216767512
         },
         {
           "id": 913,
@@ -5306,7 +5539,8 @@
               "node_id": 912,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 233545131
         },
         {
           "id": 914,
@@ -5320,7 +5554,8 @@
               "node_id": 911,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 317433226
         },
         {
           "id": 930,
@@ -5334,7 +5569,8 @@
               "node_id": 902,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 48697132
         },
         {
           "id": 931,
@@ -5348,7 +5584,8 @@
               "node_id": 930,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 65474751
         },
         {
           "id": 932,
@@ -5362,7 +5599,8 @@
               "node_id": 930,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 82252370
         },
         {
           "id": 933,
@@ -5376,7 +5614,8 @@
               "node_id": 930,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 99029989
         },
         {
           "id": 934,
@@ -5390,7 +5629,8 @@
               "node_id": 931,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 4276553952
         },
         {
           "id": 935,
@@ -5404,7 +5644,8 @@
               "node_id": 934,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 4293331571
         },
         {
           "id": 950,
@@ -5425,7 +5666,8 @@
               "mode": 1,
               "value": 10.0
             }
-          ]
+          ],
+          "icon_id": 2531387386
         },
         {
           "id": 951,
@@ -5439,7 +5681,8 @@
               "node_id": 950,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 2548165005
         },
         {
           "id": 952,
@@ -5453,7 +5696,8 @@
               "node_id": 951,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2497832148
         },
         {
           "id": 953,
@@ -5467,7 +5711,8 @@
               "node_id": 950,
               "required_points": 2
             }
-          ]
+          ],
+          "icon_id": 2514609767
         },
         {
           "id": 954,
@@ -5481,7 +5726,8 @@
               "node_id": 953,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2464276910
         },
         {
           "id": 955,
@@ -5495,7 +5741,8 @@
               "node_id": 953,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2481054529
         },
         {
           "id": 970,
@@ -5509,7 +5756,8 @@
               "node_id": 901,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 2329761768
         },
         {
           "id": 971,
@@ -5523,7 +5771,8 @@
               "node_id": 901,
               "required_points": 3
             }
-          ]
+          ],
+          "icon_id": 2346539387
         },
         {
           "id": 972,
@@ -5537,7 +5786,8 @@
               "node_id": 971,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2363317006
         },
         {
           "id": 973,
@@ -5551,7 +5801,8 @@
               "node_id": 970,
               "required_points": 1
             }
-          ]
+          ],
+          "icon_id": 2380094625
         },
         {
           "id": 974,
@@ -5570,7 +5821,8 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": []
+          "stat_modifiers": [],
+          "icon_id": 2396872244
         }
       ],
       "skill_contract": {
