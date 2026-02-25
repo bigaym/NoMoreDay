@@ -1,0 +1,25 @@
+{
+    "id": "combat_boss_framework_20260225",
+    "title": "Combat Boss Framework",
+    "series": "CS-M3-03",
+    "milestone": "M3",
+    "type": "feature",
+    "priority": "P2",
+    "status": "not_started",
+    "created": "2026-02-25T12:21:00+08:00",
+    "updated": "2026-02-25T12:21:00+08:00",
+    "depends_on": [
+        "combat_ailment_engine_v1_20260225",
+        "combat_defense_contract_v1_20260225",
+        "combat_summon_strategy_v1_20260225"
+    ],
+    "blocks": [],
+    "phases": {
+        "total": 4,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 16,
+        "completed": 0
+    }
+}

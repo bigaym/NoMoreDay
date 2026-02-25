@@ -1,0 +1,26 @@
+{
+    "id": "combat_summon_strategy_v1_20260225",
+    "title": "Combat Summon Strategy V1",
+    "series": "CS-M2-03",
+    "milestone": "M2",
+    "type": "feature",
+    "priority": "P1",
+    "status": "not_started",
+    "created": "2026-02-25T12:21:00+08:00",
+    "updated": "2026-02-25T13:08:00+08:00",
+    "depends_on": [
+        "combat_single_damage_entry_20260225",
+        "combat_summon_entry_fix_20260225"
+    ],
+    "blocks": [
+        "combat_boss_framework_20260225"
+    ],
+    "phases": {
+        "total": 5,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 20,
+        "completed": 0
+    }
+}

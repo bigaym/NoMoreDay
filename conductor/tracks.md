@@ -5,6 +5,225 @@ Completed tracks are archived in [./archive/tracks_archive.md](./archive/tracks_
 
 ---
 
+## Combat System vNext Tracks (2026-02-25)
+
+> **审查文档**: [`combat_system_review.md`](./analyzer/combat_system_review.md)  
+> **实施方案**: [`combat_system_improvement_plan.md`](./analyzer/combat_system_improvement_plan.md)  
+> **能力路线图**: [`combat_system_capability_roadmap.md`](./analyzer/combat_system_capability_roadmap.md)
+
+### M1-M3 Track 依赖图
+
+```
+M1 — P0 口径收敛 (6 Tracks)
+═══════════════════════════════════════════════
+
+CS-M1-01: combat_single_damage_entry ──┐ (根节点, 仅阻塞 M1-06)
+                                       │
+CS-M1-02: combat_dot_closure ──────────── (独立并行 ★)
+CS-M1-03: combat_effectiveness ────────── (独立并行 ★)
+CS-M1-04: combat_event_consistency ────── (独立并行 ★)
+CS-M1-05: combat_contract_ci_gate ─────── (独立并行)
+                                       │
+CS-M1-01 ──→ CS-M1-06: combat_summon_entry_fix (唯一硬依赖 M1-01)
+
+★ 依赖松绑理由:
+  M1-02: DoT 路径已走 DamagePipeline，修复不触及 entry unification
+  M1-03: 仅向 Pipeline 公式添加新字段，不改入口
+  M1-04: CalculateBatch 内部修复 (res.damage→final_damage)
+
+M2 — P1 系统深度 (5 Tracks)
+═══════════════════════════════════════════════
+
+    CS-M1-01 + CS-M1-02 →→ CS-M2-01: combat_ailment_engine_v1
+    CS-M1-01 →→ CS-M2-02: combat_defense_contract_v1
+    CS-M1-01 + CS-M1-06 →→ CS-M2-03: combat_summon_strategy_v1
+    CS-M1-01 + CS-M1-03 →→ CS-M2-04: combat_proc_budget_v1
+    CS-M1-04 →→ CS-M2-05: combat_telemetry_foundation
+
+M3 — P2 长线运营 (4 Tracks)
+═══════════════════════════════════════════════
+
+    CS-M2-02 + CS-M2-04 + CS-M2-05 →→ CS-M3-01: combat_anti_meta_layer
+    CS-M2-01 + CS-M2-02 →→ CS-M3-02: combat_endgame_linker
+    CS-M2-01 + CS-M2-02 + CS-M2-03 →→ CS-M3-03: combat_boss_framework
+    CS-M2-05 + CS-M3-01 + CS-M3-02 + CS-M3-03 →→ CS-M3-04: combat_release_gate_suite
+```
+
+### Active M1 Tracks
+
+## [ ] Track CS-M1-01: Combat Single Damage Entry (combat_single_damage_entry_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P0-Critical  
+> **Type**: refactor/P0-convergence  
+> **Milestone**: M1  
+> **Depends On**: None (root track)  
+> **Focus**: 统一所有伤害路径到 `DamagePipeline`，废弃 `CombatSystem::CalculateDamage` 旧链，建立兼容开关。  
+> **Tasks**: 0/18  
+> **Location**: [`conductor/tracks/combat_single_damage_entry_20260225/`](./tracks/combat_single_damage_entry_20260225/index.md)
+
+## [ ] Track CS-M1-05: Combat Contract CI Gate (combat_contract_ci_gate_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P0  
+> **Type**: tooling/governance  
+> **Milestone**: M1  
+> **Depends On**: None (independent, parallel with CS-M1-01)  
+> **Focus**: 修复 `gen_skill_contracts.py --check` 漂移，强化脚本健壮性，纳入 CI 阻断门禁。  
+> **Tasks**: 0/10  
+> **Location**: [`conductor/tracks/combat_contract_ci_gate_20260225/`](./tracks/combat_contract_ci_gate_20260225/index.md)
+
+### Planned M1 Tracks
+
+## [ ] Track CS-M1-02: Combat DoT Closure (combat_dot_closure_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P0  
+> **Type**: bugfix/P0-convergence  
+> **Milestone**: M1  
+> **Depends On**: None（独立并行 ★ DoT 路径已走 Pipeline）  
+> **Focus**: DoT tick 闭环 `ApplyDamage` + 强制 `Tag::DamageOverTime`，消灭"只弹字不扣血"。  
+> **Tasks**: 0/12  
+> **Location**: [`conductor/tracks/combat_dot_closure_20260225/`](./tracks/combat_dot_closure_20260225/index.md)
+
+## [ ] Track CS-M1-03: Combat Effectiveness Integration (combat_effectiveness_integration_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P0  
+> **Type**: feature/P0-convergence  
+> **Milestone**: M1  
+> **Depends On**: None（独立并行 ★ 仅向 Pipeline 公式添加新字段）  
+> **Focus**: `added_damage_effectiveness` + `trigger.effectiveness` 接入统一公式。  
+> **Tasks**: 0/12  
+> **Location**: [`conductor/tracks/combat_effectiveness_integration_20260225/`](./tracks/combat_effectiveness_integration_20260225/index.md)
+
+## [ ] Track CS-M1-04: Combat Event Consistency (combat_event_consistency_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P0  
+> **Type**: bugfix/P0-convergence  
+> **Milestone**: M1  
+> **Depends On**: None（独立并行 ★ CalculateBatch 内部修复）  
+> **Focus**: `CalculateBatch` 事件值统一使用 `final_damage`。  
+> **Tasks**: 0/10  
+> **Location**: [`conductor/tracks/combat_event_consistency_20260225/`](./tracks/combat_event_consistency_20260225/index.md)
+
+## [ ] Track CS-M1-06: Combat Summon Entry Fix (combat_summon_entry_fix_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P0  
+> **Type**: bugfix/P0-convergence  
+> **Milestone**: M1  
+> **Depends On**: `combat_single_damage_entry_20260225`  
+> **Focus**: SummonSystem/SwordArray 直写 `ApplyDamage` 路由至 `DamagePipeline`。  
+> **Tasks**: 0/10  
+> **Location**: [`conductor/tracks/combat_summon_entry_fix_20260225/`](./tracks/combat_summon_entry_fix_20260225/index.md)
+
+### M2 Tracks (P1 — 系统深度)
+
+## [ ] Track CS-M2-01: Combat Ailment Engine V1 (combat_ailment_engine_v1_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P1  
+> **Type**: feature/system  
+> **Milestone**: M2  
+> **Depends On**: `combat_single_damage_entry_20260225`, `combat_dot_closure_20260225`  
+> **Focus**: `AilmentEngine` 统一异常状态合同：叠层/刷新/覆盖/免疫/tick 策略。  
+> **Tasks**: 0/16  
+> **Location**: [`conductor/tracks/combat_ailment_engine_v1_20260225/`](./tracks/combat_ailment_engine_v1_20260225/index.md)
+
+## [ ] Track CS-M2-02: Combat Defense Contract V1 (combat_defense_contract_v1_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P1  
+> **Type**: feature/governance  
+> **Milestone**: M2  
+> **Depends On**: `combat_single_damage_entry_20260225`  
+> **Focus**: 防御结算顺序合同化：闪避→格挡→护甲/抗性→全局减伤→屏障→生命值。  
+> **Tasks**: 0/12  
+> **Location**: [`conductor/tracks/combat_defense_contract_v1_20260225/`](./tracks/combat_defense_contract_v1_20260225/index.md)
+
+## [ ] Track CS-M2-03: Combat Summon Strategy V1 (combat_summon_strategy_v1_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P1  
+> **Type**: feature/refactor  
+> **Milestone**: M2  
+> **Depends On**: `combat_single_damage_entry_20260225`, `combat_summon_entry_fix_20260225`  
+> **Focus**: 召唤三元归因 + 继承模式 + 命令系统 + SummonSystem 三子系统拆分。  
+> **Tasks**: 0/20  
+> **Location**: [`conductor/tracks/combat_summon_strategy_v1_20260225/`](./tracks/combat_summon_strategy_v1_20260225/index.md)
+
+## [ ] Track CS-M2-04: Combat Proc Budget V1 (combat_proc_budget_v1_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P1  
+> **Type**: feature/governance  
+> **Milestone**: M2  
+> **Depends On**: `combat_single_damage_entry_20260225`, `combat_effectiveness_integration_20260225`  
+> **Focus**: `ProcBudgetManager` 按秒/帧预算，防止高频触发无限放大。  
+> **Tasks**: 0/14  
+> **Location**: [`conductor/tracks/combat_proc_budget_v1_20260225/`](./tracks/combat_proc_budget_v1_20260225/index.md)
+
+## [ ] Track CS-M2-05: Combat Telemetry Foundation (combat_telemetry_foundation_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P1  
+> **Type**: tooling/observability  
+> **Milestone**: M2  
+> **Depends On**: `combat_event_consistency_20260225`  
+> **Focus**: 战斗遥测基础：DamagePipeline/StatsSystem/EventDispatcher/Trigger/Summon 五类指标。  
+> **Tasks**: 0/12  
+> **Location**: [`conductor/tracks/combat_telemetry_foundation_20260225/`](./tracks/combat_telemetry_foundation_20260225/index.md)
+
+### M3 Tracks (P2 — 长线运营)
+
+## [ ] Track CS-M3-01: Combat Anti-Meta Layer (combat_anti_meta_layer_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P2  
+> **Type**: feature/balance  
+> **Milestone**: M3  
+> **Depends On**: `combat_defense_contract_v1_20260225`, `combat_proc_budget_v1_20260225`, `combat_telemetry_foundation_20260225`  
+> **Focus**: 互斥 Keystone / 代价词缀 / 收益递减机制。  
+> **Tasks**: 0/12  
+> **Location**: [`conductor/tracks/combat_anti_meta_layer_20260225/`](./tracks/combat_anti_meta_layer_20260225/index.md)
+
+## [ ] Track CS-M3-02: Combat Endgame Linker (combat_endgame_linker_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P2  
+> **Type**: feature/content  
+> **Milestone**: M3  
+> **Depends On**: `combat_ailment_engine_v1_20260225`, `combat_defense_contract_v1_20260225`  
+> **Focus**: Endgame 词缀到战斗合同映射闭环。  
+> **Tasks**: 0/12  
+> **Location**: [`conductor/tracks/combat_endgame_linker_20260225/`](./tracks/combat_endgame_linker_20260225/index.md)
+
+## [ ] Track CS-M3-03: Combat Boss Framework (combat_boss_framework_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P2  
+> **Type**: feature/content  
+> **Milestone**: M3  
+> **Depends On**: `combat_ailment_engine_v1_20260225`, `combat_defense_contract_v1_20260225`, `combat_summon_strategy_v1_20260225`  
+> **Focus**: Boss 机制框架：阶段化/反制窗/失败惩罚/Ailment 交互。  
+> **Tasks**: 0/16  
+> **Location**: [`conductor/tracks/combat_boss_framework_20260225/`](./tracks/combat_boss_framework_20260225/index.md)
+
+## [ ] Track CS-M3-04: Combat Release Gate Suite (combat_release_gate_suite_20260225)
+
+> **Status**: Not Started  
+> **Priority**: P2  
+> **Type**: quality/governance  
+> **Milestone**: M3  
+> **Depends On**: `combat_telemetry_foundation_20260225` + `combat_anti_meta_layer_20260225` + `combat_endgame_linker_20260225` + `combat_boss_framework_20260225`  
+> **Focus**: 发布门禁套件：CI + nightly + release gate，性能/回归/合同三维准入。  
+> **Tasks**: 0/12  
+> **Location**: [`conductor/tracks/combat_release_gate_suite_20260225/`](./tracks/combat_release_gate_suite_20260225/index.md)
+
+---
+
 ## Skill Spec Safety Tracks (2026-02-23)
 
 ## [x] Track: Skill Specialization Key Node Test Matrix (skill_specialization_keynode_test_matrix_20260223)

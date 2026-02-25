@@ -1,0 +1,24 @@
+{
+    "id": "combat_contract_ci_gate_20260225",
+    "title": "Combat Contract CI Gate",
+    "series": "CS-M1-05",
+    "milestone": "M1",
+    "type": "tooling",
+    "priority": "P0",
+    "status": "not_started",
+    "created": "2026-02-25T12:12:00+08:00",
+    "updated": "2026-02-25T12:12:00+08:00",
+    "depends_on": [],
+    "blocks": [],
+    "phases": {
+        "total": 3,
+        "completed": 0
+    },
+    "tasks": {
+        "total": 10,
+        "completed": 0
+    },
+    "review_docs": [
+        "conductor/analyzer/combat_system_review.md"
+    ]
+}

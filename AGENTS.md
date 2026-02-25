@@ -27,8 +27,9 @@ NoMoreDay 开发代理规则（Windows / PowerShell）。
 2. `Implement`  
    - MUST：最小化、聚焦修改；不改无关文件。
 3. `Verify`  
-   - MUST：在规划的 track 完成后执行验证（先构建，再按需要执行 CTest）。
-   - MUST：提交前再执行一次验证，确保未引入新 bug。
+   - MUST：若本次改动涉及编译相关文件，在规划的 track 完成后执行验证（先构建，再按需要执行 CTest）。
+   - MUST：若本次改动涉及编译相关文件，提交前再执行一次验证，确保未引入新 bug。
+   - MUST：若本次改动不涉及编译相关文件，MUST NOT 强制执行构建/CTest，且 MUST 在验证记录中注明跳过原因。
    - MUST NOT：在手测修改阶段逐次执行构建/CTest（除非用户明确要求）。
 4. `TrackSync`  
    - MUST：更新 track 文档、验证证据、必要时更新 bug_registry。
@@ -58,6 +59,8 @@ NoMoreDay 开发代理规则（Windows / PowerShell）。
 - `.md/.cpp/.hpp` 编辑 MUST 使用 `apply_patch`（优先）。
 - MUST NOT 用 `Set-Content` / `Out-File` 重写含非 ASCII 文件。
 - 文本文件 MUST 为 UTF-8；中文文档 SHOULD 使用 UTF-8 with BOM。
+- 读取文本文件时 MUST 显式使用 UTF-8 编码（如 `Get-Content -Encoding utf8`、`Path(...).read_text(encoding='utf-8')`）。
+- MUST NOT 采用“先按默认编码读取，失败后再回退 UTF-8”的策略。
 - 每次编辑后 MUST 做 UTF-8 校验：
   - `python -c "from pathlib import Path; Path('file').read_text(encoding='utf-8')"`
 - 乱码排查顺序 MUST 为：
@@ -73,8 +76,13 @@ NoMoreDay 开发代理规则（Windows / PowerShell）。
 ### 4.0 执行时机（必须）
 
 - 手测修改阶段：MUST NOT 强制执行构建/CTest。
-- Track 计划项完成后：MUST 执行一次完整验证（`build.bat` + 按需 CTest）。
-- 提交前：MUST 再执行一次验证，作为最终回归检查。
+- 编译相关改动判定（命中任一即视为“涉及编译相关文件”）：
+  - 任何 C/C++ 源码或头文件（如 `.cpp/.hpp/.c/.cc/.h/.inl`）
+  - 构建系统与构建脚本（如 `CMakeLists.txt`、`*.cmake`、`build.bat`）
+  - 会影响编译/链接行为的工程配置
+- Track 计划项完成后：若涉及编译相关文件，MUST 执行一次完整验证（`build.bat` + 按需 CTest）。
+- 提交前：若涉及编译相关文件，MUST 再执行一次验证，作为最终回归检查。
+- 若不涉及编译相关文件：MUST NOT 强制执行构建/CTest；MUST 在验证文档中记录 `Skip Build/CTest: no C++/build changes`。
 
 ### 4.1 构建
 
@@ -184,10 +192,13 @@ NoMoreDay 开发代理规则（Windows / PowerShell）。
 
 Track 完成时 MUST 按顺序执行：
 
-1. 编译与测试检查  
-   - `build.bat`  
-   - `build.bat analyze`（如适用）  
-   - `ctest --test-dir build -C Release -L performance --output-on-failure`（如适用）
+1. 编译与测试检查（按变更类型）  
+   - 若涉及编译相关文件：  
+     - `build.bat`  
+     - `build.bat analyze`（如适用）  
+     - `ctest --test-dir build -C Release -L performance --output-on-failure`（如适用）
+   - 若不涉及编译相关文件：  
+     - MUST 记录 `Skip Build/CTest: no C++/build changes`
 2. 文档与追踪同步  
    - 更新 `plan.md` / `validation.md` / `metadata.json` / `tracks.md`
 3. 归档 track（命令行 `move`）  
