@@ -352,8 +352,6 @@ void CombatSystem::update(entt::registry &registry,
                   // --- 生命偷取 & 击中回复 ---
                   if (stats && registry.all_of<HealthComponent>(entity)) {
                     float healAmount = 0.0f;
-                    if (stats->life_on_hit > 0.0f)
-                      healAmount += stats->life_on_hit;
                     if (stats->life_steal > 0.0f)
                       healAmount += finalDamage * stats->life_steal;
 

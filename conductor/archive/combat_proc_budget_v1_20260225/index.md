@@ -1,7 +1,7 @@
 # Track: Combat Proc Budget V1
 
 **ID:** `combat_proc_budget_v1_20260225`  
-**Status:** Not Started  
+**Status:** Completed  
 **Type:** feature/governance  
 **Priority:** P1  
 **Milestone:** M2  
@@ -15,8 +15,8 @@
 
 ## Progress
 
-- **Phases:** 0/4 complete
-- **Tasks:** 0/14 complete
+- **Phases:** 4/4 complete
+- **Tasks:** 14/14 complete
 
 ## Scope Summary
 

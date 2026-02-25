@@ -2,6 +2,7 @@
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
+#include "game/systems/combat/ProcBudgetManager.hpp"
 #include <atomic>
 #include <algorithm>
 #include <fstream>
@@ -441,6 +442,11 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
 
   const AilmentContract *contract = contracts.Find(request.ailment);
   if (!contract || contract->immunity_and_resistance <= 0.0f) {
+    return false;
+  }
+  if (registry.valid(request.source) &&
+      !ProcBudgetManager::Get().RequestProc(
+          request.source, ProcBudgetType::AilmentProc, 1.0f)) {
     return false;
   }
 

@@ -154,16 +154,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 20/20  
 > **Location**: [`conductor/archive/combat_summon_strategy_v1_20260225/`](./archive/combat_summon_strategy_v1_20260225/index.md)
 
-## [ ] Track CS-M2-04: Combat Proc Budget V1 (combat_proc_budget_v1_20260225)
+## [x] Track CS-M2-04: Combat Proc Budget V1 (combat_proc_budget_v1_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature/governance  
 > **Milestone**: M2  
 > **Depends On**: `combat_single_damage_entry_20260225`, `combat_effectiveness_integration_20260225`  
 > **Focus**: `ProcBudgetManager` 按秒/帧预算，防止高频触发无限放大。  
-> **Tasks**: 0/14  
-> **Location**: [`conductor/tracks/combat_proc_budget_v1_20260225/`](./tracks/combat_proc_budget_v1_20260225/index.md)
+> **Tasks**: 14/14  
+> **Location**: [`conductor/archive/combat_proc_budget_v1_20260225/`](./archive/combat_proc_budget_v1_20260225/index.md)
 
 ## [ ] Track CS-M2-05: Combat Telemetry Foundation (combat_telemetry_foundation_20260225)
 

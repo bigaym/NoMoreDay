@@ -53,6 +53,7 @@
 #include "game/systems/combat/EliteModifierSystem.hpp"
 #include "game/systems/combat/HazardSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
+#include "game/systems/combat/ProcBudgetManager.hpp"
 #include "game/systems/combat/RegenerationSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/item/LootGridSystem.hpp"
@@ -401,6 +402,7 @@ GameplayState::~GameplayState() {
 
 bool GameplayState::OnUpdate(float dt) {
   auto &registry = *m_context->registry;
+  NoMoreDay::ProcBudgetManager::Get().BeginFrame(dt);
   NoMoreDay::render::GPUTextSystem::Get().BeginFrame();
 
   UpdateSceneRT();

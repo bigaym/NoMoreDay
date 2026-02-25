@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Proc Budget V1 (combat_proc_budget_v1_20260225)
+- **Folder:** [./conductor/archive/combat_proc_budget_v1_20260225/](./conductor/archive/combat_proc_budget_v1_20260225/)
+- **Description:** Completed proc-budget governance rollout for CS-M2-04: added `ProcBudgetManager` with configurable per-second/per-frame budgets (`life_on_hit`, `mana_on_hit`, `ailment proc`, `trigger proc`, `event emit`), deterministic token-bucket downsampling, and frame-level drop-rate logging; integrated hooks into `SkillSystem` trigger dispatch, `OnSkillHit` recovery path, `AilmentApplier`, and `CombatEventDispatcher` emit gate; added new unit/integration stress coverage.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P1
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS (including final pre-commit rerun).
+
+---
+
 ## [x] Track: Combat Summon Strategy V1 (combat_summon_strategy_v1_20260225)
 - **Folder:** [./conductor/archive/combat_summon_strategy_v1_20260225/](./conductor/archive/combat_summon_strategy_v1_20260225/)
 - **Description:** Completed summon architecture refactor for CS-M2-03: replaced `SummonComponent.name` with `archetype_id`, added summon combat/AI/runtime profiles, split `SummonSystem` into Lifecycle/AI/CombatBridge, migrated spirit sword ShadowCast + melee orbit to bridge-driven DamagePipeline paths, and added summon attribution tuple (`owner/summon/source_skill`) in combat events.

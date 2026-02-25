@@ -1,7 +1,10 @@
 #include "CombatEventDispatcher.hpp"
+#include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
+#include "game/systems/combat/ProcBudgetManager.hpp"
 #include "core/logging/Logger.hpp"
+#include <algorithm>
 
 namespace NoMoreDay {
 
@@ -57,6 +60,10 @@ void CombatEventDispatcher::Unregister(CombatEventType type, uint32_t handler_id
 }
 
 void CombatEventDispatcher::Dispatch(entt::registry& registry, const CombatEvent& event) {
+    if (!ProcBudgetManager::Get().RequestEventEmit()) {
+        return;
+    }
+
     std::shared_lock lock(s_dispatcherMutex);
     auto& handlers = GetHandlers();
     size_t idx = static_cast<size_t>(event.type);
@@ -93,16 +100,39 @@ void CombatEventDispatcher::Init() {
     // --- Register default system handlers ---
     
     
-    // Mana on hit
+    // Unified hit recovery path (budget-gated life/mana on hit)
     Register(CombatEventType::OnSkillHit, [](entt::registry& registry, const CombatEvent& evt) {
         if (!registry.valid(evt.source)) return;
         
         auto* stats = registry.try_get<CombatStats>(evt.source);
-        if (!stats || stats->mana_on_hit <= 0.0f) return;
-        
-        stats->mana = std::min(stats->max_mana, stats->mana + stats->mana_on_hit);
-        LOG_DEBUG("Entity {} restored {:.1f} mana on hit (via event)", 
-                  static_cast<uint32_t>(evt.source), stats->mana_on_hit);
+        if (!stats) return;
+
+        auto& procBudget = ProcBudgetManager::Get();
+
+        if (stats->mana_on_hit > 0.0f) {
+            const float manaMissing = std::max(0.0f, stats->max_mana - stats->mana);
+            const float manaGain = std::min(manaMissing, stats->mana_on_hit);
+            if (manaGain > 0.0f &&
+                procBudget.RequestProc(evt.source, ProcBudgetType::ManaOnHit, manaGain)) {
+                stats->mana += manaGain;
+                LOG_DEBUG("Entity {} restored {:.1f} mana on hit (budgeted)",
+                          static_cast<uint32_t>(evt.source), manaGain);
+            }
+        }
+
+        if (stats->life_on_hit > 0.0f) {
+            auto* hp = registry.try_get<HealthComponent>(evt.source);
+            if (!hp) return;
+
+            const float lifeMissing = std::max(0.0f, hp->max - hp->current);
+            const float lifeGain = std::min(lifeMissing, stats->life_on_hit);
+            if (lifeGain > 0.0f &&
+                procBudget.RequestProc(evt.source, ProcBudgetType::LifeOnHit, lifeGain)) {
+                hp->current += lifeGain;
+                LOG_DEBUG("Entity {} restored {:.1f} life on hit (budgeted)",
+                          static_cast<uint32_t>(evt.source), lifeGain);
+            }
+        }
     }, 50);
     
     LOG_INFO("CombatEventDispatcher: Default handlers initialized");

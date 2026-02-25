@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "life_on_hit_per_sec": 80.0,
+  "mana_on_hit_per_sec": 120.0,
+  "ailment_proc_per_sec": 24.0,
+  "trigger_proc_per_sec": 18.0,
+  "event_emit_per_frame": 640
+}

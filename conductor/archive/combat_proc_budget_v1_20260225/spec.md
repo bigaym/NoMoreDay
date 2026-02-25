@@ -27,10 +27,10 @@
 
 ## 4. Acceptance Criteria
 
-- [ ] 高攻速 + 多召唤场景无指数收益爆炸。
-- [ ] 预算参数可配置（不硬编码）。
-- [ ] 超预算时行为可预测（日志可追踪降采样率）。
-- [ ] `build.bat` + `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS。
+- [x] 高攻速 + 多召唤场景无指数收益爆炸。
+- [x] 预算参数可配置（不硬编码）。
+- [x] 超预算时行为可预测（日志可追踪降采样率）。
+- [x] `build.bat` + `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS。
 
 ## 5. Risks
 

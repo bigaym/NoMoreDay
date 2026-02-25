@@ -19,6 +19,7 @@
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/ProcBudgetManager.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
@@ -758,6 +759,12 @@ void SkillSystem::InitHooks() {
               if (!trigger_skill) {
                 LogGuardBlocked(kDiagTriggerSkillUnavailable, evt.skill_id,
                                 node_id, caster, "trigger skill not found");
+                continue;
+              }
+              if (!ProcBudgetManager::Get().RequestProc(
+                      caster, ProcBudgetType::TriggerProc, 1.0f)) {
+                LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id, caster,
+                                "proc budget denied");
                 continue;
               }
               if (node_contract->trigger.consumes_mana) {
