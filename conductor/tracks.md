@@ -132,16 +132,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 16/16  
 > **Location**: [`conductor/archive/combat_ailment_engine_v1_20260225/`](./archive/combat_ailment_engine_v1_20260225/index.md)
 
-## [ ] Track CS-M2-02: Combat Defense Contract V1 (combat_defense_contract_v1_20260225)
+## [x] Track CS-M2-02: Combat Defense Contract V1 (combat_defense_contract_v1_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature/governance  
 > **Milestone**: M2  
 > **Depends On**: `combat_single_damage_entry_20260225`  
 > **Focus**: 防御结算顺序合同化：闪避→格挡→护甲/抗性→全局减伤→屏障→生命值。  
-> **Tasks**: 0/12  
-> **Location**: [`conductor/tracks/combat_defense_contract_v1_20260225/`](./tracks/combat_defense_contract_v1_20260225/index.md)
+> **Tasks**: 12/12  
+> **Location**: [`conductor/archive/combat_defense_contract_v1_20260225/`](./archive/combat_defense_contract_v1_20260225/index.md)
 
 ## [ ] Track CS-M2-03: Combat Summon Strategy V1 (combat_summon_strategy_v1_20260225)
 

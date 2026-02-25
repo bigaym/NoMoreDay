@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Defense Contract V1 (combat_defense_contract_v1_20260225)
+- **Folder:** [./conductor/archive/combat_defense_contract_v1_20260225/](./conductor/archive/combat_defense_contract_v1_20260225/)
+- **Description:** Completed defense-order contract consolidation for combat mitigation: centralized dodge/block/armor-resistance/global-DR chain into `DamagePipeline`, removed duplicated pre-check logic from `CombatSystem`, and added `COMBAT_DEFENSE_DEBUG` gated step logging with new defense unit/integration coverage.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P1
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS (including post-fix rerun on same day).
+
+---
+
 ## [x] Track: Combat Ailment Engine V1 (combat_ailment_engine_v1_20260225)
 - **Folder:** [./conductor/archive/combat_ailment_engine_v1_20260225/](./conductor/archive/combat_ailment_engine_v1_20260225/)
 - **Description:** Completed the `AilmentEngine` rollout with contract-driven registry/adaptation/apply/tick flow: added `AilmentContract` policies (stack/refresh/overwrite/damage-pool), JSON contract source (`Poison/Ignite/Bleed`), migrated `EffectSystem` DoT execution to `AilmentTickDriver`, and preserved legacy `BuffType::DamageOverTime` compatibility.

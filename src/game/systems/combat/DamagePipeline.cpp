@@ -20,6 +20,119 @@
 
 namespace NoMoreDay {
 
+#ifndef COMBAT_DEFENSE_DEBUG
+#define COMBAT_DEFENSE_DEBUG 0
+#endif
+
+#if COMBAT_DEFENSE_DEBUG
+#define COMBAT_DEFENSE_LOG(...) spdlog::debug(__VA_ARGS__)
+#else
+#define COMBAT_DEFENSE_LOG(...) ((void)0)
+#endif
+
+namespace {
+
+struct DefenseResolution {
+  bool dodged = false;
+  bool blocked = false;
+  float block_multiplier = 1.0f;
+  float effective_dodge = 0.0f;
+  float block_effectiveness = 0.0f;
+  float block_amount = 0.0f;
+};
+
+bool ShouldResolveDefenseRolls(Tag hit_tags, bool skip_mitigation,
+                               bool is_simulation) {
+  if (skip_mitigation || is_simulation) {
+    return false;
+  }
+
+  if (!HasTag(hit_tags, Tag::Hit)) {
+    return false;
+  }
+
+  return !HasTag(hit_tags, Tag::DamageOverTime);
+}
+
+float ResolveBlockEffectiveness(const CombatStats &defender_stats) {
+  float block_effectiveness = defender_stats.effective_block_eff;
+  if (block_effectiveness <= 0.0f && defender_stats.block_amount > 0.0f) {
+    const int area_level = (std::max)(1, defender_stats.cached_area_level);
+    block_effectiveness = CombatFormula::CalculateBlockEffectiveness(
+        defender_stats.block_amount, area_level);
+  }
+  return std::clamp(block_effectiveness, 0.0f, 1.0f);
+}
+
+DefenseResolution ResolveDefenseResolution(
+    entt::registry &registry, entt::entity attacker, entt::entity defender,
+    const CombatStats *attacker_stats, const CombatStats *defender_stats,
+    Tag hit_tags, bool skip_mitigation, bool is_simulation,
+    bool dispatch_events) {
+  DefenseResolution resolution;
+  if (!defender_stats || !ShouldResolveDefenseRolls(hit_tags, skip_mitigation,
+                                                    is_simulation)) {
+    return resolution;
+  }
+
+  if (defender_stats->dodge_chance <= 0.0f &&
+      defender_stats->block_chance <= 0.0f) {
+    return resolution;
+  }
+
+  const float attacker_accuracy = attacker_stats ? attacker_stats->accuracy : 1.0f;
+  resolution.effective_dodge = std::clamp(
+      defender_stats->dodge_chance - (attacker_accuracy - 1.0f), 0.0f, 1.0f);
+  COMBAT_DEFENSE_LOG(
+      "[DefenseChain] step=1 attacker={} defender={} dodgeChance={:.4f}",
+      static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender),
+      resolution.effective_dodge);
+
+  if (resolution.effective_dodge > 0.0f &&
+      utils::ThreadSafeRandom::GetFloat01() < resolution.effective_dodge) {
+    resolution.dodged = true;
+    COMBAT_DEFENSE_LOG(
+        "[DefenseChain] step=1 attacker={} defender={} dodged=true",
+        static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender));
+
+    if (dispatch_events) {
+      CombatEventDispatcher::Dispatch(
+          registry, CombatEventFactory::CreateOnDodge(defender, attacker));
+    }
+    return resolution;
+  }
+
+  const float block_chance = std::clamp(defender_stats->block_chance, 0.0f, 1.0f);
+  COMBAT_DEFENSE_LOG(
+      "[DefenseChain] step=2 attacker={} defender={} blockChance={:.4f}",
+      static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender),
+      block_chance);
+
+  if (block_chance > 0.0f &&
+      utils::ThreadSafeRandom::GetFloat01() < block_chance) {
+    resolution.blocked = true;
+    resolution.block_amount = defender_stats->block_amount;
+    resolution.block_effectiveness = ResolveBlockEffectiveness(*defender_stats);
+    resolution.block_multiplier = 1.0f - resolution.block_effectiveness;
+
+    COMBAT_DEFENSE_LOG(
+        "[DefenseChain] step=2 attacker={} defender={} blocked=true "
+        "blockMultiplier={:.4f}",
+        static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender),
+        resolution.block_multiplier);
+
+    if (dispatch_events) {
+      CombatEventDispatcher::Dispatch(
+          registry, CombatEventFactory::CreateOnBlock(
+                        defender, attacker, resolution.block_amount));
+    }
+  }
+
+  return resolution;
+}
+
+} // namespace
+
 // Simple fixed-capacity vector helper to avoid allocations
 template <typename T, size_t N> struct FixedVector {
   std::array<T, N> data;
@@ -189,6 +302,20 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
 
   auto *attacker_stats = registry.try_get<CombatStats>(attacker);
   auto *defender_stats = registry.try_get<CombatStats>(defender);
+  const DefenseResolution defense_resolution = ResolveDefenseResolution(
+      registry, attacker, defender, attacker_stats, defender_stats,
+      combined_hit_tags, skip_mitigation, is_simulation, !is_simulation);
+
+  if (defense_resolution.dodged) {
+    DamageResult dodged_result;
+    dodged_result.was_dodged = true;
+    dodged_result.block_multiplier = defense_resolution.block_multiplier;
+    COMBAT_DEFENSE_LOG(
+        "[DefenseChain] attacker={} defender={} step=6 hpDamage=0.0000 "
+        "(dodged)",
+        static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender));
+    return dodged_result;
+  }
 
   // Initial Instances from Base Pool
   struct Instance {
@@ -366,6 +493,8 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
 
   // 3 & 4. Apply Multipliers (Dynamic via StatsSystem)
   DamageResult result;
+  result.was_blocked = defense_resolution.blocked;
+  result.block_multiplier = defense_resolution.block_multiplier;
   float total_final_damage = 0.0f;
 
   using namespace NoMoreDay::Constants::Combat::Pipeline;
@@ -567,6 +696,10 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     int type_idx = std::countr_zero(static_cast<uint64_t>(inst.final_type));
     float damage_after_res = inst.amount;
     if (!skip_mitigation) {
+      if (defense_resolution.blocked) {
+        damage_after_res *= defense_resolution.block_multiplier;
+      }
+
       float res = 0.0f;
       if (type_idx < ELEMENTAL_TYPE_COUNT) {
         res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
@@ -598,6 +731,12 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
         damage_after_res *=
             (1.0f - (std::min)(DR_MAX, defender_stats->damage_reduction));
       }
+
+      COMBAT_DEFENSE_LOG(
+          "[DefenseChain] attacker={} defender={} step=3/4 typeIdx={} "
+          "postMitigation={:.4f}",
+          static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender),
+          type_idx, damage_after_res);
     }
 
     total_final_damage += damage_after_res;
@@ -612,6 +751,13 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
   for (int i = 0; i < 6; ++i) {
     result.final_pool.values[i] *= suppressor_multiplier;
   }
+
+  COMBAT_DEFENSE_LOG(
+      "[DefenseChain] attacker={} defender={} step=5 barrier=delegated "
+      "step=6 hpDamage={:.4f} blocked={} blockMultiplier={:.4f}",
+      static_cast<uint32_t>(attacker), static_cast<uint32_t>(defender),
+      total_final_damage, result.was_blocked ? "true" : "false",
+      result.block_multiplier);
 
   // --- Phantom Flash Counter Logic (Single Target) ---
   if (!is_simulation && registry.valid(defender)) {
@@ -731,6 +877,7 @@ DamagePipeline::CreateSnapshot(entt::registry &registry, entt::entity attacker,
       stats
           ? stats->armor_pen
           : 0.0f; // Simplified for now, should use GetStatWithTags if possible
+  snap.accuracy = stats ? stats->accuracy : 1.0f;
 
   return snap;
 }
@@ -756,6 +903,9 @@ void DamagePipeline::CalculateBatch(
     entt::entity target = entt::null;
     float damage = 0.0f;
     bool is_crit = false;
+    bool was_dodged = false;
+    bool was_blocked = false;
+    float block_multiplier = 1.0f;
   };
   std::vector<BatchResult> results(defenders.size());
 
@@ -931,17 +1081,28 @@ void DamagePipeline::CalculateBatch(
   }
 
   // 3. Serial Commit (Main Thread Safe)
+  const auto *batch_attacker_stats = registry.try_get<CombatStats>(attacker);
   for (const auto &res : results) {
     if (res.target != entt::null) {
       float final_damage = res.damage;
-      bool counter_triggered = false;
+      const auto *batch_defender_stats = registry.try_get<CombatStats>(res.target);
+      const DefenseResolution defense_resolution = ResolveDefenseResolution(
+          registry, attacker, res.target, batch_attacker_stats,
+          batch_defender_stats, combined_tags, false, false, true);
+
+      if (defense_resolution.dodged) {
+        continue;
+      }
+
+      if (defense_resolution.blocked) {
+        final_damage *= defense_resolution.block_multiplier;
+      }
 
       // --- Phantom Flash Counter Logic ---
       if (auto *pf = registry.try_get<PhantomFlashComponent>(res.target)) {
         if (pf->counter_window > 0.0f && !pf->triggered) {
           pf->triggered = true;
           final_damage = 0.0f;
-          counter_triggered = true;
 
           if (registry.valid(attacker) && registry.all_of<Position>(attacker) &&
               registry.all_of<Position>(res.target)) {
@@ -964,7 +1125,6 @@ void DamagePipeline::CalculateBatch(
                 ward->sword_count--;
               }
               final_damage = 0.0f;
-              counter_triggered = true;
               spdlog::info("Blade Ward (Batch): Projectile intercepted for "
                            "entity {}! Swords remaining: {}",
                            (uint32_t)res.target, ward->sword_count);

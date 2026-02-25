@@ -16,6 +16,7 @@ option(ENABLE_ANALYZE "Enable MSVC Static Analysis" OFF)
 option(ENABLE_SHOW_INCLUDES "Enable MSVC /showIncludes dependency tracing" OFF)
 option(ENABLE_FAST_BUILD "Enable faster MSVC developer build settings" ON)
 option(ENABLE_RUNTIME_OPT "Enable additional runtime optimization flags for MSVC" ON)
+option(COMBAT_DEFENSE_DEBUG "Enable detailed defense-chain debug logs" OFF)
 option(NMD_ENABLE_COMPILER_CACHE "Enable compiler cache launcher auto-detection" ON)
 set(NMD_COMPILER_CACHE_TOOL "AUTO" CACHE STRING "Compiler cache tool: AUTO/SCCACHE/CCACHE/CLCACHE")
 set_property(CACHE NMD_COMPILER_CACHE_TOOL PROPERTY STRINGS AUTO SCCACHE CCACHE CLCACHE)
@@ -273,6 +274,12 @@ if(WIN32)
     endif()
     
     target_compile_definitions(NoMoreDayCore PUBLIC WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
+endif()
+
+if(COMBAT_DEFENSE_DEBUG)
+    target_compile_definitions(NoMoreDayCore PUBLIC COMBAT_DEFENSE_DEBUG=1)
+else()
+    target_compile_definitions(NoMoreDayCore PUBLIC COMBAT_DEFENSE_DEBUG=0)
 endif()
 
 # --- Main Executable ---

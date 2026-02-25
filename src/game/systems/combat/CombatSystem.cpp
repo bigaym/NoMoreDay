@@ -216,80 +216,16 @@ void CombatSystem::update(entt::registry &registry,
                   }
                 }
 
-                // --- 闪避判定 (Dodge Check) ---
-                bool isDodged = false;
-                if (registry.all_of<NoMoreDay::CombatStats>(target)) {
-                  const auto &targetStats =
-                      registry.get<NoMoreDay::CombatStats>(target);
-                  // 判定是否闪避
-                  // (不免疫持续伤害，如果目前持续伤害的机制还没实现则注释预留)
-                  // TODO: Future DoT (Damage over Time) logic should bypass
-                  // this check.
-                  if (targetStats.dodge_chance > 0.0f) {
-                    // 计算有效闪避率：目标闪避 - (攻击者命中 - 100%)
-                    // 例如：目标闪避 30%，攻击者命中 120% -> 有效闪避 10%
-                    float attackerAccuracy = stats ? stats->accuracy : 1.0f;
-                    float effectiveDodge =
-                        targetStats.dodge_chance - (attackerAccuracy - 1.0f);
-                    if (effectiveDodge < 0.0f)
-                      effectiveDodge = 0.0f;
-
-                    float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
-                    if (roll < effectiveDodge) {
-                      isDodged = true;
-                    }
-                  }
-                }
-
-                if (isDodged) {
-                  LOG_DEBUG("Target {} dodged the attack", (uint32_t)target);
-
-                  // --- Event System: OnDodge ---
-                  CombatEvent dodge_evt =
-                      CombatEventFactory::CreateOnDodge(target, entity);
-                  CombatEventDispatcher::Dispatch(registry, dodge_evt);
-
-                  return; // 闪避成功，跳过击退和伤害计算
-                }
-
-                // --- 格挡判定 (Block Check) ---
-                bool isBlocked = false;
-                float blockedAmount = 0.0f;
-                if (registry.all_of<NoMoreDay::CombatStats>(target)) {
-                  const auto &targetStats =
-                      registry.get<NoMoreDay::CombatStats>(target);
-                  if (targetStats.block_chance > 0.0f) {
-                    float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
-                    if (roll < targetStats.block_chance) {
-                      isBlocked = true;
-                      blockedAmount = targetStats.block_amount;
-                      LOG_DEBUG("Target {} blocked attack (Amt: {:.1f})",
-                                (uint32_t)target, blockedAmount);
-                      if (registry.all_of<Position>(target)) {
-                        NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-                            registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
-                      }
-
-                      // --- Event System: OnBlock ---
-                      CombatEvent block_evt = CombatEventFactory::CreateOnBlock(
-                          target, entity, blockedAmount);
-                      CombatEventDispatcher::Dispatch(registry, block_evt);
-                    }
-                  }
-                }
-
                 LOG_DEBUG("Hit confirmed on target {}", (uint32_t)target);
 
                 NoMoreDay::Tag hitTags =
                     NoMoreDay::Tag::Melee | NoMoreDay::Tag::Hit;
                 constexpr uint32_t skillId = 0;
 
-                // Apply Knockback
-                NoMoreDay::Utils::ApplyKnockback(registry, target,
-                                                 {pos.x, pos.y}, knockback);
-
                 float finalDamage = 0.0f;
                 bool isCrit = false;
+                bool wasDodged = false;
+                bool wasBlocked = false;
 
 #if COMBAT_LEGACY_CALC_ENABLED
                 float totalDamage = 0.0f;
@@ -327,21 +263,23 @@ void CombatSystem::update(entt::registry &registry,
                 auto result = NoMoreDay::DamagePipeline::Calculate(registry, damageReq);
                 finalDamage = result.total_damage;
                 isCrit = result.is_crit;
+                wasDodged = result.was_dodged;
+                wasBlocked = result.was_blocked;
+                if (wasDodged) {
+                  if (registry.all_of<Position>(target)) {
+                    NoMoreDay::systems::EffectSystem::EmitStatusPopup(
+                        registry, {tPos.x, tPos.y}, "闪避", WHITE);
+                  }
+                  return;
+                }
+                if (wasBlocked && registry.all_of<Position>(target)) {
+                  NoMoreDay::systems::EffectSystem::EmitStatusPopup(
+                      registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
+                }
                 LOG_TRACE("Combat(Pipeline): BasePhys={:.1f}, FinalDmg={:.1f}, Target={}",
                           damageReq.base_pool.Get(NoMoreDay::Tag::Physical),
                           finalDamage, (uint32_t)target);
 #endif
-
-                // Apply Block Reduction
-                // Formula: Reduction using effective_block_eff from CombatStats
-                if (isBlocked) {
-                  using namespace NoMoreDay::Constants::Combat::Pipeline;
-                  if (registry.all_of<NoMoreDay::CombatStats>(target)) {
-                    const auto &tStats =
-                        registry.get<NoMoreDay::CombatStats>(target);
-                    finalDamage *= (1.0f - tStats.effective_block_eff);
-                  }
-                }
 
 #if COMBAT_LEGACY_CALC_ENABLED
                 // 3. 暴击判定 (作用于最终总伤害)
@@ -365,6 +303,11 @@ void CombatSystem::update(entt::registry &registry,
                     entity, target, skillId, hitTags, isCrit);
                 CombatEventDispatcher::Dispatch(registry, hit_evt);
 #endif
+
+                // Apply Knockback after defense order confirms the hit was not
+                // dodged.
+                NoMoreDay::Utils::ApplyKnockback(registry, target,
+                                                 {pos.x, pos.y}, knockback);
 
                 // Apply Damage
                 if (registry.all_of<HealthComponent>(target)) {
@@ -482,77 +425,48 @@ void CombatSystem::update(entt::registry &registry,
               (eStats.max_weapon_damage - eStats.min_weapon_damage) *
                   ((float)GetRandomValue(0, 1000) / 1000.0f);
 
-          // Simple hit check for monsters for now (could be expanded)
-          bool isDodged = false;
-          if (registry.all_of<NoMoreDay::CombatStats>(ai.target)) {
-            const auto &tStats =
-                registry.get<NoMoreDay::CombatStats>(ai.target);
-            float effectiveDodge =
-                tStats.dodge_chance - (eStats.accuracy - 1.0f);
-            if (effectiveDodge > 0.0f) {
-              if ((float)GetRandomValue(0, 1000) / 1000.0f < effectiveDodge) {
-                isDodged = true;
-              }
-            }
-          }
-
-          if (!isDodged) {
-            float finalDamage = 0.0f;
-            bool isCrit = false;
+          float finalDamage = 0.0f;
+          bool isCrit = false;
+          bool wasDodged = false;
+          bool wasBlocked = false;
 #if COMBAT_LEGACY_CALC_ENABLED
-            finalDamage = LegacyDamageFormula(
-                eStats,
-                registry.get_or_emplace<NoMoreDay::CombatStats>(ai.target),
-                basePhys, NoMoreDay::DamageType::Physical);
+          finalDamage = LegacyDamageFormula(
+              eStats, registry.get_or_emplace<NoMoreDay::CombatStats>(ai.target),
+              basePhys, NoMoreDay::DamageType::Physical);
 #else
-            NoMoreDay::DamagePool basePool;
-            basePool.Add(NoMoreDay::Tag::Physical, basePhys);
-            NoMoreDay::DamageRequest damageReq;
-            damageReq.attacker = enemy;
-            damageReq.defender = ai.target;
-            damageReq.skill_id = 0;
-            damageReq.base_pool = basePool;
-            damageReq.additional_tags =
-                NoMoreDay::Tag::Melee | NoMoreDay::Tag::Hit;
-            auto result = NoMoreDay::DamagePipeline::Calculate(registry, damageReq);
-            finalDamage = result.total_damage;
-            isCrit = result.is_crit;
+          NoMoreDay::DamagePool basePool;
+          basePool.Add(NoMoreDay::Tag::Physical, basePhys);
+          NoMoreDay::DamageRequest damageReq;
+          damageReq.attacker = enemy;
+          damageReq.defender = ai.target;
+          damageReq.skill_id = 0;
+          damageReq.base_pool = basePool;
+          damageReq.additional_tags = NoMoreDay::Tag::Melee | NoMoreDay::Tag::Hit;
+          auto result = NoMoreDay::DamagePipeline::Calculate(registry, damageReq);
+          finalDamage = result.total_damage;
+          isCrit = result.is_crit;
+          wasDodged = result.was_dodged;
+          wasBlocked = result.was_blocked;
 #endif
 
-            // Check for block
-            bool isBlocked = false;
-            float blockedAmount = 0.0f;
-            if (registry.all_of<NoMoreDay::CombatStats>(ai.target)) {
-              const auto &tStats =
-                  registry.get<NoMoreDay::CombatStats>(ai.target);
-              if (tStats.block_chance > 0.0f &&
-                  (float)GetRandomValue(0, 1000) / 1000.0f <
-                      tStats.block_chance) {
-                isBlocked = true;
-                blockedAmount = tStats.block_amount;
-                if (registry.all_of<NoMoreDay::CombatStats>(ai.target)) {
-                  const auto &tStats =
-                      registry.get<NoMoreDay::CombatStats>(ai.target);
-                  finalDamage *= (1.0f - tStats.effective_block_eff);
-                }
-
-                if (registry.all_of<Position>(ai.target)) {
-                  NoMoreDay::systems::EffectSystem::EmitStatusPopup(
-                      registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
-                }
-              }
-            }
-
-            ApplyDamage(registry, ai.target, finalDamage, enemy, isCrit);
-            LOG_TRACE("Monster {} attacked {} for {:.1f} damage",
-                      (uint32_t)enemy, (uint32_t)ai.target, finalDamage);
-          } else {
-            // Show "Dodge" popup
+          if (wasDodged) {
             if (registry.all_of<Position>(ai.target)) {
               NoMoreDay::systems::EffectSystem::EmitStatusPopup(
                   registry, {tPos.x, tPos.y}, "闪避", WHITE);
             }
+            continue;
           }
+
+          if (wasBlocked) {
+            if (registry.all_of<Position>(ai.target)) {
+              NoMoreDay::systems::EffectSystem::EmitStatusPopup(
+                  registry, {tPos.x, tPos.y}, "格挡", SKYBLUE);
+            }
+          }
+
+          ApplyDamage(registry, ai.target, finalDamage, enemy, isCrit);
+          LOG_TRACE("Monster {} attacked {} for {:.1f} damage",
+                    (uint32_t)enemy, (uint32_t)ai.target, finalDamage);
         }
       }
     }

@@ -10,6 +10,9 @@ namespace NoMoreDay {
 struct DamageResult {
   float total_damage = 0.0f;
   bool is_crit = false;
+  bool was_dodged = false;
+  bool was_blocked = false;
+  float block_multiplier = 1.0f;
   DamagePool final_pool; // Damage broken down by type
 };
 
@@ -33,7 +36,8 @@ public:
                                 const DamageRequest &request);
 
   /**
-   * @brief Executes the 5-step damage calculation.
+   * @brief Executes the unified damage pipeline with defense contract
+   * mitigation.
    *
    * @param attacker The entity performing the attack
    * @param defender The entity receiving the damage
@@ -67,8 +71,9 @@ private:
     float crit_chance = 0.0f;
     float crit_damage = 1.5f;
     float armor_pen = 0.0f;
+    float accuracy = 1.0f;
     Tag hit_tags = Tag::None;
-    float _padding[5] = {0.0f}; // Pad to 64 bytes (24+4+4+4+8 + 20 = 64)
+    float _padding[4] = {0.0f}; // Pad to 64 bytes (24+4+4+4+4+8 + 16 = 64)
   };
   static_assert(alignof(AttackerSnapshot) == 32,
                 "AttackerSnapshot must be 32-byte aligned for SIMD");

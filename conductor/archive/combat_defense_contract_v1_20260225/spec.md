@@ -28,10 +28,10 @@
 
 ## 4. Acceptance Criteria
 
-- [ ] 防御顺序有单一实现且不可跳步。
-- [ ] 调试模式下各步减免值可追踪。
-- [ ] 集成测试覆盖 3 种防御机制。
-- [ ] `build.bat` + `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS。
+- [x] 防御顺序有单一实现且不可跳步。
+- [x] 调试模式下各步减免值可追踪。
+- [x] 集成测试覆盖 3 种防御机制。
+- [x] `build.bat` + `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS。
 
 ## 5. Risks
 
