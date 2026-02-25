@@ -270,6 +270,13 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
         echo [Build] Asset validation failed! Aborting.
         exit /b 1
     )
+
+    echo [Build] Checking skill contract drift...
+    python scripts\gen_skill_contracts.py --check
+    if errorlevel 1 (
+        echo [Build] Skill contract check failed! Aborting.
+        exit /b 1
+    )
 ) else (
     echo [Build] Pre-check scripts skipped ^(novalidate^).
 )

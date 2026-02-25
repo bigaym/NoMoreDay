@@ -4,18 +4,22 @@ Generate skill_contract blocks in assets/data/skills.json from a compact config.
 Usage:
   python scripts/gen_skill_contracts.py
   python scripts/gen_skill_contracts.py --check
+  python scripts/gen_skill_contracts.py --check --check-idempotency --check-determinism
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SKILLS_JSON = ROOT / "assets" / "data" / "skills.json"
 DEFAULT_COMPACT_JSON = ROOT / "assets" / "data" / "skill_contracts_compact.json"
+MIN_PYTHON = (3, 10)
 
 ROLE_PASSIVE = "Passive"
 ROLE_KEYSTONE = "Keystone"
@@ -51,7 +55,70 @@ VALID_SCOPE = {
 
 
 def _load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid JSON in {path}: {exc.msg} (line {exc.lineno}, col {exc.colno})") from exc
+
+
+def _serialize_json(doc: Any) -> str:
+    return json.dumps(doc, ensure_ascii=False, indent=2) + "\n"
+
+
+def _require_object(value: Any, context: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{context} must be an object")
+    return value
+
+
+def _require_list(value: Any, context: str) -> list[Any]:
+    if not isinstance(value, list):
+        raise ValueError(f"{context} must be a list")
+    return value
+
+
+def _read_int(value: Any, context: str) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{context} must be an integer, got: {value!r}") from exc
+
+
+def _validate_skills_doc(skills_doc: Any, skills_path: Path) -> None:
+    doc = _require_object(skills_doc, str(skills_path))
+    skills = _require_list(doc.get("skills"), f"{skills_path}:skills")
+    seen_ids: set[int] = set()
+    for idx, skill in enumerate(skills):
+        entry = _require_object(skill, f"{skills_path}:skills[{idx}]")
+        skill_id = _read_int(entry.get("id"), f"{skills_path}:skills[{idx}].id")
+        if skill_id in seen_ids:
+            raise ValueError(f"{skills_path}: duplicate skill id {skill_id}")
+        seen_ids.add(skill_id)
+        talent_tree = _require_list(entry.get("talent_tree"), f"{skills_path}:skills[{idx}].talent_tree")
+        node_ids: set[int] = set()
+        for node_idx, node in enumerate(talent_tree):
+            node_obj = _require_object(node, f"{skills_path}:skills[{idx}].talent_tree[{node_idx}]")
+            node_id = _read_int(
+                node_obj.get("id"),
+                f"{skills_path}:skills[{idx}].talent_tree[{node_idx}].id",
+            )
+            if node_id in node_ids:
+                raise ValueError(
+                    f"{skills_path}: duplicate node id {node_id} in skill {skill_id}"
+                )
+            node_ids.add(node_id)
+
+
+def _validate_compact_doc(compact_doc: Any, compact_path: Path) -> None:
+    doc = _require_object(compact_doc, str(compact_path))
+    skills = _require_list(doc.get("skills"), f"{compact_path}:skills")
+    seen_ids: set[int] = set()
+    for idx, item in enumerate(skills):
+        entry = _require_object(item, f"{compact_path}:skills[{idx}]")
+        skill_id = _read_int(entry.get("skill_id"), f"{compact_path}:skills[{idx}].skill_id")
+        if skill_id in seen_ids:
+            raise ValueError(f"{compact_path}: duplicate compact skill_id {skill_id}")
+        seen_ids.add(skill_id)
 
 
 def _as_int_set(values: list[Any]) -> set[int]:
@@ -64,53 +131,134 @@ def _validate_enum_set(name: str, values: dict[str, str], allowed: set[str]) -> 
             raise ValueError(f"{name}[{node_id}] has invalid value: {value}")
 
 
-def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any]) -> dict[str, Any]:
-    skill_id = int(skill["id"])
-    if skill_id != int(cfg["skill_id"]):
+def _validate_node_refs(
+    *,
+    skill_id: int,
+    refs: set[int],
+    node_ids: set[int],
+    ref_name: str,
+) -> None:
+    invalid = sorted(ref for ref in refs if ref not in node_ids)
+    if invalid:
+        raise ValueError(
+            f"skill {skill_id}: {ref_name} references unknown node ids: {invalid}"
+        )
+
+
+def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any], verbose: bool) -> dict[str, Any]:
+    skill_id = _read_int(skill.get("id"), "skill.id")
+    if skill_id != _read_int(cfg.get("skill_id"), f"compact(skill_id={skill_id}).skill_id"):
         raise ValueError("skill_id mismatch between skill and compact config")
 
-    talent_tree = skill.get("talent_tree", [])
-    nodes_by_id = {int(n["id"]): n for n in talent_tree}
+    talent_tree = _require_list(skill.get("talent_tree"), f"skill {skill_id}.talent_tree")
+    nodes_by_id: dict[int, dict[str, Any]] = {}
+    for idx, node in enumerate(talent_tree):
+        node_obj = _require_object(node, f"skill {skill_id}.talent_tree[{idx}]")
+        node_id = _read_int(node_obj.get("id"), f"skill {skill_id}.talent_tree[{idx}].id")
+        if node_id in nodes_by_id:
+            raise ValueError(f"skill {skill_id} has duplicate node id: {node_id}")
+        nodes_by_id[node_id] = node_obj
     if not nodes_by_id:
         raise ValueError(f"skill {skill_id} has no talent_tree nodes")
 
-    min_nodes = int(cfg.get("min_nodes", len(nodes_by_id)))
-    max_nodes = int(cfg.get("max_nodes", len(nodes_by_id)))
-    max_transmuters = int(cfg.get("max_transmuters", 2))
-    max_triggers = int(cfg.get("max_triggers", 1))
+    min_nodes = _read_int(cfg.get("min_nodes", len(nodes_by_id)), f"skill {skill_id}.min_nodes")
+    max_nodes = _read_int(cfg.get("max_nodes", len(nodes_by_id)), f"skill {skill_id}.max_nodes")
+    if min_nodes > max_nodes:
+        raise ValueError(f"skill {skill_id} has min_nodes > max_nodes ({min_nodes} > {max_nodes})")
+
+    max_transmuters = _read_int(cfg.get("max_transmuters", 2), f"skill {skill_id}.max_transmuters")
+    max_triggers = _read_int(cfg.get("max_triggers", 1), f"skill {skill_id}.max_triggers")
+    if max_transmuters < 0 or max_triggers < 0:
+        raise ValueError(f"skill {skill_id} has negative max_transmuters/max_triggers")
+
     has_sword_intent_node = bool(cfg.get("has_sword_intent_node", True))
     has_synergy_node = bool(cfg.get("has_synergy_node", True))
 
-    transmuter_ids = [int(v) for v in cfg.get("transmuter_node_ids", [])][:2]
+    transmuter_cfg = _require_list(cfg.get("transmuter_node_ids", []), f"skill {skill_id}.transmuter_node_ids")
+    if len(transmuter_cfg) > 2:
+        raise ValueError(f"skill {skill_id} has more than 2 transmuter_node_ids")
+
+    transmuter_ids = [_read_int(v, f"skill {skill_id}.transmuter_node_ids") for v in transmuter_cfg][:2]
     while len(transmuter_ids) < 2:
         transmuter_ids.append(0)
 
-    synergy_ids = _as_int_set(cfg.get("synergy_node_ids", []))
-    sword_intent_ids = _as_int_set(cfg.get("sword_intent_node_ids", []))
-    sword_step_ids = _as_int_set(cfg.get("sword_step_node_ids", []))
-    explicit_keystone_ids = _as_int_set(cfg.get("keystone_node_ids", []))
-    explicit_passive_ids = _as_int_set(cfg.get("passive_node_ids", []))
+    synergy_ids = _as_int_set(_require_list(cfg.get("synergy_node_ids", []), f"skill {skill_id}.synergy_node_ids"))
+    sword_intent_ids = _as_int_set(
+        _require_list(cfg.get("sword_intent_node_ids", []), f"skill {skill_id}.sword_intent_node_ids")
+    )
+    sword_step_ids = _as_int_set(
+        _require_list(cfg.get("sword_step_node_ids", []), f"skill {skill_id}.sword_step_node_ids")
+    )
+    explicit_keystone_ids = _as_int_set(
+        _require_list(cfg.get("keystone_node_ids", []), f"skill {skill_id}.keystone_node_ids")
+    )
+    explicit_passive_ids = _as_int_set(
+        _require_list(cfg.get("passive_node_ids", []), f"skill {skill_id}.passive_node_ids")
+    )
 
-    trigger_nodes_cfg = cfg.get("trigger_nodes", [])
+    node_ids = set(nodes_by_id.keys())
+    _validate_node_refs(
+        skill_id=skill_id,
+        refs={node_id for node_id in transmuter_ids if node_id != 0},
+        node_ids=node_ids,
+        ref_name="transmuter_node_ids",
+    )
+    _validate_node_refs(skill_id=skill_id, refs=synergy_ids, node_ids=node_ids, ref_name="synergy_node_ids")
+    _validate_node_refs(
+        skill_id=skill_id, refs=sword_intent_ids, node_ids=node_ids, ref_name="sword_intent_node_ids"
+    )
+    _validate_node_refs(skill_id=skill_id, refs=sword_step_ids, node_ids=node_ids, ref_name="sword_step_node_ids")
+    _validate_node_refs(
+        skill_id=skill_id, refs=explicit_keystone_ids, node_ids=node_ids, ref_name="keystone_node_ids"
+    )
+    _validate_node_refs(
+        skill_id=skill_id, refs=explicit_passive_ids, node_ids=node_ids, ref_name="passive_node_ids"
+    )
+
+    trigger_nodes_cfg = _require_list(cfg.get("trigger_nodes", []), f"skill {skill_id}.trigger_nodes")
     trigger_nodes: dict[int, dict[str, Any]] = {}
     for t in trigger_nodes_cfg:
-        node_id = int(t["node_id"])
+        trigger_obj = _require_object(t, f"skill {skill_id}.trigger_nodes[]")
+        node_id = _read_int(trigger_obj.get("node_id"), f"skill {skill_id}.trigger_nodes[].node_id")
+        if node_id not in node_ids:
+            raise ValueError(f"skill {skill_id}: trigger_nodes references unknown node id {node_id}")
         trigger_nodes[node_id] = {
-            "trigger_skill_id": int(t.get("trigger_skill_id", 0)),
-            "effectiveness": float(t.get("effectiveness", 0.0)),
-            "internal_cooldown": float(t.get("internal_cooldown", 0.0)),
-            "consumes_mana": bool(t.get("consumes_mana", False)),
+            "trigger_skill_id": _read_int(
+                trigger_obj.get("trigger_skill_id", 0),
+                f"skill {skill_id}.trigger_nodes[{node_id}].trigger_skill_id",
+            ),
+            "effectiveness": float(trigger_obj.get("effectiveness", 0.0)),
+            "internal_cooldown": float(trigger_obj.get("internal_cooldown", 0.0)),
+            "consumes_mana": bool(trigger_obj.get("consumes_mana", False)),
         }
+    if len(trigger_nodes) > max_triggers:
+        raise ValueError(
+            f"skill {skill_id} has {len(trigger_nodes)} trigger nodes beyond max_triggers={max_triggers}"
+        )
 
-    resist_models = {str(k): str(v) for k, v in cfg.get("resist_models", {}).items()}
-    scope_policies = {str(k): str(v) for k, v in cfg.get("scope_policies", {}).items()}
+    resist_cfg = _require_object(cfg.get("resist_models", {}), f"skill {skill_id}.resist_models")
+    scope_cfg = _require_object(cfg.get("scope_policies", {}), f"skill {skill_id}.scope_policies")
+    resist_models = {str(k): str(v) for k, v in resist_cfg.items()}
+    scope_policies = {str(k): str(v) for k, v in scope_cfg.items()}
     _validate_enum_set("resist_models", resist_models, VALID_RESIST)
     _validate_enum_set("scope_policies", scope_policies, VALID_SCOPE)
+    _validate_node_refs(
+        skill_id=skill_id,
+        refs={int(node_id) for node_id in resist_models.keys()},
+        node_ids=node_ids,
+        ref_name="resist_models keys",
+    )
+    _validate_node_refs(
+        skill_id=skill_id,
+        refs={int(node_id) for node_id in scope_policies.keys()},
+        node_ids=node_ids,
+        ref_name="scope_policies keys",
+    )
 
     node_contracts: list[dict[str, Any]] = []
     for node_id in sorted(nodes_by_id.keys()):
         node = nodes_by_id[node_id]
-        max_points = int(node.get("max_points", 1))
+        max_points = _read_int(node.get("max_points", 1), f"skill {skill_id}.node {node_id}.max_points")
 
         role = ROLE_PASSIVE
         if node_id in explicit_passive_ids:
@@ -183,24 +331,104 @@ def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any]) -> dic
     }
 
 
-def generate(skills_path: Path, compact_path: Path, check_only: bool) -> int:
-    skills_doc = _load_json(skills_path)
-    compact_doc = _load_json(compact_path)
-    compact_by_skill = {int(s["skill_id"]): s for s in compact_doc.get("skills", [])}
-
+def _apply_contracts(
+    *,
+    skills_doc: dict[str, Any],
+    compact_by_skill: dict[int, dict[str, Any]],
+    verbose: bool,
+) -> tuple[bool, list[int]]:
     changed = False
+    changed_skill_ids: list[int] = []
     for skill in skills_doc.get("skills", []):
-        skill_id = int(skill["id"])
-        if skill_id not in compact_by_skill:
+        skill_id = _read_int(skill.get("id"), "skills[].id")
+        cfg = compact_by_skill.get(skill_id)
+        if cfg is None:
             continue
-
-        contract = _build_contract_for_skill(skill, compact_by_skill[skill_id])
+        contract = _build_contract_for_skill(skill, cfg, verbose)
         if skill.get("skill_contract") != contract:
             skill["skill_contract"] = contract
             changed = True
+            changed_skill_ids.append(skill_id)
+            if verbose:
+                print(f"[DRIFT] skill_id={skill_id} contract block differs from generated result.")
+    return changed, changed_skill_ids
+
+
+def _verify_determinism(
+    *,
+    baseline_skills_doc: dict[str, Any],
+    compact_by_skill: dict[int, dict[str, Any]],
+) -> None:
+    run1_doc = copy.deepcopy(baseline_skills_doc)
+    run2_doc = copy.deepcopy(baseline_skills_doc)
+    _apply_contracts(skills_doc=run1_doc, compact_by_skill=compact_by_skill, verbose=False)
+    _apply_contracts(skills_doc=run2_doc, compact_by_skill=compact_by_skill, verbose=False)
+    if _serialize_json(run1_doc) != _serialize_json(run2_doc):
+        raise ValueError("determinism check failed: same input produced different output")
+
+
+def _verify_idempotency(
+    *,
+    normalized_skills_doc: dict[str, Any],
+    compact_by_skill: dict[int, dict[str, Any]],
+) -> None:
+    second_pass_doc = copy.deepcopy(normalized_skills_doc)
+    changed, _ = _apply_contracts(skills_doc=second_pass_doc, compact_by_skill=compact_by_skill, verbose=False)
+    if changed:
+        raise ValueError("idempotency check failed: second generation pass still modified output")
+
+
+def generate(
+    skills_path: Path,
+    compact_path: Path,
+    check_only: bool,
+    verbose: bool,
+    check_idempotency: bool,
+    check_determinism: bool,
+) -> int:
+    skills_doc = _load_json(skills_path)
+    compact_doc = _load_json(compact_path)
+    _validate_skills_doc(skills_doc, skills_path)
+    _validate_compact_doc(compact_doc, compact_path)
+
+    compact_by_skill = {
+        _read_int(s["skill_id"], "compact.skills[].skill_id"): _require_object(s, "compact.skills[]")
+        for s in compact_doc.get("skills", [])
+    }
+    if verbose:
+        print(
+            f"[INFO] Loaded {len(skills_doc.get('skills', []))} skills, "
+            f"{len(compact_by_skill)} compact configs."
+        )
+
+    baseline_skills_doc = copy.deepcopy(_require_object(skills_doc, "skills_doc"))
+    changed, changed_skill_ids = _apply_contracts(
+        skills_doc=skills_doc,
+        compact_by_skill=compact_by_skill,
+        verbose=verbose,
+    )
+
+    if check_determinism:
+        _verify_determinism(
+            baseline_skills_doc=baseline_skills_doc,
+            compact_by_skill=compact_by_skill,
+        )
+        if verbose:
+            print("[OK] Determinism check passed.")
+
+    if check_idempotency:
+        _verify_idempotency(
+            normalized_skills_doc=skills_doc,
+            compact_by_skill=compact_by_skill,
+        )
+        if verbose:
+            print("[OK] Idempotency check passed.")
 
     if check_only:
         if changed:
+            if verbose and changed_skill_ids:
+                changed_list = ", ".join(str(v) for v in changed_skill_ids)
+                print(f"[INFO] Out-of-date skill contracts: {changed_list}")
             print("[FAIL] skill_contract blocks are out of date. Run generator without --check.")
             return 1
         print("[OK] skill_contract blocks are up to date.")
@@ -208,9 +436,12 @@ def generate(skills_path: Path, compact_path: Path, check_only: bool) -> int:
 
     if changed:
         skills_path.write_text(
-            json.dumps(skills_doc, ensure_ascii=False, indent=2) + "\n",
+            _serialize_json(skills_doc),
             encoding="utf-8",
         )
+        if verbose:
+            changed_list = ", ".join(str(v) for v in changed_skill_ids)
+            print(f"[INFO] Updated contracts for skill_id(s): {changed_list}")
         print(f"[OK] Updated {skills_path}")
     else:
         print("[OK] No changes required.")
@@ -218,13 +449,32 @@ def generate(skills_path: Path, compact_path: Path, check_only: bool) -> int:
 
 
 def main() -> int:
+    if sys.version_info < MIN_PYTHON:
+        required = ".".join(str(v) for v in MIN_PYTHON)
+        actual = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        raise SystemExit(f"[FAIL] Python {required}+ is required, current version is {actual}.")
+
     parser = argparse.ArgumentParser(description="Generate skills.json skill contracts")
     parser.add_argument("--skills", type=Path, default=DEFAULT_SKILLS_JSON)
     parser.add_argument("--compact", type=Path, default=DEFAULT_COMPACT_JSON)
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--check-idempotency", action="store_true")
+    parser.add_argument("--check-determinism", action="store_true")
     args = parser.parse_args()
 
-    return generate(args.skills.resolve(), args.compact.resolve(), args.check)
+    try:
+        return generate(
+            args.skills.resolve(),
+            args.compact.resolve(),
+            args.check,
+            args.verbose,
+            args.check_idempotency,
+            args.check_determinism,
+        )
+    except ValueError as exc:
+        print(f"[FAIL] {exc}")
+        return 1
 
 
 if __name__ == "__main__":

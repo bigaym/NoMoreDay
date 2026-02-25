@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Contract CI Gate (combat_contract_ci_gate_20260225)
+- **Folder:** [./conductor/archive/combat_contract_ci_gate_20260225/](./conductor/archive/combat_contract_ci_gate_20260225/)
+- **Description:** Completed contract drift closure for Blade Ascendant skill contracts: synchronized stale compact node bounds with real skill trees, regenerated `skills.json` contract blocks, hardened generator validation/diagnostics (`--verbose`, malformed-input checks, idempotency/determinism checks), and integrated `gen_skill_contracts.py --check` into `build.bat` as blocking pre-check.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P0
+- **Archive Reason:** `python scripts/gen_skill_contracts.py --check` PASS; `python scripts/gen_skill_contracts.py --check --verbose --check-idempotency --check-determinism` PASS; `build.bat check` PASS; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Skill Specialization Key Node Test Matrix (skill_specialization_keynode_test_matrix_20260223)
 - **Folder:** [./conductor/archive/skill_specialization_keynode_test_matrix_20260223/](./conductor/archive/skill_specialization_keynode_test_matrix_20260223/)
 - **Description:** Completed fixture-driven specialization key-node matrix expansion for skills `1..9`, covering `48` contract key nodes with unit/integration matrix tests, trigger/depth/mutex guard checks, and cross-skill visual-signal runtime assertions.

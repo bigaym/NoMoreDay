@@ -1,7 +1,7 @@
 # Track: Combat Contract CI Gate
 
 **ID:** `combat_contract_ci_gate_20260225`  
-**Status:** Not Started  
+**Status:** Completed  
 **Type:** tooling/governance  
 **Priority:** P0  
 **Milestone:** M1（口径收敛与正确性闭环）  
@@ -15,8 +15,8 @@
 
 ## Progress
 
-- **Phases:** 0/3 complete
-- **Tasks:** 0/10 complete
+- **Phases:** 3/3 complete
+- **Tasks:** 10/10 complete
 
 ## Scope Summary
 

@@ -25,7 +25,7 @@
 
 - 脚本语言：Python 3.x，使用 `ai` conda 环境或 base。
 - 输入源：`assets/data/skills.json` + `assets/data/skill_contracts_compact.json`。
-- 输出目标：`src/game/systems/skill/SkillRegistry.cpp` 中的 `skill_contract` 代码块。
+- 输出目标：`assets/data/skills.json` 中每个技能的 `skill_contract` 数据块。
 - 不改变合同的语义内容（只同步漂移）。
 - CI 环境：当前为本地 `build.bat` 构建链，未来可扩展到 CI 服务。
 
@@ -64,9 +64,9 @@
 ### Files to Modify
 
 - `scripts/gen_skill_contracts.py` — 修复漂移 + 健壮性增强
-- `assets/data/skills.json` — 可能需要微调（如果发现数据侧不一致）
-- `assets/data/skill_contracts_compact.json` — 可能需要重新生成
-- `src/game/systems/skill/SkillRegistry.cpp` — 重新生成合同块
+- `assets/data/skills.json` — 重新生成合同块
+- `assets/data/skill_contracts_compact.json` — 同步数据侧节点边界（如有不一致）
+- `build.bat` — 接入 `--check` 阻断门禁
 
 ### Files to Create
 

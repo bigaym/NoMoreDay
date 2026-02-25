@@ -62,16 +62,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 18/18  
 > **Location**: [`conductor/archive/combat_single_damage_entry_20260225/`](./archive/combat_single_damage_entry_20260225/index.md)
 
-## [ ] Track CS-M1-05: Combat Contract CI Gate (combat_contract_ci_gate_20260225)
+## [x] Track CS-M1-05: Combat Contract CI Gate (combat_contract_ci_gate_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: tooling/governance  
 > **Milestone**: M1  
 > **Depends On**: None (independent, parallel with CS-M1-01)  
 > **Focus**: 修复 `gen_skill_contracts.py --check` 漂移，强化脚本健壮性，纳入 CI 阻断门禁。  
-> **Tasks**: 0/10  
-> **Location**: [`conductor/tracks/combat_contract_ci_gate_20260225/`](./tracks/combat_contract_ci_gate_20260225/index.md)
+> **Tasks**: 10/10  
+> **Location**: [`conductor/archive/combat_contract_ci_gate_20260225/`](./archive/combat_contract_ci_gate_20260225/index.md)
 
 ### Planned M1 Tracks
 
