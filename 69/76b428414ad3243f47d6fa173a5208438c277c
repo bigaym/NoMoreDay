@@ -1,0 +1,1 @@
+combat_proc_budget_v1_20260225 closeout: added ProcBudgetManager + proc_budget_config.json; integrated trigger/life-mana-on-hit/ailment/event-emit budgets; added unit+integration tests; archived track and synced tracks docs; verification PASS (build.bat + ctest --test-dir build -C RelWithDebInfo -L ci, including pre-commit rerun).
