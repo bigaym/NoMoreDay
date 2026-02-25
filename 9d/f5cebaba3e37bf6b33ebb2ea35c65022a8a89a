@@ -1,0 +1,1 @@
+Docs sync: aligned combat and rendering architecture docs to Combat vNext + GPU RenderGraph v5 contracts; verification: UTF-8 checks passed; build/ctest skipped (doc-only).
