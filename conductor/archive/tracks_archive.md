@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Boss Framework (combat_boss_framework_20260225)
+- **Folder:** [./conductor/archive/combat_boss_framework_20260225/](./conductor/archive/combat_boss_framework_20260225/)
+- **Description:** Completed CS-M3-03 boss combat framework: added data-driven `BossPhaseConfig` with HP-threshold phase transitions, phase-bound AI behavior and ailment immunity profile switching, frame-precision `CounterWindow` runtime with success/failure/timeout hooks, configurable failure penalties (`Retry/Weaken/Teleport`), and a multi-phase prototype path wired to `AilmentEngine` through `BossFrameworkSystem::ApplyAilment`.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P2
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; pre-commit rerun of both commands PASS.
+
+---
+
 ## [x] Track: Combat Endgame Linker (combat_endgame_linker_20260225)
 - **Folder:** [./conductor/archive/combat_endgame_linker_20260225/](./conductor/archive/combat_endgame_linker_20260225/)
 - **Description:** Completed endgame modifier linker for CS-M3-02: introduced `EndgameModifierContract` registry/runtime mapping, data-driven modifier schema (`assets/data/endgame_modifier_contracts.json`), DamagePipeline/Defense hooks (damage more, resistance/armor/DR offsets, damage taken scaling), AilmentEngine hooks (magnitude/duration scaling), and regression traceability output for source/target modifier IDs.

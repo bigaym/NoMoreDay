@@ -200,16 +200,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 12/12  
 > **Location**: [`conductor/archive/combat_endgame_linker_20260225/`](./archive/combat_endgame_linker_20260225/index.md)
 
-## [ ] Track CS-M3-03: Combat Boss Framework (combat_boss_framework_20260225)
+## [x] Track CS-M3-03: Combat Boss Framework (combat_boss_framework_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P2  
 > **Type**: feature/content  
 > **Milestone**: M3  
 > **Depends On**: `combat_ailment_engine_v1_20260225`, `combat_defense_contract_v1_20260225`, `combat_summon_strategy_v1_20260225`  
 > **Focus**: Boss 机制框架：阶段化/反制窗/失败惩罚/Ailment 交互。  
-> **Tasks**: 0/16  
-> **Location**: [`conductor/tracks/combat_boss_framework_20260225/`](./tracks/combat_boss_framework_20260225/index.md)
+> **Tasks**: 16/16  
+> **Location**: [`conductor/archive/combat_boss_framework_20260225/`](./archive/combat_boss_framework_20260225/index.md)
 
 ## [ ] Track CS-M3-04: Combat Release Gate Suite (combat_release_gate_suite_20260225)
 

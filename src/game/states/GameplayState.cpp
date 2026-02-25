@@ -47,6 +47,7 @@
 #include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/systems/ai/AISystem.hpp"
 #include "game/systems/combat/CombatHistorySystem.hpp"
+#include "game/systems/combat/BossFrameworkSystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
@@ -833,6 +834,7 @@ bool GameplayState::OnUpdate(float dt) {
   // 5. Combat
   {
    // NoMoreDay::utils::ScopedTimer timer("1.6 Combat Update", 500); // Combat is usually fast?
+    NoMoreDay::systems::BossFrameworkSystem::Update(registry, dt);
     CombatSystem::update(registry, m_spatialGrid, m_camera, dt);
   }
 

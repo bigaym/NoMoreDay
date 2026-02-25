@@ -3,6 +3,9 @@
 #include "game/components/Common.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/TagRegistry.hpp"
+#include "game/systems/combat/CombatEvents.hpp"
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <entt/entt.hpp>
 #include <functional>
@@ -191,4 +194,93 @@ struct EnemyRarityComponent {
     EnemyRarityComponent(Rarity r = NORMAL) : rarity(r) {
     }
   };
-  
+
+enum class BossBehaviorMode : uint8_t {
+  Passive = 0,
+  Chase,
+  Burst,
+  Frenzy
+};
+
+enum class BossCounterAction : uint8_t {
+  None = 0,
+  Interrupt,
+  PerfectDodge
+};
+
+enum class BossCounterEventType : uint8_t {
+  None = 0,
+  WindowOpened,
+  Success,
+  Failure,
+  Timeout
+};
+
+enum class BossFailurePenaltyType : uint8_t {
+  None = 0,
+  Retry,
+  Weaken,
+  Teleport
+};
+
+inline constexpr size_t kBossAilmentTypeCount =
+    static_cast<size_t>(NoMoreDay::AilmentType::Count);
+inline constexpr uint8_t kBossMaxPhases = 4u;
+inline constexpr std::array<float, kBossAilmentTypeCount>
+    kBossDefaultAilmentMultipliers = {
+        1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f};
+
+struct BossPhaseConfig {
+  float enter_hp_ratio = 1.0f;
+  BossBehaviorMode behavior_mode = BossBehaviorMode::Chase;
+  std::array<float, kBossAilmentTypeCount> ailment_multipliers =
+      kBossDefaultAilmentMultipliers;
+  bool enable_counter_window = false;
+  float counter_window_duration = 0.0f;
+  BossCounterAction expected_counter_action = BossCounterAction::Interrupt;
+};
+
+struct BossBattleComponent {
+  std::array<BossPhaseConfig, kBossMaxPhases> phases = {};
+  uint8_t phase_count = 0u;
+  uint8_t current_phase = 0u;
+  bool has_initialized = false;
+  bool phase_changed_this_frame = false;
+};
+
+struct BossAilmentProfileComponent {
+  std::array<float, kBossAilmentTypeCount> multipliers =
+      kBossDefaultAilmentMultipliers;
+  uint8_t source_phase = 0u;
+};
+
+struct BossCounterWindowComponent {
+  bool active = false;
+  float duration = 0.0f;
+  float remaining = 0.0f;
+  BossCounterAction expected_action = BossCounterAction::None;
+  uint64_t opened_frame = 0u;
+  uint64_t closed_frame = 0u;
+};
+
+struct BossCounterHookComponent {
+  BossCounterEventType last_event = BossCounterEventType::None;
+  uint32_t success_count = 0u;
+  uint32_t failure_count = 0u;
+  uint32_t timeout_count = 0u;
+  uint64_t last_event_frame = 0u;
+};
+
+struct BossFailurePenaltyComponent {
+  BossFailurePenaltyType type = BossFailurePenaltyType::None;
+  uint8_t max_retries = 0u;
+  float weaken_amount = 0.0f;
+  Position teleport_target = {0.0f, 0.0f};
+};
+
+struct BossFailurePenaltyRuntimeComponent {
+  uint8_t retries_used = 0u;
+  float weaken_accumulated = 0.0f;
+  bool pending_player_teleport = false;
+  Position pending_player_teleport_target = {0.0f, 0.0f};
+};
