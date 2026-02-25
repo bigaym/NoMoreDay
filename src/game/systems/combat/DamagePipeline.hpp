@@ -26,14 +26,28 @@ struct DamageRequest {
   Tag additional_tags = Tag::None;
   entt::entity source_entity = entt::null;
   bool is_simulation = false;
+  bool dispatch_damage_events = true;
   bool skip_mitigation = false;
   bool thorns_like_damage = false;
+};
+
+struct DamageExecutionResult {
+  DamageResult damage;
+  bool target_killed = false;
+  float final_applied_damage = 0.0f;
+  float barrier_absorbed = 0.0f;
+  bool was_prevented = false;
 };
 
 class DamagePipeline {
 public:
   static DamageResult Calculate(entt::registry &registry,
                                 const DamageRequest &request);
+
+  static DamageExecutionResult Execute(entt::registry &registry,
+                                       const DamageRequest &request,
+                                       entt::entity apply_attacker = entt::null,
+                                       bool show_vfx = true);
 
   /**
    * @brief Executes the unified damage pipeline with defense contract

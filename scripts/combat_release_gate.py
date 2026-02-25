@@ -373,7 +373,7 @@ def main() -> int:
             allowed_patterns = [str(item) for item in check.get("allowFailurePatterns", [])]
             for pattern in allowed_patterns:
                 if re.search(pattern, output):
-                    status = "pass"
+                    status = "warning"
                     messages.append(f"allowed_failure_pattern:{pattern}")
                     break
 
@@ -426,17 +426,20 @@ def main() -> int:
                 status = "fail"
                 message = "coverage_sources_missing"
             else:
-                passed = sum(
-                    1 for source_id in source_ids if check_status_map.get(source_id) == "pass"
+                covered = sum(
+                    1
+                    for source_id in source_ids
+                    if check_status_map.get(source_id) in {"pass", "warning"}
                 )
-                coverage = (passed / len(source_ids)) * 100.0
+                coverage = (covered / len(source_ids)) * 100.0
                 metrics[metric_name] = coverage
                 ok, metric_message = evaluate_metric_threshold(
                     metric_name, coverage, thresholds
                 )
                 status = "pass" if ok else "fail"
                 message = (
-                    f"coverage={coverage:.2f}% from {passed}/{len(source_ids)};{metric_message}"
+                    f"coverage={coverage:.2f}% from {covered}/{len(source_ids)};"
+                    f"{metric_message}"
                 )
 
         elif kind == "major_regression_reduction":

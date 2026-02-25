@@ -225,15 +225,13 @@ void SummonCombatBridge::ApplyMeleeOrbitContact(entt::registry &registry,
     request.additional_tags = Tag::Melee | Tag::Hit;
     request.source_entity = summon;
 
-    const auto result = DamagePipeline::Calculate(registry, request);
-    CombatSystem::ApplyDamage(registry, target, result.total_damage, summon,
-                              result.is_crit);
+    const auto result = DamagePipeline::Execute(registry, request, summon);
 
-    if (result.total_damage > 0.0f) {
+    if (result.damage.total_damage > 0.0f) {
       CombatEventDispatcher::Dispatch(
           registry, CombatEventFactory::CreateMinionHit(
-                        summonComp->owner, summon, target, result.total_damage,
-                        result.is_crit));
+                        summonComp->owner, summon, target,
+                        result.damage.total_damage, result.damage.is_crit));
       auto splash =
           InkEffectHelper::CreateInkSplash({targetPos.x, targetPos.y}, 3, 5.0f, 80.0f);
       if (!splash.empty()) {

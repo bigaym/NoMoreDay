@@ -840,24 +840,30 @@ public:
    */
   static void OnEnemyTakeDamage(entt::registry &registry,
                                 const CombatEvent &evt) {
+    const entt::entity defender = evt.source;
+    if (!registry.valid(defender)) {
+      return;
+    }
+
     // Check Phase Shield
-    if (auto *ps = registry.try_get<PhaseShieldComponent>(evt.target)) {
+    if (auto *ps = registry.try_get<PhaseShieldComponent>(defender)) {
       if (ps->currentCooldown <= 0.0f) {
-        ps->accumulatedDamage += evt.value; // Use final damage (value)
+        ps->accumulatedDamage +=
+            CombatEventFactory::GetFinalAppliedDamage(evt);
         ps->accumulationTimer = ps->accumulationWindow; // Reset timer
 
         // Check Threshold
-        if (auto *hp = registry.try_get<HealthComponent>(evt.target)) {
+        if (auto *hp = registry.try_get<HealthComponent>(defender)) {
           if (ps->accumulatedDamage >= hp->max * ps->triggerThresholdRatio) {
             // Trigger Invulnerability
-            if (!registry.all_of<InvulnerableComponent>(evt.target)) {
+            if (!registry.all_of<InvulnerableComponent>(defender)) {
               registry.emplace<InvulnerableComponent>(
-                  evt.target, ps->invulnDuration, 0.0f,
-                  evt.target,                // Self source
+                  defender, ps->invulnDuration, 0.0f,
+                  defender,                 // Self source
                   Color{200, 200, 255, 150}, // Cyan/White shield
                   0.0f);
               LOG_INFO("Phase Shield Triggered for Entity {}! (Burst: {:.1f})",
-                       (uint32_t)evt.target, ps->accumulatedDamage);
+                       (uint32_t)defender, ps->accumulatedDamage);
             }
 
             // Reset and Cooldown
@@ -869,7 +875,7 @@ public:
     }
 
     // Check if defender has OnHit affixes
-    auto *affix = registry.try_get<MonsterAffixComponent>(evt.target);
+    auto *affix = registry.try_get<MonsterAffixComponent>(defender);
     if (!affix || !affix->hasOnHit)
       return;
 
@@ -888,7 +894,7 @@ public:
 
       // Trigger on HP threshold (once)
       if (!shouldTrigger) {
-        auto *hp = registry.try_get<HealthComponent>(evt.target);
+        auto *hp = registry.try_get<HealthComponent>(defender);
         if (hp && hp->current / hp->max <= MIRROR_HP_THRESHOLD) {
           // Check if already triggered (use mirrorTriggered flag)
           if (!affix->mirrorTriggered) {
@@ -903,11 +909,11 @@ public:
 
         // Spawn 2 clones
         for (int i = 0; i < 2; ++i) {
-          EntityUtils::CloneEntity(registry, evt.target, 0.5f, 0.1f, 10.0f);
+          EntityUtils::CloneEntity(registry, defender, 0.5f, 0.1f, 10.0f);
         }
 
         LOG_INFO("MirrorImage: Entity {} spawned 2 clones",
-                 static_cast<uint32_t>(evt.target));
+                 static_cast<uint32_t>(defender));
       }
     }
 
@@ -921,7 +927,7 @@ public:
       return;
 
     // 获取怪物位置
-    auto *pos = registry.try_get<Position>(evt.target);
+    auto *pos = registry.try_get<Position>(defender);
     if (!pos)
       return;
 
@@ -940,7 +946,7 @@ public:
 
     // Hazard 组件 (用于 owner 追踪)
     HazardComponent hazard;
-    hazard.owner = evt.target;
+    hazard.owner = defender;
     registry.emplace<HazardComponent>(ghostEntity, hazard);
 
     // 视觉效果（半透明黄色）

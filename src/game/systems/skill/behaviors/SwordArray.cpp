@@ -225,14 +225,8 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
                   Tag::Area | Tag::SwordSkill | Tag::Hit;
               executeReq.source_entity = entity;
               executeReq.skip_mitigation = true;
-              auto executeResult =
-                  DamagePipeline::Calculate(registry, executeReq);
-              if (executeResult.total_damage > 0.0f) {
-                CombatSystem::ApplyDamage(registry, target_ent,
-                                          executeResult.total_damage,
-                                          array.owner, executeResult.is_crit,
-                                          true);
-              }
+              (void)DamagePipeline::Execute(registry, executeReq, array.owner,
+                                            true);
             }
           }
         }

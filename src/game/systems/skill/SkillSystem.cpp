@@ -977,20 +977,21 @@ void SkillSystem::InitHooks() {
                 const float counterScale = pf->synergy_shadow_hide ? 1.2f : 1.0f;
                 counterPool.Add(counterTag, baseCounterDamage * counterScale);
 
-                const auto counterResult = DamagePipeline::Calculate(
-                    registry, victim, attacker, exec.skill_id, counterPool,
-                    Tag::Hit | Tag::Melee, exec_ent);
-                if (counterResult.total_damage > 0.0f) {
-                  CombatSystem::ApplyDamage(registry, attacker,
-                                            counterResult.total_damage, victim,
-                                            counterResult.is_crit);
-                }
+                DamageRequest counterRequest;
+                counterRequest.attacker = victim;
+                counterRequest.defender = attacker;
+                counterRequest.skill_id = exec.skill_id;
+                counterRequest.base_pool = counterPool;
+                counterRequest.additional_tags = Tag::Hit | Tag::Melee;
+                counterRequest.source_entity = exec_ent;
+                const auto counterResult =
+                    DamagePipeline::Execute(registry, counterRequest, victim);
 
                 LOG_INFO(
                     "Phantom Flash Counter resolved: victim={} attacker={} "
                     "damage={}",
                     (uint32_t)victim, (uint32_t)attacker,
-                    counterResult.total_damage);
+                    counterResult.damage.total_damage);
               } else {
                 LOG_WARN("Phantom Flash Counter skipped: victim {} has no "
                          "CombatStats",

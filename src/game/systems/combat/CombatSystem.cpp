@@ -20,6 +20,7 @@
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
+#include <algorithm>
 #include <cmath>
 
 // Bring CombatEvent types into scope
@@ -260,11 +261,12 @@ void CombatSystem::update(entt::registry &registry,
                 damageReq.skill_id = skillId;
                 damageReq.base_pool = BuildLegacyAttackBasePool(stats, baseDamage);
                 damageReq.additional_tags = hitTags;
-                auto result = NoMoreDay::DamagePipeline::Calculate(registry, damageReq);
-                finalDamage = result.total_damage;
-                isCrit = result.is_crit;
-                wasDodged = result.was_dodged;
-                wasBlocked = result.was_blocked;
+                auto execution =
+                    NoMoreDay::DamagePipeline::Execute(registry, damageReq, entity);
+                finalDamage = execution.damage.total_damage;
+                isCrit = execution.damage.is_crit;
+                wasDodged = execution.damage.was_dodged;
+                wasBlocked = execution.damage.was_blocked;
                 if (wasDodged) {
                   if (registry.all_of<Position>(target)) {
                     NoMoreDay::systems::EffectSystem::EmitStatusPopup(
@@ -312,8 +314,12 @@ void CombatSystem::update(entt::registry &registry,
                 // Apply Damage
                 if (registry.all_of<HealthComponent>(target)) {
                   // 应用伤害逻辑（这会处理生命值减少和死亡并生成飘字）
+#if COMBAT_LEGACY_CALC_ENABLED
                   bool targetDead = ApplyDamage(registry, target, finalDamage,
                                                 entity, isCrit);
+#else
+                  bool targetDead = execution.target_killed;
+#endif
                   LOG_DEBUG("对 {} 造成 {:.1f} 伤害 (暴击: {}, 死亡: {})",
                             (uint32_t)target, finalDamage, isCrit, targetDead);
 
@@ -337,12 +343,8 @@ void CombatSystem::update(entt::registry &registry,
                       thornsReq.base_pool = thornsPool;
                       thornsReq.skip_mitigation = true;
                       thornsReq.thorns_like_damage = true;
-                      auto thornsResult =
-                          NoMoreDay::DamagePipeline::Calculate(registry, thornsReq);
-                      if (thornsResult.total_damage > 0.0f) {
-                        ApplyDamage(registry, entity, thornsResult.total_damage,
-                                    target, thornsResult.is_crit);
-                      }
+                      (void)NoMoreDay::DamagePipeline::Execute(registry, thornsReq,
+                                                               target);
 #endif
                       LOG_TRACE("Thorns: Entity {} took {:.1f} damage",
                                 (uint32_t)entity, tStats.thorns);
@@ -440,11 +442,12 @@ void CombatSystem::update(entt::registry &registry,
           damageReq.skill_id = 0;
           damageReq.base_pool = basePool;
           damageReq.additional_tags = NoMoreDay::Tag::Melee | NoMoreDay::Tag::Hit;
-          auto result = NoMoreDay::DamagePipeline::Calculate(registry, damageReq);
-          finalDamage = result.total_damage;
-          isCrit = result.is_crit;
-          wasDodged = result.was_dodged;
-          wasBlocked = result.was_blocked;
+          auto execution =
+              NoMoreDay::DamagePipeline::Execute(registry, damageReq, enemy);
+          finalDamage = execution.damage.total_damage;
+          isCrit = execution.damage.is_crit;
+          wasDodged = execution.damage.was_dodged;
+          wasBlocked = execution.damage.was_blocked;
 #endif
 
           if (wasDodged) {
@@ -462,7 +465,6 @@ void CombatSystem::update(entt::registry &registry,
             }
           }
 
-          ApplyDamage(registry, ai.target, finalDamage, enemy, isCrit);
           LOG_TRACE("Monster {} attacked {} for {:.1f} damage",
                     (uint32_t)enemy, (uint32_t)ai.target, finalDamage);
         }
@@ -488,8 +490,21 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
 
 bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
                                float amount, entt::entity attacker, bool isCrit,
-                               bool showVFX) {
+                               bool showVFX,
+                               DamageApplyResult *applyResult) {
+  auto commitApplyResult = [&](float healthApplied, float barrierAbsorbed,
+                               bool wasPrevented) {
+    if (!applyResult) {
+      return;
+    }
+    applyResult->requested_damage = amount;
+    applyResult->health_applied = healthApplied;
+    applyResult->barrier_absorbed = barrierAbsorbed;
+    applyResult->was_prevented = wasPrevented;
+  };
+
   if (!registry.valid(target) || !registry.all_of<HealthComponent>(target)) {
+    commitApplyResult(0.0f, 0.0f, true);
     return false;
   }
 
@@ -534,6 +549,7 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
         LOG_INFO("Phantom Flash: Entity {} entered Stealth", (uint32_t)target);
       }
 
+      commitApplyResult(0.0f, 0.0f, true);
       return false; // Damage blocked
     }
   }
@@ -546,9 +562,11 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
   // 如果已经打上了死亡标记，直接返回（防止重复结算和回血复活后的逻辑干扰）
   if (registry.all_of<KilledTag>(target)) {
     hp.current = 0.0f; // 强制锁定
+    commitApplyResult(0.0f, 0.0f, true);
     return true;
   }
 
+  const float healthBeforeDamage = hp.current;
   float remainingDamage = amount;
   float barrierDamage = 0.0f;
 
@@ -582,6 +600,10 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
 
   // Apply remaining damage to health
   hp.current -= remainingDamage;
+  const float healthDamageApplied =
+      (healthBeforeDamage > 0.0f)
+          ? (std::min)(healthBeforeDamage, (std::max)(0.0f, remainingDamage))
+          : 0.0f;
 
   // --- Unified Damage Popup (Gated by showVFX for performance) ---
   if (showVFX && registry.all_of<Position>(target)) {
@@ -622,6 +644,7 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
           }
           RenderSystem::AddScreenShake(0.3f);
         }
+        commitApplyResult(healthDamageApplied, barrierDamage, true);
         return false; // Death prevented
       }
     }
@@ -667,6 +690,7 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
 
       LOG_INFO("Player {} died and was returned to town with full HP/MP.",
                static_cast<uint32_t>(target));
+      commitApplyResult(healthDamageApplied, barrierDamage, false);
       return true;
     }
 
@@ -694,8 +718,10 @@ bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,
       playerStats.killCount++;
     }
 
+    commitApplyResult(healthDamageApplied, barrierDamage, false);
     return true;
   }
 
+  commitApplyResult(healthDamageApplied, barrierDamage, false);
   return false;
 }

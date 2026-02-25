@@ -594,14 +594,14 @@ void ProjectileSystem::Update(entt::registry &registry,
             DamagePool counterPool;
             counterPool.Add(ward->has_rainbow_qi ? Tag::Lightning : Tag::Physical,
                             ward->has_blink_counter ? 55.0f : 35.0f);
-            const auto counterResult = DamagePipeline::Calculate(
-                registry, target, act.instigator, 4, counterPool,
-                Tag::Hit | Tag::Melee, target);
-            if (counterResult.total_damage > 0.0f) {
-              CombatSystem::ApplyDamage(registry, act.instigator,
-                                        counterResult.total_damage, target,
-                                        counterResult.is_crit);
-            }
+            DamageRequest counterRequest;
+            counterRequest.attacker = target;
+            counterRequest.defender = act.instigator;
+            counterRequest.skill_id = 4;
+            counterRequest.base_pool = counterPool;
+            counterRequest.additional_tags = Tag::Hit | Tag::Melee;
+            counterRequest.source_entity = target;
+            (void)DamagePipeline::Execute(registry, counterRequest, target);
             if (ward->has_agile_counter) {
               SkillSystem::GainSwordIntent(registry, target, 1, 4);
             }
@@ -632,12 +632,14 @@ void ProjectileSystem::Update(entt::registry &registry,
               ? projEnt
               : act.instigator;
 
-      auto result = DamagePipeline::Calculate(
-          registry, attacker, target, skill_id, base, hit_tags, projEnt);
-      float finalDamage = result.total_damage > 0 ? result.total_damage : 1.0f;
-
-      CombatSystem::ApplyDamage(registry, target, finalDamage, act.instigator,
-                                result.is_crit);
+      DamageRequest request;
+      request.attacker = attacker;
+      request.defender = target;
+      request.skill_id = skill_id;
+      request.base_pool = base;
+      request.additional_tags = hit_tags;
+      request.source_entity = projEnt;
+      (void)DamagePipeline::Execute(registry, request, act.instigator);
       {
         components::GPULight flash = {};
         flash.posX = act.pos.x;

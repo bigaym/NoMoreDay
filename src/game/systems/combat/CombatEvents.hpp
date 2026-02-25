@@ -92,6 +92,10 @@ struct CombatEvent {
     
     float value = 0.0f;                // 主数值 (伤害量/治疗量/消耗量等)
     float value2 = 0.0f;               // 辅数值 (超杀量/血量百分比等)
+    // Incremental event contract migration:
+    // keep value/value2 for legacy consumers, add explicit damage payload fields.
+    float reported_damage = 0.0f;      // damage reported by pipeline before settlement
+    float final_applied_damage = 0.0f; // actual HP damage applied after settlement
     
     bool isCrit = false;              // 是否暴击
     bool isBlocked = false;           // 是否被格挡
@@ -117,6 +121,39 @@ struct CombatEvent {
  */
 namespace CombatEventFactory {
 
+inline void SetDamagePayload(CombatEvent &evt, float reported_damage,
+                             float final_applied_damage) {
+    evt.value = reported_damage;
+    evt.reported_damage = reported_damage;
+    evt.final_applied_damage = final_applied_damage;
+}
+
+inline void SetDamagePayload(CombatEvent &evt, float damage) {
+    SetDamagePayload(evt, damage, damage);
+}
+
+inline void SetFinalAppliedDamage(CombatEvent &evt, float final_applied_damage) {
+    evt.final_applied_damage = final_applied_damage;
+}
+
+inline bool HasExplicitDamagePayload(const CombatEvent &evt) {
+    return evt.reported_damage != 0.0f || evt.final_applied_damage != 0.0f;
+}
+
+inline float GetReportedDamage(const CombatEvent &evt) {
+    if (HasExplicitDamagePayload(evt)) {
+        return evt.reported_damage;
+    }
+    return evt.value;
+}
+
+inline float GetFinalAppliedDamage(const CombatEvent &evt) {
+    if (HasExplicitDamagePayload(evt)) {
+        return evt.final_applied_damage;
+    }
+    return evt.value;
+}
+
 inline void AttachSummonAttribution(CombatEvent &evt, entt::entity owner,
                                     entt::entity summon,
                                     uint32_t source_skill_id) {
@@ -138,7 +175,7 @@ inline CombatEvent CreateDealDamage(
     evt.target = defender;
     evt.skill_id = skill_id;
     evt.tags = tags;
-    evt.value = damage;
+    SetDamagePayload(evt, damage);
     evt.isCrit = is_crit;
     evt.source_entity = source_entity;
     return evt;
@@ -154,7 +191,7 @@ inline CombatEvent CreateTakeDamage(
     evt.target = attacker;
     evt.skill_id = skill_id;
     evt.tags = tags;
-    evt.value = damage;
+    SetDamagePayload(evt, damage);
     evt.isCrit = is_crit;
     return evt;
 }
@@ -180,7 +217,7 @@ inline CombatEvent CreateOnCrit(
     evt.target = defender;
     evt.skill_id = skill_id;
     evt.tags = tags;
-    evt.value = damage;
+    SetDamagePayload(evt, damage);
     evt.isCrit = true;
     return evt;
 }
@@ -206,7 +243,7 @@ inline CombatEvent CreateOnBlock(
     evt.source = blocker;
     evt.target = attacker;
     evt.skill_id = skill_id;
-    evt.value = blocked_damage;
+    SetDamagePayload(evt, blocked_damage);
     evt.isBlocked = true;
     return evt;
 }
@@ -275,7 +312,7 @@ inline CombatEvent CreateMeleeHit(
     evt.target = target;
     evt.skill_id = skill_id;
     evt.tags = tags;
-    evt.value = damage;
+    SetDamagePayload(evt, damage);
     evt.isCrit = is_crit;
     return evt;
 }
@@ -291,7 +328,7 @@ inline CombatEvent CreateProjectileHit(
     evt.target = target;
     evt.skill_id = skill_id;
     evt.tags = tags;
-    evt.value = damage;
+    SetDamagePayload(evt, damage);
     evt.isCrit = is_crit;
     evt.source_entity = projectile;
     return evt;
@@ -307,7 +344,7 @@ inline CombatEvent CreateAreaHit(
     evt.target = target;
     evt.skill_id = skill_id;
     evt.tags = tags;
-    evt.value = damage;
+    SetDamagePayload(evt, damage);
     evt.isCrit = is_crit;
     return evt;
 }
@@ -496,7 +533,7 @@ inline CombatEvent CreateMinionHit(
     evt.source = owner;
     evt.target = target;
     evt.minion = minion;
-    evt.value = damage;
+    SetDamagePayload(evt, damage);
     evt.isCrit = is_crit;
     return evt;
 }

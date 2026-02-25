@@ -7,7 +7,7 @@
     "priority": "P0",
     "status": "completed",
     "created": "2026-02-25T12:21:00+08:00",
-    "updated": "2026-02-25T15:50:00+08:00",
+    "updated": "2026-02-25T23:28:30+08:00",
     "depends_on": [],
     "depends_on_note": "Internal DamagePipeline::CalculateBatch fix (res.damage → final_damage); no dependency on entry unification. Can start immediately.",
     "blocks": [

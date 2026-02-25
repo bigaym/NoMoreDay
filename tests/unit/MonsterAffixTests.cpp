@@ -115,7 +115,7 @@ TEST_CASE("[Unit] MonsterAffix - Mirror Image Logic") {
   hp.current = 40.0f; // 40% HP
 
   CombatEvent evt;
-  evt.target = enemy;
+  evt.source = enemy;
 
   MonsterAffixSystem::OnEnemyTakeDamage(registry, evt);
 

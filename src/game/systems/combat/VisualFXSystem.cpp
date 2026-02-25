@@ -77,7 +77,7 @@ void VisualFXSystem::Initialize(entt::registry &registry) {
           }
         }
         // General Hit (if no specific logic, or always?)
-        else if (evt.value > 0.0f) {
+        else if (CombatEventFactory::GetReportedDamage(evt) > 0.0f) {
           auto splash = InkEffectHelper::CreateInkSplash(p, 3, 10.0f, 80.0f);
           for (auto &part : splash)
             particleSys.Emit(part);

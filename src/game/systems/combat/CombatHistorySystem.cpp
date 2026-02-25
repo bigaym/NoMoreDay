@@ -61,7 +61,8 @@ void CombatHistorySystem::OnDealDamage(entt::registry &registry,
     return;
   auto &history = *historyPtr;
 
-  float damage = evt.value;
+  const float damage =
+      CombatEventFactory::GetFinalAppliedDamage(evt);
 
   // Update Damage Profile
   if (HasTag(evt.tags, Tag::Physical))

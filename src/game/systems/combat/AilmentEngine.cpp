@@ -593,13 +593,18 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
         DamagePool basePool;
         basePool.Add(damageTag, tickDamage);
 
-        auto result = DamagePipeline::Calculate(
-            registry, effect.source, entity, 0, basePool, Tag::DamageOverTime);
-        CombatSystem::ApplyDamage(registry, entity, result.total_damage, effect.source,
-                                  result.is_crit, false);
+        DamageRequest request;
+        request.attacker = effect.source;
+        request.defender = entity;
+        request.skill_id = 0;
+        request.base_pool = basePool;
+        request.additional_tags = Tag::DamageOverTime;
+        const auto result =
+            DamagePipeline::Execute(registry, request, effect.source, false);
 
         EffectSystem::EmitDamagePopup(registry, {position.x, position.y - 20.0f},
-                                      result.total_damage, result.is_crit,
+                                      result.damage.total_damage,
+                                      result.damage.is_crit,
                                       damageTag);
       }
     }

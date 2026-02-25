@@ -144,8 +144,7 @@ TEST_CASE("[Integration] CombatDamageRegression - Projectile hit HP delta matche
   const auto simulated = DamagePipeline::Calculate(
       registry, projectile, target, 0, emptyPool, Tag::Projectile | Tag::Hit,
       projectile, true);
-  const float expectedDamage =
-      simulated.total_damage > 0.0f ? simulated.total_damage : 1.0f;
+  const float expectedDamage = simulated.total_damage;
 
   const float hpBefore = registry.get<HealthComponent>(target).current;
   ProjectileSystem::Update(registry, grid, 0.016f);

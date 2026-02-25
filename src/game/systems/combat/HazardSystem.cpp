@@ -416,17 +416,19 @@ void HazardSystem::DealAreaDamage(entt::registry &registry, Position center,
                        !registry.all_of<KilledTag>(target);
 
         if ((hitsPlayers && isPlayer) || (hitsEnemies && isEnemy)) {
-          auto result = DamagePipeline::Calculate(registry, owner, target, 0,
-                                                  base_pool, Tag::None);
-
-          // 修复：必须实际应用伤害
-          CombatSystem::ApplyDamage(registry, target, result.total_damage,
-                                    owner, result.is_crit, false);
+          DamageRequest request;
+          request.attacker = owner;
+          request.defender = target;
+          request.skill_id = 0;
+          request.base_pool = base_pool;
+          request.additional_tags = Tag::None;
+          const auto result =
+              DamagePipeline::Execute(registry, request, owner, false);
 
           Tag damageTag = DamageTypeToTag(type);
           systems::EffectSystem::EmitDamagePopup(
-              registry, {targetPos.x, targetPos.y - 20.0f}, result.total_damage,
-              result.is_crit, damageTag);
+              registry, {targetPos.x, targetPos.y - 20.0f},
+              result.damage.total_damage, result.damage.is_crit, damageTag);
         }
       });
 

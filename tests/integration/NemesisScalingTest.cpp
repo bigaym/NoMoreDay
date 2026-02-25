@@ -94,7 +94,7 @@ TEST_CASE("[Integration] NemesisScaling - Nemesis Scaling and Phase Shield") {
   float burstDmg = hp.max * 0.35f;
   CombatEvent evt;
   evt.type = CombatEventType::OnTakeDamage;
-  evt.target = nemesis;
+  evt.source = nemesis;
   evt.value = burstDmg;
 
   // Manually trigger OnEnemyTakeDamage (since we don't have full event dispatch

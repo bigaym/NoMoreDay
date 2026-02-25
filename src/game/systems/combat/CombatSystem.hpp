@@ -13,6 +13,13 @@
 
 class CombatSystem {
 public:
+    struct DamageApplyResult {
+        float requested_damage = 0.0f;
+        float health_applied = 0.0f;
+        float barrier_absorbed = 0.0f;
+        bool was_prevented = false;
+    };
+
     // Constants moved to NoMoreDay::Constants::Combat::System
 
     // 处理攻击输入、管理冷却时间并解决命中
@@ -31,5 +38,5 @@ public:
      * @param showVFX 是否显示受击特效粒子。
      * @return 如果实体死亡（生命值 <= 0）则返回 true，否则返回 false。
      */
-    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null, bool isCrit = false, bool showVFX = true);
+    static bool ApplyDamage(entt::registry& registry, entt::entity target, float amount, entt::entity attacker = entt::null, bool isCrit = false, bool showVFX = true, DamageApplyResult* applyResult = nullptr);
 };

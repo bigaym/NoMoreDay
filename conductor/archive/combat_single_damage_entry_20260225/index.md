@@ -1,7 +1,7 @@
 # Track: Combat Single Damage Entry
 
 **ID:** `combat_single_damage_entry_20260225`  
-**Status:** Not Started  
+**Status:** Completed (Archived)  
 **Type:** refactor/P0-convergence  
 **Priority:** P0-Critical  
 **Milestone:** M1（口径收敛与正确性闭环）  
@@ -15,8 +15,8 @@
 
 ## Progress
 
-- **Phases:** 0/4 complete
-- **Tasks:** 0/18 complete
+- **Phases:** 4/4 complete
+- **Tasks:** 18/18 complete
 
 ## Scope Summary
 

@@ -1,5 +1,6 @@
 #include "TestCommon.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/Projectile.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
@@ -12,13 +13,19 @@ namespace {
 
 enum class HitEventKind : uint8_t { Melee, Projectile, Area };
 
+struct DamagePayloadSample {
+  float value = 0.0f;
+  float reported = 0.0f;
+  float applied = 0.0f;
+};
+
 struct EventCapture {
-  std::vector<float> deal;
-  std::vector<float> take;
-  std::vector<float> melee;
-  std::vector<float> projectile;
-  std::vector<float> area;
-  std::vector<float> crit;
+  std::vector<DamagePayloadSample> deal;
+  std::vector<DamagePayloadSample> take;
+  std::vector<DamagePayloadSample> melee;
+  std::vector<DamagePayloadSample> projectile;
+  std::vector<DamagePayloadSample> area;
+  std::vector<DamagePayloadSample> crit;
 };
 
 using EventCaptureByTarget = std::unordered_map<uint32_t, EventCapture>;
@@ -54,7 +61,8 @@ public:
          CombatEventDispatcher::Register(
              CombatEventType::OnDealDamage,
              [this](entt::registry &, const CombatEvent &evt) {
-               captures[EntityKey(evt.target)].deal.push_back(evt.value);
+               captures[EntityKey(evt.target)].deal.push_back(
+                   {evt.value, evt.reported_damage, evt.final_applied_damage});
              },
              1000)});
     tokens_.push_back(
@@ -62,7 +70,8 @@ public:
          CombatEventDispatcher::Register(
              CombatEventType::OnTakeDamage,
              [this](entt::registry &, const CombatEvent &evt) {
-               captures[EntityKey(evt.source)].take.push_back(evt.value);
+               captures[EntityKey(evt.source)].take.push_back(
+                   {evt.value, evt.reported_damage, evt.final_applied_damage});
              },
              1000)});
     tokens_.push_back(
@@ -70,7 +79,8 @@ public:
          CombatEventDispatcher::Register(
              CombatEventType::OnMeleeHit,
              [this](entt::registry &, const CombatEvent &evt) {
-               captures[EntityKey(evt.target)].melee.push_back(evt.value);
+               captures[EntityKey(evt.target)].melee.push_back(
+                   {evt.value, evt.reported_damage, evt.final_applied_damage});
              },
              1000)});
     tokens_.push_back(
@@ -78,7 +88,8 @@ public:
          CombatEventDispatcher::Register(
              CombatEventType::OnProjectileHit,
              [this](entt::registry &, const CombatEvent &evt) {
-               captures[EntityKey(evt.target)].projectile.push_back(evt.value);
+               captures[EntityKey(evt.target)].projectile.push_back(
+                   {evt.value, evt.reported_damage, evt.final_applied_damage});
              },
              1000)});
     tokens_.push_back(
@@ -86,7 +97,8 @@ public:
          CombatEventDispatcher::Register(
              CombatEventType::OnAreaHit,
              [this](entt::registry &, const CombatEvent &evt) {
-               captures[EntityKey(evt.target)].area.push_back(evt.value);
+               captures[EntityKey(evt.target)].area.push_back(
+                   {evt.value, evt.reported_damage, evt.final_applied_damage});
              },
              1000)});
     tokens_.push_back(
@@ -94,7 +106,8 @@ public:
          CombatEventDispatcher::Register(
              CombatEventType::OnCrit,
              [this](entt::registry &, const CombatEvent &evt) {
-               captures[EntityKey(evt.target)].crit.push_back(evt.value);
+               captures[EntityKey(evt.target)].crit.push_back(
+                   {evt.value, evt.reported_damage, evt.final_applied_damage});
              },
              1000)});
   }
@@ -116,26 +129,35 @@ const EventCapture &CaptureFor(const EventCaptureByTarget &captures,
   return it->second;
 }
 
-void ExpectSingleValue(const std::vector<float> &values, float expected) {
+void ExpectSingleValue(const std::vector<DamagePayloadSample> &values,
+                       float expectedReported, float expectedApplied = -1.0f) {
+  if (expectedApplied < 0.0f) {
+    expectedApplied = expectedReported;
+  }
   REQUIRE(values.size() == 1);
-  CHECK(values.front() == doctest::Approx(expected).epsilon(0.0001f));
+  CHECK(values.front().value ==
+        doctest::Approx(expectedReported).epsilon(0.0001f));
+  CHECK(values.front().reported ==
+        doctest::Approx(expectedReported).epsilon(0.0001f));
+  CHECK(values.front().applied ==
+        doctest::Approx(expectedApplied).epsilon(0.0001f));
 }
 
 void ExpectHitEvent(const EventCapture &capture, HitEventKind kind,
-                    float expected) {
+                    float expectedReported, float expectedApplied = -1.0f) {
   switch (kind) {
   case HitEventKind::Melee:
-    ExpectSingleValue(capture.melee, expected);
+    ExpectSingleValue(capture.melee, expectedReported, expectedApplied);
     CHECK(capture.projectile.empty());
     CHECK(capture.area.empty());
     break;
   case HitEventKind::Projectile:
-    ExpectSingleValue(capture.projectile, expected);
+    ExpectSingleValue(capture.projectile, expectedReported, expectedApplied);
     CHECK(capture.melee.empty());
     CHECK(capture.area.empty());
     break;
   case HitEventKind::Area:
-    ExpectSingleValue(capture.area, expected);
+    ExpectSingleValue(capture.area, expectedReported, expectedApplied);
     CHECK(capture.melee.empty());
     CHECK(capture.projectile.empty());
     break;
@@ -276,6 +298,178 @@ TEST_CASE("[Unit] EventConsistency - mitigation path reports post-mitigation val
   CHECK(capture.crit.empty());
   CHECK(capture.melee.empty());
   CHECK(capture.projectile.empty());
+}
+
+TEST_CASE(
+    "[Unit] EventConsistency - final_applied_damage tracks post-settlement HP damage") {
+  TestSetupScope scope;
+  entt::registry registry;
+
+  const auto attacker = registry.create();
+  CreateAttacker(registry, attacker, 0.0f);
+  const auto target = CreateTarget(registry, 200.0f);
+  registry.emplace<BarrierComponent>(target);
+  auto &targetStats = registry.get<CombatStats>(target);
+  targetStats.barrier = 120.0f;
+
+  DamagePool basePool;
+  basePool.Add(Tag::Physical, 60.0f);
+
+  DamageRequest request;
+  request.attacker = attacker;
+  request.defender = target;
+  request.skill_id = 940004;
+  request.base_pool = basePool;
+  request.additional_tags = Tag::Melee;
+  request.is_simulation = true;
+  const float expectedReportedDamage =
+      DamagePipeline::Calculate(registry, request).total_damage;
+
+  EventCaptureScope captureScope;
+  const float hpBefore = registry.get<HealthComponent>(target).current;
+  const std::vector<entt::entity> defenders = {target};
+  DamagePipeline::CalculateBatch(registry, attacker, defenders, request.skill_id,
+                                 basePool, request.additional_tags);
+  const float hpAfter = registry.get<HealthComponent>(target).current;
+  const float healthAppliedDamage = hpBefore - hpAfter;
+
+  CHECK(healthAppliedDamage == doctest::Approx(0.0f).epsilon(0.0001f));
+  CHECK(expectedReportedDamage > 0.0f);
+
+  const auto &capture = CaptureFor(captureScope.captures, target);
+  ExpectSingleValue(capture.deal, expectedReportedDamage, healthAppliedDamage);
+  ExpectSingleValue(capture.take, expectedReportedDamage, healthAppliedDamage);
+  ExpectSingleValue(capture.melee, expectedReportedDamage, healthAppliedDamage);
+}
+
+TEST_CASE(
+    "[Unit] EventConsistency - single execute path backfills final_applied_damage") {
+  TestSetupScope scope;
+  entt::registry registry;
+
+  const auto attacker = registry.create();
+  CreateAttacker(registry, attacker, 0.0f);
+  const auto target = CreateTarget(registry, 200.0f);
+  registry.emplace<BarrierComponent>(target);
+  auto &targetStats = registry.get<CombatStats>(target);
+  targetStats.barrier = 120.0f;
+
+  DamagePool basePool;
+  basePool.Add(Tag::Physical, 60.0f);
+
+  DamageRequest request;
+  request.attacker = attacker;
+  request.defender = target;
+  request.skill_id = 940005;
+  request.base_pool = basePool;
+  request.additional_tags = Tag::Melee;
+
+  EventCaptureScope captureScope;
+  const float hpBefore = registry.get<HealthComponent>(target).current;
+  const auto execution = DamagePipeline::Execute(registry, request, attacker);
+  const float hpAfter = registry.get<HealthComponent>(target).current;
+  const float healthAppliedDamage = hpBefore - hpAfter;
+
+  CHECK(execution.damage.total_damage > 0.0f);
+  CHECK(healthAppliedDamage == doctest::Approx(0.0f).epsilon(0.0001f));
+  CHECK(execution.final_applied_damage ==
+        doctest::Approx(healthAppliedDamage).epsilon(0.0001f));
+
+  const auto &capture = CaptureFor(captureScope.captures, target);
+  ExpectSingleValue(capture.deal, execution.damage.total_damage,
+                    healthAppliedDamage);
+  ExpectSingleValue(capture.take, execution.damage.total_damage,
+                    healthAppliedDamage);
+  ExpectSingleValue(capture.melee, execution.damage.total_damage,
+                    healthAppliedDamage);
+  CHECK(capture.projectile.empty());
+  CHECK(capture.area.empty());
+}
+
+TEST_CASE(
+    "[Unit] EventConsistency - single execute uses owner attribution for projectile events") {
+  TestSetupScope scope;
+  entt::registry registry;
+
+  const auto owner = registry.create();
+  CreateAttacker(registry, owner, 0.0f);
+
+  const auto projectile = registry.create();
+  registry.emplace<CombatStats>(projectile);
+  Projectile proj;
+  proj.owner = owner;
+  proj.cast_id = 424242u;
+  registry.emplace<Projectile>(projectile, proj);
+
+  const auto target = CreateTarget(registry, 200.0f);
+
+  CombatEvent dealCapture{};
+  bool hasDeal = false;
+  CombatEvent skillHitCapture{};
+  bool hasSkillHit = false;
+  const uint32_t dealHandler = CombatEventDispatcher::Register(
+      CombatEventType::OnDealDamage,
+      [&](entt::registry &, const CombatEvent &evt) {
+        dealCapture = evt;
+        hasDeal = true;
+      },
+      2000);
+  const uint32_t hitHandler = CombatEventDispatcher::Register(
+      CombatEventType::OnSkillHit,
+      [&](entt::registry &, const CombatEvent &evt) {
+        skillHitCapture = evt;
+        hasSkillHit = true;
+      },
+      2000);
+
+  DamagePool basePool;
+  basePool.Add(Tag::Physical, 50.0f);
+  DamageRequest request;
+  request.attacker = projectile;
+  request.defender = target;
+  request.skill_id = 940006;
+  request.base_pool = basePool;
+  request.additional_tags = Tag::Projectile | Tag::Hit;
+  request.source_entity = projectile;
+
+  const auto execution = DamagePipeline::Execute(registry, request, owner);
+
+  CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, dealHandler);
+  CombatEventDispatcher::Unregister(CombatEventType::OnSkillHit, hitHandler);
+
+  REQUIRE(hasDeal);
+  REQUIRE(hasSkillHit);
+  CHECK(dealCapture.source == owner);
+  CHECK(dealCapture.target == target);
+  CHECK(skillHitCapture.source == owner);
+  CHECK(skillHitCapture.castId == 424242u);
+  CHECK(skillHitCapture.reported_damage ==
+        doctest::Approx(execution.damage.total_damage).epsilon(0.0001f));
+  CHECK(skillHitCapture.final_applied_damage ==
+        doctest::Approx(execution.final_applied_damage).epsilon(0.0001f));
+}
+
+TEST_CASE(
+    "[Unit] EventConsistency - Calculate defaults to no damage event dispatch") {
+  TestSetupScope scope;
+  entt::registry registry;
+
+  const auto attacker = registry.create();
+  CreateAttacker(registry, attacker, 0.0f);
+  const auto target = CreateTarget(registry, 200.0f);
+
+  int dealCount = 0;
+  const uint32_t dealHandler = CombatEventDispatcher::Register(
+      CombatEventType::OnDealDamage,
+      [&](entt::registry &, const CombatEvent &) { ++dealCount; }, 2000);
+
+  DamagePool basePool;
+  basePool.Add(Tag::Physical, 50.0f);
+  (void)DamagePipeline::Calculate(registry, attacker, target, 940007, basePool,
+                                  Tag::Melee | Tag::Hit, entt::null, false);
+
+  CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, dealHandler);
+  CHECK(dealCount == 0);
 }
 
 } // namespace NoMoreDay
