@@ -51,13 +51,21 @@ constexpr const char *kDiagTriggerSkillUnavailable =
 constexpr const char *kDiagTriggerManaBlocked = "SKILL_GUARD_TRIGGER_MANA";
 
 std::unordered_map<uint64_t, uint8_t> g_cast_depth;
+std::unordered_map<uint64_t, float> g_cast_trigger_effectiveness;
 std::deque<uint64_t> g_cast_depth_order;
 
-void RememberCastDepth(uint64_t cast_id, uint8_t depth) {
+void RememberCastDepth(uint64_t cast_id, uint8_t depth,
+                       float trigger_effectiveness = -1.0f) {
   if (cast_id == 0) {
     return;
   }
   g_cast_depth[cast_id] = depth;
+  if (trigger_effectiveness >= 0.0f) {
+    g_cast_trigger_effectiveness[cast_id] =
+        (std::max)(0.0f, trigger_effectiveness);
+  } else if (!g_cast_trigger_effectiveness.contains(cast_id)) {
+    g_cast_trigger_effectiveness[cast_id] = 1.0f;
+  }
   g_cast_depth_order.push_back(cast_id);
   while (g_cast_depth_order.size() > kCastDepthRetention) {
     const uint64_t stale = g_cast_depth_order.front();
@@ -65,6 +73,7 @@ void RememberCastDepth(uint64_t cast_id, uint8_t depth) {
     if (auto it = g_cast_depth.find(stale); it != g_cast_depth.end()) {
       g_cast_depth.erase(it);
     }
+    g_cast_trigger_effectiveness.erase(stale);
   }
 }
 
@@ -76,6 +85,17 @@ uint8_t QueryCastDepth(uint64_t cast_id) {
     return it->second;
   }
   return 0;
+}
+
+float QueryTriggerEffectiveness(uint64_t cast_id) {
+  if (cast_id == 0) {
+    return 1.0f;
+  }
+  if (auto it = g_cast_trigger_effectiveness.find(cast_id);
+      it != g_cast_trigger_effectiveness.end()) {
+    return it->second;
+  }
+  return 1.0f;
 }
 
 uint64_t NextCastId() {
@@ -764,7 +784,11 @@ void SkillSystem::InitHooks() {
               trigger_exec.state = SkillState::Preparing;
               trigger_exec.timer = 0.0f;
               trigger_exec.trigger_depth = static_cast<uint8_t>(parent_depth + 1);
-              RememberCastDepth(trigger_exec.cast_id, trigger_exec.trigger_depth);
+              trigger_exec.trigger_effectiveness =
+                  (std::max)(0.0f, node_contract->trigger.effectiveness);
+              RememberCastDepth(trigger_exec.cast_id,
+                               trigger_exec.trigger_depth,
+                               trigger_exec.trigger_effectiveness);
 
               if (active) {
                 const SpecializedSkill *trigger_specialized =
@@ -1578,6 +1602,10 @@ void SkillSystem::AddPostCastHook(SkillHook hook) {
 void SkillSystem::ClearHooks() {
   s_pre_cast_hooks.clear();
   s_post_cast_hooks.clear();
+}
+
+float SkillSystem::GetTriggerEffectivenessForCast(uint64_t cast_id) {
+  return QueryTriggerEffectiveness(cast_id);
 }
 
 bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,

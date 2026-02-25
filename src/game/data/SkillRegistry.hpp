@@ -17,7 +17,7 @@ struct SkillData {
   Tag tags = Tag::None;
   float base_damage;
   float weapon_damage_mult;
-  float added_damage_effectiveness;
+  float added_damage_effectiveness = 1.0f;
   int max_charges = 1;
   uint32_t icon_id = 0;
 

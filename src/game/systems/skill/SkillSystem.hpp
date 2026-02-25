@@ -32,6 +32,7 @@ struct SkillExecution {
 
     bool is_empowered = false;
     uint8_t trigger_depth = 0;
+    float trigger_effectiveness = 1.0f;
     std::bitset<128> active_nodes;
 };
 
@@ -160,6 +161,7 @@ public:
                                    entt::entity entity,
                                    int amount,
                                    uint32_t source_skill_id);
+    static float GetTriggerEffectivenessForCast(uint64_t cast_id);
 
 private:
     static inline std::map<uint32_t, CastCallback> s_skill_callbacks;

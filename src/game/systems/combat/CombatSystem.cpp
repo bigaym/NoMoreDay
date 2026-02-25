@@ -30,48 +30,14 @@ namespace CombatEventFactory = NoMoreDay::CombatEventFactory;
 
 namespace {
 
-NoMoreDay::Tag DamageTypeToTag(NoMoreDay::DamageType type) {
-  using NoMoreDay::DamageType;
-  using NoMoreDay::Tag;
-  switch (type) {
-  case DamageType::Physical:
-    return Tag::Physical;
-  case DamageType::Fire:
-    return Tag::Fire;
-  case DamageType::Cold:
-    return Tag::Cold;
-  case DamageType::Lightning:
-    return Tag::Lightning;
-  case DamageType::Poison:
-    return Tag::Poison;
-  case DamageType::Shadow:
-    return Tag::Shadow;
-  default:
-    return Tag::Physical;
-  }
-}
-
 NoMoreDay::DamagePool BuildLegacyAttackBasePool(
     const NoMoreDay::CombatStats *stats, float baseDamage) {
-  using namespace NoMoreDay::Constants::Combat::Pipeline;
-  using NoMoreDay::DamageType;
   NoMoreDay::DamagePool basePool;
   float physBase = (stats && stats->max_weapon_damage > 0.1f)
                        ? stats->min_weapon_damage
                        : baseDamage;
-  if (stats) {
-    physBase += stats->flat_damage[(int)DamageType::Physical];
-  }
   if (physBase > 0.0f) {
     basePool.Add(NoMoreDay::Tag::Physical, physBase);
-  }
-  if (stats) {
-    for (int i = 1; i < ELEMENTAL_TYPE_COUNT; ++i) {
-      if (stats->flat_damage[i] > 0.01f) {
-        basePool.Add(DamageTypeToTag(static_cast<DamageType>(i)),
-                     stats->flat_damage[i]);
-      }
-    }
   }
   return basePool;
 }

@@ -45,6 +45,26 @@ template <typename T, size_t N> struct FixedVector {
   void clear() { size = 0; }
 };
 
+uint64_t ResolveCastIdFromSourceEntity(const entt::registry &registry,
+                                       entt::entity source_entity) {
+  if (!registry.valid(source_entity)) {
+    return 0;
+  }
+  if (const auto *exec = registry.try_get<SkillExecution>(source_entity)) {
+    return exec->cast_id;
+  }
+  if (const auto *proj = registry.try_get<Projectile>(source_entity)) {
+    return proj->cast_id;
+  }
+  if (const auto *array = registry.try_get<SwordArrayComponent>(source_entity)) {
+    return array->cast_id;
+  }
+  if (const auto *chan = registry.try_get<ChannelingComponent>(source_entity)) {
+    return chan->cast_id;
+  }
+  return 0;
+}
+
 DamageResult
 DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
                           entt::entity defender, uint32_t skill_id,
@@ -121,6 +141,22 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       spdlog::warn("DamagePipeline: Calculating damage for invalid skill ID {} "
                    "with empty base pool. Result will be 0.",
                    skill_id);
+    }
+  }
+  const float skill_added_effectiveness =
+      skill_data ? (std::max)(0.0f, skill_data->added_damage_effectiveness)
+                 : 1.0f;
+  const float added_effectiveness =
+      (std::max)(0.0f, request.added_effectiveness) * skill_added_effectiveness;
+  float trigger_effectiveness = (std::max)(0.0f, request.trigger_effectiveness);
+  const uint64_t source_cast_id =
+      ResolveCastIdFromSourceEntity(registry, source_entity);
+  if (source_cast_id != 0) {
+    trigger_effectiveness *=
+        SkillSystem::GetTriggerEffectivenessForCast(source_cast_id);
+  } else if (registry.valid(source_entity)) {
+    if (const auto *exec = registry.try_get<SkillExecution>(source_entity)) {
+      trigger_effectiveness *= (std::max)(0.0f, exec->trigger_effectiveness);
     }
   }
   Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
@@ -201,7 +237,19 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     }
   }
 
-  // 2. Conversion and Gain Logic (Ordered Chain)
+  // 3. Add flat damage from stats with Added Effectiveness scaling.
+  if (attacker_stats && added_effectiveness > 0.0f) {
+    for (int i = 0; i < ELEMENTAL_TYPE_COUNT; ++i) {
+      const float scaled_added = attacker_stats->flat_damage[i] * added_effectiveness;
+      if (scaled_added <= 0.0f) {
+        continue;
+      }
+      const Tag type_tag = static_cast<Tag>(1ULL << i);
+      instances.push_back({scaled_added, type_tag | combined_hit_tags, type_tag});
+    }
+  }
+
+  // 4. Conversion and Gain Logic (Ordered Chain)
   // Physical(0) -> Lightning(3) -> Cold(2) -> Fire(1) -> Poison(4) -> Shadow(5)
   using namespace Constants::Combat::Conversion;
 
@@ -435,6 +483,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
         }
       }
       inst.amount *= final_more;
+      inst.amount *= trigger_effectiveness;
     }
 
     // 5. Final Settlement (Crit & Defense)

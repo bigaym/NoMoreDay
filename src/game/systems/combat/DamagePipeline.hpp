@@ -18,6 +18,8 @@ struct DamageRequest {
   entt::entity defender = entt::null;
   uint32_t skill_id = 0;
   DamagePool base_pool;
+  float added_effectiveness = 1.0f;
+  float trigger_effectiveness = 1.0f;
   Tag additional_tags = Tag::None;
   entt::entity source_entity = entt::null;
   bool is_simulation = false;

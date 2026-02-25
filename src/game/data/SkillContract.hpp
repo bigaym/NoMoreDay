@@ -34,7 +34,7 @@ enum class ScopePolicy : uint8_t {
 
 struct TriggerContract {
   uint32_t trigger_skill_id = 0;
-  float effectiveness = 0.0f;
+  float effectiveness = 1.0f;
   float internal_cooldown = 0.0f;
   bool consumes_mana = false;
 };

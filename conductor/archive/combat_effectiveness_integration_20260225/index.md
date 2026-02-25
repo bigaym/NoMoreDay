@@ -1,7 +1,7 @@
 # Track: Combat Effectiveness Integration
 
 **ID:** `combat_effectiveness_integration_20260225`  
-**Status:** Not Started  
+**Status:** Completed  
 **Type:** feature/P0-convergence  
 **Priority:** P0  
 **Milestone:** M1  
@@ -15,8 +15,8 @@
 
 ## Progress
 
-- **Phases:** 0/3 complete
-- **Tasks:** 0/12 complete
+- **Phases:** 3/3 complete
+- **Tasks:** 12/12 complete
 
 ## Scope Summary
 
@@ -26,7 +26,7 @@
 
 ## Dependencies
 
-- **Upstream:** CS-M1-01 (`combat_single_damage_entry_20260225`)
+- **Upstream:** None（可并行）
 - **Downstream:** CS-M2-04 (`combat_proc_budget_v1`)
 
 ## Quick Links

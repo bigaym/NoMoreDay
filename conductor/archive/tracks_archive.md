@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Effectiveness Integration (combat_effectiveness_integration_20260225)
+- **Folder:** [./conductor/archive/combat_effectiveness_integration_20260225/](./conductor/archive/combat_effectiveness_integration_20260225/)
+- **Description:** Completed effectiveness formula wiring for `added_damage_effectiveness` and `trigger.effectiveness`: `DamageRequest` now carries both coefficients, `DamagePipeline` integrates AddedEff into flat-damage contribution and TriggerEff before mitigation, and `SkillSystem` propagates trigger effectiveness through trigger execution context and cast-id metadata for trigger chains.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Combat DoT Closure (combat_dot_closure_20260225)
 - **Folder:** [./conductor/archive/combat_dot_closure_20260225/](./conductor/archive/combat_dot_closure_20260225/)
 - **Description:** Completed DoT closure fix in `EffectSystem`: DoT tick now uses `Tag::DamageOverTime`, applies real HP damage via `CombatSystem::ApplyDamage`, and preserves element typing through `BuffEffect::tick_damage_tag` instead of hardcoded poison.

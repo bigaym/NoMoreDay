@@ -86,16 +86,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 12/12  
 > **Location**: [`conductor/archive/combat_dot_closure_20260225/`](./archive/combat_dot_closure_20260225/index.md)
 
-## [ ] Track CS-M1-03: Combat Effectiveness Integration (combat_effectiveness_integration_20260225)
+## [x] Track CS-M1-03: Combat Effectiveness Integration (combat_effectiveness_integration_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: feature/P0-convergence  
 > **Milestone**: M1  
 > **Depends On**: None（独立并行 ★ 仅向 Pipeline 公式添加新字段）  
 > **Focus**: `added_damage_effectiveness` + `trigger.effectiveness` 接入统一公式。  
-> **Tasks**: 0/12  
-> **Location**: [`conductor/tracks/combat_effectiveness_integration_20260225/`](./tracks/combat_effectiveness_integration_20260225/index.md)
+> **Tasks**: 12/12  
+> **Location**: [`conductor/archive/combat_effectiveness_integration_20260225/`](./archive/combat_effectiveness_integration_20260225/index.md)
 
 ## [ ] Track CS-M1-04: Combat Event Consistency (combat_event_consistency_20260225)
 
