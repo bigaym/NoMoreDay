@@ -1,0 +1,1 @@
+UI inventory rework: split equipment/inventory panels, intuitive slot repositioning (neck moved), emoji-only slot indicators on right-aligned centered labels, and emoji font fallback (Segoe Emoji/Symbol) with per-codepoint rendering fallback in UIRenderer. Verified with build.bat on 2026-02-25.
