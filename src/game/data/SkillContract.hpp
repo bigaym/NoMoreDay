@@ -32,6 +32,12 @@ enum class ScopePolicy : uint8_t {
   GlobalAlways = 2,
 };
 
+enum class CostAffixPreset : uint8_t {
+  None = 0,
+  GlassCannonCrit = 1,
+  HeavyMomentum = 2,
+};
+
 struct TriggerContract {
   uint32_t trigger_skill_id = 0;
   float effectiveness = 1.0f;
@@ -46,6 +52,8 @@ struct NodeContractData {
   ScopePolicy scope_policy = ScopePolicy::SkillOnly;
   bool affects_sword_intent = false;
   bool affects_sword_step = false;
+  uint8_t keystone_exclusion_group = 0;
+  CostAffixPreset cost_affix = CostAffixPreset::None;
   TriggerContract trigger{};
 };
 

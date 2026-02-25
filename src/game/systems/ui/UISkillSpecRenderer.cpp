@@ -101,12 +101,13 @@ void UISkillSpecRenderer::Draw(const SkillTreeDefinition* tree,
                                const ActiveSkillsComponent* active, 
                                const SkillData* skillData,
                                const SkillSpecView& view,
-                               uint32_t hoveredNodeId) {
+                               uint32_t hoveredNodeId,
+                               const std::unordered_set<uint32_t>* excludedNodeIds) {
     Color theme = GetThemeColor(skillData);
     DrawBackground(view, skillData);
     DrawConnections(tree, specialized, view, theme);
     DrawHub(view, skillData);
-    DrawNodes(tree, specialized, active, view, theme, hoveredNodeId);
+    DrawNodes(tree, specialized, active, view, theme, hoveredNodeId, excludedNodeIds);
 }
 
 void UISkillSpecRenderer::DrawBackground(const SkillSpecView& view, const SkillData* skillData) {
@@ -254,9 +255,9 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
     }
 }
 
-void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme, uint32_t hoveredNodeId) {
-    const uint32_t skillId = tree ? tree->skill_id : 0;
-    for (const auto& [id, node] : tree->nodes) {
+void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme, uint32_t hoveredNodeId, const std::unordered_set<uint32_t>* excludedNodeIds) {
+  const uint32_t skillId = tree ? tree->skill_id : 0;
+  for (const auto& [id, node] : tree->nodes) {
         Vector2 pos = GetNodeScreenPos(node, view);
         NodeType type = GetNodeType(node);
         const NodeContractData* contract = nullptr;
@@ -281,10 +282,14 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
         int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
         bool isMaxed = currentPts >= node.max_points;
         bool isAllocated = currentPts > 0;
+        const bool isExcluded = excludedNodeIds && excludedNodeIds->contains(id);
         
         bool canUnlock = IsPrerequisiteSatisfiedOr(node, tree, specialized);
         
         Color baseColor = canUnlock ? Fade(theme, 0.8f) : Color{ 60, 60, 65, 255 };
+        if (isExcluded && !isAllocated) {
+            baseColor = Color{ 178, 64, 64, 255 };
+        }
         if (isAllocated) baseColor = isMaxed ? GOLD : theme;
         Color borderColor = Fade(baseColor, view.alpha);
         
@@ -418,6 +423,16 @@ void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const Speci
                 DrawTextEx(UISystem::GetFont(), badge, badgePos, badgeFont, 1.0f,
                            Fade(WHITE, view.alpha));
             }
+        }
+
+        if (isExcluded && !isAllocated) {
+            const float crossThickness = 2.0f * view.zoom;
+            DrawLineEx({pos.x - radius * 0.75f, pos.y - radius * 0.75f},
+                       {pos.x + radius * 0.75f, pos.y + radius * 0.75f},
+                       crossThickness, Fade(RED, 0.85f * view.alpha));
+            DrawLineEx({pos.x - radius * 0.75f, pos.y + radius * 0.75f},
+                       {pos.x + radius * 0.75f, pos.y - radius * 0.75f},
+                       crossThickness, Fade(RED, 0.85f * view.alpha));
         }
     }
 }

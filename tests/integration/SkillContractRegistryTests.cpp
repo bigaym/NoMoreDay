@@ -47,6 +47,24 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(node->scope_policy == ScopePolicy::GlobalWhileBuffActive);
     CHECK(node->resist_model == ResistModel::TypeD_StatToPenetration);
   }
+
+  SUBCASE("Anti-meta node contract fields are materialized") {
+    const auto *skill2NodeA = registry.GetNodeContract(2, 213);
+    const auto *skill2NodeB = registry.GetNodeContract(2, 214);
+    REQUIRE(skill2NodeA != nullptr);
+    REQUIRE(skill2NodeB != nullptr);
+    CHECK(skill2NodeA->keystone_exclusion_group == 1);
+    CHECK(skill2NodeB->keystone_exclusion_group == 1);
+    CHECK(skill2NodeA->cost_affix == CostAffixPreset::HeavyMomentum);
+
+    const auto *skill9NodeA = registry.GetNodeContract(9, 971);
+    const auto *skill9NodeB = registry.GetNodeContract(9, 972);
+    REQUIRE(skill9NodeA != nullptr);
+    REQUIRE(skill9NodeB != nullptr);
+    CHECK(skill9NodeA->keystone_exclusion_group == 2);
+    CHECK(skill9NodeB->keystone_exclusion_group == 2);
+    CHECK(skill9NodeA->cost_affix == CostAffixPreset::GlassCannonCrit);
+  }
 }
 
 TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..9)") {

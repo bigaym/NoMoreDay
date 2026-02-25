@@ -153,6 +153,10 @@ public:
                                     uint32_t context_skill_id,
                                     uint32_t source_skill_id,
                                     ScopePolicy scope);
+    static bool IsNodeExcludedByMutualKeystone(const entt::registry& registry,
+                                               entt::entity entity,
+                                               uint32_t skill_id,
+                                               uint32_t node_id);
     static bool GainSwordIntent(entt::registry& registry,
                                 entt::entity entity,
                                 int amount,

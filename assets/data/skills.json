@@ -1125,6 +1125,8 @@
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
+            "keystone_exclusion_group": 1,
+            "cost_affix": "HeavyMomentum",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
@@ -1139,6 +1141,8 @@
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
+            "keystone_exclusion_group": 1,
+            "cost_affix": "HeavyMomentum",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
@@ -1209,6 +1213,7 @@
             "role": "Keystone",
             "resist_model": "TypeB_Shred",
             "scope_policy": "SkillOnly",
+            "cost_affix": "HeavyMomentum",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
@@ -5830,6 +5835,8 @@
             "role": "Keystone",
             "resist_model": "TypeD_StatToPenetration",
             "scope_policy": "GlobalWhileBuffActive",
+            "keystone_exclusion_group": 2,
+            "cost_affix": "GlassCannonCrit",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
@@ -5844,6 +5851,7 @@
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
+            "keystone_exclusion_group": 2,
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {

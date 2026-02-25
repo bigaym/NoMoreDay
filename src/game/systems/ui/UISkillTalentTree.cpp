@@ -4,6 +4,7 @@
 #include "game/systems/ui/UISkillSpecRenderer.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/CombatAntiMeta.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/render/UIRenderer.hpp"
@@ -12,6 +13,7 @@
 #include "raymath.h"
 #include <string>
 #include <algorithm>
+#include <unordered_set>
 #include <vector>
 
 // Redefine static members to match header
@@ -255,6 +257,13 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     uint32_t targetNodeId = 0;
     uint32_t hoveredNodeId = 0;
     const TalentNode* hoveredNode = nullptr;
+    std::unordered_set<uint32_t> excludedNodeIds;
+    for (const auto& [id, node] : tree->nodes) {
+        (void)node;
+        if (SkillSystem::IsNodeExcludedByMutualKeystone(registry, player, skillId, id)) {
+            excludedNodeIds.insert(id);
+        }
+    }
 
     for (const auto& [id, node] : tree->nodes) {
         Vector2 pos = UISkillSpecRenderer::GetNodeScreenPos(node, view);
@@ -271,8 +280,10 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
                 
                 // Prereq check
                 bool canUnlock = IsPrerequisiteSatisfiedOr(node, *tree, *specialized);
+                const bool canSwapExcluded = excludedNodeIds.contains(id);
                 
-                if (canUnlock && !isMaxed && active->available_talent_points > 0) {
+                if (canUnlock && !isMaxed &&
+                    (active->available_talent_points > 0 || canSwapExcluded)) {
                      targetNodeId = id;
                 }
             }
@@ -285,7 +296,7 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     BeginScissorMode((int)(viewBoundsLogic.x * scale), (int)(viewBoundsLogic.y * scale), 
                      (int)(viewBoundsLogic.width * scale), (int)(viewBoundsLogic.height * scale));
 
-    UISkillSpecRenderer::Draw(tree, specialized, active, skillData, view, hoveredNodeId);
+    UISkillSpecRenderer::Draw(tree, specialized, active, skillData, view, hoveredNodeId, &excludedNodeIds);
 
     EndScissorMode();
 
@@ -311,9 +322,27 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         if (nodeContract) {
             footerLines.emplace_back(TextFormat("定位: %s", NodeRoleToText(nodeContract->role)), ORANGE);
             footerLines.emplace_back(TextFormat("范围: %s", ScopePolicyToText(nodeContract->scope_policy)), SKYBLUE);
+            if (nodeContract->keystone_exclusion_group != 0) {
+                footerLines.emplace_back(
+                    TextFormat("互斥组: G%u", static_cast<unsigned int>(nodeContract->keystone_exclusion_group)),
+                    RED);
+            }
+            if (nodeContract->cost_affix != CostAffixPreset::None) {
+                const auto& costAffix = CombatAntiMeta::GetCostAffixConfig(nodeContract->cost_affix);
+                footerLines.emplace_back(TextFormat("代价词缀: %s", costAffix.display_name), PINK);
+                if (costAffix.reward_text && costAffix.reward_text[0] != '\0') {
+                    footerLines.emplace_back(TextFormat("收益: %s", costAffix.reward_text), GREEN);
+                }
+                if (costAffix.penalty_text && costAffix.penalty_text[0] != '\0') {
+                    footerLines.emplace_back(TextFormat("代价: %s", costAffix.penalty_text), RED);
+                }
+            }
         }
         if (!hoveredNode->stat_modifiers.empty()) {
             footerLines.emplace_back("数值加成已启用", SKYBLUE);
+        }
+        if (excludedNodeIds.contains(hoveredNodeId)) {
+            footerLines.emplace_back("当前被同组核心互斥，点击会替换当前核心", RED);
         }
 
         const float footerFont = 22.0f;

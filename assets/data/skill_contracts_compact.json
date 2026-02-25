@@ -64,6 +64,15 @@
         "251": "SkillOnly",
         "272": "SkillOnly"
       },
+      "keystone_exclusion_groups": {
+        "213": 1,
+        "214": 1
+      },
+      "cost_affixes": {
+        "213": "HeavyMomentum",
+        "214": "HeavyMomentum",
+        "251": "HeavyMomentum"
+      },
       "trigger_nodes": [
         {
           "node_id": 233,
@@ -309,6 +318,13 @@
       },
       "scope_policies": {
         "971": "GlobalWhileBuffActive"
+      },
+      "keystone_exclusion_groups": {
+        "971": 2,
+        "972": 2
+      },
+      "cost_affixes": {
+        "971": "GlassCannonCrit"
       },
       "trigger_nodes": [
         {

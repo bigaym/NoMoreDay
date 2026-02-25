@@ -68,6 +68,15 @@ std::optional<ScopePolicy> ParseScopePolicy(const json &value) {
   return ParseEnumFromJson(value, kMap);
 }
 
+std::optional<CostAffixPreset> ParseCostAffixPreset(const json &value) {
+  static const std::unordered_map<std::string, CostAffixPreset> kMap = {
+      {"None", CostAffixPreset::None},
+      {"GlassCannonCrit", CostAffixPreset::GlassCannonCrit},
+      {"HeavyMomentum", CostAffixPreset::HeavyMomentum},
+  };
+  return ParseEnumFromJson(value, kMap);
+}
+
 uint8_t ClampToU8(int value, int fallback) {
   if (value < 0 || value > std::numeric_limits<uint8_t>::max()) {
     return static_cast<uint8_t>(fallback);
@@ -198,6 +207,15 @@ void ParseContractNode(const json &node_json, SkillContractDefinition &def) {
       node_json.value("affects_sword_intent", node.affects_sword_intent);
   node.affects_sword_step =
       node_json.value("affects_sword_step", node.affects_sword_step);
+  node.keystone_exclusion_group = ClampToU8(
+      node_json.value("keystone_exclusion_group",
+                      static_cast<int>(node.keystone_exclusion_group)),
+      node.keystone_exclusion_group);
+  if (node_json.contains("cost_affix")) {
+    if (auto cost_affix = ParseCostAffixPreset(node_json.at("cost_affix"))) {
+      node.cost_affix = *cost_affix;
+    }
+  }
 
   if (node_json.contains("trigger")) {
     const auto &trigger = node_json.at("trigger");
@@ -286,6 +304,7 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
   uint32_t trigger_count = 0;
   uint32_t synergy_count = 0;
   uint32_t sword_intent_count = 0;
+  std::unordered_map<uint8_t, uint32_t> exclusion_group_counts;
 
   for (const auto &[node_id, node] : def.nodes) {
     if (!tree->nodes.contains(node_id)) {
@@ -297,6 +316,16 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
 
     if (node.affects_sword_intent) {
       ++sword_intent_count;
+    }
+    if (node.keystone_exclusion_group != 0) {
+      if (node.role != SpecNodeRole::Keystone) {
+        std::ostringstream oss;
+        oss << "keystone_exclusion_group assigned to non-keystone node: "
+            << node_id;
+        set_error(oss.str());
+        return false;
+      }
+      ++exclusion_group_counts[node.keystone_exclusion_group];
     }
 
     switch (node.role) {
@@ -335,6 +364,15 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
   if (def.contract.has_sword_intent_node && sword_intent_count == 0) {
     set_error("missing required sword intent node");
     return false;
+  }
+  for (const auto &[group_id, group_count] : exclusion_group_counts) {
+    if (group_count < 2) {
+      std::ostringstream oss;
+      oss << "keystone_exclusion_group " << static_cast<int>(group_id)
+          << " has fewer than 2 nodes";
+      set_error(oss.str());
+      return false;
+    }
   }
 
   for (const uint32_t transmuter_id : def.contract.transmuter_node_ids) {

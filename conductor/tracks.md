@@ -178,16 +178,16 @@ M3 — P2 长线运营 (4 Tracks)
 
 ### M3 Tracks (P2 — 长线运营)
 
-## [ ] Track CS-M3-01: Combat Anti-Meta Layer (combat_anti_meta_layer_20260225)
+## [x] Track CS-M3-01: Combat Anti-Meta Layer (combat_anti_meta_layer_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed  
 > **Priority**: P2  
 > **Type**: feature/balance  
 > **Milestone**: M3  
 > **Depends On**: `combat_defense_contract_v1_20260225`, `combat_proc_budget_v1_20260225`, `combat_telemetry_foundation_20260225`  
 > **Focus**: 互斥 Keystone / 代价词缀 / 收益递减机制。  
-> **Tasks**: 0/12  
-> **Location**: [`conductor/tracks/combat_anti_meta_layer_20260225/`](./tracks/combat_anti_meta_layer_20260225/index.md)
+> **Tasks**: 12/12  
+> **Location**: [`conductor/archive/combat_anti_meta_layer_20260225/`](./archive/combat_anti_meta_layer_20260225/index.md)
 
 ## [ ] Track CS-M3-02: Combat Endgame Linker (combat_endgame_linker_20260225)
 

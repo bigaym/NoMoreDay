@@ -7,6 +7,7 @@
 #include "game/components/Projectile.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/CombatAntiMeta.hpp"
 #include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"
@@ -393,6 +394,30 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       return false;
     }
   };
+  auto is_keystone_excluded =
+      [&](const SpecializedSkill &specialized, uint32_t source_skill_id,
+          uint32_t node_id, const NodeContractData *node_contract) -> bool {
+    if (!node_contract || node_contract->keystone_exclusion_group == 0) {
+      return false;
+    }
+    uint32_t selected_node = 0;
+    for (const auto &[candidate_node_id, points] : specialized.allocated_points) {
+      if (points <= 0) {
+        continue;
+      }
+      const auto *candidate_contract = SkillRegistry::Get().GetNodeContract(
+          source_skill_id, candidate_node_id);
+      if (!candidate_contract ||
+          candidate_contract->keystone_exclusion_group !=
+              node_contract->keystone_exclusion_group) {
+        continue;
+      }
+      if (selected_node == 0 || candidate_node_id < selected_node) {
+        selected_node = candidate_node_id;
+      }
+    }
+    return selected_node != 0 && selected_node != node_id;
+  };
 
   // Optimization: Access modifiers directly instead of copying to a vector
   auto *global_mods = registry.try_get<GlobalModifierComponent>(attacker);
@@ -545,6 +570,10 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
                 continue;
               }
             }
+            if (is_keystone_excluded(spec, source_skill_id, node_id,
+                                     node_contract)) {
+              continue;
+            }
             for (const auto &mod : tree->nodes.at(node_id).damage_modifiers) {
               ProcessMod(mod);
             }
@@ -643,6 +672,25 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
 
       // Final More accumulation per instance
       float final_more = 1.0f;
+      struct MoreBucket {
+        Tag source_tag = Tag::None;
+        float actual = 0.0f;
+      };
+      FixedVector<MoreBucket, 8> cost_affix_buckets;
+      auto accumulate_cost_affix_bucket = [&](Tag source_tag, float value) {
+        if (value <= 0.0f) {
+          return;
+        }
+        for (size_t idx = 0; idx < cost_affix_buckets.size; ++idx) {
+          if (static_cast<uint64_t>(cost_affix_buckets[idx].source_tag) ==
+              static_cast<uint64_t>(source_tag)) {
+            cost_affix_buckets[idx].actual += value;
+            return;
+          }
+        }
+        cost_affix_buckets.push_back({source_tag, value});
+      };
+
       if (global_mods) {
         for (const auto &dmod : global_mods->modifiers) {
           if (dmod.type == ModifierType::More &&
@@ -683,6 +731,10 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
                   continue;
                 }
               }
+              if (is_keystone_excluded(specialized, source_skill_id, node_id,
+                                       node_contract)) {
+                continue;
+              }
               for (const auto &dmod :
                    tree->nodes.at(node_id).damage_modifiers) {
                 if (dmod.type == ModifierType::More &&
@@ -690,6 +742,18 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
                      HasTag(inst.tags, dmod.source_tag))) {
                   final_more *=
                       std::pow(1.0f + dmod.value, static_cast<float>(pts));
+                }
+              }
+              if (node_contract &&
+                  node_contract->cost_affix != CostAffixPreset::None) {
+                const auto &cost_affix = CombatAntiMeta::GetCostAffixConfig(
+                    node_contract->cost_affix);
+                if (cost_affix.damage_more_value > 0.0f &&
+                    (cost_affix.damage_more_source_tag == Tag::None ||
+                     HasTag(inst.tags, cost_affix.damage_more_source_tag))) {
+                  accumulate_cost_affix_bucket(
+                      cost_affix.damage_more_source_tag,
+                      cost_affix.damage_more_value * static_cast<float>(pts));
                 }
               }
             }
@@ -707,6 +771,12 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
             }
           }
         }
+      }
+      for (size_t bucket_idx = 0; bucket_idx < cost_affix_buckets.size;
+           ++bucket_idx) {
+        const float effective = CombatAntiMeta::ApplyDiminishingReturns(
+            cost_affix_buckets[bucket_idx].actual);
+        final_more *= (1.0f + effective);
       }
       inst.amount *= final_more;
       inst.amount *= trigger_effectiveness;

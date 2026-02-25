@@ -19,6 +19,7 @@
 #include "game/registry/GroupRegistry.hpp"       // Added
 #include "game/systems/combat/CombatFormula.hpp" // Added for Formula Refactor
 #include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/systems/combat/CombatAntiMeta.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <Taskflow/algorithm/for_each.hpp>
@@ -400,6 +401,43 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
         return false;
       }
     };
+    auto is_keystone_excluded =
+        [&](const SpecializedSkill &specialized, uint32_t source_skill_id,
+            uint32_t node_id,
+            const NodeContractData *node_contract) -> bool {
+      if (!node_contract || node_contract->keystone_exclusion_group == 0) {
+        return false;
+      }
+      uint32_t selected_node = 0;
+      for (const auto &[candidate_node_id, points] :
+           specialized.allocated_points) {
+        if (points <= 0) {
+          continue;
+        }
+        const auto *candidate_contract = SkillRegistry::Get().GetNodeContract(
+            source_skill_id, candidate_node_id);
+        if (!candidate_contract ||
+            candidate_contract->keystone_exclusion_group !=
+                node_contract->keystone_exclusion_group) {
+          continue;
+        }
+        if (selected_node == 0 || candidate_node_id < selected_node) {
+          selected_node = candidate_node_id;
+        }
+      }
+      return selected_node != 0 && selected_node != node_id;
+    };
+    auto apply_cost_affix_stat = [&](const CostAffixRuntimeConfig &cfg,
+                                     float scale) {
+      if (cfg.reward_stat == type && cfg.reward_stat != StatType::Count) {
+        ApplyStatCalculation(dynamic_calc, cfg.reward_mode,
+                             cfg.reward_value * scale);
+      }
+      if (cfg.penalty_stat == type && cfg.penalty_stat != StatType::Count) {
+        ApplyStatCalculation(dynamic_calc, cfg.penalty_mode,
+                             cfg.penalty_value * scale);
+      }
+    };
 
     for (const auto &specialized : active->specialized_slots) {
       if (specialized.skill_id == 0) {
@@ -438,8 +476,17 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
             }
           }
         }
+        if (is_keystone_excluded(specialized, source_skill_id, node_id,
+                                 node_contract)) {
+          continue;
+        }
         apply_if_tags_match(node_it->second.stat_modifiers,
                             static_cast<float>(pts));
+        if (node_contract && node_contract->cost_affix != CostAffixPreset::None) {
+          const auto &cost_affix =
+              CombatAntiMeta::GetCostAffixConfig(node_contract->cost_affix);
+          apply_cost_affix_stat(cost_affix, static_cast<float>(pts));
+        }
       }
     }
   }

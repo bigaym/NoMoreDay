@@ -13,6 +13,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Anti-Meta Layer (combat_anti_meta_layer_20260225)
+- **Folder:** [./conductor/archive/combat_anti_meta_layer_20260225/](./conductor/archive/combat_anti_meta_layer_20260225/)
+- **Description:** Completed anti-meta balance layer for CS-M3-01: introduced keystone mutual exclusion groups, cost-affix contract/runtime integration, same-source More diminishing returns, UI excluded-node feedback, and balance regression coverage for archetype spread gates.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P2
+- **Archive Reason:** `python scripts/gen_skill_contracts.py --check --check-idempotency --check-determinism --verbose` PASS after extending compact schema support for `keystone_exclusion_group`/`cost_affix`; `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS (including final pre-commit rerun); focused `NoMoreDayTests` anti-meta and guard suites PASS.
+
+---
+
 ## [x] Track: Combat Proc Budget V1 (combat_proc_budget_v1_20260225)
 - **Folder:** [./conductor/archive/combat_proc_budget_v1_20260225/](./conductor/archive/combat_proc_budget_v1_20260225/)
 - **Description:** Completed proc-budget governance rollout for CS-M2-04: added `ProcBudgetManager` with configurable per-second/per-frame budgets (`life_on_hit`, `mana_on_hit`, `ailment proc`, `trigger proc`, `event emit`), deterministic token-bucket downsampling, and frame-level drop-rate logging; integrated hooks into `SkillSystem` trigger dispatch, `OnSkillHit` recovery path, `AilmentApplier`, and `CombatEventDispatcher` emit gate; added new unit/integration stress coverage.

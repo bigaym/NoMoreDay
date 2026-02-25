@@ -53,6 +53,12 @@ VALID_SCOPE = {
     "GlobalAlways",
 }
 
+VALID_COST_AFFIX = {
+    "None",
+    "GlassCannonCrit",
+    "HeavyMomentum",
+}
+
 
 def _load_json(path: Path) -> Any:
     try:
@@ -238,10 +244,29 @@ def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any], verbos
 
     resist_cfg = _require_object(cfg.get("resist_models", {}), f"skill {skill_id}.resist_models")
     scope_cfg = _require_object(cfg.get("scope_policies", {}), f"skill {skill_id}.scope_policies")
+    exclusion_cfg = _require_object(
+        cfg.get("keystone_exclusion_groups", {}),
+        f"skill {skill_id}.keystone_exclusion_groups",
+    )
+    cost_affix_cfg = _require_object(cfg.get("cost_affixes", {}), f"skill {skill_id}.cost_affixes")
     resist_models = {str(k): str(v) for k, v in resist_cfg.items()}
     scope_policies = {str(k): str(v) for k, v in scope_cfg.items()}
+    keystone_exclusion_groups: dict[str, int] = {}
+    for raw_node_id, raw_group_id in exclusion_cfg.items():
+        node_id = _read_int(raw_node_id, f"skill {skill_id}.keystone_exclusion_groups node_id")
+        group_id = _read_int(
+            raw_group_id,
+            f"skill {skill_id}.keystone_exclusion_groups[{node_id}]",
+        )
+        if group_id < 0 or group_id > 255:
+            raise ValueError(
+                f"skill {skill_id}.keystone_exclusion_groups[{node_id}] must be in [0,255], got {group_id}"
+            )
+        keystone_exclusion_groups[str(node_id)] = group_id
+    cost_affixes = {str(k): str(v) for k, v in cost_affix_cfg.items()}
     _validate_enum_set("resist_models", resist_models, VALID_RESIST)
     _validate_enum_set("scope_policies", scope_policies, VALID_SCOPE)
+    _validate_enum_set("cost_affixes", cost_affixes, VALID_COST_AFFIX)
     _validate_node_refs(
         skill_id=skill_id,
         refs={int(node_id) for node_id in resist_models.keys()},
@@ -254,8 +279,21 @@ def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any], verbos
         node_ids=node_ids,
         ref_name="scope_policies keys",
     )
+    _validate_node_refs(
+        skill_id=skill_id,
+        refs={int(node_id) for node_id in keystone_exclusion_groups.keys()},
+        node_ids=node_ids,
+        ref_name="keystone_exclusion_groups keys",
+    )
+    _validate_node_refs(
+        skill_id=skill_id,
+        refs={int(node_id) for node_id in cost_affixes.keys()},
+        node_ids=node_ids,
+        ref_name="cost_affixes keys",
+    )
 
     node_contracts: list[dict[str, Any]] = []
+    exclusion_group_counts: dict[int, int] = {}
     for node_id in sorted(nodes_by_id.keys()):
         node = nodes_by_id[node_id]
         max_points = _read_int(node.get("max_points", 1), f"skill {skill_id}.node {node_id}.max_points")
@@ -277,6 +315,8 @@ def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any], verbos
 
         resist_model = resist_models.get(str(node_id), RESIST_NONE)
         scope_policy = scope_policies.get(str(node_id), SCOPE_SKILL_ONLY)
+        keystone_exclusion_group = keystone_exclusion_groups.get(str(node_id), 0)
+        cost_affix = cost_affixes.get(str(node_id), "None")
         trigger = trigger_nodes.get(
             node_id,
             {
@@ -298,6 +338,8 @@ def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any], verbos
             role != ROLE_PASSIVE
             or resist_model != RESIST_NONE
             or scope_policy != SCOPE_SKILL_ONLY
+            or (keystone_exclusion_group != 0)
+            or (cost_affix != "None")
             or (node_id in sword_intent_ids)
             or (node_id in sword_step_ids)
             or (not is_default_trigger)
@@ -305,17 +347,36 @@ def _build_contract_for_skill(skill: dict[str, Any], cfg: dict[str, Any], verbos
         if not emits_non_default:
             continue
 
-        node_contracts.append(
-            {
-                "node_id": node_id,
-                "role": role,
-                "resist_model": resist_model,
-                "scope_policy": scope_policy,
-                "affects_sword_intent": node_id in sword_intent_ids,
-                "affects_sword_step": node_id in sword_step_ids,
-                "trigger": trigger,
-            }
-        )
+        if keystone_exclusion_group != 0 and role != ROLE_KEYSTONE:
+            raise ValueError(
+                f"skill {skill_id}: node {node_id} has keystone_exclusion_group={keystone_exclusion_group} "
+                f"but resolved role is {role}"
+            )
+        if keystone_exclusion_group != 0:
+            exclusion_group_counts[keystone_exclusion_group] = (
+                exclusion_group_counts.get(keystone_exclusion_group, 0) + 1
+            )
+
+        node_contract: dict[str, Any] = {
+            "node_id": node_id,
+            "role": role,
+            "resist_model": resist_model,
+            "scope_policy": scope_policy,
+            "affects_sword_intent": node_id in sword_intent_ids,
+            "affects_sword_step": node_id in sword_step_ids,
+            "trigger": trigger,
+        }
+        if keystone_exclusion_group != 0:
+            node_contract["keystone_exclusion_group"] = keystone_exclusion_group
+        if cost_affix != "None":
+            node_contract["cost_affix"] = cost_affix
+        node_contracts.append(node_contract)
+
+    for exclusion_group_id, exclusion_count in exclusion_group_counts.items():
+        if exclusion_count < 2:
+            raise ValueError(
+                f"skill {skill_id}: keystone_exclusion_group {exclusion_group_id} has fewer than 2 nodes"
+            )
 
     return {
         "version": 1,

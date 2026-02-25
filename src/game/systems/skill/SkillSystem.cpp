@@ -400,6 +400,33 @@ int FindSkillSlotById(const ActiveSkillsComponent &active, uint32_t skill_id) {
   return -1;
 }
 
+uint32_t ResolveActiveKeystoneByGroup(const SpecializedSkill &specialized,
+                                      uint32_t skill_id,
+                                      uint8_t exclusion_group) {
+  if (exclusion_group == 0) {
+    return 0;
+  }
+
+  uint32_t selected_node = 0;
+  for (const auto &[candidate_node_id, points] : specialized.allocated_points) {
+    if (points <= 0) {
+      continue;
+    }
+    const auto *candidate_contract =
+        SkillRegistry::Get().GetNodeContract(skill_id, candidate_node_id);
+    if (!candidate_contract) {
+      continue;
+    }
+    if (candidate_contract->keystone_exclusion_group != exclusion_group) {
+      continue;
+    }
+    if (selected_node == 0 || candidate_node_id < selected_node) {
+      selected_node = candidate_node_id;
+    }
+  }
+  return selected_node;
+}
+
 void PopulateActiveNodesFromSpecialized(const SpecializedSkill *specialized,
                                         SkillExecution &exec) {
   if (!specialized) {
@@ -2169,19 +2196,6 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
     return false;
   }
 
-  if (active->available_talent_points <= 0) {
-    LOG_WARN("Cannot add talent point: No points available for entity {}",
-             (uint32_t)entity);
-    return false;
-  }
-
-  if (specialized->GetPointsSpent() >= specialized->GetMaxPoints()) {
-    LOG_WARN("Cannot add talent point: Skill {} has reached max points ({}/{})",
-             skill_id, specialized->GetPointsSpent(),
-             specialized->GetMaxPoints());
-    return false;
-  }
-
   const auto *tree = SkillRegistry::Get().GetSkillTree(skill_id);
   if (!tree)
     return false;
@@ -2221,6 +2235,68 @@ bool SkillSystem::AddTalentPoint(entt::registry &registry, entt::entity entity,
   if (!prereq_satisfied && has_valid_prereq) {
     LOG_WARN("Cannot add talent point: no prerequisite met for node {}", node_id);
     return false;
+  }
+
+  const NodeContractData *node_contract =
+      SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+  const uint8_t exclusion_group =
+      node_contract ? node_contract->keystone_exclusion_group : 0u;
+
+  static thread_local std::vector<uint32_t> s_excluded_nodes;
+  s_excluded_nodes.clear();
+  int refunded_points_from_exclusion = 0;
+  if (exclusion_group != 0) {
+    for (const auto &[other_node_id, other_points] :
+         specialized->allocated_points) {
+      if (other_node_id == node_id || other_points <= 0) {
+        continue;
+      }
+      const auto *other_contract =
+          SkillRegistry::Get().GetNodeContract(skill_id, other_node_id);
+      if (!other_contract) {
+        continue;
+      }
+      if (other_contract->keystone_exclusion_group != exclusion_group) {
+        continue;
+      }
+      refunded_points_from_exclusion += other_points;
+      s_excluded_nodes.push_back(other_node_id);
+    }
+  }
+
+  if (active->available_talent_points + refunded_points_from_exclusion <= 0) {
+    LOG_WARN("Cannot add talent point: No points available for entity {}",
+             (uint32_t)entity);
+    return false;
+  }
+
+  const int projected_spent = specialized->GetPointsSpent() -
+                              refunded_points_from_exclusion + 1;
+  if (projected_spent > specialized->GetMaxPoints()) {
+    LOG_WARN("Cannot add talent point: Skill {} has reached max points ({}/{})",
+             skill_id, specialized->GetPointsSpent(),
+             specialized->GetMaxPoints());
+    return false;
+  }
+
+  if (!s_excluded_nodes.empty()) {
+    for (const uint32_t excluded_node_id : s_excluded_nodes) {
+      auto it = specialized->allocated_points.find(excluded_node_id);
+      if (it == specialized->allocated_points.end()) {
+        continue;
+      }
+      active->available_talent_points += it->second;
+      specialized->allocated_points.erase(it);
+      if (auto *runtime =
+              registry.try_get<SkillContractRuntimeComponent>(entity)) {
+        runtime->trigger_cooldowns.erase(excluded_node_id);
+      }
+    }
+    LOG_INFO(
+        "Entity {} anti-meta exclusion applied for skill {} group {} replacing "
+        "node {}",
+        static_cast<uint32_t>(entity), skill_id,
+        static_cast<uint32_t>(exclusion_group), node_id);
   }
 
   active->available_talent_points--;
@@ -2377,6 +2453,13 @@ Tag SkillSystem::GetEffectiveSkillTags(entt::registry &registry,
           selected_transmuter != 0 && node_id != selected_transmuter) {
         continue;
       }
+      if (node_contract && node_contract->keystone_exclusion_group != 0) {
+        const uint32_t selected_keystone = ResolveActiveKeystoneByGroup(
+            spec, skill_id, node_contract->keystone_exclusion_group);
+        if (selected_keystone != 0 && selected_keystone != node_id) {
+          continue;
+        }
+      }
 
       auto it = tree->nodes.find(node_id);
       if (it == tree->nodes.end())
@@ -2449,6 +2532,40 @@ bool SkillSystem::CanApplyScopePolicy(const entt::registry &registry,
   default:
     return false;
   }
+}
+
+bool SkillSystem::IsNodeExcludedByMutualKeystone(
+    const entt::registry &registry, entt::entity entity, uint32_t skill_id,
+    uint32_t node_id) {
+  if (!registry.valid(entity)) {
+    return false;
+  }
+  const auto *active = registry.try_get<ActiveSkillsComponent>(entity);
+  if (!active) {
+    return false;
+  }
+
+  const SpecializedSkill *specialized = nullptr;
+  for (const auto &slot : active->specialized_slots) {
+    if (slot.skill_id == skill_id) {
+      specialized = &slot;
+      break;
+    }
+  }
+  if (!specialized) {
+    return false;
+  }
+
+  const auto *node_contract =
+      SkillRegistry::Get().GetNodeContract(skill_id, node_id);
+  if (!node_contract || node_contract->keystone_exclusion_group == 0) {
+    return false;
+  }
+
+  const uint32_t selected_node =
+      ResolveActiveKeystoneByGroup(*specialized, skill_id,
+                                   node_contract->keystone_exclusion_group);
+  return selected_node != 0 && selected_node != node_id;
 }
 
 bool SkillSystem::GainSwordIntent(entt::registry &registry, entt::entity entity,

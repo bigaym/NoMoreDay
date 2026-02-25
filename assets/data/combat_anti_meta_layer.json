@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "diminishing_returns": {
+    "enabled": true,
+    "base": 0.35,
+    "scale": 0.45
+  }
+}
