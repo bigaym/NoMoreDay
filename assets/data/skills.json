@@ -484,7 +484,7 @@
         "has_synergy_node": true,
         "transmuter_node_ids": [
           170,
-          172
+          171
         ],
         "nodes": [
           {
@@ -1137,8 +1137,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 2,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 28,
+        "max_nodes": 28,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -1809,8 +1809,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 3,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 28,
+        "max_nodes": 28,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -2498,8 +2498,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 4,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 29,
+        "max_nodes": 29,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -3180,8 +3180,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 5,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 28,
+        "max_nodes": 28,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -3844,8 +3844,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 6,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 28,
+        "max_nodes": 28,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -4519,8 +4519,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 7,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 28,
+        "max_nodes": 28,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -5202,8 +5202,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 8,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 29,
+        "max_nodes": 29,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,
@@ -5828,8 +5828,8 @@
       "skill_contract": {
         "version": 1,
         "skill_id": 9,
-        "min_nodes": 25,
-        "max_nodes": 25,
+        "min_nodes": 26,
+        "max_nodes": 26,
         "max_transmuters": 2,
         "max_triggers": 1,
         "has_sword_intent_node": true,

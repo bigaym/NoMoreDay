@@ -13,8 +13,23 @@ struct DamageResult {
   DamagePool final_pool; // Damage broken down by type
 };
 
+struct DamageRequest {
+  entt::entity attacker = entt::null;
+  entt::entity defender = entt::null;
+  uint32_t skill_id = 0;
+  DamagePool base_pool;
+  Tag additional_tags = Tag::None;
+  entt::entity source_entity = entt::null;
+  bool is_simulation = false;
+  bool skip_mitigation = false;
+  bool thorns_like_damage = false;
+};
+
 class DamagePipeline {
 public:
+  static DamageResult Calculate(entt::registry &registry,
+                                const DamageRequest &request);
+
   /**
    * @brief Executes the 5-step damage calculation.
    *

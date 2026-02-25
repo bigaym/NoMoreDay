@@ -50,6 +50,30 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
                           entt::entity defender, uint32_t skill_id,
                           const DamagePool &base_pool, Tag additional_tags,
                           entt::entity source_entity, bool is_simulation) {
+  DamageRequest request;
+  request.attacker = attacker;
+  request.defender = defender;
+  request.skill_id = skill_id;
+  request.base_pool = base_pool;
+  request.additional_tags = additional_tags;
+  request.source_entity = source_entity;
+  request.is_simulation = is_simulation;
+  return Calculate(registry, request);
+}
+
+DamageResult DamagePipeline::Calculate(entt::registry &registry,
+                                       const DamageRequest &request) {
+  const entt::entity attacker = request.attacker;
+  const entt::entity defender = request.defender;
+  const uint32_t skill_id = request.skill_id;
+  const DamagePool &base_pool = request.base_pool;
+  const Tag additional_tags = request.additional_tags;
+  const entt::entity source_entity = request.source_entity;
+  const bool is_simulation = request.is_simulation;
+  const bool thorns_like_damage = request.thorns_like_damage;
+  const bool skip_mitigation =
+      request.skip_mitigation || request.thorns_like_damage;
+
   // === PRE-CALCULATION INTERCEPTORS ===
 
   // 1. Invulnerable Check (Shielding, Clone Invulnerability)
@@ -129,9 +153,6 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
   auto *attacker_stats = registry.try_get<CombatStats>(attacker);
   auto *defender_stats = registry.try_get<CombatStats>(defender);
-
-  // Default stats if missing
-  CombatStats default_stats;
 
   // Initial Instances from Base Pool
   struct Instance {
@@ -302,10 +323,12 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
   using namespace NoMoreDay::Constants::Combat::Pipeline;
   float shadow_multiplier = 1.0f;
 
-  if (auto *sc = registry.try_get<ShadowComponent>(attacker)) {
-    shadow_multiplier = sc->damage_scale;
-  } else if (registry.all_of<ShadowCloneComponent>(attacker)) {
-    shadow_multiplier = SHADOW_MULTIPLIER;
+  if (!thorns_like_damage) {
+    if (auto *sc = registry.try_get<ShadowComponent>(attacker)) {
+      shadow_multiplier = sc->damage_scale;
+    } else if (registry.all_of<ShadowCloneComponent>(attacker)) {
+      shadow_multiplier = SHADOW_MULTIPLIER;
+    }
   }
 
   for (size_t i = 0; i < instances.size; ++i) {
@@ -313,92 +336,41 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
     if (inst.amount <= 0.0f)
       continue;
 
-    inst.amount *= shadow_multiplier;
+    if (!thorns_like_damage) {
+      inst.amount *= shadow_multiplier;
 
-    StatType dmg_stat = StatType::PhysicalDamage;
-    switch (inst.final_type) {
-    case Tag::Physical:
-      dmg_stat = StatType::PhysicalDamage;
-      break;
-    case Tag::Fire:
-      dmg_stat = StatType::FireDamage;
-      break;
-    case Tag::Cold:
-      dmg_stat = StatType::ColdDamage;
-      break;
-    case Tag::Lightning:
-      dmg_stat = StatType::LightningDamage;
-      break;
-    case Tag::Poison:
-      dmg_stat = StatType::PoisonDamage;
-      break;
-    case Tag::Shadow:
-      dmg_stat = StatType::ShadowDamage;
-      break;
-    default:
-      break;
-    }
-
-    float multiplier_pct = StatsSystem::GetStatWithTags(
-        registry, attacker, dmg_stat, inst.tags, skill_id, source_entity);
-    inst.amount *= (multiplier_pct / 100.0f);
-
-    // Final More accumulation per instance
-    float final_more = 1.0f;
-    if (global_mods) {
-      for (const auto &dmod : global_mods->modifiers) {
-        if (dmod.type == ModifierType::More &&
-            (dmod.source_tag == Tag::None ||
-             HasTag(inst.tags, dmod.source_tag))) {
-          final_more *= (1.0f + dmod.value);
-        }
+      StatType dmg_stat = StatType::PhysicalDamage;
+      switch (inst.final_type) {
+      case Tag::Physical:
+        dmg_stat = StatType::PhysicalDamage;
+        break;
+      case Tag::Fire:
+        dmg_stat = StatType::FireDamage;
+        break;
+      case Tag::Cold:
+        dmg_stat = StatType::ColdDamage;
+        break;
+      case Tag::Lightning:
+        dmg_stat = StatType::LightningDamage;
+        break;
+      case Tag::Poison:
+        dmg_stat = StatType::PoisonDamage;
+        break;
+      case Tag::Shadow:
+        dmg_stat = StatType::ShadowDamage;
+        break;
+      default:
+        break;
       }
-    }
-    if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
-      for (const auto &specialized : active->specialized_slots) {
-        if (specialized.skill_id == 0) {
-          continue;
-        }
-        const uint32_t source_skill_id = specialized.skill_id;
-        if (const auto *tree = SkillRegistry::Get().GetSkillTree(source_skill_id)) {
-          for (auto [node_id, pts] : specialized.allocated_points) {
-            if (pts <= 0 || !tree->nodes.contains(node_id)) {
-              continue;
-            }
-            ScopePolicy scope = ScopePolicy::SkillOnly;
-            const NodeContractData *node_contract =
-                SkillRegistry::Get().GetNodeContract(source_skill_id, node_id);
-            if (node_contract) {
-              scope = node_contract->scope_policy;
-            }
-            if (!can_apply_scope(scope, source_skill_id)) {
-              continue;
-            }
-            if (node_contract &&
-                node_contract->role == SpecNodeRole::Transmuter) {
-              const uint32_t active_transmuter =
-                  SkillSystem::GetActiveTransmuterNode(registry, attacker,
-                                                       source_skill_id);
-              if (active_transmuter != 0 && active_transmuter != node_id) {
-                continue;
-              }
-            }
-            for (const auto &dmod : tree->nodes.at(node_id).damage_modifiers) {
-              if (dmod.type == ModifierType::More &&
-                  (dmod.source_tag == Tag::None ||
-                   HasTag(inst.tags, dmod.source_tag))) {
-                final_more *=
-                    std::pow(1.0f + dmod.value, static_cast<float>(pts));
-              }
-            }
-          }
-        }
-      }
-    }
-    if (registry.valid(source_entity)) {
-      if (auto *skillMods =
-              registry.try_get<SkillModifierComponent>(source_entity)) {
-        for (const auto &dmod : skillMods->damage_modifiers) {
+
+      float multiplier_pct = StatsSystem::GetStatWithTags(
+          registry, attacker, dmg_stat, inst.tags, skill_id, source_entity);
+      inst.amount *= (multiplier_pct / 100.0f);
+
+      // Final More accumulation per instance
+      float final_more = 1.0f;
+      if (global_mods) {
+        for (const auto &dmod : global_mods->modifiers) {
           if (dmod.type == ModifierType::More &&
               (dmod.source_tag == Tag::None ||
                HasTag(inst.tags, dmod.source_tag))) {
@@ -406,12 +378,68 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
           }
         }
       }
+      if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
+        for (const auto &specialized : active->specialized_slots) {
+          if (specialized.skill_id == 0) {
+            continue;
+          }
+          const uint32_t source_skill_id = specialized.skill_id;
+          if (const auto *tree =
+                  SkillRegistry::Get().GetSkillTree(source_skill_id)) {
+            for (auto [node_id, pts] : specialized.allocated_points) {
+              if (pts <= 0 || !tree->nodes.contains(node_id)) {
+                continue;
+              }
+              ScopePolicy scope = ScopePolicy::SkillOnly;
+              const NodeContractData *node_contract =
+                  SkillRegistry::Get().GetNodeContract(source_skill_id,
+                                                       node_id);
+              if (node_contract) {
+                scope = node_contract->scope_policy;
+              }
+              if (!can_apply_scope(scope, source_skill_id)) {
+                continue;
+              }
+              if (node_contract &&
+                  node_contract->role == SpecNodeRole::Transmuter) {
+                const uint32_t active_transmuter =
+                    SkillSystem::GetActiveTransmuterNode(registry, attacker,
+                                                         source_skill_id);
+                if (active_transmuter != 0 && active_transmuter != node_id) {
+                  continue;
+                }
+              }
+              for (const auto &dmod :
+                   tree->nodes.at(node_id).damage_modifiers) {
+                if (dmod.type == ModifierType::More &&
+                    (dmod.source_tag == Tag::None ||
+                     HasTag(inst.tags, dmod.source_tag))) {
+                  final_more *=
+                      std::pow(1.0f + dmod.value, static_cast<float>(pts));
+                }
+              }
+            }
+          }
+        }
+      }
+      if (registry.valid(source_entity)) {
+        if (auto *skillMods =
+                registry.try_get<SkillModifierComponent>(source_entity)) {
+          for (const auto &dmod : skillMods->damage_modifiers) {
+            if (dmod.type == ModifierType::More &&
+                (dmod.source_tag == Tag::None ||
+                 HasTag(inst.tags, dmod.source_tag))) {
+              final_more *= (1.0f + dmod.value);
+            }
+          }
+        }
+      }
+      inst.amount *= final_more;
     }
-    inst.amount *= final_more;
 
     // 5. Final Settlement (Crit & Defense)
     float crit_mult = 1.0f;
-    if (HasTag(inst.tags, Tag::Hit) &&
+    if (!thorns_like_damage && HasTag(inst.tags, Tag::Hit) &&
         !HasTag(inst.tags, Tag::DamageOverTime)) {
       bool is_crit = HasTag(additional_tags, Tag::Critical);
 
@@ -488,36 +516,39 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
     using namespace NoMoreDay::Constants::Combat::Pipeline;
     int type_idx = std::countr_zero(static_cast<uint64_t>(inst.final_type));
-    float res = 0.0f;
-    if (type_idx < ELEMENTAL_TYPE_COUNT) {
-      res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
-      // Resistance Cap: -100% to +75%
-      res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
-    }
+    float damage_after_res = inst.amount;
+    if (!skip_mitigation) {
+      float res = 0.0f;
+      if (type_idx < ELEMENTAL_TYPE_COUNT) {
+        res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
+        // Resistance Cap: -100% to +75%
+        res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
+      }
 
-    float damage_after_res = inst.amount * (1.0f - res);
+      damage_after_res *= (1.0f - res);
 
-    if (inst.final_type == Tag::Physical && defender_stats) {
-      float armor = defender_stats->armor;
-      // Retrieve attacker's Flat Armor Penetration
-      float pen = StatsSystem::GetStatWithTags(
-          registry, attacker, StatType::ArmorPenetration, inst.tags, skill_id,
-          source_entity);
-      float effective_armor = armor - pen;
+      if (inst.final_type == Tag::Physical && defender_stats) {
+        float armor = defender_stats->armor;
+        // Retrieve attacker's Flat Armor Penetration
+        float pen = StatsSystem::GetStatWithTags(
+            registry, attacker, StatType::ArmorPenetration, inst.tags, skill_id,
+            source_entity);
+        float effective_armor = armor - pen;
 
-      int area_level = defender_stats->cached_area_level; // Use cached level
-      float armor_multiplier =
-          NoMoreDay::CombatFormula::CalculateArmorMultiplier(effective_armor,
-                                                             area_level);
+        int area_level = defender_stats->cached_area_level; // Use cached level
+        float armor_multiplier =
+            NoMoreDay::CombatFormula::CalculateArmorMultiplier(effective_armor,
+                                                               area_level);
 
-      damage_after_res *= armor_multiplier;
-    }
+        damage_after_res *= armor_multiplier;
+      }
 
-    // Global DR
-    using namespace NoMoreDay::Constants::Combat::Pipeline;
-    if (defender_stats && defender_stats->damage_reduction > 0.0f) {
-      damage_after_res *=
-          (1.0f - (std::min)(DR_MAX, defender_stats->damage_reduction));
+      // Global DR
+      using namespace NoMoreDay::Constants::Combat::Pipeline;
+      if (defender_stats && defender_stats->damage_reduction > 0.0f) {
+        damage_after_res *=
+            (1.0f - (std::min)(DR_MAX, defender_stats->damage_reduction));
+      }
     }
 
     total_final_damage += damage_after_res;

@@ -14,6 +14,7 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
@@ -26,6 +27,93 @@ using NoMoreDay::CombatEvent;
 using NoMoreDay::CombatEventDispatcher;
 using NoMoreDay::CombatEventType;
 namespace CombatEventFactory = NoMoreDay::CombatEventFactory;
+
+namespace {
+
+NoMoreDay::Tag DamageTypeToTag(NoMoreDay::DamageType type) {
+  using NoMoreDay::DamageType;
+  using NoMoreDay::Tag;
+  switch (type) {
+  case DamageType::Physical:
+    return Tag::Physical;
+  case DamageType::Fire:
+    return Tag::Fire;
+  case DamageType::Cold:
+    return Tag::Cold;
+  case DamageType::Lightning:
+    return Tag::Lightning;
+  case DamageType::Poison:
+    return Tag::Poison;
+  case DamageType::Shadow:
+    return Tag::Shadow;
+  default:
+    return Tag::Physical;
+  }
+}
+
+NoMoreDay::DamagePool BuildLegacyAttackBasePool(
+    const NoMoreDay::CombatStats *stats, float baseDamage) {
+  using namespace NoMoreDay::Constants::Combat::Pipeline;
+  using NoMoreDay::DamageType;
+  NoMoreDay::DamagePool basePool;
+  float physBase = (stats && stats->max_weapon_damage > 0.1f)
+                       ? stats->min_weapon_damage
+                       : baseDamage;
+  if (stats) {
+    physBase += stats->flat_damage[(int)DamageType::Physical];
+  }
+  if (physBase > 0.0f) {
+    basePool.Add(NoMoreDay::Tag::Physical, physBase);
+  }
+  if (stats) {
+    for (int i = 1; i < ELEMENTAL_TYPE_COUNT; ++i) {
+      if (stats->flat_damage[i] > 0.01f) {
+        basePool.Add(DamageTypeToTag(static_cast<DamageType>(i)),
+                     stats->flat_damage[i]);
+      }
+    }
+  }
+  return basePool;
+}
+
+float LegacyDamageFormula(const NoMoreDay::CombatStats &attacker,
+                          const NoMoreDay::CombatStats &defender,
+                          float baseDamage, NoMoreDay::DamageType type) {
+  using namespace NoMoreDay;
+  using namespace NoMoreDay::utils;
+
+  float multiplier = attacker.damage_multipliers[(int)type];
+  float effectiveMult = SelectF(multiplier > 0.001f, multiplier, 1.0f);
+  float damage = baseDamage * effectiveMult;
+
+  float mitigation = 0.0f;
+  float effective_armor = defender.armor - attacker.armor_pen;
+  int area_level = defender.cached_area_level;
+  if (area_level < 1) {
+    area_level = 1;
+  }
+
+  float multiplier_val =
+      NoMoreDay::CombatFormula::CalculateArmorMultiplier(effective_armor,
+                                                         area_level);
+  float physMitigation = 1.0f - multiplier_val;
+
+  float res = defender.resistances[(int)type];
+  using namespace NoMoreDay::Constants::Combat;
+  float elemMitigation = SelectF(res > Cap::RESISTANCE, Cap::RESISTANCE, res);
+
+  bool isPhysical = (type == DamageType::Physical);
+  mitigation = SelectF(isPhysical, physMitigation, elemMitigation);
+  damage *= (1.0f - mitigation);
+
+  float reduction = defender.damage_reduction;
+  reduction = SelectF(reduction > Cap::DR, Cap::DR, reduction);
+  float effective_dr = SelectF(reduction > 0.0f, reduction, 0.0f);
+  damage *= (1.0f - effective_dr);
+  return SelectF(damage > 0.0f, damage, 0.0f);
+}
+
+} // namespace
 
 // Static member initialization
 // (Assuming any static members are here or removed if not needed)
@@ -226,50 +314,35 @@ void CombatSystem::update(entt::registry &registry,
 
                 LOG_DEBUG("Hit confirmed on target {}", (uint32_t)target);
 
-                // --- Event System: OnSkillHit ---
-                // This triggers Sword Intent gain, Mana on Hit, and specific
-                // Skill OnHit behaviors Note: Basic attacks currently might not
-                // have a skill_id (0).， We need to pass the correct skill_id
-                // if this attack came from a skill. For now, Player input
-                // attack is often basic attack (0) or weapon skill.
-                NoMoreDay::Tag hitTags = NoMoreDay::Tag::Melee;
-                uint32_t skillId = 0; // Default to 0 (Basic Attack)
-
-                // Actually is_crit is calculated LATER (line 238).
-                // Ideally OnSkillHit happens AFTER damage calc?
-                // No, usually OnHit happens regardless of damage, but Crit
-                // status might be needed. Let's dispatch it AFTER crit
-                // calculation to be accurate.
+                NoMoreDay::Tag hitTags =
+                    NoMoreDay::Tag::Melee | NoMoreDay::Tag::Hit;
+                constexpr uint32_t skillId = 0;
 
                 // Apply Knockback
                 NoMoreDay::Utils::ApplyKnockback(registry, target,
                                                  {pos.x, pos.y}, knockback);
 
-                // 计算最终伤害
-                float totalDamage = 0.0f;
+                float finalDamage = 0.0f;
                 bool isCrit = false;
 
-                // 1. 计算物理伤害 (武器基础 + 附加物理点伤)
+#if COMBAT_LEGACY_CALC_ENABLED
+                float totalDamage = 0.0f;
                 float physBase = (stats && stats->max_weapon_damage > 0.1f)
                                      ? stats->min_weapon_damage
                                      : baseDamage;
-
-                if (stats)
+                if (stats) {
                   physBase +=
                       stats->flat_damage[(int)NoMoreDay::DamageType::Physical];
-                totalDamage += CalculateDamage(
+                }
+                totalDamage += LegacyDamageFormula(
                     stats ? *stats : NoMoreDay::CombatStats{},
                     registry.get_or_emplace<NoMoreDay::CombatStats>(target),
                     physBase, NoMoreDay::DamageType::Physical);
-
-                LOG_TRACE("Combat: BasePhys={:.1f}, FinalDmg={:.1f}, Target={}",
-                          physBase, totalDamage, (uint32_t)target);
-
-                // 2. 计算其他元素伤害 (来自装备的附加点伤)
                 if (stats) {
-                  for (int i = 1; i < (int)NoMoreDay::DamageType::Count; ++i) {
+                  using namespace NoMoreDay::Constants::Combat::Pipeline;
+                  for (int i = 1; i < ELEMENTAL_TYPE_COUNT; ++i) {
                     if (stats->flat_damage[i] > 0.01f) {
-                      totalDamage += CalculateDamage(
+                      totalDamage += LegacyDamageFormula(
                           *stats,
                           registry.get_or_emplace<NoMoreDay::CombatStats>(
                               target),
@@ -277,8 +350,21 @@ void CombatSystem::update(entt::registry &registry,
                     }
                   }
                 }
-
-                float finalDamage = totalDamage;
+                finalDamage = totalDamage;
+#else
+                NoMoreDay::DamageRequest damageReq;
+                damageReq.attacker = entity;
+                damageReq.defender = target;
+                damageReq.skill_id = skillId;
+                damageReq.base_pool = BuildLegacyAttackBasePool(stats, baseDamage);
+                damageReq.additional_tags = hitTags;
+                auto result = NoMoreDay::DamagePipeline::Calculate(registry, damageReq);
+                finalDamage = result.total_damage;
+                isCrit = result.is_crit;
+                LOG_TRACE("Combat(Pipeline): BasePhys={:.1f}, FinalDmg={:.1f}, Target={}",
+                          damageReq.base_pool.Get(NoMoreDay::Tag::Physical),
+                          finalDamage, (uint32_t)target);
+#endif
 
                 // Apply Block Reduction
                 // Formula: Reduction using effective_block_eff from CombatStats
@@ -291,8 +377,9 @@ void CombatSystem::update(entt::registry &registry,
                   }
                 }
 
+#if COMBAT_LEGACY_CALC_ENABLED
                 // 3. 暴击判定 (作用于最终总伤害)
-                if (registry.all_of<NoMoreDay::CombatStats>(target)) {
+                if (stats && registry.all_of<NoMoreDay::CombatStats>(target)) {
                   float roll = (float)GetRandomValue(0, 1000) / 1000.0f;
                   // 应用暴击率上限
                   using namespace NoMoreDay::Constants::Combat;
@@ -311,6 +398,7 @@ void CombatSystem::update(entt::registry &registry,
                 CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(
                     entity, target, skillId, hitTags, isCrit);
                 CombatEventDispatcher::Dispatch(registry, hit_evt);
+#endif
 
                 // Apply Damage
                 if (registry.all_of<HealthComponent>(target)) {
@@ -326,9 +414,27 @@ void CombatSystem::update(entt::registry &registry,
                     const auto &tStats =
                         registry.get<NoMoreDay::CombatStats>(target);
                     if (tStats.thorns > 0.0f) {
+#if COMBAT_LEGACY_CALC_ENABLED
                       // 反伤给攻击者
                       ApplyDamage(registry, entity, tStats.thorns, target,
                                   false);
+#else
+                      NoMoreDay::DamagePool thornsPool;
+                      thornsPool.Add(NoMoreDay::Tag::Physical, tStats.thorns);
+                      NoMoreDay::DamageRequest thornsReq;
+                      thornsReq.attacker = target;
+                      thornsReq.defender = entity;
+                      thornsReq.skill_id = 0;
+                      thornsReq.base_pool = thornsPool;
+                      thornsReq.skip_mitigation = true;
+                      thornsReq.thorns_like_damage = true;
+                      auto thornsResult =
+                          NoMoreDay::DamagePipeline::Calculate(registry, thornsReq);
+                      if (thornsResult.total_damage > 0.0f) {
+                        ApplyDamage(registry, entity, thornsResult.total_damage,
+                                    target, thornsResult.is_crit);
+                      }
+#endif
                       LOG_TRACE("Thorns: Entity {} took {:.1f} damage",
                                 (uint32_t)entity, tStats.thorns);
                     }
@@ -425,10 +531,27 @@ void CombatSystem::update(entt::registry &registry,
           }
 
           if (!isDodged) {
-            float finalDamage = CalculateDamage(
+            float finalDamage = 0.0f;
+            bool isCrit = false;
+#if COMBAT_LEGACY_CALC_ENABLED
+            finalDamage = LegacyDamageFormula(
                 eStats,
                 registry.get_or_emplace<NoMoreDay::CombatStats>(ai.target),
                 basePhys, NoMoreDay::DamageType::Physical);
+#else
+            NoMoreDay::DamagePool basePool;
+            basePool.Add(NoMoreDay::Tag::Physical, basePhys);
+            NoMoreDay::DamageRequest damageReq;
+            damageReq.attacker = enemy;
+            damageReq.defender = ai.target;
+            damageReq.skill_id = 0;
+            damageReq.base_pool = basePool;
+            damageReq.additional_tags =
+                NoMoreDay::Tag::Melee | NoMoreDay::Tag::Hit;
+            auto result = NoMoreDay::DamagePipeline::Calculate(registry, damageReq);
+            finalDamage = result.total_damage;
+            isCrit = result.is_crit;
+#endif
 
             // Check for block
             bool isBlocked = false;
@@ -454,7 +577,7 @@ void CombatSystem::update(entt::registry &registry,
               }
             }
 
-            ApplyDamage(registry, ai.target, finalDamage, enemy, false);
+            ApplyDamage(registry, ai.target, finalDamage, enemy, isCrit);
             LOG_TRACE("Monster {} attacked {} for {:.1f} damage",
                       (uint32_t)enemy, (uint32_t)ai.target, finalDamage);
           } else {
@@ -474,79 +597,15 @@ float CombatSystem::CalculateDamage(const NoMoreDay::CombatStats &attacker,
                                     const NoMoreDay::CombatStats &defender,
                                     float baseDamage,
                                     NoMoreDay::DamageType type) {
-  using namespace NoMoreDay;
-  using namespace NoMoreDay::utils;
-
-  // 1. Apply Attacker Multipliers
-  // Formula: Base * (1 + Multiplier)
-  // Branchless: multiplier = max(multiplier, 1.0f) is handled by check
-  float multiplier = attacker.damage_multipliers[(int)type];
-  // If multiplier <= 0.001f, use 1.0f, else use multiplier
-  // logic: mult = (multiplier > 0.001f) ? multiplier : 1.0f;
-  float effectiveMult = SelectF(multiplier > 0.001f, multiplier, 1.0f);
-  float damage = baseDamage * effectiveMult;
-
-  // 2. Mitigation
-  float mitigation = 0.0f;
-
-  // Branchless Physical vs Elemental
-  // We calculate both paths and select the result
-
-  // -- Path A: Physical --
-  // Armor Reduction
-  float effective_armor = defender.armor - attacker.armor_pen;
-
-  // Use CombatFormula for robust calculation
-  // We assume default area level 1 if not cached (though it should be)
-  int area_level = defender.cached_area_level;
-  if (area_level < 1)
-    area_level = 1;
-
-  float multiplier_val = NoMoreDay::CombatFormula::CalculateArmorMultiplier(
-      effective_armor, area_level);
-  // CalculateArmorMultiplier returns Damage Multiplier (e.g., 0.5 for 50% DR,
-  // or >1.0 for increased dmg) Our 'mitigation' logic expects a reduction
-  // factor [0, 1]. However, the formula below says: damage *= (1.0f -
-  // mitigation); So mitigation = 1.0f - multiplier_val; If multiplier > 1.0
-  // (Increased Damage), mitigation would be negative. e.g. mult=1.5 -> mit =
-  // -0.5 -> damage *= (1 - -0.5) = 1.5. Correct.
-
-  float physMitigation = 1.0f - multiplier_val;
-
-  // -- Path B: Elemental --
-  float res = defender.resistances[(int)type];
-  // Hard Cap at 75%
-  // logic: if (res > Cap::RESISTANCE) res = Cap::RESISTANCE;
-  using namespace NoMoreDay::Constants::Combat;
-  float elemMitigation = SelectF(res > Cap::RESISTANCE, Cap::RESISTANCE, res);
-
-  // Select Physical vs Elemental
-  bool isPhysical = (type == DamageType::Physical);
-  mitigation = SelectF(isPhysical, physMitigation, elemMitigation);
-
-  // 3. Final Calculation
-  damage *= (1.0f - mitigation);
-
-  // 4. Global Damage Reduction
-  // logic: if (defender.damage_reduction > 0.0f) ...
-  // reduction = min(modifier, Cap::DR)
-  float reduction = defender.damage_reduction;
-  // Apply Cap
-  reduction = SelectF(reduction > Cap::DR, Cap::DR, reduction);
-  // Only apply if > 0 (handled by SelectF automatically if we assume reduction
-  // is 0 when not active) damage *= (1.0f - reduction) If reduction is 0,
-  // factor is 1.0. If reduction is valid, factor is 1-red. However, input check
-  // `if (defender.damage_reduction > 0.0f)` implies we shouldn't apply negative
-  // DR? Let's assume DR is clamped to 0 at least before this or is positive.
-  // Actually, logic was: if (dr > 0) apply. If dr <= 0, do nothing.
-  // So effective_dr = (dr > 0) ? min(dr, cap) : 0
-  float effective_dr =
-      SelectF(reduction > 0.0f, reduction,
-              0.0f); // Ensures no negative DR handling if logic required
-  damage *= (1.0f - effective_dr);
-
-  // return max(0.0f, damage);
-  return SelectF(damage > 0.0f, damage, 0.0f);
+#if COMBAT_LEGACY_CALC_ENABLED
+  return LegacyDamageFormula(attacker, defender, baseDamage, type);
+#else
+  (void)attacker;
+  (void)defender;
+  (void)baseDamage;
+  (void)type;
+  return 0.0f;
+#endif
 }
 
 bool CombatSystem::ApplyDamage(entt::registry &registry, entt::entity target,

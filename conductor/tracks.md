@@ -51,16 +51,16 @@ M3 — P2 长线运营 (4 Tracks)
 
 ### Active M1 Tracks
 
-## [ ] Track CS-M1-01: Combat Single Damage Entry (combat_single_damage_entry_20260225)
+## [x] Track CS-M1-01: Combat Single Damage Entry (combat_single_damage_entry_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0-Critical  
 > **Type**: refactor/P0-convergence  
 > **Milestone**: M1  
 > **Depends On**: None (root track)  
 > **Focus**: 统一所有伤害路径到 `DamagePipeline`，废弃 `CombatSystem::CalculateDamage` 旧链，建立兼容开关。  
-> **Tasks**: 0/18  
-> **Location**: [`conductor/tracks/combat_single_damage_entry_20260225/`](./tracks/combat_single_damage_entry_20260225/index.md)
+> **Tasks**: 18/18  
+> **Location**: [`conductor/archive/combat_single_damage_entry_20260225/`](./archive/combat_single_damage_entry_20260225/index.md)
 
 ## [ ] Track CS-M1-05: Combat Contract CI Gate (combat_contract_ci_gate_20260225)
 

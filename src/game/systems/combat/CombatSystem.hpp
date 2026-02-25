@@ -7,6 +7,9 @@
 #include "game/components/Stats.hpp"
 #include "game/components/Combat.hpp"
 
+#ifndef COMBAT_LEGACY_CALC_ENABLED
+#define COMBAT_LEGACY_CALC_ENABLED 0
+#endif
 
 class CombatSystem {
 public:
@@ -18,6 +21,7 @@ public:
     /**
      * @brief 计算减伤后的最终伤害。
      */
+    [[deprecated("Use DamagePipeline::Calculate")]]
     static float CalculateDamage(const NoMoreDay::CombatStats& attacker, const NoMoreDay::CombatStats& defender, float baseDamage, NoMoreDay::DamageType type);
 
     /**

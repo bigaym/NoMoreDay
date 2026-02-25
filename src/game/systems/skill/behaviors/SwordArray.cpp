@@ -212,8 +212,25 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
         if (array.has_execute) {
           if (auto *hp = registry.try_get<HealthComponent>(target_ent)) {
             if (hp->current / hp->max < 0.15f) {
-              CombatSystem::ApplyDamage(registry, target_ent, hp->max * 0.1f,
-                                        array.owner, false, true);
+              DamagePool executePool;
+              executePool.Add(Tag::Physical, hp->max * 0.1f);
+              DamageRequest executeReq;
+              executeReq.attacker = array.owner;
+              executeReq.defender = target_ent;
+              executeReq.skill_id = kSkillId;
+              executeReq.base_pool = executePool;
+              executeReq.additional_tags =
+                  Tag::Area | Tag::SwordSkill | Tag::Hit;
+              executeReq.source_entity = entity;
+              executeReq.skip_mitigation = true;
+              auto executeResult =
+                  DamagePipeline::Calculate(registry, executeReq);
+              if (executeResult.total_damage > 0.0f) {
+                CombatSystem::ApplyDamage(registry, target_ent,
+                                          executeResult.total_damage,
+                                          array.owner, executeResult.is_crit,
+                                          true);
+              }
             }
           }
         }
