@@ -4,10 +4,9 @@
 #include "game/components/Common.hpp"
 #include "game/components/EffectComponent.hpp"
 #include "game/components/Buff.hpp"
+#include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
-#include "game/systems/combat/DamagePipeline.hpp"
-#include "game/systems/combat/CombatSystem.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "raymath.h"
 #include <vector>
@@ -93,42 +92,10 @@ void EffectSystem::update(entt::registry &registry, float dt) {
       stats.isSilenced = playerSilenced;
   }
 
-  // 6. 处理 DoT (Damage Over Time) Buff
-  auto dotView = registry.view<ActiveEffectsComponent, HealthComponent, Position>();
-  for (auto entity : dotView) {
-    auto& activeEffects = dotView.get<ActiveEffectsComponent>(entity);
-    const auto& pos = dotView.get<Position>(entity);
-    
-    for (auto& effect : activeEffects.effects) {
-      if (effect.type == BuffType::DamageOverTime && effect.remaining > 0.0f) {
-        effect.tick_timer += dt;
-        if (effect.tick_timer >= effect.tick_interval) {
-          effect.tick_timer = 0.0f;
-          
-          // 使用 DamagePipeline 计算伤害
-          const Tag dotDamageTag =
-              effect.tick_damage_tag == Tag::None ? Tag::Poison
-                                                  : effect.tick_damage_tag;
+  // 6. 统一异常系统 DoT tick
+  AilmentTickDriver::Tick(registry, dt);
 
-          DamagePool base_pool;
-          base_pool.Add(dotDamageTag, effect.tick_damage);
-
-          auto result = DamagePipeline::Calculate(
-              registry, effect.source, entity, 0, base_pool,
-              Tag::DamageOverTime);
-
-          CombatSystem::ApplyDamage(registry, entity, result.total_damage,
-                                    effect.source, result.is_crit, false);
-
-          // 发射伤害飘字
-          EmitDamagePopup(registry, {pos.x, pos.y - 20.0f},
-                          result.total_damage, result.is_crit, dotDamageTag);
-        }
-      }
-    }
-  }
-
-  // 6. 更新通用视觉特效
+  // 7. 更新通用视觉特效
   auto viewVisual = registry.view<VisualEffect, Position>();
   for (auto entity : viewVisual) {
     auto &effect = viewVisual.get<VisualEffect>(entity);

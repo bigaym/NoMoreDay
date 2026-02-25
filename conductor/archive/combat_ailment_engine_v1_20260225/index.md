@@ -1,7 +1,7 @@
 # Track: Combat Ailment Engine V1
 
 **ID:** `combat_ailment_engine_v1_20260225`  
-**Status:** Not Started  
+**Status:** Completed  
 **Type:** feature/system  
 **Priority:** P1  
 **Milestone:** M2  
@@ -15,8 +15,8 @@
 
 ## Progress
 
-- **Phases:** 0/4 complete
-- **Tasks:** 0/16 complete
+- **Phases:** 4/4 complete
+- **Tasks:** 16/16 complete
 
 ## Scope Summary
 

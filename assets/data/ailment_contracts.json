@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "ailments": [
+    {
+      "type": "Poison",
+      "max_stacks": 5,
+      "refresh_policy": "Refresh",
+      "overwrite_policy": "Strongest",
+      "immunity_and_resistance": 1.0,
+      "tick_interval": 0.5,
+      "damage_pool_policy": "PerStack",
+      "base_duration": 4.0,
+      "damage_tag": "Poison",
+      "legacy_buff_type": "Poison"
+    },
+    {
+      "type": "Ignite",
+      "max_stacks": 4,
+      "refresh_policy": "Extend",
+      "overwrite_policy": "Newest",
+      "immunity_and_resistance": 1.0,
+      "tick_interval": 0.5,
+      "damage_pool_policy": "Consolidated",
+      "base_duration": 3.0,
+      "damage_tag": "Fire",
+      "legacy_buff_type": "Burn"
+    },
+    {
+      "type": "Bleed",
+      "max_stacks": 2,
+      "refresh_policy": "Independent",
+      "overwrite_policy": "Additive",
+      "immunity_and_resistance": 1.0,
+      "tick_interval": 0.5,
+      "damage_pool_policy": "PerStack",
+      "base_duration": 2.5,
+      "damage_tag": "Physical",
+      "legacy_buff_type": "Bleed"
+    }
+  ]
+}

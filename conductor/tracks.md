@@ -121,16 +121,16 @@ M3 — P2 长线运营 (4 Tracks)
 
 ### M2 Tracks (P1 — 系统深度)
 
-## [ ] Track CS-M2-01: Combat Ailment Engine V1 (combat_ailment_engine_v1_20260225)
+## [x] Track CS-M2-01: Combat Ailment Engine V1 (combat_ailment_engine_v1_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature/system  
 > **Milestone**: M2  
 > **Depends On**: `combat_single_damage_entry_20260225`, `combat_dot_closure_20260225`  
 > **Focus**: `AilmentEngine` 统一异常状态合同：叠层/刷新/覆盖/免疫/tick 策略。  
-> **Tasks**: 0/16  
-> **Location**: [`conductor/tracks/combat_ailment_engine_v1_20260225/`](./tracks/combat_ailment_engine_v1_20260225/index.md)
+> **Tasks**: 16/16  
+> **Location**: [`conductor/archive/combat_ailment_engine_v1_20260225/`](./archive/combat_ailment_engine_v1_20260225/index.md)
 
 ## [ ] Track CS-M2-02: Combat Defense Contract V1 (combat_defense_contract_v1_20260225)
 
