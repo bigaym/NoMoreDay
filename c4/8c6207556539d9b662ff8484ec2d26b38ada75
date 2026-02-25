@@ -1,0 +1,1 @@
+combat_ailment_engine_v1_20260225 closeout: implemented AilmentEngine (registry/applier/adapter/tick driver), migrated EffectSystem DoT path, added ailment contracts JSON and unit/integration coverage; verification PASS build.bat + ctest unit + ctest ci (two rounds incl pre-commit); track archived and global indices synchronized.
