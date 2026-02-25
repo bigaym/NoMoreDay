@@ -311,6 +311,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK(array.has_slow);
     CHECK(array.has_execute);
     CHECK(array.gain_intent_on_tick);
+    CHECK(array.execute_health_threshold_ratio == doctest::Approx(0.15f));
+    CHECK(array.execute_damage_max_health_ratio == doctest::Approx(0.10f));
   }
 
   SUBCASE("Skill 9 key nodes set PhantomFlash runtime fields") {

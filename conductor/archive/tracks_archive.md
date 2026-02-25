@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Summon Entry Fix (combat_summon_entry_fix_20260225)
+- **Folder:** [./conductor/archive/combat_summon_entry_fix_20260225/](./conductor/archive/combat_summon_entry_fix_20260225/)
+- **Description:** Completed CS-M1-06 convergence patch on top of existing summon strategy refactor: moved melee-orbit contact damage parameters to `SummonCombatProfile` contract fields (`melee_orbit_hit_radius`/`melee_orbit_base_damage`), replaced SwordArray execute inline constants with `SwordArrayComponent` contract fields (`execute_health_threshold_ratio`/`execute_damage_max_health_ratio`), and removed runtime inline constants from summon orbit/execute paths while keeping DamagePipeline routing and attribution intact.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; pre-commit rerun of the same commands PASS.
+
+---
+
 ## [x] Track: Combat Release Gate Suite (combat_release_gate_suite_20260225)
 - **Folder:** [./conductor/archive/combat_release_gate_suite_20260225/](./conductor/archive/combat_release_gate_suite_20260225/)
 - **Description:** Completed CS-M3-04 release governance rollout: added dedicated combat gate runner (`scripts/combat_release_gate.py`) with CI/Nightly/Release modes, schema-driven gate config/baseline files, release manual checklist enforcement, and combat frame percentile metrics export (`combat_frame_p95_ms`/`combat_frame_p99_ms`) from performance benchmark.

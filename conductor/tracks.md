@@ -108,16 +108,17 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 10/10  
 > **Location**: [`conductor/archive/combat_event_consistency_20260225/`](./archive/combat_event_consistency_20260225/index.md)
 
-## [ ] Track CS-M1-06: Combat Summon Entry Fix (combat_summon_entry_fix_20260225)
+## [x] Track CS-M1-06: Combat Summon Entry Fix (combat_summon_entry_fix_20260225)
 
-> **Status**: Not Started  
 > **Priority**: P0  
 > **Type**: bugfix/P0-convergence  
 > **Milestone**: M1  
 > **Depends On**: `combat_single_damage_entry_20260225`  
-> **Focus**: SummonSystem/SwordArray 直写 `ApplyDamage` 路由至 `DamagePipeline`。  
-> **Tasks**: 0/10  
-> **Location**: [`conductor/tracks/combat_summon_entry_fix_20260225/`](./tracks/combat_summon_entry_fix_20260225/index.md)
+> **Focus**: 收敛 orbit/execute 残留硬编码伤害语义，并完成验证闭环。  
+> **Tasks**: 10/10  
+> **Status**: Completed (Archived in `conductor/archive/`)  
+> **Location**: [`conductor/archive/combat_summon_entry_fix_20260225/`](./archive/combat_summon_entry_fix_20260225/index.md)
+> **Note**: CS-M2-03 已先行完成；CS-M1-06 已以“收敛补丁”方式补齐 P0 语义与证据闭环。
 
 ### M2 Tracks (P1 — 系统深度)
 

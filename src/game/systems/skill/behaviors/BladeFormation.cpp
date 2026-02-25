@@ -188,6 +188,8 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       combat.inherit_mode = SummonInheritMode::Mixed;
       combat.proc_budget_per_second = formation.melee_orbit ? 7.5f : 3.0f;
       combat.proc_budget_cap = formation.melee_orbit ? 10.0f : 6.0f;
+      combat.melee_orbit_hit_radius = 30.0f;
+      combat.melee_orbit_base_damage = formation.has_giant_sword ? 35.0f : 25.0f;
 
       auto &aiProfile = registry.get_or_emplace<SummonAIProfile>(sword);
       aiProfile.role =

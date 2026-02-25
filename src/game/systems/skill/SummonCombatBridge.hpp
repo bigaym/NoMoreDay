@@ -18,8 +18,7 @@ public:
   static void ApplyMeleeOrbitContact(entt::registry &registry,
                                      entt::entity summon,
                                      const SpatialHashGrid &grid,
-                                     const Position &origin, float hit_radius,
-                                     float base_damage);
+                                     const Position &origin);
 
 private:
   static bool ConsumeProcBudget(entt::registry &registry, entt::entity summon,

@@ -77,13 +77,64 @@ TEST_CASE("[Unit] SummonStrategy - melee orbit events carry owner/summon/source_
 
   DealDamageCaptureScope capture;
   systems::SummonCombatBridge::ApplyMeleeOrbitContact(
-      registry, summon, grid, registry.get<Position>(summon), 30.0f, 25.0f);
+      registry, summon, grid, registry.get<Position>(summon));
 
   CHECK(capture.hasEvent);
   CHECK(capture.captured.summon_owner == owner);
   CHECK(capture.captured.summon_entity == summon);
   CHECK(capture.captured.summon_source_skill == 3u);
   CHECK(registry.get<HealthComponent>(target).current < 200.0f);
+}
+
+TEST_CASE("[Unit] SummonStrategy - melee orbit uses profile-configured base damage") {
+  TestSetupScope scope;
+  entt::registry registry;
+
+  const auto owner = registry.create();
+  registry.emplace<Position>(owner, 0.0f, 0.0f);
+  auto &ownerStats = registry.emplace<CombatStats>(owner);
+  ownerStats.crit_chance = 0.0f;
+
+  const auto summon = registry.create();
+  registry.emplace<SpiritSwordTag>(summon);
+  registry.emplace<Position>(summon, 0.0f, 0.0f);
+  auto &summonComp = registry.emplace<SummonComponent>(summon);
+  summonComp.owner = owner;
+  summonComp.skill_id = 3;
+  summonComp.archetype_id = SummonArchetype::SpiritSword;
+  auto &profile = registry.emplace<SummonCombatProfile>(summon);
+  profile.inherit_mode = SummonInheritMode::Dynamic;
+  profile.damage_scale = 1.0f;
+  profile.proc_budget_cap = 10.0f;
+  profile.melee_orbit_hit_radius = 30.0f;
+  profile.melee_orbit_base_damage = 5.0f;
+  auto &runtime = registry.emplace<SummonRuntimeState>(summon);
+  runtime.proc_budget = 10.0f;
+  runtime.snapshot_stats = ownerStats;
+  runtime.has_snapshot = true;
+
+  const auto lowTarget = CreateTarget(registry, 5.0f, 0.0f, 200.0f);
+  systems::SpatialHashGrid grid(64, 64, 20.0f);
+  auto posView = registry.view<Position>();
+  grid.rebuild(posView, registry);
+
+  systems::SummonCombatBridge::ApplyMeleeOrbitContact(
+      registry, summon, grid, registry.get<Position>(summon));
+  const float lowDamage = 200.0f - registry.get<HealthComponent>(lowTarget).current;
+  CHECK(lowDamage > 0.0f);
+
+  registry.emplace<KilledTag>(lowTarget);
+  profile.melee_orbit_base_damage = 60.0f;
+  runtime.proc_budget = 10.0f;
+
+  const auto highTarget = CreateTarget(registry, 5.0f, 0.0f, 200.0f);
+  grid.rebuild(posView, registry);
+  systems::SummonCombatBridge::ApplyMeleeOrbitContact(
+      registry, summon, grid, registry.get<Position>(summon));
+  const float highDamage =
+      200.0f - registry.get<HealthComponent>(highTarget).current;
+
+  CHECK(highDamage > lowDamage);
 }
 
 TEST_CASE("[Unit] SummonStrategy - inherit mode resolves snapshot/dynamic/mixed correctly") {

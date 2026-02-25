@@ -178,23 +178,27 @@ bool SummonCombatBridge::CastSpiritSwordShadow(entt::registry &registry,
 void SummonCombatBridge::ApplyMeleeOrbitContact(entt::registry &registry,
                                                 entt::entity summon,
                                                 const SpatialHashGrid &grid,
-                                                const Position &origin,
-                                                float hit_radius,
-                                                float base_damage) {
+                                                const Position &origin) {
   if (!registry.valid(summon)) {
     return;
   }
 
   auto *summonComp = registry.try_get<SummonComponent>(summon);
+  const auto *profile = registry.try_get<SummonCombatProfile>(summon);
   if (!summonComp || !registry.valid(summonComp->owner)) {
     return;
   }
+
+  const SummonCombatProfile defaultProfile{};
+  const auto &combatProfile = profile ? *profile : defaultProfile;
+  const float hitRadius = (std::max)(0.0f, combatProfile.melee_orbit_hit_radius);
+  const float baseDamage = (std::max)(0.0f, combatProfile.melee_orbit_base_damage);
 
   registry.emplace_or_replace<CombatStats>(summon,
                                            ResolveInheritedStats(registry, summon));
   EnsureSummonAttribution(registry, summon);
 
-  grid.query(origin, hit_radius, [&](entt::entity target, const Position &targetPos) {
+  grid.query(origin, hitRadius, [&](entt::entity target, const Position &targetPos) {
     if (!registry.all_of<EnemyTag, CombatStats>(target)) {
       return;
     }
@@ -204,7 +208,7 @@ void SummonCombatBridge::ApplyMeleeOrbitContact(entt::registry &registry,
 
     const float distSq =
         Vector2DistanceSqr({origin.x, origin.y}, {targetPos.x, targetPos.y});
-    if (distSq > hit_radius * hit_radius) {
+    if (distSq > hitRadius * hitRadius) {
       return;
     }
     if (!ConsumeProcBudget(registry, summon, 1.0f)) {
@@ -212,7 +216,7 @@ void SummonCombatBridge::ApplyMeleeOrbitContact(entt::registry &registry,
     }
 
     DamagePool pool;
-    pool.Add(Tag::Physical, base_damage);
+    pool.Add(Tag::Physical, baseDamage);
     DamageRequest request;
     request.attacker = summon;
     request.defender = target;

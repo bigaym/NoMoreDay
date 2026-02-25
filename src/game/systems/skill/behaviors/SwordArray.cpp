@@ -211,9 +211,11 @@ void SwordArray::Update(entt::registry &registry, entt::entity entity,
         }
         if (array.has_execute) {
           if (auto *hp = registry.try_get<HealthComponent>(target_ent)) {
-            if (hp->current / hp->max < 0.15f) {
+            if (hp->max > 0.0f &&
+                hp->current / hp->max < array.execute_health_threshold_ratio) {
               DamagePool executePool;
-              executePool.Add(Tag::Physical, hp->max * 0.1f);
+              executePool.Add(Tag::Physical,
+                              hp->max * array.execute_damage_max_health_ratio);
               DamageRequest executeReq;
               executeReq.attacker = array.owner;
               executeReq.defender = target_ent;

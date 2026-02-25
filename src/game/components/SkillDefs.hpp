@@ -591,6 +591,8 @@ struct SummonCombatProfile {
   SummonInheritMode inherit_mode = SummonInheritMode::Dynamic;
   float proc_budget_per_second = 3.0f;
   float proc_budget_cap = 6.0f;
+  float melee_orbit_hit_radius = 30.0f;
+  float melee_orbit_base_damage = 25.0f;
 };
 
 struct SummonAIProfile {
@@ -672,6 +674,8 @@ struct SwordArrayComponent {
   bool has_armor_shred = false;      // Talent 631 / 671
   bool has_execute = false;          // Talent 633
   bool gain_intent_on_tick = false;  // Talent 652
+  float execute_health_threshold_ratio = 0.15f;
+  float execute_damage_max_health_ratio = 0.10f;
 };
 
 struct ChannelingComponent {

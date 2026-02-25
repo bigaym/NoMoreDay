@@ -56,8 +56,7 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
       ai.attack_timer -= dt;
       if (ai.attack_timer <= 0.0f) {
         ai.attack_timer = 0.2f;
-        SummonCombatBridge::ApplyMeleeOrbitContact(registry, entity, grid, pos,
-                                                   30.0f, 25.0f);
+        SummonCombatBridge::ApplyMeleeOrbitContact(registry, entity, grid, pos);
       }
       continue;
     }
