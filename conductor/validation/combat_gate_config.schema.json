@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nomoreday.local/schemas/combat_gate_config.schema.json",
+  "title": "Combat Gate Config",
+  "type": "object",
+  "required": [
+    "version",
+    "thresholds",
+    "regression",
+    "modes"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "thresholds": {
+      "type": "object",
+      "required": [
+        "combat_frame_p95_ms",
+        "combat_frame_p99_ms",
+        "regression_coverage_pct",
+        "contract_pass_rate_pct",
+        "major_regression_reduction_pct"
+      ],
+      "properties": {
+        "combat_frame_p95_ms": {
+          "type": "object",
+          "required": [
+            "max"
+          ],
+          "properties": {
+            "max": {
+              "type": "number"
+            }
+          }
+        },
+        "combat_frame_p99_ms": {
+          "type": "object",
+          "required": [
+            "max"
+          ],
+          "properties": {
+            "max": {
+              "type": "number"
+            }
+          }
+        },
+        "regression_coverage_pct": {
+          "type": "object",
+          "required": [
+            "min"
+          ],
+          "properties": {
+            "min": {
+              "type": "number"
+            }
+          }
+        },
+        "contract_pass_rate_pct": {
+          "type": "object",
+          "required": [
+            "min"
+          ],
+          "properties": {
+            "min": {
+              "type": "number"
+            }
+          }
+        },
+        "major_regression_reduction_pct": {
+          "type": "object",
+          "required": [
+            "min"
+          ],
+          "properties": {
+            "min": {
+              "type": "number"
+            }
+          }
+        }
+      }
+    },
+    "regression": {
+      "type": "object",
+      "required": [
+        "bugRegistry",
+        "scopeKeywords"
+      ],
+      "properties": {
+        "bugRegistry": {
+          "type": "string"
+        },
+        "scopeKeywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "modes": {
+      "type": "object",
+      "required": [
+        "ci",
+        "nightly",
+        "release"
+      ],
+      "patternProperties": {
+        "^(ci|nightly|release)$": {
+          "type": "object",
+          "required": [
+            "description",
+            "checks"
+          ],
+          "properties": {
+            "description": {
+              "type": "string"
+            },
+            "checks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "title",
+                  "type",
+                  "critical"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string",
+                    "enum": [
+                      "command",
+                      "manual_checklist",
+                      "build_integration",
+                      "derived"
+                    ]
+                  },
+                  "critical": {
+                    "type": "boolean"
+                  },
+                  "command": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "timeoutSeconds": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "metrics": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "name"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "pattern": {
+                          "type": "string"
+                        },
+                        "valueOnPass": {
+                          "type": "number"
+                        },
+                        "valueOnFail": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  },
+                  "allowFailurePatterns": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "sources": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

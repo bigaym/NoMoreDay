@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Release Gate Suite (combat_release_gate_suite_20260225)
+- **Folder:** [./conductor/archive/combat_release_gate_suite_20260225/](./conductor/archive/combat_release_gate_suite_20260225/)
+- **Description:** Completed CS-M3-04 release governance rollout: added dedicated combat gate runner (`scripts/combat_release_gate.py`) with CI/Nightly/Release modes, schema-driven gate config/baseline files, release manual checklist enforcement, and combat frame percentile metrics export (`combat_frame_p95_ms`/`combat_frame_p99_ms`) from performance benchmark.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P2
+- **Archive Reason:** `build.bat` PASS; `build.bat combat-gate` PASS (`checks=8 pass=8 warning=0 fail=0`); `python scripts/combat_release_gate.py --mode ci` PASS; `python scripts/combat_release_gate.py --mode nightly` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Combat Boss Framework (combat_boss_framework_20260225)
 - **Folder:** [./conductor/archive/combat_boss_framework_20260225/](./conductor/archive/combat_boss_framework_20260225/)
 - **Description:** Completed CS-M3-03 boss combat framework: added data-driven `BossPhaseConfig` with HP-threshold phase transitions, phase-bound AI behavior and ailment immunity profile switching, frame-precision `CounterWindow` runtime with success/failure/timeout hooks, configurable failure penalties (`Retry/Weaken/Teleport`), and a multi-phase prototype path wired to `AilmentEngine` through `BossFrameworkSystem::ApplyAilment`.

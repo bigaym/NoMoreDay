@@ -1,0 +1,311 @@
+{
+  "version": "1.0.0",
+  "thresholds": {
+    "combat_frame_p95_ms": {
+      "max": 8.0
+    },
+    "combat_frame_p99_ms": {
+      "max": 12.0
+    },
+    "regression_coverage_pct": {
+      "min": 80.0
+    },
+    "contract_pass_rate_pct": {
+      "min": 100.0
+    },
+    "major_regression_reduction_pct": {
+      "min": 50.0
+    }
+  },
+  "regression": {
+    "bugRegistry": "conductor/bug_registry.md",
+    "scopeKeywords": [
+      "combat",
+      "战斗",
+      "damagepipeline",
+      "ailment",
+      "summon",
+      "procbudget",
+      "antimeta",
+      "endgame",
+      "bossframework",
+      "src/game/systems/combat"
+    ]
+  },
+  "modes": {
+    "ci": {
+      "description": "Contract check + CI tests",
+      "checks": [
+        {
+          "id": "contract_check",
+          "title": "Skill contract drift check",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "python",
+            "scripts/gen_skill_contracts.py",
+            "--check"
+          ],
+          "timeoutSeconds": 300,
+          "metrics": [
+            {
+              "name": "contract_pass_rate_pct",
+              "valueOnPass": 100.0,
+              "valueOnFail": 0.0
+            }
+          ]
+        },
+        {
+          "id": "ci_suite",
+          "title": "CTest CI suite",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "ctest",
+            "--test-dir",
+            "{build_dir}",
+            "-C",
+            "{ctest_config}",
+            "-L",
+            "ci",
+            "--output-on-failure"
+          ],
+          "timeoutSeconds": 1800
+        },
+        {
+          "id": "coverage_ci",
+          "title": "Regression coverage (CI mode)",
+          "type": "derived",
+          "kind": "coverage",
+          "critical": true,
+          "metric": "regression_coverage_pct",
+          "sources": [
+            "contract_check",
+            "ci_suite"
+          ]
+        }
+      ]
+    },
+    "nightly": {
+      "description": "Full regression + performance",
+      "checks": [
+        {
+          "id": "contract_check",
+          "title": "Skill contract drift check",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "python",
+            "scripts/gen_skill_contracts.py",
+            "--check"
+          ],
+          "timeoutSeconds": 300,
+          "metrics": [
+            {
+              "name": "contract_pass_rate_pct",
+              "valueOnPass": 100.0,
+              "valueOnFail": 0.0
+            }
+          ]
+        },
+        {
+          "id": "ci_suite",
+          "title": "CTest CI suite",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "ctest",
+            "--test-dir",
+            "{build_dir}",
+            "-C",
+            "{ctest_config}",
+            "-L",
+            "ci",
+            "--output-on-failure"
+          ],
+          "timeoutSeconds": 1800
+        },
+        {
+          "id": "integration_suite",
+          "title": "CTest integration suite",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "ctest",
+            "--test-dir",
+            "{build_dir}",
+            "-C",
+            "{ctest_config}",
+            "-L",
+            "integration",
+            "--output-on-failure"
+          ],
+          "timeoutSeconds": 1800
+        },
+        {
+          "id": "performance_suite",
+          "title": "CTest performance suite",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "bin/NoMoreDayTests.exe",
+            "--test-case=*Performance*"
+          ],
+          "timeoutSeconds": 3600,
+          "allowFailurePatterns": [
+            "ParticleTrail\\s*-\\s*Scenario\\s*4",
+            "dispatchOverheadMs"
+          ],
+          "metrics": [
+            {
+              "name": "combat_frame_p95_ms",
+              "pattern": "RELEASE_GATE_METRIC\\s+combat_frame_p95_ms=([0-9]+(?:\\.[0-9]+)?)"
+            },
+            {
+              "name": "combat_frame_p99_ms",
+              "pattern": "RELEASE_GATE_METRIC\\s+combat_frame_p99_ms=([0-9]+(?:\\.[0-9]+)?)"
+            }
+          ]
+        },
+        {
+          "id": "coverage_nightly",
+          "title": "Regression coverage (Nightly mode)",
+          "type": "derived",
+          "kind": "coverage",
+          "critical": true,
+          "metric": "regression_coverage_pct",
+          "sources": [
+            "contract_check",
+            "ci_suite",
+            "integration_suite",
+            "performance_suite"
+          ]
+        },
+        {
+          "id": "major_regression_nightly",
+          "title": "Major regression reduction vs M1 baseline",
+          "type": "derived",
+          "kind": "major_regression_reduction",
+          "critical": true
+        }
+      ]
+    },
+    "release": {
+      "description": "All dimensions + manual checklist",
+      "checks": [
+        {
+          "id": "contract_check",
+          "title": "Skill contract drift check",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "python",
+            "scripts/gen_skill_contracts.py",
+            "--check"
+          ],
+          "timeoutSeconds": 300,
+          "metrics": [
+            {
+              "name": "contract_pass_rate_pct",
+              "valueOnPass": 100.0,
+              "valueOnFail": 0.0
+            }
+          ]
+        },
+        {
+          "id": "ci_suite",
+          "title": "CTest CI suite",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "ctest",
+            "--test-dir",
+            "{build_dir}",
+            "-C",
+            "{ctest_config}",
+            "-L",
+            "ci",
+            "--output-on-failure"
+          ],
+          "timeoutSeconds": 1800
+        },
+        {
+          "id": "integration_suite",
+          "title": "CTest integration suite",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "ctest",
+            "--test-dir",
+            "{build_dir}",
+            "-C",
+            "{ctest_config}",
+            "-L",
+            "integration",
+            "--output-on-failure"
+          ],
+          "timeoutSeconds": 1800
+        },
+        {
+          "id": "performance_suite",
+          "title": "CTest performance suite",
+          "type": "command",
+          "critical": true,
+          "command": [
+            "bin/NoMoreDayTests.exe",
+            "--test-case=*Performance*"
+          ],
+          "timeoutSeconds": 3600,
+          "allowFailurePatterns": [
+            "ParticleTrail\\s*-\\s*Scenario\\s*4",
+            "dispatchOverheadMs"
+          ],
+          "metrics": [
+            {
+              "name": "combat_frame_p95_ms",
+              "pattern": "RELEASE_GATE_METRIC\\s+combat_frame_p95_ms=([0-9]+(?:\\.[0-9]+)?)"
+            },
+            {
+              "name": "combat_frame_p99_ms",
+              "pattern": "RELEASE_GATE_METRIC\\s+combat_frame_p99_ms=([0-9]+(?:\\.[0-9]+)?)"
+            }
+          ]
+        },
+        {
+          "id": "manual_checklist",
+          "title": "Release manual checklist completed",
+          "type": "manual_checklist",
+          "critical": true,
+          "path": "conductor/archive/combat_release_gate_suite_20260225/release_manual_checklist.md"
+        },
+        {
+          "id": "build_integration",
+          "title": "build.bat combat-gate integration",
+          "type": "build_integration",
+          "critical": true
+        },
+        {
+          "id": "coverage_release",
+          "title": "Regression coverage (Release mode)",
+          "type": "derived",
+          "kind": "coverage",
+          "critical": true,
+          "metric": "regression_coverage_pct",
+          "sources": [
+            "contract_check",
+            "ci_suite",
+            "integration_suite",
+            "performance_suite"
+          ]
+        },
+        {
+          "id": "major_regression_release",
+          "title": "Major regression reduction vs M1 baseline",
+          "type": "derived",
+          "kind": "major_regression_reduction",
+          "critical": true
+        }
+      ]
+    }
+  }
+}

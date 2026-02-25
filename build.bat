@@ -14,6 +14,7 @@ REM   debug       - Build in Debug mode
 REM   analyze     - Enable MSVC Static Analysis (/analyze)
 REM   asan        - Enable Address Sanitizer (ASan)
 REM   gate        - Run V3 release gate runner after build/test
+REM   combat-gate - Run combat release gate runner after build/test
 REM   check       - Run JSON validation and static analysis only
 REM   includes    - Build with /showIncludes to analyze dependencies
 REM   nofastbuild - Disable fast MSVC build options (/MP + multitool)
@@ -42,6 +43,8 @@ set "BUILD_TYPE=RelWithDebInfo"
 set "BUILD_TESTS=ON"
 set "BUILD_TEST_TARGET=ON"
 set "RUN_GATE=OFF"
+set "RUN_COMBAT_GATE=OFF"
+set "COMBAT_GATE_MODE=release"
 set "ENABLE_LTO=OFF"
 set "ENABLE_ANALYZE=OFF"
 set "ENABLE_ASAN=OFF"
@@ -203,6 +206,10 @@ if /i "%~1"=="perf" (
 )
 if /i "%~1"=="gate" (
     set "RUN_GATE=ON"
+)
+if /i "%~1"=="combat-gate" (
+    set "RUN_COMBAT_GATE=ON"
+    set "COMBAT_GATE_MODE=release"
 )
 if /i "%~1"=="release" (
     set "BUILD_TYPE=Release"
@@ -522,6 +529,22 @@ if "!RUN_GATE!"=="ON" (
     popd
     if not "!GATE_EXIT!"=="0" (
         echo [Gate] V3 release gate FAILED!
+        exit /b 1
+    )
+)
+
+if "!RUN_COMBAT_GATE!"=="ON" (
+    echo.
+    echo ============================================================
+    echo [Gate] Running Combat release gate runner...
+    echo ============================================================
+    pushd ..
+    set "COMBAT_GATE_ARGS=--mode !COMBAT_GATE_MODE! --build-dir build --ctest-config !BUILD_TYPE! --performance-config Release --output-dir bin/combat_gate"
+    python scripts\combat_release_gate.py !COMBAT_GATE_ARGS!
+    set "COMBAT_GATE_EXIT=!errorlevel!"
+    popd
+    if not "!COMBAT_GATE_EXIT!"=="0" (
+        echo [Gate] Combat release gate FAILED!
         exit /b 1
     )
 )

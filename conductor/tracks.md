@@ -211,16 +211,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 16/16  
 > **Location**: [`conductor/archive/combat_boss_framework_20260225/`](./archive/combat_boss_framework_20260225/index.md)
 
-## [ ] Track CS-M3-04: Combat Release Gate Suite (combat_release_gate_suite_20260225)
+## [x] Track CS-M3-04: Combat Release Gate Suite (combat_release_gate_suite_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P2  
 > **Type**: quality/governance  
 > **Milestone**: M3  
 > **Depends On**: `combat_telemetry_foundation_20260225` + `combat_anti_meta_layer_20260225` + `combat_endgame_linker_20260225` + `combat_boss_framework_20260225`  
 > **Focus**: 发布门禁套件：CI + nightly + release gate，性能/回归/合同三维准入。  
-> **Tasks**: 0/12  
-> **Location**: [`conductor/tracks/combat_release_gate_suite_20260225/`](./tracks/combat_release_gate_suite_20260225/index.md)
+> **Tasks**: 12/12  
+> **Location**: [`conductor/archive/combat_release_gate_suite_20260225/`](./archive/combat_release_gate_suite_20260225/index.md)
 
 ---
 
