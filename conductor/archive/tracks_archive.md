@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat DoT Closure (combat_dot_closure_20260225)
+- **Folder:** [./conductor/archive/combat_dot_closure_20260225/](./conductor/archive/combat_dot_closure_20260225/)
+- **Description:** Completed DoT closure fix in `EffectSystem`: DoT tick now uses `Tag::DamageOverTime`, applies real HP damage via `CombatSystem::ApplyDamage`, and preserves element typing through `BuffEffect::tick_damage_tag` instead of hardcoded poison.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P0
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Combat Contract CI Gate (combat_contract_ci_gate_20260225)
 - **Folder:** [./conductor/archive/combat_contract_ci_gate_20260225/](./conductor/archive/combat_contract_ci_gate_20260225/)
 - **Description:** Completed contract drift closure for Blade Ascendant skill contracts: synchronized stale compact node bounds with real skill trees, regenerated `skills.json` contract blocks, hardened generator validation/diagnostics (`--verbose`, malformed-input checks, idempotency/determinism checks), and integrated `gen_skill_contracts.py --check` into `build.bat` as blocking pre-check.

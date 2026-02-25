@@ -75,16 +75,16 @@ M3 — P2 长线运营 (4 Tracks)
 
 ### Planned M1 Tracks
 
-## [ ] Track CS-M1-02: Combat DoT Closure (combat_dot_closure_20260225)
+## [x] Track CS-M1-02: Combat DoT Closure (combat_dot_closure_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: bugfix/P0-convergence  
 > **Milestone**: M1  
 > **Depends On**: None（独立并行 ★ DoT 路径已走 Pipeline）  
 > **Focus**: DoT tick 闭环 `ApplyDamage` + 强制 `Tag::DamageOverTime`，消灭"只弹字不扣血"。  
-> **Tasks**: 0/12  
-> **Location**: [`conductor/tracks/combat_dot_closure_20260225/`](./tracks/combat_dot_closure_20260225/index.md)
+> **Tasks**: 12/12  
+> **Location**: [`conductor/archive/combat_dot_closure_20260225/`](./archive/combat_dot_closure_20260225/index.md)
 
 ## [ ] Track CS-M1-03: Combat Effectiveness Integration (combat_effectiveness_integration_20260225)
 

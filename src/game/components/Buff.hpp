@@ -62,6 +62,7 @@ struct BuffEffect {
     float tick_interval = 1e10;
     float tick_damage = 0.0f;
     float tick_timer = 0.0f;
+    Tag tick_damage_tag = Tag::Poison;
     
     bool is_debuff = false;     // True if it's a debuff (Red border), false for buff (Green/Gold)
     

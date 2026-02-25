@@ -7,6 +7,7 @@
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/CombatSystem.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "raymath.h"
 #include <vector>
@@ -105,13 +106,23 @@ void EffectSystem::update(entt::registry &registry, float dt) {
           effect.tick_timer = 0.0f;
           
           // 使用 DamagePipeline 计算伤害
+          const Tag dotDamageTag =
+              effect.tick_damage_tag == Tag::None ? Tag::Poison
+                                                  : effect.tick_damage_tag;
+
           DamagePool base_pool;
-          base_pool.Add(Tag::Poison, effect.tick_damage);
-          
-          auto result = DamagePipeline::Calculate(registry, effect.source, entity, 0, base_pool, Tag::None);
-          
+          base_pool.Add(dotDamageTag, effect.tick_damage);
+
+          auto result = DamagePipeline::Calculate(
+              registry, effect.source, entity, 0, base_pool,
+              Tag::DamageOverTime);
+
+          CombatSystem::ApplyDamage(registry, entity, result.total_damage,
+                                    effect.source, result.is_crit, false);
+
           // 发射伤害飘字
-          EmitDamagePopup(registry, {pos.x, pos.y - 20.0f}, result.total_damage, result.is_crit, Tag::Poison);
+          EmitDamagePopup(registry, {pos.x, pos.y - 20.0f},
+                          result.total_damage, result.is_crit, dotDamageTag);
         }
       }
     }
