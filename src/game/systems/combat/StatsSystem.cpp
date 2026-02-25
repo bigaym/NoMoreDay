@@ -18,12 +18,14 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/registry/GroupRegistry.hpp"       // Added
 #include "game/systems/combat/CombatFormula.hpp" // Added for Formula Refactor
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/stats/AttributePipeline.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <Taskflow/algorithm/for_each.hpp>
 #include <Taskflow/taskflow.hpp>
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <unordered_map>
 #include <vector>
 
@@ -104,6 +106,13 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   if (!combat)
     return 0.0f;
 
+#if COMBAT_TELEMETRY_ENABLED
+  CombatTelemetry &telemetry = CombatTelemetry::Get();
+  const bool telemetryEnabled = telemetry.IsRuntimeEnabled();
+  uint64_t readLockWaitNs = 0;
+  uint64_t writeLockWaitNs = 0;
+#endif
+
   // --- Cache Lookup ---
   // Key hash: type | tags | skill_id | source_entity
   uint64_t key = 14695981039346656037ULL;
@@ -120,11 +129,27 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   
   // --- Thread-Safe Cache Read ---
   {
+#if COMBAT_TELEMETRY_ENABLED
+    const auto readLockStart = std::chrono::steady_clock::now();
+#endif
     std::shared_lock lock(s_cacheMutex);
+#if COMBAT_TELEMETRY_ENABLED
+    if (telemetryEnabled) {
+      readLockWaitNs =
+          static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::steady_clock::now() - readLockStart)
+                                    .count());
+    }
+#endif
     auto it_entity = s_tagStatCache.find(entity_id);
     if (it_entity != s_tagStatCache.end()) {
       auto it_stat = it_entity->second.find(key);
       if (it_stat != it_entity->second.end()) {
+#if COMBAT_TELEMETRY_ENABLED
+        if (telemetryEnabled) {
+          telemetry.RecordStatsQuery(true, readLockWaitNs, 0);
+        }
+#endif
         return it_stat->second;
       }
     }
@@ -423,9 +448,26 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
   
   // --- Thread-Safe Cache Write ---
   {
+#if COMBAT_TELEMETRY_ENABLED
+    const auto writeLockStart = std::chrono::steady_clock::now();
+#endif
     std::unique_lock lock(s_cacheMutex);
+#if COMBAT_TELEMETRY_ENABLED
+    if (telemetryEnabled) {
+      writeLockWaitNs =
+          static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+              std::chrono::steady_clock::now() - writeLockStart)
+                                    .count());
+    }
+#endif
     s_tagStatCache[entity_id][key] = result;
   }
+
+#if COMBAT_TELEMETRY_ENABLED
+  if (telemetryEnabled) {
+    telemetry.RecordStatsQuery(false, readLockWaitNs, writeLockWaitNs);
+  }
+#endif
   
   return result;
 }

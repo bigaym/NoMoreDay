@@ -48,6 +48,7 @@
 #include "game/systems/ai/AISystem.hpp"
 #include "game/systems/combat/CombatHistorySystem.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/EliteModifierSystem.hpp"
@@ -403,6 +404,7 @@ GameplayState::~GameplayState() {
 bool GameplayState::OnUpdate(float dt) {
   auto &registry = *m_context->registry;
   NoMoreDay::ProcBudgetManager::Get().BeginFrame(dt);
+  NoMoreDay::CombatTelemetry::Get().BeginFrame(dt);
   NoMoreDay::render::GPUTextSystem::Get().BeginFrame();
 
   UpdateSceneRT();

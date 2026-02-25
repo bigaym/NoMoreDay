@@ -3,6 +3,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/SkillDefs.hpp"
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/skill/SummonCombatBridge.hpp"
 #include <algorithm>
 #include <cmath>
@@ -61,6 +62,7 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
       continue;
     }
 
+    const entt::entity previousTarget = runtime.current_target;
     runtime.retarget_timer -= dt;
     const bool targetInvalid =
         !registry.valid(runtime.current_target) ||
@@ -110,6 +112,10 @@ void SummonAISystem::Update(entt::registry &registry, float dt,
                    });
         ai.target = runtime.current_target;
       }
+    }
+
+    if (previousTarget != runtime.current_target) {
+      CombatTelemetry::Get().RecordSummonTargetSwitch();
     }
 
     const float orbitSpeed = isGiant ? 2.5f : 3.5f;

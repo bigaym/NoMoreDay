@@ -3,6 +3,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/combat/ProcBudgetManager.hpp"
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "core/logging/Logger.hpp"
 #include <algorithm>
 
@@ -60,20 +61,22 @@ void CombatEventDispatcher::Unregister(CombatEventType type, uint32_t handler_id
 }
 
 void CombatEventDispatcher::Dispatch(entt::registry& registry, const CombatEvent& event) {
-    if (!ProcBudgetManager::Get().RequestEventEmit()) {
-        return;
+  if (!ProcBudgetManager::Get().RequestEventEmit()) {
+    return;
     }
 
     std::shared_lock lock(s_dispatcherMutex);
     auto& handlers = GetHandlers();
     size_t idx = static_cast<size_t>(event.type);
     
-    if (idx >= handlers.size()) {
-        LOG_WARN("CombatEventDispatcher: Invalid event type {}", static_cast<int>(event.type));
-        return;
-    }
+  if (idx >= handlers.size()) {
+    LOG_WARN("CombatEventDispatcher: Invalid event type {}", static_cast<int>(event.type));
+    return;
+  }
+
+  CombatTelemetry::Get().RecordCombatEvent(event);
     
-    const auto& vec = handlers[idx];
+  const auto& vec = handlers[idx];
     
     for (const auto& entry : vec) {
         try {

@@ -18,6 +18,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/ProcBudgetManager.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
@@ -709,6 +710,26 @@ void SkillSystem::InitHooks() {
               trigger_target = {pos.x, pos.y};
             }
 
+#if COMBAT_TELEMETRY_ENABLED
+            CombatTelemetry &telemetry = CombatTelemetry::Get();
+            const bool telemetryEnabled = telemetry.IsRuntimeEnabled();
+            auto recordTriggerAttempt = [&](uint8_t depth) {
+              if (telemetryEnabled) {
+                telemetry.RecordTriggerAttempt(depth);
+              }
+            };
+            auto recordTriggerBlocked = [&](uint8_t depth) {
+              if (telemetryEnabled) {
+                telemetry.RecordTriggerBlocked(depth);
+              }
+            };
+            auto recordTriggerDispatched = [&](uint8_t depth) {
+              if (telemetryEnabled) {
+                telemetry.RecordTriggerDispatched(depth);
+              }
+            };
+#endif
+
             for (const auto &[node_id, points] : specialized->allocated_points) {
               if (points <= 0) {
                 continue;
@@ -719,19 +740,31 @@ void SkillSystem::InitHooks() {
                   node_contract->role != SpecNodeRole::Trigger) {
                 continue;
               }
+#if COMBAT_TELEMETRY_ENABLED
+              recordTriggerAttempt(parent_depth);
+#endif
               if (!SkillSystem::CanApplyScopePolicy(
                       registry, caster, evt.skill_id, evt.skill_id,
                       node_contract->scope_policy)) {
+#if COMBAT_TELEMETRY_ENABLED
+                recordTriggerBlocked(parent_depth);
+#endif
                 LogGuardBlocked(kDiagScopePolicy, evt.skill_id, node_id, caster,
                                 "scope policy rejected");
                 continue;
               }
               if (runtime.trigger_cooldowns.contains(node_id)) {
+#if COMBAT_TELEMETRY_ENABLED
+                recordTriggerBlocked(parent_depth);
+#endif
                 LogGuardBlocked(kDiagTriggerCooldown, evt.skill_id, node_id,
                                 caster, "trigger cooldown active");
                 continue;
               }
               if (parent_depth >= kMaxTriggerDepth) {
+#if COMBAT_TELEMETRY_ENABLED
+                recordTriggerBlocked(parent_depth);
+#endif
                 LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id, caster,
                                 "max trigger depth reached");
                 continue;
@@ -741,6 +774,9 @@ void SkillSystem::InitHooks() {
                 if (const auto *pf =
                         registry.try_get<PhantomFlashComponent>(caster)) {
                   if (pf->counter_window > 0.0f && !pf->triggered) {
+#if COMBAT_TELEMETRY_ENABLED
+                    recordTriggerBlocked(parent_depth);
+#endif
                     LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id,
                                     caster,
                                     "counter window suppresses trigger chain");
@@ -757,12 +793,18 @@ void SkillSystem::InitHooks() {
               const auto *trigger_skill =
                   SkillRegistry::Get().GetSkill(trigger_skill_id);
               if (!trigger_skill) {
+#if COMBAT_TELEMETRY_ENABLED
+                recordTriggerBlocked(parent_depth);
+#endif
                 LogGuardBlocked(kDiagTriggerSkillUnavailable, evt.skill_id,
                                 node_id, caster, "trigger skill not found");
                 continue;
               }
               if (!ProcBudgetManager::Get().RequestProc(
                       caster, ProcBudgetType::TriggerProc, 1.0f)) {
+#if COMBAT_TELEMETRY_ENABLED
+                recordTriggerBlocked(parent_depth);
+#endif
                 LogGuardBlocked(kDiagTriggerDepth, evt.skill_id, node_id, caster,
                                 "proc budget denied");
                 continue;
@@ -770,6 +812,9 @@ void SkillSystem::InitHooks() {
               if (node_contract->trigger.consumes_mana) {
                 if (auto *stats = registry.try_get<CombatStats>(caster)) {
                   if (stats->mana < trigger_skill->mana_cost) {
+#if COMBAT_TELEMETRY_ENABLED
+                    recordTriggerBlocked(parent_depth);
+#endif
                     LogGuardBlocked(kDiagTriggerManaBlocked, evt.skill_id,
                                     node_id, caster, "insufficient mana");
                     continue;
@@ -796,6 +841,9 @@ void SkillSystem::InitHooks() {
               RememberCastDepth(trigger_exec.cast_id,
                                trigger_exec.trigger_depth,
                                trigger_exec.trigger_effectiveness);
+#if COMBAT_TELEMETRY_ENABLED
+              recordTriggerDispatched(trigger_exec.trigger_depth);
+#endif
 
               if (active) {
                 const SpecializedSkill *trigger_specialized =

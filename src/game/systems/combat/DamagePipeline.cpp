@@ -9,12 +9,14 @@
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // ShadowCast
 #include "spdlog/spdlog.h"
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <chrono>
 #include <cmath>
 #include <xsimd/xsimd.hpp>
 
@@ -194,6 +196,36 @@ void AttachSummonAttributionIfAny(CombatEvent &event,
 
 } // namespace
 
+class ScopedDamageTelemetryTimer {
+public:
+  ScopedDamageTelemetryTimer() noexcept {
+#if COMBAT_TELEMETRY_ENABLED
+    m_enabled = CombatTelemetry::Get().IsRuntimeEnabled();
+    if (m_enabled) {
+      m_start = Clock::now();
+    }
+#endif
+  }
+
+  ~ScopedDamageTelemetryTimer() {
+#if COMBAT_TELEMETRY_ENABLED
+    if (!m_enabled) {
+      return;
+    }
+    const auto elapsed_us = std::chrono::duration<double, std::micro>(
+        Clock::now() - m_start).count();
+    CombatTelemetry::Get().RecordDamagePipelineDurationUs(elapsed_us);
+#endif
+  }
+
+private:
+#if COMBAT_TELEMETRY_ENABLED
+  using Clock = std::chrono::steady_clock;
+  Clock::time_point m_start{};
+  bool m_enabled = false;
+#endif
+};
+
 // Simple fixed-capacity vector helper to avoid allocations
 template <typename T, size_t N> struct FixedVector {
   std::array<T, N> data;
@@ -257,6 +289,8 @@ DamagePipeline::Calculate(entt::registry &registry, entt::entity attacker,
 
 DamageResult DamagePipeline::Calculate(entt::registry &registry,
                                        const DamageRequest &request) {
+  ScopedDamageTelemetryTimer telemetryTimer;
+
   const entt::entity attacker = request.attacker;
   const entt::entity defender = request.defender;
   const uint32_t skill_id = request.skill_id;
@@ -958,6 +992,8 @@ void DamagePipeline::CalculateBatch(
     const std::vector<entt::entity> &defenders, uint32_t skill_id,
     const DamagePool &base_pool, Tag additional_tags,
     entt::entity source_entity, tf::Executor *executor) {
+  ScopedDamageTelemetryTimer telemetryTimer;
+
   using namespace NoMoreDay::Constants::Combat::Pipeline;
   if (defenders.empty())
     return;

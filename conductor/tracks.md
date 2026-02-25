@@ -165,16 +165,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 14/14  
 > **Location**: [`conductor/archive/combat_proc_budget_v1_20260225/`](./archive/combat_proc_budget_v1_20260225/index.md)
 
-## [ ] Track CS-M2-05: Combat Telemetry Foundation (combat_telemetry_foundation_20260225)
+## [x] Track CS-M2-05: Combat Telemetry Foundation (combat_telemetry_foundation_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: tooling/observability  
 > **Milestone**: M2  
 > **Depends On**: `combat_event_consistency_20260225`  
 > **Focus**: 战斗遥测基础：DamagePipeline/StatsSystem/EventDispatcher/Trigger/Summon 五类指标。  
-> **Tasks**: 0/12  
-> **Location**: [`conductor/tracks/combat_telemetry_foundation_20260225/`](./tracks/combat_telemetry_foundation_20260225/index.md)
+> **Tasks**: 12/12  
+> **Location**: [`conductor/archive/combat_telemetry_foundation_20260225/`](./archive/combat_telemetry_foundation_20260225/index.md)
 
 ### M3 Tracks (P2 — 长线运营)
 

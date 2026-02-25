@@ -4,6 +4,7 @@
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
@@ -96,7 +97,10 @@ bool SummonCombatBridge::ConsumeProcBudget(entt::registry &registry,
   if (!runtime || !profile || profile->proc_budget_cap <= 0.0f) {
     return true;
   }
-  if (runtime->proc_budget < cost) {
+
+  const bool granted = runtime->proc_budget >= cost;
+  CombatTelemetry::Get().RecordSummonBudgetRequest(granted);
+  if (!granted) {
     return false;
   }
   runtime->proc_budget -= cost;

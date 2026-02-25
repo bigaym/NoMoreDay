@@ -13,6 +13,7 @@ struct LoggerScope {
 };
 
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/CombatTelemetry.hpp"
 #include "game/systems/combat/ProcBudgetManager.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 
@@ -23,10 +24,14 @@ struct TestSetupScope {
     ItemFactory::initialize();
     ProcBudgetManager::Get().ResetForTests();
     CombatEventDispatcher::Init();
+    CombatTelemetry::Get().ResetForTests();
+    CombatTelemetry::Get().SetRuntimeEnabled(false);
     StatsSystem::Reset(); // Clear static cache from previous tests
   }
   ~TestSetupScope() {
     ProcBudgetManager::Get().ResetForTests();
+    CombatTelemetry::Get().ResetForTests();
+    CombatTelemetry::Get().SetRuntimeEnabled(false);
     StatsSystem::Reset(); // Clean up
                           // tools::Logger::Shutdown();
   }
