@@ -1,0 +1,1 @@
+combat_release_gate_suite_20260225 closeout: build.bat PASS; build.bat combat-gate PASS (release checks=8 pass=8 warning=0 fail=0); combat gate ci/nightly/release reports generated under bin/combat_gate; ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure PASS; track archived and tracks indexes synchronized.
