@@ -1,0 +1,1 @@
+combat_event_consistency_20260225 closeout: unified CalculateBatch event payloads to final_damage (6 call sites), added EventConsistencyTests with RAII event handler lifecycle fix, validation passed (build.bat + ctest unit/ci), track archived and indices synced.
