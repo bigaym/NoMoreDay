@@ -1,6 +1,7 @@
 #include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/combat/ProcBudgetManager.hpp"
 #include <atomic>
@@ -453,10 +454,25 @@ bool AilmentApplier::Apply(entt::registry &registry, entt::entity target,
   auto &activeEffects = registry.get_or_emplace<ActiveEffectsComponent>(target);
   auto matchingIndices = CollectAilmentIndices(activeEffects, request.ailment);
 
+  auto &endgameRegistry = EndgameModifierRegistry::Get();
+  (void)endgameRegistry.EnsureLoaded();
+  const auto endgame =
+      endgameRegistry.ResolveForEntities(registry, request.source, target)
+          .aggregate;
+
+  const float ailmentMagnitudeMultiplier = std::max(
+      0.0f, 1.0f + endgame.outgoing_ailment_magnitude_more +
+                endgame.incoming_ailment_taken_more);
+  const float ailmentDurationMultiplier = std::max(
+      0.05f, 1.0f + endgame.outgoing_ailment_duration_more +
+                 endgame.incoming_ailment_duration_bonus);
+
   const float duration =
-      request.duration > 0.0f ? request.duration : contract->base_duration;
-  const float magnitude =
-      std::max(0.0f, request.magnitude * contract->immunity_and_resistance);
+      (request.duration > 0.0f ? request.duration : contract->base_duration) *
+      ailmentDurationMultiplier;
+  const float magnitude = std::max(
+      0.0f, request.magnitude * contract->immunity_and_resistance *
+                ailmentMagnitudeMultiplier);
   const uint8_t incomingStacks = std::max<uint8_t>(1, request.stacks);
 
   if (contract->refresh_policy == RefreshPolicy::Independent) {

@@ -5,9 +5,9 @@
     "milestone": "M3",
     "type": "feature",
     "priority": "P2",
-    "status": "not_started",
+    "status": "completed",
     "created": "2026-02-25T12:21:00+08:00",
-    "updated": "2026-02-25T12:21:00+08:00",
+    "updated": "2026-02-25T15:18:00+08:00",
     "depends_on": [
         "combat_ailment_engine_v1_20260225",
         "combat_defense_contract_v1_20260225"
@@ -15,10 +15,10 @@
     "blocks": [],
     "phases": {
         "total": 3,
-        "completed": 0
+        "completed": 3
     },
     "tasks": {
         "total": 12,
-        "completed": 0
+        "completed": 12
     }
 }

@@ -189,16 +189,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 12/12  
 > **Location**: [`conductor/archive/combat_anti_meta_layer_20260225/`](./archive/combat_anti_meta_layer_20260225/index.md)
 
-## [ ] Track CS-M3-02: Combat Endgame Linker (combat_endgame_linker_20260225)
+## [x] Track CS-M3-02: Combat Endgame Linker (combat_endgame_linker_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P2  
 > **Type**: feature/content  
 > **Milestone**: M3  
 > **Depends On**: `combat_ailment_engine_v1_20260225`, `combat_defense_contract_v1_20260225`  
 > **Focus**: Endgame 词缀到战斗合同映射闭环。  
-> **Tasks**: 0/12  
-> **Location**: [`conductor/tracks/combat_endgame_linker_20260225/`](./tracks/combat_endgame_linker_20260225/index.md)
+> **Tasks**: 12/12  
+> **Location**: [`conductor/archive/combat_endgame_linker_20260225/`](./archive/combat_endgame_linker_20260225/index.md)
 
 ## [ ] Track CS-M3-03: Combat Boss Framework (combat_boss_framework_20260225)
 

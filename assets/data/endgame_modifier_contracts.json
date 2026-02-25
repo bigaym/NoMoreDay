@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "modifiers": [
+    {
+      "id": 1001,
+      "name": "ExtraDamage",
+      "offense": {
+        "damage_more": 0.25
+      }
+    },
+    {
+      "id": 1002,
+      "name": "ResistanceRend",
+      "offense": {
+        "resistance_reduction": 0.25
+      }
+    },
+    {
+      "id": 1003,
+      "name": "AilmentAmplification",
+      "offense": {
+        "ailment_magnitude_more": 0.3,
+        "ailment_duration_more": 0.2
+      }
+    },
+    {
+      "id": 1004,
+      "name": "ArmorBreaker",
+      "offense": {
+        "armor_reduction": 560.0
+      }
+    },
+    {
+      "id": 1005,
+      "name": "EnduringWard",
+      "defense": {
+        "resistance_bonus": 0.15,
+        "global_damage_reduction_bonus": 0.1
+      }
+    }
+  ]
+}

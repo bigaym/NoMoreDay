@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Endgame Linker (combat_endgame_linker_20260225)
+- **Folder:** [./conductor/archive/combat_endgame_linker_20260225/](./conductor/archive/combat_endgame_linker_20260225/)
+- **Description:** Completed endgame modifier linker for CS-M3-02: introduced `EndgameModifierContract` registry/runtime mapping, data-driven modifier schema (`assets/data/endgame_modifier_contracts.json`), DamagePipeline/Defense hooks (damage more, resistance/armor/DR offsets, damage taken scaling), AilmentEngine hooks (magnitude/duration scaling), and regression traceability output for source/target modifier IDs.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P2
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; pre-commit rerun of both commands PASS; `build.bat analyze` PASS (existing warnings only); `ctest --test-dir build -C Release -L performance --output-on-failure` PASS.
+
+---
+
 ## [x] Track: Combat Telemetry Foundation (combat_telemetry_foundation_20260225)
 - **Folder:** [./conductor/archive/combat_telemetry_foundation_20260225/](./conductor/archive/combat_telemetry_foundation_20260225/)
 - **Description:** Completed combat telemetry foundation rollout for CS-M2-05: added `CombatTelemetry` singleton with compile-time/runtime toggles and rolling `avg/p95/p99`, instrumented `DamagePipeline` timing, `StatsSystem::GetStatWithTags` call/cache/lock-wait counters, `CombatEventDispatcher` per-frame type distribution, trigger-guard interception/depth rates, and summon entity/switch/event/budget metrics.

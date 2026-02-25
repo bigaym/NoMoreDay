@@ -11,6 +11,7 @@
 #include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // ShadowCast
 #include "spdlog/spdlog.h"
@@ -43,6 +44,10 @@ struct DefenseResolution {
   float block_effectiveness = 0.0f;
   float block_amount = 0.0f;
 };
+
+float ClampMoreToMultiplier(float more) {
+  return std::max(0.0f, 1.0f + more);
+}
 
 bool ShouldResolveDefenseRolls(Tag hit_tags, bool skip_mitigation,
                                bool is_simulation) {
@@ -427,6 +432,15 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
   const DefenseResolution defense_resolution = ResolveDefenseResolution(
       registry, attacker, defender, attacker_stats, defender_stats,
       combined_hit_tags, skip_mitigation, is_simulation, !is_simulation);
+  auto &endgameRegistry = systems::EndgameModifierRegistry::Get();
+  (void)endgameRegistry.EnsureLoaded();
+  const auto endgameResolution =
+      endgameRegistry.ResolveForEntities(registry, attacker, defender);
+  const auto &endgame = endgameResolution.aggregate;
+  const float endgameDamageMoreMultiplier =
+      ClampMoreToMultiplier(endgame.outgoing_damage_more);
+  const float endgameDamageTakenMultiplier =
+      ClampMoreToMultiplier(endgame.incoming_damage_taken_more);
 
   if (defense_resolution.dodged) {
     DamageResult dodged_result;
@@ -779,6 +793,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
         final_more *= (1.0f + effective);
       }
       inst.amount *= final_more;
+      inst.amount *= endgameDamageMoreMultiplier;
       inst.amount *= trigger_effectiveness;
     }
 
@@ -870,6 +885,8 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       float res = 0.0f;
       if (type_idx < ELEMENTAL_TYPE_COUNT) {
         res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
+        res += endgame.incoming_resistance_bonus;
+        res -= endgame.outgoing_resistance_reduction;
         // Resistance Cap: -100% to +75%
         res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
       }
@@ -877,12 +894,13 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       damage_after_res *= (1.0f - res);
 
       if (inst.final_type == Tag::Physical && defender_stats) {
-        float armor = defender_stats->armor;
+        float armor = defender_stats->armor + endgame.incoming_armor_bonus;
         // Retrieve attacker's Flat Armor Penetration
         float pen = StatsSystem::GetStatWithTags(
             registry, attacker, StatType::ArmorPenetration, inst.tags, skill_id,
             source_entity);
-        float effective_armor = armor - pen;
+        float effective_armor =
+            armor - pen - endgame.outgoing_armor_reduction;
 
         int area_level = defender_stats->cached_area_level; // Use cached level
         float armor_multiplier =
@@ -895,9 +913,21 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       // Global DR
       using namespace NoMoreDay::Constants::Combat::Pipeline;
       if (defender_stats && defender_stats->damage_reduction > 0.0f) {
-        damage_after_res *=
-            (1.0f - (std::min)(DR_MAX, defender_stats->damage_reduction));
+        const float effectiveDr = std::clamp(
+            defender_stats->damage_reduction +
+                endgame.incoming_global_damage_reduction_bonus -
+                endgame.outgoing_global_damage_reduction_reduction,
+            0.0f, DR_MAX);
+        damage_after_res *= (1.0f - effectiveDr);
+      } else {
+        const float effectiveDr = std::clamp(
+            endgame.incoming_global_damage_reduction_bonus -
+                endgame.outgoing_global_damage_reduction_reduction,
+            0.0f, DR_MAX);
+        damage_after_res *= (1.0f - effectiveDr);
       }
+
+      damage_after_res *= endgameDamageTakenMultiplier;
 
       COMBAT_DEFENSE_LOG(
           "[DefenseChain] attacker={} defender={} step=3/4 typeIdx={} "
@@ -1071,6 +1101,8 @@ void DamagePipeline::CalculateBatch(
   const auto *skill_data = SkillRegistry::Get().GetSkill(skill_id);
   Tag combined_tags =
       (skill_data ? skill_data->tags : Tag::None) | additional_tags;
+  auto &endgameRegistry = systems::EndgameModifierRegistry::Get();
+  (void)endgameRegistry.EnsureLoaded();
   const SummonAttributionTuple summon_attribution =
       ResolveSummonAttribution(registry, attacker, source_entity, skill_id);
 
@@ -1098,8 +1130,36 @@ void DamagePipeline::CalculateBatch(
         alignas(32) std::array<float, batch_type::size> armor_batch_data;
         alignas(32) std::array<float, batch_type::size>
             level_batch_data; // Added for Level Scaling
+        alignas(32) std::array<float, batch_type::size> endgame_res_delta_data;
+        alignas(32) std::array<float, batch_type::size> endgame_armor_delta_data;
+        alignas(32) std::array<float, batch_type::size> endgame_dr_delta_data;
+        alignas(32) std::array<float, batch_type::size>
+            endgame_damage_taken_mult_data;
         alignas(32) std::array<float, batch_type::size> final_dmg_sum;
         final_dmg_sum.fill(0.0f);
+
+        for (size_t k = 0; k < inc; ++k) {
+          const auto defender = defenders[i + k];
+          if (!registry.valid(defender)) {
+            endgame_res_delta_data[k] = 0.0f;
+            endgame_armor_delta_data[k] = 0.0f;
+            endgame_dr_delta_data[k] = 0.0f;
+            endgame_damage_taken_mult_data[k] = 1.0f;
+            continue;
+          }
+          const auto endgame =
+              endgameRegistry.ResolveForEntities(registry, attacker, defender)
+                  .aggregate;
+          endgame_res_delta_data[k] = endgame.incoming_resistance_bonus -
+                                      endgame.outgoing_resistance_reduction;
+          endgame_armor_delta_data[k] =
+              endgame.incoming_armor_bonus - endgame.outgoing_armor_reduction;
+          endgame_dr_delta_data[k] =
+              endgame.incoming_global_damage_reduction_bonus -
+              endgame.outgoing_global_damage_reduction_reduction;
+          endgame_damage_taken_mult_data[k] =
+              ClampMoreToMultiplier(endgame.incoming_damage_taken_more);
+        }
 
         using namespace NoMoreDay::Constants::Combat::Pipeline;
         for (int j = 0; j < ELEMENTAL_TYPE_COUNT; ++j) {
@@ -1109,8 +1169,10 @@ void DamagePipeline::CalculateBatch(
 
           for (size_t k = 0; k < inc; ++k) {
             auto *ds = registry.try_get<CombatStats>(defenders[i + k]);
-            res_batch_data[k] = ds ? ds->resistances[j] : 0.0f;
-            armor_batch_data[k] = (j == 0 && ds) ? ds->armor : 0.0f;
+            res_batch_data[k] =
+                (ds ? ds->resistances[j] : 0.0f) + endgame_res_delta_data[k];
+            armor_batch_data[k] =
+                (j == 0 && ds) ? (ds->armor + endgame_armor_delta_data[k]) : 0.0f;
             level_batch_data[k] = (j == 0 && ds) ? (float)ds->cached_area_level
                                                  : 1.0f; // Default level 1
           }
@@ -1161,7 +1223,10 @@ void DamagePipeline::CalculateBatch(
           auto defender = defenders[i + k];
           auto *ds = registry.try_get<CombatStats>(defender);
           float dr = ds ? ds->damage_reduction : 0.0f;
-          float damage = final_dmg_sum[k] * (1.0f - (std::min)(DR_MAX, dr));
+          const float effectiveDr =
+              std::clamp(dr + endgame_dr_delta_data[k], 0.0f, DR_MAX);
+          float damage = final_dmg_sum[k] * (1.0f - effectiveDr);
+          damage *= endgame_damage_taken_mult_data[k];
 
           // === Suppressor Check (Batch) ===
           if (auto *suppressor =
@@ -1190,19 +1255,31 @@ void DamagePipeline::CalculateBatch(
         auto defender = defenders[i];
         if (registry.valid(defender)) {
           auto *def_stats = registry.try_get<CombatStats>(defender);
+          const auto endgame =
+              endgameRegistry.ResolveForEntities(registry, attacker, defender)
+                  .aggregate;
+          const float endgameResDelta = endgame.incoming_resistance_bonus -
+                                        endgame.outgoing_resistance_reduction;
+          const float endgameArmorDelta =
+              endgame.incoming_armor_bonus - endgame.outgoing_armor_reduction;
+          const float endgameDrDelta =
+              endgame.incoming_global_damage_reduction_bonus -
+              endgame.outgoing_global_damage_reduction_reduction;
+          const float endgameDamageTakenMultiplier =
+              ClampMoreToMultiplier(endgame.incoming_damage_taken_more);
           // Use defaults if stats are missing to avoid "invincible" bugs
           float final_damage = 0.0f;
           float dr = def_stats ? def_stats->damage_reduction : 0.0f;
-          float armor = def_stats ? def_stats->armor : 0.0f;
+          float armor = (def_stats ? def_stats->armor : 0.0f) + endgameArmorDelta;
 
           using namespace NoMoreDay::Constants::Combat::Pipeline;
           for (int j = 0; j < ELEMENTAL_TYPE_COUNT; ++j) {
             float amt = snap.base_damage[j];
             if (amt <= 0.0f)
               continue;
-            float res = def_stats ? std::clamp(def_stats->resistances[j],
-                                               RESISTANCE_MIN, RESISTANCE_MAX)
-                                  : 0.0f;
+            float res = def_stats ? def_stats->resistances[j] : 0.0f;
+            res += endgameResDelta;
+            res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
             float after_res = amt * (1.0f - res);
             if (j == 0) {
               float effective_armor = armor - snap.armor_pen;
@@ -1214,7 +1291,9 @@ void DamagePipeline::CalculateBatch(
             }
             final_damage += after_res;
           }
-          final_damage *= (1.0f - (std::min)(DR_MAX, dr));
+          const float effectiveDr = std::clamp(dr + endgameDrDelta, 0.0f, DR_MAX);
+          final_damage *= (1.0f - effectiveDr);
+          final_damage *= endgameDamageTakenMultiplier;
 
           // === Suppressor Check (Fallback) ===
           if (auto *suppressor =
