@@ -1,0 +1,1 @@
+CS-M1 post-closeout hardening: unified reported/final damage payload semantics, corrected OnTakeDamage defender mapping, normalized owner/caster attribution for projectile/sword-array events, and synced validation+bug_registry evidence (build/unit/ci pass on 2026-02-25).
