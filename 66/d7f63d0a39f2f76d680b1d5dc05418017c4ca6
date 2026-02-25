@@ -1,0 +1,1 @@
+combat_endgame_linker_20260225 closeout: added EndgameModifierContract registry + config-driven 5 modifiers, hooked DamagePipeline(single+batch)/AilmentEngine, added CombatEndgameLinker integration+traceability tests, archived track docs. Verification PASS: build.bat (x2), ctest -C RelWithDebInfo -L ci (x2), build.bat analyze, ctest -C Release -L performance.
