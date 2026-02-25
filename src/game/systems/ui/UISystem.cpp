@@ -59,6 +59,53 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
   return;
 #endif
 
+  const auto &mainFont = assets::ui::fonts::Main_Chinese;
+  State.emojiFont = {0};
+
+  auto LoadEmojiFallbackFont = [&]() {
+    // Explicitly load the emoji set currently used by UI labels.
+    std::vector<int> emojiCodepoints = {
+        0x2694, // ⚔
+        0x1F392, // 🎒
+        0x1F451, // 👑
+        0x1F455, // 👕
+        0x1F48D, // 💍
+        0x1F4FF, // 📿
+        0x1F6E1, // 🛡
+        0x1F97E, // 🥾
+        0x1F9BF, // 🦿
+        0x1F9E4, // 🧤
+        0x1F9E9, // 🧩
+        0x1F9EA, // 🧪
+        0x1F9F9, // 🧹
+        0x1FA96, // 🪖
+        0x1FA99  // 🪙
+    };
+
+    std::vector<std::string> emojiFontCandidates = {
+        "C:/Windows/Fonts/seguiemj.ttf", // Segoe UI Emoji
+        "C:/Windows/Fonts/seguisym.ttf"  // Segoe UI Symbol
+    };
+
+    const entt::id_type emojiFontId = entt::hashed_string("ui_font_emoji");
+    for (const auto &emojiPath : emojiFontCandidates) {
+      if (!FileExists(emojiPath.c_str())) {
+        continue;
+      }
+      State.emojiFont = resourceManager.loadFont(
+          emojiFontId, emojiPath, mainFont.defaultSize, emojiCodepoints.data(),
+          (int)emojiCodepoints.size());
+      if (State.emojiFont.texture.id != 0) {
+        SetTextureFilter(State.emojiFont.texture, TEXTURE_FILTER_BILINEAR);
+        LOG_INFO("UISystem: Loaded emoji fallback font from '{}'", emojiPath);
+        return;
+      }
+    }
+
+    LOG_WARN("UISystem: Emoji fallback font unavailable, emoji will degrade to '?'");
+    State.emojiFont = {0};
+  };
+
   std::vector<int> codepoints;
   for (int i = 32; i <= 126; ++i)
     codepoints.push_back(i);
@@ -71,8 +118,6 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
     codepoints.push_back(i);
   for (int i = 0xFF00; i <= 0xFFEF; ++i)
     codepoints.push_back(i);
-
-  const auto &mainFont = assets::ui::fonts::Main_Chinese;
 
   std::vector<std::string> fontCandidates;
   fontCandidates.push_back("C:/Windows/Fonts/simhei.ttf");
@@ -88,6 +133,7 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
 
       if (State.globalFont.texture.id != 0) {
         SetTextureFilter(State.globalFont.texture, TEXTURE_FILTER_BILINEAR);
+        LoadEmojiFallbackFont();
         LOG_INFO("UISystem: Successfully loaded Chinese font from '{}'", path);
         return;
       } else {
@@ -102,12 +148,14 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
             "default font (??? for Chinese).");
   if (State.globalFont.texture.id == 0)
     State.globalFont = GetFontDefault();
+  LoadEmojiFallbackFont();
 
   UIAstrolabe::Initialize();
 }
 
 void UISystem::Shutdown() {
   State.globalFont = {0};
+  State.emojiFont = {0};
   UIMinimap::Cleanup();
   AssetLoadingSystem::Shutdown();
 }

@@ -28,6 +28,7 @@ namespace NoMoreDay {
 
         // Global Font Resource
         Font globalFont = { 0 };
+        Font emojiFont = { 0 };
         
         // UI Scale
         float scaleFactor = 1.0f;

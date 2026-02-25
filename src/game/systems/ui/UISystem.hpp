@@ -26,6 +26,7 @@ public:
     
     // --- Resource Access ---
     static Font GetFont() { return State.globalFont; }
+    static Font GetEmojiFont() { return State.emojiFont; }
     static Color GetRarityColor(NoMoreDay::Rarity rarity) { return NoMoreDay::UIRenderer::GetRarityColor(rarity); }
 
     // --- Drawing Helpers (Delegated to UIRenderer) ---

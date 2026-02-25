@@ -67,9 +67,8 @@ void UIInventory::Draw(entt::registry& registry) {
     if (!inv) return;
 
     // Use Reference Resolution for Layout
-    // Use Reference Resolution for Layout
-    const float panelW = 900.0f; 
-    const float panelH = 700.0f;
+    const float panelW = std::min(1220.0f, UI_REF_WIDTH - 80.0f);
+    const float panelH = std::min(760.0f, UI_REF_HEIGHT - 60.0f);
     
     // Calculate centered position initially, updated by drag system
     float panelX = (UI_REF_WIDTH - panelW) / 2.0f;
@@ -78,7 +77,7 @@ void UIInventory::Draw(entt::registry& registry) {
     // Enable Dragging (Header Height ~60px)
     UISystem::UpdatePanelDrag(UIPanelID::Inventory, panelX, panelY, panelW, panelH, 60.0f);
     
-    const float padding = 30.0f;
+    const float padding = 20.0f;
 
     // Use Logic Mouse Position
     Vector2 mousePos = UISystem::GetMousePositionLogic();
@@ -111,20 +110,38 @@ void UIInventory::Draw(entt::registry& registry) {
         DrawLineEx({start.x*scale, start.y*scale}, {end.x*scale, end.y*scale}, thick*scale, ApplyAlpha(c, alpha));
     };
 
-    // 背景 (Background)
-    DrawRectScaled(panelX, panelY, panelW, panelH, theme.panelBackground);
-    DrawRectLinesScaled({panelX, panelY, panelW, panelH}, 1.0f, theme.panelBorder);
-    DrawLineScaled({panelX, panelY}, {panelX + panelW, panelY}, 2.0f, theme.panelBorderHighlight);
-
-    // 标题 (Header)
-    UIRenderer::DrawTextUI(font, "角色物品栏 & 装备", panelX + padding, panelY + 20, 28, theme.textHighlight, alpha);
-    UIRenderer::DrawTextUI(font, "按 'I' 或 'ESC' 关闭", panelX + panelW - 200, panelY + 28, 18, theme.textSecondary, alpha);
+    // Legacy full-window inventory frame removed.
 
     // --- 装备区 (Equipment Area) ---
-    float equipX = panelX + padding;
-    float equipY = panelY + 80.0f;
-    float equipW = 340.0f;
-    float equipH = panelH - 110.0f;
+    const float sectionGap = 24.0f;
+    const float sectionHeaderH = 56.0f;
+    const float leftPanelW = std::min(650.0f, panelW * 0.56f);
+    const float rightPanelW = panelW - leftPanelW - sectionGap;
+
+    const float leftPanelX = panelX;
+    const float leftPanelY = panelY;
+    const float leftPanelH = panelH;
+    const float rightPanelX = leftPanelX + leftPanelW + sectionGap;
+    const float rightPanelY = panelY;
+    const float rightPanelH = panelH;
+
+    auto DrawSectionPanel = [&](float x, float y, float w, float h, const char* title, Color titleColor) {
+        Color panelBg = theme.panelBackground;
+        panelBg.a = 255;
+        DrawRectangleRounded({x * scale, y * scale, w * scale, h * scale}, 0.02f, 4, ApplyAlpha(panelBg, alpha));
+        DrawRectangleRoundedLinesEx({x * scale, y * scale, w * scale, h * scale}, 0.02f, 4, 1.0f * scale, ApplyAlpha(theme.panelBorder, alpha));
+        DrawLineScaled({x, y + sectionHeaderH}, {x + w, y + sectionHeaderH}, 1.0f, theme.panelBorder);
+        UIRenderer::DrawTextUI(font, title, x + 18.0f, y + 15.0f, 30, titleColor, alpha);
+    };
+
+    DrawSectionPanel(leftPanelX, leftPanelY, leftPanelW, leftPanelH, "🛡 角色与装备", theme.textHighlight);
+    DrawSectionPanel(rightPanelX, rightPanelY, rightPanelW, rightPanelH, "🎒 物品栏", theme.textPrimary);
+    UIRenderer::DrawTextUI(font, "按 I / ESC 关闭", rightPanelX + rightPanelW - 160.0f, rightPanelY + 18.0f, 16, theme.textSecondary, alpha);
+
+    float equipX = leftPanelX + padding;
+    float equipY = leftPanelY + sectionHeaderH + 16.0f;
+    float equipW = leftPanelW - padding * 2.0f;
+    float equipH = leftPanelH - sectionHeaderH - 26.0f;
     
     // Note: Fade overwrites alpha, so we manually apply our factor if we want to combine.
     // However, slotBackground has alpha 200. We want 0.5 * 200 * alpha.
@@ -133,7 +150,8 @@ void UIInventory::Draw(entt::registry& registry) {
     DrawRectangleRounded({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, ApplyAlpha(equipBg, alpha));
     DrawRectangleRoundedLinesEx({equipX*scale, equipY*scale, equipW*scale, equipH*scale}, 0.02f, 4, 1.0f*scale, ApplyAlpha(theme.panelBorder, alpha));
     
-    UIRenderer::DrawTextUI(font, "装备槽位", equipX + 15, equipY + 15, 22, theme.textPrimary, alpha);
+    DrawRectScaled(equipX + 8.0f, equipY + 10.0f, 180.0f, 24.0f, theme.slotBackground);
+    UIRenderer::DrawTextUI(font, "🧩 装备槽位", equipX + 15.0f, equipY + 12.0f, 22, theme.textPrimary, alpha);
 
     struct SlotDef { const char* label; EquipmentSlot slot; };
     static const SlotDef slotDefs[] = {
@@ -146,16 +164,66 @@ void UIInventory::Draw(entt::registry& registry) {
     };
 
     float equipSlotSize = 56.0f;
-    float slotGap = 20.0f;
-    float startX = equipX + 30.0f;
-    float startY = equipY + 60.0f;
+    const float centerX = equipX + equipW * 0.5f;
+    const float topY = equipY + 56.0f;
+    const float leftColX = centerX - 150.0f;
+    const float rightColX = centerX + 94.0f;
+    const float centerColX = centerX - equipSlotSize * 0.5f;
     float dt = GetFrameTime();
 
     for (int i = 0; i < 11; ++i) {
-        float x = startX + (i % 2) * (equipSlotSize + 110.0f);
-        float y = startY + (i / 2) * (equipSlotSize + slotGap);
+        float x = centerColX;
+        float y = topY;
         
         EquipmentSlot slotType = slotDefs[i].slot;
+        switch (slotType) {
+        case EquipmentSlot::Neck:
+            x = centerColX - 18.0f;
+            y = topY + 34.0f;
+            break;
+        case EquipmentSlot::Head:
+            x = leftColX;
+            y = topY + 86.0f;
+            break;
+        case EquipmentSlot::Shoulder:
+            x = rightColX;
+            y = topY + 86.0f;
+            break;
+        case EquipmentSlot::Chest:
+            x = leftColX;
+            y = topY + 164.0f;
+            break;
+        case EquipmentSlot::Hands:
+            x = rightColX;
+            y = topY + 164.0f;
+            break;
+        case EquipmentSlot::MainHand:
+            x = leftColX;
+            y = topY + 242.0f;
+            break;
+        case EquipmentSlot::OffHand:
+            x = rightColX;
+            y = topY + 242.0f;
+            break;
+        case EquipmentSlot::Ring1:
+            x = leftColX;
+            y = topY + 320.0f;
+            break;
+        case EquipmentSlot::Ring2:
+            x = rightColX;
+            y = topY + 320.0f;
+            break;
+        case EquipmentSlot::Legs:
+            x = centerColX;
+            y = topY + 392.0f;
+            break;
+        case EquipmentSlot::Feet:
+            x = centerColX;
+            y = topY + 468.0f;
+            break;
+        default:
+            break;
+        }
         entt::entity item = (equip) ? equip->get(slotType) : entt::null;
         bool isHovered = CheckCollisionPointRec(mousePos, {x, y, equipSlotSize, equipSlotSize});
 
@@ -275,23 +343,44 @@ void UIInventory::Draw(entt::registry& registry) {
         }
 
         UIRenderer::DrawSlot(font, registry, x - offset, y - offset, equipSlotSize * slotScale, (UISystem::State.draggedItem == item) ? entt::null : item, slotDefs[i].label, isHovered, false, alpha, slotType);
-        UIRenderer::DrawTextUI(font, slotDefs[i].label, x + equipSlotSize + 10, y + equipSlotSize/2 - 8, 16, isHovered ? theme.textPrimary : theme.textSecondary, alpha);
+
+        const char* displayLabel = nullptr;
+        switch (slotType) {
+        case EquipmentSlot::Head: displayLabel = "👑"; break;
+        case EquipmentSlot::Shoulder: displayLabel = "🛡"; break;
+        case EquipmentSlot::Chest: displayLabel = "👕"; break;
+        case EquipmentSlot::Hands: displayLabel = "🧤"; break;
+        case EquipmentSlot::Legs: displayLabel = "🦿"; break;
+        case EquipmentSlot::Feet: displayLabel = "🥾"; break;
+        case EquipmentSlot::Neck: displayLabel = "📿"; break;
+        case EquipmentSlot::Ring1: displayLabel = "💍"; break;
+        case EquipmentSlot::Ring2: displayLabel = "💍"; break;
+        case EquipmentSlot::MainHand: displayLabel = "⚔"; break;
+        case EquipmentSlot::OffHand: displayLabel = "🛡"; break;
+        default: displayLabel = ""; break;
+        }
+
+        const Vector2 labelSize = MeasureTextEx(font, displayLabel, 16.0f, 1.0f);
+        float labelX = x + equipSlotSize + 10.0f;
+        float labelY = y + (equipSlotSize - labelSize.y) * 0.5f;
+
+        UIRenderer::DrawTextUI(font, displayLabel, labelX, labelY, 16, isHovered ? theme.textPrimary : theme.textSecondary, alpha);
     }
 
     // --- 背包区 (Inventory Area) ---
-    float invX = panelX + 420.0f;
-    float invY = panelY + 80.0f;
-    float invW = panelW - (invX - panelX) - padding;
-    float invH = panelH - 220.0f; // Viewport height
+    float invX = rightPanelX + padding;
+    float tabY = rightPanelY + sectionHeaderH + 8.0f;
+    float invY = tabY + 56.0f;
+    float invW = rightPanelW - padding * 2.0f;
+    float invH = rightPanelH - (invY - rightPanelY) - 130.0f; // Viewport height
 
     // Tabs
-    float tabW = 80.0f;
-    float tabH = 24.0f;
+    float tabW = 110.0f;
+    float tabH = 28.0f;
     float tabX = invX;
-    float tabY = invY - tabH - 5.0f;
 
     auto DrawTab = [&](int index, const char* label) {
-        float x = tabX + index * (tabW + 5.0f);
+        float x = tabX + index * (tabW + 8.0f);
         bool isActive = (m_activeTab == index);
         bool isHovered = CheckCollisionPointRec(mousePos, {x, tabY, tabW, tabH});
         
@@ -308,6 +397,9 @@ void UIInventory::Draw(entt::registry& registry) {
 
     DrawTab(0, "物品");
     DrawTab(1, "材料");
+
+    UIRenderer::DrawTextUI(font, "⚔ 装备与消耗品", tabX, tabY + tabH + 6.0f, 14, theme.textHighlight, alpha);
+    UIRenderer::DrawTextUI(font, "🧪 制作材料", tabX + 140.0f, tabY + tabH + 6.0f, 14, theme.textSecondary, alpha);
 
     Color invBg = theme.slotBackground;
     invBg.a = (unsigned char)(invBg.a * 0.3f);
@@ -326,7 +418,7 @@ void UIInventory::Draw(entt::registry& registry) {
         }
 
         // Scroll Logic for Items
-        const int cols = 8;
+        const int cols = std::max(4, (int)((invW - 20.0f + invSlotGap) / (invSlotSize + invSlotGap)));
         int totalCapacity = inv->capacity;
         int renderCount = std::max(totalCapacity, (int)inv->items.size());
         int totalRows = (renderCount + cols - 1) / cols;
@@ -669,14 +761,13 @@ void UIInventory::Draw(entt::registry& registry) {
 
     // --- 底部控制 & 背包扩展槽 ---
     float bottomY = invY + invH + 20.0f;
-    UIRenderer::DrawTextUI(font, TextFormat("金币: %d", inv->gold), invX + 5, bottomY, 20, theme.textHighlight, alpha);
+    UIRenderer::DrawTextUI(font, TextFormat("🪙 金币: %d", inv->gold), invX + 5.0f, bottomY, 20, theme.textHighlight, alpha);
 
-    // 整理按钮
-    Rectangle sortBtnRec = {invX + invW - 130, bottomY - 5, 120, 36};
+    Rectangle sortBtnRec = {invX + invW - 150, bottomY - 5, 140, 36};
     bool sortHover = CheckCollisionPointRec(mousePos, sortBtnRec);
     Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
-    UIRenderer::DrawButton(font, rectTex, sortBtnRec, "整理背包", 18, theme.textPrimary, WHITE, sortHover, sortHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
-    
+    UIRenderer::DrawButton(font, rectTex, sortBtnRec, "🧹 整理背包", 18, theme.textPrimary, WHITE, sortHover, sortHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+
     if (sortHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         InventorySystem::organize(registry, player);
     }
@@ -684,7 +775,7 @@ void UIInventory::Draw(entt::registry& registry) {
     // 背包扩展槽 (Bag Slots)
     float bagSlotsY = bottomY + 50.0f;
     float bagSlotSize = 48.0f;
-    UIRenderer::DrawTextUI(font, "背包栏 (增加容量)", invX + 5, bagSlotsY - 25, 18, theme.textSecondary, alpha);
+    UIRenderer::DrawTextUI(font, "🎒 背包扩展(增加容量)", invX + 5.0f, bagSlotsY - 25.0f, 18, theme.textSecondary, alpha);
 
     for (int i = 0; i < 4; ++i) {
         float x = invX + 5.0f + i * (bagSlotSize + 15.0f);

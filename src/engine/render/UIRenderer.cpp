@@ -24,6 +24,103 @@
 
 namespace NoMoreDay {
 
+namespace {
+
+bool FontHasCodepointExact(const Font &font, int codepoint) {
+  if (!IsFontValid(font) || codepoint < 0 || font.glyphCount <= 0 ||
+      font.glyphs == nullptr) {
+    return false;
+  }
+
+  const int glyphIndex = GetGlyphIndex(font, codepoint);
+  if (glyphIndex < 0 || glyphIndex >= font.glyphCount) {
+    return false;
+  }
+  return font.glyphs[glyphIndex].value == codepoint;
+}
+
+float GetCodepointAdvance(const Font &font, int codepoint, float scaledSize,
+                          float spacing) {
+  if (!IsFontValid(font) || font.baseSize <= 0 || font.glyphCount <= 0 ||
+      font.glyphs == nullptr || font.recs == nullptr) {
+    return spacing;
+  }
+
+  const int glyphIndex = GetGlyphIndex(font, codepoint);
+  if (glyphIndex < 0 || glyphIndex >= font.glyphCount) {
+    return spacing;
+  }
+
+  float advance = (float)font.glyphs[glyphIndex].advanceX;
+  if (advance <= 0.0f) {
+    advance = font.recs[glyphIndex].width + font.glyphs[glyphIndex].offsetX;
+  }
+
+  const float sizeScale = scaledSize / (float)font.baseSize;
+  return advance * sizeScale + spacing;
+}
+
+bool NeedsEmojiFallback(const Font &primary, const Font &emojiFallback,
+                        const char *text) {
+  if (!text || text[0] == '\0' || !IsFontValid(primary) ||
+      !IsFontValid(emojiFallback)) {
+    return false;
+  }
+
+  const char *ptr = text;
+  while (*ptr != '\0') {
+    int bytesProcessed = 0;
+    const int codepoint = GetCodepointNext(ptr, &bytesProcessed);
+    if (bytesProcessed <= 0) {
+      bytesProcessed = 1;
+    }
+    ptr += bytesProcessed;
+
+    if (codepoint == '\n') {
+      continue;
+    }
+
+    if (!FontHasCodepointExact(primary, codepoint) &&
+        FontHasCodepointExact(emojiFallback, codepoint)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+void DrawTextWithEmojiFallback(const Font &primary, const Font &emojiFallback,
+                               const char *text, Vector2 pos,
+                               float scaledSize, float spacing, Color color) {
+  float cursorX = pos.x;
+  float cursorY = pos.y;
+  const float lineStep = scaledSize + spacing * 4.0f;
+
+  const char *ptr = text;
+  while (*ptr != '\0') {
+    int bytesProcessed = 0;
+    const int codepoint = GetCodepointNext(ptr, &bytesProcessed);
+    if (bytesProcessed <= 0) {
+      bytesProcessed = 1;
+    }
+    ptr += bytesProcessed;
+
+    if (codepoint == '\n') {
+      cursorX = pos.x;
+      cursorY += lineStep;
+      continue;
+    }
+
+    const bool useEmojiFallback = !FontHasCodepointExact(primary, codepoint) &&
+                                  FontHasCodepointExact(emojiFallback, codepoint);
+    const Font &activeFont = useEmojiFallback ? emojiFallback : primary;
+    DrawTextCodepoint(activeFont, codepoint, {cursorX, cursorY}, scaledSize,
+                      color);
+    cursorX += GetCodepointAdvance(activeFont, codepoint, scaledSize, spacing);
+  }
+}
+
+} // namespace
+
 void UIRenderer::SetTheme(const UITheme &theme) { s_theme = theme; }
 
 UITheme &UIRenderer::GetTheme() { return s_theme; }
@@ -34,12 +131,23 @@ float UIRenderer::GetScale() { return s_uiScale; }
 
 void UIRenderer::DrawTextUI(const Font &font, const char *text, float x,
                             float y, float fontSize, Color color, float alpha) {
+  if (!text || text[0] == '\0') {
+    return;
+  }
+
   float scaledSize = fontSize * s_uiScale;
+  float scaledSpacing = 1.0f * s_uiScale;
   Vector2 pos = {x * s_uiScale, y * s_uiScale};
   Color finalColor = Fade(color, alpha);
 
   if (IsFontValid(font)) {
-    DrawTextEx(font, text, pos, scaledSize, 1.0f * s_uiScale, finalColor);
+    const Font emojiFont = UISystem::GetEmojiFont();
+    if (NeedsEmojiFallback(font, emojiFont, text)) {
+      DrawTextWithEmojiFallback(font, emojiFont, text, pos, scaledSize,
+                                scaledSpacing, finalColor);
+    } else {
+      DrawTextEx(font, text, pos, scaledSize, scaledSpacing, finalColor);
+    }
   } else {
     DrawText(text, (int)pos.x, (int)pos.y, (int)scaledSize, finalColor);
   }
