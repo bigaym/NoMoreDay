@@ -1,0 +1,1 @@
+combat_boss_framework_20260225 closeout: implemented BossFrameworkSystem (phase transitions/counter windows/failure penalties/boss ailment bridge), integrated GameplayState combat stage, added CombatBossFramework integration tests, updated track docs and archived track; verification: build.bat + ctest -C RelWithDebInfo -L ci passed twice.
