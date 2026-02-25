@@ -1008,37 +1008,37 @@ void DamagePipeline::CalculateBatch(
         CombatEventDispatcher::Dispatch(
             registry, CombatEventFactory::CreateMeleeHit(
                           attacker, res.target, skill_id, combined_tags,
-                          res.damage, res.is_crit));
+                          final_damage, res.is_crit));
       }
       if (HasTag(combined_tags, Tag::Projectile)) {
         CombatEventDispatcher::Dispatch(
             registry, CombatEventFactory::CreateProjectileHit(
                           attacker, res.target, skill_id, combined_tags,
-                          res.damage, res.is_crit, source_entity));
+                          final_damage, res.is_crit, source_entity));
       }
       if (HasTag(combined_tags, Tag::Area)) {
         CombatEventDispatcher::Dispatch(
             registry, CombatEventFactory::CreateAreaHit(
                           attacker, res.target, skill_id, combined_tags,
-                          res.damage, res.is_crit));
+                          final_damage, res.is_crit));
       }
 
       // Standard damage events
       CombatEventDispatcher::Dispatch(
           registry, CombatEventFactory::CreateDealDamage(
                         attacker, res.target, skill_id, combined_tags,
-                        res.damage, res.is_crit, source_entity));
+                        final_damage, res.is_crit, source_entity));
 
       CombatEventDispatcher::Dispatch(
           registry, CombatEventFactory::CreateTakeDamage(
                         res.target, attacker, skill_id, combined_tags,
-                        res.damage, res.is_crit));
+                        final_damage, res.is_crit));
 
       if (res.is_crit) {
         CombatEventDispatcher::Dispatch(
             registry,
             CombatEventFactory::CreateOnCrit(attacker, res.target, skill_id,
-                                             combined_tags, res.damage));
+                                             combined_tags, final_damage));
       }
     }
   }

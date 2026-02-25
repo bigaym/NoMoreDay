@@ -1,7 +1,7 @@
 # Track: Combat Event Consistency
 
 **ID:** `combat_event_consistency_20260225`  
-**Status:** Not Started  
+**Status:** Completed  
 **Type:** bugfix/P0-convergence  
 **Priority:** P0  
 **Milestone:** M1  
@@ -15,8 +15,8 @@
 
 ## Progress
 
-- **Phases:** 0/3 complete
-- **Tasks:** 0/10 complete
+- **Phases:** 3/3 complete
+- **Tasks:** 10/10 complete
 
 ## Scope Summary
 

@@ -97,16 +97,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 12/12  
 > **Location**: [`conductor/archive/combat_effectiveness_integration_20260225/`](./archive/combat_effectiveness_integration_20260225/index.md)
 
-## [ ] Track CS-M1-04: Combat Event Consistency (combat_event_consistency_20260225)
+## [x] Track CS-M1-04: Combat Event Consistency (combat_event_consistency_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P0  
 > **Type**: bugfix/P0-convergence  
 > **Milestone**: M1  
 > **Depends On**: None（独立并行 ★ CalculateBatch 内部修复）  
 > **Focus**: `CalculateBatch` 事件值统一使用 `final_damage`。  
-> **Tasks**: 0/10  
-> **Location**: [`conductor/tracks/combat_event_consistency_20260225/`](./tracks/combat_event_consistency_20260225/index.md)
+> **Tasks**: 10/10  
+> **Location**: [`conductor/archive/combat_event_consistency_20260225/`](./archive/combat_event_consistency_20260225/index.md)
 
 ## [ ] Track CS-M1-06: Combat Summon Entry Fix (combat_summon_entry_fix_20260225)
 
