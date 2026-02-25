@@ -38,12 +38,12 @@ struct SummonRuntimeState { /* current_target, attack_cd, budgets */ };
 
 ## 5. Acceptance Criteria
 
-- [ ] 所有召唤伤害事件含三元归因字段。
-- [ ] 灵剑为首个迁移样板通过全回归。
-- [ ] 召唤热路径无 `std::string` 依赖。
-- [ ] SummonSystem 拆分为 3 子系统。
-- [ ] 召唤事件链无漏发、无重复发。
-- [ ] `build.bat` + `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS。
+- [x] 所有召唤伤害事件含三元归因字段。
+- [x] 灵剑为首个迁移样板通过全回归。
+- [x] 召唤热路径无 `std::string` 依赖。
+- [x] SummonSystem 拆分为 3 子系统。
+- [x] 召唤事件链无漏发、无重复发。
+- [x] `build.bat` + `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS。
 
 ## 6. Risks
 

@@ -102,6 +102,11 @@ struct CombatEvent {
     // Optional: source entity for projectiles/summons
     entt::entity source_entity = entt::null;
     entt::entity minion = entt::null;  // 召唤物实体
+
+    // Optional: normalized summon attribution tuple
+    entt::entity summon_owner = entt::null;
+    entt::entity summon_entity = entt::null;
+    uint32_t summon_source_skill = 0;
     
     // NEW: Unique cast ID for hit tracking
     uint64_t castId = 0;
@@ -111,6 +116,14 @@ struct CombatEvent {
  * @brief Helper to create common event types.
  */
 namespace CombatEventFactory {
+
+inline void AttachSummonAttribution(CombatEvent &evt, entt::entity owner,
+                                    entt::entity summon,
+                                    uint32_t source_skill_id) {
+    evt.summon_owner = owner;
+    evt.summon_entity = summon;
+    evt.summon_source_skill = source_skill_id;
+}
 
 // === Combat Core ===
 

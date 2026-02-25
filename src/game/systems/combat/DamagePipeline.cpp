@@ -131,6 +131,67 @@ DefenseResolution ResolveDefenseResolution(
   return resolution;
 }
 
+struct SummonAttributionTuple {
+  entt::entity owner = entt::null;
+  entt::entity summon = entt::null;
+  uint32_t source_skill_id = 0;
+
+  [[nodiscard]] bool IsValid() const {
+    return owner != entt::null && summon != entt::null && source_skill_id != 0;
+  }
+};
+
+SummonAttributionTuple ResolveSummonAttribution(const entt::registry &registry,
+                                                entt::entity attacker,
+                                                entt::entity source_entity,
+                                                uint32_t skill_id) {
+  auto fromContext = [&](entt::entity entity) -> SummonAttributionTuple {
+    if (!registry.valid(entity)) {
+      return {};
+    }
+    if (const auto *ctx = registry.try_get<SummonAttributionContext>(entity)) {
+      if (registry.valid(ctx->owner) && registry.valid(ctx->summon) &&
+          ctx->source_skill_id != 0) {
+        return {ctx->owner, ctx->summon, ctx->source_skill_id};
+      }
+    }
+    if (const auto *summon = registry.try_get<SummonComponent>(entity)) {
+      if (registry.valid(summon->owner)) {
+        return {summon->owner, entity,
+                summon->skill_id != 0 ? summon->skill_id : skill_id};
+      }
+    }
+    return {};
+  };
+
+  if (const auto direct = fromContext(attacker); direct.IsValid()) {
+    return direct;
+  }
+  if (const auto sourceDirect = fromContext(source_entity); sourceDirect.IsValid()) {
+    return sourceDirect;
+  }
+
+  if (registry.valid(source_entity)) {
+    if (const auto *proj = registry.try_get<Projectile>(source_entity)) {
+      if (const auto ownerContext = fromContext(proj->owner);
+          ownerContext.IsValid()) {
+        return ownerContext;
+      }
+    }
+  }
+
+  return {};
+}
+
+void AttachSummonAttributionIfAny(CombatEvent &event,
+                                  const SummonAttributionTuple &attribution) {
+  if (attribution.IsValid()) {
+    CombatEventFactory::AttachSummonAttribution(event, attribution.owner,
+                                                attribution.summon,
+                                                attribution.source_skill_id);
+  }
+}
+
 } // namespace
 
 // Simple fixed-capacity vector helper to avoid allocations
@@ -274,6 +335,8 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
   }
   Tag skill_tags = skill_data ? skill_data->tags : Tag::None;
   Tag combined_hit_tags = skill_tags | additional_tags;
+  const SummonAttributionTuple summon_attribution =
+      ResolveSummonAttribution(registry, attacker, source_entity, skill_id);
   auto can_apply_scope = [&](ScopePolicy scope, uint32_t source_skill_id) {
     switch (scope) {
     case ScopePolicy::SkillOnly:
@@ -811,11 +874,15 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       uint64_t cast_id = 0;
       entt::entity actual_attacker = attacker; // Default to the attacker param
 
+      if (summon_attribution.IsValid()) {
+        actual_attacker = summon_attribution.owner;
+      }
+
       if (registry.valid(source_entity)) {
         // Get the real caster (owner) from skill entities
         if (auto *proj = registry.try_get<Projectile>(source_entity)) {
           cast_id = proj->cast_id;
-          if (registry.valid(proj->owner)) {
+          if (!summon_attribution.IsValid() && registry.valid(proj->owner)) {
             actual_attacker = proj->owner;
           }
         }
@@ -824,6 +891,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       CombatEvent hit_evt = CombatEventFactory::CreateSkillHit(
           actual_attacker, defender, skill_id, combined_hit_tags,
           result.is_crit, cast_id);
+      AttachSummonAttributionIfAny(hit_evt, summon_attribution);
       CombatEventDispatcher::Dispatch(registry, hit_evt);
     }
 
@@ -832,12 +900,14 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       CombatEvent deal_evt = CombatEventFactory::CreateDealDamage(
           attacker, defender, skill_id, combined_hit_tags, total_final_damage,
           result.is_crit, source_entity);
+      AttachSummonAttributionIfAny(deal_evt, summon_attribution);
       CombatEventDispatcher::Dispatch(registry, deal_evt);
 
       // OnTakeDamage (from defender's perspective)
       CombatEvent take_evt = CombatEventFactory::CreateTakeDamage(
           defender, attacker, skill_id, combined_hit_tags, total_final_damage,
           result.is_crit);
+      AttachSummonAttributionIfAny(take_evt, summon_attribution);
       CombatEventDispatcher::Dispatch(registry, take_evt);
 
       // OnCrit (if critical hit)
@@ -845,6 +915,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
         CombatEvent crit_evt = CombatEventFactory::CreateOnCrit(
             attacker, defender, skill_id, combined_hit_tags,
             total_final_damage);
+        AttachSummonAttributionIfAny(crit_evt, summon_attribution);
         CombatEventDispatcher::Dispatch(registry, crit_evt);
       }
     }
@@ -894,6 +965,8 @@ void DamagePipeline::CalculateBatch(
   const auto *skill_data = SkillRegistry::Get().GetSkill(skill_id);
   Tag combined_tags =
       (skill_data ? skill_data->tags : Tag::None) | additional_tags;
+  const SummonAttributionTuple summon_attribution =
+      ResolveSummonAttribution(registry, attacker, source_entity, skill_id);
 
   // 1. Snapshot Attacker
   AttackerSnapshot snap = CreateSnapshot(
@@ -1141,64 +1214,75 @@ void DamagePipeline::CalculateBatch(
         uint64_t cast_id = 0;
         entt::entity actual_attacker = attacker;
 
+        if (summon_attribution.IsValid()) {
+          actual_attacker = summon_attribution.owner;
+        }
+
         if (registry.valid(source_entity)) {
           // Get the real owner from skill entities
           if (auto *proj = registry.try_get<Projectile>(source_entity)) {
             cast_id = proj->cast_id;
-            if (registry.valid(proj->owner)) {
+            if (!summon_attribution.IsValid() && registry.valid(proj->owner)) {
               actual_attacker = proj->owner;
             }
           } else if (auto *array =
                          registry.try_get<SwordArrayComponent>(source_entity)) {
             cast_id = array->cast_id;
-            if (registry.valid(array->owner)) {
+            if (!summon_attribution.IsValid() && registry.valid(array->owner)) {
               actual_attacker = array->owner;
             }
           }
         }
 
-        CombatEventDispatcher::Dispatch(
-            registry, CombatEventFactory::CreateSkillHit(
-                          actual_attacker, res.target, skill_id, combined_tags,
-                          res.is_crit, cast_id));
+        CombatEvent skillHitEvent = CombatEventFactory::CreateSkillHit(
+            actual_attacker, res.target, skill_id, combined_tags, res.is_crit,
+            cast_id);
+        AttachSummonAttributionIfAny(skillHitEvent, summon_attribution);
+        CombatEventDispatcher::Dispatch(registry, skillHitEvent);
       }
 
       // Dispatch specific hit types
       if (HasTag(combined_tags, Tag::Melee)) {
-        CombatEventDispatcher::Dispatch(
-            registry, CombatEventFactory::CreateMeleeHit(
-                          attacker, res.target, skill_id, combined_tags,
-                          final_damage, res.is_crit));
+        CombatEvent meleeEvent =
+            CombatEventFactory::CreateMeleeHit(attacker, res.target, skill_id,
+                                               combined_tags, final_damage,
+                                               res.is_crit);
+        AttachSummonAttributionIfAny(meleeEvent, summon_attribution);
+        CombatEventDispatcher::Dispatch(registry, meleeEvent);
       }
       if (HasTag(combined_tags, Tag::Projectile)) {
-        CombatEventDispatcher::Dispatch(
-            registry, CombatEventFactory::CreateProjectileHit(
-                          attacker, res.target, skill_id, combined_tags,
-                          final_damage, res.is_crit, source_entity));
+        CombatEvent projectileEvent = CombatEventFactory::CreateProjectileHit(
+            attacker, res.target, skill_id, combined_tags, final_damage,
+            res.is_crit, source_entity);
+        AttachSummonAttributionIfAny(projectileEvent, summon_attribution);
+        CombatEventDispatcher::Dispatch(registry, projectileEvent);
       }
       if (HasTag(combined_tags, Tag::Area)) {
-        CombatEventDispatcher::Dispatch(
-            registry, CombatEventFactory::CreateAreaHit(
-                          attacker, res.target, skill_id, combined_tags,
-                          final_damage, res.is_crit));
+        CombatEvent areaEvent = CombatEventFactory::CreateAreaHit(
+            attacker, res.target, skill_id, combined_tags, final_damage,
+            res.is_crit);
+        AttachSummonAttributionIfAny(areaEvent, summon_attribution);
+        CombatEventDispatcher::Dispatch(registry, areaEvent);
       }
 
       // Standard damage events
-      CombatEventDispatcher::Dispatch(
-          registry, CombatEventFactory::CreateDealDamage(
-                        attacker, res.target, skill_id, combined_tags,
-                        final_damage, res.is_crit, source_entity));
+      CombatEvent dealEvent = CombatEventFactory::CreateDealDamage(
+          attacker, res.target, skill_id, combined_tags, final_damage,
+          res.is_crit, source_entity);
+      AttachSummonAttributionIfAny(dealEvent, summon_attribution);
+      CombatEventDispatcher::Dispatch(registry, dealEvent);
 
-      CombatEventDispatcher::Dispatch(
-          registry, CombatEventFactory::CreateTakeDamage(
-                        res.target, attacker, skill_id, combined_tags,
-                        final_damage, res.is_crit));
+      CombatEvent takeEvent = CombatEventFactory::CreateTakeDamage(
+          res.target, attacker, skill_id, combined_tags, final_damage,
+          res.is_crit);
+      AttachSummonAttributionIfAny(takeEvent, summon_attribution);
+      CombatEventDispatcher::Dispatch(registry, takeEvent);
 
       if (res.is_crit) {
-        CombatEventDispatcher::Dispatch(
-            registry,
-            CombatEventFactory::CreateOnCrit(attacker, res.target, skill_id,
-                                             combined_tags, final_damage));
+        CombatEvent critEvent = CombatEventFactory::CreateOnCrit(
+            attacker, res.target, skill_id, combined_tags, final_damage);
+        AttachSummonAttributionIfAny(critEvent, summon_attribution);
+        CombatEventDispatcher::Dispatch(registry, critEvent);
       }
     }
   }

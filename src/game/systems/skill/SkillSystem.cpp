@@ -1630,6 +1630,17 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
     if (registry.any_of<SpiritSwordTag>(owner)) {
       registry.emplace<SpiritSwordTag>(shadow);
     }
+
+    if (const auto *summon = registry.try_get<SummonComponent>(owner)) {
+      SummonAttributionContext context;
+      context.owner = summon->owner;
+      context.summon = owner;
+      context.source_skill_id = summon->skill_id;
+      registry.emplace_or_replace<SummonAttributionContext>(shadow, context);
+    } else if (const auto *context =
+                   registry.try_get<SummonAttributionContext>(owner)) {
+      registry.emplace_or_replace<SummonAttributionContext>(shadow, *context);
+    }
   }
 
   auto exec_ent = registry.create();

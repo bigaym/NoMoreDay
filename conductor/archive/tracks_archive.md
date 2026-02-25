@@ -4,6 +4,15 @@ This file contains completed and archived tracks.
 
 ---
 
+## [x] Track: Combat Summon Strategy V1 (combat_summon_strategy_v1_20260225)
+- **Folder:** [./conductor/archive/combat_summon_strategy_v1_20260225/](./conductor/archive/combat_summon_strategy_v1_20260225/)
+- **Description:** Completed summon architecture refactor for CS-M2-03: replaced `SummonComponent.name` with `archetype_id`, added summon combat/AI/runtime profiles, split `SummonSystem` into Lifecycle/AI/CombatBridge, migrated spirit sword ShadowCast + melee orbit to bridge-driven DamagePipeline paths, and added summon attribution tuple (`owner/summon/source_skill`) in combat events.
+- **Status:** COMPLETED (2026-02-25)
+- **Priority:** P1
+- **Archive Reason:** `build.bat` PASS; `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure` PASS; added `tests/unit/SummonStrategyTests.cpp` for attribution, inherit mode, and spirit sword bridge regression coverage.
+
+---
+
 ## [x] Track: Combat Defense Contract V1 (combat_defense_contract_v1_20260225)
 - **Folder:** [./conductor/archive/combat_defense_contract_v1_20260225/](./conductor/archive/combat_defense_contract_v1_20260225/)
 - **Description:** Completed defense-order contract consolidation for combat mitigation: centralized dodge/block/armor-resistance/global-DR chain into `DamagePipeline`, removed duplicated pre-check logic from `CombatSystem`, and added `COMBAT_DEFENSE_DEBUG` gated step logging with new defense unit/integration coverage.

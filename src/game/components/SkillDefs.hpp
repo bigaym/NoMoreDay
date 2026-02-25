@@ -554,6 +554,24 @@ struct MindBladeComponent {
 
 // --- SUMMON SYSTEM COMPONENTS ---
 
+namespace SummonArchetype {
+inline constexpr uint32_t SpiritSword =
+    entt::hashed_string{"summon_spirit_sword"}.value();
+inline constexpr uint32_t ShadowEcho =
+    entt::hashed_string{"summon_shadow_echo"}.value();
+inline constexpr uint32_t Unknown =
+    entt::hashed_string{"summon_unknown"}.value();
+} // namespace SummonArchetype
+
+enum class SummonInheritMode : uint8_t { Snapshot, Dynamic, Mixed };
+enum class SummonRole : uint8_t { Melee, Ranged, Support, Orbit };
+enum class SummonCommandMode : uint8_t {
+  Passive,
+  Defend,
+  Assist,
+  Aggressive
+};
+
 enum class SpiritSwordMode : uint8_t {
   Guardian, // Attack nearest (Default)
   Elite     // Priority on high rarity
@@ -562,10 +580,39 @@ enum class SpiritSwordMode : uint8_t {
 struct SummonComponent {
   entt::entity owner = entt::null;
   uint32_t skill_id = 0;
+  uint32_t archetype_id = SummonArchetype::Unknown;
   float lifetime = 10.0f;
   float max_lifetime = 10.0f;
-  int icon_id = 0;
-  std::string name;
+  uint32_t icon_id = 0;
+};
+
+struct SummonCombatProfile {
+  float damage_scale = 1.0f;
+  SummonInheritMode inherit_mode = SummonInheritMode::Dynamic;
+  float proc_budget_per_second = 3.0f;
+  float proc_budget_cap = 6.0f;
+};
+
+struct SummonAIProfile {
+  SummonRole role = SummonRole::Orbit;
+  SummonCommandMode command_mode = SummonCommandMode::Assist;
+  float retarget_interval = 0.2f;
+  float leash_radius = 300.0f;
+};
+
+struct SummonRuntimeState {
+  entt::entity current_target = entt::null;
+  float attack_cd = 0.0f;
+  float retarget_timer = 0.0f;
+  float proc_budget = 0.0f;
+  CombatStats snapshot_stats = {};
+  bool has_snapshot = false;
+};
+
+struct SummonAttributionContext {
+  entt::entity owner = entt::null;
+  entt::entity summon = entt::null;
+  uint32_t source_skill_id = 0;
 };
 
 struct SpiritSwordTag {};

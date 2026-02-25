@@ -13,6 +13,26 @@
 
 namespace NoMoreDay::systems {
 
+namespace {
+
+const char *ResolveSummonDisplayName(const SummonComponent &summon) {
+    switch (summon.archetype_id) {
+    case SummonArchetype::SpiritSword:
+        return "飞剑";
+    case SummonArchetype::ShadowEcho:
+        return "Shadow Echo";
+    default:
+        break;
+    }
+
+    if (summon.skill_id == 3) {
+        return "飞剑";
+    }
+    return "Summon";
+}
+
+} // namespace
+
 void PlayerHUD::Draw(entt::registry& registry) {
     auto view = registry.view<PlayerTag, CombatStats>();
     if (view.begin() == view.end()) return;
@@ -121,14 +141,14 @@ void PlayerHUD::Draw(entt::registry& registry) {
     for (auto entity : summonView) {
         const auto& summon = summonView.get<SummonComponent>(entity);
         if (summon.owner == player) {
-            uint32_t key = (summon.skill_id != 0) ? summon.skill_id : entt::hashed_string{summon.name.c_str()}.value();
+            uint32_t key = (summon.skill_id != 0) ? summon.skill_id : summon.archetype_id;
             float ratio = (summon.max_lifetime > 0) ? (summon.lifetime / summon.max_lifetime) : 0.0f;
             
             auto& group = summonGroups[key];
             group.first = std::max(group.first, ratio); // Show largest remaining duration
             group.second++;
             
-            summonNames[key] = summon.name;
+            summonNames[key] = ResolveSummonDisplayName(summon);
             summonIcons[key] = summon.icon_id;
         }
     }

@@ -343,9 +343,10 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
 
       auto &summon = registry.emplace<SummonComponent>(shadow_ent);
       summon.owner = owner;
+      summon.skill_id = 1;
+      summon.archetype_id = SummonArchetype::ShadowEcho;
       summon.lifetime = 1.5f;
       summon.max_lifetime = 1.5f;
-      summon.name = "Shadow Echo";
 
       if (stats) {
         sc.snapshot.stats = *stats;

@@ -143,16 +143,16 @@ M3 — P2 长线运营 (4 Tracks)
 > **Tasks**: 12/12  
 > **Location**: [`conductor/archive/combat_defense_contract_v1_20260225/`](./archive/combat_defense_contract_v1_20260225/index.md)
 
-## [ ] Track CS-M2-03: Combat Summon Strategy V1 (combat_summon_strategy_v1_20260225)
+## [x] Track CS-M2-03: Combat Summon Strategy V1 (combat_summon_strategy_v1_20260225)
 
-> **Status**: Not Started  
+> **Status**: Completed (Archived in `conductor/archive/`)  
 > **Priority**: P1  
 > **Type**: feature/refactor  
 > **Milestone**: M2  
 > **Depends On**: `combat_single_damage_entry_20260225`, `combat_summon_entry_fix_20260225`  
 > **Focus**: 召唤三元归因 + 继承模式 + 命令系统 + SummonSystem 三子系统拆分。  
-> **Tasks**: 0/20  
-> **Location**: [`conductor/tracks/combat_summon_strategy_v1_20260225/`](./tracks/combat_summon_strategy_v1_20260225/index.md)
+> **Tasks**: 20/20  
+> **Location**: [`conductor/archive/combat_summon_strategy_v1_20260225/`](./archive/combat_summon_strategy_v1_20260225/index.md)
 
 ## [ ] Track CS-M2-04: Combat Proc Budget V1 (combat_proc_budget_v1_20260225)
 

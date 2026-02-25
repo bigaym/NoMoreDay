@@ -22,6 +22,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/vfx/HoloBladeComponent.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
 using namespace entt::literals;
@@ -173,6 +174,46 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       }
     };
 
+    const auto configureSummonProfiles = [&](entt::entity sword,
+                                             bool refreshSnapshot) {
+      auto &summon = registry.get<SummonComponent>(sword);
+      summon.owner = owner;
+      summon.skill_id = kSkillId;
+      summon.archetype_id = SummonArchetype::SpiritSword;
+      summon.icon_id = entt::hashed_string{"vfx_spirit_sword"};
+
+      auto &combat = registry.get_or_emplace<SummonCombatProfile>(sword);
+      combat.damage_scale =
+          (formation.has_giant_sword ? 1.5f : 0.5f) * formation.damage_penalty;
+      combat.inherit_mode = SummonInheritMode::Mixed;
+      combat.proc_budget_per_second = formation.melee_orbit ? 7.5f : 3.0f;
+      combat.proc_budget_cap = formation.melee_orbit ? 10.0f : 6.0f;
+
+      auto &aiProfile = registry.get_or_emplace<SummonAIProfile>(sword);
+      aiProfile.role =
+          formation.melee_orbit ? SummonRole::Melee : SummonRole::Orbit;
+      aiProfile.command_mode = formation.mode == SpiritSwordMode::Elite
+                                   ? SummonCommandMode::Aggressive
+                                   : SummonCommandMode::Assist;
+      aiProfile.retarget_interval = 0.2f;
+      aiProfile.leash_radius = formation.search_radius;
+
+      auto &runtime = registry.get_or_emplace<SummonRuntimeState>(sword);
+      if (refreshSnapshot || !runtime.has_snapshot) {
+        if (const auto *ownerStats = registry.try_get<CombatStats>(owner)) {
+          runtime.snapshot_stats = *ownerStats;
+          runtime.has_snapshot = true;
+        }
+      }
+      runtime.proc_budget = combat.proc_budget_cap;
+
+      auto &attribution =
+          registry.get_or_emplace<SummonAttributionContext>(sword);
+      attribution.owner = owner;
+      attribution.summon = sword;
+      attribution.source_skill_id = kSkillId;
+    };
+
     std::vector<entt::entity> existing_swords;
     auto view = registry.view<SpiritSwordTag, SummonComponent>();
     for (auto entity : view) {
@@ -185,6 +226,9 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     for (auto entity : existing_swords) {
       auto &s = registry.get<SummonComponent>(entity);
       s.lifetime = s.max_lifetime;
+      configureSummonProfiles(entity, true);
+      auto &ai = registry.get_or_emplace<SpiritSwordAI>(entity);
+      ai.attack_interval = formation.attack_interval;
       applySwordEnchant(entity);
     }
 
@@ -216,7 +260,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         summon.lifetime = 10.0f;
         summon.max_lifetime = 10.0f;
         summon.icon_id = skillIcon;
-        summon.name = "灵剑";
+        summon.archetype_id = SummonArchetype::SpiritSword;
 
         registry.emplace<SpiritSwordTag>(sword);
 
@@ -236,7 +280,7 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
 
         // Use sword icon for the summon status
         summon.icon_id = entt::hashed_string{"vfx_spirit_sword"};
-        summon.name = "飞剑";
+        configureSummonProfiles(sword, true);
 
         int total_index = current_count + i;
         ai.attack_timer =
@@ -244,6 +288,8 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
         ai.orbit_angle = (float)total_index / formation.max_swords * 2.0f * PI;
 
         applySwordEnchant(sword);
+        CombatEventDispatcher::Dispatch(
+            registry, CombatEventFactory::CreateOnSummon(owner, sword, kSkillId));
       }
       LOG_INFO("Blade Formation: Spawned {} new swords.", needed);
     } else {
