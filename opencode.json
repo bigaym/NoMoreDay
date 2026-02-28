@@ -1,0 +1,52 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+    "plugin": [
+        "opencode-websearch",
+        "dynamic-context-pruning",
+        "opencode-ignore",
+        "cc-safety-net",
+        "@ramtinj95/opencode-tokenscope@latest"
+    ],
+    "watcher": {
+        "ignore": [
+            ".git/**",
+            ".vs/**",
+            "build/**",
+            "bin/**",
+            "logs/**",
+            "saves/**",
+            "assets/generated/**"
+        ]
+    },
+    "mcp": {
+        "memory": {
+            "type": "local",
+            "command": [
+                "python",
+                "-m",
+                "mcp_memory_service.server"
+            ],
+            "environment": {
+                "MCP_MEMORY_STORAGE_BACKEND": "sqlite_vec"
+            },
+            "enabled": true
+        },
+        "tree_sitter": {
+            "type": "local",
+            "command": [
+                "uvx",
+                "mcp-server-tree-sitter"
+            ],
+            "enabled": true
+        },
+        "sequential-thinking": {
+            "type": "local",
+            "command": [
+                "npx",
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+            ],
+            "enabled": true
+        }
+    }
+}

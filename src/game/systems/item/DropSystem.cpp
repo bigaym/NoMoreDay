@@ -10,6 +10,7 @@
 #include "game/components/NemesisComponent.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Stats.hpp"
+#include "game/systems/item/FragmentDropSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/LootFilter.hpp"
 #include <algorithm>
@@ -26,6 +27,8 @@ struct MaterialDropBonus {
   uint32_t minAmount = 1;
   uint32_t maxAmount = 1;
 };
+
+constexpr uint32_t kMaterialIdDimensionMapFragment = 2001u;
 
 struct BiomeLootModifier {
   float dropChanceMultiplier = 1.0f;
@@ -77,6 +80,19 @@ BiomeID ResolveCurrentBiome(entt::registry &registry) {
   return BiomeID::None;
 }
 
+void TryAttachDropLight(entt::registry &registry, entt::entity itemEntity);
+
+FragmentElement ResolveCurrentFragmentElement(entt::registry &registry) {
+  if (!registry.ctx().contains<NoMoreDay::ActiveDimensionalState>()) {
+    return FragmentElement::None;
+  }
+  const auto &state = registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
+  if (!state.isActive) {
+    return FragmentElement::None;
+  }
+  return state.resonance.dominantElement;
+}
+
 void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pending) {
   const auto &modifier = GetBiomeLootModifier(pending.biome);
   if (modifier.bonusMaterials.empty()) {
@@ -84,6 +100,7 @@ void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pendin
   }
 
   std::uniform_real_distribution<float> chanceDist(0.0f, 1.0f);
+  const FragmentElement areaElement = ResolveCurrentFragmentElement(registry);
   for (const auto &bonus : modifier.bonusMaterials) {
     if (chanceDist(g_drop_rng) > bonus.chance) {
       continue;
@@ -92,6 +109,28 @@ void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pendin
     std::uniform_int_distribution<uint32_t> amountDist(bonus.minAmount,
                                                         std::max(bonus.minAmount, bonus.maxAmount));
     const uint32_t amount = amountDist(g_drop_rng);
+
+    if (bonus.materialId == kMaterialIdDimensionMapFragment) {
+      for (uint32_t i = 0; i < amount; ++i) {
+        auto fragment = FragmentDropSystem::CreateRandomFragment(
+            registry, std::max(1, pending.areaLevel), pending.magicFind,
+            areaElement);
+        if (fragment == entt::null) {
+          continue;
+        }
+
+        registry.emplace_or_replace<Position>(fragment, pending.pos.x,
+                                              pending.pos.y);
+        registry.emplace<Radius>(fragment, 15.0f);
+        registry.emplace<LocalLevelTag>(fragment);
+        registry.emplace<LootTag>(fragment);
+        registry.emplace_or_replace<LabelCacheComponent>(fragment);
+        TryAttachDropLight(registry, fragment);
+        RenderSystem::s_itemGridDirty = true;
+      }
+      continue;
+    }
+
     auto material = ItemFactory::createMaterial(
         registry, bonus.materialId, static_cast<int>(amount));
     if (material == entt::null) {
@@ -541,9 +580,11 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
     }
   }
 
-  PendingDrop pending;
+  PendingDrop pending{};
   pending.pos = {pos.x, pos.y};
   pending.biome = currentBiome;
+  pending.areaLevel = dropLevel;
+  pending.magicFind = mf + rarityMFBoost;
   SpawnBiomeMaterialBonus(registry, pending);
 }
 

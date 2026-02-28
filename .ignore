@@ -1,0 +1,23 @@
+# OpenCode AI context slimming (gitignore-style)
+
+# VCS / editor
+.git/**
+.vs/**
+.vscode/**
+
+# Build & runtime artifacts
+build/**
+bin/**
+logs/**
+saves/**
+**/*.pdb
+**/*.ilk
+**/*.obj
+**/*.exe
+**/*.dll
+
+# Generated assets
+assets/generated/**
+
+# Big screenshots in repo root (keep if you actually need them)
+Snipaste_*.png

@@ -1,6 +1,7 @@
 #include "game/systems/item/FragmentDropSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
+#include "engine/render/RenderSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
@@ -77,8 +78,11 @@ void FragmentDropSystem::Update(entt::registry &registry) {
     entt::entity fragment = CreateRandomFragment(registry, req.areaLevel, req.magicFind, req.areaElement);
     if (fragment != entt::null) {
       registry.emplace<Position>(fragment, req.posX, req.posY);
+      registry.emplace<Radius>(fragment, 15.0f);
       registry.emplace<LocalLevelTag>(fragment); // Clean up on map transition
-      LOG_DEBUG("Fragment created at ({}, {}) from deferred request", req.posX, req.posY);
+      registry.emplace<LootTag>(fragment);
+      registry.emplace<LabelCacheComponent>(fragment);
+      RenderSystem::s_itemGridDirty = true;
     }
   }
 }
