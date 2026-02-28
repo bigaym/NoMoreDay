@@ -2,6 +2,8 @@
 #include "game/data/SkillContract.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include <array>
+#include <filesystem>
+#include <fstream>
 
 namespace NoMoreDay {
 
@@ -124,6 +126,64 @@ TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..
     CHECK(transmuter_count == 2);
     CHECK(keystone_count >= 2);
   }
+}
+
+TEST_CASE("[Integration] SkillContract - Node 213 does not get implicit cost_affix") {
+  namespace fs = std::filesystem;
+
+  const fs::path tempFile =
+      fs::temp_directory_path() / "nmd_skill_contract_no_affix_213.json";
+  {
+    std::ofstream out(tempFile, std::ios::binary | std::ios::trunc);
+    REQUIRE(out.is_open());
+    out << R"({
+  "skills": [
+    {
+      "id": 42,
+      "name_key": "TestSkill",
+      "mana_cost": 0,
+      "cooldown": 0,
+      "talent_tree": [
+        {
+          "id": 213,
+          "name_key": "Node213",
+          "desc_key": "Node213Desc",
+          "icon_id": 0,
+          "x": 0,
+          "y": 0,
+          "max_points": 1,
+          "current_points": 0,
+          "is_key_node": true,
+          "prerequisites": [],
+          "stat_modifiers": [],
+          "damage_modifiers": [],
+          "tags_to_add": []
+        }
+      ],
+      "skill_contract": {
+        "skill_id": 42,
+        "min_nodes": 1,
+        "max_nodes": 1,
+        "nodes": [
+          {
+            "node_id": 213,
+            "role": "Keystone"
+          }
+        ]
+      }
+    }
+  ]
+})";
+  }
+
+  auto &registry = SkillRegistry::Get();
+  registry.LoadFromJson(tempFile.string());
+  const auto *node = registry.GetNodeContract(42, 213);
+  REQUIRE(node != nullptr);
+  CHECK(node->cost_affix == CostAffixPreset::None);
+
+  std::error_code ec;
+  fs::remove(tempFile, ec);
 }
 
 } // namespace NoMoreDay

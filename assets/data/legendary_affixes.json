@@ -544,6 +544,9 @@
         ],
         "requiredSkillTags": [
             "blade_ascendant"
+        ],
+        "modifierRecordIds": [
+            1001001
         ]
     },
     {

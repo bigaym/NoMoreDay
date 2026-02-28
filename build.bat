@@ -278,6 +278,13 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
         exit /b 1
     )
 
+    echo [Build] Generating modifier runtime v2...
+    python scripts\gen_modifier_runtime_v2.py --check
+    if errorlevel 1 (
+        echo [Build] Modifier runtime v2 generation failed! Aborting.
+        exit /b 1
+    )
+
     echo [Build] Checking skill contract drift...
     python scripts\gen_skill_contracts.py --check
     if errorlevel 1 (

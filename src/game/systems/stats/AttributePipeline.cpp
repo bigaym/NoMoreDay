@@ -20,6 +20,8 @@
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatFormula.hpp"
+#include "game/systems/modifier/EquipmentModifierAdapter.hpp"
+#include "game/systems/modifier/TalentModifierAdapter.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <algorithm>
 #include <cmath>
@@ -276,6 +278,8 @@ void AttributePipeline::Calculate(entt::registry &registry,
   if (active) {
     for (auto &s : active->specialized_slots)
       s.bonus_levels = 0;
+
+    EquipmentModifierAdapter::ApplyEquippedSkillLevelBonuses(registry, entity);
   }
 
   auto* global_mods_ptr = std::get<1>(components);
@@ -514,27 +518,6 @@ void AttributePipeline::Calculate(entt::registry &registry,
       }
     }
   }
-  if (active) {
-    for (const auto &s : active->specialized_slots) {
-      if (s.skill_id == 0)
-        continue;
-      const auto *tr = SkillRegistry::Get().GetSkillTree(s.skill_id);
-      if (!tr)
-        continue;
-      for (const auto &[nid, pts] : s.allocated_points) {
-        if (pts <= 0)
-          continue;
-        auto nit = tr->nodes.find(nid);
-        if (nit == tr->nodes.end())
-          continue;
-        for (const auto &m : nit->second.stat_modifiers) {
-          if (m.required_tags == Tag::None)
-            ApplyStatModifier(calcs, m.type, m.mode,
-                              m.value * static_cast<float>(pts));
-        }
-      }
-    }
-  }
   Tag player_tags = Tag::None;
   if (auto* stance = registry.try_get<MovementStanceComponent>(entity)) {
     if (stance->stance == MovementStance::SwordRiding)
@@ -542,7 +525,16 @@ void AttributePipeline::Calculate(entt::registry &registry,
   }
 
   if (auto *as = registry.try_get<AstrolabeComponent>(entity)) {
-    // New system: use nodePoints map
+    const auto activeTalentNodeIds =
+        TalentModifierAdapter::CollectActiveNodeIds(*as);
+    const float extraFlatHealthFromTalents =
+        TalentModifierAdapter::EvaluateFlatHealthBonus(activeTalentNodeIds);
+    if (extraFlatHealthFromTalents > 0.0f) {
+      ApplyStatModifier(calcs, StatType::MaxHealth, ModifierMode::Flat,
+                        extraFlatHealthFromTalents);
+    }
+
+    // V2 path: evaluate through nodePoints map only.
     if (!as->nodePoints.empty()) {
         for (const auto& [nid, points] : as->nodePoints) {
             if (points <= 0) continue;
@@ -557,16 +549,6 @@ void AttributePipeline::Calculate(entt::registry &registry,
                 for (const auto &m : n->modifiers) {
                     if (m.IsActive(player_tags))
                         ApplyStatModifier(calcs, m.type, m.mode, m.value * static_cast<float>(points));
-                }
-            }
-        }
-    } else {
-        // Fallback for legacy data (activated_nodes set)
-        for (uint32_t nid : as->activated_nodes) {
-            if (const auto *n = AstrolabeRegistry::Get().GetNode(nid)) {
-                for (const auto &m : n->modifiers) {
-                    if (m.IsActive(player_tags))
-                        ApplyStatModifier(calcs, m.type, m.mode, m.value);
                 }
             }
         }

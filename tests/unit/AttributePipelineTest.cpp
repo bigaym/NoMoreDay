@@ -1,4 +1,7 @@
 #include "game/systems/stats/AttributePipeline.hpp"
+#include "game/components/EquipmentComponent.hpp"
+#include "game/components/Progression.hpp"
+#include "game/data/AstrolabeRegistry.hpp"
 #include "TestCommon.hpp"
 
 namespace NoMoreDay {
@@ -80,6 +83,49 @@ TEST_CASE("[Unit] AttributePipeline - Calculation Logic") {
   // LF = 10 + 0.5*1 + 0.05*1 = 10.55
   // DR = 10.55 / (233 + 10.55) = 0.0433 (Multiplier) -> 1 - 0.0433 = 0.9567
   CHECK(stats.effective_armor_dr == doctest::Approx(0.956682f).epsilon(0.001f));
+}
+
+TEST_CASE("[Unit] AttributePipeline - activated_nodes legacy fallback is inactive") {
+  entt::registry registry;
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<CombatStats>(player);
+  registry.emplace<GlobalModifierComponent>(player);
+  registry.emplace<ActiveSkillsComponent>(player);
+  registry.emplace<EquipmentComponent>(player);
+  registry.emplace<PrimaryStats>(player);
+
+  TalentGraph graph;
+  AstrolabeTalentNode node;
+  node.id = 88123;
+  node.modifiers.push_back({.value = 10.0f,
+                            .type = StatType::MoveSpeed,
+                            .mode = ModifierMode::PercentAdd,
+                            .required_tags = Tag::None});
+  node.profession = ProfessionID::BladeAscendant;
+  node.tier = 1;
+  graph.nodes[node.id] = node;
+  AstrolabeRegistry::Get().SetGraph(graph);
+
+  auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+  astrolabe.activated_nodes.insert(node.id);
+
+  AttributePipeline::Calculate(registry, player);
+  const float legacyOnlySpeed = registry.get<CombatStats>(player).raw_move_speed;
+
+  entt::registry baseReg;
+  auto basePlayer = baseReg.create();
+  baseReg.emplace<PlayerTag>(basePlayer);
+  baseReg.emplace<CombatStats>(basePlayer);
+  baseReg.emplace<GlobalModifierComponent>(basePlayer);
+  baseReg.emplace<ActiveSkillsComponent>(basePlayer);
+  baseReg.emplace<EquipmentComponent>(basePlayer);
+  baseReg.emplace<PrimaryStats>(basePlayer);
+
+  AttributePipeline::Calculate(baseReg, basePlayer);
+  const float baseSpeed = baseReg.get<CombatStats>(basePlayer).raw_move_speed;
+
+  CHECK(legacyOnlySpeed == doctest::Approx(baseSpeed));
 }
 
 } // namespace NoMoreDay

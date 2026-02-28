@@ -48,10 +48,44 @@ struct SerializedItem {
     bool isLegendary; // For merged items
     std::string name; // Cache for UI
     Tag required_tags = Tag::None;
-
-    NLOHMANN_DEFINE_TYPE_INTRUSIVE(SavedAffix, type, tier, value, isPrefix,
-                                   isLegendary, name, required_tags)
+    std::vector<uint32_t> modifier_record_ids;
   };
+
+  friend void to_json(nlohmann::json &j, const SavedAffix &a) {
+    j = nlohmann::json{{"type", a.type},
+                       {"tier", a.tier},
+                       {"value", a.value},
+                       {"isPrefix", a.isPrefix},
+                       {"isLegendary", a.isLegendary},
+                       {"name", a.name},
+                       {"required_tags", a.required_tags}};
+    if (!a.modifier_record_ids.empty()) {
+      j["modifier_record_ids"] = a.modifier_record_ids;
+    }
+  }
+
+  friend void from_json(const nlohmann::json &j, SavedAffix &a) {
+    j.at("type").get_to(a.type);
+    j.at("tier").get_to(a.tier);
+    j.at("value").get_to(a.value);
+    j.at("isPrefix").get_to(a.isPrefix);
+    j.at("isLegendary").get_to(a.isLegendary);
+    if (j.contains("name")) {
+      j.at("name").get_to(a.name);
+    } else {
+      a.name.clear();
+    }
+    if (j.contains("required_tags")) {
+      j.at("required_tags").get_to(a.required_tags);
+    } else {
+      a.required_tags = Tag::None;
+    }
+    if (j.contains("modifier_record_ids")) {
+      j.at("modifier_record_ids").get_to(a.modifier_record_ids);
+    } else {
+      a.modifier_record_ids.clear();
+    }
+  }
 
   std::vector<SavedAffix> affixes;
   std::vector<SavedAffix> implicits;

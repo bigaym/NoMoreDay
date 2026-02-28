@@ -1,0 +1,17 @@
+{
+  "schema_version": 2,
+  "entries": [
+    {
+      "domain": "equipment",
+      "path": "equipment_modifiers.json"
+    },
+    {
+      "domain": "skill_spec",
+      "path": "skill_spec_modifiers.json"
+    },
+    {
+      "domain": "talent",
+      "path": "talent_modifiers.json"
+    }
+  ]
+}

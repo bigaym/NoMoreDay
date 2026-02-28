@@ -62,7 +62,7 @@ bool AstrolabeSystem::addPointToNode(entt::registry& registry, entt::entity play
     // Add affinity
     comp.professionAffinity[static_cast<uint8_t>(node->profession)]++;
     
-    // Mark activated (useful for simple iteration if needed, though nodePoints is primary now)
+    // Keep activated node mirror for UI and non-stat presentation systems.
     comp.activated_nodes.insert(nodeId);
     
     // Recalculate stats
