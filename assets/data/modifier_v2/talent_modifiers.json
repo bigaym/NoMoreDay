@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "domain": "talent",
+  "records": [
+    {
+      "id": 3001100,
+      "domain": "talent",
+      "priority": 300,
+      "filters": {
+        "profession_mask": 1,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 65535,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          1100
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "character",
+          "param_u32": 4,
+          "param_f32": 50.0
+        }
+      ],
+      "debug": {
+        "name": "Astrolabe_Origin_Health",
+        "source": "talent_node"
+      }
+    }
+  ]
+}

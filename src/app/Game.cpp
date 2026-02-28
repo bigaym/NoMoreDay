@@ -23,6 +23,7 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
+#include "game/systems/modifier/ModifierRuntimeRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/world/MapAffixRegistry.hpp"
@@ -33,6 +34,7 @@
 #include "engine/render/GPUUtils.hpp"
 #include "core/utils/Time.hpp"
 #include <algorithm>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 
@@ -240,6 +242,12 @@ void Game::init() {
 
   NoMoreDay::ItemFactory::initialize();
   NoMoreDay::ItemFactory::loadAffixDefinitions("assets/data/affixes.json");
+
+  if (!NoMoreDay::ModifierRuntimeRegistry::Get().EnsureLoaded(
+          "assets/generated/modifier_runtime_v2.bin")) {
+    LOG_CRITICAL("ModifierRuntimeV2 load failed");
+    throw std::runtime_error("ModifierRuntimeV2 load failed");
+  }
 
   // Initialize Map Affix Registry
   NoMoreDay::MapAffixRegistry::Initialize();

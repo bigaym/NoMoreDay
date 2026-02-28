@@ -13,7 +13,7 @@ using namespace NoMoreDay;
 
 TEST_SUITE("TalentModifierTest") {
 
-  TEST_CASE("[Unit] TalentModifier - Max Health Application") {
+  TEST_CASE("[Unit] TalentModifier - Legacy skill-tree stat path disabled") {
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player); // Mark as player so defaults apply
@@ -49,9 +49,8 @@ TEST_SUITE("TalentModifierTest") {
 
     // Assert
     auto &stats = registry.get<CombatStats>(player);
-    // Base 100 (player default) + 50 * 2 = 200.
-    // Assuming DEFAULT_MAX_HEALTH is 100. Even if not, it should be base + 100.
-    // We can check if it's significantly higher than base.
+    // Legacy skill-tree stat_modifiers path is inactive, so health must stay at
+    // the baseline player value.
     entt::registry baseReg;
     auto basePlayer = baseReg.create();
     baseReg.emplace<PlayerTag>(basePlayer);
@@ -59,7 +58,7 @@ TEST_SUITE("TalentModifierTest") {
     AttributePipeline::Calculate(baseReg, basePlayer);
     float baseHealth = baseReg.get<CombatStats>(basePlayer).max_health;
 
-    CHECK(stats.max_health == doctest::Approx(baseHealth + 100.0f));
+    CHECK(stats.max_health == doctest::Approx(baseHealth));
   }
 
   TEST_CASE("[Unit] TalentModifier - Behavior Injection") {

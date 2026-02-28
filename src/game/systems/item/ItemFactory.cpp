@@ -92,6 +92,10 @@ getRandomTextureForType(ItemType type, EquipmentSlot slot,
 std::map<uint32_t, LootPool> ItemFactory::s_lootPools;
 std::vector<AffixDefinition> ItemFactory::s_affixDefinitions;
 
+static uint64_t BuildRequiredSkillTagsAllMask(const AffixDefinition &definition) {
+  return static_cast<uint64_t>(definition.GetRequiredTags());
+}
+
 void ItemFactory::initialize() {
   // 加载词缀定义
   loadAffixDefinitions("assets/data/affixes.json");
@@ -206,6 +210,7 @@ SerializedItem ItemFactory::serializeItem(entt::registry &registry,
     sAff.isPrefix = aff.isPrefix;
     sAff.isLegendary = aff.isLegendary;
     sAff.required_tags = aff.required_tags;
+    sAff.modifier_record_ids = aff.modifier_record_ids;
     dto.affixes.push_back(sAff);
   }
 
@@ -217,6 +222,7 @@ SerializedItem ItemFactory::serializeItem(entt::registry &registry,
     sAff.isPrefix = aff.isPrefix;
     sAff.isLegendary = aff.isLegendary;
     sAff.required_tags = aff.required_tags;
+    sAff.modifier_record_ids = aff.modifier_record_ids;
     dto.implicits.push_back(sAff);
   }
 
@@ -477,6 +483,9 @@ Affix ItemFactory::createAffix(AffixType type, int tier) {
   for (const auto &def : s_affixDefinitions) {
     if (def.type == type) {
       affix.isPrefix = def.isPrefix;
+      affix.required_tags =
+          static_cast<Tag>(BuildRequiredSkillTagsAllMask(def));
+      affix.modifier_record_ids = def.modifierRecordIds;
       // Find tier
       for (const auto &t : def.tiers) {
         if (t.tier == tier) {
@@ -667,6 +676,9 @@ Affix ItemFactory::generateRandomAffix(int level, bool isPrefix,
   result.type = selectedDef->type;
   result.tier = tier.tier;
   result.isPrefix = selectedDef->isPrefix;
+  result.required_tags =
+      static_cast<Tag>(BuildRequiredSkillTagsAllMask(*selectedDef));
+  result.modifier_record_ids = selectedDef->modifierRecordIds;
   // result.name = selectedDef->nameTemplate; // REMOVED
   result.value = (tier.maxValue > tier.minValue)
                      ? std::uniform_real_distribution<float>(
@@ -840,6 +852,9 @@ void ItemFactory::rollAffixes(ItemComponent &item, int level) {
       result.type = def->type;
       result.tier = tier.tier;
       result.isPrefix = def->isPrefix;
+      result.required_tags =
+          static_cast<Tag>(BuildRequiredSkillTagsAllMask(*def));
+      result.modifier_record_ids = def->modifierRecordIds;
       // result.name = def->nameTemplate; // REMOVED
       result.value = (tier.maxValue > tier.minValue)
                          ? std::uniform_real_distribution<float>(
@@ -921,6 +936,7 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
     aff.isLegendary = sAff.isLegendary;
     // aff.name = sAff.name; // REMOVED
     aff.required_tags = sAff.required_tags;
+    aff.modifier_record_ids = sAff.modifier_record_ids;
     item.affixes.push_back(aff);
   }
 
@@ -933,6 +949,7 @@ entt::entity ItemFactory::restoreItem(entt::registry &registry,
     aff.isLegendary = sAff.isLegendary;
     // aff.name = sAff.name; // REMOVED
     aff.required_tags = sAff.required_tags;
+    aff.modifier_record_ids = sAff.modifier_record_ids;
     item.implicits.push_back(aff);
   }
 

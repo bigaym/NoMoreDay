@@ -4,6 +4,7 @@
 #include "game/components/AstrolabeUIComponent.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
+#include "game/components/ItemStats.hpp"
 #include "game/components/Progression.hpp"
 #include "game/components/MaterialBankComponent.hpp"
 #include "game/components/SkillDefs.hpp"
@@ -20,6 +21,7 @@
 #include "game/systems/skill/AstrolabeSystem.hpp"    
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/ShadowSystem.hpp"
+#include "game/systems/stats/AttributePipeline.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
@@ -273,6 +275,49 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in skills.json") {
                     " in ", fullPath.string());
     }
   }
+}
+
+TEST_CASE(
+    "[Integration] ModifierRuntimeV2 - legacy skill-tree stat modifiers are inactive") {
+  entt::registry registry;
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<CombatStats>(player);
+
+  SkillData skill;
+  skill.id = 999001;
+  skill.name_key = "LegacyPathProbe";
+  SkillRegistry::Get().RegisterSkill(skill);
+
+  SkillTreeDefinition tree;
+  tree.skill_id = skill.id;
+  TalentNode node;
+  node.id = 999101;
+  node.name_key = "LegacyNode";
+  node.max_points = 1;
+  node.stat_modifiers.push_back({.value = 50.0f,
+                                 .type = StatType::MaxHealth,
+                                 .mode = ModifierMode::Flat,
+                                 .required_tags = Tag::None});
+  tree.nodes[node.id] = node;
+  SkillRegistry::Get().RegisterSkillTree(tree);
+
+  registry.emplace<ActiveSkillsComponent>(player);
+  auto &active = registry.get<ActiveSkillsComponent>(player);
+  active.specialized_slots[0].skill_id = skill.id;
+  active.specialized_slots[0].allocated_points[node.id] = 1;
+
+  AttributePipeline::Calculate(registry, player);
+  const float legacyCandidateHealth = registry.get<CombatStats>(player).max_health;
+
+  entt::registry baseReg;
+  auto basePlayer = baseReg.create();
+  baseReg.emplace<PlayerTag>(basePlayer);
+  baseReg.emplace<CombatStats>(basePlayer);
+  AttributePipeline::Calculate(baseReg, basePlayer);
+  const float baseHealth = baseReg.get<CombatStats>(basePlayer).max_health;
+
+  CHECK(legacyCandidateHealth == doctest::Approx(baseHealth));
 }
 
 } // namespace NoMoreDay

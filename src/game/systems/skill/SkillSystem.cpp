@@ -22,6 +22,7 @@
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/ProcBudgetManager.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
 #include "game/systems/skill/behaviors/PhantomFlash.hpp" // Added
@@ -2128,6 +2129,21 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
 
   // Populate active_nodes from Specialization
   PopulateActiveNodesFromSpecialized(specialized, exec);
+
+  if (specialized != nullptr) {
+    const auto nodeIds =
+        SkillSpecModifierAdapter::CollectAllocatedNodeIds(*specialized);
+    const Tag skillTags = (data != nullptr) ? data->tags : Tag::None;
+    if (SkillSpecModifierAdapter::EvaluateDamageMultiplier(slot.id, skillTags,
+                                                           nodeIds) >
+            1.0f &&
+        stats != nullptr) {
+      exec.has_snapshot = true;
+      exec.snapshot.stats = *stats;
+      SkillSpecModifierAdapter::ApplyHeavyMomentumToDamageMultipliers(
+          exec.snapshot.stats.damage_multipliers, slot.id, skillTags, nodeIds);
+    }
+  }
 
   if (specialized && skill_contract) {
     auto &runtime = registry.get_or_emplace<SkillContractRuntimeComponent>(entity);

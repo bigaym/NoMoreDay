@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <vector>
 
 
 namespace NoMoreDay {
@@ -126,6 +127,8 @@ struct Affix {
   int tier = 0;                  // 词缀等级 (1到7，通常T1最低，T7最高/神级)
   bool isPrefix = true;          // true = 前缀, false = 后缀
   Tag required_tags = Tag::None; // 条件标签，只有技能携带这些标签时该词缀才生效
+  std::vector<uint32_t>
+      modifier_record_ids;   // Optional runtime modifier record ids
   bool isLegendary = false;      // 是否为传奇融合词缀
 };
 
@@ -138,6 +141,9 @@ inline void to_json(nlohmann::json &j, const Affix &a) {
                      {"isLegendary", a.isLegendary}};
   if (a.required_tags != Tag::None) {
     j["required_tags"] = static_cast<uint64_t>(a.required_tags);
+  }
+  if (!a.modifier_record_ids.empty()) {
+    j["modifier_record_ids"] = a.modifier_record_ids;
   }
 }
 
@@ -156,6 +162,11 @@ inline void from_json(const nlohmann::json &j, Affix &a) {
     a.required_tags = static_cast<Tag>(j.at("required_tags").get<uint64_t>());
   } else {
     a.required_tags = Tag::None;
+  }
+  if (j.contains("modifier_record_ids")) {
+    j.at("modifier_record_ids").get_to(a.modifier_record_ids);
+  } else {
+    a.modifier_record_ids.clear();
   }
 }
 
@@ -180,6 +191,8 @@ struct AffixDefinition {
       allowedTags; // Slot filtering: "weapon", "armor", etc.
   std::vector<std::string>
       requiredSkillTags; // Skill tag conditions (parsed to Tag bitmask)
+  std::vector<uint32_t>
+      modifierRecordIds; // Optional runtime modifier record ids
 
   // Helper to get parsed required tags
   Tag GetRequiredTags() const { return ParseTagList(requiredSkillTags); }
@@ -196,6 +209,9 @@ inline void to_json(nlohmann::json &j, const AffixDefinition &d) {
   if (!d.requiredSkillTags.empty()) {
     j["requiredSkillTags"] = d.requiredSkillTags;
   }
+  if (!d.modifierRecordIds.empty()) {
+    j["modifierRecordIds"] = d.modifierRecordIds;
+  }
 }
 
 inline void from_json(const nlohmann::json &j, AffixDefinition &d) {
@@ -207,6 +223,9 @@ inline void from_json(const nlohmann::json &j, AffixDefinition &d) {
   j.at("allowedTags").get_to(d.allowedTags);
   if (j.contains("requiredSkillTags")) {
     j.at("requiredSkillTags").get_to(d.requiredSkillTags);
+  }
+  if (j.contains("modifierRecordIds")) {
+    j.at("modifierRecordIds").get_to(d.modifierRecordIds);
   }
 }
 
