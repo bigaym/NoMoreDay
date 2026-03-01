@@ -94,13 +94,11 @@ public:
     for (auto entity : view) {
       auto &affix = view.get<MonsterAffixComponent>(entity);
       const auto &pos = view.get<Position>(entity);
-      const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(affix);
       const auto behaviorOps =
           MonsterModifierAdapter::EvaluateBehaviorOps(affix);
 
       // Skip if no Update-type affixes
-      if (!eventSet.HasOnUpdate() && !affix.hasUpdate &&
-          !behaviorOps.HasOnUpdate())
+      if (!behaviorOps.HasOnUpdate())
         continue;
 
       // Determine evolution tier
@@ -1100,9 +1098,8 @@ public:
     if (!affix)
       return;
 
-    const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(*affix);
     const auto behaviorOps = MonsterModifierAdapter::EvaluateBehaviorOps(*affix);
-    if (!eventSet.HasOnHit() && !affix->hasOnHit && !behaviorOps.HasOnHit())
+    if (!behaviorOps.HasOnHit())
       return;
 
     const bool hasVampiricBehaviorOp = behaviorOps.HasOnHitOpcode(
@@ -1181,9 +1178,8 @@ public:
     if (!affix)
       return;
 
-    const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(*affix);
     const auto behaviorOps = MonsterModifierAdapter::EvaluateBehaviorOps(*affix);
-    if (!eventSet.HasOnHit() && !affix->hasOnHit && !behaviorOps.HasOnHit())
+    if (!behaviorOps.HasOnHit())
       return;
 
     // MirrorImage: Spawn clones on crit or low HP
@@ -1331,9 +1327,7 @@ public:
       return;
 
     const auto behaviorOps = MonsterModifierAdapter::EvaluateBehaviorOps(*affix);
-    const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(*affix);
-    if (!eventSet.HasOnDeath() && !affix->hasOnDeath &&
-        !behaviorOps.HasOnDeath())
+    if (!behaviorOps.HasOnDeath())
       return;
 
     const bool hasToxicBehaviorOp = behaviorOps.HasOnDeathOpcode(

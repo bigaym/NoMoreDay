@@ -750,7 +750,7 @@ TEST_CASE("[Unit] MonsterAffix - SoulLink update behavior-op path initializes so
   CHECK(registry.all_of<SoulLinkComponent>(linker));
 }
 
-TEST_CASE("[Unit] MonsterAffix - Suppressor op-path update and component fallback damage apply exactly once") {
+TEST_CASE("[Unit] MonsterAffix - Suppressor op-path update and damage reduction apply exactly once") {
   entt::registry registry;
 
   auto defender = registry.create();
@@ -785,7 +785,7 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor op-path update and component fallbac
   CHECK(result.total_damage == doctest::Approx(10.0f));
 }
 
-TEST_CASE("[Unit] MonsterAffix - SoulLink op-path update and component fallback damage apply exactly once") {
+TEST_CASE("[Unit] MonsterAffix - SoulLink op-path update and link-group damage apply exactly once") {
   entt::registry registry;
 
   auto linker = registry.create();
@@ -827,20 +827,20 @@ TEST_CASE("[Unit] MonsterAffix - SoulLink op-path update and component fallback 
   CHECK(registry.get<HealthComponent>(allyA).current == doctest::Approx(90.0f));
   CHECK(registry.get<HealthComponent>(allyB).current == doctest::Approx(90.0f));
 
-  auto fallbackOnly = registry.create();
-  registry.emplace<EnemyTag>(fallbackOnly);
-  registry.emplace<HealthComponent>(fallbackOnly, 100.0f, 100.0f);
-  auto fallbackAlly = registry.create();
-  registry.emplace<EnemyTag>(fallbackAlly);
-  registry.emplace<HealthComponent>(fallbackAlly, 100.0f, 100.0f);
-  auto &fallbackLink = registry.emplace<SoulLinkComponent>(fallbackOnly);
-  fallbackLink.linkedEntities = {fallbackAlly};
+  auto linkGroupOnly = registry.create();
+  registry.emplace<EnemyTag>(linkGroupOnly);
+  registry.emplace<HealthComponent>(linkGroupOnly, 100.0f, 100.0f);
+  auto linkedAlly = registry.create();
+  registry.emplace<EnemyTag>(linkedAlly);
+  registry.emplace<HealthComponent>(linkedAlly, 100.0f, 100.0f);
+  auto &linkGroupComponent = registry.emplace<SoulLinkComponent>(linkGroupOnly);
+  linkGroupComponent.linkedEntities = {linkedAlly};
 
-  const bool fallbackDistributed = EliteModifierSystem::DistributeDamageToLinkGroup(
-      registry, fallbackOnly, 20.0f);
-  REQUIRE(fallbackDistributed);
-  CHECK(registry.get<HealthComponent>(fallbackOnly).current ==
+  const bool linkGroupDistributed = EliteModifierSystem::DistributeDamageToLinkGroup(
+      registry, linkGroupOnly, 20.0f);
+  REQUIRE(linkGroupDistributed);
+  CHECK(registry.get<HealthComponent>(linkGroupOnly).current ==
         doctest::Approx(90.0f));
-  CHECK(registry.get<HealthComponent>(fallbackAlly).current ==
+  CHECK(registry.get<HealthComponent>(linkedAlly).current ==
         doctest::Approx(90.0f));
 }

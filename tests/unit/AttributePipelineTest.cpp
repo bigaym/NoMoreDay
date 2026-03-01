@@ -89,7 +89,7 @@ TEST_CASE("[Unit] AttributePipeline - Calculation Logic") {
   CHECK(stats.effective_armor_dr == doctest::Approx(0.956682f).epsilon(0.001f));
 }
 
-TEST_CASE("[Unit] AttributePipeline - activated_nodes legacy fallback is inactive") {
+TEST_CASE("[Unit] AttributePipeline - activated_nodes-only path remains inactive") {
   entt::registry registry;
   auto player = registry.create();
   registry.emplace<PlayerTag>(player);
@@ -115,7 +115,8 @@ TEST_CASE("[Unit] AttributePipeline - activated_nodes legacy fallback is inactiv
   astrolabe.activated_nodes.insert(node.id);
 
   AttributePipeline::Calculate(registry, player);
-  const float legacyOnlySpeed = registry.get<CombatStats>(player).raw_move_speed;
+  const float activatedNodesOnlySpeed =
+      registry.get<CombatStats>(player).raw_move_speed;
 
   entt::registry baseReg;
   auto basePlayer = baseReg.create();
@@ -129,7 +130,7 @@ TEST_CASE("[Unit] AttributePipeline - activated_nodes legacy fallback is inactiv
   AttributePipeline::Calculate(baseReg, basePlayer);
   const float baseSpeed = baseReg.get<CombatStats>(basePlayer).raw_move_speed;
 
-  CHECK(legacyOnlySpeed == doctest::Approx(baseSpeed));
+  CHECK(activatedNodesOnlySpeed == doctest::Approx(baseSpeed));
 }
 
 TEST_CASE("[Unit] AttributePipeline - enemy map and monster stat mods follow adapter evaluator path") {

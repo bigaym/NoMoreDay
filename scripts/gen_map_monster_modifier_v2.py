@@ -652,15 +652,16 @@ def _build_monster_records(
     ):
         affix_def = monster_defs.get(affix_name)
         if affix_def is None:
-            if affix_name in MONSTER_BEHAVIOR_OPCODES_BY_AFFIX:
-                affix_def = {
-                    "stat_mods": [],
-                    "has_update": affix_name in MONSTER_UPDATE_BEHAVIOR_OPS,
-                    "has_on_hit": affix_name in MONSTER_ON_HIT_BEHAVIOR_OPS,
-                    "has_on_death": affix_name in MONSTER_ON_DEATH_BEHAVIOR_OPS,
-                }
-            else:
-                continue
+            if affix_name not in MONSTER_BEHAVIOR_OPCODES_BY_AFFIX:
+                raise RuntimeError(
+                    f"affix '{affix_name}' missing from MonsterAffixRegistry definitions"
+                )
+            affix_def = {
+                "stat_mods": [],
+                "has_update": affix_name in MONSTER_UPDATE_BEHAVIOR_OPS,
+                "has_on_hit": affix_name in MONSTER_ON_HIT_BEHAVIOR_OPS,
+                "has_on_death": affix_name in MONSTER_ON_DEATH_BEHAVIOR_OPS,
+            }
 
         ops: list[dict[str, Any]] = []
         for stat_name, mode_name, raw_value in affix_def["stat_mods"]:
