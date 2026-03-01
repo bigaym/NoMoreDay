@@ -111,6 +111,8 @@ public:
       if (affix.mirrorCooldown > 0.0f)
         affix.mirrorCooldown -= dt;
 
+      bool suppressorHandled = false;
+      bool soulLinkHandled = false;
       for (size_t i = 0; i < affix.affixes.size(); ++i) {
         affix.timers[i] += dt;
         auto affixType = affix.affixes[i];
@@ -168,25 +170,35 @@ public:
           ProcessSoulEater(registry, entity, affix, dt, tier);
           break;
         case MonsterAffixType::Suppressor:
+          if (suppressorHandled) {
+            break;
+          }
           if (behaviorOps.HasOnUpdateOpcode(
                   ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE)) {
             ProcessSuppressor(registry, entity);
+            suppressorHandled = true;
             break;
           }
           if (affix.HasAffix(MonsterAffixType::Suppressor) ||
               registry.all_of<SuppressorComponent>(entity)) {
             ProcessSuppressor(registry, entity);
+            suppressorHandled = true;
           }
           break;
         case MonsterAffixType::SoulLink:
+          if (soulLinkHandled) {
+            break;
+          }
           if (behaviorOps.HasOnUpdateOpcode(
                   ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE)) {
             ProcessSoulLink(registry, entity);
+            soulLinkHandled = true;
             break;
           }
           if (affix.HasAffix(MonsterAffixType::SoulLink) ||
               registry.all_of<SoulLinkComponent>(entity)) {
             ProcessSoulLink(registry, entity);
+            soulLinkHandled = true;
           }
           break;
         case MonsterAffixType::ManaSiphon:

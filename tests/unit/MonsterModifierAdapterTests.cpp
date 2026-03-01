@@ -167,3 +167,16 @@ TEST_CASE("[Unit] MonsterModifierAdapter - suppresses vampiric stat life-steal w
       static_cast<uint32_t>(NoMoreDay::StatType::LifeSteal);
   CHECK(delta.flat.find(lifeStealStat) == delta.flat.end());
 }
+
+TEST_CASE("[Unit] MonsterModifierAdapter - does not emit behavior ops for unsupported Storm/Void") {
+  NoMoreDay::MonsterAffixComponent affixComponent;
+  affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Storm);
+  affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Void);
+
+  const auto behaviorOps =
+      NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(affixComponent);
+
+  CHECK(behaviorOps.onUpdateOpcodes.empty());
+  CHECK(behaviorOps.onHitOpcodes.empty());
+  CHECK(behaviorOps.onDeathOpcodes.empty());
+}

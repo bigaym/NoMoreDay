@@ -7,6 +7,7 @@
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp" // Added this include
 #include "game/systems/combat/CombatEvents.hpp"
+#include "game/systems/combat/EliteModifierSystem.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
@@ -693,4 +694,99 @@ TEST_CASE("[Unit] MonsterAffix - SoulLink update behavior-op path initializes so
   MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
 
   CHECK(registry.all_of<SoulLinkComponent>(linker));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Suppressor op-path update and component fallback damage apply exactly once") {
+  entt::registry registry;
+
+  auto defender = registry.create();
+  registry.emplace<Position>(defender, 100.0f, 100.0f);
+  auto &affix = registry.emplace<MonsterAffixComponent>(defender);
+  affix.AddAffix(MonsterAffixType::Suppressor);
+  affix.AddAffix(MonsterAffixType::Suppressor); // duplicate affix hardening case
+  affix.hasUpdate = false;
+  registry.emplace<EnemyTag>(defender);
+  registry.emplace<CombatStats>(defender);
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 120.0f, 120.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  REQUIRE(registry.all_of<SuppressorComponent>(defender));
+
+  auto attacker = registry.create();
+  registry.emplace<Position>(attacker, 500.0f, 500.0f);
+  auto &attackerStats = registry.emplace<CombatStats>(attacker);
+  attackerStats.crit_chance = 0.0f;
+
+  DamagePool pool;
+  pool.values[0] = 100.0f;
+
+  const auto result =
+      DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Hit);
+
+  CHECK(result.total_damage == doctest::Approx(10.0f));
+}
+
+TEST_CASE("[Unit] MonsterAffix - SoulLink op-path update and component fallback damage apply exactly once") {
+  entt::registry registry;
+
+  auto linker = registry.create();
+  registry.emplace<Position>(linker, 100.0f, 100.0f);
+  registry.emplace<EnemyTag>(linker);
+  registry.emplace<HealthComponent>(linker, 100.0f, 100.0f);
+  auto &affix = registry.emplace<MonsterAffixComponent>(linker);
+  affix.AddAffix(MonsterAffixType::SoulLink);
+  affix.AddAffix(MonsterAffixType::SoulLink); // duplicate affix hardening case
+  affix.hasUpdate = false;
+
+  auto allyA = registry.create();
+  registry.emplace<Position>(allyA, 110.0f, 100.0f);
+  registry.emplace<EnemyTag>(allyA);
+  registry.emplace<HealthComponent>(allyA, 100.0f, 100.0f);
+
+  auto allyB = registry.create();
+  registry.emplace<Position>(allyB, 90.0f, 100.0f);
+  registry.emplace<EnemyTag>(allyB);
+  registry.emplace<HealthComponent>(allyB, 100.0f, 100.0f);
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 120.0f, 120.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  REQUIRE(registry.all_of<SoulLinkComponent>(linker));
+  REQUIRE(registry.all_of<SoulLinkTag>(linker));
+
+  auto &link = registry.get<SoulLinkComponent>(linker);
+  link.linkedEntities = {allyA, allyB};
+
+  const bool distributed =
+      EliteModifierSystem::DistributeDamageToLinkGroup(registry, linker, 30.0f);
+  REQUIRE(distributed);
+  CHECK(registry.get<HealthComponent>(linker).current == doctest::Approx(90.0f));
+  CHECK(registry.get<HealthComponent>(allyA).current == doctest::Approx(90.0f));
+  CHECK(registry.get<HealthComponent>(allyB).current == doctest::Approx(90.0f));
+
+  auto fallbackOnly = registry.create();
+  registry.emplace<EnemyTag>(fallbackOnly);
+  registry.emplace<HealthComponent>(fallbackOnly, 100.0f, 100.0f);
+  auto fallbackAlly = registry.create();
+  registry.emplace<EnemyTag>(fallbackAlly);
+  registry.emplace<HealthComponent>(fallbackAlly, 100.0f, 100.0f);
+  auto &fallbackLink = registry.emplace<SoulLinkComponent>(fallbackOnly);
+  fallbackLink.linkedEntities = {fallbackAlly};
+
+  const bool fallbackDistributed = EliteModifierSystem::DistributeDamageToLinkGroup(
+      registry, fallbackOnly, 20.0f);
+  REQUIRE(fallbackDistributed);
+  CHECK(registry.get<HealthComponent>(fallbackOnly).current ==
+        doctest::Approx(90.0f));
+  CHECK(registry.get<HealthComponent>(fallbackAlly).current ==
+        doctest::Approx(90.0f));
 }
