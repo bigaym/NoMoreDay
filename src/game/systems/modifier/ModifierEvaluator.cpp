@@ -219,6 +219,10 @@ ModifierDelta ModifierEvaluator::Evaluate(
       case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
         out.AddMonsterBehaviorOnUpdate(static_cast<uint16_t>(op.opcode));
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
@@ -287,6 +291,10 @@ ModifierDelta ModifierEvaluator::Evaluate(const ModifierRuntimeRegistry &registr
       case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
         out.AddMonsterBehaviorOnUpdate(op.opcode);
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:

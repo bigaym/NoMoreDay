@@ -77,6 +77,24 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
   CHECK(updateAndVampiricOps.HasOnHitOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT));
 
+  NoMoreDay::MonsterAffixComponent updateBehaviorOpsOnly;
+  updateBehaviorOpsOnly.AddAffix(NoMoreDay::MonsterAffixType::ManaSiphon);
+  updateBehaviorOpsOnly.AddAffix(NoMoreDay::MonsterAffixType::Shielding);
+  updateBehaviorOpsOnly.AddAffix(NoMoreDay::MonsterAffixType::Vortex);
+  updateBehaviorOpsOnly.AddAffix(NoMoreDay::MonsterAffixType::Waller);
+
+  const auto updateBehaviorOps =
+      NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(updateBehaviorOpsOnly);
+
+  CHECK(updateBehaviorOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE));
+  CHECK(updateBehaviorOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE));
+  CHECK(updateBehaviorOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE));
+  CHECK(updateBehaviorOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE));
+
   NoMoreDay::MonsterAffixComponent nullifierAndEntangler;
   nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::Nullifier);
   nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::Entangler);

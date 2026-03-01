@@ -27,6 +27,10 @@ MONSTER_UPDATE_BEHAVIOR_OPS: dict[str, str] = {
     "Molten": "MONSTER_BEHAVIOR_MOLTEN_UPDATE",
     "Teleporter": "MONSTER_BEHAVIOR_TELEPORTER_UPDATE",
     "Frozen": "MONSTER_BEHAVIOR_FROZEN_UPDATE",
+    "ManaSiphon": "MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE",
+    "Shielding": "MONSTER_BEHAVIOR_SHIELDING_UPDATE",
+    "Vortex": "MONSTER_BEHAVIOR_VORTEX_UPDATE",
+    "Waller": "MONSTER_BEHAVIOR_WALLER_UPDATE",
 }
 
 MONSTER_ON_HIT_BEHAVIOR_OPS: dict[str, str] = {
@@ -464,7 +468,15 @@ def _build_monster_records(
     ):
         affix_def = monster_defs.get(affix_name)
         if affix_def is None:
-            continue
+            if affix_name in MONSTER_UPDATE_BEHAVIOR_OPS:
+                affix_def = {
+                    "stat_mods": [],
+                    "has_update": True,
+                    "has_on_hit": False,
+                    "has_on_death": False,
+                }
+            else:
+                continue
 
         ops: list[dict[str, Any]] = []
         for stat_name, mode_name, raw_value in affix_def["stat_mods"]:

@@ -533,6 +533,12 @@
           "target": "enemy",
           "param_u32": 14,
           "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_SHIELDING_UPDATE",
+          "target": "enemy",
+          "param_u32": 14,
+          "param_f32": 0.0
         }
       ],
       "debug": {
@@ -562,6 +568,12 @@
       "ops": [
         {
           "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 15,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_WALLER_UPDATE",
           "target": "enemy",
           "param_u32": 15,
           "param_f32": 0.0
@@ -645,6 +657,44 @@
       ],
       "debug": {
         "name": "Monster_Berserker",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001018,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800018
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 18,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_VORTEX_UPDATE",
+          "target": "enemy",
+          "param_u32": 18,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Vortex",
         "source": "monster_affix"
       }
     },
@@ -790,6 +840,12 @@
       "ops": [
         {
           "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 25,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE",
           "target": "enemy",
           "param_u32": 25,
           "param_f32": 0.0

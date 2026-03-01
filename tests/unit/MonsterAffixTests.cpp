@@ -344,6 +344,102 @@ TEST_CASE("[Unit] MonsterAffix - Frozen update behavior-op path still spawns orb
   CHECK(orbCount == 1);
 }
 
+TEST_CASE("[Unit] MonsterAffix - ManaSiphon update behavior-op path drains player mana") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 0.0f, 0.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::ManaSiphon);
+  affix.hasUpdate = false;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 150.0f, 0.0f);
+  auto &playerStats = registry.emplace<CombatStats>(player);
+  playerStats.mana = 100.0f;
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 1.0f, dummyGrid);
+
+  CHECK(registry.all_of<ResourceDrainComponent>(enemy));
+  CHECK(playerStats.mana < 100.0f);
+  CHECK(playerStats.mana >= 0.0f);
+}
+
+TEST_CASE("[Unit] MonsterAffix - Shielding update behavior-op path initializes phase shield") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 0.0f, 0.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Shielding);
+  affix.hasUpdate = false;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 20.0f, 0.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  CHECK(registry.all_of<PhaseShieldComponent>(enemy));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Vortex update behavior-op path activates force field") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 32.0f, 32.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Vortex);
+  affix.hasUpdate = false;
+  affix.timers[0] = MonsterAffixRegistry::Params::VORTEX_INTERVAL;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 64.0f, 32.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  REQUIRE(registry.all_of<ForceFieldComponent>(enemy));
+  const auto &forceField = registry.get<ForceFieldComponent>(enemy);
+  CHECK(forceField.activeDuration ==
+        doctest::Approx(MonsterAffixRegistry::Params::VORTEX_DURATION));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Waller update behavior-op path still spawns dynamic obstacles") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 0.0f, 0.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Waller);
+  affix.hasUpdate = false;
+  affix.timers[0] = MonsterAffixRegistry::Params::WALLER_COOLDOWN;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 120.0f, 0.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  auto obstacleView = registry.view<DynamicObstacleComponent>();
+  int obstacleCount = 0;
+  for (const auto obstacle : obstacleView) {
+    (void)obstacle;
+    ++obstacleCount;
+  }
+
+  CHECK(obstacleCount == 3);
+}
+
 TEST_CASE("[Unit] MonsterAffix - Soul Eater Progression") {
   entt::registry registry;
 

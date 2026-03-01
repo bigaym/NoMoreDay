@@ -151,17 +151,48 @@ public:
           ProcessSoulEater(registry, entity, affix, dt, tier);
           break;
         case MonsterAffixType::ManaSiphon:
-          ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt,
-                            tier);
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE)) {
+            ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt,
+                              tier);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::ManaSiphon)) {
+            ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt,
+                              tier);
+          }
           break;
         case MonsterAffixType::Shielding:
-          ProcessShielding(registry, entity, pos, spatialGrid, affix, i, dt, tier);
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE)) {
+            ProcessShielding(registry, entity, pos, spatialGrid, affix, i, dt,
+                             tier);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::Shielding)) {
+            ProcessShielding(registry, entity, pos, spatialGrid, affix, i, dt,
+                             tier);
+          }
           break;
         case MonsterAffixType::Vortex:
-          ProcessVortex(registry, entity, affix, i, dt, tier);
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE)) {
+            ProcessVortex(registry, entity, affix, i, dt, tier);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::Vortex)) {
+            ProcessVortex(registry, entity, affix, i, dt, tier);
+          }
           break;
         case MonsterAffixType::Waller:
-          ProcessWaller(registry, entity, pos, playerPos, affix, i, dt, tier);
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE)) {
+            ProcessWaller(registry, entity, pos, playerPos, affix, i, dt, tier);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::Waller)) {
+            ProcessWaller(registry, entity, pos, playerPos, affix, i, dt, tier);
+          }
           break;
         default:
           break;

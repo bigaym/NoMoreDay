@@ -80,6 +80,18 @@ void AppendBehaviorOpsForAffix(ModifierRecord &record,
   case MonsterAffixType::Frozen:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE;
     break;
+  case MonsterAffixType::ManaSiphon:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE;
+    break;
+  case MonsterAffixType::Shielding:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE;
+    break;
+  case MonsterAffixType::Vortex:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE;
+    break;
+  case MonsterAffixType::Waller:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE;
+    break;
   case MonsterAffixType::Vampiric:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT;
     break;
