@@ -13,7 +13,11 @@ UMR 是玩家侧构筑数值的统一执行层。它将装备词缀、技能专�
 2. 技能专精节点
 3. 天赋节点（星盘）
 
-二期预留（未迁移）：地图词缀、怪物词缀。
+二期进展（2026-03-01）：
+
+1. 地图词缀（敌方数值类）已并轨到 UMR 评估链。
+2. 怪物词缀（属性修饰类）已并轨到 UMR 评估链。
+3. 怪物行为词缀已接入事件 Op 桥：`MonsterModifierAdapter`/`ModifierEvaluator` 负责 Update/Hit/Death 事件门禁，具体处理器仍在 `MonsterAffixSystem`。
 
 ## 2. 设计目标
 
@@ -32,6 +36,8 @@ UMR 是玩家侧构筑数值的统一执行层。它将装备词缀、技能专�
 - `equipment_modifiers.json`
 - `skill_spec_modifiers.json`
 - `talent_modifiers.json`
+- `map_modifiers.json`
+- `monster_modifiers.json`
 
 每条 record 包含：
 
@@ -44,12 +50,22 @@ UMR 是玩家侧构筑数值的统一执行层。它将装备词缀、技能专�
 
 ### 3.2 编译层
 
-脚本：`scripts/gen_modifier_runtime_v2.py`
+脚本：
+
+- `scripts/gen_modifier_runtime_v2.py`
+- `scripts/gen_map_monster_modifier_v2.py`（map/monster modifier_v2 自动生成）
 
 产物：
 
 - `assets/generated/modifier_runtime_v2.bin`
 - `assets/generated/modifier_runtime_v2.debug.json`
+- `assets/data/modifier_v2/map_modifiers.json`
+- `assets/data/modifier_v2/monster_modifiers.json`
+
+门禁：
+
+1. `build.bat` precheck 执行 `python scripts\gen_map_monster_modifier_v2.py --check`。
+2. 生成结果与仓库文件不一致时直接失败，阻断配置漂移。
 
 编译器按 `(priority, id)` 稳定排序并生成结构化表：
 
@@ -68,6 +84,8 @@ UMR 是玩家侧构筑数值的统一执行层。它将装备词缀、技能专�
   - `EquipmentModifierAdapter`
   - `SkillSpecModifierAdapter`
   - `TalentModifierAdapter`
+  - `MapModifierAdapter`
+  - `MonsterModifierAdapter`
 
 ## 4. 执行语义
 
@@ -110,16 +128,24 @@ UMR 是玩家侧构筑数值的统一执行层。它将装备词缀、技能专�
 2. 编译确定性（同输入同字节）
 3. Runtime 加载完整性（header/offset/crc）
 4. Evaluator 语义（filter + op）
-5. Adapter 行为（装备/专精/天赋）
+5. Adapter 行为（装备/专精/天赋/地图/怪物）
 
 回归重点：
 
 1. 换装实时属性与技能等级更新
 2. 专精节点生效范围正确
 3. 星盘节点加成与面板一致
+4. 地图词缀敌方增益与关卡预期一致
+5. 怪物词缀属性修饰与行为系统不冲突
 
 ## 7. 二期扩展建议
 
-1. 地图词缀和怪物词缀引入独立 domain，复用编译器与 evaluator。
-2. 增加事件型 Op（on-hit/on-kill）前，先定义预算与触发深度合同。
+1. 为怪物行为词缀补充事件型 Op（on-hit/on-kill/on-death）前，先定义预算与触发深度合同。
+2. 地图机制词缀（环境危害/区域效果）拆为独立 domain 并接入同一 evaluator。
 3. 增加性能基准测试，固定 95/99 分位预算阈值。
+
+## 8. 二期里程碑状态
+
+1. **P2-A（已完成）**：地图词缀和怪物词缀的属性修饰并轨 UMR。
+2. **P2-B（进行中）**：怪物行为词缀事件门禁已并轨 UMR（Update/Hit/Death），并完成 `Molten` / `Vampiric` 两个行为处理器的 Op 优先分发（保留旧分支回退）。
+3. **P2-C（计划）**：终局地图机制词缀统一接入 UMR + 合同门禁。
