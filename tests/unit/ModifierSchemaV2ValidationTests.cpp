@@ -2,8 +2,25 @@
 
 #include "game/systems/modifier/ModifierSchemaV2Validation.hpp"
 
+#include <nlohmann/json.hpp>
+
+#include <fstream>
 #include <stdexcept>
 #include <string>
+
+namespace {
+
+bool HasCatalogEntry(const nlohmann::json &entries, const std::string &domain,
+                     const std::string &path) {
+  for (const auto &entry : entries) {
+    if (entry.value("domain", "") == domain && entry.value("path", "") == path) {
+      return true;
+    }
+  }
+  return false;
+}
+
+} // namespace
 
 TEST_CASE("[Unit] ModifierSchemaV2 - Required top-level fields") {
   const std::string bad = R"({"domain":"equipment"})";
@@ -112,4 +129,15 @@ TEST_CASE("[Unit] ModifierSchemaV2 - Rejects malformed ops payload") {
 
   CHECK_THROWS_WITH_AS(NoMoreDay::ValidateModifierSchemaV2Json(bad),
                        doctest::Contains("param_u32"), std::runtime_error);
+}
+
+TEST_CASE("[Unit] ModifierSchemaV2 - Catalog includes map and monster domains") {
+  std::ifstream fileStream("assets/data/modifier_v2/modifier_catalog.json");
+  REQUIRE(fileStream.is_open());
+
+  const auto root = nlohmann::json::parse(fileStream);
+  const auto &entries = root.at("entries");
+
+  CHECK(HasCatalogEntry(entries, "map", "map_modifiers.json"));
+  CHECK(HasCatalogEntry(entries, "monster", "monster_modifiers.json"));
 }

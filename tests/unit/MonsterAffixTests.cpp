@@ -5,6 +5,7 @@
 #include "game/components/Stats.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
 #include "game/systems/combat/DamagePipeline.hpp" // Added this include
+#include "game/systems/combat/CombatEvents.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
@@ -26,6 +27,7 @@ TEST_CASE("[Unit] MonsterAffix - Persistence") {
   auto &stats = registry.emplace<CombatStats>(enemy);
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::Berserker);
+  affix.hasUpdate = false;
 
   // Initial state (not berserk)
   registry.emplace<StatsDirty>(enemy);
@@ -129,6 +131,192 @@ TEST_CASE("[Unit] MonsterAffix - Mirror Image Logic") {
   }
 
   CHECK(cloneCount == 2);
+}
+
+TEST_CASE("[Unit] MonsterAffix - Toxic OnDeath flow is driven by adapter events") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 100.0f, 100.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Toxic);
+  affix.hasOnDeath = false;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 120.0f, 120.0f);
+
+  MonsterAffixSystem::OnEnemyDeath(registry, enemy);
+
+  auto orbView = registry.view<VolatileOrbTag>();
+  int orbCount = 0;
+  for (const auto orb : orbView) {
+    (void)orb;
+    ++orbCount;
+  }
+
+  CHECK(orbCount == 3);
+}
+
+TEST_CASE("[Unit] MonsterAffix - Nullifier OnHit flow is driven by adapter events") {
+  entt::registry registry;
+
+  auto attacker = registry.create();
+  auto &affix = registry.emplace<MonsterAffixComponent>(attacker);
+  affix.AddAffix(MonsterAffixType::Nullifier);
+  affix.hasOnHit = false;
+
+  auto target = registry.create();
+  auto &effects = registry.emplace<ActiveEffectsComponent>(target);
+
+  BuffEffect buff;
+  buff.id = "test-buff";
+  buff.name = "Test Buff";
+  buff.type = BuffType::AttackUp;
+  buff.duration = 3.0f;
+  buff.remaining = 3.0f;
+  buff.is_debuff = false;
+  effects.effects.push_back(buff);
+
+  CombatEvent evt;
+  evt.source = attacker;
+  evt.target = target;
+
+  MonsterAffixSystem::OnEnemyDealDamage(registry, evt);
+
+  CHECK(effects.effects.empty());
+}
+
+TEST_CASE("[Unit] MonsterAffix - Entangler OnHit flow is driven by adapter events") {
+  entt::registry registry;
+
+  auto attacker = registry.create();
+  auto &affix = registry.emplace<MonsterAffixComponent>(attacker);
+  affix.AddAffix(MonsterAffixType::Entangler);
+  affix.hasOnHit = false;
+
+  auto target = registry.create();
+  registry.emplace<PlayerTag>(target);
+  auto &effects = registry.emplace<ActiveEffectsComponent>(target);
+  auto &playerStats = registry.emplace<PlayerStats>(target);
+  playerStats.isRooted = false;
+
+  CombatEvent evt;
+  evt.source = attacker;
+  evt.target = target;
+
+  bool rootedTriggered = false;
+  for (int i = 0; i < 128; ++i) {
+    MonsterAffixSystem::OnEnemyDealDamage(registry, evt);
+    for (const auto &effect : effects.effects) {
+      if (effect.type == BuffType::Root) {
+        rootedTriggered = true;
+        break;
+      }
+    }
+    if (rootedTriggered) {
+      break;
+    }
+  }
+
+  CHECK(rootedTriggered);
+  CHECK(playerStats.isRooted);
+}
+
+TEST_CASE("[Unit] MonsterAffix - Molten update behavior-op path still spawns hazard") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 64.0f, 64.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Molten);
+  affix.hasUpdate = false;
+  affix.timers[0] = MonsterAffixRegistry::Params::MOLTEN_TICK_INTERVAL;
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  auto hazardView = registry.view<HazardComponent, LocalLevelTag>();
+  int hazardCount = 0;
+  for (const auto e : hazardView) {
+    (void)e;
+    ++hazardCount;
+  }
+  CHECK(hazardCount == 1);
+}
+
+TEST_CASE("[Unit] MonsterAffix - Vampiric on-hit behavior-op path heals attacker") {
+  entt::registry registry;
+
+  auto attacker = registry.create();
+  auto &affix = registry.emplace<MonsterAffixComponent>(attacker);
+  affix.AddAffix(MonsterAffixType::Vampiric);
+  affix.hasOnHit = false;
+
+  auto &hp = registry.emplace<HealthComponent>(attacker, 20.0f, 100.0f);
+
+  auto target = registry.create();
+  registry.emplace<PlayerTag>(target);
+
+  CombatEvent evt;
+  evt.source = attacker;
+  evt.target = target;
+  CombatEventFactory::SetDamagePayload(evt, 40.0f);
+
+  MonsterAffixSystem::OnEnemyDealDamage(registry, evt);
+
+  CHECK(hp.current == doctest::Approx(40.0f));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Teleporter update behavior-op path still starts blink") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 0.0f, 0.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Teleporter);
+  affix.hasUpdate = false;
+  affix.timers[0] = MonsterAffixRegistry::Params::TELEPORT_COOLDOWN;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 1000.0f, 0.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  CHECK(registry.all_of<TeleportationComponent>(enemy));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Frozen update behavior-op path still spawns orb") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 64.0f, 64.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Frozen);
+  affix.hasUpdate = false;
+  affix.timers[0] = MonsterAffixRegistry::Params::FROZEN_ORB_INTERVAL;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 128.0f, 64.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  auto orbView = registry.view<FrozenOrbTag, HazardComponent, LocalLevelTag>();
+  int orbCount = 0;
+  for (const auto orb : orbView) {
+    (void)orb;
+    ++orbCount;
+  }
+
+  CHECK(orbCount == 1);
 }
 
 TEST_CASE("[Unit] MonsterAffix - Soul Eater Progression") {

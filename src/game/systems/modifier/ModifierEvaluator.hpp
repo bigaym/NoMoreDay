@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <span>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace NoMoreDay {
 
@@ -14,6 +15,12 @@ struct ModifierDelta {
   void AddPercentAdd(uint32_t statType, float value);
   void AddPercentMult(uint32_t statType, float value);
   void AddSkillLevel(uint32_t skillId, float value);
+  void AddMonsterEventOnUpdate(uint32_t affixId);
+  void AddMonsterEventOnHit(uint32_t affixId);
+  void AddMonsterEventOnDeath(uint32_t affixId);
+  void AddMonsterBehaviorOnUpdate(uint16_t opcode);
+  void AddMonsterBehaviorOnHit(uint16_t opcode);
+  void AddMonsterBehaviorOnDeath(uint16_t opcode);
 
   [[nodiscard]] float GetSkillLevelBonus(uint32_t skillId) const;
 
@@ -21,6 +28,12 @@ struct ModifierDelta {
   std::unordered_map<uint32_t, float> percent_add;
   std::unordered_map<uint32_t, float> percent_mult;
   std::unordered_map<uint32_t, float> skill_levels;
+  std::unordered_set<uint32_t> monster_event_on_update_affix_ids;
+  std::unordered_set<uint32_t> monster_event_on_hit_affix_ids;
+  std::unordered_set<uint32_t> monster_event_on_death_affix_ids;
+  std::unordered_set<uint16_t> monster_behavior_on_update_opcodes;
+  std::unordered_set<uint16_t> monster_behavior_on_hit_opcodes;
+  std::unordered_set<uint16_t> monster_behavior_on_death_opcodes;
 };
 
 class ModifierEvaluator {

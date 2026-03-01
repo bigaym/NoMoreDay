@@ -21,6 +21,9 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatFormula.hpp"
 #include "game/systems/modifier/EquipmentModifierAdapter.hpp"
+#include "game/systems/modifier/MapModifierAdapter.hpp"
+#include "game/systems/modifier/MonsterModifierAdapter.hpp"
+#include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/TalentModifierAdapter.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <algorithm>
@@ -130,6 +133,26 @@ static void ApplyStatModifier(
     StatType type, ModifierMode mode, float value) {
   if (type < StatType::Count)
     ApplyStatCalculation(calcs[static_cast<size_t>(type)], mode, value);
+}
+
+static void ApplyModifierDeltaToCalcs(
+    std::array<StatCalculation, static_cast<size_t>(StatType::Count)> &calcs,
+    const ModifierDelta &delta) {
+  for (const auto &[statType, value] : delta.flat) {
+    if (statType < static_cast<uint32_t>(StatType::Count)) {
+      calcs[statType].flat += value;
+    }
+  }
+  for (const auto &[statType, value] : delta.percent_add) {
+    if (statType < static_cast<uint32_t>(StatType::Count)) {
+      calcs[statType].percent_add += value;
+    }
+  }
+  for (const auto &[statType, value] : delta.percent_mult) {
+    if (statType < static_cast<uint32_t>(StatType::Count)) {
+      calcs[statType].percent_mult *= value;
+    }
+  }
 }
 
 struct AffixContext {
@@ -316,18 +339,11 @@ void AttributePipeline::Calculate(entt::registry &registry,
   for (int i = 0; i < 6; ++i)
     calcs[static_cast<size_t>(StatType::PhysicalDamage) + i].base = 100.0f;
 
-  float mapHpMult = 1.0f, mapDmgMult = 1.0f, mapSpeedMult = 1.0f;
-  if (auto* ms = registry.ctx().find<ActiveDimensionalState>()) {
-    if (ms->isActive && isEnemy) {
-      mapHpMult *= (1.0f + ms->resonance.totalEnemyDensity * 0.05f);
-      for (const auto &a : ms->explicitAffixes) {
-        switch (a.type) {
-        case MapAffixType::Enemy_ExtraHealth: mapHpMult *= (1.0f + a.value); break;
-        case MapAffixType::Enemy_ExtraDamage: mapDmgMult *= (1.0f + a.value); break;
-        case MapAffixType::Enemy_Fast: mapSpeedMult *= (1.0f + a.value); break;
-        default: break;
-        }
-      }
+  ModifierDelta mapEnemyDelta;
+  if (isEnemy) {
+    if (const auto *ms = registry.ctx().find<ActiveDimensionalState>();
+        ms != nullptr) {
+      mapEnemyDelta = MapModifierAdapter::EvaluateEnemyAffixDelta(*ms);
     }
   }
 
@@ -336,7 +352,10 @@ void AttributePipeline::Calculate(entt::registry &registry,
                       ? registry.get<EnemyRarityComponent>(entity).rarity
                       : EnemyRarityComponent::NORMAL;
     auto scaled = MonsterScaling::Calculate(enemy->raceType, enemy->level, rarity);
-    calcs[static_cast<size_t>(StatType::MaxHealth)].base = scaled.maxHealth * mapHpMult;
+    calcs[static_cast<size_t>(StatType::MaxHealth)].base =
+        ModifierEvaluator::ApplyStat(
+            scaled.maxHealth, static_cast<uint32_t>(StatType::MaxHealth),
+            mapEnemyDelta);
     calcs[static_cast<size_t>(StatType::Armor)].base = scaled.armor;
     const auto &raceData = kRaceData[static_cast<size_t>(enemy->raceType)];
     constexpr float NATIVE_RES = 50.0f;
@@ -352,7 +371,10 @@ void AttributePipeline::Calculate(entt::registry &registry,
     applyRes(Tag::Lightning, StatType::ResistLightning);
     applyRes(Tag::Poison, StatType::ResistPoison);
     applyRes(Tag::Shadow, StatType::ResistShadow);
-    calcs[static_cast<size_t>(StatType::MoveSpeed)].base = raceData.baseSpeed * mapSpeedMult;
+    calcs[static_cast<size_t>(StatType::MoveSpeed)].base =
+        ModifierEvaluator::ApplyStat(
+            raceData.baseSpeed, static_cast<uint32_t>(StatType::MoveSpeed),
+            mapEnemyDelta);
   }
 
   if (auto *primary = std::get<4>(components)) {
@@ -473,8 +495,12 @@ void AttributePipeline::Calculate(entt::registry &registry,
   } else if (auto *en = registry.try_get<EnemyStateComponent>(entity)) {
     float bd = kRaceData[static_cast<size_t>(en->raceType)].baseDamage *
                (1.0f + en->level * 0.1f);
-    stats.min_weapon_damage = bd * 0.9f * mapDmgMult;
-    stats.max_weapon_damage = bd * 1.1f * mapDmgMult;
+    stats.min_weapon_damage = ModifierEvaluator::ApplyStat(
+        bd * 0.9f, static_cast<uint32_t>(StatType::PhysicalDamage),
+        mapEnemyDelta);
+    stats.max_weapon_damage = ModifierEvaluator::ApplyStat(
+        bd * 1.1f, static_cast<uint32_t>(StatType::PhysicalDamage),
+        mapEnemyDelta);
   }
 
   if (auto *se = registry.try_get<SoulEaterComponent>(entity)) {
@@ -507,16 +533,14 @@ void AttributePipeline::Calculate(entt::registry &registry,
     }
   }
   if (auto *ac = registry.try_get<MonsterAffixComponent>(entity)) {
-    for (auto at : ac->affixes) {
-      const auto &def = MonsterAffixRegistry::GetAffixDef(at);
-      for (int i = 0; i < def.statModCount; ++i)
-        ApplyStatModifier(calcs, def.statMods[i].type, def.statMods[i].mode,
-                          def.statMods[i].value);
-      if (ac->isBerserk) {
-        stats.min_weapon_damage *= 2.0f;
-        stats.max_weapon_damage *= 2.0f;
-      }
-    }
+    const ModifierDelta monsterAffixDelta =
+        MonsterModifierAdapter::EvaluateAffixDelta(*ac);
+    ApplyModifierDeltaToCalcs(calcs, monsterAffixDelta);
+
+    const float berserkDamageMultiplier =
+        MonsterModifierAdapter::GetBerserkWeaponDamageMultiplier(*ac);
+    stats.min_weapon_damage *= berserkDamageMultiplier;
+    stats.max_weapon_damage *= berserkDamageMultiplier;
   }
   Tag player_tags = Tag::None;
   if (auto* stance = registry.try_get<MovementStanceComponent>(entity)) {

@@ -108,6 +108,109 @@ std::vector<uint8_t> BuildSkillLevelRuntimeBlob() {
   return blob;
 }
 
+std::vector<uint8_t> BuildMonsterEventRuntimeBlob() {
+  NoMoreDay::ModifierRuntimeHeader header;
+  header.record_count = 1;
+  header.filter_count = 1;
+  header.op_count = 1;
+  header.index_count = 0;
+  header.records_offset = sizeof(NoMoreDay::ModifierRuntimeHeader);
+  header.filters_offset =
+      header.records_offset + sizeof(NoMoreDay::ModifierRuntimeRecord);
+  header.ops_offset =
+      header.filters_offset + sizeof(NoMoreDay::ModifierRuntimeFilter);
+  header.index_offset = header.ops_offset + sizeof(NoMoreDay::ModifierRuntimeOp);
+  header.crc32 = 0;
+
+  NoMoreDay::ModifierRuntimeRecord record;
+  record.id = 8004001u;
+  record.filter_index = 0;
+  record.op_offset = 0;
+  record.op_count = 1;
+
+  NoMoreDay::ModifierRuntimeFilter filter;
+
+  NoMoreDay::ModifierRuntimeOp op;
+  op.opcode =
+      static_cast<uint16_t>(NoMoreDay::ModifierOpCode::MONSTER_EVENT_ON_DEATH);
+  op.param_u32 = 8u;
+
+  std::vector<uint8_t> blob;
+  blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) + sizeof(op));
+  AppendStructEvaluator(blob, header);
+  AppendStructEvaluator(blob, record);
+  AppendStructEvaluator(blob, filter);
+  AppendStructEvaluator(blob, op);
+  return blob;
+}
+
+std::vector<uint8_t> BuildMonsterBehaviorRuntimeBlob() {
+  NoMoreDay::ModifierRuntimeHeader header;
+  header.record_count = 1;
+  header.filter_count = 1;
+  header.op_count = 6;
+  header.index_count = 0;
+  header.records_offset = sizeof(NoMoreDay::ModifierRuntimeHeader);
+  header.filters_offset =
+      header.records_offset + sizeof(NoMoreDay::ModifierRuntimeRecord);
+  header.ops_offset = header.filters_offset + sizeof(NoMoreDay::ModifierRuntimeFilter);
+  header.index_offset =
+      header.ops_offset + 6 * sizeof(NoMoreDay::ModifierRuntimeOp);
+  header.crc32 = 0;
+
+  NoMoreDay::ModifierRuntimeRecord record;
+  record.id = 8005001u;
+  record.filter_index = 0;
+  record.op_offset = 0;
+  record.op_count = 6;
+
+  NoMoreDay::ModifierRuntimeFilter filter;
+
+  NoMoreDay::ModifierRuntimeOp onHitOp;
+  onHitOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT);
+  onHitOp.param_u32 = 16u;
+
+  NoMoreDay::ModifierRuntimeOp teleporterOp;
+  teleporterOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE);
+  teleporterOp.param_u32 = 12u;
+
+  NoMoreDay::ModifierRuntimeOp frozenOp;
+  frozenOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE);
+  frozenOp.param_u32 = 6u;
+
+  NoMoreDay::ModifierRuntimeOp nullifierOp;
+  nullifierOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT);
+  nullifierOp.param_u32 = 13u;
+
+  NoMoreDay::ModifierRuntimeOp entanglerOp;
+  entanglerOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT);
+  entanglerOp.param_u32 = 19u;
+
+  NoMoreDay::ModifierRuntimeOp toxicOp;
+  toxicOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH);
+  toxicOp.param_u32 = 8u;
+
+  std::vector<uint8_t> blob;
+  blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) +
+               6 * sizeof(NoMoreDay::ModifierRuntimeOp));
+  AppendStructEvaluator(blob, header);
+  AppendStructEvaluator(blob, record);
+  AppendStructEvaluator(blob, filter);
+  AppendStructEvaluator(blob, onHitOp);
+  AppendStructEvaluator(blob, teleporterOp);
+  AppendStructEvaluator(blob, frozenOp);
+  AppendStructEvaluator(blob, nullifierOp);
+  AppendStructEvaluator(blob, entanglerOp);
+  AppendStructEvaluator(blob, toxicOp);
+  return blob;
+}
+
 } // namespace
 
 TEST_CASE("[Unit] ModifierEvaluator - Applies ADD_STAT_FLAT when filters match") {
@@ -149,4 +252,118 @@ TEST_CASE("[Unit] ModifierEvaluator - runtime registry evaluates ADD_SKILL_LEVEL
       runtime, std::span<const uint32_t>(&recordId, 1), ctx);
   CHECK(delta.GetSkillLevelBonus(1u) == doctest::Approx(2.0f));
   CHECK(delta.GetSkillLevelBonus(9u) == doctest::Approx(0.0f));
+}
+
+TEST_CASE("[Unit] ModifierEvaluator - captures monster event ops in delta") {
+  NoMoreDay::ModifierRecord record;
+  NoMoreDay::ModifierOp updateOp;
+  updateOp.opcode = NoMoreDay::ModifierOpCode::MONSTER_EVENT_ON_UPDATE;
+  updateOp.param_u32 = 5u;
+  record.ops.push_back(updateOp);
+
+  NoMoreDay::ModifierOp onHitOp;
+  onHitOp.opcode = NoMoreDay::ModifierOpCode::MONSTER_EVENT_ON_HIT;
+  onHitOp.param_u32 = 16u;
+  record.ops.push_back(onHitOp);
+
+  NoMoreDay::ModifierOp moltenBehaviorOp;
+  moltenBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE;
+  moltenBehaviorOp.param_u32 = 5u;
+  record.ops.push_back(moltenBehaviorOp);
+
+  NoMoreDay::ModifierOp vampiricBehaviorOp;
+  vampiricBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT;
+  vampiricBehaviorOp.param_u32 = 16u;
+  record.ops.push_back(vampiricBehaviorOp);
+
+  NoMoreDay::ModifierOp teleporterBehaviorOp;
+  teleporterBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE;
+  teleporterBehaviorOp.param_u32 = 12u;
+  record.ops.push_back(teleporterBehaviorOp);
+
+  NoMoreDay::ModifierOp frozenBehaviorOp;
+  frozenBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE;
+  frozenBehaviorOp.param_u32 = 6u;
+  record.ops.push_back(frozenBehaviorOp);
+
+  NoMoreDay::ModifierOp nullifierBehaviorOp;
+  nullifierBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT;
+  nullifierBehaviorOp.param_u32 = 13u;
+  record.ops.push_back(nullifierBehaviorOp);
+
+  NoMoreDay::ModifierOp entanglerBehaviorOp;
+  entanglerBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT;
+  entanglerBehaviorOp.param_u32 = 19u;
+  record.ops.push_back(entanglerBehaviorOp);
+
+  NoMoreDay::ModifierOp toxicBehaviorOp;
+  toxicBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH;
+  toxicBehaviorOp.param_u32 = 8u;
+  record.ops.push_back(toxicBehaviorOp);
+
+  NoMoreDay::ModifierEvalContext ctx;
+  const auto delta = NoMoreDay::ModifierEvaluator::Evaluate(
+      std::span<const NoMoreDay::ModifierRecord>(&record, 1), ctx);
+
+  CHECK(delta.monster_event_on_update_affix_ids.contains(5u));
+  CHECK(delta.monster_event_on_hit_affix_ids.contains(16u));
+  CHECK(delta.monster_event_on_death_affix_ids.empty());
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE)));
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE)));
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT)));
+  CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH)));
+}
+
+TEST_CASE("[Unit] ModifierEvaluator - runtime registry captures monster event ops") {
+  NoMoreDay::ModifierRuntimeRegistry runtime;
+  const auto blob = BuildMonsterEventRuntimeBlob();
+  REQUIRE(runtime.LoadFromBytes(blob));
+
+  NoMoreDay::ModifierEvalContext ctx;
+  const uint32_t recordId = 8004001u;
+  const auto delta = NoMoreDay::ModifierEvaluator::Evaluate(
+      runtime, std::span<const uint32_t>(&recordId, 1), ctx);
+
+  CHECK(delta.monster_event_on_death_affix_ids.contains(8u));
+}
+
+TEST_CASE("[Unit] ModifierEvaluator - runtime registry captures monster behavior ops") {
+  NoMoreDay::ModifierRuntimeRegistry runtime;
+  const auto blob = BuildMonsterBehaviorRuntimeBlob();
+  REQUIRE(runtime.LoadFromBytes(blob));
+
+  NoMoreDay::ModifierEvalContext ctx;
+  const uint32_t recordId = 8005001u;
+  const auto delta = NoMoreDay::ModifierEvaluator::Evaluate(
+      runtime, std::span<const uint32_t>(&recordId, 1), ctx);
+
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE)));
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT)));
+  CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH)));
 }

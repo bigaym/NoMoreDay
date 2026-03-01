@@ -278,6 +278,13 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
         exit /b 1
     )
 
+    echo [Build] Checking map/monster modifier v2 drift...
+    python scripts\gen_map_monster_modifier_v2.py --check
+    if errorlevel 1 (
+        echo [Build] Map/monster modifier v2 drift check failed! Aborting.
+        exit /b 1
+    )
+
     echo [Build] Generating modifier runtime v2...
     python scripts\gen_modifier_runtime_v2.py --check
     if errorlevel 1 (

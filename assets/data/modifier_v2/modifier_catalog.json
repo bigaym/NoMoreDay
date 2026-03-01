@@ -12,6 +12,14 @@
     {
       "domain": "talent",
       "path": "talent_modifiers.json"
+    },
+    {
+      "domain": "map",
+      "path": "map_modifiers.json"
+    },
+    {
+      "domain": "monster",
+      "path": "monster_modifiers.json"
     }
   ]
 }

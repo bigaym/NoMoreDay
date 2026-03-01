@@ -1,7 +1,11 @@
 #include "game/systems/stats/AttributePipeline.hpp"
+#include "game/components/EnemyComponent.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/Progression.hpp"
+#include "game/components/WorldState.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
+#include "game/data/MapAffix.hpp"
+#include "game/data/MonsterAffixRegistry.hpp"
 #include "TestCommon.hpp"
 
 namespace NoMoreDay {
@@ -126,6 +130,55 @@ TEST_CASE("[Unit] AttributePipeline - activated_nodes legacy fallback is inactiv
   const float baseSpeed = baseReg.get<CombatStats>(basePlayer).raw_move_speed;
 
   CHECK(legacyOnlySpeed == doctest::Approx(baseSpeed));
+}
+
+TEST_CASE("[Unit] AttributePipeline - enemy map and monster stat mods follow adapter evaluator path") {
+  auto buildEnemy = [](entt::registry &registry, const bool withModifiers) {
+    const auto enemy = registry.create();
+    registry.emplace<EnemyTag>(enemy);
+    registry.emplace<CombatStats>(enemy);
+    registry.emplace<EnemyStateComponent>(enemy, EnemyRace::UNDEAD,
+                                          EnemyArchetype::FODDER);
+    registry.get<EnemyStateComponent>(enemy).level = 1;
+
+    if (withModifiers) {
+      auto &mapState = registry.ctx().emplace<ActiveDimensionalState>();
+      mapState.isActive = true;
+      mapState.resonance.totalEnemyDensity = 1.0f;
+      mapState.explicitAffixes.push_back(
+          {MapAffixType::Enemy_ExtraHealth, MapAffixCategory::Debuff, 0.30f, 5,
+           "test"});
+      mapState.explicitAffixes.push_back(
+          {MapAffixType::Enemy_ExtraDamage, MapAffixCategory::Debuff, 0.50f, 5,
+           "test"});
+      mapState.explicitAffixes.push_back(
+          {MapAffixType::Enemy_Fast, MapAffixCategory::Debuff, 0.20f, 5,
+           "test"});
+
+      auto &monsterAffix = registry.emplace<MonsterAffixComponent>(enemy);
+      monsterAffix.AddAffix(MonsterAffixType::Fast);
+      monsterAffix.AddAffix(MonsterAffixType::Berserker);
+      monsterAffix.isBerserk = true;
+    }
+
+    AttributePipeline::Calculate(registry, enemy);
+    return enemy;
+  };
+
+  entt::registry baseRegistry;
+  const auto baseEnemy = buildEnemy(baseRegistry, false);
+  const auto &baseStats = baseRegistry.get<CombatStats>(baseEnemy);
+
+  entt::registry modifiedRegistry;
+  const auto modifiedEnemy = buildEnemy(modifiedRegistry, true);
+  const auto &modifiedStats = modifiedRegistry.get<CombatStats>(modifiedEnemy);
+
+  CHECK(modifiedStats.max_health ==
+        doctest::Approx(baseStats.max_health * 1.05f * 1.30f));
+  CHECK(modifiedStats.move_speed ==
+        doctest::Approx(baseStats.move_speed * 1.20f * 1.50f));
+  CHECK(modifiedStats.min_weapon_damage ==
+        doctest::Approx(baseStats.min_weapon_damage * 1.50f * 4.0f));
 }
 
 } // namespace NoMoreDay

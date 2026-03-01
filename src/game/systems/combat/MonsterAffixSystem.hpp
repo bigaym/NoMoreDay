@@ -18,9 +18,11 @@
 #include "game/data/MonsterAffixRegistry.hpp" // For MonsterAffixComponent
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
+#include "game/systems/modifier/MonsterModifierAdapter.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include "game/utils/EntityUtils.hpp"
 #include "engine/physics/SpatialGrid.hpp"
+#include <algorithm>
 #include <cmath>
 #include <entt/entt.hpp>
 
@@ -90,9 +92,13 @@ public:
     for (auto entity : view) {
       auto &affix = view.get<MonsterAffixComponent>(entity);
       const auto &pos = view.get<Position>(entity);
+      const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(affix);
+      const auto behaviorOps =
+          MonsterModifierAdapter::EvaluateBehaviorOps(affix);
 
       // Skip if no Update-type affixes
-      if (!affix.hasUpdate)
+      if (!eventSet.HasOnUpdate() && !affix.hasUpdate &&
+          !behaviorOps.HasOnUpdate())
         continue;
 
       // Determine evolution tier
@@ -110,9 +116,20 @@ public:
 
         switch (affixType) {
         case MonsterAffixType::Molten:
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE)) {
+            ProcessMolten(registry, entity, pos, affix, i, dt, tier);
+            break;
+          }
           ProcessMolten(registry, entity, pos, affix, i, dt, tier);
           break;
         case MonsterAffixType::Teleporter:
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE)) {
+            ProcessTeleporter(registry, entity, pos, playerPos, affix, i, dt,
+                              tier);
+            break;
+          }
           ProcessTeleporter(registry, entity, pos, playerPos, affix, i, dt,
                             tier);
           break;
@@ -120,6 +137,11 @@ public:
           ProcessBerserker(registry, entity, affix, tier);
           break;
         case MonsterAffixType::Frozen:
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE)) {
+            ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
+            break;
+          }
           ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
           break;
         case MonsterAffixType::VoidZone:
@@ -773,6 +795,105 @@ private:
     }
   }
 
+  [[nodiscard]] static float GetVampiricLifeStealRatio() {
+    const auto &def =
+        MonsterAffixRegistry::GetAffixDef(MonsterAffixType::Vampiric);
+    for (int i = 0; i < def.statModCount; ++i) {
+      const auto &statMod = def.statMods[i];
+      if (statMod.type == StatType::LifeSteal) {
+        return statMod.value / 100.0f;
+      }
+    }
+    return 0.0f;
+  }
+
+  static void ApplyEntanglerOnHit(entt::registry &registry,
+                                  const CombatEvent &evt) {
+    if (registry.valid(evt.target) && registry.any_of<PlayerTag>(evt.target)) {
+      if (NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) <
+          MonsterAffixRegistry::Params::ENTANGLER_CHANCE) {
+        if (auto *effects = registry.try_get<ActiveEffectsComponent>(evt.target)) {
+          BuffEffect rootBuff;
+          rootBuff.id = "root";
+          rootBuff.name = "Rooted";
+          rootBuff.description = "Cannot move.";
+          rootBuff.type = BuffType::Root;
+          rootBuff.duration = MonsterAffixRegistry::Params::ENTANGLER_ROOT_DURATION;
+          rootBuff.remaining =
+              MonsterAffixRegistry::Params::ENTANGLER_ROOT_DURATION;
+          rootBuff.is_debuff = true;
+          effects->AddOrRefresh(rootBuff);
+
+          if (auto *pState = registry.try_get<PlayerStats>(evt.target)) {
+            pState->isRooted = true;
+          }
+
+          LOG_INFO("Entangler rooted player");
+        }
+      }
+    }
+  }
+
+  static void ApplyNullifierOnHit(entt::registry &registry,
+                                  const CombatEvent &evt) {
+    if (!registry.valid(evt.target)) {
+      return;
+    }
+
+    if (auto *effects = registry.try_get<ActiveEffectsComponent>(evt.target)) {
+      effects->effects.erase(
+          std::remove_if(effects->effects.begin(), effects->effects.end(),
+                         [](const BuffEffect &e) { return !e.is_debuff; }),
+          effects->effects.end());
+
+      LOG_INFO("Nullifier dispelled buffs from entity {}", (uint32_t)evt.target);
+    }
+  }
+
+  static void ApplyToxicOnDeath(entt::registry &registry, entt::entity enemy,
+                                const Position &enemyPos) {
+    Position playerPos = {0, 0};
+    auto playerView = registry.view<PlayerTag, Position>();
+    if (playerView.begin() != playerView.end()) {
+      playerPos = playerView.get<Position>(playerView.front());
+    }
+
+    for (int i = 0; i < 3; i++) {
+      auto orbEntity = registry.create();
+
+      float offsetX = NoMoreDay::utils::ThreadSafeRandom::GetFloat(-20.0f, 20.0f);
+      float offsetY = NoMoreDay::utils::ThreadSafeRandom::GetFloat(-20.0f, 20.0f);
+      registry.emplace<Position>(orbEntity, enemyPos.x + offsetX,
+                                 enemyPos.y + offsetY);
+      registry.emplace<LocalLevelTag>(orbEntity);
+      registry.emplace<VolatileOrbTag>(orbEntity);
+      registry.emplace<Radius>(orbEntity, 12.0f);
+
+      float dx = playerPos.x - enemyPos.x;
+      float dy = playerPos.y - enemyPos.y;
+      float dist = std::sqrt(dx * dx + dy * dy);
+      if (dist > 0.1f) {
+        float nx = dx / dist;
+        float ny = dy / dist;
+        registry.emplace<Velocity>(orbEntity, nx * 80.0f, ny * 80.0f);
+      } else {
+        registry.emplace<Velocity>(orbEntity, 0.0f, 0.0f);
+      }
+
+      VolatileOrbComponent orb;
+      orb.maxLifetime = 3.0f;
+      orb.homingStrength = 200.0f;
+      orb.speed = 150.0f;
+      orb.owner = enemy;
+      registry.emplace<VolatileOrbComponent>(orbEntity, orb);
+
+      registry.emplace<ColorComponent>(orbEntity, Color{100, 255, 100, 200});
+    }
+
+    LOG_TRACE("Toxic volatile orbs spawned at ({:.1f}, {:.1f})", enemyPos.x,
+              enemyPos.y);
+  }
+
 public:
   /**
    * @brief OnDealDamage 回调 - 处理 Nullifier 和 MirrorImage 词缀
@@ -781,57 +902,43 @@ public:
                                 const CombatEvent &evt) {
     // Check if attacker has OnHit affixes
     auto *affix = registry.try_get<MonsterAffixComponent>(evt.source);
-    if (!affix || !affix->hasOnHit)
+    if (!affix)
       return;
 
-    // Entangler: Root player
-    if (affix->HasAffix(MonsterAffixType::Entangler)) {
-      if (registry.valid(evt.target) &&
-          registry.any_of<PlayerTag>(evt.target)) {
-        if (NoMoreDay::utils::ThreadSafeRandom::GetFloat(0.0f, 1.0f) <
-            MonsterAffixRegistry::Params::ENTANGLER_CHANCE) {
-          if (auto *effects =
-                  registry.try_get<ActiveEffectsComponent>(evt.target)) {
-            BuffEffect rootBuff;
-            rootBuff.id = "root";
-            rootBuff.name = "Rooted"; // Loc hint?
-            rootBuff.description = "Cannot move.";
-            rootBuff.type = BuffType::Root;
-            rootBuff.duration =
-                MonsterAffixRegistry::Params::ENTANGLER_ROOT_DURATION;
-            rootBuff.remaining =
-                MonsterAffixRegistry::Params::ENTANGLER_ROOT_DURATION;
-            rootBuff.is_debuff = true;
-            effects->AddOrRefresh(rootBuff);
+    const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(*affix);
+    const auto behaviorOps = MonsterModifierAdapter::EvaluateBehaviorOps(*affix);
+    if (!eventSet.HasOnHit() && !affix->hasOnHit && !behaviorOps.HasOnHit())
+      return;
 
-            // Note: PlayerState.isRooted needs to be synced by BuffSystem or
-            // similar For now, we manually set it if we can access PlayerState,
-            // but strictly BuffSystem should handle it. But for safety:
-            if (auto *pState = registry.try_get<PlayerStats>(evt.target)) {
-              pState->isRooted = true; // Temporary immediate set
-            }
-
-            LOG_INFO("Entangler rooted player");
-          }
-        }
+    const bool hasVampiricBehaviorOp = behaviorOps.HasOnHitOpcode(
+        ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT);
+    if (affix->HasAffix(MonsterAffixType::Vampiric) &&
+        registry.all_of<HealthComponent>(evt.source) &&
+        (hasVampiricBehaviorOp || !behaviorOps.HasOnHit())) {
+      const float dealtDamage = CombatEventFactory::GetFinalAppliedDamage(evt);
+      const float lifeStealRatio = GetVampiricLifeStealRatio();
+      const float healAmount = dealtDamage * lifeStealRatio;
+      if (healAmount > 0.0f) {
+        auto &attackerHp = registry.get<HealthComponent>(evt.source);
+        attackerHp.current = (std::min)(attackerHp.current + healAmount,
+                                        attackerHp.max);
       }
     }
 
-    // Nullifier: Dispel buffs
-    if (affix->HasAffix(MonsterAffixType::Nullifier)) {
-      if (registry.valid(evt.target)) {
-        if (auto *effects =
-                registry.try_get<ActiveEffectsComponent>(evt.target)) {
-          // Remove all non-debuff effects
-          effects->effects.erase(
-              std::remove_if(effects->effects.begin(), effects->effects.end(),
-                             [](const BuffEffect &e) { return !e.is_debuff; }),
-              effects->effects.end());
+    const bool hasEntanglerBehaviorOp = behaviorOps.HasOnHitOpcode(
+        ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT);
+    if (hasEntanglerBehaviorOp) {
+      ApplyEntanglerOnHit(registry, evt);
+    } else if (affix->HasAffix(MonsterAffixType::Entangler)) {
+      ApplyEntanglerOnHit(registry, evt);
+    }
 
-          LOG_INFO("Nullifier dispelled buffs from entity {}",
-                   (uint32_t)evt.target);
-        }
-      }
+    const bool hasNullifierBehaviorOp = behaviorOps.HasOnHitOpcode(
+        ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT);
+    if (hasNullifierBehaviorOp) {
+      ApplyNullifierOnHit(registry, evt);
+    } else if (affix->HasAffix(MonsterAffixType::Nullifier)) {
+      ApplyNullifierOnHit(registry, evt);
     }
   }
 
@@ -876,7 +983,11 @@ public:
 
     // Check if defender has OnHit affixes
     auto *affix = registry.try_get<MonsterAffixComponent>(defender);
-    if (!affix || !affix->hasOnHit)
+    if (!affix)
+      return;
+
+    const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(*affix);
+    if (!eventSet.HasOnHit() && !affix->hasOnHit)
       return;
 
     // MirrorImage: Spawn clones on crit or low HP
@@ -993,64 +1104,25 @@ public:
     }
 
     // === Toxic: 死亡时生成毒球 ===
-    if (!affix || !affix->hasOnDeath)
+    if (!affix)
       return;
 
-    if (!affix->HasAffix(MonsterAffixType::Toxic))
+    const auto behaviorOps = MonsterModifierAdapter::EvaluateBehaviorOps(*affix);
+    const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(*affix);
+    if (!eventSet.HasOnDeath() && !affix->hasOnDeath &&
+        !behaviorOps.HasOnDeath())
       return;
 
-    // 获取怪物位置
+    const bool hasToxicBehaviorOp = behaviorOps.HasOnDeathOpcode(
+        ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH);
+    if (!hasToxicBehaviorOp && !affix->HasAffix(MonsterAffixType::Toxic))
+      return;
+
     auto *pos = registry.try_get<Position>(enemy);
     if (!pos)
       return;
 
-    // 获取玩家位置
-    Position playerPos = {0, 0};
-    auto playerView = registry.view<PlayerTag, Position>();
-    if (playerView.begin() != playerView.end()) {
-      playerPos = playerView.get<Position>(playerView.front());
-    }
-
-    // 生成 3 个挥发性球体
-    for (int i = 0; i < 3; i++) {
-      auto orbEntity = registry.create();
-
-      // 随机偏移位置
-      float offsetX =
-          NoMoreDay::utils::ThreadSafeRandom::GetFloat(-20.0f, 20.0f);
-      float offsetY =
-          NoMoreDay::utils::ThreadSafeRandom::GetFloat(-20.0f, 20.0f);
-      registry.emplace<Position>(orbEntity, pos->x + offsetX, pos->y + offsetY);
-      registry.emplace<LocalLevelTag>(orbEntity);
-      registry.emplace<VolatileOrbTag>(orbEntity);
-      registry.emplace<Radius>(orbEntity, 12.0f);
-
-      // 初始速度（朝向玩家）
-      float dx = playerPos.x - pos->x;
-      float dy = playerPos.y - pos->y;
-      float dist = std::sqrt(dx * dx + dy * dy);
-      if (dist > 0.1f) {
-        float nx = dx / dist;
-        float ny = dy / dist;
-        registry.emplace<Velocity>(orbEntity, nx * 80.0f, ny * 80.0f);
-      } else {
-        registry.emplace<Velocity>(orbEntity, 0.0f, 0.0f);
-      }
-
-      // 挥发性球体组件
-      VolatileOrbComponent orb;
-      orb.maxLifetime = 3.0f;
-      orb.homingStrength = 200.0f;
-      orb.speed = 150.0f;
-      orb.owner = enemy;
-      registry.emplace<VolatileOrbComponent>(orbEntity, orb);
-
-      // 视觉效果
-      registry.emplace<ColorComponent>(orbEntity, Color{100, 255, 100, 200});
-    }
-
-    LOG_TRACE("Toxic volatile orbs spawned at ({:.1f}, {:.1f})", pos->x,
-              pos->y);
+    ApplyToxicOnDeath(registry, enemy, *pos);
   }
 };
 

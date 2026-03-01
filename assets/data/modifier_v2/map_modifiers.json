@@ -1,0 +1,102 @@
+{
+  "schema_version": 2,
+  "domain": "map",
+  "records": [
+    {
+      "id": 4001004,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700004
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 4,
+          "param_f32": 0.2
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ExtraHealth",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001017,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700017
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 9,
+          "param_f32": 0.15
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_ExtraDamage",
+        "source": "map_affix"
+      }
+    },
+    {
+      "id": 4001018,
+      "domain": "map",
+      "priority": 400,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          700018
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_MULT",
+          "target": "enemy",
+          "param_u32": 7,
+          "param_f32": 0.1
+        }
+      ],
+      "debug": {
+        "name": "Map_Enemy_Fast",
+        "source": "map_affix"
+      }
+    }
+  ]
+}

@@ -1,0 +1,786 @@
+{
+  "schema_version": 2,
+  "domain": "monster",
+  "records": [
+    {
+      "id": 5001001,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800001
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_ADD",
+          "target": "enemy",
+          "param_u32": 7,
+          "param_f32": 0.5
+        },
+        {
+          "opcode": "ADD_STAT_PERCENT_ADD",
+          "target": "enemy",
+          "param_u32": 17,
+          "param_f32": 0.3
+        }
+      ],
+      "debug": {
+        "name": "Monster_Fast",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001002,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800002
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_ADD",
+          "target": "enemy",
+          "param_u32": 8,
+          "param_f32": 1.0
+        },
+        {
+          "opcode": "ADD_STAT_PERCENT_ADD",
+          "target": "enemy",
+          "param_u32": 4,
+          "param_f32": 0.5
+        }
+      ],
+      "debug": {
+        "name": "Monster_Tanky",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001003,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800003
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_ADD",
+          "target": "enemy",
+          "param_u32": 9,
+          "param_f32": 0.5
+        }
+      ],
+      "debug": {
+        "name": "Monster_Powerful",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001004,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800004
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_PERCENT_ADD",
+          "target": "enemy",
+          "param_u32": 19,
+          "param_f32": 0.5
+        }
+      ],
+      "debug": {
+        "name": "Monster_Accurate",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001005,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800005
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 23,
+          "param_f32": 50.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 5,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_MOLTEN_UPDATE",
+          "target": "enemy",
+          "param_u32": 5,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Molten",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001006,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800006
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 24,
+          "param_f32": 50.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 6,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_FROZEN_UPDATE",
+          "target": "enemy",
+          "param_u32": 6,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Frozen",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001007,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800007
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 25,
+          "param_f32": 50.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 7,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Storm",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001008,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800008
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 26,
+          "param_f32": 50.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_DEATH",
+          "target": "enemy",
+          "param_u32": 8,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_TOXIC_ON_DEATH",
+          "target": "enemy",
+          "param_u32": 8,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Toxic",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001009,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800009
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 27,
+          "param_f32": 75.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_HIT",
+          "target": "enemy",
+          "param_u32": 9,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Void",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001010,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800010
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 27,
+          "param_f32": 50.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 10,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_VoidZone",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001011,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800011
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 25,
+          "param_f32": 50.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_HIT",
+          "target": "enemy",
+          "param_u32": 11,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_StormStrider",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001012,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800012
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 12,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_TELEPORTER_UPDATE",
+          "target": "enemy",
+          "param_u32": 12,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Teleporter",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001013,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800013
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_HIT",
+          "target": "enemy",
+          "param_u32": 13,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_NULLIFIER_ON_HIT",
+          "target": "enemy",
+          "param_u32": 13,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Nullifier",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001014,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800014
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 14,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Shielding",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001015,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800015
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 15,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Waller",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001016,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800016
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "ADD_STAT_FLAT",
+          "target": "enemy",
+          "param_u32": 37,
+          "param_f32": 50.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_HIT",
+          "target": "enemy",
+          "param_u32": 16,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT",
+          "target": "enemy",
+          "param_u32": 16,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Vampiric",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001017,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800017
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 17,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Berserker",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001021,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800021
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 21,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_SoulLink",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001022,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800022
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 22,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_HIT",
+          "target": "enemy",
+          "param_u32": 22,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_MirrorImage",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001023,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800023
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 23,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_EVENT_ON_DEATH",
+          "target": "enemy",
+          "param_u32": 23,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_SoulEater",
+        "source": "monster_affix"
+      }
+    },
+    {
+      "id": 5001025,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800025
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 25,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_ManaSiphon",
+        "source": "monster_affix"
+      }
+    }
+  ]
+}

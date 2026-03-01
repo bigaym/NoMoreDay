@@ -157,6 +157,30 @@ void ModifierDelta::AddSkillLevel(const uint32_t skillId, const float value) {
   skill_levels[skillId] += value;
 }
 
+void ModifierDelta::AddMonsterEventOnUpdate(const uint32_t affixId) {
+  monster_event_on_update_affix_ids.insert(affixId);
+}
+
+void ModifierDelta::AddMonsterEventOnHit(const uint32_t affixId) {
+  monster_event_on_hit_affix_ids.insert(affixId);
+}
+
+void ModifierDelta::AddMonsterEventOnDeath(const uint32_t affixId) {
+  monster_event_on_death_affix_ids.insert(affixId);
+}
+
+void ModifierDelta::AddMonsterBehaviorOnUpdate(const uint16_t opcode) {
+  monster_behavior_on_update_opcodes.insert(opcode);
+}
+
+void ModifierDelta::AddMonsterBehaviorOnHit(const uint16_t opcode) {
+  monster_behavior_on_hit_opcodes.insert(opcode);
+}
+
+void ModifierDelta::AddMonsterBehaviorOnDeath(const uint16_t opcode) {
+  monster_behavior_on_death_opcodes.insert(opcode);
+}
+
 float ModifierDelta::GetSkillLevelBonus(const uint32_t skillId) const {
   const float wildcard = ReadOr(skill_levels, 0u, 0.0f);
   return wildcard + ReadOr(skill_levels, skillId, 0.0f);
@@ -182,6 +206,28 @@ ModifierDelta ModifierEvaluator::Evaluate(
         break;
       case ModifierOpCode::ADD_SKILL_LEVEL:
         out.AddSkillLevel(op.param_u32, op.param_f32);
+        break;
+      case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
+        out.AddMonsterEventOnUpdate(op.param_u32);
+        break;
+      case ModifierOpCode::MONSTER_EVENT_ON_HIT:
+        out.AddMonsterEventOnHit(op.param_u32);
+        break;
+      case ModifierOpCode::MONSTER_EVENT_ON_DEATH:
+        out.AddMonsterEventOnDeath(op.param_u32);
+        break;
+      case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
+        out.AddMonsterBehaviorOnUpdate(static_cast<uint16_t>(op.opcode));
+        break;
+      case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
+      case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
+      case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
+        out.AddMonsterBehaviorOnHit(static_cast<uint16_t>(op.opcode));
+        break;
+      case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
+        out.AddMonsterBehaviorOnDeath(static_cast<uint16_t>(op.opcode));
         break;
       default:
         break;
@@ -225,6 +271,28 @@ ModifierDelta ModifierEvaluator::Evaluate(const ModifierRuntimeRegistry &registr
         break;
       case ModifierOpCode::ADD_SKILL_LEVEL:
         out.AddSkillLevel(op.param_u32, op.param_f32);
+        break;
+      case ModifierOpCode::MONSTER_EVENT_ON_UPDATE:
+        out.AddMonsterEventOnUpdate(op.param_u32);
+        break;
+      case ModifierOpCode::MONSTER_EVENT_ON_HIT:
+        out.AddMonsterEventOnHit(op.param_u32);
+        break;
+      case ModifierOpCode::MONSTER_EVENT_ON_DEATH:
+        out.AddMonsterEventOnDeath(op.param_u32);
+        break;
+      case ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE:
+        out.AddMonsterBehaviorOnUpdate(op.opcode);
+        break;
+      case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
+      case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
+      case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
+        out.AddMonsterBehaviorOnHit(op.opcode);
+        break;
+      case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
+        out.AddMonsterBehaviorOnDeath(op.opcode);
         break;
       default:
         break;
