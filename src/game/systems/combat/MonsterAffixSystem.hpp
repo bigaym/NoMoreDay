@@ -1087,13 +1087,19 @@ public:
     // MirrorImage: Spawn clones on crit or low HP
     const bool hasMirrorImageBehaviorOp = behaviorOps.HasOnHitOpcode(
         ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE);
-    if (hasMirrorImageBehaviorOp ||
-        (!hasMirrorImageBehaviorOp &&
-         affix->HasAffix(MonsterAffixType::MirrorImage))) {
+    bool dispatchMirrorImage = false;
+    if (hasMirrorImageBehaviorOp) {
+      dispatchMirrorImage = true;
+    } else if (affix->HasAffix(MonsterAffixType::MirrorImage)) {
+      dispatchMirrorImage = true;
+    }
+
+    if (dispatchMirrorImage) {
       static constexpr float MIRROR_COOLDOWN = 10.0f;
       static constexpr float MIRROR_HP_THRESHOLD = 0.5f;
 
       bool shouldTrigger = false;
+      bool triggeredByHpThreshold = false;
 
       // Trigger on crit (5% chance)
       if (evt.isCrit &&
@@ -1108,12 +1114,15 @@ public:
           // Check if already triggered (use mirrorTriggered flag)
           if (!affix->mirrorTriggered) {
             shouldTrigger = true;
-            affix->mirrorTriggered = true; // Mark as triggered
+            triggeredByHpThreshold = true;
           }
         }
       }
 
       if (shouldTrigger && affix->mirrorCooldown <= 0.0f) {
+        if (triggeredByHpThreshold) {
+          affix->mirrorTriggered = true;
+        }
         affix->mirrorCooldown = MIRROR_COOLDOWN;
 
         // Spawn 2 clones
@@ -1182,14 +1191,23 @@ public:
               entt::exclude<KilledTag>);
 
       for (auto eater : soulEaterView) {
+        if (eater == enemy) {
+          continue;
+        }
+
         const auto &eaterAffix =
             soulEaterView.get<MonsterAffixComponent>(eater);
         const auto behaviorOps =
             MonsterModifierAdapter::EvaluateBehaviorOps(eaterAffix);
         const bool hasSoulEaterBehaviorOp = behaviorOps.HasOnDeathOpcode(
             ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH);
-        if (!hasSoulEaterBehaviorOp &&
-            !eaterAffix.HasAffix(MonsterAffixType::SoulEater)) {
+        bool dispatchSoulEater = false;
+        if (hasSoulEaterBehaviorOp) {
+          dispatchSoulEater = true;
+        } else if (eaterAffix.HasAffix(MonsterAffixType::SoulEater)) {
+          dispatchSoulEater = true;
+        }
+        if (!dispatchSoulEater) {
           continue;
         }
 
@@ -1231,7 +1249,13 @@ public:
         const bool hasAvengerFallback =
             avengerAffix.HasAffix(MonsterAffixType::Avenger) ||
             registry.all_of<AvengerComponent>(avengerEntity);
-        if (!hasAvengerBehaviorOp && !hasAvengerFallback) {
+        bool dispatchAvenger = false;
+        if (hasAvengerBehaviorOp) {
+          dispatchAvenger = true;
+        } else if (hasAvengerFallback) {
+          dispatchAvenger = true;
+        }
+        if (!dispatchAvenger) {
           continue;
         }
 

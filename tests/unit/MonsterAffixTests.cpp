@@ -122,6 +122,10 @@ TEST_CASE("[Unit] MonsterAffix - Mirror Image Logic") {
 
   MonsterAffixSystem::OnEnemyTakeDamage(registry, evt);
 
+  // Re-dispatch the same trigger condition in cooldown window.
+  // A single event window should not duplicate clone spawn.
+  MonsterAffixSystem::OnEnemyTakeDamage(registry, evt);
+
   // Check if clones were created
   auto cloneView = registry.view<CloneComponent>();
   int cloneCount = 0;
@@ -132,6 +136,29 @@ TEST_CASE("[Unit] MonsterAffix - Mirror Image Logic") {
   }
 
   CHECK(cloneCount == 2);
+  CHECK(affix.mirrorCooldown > 0.0f);
+}
+
+TEST_CASE("[Unit] MonsterAffix - Mirror Image HP threshold does not consume one-shot while on cooldown") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 100.0f, 100.0f);
+  registry.emplace<HealthComponent>(enemy, 40.0f, 100.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::MirrorImage);
+  affix.hasOnHit = false;
+  affix.mirrorTriggered = false;
+  affix.mirrorCooldown = 1.0f;
+
+  CombatEvent evt;
+  evt.source = enemy;
+
+  MonsterAffixSystem::OnEnemyTakeDamage(registry, evt);
+
+  CHECK(affix.mirrorTriggered == false);
+  CHECK(registry.view<CloneComponent>().empty());
 }
 
 TEST_CASE("[Unit] MonsterAffix - StormStrider OnTakeDamage behavior-op path still spawns ghost") {
@@ -622,6 +649,31 @@ TEST_CASE("[Unit] MonsterAffix - Avenger on-death behavior-op path grants nearby
   REQUIRE(registry.all_of<AvengerComponent>(avenger));
   const auto &avengerComp = registry.get<AvengerComponent>(avenger);
   CHECK(avengerComp.avengerStacks == 1);
+}
+
+TEST_CASE("[Unit] MonsterAffix - OnDeath applies SoulEater and Avenger once each for mixed reactor") {
+  entt::registry registry;
+
+  auto reactor = registry.create();
+  registry.emplace<Position>(reactor, 100.0f, 100.0f);
+
+  auto &reactorAffix = registry.emplace<MonsterAffixComponent>(reactor);
+  reactorAffix.AddAffix(MonsterAffixType::SoulEater);
+  reactorAffix.AddAffix(MonsterAffixType::Avenger);
+  reactorAffix.hasOnDeath = false;
+
+  auto &soulEater = registry.emplace<SoulEaterComponent>(reactor);
+  soulEater.stacks = 0;
+  auto &avenger = registry.emplace<AvengerComponent>(reactor);
+  avenger.avengerStacks = 0;
+
+  auto victim = registry.create();
+  registry.emplace<Position>(victim, 120.0f, 120.0f);
+
+  MonsterAffixSystem::OnEnemyDeath(registry, victim);
+
+  CHECK(registry.get<SoulEaterComponent>(reactor).stacks == 1);
+  CHECK(registry.get<AvengerComponent>(reactor).avengerStacks == 1);
 }
 
 TEST_CASE("[Unit] MonsterAffix - SoulLink update behavior-op path initializes soul-link component") {
