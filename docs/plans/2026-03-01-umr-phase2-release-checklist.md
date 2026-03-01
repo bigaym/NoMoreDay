@@ -4,7 +4,7 @@
 
 - Player-side stat modifiers in UMR: DONE
 - Map/Monster stat modifiers in UMR: DONE
-- Monster behavior dispatch op-first + fallback: DONE
+- Monster behavior dispatch op-only: DONE
 
 ## Build gates
 
@@ -31,5 +31,5 @@ All must pass in `build.bat` precheck.
 
 ## Known defer list
 
-- Keep legacy fallback branch paths for safety until Phase-3 simplification.
-- Do not remove fallback until at least one full milestone cycle remains stable.
+- Phase-3 已完成：legacy fallback 分支已移除，行为分发统一为 op-only。
+- 后续仅保留 opcode contract 与分发覆盖门禁，不再引入回退路径。
