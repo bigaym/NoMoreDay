@@ -5,6 +5,8 @@
 #include "game/systems/modifier/ModifierEvaluator.hpp"
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 
+#include <array>
+
 TEST_CASE("[Unit] MonsterModifierAdapter - affix list resolves stat deltas") {
   NoMoreDay::MonsterAffixComponent affixComponent;
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Fast);
@@ -193,4 +195,54 @@ TEST_CASE("[Unit] MonsterModifierAdapter - emits behavior ops for Storm/Void") {
   CHECK(behaviorOps.HasOnHitOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT));
   CHECK(behaviorOps.onDeathOpcodes.empty());
+}
+
+TEST_CASE("[Unit] MonsterModifierAdapter - behavior opcode contract covers implemented and behavior-less affixes") {
+  struct BehaviorContractRow {
+    NoMoreDay::MonsterAffixType affixType;
+    bool expectsBehaviorOps;
+    const char *name;
+  };
+
+  static constexpr std::array<BehaviorContractRow, 25> kRows = {{
+      {NoMoreDay::MonsterAffixType::Fast, false, "Fast"},
+      {NoMoreDay::MonsterAffixType::Tanky, false, "Tanky"},
+      {NoMoreDay::MonsterAffixType::Powerful, false, "Powerful"},
+      {NoMoreDay::MonsterAffixType::Accurate, false, "Accurate"},
+      {NoMoreDay::MonsterAffixType::Molten, true, "Molten"},
+      {NoMoreDay::MonsterAffixType::Frozen, true, "Frozen"},
+      {NoMoreDay::MonsterAffixType::Storm, true, "Storm"},
+      {NoMoreDay::MonsterAffixType::Toxic, true, "Toxic"},
+      {NoMoreDay::MonsterAffixType::Void, true, "Void"},
+      {NoMoreDay::MonsterAffixType::VoidZone, true, "VoidZone"},
+      {NoMoreDay::MonsterAffixType::StormStrider, true, "StormStrider"},
+      {NoMoreDay::MonsterAffixType::Teleporter, true, "Teleporter"},
+      {NoMoreDay::MonsterAffixType::Nullifier, true, "Nullifier"},
+      {NoMoreDay::MonsterAffixType::Shielding, true, "Shielding"},
+      {NoMoreDay::MonsterAffixType::Waller, true, "Waller"},
+      {NoMoreDay::MonsterAffixType::Vampiric, true, "Vampiric"},
+      {NoMoreDay::MonsterAffixType::Berserker, true, "Berserker"},
+      {NoMoreDay::MonsterAffixType::Vortex, true, "Vortex"},
+      {NoMoreDay::MonsterAffixType::Entangler, true, "Entangler"},
+      {NoMoreDay::MonsterAffixType::Avenger, true, "Avenger"},
+      {NoMoreDay::MonsterAffixType::SoulLink, true, "SoulLink"},
+      {NoMoreDay::MonsterAffixType::MirrorImage, true, "MirrorImage"},
+      {NoMoreDay::MonsterAffixType::SoulEater, true, "SoulEater"},
+      {NoMoreDay::MonsterAffixType::Suppressor, true, "Suppressor"},
+      {NoMoreDay::MonsterAffixType::ManaSiphon, true, "ManaSiphon"},
+  }};
+
+  for (const auto &row : kRows) {
+    NoMoreDay::MonsterAffixComponent affixComponent;
+    affixComponent.AddAffix(row.affixType);
+
+    const auto behaviorOps =
+        NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(affixComponent);
+    const bool hasAnyBehaviorOps = behaviorOps.HasOnUpdate() ||
+                                   behaviorOps.HasOnHit() ||
+                                   behaviorOps.HasOnDeath();
+
+    CHECK_MESSAGE(hasAnyBehaviorOps == row.expectsBehaviorOps,
+                  row.name << " behavior opcode contract mismatch");
+  }
 }

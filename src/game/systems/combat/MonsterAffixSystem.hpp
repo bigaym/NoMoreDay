@@ -114,71 +114,101 @@ public:
 
       bool suppressorHandled = false;
       bool soulLinkHandled = false;
+      bool moltenHandled = false;
+      bool teleporterHandled = false;
+      bool berserkerHandled = false;
+      bool frozenHandled = false;
+      bool stormHandled = false;
+      bool voidZoneHandled = false;
+      bool soulEaterHandled = false;
+      bool manaSiphonHandled = false;
+      bool shieldingHandled = false;
+      bool vortexHandled = false;
+      bool wallerHandled = false;
       for (size_t i = 0; i < affix.affixes.size(); ++i) {
         affix.timers[i] += dt;
         auto affixType = affix.affixes[i];
 
         switch (affixType) {
         case MonsterAffixType::Molten:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE)) {
-            ProcessMolten(registry, entity, pos, affix, i, dt, tier);
+          if (moltenHandled) {
             break;
           }
-          ProcessMolten(registry, entity, pos, affix, i, dt, tier);
+          moltenHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Molten)) {
+            ProcessMolten(registry, entity, pos, affix, i, dt, tier);
+          }
           break;
         case MonsterAffixType::Teleporter:
+          if (teleporterHandled) {
+            break;
+          }
+          teleporterHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Teleporter)) {
             ProcessTeleporter(registry, entity, pos, playerPos, affix, i, dt,
                               tier);
-            break;
           }
-          ProcessTeleporter(registry, entity, pos, playerPos, affix, i, dt,
-                            tier);
           break;
         case MonsterAffixType::Berserker:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE)) {
-            ProcessBerserker(registry, entity, affix, tier);
+          if (berserkerHandled) {
             break;
           }
-          if (affix.HasAffix(MonsterAffixType::Berserker)) {
+          berserkerHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Berserker)) {
             ProcessBerserker(registry, entity, affix, tier);
           }
           break;
         case MonsterAffixType::Frozen:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE)) {
-            ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
+          if (frozenHandled) {
             break;
           }
-          ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
+          frozenHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Frozen)) {
+            ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
+          }
           break;
         case MonsterAffixType::Storm:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE)) {
-            ProcessStorm(registry, entity, playerPos, affix, i, dt, tier);
+          if (stormHandled) {
             break;
           }
-          if (affix.HasAffix(MonsterAffixType::Storm)) {
+          stormHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Storm)) {
             ProcessStorm(registry, entity, playerPos, affix, i, dt, tier);
           }
           break;
         case MonsterAffixType::VoidZone:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE)) {
-            ProcessVoidZone(registry, entity, pos, playerPos, affix, i, dt,
-                            tier);
+          if (voidZoneHandled) {
             break;
           }
-          if (affix.HasAffix(MonsterAffixType::VoidZone)) {
+          voidZoneHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::VoidZone)) {
             ProcessVoidZone(registry, entity, pos, playerPos, affix, i, dt,
                             tier);
           }
           break;
         case MonsterAffixType::SoulEater:
-          ProcessSoulEater(registry, entity, affix, dt, tier);
+          if (soulEaterHandled) {
+            break;
+          }
+          soulEaterHandled = true;
+          if (behaviorOps.HasOnDeathOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH) ||
+              affix.HasAffix(MonsterAffixType::SoulEater) ||
+              registry.all_of<SoulEaterComponent>(entity)) {
+            ProcessSoulEater(registry, entity, affix, dt, tier);
+          }
           break;
         case MonsterAffixType::Suppressor:
           if (suppressorHandled) {
@@ -213,46 +243,51 @@ public:
           }
           break;
         case MonsterAffixType::ManaSiphon:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE)) {
-            ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt,
-                              tier);
+          if (manaSiphonHandled) {
             break;
           }
-          if (affix.HasAffix(MonsterAffixType::ManaSiphon)) {
+          manaSiphonHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::ManaSiphon) ||
+              registry.all_of<ResourceDrainComponent>(entity)) {
             ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt,
                               tier);
           }
           break;
         case MonsterAffixType::Shielding:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE)) {
-            ProcessShielding(registry, entity, pos, spatialGrid, affix, i, dt,
-                             tier);
+          if (shieldingHandled) {
             break;
           }
-          if (affix.HasAffix(MonsterAffixType::Shielding)) {
+          shieldingHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Shielding) ||
+              registry.all_of<PhaseShieldComponent>(entity)) {
             ProcessShielding(registry, entity, pos, spatialGrid, affix, i, dt,
                              tier);
           }
           break;
         case MonsterAffixType::Vortex:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE)) {
-            ProcessVortex(registry, entity, affix, i, dt, tier);
+          if (vortexHandled) {
             break;
           }
-          if (affix.HasAffix(MonsterAffixType::Vortex)) {
+          vortexHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Vortex) ||
+              registry.all_of<ForceFieldComponent>(entity)) {
             ProcessVortex(registry, entity, affix, i, dt, tier);
           }
           break;
         case MonsterAffixType::Waller:
-          if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE)) {
-            ProcessWaller(registry, entity, pos, playerPos, affix, i, dt, tier);
+          if (wallerHandled) {
             break;
           }
-          if (affix.HasAffix(MonsterAffixType::Waller)) {
+          wallerHandled = true;
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE) ||
+              affix.HasAffix(MonsterAffixType::Waller)) {
             ProcessWaller(registry, entity, pos, playerPos, affix, i, dt, tier);
           }
           break;
@@ -1099,9 +1134,8 @@ public:
 
     const bool hasVampiricBehaviorOp = behaviorOps.HasOnHitOpcode(
         ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT);
-    if (affix->HasAffix(MonsterAffixType::Vampiric) &&
-        registry.all_of<HealthComponent>(evt.source) &&
-        (hasVampiricBehaviorOp || !behaviorOps.HasOnHit())) {
+    if ((hasVampiricBehaviorOp || affix->HasAffix(MonsterAffixType::Vampiric)) &&
+        registry.all_of<HealthComponent>(evt.source)) {
       const float dealtDamage = CombatEventFactory::GetFinalAppliedDamage(evt);
       const float lifeStealRatio = GetVampiricLifeStealRatio();
       const float healAmount = dealtDamage * lifeStealRatio;

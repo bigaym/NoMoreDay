@@ -53,7 +53,7 @@ MONSTER_ON_DEATH_BEHAVIOR_OPS: dict[str, str] = {
     "Avenger": "MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH",
 }
 
-IMPLEMENTED_BEHAVIOR_AFFIXES: frozenset[str] = frozenset(
+IMPLEMENTED_BEHAVIOR_HANDLER_AFFIXES: frozenset[str] = frozenset(
     {
         "Molten",
         "Teleporter",
@@ -79,7 +79,35 @@ IMPLEMENTED_BEHAVIOR_AFFIXES: frozenset[str] = frozenset(
     }
 )
 
-UNSUPPORTED_BEHAVIOR_AFFIXES: frozenset[str] = frozenset()
+INTENTIONALLY_BEHAVIOR_LESS_AFFIXES: frozenset[str] = frozenset(
+    {
+        "Fast",
+        "Tanky",
+        "Powerful",
+        "Accurate",
+    }
+)
+
+
+def _build_behavior_opcodes_by_affix() -> dict[str, frozenset[str]]:
+    behavior_opcodes: dict[str, set[str]] = {}
+
+    for affix_name, opcode in MONSTER_UPDATE_BEHAVIOR_OPS.items():
+        behavior_opcodes.setdefault(affix_name, set()).add(opcode)
+    for affix_name, opcode in MONSTER_ON_HIT_BEHAVIOR_OPS.items():
+        behavior_opcodes.setdefault(affix_name, set()).add(opcode)
+    for affix_name, opcode in MONSTER_ON_DEATH_BEHAVIOR_OPS.items():
+        behavior_opcodes.setdefault(affix_name, set()).add(opcode)
+
+    return {
+        affix_name: frozenset(sorted(opcodes))
+        for affix_name, opcodes in sorted(behavior_opcodes.items())
+    }
+
+
+MONSTER_BEHAVIOR_OPCODES_BY_AFFIX: dict[str, frozenset[str]] = (
+    _build_behavior_opcodes_by_affix()
+)
 
 WEAPON_CLASS_MASK_ALL = 0xFFFFFFFF
 
@@ -439,30 +467,43 @@ def _append_behavior_op(
 
 
 def _validate_behavior_affix_classification(
+    monster_affix_enum: dict[str, int],
     monster_defs: dict[str, dict[str, Any]],
-) -> list[str]:
-    mapped_affixes = set(MONSTER_UPDATE_BEHAVIOR_OPS)
-    mapped_affixes.update(MONSTER_ON_HIT_BEHAVIOR_OPS)
-    mapped_affixes.update(MONSTER_ON_DEATH_BEHAVIOR_OPS)
-
-    overlap = IMPLEMENTED_BEHAVIOR_AFFIXES & UNSUPPORTED_BEHAVIOR_AFFIXES
+) -> None:
+    mapped_affixes = set(MONSTER_BEHAVIOR_OPCODES_BY_AFFIX)
+    overlap = IMPLEMENTED_BEHAVIOR_HANDLER_AFFIXES & INTENTIONALLY_BEHAVIOR_LESS_AFFIXES
     if overlap:
         raise RuntimeError(
             "behavior affix classification overlap: " + ", ".join(sorted(overlap))
         )
 
-    unsupported_with_mapping = UNSUPPORTED_BEHAVIOR_AFFIXES & mapped_affixes
-    if unsupported_with_mapping:
+    behavior_less_with_mapping = INTENTIONALLY_BEHAVIOR_LESS_AFFIXES & mapped_affixes
+    if behavior_less_with_mapping:
         raise RuntimeError(
-            "unsupported behavior affixes must not have behavior op mappings: "
-            + ", ".join(sorted(unsupported_with_mapping))
+            "behavior-less affixes must not have behavior op mappings: "
+            + ", ".join(sorted(behavior_less_with_mapping))
         )
 
-    missing_implemented = mapped_affixes - IMPLEMENTED_BEHAVIOR_AFFIXES
+    missing_implemented = mapped_affixes - IMPLEMENTED_BEHAVIOR_HANDLER_AFFIXES
     if missing_implemented:
         raise RuntimeError(
             "behavior op mappings missing implemented classification: "
             + ", ".join(sorted(missing_implemented))
+        )
+
+    known_affixes = set(monster_affix_enum) - {"None", "Count"}
+    invalid_implemented = IMPLEMENTED_BEHAVIOR_HANDLER_AFFIXES - known_affixes
+    if invalid_implemented:
+        raise RuntimeError(
+            "implemented behavior affix classification references unknown affixes: "
+            + ", ".join(sorted(invalid_implemented))
+        )
+
+    invalid_behavior_less = INTENTIONALLY_BEHAVIOR_LESS_AFFIXES - known_affixes
+    if invalid_behavior_less:
+        raise RuntimeError(
+            "behavior-less affix classification references unknown affixes: "
+            + ", ".join(sorted(invalid_behavior_less))
         )
 
     flagged_affixes = {
@@ -472,7 +513,9 @@ def _validate_behavior_affix_classification(
         or affix_def["has_on_hit"]
         or affix_def["has_on_death"]
     }
-    classified_flagged = IMPLEMENTED_BEHAVIOR_AFFIXES | UNSUPPORTED_BEHAVIOR_AFFIXES
+    classified_flagged = (
+        IMPLEMENTED_BEHAVIOR_HANDLER_AFFIXES | INTENTIONALLY_BEHAVIOR_LESS_AFFIXES
+    )
     unclassified_flagged = flagged_affixes - classified_flagged
     if unclassified_flagged:
         raise RuntimeError(
@@ -480,7 +523,50 @@ def _validate_behavior_affix_classification(
             + ", ".join(sorted(unclassified_flagged))
         )
 
-    return sorted(flagged_affixes & UNSUPPORTED_BEHAVIOR_AFFIXES)
+    unclassified_known_affixes = known_affixes - classified_flagged
+    if unclassified_known_affixes:
+        raise RuntimeError(
+            "affixes missing behavior classification: "
+            + ", ".join(sorted(unclassified_known_affixes))
+        )
+
+
+def _collect_behavior_opcodes(ops: list[dict[str, Any]]) -> frozenset[str]:
+    return frozenset(
+        sorted(
+            {
+                str(opcode)
+                for opcode in (op.get("opcode") for op in ops)
+                if isinstance(opcode, str) and opcode.startswith("MONSTER_BEHAVIOR_")
+            }
+        )
+    )
+
+
+def _validate_behavior_opcode_contract(
+    emitted_behavior_opcodes: dict[str, frozenset[str]],
+) -> None:
+    failures: list[str] = []
+
+    for affix_name in sorted(IMPLEMENTED_BEHAVIOR_HANDLER_AFFIXES):
+        emitted = emitted_behavior_opcodes.get(affix_name, frozenset())
+        if not emitted:
+            failures.append(
+                f"implemented behavior affix '{affix_name}' emitted no behavior opcode"
+            )
+
+    for affix_name in sorted(INTENTIONALLY_BEHAVIOR_LESS_AFFIXES):
+        emitted = emitted_behavior_opcodes.get(affix_name, frozenset())
+        if emitted:
+            failures.append(
+                f"behavior-less affix '{affix_name}' emitted unexpected behavior opcode(s): "
+                + ", ".join(sorted(emitted))
+            )
+
+    if failures:
+        raise RuntimeError(
+            "behavior opcode contract violations:\n  - " + "\n  - ".join(failures)
+        )
 
 
 def _build_map_records(
@@ -553,8 +639,9 @@ def _build_monster_records(
     monster_affix_enum: dict[str, int],
     stat_type_enum: dict[str, int],
     monster_defs: dict[str, dict[str, Any]],
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, frozenset[str]]]:
     records: list[dict[str, Any]] = []
+    emitted_behavior_opcodes: dict[str, frozenset[str]] = {}
     for affix_name, affix_value in sorted(
         (
             (name, value)
@@ -565,12 +652,12 @@ def _build_monster_records(
     ):
         affix_def = monster_defs.get(affix_name)
         if affix_def is None:
-            if affix_name in MONSTER_UPDATE_BEHAVIOR_OPS:
+            if affix_name in MONSTER_BEHAVIOR_OPCODES_BY_AFFIX:
                 affix_def = {
                     "stat_mods": [],
-                    "has_update": True,
-                    "has_on_hit": False,
-                    "has_on_death": False,
+                    "has_update": affix_name in MONSTER_UPDATE_BEHAVIOR_OPS,
+                    "has_on_hit": affix_name in MONSTER_ON_HIT_BEHAVIOR_OPS,
+                    "has_on_death": affix_name in MONSTER_ON_DEATH_BEHAVIOR_OPS,
                 }
             else:
                 continue
@@ -601,9 +688,9 @@ def _build_monster_records(
                     "param_f32": 0.0,
                 }
             )
-            behavior_opcode = MONSTER_UPDATE_BEHAVIOR_OPS.get(affix_name)
-            if affix_name not in UNSUPPORTED_BEHAVIOR_AFFIXES:
-                _append_behavior_op(ops, behavior_opcode, affix_id)
+            _append_behavior_op(
+                ops, MONSTER_UPDATE_BEHAVIOR_OPS.get(affix_name), affix_id
+            )
         if affix_def["has_on_hit"]:
             ops.append(
                 {
@@ -613,9 +700,9 @@ def _build_monster_records(
                     "param_f32": 0.0,
                 }
             )
-            behavior_opcode = MONSTER_ON_HIT_BEHAVIOR_OPS.get(affix_name)
-            if affix_name not in UNSUPPORTED_BEHAVIOR_AFFIXES:
-                _append_behavior_op(ops, behavior_opcode, affix_id)
+            _append_behavior_op(
+                ops, MONSTER_ON_HIT_BEHAVIOR_OPS.get(affix_name), affix_id
+            )
         if affix_def["has_on_death"]:
             ops.append(
                 {
@@ -625,20 +712,17 @@ def _build_monster_records(
                     "param_f32": 0.0,
                 }
             )
-            behavior_opcode = MONSTER_ON_DEATH_BEHAVIOR_OPS.get(affix_name)
-            if affix_name not in UNSUPPORTED_BEHAVIOR_AFFIXES:
-                _append_behavior_op(ops, behavior_opcode, affix_id)
-
-        if affix_name not in UNSUPPORTED_BEHAVIOR_AFFIXES:
-            _append_behavior_op(
-                ops, MONSTER_UPDATE_BEHAVIOR_OPS.get(affix_name), affix_id
-            )
-            _append_behavior_op(
-                ops, MONSTER_ON_HIT_BEHAVIOR_OPS.get(affix_name), affix_id
-            )
             _append_behavior_op(
                 ops, MONSTER_ON_DEATH_BEHAVIOR_OPS.get(affix_name), affix_id
             )
+
+        expected_behavior_opcodes = MONSTER_BEHAVIOR_OPCODES_BY_AFFIX.get(
+            affix_name, frozenset()
+        )
+        for behavior_opcode in expected_behavior_opcodes:
+            _append_behavior_op(ops, behavior_opcode, affix_id)
+
+        emitted_behavior_opcodes[affix_name] = _collect_behavior_opcodes(ops)
 
         if not ops:
             continue
@@ -660,7 +744,7 @@ def _build_monster_records(
 
     if not records:
         raise RuntimeError("monster generation produced zero records")
-    return records
+    return records, emitted_behavior_opcodes
 
 
 def _render_json(payload: dict[str, Any]) -> str:
@@ -682,7 +766,7 @@ def _check_matches(path: Path, expected_text: str) -> bool:
     return True
 
 
-def _generate() -> tuple[str, str, int, int, list[str]]:
+def _generate() -> tuple[str, str, int, int]:
     map_affix_enum = _parse_enum_values(_load_text(MAP_AFFIX_HEADER), "MapAffixType")
     stat_type_enum = _parse_enum_values(_load_text(STATS_HEADER), "StatType")
     monster_affix_enum = _parse_enum_values(
@@ -696,7 +780,11 @@ def _generate() -> tuple[str, str, int, int, list[str]]:
     monster_defs = _parse_monster_affix_defs(
         _load_text(MONSTER_AFFIX_REGISTRY), monster_affix_enum
     )
-    unsupported_flagged_affixes = _validate_behavior_affix_classification(monster_defs)
+    _validate_behavior_affix_classification(monster_affix_enum, monster_defs)
+    monster_records, emitted_behavior_opcodes = _build_monster_records(
+        monster_affix_enum, stat_type_enum, monster_defs
+    )
+    _validate_behavior_opcode_contract(emitted_behavior_opcodes)
 
     map_payload = {
         "schema_version": 2,
@@ -708,9 +796,7 @@ def _generate() -> tuple[str, str, int, int, list[str]]:
     monster_payload = {
         "schema_version": 2,
         "domain": "monster",
-        "records": _build_monster_records(
-            monster_affix_enum, stat_type_enum, monster_defs
-        ),
+        "records": monster_records,
     }
 
     map_text = _render_json(map_payload)
@@ -720,7 +806,6 @@ def _generate() -> tuple[str, str, int, int, list[str]]:
         monster_text,
         len(map_payload["records"]),
         len(monster_payload["records"]),
-        unsupported_flagged_affixes,
     )
 
 
@@ -743,7 +828,6 @@ def main() -> int:
             monster_text,
             map_count,
             monster_count,
-            unsupported_flagged_affixes,
         ) = _generate()
     except RuntimeError as err:
         print(f"[modifier_v2] generation failed: {err}")
@@ -752,11 +836,6 @@ def main() -> int:
     if args.check:
         ok_map = _check_matches(MAP_OUTPUT, map_text)
         ok_monster = _check_matches(MONSTER_OUTPUT, monster_text)
-        if unsupported_flagged_affixes:
-            print(
-                "[modifier_v2] check note: unsupported behavior affixes intentionally skipped: "
-                + ", ".join(unsupported_flagged_affixes)
-            )
         if ok_map and ok_monster:
             print(
                 f"[modifier_v2] check passed: map={map_count} records, monster={monster_count} records"
@@ -769,11 +848,6 @@ def main() -> int:
 
     _write(MAP_OUTPUT, map_text)
     _write(MONSTER_OUTPUT, monster_text)
-    if unsupported_flagged_affixes:
-        print(
-            "[modifier_v2] note: unsupported behavior affixes intentionally skipped: "
-            + ", ".join(unsupported_flagged_affixes)
-        )
     print(f"[modifier_v2] generated '{MAP_OUTPUT}' ({map_count} records)")
     print(f"[modifier_v2] generated '{MONSTER_OUTPUT}' ({monster_count} records)")
     return 0

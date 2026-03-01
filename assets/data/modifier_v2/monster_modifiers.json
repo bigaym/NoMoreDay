@@ -723,6 +723,44 @@
       }
     },
     {
+      "id": 5001019,
+      "domain": "monster",
+      "priority": 500,
+      "filters": {
+        "profession_mask": 0,
+        "skill_id_whitelist": [],
+        "required_skill_tags_all": 0,
+        "forbidden_skill_tags_any": 0,
+        "weapon_class_mask": 4294967295,
+        "equip_slot_mask": 0,
+        "node_id_whitelist": [
+          800019
+        ]
+      },
+      "constraints": {
+        "exclusive_group": 0,
+        "max_active": 0
+      },
+      "ops": [
+        {
+          "opcode": "MONSTER_EVENT_ON_HIT",
+          "target": "enemy",
+          "param_u32": 19,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_ENTANGLER_ON_HIT",
+          "target": "enemy",
+          "param_u32": 19,
+          "param_f32": 0.0
+        }
+      ],
+      "debug": {
+        "name": "Monster_Entangler",
+        "source": "monster_affix"
+      }
+    },
+    {
       "id": 5001020,
       "domain": "monster",
       "priority": 500,
