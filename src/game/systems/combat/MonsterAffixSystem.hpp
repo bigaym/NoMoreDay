@@ -136,8 +136,7 @@ public:
           }
           moltenHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Molten)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_MOLTEN_UPDATE)) {
             ProcessMolten(registry, entity, pos, affix, i, dt, tier);
           }
           break;
@@ -147,8 +146,7 @@ public:
           }
           teleporterHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Teleporter)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_TELEPORTER_UPDATE)) {
             ProcessTeleporter(registry, entity, pos, playerPos, affix, i, dt,
                               tier);
           }
@@ -159,8 +157,7 @@ public:
           }
           berserkerHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Berserker)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE)) {
             ProcessBerserker(registry, entity, affix, tier);
           }
           break;
@@ -170,8 +167,7 @@ public:
           }
           frozenHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Frozen)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_FROZEN_UPDATE)) {
             ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
           }
           break;
@@ -181,8 +177,7 @@ public:
           }
           stormHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Storm)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE)) {
             ProcessStorm(registry, entity, playerPos, affix, i, dt, tier);
           }
           break;
@@ -192,8 +187,7 @@ public:
           }
           voidZoneHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::VoidZone)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE)) {
             ProcessVoidZone(registry, entity, pos, playerPos, affix, i, dt,
                             tier);
           }
@@ -204,9 +198,7 @@ public:
           }
           soulEaterHandled = true;
           if (behaviorOps.HasOnDeathOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH) ||
-              affix.HasAffix(MonsterAffixType::SoulEater) ||
-              registry.all_of<SoulEaterComponent>(entity)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH)) {
             ProcessSoulEater(registry, entity, affix, dt, tier);
           }
           break;
@@ -216,12 +208,6 @@ public:
           }
           if (behaviorOps.HasOnUpdateOpcode(
                   ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE)) {
-            ProcessSuppressor(registry, entity);
-            suppressorHandled = true;
-            break;
-          }
-          if (affix.HasAffix(MonsterAffixType::Suppressor) ||
-              registry.all_of<SuppressorComponent>(entity)) {
             ProcessSuppressor(registry, entity);
             suppressorHandled = true;
           }
@@ -234,12 +220,6 @@ public:
                   ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE)) {
             ProcessSoulLink(registry, entity);
             soulLinkHandled = true;
-            break;
-          }
-          if (affix.HasAffix(MonsterAffixType::SoulLink) ||
-              registry.all_of<SoulLinkComponent>(entity)) {
-            ProcessSoulLink(registry, entity);
-            soulLinkHandled = true;
           }
           break;
         case MonsterAffixType::ManaSiphon:
@@ -248,9 +228,7 @@ public:
           }
           manaSiphonHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::ManaSiphon) ||
-              registry.all_of<ResourceDrainComponent>(entity)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_MANA_SIPHON_UPDATE)) {
             ProcessManaSiphon(registry, entity, pos, playerEntity, affix, dt,
                               tier);
           }
@@ -261,9 +239,7 @@ public:
           }
           shieldingHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Shielding) ||
-              registry.all_of<PhaseShieldComponent>(entity)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_SHIELDING_UPDATE)) {
             ProcessShielding(registry, entity, pos, spatialGrid, affix, i, dt,
                              tier);
           }
@@ -274,9 +250,7 @@ public:
           }
           vortexHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Vortex) ||
-              registry.all_of<ForceFieldComponent>(entity)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_VORTEX_UPDATE)) {
             ProcessVortex(registry, entity, affix, i, dt, tier);
           }
           break;
@@ -286,8 +260,7 @@ public:
           }
           wallerHandled = true;
           if (behaviorOps.HasOnUpdateOpcode(
-                  ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE) ||
-              affix.HasAffix(MonsterAffixType::Waller)) {
+                  ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE)) {
             ProcessWaller(registry, entity, pos, playerPos, affix, i, dt, tier);
           }
           break;
@@ -1134,8 +1107,7 @@ public:
 
     const bool hasVampiricBehaviorOp = behaviorOps.HasOnHitOpcode(
         ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT);
-    if ((hasVampiricBehaviorOp || affix->HasAffix(MonsterAffixType::Vampiric)) &&
-        registry.all_of<HealthComponent>(evt.source)) {
+    if (hasVampiricBehaviorOp && registry.all_of<HealthComponent>(evt.source)) {
       const float dealtDamage = CombatEventFactory::GetFinalAppliedDamage(evt);
       const float lifeStealRatio = GetVampiricLifeStealRatio();
       const float healAmount = dealtDamage * lifeStealRatio;
@@ -1150,23 +1122,17 @@ public:
         ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT);
     if (hasEntanglerBehaviorOp) {
       ApplyEntanglerOnHit(registry, evt);
-    } else if (affix->HasAffix(MonsterAffixType::Entangler)) {
-      ApplyEntanglerOnHit(registry, evt);
     }
 
     const bool hasNullifierBehaviorOp = behaviorOps.HasOnHitOpcode(
         ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT);
     if (hasNullifierBehaviorOp) {
       ApplyNullifierOnHit(registry, evt);
-    } else if (affix->HasAffix(MonsterAffixType::Nullifier)) {
-      ApplyNullifierOnHit(registry, evt);
     }
 
     const bool hasVoidBehaviorOp =
         behaviorOps.HasOnHitOpcode(ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT);
     if (hasVoidBehaviorOp) {
-      ApplyVoidOnHit(registry, evt);
-    } else if (affix->HasAffix(MonsterAffixType::Void)) {
       ApplyVoidOnHit(registry, evt);
     }
   }
@@ -1223,14 +1189,7 @@ public:
     // MirrorImage: Spawn clones on crit or low HP
     const bool hasMirrorImageBehaviorOp = behaviorOps.HasOnHitOpcode(
         ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE);
-    bool dispatchMirrorImage = false;
     if (hasMirrorImageBehaviorOp) {
-      dispatchMirrorImage = true;
-    } else if (affix->HasAffix(MonsterAffixType::MirrorImage)) {
-      dispatchMirrorImage = true;
-    }
-
-    if (dispatchMirrorImage) {
       static constexpr float MIRROR_COOLDOWN = 10.0f;
       static constexpr float MIRROR_HP_THRESHOLD = 0.5f;
 
@@ -1274,8 +1233,7 @@ public:
     // StormStrider: Spawn lightning ghost
     const bool hasStormStriderBehaviorOp = behaviorOps.HasOnHitOpcode(
         ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE);
-    if (!hasStormStriderBehaviorOp &&
-        !affix->HasAffix(MonsterAffixType::StormStrider))
+    if (!hasStormStriderBehaviorOp)
       return;
 
     // 概率触发
@@ -1319,13 +1277,7 @@ public:
             MonsterModifierAdapter::EvaluateBehaviorOps(eaterAffix);
         const bool hasSoulEaterBehaviorOp = behaviorOps.HasOnDeathOpcode(
             ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH);
-        bool dispatchSoulEater = false;
-        if (hasSoulEaterBehaviorOp) {
-          dispatchSoulEater = true;
-        } else if (eaterAffix.HasAffix(MonsterAffixType::SoulEater)) {
-          dispatchSoulEater = true;
-        }
-        if (!dispatchSoulEater) {
+        if (!hasSoulEaterBehaviorOp) {
           continue;
         }
 
@@ -1364,16 +1316,7 @@ public:
             MonsterModifierAdapter::EvaluateBehaviorOps(avengerAffix);
         const bool hasAvengerBehaviorOp = behaviorOps.HasOnDeathOpcode(
             ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH);
-        const bool hasAvengerFallback =
-            avengerAffix.HasAffix(MonsterAffixType::Avenger) ||
-            registry.all_of<AvengerComponent>(avengerEntity);
-        bool dispatchAvenger = false;
-        if (hasAvengerBehaviorOp) {
-          dispatchAvenger = true;
-        } else if (hasAvengerFallback) {
-          dispatchAvenger = true;
-        }
-        if (!dispatchAvenger) {
+        if (!hasAvengerBehaviorOp) {
           continue;
         }
 
@@ -1395,7 +1338,7 @@ public:
 
     const bool hasToxicBehaviorOp = behaviorOps.HasOnDeathOpcode(
         ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH);
-    if (!hasToxicBehaviorOp && !affix->HasAffix(MonsterAffixType::Toxic))
+    if (!hasToxicBehaviorOp)
       return;
 
     auto *pos = registry.try_get<Position>(enemy);
