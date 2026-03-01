@@ -285,6 +285,13 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
         exit /b 1
     )
 
+    echo [Build] Checking monster behavior-op dispatch coverage...
+    python scripts\check_monster_behavior_dispatch.py
+    if errorlevel 1 (
+        echo [Build] Monster behavior-op dispatch coverage check failed! Aborting.
+        exit /b 1
+    )
+
     echo [Build] Generating modifier runtime v2...
     python scripts\gen_modifier_runtime_v2.py --check
     if errorlevel 1 (
