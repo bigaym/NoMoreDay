@@ -373,7 +373,7 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
     array.gain_intent_on_tick = true;
   }
 
-  // Legacy compatibility: keep historical IDs alive if old saves still set them.
+  // Historical node-id aliases for save compatibility.
   if (exec.active_nodes.test(SwordArrayNodes::TwinArray % 100)) {
     array.has_slow = true;
   }

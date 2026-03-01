@@ -1,5 +1,4 @@
 #include "game/systems/skill/AstrolabeSystem.hpp"
-#include "game/systems/stats/AttributePipeline.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 
 namespace NoMoreDay {
@@ -112,10 +111,6 @@ std::pair<int, int> AstrolabeSystem::getNodePoints(const TalentGraph& graph, con
     if (!node) return {0, 0};
     
     return { comp.getNodePoints(nodeId), node->maxPoints };
-}
-
-void AstrolabeSystem::applyTalentStats(entt::registry& registry, entt::entity player, const TalentGraph& graph) {
-    StatsSystem::Recalculate(registry, player);
 }
 
 } // namespace NoMoreDay

@@ -75,13 +75,6 @@ public:
         uint32_t nodeId
     );
     
-    // --- 属性应用 ---
-    [[deprecated("Use AttributePipeline::Calculate directly. This is reserved for future manual refresh.")]]
-    static void applyTalentStats(
-        entt::registry& registry,
-        entt::entity player,
-        const TalentGraph& graph
-    );
 };
 
 } // namespace NoMoreDay

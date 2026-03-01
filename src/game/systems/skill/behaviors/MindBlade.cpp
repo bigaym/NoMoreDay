@@ -340,7 +340,7 @@ bool MindBlade::Update(entt::registry &registry, entt::entity entity,
                                  ModifierType::Convert});
             } else if (spec.allocated_points.contains(MindBladeNodes::VoidRift) &&
                        spec.allocated_points.at(MindBladeNodes::VoidRift) > 0) {
-              // Legacy compatibility.
+              // Historical node-id alias for save compatibility.
               projMods->damage_modifiers.push_back(
                   DamageModifier{Tag::Physical, Tag::Void, 1.0f,
                                  ModifierType::Convert});
