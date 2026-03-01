@@ -147,5 +147,5 @@ UMR 是玩家侧构筑数值的统一执行层。它将装备词缀、技能专�
 ## 8. 二期里程碑状态
 
 1. **P2-A（已完成）**：地图词缀和怪物词缀的属性修饰并轨 UMR。
-2. **P2-B（进行中）**：怪物行为词缀事件门禁已并轨 UMR（Update/Hit/Death），并完成 `Molten` / `Teleporter` / `Frozen` / `Berserker` / `VoidZone` / `ManaSiphon` / `Shielding` / `Vortex` / `Waller` / `Vampiric` / `Nullifier` / `Entangler` / `MirrorImage` / `StormStrider` / `Toxic` / `SoulEater` 的 Op 优先分发（保留旧分支回退）。
+2. **P2-B（进行中）**：怪物行为词缀事件门禁已并轨 UMR（Update/Hit/Death），并完成 `Molten` / `Teleporter` / `Frozen` / `Berserker` / `VoidZone` / `ManaSiphon` / `Shielding` / `Vortex` / `Waller` / `Suppressor` / `SoulLink` / `Vampiric` / `Nullifier` / `Entangler` / `MirrorImage` / `StormStrider` / `Toxic` / `SoulEater` / `Avenger` 的 Op 优先分发（保留旧分支回退）。
 3. **P2-C（计划）**：终局地图机制词缀统一接入 UMR + 合同门禁。
