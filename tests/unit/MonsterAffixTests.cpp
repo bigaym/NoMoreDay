@@ -368,6 +368,53 @@ TEST_CASE("[Unit] MonsterAffix - ManaSiphon update behavior-op path drains playe
   CHECK(playerStats.mana >= 0.0f);
 }
 
+TEST_CASE("[Unit] MonsterAffix - Berserker update behavior-op path still activates berserk") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 100.0f, 100.0f);
+  registry.emplace<HealthComponent>(enemy, 10.0f, 100.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Berserker);
+  affix.hasUpdate = false;
+  affix.isBerserk = false;
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  CHECK(affix.isBerserk);
+  CHECK(registry.all_of<StatsDirty>(enemy));
+}
+
+TEST_CASE("[Unit] MonsterAffix - VoidZone update behavior-op path still spawns hazard") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 0.0f, 0.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::VoidZone);
+  affix.hasUpdate = false;
+  affix.timers[0] = MonsterAffixRegistry::Params::VOIDZONE_SPAWN_INTERVAL_MAX;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 80.0f, 40.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  auto zoneView = registry.view<VoidZoneTag, HazardComponent, LocalLevelTag>();
+  int zoneCount = 0;
+  for (const auto zone : zoneView) {
+    (void)zone;
+    ++zoneCount;
+  }
+
+  CHECK(zoneCount == 1);
+}
+
 TEST_CASE("[Unit] MonsterAffix - Shielding update behavior-op path initializes phase shield") {
   entt::registry registry;
 

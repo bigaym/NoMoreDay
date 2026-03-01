@@ -381,6 +381,12 @@
           "target": "enemy",
           "param_u32": 10,
           "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_VOIDZONE_UPDATE",
+          "target": "enemy",
+          "param_u32": 10,
+          "param_f32": 0.0
         }
       ],
       "debug": {
@@ -650,6 +656,12 @@
       "ops": [
         {
           "opcode": "MONSTER_EVENT_ON_UPDATE",
+          "target": "enemy",
+          "param_u32": 17,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_BERSERKER_UPDATE",
           "target": "enemy",
           "param_u32": 17,
           "param_f32": 0.0

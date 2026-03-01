@@ -92,6 +92,12 @@ void AppendBehaviorOpsForAffix(ModifierRecord &record,
   case MonsterAffixType::Waller:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE;
     break;
+  case MonsterAffixType::Berserker:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE;
+    break;
+  case MonsterAffixType::VoidZone:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE;
+    break;
   case MonsterAffixType::Vampiric:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT;
     break;

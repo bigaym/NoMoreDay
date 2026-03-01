@@ -95,6 +95,19 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
   CHECK(updateBehaviorOps.HasOnUpdateOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE));
 
+  NoMoreDay::MonsterAffixComponent berserkerAndVoidZone;
+  berserkerAndVoidZone.AddAffix(NoMoreDay::MonsterAffixType::Berserker);
+  berserkerAndVoidZone.AddAffix(NoMoreDay::MonsterAffixType::VoidZone);
+
+  const auto berserkerAndVoidZoneOps =
+      NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(
+          berserkerAndVoidZone);
+
+  CHECK(berserkerAndVoidZoneOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE));
+  CHECK(berserkerAndVoidZoneOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE));
+
   NoMoreDay::MonsterAffixComponent nullifierAndEntangler;
   nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::Nullifier);
   nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::Entangler);

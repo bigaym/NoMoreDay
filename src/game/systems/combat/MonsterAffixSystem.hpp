@@ -134,7 +134,14 @@ public:
                             tier);
           break;
         case MonsterAffixType::Berserker:
-          ProcessBerserker(registry, entity, affix, tier);
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE)) {
+            ProcessBerserker(registry, entity, affix, tier);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::Berserker)) {
+            ProcessBerserker(registry, entity, affix, tier);
+          }
           break;
         case MonsterAffixType::Frozen:
           if (behaviorOps.HasOnUpdateOpcode(
@@ -145,7 +152,16 @@ public:
           ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
           break;
         case MonsterAffixType::VoidZone:
-          ProcessVoidZone(registry, entity, pos, playerPos, affix, i, dt, tier);
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE)) {
+            ProcessVoidZone(registry, entity, pos, playerPos, affix, i, dt,
+                            tier);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::VoidZone)) {
+            ProcessVoidZone(registry, entity, pos, playerPos, affix, i, dt,
+                            tier);
+          }
           break;
         case MonsterAffixType::SoulEater:
           ProcessSoulEater(registry, entity, affix, dt, tier);
