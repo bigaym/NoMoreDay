@@ -1,6 +1,7 @@
 #include "TestCommon.hpp"
 #include "engine/physics/SpatialGrid.hpp" // For SpatialHashGrid
 #include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/EliteModifierComponents.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
@@ -567,4 +568,77 @@ TEST_CASE("[Unit] MonsterAffix - Suppressor Damage Reduction") {
 
   // Expect full damage (100)
   CHECK(result.total_damage == doctest::Approx(100.0f));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Suppressor update behavior-op path initializes suppressor component") {
+  entt::registry registry;
+
+  auto defender = registry.create();
+  registry.emplace<Position>(defender, 100.0f, 100.0f);
+  auto &affix = registry.emplace<MonsterAffixComponent>(defender);
+  affix.AddAffix(MonsterAffixType::Suppressor);
+  affix.hasUpdate = false;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 150.0f, 150.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  REQUIRE(registry.all_of<SuppressorComponent>(defender));
+
+  auto attacker = registry.create();
+  registry.emplace<Position>(attacker, 500.0f, 500.0f);
+  auto &attackerStats = registry.emplace<CombatStats>(attacker);
+  attackerStats.crit_chance = 0.0f;
+  registry.emplace<CombatStats>(defender);
+
+  DamagePool pool;
+  pool.values[0] = 100.0f;
+
+  const auto result =
+      DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Hit);
+  CHECK(result.total_damage == doctest::Approx(10.0f));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Avenger on-death behavior-op path grants nearby stack") {
+  entt::registry registry;
+
+  auto avenger = registry.create();
+  registry.emplace<Position>(avenger, 100.0f, 100.0f);
+  registry.emplace<EnemyTag>(avenger);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(avenger);
+  affix.AddAffix(MonsterAffixType::Avenger);
+  affix.hasOnDeath = false;
+
+  auto victim = registry.create();
+  registry.emplace<Position>(victim, 120.0f, 120.0f);
+  registry.emplace<EnemyTag>(victim);
+
+  MonsterAffixSystem::OnEnemyDeath(registry, victim);
+
+  REQUIRE(registry.all_of<AvengerComponent>(avenger));
+  const auto &avengerComp = registry.get<AvengerComponent>(avenger);
+  CHECK(avengerComp.avengerStacks == 1);
+}
+
+TEST_CASE("[Unit] MonsterAffix - SoulLink update behavior-op path initializes soul-link component") {
+  entt::registry registry;
+
+  auto linker = registry.create();
+  registry.emplace<Position>(linker, 100.0f, 100.0f);
+  auto &affix = registry.emplace<MonsterAffixComponent>(linker);
+  affix.AddAffix(MonsterAffixType::SoulLink);
+  affix.hasUpdate = false;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 120.0f, 120.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  CHECK(registry.all_of<SoulLinkComponent>(linker));
 }

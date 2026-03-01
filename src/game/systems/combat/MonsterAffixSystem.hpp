@@ -7,6 +7,7 @@
 #include "game/components/Buff.hpp"
 #include "game/components/Combat.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/EliteModifierComponents.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/HazardComponents.hpp" // For HazardComponent
 #include "game/components/NemesisComponent.hpp" // Added for Tier scaling
@@ -165,6 +166,28 @@ public:
           break;
         case MonsterAffixType::SoulEater:
           ProcessSoulEater(registry, entity, affix, dt, tier);
+          break;
+        case MonsterAffixType::Suppressor:
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE)) {
+            ProcessSuppressor(registry, entity);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::Suppressor) ||
+              registry.all_of<SuppressorComponent>(entity)) {
+            ProcessSuppressor(registry, entity);
+          }
+          break;
+        case MonsterAffixType::SoulLink:
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE)) {
+            ProcessSoulLink(registry, entity);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::SoulLink) ||
+              registry.all_of<SoulLinkComponent>(entity)) {
+            ProcessSoulLink(registry, entity);
+          }
           break;
         case MonsterAffixType::ManaSiphon:
           if (behaviorOps.HasOnUpdateOpcode(
@@ -854,6 +877,29 @@ private:
     return 0.0f;
   }
 
+  static void ProcessSuppressor(entt::registry &registry, entt::entity enemy) {
+    (void)registry.get_or_emplace<SuppressorComponent>(enemy);
+  }
+
+  static void ProcessSoulLink(entt::registry &registry, entt::entity enemy) {
+    (void)registry.get_or_emplace<SoulLinkComponent>(enemy);
+    (void)registry.get_or_emplace<SoulLinkTag>(enemy);
+  }
+
+  static void ProcessAvengerOnNearbyDeath(entt::registry &registry,
+                                          entt::entity avengerEntity,
+                                          const Position &avengerPos,
+                                          const Position &victimPos) {
+    auto &avenger = registry.get_or_emplace<AvengerComponent>(avengerEntity);
+    const float dx = victimPos.x - avengerPos.x;
+    const float dy = victimPos.y - avengerPos.y;
+    const float distSq = dx * dx + dy * dy;
+    const float rangeSq = avenger.stackRadius * avenger.stackRadius;
+    if (distSq <= rangeSq) {
+      avenger.AddStack(1);
+    }
+  }
+
   static void ApplyEntanglerOnHit(entt::registry &registry,
                                   const CombatEvent &evt) {
     if (registry.valid(evt.target) && registry.any_of<PlayerTag>(evt.target)) {
@@ -1127,7 +1173,7 @@ public:
   static void OnEnemyDeath(entt::registry &registry, entt::entity enemy) {
     auto *affix = registry.try_get<MonsterAffixComponent>(enemy);
 
-    // === SoulEater: 全局监听所有敌人死亡 ===
+    // === SoulEater / Avenger: 全局监听所有敌人死亡 ===
     auto *enemyPos = registry.try_get<Position>(enemy);
     if (enemyPos) {
       // 查找附近的 SoulEater 怪物
@@ -1166,6 +1212,32 @@ public:
                      static_cast<uint32_t>(eater), soulEater.stacks);
           }
         }
+      }
+
+      auto avengerView =
+          registry.view<MonsterAffixComponent, Position>(entt::exclude<KilledTag>);
+
+      for (auto avengerEntity : avengerView) {
+        if (avengerEntity == enemy) {
+          continue;
+        }
+
+        const auto &avengerAffix =
+            avengerView.get<MonsterAffixComponent>(avengerEntity);
+        const auto behaviorOps =
+            MonsterModifierAdapter::EvaluateBehaviorOps(avengerAffix);
+        const bool hasAvengerBehaviorOp = behaviorOps.HasOnDeathOpcode(
+            ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH);
+        const bool hasAvengerFallback =
+            avengerAffix.HasAffix(MonsterAffixType::Avenger) ||
+            registry.all_of<AvengerComponent>(avengerEntity);
+        if (!hasAvengerBehaviorOp && !hasAvengerFallback) {
+          continue;
+        }
+
+        const auto &avengerPos = avengerView.get<Position>(avengerEntity);
+        ProcessAvengerOnNearbyDeath(registry, avengerEntity, avengerPos,
+                                    *enemyPos);
       }
     }
 

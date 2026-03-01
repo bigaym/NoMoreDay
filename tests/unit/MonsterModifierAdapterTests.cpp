@@ -95,6 +95,19 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
   CHECK(updateBehaviorOps.HasOnUpdateOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE));
 
+  NoMoreDay::MonsterAffixComponent suppressorAndSoulLink;
+  suppressorAndSoulLink.AddAffix(NoMoreDay::MonsterAffixType::Suppressor);
+  suppressorAndSoulLink.AddAffix(NoMoreDay::MonsterAffixType::SoulLink);
+
+  const auto suppressorAndSoulLinkOps =
+      NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(
+          suppressorAndSoulLink);
+
+  CHECK(suppressorAndSoulLinkOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE));
+  CHECK(suppressorAndSoulLinkOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE));
+
   NoMoreDay::MonsterAffixComponent berserkerAndVoidZone;
   berserkerAndVoidZone.AddAffix(NoMoreDay::MonsterAffixType::Berserker);
   berserkerAndVoidZone.AddAffix(NoMoreDay::MonsterAffixType::VoidZone);
@@ -130,6 +143,7 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
   NoMoreDay::MonsterAffixComponent toxicOnly;
   toxicOnly.AddAffix(NoMoreDay::MonsterAffixType::Toxic);
   toxicOnly.AddAffix(NoMoreDay::MonsterAffixType::SoulEater);
+  toxicOnly.AddAffix(NoMoreDay::MonsterAffixType::Avenger);
 
   const auto toxicOps =
       NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(toxicOnly);
@@ -138,6 +152,8 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH));
   CHECK(toxicOps.HasOnDeathOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH));
+  CHECK(toxicOps.HasOnDeathOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH));
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - suppresses vampiric stat life-steal when behavior op exists") {

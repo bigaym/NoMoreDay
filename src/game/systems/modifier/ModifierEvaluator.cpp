@@ -225,6 +225,8 @@ ModifierDelta ModifierEvaluator::Evaluate(
       case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE:
         out.AddMonsterBehaviorOnUpdate(static_cast<uint16_t>(op.opcode));
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
@@ -236,6 +238,7 @@ ModifierDelta ModifierEvaluator::Evaluate(
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
       case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
+      case ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH:
         out.AddMonsterBehaviorOnDeath(static_cast<uint16_t>(op.opcode));
         break;
       default:
@@ -299,6 +302,8 @@ ModifierDelta ModifierEvaluator::Evaluate(const ModifierRuntimeRegistry &registr
       case ModifierOpCode::MONSTER_BEHAVIOR_WALLER_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE:
       case ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE:
         out.AddMonsterBehaviorOnUpdate(op.opcode);
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
@@ -310,6 +315,7 @@ ModifierDelta ModifierEvaluator::Evaluate(const ModifierRuntimeRegistry &registr
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
       case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
+      case ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH:
         out.AddMonsterBehaviorOnDeath(op.opcode);
         break;
       default:

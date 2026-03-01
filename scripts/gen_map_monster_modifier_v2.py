@@ -33,6 +33,8 @@ MONSTER_UPDATE_BEHAVIOR_OPS: dict[str, str] = {
     "Waller": "MONSTER_BEHAVIOR_WALLER_UPDATE",
     "Berserker": "MONSTER_BEHAVIOR_BERSERKER_UPDATE",
     "VoidZone": "MONSTER_BEHAVIOR_VOIDZONE_UPDATE",
+    "Suppressor": "MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE",
+    "SoulLink": "MONSTER_BEHAVIOR_SOUL_LINK_UPDATE",
 }
 
 MONSTER_ON_HIT_BEHAVIOR_OPS: dict[str, str] = {
@@ -46,6 +48,7 @@ MONSTER_ON_HIT_BEHAVIOR_OPS: dict[str, str] = {
 MONSTER_ON_DEATH_BEHAVIOR_OPS: dict[str, str] = {
     "Toxic": "MONSTER_BEHAVIOR_TOXIC_ON_DEATH",
     "SoulEater": "MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH",
+    "Avenger": "MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH",
 }
 
 WEAPON_CLASS_MASK_ALL = 0xFFFFFFFF
@@ -388,6 +391,23 @@ def _make_constraints() -> dict[str, int]:
     return {"exclusive_group": 0, "max_active": 0}
 
 
+def _append_behavior_op(
+    ops: list[dict[str, Any]], behavior_opcode: str | None, affix_id: int
+) -> None:
+    if behavior_opcode is None:
+        return
+    if any(op.get("opcode") == behavior_opcode for op in ops):
+        return
+    ops.append(
+        {
+            "opcode": behavior_opcode,
+            "target": "enemy",
+            "param_u32": affix_id,
+            "param_f32": 0.0,
+        }
+    )
+
+
 def _build_map_records(
     map_affix_enum: dict[str, int],
     stat_type_enum: dict[str, int],
@@ -507,15 +527,7 @@ def _build_monster_records(
                 }
             )
             behavior_opcode = MONSTER_UPDATE_BEHAVIOR_OPS.get(affix_name)
-            if behavior_opcode:
-                ops.append(
-                    {
-                        "opcode": behavior_opcode,
-                        "target": "enemy",
-                        "param_u32": affix_id,
-                        "param_f32": 0.0,
-                    }
-                )
+            _append_behavior_op(ops, behavior_opcode, affix_id)
         if affix_def["has_on_hit"]:
             ops.append(
                 {
@@ -526,15 +538,7 @@ def _build_monster_records(
                 }
             )
             behavior_opcode = MONSTER_ON_HIT_BEHAVIOR_OPS.get(affix_name)
-            if behavior_opcode:
-                ops.append(
-                    {
-                        "opcode": behavior_opcode,
-                        "target": "enemy",
-                        "param_u32": affix_id,
-                        "param_f32": 0.0,
-                    }
-                )
+            _append_behavior_op(ops, behavior_opcode, affix_id)
         if affix_def["has_on_death"]:
             ops.append(
                 {
@@ -545,15 +549,13 @@ def _build_monster_records(
                 }
             )
             behavior_opcode = MONSTER_ON_DEATH_BEHAVIOR_OPS.get(affix_name)
-            if behavior_opcode:
-                ops.append(
-                    {
-                        "opcode": behavior_opcode,
-                        "target": "enemy",
-                        "param_u32": affix_id,
-                        "param_f32": 0.0,
-                    }
-                )
+            _append_behavior_op(ops, behavior_opcode, affix_id)
+
+        _append_behavior_op(ops, MONSTER_UPDATE_BEHAVIOR_OPS.get(affix_name), affix_id)
+        _append_behavior_op(ops, MONSTER_ON_HIT_BEHAVIOR_OPS.get(affix_name), affix_id)
+        _append_behavior_op(
+            ops, MONSTER_ON_DEATH_BEHAVIOR_OPS.get(affix_name), affix_id
+        )
 
         if not ops:
             continue

@@ -98,6 +98,12 @@ void AppendBehaviorOpsForAffix(ModifierRecord &record,
   case MonsterAffixType::VoidZone:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE;
     break;
+  case MonsterAffixType::Suppressor:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE;
+    break;
+  case MonsterAffixType::SoulLink:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE;
+    break;
   case MonsterAffixType::Vampiric:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT;
     break;
@@ -120,6 +126,10 @@ void AppendBehaviorOpsForAffix(ModifierRecord &record,
     break;
   case MonsterAffixType::SoulEater:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH;
+    break;
+  case MonsterAffixType::Avenger:
+    behaviorOp.opcode =
+        ModifierOpCode::MONSTER_BEHAVIOR_AVENGER_ON_NEARBY_DEATH;
     break;
   default:
     return;
