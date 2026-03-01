@@ -261,6 +261,12 @@
           "target": "enemy",
           "param_u32": 7,
           "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_STORM_UPDATE",
+          "target": "enemy",
+          "param_u32": 7,
+          "param_f32": 0.0
         }
       ],
       "debug": {
@@ -340,6 +346,12 @@
         },
         {
           "opcode": "MONSTER_EVENT_ON_HIT",
+          "target": "enemy",
+          "param_u32": 9,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_VOID_ON_HIT",
           "target": "enemy",
           "param_u32": 9,
           "param_f32": 0.0

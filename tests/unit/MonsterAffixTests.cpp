@@ -12,6 +12,8 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/world/EnemySpawnSystem.hpp"
 
+#include <algorithm>
+
 
 using namespace NoMoreDay;
 
@@ -324,6 +326,30 @@ TEST_CASE("[Unit] MonsterAffix - Vampiric on-hit behavior-op path heals attacker
   CHECK(hp.current == doctest::Approx(40.0f));
 }
 
+TEST_CASE("[Unit] MonsterAffix - Void on-hit behavior-op path applies bonus once without recursion") {
+  entt::registry registry;
+
+  auto attacker = registry.create();
+  auto &affix = registry.emplace<MonsterAffixComponent>(attacker);
+  affix.AddAffix(MonsterAffixType::Void);
+  affix.hasOnHit = false;
+
+  auto target = registry.create();
+  auto &hp = registry.emplace<HealthComponent>(target, 100.0f, 100.0f);
+
+  CombatEvent evt;
+  evt.source = attacker;
+  evt.target = target;
+  CombatEventFactory::SetDamagePayload(evt, 40.0f);
+
+  MonsterAffixSystem::OnEnemyDealDamage(registry, evt);
+
+  const float expectedBonus =
+      (std::max)(40.0f * MonsterAffixRegistry::Params::VOID_ON_HIT_BONUS_RATIO,
+                 MonsterAffixRegistry::Params::VOID_ON_HIT_MIN_BONUS_DAMAGE);
+  CHECK(hp.current == doctest::Approx(100.0f - expectedBonus));
+}
+
 TEST_CASE("[Unit] MonsterAffix - Teleporter update behavior-op path still starts blink") {
   entt::registry registry;
 
@@ -343,6 +369,34 @@ TEST_CASE("[Unit] MonsterAffix - Teleporter update behavior-op path still starts
   MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
 
   CHECK(registry.all_of<TeleportationComponent>(enemy));
+}
+
+TEST_CASE("[Unit] MonsterAffix - Storm update behavior-op path spawns lightning marker") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 0.0f, 0.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::Storm);
+  affix.hasUpdate = false;
+  affix.timers[0] = MonsterAffixRegistry::Params::STORM_UPDATE_INTERVAL;
+
+  auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  registry.emplace<Position>(player, 128.0f, 64.0f);
+
+  NoMoreDay::systems::SpatialHashGrid dummyGrid(10, 10, 100.0f);
+  MonsterAffixSystem::Update(registry, 0.0f, dummyGrid);
+
+  auto ghostView = registry.view<LightningGhostTag, LightningGhostComponent>();
+  int ghostCount = 0;
+  for (const auto ghost : ghostView) {
+    (void)ghost;
+    ++ghostCount;
+  }
+
+  CHECK(ghostCount == 1);
 }
 
 TEST_CASE("[Unit] MonsterAffix - Frozen update behavior-op path still spawns orb") {

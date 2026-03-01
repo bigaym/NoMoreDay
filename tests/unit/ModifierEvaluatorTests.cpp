@@ -148,21 +148,21 @@ std::vector<uint8_t> BuildMonsterBehaviorRuntimeBlob() {
   NoMoreDay::ModifierRuntimeHeader header;
   header.record_count = 1;
   header.filter_count = 1;
-  header.op_count = 18;
+  header.op_count = 20;
   header.index_count = 0;
   header.records_offset = sizeof(NoMoreDay::ModifierRuntimeHeader);
   header.filters_offset =
       header.records_offset + sizeof(NoMoreDay::ModifierRuntimeRecord);
   header.ops_offset = header.filters_offset + sizeof(NoMoreDay::ModifierRuntimeFilter);
   header.index_offset =
-      header.ops_offset + 18 * sizeof(NoMoreDay::ModifierRuntimeOp);
+      header.ops_offset + 20 * sizeof(NoMoreDay::ModifierRuntimeOp);
   header.crc32 = 0;
 
   NoMoreDay::ModifierRuntimeRecord record;
   record.id = 8005001u;
   record.filter_index = 0;
   record.op_offset = 0;
-  record.op_count = 18;
+  record.op_count = 20;
 
   NoMoreDay::ModifierRuntimeFilter filter;
 
@@ -256,9 +256,19 @@ std::vector<uint8_t> BuildMonsterBehaviorRuntimeBlob() {
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE);
   soulLinkOp.param_u32 = 21u;
 
+  NoMoreDay::ModifierRuntimeOp stormUpdateOp;
+  stormUpdateOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE);
+  stormUpdateOp.param_u32 = 7u;
+
+  NoMoreDay::ModifierRuntimeOp voidOnHitOp;
+  voidOnHitOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT);
+  voidOnHitOp.param_u32 = 9u;
+
   std::vector<uint8_t> blob;
   blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) +
-               18 * sizeof(NoMoreDay::ModifierRuntimeOp));
+               20 * sizeof(NoMoreDay::ModifierRuntimeOp));
   AppendStructEvaluator(blob, header);
   AppendStructEvaluator(blob, record);
   AppendStructEvaluator(blob, filter);
@@ -280,6 +290,8 @@ std::vector<uint8_t> BuildMonsterBehaviorRuntimeBlob() {
   AppendStructEvaluator(blob, suppressorOp);
   AppendStructEvaluator(blob, avengerOp);
   AppendStructEvaluator(blob, soulLinkOp);
+  AppendStructEvaluator(blob, stormUpdateOp);
+  AppendStructEvaluator(blob, voidOnHitOp);
   return blob;
 }
 
@@ -452,6 +464,18 @@ TEST_CASE("[Unit] ModifierEvaluator - captures monster event ops in delta") {
   soulLinkBehaviorOp.param_u32 = 21u;
   record.ops.push_back(soulLinkBehaviorOp);
 
+  NoMoreDay::ModifierOp stormUpdateBehaviorOp;
+  stormUpdateBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE;
+  stormUpdateBehaviorOp.param_u32 = 7u;
+  record.ops.push_back(stormUpdateBehaviorOp);
+
+  NoMoreDay::ModifierOp voidOnHitBehaviorOp;
+  voidOnHitBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT;
+  voidOnHitBehaviorOp.param_u32 = 9u;
+  record.ops.push_back(voidOnHitBehaviorOp);
+
   NoMoreDay::ModifierEvalContext ctx;
   const auto delta = NoMoreDay::ModifierEvaluator::Evaluate(
       std::span<const NoMoreDay::ModifierRecord>(&record, 1), ctx);
@@ -481,6 +505,8 @@ TEST_CASE("[Unit] ModifierEvaluator - captures monster event ops in delta") {
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE)));
   CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE)));
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
@@ -491,6 +517,8 @@ TEST_CASE("[Unit] ModifierEvaluator - captures monster event ops in delta") {
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT)));
   CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH)));
   CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
@@ -542,6 +570,8 @@ TEST_CASE("[Unit] ModifierEvaluator - runtime registry captures monster behavior
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE)));
   CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE)));
+  CHECK(delta.monster_behavior_on_update_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
@@ -552,6 +582,8 @@ TEST_CASE("[Unit] ModifierEvaluator - runtime registry captures monster behavior
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT)));
   CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH)));
   CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(

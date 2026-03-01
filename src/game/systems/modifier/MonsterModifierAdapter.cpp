@@ -98,6 +98,9 @@ void AppendBehaviorOpsForAffix(ModifierRecord &record,
   case MonsterAffixType::VoidZone:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE;
     break;
+  case MonsterAffixType::Storm:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE;
+    break;
   case MonsterAffixType::Suppressor:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE;
     break;
@@ -120,6 +123,9 @@ void AppendBehaviorOpsForAffix(ModifierRecord &record,
   case MonsterAffixType::StormStrider:
     behaviorOp.opcode =
         ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE;
+    break;
+  case MonsterAffixType::Void:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT;
     break;
   case MonsterAffixType::Toxic:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH;

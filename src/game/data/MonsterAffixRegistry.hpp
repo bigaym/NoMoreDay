@@ -128,6 +128,12 @@ public:
     static constexpr float STORMSTRIDER_GHOST_DELAY = 1.5f;
     static constexpr float STORMSTRIDER_DAMAGE = 80.0f;
 
+    static constexpr float STORM_UPDATE_INTERVAL = 6.0f;
+    static constexpr float STORM_UPDATE_GHOST_DELAY = 1.0f;
+
+    static constexpr float VOID_ON_HIT_BONUS_RATIO = 0.12f;
+    static constexpr float VOID_ON_HIT_MIN_BONUS_DAMAGE = 3.0f;
+
     static constexpr float VORTEX_INTERVAL = 8.0f;
     static constexpr float VORTEX_DURATION = 3.0f;
     static constexpr float VORTEX_RADIUS = 300.0f;

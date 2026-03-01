@@ -108,18 +108,21 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
   CHECK(suppressorAndSoulLinkOps.HasOnUpdateOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_LINK_UPDATE));
 
-  NoMoreDay::MonsterAffixComponent berserkerAndVoidZone;
-  berserkerAndVoidZone.AddAffix(NoMoreDay::MonsterAffixType::Berserker);
-  berserkerAndVoidZone.AddAffix(NoMoreDay::MonsterAffixType::VoidZone);
+  NoMoreDay::MonsterAffixComponent berserkerVoidZoneAndStorm;
+  berserkerVoidZoneAndStorm.AddAffix(NoMoreDay::MonsterAffixType::Berserker);
+  berserkerVoidZoneAndStorm.AddAffix(NoMoreDay::MonsterAffixType::VoidZone);
+  berserkerVoidZoneAndStorm.AddAffix(NoMoreDay::MonsterAffixType::Storm);
 
   const auto berserkerAndVoidZoneOps =
       NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(
-          berserkerAndVoidZone);
+          berserkerVoidZoneAndStorm);
 
   CHECK(berserkerAndVoidZoneOps.HasOnUpdateOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_BERSERKER_UPDATE));
   CHECK(berserkerAndVoidZoneOps.HasOnUpdateOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOIDZONE_UPDATE));
+  CHECK(berserkerAndVoidZoneOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE));
 
   NoMoreDay::MonsterAffixComponent nullifierAndEntangler;
   nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::Nullifier);
@@ -139,6 +142,15 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE));
   CHECK(nullifierAndEntanglerOps.HasOnHitOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE));
+
+  NoMoreDay::MonsterAffixComponent voidOnly;
+  voidOnly.AddAffix(NoMoreDay::MonsterAffixType::Void);
+
+  const auto voidOnlyOps =
+      NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(voidOnly);
+
+  CHECK(voidOnlyOps.HasOnHitOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT));
 
   NoMoreDay::MonsterAffixComponent toxicOnly;
   toxicOnly.AddAffix(NoMoreDay::MonsterAffixType::Toxic);
@@ -168,7 +180,7 @@ TEST_CASE("[Unit] MonsterModifierAdapter - suppresses vampiric stat life-steal w
   CHECK(delta.flat.find(lifeStealStat) == delta.flat.end());
 }
 
-TEST_CASE("[Unit] MonsterModifierAdapter - does not emit behavior ops for unsupported Storm/Void") {
+TEST_CASE("[Unit] MonsterModifierAdapter - emits behavior ops for Storm/Void") {
   NoMoreDay::MonsterAffixComponent affixComponent;
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Storm);
   affixComponent.AddAffix(NoMoreDay::MonsterAffixType::Void);
@@ -176,7 +188,9 @@ TEST_CASE("[Unit] MonsterModifierAdapter - does not emit behavior ops for unsupp
   const auto behaviorOps =
       NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(affixComponent);
 
-  CHECK(behaviorOps.onUpdateOpcodes.empty());
-  CHECK(behaviorOps.onHitOpcodes.empty());
+  CHECK(behaviorOps.HasOnUpdateOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE));
+  CHECK(behaviorOps.HasOnHitOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT));
   CHECK(behaviorOps.onDeathOpcodes.empty());
 }

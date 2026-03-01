@@ -32,6 +32,7 @@ MONSTER_UPDATE_BEHAVIOR_OPS: dict[str, str] = {
     "Vortex": "MONSTER_BEHAVIOR_VORTEX_UPDATE",
     "Waller": "MONSTER_BEHAVIOR_WALLER_UPDATE",
     "Berserker": "MONSTER_BEHAVIOR_BERSERKER_UPDATE",
+    "Storm": "MONSTER_BEHAVIOR_STORM_UPDATE",
     "VoidZone": "MONSTER_BEHAVIOR_VOIDZONE_UPDATE",
     "Suppressor": "MONSTER_BEHAVIOR_SUPPRESSOR_UPDATE",
     "SoulLink": "MONSTER_BEHAVIOR_SOUL_LINK_UPDATE",
@@ -43,6 +44,7 @@ MONSTER_ON_HIT_BEHAVIOR_OPS: dict[str, str] = {
     "Entangler": "MONSTER_BEHAVIOR_ENTANGLER_ON_HIT",
     "MirrorImage": "MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE",
     "StormStrider": "MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE",
+    "Void": "MONSTER_BEHAVIOR_VOID_ON_HIT",
 }
 
 MONSTER_ON_DEATH_BEHAVIOR_OPS: dict[str, str] = {
@@ -61,6 +63,7 @@ IMPLEMENTED_BEHAVIOR_AFFIXES: frozenset[str] = frozenset(
         "Vortex",
         "Waller",
         "Berserker",
+        "Storm",
         "VoidZone",
         "Suppressor",
         "SoulLink",
@@ -69,13 +72,14 @@ IMPLEMENTED_BEHAVIOR_AFFIXES: frozenset[str] = frozenset(
         "Entangler",
         "MirrorImage",
         "StormStrider",
+        "Void",
         "Toxic",
         "SoulEater",
         "Avenger",
     }
 )
 
-UNSUPPORTED_BEHAVIOR_AFFIXES: frozenset[str] = frozenset({"Storm", "Void"})
+UNSUPPORTED_BEHAVIOR_AFFIXES: frozenset[str] = frozenset()
 
 WEAPON_CLASS_MASK_ALL = 0xFFFFFFFF
 

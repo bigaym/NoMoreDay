@@ -19,6 +19,7 @@
 #include "game/data/MonsterAffixRegistry.hpp" // For MonsterAffixComponent
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include "game/utils/EntityUtils.hpp"
@@ -153,6 +154,16 @@ public:
             break;
           }
           ProcessFrozen(registry, entity, pos, playerPos, affix, i, dt, tier);
+          break;
+        case MonsterAffixType::Storm:
+          if (behaviorOps.HasOnUpdateOpcode(
+                  ModifierOpCode::MONSTER_BEHAVIOR_STORM_UPDATE)) {
+            ProcessStorm(registry, entity, playerPos, affix, i, dt, tier);
+            break;
+          }
+          if (affix.HasAffix(MonsterAffixType::Storm)) {
+            ProcessStorm(registry, entity, playerPos, affix, i, dt, tier);
+          }
           break;
         case MonsterAffixType::VoidZone:
           if (behaviorOps.HasOnUpdateOpcode(
@@ -556,6 +567,47 @@ private:
     }
   }
 
+  static void SpawnLightningGhost(entt::registry &registry, entt::entity owner,
+                                  const Position &spawnPos,
+                                  const float explosionDelay) {
+    auto ghostEntity = registry.create();
+    registry.emplace<Position>(ghostEntity, spawnPos.x, spawnPos.y);
+    registry.emplace<LocalLevelTag>(ghostEntity);
+    registry.emplace<LightningGhostTag>(ghostEntity);
+    registry.emplace<Radius>(ghostEntity, 15.0f);
+
+    LightningGhostComponent ghost;
+    ghost.explosionDelay = explosionDelay;
+    registry.emplace<LightningGhostComponent>(ghostEntity, ghost);
+
+    HazardComponent hazard;
+    hazard.owner = owner;
+    registry.emplace<HazardComponent>(ghostEntity, hazard);
+
+    registry.emplace<ColorComponent>(ghostEntity, Color{255, 255, 100, 150});
+  }
+
+  static void ProcessStorm(entt::registry &registry, entt::entity enemy,
+                           const Position &playerPos,
+                           MonsterAffixComponent &affix, size_t affixIdx,
+                           float dt, int tier) {
+    (void)dt;
+    (void)tier;
+    bool ready =
+        affix.timers[affixIdx] >= MonsterAffixRegistry::Params::STORM_UPDATE_INTERVAL;
+    affix.timers[affixIdx] =
+        NoMoreDay::utils::SelectF(ready, 0.0f, affix.timers[affixIdx]);
+
+    if (!ready) {
+      return;
+    }
+
+    SpawnLightningGhost(registry, enemy, playerPos,
+                        MonsterAffixRegistry::Params::STORM_UPDATE_GHOST_DELAY);
+    LOG_TRACE("Storm lightning marker spawned at ({:.1f}, {:.1f})", playerPos.x,
+              playerPos.y);
+  }
+
   /**
    * @brief 虚空区域词缀 - 在玩家脚下生成虚空区域
    */
@@ -955,6 +1007,36 @@ private:
     }
   }
 
+  static void ApplyVoidOnHit(entt::registry &registry, const CombatEvent &evt) {
+    if (!registry.valid(evt.target) || !registry.all_of<HealthComponent>(evt.target)) {
+      return;
+    }
+
+    const float dealtDamage = CombatEventFactory::GetFinalAppliedDamage(evt);
+    if (dealtDamage <= 0.0f) {
+      return;
+    }
+
+    const float bonusDamage = (std::max)(
+        dealtDamage * MonsterAffixRegistry::Params::VOID_ON_HIT_BONUS_RATIO,
+        MonsterAffixRegistry::Params::VOID_ON_HIT_MIN_BONUS_DAMAGE);
+
+    DamagePool voidPool;
+    voidPool.Add(Tag::Shadow, bonusDamage);
+
+    DamageRequest request;
+    request.attacker = evt.source;
+    request.defender = evt.target;
+    request.skill_id = 0;
+    request.base_pool = voidPool;
+    request.additional_tags = Tag::None;
+    request.dispatch_damage_events = false;
+    request.skip_mitigation = true;
+    request.thorns_like_damage = true;
+
+    (void)DamagePipeline::Execute(registry, request, evt.source, false);
+  }
+
   static void ApplyToxicOnDeath(entt::registry &registry, entt::entity enemy,
                                 const Position &enemyPos) {
     Position playerPos = {0, 0};
@@ -1001,7 +1083,7 @@ private:
 
 public:
   /**
-   * @brief OnDealDamage 回调 - 处理 Nullifier 和 MirrorImage 词缀
+   * @brief OnDealDamage 回调 - 处理 OnHit 词缀
    */
   static void OnEnemyDealDamage(entt::registry &registry,
                                 const CombatEvent &evt) {
@@ -1044,6 +1126,14 @@ public:
       ApplyNullifierOnHit(registry, evt);
     } else if (affix->HasAffix(MonsterAffixType::Nullifier)) {
       ApplyNullifierOnHit(registry, evt);
+    }
+
+    const bool hasVoidBehaviorOp =
+        behaviorOps.HasOnHitOpcode(ModifierOpCode::MONSTER_BEHAVIOR_VOID_ON_HIT);
+    if (hasVoidBehaviorOp) {
+      ApplyVoidOnHit(registry, evt);
+    } else if (affix->HasAffix(MonsterAffixType::Void)) {
+      ApplyVoidOnHit(registry, evt);
     }
   }
 
@@ -1164,26 +1254,8 @@ public:
     if (!pos)
       return;
 
-    // 生成雷电残影
-    auto ghostEntity = registry.create();
-    registry.emplace<Position>(ghostEntity, pos->x, pos->y);
-    registry.emplace<LocalLevelTag>(ghostEntity);
-    registry.emplace<LightningGhostTag>(ghostEntity);
-    registry.emplace<Radius>(ghostEntity, 15.0f);
-
-    // 雷电残影组件
-    LightningGhostComponent ghost;
-    ghost.explosionDelay =
-        MonsterAffixRegistry::Params::STORMSTRIDER_GHOST_DELAY;
-    registry.emplace<LightningGhostComponent>(ghostEntity, ghost);
-
-    // Hazard 组件 (用于 owner 追踪)
-    HazardComponent hazard;
-    hazard.owner = defender;
-    registry.emplace<HazardComponent>(ghostEntity, hazard);
-
-    // 视觉效果（半透明黄色）
-    registry.emplace<ColorComponent>(ghostEntity, Color{255, 255, 100, 150});
+    SpawnLightningGhost(registry, defender, *pos,
+                        MonsterAffixRegistry::Params::STORMSTRIDER_GHOST_DELAY);
 
     LOG_TRACE("Lightning ghost spawned at ({:.1f}, {:.1f})", pos->x, pos->y);
   }
