@@ -419,6 +419,12 @@
           "target": "enemy",
           "param_u32": 11,
           "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE",
+          "target": "enemy",
+          "param_u32": 11,
+          "param_f32": 0.0
         }
       ],
       "debug": {
@@ -705,6 +711,12 @@
           "target": "enemy",
           "param_u32": 22,
           "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE",
+          "target": "enemy",
+          "param_u32": 22,
+          "param_f32": 0.0
         }
       ],
       "debug": {
@@ -740,6 +752,12 @@
         },
         {
           "opcode": "MONSTER_EVENT_ON_DEATH",
+          "target": "enemy",
+          "param_u32": 23,
+          "param_f32": 0.0
+        },
+        {
+          "opcode": "MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH",
           "target": "enemy",
           "param_u32": 23,
           "param_f32": 0.0

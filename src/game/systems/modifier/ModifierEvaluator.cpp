@@ -224,9 +224,12 @@ ModifierDelta ModifierEvaluator::Evaluate(
       case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
       case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
       case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
+      case ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE:
         out.AddMonsterBehaviorOnHit(static_cast<uint16_t>(op.opcode));
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
         out.AddMonsterBehaviorOnDeath(static_cast<uint16_t>(op.opcode));
         break;
       default:
@@ -289,9 +292,12 @@ ModifierDelta ModifierEvaluator::Evaluate(const ModifierRuntimeRegistry &registr
       case ModifierOpCode::MONSTER_BEHAVIOR_VAMPIRIC_ON_HIT:
       case ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT:
       case ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT:
+      case ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE:
+      case ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE:
         out.AddMonsterBehaviorOnHit(op.opcode);
         break;
       case ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH:
+      case ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH:
         out.AddMonsterBehaviorOnDeath(op.opcode);
         break;
       default:

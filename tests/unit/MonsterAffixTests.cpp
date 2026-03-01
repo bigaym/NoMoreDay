@@ -109,7 +109,7 @@ TEST_CASE("[Unit] MonsterAffix - Mirror Image Logic") {
 
   auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
   affix.AddAffix(MonsterAffixType::MirrorImage);
-  affix.hasOnHit = true;
+  affix.hasOnHit = false;
   affix.mirrorCooldown = 0.0f; // Reset cooldown
 
   // Trigger Mirror Image via HP threshold
@@ -131,6 +131,31 @@ TEST_CASE("[Unit] MonsterAffix - Mirror Image Logic") {
   }
 
   CHECK(cloneCount == 2);
+}
+
+TEST_CASE("[Unit] MonsterAffix - StormStrider OnTakeDamage behavior-op path still spawns ghost") {
+  entt::registry registry;
+
+  auto enemy = registry.create();
+  registry.emplace<Position>(enemy, 100.0f, 100.0f);
+
+  auto &affix = registry.emplace<MonsterAffixComponent>(enemy);
+  affix.AddAffix(MonsterAffixType::StormStrider);
+  affix.hasOnHit = false;
+
+  CombatEvent evt;
+  evt.source = enemy;
+
+  bool ghostSpawned = false;
+  for (int i = 0; i < 256; ++i) {
+    MonsterAffixSystem::OnEnemyTakeDamage(registry, evt);
+    if (!registry.view<LightningGhostTag>().empty()) {
+      ghostSpawned = true;
+      break;
+    }
+  }
+
+  CHECK(ghostSpawned);
 }
 
 TEST_CASE("[Unit] MonsterAffix - Toxic OnDeath flow is driven by adapter events") {

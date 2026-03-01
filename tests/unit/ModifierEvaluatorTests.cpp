@@ -148,21 +148,21 @@ std::vector<uint8_t> BuildMonsterBehaviorRuntimeBlob() {
   NoMoreDay::ModifierRuntimeHeader header;
   header.record_count = 1;
   header.filter_count = 1;
-  header.op_count = 6;
+  header.op_count = 9;
   header.index_count = 0;
   header.records_offset = sizeof(NoMoreDay::ModifierRuntimeHeader);
   header.filters_offset =
       header.records_offset + sizeof(NoMoreDay::ModifierRuntimeRecord);
   header.ops_offset = header.filters_offset + sizeof(NoMoreDay::ModifierRuntimeFilter);
   header.index_offset =
-      header.ops_offset + 6 * sizeof(NoMoreDay::ModifierRuntimeOp);
+      header.ops_offset + 9 * sizeof(NoMoreDay::ModifierRuntimeOp);
   header.crc32 = 0;
 
   NoMoreDay::ModifierRuntimeRecord record;
   record.id = 8005001u;
   record.filter_index = 0;
   record.op_offset = 0;
-  record.op_count = 6;
+  record.op_count = 9;
 
   NoMoreDay::ModifierRuntimeFilter filter;
 
@@ -196,9 +196,24 @@ std::vector<uint8_t> BuildMonsterBehaviorRuntimeBlob() {
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH);
   toxicOp.param_u32 = 8u;
 
+  NoMoreDay::ModifierRuntimeOp mirrorImageOp;
+  mirrorImageOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE);
+  mirrorImageOp.param_u32 = 21u;
+
+  NoMoreDay::ModifierRuntimeOp stormStriderOp;
+  stormStriderOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE);
+  stormStriderOp.param_u32 = 11u;
+
+  NoMoreDay::ModifierRuntimeOp soulEaterOp;
+  soulEaterOp.opcode = static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH);
+  soulEaterOp.param_u32 = 22u;
+
   std::vector<uint8_t> blob;
   blob.reserve(sizeof(header) + sizeof(record) + sizeof(filter) +
-               6 * sizeof(NoMoreDay::ModifierRuntimeOp));
+               9 * sizeof(NoMoreDay::ModifierRuntimeOp));
   AppendStructEvaluator(blob, header);
   AppendStructEvaluator(blob, record);
   AppendStructEvaluator(blob, filter);
@@ -208,6 +223,9 @@ std::vector<uint8_t> BuildMonsterBehaviorRuntimeBlob() {
   AppendStructEvaluator(blob, nullifierOp);
   AppendStructEvaluator(blob, entanglerOp);
   AppendStructEvaluator(blob, toxicOp);
+  AppendStructEvaluator(blob, mirrorImageOp);
+  AppendStructEvaluator(blob, stormStriderOp);
+  AppendStructEvaluator(blob, soulEaterOp);
   return blob;
 }
 
@@ -308,6 +326,24 @@ TEST_CASE("[Unit] ModifierEvaluator - captures monster event ops in delta") {
   toxicBehaviorOp.param_u32 = 8u;
   record.ops.push_back(toxicBehaviorOp);
 
+  NoMoreDay::ModifierOp mirrorImageBehaviorOp;
+  mirrorImageBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE;
+  mirrorImageBehaviorOp.param_u32 = 21u;
+  record.ops.push_back(mirrorImageBehaviorOp);
+
+  NoMoreDay::ModifierOp stormStriderBehaviorOp;
+  stormStriderBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE;
+  stormStriderBehaviorOp.param_u32 = 11u;
+  record.ops.push_back(stormStriderBehaviorOp);
+
+  NoMoreDay::ModifierOp soulEaterBehaviorOp;
+  soulEaterBehaviorOp.opcode =
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH;
+  soulEaterBehaviorOp.param_u32 = 22u;
+  record.ops.push_back(soulEaterBehaviorOp);
+
   NoMoreDay::ModifierEvalContext ctx;
   const auto delta = NoMoreDay::ModifierEvaluator::Evaluate(
       std::span<const NoMoreDay::ModifierRecord>(&record, 1), ctx);
@@ -327,8 +363,14 @@ TEST_CASE("[Unit] ModifierEvaluator - captures monster event ops in delta") {
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE)));
   CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH)));
+  CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH)));
 }
 
 TEST_CASE("[Unit] ModifierEvaluator - runtime registry captures monster event ops") {
@@ -364,6 +406,12 @@ TEST_CASE("[Unit] ModifierEvaluator - runtime registry captures monster behavior
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT)));
   CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE)));
+  CHECK(delta.monster_behavior_on_hit_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE)));
   CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH)));
+  CHECK(delta.monster_behavior_on_death_opcodes.contains(static_cast<uint16_t>(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH)));
 }

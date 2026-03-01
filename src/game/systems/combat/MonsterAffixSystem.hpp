@@ -987,11 +987,16 @@ public:
       return;
 
     const auto eventSet = MonsterModifierAdapter::EvaluateAffixEvents(*affix);
-    if (!eventSet.HasOnHit() && !affix->hasOnHit)
+    const auto behaviorOps = MonsterModifierAdapter::EvaluateBehaviorOps(*affix);
+    if (!eventSet.HasOnHit() && !affix->hasOnHit && !behaviorOps.HasOnHit())
       return;
 
     // MirrorImage: Spawn clones on crit or low HP
-    if (affix->HasAffix(MonsterAffixType::MirrorImage)) {
+    const bool hasMirrorImageBehaviorOp = behaviorOps.HasOnHitOpcode(
+        ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE);
+    if (hasMirrorImageBehaviorOp ||
+        (!hasMirrorImageBehaviorOp &&
+         affix->HasAffix(MonsterAffixType::MirrorImage))) {
       static constexpr float MIRROR_COOLDOWN = 10.0f;
       static constexpr float MIRROR_HP_THRESHOLD = 0.5f;
 
@@ -1029,7 +1034,10 @@ public:
     }
 
     // StormStrider: Spawn lightning ghost
-    if (!affix->HasAffix(MonsterAffixType::StormStrider))
+    const bool hasStormStriderBehaviorOp = behaviorOps.HasOnHitOpcode(
+        ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE);
+    if (!hasStormStriderBehaviorOp &&
+        !affix->HasAffix(MonsterAffixType::StormStrider))
       return;
 
     // 概率触发
@@ -1081,6 +1089,17 @@ public:
               entt::exclude<KilledTag>);
 
       for (auto eater : soulEaterView) {
+        const auto &eaterAffix =
+            soulEaterView.get<MonsterAffixComponent>(eater);
+        const auto behaviorOps =
+            MonsterModifierAdapter::EvaluateBehaviorOps(eaterAffix);
+        const bool hasSoulEaterBehaviorOp = behaviorOps.HasOnDeathOpcode(
+            ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH);
+        if (!hasSoulEaterBehaviorOp &&
+            !eaterAffix.HasAffix(MonsterAffixType::SoulEater)) {
+          continue;
+        }
+
         auto &soulEater = soulEaterView.get<SoulEaterComponent>(eater);
         const auto &eaterPos = soulEaterView.get<Position>(eater);
 

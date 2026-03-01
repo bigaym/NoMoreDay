@@ -89,8 +89,19 @@ void AppendBehaviorOpsForAffix(ModifierRecord &record,
   case MonsterAffixType::Entangler:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT;
     break;
+  case MonsterAffixType::MirrorImage:
+    behaviorOp.opcode =
+        ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE;
+    break;
+  case MonsterAffixType::StormStrider:
+    behaviorOp.opcode =
+        ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE;
+    break;
   case MonsterAffixType::Toxic:
     behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH;
+    break;
+  case MonsterAffixType::SoulEater:
+    behaviorOp.opcode = ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH;
     break;
   default:
     return;

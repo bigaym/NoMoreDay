@@ -80,6 +80,8 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
   NoMoreDay::MonsterAffixComponent nullifierAndEntangler;
   nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::Nullifier);
   nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::Entangler);
+  nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::MirrorImage);
+  nullifierAndEntangler.AddAffix(NoMoreDay::MonsterAffixType::StormStrider);
 
   const auto nullifierAndEntanglerOps =
       NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(
@@ -89,15 +91,22 @@ TEST_CASE("[Unit] MonsterModifierAdapter - evaluates behavior ops for monster be
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_NULLIFIER_ON_HIT));
   CHECK(nullifierAndEntanglerOps.HasOnHitOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_ENTANGLER_ON_HIT));
+  CHECK(nullifierAndEntanglerOps.HasOnHitOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_MIRROR_IMAGE_ON_TAKE_DAMAGE));
+  CHECK(nullifierAndEntanglerOps.HasOnHitOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_STORM_STRIDER_ON_TAKE_DAMAGE));
 
   NoMoreDay::MonsterAffixComponent toxicOnly;
   toxicOnly.AddAffix(NoMoreDay::MonsterAffixType::Toxic);
+  toxicOnly.AddAffix(NoMoreDay::MonsterAffixType::SoulEater);
 
   const auto toxicOps =
       NoMoreDay::MonsterModifierAdapter::EvaluateBehaviorOps(toxicOnly);
 
   CHECK(toxicOps.HasOnDeathOpcode(
       NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_TOXIC_ON_DEATH));
+  CHECK(toxicOps.HasOnDeathOpcode(
+      NoMoreDay::ModifierOpCode::MONSTER_BEHAVIOR_SOUL_EATER_ON_ENEMY_DEATH));
 }
 
 TEST_CASE("[Unit] MonsterModifierAdapter - suppresses vampiric stat life-steal when behavior op exists") {
