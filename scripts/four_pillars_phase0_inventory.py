@@ -96,6 +96,49 @@ def collect_scan_paths(src_root: Path) -> list[Path]:
     ]
 
 
+def generate_inventory_data(repo_root: Path, src_relative: str) -> dict[str, object]:
+    src_root = repo_root / src_relative
+    if not src_root.exists() or not src_root.is_dir():
+        raise FileNotFoundError(f"source directory not found: {src_root}")
+
+    scan_paths = collect_scan_paths(src_root)
+    marker_counts: Counter[str] = Counter()
+    class_counts: Counter[str] = Counter()
+    file_match_counts: Counter[str] = Counter()
+    matches: list[dict[str, object]] = []
+
+    for file_path in scan_paths:
+        file_matches, file_marker_counts, file_class_counts = scan_file(
+            file_path, repo_root
+        )
+        if not file_matches:
+            continue
+        marker_counts.update(file_marker_counts)
+        class_counts.update(file_class_counts)
+        relative_path = file_path.relative_to(repo_root).as_posix()
+        file_match_counts[relative_path] += len(file_matches)
+        matches.extend(file_matches)
+
+    hotspots = [
+        {"file": file_name, "match_count": count}
+        for file_name, count in file_match_counts.most_common(20)
+    ]
+
+    return {
+        "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
+        "repo_root": str(repo_root),
+        "scan_root": src_relative,
+        "scanned_files": len(scan_paths),
+        "files_with_matches": len(file_match_counts),
+        "total_matches": len(matches),
+        "markers": [marker_name for marker_name, _ in MARKERS],
+        "marker_counts": dict(sorted(marker_counts.items())),
+        "classification_counts": dict(sorted(class_counts.items())),
+        "hotspots": hotspots,
+        "matches": matches,
+    }
+
+
 def write_summary_markdown(summary_path: Path, inventory: dict[str, object]) -> None:
     hotspots: list[dict[str, object]] = inventory["hotspots"]  # type: ignore[assignment]
     markers: dict[str, int] = inventory["marker_counts"]  # type: ignore[assignment]
@@ -148,47 +191,11 @@ def write_summary_markdown(summary_path: Path, inventory: dict[str, object]) -> 
 def run_inventory(
     repo_root: Path, output_path: Path, summary_path: Path, src_relative: str
 ) -> int:
-    src_root = repo_root / src_relative
-    if not src_root.exists() or not src_root.is_dir():
-        print(f"[P0-1] ERROR: source directory not found: {src_root}")
+    try:
+        inventory = generate_inventory_data(repo_root, src_relative)
+    except FileNotFoundError as exc:
+        print(f"[P0-1] ERROR: {exc}")
         return 1
-
-    scan_paths = collect_scan_paths(src_root)
-    marker_counts: Counter[str] = Counter()
-    class_counts: Counter[str] = Counter()
-    file_match_counts: Counter[str] = Counter()
-    matches: list[dict[str, object]] = []
-
-    for file_path in scan_paths:
-        file_matches, file_marker_counts, file_class_counts = scan_file(
-            file_path, repo_root
-        )
-        if not file_matches:
-            continue
-        marker_counts.update(file_marker_counts)
-        class_counts.update(file_class_counts)
-        relative_path = file_path.relative_to(repo_root).as_posix()
-        file_match_counts[relative_path] += len(file_matches)
-        matches.extend(file_matches)
-
-    hotspots = [
-        {"file": file_name, "match_count": count}
-        for file_name, count in file_match_counts.most_common(20)
-    ]
-
-    inventory: dict[str, object] = {
-        "generated_at_utc": datetime.now(UTC).isoformat(timespec="seconds"),
-        "repo_root": str(repo_root),
-        "scan_root": src_relative,
-        "scanned_files": len(scan_paths),
-        "files_with_matches": len(file_match_counts),
-        "total_matches": len(matches),
-        "markers": [marker_name for marker_name, _ in MARKERS],
-        "marker_counts": dict(sorted(marker_counts.items())),
-        "classification_counts": dict(sorted(class_counts.items())),
-        "hotspots": hotspots,
-        "matches": matches,
-    }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(inventory, indent=2), encoding="utf-8")

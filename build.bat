@@ -265,6 +265,20 @@ if /i "!ENABLE_STALE_CLEAN!"=="ON" (
 )
 
 if /i "!ENABLE_PRECHECKS!"=="ON" (
+    echo [Build] Verifying worktree mapping prerequisites...
+    python scripts\check_worktree_mapping.py
+    if errorlevel 1 (
+        echo [Build] Worktree mapping prerequisite check failed! Aborting.
+        exit /b 1
+    )
+
+    echo [Build] Checking legacy/version marker reintroduction...
+    python scripts\check_legacy_reintroduction.py
+    if errorlevel 1 (
+        echo [Build] Legacy/version marker reintroduction check failed! Aborting.
+        exit /b 1
+    )
+
     echo [Build] Generating render ABI includes...
     python tools\render_abi\generate_gpu_abi.py
     if errorlevel 1 (
