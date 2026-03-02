@@ -1,0 +1,65 @@
+{
+  "total_test_cpp_files": 152,
+  "mapping": [
+    {
+      "module": "render",
+      "test_files": 63,
+      "test_case_tokens": 209
+    },
+    {
+      "module": "combat",
+      "test_files": 37,
+      "test_case_tokens": 162
+    },
+    {
+      "module": "skill",
+      "test_files": 20,
+      "test_case_tokens": 104
+    },
+    {
+      "module": "world",
+      "test_files": 14,
+      "test_case_tokens": 56
+    },
+    {
+      "module": "modifier",
+      "test_files": 12,
+      "test_case_tokens": 34
+    },
+    {
+      "module": "ai",
+      "test_files": 9,
+      "test_case_tokens": 20
+    },
+    {
+      "module": "item",
+      "test_files": 8,
+      "test_case_tokens": 34
+    },
+    {
+      "module": "ui",
+      "test_files": 6,
+      "test_case_tokens": 17
+    },
+    {
+      "module": "vfx",
+      "test_files": 6,
+      "test_case_tokens": 35
+    },
+    {
+      "module": "stats",
+      "test_files": 5,
+      "test_case_tokens": 19
+    },
+    {
+      "module": "nemesis",
+      "test_files": 2,
+      "test_case_tokens": 4
+    },
+    {
+      "module": "progression",
+      "test_files": 0,
+      "test_case_tokens": 0
+    }
+  ]
+}

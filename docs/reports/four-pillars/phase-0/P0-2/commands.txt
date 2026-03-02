@@ -1,0 +1,7 @@
+python scripts/check_worktree_mapping.py
+python scripts/check_legacy_reintroduction.py --write-current docs/reports/four-pillars/phase-0/P0-3/current-inventory.json
+./build.bat check
+ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure
+ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+ctest --test-dir build -C Release -L performance --output-on-failure
+python -c "<module-test-map generation command>"
