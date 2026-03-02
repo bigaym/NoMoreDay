@@ -54,6 +54,15 @@ scripts/assets
 build_log.txt
 .worktrees/
 
+# Local indexing artifacts
+build_clangd_index/
+compile_commands.json
+compile_commands.filtered*.json
+index.filtered_compile_commands.json
+index.yaml
+index.pkl
+NUL
+
 # Generated modifier runtime artifacts
 assets/generated/modifier_runtime_v2.bin
 assets/generated/modifier_runtime_v2.debug.json

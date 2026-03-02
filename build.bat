@@ -24,6 +24,7 @@ REM   novalidate  - Skip pre-build validation scripts (JSON/ABI checks)
 REM   nostaleclean- Skip stale build-process cleanup before build
 REM   cache=TOOL  - Select compiler cache tool: auto/sccache/ccache/clcache
 REM   j=N         - Set parallel jobs (default: 16)
+REM   index       - Generate index.yaml for clangd-graph-rag
 REM
 REM Examples:
 REM   build.bat                    - Default RelWithDebInfo build
@@ -59,6 +60,9 @@ set "CCACHE_FALLBACK_EXE=C:/Users/yuminao/AppData/Local/Microsoft/WinGet/Package
 set "ONLY_CHECK=OFF"
 set "GENERATOR_NAME="
 set "PARALLEL_JOBS=7"
+set "GENERATE_CLANGD_INDEX=OFF"
+set "CLANGD_INDEXER_EXE=D:\Program Files\LLVM\bin\clangd-indexer.exe"
+set "CLANGD_INDEX_FILE=index.yaml"
 set "NEED_CONFIG=0"
 set "VS_INSTALL_DIR="
 set "VS_SELECTED_GENERATOR="
@@ -199,6 +203,9 @@ if /i "%~1"=="noruntimeopt" (
 if /i "%~1"=="check" (
     set "ONLY_CHECK=ON"
 )
+if /i "%~1"=="index" (
+    set "GENERATE_CLANGD_INDEX=ON"
+)
 if /i "%~1"=="perf" (
     echo [Build] ERROR: 'perf' option is deprecated.
     echo [Build] Use CTest directly: ctest --test-dir build -C Release -L performance --output-on-failure
@@ -330,6 +337,7 @@ if exist CMakeCache.txt (
     set "CACHE_COMPILER_CACHE_TOOL="
     set "CACHE_CCACHE_FALLBACK_PATH="
     set "CACHE_BUILD_TESTING="
+    set "CACHE_EXPORT_COMPILE_COMMANDS="
 
     for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"CMAKE_GENERATOR:INTERNAL=" CMakeCache.txt') do (
         set "CACHE_GENERATOR=%%B"
@@ -363,6 +371,9 @@ if exist CMakeCache.txt (
     )
     for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"BUILD_TESTING:BOOL=" CMakeCache.txt') do (
         set "CACHE_BUILD_TESTING=%%B"
+    )
+    for /f "tokens=1,* delims==" %%A in ('findstr /b /c:"CMAKE_EXPORT_COMPILE_COMMANDS:BOOL=" CMakeCache.txt') do (
+        set "CACHE_EXPORT_COMPILE_COMMANDS=%%B"
     )
 
     if defined CACHE_GENERATOR (
@@ -447,6 +458,12 @@ if exist CMakeCache.txt (
             set "NEED_CONFIG=1"
         )
     )
+    if defined CACHE_EXPORT_COMPILE_COMMANDS (
+        if /i not "!CACHE_EXPORT_COMPILE_COMMANDS!"=="ON" (
+            echo [Build] Reconfigure required: CMAKE_EXPORT_COMPILE_COMMANDS !CACHE_EXPORT_COMPILE_COMMANDS! -> ON
+            set "NEED_CONFIG=1"
+        )
+    )
 )
 
 REM ============================================================================
@@ -491,6 +508,7 @@ if "!NEED_CONFIG!"=="1" (
     set "CMAKE_OPTS=!CMAKE_OPTS! -DNMD_ENABLE_COMPILER_CACHE=!ENABLE_COMPILER_CACHE!"
     set "CMAKE_OPTS=!CMAKE_OPTS! -DNMD_COMPILER_CACHE_TOOL=!COMPILER_CACHE_TOOL!"
     set "CMAKE_OPTS=!CMAKE_OPTS! -DNMD_CCACHE_DEFAULT_PATH:FILEPATH=!CCACHE_FALLBACK_EXE!"
+    set "CMAKE_OPTS=!CMAKE_OPTS! -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 
     cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
@@ -529,8 +547,73 @@ if "!ENABLE_ANALYZE!"=="ON" (
 
 if not "!BUILD_EXIT!"=="0" exit /b !BUILD_EXIT!
 
+REM ==========================================================================
+REM 5. Export compile_commands.json and optional clangd index
+REM ==========================================================================
+if exist "compile_commands.json" (
+    echo [Build] Exporting compile_commands.json to repo root...
+    if exist "..\compile_commands.json" del /f /q "..\compile_commands.json" >nul 2>nul
+    mklink "..\compile_commands.json" "compile_commands.json" >nul 2>nul
+    if errorlevel 1 (
+        echo [Build] Symlink unavailable, copying compile_commands.json...
+        copy /y "compile_commands.json" "..\compile_commands.json" >nul
+        if errorlevel 1 (
+            echo [Build] ERROR: Failed to export compile_commands.json
+            exit /b 1
+        )
+    )
+) else (
+    echo [Build] Warning: compile_commands.json not found in build directory.
+    if /i "!GENERATE_CLANGD_INDEX!"=="ON" (
+        where /q ninja
+        if errorlevel 1 (
+            echo [Build] ERROR: Missing compile_commands.json and Ninja is not available.
+            echo [Build] Install Ninja or use a generator that emits compile_commands.json.
+            exit /b 1
+        )
+
+        echo [Build] Generating compile_commands.json via fallback Ninja configure...
+        cmake -S .. -B ..\build_clangd_index -G Ninja -DCMAKE_BUILD_TYPE=!BUILD_TYPE! -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_TESTING=OFF -DNMD_ENABLE_COMPILER_CACHE=!ENABLE_COMPILER_CACHE! -DNMD_COMPILER_CACHE_TOOL=!COMPILER_CACHE_TOOL! -DNMD_CCACHE_DEFAULT_PATH:FILEPATH=!CCACHE_FALLBACK_EXE!
+        if errorlevel 1 (
+            echo [Build] ERROR: Fallback Ninja configure failed.
+            exit /b 1
+        )
+        if not exist "..\build_clangd_index\compile_commands.json" (
+            echo [Build] ERROR: Fallback build did not produce compile_commands.json.
+            exit /b 1
+        )
+
+        copy /y "..\build_clangd_index\compile_commands.json" "..\compile_commands.json" >nul
+        if errorlevel 1 (
+            echo [Build] ERROR: Failed to export fallback compile_commands.json
+            exit /b 1
+        )
+        echo [Build] Exported fallback compile_commands.json to repo root.
+    )
+)
+
+if /i "!GENERATE_CLANGD_INDEX!"=="ON" (
+    if not exist "!CLANGD_INDEXER_EXE!" (
+        echo [Build] ERROR: clangd-indexer not found: !CLANGD_INDEXER_EXE!
+        echo [Build] Install LLVM to D:\Program Files\LLVM or update CLANGD_INDEXER_EXE in build.bat.
+        exit /b 1
+    )
+    if not exist "..\compile_commands.json" (
+        echo [Build] ERROR: Missing ..\compile_commands.json for clangd-indexer.
+        exit /b 1
+    )
+
+    echo [Build] Generating !CLANGD_INDEX_FILE! with guarded clangd-indexer flow...
+    python "..\scripts\guard_clangd_index.py" --indexer "!CLANGD_INDEXER_EXE!" --compile-commands "..\compile_commands.json" --output "..\!CLANGD_INDEX_FILE!"
+    if errorlevel 1 (
+        echo [Build] ERROR: Guarded clangd index generation failed.
+        exit /b 1
+    )
+    echo [Build] Wrote ..\!CLANGD_INDEX_FILE!
+)
+
 REM ============================================================================
-REM 5. Post-Build Notes (Tests via CTest only)
+REM 6. Post-Build Notes (Tests via CTest only)
 REM ============================================================================
 echo [Test] Test execution is managed separately via CTest.
 echo [Test] Examples:
