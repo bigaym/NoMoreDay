@@ -14,13 +14,14 @@
 
 ## Key verification
 
-- `./build.bat` -> FAIL (`NoMoreDayTests` compile error in pre-existing unity-test collision between `tests/unit/TalentModifierAdapterTests.cpp` and `tests/unit/SkillSpecModifierAdapterTests.cpp`)
-- `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` -> PASS (`1/1`, `2.36s`)
-- `./bin/NoMoreDayTests.exe --test-case="*Offscreen post-process legacy fallback route removed*"` -> PASS runner, `0` matched (expected while test target remains stale due failed test build)
+- `./build.bat` -> PASS (`NoMoreDay`, `NoMoreDayTests` built successfully after unity exclusion update)
+- `./bin/NoMoreDayTests.exe --test-case="*Offscreen post-process legacy fallback route removed*"` -> PASS (`1` case, `4` assertions, `0` failed)
+- `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` -> PASS (`1/1`, `2.31s`)
 
 ## Changed files
 
 - `src/engine/render/RenderSystem.cpp`
 - `tests/unit/RenderSystemBranchConvergenceContractTest.cpp`
+- `tests/CMakeLists.txt`
 - `docs/reports/four-pillars/phase-1/A1-1/results.md`
 - `docs/reports/four-pillars/phase-1/A1-1/residual-risk.md`

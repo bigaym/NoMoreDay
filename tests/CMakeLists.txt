@@ -19,6 +19,8 @@ set_source_files_properties(
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatReleaseGateBenchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/FluidSPHReferenceTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/JFADistanceFieldEvaluatorTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/SkillSpecModifierAdapterTests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/TalentModifierAdapterTests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatTelemetryBenchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/FluidSimulationBenchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/MaterialLightingBenchmark.cpp
