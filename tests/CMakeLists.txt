@@ -98,4 +98,22 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 900
     )
+
+    add_test(NAME nmd.tests.progression.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*Progression*
+    )
+    set_tests_properties(nmd.tests.progression.unit PROPERTIES
+        LABELS "unit;progression;ci"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.progression.integration
+        COMMAND NoMoreDayTests --test-case=[Integration]*Progression*
+    )
+    set_tests_properties(nmd.tests.progression.integration PROPERTIES
+        LABELS "integration;progression;ci"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
 endif()
