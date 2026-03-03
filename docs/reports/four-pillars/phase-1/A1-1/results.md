@@ -15,7 +15,7 @@
 ## Key verification
 
 - `./build.bat` -> FAIL (`NoMoreDayTests` compile error in pre-existing unity-test collision between `tests/unit/TalentModifierAdapterTests.cpp` and `tests/unit/SkillSpecModifierAdapterTests.cpp`)
-- `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` -> PASS (`1/1`, `2.70s`)
+- `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure` -> PASS (`1/1`, `2.36s`)
 - `./bin/NoMoreDayTests.exe --test-case="*Offscreen post-process legacy fallback route removed*"` -> PASS runner, `0` matched (expected while test target remains stale due failed test build)
 
 ## Changed files
