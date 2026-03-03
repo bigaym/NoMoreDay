@@ -30,7 +30,10 @@
 #include "game/systems/ui/UIStash.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include <algorithm>
+#include <cassert>
 #include <cmath> // For std::min
+#include <cstdlib>
+#include <cstring>
 #include <cstdio>
 #include <string>
 
@@ -380,6 +383,7 @@ void UISystem::Update(entt::registry &registry,
   if (IsKeyPressed(KEY_ESCAPE)) {
     if (State.showQuantityPopup) {
       State.showQuantityPopup = false;
+      State.isTyping = false;
     } else if (State.showCharacterPanel) {
       bool popupHandled = false;
       auto view = registry.view<PlayerTag>();
@@ -527,6 +531,11 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   State.hoveredSkillSlot = -1;
   State.hoveredBuffIdx = -1;
 
+  if (IsModalInputCaptured()) {
+    State.isMouseOverUI = true;
+    assert(State.isMouseOverUI && "Modal UI must capture pointer input");
+  }
+
   // 1. Draw Subsystems (Passed logic coordinates will be scaled by UIRenderer)
   UIMinimap::Draw(registry, levelManager);
   UIAstrolabe::Draw(registry);
@@ -551,7 +560,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   DrawBuffs(registry);
 
   // 3. Ground Interaction highlights (drawn below overlays)
-  if (State.hoveredItem == entt::null) {
+  if (!IsModalInputCaptured() && State.hoveredItem == entt::null) {
     
     // Phase 1 Optimization: Use shared cache from RenderSystem
     // Use Mouse World Position to check against Item World Rects directly
@@ -706,14 +715,137 @@ void UISystem::DrawMessageBox() {
 }
 
 void UISystem::DrawQuantityPopup(entt::registry &registry) {
-  if (State.showQuantityPopup) {
-    float x = (float)GetScreenWidth() / 2.0f - 100;
-    float y = (float)GetScreenHeight() / 2.0f - 50;
-    DrawRectangle((int)x, (int)y, 200, 100, DARKGRAY);
-    DrawText("Quantity Popup (TODO)", (int)(x + 10), (int)(y + 10), 20, WHITE);
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-      State.showQuantityPopup = false;
+  if (!State.showQuantityPopup) {
+    return;
   }
+
+  auto closeQuantityPopup = []() {
+    State.showQuantityPopup = false;
+    State.quantityTargetItem = entt::null;
+    State.quantityInputBuf[0] = '\0';
+    State.isTyping = false;
+  };
+
+  State.isTyping = true;
+
+  if (!registry.valid(State.quantityTargetItem) ||
+      !registry.all_of<ItemComponent>(State.quantityTargetItem)) {
+    closeQuantityPopup();
+    return;
+  }
+
+  auto view = registry.view<PlayerTag>();
+  if (view.begin() == view.end()) {
+    closeQuantityPopup();
+    return;
+  }
+  const entt::entity player = view.front();
+
+  const auto &item = registry.get<ItemComponent>(State.quantityTargetItem);
+  State.quantityMax = std::max(1, std::min(State.quantityMax, item.quantity));
+  State.quantityVal = std::clamp(State.quantityVal, 1, State.quantityMax);
+
+  while (int key = GetCharPressed()) {
+    if (key >= '0' && key <= '9') {
+      const size_t len = std::strlen(State.quantityInputBuf);
+      if (len + 1 < sizeof(State.quantityInputBuf)) {
+        State.quantityInputBuf[len] = (char)key;
+        State.quantityInputBuf[len + 1] = '\0';
+      }
+    }
+  }
+
+  if (IsKeyPressed(KEY_BACKSPACE)) {
+    const size_t len = std::strlen(State.quantityInputBuf);
+    if (len > 0) {
+      State.quantityInputBuf[len - 1] = '\0';
+    }
+  }
+
+  if (State.quantityInputBuf[0] != '\0') {
+    const int parsed = std::atoi(State.quantityInputBuf);
+    State.quantityVal = std::clamp(parsed, 1, State.quantityMax);
+  }
+
+  const int wheelDelta = (int)GetMouseWheelMove();
+  if (wheelDelta != 0) {
+    State.quantityVal = std::clamp(State.quantityVal + wheelDelta, 1, State.quantityMax);
+    snprintf(State.quantityInputBuf, sizeof(State.quantityInputBuf), "%d", State.quantityVal);
+  }
+
+  if (IsKeyPressed(KEY_UP)) {
+    State.quantityVal = std::min(State.quantityVal + 1, State.quantityMax);
+    snprintf(State.quantityInputBuf, sizeof(State.quantityInputBuf), "%d", State.quantityVal);
+  }
+  if (IsKeyPressed(KEY_DOWN)) {
+    State.quantityVal = std::max(State.quantityVal - 1, 1);
+    snprintf(State.quantityInputBuf, sizeof(State.quantityInputBuf), "%d", State.quantityVal);
+  }
+
+  const float popupW = 320.0f;
+  const float popupH = 190.0f;
+  const float x = (float)GetScreenWidth() * 0.5f - popupW * 0.5f;
+  const float y = (float)GetScreenHeight() * 0.5f - popupH * 0.5f;
+
+  DrawRectangle((int)x, (int)y, (int)popupW, (int)popupH, Fade(BLACK, 0.88f));
+  DrawRectangleLinesEx({x, y, popupW, popupH}, 1.5f, Fade(WHITE, 0.75f));
+
+  const char *actionLabel = State.quantityActionType == 1 ? "销毁数量" : "丢弃数量";
+  DrawText(actionLabel, (int)(x + 14), (int)(y + 12), 24, WHITE);
+  DrawText(item.name.c_str(), (int)(x + 14), (int)(y + 48), 20, LIGHTGRAY);
+
+  char rangeText[64] = {0};
+  snprintf(rangeText, sizeof(rangeText), "范围: 1 - %d", State.quantityMax);
+  DrawText(rangeText, (int)(x + 14), (int)(y + 78), 18, GRAY);
+
+  char valueText[64] = {0};
+  snprintf(valueText, sizeof(valueText), "数量: %d", State.quantityVal);
+  DrawText(valueText, (int)(x + 14), (int)(y + 104), 24, GOLD);
+
+  const Rectangle confirmRect = {x + 14.0f, y + popupH - 52.0f, 136.0f, 36.0f};
+  const Rectangle cancelRect = {x + popupW - 150.0f, y + popupH - 52.0f, 136.0f, 36.0f};
+  const Vector2 mouse = GetMousePosition();
+
+  const bool confirmHovered = CheckCollisionPointRec(mouse, confirmRect);
+  const bool cancelHovered = CheckCollisionPointRec(mouse, cancelRect);
+
+  DrawRectangleRec(confirmRect, confirmHovered ? DARKGREEN : Fade(DARKGREEN, 0.8f));
+  DrawRectangleRec(cancelRect, cancelHovered ? MAROON : Fade(MAROON, 0.8f));
+  DrawText("确认", (int)(confirmRect.x + 48), (int)(confirmRect.y + 8), 20, WHITE);
+  DrawText("取消", (int)(cancelRect.x + 48), (int)(cancelRect.y + 8), 20, WHITE);
+
+  bool confirmAction = false;
+  bool cancelAction = false;
+  if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_KP_ENTER)) {
+    confirmAction = true;
+  }
+  if (IsKeyPressed(KEY_ESCAPE)) {
+    cancelAction = true;
+  }
+  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+    if (confirmHovered) {
+      confirmAction = true;
+    } else if (cancelHovered || !CheckCollisionPointRec(mouse, {x, y, popupW, popupH})) {
+      cancelAction = true;
+    }
+  }
+
+  if (confirmAction) {
+    const int quantity = std::clamp(State.quantityVal, 1, State.quantityMax);
+    if (State.quantityActionType == 1) {
+      InventorySystem::destroyItem(registry, player, State.quantityTargetItem, quantity);
+    } else {
+      InventorySystem::dropItem(registry, player, State.quantityTargetItem, quantity);
+    }
+
+    closeQuantityPopup();
+  } else if (cancelAction) {
+    closeQuantityPopup();
+  }
+}
+
+bool UISystem::IsModalInputCaptured() {
+  return State.showQuantityPopup;
 }
 
 void UISystem::DrawSkillHotbar(entt::registry &registry) {

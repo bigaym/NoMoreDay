@@ -36,4 +36,27 @@ TEST_CASE("[Integration] UISystem - Panel Drag clears stale drag when button is 
   CHECK(UISystem::State.activeDragPanel == UIPanelID::None);
 }
 
+TEST_CASE("[Integration] UISystem - Quantity popup reports modal input capture") {
+  UISystem::State.showQuantityPopup = false;
+  CHECK_FALSE(UISystem::IsModalInputCaptured());
+
+  UISystem::State.showQuantityPopup = true;
+  CHECK(UISystem::IsModalInputCaptured());
+
+  UISystem::State.showQuantityPopup = false;
+}
+
+TEST_CASE("[Integration] UISystem - Quantity popup close clears typing flag") {
+  entt::registry registry;
+
+  UISystem::State.showQuantityPopup = true;
+  UISystem::State.isTyping = true;
+  UISystem::State.quantityTargetItem = entt::null;
+
+  UISystem::DrawQuantityPopup(registry);
+
+  CHECK_FALSE(UISystem::State.showQuantityPopup);
+  CHECK_FALSE(UISystem::State.isTyping);
+}
+
 } // namespace NoMoreDay

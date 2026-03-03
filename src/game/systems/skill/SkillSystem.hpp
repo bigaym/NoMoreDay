@@ -168,6 +168,14 @@ public:
     static float GetTriggerEffectivenessForCast(uint64_t cast_id);
 
 private:
+    struct CastTrackingContext;
+    static CastTrackingContext &GetCastTrackingContext();
+    static void RememberCastDepth(uint64_t cast_id, uint8_t depth,
+                                  float trigger_effectiveness = -1.0f);
+    static uint8_t QueryCastDepth(uint64_t cast_id);
+    static float QueryTriggerEffectiveness(uint64_t cast_id);
+    static uint64_t NextCastId();
+
     static inline std::map<uint32_t, CastCallback> s_skill_callbacks;
     static inline std::vector<SkillHook> s_pre_cast_hooks;
     static inline std::vector<SkillHook> s_post_cast_hooks;

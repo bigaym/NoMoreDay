@@ -42,6 +42,7 @@ public:
     static entt::entity GetPlayerEntity(entt::registry& registry);
     static Vector2 GetMousePositionLogic();
     static bool IsSkillTreeVisible(entt::registry& registry, entt::entity entity);
+    static bool IsModalInputCaptured();
     static void UpdatePanelDrag(NoMoreDay::UIPanelID id, float& x, float& y, float w, float h, float headerHeight);
 
 private:

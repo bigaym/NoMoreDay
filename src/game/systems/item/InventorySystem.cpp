@@ -1,5 +1,6 @@
 #include "game/systems/item/InventorySystem.hpp"
 #include "core/logging/Logger.hpp"
+#include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EquipmentComponent.hpp" // ADDED THIS LINE
@@ -19,14 +20,52 @@
 
 using namespace NoMoreDay;
 
+namespace {
+
+Color GetFallbackItemColor(const ItemComponent &itemData)
+{
+    switch (itemData.type)
+    {
+    case ItemType::Material:
+        return GREEN;
+    case ItemType::Consumable:
+        if (itemData.id == 101)
+            return RED;
+        if (itemData.id == 102)
+            return BLUE;
+        return ORANGE;
+    case ItemType::Bag:
+        return BROWN;
+    default:
+        return YELLOW;
+    }
+}
+
+}
+
 entt::entity InventorySystem::createItem(entt::registry &registry, const ItemComponent &itemData, float x, float y)
 {
     auto entity = registry.create();
     registry.emplace<ItemComponent>(entity, itemData);
     registry.emplace<Position>(entity, x, y);
-    // TODO: 根据 itemData.id 或类型添加 SpriteComponent
-    // 目前，没有精灵或使用默认占位符
-    registry.emplace<ColorComponent>(entity, YELLOW); // 占位符颜色
+
+    bool hasSprite = false;
+    if (itemData.textureId != 0)
+    {
+        Texture2D tex = AssetLoadingSystem::GetTexture(itemData.textureId);
+        if (tex.id > 0)
+        {
+            const float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
+            registry.emplace<SpriteComponent>(entity, tex, dropScale);
+            hasSprite = true;
+        }
+    }
+
+    if (!hasSprite)
+    {
+        registry.emplace<ColorComponent>(entity, GetFallbackItemColor(itemData));
+    }
+
     return entity;
 }
 

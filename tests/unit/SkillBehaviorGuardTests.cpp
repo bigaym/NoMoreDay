@@ -9,6 +9,10 @@
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
+#include <algorithm>
+#include <atomic>
+#include <cmath>
+#include <thread>
 
 namespace NoMoreDay {
 
@@ -92,6 +96,42 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
     CHECK(runtime->trigger_cooldowns.contains(233));
   }
 
+  SUBCASE("Trigger dispatch stores trigger effectiveness per cast") {
+    const auto *nodeContract = SkillRegistry::Get().GetNodeContract(1, 114);
+    REQUIRE(nodeContract != nullptr);
+    const float expectedEffectiveness =
+        (std::max)(0.0f, nodeContract->trigger.effectiveness);
+
+    uint64_t maxCastIdBefore = 0;
+    auto existingExecView = registry.view<SkillExecution>();
+    for (const auto execEntity : existingExecView) {
+      const auto &existingExec = existingExecView.get<SkillExecution>(execEntity);
+      maxCastIdBefore = (std::max)(maxCastIdBefore, existingExec.cast_id);
+    }
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      caster, target, 1, Tag::Hit | Tag::Melee, false, 9101));
+
+    uint64_t triggerCastId = 0;
+    auto execView = registry.view<SkillExecution>();
+    for (const auto execEntity : execView) {
+      const auto &exec = execView.get<SkillExecution>(execEntity);
+      if (exec.owner != caster || exec.skill_id != nodeContract->trigger.trigger_skill_id ||
+          exec.trigger_depth != 1 || exec.cast_id <= maxCastIdBefore) {
+        continue;
+      }
+      triggerCastId = exec.cast_id;
+      break;
+    }
+
+    REQUIRE(triggerCastId != 0);
+    CHECK(SkillSystem::GetTriggerEffectivenessForCast(triggerCastId) ==
+          doctest::Approx(expectedEffectiveness));
+    CHECK(SkillSystem::GetTriggerEffectivenessForCast(0) ==
+          doctest::Approx(1.0f));
+  }
+
   SUBCASE("Trigger depth guard blocks depth > 2") {
     auto &runtime =
         registry.get_or_emplace<SkillContractRuntimeComponent>(caster);
@@ -111,6 +151,60 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger cooldown and depth guard") {
     const auto after = registry.storage<SkillExecution>().size();
     CHECK(after == before);
   }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Cast tracking handles concurrent read/write access") {
+  entt::registry registry;
+  CombatEventDispatcher::Clear();
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  const auto caster = registry.create();
+  registry.emplace<Position>(caster, 0.0f, 0.0f);
+  registry.emplace<CombatStats>(caster).mana = 200.0f;
+  auto &active = registry.emplace<ActiveSkillsComponent>(caster);
+  active.specialized_slots[0].skill_id = 1;
+  active.specialized_slots[0].allocated_points[114] = 1;
+
+  const auto target = registry.create();
+  registry.emplace<Position>(target, 8.0f, 0.0f);
+
+  std::atomic<bool> writerDone{false};
+  std::atomic<bool> readerFailed{false};
+
+  std::thread writer([&]() {
+    for (uint64_t castId = 31000; castId < 31128; ++castId) {
+      CombatEventDispatcher::Dispatch(
+          registry, CombatEventFactory::CreateSkillHit(
+                        caster, target, 1, Tag::Hit | Tag::Melee, false, castId));
+    }
+    writerDone.store(true, std::memory_order_release);
+  });
+
+  auto readerTask = [&]() {
+    uint64_t probeCastId = 31000;
+    while (!writerDone.load(std::memory_order_acquire)) {
+      const float triggerEffectiveness =
+          SkillSystem::GetTriggerEffectivenessForCast(probeCastId);
+      if (!std::isfinite(triggerEffectiveness) || triggerEffectiveness < 0.0f) {
+        readerFailed.store(true, std::memory_order_relaxed);
+        return;
+      }
+      probeCastId = (probeCastId == 31127) ? 31000 : probeCastId + 1;
+    }
+  };
+
+  std::thread readerA(readerTask);
+  std::thread readerB(readerTask);
+  std::thread readerC(readerTask);
+
+  writer.join();
+  readerA.join();
+  readerB.join();
+  readerC.join();
+
+  CHECK_FALSE(readerFailed.load(std::memory_order_relaxed));
 }
 
 TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {

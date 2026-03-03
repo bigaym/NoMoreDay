@@ -21,6 +21,7 @@ namespace NoMoreDay {
         
         // Also ensure quantity popup is closed
         UISystem::State.showQuantityPopup = false;
+        UISystem::State.isTyping = false;
     }
 
     bool InventoryState::OnUpdate(float dt) {
@@ -34,6 +35,7 @@ namespace NoMoreDay {
             
             if (UISystem::State.showQuantityPopup) {
                 UISystem::State.showQuantityPopup = false;
+                UISystem::State.isTyping = false;
             } else if (UISystem::State.showContextMenu) {
                 UISystem::State.showContextMenu = false;
             } else {

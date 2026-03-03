@@ -80,6 +80,20 @@ TEST_CASE("[Unit] SkillCastConstraintService - Contract guard evaluation") {
     REQUIRE(allocatedTriggers.size() == 1);
     CHECK(allocatedTriggers.front() == triggerNodes.front());
   }
+
+  SUBCASE("Null contract or specialization short-circuits as valid") {
+    std::vector<uint32_t> allocatedTransmuters = {111u};
+    std::vector<uint32_t> allocatedTriggers = {222u};
+
+    CHECK(skill::ValidateContractCastConstraints(
+        SkillRegistry::Get(), nullptr, nullptr, 999u, &allocatedTransmuters,
+        &allocatedTriggers));
+
+    CHECK(allocatedTransmuters.size() == 1);
+    CHECK(allocatedTransmuters.front() == 111u);
+    CHECK(allocatedTriggers.size() == 1);
+    CHECK(allocatedTriggers.front() == 222u);
+  }
 }
 
 } // namespace NoMoreDay

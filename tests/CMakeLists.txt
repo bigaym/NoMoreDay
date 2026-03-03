@@ -143,4 +143,67 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 600
     )
+
+    add_test(NAME nmd.tests.combat.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*Combat*
+    )
+    set_tests_properties(nmd.tests.combat.unit PROPERTIES
+        LABELS "unit;combat;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.combat.integration
+        COMMAND NoMoreDayTests --test-case=[Integration]*Combat*
+    )
+    set_tests_properties(nmd.tests.combat.integration PROPERTIES
+        LABELS "integration;combat;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
+
+    add_test(NAME nmd.tests.skill.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*Skill*
+    )
+    set_tests_properties(nmd.tests.skill.unit PROPERTIES
+        LABELS "unit;skill;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.skill.integration
+        COMMAND NoMoreDayTests --test-case=[Integration]*Skill*
+    )
+    set_tests_properties(nmd.tests.skill.integration PROPERTIES
+        LABELS "integration;skill;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
+
+    add_test(NAME nmd.tests.world.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*World*
+    )
+    set_tests_properties(nmd.tests.world.unit PROPERTIES
+        LABELS "unit;world;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.ai.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*AI*
+    )
+    set_tests_properties(nmd.tests.ai.unit PROPERTIES
+        LABELS "unit;ai;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.ai.integration
+        COMMAND NoMoreDayTests --test-case=[Integration]*AI*
+    )
+    set_tests_properties(nmd.tests.ai.integration PROPERTIES
+        LABELS "integration;ai;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
 endif()

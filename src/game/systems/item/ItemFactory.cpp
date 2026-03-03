@@ -4,6 +4,7 @@
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/EquipmentAssetRegistry.hpp"
 #include "engine/resource/RuneAssetRegistry.hpp"
+#include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/item/LootFilter.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
@@ -87,6 +88,22 @@ getRandomTextureForType(ItemType type, EquipmentSlot slot,
   }
 
   return 0;
+}
+
+static bool TryAttachWorldSprite(entt::registry &registry, entt::entity entity,
+                                 entt::id_type textureId) {
+  if (textureId == 0) {
+    return false;
+  }
+
+  Texture2D tex = AssetLoadingSystem::GetTexture(textureId);
+  if (tex.id <= 0) {
+    return false;
+  }
+
+  float dropScale = 32.0f / (float)std::max(tex.width, tex.height);
+  registry.emplace<SpriteComponent>(entity, tex, dropScale);
+  return true;
 }
 
 std::map<uint32_t, LootPool> ItemFactory::s_lootPools;
@@ -1294,8 +1311,27 @@ entt::entity ItemFactory::createBag(entt::registry &registry, int level,
   item.bagCapacity = baseCap;
   item.description = "增加一个背包页面 (" + std::to_string(baseCap) + " 格)。";
 
+  const std::array<entt::id_type, 2> iconCandidates = {
+      "item_bag_default"_hs,
+      assets::ui::textures::Inventory_Slot.id,
+  };
+
+  item.textureId = iconCandidates.back();
+
+  for (entt::id_type candidate : iconCandidates) {
+    Texture2D tex = AssetLoadingSystem::GetTexture(candidate);
+    if (tex.id > 0) {
+      item.textureId = candidate;
+      break;
+    }
+  }
+
   registry.emplace<ItemComponent>(entity, item);
-  // TODO: 添加 SpriteComponent
+
+  if (!TryAttachWorldSprite(registry, entity, item.textureId)) {
+    registry.emplace<ColorComponent>(entity, BROWN);
+  }
+
   return entity;
 }
 
@@ -1417,18 +1453,44 @@ entt::entity ItemFactory::createPotion(entt::registry &registry, int type,
     item.description = "使用: 恢复 50 点生命值";
     item.value = 10;
     registry.emplace<ColorComponent>(entity, RED); // 地面显示红色
+
+    const std::array<entt::id_type, 2> iconCandidates = {
+        "item_potion_health"_hs,
+        assets::ui::textures::Slot_Ring_1.id,
+    };
+    item.textureId = iconCandidates.back();
+    for (entt::id_type candidate : iconCandidates) {
+      Texture2D tex = AssetLoadingSystem::GetTexture(candidate);
+      if (tex.id > 0) {
+        item.textureId = candidate;
+        break;
+      }
+    }
   } else {
     item.id = 102; // ID 约定: 102 蓝药水
     item.name = "法力药水";
     item.description = "使用: 恢复 50 点法力值";
     item.value = 10;
     registry.emplace<ColorComponent>(entity, BLUE); // 地面显示蓝色
+
+    const std::array<entt::id_type, 2> iconCandidates = {
+        "item_potion_mana"_hs,
+        assets::ui::textures::Slot_Ring_2.id,
+    };
+    item.textureId = iconCandidates.back();
+    for (entt::id_type candidate : iconCandidates) {
+      Texture2D tex = AssetLoadingSystem::GetTexture(candidate);
+      if (tex.id > 0) {
+        item.textureId = candidate;
+        break;
+      }
+    }
   }
 
-  // TODO: 如果有药水图标，在此处添加 SpriteComponent
-  // registry.emplace<SpriteComponent>(entity, potionTexture, 1.0f);
-
   registry.emplace<ItemComponent>(entity, item);
+
+  TryAttachWorldSprite(registry, entity, item.textureId);
+
   return entity;
 }
 

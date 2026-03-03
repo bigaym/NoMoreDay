@@ -31,8 +31,11 @@
 #include "game/systems/skill/behaviors/SwordArray.hpp"
 #include "raymath.h"
 #include <algorithm>
+#include <atomic>
 #include <deque>
 #include <map>
+#include <mutex>
+#include <shared_mutex>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -52,59 +55,6 @@ constexpr const char *kDiagScopePolicy = "SKILL_GUARD_SCOPE_POLICY";
 constexpr const char *kDiagTriggerSkillUnavailable =
     "SKILL_GUARD_TRIGGER_SKILL_UNAVAILABLE";
 constexpr const char *kDiagTriggerManaBlocked = "SKILL_GUARD_TRIGGER_MANA";
-
-std::unordered_map<uint64_t, uint8_t> g_cast_depth;
-std::unordered_map<uint64_t, float> g_cast_trigger_effectiveness;
-std::deque<uint64_t> g_cast_depth_order;
-
-void RememberCastDepth(uint64_t cast_id, uint8_t depth,
-                       float trigger_effectiveness = -1.0f) {
-  if (cast_id == 0) {
-    return;
-  }
-  g_cast_depth[cast_id] = depth;
-  if (trigger_effectiveness >= 0.0f) {
-    g_cast_trigger_effectiveness[cast_id] =
-        (std::max)(0.0f, trigger_effectiveness);
-  } else if (!g_cast_trigger_effectiveness.contains(cast_id)) {
-    g_cast_trigger_effectiveness[cast_id] = 1.0f;
-  }
-  g_cast_depth_order.push_back(cast_id);
-  while (g_cast_depth_order.size() > kCastDepthRetention) {
-    const uint64_t stale = g_cast_depth_order.front();
-    g_cast_depth_order.pop_front();
-    if (auto it = g_cast_depth.find(stale); it != g_cast_depth.end()) {
-      g_cast_depth.erase(it);
-    }
-    g_cast_trigger_effectiveness.erase(stale);
-  }
-}
-
-uint8_t QueryCastDepth(uint64_t cast_id) {
-  if (cast_id == 0) {
-    return 0;
-  }
-  if (auto it = g_cast_depth.find(cast_id); it != g_cast_depth.end()) {
-    return it->second;
-  }
-  return 0;
-}
-
-float QueryTriggerEffectiveness(uint64_t cast_id) {
-  if (cast_id == 0) {
-    return 1.0f;
-  }
-  if (auto it = g_cast_trigger_effectiveness.find(cast_id);
-      it != g_cast_trigger_effectiveness.end()) {
-    return it->second;
-  }
-  return 1.0f;
-}
-
-uint64_t NextCastId() {
-  static uint64_t s_next_cast_id = 1;
-  return s_next_cast_id++;
-}
 
 uint8_t ResolveCurrentQualityTier() {
   auto &qualityManager = render::core::QualityTierManager::Get();
@@ -476,6 +426,82 @@ void TickTriggerCooldowns(SkillContractRuntimeComponent &runtime, float dt) {
 
 } // namespace
 
+struct SkillSystem::CastTrackingContext {
+  mutable std::shared_mutex mutex;
+  std::unordered_map<uint64_t, uint8_t> cast_depth;
+  std::unordered_map<uint64_t, float> cast_trigger_effectiveness;
+  std::deque<uint64_t> cast_depth_order;
+  std::atomic<uint64_t> next_cast_id{1};
+};
+
+SkillSystem::CastTrackingContext &SkillSystem::GetCastTrackingContext() {
+  static CastTrackingContext context;
+  return context;
+}
+
+void SkillSystem::RememberCastDepth(uint64_t cast_id, uint8_t depth,
+                                    float trigger_effectiveness) {
+  if (cast_id == 0) {
+    return;
+  }
+
+  auto &tracking = GetCastTrackingContext();
+  std::unique_lock<std::shared_mutex> lock(tracking.mutex);
+  tracking.cast_depth[cast_id] = depth;
+  if (trigger_effectiveness >= 0.0f) {
+    tracking.cast_trigger_effectiveness[cast_id] =
+        (std::max)(0.0f, trigger_effectiveness);
+  } else if (!tracking.cast_trigger_effectiveness.contains(cast_id)) {
+    tracking.cast_trigger_effectiveness[cast_id] = 1.0f;
+  }
+
+  if (auto existing = std::find(tracking.cast_depth_order.begin(),
+                                tracking.cast_depth_order.end(), cast_id);
+      existing != tracking.cast_depth_order.end()) {
+    tracking.cast_depth_order.erase(existing);
+  }
+  tracking.cast_depth_order.push_back(cast_id);
+  while (tracking.cast_depth_order.size() > kCastDepthRetention) {
+    const uint64_t stale = tracking.cast_depth_order.front();
+    tracking.cast_depth_order.pop_front();
+    tracking.cast_depth.erase(stale);
+    tracking.cast_trigger_effectiveness.erase(stale);
+  }
+}
+
+uint8_t SkillSystem::QueryCastDepth(uint64_t cast_id) {
+  if (cast_id == 0) {
+    return 0;
+  }
+
+  const auto &tracking = GetCastTrackingContext();
+  std::shared_lock<std::shared_mutex> lock(tracking.mutex);
+  if (auto it = tracking.cast_depth.find(cast_id);
+      it != tracking.cast_depth.end()) {
+    return it->second;
+  }
+  return 0;
+}
+
+float SkillSystem::QueryTriggerEffectiveness(uint64_t cast_id) {
+  if (cast_id == 0) {
+    return 1.0f;
+  }
+
+  const auto &tracking = GetCastTrackingContext();
+  std::shared_lock<std::shared_mutex> lock(tracking.mutex);
+  if (auto it = tracking.cast_trigger_effectiveness.find(cast_id);
+      it != tracking.cast_trigger_effectiveness.end()) {
+    return it->second;
+  }
+  return 1.0f;
+}
+
+uint64_t SkillSystem::NextCastId() {
+  return GetCastTrackingContext().next_cast_id.fetch_add(
+      1, std::memory_order_relaxed);
+}
+
 void SkillSystem::InitHooks() {
   if (s_hooksInitialized) {
     if (s_onSkillHitHandlerId != 0) {
@@ -644,14 +670,14 @@ void SkillSystem::InitHooks() {
                 registry.get_or_emplace<SkillContractRuntimeComponent>(caster);
             runtime.version = kSkillContractRuntimeVersion;
 
-            uint8_t parent_depth = QueryCastDepth(evt.castId);
+            uint8_t parent_depth = SkillSystem::QueryCastDepth(evt.castId);
             if (evt.castId != 0 && parent_depth == 0) {
               auto exec_view = registry.view<SkillExecution>();
               for (auto exec_entity : exec_view) {
                 const auto &exec = exec_view.get<SkillExecution>(exec_entity);
                 if (exec.cast_id == evt.castId) {
                   parent_depth = exec.trigger_depth;
-                  RememberCastDepth(evt.castId, parent_depth);
+                  SkillSystem::RememberCastDepth(evt.castId, parent_depth);
                   break;
                 }
               }
@@ -788,15 +814,15 @@ void SkillSystem::InitHooks() {
               trigger_exec.slot_index =
                   active ? FindSkillSlotById(*active, trigger_skill_id) : -1;
               trigger_exec.target_pos = trigger_target;
-              trigger_exec.cast_id = NextCastId();
+              trigger_exec.cast_id = SkillSystem::NextCastId();
               trigger_exec.state = SkillState::Preparing;
               trigger_exec.timer = 0.0f;
               trigger_exec.trigger_depth = static_cast<uint8_t>(parent_depth + 1);
               trigger_exec.trigger_effectiveness =
                   (std::max)(0.0f, node_contract->trigger.effectiveness);
-              RememberCastDepth(trigger_exec.cast_id,
-                               trigger_exec.trigger_depth,
-                               trigger_exec.trigger_effectiveness);
+              SkillSystem::RememberCastDepth(trigger_exec.cast_id,
+                                             trigger_exec.trigger_depth,
+                                             trigger_exec.trigger_effectiveness);
 #if COMBAT_TELEMETRY_ENABLED
               recordTriggerDispatched(trigger_exec.trigger_depth);
 #endif
@@ -884,9 +910,9 @@ void SkillSystem::InitHooks() {
               exec.owner = victim;
               exec.state = SkillState::Preparing;
               exec.timer = 0.0f; // Instant
-              exec.cast_id = NextCastId();
+              exec.cast_id = SkillSystem::NextCastId();
               exec.trigger_depth = 0;
-              RememberCastDepth(exec.cast_id, exec.trigger_depth);
+              SkillSystem::RememberCastDepth(exec.cast_id, exec.trigger_depth);
 
               if (registry.all_of<Position>(attacker)) {
                 const auto &attr_pos = registry.get<Position>(attacker);
@@ -1617,7 +1643,7 @@ void SkillSystem::ClearHooks() {
 }
 
 float SkillSystem::GetTriggerEffectivenessForCast(uint64_t cast_id) {
-  return QueryTriggerEffectiveness(cast_id);
+  return SkillSystem::QueryTriggerEffectiveness(cast_id);
 }
 
 bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
@@ -1665,8 +1691,8 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
   exec.target_pos = target_pos;
   exec.trigger_depth = 0;
 
-  exec.cast_id = NextCastId();
-  RememberCastDepth(exec.cast_id, exec.trigger_depth);
+  exec.cast_id = SkillSystem::NextCastId();
+  SkillSystem::RememberCastDepth(exec.cast_id, exec.trigger_depth);
   EmitSkillVfxEvent(BuildSkillVfxContext(registry, exec),
                     SkillVfxEventType::CastStart, 0.85f);
 
@@ -2041,7 +2067,7 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   }
   slot.current_charges--;
 
-  const uint64_t cast_id = NextCastId();
+  const uint64_t cast_id = SkillSystem::NextCastId();
 
   auto &exec = registry.emplace<SkillExecution>(entity);
   exec.skill_id = slot.id;
@@ -2052,7 +2078,7 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   exec.timer = 0.1f;
   exec.target_pos = target_pos;
   exec.trigger_depth = 0;
-  RememberCastDepth(exec.cast_id, exec.trigger_depth);
+  SkillSystem::RememberCastDepth(exec.cast_id, exec.trigger_depth);
 
   // Populate active_nodes from Specialization
   PopulateActiveNodesFromSpecialized(specialized, exec);

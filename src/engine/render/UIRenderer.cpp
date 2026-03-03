@@ -1594,8 +1594,18 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
   if (showDrop) {
     auto view = registry.view<PlayerTag>();
     if (view.begin() != view.end() && DrawMenuBtn("丢弃", s_theme.danger)) {
-      InventorySystem::dropItem(registry, view.front(),
-                                uiContext.contextMenuItem);
+      if (uiContext.isContextFromInventory && itemComp->quantity > 1) {
+        uiContext.showQuantityPopup = true;
+        uiContext.quantityTargetItem = uiContext.contextMenuItem;
+        uiContext.quantityActionType = 0;
+        uiContext.quantityMax = itemComp->quantity;
+        uiContext.quantityVal = 1;
+        snprintf(uiContext.quantityInputBuf, sizeof(uiContext.quantityInputBuf),
+                 "%d", uiContext.quantityVal);
+      } else {
+        InventorySystem::dropItem(registry, view.front(),
+                                  uiContext.contextMenuItem);
+      }
       uiContext.showContextMenu = false;
     }
   }

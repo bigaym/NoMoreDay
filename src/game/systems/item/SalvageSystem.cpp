@@ -1,4 +1,7 @@
 #include "game/systems/item/SalvageSystem.hpp"
+#include "engine/audio/AudioSystem.hpp"
+#include "game/components/Common.hpp"
+#include "game/components/EffectComponent.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp"
@@ -101,7 +104,35 @@ void Execute(entt::registry& registry, entt::entity itemEntity, entt::entity pla
         }
     }
     
-    // TODO: Trigger VFX/SFX in Phase 4
+    Vector2 fxPos = {0.0f, 0.0f};
+    if (const auto *itemPos = registry.try_get<Position>(itemEntity)) {
+        fxPos = {itemPos->x, itemPos->y};
+    } else if (const auto *playerPos = registry.try_get<Position>(playerEntity)) {
+        fxPos = {playerPos->x, playerPos->y};
+    }
+
+    auto fxEntity = registry.create();
+    registry.emplace<Position>(fxEntity, fxPos.x, fxPos.y);
+    VisualEffect vfx;
+    vfx.type = VisualEffectType::GoldSparkle;
+    vfx.lifeTime = 0.45f;
+    vfx.color = GOLD;
+    vfx.startScale = 0.7f;
+    vfx.endScale = 1.3f;
+    registry.emplace<VisualEffect>(fxEntity, vfx);
+
+    auto &audio = AudioSystem::Get();
+    constexpr const char* SFX_CANDIDATES[] = {
+        "salvage",
+        "ui_salvage",
+        "craft_salvage"
+    };
+    for (const char* soundId : SFX_CANDIDATES) {
+        if (audio.HasSound(soundId)) {
+            audio.PlaySound(soundId, AudioChannel::SFX);
+            break;
+        }
+    }
     
     registry.destroy(itemEntity);
 }

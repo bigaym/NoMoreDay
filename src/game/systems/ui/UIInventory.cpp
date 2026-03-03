@@ -74,9 +74,13 @@ void UIInventory::Draw(entt::registry& registry) {
     float panelX = (UI_REF_WIDTH - panelW) / 2.0f;
     float panelY = (UI_REF_HEIGHT - panelH) / 2.0f;
     
+    const bool allowInventoryInput = !UISystem::IsModalInputCaptured();
+
     // Enable Dragging (Header Height ~60px)
-    UISystem::UpdatePanelDrag(UIPanelID::Inventory, panelX, panelY, panelW, panelH, 60.0f);
-    
+    if (allowInventoryInput) {
+        UISystem::UpdatePanelDrag(UIPanelID::Inventory, panelX, panelY, panelW, panelH, 60.0f);
+    }
+
     const float padding = 20.0f;
 
     // Use Logic Mouse Position
@@ -239,28 +243,28 @@ void UIInventory::Draw(entt::registry& registry) {
         }
 
         // Quick Unequip
-        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT) && item != entt::null) {
+        if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT) && item != entt::null) {
             if (!InventorySystem::unequipItem(registry, player, slotType)) {
                 UISystem::State.showMessageBox = true;
                 snprintf(UISystem::State.messageBoxText, 64, "背包已满");
                 UISystem::State.messageBoxTimer = 1.5f;
             }
         }
-        else if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
+        else if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
             UISystem::State.draggedItem = item;
             UISystem::State.isDraggingFromInventory = false;
             UISystem::State.dragSourceBagSlotIndex = -1;
             UISystem::State.dragSourceEquipmentSlot = slotType;
         }
 
-        if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
+        if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
             UISystem::OpenContextMenu(item, false, -1, slotType);
         }
 
 
         // Socketing Logic (Drag Rune -> Equipment)
         bool handledDrop = false;
-        if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+        if (allowInventoryInput && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
              auto* dragItem = registry.try_get<ItemComponent>(UISystem::State.draggedItem);
              auto* targetItem = (item != entt::null) ? registry.try_get<ItemComponent>(item) : nullptr;
              
@@ -328,7 +332,7 @@ void UIInventory::Draw(entt::registry& registry) {
              }
         }
 
-        if (!handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+        if (allowInventoryInput && !handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
             // Drop into equipment slot
             if (InventorySystem::equipItem(registry, player, UISystem::State.draggedItem, slotType)) {
                 // If it was from ANOTHER equipment slot, we must clear that slot 
@@ -388,9 +392,9 @@ void UIInventory::Draw(entt::registry& registry) {
         Color tabTint = isActive ? theme.textHighlight : WHITE;
         Color textColor = isActive ? BLACK : theme.textPrimary;
 
-        UIRenderer::DrawButton(font, tabTex, {x, tabY, tabW, tabH}, label, 18, textColor, tabTint, isHovered, isHovered && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+        UIRenderer::DrawButton(font, tabTex, {x, tabY, tabW, tabH}, label, 18, textColor, tabTint, isHovered, isHovered && allowInventoryInput && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
-        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             m_activeTab = index;
         }
     };
@@ -424,7 +428,7 @@ void UIInventory::Draw(entt::registry& registry) {
         int totalRows = (renderCount + cols - 1) / cols;
         float contentHeight = totalRows * (invSlotSize + invSlotGap) + 20.0f;
         
-        if (CheckCollisionPointRec(mousePos, {invX, invY, invW, invH})) {
+        if (allowInventoryInput && CheckCollisionPointRec(mousePos, {invX, invY, invW, invH})) {
             float wheel = GetMouseWheelMove();
             if (wheel != 0) inv->scrollOffset -= wheel * (invSlotSize + invSlotGap) * 2.0f;
         }
@@ -453,7 +457,7 @@ void UIInventory::Draw(entt::registry& registry) {
             }
 
             // Drag Start
-            if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
+            if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && item != entt::null) {
                 UISystem::State.draggedItem = item;
                 UISystem::State.isDraggingFromInventory = true;
                 UISystem::State.dragSourceInventoryIndex = i;
@@ -462,7 +466,7 @@ void UIInventory::Draw(entt::registry& registry) {
             }
             
             // Right Click
-            if (isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
+            if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_RIGHT_BUTTON) && item != entt::null) {
                 UISystem::OpenContextMenu(item, true, i, EquipmentSlot::None);
             }
 
@@ -470,7 +474,7 @@ void UIInventory::Draw(entt::registry& registry) {
             // Drag Drop
             bool handledDropInv = false;
             // Socketing Logic (Drag Rune -> Inventory Item)
-            if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+            if (allowInventoryInput && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
                  auto* dragItem = registry.try_get<ItemComponent>(UISystem::State.draggedItem);
                  auto* targetItem = (item != entt::null) ? registry.try_get<ItemComponent>(item) : nullptr;
                  
@@ -545,7 +549,7 @@ void UIInventory::Draw(entt::registry& registry) {
                  }
             }
 
-            if (!handledDropInv && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+            if (allowInventoryInput && !handledDropInv && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
                  if (UISystem::State.isDraggingFromStash) {
                       if (StashSystem::withdrawToSpecificSlot(registry, 
                            UISystem::State.dragSourceStashType, 
@@ -594,9 +598,9 @@ void UIInventory::Draw(entt::registry& registry) {
             Rectangle searchRect = {contentStartX, contentStartY, 200.0f, searchH};
             bool searchHover = CheckCollisionPointRec(mousePos, searchRect);
             
-            if (searchHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            if (allowInventoryInput && searchHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                 m_isSearchFocused = true;
-            } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !searchHover) {
+            } else if (allowInventoryInput && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && !searchHover) {
                 m_isSearchFocused = false;
             }
             if (m_isSearchFocused) UISystem::State.isTyping = true;
@@ -609,7 +613,7 @@ void UIInventory::Draw(entt::registry& registry) {
             UIRenderer::DrawTextUI(font, searchText, searchRect.x + 5, searchRect.y + 4, 18, searchColor, alpha);
 
             // Input Logic
-            if (m_isSearchFocused) {
+            if (allowInventoryInput && m_isSearchFocused) {
                 int key = GetCharPressed();
                 while (key > 0) {
                     if ((key >= 32) && (key <= 125) && (strlen(m_searchBuffer) < 63)) {
@@ -647,9 +651,9 @@ void UIInventory::Draw(entt::registry& registry) {
                 Color btnTint = isSelected ? theme.textHighlight : WHITE;
                 Color txtColor = isSelected ? BLACK : theme.textSecondary;
                 
-                UIRenderer::DrawButton(font, rectTex, btnRect, catDef.label, 18, txtColor, btnTint, isHover, isHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+                UIRenderer::DrawButton(font, rectTex, btnRect, catDef.label, 18, txtColor, btnTint, isHover, isHover && allowInventoryInput && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
-                if (isHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                if (allowInventoryInput && isHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     m_selectedCategory = catDef.cat;
                     m_materialScrollOffset = 0.0f; // Reset scroll
                 }
@@ -692,7 +696,7 @@ void UIInventory::Draw(entt::registry& registry) {
             int totalItems = (int)filteredList.size();
             float contentHeight = totalItems * rowHeight + 10.0f;
 
-            if (CheckCollisionPointRec(mousePos, {invX, listTopY, invW, listH})) {
+            if (allowInventoryInput && CheckCollisionPointRec(mousePos, {invX, listTopY, invW, listH})) {
                 float wheel = GetMouseWheelMove();
                 if (wheel != 0) m_materialScrollOffset -= wheel * rowHeight * 2.0f;
             }
@@ -766,9 +770,9 @@ void UIInventory::Draw(entt::registry& registry) {
     Rectangle sortBtnRec = {invX + invW - 150, bottomY - 5, 140, 36};
     bool sortHover = CheckCollisionPointRec(mousePos, sortBtnRec);
     Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
-    UIRenderer::DrawButton(font, rectTex, sortBtnRec, "🧹 整理背包", 18, theme.textPrimary, WHITE, sortHover, sortHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    UIRenderer::DrawButton(font, rectTex, sortBtnRec, "🧹 整理背包", 18, theme.textPrimary, WHITE, sortHover, sortHover && allowInventoryInput && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
-    if (sortHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    if (allowInventoryInput && sortHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         InventorySystem::organize(registry, player);
     }
 
@@ -788,7 +792,7 @@ void UIInventory::Draw(entt::registry& registry) {
         }
 
         // Drag Start from Bag Slot
-        if (isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && bagItem != entt::null) {
+        if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && bagItem != entt::null) {
             UISystem::State.draggedItem = bagItem;
             UISystem::State.isDraggingFromInventory = false;
             UISystem::State.dragSourceBagSlotIndex = i;
@@ -796,7 +800,7 @@ void UIInventory::Draw(entt::registry& registry) {
         }
 
         // Drop into Bag Slot
-        if (isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
+        if (allowInventoryInput && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
             auto* dragItemComp = registry.try_get<ItemComponent>(UISystem::State.draggedItem);
             if (dragItemComp && dragItemComp->type == ItemType::Bag) {
                 // 如果是从另一个背包槽位拖过来的，先解除旧位置的引用
