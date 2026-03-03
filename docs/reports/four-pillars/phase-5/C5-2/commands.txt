@@ -1,0 +1,45 @@
+Package: C5-2
+Objective: End-to-end full validation report
+Date (UTC): 2026-03-03
+
+01. ./build.bat check
+    Result: PASS
+
+02. ./build.bat debug
+    Result: FAIL (initial run)
+    Key error: src/game/data/TagRegistry.hpp(72,58): error C2027 using undefined type std::array<NoMoreDay::TagInfo,28>
+
+03. python scripts/gen_tags.py
+    Result: PASS
+    Purpose: Regenerate TagRegistry.hpp after generator include fix.
+
+04. ./build.bat debug
+    Result: PASS (rerun after fix)
+
+05. ./build.bat
+    Result: PASS
+
+06. ./build.bat release
+    Result: PASS
+
+07. ./build.bat analyze
+    Result: PASS (warnings present, no analysis gate failure)
+
+08. ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure
+    Result: PASS (6/6)
+
+09. ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure
+    Result: PASS (4/4)
+
+10. ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+    Result: PASS (3/3)
+
+11. ctest --test-dir build -C Release -L performance --output-on-failure
+    Result: PASS (1/1)
+
+12. python scripts/perf/run_deterministic_p95_baseline.py --output-json docs/reports/four-pillars/phase-5/C5-2/perf-deterministic-run.json --raw-output-dir docs/reports/four-pillars/phase-5/C5-2/perf-run-logs
+    Result: PASS
+
+13. python scripts/perf/run_long_stability.py --profile phase5 --minutes 60
+    Result: PASS
+    Runtime: 3600.013035 seconds

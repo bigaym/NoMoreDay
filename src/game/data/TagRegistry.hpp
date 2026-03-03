@@ -1,11 +1,11 @@
 #pragma once
 #include <cstdint>
+#include <array>
 #include <string_view>
 #include <string>
 #include <vector>
 #include <optional>
 #include <bit>
-#include <array>
 
 namespace NoMoreDay {
 

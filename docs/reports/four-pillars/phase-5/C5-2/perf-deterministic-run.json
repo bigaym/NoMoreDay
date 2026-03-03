@@ -1,0 +1,20 @@
+{
+  "captured_utc": "2026-03-03T02:10:56.567337+00:00",
+  "protocol": {
+    "warmup_runs": 1,
+    "measured_runs": 5,
+    "fixed_command": [
+      "./bin/NoMoreDayTests.exe",
+      "--test-case=[Performance] MaterialVFX - MaterialSwap+Distortion Stress P95"
+    ],
+    "metric_kind": "p95_proxy_p99_ms"
+  },
+  "measured_values_ms": [
+    0.006,
+    0.007,
+    0.006,
+    0.006,
+    0.006
+  ],
+  "median_metric_ms": 0.006
+}
