@@ -15,6 +15,7 @@
 #include "game/systems/ui/UICrafting.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "game/systems/item/ItemEquipValidationService.hpp"
 
 using namespace NoMoreDay;
 
@@ -338,49 +339,17 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
         }
     }
 
-    EquipmentSlot slot = (targetSlot != EquipmentSlot::None) ? targetSlot : itemComp->slot;
-
-    // 验证槽位匹配
-    bool canEquip = (slot == itemComp->slot);
-    if (!canEquip) {
-        // Special case for Rings
-        bool isItemRing = (itemComp->slot == EquipmentSlot::Ring || itemComp->slot == EquipmentSlot::Ring1 || itemComp->slot == EquipmentSlot::Ring2);
-        bool isSlotRing = (slot == EquipmentSlot::Ring1 || slot == EquipmentSlot::Ring2);
-        if (isItemRing && isSlotRing) canEquip = true;
-
-        // NEW: Titan's Grip allows 2H weapons in OffHand or switching MainHand items to OffHand
-        if (registry.all_of<TitanGripTrait>(character) && itemComp->type == ItemType::Weapon) {
-            if (slot == EquipmentSlot::MainHand || slot == EquipmentSlot::OffHand) {
-                canEquip = true;
-            }
-        }
-    }
-
-    if (!canEquip) {
-        LOG_WARN("背包: 物品 '{}' 无法装备到槽位 {}", itemComp->name, (int)slot);
+    bool hasTitanGrip = registry.all_of<TitanGripTrait>(character);
+    auto slotValidation = NoMoreDay::ItemEquipValidationService::ValidateAndResolveSlot(
+        *equipment, *itemComp, targetSlot, hasTitanGrip);
+    if (!slotValidation.canEquip) {
+        LOG_WARN("背包: 物品 '{}' 无法装备到槽位 {}", itemComp->name,
+                 (int)slotValidation.resolvedSlot);
         return false;
     }
-
-    // 只有在没有指定 targetSlot 时才执行自动分配戒指逻辑
-    if (targetSlot == EquipmentSlot::None && slot == EquipmentSlot::Ring) {
-        if (equipment->get(EquipmentSlot::Ring1) == entt::null) {
-            slot = EquipmentSlot::Ring1;
-        } else if (equipment->get(EquipmentSlot::Ring2) == entt::null) {
-            slot = EquipmentSlot::Ring2;
-        } else {
-            slot = EquipmentSlot::Ring1; // 默认替换戒指1
-        }
-    }
-
-    if (slot == EquipmentSlot::None)
-    {
-        LOG_WARN("背包: 无法装备物品 '{}' - 无效槽位", itemComp->name);
-        return false;
-    }
+    EquipmentSlot slot = slotValidation.resolvedSlot;
 
     // --- 双手武器逻辑 ---
-    bool hasTitanGrip = registry.all_of<TitanGripTrait>(character);
-
     // 1. 如果装备的是双手武器 (主手)，必须先卸下副手物品 (除非有 Titan's Grip)
     if (slot == EquipmentSlot::MainHand && itemComp->isTwoHanded && !hasTitanGrip) {
         if (registry.valid(equipment->get(EquipmentSlot::OffHand))) {
