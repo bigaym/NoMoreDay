@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_type": "modifier",
+  "modifier_id": 0,
+  "domain": "skill_spec",
+  "operation": "scale",
+  "stat_path": "Damage.Fire",
+  "value": 9001,
+  "stacks": 0,
+  "tags": [
+    "fire",
+    "fire"
+  ],
+  "conditions": {
+    "all_skill_ids": [
+      1,
+      1
+    ],
+    "min_player_level": 0
+  }
+}

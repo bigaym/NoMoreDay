@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "record_type": "modifier",
+  "modifier_id": 2002103,
+  "domain": "skill_spec",
+  "operation": "mul",
+  "stat_path": "combat.damage.ice",
+  "value": 0.2,
+  "stacks": 1,
+  "tags": [
+    "defense"
+  ],
+  "conditions": {
+    "all_skill_ids": [
+      21
+    ],
+    "min_player_level": 20
+  },
+  "debug_note": "should fail because additionalProperties is false"
+}

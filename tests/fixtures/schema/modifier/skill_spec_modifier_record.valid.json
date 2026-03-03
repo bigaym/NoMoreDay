@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "record_type": "modifier",
+  "modifier_id": 2002103,
+  "domain": "skill_spec",
+  "operation": "add",
+  "stat_path": "combat.damage.fire",
+  "value": 12.5,
+  "stacks": 3,
+  "tags": [
+    "offense",
+    "fire"
+  ],
+  "conditions": {
+    "all_skill_ids": [
+      2,
+      13
+    ],
+    "min_player_level": 10
+  }
+}
