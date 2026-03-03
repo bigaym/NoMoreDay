@@ -292,6 +292,13 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
         exit /b 1
     )
 
+    echo [Build] Checking skill_spec canonical runtime contract drift...
+    python scripts\gen_skill_spec_modifier_contract.py --check
+    if errorlevel 1 (
+        echo [Build] skill_spec canonical runtime contract check failed! Aborting.
+        exit /b 1
+    )
+
     echo [Build] Validating assets...
     python scripts\validate_json.py
     if errorlevel 1 (
