@@ -116,35 +116,6 @@ static_assert(sizeof(GPUParticle) == 64,
               "GPUParticle struct must be exactly 64 bytes for SSBO alignment");
 
 /**
- * @brief Structure for GPU material data (SSBO).
- * STRICTLY 64 BYTES (16 * 4) for std430 alignment.
- */
-struct GPUMaterialData {
-  float baseColorR = 1.0f;
-  float baseColorG = 1.0f;
-  float baseColorB = 1.0f;
-  float baseColorA = 1.0f;
-
-  float emissiveR = 0.0f;
-  float emissiveG = 0.0f;
-  float emissiveB = 0.0f;
-  float emissiveIntensity = 0.0f;
-
-  float distortion = 0.0f;
-  uint32_t blendMode = 0;
-  uint32_t shaderVariant = 0;
-  uint32_t flags = 0;
-
-  int32_t textureSlot0 = -1;
-  int32_t textureSlot1 = -1;
-  int32_t textureSlot2 = -1;
-  int32_t textureSlot3 = -1;
-};
-
-static_assert(sizeof(GPUMaterialData) == 64,
-              "GPUMaterialData struct must be exactly 64 bytes for SSBO alignment");
-
-/**
  * @brief Structure for GPU distortion sources (screen-space shockwaves).
  * STRICTLY 16 BYTES for std430 alignment.
  */
@@ -361,23 +332,6 @@ static_assert(sizeof(GPULightBounds) == 32,
               "GPULightBounds struct must be exactly 32 bytes");
 static_assert(alignof(GPULightBounds) == alignof(float),
               "GPULightBounds alignment mismatch");
-
-struct alignas(16) GPUMaterialDataV2 {
-  Vector4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
-  Vector4 emissiveAndIntensity = {0.0f, 0.0f, 0.0f, 0.0f};
-  Vector4 pbrLite = {0.6f, 0.2f, 1.0f, 0.0f};
-  Vector4 textureSlots = {-1.0f, -1.0f, -1.0f, -1.0f};
-  Vector4 detailParams = {1.0f, 0.0f, 0.0f, 0.0f};
-  Vector4 reserved0 = {0.0f, 0.0f, 0.0f, 0.0f};
-  Vector4 reserved1 = {0.0f, 0.0f, 0.0f, 0.0f};
-  Vector4 reserved2 = {0.0f, 0.0f, 0.0f, 0.0f};
-};
-static_assert(std::is_standard_layout_v<GPUMaterialDataV2>,
-              "GPUMaterialDataV2 must be standard layout");
-static_assert(sizeof(GPUMaterialDataV2) == 128,
-              "GPUMaterialDataV2 struct must be exactly 128 bytes");
-static_assert(alignof(GPUMaterialDataV2) == 16,
-              "GPUMaterialDataV2 alignment must be 16 bytes");
 
 struct alignas(16) GPUMaterialDataV3 {
   Vector4 baseColor = {1.0f, 1.0f, 1.0f, 1.0f};
