@@ -1627,7 +1627,6 @@ void RenderSystem::render(entt::registry &registry,
   const bool isOffscreenCompositeTarget = (compositeTarget.framebuffer != 0u);
   const bool useHdrSceneBuffer = hdrPipelineRequested;
   const bool offscreenV3SafeMode = isOffscreenCompositeTarget;
-  const bool offscreenPostProcessOnly = false;
   static bool s_prevUseHdrSceneBuffer = false;
   static bool s_prevHdrPipelineRequested = false;
   static uint32_t s_prevCompositeFramebuffer = 0;
@@ -1638,7 +1637,7 @@ void RenderSystem::render(entt::registry &registry,
       s_prevOffscreenV3SafeMode != offscreenV3SafeMode) {
     LOG_INFO("RenderSystem: HDR chain {} (requested={}, bloom={}, postFx={}, "
              "dynamicLighting={}, volumetric={}, compositeFbo={}, path={}, "
-             "offscreenSafeMode={}, offscreenPostFXOnly={})",
+             "offscreenSafeMode={})",
              useHdrSceneBuffer ? "enabled" : "disabled",
              hdrPipelineRequested ? 1 : 0,
              renderConfig.bloomEnabled ? 1 : 0,
@@ -1647,8 +1646,7 @@ void RenderSystem::render(entt::registry &registry,
              renderConfig.volumetricLightEnabled ? 1 : 0,
              compositeTarget.framebuffer,
              isOffscreenCompositeTarget ? "offscreen" : "backbuffer",
-             offscreenV3SafeMode ? 1 : 0,
-             offscreenPostProcessOnly ? 1 : 0);
+             offscreenV3SafeMode ? 1 : 0);
     s_prevUseHdrSceneBuffer = useHdrSceneBuffer;
     s_prevHdrPipelineRequested = hdrPipelineRequested;
     s_prevCompositeFramebuffer = compositeTarget.framebuffer;
@@ -1912,9 +1910,7 @@ void RenderSystem::render(entt::registry &registry,
       }));
   sceneHdrOwner = RenderOwnerTag::UIWorld;
 
-  if (useHdrSceneBuffer &&
-      (!offscreenV3SafeMode || offscreenPostProcessOnly) &&
-      g_postProcessPass != nullptr) {
+  if (useHdrSceneBuffer && !offscreenV3SafeMode && g_postProcessPass != nullptr) {
     graph.AddPass(g_postProcessPass);
     ldrOwner = RenderOwnerTag::PostProcess;
   }
