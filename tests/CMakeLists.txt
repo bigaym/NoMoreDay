@@ -103,7 +103,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         COMMAND NoMoreDayTests --test-case=[Unit]*Progression*
     )
     set_tests_properties(nmd.tests.progression.unit PROPERTIES
-        LABELS "unit;progression;ci"
+        LABELS "unit;progression;module-gate"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 600
     )
@@ -112,7 +112,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         COMMAND NoMoreDayTests --test-case=[Integration]*Progression*
     )
     set_tests_properties(nmd.tests.progression.integration PROPERTIES
-        LABELS "integration;progression;ci"
+        LABELS "integration;progression;module-gate"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 900
     )
@@ -121,7 +121,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         COMMAND NoMoreDayTests --test-case=[Unit]*UI*
     )
     set_tests_properties(nmd.tests.ui.unit PROPERTIES
-        LABELS "unit;ui;ci"
+        LABELS "unit;ui;module-gate"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 600
     )
@@ -130,7 +130,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         COMMAND NoMoreDayTests --test-case=[Integration]*UI*
     )
     set_tests_properties(nmd.tests.ui.integration PROPERTIES
-        LABELS "integration;ui;ci"
+        LABELS "integration;ui;module-gate"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 900
     )
@@ -139,7 +139,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         COMMAND NoMoreDayTests --test-case=[Unit]*Item*
     )
     set_tests_properties(nmd.tests.item.unit PROPERTIES
-        LABELS "unit;item;ci"
+        LABELS "unit;item;module-gate"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 600
     )

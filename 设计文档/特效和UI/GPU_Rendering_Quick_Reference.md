@@ -1,6 +1,6 @@
 # GPU 渲染系统 — AI Agent 快速访问手册
 
-> **版本**: 1.0 | **日期**: 2026-02-21  
+> **版本**: 1.1 | **日期**: 2026-03-03  
 > **定位**: AI Agent 快速查阅渲染系统架构、数据结构、管线流程的**操作手册**  
 > **ABI 版本**: `GPU_ABI_VERSION = 5` | **RenderGraph 契约版本**: `RENDERGRAPH_CONTRACT_VERSION = 3`  
 > **图形 API**: OpenGL 4.3+ (MSVC-only, Windows)  
@@ -270,7 +270,7 @@ renderGraph.AddPass(std::make_shared<MyPass>());
 | 9 | `SSBO_LIGHT_DATA` | `GPULight` (64B) | LightManager |
 | 10 | `SSBO_TRAIL_HEADERS` | `GPUTrailHeader` (32B) | TrailSystem |
 | 11 | `SSBO_TRAIL_POINTS` | `GPUTrailPoint` (32B) | TrailSystem |
-| 12 | `SSBO_MATERIAL_DATA` | `GPUMaterialData` (64B) | MaterialManager |
+| 12 | `SSBO_MATERIAL_DATA` | `GPUMaterialDataV3` (64B) | MaterialManager |
 | 13 | `SSBO_DISTORTION_DATA` | `GPUDistortionSource` (16B) | DistortionPass |
 | 14 | `SSBO_HOLOBLADE_INSTANCE` | HoloBlade 数据 | HoloBladeSystem |
 | 15 | `SSBO_LOOT_INSTANCE` | `GPULootInstance` (32B) | GPULootSystem |
@@ -304,7 +304,7 @@ Compute Shader 独占执行，其内部 binding 不与全局冲突：
 | `GPUEntity` | 64B | 实体物理/变换/标志 | 0 |
 | `GPUVisualStats` | 16B | 发光/状态效果 | 3 |
 | `GPUParticle` | 64B | 粒子 (位置/速度/生命/颜色/动画) | ParticleCS:0 |
-| `GPUMaterialData` | 64B | 材质 V2 (颜色/法线/粗糙/金属/纹理槽) | 12 |
+| `GPUMaterialDataV3` | 64B | 材质 Schema V3 (颜色/法线/粗糙/金属/纹理槽) | 12 |
 | `GPULight` | 64B | 光源 (位置/半径/颜色/类型/阴影/优先级) | 9 |
 | `GPUDistortionSource` | 16B | 屏幕扭曲源 | 13 |
 | `GPUTrailHeader` | 32B | 轨迹头 (索引/计数/宽度/颜色) | 10 |
@@ -340,7 +340,7 @@ enum class LightType : uint8_t {
 | `shadowEnabled` | bool | false | 阴影系统 |
 | `shadowMode` | ShadowMode | Off | Off/SDF/Hybrid |
 | `clusteredLightingEnabled` | bool | false | V3 Clustered Lighting |
-| `clusteredLightingV4Enabled` | bool | false | V4 4096 光源 Clustered |
+| `clusteredLightingV4Enabled` | bool | false | 兼容标记（LightCulling 不再走 V4 256 光源回退分支） |
 | `normalLightingEnabled` | bool | false | 法线光照 |
 | `specularEnabled` | bool | false | 高光 |
 | `heightShadowEnabled` | bool | false | V4 高度阴影 |
@@ -627,4 +627,5 @@ V5 (已完成) → JFA距离场/Radiance Cascades GI/SPH(NO-GO)
 ---
 
 > **修订记录**  
+> - 2026-03-03: 更新 Material ABI 命名（`GPUMaterialDataV3`），补充 `clusteredLightingV4Enabled` 在 LightCulling 中不再控制 256 光源回退分支
 > - 2026-02-21: 首版，基于 V2-V5 全部已完成状态编写

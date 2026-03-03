@@ -4,6 +4,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import validate_canonical_schema
+
 
 _MODIFIER_TOP_LEVEL_REQUIRED = {"schema_version", "domain", "records"}
 
@@ -176,11 +178,54 @@ def _validate_modifier_record_file(path: Path, payload: Any) -> list[str]:
     return errors
 
 
+def _validate_modifier_canonical_file(path: Path, payload: Any) -> list[str]:
+    if not path.name.endswith(".canonical.json"):
+        return []
+
+    errors: list[str] = []
+    if not isinstance(payload, dict):
+        return ["canonical modifier file must be a JSON object"]
+
+    records = payload.get("records")
+    if not isinstance(records, list):
+        return ["canonical file 'records' must be an array"]
+
+    schema_path = path.parent / "skill_spec_modifier_record.schema.json"
+    if not schema_path.exists():
+        return [f"canonical schema not found: {schema_path}"]
+
+    try:
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    except Exception as exc:  # pylint: disable=broad-except
+        return [f"failed to load canonical schema '{schema_path}': {exc}"]
+
+    for index, entry in enumerate(records):
+        if not isinstance(entry, dict):
+            errors.append(f"records[{index}] must be an object")
+            continue
+
+        record = entry.get("record")
+        if not isinstance(record, dict):
+            errors.append(f"records[{index}].record must be an object")
+            continue
+
+        schema_errors = validate_canonical_schema.validate_instance(
+            schema=schema,
+            instance=record,
+        )
+        for schema_error in schema_errors:
+            errors.append(f"records[{index}].record {schema_error}")
+
+    return errors
+
+
 def _validate_modifier_v2(path: Path, payload: Any) -> list[str]:
     if "modifier_v2" not in path.parts:
         return []
     if "canonical" in path.parts:
-        return []
+        if path.name.endswith(".schema.json"):
+            return []
+        return _validate_modifier_canonical_file(path, payload)
     if path.name.endswith(".schema.json"):
         return []
     if path.name == "modifier_catalog.json":

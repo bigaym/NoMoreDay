@@ -52,7 +52,7 @@ def _require_list(value: Any, context: str) -> list[Any]:
 
 
 def _require_int(value: Any, context: str) -> int:
-    if not isinstance(value, int):
+    if not isinstance(value, int) or isinstance(value, bool):
         raise ValueError(f"{context} must be an integer")
     return value
 
@@ -87,7 +87,7 @@ def _validate_runtime_payload(runtime_payload: dict[str, Any], context: str) -> 
     _require_string(runtime_payload.get("debug_source"), f"{context}.debug_source")
 
     param_f32 = runtime_payload.get("param_f32")
-    if not isinstance(param_f32, (int, float)):
+    if not isinstance(param_f32, (int, float)) or isinstance(param_f32, bool):
         raise ValueError(f"{context}.param_f32 must be numeric")
 
     skill_ids = _require_list(
