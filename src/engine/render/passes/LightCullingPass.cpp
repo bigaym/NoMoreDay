@@ -155,11 +155,7 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
 
   const auto &records =
       lighting::LightManager::Get().GetActiveLightRecordsCpu();
-  uint32_t lightCount = static_cast<uint32_t>(records.size());
-  const bool useV4Clustering = config.clusteredLightingV4Enabled;
-  if (!useV4Clustering) {
-    lightCount = std::min<uint32_t>(lightCount, 256u);
-  }
+  const uint32_t lightCount = static_cast<uint32_t>(records.size());
   if (!clusterState.BeginFrame(
           m_frameIndex, static_cast<uint32_t>(context.hdrSceneBuffer.width),
           static_cast<uint32_t>(context.hdrSceneBuffer.height), config.clusterTileSize,
@@ -258,8 +254,7 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     rlSetUniform(m_maxLightsPerClusterLoc, &maxPerCluster, RL_SHADER_UNIFORM_INT, 1);
   }
   if (m_maxTotalClusteredLightsLoc >= 0) {
-    const int maxTotal = static_cast<int>(
-        useV4Clustering ? core::kMaxTotalClusteredLights : 256u);
+    const int maxTotal = static_cast<int>(core::kMaxTotalClusteredLights);
     rlSetUniform(m_maxTotalClusteredLightsLoc, &maxTotal, RL_SHADER_UNIFORM_INT, 1);
   }
 

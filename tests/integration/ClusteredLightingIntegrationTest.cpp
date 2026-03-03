@@ -205,6 +205,59 @@ TEST_CASE("[Integration] Clustered Lighting - Deterministic overflow and index o
   render::resources::FramebufferManager::Destroy(hdr);
 }
 
+TEST_CASE("[Integration] Clustered Lighting - Legacy V4 gate removed for light culling") {
+  using namespace NoMoreDay;
+
+  if (!utils::GPUUtils::IsInitialized()) {
+    utils::GPUUtils::Initialize();
+  }
+
+  auto &qm = render::core::QualityTierManager::Get();
+  qm.ForceTier(render::core::QualityTier::Ultra);
+  auto &cfg = const_cast<render::core::RenderConfig &>(qm.GetConfig());
+  EnableClusteredConfig(cfg);
+  cfg.clusteredLightingV4Enabled = false;
+
+  entt::registry registry;
+  PopulateDenseLights(registry, 320, 30.0f, 30.0f);
+
+  Camera2D camera = {};
+  camera.zoom = 1.0f;
+  camera.target = {0.0f, 0.0f};
+  camera.offset = {0.0f, 0.0f};
+
+  render::lighting::LightManager::Get().Initialize();
+  render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+  const uint32_t activeLightCount =
+      static_cast<uint32_t>(render::lighting::LightManager::Get().GetActiveLightRecordsCpu().size());
+  REQUIRE(activeLightCount > 256u);
+
+  auto hdr = render::resources::FramebufferManager::Create(1280, 720, kHdrRgba16f);
+  REQUIRE(hdr.IsValid());
+
+  ResourceManager resources;
+  SharedContext shared = {};
+  shared.resources = &resources;
+
+  render::graph::RenderContext context = {};
+  context.registry = &registry;
+  context.qualityManager = &qm;
+  context.camera = &camera;
+  context.hdrSceneBuffer = hdr;
+  context.shared = &shared;
+
+  render::passes::LightCullingPass cullingPass;
+  cullingPass.Execute(context);
+  REQUIRE(cullingPass.SucceededThisFrame());
+  CHECK(cullingPass.IsClusterDataReadyForCurrentFrame());
+  CHECK(render::lighting::ClusteredLightingState::Get().GetUploadedLightBoundsCount() ==
+        activeLightCount);
+
+  render::lighting::ClusteredLightingState::Get().Shutdown();
+  render::lighting::LightManager::Get().Shutdown();
+  render::resources::FramebufferManager::Destroy(hdr);
+}
+
 TEST_CASE("[Integration] Clustered Lighting - Forced shader load failure keeps deterministic fallback") {
   using namespace NoMoreDay;
 
