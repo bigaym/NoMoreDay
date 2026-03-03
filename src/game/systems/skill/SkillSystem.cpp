@@ -24,6 +24,7 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
+#include "game/systems/skill/SkillCastConstraintService.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
 #include "game/systems/skill/behaviors/PhantomFlash.hpp" // Added
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
@@ -47,7 +48,6 @@ constexpr uint8_t kMaxTriggerDepth = 2;
 constexpr size_t kCastDepthRetention = 4096;
 constexpr const char *kDiagTriggerCooldown = "SKILL_GUARD_TRIGGER_CD";
 constexpr const char *kDiagTriggerDepth = "SKILL_GUARD_TRIGGER_DEPTH";
-constexpr const char *kDiagTransmuterMutex = "SKILL_GUARD_TRANSMUTER_MUTEX";
 constexpr const char *kDiagScopePolicy = "SKILL_GUARD_SCOPE_POLICY";
 constexpr const char *kDiagTriggerSkillUnavailable =
     "SKILL_GUARD_TRIGGER_SKILL_UNAVAILABLE";
@@ -472,78 +472,6 @@ void TickTriggerCooldowns(SkillContractRuntimeComponent &runtime, float dt) {
       ++it;
     }
   }
-}
-
-bool ValidateContractCastConstraints(
-    const SkillRegistry &registry_data, const SkillContract *contract,
-    const SpecializedSkill *specialized, uint32_t skill_id,
-    std::vector<uint32_t> *allocated_transmuters,
-    std::vector<uint32_t> *allocated_triggers) {
-  if (!contract || !specialized) {
-    return true;
-  }
-
-  uint32_t transmuter_count = 0;
-  uint32_t trigger_count = 0;
-  allocated_transmuters->clear();
-  allocated_triggers->clear();
-
-  for (const auto &[node_id, points] : specialized->allocated_points) {
-    if (points <= 0) {
-      continue;
-    }
-    const auto *node_contract = registry_data.GetNodeContract(skill_id, node_id);
-    if (!node_contract) {
-      continue;
-    }
-    if (node_contract->role == SpecNodeRole::Transmuter) {
-      ++transmuter_count;
-      allocated_transmuters->push_back(node_id);
-    } else if (node_contract->role == SpecNodeRole::Trigger) {
-      ++trigger_count;
-      allocated_triggers->push_back(node_id);
-    }
-  }
-
-  if (transmuter_count > contract->max_transmuters) {
-    LOG_WARN("TryCast blocked: skill {} has {} transmuters > max {}",
-             skill_id, transmuter_count,
-             static_cast<uint32_t>(contract->max_transmuters));
-    return false;
-  }
-  if (trigger_count > contract->max_triggers) {
-    LOG_WARN("TryCast blocked: skill {} has {} triggers > max {}", skill_id,
-             trigger_count, static_cast<uint32_t>(contract->max_triggers));
-    return false;
-  }
-
-  if (allocated_transmuters->size() > 1) {
-    // Keep one transmuter active at runtime to enforce mutual exclusion.
-    uint32_t selected = 0;
-    for (const uint32_t preferred : contract->transmuter_node_ids) {
-      if (preferred == 0) {
-        continue;
-      }
-      if (std::find(allocated_transmuters->begin(), allocated_transmuters->end(),
-                    preferred) != allocated_transmuters->end()) {
-        selected = preferred;
-        break;
-      }
-    }
-    if (selected == 0) {
-      selected = allocated_transmuters->front();
-    }
-    allocated_transmuters->erase(
-        std::remove_if(allocated_transmuters->begin(),
-                       allocated_transmuters->end(),
-                       [selected](uint32_t node_id) {
-                         return node_id != selected;
-                       }),
-        allocated_transmuters->end());
-    LOG_WARN("[{}] skill={} selected_transmuter={} conflicting_transmuters={}",
-             kDiagTransmuterMutex, skill_id, selected, transmuter_count);
-  }
-  return true;
 }
 
 } // namespace
@@ -2018,10 +1946,9 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   const auto *skill_contract = SkillRegistry::Get().GetSkillContract(slot.id);
   static thread_local std::vector<uint32_t> s_allocated_transmuters;
   static thread_local std::vector<uint32_t> s_allocated_triggers;
-  if (!ValidateContractCastConstraints(SkillRegistry::Get(), skill_contract,
-                                       specialized, slot.id,
-                                       &s_allocated_transmuters,
-                                       &s_allocated_triggers)) {
+  if (!skill::ValidateContractCastConstraints(
+          SkillRegistry::Get(), skill_contract, specialized, slot.id,
+          &s_allocated_transmuters, &s_allocated_triggers)) {
     return false;
   }
 
