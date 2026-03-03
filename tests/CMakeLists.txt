@@ -116,4 +116,31 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 900
     )
+
+    add_test(NAME nmd.tests.ui.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*UI*
+    )
+    set_tests_properties(nmd.tests.ui.unit PROPERTIES
+        LABELS "unit;ui;ci"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.ui.integration
+        COMMAND NoMoreDayTests --test-case=[Integration]*UI*
+    )
+    set_tests_properties(nmd.tests.ui.integration PROPERTIES
+        LABELS "integration;ui;ci"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
+
+    add_test(NAME nmd.tests.item.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*Item*
+    )
+    set_tests_properties(nmd.tests.item.unit PROPERTIES
+        LABELS "unit;item;ci"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
 endif()
