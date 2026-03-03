@@ -20,11 +20,11 @@ DEFAULT_SCHEMA = (
 )
 DEFAULT_CANONICAL = (
     REPO_ROOT
-    / "tests"
-    / "fixtures"
-    / "schema"
-    / "modifier"
-    / "skill_spec_modifiers.canonical.runtime.valid.json"
+    / "assets"
+    / "data"
+    / "modifier_v2"
+    / "canonical"
+    / "skill_spec_modifiers.canonical.json"
 )
 DEFAULT_OUTPUT = (
     REPO_ROOT / "assets" / "data" / "modifier_v2" / "skill_spec_modifiers.json"
@@ -224,7 +224,7 @@ def run(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate skill_spec runtime modifier contract from canonical fixture.",
+        description="Generate skill_spec runtime modifier contract from canonical input.",
     )
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--canonical", type=Path, default=DEFAULT_CANONICAL)

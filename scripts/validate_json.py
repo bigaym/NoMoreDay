@@ -179,6 +179,8 @@ def _validate_modifier_record_file(path: Path, payload: Any) -> list[str]:
 def _validate_modifier_v2(path: Path, payload: Any) -> list[str]:
     if "modifier_v2" not in path.parts:
         return []
+    if "canonical" in path.parts:
+        return []
     if path.name.endswith(".schema.json"):
         return []
     if path.name == "modifier_catalog.json":

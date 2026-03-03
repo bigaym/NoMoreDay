@@ -24,6 +24,14 @@ RUNTIME_OUTPUT_PATH = (
     REPO_ROOT / "assets" / "data" / "modifier_v2" / "skill_spec_modifiers.json"
 )
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "schema" / "modifier"
+CANONICAL_PATH = (
+    REPO_ROOT
+    / "assets"
+    / "data"
+    / "modifier_v2"
+    / "canonical"
+    / "skill_spec_modifiers.canonical.json"
+)
 
 
 def _load_json(path: Path) -> dict:
@@ -33,9 +41,7 @@ def _load_json(path: Path) -> dict:
 class SkillSpecCanonicalGenerationTest(unittest.TestCase):
     def test_generated_runtime_matches_committed_asset(self) -> None:
         schema = _load_json(SCHEMA_PATH)
-        canonical_doc = _load_json(
-            FIXTURE_DIR / "skill_spec_modifiers.canonical.runtime.valid.json"
-        )
+        canonical_doc = _load_json(CANONICAL_PATH)
 
         generated = gen_skill_spec_modifier_contract.generate_runtime_document(
             schema=schema,

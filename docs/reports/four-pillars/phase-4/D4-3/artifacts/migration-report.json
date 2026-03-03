@@ -1,0 +1,14 @@
+{
+  "slice": "skill_spec_modifier_canonical",
+  "source_of_truth_policy": {
+    "canonical_input": "assets/data/modifier_v2/canonical/skill_spec_modifiers.canonical.json",
+    "runtime_generated_by": "scripts/gen_skill_spec_modifier_contract.py",
+    "migration_path": "runtime_to_canonical"
+  },
+  "runtime_input": "assets/data/modifier_v2/skill_spec_modifiers.json",
+  "totals": {
+    "records": 1,
+    "migrated": 1,
+    "dropped": 0
+  }
+}

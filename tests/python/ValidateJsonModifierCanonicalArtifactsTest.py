@@ -28,6 +28,21 @@ class ValidateJsonModifierCanonicalArtifactsTest(unittest.TestCase):
 
         self.assertEqual(errors, [])
 
+    def test_ignores_canonical_migration_artifact_in_modifier_v2(self) -> None:
+        canonical_path = (
+            REPO_ROOT
+            / "assets"
+            / "data"
+            / "modifier_v2"
+            / "canonical"
+            / "skill_spec_modifiers.canonical.json"
+        )
+        payload = json.loads(canonical_path.read_text(encoding="utf-8"))
+
+        errors = validate_json._validate_modifier_v2(canonical_path, payload)
+
+        self.assertEqual(errors, [])
+
 
 if __name__ == "__main__":
     unittest.main()

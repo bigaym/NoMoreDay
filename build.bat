@@ -292,6 +292,13 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
         exit /b 1
     )
 
+    echo [Build] Checking skill_spec runtime-^>canonical migration artifacts...
+    python scripts\migrate_skill_spec_modifier_slice.py --check --fail-on-drop
+    if errorlevel 1 (
+        echo [Build] skill_spec migration artifact check failed! Aborting.
+        exit /b 1
+    )
+
     echo [Build] Checking skill_spec canonical runtime contract drift...
     python scripts\gen_skill_spec_modifier_contract.py --check
     if errorlevel 1 (
