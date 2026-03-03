@@ -11,6 +11,7 @@
 #include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // ShadowCast
@@ -561,8 +562,6 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
   const auto &endgame = endgameResolution.aggregate;
   const float endgameDamageMoreMultiplier =
       ClampMoreToMultiplier(endgame.outgoing_damage_more);
-  const float endgameDamageTakenMultiplier =
-      ClampMoreToMultiplier(endgame.incoming_damage_taken_more);
 
   if (defense_resolution.dodged) {
     DamageResult dodged_result;
@@ -997,60 +996,13 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     inst.amount *= crit_mult;
 
     using namespace NoMoreDay::Constants::Combat::Pipeline;
-    int type_idx = std::countr_zero(static_cast<uint64_t>(inst.final_type));
-    float damage_after_res = inst.amount;
+    const int type_idx = std::countr_zero(static_cast<uint64_t>(inst.final_type));
+    const float damage_after_res = DamageMitigationService::Apply(
+        registry, attacker, skill_id, inst.tags, inst.final_type, inst.amount,
+        defender_stats, endgame, skip_mitigation,
+        defense_resolution.blocked, defense_resolution.block_multiplier,
+        source_entity);
     if (!skip_mitigation) {
-      if (defense_resolution.blocked) {
-        damage_after_res *= defense_resolution.block_multiplier;
-      }
-
-      float res = 0.0f;
-      if (type_idx < ELEMENTAL_TYPE_COUNT) {
-        res = defender_stats ? defender_stats->resistances[type_idx] : 0.0f;
-        res += endgame.incoming_resistance_bonus;
-        res -= endgame.outgoing_resistance_reduction;
-        // Resistance Cap: -100% to +75%
-        res = std::clamp(res, RESISTANCE_MIN, RESISTANCE_MAX);
-      }
-
-      damage_after_res *= (1.0f - res);
-
-      if (inst.final_type == Tag::Physical && defender_stats) {
-        float armor = defender_stats->armor + endgame.incoming_armor_bonus;
-        // Retrieve attacker's Flat Armor Penetration
-        float pen = StatsSystem::GetStatWithTags(
-            registry, attacker, StatType::ArmorPenetration, inst.tags, skill_id,
-            source_entity);
-        float effective_armor =
-            armor - pen - endgame.outgoing_armor_reduction;
-
-        int area_level = defender_stats->cached_area_level; // Use cached level
-        float armor_multiplier =
-            NoMoreDay::CombatFormula::CalculateArmorMultiplier(effective_armor,
-                                                               area_level);
-
-        damage_after_res *= armor_multiplier;
-      }
-
-      // Global DR
-      using namespace NoMoreDay::Constants::Combat::Pipeline;
-      if (defender_stats && defender_stats->damage_reduction > 0.0f) {
-        const float effectiveDr = std::clamp(
-            defender_stats->damage_reduction +
-                endgame.incoming_global_damage_reduction_bonus -
-                endgame.outgoing_global_damage_reduction_reduction,
-            0.0f, DR_MAX);
-        damage_after_res *= (1.0f - effectiveDr);
-      } else {
-        const float effectiveDr = std::clamp(
-            endgame.incoming_global_damage_reduction_bonus -
-                endgame.outgoing_global_damage_reduction_reduction,
-            0.0f, DR_MAX);
-        damage_after_res *= (1.0f - effectiveDr);
-      }
-
-      damage_after_res *= endgameDamageTakenMultiplier;
-
       COMBAT_DEFENSE_LOG(
           "[DefenseChain] attacker={} defender={} step=3/4 typeIdx={} "
           "postMitigation={:.4f}",
