@@ -63,6 +63,7 @@
 #include "core/logging/Logger.hpp"              // 日志
 #include "core/utils/ScopedTimer.hpp"             // 性能计时器
 #include "core/utils/HashUtils.hpp"             // 哈希工具
+#include "core/utils/FmtBuffer.hpp"            // fmt 缓冲区格式化
 // #include "core/math/PhysicsUtils.hpp"           // 物理 (经常改动，暂不放 PCH)
 
 #include "game/data/TagRegistry.hpp"            // 标签注册 (生成文件，变动少，使用广)

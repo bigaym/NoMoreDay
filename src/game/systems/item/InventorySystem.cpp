@@ -372,7 +372,8 @@ bool InventorySystem::equipItem(entt::registry &registry, entt::entity character
             LOG_WARN("背包: 无法装备 - 等级不足 (需 Lv.{}, 当前 Lv.{})", itemComp->itemLevel, stats.level);
             
             UISystem::State.showMessageBox = true;
-            snprintf(UISystem::State.messageBoxText, 64, "等级不足 (%d)", itemComp->itemLevel);
+            utils::FormatToBuffer(UISystem::State.messageBoxText,
+                                  "等级不足 ({})", itemComp->itemLevel);
             UISystem::State.messageBoxTimer = 1.5f;
             return false;
         }

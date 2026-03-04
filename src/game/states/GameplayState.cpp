@@ -1371,30 +1371,30 @@ void GameplayState::RenderMapAffixOverlay() {
   char buf[128];
 
   // 0. Depth Info
-  snprintf(buf, sizeof(buf), "当前深度 (Layer): %d / %d", state.currentDepth,
-           state.maxDepth);
+  utils::FormatToBuffer(buf, "当前深度 (Layer): {} / {}", state.currentDepth,
+                        state.maxDepth);
   UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, SKYBLUE, 1.0f);
   ly += 25;
 
   // 1. Difficulty
-  snprintf(buf, sizeof(buf), "难度系数 (DS): %d", state.difficultyScore);
+  utils::FormatToBuffer(buf, "难度系数 (DS): {}", state.difficultyScore);
   UIRenderer::DrawTextUI(font, buf, x + 25, ly, 18, RED, 1.0f);
   ly += 25;
 
   // 1.1 Kill Counter
-  snprintf(buf, sizeof(buf), "击杀计数 (Kills): %d", state.killCounter);
+  utils::FormatToBuffer(buf, "击杀计数 (Kills): {}", state.killCounter);
   UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16, WHITE, 1.0f);
   ly += 25;
 
   // 2. Rewards
-  snprintf(buf, sizeof(buf), "物品寻宝率 (Rarity): +%.0f%%",
-           state.calculatedRarity * 100.0f);
+  utils::FormatToBuffer(buf, "物品寻宝率 (Rarity): +{:.0f}%",
+                        state.calculatedRarity * 100.0f);
   UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16,
                          components::Colors::RARITY_LEGENDARY, 1.0f);
   ly += 20;
 
-  snprintf(buf, sizeof(buf), "物品数量 (Quantity): +%.0f%%",
-           state.calculatedQuantity * 100.0f);
+  utils::FormatToBuffer(buf, "物品数量 (Quantity): +{:.0f}%",
+                        state.calculatedQuantity * 100.0f);
   UIRenderer::DrawTextUI(font, buf, x + 25, ly, 16,
                          components::Colors::RARITY_EPIC, 1.0f);
   ly += 25;

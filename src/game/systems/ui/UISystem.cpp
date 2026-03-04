@@ -114,6 +114,7 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
   for (int i = 32; i <= 126; ++i)
     codepoints.push_back(i);
   codepoints.push_back(0x2022); // •
+  codepoints.push_back(0x00B7); // ·
   codepoints.push_back(0x2605); // ★
   codepoints.push_back(0x26A0); // ⚠️
   for (int i = 0x3000; i <= 0x303F; ++i)
@@ -276,7 +277,7 @@ void UISystem::Update(entt::registry &registry,
       } else {
         UIAstrolabe::ResetView();
       }
-      
+
       if (UIAstrolabe::IsVisible(registry, view.front())) {
         State.showInventory = false;
         State.showCharacterPanel = false;
@@ -373,7 +374,7 @@ void UISystem::Update(entt::registry &registry,
 
       if (anyFailed && !anyPicked) {
         State.showMessageBox = true;
-        snprintf(State.messageBoxText, 64, "背包已满");
+        utils::FormatToBuffer(State.messageBoxText, "背包已满");
         State.messageBoxTimer = 1.5f;
       }
     }
@@ -529,6 +530,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   SetMouseCursor(MOUSE_CURSOR_DEFAULT);
   State.hoveredItem = entt::null;
   State.hoveredSkillSlot = -1;
+  State.hoveredSkillId = 0;
   State.hoveredBuffIdx = -1;
 
   if (IsModalInputCaptured()) {
@@ -561,11 +563,11 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
 
   // 3. Ground Interaction highlights (drawn below overlays)
   if (!IsModalInputCaptured() && State.hoveredItem == entt::null) {
-    
+
     // Phase 1 Optimization: Use shared cache from RenderSystem
     // Use Mouse World Position to check against Item World Rects directly
     Vector2 mouseWorldPos = GetScreenToWorld2D(GetMousePosition(), camera);
-    
+
     // Prepare player info for pickup check
     Vector2 playerPos2D = {0, 0};
     entt::entity playerEntity = entt::null;
@@ -581,7 +583,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
         // Simple AABB Check in World Space
         if (CheckCollisionPointRec(mouseWorldPos, itemData.worldRect)) {
             State.hoveredItem = itemData.entity;
-            
+
             // Interaction: Pickup
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && playerEntity != entt::null) {
                 // Since we don't have Item Position in cache, we assume Rect Center or query registry
@@ -591,13 +593,14 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
                      float dx = p.x - playerPos2D.x;
                      float dy = p.y - playerPos2D.y;
                      float distSq = dx * dx + dy * dy;
-                     
+
                      if (distSq <= 180.0f * 180.0f) {
                         if (InventorySystem::pickUpItem(registry, playerEntity, itemData.entity)) {
                             State.hoveredItem = entt::null;
                         } else {
                             State.showMessageBox = true;
-                            snprintf(State.messageBoxText, 64, "背包已满");
+                            utils::FormatToBuffer(State.messageBoxText,
+                                                  "背包已满");
                             State.messageBoxTimer = 2.0f;
                         }
                      }
@@ -608,36 +611,78 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
     }
   } // End of hoverTimer scope
 
-  // 4. Overlays (Drawn LAST to be on very top)
-  if (State.hoveredItem != entt::null && registry.valid(State.hoveredItem)) {
-    SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
-    DrawTooltip(registry, State.hoveredItem);
-  } else if (State.hoveredSkillSlot != -1) {
-    auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
-    if (view.begin() != view.end()) {
-      const auto &active = view.get<ActiveSkillsComponent>(view.front());
-      uint32_t skillId = active.slots[State.hoveredSkillSlot].id;
-      if (skillId != 0) {
-        UIRenderer::DrawSkillTooltip(State.globalFont, registry, skillId, 1.0f);
-      }
-    }
-  } else if (State.hoveredBuffIdx != -1) {
-    auto view = registry.view<PlayerTag, ActiveEffectsComponent>();
-    if (view.begin() != view.end()) {
-      const auto &effects = view.get<ActiveEffectsComponent>(view.front());
-      if (State.hoveredBuffIdx < (int)effects.effects.size()) {
-        UIRenderer::DrawBuffTooltip(
-            State.globalFont, effects.effects[State.hoveredBuffIdx], 1.0f);
-      }
-    }
-  }
-
   if (State.showContextMenu)
     DrawContextMenu(registry);
   if (State.showQuantityPopup)
     DrawQuantityPopup(registry);
   if (State.showMessageBox)
     DrawMessageBox();
+
+  // 4. Overlays (Drawn LAST - Absolute Topmost)
+
+  // Update Hover Targets
+  uint32_t currentHoverSkillId = 0;
+  entt::entity currentHoverItem = entt::null;
+  int currentHoverBuffIdx = -1;
+
+  if (State.hoveredItem != entt::null && registry.valid(State.hoveredItem)) {
+      currentHoverItem = State.hoveredItem;
+  } else if (State.hoveredSkillId != 0) {
+      currentHoverSkillId = State.hoveredSkillId;
+  } else if (State.hoveredSkillSlot != -1) {
+      auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
+      if (view.begin() != view.end()) {
+          const auto &active = view.get<ActiveSkillsComponent>(view.front());
+          currentHoverSkillId = active.slots[State.hoveredSkillSlot].id;
+      }
+  } else if (State.hoveredBuffIdx != -1) {
+      currentHoverBuffIdx = State.hoveredBuffIdx;
+  }
+
+  // State Machine Logic
+  const float dt = GetFrameTime();
+  const bool isAnythingHovered = (currentHoverSkillId != 0 ||
+                                  currentHoverItem != entt::null ||
+                                  currentHoverBuffIdx != -1);
+  const bool targetChanged = isAnythingHovered &&
+                             (currentHoverSkillId != State.activeTooltipSkillId ||
+                              currentHoverItem != State.activeTooltipItem ||
+                              currentHoverBuffIdx != State.activeTooltipBuffIdx);
+
+  if (targetChanged) {
+      State.activeTooltipSkillId = currentHoverSkillId;
+      State.activeTooltipItem = currentHoverItem;
+      State.activeTooltipBuffIdx = currentHoverBuffIdx;
+      State.tooltipDelayTimer = (State.tooltipAlpha > 0.01f) ? 0.05f : 0.12f;
+      State.tooltipInitialized = false;
+  }
+
+  if (isAnythingHovered) {
+      if (State.tooltipDelayTimer > 0.0f) {
+          State.tooltipDelayTimer = std::max(0.0f, State.tooltipDelayTimer - dt);
+      } else {
+          State.tooltipAlpha = std::min(1.0f, State.tooltipAlpha + dt * 10.0f);
+      }
+  } else {
+      if (State.tooltipHoveredLastFrame) {
+          State.tooltipDelayTimer = 0.08f;
+      }
+
+      if (State.tooltipDelayTimer > 0.0f) {
+          State.tooltipDelayTimer = std::max(0.0f, State.tooltipDelayTimer - dt);
+      } else if (State.tooltipAlpha > 0.0f) {
+          State.tooltipAlpha = std::max(0.0f, State.tooltipAlpha - dt * 8.0f);
+      }
+
+      if (State.tooltipAlpha <= 0.0f && State.tooltipDelayTimer <= 0.0f) {
+          State.activeTooltipSkillId = 0;
+          State.activeTooltipItem = entt::null;
+          State.activeTooltipBuffIdx = -1;
+          State.tooltipInitialized = false;
+      }
+  }
+
+  State.tooltipHoveredLastFrame = isAnythingHovered;
 }
 
 void UISystem::DrawDraggingPhantom(entt::registry &registry) {
@@ -663,6 +708,29 @@ void UISystem::DrawDraggingPhantom(entt::registry &registry) {
     } else {
       DrawRectangleRec({mPos.x - size * 0.5f, mPos.y - size * 0.5f, size, size},
                        Fade(BLUE, 0.5f));
+    }
+  }
+
+  // Draw tooltip at top-most overlay layer.
+  if (State.tooltipAlpha > 0.01f) {
+    if (State.activeTooltipItem != entt::null && registry.valid(State.activeTooltipItem)) {
+      SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
+      UIRenderer::DrawTooltip(State.globalFont, registry, State.activeTooltipItem,
+                              State.tooltipAlpha);
+    } else if (State.activeTooltipSkillId != 0) {
+      UIRenderer::DrawSkillTooltip(State.globalFont, registry,
+                                   State.activeTooltipSkillId,
+                                   State.tooltipAlpha);
+    } else if (State.activeTooltipBuffIdx != -1) {
+      auto view = registry.view<PlayerTag, ActiveEffectsComponent>();
+      if (view.begin() != view.end()) {
+        const auto &effects = view.get<ActiveEffectsComponent>(view.front());
+        if (State.activeTooltipBuffIdx < (int)effects.effects.size()) {
+          UIRenderer::DrawBuffTooltip(State.globalFont,
+                                      effects.effects[State.activeTooltipBuffIdx],
+                                      State.tooltipAlpha);
+        }
+      }
     }
   }
 }
@@ -770,16 +838,16 @@ void UISystem::DrawQuantityPopup(entt::registry &registry) {
   const int wheelDelta = (int)GetMouseWheelMove();
   if (wheelDelta != 0) {
     State.quantityVal = std::clamp(State.quantityVal + wheelDelta, 1, State.quantityMax);
-    snprintf(State.quantityInputBuf, sizeof(State.quantityInputBuf), "%d", State.quantityVal);
+    utils::FormatToBuffer(State.quantityInputBuf, "{}", State.quantityVal);
   }
 
   if (IsKeyPressed(KEY_UP)) {
     State.quantityVal = std::min(State.quantityVal + 1, State.quantityMax);
-    snprintf(State.quantityInputBuf, sizeof(State.quantityInputBuf), "%d", State.quantityVal);
+    utils::FormatToBuffer(State.quantityInputBuf, "{}", State.quantityVal);
   }
   if (IsKeyPressed(KEY_DOWN)) {
     State.quantityVal = std::max(State.quantityVal - 1, 1);
-    snprintf(State.quantityInputBuf, sizeof(State.quantityInputBuf), "%d", State.quantityVal);
+    utils::FormatToBuffer(State.quantityInputBuf, "{}", State.quantityVal);
   }
 
   const float popupW = 320.0f;
@@ -795,11 +863,11 @@ void UISystem::DrawQuantityPopup(entt::registry &registry) {
   DrawText(item.name.c_str(), (int)(x + 14), (int)(y + 48), 20, LIGHTGRAY);
 
   char rangeText[64] = {0};
-  snprintf(rangeText, sizeof(rangeText), "范围: 1 - %d", State.quantityMax);
+  utils::FormatToBuffer(rangeText, "范围: 1 - {}", State.quantityMax);
   DrawText(rangeText, (int)(x + 14), (int)(y + 78), 18, GRAY);
 
   char valueText[64] = {0};
-  snprintf(valueText, sizeof(valueText), "数量: %d", State.quantityVal);
+  utils::FormatToBuffer(valueText, "数量: {}", State.quantityVal);
   DrawText(valueText, (int)(x + 14), (int)(y + 104), 24, GOLD);
 
   const Rectangle confirmRect = {x + 14.0f, y + popupH - 52.0f, 136.0f, 36.0f};

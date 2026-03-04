@@ -155,6 +155,37 @@ TEST_CASE("[Integration] CombatV2Cutover - DamagePipeline returns zero when cand
     CHECK(result.total_damage == doctest::Approx(0.0f));
 }
 
+TEST_CASE("[Integration] CombatV2Cutover - DamagePipeline falls back when candidate base pool is empty") {
+    TestSetupScope scope;
+
+    entt::registry registry;
+    const entt::entity attacker = CreateAttacker(registry);
+    const entt::entity target = CreateTarget(registry, 500.0f);
+
+    auto &attackerStats = registry.get<NoMoreDay::CombatStats>(attacker);
+    attackerStats.min_weapon_damage = 40.0f;
+    attackerStats.max_weapon_damage = 60.0f;
+    attackerStats.flat_damage[0] = 50.0f;
+    attackerStats.accuracy = 1.0f;
+
+    auto &targetStats = registry.get<NoMoreDay::CombatStats>(target);
+    targetStats.dodge_chance = 0.0f;
+
+    NoMoreDay::DamageRequest request;
+    request.attacker = attacker;
+    request.defender = target;
+    request.skill_id = 42;
+    request.added_effectiveness = 1.0f;
+    request.dispatch_damage_events = false;
+    request.is_simulation = false;
+    request.skip_mitigation = true;
+    // Intentionally leave base_pool empty to verify fallback.
+
+    const NoMoreDay::DamageResult result = NoMoreDay::DamagePipeline::Calculate(registry, request);
+
+    CHECK(result.total_damage > 0.0f);
+}
+
 TEST_CASE("[Integration] CombatV2Cutover - DamagePipeline Execute respects dispatch off in non-simulation cutover") {
     TestSetupScope scope;
 

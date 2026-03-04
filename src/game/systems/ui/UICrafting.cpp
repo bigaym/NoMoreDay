@@ -182,7 +182,7 @@ void UICrafting::DrawCraftingPanel(entt::registry &registry) {
   if (m_forgeItem != entt::null) {
     auto &item = registry.get<ItemComponent>(m_forgeItem);
     char potBuf[64];
-    snprintf(potBuf, 64, "锻造潜力: %d", item.forgingPotential);
+    utils::FormatToBuffer(potBuf, "锻造潜力: {}", item.forgingPotential);
     float potW = MeasureTextEx(state.globalFont, potBuf, 20, 1.0f).x;
     UISystem::DrawTextUI(potBuf, startX_Logic + (panelW_Logic - potW / state.scaleFactor) / 2.0f,
                          80.0f + slotSize / state.scaleFactor + 10, 20, SKYBLUE, alpha);
@@ -297,8 +297,8 @@ void UICrafting::DrawMergePanel(entt::registry &registry, float startX,
 
       Color textColor = GetAffixTierColor(fodder.affixes[i].tier);
       char buf[128];
-      snprintf(buf, 128, "%s",
-               GetAffixDescription(fodder.affixes[i], true).c_str());
+      utils::FormatToBuffer(buf, "{}",
+                            GetAffixDescription(fodder.affixes[i], true));
       UISystem::DrawTextUI(buf, x + 10, affixY + 10, 18, textColor, alpha);
 
       if (hover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -396,8 +396,8 @@ void UICrafting::DrawAffixList(entt::registry &registry, entt::entity entity, fl
     if (affix) {
       // Existing Affix
       char nameBuf[128];
-      snprintf(nameBuf, 128, "T%d - %s", affix->tier,
-               GetAffixDescription(*affix, false).c_str());
+      utils::FormatToBuffer(nameBuf, "T{} - {}", affix->tier,
+                            GetAffixDescription(*affix, false));
       UISystem::DrawTextUI(nameBuf, x + 10, currentY + 15, 18, WHITE, alpha);
 
       // Upgrade Button
@@ -605,7 +605,8 @@ void UICrafting::DrawSalvagePanel(entt::registry &registry, float startX,
               DrawRectangleRec({(curX+4) * scale, (curY+4) * scale, (matSize_Logic-8) * scale, (matSize_Logic-8) * scale}, Fade(matColor, 0.3f * alpha));
               
               char rangeBuf[32];
-              snprintf(rangeBuf, 32, "%d~%d", ranges[i].min, ranges[i].max);
+              utils::FormatToBuffer(rangeBuf, "{}~{}", ranges[i].min,
+                                    ranges[i].max);
               UISystem::DrawTextUI(rangeBuf, curX + 2, curY + 48 - 14, 12, SKYBLUE, alpha);
               
               if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), mRect_Logic)) {

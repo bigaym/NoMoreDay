@@ -37,17 +37,18 @@ std::string MapAffixRegistry::FormatDescription(MapAffixType type, float value) 
     const auto& def = GetDef(type);
     std::string result(def.descriptionTemplate);
     
-    char buf[32];
-    // Format to 1 decimal place if it has a fractional part, otherwise integer
+    char valueBuffer[32];
     if (std::abs(value - std::round(value)) < 0.01f) {
-        snprintf(buf, sizeof(buf), "%d", (int)std::round(value));
+        NoMoreDay::utils::FormatToBuffer(valueBuffer, "{}",
+                                         static_cast<int>(std::round(value)));
     } else {
-        snprintf(buf, sizeof(buf), "%.1f", value);
+        NoMoreDay::utils::FormatToBuffer(valueBuffer, "{:.1f}", value);
     }
+    const std::string valueText = valueBuffer;
     
     size_t pos = result.find("{value}");
     if (pos != std::string::npos) {
-        result.replace(pos, 7, buf);
+        result.replace(pos, 7, valueText);
     }
     
     return result;

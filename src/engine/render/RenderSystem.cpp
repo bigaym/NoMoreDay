@@ -1040,9 +1040,8 @@ void ExecuteUIWorldPass(RenderFrameData &frame) {
             }
             if (!labelCache.isValid || labelCache.lastFontSize != fSize) {
               if (!labelCache.isValid) {
-                std::snprintf(labelCache.cachedText,
-                              sizeof(labelCache.cachedText), "%d Gold",
-                              gold->amount);
+                NoMoreDay::utils::FormatToBuffer(labelCache.cachedText,
+                                                 "{} Gold", gold->amount);
               }
               labelCache.cachedSize =
                   IsFontValid(frame.font)

@@ -432,7 +432,15 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
   const bool skip_mitigation =
       request.skip_mitigation || request.thorns_like_damage;
 
-  if (!is_simulation) {
+  bool has_candidate_runtime_base = false;
+  for (float v : base_pool.values) {
+    if (std::isfinite(v) && v > 0.0f) {
+      has_candidate_runtime_base = true;
+      break;
+    }
+  }
+
+  if (!is_simulation && has_candidate_runtime_base) {
     CombatV2::CombatV2RuntimeRequest runtimeRequest;
     runtimeRequest.damageRequest = request;
     runtimeRequest.cutoverModeEnabled = true;

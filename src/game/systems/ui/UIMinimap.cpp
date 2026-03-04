@@ -238,7 +238,7 @@ void UIMinimap::Draw(entt::registry &registry,
   const char* baseName = (levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town) ? "宁静村落" : "地下城";
   
   if (levelManager.getCurrentBiomeID() == NoMoreDay::BiomeID::Town) {
-      snprintf(zoneBuf, sizeof(zoneBuf), "%s", baseName);
+      utils::FormatToBuffer(zoneBuf, "{}", baseName);
   } else {
       int displayLevel = levelManager.getCurrentLevel();
       // Check for Dimensional State for accurate difficulty level
@@ -246,12 +246,15 @@ void UIMinimap::Draw(entt::registry &registry,
           const auto& state = registry.ctx().get<NoMoreDay::ActiveDimensionalState>();
           if (state.isActive) {
               int difficultyLv = state.selectedBaseLevel + (state.currentDepth - 1);
-              snprintf(zoneBuf, sizeof(zoneBuf), "异界 - %d层 [Lv.%d]", state.currentDepth, difficultyLv);
+              utils::FormatToBuffer(zoneBuf, "异界 - {}层 [Lv.{}]",
+                                    state.currentDepth, difficultyLv);
           } else {
-              snprintf(zoneBuf, sizeof(zoneBuf), "%s - %d层", baseName, displayLevel);
+              utils::FormatToBuffer(zoneBuf, "{} - {}层", baseName,
+                                    displayLevel);
           }
       } else {
-          snprintf(zoneBuf, sizeof(zoneBuf), "%s - %d层", baseName, displayLevel);
+          utils::FormatToBuffer(zoneBuf, "{} - {}层", baseName,
+                                displayLevel);
       }
   }
   const char* zoneName = zoneBuf;
@@ -272,11 +275,12 @@ void UIMinimap::Draw(entt::registry &registry,
             : theme.textSecondary;
 
     if (pStats->current_map_kills < NEXT_LEVEL_PORTAL_KILL_REQUIREMENT) {
-      snprintf(killBuf, sizeof(killBuf), "击杀: %u / %d",
-               pStats->current_map_kills, NEXT_LEVEL_PORTAL_KILL_REQUIREMENT);
+      utils::FormatToBuffer(killBuf, "击杀: {} / {}",
+                            pStats->current_map_kills,
+                            NEXT_LEVEL_PORTAL_KILL_REQUIREMENT);
     } else {
-      snprintf(killBuf, sizeof(killBuf), "击杀: %u (出口已标位)",
-               pStats->current_map_kills);
+      utils::FormatToBuffer(killBuf, "击杀: {} (出口已标位)",
+                            pStats->current_map_kills);
     }
 
     float killTw = IsFontValid(font) ? MeasureTextEx(font, killBuf, 16, 1.0f).x
@@ -329,8 +333,8 @@ void UIMinimap::Draw(entt::registry &registry,
 
       auto drawBonus = [&](const char *label, float value, bool isPositive) {
         char buf[64];
-        snprintf(buf, sizeof(buf), "%s: %+.0f%%", label,
-                 (value - 1.0f) * 100.0f);
+        utils::FormatToBuffer(buf, "{}: {:+.0f}%", label,
+                              (value - 1.0f) * 100.0f);
         Color c = isPositive ? components::Colors::MAP_AFFIX_POSITIVE
                              : components::Colors::MAP_AFFIX_NEGATIVE;
         float tw = MeasureTextEx(font, buf, 14, 1.0f).x;
@@ -350,7 +354,8 @@ void UIMinimap::Draw(entt::registry &registry,
       }
       if (resonance.totalLevelMod != 0) {
         char buf[64];
-        snprintf(buf, sizeof(buf), "怪物等级: %+d", resonance.totalLevelMod);
+        utils::FormatToBuffer(buf, "怪物等级: {:+}",
+                              resonance.totalLevelMod);
         float tw = MeasureTextEx(font, buf, 14, 1.0f).x;
         UIRenderer::DrawTextUI(font, buf, x + mapSize - tw, bonusY, 14,
                                components::Colors::MAP_AFFIX_NEGATIVE, 1.0f);

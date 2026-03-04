@@ -133,7 +133,7 @@ void MosaicEditorState::RenderGridCell(int x, int y, float screenX,
       float resonance = m_grid.resonanceMultipliers[index];
       if (resonance > 1.0f) {
         char buf[16];
-        snprintf(buf, sizeof(buf), "x%.1f", resonance);
+        utils::FormatToBuffer(buf, "x{:.1f}", resonance);
         DrawText(buf, static_cast<int>(screenX + 5),
                  static_cast<int>(screenY + CELL_SIZE - 20), 12, GOLD);
       }
@@ -185,8 +185,8 @@ void MosaicEditorState::RenderInventory() {
              slotRect.y + 8, 16, GetRarityColor(itemComp->rarity), 1.0f);
 
     char attrBuf[64];
-    snprintf(attrBuf, sizeof(attrBuf), "密度:%.0f%%",
-             fragComp->enemyDensityMod * 100);
+    utils::FormatToBuffer(attrBuf, "密度:{:.0f}%",
+                          fragComp->enemyDensityMod * 100);
     UIRenderer::DrawTextUI(font, attrBuf, slotRect.x + 12,
              slotRect.y + 28, 12, LIGHTGRAY, 1.0f);
     DrawRectangleRoundedLinesEx(
@@ -215,23 +215,25 @@ void MosaicEditorState::RenderResonancePreview() {
 
   // 1. Difficulty Section
   DrawRectangleGradientH(static_cast<int>(previewX), static_cast<int>(y), static_cast<int>(previewWidth), 30, Color{60,0,0,100}, Color{20,0,0,0});
-  snprintf(buf, sizeof(buf), "难度系数 (DS): %d", m_previewDS);
+  utils::FormatToBuffer(buf, "难度系数 (DS): {}", m_previewDS);
   UIRenderer::DrawTextUI(font, buf, previewX + 10, y + 5, 20, RED, 1.0f);
   y += 35;
 
   // 2. Rewards Section (Calculated)
-  snprintf(buf, sizeof(buf), "物品掉宝: +%.0f%%", m_previewRarity * 100.0f);
+  utils::FormatToBuffer(buf, "物品掉宝: +{:.0f}%",
+                        m_previewRarity * 100.0f);
   UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 16, components::Colors::RARITY_LEGENDARY, 1.0f); // Gold/Orange
   y += 20;
 
-  snprintf(buf, sizeof(buf), "物品数量: +%.0f%%", m_previewQuantity * 100.0f);
+  utils::FormatToBuffer(buf, "物品数量: +{:.0f}%",
+                        m_previewQuantity * 100.0f);
   UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 16, components::Colors::RARITY_EPIC, 1.0f); // Purple
   y += 25;
   
   // High LP Chance Note
   if (m_previewRarity > 1.0f) {
        float lpMult = MapAffixCalculator::CalculateLPProbabilityMultiplier(m_previewRarity);
-       snprintf(buf, sizeof(buf), "Legendary Potential: %.1fx", lpMult);
+       utils::FormatToBuffer(buf, "Legendary Potential: {:.1f}x", lpMult);
        UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 12, GRAY, 1.0f);
        y += 20;
   }
@@ -241,12 +243,14 @@ void MosaicEditorState::RenderResonancePreview() {
 
   // 3. Base Stats (Resonance)
   if (m_cachedResonance.totalEnemyDensity != 1.0f) {
-      snprintf(buf, sizeof(buf), "基础密度: %.0f%%", m_cachedResonance.totalEnemyDensity * 100);
+      utils::FormatToBuffer(buf, "基础密度: {:.0f}%",
+                            m_cachedResonance.totalEnemyDensity * 100);
       UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, LIGHTGRAY, 1.0f);
       y += 18;
   }
   if (m_cachedResonance.totalLevelMod != 0) {
-      snprintf(buf, sizeof(buf), "怪物等级: %+d", m_cachedResonance.totalLevelMod);
+      utils::FormatToBuffer(buf, "怪物等级: {:+}",
+                            m_cachedResonance.totalLevelMod);
       UIRenderer::DrawTextUI(font, buf, previewX + 10, y, 14, WHITE, 1.0f);
       y += 18;
   }
@@ -395,18 +399,19 @@ void MosaicEditorState::RenderTooltip() {
   float ty = y + 35;
   char buf[64];
   
-  snprintf(buf, sizeof(buf), "怪物密度: %+.0f%%", (frag->enemyDensityMod - 1.0f) * 100.0f);
+  utils::FormatToBuffer(buf, "怪物密度: {:+.0f}%",
+                        (frag->enemyDensityMod - 1.0f) * 100.0f);
   UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, WHITE, 1.0f);
   ty += 20;
 
   if (frag->monsterLevelMod != 0) {
-      snprintf(buf, sizeof(buf), "怪物等级: %+d", frag->monsterLevelMod);
+      utils::FormatToBuffer(buf, "怪物等级: {:+}", frag->monsterLevelMod);
       UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, WHITE, 1.0f);
       ty += 20;
   }
   
   // Duration
-  snprintf(buf, sizeof(buf), "有效层数: %d 层", frag->remainingLayers);
+  utils::FormatToBuffer(buf, "有效层数: {} 层", frag->remainingLayers);
   UIRenderer::DrawTextUI(font, buf, x + 10, ty, 14, SKYBLUE, 1.0f);
   ty += 20;
 
@@ -418,14 +423,16 @@ void MosaicEditorState::RenderTooltip() {
   // 1. Element Source
   if (frag->element != FragmentElement::None) {
       std::string elName = std::string(FragmentElementzh[static_cast<size_t>(frag->element)]);
-      snprintf(buf, sizeof(buf), "• %s (元素)", elName.c_str());
+      utils::FormatToBuffer(buf, "• {} (元素)", elName);
       UIRenderer::DrawTextUI(font, buf, x + 15, ty, 12, GetElementColor(frag->element), 1.0f);
       ty += 16;
   }
   
   // 2. Rarity Source
   if (item->rarity >= Rarity::Magic) {
-       snprintf(buf, sizeof(buf), "• %s (稀有度)", (item->rarity == Rarity::Legendary ? "传说" : "魔法"));
+       utils::FormatToBuffer(buf, "• {} (稀有度)",
+                             (item->rarity == Rarity::Legendary ? "传说"
+                                                                : "魔法"));
        UIRenderer::DrawTextUI(font, buf, x + 15, ty, 12, GetRarityColor(item->rarity), 1.0f);
        ty += 16;
   }

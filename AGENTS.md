@@ -1,136 +1,100 @@
 # AGENTS.md
-Operational guide for coding agents working in `F:\NoMoreDay`.
+Operational rules for coding agents in `F:\NoMoreDay`.
 
-## 1) Priority and scope
-- Rule priority:
-  1. Direct user instruction
-  2. `AGENTS.md`
-  3. Other repo docs (`README.md`, `conductor/*`, etc.)
-- Assume Windows + PowerShell unless user says otherwise.
-- Keep edits minimal and task-focused; do not refactor unrelated areas.
-- Never revert unrelated user changes.
+## 1) Priority Rules
+1. Direct user instruction.
+2. This `AGENTS.md`.
+3. Other repo docs (`README.md`, `conductor/*`, etc.).
 
-## 2) Repository facts
-- Toolchain: C++20 + CMake, MSVC-only in this repository.
-- Build entrypoint: `./build.bat` from repo root.
-- Test binary: `bin/NoMoreDayTests.exe`.
-- Test framework: doctest, registered into CTest in `tests/CMakeLists.txt`.
-- CTest labels: `ci`, `unit`, `integration`, `performance`.
+## 2) Environment + Scope
+1. Default environment: Windows + PowerShell.
+2. Keep changes minimal and task-focused.
+3. Never revert unrelated user changes.
+4. Do not refactor unrelated code.
 
-## 3) Agent workflow
-- Start with context from relevant repo docs/files before editing.
-- Implement the smallest correct change.
-- Verify with the narrowest command that proves correctness.
-- If C++/build-system files changed, run build + relevant tests before claiming done.
-- If only docs/non-build assets changed, explicitly state why build/test was skipped.
+## 3) Repo Facts
+1. Toolchain: C++20 + CMake + MSVC.
+2. Build entry: `./build.bat`.
+3. Test binary: `bin/NoMoreDayTests.exe`.
+4. CTest labels: `ci`, `unit`, `integration`, `performance`.
 
-## 4) Build/lint/test commands
-Run commands from `F:\NoMoreDay`.
+## 4) Standard Workflow
+1. Read relevant code/docs before editing.
+2. Implement the smallest correct change.
+3. Verify with the narrowest command first.
+4. If C++/build files changed: run build + relevant tests.
+5. If only docs/assets changed: state why build/tests were skipped.
 
-### 4.1 Build
-- Default build: `./build.bat`
-- Clean CMake cache: `./build.bat clean`
-- Full rebuild: `./build.bat clean-all`
-- Skip test target during build: `./build.bat notest`
-- Release build: `./build.bat release`
-- Debug build: `./build.bat debug`
+## 5) Memory Rules (new)
+1. Save checkpoint memory at key milestones:
+   - after major design decisions,
+   - after significant migration steps,
+   - after final verification,
+   - after commit completion.
+2. Each memory must include:
+   - what changed,
+   - verification outcome,
+   - current risk/blockers.
+3. Keep memory entries factual, short, and searchable (stable keywords).
+4. Do not store secrets, tokens, credentials, or private keys.
+5. If direction changes, store a correction checkpoint to supersede stale memory.
 
-### 4.2 Lint/static checks
-- MSVC static analysis: `./build.bat analyze`
-- Pre-check scripts only (no compile): `./build.bat check`
-- Include/dependency trace: `./build.bat includes`
-- Pre-check scripts run by `build.bat` (unless `novalidate`):
-  - `python tools/render_abi/generate_gpu_abi.py`
-  - `python tools/render_abi/check_no_manual_abi_structs.py`
-  - `python scripts/validate_json.py`
-  - `python scripts/gen_skill_contracts.py --check`
+## 6) Build/Test Commands
+Run from repo root `F:\NoMoreDay`.
 
-### 4.3 Test suites (CTest)
-- CI suite: `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure`
-- Unit suite: `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure`
-- Integration suite: `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure`
-- Performance suite: `ctest --test-dir build -C Release -L performance --output-on-failure`
+### Build
+- `./build.bat`
+- `./build.bat clean`
+- `./build.bat clean-all`
+- `./build.bat release`
+- `./build.bat debug`
+- `./build.bat check`
 
-### 4.4 Running a single test (important)
-CTest here registers grouped suites, not individual doctest cases.
-Use the doctest binary for a true single test case.
+### CTest Labels
+- `ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure`
+- `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure`
+- `ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure`
+- `ctest --test-dir build -C Release -L performance --output-on-failure`
 
-- List all doctest cases:
-  - `./bin/NoMoreDayTests.exe --list-test-cases`
-- Run one specific case/filter:
-  - `./bin/NoMoreDayTests.exe --test-case="[Unit] JFADistanceFieldEvaluator - Full-res JFA accuracy envelope"`
-  - `./bin/NoMoreDayTests.exe --test-case="*RenderGraph V5 Contracts*"`
-- Run one whole CTest group by exact name:
-  - `ctest --test-dir build -C RelWithDebInfo -R "^nmd.tests.unit$" --output-on-failure`
+### Single doctest case
+- List: `./bin/NoMoreDayTests.exe --list-test-cases`
+- Run one: `./bin/NoMoreDayTests.exe --test-case="[Unit] ..."`
 
 Notes:
-- `build.bat perf` is deprecated; use CTest directly.
+- `build.bat perf` is deprecated.
 - Keep `-C` explicit with MSVC multi-config generators.
 
-## 5) C++ style guidelines
-Source of truth: `conductor/code_standard.md` and `.clang-format`.
+## 7) C++ Rules
+1. Follow `conductor/code_standard.md` and `.clang-format`.
+2. Use `#pragma once` in headers.
+3. Prefer RAII, `const` by default, explicit casts.
+4. Keep ECS components data-only; behavior belongs in systems.
+5. In doctest: `REQUIRE` for preconditions, `CHECK` for values.
 
-### 5.1 Naming
-- Files: `PascalCase.cpp` / `PascalCase.hpp`
-- Directories: `snake_case`
-- Types: `PascalCase`
-- Functions/methods: `PascalCase`
-- Local vars/params: `camelCase`
-- Members: `m_camelCase`
-- Constants: `UPPER_SNAKE_CASE` or `kPascalCase`
+## 8) Python Script Rules
+1. Follow `conductor/code_styleguides/python.md`.
+2. Group imports: stdlib / third-party / local.
+3. Avoid bare `except:`.
+4. Add type hints for public functions when practical.
 
-### 5.2 Formatting and imports/includes
-- Format C++ with repo `.clang-format` (Google-based, 4 spaces, 120 columns).
-- Use `#pragma once` in headers.
-- Prefer forward declarations in headers to reduce include fan-out.
-- Include ordering is tool-managed (`SortIncludes: true`); do not hand-micro-manage order.
-- Keep layout simple and consistent with nearby code.
+## 9) Rendering/Platform Guardrails
+1. Respect RenderGraph ownership rules.
+2. Preserve frame-stage ordering assumptions.
+3. Keep resize/recreate resource paths valid.
+4. Preserve Windows macro constraints (`WIN32_LEAN_AND_MEAN`, `NOMINMAX`).
 
-### 5.3 Types, memory, and modern C++
-- Prefer RAII and smart pointers; avoid raw owning `new`/`delete`.
-- Use `const` by default and `[[nodiscard]]` for must-check returns.
-- Avoid C-style casts; use explicit C++ casts with justification.
-- Prefer `std::bit_cast` when doing bit reinterpretation.
-- Use C++20 features where they improve safety/clarity (`concepts`, `constexpr`, ranges).
+## 10) Git Rules
+1. Do not commit unless user explicitly requests it.
+2. Avoid destructive git commands unless explicitly requested.
+3. Keep diffs small and report verification evidence.
 
-### 5.4 ECS/data-oriented constraints
-- Components should remain POD/standard-layout and data-only.
-- Keep behavior in systems, not components.
-- Avoid string comparisons in hot paths; map string ids to enum/int ids during load.
-- Do not hold EnTT component pointers across registry mutations.
+## 11) Debug Rules
+1. Register/update debug bugs in `conductor/bug_registry.md` before fix and after verification.
+2. Keep `AGENTS.md` debug guidance concise; detailed root cause/fix/evidence stays in `conductor/bug_registry.md`.
+3. For every debug fix, record at least one reproducible verification command or hand-test result in the bug entry.
 
-### 5.5 Error handling and tests
-- In doctest, use `REQUIRE` for preconditions and `CHECK` for value checks.
-- Validate assumptions and log actionable context in runtime code.
-- Keep fallback behavior explicit (especially rendering tier/degrade paths).
-- Never silently swallow failures that affect correctness.
-
-## 6) Python/script style guidelines
-- Follow `conductor/code_styleguides/python.md` for scripts.
-- Imports grouped as: stdlib, third-party, local; one import per line.
-- Avoid bare `except:`; catch specific exceptions.
-- Naming: `snake_case` for functions/vars, `PascalCase` for classes.
-- Add type annotations for public functions when practical.
-
-## 7) Rendering/platform guardrails
-- Respect RenderGraph ownership rules; only composite/final pass writes to FBO 0.
-- Preserve frame-stage ordering assumptions used by gameplay/render systems.
-- Ensure resize/recreate paths keep framebuffer resources valid.
-- Preserve Windows macro constraints (`WIN32_LEAN_AND_MEAN`, `NOMINMAX`).
-
-## 8) Git hygiene
-- Do not commit unless user explicitly requests it.
-- Avoid destructive git commands unless explicitly requested.
-- Keep diffs small and include verification evidence in completion notes.
-
-## 9) Cursor/Copilot instructions status
-Checked for:
+## 12) Optional External Rule Files
+If added later, treat as extra constraints:
 - `.cursor/rules/`
 - `.cursorrules`
 - `.github/copilot-instructions.md`
-
-Current repository status:
-- No Cursor rule files found.
-- No Copilot instruction file found.
-
-If these files are added later, treat them as additional constraints and update this file.

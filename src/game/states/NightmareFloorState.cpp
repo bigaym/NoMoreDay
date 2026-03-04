@@ -118,8 +118,7 @@ void NightmareFloorState::renderFloorInfo() {
 
   // 当前层数
   char floorText[64];
-  snprintf(floorText, sizeof(floorText), "第 %d 层",
-           corruption.getCurrentFloor());
+  utils::FormatToBuffer(floorText, "第 {} 层", corruption.getCurrentFloor());
   const int floorWidth = MeasureText(floorText, 48);
   DrawText(floorText,
            static_cast<int>(panelX + (kPanelWidth - floorWidth) / 2.0f),
@@ -146,8 +145,8 @@ void NightmareFloorState::renderCorruptionInfo() {
 
   // 腐化值
   char corruptText[64];
-  snprintf(corruptText, sizeof(corruptText), "腐化值: %d",
-           corruption.getCorruption());
+  utils::FormatToBuffer(corruptText, "腐化值: {}",
+                        corruption.getCorruption());
   DrawText(corruptText, static_cast<int>(panelX + 30), static_cast<int>(infoY),
            20, ColorAlpha(Color{180, 100, 220, 255}, m_fadeAlpha));
 
@@ -181,31 +180,31 @@ void NightmareFloorState::renderDifficultyPreview() {
 
   // 怪物属性倍率
   char statText[64];
-  snprintf(statText, sizeof(statText), "  怪物属性: ×%.1f",
-           corruption.calculateStatMultiplier());
+  utils::FormatToBuffer(statText, "  怪物属性: ×{:.1f}",
+                        corruption.calculateStatMultiplier());
   DrawText(statText, static_cast<int>(panelX + 30),
            static_cast<int>(infoY + 25), 16,
            ColorAlpha(Color{255, 150, 150, 255}, m_fadeAlpha));
 
   // 怪物生命倍率
   char hpText[64];
-  snprintf(hpText, sizeof(hpText), "  怪物生命: ×%.1f",
-           corruption.calculateHealthMultiplier());
+  utils::FormatToBuffer(hpText, "  怪物生命: ×{:.1f}",
+                        corruption.calculateHealthMultiplier());
   DrawText(hpText, static_cast<int>(panelX + 30), static_cast<int>(infoY + 45),
            16, ColorAlpha(Color{255, 150, 150, 255}, m_fadeAlpha));
 
   // 掉落加成
   char dropText[64];
-  snprintf(dropText, sizeof(dropText), "  掉落加成: +%.0f%%",
-           corruption.calculateDropRateBonus() * 100.0f);
+  utils::FormatToBuffer(dropText, "  掉落加成: +{:.0f}%",
+                        corruption.calculateDropRateBonus() * 100.0f);
   DrawText(dropText, static_cast<int>(panelX + 30),
            static_cast<int>(infoY + 65), 16,
            ColorAlpha(Color{150, 255, 150, 255}, m_fadeAlpha));
 
   // 双T7几率
   char t7Text[64];
-  snprintf(t7Text, sizeof(t7Text), "  双T7几率: %.1f%%",
-           corruption.calculateDoubleT7Chance() * 100.0f);
+  utils::FormatToBuffer(t7Text, "  双T7几率: {:.1f}%",
+                        corruption.calculateDoubleT7Chance() * 100.0f);
   DrawText(t7Text, static_cast<int>(panelX + 30), static_cast<int>(infoY + 85),
            16, ColorAlpha(GOLD, m_fadeAlpha));
 }

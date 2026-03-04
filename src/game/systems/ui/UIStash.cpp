@@ -180,7 +180,8 @@ void UIStash::Draw(entt::registry& registry) {
                      // Success
                  } else {
                      UISystem::State.showMessageBox = true;
-                     snprintf(UISystem::State.messageBoxText, 64, "金币不足");
+                     utils::FormatToBuffer(UISystem::State.messageBoxText,
+                                           "金币不足");
                      UISystem::State.messageBoxTimer = 1.0f;
                  }
              }
@@ -263,7 +264,8 @@ void UIStash::Draw(entt::registry& registry) {
                         success = true;
                     } else {
                          UISystem::State.showMessageBox = true;
-                         snprintf(UISystem::State.messageBoxText, 64, "该物品无法存入");
+                         utils::FormatToBuffer(UISystem::State.messageBoxText,
+                                               "该物品无法存入");
                          UISystem::State.messageBoxTimer = 1.0f;
                     }
                 }

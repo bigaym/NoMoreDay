@@ -177,10 +177,9 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
 
         // Handle Click (Assign)
         if (isHovered) {
-            // Tooltip
+            // Tooltip (deferred to top-most overlay render path)
             state.hoveredSkillSlot = -1; // Override hotbar hover
-            // Force draw tooltip immediately
-            UIRenderer::DrawSkillTooltip(state.globalFont, registry, id, alpha, true); 
+            state.hoveredSkillId = id;
 
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                 state.draggedSkillId = id;
@@ -198,7 +197,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
 
     // Points Display
     char buf[64];
-    snprintf(buf, 64, "可用专精点数: %d", active->available_talent_points);
+    utils::FormatToBuffer(buf, "可用专精点数: {}", active->available_talent_points);
     UISystem::DrawTextUI(buf, startX + panelW - 200, startY + 20, 20, GOLD, alpha);
 }
 

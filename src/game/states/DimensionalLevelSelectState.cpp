@@ -86,7 +86,7 @@ void DimensionalLevelSelectState::OnRender() {
     UIRenderer::DrawTextUI(font, title, winX + 20, winY + 20, 24, GOLD, 1.0f);
     
     char subBuf[64];
-    snprintf(subBuf, sizeof(subBuf), "最大等级: %d (玩家 + 10)", m_maxLevel);
+    utils::FormatToBuffer(subBuf, "最大等级: {} (玩家 + 10)", m_maxLevel);
     UIRenderer::DrawTextUI(font, subBuf, winX + 20, winY + 50, 16, GRAY, 1.0f);
 
     // 4. List Area
@@ -150,7 +150,7 @@ void DimensionalLevelSelectState::RenderList() {
         
         Font font = UISystem::GetFont();
         char buf[32];
-        snprintf(buf, sizeof(buf), "等级 %d", level);
+        utils::FormatToBuffer(buf, "等级 {}", level);
         
         Color textColor = WHITE;
         if (level > m_playerLevel) textColor = RED;      // Dangerous

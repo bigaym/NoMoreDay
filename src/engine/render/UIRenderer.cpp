@@ -22,6 +22,19 @@
 #include <sstream>
 
 
+// --- New Tooltip Constants ---
+static constexpr float TT_PADDING = 16.0f;
+static constexpr float TT_HEADER_HEIGHT = 64.0f;
+static constexpr float TT_ICON_SIZE = 48.0f;
+static constexpr float TT_MAX_WIDTH = 360.0f;
+static constexpr float TT_SECTION_SPACING = 12.0f;
+static constexpr Color TT_COLOR_BG = {20, 20, 25, 245};
+static constexpr Color TT_COLOR_BORDER = {70, 70, 85, 255};
+static constexpr Color TT_COLOR_HEADER = {255, 215, 100, 255}; // Gold
+static constexpr Color TT_COLOR_STAT_LABEL = {160, 160, 175, 255};
+static constexpr Color TT_COLOR_TAG_BG = {45, 45, 55, 255};
+static constexpr Color TT_COLOR_TAG_BORDER = {80, 80, 95, 255};
+
 namespace NoMoreDay {
 
 namespace {
@@ -215,7 +228,7 @@ void UIRenderer::DrawButton(const Font &font, Texture2D texture,
     if (IsFontValid(font)) {
       // Subtle Glow/Shadow for readability
       DrawTextEx(font, text, {textPos.x + 1.0f * scale, textPos.y + 1.0f * scale}, scaledFontSize, 1.0f * scale, Fade(BLACK, 0.6f * alpha));
-      
+
       DrawTextEx(font, text, textPos, scaledFontSize, 1.0f * scale,
                  Fade(textColor, alpha));
     } else {
@@ -392,7 +405,7 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
       switch (slotHint) {
           case EquipmentSlot::Head:
               DrawCircleLines(cx, cy, r, ghostColor);
-              DrawLine(cx - r, cy, cx + r, cy, ghostColor); 
+              DrawLine(cx - r, cy, cx + r, cy, ghostColor);
               break;
           case EquipmentSlot::Shoulder:
               DrawRectangleLines(cx - r, cy - r*0.5f, r*2, r, ghostColor);
@@ -487,7 +500,7 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
           for (int i = 0; i < itemComp->socketCount; ++i) {
               float dotX = startX + i * (dotRadius * 2 + gap);
               Vector2 center = {dotX, dotY};
-              
+
               bool isFilled = false;
               if (i < (int)itemComp->sockets.size() && registry.valid(itemComp->sockets[i])) {
                   isFilled = true;
@@ -606,9 +619,9 @@ void UIRenderer::DrawSkillSlot(const Font &font, float x, float y, float size,
     // Always draw text if we are showing the cooldown overlay
     char timeStr[16];
     if (remainingCooldown < 0.1f && remainingCooldown > 0.0f) {
-      snprintf(timeStr, 16, "0.1"); // Minimum display
+      utils::FormatToBuffer(timeStr, "0.1"); // Minimum display
     } else {
-      snprintf(timeStr, 16, "%.1f", remainingCooldown);
+      utils::FormatToBuffer(timeStr, "{:.1f}", remainingCooldown);
     }
 
     float fontSize = 24.0f;
@@ -636,7 +649,7 @@ void UIRenderer::DrawSkillSlot(const Font &font, float x, float y, float size,
 
   if (manaCost > 0) {
     char manaStr[16];
-    snprintf(manaStr, 16, "%.0f", manaCost);
+    utils::FormatToBuffer(manaStr, "{:.0f}", manaCost);
     Color mColor = hasEnoughMana ? SKYBLUE : ApplyAlpha(BLUE, 0.7f);
     DrawTextUI(font, manaStr, x + 4, y + size - 14, 11,
                ApplyAlpha(mColor, alpha));
@@ -644,7 +657,7 @@ void UIRenderer::DrawSkillSlot(const Font &font, float x, float y, float size,
 
   if (maxCharges > 1) {
     char chargeStr[16];
-    snprintf(chargeStr, 16, "%d", charges);
+    utils::FormatToBuffer(chargeStr, "{}", charges);
     DrawTextUI(font, chargeStr, x + size - 12, y + size - 14, 13,
                ApplyAlpha(WHITE, alpha));
   }
@@ -703,7 +716,7 @@ void UIRenderer::DrawBuffIcon(const Font &font, float x, float y, float size,
 
   if (stacks > 1) {
     char stackStr[16];
-    snprintf(stackStr, 16, "%d", stacks);
+    utils::FormatToBuffer(stackStr, "{}", stacks);
     DrawTextUI(font, stackStr, x + size - 12, y + size - 12, 12,
                ApplyAlpha(WHITE, alpha));
   }
@@ -734,12 +747,12 @@ void UIRenderer::DrawSummonIcon(const Font &font, float x, float y, float width,
   float iconSize = sh - 8.0f * s_uiScale;
   float iconX = sx + 4.0f * s_uiScale;
   float iconY = sy + 4.0f * s_uiScale;
-  
+
   if (icon.id > 0) {
     // Draw a subtle radial glow behind the icon
-    DrawCircleGradient((int)(iconX + iconSize/2), (int)(iconY + iconSize/2), iconSize * 0.8f, 
+    DrawCircleGradient((int)(iconX + iconSize/2), (int)(iconY + iconSize/2), iconSize * 0.8f,
                        ApplyAlpha(SKYBLUE, 0.4f * alpha), ApplyAlpha(SKYBLUE, 0.0f));
-    
+
     DrawTexturePro(
         icon, {0, 0, (float)icon.width, (float)icon.height},
         {iconX, iconY, iconSize, iconSize},
@@ -752,7 +765,7 @@ void UIRenderer::DrawSummonIcon(const Font &font, float x, float y, float width,
   float contentX = iconX + iconSize + 6.0f * s_uiScale;
   float barW = sw - (contentX - sx) - 8.0f * s_uiScale;
   float barH = 6.0f * s_uiScale;
-  
+
   // Name
   float fontSize = 16.0f * s_uiScale;
   DrawTextEx(font, name, {contentX, sy + 6.0f * s_uiScale}, fontSize, 1.0f, ApplyAlpha(WHITE, alpha));
@@ -760,7 +773,7 @@ void UIRenderer::DrawSummonIcon(const Font &font, float x, float y, float width,
   // Health/Duration Bar
   Rectangle barRec = {contentX, sy + sh - 12.0f * s_uiScale, barW, barH};
   DrawRectangleRec(barRec, ApplyAlpha(BLACK, 0.5f * alpha));
-  
+
   Color barColor = healthPct > 0.3f ? SKYBLUE : ORANGE;
   DrawRectangleRec({barRec.x, barRec.y, barRec.width * std::clamp(healthPct, 0.0f, 1.0f), barRec.height}, ApplyAlpha(barColor, 0.8f * alpha));
   DrawRectangleLinesEx(barRec, 1.0f, ApplyAlpha(WHITE, 0.2f * alpha));
@@ -787,11 +800,12 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
   }
 
   char lvlBuf[64];
-  snprintf(lvlBuf, sizeof(lvlBuf), "物品等级: %d", itemComp->itemLevel);
+  utils::FormatToBuffer(lvlBuf, "物品等级: {}", itemComp->itemLevel);
   Color lvlColor = (playerLevel >= itemComp->itemLevel) ? GREEN : RED;
   if (playerLevel < itemComp->itemLevel) {
       // Append warning if too low
-      snprintf(lvlBuf, sizeof(lvlBuf), "物品等级: %d (需要 Lv.%d)", itemComp->itemLevel, itemComp->itemLevel);
+      utils::FormatToBuffer(lvlBuf, "物品等级: {} (需要 Lv.{})",
+                            itemComp->itemLevel, itemComp->itemLevel);
   }
   lines.push_back({lvlBuf, lvlColor});
 
@@ -828,21 +842,22 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
   // --- Legendary Potential ---
   if (itemComp->legendaryPotential > 0) {
       char lpBuf[64];
-      snprintf(lpBuf, sizeof(lpBuf), "传奇潜力: %d", itemComp->legendaryPotential);
+      utils::FormatToBuffer(lpBuf, "传奇潜力: {}",
+                            itemComp->legendaryPotential);
       lines.push_back({lpBuf, VIOLET});
   }
 
   char buffer[128];
   if (itemComp->attack > 0) {
-    snprintf(buffer, sizeof(buffer), "攻击力: %.0f", itemComp->attack);
+    utils::FormatToBuffer(buffer, "攻击力: {:.0f}", itemComp->attack);
     lines.push_back({buffer, s_theme.textPrimary});
   }
   if (itemComp->defense > 0) {
-    snprintf(buffer, sizeof(buffer), "护甲: %.0f", itemComp->defense);
+    utils::FormatToBuffer(buffer, "护甲: {:.0f}", itemComp->defense);
     lines.push_back({buffer, s_theme.textPrimary});
   }
   if (itemComp->bagCapacity > 0) {
-    snprintf(buffer, sizeof(buffer), "容量: %d 格", itemComp->bagCapacity);
+    utils::FormatToBuffer(buffer, "容量: {} 格", itemComp->bagCapacity);
     lines.push_back({buffer, s_theme.textPrimary});
   }
 
@@ -867,13 +882,13 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
   // --- Socket Count ---
   if (itemComp->socketCount > 0) {
       char sockBuf[64];
-      snprintf(sockBuf, sizeof(sockBuf), "插槽数量: %d", itemComp->socketCount);
+      utils::FormatToBuffer(sockBuf, "插槽数量: {}", itemComp->socketCount);
       lines.push_back({sockBuf, NoMoreDay::components::Colors::COLOR_SOCKET_INFO});
   }
 
   if (!itemComp->description.empty()) {
     lines.push_back({" ", WHITE});
-    
+
     // Handle multi-line descriptions (e.g. Map Fragments)
     std::stringstream ss(itemComp->description);
     std::string line;
@@ -941,7 +956,7 @@ void UIRenderer::DrawTooltip(const Font &font, entt::registry &registry,
              (x + padding * s_uiScale) / s_uiScale,
              (y + padding * s_uiScale) / s_uiScale, titleSize,
              GetRarityColor(itemComp->rarity), alpha);
-  
+
   float curSY = y + (padding + titleSize + 5.0f) * s_uiScale;
 
   if (iconTex.id > 0) {
@@ -1051,27 +1066,27 @@ UIRenderer::GetSkillTooltipLines(entt::registry &registry, uint32_t skillId) {
 
   char buffer[128];
   if (minDmg > 0) {
-    snprintf(buffer, sizeof(buffer), "预估伤害: %.0f", minDmg);
+    utils::FormatToBuffer(buffer, "预估伤害: {:.0f}", minDmg);
     lines.push_back({buffer, SKYBLUE});
   }
 
   if (astroIncBonus > 0.0f) {
-    snprintf(buffer, sizeof(buffer), "星盘伤害增加: +%.0f%% (Increased)",
-             astroIncBonus * 100.0f);
+    utils::FormatToBuffer(buffer, "星盘伤害增加: +{:.0f}% (Increased)",
+                          astroIncBonus * 100.0f);
     lines.push_back({buffer, LIME});
   }
 
   if (astroMoreBonus > 1.0f) {
-    snprintf(buffer, sizeof(buffer), "星盘总伤害额外: +%.0f%% (More)",
-             (astroMoreBonus - 1.0f) * 100.0f);
+    utils::FormatToBuffer(buffer, "星盘总伤害额外: +{:.0f}% (More)",
+                          (astroMoreBonus - 1.0f) * 100.0f);
     lines.push_back({buffer, ORANGE});
   }
 
-  snprintf(buffer, sizeof(buffer), "法力消耗: %.0f", skill->mana_cost);
+  utils::FormatToBuffer(buffer, "法力消耗: {:.0f}", skill->mana_cost);
   lines.push_back({buffer, s_theme.textSecondary});
 
   if (skill->cooldown > 0) {
-    snprintf(buffer, sizeof(buffer), "冷却时间: %.1fs", skill->cooldown);
+    utils::FormatToBuffer(buffer, "冷却时间: {:.1f}s", skill->cooldown);
     lines.push_back({buffer, s_theme.textSecondary});
   }
 
@@ -1099,66 +1114,326 @@ UIRenderer::GetSkillTooltipLines(entt::registry &registry, uint32_t skillId) {
   return lines;
 }
 
+static std::string TruncateTextToWidth(const Font &font,
+                                       const std::string &text,
+                                       float maxWidth,
+                                       float fontSize) {
+  if (text.empty() || maxWidth <= 0.0f) {
+    return text;
+  }
+  if (MeasureTextEx(font, text.c_str(), fontSize, 1.0f).x <= maxWidth) {
+    return text;
+  }
+
+  static constexpr const char *kEllipsis = "...";
+  const float ellipsisW = MeasureTextEx(font, kEllipsis, fontSize, 1.0f).x;
+  if (ellipsisW >= maxWidth) {
+    return kEllipsis;
+  }
+
+  std::string out;
+  const char *ptr = text.c_str();
+  while (*ptr != '\0') {
+    int bytes = 0;
+    const int cp = GetCodepointNext(ptr, &bytes);
+    if (bytes <= 0 || cp == '\n') {
+      break;
+    }
+
+    int utf8Bytes = 0;
+    const char *utf8 = CodepointToUTF8(cp, &utf8Bytes);
+    const std::string candidate = out + std::string(utf8, utf8Bytes);
+    if (MeasureTextEx(font, (candidate + kEllipsis).c_str(), fontSize, 1.0f).x >
+        maxWidth) {
+      break;
+    }
+
+    out = candidate;
+    ptr += bytes;
+  }
+
+  if (out.empty()) {
+    return kEllipsis;
+  }
+  return out + kEllipsis;
+}
+
+static void DrawTooltipHeader(const Font &font, const char *name, uint32_t iconId,
+                              float x, float y, float w, float alpha) {
+  float iconSize = TT_ICON_SIZE * UIRenderer::GetScale();
+  float padding = TT_PADDING * UIRenderer::GetScale();
+
+  // Icon
+  if (iconId != 0) {
+    Texture2D icon = AssetLoadingSystem::GetTexture(iconId);
+    if (icon.id > 0) {
+      Rectangle source = {0, 0, (float)icon.width, (float)icon.height};
+      Rectangle dest = {x + padding, y + padding, iconSize, iconSize};
+      // Icon Background / Glow
+      DrawCircleGradient((int)(dest.x + iconSize / 2), (int)(dest.y + iconSize / 2),
+                         iconSize * 0.7f, Fade(GOLD, 0.3f * alpha), Fade(GOLD, 0));
+      DrawTexturePro(icon, source, dest, {0, 0}, 0.0f, Fade(WHITE, alpha));
+      // Icon Border
+      DrawRectangleLinesEx(dest, 1.0f, Fade(TT_COLOR_BORDER, alpha));
+    }
+  }
+
+  // Name
+  const float titleX = x + padding +
+                       (iconId != 0 ? iconSize + 12.0f * UIRenderer::GetScale() : 0.0f);
+  const float titleW = std::max(0.0f, x + w - padding - titleX);
+  const std::string title =
+      TruncateTextToWidth(font, name ? name : "", titleW, 24.0f * UIRenderer::GetScale());
+
+  UIRenderer::DrawTextUI(font, title.c_str(), titleX / UIRenderer::GetScale(),
+                         (y + padding + 4.0f * UIRenderer::GetScale()) /
+                             UIRenderer::GetScale(),
+                         24.0f, TT_COLOR_HEADER, alpha);
+
+  // Subtitle / Type (Example: Active Skill)
+  UIRenderer::DrawTextUI(font, "主动技能", titleX / UIRenderer::GetScale(),
+                         (y + padding + 32.0f * UIRenderer::GetScale()) / UIRenderer::GetScale(),
+                         14.0f, TT_COLOR_STAT_LABEL, alpha);
+}
+
+static void DrawTooltipStatRow(const Font &font, const char *label, const char *value,
+                               float x, float y, float w, Color valueColor, float alpha) {
+  float padding = TT_PADDING * UIRenderer::GetScale();
+  UIRenderer::DrawTextUI(font, label, (x + padding) / UIRenderer::GetScale(),
+                         y / UIRenderer::GetScale(), 16.0f, TT_COLOR_STAT_LABEL, alpha);
+
+  float valW = MeasureTextEx(font, value, 16.0f * UIRenderer::GetScale(), 1.0f).x;
+  UIRenderer::DrawTextUI(font, value, (x + w - padding - valW) / UIRenderer::GetScale(),
+                         y / UIRenderer::GetScale(), 16.0f, valueColor, alpha);
+}
+
+static void DrawTagChip(const Font &font, const char *tag, float x, float y, float alpha) {
+  float scale = UIRenderer::GetScale();
+  float fontSize = 13.0f;
+  Vector2 textSize = MeasureTextEx(font, tag, fontSize * scale, 1.0f);
+
+  float padH = 8.0f * scale;
+  float padV = 4.0f * scale;
+  Rectangle rec = {x, y, textSize.x + padH * 2, textSize.y + padV * 2};
+
+  DrawRectangleRec(rec, Fade(TT_COLOR_TAG_BG, alpha));
+  DrawRectangleLinesEx(rec, 1.0f, Fade(TT_COLOR_TAG_BORDER, alpha));
+
+  UIRenderer::DrawTextUI(font, tag, (x + padH) / scale, (y + padV) / scale, fontSize,
+                         {200, 200, 210, 255}, alpha);
+}
+
+static std::vector<std::string> GetWrappedLines(const Font &font, const char *text, float maxWidth, float fontSize) {
+  std::vector<std::string> lines;
+  if (!text || text[0] == '\0') return lines;
+
+  std::string currentLine;
+  std::string word;
+  const char *ptr = text;
+
+  while (*ptr != '\0') {
+    int bytes = 0;
+    int cp = GetCodepointNext(ptr, &bytes);
+    if (bytes <= 0) break;
+
+    if (cp == '\n') {
+      lines.push_back(currentLine + word);
+      currentLine.clear();
+      word.clear();
+    } else if (cp == ' ' || cp == '\t' || cp > 127) {
+      // Space or CJK character (CJK acts as a word break in simple wrapping)
+      std::string nextWord = word;
+      if (cp > 127) {
+        int utf8Bytes = 0;
+        const char* utf8 = CodepointToUTF8(cp, &utf8Bytes);
+        nextWord += std::string(utf8, utf8Bytes);
+      } else {
+        nextWord += " ";
+      }
+
+      float testW = MeasureTextEx(font, (currentLine + nextWord).c_str(), fontSize, 1.0f).x;
+      if (testW > maxWidth && !currentLine.empty()) {
+        lines.push_back(currentLine);
+        currentLine = nextWord;
+      } else {
+        currentLine += nextWord;
+      }
+      word.clear();
+    } else {
+      int utf8Bytes = 0;
+      const char* utf8 = CodepointToUTF8(cp, &utf8Bytes);
+      word += std::string(utf8, utf8Bytes);
+    }
+    ptr += bytes;
+  }
+  if (!currentLine.empty() || !word.empty()) {
+    lines.push_back(currentLine + word);
+  }
+  return lines;
+}
+
 void UIRenderer::DrawSkillTooltip(const Font &font, entt::registry &registry,
                                   uint32_t skillId, float alpha,
                                   bool forceDraw) {
-  std::vector<TooltipLine> lines = GetSkillTooltipLines(registry, skillId);
-  if (lines.empty())
-    return;
+  const auto *skill = SkillRegistry::Get().GetSkill(skillId);
+  if (!skill) return;
 
-  float padding = 10.0f;
-  float titleSize = 22.0f;
-  float fontSize = 18.0f;
-  float descSize = 16.0f;
+  if (forceDraw) alpha = 1.0f;
 
-  float maxW = 320.0f;
+  float scale = s_uiScale;
+  float padding = TT_PADDING * scale;
+  float spacing = TT_SECTION_SPACING * scale;
+  float maxW = TT_MAX_WIDTH * scale;
 
-  // Dynamic height calculation
-  float h = padding * 2;
-  for (size_t i = 0; i < lines.size(); ++i) {
-    float size = (i == 0) ? titleSize : fontSize;
-    if (i >= lines.size() - 1)
-      size = descSize; // Description is last
-    h += (size + 4);
+  // --- 1. Data Preparation ---
+  struct Stat { std::string label; std::string value; Color color; };
+  std::vector<Stat> coreStats;
+
+  char buf[64];
+  if (skill->mana_cost > 0) {
+      utils::FormatToBuffer(buf, "{:.0f}", skill->mana_cost);
+      coreStats.push_back({"法力消耗", buf, SKYBLUE});
+  }
+  if (skill->cooldown > 0) {
+      utils::FormatToBuffer(buf, "{:.1f}s", skill->cooldown);
+      coreStats.push_back({"冷却时间", buf, WHITE});
   }
 
-  Vector2 m = {0, 0};
-  int screenW = 800;
-  int screenH = 600;
-
-  if (IsWindowReady()) {
-    m = GetMousePosition();
-    screenW = GetScreenWidth();
-    screenH = GetScreenHeight();
+  float minDmg = 0;
+  auto playerView = registry.view<PlayerTag, CombatStats>();
+  if (playerView.begin() != playerView.end()) {
+      const auto &stats = playerView.get<CombatStats>(playerView.front());
+      float avgWeapon = (stats.min_weapon_damage + stats.max_weapon_damage) * 0.5f;
+      DamagePool pool;
+      pool.Add(Tag::Physical, avgWeapon * skill->weapon_damage_mult + skill->base_damage);
+      auto result = DamagePipeline::Calculate(registry, playerView.front(), entt::null, skillId, pool, Tag::Hit, entt::null, true);
+      minDmg = result.total_damage;
+  }
+  if (minDmg > 0) {
+      utils::FormatToBuffer(buf, "{:.0f} - {:.0f}", minDmg * 0.9f,
+                            minDmg * 1.1f);
+      coreStats.push_back({"估算伤害", buf, {255, 150, 50, 255}});
   }
 
-  float x = m.x + 15 * s_uiScale;
-  float y = m.y + 15 * s_uiScale;
-  float sw = (maxW + padding * 2) * s_uiScale;
-  float sh = h * s_uiScale;
+  // --- 2. Height Calculation ---
+  float totalH = padding;
+  totalH += TT_HEADER_HEIGHT * scale + spacing; // Header
 
-  if (x + sw > (float)screenW)
-    x -= (sw + 20 * s_uiScale);
-  if (y + sh > (float)screenH)
-    y -= (sh + 20 * s_uiScale);
+  if (!coreStats.empty()) {
+      totalH += coreStats.size() * (18.0f * scale) + spacing; // Stats
+  }
 
-  DrawRectangle((int)x, (int)y, (int)sw, (int)sh,
-                Fade(s_theme.panelBackground, 0.95f * alpha));
-  DrawRectangleLinesEx({x, y, sw, sh}, 1.0f * s_uiScale,
-                       Fade(s_theme.panelBorder, alpha));
+  // Description Wrapping
+  std::vector<std::string> descLines = GetWrappedLines(font, skill->desc_key.c_str(), maxW - padding * 2, 16.0f * scale);
+  float descH = descLines.size() * 20.0f * scale;
+  if (!descLines.empty()) totalH += descH + spacing;
 
-  float curSY = y + padding * s_uiScale;
-  for (size_t i = 0; i < lines.size(); ++i) {
-    float size = (i == 0) ? titleSize : fontSize;
-    if (i >= lines.size() - 1)
-      size = descSize;
+  // Tags Height (Simulate Flow Layout)
+  std::vector<std::string> tags;
+  for (int i = 0; i < 64; ++i) {
+      Tag t = static_cast<Tag>(1ULL << i);
+      if (HasTag(skill->tags, t)) tags.push_back(std::string(GetTagName(t)));
+  }
 
-    if (lines[i].text != " ") {
-      DrawTextScaled(font, lines[i].text.c_str(),
-                     (x + padding * s_uiScale) / s_uiScale, curSY / s_uiScale,
-                     size, maxW, lines[i].color, alpha);
-    }
-    curSY += (size + 4) * s_uiScale;
+  std::vector<std::string> displayTags;
+  displayTags.reserve(tags.size());
+
+  const float chipPad = 16.0f * scale;
+  const float chipGap = 6.0f * scale;
+  const float chipRowH = 24.0f * scale;
+  const float maxChipW = std::max(1.0f, maxW - padding * 2.0f);
+
+  float tagSectionH = 0;
+  if (!tags.empty()) {
+      float testX = padding;
+      float testY = 0;
+
+      for (const auto& tag : tags) {
+          const std::string fitTag = TruncateTextToWidth(
+              font, tag, std::max(1.0f, maxChipW - chipPad), 13.0f * scale);
+          displayTags.push_back(fitTag);
+
+          const float tagW =
+              std::min(maxChipW, MeasureTextEx(font, fitTag.c_str(), 13.0f * scale, 1.0f).x + chipPad);
+          if (testX + tagW > maxW - padding && testX > padding) {
+              testX = padding;
+              testY += chipRowH;
+          }
+          testX += tagW + chipGap;
+      }
+      tagSectionH = testY + chipRowH;
+      totalH += (16.0f * scale) + (6.0f * scale) + tagSectionH + spacing;
+  }
+
+  totalH += padding;
+
+  // --- 3. Positioning (Smart Anchor & Lock) ---
+  auto &uiState = UISystem::State;
+  if (!uiState.tooltipInitialized || forceDraw) {
+      Vector2 m = GetMousePosition();
+      float screenW = (float)GetScreenWidth();
+      float screenH = (float)GetScreenHeight();
+      float safeMargin = 12.0f * scale;
+
+      float targetX = m.x + 20.0f * scale;
+      float targetY = m.y - totalH * 0.3f;
+
+      if (targetX + maxW > screenW - safeMargin) targetX = m.x - maxW - 20.0f * scale;
+      targetX = std::clamp(targetX, safeMargin, std::max(safeMargin, screenW - maxW - safeMargin));
+
+      if (targetY + totalH > screenH - safeMargin) targetY = screenH - totalH - safeMargin;
+      targetY = std::clamp(targetY, safeMargin, std::max(safeMargin, screenH - totalH - safeMargin));
+
+      uiState.tooltipPos = {targetX, targetY};
+      uiState.tooltipInitialized = true;
+  }
+
+  float x = uiState.tooltipPos.x;
+  float y = uiState.tooltipPos.y;
+
+  // --- 4. Rendering ---
+  DrawRectangleRec({x + 4, y + 4, maxW, totalH}, Fade(BLACK, 0.4f * alpha)); // Shadow
+  DrawRectangleRec({x, y, maxW, totalH}, Fade(TT_COLOR_BG, alpha));
+  DrawRectangleLinesEx({x, y, maxW, totalH}, 1.0f, Fade(TT_COLOR_BORDER, alpha));
+
+  float curY = y;
+  DrawTooltipHeader(font, skill->name_key.c_str(), skill->icon_id, x, curY, maxW, alpha);
+  curY += (TT_HEADER_HEIGHT * scale) + spacing;
+
+  DrawLineEx({x + padding, curY - spacing/2}, {x + maxW - padding, curY - spacing/2}, 1.0f, Fade(TT_COLOR_BORDER, 0.5f * alpha));
+
+  for (const auto& stat : coreStats) {
+      DrawTooltipStatRow(font, stat.label.c_str(), stat.value.c_str(), x, curY, maxW, stat.color, alpha);
+      curY += 18.0f * scale;
+  }
+  if (!coreStats.empty()) curY += spacing;
+
+  if (!descLines.empty()) {
+      DrawLineEx({x + padding, curY - spacing/2}, {x + maxW - padding, curY - spacing/2}, 1.0f, Fade(TT_COLOR_BORDER, 0.3f * alpha));
+      for (const auto& line : descLines) {
+          DrawTextUI(font, line.c_str(), (x + padding) / scale, curY / scale, 16.0f, {220, 220, 230, 255}, alpha);
+          curY += 20.0f * scale;
+      }
+      curY += spacing;
+  }
+
+  if (!displayTags.empty()) {
+      DrawTextUI(font, "标签", (x + padding) / scale, curY / scale, 14.0f,
+                 TT_COLOR_STAT_LABEL, alpha);
+      curY += 22.0f * scale;
+
+      float tagX = x + padding;
+      float tagY = curY;
+      for (const auto& tag : displayTags) {
+          const float tagW =
+              std::min(maxChipW, MeasureTextEx(font, tag.c_str(), 13.0f * scale, 1.0f).x + chipPad);
+          if (tagX + tagW > x + maxW - padding && tagX > x + padding) {
+              tagX = x + padding;
+              tagY += chipRowH;
+          }
+          DrawTagChip(font, tag.c_str(), tagX, tagY, alpha);
+          tagX += tagW + chipGap;
+      }
   }
 }
 
@@ -1264,10 +1539,11 @@ static std::string GetStatModifierDescription(const StatModifier &mod) {
   }
 
   if (mod.mode == ModifierMode::PercentMult) {
-    snprintf(buffer, sizeof(buffer), "%s%.2f %s", sign, displayValue, statName);
+    utils::FormatToBuffer(buffer, "{}{:.2f} {}", sign, displayValue,
+                          statName);
   } else {
-    snprintf(buffer, sizeof(buffer), "%s%.0f%s %s", sign, displayValue, suffix,
-             statName);
+    utils::FormatToBuffer(buffer, "{}{:.0f}{} {}", sign, displayValue,
+                          suffix, statName);
   }
   return std::string(buffer);
 }
@@ -1294,7 +1570,7 @@ void UIRenderer::DrawBuffTooltip(const Font &font, const BuffEffect &effect,
 
   if (effect.duration > 0 && effect.remaining < 3600.0f) {
     char timeBuf[64];
-    snprintf(timeBuf, sizeof(timeBuf), "剩余时间: %.1fs", effect.remaining);
+    utils::FormatToBuffer(timeBuf, "剩余时间: {:.1f}s", effect.remaining);
     lines.push_back({timeBuf, s_theme.textSecondary});
   }
 
@@ -1579,7 +1855,8 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
       if (!InventorySystem::unequipItem(registry, view.front(),
                                         uiContext.contextSourceEquipmentSlot)) {
         uiContext.showMessageBox = true;
-        snprintf(uiContext.messageBoxText, 64, "背包已满！无法卸下装备。");
+        utils::FormatToBuffer(uiContext.messageBoxText,
+                              "背包已满！无法卸下装备。");
         uiContext.messageBoxTimer = 2.0f;
       }
       uiContext.showContextMenu = false;
@@ -1600,8 +1877,8 @@ void UIRenderer::DrawContextMenu(const Font &font, UIContext &uiContext,
         uiContext.quantityActionType = 0;
         uiContext.quantityMax = itemComp->quantity;
         uiContext.quantityVal = 1;
-        snprintf(uiContext.quantityInputBuf, sizeof(uiContext.quantityInputBuf),
-                 "%d", uiContext.quantityVal);
+        utils::FormatToBuffer(uiContext.quantityInputBuf, "{}",
+                              uiContext.quantityVal);
       } else {
         InventorySystem::dropItem(registry, view.front(),
                                   uiContext.contextMenuItem);
@@ -1653,7 +1930,7 @@ void UIRenderer::DrawMessageBox(const Font &font, UIContext &uiContext,
   float sy_logic = (UI_REF_HEIGHT - h_logic) / 2.0f;
 
   Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
-  
+
   // Use DrawButton as a decorative frame for the message box
   UIRenderer::DrawButton(font, rectTex, {sx_logic, sy_logic, w_logic, h_logic}, text, fontSize, s_theme.textPrimary, WHITE, false, false, alpha);
 }

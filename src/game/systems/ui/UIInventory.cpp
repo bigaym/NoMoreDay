@@ -246,7 +246,7 @@ void UIInventory::Draw(entt::registry& registry) {
         if (allowInventoryInput && isHovered && IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && IsKeyDown(KEY_LEFT_SHIFT) && item != entt::null) {
             if (!InventorySystem::unequipItem(registry, player, slotType)) {
                 UISystem::State.showMessageBox = true;
-                snprintf(UISystem::State.messageBoxText, 64, "背包已满");
+                utils::FormatToBuffer(UISystem::State.messageBoxText, "背包已满");
                 UISystem::State.messageBoxTimer = 1.5f;
             }
         }
@@ -320,12 +320,12 @@ void UIInventory::Draw(entt::registry& registry) {
                          // Failed? If split, we must destroy the copy
                          if (wasSplit) registry.destroy(runeToSocket);
                          UISystem::State.showMessageBox = true;
-                         snprintf(UISystem::State.messageBoxText, 64, "镶嵌失败");
+                         utils::FormatToBuffer(UISystem::State.messageBoxText, "镶嵌失败");
                          UISystem::State.messageBoxTimer = 1.0f;
                      }
                  } else {
                      UISystem::State.showMessageBox = true;
-                     snprintf(UISystem::State.messageBoxText, 64, "没有可用插槽");
+                     utils::FormatToBuffer(UISystem::State.messageBoxText, "没有可用插槽");
                      UISystem::State.messageBoxTimer = 1.0f;
                      handledDrop = true; // Prevent swap logic
                  }
@@ -528,7 +528,7 @@ void UIInventory::Draw(entt::registry& registry) {
                          } else {
                              if (wasSplit) registry.destroy(runeToSocket);
                               UISystem::State.showMessageBox = true;
-                             snprintf(UISystem::State.messageBoxText, 64, "镶嵌失败");
+                             utils::FormatToBuffer(UISystem::State.messageBoxText, "镶嵌失败");
                              UISystem::State.messageBoxTimer = 1.0f;
                              // We don't set handledDropInv=true here to fallthrough? 
                              // No, if we tried to socket and failed, we shouldn't try swap.
@@ -541,7 +541,7 @@ void UIInventory::Draw(entt::registry& registry) {
                          // If socketCount == 0, then maybe it's just a swap.
                          if (targetItem->socketCount > 0) {
                               UISystem::State.showMessageBox = true;
-                              snprintf(UISystem::State.messageBoxText, 64, "没有可用插槽");
+                              utils::FormatToBuffer(UISystem::State.messageBoxText, "没有可用插槽");
                               UISystem::State.messageBoxTimer = 1.0f;
                               handledDropInv = true;
                          }

@@ -331,19 +331,18 @@ void HeirloomVaultState::renderSlot(const HeirloomData &data, int index,
 
   // Tier 标识
   char tierText[16];
-  snprintf(tierText, sizeof(tierText), "Tier %d", data.heirloom.tier);
+  utils::FormatToBuffer(tierText, "Tier {}", data.heirloom.tier);
   DrawText(tierText, static_cast<int>(x + kSlotWidth - 70),
            static_cast<int>(y + 10), 14, ColorAlpha(GOLD, m_fadeAlpha));
 
   // 属性预览 (Attack/Defense)
   char statsText[64];
   if (data.item.attack > 0) {
-    snprintf(statsText, sizeof(statsText), "攻击: %.0f", data.item.attack);
+    utils::FormatToBuffer(statsText, "攻击: {:.0f}", data.item.attack);
   } else if (data.item.defense > 0) {
-    snprintf(statsText, sizeof(statsText), "防御: %.0f", data.item.defense);
+    utils::FormatToBuffer(statsText, "防御: {:.0f}", data.item.defense);
   } else {
-    snprintf(statsText, sizeof(statsText), "词缀: %zu",
-             data.item.affixes.size());
+    utils::FormatToBuffer(statsText, "词缀: {}", data.item.affixes.size());
   }
 
   DrawText(statsText, static_cast<int>(x + 10), static_cast<int>(y + 55), 14,
@@ -351,8 +350,9 @@ void HeirloomVaultState::renderSlot(const HeirloomData &data, int index,
 
   // 有效战力预览
   char powerText[64];
-  snprintf(powerText, sizeof(powerText), "Lv1: %.0f%% | Lv50: %.0f%%",
-           data.effective_power_at_level_1, data.effective_power_at_level_50);
+  utils::FormatToBuffer(powerText, "Lv1: {:.0f}% | Lv50: {:.0f}%",
+                        data.effective_power_at_level_1,
+                        data.effective_power_at_level_50);
   DrawText(powerText, static_cast<int>(x + 10), static_cast<int>(y + 75), 12,
            ColorAlpha(Color{150, 200, 150, 255}, m_fadeAlpha * 0.7f));
 }
@@ -389,8 +389,8 @@ void HeirloomVaultState::renderTooltip(const HeirloomData &data) {
 
   // 等级要求
   char reqText[32];
-  snprintf(reqText, sizeof(reqText), "需求等级: %d",
-           data.heirloom.original_level_requirement);
+  utils::FormatToBuffer(reqText, "需求等级: {}",
+                        data.heirloom.original_level_requirement);
   DrawText(reqText, static_cast<int>(tooltipX + 10), static_cast<int>(textY),
            14, ColorAlpha(LIGHTGRAY, m_fadeAlpha));
   textY += 20;

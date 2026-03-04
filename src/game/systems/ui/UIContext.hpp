@@ -29,7 +29,7 @@ namespace NoMoreDay {
         // Global Font Resource
         Font globalFont = { 0 };
         Font emojiFont = { 0 };
-        
+
         // UI Scale
         float scaleFactor = 1.0f;
 
@@ -38,13 +38,13 @@ namespace NoMoreDay {
         bool isTyping = false; // Tracks if user is typing in any input field (blocks gameplay input)
         bool showCharacterPanel = false;
         float characterPanelAlpha = 0.0f; // New
-        
+
         bool showInventory = false;
         float inventoryAlpha = 0.0f; // New
 
         bool showStash = false;
-        float stashAlpha = 0.0f; 
-        
+        float stashAlpha = 0.0f;
+
         bool showSkillTree = false; // New: Skill Specialization UI (Hotkey: S)
         float skillTreeAlpha = 0.0f; // New
         uint32_t selectedSkillId = 0; // Skill currently being viewed in talent tree
@@ -75,7 +75,18 @@ namespace NoMoreDay {
         // Interaction State
         entt::entity hoveredItem = entt::null;
         int hoveredSkillSlot = -1; // 0-4
+        uint32_t hoveredSkillId = 0; // standalone skill UI hover target
         int hoveredBuffIdx = -1;
+
+        // Tooltip Debouncing & Animation
+        uint32_t activeTooltipSkillId = 0;
+        entt::entity activeTooltipItem = entt::null;
+        int activeTooltipBuffIdx = -1;
+        float tooltipDelayTimer = 0.0f;
+        float tooltipAlpha = 0.0f;
+        Vector2 tooltipPos = { 0, 0 };
+        bool tooltipInitialized = false; // NEW: Track if position is locked for current hover
+        bool tooltipHoveredLastFrame = false;
 
         // Interaction Alphas/Scales
         struct ElementAnim {
@@ -99,7 +110,7 @@ namespace NoMoreDay {
         EquipmentSlot contextSourceEquipmentSlot = EquipmentSlot::None;
         bool isSkillContext = false;
         int contextSourceSkillSlot = -1;
-        
+
         // Quantity Popup State
         bool showQuantityPopup = false;
         entt::entity quantityTargetItem = entt::null;
