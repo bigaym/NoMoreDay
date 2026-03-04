@@ -11,6 +11,7 @@
 #include "game/systems/combat/CombatFormula.hpp" // Added
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/systems/combat/CombatTelemetry.hpp"
+#include "game/combat_v2/CombatV2RuntimeFacade.hpp"
 #include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/systems/combat/EndgameModifierContract.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
@@ -30,7 +31,7 @@ namespace NoMoreDay {
 #endif
 
 #if COMBAT_DEFENSE_DEBUG
-#define COMBAT_DEFENSE_LOG(...) spdlog::debug(__VA_ARGS__)
+#define COMBAT_DEFENSE_LOG(...) LOG_DEBUG(__VA_ARGS__)
 #else
 #define COMBAT_DEFENSE_LOG(...) ((void)0)
 #endif
@@ -362,7 +363,7 @@ template <typename T, size_t N> struct FixedVector {
     if (size < N) {
       data[size++] = value;
     } else {
-      spdlog::warn("FixedVector overflow! Capacity: {}", N);
+      LOG_WARN("FixedVector overflow! Capacity: {}", N);
     }
   }
 
@@ -431,6 +432,27 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
   const bool skip_mitigation =
       request.skip_mitigation || request.thorns_like_damage;
 
+  if (!is_simulation) {
+    CombatV2::CombatV2RuntimeRequest runtimeRequest;
+    runtimeRequest.damageRequest = request;
+    runtimeRequest.cutoverModeEnabled = true;
+    runtimeRequest.mode = CombatV2::CombatV2RuntimeMode::CandidateOnly;
+    runtimeRequest.scenarioClass = CombatV2::CombatV2ScenarioClass::HitFloat;
+
+    CombatV2::CombatV2RuntimeFacade facade;
+    const CombatV2::CombatV2RuntimeResult runtimeResult =
+        facade.Execute(registry, runtimeRequest);
+    if (runtimeResult.status == CombatV2::CombatV2RuntimeStatus::Ok) {
+      return runtimeResult.resolvedDamage;
+    }
+
+    LOG_ERROR(
+        "DamagePipeline: candidate runtime execution failed status={} for "
+        "skill_id={} (non-simulation path is candidate-only).",
+        static_cast<int>(runtimeResult.status), skill_id);
+    return DamageResult{};
+  }
+
   // === PRE-CALCULATION INTERCEPTORS ===
 
   // 1. Invulnerable Check (Shielding, Clone Invulnerability)
@@ -475,7 +497,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       }
 
     if (empty_pool) {
-      spdlog::warn("DamagePipeline: Calculating damage for invalid skill ID {} "
+      LOG_WARN("DamagePipeline: Calculating damage for invalid skill ID {} "
                    "with empty base pool. Result will be 0.",
                    skill_id);
     }
@@ -658,7 +680,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
             gain_mods.push_back(&mod);
           }
         } else if (mod.target_tag != current_source_type) {
-          spdlog::warn("DamagePipeline: Illegal conversion loop detected ({} "
+          LOG_WARN("DamagePipeline: Illegal conversion loop detected ({} "
                        "-> {}). Skipping.",
                        source_idx, target_idx);
         }
@@ -1038,7 +1060,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
         total_final_damage = 0.0f; // Negate damage
         result.final_pool.Clear(); // Clear pools
 
-        spdlog::info("Phantom Flash: Counter Triggered by entity {}",
+        LOG_INFO("Phantom Flash: Counter Triggered by entity {}",
                      (uint32_t)defender);
 
         // Trigger Counter Attack (Visual/Logic)
@@ -1065,7 +1087,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
             total_final_damage = 0.0f; // Negate damage
             result.final_pool.Clear();
 
-            spdlog::info(
+            LOG_INFO(
                 "Blade Ward: Projectile intercepted! Swords remaining: {}",
                 ward->sword_count);
           }
@@ -1458,7 +1480,7 @@ void DamagePipeline::CalculateBatch(
                 ward->sword_count--;
               }
               final_damage = 0.0f;
-              spdlog::info("Blade Ward (Batch): Projectile intercepted for "
+              LOG_INFO("Blade Ward (Batch): Projectile intercepted for "
                            "entity {}! Swords remaining: {}",
                            (uint32_t)res.target, ward->sword_count);
             }

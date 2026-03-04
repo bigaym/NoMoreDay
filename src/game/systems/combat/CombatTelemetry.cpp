@@ -359,7 +359,7 @@ void EmitSummary(TelemetryState &state, const float interval_seconds) {
   const std::string trigger_dispatch_depth_summary =
       BuildDepthSummary(trigger_dispatch_depth);
 
-  spdlog::info(
+  LOG_INFO(
       "[CombatTelemetry] dp_us(avg/p95/p99)={:.2f}/{:.2f}/{:.2f} samples={} "
       "stats(calls={} hit={:.1f}% lock_wait_us/call={:.3f}) "
       "events(frame_total={} top={}) "

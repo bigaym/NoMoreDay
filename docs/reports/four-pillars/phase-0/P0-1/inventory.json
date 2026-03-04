@@ -141,7 +141,7 @@
       "line": 49,
       "column": 43,
       "classification": "removable_runtime_branch",
-      "excerpt": "spdlog::warn(\"Unknown biome style '{}', fallback to Open\", style);"
+      "excerpt": "LOG_WARN(\"Unknown biome style '{}', fallback to Open\", style);"
     },
     {
       "file": "src/game/data/SkillRegistry.cpp",

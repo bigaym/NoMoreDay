@@ -41,6 +41,7 @@ float SimulateDamage(entt::registry &registry, entt::entity attacker,
   request.skill_id = skillId;
   request.base_pool.Add(type, amount);
   request.additional_tags = Tag::Hit;
+  request.is_simulation = true;
   return DamagePipeline::Calculate(registry, request).total_damage;
 }
 

@@ -1,0 +1,9 @@
+Phase-3 package P3-C gate commands (run from F:\NoMoreDay)
+
+1) ./build.bat check
+2) ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure
+3) ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+4) ctest --test-dir build -C Release -L performance --output-on-failure
+5) ctest --test-dir build -C RelWithDebInfo -R "^nmd\.tests\.combat\.(unit|integration|parity\.unit|perf\.baseline)$" --output-on-failure
+6) ./bin/NoMoreDayTests.exe --test-case="[Unit] ModifierGraphV2*"
+7) ./bin/NoMoreDayTests.exe --test-case="[Integration] ModifierGraphV2*"

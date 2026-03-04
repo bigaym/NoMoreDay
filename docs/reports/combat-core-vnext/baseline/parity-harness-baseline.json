@@ -1,0 +1,29 @@
+{
+  "schema_version": "combat_parity_baseline_v1",
+  "captured_utc": "2026-03-03T00:00:00Z",
+  "parity_tolerance": {
+    "exact_match": {
+      "abs_delta": 0.0
+    },
+    "hit_float": {
+      "abs_delta": 0.0001,
+      "rel_delta_pct": 0.1
+    },
+    "dot_aggregate": {
+      "abs_delta": 0.001,
+      "rel_delta_pct": 0.5
+    },
+    "status_duration": {
+      "abs_delta_seconds": 0.0001
+    }
+  },
+  "fixtures": [
+    {
+      "scenario_id": "combat.core.hit.single_target.v1",
+      "scenario_class": "hit_float",
+      "seed": 1337,
+      "expected_legacy_final": 124.0,
+      "expected_trace_hash": "sha256:90f4d4f52a8a1a5de9f18bf5f0a8d4f31b57db5931378678d4378bf3e2442f7e"
+    }
+  ]
+}

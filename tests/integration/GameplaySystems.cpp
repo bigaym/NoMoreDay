@@ -155,7 +155,7 @@ TEST_CASE("[Integration] CombatSystem - Basic Damage Flow") {
     DamagePool pool;
     pool.Add(Tag::Physical, 20.0f);
     
-    auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Melee, entt::null);
+    auto result = DamagePipeline::Calculate(registry, attacker, defender, 0, pool, Tag::Melee, entt::null, true);
     CHECK(result.total_damage > 0.0f);
 }
 

@@ -37,7 +37,7 @@ float SimulateDoTTickDamage(entt::registry &registry, entt::entity attacker,
   request.skill_id = 0;
   request.base_pool.Add(elementTag, tickDamage);
   request.additional_tags = Tag::DamageOverTime;
-  request.is_simulation = true;
+  request.is_simulation = false;
   return DamagePipeline::Calculate(registry, request).total_damage;
 }
 

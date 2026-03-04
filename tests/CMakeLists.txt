@@ -17,10 +17,14 @@ set_source_files_properties(
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/ReleaseGateIntegrationTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/integration/ShadowPipelineTierFallbackIntegrationTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatReleaseGateBenchmark.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatCorePerfBaselineTests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/FluidSPHReferenceTest.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/JFADistanceFieldEvaluatorTest.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/CombatCoreParityHarnessTests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/ConditionIRTests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/SkillSpecModifierAdapterTests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/unit/TalentModifierAdapterTests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/unit/TagDomainV2Tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/CombatTelemetryBenchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/FluidSimulationBenchmark.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/performance/MaterialLightingBenchmark.cpp
@@ -145,7 +149,7 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
     )
 
     add_test(NAME nmd.tests.combat.unit
-        COMMAND NoMoreDayTests --test-case=[Unit]*Combat*
+        COMMAND NoMoreDayTests --test-case=[Unit]*Combat*,[Unit]*ConditionIR*,[Unit]*TagDomainV2*,[Unit]*ModifierGraphV2*,[Unit]*DamageKernelV2*
     )
     set_tests_properties(nmd.tests.combat.unit PROPERTIES
         LABELS "unit;combat;module-gate"
@@ -154,10 +158,28 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
     )
 
     add_test(NAME nmd.tests.combat.integration
-        COMMAND NoMoreDayTests --test-case=[Integration]*Combat*
+        COMMAND NoMoreDayTests --test-case=[Integration]*Combat*,[Integration]*ModifierGraphV2*,[Integration]*DamageKernelParity*
     )
     set_tests_properties(nmd.tests.combat.integration PROPERTIES
         LABELS "integration;combat;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+    )
+
+    add_test(NAME nmd.tests.combat.parity.unit
+        COMMAND NoMoreDayTests --test-case=[Unit]*CombatCoreParityHarness*
+    )
+    set_tests_properties(nmd.tests.combat.parity.unit PROPERTIES
+        LABELS "unit;combat;parity;module-gate"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    add_test(NAME nmd.tests.combat.perf.baseline
+        COMMAND NoMoreDayTests --test-case=[Performance]*CombatCorePerfBaseline*
+    )
+    set_tests_properties(nmd.tests.combat.perf.baseline PROPERTIES
+        LABELS "performance;combat;perf-baseline;module-gate"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 900
     )

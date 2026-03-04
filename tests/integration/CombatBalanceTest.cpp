@@ -44,7 +44,7 @@ TEST_CASE("[Integration] CombatBalance - Integrated Flow") {
   SUBCASE("Base Damage (0 Armor)") {
     dStats.armor = 0.0f;
     auto result = DamagePipeline::Calculate(registry, attacker, defender, 0,
-                                            pool, Tag::Melee, entt::null);
+                                            pool, Tag::Melee, entt::null, true);
     CHECK(result.total_damage == doctest::Approx(100.0f));
   }
 
@@ -52,7 +52,7 @@ TEST_CASE("[Integration] CombatBalance - Integrated Flow") {
     // Level 100 LF = 560. 560 Armor should give 50% DR.
     dStats.armor = 560.0f;
     auto result = DamagePipeline::Calculate(registry, attacker, defender, 0,
-                                            pool, Tag::Melee, entt::null);
+                                            pool, Tag::Melee, entt::null, true);
     CHECK(result.total_damage == doctest::Approx(50.0f));
   }
 
@@ -60,7 +60,7 @@ TEST_CASE("[Integration] CombatBalance - Integrated Flow") {
     // -560 Armor should give 1.5x damage
     dStats.armor = -560.0f;
     auto result = DamagePipeline::Calculate(registry, attacker, defender, 0,
-                                            pool, Tag::Melee, entt::null);
+                                            pool, Tag::Melee, entt::null, true);
     CHECK(result.total_damage == doctest::Approx(150.0f));
   }
 }

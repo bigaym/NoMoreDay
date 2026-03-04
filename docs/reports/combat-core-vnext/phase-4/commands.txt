@@ -1,0 +1,31 @@
+Phase 4 package P4-C gate commands and outcomes
+Workspace: F:\NoMoreDay
+Date: 2026-03-04
+
+1) ./build.bat check
+   - exit: 0
+   - outcome: PASS (all pre-check scripts passed; check mode skipped compilation)
+
+2) ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure
+   - exit: 0
+   - outcome: PASS (9/9 passed, 0 failed)
+
+3) ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+   - exit: 0
+   - outcome: PASS (6/6 passed, 0 failed)
+
+4) ctest --test-dir build -C Release -L performance --output-on-failure
+   - exit: 0
+   - outcome: PASS (2/2 passed, 0 failed)
+
+5) ctest --test-dir build -C RelWithDebInfo -R "^nmd\.tests\.combat\.(unit|integration|parity\.unit|perf\.baseline)$" --output-on-failure
+   - exit: 0
+   - outcome: PASS (4/4 passed, 0 failed)
+
+6) ./bin/NoMoreDayTests.exe --test-case="[Unit] DamageKernelV2*"
+   - exit: 0
+   - outcome: PASS (4 test cases, 15 assertions, 0 failed)
+
+7) ./bin/NoMoreDayTests.exe --test-case="[Integration] DamageKernelParity*"
+   - exit: 0
+   - outcome: PASS (1 test case, 6 assertions, 0 failed)

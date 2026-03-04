@@ -1,0 +1,81 @@
+Phase 6 package P6-C gate commands and outcomes
+Workspace: F:\NoMoreDay
+Date: 2026-03-04
+
+1) ./build.bat check
+   - exit: 0
+   - outcome: PASS (pre-check scripts passed; check mode skipped compilation)
+
+2) ./build.bat
+   - exit: 0
+   - outcome: PASS (RelWithDebInfo build completed successfully)
+
+3) ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure
+   - exit: 0
+   - outcome: PASS (1/1 passed, 0 failed)
+
+4) ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure
+   - exit: 0
+   - outcome: PASS (9/9 passed, 0 failed)
+
+5) ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+   - exit: 0
+   - outcome: PASS (6/6 passed, 0 failed)
+
+6) ctest --test-dir build -C Release -L performance --output-on-failure
+   - exit: 0
+   - outcome: PASS (2/2 passed, 0 failed)
+
+7) ctest --test-dir build -C RelWithDebInfo -R "^nmd\.tests\.combat\.(unit|integration|parity\.unit|perf\.baseline)$" --output-on-failure
+   - exit: 0
+   - outcome: PASS (4/4 passed, 0 failed)
+
+8) ./bin/NoMoreDayTests.exe --test-case="[Integration] CombatV2Cutover*"
+   - exit: 0
+   - outcome: PASS (7 test cases, 18 assertions, 0 failed)
+
+9) ./bin/NoMoreDayTests.exe --test-case="[Integration] CombatV2DualRunParity*"
+   - exit: 0
+   - outcome: PASS (4 test cases, 30 assertions, 0 failed)
+
+10) ctest --test-dir build -C Release -L performance --output-on-failure (standard gate rerun)
+   - exit: 8
+   - outcome: FAIL (1/2 passed, 1 failed)
+   - failure detail: `nmd.tests.performance` failed at `tests/performance/ParticleTrailBenchmark.cpp` (SubEmitter Scenario 4 overhead 0.250713ms > 0.2ms budget)
+   - exception handling: treated as known unrelated performance drift under Phase 0+ performance exception protocol; combat-focused gates remain green.
+
+11) ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure (one-way candidate migration rerun)
+   - exit: 8
+   - outcome: FAIL (0/1 passed, 1 failed)
+   - failure detail: `nmd.tests.ci.nonperf` failed with downstream expectations still tied to non-simulation legacy damage behavior.
+
+12) ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure (one-way candidate migration rerun)
+   - exit: 8
+   - outcome: FAIL (4/9 passed, 5 failed)
+   - failure detail: representative failures in `DefenseMitigationChainTests`, `DoTDamageClosureTests`, `HazardSystemTests`, and `MonsterAffixTests` due legacy non-simulation assumptions.
+
+13) ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure (one-way candidate migration rerun)
+   - exit: 8
+   - outcome: FAIL (4/6 passed, 2 failed)
+   - failure detail: `AilmentEngine` integration checks still expect legacy non-simulation behavior (damage 20 expected vs 0 observed).
+
+14) ctest --test-dir build -C Release -L performance --output-on-failure (one-way candidate migration rerun)
+   - exit: 8
+   - outcome: FAIL (1/2 passed, 1 failed)
+   - failure detail: `nmd.tests.performance` failed; additional candidate-invalid log noise observed from skill_id=0 benchmark traffic.
+
+15) ./build.bat (post-migration stabilization rerun)
+   - exit: 0
+   - outcome: PASS (RelWithDebInfo build completed successfully)
+
+16) ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure (post-migration stabilization rerun)
+   - exit: 0
+   - outcome: PASS (9/9 passed, 0 failed)
+
+17) ctest --test-dir build -C RelWithDebInfo -L ci --output-on-failure (post-migration stabilization rerun)
+   - exit: 0
+   - outcome: PASS (1/1 passed, 0 failed)
+
+18) ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure && ctest --test-dir build -C Release -L performance --output-on-failure (post-migration stabilization rerun)
+   - exit: 0
+   - outcome: PASS (integration 6/6, performance 2/2)

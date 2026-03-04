@@ -59,7 +59,7 @@ namespace tools
         try
         {
             spdlog::register_logger(s_CoreLogger);
-            spdlog::set_default_logger(s_CoreLogger); // Fix: Ensure spdlog::info/error uses our logger
+            spdlog::set_default_logger(s_CoreLogger); // Fix: Ensure LOG_INFO/error uses our logger
         }
         catch (...)
         {

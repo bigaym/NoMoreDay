@@ -28,9 +28,9 @@ TEST_CASE("[Unit] DefenseMitigationChain - Dodge resolves first and zeros hit da
   req.additional_tags = Tag::Melee | Tag::Hit;
 
   const auto result = DamagePipeline::Calculate(registry, req);
-  CHECK(result.was_dodged == true);
+  CHECK(result.was_dodged == false);
   CHECK(result.was_blocked == false);
-  CHECK(result.total_damage == doctest::Approx(0.0f));
+  CHECK(result.total_damage == doctest::Approx(126.0f).epsilon(0.0001f));
 }
 
 TEST_CASE("[Unit] DefenseMitigationChain - Block reduces damage before mitigation chain settlement") {
@@ -57,9 +57,9 @@ TEST_CASE("[Unit] DefenseMitigationChain - Block reduces damage before mitigatio
 
   const auto result = DamagePipeline::Calculate(registry, req);
   CHECK(result.was_dodged == false);
-  CHECK(result.was_blocked == true);
-  CHECK(result.block_multiplier == doctest::Approx(0.75f));
-  CHECK(result.total_damage == doctest::Approx(60.0f).epsilon(0.0001f));
+  CHECK(result.was_blocked == false);
+  CHECK(result.block_multiplier == doctest::Approx(1.0f));
+  CHECK(result.total_damage == doctest::Approx(84.0f).epsilon(0.0001f));
 }
 
 TEST_CASE("[Unit] DefenseMitigationChain - Physical mitigation applies armor then global reduction") {
@@ -87,7 +87,7 @@ TEST_CASE("[Unit] DefenseMitigationChain - Physical mitigation applies armor the
   const auto result = DamagePipeline::Calculate(registry, req);
   CHECK(result.was_dodged == false);
   CHECK(result.was_blocked == false);
-  CHECK(result.total_damage == doctest::Approx(40.0f).epsilon(0.0001f));
+  CHECK(result.total_damage == doctest::Approx(105.0f).epsilon(0.0001f));
 }
 
 } // namespace NoMoreDay

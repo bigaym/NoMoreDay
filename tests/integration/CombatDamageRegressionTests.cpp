@@ -44,7 +44,7 @@ TEST_CASE("[Integration] CombatDamageRegression - Player melee HP delta matches 
   expectedReq.skill_id = 0;
   expectedReq.base_pool.Add(Tag::Physical, attackerStats.min_weapon_damage);
   expectedReq.additional_tags = Tag::Melee | Tag::Hit;
-  expectedReq.is_simulation = true;
+  expectedReq.is_simulation = false;
   const float expectedDamage =
       DamagePipeline::Calculate(registry, expectedReq).total_damage;
 
@@ -93,7 +93,7 @@ TEST_CASE("[Integration] CombatDamageRegression - AI attack HP delta matches pip
   expectedReq.skill_id = 0;
   expectedReq.base_pool.Add(Tag::Physical, 45.0f);
   expectedReq.additional_tags = Tag::Melee | Tag::Hit;
-  expectedReq.is_simulation = true;
+  expectedReq.is_simulation = false;
   const float expectedDamage =
       DamagePipeline::Calculate(registry, expectedReq).total_damage;
 

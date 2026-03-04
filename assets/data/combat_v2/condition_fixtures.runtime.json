@@ -1,0 +1,48 @@
+{
+  "fixtures": [
+    {
+      "condition": {
+        "all": [
+          {
+            "has_tags_all": [
+              "Fire"
+            ]
+          },
+          {
+            "any": [
+              {
+                "has_tags_any": [
+                  "Cold"
+                ]
+              },
+              {
+                "none": [
+                  {
+                    "has_tags_any": [
+                      "Shadow"
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "not": {
+              "has_tags_any": [
+                "Poison"
+              ]
+            }
+          }
+        ]
+      },
+      "name": "nested_all_any_none_not"
+    }
+  ],
+  "invalid_fixtures": [
+    {
+      "error": "condition.all must be a non-empty array",
+      "name": "invalid_empty_all"
+    }
+  ],
+  "version": 1
+}

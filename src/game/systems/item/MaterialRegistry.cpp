@@ -13,7 +13,7 @@ MaterialRegistry& MaterialRegistry::Get() {
 void MaterialRegistry::LoadMaterials(const std::string& path) {
     std::ifstream file(path);
     if (!file.is_open()) {
-        spdlog::error("Failed to open material data file: {}", path);
+        LOG_ERROR("Failed to open material data file: {}", path);
         return;
     }
 
@@ -21,7 +21,7 @@ void MaterialRegistry::LoadMaterials(const std::string& path) {
     try {
         file >> data;
     } catch (const nlohmann::json::parse_error& e) {
-        spdlog::error("Failed to parse material data JSON: {}", e.what());
+        LOG_ERROR("Failed to parse material data JSON: {}", e.what());
         return;
     }
 
@@ -29,7 +29,7 @@ void MaterialRegistry::LoadMaterials(const std::string& path) {
     allMaterials_.clear();
 
     if (!data.contains("materials") || !data["materials"].is_array()) {
-         spdlog::error("Invalid material data format: 'materials' array missing.");
+         LOG_ERROR("Invalid material data format: 'materials' array missing.");
          return;
     }
 
@@ -68,7 +68,7 @@ void MaterialRegistry::LoadMaterials(const std::string& path) {
         allMaterials_.push_back(def);
     }
 
-    spdlog::info("Loaded {} materials from {}", allMaterials_.size(), path);
+    LOG_INFO("Loaded {} materials from {}", allMaterials_.size(), path);
 }
 
 const MaterialDefinition* MaterialRegistry::GetMaterial(uint32_t id) const {

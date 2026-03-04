@@ -26,6 +26,7 @@ TEST_CASE("[Integration] CombatDefenseContract - Armor mitigation") {
   req.skill_id = 991001u;
   req.base_pool.Add(Tag::Physical, 100.0f);
   req.additional_tags = Tag::Hit;
+  req.is_simulation = true;
 
   const auto result = DamagePipeline::Calculate(registry, req);
   CHECK(result.total_damage == doctest::Approx(50.0f).epsilon(0.0001f));
@@ -48,6 +49,7 @@ TEST_CASE("[Integration] CombatDefenseContract - Resistance mitigation") {
   req.skill_id = 991002u;
   req.base_pool.Add(Tag::Fire, 100.0f);
   req.additional_tags = Tag::Hit;
+  req.is_simulation = true;
 
   const auto result = DamagePipeline::Calculate(registry, req);
   CHECK(result.total_damage == doctest::Approx(60.0f).epsilon(0.0001f));
@@ -73,6 +75,7 @@ TEST_CASE("[Integration] CombatDefenseContract - Barrier absorbs before HP") {
   req.skill_id = 991003u;
   req.base_pool.Add(Tag::Physical, 80.0f);
   req.additional_tags = Tag::Hit;
+  req.is_simulation = true;
 
   const auto result = DamagePipeline::Calculate(registry, req);
   CombatSystem::ApplyDamage(registry, defender, result.total_damage, attacker,

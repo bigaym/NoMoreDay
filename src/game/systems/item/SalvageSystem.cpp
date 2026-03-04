@@ -79,7 +79,7 @@ void Execute(entt::registry& registry, entt::entity itemEntity, entt::entity pla
 
     const auto& item = registry.get<ItemComponent>(itemEntity);
     if (!CanSalvage(item)) {
-        spdlog::warn("Attempted to salvage non-salvageable item: {}", item.name);
+        LOG_WARN("Attempted to salvage non-salvageable item: {}", item.name);
         return;
     }
     
@@ -90,7 +90,7 @@ void Execute(entt::registry& registry, entt::entity itemEntity, entt::entity pla
         for (const auto& res : yield) {
             bank->Add(res.materialId, res.count);
         }
-        spdlog::info("Salvaged {}: obtained {} different types of shards", item.name, yield.size());
+        LOG_INFO("Salvaged {}: obtained {} different types of shards", item.name, yield.size());
     }
     
     // --- Cleanup References in Inventory ---

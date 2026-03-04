@@ -146,13 +146,13 @@ void ProcBudgetManager::LogFrameSummary() const {
 
     const ProcBudgetType type = static_cast<ProcBudgetType>(idx);
     if (type == ProcBudgetType::EventEmit) {
-      spdlog::info(
+      LOG_INFO(
           "[ProcBudget] frame={} dim={} allowed={} denied={} drop_rate={:.2f}% "
           "cap={}",
           m_frame_index, BudgetTypeToString(type), counter.allowed, denied,
           downsample_rate, m_config.event_emit_per_frame);
     } else {
-      spdlog::info(
+      LOG_INFO(
           "[ProcBudget] frame={} dim={} allowed={} denied={} drop_rate={:.2f}% "
           "budget_per_sec={:.2f}",
           m_frame_index, BudgetTypeToString(type), counter.allowed, denied,
@@ -261,7 +261,7 @@ bool ProcBudgetManager::LoadConfigFromFile(const std::string &path) {
   if (!file.is_open()) {
     m_config = loaded;
     m_config_loaded = true;
-    spdlog::warn("[ProcBudget] config '{}' not found, using defaults.", path);
+    LOG_WARN("[ProcBudget] config '{}' not found, using defaults.", path);
     return false;
   }
 
@@ -271,7 +271,7 @@ bool ProcBudgetManager::LoadConfigFromFile(const std::string &path) {
   } catch (const std::exception &e) {
     m_config = loaded;
     m_config_loaded = true;
-    spdlog::warn("[ProcBudget] failed to parse '{}': {}. Using defaults.", path,
+    LOG_WARN("[ProcBudget] failed to parse '{}': {}. Using defaults.", path,
                  e.what());
     return false;
   }

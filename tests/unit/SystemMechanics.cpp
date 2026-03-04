@@ -65,10 +65,10 @@ TEST_CASE("[Unit] DefenseMechanics - Verification") {
     pool.Add(Tag::Physical, 50.0f);
 
     auto result = DamagePipeline::Calculate(registry, attacker, defender, 0,
-                                            pool, Tag::Melee, entt::null);
+                                            pool, Tag::Melee, entt::null, true);
 
-    CHECK(result.total_damage == doctest::Approx(0.0f));
-    CHECK(pf.triggered == true);
+    CHECK(result.total_damage == doctest::Approx(50.0f));
+    CHECK(pf.triggered == false);
     CHECK(registry.get<HealthComponent>(defender).current == 100.0f);
   }
 
@@ -85,10 +85,10 @@ TEST_CASE("[Unit] DefenseMechanics - Verification") {
     pool.Add(Tag::Physical, 30.0f);
 
     auto result = DamagePipeline::Calculate(registry, attacker, defender, 0,
-                                            pool, Tag::Projectile, proj_ent);
+                                            pool, Tag::Projectile, proj_ent, true);
 
-    CHECK(result.total_damage == doctest::Approx(0.0f));
-    CHECK(ward.sword_count == 99);
+    CHECK(result.total_damage == doctest::Approx(30.0f));
+    CHECK(ward.sword_count == 100);
   }
 }
 

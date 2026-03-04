@@ -1,0 +1,20 @@
+{
+  "schema_version": "combat_perf_baseline_v1",
+  "captured_utc": "2026-03-03T00:00:00Z",
+  "hardware_profile_hash": "sha256:9d2757e6cbbe3b8ec78795be121a2d8ec8c79a6d89ccf4a4f7bc84f6f6e294f0",
+  "protocol": {
+    "warmup_runs": 1,
+    "measured_runs": 5,
+    "metric_kind": "p95_ms",
+    "max_regression_pct": 5.0
+  },
+  "scenarios": [
+    {
+      "scenario_id": "combat.core.hit.single_target.v1",
+      "test_case": "[Performance] CombatCorePerfBaseline - SingleTargetHit P95",
+      "baseline_p95_ms": 0.5,
+      "seed": 1337,
+      "quality_tier": "relwithdebinfo"
+    }
+  ]
+}

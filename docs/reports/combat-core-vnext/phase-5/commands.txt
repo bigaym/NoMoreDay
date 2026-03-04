@@ -1,0 +1,31 @@
+Phase 5 package P5-C gate commands and outcomes
+Workspace: F:\NoMoreDay
+Date: 2026-03-04
+
+1) ./build.bat check
+   - exit: 0
+   - outcome: PASS (all pre-check scripts passed; check mode skipped compilation)
+
+2) python scripts/combat_v2/compile_conditions.py
+   - exit: 0
+   - outcome: PASS (compiled 1 valid fixture; recorded 1 expected-invalid fixture)
+
+3) ./build.bat
+   - exit: 0
+   - outcome: PASS (RelWithDebInfo build completed successfully)
+
+4) ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+   - exit: 0
+   - outcome: PASS (6/6 passed, 0 failed)
+
+5) ctest --test-dir build -C Release -L performance --output-on-failure
+   - exit: 0
+   - outcome: PASS (2/2 passed, 0 failed)
+
+6) ctest --test-dir build -C RelWithDebInfo -R "^nmd\.tests\.combat\.(integration|unit|parity\.unit|perf\.baseline)$" --output-on-failure
+   - exit: 0
+   - outcome: PASS (4/4 passed, 0 failed)
+
+7) ./bin/NoMoreDayTests.exe --test-case="[Integration] CombatV2DualRunParity*"
+   - exit: 0
+   - outcome: PASS (4 test cases, 30 assertions, 0 failed)

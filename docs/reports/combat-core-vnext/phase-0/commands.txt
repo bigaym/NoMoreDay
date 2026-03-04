@@ -1,0 +1,5 @@
+./build.bat check
+ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure
+ctest --test-dir build -C RelWithDebInfo -L integration --output-on-failure
+ctest --test-dir build -C Release -L performance --output-on-failure
+ctest --test-dir build -C RelWithDebInfo -R "^nmd\.tests\.combat\.(parity\.unit|perf\.baseline)$" --output-on-failure

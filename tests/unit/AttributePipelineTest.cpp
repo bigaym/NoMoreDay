@@ -1,4 +1,5 @@
 #include "game/systems/stats/AttributePipeline.hpp"
+#include "game/components/AIComponent.hpp"
 #include "game/components/EnemyComponent.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/Progression.hpp"

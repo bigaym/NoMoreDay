@@ -1,0 +1,12 @@
+{
+  "schema_version": "combat_scenario_manifest_v1",
+  "generated_utc": "2026-03-03T00:00:00Z",
+  "scenarios": [
+    {
+      "scenario_id": "combat.core.hit.single_target.v1",
+      "scenario_class": "hit_float",
+      "seed": 1337,
+      "description": "Single target deterministic hit for parity and perf sanity checks"
+    }
+  ]
+}

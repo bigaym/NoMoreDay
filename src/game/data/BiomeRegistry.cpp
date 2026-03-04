@@ -46,7 +46,7 @@ BiomeStyle ParseBiomeStyle(const json &item) {
     return BiomeStyle::Special;
   }
 
-  spdlog::warn("Unknown biome style '{}', fallback to Open", style);
+  LOG_WARN("Unknown biome style '{}', fallback to Open", style);
   return BiomeStyle::Open;
 }
 
@@ -66,7 +66,7 @@ uint32_t ParseBiomeFeatures(const json &item) {
     return 0;
   }
   if (!item["features"].is_array()) {
-    spdlog::warn("Biome features should be an array, got invalid type");
+    LOG_WARN("Biome features should be an array, got invalid type");
     return 0;
   }
 
@@ -78,7 +78,7 @@ uint32_t ParseBiomeFeatures(const json &item) {
     const std::string key = ToLower(entry.get<std::string>());
     const auto iter = kFeatureMap.find(key);
     if (iter == kFeatureMap.end()) {
-      spdlog::warn("Unknown biome feature '{}', ignored", key);
+      LOG_WARN("Unknown biome feature '{}', ignored", key);
       continue;
     }
     mask = AddBiomeFeature(mask, iter->second);
@@ -96,7 +96,7 @@ BiomeRegistry &BiomeRegistry::Get() {
 void BiomeRegistry::LoadFromJSON(const std::string &path) {
   std::ifstream file(path);
   if (!file.is_open()) {
-    spdlog::error("Failed to open biomes config: {}", path);
+    LOG_ERROR("Failed to open biomes config: {}", path);
     return;
   }
 
@@ -105,7 +105,7 @@ void BiomeRegistry::LoadFromJSON(const std::string &path) {
     file >> j;
     const int version = j.value("version", 1);
     if (version < 2) {
-      spdlog::warn("Biome config version {} detected. Expected version 2.", version);
+      LOG_WARN("Biome config version {} detected. Expected version 2.", version);
     }
 
     m_biomes.clear();
@@ -139,7 +139,7 @@ void BiomeRegistry::LoadFromJSON(const std::string &path) {
       config.isSafeZone = item.value("isSafeZone", false);
 
       if (config.id.empty()) {
-        spdlog::warn("Skipped biome with empty id");
+        LOG_WARN("Skipped biome with empty id");
         continue;
       }
 
@@ -147,12 +147,12 @@ void BiomeRegistry::LoadFromJSON(const std::string &path) {
       if (config.numericId != NoMoreDay::BiomeID::None) {
         m_idToKey[config.numericId] = config.id;
       }
-      spdlog::info("Loaded biome: {} ({}, id: {}, style: {}, features: 0x{:X})",
+      LOG_INFO("Loaded biome: {} ({}, id: {}, style: {}, features: 0x{:X})",
                    config.name, config.id, static_cast<int>(config.numericId),
                    static_cast<int>(config.style), config.features);
     }
   } catch (const std::exception &e) {
-    spdlog::error("Error parsing biomes JSON: {}", e.what());
+    LOG_ERROR("Error parsing biomes JSON: {}", e.what());
   }
 }
 

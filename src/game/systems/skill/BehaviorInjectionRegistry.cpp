@@ -15,7 +15,7 @@ std::unordered_map<std::string, BehaviorInjectionRegistry::BehaviorInjector>
 void BehaviorInjectionRegistry::Register(const std::string &id,
                                          BehaviorInjector injector) {
   if (injectors.contains(id)) {
-    spdlog::warn("BehaviorInjectionRegistry: Overwriting injector for ID '{}'",
+    LOG_WARN("BehaviorInjectionRegistry: Overwriting injector for ID '{}'",
                  id);
   }
   injectors[id] = std::move(injector);
@@ -30,11 +30,11 @@ void BehaviorInjectionRegistry::Apply(const std::string &id,
   auto it = injectors.find(id);
   if (it != injectors.end()) {
     it->second(registry, entity);
-    spdlog::debug(
+    LOG_DEBUG(
         "BehaviorInjectionRegistry: Applied behavior '{}' to entity {}", id,
         static_cast<uint32_t>(entity));
   } else {
-    spdlog::warn("BehaviorInjectionRegistry: Unknown behavior ID '{}'", id);
+    LOG_WARN("BehaviorInjectionRegistry: Unknown behavior ID '{}'", id);
   }
 }
 
@@ -46,7 +46,7 @@ void BehaviorInjectionRegistry::Init() {
     r.get_or_emplace<ShadowKillArrayReady>(e);
   });
 
-  spdlog::info("BehaviorInjectionRegistry: Initialized with {} behaviors",
+  LOG_INFO("BehaviorInjectionRegistry: Initialized with {} behaviors",
                injectors.size());
 }
 

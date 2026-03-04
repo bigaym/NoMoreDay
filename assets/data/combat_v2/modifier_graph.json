@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "records": [
+    {
+      "node_id": 1001,
+      "stage": "hit",
+      "op": "increased",
+      "value": 0.2,
+      "condition_program_id": 1,
+      "priority": 10,
+      "source_id": 200,
+      "forbidden_filter_ids": [
+        66
+      ],
+      "node_whitelist": [
+        101,
+        102
+      ]
+    },
+    {
+      "node_id": 1002,
+      "stage": "dot_tick",
+      "op": "more",
+      "value": 1.15,
+      "condition_program_id": 2,
+      "priority": 20,
+      "source_id": 201,
+      "forbidden_filter_ids": [],
+      "node_whitelist": [
+        103
+      ]
+    }
+  ]
+}
