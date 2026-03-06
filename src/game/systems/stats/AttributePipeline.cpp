@@ -264,7 +264,7 @@ public:
       if (auto *active =
               ctx.registry.try_get<ActiveSkillsComponent>(ctx.entity)) {
         for (auto &s : active->specialized_slots)
-          if (s.skill_id != 0)
+          if (s.skill_id != INVALID_SKILL_ID)
             s.bonus_levels += (int)a.value;
       }
     };

@@ -256,12 +256,12 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
 }
 
 void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme, uint32_t hoveredNodeId, const std::unordered_set<uint32_t>* excludedNodeIds) {
-  const uint32_t skillId = tree ? tree->skill_id : 0;
+  const uint32_t skillId = tree ? tree->skill_id : INVALID_SKILL_ID;
   for (const auto& [id, node] : tree->nodes) {
         Vector2 pos = GetNodeScreenPos(node, view);
         NodeType type = GetNodeType(node);
         const NodeContractData* contract = nullptr;
-        if (skillId != 0) {
+        if (skillId != INVALID_SKILL_ID) {
             contract = SkillRegistry::Get().GetNodeContract(skillId, id);
             if (contract) {
                 switch (contract->role) {

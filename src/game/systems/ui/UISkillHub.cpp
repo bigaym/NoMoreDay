@@ -62,7 +62,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
         DrawRectangleRec(dest_Phys, Fade(BLACK, 0.6f * alpha));
         DrawRectangleLinesEx(dest_Phys, 2.0f * scale, Fade(isHovered ? WHITE : LIGHTGRAY, alpha));
 
-        if (skillId == 0) {
+        if (skillId == NoMoreDay::INVALID_SKILL_ID) {
             // Empty slots: Show low-key hint text
             UIRenderer::DrawTextUI(state.globalFont, "Empty", (dest_Phys.x + dest_Phys.width * 0.5f) / scale - 25, (dest_Phys.y + dest_Phys.height * 0.5f) / scale - 10, 16, GRAY, alpha);
         } else {
@@ -77,9 +77,14 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
 
         // Handle Click (Unassign or Open Tree)
         if (isHovered) {
+            if (skillId != NoMoreDay::INVALID_SKILL_ID) {
+                state.hoveredSkillSlot = -1;
+                state.hoveredSkillId = skillId;
+            }
+
             // Drop logic
             if (state.isDraggingSkill && IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
-                if (state.draggedSkillId == skillId && skillId != 0) {
+                if (state.draggedSkillId == skillId) {
                     // Clicked on existing skill -> Enter Talent Tree
                     state.selectedSkillId = skillId;
                 } else {
@@ -93,7 +98,7 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                     }
 
                     if (!alreadyInOtherSlot) {
-                        if (active->specialized_slots[i].skill_id != 0) {
+                        if (active->specialized_slots[i].skill_id != NoMoreDay::INVALID_SKILL_ID) {
                             SkillSystem::ResetTalents(registry, player, active->specialized_slots[i].skill_id);
                         }
                         active->specialized_slots[i].skill_id = state.draggedSkillId;
@@ -104,17 +109,17 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                     }
                 }
                 state.isDraggingSkill = false;
-                state.draggedSkillId = 0;
+                state.draggedSkillId = NoMoreDay::INVALID_SKILL_ID;
             }
 
-            if (skillId != 0) {
+            if (skillId != NoMoreDay::INVALID_SKILL_ID) {
                 if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     state.draggedSkillId = skillId;
                     state.isDraggingSkill = true;
                 }
                 if (IsMouseButtonPressed(MOUSE_RIGHT_BUTTON)) {
                     SkillSystem::ResetTalents(registry, player, active->specialized_slots[i].skill_id);
-                    active->specialized_slots[i].skill_id = 0;
+                    active->specialized_slots[i].skill_id = NoMoreDay::INVALID_SKILL_ID;
                     LOG_INFO("Unassigned skill from slot {}", i);
                 }
             }
@@ -134,8 +139,6 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     float gridSize = 64.0f * state.scaleFactor;
     
     for (const auto& [id, skill] : allSkills) {
-        if (id == 0) continue; // Skip placeholder
-
         float x = gridStartX + col * (gridSize + slotPadding);
         float y = gridStartY + row * (gridSize + slotPadding);
         Rectangle skillRect_Logic = {x / state.scaleFactor, y / state.scaleFactor, gridSize / state.scaleFactor, gridSize / state.scaleFactor};

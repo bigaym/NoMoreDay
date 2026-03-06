@@ -13,6 +13,8 @@
 
 namespace NoMoreDay {
 
+inline constexpr uint32_t INVALID_SKILL_ID = 0xFFFFFFFFu;
+
 /**
  * @brief Global skill system constants
  */
@@ -301,7 +303,7 @@ struct GlobalModifierComponent {
  * @brief Represents a specialized skill slot with its talent allocation.
  */
 struct SpecializedSkill {
-  uint32_t skill_id = 0;
+  uint32_t skill_id = INVALID_SKILL_ID;
   int bonus_levels = 0; // Extra points from equipment
   std::unordered_map<uint32_t, int>
       allocated_points; // node_id -> points invested

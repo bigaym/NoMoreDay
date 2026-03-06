@@ -12,6 +12,7 @@
 #include "game/components/ItemStats.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Progression.hpp"
+#include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
@@ -440,7 +441,7 @@ float StatsSystem::GetStatWithTags(entt::registry &registry,
     };
 
     for (const auto &specialized : active->specialized_slots) {
-      if (specialized.skill_id == 0) {
+      if (specialized.skill_id == INVALID_SKILL_ID) {
         continue;
       }
       const auto source_skill_id = specialized.skill_id;

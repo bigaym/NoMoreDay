@@ -238,7 +238,7 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     UIRenderer::DrawButton(UISystem::GetFont(), rectTex, backRectLogic, "返回", 22, WHITE, WHITE, backHover, backHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (backHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-        state.selectedSkillId = 0;
+        state.selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
         return;
     }
 
@@ -263,6 +263,18 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         if (SkillSystem::IsNodeExcludedByMutualKeystone(registry, player, skillId, id)) {
             excludedNodeIds.insert(id);
         }
+    }
+
+    const Vector2 hubCenter = { view.center.x + view.offset.x, view.center.y + view.offset.y };
+    const float hubHoverRadius = 55.0f * view.zoom * 1.25f;
+    const Vector2 hubCenterLogic = { centerX + SkillTreeUI::s_viewOffset.x, centerY + SkillTreeUI::s_viewOffset.y };
+    const float hubHoverRadiusLogic = 55.0f * SkillTreeUI::s_viewZoom * 1.25f;
+    const bool hubHovered = mouseInView &&
+                            (CheckCollisionPointCircle(mousePixelPos, hubCenter, hubHoverRadius) ||
+                             CheckCollisionPointCircle(mouseLogicPos, hubCenterLogic, hubHoverRadiusLogic));
+    if (hubHovered) {
+        state.hoveredSkillSlot = -1;
+        state.hoveredSkillId = skillId;
     }
 
     for (const auto& [id, node] : tree->nodes) {

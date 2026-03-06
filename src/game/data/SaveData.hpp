@@ -15,6 +15,8 @@
 
 namespace NoMoreDay {
 
+inline constexpr uint32_t CURRENT_CHARACTER_SAVE_VERSION = 2;
+
 /**
  * @brief Metadata for the save file, used for the Load Game menu.
  */
@@ -24,7 +26,7 @@ struct SaveHeader {
   int level = 1;
   int64_t playtime = 0;
   int64_t timestamp = 0;
-  uint32_t version = 1;
+  uint32_t version = CURRENT_CHARACTER_SAVE_VERSION;
 
   NLOHMANN_DEFINE_TYPE_INTRUSIVE(SaveHeader, name, characterClass, level,
                                  playtime, timestamp, version)

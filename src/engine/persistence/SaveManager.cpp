@@ -17,8 +17,26 @@ namespace fs = std::filesystem;
 
 namespace NoMoreDay {
 
+namespace {
+
+void MigrateLegacySpecializedSlots(const uint32_t saveVersion,
+                                   ActiveSkillsComponent& skills) {
+  if (saveVersion >= CURRENT_CHARACTER_SAVE_VERSION) {
+    return;
+  }
+
+  for (auto& slot : skills.specialized_slots) {
+    if (slot.skill_id == 0) {
+      slot.skill_id = INVALID_SKILL_ID;
+    }
+  }
+}
+
+} // namespace
+
 CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
   CharacterSaveData data;
+  data.header.version = CURRENT_CHARACTER_SAVE_VERSION;
 
   auto view = registry.view<PlayerTag>();
   if (view.begin() == view.end()) {
@@ -178,7 +196,9 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   }
 
   // Skills & Astrolabe
-  registry.emplace<ActiveSkillsComponent>(player, data.skills);
+  ActiveSkillsComponent restoredSkills = data.skills;
+  MigrateLegacySpecializedSlots(data.header.version, restoredSkills);
+  registry.emplace<ActiveSkillsComponent>(player, restoredSkills);
   auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
   runtime.version = data.skill_contract_runtime.version;
   runtime.active_transmuter_node_by_skill.clear();

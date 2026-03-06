@@ -57,6 +57,11 @@ void UISystem::Initialize(ResourceManager &resourceManager) {
   State.equipmentSlotAnims.assign(15, {0.0f, 1.0f});
   State.bagSlotAnims.assign(4, {0.0f, 1.0f});
 
+  State.hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
+  State.activeTooltipSkillId = NoMoreDay::INVALID_SKILL_ID;
+  State.selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
+  State.draggedSkillId = NoMoreDay::INVALID_SKILL_ID;
+
 #ifdef TEST_HEADLESS
   LOG_INFO("UISystem: Headless mode, skipping font loading.");
   State.globalFont = GetFontDefault();
@@ -302,7 +307,7 @@ void UISystem::Update(entt::registry &registry,
         }
       }
     } else {
-      State.selectedSkillId = 0; // Reset view
+      State.selectedSkillId = NoMoreDay::INVALID_SKILL_ID; // Reset view
     }
   }
 
@@ -530,7 +535,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   SetMouseCursor(MOUSE_CURSOR_DEFAULT);
   State.hoveredItem = entt::null;
   State.hoveredSkillSlot = -1;
-  State.hoveredSkillId = 0;
+  State.hoveredSkillId = NoMoreDay::INVALID_SKILL_ID;
   State.hoveredBuffIdx = -1;
 
   if (IsModalInputCaptured()) {
@@ -549,7 +554,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   if (playerView.begin() != playerView.end()) {
     entt::entity player = playerView.front();
     if (State.showSkillTree) {
-      if (State.selectedSkillId == 0) {
+      if (State.selectedSkillId == NoMoreDay::INVALID_SKILL_ID) {
         UISkillHub::Draw(registry, player);
       } else {
         NoMoreDay::SkillTreeUI::Draw(&registry, (int)player, State.selectedSkillId);
@@ -621,13 +626,13 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
   // 4. Overlays (Drawn LAST - Absolute Topmost)
 
   // Update Hover Targets
-  uint32_t currentHoverSkillId = 0;
+  uint32_t currentHoverSkillId = NoMoreDay::INVALID_SKILL_ID;
   entt::entity currentHoverItem = entt::null;
   int currentHoverBuffIdx = -1;
 
   if (State.hoveredItem != entt::null && registry.valid(State.hoveredItem)) {
       currentHoverItem = State.hoveredItem;
-  } else if (State.hoveredSkillId != 0) {
+  } else if (State.hoveredSkillId != NoMoreDay::INVALID_SKILL_ID) {
       currentHoverSkillId = State.hoveredSkillId;
   } else if (State.hoveredSkillSlot != -1) {
       auto view = registry.view<PlayerTag, ActiveSkillsComponent>();
@@ -641,7 +646,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
 
   // State Machine Logic
   const float dt = GetFrameTime();
-  const bool isAnythingHovered = (currentHoverSkillId != 0 ||
+  const bool isAnythingHovered = (currentHoverSkillId != NoMoreDay::INVALID_SKILL_ID ||
                                   currentHoverItem != entt::null ||
                                   currentHoverBuffIdx != -1);
   const bool targetChanged = isAnythingHovered &&
@@ -675,7 +680,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
       }
 
       if (State.tooltipAlpha <= 0.0f && State.tooltipDelayTimer <= 0.0f) {
-          State.activeTooltipSkillId = 0;
+          State.activeTooltipSkillId = NoMoreDay::INVALID_SKILL_ID;
           State.activeTooltipItem = entt::null;
           State.activeTooltipBuffIdx = -1;
           State.tooltipInitialized = false;
@@ -696,7 +701,7 @@ void UISystem::DrawDraggingPhantom(entt::registry &registry) {
   }
 
   // 2. Skill Phantom
-  if (State.isDraggingSkill && State.draggedSkillId != 0) {
+  if (State.isDraggingSkill && State.draggedSkillId != NoMoreDay::INVALID_SKILL_ID) {
     Vector2 mPos = GetMousePositionLogic();
     float size = 48.0f;
     const auto *skill = SkillRegistry::Get().GetSkill(State.draggedSkillId);
@@ -717,7 +722,7 @@ void UISystem::DrawDraggingPhantom(entt::registry &registry) {
       SetMouseCursor(MOUSE_CURSOR_POINTING_HAND);
       UIRenderer::DrawTooltip(State.globalFont, registry, State.activeTooltipItem,
                               State.tooltipAlpha);
-    } else if (State.activeTooltipSkillId != 0) {
+    } else if (State.activeTooltipSkillId != NoMoreDay::INVALID_SKILL_ID) {
       UIRenderer::DrawSkillTooltip(State.globalFont, registry,
                                    State.activeTooltipSkillId,
                                    State.tooltipAlpha);
@@ -913,7 +918,7 @@ void UISystem::DrawQuantityPopup(entt::registry &registry) {
 }
 
 bool UISystem::IsModalInputCaptured() {
-  return State.showQuantityPopup;
+  return State.showQuantityPopup || State.showSkillTree;
 }
 
 void UISystem::DrawSkillHotbar(entt::registry &registry) {
@@ -998,7 +1003,7 @@ void UISystem::DrawSkillHotbar(entt::registry &registry) {
                    i);
         }
         State.isDraggingSkill = false;
-        State.draggedSkillId = 0;
+        State.draggedSkillId = NoMoreDay::INVALID_SKILL_ID;
       }
 
       // Right-click context menu

@@ -5,6 +5,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp" // PhantomFlashComponent
 #include "game/components/Projectile.hpp"
+#include "game/components/SkillDefs.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatAntiMeta.hpp"
@@ -708,7 +709,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     // Talent modifiers
     if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &spec : active->specialized_slots) {
-        if (spec.skill_id == 0) {
+        if (spec.skill_id == INVALID_SKILL_ID) {
           continue;
         }
         const uint32_t source_skill_id = spec.skill_id;
@@ -867,7 +868,7 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
       }
       if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
         for (const auto &specialized : active->specialized_slots) {
-          if (specialized.skill_id == 0) {
+          if (specialized.skill_id == INVALID_SKILL_ID) {
             continue;
           }
           const uint32_t source_skill_id = specialized.skill_id;

@@ -2,6 +2,7 @@
 #include <entt/entt.hpp>
 #include "raylib.h"
 #include "game/components/ItemComponent.hpp"
+#include "game/components/SkillDefs.hpp"
 #include "game/components/StashComponent.hpp"
 
 namespace NoMoreDay {
@@ -47,7 +48,7 @@ namespace NoMoreDay {
 
         bool showSkillTree = false; // New: Skill Specialization UI (Hotkey: S)
         float skillTreeAlpha = 0.0f; // New
-        uint32_t selectedSkillId = 0; // Skill currently being viewed in talent tree
+        uint32_t selectedSkillId = INVALID_SKILL_ID; // Skill currently being viewed in talent tree
 
         // Panel Management State
         PanelState panelStates[(int)UIPanelID::Count];
@@ -69,17 +70,17 @@ namespace NoMoreDay {
         StashType dragSourceStashType = StashType::Personal;
 
         // Skill Dragging
-        uint32_t draggedSkillId = 0;
+        uint32_t draggedSkillId = INVALID_SKILL_ID;
         bool isDraggingSkill = false;
 
         // Interaction State
         entt::entity hoveredItem = entt::null;
         int hoveredSkillSlot = -1; // 0-4
-        uint32_t hoveredSkillId = 0; // standalone skill UI hover target
+        uint32_t hoveredSkillId = INVALID_SKILL_ID; // standalone skill UI hover target
         int hoveredBuffIdx = -1;
 
         // Tooltip Debouncing & Animation
-        uint32_t activeTooltipSkillId = 0;
+        uint32_t activeTooltipSkillId = INVALID_SKILL_ID;
         entt::entity activeTooltipItem = entt::null;
         int activeTooltipBuffIdx = -1;
         float tooltipDelayTimer = 0.0f;

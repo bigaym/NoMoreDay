@@ -11,6 +11,7 @@
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp" // For Position
 #include "game/components/EffectComponent.hpp"
+#include "game/components/SkillDefs.hpp"
 #include "game/components/SkillVfxEvent.hpp"
 #include "game/components/PlayerState.hpp" // For DashComponent
 #include "game/components/Projectile.hpp"
@@ -2330,7 +2331,7 @@ bool SkillSystem::ClearAllTalents(entt::registry &registry,
 
   int total_refunded = 0;
   for (auto &slot : active->specialized_slots) {
-    if (slot.skill_id == 0)
+    if (slot.skill_id == INVALID_SKILL_ID)
       continue;
 
     for (auto [node_id, pts] : slot.allocated_points) {

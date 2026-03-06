@@ -75,7 +75,7 @@ void EquipmentModifierAdapter::ApplyEquippedSkillLevelBonuses(
   auto &runtimeRegistry = ModifierRuntimeRegistry::Get();
 
   for (auto &slot : activeSkills->specialized_slots) {
-    if (slot.skill_id == 0u) {
+    if (slot.skill_id == INVALID_SKILL_ID) {
       continue;
     }
 

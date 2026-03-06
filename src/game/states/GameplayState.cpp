@@ -1098,7 +1098,7 @@ void GameplayState::OnRender() {
   if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
     UISystem::State.draggedItem = entt::null;
     UISystem::State.isDraggingSkill = false;
-    UISystem::State.draggedSkillId = 0;
+    UISystem::State.draggedSkillId = NoMoreDay::INVALID_SKILL_ID;
   }
 
   // Scene Transition Overlay

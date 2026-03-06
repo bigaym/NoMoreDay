@@ -235,6 +235,42 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
     CHECK(restoredRuntime.trigger_cooldowns.at(971) == doctest::Approx(0.5f));
 }
 
+TEST_CASE("[Unit] SaveManager - Migrates legacy empty specialization slots") {
+    CharacterSaveData data;
+    data.header.version = 1;
+    data.header.name = "Legacy";
+    data.skills.specialized_slots[0].skill_id = 0;
+    data.skills.specialized_slots[1].skill_id = 7;
+
+    entt::registry restored;
+    SaveManager::Get().restoreFromSnapshot(restored, data);
+
+    auto view = restored.view<PlayerTag, ActiveSkillsComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto restoredPlayer = *view.begin();
+    const auto& active = restored.get<ActiveSkillsComponent>(restoredPlayer);
+
+    CHECK(active.specialized_slots[0].skill_id == INVALID_SKILL_ID);
+    CHECK(active.specialized_slots[1].skill_id == 7);
+}
+
+TEST_CASE("[Unit] SaveManager - Preserves skill zero specialization in current saves") {
+    CharacterSaveData data;
+    data.header.version = 2;
+    data.header.name = "Current";
+    data.skills.specialized_slots[0].skill_id = 0;
+
+    entt::registry restored;
+    SaveManager::Get().restoreFromSnapshot(restored, data);
+
+    auto view = restored.view<PlayerTag, ActiveSkillsComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto restoredPlayer = *view.begin();
+    const auto& active = restored.get<ActiveSkillsComponent>(restoredPlayer);
+
+    CHECK(active.specialized_slots[0].skill_id == 0);
+}
+
 TEST_CASE("[Unit] StatsOptimization - Zero Allocation") {
     entt::registry registry;
     auto entity = registry.create();
