@@ -5890,6 +5890,58 @@
         "single_target_execute_bonus": 0.5,
         "invulnerable_duration": 0.5
       }
+    },
+    {
+      "id": 11,
+      "name_key": "天剑降临",
+      "desc_key": "召唤巨型灵剑轰击目标区域，造成当前亲和元素伤害并留下持续切割领域。",
+      "mana_cost": 45,
+      "cooldown": 15.0,
+      "tags": [
+        "Spell",
+        "Area",
+        "Hit",
+        "SwordSkill"
+      ],
+      "base_damage": 140.0,
+      "weapon_damage_mult": 1.0,
+      "added_damage_effectiveness": 1.0,
+      "charge_count": 1,
+      "icon_id": 11,
+      "params": {
+        "impact_radius": 90.0,
+        "field_radius": 140.0,
+        "field_duration": 5.0,
+        "tier_damage_bonus": 0.18,
+        "tier_radius_bonus": 14.0
+      }
+    },
+    {
+      "id": 12,
+      "name_key": "血海",
+      "desc_key": "耗尽所有血渴，在自身周围卷起追猎血雾，持续造成物理与虚空蚀伤，并将部分伤害转为治疗。",
+      "mana_cost": 45,
+      "cooldown": 18.0,
+      "tags": [
+        "Spell",
+        "Area",
+        "Physical",
+        "DamageOverTime",
+        "Void",
+        "SwordSkill"
+      ],
+      "base_damage": 36.0,
+      "weapon_damage_mult": 1.0,
+      "added_damage_effectiveness": 0.8,
+      "charge_count": 1,
+      "icon_id": 12,
+      "params": {
+        "field_radius": 120.0,
+        "field_duration": 4.8,
+        "field_tick": 0.25,
+        "bloodthirst_damage_bonus": 0.12,
+        "leech_ratio": 0.12
+      }
     }
   ]
 }

@@ -15,6 +15,7 @@
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 
 namespace NoMoreDay::skills {
 
@@ -46,6 +47,26 @@ constexpr uint32_t ElementField = 670;   // 元素领域 / Element Field
 constexpr uint32_t SpiritArmorPen = 671; // 灵根破甲 / Spirit Armor Pen
 constexpr uint32_t ShiftArray = 672;     // 移形换阵 / Shift Array
 } // namespace SwordArrayNodes
+
+namespace {
+
+ElementalConversion ResolveSwordArrayHeavenlyAttunementConversion(const Tag tag) {
+  switch (tag) {
+  case Tag::Fire:
+    return ElementalConversion{Tag::Physical, Tag::Fire, {255, 80, 20, 255},
+                               {255, 160, 60, 180}};
+  case Tag::Cold:
+    return ElementalConversion{Tag::Physical, Tag::Cold, {100, 200, 255, 255},
+                               {150, 220, 255, 180}};
+  case Tag::Lightning:
+    return ElementalConversion{Tag::Physical, Tag::Lightning,
+                               {200, 180, 255, 255}, {230, 200, 255, 180}};
+  default:
+    return {};
+  }
+}
+
+} // namespace
 
 void SwordArray::Update(entt::registry &registry, entt::entity entity,
                         SwordArrayComponent &array, float dt,
@@ -259,6 +280,8 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
   areaScale = std::clamp(areaScale, 0.1f, 5.0f);
 
   ElementalConversion elementalConv;
+  const Tag heavenlyAttunementTag =
+      systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry, owner);
   if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
     for (const auto &spec : active->specialized_slots) {
       if (spec.skill_id == kSkillId) {
@@ -271,6 +294,10 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
         break;
       }
     }
+  }
+  if (!elementalConv.IsActive() && heavenlyAttunementTag != Tag::None) {
+    elementalConv =
+        ResolveSwordArrayHeavenlyAttunementConversion(heavenlyAttunementTag);
   }
 
   array.radius *= areaScale;
@@ -299,6 +326,14 @@ void SwordArray::DoCast(entt::registry &registry, entt::entity owner,
   ae.radius = array.radius;
   ae.thickness = 0.1f;
   ae.color = ve.color;
+
+  if (heavenlyAttunementTag != Tag::None) {
+    SkillModifierComponent mods;
+    mods.damage_modifiers.push_back(
+        DamageModifier{Tag::Physical, heavenlyAttunementTag, 0.5f,
+                       ModifierType::Convert});
+    registry.emplace_or_replace<SkillModifierComponent>(array_ent, std::move(mods));
+  }
 
   auto &particleSys = systems::GPUParticleSystem::Get();
 

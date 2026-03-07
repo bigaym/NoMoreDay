@@ -493,12 +493,17 @@ struct BladeMasteryComponent {
   ProfessionID profession = static_cast<ProfessionID>(0);
   BladeMasteryId selected = BladeMasteryId::None;
   bool debug_unlock_active = false;
+  BladeAttunement heavenly_attunement = BladeAttunement::None;
+  bool blood_oath_active = false;
 };
 
 inline void to_json(nlohmann::json &j, const BladeMasteryComponent &c) {
   j = nlohmann::json{{"profession", static_cast<uint32_t>(c.profession)},
                      {"selected", static_cast<uint32_t>(c.selected)},
-                     {"debug_unlock_active", c.debug_unlock_active}};
+                     {"debug_unlock_active", c.debug_unlock_active},
+                     {"heavenly_attunement",
+                      static_cast<uint32_t>(c.heavenly_attunement)},
+                     {"blood_oath_active", c.blood_oath_active}};
 }
 
 inline void from_json(const nlohmann::json &j, BladeMasteryComponent &c) {
@@ -506,6 +511,10 @@ inline void from_json(const nlohmann::json &j, BladeMasteryComponent &c) {
   c.selected =
       static_cast<BladeMasteryId>(j.value("selected", static_cast<uint32_t>(BladeMasteryId::None)));
   c.debug_unlock_active = j.value("debug_unlock_active", false);
+  c.heavenly_attunement = static_cast<BladeAttunement>(
+      j.value("heavenly_attunement",
+              static_cast<uint32_t>(BladeAttunement::None)));
+  c.blood_oath_active = j.value("blood_oath_active", false);
 }
 
 struct BladeResourceComponent {
@@ -758,6 +767,58 @@ struct SwordArrayComponent {
   bool gain_intent_on_tick = false;  // Talent 652
   float execute_health_threshold_ratio = 0.15f;
   float execute_damage_max_health_ratio = 0.10f;
+};
+
+struct HeavenlySwordFieldComponent {
+  entt::entity owner = entt::null;
+  float duration = 5.0f;
+  float radius = 140.0f;
+  float damage_interval = 0.5f;
+  float damage_timer = 0.0f;
+  float linked_cut_cooldown = 0.0f;
+  float cycle_refund_timer = 1.0f;
+  uint64_t cast_id = 0;
+  int spent_tiers = 0;
+  int cycle_refunds_granted = 0;
+  int linked_hit_count = 0;
+  int echo_strikes_triggered = 0;
+  float impact_damage_mult = 1.0f;
+  float field_damage_mult = 1.0f;
+  float resist_reduction = 6.0f;
+  float extra_resist_reduction = 0.0f;
+  float linked_cut_effectiveness = 0.25f;
+  BladeAttunement attunement = BladeAttunement::None;
+  bool has_trigger_echo = false;
+  bool has_cycle = false;
+  bool has_domain_lock = false;
+  bool has_array_synchrony = false;
+  bool has_polarization = false;
+  bool lightning_tribunal = false;
+  bool frozen_dominion = false;
+  bool solar_incineration = false;
+};
+
+struct BloodSeaFieldComponent {
+  entt::entity owner = entt::null;
+  float duration = 5.0f;
+  float radius = 120.0f;
+  float damage_interval = 0.25f;
+  float damage_timer = 0.0f;
+  float linked_pulse_cooldown = 0.0f;
+  uint64_t cast_id = 0;
+  int consumed_bloodthirst = 0;
+  int linked_hit_count = 0;
+  int pulses_triggered = 0;
+  float bonus_damage_mult = 1.0f;
+  float leech_ratio = 0.12f;
+  float move_follow_speed = 10.0f;
+  float resist_shred = 0.0f;
+  bool has_trigger_burst = false;
+  bool has_linked_synergy = false;
+  bool has_recovery_keystone = false;
+  bool has_void_keystone = false;
+  bool torrent_form = false;
+  bool ring_form = false;
 };
 
 struct ChannelingComponent {

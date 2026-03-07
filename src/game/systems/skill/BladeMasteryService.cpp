@@ -15,6 +15,13 @@ const BladeMasteryProfile *GetProfile(BladeMasteryId mastery_id) {
   return data::BladeMasteryRegistry::Get().GetProfile(mastery_id);
 }
 
+void RefreshSpecializedMasteryState(BladeMasteryComponent &mastery) {
+  if (mastery.selected != BladeMasteryId::HeavenlySword) {
+    mastery.heavenly_attunement = BladeAttunement::None;
+  }
+  mastery.blood_oath_active = mastery.selected == BladeMasteryId::DemonBlade;
+}
+
 } // namespace
 
 bool BladeMasteryService::IsDebugUnlockOverrideEnabled() {
@@ -74,6 +81,8 @@ void BladeMasteryService::RefreshPlayerState(entt::registry &registry,
   } else {
     mastery.debug_unlock_active = false;
   }
+
+  RefreshSpecializedMasteryState(mastery);
 
   const BladeResourceKind kind =
       profile != nullptr ? profile->resource_kind : BladeResourceKind::SwordIntent;

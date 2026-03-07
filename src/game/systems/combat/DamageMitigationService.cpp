@@ -1,6 +1,7 @@
 #include "game/systems/combat/DamageMitigationService.hpp"
 #include "game/systems/combat/CombatFormula.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include <algorithm>
 #include <bit>
 
@@ -14,7 +15,8 @@ float ClampMoreToMultiplier(float more) {
 } // namespace
 
 float DamageMitigationService::Apply(
-    entt::registry &registry, entt::entity attacker, uint32_t skill_id,
+    entt::registry &registry, entt::entity attacker, entt::entity defender,
+    uint32_t skill_id,
     Tag instance_tags, Tag final_type, float damage,
     const CombatStats *defender_stats,
     const systems::EndgameModifierAggregate &endgame, bool skip_mitigation,
@@ -72,6 +74,12 @@ float DamageMitigationService::Apply(
   }
 
   damage_after_res *= ClampMoreToMultiplier(endgame.incoming_damage_taken_more);
+
+  if (defender_stats != nullptr) {
+    damage_after_res *=
+        systems::BladeResourceService::GetBloodthirstDamageTakenMultiplier(
+            registry, defender);
+  }
 
   return damage_after_res;
 }

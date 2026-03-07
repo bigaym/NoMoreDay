@@ -31,7 +31,135 @@ const char *ResolveSummonDisplayName(const SummonComponent &summon) {
     return "Summon";
 }
 
+const char *ResolveAttunementName(const BladeAttunement attunement) {
+    switch (attunement) {
+    case BladeAttunement::Lightning:
+        return "Lightning";
+    case BladeAttunement::Frost:
+        return "Frost";
+    case BladeAttunement::Fire:
+        return "Fire";
+    default:
+        return "None";
+    }
+}
+
+float FindActiveHeavenlyFieldDuration(const entt::registry& registry,
+                                      const entt::entity player) {
+    float remaining = 0.0f;
+    const auto view = registry.view<const HeavenlySwordFieldComponent>();
+    for (const entt::entity entity : view) {
+        const auto& field = view.get<const HeavenlySwordFieldComponent>(entity);
+        if (field.owner == player && field.duration > remaining) {
+            remaining = field.duration;
+        }
+    }
+    return remaining;
+}
+
+float FindActiveBloodSeaDuration(const entt::registry& registry,
+                                 const entt::entity player) {
+    float remaining = 0.0f;
+    const auto view = registry.view<const BloodSeaFieldComponent>();
+    for (const entt::entity entity : view) {
+        const auto& field = view.get<const BloodSeaFieldComponent>(entity);
+        if (field.owner == player && field.duration > remaining) {
+            remaining = field.duration;
+        }
+    }
+    return remaining;
+}
+
+std::string FormatDurationLabel(const char* label, const float duration) {
+    return TextFormat("%s %.1fs", label, duration);
+}
+
 } // namespace
+
+const char* PlayerHUD::ResolveBladeResourceLabel(
+    const BladeResourceComponent& bladeResource) {
+    switch (bladeResource.kind) {
+    case BladeResourceKind::SwordFlow:
+        return "Sword Flow";
+    case BladeResourceKind::SpiritBladeTier:
+        return "Spirit Blade Tier";
+    case BladeResourceKind::Bloodthirst:
+        return "Bloodthirst";
+    case BladeResourceKind::SwordIntent:
+    default:
+        return "Sword Intent";
+    }
+}
+
+std::string PlayerHUD::ResolveBladeResourceDetailText(
+    const BladeMasteryComponent& mastery,
+    const BladeResourceComponent& bladeResource) {
+    if (bladeResource.kind == BladeResourceKind::SpiritBladeTier) {
+        return std::string("Attunement: ") +
+               ResolveAttunementName(mastery.heavenly_attunement);
+    }
+    if (bladeResource.kind == BladeResourceKind::Bloodthirst) {
+        return mastery.blood_oath_active ? "Blood Oath: Active"
+                                         : "Blood Oath: Dormant";
+    }
+    return {};
+}
+
+std::string PlayerHUD::ResolveBladeResourceFeedbackText(
+    const BladeMasteryComponent& mastery,
+    const BladeResourceComponent& bladeResource) {
+    if (bladeResource.kind == BladeResourceKind::SwordFlow) {
+        return ResolveSwordFlowFeedbackText(bladeResource);
+    }
+    if (bladeResource.kind == BladeResourceKind::Bloodthirst &&
+        mastery.blood_oath_active && bladeResource.current >= 8) {
+        return "Danger: Blood Oath";
+    }
+    return {};
+}
+
+std::string PlayerHUD::ResolveBladeResourceRuntimeDetailText(
+    const entt::registry& registry, const entt::entity player,
+    const BladeMasteryComponent& mastery,
+    const BladeResourceComponent& bladeResource, const CombatStats& stats) {
+    (void)mastery;
+    (void)stats;
+
+    if (bladeResource.kind == BladeResourceKind::SpiritBladeTier) {
+        const float remaining = FindActiveHeavenlyFieldDuration(registry, player);
+        if (remaining > 0.0f) {
+            return FormatDurationLabel("Field Active", remaining);
+        }
+    }
+
+    if (bladeResource.kind == BladeResourceKind::Bloodthirst) {
+        const float remaining = FindActiveBloodSeaDuration(registry, player);
+        if (remaining > 0.0f) {
+            return FormatDurationLabel("Blood Sea", remaining);
+        }
+    }
+
+    return {};
+}
+
+std::string PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
+    const entt::registry& registry, const entt::entity player,
+    const BladeMasteryComponent& mastery,
+    const BladeResourceComponent& bladeResource, const CombatStats& stats) {
+    (void)registry;
+    (void)player;
+
+    if (bladeResource.kind == BladeResourceKind::Bloodthirst &&
+        mastery.blood_oath_active && stats.max_health > 0.0f) {
+        const float healthRatio =
+            std::clamp(stats.health / stats.max_health, 0.0f, 1.0f);
+        if (healthRatio <= 0.35f) {
+            return TextFormat("Danger: %.0f%% HP", healthRatio * 100.0f);
+        }
+    }
+
+    return {};
+}
 
 std::string PlayerHUD::ResolveSwordFlowFeedbackText(
     const BladeResourceComponent& bladeResource) {
@@ -54,6 +182,7 @@ void PlayerHUD::Draw(entt::registry& registry) {
     entt::entity player = view.front();
     const auto& stats = view.get<CombatStats>(player);
     const auto* intent = registry.try_get<SwordIntentComponent>(player);
+    const auto* mastery = registry.try_get<BladeMasteryComponent>(player);
     
     float scale = UISystem::State.scaleFactor;
 
@@ -143,12 +272,28 @@ void PlayerHUD::Draw(entt::registry& registry) {
 
     // --- 3. Blade Resource (Visual Widget) ---
     if (const auto* bladeResource = registry.try_get<BladeResourceComponent>(player)) {
-        const char* label =
-            (bladeResource->kind == BladeResourceKind::SwordFlow) ? "Sword Flow" : "Sword Intent";
+        const char* label = ResolveBladeResourceLabel(*bladeResource);
+        std::string detailText;
+        if (mastery != nullptr) {
+            detailText = ResolveBladeResourceDetailText(*mastery, *bladeResource);
+            const std::string runtimeDetailText = ResolveBladeResourceRuntimeDetailText(
+                registry, player, *mastery, *bladeResource, stats);
+            if (!runtimeDetailText.empty()) {
+                if (!detailText.empty()) {
+                    detailText += " | ";
+                }
+                detailText += runtimeDetailText;
+            }
+        }
         NoMoreDay::systems::ui::SwordIntentWidget::Draw(
-            bladeResource->current, bladeResource->max, label);
-        if (bladeResource->kind == BladeResourceKind::SwordFlow) {
-            const std::string feedbackText = ResolveSwordFlowFeedbackText(*bladeResource);
+            bladeResource->current, bladeResource->max, bladeResource->kind, label,
+            detailText);
+        if (mastery != nullptr) {
+            std::string feedbackText = ResolveBladeResourceRuntimeFeedbackText(
+                registry, player, *mastery, *bladeResource, stats);
+            if (feedbackText.empty()) {
+                feedbackText = ResolveBladeResourceFeedbackText(*mastery, *bladeResource);
+            }
             if (!feedbackText.empty()) {
                 const bool showRestartReady = bladeResource->restart_window_ready &&
                                               bladeResource->restart_window_timer > 0.0f;
@@ -167,7 +312,8 @@ void PlayerHUD::Draw(entt::registry& registry) {
         }
     } else if (intent) {
         NoMoreDay::systems::ui::SwordIntentWidget::Draw(
-            intent->stacks, intent->max_stacks, "Sword Intent");
+            intent->stacks, intent->max_stacks, BladeResourceKind::SwordIntent,
+            "Sword Intent");
     }
 
     // --- 4. Summon Status (Top Left) ---

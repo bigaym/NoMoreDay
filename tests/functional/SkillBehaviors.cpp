@@ -846,4 +846,285 @@ TEST_CASE("[Functional] Sword Saint - High Sword Flow unlocks cast upgrades") {
     }
 }
 
+TEST_CASE("[Functional] Heavenly Sword - signature skill field links sword sources") {
+    TestSetupScope scope;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+    SkillSystem::InitHooks();
+
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    auto player = registry.create();
+    auto target = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(target, 120.0f, 0.0f);
+    registry.emplace<EnemyTag>(target);
+    auto &targetCombat = registry.emplace<CombatStats>(target);
+    targetCombat.max_health = 200.0f;
+    targetCombat.health = 200.0f;
+
+    auto &stats = registry.emplace<PlayerStats>(player);
+    stats.level = 50;
+    auto &combat = registry.emplace<CombatStats>(player);
+    combat.max_mana = 100.0f;
+    combat.mana = 100.0f;
+    combat.min_weapon_damage = 30.0f;
+    combat.max_weapon_damage = 30.0f;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 11;
+    active.specialized_slots[0].allocated_points = {{1111, 1}, {1117, 1}, {1124, 2}};
+
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::HeavenlySword));
+    registry.get<BladeMasteryComponent>(player).heavenly_attunement = BladeAttunement::Fire;
+    REQUIRE(systems::BladeResourceService::Gain(registry, player, 5, 11u));
+
+    SkillExecution descentExec;
+    descentExec.skill_id = 11;
+    descentExec.owner = player;
+    descentExec.target_pos = {120.0f, 0.0f};
+    auto descentCast = SkillBehaviorRegistry::GetCast(11);
+    REQUIRE(descentCast != nullptr);
+    descentCast(registry, player, descentExec);
+
+    auto fieldView = registry.view<HeavenlySwordFieldComponent>();
+    REQUIRE(fieldView.begin() != fieldView.end());
+    const auto field = *fieldView.begin();
+
+    auto formationCast = SkillBehaviorRegistry::GetCast(3);
+    REQUIRE(formationCast != nullptr);
+    SkillExecution formationExec;
+    formationExec.skill_id = 3;
+    formationExec.owner = player;
+    formationCast(registry, player, formationExec);
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 3,
+                      Tag::Hit | Tag::SwordSkill | Tag::Physical, false,
+                      3001u));
+
+    auto &fieldComp = registry.get<HeavenlySwordFieldComponent>(field);
+    CHECK(fieldComp.linked_hit_count >= 1);
+    CHECK(fieldComp.extra_resist_reduction <= 12.0f);
+
+    SkillSystem::Update(registry, grid, 0.2f);
+    CHECK(fieldComp.echo_strikes_triggered >= 1);
+}
+
+TEST_CASE("[Functional] Heavenly Sword - attunement propagates into linked sword skills") {
+    TestSetupScope scope;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+    SkillSystem::InitHooks();
+
+    auto buildCaster = []() {
+        entt::registry registry;
+        auto player = registry.create();
+        registry.emplace<Position>(player, 0.0f, 0.0f);
+        auto &combat = registry.emplace<CombatStats>(player);
+        combat.max_mana = 100.0f;
+        combat.mana = 100.0f;
+        combat.min_weapon_damage = 30.0f;
+        combat.max_weapon_damage = 30.0f;
+
+        auto &stats = registry.emplace<PlayerStats>(player);
+        stats.level = 50;
+        auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+        astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+        registry.emplace<ActiveSkillsComponent>(player);
+
+        systems::BladeMasteryService::RefreshPlayerState(registry, player);
+        REQUIRE(systems::BladeMasteryService::SelectMastery(
+            registry, player, BladeMasteryId::HeavenlySword));
+        registry.get<BladeMasteryComponent>(player).heavenly_attunement = BladeAttunement::Fire;
+        return std::tuple{std::move(registry), player};
+    };
+
+    SUBCASE("Rending Wave projectile gets 50 percent fire conversion") {
+        auto [registry, player] = buildCaster();
+        SkillExecution exec;
+        exec.skill_id = 2;
+        exec.owner = player;
+        exec.target_pos = {160.0f, 0.0f};
+        auto castFunc = SkillBehaviorRegistry::GetCast(2);
+        REQUIRE(castFunc != nullptr);
+        castFunc(registry, player, exec);
+
+        auto projectiles = registry.view<Projectile, SkillModifierComponent>();
+        REQUIRE(projectiles.begin() != projectiles.end());
+        const auto projectile = *projectiles.begin();
+        const auto &mods = projectiles.get<SkillModifierComponent>(projectile);
+        bool found = false;
+        for (const auto &mod : mods.damage_modifiers) {
+            if (mod.type == ModifierType::Convert && mod.source_tag == Tag::Physical &&
+                mod.target_tag == Tag::Fire && mod.value == doctest::Approx(0.5f)) {
+                found = true;
+            }
+        }
+        CHECK(found);
+    }
+
+    SUBCASE("Blade Formation swords inherit 50 percent fire conversion") {
+        auto [registry, player] = buildCaster();
+        SkillExecution exec;
+        exec.skill_id = 3;
+        exec.owner = player;
+        auto castFunc = SkillBehaviorRegistry::GetCast(3);
+        REQUIRE(castFunc != nullptr);
+        castFunc(registry, player, exec);
+
+        auto swords = registry.view<SpiritSwordTag, SkillModifierComponent>();
+        REQUIRE(swords.begin() != swords.end());
+        const auto sword = *swords.begin();
+        const auto &mods = swords.get<SkillModifierComponent>(sword);
+        bool found = false;
+        for (const auto &mod : mods.damage_modifiers) {
+            if (mod.type == ModifierType::Convert && mod.source_tag == Tag::Physical &&
+                mod.target_tag == Tag::Fire && mod.value == doctest::Approx(0.5f)) {
+                found = true;
+            }
+        }
+        CHECK(found);
+    }
+
+    SUBCASE("Sword Array field carries 50 percent fire conversion") {
+        auto [registry, player] = buildCaster();
+        SkillExecution exec;
+        exec.skill_id = 6;
+        exec.owner = player;
+        exec.target_pos = {100.0f, 0.0f};
+        auto castFunc = SkillBehaviorRegistry::GetCast(6);
+        REQUIRE(castFunc != nullptr);
+        castFunc(registry, player, exec);
+
+        auto arrays = registry.view<SwordArrayComponent, SkillModifierComponent>();
+        REQUIRE(arrays.begin() != arrays.end());
+        const auto array = *arrays.begin();
+        const auto &mods = arrays.get<SkillModifierComponent>(array);
+        bool found = false;
+        for (const auto &mod : mods.damage_modifiers) {
+            if (mod.type == ModifierType::Convert && mod.source_tag == Tag::Physical &&
+                mod.target_tag == Tag::Fire && mod.value == doctest::Approx(0.5f)) {
+                found = true;
+            }
+        }
+        CHECK(found);
+    }
+
+    SUBCASE("Infinite Blades channel inherits fire attunement conversion") {
+        auto [registry, player] = buildCaster();
+        SkillExecution exec;
+        exec.skill_id = 5;
+        exec.owner = player;
+        exec.target_pos = {180.0f, 0.0f};
+        auto castFunc = SkillBehaviorRegistry::GetCast(5);
+        REQUIRE(castFunc != nullptr);
+        castFunc(registry, player, exec);
+
+        REQUIRE(registry.all_of<ChannelingComponent>(player));
+        const auto &chan = registry.get<ChannelingComponent>(player);
+        CHECK(chan.skill_id == 5);
+        CHECK(chan.conversion_tag == Tag::Fire);
+    }
+
+    SUBCASE("Mind Blade channel inherits fire attunement conversion") {
+        auto [registry, player] = buildCaster();
+        SkillExecution exec;
+        exec.skill_id = 7;
+        exec.owner = player;
+        exec.target_pos = {180.0f, 0.0f};
+        auto castFunc = SkillBehaviorRegistry::GetCast(7);
+        REQUIRE(castFunc != nullptr);
+        castFunc(registry, player, exec);
+
+        REQUIRE(registry.all_of<ChannelingComponent>(player));
+        const auto &chan = registry.get<ChannelingComponent>(player);
+        CHECK(chan.skill_id == 7);
+        CHECK(chan.conversion_tag == Tag::Fire);
+    }
+}
+
+TEST_CASE("[Functional] Blood Sea - linked sword hits drive pursuit field damage and healing") {
+    TestSetupScope scope;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+    SkillSystem::InitHooks();
+
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    auto player = registry.create();
+    auto target = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(target, 24.0f, 0.0f);
+    registry.emplace<EnemyTag>(target);
+    registry.emplace<HealthComponent>(target, 250.0f, 250.0f);
+
+    auto &targetCombat = registry.emplace<CombatStats>(target);
+    targetCombat.max_health = 250.0f;
+    targetCombat.health = 250.0f;
+
+    auto &stats = registry.emplace<PlayerStats>(player);
+    stats.level = 50;
+    auto &combat = registry.emplace<CombatStats>(player);
+    combat.max_health = 200.0f;
+    combat.health = 60.0f;
+    combat.max_mana = 100.0f;
+    combat.mana = 100.0f;
+    combat.min_weapon_damage = 35.0f;
+    combat.max_weapon_damage = 35.0f;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 12;
+    active.specialized_slots[0].allocated_points = {{1211, 1}, {1217, 1}, {1224, 2}};
+
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::DemonBlade));
+    REQUIRE(systems::BladeResourceService::Gain(registry, player, 5, 12u));
+
+    SkillExecution bloodSeaExec;
+    bloodSeaExec.skill_id = 12;
+    bloodSeaExec.owner = player;
+    bloodSeaExec.target_pos = {0.0f, 0.0f};
+    auto bloodSeaCast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(bloodSeaCast != nullptr);
+    bloodSeaCast(registry, player, bloodSeaExec);
+
+    auto fieldView = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(fieldView.begin() != fieldView.end());
+    const auto field = *fieldView.begin();
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 1,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical, false,
+                      4001u));
+
+    auto &fieldComp = registry.get<BloodSeaFieldComponent>(field);
+    CHECK(fieldComp.linked_hit_count >= 1);
+
+    const float healthBeforeTick = registry.get<CombatStats>(player).health;
+    SkillSystem::Update(registry, grid, 0.3f);
+    CHECK(registry.get<CombatStats>(player).health >= healthBeforeTick);
+    CHECK(registry.get<HealthComponent>(target).current < 250.0f);
+}
+
 } // namespace NoMoreDay

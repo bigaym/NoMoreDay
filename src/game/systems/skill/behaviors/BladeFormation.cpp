@@ -23,6 +23,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 
 using namespace entt::literals;
@@ -62,6 +63,26 @@ constexpr uint32_t SpellResonance = 372;  // 法术共鸣 / Spell Resonance
 constexpr uint32_t AllBladesReturn = 373; // 万剑归宗 / All Blades Return
 } // namespace BladeFormationNodes
 
+namespace {
+
+ElementalConversion ResolveBladeFormationHeavenlyAttunementConversion(const Tag tag) {
+  switch (tag) {
+  case Tag::Fire:
+    return ElementalConversion{Tag::Physical, Tag::Fire, {255, 80, 20, 255},
+                               {255, 160, 60, 180}};
+  case Tag::Cold:
+    return ElementalConversion{Tag::Physical, Tag::Cold, {100, 200, 255, 255},
+                               {150, 220, 255, 180}};
+  case Tag::Lightning:
+    return ElementalConversion{Tag::Physical, Tag::Lightning,
+                               {200, 180, 255, 255}, {230, 200, 255, 180}};
+  default:
+    return {};
+  }
+}
+
+} // namespace
+
 struct BladeFormation : SkillBehaviorBase<BladeFormation> {
   static constexpr uint32_t kSkillId = 3;
 
@@ -74,6 +95,8 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     float searchInc = 0.0f;
     int spiritChargePts = 0;
     ElementalConversion swordElementConv;
+    const Tag heavenlyAttunementTag =
+        systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry, owner);
 
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
@@ -123,6 +146,10 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
     if (!exec.active_nodes.test(BladeFormationNodes::ElementEnchant % 100)) {
       swordElementConv = {};
     }
+    if (!swordElementConv.IsActive() && heavenlyAttunementTag != Tag::None) {
+      swordElementConv =
+          ResolveBladeFormationHeavenlyAttunementConversion(heavenlyAttunementTag);
+    }
 
     formation.max_swords = 1 + extraSwords;
     if (exec.active_nodes.test(BladeFormationNodes::InfiniteSheath % 100)) {
@@ -162,14 +189,15 @@ struct BladeFormation : SkillBehaviorBase<BladeFormation> {
       }
       registry.emplace_or_replace<ColorComponent>(sword, swordColor);
 
-      if (swordElementConv.IsActive()) {
-        SkillModifierComponent mods;
-        mods.damage_modifiers.push_back(
-            DamageModifier{Tag::Physical, swordElementConv.target_element,
-                           1.0f, ModifierType::Convert});
-        registry.emplace_or_replace<SkillModifierComponent>(
-            sword, std::move(mods));
-      } else {
+       if (swordElementConv.IsActive()) {
+         SkillModifierComponent mods;
+         mods.damage_modifiers.push_back(
+             DamageModifier{Tag::Physical, swordElementConv.target_element,
+                            heavenlyAttunementTag != Tag::None ? 0.5f : 1.0f,
+                            ModifierType::Convert});
+         registry.emplace_or_replace<SkillModifierComponent>(
+             sword, std::move(mods));
+       } else {
         registry.remove<SkillModifierComponent>(sword);
       }
     };

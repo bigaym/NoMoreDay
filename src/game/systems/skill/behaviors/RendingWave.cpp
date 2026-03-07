@@ -25,6 +25,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "raymath.h"
 #include <string>
@@ -32,6 +33,22 @@
 
 namespace NoMoreDay::skills {
 namespace {
+
+ElementalConversion ResolveRendingWaveHeavenlyAttunementConversion(const Tag tag) {
+  switch (tag) {
+  case Tag::Fire:
+    return ElementalConversion{Tag::Physical, Tag::Fire, {255, 80, 20, 255},
+                               {255, 160, 60, 180}};
+  case Tag::Cold:
+    return ElementalConversion{Tag::Physical, Tag::Cold, {100, 200, 255, 255},
+                               {150, 220, 255, 180}};
+  case Tag::Lightning:
+    return ElementalConversion{Tag::Physical, Tag::Lightning,
+                               {200, 180, 255, 255}, {230, 200, 255, 180}};
+  default:
+    return {};
+  }
+}
 
 bool TryPlayRendingWaveSequence(entt::registry &registry, entt::entity owner,
                                 const std::string &sequenceName,
@@ -178,6 +195,8 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     bool boomerang = false;
     bool isVoid = false;
     ElementalConversion elementalConv;
+    const Tag heavenlyAttunementTag =
+        systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry, owner);
     bool splitOnDeath = false;
     bool explodeOnHit = false;
     bool hoverAtApex = false;
@@ -284,6 +303,11 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     // Physical->X Convert modifiers on the owner.
     bool visualIsVoid = isVoid;
     ElementalConversion visualElementalConv = elementalConv;
+    if (!visualIsVoid && !visualElementalConv.IsActive() &&
+        heavenlyAttunementTag != Tag::None) {
+      visualElementalConv =
+          ResolveRendingWaveHeavenlyAttunementConversion(heavenlyAttunementTag);
+    }
     if (!visualIsVoid && !visualElementalConv.IsActive()) {
       if (const auto *ownerMods =
               registry.try_get<SkillModifierComponent>(owner)) {
@@ -474,6 +498,11 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
         auto &mods = ensureProjMods();
         mods.damage_modifiers.push_back(
             DamageModifier{Tag::Physical, elementalConv.target_element, 1.0f,
+                           ModifierType::Convert});
+      } else if (heavenlyAttunementTag != Tag::None) {
+        auto &mods = ensureProjMods();
+        mods.damage_modifiers.push_back(
+            DamageModifier{Tag::Physical, heavenlyAttunementTag, 0.5f,
                            ModifierType::Convert});
       }
 

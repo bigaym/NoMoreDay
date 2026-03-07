@@ -10,8 +10,23 @@ namespace NoMoreDay::systems {
 
 namespace {
 
+constexpr float kDemonBladeHealthCostMultiplier = 2.0f;
+constexpr float kDemonBladeLowLifeThreshold = 0.35f;
+constexpr float kBloodthirstDamagePerStack = 0.05f;
+constexpr float kBloodthirstDamageTakenPerStack = 0.03f;
+
 void MarkStatsDirty(entt::registry &registry, entt::entity entity) {
   registry.emplace_or_replace<StatsDirty>(entity);
+}
+
+bool IsBloodthirstResource(const BladeResourceComponent *resource) {
+  return resource != nullptr && resource->kind == BladeResourceKind::Bloodthirst;
+}
+
+int GetBloodthirstStacks(const BladeResourceComponent *resource) {
+  return IsBloodthirstResource(resource)
+             ? std::clamp(resource->current, 0, resource->max)
+             : 0;
 }
 
 void CopyResourceState(SwordIntentComponent &intent,
@@ -154,6 +169,17 @@ bool BladeResourceService::Consume(entt::registry &registry, entt::entity entity
   return true;
 }
 
+int BladeResourceService::ConsumeUpTo(entt::registry &registry, entt::entity entity,
+                                      int amount, uint32_t source_skill_id) {
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr || amount <= 0 || resource->current <= 0) {
+    return 0;
+  }
+
+  const int spend = std::min(amount, resource->current);
+  return Consume(registry, entity, spend, source_skill_id) ? spend : 0;
+}
+
 bool BladeResourceService::TryGrantSwordFlowCritBonus(entt::registry &registry,
                                                       entt::entity entity,
                                                       uint32_t source_skill_id,
@@ -177,6 +203,95 @@ bool BladeResourceService::TryGrantSwordFlowCritBonus(entt::registry &registry,
     resource->crit_bonus_feedback_timer = 0.8f;
   }
   return gained;
+}
+
+bool BladeResourceService::IsDemonBladeActive(const entt::registry &registry,
+                                              entt::entity entity) {
+  const auto *mastery = registry.try_get<BladeMasteryComponent>(entity);
+  const auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  return mastery != nullptr && mastery->selected == BladeMasteryId::DemonBlade &&
+         mastery->blood_oath_active && IsBloodthirstResource(resource);
+}
+
+bool BladeResourceService::TrySpendLifeForDemonBladeCast(
+    entt::registry &registry, entt::entity entity, float mana_cost,
+    uint32_t source_skill_id) {
+  auto *stats = registry.try_get<CombatStats>(entity);
+  if (stats == nullptr || !IsDemonBladeActive(registry, entity) ||
+      mana_cost <= 0.0f) {
+    return false;
+  }
+
+  const float life_cost = std::max(1.0f, mana_cost * kDemonBladeHealthCostMultiplier);
+  if (stats->health <= life_cost) {
+    return false;
+  }
+
+  stats->health = std::max(1.0f, stats->health - life_cost);
+  MarkStatsDirty(registry, entity);
+  (void)Gain(registry, entity, 1, source_skill_id);
+  return true;
+}
+
+bool BladeResourceService::TryGainBloodthirstOnLowLifeMeleeHit(
+    entt::registry &registry, entt::entity entity, uint64_t tracking_key,
+    float current_time, uint32_t source_skill_id) {
+  auto *stats = registry.try_get<CombatStats>(entity);
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (stats == nullptr || !IsBloodthirstResource(resource) ||
+      stats->max_health <= 0.0f ||
+      (stats->health / stats->max_health) > kDemonBladeLowLifeThreshold) {
+    return false;
+  }
+
+  auto &tracking = resource->hit_tracking[tracking_key != 0 ? tracking_key : source_skill_id];
+  if (tracking.stacks_gained > 0) {
+    return false;
+  }
+
+  tracking.last_gain_time = current_time;
+  tracking.stacks_gained = 1;
+  return Gain(registry, entity, 1, source_skill_id);
+}
+
+bool BladeResourceService::TryGainBloodthirstFromOverflowHeal(
+    entt::registry &registry, entt::entity entity, float attempted_heal,
+    float actual_heal, uint32_t source_skill_id) {
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (!IsBloodthirstResource(resource)) {
+    return false;
+  }
+
+  const float overflow = attempted_heal - actual_heal;
+  if (overflow < 5.0f) {
+    return false;
+  }
+
+  return Gain(registry, entity, 1, source_skill_id);
+}
+
+int BladeResourceService::ConsumeAll(entt::registry &registry, entt::entity entity,
+                                     uint32_t source_skill_id) {
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr || resource->current <= 0) {
+    return 0;
+  }
+  const int current = resource->current;
+  return Consume(registry, entity, current, source_skill_id) ? current : 0;
+}
+
+float BladeResourceService::GetBloodthirstDamageMultiplier(
+    const entt::registry &registry, entt::entity entity) {
+  const auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  return 1.0f + static_cast<float>(GetBloodthirstStacks(resource)) *
+                    kBloodthirstDamagePerStack;
+}
+
+float BladeResourceService::GetBloodthirstDamageTakenMultiplier(
+    const entt::registry &registry, entt::entity entity) {
+  const auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  return 1.0f + static_cast<float>(GetBloodthirstStacks(resource)) *
+                    kBloodthirstDamageTakenPerStack;
 }
 
 bool BladeResourceService::TryConsumeSwordFlowRestartWindow(
@@ -220,6 +335,30 @@ bool BladeResourceService::ShouldAutoEmpowerOnCast(
     return registry.all_of<SwordIntentComponent>(entity);
   }
   return resource->kind == BladeResourceKind::SwordIntent;
+}
+
+BladeAttunement BladeResourceService::GetHeavenlyAttunement(
+    const entt::registry &registry, entt::entity entity) {
+  const auto *mastery = registry.try_get<BladeMasteryComponent>(entity);
+  if (mastery == nullptr || mastery->selected != BladeMasteryId::HeavenlySword) {
+    return BladeAttunement::None;
+  }
+  return mastery->heavenly_attunement;
+}
+
+Tag BladeResourceService::GetHeavenlyAttunementElementTag(
+    const entt::registry &registry, entt::entity entity) {
+  switch (GetHeavenlyAttunement(registry, entity)) {
+  case BladeAttunement::Lightning:
+    return Tag::Lightning;
+  case BladeAttunement::Frost:
+    return Tag::Cold;
+  case BladeAttunement::Fire:
+    return Tag::Fire;
+  case BladeAttunement::None:
+  default:
+    return Tag::None;
+  }
 }
 
 void BladeResourceService::SyncLegacySwordIntent(entt::registry &registry,

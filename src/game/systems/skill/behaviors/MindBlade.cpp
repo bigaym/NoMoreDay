@@ -19,6 +19,7 @@
 #include "game/components/Common.hpp" // Added for Position, Vector2
 #include "game/components/Projectile.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "raymath.h"
 #include <algorithm>
@@ -184,6 +185,12 @@ void MindBlade::OnCast(entt::registry &registry, entt::entity owner,
       }
       break;
     }
+  }
+
+  if (chan.conversion_tag == Tag::None) {
+    chan.conversion_tag =
+        systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry,
+                                                                       owner);
   }
 
   LOG_INFO("Mind Blade channeling started for entity {} (cast_id={})",

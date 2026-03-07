@@ -1029,7 +1029,8 @@ DamageResult DamagePipeline::Calculate(entt::registry &registry,
     using namespace NoMoreDay::Constants::Combat::Pipeline;
     const int type_idx = std::countr_zero(static_cast<uint64_t>(inst.final_type));
     const float damage_after_res = DamageMitigationService::Apply(
-        registry, attacker, skill_id, inst.tags, inst.final_type, inst.amount,
+        registry, attacker, defender, skill_id, inst.tags, inst.final_type,
+        inst.amount,
         defender_stats, endgame, skip_mitigation,
         defense_resolution.blocked, defense_resolution.block_multiplier,
         source_entity);

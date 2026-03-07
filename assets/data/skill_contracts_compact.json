@@ -374,6 +374,98 @@
         "1021": 3,
         "1022": 3
       }
+    },
+    {
+      "skill_id": 11,
+      "min_nodes": 25,
+      "max_nodes": 25,
+      "max_transmuters": 0,
+      "max_triggers": 1,
+      "has_sword_intent_node": true,
+      "has_synergy_node": true,
+      "transmuter_node_ids": [
+        0,
+        0
+      ],
+      "synergy_node_ids": [
+        1117
+      ],
+      "sword_intent_node_ids": [
+        1102,
+        1109,
+        1113
+      ],
+      "keystone_node_ids": [
+        1107,
+        1113,
+        1120
+      ],
+      "passive_node_ids": [
+        1115
+      ],
+      "trigger_nodes": [
+        {
+          "node_id": 1111,
+          "trigger_skill_id": 11,
+          "effectiveness": 0.25,
+          "internal_cooldown": 4.0,
+          "consumes_mana": false
+        }
+      ],
+      "resist_models": {
+        "1124": "TypeB_Shred"
+      },
+      "scope_policies": {
+        "1124": "SkillOnly"
+      }
+    },
+    {
+      "skill_id": 12,
+      "min_nodes": 25,
+      "max_nodes": 25,
+      "max_transmuters": 2,
+      "max_triggers": 1,
+      "has_sword_intent_node": true,
+      "has_synergy_node": true,
+      "transmuter_node_ids": [
+        1221,
+        1222
+      ],
+      "synergy_node_ids": [
+        1217
+      ],
+      "sword_intent_node_ids": [
+        1202,
+        1209,
+        1213
+      ],
+      "keystone_node_ids": [
+        1207,
+        1213,
+        1220
+      ],
+      "passive_node_ids": [
+        1224
+      ],
+      "trigger_nodes": [
+        {
+          "node_id": 1211,
+          "trigger_skill_id": 12,
+          "effectiveness": 0.3,
+          "internal_cooldown": 3.5,
+          "consumes_mana": false
+        }
+      ],
+      "resist_models": {
+        "1224": "TypeB_Shred"
+      },
+      "scope_policies": {
+        "1224": "SkillOnly"
+      },
+      "keystone_exclusion_groups": {
+        "1221": 4,
+        "1222": 4
+      }
     }
   ]
 }

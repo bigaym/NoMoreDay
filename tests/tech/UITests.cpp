@@ -260,6 +260,80 @@ TEST_CASE("[Tech] PlayerHUD - Render Logic") {
         CHECK(systems::PlayerHUD::ResolveSwordFlowFeedbackText(bladeResource) ==
               "暴击剑流 +1");
     }
+
+    SUBCASE("Heavenly Sword and Demon Blade HUD text resolves") {
+        registry.remove<SwordIntentComponent>(player);
+        auto& mastery = registry.emplace<BladeMasteryComponent>(player);
+        auto& bladeResource = registry.emplace<BladeResourceComponent>(player);
+
+        mastery.selected = BladeMasteryId::HeavenlySword;
+        mastery.heavenly_attunement = BladeAttunement::Fire;
+        bladeResource.kind = BladeResourceKind::SpiritBladeTier;
+        bladeResource.current = 8;
+        bladeResource.max = 10;
+        CHECK(std::string(systems::PlayerHUD::ResolveBladeResourceLabel(bladeResource)) ==
+              "Spirit Blade Tier");
+        CHECK(systems::PlayerHUD::ResolveBladeResourceDetailText(mastery, bladeResource) ==
+              "Attunement: Fire");
+        CHECK(std::string(NoMoreDay::systems::ui::SwordIntentWidget::ResolveThresholdText(
+                  BladeResourceKind::SpiritBladeTier, 10, 10)) == "天剑待发");
+        CHECK(NoMoreDay::systems::ui::SwordIntentWidget::ResolveThresholdTier(
+                  BladeResourceKind::SpiritBladeTier, 7, 10) == 2);
+        CHECK(std::string(NoMoreDay::systems::ui::SwordIntentWidget::ResolveThresholdText(
+                  BladeResourceKind::SpiritBladeTier, 7, 10)) == "万剑齐鸣");
+
+        mastery.selected = BladeMasteryId::DemonBlade;
+        mastery.blood_oath_active = true;
+        bladeResource.kind = BladeResourceKind::Bloodthirst;
+        bladeResource.current = 8;
+        CHECK(std::string(systems::PlayerHUD::ResolveBladeResourceLabel(bladeResource)) ==
+              "Bloodthirst");
+        CHECK(systems::PlayerHUD::ResolveBladeResourceDetailText(mastery, bladeResource) ==
+              "Blood Oath: Active");
+        CHECK(systems::PlayerHUD::ResolveBladeResourceFeedbackText(mastery, bladeResource) ==
+              "Danger: Blood Oath");
+    }
+
+    SUBCASE("Heavenly Sword field window and Demon Blade danger cues resolve") {
+        registry.remove<SwordIntentComponent>(player);
+        auto& mastery = registry.emplace<BladeMasteryComponent>(player);
+        auto& bladeResource = registry.emplace<BladeResourceComponent>(player);
+
+        mastery.selected = BladeMasteryId::HeavenlySword;
+        mastery.heavenly_attunement = BladeAttunement::Lightning;
+        bladeResource.kind = BladeResourceKind::SpiritBladeTier;
+        bladeResource.current = 10;
+        bladeResource.max = 10;
+
+        const auto heavenlyField = registry.create();
+        auto& heavenlyState = registry.emplace<HeavenlySwordFieldComponent>(heavenlyField);
+        heavenlyState.owner = player;
+        heavenlyState.duration = 4.2f;
+
+        CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeDetailText(
+                  registry, player, mastery, bladeResource, stats) ==
+              "Field Active 4.2s");
+
+        mastery.selected = BladeMasteryId::DemonBlade;
+        mastery.blood_oath_active = true;
+        bladeResource.kind = BladeResourceKind::Bloodthirst;
+        bladeResource.current = 9;
+        bladeResource.max = 10;
+        stats.health = 28.0f;
+        stats.max_health = 100.0f;
+
+        const auto bloodSeaField = registry.create();
+        auto& bloodSeaState = registry.emplace<BloodSeaFieldComponent>(bloodSeaField);
+        bloodSeaState.owner = player;
+        bloodSeaState.duration = 5.6f;
+
+        CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeDetailText(
+                  registry, player, mastery, bladeResource, stats) ==
+              "Blood Sea 5.6s");
+        CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
+                  registry, player, mastery, bladeResource, stats) ==
+              "Danger: 28% HP");
+    }
 }
 
 TEST_CASE("[Tech] SwordIntentVisual - Sword Flow crit proc pulse activates") {

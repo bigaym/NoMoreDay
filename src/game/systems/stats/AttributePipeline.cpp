@@ -633,8 +633,16 @@ void AttributePipeline::Calculate(entt::registry &registry,
                                 flowStacks * 3.0f);
               ApplyStatModifier(calcs, StatType::AttackSpeed,
                                 ModifierMode::PercentAdd, flowStacks * 2.0f);
+          } else if (bladeResource != nullptr &&
+                     bladeResource->kind == BladeResourceKind::Bloodthirst) {
+              const float bloodthirstMult =
+                  systems::BladeResourceService::GetBloodthirstDamageMultiplier(
+                      registry, entity);
+              for (auto &mult : stats.damage_multipliers) {
+                  mult *= bloodthirstMult;
+              }
           }
-      }
+       }
 
       if (active_traits.contains(TraitID::SwordHeart)) {
           if (!registry.all_of<SwordHeartComponent>(entity)) {
@@ -735,6 +743,16 @@ void AttributePipeline::Calculate(entt::registry &registry,
     stats.damage_multipliers[i] = c.Result() / 100.0f;
     stats.damage_percent_add[i] = c.percent_add;
     stats.damage_percent_mult_component[i] = c.percent_mult;
+  }
+  if (const auto* bladeResource = registry.try_get<BladeResourceComponent>(entity);
+      bladeResource != nullptr &&
+      bladeResource->kind == BladeResourceKind::Bloodthirst) {
+    const float bloodthirstMult =
+        systems::BladeResourceService::GetBloodthirstDamageMultiplier(registry,
+                                                                      entity);
+    for (auto &mult : stats.damage_multipliers) {
+      mult *= bloodthirstMult;
+    }
   }
   float rall = calcs[static_cast<size_t>(StatType::ResistAll)].Result();
   for (int i = 0; i < 6; ++i) {

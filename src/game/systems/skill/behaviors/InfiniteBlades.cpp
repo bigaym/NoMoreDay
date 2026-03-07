@@ -6,6 +6,7 @@
 #include "SkillBehaviorBase.hpp"
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include <algorithm>
 
@@ -135,6 +136,12 @@ struct InfiniteBlades : SkillBehaviorBase<InfiniteBlades> {
         }
         break;
       }
+    }
+
+    if (chan.conversion_tag == Tag::None) {
+      chan.conversion_tag =
+          systems::BladeResourceService::GetHeavenlyAttunementElementTag(registry,
+                                                                         owner);
     }
 
     // Talent: Sword Intent Resonance (500)

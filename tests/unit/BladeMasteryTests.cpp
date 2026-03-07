@@ -35,18 +35,35 @@ entt::entity CreateBladeAscendant(entt::registry &registry, int level) {
 
 } // namespace
 
-TEST_CASE("[Unit] Blade Mastery Registry - Sword Saint profile loads") {
+TEST_CASE("[Unit] Blade Mastery Registry - all Blade Ascendant profiles load") {
   TestSetupScope testScope;
   LoadBladeMasteries();
 
-  const BladeMasteryProfile *profile =
+  const auto &profiles = BladeMasteryRegistry::Get().GetAllProfiles();
+  REQUIRE(profiles.size() == 3);
+
+  const BladeMasteryProfile *swordSaint =
       BladeMasteryRegistry::Get().GetProfile(BladeMasteryId::SwordSaint);
-  REQUIRE(profile != nullptr);
-  CHECK(profile->profession == ProfessionID::BladeAscendant);
-  CHECK(profile->resource_kind == BladeResourceKind::SwordFlow);
-  CHECK(profile->unlock_level == 50);
-  CHECK(profile->debug_unlock_level_override == 5);
-  CHECK(profile->signature_skill_id == 10);
+  REQUIRE(swordSaint != nullptr);
+  CHECK(swordSaint->profession == ProfessionID::BladeAscendant);
+  CHECK(swordSaint->resource_kind == BladeResourceKind::SwordFlow);
+  CHECK(swordSaint->unlock_level == 50);
+  CHECK(swordSaint->debug_unlock_level_override == 5);
+  CHECK(swordSaint->signature_skill_id == 10);
+
+  const BladeMasteryProfile *heavenlySword =
+      BladeMasteryRegistry::Get().GetProfile(BladeMasteryId::HeavenlySword);
+  REQUIRE(heavenlySword != nullptr);
+  CHECK(heavenlySword->resource_kind == BladeResourceKind::SpiritBladeTier);
+  CHECK(heavenlySword->signature_skill_id == 11);
+  CHECK(heavenlySword->max_resource == 10);
+
+  const BladeMasteryProfile *demonBlade =
+      BladeMasteryRegistry::Get().GetProfile(BladeMasteryId::DemonBlade);
+  REQUIRE(demonBlade != nullptr);
+  CHECK(demonBlade->resource_kind == BladeResourceKind::Bloodthirst);
+  CHECK(demonBlade->signature_skill_id == 12);
+  CHECK(demonBlade->max_resource == 10);
 }
 
 TEST_CASE(
@@ -128,6 +145,51 @@ TEST_CASE("[Unit] Blade Resource Service - mirrored legacy sword intent") {
   BladeResourceService::Update(registry, 6.0f);
   CHECK(registry.get<BladeResourceComponent>(player).current == 0);
   CHECK(registry.get<SwordIntentComponent>(player).stacks == 0);
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
+TEST_CASE(
+    "[Unit] Blade Mastery Service - Heavenly Sword and Demon Blade shared state") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::HeavenlySword));
+
+  const auto &heavenlyMastery = registry.get<BladeMasteryComponent>(player);
+  const auto &heavenlyResource = registry.get<BladeResourceComponent>(player);
+  const auto &heavenlySignature =
+      registry.get<BladeSignatureSkillComponent>(player);
+
+  CHECK(heavenlyMastery.selected == BladeMasteryId::HeavenlySword);
+  CHECK(heavenlyMastery.heavenly_attunement == BladeAttunement::None);
+  CHECK_FALSE(heavenlyMastery.blood_oath_active);
+  CHECK(heavenlyResource.kind == BladeResourceKind::SpiritBladeTier);
+  CHECK(heavenlySignature.skill_id == 11);
+  CHECK(heavenlySignature.unlocked);
+
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::DemonBlade));
+
+  const auto &demonMastery = registry.get<BladeMasteryComponent>(player);
+  const auto &demonResource = registry.get<BladeResourceComponent>(player);
+  const auto &demonSignature = registry.get<BladeSignatureSkillComponent>(player);
+
+  CHECK(demonMastery.selected == BladeMasteryId::DemonBlade);
+  CHECK(demonMastery.heavenly_attunement == BladeAttunement::None);
+  CHECK(demonMastery.blood_oath_active);
+  CHECK(demonResource.kind == BladeResourceKind::Bloodthirst);
+  CHECK(demonSignature.skill_id == 12);
+  CHECK(demonSignature.unlocked);
 
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }
@@ -223,6 +285,75 @@ TEST_CASE("[Unit] Sword Flow restart - full spend arms restart window") {
   CHECK(resource.current == 0);
   CHECK(resource.restart_window_timer > 0.0f);
   CHECK(resource.restart_window_ready);
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
+TEST_CASE("[Unit] Heavenly Sword resource spend - cast consumes up to capped Spirit Blade Tier") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::HeavenlySword));
+
+  REQUIRE(BladeResourceService::Gain(registry, player, 6, 11u));
+  CHECK(BladeResourceService::ConsumeUpTo(registry, player, 5, 11u) == 5);
+  CHECK(registry.get<BladeResourceComponent>(player).current == 1);
+
+  CHECK(BladeResourceService::ConsumeUpTo(registry, player, 5, 11u) == 1);
+  CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+
+  CHECK_FALSE(BladeResourceService::ShouldAutoEmpowerOnCast(registry, player));
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
+TEST_CASE("[Unit] Demon Blade - life-spend casting grants Bloodthirst and scales stats") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  auto &combat = registry.get<CombatStats>(player);
+  combat.max_health = 200.0f;
+  combat.health = 200.0f;
+  combat.max_mana = 100.0f;
+  combat.mana = 100.0f;
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::DemonBlade));
+
+  StatsSystem::Recalculate(registry, player);
+  const CombatStats baseline = registry.get<CombatStats>(player);
+
+  REQUIRE(BladeResourceService::TrySpendLifeForDemonBladeCast(registry, player,
+                                                              12.0f, 12u));
+  const auto &resource = registry.get<BladeResourceComponent>(player);
+  CHECK(resource.kind == BladeResourceKind::Bloodthirst);
+  CHECK(resource.current == 1);
+  CHECK(registry.get<CombatStats>(player).health == doctest::Approx(176.0f));
+
+  StatsSystem::Recalculate(registry, player);
+  const CombatStats buffed = registry.get<CombatStats>(player);
+  CHECK(buffed.damage_multipliers[0] == doctest::Approx(
+      baseline.damage_multipliers[0] * 1.05f));
+  CHECK(BladeResourceService::GetBloodthirstDamageTakenMultiplier(registry,
+                                                                  player) ==
+        doctest::Approx(1.03f));
 
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }

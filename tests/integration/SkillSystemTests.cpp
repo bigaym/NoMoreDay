@@ -125,6 +125,200 @@ TEST_CASE("[Integration] SkillSystem - Seven Star Slash signature gating") {
   CHECK(SkillSystem::TryCast(registry, player, 0));
 }
 
+TEST_CASE("[Integration] SkillSystem - Heavenly Sword signature gating") {
+  TestSetupScope testScope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+      "assets/data/blade_masteries.json"));
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+
+  auto &stats = registry.emplace<PlayerStats>(player);
+  stats.level = 50;
+
+  auto &combat = registry.emplace<CombatStats>(player);
+  combat.max_mana = 100.0f;
+  combat.mana = 100.0f;
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0].id = 11;
+  active.slots[0].current_charges = 1;
+
+  CHECK_FALSE(SkillSystem::TryCast(registry, player, 0));
+
+  auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+  astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+  systems::BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(systems::BladeMasteryService::SelectMastery(
+      registry, player, BladeMasteryId::HeavenlySword));
+  active.slots[0].current_charges = 1;
+
+  CHECK(SkillSystem::TryCast(registry, player, 0));
+}
+
+TEST_CASE("[Integration] SkillSystem - Blood Sea signature gating and life spend") {
+  TestSetupScope testScope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+      "assets/data/blade_masteries.json"));
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+
+  auto &stats = registry.emplace<PlayerStats>(player);
+  stats.level = 50;
+
+  auto &combat = registry.emplace<CombatStats>(player);
+  combat.max_health = 200.0f;
+  combat.health = 200.0f;
+  combat.max_mana = 100.0f;
+  combat.mana = 100.0f;
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0].id = 12;
+  active.slots[0].current_charges = 1;
+
+  CHECK_FALSE(SkillSystem::TryCast(registry, player, 0));
+
+  auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+  astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+  systems::BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(systems::BladeMasteryService::SelectMastery(
+      registry, player, BladeMasteryId::DemonBlade));
+  active.slots[0].current_charges = 1;
+
+  CHECK(SkillSystem::TryCast(registry, player, 0));
+  CHECK(registry.get<CombatStats>(player).health == doctest::Approx(110.0f));
+  CHECK(registry.get<CombatStats>(player).mana == doctest::Approx(100.0f));
+  CHECK(registry.get<BladeResourceComponent>(player).current == 1);
+}
+
+TEST_CASE("[Integration] Blade Mastery - Heavenly Sword descent spends tiers and creates field") {
+  TestSetupScope testScope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+      "assets/data/blade_masteries.json"));
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+
+  auto &stats = registry.emplace<PlayerStats>(player);
+  stats.level = 50;
+
+  auto &combat = registry.emplace<CombatStats>(player);
+  combat.max_mana = 100.0f;
+  combat.mana = 100.0f;
+  combat.min_weapon_damage = 40.0f;
+  combat.max_weapon_damage = 40.0f;
+
+  auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+  astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.specialized_slots[0].skill_id = 11;
+
+  systems::BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(systems::BladeMasteryService::SelectMastery(
+      registry, player, BladeMasteryId::HeavenlySword));
+  registry.get<BladeMasteryComponent>(player).heavenly_attunement =
+      BladeAttunement::Lightning;
+  REQUIRE(systems::BladeResourceService::Gain(registry, player, 6, 11u));
+
+  SkillExecution exec;
+  exec.skill_id = 11;
+  exec.owner = player;
+  exec.target_pos = {120.0f, 0.0f};
+
+  auto castFunc = SkillBehaviorRegistry::GetCast(11);
+  REQUIRE(castFunc != nullptr);
+  castFunc(registry, player, exec);
+
+  CHECK(registry.get<BladeResourceComponent>(player).current == 1);
+
+  auto view = registry.view<HeavenlySwordFieldComponent, Position>();
+  REQUIRE(view.begin() != view.end());
+  const auto field = *view.begin();
+  const auto &fieldComp = view.get<HeavenlySwordFieldComponent>(field);
+  CHECK(fieldComp.owner == player);
+  CHECK(fieldComp.spent_tiers == 5);
+  CHECK(fieldComp.attunement == BladeAttunement::Lightning);
+  CHECK(fieldComp.duration == doctest::Approx(5.0f));
+  CHECK(fieldComp.radius > 0.0f);
+}
+
+TEST_CASE("[Integration] Blade Mastery - Blood Sea consumes Bloodthirst and creates pursuit field") {
+  TestSetupScope testScope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+      "assets/data/blade_masteries.json"));
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = registry.create();
+  registry.emplace<Position>(player, 10.0f, 20.0f);
+
+  auto &stats = registry.emplace<PlayerStats>(player);
+  stats.level = 50;
+
+  auto &combat = registry.emplace<CombatStats>(player);
+  combat.max_health = 200.0f;
+  combat.health = 90.0f;
+  combat.max_mana = 100.0f;
+  combat.mana = 100.0f;
+  combat.min_weapon_damage = 40.0f;
+  combat.max_weapon_damage = 40.0f;
+
+  auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+  astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.specialized_slots[0].skill_id = 12;
+  active.specialized_slots[0].allocated_points = {{1217, 1}, {1224, 2}};
+
+  systems::BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(systems::BladeMasteryService::SelectMastery(
+      registry, player, BladeMasteryId::DemonBlade));
+  REQUIRE(systems::BladeResourceService::Gain(registry, player, 6, 12u));
+
+  SkillExecution exec;
+  exec.skill_id = 12;
+  exec.owner = player;
+  exec.target_pos = {60.0f, 20.0f};
+
+  auto castFunc = SkillBehaviorRegistry::GetCast(12);
+  REQUIRE(castFunc != nullptr);
+  castFunc(registry, player, exec);
+
+  CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+
+  auto view = registry.view<BloodSeaFieldComponent, Position>();
+  REQUIRE(view.begin() != view.end());
+  const auto field = *view.begin();
+  const auto &fieldComp = view.get<BloodSeaFieldComponent>(field);
+  const auto &fieldPos = view.get<Position>(field);
+  CHECK(fieldComp.owner == player);
+  CHECK(fieldComp.consumed_bloodthirst == 6);
+  CHECK(fieldComp.duration == doctest::Approx(6.0f));
+  CHECK(fieldComp.leech_ratio > 0.0f);
+  CHECK(fieldPos.x == doctest::Approx(10.0f));
+  CHECK(fieldPos.y == doctest::Approx(20.0f));
+}
+
 TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
   TestSetupScope testScope;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");

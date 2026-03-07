@@ -625,6 +625,1134 @@
           "y": -2.9059998989105225
         }
       ]
+    },
+    {
+      "class_id": "blade_ascendant",
+      "mastery_id": "heavenly_sword",
+      "skill_id": 11,
+      "talent_tree": [
+        {
+          "id": 1100,
+          "name_key": "剑胚校准",
+          "desc_key": "初击范围与落点判定稳定性提高。",
+          "icon_id": 1100,
+          "max_points": 4,
+          "x": 0.0,
+          "y": -3.0,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1101,
+          "name_key": "天域增幅",
+          "desc_key": "领域半径增加。",
+          "icon_id": 1101,
+          "max_points": 4,
+          "x": 2.2,
+          "y": -3.0,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1102,
+          "name_key": "灵锋灌注",
+          "desc_key": "每消耗1阶灵剑时提高初击伤害。",
+          "icon_id": 1102,
+          "max_points": 4,
+          "x": -2.2,
+          "y": -3.0,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1103,
+          "name_key": "灵压余震",
+          "desc_key": "初击后短时间内提高领域切割频率。",
+          "icon_id": 1103,
+          "max_points": 4,
+          "x": 0.0,
+          "y": -1.8,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1104,
+          "name_key": "裂界斩芯",
+          "desc_key": "初击中心区域伤害总增。",
+          "icon_id": 1104,
+          "max_points": 3,
+          "x": -3.4,
+          "y": -1.6,
+          "prerequisites": [
+            {
+              "node_id": 1100,
+              "required_points": 2
+            },
+            {
+              "node_id": 1102,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1105,
+          "name_key": "诛王剑意",
+          "desc_key": "对精英和Boss强化初击与首秒领域伤害。",
+          "icon_id": 1105,
+          "max_points": 4,
+          "x": -4.4,
+          "y": -0.4,
+          "prerequisites": [
+            {
+              "node_id": 1104,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1106,
+          "name_key": "陨核压制",
+          "desc_key": "初击中心命中时施加重压减速。",
+          "icon_id": 1106,
+          "max_points": 3,
+          "x": -4.8,
+          "y": 0.9,
+          "prerequisites": [
+            {
+              "node_id": 1105,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1107,
+          "name_key": "天穹贯星",
+          "desc_key": "强化初击集中度并缩小领域半径。",
+          "icon_id": 1107,
+          "max_points": 1,
+          "x": -5.5,
+          "y": 2.0,
+          "prerequisites": [
+            {
+              "node_id": 1105,
+              "required_points": 3
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1108,
+          "name_key": "穿云余威",
+          "desc_key": "重斩后留下延迟剑痕。",
+          "icon_id": 1108,
+          "max_points": 3,
+          "x": -5.0,
+          "y": 3.2,
+          "prerequisites": [
+            {
+              "node_id": 1107,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1109,
+          "name_key": "灵锋献祭",
+          "desc_key": "每消耗1阶灵剑时提高领域切割伤害。",
+          "icon_id": 1109,
+          "max_points": 4,
+          "x": -1.8,
+          "y": -1.0,
+          "prerequisites": [
+            {
+              "node_id": 1102,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1110,
+          "name_key": "阶满溢彩",
+          "desc_key": "每次施放可额外多消耗灵剑阶，总上限7。",
+          "icon_id": 1110,
+          "max_points": 3,
+          "x": -1.2,
+          "y": 0.2,
+          "prerequisites": [
+            {
+              "node_id": 1109,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1111,
+          "name_key": "剑雨回响",
+          "desc_key": "按消耗灵剑阶追加小型灵剑雨。",
+          "icon_id": 1111,
+          "max_points": 1,
+          "x": -0.2,
+          "y": 1.2,
+          "prerequisites": [
+            {
+              "node_id": 1109,
+              "required_points": 3
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1112,
+          "name_key": "灵轮续转",
+          "desc_key": "领域存在期间强化活跃灵剑攻击频率。",
+          "icon_id": 1112,
+          "max_points": 3,
+          "x": 0.8,
+          "y": 2.2,
+          "prerequisites": [
+            {
+              "node_id": 1111,
+              "required_points": 1
+            },
+            {
+              "node_id": 1110,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1113,
+          "name_key": "万象轮转",
+          "desc_key": "降低初击伤害，领域期间最多返还2阶灵剑。",
+          "icon_id": 1113,
+          "max_points": 1,
+          "x": 1.8,
+          "y": 3.3,
+          "prerequisites": [
+            {
+              "node_id": 1112,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1114,
+          "name_key": "剑潮归鞘",
+          "desc_key": "返还的灵剑短时强化灵剑决与万剑归宗。",
+          "icon_id": 1114,
+          "max_points": 3,
+          "x": 2.8,
+          "y": 4.2,
+          "prerequisites": [
+            {
+              "node_id": 1113,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1115,
+          "name_key": "天域锁界",
+          "desc_key": "领域边缘生成牵引带。",
+          "icon_id": 1115,
+          "max_points": 1,
+          "x": 3.5,
+          "y": -1.0,
+          "prerequisites": [
+            {
+              "node_id": 1101,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1116,
+          "name_key": "场域共振",
+          "desc_key": "提高领域切割频率并放大对应元素伤害。",
+          "icon_id": 1116,
+          "max_points": 3,
+          "x": 4.4,
+          "y": 0.2,
+          "prerequisites": [
+            {
+              "node_id": 1115,
+              "required_points": 1
+            },
+            {
+              "node_id": 1103,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1117,
+          "name_key": "剑阵同调",
+          "desc_key": "领域与剑阵或灵剑命中产生同步切割。",
+          "icon_id": 1117,
+          "max_points": 1,
+          "x": 5.2,
+          "y": 1.4,
+          "prerequisites": [
+            {
+              "node_id": 1116,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1118,
+          "name_key": "灵潮扩散",
+          "desc_key": "领域强化异常状态目标受伤并刷新持续时间。",
+          "icon_id": 1118,
+          "max_points": 3,
+          "x": 5.8,
+          "y": 2.6,
+          "prerequisites": [
+            {
+              "node_id": 1117,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1119,
+          "name_key": "久驻天域",
+          "desc_key": "领域持续时间增加。",
+          "icon_id": 1119,
+          "max_points": 3,
+          "x": 4.0,
+          "y": -2.0,
+          "prerequisites": [
+            {
+              "node_id": 1115,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1120,
+          "name_key": "天相极化",
+          "desc_key": "按当前亲和元素极化领域形态。",
+          "icon_id": 1120,
+          "max_points": 1,
+          "x": 1.8,
+          "y": -0.4,
+          "prerequisites": [
+            {
+              "node_id": 1101,
+              "required_points": 3
+            },
+            {
+              "node_id": 1102,
+              "required_points": 3
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1121,
+          "name_key": "雷池天罚",
+          "desc_key": "雷亲和时改为低频高额脉冲雷击。",
+          "icon_id": 1121,
+          "max_points": 3,
+          "x": 0.8,
+          "y": 0.8,
+          "prerequisites": [
+            {
+              "node_id": 1120,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1122,
+          "name_key": "霜星封界",
+          "desc_key": "冰亲和时强化寒冷冻结与停滞。",
+          "icon_id": 1122,
+          "max_points": 3,
+          "x": 2.2,
+          "y": 0.9,
+          "prerequisites": [
+            {
+              "node_id": 1120,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1123,
+          "name_key": "炽阳焚城",
+          "desc_key": "火亲和时留下灼烧地面并强化点燃收益。",
+          "icon_id": 1123,
+          "max_points": 3,
+          "x": 3.6,
+          "y": 0.9,
+          "prerequisites": [
+            {
+              "node_id": 1120,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1124,
+          "name_key": "元素剥离",
+          "desc_key": "提高领域元素降抗，额外降抗总量上限12。",
+          "icon_id": 1124,
+          "max_points": 3,
+          "x": 2.2,
+          "y": 2.3,
+          "prerequisites": [
+            {
+              "node_id": 1120,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        }
+      ],
+      "skill_contract": {
+        "version": 1,
+        "skill_id": 11,
+        "min_nodes": 25,
+        "max_nodes": 25,
+        "max_transmuters": 0,
+        "max_triggers": 1,
+        "has_sword_intent_node": true,
+        "has_synergy_node": true,
+        "transmuter_node_ids": [
+          0,
+          0
+        ],
+        "nodes": [
+          {
+            "node_id": 1102,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1107,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1109,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1111,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 11,
+              "effectiveness": 0.25,
+              "internal_cooldown": 4.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1113,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1117,
+            "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1120,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1124,
+            "role": "Passive",
+            "resist_model": "TypeB_Shred",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "class_id": "blade_ascendant",
+      "mastery_id": "demon_blade",
+      "skill_id": 12,
+      "talent_tree": [
+        {
+          "id": 1200,
+          "name_key": "血幕起势",
+          "desc_key": "提升血海初始范围稳定性。",
+          "icon_id": 1200,
+          "max_points": 4,
+          "x": 0.0,
+          "y": -3.0,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1201,
+          "name_key": "血压潮升",
+          "desc_key": "提高血海持续伤害。",
+          "icon_id": 1201,
+          "max_points": 4,
+          "x": -2.2,
+          "y": -3.0,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1202,
+          "name_key": "渴血成锋",
+          "desc_key": "血渴层数进一步放大血海伤害。",
+          "icon_id": 1202,
+          "max_points": 4,
+          "x": 2.2,
+          "y": -3.0,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1203,
+          "name_key": "血雾追身",
+          "desc_key": "提高血海追随速度。",
+          "icon_id": 1203,
+          "max_points": 4,
+          "x": 0.0,
+          "y": -1.8,
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1204,
+          "name_key": "断生压迫",
+          "desc_key": "低血时血海伤害提高。",
+          "icon_id": 1204,
+          "max_points": 3,
+          "x": -3.4,
+          "y": -1.6,
+          "prerequisites": [
+            {
+              "node_id": 1201,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1205,
+          "name_key": "追猎血径",
+          "desc_key": "血海对被追逐目标造成额外压制。",
+          "icon_id": 1205,
+          "max_points": 3,
+          "x": -4.4,
+          "y": -0.4,
+          "prerequisites": [
+            {
+              "node_id": 1204,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1206,
+          "name_key": "濒死刃口",
+          "desc_key": "生命越低，血海越危险也越致命。",
+          "icon_id": 1206,
+          "max_points": 3,
+          "x": -4.8,
+          "y": 0.9,
+          "prerequisites": [
+            {
+              "node_id": 1205,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1207,
+          "name_key": "无间血狱",
+          "desc_key": "血海缩聚成更致命的屠宰区。",
+          "icon_id": 1207,
+          "max_points": 1,
+          "x": -5.5,
+          "y": 2.0,
+          "prerequisites": [
+            {
+              "node_id": 1205,
+              "required_points": 3
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1208,
+          "name_key": "断脉余波",
+          "desc_key": "血海脉冲后留下短促余伤。",
+          "icon_id": 1208,
+          "max_points": 3,
+          "x": -5.0,
+          "y": 3.2,
+          "prerequisites": [
+            {
+              "node_id": 1207,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1209,
+          "name_key": "饮血涨潮",
+          "desc_key": "每层血渴提高吸取效率。",
+          "icon_id": 1209,
+          "max_points": 4,
+          "x": -1.8,
+          "y": -1.0,
+          "prerequisites": [
+            {
+              "node_id": 1201,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1210,
+          "name_key": "残命索回",
+          "desc_key": "低血时血海更快回收生命。",
+          "icon_id": 1210,
+          "max_points": 3,
+          "x": -1.2,
+          "y": 0.2,
+          "prerequisites": [
+            {
+              "node_id": 1209,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1211,
+          "name_key": "鲜血回灌",
+          "desc_key": "施放血海时立即引爆一轮回灌脉冲。",
+          "icon_id": 1211,
+          "max_points": 1,
+          "x": -0.2,
+          "y": 1.2,
+          "prerequisites": [
+            {
+              "node_id": 1209,
+              "required_points": 3
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1212,
+          "name_key": "血浪复饮",
+          "desc_key": "血海存在期间提高治疗上限。",
+          "icon_id": 1212,
+          "max_points": 3,
+          "x": 0.8,
+          "y": 2.2,
+          "prerequisites": [
+            {
+              "node_id": 1211,
+              "required_points": 1
+            },
+            {
+              "node_id": 1210,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1213,
+          "name_key": "饮海而生",
+          "desc_key": "过量吸取回流为新的血渴。",
+          "icon_id": 1213,
+          "max_points": 1,
+          "x": 1.8,
+          "y": 3.3,
+          "prerequisites": [
+            {
+              "node_id": 1212,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1214,
+          "name_key": "猎命回潮",
+          "desc_key": "回灌获得的血渴短时强化绝影绝剑。",
+          "icon_id": 1214,
+          "max_points": 3,
+          "x": 2.8,
+          "y": 4.2,
+          "prerequisites": [
+            {
+              "node_id": 1213,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1215,
+          "name_key": "追猎瘴衣",
+          "desc_key": "提高血海对贴身目标的压制。",
+          "icon_id": 1215,
+          "max_points": 3,
+          "x": 3.5,
+          "y": -1.0,
+          "prerequisites": [
+            {
+              "node_id": 1202,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1216,
+          "name_key": "刃雾共振",
+          "desc_key": "血海脉冲频率提高。",
+          "icon_id": 1216,
+          "max_points": 3,
+          "x": 4.4,
+          "y": 0.2,
+          "prerequisites": [
+            {
+              "node_id": 1215,
+              "required_points": 1
+            },
+            {
+              "node_id": 1203,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1217,
+          "name_key": "绝影共噬",
+          "desc_key": "绝影绝剑、回旋、护体、流云刺、心剑命中时触发共噬脉冲。",
+          "icon_id": 1217,
+          "max_points": 1,
+          "x": 5.2,
+          "y": 1.4,
+          "prerequisites": [
+            {
+              "node_id": 1216,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1218,
+          "name_key": "猎血延压",
+          "desc_key": "共噬脉冲附带额外压制。",
+          "icon_id": 1218,
+          "max_points": 3,
+          "x": 5.8,
+          "y": 2.6,
+          "prerequisites": [
+            {
+              "node_id": 1217,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1219,
+          "name_key": "久驻血雾",
+          "desc_key": "延长血海持续时间。",
+          "icon_id": 1219,
+          "max_points": 3,
+          "x": 4.0,
+          "y": -2.0,
+          "prerequisites": [
+            {
+              "node_id": 1215,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1220,
+          "name_key": "虚蚀瘴幕",
+          "desc_key": "血海侵蚀物理与虚空抗性。",
+          "icon_id": 1220,
+          "max_points": 1,
+          "x": 1.8,
+          "y": -0.4,
+          "prerequisites": [
+            {
+              "node_id": 1202,
+              "required_points": 3
+            },
+            {
+              "node_id": 1209,
+              "required_points": 3
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1221,
+          "name_key": "血潮奔流",
+          "desc_key": "将血海改造成更快、更广的追猎血潮。",
+          "icon_id": 1221,
+          "max_points": 1,
+          "x": 0.8,
+          "y": 0.8,
+          "prerequisites": [
+            {
+              "node_id": 1220,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1222,
+          "name_key": "血环噬身",
+          "desc_key": "将血海压缩为贴身血环，强化吸取与危险。",
+          "icon_id": 1222,
+          "max_points": 1,
+          "x": 2.2,
+          "y": 0.9,
+          "prerequisites": [
+            {
+              "node_id": 1220,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1223,
+          "name_key": "噬骨余烬",
+          "desc_key": "虚蚀状态延长并提高持续伤害。",
+          "icon_id": 1223,
+          "max_points": 3,
+          "x": 3.6,
+          "y": 0.9,
+          "prerequisites": [
+            {
+              "node_id": 1220,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1224,
+          "name_key": "瘴海蚀骨",
+          "desc_key": "提高血海对物理与虚空抗性的侵蚀。",
+          "icon_id": 1224,
+          "max_points": 3,
+          "x": 2.2,
+          "y": 2.3,
+          "prerequisites": [
+            {
+              "node_id": 1220,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": []
+        }
+      ],
+      "skill_contract": {
+        "version": 1,
+        "skill_id": 12,
+        "min_nodes": 25,
+        "max_nodes": 25,
+        "max_transmuters": 2,
+        "max_triggers": 1,
+        "has_sword_intent_node": true,
+        "has_synergy_node": true,
+        "transmuter_node_ids": [
+          1221,
+          1222
+        ],
+        "nodes": [
+          {
+            "node_id": 1202,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1207,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1209,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1211,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 12,
+              "effectiveness": 0.3,
+              "internal_cooldown": 3.5,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1213,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1217,
+            "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1220,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1221,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            },
+            "keystone_exclusion_group": 4
+          },
+          {
+            "node_id": 1222,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            },
+            "keystone_exclusion_group": 4
+          },
+          {
+            "node_id": 1224,
+            "role": "Passive",
+            "resist_model": "TypeB_Shred",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          }
+        ]
+      }
     }
   ],
   "version": 1

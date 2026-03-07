@@ -14,6 +14,12 @@ BladeMasteryId ParseMasteryId(const std::string &value) {
   if (value == "sword_saint") {
     return BladeMasteryId::SwordSaint;
   }
+  if (value == "heavenly_sword") {
+    return BladeMasteryId::HeavenlySword;
+  }
+  if (value == "demon_blade") {
+    return BladeMasteryId::DemonBlade;
+  }
   return BladeMasteryId::None;
 }
 
@@ -30,6 +36,12 @@ BladeResourceKind ParseResourceKind(const std::string &value) {
   }
   if (value == "sword_flow") {
     return BladeResourceKind::SwordFlow;
+  }
+  if (value == "spirit_blade_tier") {
+    return BladeResourceKind::SpiritBladeTier;
+  }
+  if (value == "bloodthirst") {
+    return BladeResourceKind::Bloodthirst;
   }
   return BladeResourceKind::None;
 }

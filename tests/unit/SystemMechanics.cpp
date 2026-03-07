@@ -245,16 +245,17 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
 
     auto& mastery = registry.emplace<BladeMasteryComponent>(player);
     mastery.profession = static_cast<ProfessionID>(0);
-    mastery.selected = BladeMasteryId::SwordSaint;
+    mastery.selected = BladeMasteryId::HeavenlySword;
     mastery.debug_unlock_active = true;
+    mastery.heavenly_attunement = BladeAttunement::Lightning;
 
     auto& resource = registry.emplace<BladeResourceComponent>(player);
-    resource.kind = BladeResourceKind::SwordFlow;
+    resource.kind = BladeResourceKind::SpiritBladeTier;
     resource.current = 4;
     resource.max = 10;
 
     auto& signature = registry.emplace<BladeSignatureSkillComponent>(player);
-    signature.skill_id = 10;
+    signature.skill_id = 11;
     signature.unlocked = true;
 
     const auto snapshot = SaveManager::Get().createSnapshot(registry);
@@ -262,10 +263,13 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
     REQUIRE(snapshot.blade_mastery.has_value());
     REQUIRE(snapshot.blade_resource.has_value());
     REQUIRE(snapshot.blade_signature_skill.has_value());
-    CHECK(snapshot.blade_mastery->selected == BladeMasteryId::SwordSaint);
-    CHECK(snapshot.blade_resource->kind == BladeResourceKind::SwordFlow);
+    CHECK(snapshot.blade_mastery->selected == BladeMasteryId::HeavenlySword);
+    CHECK(snapshot.blade_mastery->heavenly_attunement ==
+          BladeAttunement::Lightning);
+    CHECK(snapshot.blade_mastery->blood_oath_active == false);
+    CHECK(snapshot.blade_resource->kind == BladeResourceKind::SpiritBladeTier);
     CHECK(snapshot.blade_resource->current == 4);
-    CHECK(snapshot.blade_signature_skill->skill_id == 10);
+    CHECK(snapshot.blade_signature_skill->skill_id == 11);
     CHECK(snapshot.blade_signature_skill->unlocked);
 
     entt::registry restored;
@@ -276,12 +280,30 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
     REQUIRE(view.begin() != view.end());
     const auto restoredPlayer = *view.begin();
     CHECK(restored.get<BladeMasteryComponent>(restoredPlayer).selected ==
-          BladeMasteryId::SwordSaint);
+          BladeMasteryId::HeavenlySword);
+    CHECK(restored.get<BladeMasteryComponent>(restoredPlayer)
+              .heavenly_attunement == BladeAttunement::Lightning);
+    CHECK(restored.get<BladeMasteryComponent>(restoredPlayer).blood_oath_active ==
+          false);
     CHECK(restored.get<BladeResourceComponent>(restoredPlayer).kind ==
-          BladeResourceKind::SwordFlow);
+          BladeResourceKind::SpiritBladeTier);
     CHECK(restored.get<BladeResourceComponent>(restoredPlayer).current == 4);
-    CHECK(restored.get<BladeSignatureSkillComponent>(restoredPlayer).skill_id == 10);
+    CHECK(restored.get<BladeSignatureSkillComponent>(restoredPlayer).skill_id == 11);
     CHECK(restored.get<BladeSignatureSkillComponent>(restoredPlayer).unlocked);
+}
+
+TEST_CASE("[Unit] Blade mastery save data - legacy JSON defaults new mastery state") {
+    const nlohmann::json legacyJson = {
+        {"profession", 0u},
+        {"selected", static_cast<uint32_t>(BladeMasteryId::DemonBlade)},
+        {"debug_unlock_active", true}
+    };
+
+    const auto mastery = legacyJson.get<BladeMasteryComponent>();
+
+    CHECK(mastery.selected == BladeMasteryId::DemonBlade);
+    CHECK(mastery.heavenly_attunement == BladeAttunement::None);
+    CHECK_FALSE(mastery.blood_oath_active);
 }
 
 TEST_CASE("[Unit] SaveManager - Migrates legacy empty specialization slots") {

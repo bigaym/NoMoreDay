@@ -10,12 +10,23 @@ enum class ProfessionID : uint8_t;
 enum class BladeMasteryId : uint8_t {
   None = 0,
   SwordSaint = 1,
+  HeavenlySword = 2,
+  DemonBlade = 3,
 };
 
 enum class BladeResourceKind : uint8_t {
   None = 0,
   SwordIntent = 1,
   SwordFlow = 2,
+  SpiritBladeTier = 3,
+  Bloodthirst = 4,
+};
+
+enum class BladeAttunement : uint8_t {
+  None = 0,
+  Lightning = 1,
+  Frost = 2,
+  Fire = 3,
 };
 
 struct BladeMasteryProfile {

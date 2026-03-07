@@ -28,6 +28,8 @@
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/SkillCastConstraintService.hpp"
+#include "game/systems/skill/behaviors/BloodSea.hpp"
+#include "game/systems/skill/behaviors/HeavenlySwordDescent.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
 #include "game/systems/skill/behaviors/PhantomFlash.hpp" // Added
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
@@ -651,6 +653,17 @@ void SkillSystem::InitHooks() {
             SkillSystem::GainSwordIntent(registry, caster, 1, evt.skill_id);
           }
 
+          skills::HeavenlySwordDescent::HandleLinkedHit(registry, evt);
+          skills::BloodSea::HandleLinkedHit(registry, evt);
+
+          if (resource != nullptr && resource->kind == BladeResourceKind::Bloodthirst &&
+              HasTag(evt.tags, Tag::Melee)) {
+            const uint64_t tracking_key =
+                (evt.castId != 0) ? evt.castId : static_cast<uint64_t>(evt.skill_id);
+            (void)systems::BladeResourceService::TryGainBloodthirstOnLowLifeMeleeHit(
+                registry, caster, tracking_key, current_time, evt.skill_id);
+          }
+
           if (evt.isCrit && resource != nullptr &&
               resource->kind == BladeResourceKind::SwordFlow) {
             const float proc_roll =
@@ -1112,6 +1125,18 @@ void SkillSystem::Update(entt::registry &registry,
   for (auto entity : array_view) {
     auto &array = array_view.get<SwordArrayComponent>(entity);
     skills::SwordArray::Update(registry, entity, array, dt, grid);
+  }
+
+  auto heavenly_field_view = registry.view<HeavenlySwordFieldComponent, Position>();
+  for (auto entity : heavenly_field_view) {
+    auto &field = heavenly_field_view.get<HeavenlySwordFieldComponent>(entity);
+    skills::HeavenlySwordDescent::UpdateField(registry, entity, field, dt, grid);
+  }
+
+  auto blood_sea_view = registry.view<BloodSeaFieldComponent, Position>();
+  for (auto entity : blood_sea_view) {
+    auto &field = blood_sea_view.get<BloodSeaFieldComponent>(entity);
+    skills::BloodSea::UpdateField(registry, entity, field, dt, grid);
   }
 
   // Update Mind Blade (ID 7)
@@ -1994,7 +2019,7 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     LOG_ERROR("TryCast FAILED: Skill ID {} data not found", slot.id);
     return false;
   }
-  if (slot.id == 10 &&
+  if ((slot.id == 10 || slot.id == 11 || slot.id == 12) &&
       !systems::BladeMasteryService::IsSignatureSkillUnlocked(registry, entity,
                                                               slot.id)) {
     LOG_WARN("TryCast FAILED: Signature skill {} is locked", slot.id);
@@ -2050,9 +2075,19 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
     if (shadow_duplicate)
       total_cost += base_cost * 0.5f;
 
-    if (stats->mana < total_cost)
-      return false;
-    stats->mana -= total_cost;
+    const bool demonBladeLifeSpend =
+        total_cost > 0.0f &&
+        systems::BladeResourceService::IsDemonBladeActive(registry, entity);
+    if (demonBladeLifeSpend) {
+      if (!systems::BladeResourceService::TrySpendLifeForDemonBladeCast(
+              registry, entity, total_cost, slot.id)) {
+        return false;
+      }
+    } else {
+      if (stats->mana < total_cost)
+        return false;
+      stats->mana -= total_cost;
+    }
   }
 
   if (shadow_duplicate) {

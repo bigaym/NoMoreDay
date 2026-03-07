@@ -10,7 +10,8 @@ namespace NoMoreDay {
 class DamageMitigationService {
 public:
   [[nodiscard]] static float Apply(
-      entt::registry &registry, entt::entity attacker, uint32_t skill_id,
+      entt::registry &registry, entt::entity attacker, entt::entity defender,
+      uint32_t skill_id,
       Tag instance_tags, Tag final_type, float damage,
       const CombatStats *defender_stats,
       const systems::EndgameModifierAggregate &endgame, bool skip_mitigation,

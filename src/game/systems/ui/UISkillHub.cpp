@@ -11,6 +11,7 @@
 #include "core/logging/Logger.hpp"
 #include <string>
 #include <cmath>
+#include <algorithm>
 
 namespace NoMoreDay {
 
@@ -77,27 +78,65 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
         UISystem::DrawTextUI("未加载 Blade Ascendant Mastery 数据。", masteryPanelX + 12,
                              masteryPanelY + 40, 14, LIGHTGRAY, alpha);
     } else {
-        const auto& profile = masteryProfiles.front();
         const bool hasBladeProfession =
             systems::BladeMasteryService::HasBladeAscendantProfession(registry, player);
-        const bool unlocked = systems::BladeMasteryService::IsMasteryUnlocked(
-            registry, player, profile.id);
-        const bool selected = (selectedMastery == profile.id);
-        const bool debugUnlocked = masteryState != nullptr && masteryState->debug_unlock_active;
+        const bool debugOverrideEnabled =
+            systems::BladeMasteryService::IsDebugUnlockOverrideEnabled();
 
-        std::string status = selected
-                                 ? "已选择"
-                                 : unlocked ? (debugUnlocked ? "调试解锁" : "已解锁")
-                                            : !hasBladeProfession
-                                                  ? "需先在星盘立誓为 Blade Ascendant 主职业"
-                                                  : "Lv." + std::to_string(profile.unlock_level) +
-                                                        " / Debug Lv." +
-                                                        std::to_string(profile.debug_unlock_level_override);
+        const float cardGap = 10.0f * state.scaleFactor;
+        const float cardW = (masteryPanelW - cardGap * 2.0f) / 3.0f;
+        const float cardH = 48.0f * state.scaleFactor;
 
-        UISystem::DrawTextUI(profile.name.c_str(), masteryPanelX + 12, masteryPanelY + 34,
-                             20, WHITE, alpha);
-        UISystem::DrawTextUI(status.c_str(), masteryPanelX + 12, masteryPanelY + 58, 14,
-                             unlocked ? GREEN : LIGHTGRAY, alpha);
+        for (std::size_t index = 0; index < masteryProfiles.size(); ++index) {
+            const auto& profile = masteryProfiles[index];
+            const bool unlocked = systems::BladeMasteryService::IsMasteryUnlocked(
+                registry, player, profile.id);
+            const bool selected = (selectedMastery == profile.id);
+            const bool debugUnlocked = debugOverrideEnabled &&
+                playerLevel < profile.unlock_level &&
+                playerLevel >= profile.debug_unlock_level_override;
+
+            const float cardX = masteryPanelX + index * (cardW + cardGap);
+            const float cardY = masteryPanelY + 34.0f * state.scaleFactor;
+            const Rectangle card = {cardX, cardY, cardW, cardH};
+            const Rectangle button = {card.x + card.width - 82.0f * state.scaleFactor,
+                                      card.y + 10.0f * state.scaleFactor,
+                                      70.0f * state.scaleFactor,
+                                      24.0f * state.scaleFactor};
+
+            DrawRectangleRec(card, Fade(selected ? DARKGREEN : BLACK, 0.45f * alpha));
+            DrawRectangleLinesEx(card, 1.0f * state.scaleFactor,
+                                 Fade(selected ? GREEN : DARKGRAY, alpha));
+
+            std::string status = selected
+                                     ? "已选择"
+                                     : unlocked ? (debugUnlocked ? "调试解锁" : "已解锁")
+                                                : !hasBladeProfession
+                                                      ? "需先立誓"
+                                                      : "Lv." + std::to_string(profile.unlock_level) +
+                                                            " / Debug Lv." +
+                                                            std::to_string(profile.debug_unlock_level_override);
+
+            UISystem::DrawTextUI(profile.name.c_str(), card.x + 10, card.y + 8,
+                                 18, WHITE, alpha);
+            UISystem::DrawTextUI(status.c_str(), card.x + 10, card.y + 28, 12,
+                                 unlocked ? GREEN : LIGHTGRAY, alpha);
+
+            const bool canSelect = unlocked && !selected;
+            DrawRectangleRec(button, Fade(canSelect ? DARKBLUE : DARKGRAY, 0.85f * alpha));
+            DrawRectangleLinesEx(button, 1.0f * state.scaleFactor,
+                                 Fade(canSelect ? SKYBLUE : GRAY, alpha));
+            UISystem::DrawTextUI(selected ? "已生效"
+                                         : canSelect ? "选择"
+                                                     : hasBladeProfession ? "未解锁"
+                                                                         : "先立誓",
+                                 button.x + 10, button.y + 5, 12, WHITE, alpha);
+
+            if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), button) &&
+                IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                TrySelectMastery(registry, player, profile.id);
+            }
+        }
 
         char levelBuf[64];
         utils::FormatToBuffer(levelBuf, "当前等级: {}", playerLevel);
@@ -105,14 +144,12 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                              masteryPanelY + 12, 14, LIGHTGRAY, alpha);
 
         Rectangle debugButton = {masteryPanelX + masteryPanelW - 240.0f * state.scaleFactor,
-                                 masteryPanelY + 44.0f * state.scaleFactor,
-                                 108.0f * state.scaleFactor,
-                                 28.0f * state.scaleFactor};
-        const bool debugOverrideEnabled =
-            systems::BladeMasteryService::IsDebugUnlockOverrideEnabled();
+                                  masteryPanelY + 44.0f * state.scaleFactor,
+                                  108.0f * state.scaleFactor,
+                                  28.0f * state.scaleFactor};
         DrawRectangleRec(debugButton,
                          Fade(debugOverrideEnabled ? DARKGREEN : DARKPURPLE,
-                              0.82f * alpha));
+                               0.82f * alpha));
         DrawRectangleLinesEx(debugButton, 1.0f * state.scaleFactor,
                              Fade(debugOverrideEnabled ? GREEN : VIOLET, alpha));
         UISystem::DrawTextUI(debugOverrideEnabled ? "Debug Lv5: ON"
@@ -124,29 +161,6 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(
                 !debugOverrideEnabled);
             systems::BladeMasteryService::RefreshPlayerState(registry, player);
-        }
-
-        Rectangle button = {masteryPanelX + masteryPanelW - 120.0f * state.scaleFactor,
-                            masteryPanelY + 44.0f * state.scaleFactor,
-                            96.0f * state.scaleFactor,
-                            28.0f * state.scaleFactor};
-        const bool canSelect = unlocked && !selected;
-        DrawRectangleRec(button, Fade(canSelect ? DARKBLUE : DARKGRAY, 0.85f * alpha));
-        DrawRectangleLinesEx(button, 1.0f * state.scaleFactor,
-                             Fade(canSelect ? SKYBLUE : GRAY, alpha));
-        UISystem::DrawTextUI(selected ? "已生效"
-                                     : canSelect ? "选择"
-                                                 : hasBladeProfession ? "未解锁"
-                                                                     : "先立誓",
-                             button.x + 16, button.y + 6, 14, WHITE, alpha);
-
-        if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), button) &&
-            IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            if (canSelect) {
-                TrySelectMastery(registry, player, profile.id);
-            } else if (!selected) {
-                TrySelectMastery(registry, player, profile.id);
-            }
         }
     }
 

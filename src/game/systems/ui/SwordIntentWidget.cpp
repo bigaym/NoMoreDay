@@ -16,20 +16,63 @@ Shader SwordIntentWidget::shineShader = { 0 };
 bool SwordIntentWidget::initialized = false;
 float SwordIntentWidget::glowIntensity = 0.0f;
 
-int SwordIntentWidget::ResolveSwordFlowThresholdTier(int currentStacks, int maxStacks) {
-    if (maxStacks <= 0) {
+int SwordIntentWidget::ResolveThresholdTier(BladeResourceKind kind,
+                                            int currentStacks, int maxStacks) {
+    if (kind == BladeResourceKind::SwordIntent || maxStacks <= 0) {
         return 0;
     }
     if (currentStacks >= maxStacks) {
         return 3;
     }
-    if (currentStacks >= 8) {
+    const int secondThreshold =
+        (kind == BladeResourceKind::SpiritBladeTier) ? 7 : 8;
+    if (currentStacks >= secondThreshold) {
         return 2;
     }
     if (currentStacks >= 5) {
         return 1;
     }
     return 0;
+}
+
+const char* SwordIntentWidget::ResolveThresholdText(BladeResourceKind kind,
+                                                    int currentStacks,
+                                                    int maxStacks) {
+    switch (kind) {
+    case BladeResourceKind::SwordFlow:
+        return ResolveSwordFlowThresholdText(currentStacks, maxStacks);
+    case BladeResourceKind::SpiritBladeTier:
+        switch (ResolveThresholdTier(kind, currentStacks, maxStacks)) {
+        case 1:
+            return "灵剑成阵";
+        case 2:
+            return "万剑齐鸣";
+        case 3:
+            return "天剑待发";
+        default:
+            return "";
+        }
+    case BladeResourceKind::Bloodthirst:
+        switch (ResolveThresholdTier(kind, currentStacks, maxStacks)) {
+        case 1:
+            return "血意沸腾";
+        case 2:
+            return "危险线";
+        case 3:
+            return "血海临界";
+        default:
+            return "";
+        }
+    case BladeResourceKind::SwordIntent:
+    case BladeResourceKind::None:
+    default:
+        return "";
+    }
+}
+
+int SwordIntentWidget::ResolveSwordFlowThresholdTier(int currentStacks, int maxStacks) {
+    return ResolveThresholdTier(BladeResourceKind::SwordFlow, currentStacks,
+                                maxStacks);
 }
 
 const char* SwordIntentWidget::ResolveSwordFlowThresholdText(int currentStacks, int maxStacks) {
@@ -61,7 +104,8 @@ void SwordIntentWidget::Init() {
 }
 
 void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
-                             std::string_view label) {
+                             BladeResourceKind kind, std::string_view label,
+                             std::string_view detailText) {
     if (!initialized) {
         Init();
         if (!initialized) return;
@@ -88,16 +132,23 @@ void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
              static_cast<int>((logicY - 24.0f) * scale),
              static_cast<int>(18 * scale), Fade(LIGHTGRAY, 0.95f));
 
-    if (label == "Sword Flow") {
-        const char* thresholdText = ResolveSwordFlowThresholdText(currentStacks, maxStacks);
-        if (thresholdText[0] != '\0') {
-            const int tier = ResolveSwordFlowThresholdTier(currentStacks, maxStacks);
-            const Color tierColor = (tier >= 3) ? GOLD : (tier == 2 ? SKYBLUE : Color{140, 255, 220, 255});
-            DrawText(thresholdText,
-                     static_cast<int>((UI_REF_WIDTH * 0.5f * scale) - (MeasureText(thresholdText, static_cast<int>(15 * scale)) * 0.5f)),
-                     static_cast<int>((logicY - 44.0f) * scale),
-                     static_cast<int>(15 * scale), Fade(tierColor, 0.95f));
-        }
+    const char* thresholdText = ResolveThresholdText(kind, currentStacks, maxStacks);
+    if (thresholdText[0] != '\0') {
+        const int tier = ResolveThresholdTier(kind, currentStacks, maxStacks);
+        const Color tierColor = (tier >= 3) ? GOLD : (tier == 2 ? SKYBLUE : Color{140, 255, 220, 255});
+        DrawText(thresholdText,
+                 static_cast<int>((UI_REF_WIDTH * 0.5f * scale) - (MeasureText(thresholdText, static_cast<int>(15 * scale)) * 0.5f)),
+                 static_cast<int>((logicY - 44.0f) * scale),
+                 static_cast<int>(15 * scale), Fade(tierColor, 0.95f));
+    }
+
+    if (!detailText.empty()) {
+        const std::string detail(detailText);
+        DrawText(detail.c_str(),
+                 static_cast<int>((UI_REF_WIDTH * 0.5f * scale) -
+                                  (MeasureText(detail.c_str(), static_cast<int>(14 * scale)) * 0.5f)),
+                 static_cast<int>((logicY - 62.0f) * scale),
+                 static_cast<int>(14 * scale), Fade(LIGHTGRAY, 0.9f));
     }
     
     // Draw base icons

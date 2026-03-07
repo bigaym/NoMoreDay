@@ -107,6 +107,94 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(orbit->keystone_exclusion_group == 3);
     CHECK(starfall->keystone_exclusion_group == 3);
   }
+
+  SUBCASE("Skill 11 Heavenly Sword mastery contract is materialized") {
+    const auto *skill = registry.GetSkill(11);
+    REQUIRE(skill != nullptr);
+    CHECK(skill->name_key == "天剑降临");
+
+    const auto *tree = registry.GetSkillTree(11);
+    REQUIRE(tree != nullptr);
+    CHECK(tree->nodes.size() == 25);
+    CHECK(tree->nodes.contains(1124));
+
+    const auto *contract = registry.GetSkillContract(11);
+    REQUIRE(contract != nullptr);
+    CHECK(contract->min_nodes == 25);
+    CHECK(contract->max_nodes == 25);
+    CHECK(contract->has_sword_intent_node);
+    CHECK(contract->has_synergy_node);
+    CHECK(contract->transmuter_node_ids[0] == 0);
+    CHECK(contract->transmuter_node_ids[1] == 0);
+
+    const auto *trigger = registry.GetNodeContract(11, 1111);
+    REQUIRE(trigger != nullptr);
+    CHECK(trigger->role == SpecNodeRole::Trigger);
+    CHECK(trigger->trigger.trigger_skill_id == 11);
+    CHECK(trigger->trigger.effectiveness == doctest::Approx(0.25f));
+
+    const auto *synergy = registry.GetNodeContract(11, 1117);
+    REQUIRE(synergy != nullptr);
+    CHECK(synergy->role == SpecNodeRole::Synergy);
+
+    const auto *impact = registry.GetNodeContract(11, 1107);
+    const auto *loop = registry.GetNodeContract(11, 1113);
+    const auto *attune = registry.GetNodeContract(11, 1120);
+    REQUIRE(impact != nullptr);
+    REQUIRE(loop != nullptr);
+    REQUIRE(attune != nullptr);
+    CHECK(impact->role == SpecNodeRole::Keystone);
+    CHECK(loop->role == SpecNodeRole::Keystone);
+    CHECK(attune->role == SpecNodeRole::Keystone);
+  }
+
+  SUBCASE("Skill 12 Blood Sea mastery contract is materialized") {
+    const auto *skill = registry.GetSkill(12);
+    REQUIRE(skill != nullptr);
+    CHECK(skill->name_key == "血海");
+
+    const auto *tree = registry.GetSkillTree(12);
+    REQUIRE(tree != nullptr);
+    CHECK(tree->nodes.size() == 25);
+    CHECK(tree->nodes.contains(1224));
+
+    const auto *contract = registry.GetSkillContract(12);
+    REQUIRE(contract != nullptr);
+    CHECK(contract->min_nodes == 25);
+    CHECK(contract->max_nodes == 25);
+    CHECK(contract->has_sword_intent_node);
+    CHECK(contract->has_synergy_node);
+    CHECK(contract->transmuter_node_ids[0] == 1221);
+    CHECK(contract->transmuter_node_ids[1] == 1222);
+
+    const auto *trigger = registry.GetNodeContract(12, 1211);
+    REQUIRE(trigger != nullptr);
+    CHECK(trigger->role == SpecNodeRole::Trigger);
+    CHECK(trigger->trigger.trigger_skill_id == 12);
+    CHECK(trigger->trigger.effectiveness == doctest::Approx(0.3f));
+
+    const auto *synergy = registry.GetNodeContract(12, 1217);
+    REQUIRE(synergy != nullptr);
+    CHECK(synergy->role == SpecNodeRole::Synergy);
+
+    const auto *keystoneA = registry.GetNodeContract(12, 1207);
+    const auto *keystoneB = registry.GetNodeContract(12, 1213);
+    const auto *keystoneC = registry.GetNodeContract(12, 1220);
+    const auto *transmuterA = registry.GetNodeContract(12, 1221);
+    const auto *transmuterB = registry.GetNodeContract(12, 1222);
+    REQUIRE(keystoneA != nullptr);
+    REQUIRE(keystoneB != nullptr);
+    REQUIRE(keystoneC != nullptr);
+    REQUIRE(transmuterA != nullptr);
+    REQUIRE(transmuterB != nullptr);
+    CHECK(keystoneA->role == SpecNodeRole::Keystone);
+    CHECK(keystoneB->role == SpecNodeRole::Keystone);
+    CHECK(keystoneC->role == SpecNodeRole::Keystone);
+    CHECK(transmuterA->role == SpecNodeRole::Transmuter);
+    CHECK(transmuterB->role == SpecNodeRole::Transmuter);
+    CHECK(transmuterA->keystone_exclusion_group == 4);
+    CHECK(transmuterB->keystone_exclusion_group == 4);
+  }
 }
 
 TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..9)") {

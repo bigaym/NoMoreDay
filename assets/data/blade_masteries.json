@@ -12,6 +12,32 @@
       "max_resource": 10,
       "grace_period": 5.0,
       "decay_interval": 0.5
+    },
+    {
+      "id": "heavenly_sword",
+      "profession": "blade_ascendant",
+      "name": "Heavenly Sword",
+      "description": "Converts Blade Ascendant core resource into Spirit Blade Tier and unlocks 天剑降临.",
+      "resource_kind": "spirit_blade_tier",
+      "unlock_level": 50,
+      "debug_unlock_level_override": 5,
+      "signature_skill_id": 11,
+      "max_resource": 10,
+      "grace_period": 5.0,
+      "decay_interval": 0.5
+    },
+    {
+      "id": "demon_blade",
+      "profession": "blade_ascendant",
+      "name": "Demon Blade",
+      "description": "Converts Blade Ascendant core resource into Bloodthirst and unlocks 血海.",
+      "resource_kind": "bloodthirst",
+      "unlock_level": 50,
+      "debug_unlock_level_override": 5,
+      "signature_skill_id": 12,
+      "max_resource": 10,
+      "grace_period": 5.0,
+      "decay_interval": 0.5
     }
   ]
 }
