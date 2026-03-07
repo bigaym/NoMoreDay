@@ -1,0 +1,631 @@
+{
+  "skills": [
+    {
+      "class_id": "blade_ascendant",
+      "mastery_id": "sword_saint",
+      "skill_contract": {
+        "has_sword_intent_node": true,
+        "has_synergy_node": true,
+        "max_nodes": 26,
+        "max_transmuters": 2,
+        "max_triggers": 1,
+        "min_nodes": 26,
+        "nodes": [
+          {
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "node_id": 1002,
+            "resist_model": "None",
+            "role": "Passive",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "keystone_exclusion_group": 3,
+            "node_id": 1007,
+            "resist_model": "None",
+            "role": "Keystone",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "node_id": 1009,
+            "resist_model": "None",
+            "role": "Passive",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "node_id": 1011,
+            "resist_model": "None",
+            "role": "Trigger",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0.35,
+              "internal_cooldown": 3,
+              "trigger_skill_id": 10
+            }
+          },
+          {
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "node_id": 1013,
+            "resist_model": "None",
+            "role": "Keystone",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "node_id": 1016,
+            "resist_model": "None",
+            "role": "Keystone",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": false,
+            "affects_sword_step": true,
+            "node_id": 1017,
+            "resist_model": "None",
+            "role": "Synergy",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "keystone_exclusion_group": 3,
+            "node_id": 1021,
+            "resist_model": "None",
+            "role": "Transmuter",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "keystone_exclusion_group": 3,
+            "node_id": 1022,
+            "resist_model": "None",
+            "role": "Transmuter",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          },
+          {
+            "affects_sword_intent": false,
+            "affects_sword_step": true,
+            "node_id": 1025,
+            "resist_model": "None",
+            "role": "Keystone",
+            "scope_policy": "SkillOnly",
+            "trigger": {
+              "consumes_mana": false,
+              "effectiveness": 0,
+              "internal_cooldown": 0,
+              "trigger_skill_id": 0
+            }
+          }
+        ],
+        "skill_id": 10,
+        "transmuter_node_ids": [
+          1021,
+          1022
+        ],
+        "version": 1
+      },
+      "skill_id": 10,
+      "talent_tree": [
+        {
+          "desc_key": "七星斩的锁敌稳定性提高，随机斩空概率降低。",
+          "icon_id": 1000,
+          "id": 1000,
+          "max_points": 4,
+          "name_key": "星位校准",
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.7980000972747803,
+          "y": -0.30799999833106995
+        },
+        {
+          "desc_key": "七星斩的基础暴击率提高。",
+          "icon_id": 1001,
+          "id": 1001,
+          "max_points": 4,
+          "name_key": "锋芒毕露",
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -2.002000093460083,
+          "y": -0.17499999701976776
+        },
+        {
+          "desc_key": "七星斩第7击的伤害提高。",
+          "icon_id": 1002,
+          "id": 1002,
+          "max_points": 4,
+          "name_key": "七曜余震",
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -1.065999984741211,
+          "y": -2.2290000915527344
+        },
+        {
+          "desc_key": "七星斩冷却缩短，释放后的硬直减少。",
+          "icon_id": 1003,
+          "id": 1003,
+          "max_points": 4,
+          "name_key": "瞬星",
+          "prerequisites": [
+            {
+              "node_id": 0,
+              "required_points": 0
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 1.1679999828338623,
+          "y": 2.494999885559082
+        },
+        {
+          "desc_key": "前6击连续命中同一目标时，第7击对其造成额外总增伤害。",
+          "icon_id": 1004,
+          "id": 1004,
+          "max_points": 4,
+          "name_key": "命门显现",
+          "prerequisites": [
+            {
+              "node_id": 1001,
+              "required_points": 2
+            },
+            {
+              "node_id": 1002,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -1.972000002861023,
+          "y": -0.19499999284744263
+        },
+        {
+          "desc_key": "第7击对孤立目标、精英和Boss造成额外总增伤害。",
+          "icon_id": 1005,
+          "id": 1005,
+          "max_points": 3,
+          "name_key": "破军",
+          "prerequisites": [
+            {
+              "node_id": 1004,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -2.2260000705718994,
+          "y": 0.1599999964237213
+        },
+        {
+          "desc_key": "对满血敌人的前3击与对低血敌人的第7击获得额外暴击伤害倍率。",
+          "icon_id": 1006,
+          "id": 1006,
+          "max_points": 3,
+          "name_key": "斩将",
+          "prerequisites": [
+            {
+              "node_id": 1004,
+              "required_points": 2
+            },
+            {
+              "node_id": 1003,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 0.6269999742507935,
+          "y": 2.563999891281128
+        },
+        {
+          "desc_key": "七星斩优先集中锁定同一主目标，失去目标时改寻最近精英或Boss。",
+          "icon_id": 1007,
+          "id": 1007,
+          "max_points": 1,
+          "name_key": "七星归一",
+          "prerequisites": [
+            {
+              "node_id": 1005,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -1.5149999856948853,
+          "y": -1.8209999799728394
+        },
+        {
+          "desc_key": "锁定目标附近没有其他敌人时，第7击获得额外总增伤害，暴击附带物理溅射。",
+          "icon_id": 1008,
+          "id": 1008,
+          "max_points": 3,
+          "name_key": "孤曜",
+          "prerequisites": [
+            {
+              "node_id": 1007,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -3.0320000648498535,
+          "y": -1.1460000276565552
+        },
+        {
+          "desc_key": "七星斩每次命中都有概率返还1层剑流，每次施放有返还上限。",
+          "icon_id": 1009,
+          "id": 1009,
+          "max_points": 4,
+          "name_key": "流光回返",
+          "prerequisites": [
+            {
+              "node_id": 1003,
+              "required_points": 2
+            },
+            {
+              "node_id": 1002,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -2.697999954223633,
+          "y": 1.0219999551773071
+        },
+        {
+          "desc_key": "七星斩结束后短时间内，下一次非招牌剑修技能伤害提高。",
+          "icon_id": 1010,
+          "id": 1010,
+          "max_points": 3,
+          "name_key": "剑回斗转",
+          "prerequisites": [
+            {
+              "node_id": 1009,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -2.489000082015991,
+          "y": 0.013000000268220901
+        },
+        {
+          "desc_key": "满层剑流施放七星斩后，结束时追加一次低效追斩剑痕。",
+          "icon_id": 1011,
+          "id": 1011,
+          "max_points": 1,
+          "name_key": "星痕追斩",
+          "prerequisites": [
+            {
+              "node_id": 1009,
+              "required_points": 3
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -0.8640000224113464,
+          "y": 2.882999897003174
+        },
+        {
+          "desc_key": "七星斩命中至少5次时，回复位移技能的剩余冷却。",
+          "icon_id": 1012,
+          "id": 1012,
+          "max_points": 3,
+          "name_key": "追星步",
+          "prerequisites": [
+            {
+              "node_id": 1010,
+              "required_points": 2
+            },
+            {
+              "node_id": 1011,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -1.149999976158142,
+          "y": 2.809999942779541
+        },
+        {
+          "desc_key": "牺牲第7击瞬时爆发，改为为下一次非招牌剑修技能叠加七曜势强化。",
+          "icon_id": 1013,
+          "id": 1013,
+          "max_points": 1,
+          "name_key": "无尽七曜",
+          "prerequisites": [
+            {
+              "node_id": 1012,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -2.6679999828338623,
+          "y": -0.24300000071525574
+        },
+        {
+          "desc_key": "受无尽七曜强化的技能命中时，额外返还剑流并加速位移技能回转。",
+          "icon_id": 1014,
+          "id": 1014,
+          "max_points": 3,
+          "name_key": "斗柄回天",
+          "prerequisites": [
+            {
+              "node_id": 1013,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": -2.5,
+          "y": 1.940000057220459
+        },
+        {
+          "desc_key": "延长七星斩无敌帧前后的容错窗口，并降低释放期间的减速和击退影响。",
+          "icon_id": 1015,
+          "id": 1015,
+          "max_points": 3,
+          "name_key": "踏虚",
+          "prerequisites": [
+            {
+              "node_id": 1003,
+              "required_points": 2
+            },
+            {
+              "node_id": 1000,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.071000099182129,
+          "y": 0.5640000104904175
+        },
+        {
+          "desc_key": "七星斩结束后优先落到主目标背后，否则落到鼠标方向的安全侧位。",
+          "icon_id": 1016,
+          "id": 1016,
+          "max_points": 1,
+          "name_key": "残星换位",
+          "prerequisites": [
+            {
+              "node_id": 1015,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.753000020980835,
+          "y": -0.3319999873638153
+        },
+        {
+          "desc_key": "在御剑步状态下施放七星斩时，结束后获得暴击、闪避和移速增益。",
+          "icon_id": 1017,
+          "id": 1017,
+          "max_points": 1,
+          "name_key": "御剑追影",
+          "prerequisites": [
+            {
+              "node_id": 1015,
+              "required_points": 2
+            },
+            {
+              "node_id": 1016,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.5789999961853027,
+          "y": 2.6459999084472656
+        },
+        {
+          "desc_key": "七星斩命中至少4次时，结束后获得基于敏捷的临时护盾。",
+          "icon_id": 1018,
+          "id": 1018,
+          "max_points": 3,
+          "name_key": "星幕护身",
+          "prerequisites": [
+            {
+              "node_id": 1016,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.9600000381469727,
+          "y": -0.6060000061988831
+        },
+        {
+          "desc_key": "七星斩击中3名以上敌人时，回复缺失生命值。",
+          "icon_id": 1019,
+          "id": 1019,
+          "max_points": 3,
+          "name_key": "生门",
+          "prerequisites": [
+            {
+              "node_id": 1017,
+              "required_points": 1
+            },
+            {
+              "node_id": 1018,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.6670000553131104,
+          "y": -0.8659999966621399
+        },
+        {
+          "desc_key": "七星斩结束时立即激活御剑步，并为下一次位移技能提供回冷或免耗收益。",
+          "icon_id": 1025,
+          "id": 1025,
+          "max_points": 1,
+          "name_key": "返星入步",
+          "prerequisites": [
+            {
+              "node_id": 1019,
+              "required_points": 2
+            },
+            {
+              "node_id": 1017,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.7809998989105225,
+          "y": 1.7359999418258667
+        },
+        {
+          "desc_key": "每次斩击在命中点留下短暂剑痕，第7击留下的剑痕更强。",
+          "icon_id": 1020,
+          "id": 1020,
+          "max_points": 3,
+          "name_key": "剑痕残留",
+          "prerequisites": [
+            {
+              "node_id": 1002,
+              "required_points": 2
+            },
+            {
+              "node_id": 1000,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.4549999237060547,
+          "y": -0.6460000276565552
+        },
+        {
+          "desc_key": "七星斩改为围绕自身或主目标高速环切，覆盖更稳定。",
+          "icon_id": 1021,
+          "id": 1021,
+          "max_points": 1,
+          "name_key": "天枢轮斩",
+          "prerequisites": [
+            {
+              "node_id": 1020,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 0.6159999966621399,
+          "y": -2.5380001068115234
+        },
+        {
+          "desc_key": "七星斩改为4次重斩，第4击继承原第7击的终结结算。",
+          "icon_id": 1022,
+          "id": 1022,
+          "max_points": 1,
+          "name_key": "星坠",
+          "prerequisites": [
+            {
+              "node_id": 1020,
+              "required_points": 2
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.4019999504089355,
+          "y": 0.1509999930858612
+        },
+        {
+          "desc_key": "根据当前形态获得额外收益：天枢轮斩强化连续环切，星坠强化范围与终结中心伤害。",
+          "icon_id": 1023,
+          "id": 1023,
+          "max_points": 3,
+          "name_key": "裂曜",
+          "prerequisites": [
+            {
+              "node_id": 1021,
+              "required_points": 1
+            },
+            {
+              "node_id": 1022,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 2.0290000438690186,
+          "y": 0.023000000044703484
+        },
+        {
+          "desc_key": "延长剑痕持续时间，并根据当前形态追加拖痕或终结引爆效果。",
+          "icon_id": 1024,
+          "id": 1024,
+          "max_points": 3,
+          "name_key": "痕灭",
+          "prerequisites": [
+            {
+              "node_id": 1021,
+              "required_points": 1
+            },
+            {
+              "node_id": 1022,
+              "required_points": 1
+            }
+          ],
+          "stat_modifiers": [],
+          "x": 5.492000102996826,
+          "y": -2.9059998989105225
+        }
+      ]
+    }
+  ],
+  "version": 1
+}

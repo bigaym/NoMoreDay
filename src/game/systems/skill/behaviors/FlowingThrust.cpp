@@ -28,6 +28,7 @@
 #include "game/components/vfx/SwordIntentVisualComponent.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // Added for SkillExecution definition
+#include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
@@ -152,6 +153,12 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     auto *dash = registry.try_get<DashComponent>(owner);
     if (!pos)
       return;
+
+    const auto sevenStarLink = seven_star_shared::ConsumeLinkBuffs(
+        registry, owner, kSkillId, true, exec.cast_id);
+    if (sevenStarLink.consumed_any) {
+      exec.is_empowered = true;
+    }
 
     // 1. Dash towards target
     Vector2 startPos = {pos->x, pos->y};
@@ -288,6 +295,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
 
     // --- TALENT BRANCH LOGIC ---
     float moreDamageMult = 1.0f;
+    moreDamageMult *= sevenStarLink.damage_multiplier;
     bool forcePierce = false;
     bool spawnShadow = false;
     bool hasElementBody = false;
@@ -475,6 +483,9 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     }
 
     registry.emplace<SkillComponent>(proj_ent, exec.skill_id, owner);
+    if (sevenStarLink.consume_returning_step) {
+      seven_star_shared::ApplyReturningStepOverride(registry, owner, kSkillId);
+    }
     LOG_INFO("Flowing Thrust executed by entity {}", (uint32_t)owner);
   }
 

@@ -211,104 +211,260 @@ TEST_CASE("[Functional] Skill - Seven Star Slash") {
     CHECK(registry.get<BladeResourceComponent>(player).current == 0);
 }
 
-TEST_CASE("[Functional] Skill - Seven Star Slash Node Effects") {
-    auto runSlash = [](const std::unordered_map<uint32_t, int>& nodes,
-                       uint32_t activeTransmuter,
-                       std::vector<float> targetXs) {
-        TestSetupScope scope;
-        entt::registry registry;
-        SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
-        REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
-            "assets/data/blade_masteries.json"));
-        CombatEventDispatcher::Init();
-        SkillBehaviorRegistry::Initialize();
+TEST_CASE("[Functional] Skill - Seven Star Slash Mastery Tree Loads") {
+    TestSetupScope scope;
+    entt::registry registry;
+    auto &skillRegistry = SkillRegistry::Get();
+    skillRegistry.LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
 
+    const auto *tree = skillRegistry.GetSkillTree(10);
+    REQUIRE(tree != nullptr);
+    CHECK(tree->nodes.size() == 26);
+    CHECK(tree->nodes.contains(1025));
+
+    const auto *trigger = skillRegistry.GetNodeContract(10, 1011);
+    REQUIRE(trigger != nullptr);
+    CHECK(trigger->role == SpecNodeRole::Trigger);
+
+    auto player = registry.create();
+    auto target = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(target, 24.0f, 0.0f);
+
+    auto &playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
+    auto &playerCombat = registry.emplace<CombatStats>(player);
+    playerCombat.min_weapon_damage = 40.0f;
+    playerCombat.max_weapon_damage = 40.0f;
+    playerCombat.max_mana = 100.0f;
+    playerCombat.mana = 100.0f;
+    registry.emplace<CombatStats>(target);
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 10;
+    active.specialized_slots[0].allocated_points = {
+        {1002, 4}, {1009, 4}, {1017, 1}, {1020, 2}, {1021, 1}, {1025, 1}};
+    auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+    runtime.active_transmuter_node_by_skill[10] = 1021;
+
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::SwordSaint));
+    REQUIRE(systems::BladeResourceService::Gain(registry, player, 5, 10u));
+
+    SkillExecution exec;
+    exec.skill_id = 10;
+    exec.owner = player;
+    exec.target_pos = {24.0f, 0.0f};
+
+    auto castFunc = SkillBehaviorRegistry::GetCast(10);
+    REQUIRE(castFunc != nullptr);
+    CHECK_NOTHROW(castFunc(registry, player, exec));
+    CHECK(registry.all_of<InvulnerableComponent>(player));
+    CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+}
+
+TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
+    TestSetupScope scope;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+
+    auto buildHarness = [](const std::unordered_map<uint32_t, int>& nodes,
+                           uint32_t activeTransmuter,
+                           std::vector<float> targetXs,
+                           float playerHealth = 100.0f) {
+        entt::registry registry;
         auto player = registry.create();
         registry.emplace<Position>(player, 0.0f, 0.0f);
+        registry.emplace<Velocity>(player, 0.0f, 0.0f);
+        registry.emplace<DashComponent>(player);
 
         auto& playerStats = registry.emplace<PlayerStats>(player);
         playerStats.level = 50;
         auto& playerCombat = registry.emplace<CombatStats>(player);
         playerCombat.min_weapon_damage = 40.0f;
         playerCombat.max_weapon_damage = 40.0f;
+        playerCombat.max_health = 100.0f;
+        playerCombat.health = playerHealth;
         playerCombat.max_mana = 100.0f;
         playerCombat.mana = 100.0f;
+        playerCombat.effective_dexterity = 50.0f;
 
-        auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
-        astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
         auto& active = registry.emplace<ActiveSkillsComponent>(player);
         active.specialized_slots[0].skill_id = 10;
         active.specialized_slots[0].allocated_points = nodes;
+        active.slots[0].id = 1;
+        active.slots[0].current_charges = 1;
+        active.slots[0].cooldown = 4.0f;
+        active.slots[1].id = 9;
+        active.slots[1].current_charges = 1;
+        active.slots[1].cooldown = 8.0f;
+
         auto& runtime = registry.emplace<SkillContractRuntimeComponent>(player);
         if (activeTransmuter != 0u) {
             runtime.active_transmuter_node_by_skill[10] = activeTransmuter;
         }
 
+        auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
+        astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
         systems::BladeMasteryService::RefreshPlayerState(registry, player);
         REQUIRE(systems::BladeMasteryService::SelectMastery(
             registry, player, BladeMasteryId::SwordSaint));
-        REQUIRE(systems::BladeResourceService::Gain(registry, player, 5, 10u));
+        REQUIRE(systems::BladeResourceService::Gain(registry, player, 10, 10u));
 
         std::vector<entt::entity> targets;
         for (float x : targetXs) {
             auto target = registry.create();
             registry.emplace<Position>(target, x, 0.0f);
-            registry.emplace<CombatStats>(target);
+            auto& combat = registry.emplace<CombatStats>(target);
+            combat.max_health = 100.0f;
+            combat.health = 100.0f;
             targets.push_back(target);
         }
 
-        int damageEvents = 0;
-        float reportedDamage = 0.0f;
+        return std::tuple{std::move(registry), player, targets};
+    };
+
+    SUBCASE("A branch focuses slashes onto one target") {
+        auto [registry, player, targets] =
+            buildHarness({{1002, 4}, {1005, 3}, {1007, 1}, {1008, 3}}, 0u,
+                         {24.0f, 52.0f});
+
         std::unordered_map<entt::entity, int> hitsByTarget;
         const uint32_t handlerId = CombatEventDispatcher::Register(
             CombatEventType::OnDealDamage,
             [&](entt::registry&, const CombatEvent& evt) {
-                if (evt.skill_id != 10) {
-                    return;
+                if (evt.skill_id == 10) {
+                    hitsByTarget[evt.target]++;
                 }
-                ++damageEvents;
-                reportedDamage += CombatEventFactory::GetReportedDamage(evt);
-                hitsByTarget[evt.target]++;
             });
 
         SkillExecution exec;
         exec.skill_id = 10;
         exec.owner = player;
-        exec.target_pos = {targetXs.front(), 0.0f};
-
+        exec.target_pos = {24.0f, 0.0f};
         auto castFunc = SkillBehaviorRegistry::GetCast(10);
         REQUIRE(castFunc != nullptr);
         castFunc(registry, player, exec);
         CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, handlerId);
 
-        return std::tuple{damageEvents, reportedDamage, hitsByTarget, targets};
-    };
-
-    SUBCASE("Follow-through and execute nodes increase burst output") {
-        const auto [baseEvents, baseReportedDamage, baseHits, baseTargets] =
-            runSlash({}, 0u, {24.0f});
-        const auto [nodeEvents, nodeReportedDamage, nodeHits, nodeTargets] =
-            runSlash({{1001, 3}, {1002, 1}, {1003, 1}}, 0u, {24.0f});
-
-        CHECK(baseEvents == 7);
-        CHECK(nodeEvents == 8);
-        CHECK(nodeReportedDamage > baseReportedDamage);
-        CHECK(baseHits.at(baseTargets.front()) == 7);
-        CHECK(nodeHits.at(nodeTargets.front()) == 8);
+        REQUIRE(hitsByTarget.contains(targets.front()));
+        CHECK(hitsByTarget.size() == 1);
+        CHECK(hitsByTarget[targets.front()] >= 7);
     }
 
-    SUBCASE("Transmuters rewrite targeting radius") {
-        const auto [focusedEvents, focusedReportedDamage, focusedHits, focusedTargets] =
-            runSlash({{1020, 1}}, 1020, {40.0f, 108.0f});
-        const auto [huntEvents, huntReportedDamage, huntHits, huntTargets] =
-            runSlash({{1021, 1}}, 1021, {132.0f});
+    SUBCASE("B branch creates and consumes next-skill windows") {
+        auto [baseRegistry, basePlayer, baseTargets] =
+            buildHarness({}, 0u, {24.0f});
+        SkillExecution baseWave;
+        baseWave.skill_id = 2;
+        baseWave.owner = basePlayer;
+        baseWave.target_pos = {24.0f, 0.0f};
+        auto waveCast = SkillBehaviorRegistry::GetCast(2);
+        REQUIRE(waveCast != nullptr);
+        waveCast(baseRegistry, basePlayer, baseWave);
+        auto baseProjView = baseRegistry.view<Projectile>();
+        REQUIRE_FALSE(baseProjView.empty());
+        const auto baseProjEntity = *baseProjView.begin();
+        const auto& baseProj = baseProjView.get<Projectile>(baseProjEntity);
+        const float baseMultiplier = baseProj.snapshot.damage_multipliers.front();
 
-        CHECK(focusedEvents > 0);
-        CHECK(focusedHits.contains(focusedTargets.front()));
-        CHECK_FALSE(focusedHits.contains(focusedTargets.back()));
+        auto [registry, player, targets] =
+            buildHarness({{1010, 3}, {1013, 1}}, 0u, {24.0f});
+        SkillExecution slashExec;
+        slashExec.skill_id = 10;
+        slashExec.owner = player;
+        slashExec.target_pos = {24.0f, 0.0f};
+        auto slashCast = SkillBehaviorRegistry::GetCast(10);
+        REQUIRE(slashCast != nullptr);
+        slashCast(registry, player, slashExec);
 
-        CHECK(huntEvents > 0);
-        CHECK(huntHits.contains(huntTargets.front()));
+        auto* effects = registry.try_get<ActiveEffectsComponent>(player);
+        REQUIRE(effects != nullptr);
+        CHECK(effects->Get("seven_star_revolving_edge") != nullptr);
+        CHECK(effects->Get("seven_star_qiyao") != nullptr);
+
+        SkillExecution waveExec;
+        waveExec.skill_id = 2;
+        waveExec.owner = player;
+        waveExec.target_pos = {24.0f, 0.0f};
+        waveCast(registry, player, waveExec);
+
+        auto projView = registry.view<Projectile>();
+        REQUIRE_FALSE(projView.empty());
+        const auto projEntity = *projView.begin();
+        const auto& proj = projView.get<Projectile>(projEntity);
+        CHECK(proj.snapshot.damage_multipliers.front() > baseMultiplier);
+        CHECK(effects->Get("seven_star_revolving_edge") == nullptr);
+        CHECK(effects->Get("seven_star_qiyao") == nullptr);
+    }
+
+    SUBCASE("C branch grants barrier, healing, and returning-step follow-up") {
+        auto [registry, player, targets] =
+            buildHarness({{1018, 3}, {1019, 3}, {1025, 1}}, 0u,
+                         {18.0f, 24.0f, 30.0f, 36.0f}, 60.0f);
+
+        SkillExecution slashExec;
+        slashExec.skill_id = 10;
+        slashExec.owner = player;
+        slashExec.target_pos = {24.0f, 0.0f};
+        auto slashCast = SkillBehaviorRegistry::GetCast(10);
+        REQUIRE(slashCast != nullptr);
+        slashCast(registry, player, slashExec);
+
+        auto* effects = registry.try_get<ActiveEffectsComponent>(player);
+        REQUIRE(effects != nullptr);
+        CHECK(effects->Get("flowing_thrust_swift") != nullptr);
+        CHECK(effects->Get("seven_star_returning_step") != nullptr);
+        CHECK(registry.get<CombatStats>(player).barrier > 0.0f);
+        CHECK(registry.get<CombatStats>(player).health > 60.0f);
+
+        SkillExecution thrustExec;
+        thrustExec.skill_id = 1;
+        thrustExec.owner = player;
+        thrustExec.target_pos = {80.0f, 0.0f};
+        auto thrustCast = SkillBehaviorRegistry::GetCast(1);
+        REQUIRE(thrustCast != nullptr);
+        thrustCast(registry, player, thrustExec);
+
+        CHECK(effects->Get("seven_star_returning_step") == nullptr);
+        CHECK(effects->Get("seven_star_returning_step_defense") != nullptr);
+    }
+
+    SUBCASE("D branch starfall rewrites slash count to four heavy hits") {
+        auto [registry, player, targets] =
+            buildHarness({{1020, 2}, {1022, 1}, {1023, 3}, {1024, 3}}, 1022u,
+                         {24.0f});
+
+        int damageEvents = 0;
+        const uint32_t handlerId = CombatEventDispatcher::Register(
+            CombatEventType::OnDealDamage,
+            [&](entt::registry&, const CombatEvent& evt) {
+                if (evt.skill_id == 10) {
+                    ++damageEvents;
+                }
+            });
+
+        SkillExecution exec;
+        exec.skill_id = 10;
+        exec.owner = player;
+        exec.target_pos = {24.0f, 0.0f};
+        auto castFunc = SkillBehaviorRegistry::GetCast(10);
+        REQUIRE(castFunc != nullptr);
+        castFunc(registry, player, exec);
+        CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, handlerId);
+
+        CHECK(damageEvents >= 4);
+        CHECK(damageEvents < 7);
     }
 }
 

@@ -17,6 +17,7 @@
 #include "game/components/Projectile.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 
 
 #include "core/logging/Logger.hpp"
@@ -64,6 +65,9 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     if (!pos || !stats)
       return;
 
+    const auto sevenStarLink = seven_star_shared::ConsumeLinkBuffs(
+        registry, owner, kSkillId, false, exec.cast_id);
+
     const auto *skillData = SkillRegistry::Get().GetSkill(kSkillId);
     float speed = skillData ? skillData->GetParam("speed", 400.0f) : 400.0f;
     float returnTimer =
@@ -81,6 +85,7 @@ struct BladeBoomerang : SkillBehaviorBase<BladeBoomerang> {
     float pullStrength = 0.0f;
     int extraProjectiles = 0;
     float moreDamageFromSpeed = 1.0f;
+    moreDamageFromSpeed *= sevenStarLink.damage_multiplier;
     Tag conversionTag = Tag::None;
     Color conversionColor = ORANGE;
 

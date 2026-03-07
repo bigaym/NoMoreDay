@@ -16,6 +16,9 @@ public:
     static float s_viewZoom;
     static uint32_t s_lastSkillId;
     static Vec2 s_lastMouseLogicPos;
+    static bool s_layoutEditMode;
+    static uint32_t s_draggingNodeId;
+    static Vec2 s_dragNodeOffset;
 };
 
 } // namespace NoMoreDay

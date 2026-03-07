@@ -2,6 +2,7 @@
 #include "core/logging/Logger.hpp"
 #include <algorithm>
 #include <array>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <limits>
@@ -15,6 +16,81 @@ namespace NoMoreDay {
 using json = nlohmann::json;
 
 namespace {
+
+float RoundCoord(float value) {
+  return std::round(value * 1000.0f) / 1000.0f;
+}
+
+bool UpdateTreeLayoutInFile(const std::filesystem::path &path, uint32_t skill_id,
+                            const SkillTreeDefinition &tree) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in.is_open()) {
+    return false;
+  }
+
+  json doc;
+  try {
+    in >> doc;
+  } catch (const std::exception &e) {
+    LOG_ERROR("Failed to parse skill tree layout JSON {}: {}", path.string(),
+              e.what());
+    return false;
+  }
+
+  if (!doc.contains("skills") || !doc.at("skills").is_array()) {
+    return false;
+  }
+
+  bool updated = false;
+  for (auto &entry : doc.at("skills")) {
+    const uint32_t entrySkillId =
+        entry.value("skill_id", entry.value("id", 0u));
+    if (entrySkillId != skill_id || !entry.contains("talent_tree") ||
+        !entry.at("talent_tree").is_array()) {
+      continue;
+    }
+
+    for (auto &nodeJson : entry.at("talent_tree")) {
+      const uint32_t node_id = nodeJson.value("id", 0u);
+      const auto nodeIt = tree.nodes.find(node_id);
+      if (nodeIt == tree.nodes.end()) {
+        continue;
+      }
+
+      const TalentNode &node = nodeIt->second;
+      float relX = node.x;
+      float relY = node.y;
+      if (!node.prerequisites.empty()) {
+        const uint32_t parentId = node.prerequisites.front().node_id;
+        const auto parentIt = tree.nodes.find(parentId);
+        if (parentIt != tree.nodes.end()) {
+          relX -= parentIt->second.x;
+          relY -= parentIt->second.y;
+        }
+      }
+
+      nodeJson["x"] = RoundCoord(relX);
+      nodeJson["y"] = RoundCoord(relY);
+      updated = true;
+    }
+    break;
+  }
+
+  if (!updated) {
+    return false;
+  }
+
+  std::ofstream out(path, std::ios::binary | std::ios::trunc);
+  if (!out.is_open()) {
+    LOG_ERROR("Failed to write skill tree layout JSON: {}", path.string());
+    return false;
+  }
+  out << doc.dump(2);
+  return true;
+}
+
+void ParseSkillContract(const json &contract_json,
+                        SkillContractDefinition &def);
 
 template <typename EnumT>
 std::optional<EnumT> ParseEnumFromJson(const json &value,
@@ -176,6 +252,88 @@ SkillContractDefinition BuildDefaultContract(
   return def;
 }
 
+void RegisterSkillTreeAndContract(
+    const json &item, const std::unordered_map<uint32_t, SkillData> &skills,
+    std::unordered_map<uint32_t, SkillTreeDefinition> &skill_trees,
+    std::unordered_map<uint32_t, SkillContractDefinition> &skill_contracts) {
+  const uint32_t skill_id = item.value("skill_id", item.value("id", 0u));
+  auto skill_it = skills.find(skill_id);
+  if (skill_it == skills.end()) {
+    LOG_ERROR("Specialization entry references unknown skill_id {}", skill_id);
+    return;
+  }
+
+  if (item.contains("talent_tree") && item.at("talent_tree").is_array()) {
+    SkillTreeDefinition tree;
+    tree.skill_id = skill_id;
+    for (const auto &node_item : item.at("talent_tree")) {
+      TalentNode node = node_item.get<TalentNode>();
+      tree.nodes[node.id] = std::move(node);
+    }
+    ApplyPrerequisiteAnchoredLayout(tree);
+    skill_trees[skill_id] = std::move(tree);
+  }
+
+  const SkillTreeDefinition *tree_ptr = nullptr;
+  if (auto tree_it = skill_trees.find(skill_id); tree_it != skill_trees.end()) {
+    tree_ptr = &tree_it->second;
+  }
+
+  SkillContractDefinition contract_def =
+      BuildDefaultContract(skill_it->second, tree_ptr);
+  if (item.contains("skill_contract") && item.at("skill_contract").is_object()) {
+    ParseSkillContract(item.at("skill_contract"), contract_def);
+  }
+  skill_contracts[skill_id] = std::move(contract_def);
+}
+
+std::optional<std::filesystem::path>
+ResolveMasterySkillTreePath(const std::string &skills_path) {
+  const std::filesystem::path base_path(skills_path);
+  if (!base_path.has_parent_path()) {
+    return std::nullopt;
+  }
+
+  const std::filesystem::path overlay_path =
+      base_path.parent_path() / "mastery_skill_trees.json";
+  if (!std::filesystem::exists(overlay_path)) {
+    return std::nullopt;
+  }
+  return overlay_path;
+}
+
+size_t LoadMasterySkillTrees(
+    const std::filesystem::path &path,
+    const std::unordered_map<uint32_t, SkillData> &skills,
+    std::unordered_map<uint32_t, SkillTreeDefinition> &skill_trees,
+    std::unordered_map<uint32_t, SkillContractDefinition> &skill_contracts) {
+  std::ifstream file(path);
+  if (!file.is_open()) {
+    LOG_ERROR("Failed to open mastery skill tree JSON: {}", path.string());
+    return 0;
+  }
+
+  json j;
+  try {
+    file >> j;
+  } catch (const std::exception &e) {
+    LOG_ERROR("Failed to parse mastery skill tree JSON: {}", e.what());
+    return 0;
+  }
+
+  if (!j.contains("skills") || !j.at("skills").is_array()) {
+    LOG_ERROR("Mastery skill tree JSON missing skills array: {}", path.string());
+    return 0;
+  }
+
+  size_t loaded_entries = 0;
+  for (const auto &item : j.at("skills")) {
+    RegisterSkillTreeAndContract(item, skills, skill_trees, skill_contracts);
+    ++loaded_entries;
+  }
+  return loaded_entries;
+}
+
 void ParseContractNode(const json &node_json, SkillContractDefinition &def) {
   if (!node_json.contains("node_id")) {
     return;
@@ -318,13 +476,6 @@ bool ValidateSkillContractInternal(const SkillContractDefinition &def,
       ++sword_intent_count;
     }
     if (node.keystone_exclusion_group != 0) {
-      if (node.role != SpecNodeRole::Keystone) {
-        std::ostringstream oss;
-        oss << "keystone_exclusion_group assigned to non-keystone node: "
-            << node_id;
-        set_error(oss.str());
-        return false;
-      }
       ++exclusion_group_counts[node.keystone_exclusion_group];
     }
 
@@ -471,6 +622,7 @@ SkillRegistry &SkillRegistry::Get() {
 }
 
 void SkillRegistry::LoadFromJson(const std::string &path) {
+  loaded_skills_path_ = std::filesystem::path(path);
   std::ifstream file(path);
   if (!file.is_open()) {
     LOG_ERROR("Failed to open skills JSON: {}", path);
@@ -520,30 +672,23 @@ void SkillRegistry::LoadFromJson(const std::string &path) {
 
     skills_[data.id] = data;
 
-    // Parse Talent Tree
-    if (item.contains("talent_tree")) {
-      SkillTreeDefinition tree;
-      tree.skill_id = data.id;
-      for (const auto &nodeItem : item["talent_tree"]) {
-        TalentNode node = nodeItem.get<TalentNode>();
-        tree.nodes[node.id] = node;
-      }
-      ApplyPrerequisiteAnchoredLayout(tree);
-      skill_trees_[data.id] = tree;
-    }
+    RegisterSkillTreeAndContract(item, skills_, skill_trees_, skill_contracts_);
+  }
+  if (const auto mastery_path = ResolveMasterySkillTreePath(path)) {
+    const size_t mastery_count = LoadMasterySkillTrees(
+        *mastery_path, skills_, skill_trees_, skill_contracts_);
+    LOG_INFO("Loaded {} mastery specialization trees from {}", mastery_count,
+             mastery_path->string());
+  }
 
-    const SkillTreeDefinition *tree_ptr = GetSkillTree(data.id);
-    SkillContractDefinition contract_def = BuildDefaultContract(data, tree_ptr);
-    if (item.contains("skill_contract") && item["skill_contract"].is_object()) {
-      ParseSkillContract(item["skill_contract"], contract_def);
-    }
-    skill_contracts_[data.id] = std::move(contract_def);
+  for (const auto &[skill_id, _] : skill_contracts_) {
     std::string validation_error;
-    if (!ValidateSkillContract(data.id, &validation_error)) {
-      LOG_ERROR("Skill {} contract validation failed: {}", data.id,
+    if (!ValidateSkillContract(skill_id, &validation_error)) {
+      LOG_ERROR("Skill {} contract validation failed: {}", skill_id,
                 validation_error);
     }
   }
+
   LOG_INFO("Loaded {} skills, {} trees and {} contracts from {}", skills_.size(),
            skill_trees_.size(), skill_contracts_.size(), path);
   std::string resist_error;
@@ -579,6 +724,14 @@ const SkillData *SkillRegistry::GetSkill(uint32_t id) const {
 
 const SkillTreeDefinition *
 SkillRegistry::GetSkillTree(uint32_t skill_id) const {
+  auto it = skill_trees_.find(skill_id);
+  if (it != skill_trees_.end()) {
+    return &it->second;
+  }
+  return nullptr;
+}
+
+SkillTreeDefinition *SkillRegistry::GetMutableSkillTree(uint32_t skill_id) {
   auto it = skill_trees_.find(skill_id);
   if (it != skill_trees_.end()) {
     return &it->second;
@@ -624,6 +777,28 @@ bool SkillRegistry::ValidateSkillContract(uint32_t skill_id,
     return false;
   }
   return ValidateSkillContractInternal(*def, tree, error);
+}
+
+bool SkillRegistry::SaveSkillTreeLayout(uint32_t skill_id) {
+  auto treeIt = skill_trees_.find(skill_id);
+  if (treeIt == skill_trees_.end() || loaded_skills_path_.empty()) {
+    return false;
+  }
+
+  if (const auto masteryPath = ResolveMasterySkillTreePath(loaded_skills_path_.string())) {
+    if (UpdateTreeLayoutInFile(*masteryPath, skill_id, treeIt->second)) {
+      LOG_INFO("Saved skill tree layout for skill {} to {}", skill_id,
+               masteryPath->string());
+      return true;
+    }
+  }
+
+  if (UpdateTreeLayoutInFile(loaded_skills_path_, skill_id, treeIt->second)) {
+    LOG_INFO("Saved skill tree layout for skill {} to {}", skill_id,
+             loaded_skills_path_.string());
+    return true;
+  }
+  return false;
 }
 
 } // namespace NoMoreDay

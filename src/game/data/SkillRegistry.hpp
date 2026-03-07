@@ -2,6 +2,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/data/SkillContract.hpp"
 #include "game/data/TagRegistry.hpp"
+#include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -38,6 +39,7 @@ public:
   void LoadFromJson(const std::string &path);
   const SkillData *GetSkill(uint32_t id) const;
   const SkillTreeDefinition *GetSkillTree(uint32_t skill_id) const;
+  SkillTreeDefinition *GetMutableSkillTree(uint32_t skill_id);
   const SkillContractDefinition *GetSkillContractDefinition(
       uint32_t skill_id) const;
   const SkillContract *GetSkillContract(uint32_t skill_id) const;
@@ -45,6 +47,7 @@ public:
                                           uint32_t node_id) const;
   bool ValidateSkillContract(uint32_t skill_id,
                              std::string *error = nullptr) const;
+  bool SaveSkillTreeLayout(uint32_t skill_id);
   const std::unordered_map<uint32_t, SkillData> &GetAllSkills() const {
     return skills_;
   }
@@ -59,6 +62,7 @@ private:
   std::unordered_map<uint32_t, SkillData> skills_;
   std::unordered_map<uint32_t, SkillTreeDefinition> skill_trees_;
   std::unordered_map<uint32_t, SkillContractDefinition> skill_contracts_;
+  std::filesystem::path loaded_skills_path_;
 };
 
 } // namespace NoMoreDay

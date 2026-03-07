@@ -25,6 +25,7 @@
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "raymath.h"
 #include <string>
 
@@ -119,6 +120,9 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     auto *stats = registry.try_get<CombatStats>(owner);
     if (!pos || !stats)
       return;
+
+    const auto sevenStarLink = seven_star_shared::ConsumeLinkBuffs(
+        registry, owner, kSkillId, false, exec.cast_id);
 
     const auto *skillData = SkillRegistry::Get().GetSkill(exec.skill_id);
     Tag skillTags = skillData ? skillData->tags : Tag::None;
@@ -335,6 +339,9 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     // entities
     Position ownerPos = *pos;
     CombatStats ownerStats = *stats;
+    for (auto &mult : ownerStats.damage_multipliers) {
+      mult *= sevenStarLink.damage_multiplier;
+    }
 
     for (int i = 0; i < totalCount; ++i) {
       float angle = startAngle + i * angleStep;

@@ -25,8 +25,22 @@ SkillTreeUI::Vec2 SkillTreeUI::s_viewOffset = { 0, 0 };
 float SkillTreeUI::s_viewZoom = 1.0f;
 uint32_t SkillTreeUI::s_lastSkillId = 0;
 SkillTreeUI::Vec2 SkillTreeUI::s_lastMouseLogicPos = { 0, 0 };
+bool SkillTreeUI::s_layoutEditMode = false;
+uint32_t SkillTreeUI::s_draggingNodeId = 0;
+SkillTreeUI::Vec2 SkillTreeUI::s_dragNodeOffset = { 0, 0 };
 
 namespace {
+
+constexpr float kNodeSpacingX = 85.0f;
+constexpr float kNodeSpacingY = 70.0f;
+
+SkillTreeUI::Vec2 ScreenToTreeCoords(const Vector2& mousePixelPos,
+                                     const SkillSpecView& view) {
+    return {
+        (mousePixelPos.x - view.center.x - view.offset.x) / (kNodeSpacingX * view.zoom),
+        (mousePixelPos.y - view.center.y - view.offset.y) / (kNodeSpacingY * view.zoom),
+    };
+}
 
 const char* NodeRoleToText(SpecNodeRole role) {
     switch (role) {
@@ -154,8 +168,10 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
 
     float alpha = state.skillTreeAlpha;
 
-    const auto* skillData = SkillRegistry::Get().GetSkill(skillId);
-    const auto* tree = SkillRegistry::Get().GetSkillTree(skillId);
+    auto& skillRegistry = SkillRegistry::Get();
+    const auto* skillData = skillRegistry.GetSkill(skillId);
+    auto* mutableTree = skillRegistry.GetMutableSkillTree(skillId);
+    const auto* tree = mutableTree;
     if (!skillData || !tree) return;
 
     auto* active = registry.try_get<ActiveSkillsComponent>(player);
@@ -190,6 +206,8 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         SkillTreeUI::s_viewOffset = { 0, 0 }; // Center (0,0)
         SkillTreeUI::s_viewZoom = 1.0f;
         SkillTreeUI::s_lastSkillId = skillId;
+        SkillTreeUI::s_layoutEditMode = false;
+        SkillTreeUI::s_draggingNodeId = 0;
     }
 
     // --- Panning & Zooming Interaction ---
@@ -229,7 +247,30 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         SkillSystem::ResetTalents(registry, player, skillId);
     }
 
-    UISystem::DrawTextUI("右键拖拽平移, 滚轮缩放", startX + panelW - 400, startY + 85, 20, GRAY, alpha * 0.7f);
+    Rectangle editRectLogic = {startX + 390, startY + 75, 140, 40};
+    bool editHover = CheckCollisionPointRec(mouseLogicPos, editRectLogic);
+    const bool editPressed = editHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, editRectLogic,
+                           SkillTreeUI::s_layoutEditMode ? "保存布局" : "编辑布局",
+                           20, WHITE,
+                           SkillTreeUI::s_layoutEditMode ? DARKGREEN : DARKBLUE,
+                           editHover, editPressed, alpha);
+
+    if (editHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+        if (SkillTreeUI::s_layoutEditMode) {
+            const bool saved = skillRegistry.SaveSkillTreeLayout(skillId);
+            LOG_INFO("Skill tree layout save for skill {}: {}", skillId,
+                     saved ? "success" : "failed");
+            SkillTreeUI::s_draggingNodeId = 0;
+        }
+        SkillTreeUI::s_layoutEditMode = !SkillTreeUI::s_layoutEditMode;
+    }
+
+    UISystem::DrawTextUI(
+        SkillTreeUI::s_layoutEditMode
+            ? "编辑布局: 左键拖动节点, 再点[保存布局]写回JSON"
+            : "右键拖拽平移, 滚轮缩放",
+        startX + panelW - 520, startY + 85, 20, GRAY, alpha * 0.7f);
     
     // Back Button
     Rectangle backRectLogic = {startX + panelW - 150, startY + 30, 120, 50};
@@ -285,7 +326,14 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
             hoveredNodeId = id;
             hoveredNode = &node;
 
-            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+            if (SkillTreeUI::s_layoutEditMode && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                SkillTreeUI::s_draggingNodeId = id;
+                const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
+                SkillTreeUI::s_dragNodeOffset = {
+                    node.x - mouseTreePos.x,
+                    node.y - mouseTreePos.y,
+                };
+            } else if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                 // Logic check
                 int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
                 bool isMaxed = currentPts >= node.max_points;
@@ -301,6 +349,19 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
             }
             // Only handle one hover
             break; 
+        }
+    }
+
+    if (SkillTreeUI::s_layoutEditMode && SkillTreeUI::s_draggingNodeId != 0) {
+        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && mutableTree != nullptr &&
+            mutableTree->nodes.contains(SkillTreeUI::s_draggingNodeId)) {
+            const Vec2 mouseTreePos = ScreenToTreeCoords(mousePixelPos, view);
+            auto& dragged = mutableTree->nodes.at(SkillTreeUI::s_draggingNodeId);
+            dragged.x = mouseTreePos.x + SkillTreeUI::s_dragNodeOffset.x;
+            dragged.y = mouseTreePos.y + SkillTreeUI::s_dragNodeOffset.y;
+        }
+        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+            SkillTreeUI::s_draggingNodeId = 0;
         }
     }
 
@@ -379,7 +440,7 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         }
     }
 
-    if (targetNodeId != 0) {
+    if (!SkillTreeUI::s_layoutEditMode && targetNodeId != 0) {
         SkillSystem::AddTalentPoint(registry, player, skillId, targetNodeId);
     }
 }

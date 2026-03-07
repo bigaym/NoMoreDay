@@ -8,6 +8,7 @@
 #include "game/components/PlayerState.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/SevenStarSlashShared.hpp"
 #include "raymath.h"
 #include <algorithm>
 
@@ -47,10 +48,14 @@ void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
   if (!pos)
     return;
 
+  const auto sevenStarLink = seven_star_shared::ConsumeLinkBuffs(
+      registry, owner, PhantomFlash::kSkillId, true, exec.cast_id);
+
   const auto *skillData = SkillRegistry::Get().GetSkill(PhantomFlash::kSkillId);
   float dashSpeed =
       skillData ? skillData->GetParam("dash_speed", 500.0f) : 500.0f;
   float dashDist = skillData ? skillData->GetParam("dash_dist", 50.0f) : 50.0f;
+  dashSpeed *= sevenStarLink.damage_multiplier;
 
   // Dash backwards
   Vector2 dir =
@@ -92,6 +97,8 @@ void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
   pf.synergy_shadow_hide = false;
   pf.intent_overflow = 0;
   pf.enchant_tag = Tag::None;
+  pf.counter_window += 0.10f * static_cast<float>(sevenStarLink.qiyao_stacks);
+  pf.knockback_bonus = 0.25f * static_cast<float>(sevenStarLink.qiyao_stacks);
 
   const uint32_t activeTransmuter =
       SkillSystem::GetActiveTransmuterNode(registry, owner, PhantomFlash::kSkillId);
@@ -161,6 +168,11 @@ void PhantomFlash::DoCast(entt::registry &registry, entt::entity owner,
         mods.damage_modifiers.end());
     mods.damage_modifiers.push_back(
         DamageModifier{Tag::Physical, pf.enchant_tag, 0.5f, ModifierType::GainExtra});
+  }
+
+  if (sevenStarLink.consume_returning_step) {
+    seven_star_shared::ApplyReturningStepOverride(registry, owner,
+                                                  PhantomFlash::kSkillId);
   }
 
   LOG_INFO("Phantom Flash: Counter state active for entity {}",

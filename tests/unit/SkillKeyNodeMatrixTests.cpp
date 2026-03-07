@@ -43,8 +43,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Fixture completeness matches compact cont
     CHECK(fixture_set == compact.key_nodes_by_skill.at(skill_id));
   }
 
-  CHECK(total_fixture_nodes == 52);
-  CHECK(compact.all_key_nodes.size() == 52);
+  CHECK(total_fixture_nodes == 56);
+  CHECK(compact.all_key_nodes.size() == 56);
 }
 
 TEST_CASE("[Unit] SkillKeyNodeMatrix - Contract role and effect assertions cover all key nodes") {
@@ -88,7 +88,7 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Contract role and effect assertions cover
     }
   }
 
-  CHECK(checked_nodes == 52);
+  CHECK(checked_nodes == 56);
 }
 
 TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matrix") {

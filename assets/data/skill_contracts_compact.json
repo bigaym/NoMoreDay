@@ -338,28 +338,42 @@
     },
     {
       "skill_id": 10,
-      "min_nodes": 6,
-      "max_nodes": 6,
+      "min_nodes": 26,
+      "max_nodes": 26,
       "max_transmuters": 2,
       "max_triggers": 1,
-      "has_sword_intent_node": false,
+      "has_sword_intent_node": true,
       "has_synergy_node": true,
       "transmuter_node_ids": [
-        1020,
-        1021
+        1021,
+        1022
       ],
       "synergy_node_ids": [
-        1001
+        1017
+      ],
+      "sword_intent_node_ids": [
+        1002,
+        1009,
+        1013
+      ],
+      "sword_step_node_ids": [
+        1017,
+        1025
       ],
       "trigger_nodes": [
         {
-          "node_id": 1003,
+          "node_id": 1011,
           "trigger_skill_id": 10,
-          "effectiveness": 1.0,
-          "internal_cooldown": 12.0,
+          "effectiveness": 0.35,
+          "internal_cooldown": 3.0,
           "consumes_mana": false
         }
-      ]
+      ],
+      "keystone_exclusion_groups": {
+        "1007": 3,
+        "1021": 3,
+        "1022": 3
+      }
     }
   ]
 }

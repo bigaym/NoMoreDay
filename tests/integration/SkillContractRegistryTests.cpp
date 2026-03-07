@@ -11,7 +11,7 @@ TEST_CASE("[Integration] SkillContract - Registry loading and validation") {
   auto &registry = SkillRegistry::Get();
   registry.LoadFromJson("assets/data/skills.json");
 
-  for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
+  for (uint32_t skill_id = 1; skill_id <= 10; ++skill_id) {
     CAPTURE(skill_id);
     const auto *contract = registry.GetSkillContract(skill_id);
     REQUIRE(contract != nullptr);
@@ -69,11 +69,43 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
   }
 
   SUBCASE("Skill 10 signature contract is materialized") {
+    const auto *tree = registry.GetSkillTree(10);
+    REQUIRE(tree != nullptr);
+    CHECK(tree->nodes.size() == 26);
+
     const auto *contract = registry.GetSkillContract(10);
     REQUIRE(contract != nullptr);
-    const auto *node = registry.GetNodeContract(10, 1003);
-    REQUIRE(node != nullptr);
-    CHECK(node->role == SpecNodeRole::Trigger);
+    CHECK(contract->min_nodes == 26);
+    CHECK(contract->max_nodes == 26);
+    CHECK(contract->has_sword_intent_node);
+    CHECK(contract->has_synergy_node);
+    CHECK(contract->transmuter_node_ids[0] == 1021);
+    CHECK(contract->transmuter_node_ids[1] == 1022);
+
+    const auto *trigger = registry.GetNodeContract(10, 1011);
+    REQUIRE(trigger != nullptr);
+    CHECK(trigger->role == SpecNodeRole::Trigger);
+    CHECK(trigger->trigger.trigger_skill_id == 10);
+    CHECK(trigger->trigger.effectiveness == doctest::Approx(0.35f));
+
+    const auto *synergy = registry.GetNodeContract(10, 1017);
+    REQUIRE(synergy != nullptr);
+    CHECK(synergy->role == SpecNodeRole::Synergy);
+    CHECK(synergy->affects_sword_step);
+
+    const auto *loop = registry.GetNodeContract(10, 1013);
+    REQUIRE(loop != nullptr);
+    CHECK(loop->role == SpecNodeRole::Keystone);
+    CHECK(loop->affects_sword_intent);
+
+    const auto *orbit = registry.GetNodeContract(10, 1021);
+    const auto *starfall = registry.GetNodeContract(10, 1022);
+    REQUIRE(orbit != nullptr);
+    REQUIRE(starfall != nullptr);
+    CHECK(orbit->role == SpecNodeRole::Transmuter);
+    CHECK(starfall->role == SpecNodeRole::Transmuter);
+    CHECK(orbit->keystone_exclusion_group == 3);
+    CHECK(starfall->keystone_exclusion_group == 3);
   }
 }
 
@@ -192,6 +224,118 @@ TEST_CASE("[Integration] SkillContract - Node 213 does not get implicit cost_aff
 
   std::error_code ec;
   fs::remove(tempFile, ec);
+}
+
+TEST_CASE("[Integration] SkillContract - SaveSkillTreeLayout persists relative coordinates") {
+  namespace fs = std::filesystem;
+
+  const fs::path tempDir =
+      fs::temp_directory_path() / "nmd_skill_tree_layout_save_test";
+  const fs::path skillsFile = tempDir / "skills.json";
+  const fs::path masteryFile = tempDir / "mastery_skill_trees.json";
+  std::error_code ec;
+  fs::remove_all(tempDir, ec);
+  fs::create_directories(tempDir, ec);
+  REQUIRE(!ec);
+
+  {
+    std::ofstream out(skillsFile, std::ios::binary | std::ios::trunc);
+    REQUIRE(out.is_open());
+    out << R"({
+  "skills": [
+    {
+      "id": 10,
+      "name_key": "SevenStarSlash",
+      "desc_key": "Test",
+      "mana_cost": 40,
+      "cooldown": 12,
+      "icon_id": 10,
+      "tags": ["Physical"],
+      "params": {}
+    }
+  ]
+})";
+  }
+
+  {
+    std::ofstream out(masteryFile, std::ios::binary | std::ios::trunc);
+    REQUIRE(out.is_open());
+    out << R"({
+  "skills": [
+    {
+      "skill_id": 10,
+      "talent_tree": [
+        {
+          "id": 1000,
+          "name_key": "RootA",
+          "desc_key": "",
+          "icon_id": 1000,
+          "max_points": 1,
+          "x": 1.0,
+          "y": 2.0,
+          "prerequisites": [],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1001,
+          "name_key": "Child",
+          "desc_key": "",
+          "icon_id": 1001,
+          "max_points": 1,
+          "x": 3.0,
+          "y": 4.0,
+          "prerequisites": [{"node_id": 1000, "required_points": 1}],
+          "stat_modifiers": []
+        },
+        {
+          "id": 1002,
+          "name_key": "Fork",
+          "desc_key": "",
+          "icon_id": 1002,
+          "max_points": 1,
+          "x": 1.0,
+          "y": -1.0,
+          "prerequisites": [
+            {"node_id": 1001, "required_points": 1},
+            {"node_id": 1000, "required_points": 1}
+          ],
+          "stat_modifiers": []
+        }
+      ]
+    }
+  ]
+})";
+  }
+
+  auto &registry = SkillRegistry::Get();
+  registry.LoadFromJson(skillsFile.string());
+
+  auto *tree = registry.GetMutableSkillTree(10);
+  REQUIRE(tree != nullptr);
+  tree->nodes[1000].x = 4.0f;
+  tree->nodes[1000].y = 5.0f;
+  tree->nodes[1001].x = 7.0f;
+  tree->nodes[1001].y = 11.0f;
+  tree->nodes[1002].x = 8.5f;
+  tree->nodes[1002].y = 9.5f;
+
+  REQUIRE(registry.SaveSkillTreeLayout(10));
+
+  std::ifstream in(masteryFile, std::ios::binary);
+  REQUIRE(in.is_open());
+  nlohmann::json saved;
+  in >> saved;
+  const auto &nodes = saved.at("skills").at(0).at("talent_tree");
+  REQUIRE(nodes.size() == 3);
+
+  CHECK(nodes.at(0).at("x").get<float>() == doctest::Approx(4.0f));
+  CHECK(nodes.at(0).at("y").get<float>() == doctest::Approx(5.0f));
+  CHECK(nodes.at(1).at("x").get<float>() == doctest::Approx(3.0f));
+  CHECK(nodes.at(1).at("y").get<float>() == doctest::Approx(6.0f));
+  CHECK(nodes.at(2).at("x").get<float>() == doctest::Approx(1.5f));
+  CHECK(nodes.at(2).at("y").get<float>() == doctest::Approx(-1.5f));
+
+  fs::remove_all(tempDir, ec);
 }
 
 } // namespace NoMoreDay

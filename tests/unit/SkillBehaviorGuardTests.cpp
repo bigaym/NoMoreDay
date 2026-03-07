@@ -279,6 +279,28 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Transmuter mutex and scope policy") {
         SkillSystem::IsNodeExcludedByMutualKeystone(registry, player, 2, 214));
   }
 
+  SUBCASE("Expanded exclusion groups support keystone and transmuter swaps") {
+    auto player = registry.create();
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.available_talent_points = 1;
+    active.specialized_slots[0].skill_id = 10;
+    active.specialized_slots[0].allocated_points[1005] = 2;
+    active.specialized_slots[0].allocated_points[1020] = 2;
+
+    CHECK(SkillSystem::AddTalentPoint(registry, player, 10, 1007));
+    CHECK(active.available_talent_points == 0);
+    REQUIRE(active.specialized_slots[0].allocated_points.contains(1007));
+
+    CHECK(SkillSystem::AddTalentPoint(registry, player, 10, 1021));
+    CHECK(active.available_talent_points == 0);
+    CHECK_FALSE(active.specialized_slots[0].allocated_points.contains(1007));
+    REQUIRE(active.specialized_slots[0].allocated_points.contains(1021));
+    CHECK(SkillSystem::IsNodeExcludedByMutualKeystone(registry, player, 10,
+                                                      1007));
+    CHECK_FALSE(SkillSystem::IsNodeExcludedByMutualKeystone(registry, player,
+                                                            10, 1021));
+  }
+
   SUBCASE("Effective tags apply only active transmuter tags") {
     auto player = registry.create();
     auto &active = registry.emplace<ActiveSkillsComponent>(player);

@@ -247,9 +247,12 @@ TEST_CASE("[Integration] Legendary - Infrastructure Verification") {
     CHECK(hasLegendaryAffix);
 }
 
-TEST_CASE("[Integration] Skill Nodes - IDs must exist in skills.json") {
+TEST_CASE("[Integration] Skill Nodes - IDs must exist in specialization data tables") {
   const auto root = FindProjectRoot();
-  const auto legalIds = LoadTalentNodeIds(root / "assets/data/skills.json");
+  auto legalIds = LoadTalentNodeIds(root / "assets/data/skills.json");
+  const auto masteryIds =
+      LoadTalentNodeIds(root / "assets/data/mastery_skill_trees.json");
+  legalIds.insert(masteryIds.begin(), masteryIds.end());
   REQUIRE(!legalIds.empty());
 
   const std::array<std::filesystem::path, 10> behaviorFiles = {
