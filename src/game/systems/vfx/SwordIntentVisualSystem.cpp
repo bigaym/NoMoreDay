@@ -225,6 +225,7 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
     RuntimeVisualState &state = g_runtimeState[entity];
 
     visual.currentLevel = intent.stacks;
+    visual.thresholdTier = 0;
     const float targetIntensity =
         (intent.max_stacks > 0)
             ? static_cast<float>(intent.stacks) / static_cast<float>(intent.max_stacks)
@@ -238,24 +239,33 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
     bool critFeedbackActive = false;
     if (const auto *bladeResource = registry.try_get<BladeResourceComponent>(entity);
         bladeResource != nullptr &&
-        bladeResource->kind == BladeResourceKind::SwordFlow &&
-        bladeResource->crit_bonus_feedback_timer > 0.0f) {
-      critFeedbackActive = true;
-      visual.critFeedbackPulse = std::max(
-          visual.critFeedbackPulse,
-          std::clamp(bladeResource->crit_bonus_feedback_timer / 0.8f, 0.0f, 1.0f));
+        bladeResource->kind == BladeResourceKind::SwordFlow) {
+      if (bladeResource->current >= bladeResource->max && bladeResource->max > 0) {
+        visual.thresholdTier = 3;
+      } else if (bladeResource->current >= 8) {
+        visual.thresholdTier = 2;
+      } else if (bladeResource->current >= 5) {
+        visual.thresholdTier = 1;
+      }
 
-      if (!state.critFeedbackActive) {
-        const int burstCount =
-            (tier <= static_cast<uint8_t>(render::core::QualityTier::Low))
-                ? 4
-                : (tier <= static_cast<uint8_t>(render::core::QualityTier::Medium) ? 7 : 10);
-        const Color critColor = Color{120, 240, 255, 235};
-        EmitBurst({pos.x, pos.y}, critColor, burstCount, 95.0f, 220.0f, 2.6f,
-                  intentParticleBudget);
-        RenderSystem::AddScreenShake(0.025f);
-        if (allowDistortion) {
-          RenderSystem::AddDistortionSource(pos.x, pos.y, 28.0f, 0.10f);
+      if (bladeResource->crit_bonus_feedback_timer > 0.0f) {
+        critFeedbackActive = true;
+        visual.critFeedbackPulse = std::max(
+            visual.critFeedbackPulse,
+            std::clamp(bladeResource->crit_bonus_feedback_timer / 0.8f, 0.0f, 1.0f));
+
+        if (!state.critFeedbackActive) {
+          const int burstCount =
+              (tier <= static_cast<uint8_t>(render::core::QualityTier::Low))
+                  ? 4
+                  : (tier <= static_cast<uint8_t>(render::core::QualityTier::Medium) ? 7 : 10);
+          const Color critColor = Color{120, 240, 255, 235};
+          EmitBurst({pos.x, pos.y}, critColor, burstCount, 95.0f, 220.0f, 2.6f,
+                    intentParticleBudget);
+          RenderSystem::AddScreenShake(0.025f);
+          if (allowDistortion) {
+            RenderSystem::AddDistortionSource(pos.x, pos.y, 28.0f, 0.10f);
+          }
         }
       }
     }
@@ -425,6 +435,21 @@ void SwordIntentVisualSystem::Render(entt::registry &registry) {
         DrawRing({pos.x, pos.y}, critRadius * 0.88f, critRadius * 1.04f,
                  0.0f, 360.0f, 24, Fade(critColor, 0.35f));
       }
+    }
+
+    if (visual.thresholdTier > 0) {
+      const float tierBoost = static_cast<float>(visual.thresholdTier);
+      const float ringRadius = baseRadius * (1.25f + tierBoost * 0.12f);
+      const Color tierColor = (visual.thresholdTier >= 3)
+                                  ? Color{255, 225, 120, 220}
+                                  : (visual.thresholdTier == 2
+                                         ? Color{120, 240, 255, 210}
+                                         : Color{140, 255, 220, 195});
+      DrawRing({pos.x, pos.y}, ringRadius * 0.92f, ringRadius * 1.04f, 0.0f,
+               360.0f, 28, Fade(tierColor, 0.22f + 0.10f * tierBoost));
+      DrawPolyLinesEx({pos.x, pos.y}, 6 + visual.thresholdTier * 2, ringRadius,
+                      -visual.pulseTime * (18.0f + tierBoost * 10.0f),
+                      1.5f + tierBoost * 0.7f, Fade(tierColor, 0.45f));
     }
   }
 }

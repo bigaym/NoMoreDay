@@ -19,6 +19,7 @@
 #include "game/components/Stats.hpp"
 #include "game/components/Buff.hpp"
 #include "game/systems/ui/PlayerHUD.hpp"
+#include "game/systems/ui/SwordIntentWidget.hpp"
 #include <array>
 #include <filesystem>
 #include <fstream>
@@ -235,6 +236,30 @@ TEST_CASE("[Tech] PlayerHUD - Render Logic") {
         bladeResource.max = 10;
         systems::PlayerHUD::Draw(registry);
     }
+
+    SUBCASE("Restart Window HUD Does Not Crash") {
+        registry.remove<SwordIntentComponent>(player);
+        auto& bladeResource = registry.emplace<BladeResourceComponent>(player);
+        bladeResource.kind = BladeResourceKind::SwordFlow;
+        bladeResource.current = 0;
+        bladeResource.max = 10;
+        bladeResource.restart_window_ready = true;
+        bladeResource.restart_window_timer = 2.5f;
+        CHECK(systems::PlayerHUD::ResolveSwordFlowFeedbackText(bladeResource) ==
+              "Restart Ready 2.5s");
+        systems::PlayerHUD::Draw(registry);
+    }
+
+    SUBCASE("Crit Proc HUD Feedback Text Resolves") {
+        registry.remove<SwordIntentComponent>(player);
+        auto& bladeResource = registry.emplace<BladeResourceComponent>(player);
+        bladeResource.kind = BladeResourceKind::SwordFlow;
+        bladeResource.current = 4;
+        bladeResource.max = 10;
+        bladeResource.crit_bonus_feedback_timer = 0.8f;
+        CHECK(systems::PlayerHUD::ResolveSwordFlowFeedbackText(bladeResource) ==
+              "暴击剑流 +1");
+    }
 }
 
 TEST_CASE("[Tech] SwordIntentVisual - Sword Flow crit proc pulse activates") {
@@ -256,6 +281,30 @@ TEST_CASE("[Tech] SwordIntentVisual - Sword Flow crit proc pulse activates") {
 
     REQUIRE(registry.all_of<components::SwordIntentVisual>(player));
     CHECK(registry.get<components::SwordIntentVisual>(player).critFeedbackPulse > 0.0f);
+}
+
+TEST_CASE("[Tech] Sword Saint - Sword Flow thresholds are telegraphed") {
+    entt::registry registry;
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+
+    auto& intent = registry.emplace<SwordIntentComponent>(player);
+    intent.stacks = 10;
+    intent.max_stacks = 10;
+
+    auto& bladeResource = registry.emplace<BladeResourceComponent>(player);
+    bladeResource.kind = BladeResourceKind::SwordFlow;
+    bladeResource.current = 10;
+    bladeResource.max = 10;
+
+    systems::SwordIntentVisualSystem::Update(registry, 0.016f);
+
+    REQUIRE(registry.all_of<components::SwordIntentVisual>(player));
+    CHECK(registry.get<components::SwordIntentVisual>(player).thresholdTier == 3);
+    const std::string thresholdText =
+        NoMoreDay::systems::ui::SwordIntentWidget::ResolveSwordFlowThresholdText(
+            10, 10);
+    CHECK(thresholdText == "满流");
 }
 
 TEST_CASE("[Tech] UIRenderer - Tooltip Logic Smoke Test") {

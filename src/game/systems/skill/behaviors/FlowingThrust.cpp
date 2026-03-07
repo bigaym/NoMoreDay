@@ -26,6 +26,7 @@
 #include "game/components/SkillDefs.hpp" // For ActiveSkillsComponent
 #include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/components/vfx/SwordIntentVisualComponent.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SkillSystem.hpp" // Added for SkillExecution definition
 
 #include "core/logging/Logger.hpp"
@@ -479,6 +480,14 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
 
   static void DoHit(entt::registry &registry, entt::entity attacker,
                     entt::entity target, Tag hit_tags, bool is_crit) {
+    if (const auto *resource = registry.try_get<BladeResourceComponent>(attacker);
+        resource != nullptr && resource->kind == BladeResourceKind::SwordFlow) {
+      (void)SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId);
+      (void)systems::BladeResourceService::TryConsumeSwordFlowRestartWindow(
+          registry, attacker, kSkillId);
+      RefundRendingWaveCooldown(registry, attacker, 2, 0.75f);
+    }
+
     if (auto *active = registry.try_get<ActiveSkillsComponent>(attacker)) {
       for (const auto &spec : active->specialized_slots) {
         if (spec.skill_id == kSkillId) {
@@ -512,14 +521,6 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
           if (spec.allocated_points.contains(
                   FlowingThrustNodes::ElementShift)) {
             // Logic handled in DoCast or separate system
-          }
-
-          if (const auto *resource =
-                  registry.try_get<BladeResourceComponent>(attacker);
-              resource != nullptr &&
-              resource->kind == BladeResourceKind::SwordFlow) {
-            (void)SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId);
-            RefundRendingWaveCooldown(registry, attacker, 2, 0.75f);
           }
 
           // ID 133: PrisonSlash (Was 124)

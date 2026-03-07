@@ -66,6 +66,19 @@ void RefundFlowingThrustCooldown(entt::registry &registry, entt::entity owner,
   }
 }
 
+void ResetSkillCooldown(entt::registry &registry, entt::entity owner,
+                        uint32_t skillId) {
+  auto *active = registry.try_get<ActiveSkillsComponent>(owner);
+  if (active == nullptr) {
+    return;
+  }
+  for (auto &slot : active->slots) {
+    if (slot.id == skillId) {
+      slot.cooldown = 0.0f;
+    }
+  }
+}
+
 } // namespace
 
 namespace RendingWaveNodes {
@@ -245,6 +258,9 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
                                                 kSkillId)) {
               exec.is_empowered = true;
               RefundFlowingThrustCooldown(registry, owner, 1, 1.5f);
+              if (spendAmount >= SkillConstants::DEFAULT_MAX_SWORD_INTENT) {
+                ResetSkillCooldown(registry, owner, 1);
+              }
               LOG_INFO("Sword Intent Burst (252) triggered for Rending Wave!");
             }
           }

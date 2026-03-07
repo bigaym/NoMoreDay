@@ -134,9 +134,17 @@ bool BladeResourceService::Consume(entt::registry &registry, entt::entity entity
     return false;
   }
 
+  const bool armRestartWindow =
+      resource->kind == BladeResourceKind::SwordFlow && resource->current >= 10 &&
+      amount == resource->current;
+
   resource->current -= amount;
   resource->time_since_last_gain = 0.0f;
   resource->decay_tick_timer = 0.0f;
+  if (armRestartWindow) {
+    resource->restart_window_timer = 3.0f;
+    resource->restart_window_ready = true;
+  }
   SyncLegacySwordIntent(registry, entity);
   MarkStatsDirty(registry, entity);
 
@@ -171,6 +179,19 @@ bool BladeResourceService::TryGrantSwordFlowCritBonus(entt::registry &registry,
   return gained;
 }
 
+bool BladeResourceService::TryConsumeSwordFlowRestartWindow(
+    entt::registry &registry, entt::entity entity, uint32_t source_skill_id) {
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr || resource->kind != BladeResourceKind::SwordFlow ||
+      !resource->restart_window_ready || resource->restart_window_timer <= 0.0f) {
+    return false;
+  }
+
+  resource->restart_window_ready = false;
+  resource->restart_window_timer = 0.0f;
+  return Gain(registry, entity, 2, source_skill_id);
+}
+
 void BladeResourceService::Update(entt::registry &registry, float dt) {
   auto view = registry.view<BladeResourceComponent>();
   for (const entt::entity entity : view) {
@@ -178,6 +199,11 @@ void BladeResourceService::Update(entt::registry &registry, float dt) {
     const int previous = resource.current;
     resource.crit_bonus_feedback_timer =
         std::max(0.0f, resource.crit_bonus_feedback_timer - dt);
+    resource.restart_window_timer =
+        std::max(0.0f, resource.restart_window_timer - dt);
+    if (resource.restart_window_timer <= 0.0f) {
+      resource.restart_window_ready = false;
+    }
     UpdateBladeResourceTimers(resource, dt);
     CleanupTracking(resource.hit_tracking, resource.time_since_last_gain);
     if (resource.current != previous) {

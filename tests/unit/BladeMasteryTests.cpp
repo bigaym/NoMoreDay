@@ -201,3 +201,28 @@ TEST_CASE("[Unit] Sword Flow - crit bonus grants extra stack with cooldown") {
 
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }
+
+TEST_CASE("[Unit] Sword Flow restart - full spend arms restart window") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::SwordSaint));
+  REQUIRE(BladeResourceService::Gain(registry, player, 10, 10u));
+  REQUIRE(BladeResourceService::Consume(registry, player, 10, 10u));
+
+  const auto& resource = registry.get<BladeResourceComponent>(player);
+  CHECK(resource.current == 0);
+  CHECK(resource.restart_window_timer > 0.0f);
+  CHECK(resource.restart_window_ready);
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}

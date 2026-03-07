@@ -11,8 +11,9 @@
 
 namespace NoMoreDay::skills {
 
+inline constexpr uint32_t kSevenStarSlashSkillId = 10;
+
 namespace SevenStarSlashNodes {
-constexpr uint32_t SkillId = 10;
 constexpr uint32_t Base = 1000;
 constexpr uint32_t FlowBonus = 1001;
 constexpr uint32_t Execute = 1002;
@@ -51,9 +52,9 @@ SevenStarSlashSpecState ResolveSpecState(const entt::registry &registry,
                                         entt::entity owner) {
   SevenStarSlashSpecState state;
 
-  if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
+    if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
     for (const auto &spec : active->specialized_slots) {
-      if (spec.skill_id != SevenStarSlashNodes::SkillId) {
+      if (spec.skill_id != kSevenStarSlashSkillId) {
         continue;
       }
 
@@ -70,7 +71,7 @@ SevenStarSlashSpecState ResolveSpecState(const entt::registry &registry,
 
   const uint32_t activeTransmuter =
       SkillSystem::GetActiveTransmuterNode(registry, owner,
-                                           SevenStarSlashNodes::SkillId);
+                                           kSevenStarSlashSkillId);
   state.focusedArc = activeTransmuter == SevenStarSlashNodes::FocusedArc;
   state.shadowHunt = activeTransmuter == SevenStarSlashNodes::ShadowHunt;
   return state;
@@ -91,10 +92,23 @@ void ApplySlashDamage(entt::registry &registry, entt::entity owner,
   (void)DamagePipeline::Execute(registry, request, owner, true);
 }
 
+void ResetSkillCooldown(entt::registry &registry, entt::entity owner,
+                        uint32_t skillId) {
+  auto *active = registry.try_get<ActiveSkillsComponent>(owner);
+  if (active == nullptr) {
+    return;
+  }
+  for (auto &slot : active->slots) {
+    if (slot.id == skillId) {
+      slot.cooldown = 0.0f;
+    }
+  }
+}
+
 } // namespace
 
 struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
-  static constexpr uint32_t kSkillId = SevenStarSlashNodes::SkillId;
+  static constexpr uint32_t kSkillId = kSevenStarSlashSkillId;
 
   static void DoCast(entt::registry &registry, entt::entity owner,
                      SkillExecution &exec) {
@@ -135,6 +149,9 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
       (void)SkillSystem::ConsumeSwordIntent(registry, owner, resourceToSpend,
                                             kSkillId);
       exec.is_empowered = true;
+      if (resourceToSpend >= SkillConstants::DEFAULT_MAX_SWORD_INTENT) {
+        ResetSkillCooldown(registry, owner, 1);
+      }
     }
 
     registry.emplace_or_replace<InvulnerableComponent>(

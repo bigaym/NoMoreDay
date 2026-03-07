@@ -33,6 +33,20 @@ const char *ResolveSummonDisplayName(const SummonComponent &summon) {
 
 } // namespace
 
+std::string PlayerHUD::ResolveSwordFlowFeedbackText(
+    const BladeResourceComponent& bladeResource) {
+    if (bladeResource.kind != BladeResourceKind::SwordFlow) {
+        return {};
+    }
+    if (bladeResource.restart_window_ready && bladeResource.restart_window_timer > 0.0f) {
+        return TextFormat("Restart Ready %.1fs", bladeResource.restart_window_timer);
+    }
+    if (bladeResource.crit_bonus_feedback_timer > 0.0f) {
+        return "暴击剑流 +1";
+    }
+    return {};
+}
+
 void PlayerHUD::Draw(entt::registry& registry) {
     auto view = registry.view<PlayerTag, CombatStats>();
     if (view.begin() == view.end()) return;
@@ -133,13 +147,23 @@ void PlayerHUD::Draw(entt::registry& registry) {
             (bladeResource->kind == BladeResourceKind::SwordFlow) ? "Sword Flow" : "Sword Intent";
         NoMoreDay::systems::ui::SwordIntentWidget::Draw(
             bladeResource->current, bladeResource->max, label);
-        if (bladeResource->kind == BladeResourceKind::SwordFlow &&
-            bladeResource->crit_bonus_feedback_timer > 0.0f) {
-            const float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(GetTime()) * 12.0f);
-            const Color feedbackColor = ColorAlpha(SKYBLUE, pulse);
-            UISystem::DrawTextUI("暴击剑流 +1", UI_REF_WIDTH * 0.5f - 54.0f,
-                                 UI_REF_HEIGHT - 248.0f, 18.0f, feedbackColor,
-                                 1.0f);
+        if (bladeResource->kind == BladeResourceKind::SwordFlow) {
+            const std::string feedbackText = ResolveSwordFlowFeedbackText(*bladeResource);
+            if (!feedbackText.empty()) {
+                const bool showRestartReady = bladeResource->restart_window_ready &&
+                                              bladeResource->restart_window_timer > 0.0f;
+                const float pulseSpeed = showRestartReady ? 10.0f : 12.0f;
+                const float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(GetTime()) * pulseSpeed);
+                const Color feedbackColor = showRestartReady
+                    ? ColorAlpha(GOLD, pulse)
+                    : ColorAlpha(SKYBLUE, pulse);
+                const float textX = showRestartReady
+                    ? UI_REF_WIDTH * 0.5f - 70.0f
+                    : UI_REF_WIDTH * 0.5f - 54.0f;
+                UISystem::DrawTextUI(feedbackText.c_str(), textX,
+                                     UI_REF_HEIGHT - 248.0f, 18.0f, feedbackColor,
+                                     1.0f);
+            }
         }
     } else if (intent) {
         NoMoreDay::systems::ui::SwordIntentWidget::Draw(

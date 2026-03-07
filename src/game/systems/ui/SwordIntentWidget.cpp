@@ -16,6 +16,35 @@ Shader SwordIntentWidget::shineShader = { 0 };
 bool SwordIntentWidget::initialized = false;
 float SwordIntentWidget::glowIntensity = 0.0f;
 
+int SwordIntentWidget::ResolveSwordFlowThresholdTier(int currentStacks, int maxStacks) {
+    if (maxStacks <= 0) {
+        return 0;
+    }
+    if (currentStacks >= maxStacks) {
+        return 3;
+    }
+    if (currentStacks >= 8) {
+        return 2;
+    }
+    if (currentStacks >= 5) {
+        return 1;
+    }
+    return 0;
+}
+
+const char* SwordIntentWidget::ResolveSwordFlowThresholdText(int currentStacks, int maxStacks) {
+    switch (ResolveSwordFlowThresholdTier(currentStacks, maxStacks)) {
+    case 1:
+        return "剑流·启";
+    case 2:
+        return "剑流·盛";
+    case 3:
+        return "满流";
+    default:
+        return "";
+    }
+}
+
 void SwordIntentWidget::Init() {
     if (!initialized) {
         if (IsWindowReady()) {
@@ -58,6 +87,18 @@ void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
              static_cast<int>((UI_REF_WIDTH * 0.5f * scale) - (labelWidth * 0.5f)),
              static_cast<int>((logicY - 24.0f) * scale),
              static_cast<int>(18 * scale), Fade(LIGHTGRAY, 0.95f));
+
+    if (label == "Sword Flow") {
+        const char* thresholdText = ResolveSwordFlowThresholdText(currentStacks, maxStacks);
+        if (thresholdText[0] != '\0') {
+            const int tier = ResolveSwordFlowThresholdTier(currentStacks, maxStacks);
+            const Color tierColor = (tier >= 3) ? GOLD : (tier == 2 ? SKYBLUE : Color{140, 255, 220, 255});
+            DrawText(thresholdText,
+                     static_cast<int>((UI_REF_WIDTH * 0.5f * scale) - (MeasureText(thresholdText, static_cast<int>(15 * scale)) * 0.5f)),
+                     static_cast<int>((logicY - 44.0f) * scale),
+                     static_cast<int>(15 * scale), Fade(tierColor, 0.95f));
+        }
+    }
     
     // Draw base icons
     for (int i = 0; i < maxStacks; ++i) {
