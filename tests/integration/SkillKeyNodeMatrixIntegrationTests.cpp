@@ -52,11 +52,11 @@ inline bool HasBoomerangProjectiles(entt::registry &registry, int min_count) {
 
 } // namespace test::skill_keynode_matrix::integration
 
-TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..10)") {
+TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12)") {
   const auto fixture_nodes = sknm::LoadFixtureKeyNodes();
-  REQUIRE(fixture_nodes.size() == 10);
+  REQUIRE(fixture_nodes.size() == sknm::MatrixSkillIds().size());
 
-  for (uint32_t skill_id = 1; skill_id <= 10; ++skill_id) {
+  for (const uint32_t skill_id : sknm::MatrixSkillIds()) {
     CAPTURE(skill_id);
     REQUIRE(fixture_nodes.contains(skill_id));
 
@@ -71,7 +71,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..10
         registry, caster, skill_id,
         sknm::AsAllocatedPoints(fixture_nodes.at(skill_id), 1));
 
-    if (skill_id == 10) {
+    if (skill_id >= 10) {
       REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
           "assets/data/blade_masteries.json"));
       auto &stats = registry.get_or_emplace<PlayerStats>(caster);
@@ -79,9 +79,22 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..10
       auto &astrolabe = registry.get_or_emplace<AstrolabeComponent>(caster);
       astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
       systems::BladeMasteryService::RefreshPlayerState(registry, caster);
-      REQUIRE(systems::BladeMasteryService::SelectMastery(
-          registry, caster, BladeMasteryId::SwordSaint));
-      REQUIRE(systems::BladeResourceService::Gain(registry, caster, 3, skill_id));
+      const BladeMasteryId mastery_id = skill_id == 10
+                                            ? BladeMasteryId::SwordSaint
+                                            : (skill_id == 11 ? BladeMasteryId::HeavenlySword
+                                                              : BladeMasteryId::DemonBlade);
+      REQUIRE(systems::BladeMasteryService::SelectMastery(registry, caster,
+                                                          mastery_id));
+      if (skill_id == 10 || skill_id == 11) {
+        REQUIRE(systems::BladeResourceService::Gain(registry, caster, 5, skill_id));
+      } else {
+        REQUIRE(systems::BladeResourceService::Gain(registry, caster, 6, skill_id));
+      }
+
+      if (skill_id == 11) {
+        registry.get<BladeMasteryComponent>(caster).heavenly_attunement =
+            BladeAttunement::Lightning;
+      }
     }
 
     CHECK(SkillSystem::TryCast(registry, caster, 0, {120.0f, 0.0f}));
@@ -132,6 +145,29 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..10
     case 10:
       CHECK(registry.any_of<InvulnerableComponent>(caster));
       break;
+    case 11:
+      {
+        auto view = registry.view<HeavenlySwordFieldComponent>();
+        REQUIRE(view.begin() != view.end());
+        const auto field = *view.begin();
+        const auto &fieldComp = view.get<HeavenlySwordFieldComponent>(field);
+        CHECK(fieldComp.owner == caster);
+        CHECK(fieldComp.attunement == BladeAttunement::Lightning);
+        CHECK(fieldComp.spent_tiers > 0);
+      }
+      break;
+    case 12:
+      {
+        auto view = registry.view<BloodSeaFieldComponent>();
+        REQUIRE(view.begin() != view.end());
+        const auto field = *view.begin();
+        const auto &fieldComp = view.get<BloodSeaFieldComponent>(field);
+        CHECK(fieldComp.owner == caster);
+        CHECK(fieldComp.consumed_bloodthirst > 0);
+        CHECK(registry.get<CombatStats>(caster).health <
+              registry.get<CombatStats>(caster).max_health);
+      }
+      break;
     default:
       FAIL("Unexpected skill id in key-node matrix test");
       break;
@@ -143,7 +179,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..10
 
 TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all trigger nodes") {
   const auto compact = sknm::LoadCompactContractBuckets();
-  CHECK(compact.trigger_node_by_skill.size() == 10);
+  CHECK(compact.trigger_node_by_skill.size() == sknm::MatrixSkillIds().size());
 
   int scenario_count = 0;
   for (const auto &[skill_id, trigger_node] : compact.trigger_node_by_skill) {
@@ -183,7 +219,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
     ++scenario_count;
   }
 
-  CHECK(scenario_count == 10);
+  CHECK(scenario_count == static_cast<int>(sknm::MatrixSkillIds().size()));
 }
 
 TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guard matrix >= 12") {

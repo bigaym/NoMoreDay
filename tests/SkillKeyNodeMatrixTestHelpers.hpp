@@ -56,6 +56,12 @@ struct CompactContractBuckets {
   std::unordered_set<uint32_t> sword_step_nodes;
 };
 
+inline const std::array<uint32_t, 12> &MatrixSkillIds() {
+  static const std::array<uint32_t, 12> skill_ids = {1,  2,  3, 4, 5, 6,
+                                                      7,  8,  9, 10, 11, 12};
+  return skill_ids;
+}
+
 inline std::filesystem::path ResolveProjectPath(const char *relative_path) {
   const std::array<std::filesystem::path, 4> roots = {
       std::filesystem::current_path(),
@@ -98,7 +104,18 @@ inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
       {8, {813, 830, 831, 852, 870, 871}},
       {9, {913, 930, 950, 951, 952, 970}},
       {10, {1002, 1009, 1011, 1013, 1017, 1021, 1022, 1025}},
+      {11, {1102, 1109, 1111, 1113, 1117}},
+      {12, {1202, 1209, 1211, 1213, 1217, 1221, 1222}},
   };
+}
+
+inline size_t ExpectedTotalKeyNodeCount() {
+  size_t total = 0;
+  for (const auto &[skill_id, nodes] : ExpectedKeyNodesBySkill()) {
+    (void)skill_id;
+    total += nodes.size();
+  }
+  return total;
 }
 
 inline std::map<uint32_t, std::vector<uint32_t>> LoadFixtureKeyNodes() {
@@ -162,6 +179,9 @@ inline CompactContractBuckets LoadCompactContractBuckets() {
         skill_json.at("transmuter_node_ids").is_array()) {
       for (const auto &node_json : skill_json.at("transmuter_node_ids")) {
         const uint32_t node_id = node_json.get<uint32_t>();
+        if (node_id == 0u) {
+          continue;
+        }
         buckets.transmuter_order_by_skill[skill_id].push_back(node_id);
         buckets.transmuter_nodes.insert(node_id);
         buckets.all_key_nodes.insert(node_id);
