@@ -88,39 +88,42 @@ TEST_SUITE("AstrolabeLogic") {
         }
 
         SUBCASE("AC-2: Grant Component") {
-            CHECK_FALSE(registry.all_of<SwordIntentComponent>(entity));
+            astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+            CHECK_FALSE(registry.all_of<BladeResourceComponent>(entity));
 
             astrolabe.nodePoints[9998] = 1;
             StatsSystem::Recalculate(registry, entity);
             
+            CHECK(registry.all_of<BladeResourceComponent>(entity));
             CHECK(registry.all_of<SwordIntentComponent>(entity));
 
             // Remove point
             astrolabe.nodePoints.erase(9998);
             StatsSystem::Recalculate(registry, entity);
             
-            CHECK_FALSE(registry.all_of<SwordIntentComponent>(entity));
+            CHECK(registry.all_of<BladeResourceComponent>(entity));
         }
 
         SUBCASE("AC-3: Max Sword Intent") {
-            // Must unlock first to have the component
-            astrolabe.nodePoints[9998] = 1; // Unlock
+            astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+            astrolabe.nodePoints[9998] = 1;
             StatsSystem::Recalculate(registry, entity);
             
-            auto* sic = registry.try_get<SwordIntentComponent>(entity);
-            REQUIRE(sic != nullptr);
-            int baseMax = sic->max_stacks;
+            auto* resource = registry.try_get<BladeResourceComponent>(entity);
+            REQUIRE(resource != nullptr);
+            int baseMax = resource->max;
             CHECK(baseMax == SkillConstants::DEFAULT_MAX_SWORD_INTENT);
 
             // Add 1 point to MaxIntent (+2)
             astrolabe.nodePoints[9997] = 1;
             StatsSystem::Recalculate(registry, entity);
-            CHECK(sic->max_stacks == baseMax + 2);
+            CHECK(resource->max == baseMax + 2);
 
             // Add 3 points (+6)
             astrolabe.nodePoints[9997] = 3;
             StatsSystem::Recalculate(registry, entity);
-            CHECK(sic->max_stacks == baseMax + 6);
+            CHECK(resource->max == baseMax + 6);
         }
 
         SUBCASE("AC-4: Int to CritMult Conversion") {

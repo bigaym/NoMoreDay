@@ -5863,6 +5863,211 @@
           }
         ]
       }
+    },
+    {
+      "id": 10,
+      "name_key": "七星斩",
+      "desc_key": "化身七道连斩，对范围内敌人进行高速剑斩并消耗全部剑流。",
+      "mana_cost": 40,
+      "cooldown": 12.0,
+      "tags": [
+        "Physical",
+        "Melee",
+        "Attack",
+        "Area",
+        "Hit",
+        "sword_skill"
+      ],
+      "base_damage": 90.0,
+      "weapon_damage_mult": 1.8,
+      "added_damage_effectiveness": 1.0,
+      "charge_count": 1,
+      "icon_id": 10,
+      "params": {
+        "radius": 96.0,
+        "slash_count": 7.0,
+        "flow_bonus_per_stack": 0.06,
+        "single_target_execute_bonus": 0.5,
+        "invulnerable_duration": 0.5
+      },
+      "talent_tree": [
+        {
+          "id": 1000,
+          "name_key": "七星起手",
+          "desc_key": "解锁七星斩。",
+          "max_points": 1,
+          "x": 0,
+          "y": 0,
+          "prerequisites": [],
+          "stat_modifiers": [],
+          "icon_id": 1000
+        },
+        {
+          "id": 1001,
+          "name_key": "流转剑痕",
+          "desc_key": "七星斩每消耗1层剑流，额外提高伤害。",
+          "max_points": 3,
+          "x": -1,
+          "y": 1,
+          "prerequisites": [
+            1000
+          ],
+          "stat_modifiers": [],
+          "icon_id": 1001
+        },
+        {
+          "id": 1002,
+          "name_key": "孤星绝杀",
+          "desc_key": "单体时终斩获得额外处决伤害。",
+          "max_points": 1,
+          "x": 1,
+          "y": 1,
+          "prerequisites": [
+            1000
+          ],
+          "stat_modifiers": [],
+          "icon_id": 1002
+        },
+        {
+          "id": 1003,
+          "name_key": "七曜连震",
+          "desc_key": "七星斩的终斩会触发一次额外的压制伤害事件。",
+          "max_points": 1,
+          "x": 0,
+          "y": 2,
+          "prerequisites": [
+            1001
+          ],
+          "stat_modifiers": [],
+          "icon_id": 1003
+        },
+        {
+          "id": 1020,
+          "name_key": "星落破空",
+          "desc_key": "七星斩改为更集中的斩击区域。",
+          "max_points": 1,
+          "x": -1,
+          "y": 3,
+          "prerequisites": [
+            1003
+          ],
+          "stat_modifiers": [],
+          "icon_id": 1020
+        },
+        {
+          "id": 1021,
+          "name_key": "七星逐影",
+          "desc_key": "七星斩获得更远的斩击追踪半径。",
+          "max_points": 1,
+          "x": 1,
+          "y": 3,
+          "prerequisites": [
+            1003
+          ],
+          "stat_modifiers": [],
+          "icon_id": 1021
+        }
+      ],
+      "skill_contract": {
+        "version": 1,
+        "skill_id": 10,
+        "min_nodes": 6,
+        "max_nodes": 6,
+        "max_transmuters": 2,
+        "max_triggers": 1,
+        "has_sword_intent_node": false,
+        "has_synergy_node": true,
+        "transmuter_node_ids": [
+          1020,
+          1021
+        ],
+        "nodes": [
+          {
+            "node_id": 1000,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1001,
+            "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1002,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1003,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 10,
+              "effectiveness": 1.0,
+              "internal_cooldown": 12.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1020,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1021,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          }
+        ]
+      }
     }
   ]
 }

@@ -335,6 +335,31 @@
           "consumes_mana": false
         }
       ]
+    },
+    {
+      "skill_id": 10,
+      "min_nodes": 6,
+      "max_nodes": 6,
+      "max_transmuters": 2,
+      "max_triggers": 1,
+      "has_sword_intent_node": false,
+      "has_synergy_node": true,
+      "transmuter_node_ids": [
+        1020,
+        1021
+      ],
+      "synergy_node_ids": [
+        1001
+      ],
+      "trigger_nodes": [
+        {
+          "node_id": 1003,
+          "trigger_skill_id": 10,
+          "effectiveness": 1.0,
+          "internal_cooldown": 12.0,
+          "consumes_mana": false
+        }
+      ]
     }
   ]
 }

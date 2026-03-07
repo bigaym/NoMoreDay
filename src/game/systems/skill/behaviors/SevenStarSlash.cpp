@@ -1,0 +1,128 @@
+#include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
+
+#include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/Common.hpp"
+#include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/DamagePipeline.hpp"
+#include "game/systems/skill/SkillSystem.hpp"
+#include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
+
+#include <cmath>
+
+namespace NoMoreDay::skills {
+
+namespace SevenStarSlashNodes {
+constexpr uint32_t Base = 1000;
+constexpr uint32_t FlowBonus = 1001;
+constexpr uint32_t Execute = 1002;
+constexpr uint32_t FollowThrough = 1003;
+constexpr uint32_t FocusedArc = 1020;
+constexpr uint32_t ShadowHunt = 1021;
+} // namespace SevenStarSlashNodes
+
+namespace {
+
+float DistanceSquared(const Vector2 &a, const Vector2 &b) {
+  const float dx = a.x - b.x;
+  const float dy = a.y - b.y;
+  return (dx * dx) + (dy * dy);
+}
+
+int GetCurrentBladeResource(const entt::registry &registry, entt::entity entity) {
+  if (const auto *resource = registry.try_get<BladeResourceComponent>(entity)) {
+    return resource->current;
+  }
+  if (const auto *intent = registry.try_get<SwordIntentComponent>(entity)) {
+    return intent->stacks;
+  }
+  return 0;
+}
+
+} // namespace
+
+struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
+  static constexpr uint32_t kSkillId = 10;
+
+  static void DoCast(entt::registry &registry, entt::entity owner,
+                     SkillExecution &exec) {
+    const auto *skillData = SkillRegistry::Get().GetSkill(kSkillId);
+    const auto *ownerPos = registry.try_get<Position>(owner);
+    const auto *ownerStats = registry.try_get<CombatStats>(owner);
+    if (skillData == nullptr || ownerPos == nullptr || ownerStats == nullptr) {
+      return;
+    }
+
+    const float radius = skillData->GetParam("radius", 96.0f);
+    const int slashCount =
+        static_cast<int>(skillData->GetParam("slash_count", 7.0f));
+    const float flowBonusPerStack =
+        skillData->GetParam("flow_bonus_per_stack", 0.06f);
+    const float singleTargetExecuteBonus =
+        skillData->GetParam("single_target_execute_bonus", 0.5f);
+    const float invulnerableDuration =
+        skillData->GetParam("invulnerable_duration", 0.5f);
+
+    const int resourceToSpend = GetCurrentBladeResource(registry, owner);
+    if (resourceToSpend > 0) {
+      (void)SkillSystem::ConsumeSwordIntent(registry, owner, resourceToSpend,
+                                            kSkillId);
+      exec.is_empowered = true;
+    }
+
+    registry.emplace_or_replace<InvulnerableComponent>(
+        owner, InvulnerableComponent{invulnerableDuration, 0.0f, owner, SKYBLUE,
+                                     radius * 0.35f});
+
+    std::vector<entt::entity> targets;
+    const Vector2 center = exec.target_pos;
+    const float radiusSq = radius * radius;
+    auto targetView = registry.view<Position, CombatStats>();
+    for (const entt::entity target : targetView) {
+      if (target == owner) {
+        continue;
+      }
+
+      const auto &targetPos = targetView.get<Position>(target);
+      if (DistanceSquared(Vector2{targetPos.x, targetPos.y}, center) <=
+          radiusSq) {
+        targets.push_back(target);
+      }
+    }
+
+    const float averageWeaponDamage =
+        0.5f * (ownerStats->min_weapon_damage + ownerStats->max_weapon_damage);
+    const float slashDamage = std::max(
+        1.0f,
+        averageWeaponDamage *
+            (skillData->weapon_damage_mult +
+             (static_cast<float>(resourceToSpend) * flowBonusPerStack)));
+    const bool singleTarget = targets.size() == 1;
+
+    for (int slashIndex = 0; slashIndex < slashCount; ++slashIndex) {
+      const bool isFinalSlash = (slashIndex == slashCount - 1);
+      const float finalSlashBonus =
+          (singleTarget && isFinalSlash) ? (1.0f + singleTargetExecuteBonus)
+                                         : 1.0f;
+
+      for (const entt::entity target : targets) {
+        DamagePool pool;
+        pool.Add(Tag::Physical, slashDamage * finalSlashBonus);
+
+        DamageRequest request;
+        request.attacker = owner;
+        request.defender = target;
+        request.skill_id = kSkillId;
+        request.base_pool = pool;
+        request.additional_tags = Tag::Melee | Tag::SwordSkill | Tag::Hit;
+        request.source_entity = owner;
+        (void)DamagePipeline::Execute(registry, request, owner, true);
+      }
+    }
+  }
+};
+
+REGISTER_SKILL_BEHAVIOR(SevenStarSlash)
+
+void RegisterSevenStarSlash() {}
+
+} // namespace NoMoreDay::skills

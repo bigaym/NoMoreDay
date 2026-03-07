@@ -196,9 +196,16 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
           // Talent: Jian Yi Bao Fa (鍓戞剰鐖嗗彂) - ID 252
           if (spec.allocated_points.contains(RendingWaveNodes::IntentBurst) &&
               spec.allocated_points.at(RendingWaveNodes::IntentBurst) > 0) {
-            if (SkillSystem::ConsumeSwordIntent(
-                    registry, owner, SkillConstants::DEFAULT_MAX_SWORD_INTENT,
-                    kSkillId)) {
+            int spendAmount = SkillConstants::DEFAULT_MAX_SWORD_INTENT;
+            if (const auto *resource =
+                    registry.try_get<BladeResourceComponent>(owner);
+                resource != nullptr &&
+                resource->kind == BladeResourceKind::SwordFlow) {
+              spendAmount = resource->current;
+            }
+            if (spendAmount > 0 &&
+                SkillSystem::ConsumeSwordIntent(registry, owner, spendAmount,
+                                                kSkillId)) {
               exec.is_empowered = true;
               LOG_INFO("Sword Intent Burst (252) triggered for Rending Wave!");
             }

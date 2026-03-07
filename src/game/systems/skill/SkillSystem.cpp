@@ -24,6 +24,8 @@
 #include "game/systems/combat/ProcBudgetManager.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/modifier/SkillSpecModifierAdapter.hpp"
+#include "game/systems/skill/BladeMasteryService.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/BehaviorInjectionRegistry.hpp"
 #include "game/systems/skill/SkillCastConstraintService.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
@@ -564,7 +566,8 @@ void SkillSystem::InitHooks() {
     if (registry.any_of<ShadowCastTag>(execution_ent))
       return;
 
-    if (SkillSystem::ConsumeSwordIntent(
+    if (systems::BladeResourceService::ShouldAutoEmpowerOnCast(registry, caster) &&
+        SkillSystem::ConsumeSwordIntent(
             registry, caster, SkillConstants::DEFAULT_MAX_SWORD_INTENT,
             exec.skill_id)) {
       exec.is_empowered = true;
@@ -608,8 +611,9 @@ void SkillSystem::InitHooks() {
                             evt.isCrit ? 1.15f : 1.0f);
         }
 
-        auto *intent = registry.try_get<SwordIntentComponent>(caster);
-        if (intent && HasTag(evt.tags, Tag::Hit)) {
+        BladeResourceComponent *resource = registry.try_get<BladeResourceComponent>(caster);
+        SwordIntentComponent *intent = registry.try_get<SwordIntentComponent>(caster);
+        if ((resource || intent) && HasTag(evt.tags, Tag::Hit)) {
           bool gain_stack = false;
           const float current_time = static_cast<float>(GetTime());
           const bool is_continuous =
@@ -618,7 +622,8 @@ void SkillSystem::InitHooks() {
           // Use cast_id if available, otherwise fallback to skill_id.
           const uint64_t tracking_key =
               (evt.castId != 0) ? evt.castId : static_cast<uint64_t>(evt.skill_id);
-          auto &tracking = intent->hit_tracking[tracking_key];
+          auto &tracking = resource != nullptr ? resource->hit_tracking[tracking_key]
+                                              : intent->hit_tracking[tracking_key];
 
           if (is_continuous) {
             // Continuous Skills: Max 1 stack per second per cast.
@@ -634,6 +639,12 @@ void SkillSystem::InitHooks() {
             gain_stack = true;
             tracking.last_gain_time = current_time;
             tracking.stacks_gained++;
+          }
+
+          if (resource != nullptr &&
+              resource->kind == BladeResourceKind::SwordFlow &&
+              evt.skill_id == 10) {
+            gain_stack = false;
           }
 
           if (gain_stack) {
@@ -1743,7 +1754,9 @@ bool SkillSystem::ShadowCast(entt::registry &registry, entt::entity owner,
 }
 
 void SkillSystem::UpdateSwordIntent(entt::registry &registry, float dt) {
-  auto view = registry.view<SwordIntentComponent>();
+  systems::BladeResourceService::Update(registry, dt);
+
+  auto view = registry.view<SwordIntentComponent>(entt::exclude<BladeResourceComponent>);
   for (auto entity : view) {
     auto &intent = view.get<SwordIntentComponent>(entity);
 
@@ -1965,6 +1978,12 @@ bool SkillSystem::TryCast(entt::registry &registry, entt::entity entity,
   const auto *data = SkillRegistry::Get().GetSkill(slot.id);
   if (!data) {
     LOG_ERROR("TryCast FAILED: Skill ID {} data not found", slot.id);
+    return false;
+  }
+  if (slot.id == 10 &&
+      !systems::BladeMasteryService::IsSignatureSkillUnlocked(registry, entity,
+                                                              slot.id)) {
+    LOG_WARN("TryCast FAILED: Signature skill {} is locked", slot.id);
     return false;
   }
 
@@ -2544,6 +2563,10 @@ bool SkillSystem::GainSwordIntent(entt::registry &registry, entt::entity entity,
   if (amount <= 0) {
     return false;
   }
+  if (registry.all_of<BladeResourceComponent>(entity)) {
+    return systems::BladeResourceService::Gain(registry, entity, amount,
+                                               source_skill_id);
+  }
   auto *intent = registry.try_get<SwordIntentComponent>(entity);
   if (!intent) {
     return false;
@@ -2567,6 +2590,18 @@ bool SkillSystem::ConsumeSwordIntent(entt::registry &registry,
                                      uint32_t source_skill_id) {
   if (amount <= 0) {
     return false;
+  }
+  if (registry.all_of<BladeResourceComponent>(entity)) {
+    const bool consumed = systems::BladeResourceService::Consume(
+        registry, entity, amount, source_skill_id);
+    if (consumed && source_skill_id != 0) {
+      SkillExecutionContext consumeContext = BuildSkillVfxContextFromEvent(
+          registry, entity, source_skill_id, 0u,
+          ResolveEntityWorldPosition(registry, entity));
+      EmitSkillVfxEvent(consumeContext, SkillVfxEventType::EmpoweredConsume,
+                       1.1f);
+    }
+    return consumed;
   }
   auto *intent = registry.try_get<SwordIntentComponent>(entity);
   if (!intent || intent->stacks < amount) {

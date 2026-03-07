@@ -31,7 +31,8 @@ void SwordIntentWidget::Init() {
     }
 }
 
-void SwordIntentWidget::Draw(int currentStacks, int maxStacks) {
+void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
+                             std::string_view label) {
     if (!initialized) {
         Init();
         if (!initialized) return;
@@ -50,6 +51,13 @@ void SwordIntentWidget::Draw(int currentStacks, int maxStacks) {
     float totalWidth = (maxStacks - 1) * spacing;
     float startX = UI_REF_WIDTH / 2.0f - totalWidth / 2.0f;
     float logicY = UI_REF_HEIGHT - 210.0f; // Above the hotbar
+
+    const std::string labelText(label);
+    const int labelWidth = MeasureText(labelText.c_str(), static_cast<int>(18 * scale));
+    DrawText(labelText.c_str(),
+             static_cast<int>((UI_REF_WIDTH * 0.5f * scale) - (labelWidth * 0.5f)),
+             static_cast<int>((logicY - 24.0f) * scale),
+             static_cast<int>(18 * scale), Fade(LIGHTGRAY, 0.95f));
     
     // Draw base icons
     for (int i = 0; i < maxStacks; ++i) {

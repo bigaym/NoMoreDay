@@ -1,6 +1,12 @@
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
 #include "engine/physics/SpatialGrid.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/components/Progression.hpp"
 #include "game/components/Projectile.hpp"
+#include "game/data/BladeMasteryRegistry.hpp"
+#include "game/systems/skill/BladeMasteryService.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <array>
 
@@ -46,11 +52,11 @@ inline bool HasBoomerangProjectiles(entt::registry &registry, int min_count) {
 
 } // namespace test::skill_keynode_matrix::integration
 
-TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..9)") {
+TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..10)") {
   const auto fixture_nodes = sknm::LoadFixtureKeyNodes();
-  REQUIRE(fixture_nodes.size() == 9);
+  REQUIRE(fixture_nodes.size() == 10);
 
-  for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
+  for (uint32_t skill_id = 1; skill_id <= 10; ++skill_id) {
     CAPTURE(skill_id);
     REQUIRE(fixture_nodes.contains(skill_id));
 
@@ -64,6 +70,19 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..9)
     sknm::ConfigureSpecialization(
         registry, caster, skill_id,
         sknm::AsAllocatedPoints(fixture_nodes.at(skill_id), 1));
+
+    if (skill_id == 10) {
+      REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+          "assets/data/blade_masteries.json"));
+      auto &stats = registry.get_or_emplace<PlayerStats>(caster);
+      stats.level = 50;
+      auto &astrolabe = registry.get_or_emplace<AstrolabeComponent>(caster);
+      astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+      systems::BladeMasteryService::RefreshPlayerState(registry, caster);
+      REQUIRE(systems::BladeMasteryService::SelectMastery(
+          registry, caster, BladeMasteryId::SwordSaint));
+      REQUIRE(systems::BladeResourceService::Gain(registry, caster, 3, skill_id));
+    }
 
     CHECK(SkillSystem::TryCast(registry, caster, 0, {120.0f, 0.0f}));
     test::skill_keynode_matrix::integration::RunTicks(registry, grid, 3, 0.08f);
@@ -110,6 +129,9 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..9)
       REQUIRE(registry.all_of<PhantomFlashComponent>(caster));
       CHECK(registry.get<PhantomFlashComponent>(caster).flow_reset);
       break;
+    case 10:
+      CHECK(registry.any_of<InvulnerableComponent>(caster));
+      break;
     default:
       FAIL("Unexpected skill id in key-node matrix test");
       break;
@@ -121,7 +143,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..9)
 
 TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all trigger nodes") {
   const auto compact = sknm::LoadCompactContractBuckets();
-  CHECK(compact.trigger_node_by_skill.size() == 9);
+  CHECK(compact.trigger_node_by_skill.size() == 10);
 
   int scenario_count = 0;
   for (const auto &[skill_id, trigger_node] : compact.trigger_node_by_skill) {
@@ -161,7 +183,7 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all tr
     ++scenario_count;
   }
 
-  CHECK(scenario_count == 9);
+  CHECK(scenario_count == 10);
 }
 
 TEST_CASE("[Integration] SkillKeyNodeMatrix - Cross-skill and visual-signal guard matrix >= 12") {

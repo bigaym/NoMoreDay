@@ -469,6 +469,13 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
             // Logic handled in DoCast or separate system
           }
 
+          if (const auto *resource =
+                  registry.try_get<BladeResourceComponent>(attacker);
+              resource != nullptr &&
+              resource->kind == BladeResourceKind::SwordFlow) {
+            (void)SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId);
+          }
+
           // ID 133: PrisonSlash (Was 124)
           // Shadow Kill Array logic
           if (is_crit &&

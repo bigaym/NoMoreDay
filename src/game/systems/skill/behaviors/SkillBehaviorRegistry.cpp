@@ -78,6 +78,7 @@ namespace skills {
     void RegisterMindBlade();
     void RegisterBladeBoomerang();
     void RegisterPhantomFlash();
+    void RegisterSevenStarSlash();
 }
 
 void SkillBehaviorRegistry::Initialize() {
@@ -95,6 +96,7 @@ void SkillBehaviorRegistry::Initialize() {
     skills::RegisterMindBlade();
     skills::RegisterBladeBoomerang();
     skills::RegisterPhantomFlash();
+    skills::RegisterSevenStarSlash();
 
     LOG_INFO("SkillBehaviorRegistry: Handshake completed for all skill behaviors.");
 }

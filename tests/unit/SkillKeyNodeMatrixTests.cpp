@@ -20,7 +20,7 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Fixture completeness matches compact cont
       "TagConversion", "GuardPolicy", "VisualSignalGuard"};
 
   size_t total_fixture_nodes = 0;
-  for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
+  for (uint32_t skill_id = 1; skill_id <= 10; ++skill_id) {
     CAPTURE(skill_id);
     REQUIRE(fixture_nodes.contains(skill_id));
     REQUIRE(expected_nodes.contains(skill_id));
@@ -43,8 +43,8 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Fixture completeness matches compact cont
     CHECK(fixture_set == compact.key_nodes_by_skill.at(skill_id));
   }
 
-  CHECK(total_fixture_nodes == 48);
-  CHECK(compact.all_key_nodes.size() == 48);
+  CHECK(total_fixture_nodes == 52);
+  CHECK(compact.all_key_nodes.size() == 52);
 }
 
 TEST_CASE("[Unit] SkillKeyNodeMatrix - Contract role and effect assertions cover all key nodes") {
@@ -53,7 +53,7 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Contract role and effect assertions cover
   const auto compact = sknm::LoadCompactContractBuckets();
 
   size_t checked_nodes = 0;
-  for (uint32_t skill_id = 1; skill_id <= 9; ++skill_id) {
+  for (uint32_t skill_id = 1; skill_id <= 10; ++skill_id) {
     CAPTURE(skill_id);
     REQUIRE(compact.key_nodes_by_skill.contains(skill_id));
 
@@ -88,7 +88,7 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Contract role and effect assertions cover
     }
   }
 
-  CHECK(checked_nodes == 48);
+  CHECK(checked_nodes == 52);
 }
 
 TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matrix") {

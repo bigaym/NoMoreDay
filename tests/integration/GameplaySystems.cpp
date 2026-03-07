@@ -252,7 +252,7 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in skills.json") {
   const auto legalIds = LoadTalentNodeIds(root / "assets/data/skills.json");
   REQUIRE(!legalIds.empty());
 
-  const std::array<std::filesystem::path, 9> behaviorFiles = {
+  const std::array<std::filesystem::path, 10> behaviorFiles = {
       "src/game/systems/skill/behaviors/FlowingThrust.cpp",
       "src/game/systems/skill/behaviors/RendingWave.cpp",
       "src/game/systems/skill/behaviors/BladeFormation.cpp",
@@ -261,7 +261,8 @@ TEST_CASE("[Integration] Skill Nodes - IDs must exist in skills.json") {
       "src/game/systems/skill/behaviors/SwordArray.cpp",
       "src/game/systems/skill/behaviors/MindBlade.cpp",
       "src/game/systems/skill/behaviors/BladeBoomerang.cpp",
-      "src/game/systems/skill/behaviors/PhantomFlash.cpp"};
+      "src/game/systems/skill/behaviors/PhantomFlash.cpp",
+      "src/game/systems/skill/behaviors/SevenStarSlash.cpp"};
 
   for (const auto &relativeFile : behaviorFiles) {
     const auto fullPath = root / relativeFile;

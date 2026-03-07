@@ -67,6 +67,14 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     CHECK(skill9NodeB->keystone_exclusion_group == 2);
     CHECK(skill9NodeA->cost_affix == CostAffixPreset::GlassCannonCrit);
   }
+
+  SUBCASE("Skill 10 signature contract is materialized") {
+    const auto *contract = registry.GetSkillContract(10);
+    REQUIRE(contract != nullptr);
+    const auto *node = registry.GetNodeContract(10, 1003);
+    REQUIRE(node != nullptr);
+    CHECK(node->role == SpecNodeRole::Trigger);
+  }
 }
 
 TEST_CASE("[Integration] SkillContract - Structural alignment matrix (skills 1..9)") {

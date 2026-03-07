@@ -5,6 +5,8 @@
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/PlayerProfile.hpp"
+#include "game/systems/skill/BladeMasteryService.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/item/ItemFactory.hpp"
 #include "raylib.h"
 #include <cmath>
@@ -101,6 +103,16 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
   }
   if (registry.all_of<AstrolabeComponent>(playerEntity))
     data.astrolabe = registry.get<AstrolabeComponent>(playerEntity);
+  if (registry.all_of<BladeMasteryComponent>(playerEntity)) {
+    data.blade_mastery = registry.get<BladeMasteryComponent>(playerEntity);
+  }
+  if (registry.all_of<BladeResourceComponent>(playerEntity)) {
+    data.blade_resource = registry.get<BladeResourceComponent>(playerEntity);
+  }
+  if (registry.all_of<BladeSignatureSkillComponent>(playerEntity)) {
+    data.blade_signature_skill =
+        registry.get<BladeSignatureSkillComponent>(playerEntity);
+  }
 
   // Stash
   if (registry.all_of<PersonalStashComponent>(playerEntity)) {
@@ -148,8 +160,6 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
                            static_cast<int64_t>(std::floor(elapsed));
   }
   data.header.timestamp = std::time(nullptr);
-  data.header.version = 1;
-
   return data;
 }
 
@@ -216,6 +226,20 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   }
   registry.emplace<AstrolabeComponent>(player, data.astrolabe);
   registry.emplace<PlayerCombatHistory>(player, data.combatHistory);
+  if (data.blade_mastery.has_value()) {
+    registry.emplace<BladeMasteryComponent>(player, data.blade_mastery.value());
+  }
+  if (data.blade_resource.has_value()) {
+    registry.emplace<BladeResourceComponent>(player, data.blade_resource.value());
+    systems::BladeResourceService::SyncLegacySwordIntent(registry, player);
+  }
+  if (data.blade_signature_skill.has_value()) {
+    registry.emplace<BladeSignatureSkillComponent>(player,
+                                                   data.blade_signature_skill.value());
+  }
+  if (!data.blade_resource.has_value()) {
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+  }
 
   // Stash
   if (data.personalStash.has_value()) {

@@ -15,7 +15,7 @@
 
 namespace NoMoreDay {
 
-inline constexpr uint32_t CURRENT_CHARACTER_SAVE_VERSION = 2;
+inline constexpr uint32_t CURRENT_CHARACTER_SAVE_VERSION = 3;
 
 /**
  * @brief Metadata for the save file, used for the Load Game menu.
@@ -76,6 +76,9 @@ struct CharacterSaveData {
   SkillContractRuntimeSaveData skill_contract_runtime;
   AstrolabeComponent astrolabe;
   PlayerCombatHistory combatHistory;
+  std::optional<BladeMasteryComponent> blade_mastery;
+  std::optional<BladeResourceComponent> blade_resource;
+  std::optional<BladeSignatureSkillComponent> blade_signature_skill;
 
   // Note: QuestState and other world variables should be added here in the
   // future.
@@ -96,6 +99,15 @@ inline void to_json(nlohmann::json& j, const CharacterSaveData& p) {
         {"astrolabe", p.astrolabe},
         {"combatHistory", p.combatHistory}
     };
+    if (p.blade_mastery.has_value()) {
+        j["blade_mastery"] = p.blade_mastery.value();
+    }
+    if (p.blade_resource.has_value()) {
+        j["blade_resource"] = p.blade_resource.value();
+    }
+    if (p.blade_signature_skill.has_value()) {
+        j["blade_signature_skill"] = p.blade_signature_skill.value();
+    }
     if (p.personalStash.has_value()) {
         j["personalStash"] = p.personalStash.value();
     }
@@ -115,6 +127,16 @@ inline void from_json(const nlohmann::json& j, CharacterSaveData& p) {
     }
     j.at("astrolabe").get_to(p.astrolabe);
     j.at("combatHistory").get_to(p.combatHistory);
+    if (j.contains("blade_mastery")) {
+        p.blade_mastery = j.at("blade_mastery").get<BladeMasteryComponent>();
+    }
+    if (j.contains("blade_resource")) {
+        p.blade_resource = j.at("blade_resource").get<BladeResourceComponent>();
+    }
+    if (j.contains("blade_signature_skill")) {
+        p.blade_signature_skill =
+            j.at("blade_signature_skill").get<BladeSignatureSkillComponent>();
+    }
     
     if (j.contains("personalStash")) {
         p.personalStash = j.at("personalStash").get<SerializedStash>();

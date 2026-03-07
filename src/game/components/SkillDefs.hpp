@@ -1,4 +1,5 @@
 #pragma once
+#include "game/data/BladeMasteryData.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillContract.hpp"
 #include "game/data/TagRegistry.hpp"
@@ -483,6 +484,78 @@ struct AnimationStateComponent {
   float state_timer = 0.0f;
 };
 
+struct BladeResourceHitTracking {
+  float last_gain_time = -999.0f;
+  int stacks_gained = 0;
+};
+
+struct BladeMasteryComponent {
+  ProfessionID profession = static_cast<ProfessionID>(0);
+  BladeMasteryId selected = BladeMasteryId::None;
+  bool debug_unlock_active = false;
+};
+
+inline void to_json(nlohmann::json &j, const BladeMasteryComponent &c) {
+  j = nlohmann::json{{"profession", static_cast<uint32_t>(c.profession)},
+                     {"selected", static_cast<uint32_t>(c.selected)},
+                     {"debug_unlock_active", c.debug_unlock_active}};
+}
+
+inline void from_json(const nlohmann::json &j, BladeMasteryComponent &c) {
+  c.profession = static_cast<ProfessionID>(j.value("profession", 0u));
+  c.selected =
+      static_cast<BladeMasteryId>(j.value("selected", static_cast<uint32_t>(BladeMasteryId::None)));
+  c.debug_unlock_active = j.value("debug_unlock_active", false);
+}
+
+struct BladeResourceComponent {
+  BladeResourceKind kind = BladeResourceKind::None;
+  int current = 0;
+  int max = SkillConstants::DEFAULT_MAX_SWORD_INTENT;
+  float time_since_last_gain = 0.0f;
+  float grace_period = SkillConstants::SWORD_INTENT_GRACE_PERIOD;
+  float decay_tick_timer = 0.0f;
+  float decay_interval = SkillConstants::SWORD_INTENT_DECAY_INTERVAL;
+  std::unordered_map<uint64_t, BladeResourceHitTracking> hit_tracking;
+};
+
+inline void to_json(nlohmann::json &j, const BladeResourceComponent &c) {
+  j = nlohmann::json{{"kind", static_cast<uint32_t>(c.kind)},
+                     {"current", c.current},
+                     {"max", c.max},
+                     {"time_since_last_gain", c.time_since_last_gain},
+                     {"grace_period", c.grace_period},
+                     {"decay_tick_timer", c.decay_tick_timer},
+                     {"decay_interval", c.decay_interval}};
+}
+
+inline void from_json(const nlohmann::json &j, BladeResourceComponent &c) {
+  c.kind = static_cast<BladeResourceKind>(
+      j.value("kind", static_cast<uint32_t>(BladeResourceKind::None)));
+  c.current = j.value("current", 0);
+  c.max = j.value("max", SkillConstants::DEFAULT_MAX_SWORD_INTENT);
+  c.time_since_last_gain = j.value("time_since_last_gain", 0.0f);
+  c.grace_period =
+      j.value("grace_period", SkillConstants::SWORD_INTENT_GRACE_PERIOD);
+  c.decay_tick_timer = j.value("decay_tick_timer", 0.0f);
+  c.decay_interval =
+      j.value("decay_interval", SkillConstants::SWORD_INTENT_DECAY_INTERVAL);
+}
+
+struct BladeSignatureSkillComponent {
+  uint32_t skill_id = INVALID_SKILL_ID;
+  bool unlocked = false;
+};
+
+inline void to_json(nlohmann::json &j, const BladeSignatureSkillComponent &c) {
+  j = nlohmann::json{{"skill_id", c.skill_id}, {"unlocked", c.unlocked}};
+}
+
+inline void from_json(const nlohmann::json &j, BladeSignatureSkillComponent &c) {
+  c.skill_id = j.value("skill_id", INVALID_SKILL_ID);
+  c.unlocked = j.value("unlocked", false);
+}
+
 /**
  * @brief Blade Ascendant specific resource.
  */
@@ -502,16 +575,11 @@ struct SwordIntentComponent {
   float gain_rate = 1.0f; // Stacks per second
 
   // Hit tracking for skills
-  struct SkillHitTracking {
-    float last_gain_time = -999.0f; // Time of last gain
-    int stacks_gained = 0; // Total stacks gained from this tracking entry
-  };
-
   // Map cast_id -> Tracking Data
   // We use cast_id instead of skill_id to differentiate multiple casts of the
   // same skill (e.g. quick spam) For channeled skills, the cast_id remains the
   // same during the channel.
-  std::unordered_map<uint64_t, SkillHitTracking> hit_tracking;
+  std::unordered_map<uint64_t, BladeResourceHitTracking> hit_tracking;
 };
 
 /**

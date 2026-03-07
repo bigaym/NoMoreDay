@@ -24,6 +24,8 @@
 #include "game/systems/modifier/MapModifierAdapter.hpp"
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 #include "game/systems/modifier/ModifierEvaluator.hpp"
+#include "game/systems/skill/BladeMasteryService.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/modifier/TalentModifierAdapter.hpp"
 #include "game/utils/MonsterScaling.hpp"
 #include <algorithm>
@@ -617,19 +619,11 @@ void AttributePipeline::Calculate(entt::registry &registry,
         }
       }
 
-      // Apply Trait Components (Safety Check: Only mutate if necessary)
-      if (active_traits.contains(TraitID::SwordIntentUnlock)) {
-          int new_max = SkillConstants::DEFAULT_MAX_SWORD_INTENT + static_cast<int>(bonus_max_sword_intent);
-          if (auto* sic = registry.try_get<SwordIntentComponent>(entity)) {
-              if (sic->max_stacks != new_max) sic->max_stacks = new_max;
-          } else {
-              auto& sic_new = registry.emplace<SwordIntentComponent>(entity);
-              sic_new.max_stacks = new_max;
-          }
-      } else {
-          if (registry.all_of<SwordIntentComponent>(entity)) {
-              registry.remove<SwordIntentComponent>(entity);
-          }
+      systems::BladeMasteryService::RefreshPlayerState(registry, entity);
+      if (registry.all_of<BladeResourceComponent>(entity)) {
+          const int new_max = SkillConstants::DEFAULT_MAX_SWORD_INTENT +
+                              static_cast<int>(bonus_max_sword_intent);
+          systems::BladeResourceService::SetMaxResource(registry, entity, new_max);
       }
 
       if (active_traits.contains(TraitID::SwordHeart)) {

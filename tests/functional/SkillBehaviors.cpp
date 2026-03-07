@@ -1,14 +1,21 @@
 #pragma once
 
 #include "TestCommon.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/PlayerState.hpp"
+#include "game/components/Progression.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/EffectComponent.hpp"
+#include "game/data/BladeMasteryRegistry.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatSystem.hpp"
+#include "game/systems/skill/BladeMasteryService.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
 #include "game/systems/skill/behaviors/MindBlade.hpp"
 
@@ -159,6 +166,49 @@ TEST_CASE("[Functional] Skill - Infinite Blades") {
     auto castFunc = SkillBehaviorRegistry::GetCast(5);
     REQUIRE_MESSAGE(castFunc != nullptr, "Infinite Blades (ID 5) not registered");
     CHECK_NOTHROW(castFunc(registry, player, exec));
+}
+
+TEST_CASE("[Functional] Skill - Seven Star Slash") {
+    TestSetupScope scope;
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+
+    auto player = registry.create();
+    auto target = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(target, 24.0f, 0.0f);
+
+    auto& playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
+    auto& playerCombat = registry.emplace<CombatStats>(player);
+    playerCombat.min_weapon_damage = 40.0f;
+    playerCombat.max_weapon_damage = 40.0f;
+    playerCombat.max_mana = 100.0f;
+    playerCombat.mana = 100.0f;
+
+    registry.emplace<CombatStats>(target);
+
+    auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::SwordSaint));
+    REQUIRE(systems::BladeResourceService::Gain(registry, player, 5, 10u));
+
+    SkillExecution exec;
+    exec.skill_id = 10;
+    exec.owner = player;
+    exec.target_pos = {24.0f, 0.0f};
+
+    auto castFunc = SkillBehaviorRegistry::GetCast(10);
+    REQUIRE_MESSAGE(castFunc != nullptr, "Seven Star Slash (ID 10) not registered");
+    CHECK_NOTHROW(castFunc(registry, player, exec));
+    CHECK(registry.all_of<InvulnerableComponent>(player));
+    CHECK(registry.get<BladeResourceComponent>(player).current == 0);
 }
 
 } // namespace NoMoreDay

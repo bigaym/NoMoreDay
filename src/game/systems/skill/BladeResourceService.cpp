@@ -1,0 +1,186 @@
+#include "game/systems/skill/BladeResourceService.hpp"
+
+#include "core/logging/Logger.hpp"
+#include "game/components/Common.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
+
+#include <algorithm>
+
+namespace NoMoreDay::systems {
+
+namespace {
+
+void MarkStatsDirty(entt::registry &registry, entt::entity entity) {
+  registry.emplace_or_replace<StatsDirty>(entity);
+}
+
+void CopyResourceState(SwordIntentComponent &intent,
+                       const BladeResourceComponent &resource) {
+  intent.stacks = resource.current;
+  intent.max_stacks = resource.max;
+  intent.time_since_last_gain = resource.time_since_last_gain;
+  intent.grace_period = resource.grace_period;
+  intent.decay_tick_timer = resource.decay_tick_timer;
+  intent.decay_interval = resource.decay_interval;
+  intent.hit_tracking = resource.hit_tracking;
+}
+
+void UpdateBladeResourceTimers(BladeResourceComponent &resource, float dt) {
+  if (resource.current <= 0) {
+    resource.time_since_last_gain = 0.0f;
+    return;
+  }
+
+  resource.time_since_last_gain += dt;
+  if (resource.time_since_last_gain >= resource.grace_period) {
+    resource.current = 0;
+    resource.time_since_last_gain = 0.0f;
+    resource.decay_tick_timer = 0.0f;
+  }
+}
+
+void CleanupTracking(std::unordered_map<uint64_t, BladeResourceHitTracking> &tracking,
+                     float now) {
+  for (auto it = tracking.begin(); it != tracking.end();) {
+    if ((now - it->second.last_gain_time) > 10.0f) {
+      it = tracking.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
+
+} // namespace
+
+bool BladeResourceService::HasBladeResource(const entt::registry &registry,
+                                            entt::entity entity) {
+  return registry.all_of<BladeResourceComponent>(entity);
+}
+
+BladeResourceKind BladeResourceService::GetResourceKind(
+    const entt::registry &registry, entt::entity entity) {
+  if (const auto *resource = registry.try_get<BladeResourceComponent>(entity)) {
+    return resource->kind;
+  }
+  if (registry.all_of<SwordIntentComponent>(entity)) {
+    return BladeResourceKind::SwordIntent;
+  }
+  return BladeResourceKind::None;
+}
+
+void BladeResourceService::EnsureBladeResource(entt::registry &registry,
+                                               entt::entity entity,
+                                               BladeResourceKind kind,
+                                               int max_resource,
+                                               float grace_period,
+                                               float decay_interval) {
+  auto &resource = registry.get_or_emplace<BladeResourceComponent>(entity);
+  resource.kind = kind;
+  resource.max = std::max(0, max_resource);
+  resource.current = std::clamp(resource.current, 0, resource.max);
+  resource.grace_period = grace_period;
+  resource.decay_interval = decay_interval;
+  SyncLegacySwordIntent(registry, entity);
+}
+
+void BladeResourceService::RemoveBladeResource(entt::registry &registry,
+                                               entt::entity entity) {
+  if (registry.all_of<BladeResourceComponent>(entity)) {
+    registry.remove<BladeResourceComponent>(entity);
+  }
+  if (registry.all_of<SwordIntentComponent>(entity)) {
+    registry.remove<SwordIntentComponent>(entity);
+  }
+}
+
+void BladeResourceService::SetMaxResource(entt::registry &registry,
+                                          entt::entity entity,
+                                          int max_resource) {
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr) {
+    return;
+  }
+
+  resource->max = std::max(0, max_resource);
+  resource->current = std::clamp(resource->current, 0, resource->max);
+  SyncLegacySwordIntent(registry, entity);
+}
+
+bool BladeResourceService::Gain(entt::registry &registry, entt::entity entity,
+                                int amount, uint32_t source_skill_id) {
+  (void)source_skill_id;
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr || amount <= 0) {
+    return false;
+  }
+
+  const int previous = resource->current;
+  resource->current = std::clamp(resource->current + amount, 0, resource->max);
+  resource->time_since_last_gain = 0.0f;
+  resource->decay_tick_timer = 0.0f;
+  SyncLegacySwordIntent(registry, entity);
+
+  if (resource->current != previous) {
+    MarkStatsDirty(registry, entity);
+    return true;
+  }
+  return false;
+}
+
+bool BladeResourceService::Consume(entt::registry &registry, entt::entity entity,
+                                   int amount, uint32_t source_skill_id) {
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr || amount <= 0 || resource->current < amount) {
+    return false;
+  }
+
+  resource->current -= amount;
+  resource->time_since_last_gain = 0.0f;
+  resource->decay_tick_timer = 0.0f;
+  SyncLegacySwordIntent(registry, entity);
+  MarkStatsDirty(registry, entity);
+
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateResourceConsumed(
+                    entity, Tag::SwordSkill, amount, source_skill_id));
+  return true;
+}
+
+void BladeResourceService::Update(entt::registry &registry, float dt) {
+  auto view = registry.view<BladeResourceComponent>();
+  for (const entt::entity entity : view) {
+    auto &resource = view.get<BladeResourceComponent>(entity);
+    const int previous = resource.current;
+    UpdateBladeResourceTimers(resource, dt);
+    CleanupTracking(resource.hit_tracking, resource.time_since_last_gain);
+    if (resource.current != previous) {
+      MarkStatsDirty(registry, entity);
+    }
+    SyncLegacySwordIntent(registry, entity);
+  }
+}
+
+bool BladeResourceService::ShouldAutoEmpowerOnCast(
+    const entt::registry &registry, entt::entity entity) {
+  const auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr) {
+    return registry.all_of<SwordIntentComponent>(entity);
+  }
+  return resource->kind == BladeResourceKind::SwordIntent;
+}
+
+void BladeResourceService::SyncLegacySwordIntent(entt::registry &registry,
+                                                 entt::entity entity) {
+  const auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr || resource->kind == BladeResourceKind::None) {
+    if (registry.all_of<SwordIntentComponent>(entity)) {
+      registry.remove<SwordIntentComponent>(entity);
+    }
+    return;
+  }
+
+  auto &intent = registry.get_or_emplace<SwordIntentComponent>(entity);
+  CopyResourceState(intent, *resource);
+}
+
+} // namespace NoMoreDay::systems

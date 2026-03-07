@@ -13,6 +13,7 @@
 #include "game/components/AstrolabeUIComponent.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/data/AstrolabeRegistry.hpp"
+#include "game/data/BladeMasteryRegistry.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/data/BuffRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
@@ -236,6 +237,7 @@ void Game::init() {
   NoMoreDay::MaterialRegistry::Get().LoadMaterials(
       "assets/data/materials.json");
   NoMoreDay::SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  NoMoreDay::data::BladeMasteryRegistry::Get().Load();
   NoMoreDay::SkillSystem::InitHooks();
   NoMoreDay::BuffRegistry::Initialize();
   NoMoreDay::BiomeRegistry::Get().LoadFromJSON("assets/data/biomes.json");

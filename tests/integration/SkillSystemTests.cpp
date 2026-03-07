@@ -9,10 +9,13 @@
 #include "game/components/PlayerState.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
+#include "game/data/BladeMasteryRegistry.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
+#include "game/systems/skill/BladeMasteryService.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/skill/ProjectileSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/SummonSystem.hpp"
@@ -86,6 +89,109 @@ TEST_CASE("[Integration] SkillSystem - Execution Logic") {
   }
 }
 
+TEST_CASE("[Integration] SkillSystem - Seven Star Slash signature gating") {
+  TestSetupScope testScope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+      "assets/data/blade_masteries.json"));
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+
+  auto &stats = registry.emplace<PlayerStats>(player);
+  stats.level = 50;
+
+  auto &combat = registry.emplace<CombatStats>(player);
+  combat.max_mana = 100.0f;
+  combat.mana = 100.0f;
+
+  auto &active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0].id = 10;
+  active.slots[0].current_charges = 1;
+
+  CHECK_FALSE(SkillSystem::TryCast(registry, player, 0));
+
+  auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+  astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+  systems::BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(systems::BladeMasteryService::SelectMastery(
+      registry, player, BladeMasteryId::SwordSaint));
+  active.slots[0].current_charges = 1;
+
+  CHECK(SkillSystem::TryCast(registry, player, 0));
+}
+
+TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
+  TestSetupScope testScope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+      "assets/data/blade_masteries.json"));
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  entt::registry registry;
+  auto player = registry.create();
+  auto target = registry.create();
+  registry.emplace<Position>(player, 0.0f, 0.0f);
+  registry.emplace<Position>(target, 32.0f, 0.0f);
+
+  auto& stats = registry.emplace<PlayerStats>(player);
+  stats.level = 50;
+
+  auto& combat = registry.emplace<CombatStats>(player);
+  combat.max_mana = 100.0f;
+  combat.mana = 100.0f;
+  combat.min_weapon_damage = 30.0f;
+  combat.max_weapon_damage = 30.0f;
+  registry.emplace<CombatStats>(target);
+
+  auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
+  astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+  auto& active = registry.emplace<ActiveSkillsComponent>(player);
+  active.specialized_slots[0].skill_id = 1;
+  active.specialized_slots[1].skill_id = 2;
+  active.specialized_slots[1].allocated_points[252] = 1;
+
+  systems::BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(systems::BladeMasteryService::SelectMastery(
+      registry, player, BladeMasteryId::SwordSaint));
+
+  auto flowingHit = SkillBehaviorRegistry::GetHit(1);
+  REQUIRE(flowingHit != nullptr);
+  flowingHit(registry, player, target, Tag::Melee | Tag::Physical | Tag::Hit,
+             false);
+  CombatEventDispatcher::Dispatch(
+      registry, CombatEventFactory::CreateSkillHit(
+                    player, target, 1, Tag::Melee | Tag::Physical | Tag::Hit,
+                    false));
+  CHECK(registry.get<BladeResourceComponent>(player).current >= 2);
+
+  SkillExecution rendingExec;
+  rendingExec.skill_id = 2;
+  rendingExec.owner = player;
+  rendingExec.target_pos = {32.0f, 0.0f};
+  auto rendingCast = SkillBehaviorRegistry::GetCast(2);
+  REQUIRE(rendingCast != nullptr);
+  rendingCast(registry, player, rendingExec);
+  CHECK(rendingExec.is_empowered);
+  CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+
+  REQUIRE(systems::BladeResourceService::Gain(registry, player, 3, 10u));
+  SkillExecution sevenStarExec;
+  sevenStarExec.skill_id = 10;
+  sevenStarExec.owner = player;
+  sevenStarExec.target_pos = {32.0f, 0.0f};
+  auto sevenStarCast = SkillBehaviorRegistry::GetCast(10);
+  REQUIRE(sevenStarCast != nullptr);
+  sevenStarCast(registry, player, sevenStarExec);
+  CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+}
+
 TEST_CASE("[Integration] SkillSystem - Sword Intent Logic") {
   entt::registry registry;
   SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
@@ -146,6 +252,58 @@ TEST_CASE("[Integration] SkillSystem - Sword Intent Logic") {
     CHECK(intent.stacks == 0);
     // SkillExecution might be finished (removed) by now, so we can't reliably check it.
     // But stacks == 0 implies the hook ran.
+  }
+
+  SUBCASE("Blade resource bridge gain uses mastery-owned runtime") {
+    data::BladeMasteryRegistry::Get().LoadFromJson("assets/data/blade_masteries.json");
+    auto &stats = registry.emplace<PlayerStats>(player);
+    stats.level = 50;
+    auto &combat = registry.emplace<CombatStats>(player);
+    combat.max_mana = 100.0f;
+    combat.mana = 100.0f;
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::SwordSaint));
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, entt::null, 1,
+                      Tag::Melee | Tag::Physical | Tag::Hit, false));
+
+    REQUIRE(registry.all_of<BladeResourceComponent, SwordIntentComponent>(player));
+    CHECK(registry.get<BladeResourceComponent>(player).kind ==
+          BladeResourceKind::SwordFlow);
+    CHECK(registry.get<BladeResourceComponent>(player).current == 1);
+    CHECK(registry.get<SwordIntentComponent>(player).stacks == 1);
+  }
+
+  SUBCASE("Sword Flow does not trigger legacy full-resource auto empower") {
+    data::BladeMasteryRegistry::Get().LoadFromJson("assets/data/blade_masteries.json");
+    auto &stats = registry.emplace<PlayerStats>(player);
+    stats.level = 50;
+    auto &combat = registry.emplace<CombatStats>(player);
+    combat.max_mana = 100.0f;
+    combat.mana = 100.0f;
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.slots[0].id = 1;
+    active.slots[0].current_charges = 1;
+
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::SwordSaint));
+    REQUIRE(systems::BladeResourceService::Gain(
+        registry, player, SkillConstants::DEFAULT_MAX_SWORD_INTENT, 1u));
+
+    REQUIRE(SkillSystem::TryCast(registry, player, 0));
+    SkillSystem::Update(registry, grid, 0.11f);
+
+    CHECK(registry.get<BladeResourceComponent>(player).current ==
+          SkillConstants::DEFAULT_MAX_SWORD_INTENT);
   }
 }
 

@@ -1,0 +1,17 @@
+{
+  "masteries": [
+    {
+      "id": "sword_saint",
+      "profession": "blade_ascendant",
+      "name": "Sword Saint",
+      "description": "Converts Blade Ascendant core resource into Sword Flow and unlocks Seven Star Slash.",
+      "resource_kind": "sword_flow",
+      "unlock_level": 50,
+      "debug_unlock_level_override": 5,
+      "signature_skill_id": 10,
+      "max_resource": 10,
+      "grace_period": 5.0,
+      "decay_interval": 0.5
+    }
+  ]
+}

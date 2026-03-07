@@ -11,6 +11,7 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/data/BladeMasteryRegistry.hpp"
 #include "game/systems/ui/MonsterHealthBarSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Stats.hpp"
@@ -108,6 +109,52 @@ TEST_CASE("[Tech] SkillUI - Persistence of Assignments") {
     CHECK(restored.available_talent_points == 10);
 }
 
+TEST_CASE("[Tech] SkillUI - Mastery Panel Draw Does Not Crash") {
+    entt::registry registry;
+    UISystem::State.scaleFactor = 1.0f;
+
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+
+    auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
+    registry.emplace<ActiveSkillsComponent>(player);
+
+    auto& stats = registry.emplace<PlayerStats>(player);
+    stats.level = 50;
+
+    auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+    CHECK_NOTHROW(UISkillHub::Draw(registry, player));
+}
+
+TEST_CASE("[Tech] SkillUI - Locked mastery selection shows popup") {
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+
+    UISystem::State.showMessageBox = false;
+    UISystem::State.messageBoxText[0] = '\0';
+    UISystem::State.messageBoxTimer = 0.0f;
+
+    auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
+    registry.emplace<ActiveSkillsComponent>(player);
+
+    auto& stats = registry.emplace<PlayerStats>(player);
+    stats.level = 12;
+
+    CHECK_FALSE(UISkillHub::TrySelectMastery(registry, player,
+                                             BladeMasteryId::SwordSaint));
+    CHECK(UISystem::State.showMessageBox);
+    CHECK(std::string(UISystem::State.messageBoxText) ==
+          "等级或基础职业不满足职业专精条件");
+    CHECK(UISystem::State.messageBoxTimer > 0.0f);
+}
+
 TEST_CASE("[Tech] MonsterHealthBar - Visibility and Buffs") {
     entt::registry registry;
     Camera2D camera = { {0,0}, {0,0}, 0.0f, 1.0f };
@@ -175,6 +222,15 @@ TEST_CASE("[Tech] PlayerHUD - Render Logic") {
     SUBCASE("Missing Components Does Not Crash") {
         auto other = registry.create();
         registry.emplace<PlayerTag>(other);
+        systems::PlayerHUD::Draw(registry);
+    }
+
+    SUBCASE("Blade Resource HUD Does Not Crash") {
+        registry.remove<SwordIntentComponent>(player);
+        auto& bladeResource = registry.emplace<BladeResourceComponent>(player);
+        bladeResource.kind = BladeResourceKind::SwordFlow;
+        bladeResource.current = 5;
+        bladeResource.max = 10;
         systems::PlayerHUD::Draw(registry);
     }
 }

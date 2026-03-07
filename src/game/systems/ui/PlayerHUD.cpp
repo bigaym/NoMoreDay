@@ -127,9 +127,15 @@ void PlayerHUD::Draw(entt::registry& registry) {
     float textW = 120.0f; // Approximate
     UISystem::DrawTextUI(manaText.c_str(), manaLeftX + barWidth - textW, barTopY + 4.0f, 18.0f, WHITE, 1.0f);
 
-    // --- 3. Sword Intent (Visual Widget) ---
-    if (intent) {
-        NoMoreDay::systems::ui::SwordIntentWidget::Draw(intent->stacks, intent->max_stacks);
+    // --- 3. Blade Resource (Visual Widget) ---
+    if (const auto* bladeResource = registry.try_get<BladeResourceComponent>(player)) {
+        const char* label =
+            (bladeResource->kind == BladeResourceKind::SwordFlow) ? "Sword Flow" : "Sword Intent";
+        NoMoreDay::systems::ui::SwordIntentWidget::Draw(
+            bladeResource->current, bladeResource->max, label);
+    } else if (intent) {
+        NoMoreDay::systems::ui::SwordIntentWidget::Draw(
+            intent->stacks, intent->max_stacks, "Sword Intent");
     }
 
     // --- 4. Summon Status (Top Left) ---

@@ -235,6 +235,55 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
     CHECK(restoredRuntime.trigger_cooldowns.at(971) == doctest::Approx(0.5f));
 }
 
+TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
+    entt::registry registry;
+    auto player = registry.create();
+    registry.emplace<PlayerTag>(player);
+    registry.emplace<Position>(player, 1.0f, 2.0f);
+    registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
+    registry.emplace<ActiveSkillsComponent>(player);
+
+    auto& mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.profession = static_cast<ProfessionID>(0);
+    mastery.selected = BladeMasteryId::SwordSaint;
+    mastery.debug_unlock_active = true;
+
+    auto& resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::SwordFlow;
+    resource.current = 4;
+    resource.max = 10;
+
+    auto& signature = registry.emplace<BladeSignatureSkillComponent>(player);
+    signature.skill_id = 10;
+    signature.unlocked = true;
+
+    const auto snapshot = SaveManager::Get().createSnapshot(registry);
+    CHECK(snapshot.header.version == CURRENT_CHARACTER_SAVE_VERSION);
+    REQUIRE(snapshot.blade_mastery.has_value());
+    REQUIRE(snapshot.blade_resource.has_value());
+    REQUIRE(snapshot.blade_signature_skill.has_value());
+    CHECK(snapshot.blade_mastery->selected == BladeMasteryId::SwordSaint);
+    CHECK(snapshot.blade_resource->kind == BladeResourceKind::SwordFlow);
+    CHECK(snapshot.blade_resource->current == 4);
+    CHECK(snapshot.blade_signature_skill->skill_id == 10);
+    CHECK(snapshot.blade_signature_skill->unlocked);
+
+    entt::registry restored;
+    SaveManager::Get().restoreFromSnapshot(restored, snapshot);
+    auto view = restored.view<PlayerTag, BladeMasteryComponent,
+                              BladeResourceComponent,
+                              BladeSignatureSkillComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto restoredPlayer = *view.begin();
+    CHECK(restored.get<BladeMasteryComponent>(restoredPlayer).selected ==
+          BladeMasteryId::SwordSaint);
+    CHECK(restored.get<BladeResourceComponent>(restoredPlayer).kind ==
+          BladeResourceKind::SwordFlow);
+    CHECK(restored.get<BladeResourceComponent>(restoredPlayer).current == 4);
+    CHECK(restored.get<BladeSignatureSkillComponent>(restoredPlayer).skill_id == 10);
+    CHECK(restored.get<BladeSignatureSkillComponent>(restoredPlayer).unlocked);
+}
+
 TEST_CASE("[Unit] SaveManager - Migrates legacy empty specialization slots") {
     CharacterSaveData data;
     data.header.version = 1;
@@ -256,7 +305,7 @@ TEST_CASE("[Unit] SaveManager - Migrates legacy empty specialization slots") {
 
 TEST_CASE("[Unit] SaveManager - Preserves skill zero specialization in current saves") {
     CharacterSaveData data;
-    data.header.version = 2;
+    data.header.version = CURRENT_CHARACTER_SAVE_VERSION;
     data.header.name = "Current";
     data.skills.specialized_slots[0].skill_id = 0;
 
@@ -269,6 +318,27 @@ TEST_CASE("[Unit] SaveManager - Preserves skill zero specialization in current s
     const auto& active = restored.get<ActiveSkillsComponent>(restoredPlayer);
 
     CHECK(active.specialized_slots[0].skill_id == 0);
+}
+
+TEST_CASE("[Unit] SaveManager - Legacy Blade Ascendant save rehydrates blade runtime") {
+    CharacterSaveData data;
+    data.header.version = 2;
+    data.position = Position{0.0f, 0.0f};
+    data.primaryStats = PrimaryStats{};
+    data.skills = ActiveSkillsComponent{};
+    data.astrolabe = AstrolabeComponent{};
+    data.astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    data.combatHistory = PlayerCombatHistory{};
+
+    entt::registry registry;
+    SaveManager::Get().restoreFromSnapshot(registry, data);
+
+    auto view = registry.view<PlayerTag, BladeResourceComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto player = *view.begin();
+    CHECK(registry.get<BladeResourceComponent>(player).kind ==
+          BladeResourceKind::SwordIntent);
+    CHECK(registry.all_of<SwordIntentComponent>(player));
 }
 
 TEST_CASE("[Unit] StatsOptimization - Zero Allocation") {
