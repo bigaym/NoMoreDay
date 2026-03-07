@@ -513,6 +513,8 @@ struct BladeResourceComponent {
   int current = 0;
   int max = SkillConstants::DEFAULT_MAX_SWORD_INTENT;
   float time_since_last_gain = 0.0f;
+  float last_crit_bonus_time = -999.0f;
+  float crit_bonus_feedback_timer = 0.0f;
   float grace_period = SkillConstants::SWORD_INTENT_GRACE_PERIOD;
   float decay_tick_timer = 0.0f;
   float decay_interval = SkillConstants::SWORD_INTENT_DECAY_INTERVAL;
@@ -524,6 +526,8 @@ inline void to_json(nlohmann::json &j, const BladeResourceComponent &c) {
                      {"current", c.current},
                      {"max", c.max},
                      {"time_since_last_gain", c.time_since_last_gain},
+                     {"last_crit_bonus_time", c.last_crit_bonus_time},
+                     {"crit_bonus_feedback_timer", c.crit_bonus_feedback_timer},
                      {"grace_period", c.grace_period},
                      {"decay_tick_timer", c.decay_tick_timer},
                      {"decay_interval", c.decay_interval}};
@@ -535,6 +539,8 @@ inline void from_json(const nlohmann::json &j, BladeResourceComponent &c) {
   c.current = j.value("current", 0);
   c.max = j.value("max", SkillConstants::DEFAULT_MAX_SWORD_INTENT);
   c.time_since_last_gain = j.value("time_since_last_gain", 0.0f);
+  c.last_crit_bonus_time = j.value("last_crit_bonus_time", -999.0f);
+  c.crit_bonus_feedback_timer = j.value("crit_bonus_feedback_timer", 0.0f);
   c.grace_period =
       j.value("grace_period", SkillConstants::SWORD_INTENT_GRACE_PERIOD);
   c.decay_tick_timer = j.value("decay_tick_timer", 0.0f);

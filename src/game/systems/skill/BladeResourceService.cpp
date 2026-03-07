@@ -146,11 +146,38 @@ bool BladeResourceService::Consume(entt::registry &registry, entt::entity entity
   return true;
 }
 
+bool BladeResourceService::TryGrantSwordFlowCritBonus(entt::registry &registry,
+                                                      entt::entity entity,
+                                                      uint32_t source_skill_id,
+                                                      float current_time,
+                                                      float proc_roll) {
+  auto *resource = registry.try_get<BladeResourceComponent>(entity);
+  if (resource == nullptr || resource->kind != BladeResourceKind::SwordFlow) {
+    return false;
+  }
+
+  if ((current_time - resource->last_crit_bonus_time) < 0.2f) {
+    return false;
+  }
+  if (proc_roll > 0.2f) {
+    return false;
+  }
+
+  const bool gained = Gain(registry, entity, 1, source_skill_id);
+  if (gained) {
+    resource->last_crit_bonus_time = current_time;
+    resource->crit_bonus_feedback_timer = 0.8f;
+  }
+  return gained;
+}
+
 void BladeResourceService::Update(entt::registry &registry, float dt) {
   auto view = registry.view<BladeResourceComponent>();
   for (const entt::entity entity : view) {
     auto &resource = view.get<BladeResourceComponent>(entity);
     const int previous = resource.current;
+    resource.crit_bonus_feedback_timer =
+        std::max(0.0f, resource.crit_bonus_feedback_timer - dt);
     UpdateBladeResourceTimers(resource, dt);
     CleanupTracking(resource.hit_tracking, resource.time_since_last_gain);
     if (resource.current != previous) {

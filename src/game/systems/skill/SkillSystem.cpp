@@ -650,6 +650,20 @@ void SkillSystem::InitHooks() {
           if (gain_stack) {
             SkillSystem::GainSwordIntent(registry, caster, 1, evt.skill_id);
           }
+
+          if (evt.isCrit && resource != nullptr &&
+              resource->kind == BladeResourceKind::SwordFlow) {
+            const float proc_roll =
+                static_cast<float>(GetRandomValue(0, 1000)) / 1000.0f;
+            if (systems::BladeResourceService::TryGrantSwordFlowCritBonus(
+                    registry, caster, evt.skill_id, current_time, proc_roll)) {
+              SkillExecutionContext procContext = BuildSkillVfxContextFromEvent(
+                  registry, caster, evt.skill_id, evt.castId,
+                  ResolveEntityWorldPosition(registry, caster), evt.tags);
+              EmitSkillVfxEvent(procContext, SkillVfxEventType::TriggerProc,
+                               1.25f);
+            }
+          }
         }
 
         // Unified Sword Step linkage: on-hit mana return and crit extension.

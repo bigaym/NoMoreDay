@@ -12,6 +12,7 @@
 namespace NoMoreDay::skills {
 
 namespace SevenStarSlashNodes {
+constexpr uint32_t SkillId = 10;
 constexpr uint32_t Base = 1000;
 constexpr uint32_t FlowBonus = 1001;
 constexpr uint32_t Execute = 1002;
@@ -21,6 +22,14 @@ constexpr uint32_t ShadowHunt = 1021;
 } // namespace SevenStarSlashNodes
 
 namespace {
+
+struct SevenStarSlashSpecState {
+  int flowBonusPoints = 0;
+  bool execute = false;
+  bool followThrough = false;
+  bool focusedArc = false;
+  bool shadowHunt = false;
+};
 
 float DistanceSquared(const Vector2 &a, const Vector2 &b) {
   const float dx = a.x - b.x;
@@ -38,10 +47,54 @@ int GetCurrentBladeResource(const entt::registry &registry, entt::entity entity)
   return 0;
 }
 
+SevenStarSlashSpecState ResolveSpecState(const entt::registry &registry,
+                                        entt::entity owner) {
+  SevenStarSlashSpecState state;
+
+  if (const auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
+    for (const auto &spec : active->specialized_slots) {
+      if (spec.skill_id != SevenStarSlashNodes::SkillId) {
+        continue;
+      }
+
+      if (const auto it = spec.allocated_points.find(SevenStarSlashNodes::FlowBonus);
+          it != spec.allocated_points.end()) {
+        state.flowBonusPoints = it->second;
+      }
+      state.execute = spec.allocated_points.contains(SevenStarSlashNodes::Execute);
+      state.followThrough =
+          spec.allocated_points.contains(SevenStarSlashNodes::FollowThrough);
+      break;
+    }
+  }
+
+  const uint32_t activeTransmuter =
+      SkillSystem::GetActiveTransmuterNode(registry, owner,
+                                           SevenStarSlashNodes::SkillId);
+  state.focusedArc = activeTransmuter == SevenStarSlashNodes::FocusedArc;
+  state.shadowHunt = activeTransmuter == SevenStarSlashNodes::ShadowHunt;
+  return state;
+}
+
+void ApplySlashDamage(entt::registry &registry, entt::entity owner,
+                      entt::entity target, float damage, uint32_t skillId) {
+  DamagePool pool;
+  pool.Add(Tag::Physical, damage);
+
+  DamageRequest request;
+  request.attacker = owner;
+  request.defender = target;
+  request.skill_id = skillId;
+  request.base_pool = pool;
+  request.additional_tags = Tag::Melee | Tag::SwordSkill | Tag::Hit;
+  request.source_entity = owner;
+  (void)DamagePipeline::Execute(registry, request, owner, true);
+}
+
 } // namespace
 
 struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
-  static constexpr uint32_t kSkillId = 10;
+  static constexpr uint32_t kSkillId = SevenStarSlashNodes::SkillId;
 
   static void DoCast(entt::registry &registry, entt::entity owner,
                      SkillExecution &exec) {
@@ -55,12 +108,27 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
     const float radius = skillData->GetParam("radius", 96.0f);
     const int slashCount =
         static_cast<int>(skillData->GetParam("slash_count", 7.0f));
-    const float flowBonusPerStack =
+    float flowBonusPerStack =
         skillData->GetParam("flow_bonus_per_stack", 0.06f);
-    const float singleTargetExecuteBonus =
+    float singleTargetExecuteBonus =
         skillData->GetParam("single_target_execute_bonus", 0.5f);
     const float invulnerableDuration =
         skillData->GetParam("invulnerable_duration", 0.5f);
+    float effectiveRadius = radius;
+    float damageMultiplier = 1.0f;
+
+    const SevenStarSlashSpecState specState = ResolveSpecState(registry, owner);
+    flowBonusPerStack += 0.03f * static_cast<float>(specState.flowBonusPoints);
+    if (specState.execute) {
+      singleTargetExecuteBonus += 0.75f;
+    }
+    if (specState.focusedArc) {
+      effectiveRadius *= 0.6f;
+      damageMultiplier *= 1.2f;
+    }
+    if (specState.shadowHunt) {
+      effectiveRadius *= 1.75f;
+    }
 
     const int resourceToSpend = GetCurrentBladeResource(registry, owner);
     if (resourceToSpend > 0) {
@@ -71,11 +139,11 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     registry.emplace_or_replace<InvulnerableComponent>(
         owner, InvulnerableComponent{invulnerableDuration, 0.0f, owner, SKYBLUE,
-                                     radius * 0.35f});
+                                     effectiveRadius * 0.35f});
 
     std::vector<entt::entity> targets;
     const Vector2 center = exec.target_pos;
-    const float radiusSq = radius * radius;
+    const float radiusSq = effectiveRadius * effectiveRadius;
     auto targetView = registry.view<Position, CombatStats>();
     for (const entt::entity target : targetView) {
       if (target == owner) {
@@ -93,7 +161,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         0.5f * (ownerStats->min_weapon_damage + ownerStats->max_weapon_damage);
     const float slashDamage = std::max(
         1.0f,
-        averageWeaponDamage *
+        averageWeaponDamage * damageMultiplier *
             (skillData->weapon_damage_mult +
              (static_cast<float>(resourceToSpend) * flowBonusPerStack)));
     const bool singleTarget = targets.size() == 1;
@@ -105,17 +173,12 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
                                          : 1.0f;
 
       for (const entt::entity target : targets) {
-        DamagePool pool;
-        pool.Add(Tag::Physical, slashDamage * finalSlashBonus);
-
-        DamageRequest request;
-        request.attacker = owner;
-        request.defender = target;
-        request.skill_id = kSkillId;
-        request.base_pool = pool;
-        request.additional_tags = Tag::Melee | Tag::SwordSkill | Tag::Hit;
-        request.source_entity = owner;
-        (void)DamagePipeline::Execute(registry, request, owner, true);
+        ApplySlashDamage(registry, owner, target,
+                         slashDamage * finalSlashBonus, kSkillId);
+        if (specState.followThrough && isFinalSlash) {
+          ApplySlashDamage(registry, owner, target, slashDamage * 0.35f,
+                           kSkillId);
+        }
       }
     }
   }

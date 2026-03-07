@@ -153,6 +153,10 @@ TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
   auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
   astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
   auto& active = registry.emplace<ActiveSkillsComponent>(player);
+  active.slots[0].id = 1;
+  active.slots[0].cooldown = 2.0f;
+  active.slots[1].id = 2;
+  active.slots[1].cooldown = 3.0f;
   active.specialized_slots[0].skill_id = 1;
   active.specialized_slots[1].skill_id = 2;
   active.specialized_slots[1].allocated_points[252] = 1;
@@ -161,15 +165,12 @@ TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
   REQUIRE(systems::BladeMasteryService::SelectMastery(
       registry, player, BladeMasteryId::SwordSaint));
 
-  auto flowingHit = SkillBehaviorRegistry::GetHit(1);
-  REQUIRE(flowingHit != nullptr);
-  flowingHit(registry, player, target, Tag::Melee | Tag::Physical | Tag::Hit,
-             false);
   CombatEventDispatcher::Dispatch(
       registry, CombatEventFactory::CreateSkillHit(
                     player, target, 1, Tag::Melee | Tag::Physical | Tag::Hit,
                     false));
   CHECK(registry.get<BladeResourceComponent>(player).current >= 2);
+  CHECK(active.slots[1].cooldown == doctest::Approx(2.25f));
 
   SkillExecution rendingExec;
   rendingExec.skill_id = 2;
@@ -180,6 +181,7 @@ TEST_CASE("[Integration] Blade Mastery - Sword Saint combat loop") {
   rendingCast(registry, player, rendingExec);
   CHECK(rendingExec.is_empowered);
   CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+  CHECK(active.slots[0].cooldown == doctest::Approx(0.5f));
 
   REQUIRE(systems::BladeResourceService::Gain(registry, player, 3, 10u));
   SkillExecution sevenStarExec;

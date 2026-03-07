@@ -39,7 +39,7 @@ namespace NoMoreDay::skills {
 namespace {
 
 bool TryPlayFlowingThrustSequence(entt::registry &registry, entt::entity owner,
-                         const std::string &sequenceName) {
+                          const std::string &sequenceName) {
   if (!registry.valid(owner) || sequenceName.empty()) {
     return false;
   }
@@ -51,6 +51,59 @@ bool TryPlayFlowingThrustSequence(entt::registry &registry, entt::entity owner,
 
   manager.Play(registry, owner, sequenceName);
   return true;
+}
+
+void SpawnFlowingThrustEcho(entt::registry &registry, entt::entity owner,
+                            const Vector2 &startPos, const SkillExecution &exec,
+                            const CombatStats *stats, float damageScale,
+                            float delay, float lifetime, Color tint) {
+  auto shadow_ent = registry.create();
+
+  SkillSnapshot snapshot;
+  snapshot.skill_id = 1;
+  snapshot.position = startPos;
+  snapshot.target_pos = exec.target_pos;
+  snapshot.active_nodes = exec.active_nodes;
+
+  if (stats) {
+    snapshot.stats = *stats;
+    snapshot.stats.min_weapon_damage *= damageScale;
+    snapshot.stats.max_weapon_damage *= damageScale;
+    for (auto &val : snapshot.stats.flat_damage) {
+      val *= damageScale;
+    }
+  }
+
+  ShadowComponent shadow_comp;
+  shadow_comp.snapshot = snapshot;
+  shadow_comp.delay = delay;
+  shadow_comp.lifetime = lifetime;
+  shadow_comp.damage_scale = damageScale;
+
+  registry.emplace<ShadowComponent>(shadow_ent, shadow_comp);
+  registry.emplace<Position>(shadow_ent, startPos.x, startPos.y);
+  registry.emplace<ShadowVisualComponent>(
+      shadow_ent,
+      ShadowVisualComponent{.color_tint = tint, .use_shader = true});
+  registry.emplace<DelayedDestroyComponent>(shadow_ent,
+                                            DelayedDestroyComponent{2.0f});
+}
+
+void RefundRendingWaveCooldown(entt::registry &registry, entt::entity owner,
+                               uint32_t skillId, float amount) {
+  if (amount <= 0.0f) {
+    return;
+  }
+  auto *active = registry.try_get<ActiveSkillsComponent>(owner);
+  if (active == nullptr) {
+    return;
+  }
+  for (auto &slot : active->slots) {
+    if (slot.id != skillId || slot.cooldown <= 0.0f) {
+      continue;
+    }
+    slot.cooldown = std::max(0.0f, slot.cooldown - amount);
+  }
 }
 
 } // namespace
@@ -103,6 +156,12 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     Vector2 startPos = {pos->x, pos->y};
     Vector2 dir = Vector2Normalize(Vector2Subtract(exec.target_pos, startPos));
     float speed = 400.0f;
+    if (const auto *resource = registry.try_get<BladeResourceComponent>(owner);
+        resource != nullptr && resource->kind == BladeResourceKind::SwordFlow) {
+      const float flowStacks =
+          static_cast<float>(std::clamp(resource->current, 0, 10));
+      speed *= (1.0f + flowStacks * 0.04f);
+    }
     TryPlayFlowingThrustSequence(registry, owner, "SwordSlash");
 
     ElementalConversion elementalConv;
@@ -130,46 +189,32 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
     // For visual effects, we might want to change the particle color here.
     bool is_elemental = elementalConv.IsActive();
 
+    bool spawnedEcho = false;
+
     // Talent 130: Shadow (Spawn Shadow Echo)
     // Prevent recursion: Don't spawn shadow if owner is already a shadow
     if (exec.active_nodes.test(FlowingThrustNodes::Shadow % 100) &&
         !registry.any_of<ShadowComponent>(owner)) {
-      auto shadow_ent = registry.create();
-      Vector2 shadow_pos = startPos; // Start at same pos
+      SpawnFlowingThrustEcho(registry, owner, startPos, exec, stats, 0.3f,
+                             0.15f, 1.5f, {50, 0, 80, 180});
+      spawnedEcho = true;
+    }
 
-      // Create Shadow Snapshot
-      SkillSnapshot snapshot;
-      snapshot.skill_id = kSkillId;
-      snapshot.position = shadow_pos;
-      snapshot.target_pos = exec.target_pos;
-      snapshot.active_nodes = exec.active_nodes; // Inherit talents
-
-      if (stats) {
-        snapshot.stats = *stats;
-        // Apply 30% damage scale manually to snapshot
-        snapshot.stats.min_weapon_damage *= 0.3f;
-        snapshot.stats.max_weapon_damage *= 0.3f;
-        for (auto &val : snapshot.stats.flat_damage)
-          val *= 0.3f;
+    if (!spawnedEcho) {
+      if (const auto *resource = registry.try_get<BladeResourceComponent>(owner);
+          resource != nullptr && resource->kind == BladeResourceKind::SwordFlow &&
+          resource->current >= 5 && !registry.any_of<ShadowComponent>(owner)) {
+        SpawnFlowingThrustEcho(registry, owner, startPos, exec, stats, 0.22f,
+                               0.08f, 1.0f, {120, 240, 255, 180});
+        if (resource->current >= 8) {
+          SpawnFlowingThrustEcho(registry, owner, startPos, exec, stats, 0.18f,
+                                 0.16f, 0.9f, {180, 255, 255, 170});
+        }
+        if (resource->current >= 10) {
+          SpawnFlowingThrustEcho(registry, owner, startPos, exec, stats, 0.14f,
+                                 0.24f, 0.85f, {255, 240, 180, 180});
+        }
       }
-
-      ShadowComponent shadow_comp;
-      shadow_comp.snapshot = snapshot;
-      shadow_comp.delay = 0.15f; // Slight delay for "Echo" feel
-      shadow_comp.lifetime = 1.5f;
-      shadow_comp.damage_scale = 0.3f; // For reference/verification
-
-      registry.emplace<ShadowComponent>(shadow_ent, shadow_comp);
-      registry.emplace<Position>(shadow_ent, shadow_pos.x, shadow_pos.y);
-
-      // Add Visuals (Ink/Shadow effect)
-      registry.emplace<ShadowVisualComponent>(
-          shadow_ent, ShadowVisualComponent{.color_tint = {50, 0, 80, 180},
-                                            .use_shader = true});
-
-      // Add DelayedDestroy to ensure cleanup
-      registry.emplace<DelayedDestroyComponent>(shadow_ent,
-                                                DelayedDestroyComponent{2.0f});
     }
 
     // Integrate with DashComponent
@@ -474,6 +519,7 @@ struct FlowingThrust : SkillBehaviorBase<FlowingThrust> {
               resource != nullptr &&
               resource->kind == BladeResourceKind::SwordFlow) {
             (void)SkillSystem::GainSwordIntent(registry, attacker, 1, kSkillId);
+            RefundRendingWaveCooldown(registry, attacker, 2, 0.75f);
           }
 
           // ID 133: PrisonSlash (Was 124)

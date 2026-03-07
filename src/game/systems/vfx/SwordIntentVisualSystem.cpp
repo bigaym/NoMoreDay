@@ -22,6 +22,7 @@ struct RuntimeVisualState {
   int prevIntentStacks = 0;
   float intentCarry = 0.0f;
   float peakDistortionTimer = 0.0f;
+  bool critFeedbackActive = false;
   bool swordStepActive = false;
   int swordStepTrailId = -1;
   float swordStepCarry = 0.0f;
@@ -231,7 +232,34 @@ void SwordIntentVisualSystem::Update(entt::registry &registry, float dt) {
     visual.intensity = Lerp(visual.intensity, targetIntensity, dt * 6.0f);
     visual.pulseSpeed = 1.0f + visual.intensity * 2.4f;
     visual.pulseTime += dt * visual.pulseSpeed;
+    visual.critFeedbackPulse = std::max(0.0f, visual.critFeedbackPulse - dt * 1.8f);
     visual.auraColor = ResolveIntentColor(intent.stacks, intent.max_stacks);
+
+    bool critFeedbackActive = false;
+    if (const auto *bladeResource = registry.try_get<BladeResourceComponent>(entity);
+        bladeResource != nullptr &&
+        bladeResource->kind == BladeResourceKind::SwordFlow &&
+        bladeResource->crit_bonus_feedback_timer > 0.0f) {
+      critFeedbackActive = true;
+      visual.critFeedbackPulse = std::max(
+          visual.critFeedbackPulse,
+          std::clamp(bladeResource->crit_bonus_feedback_timer / 0.8f, 0.0f, 1.0f));
+
+      if (!state.critFeedbackActive) {
+        const int burstCount =
+            (tier <= static_cast<uint8_t>(render::core::QualityTier::Low))
+                ? 4
+                : (tier <= static_cast<uint8_t>(render::core::QualityTier::Medium) ? 7 : 10);
+        const Color critColor = Color{120, 240, 255, 235};
+        EmitBurst({pos.x, pos.y}, critColor, burstCount, 95.0f, 220.0f, 2.6f,
+                  intentParticleBudget);
+        RenderSystem::AddScreenShake(0.025f);
+        if (allowDistortion) {
+          RenderSystem::AddDistortionSource(pos.x, pos.y, 28.0f, 0.10f);
+        }
+      }
+    }
+    state.critFeedbackActive = critFeedbackActive;
 
     if (intent.stacks > 0) {
       const float intentRate =
@@ -383,6 +411,19 @@ void SwordIntentVisualSystem::Render(entt::registry &registry) {
       if (tier >= static_cast<uint8_t>(render::core::QualityTier::High)) {
         DrawRing({pos.x, pos.y}, baseRadius * 1.05f, baseRadius * 1.24f,
                  pulse * 120.0f, pulse * 120.0f + 140.0f, 20, Fade(peakColor, 0.35f));
+      }
+    }
+
+    if (visual.critFeedbackPulse > 0.01f) {
+      const float critRadius = baseRadius * (1.15f + visual.critFeedbackPulse * 0.55f);
+      const float critThickness = 2.0f + visual.critFeedbackPulse * 2.5f;
+      const Color critColor = ColorAlpha(Color{120, 240, 255, 255},
+                                         0.25f + visual.critFeedbackPulse * 0.45f);
+      DrawPolyLinesEx({pos.x, pos.y}, 8, critRadius, visual.pulseTime * 35.0f,
+                      critThickness, critColor);
+      if (tier >= static_cast<uint8_t>(render::core::QualityTier::High)) {
+        DrawRing({pos.x, pos.y}, critRadius * 0.88f, critRadius * 1.04f,
+                 0.0f, 360.0f, 24, Fade(critColor, 0.35f));
       }
     }
   }

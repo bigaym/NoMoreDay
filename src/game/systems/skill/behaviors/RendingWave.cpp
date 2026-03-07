@@ -49,6 +49,23 @@ bool TryPlayRendingWaveSequence(entt::registry &registry, entt::entity owner,
   return true;
 }
 
+void RefundFlowingThrustCooldown(entt::registry &registry, entt::entity owner,
+                                 uint32_t skillId, float amount) {
+  if (amount <= 0.0f) {
+    return;
+  }
+  auto *active = registry.try_get<ActiveSkillsComponent>(owner);
+  if (active == nullptr) {
+    return;
+  }
+  for (auto &slot : active->slots) {
+    if (slot.id != skillId || slot.cooldown <= 0.0f) {
+      continue;
+    }
+    slot.cooldown = std::max(0.0f, slot.cooldown - amount);
+  }
+}
+
 } // namespace
 
 namespace RendingWaveNodes {
@@ -96,6 +113,14 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     float baseRadius = skillData ? skillData->GetParam("radius", 35.0f) : 35.0f;
     float baseLifetime =
         skillData ? skillData->GetParam("lifetime", 1.2f) : 1.2f;
+    int currentSwordFlow = 0;
+    if (const auto *resource = registry.try_get<BladeResourceComponent>(owner);
+        resource != nullptr && resource->kind == BladeResourceKind::SwordFlow) {
+      currentSwordFlow = std::clamp(resource->current, 0, 10);
+      const float flowStacks = static_cast<float>(currentSwordFlow);
+      baseSpeed *= (1.0f + flowStacks * 0.04f);
+      baseRadius *= (1.0f + flowStacks * 0.03f);
+    }
 
     // Apply Stats (Area of Effect, Projectile Speed)
     // GetStatWithTags returns values like 100.0f for 1.0 (100%)
@@ -140,6 +165,18 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
     bool explodeOnHit = false;
     bool hoverAtApex = false;
     float talentWidthBonus = 0.0f;
+    if (currentSwordFlow > 0) {
+      talentWidthBonus += static_cast<float>(currentSwordFlow) * 1.5f;
+      if (currentSwordFlow >= 5) {
+        extraWaves += 1;
+      }
+      if (currentSwordFlow >= 8) {
+        extraWaves += 1;
+      }
+      if (currentSwordFlow >= 10) {
+        extraWaves += 1;
+      }
+    }
 
     if (auto *active = registry.try_get<ActiveSkillsComponent>(owner)) {
       for (const auto &spec : active->specialized_slots) {
@@ -207,6 +244,7 @@ struct RendingWave : SkillBehaviorBase<RendingWave> {
                 SkillSystem::ConsumeSwordIntent(registry, owner, spendAmount,
                                                 kSkillId)) {
               exec.is_empowered = true;
+              RefundFlowingThrustCooldown(registry, owner, 1, 1.5f);
               LOG_INFO("Sword Intent Burst (252) triggered for Rending Wave!");
             }
           }

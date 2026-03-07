@@ -19,6 +19,11 @@ public:
                    uint32_t source_skill_id);
   static bool Consume(entt::registry &registry, entt::entity entity, int amount,
                       uint32_t source_skill_id);
+  static bool TryGrantSwordFlowCritBonus(entt::registry &registry,
+                                         entt::entity entity,
+                                         uint32_t source_skill_id,
+                                         float current_time,
+                                         float proc_roll);
   static void Update(entt::registry &registry, float dt);
   static bool ShouldAutoEmpowerOnCast(const entt::registry &registry,
                                       entt::entity entity);

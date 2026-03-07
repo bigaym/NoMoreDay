@@ -4,6 +4,7 @@
 #include "game/components/Progression.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/data/BladeMasteryRegistry.hpp"
+#include "game/systems/combat/StatsSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 
@@ -127,6 +128,76 @@ TEST_CASE("[Unit] Blade Resource Service - mirrored legacy sword intent") {
   BladeResourceService::Update(registry, 6.0f);
   CHECK(registry.get<BladeResourceComponent>(player).current == 0);
   CHECK(registry.get<SwordIntentComponent>(player).stacks == 0);
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
+TEST_CASE("[Unit] Sword Flow - grants Sword Saint crit and attack speed") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::SwordSaint));
+
+  StatsSystem::Recalculate(registry, player);
+  const CombatStats baseline = registry.get<CombatStats>(player);
+
+  REQUIRE(BladeResourceService::Gain(registry, player, 5, 10u));
+  StatsSystem::Recalculate(registry, player);
+  const CombatStats buffed = registry.get<CombatStats>(player);
+
+  CHECK(buffed.crit_chance == doctest::Approx(baseline.crit_chance + 0.15f));
+  CHECK(buffed.attack_speed == doctest::Approx(baseline.attack_speed * 1.10f));
+  CHECK(buffed.move_speed == doctest::Approx(baseline.move_speed));
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
+TEST_CASE("[Unit] Sword Flow - crit bonus grants extra stack with cooldown") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::SwordSaint));
+  REQUIRE(BladeResourceService::Gain(registry, player, 1, 10u));
+
+  CHECK(BladeResourceService::TryGrantSwordFlowCritBonus(registry, player, 10u,
+                                                         1.0f, 0.0f));
+  CHECK(registry.get<BladeResourceComponent>(player).current == 2);
+  CHECK(registry.get<BladeResourceComponent>(player).crit_bonus_feedback_timer >
+        0.0f);
+
+  CHECK_FALSE(BladeResourceService::TryGrantSwordFlowCritBonus(
+      registry, player, 10u, 1.1f, 0.0f));
+  CHECK(registry.get<BladeResourceComponent>(player).current == 2);
+
+  CHECK_FALSE(BladeResourceService::TryGrantSwordFlowCritBonus(
+      registry, player, 10u, 1.3f, 0.5f));
+  CHECK(registry.get<BladeResourceComponent>(player).current == 2);
+
+  CHECK(BladeResourceService::TryGrantSwordFlowCritBonus(registry, player, 10u,
+                                                         1.3f, 0.1f));
+  CHECK(registry.get<BladeResourceComponent>(player).current == 3);
+
+  BladeResourceService::Update(registry, 1.0f);
+  CHECK(registry.get<BladeResourceComponent>(player).crit_bonus_feedback_timer ==
+        doctest::Approx(0.0f));
 
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }

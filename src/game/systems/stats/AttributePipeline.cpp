@@ -624,6 +624,16 @@ void AttributePipeline::Calculate(entt::registry &registry,
           const int new_max = SkillConstants::DEFAULT_MAX_SWORD_INTENT +
                               static_cast<int>(bonus_max_sword_intent);
           systems::BladeResourceService::SetMaxResource(registry, entity, new_max);
+
+          if (const auto* bladeResource = registry.try_get<BladeResourceComponent>(entity);
+              bladeResource != nullptr &&
+              bladeResource->kind == BladeResourceKind::SwordFlow) {
+              const float flowStacks = static_cast<float>(bladeResource->current);
+              ApplyStatModifier(calcs, StatType::CritChance, ModifierMode::Flat,
+                                flowStacks * 3.0f);
+              ApplyStatModifier(calcs, StatType::AttackSpeed,
+                                ModifierMode::PercentAdd, flowStacks * 2.0f);
+          }
       }
 
       if (active_traits.contains(TraitID::SwordHeart)) {

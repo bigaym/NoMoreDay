@@ -12,7 +12,9 @@
 #include "game/components/Common.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/data/BladeMasteryRegistry.hpp"
+#include "game/components/vfx/SwordIntentVisualComponent.hpp"
 #include "game/systems/ui/MonsterHealthBarSystem.hpp"
+#include "game/systems/vfx/SwordIntentVisualSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Stats.hpp"
 #include "game/components/Buff.hpp"
@@ -233,6 +235,27 @@ TEST_CASE("[Tech] PlayerHUD - Render Logic") {
         bladeResource.max = 10;
         systems::PlayerHUD::Draw(registry);
     }
+}
+
+TEST_CASE("[Tech] SwordIntentVisual - Sword Flow crit proc pulse activates") {
+    entt::registry registry;
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+
+    auto& intent = registry.emplace<SwordIntentComponent>(player);
+    intent.stacks = 3;
+    intent.max_stacks = 10;
+
+    auto& bladeResource = registry.emplace<BladeResourceComponent>(player);
+    bladeResource.kind = BladeResourceKind::SwordFlow;
+    bladeResource.current = 3;
+    bladeResource.max = 10;
+    bladeResource.crit_bonus_feedback_timer = 0.8f;
+
+    systems::SwordIntentVisualSystem::Update(registry, 0.016f);
+
+    REQUIRE(registry.all_of<components::SwordIntentVisual>(player));
+    CHECK(registry.get<components::SwordIntentVisual>(player).critFeedbackPulse > 0.0f);
 }
 
 TEST_CASE("[Tech] UIRenderer - Tooltip Logic Smoke Test") {

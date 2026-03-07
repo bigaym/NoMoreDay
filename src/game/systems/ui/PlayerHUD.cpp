@@ -133,6 +133,14 @@ void PlayerHUD::Draw(entt::registry& registry) {
             (bladeResource->kind == BladeResourceKind::SwordFlow) ? "Sword Flow" : "Sword Intent";
         NoMoreDay::systems::ui::SwordIntentWidget::Draw(
             bladeResource->current, bladeResource->max, label);
+        if (bladeResource->kind == BladeResourceKind::SwordFlow &&
+            bladeResource->crit_bonus_feedback_timer > 0.0f) {
+            const float pulse = 0.7f + 0.3f * std::sin(static_cast<float>(GetTime()) * 12.0f);
+            const Color feedbackColor = ColorAlpha(SKYBLUE, pulse);
+            UISystem::DrawTextUI("暴击剑流 +1", UI_REF_WIDTH * 0.5f - 54.0f,
+                                 UI_REF_HEIGHT - 248.0f, 18.0f, feedbackColor,
+                                 1.0f);
+        }
     } else if (intent) {
         NoMoreDay::systems::ui::SwordIntentWidget::Draw(
             intent->stacks, intent->max_stacks, "Sword Intent");
