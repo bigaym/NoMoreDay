@@ -1,172 +1,397 @@
 #include "game/systems/ui/UISkillSpecRenderer.hpp"
+
+#include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/ui/BladeMasteryUITheme.hpp"
 #include "game/systems/ui/UISystem.hpp"
-#include "engine/render/UIRenderer.hpp"
 #include "raymath.h"
+#include "rlgl.h"
+
 #include <algorithm>
 #include <cmath>
-#include "engine/resource/AssetLoadingSystem.hpp"
-#include "rlgl.h" 
 
 namespace NoMoreDay {
+namespace {
 
-    static void DrawRingGradient(Vector2 center, float innerRadius, float outerRadius, Color startColor, Color endColor) {
-        if (innerRadius >= outerRadius) return;
-        
-        rlBegin(RL_QUADS);
-        for (int i = 0; i < 360; i += 10) {
-            float angle1 = (float)i * DEG2RAD;
-            float angle2 = (float)(i + 10) * DEG2RAD;
-            
-            float cin1 = cosf(angle1), sin1 = sinf(angle1);
-            float cin2 = cosf(angle2), sin2 = sinf(angle2);
-            
-            rlColor4ub(startColor.r, startColor.g, startColor.b, startColor.a);
-            rlVertex2f(center.x + cin1 * innerRadius, center.y + sin1 * innerRadius);
-            rlVertex2f(center.x + cin2 * innerRadius, center.y + sin2 * innerRadius);
-            
-            rlColor4ub(endColor.r, endColor.g, endColor.b, endColor.a);
-            rlVertex2f(center.x + cin2 * outerRadius, center.y + sin2 * outerRadius);
-            rlVertex2f(center.x + cin1 * outerRadius, center.y + sin1 * outerRadius);
-        }
-        rlEnd();
+void DrawRingGradient(Vector2 center, float innerRadius, float outerRadius,
+                      Color startColor, Color endColor) {
+    if (innerRadius >= outerRadius) {
+        return;
     }
 
-    static bool IsPrerequisiteSatisfiedOr(const TalentNode& node, const SkillTreeDefinition* tree,
-                                          const SpecializedSkill* specialized) {
-        if (!tree || !specialized || node.prerequisites.empty()) {
+    rlBegin(RL_QUADS);
+    for (int i = 0; i < 360; i += 10) {
+        const float angle1 = static_cast<float>(i) * DEG2RAD;
+        const float angle2 = static_cast<float>(i + 10) * DEG2RAD;
+
+        const float cos1 = cosf(angle1);
+        const float sin1 = sinf(angle1);
+        const float cos2 = cosf(angle2);
+        const float sin2 = sinf(angle2);
+
+        rlColor4ub(startColor.r, startColor.g, startColor.b, startColor.a);
+        rlVertex2f(center.x + cos1 * innerRadius, center.y + sin1 * innerRadius);
+        rlVertex2f(center.x + cos2 * innerRadius, center.y + sin2 * innerRadius);
+
+        rlColor4ub(endColor.r, endColor.g, endColor.b, endColor.a);
+        rlVertex2f(center.x + cos2 * outerRadius, center.y + sin2 * outerRadius);
+        rlVertex2f(center.x + cos1 * outerRadius, center.y + sin1 * outerRadius);
+    }
+    rlEnd();
+}
+
+bool IsPrerequisiteSatisfiedOr(const TalentNode& node,
+                              const SkillTreeDefinition* tree,
+                              const SpecializedSkill* specialized) {
+    if (!tree || !specialized || node.prerequisites.empty()) {
+        return true;
+    }
+
+    bool hasValidPrereq = false;
+    for (const auto& pre : node.prerequisites) {
+        const uint32_t preId = pre.node_id;
+        if (preId == 0 || !tree->nodes.contains(preId)) {
+            continue;
+        }
+        hasValidPrereq = true;
+        const int prePts = specialized->allocated_points.contains(preId)
+                               ? specialized->allocated_points.at(preId)
+                               : 0;
+        const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
+        if (prePts >= requiredPoints) {
             return true;
         }
+    }
+    return !hasValidPrereq;
+}
 
-        bool hasValidPrereq = false;
-        for (const auto& pre : node.prerequisites) {
-            const uint32_t preId = pre.node_id;
-            if (preId == 0 || !tree->nodes.contains(preId)) {
-                continue;
-            }
-            hasValidPrereq = true;
-            int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
-            const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
-            if (prePts >= requiredPoints) {
-                return true;
-            }
+const BladeMasteryUIThemeProfile& ResolveThemeProfile(const SkillTreeDefinition* tree) {
+    if (tree != nullptr) {
+        return GetBladeMasteryUIThemeProfile(tree->mastery_id);
+    }
+    return GetBladeMasteryUIThemeProfile(BladeMasteryId::None);
+}
+
+Color GetTagAccentColor(const SkillData* skillData) {
+    if (!skillData) {
+        return WHITE;
+    }
+    if (HasTag(skillData->tags, Tag::Fire)) {
+        return Color{255, 128, 72, 255};
+    }
+    if (HasTag(skillData->tags, Tag::Cold)) {
+        return Color{134, 212, 255, 255};
+    }
+    if (HasTag(skillData->tags, Tag::Lightning)) {
+        return Color{228, 236, 92, 255};
+    }
+    if (HasTag(skillData->tags, Tag::Void)) {
+        return Color{178, 116, 255, 255};
+    }
+    if (HasTag(skillData->tags, Tag::Poison)) {
+        return Color{88, 208, 114, 255};
+    }
+    return WHITE;
+}
+
+Color GetLocalNodeAccent(const SkillData* skillData,
+                         UISkillSpecRenderer::NodeType type,
+                         const BladeMasteryUIThemeProfile& theme) {
+    if (type == UISkillSpecRenderer::NodeType::Transmuter ||
+        type == UISkillSpecRenderer::NodeType::Trigger) {
+        return GetTagAccentColor(skillData);
+    }
+    if (type == UISkillSpecRenderer::NodeType::Synergy) {
+        return theme.highlight;
+    }
+    return theme.primary;
+}
+
+void DrawDiagonalCuts(const Vector2 center, const SkillSpecView& view,
+                      const BladeMasteryUIThemeProfile& theme) {
+    const float width = static_cast<float>(GetScreenWidth());
+    const float height = static_cast<float>(GetScreenHeight());
+    for (int i = -2; i <= 2; ++i) {
+        const float offset = static_cast<float>(i) * 180.0f * view.zoom;
+        const Vector2 start = {center.x - width * 0.55f, center.y - height * 0.42f + offset};
+        const Vector2 end = {center.x + width * 0.55f, center.y + height * 0.18f + offset};
+        DrawLineEx(start, end, (i == 0 ? 4.0f : 2.0f) * view.zoom,
+                   Fade(i == 0 ? theme.highlight : theme.secondary,
+                        (i == 0 ? 0.12f : 0.07f) * view.alpha));
+    }
+}
+
+void DrawOrbitArcs(const Vector2 center, const SkillSpecView& view,
+                   const BladeMasteryUIThemeProfile& theme) {
+    const float radii[] = {170.0f, 290.0f, 410.0f};
+    const float phase = fmodf(static_cast<float>(GetTime()) * 14.0f, 360.0f);
+    for (int i = 0; i < 3; ++i) {
+        const float radius = radii[i] * view.zoom;
+        DrawRingLines(center, radius - 2.0f * view.zoom, radius + 2.0f * view.zoom,
+                      phase + i * 45.0f, phase + 120.0f + i * 35.0f, 48,
+                      Fade(i == 1 ? theme.highlight : theme.primary,
+                           (i == 1 ? 0.16f : 0.10f) * view.alpha));
+    }
+}
+
+void DrawBrokenPlate(const Vector2 center, const SkillSpecView& view,
+                     const BladeMasteryUIThemeProfile& theme) {
+    const float outerRadius = 360.0f * view.zoom;
+    DrawPolyLinesEx(center, 8, outerRadius, 22.5f, 2.0f * view.zoom,
+                    Fade(theme.secondary, 0.12f * view.alpha));
+    DrawPolyLinesEx(center, 8, outerRadius * 0.72f, 22.5f, 1.0f * view.zoom,
+                    Fade(theme.primary, 0.10f * view.alpha));
+
+    const Vector2 crackA = {center.x - outerRadius * 0.56f, center.y - outerRadius * 0.18f};
+    const Vector2 crackB = {center.x - outerRadius * 0.16f, center.y + outerRadius * 0.06f};
+    const Vector2 crackC = {center.x + outerRadius * 0.22f, center.y - outerRadius * 0.12f};
+    DrawLineEx(crackA, crackB, 2.0f * view.zoom,
+               Fade(theme.danger, 0.16f * view.alpha));
+    DrawLineEx(crackB, crackC, 2.0f * view.zoom,
+               Fade(theme.secondary, 0.18f * view.alpha));
+}
+
+void DrawNodeShape(Vector2 pos, float radius, UISkillSpecRenderer::NodeType type,
+                   Color fillColor, Color borderColor, float zoom, bool maxed,
+                   const BladeMasteryUIThemeProfile& theme, Color accent,
+                   float alpha) {
+    switch (type) {
+    case UISkillSpecRenderer::NodeType::Keystone:
+        DrawPoly(pos, 8, radius, 22.5f, fillColor);
+        DrawPolyLinesEx(pos, 8, radius, 22.5f, 3.0f * zoom, borderColor);
+        if (maxed) {
+            DrawPolyLinesEx(pos, 8, radius + 4.0f * zoom, 22.5f, 1.4f * zoom,
+                            Fade(theme.highlight, 0.72f * alpha));
         }
-        return !hasValidPrereq;
+        break;
+    case UISkillSpecRenderer::NodeType::Trigger:
+        DrawPoly(pos, 3, radius, -90.0f, fillColor);
+        DrawPolyLinesEx(pos, 3, radius, -90.0f, 2.5f * zoom, borderColor);
+        break;
+    case UISkillSpecRenderer::NodeType::Transmuter:
+        DrawPoly(pos, 4, radius, 45.0f, fillColor);
+        DrawPolyLinesEx(pos, 4, radius, 45.0f, 2.6f * zoom, borderColor);
+        DrawPolyLinesEx(pos, 4, radius + 5.0f * zoom, 45.0f, 1.0f * zoom,
+                        Fade(accent, 0.45f * alpha));
+        break;
+    case UISkillSpecRenderer::NodeType::Modifier:
+    case UISkillSpecRenderer::NodeType::Synergy:
+        DrawPoly(pos, 6, radius, 0.0f, fillColor);
+        DrawPolyLinesEx(pos, 6, radius, 0.0f, 2.5f * zoom, borderColor);
+        break;
+    case UISkillSpecRenderer::NodeType::Passive:
+    default:
+        DrawCircleV(pos, radius, fillColor);
+        DrawRing(pos, radius - 2.4f * zoom, radius, 0, 360, 32, borderColor);
+        break;
     }
 
-// Helper to get screen position
-Vector2 UISkillSpecRenderer::GetNodeScreenPos(const TalentNode& node, const SkillSpecView& view) {
+    switch (theme.node_shell) {
+    case BladeMasteryNodeShell::BeveledDiamond:
+        DrawPolyLinesEx(pos, 4, radius + 6.0f * zoom, 45.0f, 1.2f * zoom,
+                        Fade(theme.secondary, 0.48f * alpha));
+        break;
+    case BladeMasteryNodeShell::OrbitRing:
+        DrawRingLines(pos, radius + 3.0f * zoom, radius + 5.0f * zoom, 0.0f,
+                      360.0f, 36, Fade(accent, 0.42f * alpha));
+        break;
+    case BladeMasteryNodeShell::BrokenPlate:
+        DrawPolyLinesEx(pos, 8, radius + 4.0f * zoom, 22.5f, 1.2f * zoom,
+                        Fade(theme.secondary, 0.40f * alpha));
+        DrawLineEx({pos.x - radius * 0.62f, pos.y - radius * 0.08f},
+                   {pos.x - radius * 0.12f, pos.y + radius * 0.20f},
+                   1.5f * zoom, Fade(theme.danger, 0.34f * alpha));
+        break;
+    case BladeMasteryNodeShell::None:
+    default:
+        break;
+    }
+}
+
+} // namespace
+
+Vector2 UISkillSpecRenderer::GetNodeScreenPos(const TalentNode& node,
+                                              const SkillSpecView& view) {
     const float spacingX = 85.0f * view.zoom;
     const float spacingY = 70.0f * view.zoom;
     const float finalX = node.x * spacingX;
     const float finalY = node.y * spacingY;
 
-    return { view.center.x + view.offset.x + finalX, 
-             view.center.y + view.offset.y + finalY };
+    return {view.center.x + view.offset.x + finalX,
+            view.center.y + view.offset.y + finalY};
 }
 
-Color UISkillSpecRenderer::GetThemeColor(const SkillData* skillData) {
-    if (!skillData) return GOLD;
-    
-    if (HasTag(skillData->tags, Tag::Fire)) return Color{ 255, 120, 30, 255 };
-    if (HasTag(skillData->tags, Tag::Cold)) return Color{ 100, 200, 255, 255 };
-    if (HasTag(skillData->tags, Tag::Lightning)) return Color{ 220, 240, 60, 255 };
-    if (HasTag(skillData->tags, Tag::Void)) return Color{ 180, 70, 255, 255 };
-    if (HasTag(skillData->tags, Tag::Poison)) return Color{ 50, 220, 80, 255 };
-    if (HasTag(skillData->tags, Tag::Physical) || HasTag(skillData->tags, Tag::Melee)) return Color{ 255, 60, 60, 255 };
-    
-    return GOLD;
-}
+UISkillSpecRenderer::NodeType UISkillSpecRenderer::ClassifyNodeVisual(
+    const TalentNode& node, const NodeContractData* contract) {
+    if (contract != nullptr) {
+        switch (contract->role) {
+        case SpecNodeRole::Trigger:
+            return NodeType::Trigger;
+        case SpecNodeRole::Synergy:
+            return NodeType::Synergy;
+        case SpecNodeRole::Transmuter:
+            return NodeType::Transmuter;
+        case SpecNodeRole::Keystone:
+            return NodeType::Keystone;
+        case SpecNodeRole::Passive:
+        default:
+            break;
+        }
+    }
 
-UISkillSpecRenderer::NodeType UISkillSpecRenderer::GetNodeType(const TalentNode& node) {
-    if (node.max_points == 1) return NodeType::Keystone;
-    if (node.max_points <= 4) return NodeType::Modifier;
+    if (node.max_points == 1) {
+        return NodeType::Keystone;
+    }
+    if (node.max_points <= 4) {
+        return NodeType::Modifier;
+    }
     return NodeType::Passive;
 }
 
-float UISkillSpecRenderer::GetNodeRadius(const TalentNode& node, const SkillSpecView& view) {
-    float baseRadius = 40.0f * view.zoom;
-    NodeType type = GetNodeType(node);
-    if (type == NodeType::Keystone) return baseRadius * 1.35f;
-    if (type == NodeType::Trigger) return baseRadius * 1.1f;
-    if (type == NodeType::Transmuter) return baseRadius * 1.1f;
-    if (type == NodeType::Synergy) return baseRadius * 1.0f;
-    if (type == NodeType::Modifier) return baseRadius * 0.95f;
-    return baseRadius * 0.75f;
+float UISkillSpecRenderer::GetNodeRadius(const TalentNode& node,
+                                         const SkillSpecView& view,
+                                         const NodeContractData* contract) {
+    const float baseRadius = 40.0f * view.zoom;
+    switch (ClassifyNodeVisual(node, contract)) {
+    case NodeType::Keystone:
+        return baseRadius * 1.35f;
+    case NodeType::Trigger:
+    case NodeType::Transmuter:
+        return baseRadius * 1.1f;
+    case NodeType::Synergy:
+        return baseRadius;
+    case NodeType::Modifier:
+        return baseRadius * 0.95f;
+    case NodeType::Passive:
+    default:
+        return baseRadius * 0.75f;
+    }
 }
 
-void UISkillSpecRenderer::Draw(const SkillTreeDefinition* tree, 
-                               const SpecializedSkill* specialized, 
-                               const ActiveSkillsComponent* active, 
+void UISkillSpecRenderer::Draw(const SkillTreeDefinition* tree,
+                               const SpecializedSkill* specialized,
+                               const ActiveSkillsComponent* active,
                                const SkillData* skillData,
                                const SkillSpecView& view,
                                uint32_t hoveredNodeId,
                                const std::unordered_set<uint32_t>* excludedNodeIds) {
-    Color theme = GetThemeColor(skillData);
-    DrawBackground(view, skillData);
-    DrawConnections(tree, specialized, view, theme);
-    DrawHub(view, skillData);
-    DrawNodes(tree, specialized, active, view, theme, hoveredNodeId, excludedNodeIds);
+    DrawBackground(tree, view);
+    DrawConnections(tree, specialized, view);
+    DrawHub(tree, skillData, view);
+    DrawNodes(tree, specialized, active, skillData, view, hoveredNodeId,
+              excludedNodeIds);
 }
 
-void UISkillSpecRenderer::DrawBackground(const SkillSpecView& view, const SkillData* skillData) {
-    Color theme = GetThemeColor(skillData);
-    Vector2 treeCenter = { view.center.x + view.offset.x, view.center.y + view.offset.y };
-    
-    // 1. Central Ambient Glow (Multiple layers for soft falloff)
-    for(int i = 0; i < 3; i++) {
-        float r = (600.0f + i * 300.0f) * view.zoom;
-        float alphaMult = 0.12f / (i + 1);
-        DrawCircleGradient((int)treeCenter.x, (int)treeCenter.y, r, Fade(theme, alphaMult * view.alpha), Fade(BLANK, 0.0f));
+void UISkillSpecRenderer::DrawBackground(const SkillTreeDefinition* tree,
+                                         const SkillSpecView& view) {
+    const BladeMasteryUIThemeProfile& theme = ResolveThemeProfile(tree);
+    const Vector2 treeCenter = {view.center.x + view.offset.x,
+                                view.center.y + view.offset.y};
+
+    DrawCircleGradient(static_cast<int>(treeCenter.x), static_cast<int>(treeCenter.y),
+                       520.0f * view.zoom,
+                       Fade(theme.secondary, 0.10f * view.alpha),
+                       Fade(BLANK, 0.0f));
+    DrawCircleGradient(GetScreenWidth() / 2, GetScreenHeight() / 2,
+                       static_cast<float>(std::max(GetScreenWidth(), GetScreenHeight())),
+                       Fade(BLANK, 0.0f), Fade(BLACK, 0.72f * view.alpha));
+
+    switch (theme.background_pattern) {
+    case BladeMasteryBackgroundPattern::DiagonalCuts:
+        DrawDiagonalCuts(treeCenter, view, theme);
+        break;
+    case BladeMasteryBackgroundPattern::OrbitArcs:
+        DrawOrbitArcs(treeCenter, view, theme);
+        break;
+    case BladeMasteryBackgroundPattern::BrokenPlate:
+        DrawBrokenPlate(treeCenter, view, theme);
+        break;
+    case BladeMasteryBackgroundPattern::None:
+    default:
+        break;
     }
-    
-    // 2. Subtle Grid Pattern
-    float gridSize = 100.0f * view.zoom;
-    float startX = fmodf(view.offset.x, gridSize);
-    float startY = fmodf(view.offset.y, gridSize);
-    Color gridColor = Fade(theme, 0.04f * view.alpha);
-    
-    for (float x = startX; x < GetScreenWidth(); x += gridSize)
-        DrawLineEx({x, 0}, {x, (float)GetScreenHeight()}, 1.0f, gridColor);
-    for (float y = startY; y < GetScreenHeight(); y += gridSize)
-        DrawLineEx({0, y}, {(float)GetScreenWidth(), y}, 1.0f, gridColor);
-
-    // 3. Vignette (Simulated with large radial gradient)
-    DrawCircleGradient(GetScreenWidth()/2, GetScreenHeight()/2, (float)GetScreenWidth(), Fade(BLANK, 0.0f), Fade(BLACK, 0.65f * view.alpha));
 }
 
-void UISkillSpecRenderer::DrawHub(const SkillSpecView& view, const SkillData* skillData) {
-    Vector2 centerPos = { view.center.x + view.offset.x, view.center.y + view.offset.y };
-    float radius = 55.0f * view.zoom;
-    Color theme = GetThemeColor(skillData);
-    
-    // Multi-layered Hub shell
-    DrawCircleV(centerPos, radius * 1.25f, Fade(theme, 0.15f * view.alpha));
-    DrawCircleV(centerPos, radius, Fade(BLACK, 0.95f * view.alpha));
-    
-    // Skill Icon
+void UISkillSpecRenderer::DrawHub(const SkillTreeDefinition* tree,
+                                  const SkillData* skillData,
+                                  const SkillSpecView& view) {
+    const BladeMasteryUIThemeProfile& theme = ResolveThemeProfile(tree);
+    const Vector2 centerPos = {view.center.x + view.offset.x,
+                               view.center.y + view.offset.y};
+    const float radius = 55.0f * view.zoom;
+    const float pulseSeconds = std::max(0.2f, theme.idle_pulse_seconds);
+    const float pulse = 0.5f + 0.5f * sinf(static_cast<float>(GetTime()) * (2.0f * PI / pulseSeconds));
+
+    DrawCircleV(centerPos, radius * 1.12f, Fade(theme.secondary, 0.16f * view.alpha));
+    DrawCircleV(centerPos, radius * 0.92f, Fade(BLACK, 0.95f * view.alpha));
+
+    switch (theme.node_shell) {
+    case BladeMasteryNodeShell::BeveledDiamond:
+        DrawPoly(centerPos, 4, radius * 1.08f, 45.0f,
+                 Fade(theme.secondary, 0.16f * view.alpha));
+        DrawPolyLinesEx(centerPos, 4, radius * 1.12f, 45.0f, 3.0f * view.zoom,
+                        Fade(theme.primary, 0.82f * view.alpha));
+        DrawPolyLinesEx(centerPos, 4, radius * 1.30f, 45.0f, 1.2f * view.zoom,
+                        Fade(theme.highlight, 0.34f * view.alpha));
+        break;
+    case BladeMasteryNodeShell::OrbitRing:
+        DrawRing(centerPos, radius * 1.02f, radius * 1.16f, 0.0f, 360.0f, 48,
+                 Fade(theme.primary, 0.52f * view.alpha));
+        DrawRingLines(centerPos, radius * 1.28f, radius * 1.34f, 20.0f, 300.0f,
+                      40, Fade(theme.highlight, 0.56f * view.alpha));
+        break;
+    case BladeMasteryNodeShell::BrokenPlate:
+        DrawPoly(centerPos, 8, radius * 1.08f, 22.5f,
+                 Fade(theme.secondary, 0.14f * view.alpha));
+        DrawPolyLinesEx(centerPos, 8, radius * 1.12f, 22.5f, 2.8f * view.zoom,
+                        Fade(theme.primary, 0.72f * view.alpha));
+        DrawLineEx({centerPos.x - radius * 0.82f, centerPos.y - radius * 0.10f},
+                   {centerPos.x - radius * 0.18f, centerPos.y + radius * 0.20f},
+                   2.0f * view.zoom, Fade(theme.danger, 0.40f * view.alpha));
+        DrawRingGradient(centerPos, radius * (1.18f + pulse * 0.02f),
+                         radius * (1.28f + pulse * 0.12f),
+                         Fade(theme.danger, 0.18f * view.alpha),
+                         Fade(BLANK, 0.0f));
+        break;
+    case BladeMasteryNodeShell::None:
+    default:
+        DrawRing(centerPos, radius * 1.00f, radius * 1.08f, 0.0f, 360.0f, 40,
+                 Fade(theme.primary, 0.52f * view.alpha));
+        break;
+    }
+
     if (skillData && skillData->icon_id != 0) {
-        Texture2D icon = AssetLoadingSystem::GetTexture(skillData->icon_id);
+        const Texture2D icon = AssetLoadingSystem::GetTexture(skillData->icon_id);
         if (icon.id != 0) {
-            float iconSize = radius * 1.6f;
-            Rectangle dest = { centerPos.x - iconSize/2, centerPos.y - iconSize/2, iconSize, iconSize };
-            Rectangle src = { 0, 0, (float)icon.width, (float)icon.height };
-            DrawTexturePro(icon, src, dest, {0,0}, 0.0f, Fade(WHITE, view.alpha));
+            const float iconSize = radius * 1.52f;
+            const Rectangle dest = {centerPos.x - iconSize / 2.0f,
+                                    centerPos.y - iconSize / 2.0f,
+                                    iconSize, iconSize};
+            const Rectangle src = {0.0f, 0.0f, static_cast<float>(icon.width),
+                                   static_cast<float>(icon.height)};
+            DrawTexturePro(icon, src, dest, {0.0f, 0.0f}, 0.0f,
+                           Fade(WHITE, view.alpha));
         }
     }
-    
-    DrawPolyLinesEx(centerPos, 40, radius, 0.0f, 3.0f * view.zoom, Fade(theme, 0.8f * view.alpha));
-    DrawPolyLinesEx(centerPos, 40, radius + 8 * view.zoom, 0.0f, 1.0f, Fade(theme, 0.3f * view.alpha));
 }
 
-void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const SkillSpecView& view, Color theme) {
-    float lineThick = 9.0f * view.zoom;
-    Color colorLocked = Color{ 78, 82, 96, (unsigned char)(245 * view.alpha) };
-    Color colorLockedHighlight = Color{ 125, 132, 152, (unsigned char)(180 * view.alpha) };
-    Color colorAvailable = Fade(theme, 0.4f * view.alpha); // Brighter than locked
+void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree,
+                                          const SpecializedSkill* specialized,
+                                          const SkillSpecView& view) {
+    if (!tree || !specialized) {
+        return;
+    }
 
-    auto DrawRequirementDots = [&](Vector2 p1, Vector2 p2, bool active, bool available, int requiredPoints) {
+    const BladeMasteryUIThemeProfile& theme = ResolveThemeProfile(tree);
+    const float lineThick = 8.0f * view.zoom;
+    const Color lockedColor = Fade(Color{78, 82, 96, 255}, 0.95f * view.alpha);
+    const Color lockedHighlight = Fade(Color{120, 128, 146, 255}, 0.62f * view.alpha);
+    const Color availableColor = Fade(theme.secondary, 0.92f * view.alpha);
+    const Color activeColor = Fade(theme.primary, 0.98f * view.alpha);
+
+    auto drawRequirementDots = [&](Vector2 p1, Vector2 p2, bool active,
+                                   bool available, int requiredPoints) {
         if (requiredPoints <= 0) {
             return;
         }
@@ -183,259 +408,296 @@ void UISkillSpecRenderer::DrawConnections(const SkillTreeDefinition* tree, const
         const float spacing = std::max(12.0f * view.zoom, lineThick * 1.35f);
         const float halfSpan = (dotCount - 1) * spacing * 0.5f;
 
-        Color dotColor = colorLockedHighlight;
+        Color dotColor = lockedHighlight;
         if (available) {
-            dotColor = active ? Fade(WHITE, 0.95f * view.alpha) : Fade(theme, 0.9f * view.alpha);
+            dotColor = active ? Fade(theme.highlight, 0.98f * view.alpha)
+                              : Fade(theme.primary, 0.88f * view.alpha);
         }
 
-        const float dotRadius = std::max(2.2f * view.zoom, lineThick * 0.28f);
+        const float dotRadius = std::max(2.4f * view.zoom, lineThick * 0.28f);
         for (int i = 0; i < dotCount; ++i) {
-            const float offset = -halfSpan + i * spacing;
+            const float offset = -halfSpan + static_cast<float>(i) * spacing;
             const Vector2 pos = Vector2Add(mid, Vector2Scale(dir, offset));
-            DrawCircleV(pos, dotRadius + 1.3f * view.zoom, Fade(BLACK, 0.8f * view.alpha));
+            DrawCircleV(pos, dotRadius + 1.2f * view.zoom,
+                        Fade(BLACK, 0.82f * view.alpha));
             DrawCircleV(pos, dotRadius, dotColor);
         }
     };
 
-    auto DrawLink = [&](Vector2 p1, Vector2 p2, bool active, bool available, int requiredPoints) {
-        // Multi-layered line rendering
-        if (active) {
-            // Active: High-energy glow
-            DrawLineEx(p1, p2, lineThick + 4 * view.zoom, Fade(theme, 0.3f * view.alpha));
-            DrawLineEx(p1, p2, lineThick, Fade(theme, 0.9f * view.alpha));
-            DrawLineEx(p1, p2, lineThick * 0.4f, Fade(WHITE, 0.6f * view.alpha));
-            
-            // Flow particles
-            float time = (float)GetTime() * 1.5f;
-            for(int i = 0; i < 2; i++) {
-                float pulsePos = fmodf(time + i * 0.5f, 1.0f);
-                Vector2 pulse = Vector2Lerp(p1, p2, pulsePos);
-                DrawCircleV(pulse, lineThick * 0.6f, Fade(WHITE, 0.8f * view.alpha));
-            }
-        } else if (available) {
-            // Available: Dimmer but clearly different from locked
-            DrawLineEx(p1, p2, lineThick + 1 * view.zoom, Fade(BLACK, 0.4f * view.alpha));
-            DrawLineEx(p1, p2, lineThick, colorAvailable);
-            DrawLineEx(p1, p2, lineThick * 0.3f, Fade(WHITE, 0.2f * view.alpha));
-        } else {
-            // Locked: Keep readable on dark background, but still clearly weaker than available.
-            DrawLineEx(p1, p2, lineThick + 2.0f * view.zoom, Fade(BLACK, 0.38f * view.alpha));
-            DrawLineEx(p1, p2, lineThick, colorLocked);
-            DrawLineEx(p1, p2, lineThick * 0.30f, colorLockedHighlight);
+    auto drawStyleOverlay = [&](Vector2 p1, Vector2 p2, bool active, bool available) {
+        if (!active && !available) {
+            return;
         }
 
-        DrawRequirementDots(p1, p2, active, available, requiredPoints);
+        const Vector2 delta = Vector2Subtract(p2, p1);
+        const float length = Vector2Length(delta);
+        if (length < 1.0f) {
+            return;
+        }
+
+        const Vector2 dir = Vector2Scale(delta, 1.0f / length);
+        const Vector2 mid = Vector2Lerp(p1, p2, 0.5f);
+        const Vector2 normal = {-dir.y, dir.x};
+        const float strength = active ? 1.0f : 0.65f;
+
+        switch (theme.link_style) {
+        case BladeMasteryLinkStyle::SlashTrail:
+            DrawLineEx(Vector2Add(mid, Vector2Scale(normal, -8.0f * view.zoom)),
+                       Vector2Add(mid, Vector2Scale(normal, 8.0f * view.zoom)),
+                       2.0f * view.zoom,
+                       Fade(theme.highlight, 0.58f * strength * view.alpha));
+            break;
+        case BladeMasteryLinkStyle::ArcFlow:
+            DrawRingLines(mid, 5.0f * view.zoom, 8.0f * view.zoom,
+                          0.0f, 360.0f, 18,
+                          Fade(theme.highlight, 0.54f * strength * view.alpha));
+            break;
+        case BladeMasteryLinkStyle::InwardPulse: {
+            const float pulse = 0.4f + 0.6f * sinf(static_cast<float>(GetTime()) *
+                                                   (2.0f * PI / std::max(0.2f, theme.idle_pulse_seconds)));
+            DrawRingGradient(mid, 4.0f * view.zoom,
+                             (9.0f + pulse * 8.0f) * view.zoom,
+                             Fade(theme.danger, 0.18f * strength * view.alpha),
+                             Fade(BLANK, 0.0f));
+            break;
+        }
+        case BladeMasteryLinkStyle::None:
+        default:
+            break;
+        }
+    };
+
+    auto drawLink = [&](Vector2 p1, Vector2 p2, bool active, bool available,
+                        int requiredPoints) {
+        if (active) {
+            DrawLineEx(p1, p2, lineThick + 2.4f * view.zoom,
+                       Fade(BLACK, 0.36f * view.alpha));
+            DrawLineEx(p1, p2, lineThick, activeColor);
+            DrawLineEx(p1, p2, lineThick * 0.32f,
+                       Fade(theme.highlight, 0.74f * view.alpha));
+        } else if (available) {
+            DrawLineEx(p1, p2, lineThick + 1.8f * view.zoom,
+                       Fade(BLACK, 0.34f * view.alpha));
+            DrawLineEx(p1, p2, lineThick, availableColor);
+            DrawLineEx(p1, p2, lineThick * 0.22f,
+                       Fade(theme.highlight, 0.28f * view.alpha));
+        } else {
+            DrawLineEx(p1, p2, lineThick + 2.0f * view.zoom,
+                       Fade(BLACK, 0.40f * view.alpha));
+            DrawLineEx(p1, p2, lineThick, lockedColor);
+            DrawLineEx(p1, p2, lineThick * 0.24f, lockedHighlight);
+        }
+
+        drawStyleOverlay(p1, p2, active, available);
+        drawRequirementDots(p1, p2, active, available, requiredPoints);
     };
 
     for (const auto& [id, node] : tree->nodes) {
-        Vector2 targetPos = GetNodeScreenPos(node, view);
-        bool nodeAlloc = specialized->allocated_points.contains(id) && specialized->allocated_points.at(id) > 0;
+        const Vector2 targetPos = GetNodeScreenPos(node, view);
+        const bool nodeAlloc = specialized->allocated_points.contains(id) &&
+                               specialized->allocated_points.at(id) > 0;
         bool hasValidPrereq = false;
-        
-        // 1. Explicit Prerequisites
+
         for (const auto& pre : node.prerequisites) {
             const uint32_t preId = pre.node_id;
-            if (tree->nodes.count(preId)) {
-                hasValidPrereq = true;
-                Vector2 sourcePos = GetNodeScreenPos(tree->nodes.at(preId), view);
-                const int prePts = specialized->allocated_points.contains(preId) ? specialized->allocated_points.at(preId) : 0;
-                const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
-                bool preAlloc = prePts >= requiredPoints;
-                
-                // A link is "available" if the source is allocated
-                DrawLink(sourcePos, targetPos, preAlloc && nodeAlloc, preAlloc, requiredPoints);
+            if (!tree->nodes.contains(preId)) {
+                continue;
             }
+
+            hasValidPrereq = true;
+            const Vector2 sourcePos = GetNodeScreenPos(tree->nodes.at(preId), view);
+            const int prePts = specialized->allocated_points.contains(preId)
+                                   ? specialized->allocated_points.at(preId)
+                                   : 0;
+            const int requiredPoints = pre.required_points > 0 ? pre.required_points : 1;
+            const bool preAlloc = prePts >= requiredPoints;
+            drawLink(sourcePos, targetPos, preAlloc && nodeAlloc, preAlloc,
+                     requiredPoints);
         }
-        
-        // 2. Connection to Root (Hub) for root-level nodes (empty or prereq=0)
+
         if (!hasValidPrereq) {
-             Vector2 sourcePos = { view.center.x + view.offset.x, view.center.y + view.offset.y };
-             DrawLink(sourcePos, targetPos, nodeAlloc, true, 0); // Root links always available
+            const Vector2 sourcePos = {view.center.x + view.offset.x,
+                                       view.center.y + view.offset.y};
+            drawLink(sourcePos, targetPos, nodeAlloc, true, 0);
         }
     }
 }
 
-void UISkillSpecRenderer::DrawNodes(const SkillTreeDefinition* tree, const SpecializedSkill* specialized, const ActiveSkillsComponent* active, const SkillSpecView& view, Color theme, uint32_t hoveredNodeId, const std::unordered_set<uint32_t>* excludedNodeIds) {
-  const uint32_t skillId = tree ? tree->skill_id : INVALID_SKILL_ID;
-  for (const auto& [id, node] : tree->nodes) {
-        Vector2 pos = GetNodeScreenPos(node, view);
-        NodeType type = GetNodeType(node);
+void UISkillSpecRenderer::DrawNodes(
+    const SkillTreeDefinition* tree, const SpecializedSkill* specialized,
+    const ActiveSkillsComponent* active, const SkillData* skillData,
+    const SkillSpecView& view, uint32_t hoveredNodeId,
+    const std::unordered_set<uint32_t>* excludedNodeIds) {
+    (void)active;
+    if (!tree || !specialized) {
+        return;
+    }
+
+    const BladeMasteryUIThemeProfile& theme = ResolveThemeProfile(tree);
+    const uint32_t skillId = tree->skill_id;
+    for (const auto& [id, node] : tree->nodes) {
         const NodeContractData* contract = nullptr;
         if (skillId != INVALID_SKILL_ID) {
             contract = SkillRegistry::Get().GetNodeContract(skillId, id);
-            if (contract) {
-                switch (contract->role) {
-                    case SpecNodeRole::Trigger: type = NodeType::Trigger; break;
-                    case SpecNodeRole::Synergy: type = NodeType::Synergy; break;
-                    case SpecNodeRole::Transmuter: type = NodeType::Transmuter; break;
-                    case SpecNodeRole::Keystone: type = NodeType::Keystone; break;
-                    default: break;
-                }
-            }
         }
-        float baseRadius = GetNodeRadius(node, view);
-        
-        // Hover Effect
-        bool isHovered = (id == hoveredNodeId);
-        float radius = isHovered ? baseRadius * 1.15f : baseRadius;
 
-        int currentPts = specialized->allocated_points.contains(id) ? specialized->allocated_points.at(id) : 0;
-        bool isMaxed = currentPts >= node.max_points;
-        bool isAllocated = currentPts > 0;
+        const Vector2 pos = GetNodeScreenPos(node, view);
+        const NodeType type = ClassifyNodeVisual(node, contract);
+        const float baseRadius = GetNodeRadius(node, view, contract);
+        const bool isHovered = (id == hoveredNodeId);
+        const float radius = isHovered ? baseRadius * 1.10f : baseRadius;
+
+        const int currentPts = specialized->allocated_points.contains(id)
+                                   ? specialized->allocated_points.at(id)
+                                   : 0;
+        const bool isMaxed = currentPts >= node.max_points;
+        const bool isAllocated = currentPts > 0;
         const bool isExcluded = excludedNodeIds && excludedNodeIds->contains(id);
-        
-        bool canUnlock = IsPrerequisiteSatisfiedOr(node, tree, specialized);
-        
-        Color baseColor = canUnlock ? Fade(theme, 0.8f) : Color{ 60, 60, 65, 255 };
-        if (isExcluded && !isAllocated) {
-            baseColor = Color{ 178, 64, 64, 255 };
-        }
-        if (isAllocated) baseColor = isMaxed ? GOLD : theme;
-        Color borderColor = Fade(baseColor, view.alpha);
-        
-        // 1. Node Background Glow (Dynamic based on allocation/availability)
-        // MOVED to outside only, as requested
+        const bool canUnlock = IsPrerequisiteSatisfiedOr(node, tree, specialized);
+
+        Color edgeColor = canUnlock ? theme.primary : Color{64, 68, 78, 255};
         if (isAllocated) {
-            float glowStart = radius + 2.0f;
-            float glowEnd = radius + (isMaxed ? 12.0f : 8.0f) * view.zoom;
-            DrawRingGradient(pos, glowStart, glowEnd, Fade(baseColor, 0.5f * view.alpha), Fade(BLANK, 0.0f));
+            edgeColor = isMaxed ? theme.highlight : theme.primary;
+        }
+        if (isExcluded && !isAllocated) {
+            edgeColor = theme.danger;
+        }
+
+        const Color accent = GetLocalNodeAccent(skillData, type, theme);
+        const Color borderColor = Fade(edgeColor, view.alpha);
+        Color fillColor = Fade(BLACK, 0.90f * view.alpha);
+        if (isAllocated) {
+            fillColor = Fade(theme.secondary, 0.58f * view.alpha);
         } else if (canUnlock) {
-            float breath = (sinf((float)GetTime() * 4.0f) + 1.0f) * 0.5f;
-            float glowStart = radius + 2.0f;
-            float glowEnd = radius + (6.0f + breath * 4.0f) * view.zoom;
-            DrawRingGradient(pos, glowStart, glowEnd, Fade(theme, (0.3f + breath * 0.2f) * view.alpha), Fade(BLANK, 0.0f));
+            fillColor = Fade(theme.secondary, 0.28f * view.alpha);
         }
 
-        // 2. Shape Base & Icon Background
-        Color bgColor = Fade(BLACK, 0.95f * view.alpha);
-        // If allocated, we might want a colored background inside?
-        // Let's keep it dark for contrast with the icon/progress, but maybe tinted slightly
-        if (isAllocated) bgColor = ColorTint(bgColor, Fade(theme, 0.2f));
-
-        if (type == NodeType::Keystone) {
-            // Octagon-like via rotated squares or Poly(8)? Raylib Poly(8) is good.
-            // Let's stick to the "Diamond with heavy frame" look or Octagon.
-            // Let's try regular Octagon for "Foundation/Keystone" feel.
-            DrawPoly(pos, 8, radius, 22.5f, bgColor); // 8 sides
-            DrawPolyLinesEx(pos, 8, radius, 22.5f, 3.0f * view.zoom, borderColor);
-            
-            if (isMaxed) {
-                DrawPolyLinesEx(pos, 8, radius + 4.0f * view.zoom, 22.5f, 1.5f * view.zoom, Fade(GOLD, 0.7f * view.alpha));
-            }
-        } else if (type == NodeType::Trigger) {
-            DrawPoly(pos, 3, radius, -90.0f, bgColor);
-            DrawPolyLinesEx(pos, 3, radius, -90.0f, 2.5f * view.zoom, borderColor);
-        } else if (type == NodeType::Transmuter) {
-            DrawPoly(pos, 4, radius, 45.0f, bgColor);
-            DrawPolyLinesEx(pos, 4, radius, 45.0f, 2.5f * view.zoom, borderColor);
-        } else if (type == NodeType::Synergy || type == NodeType::Modifier) {
-            // Hexagon for Modifier
-            DrawPoly(pos, 6, radius, 0.0f, bgColor);
-            DrawPolyLinesEx(pos, 6, radius, 0.0f, 2.5f * view.zoom, borderColor);
-        } else {
-            // Circle for Passive
-            DrawCircleV(pos, radius, bgColor);
-            float borderThick = canUnlock ? 2.5f : 1.5f;
-            DrawRing(pos, radius - borderThick * view.zoom, radius, 0, 360, 32, borderColor);        
+        if (isAllocated) {
+            DrawRingGradient(pos, radius + 2.0f * view.zoom,
+                             radius + (isMaxed ? 11.0f : 8.0f) * view.zoom,
+                             Fade(edgeColor, 0.44f * view.alpha),
+                             Fade(BLANK, 0.0f));
+        } else if (canUnlock) {
+            const float pulse = 0.5f +
+                                0.5f * sinf(static_cast<float>(GetTime()) *
+                                            (2.0f * PI / std::max(0.2f, theme.idle_pulse_seconds)));
+            DrawRingGradient(pos, radius + 2.0f * view.zoom,
+                             radius + (5.0f + pulse * 4.0f) * view.zoom,
+                             Fade(theme.primary, (0.16f + pulse * 0.10f) * view.alpha),
+                             Fade(BLANK, 0.0f));
         }
 
-        // 3. Progress Filling (SDF-like radial fill or Inner fill)
+        DrawNodeShape(pos, radius, type, fillColor, borderColor, view.zoom,
+                      isMaxed, theme, accent, view.alpha);
+
         if (isAllocated && !isMaxed) {
-             float pct = (float)currentPts / node.max_points;
-             float innerR = radius * 0.85f;
-             
-             // Draw inner filled shape based on pct
-             // Maybe just fill the whole background partially?
-             // Let's use a "Sector" approach for all, or an inner scaling shape.
-             // Inner scaling shape looks decent.
-             
-             Color fillCol = Fade(borderColor, 0.5f);
-              if (type == NodeType::Keystone) DrawPoly(pos, 8, innerR * pct, 22.5f, fillCol);
-              else if (type == NodeType::Trigger) DrawPoly(pos, 3, innerR * pct, -90.0f, fillCol);
-              else if (type == NodeType::Transmuter) DrawPoly(pos, 4, innerR * pct, 45.0f, fillCol);
-              else if (type == NodeType::Modifier || type == NodeType::Synergy) DrawPoly(pos, 6, innerR * pct, 0.0f, fillCol);
-              else DrawCircleV(pos, innerR * pct, fillCol);
-         }
-         else if (isMaxed) {
-             // Full fill for maxed
-             float innerR = radius * 0.85f;
-             Color fillCol = Fade(theme, 0.3f);
-             if (type == NodeType::Keystone) DrawPoly(pos, 8, innerR, 22.5f, fillCol);
-             else if (type == NodeType::Trigger) DrawPoly(pos, 3, innerR, -90.0f, fillCol);
-             else if (type == NodeType::Transmuter) DrawPoly(pos, 4, innerR, 45.0f, fillCol);
-             else if (type == NodeType::Modifier || type == NodeType::Synergy) DrawPoly(pos, 6, innerR, 0.0f, fillCol);
-             else DrawCircleV(pos, innerR, fillCol);
-         }
+            const float pct = static_cast<float>(currentPts) /
+                              static_cast<float>(std::max(1, node.max_points));
+            const float innerR = radius * 0.82f * std::clamp(pct, 0.25f, 1.0f);
+            const Color fill = Fade(accent, 0.34f * view.alpha);
+            switch (type) {
+            case NodeType::Keystone:
+                DrawPoly(pos, 8, innerR, 22.5f, fill);
+                break;
+            case NodeType::Trigger:
+                DrawPoly(pos, 3, innerR, -90.0f, fill);
+                break;
+            case NodeType::Transmuter:
+                DrawPoly(pos, 4, innerR, 45.0f, fill);
+                break;
+            case NodeType::Modifier:
+            case NodeType::Synergy:
+                DrawPoly(pos, 6, innerR, 0.0f, fill);
+                break;
+            case NodeType::Passive:
+            default:
+                DrawCircleV(pos, innerR, fill);
+                break;
+            }
+        } else if (isMaxed) {
+            const float innerR = radius * 0.82f;
+            const Color fill = Fade(theme.highlight, 0.24f * view.alpha);
+            switch (type) {
+            case NodeType::Keystone:
+                DrawPoly(pos, 8, innerR, 22.5f, fill);
+                break;
+            case NodeType::Trigger:
+                DrawPoly(pos, 3, innerR, -90.0f, fill);
+                break;
+            case NodeType::Transmuter:
+                DrawPoly(pos, 4, innerR, 45.0f, fill);
+                break;
+            case NodeType::Modifier:
+            case NodeType::Synergy:
+                DrawPoly(pos, 6, innerR, 0.0f, fill);
+                break;
+            case NodeType::Passive:
+            default:
+                DrawCircleV(pos, innerR, fill);
+                break;
+            }
+        }
 
-        // 4. Icons
         if (node.icon_id > 0) {
-            Texture2D icon = AssetLoadingSystem::GetTexture(node.icon_id);
+            const Texture2D icon = AssetLoadingSystem::GetTexture(node.icon_id);
             if (icon.id != 0) {
-                float iconSize = radius * 1.4f; 
-                Rectangle dest = { pos.x - iconSize/2, pos.y - iconSize/2, iconSize, iconSize };
-                Rectangle src = { 0, 0, (float)icon.width, (float)icon.height };
-                DrawTexturePro(icon, src, dest, {0,0}, 0.0f, Fade(WHITE, isAllocated || canUnlock ? view.alpha : 0.5f * view.alpha));
+                const float iconSize = radius * 1.34f;
+                const Rectangle dest = {pos.x - iconSize / 2.0f,
+                                        pos.y - iconSize / 2.0f,
+                                        iconSize, iconSize};
+                const Rectangle src = {0.0f, 0.0f,
+                                       static_cast<float>(icon.width),
+                                       static_cast<float>(icon.height)};
+                DrawTexturePro(icon, src, dest, {0.0f, 0.0f}, 0.0f,
+                               Fade(WHITE, (isAllocated || canUnlock)
+                                               ? view.alpha
+                                               : 0.52f * view.alpha));
             }
-        } else {
-            // Draw a generic glyph (dot or smaller shape) if no icon
-            if (isAllocated) {
-                DrawCircleV(pos, radius * 0.3f, Fade(theme, 0.8f * view.alpha));
-            }
+        } else if (isAllocated) {
+            DrawCircleV(pos, radius * 0.26f,
+                        Fade(accent, 0.80f * view.alpha));
         }
-        
-        // 5. Points Text (Improved with Pilled Background)
+
         if (isHovered || isAllocated) {
-            int fontSize = (int)(20 * view.zoom);
+            const int fontSize = static_cast<int>(20 * view.zoom);
             const char* text = TextFormat("%d/%d", currentPts, node.max_points);
-            Vector2 textSize = MeasureTextEx(UISystem::GetFont(), text, (float)fontSize, 1.0f);
-            
-            float padding = 4.0f;
-            Rectangle pillHitbox = { 
-                pos.x - textSize.x/2 - padding, 
-                pos.y + radius + 14 * view.zoom - padding, 
-                textSize.x + padding*2, 
-                textSize.y + padding*2 
+            const Vector2 textSize = MeasureTextEx(UISystem::GetFont(), text,
+                                                   static_cast<float>(fontSize), 1.0f);
+
+            const float padding = 4.0f;
+            const Rectangle pillHitbox = {
+                pos.x - textSize.x / 2.0f - padding,
+                pos.y + radius + 14.0f * view.zoom - padding,
+                textSize.x + padding * 2.0f,
+                textSize.y + padding * 2.0f,
             };
-            
-            DrawRectangleRounded(pillHitbox, 0.5f, 4, Fade(BLACK, 0.7f * view.alpha));
-            DrawRectangleRoundedLinesEx(pillHitbox, 0.5f, 4, 1.0f, Fade(borderColor, 0.5f * view.alpha));
 
-            Color textColor = isAllocated ? (isMaxed ? GOLD : WHITE) : (canUnlock ? Fade(WHITE, 0.9f) : Fade(WHITE, 0.4f));
-            DrawTextEx(UISystem::GetFont(), text, {pillHitbox.x + padding, pillHitbox.y + padding}, (float)fontSize, 1.0f, Fade(textColor, view.alpha));
-        }
+            DrawRectangleRounded(pillHitbox, 0.5f, 4,
+                                 Fade(BLACK, 0.74f * view.alpha));
+            DrawRectangleRoundedLinesEx(
+                pillHitbox, 0.5f, 4, 1.0f,
+                Fade(isAllocated ? accent : borderColor, 0.55f * view.alpha));
 
-        if (contract) {
-            const char* badge = nullptr;
-            switch (contract->role) {
-                case SpecNodeRole::Trigger: badge = "触发"; break;
-                case SpecNodeRole::Synergy: badge = "联动"; break;
-                case SpecNodeRole::Transmuter: badge = "转化"; break;
-                case SpecNodeRole::Keystone: badge = "核心"; break;
-                default: break;
-            }
-            if (badge) {
-                const float badgeFont = 12.0f * view.zoom;
-                Vector2 badgeSize = MeasureTextEx(UISystem::GetFont(), badge, badgeFont, 1.0f);
-                Vector2 badgePos = {pos.x + radius - badgeSize.x - 2.0f * view.zoom, pos.y - radius - 10.0f * view.zoom};
-                DrawRectangleRounded({badgePos.x - 3.0f * view.zoom, badgePos.y - 2.0f * view.zoom,
-                                      badgeSize.x + 6.0f * view.zoom, badgeSize.y + 4.0f * view.zoom},
-                                      0.2f, 3, Fade(BLACK, 0.75f * view.alpha));
-                DrawTextEx(UISystem::GetFont(), badge, badgePos, badgeFont, 1.0f,
-                           Fade(WHITE, view.alpha));
-            }
+            const Color textColor = isAllocated
+                                        ? (isMaxed ? theme.highlight : WHITE)
+                                        : (canUnlock ? Fade(WHITE, 0.92f)
+                                                     : Fade(WHITE, 0.42f));
+            DrawTextEx(UISystem::GetFont(), text,
+                       {pillHitbox.x + padding, pillHitbox.y + padding},
+                       static_cast<float>(fontSize), 1.0f,
+                       Fade(textColor, view.alpha));
         }
 
         if (isExcluded && !isAllocated) {
             const float crossThickness = 2.0f * view.zoom;
             DrawLineEx({pos.x - radius * 0.75f, pos.y - radius * 0.75f},
                        {pos.x + radius * 0.75f, pos.y + radius * 0.75f},
-                       crossThickness, Fade(RED, 0.85f * view.alpha));
+                       crossThickness, Fade(theme.danger, 0.86f * view.alpha));
             DrawLineEx({pos.x - radius * 0.75f, pos.y + radius * 0.75f},
                        {pos.x + radius * 0.75f, pos.y - radius * 0.75f},
-                       crossThickness, Fade(RED, 0.85f * view.alpha));
+                       crossThickness, Fade(theme.danger, 0.86f * view.alpha));
         }
     }
 }
-
 
 } // namespace NoMoreDay

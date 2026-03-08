@@ -258,15 +258,20 @@ inline void from_json(const nlohmann::json &j, TalentNode &n) {
  */
 struct SkillTreeDefinition {
   uint32_t skill_id = 0;
+  BladeMasteryId mastery_id = BladeMasteryId::None;
   std::unordered_map<uint32_t, TalentNode> nodes;
 };
 
 inline void to_json(nlohmann::json &j, const SkillTreeDefinition &t) {
-  j = nlohmann::json{{"skill_id", t.skill_id}, {"nodes", t.nodes}};
+  j = nlohmann::json{{"skill_id", t.skill_id},
+                     {"mastery_id", static_cast<uint32_t>(t.mastery_id)},
+                     {"nodes", t.nodes}};
 }
 
 inline void from_json(const nlohmann::json &j, SkillTreeDefinition &t) {
   j.at("skill_id").get_to(t.skill_id);
+  t.mastery_id = static_cast<BladeMasteryId>(
+      j.value("mastery_id", static_cast<uint32_t>(BladeMasteryId::None)));
   if (j.contains("nodes")) {
     // Need to manually handle map if keys are strings in JSON but uint32 in C++
     // nlohmann::json handles map keys as strings.

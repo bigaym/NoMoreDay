@@ -2,15 +2,16 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/ui/UISkillHub.hpp"
 #include "game/systems/ui/UISkillSpecRenderer.hpp"
+#include "game/systems/ui/BladeMasteryUITheme.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatAntiMeta.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/render/UIRenderer.hpp"
-#include "game/systems/skill/SkillSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
+#include <array>
 #include <string>
 #include <algorithm>
 #include <unordered_set>
@@ -33,6 +34,32 @@ namespace {
 
 constexpr float kNodeSpacingX = 85.0f;
 constexpr float kNodeSpacingY = 70.0f;
+constexpr float kTooltipBaseHeight = 280.0f;
+constexpr float kTooltipDescTop = 108.0f;
+constexpr float kTooltipDescMinHeight = 56.0f;
+constexpr float kTooltipFooterLineHeight = 24.0f;
+constexpr float kTooltipFooterTopPad = 12.0f;
+constexpr float kTooltipFooterBottomPad = 16.0f;
+constexpr float kTooltipFooterGap = 12.0f;
+
+struct TooltipBadgeSpec {
+    std::string text;
+    Color fill;
+    Color outline;
+};
+
+struct TooltipKeywordSpec {
+    const char* text;
+    Color color;
+};
+
+struct TreeFeedbackState {
+    Color ringColor;
+    Color accentColor;
+    float ringThickness = 0.0f;
+    float ringRadiusScale = 1.0f;
+    bool drawAccent = false;
+};
 
 SkillTreeUI::Vec2 ScreenToTreeCoords(const Vector2& mousePixelPos,
                                      const SkillSpecView& view) {
@@ -80,6 +107,235 @@ bool IsPrerequisiteSatisfiedOr(const TalentNode& node, const SkillTreeDefinition
         }
     }
     return !hasValidPrereq;
+}
+
+TooltipBadgeSpec BuildRoleBadge(const NodeContractData& nodeContract) {
+    return {
+        TextFormat("定位 %s", NodeRoleToText(nodeContract.role)),
+        Fade(ORANGE, 0.18f),
+        Fade(ORANGE, 0.90f),
+    };
+}
+
+TooltipBadgeSpec DrawRoleBadge(const NodeContractData& nodeContract) {
+    return BuildRoleBadge(nodeContract);
+}
+
+TooltipBadgeSpec BuildScopeBadge(const NodeContractData& nodeContract) {
+    return {
+        TextFormat("范围 %s", ScopePolicyToText(nodeContract.scope_policy)),
+        Fade(SKYBLUE, 0.18f),
+        Fade(SKYBLUE, 0.90f),
+    };
+}
+
+TooltipBadgeSpec DrawScopeBadge(const NodeContractData& nodeContract) {
+    return BuildScopeBadge(nodeContract);
+}
+
+TooltipBadgeSpec BuildExclusionBadge(const NodeContractData& nodeContract) {
+    return {
+        TextFormat("互斥 G%u", static_cast<unsigned int>(nodeContract.keystone_exclusion_group)),
+        Fade(RED, 0.18f),
+        Fade(RED, 0.92f),
+    };
+}
+
+void DrawTooltipBadgeChip(const Font& font, const TooltipBadgeSpec& badge, float x, float y,
+                         float fontSize, float alpha, float scale) {
+    const float sFont = fontSize * scale;
+    const float sSpacing = 1.0f * scale;
+    const float paddingX = 12.0f;
+    const float chipH = 28.0f;
+    const float textW = IsFontValid(font)
+        ? MeasureTextEx(font, badge.text.c_str(), sFont, sSpacing).x / scale
+        : static_cast<float>(MeasureText(badge.text.c_str(), static_cast<int>(sFont))) / scale;
+    const Rectangle chip = {x, y, textW + paddingX * 2.0f, chipH};
+    DrawRectangleRounded({chip.x * scale, chip.y * scale, chip.width * scale, chip.height * scale},
+                         0.24f, 8, Fade(badge.fill, alpha));
+    DrawRectangleRoundedLinesEx(
+        {chip.x * scale, chip.y * scale, chip.width * scale, chip.height * scale},
+        0.24f, 8, 1.0f, Fade(badge.outline, alpha));
+    UISystem::DrawTextUI(badge.text.c_str(), x + paddingX, y + 4.0f, fontSize,
+                         badge.outline, alpha);
+}
+
+void DrawTooltipHeader(const BladeMasteryUIThemeProfile& masteryTheme, const TalentNode& hoveredNode,
+                       float x, float y, float width, float alpha, float scale) {
+    const float headerH = 52.0f;
+    DrawRectangleRec({x * scale, y * scale, width * scale, headerH * scale},
+                     Fade(masteryTheme.primary, 0.16f * alpha));
+    DrawRectangleRec({(x + 8.0f) * scale, (y + headerH - 6.0f) * scale,
+                      (width - 16.0f) * scale, 2.0f * scale},
+                     Fade(masteryTheme.highlight, 0.92f * alpha));
+    DrawRectangleRec({(x + 16.0f) * scale, (y + 10.0f) * scale,
+                      52.0f * scale, 4.0f * scale},
+                     Fade(masteryTheme.secondary, 0.72f * alpha));
+    UISystem::DrawTextUI(hoveredNode.name_key.c_str(), x + 20.0f, y + 16.0f, 28.0f,
+                         masteryTheme.highlight, alpha);
+}
+
+int MatchTooltipKeyword(const char* text, Color& keywordColor, int& keywordBytes) {
+    static constexpr std::array<TooltipKeywordSpec, 14> kTooltipKeywords = {{
+        {"冷却", GOLD},
+        {"重置", GOLD},
+        {"暴击", ORANGE},
+        {"剑意", SKYBLUE},
+        {"剑步", SKYBLUE},
+        {"触发", GREEN},
+        {"联动", GREEN},
+        {"转化", VIOLET},
+        {"全局", YELLOW},
+        {"增益", LIME},
+        {"护盾", BLUE},
+        {"位移", PINK},
+        {"代价", RED},
+        {"收益", GREEN},
+    }};
+
+    int bestBytes = 0;
+    Color bestColor = WHITE;
+    for (const auto& keyword : kTooltipKeywords) {
+        const int byteCount = static_cast<int>(std::char_traits<char>::length(keyword.text));
+        if (byteCount <= bestBytes) {
+            continue;
+        }
+        if (std::char_traits<char>::compare(text, keyword.text, byteCount) == 0) {
+            bestBytes = byteCount;
+            bestColor = keyword.color;
+        }
+    }
+
+    keywordColor = bestColor;
+    keywordBytes = bestBytes;
+    return bestBytes;
+}
+
+void FlushTooltipLine(const Font& font,
+                      const std::vector<std::pair<std::string, Color>>& segments,
+                      float x, float y, float fontSize, float alpha, float scale) {
+    if (segments.empty()) {
+        return;
+    }
+
+    const float sFont = fontSize * scale;
+    const float sSpacing = 1.0f * scale;
+    float cursorX = x * scale;
+    const float drawY = y * scale;
+
+    for (const auto& segment : segments) {
+        if (segment.first.empty()) {
+            continue;
+        }
+        const Color color = Fade(segment.second, alpha);
+        if (IsFontValid(font)) {
+            DrawTextEx(font, segment.first.c_str(), {cursorX, drawY}, sFont, sSpacing, color);
+            cursorX += MeasureTextEx(font, segment.first.c_str(), sFont, sSpacing).x;
+        } else {
+            DrawText(segment.first.c_str(), static_cast<int>(cursorX), static_cast<int>(drawY),
+                     static_cast<int>(sFont), color);
+            cursorX += static_cast<float>(MeasureText(segment.first.c_str(), static_cast<int>(sFont)));
+        }
+    }
+}
+
+void DrawKeywordHighlights(const Font& font, const char* text, float x, float y, float width,
+                           float height, float fontSize, Color baseColor, float alpha,
+                           float scale) {
+    if (!text || text[0] == '\0' || width <= 0.0f || height <= 0.0f) {
+        return;
+    }
+
+    const float sFont = fontSize * scale;
+    const float sSpacing = 1.0f * scale;
+    const float maxWidth = width * scale;
+    const float maxY = (y + height) * scale;
+    const float lineHeight = (fontSize + 6.0f) * scale;
+
+    std::vector<std::pair<std::string, Color>> lineSegments;
+    float lineWidth = 0.0f;
+    float drawY = y;
+    const char* ptr = text;
+
+    auto measureSegment = [&](const std::string& segment) {
+        if (segment.empty()) {
+            return 0.0f;
+        }
+        if (IsFontValid(font)) {
+            return MeasureTextEx(font, segment.c_str(), sFont, sSpacing).x;
+        }
+        return static_cast<float>(MeasureText(segment.c_str(), static_cast<int>(sFont)));
+    };
+
+    while (*ptr != '\0') {
+        int bytes = 0;
+        const int cp = GetCodepoint(ptr, &bytes);
+        if (bytes <= 0) {
+            break;
+        }
+
+        if (cp == '\r') {
+            ptr += bytes;
+            continue;
+        }
+        if (cp == '\n') {
+            if (drawY * scale + lineHeight > maxY) {
+                break;
+            }
+            FlushTooltipLine(font, lineSegments, x, drawY, fontSize, alpha, scale);
+            lineSegments.clear();
+            lineWidth = 0.0f;
+            drawY += fontSize + 6.0f;
+            ptr += bytes;
+            continue;
+        }
+
+        Color segmentColor = baseColor;
+        int keywordBytes = 0;
+        std::string segmentText;
+        if (MatchTooltipKeyword(ptr, segmentColor, keywordBytes) > 0) {
+            segmentText.assign(ptr, ptr + keywordBytes);
+            bytes = keywordBytes;
+        } else {
+            int glyphBytes = 0;
+            const char* glyphPtr = CodepointToUTF8(cp, &glyphBytes);
+            segmentText.assign(glyphPtr, glyphBytes);
+        }
+
+        const float segmentWidth = measureSegment(segmentText);
+        if (!lineSegments.empty() && lineWidth + segmentWidth > maxWidth) {
+            if (drawY * scale + lineHeight > maxY) {
+                break;
+            }
+            FlushTooltipLine(font, lineSegments, x, drawY, fontSize, alpha, scale);
+            lineSegments.clear();
+            lineWidth = 0.0f;
+            drawY += fontSize + 6.0f;
+            if (drawY * scale + lineHeight > maxY) {
+                break;
+            }
+        }
+
+        lineSegments.emplace_back(segmentText, segmentColor);
+        lineWidth += segmentWidth;
+        ptr += bytes;
+    }
+
+    if (!lineSegments.empty() && drawY * scale + lineHeight <= maxY) {
+        FlushTooltipLine(font, lineSegments, x, drawY, fontSize, alpha, scale);
+    }
+}
+
+TreeFeedbackState BuildTreeFeedbackState(bool hoveredNodeExcluded,
+                                         const BladeMasteryUIThemeProfile& masteryTheme,
+                                         float alpha) {
+    TreeFeedbackState state;
+    state.ringColor = hoveredNodeExcluded ? masteryTheme.danger : masteryTheme.highlight;
+    state.accentColor = hoveredNodeExcluded ? masteryTheme.danger : masteryTheme.secondary;
+    state.ringThickness = hoveredNodeExcluded ? 3.0f : 2.0f;
+    state.ringRadiusScale = hoveredNodeExcluded ? 1.26f : 1.18f;
+    state.drawAccent = alpha > 0.0f;
+    return state;
 }
 
 void DrawWrappedTextUI(const Font& font, const char* text, float x, float y, float width, float height,
@@ -159,6 +415,24 @@ void DrawWrappedTextUI(const Font& font, const char* text, float x, float y, flo
 
 } // namespace
 
+SkillTreeUI::TooltipLayoutMetrics SkillTreeUI::ComputeTooltipLayoutMetrics(
+    float tooltipHeight, std::size_t footerLineCount) {
+    TooltipLayoutMetrics metrics;
+    metrics.footerGap = kTooltipFooterGap;
+    metrics.descriptionTop = kTooltipDescTop;
+    metrics.footerHeight = footerLineCount == 0 ? 0.0f
+        : (kTooltipFooterTopPad + kTooltipFooterLineHeight * static_cast<float>(footerLineCount));
+
+    const float minimumHeight = metrics.descriptionTop + kTooltipDescMinHeight +
+        metrics.footerGap + metrics.footerHeight + kTooltipFooterBottomPad;
+    metrics.tooltipHeight = std::max(tooltipHeight, minimumHeight);
+    metrics.footerTop = metrics.tooltipHeight - kTooltipFooterBottomPad - metrics.footerHeight;
+    metrics.descriptionHeight = std::max(0.0f,
+        metrics.footerTop - metrics.footerGap - metrics.descriptionTop);
+    metrics.descriptionBottom = metrics.descriptionTop + metrics.descriptionHeight;
+    return metrics;
+}
+
 void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     entt::registry& registry = *static_cast<entt::registry*>(registryVoid);
     entt::entity player = (entt::entity)playerEntity;
@@ -173,6 +447,8 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     auto* mutableTree = skillRegistry.GetMutableSkillTree(skillId);
     const auto* tree = mutableTree;
     if (!skillData || !tree) return;
+    const BladeMasteryUIThemeProfile& masteryTheme =
+        GetBladeMasteryUIThemeProfile(tree->mastery_id);
 
     auto* active = registry.try_get<ActiveSkillsComponent>(player);
     if (!active) return;
@@ -198,8 +474,37 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     float scale = state.scaleFactor;
 
     // Draw Background
-    DrawRectangleRec({startX * scale, startY * scale, panelW * scale, panelH * scale}, Fade(BLACK, 0.95f * alpha));
-    DrawRectangleLinesEx({startX * scale, startY * scale, panelW * scale, panelH * scale}, 2.0f, Fade(DARKGRAY, alpha));
+    DrawRectangleRec({startX * scale, startY * scale, panelW * scale, panelH * scale},
+                     Fade(masteryTheme.secondary, 0.12f * alpha));
+    DrawRectangleRec({(startX + 6.0f) * scale, (startY + 6.0f) * scale,
+                      (panelW - 12.0f) * scale, (panelH - 12.0f) * scale},
+                     Fade(BLACK, 0.94f * alpha));
+    DrawRectangleLinesEx({startX * scale, startY * scale, panelW * scale, panelH * scale},
+                         2.0f, Fade(masteryTheme.primary, alpha));
+    DrawRectangleLinesEx({(startX + 8.0f) * scale, (startY + 8.0f) * scale,
+                          (panelW - 16.0f) * scale, (panelH - 16.0f) * scale},
+                         1.0f, Fade(masteryTheme.secondary, 0.8f * alpha));
+
+    switch (masteryTheme.background_pattern) {
+    case BladeMasteryBackgroundPattern::DiagonalCuts:
+        DrawLineEx({(startX + 36.0f) * scale, (startY + 108.0f) * scale},
+                   {(startX + 320.0f) * scale, (startY + 34.0f) * scale},
+                   2.0f * scale, Fade(masteryTheme.highlight, 0.18f * alpha));
+        break;
+    case BladeMasteryBackgroundPattern::OrbitArcs:
+        DrawRingLines({(startX + panelW - 150.0f) * scale, (startY + 82.0f) * scale},
+                      18.0f * scale, 40.0f * scale, 210.0f, 30.0f, 24,
+                      Fade(masteryTheme.highlight, 0.20f * alpha));
+        break;
+    case BladeMasteryBackgroundPattern::BrokenPlate:
+        DrawLineEx({(startX + 42.0f) * scale, (startY + 70.0f) * scale},
+                   {(startX + 164.0f) * scale, (startY + 104.0f) * scale},
+                   2.0f * scale, Fade(masteryTheme.danger, 0.16f * alpha));
+        break;
+    case BladeMasteryBackgroundPattern::None:
+    default:
+        break;
+    }
 
     // Reset view if skill changed
     if (skillId != SkillTreeUI::s_lastSkillId) {
@@ -232,8 +537,10 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     SkillTreeUI::s_lastMouseLogicPos.y = mouseLogicPos.y;
 
     // Header & Points
-    UISystem::DrawTextUI(TextFormat("%s - 专精天赋", skillData->name_key.c_str()), startX + 40, startY + 30, 40, GOLD, alpha);
-    UISystem::DrawTextUI(TextFormat("可用点数: %d", active->available_talent_points), startX + 40, startY + 80, 24, WHITE, alpha);
+    UISystem::DrawTextUI(TextFormat("%s - 专精天赋", skillData->name_key.c_str()),
+                         startX + 40, startY + 30, 40, masteryTheme.highlight, alpha);
+    UISystem::DrawTextUI(TextFormat("可用点数: %d", active->available_talent_points),
+                         startX + 40, startY + 80, 24, masteryTheme.primary, alpha);
     
     Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
 
@@ -241,7 +548,10 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     Rectangle resetRectLogic = {startX + 250, startY + 75, 120, 40};
     bool resetHover = CheckCollisionPointRec(mouseLogicPos, resetRectLogic);
     
-    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, resetRectLogic, "重置天赋", 20, WHITE, resetHover ? RED : MAROON, resetHover, resetHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, resetRectLogic, "重置天赋",
+                           20, WHITE,
+                           resetHover ? masteryTheme.danger : masteryTheme.secondary,
+                           resetHover, resetHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (resetHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         SkillSystem::ResetTalents(registry, player, skillId);
@@ -252,9 +562,10 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     const bool editPressed = editHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON);
     UIRenderer::DrawButton(UISystem::GetFont(), rectTex, editRectLogic,
                            SkillTreeUI::s_layoutEditMode ? "保存布局" : "编辑布局",
-                           20, WHITE,
-                           SkillTreeUI::s_layoutEditMode ? DARKGREEN : DARKBLUE,
-                           editHover, editPressed, alpha);
+                            20, WHITE,
+                            SkillTreeUI::s_layoutEditMode ? masteryTheme.primary
+                                                          : masteryTheme.secondary,
+                            editHover, editPressed, alpha);
 
     if (editHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         if (SkillTreeUI::s_layoutEditMode) {
@@ -270,13 +581,16 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         SkillTreeUI::s_layoutEditMode
             ? "编辑布局: 左键拖动节点, 再点[保存布局]写回JSON"
             : "右键拖拽平移, 滚轮缩放",
-        startX + panelW - 520, startY + 85, 20, GRAY, alpha * 0.7f);
+        startX + panelW - 520, startY + 85, 20, masteryTheme.secondary,
+        alpha * 0.7f);
     
     // Back Button
     Rectangle backRectLogic = {startX + panelW - 150, startY + 30, 120, 50};
     bool backHover = CheckCollisionPointRec(mouseLogicPos, backRectLogic);
     
-    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, backRectLogic, "返回", 22, WHITE, WHITE, backHover, backHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
+    UIRenderer::DrawButton(UISystem::GetFont(), rectTex, backRectLogic, "返回", 22,
+                           WHITE, masteryTheme.primary, backHover,
+                           backHover && IsMouseButtonDown(MOUSE_LEFT_BUTTON), alpha);
 
     if (backHover && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
         state.selectedSkillId = NoMoreDay::INVALID_SKILL_ID;
@@ -319,8 +633,13 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
     }
 
     for (const auto& [id, node] : tree->nodes) {
+        const NodeContractData* nodeContract =
+            SkillRegistry::Get().GetNodeContract(skillId, id);
+        const auto nodeVisual =
+            UISkillSpecRenderer::ClassifyNodeVisual(node, nodeContract);
         Vector2 pos = UISkillSpecRenderer::GetNodeScreenPos(node, view);
-        float r = UISkillSpecRenderer::GetNodeRadius(node, view);
+        float r = UISkillSpecRenderer::GetNodeRadius(node, view, nodeContract);
+        (void)nodeVisual;
 
         if (CheckCollisionPointCircle(mousePixelPos, pos, r) && mouseInView) {
             hoveredNodeId = id;
@@ -371,6 +690,21 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
 
     UISkillSpecRenderer::Draw(tree, specialized, active, skillData, view, hoveredNodeId, &excludedNodeIds);
 
+    if (hoveredNode != nullptr) {
+        const NodeContractData* nodeContract = SkillRegistry::Get().GetNodeContract(skillId, hoveredNodeId);
+        const TreeFeedbackState feedbackState =
+            BuildTreeFeedbackState(excludedNodeIds.contains(hoveredNodeId), masteryTheme, alpha);
+        const float nodeRadius = UISkillSpecRenderer::GetNodeRadius(*hoveredNode, view, nodeContract);
+        const Vector2 nodeCenter = UISkillSpecRenderer::GetNodeScreenPos(*hoveredNode, view);
+        DrawRingLines(nodeCenter, nodeRadius * feedbackState.ringRadiusScale,
+                      nodeRadius * feedbackState.ringRadiusScale + feedbackState.ringThickness,
+                      0.0f, 360.0f, 32, Fade(feedbackState.ringColor, alpha * 0.95f));
+        if (feedbackState.drawAccent) {
+            DrawCircleLinesV(nodeCenter, nodeRadius * 0.68f,
+                             Fade(feedbackState.accentColor, alpha * 0.75f));
+        }
+    }
+
     EndScissorMode();
 
     // --- Tooltip & Actions ---
@@ -380,35 +714,26 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         float tx = mouseLogicPos.x + 30;
         float ty = mouseLogicPos.y + 30;
         float tw = 440;
-        float th = 280;
-        
-        if (tx + tw > logicW) tx -= (tw + 60);
-        if (ty + th > logicH) ty -= (th + 60);
+        float th = kTooltipBaseHeight;
 
-        // Draw Tooltip Box
-        DrawRectangleRec({tx * scale, ty * scale, tw * scale, th * scale}, Fade(BLACK, 0.95f * alpha));
-        DrawRectangleLinesEx({tx * scale, ty * scale, tw * scale, th * scale}, 1.0f, Fade(GOLD, alpha));
-        
-        UISystem::DrawTextUI(hoveredNode->name_key.c_str(), tx + 20, ty + 20, 28, GOLD, alpha);
-        
-        std::vector<std::pair<std::string, Color>> footerLines;
+        std::vector<TooltipBadgeSpec> badges;
         if (nodeContract) {
-            footerLines.emplace_back(TextFormat("定位: %s", NodeRoleToText(nodeContract->role)), ORANGE);
-            footerLines.emplace_back(TextFormat("范围: %s", ScopePolicyToText(nodeContract->scope_policy)), SKYBLUE);
+            badges.push_back(DrawRoleBadge(*nodeContract));
+            badges.push_back(DrawScopeBadge(*nodeContract));
             if (nodeContract->keystone_exclusion_group != 0) {
-                footerLines.emplace_back(
-                    TextFormat("互斥组: G%u", static_cast<unsigned int>(nodeContract->keystone_exclusion_group)),
-                    RED);
+                badges.push_back(BuildExclusionBadge(*nodeContract));
             }
-            if (nodeContract->cost_affix != CostAffixPreset::None) {
-                const auto& costAffix = CombatAntiMeta::GetCostAffixConfig(nodeContract->cost_affix);
-                footerLines.emplace_back(TextFormat("代价词缀: %s", costAffix.display_name), PINK);
-                if (costAffix.reward_text && costAffix.reward_text[0] != '\0') {
-                    footerLines.emplace_back(TextFormat("收益: %s", costAffix.reward_text), GREEN);
-                }
-                if (costAffix.penalty_text && costAffix.penalty_text[0] != '\0') {
-                    footerLines.emplace_back(TextFormat("代价: %s", costAffix.penalty_text), RED);
-                }
+        }
+
+        std::vector<std::pair<std::string, Color>> footerLines;
+        if (nodeContract && nodeContract->cost_affix != CostAffixPreset::None) {
+            const auto& costAffix = CombatAntiMeta::GetCostAffixConfig(nodeContract->cost_affix);
+            footerLines.emplace_back(TextFormat("代价词缀: %s", costAffix.display_name), PINK);
+            if (costAffix.reward_text && costAffix.reward_text[0] != '\0') {
+                footerLines.emplace_back(TextFormat("收益: %s", costAffix.reward_text), GREEN);
+            }
+            if (costAffix.penalty_text && costAffix.penalty_text[0] != '\0') {
+                footerLines.emplace_back(TextFormat("代价: %s", costAffix.penalty_text), RED);
             }
         }
         if (!hoveredNode->stat_modifiers.empty()) {
@@ -418,24 +743,53 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
             footerLines.emplace_back("当前被同组核心互斥，点击会替换当前核心", RED);
         }
 
-        const float footerFont = 22.0f;
-        const float footerLineH = 24.0f;
-        const float footerBottomPad = 16.0f;
-        const float footerTopPad = 10.0f;
-        const float footerBlockH = footerLines.empty() ? 0.0f :
-            (footerTopPad + footerLineH * static_cast<float>(footerLines.size()));
+        const TooltipLayoutMetrics tooltipLayout =
+            ComputeTooltipLayoutMetrics(th, footerLines.size());
+        th = tooltipLayout.tooltipHeight;
+
+        if (tx + tw > logicW) {
+            tx -= (tw + 60);
+        }
+        if (ty + th > logicH) {
+            ty = std::max(20.0f, logicH - th - 20.0f);
+        }
+
+        // Draw Tooltip Box
+        DrawRectangleRec({tx * scale, ty * scale, tw * scale, th * scale},
+                         Fade(masteryTheme.secondary, 0.14f * alpha));
+        DrawRectangleRec({(tx + 4.0f) * scale, (ty + 4.0f) * scale,
+                          (tw - 8.0f) * scale, (th - 8.0f) * scale},
+                         Fade(BLACK, 0.95f * alpha));
+        DrawRectangleLinesEx({tx * scale, ty * scale, tw * scale, th * scale}, 1.0f,
+                             Fade(masteryTheme.primary, alpha));
+
+        DrawTooltipHeader(masteryTheme, *hoveredNode, tx, ty + 2.0f, tw, alpha, scale);
+
+        float badgeX = tx + 20.0f;
+        const float badgeY = ty + 66.0f;
+        for (const auto& badge : badges) {
+            DrawTooltipBadgeChip(UISystem::GetFont(), badge, badgeX, badgeY, 18.0f,
+                                 alpha * 0.95f, scale);
+            const float badgeWidth = IsFontValid(UISystem::GetFont())
+                ? MeasureTextEx(UISystem::GetFont(), badge.text.c_str(), 18.0f * scale, 1.0f * scale).x / scale
+                : static_cast<float>(MeasureText(badge.text.c_str(), static_cast<int>(18.0f * scale))) / scale;
+            badgeX += badgeWidth + 32.0f;
+        }
 
         const float descX = tx + 20.0f;
-        const float descY = ty + 64.0f;
+        const float descY = ty + tooltipLayout.descriptionTop;
         const float descW = tw - 40.0f;
-        const float descH = std::max(56.0f, th - (descY - ty) - footerBlockH - footerBottomPad);
-        DrawWrappedTextUI(UISystem::GetFont(), hoveredNode->desc_key.c_str(), descX, descY, descW, descH, 20.0f, WHITE, alpha, scale);
+        const float descH = tooltipLayout.descriptionHeight;
+        DrawKeywordHighlights(UISystem::GetFont(), hoveredNode->desc_key.c_str(),
+                              descX, descY, descW, descH, 20.0f, WHITE,
+                              alpha * 0.96f, scale);
 
         if (!footerLines.empty()) {
-            float lineY = ty + th - footerBottomPad - footerLineH * static_cast<float>(footerLines.size());
+            const float footerFont = 22.0f;
+            float lineY = ty + tooltipLayout.footerTop + kTooltipFooterTopPad;
             for (const auto& line : footerLines) {
                 UISystem::DrawTextUI(line.first.c_str(), tx + 20.0f, lineY, footerFont, line.second, alpha * 0.9f);
-                lineY += footerLineH;
+                lineY += kTooltipFooterLineHeight;
             }
         }
     }

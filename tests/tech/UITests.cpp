@@ -2,12 +2,14 @@
 #include "TestCommon.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/ui/UIAnimationSystem.hpp"
+#include "game/systems/ui/UISkillSpecRenderer.hpp"
 #include "game/components/UIAnimationComponent.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/systems/ui/UISkillHub.hpp"
+#include "game/systems/ui/UISkillTalentTree.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/components/Common.hpp"
 #include "game/data/SkillRegistry.hpp"
@@ -57,7 +59,7 @@ TEST_CASE("[Tech] SkillUI - Context Menu State") {
     CHECK(UISystem::State.contextSourceSkillSlot == 3);
 }
 
-TEST_CASE("[Tech] SkillUI - UISkillTalentTree scissor scope balanced") {
+TEST_CASE("[Tech] SkillUI - UISkillTalentTree scissor scope uses exactly one pair") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
         fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
@@ -91,7 +93,178 @@ TEST_CASE("[Tech] SkillUI - UISkillTalentTree scissor scope balanced") {
         return count;
     };
 
-    CHECK(countOccur("BeginScissorMode(") == countOccur("EndScissorMode()"));
+    CHECK(countOccur("BeginScissorMode(") == 1);
+    CHECK(countOccur("EndScissorMode()") == 1);
+}
+
+TEST_CASE("[Tech] SkillUI - tooltip helpers anchor hierarchy and wrapping") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    CHECK(source.find("DrawTooltipHeader(") != std::string::npos);
+    CHECK(source.find("DrawRoleBadge(") != std::string::npos);
+    CHECK(source.find("DrawScopeBadge(") != std::string::npos);
+    CHECK(source.find("DrawKeywordHighlights(") != std::string::npos);
+    CHECK(source.find("BuildTreeFeedbackState(") != std::string::npos);
+    CHECK(source.find("BeginScissorMode(") != std::string::npos);
+    CHECK(source.find("EndScissorMode()") != std::string::npos);
+}
+
+TEST_CASE("[Tech] SkillUI - tooltip layout reserves footer separation") {
+    const auto sparseLayout = SkillTreeUI::ComputeTooltipLayoutMetrics(280.0f, 0);
+    CHECK(sparseLayout.descriptionHeight >= 56.0f);
+    CHECK(sparseLayout.descriptionBottom + sparseLayout.footerGap <= sparseLayout.footerTop);
+
+    const auto denseLayout = SkillTreeUI::ComputeTooltipLayoutMetrics(280.0f, 5);
+    CHECK(denseLayout.footerHeight > sparseLayout.footerHeight);
+    CHECK(denseLayout.descriptionBottom + denseLayout.footerGap <= denseLayout.footerTop);
+}
+
+TEST_CASE("[Tech] SkillUI - tooltip shell and clamp precede badge drawing") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    const size_t tooltipPos = source.find("// --- Tooltip & Actions ---");
+    const size_t clampPos = source.find("if (ty + th > logicH)", tooltipPos);
+    const size_t shellPos = source.find("// Draw Tooltip Box", tooltipPos);
+    const size_t badgeLayoutPos = source.find("float badgeX = tx + 20.0f;", tooltipPos);
+    const size_t badgeDrawPos = source.find("DrawTooltipBadgeChip(", tooltipPos);
+
+    REQUIRE(tooltipPos != std::string::npos);
+    REQUIRE(clampPos != std::string::npos);
+    REQUIRE(shellPos != std::string::npos);
+    REQUIRE(badgeLayoutPos != std::string::npos);
+    REQUIRE(badgeDrawPos != std::string::npos);
+    CHECK(clampPos < shellPos);
+    CHECK(shellPos < badgeLayoutPos);
+    CHECK(badgeLayoutPos < badgeDrawPos);
+}
+
+TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree chrome") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 4> candidates = {
+        fs::path("src/game/systems/ui/UISkillHub.cpp"),
+        fs::path("src/game/systems/ui/UISkillSpecRenderer.hpp"),
+        fs::path("src/game/systems/ui/UISkillSpecRenderer.cpp"),
+        fs::path("src/game/systems/ui/UISkillTalentTree.cpp")
+    };
+
+    std::array<std::string, 4> sources;
+    for (size_t index = 0; index < candidates.size(); ++index) {
+        for (const fs::path& base : {fs::path("."), fs::path(".."), fs::path("../..")}) {
+            const fs::path candidate = base / candidates[index];
+            if (!fs::exists(candidate)) {
+                continue;
+            }
+            std::ifstream in(candidate, std::ios::in | std::ios::binary);
+            std::ostringstream ss;
+            ss << in.rdbuf();
+            sources[index] = ss.str();
+            if (!sources[index].empty()) {
+                break;
+            }
+        }
+        REQUIRE_MESSAGE(!sources[index].empty(), candidates[index].string().c_str());
+    }
+
+    CHECK(sources[0].find("GetBladeMasteryUIThemeProfile(profile.id)") != std::string::npos);
+    CHECK(sources[1].find("ClassifyNodeVisual") != std::string::npos);
+    CHECK(sources[2].find("GetBladeMasteryUIThemeProfile(tree->mastery_id)") != std::string::npos);
+    CHECK(sources[2].find("ClassifyNodeVisual") != std::string::npos);
+    CHECK(sources[3].find("GetBladeMasteryUIThemeProfile(tree->mastery_id)") != std::string::npos);
+    CHECK(sources[3].find("ClassifyNodeVisual") != std::string::npos);
+}
+
+TEST_CASE("[Tech] SkillUI - shared node visual classification drives radius consistently") {
+    TalentNode passiveNode;
+    passiveNode.max_points = 5;
+
+    TalentNode modifierNode;
+    modifierNode.max_points = 4;
+
+    TalentNode keystoneNode;
+    keystoneNode.max_points = 1;
+
+    NodeContractData triggerContract;
+    triggerContract.role = SpecNodeRole::Trigger;
+
+    NodeContractData synergyContract;
+    synergyContract.role = SpecNodeRole::Synergy;
+
+    NodeContractData transmuterContract;
+    transmuterContract.role = SpecNodeRole::Transmuter;
+
+    const SkillSpecView view{.zoom = 1.25f};
+
+    CHECK(UISkillSpecRenderer::ClassifyNodeVisual(passiveNode) ==
+          UISkillSpecRenderer::NodeType::Passive);
+    CHECK(UISkillSpecRenderer::GetNodeRadius(passiveNode, view) ==
+          doctest::Approx(40.0f * view.zoom * 0.75f));
+
+    CHECK(UISkillSpecRenderer::ClassifyNodeVisual(modifierNode) ==
+          UISkillSpecRenderer::NodeType::Modifier);
+    CHECK(UISkillSpecRenderer::GetNodeRadius(modifierNode, view) ==
+          doctest::Approx(40.0f * view.zoom * 0.95f));
+
+    CHECK(UISkillSpecRenderer::ClassifyNodeVisual(keystoneNode) ==
+          UISkillSpecRenderer::NodeType::Keystone);
+    CHECK(UISkillSpecRenderer::GetNodeRadius(keystoneNode, view) ==
+          doctest::Approx(40.0f * view.zoom * 1.35f));
+
+    CHECK(UISkillSpecRenderer::ClassifyNodeVisual(modifierNode, &triggerContract) ==
+          UISkillSpecRenderer::NodeType::Trigger);
+    CHECK(UISkillSpecRenderer::GetNodeRadius(modifierNode, view, &triggerContract) ==
+          doctest::Approx(40.0f * view.zoom * 1.1f));
+
+    CHECK(UISkillSpecRenderer::ClassifyNodeVisual(passiveNode, &synergyContract) ==
+          UISkillSpecRenderer::NodeType::Synergy);
+    CHECK(UISkillSpecRenderer::GetNodeRadius(passiveNode, view, &synergyContract) ==
+          doctest::Approx(40.0f * view.zoom));
+
+    CHECK(UISkillSpecRenderer::ClassifyNodeVisual(passiveNode, &transmuterContract) ==
+          UISkillSpecRenderer::NodeType::Transmuter);
+    CHECK(UISkillSpecRenderer::GetNodeRadius(passiveNode, view, &transmuterContract) ==
+          doctest::Approx(40.0f * view.zoom * 1.1f));
 }
 
 TEST_CASE("[Tech] SkillUI - Persistence of Assignments") {

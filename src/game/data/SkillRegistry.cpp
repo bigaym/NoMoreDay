@@ -17,6 +17,19 @@ using json = nlohmann::json;
 
 namespace {
 
+BladeMasteryId ParseMasteryId(const std::string &value) {
+  if (value == "sword_saint") {
+    return BladeMasteryId::SwordSaint;
+  }
+  if (value == "heavenly_sword") {
+    return BladeMasteryId::HeavenlySword;
+  }
+  if (value == "demon_blade") {
+    return BladeMasteryId::DemonBlade;
+  }
+  return BladeMasteryId::None;
+}
+
 float RoundCoord(float value) {
   return std::round(value * 1000.0f) / 1000.0f;
 }
@@ -266,6 +279,7 @@ void RegisterSkillTreeAndContract(
   if (item.contains("talent_tree") && item.at("talent_tree").is_array()) {
     SkillTreeDefinition tree;
     tree.skill_id = skill_id;
+    tree.mastery_id = ParseMasteryId(item.value("mastery_id", ""));
     for (const auto &node_item : item.at("talent_tree")) {
       TalentNode node = node_item.get<TalentNode>();
       tree.nodes[node.id] = std::move(node);

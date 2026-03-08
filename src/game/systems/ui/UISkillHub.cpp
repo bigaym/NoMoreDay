@@ -1,5 +1,6 @@
 #include "game/systems/ui/UISkillHub.hpp"
 #include "game/systems/ui/UISystem.hpp"
+#include "game/systems/ui/BladeMasteryUITheme.hpp"
 #include "game/data/BladeMasteryRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
@@ -89,6 +90,8 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
 
         for (std::size_t index = 0; index < masteryProfiles.size(); ++index) {
             const auto& profile = masteryProfiles[index];
+            const BladeMasteryUIThemeProfile& theme =
+                GetBladeMasteryUIThemeProfile(profile.id);
             const bool unlocked = systems::BladeMasteryService::IsMasteryUnlocked(
                 registry, player, profile.id);
             const bool selected = (selectedMastery == profile.id);
@@ -104,31 +107,54 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                                       70.0f * state.scaleFactor,
                                       24.0f * state.scaleFactor};
 
-            DrawRectangleRec(card, Fade(selected ? DARKGREEN : BLACK, 0.45f * alpha));
-            DrawRectangleLinesEx(card, 1.0f * state.scaleFactor,
-                                 Fade(selected ? GREEN : DARKGRAY, alpha));
+            const Color cardFill = selected ? theme.secondary : Color{16, 18, 24, 255};
+            const Color cardTint = selected ? theme.primary : theme.secondary;
+            DrawRectangleRec(card, Fade(cardFill, (selected ? 0.48f : 0.34f) * alpha));
+            DrawRectangleLinesEx(card, 1.2f * state.scaleFactor,
+                                 Fade(selected ? theme.highlight : cardTint, alpha));
+
+            switch (theme.background_pattern) {
+            case BladeMasteryBackgroundPattern::DiagonalCuts:
+                DrawLineEx({card.x + 8.0f * state.scaleFactor, card.y + card.height - 8.0f * state.scaleFactor},
+                           {card.x + card.width - 92.0f * state.scaleFactor, card.y + 8.0f * state.scaleFactor},
+                           2.0f * state.scaleFactor, Fade(theme.highlight, 0.22f * alpha));
+                break;
+            case BladeMasteryBackgroundPattern::OrbitArcs:
+                DrawRingLines({card.x + card.width - 110.0f * state.scaleFactor, card.y + card.height * 0.5f},
+                              8.0f * state.scaleFactor, 18.0f * state.scaleFactor,
+                              220.0f, 20.0f, 18, Fade(theme.highlight, 0.24f * alpha));
+                break;
+            case BladeMasteryBackgroundPattern::BrokenPlate:
+                DrawLineEx({card.x + 14.0f * state.scaleFactor, card.y + card.height * 0.38f},
+                           {card.x + 58.0f * state.scaleFactor, card.y + card.height * 0.62f},
+                           2.0f * state.scaleFactor, Fade(theme.danger, 0.20f * alpha));
+                break;
+            case BladeMasteryBackgroundPattern::None:
+            default:
+                break;
+            }
 
             std::string status = selected
-                                     ? "已选择"
-                                     : unlocked ? (debugUnlocked ? "调试解锁" : "已解锁")
-                                                : !hasBladeProfession
+                                      ? "已选择"
+                                      : unlocked ? (debugUnlocked ? "调试解锁" : "已解锁")
+                                                 : !hasBladeProfession
                                                       ? "需先立誓"
                                                       : "Lv." + std::to_string(profile.unlock_level) +
                                                             " / Debug Lv." +
                                                             std::to_string(profile.debug_unlock_level_override);
 
             UISystem::DrawTextUI(profile.name.c_str(), card.x + 10, card.y + 8,
-                                 18, WHITE, alpha);
+                                 18, selected ? theme.highlight : WHITE, alpha);
             UISystem::DrawTextUI(status.c_str(), card.x + 10, card.y + 28, 12,
-                                 unlocked ? GREEN : LIGHTGRAY, alpha);
+                                 unlocked ? theme.highlight : LIGHTGRAY, alpha);
 
             const bool canSelect = unlocked && !selected;
-            DrawRectangleRec(button, Fade(canSelect ? DARKBLUE : DARKGRAY, 0.85f * alpha));
+            DrawRectangleRec(button, Fade(canSelect ? theme.primary : DARKGRAY, 0.72f * alpha));
             DrawRectangleLinesEx(button, 1.0f * state.scaleFactor,
-                                 Fade(canSelect ? SKYBLUE : GRAY, alpha));
+                                 Fade(canSelect ? theme.highlight : GRAY, alpha));
             UISystem::DrawTextUI(selected ? "已生效"
-                                         : canSelect ? "选择"
-                                                     : hasBladeProfession ? "未解锁"
+                                          : canSelect ? "选择"
+                                                      : hasBladeProfession ? "未解锁"
                                                                          : "先立誓",
                                  button.x + 10, button.y + 5, 12, WHITE, alpha);
 
