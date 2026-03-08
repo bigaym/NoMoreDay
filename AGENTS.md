@@ -38,6 +38,7 @@ Operational rules for coding agents in `F:\NoMoreDay`.
 3. Keep memory entries factual, short, and searchable (stable keywords).
 4. Do not store secrets, tokens, credentials, or private keys.
 5. If direction changes, store a correction checkpoint to supersede stale memory.
+6. Load memory when first conversation.
 
 ## 6) Build/Test Commands
 Run from repo root `F:\NoMoreDay`.

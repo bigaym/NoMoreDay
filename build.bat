@@ -68,6 +68,7 @@ set "VS_INSTALL_DIR="
 set "VS_SELECTED_GENERATOR="
 set "SUPPORTED_GENERATOR_A=Visual Studio 17 2022"
 set "SUPPORTED_GENERATOR_B=Visual Studio 18 2026"
+set "BUILD_LOG_DIR=%TEMP%"
 
 REM ============================================================================
 REM Visual Studio Environment Setup
@@ -265,81 +266,37 @@ if /i "!ENABLE_STALE_CLEAN!"=="ON" (
 )
 
 if /i "!ENABLE_PRECHECKS!"=="ON" (
-    echo [Build] Verifying worktree mapping prerequisites...
-    python scripts\check_worktree_mapping.py
-    if errorlevel 1 (
-        echo [Build] Worktree mapping prerequisite check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Verifying worktree mapping prerequisites" "Worktree mapping prerequisite check failed! Aborting." "python scripts\check_worktree_mapping.py"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Checking legacy/version marker reintroduction...
-    python scripts\check_legacy_reintroduction.py
-    if errorlevel 1 (
-        echo [Build] Legacy/version marker reintroduction check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Checking legacy/version marker reintroduction" "Legacy/version marker reintroduction check failed! Aborting." "python scripts\check_legacy_reintroduction.py"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Generating render ABI includes...
-    python tools\render_abi\generate_gpu_abi.py
-    if errorlevel 1 (
-        echo [Build] Render ABI generation failed! Aborting.
-        exit /b 1
-    )
-    echo [Build] Checking render ABI struct governance...
-    python tools\render_abi\check_no_manual_abi_structs.py
-    if errorlevel 1 (
-        echo [Build] Render ABI governance check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Generating render ABI includes" "Render ABI generation failed! Aborting." "python tools\render_abi\generate_gpu_abi.py"
+    if errorlevel 1 exit /b 1
+    call :run_quiet_step "Checking render ABI struct governance" "Render ABI governance check failed! Aborting." "python tools\render_abi\check_no_manual_abi_structs.py"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Checking skill_spec runtime-^>canonical migration artifacts...
-    python scripts\migrate_skill_spec_modifier_slice.py --check --fail-on-drop
-    if errorlevel 1 (
-        echo [Build] skill_spec migration artifact check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Checking skill_spec runtime-^>canonical migration artifacts" "skill_spec migration artifact check failed! Aborting." "python scripts\migrate_skill_spec_modifier_slice.py --check --fail-on-drop"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Checking skill_spec canonical runtime contract drift...
-    python scripts\gen_skill_spec_modifier_contract.py --check
-    if errorlevel 1 (
-        echo [Build] skill_spec canonical runtime contract check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Checking skill_spec canonical runtime contract drift" "skill_spec canonical runtime contract check failed! Aborting." "python scripts\gen_skill_spec_modifier_contract.py --check"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Validating assets...
-    python scripts\validate_json.py
-    if errorlevel 1 (
-        echo [Build] Asset validation failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Validating assets" "Asset validation failed! Aborting." "python scripts\validate_json.py"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Checking map/monster modifier v2 drift...
-    python scripts\gen_map_monster_modifier_v2.py --check
-    if errorlevel 1 (
-        echo [Build] Map/monster modifier v2 drift check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Checking map/monster modifier v2 drift" "Map/monster modifier v2 drift check failed! Aborting." "python scripts\gen_map_monster_modifier_v2.py --check"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Checking monster behavior-op dispatch coverage...
-    python scripts\check_monster_behavior_dispatch.py
-    if errorlevel 1 (
-        echo [Build] Monster behavior-op dispatch coverage check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Checking monster behavior-op dispatch coverage" "Monster behavior-op dispatch coverage check failed! Aborting." "python scripts\check_monster_behavior_dispatch.py"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Generating modifier runtime v2...
-    python scripts\gen_modifier_runtime_v2.py --check
-    if errorlevel 1 (
-        echo [Build] Modifier runtime v2 generation failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Generating modifier runtime v2" "Modifier runtime v2 generation failed! Aborting." "python scripts\gen_modifier_runtime_v2.py --check"
+    if errorlevel 1 exit /b 1
 
-    echo [Build] Checking skill contract drift...
-    python scripts\gen_skill_contracts.py --check
-    if errorlevel 1 (
-        echo [Build] Skill contract check failed! Aborting.
-        exit /b 1
-    )
+    call :run_quiet_step "Checking skill contract drift" "Skill contract check failed! Aborting." "python scripts\gen_skill_contracts.py --check"
+    if errorlevel 1 exit /b 1
 ) else (
     echo [Build] Pre-check scripts skipped ^(novalidate^).
 )
@@ -538,14 +495,22 @@ if "!NEED_CONFIG!"=="1" (
     set "CMAKE_OPTS=!CMAKE_OPTS! -DNMD_CCACHE_DEFAULT_PATH:FILEPATH=!CCACHE_FALLBACK_EXE!"
     set "CMAKE_OPTS=!CMAKE_OPTS! -DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
 
+    set "CONFIG_LOG=!BUILD_LOG_DIR!\nomoreday_config_%RANDOM%_%RANDOM%.log"
+    echo [Build] Configuring CMake project...
     cmake -G "!GENERATOR_NAME!" -A x64 !CMAKE_OPTS! ^
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5 ^
         -DCMAKE_BUILD_TYPE=!BUILD_TYPE! ^
         -DBUILD_TESTING=!BUILD_TESTS! ^
         -DENABLE_LTO=!ENABLE_LTO! ^
-        ..
-    
-    if errorlevel 1 exit /b 1
+        .. > "!CONFIG_LOG!" 2>&1
+
+    if errorlevel 1 (
+        type "!CONFIG_LOG!"
+        if exist "!CONFIG_LOG!" del /f /q "!CONFIG_LOG!" >nul 2>nul
+        exit /b 1
+    )
+    if exist "!CONFIG_LOG!" del /f /q "!CONFIG_LOG!" >nul 2>nul
+    echo [Build] CMake configure complete.
 
     REM 3. Symlink compile_commands.json to root for LSP
     if exist compile_commands.json (
@@ -558,20 +523,19 @@ if "!NEED_CONFIG!"=="1" (
 REM ============================================================================
 REM 4. Build
 REM ============================================================================
-if "!ENABLE_ANALYZE!"=="ON" (
-    set "BUILD_LOG=%TEMP%\nomoreday_build_%RANDOM%_%RANDOM%.log"
-    set "CMAKE_BUILD_TARGETS=NoMoreDay"
-    if /i "!BUILD_TEST_TARGET!"=="ON" set "CMAKE_BUILD_TARGETS=ALL_BUILD"
-    cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
-    set "BUILD_EXIT=!errorlevel!"
+set "BUILD_LOG=!BUILD_LOG_DIR!\nomoreday_build_%RANDOM%_%RANDOM%.log"
+set "CMAKE_BUILD_TARGETS=NoMoreDay"
+if /i "!BUILD_TEST_TARGET!"=="ON" set "CMAKE_BUILD_TARGETS=ALL_BUILD"
+echo [Build] Building !CMAKE_BUILD_TARGETS! ^(!BUILD_TYPE!, j=!PARALLEL_JOBS!^)...
+cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS! > "!BUILD_LOG!" 2>&1
+set "BUILD_EXIT=!errorlevel!"
+
+if not "!BUILD_EXIT!"=="0" (
     type "!BUILD_LOG!" | findstr /v /i /c:"third_party"
-    if exist "!BUILD_LOG!" del /f /q "!BUILD_LOG!" >nul 2>nul
 ) else (
-    set "CMAKE_BUILD_TARGETS=NoMoreDay"
-    if /i "!BUILD_TEST_TARGET!"=="ON" set "CMAKE_BUILD_TARGETS=ALL_BUILD"
-    cmake --build . --target !CMAKE_BUILD_TARGETS! --config !BUILD_TYPE! --parallel !PARALLEL_JOBS! -- /m:!PARALLEL_JOBS! /p:UseMultiToolTask=true /p:CL_MPCount=!PARALLEL_JOBS!
-    set "BUILD_EXIT=!errorlevel!"
+    echo [Build] Build completed successfully.
 )
+if exist "!BUILD_LOG!" del /f /q "!BUILD_LOG!" >nul 2>nul
 
 if not "!BUILD_EXIT!"=="0" exit /b !BUILD_EXIT!
 
@@ -684,3 +648,22 @@ if "!RUN_COMBAT_GATE!"=="ON" (
 echo.
 echo [Build] All steps completed successfully!
 cd ..
+goto :eof
+
+:run_quiet_step
+setlocal
+set "STEP_LABEL=%~1"
+set "STEP_FAIL=%~2"
+set "STEP_LOG=%BUILD_LOG_DIR%\nomoreday_step_%RANDOM%_%RANDOM%.log"
+echo [Build] %STEP_LABEL%...
+cmd /c "%~3" > "%STEP_LOG%" 2>&1
+set "STEP_EXIT=%errorlevel%"
+if not "%STEP_EXIT%"=="0" (
+    type "%STEP_LOG%"
+    if exist "%STEP_LOG%" del /f /q "%STEP_LOG%" >nul 2>nul
+    echo [Build] %STEP_FAIL%
+    endlocal & exit /b %STEP_EXIT%
+)
+if exist "%STEP_LOG%" del /f /q "%STEP_LOG%" >nul 2>nul
+echo [Build] OK: %STEP_LABEL%.
+endlocal & exit /b 0

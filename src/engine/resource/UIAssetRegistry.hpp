@@ -40,6 +40,9 @@ namespace assets::ui
         constexpr assets::TextureAsset Skill_XinJianWuYing = {"ui_skill_xinjianwuying"_hs, "assets/textures/icons/skills/skill_xinjianwuying.png"};       // 心剑·无影
         constexpr assets::TextureAsset Skill_YuJianHuiXuan = {"ui_skill_yujianhuixuan"_hs, "assets/textures/icons/skills/skill_yujianhuixuan.png"};       // 御剑·回旋
         constexpr assets::TextureAsset Skill_JueYingShan = {"ui_skill_jueyingshan"_hs, "assets/textures/icons/skills/skill_jueyingshan.png"};             // 绝影闪
+        constexpr assets::TextureAsset Skill_QiXingZhan = {"ui_skill_qixingzhan"_hs, "assets/textures/icons/skills/skill_qixingzhan.png"};                // 七星斩
+        constexpr assets::TextureAsset Skill_TianJianJiangLin = {"ui_skill_tianjianjianglin"_hs, "assets/textures/icons/skills/skill_tianjianjianglin.png"}; // 天剑降临
+        constexpr assets::TextureAsset Skill_XueHai = {"ui_skill_xuehai"_hs, "assets/textures/icons/skills/skill_xuehai.png"};                            // 血海
 
         // 装备槽位
         constexpr assets::TextureAsset Slot_Amulet_Mirror = {"slot_amulet_mirror"_hs, "assets/textures/equipslot/item_amulet_mirror.png"}; // 护符槽位
@@ -68,7 +71,7 @@ namespace assets::ui
         constexpr assets::TextureAsset Env_Tree_Dead = {"env_tree_dead"_hs, "assets/textures/env/env_tree_dead.png"};
 
         
-        constexpr std::array<const assets::TextureAsset*, 38> All = {
+        constexpr std::array<const assets::TextureAsset*, 41> All = {
             &Inventory_Slot,
             &Panel_Background,
             &Home_Page,
@@ -86,6 +89,9 @@ namespace assets::ui
             &Skill_XinJianWuYing,
             &Skill_YuJianHuiXuan,
             &Skill_JueYingShan,
+            &Skill_QiXingZhan,
+            &Skill_TianJianJiangLin,
+            &Skill_XueHai,
             &Slot_Amulet_Mirror,
             &Slot_Armor_Chest,
             &Slot_Boots,

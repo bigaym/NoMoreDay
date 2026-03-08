@@ -37,7 +37,7 @@
                 "uvx",
                 "mcp-server-tree-sitter"
             ],
-            "enabled": true
+            "enabled": false
         },
         "sequential-thinking": {
             "type": "local",
@@ -46,7 +46,7 @@
                 "-y",
                 "@modelcontextprotocol/server-sequential-thinking"
             ],
-            "enabled": true
+            "enabled": false
         },
         "clangd_graph_rag": {
             "type": "local",

@@ -5882,7 +5882,7 @@
       "weapon_damage_mult": 1.8,
       "added_damage_effectiveness": 1.0,
       "charge_count": 1,
-      "icon_id": 10,
+      "icon_id": 3290659565,
       "params": {
         "radius": 96.0,
         "slash_count": 7.0,
@@ -5907,7 +5907,7 @@
       "weapon_damage_mult": 1.0,
       "added_damage_effectiveness": 1.0,
       "charge_count": 1,
-      "icon_id": 11,
+      "icon_id": 2920278494,
       "params": {
         "impact_radius": 90.0,
         "field_radius": 140.0,
@@ -5934,7 +5934,7 @@
       "weapon_damage_mult": 1.0,
       "added_damage_effectiveness": 0.8,
       "charge_count": 1,
-      "icon_id": 12,
+      "icon_id": 3415837314,
       "params": {
         "field_radius": 120.0,
         "field_duration": 4.8,

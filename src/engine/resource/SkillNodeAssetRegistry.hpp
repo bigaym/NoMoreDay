@@ -262,6 +262,82 @@ namespace assets::skill_nodes {
     inline constexpr TextureAsset node_972 = { "skill_node_972"_hs, "assets/textures/skill_nodes/skill_nodes_972.png" };
     inline constexpr TextureAsset node_973 = { "skill_node_973"_hs, "assets/textures/skill_nodes/skill_nodes_973.png" };
     inline constexpr TextureAsset node_974 = { "skill_node_974"_hs, "assets/textures/skill_nodes/skill_nodes_974.png" };
+    inline constexpr TextureAsset node_1000 = { "skill_node_1000"_hs, "assets/textures/skill_nodes/skill_nodes_1000.png" };
+    inline constexpr TextureAsset node_1001 = { "skill_node_1001"_hs, "assets/textures/skill_nodes/skill_nodes_1001.png" };
+    inline constexpr TextureAsset node_1002 = { "skill_node_1002"_hs, "assets/textures/skill_nodes/skill_nodes_1002.png" };
+    inline constexpr TextureAsset node_1003 = { "skill_node_1003"_hs, "assets/textures/skill_nodes/skill_nodes_1003.png" };
+    inline constexpr TextureAsset node_1004 = { "skill_node_1004"_hs, "assets/textures/skill_nodes/skill_nodes_1004.png" };
+    inline constexpr TextureAsset node_1005 = { "skill_node_1005"_hs, "assets/textures/skill_nodes/skill_nodes_1005.png" };
+    inline constexpr TextureAsset node_1006 = { "skill_node_1006"_hs, "assets/textures/skill_nodes/skill_nodes_1006.png" };
+    inline constexpr TextureAsset node_1007 = { "skill_node_1007"_hs, "assets/textures/skill_nodes/skill_nodes_1007.png" };
+    inline constexpr TextureAsset node_1008 = { "skill_node_1008"_hs, "assets/textures/skill_nodes/skill_nodes_1008.png" };
+    inline constexpr TextureAsset node_1009 = { "skill_node_1009"_hs, "assets/textures/skill_nodes/skill_nodes_1009.png" };
+    inline constexpr TextureAsset node_1010 = { "skill_node_1010"_hs, "assets/textures/skill_nodes/skill_nodes_1010.png" };
+    inline constexpr TextureAsset node_1011 = { "skill_node_1011"_hs, "assets/textures/skill_nodes/skill_nodes_1011.png" };
+    inline constexpr TextureAsset node_1012 = { "skill_node_1012"_hs, "assets/textures/skill_nodes/skill_nodes_1012.png" };
+    inline constexpr TextureAsset node_1013 = { "skill_node_1013"_hs, "assets/textures/skill_nodes/skill_nodes_1013.png" };
+    inline constexpr TextureAsset node_1014 = { "skill_node_1014"_hs, "assets/textures/skill_nodes/skill_nodes_1014.png" };
+    inline constexpr TextureAsset node_1015 = { "skill_node_1015"_hs, "assets/textures/skill_nodes/skill_nodes_1015.png" };
+    inline constexpr TextureAsset node_1016 = { "skill_node_1016"_hs, "assets/textures/skill_nodes/skill_nodes_1016.png" };
+    inline constexpr TextureAsset node_1017 = { "skill_node_1017"_hs, "assets/textures/skill_nodes/skill_nodes_1017.png" };
+    inline constexpr TextureAsset node_1018 = { "skill_node_1018"_hs, "assets/textures/skill_nodes/skill_nodes_1018.png" };
+    inline constexpr TextureAsset node_1019 = { "skill_node_1019"_hs, "assets/textures/skill_nodes/skill_nodes_1019.png" };
+    inline constexpr TextureAsset node_1020 = { "skill_node_1020"_hs, "assets/textures/skill_nodes/skill_nodes_1020.png" };
+    inline constexpr TextureAsset node_1021 = { "skill_node_1021"_hs, "assets/textures/skill_nodes/skill_nodes_1021.png" };
+    inline constexpr TextureAsset node_1022 = { "skill_node_1022"_hs, "assets/textures/skill_nodes/skill_nodes_1022.png" };
+    inline constexpr TextureAsset node_1023 = { "skill_node_1023"_hs, "assets/textures/skill_nodes/skill_nodes_1023.png" };
+    inline constexpr TextureAsset node_1024 = { "skill_node_1024"_hs, "assets/textures/skill_nodes/skill_nodes_1024.png" };
+    inline constexpr TextureAsset node_1025 = { "skill_node_1025"_hs, "assets/textures/skill_nodes/skill_nodes_1025.png" };
+    inline constexpr TextureAsset node_1100 = { "skill_node_1100"_hs, "assets/textures/skill_nodes/skill_nodes_1100.png" };
+    inline constexpr TextureAsset node_1101 = { "skill_node_1101"_hs, "assets/textures/skill_nodes/skill_nodes_1101.png" };
+    inline constexpr TextureAsset node_1102 = { "skill_node_1102"_hs, "assets/textures/skill_nodes/skill_nodes_1102.png" };
+    inline constexpr TextureAsset node_1103 = { "skill_node_1103"_hs, "assets/textures/skill_nodes/skill_nodes_1103.png" };
+    inline constexpr TextureAsset node_1104 = { "skill_node_1104"_hs, "assets/textures/skill_nodes/skill_nodes_1104.png" };
+    inline constexpr TextureAsset node_1105 = { "skill_node_1105"_hs, "assets/textures/skill_nodes/skill_nodes_1105.png" };
+    inline constexpr TextureAsset node_1106 = { "skill_node_1106"_hs, "assets/textures/skill_nodes/skill_nodes_1106.png" };
+    inline constexpr TextureAsset node_1107 = { "skill_node_1107"_hs, "assets/textures/skill_nodes/skill_nodes_1107.png" };
+    inline constexpr TextureAsset node_1108 = { "skill_node_1108"_hs, "assets/textures/skill_nodes/skill_nodes_1108.png" };
+    inline constexpr TextureAsset node_1109 = { "skill_node_1109"_hs, "assets/textures/skill_nodes/skill_nodes_1109.png" };
+    inline constexpr TextureAsset node_1110 = { "skill_node_1110"_hs, "assets/textures/skill_nodes/skill_nodes_1110.png" };
+    inline constexpr TextureAsset node_1111 = { "skill_node_1111"_hs, "assets/textures/skill_nodes/skill_nodes_1111.png" };
+    inline constexpr TextureAsset node_1112 = { "skill_node_1112"_hs, "assets/textures/skill_nodes/skill_nodes_1112.png" };
+    inline constexpr TextureAsset node_1113 = { "skill_node_1113"_hs, "assets/textures/skill_nodes/skill_nodes_1113.png" };
+    inline constexpr TextureAsset node_1114 = { "skill_node_1114"_hs, "assets/textures/skill_nodes/skill_nodes_1114.png" };
+    inline constexpr TextureAsset node_1115 = { "skill_node_1115"_hs, "assets/textures/skill_nodes/skill_nodes_1115.png" };
+    inline constexpr TextureAsset node_1116 = { "skill_node_1116"_hs, "assets/textures/skill_nodes/skill_nodes_1116.png" };
+    inline constexpr TextureAsset node_1117 = { "skill_node_1117"_hs, "assets/textures/skill_nodes/skill_nodes_1117.png" };
+    inline constexpr TextureAsset node_1118 = { "skill_node_1118"_hs, "assets/textures/skill_nodes/skill_nodes_1118.png" };
+    inline constexpr TextureAsset node_1119 = { "skill_node_1119"_hs, "assets/textures/skill_nodes/skill_nodes_1119.png" };
+    inline constexpr TextureAsset node_1120 = { "skill_node_1120"_hs, "assets/textures/skill_nodes/skill_nodes_1120.png" };
+    inline constexpr TextureAsset node_1121 = { "skill_node_1121"_hs, "assets/textures/skill_nodes/skill_nodes_1121.png" };
+    inline constexpr TextureAsset node_1122 = { "skill_node_1122"_hs, "assets/textures/skill_nodes/skill_nodes_1122.png" };
+    inline constexpr TextureAsset node_1123 = { "skill_node_1123"_hs, "assets/textures/skill_nodes/skill_nodes_1123.png" };
+    inline constexpr TextureAsset node_1124 = { "skill_node_1124"_hs, "assets/textures/skill_nodes/skill_nodes_1124.png" };
+    inline constexpr TextureAsset node_1200 = { "skill_node_1200"_hs, "assets/textures/skill_nodes/skill_nodes_1200.png" };
+    inline constexpr TextureAsset node_1201 = { "skill_node_1201"_hs, "assets/textures/skill_nodes/skill_nodes_1201.png" };
+    inline constexpr TextureAsset node_1202 = { "skill_node_1202"_hs, "assets/textures/skill_nodes/skill_nodes_1202.png" };
+    inline constexpr TextureAsset node_1203 = { "skill_node_1203"_hs, "assets/textures/skill_nodes/skill_nodes_1203.png" };
+    inline constexpr TextureAsset node_1204 = { "skill_node_1204"_hs, "assets/textures/skill_nodes/skill_nodes_1204.png" };
+    inline constexpr TextureAsset node_1205 = { "skill_node_1205"_hs, "assets/textures/skill_nodes/skill_nodes_1205.png" };
+    inline constexpr TextureAsset node_1206 = { "skill_node_1206"_hs, "assets/textures/skill_nodes/skill_nodes_1206.png" };
+    inline constexpr TextureAsset node_1207 = { "skill_node_1207"_hs, "assets/textures/skill_nodes/skill_nodes_1207.png" };
+    inline constexpr TextureAsset node_1208 = { "skill_node_1208"_hs, "assets/textures/skill_nodes/skill_nodes_1208.png" };
+    inline constexpr TextureAsset node_1209 = { "skill_node_1209"_hs, "assets/textures/skill_nodes/skill_nodes_1209.png" };
+    inline constexpr TextureAsset node_1210 = { "skill_node_1210"_hs, "assets/textures/skill_nodes/skill_nodes_1210.png" };
+    inline constexpr TextureAsset node_1211 = { "skill_node_1211"_hs, "assets/textures/skill_nodes/skill_nodes_1211.png" };
+    inline constexpr TextureAsset node_1212 = { "skill_node_1212"_hs, "assets/textures/skill_nodes/skill_nodes_1212.png" };
+    inline constexpr TextureAsset node_1213 = { "skill_node_1213"_hs, "assets/textures/skill_nodes/skill_nodes_1213.png" };
+    inline constexpr TextureAsset node_1214 = { "skill_node_1214"_hs, "assets/textures/skill_nodes/skill_nodes_1214.png" };
+    inline constexpr TextureAsset node_1215 = { "skill_node_1215"_hs, "assets/textures/skill_nodes/skill_nodes_1215.png" };
+    inline constexpr TextureAsset node_1216 = { "skill_node_1216"_hs, "assets/textures/skill_nodes/skill_nodes_1216.png" };
+    inline constexpr TextureAsset node_1217 = { "skill_node_1217"_hs, "assets/textures/skill_nodes/skill_nodes_1217.png" };
+    inline constexpr TextureAsset node_1218 = { "skill_node_1218"_hs, "assets/textures/skill_nodes/skill_nodes_1218.png" };
+    inline constexpr TextureAsset node_1219 = { "skill_node_1219"_hs, "assets/textures/skill_nodes/skill_nodes_1219.png" };
+    inline constexpr TextureAsset node_1220 = { "skill_node_1220"_hs, "assets/textures/skill_nodes/skill_nodes_1220.png" };
+    inline constexpr TextureAsset node_1221 = { "skill_node_1221"_hs, "assets/textures/skill_nodes/skill_nodes_1221.png" };
+    inline constexpr TextureAsset node_1222 = { "skill_node_1222"_hs, "assets/textures/skill_nodes/skill_nodes_1222.png" };
+    inline constexpr TextureAsset node_1223 = { "skill_node_1223"_hs, "assets/textures/skill_nodes/skill_nodes_1223.png" };
+    inline constexpr TextureAsset node_1224 = { "skill_node_1224"_hs, "assets/textures/skill_nodes/skill_nodes_1224.png" };
 
     struct SkillNodeIconEntry {
         uint32_t node_id;
@@ -269,7 +345,7 @@ namespace assets::skill_nodes {
         const TextureAsset* asset;
     };
 
-    constexpr std::array<const TextureAsset*, 252> All = {
+    constexpr std::array<const TextureAsset*, 328> All = {
         &node_100,
         &node_101,
         &node_102,
@@ -521,10 +597,86 @@ namespace assets::skill_nodes {
         &node_971,
         &node_972,
         &node_973,
-        &node_974
+        &node_974,
+        &node_1000,
+        &node_1001,
+        &node_1002,
+        &node_1003,
+        &node_1004,
+        &node_1005,
+        &node_1006,
+        &node_1007,
+        &node_1008,
+        &node_1009,
+        &node_1010,
+        &node_1011,
+        &node_1012,
+        &node_1013,
+        &node_1014,
+        &node_1015,
+        &node_1016,
+        &node_1017,
+        &node_1018,
+        &node_1019,
+        &node_1020,
+        &node_1021,
+        &node_1022,
+        &node_1023,
+        &node_1024,
+        &node_1025,
+        &node_1100,
+        &node_1101,
+        &node_1102,
+        &node_1103,
+        &node_1104,
+        &node_1105,
+        &node_1106,
+        &node_1107,
+        &node_1108,
+        &node_1109,
+        &node_1110,
+        &node_1111,
+        &node_1112,
+        &node_1113,
+        &node_1114,
+        &node_1115,
+        &node_1116,
+        &node_1117,
+        &node_1118,
+        &node_1119,
+        &node_1120,
+        &node_1121,
+        &node_1122,
+        &node_1123,
+        &node_1124,
+        &node_1200,
+        &node_1201,
+        &node_1202,
+        &node_1203,
+        &node_1204,
+        &node_1205,
+        &node_1206,
+        &node_1207,
+        &node_1208,
+        &node_1209,
+        &node_1210,
+        &node_1211,
+        &node_1212,
+        &node_1213,
+        &node_1214,
+        &node_1215,
+        &node_1216,
+        &node_1217,
+        &node_1218,
+        &node_1219,
+        &node_1220,
+        &node_1221,
+        &node_1222,
+        &node_1223,
+        &node_1224
     };
 
-    constexpr std::array<SkillNodeIconEntry, 252> ByNodeId = {
+    constexpr std::array<SkillNodeIconEntry, 328> ByNodeId = {
         SkillNodeIconEntry{100u, node_100.id, &node_100},
         SkillNodeIconEntry{101u, node_101.id, &node_101},
         SkillNodeIconEntry{102u, node_102.id, &node_102},
@@ -776,7 +928,83 @@ namespace assets::skill_nodes {
         SkillNodeIconEntry{971u, node_971.id, &node_971},
         SkillNodeIconEntry{972u, node_972.id, &node_972},
         SkillNodeIconEntry{973u, node_973.id, &node_973},
-        SkillNodeIconEntry{974u, node_974.id, &node_974}
+        SkillNodeIconEntry{974u, node_974.id, &node_974},
+        SkillNodeIconEntry{1000u, node_1000.id, &node_1000},
+        SkillNodeIconEntry{1001u, node_1001.id, &node_1001},
+        SkillNodeIconEntry{1002u, node_1002.id, &node_1002},
+        SkillNodeIconEntry{1003u, node_1003.id, &node_1003},
+        SkillNodeIconEntry{1004u, node_1004.id, &node_1004},
+        SkillNodeIconEntry{1005u, node_1005.id, &node_1005},
+        SkillNodeIconEntry{1006u, node_1006.id, &node_1006},
+        SkillNodeIconEntry{1007u, node_1007.id, &node_1007},
+        SkillNodeIconEntry{1008u, node_1008.id, &node_1008},
+        SkillNodeIconEntry{1009u, node_1009.id, &node_1009},
+        SkillNodeIconEntry{1010u, node_1010.id, &node_1010},
+        SkillNodeIconEntry{1011u, node_1011.id, &node_1011},
+        SkillNodeIconEntry{1012u, node_1012.id, &node_1012},
+        SkillNodeIconEntry{1013u, node_1013.id, &node_1013},
+        SkillNodeIconEntry{1014u, node_1014.id, &node_1014},
+        SkillNodeIconEntry{1015u, node_1015.id, &node_1015},
+        SkillNodeIconEntry{1016u, node_1016.id, &node_1016},
+        SkillNodeIconEntry{1017u, node_1017.id, &node_1017},
+        SkillNodeIconEntry{1018u, node_1018.id, &node_1018},
+        SkillNodeIconEntry{1019u, node_1019.id, &node_1019},
+        SkillNodeIconEntry{1020u, node_1020.id, &node_1020},
+        SkillNodeIconEntry{1021u, node_1021.id, &node_1021},
+        SkillNodeIconEntry{1022u, node_1022.id, &node_1022},
+        SkillNodeIconEntry{1023u, node_1023.id, &node_1023},
+        SkillNodeIconEntry{1024u, node_1024.id, &node_1024},
+        SkillNodeIconEntry{1025u, node_1025.id, &node_1025},
+        SkillNodeIconEntry{1100u, node_1100.id, &node_1100},
+        SkillNodeIconEntry{1101u, node_1101.id, &node_1101},
+        SkillNodeIconEntry{1102u, node_1102.id, &node_1102},
+        SkillNodeIconEntry{1103u, node_1103.id, &node_1103},
+        SkillNodeIconEntry{1104u, node_1104.id, &node_1104},
+        SkillNodeIconEntry{1105u, node_1105.id, &node_1105},
+        SkillNodeIconEntry{1106u, node_1106.id, &node_1106},
+        SkillNodeIconEntry{1107u, node_1107.id, &node_1107},
+        SkillNodeIconEntry{1108u, node_1108.id, &node_1108},
+        SkillNodeIconEntry{1109u, node_1109.id, &node_1109},
+        SkillNodeIconEntry{1110u, node_1110.id, &node_1110},
+        SkillNodeIconEntry{1111u, node_1111.id, &node_1111},
+        SkillNodeIconEntry{1112u, node_1112.id, &node_1112},
+        SkillNodeIconEntry{1113u, node_1113.id, &node_1113},
+        SkillNodeIconEntry{1114u, node_1114.id, &node_1114},
+        SkillNodeIconEntry{1115u, node_1115.id, &node_1115},
+        SkillNodeIconEntry{1116u, node_1116.id, &node_1116},
+        SkillNodeIconEntry{1117u, node_1117.id, &node_1117},
+        SkillNodeIconEntry{1118u, node_1118.id, &node_1118},
+        SkillNodeIconEntry{1119u, node_1119.id, &node_1119},
+        SkillNodeIconEntry{1120u, node_1120.id, &node_1120},
+        SkillNodeIconEntry{1121u, node_1121.id, &node_1121},
+        SkillNodeIconEntry{1122u, node_1122.id, &node_1122},
+        SkillNodeIconEntry{1123u, node_1123.id, &node_1123},
+        SkillNodeIconEntry{1124u, node_1124.id, &node_1124},
+        SkillNodeIconEntry{1200u, node_1200.id, &node_1200},
+        SkillNodeIconEntry{1201u, node_1201.id, &node_1201},
+        SkillNodeIconEntry{1202u, node_1202.id, &node_1202},
+        SkillNodeIconEntry{1203u, node_1203.id, &node_1203},
+        SkillNodeIconEntry{1204u, node_1204.id, &node_1204},
+        SkillNodeIconEntry{1205u, node_1205.id, &node_1205},
+        SkillNodeIconEntry{1206u, node_1206.id, &node_1206},
+        SkillNodeIconEntry{1207u, node_1207.id, &node_1207},
+        SkillNodeIconEntry{1208u, node_1208.id, &node_1208},
+        SkillNodeIconEntry{1209u, node_1209.id, &node_1209},
+        SkillNodeIconEntry{1210u, node_1210.id, &node_1210},
+        SkillNodeIconEntry{1211u, node_1211.id, &node_1211},
+        SkillNodeIconEntry{1212u, node_1212.id, &node_1212},
+        SkillNodeIconEntry{1213u, node_1213.id, &node_1213},
+        SkillNodeIconEntry{1214u, node_1214.id, &node_1214},
+        SkillNodeIconEntry{1215u, node_1215.id, &node_1215},
+        SkillNodeIconEntry{1216u, node_1216.id, &node_1216},
+        SkillNodeIconEntry{1217u, node_1217.id, &node_1217},
+        SkillNodeIconEntry{1218u, node_1218.id, &node_1218},
+        SkillNodeIconEntry{1219u, node_1219.id, &node_1219},
+        SkillNodeIconEntry{1220u, node_1220.id, &node_1220},
+        SkillNodeIconEntry{1221u, node_1221.id, &node_1221},
+        SkillNodeIconEntry{1222u, node_1222.id, &node_1222},
+        SkillNodeIconEntry{1223u, node_1223.id, &node_1223},
+        SkillNodeIconEntry{1224u, node_1224.id, &node_1224}
     };
 
     inline constexpr entt::id_type FindIconId(uint32_t node_id) {
