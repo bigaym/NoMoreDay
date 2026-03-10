@@ -1,6 +1,7 @@
 #include "TestCommon.hpp"
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
 #include "engine/physics/SpatialGrid.hpp"
+#include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"
@@ -467,6 +468,143 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     REQUIRE(intent != nullptr);
     CHECK(intent->stacks >= 1);
   }
+
+  SUBCASE("Skill 10 branch transmuters change SevenStarSlash cast radius") {
+    const auto castWithBranch = [&](uint32_t node_id) {
+      auto player = registry.create();
+      registry.emplace<Position>(player, 0.0f, 0.0f);
+      auto &stats = registry.emplace<CombatStats>(player);
+      stats.mana = 200.0f;
+      stats.min_weapon_damage = 30.0f;
+      stats.max_weapon_damage = 40.0f;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 10;
+      active.specialized_slots[0].allocated_points[node_id] = 1;
+
+      auto &runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+      runtime.active_transmuter_node_by_skill[10] = node_id;
+
+      SkillExecution exec;
+      exec.skill_id = 10;
+      exec.owner = player;
+      exec.target_pos = {16.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(10);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      const auto *invulnerable = registry.try_get<InvulnerableComponent>(player);
+      REQUIRE(invulnerable != nullptr);
+      return invulnerable->shieldRadius;
+    };
+
+    const float orbitRadius = castWithBranch(1021);
+    const float starfallRadius = castWithBranch(1022);
+
+    CHECK(orbitRadius == doctest::Approx(96.0f * 0.34f));
+    CHECK(starfallRadius == doctest::Approx(96.0f * 0.50f));
+    CHECK(starfallRadius > orbitRadius);
+  }
+
+  SUBCASE("Skill 11 selected branch nodes populate HeavenlySword field state") {
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player).mana = 200.0f;
+
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::HeavenlySword;
+    mastery.heavenly_attunement = BladeAttunement::Fire;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::SpiritBladeTier;
+    resource.current = 4;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 11;
+    active.specialized_slots[0].allocated_points[1102] = 2;
+    active.specialized_slots[0].allocated_points[1113] = 1;
+
+    SkillExecution exec;
+    exec.skill_id = 11;
+    exec.owner = player;
+    exec.cast_id = 11011;
+    exec.target_pos = {24.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(11);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<HeavenlySwordFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+    const auto &field = view.get<HeavenlySwordFieldComponent>(fieldEntity);
+
+    CHECK(field.owner == player);
+    CHECK(field.cast_id == 11011);
+    CHECK(field.spent_tiers == 4);
+    CHECK(field.attunement == BladeAttunement::Fire);
+    CHECK(field.has_cycle);
+    CHECK(field.impact_damage_mult == doctest::Approx(1.632f));
+    CHECK(field.field_damage_mult == doctest::Approx(1.32f));
+    CHECK(field.radius == doctest::Approx(196.0f));
+  }
+
+  SUBCASE("Skill 12 branch forms populate BloodSea field state") {
+    const auto castWithBranch = [&](uint32_t node_id) {
+      auto player = registry.create();
+      registry.emplace<Position>(player, 0.0f, 0.0f);
+      registry.emplace<CombatStats>(player).mana = 200.0f;
+
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::DemonBlade;
+      mastery.blood_oath_active = true;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::Bloodthirst;
+      resource.current = 5;
+      resource.max = 10;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 12;
+      active.specialized_slots[0].allocated_points[node_id] = 1;
+
+      SkillExecution exec;
+      exec.skill_id = 12;
+      exec.owner = player;
+      exec.cast_id = 12000 + node_id;
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(12);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      auto view = registry.view<BloodSeaFieldComponent>();
+      REQUIRE(view.begin() != view.end());
+      const auto fieldEntity = *view.begin();
+      return view.get<BloodSeaFieldComponent>(fieldEntity);
+    };
+
+    const auto torrentField = castWithBranch(1221);
+    CHECK(torrentField.consumed_bloodthirst == 5);
+    CHECK(torrentField.torrent_form);
+    CHECK_FALSE(torrentField.ring_form);
+    CHECK(torrentField.move_follow_speed == doctest::Approx(14.0f));
+    CHECK(torrentField.radius == doctest::Approx(172.5f));
+    CHECK(torrentField.damage_interval == doctest::Approx(0.2125f));
+    CHECK(torrentField.leech_ratio == doctest::Approx(0.12f));
+
+    const auto ringField = castWithBranch(1222);
+    CHECK(ringField.consumed_bloodthirst == 5);
+    CHECK_FALSE(ringField.torrent_form);
+    CHECK(ringField.ring_form);
+    CHECK(ringField.move_follow_speed == doctest::Approx(10.0f));
+    CHECK(ringField.radius == doctest::Approx(120.0f));
+    CHECK(ringField.damage_interval == doctest::Approx(0.25f));
+    CHECK(ringField.leech_ratio == doctest::Approx(0.22f));
+    CHECK(ringField.bonus_damage_mult == doctest::Approx(1.84f));
+  }
 }
 
 TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key nodes") {
@@ -509,6 +647,1027 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key no
         registry.try_get<SkillContractRuntimeComponent>(caster);
     REQUIRE(runtime != nullptr);
     CHECK(runtime->trigger_cooldowns.contains(trigger_node));
+  }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Trigger and synergy nodes cause observable outcomes") {
+  CombatEventDispatcher::Init();
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+
+  SUBCASE("Skill 10 sword-step synergy grants mirage buff after cast") {
+    entt::registry registry;
+
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    auto &stats = registry.emplace<CombatStats>(player);
+    stats.mana = 200.0f;
+    stats.min_weapon_damage = 30.0f;
+    stats.max_weapon_damage = 40.0f;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 10;
+    active.specialized_slots[0].allocated_points[1017] = 1;
+
+    auto &effects = registry.emplace<ActiveEffectsComponent>(player);
+    BuffEffect swift;
+    swift.id = "flowing_thrust_swift";
+    swift.name = "Feng Xing";
+    swift.duration = 1.0f;
+    swift.remaining = 1.0f;
+    effects.AddOrRefresh(swift);
+
+    SkillExecution exec;
+    exec.skill_id = 10;
+    exec.owner = player;
+    exec.target_pos = {16.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(10);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    CHECK(test::skill_keynode_matrix::HasEffectById(
+        registry, player, "seven_star_sword_step_mirage"));
+  }
+
+  SUBCASE("Skill 11 trigger node spends tiers into immediate echo strikes") {
+    entt::registry registry;
+
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player).mana = 200.0f;
+
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::HeavenlySword;
+    mastery.heavenly_attunement = BladeAttunement::Fire;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::SpiritBladeTier;
+    resource.current = 3;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 11;
+    active.specialized_slots[0].allocated_points[1111] = 1;
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {20.0f, 0.0f});
+    (void)target;
+
+    SkillExecution exec;
+    exec.skill_id = 11;
+    exec.owner = player;
+    exec.target_pos = {20.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(11);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<HeavenlySwordFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto &field = view.get<HeavenlySwordFieldComponent>(*view.begin());
+
+    CHECK(field.spent_tiers == 3);
+    CHECK(field.has_trigger_echo);
+    CHECK(field.echo_strikes_triggered == 3);
+  }
+
+  SUBCASE("Skill 11 array synergy converts linked hit into echo strike") {
+    entt::registry registry;
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+    SkillSystem::ShutdownHooks();
+    SkillSystem::InitHooks();
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::HeavenlySword;
+    mastery.heavenly_attunement = BladeAttunement::Lightning;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::SpiritBladeTier;
+    resource.current = 2;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 11;
+    active.specialized_slots[0].allocated_points[1117] = 1;
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+    SkillExecution exec;
+    exec.skill_id = 11;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(11);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<HeavenlySwordFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+
+    const auto beforeTargetHealth = registry.get<HealthComponent>(target).current;
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 3,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 1117001u));
+
+    const auto &field = view.get<HeavenlySwordFieldComponent>(fieldEntity);
+    CHECK(field.has_array_synchrony);
+    CHECK(field.linked_hit_count == 1);
+    CHECK(field.echo_strikes_triggered == 1);
+    CHECK(field.linked_cut_cooldown == doctest::Approx(0.15f));
+    CHECK(registry.get<HealthComponent>(target).current < beforeTargetHealth);
+  }
+
+  SUBCASE("Skill 12 trigger node causes opening burst pulse on cast") {
+    entt::registry registry;
+
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<CombatStats>(player).mana = 200.0f;
+
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 4;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 12;
+    active.specialized_slots[0].allocated_points[1211] = 1;
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+    const auto beforeTargetHealth = registry.get<HealthComponent>(target).current;
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto &field = view.get<BloodSeaFieldComponent>(*view.begin());
+
+    CHECK(field.has_trigger_burst);
+    CHECK(field.pulses_triggered == 1);
+    CHECK(registry.get<HealthComponent>(target).current < beforeTargetHealth);
+  }
+
+  SUBCASE("Skill 12 synergy converts linked hit into extra pulse") {
+    entt::registry registry;
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+    SkillSystem::ShutdownHooks();
+    SkillSystem::InitHooks();
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 3;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 12;
+    active.specialized_slots[0].allocated_points[1217] = 1;
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+    const auto beforeTargetHealth = registry.get<HealthComponent>(target).current;
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 1,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 1217001u));
+
+    const auto &field = view.get<BloodSeaFieldComponent>(fieldEntity);
+    CHECK(field.has_linked_synergy);
+    CHECK(field.linked_hit_count == 1);
+    CHECK(field.pulses_triggered == 1);
+    CHECK(field.linked_pulse_cooldown == doctest::Approx(0.2f));
+    CHECK(registry.get<HealthComponent>(target).current < beforeTargetHealth);
+  }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Update advances mastery field refunds ticks and cooldowns") {
+  CombatEventDispatcher::Init();
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  SUBCASE("Skill 11 cycle refunds are capped and linked cooldown decays across updates") {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::HeavenlySword;
+    mastery.heavenly_attunement = BladeAttunement::Lightning;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::SpiritBladeTier;
+    resource.current = 0;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 11;
+    active.specialized_slots[0].allocated_points[1113] = 1;
+    active.specialized_slots[0].allocated_points[1117] = 1;
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+    SkillExecution exec;
+    exec.skill_id = 11;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(11);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<HeavenlySwordFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+    const auto fieldState = [&]() -> HeavenlySwordFieldComponent & {
+      return registry.get<HeavenlySwordFieldComponent>(fieldEntity);
+    };
+    REQUIRE(fieldState().has_cycle);
+    REQUIRE(fieldState().has_array_synchrony);
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.10f);
+    CHECK(resource.current >= 1);
+    CHECK(fieldState().cycle_refunds_granted == 0);
+    CHECK(fieldState().cycle_refund_timer == doctest::Approx(0.9f));
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 1.01f);
+    CHECK(fieldState().cycle_refunds_granted == 1);
+    CHECK(fieldState().cycle_refund_timer == doctest::Approx(1.0f));
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 1.01f);
+    CHECK(fieldState().cycle_refunds_granted == 2);
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 3,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 21117001u));
+    CHECK(fieldState().linked_cut_cooldown == doctest::Approx(0.15f));
+    CHECK(fieldState().echo_strikes_triggered == 1);
+
+    const auto echoAfterFirstHit = fieldState().echo_strikes_triggered;
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 3,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 21117002u));
+    CHECK(fieldState().echo_strikes_triggered == echoAfterFirstHit);
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.10f);
+    CHECK(fieldState().linked_cut_cooldown == doctest::Approx(0.05f));
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.06f);
+    CHECK(fieldState().linked_cut_cooldown == doctest::Approx(0.0f));
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 3,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 21117003u));
+    CHECK(fieldState().echo_strikes_triggered == echoAfterFirstHit + 1);
+    CHECK(fieldState().linked_cut_cooldown == doctest::Approx(0.15f));
+  }
+
+  SUBCASE("Skill 12 linked pulse cooldown decays and periodic updates keep pulsing") {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &playerStats = registry.get<CombatStats>(player);
+    playerStats.max_health = 200.0f;
+    playerStats.health = 60.0f;
+
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 3;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 12;
+    active.specialized_slots[0].allocated_points[1217] = 1;
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+    const auto fieldState = [&]() -> BloodSeaFieldComponent & {
+      return registry.get<BloodSeaFieldComponent>(fieldEntity);
+    };
+    REQUIRE(fieldState().has_linked_synergy);
+
+    const auto startHealth = registry.get<HealthComponent>(target).current;
+    const float ownerHealthBeforeLinked = playerStats.health;
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 1,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 21217001u));
+    CHECK(fieldState().pulses_triggered == 1);
+    CHECK(fieldState().linked_pulse_cooldown == doctest::Approx(0.2f));
+    CHECK(registry.get<HealthComponent>(target).current < startHealth);
+    CHECK(playerStats.health > ownerHealthBeforeLinked);
+
+    const auto pulsesAfterFirstLink = fieldState().pulses_triggered;
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.10f);
+    CHECK(fieldState().linked_pulse_cooldown == doctest::Approx(0.1f));
+    CHECK(fieldState().pulses_triggered == pulsesAfterFirstLink + 1);
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 1,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 21217002u));
+    CHECK(fieldState().pulses_triggered == pulsesAfterFirstLink + 1);
+
+    const float ownerHealthBeforeCooldownClear = playerStats.health;
+    const auto targetHealthBeforeCooldownClear = registry.get<HealthComponent>(target).current;
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.11f);
+    CHECK(fieldState().linked_pulse_cooldown == doctest::Approx(0.0f));
+    CHECK(fieldState().pulses_triggered == pulsesAfterFirstLink + 1);
+    CHECK(playerStats.health == doctest::Approx(ownerHealthBeforeCooldownClear));
+    CHECK(registry.get<HealthComponent>(target).current ==
+          doctest::Approx(targetHealthBeforeCooldownClear));
+
+    const float ownerHealthBeforeSecondTick = playerStats.health;
+    const auto targetHealthBeforeSecondTick = registry.get<HealthComponent>(target).current;
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.15f);
+    CHECK(fieldState().pulses_triggered == pulsesAfterFirstLink + 2);
+    CHECK(playerStats.health > ownerHealthBeforeSecondTick);
+    CHECK(registry.get<HealthComponent>(target).current < targetHealthBeforeSecondTick);
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 1,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 21217003u));
+    CHECK(fieldState().pulses_triggered == pulsesAfterFirstLink + 3);
+    CHECK(fieldState().linked_pulse_cooldown == doctest::Approx(0.2f));
+  }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Deeper mastery update branches apply debuffs and cadence differences") {
+  CombatEventDispatcher::Init();
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  SUBCASE("Skill 11 field tick applies attunement resist shred with extra razing") {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::HeavenlySword;
+    mastery.heavenly_attunement = BladeAttunement::Fire;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::SpiritBladeTier;
+    resource.current = 2;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 11;
+    active.specialized_slots[0].allocated_points[1124] = 2;
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+    const auto targetHealthBeforeTick = registry.get<HealthComponent>(target).current;
+
+    SkillExecution exec;
+    exec.skill_id = 11;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(11);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<HeavenlySwordFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+    const auto fieldState = [&]() -> HeavenlySwordFieldComponent & {
+      return registry.get<HeavenlySwordFieldComponent>(fieldEntity);
+    };
+
+    CHECK(fieldState().attunement == BladeAttunement::Fire);
+    CHECK(fieldState().extra_resist_reduction == doctest::Approx(4.0f));
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.01f);
+
+    CHECK(registry.get<HealthComponent>(target).current < targetHealthBeforeTick);
+    REQUIRE(test::skill_keynode_matrix::HasEffectById(
+        registry, target, "heavenly_sword_field_resist"));
+
+    auto &effects = registry.get<ActiveEffectsComponent>(target);
+    const auto *debuff = effects.Get("heavenly_sword_field_resist");
+    REQUIRE(debuff != nullptr);
+    REQUIRE_FALSE(debuff->modifiers.empty());
+    CHECK(debuff->modifiers.front().type == StatType::ResistFire);
+    CHECK(debuff->modifiers.front().value == doctest::Approx(-10.0f));
+  }
+
+  SUBCASE("Skill 12 torrent and ring branches diverge in linked cooldown and pulse cadence") {
+    struct BranchOutcome {
+      float initial_linked_cooldown = 0.0f;
+      int pulses_after_first_update = 0;
+      int pulses_after_second_update = 0;
+      float cooldown_after_second_update = 0.0f;
+    };
+
+    const auto exerciseBranch = [&](const uint32_t node_id) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::DemonBlade;
+      mastery.blood_oath_active = true;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::Bloodthirst;
+      resource.current = 3;
+      resource.max = 10;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 12;
+      active.specialized_slots[0].allocated_points[1217] = 1;
+      active.specialized_slots[0].allocated_points[node_id] = 1;
+
+      const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+      SkillExecution exec;
+      exec.skill_id = 12;
+      exec.owner = player;
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(12);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      auto view = registry.view<BloodSeaFieldComponent>();
+      REQUIRE(view.begin() != view.end());
+      const auto fieldEntity = *view.begin();
+      const auto fieldState = [&]() -> BloodSeaFieldComponent & {
+        return registry.get<BloodSeaFieldComponent>(fieldEntity);
+      };
+
+      CombatEventDispatcher::Dispatch(
+          registry, CombatEventFactory::CreateSkillHit(
+                        player, target, 1,
+                        Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                        false, 30120001u + node_id));
+
+      BranchOutcome outcome;
+      outcome.initial_linked_cooldown = fieldState().linked_pulse_cooldown;
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.10f);
+      outcome.pulses_after_first_update = fieldState().pulses_triggered;
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.22f);
+      outcome.pulses_after_second_update = fieldState().pulses_triggered;
+      outcome.cooldown_after_second_update = fieldState().linked_pulse_cooldown;
+
+      return outcome;
+    };
+
+    const auto torrent = exerciseBranch(1221);
+    const auto ring = exerciseBranch(1222);
+
+    CHECK(torrent.initial_linked_cooldown == doctest::Approx(0.12f));
+    CHECK(ring.initial_linked_cooldown == doctest::Approx(0.2f));
+    CHECK(torrent.pulses_after_first_update == 2);
+    CHECK(ring.pulses_after_first_update == 2);
+    CHECK(torrent.pulses_after_second_update == 3);
+    CHECK(ring.pulses_after_second_update == 2);
+    CHECK(torrent.cooldown_after_second_update == doctest::Approx(0.0f));
+    CHECK(ring.cooldown_after_second_update == doctest::Approx(0.0f));
+  }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
+  CombatEventDispatcher::Init();
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  SUBCASE("Skill 11 node 1116 advances the second field tick cadence") {
+    struct TickOutcome {
+      float damage_interval = 0.0f;
+      float health_after_first_tick = 0.0f;
+      float health_after_second_window = 0.0f;
+    };
+
+    const auto exerciseBranch = [&](const int field_resonance_points) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::HeavenlySword;
+      mastery.heavenly_attunement = BladeAttunement::Lightning;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::SpiritBladeTier;
+      resource.current = 2;
+      resource.max = 10;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 11;
+      if (field_resonance_points > 0) {
+        active.specialized_slots[0].allocated_points[1116] = field_resonance_points;
+      }
+
+      const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+      const auto initialHealth = registry.get<HealthComponent>(target).current;
+
+      SkillExecution exec;
+      exec.skill_id = 11;
+      exec.owner = player;
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(11);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      auto view = registry.view<HeavenlySwordFieldComponent>();
+      REQUIRE(view.begin() != view.end());
+      const auto fieldEntity = *view.begin();
+      const auto fieldState = [&]() -> HeavenlySwordFieldComponent & {
+        return registry.get<HeavenlySwordFieldComponent>(fieldEntity);
+      };
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.01f);
+      const auto healthAfterFirstTick = registry.get<HealthComponent>(target).current;
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.43f);
+
+      TickOutcome outcome;
+      outcome.damage_interval = fieldState().damage_interval;
+      outcome.health_after_first_tick = healthAfterFirstTick - initialHealth;
+      outcome.health_after_second_window =
+          registry.get<HealthComponent>(target).current - initialHealth;
+      return outcome;
+    };
+
+    const auto base = exerciseBranch(0);
+    const auto resonant = exerciseBranch(2);
+
+    CHECK(base.damage_interval == doctest::Approx(0.5f));
+    CHECK(resonant.damage_interval == doctest::Approx(0.42f));
+    CHECK(base.health_after_first_tick < 0.0f);
+    CHECK(resonant.health_after_first_tick < 0.0f);
+    CHECK(base.health_after_second_window == doctest::Approx(base.health_after_first_tick));
+    CHECK(resonant.health_after_second_window < resonant.health_after_first_tick);
+  }
+
+  SUBCASE("Skill 12 node 1224 applies dual resist shred and refreshes miasma duration") {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(100, 100, 50);
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 3;
+    resource.max = 10;
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 12;
+    active.specialized_slots[0].allocated_points[1217] = 1;
+    active.specialized_slots[0].allocated_points[1224] = 2;
+
+    const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 1,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 41224001u));
+
+    REQUIRE(test::skill_keynode_matrix::HasEffectById(
+        registry, target, "blood_sea_miasma"));
+    auto &effects = registry.get<ActiveEffectsComponent>(target);
+    auto *debuff = effects.Get("blood_sea_miasma");
+    REQUIRE(debuff != nullptr);
+    REQUIRE(debuff->modifiers.size() >= 2);
+    CHECK(debuff->modifiers[0].type == StatType::ResistPhysical);
+    CHECK(debuff->modifiers[0].value == doctest::Approx(-4.0f));
+    CHECK(debuff->modifiers[1].type == StatType::ResistShadow);
+    CHECK(debuff->modifiers[1].value == doctest::Approx(-4.0f));
+    CHECK(debuff->remaining == doctest::Approx(1.0f));
+
+    debuff->remaining = 0.25f;
+    registry.get<Position>(target) = Position{500.0f, 0.0f};
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.21f);
+
+    registry.get<Position>(target) = Position{18.0f, 0.0f};
+    CombatEventDispatcher::Dispatch(
+        registry, CombatEventFactory::CreateSkillHit(
+                      player, target, 1,
+                      Tag::Hit | Tag::Melee | Tag::SwordSkill | Tag::Physical,
+                      false, 41224002u));
+    debuff = effects.Get("blood_sea_miasma");
+    REQUIRE(debuff != nullptr);
+    CHECK(debuff->remaining == doctest::Approx(1.0f));
+    CHECK(debuff->modifiers[0].value == doctest::Approx(-4.0f));
+    CHECK(debuff->modifiers[1].value == doctest::Approx(-4.0f));
+  }
+
+  SUBCASE("Skill 11 attunement switches heavenly_sword_field_resist stat type") {
+    struct AttunementOutcome {
+      StatType resist_type = StatType::ResistAll;
+      float resist_value = 0.0f;
+    };
+
+    const auto exerciseAttunement = [&](const BladeAttunement attunement) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::HeavenlySword;
+      mastery.heavenly_attunement = attunement;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::SpiritBladeTier;
+      resource.current = 2;
+      resource.max = 10;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 11;
+      active.specialized_slots[0].allocated_points[1124] = 1;
+
+      const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+      SkillExecution exec;
+      exec.skill_id = 11;
+      exec.owner = player;
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(11);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.01f);
+
+      auto &effects = registry.get<ActiveEffectsComponent>(target);
+      auto *debuff = effects.Get("heavenly_sword_field_resist");
+      REQUIRE(debuff != nullptr);
+      REQUIRE_FALSE(debuff->modifiers.empty());
+
+      AttunementOutcome outcome;
+      outcome.resist_type = debuff->modifiers.front().type;
+      outcome.resist_value = debuff->modifiers.front().value;
+      return outcome;
+    };
+
+    const auto lightning = exerciseAttunement(BladeAttunement::Lightning);
+    const auto frost = exerciseAttunement(BladeAttunement::Frost);
+    const auto fire = exerciseAttunement(BladeAttunement::Fire);
+    const auto none = exerciseAttunement(BladeAttunement::None);
+
+    CHECK(lightning.resist_type == StatType::ResistLightning);
+    CHECK(frost.resist_type == StatType::ResistCold);
+    CHECK(fire.resist_type == StatType::ResistFire);
+    CHECK(none.resist_type == StatType::ResistAll);
+    CHECK(lightning.resist_value == doctest::Approx(-8.0f));
+    CHECK(frost.resist_value == doctest::Approx(-8.0f));
+    CHECK(fire.resist_value == doctest::Approx(-8.0f));
+    CHECK(none.resist_value == doctest::Approx(-8.0f));
+  }
+
+  SUBCASE("Skill 12 1221+1224 refreshes miasma earlier than 1222+1224 periodic pulse") {
+    struct BranchOutcome {
+      float damage_interval = 0.0f;
+      float remaining_after_same_window = 0.0f;
+      float target_health_after_same_window = 0.0f;
+    };
+
+    const auto exerciseBranch = [&](const uint32_t branch_node_id) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::DemonBlade;
+      mastery.blood_oath_active = true;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::Bloodthirst;
+      resource.current = 3;
+      resource.max = 10;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 12;
+      active.specialized_slots[0].allocated_points[1224] = 2;
+      active.specialized_slots[0].allocated_points[branch_node_id] = 1;
+
+      const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+      SkillExecution exec;
+      exec.skill_id = 12;
+      exec.owner = player;
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(12);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      auto view = registry.view<BloodSeaFieldComponent>();
+      REQUIRE(view.begin() != view.end());
+      const auto fieldEntity = *view.begin();
+      const auto fieldState = [&]() -> BloodSeaFieldComponent & {
+        return registry.get<BloodSeaFieldComponent>(fieldEntity);
+      };
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.01f);
+
+      auto &effects = registry.get<ActiveEffectsComponent>(target);
+      auto *debuff = effects.Get("blood_sea_miasma");
+      REQUIRE(debuff != nullptr);
+      debuff->remaining = 0.05f;
+
+      const auto healthBeforeWindow = registry.get<HealthComponent>(target).current;
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.22f);
+
+      debuff = effects.Get("blood_sea_miasma");
+      REQUIRE(debuff != nullptr);
+
+      BranchOutcome outcome;
+      outcome.damage_interval = fieldState().damage_interval;
+      outcome.remaining_after_same_window = debuff->remaining;
+      outcome.target_health_after_same_window =
+          registry.get<HealthComponent>(target).current - healthBeforeWindow;
+      return outcome;
+    };
+
+    const auto torrent = exerciseBranch(1221);
+    const auto ring = exerciseBranch(1222);
+
+    CHECK(torrent.damage_interval == doctest::Approx(0.2125f));
+    CHECK(ring.damage_interval == doctest::Approx(0.25f));
+    CHECK(torrent.remaining_after_same_window == doctest::Approx(1.0f));
+    CHECK(ring.remaining_after_same_window == doctest::Approx(0.05f));
+    CHECK(torrent.target_health_after_same_window < 0.0f);
+    CHECK(ring.target_health_after_same_window == doctest::Approx(0.0f));
+  }
+
+  SUBCASE("Skill 11 nodes 1122 and 1123 add attunement-specific extra debuff state") {
+    struct DebuffOutcome {
+      size_t modifier_count = 0;
+      StatType primary_resist_type = StatType::ResistAll;
+      float primary_resist_value = 0.0f;
+      bool has_move_speed_slow = false;
+    };
+
+    const auto exerciseCase = [&](const BladeAttunement attunement,
+                                  const bool withPolarization,
+                                  const bool withFrozenDominion,
+                                  const bool withSolarIncineration) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::HeavenlySword;
+      mastery.heavenly_attunement = attunement;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::SpiritBladeTier;
+      resource.current = 2;
+      resource.max = 10;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 11;
+      active.specialized_slots[0].allocated_points[1124] = 1;
+      if (withPolarization) {
+        active.specialized_slots[0].allocated_points[1120] = 1;
+      }
+      if (withFrozenDominion) {
+        active.specialized_slots[0].allocated_points[1122] = 1;
+      }
+      if (withSolarIncineration) {
+        active.specialized_slots[0].allocated_points[1123] = 1;
+      }
+
+      const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+      SkillExecution exec;
+      exec.skill_id = 11;
+      exec.owner = player;
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(11);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.01f);
+
+      auto &effects = registry.get<ActiveEffectsComponent>(target);
+      auto *debuff = effects.Get("heavenly_sword_field_resist");
+      REQUIRE(debuff != nullptr);
+      REQUIRE_FALSE(debuff->modifiers.empty());
+
+      DebuffOutcome outcome;
+      outcome.modifier_count = debuff->modifiers.size();
+      outcome.primary_resist_type = debuff->modifiers.front().type;
+      outcome.primary_resist_value = debuff->modifiers.front().value;
+      for (const auto &modifier : debuff->modifiers) {
+        if (modifier.type == StatType::MoveSpeed &&
+            modifier.mode == ModifierMode::PercentAdd &&
+            modifier.value == doctest::Approx(-12.0f)) {
+          outcome.has_move_speed_slow = true;
+        }
+      }
+      return outcome;
+    };
+
+    const auto frostDominion =
+        exerciseCase(BladeAttunement::Frost, true, true, false);
+    const auto fireIncineration =
+        exerciseCase(BladeAttunement::Fire, true, false, true);
+
+    CHECK(frostDominion.primary_resist_type == StatType::ResistCold);
+    CHECK(frostDominion.primary_resist_value == doctest::Approx(-8.0f));
+    CHECK(frostDominion.modifier_count == 2);
+    CHECK(frostDominion.has_move_speed_slow);
+
+    CHECK(fireIncineration.primary_resist_type == StatType::ResistFire);
+    CHECK(fireIncineration.primary_resist_value == doctest::Approx(-8.0f));
+    CHECK(fireIncineration.modifier_count == 1);
+    CHECK_FALSE(fireIncineration.has_move_speed_slow);
+  }
+
+  SUBCASE("Skill 12 nodes 1220 and 1224 combine void scaling with stronger dual shred") {
+    struct VoidMiasmaOutcome {
+      float resist_shred = 0.0f;
+      float bonus_damage_mult = 0.0f;
+      float physical_ratio = 0.0f;
+      float remaining_after_refresh_window = 0.0f;
+      float health_delta_after_refresh_window = 0.0f;
+      float modifier_value_0 = 0.0f;
+      float modifier_value_1 = 0.0f;
+    };
+
+    const auto exerciseCase = [&](const bool withVoidKeystone) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::DemonBlade;
+      mastery.blood_oath_active = true;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::Bloodthirst;
+      resource.current = 3;
+      resource.max = 10;
+
+      auto &active = registry.emplace<ActiveSkillsComponent>(player);
+      active.specialized_slots[0].skill_id = 12;
+      active.specialized_slots[0].allocated_points[1221] = 1;
+      active.specialized_slots[0].allocated_points[1224] = 2;
+      if (withVoidKeystone) {
+        active.specialized_slots[0].allocated_points[1220] = 1;
+      }
+
+      const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+      SkillExecution exec;
+      exec.skill_id = 12;
+      exec.owner = player;
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(12);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      auto view = registry.view<BloodSeaFieldComponent>();
+      REQUIRE(view.begin() != view.end());
+      const auto fieldEntity = *view.begin();
+      const auto &field = view.get<BloodSeaFieldComponent>(fieldEntity);
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.01f);
+
+      auto &effects = registry.get<ActiveEffectsComponent>(target);
+      auto *debuff = effects.Get("blood_sea_miasma");
+      REQUIRE(debuff != nullptr);
+      debuff->remaining = 0.05f;
+
+      const auto healthBeforeRefreshWindow = registry.get<HealthComponent>(target).current;
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.22f);
+
+      debuff = effects.Get("blood_sea_miasma");
+      REQUIRE(debuff != nullptr);
+
+      VoidMiasmaOutcome outcome;
+      outcome.resist_shred = field.resist_shred;
+      outcome.bonus_damage_mult = field.bonus_damage_mult;
+      outcome.physical_ratio = field.has_void_keystone ? 0.45f : 0.6f;
+      outcome.remaining_after_refresh_window = debuff->remaining;
+      outcome.health_delta_after_refresh_window =
+          registry.get<HealthComponent>(target).current - healthBeforeRefreshWindow;
+      outcome.modifier_value_0 = debuff->modifiers[0].value;
+      outcome.modifier_value_1 = debuff->modifiers[1].value;
+      return outcome;
+    };
+
+    const auto base = exerciseCase(false);
+    const auto voidMiasma = exerciseCase(true);
+
+    CHECK(base.resist_shred == doctest::Approx(4.0f));
+    CHECK(voidMiasma.resist_shred == doctest::Approx(8.0f));
+    CHECK(base.modifier_value_0 == doctest::Approx(-4.0f));
+    CHECK(base.modifier_value_1 == doctest::Approx(-4.0f));
+    CHECK(voidMiasma.modifier_value_0 == doctest::Approx(-8.0f));
+    CHECK(voidMiasma.modifier_value_1 == doctest::Approx(-8.0f));
+    CHECK(base.bonus_damage_mult == doctest::Approx(1.36f));
+    CHECK(voidMiasma.bonus_damage_mult == doctest::Approx(1.6048f));
+    CHECK(base.physical_ratio == doctest::Approx(0.6f));
+    CHECK(voidMiasma.physical_ratio == doctest::Approx(0.45f));
+    CHECK(base.remaining_after_refresh_window == doctest::Approx(1.0f));
+    CHECK(voidMiasma.remaining_after_refresh_window == doctest::Approx(1.0f));
+    CHECK(voidMiasma.health_delta_after_refresh_window < base.health_delta_after_refresh_window);
   }
 }
 
