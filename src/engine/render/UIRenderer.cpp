@@ -1557,12 +1557,14 @@ void UIRenderer::DrawBuffTooltip(const Font &font, const BuffEffect &effect,
   std::vector<TooltipLine> lines;
 
   Color titleColor = visual.is_debuff ? RED : GREEN;
-  std::string title = visual.name;
+  std::string title = effect.name.empty() ? visual.name : effect.name;
   if (effect.stacks > 1)
     title += TextFormat(" (x%d)", effect.stacks);
   lines.push_back({title, titleColor});
 
-  lines.push_back({visual.description, s_theme.textPrimary});
+  const std::string description =
+      effect.description.empty() ? visual.description : effect.description;
+  lines.push_back({description, s_theme.textPrimary});
 
   for (const auto &mod : effect.modifiers) {
     lines.push_back({GetStatModifierDescription(mod), titleColor});

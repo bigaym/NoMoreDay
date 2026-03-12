@@ -558,6 +558,9 @@ void ExecuteScenePass(RenderFrameData &frame) {
     if (frame.registry.any_of<NoMoreDay::Projectile>(entity)) {
       continue;
     }
+    if (frame.registry.any_of<NoMoreDay::BloodSeaFieldComponent>(entity)) {
+      continue;
+    }
 
     auto pos = pixelView.get<Position>(entity);
     const auto &col = pixelView.get<ColorComponent>(entity);
@@ -566,6 +569,45 @@ void ExecuteScenePass(RenderFrameData &frame) {
     pos.y += static_cast<float>((id % 7) - 3) * 1.5f;
     DrawCircle(static_cast<int>(pos.x), static_cast<int>(pos.y), 8.0f,
                col.color);
+  }
+
+  auto bloodSeaView =
+      frame.registry.view<const Position, const NoMoreDay::BloodSeaFieldComponent>();
+  for (auto entity : bloodSeaView) {
+    const auto &pos = bloodSeaView.get<Position>(entity);
+    const auto &field =
+        bloodSeaView.get<NoMoreDay::BloodSeaFieldComponent>(entity);
+    const float time = static_cast<float>(GetTime());
+    const float pulseInterval = std::max(0.01f, field.damage_interval);
+    const float pulseProgress = std::clamp(
+        1.0f - field.damage_timer / pulseInterval, 0.0f, 1.0f);
+    const float pulseWave = 0.5f + 0.5f * std::sin(time * (field.torrent_form ? 5.2f : 4.0f));
+    const float pulseIntensity = std::clamp(0.35f + 0.65f * pulseProgress, 0.0f, 1.0f);
+    const float fadeOut = std::clamp(field.duration / 0.6f, 0.0f, 1.0f);
+    const float visibility = std::max(0.22f, fadeOut);
+
+    Color coreColor = field.has_void_keystone ? Color{98, 34, 68, 0}
+                                              : Color{122, 18, 26, 0};
+    Color edgeColor = field.has_void_keystone ? Color{184, 76, 136, 0}
+                                              : Color{212, 64, 78, 0};
+    Color pulseColor = field.has_void_keystone ? Color{234, 148, 212, 0}
+                                               : Color{255, 124, 138, 0};
+
+    coreColor.a = static_cast<unsigned char>((field.ring_form ? 54.0f : 82.0f) * visibility);
+    edgeColor.a = static_cast<unsigned char>((110.0f + 55.0f * pulseWave) * visibility);
+    pulseColor.a = static_cast<unsigned char>((135.0f + 70.0f * pulseIntensity) * visibility);
+
+    const float innerFillRadius = field.ring_form ? field.radius * 0.52f : field.radius * 0.92f;
+    const float outerPulseRadius = field.radius + 8.0f + 8.0f * pulseIntensity;
+    const float innerRingRadius = field.ring_form ? field.radius * 0.72f : field.radius * 0.86f;
+
+    const Vector2 center{pos.x, pos.y};
+    DrawCircleGradient(static_cast<int>(pos.x), static_cast<int>(pos.y),
+                       innerFillRadius, coreColor, Fade(coreColor, 0.0f));
+    DrawRing(center, innerRingRadius, field.radius, 0.0f, 360.0f, 64,
+             edgeColor);
+    DrawRing(center, field.radius, outerPulseRadius, 0.0f, 360.0f, 64,
+             pulseColor);
   }
 
   auto moltenView = frame.registry.view<const Position, const NoMoreDay::MoltenTrailTag,

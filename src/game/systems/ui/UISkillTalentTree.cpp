@@ -141,8 +141,22 @@ TooltipBadgeSpec BuildExclusionBadge(const NodeContractData& nodeContract) {
     };
 }
 
+Color ResolveTooltipBadgeTextColor(const TooltipBadgeSpec& badge) {
+    (void)badge;
+    return {244, 238, 228, 255};
+}
+
+Color ResolveTooltipTitleColor(const BladeMasteryUIThemeProfile& masteryTheme) {
+    return {
+        static_cast<unsigned char>(std::max<int>(masteryTheme.highlight.r, 232)),
+        static_cast<unsigned char>(std::max<int>(masteryTheme.highlight.g, 228)),
+        static_cast<unsigned char>(std::max<int>(masteryTheme.highlight.b, 220)),
+        255,
+    };
+}
+
 void DrawTooltipBadgeChip(const Font& font, const TooltipBadgeSpec& badge, float x, float y,
-                         float fontSize, float alpha, float scale) {
+                          float fontSize, float alpha, float scale) {
     const float sFont = fontSize * scale;
     const float sSpacing = 1.0f * scale;
     const float paddingX = 12.0f;
@@ -156,8 +170,9 @@ void DrawTooltipBadgeChip(const Font& font, const TooltipBadgeSpec& badge, float
     DrawRectangleRoundedLinesEx(
         {chip.x * scale, chip.y * scale, chip.width * scale, chip.height * scale},
         0.24f, 8, 1.0f, Fade(badge.outline, alpha));
+    const Color textColor = ResolveTooltipBadgeTextColor(badge);
     UISystem::DrawTextUI(badge.text.c_str(), x + paddingX, y + 4.0f, fontSize,
-                         badge.outline, alpha);
+                         textColor, alpha);
 }
 
 void DrawTooltipHeader(const BladeMasteryUIThemeProfile& masteryTheme, const TalentNode& hoveredNode,
@@ -171,8 +186,9 @@ void DrawTooltipHeader(const BladeMasteryUIThemeProfile& masteryTheme, const Tal
     DrawRectangleRec({(x + 16.0f) * scale, (y + 10.0f) * scale,
                       52.0f * scale, 4.0f * scale},
                      Fade(masteryTheme.secondary, 0.72f * alpha));
+    const Color titleColor = ResolveTooltipTitleColor(masteryTheme);
     UISystem::DrawTextUI(hoveredNode.name_key.c_str(), x + 20.0f, y + 16.0f, 28.0f,
-                         masteryTheme.highlight, alpha);
+                         titleColor, alpha);
 }
 
 int MatchTooltipKeyword(const char* text, Color& keywordColor, int& keywordBytes) {

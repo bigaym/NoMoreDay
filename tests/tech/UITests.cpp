@@ -180,6 +180,35 @@ TEST_CASE("[Tech] SkillUI - tooltip shell and clamp precede badge drawing") {
     CHECK(badgeLayoutPos < badgeDrawPos);
 }
 
+TEST_CASE("[Tech] SkillUI - tooltip title and badges use dedicated readable text treatment") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    CHECK(source.find("ResolveTooltipTitleColor(") != std::string::npos);
+    CHECK(source.find("ResolveTooltipBadgeTextColor(") != std::string::npos);
+    CHECK(source.find("badge.outline, alpha);") == std::string::npos);
+}
+
 TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree chrome") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 4> candidates = {
@@ -499,14 +528,148 @@ TEST_CASE("[Tech] PlayerHUD - Render Logic") {
         auto& bloodSeaState = registry.emplace<BloodSeaFieldComponent>(bloodSeaField);
         bloodSeaState.owner = player;
         bloodSeaState.duration = 5.6f;
+        bloodSeaState.has_linked_synergy = true;
 
         CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeDetailText(
                   registry, player, mastery, bladeResource, stats) ==
-              "Blood Sea 5.6s");
+              "");
         CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
                   registry, player, mastery, bladeResource, stats) ==
               "Danger: 28% HP");
+
+        stats.health = 88.0f;
+        bloodSeaState.torrent_form = true;
+        bloodSeaState.has_void_keystone = true;
+        bloodSeaState.miasma_duration_bonus = 0.5f;
+
+        CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeDetailText(
+                  registry, player, mastery, bladeResource, stats) ==
+              "");
+        CHECK(systems::PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
+                  registry, player, mastery, bladeResource, stats) ==
+              "Miasma Pressure");
     }
+}
+
+TEST_CASE("[Tech] BuffUI - Blood Sea uses buff lane icon and runtime tooltip overrides") {
+    namespace fs = std::filesystem;
+
+    const std::array<fs::path, 3> buffRegistryCandidates = {
+        fs::path("src/game/data/BuffRegistry.cpp"),
+        fs::path("../src/game/data/BuffRegistry.cpp"),
+        fs::path("../../src/game/data/BuffRegistry.cpp")
+    };
+    const std::array<fs::path, 3> bloodSeaCandidates = {
+        fs::path("src/game/systems/skill/behaviors/BloodSea.cpp"),
+        fs::path("../src/game/systems/skill/behaviors/BloodSea.cpp"),
+        fs::path("../../src/game/systems/skill/behaviors/BloodSea.cpp")
+    };
+    const std::array<fs::path, 3> tooltipCandidates = {
+        fs::path("src/engine/render/UIRenderer.cpp"),
+        fs::path("../src/engine/render/UIRenderer.cpp"),
+        fs::path("../../src/engine/render/UIRenderer.cpp")
+    };
+
+    const auto readSource = [](const auto& candidates) {
+        std::string source;
+        for (const auto& candidate : candidates) {
+            if (!fs::exists(candidate)) {
+                continue;
+            }
+            std::ifstream in(candidate, std::ios::in | std::ios::binary);
+            std::ostringstream ss;
+            ss << in.rdbuf();
+            source = ss.str();
+            if (!source.empty()) {
+                break;
+            }
+        }
+        return source;
+    };
+
+    const std::string buffRegistrySource = readSource(buffRegistryCandidates);
+    const std::string bloodSeaSource = readSource(bloodSeaCandidates);
+    const std::string tooltipSource = readSource(tooltipCandidates);
+
+    REQUIRE(!buffRegistrySource.empty());
+    REQUIRE(!bloodSeaSource.empty());
+    REQUIRE(!tooltipSource.empty());
+
+    CHECK(buffRegistrySource.find("registry[BuffType::BloodSea]") != std::string::npos);
+    CHECK(buffRegistrySource.find("assets::buffs::general::buff_xuehai") != std::string::npos);
+    CHECK(bloodSeaSource.find("blood_sea_active") != std::string::npos);
+    CHECK(bloodSeaSource.find("BuffType::BloodSea") != std::string::npos);
+    CHECK(tooltipSource.find("effect.name.empty() ? visual.name : effect.name") != std::string::npos);
+    CHECK(tooltipSource.find("effect.description.empty() ? visual.description : effect.description") != std::string::npos);
+}
+
+TEST_CASE("[Tech] SkillUI - SwordIntentWidget status text uses UI font rendering") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/SwordIntentWidget.cpp"),
+        fs::path("../src/game/systems/ui/SwordIntentWidget.cpp"),
+        fs::path("../../src/game/systems/ui/SwordIntentWidget.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    CHECK(source.find("UISystem::DrawTextUI(labelText.c_str()") != std::string::npos);
+    CHECK(source.find("UISystem::DrawTextUI(thresholdText") != std::string::npos);
+    CHECK(source.find("UISystem::DrawTextUI(detail.c_str()") != std::string::npos);
+    CHECK(source.find("DrawText(labelText.c_str(),") == std::string::npos);
+    CHECK(source.find("DrawText(thresholdText,") == std::string::npos);
+    CHECK(source.find("DrawText(detail.c_str(),") == std::string::npos);
+}
+
+TEST_CASE("[Tech] Blood Sea - field render path is specialized") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/engine/render/RenderSystem.cpp"),
+        fs::path("../src/engine/render/RenderSystem.cpp"),
+        fs::path("../../src/engine/render/RenderSystem.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    const bool skipsGenericDot =
+        source.find("frame.registry.any_of<BloodSeaFieldComponent>(entity)") != std::string::npos ||
+        source.find("frame.registry.any_of<NoMoreDay::BloodSeaFieldComponent>(entity)") != std::string::npos;
+    const bool hasDedicatedView =
+        source.find("view<const Position, const BloodSeaFieldComponent>()") != std::string::npos ||
+        source.find("view<const Position, const NoMoreDay::BloodSeaFieldComponent>()") != std::string::npos;
+
+    CHECK(skipsGenericDot);
+    CHECK(hasDedicatedView);
+    CHECK(source.find("field.radius") != std::string::npos);
+    CHECK(source.find("DrawRing(") != std::string::npos);
 }
 
 TEST_CASE("[Tech] SwordIntentVisual - Sword Flow crit proc pulse activates") {

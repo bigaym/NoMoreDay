@@ -125,30 +125,41 @@ void SwordIntentWidget::Draw(int currentStacks, int maxStacks,
     float startX = UI_REF_WIDTH / 2.0f - totalWidth / 2.0f;
     float logicY = UI_REF_HEIGHT - 210.0f; // Above the hotbar
 
+    const Font uiFont = UISystem::GetFont();
+    const auto measureTextWidth = [&](std::string_view text,
+                                      const float fontSize) -> float {
+        if (text.empty()) {
+            return 0.0f;
+        }
+        if (IsFontValid(uiFont)) {
+            return MeasureTextEx(uiFont, text.data(), fontSize * scale,
+                                 1.0f * scale).x / scale;
+        }
+        return static_cast<float>(MeasureText(text.data(), static_cast<int>(fontSize * scale))) / scale;
+    };
+
     const std::string labelText(label);
-    const int labelWidth = MeasureText(labelText.c_str(), static_cast<int>(18 * scale));
-    DrawText(labelText.c_str(),
-             static_cast<int>((UI_REF_WIDTH * 0.5f * scale) - (labelWidth * 0.5f)),
-             static_cast<int>((logicY - 24.0f) * scale),
-             static_cast<int>(18 * scale), Fade(LIGHTGRAY, 0.95f));
+    const float labelWidth = measureTextWidth(labelText, 18.0f);
+    UISystem::DrawTextUI(labelText.c_str(),
+                         UI_REF_WIDTH * 0.5f - labelWidth * 0.5f,
+                         logicY - 24.0f, 18.0f, LIGHTGRAY, 0.95f);
 
     const char* thresholdText = ResolveThresholdText(kind, currentStacks, maxStacks);
     if (thresholdText[0] != '\0') {
         const int tier = ResolveThresholdTier(kind, currentStacks, maxStacks);
         const Color tierColor = (tier >= 3) ? GOLD : (tier == 2 ? SKYBLUE : Color{140, 255, 220, 255});
-        DrawText(thresholdText,
-                 static_cast<int>((UI_REF_WIDTH * 0.5f * scale) - (MeasureText(thresholdText, static_cast<int>(15 * scale)) * 0.5f)),
-                 static_cast<int>((logicY - 44.0f) * scale),
-                 static_cast<int>(15 * scale), Fade(tierColor, 0.95f));
+        const float thresholdWidth = measureTextWidth(thresholdText, 15.0f);
+        UISystem::DrawTextUI(thresholdText,
+                             UI_REF_WIDTH * 0.5f - thresholdWidth * 0.5f,
+                             logicY - 44.0f, 15.0f, tierColor, 0.95f);
     }
 
     if (!detailText.empty()) {
         const std::string detail(detailText);
-        DrawText(detail.c_str(),
-                 static_cast<int>((UI_REF_WIDTH * 0.5f * scale) -
-                                  (MeasureText(detail.c_str(), static_cast<int>(14 * scale)) * 0.5f)),
-                 static_cast<int>((logicY - 62.0f) * scale),
-                 static_cast<int>(14 * scale), Fade(LIGHTGRAY, 0.9f));
+        const float detailWidth = measureTextWidth(detail, 14.0f);
+        UISystem::DrawTextUI(detail.c_str(),
+                             UI_REF_WIDTH * 0.5f - detailWidth * 0.5f,
+                             logicY - 62.0f, 14.0f, LIGHTGRAY, 0.9f);
     }
     
     // Draw base icons

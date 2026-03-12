@@ -11,6 +11,32 @@ namespace {
 
 bool g_debug_unlock_override_enabled = false;
 
+template <typename FieldComponent>
+void DestroyOwnedFields(entt::registry &registry, const entt::entity owner) {
+  std::vector<entt::entity> to_destroy;
+  const auto view = registry.view<FieldComponent>();
+  for (const entt::entity entity : view) {
+    if (view.template get<FieldComponent>(entity).owner == owner) {
+      to_destroy.push_back(entity);
+    }
+  }
+  for (const entt::entity entity : to_destroy) {
+    if (registry.valid(entity)) {
+      registry.destroy(entity);
+    }
+  }
+}
+
+void CleanupSpecializedFields(entt::registry &registry, const entt::entity owner,
+                              const BladeMasteryId selected_mastery) {
+  if (selected_mastery != BladeMasteryId::DemonBlade) {
+    DestroyOwnedFields<BloodSeaFieldComponent>(registry, owner);
+  }
+  if (selected_mastery != BladeMasteryId::HeavenlySword) {
+    DestroyOwnedFields<HeavenlySwordFieldComponent>(registry, owner);
+  }
+}
+
 const BladeMasteryProfile *GetProfile(BladeMasteryId mastery_id) {
   return data::BladeMasteryRegistry::Get().GetProfile(mastery_id);
 }
@@ -53,6 +79,7 @@ int BladeMasteryService::GetCurrentLevel(const entt::registry &registry,
 void BladeMasteryService::RefreshPlayerState(entt::registry &registry,
                                              entt::entity entity) {
   if (!HasBladeAscendantProfession(registry, entity)) {
+    CleanupSpecializedFields(registry, entity, BladeMasteryId::None);
     BladeResourceService::RemoveBladeResource(registry, entity);
     if (registry.all_of<BladeMasteryComponent>(entity)) {
       registry.remove<BladeMasteryComponent>(entity);
@@ -83,6 +110,7 @@ void BladeMasteryService::RefreshPlayerState(entt::registry &registry,
   }
 
   RefreshSpecializedMasteryState(mastery);
+  CleanupSpecializedFields(registry, entity, mastery.selected);
 
   const BladeResourceKind kind =
       profile != nullptr ? profile->resource_kind : BladeResourceKind::SwordIntent;

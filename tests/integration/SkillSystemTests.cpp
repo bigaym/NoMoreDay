@@ -577,7 +577,7 @@ TEST_CASE("[Integration] SkillSystem - Sword Intent Logic") {
     CHECK(registry.get<SwordIntentComponent>(player).stacks == 2);
   }
 
-  SUBCASE("Sword Flow does not trigger legacy full-resource auto empower") {
+  SUBCASE("Sword Flow full resource empowers base cast") {
     data::BladeMasteryRegistry::Get().LoadFromJson("assets/data/blade_masteries.json");
     auto &stats = registry.emplace<PlayerStats>(player);
     stats.level = 50;
@@ -599,8 +599,8 @@ TEST_CASE("[Integration] SkillSystem - Sword Intent Logic") {
     REQUIRE(SkillSystem::TryCast(registry, player, 0));
     SkillSystem::Update(registry, grid, 0.11f);
 
-    CHECK(registry.get<BladeResourceComponent>(player).current ==
-          SkillConstants::DEFAULT_MAX_SWORD_INTENT);
+    CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+    CHECK(registry.get<SwordIntentComponent>(player).stacks == 0);
   }
 }
 

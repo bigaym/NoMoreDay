@@ -177,6 +177,43 @@ TEST_CASE("[Integration] SkillKeyNodeMatrix - Per-skill runtime scenarios (1..12
   }
 }
 
+TEST_CASE("[Integration] SkillKeyNodeMatrix - Demon Blade node 1219 extends Blood Sea lifetime") {
+  const auto remainingDurationWithNodes =
+      [](const std::vector<std::pair<uint32_t, int>> &nodes) {
+        entt::registry registry;
+        test::skill_keynode_matrix::integration::InitContext(registry);
+        systems::SpatialHashGrid grid(1024, 1024, 64);
+
+        REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+            "assets/data/blade_masteries.json"));
+
+        const auto caster = sknm::CreateCaster(registry, 2000.0f);
+        auto &stats = registry.get_or_emplace<PlayerStats>(caster);
+        stats.level = 50;
+        auto &astrolabe = registry.get_or_emplace<AstrolabeComponent>(caster);
+        astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+        systems::BladeMasteryService::RefreshPlayerState(registry, caster);
+        REQUIRE(systems::BladeMasteryService::SelectMastery(
+            registry, caster, BladeMasteryId::DemonBlade));
+        REQUIRE(systems::BladeResourceService::Gain(registry, caster, 6, 12));
+
+        sknm::ConfigureSkillSlot(registry, caster, 12, 0, 2);
+        sknm::ConfigureSpecialization(registry, caster, 12, nodes);
+
+        REQUIRE(SkillSystem::TryCast(registry, caster, 0, {120.0f, 0.0f}));
+        test::skill_keynode_matrix::integration::RunTicks(registry, grid, 2, 0.08f);
+
+        auto view = registry.view<BloodSeaFieldComponent>();
+        REQUIRE(view.begin() != view.end());
+        return view.get<BloodSeaFieldComponent>(*view.begin()).duration;
+      };
+
+  const float baselineRemaining = remainingDurationWithNodes({});
+  const float extendedRemaining = remainingDurationWithNodes({{1219, 1}});
+
+  CHECK(extendedRemaining > baselineRemaining);
+}
+
 TEST_CASE("[Integration] SkillKeyNodeMatrix - Trigger chain matrix covers all trigger nodes") {
   const auto compact = sknm::LoadCompactContractBuckets();
   CHECK(compact.trigger_node_by_skill.size() == sknm::MatrixSkillIds().size());

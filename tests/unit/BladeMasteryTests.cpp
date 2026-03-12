@@ -194,6 +194,46 @@ TEST_CASE(
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }
 
+TEST_CASE("[Unit] Blade Mastery Service - Demon Blade field cleanup on state changes") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::DemonBlade));
+
+  const auto firstField = registry.create();
+  auto &firstState = registry.emplace<BloodSeaFieldComponent>(firstField);
+  firstState.owner = player;
+  firstState.duration = 5.0f;
+
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::HeavenlySword));
+  CHECK_FALSE(registry.valid(firstField));
+
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::DemonBlade));
+  const auto secondField = registry.create();
+  auto &secondState = registry.emplace<BloodSeaFieldComponent>(secondField);
+  secondState.owner = player;
+  secondState.duration = 4.0f;
+
+  auto &astrolabe = registry.get<AstrolabeComponent>(player);
+  astrolabe.mainProfession = static_cast<int>(ProfessionID::Mage);
+  BladeMasteryService::RefreshPlayerState(registry, player);
+
+  CHECK_FALSE(registry.valid(secondField));
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
 TEST_CASE("[Unit] Sword Flow - grants Sword Saint crit and attack speed") {
   TestSetupScope testScope;
   LoadBladeMasteries();
@@ -311,7 +351,7 @@ TEST_CASE("[Unit] Heavenly Sword resource spend - cast consumes up to capped Spi
   CHECK(BladeResourceService::ConsumeUpTo(registry, player, 5, 11u) == 1);
   CHECK(registry.get<BladeResourceComponent>(player).current == 0);
 
-  CHECK_FALSE(BladeResourceService::ShouldAutoEmpowerOnCast(registry, player));
+  CHECK(BladeResourceService::ShouldAutoEmpowerOnCast(registry, player));
 
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }

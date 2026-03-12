@@ -818,6 +818,14 @@ struct BloodSeaFieldComponent {
   float leech_ratio = 0.12f;
   float move_follow_speed = 10.0f;
   float resist_shred = 0.0f;
+  float pursuit_bonus_mult = 0.0f;
+  float aftershock_bonus_mult = 0.0f;
+  float return_empower_timer = 0.0f;
+  float return_empower_bonus_mult = 0.0f;
+  float close_pressure_bonus_mult = 0.0f;
+  float linked_pressure_bonus_mult = 0.0f;
+  float miasma_duration_bonus = 0.0f;
+  float void_damage_bonus_mult = 0.0f;
   bool has_trigger_burst = false;
   bool has_linked_synergy = false;
   bool has_recovery_keystone = false;

@@ -12,6 +12,7 @@ namespace assets::buffs {
     namespace general {
         inline constexpr TextureAsset all_stats = { "buff_all_stats"_hs, "assets/textures/icons/buffs/all_stats.png" };
         inline constexpr TextureAsset attack_speed = { "buff_attack_speed"_hs, "assets/textures/icons/buffs/attack_speed.png" };
+        inline constexpr TextureAsset buff_xuehai = { "buff_buff_xuehai"_hs, "assets/textures/icons/buffs/buff_xuehai.png" };
         inline constexpr TextureAsset crit_chance = { "buff_crit_chance"_hs, "assets/textures/icons/buffs/crit_chance.png" };
         inline constexpr TextureAsset dexterity = { "buff_dexterity"_hs, "assets/textures/icons/buffs/dexterity.png" };
         inline constexpr TextureAsset flat_armor = { "buff_flat_armor"_hs, "assets/textures/icons/buffs/flat_armor.png" };
@@ -39,9 +40,10 @@ namespace assets::buffs {
         inline constexpr TextureAsset strength = { "buff_strength"_hs, "assets/textures/icons/buffs/strength.png" };
         inline constexpr TextureAsset vitality = { "buff_vitality"_hs, "assets/textures/icons/buffs/vitality.png" };
 
-        constexpr std::array<const TextureAsset*, 28> All = {
+        constexpr std::array<const TextureAsset*, 29> All = {
             &all_stats,
             &attack_speed,
+            &buff_xuehai,
             &crit_chance,
             &dexterity,
             &flat_armor,

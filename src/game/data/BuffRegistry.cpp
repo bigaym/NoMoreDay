@@ -19,6 +19,7 @@ void BuffRegistry::Initialize() {
     registry[BuffType::Invincible] = { "无", GOLD, "无敌", "免疫所有伤害。", false, nullptr };
     registry[BuffType::PowerBoost] = { "力", ORANGE, "力量爆发", "获得巨大的力量增幅。", false, &assets::buffs::general::strength };
     registry[BuffType::Bloodlust] = { "血", RED, "嗜血", "击杀后获得，大幅提升攻击速度。", false, &assets::buffs::general::attack_speed };
+    registry[BuffType::BloodSea] = { "海", Color{176, 62, 74, 255}, "Blood Sea", "A living crimson field follows the blade and reveals its current form on hover.", false, &assets::buffs::general::buff_xuehai };
     registry[BuffType::Hurt] = { "伤", RED, "受伤", "最近受到了伤害。", true, nullptr };
 
     // Debuffs (Red/Purple)

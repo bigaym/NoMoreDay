@@ -37,6 +37,7 @@ enum class BuffType {
     Shield,       // 护盾
     Invincible,   // 无敌
     Bloodlust,    // 嗜血
+    BloodSea,     // 血海
     Hurt,          // 受伤
 
     // Control Effects

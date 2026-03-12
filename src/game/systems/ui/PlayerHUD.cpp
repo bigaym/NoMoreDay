@@ -57,17 +57,19 @@ float FindActiveHeavenlyFieldDuration(const entt::registry& registry,
     return remaining;
 }
 
-float FindActiveBloodSeaDuration(const entt::registry& registry,
-                                 const entt::entity player) {
+const BloodSeaFieldComponent* FindActiveBloodSeaField(const entt::registry& registry,
+                                                       const entt::entity player) {
     float remaining = 0.0f;
+    const BloodSeaFieldComponent* activeField = nullptr;
     const auto view = registry.view<const BloodSeaFieldComponent>();
     for (const entt::entity entity : view) {
         const auto& field = view.get<const BloodSeaFieldComponent>(entity);
         if (field.owner == player && field.duration > remaining) {
             remaining = field.duration;
+            activeField = &field;
         }
     }
-    return remaining;
+    return activeField;
 }
 
 std::string FormatDurationLabel(const char* label, const float duration) {
@@ -133,10 +135,8 @@ std::string PlayerHUD::ResolveBladeResourceRuntimeDetailText(
     }
 
     if (bladeResource.kind == BladeResourceKind::Bloodthirst) {
-        const float remaining = FindActiveBloodSeaDuration(registry, player);
-        if (remaining > 0.0f) {
-            return FormatDurationLabel("Blood Sea", remaining);
-        }
+        (void)registry;
+        (void)player;
     }
 
     return {};
@@ -155,6 +155,12 @@ std::string PlayerHUD::ResolveBladeResourceRuntimeFeedbackText(
             std::clamp(stats.health / stats.max_health, 0.0f, 1.0f);
         if (healthRatio <= 0.35f) {
             return TextFormat("Danger: %.0f%% HP", healthRatio * 100.0f);
+        }
+        if (const auto* activeField = FindActiveBloodSeaField(registry, player)) {
+            if (activeField->has_void_keystone &&
+                activeField->miasma_duration_bonus > 0.0f) {
+                return "Miasma Pressure";
+            }
         }
     }
 

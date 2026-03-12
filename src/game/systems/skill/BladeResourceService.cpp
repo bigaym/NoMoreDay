@@ -334,7 +334,16 @@ bool BladeResourceService::ShouldAutoEmpowerOnCast(
   if (resource == nullptr) {
     return registry.all_of<SwordIntentComponent>(entity);
   }
-  return resource->kind == BladeResourceKind::SwordIntent;
+  switch (resource->kind) {
+  case BladeResourceKind::SwordIntent:
+  case BladeResourceKind::SwordFlow:
+  case BladeResourceKind::SpiritBladeTier:
+  case BladeResourceKind::Bloodthirst:
+    return true;
+  case BladeResourceKind::None:
+  default:
+    return false;
+  }
 }
 
 BladeAttunement BladeResourceService::GetHeavenlyAttunement(

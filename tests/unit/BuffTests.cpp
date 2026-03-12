@@ -21,6 +21,13 @@ TEST_CASE("[Unit] BuffRegistry - Lookup Logic") {
         CHECK(data.border_color.r == RED.r);
     }
 
+    SUBCASE("Retrieves Blood Sea buff icon data") {
+        auto& data = BuffRegistry::GetVisualData(BuffType::BloodSea);
+        CHECK(data.name == "Blood Sea");
+        CHECK_FALSE(data.is_debuff);
+        CHECK(data.icon_asset != nullptr);
+    }
+
     SUBCASE("Returns default data for unknown types") {
         auto& data = BuffRegistry::GetVisualData(BuffType::None);
         CHECK(data.name == "Unknown");

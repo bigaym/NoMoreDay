@@ -8,6 +8,7 @@
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
+#include "game/systems/combat/EffectSystem.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <algorithm>
@@ -605,6 +606,293 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Contract key nodes map to runtime state")
     CHECK(ringField.leech_ratio == doctest::Approx(0.22f));
     CHECK(ringField.bonus_damage_mult == doctest::Approx(1.84f));
   }
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade low-life nodes alter BloodSea state") {
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  const auto castField = [](const std::vector<std::pair<uint32_t, int>> &nodes) {
+    entt::registry registry;
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &stats = registry.get<CombatStats>(player);
+    stats.max_health = 200.0f;
+    stats.health = 60.0f;
+
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 3;
+    resource.max = 10;
+
+    test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 12,
+                                                        nodes);
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.cast_id = 12030u + static_cast<uint64_t>(nodes.size());
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    return view.get<BloodSeaFieldComponent>(*view.begin());
+  };
+
+  const auto baselineField = castField({{1201, 2}});
+  const auto lowLifeField = castField({{1201, 2}, {1204, 2}, {1206, 2}});
+
+  CHECK(lowLifeField.consumed_bloodthirst == baselineField.consumed_bloodthirst);
+  CHECK(lowLifeField.bonus_damage_mult > baselineField.bonus_damage_mult);
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade baseline nodes reshape BloodSea field") {
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  const auto castField = [](const std::vector<std::pair<uint32_t, int>> &nodes) {
+    entt::registry registry;
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 4;
+    resource.max = 10;
+
+    test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 12,
+                                                        nodes);
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.cast_id = 12040u + static_cast<uint64_t>(nodes.size());
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    return view.get<BloodSeaFieldComponent>(*view.begin());
+  };
+
+  const auto baselineField = castField({});
+  const auto shapedField = castField({{1200, 2}, {1201, 2}, {1202, 2}, {1203, 2}});
+
+  CHECK(shapedField.consumed_bloodthirst == baselineField.consumed_bloodthirst);
+  CHECK(shapedField.radius > baselineField.radius);
+  CHECK(shapedField.bonus_damage_mult > baselineField.bonus_damage_mult);
+  CHECK(shapedField.move_follow_speed > baselineField.move_follow_speed);
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade sustain nodes increase BloodSea leech") {
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  const auto castField = [](const std::vector<std::pair<uint32_t, int>> &nodes) {
+    entt::registry registry;
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &stats = registry.get<CombatStats>(player);
+    stats.max_health = 200.0f;
+    stats.health = 60.0f;
+
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 4;
+    resource.max = 10;
+
+    test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 12,
+                                                        nodes);
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.cast_id = 12050u + static_cast<uint64_t>(nodes.size());
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    return view.get<BloodSeaFieldComponent>(*view.begin());
+  };
+
+  const auto baselineField = castField({{1213, 1}});
+  const auto sustainField =
+      castField({{1209, 2}, {1210, 2}, {1212, 2}, {1213, 1}});
+
+  CHECK(sustainField.consumed_bloodthirst == baselineField.consumed_bloodthirst);
+  CHECK(sustainField.leech_ratio > baselineField.leech_ratio);
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade pursuit branch empowers close linked pressure") {
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  struct ScenarioResult {
+    float close_target_health = 0.0f;
+    float far_target_health = 0.0f;
+    float return_empower_timer = 0.0f;
+  };
+
+  const auto runScenario = [](const std::vector<std::pair<uint32_t, int>> &nodes) {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(1024, 1024, 64);
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &stats = registry.get<CombatStats>(player);
+    stats.max_health = 200.0f;
+    stats.health = 198.0f;
+
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 4;
+    resource.max = 10;
+
+    test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 12,
+                                                        nodes);
+
+    const auto closeTarget =
+        test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+    const auto farTarget =
+        test::skill_keynode_matrix::CreateTarget(registry, {100.0f, 0.0f});
+    grid.rebuild(registry.view<Position>(), registry);
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.cast_id = 12060u + static_cast<uint64_t>(nodes.size());
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+
+    SkillSystem::Update(registry, grid, 0.26f);
+    test::skill_keynode_matrix::DispatchSkillHit(registry, player, closeTarget, 1,
+                                                 exec.cast_id);
+
+    const auto &field = registry.get<BloodSeaFieldComponent>(fieldEntity);
+    return ScenarioResult{
+        registry.get<HealthComponent>(closeTarget).current,
+        registry.get<HealthComponent>(farTarget).current,
+        field.return_empower_timer,
+    };
+  };
+
+  const auto baseline = runScenario({{1213, 1}, {1217, 1}});
+  const auto pursuit =
+      runScenario({{1205, 2}, {1208, 2}, {1213, 1}, {1214, 2}, {1215, 2}, {1217, 1}});
+
+  CHECK(pursuit.close_target_health < baseline.close_target_health);
+  CHECK(pursuit.far_target_health <= baseline.far_target_health);
+  CHECK(pursuit.return_empower_timer > doctest::Approx(0.0f));
+}
+
+TEST_CASE("[Unit] SkillBehaviorGuard - Demon Blade void branch extends miasma pressure") {
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::ShutdownHooks();
+  SkillSystem::InitHooks();
+
+  struct ScenarioResult {
+    float target_health = 0.0f;
+    float damage_interval = 0.0f;
+    float miasma_remaining = 0.0f;
+  };
+
+  const auto runScenario = [](const std::vector<std::pair<uint32_t, int>> &nodes) {
+    entt::registry registry;
+
+    const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+    auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+    mastery.selected = BladeMasteryId::DemonBlade;
+    mastery.blood_oath_active = true;
+
+    auto &resource = registry.emplace<BladeResourceComponent>(player);
+    resource.kind = BladeResourceKind::Bloodthirst;
+    resource.current = 4;
+    resource.max = 10;
+
+    test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 12,
+                                                        nodes);
+
+    const auto target =
+        test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.cast_id = 12070u + static_cast<uint64_t>(nodes.size());
+    exec.target_pos = {18.0f, 0.0f};
+
+    auto cast = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(cast != nullptr);
+    cast(registry, player, exec);
+
+    auto view = registry.view<BloodSeaFieldComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto fieldEntity = *view.begin();
+
+    test::skill_keynode_matrix::DispatchSkillHit(registry, player, target, 1,
+                                                 exec.cast_id);
+
+    const auto &field = registry.get<BloodSeaFieldComponent>(fieldEntity);
+    const auto &effects = registry.get<ActiveEffectsComponent>(target);
+    const auto it = std::find_if(effects.effects.begin(), effects.effects.end(),
+                                 [](const BuffEffect &effect) {
+                                   return effect.id == "blood_sea_miasma" &&
+                                          effect.remaining > 0.0f;
+                                 });
+    REQUIRE(it != effects.effects.end());
+
+    return ScenarioResult{registry.get<HealthComponent>(target).current,
+                          field.damage_interval, it->remaining};
+  };
+
+  const auto baseline = runScenario({{1217, 1}, {1220, 1}, {1224, 2}});
+  const auto voidBranch =
+      runScenario({{1216, 2}, {1217, 1}, {1218, 2}, {1220, 1}, {1223, 2}, {1224, 2}});
+
+  CHECK(voidBranch.target_health < baseline.target_health);
+  CHECK(voidBranch.damage_interval < baseline.damage_interval);
+  CHECK(voidBranch.miasma_remaining > baseline.miasma_remaining);
 }
 
 TEST_CASE("[Unit] SkillBehaviorGuard - Trigger matrix smoke for remaining key nodes") {
@@ -1319,6 +1607,12 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
 
     REQUIRE(test::skill_keynode_matrix::HasEffectById(
         registry, target, "blood_sea_miasma"));
+    REQUIRE(registry.all_of<ActiveEffectsComponent>(player));
+    auto &playerEffects = registry.get<ActiveEffectsComponent>(player);
+    auto *bloodSeaBuff = playerEffects.Get("blood_sea_active");
+    REQUIRE(bloodSeaBuff != nullptr);
+    const float initialBloodSeaDuration = bloodSeaBuff->duration;
+
     auto &effects = registry.get<ActiveEffectsComponent>(target);
     auto *debuff = effects.Get("blood_sea_miasma");
     REQUIRE(debuff != nullptr);
@@ -1332,7 +1626,14 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
     debuff->remaining = 0.25f;
     registry.get<Position>(target) = Position{500.0f, 0.0f};
     grid.rebuild(registry.view<Position>(), registry);
+    StatsSystem::UpdateBuffs(registry, 0.21f);
     SkillSystem::Update(registry, grid, 0.21f);
+    systems::EffectSystem::update(registry, 0.21f);
+
+    bloodSeaBuff = playerEffects.Get("blood_sea_active");
+    REQUIRE(bloodSeaBuff != nullptr);
+    CHECK(bloodSeaBuff->duration == doctest::Approx(initialBloodSeaDuration));
+    CHECK(bloodSeaBuff->remaining < bloodSeaBuff->duration);
 
     registry.get<Position>(target) = Position{18.0f, 0.0f};
     CombatEventDispatcher::Dispatch(
@@ -1345,6 +1646,14 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
     CHECK(debuff->remaining == doctest::Approx(1.0f));
     CHECK(debuff->modifiers[0].value == doctest::Approx(-4.0f));
     CHECK(debuff->modifiers[1].value == doctest::Approx(-4.0f));
+
+    REQUIRE(registry.all_of<ActiveEffectsComponent>(player));
+    bloodSeaBuff = playerEffects.Get("blood_sea_active");
+    REQUIRE(bloodSeaBuff != nullptr);
+    CHECK_FALSE(bloodSeaBuff->is_debuff);
+    CHECK(bloodSeaBuff->remaining > 4.0f);
+    CHECK(!bloodSeaBuff->name.empty());
+    CHECK(!bloodSeaBuff->description.empty());
   }
 
   SUBCASE("Skill 11 attunement switches heavenly_sword_field_resist stat type") {
