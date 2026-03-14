@@ -219,7 +219,10 @@ bool BladeMasteryService::SetHeavenlySwordAttunement(entt::registry &registry,
     return false;
   }
 
-  mastery->heavenly_attunement = attunement;
+  if (mastery->heavenly_attunement != attunement) {
+    mastery->heavenly_attunement = attunement;
+    RefreshPlayerState(registry, entity);
+  }
   return true;
 }
 
