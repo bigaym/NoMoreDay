@@ -203,41 +203,41 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                 {BladeAttunement::Frost, "Frost"},
                 {BladeAttunement::Fire, "Fire"},
             }};
-            const float buttonY = masteryPanelY + 100.0f * state.scaleFactor;
-            const float buttonGap = 8.0f * state.scaleFactor;
-            const float buttonW = 92.0f * state.scaleFactor;
-            const float buttonH = 24.0f * state.scaleFactor;
+            const float logicalButtonW = 92.0f;
+            const float logicalButtonH = 24.0f;
+            const float logicalButtonGap = 8.0f;
+            const float logicalStartX = (masteryPanelX + 12.0f * state.scaleFactor) / state.scaleFactor;
+            const float logicalStartY = (masteryPanelY + 100.0f * state.scaleFactor) / state.scaleFactor;
 
              for (std::size_t index = 0; index < attunements.size(); ++index) {
                  const auto [attunement, label] = attunements[index];
-                 Rectangle button = {
-                     masteryPanelX + 12.0f * state.scaleFactor +
-                         index * (buttonW + buttonGap),
-                     buttonY,
-                     buttonW,
-                     buttonH,
-                 };
                  Rectangle buttonLogic = {
-                     button.x / state.scaleFactor,
-                     button.y / state.scaleFactor,
-                     button.width / state.scaleFactor,
-                     button.height / state.scaleFactor,
+                     logicalStartX + index * (logicalButtonW + logicalButtonGap),
+                     logicalStartY,
+                     logicalButtonW,
+                     logicalButtonH,
+                 };
+                 Rectangle buttonPhys = {
+                     buttonLogic.x * state.scaleFactor,
+                     buttonLogic.y * state.scaleFactor,
+                     buttonLogic.width * state.scaleFactor,
+                     buttonLogic.height * state.scaleFactor,
                  };
                  const bool isSelected = masteryState->heavenly_attunement == attunement;
 
-                 DrawRectangleRec(button, Fade(isSelected ? GOLD : DARKGRAY,
-                                               0.72f * alpha));
-                DrawRectangleLinesEx(button, 1.0f * state.scaleFactor,
-                                     Fade(isSelected ? YELLOW : GRAY, alpha));
-                UISystem::DrawTextUI(label, button.x + 9.0f * state.scaleFactor,
-                                     button.y + 5.0f * state.scaleFactor, 12,
-                                     WHITE, alpha);
+                  DrawRectangleRec(buttonPhys, Fade(isSelected ? GOLD : DARKGRAY,
+                                                0.72f * alpha));
+                 DrawRectangleLinesEx(buttonPhys, 1.0f * state.scaleFactor,
+                                      Fade(isSelected ? YELLOW : GRAY, alpha));
+                 UISystem::DrawTextUI(label, buttonPhys.x + 9.0f * state.scaleFactor,
+                                      buttonPhys.y + 5.0f * state.scaleFactor, 12,
+                                      WHITE, alpha);
 
-                 if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), buttonLogic) &&
-                     IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                     systems::BladeMasteryService::SetHeavenlySwordAttunement(
-                         registry, player, attunement);
-                 }
+                  if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), buttonLogic) &&
+                      IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                      systems::BladeMasteryService::SetHeavenlySwordAttunement(
+                          registry, player, attunement);
+                  }
             }
         }
     }
