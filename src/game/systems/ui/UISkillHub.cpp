@@ -57,8 +57,6 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     auto* active = registry.try_get<ActiveSkillsComponent>(player);
     if (!active) return;
 
-    systems::BladeMasteryService::RefreshPlayerState(registry, player);
-
     const auto* playerStats = registry.try_get<PlayerStats>(player);
     const int playerLevel = playerStats ? playerStats->level : 1;
     const auto selectedMastery = systems::BladeMasteryService::GetSelectedMastery(registry, player);

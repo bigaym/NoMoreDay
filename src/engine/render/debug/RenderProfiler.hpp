@@ -54,8 +54,11 @@ public:
   void EndPass(RenderPassId passId);
 
   [[nodiscard]] PassTimingStats GetStats(RenderPassId passId) const;
-  [[nodiscard]] std::array<PassTimingStats, static_cast<size_t>(RenderPassId::Count)>
-  GetAllStats() const;
+  [[nodiscard]] const std::array<PassTimingStats, static_cast<size_t>(RenderPassId::Count)> &
+  GetAllStats() const {
+    return m_cachedStats;
+  }
+  void UpdateStats();
   [[nodiscard]] bool IsGpuTimingAvailable() const { return m_gpuTimingAvailable; }
 
   static const char *ToString(RenderPassId passId);
@@ -95,6 +98,7 @@ private:
   };
 
   std::array<PassState, static_cast<size_t>(RenderPassId::Count)> m_passStates = {};
+  std::array<PassTimingStats, static_cast<size_t>(RenderPassId::Count)> m_cachedStats = {};
   GpuTimerQueryApi m_gpuApi = {};
   bool m_gpuTimingAvailable = false;
   bool m_frameActive = false;

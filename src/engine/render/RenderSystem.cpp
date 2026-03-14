@@ -1115,11 +1115,15 @@ void ExecuteUIWorldPass(RenderFrameData &frame) {
 
     for (size_t i = 0; i < s_candidates.size(); ++i) {
       auto &cand = s_candidates[i];
+      
+      // OPTIMIZATION: Cap overlap resolution search distance to keep performance stable.
       bool overlap = true;
       int safety = 0;
-      while (overlap && safety < 8) {
+      while (overlap && safety < 4) {
         overlap = false;
-        for (size_t j = 0; j < i; ++j) {
+        // Only check against recent candidates to avoid O(N^2) runaway
+        const size_t startIdx = (i > 16) ? (i - 16) : 0;
+        for (size_t j = startIdx; j < i; ++j) {
           if (CheckCollisionRecs(cand.currentRect, s_candidates[j].currentRect)) {
             cand.currentRect.y =
                 s_candidates[j].currentRect.y - cand.currentRect.height - 2;
@@ -2040,8 +2044,9 @@ void RenderSystem::render(entt::registry &registry,
   graph.Execute(graphContext);
   if (graphContext.renderProfiler != nullptr) {
     graphContext.renderProfiler->EndFrame();
+    graphContext.renderProfiler->UpdateStats();
 
-    const auto passStats = graphContext.renderProfiler->GetAllStats();
+    const auto &passStats = graphContext.renderProfiler->GetAllStats();
     UpdateAutoDegradePolicy(passStats, GetTime());
 
     if (renderConfig.profilerHudEnabled) {

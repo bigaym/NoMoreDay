@@ -1329,7 +1329,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.volumetricSampleCount = 0;
     m_baseConfig.volumetricScattering = 0.0f;
     m_baseConfig.volumetricDecay = 0.0f;
-    m_baseConfig.profilerHudEnabled = kHotReloadEnabled;
+    m_baseConfig.profilerHudEnabled = false;
     m_baseConfig.shaderHotReloadEnabled = kHotReloadEnabled;
     m_baseConfig.gpuTextEnabled = true;
     m_baseConfig.gpuTextAdvancedAnimation = true;
@@ -1390,7 +1390,7 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.volumetricSampleCount = 48;
     m_baseConfig.volumetricScattering = 0.16f;
     m_baseConfig.volumetricDecay = 0.95f;
-    m_baseConfig.profilerHudEnabled = kHotReloadEnabled;
+    m_baseConfig.profilerHudEnabled = false;
     m_baseConfig.shaderHotReloadEnabled = kHotReloadEnabled;
     m_baseConfig.gpuTextEnabled = true;
     m_baseConfig.gpuTextAdvancedAnimation = true;

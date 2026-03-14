@@ -81,6 +81,21 @@ bool NeedsEmojiFallback(const Font &primary, const Font &emojiFallback,
     return false;
   }
 
+  // FAST PATH: Check if string is ASCII-only. ASCII characters (0-127)
+  // are almost certainly handled by the primary font.
+  bool hasNonAscii = false;
+  const char *testPtr = text;
+  while (*testPtr != '\0') {
+    if (static_cast<unsigned char>(*testPtr) > 127) {
+      hasNonAscii = true;
+      break;
+    }
+    testPtr++;
+  }
+  if (!hasNonAscii) {
+    return false;
+  }
+
   const char *ptr = text;
   while (*ptr != '\0') {
     int bytesProcessed = 0;

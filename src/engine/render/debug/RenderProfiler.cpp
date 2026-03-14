@@ -178,13 +178,10 @@ PassTimingStats RenderProfiler::GetStats(RenderPassId passId) const {
   return stats;
 }
 
-std::array<PassTimingStats, static_cast<size_t>(RenderPassId::Count)>
-RenderProfiler::GetAllStats() const {
-  std::array<PassTimingStats, static_cast<size_t>(RenderPassId::Count)> stats = {};
-  for (size_t i = 0; i < stats.size(); ++i) {
-    stats[i] = GetStats(static_cast<RenderPassId>(i));
+void RenderProfiler::UpdateStats() {
+  for (size_t i = 0; i < static_cast<size_t>(RenderPassId::Count); ++i) {
+    m_cachedStats[i] = GetStats(static_cast<RenderPassId>(i));
   }
-  return stats;
 }
 
 const char *RenderProfiler::ToString(RenderPassId passId) {

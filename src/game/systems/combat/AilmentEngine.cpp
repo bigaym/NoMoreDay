@@ -581,8 +581,10 @@ void AilmentTickDriver::Tick(entt::registry &registry, float dt) {
       }
       effect.tick_timer += dt;
 
-      while (effect.tick_timer >= tickInterval) {
+      int tickCount = 0;
+      while (effect.tick_timer >= tickInterval && tickCount < 5) {
         effect.tick_timer -= tickInterval;
+        tickCount++;
 
         float tickDamage = effect.tick_damage;
         if (managedAilment &&
