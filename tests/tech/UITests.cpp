@@ -131,11 +131,11 @@ TEST_CASE("[Tech] SkillUI - tooltip helpers anchor hierarchy and wrapping") {
 }
 
 TEST_CASE("[Tech] SkillUI - tooltip layout reserves footer separation") {
-    const auto sparseLayout = SkillTreeUI::ComputeTooltipLayoutMetrics(280.0f, 0);
+    const auto sparseLayout = SkillTreeUI::ComputeTooltipLayoutMetrics(280.0f, 0, 0);
     CHECK(sparseLayout.descriptionHeight >= 56.0f);
     CHECK(sparseLayout.descriptionBottom + sparseLayout.footerGap <= sparseLayout.footerTop);
 
-    const auto denseLayout = SkillTreeUI::ComputeTooltipLayoutMetrics(280.0f, 5);
+    const auto denseLayout = SkillTreeUI::ComputeTooltipLayoutMetrics(280.0f, 3, 5);
     CHECK(denseLayout.footerHeight > sparseLayout.footerHeight);
     CHECK(denseLayout.descriptionBottom + denseLayout.footerGap <= denseLayout.footerTop);
 }
@@ -793,6 +793,65 @@ TEST_CASE("[Tech] UIRenderer - Tooltip Logic Smoke Test") {
     // Smoke test for DrawTooltip
     // We can't easily verify the actual drawing but we can ensure it doesn't crash
     UIRenderer::DrawTooltip(font, registry, itemEntity, 1.0f);
+}
+
+TEST_CASE("[Tech] SkillUI - tooltip uses static preview payload") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/engine/render/UIRenderer.cpp"),
+        fs::path("../src/engine/render/UIRenderer.cpp"),
+        fs::path("../../src/engine/render/UIRenderer.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+    CHECK(source.find("SkillDisplayPreviewService::Build") != std::string::npos);
+    CHECK(source.find("持续时间") != std::string::npos);
+    CHECK(source.find("ResolveDamageLabel(") != std::string::npos);
+    CHECK(source.find("0.9f") == std::string::npos);
+    CHECK(source.find("1.1f") == std::string::npos);
+}
+
+TEST_CASE("[Tech] SkillUI - specialization tooltip renders quantitative lines") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+    CHECK(source.find("BuildNodeQuantitativeLines(") != std::string::npos);
+    CHECK(source.find("quantitative") != std::string::npos);
+    CHECK(source.find("display_lines") != std::string::npos);
+    CHECK(source.find("数值加成已启用") == std::string::npos);
 }
 
 } // namespace NoMoreDay

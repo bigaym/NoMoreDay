@@ -144,6 +144,35 @@ inline void from_json(const nlohmann::json &j, TalentPrerequisite &p) {
 }
 
 /**
+ * @brief Metadata for a single quantitative line in a talent tooltip.
+ */
+struct TalentDisplayLine {
+  std::string label;
+  float base_value = 0.0f;
+  float per_point = 0.0f;
+  bool is_percent = false;
+  std::string suffix;
+};
+
+inline void to_json(nlohmann::json &j, const TalentDisplayLine &l) {
+  j = nlohmann::json{{"label", l.label},
+                     {"base_value", l.base_value},
+                     {"per_point", l.per_point},
+                     {"is_percent", l.is_percent},
+                     {"suffix", l.suffix}};
+}
+
+inline void from_json(const nlohmann::json &j, TalentDisplayLine &l) {
+  j.at("label").get_to(l.label);
+  l.base_value = j.value("base_value", 0.0f);
+  l.per_point = j.value("per_point", 0.0f);
+  l.is_percent = j.value("is_percent", false);
+  if (j.contains("suffix")) {
+    j.at("suffix").get_to(l.suffix);
+  }
+}
+
+/**
  * @brief Represents a node in a skill's specialization talent tree.
  */
 struct TalentNode {
@@ -157,6 +186,7 @@ struct TalentNode {
   std::vector<TalentPrerequisite> prerequisites;
   std::vector<StatModifier> stat_modifiers;
   std::vector<DamageModifier> damage_modifiers;
+  std::vector<TalentDisplayLine> display_lines;
 
   // Tag modification (e.g., add "spell" tag to a melee skill)
   Tag add_tags =
@@ -179,6 +209,7 @@ inline void to_json(nlohmann::json &j, const TalentNode &n) {
                      {"prerequisites", n.prerequisites},
                      {"stat_modifiers", n.stat_modifiers},
                      {"damage_modifiers", n.damage_modifiers},
+                     {"display_lines", n.display_lines},
                      {"x", n.x},
                      {"y", n.y}};
   // Serialize tag modifications as string arrays for human-readable JSON
@@ -239,6 +270,8 @@ inline void from_json(const nlohmann::json &j, TalentNode &n) {
     j.at("stat_modifiers").get_to(n.stat_modifiers);
   if (j.contains("damage_modifiers"))
     j.at("damage_modifiers").get_to(n.damage_modifiers);
+  if (j.contains("display_lines"))
+    j.at("display_lines").get_to(n.display_lines);
   if (j.contains("x"))
     j.at("x").get_to(n.x);
   if (j.contains("y"))

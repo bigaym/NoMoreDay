@@ -15,6 +15,8 @@ public:
         float descriptionTop = 0.0f;
         float descriptionHeight = 0.0f;
         float descriptionBottom = 0.0f;
+        float quantitativeTop = 0.0f;
+        float quantitativeHeight = 0.0f;
         float footerTop = 0.0f;
         float footerHeight = 0.0f;
         float footerGap = 0.0f;
@@ -22,6 +24,7 @@ public:
 
     static void Draw(void* registry, int player, uint32_t skillId);
     static TooltipLayoutMetrics ComputeTooltipLayoutMetrics(float tooltipHeight,
+                                                            std::size_t quantitativeLineCount,
                                                             std::size_t footerLineCount);
 
 public:

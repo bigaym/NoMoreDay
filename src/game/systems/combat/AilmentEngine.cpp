@@ -387,6 +387,10 @@ BuffType AilmentAdapter::ToLegacyBuffType(AilmentType ailment) {
     return BuffType::Poison;
   case AilmentType::Bleed:
     return BuffType::Bleed;
+  case AilmentType::Freeze:
+    return BuffType::Freeze;
+  case AilmentType::Shock:
+    return BuffType::Shock;
   default:
     return BuffType::DamageOverTime;
   }

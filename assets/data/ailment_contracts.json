@@ -36,6 +36,30 @@
       "base_duration": 2.5,
       "damage_tag": "Physical",
       "legacy_buff_type": "Bleed"
+    },
+    {
+      "type": "Freeze",
+      "max_stacks": 1,
+      "refresh_policy": "Refresh",
+      "overwrite_policy": "Strongest",
+      "immunity_and_resistance": 1.0,
+      "tick_interval": 1.0,
+      "damage_pool_policy": "PerStack",
+      "base_duration": 1.0,
+      "damage_tag": "Cold",
+      "legacy_buff_type": "Freeze"
+    },
+    {
+      "type": "Shock",
+      "max_stacks": 1,
+      "refresh_policy": "Refresh",
+      "overwrite_policy": "Strongest",
+      "immunity_and_resistance": 1.0,
+      "tick_interval": 1.0,
+      "damage_pool_policy": "PerStack",
+      "base_duration": 3.0,
+      "damage_tag": "Lightning",
+      "legacy_buff_type": "Shock"
     }
   ]
 }

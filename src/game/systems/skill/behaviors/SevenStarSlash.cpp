@@ -252,6 +252,11 @@ bool IsLiveTargetCandidate(entt::registry &registry, entt::entity entity) {
   if (registry.all_of<KilledTag>(entity)) {
     return false;
   }
+  if (const auto *stats = registry.try_get<CombatStats>(entity)) {
+    if (stats->health <= 0.0f) {
+      return false;
+    }
+  }
   if (const auto *health = registry.try_get<HealthComponent>(entity)) {
     if (health->current <= 0.0f) {
       return false;
@@ -568,8 +573,8 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         slashCenter = targets[static_cast<size_t>(slashIndex) % targets.size()].position;
       }
 
-      slashTargets = GatherTargets(registry, owner, slashCenter, hitRadius,
-                                   specState.sevenFocus);
+      slashTargets = GatherLiveTargets(registry, owner, slashCenter, hitRadius,
+                                       specState.sevenFocus);
       if (slashTargets.empty() && specState.targetLockPoints > 0 && focusedTarget != entt::null) {
         if (const auto *targetPos = registry.try_get<Position>(focusedTarget)) {
           const float rescueRadius = hitRadius * (1.0f + 0.15f * specState.targetLockPoints);

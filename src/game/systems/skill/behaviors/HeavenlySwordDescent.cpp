@@ -3,6 +3,7 @@
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "core/math/ThreadSafeRandom.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
@@ -10,6 +11,7 @@
 #include "game/components/EffectComponent.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/AilmentEngine.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
@@ -229,6 +231,35 @@ void ApplyFieldDamage(entt::registry &registry, const entt::entity field_entity,
     ApplySingleHit(registry, field.owner, target, field_entity, field.attunement,
                    base_damage * damage_mult);
     ApplyResistShred(registry, target, field);
+
+    // Node closure: element-specific secondary effects
+    if (field.solar_incineration) {
+      // 炽阳焚城 (1123): apply or strengthen ignite
+      systems::AilmentApplyRequest req;
+      req.ailment = AilmentType::Ignite;
+      req.source = field.owner;
+      req.magnitude = base_damage * 0.25f; // Extra ignite magnitude
+      systems::AilmentApplier::Apply(registry, target, req);
+    }
+
+    if (field.frozen_dominion) {
+      // 霜星封界 (1122): chance to freeze (stagnation)
+      if (utils::ThreadSafeRandom::GetFloat01() < 0.15f) {
+        systems::AilmentApplyRequest req;
+        req.ailment = AilmentType::Freeze;
+        req.source = field.owner;
+        req.duration = 1.0f;
+        systems::AilmentApplier::Apply(registry, target, req);
+      }
+    }
+
+    if (field.lightning_tribunal) {
+      // 雷池天罚 (1121): apply shock
+      systems::AilmentApplyRequest req;
+      req.ailment = AilmentType::Shock;
+      req.source = field.owner;
+      systems::AilmentApplier::Apply(registry, target, req);
+    }
   }
 }
 
@@ -660,6 +691,7 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   if (field.lightning_tribunal) {
     field.damage_interval = std::min(0.75f, field.damage_interval * 1.2f);
     field.field_damage_mult *= 1.3f;
+    field.radius *= 1.2f; // Low frequency but wider area
   }
   if (field.frozen_dominion) {
     field.field_damage_mult *= 1.12f;

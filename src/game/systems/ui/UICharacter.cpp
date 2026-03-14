@@ -488,25 +488,28 @@ void UICharacter::Draw(entt::registry &registry) {
                                   combatStats->raw_move_speed, false),
                 rowX, y, rowW, 20.0f, alpha);
     DrawStatRow("魔法寻宝",
-                TextFormat("%.0f%%", combatStats->magic_find * 100.0f), rowX, y,
+                TextFormat("+%.0f%%", combatStats->magic_find * 100.0f), rowX, y,
                 rowW, 20.0f, alpha);
     DrawStatRow("冷却缩减",
                 FormatStatWithCap(combatStats->cooldown_reduction,
                                   combatStats->raw_cooldown_reduction, true),
                 rowX, y, rowW, 20.0f, alpha);
+    DrawStatRow("技能持续时间",
+                TextFormat("+%.0f%%", (combatStats->duration_scale - 1.0f) * 100.0f),
+                rowX, y, rowW, 20.0f, alpha);
+    DrawStatRow("技能范围",
+                TextFormat("+%.0f%%", (combatStats->area_scale - 1.0f) * 100.0f),
+                rowX, y, rowW, 20.0f, alpha);
     DrawStatRow("拾取范围", TextFormat("%.0f", combatStats->pickup_range), rowX,
                 y, rowW, 20.0f, alpha);
     DrawStatRow("金币加成",
-                TextFormat("%.0f%%", combatStats->gold_bonus * 100.0f), rowX, y,
+                TextFormat("+%.0f%%", combatStats->gold_bonus * 100.0f), rowX, y,
                 rowW, 20.0f, alpha);
     DrawStatRow(
         "经验加成",
-        TextFormat("%.0f%%", combatStats->experience_gain_mult * 100.0f), rowX,
+        TextFormat("+%.0f%%", combatStats->experience_gain_mult * 100.0f), rowX,
         y, rowW, 20.0f, alpha);
     DrawStatRow("荆棘伤害", TextFormat("%.0f", combatStats->thorns), rowX, y,
-                rowW, 20.0f, alpha);
-    DrawStatRow("技能范围",
-                TextFormat("%.0f%%", combatStats->area_scale * 100.0f), rowX, y,
                 rowW, 20.0f, alpha);
   }
 

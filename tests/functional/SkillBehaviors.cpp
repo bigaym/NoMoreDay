@@ -1264,4 +1264,132 @@ TEST_CASE("[Functional] Blood Sea - linked sword hits drive pursuit field damage
     CHECK(registry.get<HealthComponent>(target).current < 250.0f);
 }
 
+TEST_CASE("[Functional] Skill - Seven Star Slash - Scar Explosion filters dead targets") {
+    TestSetupScope scope;
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson("assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+
+    auto player = registry.create();
+    auto liveEnemy = registry.create();
+    auto deadEnemy = registry.create();
+
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(liveEnemy, 50.0f, 0.0f);
+    registry.emplace<Position>(deadEnemy, 55.0f, 0.0f);
+
+    auto& playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
+    auto& playerCombat = registry.emplace<CombatStats>(player);
+    playerCombat.min_weapon_damage = 40.0f;
+    playerCombat.max_weapon_damage = 40.0f;
+    playerCombat.max_mana = 100.0f;
+    playerCombat.mana = 100.0f;
+
+    registry.emplace<EnemyTag>(liveEnemy);
+    registry.emplace<CombatStats>(liveEnemy).health = 100.0f;
+    registry.emplace<HealthComponent>(liveEnemy, 100.0f, 100.0f);
+
+    registry.emplace<EnemyTag>(deadEnemy);
+    registry.emplace<CombatStats>(deadEnemy).health = 0.0f;
+    registry.emplace<HealthComponent>(deadEnemy, 0.0f, 100.0f);
+    registry.emplace<KilledTag>(deadEnemy);
+
+    // Setup player for Seven Star Slash
+    auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(registry, player, BladeMasteryId::SwordSaint));
+    
+    // We need Lingering Scar (1020) and Starfall (1022) + Scar Ruin (1024) to trigger ExplodeScars
+    auto& active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 10;
+    active.specialized_slots[0].allocated_points = {
+        {1020, 1}, // Lingering Scar
+        {1022, 1}, // Starfall (Transmuter)
+        {1024, 1}  // Scar Ruin (Explosion trigger)
+    };
+    auto& runtime = registry.emplace<SkillContractRuntimeComponent>(player);
+    runtime.active_transmuter_node_by_skill[10] = 1022;
+
+    SkillExecution exec;
+    exec.skill_id = 10;
+    exec.owner = player;
+    exec.target_pos = {50.0f, 0.0f};
+
+    std::unordered_map<entt::entity, int> hitsByTarget;
+    CombatEventDispatcher::Register(CombatEventType::OnDealDamage, [&](entt::registry&, const CombatEvent& evt) {
+        if (evt.skill_id == 10) {
+            hitsByTarget[evt.target]++;
+        }
+    });
+
+    auto castFunc = SkillBehaviorRegistry::GetCast(10);
+    REQUIRE(castFunc != nullptr);
+    castFunc(registry, player, exec);
+
+    CHECK(hitsByTarget.contains(liveEnemy));
+    CHECK_FALSE(hitsByTarget.contains(deadEnemy));
+}
+
+TEST_CASE("[Functional] Skill - Seven Star Slash - Dead Focused Target still gets hit if Target Lock is on") {
+    TestSetupScope scope;
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson("assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+
+    auto player = registry.create();
+    auto enemy = registry.create();
+
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(enemy, 50.0f, 0.0f);
+
+    auto& playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
+    auto& playerCombat = registry.emplace<CombatStats>(player);
+    playerCombat.min_weapon_damage = 40.0f;
+    playerCombat.max_weapon_damage = 40.0f;
+    playerCombat.max_mana = 100.0f;
+    playerCombat.mana = 100.0f;
+
+    registry.emplace<EnemyTag>(enemy);
+    registry.emplace<CombatStats>(enemy).health = 0.0f;
+    registry.emplace<HealthComponent>(enemy, 0.0f, 100.0f);
+    registry.emplace<KilledTag>(enemy);
+
+    // Setup player for Seven Star Slash
+    auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(registry, player, BladeMasteryId::SwordSaint));
+    
+    auto& active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 10;
+    active.specialized_slots[0].allocated_points = {
+        {1000, 1} // Target Lock
+    };
+
+    SkillExecution exec;
+    exec.skill_id = 10;
+    exec.owner = player;
+    exec.target_pos = {50.0f, 0.0f};
+
+    std::unordered_map<entt::entity, int> hitsByTarget;
+    CombatEventDispatcher::Register(CombatEventType::OnDealDamage, [&](entt::registry&, const CombatEvent& evt) {
+        if (evt.skill_id == 10) {
+            hitsByTarget[evt.target]++;
+        }
+    });
+
+    auto castFunc = SkillBehaviorRegistry::GetCast(10);
+    REQUIRE(castFunc != nullptr);
+    castFunc(registry, player, exec);
+
+    CHECK_FALSE(hitsByTarget.contains(enemy));
+}
+
 } // namespace NoMoreDay

@@ -11,6 +11,7 @@
 #include "game/components/PlayerState.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/ui/UICrafting.hpp" // ADDED
+#include "game/systems/skill/SkillDisplayPreviewService.hpp"
 
 #include <algorithm>
 
@@ -132,7 +133,22 @@ void DrawTextWithEmojiFallback(const Font &primary, const Font &emojiFallback,
   }
 }
 
+const char *ResolveDamageLabel(SkillDisplayDamageMode mode) {
+  switch (mode) {
+  case SkillDisplayDamageMode::Hit:
+    return "预估伤害";
+  case SkillDisplayDamageMode::PerSecond:
+    return "每秒伤害";
+  case SkillDisplayDamageMode::Total:
+    return "总伤害";
+  case SkillDisplayDamageMode::ChannelWindow:
+    return "引导伤害(1秒)";
+  }
+  return "预估伤害";
+}
+
 } // namespace
+
 
 void UIRenderer::SetTheme(const UITheme &theme) { s_theme = theme; }
 
@@ -484,7 +500,7 @@ void UIRenderer::DrawSlot(const Font &font, entt::registry &registry, float x,
 
           for (int i = 0; i < itemComp->legendaryPotential; ++i) {
               float dotX = startX + i * (dotRadius * 2 + gap);
-              DrawCircleV({dotX, dotY}, dotRadius, ApplyAlpha(VIOLET, 0.9f * alpha));
+               DrawCircleV({dotX, dotY}, dotRadius, ApplyAlpha(VIOLET, 0.90f * alpha));
               DrawCircleLines((int)dotX, (int)dotY, dotRadius, ApplyAlpha(WHITE, 0.5f * alpha));
           }
       }
@@ -990,99 +1006,23 @@ UIRenderer::GetSkillTooltipLines(entt::registry &registry, uint32_t skillId) {
   std::vector<TooltipLine> lines;
   lines.push_back({skill->name_key, YELLOW});
 
-  float minDmg = 0, maxDmg = 0;
-  float astroIncBonus = 0.0f;
-  float astroMoreBonus = 1.0f;
-
   auto playerView = registry.view<PlayerTag, CombatStats>();
-  if (playerView.begin() != playerView.end()) {
-    entt::entity player = playerView.front();
-    const auto &stats = playerView.get<CombatStats>(player);
-
-    float avgWeapon =
-        (stats.min_weapon_damage + stats.max_weapon_damage) * 0.5f;
-    DamagePool pool;
-    pool.Add(Tag::Physical,
-             avgWeapon * skill->weapon_damage_mult + skill->base_damage);
-
-    auto result =
-        DamagePipeline::Calculate(registry, player, entt::null, skillId, pool,
-                                  Tag::Hit, entt::null, true);
-    minDmg = result.total_damage * 0.9f;
-    maxDmg = result.total_damage * 1.1f;
-
-    if (auto *astro = registry.try_get<AstrolabeComponent>(player)) {
-      Tag primary_type = Tag::Physical;
-      for (int i = 0; i < 6; ++i) {
-        Tag t = static_cast<Tag>(1ULL << i);
-        if (HasTag(skill->tags, t)) {
-          primary_type = t;
-          break;
-        }
-      }
-
-      StatType dmg_stat = StatType::PhysicalDamage;
-      switch (primary_type) {
-      case Tag::Physical:
-        dmg_stat = StatType::PhysicalDamage;
-        break;
-      case Tag::Fire:
-        dmg_stat = StatType::FireDamage;
-        break;
-      case Tag::Cold:
-        dmg_stat = StatType::ColdDamage;
-        break;
-      case Tag::Lightning:
-        dmg_stat = StatType::LightningDamage;
-        break;
-      case Tag::Poison:
-        dmg_stat = StatType::PoisonDamage;
-        break;
-      case Tag::Shadow:
-        dmg_stat = StatType::ShadowDamage;
-        break;
-      default:
-        break;
-      }
-
-      const auto &reg = AstrolabeRegistry::Get();
-      for (uint32_t node_id : astro->activated_nodes) {
-        if (const auto *node = reg.GetNode(node_id)) {
-          for (const auto &mod : node->modifiers) {
-            if (mod.type == dmg_stat &&
-                (mod.required_tags == Tag::None ||
-                 HasTag(skill->tags, mod.required_tags))) {
-              if (mod.mode == ModifierMode::PercentAdd) {
-                astroIncBonus += mod.value;
-              } else if (mod.mode == ModifierMode::PercentMult) {
-                astroMoreBonus *= (1.0f + mod.value);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
+  const SkillDisplayPreview preview =
+      (playerView.begin() != playerView.end())
+          ? SkillDisplayPreviewService::Build(registry, playerView.front(),
+                                              skillId)
+          : SkillDisplayPreview{};
 
   char buffer[128];
-  if (minDmg > 0) {
-    utils::FormatToBuffer(buffer, "预估伤害: {:.0f}", minDmg);
-    lines.push_back({buffer, SKYBLUE});
-  }
-
-  if (astroIncBonus > 0.0f) {
-    utils::FormatToBuffer(buffer, "星盘伤害增加: +{:.0f}% (Increased)",
-                          astroIncBonus * 100.0f);
-    lines.push_back({buffer, LIME});
-  }
-
-  if (astroMoreBonus > 1.0f) {
-    utils::FormatToBuffer(buffer, "星盘总伤害额外: +{:.0f}% (More)",
-                          (astroMoreBonus - 1.0f) * 100.0f);
-    lines.push_back({buffer, ORANGE});
+  if (preview.has_estimated_damage) {
+    utils::FormatToBuffer(buffer, "{}: {:.0f}",
+                          ResolveDamageLabel(preview.estimated_damage_mode),
+                          preview.estimated_damage_value);
+    lines.push_back({buffer, {255, 150, 50, 255}});
   }
 
   utils::FormatToBuffer(buffer, "法力消耗: {:.0f}", skill->mana_cost);
+
   lines.push_back({buffer, s_theme.textSecondary});
 
   if (skill->cooldown > 0) {
@@ -1290,30 +1230,30 @@ void UIRenderer::DrawSkillTooltip(const Font &font, entt::registry &registry,
   std::vector<Stat> coreStats;
 
   char buf[64];
+  auto playerView = registry.view<PlayerTag, CombatStats>();
+  const SkillDisplayPreview preview = (playerView.begin() != playerView.end())
+                                          ? SkillDisplayPreviewService::Build(
+                                                registry, playerView.front(), skillId)
+                                          : SkillDisplayPreview{};
+
   if (skill->mana_cost > 0) {
-      utils::FormatToBuffer(buf, "{:.0f}", skill->mana_cost);
-      coreStats.push_back({"法力消耗", buf, SKYBLUE});
+    utils::FormatToBuffer(buf, "{:.0f}", skill->mana_cost);
+    coreStats.push_back({"法力消耗", buf, SKYBLUE});
   }
   if (skill->cooldown > 0) {
-      utils::FormatToBuffer(buf, "{:.1f}s", skill->cooldown);
-      coreStats.push_back({"冷却时间", buf, WHITE});
+    utils::FormatToBuffer(buf, "{:.1f}s", skill->cooldown);
+    coreStats.push_back({"冷却时间", buf, WHITE});
+  }
+  if (preview.has_duration) {
+    utils::FormatToBuffer(buf, "{:.1f}s", preview.display_duration_seconds);
+    coreStats.push_back({"持续时间", buf, WHITE});
+  }
+  if (preview.has_estimated_damage) {
+    utils::FormatToBuffer(buf, "{:.0f}", preview.estimated_damage_value);
+    coreStats.push_back({ResolveDamageLabel(preview.estimated_damage_mode), buf,
+                         {255, 150, 50, 255}});
   }
 
-  float minDmg = 0;
-  auto playerView = registry.view<PlayerTag, CombatStats>();
-  if (playerView.begin() != playerView.end()) {
-      const auto &stats = playerView.get<CombatStats>(playerView.front());
-      float avgWeapon = (stats.min_weapon_damage + stats.max_weapon_damage) * 0.5f;
-      DamagePool pool;
-      pool.Add(Tag::Physical, avgWeapon * skill->weapon_damage_mult + skill->base_damage);
-      auto result = DamagePipeline::Calculate(registry, playerView.front(), entt::null, skillId, pool, Tag::Hit, entt::null, true);
-      minDmg = result.total_damage;
-  }
-  if (minDmg > 0) {
-      utils::FormatToBuffer(buf, "{:.0f} - {:.0f}", minDmg * 0.9f,
-                            minDmg * 1.1f);
-      coreStats.push_back({"估算伤害", buf, {255, 150, 50, 255}});
-  }
 
   // --- 2. Height Calculation ---
   float totalH = padding;

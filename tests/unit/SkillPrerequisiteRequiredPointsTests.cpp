@@ -124,4 +124,23 @@ TEST_CASE("[Unit] TalentNode JSON - prerequisites parse required_points and lega
   CHECK(node.prerequisites[1].required_points == 1);
 }
 
+TEST_CASE("[Unit] TalentNode JSON - display_lines parse quantitative tooltip metadata") {
+  const nlohmann::json nodeJson = {
+      {"id", 900201},
+      {"name_key", "display_node"},
+      {"desc_key", "display_node_desc"},
+      {"max_points", 3},
+      {"display_lines", nlohmann::json::array({
+          {{"label", "持续时间"}, {"per_point", 10.0f}, {"is_percent", true}},
+          {{"label", "脉冲频率"}, {"per_point", 8.0f}, {"is_percent", true}}
+      })}
+  };
+
+  const TalentNode node = nodeJson.get<TalentNode>();
+  REQUIRE(node.display_lines.size() == 2);
+  CHECK(node.display_lines[0].label == "持续时间");
+  CHECK(node.display_lines[0].per_point == doctest::Approx(10.0f));
+  CHECK(node.display_lines[0].is_percent);
+}
+
 } // namespace NoMoreDay

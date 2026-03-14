@@ -1346,6 +1346,9 @@
           "id": 1200,
           "max_points": 4,
           "name_key": "血幕起势",
+          "display_lines": [
+            { "label": "范围", "per_point": 5.0, "is_percent": true }
+          ],
           "prerequisites": [
             {
               "node_id": 0,
@@ -1606,6 +1609,9 @@
           "id": 1216,
           "max_points": 3,
           "name_key": "刃雾共振",
+          "display_lines": [
+            { "label": "脉冲频率", "per_point": 10.0, "is_percent": true }
+          ],
           "prerequisites": [
             {
               "node_id": 1215,
@@ -1658,6 +1664,9 @@
           "id": 1219,
           "max_points": 3,
           "name_key": "久驻血雾",
+          "display_lines": [
+            { "label": "持续时间", "per_point": 10.0, "is_percent": true }
+          ],
           "prerequisites": [
             {
               "node_id": 1215,
@@ -1694,6 +1703,10 @@
           "id": 1221,
           "max_points": 1,
           "name_key": "血潮奔流",
+          "display_lines": [
+            { "label": "移动速度", "per_point": 40.0, "is_percent": true },
+            { "label": "范围", "per_point": 20.0, "is_percent": true }
+          ],
           "prerequisites": [
             {
               "node_id": 1220,
@@ -1710,6 +1723,10 @@
           "id": 1222,
           "max_points": 1,
           "name_key": "血环噬身",
+          "display_lines": [
+            { "label": "吸取比例", "per_point": 50.0, "is_percent": true },
+            { "label": "范围", "per_point": -30.0, "is_percent": true }
+          ],
           "prerequisites": [
             {
               "node_id": 1220,
@@ -1726,6 +1743,9 @@
           "id": 1223,
           "max_points": 3,
           "name_key": "噬骨余烬",
+          "display_lines": [
+            { "label": "持续伤害", "per_point": 15.0, "is_percent": true }
+          ],
           "prerequisites": [
             {
               "node_id": 1220,

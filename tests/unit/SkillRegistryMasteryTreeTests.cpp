@@ -31,4 +31,18 @@ TEST_CASE("[Unit] Skill Registry - mastery tree identity survives JSON round-tri
   CHECK(restored.mastery_id == BladeMasteryId::SwordSaint);
 }
 
+TEST_CASE("[Unit] Skill Registry - Blood Sea specialization preview data is present") {
+  auto &registry = SkillRegistry::Get();
+  registry.LoadFromJson("assets/data/skills.json");
+
+  const SkillData *bloodSea = registry.GetSkill(12);
+  REQUIRE(bloodSea != nullptr);
+  CHECK(bloodSea->GetParam("field_duration", 0.0f) > 0.0f);
+
+  const SkillTreeDefinition *tree = registry.GetSkillTree(12);
+  REQUIRE(tree != nullptr);
+  CHECK(tree->nodes.at(1200).display_lines.size() > 0);
+  CHECK(tree->nodes.at(1219).display_lines.size() > 0);
+}
+
 } // namespace NoMoreDay

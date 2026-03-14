@@ -17,9 +17,6 @@
 #include <unordered_set>
 #include <vector>
 
-// Redefine static members to match header
-// struct SkillTreeUI_Vec2 { float x, y; };
-
 namespace NoMoreDay {
 
 SkillTreeUI::Vec2 SkillTreeUI::s_viewOffset = { 0, 0 };
@@ -342,6 +339,158 @@ void DrawKeywordHighlights(const Font& font, const char* text, float x, float y,
     }
 }
 
+const char* StatTypeToLabel(StatType type) {
+    switch (type) {
+    case StatType::CooldownReduction: return "冷却缩减";
+    case StatType::ResourceCostReduction: return "资源消耗降低";
+    case StatType::AreaScale: return "技能范围";
+    case StatType::ProjectileSpeed: return "投射物速度";
+    case StatType::DurationScale: return "持续时间";
+    case StatType::GlobalDamageReduction: return "伤害减免";
+    case StatType::CritChance: return "暴击率";
+    case StatType::CritDamage: return "暴击伤害";
+    case StatType::AttackSpeed: return "攻击速度";
+    case StatType::CastSpeed: return "施法速度";
+    case StatType::MoveSpeed: return "移动速度";
+    case StatType::MaxHealth: return "最大生命值";
+    case StatType::MaxMana: return "最大法力值";
+    case StatType::MaxBarrier: return "最大护盾";
+    case StatType::PhysicalDamage: return "物理伤害";
+    case StatType::FireDamage: return "火焰伤害";
+    case StatType::ColdDamage: return "冰霜伤害";
+    case StatType::LightningDamage: return "闪电伤害";
+    case StatType::PoisonDamage: return "毒素伤害";
+    case StatType::ShadowDamage: return "暗影伤害";
+    default: return nullptr;
+    }
+}
+
+int GetLinePriority(StatType type) {
+    switch (type) {
+    case StatType::PhysicalDamage:
+    case StatType::FireDamage:
+    case StatType::ColdDamage:
+    case StatType::LightningDamage:
+    case StatType::PoisonDamage:
+    case StatType::ShadowDamage:
+        return 0;
+    case StatType::DurationScale:
+        return 1;
+    case StatType::AttackSpeed:
+    case StatType::CastSpeed:
+        return 2;
+    case StatType::AreaScale:
+        return 3;
+    case StatType::CooldownReduction:
+    case StatType::ResourceCostReduction:
+        return 4;
+    default:
+        return 5;
+    }
+}
+
+std::vector<std::pair<std::string, Color>> BuildNodeQuantitativeLines(
+    const TalentNode& node,
+    const SpecializedSkill& specialized,
+    uint32_t hoveredNodeId) {
+    
+    struct LineInfo {
+        std::string text;
+        Color color;
+        int priority;
+    };
+    std::vector<LineInfo> rawLines;
+    
+    int currentPts = 0;
+    if (specialized.allocated_points.contains(hoveredNodeId)) {
+        currentPts = specialized.allocated_points.at(hoveredNodeId);
+    }
+    
+    // Preview points:
+    // If uninvested (0 points), show 1pt preview as requested.
+    // If already invested, show CURRENT points total.
+    int displayPoints = currentPts > 0 ? currentPts : 1;
+    
+    // 1. auto-generated lines from stable stat_modifiers
+    for (const auto& mod : node.stat_modifiers) {
+        float totalVal = mod.value * displayPoints;
+        const char* label = StatTypeToLabel(mod.type);
+        if (!label) continue;
+        
+        std::string sign = totalVal >= 0 ? "+" : "";
+        std::string text;
+        if (mod.mode == ModifierMode::PercentAdd || mod.mode == ModifierMode::PercentMult) {
+             text = TextFormat("%s%.0f%% %s", sign.c_str(), totalVal * 100.0f, label);
+        } else {
+             text = TextFormat("%s%.1f %s", sign.c_str(), totalVal, label);
+        }
+        rawLines.push_back({text, SKYBLUE, GetLinePriority(mod.type)});
+    }
+    
+    // 2. auto-generated lines from damage_modifiers
+    for (const auto& mod : node.damage_modifiers) {
+         float totalVal = mod.value * displayPoints;
+         const char* locLabel = "伤害";
+         if (HasTag(mod.source_tag, Tag::Physical)) locLabel = "物理伤害";
+         else if (HasTag(mod.source_tag, Tag::Fire)) locLabel = "火焰伤害";
+         else if (HasTag(mod.source_tag, Tag::Cold)) locLabel = "冰霜伤害";
+         else if (HasTag(mod.source_tag, Tag::Lightning)) locLabel = "闪电伤害";
+         else if (HasTag(mod.source_tag, Tag::Poison)) locLabel = "毒素伤害";
+         else if (HasTag(mod.source_tag, Tag::Shadow)) locLabel = "暗影伤害";
+
+         std::string sign = totalVal >= 0 ? "+" : "";
+         std::string text;
+         if (mod.type == ModifierType::Increased || mod.type == ModifierType::More) {
+              text = TextFormat("%s%.0f%% %s", sign.c_str(), totalVal * 100.0f, locLabel);
+         } else {
+              text = TextFormat("%s%.1f %s", sign.c_str(), totalVal, locLabel);
+         }
+         rawLines.push_back({text, ORANGE, 0}); // Damage is priority 0
+    }
+
+    // 3. append explicit node.display_lines metadata-driven entries
+    for (const auto& dline : node.display_lines) {
+        float val = dline.base_value + dline.per_point * displayPoints;
+        std::string sign = val >= 0 ? "+" : "";
+        std::string text;
+        if (dline.is_percent) {
+            text = TextFormat("%s%.0f%% %s%s", sign.c_str(), val, dline.label.c_str(), dline.suffix.c_str());
+        } else {
+            text = TextFormat("%s%.1f %s%s", sign.c_str(), val, dline.label.c_str(), dline.suffix.c_str());
+        }
+        
+        // Priority mapping for explicit lines (heuristic based on label)
+        int priority = 5;
+        if (dline.label.find("伤害") != std::string::npos) priority = 0;
+        else if (dline.label.find("持续") != std::string::npos) priority = 1;
+        else if (dline.label.find("频率") != std::string::npos || dline.label.find("速度") != std::string::npos) priority = 2;
+        else if (dline.label.find("范围") != std::string::npos) priority = 3;
+        else if (dline.label.find("消耗") != std::string::npos || dline.label.find("冷却") != std::string::npos) priority = 4;
+
+        rawLines.push_back({text, GOLD, priority});
+    }
+
+    // Dedupe equivalent lines by label/text
+    std::unordered_set<std::string> seen;
+    auto it = std::remove_if(rawLines.begin(), rawLines.end(), [&](const auto& info) {
+        if (seen.contains(info.text)) return true;
+        seen.insert(info.text);
+        return false;
+    });
+    rawLines.erase(it, rawLines.end());
+
+    // Sort by priority
+    std::stable_sort(rawLines.begin(), rawLines.end(), [](const auto& a, const auto& b) {
+        return a.priority < b.priority;
+    });
+
+    std::vector<std::pair<std::string, Color>> result;
+    for (const auto& info : rawLines) {
+        result.emplace_back(info.text, info.color);
+    }
+    return result;
+}
+
 TreeFeedbackState BuildTreeFeedbackState(bool hoveredNodeExcluded,
                                          const BladeMasteryUIThemeProfile& masteryTheme,
                                          float alpha) {
@@ -432,19 +581,25 @@ void DrawWrappedTextUI(const Font& font, const char* text, float x, float y, flo
 } // namespace
 
 SkillTreeUI::TooltipLayoutMetrics SkillTreeUI::ComputeTooltipLayoutMetrics(
-    float tooltipHeight, std::size_t footerLineCount) {
+    float tooltipHeight, std::size_t quantitativeLineCount, std::size_t footerLineCount) {
     TooltipLayoutMetrics metrics;
     metrics.footerGap = kTooltipFooterGap;
     metrics.descriptionTop = kTooltipDescTop;
+
+    metrics.quantitativeHeight = quantitativeLineCount == 0 ? 0.0f
+        : (kTooltipFooterTopPad + kTooltipFooterLineHeight * static_cast<float>(quantitativeLineCount));
+
     metrics.footerHeight = footerLineCount == 0 ? 0.0f
         : (kTooltipFooterTopPad + kTooltipFooterLineHeight * static_cast<float>(footerLineCount));
 
     const float minimumHeight = metrics.descriptionTop + kTooltipDescMinHeight +
-        metrics.footerGap + metrics.footerHeight + kTooltipFooterBottomPad;
+        metrics.quantitativeHeight + metrics.footerGap + metrics.footerHeight + kTooltipFooterBottomPad;
+
     metrics.tooltipHeight = std::max(tooltipHeight, minimumHeight);
     metrics.footerTop = metrics.tooltipHeight - kTooltipFooterBottomPad - metrics.footerHeight;
+    metrics.quantitativeTop = metrics.footerTop - metrics.quantitativeHeight;
     metrics.descriptionHeight = std::max(0.0f,
-        metrics.footerTop - metrics.footerGap - metrics.descriptionTop);
+        metrics.quantitativeTop - metrics.footerGap - metrics.descriptionTop);
     metrics.descriptionBottom = metrics.descriptionTop + metrics.descriptionHeight;
     return metrics;
 }
@@ -741,6 +896,8 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
             }
         }
 
+        const auto quantitativeLines = BuildNodeQuantitativeLines(*hoveredNode, *specialized, hoveredNodeId);
+
         std::vector<std::pair<std::string, Color>> footerLines;
         if (nodeContract && nodeContract->cost_affix != CostAffixPreset::None) {
             const auto& costAffix = CombatAntiMeta::GetCostAffixConfig(nodeContract->cost_affix);
@@ -752,15 +909,13 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
                 footerLines.emplace_back(TextFormat("代价: %s", costAffix.penalty_text), RED);
             }
         }
-        if (!hoveredNode->stat_modifiers.empty()) {
-            footerLines.emplace_back("数值加成已启用", SKYBLUE);
-        }
+
         if (excludedNodeIds.contains(hoveredNodeId)) {
             footerLines.emplace_back("当前被同组核心互斥，点击会替换当前核心", RED);
         }
 
         const TooltipLayoutMetrics tooltipLayout =
-            ComputeTooltipLayoutMetrics(th, footerLines.size());
+            ComputeTooltipLayoutMetrics(th, quantitativeLines.size(), footerLines.size());
         th = tooltipLayout.tooltipHeight;
 
         if (tx + tw > logicW) {
@@ -797,14 +952,22 @@ void SkillTreeUI::Draw(void* registryVoid, int playerEntity, uint32_t skillId) {
         const float descW = tw - 40.0f;
         const float descH = tooltipLayout.descriptionHeight;
         DrawKeywordHighlights(UISystem::GetFont(), hoveredNode->desc_key.c_str(),
-                              descX, descY, descW, descH, 20.0f, WHITE,
-                              alpha * 0.96f, scale);
+                               descX, descY, descW, descH, 20.0f, WHITE,
+                               alpha * 0.96f, scale);
+
+        const float lineFont = 22.0f;
+        if (!quantitativeLines.empty()) {
+            float lineY = ty + tooltipLayout.quantitativeTop + kTooltipFooterTopPad;
+            for (const auto& line : quantitativeLines) {
+                UISystem::DrawTextUI(line.first.c_str(), tx + 20.0f, lineY, lineFont, line.second, alpha * 0.92f);
+                lineY += kTooltipFooterLineHeight;
+            }
+        }
 
         if (!footerLines.empty()) {
-            const float footerFont = 22.0f;
             float lineY = ty + tooltipLayout.footerTop + kTooltipFooterTopPad;
             for (const auto& line : footerLines) {
-                UISystem::DrawTextUI(line.first.c_str(), tx + 20.0f, lineY, footerFont, line.second, alpha * 0.9f);
+                UISystem::DrawTextUI(line.first.c_str(), tx + 20.0f, lineY, lineFont, line.second, alpha * 0.9f);
                 lineY += kTooltipFooterLineHeight;
             }
         }
