@@ -236,6 +236,9 @@ float ApplyHealing(entt::registry &registry, const entt::entity owner,
   stats->health = std::min(stats->max_health, stats->health + attempted_heal);
   const float actual = stats->health - previous;
   if (actual > 0.0f) {
+    if (auto *hp = registry.try_get<HealthComponent>(owner)) {
+      hp->current = stats->health;
+    }
     registry.emplace_or_replace<StatsDirty>(owner);
     CombatEventDispatcher::Dispatch(
         registry, CombatEventFactory::CreateOnHeal(owner, owner, actual));
@@ -449,8 +452,16 @@ void BloodSea::DoCast(entt::registry &registry, entt::entity owner,
       std::max(0.7f, 1.0f - 0.06f * blade_mist_resonance_points);
 
   if (field.has_trigger_burst) {
+    // Node 1211 (FreshBloodReturn / 鲜血回灌): Gain 2 Bloodthirst and heal for 10% of missing health.
+    systems::BladeResourceService::Gain(registry, owner, 2, kSkillId);
+    if (auto* stats = registry.try_get<CombatStats>(owner)) {
+      const float missing_health = std::max(0.0f, stats->max_health - stats->health);
+      ApplyHealing(registry, owner, missing_health * 0.1f);
+    }
+
     std::vector<entt::entity> burst_targets;
     auto view = registry.view<EnemyTag, Position>();
+
     const auto &field_pos = registry.get<Position>(field_entity);
     const float burst_radius = field.radius * 0.7f;
     for (const entt::entity target : view) {

@@ -1392,4 +1392,53 @@ TEST_CASE("[Functional] Skill - Seven Star Slash - Dead Focused Target still get
     CHECK_FALSE(hitsByTarget.contains(enemy));
 }
 
+TEST_CASE("[Functional] Skill - Blood Sea - Node 1211 FreshBloodReturn") {
+    TestSetupScope scope;
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson("assets/data/blade_masteries.json"));
+    SkillBehaviorRegistry::Initialize();
+
+    auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    auto& playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
+    auto& stats = registry.emplace<CombatStats>(player);
+    stats.max_health = 1000.0f;
+    stats.health = 500.0f; // 500 missing
+    registry.emplace<HealthComponent>(player, 500.0f, 1000.0f);
+    
+    auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(registry, player, BladeMasteryId::DemonBlade));
+    
+    auto& active = registry.emplace<ActiveSkillsComponent>(player);
+    auto& spec = active.specialized_slots[0];
+    spec.skill_id = 12; // Blood Sea
+    spec.allocated_points[1211] = 1;
+
+    // Setup Bloodthirst resource
+    systems::BladeResourceService::EnsureBladeResource(registry, player, BladeResourceKind::Bloodthirst, 10, 30.0f, 1.0f);
+    auto& resource = registry.get<BladeResourceComponent>(player);
+    resource.current = 0;
+
+    SkillExecution exec;
+    exec.skill_id = 12;
+    exec.owner = player;
+    exec.target_pos = {0.0f, 0.0f};
+
+    auto castFunc = SkillBehaviorRegistry::GetCast(12);
+    REQUIRE(castFunc != nullptr);
+    castFunc(registry, player, exec);
+
+    // Verify 2 stacks gained (ConsumeAll cleared it first)
+    CHECK(registry.get<BladeResourceComponent>(player).current == 2);
+    
+    // Verify 10% missing health healed: 10% * 500 = 50
+    CHECK(registry.get<CombatStats>(player).health == doctest::Approx(550.0f));
+    CHECK(registry.get<HealthComponent>(player).current == doctest::Approx(550.0f));
+}
+
 } // namespace NoMoreDay
