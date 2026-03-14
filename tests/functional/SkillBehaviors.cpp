@@ -190,6 +190,7 @@ TEST_CASE("[Functional] Skill - Seven Star Slash") {
     playerCombat.max_mana = 100.0f;
     playerCombat.mana = 100.0f;
 
+    registry.emplace<EnemyTag>(target);
     registry.emplace<CombatStats>(target);
 
     auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
@@ -209,6 +210,140 @@ TEST_CASE("[Functional] Skill - Seven Star Slash") {
     CHECK_NOTHROW(castFunc(registry, player, exec));
     CHECK(registry.all_of<InvulnerableComponent>(player));
     CHECK(registry.get<BladeResourceComponent>(player).current == 0);
+}
+
+TEST_CASE("[Functional] Skill - Seven Star Slash filters non-enemy combat entities") {
+    TestSetupScope scope;
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+
+    auto player = registry.create();
+    auto enemy = registry.create();
+    auto neutral = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(enemy, 24.0f, 0.0f);
+    registry.emplace<Position>(neutral, 28.0f, 0.0f);
+
+    auto &playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
+    auto &playerCombat = registry.emplace<CombatStats>(player);
+    playerCombat.min_weapon_damage = 40.0f;
+    playerCombat.max_weapon_damage = 40.0f;
+    playerCombat.max_mana = 100.0f;
+    playerCombat.mana = 100.0f;
+
+    registry.emplace<EnemyTag>(enemy);
+    registry.emplace<CombatStats>(enemy);
+    registry.emplace<CombatStats>(neutral);
+
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::SwordSaint));
+    REQUIRE(systems::BladeResourceService::Gain(registry, player, 5, 10u));
+
+    SkillExecution exec;
+    exec.skill_id = 10;
+    exec.owner = player;
+    exec.target_pos = {24.0f, 0.0f};
+
+    auto castFunc = SkillBehaviorRegistry::GetCast(10);
+    REQUIRE_MESSAGE(castFunc != nullptr, "Seven Star Slash (ID 10) not registered");
+    std::unordered_map<entt::entity, int> hitsByTarget;
+    const uint32_t handlerId = CombatEventDispatcher::Register(
+        CombatEventType::OnDealDamage,
+        [&](entt::registry&, const CombatEvent& evt) {
+            if (evt.skill_id == 10) {
+                hitsByTarget[evt.target]++;
+            }
+        });
+
+    CHECK_NOTHROW(castFunc(registry, player, exec));
+    CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, handlerId);
+
+    CHECK(hitsByTarget.contains(enemy));
+    CHECK_FALSE(hitsByTarget.contains(neutral));
+}
+
+TEST_CASE("[Functional] Skill - Seven Star Slash skips corpse targets but keeps focused multi-hit") {
+    TestSetupScope scope;
+    entt::registry registry;
+    SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+    REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+    CombatEventDispatcher::Init();
+    SkillBehaviorRegistry::Initialize();
+
+    auto player = registry.create();
+    auto corpse = registry.create();
+    auto liveEnemy = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+    registry.emplace<Position>(corpse, 20.0f, 0.0f);
+    registry.emplace<Position>(liveEnemy, 24.0f, 0.0f);
+    registry.emplace<Velocity>(player, 0.0f, 0.0f);
+    registry.emplace<DashComponent>(player);
+
+    auto &playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
+    auto &playerCombat = registry.emplace<CombatStats>(player);
+    playerCombat.min_weapon_damage = 40.0f;
+    playerCombat.max_weapon_damage = 40.0f;
+    playerCombat.max_mana = 100.0f;
+    playerCombat.mana = 100.0f;
+
+    registry.emplace<EnemyTag>(corpse);
+    auto &corpseCombat = registry.emplace<CombatStats>(corpse);
+    corpseCombat.max_health = 100.0f;
+    corpseCombat.health = 100.0f;
+    registry.emplace<HealthComponent>(corpse, 0.0f, 100.0f);
+    registry.emplace<KilledTag>(corpse);
+
+    registry.emplace<EnemyTag>(liveEnemy);
+    auto &liveCombat = registry.emplace<CombatStats>(liveEnemy);
+    liveCombat.max_health = 2000.0f;
+    liveCombat.health = 2000.0f;
+    registry.emplace<HealthComponent>(liveEnemy, 2000.0f, 2000.0f);
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 10;
+    active.specialized_slots[0].allocated_points = {
+        {1002, 4}, {1005, 3}, {1007, 1}, {1008, 3}};
+
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::SwordSaint));
+    REQUIRE(systems::BladeResourceService::Gain(registry, player, 10, 10u));
+
+    std::unordered_map<entt::entity, int> hitsByTarget;
+    const uint32_t handlerId = CombatEventDispatcher::Register(
+        CombatEventType::OnDealDamage,
+        [&](entt::registry&, const CombatEvent& evt) {
+            if (evt.skill_id == 10) {
+                hitsByTarget[evt.target]++;
+            }
+        });
+
+    SkillExecution exec;
+    exec.skill_id = 10;
+    exec.owner = player;
+    exec.target_pos = {20.0f, 0.0f};
+
+    auto castFunc = SkillBehaviorRegistry::GetCast(10);
+    REQUIRE_MESSAGE(castFunc != nullptr, "Seven Star Slash (ID 10) not registered");
+    CHECK_NOTHROW(castFunc(registry, player, exec));
+    CombatEventDispatcher::Unregister(CombatEventType::OnDealDamage, handlerId);
+
+    CHECK_FALSE(hitsByTarget.contains(corpse));
+    REQUIRE(hitsByTarget.contains(liveEnemy));
+    CHECK(hitsByTarget.size() == 1);
+    CHECK(hitsByTarget[liveEnemy] >= 7);
 }
 
 TEST_CASE("[Functional] Skill - Seven Star Slash Mastery Tree Loads") {
@@ -242,6 +377,7 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Mastery Tree Loads") {
     playerCombat.max_weapon_damage = 40.0f;
     playerCombat.max_mana = 100.0f;
     playerCombat.mana = 100.0f;
+    registry.emplace<EnemyTag>(target);
     registry.emplace<CombatStats>(target);
 
     auto &active = registry.emplace<ActiveSkillsComponent>(player);
@@ -325,6 +461,7 @@ TEST_CASE("[Functional] Skill - Seven Star Slash Branch Behaviors") {
         for (float x : targetXs) {
             auto target = registry.create();
             registry.emplace<Position>(target, x, 0.0f);
+            registry.emplace<EnemyTag>(target);
             auto& combat = registry.emplace<CombatStats>(target);
             combat.max_health = 100.0f;
             combat.health = 100.0f;

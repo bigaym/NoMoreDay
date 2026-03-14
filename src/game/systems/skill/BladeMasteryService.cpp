@@ -33,6 +33,39 @@ void CleanupSpecializedFields(entt::registry &registry, const entt::entity owner
     DestroyOwnedFields<BloodSeaFieldComponent>(registry, owner);
   }
   if (selected_mastery != BladeMasteryId::HeavenlySword) {
+    float formation_attack_interval = 1.0f;
+    float channel_tick_interval = 0.5f;
+    const auto heavenly_view = registry.view<HeavenlySwordFieldComponent>();
+    for (const entt::entity field_entity : heavenly_view) {
+      const auto &field = heavenly_view.get<HeavenlySwordFieldComponent>(field_entity);
+      if (field.owner != owner) {
+        continue;
+      }
+      if (field.original_formation_attack_interval > 0.0f) {
+        formation_attack_interval = field.original_formation_attack_interval;
+      }
+      if (field.original_channel_tick_interval > 0.0f) {
+        channel_tick_interval = field.original_channel_tick_interval;
+      }
+      break;
+    }
+    if (auto *formation = registry.try_get<BladeFormationComponent>(owner)) {
+      formation->attack_interval = formation_attack_interval;
+    }
+    auto sword_view = registry.view<SpiritSwordTag, SummonComponent, SpiritSwordAI>();
+    for (const entt::entity sword : sword_view) {
+      const auto &summon = sword_view.get<SummonComponent>(sword);
+      if (summon.owner != owner || summon.skill_id != 3u) {
+        continue;
+      }
+      auto &ai = sword_view.get<SpiritSwordAI>(sword);
+      ai.attack_interval = formation_attack_interval;
+    }
+    if (auto *chan = registry.try_get<ChannelingComponent>(owner);
+        chan != nullptr && chan->skill_id == 5u) {
+      chan->tick_interval = channel_tick_interval;
+      chan->tick_timer = std::min(chan->tick_timer, chan->tick_interval);
+    }
     DestroyOwnedFields<HeavenlySwordFieldComponent>(registry, owner);
   }
 }
@@ -168,6 +201,25 @@ bool BladeMasteryService::SelectMastery(entt::registry &registry,
   mastery.profession = ProfessionID::BladeAscendant;
   mastery.selected = mastery_id;
   RefreshPlayerState(registry, entity);
+  return true;
+}
+
+bool BladeMasteryService::SetHeavenlySwordAttunement(entt::registry &registry,
+                                                     entt::entity entity,
+                                                     BladeAttunement attunement) {
+  if (attunement != BladeAttunement::Lightning &&
+      attunement != BladeAttunement::Frost &&
+      attunement != BladeAttunement::Fire) {
+    return false;
+  }
+
+  auto *mastery = registry.try_get<BladeMasteryComponent>(entity);
+  if (mastery == nullptr ||
+      mastery->selected != BladeMasteryId::HeavenlySword) {
+    return false;
+  }
+
+  mastery->heavenly_attunement = attunement;
   return true;
 }
 

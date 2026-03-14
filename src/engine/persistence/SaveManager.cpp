@@ -4,6 +4,7 @@
 #include "engine/persistence/SharedStash.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
+#include "game/components/PlayerState.hpp"
 #include "game/components/PlayerProfile.hpp"
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
@@ -152,6 +153,11 @@ CharacterSaveData SaveManager::createSnapshot(entt::registry &registry) {
     data.header.name = playerName->value;
   }
   data.header.characterClass = "SwordCultivator";
+  if (const auto *stats = registry.try_get<PlayerStats>(playerEntity)) {
+    data.header.level = stats->level;
+  } else if (const auto *level = registry.try_get<PlayerLevel>(playerEntity)) {
+    data.header.level = level->value;
+  }
   data.header.playtime = 0;
   if (const auto *playtime = registry.try_get<PlayerPlaytime>(playerEntity)) {
     const double now = static_cast<double>(GetTime());
@@ -181,6 +187,7 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
   registry.emplace<PlayerPlaytime>(
       player, (std::max)(int64_t{0}, data.header.playtime),
       static_cast<double>(GetTime()));
+  registry.emplace<PlayerLevel>(player, data.header.level);
   registry.emplace<Position>(player, data.position);
   registry.emplace<PrimaryStats>(player, data.primaryStats);
 
@@ -230,16 +237,22 @@ void SaveManager::restoreFromSnapshot(entt::registry &registry,
     registry.emplace<BladeMasteryComponent>(player, data.blade_mastery.value());
   }
   if (data.blade_resource.has_value()) {
-    registry.emplace<BladeResourceComponent>(player, data.blade_resource.value());
+    auto resource = data.blade_resource.value();
+    resource.time_since_last_gain = 0.0f;
+    resource.last_crit_bonus_time = -999.0f;
+    resource.crit_bonus_feedback_timer = 0.0f;
+    resource.restart_window_timer = 0.0f;
+    resource.restart_window_ready = false;
+    resource.decay_tick_timer = 0.0f;
+    resource.hit_tracking.clear();
+    registry.emplace<BladeResourceComponent>(player, resource);
     systems::BladeResourceService::SyncLegacySwordIntent(registry, player);
   }
   if (data.blade_signature_skill.has_value()) {
     registry.emplace<BladeSignatureSkillComponent>(player,
                                                    data.blade_signature_skill.value());
   }
-  if (!data.blade_resource.has_value()) {
-    systems::BladeMasteryService::RefreshPlayerState(registry, player);
-  }
+  systems::BladeMasteryService::RefreshPlayerState(registry, player);
 
   // Stash
   if (data.personalStash.has_value()) {

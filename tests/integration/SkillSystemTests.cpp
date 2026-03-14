@@ -3,9 +3,11 @@
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
 #include "engine/physics/PhysicsSystem.hpp"
 #include "engine/render/UIRenderer.hpp"
+#include "game/components/Buff.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
+#include "game/components/SkillDefs.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
@@ -257,6 +259,143 @@ TEST_CASE("[Integration] Blade Mastery - Heavenly Sword descent spends tiers and
   CHECK(fieldComp.attunement == BladeAttunement::Lightning);
   CHECK(fieldComp.duration == doctest::Approx(5.0f));
   CHECK(fieldComp.radius > 0.0f);
+}
+
+TEST_CASE("[Integration] SkillSystem - Heavenly Sword impact and cycle nodes close remaining runtime gaps") {
+  TestSetupScope testScope;
+  SkillRegistry::Get().LoadFromJson("assets/data/skills.json");
+  REQUIRE(data::BladeMasteryRegistry::Get().LoadFromJson(
+      "assets/data/blade_masteries.json"));
+  CombatEventDispatcher::Init();
+  SkillBehaviorRegistry::Initialize();
+  SkillSystem::InitHooks();
+
+  struct Outcome {
+    float distant_health_after_cast = 0.0f;
+    float elite_health_after_delayed_window = 0.0f;
+    float formation_attack_interval = 0.0f;
+    float infinite_blades_damage_mult = 0.0f;
+    float afflicted_health = 0.0f;
+    float afflicted_remaining = 0.0f;
+  };
+
+  const auto exerciseCase = [&](const std::vector<std::pair<uint32_t, int>> &nodes) {
+    entt::registry registry;
+    systems::SpatialHashGrid grid(1024, 1024, 64);
+
+    const auto player = registry.create();
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+
+    auto &stats = registry.emplace<PlayerStats>(player);
+    stats.level = 50;
+
+    auto &combat = registry.emplace<CombatStats>(player);
+    combat.max_mana = 100.0f;
+    combat.mana = 100.0f;
+    combat.min_weapon_damage = 40.0f;
+    combat.max_weapon_damage = 40.0f;
+
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+    auto &active = registry.emplace<ActiveSkillsComponent>(player);
+    active.specialized_slots[0].skill_id = 11;
+    for (const auto &[nodeId, points] : nodes) {
+      active.specialized_slots[0].allocated_points[nodeId] = points;
+    }
+
+    systems::BladeMasteryService::RefreshPlayerState(registry, player);
+    REQUIRE(systems::BladeMasteryService::SelectMastery(
+        registry, player, BladeMasteryId::HeavenlySword));
+    registry.get<BladeMasteryComponent>(player).heavenly_attunement =
+        BladeAttunement::Fire;
+    REQUIRE(systems::BladeResourceService::Gain(registry, player, 3, 11u));
+
+    SkillExecution formationExec;
+    formationExec.skill_id = 3;
+    formationExec.owner = player;
+    auto formationCast = SkillBehaviorRegistry::GetCast(3);
+    REQUIRE(formationCast != nullptr);
+    formationCast(registry, player, formationExec);
+
+    const auto eliteTarget = registry.create();
+    registry.emplace<Position>(eliteTarget, 20.0f, 0.0f);
+    registry.emplace<EnemyTag>(eliteTarget);
+    registry.emplace<HealthComponent>(eliteTarget, 2000.0f, 2000.0f);
+    registry.emplace<CombatStats>(eliteTarget);
+    registry.emplace<EnemyRarityComponent>(eliteTarget, EnemyRarityComponent::BOSS);
+
+    const auto afflictedTarget = registry.create();
+    registry.emplace<Position>(afflictedTarget, 24.0f, 0.0f);
+    registry.emplace<EnemyTag>(afflictedTarget);
+    registry.emplace<HealthComponent>(afflictedTarget, 2000.0f, 2000.0f);
+    registry.emplace<CombatStats>(afflictedTarget);
+    auto &afflictedEffects = registry.emplace<ActiveEffectsComponent>(afflictedTarget);
+    BuffEffect ignite;
+    ignite.id = "integration_ignite";
+    ignite.name = "Integration Ignite";
+    ignite.type = BuffType::Burn;
+    ignite.duration = 3.0f;
+    ignite.remaining = 0.2f;
+    ignite.is_debuff = true;
+    afflictedEffects.AddOrRefresh(ignite);
+
+    const auto distantTarget = registry.create();
+    registry.emplace<Position>(distantTarget, 140.0f, 0.0f);
+    registry.emplace<EnemyTag>(distantTarget);
+    registry.emplace<HealthComponent>(distantTarget, 2000.0f, 2000.0f);
+    registry.emplace<CombatStats>(distantTarget);
+
+    SkillExecution descentExec;
+    descentExec.skill_id = 11;
+    descentExec.owner = player;
+    descentExec.cast_id = 71118001u + static_cast<uint64_t>(nodes.size());
+    descentExec.target_pos = {20.0f, 0.0f};
+    auto descentCast = SkillBehaviorRegistry::GetCast(11);
+    REQUIRE(descentCast != nullptr);
+    descentCast(registry, player, descentExec);
+
+    Outcome outcome;
+    outcome.distant_health_after_cast = registry.get<HealthComponent>(distantTarget).current;
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 1.01f);
+
+    SkillExecution infiniteExec;
+    infiniteExec.skill_id = 5;
+    infiniteExec.owner = player;
+    infiniteExec.target_pos = {20.0f, 0.0f};
+    auto infiniteCast = SkillBehaviorRegistry::GetCast(5);
+    REQUIRE(infiniteCast != nullptr);
+    infiniteCast(registry, player, infiniteExec);
+
+    grid.rebuild(registry.view<Position>(), registry);
+    SkillSystem::Update(registry, grid, 0.26f);
+
+    outcome.elite_health_after_delayed_window =
+        registry.get<HealthComponent>(eliteTarget).current;
+    outcome.formation_attack_interval =
+        registry.get<BladeFormationComponent>(player).attack_interval;
+    REQUIRE(registry.all_of<ChannelingComponent>(player));
+    outcome.infinite_blades_damage_mult =
+        registry.get<ChannelingComponent>(player).bonus_damage_mult;
+    outcome.afflicted_health = registry.get<HealthComponent>(afflictedTarget).current;
+    auto *refreshedIgnite = afflictedEffects.Get("integration_ignite");
+    REQUIRE(refreshedIgnite != nullptr);
+    outcome.afflicted_remaining = refreshedIgnite->remaining;
+    return outcome;
+  };
+
+  const auto baseline = exerciseCase({{1113, 1}});
+  const auto improved = exerciseCase(
+      {{1100, 2}, {1104, 2}, {1105, 2}, {1106, 2}, {1107, 1}, {1108, 2}, {1112, 2}, {1113, 1}, {1114, 2}, {1118, 2}});
+
+  CHECK(improved.distant_health_after_cast < baseline.distant_health_after_cast);
+  CHECK(improved.elite_health_after_delayed_window < baseline.elite_health_after_delayed_window);
+  CHECK(improved.formation_attack_interval < baseline.formation_attack_interval);
+  CHECK(improved.infinite_blades_damage_mult > baseline.infinite_blades_damage_mult);
+  CHECK(improved.afflicted_health < baseline.afflicted_health);
+  CHECK(improved.afflicted_remaining > baseline.afflicted_remaining);
 }
 
 TEST_CASE("[Integration] Blade Mastery - Blood Sea consumes Bloodthirst and creates pursuit field") {

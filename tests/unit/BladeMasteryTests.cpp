@@ -8,6 +8,10 @@
 #include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"
 
+#include <chrono>
+#include <concepts>
+#include <thread>
+
 using namespace NoMoreDay;
 using namespace NoMoreDay::components;
 using namespace NoMoreDay::data;
@@ -32,6 +36,16 @@ entt::entity CreateBladeAscendant(entt::registry &registry, int level) {
   astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
   return player;
 }
+
+template <typename = void>
+constexpr bool kHasHeavenlySwordAttunementSetter = requires(
+    entt::registry &registry, const entt::entity entity,
+    const BladeAttunement attunement) {
+  {
+    BladeMasteryService::SetHeavenlySwordAttunement(registry, entity,
+                                                    attunement)
+    } -> std::same_as<bool>;
+};
 
 } // namespace
 
@@ -190,6 +204,39 @@ TEST_CASE(
   CHECK(demonResource.kind == BladeResourceKind::Bloodthirst);
   CHECK(demonSignature.skill_id == 12);
   CHECK(demonSignature.unlocked);
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
+TEST_CASE(
+    "[Unit] Blade Mastery Service - Heavenly Sword attunement setter selects supported element") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::HeavenlySword));
+
+  if constexpr (!kHasHeavenlySwordAttunementSetter<>) {
+    FAIL_CHECK(
+        "BladeMasteryService::SetHeavenlySwordAttunement is missing");
+  } else {
+    CHECK(BladeMasteryService::SetHeavenlySwordAttunement(
+        registry, player, BladeAttunement::Lightning));
+    CHECK(registry.get<BladeMasteryComponent>(player).heavenly_attunement ==
+          BladeAttunement::Lightning);
+
+    BladeMasteryService::RefreshPlayerState(registry, player);
+    CHECK(registry.get<BladeMasteryComponent>(player).heavenly_attunement ==
+          BladeAttunement::Lightning);
+  }
 
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }
@@ -394,6 +441,41 @@ TEST_CASE("[Unit] Demon Blade - life-spend casting grants Bloodthirst and scales
   CHECK(BladeResourceService::GetBloodthirstDamageTakenMultiplier(registry,
                                                                   player) ==
         doctest::Approx(1.03f));
+
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
+}
+
+TEST_CASE("[Unit] Blade Resource Service - expires stale hit tracking") {
+  TestSetupScope testScope;
+  LoadBladeMasteries();
+
+  entt::registry registry;
+  const entt::entity player = CreateBladeAscendant(registry, 50);
+
+  const bool previousDebugOverride =
+      BladeMasteryService::IsDebugUnlockOverrideEnabled();
+  BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+
+  BladeMasteryService::RefreshPlayerState(registry, player);
+  REQUIRE(BladeMasteryService::SelectMastery(registry, player,
+                                             BladeMasteryId::DemonBlade));
+
+  auto &resource = registry.get<BladeResourceComponent>(player);
+  resource.current = 1;
+  resource.max = 10;
+  resource.grace_period = 30.0f;
+  resource.time_since_last_gain = 0.0f;
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
+  constexpr uint64_t kTrackingKey = 77u;
+  auto &tracking = resource.hit_tracking[kTrackingKey];
+  tracking.last_gain_time = -9.89f;
+  tracking.stacks_gained = 1;
+
+  BladeResourceService::Update(registry, 0.1f);
+
+  CHECK_FALSE(resource.hit_tracking.contains(kTrackingKey));
 
   BladeMasteryService::SetDebugUnlockOverrideEnabled(previousDebugOverride);
 }

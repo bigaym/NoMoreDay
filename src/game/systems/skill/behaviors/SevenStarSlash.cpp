@@ -1,6 +1,7 @@
 #include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
 
 #include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
@@ -216,7 +217,7 @@ std::vector<CandidateTarget> GatherTargets(entt::registry &registry,
                                            bool prioritizeRare) {
   std::vector<CandidateTarget> targets;
   const float radiusSq = radius * radius;
-  auto view = registry.view<Position, CombatStats>();
+  auto view = registry.view<EnemyTag, Position, CombatStats>();
   for (const entt::entity entity : view) {
     if (entity == owner) {
       continue;
@@ -244,6 +245,33 @@ std::vector<CandidateTarget> GatherTargets(entt::registry &registry,
     }
     return entt::to_integral(lhs.entity) < entt::to_integral(rhs.entity);
   });
+  return targets;
+}
+
+bool IsLiveTargetCandidate(entt::registry &registry, entt::entity entity) {
+  if (registry.all_of<KilledTag>(entity)) {
+    return false;
+  }
+  if (const auto *health = registry.try_get<HealthComponent>(entity)) {
+    if (health->current <= 0.0f) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::vector<CandidateTarget> GatherLiveTargets(entt::registry &registry,
+                                               entt::entity owner,
+                                               const Vector2 &center,
+                                               float radius,
+                                               bool prioritizeRare) {
+  auto targets = GatherTargets(registry, owner, center, radius, prioritizeRare);
+  targets.erase(std::remove_if(targets.begin(), targets.end(),
+                               [&](const CandidateTarget &candidate) {
+                                 return !IsLiveTargetCandidate(registry,
+                                                               candidate.entity);
+                               }),
+                targets.end());
   return targets;
 }
 
@@ -306,7 +334,7 @@ void ExplodeScars(entt::registry &registry, entt::entity owner,
     }
 
     const Vector2 scarPos = ToVector2(scarView.get<Position>(scar));
-    auto targets = GatherTargets(registry, owner, scarPos, scarData.radius, false);
+    auto targets = GatherLiveTargets(registry, owner, scarPos, scarData.radius, false);
     for (const auto &candidate : targets) {
       (void)ApplySlashDamage(registry, owner, candidate.entity, scarData.damage,
                              kSevenStarSlashSkillId);
@@ -462,8 +490,8 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     float acquisitionRadius =
         baseRadius * (1.0f + 0.06f * static_cast<float>(specState.targetLockPoints));
-    auto targets = GatherTargets(registry, owner, exec.target_pos, acquisitionRadius,
-                                 specState.sevenFocus);
+    auto targets = GatherLiveTargets(registry, owner, exec.target_pos,
+                                     acquisitionRadius, specState.sevenFocus);
     entt::entity focusedTarget = !targets.empty() ? targets.front().entity : entt::null;
     const bool singleTarget = targets.size() == 1;
 

@@ -4,11 +4,13 @@
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
+#include "game/components/EnemyComponent.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/EffectSystem.hpp"
+#include "game/systems/skill/BladeMasteryService.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <algorithm>
@@ -1977,6 +1979,227 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
     CHECK(base.remaining_after_refresh_window == doctest::Approx(1.0f));
     CHECK(voidMiasma.remaining_after_refresh_window == doctest::Approx(1.0f));
     CHECK(voidMiasma.health_delta_after_refresh_window < base.health_delta_after_refresh_window);
+  }
+
+  SUBCASE("Heavenly Sword impact nodes add center control and delayed follow-up") {
+    struct ImpactOutcome {
+      float distant_health_after_cast = 0.0f;
+      float center_health_after_cast = 0.0f;
+      float elite_health_after_first_tick = 0.0f;
+      float elite_health_after_delayed_window = 0.0f;
+      bool has_center_slow = false;
+    };
+
+    const auto exerciseCase = [&](const std::vector<std::pair<uint32_t, int>> &nodes) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::HeavenlySword;
+      mastery.heavenly_attunement = BladeAttunement::Lightning;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::SpiritBladeTier;
+      resource.current = 3;
+      resource.max = 10;
+
+      test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 11, nodes);
+
+      const auto centerTarget =
+          test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+      const auto eliteTarget =
+          test::skill_keynode_matrix::CreateTarget(registry, {22.0f, 0.0f});
+      registry.emplace<EnemyRarityComponent>(eliteTarget, EnemyRarityComponent::ELITE);
+      const auto distantTarget =
+          test::skill_keynode_matrix::CreateTarget(registry, {140.0f, 0.0f});
+
+      SkillExecution exec;
+      exec.skill_id = 11;
+      exec.owner = player;
+      exec.cast_id = 41108001u + static_cast<uint64_t>(nodes.size());
+      exec.target_pos = {18.0f, 0.0f};
+
+      auto cast = SkillBehaviorRegistry::GetCast(11);
+      REQUIRE(cast != nullptr);
+      cast(registry, player, exec);
+
+      ImpactOutcome outcome;
+      outcome.distant_health_after_cast =
+          registry.get<HealthComponent>(distantTarget).current;
+      outcome.center_health_after_cast =
+          registry.get<HealthComponent>(centerTarget).current;
+
+      if (registry.all_of<ActiveEffectsComponent>(centerTarget)) {
+        const auto &effects = registry.get<ActiveEffectsComponent>(centerTarget);
+        for (const auto &effect : effects.effects) {
+          for (const auto &modifier : effect.modifiers) {
+            if (modifier.type == StatType::MoveSpeed &&
+                modifier.mode == ModifierMode::PercentAdd && modifier.value < 0.0f) {
+              outcome.has_center_slow = true;
+            }
+          }
+        }
+      }
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.01f);
+      outcome.elite_health_after_first_tick =
+          registry.get<HealthComponent>(eliteTarget).current;
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.26f);
+      outcome.elite_health_after_delayed_window =
+          registry.get<HealthComponent>(eliteTarget).current;
+      return outcome;
+    };
+
+    const auto baseline = exerciseCase({});
+    const auto impactNodes =
+        exerciseCase({{1100, 2}, {1104, 2}, {1105, 2}, {1106, 2}, {1107, 1}, {1108, 2}});
+
+    CHECK(impactNodes.distant_health_after_cast < baseline.distant_health_after_cast);
+    CHECK(impactNodes.center_health_after_cast < baseline.center_health_after_cast);
+    CHECK(impactNodes.elite_health_after_first_tick < baseline.elite_health_after_first_tick);
+    CHECK(impactNodes.elite_health_after_delayed_window <
+          impactNodes.elite_health_after_first_tick);
+    CHECK(impactNodes.has_center_slow);
+  }
+
+  SUBCASE("Heavenly Sword cycle nodes hasten swords empower refunds and punish afflicted targets") {
+    struct CycleOutcome {
+      float formation_attack_interval = 0.0f;
+      float sword_attack_interval = 0.0f;
+      float blade_formation_damage_scale = 0.0f;
+      float second_blade_formation_damage_scale = 0.0f;
+      float infinite_blades_damage_mult = 0.0f;
+      float afflicted_target_health = 0.0f;
+      float afflicted_remaining = 0.0f;
+      float formation_attack_interval_after_cleanup = 0.0f;
+      float sword_attack_interval_after_cleanup = 0.0f;
+      float infinite_blades_tick_interval_after_cleanup = 0.0f;
+    };
+
+    const auto exerciseCase = [&](const std::vector<std::pair<uint32_t, int>> &nodes) {
+      entt::registry registry;
+      systems::SpatialHashGrid grid(100, 100, 50);
+
+      const auto player = test::skill_keynode_matrix::CreateCaster(registry, 400.0f);
+      auto &mastery = registry.emplace<BladeMasteryComponent>(player);
+      mastery.selected = BladeMasteryId::HeavenlySword;
+      mastery.heavenly_attunement = BladeAttunement::Fire;
+
+      auto &resource = registry.emplace<BladeResourceComponent>(player);
+      resource.kind = BladeResourceKind::SpiritBladeTier;
+      resource.current = 2;
+      resource.max = 10;
+
+      test::skill_keynode_matrix::ConfigureSpecialization(registry, player, 11, nodes);
+
+      SkillExecution formationExec;
+      formationExec.skill_id = 3;
+      formationExec.owner = player;
+      auto formationCast = SkillBehaviorRegistry::GetCast(3);
+      REQUIRE(formationCast != nullptr);
+      formationCast(registry, player, formationExec);
+
+      const auto afflictedTarget =
+          test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
+      auto &effects = registry.emplace<ActiveEffectsComponent>(afflictedTarget);
+      BuffEffect ignite;
+      ignite.id = "test_ignite";
+      ignite.name = "Test Ignite";
+      ignite.type = BuffType::Burn;
+      ignite.duration = 3.0f;
+      ignite.remaining = 0.2f;
+      ignite.is_debuff = true;
+      effects.AddOrRefresh(ignite);
+
+      SkillExecution descentExec;
+      descentExec.skill_id = 11;
+      descentExec.owner = player;
+      descentExec.cast_id = 41118001u + static_cast<uint64_t>(nodes.size());
+      descentExec.target_pos = {18.0f, 0.0f};
+
+      auto descentCast = SkillBehaviorRegistry::GetCast(11);
+      REQUIRE(descentCast != nullptr);
+      descentCast(registry, player, descentExec);
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 1.01f);
+
+      SkillExecution empoweredFormation;
+      empoweredFormation.skill_id = 3;
+      empoweredFormation.owner = player;
+      formationCast(registry, player, empoweredFormation);
+
+      SkillExecution infiniteExec;
+      infiniteExec.skill_id = 5;
+      infiniteExec.owner = player;
+      infiniteExec.target_pos = {18.0f, 0.0f};
+      auto infiniteCast = SkillBehaviorRegistry::GetCast(5);
+      REQUIRE(infiniteCast != nullptr);
+      infiniteCast(registry, player, infiniteExec);
+
+      grid.rebuild(registry.view<Position>(), registry);
+      SkillSystem::Update(registry, grid, 0.01f);
+
+      CycleOutcome outcome;
+      const auto &formation = registry.get<BladeFormationComponent>(player);
+      outcome.formation_attack_interval = formation.attack_interval;
+
+      auto swordView = registry.view<SpiritSwordTag, SpiritSwordAI, SummonCombatProfile>();
+      REQUIRE(swordView.begin() != swordView.end());
+      const auto sword = *swordView.begin();
+      outcome.sword_attack_interval = swordView.get<SpiritSwordAI>(sword).attack_interval;
+      outcome.blade_formation_damage_scale =
+          swordView.get<SummonCombatProfile>(sword).damage_scale;
+
+      SkillExecution secondFormation;
+      secondFormation.skill_id = 3;
+      secondFormation.owner = player;
+      formationCast(registry, player, secondFormation);
+      outcome.second_blade_formation_damage_scale =
+          swordView.get<SummonCombatProfile>(sword).damage_scale;
+
+      REQUIRE(registry.all_of<ChannelingComponent>(player));
+      outcome.infinite_blades_damage_mult =
+          registry.get<ChannelingComponent>(player).bonus_damage_mult;
+      outcome.afflicted_target_health =
+          registry.get<HealthComponent>(afflictedTarget).current;
+      auto &refreshedEffects = registry.get<ActiveEffectsComponent>(afflictedTarget);
+      auto *refreshedIgnite = refreshedEffects.Get("test_ignite");
+      REQUIRE(refreshedIgnite != nullptr);
+      outcome.afflicted_remaining = refreshedIgnite->remaining;
+
+      mastery.selected = BladeMasteryId::SwordSaint;
+      SkillSystem::ShutdownHooks();
+      systems::BladeMasteryService::RefreshPlayerState(registry, player);
+      outcome.formation_attack_interval_after_cleanup = formation.attack_interval;
+      outcome.sword_attack_interval_after_cleanup = swordView.get<SpiritSwordAI>(sword).attack_interval;
+      outcome.infinite_blades_tick_interval_after_cleanup =
+          registry.get<ChannelingComponent>(player).tick_interval;
+      return outcome;
+    };
+
+    const auto baseline = exerciseCase({{1113, 1}});
+    const auto cycleNodes = exerciseCase({{1112, 2}, {1113, 1}, {1114, 2}, {1118, 2}});
+
+    CHECK(cycleNodes.formation_attack_interval < baseline.formation_attack_interval);
+    CHECK(cycleNodes.sword_attack_interval < baseline.sword_attack_interval);
+    CHECK(cycleNodes.blade_formation_damage_scale > baseline.blade_formation_damage_scale);
+    CHECK(cycleNodes.second_blade_formation_damage_scale ==
+          doctest::Approx(baseline.blade_formation_damage_scale));
+    CHECK(cycleNodes.infinite_blades_damage_mult ==
+          doctest::Approx(baseline.infinite_blades_damage_mult));
+    CHECK(cycleNodes.afflicted_target_health < baseline.afflicted_target_health);
+    CHECK(cycleNodes.afflicted_remaining > baseline.afflicted_remaining);
+    CHECK(cycleNodes.formation_attack_interval_after_cleanup ==
+          doctest::Approx(baseline.formation_attack_interval));
+    CHECK(cycleNodes.sword_attack_interval_after_cleanup ==
+          doctest::Approx(baseline.sword_attack_interval));
+    CHECK(cycleNodes.infinite_blades_tick_interval_after_cleanup ==
+          doctest::Approx(0.5f));
   }
 }
 
