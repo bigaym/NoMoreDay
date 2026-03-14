@@ -10,6 +10,7 @@
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "core/logging/Logger.hpp"
+#include <array>
 #include <string>
 #include <cmath>
 #include <algorithm>
@@ -62,11 +63,14 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
     const int playerLevel = playerStats ? playerStats->level : 1;
     const auto selectedMastery = systems::BladeMasteryService::GetSelectedMastery(registry, player);
     const auto* masteryState = registry.try_get<BladeMasteryComponent>(player);
+    const bool showHeavenlySwordAttunementControls =
+        selectedMastery == BladeMasteryId::HeavenlySword && masteryState != nullptr;
 
     float masteryPanelX = startX + 20.0f * state.scaleFactor;
     float masteryPanelY = startY + 56.0f * state.scaleFactor;
     float masteryPanelW = panelW - 40.0f * state.scaleFactor;
-    float masteryPanelH = 92.0f * state.scaleFactor;
+    float masteryPanelH =
+        (showHeavenlySwordAttunementControls ? 132.0f : 92.0f) * state.scaleFactor;
     DrawRectangleRec({masteryPanelX, masteryPanelY, masteryPanelW, masteryPanelH},
                      Fade(BLACK, 0.45f * alpha));
     DrawRectangleLinesEx({masteryPanelX, masteryPanelY, masteryPanelW, masteryPanelH},
@@ -188,12 +192,60 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
                 !debugOverrideEnabled);
             systems::BladeMasteryService::RefreshPlayerState(registry, player);
         }
+
+        if (showHeavenlySwordAttunementControls) {
+            UISystem::DrawTextUI("Heavenly Sword Attunement", masteryPanelX + 12,
+                                 masteryPanelY + 82.0f * state.scaleFactor, 14,
+                                 LIGHTGRAY, alpha);
+
+            constexpr std::array<std::pair<BladeAttunement, const char*>, 3> attunements = {{
+                {BladeAttunement::Lightning, "Lightning"},
+                {BladeAttunement::Frost, "Frost"},
+                {BladeAttunement::Fire, "Fire"},
+            }};
+            const float buttonY = masteryPanelY + 100.0f * state.scaleFactor;
+            const float buttonGap = 8.0f * state.scaleFactor;
+            const float buttonW = 92.0f * state.scaleFactor;
+            const float buttonH = 24.0f * state.scaleFactor;
+
+             for (std::size_t index = 0; index < attunements.size(); ++index) {
+                 const auto [attunement, label] = attunements[index];
+                 Rectangle button = {
+                     masteryPanelX + 12.0f * state.scaleFactor +
+                         index * (buttonW + buttonGap),
+                     buttonY,
+                     buttonW,
+                     buttonH,
+                 };
+                 Rectangle buttonLogic = {
+                     button.x / state.scaleFactor,
+                     button.y / state.scaleFactor,
+                     button.width / state.scaleFactor,
+                     button.height / state.scaleFactor,
+                 };
+                 const bool isSelected = masteryState->heavenly_attunement == attunement;
+
+                 DrawRectangleRec(button, Fade(isSelected ? GOLD : DARKGRAY,
+                                               0.72f * alpha));
+                DrawRectangleLinesEx(button, 1.0f * state.scaleFactor,
+                                     Fade(isSelected ? YELLOW : GRAY, alpha));
+                UISystem::DrawTextUI(label, button.x + 9.0f * state.scaleFactor,
+                                     button.y + 5.0f * state.scaleFactor, 12,
+                                     WHITE, alpha);
+
+                 if (CheckCollisionPointRec(UISystem::GetMousePositionLogic(), buttonLogic) &&
+                     IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                     systems::BladeMasteryService::SetHeavenlySwordAttunement(
+                         registry, player, attunement);
+                 }
+            }
+        }
     }
 
     float slotSize = 80.0f * state.scaleFactor;
     float slotPadding = 20.0f * state.scaleFactor;
     float slotsStartX = startX + (panelW - (slotSize * 5 + slotPadding * 4)) / 2.0f;
-    float slotsStartY = startY + 166.0f * state.scaleFactor;
+    float slotsStartY = masteryPanelY + masteryPanelH + 18.0f * state.scaleFactor;
 
     Texture2D rectTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Rect.id);
     Texture2D squareTex = AssetLoadingSystem::GetTexture(assets::ui::textures::Button_Frost_Square.id);
@@ -303,8 +355,10 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             }
         }
 
+        const bool isBladeAscendantSignatureSkill =
+            id == 10 || id == 11 || id == 12;
         const bool signatureLocked =
-            (id == 10) &&
+            isBladeAscendantSignatureSkill &&
             !systems::BladeMasteryService::IsSignatureSkillUnlocked(registry, player, id);
 
         bool isHovered = CheckCollisionPointRec(UISystem::GetMousePositionLogic(), skillRect_Logic);

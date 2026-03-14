@@ -244,6 +244,68 @@ TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree ch
     CHECK(sources[3].find("ClassifyNodeVisual") != std::string::npos);
 }
 
+TEST_CASE("[Tech] SkillUI - mastery hub exposes Heavenly Sword attunement controls") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillHub.cpp"),
+        fs::path("../src/game/systems/ui/UISkillHub.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillHub.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+    CHECK(source.find("selectedMastery == BladeMasteryId::HeavenlySword") != std::string::npos);
+    CHECK(source.find("Heavenly Sword Attunement") != std::string::npos);
+    CHECK(source.find("Lightning") != std::string::npos);
+    CHECK(source.find("Frost") != std::string::npos);
+    CHECK(source.find("Fire") != std::string::npos);
+    CHECK(source.find("Rectangle buttonLogic") != std::string::npos);
+    CHECK(source.find("CheckCollisionPointRec(UISystem::GetMousePositionLogic(), buttonLogic)") != std::string::npos);
+    CHECK(source.find("SetHeavenlySwordAttunement") != std::string::npos);
+}
+
+TEST_CASE("[Tech] SkillUI - mastery hub locks all Blade Ascendant signature skills consistently") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillHub.cpp"),
+        fs::path("../src/game/systems/ui/UISkillHub.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillHub.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+    CHECK(source.find("(id == 10)") == std::string::npos);
+    CHECK(source.find("id == 10 || id == 11 || id == 12") != std::string::npos);
+    CHECK(source.find("IsSignatureSkillUnlocked(registry, player, id)") != std::string::npos);
+    CHECK(source.find("signatureLocked") != std::string::npos);
+}
+
 TEST_CASE("[Tech] SkillUI - shared node visual classification drives radius consistently") {
     TalentNode passiveNode;
     passiveNode.max_points = 5;

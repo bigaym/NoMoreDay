@@ -8,10 +8,13 @@
 #include "game/components/Stats.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/HeirloomComponent.hpp"
+#include "game/components/PlayerState.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/ProjectileSystem.hpp"
+#include "game/systems/skill/BladeResourceService.hpp"
 #include "game/systems/combat/StatsSystem.hpp"
 #include "engine/persistence/SaveManager.hpp"
+#include "game/data/BladeMasteryRegistry.hpp"
 #include "game/data/ResonanceCalculator.hpp"
 #include "game/data/BiomeRegistry.hpp"
 #include "game/systems/item/HeirloomVault.hpp"
@@ -236,12 +239,20 @@ TEST_CASE("[Unit] SaveManager - Skill Contract Runtime Snapshot Roundtrip") {
 }
 
 TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
+    REQUIRE(NoMoreDay::data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+
     entt::registry registry;
     auto player = registry.create();
     registry.emplace<PlayerTag>(player);
     registry.emplace<Position>(player, 1.0f, 2.0f);
     registry.emplace<PrimaryStats>(player, 10.0f, 10.0f, 10.0f, 10.0f);
     registry.emplace<ActiveSkillsComponent>(player);
+    auto &astrolabe = registry.emplace<AstrolabeComponent>(player);
+    astrolabe.mainProfession =
+        static_cast<int>(ProfessionID::BladeAscendant);
+    auto &playerStats = registry.emplace<PlayerStats>(player);
+    playerStats.level = 50;
 
     auto& mastery = registry.emplace<BladeMasteryComponent>(player);
     mastery.profession = static_cast<ProfessionID>(0);
@@ -260,6 +271,7 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
 
     const auto snapshot = SaveManager::Get().createSnapshot(registry);
     CHECK(snapshot.header.version == CURRENT_CHARACTER_SAVE_VERSION);
+    CHECK(snapshot.header.level == 50);
     REQUIRE(snapshot.blade_mastery.has_value());
     REQUIRE(snapshot.blade_resource.has_value());
     REQUIRE(snapshot.blade_signature_skill.has_value());
@@ -279,6 +291,8 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
                               BladeSignatureSkillComponent>();
     REQUIRE(view.begin() != view.end());
     const auto restoredPlayer = *view.begin();
+    REQUIRE(restored.all_of<PlayerLevel>(restoredPlayer));
+    CHECK(restored.get<PlayerLevel>(restoredPlayer).value == 50);
     CHECK(restored.get<BladeMasteryComponent>(restoredPlayer).selected ==
           BladeMasteryId::HeavenlySword);
     CHECK(restored.get<BladeMasteryComponent>(restoredPlayer)
@@ -290,6 +304,111 @@ TEST_CASE("[Unit] SaveManager - Blade mastery snapshot roundtrip") {
     CHECK(restored.get<BladeResourceComponent>(restoredPlayer).current == 4);
     CHECK(restored.get<BladeSignatureSkillComponent>(restoredPlayer).skill_id == 11);
     CHECK(restored.get<BladeSignatureSkillComponent>(restoredPlayer).unlocked);
+}
+
+TEST_CASE("[Unit] SaveManager - normalizes transient blade resource restore state") {
+    REQUIRE(NoMoreDay::data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+
+    CharacterSaveData data;
+    data.header.version = CURRENT_CHARACTER_SAVE_VERSION;
+    data.header.level = 50;
+    data.astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+    BladeMasteryComponent mastery;
+    mastery.profession = ProfessionID::BladeAscendant;
+    mastery.selected = BladeMasteryId::SwordSaint;
+    mastery.debug_unlock_active = true;
+    data.blade_mastery = mastery;
+
+    BladeResourceComponent resource;
+    resource.kind = BladeResourceKind::SwordFlow;
+    resource.current = 4;
+    resource.max = 10;
+    resource.time_since_last_gain = 1.75f;
+    resource.last_crit_bonus_time = 42.0f;
+    resource.crit_bonus_feedback_timer = 0.8f;
+    resource.restart_window_timer = 2.5f;
+    resource.restart_window_ready = true;
+    resource.grace_period = 3.5f;
+    resource.decay_tick_timer = 0.4f;
+    resource.decay_interval = 0.25f;
+    data.blade_resource = resource;
+
+    entt::registry restored;
+    SaveManager::Get().restoreFromSnapshot(restored, data);
+
+    auto view = restored.view<PlayerTag, BladeMasteryComponent, BladeResourceComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto player = *view.begin();
+
+    const auto &restoredResource = restored.get<BladeResourceComponent>(player);
+    CHECK(restoredResource.kind == BladeResourceKind::SwordFlow);
+    CHECK(restoredResource.current == 4);
+    CHECK(restoredResource.max == 10);
+    CHECK(restoredResource.grace_period == doctest::Approx(5.0f));
+    CHECK(restoredResource.decay_interval == doctest::Approx(0.5f));
+
+    CHECK(restoredResource.time_since_last_gain == doctest::Approx(0.0f));
+    CHECK(restoredResource.last_crit_bonus_time == doctest::Approx(-999.0f));
+    CHECK(restoredResource.crit_bonus_feedback_timer == doctest::Approx(0.0f));
+    CHECK(restoredResource.restart_window_timer == doctest::Approx(0.0f));
+    CHECK_FALSE(restoredResource.restart_window_ready);
+    CHECK(restoredResource.decay_tick_timer == doctest::Approx(0.0f));
+    CHECK(restoredResource.hit_tracking.empty());
+    CHECK_FALSE(systems::BladeResourceService::TryConsumeSwordFlowRestartWindow(
+        restored, player, 10));
+}
+
+TEST_CASE("[Unit] SaveManager - normalizes incompatible blade mastery runtime state") {
+    REQUIRE(NoMoreDay::data::BladeMasteryRegistry::Get().LoadFromJson(
+        "assets/data/blade_masteries.json"));
+
+    CharacterSaveData data;
+    data.header.version = CURRENT_CHARACTER_SAVE_VERSION;
+    data.astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
+
+    BladeMasteryComponent mastery;
+    mastery.profession = ProfessionID::BladeAscendant;
+    mastery.selected = BladeMasteryId::None;
+    mastery.debug_unlock_active = true;
+    mastery.heavenly_attunement = BladeAttunement::Lightning;
+    mastery.blood_oath_active = false;
+    data.blade_mastery = mastery;
+
+    BladeResourceComponent resource;
+    resource.kind = BladeResourceKind::SpiritBladeTier;
+    resource.current = 7;
+    resource.max = 10;
+    resource.grace_period = 3.5f;
+    resource.decay_interval = 0.25f;
+    data.blade_resource = resource;
+
+    BladeSignatureSkillComponent signature;
+    signature.skill_id = 11;
+    signature.unlocked = true;
+    data.blade_signature_skill = signature;
+
+    entt::registry restored;
+    SaveManager::Get().restoreFromSnapshot(restored, data);
+
+    auto view = restored.view<PlayerTag, BladeMasteryComponent,
+                              BladeResourceComponent,
+                              BladeSignatureSkillComponent>();
+    REQUIRE(view.begin() != view.end());
+    const auto player = *view.begin();
+
+    const auto &restoredMastery = restored.get<BladeMasteryComponent>(player);
+    const auto &restoredResource = restored.get<BladeResourceComponent>(player);
+    const auto &restoredSignature =
+        restored.get<BladeSignatureSkillComponent>(player);
+
+    CHECK(restoredMastery.selected == BladeMasteryId::None);
+    CHECK(restoredMastery.heavenly_attunement == BladeAttunement::None);
+    CHECK_FALSE(restoredMastery.blood_oath_active);
+    CHECK(restoredResource.kind == BladeResourceKind::SwordIntent);
+    CHECK(restoredSignature.skill_id == INVALID_SKILL_ID);
+    CHECK_FALSE(restoredSignature.unlocked);
 }
 
 TEST_CASE("[Unit] Blade mastery save data - legacy JSON defaults new mastery state") {

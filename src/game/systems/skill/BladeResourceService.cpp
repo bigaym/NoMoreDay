@@ -308,6 +308,7 @@ bool BladeResourceService::TryConsumeSwordFlowRestartWindow(
 }
 
 void BladeResourceService::Update(entt::registry &registry, float dt) {
+  const float current_time = static_cast<float>(GetTime());
   auto view = registry.view<BladeResourceComponent>();
   for (const entt::entity entity : view) {
     auto &resource = view.get<BladeResourceComponent>(entity);
@@ -320,7 +321,7 @@ void BladeResourceService::Update(entt::registry &registry, float dt) {
       resource.restart_window_ready = false;
     }
     UpdateBladeResourceTimers(resource, dt);
-    CleanupTracking(resource.hit_tracking, resource.time_since_last_gain);
+    CleanupTracking(resource.hit_tracking, current_time);
     if (resource.current != previous) {
       MarkStatsDirty(registry, entity);
     }

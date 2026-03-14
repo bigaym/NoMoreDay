@@ -18,6 +18,9 @@ public:
                                 BladeMasteryId mastery_id);
   static bool SelectMastery(entt::registry &registry, entt::entity entity,
                             BladeMasteryId mastery_id);
+  static bool SetHeavenlySwordAttunement(entt::registry &registry,
+                                         entt::entity entity,
+                                         BladeAttunement attunement);
   static BladeMasteryId GetSelectedMastery(const entt::registry &registry,
                                            entt::entity entity);
   static bool IsSignatureSkillUnlocked(const entt::registry &registry,
