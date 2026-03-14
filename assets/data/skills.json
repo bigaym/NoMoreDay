@@ -497,6 +497,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -511,6 +512,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -525,6 +527,7 @@
             "trigger": {
               "trigger_skill_id": 2,
               "effectiveness": 0.6,
+              "range_mult": 1.0,
               "internal_cooldown": 3.0,
               "consumes_mana": false
             }
@@ -539,6 +542,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -553,6 +557,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -567,6 +572,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -581,6 +587,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -595,6 +602,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -609,6 +617,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1116,6 +1125,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1125,32 +1135,34 @@
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "keystone_exclusion_group": 1,
-            "cost_affix": "HeavyMomentum",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
-            }
+            },
+            "keystone_exclusion_group": 1,
+            "cost_affix": "HeavyMomentum"
           },
           {
             "node_id": 214,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "keystone_exclusion_group": 1,
-            "cost_affix": "HeavyMomentum",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
-            }
+            },
+            "keystone_exclusion_group": 1,
+            "cost_affix": "HeavyMomentum"
           },
           {
             "node_id": 215,
@@ -1162,6 +1174,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1176,6 +1189,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1190,6 +1204,7 @@
             "trigger": {
               "trigger_skill_id": 2,
               "effectiveness": 0.4,
+              "range_mult": 1.0,
               "internal_cooldown": 2.0,
               "consumes_mana": false
             }
@@ -1204,6 +1219,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1213,15 +1229,16 @@
             "role": "Keystone",
             "resist_model": "TypeB_Shred",
             "scope_policy": "SkillOnly",
-            "cost_affix": "HeavyMomentum",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
-            }
+            },
+            "cost_affix": "HeavyMomentum"
           },
           {
             "node_id": 252,
@@ -1233,6 +1250,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1247,6 +1265,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1261,6 +1280,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1275,6 +1295,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1289,6 +1310,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1303,6 +1325,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1793,6 +1816,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1807,6 +1831,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1821,6 +1846,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1835,6 +1861,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1849,6 +1876,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1863,6 +1891,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1877,6 +1906,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1891,6 +1921,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1905,6 +1936,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1919,6 +1951,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -1933,6 +1966,7 @@
             "trigger": {
               "trigger_skill_id": 2,
               "effectiveness": 0.3,
+              "range_mult": 1.0,
               "internal_cooldown": 4.0,
               "consumes_mana": false
             }
@@ -1947,6 +1981,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2468,6 +2503,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2482,6 +2518,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2496,6 +2533,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2510,6 +2548,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2524,6 +2563,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2538,6 +2578,7 @@
             "trigger": {
               "trigger_skill_id": 1,
               "effectiveness": 1.0,
+              "range_mult": 1.0,
               "internal_cooldown": 2.0,
               "consumes_mana": false
             }
@@ -2552,6 +2593,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2566,6 +2608,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2580,6 +2623,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2594,6 +2638,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -2608,6 +2653,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3094,6 +3140,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3108,6 +3155,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3122,6 +3170,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3136,6 +3185,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3150,6 +3200,7 @@
             "trigger": {
               "trigger_skill_id": 5,
               "effectiveness": 1.0,
+              "range_mult": 1.0,
               "internal_cooldown": 2.0,
               "consumes_mana": false
             }
@@ -3164,6 +3215,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3178,6 +3230,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3192,6 +3245,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3206,6 +3260,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3220,6 +3275,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3234,6 +3290,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3248,6 +3305,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3744,6 +3802,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3758,6 +3817,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3772,6 +3832,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3786,6 +3847,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3800,6 +3862,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3814,6 +3877,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3828,6 +3892,7 @@
             "trigger": {
               "trigger_skill_id": 2,
               "effectiveness": 0.5,
+              "range_mult": 1.0,
               "internal_cooldown": 3.0,
               "consumes_mana": false
             }
@@ -3842,6 +3907,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3856,6 +3922,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3870,6 +3937,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3884,6 +3952,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -3898,6 +3967,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4391,6 +4461,7 @@
             "trigger": {
               "trigger_skill_id": 5,
               "effectiveness": 0.35,
+              "range_mult": 1.0,
               "internal_cooldown": 3.0,
               "consumes_mana": false
             }
@@ -4405,6 +4476,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4419,6 +4491,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4433,6 +4506,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4447,6 +4521,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4461,6 +4536,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4475,6 +4551,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4489,6 +4566,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4503,6 +4581,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4517,6 +4596,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -4531,6 +4611,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5046,6 +5127,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5060,6 +5142,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5074,6 +5157,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5088,6 +5172,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5102,6 +5187,7 @@
             "trigger": {
               "trigger_skill_id": 3,
               "effectiveness": 0.5,
+              "range_mult": 1.0,
               "internal_cooldown": 3.0,
               "consumes_mana": false
             }
@@ -5116,6 +5202,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5130,6 +5217,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5144,6 +5232,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5158,6 +5247,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5172,6 +5262,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5186,6 +5277,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5200,6 +5292,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5214,6 +5307,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5228,6 +5322,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5686,6 +5781,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5700,6 +5796,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5714,6 +5811,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5728,6 +5826,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5742,6 +5841,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5756,6 +5856,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5770,6 +5871,7 @@
             "trigger": {
               "trigger_skill_id": 8,
               "effectiveness": 0.6,
+              "range_mult": 1.0,
               "internal_cooldown": 0.5,
               "consumes_mana": false
             }
@@ -5784,6 +5886,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5798,6 +5901,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5812,6 +5916,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5826,6 +5931,7 @@
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
             }
@@ -5835,31 +5941,33 @@
             "role": "Keystone",
             "resist_model": "TypeD_StatToPenetration",
             "scope_policy": "GlobalWhileBuffActive",
-            "keystone_exclusion_group": 2,
-            "cost_affix": "GlassCannonCrit",
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
-            }
+            },
+            "keystone_exclusion_group": 2,
+            "cost_affix": "GlassCannonCrit"
           },
           {
             "node_id": 972,
             "role": "Keystone",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
-            "keystone_exclusion_group": 2,
             "affects_sword_intent": false,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
               "effectiveness": 0.0,
+              "range_mult": 1.0,
               "internal_cooldown": 0.0,
               "consumes_mana": false
-            }
+            },
+            "keystone_exclusion_group": 2
           }
         ]
       }

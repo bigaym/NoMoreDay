@@ -567,7 +567,7 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   const int scar_points =
       GetAllocatedPoints(spec, HeavenlySwordNodes::SkyRendAftershock);
   const float spinning_heavens_bonus =
-      0.10f * static_cast<float>(GetAllocatedPoints(
+      0.15f * static_cast<float>(GetAllocatedPoints(
                    spec, HeavenlySwordNodes::SpinningHeavens));
   const float return_to_sheath_bonus_mult =
       0.08f * static_cast<float>(GetAllocatedPoints(
@@ -705,7 +705,7 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
     if (!targets.empty()) {
       for (const entt::entity target : targets) {
         ApplySingleHit(registry, owner, target, field_entity, attunement,
-                       (skill ? skill->base_damage : 120.0f) * 0.25f *
+                        (skill ? skill->base_damage : 120.0f) * 0.10f *
                            static_cast<float>(spent_tiers));
       }
     }

@@ -4,163 +4,173 @@
       "class_id": "blade_ascendant",
       "mastery_id": "sword_saint",
       "skill_contract": {
-        "has_sword_intent_node": true,
-        "has_synergy_node": true,
+        "version": 1,
+        "skill_id": 10,
+        "min_nodes": 26,
         "max_nodes": 26,
         "max_transmuters": 2,
         "max_triggers": 1,
-        "min_nodes": 26,
-        "nodes": [
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1002,
-            "resist_model": "None",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "keystone_exclusion_group": 3,
-            "node_id": 1007,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1009,
-            "resist_model": "None",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1011,
-            "resist_model": "None",
-            "role": "Trigger",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.35,
-              "internal_cooldown": 3,
-              "trigger_skill_id": 10
-            }
-          },
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1013,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1016,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": true,
-            "node_id": 1017,
-            "resist_model": "None",
-            "role": "Synergy",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "keystone_exclusion_group": 3,
-            "node_id": 1021,
-            "resist_model": "None",
-            "role": "Transmuter",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "keystone_exclusion_group": 3,
-            "node_id": 1022,
-            "resist_model": "None",
-            "role": "Transmuter",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": true,
-            "node_id": 1025,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0,
-              "internal_cooldown": 0,
-              "trigger_skill_id": 0
-            }
-          }
-        ],
-        "skill_id": 10,
+        "has_sword_intent_node": true,
+        "has_synergy_node": true,
         "transmuter_node_ids": [
           1021,
           1022
         ],
-        "version": 1
+        "nodes": [
+          {
+            "node_id": 1002,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1007,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            },
+            "keystone_exclusion_group": 3
+          },
+          {
+            "node_id": 1009,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1011,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 10,
+              "effectiveness": 0.35,
+              "range_mult": 1.2,
+              "internal_cooldown": 3.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1013,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1016,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1017,
+            "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": true,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1021,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            },
+            "keystone_exclusion_group": 3
+          },
+          {
+            "node_id": 1022,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            },
+            "keystone_exclusion_group": 3
+          },
+          {
+            "node_id": 1025,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": true,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          }
+        ]
       },
       "skill_id": 10,
       "talent_tree": [
@@ -177,7 +187,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 21, "mode": 1, "value": 5.0 }
+            {
+              "type": 21,
+              "mode": 1,
+              "value": 5.0
+            }
           ],
           "x": 2.7980000972747803,
           "y": -0.30799999833106995
@@ -195,7 +209,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 17, "mode": 0, "value": 2.0 }
+            {
+              "type": 17,
+              "mode": 0,
+              "value": 2.0
+            }
           ],
           "x": -2.002000093460083,
           "y": -0.17499999701976776
@@ -213,7 +231,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 15.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": -1.065999984741211,
           "y": -2.2290000915527344
@@ -231,8 +253,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 34, "mode": 1, "value": 10.0 },
-            { "type": 20, "mode": 1, "value": 15.0 }
+            {
+              "type": 34,
+              "mode": 1,
+              "value": 10.0
+            },
+            {
+              "type": 20,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": 1.1679999828338623,
           "y": 2.494999885559082
@@ -255,7 +285,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": -1.972000002861023,
           "y": -0.19499999284744263
@@ -274,7 +309,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 20.0,
+              "type": 2
+            }
           ],
           "x": -2.2260000705718994,
           "y": 0.1599999964237213
@@ -296,7 +336,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 18, "mode": 1, "value": 20.0 }
+            {
+              "type": 18,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": 0.6269999742507935,
           "y": 2.563999891281128
@@ -315,7 +359,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 20.0,
+              "type": 2
+            }
           ],
           "x": -1.5149999856948853,
           "y": -1.8209999799728394
@@ -334,7 +383,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": -3.0320000648498535,
           "y": -1.1460000276565552
@@ -373,7 +427,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": -2.489000082015991,
           "y": 0.013000000268220901
@@ -463,7 +522,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 35, "mode": 1, "value": 20.0 }
+            {
+              "type": 35,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": 2.071000099182129,
           "y": 0.5640000104904175
@@ -481,8 +544,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 17, "mode": 1, "value": 15.0 },
-            { "type": 8, "mode": 1, "value": 20.0 }
+            {
+              "type": 17,
+              "mode": 1,
+              "value": 15.0
+            },
+            {
+              "type": 8,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": 2.753000020980835,
           "y": -0.3319999873638153
@@ -504,8 +575,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 42, "mode": 1, "value": 10.0 },
-            { "type": 8, "mode": 1, "value": 20.0 }
+            {
+              "type": 42,
+              "mode": 1,
+              "value": 10.0
+            },
+            {
+              "type": 8,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": 2.5789999961853027,
           "y": 2.6459999084472656
@@ -523,7 +602,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 3, "mode": 1, "value": 5.0 }
+            {
+              "type": 3,
+              "mode": 1,
+              "value": 5.0
+            }
           ],
           "x": 2.9600000381469727,
           "y": -0.6060000061988831
@@ -585,7 +668,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 13, "mode": 1, "value": 20.0 }
+            {
+              "type": 13,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": 2.4549999237060547,
           "y": -0.6460000276565552
@@ -603,8 +690,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 25, "mode": 1, "value": 10.0 },
-            { "type": 19, "mode": 1, "value": 20.0 }
+            {
+              "type": 25,
+              "mode": 1,
+              "value": 10.0
+            },
+            {
+              "type": 19,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": 0.6159999966621399,
           "y": -2.5380001068115234
@@ -623,7 +718,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 40.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 40.0,
+              "type": 2
+            }
           ],
           "x": 2.4019999504089355,
           "y": 0.1509999930858612
@@ -645,8 +745,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 19, "mode": 1, "value": 10.0 },
-            { "type": 25, "mode": 1, "value": 15.0 }
+            {
+              "type": 19,
+              "mode": 1,
+              "value": 10.0
+            },
+            {
+              "type": 25,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": 2.0290000438690186,
           "y": 0.023000000044703484
@@ -668,10 +776,19 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 39, "mode": 0, "value": 1.0 }
+            {
+              "type": 39,
+              "mode": 0,
+              "value": 1.0
+            }
           ],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 20.0,
+              "type": 2
+            }
           ],
           "x": 5.492000102996826,
           "y": -2.9059998989105225
@@ -682,132 +799,140 @@
       "class_id": "blade_ascendant",
       "mastery_id": "heavenly_sword",
       "skill_contract": {
-        "has_sword_intent_node": true,
-        "has_synergy_node": true,
+        "version": 1,
+        "skill_id": 11,
+        "min_nodes": 25,
         "max_nodes": 25,
         "max_transmuters": 0,
         "max_triggers": 1,
-        "min_nodes": 25,
-        "nodes": [
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1102,
-            "resist_model": "None",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1107,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1109,
-            "resist_model": "None",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1111,
-            "resist_model": "None",
-            "role": "Trigger",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.25,
-              "internal_cooldown": 4.0,
-              "trigger_skill_id": 11
-            }
-          },
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1113,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1117,
-            "resist_model": "None",
-            "role": "Synergy",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1120,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1124,
-            "resist_model": "TypeB_Shred",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          }
-        ],
-        "skill_id": 11,
+        "has_sword_intent_node": true,
+        "has_synergy_node": true,
         "transmuter_node_ids": [
           0,
           0
         ],
-        "version": 1
+        "nodes": [
+          {
+            "node_id": 1102,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1107,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1109,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1111,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 11,
+              "effectiveness": 0.1,
+              "range_mult": 1.0,
+              "internal_cooldown": 4.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1113,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1117,
+            "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1120,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1124,
+            "role": "Passive",
+            "resist_model": "TypeB_Shred",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          }
+        ]
       },
       "skill_id": 11,
       "talent_tree": [
@@ -824,7 +949,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 21, "mode": 1, "value": 5.0 }
+            {
+              "type": 21,
+              "mode": 1,
+              "value": 5.0
+            }
           ],
           "x": -3.1110000610351562,
           "y": 1.722000002861023
@@ -842,7 +971,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 25, "mode": 1, "value": 10.0 }
+            {
+              "type": 25,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": 3.506999969482422,
           "y": -3.0869998931884766
@@ -860,7 +993,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 10.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": -2.431999921798706,
           "y": -2.98799991607666
@@ -878,7 +1015,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 19, "mode": 1, "value": 15.0 }
+            {
+              "type": 19,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": 1.4609999656677246,
           "y": 2.367000102996826
@@ -901,7 +1042,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": -2.1470000743865967,
           "y": -2.250999927520752
@@ -920,7 +1066,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 10.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 10.0,
+              "type": 2
+            }
           ],
           "x": -3.4159998893737793,
           "y": -0.5410000085830688
@@ -954,10 +1105,19 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 25, "mode": 1, "value": -30.0 }
+            {
+              "type": 25,
+              "mode": 1,
+              "value": -30.0
+            }
           ],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 25.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 25.0,
+              "type": 2
+            }
           ],
           "x": -2.0769999027252197,
           "y": 2.88700008392334
@@ -975,7 +1135,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 13, "mode": 1, "value": 20.0 }
+            {
+              "type": 13,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": -3.934999942779541,
           "y": 1.2869999408721924
@@ -993,7 +1157,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 10.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": -1.812999963760376,
           "y": -2.3929998874664307
@@ -1027,7 +1195,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 10.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": -2.749000072479248,
           "y": -1.430999994277954
@@ -1049,7 +1221,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 19, "mode": 1, "value": 15.0 }
+            {
+              "type": 19,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": 0.902999997138977,
           "y": -2.805999994277954
@@ -1068,7 +1244,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": -15.0, "type": 0 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": -15.0,
+              "type": 0
+            }
           ],
           "x": -1.7640000581741333,
           "y": -2.2239999771118164
@@ -1087,7 +1268,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 10.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 10.0,
+              "type": 2
+            }
           ],
           "x": -2.2929999828338623,
           "y": -2.5260000228881836
@@ -1125,7 +1311,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 19, "mode": 1, "value": 10.0 }
+            {
+              "type": 19,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": -1.0640000104904175,
           "y": 3.819000005722046
@@ -1143,7 +1333,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 20.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 20.0
+            }
           ],
           "x": 2.765000104904175,
           "y": 0.8330000042915344
@@ -1162,7 +1356,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 5.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 5.0,
+              "type": 2
+            }
           ],
           "x": 3.627000093460083,
           "y": 1.8600000143051147
@@ -1180,7 +1379,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 39, "mode": 0, "value": 1.0 }
+            {
+              "type": 39,
+              "mode": 0,
+              "value": 1.0
+            }
           ],
           "x": 2.9660000801086426,
           "y": -1.156999945640564
@@ -1203,7 +1406,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 20.0,
+              "type": 2
+            }
           ],
           "x": 2.361999988555908,
           "y": -1.9259999990463257
@@ -1222,7 +1430,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 20.0,
+              "type": 2
+            }
           ],
           "x": -0.40799999237060547,
           "y": -2.515000104904175
@@ -1241,7 +1454,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": 1.6399999856948853,
           "y": -2.433000087738037
@@ -1260,7 +1478,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": 3.5399999618530273,
           "y": -1.6480000019073486
@@ -1287,162 +1510,172 @@
       "class_id": "blade_ascendant",
       "mastery_id": "demon_blade",
       "skill_contract": {
-        "has_sword_intent_node": true,
-        "has_synergy_node": true,
+        "version": 1,
+        "skill_id": 12,
+        "min_nodes": 25,
         "max_nodes": 25,
         "max_transmuters": 2,
         "max_triggers": 1,
-        "min_nodes": 25,
-        "nodes": [
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1202,
-            "resist_model": "None",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1207,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1209,
-            "resist_model": "None",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1211,
-            "resist_model": "None",
-            "role": "Trigger",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.3,
-              "internal_cooldown": 3.5,
-              "trigger_skill_id": 12
-            }
-          },
-          {
-            "affects_sword_intent": true,
-            "affects_sword_step": false,
-            "node_id": 1213,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1217,
-            "resist_model": "None",
-            "role": "Synergy",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1220,
-            "resist_model": "None",
-            "role": "Keystone",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "keystone_exclusion_group": 4,
-            "node_id": 1221,
-            "resist_model": "None",
-            "role": "Transmuter",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "keystone_exclusion_group": 4,
-            "node_id": 1222,
-            "resist_model": "None",
-            "role": "Transmuter",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          },
-          {
-            "affects_sword_intent": false,
-            "affects_sword_step": false,
-            "node_id": 1224,
-            "resist_model": "TypeB_Shred",
-            "role": "Passive",
-            "scope_policy": "SkillOnly",
-            "trigger": {
-              "consumes_mana": false,
-              "effectiveness": 0.0,
-              "internal_cooldown": 0.0,
-              "trigger_skill_id": 0
-            }
-          }
-        ],
-        "skill_id": 12,
+        "has_sword_intent_node": true,
+        "has_synergy_node": true,
         "transmuter_node_ids": [
           1221,
           1222
         ],
-        "version": 1
+        "nodes": [
+          {
+            "node_id": 1202,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1207,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1209,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1211,
+            "role": "Trigger",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 12,
+              "effectiveness": 0.3,
+              "range_mult": 1.0,
+              "internal_cooldown": 3.5,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1213,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": true,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1217,
+            "role": "Synergy",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1220,
+            "role": "Keystone",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1221,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            },
+            "keystone_exclusion_group": 4
+          },
+          {
+            "node_id": 1222,
+            "role": "Transmuter",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            },
+            "keystone_exclusion_group": 4
+          },
+          {
+            "node_id": 1224,
+            "role": "Passive",
+            "resist_model": "TypeB_Shred",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.0,
+              "consumes_mana": false
+            }
+          }
+        ]
       },
       "skill_id": 12,
       "talent_tree": [
@@ -1459,7 +1692,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 25, "mode": 1, "value": 5.0 }
+            {
+              "type": 25,
+              "mode": 1,
+              "value": 5.0
+            }
           ],
           "x": 0.3409999907016754,
           "y": 3.299999952316284
@@ -1477,7 +1714,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 13, "mode": 1, "value": 10.0 }
+            {
+              "type": 13,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": -1.8819999694824219,
           "y": 0.6290000081062317
@@ -1495,7 +1736,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 2.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 2.0
+            }
           ],
           "x": 2.118000030517578,
           "y": -1.4290000200271606
@@ -1529,7 +1774,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 15.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": -2.871000051498413,
           "y": 2.428999900817871
@@ -1564,7 +1813,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 20.0,
+              "type": 2
+            }
           ],
           "x": 0.36500000953674316,
           "y": 2.7290000915527344
@@ -1582,10 +1836,19 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 25, "mode": 1, "value": -40.0 }
+            {
+              "type": 25,
+              "mode": 1,
+              "value": -40.0
+            }
           ],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 30.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 30.0,
+              "type": 2
+            }
           ],
           "x": -2.9709999561309814,
           "y": 1.128999948501587
@@ -1603,7 +1866,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 13, "mode": 1, "value": 15.0 }
+            {
+              "type": 13,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": -2.4240000247955322,
           "y": 0.7429999709129333
@@ -1621,7 +1888,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 31, "mode": 1, "value": 10.0 }
+            {
+              "type": 31,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": -2.1649999618530273,
           "y": -3.3429999351501465
@@ -1639,8 +1910,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 31, "mode": 1, "value": 10.0 },
-            { "type": 19, "mode": 1, "value": 15.0 }
+            {
+              "type": 31,
+              "mode": 1,
+              "value": 10.0
+            },
+            {
+              "type": 19,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": -0.7879999876022339,
           "y": -2.4140000343322754
@@ -1678,7 +1957,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 31, "mode": 1, "value": 10.0 }
+            {
+              "type": 31,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": 0.24699999392032623,
           "y": -3.556999921798706
@@ -1713,7 +1996,12 @@
           ],
           "stat_modifiers": [],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": -2.8589999675750732,
           "y": -0.8429999947547913
@@ -1731,7 +2019,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 15.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 15.0
+            }
           ],
           "x": 1.8279999494552612,
           "y": -1.1690000295639038
@@ -1753,7 +2045,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 19, "mode": 1, "value": 10.0 }
+            {
+              "type": 19,
+              "mode": 1,
+              "value": 10.0
+            }
           ],
           "x": 1.9279999732971191,
           "y": 3.071000099182129
@@ -1771,7 +2067,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 0, "mode": 1, "value": 25.0 }
+            {
+              "type": 0,
+              "mode": 1,
+              "value": 25.0
+            }
           ],
           "x": 4.014999866485596,
           "y": -0.1589999943971634
@@ -1805,7 +2105,11 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 39, "mode": 0, "value": 1.0 }
+            {
+              "type": 39,
+              "mode": 0,
+              "value": 1.0
+            }
           ],
           "x": 2.997999906539917,
           "y": -2.3410000801086426
@@ -1843,8 +2147,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 25, "mode": 1, "value": 20.0 },
-            { "type": 8, "mode": 1, "value": 40.0 }
+            {
+              "type": 25,
+              "mode": 1,
+              "value": 20.0
+            },
+            {
+              "type": 8,
+              "mode": 1,
+              "value": 40.0
+            }
           ],
           "x": -0.3499999940395355,
           "y": -5.203999996185303
@@ -1862,8 +2174,16 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 31, "mode": 1, "value": 50.0 },
-            { "type": 25, "mode": 1, "value": -30.0 }
+            {
+              "type": 31,
+              "mode": 1,
+              "value": 50.0
+            },
+            {
+              "type": 25,
+              "mode": 1,
+              "value": -30.0
+            }
           ],
           "x": 3.3380000591278076,
           "y": -0.5649999976158142
@@ -1881,10 +2201,19 @@
             }
           ],
           "stat_modifiers": [
-            { "type": 39, "mode": 0, "value": 1.0 }
+            {
+              "type": 39,
+              "mode": 0,
+              "value": 1.0
+            }
           ],
           "damage_modifiers": [
-            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+            {
+              "source_tag": 0,
+              "target_tag": 0,
+              "value": 15.0,
+              "type": 2
+            }
           ],
           "x": -2.4049999713897705,
           "y": -2.739000082015991

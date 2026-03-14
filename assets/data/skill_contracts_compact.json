@@ -365,6 +365,7 @@
           "node_id": 1011,
           "trigger_skill_id": 10,
           "effectiveness": 0.35,
+          "range_mult": 1.2,
           "internal_cooldown": 3.0,
           "consumes_mana": false
         }
@@ -407,7 +408,7 @@
         {
           "node_id": 1111,
           "trigger_skill_id": 11,
-          "effectiveness": 0.25,
+          "effectiveness": 0.10,
           "internal_cooldown": 4.0,
           "consumes_mana": false
         }

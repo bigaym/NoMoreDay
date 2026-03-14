@@ -344,6 +344,7 @@ def _build_contract_for_skill(
                 f"skill {skill_id}.trigger_nodes[{node_id}].trigger_skill_id",
             ),
             "effectiveness": float(trigger_obj.get("effectiveness", 0.0)),
+            "range_mult": float(trigger_obj.get("range_mult", 1.0)),
             "internal_cooldown": float(trigger_obj.get("internal_cooldown", 0.0)),
             "consumes_mana": bool(trigger_obj.get("consumes_mana", False)),
         }
@@ -442,6 +443,7 @@ def _build_contract_for_skill(
             {
                 "trigger_skill_id": 0,
                 "effectiveness": 0.0,
+                "range_mult": 1.0,
                 "internal_cooldown": 0.0,
                 "consumes_mana": False,
             },
@@ -450,6 +452,7 @@ def _build_contract_for_skill(
         is_default_trigger = (
             trigger["trigger_skill_id"] == 0
             and trigger["effectiveness"] == 0.0
+            and trigger["range_mult"] == 1.0
             and trigger["internal_cooldown"] == 0.0
             and trigger["consumes_mana"] is False
         )

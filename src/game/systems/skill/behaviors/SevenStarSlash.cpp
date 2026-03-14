@@ -502,6 +502,9 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     int slashCount = specState.starfall ? 4 : 7;
     float hitRadius = specState.starfall ? baseRadius * 0.50f : baseRadius * 0.28f;
+    if (specState.starScarFollow) {
+      hitRadius *= getModifier(SevenStarSlashNodes::StarScarFollow, "range_mult", 1.0f);
+    }
     float baseDamageMultiplier = 1.0f;
     if (specState.poleStarOrbit) {
       hitRadius = baseRadius * 0.34f;
@@ -695,7 +698,8 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
 
     if (specState.starScarFollow && resourceToSpend >= SkillConstants::DEFAULT_MAX_SWORD_INTENT &&
         focusedTarget != entt::null) {
-      (void)ApplySlashDamage(registry, owner, focusedTarget, baseSlashDamage * 0.35f,
+      (void)ApplySlashDamage(registry, owner, focusedTarget,
+                             baseSlashDamage * getModifier(SevenStarSlashNodes::StarScarFollow, "effectiveness", 0.35f),
                              kSkillId, 0.0f, 0.0f, false);
     }
 

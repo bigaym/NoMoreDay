@@ -1,7 +1,10 @@
 #pragma once
 #include <entt/entt.hpp>
 #include "game/components/SkillDefs.hpp"
+#include "game/data/SkillRegistry.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
+
+#include <string_view>
 
 namespace NoMoreDay {
 
@@ -58,6 +61,23 @@ struct SkillBehaviorBase {
             break;
         }
         return conv;
+    }
+
+    [[nodiscard]] static float getModifier(uint32_t node_id,
+                                           std::string_view key,
+                                           float default_val) {
+      const auto *node_contract =
+          SkillRegistry::Get().GetNodeContract(Derived::kSkillId, node_id);
+      if (!node_contract) {
+        return default_val;
+      }
+      if (key == "effectiveness") {
+        return node_contract->trigger.effectiveness;
+      }
+      if (key == "range_mult") {
+        return node_contract->trigger.range_mult;
+      }
+      return default_val;
     }
 
     /**
