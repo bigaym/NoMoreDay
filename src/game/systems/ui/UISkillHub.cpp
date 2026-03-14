@@ -355,8 +355,13 @@ void UISkillHub::Draw(entt::registry& registry, entt::entity player) {
             }
         }
 
-        const bool isBladeAscendantSignatureSkill =
-            id == 10 || id == 11 || id == 12;
+        bool isBladeAscendantSignatureSkill = false;
+        for (const auto& profile : data::BladeMasteryRegistry::Get().GetAllProfiles()) {
+            if (id == profile.signature_skill_id) {
+                isBladeAscendantSignatureSkill = true;
+                break;
+            }
+        }
         const bool signatureLocked =
             isBladeAscendantSignatureSkill &&
             !systems::BladeMasteryService::IsSignatureSkillUnlocked(registry, player, id);
