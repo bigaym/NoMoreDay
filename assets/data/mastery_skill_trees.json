@@ -165,7 +165,7 @@
       "skill_id": 10,
       "talent_tree": [
         {
-          "desc_key": "七星斩的锁敌稳定性提高，随机斩空概率降低。",
+          "desc_key": "七星斩的锁敌稳定性提高，随机斩空概率降低 5%/10%/15%/20%。",
           "icon_id": 2239724509,
           "id": 1000,
           "max_points": 4,
@@ -176,12 +176,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 21, "mode": 1, "value": 5.0 }
+          ],
           "x": 2.7980000972747803,
           "y": -0.30799999833106995
         },
         {
-          "desc_key": "七星斩的基础暴击率提高。",
+          "desc_key": "七星斩的基础暴击率增加 2%/4%/6%/8%。",
           "icon_id": 2222946890,
           "id": 1001,
           "max_points": 4,
@@ -192,12 +194,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 17, "mode": 0, "value": 2.0 }
+          ],
           "x": -2.002000093460083,
           "y": -0.17499999701976776
         },
         {
-          "desc_key": "七星斩第7击的伤害提高。",
+          "desc_key": "七星斩第7击的伤害提升 15%/30%/45%/60%。",
           "icon_id": 2206169271,
           "id": 1002,
           "max_points": 4,
@@ -208,12 +212,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 15.0 }
+          ],
           "x": -1.065999984741211,
           "y": -2.2290000915527344
         },
         {
-          "desc_key": "七星斩冷却缩短，释放后的硬直减少。",
+          "desc_key": "七星斩冷却速度增加 10%/20%/30%/40%，释放后的硬直减少 15%/30%/45%/60%。",
           "icon_id": 2189391652,
           "id": 1003,
           "max_points": 4,
@@ -224,12 +230,15 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 34, "mode": 1, "value": 10.0 },
+            { "type": 20, "mode": 1, "value": 15.0 }
+          ],
           "x": 1.1679999828338623,
           "y": 2.494999885559082
         },
         {
-          "desc_key": "前6击连续命中同一目标时，第7击对其造成额外总增伤害。",
+          "desc_key": "前6击连续命中同一目标时，第7击对其造成的伤害总增 (More) 15%/30%/45%/60%。",
           "icon_id": 2172614033,
           "id": 1004,
           "max_points": 4,
@@ -245,11 +254,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": -1.972000002861023,
           "y": -0.19499999284744263
         },
         {
-          "desc_key": "第7击对孤立目标、精英和Boss造成额外总增伤害。",
+          "desc_key": "第7击对孤立目标、精英和Boss造成的伤害总增 (More) 20%/40%/60%。",
           "icon_id": 2155836414,
           "id": 1005,
           "max_points": 3,
@@ -261,11 +273,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+          ],
           "x": -2.2260000705718994,
           "y": 0.1599999964237213
         },
         {
-          "desc_key": "对满血敌人的前3击与对低血敌人的第7击获得额外暴击伤害倍率。",
+          "desc_key": "对满血敌人的前3击与对低血敌人的第7击获得额外 20%/40%/60% 暴击伤害倍率。",
           "icon_id": 2139058795,
           "id": 1006,
           "max_points": 3,
@@ -280,12 +295,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 18, "mode": 1, "value": 20.0 }
+          ],
           "x": 0.6269999742507935,
           "y": 2.563999891281128
         },
         {
-          "desc_key": "七星斩优先集中锁定同一主目标，失去目标时改寻最近精英或Boss。",
+          "desc_key": "七星斩优先集中锁定同一主目标，第7击获得 20% 额外总增伤害。",
           "icon_id": 2122281176,
           "id": 1007,
           "max_points": 1,
@@ -297,11 +314,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+          ],
           "x": -1.5149999856948853,
           "y": -1.8209999799728394
         },
         {
-          "desc_key": "锁定目标附近没有其他敌人时，第7击获得额外总增伤害，暴击附带物理溅射。",
+          "desc_key": "锁定目标附近没有其他敌人时，第7击造成的伤害总增 (More) 15%/30%/45%，暴击附带物理溅射。",
           "icon_id": 2105503557,
           "id": 1008,
           "max_points": 3,
@@ -313,11 +333,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": -3.0320000648498535,
           "y": -1.1460000276565552
         },
         {
-          "desc_key": "七星斩每次命中都有概率返还1层剑流，每次施放有返还上限。",
+          "desc_key": "七星斩每次命中都有 5%/10%/15%/20% 概率返还1层剑流。",
           "icon_id": 2088725938,
           "id": 1009,
           "max_points": 4,
@@ -337,7 +360,7 @@
           "y": 1.0219999551773071
         },
         {
-          "desc_key": "七星斩结束后短时间内，下一次非招牌剑修技能伤害提高。",
+          "desc_key": "七星斩结束后短时间内，下一次非招牌剑修技能造成的伤害总增 (More) 15%/30%/45%。",
           "icon_id": 2138911700,
           "id": 1010,
           "max_points": 3,
@@ -349,6 +372,9 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": -2.489000082015991,
           "y": 0.013000000268220901
         },
@@ -421,7 +447,7 @@
           "y": 1.940000057220459
         },
         {
-          "desc_key": "延长七星斩无敌帧前后的容错窗口，并降低释放期间的减速和击退影响。",
+          "desc_key": "延长七星斩无敌帧前后的容错窗口，并降低释放期间 20%/40%/60% 的减速和击退影响。",
           "icon_id": 2088578843,
           "id": 1015,
           "max_points": 3,
@@ -436,12 +462,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 35, "mode": 1, "value": 20.0 }
+          ],
           "x": 2.071000099182129,
           "y": 0.5640000104904175
         },
         {
-          "desc_key": "七星斩结束后优先落到主目标背后，否则落到鼠标方向的安全侧位。",
+          "desc_key": "七星斩结束后落位背后，并获得 15% 暴击率与 20% 移速增益。",
           "icon_id": 2105356462,
           "id": 1016,
           "max_points": 1,
@@ -452,12 +480,15 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 17, "mode": 1, "value": 15.0 },
+            { "type": 8, "mode": 1, "value": 20.0 }
+          ],
           "x": 2.753000020980835,
           "y": -0.3319999873638153
         },
         {
-          "desc_key": "在御剑步状态下施放七星斩时，结束后获得暴击、闪避和移速增益。",
+          "desc_key": "在御剑步状态下施放七星斩，结束后获得额外 10% 闪避和 20% 移速增益。",
           "icon_id": 2122134081,
           "id": 1017,
           "max_points": 1,
@@ -472,12 +503,15 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 42, "mode": 1, "value": 10.0 },
+            { "type": 8, "mode": 1, "value": 20.0 }
+          ],
           "x": 2.5789999961853027,
           "y": 2.6459999084472656
         },
         {
-          "desc_key": "七星斩命中至少4次时，结束后获得基于敏捷的临时护盾。",
+          "desc_key": "七星斩命中至少4次时，结束后获得 5%/10%/15% 最大生命值的临时护盾。",
           "icon_id": 2004690748,
           "id": 1018,
           "max_points": 3,
@@ -488,12 +522,14 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 3, "mode": 1, "value": 5.0 }
+          ],
           "x": 2.9600000381469727,
           "y": -0.6060000061988831
         },
         {
-          "desc_key": "七星斩击中3名以上敌人时，回复缺失生命值。",
+          "desc_key": "七星斩击中3名以上敌人时，回复 2%/4%/6% 缺失生命值。",
           "icon_id": 2021468367,
           "id": 1019,
           "max_points": 3,
@@ -533,7 +569,7 @@
           "y": 1.7359999418258667
         },
         {
-          "desc_key": "每次斩击在命中点留下短暂剑痕，第7击留下的剑痕更强。",
+          "desc_key": "每次斩击在命中点留下延迟 0.5s 的剑痕，造成 20%/40%/60% 持续伤害。",
           "icon_id": 4052001551,
           "id": 1020,
           "max_points": 3,
@@ -548,12 +584,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 13, "mode": 1, "value": 20.0 }
+          ],
           "x": 2.4549999237060547,
           "y": -0.6460000276565552
         },
         {
-          "desc_key": "七星斩改为围绕自身或主目标高速环切，覆盖更稳定。",
+          "desc_key": "七星斩改为高速环切，范围增加 10%，斩击频率增加 20%。",
           "icon_id": 4035223932,
           "id": 1021,
           "max_points": 1,
@@ -564,12 +602,15 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 25, "mode": 1, "value": 10.0 },
+            { "type": 19, "mode": 1, "value": 20.0 }
+          ],
           "x": 0.6159999966621399,
           "y": -2.5380001068115234
         },
         {
-          "desc_key": "七星斩改为4次重斩，第4击继承原第7击的终结结算。",
+          "desc_key": "七星斩改为4次重斩，第4击额外总增 (More) 40% 伤害。",
           "icon_id": 4085556789,
           "id": 1022,
           "max_points": 1,
@@ -581,11 +622,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 40.0, "type": 2 }
+          ],
           "x": 2.4019999504089355,
           "y": 0.1509999930858612
         },
         {
-          "desc_key": "根据当前形态获得额外收益：天枢轮斩强化连续环切，星坠强化范围与终结中心伤害。",
+          "desc_key": "天枢轮斩强化环切频率 10%/20%/30%，星坠强化范围 15%/30%/45%。",
           "icon_id": 4068779170,
           "id": 1023,
           "max_points": 3,
@@ -600,12 +644,15 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 19, "mode": 1, "value": 10.0 },
+            { "type": 25, "mode": 1, "value": 15.0 }
+          ],
           "x": 2.0290000438690186,
           "y": 0.023000000044703484
         },
         {
-          "desc_key": "延长剑痕持续时间，并根据当前形态追加拖痕或终结引爆效果。",
+          "desc_key": "延长剑痕持续时间 1s/2s/3s，引爆造成的伤害总增 (More) 20%/40%/60%。",
           "icon_id": 3984891075,
           "id": 1024,
           "max_points": 3,
@@ -620,7 +667,12 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 39, "mode": 0, "value": 1.0 }
+          ],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+          ],
           "x": 5.492000102996826,
           "y": -2.9059998989105225
         }
@@ -760,7 +812,7 @@
       "skill_id": 11,
       "talent_tree": [
         {
-          "desc_key": "初击范围与落点判定稳定性提高。",
+          "desc_key": "天剑初击范围与落点判定稳定性提高 5%/10%/15%/20%。",
           "icon_id": 115873202,
           "id": 1100,
           "max_points": 4,
@@ -771,12 +823,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 21, "mode": 1, "value": 5.0 }
+          ],
           "x": -3.1110000610351562,
           "y": 1.722000002861023
         },
         {
-          "desc_key": "领域半径增加。",
+          "desc_key": "天剑领域半径增加 10%/20%/30%/40%。",
           "icon_id": 132650821,
           "id": 1101,
           "max_points": 4,
@@ -787,12 +841,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 25, "mode": 1, "value": 10.0 }
+          ],
           "x": 3.506999969482422,
           "y": -3.0869998931884766
         },
         {
-          "desc_key": "每消耗1阶灵剑时提高初击伤害。",
+          "desc_key": "天剑每消耗1阶灵剑，初击伤害提升 10%/20%/30%/40%。",
           "icon_id": 82317964,
           "id": 1102,
           "max_points": 4,
@@ -803,12 +859,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 10.0 }
+          ],
           "x": -2.431999921798706,
           "y": -2.98799991607666
         },
         {
-          "desc_key": "初击后短时间内提高领域切割频率。",
+          "desc_key": "天剑初击后短时间内，领域切割频率增加 15%/30%/45%/60%。",
           "icon_id": 99095583,
           "id": 1103,
           "max_points": 4,
@@ -819,12 +877,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 19, "mode": 1, "value": 15.0 }
+          ],
           "x": 1.4609999656677246,
           "y": 2.367000102996826
         },
         {
-          "desc_key": "初击中心区域伤害总增。",
+          "desc_key": "天剑初击中心区域造成的伤害总增 (More) 15%/30%/45%。",
           "icon_id": 48762726,
           "id": 1104,
           "max_points": 3,
@@ -840,11 +900,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": -2.1470000743865967,
           "y": -2.250999927520752
         },
         {
-          "desc_key": "对精英和Boss强化初击与首秒领域伤害。",
+          "desc_key": "对精英和Boss，天剑初击与首秒领域伤害总增 (More) 10%/20%/30%/40%。",
           "icon_id": 65540345,
           "id": 1105,
           "max_points": 4,
@@ -856,11 +919,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 10.0, "type": 2 }
+          ],
           "x": -3.4159998893737793,
           "y": -0.5410000085830688
         },
         {
-          "desc_key": "初击中心命中时施加重压减速。",
+          "desc_key": "天剑初击中心命中时施加 20%/40%/60% 减速效果。",
           "icon_id": 15207488,
           "id": 1106,
           "max_points": 3,
@@ -876,7 +942,7 @@
           "y": -3.131999969482422
         },
         {
-          "desc_key": "强化初击集中度并缩小领域半径。",
+          "desc_key": "天剑初击集中度强化，且伤害总增 (More) 25%，但领域半径缩小 30%。",
           "icon_id": 31985107,
           "id": 1107,
           "max_points": 1,
@@ -887,12 +953,17 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 25, "mode": 1, "value": -30.0 }
+          ],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 25.0, "type": 2 }
+          ],
           "x": -2.0769999027252197,
           "y": 2.88700008392334
         },
         {
-          "desc_key": "重斩后留下延迟剑痕。",
+          "desc_key": "天剑重斩后留下延迟 0.5s 的剑痕，造成 20%/40%/60% 持续伤害。",
           "icon_id": 250094154,
           "id": 1108,
           "max_points": 3,
@@ -903,12 +974,14 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 13, "mode": 1, "value": 20.0 }
+          ],
           "x": -3.934999942779541,
           "y": 1.2869999408721924
         },
         {
-          "desc_key": "每消耗1阶灵剑时提高领域切割伤害。",
+          "desc_key": "天剑每消耗1阶灵剑，领域切割伤害提升 10%/20%/30%/40%。",
           "icon_id": 266871773,
           "id": 1109,
           "max_points": 4,
@@ -919,12 +992,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 10.0 }
+          ],
           "x": -1.812999963760376,
           "y": -2.3929998874664307
         },
         {
-          "desc_key": "每次施放可额外多消耗灵剑阶，总上限7。",
+          "desc_key": "天剑单次施放可额外消耗 1/2/3 阶灵剑，总消耗上限提升至 7。",
           "icon_id": 2364221243,
           "id": 1110,
           "max_points": 3,
@@ -940,7 +1015,7 @@
           "y": -3.6689999103546143
         },
         {
-          "desc_key": "按消耗灵剑阶追加小型灵剑雨。",
+          "desc_key": "天剑按消耗灵剑阶数追加小型灵剑雨，每阶造成 10% 额外伤害。",
           "icon_id": 2347443624,
           "id": 1111,
           "max_points": 1,
@@ -951,12 +1026,14 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 10.0 }
+          ],
           "x": -2.749000072479248,
           "y": -1.430999994277954
         },
         {
-          "desc_key": "领域存在期间强化活跃灵剑攻击频率。",
+          "desc_key": "天剑领域期间，活跃灵剑攻击频率提升 15%/30%/45%。",
           "icon_id": 2397776481,
           "id": 1112,
           "max_points": 3,
@@ -971,12 +1048,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 19, "mode": 1, "value": 15.0 }
+          ],
           "x": 0.902999997138977,
           "y": -2.805999994277954
         },
         {
-          "desc_key": "降低初击伤害，领域期间最多返还2阶灵剑。",
+          "desc_key": "天剑初击伤害降低 15%，但领域期间最多额外返还 2 阶灵剑。",
           "icon_id": 2380998862,
           "id": 1113,
           "max_points": 1,
@@ -988,11 +1067,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": -15.0, "type": 0 }
+          ],
           "x": -1.7640000581741333,
           "y": -2.2239999771118164
         },
         {
-          "desc_key": "返还的灵剑短时强化灵剑决与万剑归宗。",
+          "desc_key": "天剑返还的灵剑使灵剑决与万剑归宗造成的伤害总增 (More) 10%/20%/30%。",
           "icon_id": 2431331719,
           "id": 1114,
           "max_points": 3,
@@ -1004,11 +1086,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 10.0, "type": 2 }
+          ],
           "x": -2.2929999828338623,
           "y": -2.5260000228881836
         },
         {
-          "desc_key": "领域边缘生成牵引带。",
+          "desc_key": "天剑领域边缘生成强力牵引带，持续将敌人拉向中心。",
           "icon_id": 2414554100,
           "id": 1115,
           "max_points": 1,
@@ -1024,7 +1109,7 @@
           "y": 2.86899995803833
         },
         {
-          "desc_key": "提高领域切割频率并放大对应元素伤害。",
+          "desc_key": "天剑领域切割频率提升 10%/20%/30%，并使对应元素伤害提升 15%/30%/45%。",
           "icon_id": 2464886957,
           "id": 1116,
           "max_points": 3,
@@ -1039,12 +1124,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 19, "mode": 1, "value": 10.0 }
+          ],
           "x": -1.0640000104904175,
           "y": 3.819000005722046
         },
         {
-          "desc_key": "领域与剑阵或灵剑命中产生同步切割。",
+          "desc_key": "天剑领域与剑阵或灵剑命中产生同步切割，额外造成 20% 武器伤害。",
           "icon_id": 2448109338,
           "id": 1117,
           "max_points": 1,
@@ -1055,12 +1142,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 20.0 }
+          ],
           "x": 2.765000104904175,
           "y": 0.8330000042915344
         },
         {
-          "desc_key": "领域强化异常状态目标受伤并刷新持续时间。",
+          "desc_key": "天剑领域内受异常状态影响的目标，受到的伤害总增 (More) 5%/10%/15%。",
           "icon_id": 2230000291,
           "id": 1118,
           "max_points": 3,
@@ -1072,11 +1161,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 5.0, "type": 2 }
+          ],
           "x": 3.627000093460083,
           "y": 1.8600000143051147
         },
         {
-          "desc_key": "领域持续时间增加。",
+          "desc_key": "天剑领域持续时间增加 1s/2s/3s。",
           "icon_id": 2213222672,
           "id": 1119,
           "max_points": 3,
@@ -1087,12 +1179,14 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 39, "mode": 0, "value": 1.0 }
+          ],
           "x": 2.9660000801086426,
           "y": -1.156999945640564
         },
         {
-          "desc_key": "按当前亲和元素极化领域形态。",
+          "desc_key": "天剑领域形态极化：雷、冰、火亲和时获得 20% 额外总增伤害。",
           "icon_id": 4209214880,
           "id": 1120,
           "max_points": 1,
@@ -1108,11 +1202,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+          ],
           "x": 2.361999988555908,
           "y": -1.9259999990463257
         },
         {
-          "desc_key": "雷亲和时改为低频高额脉冲雷击。",
+          "desc_key": "雷亲和天剑改为低频高额脉冲雷击，单次伤害总增 (More) 20%/40%/60%。",
           "icon_id": 4225992499,
           "id": 1121,
           "max_points": 3,
@@ -1124,11 +1221,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+          ],
           "x": -0.40799999237060547,
           "y": -2.515000104904175
         },
         {
-          "desc_key": "冰亲和时强化寒冷冻结与停滞。",
+          "desc_key": "冰亲和天剑强化冻结效果，且伤害总增 (More) 15%/30%/45%。",
           "icon_id": 4242770118,
           "id": 1122,
           "max_points": 3,
@@ -1140,11 +1240,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": 1.6399999856948853,
           "y": -2.433000087738037
         },
         {
-          "desc_key": "火亲和时留下灼烧地面并强化点燃收益。",
+          "desc_key": "火亲和天剑留下灼烧地面，并使点燃造成的伤害总增 (More) 15%/30%/45%。",
           "icon_id": 4259547737,
           "id": 1123,
           "max_points": 3,
@@ -1156,11 +1259,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": 3.5399999618530273,
           "y": -1.6480000019073486
         },
         {
-          "desc_key": "提高领域元素降抗，额外降抗总量上限12。",
+          "desc_key": "天剑领域元素降抗提升 4/8/12，并额外降抗总量上限增加 12。",
           "icon_id": 4276325356,
           "id": 1124,
           "max_points": 3,
@@ -1341,26 +1447,25 @@
       "skill_id": 12,
       "talent_tree": [
         {
-          "desc_key": "提升血海初始范围稳定性。",
+          "desc_key": "血海初始范围增加 5%/10%/15%/20%。",
           "icon_id": 2808307527,
           "id": 1200,
           "max_points": 4,
           "name_key": "血幕起势",
-          "display_lines": [
-            { "label": "范围", "per_point": 5.0, "is_percent": true }
-          ],
           "prerequisites": [
             {
               "node_id": 0,
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 25, "mode": 1, "value": 5.0 }
+          ],
           "x": 0.3409999907016754,
           "y": 3.299999952316284
         },
         {
-          "desc_key": "提高血海持续伤害。",
+          "desc_key": "血海造成的持续伤害提升 10%/20%/30%/40%。",
           "icon_id": 2791529908,
           "id": 1201,
           "max_points": 4,
@@ -1371,12 +1476,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 13, "mode": 1, "value": 10.0 }
+          ],
           "x": -1.8819999694824219,
           "y": 0.6290000081062317
         },
         {
-          "desc_key": "血渴层数进一步放大血海伤害。",
+          "desc_key": "每层血渴使血海造成的伤害总增 (More) 2%/4%/6%/8%。",
           "icon_id": 2841862765,
           "id": 1202,
           "max_points": 4,
@@ -1387,12 +1494,14 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 2.0 }
+          ],
           "x": 2.118000030517578,
           "y": -1.4290000200271606
         },
         {
-          "desc_key": "提高血海追随速度。",
+          "desc_key": "血海追随玩家的速度增加 10%/20%/30%/40%。",
           "icon_id": 2825085146,
           "id": 1203,
           "max_points": 4,
@@ -1408,7 +1517,7 @@
           "y": 1.4140000343322754
         },
         {
-          "desc_key": "低血时血海伤害提高。",
+          "desc_key": "玩家处于低血状态时，血海伤害提升 15%/30%/45%。",
           "icon_id": 2741197051,
           "id": 1204,
           "max_points": 3,
@@ -1419,12 +1528,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 15.0 }
+          ],
           "x": -2.871000051498413,
           "y": 2.428999900817871
         },
         {
-          "desc_key": "血海对被追逐目标造成额外压制。",
+          "desc_key": "血海对被追逐的目标额外施加 20%/40%/60% 减速压制。",
           "icon_id": 2724419432,
           "id": 1205,
           "max_points": 3,
@@ -1440,7 +1551,7 @@
           "y": -0.42899999022483826
         },
         {
-          "desc_key": "生命越低，血海越危险也越致命。",
+          "desc_key": "生命值低于 35% 时，血海伤害总增 (More) 20%/40%/60%。",
           "icon_id": 2774752289,
           "id": 1206,
           "max_points": 3,
@@ -1452,11 +1563,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 20.0, "type": 2 }
+          ],
           "x": 0.36500000953674316,
           "y": 2.7290000915527344
         },
         {
-          "desc_key": "血海缩聚成更致命的屠宰区。",
+          "desc_key": "血海范围缩小 40%，但伤害总增 (More) 30%。",
           "icon_id": 2757974670,
           "id": 1207,
           "max_points": 1,
@@ -1467,12 +1581,17 @@
               "required_points": 3
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 25, "mode": 1, "value": -40.0 }
+          ],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 30.0, "type": 2 }
+          ],
           "x": -2.9709999561309814,
           "y": 1.128999948501587
         },
         {
-          "desc_key": "血海脉冲后留下短促余伤。",
+          "desc_key": "血海脉冲后留下延迟 0.5s 的余伤，造成 15%/30%/45% 持续伤害。",
           "icon_id": 2674086575,
           "id": 1208,
           "max_points": 3,
@@ -1483,12 +1602,14 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 13, "mode": 1, "value": 15.0 }
+          ],
           "x": -2.4240000247955322,
           "y": 0.7429999709129333
         },
         {
-          "desc_key": "每层血渴提高吸取效率。",
+          "desc_key": "每层血渴使血海的生命吸取效率提升 10%/20%/30%/40%。",
           "icon_id": 2657308956,
           "id": 1209,
           "max_points": 4,
@@ -1499,12 +1620,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 31, "mode": 1, "value": 10.0 }
+          ],
           "x": -2.1649999618530273,
           "y": -3.3429999351501465
         },
         {
-          "desc_key": "低血时血海更快回收生命。",
+          "desc_key": "玩家处于低血状态时，血海吸取生命的速度增加 15%/30%/45%。",
           "icon_id": 559959486,
           "id": 1210,
           "max_points": 3,
@@ -1515,12 +1638,15 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 31, "mode": 1, "value": 10.0 },
+            { "type": 19, "mode": 1, "value": 15.0 }
+          ],
           "x": -0.7879999876022339,
           "y": -2.4140000343322754
         },
         {
-          "desc_key": "施放血海时立即引爆一轮回灌脉冲。",
+          "desc_key": "施放血海时立即引爆回灌脉冲，回复 10% 已损失生命值并获得 2 层血渴。",
           "icon_id": 576737105,
           "id": 1211,
           "max_points": 1,
@@ -1536,7 +1662,7 @@
           "y": 0.1860000044107437
         },
         {
-          "desc_key": "血海存在期间额外提高吸取效率。",
+          "desc_key": "血海持续期间，生命吸取效率额外提升 10%/20%/30%。",
           "icon_id": 526404248,
           "id": 1212,
           "max_points": 3,
@@ -1551,12 +1677,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 31, "mode": 1, "value": 10.0 }
+          ],
           "x": 0.24699999392032623,
           "y": -3.556999921798706
         },
         {
-          "desc_key": "过量吸取回流为新的血渴。",
+          "desc_key": "过量生命吸取有 25% 概率转化为 1 层血渴层数。",
           "icon_id": 543181867,
           "id": 1213,
           "max_points": 1,
@@ -1572,7 +1700,7 @@
           "y": -0.1289999932050705
         },
         {
-          "desc_key": "回灌获得的血渴短时强化绝影绝剑。",
+          "desc_key": "鲜血回灌获得的血渴层数，使绝影绝剑造成的伤害总增 (More) 15%/30%/45%。",
           "icon_id": 627069962,
           "id": 1214,
           "max_points": 3,
@@ -1584,11 +1712,14 @@
             }
           ],
           "stat_modifiers": [],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": -2.8589999675750732,
           "y": -0.8429999947547913
         },
         {
-          "desc_key": "提高血海对贴身目标的压制。",
+          "desc_key": "血海对贴身目标的压制效果提升 15%/30%/45%。",
           "icon_id": 643847581,
           "id": 1215,
           "max_points": 3,
@@ -1599,19 +1730,18 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 15.0 }
+          ],
           "x": 1.8279999494552612,
           "y": -1.1690000295639038
         },
         {
-          "desc_key": "血海脉冲频率提高。",
+          "desc_key": "血海脉冲频率提升 10%/20%/30%。",
           "icon_id": 593514724,
           "id": 1216,
           "max_points": 3,
           "name_key": "刃雾共振",
-          "display_lines": [
-            { "label": "脉冲频率", "per_point": 10.0, "is_percent": true }
-          ],
           "prerequisites": [
             {
               "node_id": 1215,
@@ -1622,12 +1752,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 19, "mode": 1, "value": 10.0 }
+          ],
           "x": 1.9279999732971191,
           "y": 3.071000099182129
         },
         {
-          "desc_key": "绝影绝剑、回旋、护体、流云刺、心剑命中时触发共噬脉冲。",
+          "desc_key": "相关技能命中时触发共噬脉冲，造成 25% 额外武器伤害。",
           "icon_id": 610292343,
           "id": 1217,
           "max_points": 1,
@@ -1638,12 +1770,14 @@
               "required_points": 2
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 0, "mode": 1, "value": 25.0 }
+          ],
           "x": 4.014999866485596,
           "y": -0.1589999943971634
         },
         {
-          "desc_key": "共噬脉冲附带额外压制。",
+          "desc_key": "共噬脉冲附带额外的减速压制效果提升 15%/30%/45%。",
           "icon_id": 425738534,
           "id": 1218,
           "max_points": 3,
@@ -1659,26 +1793,25 @@
           "y": 2.4159998893737793
         },
         {
-          "desc_key": "延长血海持续时间。",
+          "desc_key": "血海持续时间增加 1s/2s/3s。",
           "icon_id": 442516153,
           "id": 1219,
           "max_points": 3,
           "name_key": "久驻血雾",
-          "display_lines": [
-            { "label": "持续时间", "per_point": 10.0, "is_percent": true }
-          ],
           "prerequisites": [
             {
               "node_id": 1215,
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 39, "mode": 0, "value": 1.0 }
+          ],
           "x": 2.997999906539917,
           "y": -2.3410000801086426
         },
         {
-          "desc_key": "血海侵蚀物理与虚空抗性。",
+          "desc_key": "血海对物理与虚空抗性的侵蚀效果提升 5/10/15。",
           "icon_id": 459146677,
           "id": 1220,
           "max_points": 1,
@@ -1698,66 +1831,66 @@
           "y": -2.2860000133514404
         },
         {
-          "desc_key": "将血海改造成更快、更广的追猎血潮。",
+          "desc_key": "血海改造成追猎血潮：移动速度提升 40%，范围提升 20%。",
           "icon_id": 442369058,
           "id": 1221,
           "max_points": 1,
           "name_key": "血潮奔流",
-          "display_lines": [
-            { "label": "移动速度", "per_point": 40.0, "is_percent": true },
-            { "label": "范围", "per_point": 20.0, "is_percent": true }
-          ],
           "prerequisites": [
             {
               "node_id": 1220,
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 25, "mode": 1, "value": 20.0 },
+            { "type": 8, "mode": 1, "value": 40.0 }
+          ],
           "x": -0.3499999940395355,
           "y": -5.203999996185303
         },
         {
-          "desc_key": "将血海压缩为贴身血环，强化吸取与危险。",
+          "desc_key": "血海压缩为血环：生命吸取效率提升 50%，但范围缩小 30%。",
           "icon_id": 425591439,
           "id": 1222,
           "max_points": 1,
           "name_key": "血环噬身",
-          "display_lines": [
-            { "label": "吸取比例", "per_point": 50.0, "is_percent": true },
-            { "label": "范围", "per_point": -30.0, "is_percent": true }
-          ],
           "prerequisites": [
             {
               "node_id": 1220,
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 31, "mode": 1, "value": 50.0 },
+            { "type": 25, "mode": 1, "value": -30.0 }
+          ],
           "x": 3.3380000591278076,
           "y": -0.5649999976158142
         },
         {
-          "desc_key": "虚蚀状态延长并提高持续伤害。",
+          "desc_key": "虚蚀状态延长 1s/2s/3s，且造成的持续伤害总增 (More) 15%/30%/45%。",
           "icon_id": 408813820,
           "id": 1223,
           "max_points": 3,
           "name_key": "噬骨余烬",
-          "display_lines": [
-            { "label": "持续伤害", "per_point": 15.0, "is_percent": true }
-          ],
           "prerequisites": [
             {
               "node_id": 1220,
               "required_points": 1
             }
           ],
-          "stat_modifiers": [],
+          "stat_modifiers": [
+            { "type": 39, "mode": 0, "value": 1.0 }
+          ],
+          "damage_modifiers": [
+            { "source_tag": 0, "target_tag": 0, "value": 15.0, "type": 2 }
+          ],
           "x": -2.4049999713897705,
           "y": -2.739000082015991
         },
         {
-          "desc_key": "提高血海对物理与虚空抗性的侵蚀。",
+          "desc_key": "血海对物理与虚空抗性的侵蚀量增加 4/8/12。",
           "icon_id": 392036201,
           "id": 1224,
           "max_points": 3,
