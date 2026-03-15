@@ -494,7 +494,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
     }
 
     float acquisitionRadius =
-        baseRadius * (1.0f + 0.06f * static_cast<float>(specState.targetLockPoints));
+        baseRadius * (1.0f + getModifier(SevenStarSlashNodes::TargetLock, "range_mult", 0.06f) * static_cast<float>(specState.targetLockPoints));
     auto targets = GatherLiveTargets(registry, owner, exec.target_pos,
                                      acquisitionRadius, specState.sevenFocus);
     entt::entity focusedTarget = !targets.empty() ? targets.front().entity : entt::null;
@@ -601,7 +601,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         float critDamageBonus = 0.0f;
 
         if (isFinalSlash) {
-          slashDamage *= 1.0f + 0.12f * static_cast<float>(specState.finalSlashPoints);
+          slashDamage *= 1.0f + getModifier(SevenStarSlashNodes::FinalSlash, "effectiveness", 0.12f) * static_cast<float>(specState.finalSlashPoints);
           if (singleTarget) {
             slashDamage *= 1.0f + singleTargetExecuteBonus;
           }
@@ -611,16 +611,16 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
           if (candidate.entity == focusedTarget) {
             slashDamage *=
                 1.0f + static_cast<float>(summary.sameTargetHitsBeforeFinal) *
-                           (0.02f * static_cast<float>(specState.exposedWeaknessPoints));
+                           (getModifier(SevenStarSlashNodes::ExposedWeakness, "effectiveness", 0.02f) * static_cast<float>(specState.exposedWeaknessPoints));
           }
           const bool isolated =
               focusedTarget != entt::null && targets.size() <= 1 && candidate.entity == focusedTarget;
           if (isolated || IsEliteOrBoss(candidate.rarity)) {
-            slashDamage *= 1.0f + 0.10f * static_cast<float>(specState.poJunPoints);
+            slashDamage *= 1.0f + getModifier(SevenStarSlashNodes::PoJun, "effectiveness", 0.10f) * static_cast<float>(specState.poJunPoints);
           }
           if (specState.sevenFocus && isolated && candidate.entity == focusedTarget) {
             slashDamage *=
-                1.0f + 0.12f * static_cast<float>(specState.solitaryStarPoints);
+                1.0f + getModifier(SevenStarSlashNodes::SolitaryStar, "effectiveness", 0.12f) * static_cast<float>(specState.solitaryStarPoints);
           }
           if (specState.starfall && specState.shatteredConstellationPoints > 0) {
             slashDamage *=
@@ -628,14 +628,14 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
           }
           if (const auto *stats = registry.try_get<CombatStats>(candidate.entity)) {
             if (stats->max_health > 0.0f && stats->health <= stats->max_health * 0.35f) {
-              critDamageBonus += 0.08f * static_cast<float>(specState.zhanJiangPoints);
+              critDamageBonus += getModifier(SevenStarSlashNodes::ZhanJiang, "effectiveness", 0.08f) * static_cast<float>(specState.zhanJiangPoints);
             }
           }
         } else {
           if (slashIndex < 3) {
             if (const auto *stats = registry.try_get<CombatStats>(candidate.entity)) {
               if (stats->max_health > 0.0f && stats->health >= stats->max_health * 0.99f) {
-                critDamageBonus += 0.08f * static_cast<float>(specState.zhanJiangPoints);
+                critDamageBonus += getModifier(SevenStarSlashNodes::ZhanJiang, "effectiveness", 0.08f) * static_cast<float>(specState.zhanJiangPoints);
               }
             }
           }
@@ -668,7 +668,7 @@ struct SevenStarSlash : SkillBehaviorBase<SevenStarSlash> {
         }
 
         if (specState.flowReturnPoints > 0 && resourceRefunds < 4) {
-          const float chance = 12.0f * static_cast<float>(specState.flowReturnPoints);
+          const float chance = getModifier(SevenStarSlashNodes::FlowReturn, "effectiveness", 12.0f) * static_cast<float>(specState.flowReturnPoints);
           if (seven_star_shared::DeterministicRoll(
                   exec.cast_id + static_cast<uint64_t>(slashIndex * 31) +
                       static_cast<uint64_t>(entt::to_integral(candidate.entity)),

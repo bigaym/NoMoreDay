@@ -9,7 +9,7 @@
         "min_nodes": 26,
         "max_nodes": 26,
         "max_transmuters": 2,
-        "max_triggers": 1,
+        "max_triggers": 6,
         "has_sword_intent_node": true,
         "has_synergy_node": true,
         "transmuter_node_ids": [
@@ -26,9 +26,39 @@
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
-              "effectiveness": 0.0,
+              "effectiveness": 0.12,
               "range_mult": 1.0,
-              "internal_cooldown": 0.0,
+              "internal_cooldown": 0.5,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1004,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.02,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.5,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1005,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.1,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.5,
               "consumes_mana": false
             }
           },
@@ -49,17 +79,32 @@
             "keystone_exclusion_group": 3
           },
           {
-            "node_id": 1009,
+            "node_id": 1008,
             "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.12,
+              "range_mult": 1.0,
+              "internal_cooldown": 0.5,
+              "consumes_mana": false
+            }
+          },
+          {
+            "node_id": 1009,
+            "role": "Trigger",
             "resist_model": "None",
             "scope_policy": "SkillOnly",
             "affects_sword_intent": true,
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
-              "effectiveness": 0.0,
+              "effectiveness": 12.0,
               "range_mult": 1.0,
-              "internal_cooldown": 0.0,
+              "internal_cooldown": 0.5,
               "consumes_mana": false
             }
           },
@@ -234,7 +279,7 @@
             {
               "type": 0,
               "mode": 1,
-              "value": 15.0
+              "value": 12.0
             }
           ],
           "x": -1.065999984741211,
@@ -288,7 +333,7 @@
             {
               "source_tag": 0,
               "target_tag": 0,
-              "value": 15.0,
+              "value": 2.0,
               "type": 2
             }
           ],
@@ -312,7 +357,7 @@
             {
               "source_tag": 0,
               "target_tag": 0,
-              "value": 20.0,
+              "value": 10.0,
               "type": 2
             }
           ],
@@ -386,7 +431,7 @@
             {
               "source_tag": 0,
               "target_tag": 0,
-              "value": 15.0,
+              "value": 12.0,
               "type": 2
             }
           ],
@@ -804,7 +849,7 @@
         "min_nodes": 25,
         "max_nodes": 25,
         "max_transmuters": 0,
-        "max_triggers": 1,
+        "max_triggers": 4,
         "has_sword_intent_node": true,
         "has_synergy_node": true,
         "transmuter_node_ids": [
@@ -812,6 +857,21 @@
           0
         ],
         "nodes": [
+          {
+            "node_id": 1101,
+            "role": "Passive",
+            "resist_model": "None",
+            "scope_policy": "SkillOnly",
+            "affects_sword_intent": false,
+            "affects_sword_step": false,
+            "trigger": {
+              "trigger_skill_id": 0,
+              "effectiveness": 0.0,
+              "range_mult": 0.08,
+              "internal_cooldown": 0.5,
+              "consumes_mana": false
+            }
+          },
           {
             "node_id": 1102,
             "role": "Passive",
@@ -821,9 +881,9 @@
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
-              "effectiveness": 0.0,
+              "effectiveness": 0.04,
               "range_mult": 1.0,
-              "internal_cooldown": 0.0,
+              "internal_cooldown": 0.5,
               "consumes_mana": false
             }
           },
@@ -836,9 +896,9 @@
             "affects_sword_step": false,
             "trigger": {
               "trigger_skill_id": 0,
-              "effectiveness": 0.0,
-              "range_mult": 1.0,
-              "internal_cooldown": 0.0,
+              "effectiveness": 0.35,
+              "range_mult": 0.7,
+              "internal_cooldown": 0.5,
               "consumes_mana": false
             }
           },
@@ -974,7 +1034,7 @@
             {
               "type": 25,
               "mode": 1,
-              "value": 10.0
+              "value": 8.0
             }
           ],
           "x": 3.506999969482422,
@@ -996,7 +1056,7 @@
             {
               "type": 0,
               "mode": 1,
-              "value": 10.0
+              "value": 4.0
             }
           ],
           "x": -2.431999921798706,
@@ -1115,7 +1175,7 @@
             {
               "source_tag": 0,
               "target_tag": 0,
-              "value": 25.0,
+              "value": 35.0,
               "type": 2
             }
           ],

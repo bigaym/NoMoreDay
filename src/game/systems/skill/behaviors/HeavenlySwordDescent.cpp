@@ -543,7 +543,8 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
 
   float impact_damage_mult = 1.0f + static_cast<float>(spent_tiers) *
                                          tier_damage_bonus;
-  impact_damage_mult += 0.04f * static_cast<float>(GetAllocatedPoints(
+  impact_damage_mult += getModifier(HeavenlySwordNodes::SkyEdgeInfusion, "effectiveness", 0.04f) *
+                        static_cast<float>(GetAllocatedPoints(
                             spec, HeavenlySwordNodes::SkyEdgeInfusion)) *
                         static_cast<float>(spent_tiers);
   if (HasAllocated(spec, HeavenlySwordNodes::CycleOfAllForms)) {
@@ -551,16 +552,16 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   }
 
   const float impact_stability_mult =
-      1.0f + 0.10f * static_cast<float>(GetAllocatedPoints(
+      1.0f + getModifier(HeavenlySwordNodes::SwordCoreCalibration, "effectiveness", 0.10f) * static_cast<float>(GetAllocatedPoints(
                         spec, HeavenlySwordNodes::SwordCoreCalibration));
   const float center_bonus_mult =
-      0.10f * static_cast<float>(GetAllocatedPoints(
+      getModifier(HeavenlySwordNodes::WorldsplitCore, "effectiveness", 0.10f) * static_cast<float>(GetAllocatedPoints(
                    spec, HeavenlySwordNodes::WorldsplitCore));
   const float elite_impact_bonus_mult =
-      0.08f * static_cast<float>(GetAllocatedPoints(
+      getModifier(HeavenlySwordNodes::KingslayerIntent, "effectiveness", 0.08f) * static_cast<float>(GetAllocatedPoints(
                    spec, HeavenlySwordNodes::KingslayerIntent));
   const float elite_field_bonus_mult =
-      0.04f * static_cast<float>(GetAllocatedPoints(
+      getModifier(HeavenlySwordNodes::KingslayerIntent, "field_effectiveness", 0.04f) * static_cast<float>(GetAllocatedPoints(
                    spec, HeavenlySwordNodes::KingslayerIntent));
   const int meteor_core_points =
       GetAllocatedPoints(spec, HeavenlySwordNodes::MeteorCore);
@@ -579,11 +580,13 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
   float field_radius =
       base_field_radius + static_cast<float>(spent_tiers) * tier_radius_bonus;
   field_radius *= 1.0f +
-                  0.08f * static_cast<float>(GetAllocatedPoints(
+                  getModifier(HeavenlySwordNodes::CelestialDomain, "range_mult", 0.08f) *
+                  static_cast<float>(GetAllocatedPoints(
                               spec, HeavenlySwordNodes::CelestialDomain));
   if (HasAllocated(spec, HeavenlySwordNodes::SkyPiercingFall)) {
-    field_radius *= 0.7f;
-    impact_damage_mult *= 1.35f;
+    field_radius *= getModifier(HeavenlySwordNodes::SkyPiercingFall, "range_mult", 0.7f);
+    impact_damage_mult *=
+        1.0f + getModifier(HeavenlySwordNodes::SkyPiercingFall, "effectiveness", 0.35f);
   }
 
   const float impact_radius = (base_impact_radius + field_radius * 0.25f) *
@@ -705,7 +708,8 @@ void HeavenlySwordDescent::DoCast(entt::registry &registry, entt::entity owner,
     if (!targets.empty()) {
       for (const entt::entity target : targets) {
         ApplySingleHit(registry, owner, target, field_entity, attunement,
-                        (skill ? skill->base_damage : 120.0f) * 0.10f *
+                        (skill ? skill->base_damage : 120.0f) *
+                           getModifier(HeavenlySwordNodes::SwordRainEcho, "effectiveness", 0.10f) *
                            static_cast<float>(spent_tiers));
       }
     }

@@ -420,16 +420,19 @@ def _build_contract_for_skill(
         )
 
         role = ROLE_PASSIVE
-        if node_id in explicit_passive_ids:
-            role = ROLE_PASSIVE
-        elif node_id in trigger_nodes:
-            role = ROLE_TRIGGER
-        elif node_id in transmuter_ids:
+        if node_id in transmuter_ids:
             role = ROLE_TRANSMUTER
         elif node_id in synergy_ids:
             role = ROLE_SYNERGY
-        elif node_id in explicit_keystone_ids or max_points == 1:
+        elif node_id in explicit_keystone_ids:
             role = ROLE_KEYSTONE
+        elif node_id in trigger_nodes:
+            role = ROLE_TRIGGER
+        elif max_points == 1:
+            role = ROLE_KEYSTONE
+
+        if node_id in explicit_passive_ids:
+            role = ROLE_PASSIVE
 
         if role not in VALID_ROLES:
             raise ValueError(f"role resolution failed for node {node_id}")

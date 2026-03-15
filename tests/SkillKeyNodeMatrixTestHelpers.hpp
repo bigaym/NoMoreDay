@@ -95,17 +95,17 @@ inline nlohmann::json LoadJsonFile(const char *relative_path) {
 inline std::map<uint32_t, std::vector<uint32_t>> ExpectedKeyNodesBySkill() {
   return {
       {1, {113, 114, 130, 152, 170, 171}},
-      {2, {230, 233, 250, 252, 270}},
+      {2, {213, 214, 230, 233, 250, 252, 270}},
       {3, {330, 352, 370, 371, 373}},
       {4, {430, 451, 452, 470, 471}},
       {5, {530, 533, 552, 570, 571}},
       {6, {630, 633, 652, 670, 671}},
       {7, {713, 730, 750, 752, 770}},
       {8, {813, 830, 831, 852, 870, 871}},
-      {9, {913, 930, 950, 951, 952, 970}},
-      {10, {1002, 1009, 1011, 1013, 1017, 1021, 1022, 1025}},
-      {11, {1102, 1109, 1111, 1113, 1117}},
-      {12, {1202, 1209, 1211, 1213, 1217, 1221, 1222}},
+      {9, {913, 930, 950, 951, 952, 970, 971, 972}},
+      {10, {1002, 1004, 1005, 1007, 1008, 1009, 1011, 1013, 1017, 1021, 1022, 1025}},
+      {11, {1101, 1102, 1107, 1109, 1111, 1113, 1115, 1117, 1120}},
+      {12, {1202, 1207, 1209, 1211, 1213, 1217, 1220, 1221, 1222, 1224}},
   };
 }
 
@@ -229,6 +229,34 @@ inline CompactContractBuckets LoadCompactContractBuckets() {
         buckets.all_key_nodes.insert(node_id);
         buckets.trigger_skill_by_node[node_id] = trigger_skill_id;
         buckets.trigger_node_by_skill[skill_id] = node_id;
+        skill_nodes.insert(node_id);
+      }
+    }
+
+    if (skill_json.contains("keystone_node_ids") &&
+        skill_json.at("keystone_node_ids").is_array()) {
+      for (const auto &node_json : skill_json.at("keystone_node_ids")) {
+        const uint32_t node_id = node_json.get<uint32_t>();
+        buckets.all_key_nodes.insert(node_id);
+        skill_nodes.insert(node_id);
+      }
+    }
+
+    if (skill_json.contains("passive_node_ids") &&
+        skill_json.at("passive_node_ids").is_array()) {
+      for (const auto &node_json : skill_json.at("passive_node_ids")) {
+        const uint32_t node_id = node_json.get<uint32_t>();
+        buckets.all_key_nodes.insert(node_id);
+        skill_nodes.insert(node_id);
+      }
+    }
+
+    if (skill_json.contains("keystone_exclusion_groups") &&
+        skill_json.at("keystone_exclusion_groups").is_object()) {
+      for (auto it = skill_json.at("keystone_exclusion_groups").begin();
+           it != skill_json.at("keystone_exclusion_groups").end(); ++it) {
+        const uint32_t node_id = static_cast<uint32_t>(std::stoul(it.key()));
+        buckets.all_key_nodes.insert(node_id);
         skill_nodes.insert(node_id);
       }
     }

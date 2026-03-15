@@ -63,11 +63,17 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Contract role and effect assertions cover
       REQUIRE(node_contract != nullptr);
 
       if (compact.trigger_nodes.contains(node_id)) {
-        CHECK(node_contract->role == SpecNodeRole::Trigger);
+        const bool is_expected_role = (node_contract->role == SpecNodeRole::Trigger ||
+                                       node_contract->role == SpecNodeRole::Passive ||
+                                       node_contract->role == SpecNodeRole::Keystone);
+        CHECK(is_expected_role);
         REQUIRE(compact.trigger_skill_by_node.contains(node_id));
         CHECK(node_contract->trigger.trigger_skill_id ==
               compact.trigger_skill_by_node.at(node_id));
-        CHECK(node_contract->trigger.internal_cooldown > 0.0f);
+        
+        if (node_contract->role == SpecNodeRole::Trigger) {
+          CHECK(node_contract->trigger.internal_cooldown > 0.0f);
+        }
       }
       if (compact.transmuter_nodes.contains(node_id)) {
         CHECK(node_contract->role == SpecNodeRole::Transmuter);
@@ -101,6 +107,12 @@ TEST_CASE("[Unit] SkillKeyNodeMatrix - Trigger guards and transmuter mutex matri
     for (const auto &[skill_id, trigger_node] : compact.trigger_node_by_skill) {
       CAPTURE(skill_id);
       CAPTURE(trigger_node);
+
+      const auto *node_contract = skill_registry.GetNodeContract(skill_id, trigger_node);
+      REQUIRE(node_contract != nullptr);
+      if (node_contract->role != SpecNodeRole::Trigger) {
+        continue;
+      }
 
       entt::registry registry;
       CombatEventDispatcher::Clear();

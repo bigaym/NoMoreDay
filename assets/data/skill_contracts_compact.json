@@ -341,7 +341,7 @@
       "min_nodes": 26,
       "max_nodes": 26,
       "max_transmuters": 2,
-      "max_triggers": 1,
+      "max_triggers": 6,
       "has_sword_intent_node": true,
       "has_synergy_node": true,
       "transmuter_node_ids": [
@@ -360,6 +360,12 @@
         1017,
         1025
       ],
+      "passive_node_ids": [
+        1002,
+        1004,
+        1005,
+        1008
+      ],
       "trigger_nodes": [
         {
           "node_id": 1011,
@@ -368,6 +374,36 @@
           "range_mult": 1.2,
           "internal_cooldown": 3.0,
           "consumes_mana": false
+        },
+        {
+          "node_id": 1002,
+          "trigger_skill_id": 0,
+          "effectiveness": 0.12,
+          "internal_cooldown": 0.5
+        },
+        {
+          "node_id": 1004,
+          "trigger_skill_id": 0,
+          "effectiveness": 0.02,
+          "internal_cooldown": 0.5
+        },
+        {
+          "node_id": 1005,
+          "trigger_skill_id": 0,
+          "effectiveness": 0.10,
+          "internal_cooldown": 0.5
+        },
+        {
+          "node_id": 1008,
+          "trigger_skill_id": 0,
+          "effectiveness": 0.12,
+          "internal_cooldown": 0.5
+        },
+        {
+          "node_id": 1009,
+          "trigger_skill_id": 0,
+          "effectiveness": 12.0,
+          "internal_cooldown": 0.5
         }
       ],
       "keystone_exclusion_groups": {
@@ -381,7 +417,7 @@
       "min_nodes": 25,
       "max_nodes": 25,
       "max_transmuters": 0,
-      "max_triggers": 1,
+      "max_triggers": 4,
       "has_sword_intent_node": true,
       "has_synergy_node": true,
       "transmuter_node_ids": [
@@ -402,9 +438,30 @@
         1120
       ],
       "passive_node_ids": [
+        1101,
+        1102,
         1115
       ],
       "trigger_nodes": [
+        {
+          "node_id": 1101,
+          "trigger_skill_id": 0,
+          "range_mult": 0.08,
+          "internal_cooldown": 0.5
+        },
+        {
+          "node_id": 1102,
+          "trigger_skill_id": 0,
+          "effectiveness": 0.04,
+          "internal_cooldown": 0.5
+        },
+        {
+          "node_id": 1107,
+          "trigger_skill_id": 0,
+          "effectiveness": 0.35,
+          "range_mult": 0.7,
+          "internal_cooldown": 0.5
+        },
         {
           "node_id": 1111,
           "trigger_skill_id": 11,
