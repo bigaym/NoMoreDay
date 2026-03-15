@@ -1680,7 +1680,7 @@
       "skill_id": 12,
       "talent_tree": [
         {
-          "desc_key": "血海初始范围增加 5%/10%/15%/20%。",
+          "desc_key": "血海初始范围增加 8/16/24/32。",
           "icon_id": 2808307527,
           "id": 1200,
           "max_points": 4,
@@ -1691,11 +1691,12 @@
               "required_points": 0
             }
           ],
-          "stat_modifiers": [
+          "stat_modifiers": [],
+          "display_lines": [
             {
-              "type": 25,
-              "mode": 1,
-              "value": 5.0
+              "label": "范围",
+              "per_point": 8.0,
+              "is_percent": false
             }
           ],
           "x": 0.3409999907016754,
@@ -2093,7 +2094,7 @@
           "y": 2.4159998893737793
         },
         {
-          "desc_key": "血海持续时间增加 1s/2s/3s。",
+          "desc_key": "血海持续时间增加 0.6/1.2/1.8s。",
           "icon_id": 442516153,
           "id": 1219,
           "max_points": 3,
@@ -2104,11 +2105,12 @@
               "required_points": 1
             }
           ],
-          "stat_modifiers": [
+          "stat_modifiers": [],
+          "display_lines": [
             {
-              "type": 39,
-              "mode": 0,
-              "value": 1.0
+              "label": "持续时间",
+              "per_point": 0.6,
+              "is_percent": false
             }
           ],
           "x": 2.997999906539917,

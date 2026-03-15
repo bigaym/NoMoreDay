@@ -209,6 +209,35 @@ TEST_CASE("[Tech] SkillUI - tooltip title and badges use dedicated readable text
     CHECK(source.find("badge.outline, alpha);") == std::string::npos);
 }
 
+TEST_CASE("[Tech] SkillUI - quantitative tooltip percent formatting uses whole-percent values") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../src/game/systems/ui/UISkillTalentTree.cpp"),
+        fs::path("../../src/game/systems/ui/UISkillTalentTree.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    CHECK(source.find("totalVal * 100.0f") == std::string::npos);
+    CHECK(source.find("TextFormat(\"%s%.0f%% %s\", sign.c_str(), totalVal, label)") != std::string::npos);
+    CHECK(source.find("TextFormat(\"%s%.0f%% %s\", sign.c_str(), totalVal, locLabel)") != std::string::npos);
+}
+
 TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree chrome") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 4> candidates = {

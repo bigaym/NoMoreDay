@@ -420,7 +420,7 @@ std::vector<std::pair<std::string, Color>> BuildNodeQuantitativeLines(
         std::string sign = totalVal >= 0 ? "+" : "";
         std::string text;
         if (mod.mode == ModifierMode::PercentAdd || mod.mode == ModifierMode::PercentMult) {
-             text = TextFormat("%s%.0f%% %s", sign.c_str(), totalVal * 100.0f, label);
+             text = TextFormat("%s%.0f%% %s", sign.c_str(), totalVal, label);
         } else {
              text = TextFormat("%s%.1f %s", sign.c_str(), totalVal, label);
         }
@@ -441,7 +441,7 @@ std::vector<std::pair<std::string, Color>> BuildNodeQuantitativeLines(
          std::string sign = totalVal >= 0 ? "+" : "";
          std::string text;
          if (mod.type == ModifierType::Increased || mod.type == ModifierType::More) {
-              text = TextFormat("%s%.0f%% %s", sign.c_str(), totalVal * 100.0f, locLabel);
+               text = TextFormat("%s%.0f%% %s", sign.c_str(), totalVal, locLabel);
          } else {
               text = TextFormat("%s%.1f %s", sign.c_str(), totalVal, locLabel);
          }

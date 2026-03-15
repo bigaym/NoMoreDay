@@ -1410,35 +1410,52 @@ TEST_CASE("[Functional] Skill - Blood Sea - Node 1211 FreshBloodReturn") {
     
     auto& astrolabe = registry.emplace<AstrolabeComponent>(player);
     astrolabe.mainProfession = static_cast<int>(ProfessionID::BladeAscendant);
-    systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
-    systems::BladeMasteryService::RefreshPlayerState(registry, player);
-    REQUIRE(systems::BladeMasteryService::SelectMastery(registry, player, BladeMasteryId::DemonBlade));
-    
-    auto& active = registry.emplace<ActiveSkillsComponent>(player);
-    auto& spec = active.specialized_slots[0];
-    spec.skill_id = 12; // Blood Sea
-    spec.allocated_points[1211] = 1;
+    const bool previousDebugOverride =
+        systems::BladeMasteryService::IsDebugUnlockOverrideEnabled();
+    {
+        struct DebugUnlockOverrideGuard {
+            explicit DebugUnlockOverrideGuard(const bool previousValue)
+                : previous(previousValue) {}
 
-    // Setup Bloodthirst resource
-    systems::BladeResourceService::EnsureBladeResource(registry, player, BladeResourceKind::Bloodthirst, 10, 30.0f, 1.0f);
-    auto& resource = registry.get<BladeResourceComponent>(player);
-    resource.current = 0;
+            ~DebugUnlockOverrideGuard() {
+                systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(previous);
+            }
 
-    SkillExecution exec;
-    exec.skill_id = 12;
-    exec.owner = player;
-    exec.target_pos = {0.0f, 0.0f};
+            bool previous;
+        } debugUnlockOverrideGuard(previousDebugOverride);
 
-    auto castFunc = SkillBehaviorRegistry::GetCast(12);
-    REQUIRE(castFunc != nullptr);
-    castFunc(registry, player, exec);
+        systems::BladeMasteryService::SetDebugUnlockOverrideEnabled(true);
+        systems::BladeMasteryService::RefreshPlayerState(registry, player);
+        REQUIRE(systems::BladeMasteryService::SelectMastery(registry, player, BladeMasteryId::DemonBlade));
+        
+        auto& active = registry.emplace<ActiveSkillsComponent>(player);
+        auto& spec = active.specialized_slots[0];
+        spec.skill_id = 12; // Blood Sea
+        spec.allocated_points[1211] = 1;
 
-    // Verify 2 stacks gained (ConsumeAll cleared it first)
-    CHECK(registry.get<BladeResourceComponent>(player).current == 2);
-    
-    // Verify 10% missing health healed: 10% * 500 = 50
-    CHECK(registry.get<CombatStats>(player).health == doctest::Approx(550.0f));
-    CHECK(registry.get<HealthComponent>(player).current == doctest::Approx(550.0f));
+        // Setup Bloodthirst resource
+        systems::BladeResourceService::EnsureBladeResource(registry, player, BladeResourceKind::Bloodthirst, 10, 30.0f, 1.0f);
+        auto& resource = registry.get<BladeResourceComponent>(player);
+        resource.current = 0;
+
+        SkillExecution exec;
+        exec.skill_id = 12;
+        exec.owner = player;
+        exec.target_pos = {0.0f, 0.0f};
+
+        auto castFunc = SkillBehaviorRegistry::GetCast(12);
+        REQUIRE(castFunc != nullptr);
+        castFunc(registry, player, exec);
+
+        // Verify 2 stacks gained (ConsumeAll cleared it first)
+        CHECK(registry.get<BladeResourceComponent>(player).current == 2);
+        
+        // Verify 10% missing health healed: 10% * 500 = 50
+        CHECK(registry.get<CombatStats>(player).health == doctest::Approx(550.0f));
+        CHECK(registry.get<HealthComponent>(player).current == doctest::Approx(550.0f));
+    }
+    CHECK(systems::BladeMasteryService::IsDebugUnlockOverrideEnabled() ==
+          previousDebugOverride);
 }
 
 } // namespace NoMoreDay

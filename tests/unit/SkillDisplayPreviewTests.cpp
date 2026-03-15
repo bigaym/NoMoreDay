@@ -45,7 +45,7 @@ TEST_CASE("[Unit] SkillDisplayPreview - duration preview with specialization mod
   TalentNode node;
   node.id = 1;
   node.max_points = 5;
-  node.stat_modifiers.push_back({0.1f, StatType::DurationScale, ModifierMode::PercentAdd});
+  node.stat_modifiers.push_back({10.0f, StatType::DurationScale, ModifierMode::PercentAdd});
   tree.nodes[node.id] = node;
   SkillRegistry::Get().RegisterSkillTree(tree);
 
@@ -55,7 +55,40 @@ TEST_CASE("[Unit] SkillDisplayPreview - duration preview with specialization mod
 
   const auto preview = SkillDisplayPreviewService::Build(registry, player, skillId);
   CHECK(preview.has_duration);
-  // 5.0 * 1.0 (combat) + 5.0 * 0.1 * 2 (spec) = 6.0
+  // 5.0 * 1.0 (combat) + 5.0 * 10% * 2 (spec) = 6.0
+  CHECK(preview.display_duration_seconds == doctest::Approx(6.0f));
+}
+
+TEST_CASE("[Unit] SkillDisplayPreview - duration preview with multiplicative specialization modifiers") {
+  entt::registry registry;
+  const auto player = registry.create();
+  registry.emplace<PlayerTag>(player);
+  auto& combat = registry.emplace<CombatStats>(player);
+  combat.duration_scale = 1.0f;
+
+  uint32_t skillId = 990103;
+  SkillData skill{.id = skillId, .name_key = "preview_skill_spec_mult", .desc_key = "desc",
+                  .mana_cost = 0.0f, .cooldown = 0.0f, .base_damage = 40.0f,
+                  .weapon_damage_mult = 1.0f};
+  skill.params["field_duration"] = 5.0f;
+  SkillRegistry::Get().RegisterSkill(skill);
+
+  SkillTreeDefinition tree;
+  tree.skill_id = skillId;
+  TalentNode node;
+  node.id = 1;
+  node.max_points = 5;
+  node.stat_modifiers.push_back({10.0f, StatType::DurationScale, ModifierMode::PercentMult});
+  tree.nodes[node.id] = node;
+  SkillRegistry::Get().RegisterSkillTree(tree);
+
+  auto& active = registry.emplace<ActiveSkillsComponent>(player);
+  active.specialized_slots[0].skill_id = skillId;
+  active.specialized_slots[0].allocated_points[1] = 2; // x1.2 duration
+
+  const auto preview = SkillDisplayPreviewService::Build(registry, player, skillId);
+  CHECK(preview.has_duration);
+  // 5.0 * 1.0 (combat) * 1.2 (spec) = 6.0
   CHECK(preview.display_duration_seconds == doctest::Approx(6.0f));
 }
 

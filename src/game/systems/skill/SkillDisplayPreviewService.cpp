@@ -62,13 +62,16 @@ SkillDisplayPreviewService::Build(entt::registry& registry,
                                 {
                                     if (mod.type == StatType::DurationScale)
                                     {
+                                        const float scaledValue = mod.value * static_cast<float>(points);
                                         if (mod.mode == ModifierMode::PercentAdd)
                                         {
-                                            preview.display_duration_seconds += baseDuration * mod.value * points;
+                                            preview.display_duration_seconds +=
+                                                baseDuration * (scaledValue / 100.0f);
                                         }
                                         else if (mod.mode == ModifierMode::PercentMult)
                                         {
-                                            preview.display_duration_seconds *= (1.0f + mod.value);
+                                            preview.display_duration_seconds *=
+                                                (1.0f + scaledValue / 100.0f);
                                         }
                                     }
                                 }
