@@ -374,7 +374,7 @@ void EnemySpawnSystem::spawnEnemy(entt::registry &registry,
 
   // Emplace EnemyStateComponent EARLY so StatsSystem can use it
   auto &esc = registry.emplace<EnemyStateComponent>(entity, raceType, archType);
-  esc.activationRange = DEFAULT_AGGRO_DISTANCE;
+  esc.activationRange = esc.detectionRange;
 
   registry.emplace<EnemyTag>(entity);
   auto &cStats = registry.emplace<NoMoreDay::CombatStats>(entity);

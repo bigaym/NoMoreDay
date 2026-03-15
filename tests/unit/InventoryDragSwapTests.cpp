@@ -125,4 +125,55 @@ TEST_CASE("[Unit] InventoryDragSwap - bag slot replacement does not fail when so
     CHECK(inv.capacity == 50);
 }
 
+TEST_CASE("[Unit] InventoryDragSwap - failed two-handed swap rolls back inventory and equipment state") {
+    TestSetupScope scope;
+    entt::registry registry;
+    auto player = registry.create();
+    auto& inv = registry.emplace<InventoryComponent>(player);
+    auto& equip = registry.emplace<EquipmentComponent>(player);
+    registry.emplace<Position>(player, 0.0f, 0.0f);
+
+    for (int i = 0; i < 40; ++i) {
+        auto item = registry.create();
+        auto& ic = registry.emplace<ItemComponent>(item);
+        ic.id = 100 + i;
+        ic.name = "Bag Fill";
+        ic.type = ItemType::Material;
+        inv.items[i] = item;
+    }
+
+    auto equippedMainHand = registry.create();
+    auto& mainHandComp = registry.emplace<ItemComponent>(equippedMainHand);
+    mainHandComp.id = 201;
+    mainHandComp.name = "Main Hand";
+    mainHandComp.type = ItemType::Weapon;
+    mainHandComp.slot = EquipmentSlot::MainHand;
+    equip.set(EquipmentSlot::MainHand, equippedMainHand);
+
+    auto equippedOffHand = registry.create();
+    auto& offHandComp = registry.emplace<ItemComponent>(equippedOffHand);
+    offHandComp.id = 202;
+    offHandComp.name = "Off Hand";
+    offHandComp.type = ItemType::Shield;
+    offHandComp.slot = EquipmentSlot::OffHand;
+    equip.set(EquipmentSlot::OffHand, equippedOffHand);
+
+    entt::entity twoHandedWeapon = inv.items[5];
+    auto& twoHandedComp = registry.get<ItemComponent>(twoHandedWeapon);
+    twoHandedComp.id = 203;
+    twoHandedComp.name = "Greatsword";
+    twoHandedComp.type = ItemType::Weapon;
+    twoHandedComp.slot = EquipmentSlot::MainHand;
+    twoHandedComp.isTwoHanded = true;
+
+    bool result = InventorySystem::swapInventoryItemIntoEquipment(
+        registry, player, 5, EquipmentSlot::MainHand);
+
+    CHECK(result == false);
+    CHECK(equip.get(EquipmentSlot::MainHand) == equippedMainHand);
+    CHECK(equip.get(EquipmentSlot::OffHand) == equippedOffHand);
+    CHECK(inv.items[5] == twoHandedWeapon);
+    CHECK(std::find(inv.items.begin(), inv.items.end(), equippedOffHand) == inv.items.end());
+}
+
 } // namespace NoMoreDay

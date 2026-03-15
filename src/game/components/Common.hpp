@@ -349,8 +349,10 @@ constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向�
 
     constexpr int DORMANT_CHECK_INTERVAL_FRAMES = 60; // 更新休眠实体的帧间隔
     constexpr int MAX_AWAKEN_PER_CYCLE = 50;          // 每个更新周期允许唤醒的最大实体数
-    constexpr float AWAKEN_DISTANCE_MIN = 1650.0f;    // 唤醒行为的最近触发距离
-    constexpr float AWAKEN_DISTANCE_MAX = 1800.0f;    // 唤醒行为的最远触发距离
+    constexpr float AWAKEN_DISTANCE_MAX =
+        AI::DORMANCY_THRESHOLD - 25.0f;               // 唤醒后仍保持活跃的最远距离
+    constexpr float AWAKEN_DISTANCE_MIN =
+        AWAKEN_DISTANCE_MAX - 150.0f;                // 唤醒环带的最近距离
 
     constexpr float DEFAULT_SPRITE_SCALE = 0.3f;     // 默认怪物贴图缩放
     constexpr float DEFAULT_COLLISION_RADIUS = 5.0f; // 怪物默认物理碰撞半径

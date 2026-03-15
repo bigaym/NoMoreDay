@@ -1094,8 +1094,8 @@ void GameplayState::OnRender() {
   // Global UI Overlay (Dragging Phantom)
   UISystem::DrawDraggingPhantom(registry);
 
-  // Cleanup Dragging if mouse released (Fallback if no other state active)
-  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
+  // Cleanup Dragging if mouse released (Fallback if no inventory overlay is active)
+  if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && !UISystem::State.showInventory) {
     UISystem::State.draggedItem = entt::null;
     UISystem::State.isDraggingSkill = false;
     UISystem::State.draggedSkillId = NoMoreDay::INVALID_SKILL_ID;

@@ -117,6 +117,50 @@ bool NeedsEmojiFallback(const Font &primary, const Font &emojiFallback,
   return false;
 }
 
+Vector2 MeasureTextUI(const Font &primary, const Font &emojiFallback,
+                      const char *text, float scaledSize, float spacing) {
+  if (!text || text[0] == '\0') {
+    return {0.0f, 0.0f};
+  }
+
+  if (!IsFontValid(primary) || !NeedsEmojiFallback(primary, emojiFallback, text)) {
+    if (IsFontValid(primary)) {
+      return MeasureTextEx(primary, text, scaledSize, spacing);
+    }
+    return {(float)MeasureText(text, (int)scaledSize), scaledSize};
+  }
+
+  float lineWidth = 0.0f;
+  float maxWidth = 0.0f;
+  int lineCount = 1;
+
+  const char *ptr = text;
+  while (*ptr != '\0') {
+    int bytesProcessed = 0;
+    const int codepoint = GetCodepointNext(ptr, &bytesProcessed);
+    if (bytesProcessed <= 0) {
+      bytesProcessed = 1;
+    }
+    ptr += bytesProcessed;
+
+    if (codepoint == '\n') {
+      maxWidth = std::max(maxWidth, lineWidth);
+      lineWidth = 0.0f;
+      ++lineCount;
+      continue;
+    }
+
+    const bool useEmojiFallback = !FontHasCodepointExact(primary, codepoint) &&
+                                  FontHasCodepointExact(emojiFallback, codepoint);
+    const Font &activeFont = useEmojiFallback ? emojiFallback : primary;
+    lineWidth += GetCodepointAdvance(activeFont, codepoint, scaledSize, spacing);
+  }
+
+  maxWidth = std::max(maxWidth, lineWidth);
+  const float lineStep = scaledSize + spacing * 4.0f;
+  return {maxWidth, scaledSize + (float)(lineCount - 1) * lineStep};
+}
+
 void DrawTextWithEmojiFallback(const Font &primary, const Font &emojiFallback,
                                const char *text, Vector2 pos,
                                float scaledSize, float spacing, Color color) {
@@ -247,21 +291,24 @@ void UIRenderer::DrawButton(const Font &font, Texture2D texture,
 
   if (text && text[0] != '\0') {
     float scaledFontSize = fontSize * scale;
-    Vector2 textSize =
-        IsFontValid(font)
-            ? MeasureTextEx(font, text, scaledFontSize, 1.0f * scale)
-            : Vector2{(float)MeasureText(text, (int)scaledFontSize),
-                        scaledFontSize};
+    const Font emojiFont = UISystem::GetEmojiFont();
+    const float scaledSpacing = 1.0f * scale;
+    Vector2 textSize = MeasureTextUI(font, emojiFont, text, scaledFontSize,
+                                     scaledSpacing);
 
     Vector2 textPos = {dest.x + (dest.width - textSize.x) * 0.5f,
                        dest.y + (dest.height - textSize.y) * 0.5f};
 
     if (IsFontValid(font)) {
-      // Subtle Glow/Shadow for readability
-      DrawTextEx(font, text, {textPos.x + 1.0f * scale, textPos.y + 1.0f * scale}, scaledFontSize, 1.0f * scale, Fade(BLACK, 0.6f * alpha));
+      const float logicalTextX = scale > 0.0f ? textPos.x / scale : textPos.x;
+      const float logicalTextY = scale > 0.0f ? textPos.y / scale : textPos.y;
+      const float shadowOffset = scale > 0.0f ? 1.0f / scale : 1.0f;
 
-      DrawTextEx(font, text, textPos, scaledFontSize, 1.0f * scale,
-                 Fade(textColor, alpha));
+      DrawTextUI(font, text, logicalTextX + shadowOffset,
+                 logicalTextY + shadowOffset, fontSize, BLACK,
+                 0.6f * alpha);
+      DrawTextUI(font, text, logicalTextX, logicalTextY, fontSize, textColor,
+                 alpha);
     } else {
       DrawText(text, (int)textPos.x + 1, (int)textPos.y + 1, (int)scaledFontSize, Fade(BLACK, 0.6f * alpha));
       DrawText(text, (int)textPos.x, (int)textPos.y, (int)scaledFontSize,

@@ -238,6 +238,110 @@ TEST_CASE("[Tech] SkillUI - quantitative tooltip percent formatting uses whole-p
     CHECK(source.find("TextFormat(\"%s%.0f%% %s\", sign.c_str(), totalVal, locLabel)") != std::string::npos);
 }
 
+TEST_CASE("[Tech] InventoryUI - button text uses shared emoji fallback path") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/engine/render/UIRenderer.cpp"),
+        fs::path("../src/engine/render/UIRenderer.cpp"),
+        fs::path("../../src/engine/render/UIRenderer.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    const size_t drawButtonPos = source.find("void UIRenderer::DrawButton(");
+    REQUIRE(drawButtonPos != std::string::npos);
+
+    const size_t measurePos = source.find("MeasureTextUI(", drawButtonPos);
+    const size_t drawTextUiPos = source.find("DrawTextUI(", drawButtonPos);
+    const size_t directDrawPos = source.find("DrawTextEx(font, text, textPos", drawButtonPos);
+
+    CHECK(measurePos != std::string::npos);
+    CHECK(drawTextUiPos != std::string::npos);
+    CHECK(directDrawPos == std::string::npos);
+}
+
+TEST_CASE("[Tech] InventoryUI - equipment replacement routes inventory drags through transactional swap path") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/systems/ui/UIInventory.cpp"),
+        fs::path("../src/game/systems/ui/UIInventory.cpp"),
+        fs::path("../../src/game/systems/ui/UIInventory.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    const size_t equipDropPos = source.find("if (allowInventoryInput && !handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null)");
+    REQUIRE(equipDropPos != std::string::npos);
+
+    const size_t inventoryBranchPos = source.find("UISystem::State.isDraggingFromInventory", equipDropPos);
+    const size_t swapApiPos = source.find("InventorySystem::swapInventoryItemIntoEquipment(", equipDropPos);
+    const size_t genericEquipPos = source.find("InventorySystem::equipItem(", equipDropPos);
+
+    CHECK(inventoryBranchPos != std::string::npos);
+    CHECK(swapApiPos != std::string::npos);
+    CHECK(genericEquipPos == std::string::npos);
+}
+
+TEST_CASE("[Tech] InventoryUI - gameplay fallback does not clear drags while inventory overlay is active") {
+    namespace fs = std::filesystem;
+    const std::array<fs::path, 3> candidates = {
+        fs::path("src/game/states/GameplayState.cpp"),
+        fs::path("../src/game/states/GameplayState.cpp"),
+        fs::path("../../src/game/states/GameplayState.cpp")
+    };
+
+    std::string source;
+    for (const auto& candidate : candidates) {
+        if (!fs::exists(candidate)) {
+            continue;
+        }
+        std::ifstream in(candidate, std::ios::in | std::ios::binary);
+        std::ostringstream ss;
+        ss << in.rdbuf();
+        source = ss.str();
+        if (!source.empty()) {
+            break;
+        }
+    }
+
+    REQUIRE(!source.empty());
+
+    const size_t cleanupPos = source.find("UISystem::DrawDraggingPhantom(registry);");
+    REQUIRE(cleanupPos != std::string::npos);
+
+    const size_t releaseGuardPos = source.find("if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && !UISystem::State.showInventory)", cleanupPos);
+
+    CHECK(releaseGuardPos != std::string::npos);
+}
+
 TEST_CASE("[Tech] SkillUI - shared mastery theme plumbing guards hub and tree chrome") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 4> candidates = {

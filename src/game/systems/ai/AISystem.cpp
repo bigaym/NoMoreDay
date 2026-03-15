@@ -43,6 +43,14 @@ entt::entity AISystem::findNearestTarget(entt::registry &registry,
 // 辅助函数：快速获取符号
 inline float sgn(float x) { return (x > 0) ? 1.0f : ((x < 0) ? -1.0f : 0.0f); }
 
+float getAggroRange(const AIComponent &ai,
+                    const EnemyStateComponent *stateComp) {
+  if (!stateComp) {
+    return ai.detectionRange;
+  }
+  return std::max(stateComp->activationRange, ai.detectionRange);
+}
+
 void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
                               AIComponent &ai, Position &pos, Velocity &vel,
                               const NoMoreDay::systems::SpatialHashGrid &grid,
@@ -172,17 +180,12 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     if (ai.lastDecisionTime >= ai.decisionInterval) {
       ai.target = entt::null;
       
-      // ONLY check for targets if player is within activation range
-      bool canAggro = false;
-      if (stateComp) {
-        if (distSq < stateComp->activationRange * stateComp->activationRange) {
-          canAggro = true;
-        }
-      }
+      const float aggroRange = getAggroRange(ai, stateComp);
+      const bool canAggro = distSq < aggroRange * aggroRange;
 
       if (canAggro || registry.any_of<NoMoreDay::NemesisTag>(entity)) {
         entt::entity target =
-            findNearestTarget(registry, pos, ai.detectionRange, entity);
+            findNearestTarget(registry, pos, aggroRange, entity);
         if (target != entt::null) {
           float currentDist = std::sqrt(distSq);
           // Removed Warning Log (Phase 4 P4.3)
@@ -249,17 +252,12 @@ void AISystem::updateAIEntity(entt::registry &registry, entt::entity entity,
     if (ai.lastDecisionTime >= ai.decisionInterval) {
       ai.target = entt::null;
 
-      // ONLY check for targets if player is within activation range
-      bool canAggro = false;
-      if (stateComp) {
-        if (distSq < stateComp->activationRange * stateComp->activationRange) {
-          canAggro = true;
-        }
-      }
+      const float aggroRange = getAggroRange(ai, stateComp);
+      const bool canAggro = distSq < aggroRange * aggroRange;
 
       if (canAggro || registry.any_of<NoMoreDay::NemesisTag>(entity)) {
         entt::entity target =
-            findNearestTarget(registry, pos, ai.detectionRange, entity);
+            findNearestTarget(registry, pos, aggroRange, entity);
         if (target != entt::null) {
           float currentDist = std::sqrt(distSq);
           // Removed Warning Log (Phase 4 P4.3)
@@ -426,13 +424,14 @@ void AISystem::update(entt::registry &registry,
     bool isNemesis = registry.any_of<NoMoreDay::NemesisTag>(entity);
     if (!isNemesis && distSq > DORMANCY_THRESHOLD * DORMANCY_THRESHOLD) {
       // Enter Dormancy
-      registry.emplace_or_replace<DormantTag>(entity);
-      // [FIX] NEVER remove components that are part of an Owning Group (like
-      // Velocity) while iterating. This causes registry corruption and
-      // iterator invalidation.
+      if (!registry.any_of<DormantTag>(entity)) {
+          registry.emplace_or_replace<DormantTag>(entity);
+      }
       vel.vx = 0.0f;
       vel.vy = 0.0f;
       continue;
+    } else if (registry.any_of<DormantTag>(entity)) {
+        registry.remove<DormantTag>(entity);
     }
 
     // 2. Frame-rate independent throttling using time accumulator:

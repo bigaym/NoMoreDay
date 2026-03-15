@@ -175,6 +175,19 @@ void UIInventory::Draw(entt::registry& registry) {
     const float centerColX = centerX - equipSlotSize * 0.5f;
     float dt = GetFrameTime();
 
+    auto handleNonInventoryEquipmentDrop = [&](EquipmentSlot targetSlot) -> bool {
+        if (!InventorySystem::equipItem(registry, player, UISystem::State.draggedItem, targetSlot)) {
+            return false;
+        }
+
+        if (UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None &&
+            UISystem::State.dragSourceEquipmentSlot != targetSlot) {
+            equip->set(UISystem::State.dragSourceEquipmentSlot, entt::null);
+        }
+
+        return true;
+    };
+
     for (int i = 0; i < 11; ++i) {
         float x = centerColX;
         float y = topY;
@@ -333,15 +346,16 @@ void UIInventory::Draw(entt::registry& registry) {
         }
 
         if (allowInventoryInput && !handledDrop && isHovered && IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && UISystem::State.draggedItem != entt::null) {
-            // Drop into equipment slot
-            if (InventorySystem::equipItem(registry, player, UISystem::State.draggedItem, slotType)) {
-                // If it was from ANOTHER equipment slot, we must clear that slot 
-                // because equipItem doesn't know about the source slot
-                if (!UISystem::State.isDraggingFromInventory && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
-                    if (UISystem::State.dragSourceEquipmentSlot != slotType) {
-                        equip->set(UISystem::State.dragSourceEquipmentSlot, entt::null);
-                    }
-                }
+            bool equipSucceeded = false;
+
+            if (UISystem::State.isDraggingFromInventory && UISystem::State.dragSourceInventoryIndex != -1) {
+                equipSucceeded = InventorySystem::swapInventoryItemIntoEquipment(
+                    registry, player, UISystem::State.dragSourceInventoryIndex, slotType);
+            } else {
+                equipSucceeded = handleNonInventoryEquipmentDrop(slotType);
+            }
+
+            if (equipSucceeded) {
                 UISystem::State.draggedItem = entt::null;
             }
         }

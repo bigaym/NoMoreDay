@@ -159,6 +159,8 @@ struct EnemyStateComponent {
       attackRange = 35.0f;
       break;
     }
+
+    activationRange = detectionRange;
   }
 };
 

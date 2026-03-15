@@ -701,12 +701,18 @@ bool InventorySystem::swapInventoryItemIntoEquipment(entt::registry &registry, e
     auto *equip = registry.try_get<EquipmentComponent>(character);
 
     if (!inv || !equip || sourceInventoryIndex < 0 || sourceInventoryIndex >= (int)inv->items.size())
+    {
         return false;
+    }
 
     entt::entity itemToEquip = inv->items[sourceInventoryIndex];
     if (!registry.valid(itemToEquip))
+    {
         return false;
+    }
 
+    const auto inventoryBefore = inv->items;
+    const auto equipmentBefore = equip->slots;
     entt::entity previouslyEquipped = equip->get(targetSlot);
 
     // --- [IMPORTANT] TRANSACTIONAL APPROACH ---
@@ -725,14 +731,15 @@ bool InventorySystem::swapInventoryItemIntoEquipment(entt::registry &registry, e
                   std::swap(*it, inv->items[sourceInventoryIndex]);
              } else if (it == inv->items.end()) {
                   // Edge case: if it somehow didn't land in inventory, force it into the hole.
-                  inv->items[sourceInventoryIndex] = previouslyEquipped;
+              inv->items[sourceInventoryIndex] = previouslyEquipped;
              }
         }
         return true;
     }
 
     // 3. Rollback if failed (e.g., level requirement not met)
-    inv->items[sourceInventoryIndex] = itemToEquip;
+    inv->items = inventoryBefore;
+    equip->slots = equipmentBefore;
     return false;
 }
 
