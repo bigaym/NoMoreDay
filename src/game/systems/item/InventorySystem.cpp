@@ -695,6 +695,159 @@ void InventorySystem::recalculateCapacity(entt::registry &registry, entt::entity
     }
 }
 
+bool InventorySystem::swapInventoryItemIntoEquipment(entt::registry &registry, entt::entity character, int sourceInventoryIndex, NoMoreDay::EquipmentSlot targetSlot)
+{
+    auto *inv = registry.try_get<InventoryComponent>(character);
+    auto *equip = registry.try_get<EquipmentComponent>(character);
+
+    if (!inv || !equip || sourceInventoryIndex < 0 || sourceInventoryIndex >= (int)inv->items.size())
+        return false;
+
+    entt::entity itemToEquip = inv->items[sourceInventoryIndex];
+    if (!registry.valid(itemToEquip))
+        return false;
+
+    entt::entity previouslyEquipped = equip->get(targetSlot);
+
+    // --- [IMPORTANT] TRANSACTIONAL APPROACH ---
+    // 1. Create a "hole" in the inventory by temporarily removing the source item.
+    // This allows unequipItem (called during swapping) to find this slot as available.
+    inv->items[sourceInventoryIndex] = entt::null;
+
+    // 2. Call the regular equipItem. 
+    // Since we just freed inv->items[sourceInventoryIndex], equipItem will use it for swapping.
+    if (equipItem(registry, character, itemToEquip, targetSlot)) {
+        if (registry.valid(previouslyEquipped)) {
+             // Find where the unequipped item landed.
+             auto it = std::find(inv->items.begin(), inv->items.end(), previouslyEquipped);
+             if (it != inv->items.end() && it != inv->items.begin() + sourceInventoryIndex) {
+                  // If it landed in a different empty slot, move it to our target source slot.
+                  std::swap(*it, inv->items[sourceInventoryIndex]);
+             } else if (it == inv->items.end()) {
+                  // Edge case: if it somehow didn't land in inventory, force it into the hole.
+                  inv->items[sourceInventoryIndex] = previouslyEquipped;
+             }
+        }
+        return true;
+    }
+
+    // 3. Rollback if failed (e.g., level requirement not met)
+    inv->items[sourceInventoryIndex] = itemToEquip;
+    return false;
+}
+
+bool InventorySystem::moveEquippedItemToInventorySlot(entt::registry &registry, entt::entity character, NoMoreDay::EquipmentSlot sourceSlot, int targetInventoryIndex)
+{
+    auto *inv = registry.try_get<InventoryComponent>(character);
+    auto *equip = registry.try_get<EquipmentComponent>(character);
+
+    if (!inv || !equip || targetInventoryIndex < 0 || targetInventoryIndex >= (int)inv->items.size())
+        return false;
+
+    entt::entity itemToUnequip = equip->get(sourceSlot);
+    if (!registry.valid(itemToUnequip))
+        return false;
+
+    entt::entity itemInTarget = inv->items[targetInventoryIndex];
+
+    if (registry.valid(itemInTarget)) {
+        // Targeted Swap Logic: 
+        // We want to put itemInTarget into sourceSlot and itemToUnequip into targetInventoryIndex.
+        
+        // 1. Verify itemInTarget can be equipped in sourceSlot
+        auto* itemInTargetComp = registry.try_get<ItemComponent>(itemInTarget);
+        if (!itemInTargetComp) return false;
+
+        // Perform transactional swap
+        inv->items[targetInventoryIndex] = entt::null;
+        equip->set(sourceSlot, entt::null);
+
+        if (equipItem(registry, character, itemInTarget, sourceSlot)) {
+            // Success. itemToUnequip is now in SOME inventory slot.
+            // Find where it landed and swap with targetInventoryIndex if needed.
+            auto it = std::find(inv->items.begin(), inv->items.end(), itemToUnequip);
+            if (it != inv->items.end() && it != inv->items.begin() + targetInventoryIndex) {
+                 // Move it to the target slot specifically
+                 std::swap(*it, inv->items[targetInventoryIndex]);
+            } else if (it == inv->items.end()) {
+                // This shouldn't happen if equipItem succeeded
+                inv->items[targetInventoryIndex] = itemToUnequip;
+            }
+            return true;
+        }
+
+        // Rollback
+        inv->items[targetInventoryIndex] = itemInTarget;
+        equip->set(sourceSlot, itemToUnequip);
+        return false;
+    } else {
+        // Move to empty target slot
+        equip->set(sourceSlot, entt::null);
+        inv->items[targetInventoryIndex] = itemToUnequip;
+        registry.get_or_emplace<StatsDirty>(character);
+        return true;
+    }
+}
+
+bool InventorySystem::moveBagItemToInventorySlot(entt::registry &registry, entt::entity character, int bagSlotIndex, int targetInventoryIndex)
+{
+    auto *inv = registry.try_get<InventoryComponent>(character);
+    if (!inv || bagSlotIndex < 0 || bagSlotIndex >= InventoryComponent::MAX_BAG_SLOTS)
+        return false;
+
+    if (targetInventoryIndex < 0 || targetInventoryIndex >= (int)inv->items.size())
+        return false;
+
+    entt::entity bagToUnequip = inv->bag_slots[bagSlotIndex];
+    if (!registry.valid(bagToUnequip))
+        return false;
+
+    entt::entity itemInTarget = inv->items[targetInventoryIndex];
+    auto* itemInTargetComp = registry.try_get<ItemComponent>(itemInTarget);
+
+    if (itemInTargetComp && itemInTargetComp->type == ItemType::Bag) {
+        // Swap bags!
+        // We need to bypass the capacity check in unequipBag for the swap duration
+        // because we are adding a bag of similar or larger capacity immediately.
+        
+        // 1. Record old capacity to verify rollback if needed
+        int oldCap = inv->capacity;
+        
+        // 2. Perform direct swap of entities
+        inv->bag_slots[bagSlotIndex] = itemInTarget;
+        inv->items[targetInventoryIndex] = bagToUnequip;
+        
+        // 3. Recalculate
+        recalculateCapacity(registry, character);
+        
+        // 4. Verify if any items were truncated (shouldn't happen if capacities match or increase)
+        // If the new bag has LESS capacity and we were full, this might be invalid.
+        int occupied = 0;
+        for (auto e : inv->items) if (registry.valid(e)) occupied++;
+        
+        if (occupied > inv->capacity) {
+            // Rollback
+            inv->bag_slots[bagSlotIndex] = bagToUnequip;
+            inv->items[targetInventoryIndex] = itemInTarget;
+            recalculateCapacity(registry, character);
+            LOG_WARN("InventorySystem: Failed to swap bag - new capacity too low for current items.");
+            return false;
+        }
+
+        LOG_INFO("InventorySystem: Swapped bags in slot {}.", bagSlotIndex);
+        return true;
+    } else if (!registry.valid(itemInTarget)) {
+        // Move bag to empty slot (Standard unequipBag should handle this, but let's be explicit)
+        if (unequipBag(registry, character, bagSlotIndex, false)) {
+             inv->items[targetInventoryIndex] = bagToUnequip;
+             return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
 bool InventorySystem::hasItem(entt::registry &registry, entt::entity character, uint32_t itemId)
 {
     auto *inventory = registry.try_get<InventoryComponent>(character);

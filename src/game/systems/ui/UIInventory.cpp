@@ -559,13 +559,13 @@ void UIInventory::Draw(entt::registry& registry) {
                            UISystem::State.draggedItem = entt::null;
                       }
                  } else if (UISystem::State.isDraggingFromInventory) {
-                     std::swap(inv->items[UISystem::State.dragSourceInventoryIndex], inv->items[i]);
+                      std::swap(inv->items[UISystem::State.dragSourceInventoryIndex], inv->items[i]);
                  } else {
-                     if (equip && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
-                         InventorySystem::unequipItem(registry, player, UISystem::State.dragSourceEquipmentSlot);
-                     } else if (UISystem::State.dragSourceBagSlotIndex != -1) {
-                         InventorySystem::unequipBag(registry, player, UISystem::State.dragSourceBagSlotIndex, true);
-                     }
+                      if (equip && UISystem::State.dragSourceEquipmentSlot != EquipmentSlot::None) {
+                          InventorySystem::moveEquippedItemToInventorySlot(registry, player, UISystem::State.dragSourceEquipmentSlot, i);
+                      } else if (UISystem::State.dragSourceBagSlotIndex != -1) {
+                          InventorySystem::moveBagItemToInventorySlot(registry, player, UISystem::State.dragSourceBagSlotIndex, i);
+                      }
                  }
                  UISystem::State.draggedItem = entt::null;
             }

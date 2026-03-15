@@ -40,6 +40,11 @@ public:
     static bool unequipBag(entt::registry& registry, entt::entity character, int slotIndex, bool putBackInInventory = true);
     static void recalculateCapacity(entt::registry& registry, entt::entity character);
 
+    // --- 拖拽交换增强 API ---
+    static bool swapInventoryItemIntoEquipment(entt::registry& registry, entt::entity character, int sourceInventoryIndex, NoMoreDay::EquipmentSlot targetSlot);
+    static bool moveEquippedItemToInventorySlot(entt::registry& registry, entt::entity character, NoMoreDay::EquipmentSlot sourceSlot, int targetInventoryIndex);
+    static bool moveBagItemToInventorySlot(entt::registry& registry, entt::entity character, int bagSlotIndex, int targetInventoryIndex);
+
     // 基本管理
     static bool hasItem(entt::registry& registry, entt::entity character, uint32_t itemId);
     static int getItemCount(entt::registry& registry, entt::entity character, uint32_t itemId);
