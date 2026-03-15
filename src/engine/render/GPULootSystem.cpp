@@ -519,13 +519,22 @@ void GPULootSystem::SyncDroppedItems(const entt::registry &registry) {
     return;
   }
 
-  m_instances.clear();
+  // 1. Measure real demand first to avoid truncation
   auto view = registry.view<const LootTag, const Position>();
+  uint32_t requiredCount = 0;
   for (const auto entity : view) {
-    if (m_instances.size() >= m_maxInstances) {
-      break;
+    if (registry.any_of<NoMoreDay::ItemComponent, GoldComponent>(entity)) {
+      requiredCount++;
     }
+  }
 
+  EnsureCapacity(requiredCount);
+
+  // 2. Collect into resized buffers
+  m_instances.clear();
+  m_instances.reserve(m_maxInstances);
+
+  for (const auto entity : view) {
     const auto &position = view.get<const Position>(entity);
     components::GPULootInstance instance = {};
     instance.worldPosX = position.x;
@@ -552,7 +561,11 @@ void GPULootSystem::SyncDroppedItems(const entt::registry &registry) {
   }
 
   m_syncedInstanceCount = static_cast<uint32_t>(m_instances.size());
-  EnsureCapacity(m_syncedInstanceCount);
+  
+  m_debugSnapshot.required = requiredCount;
+  m_debugSnapshot.synced = m_syncedInstanceCount;
+  m_debugSnapshot.maxInstances = m_maxInstances;
+
   if (m_instances.empty()) {
     ResetDispatchState();
     return;
@@ -618,6 +631,8 @@ void GPULootSystem::Dispatch(const Camera2D &camera, const int screenWidth,
   rlDisableShader();
 
   m_counterBuffer.Read(&m_visibleInstanceCount, sizeof(m_visibleInstanceCount), 0);
+  m_debugSnapshot.visible = m_visibleInstanceCount;
+  
   if (m_visibleInstanceCount == 0 || !enableForceDirected) {
     return;
   }

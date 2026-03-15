@@ -16,6 +16,8 @@ public:
     return instance;
   }
 
+  GPULootSystem() = default;
+
   void Init(uint32_t maxInstances = 8192);
   void Shutdown();
 
@@ -28,9 +30,23 @@ public:
   [[nodiscard]] uint32_t GetSyncedInstanceCount() const noexcept {
     return m_syncedInstanceCount;
   }
+  [[nodiscard]] uint32_t GetMaxInstancesForTest() const noexcept {
+    return m_maxInstances;
+  }
   [[nodiscard]] uint32_t GetVisibleInstanceCount() const noexcept {
     return m_visibleInstanceCount;
   }
+  
+  struct DebugSnapshot {
+    uint32_t required = 0;
+    uint32_t synced = 0;
+    uint32_t maxInstances = 0;
+    uint32_t visible = 0;
+  };
+  [[nodiscard]] DebugSnapshot GetDebugSnapshot() const noexcept {
+    return m_debugSnapshot;
+  }
+
   [[nodiscard]] const NoMoreDay::core::ComputeBuffer &GetInstanceBuffer() const
       noexcept {
     return m_instanceBuffer;
@@ -44,8 +60,6 @@ private:
     uint32_t baseInstance = 0;
   };
 
-  GPULootSystem() = default;
-
   void EnsureCapacity(uint32_t requiredInstances);
   void ResetDispatchState();
 
@@ -53,6 +67,7 @@ private:
   uint32_t m_maxInstances = 0;
   uint32_t m_syncedInstanceCount = 0;
   uint32_t m_visibleInstanceCount = 0;
+  DebugSnapshot m_debugSnapshot = {};
   std::vector<components::GPULootInstance> m_instances;
 
   Shader m_cullShader = {};
