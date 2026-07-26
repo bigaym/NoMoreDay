@@ -83,7 +83,7 @@ def start_comfyui(use_lowvram=True):
 # Node IDs:
 # 3: KSampler, 4: Checkpoint, 6: Positive Prompt, 7: Negative Prompt,
 # 8: VAE Decode, 9: Save Image, 5: Empty Latent
-def get_default_workflow(unet_name="flux-2-klein-9b.safetensors"):
+def get_default_workflow(unet_name="flux-2-klein-9b-kv.safetensors"):
     return {
         "10": {
             "inputs": {"unet_name": unet_name, "weight_dtype": "fp8_e4m3fn"},
@@ -295,8 +295,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="flux-2-klein-9b.safetensors",
-        help="Model to use (e.g., flux-2-klein-base-4b.safetensors)",
+        default="flux-2-klein-9b-kv.safetensors",
+        help="Model to use (e.g., flux-2-klein-9b-kv.safetensors)",
     )
 
     args = parser.parse_args()

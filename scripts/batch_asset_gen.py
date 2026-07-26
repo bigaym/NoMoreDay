@@ -18,7 +18,7 @@ Usage:
 Options:
     --category <name>   Generate only a specific category (e.g., monsters, players, vfx).
                         If omitted, generates all defined assets.
-    --model <name>      Specify a custom model name (e.g., flux-2-klein-9b.safetensors).
+    --model <name>      Specify a custom model name (e.g., flux-2-klein-9b-kv.safetensors).
 
 Examples:
     1. Generate all monsters:

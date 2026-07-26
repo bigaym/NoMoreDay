@@ -81,6 +81,4 @@ This document defines the coding standards, architectural principles, and safety
 1.  **Git**: Use Conventional Commits (`feat:`, `fix:`, `refactor:`, etc.).
 2.  **Build**: Always use `.\build.bat` for consistent builds.
 3.  **Agentic Workflow**:
-    *   Prioritize `smart-tree` tools for exploration.
-    *   Use the `cpp-analyzer` suite for structural analysis before making changes.
-    *   Log significant architectural changes using `save_memory`.
+    *   Follow the [Agent Operations workflow](../AGENTS.md#%E6%99%BA%E8%83%BD%E4%BD%93%E6%93%8D%E4%BD%9C%E6%B5%81%E7%A8%8B) for code exploration, tool selection, and memory checkpoints.

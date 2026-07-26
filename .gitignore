@@ -69,3 +69,6 @@ canonical
 # Generated modifier runtime artifacts
 assets/generated/modifier_runtime_v2.bin
 assets/generated/modifier_runtime_v2.debug.json
+Snipaste*.png
+
+.opencode/
