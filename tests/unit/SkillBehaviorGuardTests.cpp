@@ -2010,6 +2010,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Deep dive cadence and miasma refresh") {
           test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
       const auto eliteTarget =
           test::skill_keynode_matrix::CreateTarget(registry, {22.0f, 0.0f});
+      registry.get<HealthComponent>(eliteTarget).max = 5000.0f;
+      registry.get<HealthComponent>(eliteTarget).current = 5000.0f;
       registry.emplace<EnemyRarityComponent>(eliteTarget, EnemyRarityComponent::ELITE);
       const auto distantTarget =
           test::skill_keynode_matrix::CreateTarget(registry, {140.0f, 0.0f});

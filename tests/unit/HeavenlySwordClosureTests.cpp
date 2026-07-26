@@ -33,8 +33,8 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Heavenly Sword element nodes close remain
 
     const auto target = test::skill_keynode_matrix::CreateTarget(registry, {18.0f, 0.0f});
     if (auto *hp = registry.try_get<HealthComponent>(target)) {
-        hp->max = 10000.0f;
-        hp->current = 10000.0f;
+        hp->max = 1000000.0f;
+        hp->current = 1000000.0f;
     }
 
     SUBCASE("SolarIncineration (1123) applies Ignite") {
@@ -80,17 +80,19 @@ TEST_CASE("[Unit] SkillBehaviorGuard - Heavenly Sword element nodes close remain
         // We might need multiple ticks to see a freeze if it's chance-based, 
         // but for this test we'll assume it should happen or we'll mock the chance.
         grid.rebuild(registry.view<Position>(), registry);
-        for(int i=0; i<50; ++i) {
-            SkillSystem::Update(registry, grid, 0.51f);
-        }
-
-        auto &effects = registry.get<ActiveEffectsComponent>(target);
         bool hasFreeze = false;
-        for (const auto& effect : effects.effects) {
-            if (effect.type == BuffType::Freeze) {
-                hasFreeze = true;
-                break;
+        for(int i=0; i<30; ++i) {
+            SkillSystem::Update(registry, grid, 0.10f);
+            if (registry.all_of<ActiveEffectsComponent>(target)) {
+                auto &effects = registry.get<ActiveEffectsComponent>(target);
+                for (const auto& effect : effects.effects) {
+                    if (effect.type == BuffType::Freeze) {
+                        hasFreeze = true;
+                        break;
+                    }
+                }
             }
+            if (hasFreeze) break;
         }
         CHECK(hasFreeze);
     }

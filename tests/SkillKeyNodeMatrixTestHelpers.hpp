@@ -228,7 +228,9 @@ inline CompactContractBuckets LoadCompactContractBuckets() {
         buckets.trigger_nodes.insert(node_id);
         buckets.all_key_nodes.insert(node_id);
         buckets.trigger_skill_by_node[node_id] = trigger_skill_id;
-        buckets.trigger_node_by_skill[skill_id] = node_id;
+        if (trigger_skill_id > 0u) {
+          buckets.trigger_node_by_skill[skill_id] = node_id;
+        }
         skill_nodes.insert(node_id);
       }
     }

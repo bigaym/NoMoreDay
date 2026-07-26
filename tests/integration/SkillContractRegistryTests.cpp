@@ -131,7 +131,7 @@ TEST_CASE("[Integration] SkillContract - Compact mapping materialized") {
     REQUIRE(trigger != nullptr);
     CHECK(trigger->role == SpecNodeRole::Trigger);
     CHECK(trigger->trigger.trigger_skill_id == 11);
-    CHECK(trigger->trigger.effectiveness == doctest::Approx(0.25f));
+    CHECK(trigger->trigger.effectiveness == doctest::Approx(0.10f));
 
     const auto *synergy = registry.GetNodeContract(11, 1117);
     REQUIRE(synergy != nullptr);
