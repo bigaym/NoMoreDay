@@ -834,14 +834,14 @@ M0-A: gpu_production_hdr_gi_closure_20260726 (P0)
 > **Tasks**: 25/25
 > **Location**: [`conductor/tracks/gpu_rendergraph_resource_foundation_20260726/`](./tracks/gpu_rendergraph_resource_foundation_20260726/index.md)
 
-## [ ] Track M0-C: GPU Hardware Validation Gate (gpu_hardware_validation_gate_20260726)
+## [x] Track M0-C: GPU Hardware Validation Gate (gpu_hardware_validation_gate_20260726)
 
-> **Status**: 📋 Planned
+> **Status**: ✅ Completed (🟢 GO)
 > **Priority**: P0
 > **Type**: quality/release-gate
 > **Depends On**: `gpu_production_hdr_gi_closure_20260726`, `gpu_rendergraph_resource_foundation_20260726`
 > **Focus**: Gameplay 离屏链、GI 正确性、有效 GPU timing、全资源台账、长稳/黑帧/回退的 hardware nightly 与 production GO。
-> **Tasks**: 0/18
+> **Tasks**: 18/18
 > **Location**: [`conductor/tracks/gpu_hardware_validation_gate_20260726/`](./tracks/gpu_hardware_validation_gate_20260726/index.md)
 
 ## [ ] Track M1-D: GPU JFA Incremental Update Closure (gpu_jfa_incremental_update_20260726)

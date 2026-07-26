@@ -160,7 +160,7 @@
 | --- | --- | :---: | --- | --- |
 | M0-A | `gpu_production_hdr_gi_closure_20260726` | P0 | ✅ Complete | 离屏 HDR/GI 完整链、GI 正确性、SPH NO-GO 默认路由 |
 | M0-B | `gpu_rendergraph_resource_foundation_20260726` | P0 | 📋 Planned | typed resource/compiled plan、同步、资源台账、计时、ABI/能力治理 |
-| M0-C | `gpu_hardware_validation_gate_20260726` | P0 | 📋 Planned | Gameplay 完整链硬件 nightly/release gate |
+| M0-C | `gpu_hardware_validation_gate_20260726` | P0 | ✅ Completed (🟢 GO) | Gameplay 完整链硬件 nightly/release gate (含真实离屏驱动/Valid Timing/1分钟长稳/100次Toggle) |
 | M1-D | `gpu_jfa_incremental_update_20260726` | P1 | 📋 Planned | 正确的 dirty-region JFA 增量更新 |
 | M2-E | `gpu_adaptive_quality_control_20260726` | P2 | 📋 Planned | DRS、原生 UI 合成、可配置曝光 |
 
