@@ -286,4 +286,166 @@ float JFADistanceFieldEvaluator::ComputeBoundaryJitter(
   return maxDelta;
 }
 
+int JFADistanceFieldEvaluator::MaxGiSdfInfluencePixels(const bool halfResolution) noexcept {
+  return halfResolution ? 32 : 64;
+}
+
+JFAUpdateDecision JFADistanceFieldEvaluator::DecideUpdate(const DecideUpdateParams &params) {
+  JFAUpdateDecision decision;
+
+  if (params.previousViewKey != params.currentViewKey) {
+    if (params.previousViewKey.width != params.currentViewKey.width ||
+        params.previousViewKey.height != params.currentViewKey.height ||
+        params.previousViewKey.halfResolution != params.currentViewKey.halfResolution ||
+        params.previousViewKey.qualityTier != params.currentViewKey.qualityTier) {
+      decision.mode = JFAUpdateMode::Full;
+      decision.fullReason = JFAFullReasons::kResizeOrScaleChanged;
+      return decision;
+    }
+    decision.mode = JFAUpdateMode::Full;
+    decision.fullReason = JFAFullReasons::kViewOrStaticChanged;
+    return decision;
+  }
+
+  if (params.occluderCountChanged) {
+    decision.mode = JFAUpdateMode::Full;
+    decision.fullReason = JFAFullReasons::kOccluderDeletedOrUnbounded;
+    return decision;
+  }
+
+  const int workWidth = params.currentViewKey.width;
+  const int workHeight = params.currentViewKey.height;
+
+  const JFARect dirty = params.previousOccluderBounds.Union(params.currentOccluderBounds);
+  if (dirty.IsEmpty()) {
+    decision.mode = JFAUpdateMode::Skip;
+    return decision;
+  }
+
+  decision.dirtyRect = dirty;
+
+  const int margin = MaxGiSdfInfluencePixels(params.currentViewKey.halfResolution);
+  const JFARect expanded = dirty.Expand(margin, workWidth, workHeight);
+  decision.expandedRect = expanded;
+
+  if (expanded.TouchesBoundary(workWidth, workHeight)) {
+    decision.mode = JFAUpdateMode::Full;
+    decision.fullReason = JFAFullReasons::kUnsafeRegion;
+    return decision;
+  }
+
+  const int maxArea = static_cast<int>(static_cast<float>(workWidth * workHeight) * params.maxAreaFractionThreshold);
+  if (expanded.Area() > maxArea) {
+    decision.mode = JFAUpdateMode::Full;
+    decision.fullReason = JFAFullReasons::kAreaExceedsThreshold;
+    return decision;
+  }
+
+  if (!params.hasValidSeedContext) {
+    decision.mode = JFAUpdateMode::Full;
+    decision.fullReason = JFAFullReasons::kMissingBoundaryContext;
+    return decision;
+  }
+
+  decision.mode = JFAUpdateMode::Incremental;
+  return decision;
+}
+
+IncrementalJfaResult JFADistanceFieldEvaluator::BuildIncrementalJfaDistanceField(
+    const IncrementalJfaParams &params) {
+  IncrementalJfaResult result;
+
+  if (params.width <= 0 || params.height <= 0 ||
+      params.currentMask.size() != static_cast<size_t>(params.width) * static_cast<size_t>(params.height)) {
+    result.decision.mode = JFAUpdateMode::Full;
+    result.decision.fullReason = JFAFullReasons::kVerificationFull;
+    return result;
+  }
+
+  JFAViewKey viewKey{.cameraVersion = 1, .staticContentVersion = 1, .qualityTier = 1,
+                    .width = params.width, .height = params.height, .halfResolution = false};
+
+  DecideUpdateParams decideParams{
+      .previousViewKey = viewKey,
+      .currentViewKey = viewKey,
+      .previousOccluderBounds = params.previousBounds,
+      .currentOccluderBounds = params.currentBounds,
+      .occluderCountChanged = params.occluderCountChanged,
+      .hasValidSeedContext = true,
+  };
+
+  result.decision = DecideUpdate(decideParams);
+
+  if (result.decision.mode == JFAUpdateMode::Full) {
+    result.field = BuildApproximateJfaDistanceField(
+        params.currentMask, params.width, params.height,
+        params.enableCompensation, params.enableFallbackPlus2);
+    auto exact = BuildExactSignedDistanceField(params.currentMask, params.width, params.height);
+    result.stats = ComputeErrorStats(exact, result.field);
+    return result;
+  }
+
+  if (result.decision.mode == JFAUpdateMode::Skip) {
+    result.field = BuildApproximateJfaDistanceField(
+        params.previousMask.empty() ? params.currentMask : params.previousMask,
+        params.width, params.height, params.enableCompensation, params.enableFallbackPlus2);
+    auto exact = BuildExactSignedDistanceField(params.currentMask, params.width, params.height);
+    result.stats = ComputeErrorStats(exact, result.field);
+    return result;
+  }
+
+  std::vector<SeedCoord> ping = InitializeSeedBuffer(
+      params.previousMask.empty() ? params.currentMask : params.previousMask,
+      params.width, params.height);
+
+  const JFARect expanded = result.decision.expandedRect;
+  for (int y = expanded.minY; y < expanded.maxY; ++y) {
+    for (int x = expanded.minX; x < expanded.maxX; ++x) {
+      const size_t idx = ToIndex(x, y, params.width);
+      if (params.currentMask[idx] != 0u) {
+        ping[idx] = {static_cast<uint16_t>(x), static_cast<uint16_t>(y)};
+      } else {
+        ping[idx] = {};
+      }
+    }
+  }
+
+  std::vector<SeedCoord> pong = ping;
+
+  int stepSize = HighestPowerOfTwoLessEqual(std::max(params.width, params.height));
+  stepSize = std::max(1, stepSize / 2);
+  while (stepSize >= 1) {
+    RunJfaStep(ping, pong, params.width, params.height, stepSize);
+    ping.swap(pong);
+    stepSize /= 2;
+  }
+
+  if (params.enableCompensation) {
+    if (std::max(params.width, params.height) >= 2) {
+      RunJfaStep(ping, pong, params.width, params.height, 2);
+      ping.swap(pong);
+    }
+    RunJfaStep(ping, pong, params.width, params.height, 1);
+    ping.swap(pong);
+  }
+
+  result.field = ResolveSignedDistanceFromSeeds(ping, params.currentMask, params.width, params.height);
+  auto exact = BuildExactSignedDistanceField(params.currentMask, params.width, params.height);
+  result.stats = ComputeErrorStats(exact, result.field);
+
+  if (NeedsJfaPlus2Fallback(result.stats, params.p95Threshold, params.maxThreshold)) {
+    result.verificationFailed = true;
+    result.decision.mode = JFAUpdateMode::Revert;
+    result.decision.fullReason = JFAFullReasons::kVerificationFull;
+    result.field = BuildApproximateJfaDistanceField(
+        params.currentMask, params.width, params.height,
+        params.enableCompensation, true);
+    result.stats = ComputeErrorStats(exact, result.field);
+  }
+
+
+
+  return result;
+}
+
 } // namespace NoMoreDay::render::gi

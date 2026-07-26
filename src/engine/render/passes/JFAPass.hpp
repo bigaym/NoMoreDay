@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/gi/JFADistanceFieldEvaluator.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
 
@@ -12,6 +13,16 @@ class ResourceManager;
 namespace NoMoreDay::render::passes {
 
 class OccluderExtractPass;
+
+struct JFAFrameReport {
+  gi::JFAUpdateMode mode = gi::JFAUpdateMode::Full;
+  gi::JFARect dirtyRect = {};
+  gi::JFARect expandedRect = {};
+  uint32_t dispatchTexelCount = 0;
+  uint32_t occluderVersion = 0;
+  uint32_t sdfVersion = 0;
+  std::string fullReason;
+};
 
 class JFAPass final : public graph::RenderPass {
 public:
@@ -51,21 +62,39 @@ public:
   [[nodiscard]] const std::string &GetLastFailureReason() const noexcept {
     return m_lastFailureReason;
   }
+  [[nodiscard]] const JFAFrameReport &GetLastReport() const noexcept {
+    return m_lastReport;
+  }
+  [[nodiscard]] uint32_t GetSdfVersion() const noexcept {
+    return m_sdfVersion;
+  }
   void SetForceFallbackPlus2ForTesting(bool enabled) noexcept {
     m_forceFallbackPlus2ForTesting = enabled;
   }
   void SetIncrementalExperimentEnabledForTesting(bool enabled) noexcept {
     m_incrementalExperimentEnabled = enabled;
   }
+  void SetDynamicOccluderBoundsForTesting(gi::JFARect previous, gi::JFARect current) noexcept {
+    m_testPreviousBounds = previous;
+    m_testCurrentBounds = current;
+    m_testBoundsOverridden = true;
+  }
+  void SetVerificationReadbackEnabledForTesting(bool enabled) noexcept {
+    m_verificationReadbackEnabled = enabled;
+  }
+
 
 private:
   bool EnsureResources(int fullWidth, int fullHeight, bool halfResolution);
-  bool RunSeedInit(uint32_t occluderMaskTexture, int fullWidth, int fullHeight);
+  bool RunSeedInit(uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
+                   const gi::JFARect *rect = nullptr);
   bool RunJumpFloodStep(int stepSize, int fullWidth, int fullHeight,
-                        uint32_t inputSeedTexture, uint32_t outputSeedTexture);
+                        uint32_t inputSeedTexture, uint32_t outputSeedTexture,
+                        const gi::JFARect *rect = nullptr);
   bool RunDistanceResolve(uint32_t occluderMaskTexture, int fullWidth, int fullHeight,
-                          uint32_t inputSeedTexture, uint32_t outputDistanceTexture);
-  bool RunUpsample(int fullWidth, int fullHeight);
+                          uint32_t inputSeedTexture, uint32_t outputDistanceTexture,
+                          const gi::JFARect *rect = nullptr);
+  bool RunUpsample(int fullWidth, int fullHeight, const gi::JFARect *rect = nullptr);
   bool ClearOverflowCounter();
   uint32_t ReadOverflowCounter() const;
   void ReportFailure(const char *reason);
@@ -87,17 +116,21 @@ private:
   int m_seedInitWorkResolutionLoc = -1;
   int m_seedInitFullResolutionLoc = -1;
   int m_seedInitMaskTextureLoc = -1;
+  int m_seedInitRectMinLoc = -1;
 
   int m_jumpStepSizeLoc = -1;
   int m_jumpWorkResolutionLoc = -1;
   int m_jumpFullResolutionLoc = -1;
+  int m_jumpRectMinLoc = -1;
 
   int m_distanceWorkResolutionLoc = -1;
   int m_distanceFullResolutionLoc = -1;
   int m_distanceMaskTextureLoc = -1;
+  int m_distanceRectMinLoc = -1;
 
   int m_upsampleHalfResolutionLoc = -1;
   int m_upsampleFullResolutionLoc = -1;
+  int m_upsampleRectMinLoc = -1;
 
   uint32_t m_overflowCounterBuffer = 0u;
 
@@ -107,16 +140,29 @@ private:
   int m_workHeight = 0;
   uint32_t m_frameIndex = 0;
   uint32_t m_lastOverflowCount = 0;
+  uint32_t m_sdfVersion = 0;
+
+  gi::JFAViewKey m_previousViewKey = {};
+  gi::JFARect m_previousOccluderBounds = {};
+  uint32_t m_previousOccluderCount = 0;
+  gi::JFARect m_testPreviousBounds = {};
+
+  gi::JFARect m_testCurrentBounds = {};
+  bool m_testBoundsOverridden = false;
 
   bool m_initialized = false;
   bool m_halfResolutionMode = false;
   bool m_usedFallbackPlus2ThisFrame = false;
   bool m_forceFallbackPlus2ForTesting = false;
   bool m_incrementalExperimentEnabled = false;
+  bool m_verificationReadbackEnabled = false;
   bool m_lastExecuteFailure = false;
+
   bool m_lastExecuteSuccess = false;
   bool m_barrierAuditLogged = false;
   std::string m_lastFailureReason;
+  JFAFrameReport m_lastReport = {};
 };
 
 } // namespace NoMoreDay::render::passes
+

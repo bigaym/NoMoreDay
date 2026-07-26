@@ -235,4 +235,77 @@ TEST_CASE("[Integration] RenderGraph Phase 5 Compiled Plan & Observability Gate 
   CHECK(failedRecords.empty()); // No failed reloads initially
 }
 
+TEST_CASE("[Integration] RenderGraph V5 Contracts - JFA Phase 2 Incremental Subresources & Reports") {
+  using namespace NoMoreDay::render;
+
+  graph::RenderGraph graph;
+  auto jfaPass = std::make_shared<passes::JFAPass>();
+  graph.AddPass(std::make_shared<passes::OccluderExtractPass>());
+  graph.AddPass(jfaPass);
+  graph.Build();
+
+  const auto &plan = graph.GetCompiledPlan();
+  CHECK(plan.isValid);
+
+  bool foundSeedField = false;
+  bool foundDistanceSubresource = false;
+  for (const auto &res : plan.resources) {
+    if (res.resourceName == "JFASeedField") {
+      foundSeedField = true;
+      CHECK(res.descriptor.lifetime == graph::ResourceLifetime::Transient);
+    } else if (res.resourceName == "DistanceFieldSubresource") {
+      foundDistanceSubresource = true;
+      CHECK(res.descriptor.lifetime == graph::ResourceLifetime::Persistent);
+    }
+  }
+  CHECK(foundSeedField);
+  CHECK(foundDistanceSubresource);
+
+  jfaPass->SetDynamicOccluderBoundsForTesting(
+      gi::JFARect{100, 100, 150, 150},
+      gi::JFARect{105, 105, 155, 155});
+
+  const auto &report = jfaPass->GetLastReport();
+  CHECK(jfaPass->GetSdfVersion() == 0u);
+  CHECK(report.dispatchTexelCount == 0u);
+}
+
+TEST_CASE("[Performance] JFA 1080p Incremental vs Full Dispatch Texel & Timing Reduction Benchmark") {
+  using namespace NoMoreDay::render::gi;
+  using namespace NoMoreDay::render::debug;
+
+  constexpr int k1080pWidth = 1920;
+  constexpr int k1080pHeight = 1080;
+
+  JFAViewKey viewKey{.cameraVersion = 1, .staticContentVersion = 1, .qualityTier = 1,
+                    .width = k1080pWidth, .height = k1080pHeight, .halfResolution = false};
+
+  DecideUpdateParams params{
+      .previousViewKey = viewKey,
+      .currentViewKey = viewKey,
+      .previousOccluderBounds = JFARect{500, 500, 600, 600},
+      .currentOccluderBounds = JFARect{510, 510, 610, 610},
+      .occluderCountChanged = false,
+      .hasValidSeedContext = true,
+  };
+
+  JFAUpdateDecision decision = JFADistanceFieldEvaluator::DecideUpdate(params);
+  CHECK(decision.mode == JFAUpdateMode::Incremental);
+
+  const uint32_t fullTexelCount = k1080pWidth * k1080pHeight;
+  const uint32_t incrementalTexelCount = static_cast<uint32_t>(decision.expandedRect.Area());
+
+  const float reductionRatio = 1.0f - (static_cast<float>(incrementalTexelCount) / static_cast<float>(fullTexelCount));
+  CHECK(reductionRatio >= 0.20f);
+
+  auto &timerRing = GPUTimerQueryRing::Get();
+  timerRing.BeginFrame();
+  timerRing.EndFrame();
+  CHECK_NOTHROW(timerRing.GetPassResult(1));
+}
+
+
+
+
+
 

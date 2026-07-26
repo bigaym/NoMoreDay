@@ -6,14 +6,16 @@ layout(rg16ui, binding = 2) uniform writeonly uimage2D uSeedOut;
 uniform sampler2D uMaskTexture;
 uniform ivec2 uWorkResolution;
 uniform ivec2 uFullResolution;
+uniform ivec2 uRectMin;
 
 const uint INVALID_COORD = 0xFFFFu;
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + uRectMin;
     if (pixel.x >= uWorkResolution.x || pixel.y >= uWorkResolution.y) {
         return;
     }
+
 
     vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uWorkResolution);
     vec4 maskSample = texture(uMaskTexture, uv);

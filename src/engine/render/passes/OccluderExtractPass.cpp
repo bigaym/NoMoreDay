@@ -444,10 +444,29 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
 
   m_lastStaticSignature = stats.staticSignature;
   m_lastDynamicSignature = stats.dynamicSignature;
+
+  m_previousOccluderBounds = m_currentOccluderBounds;
+  render::gi::JFARect currentBounds{};
+  if (context.camera != nullptr) {
+    for (const auto &caster : m_occluderStaging) {
+      if (caster.dynamicFlag != 0u) {
+        Vector2 screenPos = GetWorldToScreen2D(Vector2{caster.posX, caster.posY}, *context.camera);
+        float r = caster.radius;
+        int minX = std::max(0, static_cast<int>(screenPos.x - r));
+        int minY = std::max(0, static_cast<int>(screenPos.y - r));
+        int maxX = std::min(width, static_cast<int>(screenPos.x + r));
+        int maxY = std::min(height, static_cast<int>(screenPos.y + r));
+        currentBounds = currentBounds.Union(render::gi::JFARect{minX, minY, maxX, maxY});
+      }
+    }
+  }
+  m_currentOccluderBounds = currentBounds;
+
   if (context.camera != nullptr) {
     m_lastCameraTarget = context.camera->target;
     m_lastCameraZoom = context.camera->zoom;
   }
+
   m_lastViewportWidth = width;
   m_lastViewportHeight = height;
 

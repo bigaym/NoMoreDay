@@ -58,6 +58,25 @@ void JFAPass::Setup(graph::RenderGraphBuilder &builder) {
   builder.Read(graph::RenderResourceTag::OccluderMask,
                graph::RenderOwnerTag::OccluderExtract);
   builder.Write(graph::RenderResourceTag::DistanceField, graph::RenderOwnerTag::JFA);
+
+  graph::TypedResourceDescriptor seedDesc;
+  seedDesc.name = "JFASeedField";
+  seedDesc.tag = graph::RenderResourceTag::Custom;
+  seedDesc.ownerTag = graph::RenderOwnerTag::JFA;
+  seedDesc.kind = graph::ResourceKind::Texture2D;
+  seedDesc.format = graph::ResourceFormat::RG16F;
+  seedDesc.lifetime = graph::ResourceLifetime::Transient;
+  builder.DeclareResource(seedDesc);
+
+  graph::TypedResourceDescriptor distanceDesc;
+  distanceDesc.name = "DistanceFieldSubresource";
+  distanceDesc.tag = graph::RenderResourceTag::DistanceField;
+  distanceDesc.ownerTag = graph::RenderOwnerTag::JFA;
+  distanceDesc.kind = graph::ResourceKind::Texture2D;
+  distanceDesc.format = graph::ResourceFormat::R16F;
+  distanceDesc.lifetime = graph::ResourceLifetime::Persistent;
+  builder.DeclareResource(distanceDesc);
+
 }
 
 bool JFAPass::Initialize(ResourceManager &resources) {
@@ -87,12 +106,14 @@ bool JFAPass::Initialize(ResourceManager &resources) {
   m_seedInitFullResolutionLoc =
       rlGetLocationUniform(m_seedInitShader.id, "uFullResolution");
   m_seedInitMaskTextureLoc = rlGetLocationUniform(m_seedInitShader.id, "uMaskTexture");
+  m_seedInitRectMinLoc = rlGetLocationUniform(m_seedInitShader.id, "uRectMin");
 
   m_jumpStepSizeLoc = rlGetLocationUniform(m_jumpFloodShader.id, "uStepSize");
   m_jumpWorkResolutionLoc =
       rlGetLocationUniform(m_jumpFloodShader.id, "uWorkResolution");
   m_jumpFullResolutionLoc =
       rlGetLocationUniform(m_jumpFloodShader.id, "uFullResolution");
+  m_jumpRectMinLoc = rlGetLocationUniform(m_jumpFloodShader.id, "uRectMin");
 
   m_distanceWorkResolutionLoc =
       rlGetLocationUniform(m_distanceResolveShader.id, "uWorkResolution");
@@ -100,11 +121,14 @@ bool JFAPass::Initialize(ResourceManager &resources) {
       rlGetLocationUniform(m_distanceResolveShader.id, "uFullResolution");
   m_distanceMaskTextureLoc =
       rlGetLocationUniform(m_distanceResolveShader.id, "uMaskTexture");
+  m_distanceRectMinLoc = rlGetLocationUniform(m_distanceResolveShader.id, "uRectMin");
 
   m_upsampleHalfResolutionLoc =
       rlGetLocationUniform(m_upsampleShader.id, "uHalfResolution");
   m_upsampleFullResolutionLoc =
       rlGetLocationUniform(m_upsampleShader.id, "uFullResolution");
+  m_upsampleRectMinLoc = rlGetLocationUniform(m_upsampleShader.id, "uRectMin");
+
 
   NoMoreDay::utils::GPUUtils::GenBuffers(1, &m_overflowCounterBuffer);
   if (m_overflowCounterBuffer == 0u) {
@@ -260,7 +284,7 @@ uint32_t JFAPass::ReadOverflowCounter() const {
 }
 
 bool JFAPass::RunSeedInit(const uint32_t occluderMaskTexture, const int fullWidth,
-                          const int fullHeight) {
+                          const int fullHeight, const gi::JFARect *rect) {
   if (m_seedInitShader.id == 0 || m_seedPing.colorTexture == 0u ||
       occluderMaskTexture == 0u) {
     return false;
@@ -278,6 +302,21 @@ bool JFAPass::RunSeedInit(const uint32_t occluderMaskTexture, const int fullWidt
                  RL_SHADER_UNIFORM_IVEC2, 1);
   }
 
+  int rectMin[2] = {0, 0};
+  uint32_t dispatchW = DivUp(static_cast<uint32_t>(m_workWidth), kComputeGroupSize);
+  uint32_t dispatchH = DivUp(static_cast<uint32_t>(m_workHeight), kComputeGroupSize);
+
+  if (rect != nullptr && !rect->IsEmpty()) {
+    rectMin[0] = rect->minX;
+    rectMin[1] = rect->minY;
+    dispatchW = DivUp(static_cast<uint32_t>(rect->Width()), kComputeGroupSize);
+    dispatchH = DivUp(static_cast<uint32_t>(rect->Height()), kComputeGroupSize);
+  }
+
+  if (m_seedInitRectMinLoc >= 0) {
+    rlSetUniform(m_seedInitRectMinLoc, rectMin, RL_SHADER_UNIFORM_IVEC2, 1);
+  }
+
   const int maskTexUnit = 0;
   if (m_seedInitMaskTextureLoc >= 0) {
     rlSetUniform(m_seedInitMaskTextureLoc, &maskTexUnit, RL_SHADER_UNIFORM_INT, 1);
@@ -288,9 +327,7 @@ bool JFAPass::RunSeedInit(const uint32_t occluderMaskTexture, const int fullWidt
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kSeedOutputImageBinding, m_seedPing.colorTexture, 0,
       false, 0, kGLWriteOnly, kGLRg16ui);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(m_workWidth), kComputeGroupSize),
-      DivUp(static_cast<uint32_t>(m_workHeight), kComputeGroupSize), 1);
+  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
   const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
@@ -302,7 +339,8 @@ bool JFAPass::RunSeedInit(const uint32_t occluderMaskTexture, const int fullWidt
 bool JFAPass::RunJumpFloodStep(const int stepSize, const int fullWidth,
                                const int fullHeight,
                                const uint32_t inputSeedTexture,
-                               const uint32_t outputSeedTexture) {
+                               const uint32_t outputSeedTexture,
+                               const gi::JFARect *rect) {
   if (m_jumpFloodShader.id == 0 || inputSeedTexture == 0u ||
       outputSeedTexture == 0u || !ClearOverflowCounter()) {
     return false;
@@ -321,6 +359,21 @@ bool JFAPass::RunJumpFloodStep(const int stepSize, const int fullWidth,
     rlSetUniform(m_jumpFullResolutionLoc, fullResolution, RL_SHADER_UNIFORM_IVEC2, 1);
   }
 
+  int rectMin[2] = {0, 0};
+  uint32_t dispatchW = DivUp(static_cast<uint32_t>(m_workWidth), kComputeGroupSize);
+  uint32_t dispatchH = DivUp(static_cast<uint32_t>(m_workHeight), kComputeGroupSize);
+
+  if (rect != nullptr && !rect->IsEmpty()) {
+    rectMin[0] = rect->minX;
+    rectMin[1] = rect->minY;
+    dispatchW = DivUp(static_cast<uint32_t>(rect->Width()), kComputeGroupSize);
+    dispatchH = DivUp(static_cast<uint32_t>(rect->Height()), kComputeGroupSize);
+  }
+
+  if (m_jumpRectMinLoc >= 0) {
+    rlSetUniform(m_jumpRectMinLoc, rectMin, RL_SHADER_UNIFORM_IVEC2, 1);
+  }
+
   NoMoreDay::utils::GPUUtils::BindBufferBase(kOverflowBinding,
                                              m_overflowCounterBuffer);
   NoMoreDay::utils::GPUUtils::BindImageTexture(
@@ -329,9 +382,7 @@ bool JFAPass::RunJumpFloodStep(const int stepSize, const int fullWidth,
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kSeedOutputImageBinding, outputSeedTexture, 0, false, 0,
       kGLWriteOnly, kGLRg16ui);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(m_workWidth), kComputeGroupSize),
-      DivUp(static_cast<uint32_t>(m_workHeight), kComputeGroupSize), 1);
+  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
   const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
@@ -344,7 +395,8 @@ bool JFAPass::RunJumpFloodStep(const int stepSize, const int fullWidth,
 bool JFAPass::RunDistanceResolve(const uint32_t occluderMaskTexture,
                                  const int fullWidth, const int fullHeight,
                                  const uint32_t inputSeedTexture,
-                                 const uint32_t outputDistanceTexture) {
+                                 const uint32_t outputDistanceTexture,
+                                 const gi::JFARect *rect) {
   if (m_distanceResolveShader.id == 0 || occluderMaskTexture == 0u ||
       inputSeedTexture == 0u || outputDistanceTexture == 0u) {
     return false;
@@ -362,6 +414,21 @@ bool JFAPass::RunDistanceResolve(const uint32_t occluderMaskTexture,
                  RL_SHADER_UNIFORM_IVEC2, 1);
   }
 
+  int rectMin[2] = {0, 0};
+  uint32_t dispatchW = DivUp(static_cast<uint32_t>(m_workWidth), kComputeGroupSize);
+  uint32_t dispatchH = DivUp(static_cast<uint32_t>(m_workHeight), kComputeGroupSize);
+
+  if (rect != nullptr && !rect->IsEmpty()) {
+    rectMin[0] = rect->minX;
+    rectMin[1] = rect->minY;
+    dispatchW = DivUp(static_cast<uint32_t>(rect->Width()), kComputeGroupSize);
+    dispatchH = DivUp(static_cast<uint32_t>(rect->Height()), kComputeGroupSize);
+  }
+
+  if (m_distanceRectMinLoc >= 0) {
+    rlSetUniform(m_distanceRectMinLoc, rectMin, RL_SHADER_UNIFORM_IVEC2, 1);
+  }
+
   const int maskTexUnit = 0;
   if (m_distanceMaskTextureLoc >= 0) {
     rlSetUniform(m_distanceMaskTextureLoc, &maskTexUnit, RL_SHADER_UNIFORM_INT, 1);
@@ -375,9 +442,7 @@ bool JFAPass::RunDistanceResolve(const uint32_t occluderMaskTexture,
   NoMoreDay::utils::GPUUtils::BindImageTexture(
       RenderConstants::V5GI::kDistanceFieldImageBinding, outputDistanceTexture, 0,
       false, 0, kGLWriteOnly, kGLR16f);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(m_workWidth), kComputeGroupSize),
-      DivUp(static_cast<uint32_t>(m_workHeight), kComputeGroupSize), 1);
+  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
   const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
@@ -386,7 +451,7 @@ bool JFAPass::RunDistanceResolve(const uint32_t occluderMaskTexture,
   return true;
 }
 
-bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight) {
+bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight, const gi::JFARect *rect) {
   if (m_upsampleShader.id == 0 || !m_distanceFieldWork.IsValid() ||
       !m_distanceFieldFull.IsValid()) {
     return false;
@@ -404,6 +469,26 @@ bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight) {
                  RL_SHADER_UNIFORM_IVEC2, 1);
   }
 
+  int rectMin[2] = {0, 0};
+  uint32_t dispatchW = DivUp(static_cast<uint32_t>(fullWidth), kComputeGroupSize);
+  uint32_t dispatchH = DivUp(static_cast<uint32_t>(fullHeight), kComputeGroupSize);
+
+  if (rect != nullptr && !rect->IsEmpty()) {
+    const float scaleX = static_cast<float>(fullWidth) / static_cast<float>(m_workWidth);
+    const float scaleY = static_cast<float>(fullHeight) / static_cast<float>(m_workHeight);
+    rectMin[0] = static_cast<int>(std::floor(static_cast<float>(rect->minX) * scaleX));
+    rectMin[1] = static_cast<int>(std::floor(static_cast<float>(rect->minY) * scaleY));
+    const int fullMaxX = std::min(fullWidth, static_cast<int>(std::ceil(static_cast<float>(rect->maxX) * scaleX)));
+    const int fullMaxY = std::min(fullHeight, static_cast<int>(std::ceil(static_cast<float>(rect->maxY) * scaleY)));
+    dispatchW = DivUp(static_cast<uint32_t>(fullMaxX - rectMin[0]), kComputeGroupSize);
+    dispatchH = DivUp(static_cast<uint32_t>(fullMaxY - rectMin[1]), kComputeGroupSize);
+  }
+
+
+  if (m_upsampleRectMinLoc >= 0) {
+    rlSetUniform(m_upsampleRectMinLoc, rectMin, RL_SHADER_UNIFORM_IVEC2, 1);
+  }
+
   constexpr uint32_t kHalfInputBinding = 0u;
   constexpr uint32_t kFullOutputBinding = 1u;
   NoMoreDay::utils::GPUUtils::BindImageTexture(kHalfInputBinding,
@@ -412,9 +497,7 @@ bool JFAPass::RunUpsample(const int fullWidth, const int fullHeight) {
   NoMoreDay::utils::GPUUtils::BindImageTexture(kFullOutputBinding,
                                                m_distanceFieldFull.colorTexture, 0,
                                                false, 0, kGLWriteOnly, kGLR16f);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(fullWidth), kComputeGroupSize),
-      DivUp(static_cast<uint32_t>(fullHeight), kComputeGroupSize), 1);
+  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(dispatchW, dispatchH, 1);
   rlDisableShader();
 
   const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
@@ -497,16 +580,69 @@ void JFAPass::Execute(graph::RenderContext &context) {
     shouldUpdate = intervalTick;
   }
 
+  gi::JFAViewKey currentViewKey;
+  currentViewKey.cameraVersion = static_cast<uint32_t>(m_occluderExtractPass->GetCameraInvalidateCount());
+  currentViewKey.staticContentVersion = static_cast<uint32_t>(m_occluderExtractPass->GetStaticRebuildCount());
+  currentViewKey.qualityTier = static_cast<uint32_t>(context.qualityManager->GetTier());
+  currentViewKey.width = m_workWidth;
+  currentViewKey.height = m_workHeight;
+  currentViewKey.halfResolution = halfResolution;
+
+
+
+  gi::JFARect previousBounds = m_previousOccluderBounds;
+  gi::JFARect currentBounds{};
+  if (m_testBoundsOverridden) {
+    previousBounds = m_testPreviousBounds;
+    currentBounds = m_testCurrentBounds;
+    m_testBoundsOverridden = false;
+  } else {
+    previousBounds = m_occluderExtractPass->GetPreviousOccluderScreenBounds();
+    currentBounds = m_occluderExtractPass->GetCurrentOccluderScreenBounds();
+  }
+
+  const uint32_t currentOccluderCount = m_occluderExtractPass->GetOccluderCount();
+  const bool occluderCountChanged = (!firstFrame) && (currentOccluderCount != m_previousOccluderCount);
+
+  gi::DecideUpdateParams decideParams;
+  decideParams.previousViewKey = m_previousViewKey;
+  decideParams.currentViewKey = currentViewKey;
+  decideParams.previousOccluderBounds = previousBounds;
+  decideParams.currentOccluderBounds = currentBounds;
+  decideParams.occluderCountChanged = occluderCountChanged;
+  decideParams.hasValidSeedContext = true;
+
+  gi::JFAUpdateDecision decision = gi::JFADistanceFieldEvaluator::DecideUpdate(decideParams);
+
+
   if (!shouldUpdate && m_distanceFieldFull.IsValid()) {
+    decision.mode = gi::JFAUpdateMode::Skip;
+  }
+
+  if (decision.mode == gi::JFAUpdateMode::Skip && m_distanceFieldFull.IsValid()) {
     context.giDistanceFieldTexture = m_distanceFieldFull.colorTexture;
     context.giDistanceFieldWidth = m_distanceFieldFull.width;
     context.giDistanceFieldHeight = m_distanceFieldFull.height;
+    m_lastReport = JFAFrameReport{
+        .mode = gi::JFAUpdateMode::Skip,
+        .dirtyRect = {},
+        .expandedRect = {},
+        .dispatchTexelCount = 0,
+        .occluderVersion = static_cast<uint32_t>(m_occluderExtractPass->GetMaskVersion()),
+        .sdfVersion = m_sdfVersion,
+        .fullReason = ""
+    };
     MarkSuccess();
     return;
   }
 
+  const gi::JFARect *dispatchRect = nullptr;
+  if (decision.mode == gi::JFAUpdateMode::Incremental) {
+    dispatchRect = &decision.expandedRect;
+  }
+
   const uint32_t occluderMaskTexture = m_occluderExtractPass->GetOccluderMaskTexture();
-  if (!RunSeedInit(occluderMaskTexture, fullWidth, fullHeight)) {
+  if (!RunSeedInit(occluderMaskTexture, fullWidth, fullHeight, dispatchRect)) {
     ReportFailure("seed initialization failed");
     return;
   }
@@ -516,7 +652,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
   int stepSize = HighestPowerOfTwoLessEqual(std::max(m_workWidth, m_workHeight));
   stepSize = std::max(1, stepSize / 2);
   while (stepSize >= 1) {
-    if (!RunJumpFloodStep(stepSize, fullWidth, fullHeight, seedInput, seedOutput)) {
+    if (!RunJumpFloodStep(stepSize, fullWidth, fullHeight, seedInput, seedOutput, dispatchRect)) {
       ReportFailure("jump flood iteration failed");
       return;
     }
@@ -525,13 +661,13 @@ void JFAPass::Execute(graph::RenderContext &context) {
   }
 
   if (std::max(m_workWidth, m_workHeight) >= 2) {
-    if (!RunJumpFloodStep(2, fullWidth, fullHeight, seedInput, seedOutput)) {
+    if (!RunJumpFloodStep(2, fullWidth, fullHeight, seedInput, seedOutput, dispatchRect)) {
       ReportFailure("JFA+1 step=2 failed");
       return;
     }
     std::swap(seedInput, seedOutput);
   }
-  if (!RunJumpFloodStep(1, fullWidth, fullHeight, seedInput, seedOutput)) {
+  if (!RunJumpFloodStep(1, fullWidth, fullHeight, seedInput, seedOutput, dispatchRect)) {
     ReportFailure("JFA+1 step=1 failed");
     return;
   }
@@ -550,7 +686,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
         continue;
       }
       if (!RunJumpFloodStep(fallbackStep, fullWidth, fullHeight, seedInput,
-                            seedOutput)) {
+                            seedOutput, dispatchRect)) {
         ReportFailure("JFA+2 fallback failed");
         return;
       }
@@ -562,15 +698,33 @@ void JFAPass::Execute(graph::RenderContext &context) {
   const uint32_t distanceOutput =
       halfResolution ? m_distanceFieldWork.colorTexture : m_distanceFieldFull.colorTexture;
   if (!RunDistanceResolve(occluderMaskTexture, fullWidth, fullHeight, seedInput,
-                          distanceOutput)) {
+                          distanceOutput, dispatchRect)) {
     ReportFailure("distance resolve failed");
     return;
   }
 
-  if (halfResolution && !RunUpsample(fullWidth, fullHeight)) {
+  if (halfResolution && !RunUpsample(fullWidth, fullHeight, dispatchRect)) {
     ReportFailure("half-res upsample failed");
     return;
   }
+
+  m_previousViewKey = currentViewKey;
+  m_previousOccluderBounds = currentBounds;
+  m_previousOccluderCount = currentOccluderCount;
+  ++m_sdfVersion;
+
+
+  m_lastReport = JFAFrameReport{
+      .mode = decision.mode,
+      .dirtyRect = decision.dirtyRect,
+      .expandedRect = decision.expandedRect,
+      .dispatchTexelCount = (decision.mode == gi::JFAUpdateMode::Incremental)
+                                ? static_cast<uint32_t>(decision.expandedRect.Area())
+                                : static_cast<uint32_t>(m_workWidth * m_workHeight),
+      .occluderVersion = static_cast<uint32_t>(m_occluderExtractPass->GetMaskVersion()),
+      .sdfVersion = m_sdfVersion,
+      .fullReason = decision.fullReason
+  };
 
   context.giDistanceFieldTexture = m_distanceFieldFull.colorTexture;
   context.giDistanceFieldWidth = m_distanceFieldFull.width;
@@ -580,5 +734,6 @@ void JFAPass::Execute(graph::RenderContext &context) {
   MarkSuccess();
   core::ApplyRlglFlushTemplate();
 }
+
 
 } // namespace NoMoreDay::render::passes

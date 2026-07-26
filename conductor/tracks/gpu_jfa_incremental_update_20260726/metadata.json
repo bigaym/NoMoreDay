@@ -1,0 +1,17 @@
+{
+  "id": "gpu_jfa_incremental_update_20260726",
+  "title": "GPU JFA Incremental Update Closure",
+  "type": "feature/performance-correctness",
+  "status": "planned",
+  "created": "2026-07-26T00:00:00+08:00",
+  "updated": "2026-07-26T00:00:00+08:00",
+  "priority": "P1",
+  "phase": "GPU Production Closure M1",
+  "master_spec": "conductor/specs/rendering_engine_v5_master_spec.md",
+  "depends_on": [
+    "gpu_rendergraph_resource_foundation_20260726",
+    "gpu_hardware_validation_gate_20260726"
+  ],
+  "phases": { "total": 4, "completed": 0 },
+  "tasks": { "total": 17, "completed": 0 }
+}

@@ -2,8 +2,10 @@
 
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/gi/JFADistanceFieldEvaluator.hpp"
 #include "engine/render/graph/RenderPass.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
+
 
 #include "raylib.h"
 #include <cstdint>
@@ -56,9 +58,16 @@ public:
   [[nodiscard]] uint64_t GetMaskVersion() const noexcept {
     return m_maskVersion;
   }
+  [[nodiscard]] render::gi::JFARect GetCurrentOccluderScreenBounds() const noexcept {
+    return m_currentOccluderBounds;
+  }
+  [[nodiscard]] render::gi::JFARect GetPreviousOccluderScreenBounds() const noexcept {
+    return m_previousOccluderBounds;
+  }
   [[nodiscard]] const std::string &GetLastFailureReason() const noexcept {
     return m_lastFailureReason;
   }
+
   void SetDebugVisualizationEnabledForTesting(bool enabled) noexcept {
     m_debugVisualizationEnabled = enabled;
   }
@@ -113,8 +122,12 @@ private:
   uint64_t m_cameraInvalidateCount = 0;
   uint64_t m_maskVersion = 1;
 
+  render::gi::JFARect m_currentOccluderBounds = {};
+  render::gi::JFARect m_previousOccluderBounds = {};
+
   bool m_maskChangedThisFrame = false;
   bool m_staticRebuiltThisFrame = false;
+
   bool m_dynamicUpdatedThisFrame = false;
   bool m_lastExecuteFailure = false;
   bool m_lastExecuteSuccess = false;

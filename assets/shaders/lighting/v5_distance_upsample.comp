@@ -7,6 +7,7 @@ layout(r16f, binding = 1) uniform writeonly image2D uFullDistance;
 
 uniform ivec2 uHalfResolution;
 uniform ivec2 uFullResolution;
+uniform ivec2 uRectMin;
 
 float loadHalfDistance(ivec2 pixel) {
     ivec2 clampedPixel =
@@ -15,10 +16,11 @@ float loadHalfDistance(ivec2 pixel) {
 }
 
 void main() {
-    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy) + uRectMin;
     if (pixel.x >= uFullResolution.x || pixel.y >= uFullResolution.y) {
         return;
     }
+
 
     vec2 uv = (vec2(pixel) + vec2(0.5)) / vec2(uFullResolution);
     vec2 halfCoord = uv * vec2(uHalfResolution) - vec2(0.5);
