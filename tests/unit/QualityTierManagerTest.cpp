@@ -548,3 +548,44 @@ TEST_CASE("[Unit] QualityTierManager - AutoDegrade Sequence And Recovery") {
   CHECK(manager.GetConfig().giHalfResolution == false);
   CHECK(manager.GetConfig().giSdfUpdateInterval == 1u);
 }
+
+TEST_CASE("[Unit] QualityTierManager - Adaptive Quality Config Roundtrip") {
+  const auto settingsPath = MakeTempSettingsPath("adaptive_quality_roundtrip.json");
+  WriteJson(settingsPath,
+            { {"renderQualityTier", "High"},
+              {"render",
+               { {"adaptiveQuality",
+                  { {"dynamicResolutionEnabled", true},
+                    {"renderScaleLocked", false},
+                    {"renderScale", 0.85f},
+                    {"minRenderScale", 0.7f},
+                    {"maxRenderScale", 1.0f},
+                    {"renderScaleStep", 0.05f},
+                    {"downThresholdMs", 14.0f},
+                    {"upThresholdMs", 10.0f},
+                    {"sustainSeconds", 1.25f},
+                    {"cooldownSeconds", 20.0f},
+                    {"autoExposureEnabled", false},
+                    {"exposure", 1.25f},
+                    {"minExposure", 0.5f},
+                    {"maxExposure", 2.0f},
+                    {"brightenRate", 1.0f},
+                    {"darkenRate", 2.0f} } } } } });
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+  const auto &adaptive = manager.GetConfig().adaptiveQuality;
+  CHECK(adaptive.dynamicResolutionEnabled == true);
+  CHECK(adaptive.renderScaleLocked == false);
+  CHECK(adaptive.renderScale == doctest::Approx(0.85f));
+  CHECK(adaptive.minRenderScale == doctest::Approx(0.7f));
+  CHECK(adaptive.cooldownSeconds == doctest::Approx(20.0f));
+  CHECK(adaptive.exposure == doctest::Approx(1.25f));
+
+  const auto saved = ReadJson(settingsPath);
+  REQUIRE(saved["render"].contains("adaptiveQuality"));
+  CHECK(saved["render"]["adaptiveQuality"]["renderScale"].get<float>() ==
+        doctest::Approx(0.85f));
+  CHECK(saved["render"]["adaptiveQuality"]["exposure"].get<float>() ==
+        doctest::Approx(1.25f));
+}

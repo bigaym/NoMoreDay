@@ -39,6 +39,27 @@ inline constexpr uint32_t kDefaultClusterZSliceCount = 8u;
 inline constexpr uint32_t kMaxLightsPerCluster = 64u;
 inline constexpr uint32_t kMaxTotalClusteredLights = 4096u;
 
+struct AdaptiveQualitySettings {
+  bool dynamicResolutionEnabled = false;
+  bool renderScaleLocked = true;
+  float renderScale = 1.0f;
+  float minRenderScale = 0.70f;
+  float maxRenderScale = 1.0f;
+  float renderScaleStep = 0.05f;
+  float downThresholdMs = 0.0f; // 0 uses the selected tier budget.
+  float upThresholdMs = 0.0f;   // 0 uses the selected tier recovery budget.
+  float sustainSeconds = 0.75f;
+  float cooldownSeconds = 30.0f;
+
+  // Auto exposure remains opt-in until the HDR histogram path has hardware evidence.
+  bool autoExposureEnabled = false;
+  float exposure = 1.0f;
+  float minExposure = 0.25f;
+  float maxExposure = 4.0f;
+  float brightenRate = 1.5f;
+  float darkenRate = 3.0f;
+};
+
 struct RenderConfig {
   bool bloomEnabled = false;
   bool dynamicLightingEnabled = false;
@@ -134,6 +155,8 @@ struct RenderConfig {
   // V5 fluid feature routing.
   bool fluidEnabled = false;
   uint32_t fluidMaxParticles = 0;
+
+  AdaptiveQualitySettings adaptiveQuality = {};
 };
 
 inline const char *ToString(QualityTier tier) {

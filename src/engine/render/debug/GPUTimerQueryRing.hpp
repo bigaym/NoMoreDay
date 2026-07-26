@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <map>
 #include <string>
@@ -34,6 +35,7 @@ struct GPUTimerResult {
 class GPUTimerQueryRing {
 public:
   static constexpr size_t kRingDepth = 3;
+  static constexpr uint32_t kFramePassId = 0xFFFFFFFFu;
 
   static GPUTimerQueryRing &Get();
 
@@ -47,6 +49,9 @@ public:
   void EndPass(uint32_t passId);
 
   GPUTimerResult GetPassResult(uint32_t passId) const;
+  GPUTimerResult GetFrameResult() const { return m_latestFrameResult; }
+  double GetValidFrameP95Ms() const;
+  size_t GetValidFrameSampleCount() const { return m_frameHistoryCount; }
   bool IsGpuTimeValid(uint32_t passId) const;
   double GetValidGpuTimeMs(uint32_t passId) const;
 
@@ -62,20 +67,29 @@ private:
     uint32_t passId = 0;
     uint64_t frameIndex = 0;
     bool active = false;
+    bool touchedThisFrame = false;
+    bool resultReady = false;
+    bool resultValid = false;
     double cpuStartTimeMs = 0.0;
     double cpuDurationMs = 0.0;
+    double gpuDurationMs = 0.0;
   };
 
   struct FrameRingSlot {
     uint64_t frameIndex = 0;
     std::map<uint32_t, QuerySlot> slots;
     bool isComplete = false;
+    bool aggregatePublished = false;
   };
 
   FrameRingSlot m_ring[kRingDepth];
   size_t m_currentRingIndex = 0;
   uint64_t m_frameIndex = 0;
   std::map<uint32_t, GPUTimerResult> m_latestValidResults;
+  GPUTimerResult m_latestFrameResult = {};
+  std::array<GPUTimerResult, 120> m_frameHistory = {};
+  size_t m_frameHistoryCount = 0;
+  size_t m_frameHistoryWriteIndex = 0;
   bool m_initialized = false;
 };
 

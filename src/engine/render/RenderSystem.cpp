@@ -15,6 +15,7 @@
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/trail/GPUTrailRenderer.hpp"
 #include "engine/render/dev/ShaderHotReloadManager.hpp"
+#include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/DistortionPass.hpp"
@@ -43,6 +44,7 @@
 #include "engine/render/resources/FullscreenQuad.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
 #include "engine/render/resource/TextureArrayManager.hpp"
+#include "engine/render/core/AdaptiveQualityController.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
 #include "engine/render/RenderConstants.hpp" 
@@ -325,9 +327,45 @@ struct AutoDegradeRuntimeState {
   double overBudgetSince = 0.0;
   double underBudgetSince = 0.0;
   double lastTransitionAt = 0.0;
+  uint64_t lastSampleFrameIndex = 0;
 };
 
 AutoDegradeRuntimeState g_autoDegradeState = {};
+
+NoMoreDay::render::core::AdaptiveQualityController g_adaptiveQualityController;
+bool g_adaptiveQualityConfigured = false;
+NoMoreDay::render::core::QualityTier g_adaptiveQualityTier =
+    NoMoreDay::render::core::QualityTier::Medium;
+
+void ConfigureAdaptiveQualityController(
+    const NoMoreDay::render::core::RenderConfig &config,
+    NoMoreDay::render::core::QualityTier tier) {
+  if (g_adaptiveQualityConfigured && g_adaptiveQualityTier == tier) {
+    return;
+  }
+
+  auto settings = config.adaptiveQuality;
+  const auto tierBudget =
+      NoMoreDay::render::core::QualityTierManager::GetAutoDegradeBudgetThresholds(
+          tier);
+  if (settings.downThresholdMs <= 0.0f) {
+    settings.downThresholdMs = tierBudget.degradeTriggerMs;
+  }
+  if (settings.upThresholdMs <= 0.0f) {
+    settings.upThresholdMs = tierBudget.recoverTriggerMs;
+  }
+  g_adaptiveQualityController.Configure(settings);
+  g_adaptiveQualityController.Reset(GetTime());
+  g_adaptiveQualityTier = tier;
+  g_adaptiveQualityConfigured = true;
+  LOG_INFO("AdaptiveQuality: configured enabled={} locked={} scale={:.3f} range=[{:.3f},{:.3f}] "
+           "downMs={:.3f} upMs={:.3f} cooldown={:.1f}s",
+           settings.dynamicResolutionEnabled ? 1 : 0,
+           settings.renderScaleLocked ? 1 : 0, settings.renderScale,
+           settings.minRenderScale, settings.maxRenderScale,
+           settings.downThresholdMs, settings.upThresholdMs,
+           settings.cooldownSeconds);
+}
 
 float PickPassCostMs(const NoMoreDay::render::debug::PassTimingStats &stats) {
   return (stats.gpuMeanMs > 0.0f) ? stats.gpuMeanMs : stats.cpuMeanMs;
@@ -375,14 +413,15 @@ std::string BuildPassTimingSummary(
   return oss.str();
 }
 
-void UpdateAutoDegradePolicy(
-    const std::array<NoMoreDay::render::debug::PassTimingStats,
-                     static_cast<size_t>(
-                         NoMoreDay::render::debug::RenderPassId::Count)>
-        &passStats,
-    double nowSeconds) {
+void UpdateAutoDegradePolicy(double nowSeconds) {
   auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
   if (!qualityManager.IsInitialized()) {
+    return;
+  }
+
+  const auto &config = qualityManager.GetConfig();
+  if (config.adaptiveQuality.dynamicResolutionEnabled &&
+      !config.adaptiveQuality.renderScaleLocked) {
     return;
   }
 
@@ -396,18 +435,32 @@ void UpdateAutoDegradePolicy(
     g_autoDegradeState.overBudgetSince = 0.0;
     g_autoDegradeState.underBudgetSince = 0.0;
     g_autoDegradeState.lastTransitionAt = nowSeconds;
+    g_autoDegradeState.lastSampleFrameIndex = 0;
     qualityManager.ResetAutoDegrade("tier_changed");
     return;
   }
 
-  const float frameMs = ComputeAggregateFrameCostMs(passStats);
-  const float budgetMs = ComputeAggregateBudgetMs(passStats);
+  const auto frameResult =
+      NoMoreDay::render::debug::GPUTimerQueryRing::Get().GetFrameResult();
+  if (frameResult.state != NoMoreDay::render::debug::QueryState::Valid ||
+      frameResult.frameIndex == 0 ||
+      frameResult.frameIndex == g_autoDegradeState.lastSampleFrameIndex) {
+    return;
+  }
+  g_autoDegradeState.lastSampleFrameIndex = frameResult.frameIndex;
+
+  const float frameMs = static_cast<float>(frameResult.gpuTimeMs);
+  const float budgetMs = thresholds.degradeTriggerMs;
   const bool overBudget = frameMs > thresholds.degradeTriggerMs;
   const bool underBudget = frameMs < thresholds.recoverTriggerMs;
   const bool cooldownReady =
       (nowSeconds - g_autoDegradeState.lastTransitionAt) >=
       static_cast<double>(thresholds.cooldownSeconds);
-  const std::string timingSummary = BuildPassTimingSummary(passStats);
+
+  std::string timingSummary = "frame_gpu_aggregate";
+  if (g_renderProfiler != nullptr) {
+    timingSummary = BuildPassTimingSummary(g_renderProfiler->GetAllStats());
+  }
 
   if (overBudget) {
     if (g_autoDegradeState.overBudgetSince <= 0.0) {
@@ -457,6 +510,46 @@ void UpdateAutoDegradePolicy(
 
   g_autoDegradeState.overBudgetSince = 0.0;
   g_autoDegradeState.underBudgetSince = 0.0;
+}
+
+void UpdateAdaptiveQualityPolicy(double nowSeconds) {
+  auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
+  if (!qualityManager.IsInitialized()) {
+    return;
+  }
+
+  const auto &config = qualityManager.GetConfig();
+  ConfigureAdaptiveQualityController(config, qualityManager.GetTier());
+  const auto frameResult =
+      NoMoreDay::render::debug::GPUTimerQueryRing::Get().GetFrameResult();
+  const double p95Ms =
+      NoMoreDay::render::debug::GPUTimerQueryRing::Get().GetValidFrameP95Ms();
+  const NoMoreDay::render::core::AdaptiveQualityGpuWindow sample = {
+      frameResult.state == NoMoreDay::render::debug::QueryState::Valid &&
+          p95Ms >= 0.0,
+      static_cast<float>(std::max(0.0, p95Ms)), frameResult.frameIndex};
+  const auto decision = g_adaptiveQualityController.Update(sample, nowSeconds);
+
+  if (decision.action ==
+      NoMoreDay::render::core::AdaptiveQualityAction::RequestFeatureDegrade) {
+    const float budgetMs = config.adaptiveQuality.downThresholdMs > 0.0f
+                               ? config.adaptiveQuality.downThresholdMs
+                               : NoMoreDay::render::core::QualityTierManager::
+                                     GetAutoDegradeBudgetThresholds(
+                                         qualityManager.GetTier())
+                                     .degradeTriggerMs;
+    qualityManager.IncreaseAutoDegradeLevel("drs_scale_floor",
+                                            static_cast<float>(p95Ms), budgetMs);
+  }
+
+  if (decision.action != NoMoreDay::render::core::AdaptiveQualityAction::Keep) {
+    LOG_INFO("AdaptiveQuality: action={} reason={} scale={:.3f}->{:.3f} "
+             "gpuP95Ms={:.3f} sampleFrame={}",
+             NoMoreDay::render::core::ToString(decision.action),
+             NoMoreDay::render::core::ToString(decision.reason),
+             decision.previousScale, decision.newScale, p95Ms,
+             decision.sampleFrameIndex);
+  }
 }
 
 Mesh &GetLabelQuadMesh() {
@@ -1362,6 +1455,28 @@ void ExecuteCompositePass(
 
 } // namespace
 
+RenderTargetExtent RenderSystem::GetRenderTargetExtent(int nativeWidth,
+                                                       int nativeHeight) {
+  const float scale = GetRenderScale();
+  RenderTargetExtent extent = {};
+  extent.scale = scale;
+  extent.width = std::max(1, static_cast<int>(std::lround(
+                                 static_cast<float>(nativeWidth) * scale)));
+  extent.height = std::max(1, static_cast<int>(std::lround(
+                                  static_cast<float>(nativeHeight) * scale)));
+  return extent;
+}
+
+float RenderSystem::GetRenderScale() {
+  return g_adaptiveQualityController.GetCurrentScale();
+}
+
+void RenderSystem::NotifyRenderTargetResize() {
+  if (g_adaptiveQualityConfigured) {
+    g_adaptiveQualityController.Reset(GetTime());
+  }
+}
+
 void RenderSystem::AddDistortionSource(float worldX, float worldY, float radius,
                                        float strength) {
   if (g_distortionPass == nullptr) {
@@ -1413,6 +1528,8 @@ void RenderSystem::Initialize() {
 
   auto &qualityManager = NoMoreDay::render::core::QualityTierManager::Get();
   qualityManager.Initialize("settings.json");
+  ConfigureAdaptiveQualityController(qualityManager.GetConfig(),
+                                     qualityManager.GetTier());
   qualityManager.SetV3ToggleCallback(
       [](bool enabled) { HandleV3RuntimeToggle(enabled); });
   NoMoreDay::render::MaterialManager::Get().Initialize();
@@ -1583,6 +1700,8 @@ void RenderSystem::Initialize() {
 }
 
 void RenderSystem::Shutdown() {
+  g_adaptiveQualityConfigured = false;
+  g_adaptiveQualityController.Configure({});
   if (s_labelShader.id != 0) {
     UnloadShader(s_labelShader);
     s_labelShader.id = 0;
@@ -2144,12 +2263,14 @@ void RenderSystem::render(entt::registry &registry,
   }
   graph.Build();
   graph.Execute(graphContext);
+  const double policyNow = GetTime();
+  UpdateAdaptiveQualityPolicy(policyNow);
+  UpdateAutoDegradePolicy(policyNow);
   if (graphContext.renderProfiler != nullptr) {
     graphContext.renderProfiler->EndFrame();
     graphContext.renderProfiler->UpdateStats();
 
     const auto &passStats = graphContext.renderProfiler->GetAllStats();
-    UpdateAutoDegradePolicy(passStats, GetTime());
 
     if (renderConfig.profilerHudEnabled) {
       static double s_lastProfilerLog = 0.0;
@@ -2172,6 +2293,19 @@ void RenderSystem::render(entt::registry &registry,
 
       NoMoreDay::render::debug::DrawProfilerHud(*graphContext.renderProfiler, 14.0f,
                                                  14.0f);
+      const auto drsScale = g_adaptiveQualityController.GetCurrentScale();
+      const auto drsSettings = g_adaptiveQualityController.GetSettings();
+      const auto frameState =
+          NoMoreDay::render::debug::GPUTimerQueryRing::Get().GetFrameResult();
+      DrawText(TextFormat("DRS: scale=%.3f enabled=%d locked=%d autoExp=%d "
+                          "GPUstate=%s p95=%.3f",
+                          drsScale, drsSettings.dynamicResolutionEnabled ? 1 : 0,
+                          drsSettings.renderScaleLocked ? 1 : 0,
+                          drsSettings.autoExposureEnabled ? 1 : 0,
+                          NoMoreDay::render::debug::ToQueryStateName(frameState.state),
+                          NoMoreDay::render::debug::GPUTimerQueryRing::Get()
+                              .GetValidFrameP95Ms()),
+               390, static_cast<int>(14.0f) + 18, 14, Color{180, 220, 255, 255});
     }
   }
 

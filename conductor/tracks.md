@@ -856,14 +856,14 @@ M0-A: gpu_production_hdr_gi_closure_20260726 (P0)
 > **Tasks**: 0/17
 > **Location**: [`conductor/tracks/gpu_jfa_incremental_update_20260726/`](./tracks/gpu_jfa_incremental_update_20260726/index.md)
 
-## [ ] Track M2-E: GPU Adaptive Quality Control (gpu_adaptive_quality_control_20260726)
+## [~] Track M2-E: GPU Adaptive Quality Control (gpu_adaptive_quality_control_20260726)
 
-> **Status**: 📋 Planned
+> **Status**: 🚧 In Progress
 > **Priority**: P2
 > **Type**: feature/quality
 > **Depends On**: `gpu_hardware_validation_gate_20260726`
 > **Focus**: 基于有效 GPU 样本的 DRS、原生 UI 合成与可配置 HDR 自动曝光。
-> **Tasks**: 0/18
+> **Tasks**: 11/18
 > **Location**: [`conductor/tracks/gpu_adaptive_quality_control_20260726/`](./tracks/gpu_adaptive_quality_control_20260726/index.md)
 
 ---

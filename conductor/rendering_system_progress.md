@@ -163,7 +163,7 @@
 | M0-C | `gpu_hardware_validation_gate_20260726` | P0 | ✅ Completed (🟢 GO) | Gameplay 完整链硬件 nightly/release gate (含真实离屏驱动/Valid Timing/1分钟长稳/100次Toggle) |
 | M1-D | `gpu_jfa_incremental_update_20260726` | P1 | ✅ Completed | 正确的 dirty-region JFA 增量更新 |
 
-| M2-E | `gpu_adaptive_quality_control_20260726` | P2 | 📋 Planned | DRS、原生 UI 合成、可配置曝光 |
+| M2-E | `gpu_adaptive_quality_control_20260726` | P2 | 🚧 In Progress | DRS 控制器 + 配置 + GPU 计时聚合 / Auto Exposure HDR pass 待实现 |
 
 ---
 

@@ -3,6 +3,8 @@
 #include <GLFW/glfw3.h>
 
 #include <chrono>
+#include <algorithm>
+#include <array>
 
 namespace NoMoreDay::render::debug {
 
@@ -15,8 +17,8 @@ static void *s_glGetQueryObjectiv = nullptr;
 static void *s_glGetQueryObjectui64v = nullptr;
 
 constexpr uint32_t kGLTimeElapsed = 0x88BF;
-constexpr uint32_t kGLQueryResultAvailable = 0x8887;
-constexpr uint32_t kGLQueryResult = 0x8886;
+constexpr uint32_t kGLQueryResultAvailable = 0x8867;
+constexpr uint32_t kGLQueryResult = 0x8866;
 
 double GetCurrentTimeMs() {
   using namespace std::chrono;
@@ -43,6 +45,11 @@ void GPUTimerQueryRing::Initialize() {
     m_ring[i] = {};
   }
   m_latestValidResults.clear();
+  m_latestFrameResult = {};
+  m_latestFrameResult.state = QueryState::Pending;
+  m_frameHistory = {};
+  m_frameHistoryCount = 0;
+  m_frameHistoryWriteIndex = 0;
   m_frameIndex = 0;
   m_currentRingIndex = 0;
   m_initialized = true;
@@ -67,19 +74,33 @@ void GPUTimerQueryRing::Shutdown() {
     m_ring[i] = {};
   }
   m_latestValidResults.clear();
+  m_latestFrameResult = {};
+  m_latestFrameResult.state = QueryState::Pending;
+  m_frameHistory = {};
+  m_frameHistoryCount = 0;
+  m_frameHistoryWriteIndex = 0;
   m_initialized = false;
 }
 
 void GPUTimerQueryRing::BeginFrame() {
   if (!m_initialized) Initialize();
 
+  PollReadyQueries();
+
   m_frameIndex++;
   m_currentRingIndex = m_frameIndex % kRingDepth;
   auto &frameSlot = m_ring[m_currentRingIndex];
   frameSlot.frameIndex = m_frameIndex;
   frameSlot.isComplete = false;
-
-  PollReadyQueries();
+  frameSlot.aggregatePublished = false;
+  for (auto &[passId, slot] : frameSlot.slots) {
+    (void)passId;
+    slot.active = false;
+    slot.touchedThisFrame = false;
+    slot.resultReady = false;
+    slot.resultValid = false;
+    slot.gpuDurationMs = 0.0;
+  }
 }
 
 void GPUTimerQueryRing::EndFrame() {
@@ -97,6 +118,10 @@ void GPUTimerQueryRing::BeginPass(uint32_t passId) {
   slot.passId = passId;
   slot.frameIndex = m_frameIndex;
   slot.active = true;
+  slot.touchedThisFrame = true;
+  slot.resultReady = false;
+  slot.resultValid = false;
+  slot.gpuDurationMs = 0.0;
   slot.cpuStartTimeMs = GetCurrentTimeMs();
 
   if (s_glGenQueries && s_glBeginQuery) {
@@ -137,7 +162,7 @@ void GPUTimerQueryRing::PollReadyQueries() {
     if (frameSlot.frameIndex == 0) continue;
 
     for (auto &[passId, slot] : frameSlot.slots) {
-      if (!slot.active) continue;
+      if (!slot.touchedThisFrame || slot.resultReady || !slot.active) continue;
 
       GPUTimerResult res = {};
       res.cpuTimeMs = slot.cpuDurationMs;
@@ -154,16 +179,54 @@ void GPUTimerQueryRing::PollReadyQueries() {
           reinterpret_cast<FnGetUi64v>(s_glGetQueryObjectui64v)(slot.queryBegin, kGLQueryResult, &timeNs);
           res.gpuTimeMs = static_cast<double>(timeNs) / 1000000.0;
           res.state = QueryState::Valid;
-          m_latestValidResults[passId] = res;
+          slot.gpuDurationMs = res.gpuTimeMs;
+          slot.resultValid = true;
+          if (passId == kFramePassId) {
+            m_latestFrameResult = res;
+          } else {
+            m_latestValidResults[passId] = res;
+          }
           slot.active = false;
+          slot.resultReady = true;
         } else {
           res.state = QueryState::Pending;
         }
       } else {
         res.gpuTimeMs = slot.cpuDurationMs;
         res.state = QueryState::CpuFallback;
-        m_latestValidResults[passId] = res;
         slot.active = false;
+        slot.resultReady = true;
+      }
+    }
+
+    if (frameSlot.isComplete && !frameSlot.aggregatePublished) {
+      bool hasGpuPass = false;
+      bool allPassesReady = true;
+      bool allPassesValid = true;
+      double aggregateGpuMs = 0.0;
+      for (const auto &[passId, slot] : frameSlot.slots) {
+        if (!slot.touchedThisFrame || passId == kFramePassId) {
+          continue;
+        }
+        hasGpuPass = true;
+        allPassesReady = allPassesReady && slot.resultReady;
+        allPassesValid = allPassesValid && slot.resultValid;
+        aggregateGpuMs += slot.gpuDurationMs;
+      }
+      if (hasGpuPass && allPassesReady) {
+        m_latestFrameResult = {};
+        m_latestFrameResult.gpuTimeMs = aggregateGpuMs;
+        m_latestFrameResult.state =
+            allPassesValid ? QueryState::Valid : QueryState::CpuFallback;
+        m_latestFrameResult.frameIndex = frameSlot.frameIndex;
+        if (allPassesValid) {
+          m_frameHistory[m_frameHistoryWriteIndex] = m_latestFrameResult;
+          m_frameHistoryWriteIndex =
+              (m_frameHistoryWriteIndex + 1) % m_frameHistory.size();
+          m_frameHistoryCount =
+              std::min(m_frameHistoryCount + 1, m_frameHistory.size());
+        }
+        frameSlot.aggregatePublished = true;
       }
     }
   }
@@ -190,6 +253,23 @@ double GPUTimerQueryRing::GetValidGpuTimeMs(uint32_t passId) const {
     return res.gpuTimeMs;
   }
   return -1.0;
+}
+
+double GPUTimerQueryRing::GetValidFrameP95Ms() const {
+  if (m_frameHistoryCount == 0) {
+    return -1.0;
+  }
+
+  std::array<double, 120> values = {};
+  for (size_t i = 0; i < m_frameHistoryCount; ++i) {
+    values[i] = m_frameHistory[i].gpuTimeMs;
+  }
+  std::sort(values.begin(), values.begin() +
+                              static_cast<std::ptrdiff_t>(m_frameHistoryCount));
+  const size_t index = std::min(
+      m_frameHistoryCount - 1,
+      (m_frameHistoryCount * 95u) / 100u);
+  return values[index];
 }
 
 } // namespace NoMoreDay::render::debug

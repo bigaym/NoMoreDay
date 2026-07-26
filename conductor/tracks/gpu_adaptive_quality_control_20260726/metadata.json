@@ -1,0 +1,14 @@
+{
+  "id": "gpu_adaptive_quality_control_20260726",
+  "title": "GPU Adaptive Quality Control",
+  "type": "feature/quality",
+  "status": "in_progress",
+  "created": "2026-07-26T00:00:00+08:00",
+  "updated": "2026-07-26T20:30:00+08:00",
+  "priority": "P2",
+  "phase": "GPU Production Closure M2",
+  "master_spec": "conductor/specs/rendering_engine_v5_master_spec.md",
+  "depends_on": ["gpu_hardware_validation_gate_20260726"],
+  "phases": { "total": 4, "completed": 2 },
+  "tasks": { "total": 18, "completed": 11 }
+}

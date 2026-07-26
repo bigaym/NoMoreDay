@@ -34,6 +34,12 @@ struct OffscreenTargetDescriptor {
     bool ownsFramebuffer = false; // RenderSystem does not own/free external target
 };
 
+struct RenderTargetExtent {
+    int width = 0;
+    int height = 0;
+    float scale = 1.0f;
+};
+
 class RenderSystem {
 public:
     struct ScopedTargetStateGuard {
@@ -58,6 +64,12 @@ public:
     
     static void Initialize();
     static void Shutdown();
+
+    // World/HDR targets may be reduced while screen-space UI remains native.
+    [[nodiscard]] static RenderTargetExtent GetRenderTargetExtent(int nativeWidth,
+                                                                  int nativeHeight);
+    [[nodiscard]] static float GetRenderScale();
+    static void NotifyRenderTargetResize();
 
     // Screen Shake API
     static void AddScreenShake(float intensity);

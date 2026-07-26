@@ -93,7 +93,9 @@ GameplayState::GameplayState(StateManager &stateManager, SharedContext &context,
 void GameplayState::OnEnter() {
   LOG_INFO("Entering GameplayState...");
   
-  m_sceneRT = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
+  const auto sceneExtent = RenderSystem::GetRenderTargetExtent(
+      GetScreenWidth(), GetScreenHeight());
+  m_sceneRT = LoadRenderTexture(sceneExtent.width, sceneExtent.height);
 
   // Clear any residual particles from previous states (e.g. Main Menu)
   systems::GPUParticleSystem::Get().Clear();
@@ -1060,11 +1062,25 @@ void GameplayState::OnRender() {
       }
     }
 
-    // Note: y-flip the texture because RenderTexture is y-up in OpenGL
-    DrawTextureRec(m_sceneRT.texture, { 0, 0, (float)m_sceneRT.texture.width, -(float)m_sceneRT.texture.height }, { 0, 0 }, WHITE);
+    // Keep the world target scaled while presenting it at native resolution.
+    const Rectangle sceneSource = {
+        0.0f, 0.0f, static_cast<float>(m_sceneRT.texture.width),
+        -static_cast<float>(m_sceneRT.texture.height)};
+    const Rectangle sceneTarget = {0.0f, 0.0f,
+                                   static_cast<float>(GetScreenWidth()),
+                                   static_cast<float>(GetScreenHeight())};
+    DrawTexturePro(m_sceneRT.texture, sceneSource, sceneTarget, {0.0f, 0.0f},
+                   0.0f, WHITE);
     EndShaderMode();
   } else {
-    DrawTextureRec(m_sceneRT.texture, { 0, 0, (float)m_sceneRT.texture.width, -(float)m_sceneRT.texture.height }, { 0, 0 }, WHITE);
+    const Rectangle sceneSource = {
+        0.0f, 0.0f, static_cast<float>(m_sceneRT.texture.width),
+        -static_cast<float>(m_sceneRT.texture.height)};
+    const Rectangle sceneTarget = {0.0f, 0.0f,
+                                   static_cast<float>(GetScreenWidth()),
+                                   static_cast<float>(GetScreenHeight())};
+    DrawTexturePro(m_sceneRT.texture, sceneSource, sceneTarget, {0.0f, 0.0f},
+                   0.0f, WHITE);
   }
 
   // 3. Render UI (Directly to screen)
@@ -1428,14 +1444,17 @@ void GameplayState::RenderMapAffixOverlay() {
 }
 
 void GameplayState::UpdateSceneRT() {
-  if (m_sceneRT.texture.width != GetScreenWidth() ||
-      m_sceneRT.texture.height != GetScreenHeight()) {
+  const auto sceneExtent = RenderSystem::GetRenderTargetExtent(
+      GetScreenWidth(), GetScreenHeight());
+  if (m_sceneRT.texture.width != sceneExtent.width ||
+      m_sceneRT.texture.height != sceneExtent.height) {
     if (m_sceneRT.id != 0) {
       UnloadRenderTexture(m_sceneRT);
     }
-    m_sceneRT = LoadRenderTexture(GetScreenWidth(), GetScreenHeight());
-    LOG_INFO("GameplayState: Resized Scene RenderTexture to {}x{}",
-             GetScreenWidth(), GetScreenHeight());
+    m_sceneRT = LoadRenderTexture(sceneExtent.width, sceneExtent.height);
+    RenderSystem::NotifyRenderTargetResize();
+    LOG_INFO("GameplayState: Resized Scene RenderTexture to {}x{} (scale={:.3f})",
+             sceneExtent.width, sceneExtent.height, sceneExtent.scale);
   }
 }
 

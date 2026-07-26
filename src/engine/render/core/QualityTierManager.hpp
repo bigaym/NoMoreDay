@@ -82,6 +82,9 @@ public:
 
   QualityTier GetTier() const { return m_tier; }
   const RenderConfig &GetConfig() const { return m_config; }
+  const AdaptiveQualitySettings &GetAdaptiveQualitySettings() const {
+    return m_config.adaptiveQuality;
+  }
   const std::string &GetRendererString() const { return m_rendererString; }
   bool IsInitialized() const { return m_initialized; }
   bool IsTierOverriddenBySettings() const { return m_fromSettings; }
@@ -128,6 +131,8 @@ private:
   void ApplyAutoDegradeLevel();
   bool TryLoadV3ConfigFromSettings(const std::string &settingsPath,
                                    RenderConfig &outConfig) const;
+  bool TryLoadAdaptiveQualityConfigFromSettings(
+      const std::string &settingsPath, AdaptiveQualitySettings &outSettings) const;
   std::optional<bool>
   TryLoadGpuTextEnabledOverride(const std::string &settingsPath) const;
   std::optional<bool>
@@ -146,6 +151,7 @@ private:
   RenderConfig m_baseConfig = {};
   RenderConfig m_config = {};
   RenderConfig m_v3Config = {};
+  AdaptiveQualitySettings m_adaptiveQualitySettings = {};
   std::optional<bool> m_gpuTextEnabledOverride = std::nullopt;
   std::optional<bool> m_gpuLootEnabledOverride = std::nullopt;
   std::optional<bool> m_giEnabledOverride = std::nullopt;

@@ -37,6 +37,7 @@ constexpr const char *kRenderGpuTextKey = "gpuText";
 constexpr const char *kRenderGpuLootKey = "gpuLoot";
 constexpr const char *kRenderGiKey = "gi";
 constexpr const char *kRenderFluidKey = "fluid";
+constexpr const char *kRenderAdaptiveQualityKey = "adaptiveQuality";
 constexpr const char *kRenderV3FlatEnabledKey = "render.v3.enabled";
 constexpr const char *kRenderGpuTextFlatEnabledKey = "render.gpuText.enabled";
 constexpr const char *kRenderGpuLootFlatEnabledKey = "render.gpuLoot.enabled";
@@ -144,6 +145,26 @@ void WriteV3ConfigToJson(nlohmann::json &jsonSettings, const RenderConfig &confi
   fluid["maxParticles"] = config.fluidMaxParticles;
   jsonSettings[kRenderFluidFlatEnabledKey] = config.fluidEnabled;
   jsonSettings[kRenderKey][kRenderFluidKey] = std::move(fluid);
+
+  const auto &adaptive = config.adaptiveQuality;
+  nlohmann::json adaptiveQuality = nlohmann::json::object();
+  adaptiveQuality["dynamicResolutionEnabled"] = adaptive.dynamicResolutionEnabled;
+  adaptiveQuality["renderScaleLocked"] = adaptive.renderScaleLocked;
+  adaptiveQuality["renderScale"] = adaptive.renderScale;
+  adaptiveQuality["minRenderScale"] = adaptive.minRenderScale;
+  adaptiveQuality["maxRenderScale"] = adaptive.maxRenderScale;
+  adaptiveQuality["renderScaleStep"] = adaptive.renderScaleStep;
+  adaptiveQuality["downThresholdMs"] = adaptive.downThresholdMs;
+  adaptiveQuality["upThresholdMs"] = adaptive.upThresholdMs;
+  adaptiveQuality["sustainSeconds"] = adaptive.sustainSeconds;
+  adaptiveQuality["cooldownSeconds"] = adaptive.cooldownSeconds;
+  adaptiveQuality["autoExposureEnabled"] = adaptive.autoExposureEnabled;
+  adaptiveQuality["exposure"] = adaptive.exposure;
+  adaptiveQuality["minExposure"] = adaptive.minExposure;
+  adaptiveQuality["maxExposure"] = adaptive.maxExposure;
+  adaptiveQuality["brightenRate"] = adaptive.brightenRate;
+  adaptiveQuality["darkenRate"] = adaptive.darkenRate;
+  jsonSettings[kRenderKey][kRenderAdaptiveQualityKey] = std::move(adaptiveQuality);
 }
 
 bool ParseTierString(std::string value, QualityTier &outTier) {
@@ -165,6 +186,28 @@ bool ParseTierString(std::string value, QualityTier &outTier) {
     return true;
   }
   return false;
+}
+
+void WriteAdaptiveQualityToJson(nlohmann::json &jsonSettings,
+                                 const AdaptiveQualitySettings &settings) {
+  nlohmann::json adaptive = nlohmann::json::object();
+  adaptive["dynamicResolutionEnabled"] = settings.dynamicResolutionEnabled;
+  adaptive["renderScaleLocked"] = settings.renderScaleLocked;
+  adaptive["renderScale"] = settings.renderScale;
+  adaptive["minRenderScale"] = settings.minRenderScale;
+  adaptive["maxRenderScale"] = settings.maxRenderScale;
+  adaptive["renderScaleStep"] = settings.renderScaleStep;
+  adaptive["downThresholdMs"] = settings.downThresholdMs;
+  adaptive["upThresholdMs"] = settings.upThresholdMs;
+  adaptive["sustainSeconds"] = settings.sustainSeconds;
+  adaptive["cooldownSeconds"] = settings.cooldownSeconds;
+  adaptive["autoExposureEnabled"] = settings.autoExposureEnabled;
+  adaptive["exposure"] = settings.exposure;
+  adaptive["minExposure"] = settings.minExposure;
+  adaptive["maxExposure"] = settings.maxExposure;
+  adaptive["brightenRate"] = settings.brightenRate;
+  adaptive["darkenRate"] = settings.darkenRate;
+  jsonSettings["render"]["adaptiveQuality"] = std::move(adaptive);
 }
 
 QualityTier MinTier(QualityTier lhs, QualityTier rhs) {
@@ -296,6 +339,7 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_fromSettings = false;
   m_autoDegradeLevel = 0;
   m_v3Config = {};
+  m_adaptiveQualitySettings = {};
   m_gpuTextEnabledOverride = std::nullopt;
   m_gpuLootEnabledOverride = std::nullopt;
   m_giEnabledOverride = std::nullopt;
@@ -332,6 +376,7 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_gpuLootEnabledOverride = TryLoadGpuLootEnabledOverride(settingsPath);
   m_giEnabledOverride = TryLoadGiEnabledOverride(settingsPath);
   m_fluidEnabledOverride = TryLoadFluidEnabledOverride(settingsPath);
+  TryLoadAdaptiveQualityConfigFromSettings(settingsPath, m_adaptiveQualitySettings);
   UpdateConfigForTier(chosenTier);
   m_initialized = true;
 
@@ -732,6 +777,108 @@ bool QualityTierManager::TryLoadV3ConfigFromSettings(
   return !hasInvalidValue;
 }
 
+bool QualityTierManager::TryLoadAdaptiveQualityConfigFromSettings(
+    const std::string &settingsPath,
+    AdaptiveQualitySettings &outSettings) const {
+  if (!std::filesystem::exists(settingsPath)) {
+    return false;
+  }
+
+  nlohmann::json jsonSettings;
+  try {
+    std::ifstream file(settingsPath);
+    if (!file.is_open()) {
+      return false;
+    }
+    file >> jsonSettings;
+  } catch (...) {
+    LOG_WARN("QualityTierManager: failed to parse {} for adaptive quality config",
+             settingsPath);
+    return false;
+  }
+
+  if (!jsonSettings.contains(kRenderKey) ||
+      !jsonSettings[kRenderKey].is_object() ||
+      !jsonSettings[kRenderKey].contains(kRenderAdaptiveQualityKey) ||
+      !jsonSettings[kRenderKey][kRenderAdaptiveQualityKey].is_object()) {
+    return false;
+  }
+
+  const auto &node = jsonSettings[kRenderKey][kRenderAdaptiveQualityKey];
+  bool hasInvalidValue = false;
+  auto readBool = [&](const char *key, bool &target) {
+    if (!node.contains(key)) {
+      return;
+    }
+    const auto &value = node[key];
+    if (!value.is_boolean()) {
+      LOG_WARN("QualityTierManager: {} invalid render.adaptiveQuality.{} (expected bool)",
+               settingsPath, key);
+      hasInvalidValue = true;
+      return;
+    }
+    target = value.get<bool>();
+  };
+  auto readFloat = [&](const char *key, float &target, float minValue,
+                       float maxValue) {
+    if (!node.contains(key)) {
+      return;
+    }
+    const auto &value = node[key];
+    if (!value.is_number()) {
+      LOG_WARN(
+          "QualityTierManager: {} invalid render.adaptiveQuality.{} (expected number)",
+          settingsPath, key);
+      hasInvalidValue = true;
+      return;
+    }
+    const float parsed = value.get<float>();
+    if (!std::isfinite(parsed) || parsed < minValue || parsed > maxValue) {
+      LOG_WARN("QualityTierManager: {} out-of-range render.adaptiveQuality.{}={:.3f}",
+               settingsPath, key, parsed);
+      hasInvalidValue = true;
+      return;
+    }
+    target = parsed;
+  };
+
+  readBool("dynamicResolutionEnabled", outSettings.dynamicResolutionEnabled);
+  readBool("renderScaleLocked", outSettings.renderScaleLocked);
+  readFloat("renderScale", outSettings.renderScale, 0.1f, 1.0f);
+  readFloat("minRenderScale", outSettings.minRenderScale, 0.1f, 1.0f);
+  readFloat("maxRenderScale", outSettings.maxRenderScale, 0.1f, 1.0f);
+  readFloat("renderScaleStep", outSettings.renderScaleStep, 0.001f, 1.0f);
+  readFloat("downThresholdMs", outSettings.downThresholdMs, 0.0f, 1000.0f);
+  readFloat("upThresholdMs", outSettings.upThresholdMs, 0.0f, 1000.0f);
+  readFloat("sustainSeconds", outSettings.sustainSeconds, 0.0f, 600.0f);
+  readFloat("cooldownSeconds", outSettings.cooldownSeconds, 0.0f, 3600.0f);
+  readBool("autoExposureEnabled", outSettings.autoExposureEnabled);
+  readFloat("exposure", outSettings.exposure, 0.001f, 32.0f);
+  readFloat("minExposure", outSettings.minExposure, 0.001f, 32.0f);
+  readFloat("maxExposure", outSettings.maxExposure, 0.001f, 32.0f);
+  readFloat("brightenRate", outSettings.brightenRate, 0.0f, 100.0f);
+  readFloat("darkenRate", outSettings.darkenRate, 0.0f, 100.0f);
+
+  if (outSettings.minRenderScale > outSettings.maxRenderScale) {
+    LOG_WARN("QualityTierManager: {} has inverted adaptive render scale bounds",
+             settingsPath);
+    outSettings = AdaptiveQualitySettings{};
+    hasInvalidValue = true;
+  } else if (outSettings.exposure < outSettings.minExposure ||
+             outSettings.exposure > outSettings.maxExposure ||
+             outSettings.minExposure > outSettings.maxExposure) {
+    LOG_WARN("QualityTierManager: {} has invalid adaptive exposure bounds",
+             settingsPath);
+    outSettings = AdaptiveQualitySettings{};
+    hasInvalidValue = true;
+  }
+
+  outSettings.renderScale = std::clamp(outSettings.renderScale,
+                                       outSettings.minRenderScale,
+                                       outSettings.maxRenderScale);
+  return !hasInvalidValue;
+}
+
 std::optional<bool>
 QualityTierManager::TryLoadGpuTextEnabledOverride(
     const std::string &settingsPath) const {
@@ -947,6 +1094,7 @@ void QualityTierManager::ApplyV3ConfigOverrides(RenderConfig &config) const {
   config.pomEnabled = m_v3Config.pomEnabled;
   config.pomLayers = m_v3Config.pomLayers;
   config.v3Enabled = m_v3Config.v3Enabled;
+  config.adaptiveQuality = m_adaptiveQualitySettings;
 }
 
 void QualityTierManager::PersistSelectionMetadata(
@@ -1010,6 +1158,7 @@ void QualityTierManager::PersistSelectionMetadata(
                            {"valid", caps.valid}};
   jsonSettings["renderQualityAutoDetect"] = std::move(detail);
   WriteV3ConfigToJson(jsonSettings, m_v3Config);
+  WriteAdaptiveQualityToJson(jsonSettings, m_adaptiveQualitySettings);
 
   try {
     std::ofstream out(settingsPath, std::ios::trunc);

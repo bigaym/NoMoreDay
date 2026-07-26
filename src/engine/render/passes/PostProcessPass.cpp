@@ -400,7 +400,7 @@ void PostProcessPass::ExecuteTonemap(const graph::RenderContext &context) {
     SetShaderValue(m_tonemapShader, m_bloomIntensityLoc, &config.bloomIntensity,
                    SHADER_UNIFORM_FLOAT);
   }
-  const float exposure = 1.0f;
+  const float exposure = config.adaptiveQuality.exposure;
   if (m_tonemapExposureLoc >= 0) {
     SetShaderValue(m_tonemapShader, m_tonemapExposureLoc, &exposure,
                    SHADER_UNIFORM_FLOAT);
