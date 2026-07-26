@@ -38,7 +38,7 @@ void main() {
 
     float maskValue = texture(uMaskTexture, uv).r;
     if (maskValue > 0.5) {
-        distanceValue = -distanceValue;
+        distanceValue = -max(distanceValue, 0.001);
     }
 
     imageStore(uDistanceOut, pixel, vec4(distanceValue, 0.0, 0.0, 1.0));

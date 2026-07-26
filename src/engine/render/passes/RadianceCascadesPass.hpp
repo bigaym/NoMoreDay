@@ -32,6 +32,12 @@ public:
   [[nodiscard]] uint32_t GetEmissiveTexture() const noexcept {
     return m_emissiveCombined.colorTexture;
   }
+  [[nodiscard]] int GetEmissiveWidth() const noexcept {
+    return m_emissiveCombined.width;
+  }
+  [[nodiscard]] int GetEmissiveHeight() const noexcept {
+    return m_emissiveCombined.height;
+  }
   [[nodiscard]] bool HasRadianceMap() const noexcept {
     return m_cascadeRadiance[0].IsValid();
   }

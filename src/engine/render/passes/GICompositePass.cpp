@@ -1,4 +1,5 @@
 #include "engine/render/passes/GICompositePass.hpp"
+#include "engine/render/passes/OccluderExtractPass.hpp"
 
 #include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
@@ -74,6 +75,8 @@ bool GICompositePass::Initialize(ResourceManager &resources) {
   m_temporalWeightLoc = rlGetLocationUniform(m_compositeShader.id, "uTemporalWeight");
   m_giIntensityLoc = rlGetLocationUniform(m_compositeShader.id, "uGiIntensity");
   m_resetHistoryLoc = rlGetLocationUniform(m_compositeShader.id, "uResetHistory");
+  m_cameraDeltaUvLoc = rlGetLocationUniform(m_compositeShader.id, "uCameraDeltaUv");
+  m_zoomRatioLoc = rlGetLocationUniform(m_compositeShader.id, "uZoomRatio");
 
   m_initialized = true;
   return true;
@@ -89,6 +92,8 @@ void GICompositePass::Shutdown() {
   m_temporalWeightLoc = -1;
   m_giIntensityLoc = -1;
   m_resetHistoryLoc = -1;
+  m_cameraDeltaUvLoc = -1;
+  m_zoomRatioLoc = -1;
   m_cachedWidth = 0;
   m_cachedHeight = 0;
   m_initialized = false;
@@ -96,6 +101,7 @@ void GICompositePass::Shutdown() {
   m_readHistoryA = true;
   m_prevCameraValid = false;
   m_prevCameraTarget = {0.0f, 0.0f};
+  m_prevCameraZoom = 0.0f;
   m_prevLightSignature = 0u;
 }
 
@@ -192,6 +198,8 @@ void GICompositePass::Execute(graph::RenderContext &context) {
   const bool lightChanged = m_historyValid && (lightSignature != m_prevLightSignature);
 
   float temporalWeight = std::clamp(config.giTemporalWeight, 0.55f, 0.98f);
+  Vector2 cameraDeltaUv = {0.0f, 0.0f};
+  float zoomRatio = 1.0f;
   if (m_prevCameraValid) {
     const Vector2 delta = {
         context.camera->target.x - m_prevCameraTarget.x,
@@ -204,9 +212,24 @@ void GICompositePass::Execute(graph::RenderContext &context) {
     } else {
       temporalWeight = std::min(0.97f, temporalWeight + 0.02f);
     }
+
+    const float zoom = std::max(context.camera->zoom, 0.0001f);
+    const float prevZoom = std::max(m_prevCameraZoom, 0.0001f);
+    zoomRatio = zoom / prevZoom;
+
+    const float worldWidth = static_cast<float>(width) / zoom;
+    const float worldHeight = static_cast<float>(height) / zoom;
+    cameraDeltaUv.x = (worldWidth > 1e-4f) ? (delta.x / worldWidth) : 0.0f;
+    cameraDeltaUv.y = (worldHeight > 1e-4f) ? (delta.y / worldHeight) : 0.0f;
   }
 
-  const bool resetHistory = !m_historyValid || lightChanged;
+  const uint64_t occluderVersion =
+      (m_occluderExtractPass != nullptr) ? m_occluderExtractPass->GetMaskVersion() : 0u;
+  const bool occluderChanged =
+      m_historyValid && (m_prevOccluderMaskVersion != 0u) &&
+      (occluderVersion != m_prevOccluderMaskVersion);
+
+  const bool resetHistory = !m_historyValid || lightChanged || occluderChanged;
   if (resetHistory) {
     temporalWeight = 0.0f;
   }
@@ -238,6 +261,13 @@ void GICompositePass::Execute(graph::RenderContext &context) {
   const int resetHistoryInt = resetHistory ? 1 : 0;
   if (m_resetHistoryLoc >= 0) {
     rlSetUniform(m_resetHistoryLoc, &resetHistoryInt, RL_SHADER_UNIFORM_INT, 1);
+  }
+  if (m_cameraDeltaUvLoc >= 0) {
+    const float deltaArray[2] = {cameraDeltaUv.x, cameraDeltaUv.y};
+    rlSetUniform(m_cameraDeltaUvLoc, deltaArray, RL_SHADER_UNIFORM_VEC2, 1);
+  }
+  if (m_zoomRatioLoc >= 0) {
+    rlSetUniform(m_zoomRatioLoc, &zoomRatio, RL_SHADER_UNIFORM_FLOAT, 1);
   }
 
   constexpr uint32_t kSceneInBinding = 0u;
@@ -280,13 +310,17 @@ void GICompositePass::Execute(graph::RenderContext &context) {
 
   if (resetHistory && lightChanged) {
     LOG_INFO("GICompositePass: reset temporal history due light signature change");
+  } else if (resetHistory && occluderChanged) {
+    LOG_INFO("GICompositePass: reset temporal history due occluder mask version change ({})", occluderVersion);
   }
 
   m_historyValid = true;
   m_readHistoryA = !m_readHistoryA;
   m_prevCameraValid = true;
   m_prevCameraTarget = context.camera->target;
+  m_prevCameraZoom = context.camera->zoom;
   m_prevLightSignature = lightSignature;
+  m_prevOccluderMaskVersion = occluderVersion;
   core::ApplyRlglFlushTemplate();
 }
 

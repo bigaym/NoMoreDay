@@ -493,101 +493,18 @@ bool FluidSimulationPass::DispatchIntegrate(const graph::RenderContext &context,
 
 void FluidSimulationPass::InjectEmissive(const graph::RenderContext &context,
                                          const uint32_t particleCount) {
-  if (m_emissiveInjectShader.id == 0 || context.giEmissiveTexture == 0u ||
-      particleCount == 0u || context.camera == nullptr) {
-    return;
-  }
-
-  rlEnableShader(m_emissiveInjectShader.id);
-  const int particleCountInt = static_cast<int>(particleCount);
-  if (m_emissiveParticleCountLoc >= 0) {
-    rlSetUniform(m_emissiveParticleCountLoc, &particleCountInt, RL_SHADER_UNIFORM_INT,
-                 1);
-  }
-  const int resolution[2] = {std::max(1, context.giEmissiveWidth),
-                             std::max(1, context.giEmissiveHeight)};
-  if (m_emissiveResolutionLoc >= 0) {
-    rlSetUniform(m_emissiveResolutionLoc, resolution, RL_SHADER_UNIFORM_IVEC2, 1);
-  }
-
-  const float zoom = std::max(context.camera->zoom, 0.0001f);
-  const float cameraOffset[2] = {
-      context.camera->target.x - (context.camera->offset.x / zoom),
-      context.camera->target.y - (context.camera->offset.y / zoom),
-  };
-  const float screenSize[2] = {static_cast<float>(m_cachedWidth) / zoom,
-                               static_cast<float>(m_cachedHeight) / zoom};
-  if (m_emissiveCameraOffsetLoc >= 0) {
-    rlSetUniform(m_emissiveCameraOffsetLoc, cameraOffset, RL_SHADER_UNIFORM_VEC2, 1);
-  }
-  if (m_emissiveScreenSizeLoc >= 0) {
-    rlSetUniform(m_emissiveScreenSizeLoc, screenSize, RL_SHADER_UNIFORM_VEC2, 1);
-  }
-  const float threshold = 0.55f;
-  if (m_emissiveThresholdLoc >= 0) {
-    rlSetUniform(m_emissiveThresholdLoc, &threshold, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-
-  utils::GPUUtils::BindBufferBase(0u, CurrentParticleBufferId());
-  utils::GPUUtils::BindImageTexture(RenderConstants::V5GI::kEmissiveImageBinding,
-                                    context.giEmissiveTexture, 0, false, 0,
-                                    kGLReadWrite, kGLRgba16f);
-  utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
-  rlDisableShader();
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  utils::GPUUtils::MemoryBarrier(barrierBits);
+  // SPH Isolation: Fluid simulation is prohibited from writing to production GI resources.
+  (void)context;
+  (void)particleCount;
+  return;
 }
 
 void FluidSimulationPass::InjectOccluderMask(const graph::RenderContext &context,
                                              const uint32_t particleCount) {
-  if (m_occluderInjectShader.id == 0 || m_occluderExtractPass == nullptr ||
-      !m_occluderExtractPass->HasOccluderMask() || particleCount == 0u ||
-      context.camera == nullptr) {
-    return;
-  }
-
-  rlEnableShader(m_occluderInjectShader.id);
-  const int particleCountInt = static_cast<int>(particleCount);
-  if (m_occluderParticleCountLoc >= 0) {
-    rlSetUniform(m_occluderParticleCountLoc, &particleCountInt, RL_SHADER_UNIFORM_INT,
-                 1);
-  }
-  const int resolution[2] = {std::max(1, m_occluderExtractPass->GetMaskWidth()),
-                             std::max(1, m_occluderExtractPass->GetMaskHeight())};
-  if (m_occluderResolutionLoc >= 0) {
-    rlSetUniform(m_occluderResolutionLoc, resolution, RL_SHADER_UNIFORM_IVEC2, 1);
-  }
-
-  const float zoom = std::max(context.camera->zoom, 0.0001f);
-  const float cameraOffset[2] = {
-      context.camera->target.x - (context.camera->offset.x / zoom),
-      context.camera->target.y - (context.camera->offset.y / zoom),
-  };
-  const float screenSize[2] = {static_cast<float>(m_cachedWidth) / zoom,
-                               static_cast<float>(m_cachedHeight) / zoom};
-  if (m_occluderCameraOffsetLoc >= 0) {
-    rlSetUniform(m_occluderCameraOffsetLoc, cameraOffset, RL_SHADER_UNIFORM_VEC2, 1);
-  }
-  if (m_occluderScreenSizeLoc >= 0) {
-    rlSetUniform(m_occluderScreenSizeLoc, screenSize, RL_SHADER_UNIFORM_VEC2, 1);
-  }
-  const float densityThreshold = 1.10f;
-  if (m_occluderDensityThresholdLoc >= 0) {
-    rlSetUniform(m_occluderDensityThresholdLoc, &densityThreshold,
-                 RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-
-  utils::GPUUtils::BindBufferBase(0u, CurrentParticleBufferId());
-  utils::GPUUtils::BindImageTexture(
-      RenderConstants::V5GI::kOccluderMaskImageBinding,
-      m_occluderExtractPass->GetOccluderMaskTexture(), 0, false, 0, kGLWriteOnly,
-      kGLR8);
-  utils::GPUUtils::DispatchComputeNoBarrier(DivUp(particleCount, kLocalSize), 1u, 1u);
-  rlDisableShader();
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               kTextureFetchBarrierBit;
-  utils::GPUUtils::MemoryBarrier(barrierBits);
+  // SPH Isolation: Fluid simulation is prohibited from writing to production GI resources.
+  (void)context;
+  (void)particleCount;
+  return;
 }
 
 void FluidSimulationPass::RenderParticles(const graph::RenderContext &context,

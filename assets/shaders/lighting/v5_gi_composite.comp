@@ -13,6 +13,8 @@ uniform ivec2 uRadianceResolution;
 uniform float uTemporalWeight;
 uniform float uGiIntensity;
 uniform int uResetHistory;
+uniform vec2 uCameraDeltaUv;
+uniform float uZoomRatio;
 
 ivec2 resolveRadiancePixel(ivec2 scenePixel) {
     vec2 uv = (vec2(scenePixel) + vec2(0.5)) / vec2(uSceneResolution);
@@ -29,11 +31,19 @@ void main() {
     vec4 scene = imageLoad(uSceneIn, pixel);
     ivec2 radiancePixel = resolveRadiancePixel(pixel);
     vec3 currentGi = imageLoad(uRadianceIn, radiancePixel).rgb * max(uGiIntensity, 0.0);
-    vec3 previousGi = imageLoad(uHistoryIn, pixel).rgb;
 
-    float temporal = clamp(uTemporalWeight, 0.0, 0.98);
-    vec3 blendedGi =
-        (uResetHistory != 0) ? currentGi : mix(currentGi, previousGi, temporal);
+    vec2 currentUv = (vec2(pixel) + vec2(0.5)) / vec2(uSceneResolution);
+    // 2D Camera Reprojection: Reproject current UV to previous frame UV
+    vec2 prevUv = (currentUv - vec2(0.5)) * max(uZoomRatio, 0.001) + vec2(0.5) - uCameraDeltaUv;
+    ivec2 prevPixel = ivec2(prevUv * vec2(uSceneResolution));
+
+    bool prevValid = (uResetHistory == 0) &&
+                     prevUv.x >= 0.0 && prevUv.y >= 0.0 &&
+                     prevUv.x < 1.0 && prevUv.y < 1.0;
+
+    vec3 previousGi = prevValid ? imageLoad(uHistoryIn, clamp(prevPixel, ivec2(0), uSceneResolution - ivec2(1))).rgb : currentGi;
+    float temporal = prevValid ? clamp(uTemporalWeight, 0.0, 0.98) : 0.0;
+    vec3 blendedGi = mix(currentGi, previousGi, temporal);
     vec3 finalColor = scene.rgb + blendedGi;
 
     imageStore(uHistoryOut, pixel, vec4(blendedGi, 1.0));

@@ -727,6 +727,7 @@ Track 0: v4_preflight_v3_closure_20260219 (Week 0-1)
 > **主控规格书**: [`rendering_engine_v5_master_spec.md`](./specs/rendering_engine_v5_master_spec.md)  
 > **设计文档**: [`GPU_Rendering_System_V5.md`](../设计文档/特效和UI/GPU_Rendering_System_V5.md)
 > **2026-02-19 全面回顾与重规划**: [`v5_rendering_review_20260219.md`](./tracks/v5_rendering_review_20260219.md)
+> **2026-07-26 生产架构审查**: [`gpu-rendering-engine-audit-review.md`](../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)
 
 ```
 V4 验收完成 (v4_validation_release_gate_20260219)
@@ -798,6 +799,70 @@ V4 验收完成 (v4_validation_release_gate_20260219)
 > **Tasks**: 31/31  
 > **Location**: [`conductor/archive/v5_validation_release_gate_20260219/`](./archive/v5_validation_release_gate_20260219/index.md)
 > **Release Decision**: `GO (V5 core GI released)`; optional SPH branch stays `NO-GO`.
+
+---
+
+## GPU 渲染引擎生产整改 — Track 依赖图（2026-07-26）
+
+> 历史 V5 Core GO 不等同于 Gameplay production GO。production 发布证据以 `gpu_hardware_validation_gate_20260726` 为准；详见[架构审查](../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)。
+
+```
+M0-A: gpu_production_hdr_gi_closure_20260726 (P0)
+  -> M0-B: gpu_rendergraph_resource_foundation_20260726 (P0)
+    -> M0-C: gpu_hardware_validation_gate_20260726 (P0)
+      -> M1-D: gpu_jfa_incremental_update_20260726 (P1)
+      -> M2-E: gpu_adaptive_quality_control_20260726 (P2)
+```
+
+## [x] Track M0-A: GPU Production HDR/GI Closure (gpu_production_hdr_gi_closure_20260726)
+
+> **Status**: ✅ Complete
+> **Priority**: P0
+> **Type**: bugfix/integration
+> **Depends On**: historical V5 Core tracks
+> **Focus**: 离屏 Gameplay HDR/GI 完整链、GI 失效/SDF/history 正确性、VFX 生产者语义、SPH NO-GO 默认路由。
+> **Tasks**: 20/20
+> **Location**: [`conductor/tracks/gpu_production_hdr_gi_closure_20260726/`](./tracks/gpu_production_hdr_gi_closure_20260726/index.md)
+
+## [ ] Track M0-B: GPU RenderGraph and Resource Foundation (gpu_rendergraph_resource_foundation_20260726)
+
+> **Status**: 📋 Planned
+> **Priority**: P0
+> **Type**: refactor/foundation
+> **Depends On**: `gpu_production_hdr_gi_closure_20260726`
+> **Focus**: typed resource、compiled plan、transition/barrier、资源台账、有效 GPU 计时、ABI/binding/reload/capability 治理。
+> **Tasks**: 0/25
+> **Location**: [`conductor/tracks/gpu_rendergraph_resource_foundation_20260726/`](./tracks/gpu_rendergraph_resource_foundation_20260726/index.md)
+
+## [ ] Track M0-C: GPU Hardware Validation Gate (gpu_hardware_validation_gate_20260726)
+
+> **Status**: 📋 Planned
+> **Priority**: P0
+> **Type**: quality/release-gate
+> **Depends On**: `gpu_production_hdr_gi_closure_20260726`, `gpu_rendergraph_resource_foundation_20260726`
+> **Focus**: Gameplay 离屏链、GI 正确性、有效 GPU timing、全资源台账、长稳/黑帧/回退的 hardware nightly 与 production GO。
+> **Tasks**: 0/18
+> **Location**: [`conductor/tracks/gpu_hardware_validation_gate_20260726/`](./tracks/gpu_hardware_validation_gate_20260726/index.md)
+
+## [ ] Track M1-D: GPU JFA Incremental Update Closure (gpu_jfa_incremental_update_20260726)
+
+> **Status**: 📋 Planned
+> **Priority**: P1
+> **Type**: feature/performance-correctness
+> **Depends On**: `gpu_rendergraph_resource_foundation_20260726`, `gpu_hardware_validation_gate_20260726`
+> **Focus**: 正确性优先的 dirty-region JFA、精确对照与 full fallback，消除历史增量更新证据漂移。
+> **Tasks**: 0/17
+> **Location**: [`conductor/tracks/gpu_jfa_incremental_update_20260726/`](./tracks/gpu_jfa_incremental_update_20260726/index.md)
+
+## [ ] Track M2-E: GPU Adaptive Quality Control (gpu_adaptive_quality_control_20260726)
+
+> **Status**: 📋 Planned
+> **Priority**: P2
+> **Type**: feature/quality
+> **Depends On**: `gpu_hardware_validation_gate_20260726`
+> **Focus**: 基于有效 GPU 样本的 DRS、原生 UI 合成与可配置 HDR 自动曝光。
+> **Tasks**: 0/18
+> **Location**: [`conductor/tracks/gpu_adaptive_quality_control_20260726/`](./tracks/gpu_adaptive_quality_control_20260726/index.md)
 
 ---
 

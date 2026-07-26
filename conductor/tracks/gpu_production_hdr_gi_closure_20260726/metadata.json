@@ -1,0 +1,18 @@
+{
+  "id": "gpu_production_hdr_gi_closure_20260726",
+  "title": "GPU Production HDR/GI Closure",
+  "type": "bugfix/integration",
+  "status": "completed",
+  "created": "2026-07-26T00:00:00+08:00",
+  "updated": "2026-07-26T00:00:00+08:00",
+  "priority": "P0",
+  "phase": "GPU Production Closure M0",
+  "master_spec": "conductor/specs/rendering_engine_v5_master_spec.md",
+  "depends_on": [
+    "v5_jfa_distance_field_20260219",
+    "v5_radiance_cascades_gi_20260219",
+    "v5_validation_release_gate_20260219"
+  ],
+  "phases": { "total": 5, "completed": 5 },
+  "tasks": { "total": 20, "completed": 20 }
+}

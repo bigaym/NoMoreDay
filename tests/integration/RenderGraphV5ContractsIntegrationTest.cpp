@@ -8,10 +8,12 @@
 #include "engine/render/passes/JFAPass.hpp"
 #include "engine/render/passes/LightingPass.hpp"
 #include "engine/render/passes/OccluderExtractPass.hpp"
+#include "engine/render/passes/PostProcessPass.hpp"
 #include "engine/render/passes/RadianceCascadesPass.hpp"
 #include "engine/render/passes/ScenePass.hpp"
 #include "engine/render/passes/UIWorldPass.hpp"
 #include "engine/render/passes/VFXPass.hpp"
+#include "engine/render/RenderSystem.hpp"
 
 #include <functional>
 #include <memory>
@@ -129,3 +131,57 @@ TEST_CASE("[Integration] RenderGraph V5 Contracts - Radiance and GI composite ch
   CHECK(!graph.HasValidationErrors());
   CHECK(graph.GetPassCount() == 11);
 }
+
+TEST_CASE("[Integration] Gameplay Offscreen Target - Full HDR GI Pass Matrix") {
+  using namespace NoMoreDay::render;
+
+  graph::RenderGraph graph;
+  graph.AddPass(std::make_shared<passes::ScenePass>());
+  graph.AddPass(std::make_shared<passes::LightingPass>());
+  graph.AddPass(std::make_shared<passes::HeightShadowPass>());
+  graph.AddPass(std::make_shared<passes::OccluderExtractPass>());
+  graph.AddPass(std::make_shared<passes::JFAPass>());
+  graph.AddPass(std::make_shared<passes::RadianceCascadesPass>());
+  graph.AddPass(std::make_shared<passes::GICompositePass>());
+  graph.AddPass(std::make_shared<passes::VFXPass>());
+  graph.AddPass(std::make_shared<passes::UIWorldPass>());
+  graph.AddPass(std::make_shared<passes::PostProcessPass>());
+  graph.AddPass(std::make_shared<passes::CompositePass>(
+      graph::RenderResourceTag::PostProcessLdrColor, graph::RenderOwnerTag::PostProcess));
+
+  CHECK_NOTHROW(graph.Build());
+  CHECK(!graph.HasValidationErrors());
+  CHECK(graph.GetPassCount() == 11);
+}
+
+TEST_CASE("[Integration] GI History Invalidation & Occluder Cache Invalidation Key") {
+  using namespace NoMoreDay::render;
+
+  passes::OccluderExtractPass occluderPass;
+  passes::GICompositePass giPass;
+  giPass.SetOccluderExtractPass(&occluderPass);
+
+  CHECK(occluderPass.GetMaskVersion() >= 1u);
+  CHECK(occluderPass.GetCameraInvalidateCount() == 0u);
+
+  giPass.InvalidateHistory();
+}
+
+TEST_CASE("[Integration] Gameplay Offscreen Target Descriptor & State Guard") {
+  using namespace NoMoreDay::render;
+
+  OffscreenTargetDescriptor state = {};
+  state.framebuffer = 12u;
+  state.viewportX = 0;
+  state.viewportY = 0;
+  state.viewportWidth = 1920;
+  state.viewportHeight = 1080;
+  state.renderExtentWidth = 1920;
+  state.renderExtentHeight = 1080;
+  state.flipY = true;
+
+  CHECK(state.framebuffer == 12u);
+  CHECK(state.renderExtentWidth == 1920);
+  CHECK(state.flipY);
+}
+

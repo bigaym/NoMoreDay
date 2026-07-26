@@ -1,4 +1,4 @@
-﻿#include "engine/render/RenderSystem.hpp"
+#include "engine/render/RenderSystem.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "engine/physics/SIMDSpatialGrid.hpp"
 #include "engine/physics/SpatialGrid.hpp"
@@ -226,22 +226,23 @@ void HandleV3RuntimeToggle(bool v3Enabled) {
   previous = v3Enabled;
 }
 
-struct CompositeTargetState {
-  uint32_t framebuffer = 0;
-  int viewportX = 0;
-  int viewportY = 0;
-  int viewportWidth = 0;
-  int viewportHeight = 0;
-};
+using CompositeTargetState = OffscreenTargetDescriptor;
 
 CompositeTargetState CaptureCompositeTargetState() {
   CompositeTargetState state = {};
   state.viewportWidth = GetScreenWidth();
   state.viewportHeight = GetScreenHeight();
+  state.renderExtentWidth = GetScreenWidth();
+  state.renderExtentHeight = GetScreenHeight();
+  state.ownsFramebuffer = false;
+  state.flipY = false;
+  state.internalFormat = 0;
 
 #if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_43)
   constexpr uint32_t kGLFramebufferBinding = 0x8CA6;
   constexpr uint32_t kGLViewport = 0x0BA2;
+  constexpr uint32_t kGLScissorTest = 0x0C11;
+  constexpr uint32_t kGLScissorBox = 0x0C10;
   GLint boundFramebuffer = 0;
   GLint viewport[4] = {0, 0, state.viewportWidth, state.viewportHeight};
   glGetIntegerv(kGLFramebufferBinding, &boundFramebuffer);
@@ -251,6 +252,55 @@ CompositeTargetState CaptureCompositeTargetState() {
   state.viewportY = viewport[1];
   state.viewportWidth = viewport[2];
   state.viewportHeight = viewport[3];
+
+  if (state.framebuffer != 0u) {
+    constexpr uint32_t kGLFramebuffer = 0x8D40;
+    constexpr uint32_t kGLColorAttachment0 = 0x8CE0;
+    constexpr uint32_t kGLFramebufferAttachmentObjectWidth = 0x8D24;
+    constexpr uint32_t kGLFramebufferAttachmentObjectHeight = 0x8D25;
+    constexpr uint32_t kGLFramebufferAttachmentComponentType = 0x825D;
+    typedef void (APIENTRY * PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIV)(uint32_t target, uint32_t attachment, uint32_t pname, int *params);
+    static PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIV pfnGetParam = nullptr;
+    if (!pfnGetParam) {
+      pfnGetParam = reinterpret_cast<PFNGLGETFRAMEBUFFERATTACHMENTPARAMETERIV>(
+          glfwGetProcAddress("glGetFramebufferAttachmentParameteriv"));
+    }
+
+    GLint width = 0, height = 0, compType = 0;
+    if (pfnGetParam) {
+      pfnGetParam(kGLFramebuffer, kGLColorAttachment0,
+                  kGLFramebufferAttachmentObjectWidth, &width);
+      pfnGetParam(kGLFramebuffer, kGLColorAttachment0,
+                  kGLFramebufferAttachmentObjectHeight, &height);
+      pfnGetParam(kGLFramebuffer, kGLColorAttachment0,
+                  kGLFramebufferAttachmentComponentType, &compType);
+    }
+    if (width > 0 && height > 0) {
+      state.renderExtentWidth = width;
+      state.renderExtentHeight = height;
+    } else {
+      state.renderExtentWidth = state.viewportWidth;
+      state.renderExtentHeight = state.viewportHeight;
+    }
+    state.internalFormat = static_cast<uint32_t>(compType);
+    state.flipY = true;
+  } else {
+    state.renderExtentWidth = state.viewportWidth;
+    state.renderExtentHeight = state.viewportHeight;
+    state.flipY = false;
+  }
+
+  GLboolean scissorEnabled = GL_FALSE;
+  glGetBooleanv(kGLScissorTest, &scissorEnabled);
+  state.scissorEnabled = (scissorEnabled == GL_TRUE);
+  if (state.scissorEnabled) {
+    GLint scissorBox[4] = {0, 0, 0, 0};
+    glGetIntegerv(kGLScissorBox, scissorBox);
+    state.scissorX = scissorBox[0];
+    state.scissorY = scissorBox[1];
+    state.scissorWidth = scissorBox[2];
+    state.scissorHeight = scissorBox[3];
+  }
 #endif
 
   return state;
@@ -1327,6 +1377,27 @@ void RenderSystem::AddDistortionSource(float worldX, float worldY, float radius,
   g_distortionPass->AddDistortionSource(worldX, worldY, radius, strength);
 }
 
+RenderSystem::ScopedTargetStateGuard::ScopedTargetStateGuard() {
+  target = CaptureCompositeTargetState();
+}
+
+RenderSystem::ScopedTargetStateGuard::~ScopedTargetStateGuard() {
+#if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_43)
+  constexpr uint32_t kGLFramebuffer = 0x8D40;
+  constexpr uint32_t kGLScissorTest = 0x0C11;
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, target.framebuffer);
+  NoMoreDay::utils::GPUUtils::Viewport(target.viewportX, target.viewportY,
+                                       target.viewportWidth, target.viewportHeight);
+  if (target.scissorEnabled) {
+    glEnable(kGLScissorTest);
+    glScissor(target.scissorX, target.scissorY, target.scissorWidth,
+              target.scissorHeight);
+  } else {
+    glDisable(kGLScissorTest);
+  }
+#endif
+}
+
 void RenderSystem::Initialize() {
 #if defined(NDEBUG)
   constexpr bool kHardFailGpuAbiMismatch = false;
@@ -1371,6 +1442,7 @@ void RenderSystem::Initialize() {
   g_radianceCascadesPass =
       std::make_shared<NoMoreDay::render::passes::RadianceCascadesPass>();
   g_giCompositePass = std::make_shared<NoMoreDay::render::passes::GICompositePass>();
+  g_giCompositePass->SetOccluderExtractPass(g_occluderExtractPass.get());
   g_fluidSimulationPass =
       std::make_shared<NoMoreDay::render::passes::FluidSimulationPass>();
   g_fluidSimulationPass->SetOccluderExtractPass(g_occluderExtractPass.get());
@@ -1603,6 +1675,9 @@ void RenderSystem::Shutdown() {
 void RenderSystem::render(entt::registry &registry,
                           const NoMoreDay::SharedContext &context,
                           const Camera2D &camera) {
+  RenderSystem::ScopedTargetStateGuard targetGuard;
+  const OffscreenTargetDescriptor &compositeTarget = targetGuard.target;
+
   RenderFrameData frame{registry, context, camera};
   frame.labelBuffer = &s_labelBuffer;
   frame.glyphBuffer = &s_glyphBuffer;
@@ -1614,7 +1689,6 @@ void RenderSystem::render(entt::registry &registry,
   frame.labelInstanceBuffer = s_labelInstanceBuffer.get();
   frame.glyphInstanceBuffer = s_glyphInstanceBuffer.get();
   BuildRenderFrameData(frame);
-  const CompositeTargetState compositeTarget = CaptureCompositeTargetState();
 
   g_transientPool.BeginFrame();
   const auto &renderConfig =
@@ -1670,8 +1744,9 @@ void RenderSystem::render(entt::registry &registry,
   // contamination when called inside BeginMode2D.
   const bool hdrPipelineRequested = IsHdrScenePipelineRequested(renderConfig);
   const bool isOffscreenCompositeTarget = (compositeTarget.framebuffer != 0u);
-  const bool useHdrSceneBuffer = hdrPipelineRequested;
-  const bool offscreenV3SafeMode = isOffscreenCompositeTarget;
+  bool useHdrSceneBuffer = hdrPipelineRequested;
+  // GPU Production HDR/GI Closure: Offscreen target (m_sceneRT) runs full HDR/GI pass matrix.
+  const bool offscreenV3SafeMode = false;
   static bool s_prevUseHdrSceneBuffer = false;
   static bool s_prevHdrPipelineRequested = false;
   static uint32_t s_prevCompositeFramebuffer = 0;
@@ -1697,11 +1772,10 @@ void RenderSystem::render(entt::registry &registry,
     s_prevCompositeFramebuffer = compositeTarget.framebuffer;
     s_prevOffscreenV3SafeMode = offscreenV3SafeMode;
   }
-  if (offscreenV3SafeMode) {
+  if (isOffscreenCompositeTarget) {
     LOG_LIMITED_INFO(
         3.0f,
-        "RenderSystem: offscreen V3 safe mode active (skip color-rewrite passes to "
-        "avoid black-frame regression)");
+        "RenderSystem: gameplay offscreen target active, running full HDR/GI pass matrix");
   }
   const bool useDistortionPass =
       useHdrSceneBuffer && !offscreenV3SafeMode && renderConfig.distortionEnabled &&
@@ -1720,85 +1794,95 @@ void RenderSystem::render(entt::registry &registry,
   // resources alive and release them in RenderSystem::Shutdown().
 
   if (useHdrSceneBuffer && NoMoreDay::utils::GPUUtils::IsInitialized()) {
-    const int screenWidth = GetScreenWidth();
-    const int screenHeight = GetScreenHeight();
+    const int targetWidth = std::max(1, (isOffscreenCompositeTarget && compositeTarget.renderExtentWidth > 0)
+                                            ? compositeTarget.renderExtentWidth
+                                            : GetScreenWidth());
+    const int targetHeight = std::max(1, (isOffscreenCompositeTarget && compositeTarget.renderExtentHeight > 0)
+                                             ? compositeTarget.renderExtentHeight
+                                             : GetScreenHeight());
     if (!s_hdrSceneBuffer.IsValid()) {
       s_hdrSceneBuffer = NoMoreDay::render::resources::FramebufferManager::Create(
-          screenWidth, screenHeight, 0x881A, false); // GL_RGBA16F
+          targetWidth, targetHeight, 0x881A, false); // GL_RGBA16F
       if (s_hdrSceneBuffer.IsValid()) {
         const double approxMb =
-            (static_cast<double>(screenWidth) * static_cast<double>(screenHeight) *
+            (static_cast<double>(targetWidth) * static_cast<double>(targetHeight) *
              8.0) /
             (1024.0 * 1024.0);
         LOG_INFO("RenderSystem: created HDR scene buffer {}x{} (~{:.2f} MB)",
-                 screenWidth, screenHeight, approxMb);
+                 targetWidth, targetHeight, approxMb);
+      } else {
+        LOG_LIMITED_WARN(
+            3.0f,
+            "RenderSystem: failed to allocate HDR scene buffer {}x{}, falling back to direct scene path",
+            targetWidth, targetHeight);
+        useHdrSceneBuffer = false;
       }
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
-        g_lightingPass->OnResize(screenWidth, screenHeight);
+        g_lightingPass->OnResize(targetWidth, targetHeight);
       }
       if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
-        g_heightShadowPass->OnResize(screenWidth, screenHeight);
+        g_heightShadowPass->OnResize(targetWidth, targetHeight);
       }
       if (g_occluderExtractPass && g_jfaPass && g_radianceCascadesPass &&
           g_giCompositePass && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled) {
-        g_occluderExtractPass->OnResize(screenWidth, screenHeight);
-        g_jfaPass->OnResize(screenWidth, screenHeight);
-        g_radianceCascadesPass->OnResize(screenWidth, screenHeight);
-        g_giCompositePass->OnResize(screenWidth, screenHeight);
+        g_occluderExtractPass->OnResize(targetWidth, targetHeight);
+        g_jfaPass->OnResize(targetWidth, targetHeight);
+        g_radianceCascadesPass->OnResize(targetWidth, targetHeight);
+        g_giCompositePass->OnResize(targetWidth, targetHeight);
       }
       if (g_fluidSimulationPass && s_hdrSceneBuffer.IsValid() &&
           renderConfig.fluidEnabled) {
-        g_fluidSimulationPass->OnResize(screenWidth, screenHeight);
+        g_fluidSimulationPass->OnResize(targetWidth, targetHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowBuildPass->OnResize(screenWidth, screenHeight);
+        g_shadowBuildPass->OnResize(targetWidth, targetHeight);
       }
       if (g_shadowResolvePass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowResolvePass->OnResize(screenWidth, screenHeight);
+        g_shadowResolvePass->OnResize(targetWidth, targetHeight);
       }
       if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
-        g_volumetricPass->OnResize(screenWidth, screenHeight);
+        g_volumetricPass->OnResize(targetWidth, targetHeight);
       }
       NoMoreDay::render::TextureArrayManager::Get().RebuildForResize(
-          screenWidth, screenHeight);
-    } else if (s_hdrSceneBuffer.width != screenWidth ||
-               s_hdrSceneBuffer.height != screenHeight) {
+          targetWidth, targetHeight);
+    } else if (s_hdrSceneBuffer.width != targetWidth ||
+               s_hdrSceneBuffer.height != targetHeight) {
       NoMoreDay::render::resources::FramebufferManager::Resize(
-          s_hdrSceneBuffer, screenWidth, screenHeight);
+          s_hdrSceneBuffer, targetWidth, targetHeight);
       const double approxMb =
-          (static_cast<double>(screenWidth) * static_cast<double>(screenHeight) *
+          (static_cast<double>(targetWidth) * static_cast<double>(targetHeight) *
            8.0) /
           (1024.0 * 1024.0);
       LOG_INFO("RenderSystem: resized HDR scene buffer {}x{} (~{:.2f} MB)",
-               screenWidth, screenHeight, approxMb);
+               targetWidth, targetHeight, approxMb);
       if (g_lightingPass && s_hdrSceneBuffer.IsValid()) {
-        g_lightingPass->OnResize(screenWidth, screenHeight);
+        g_lightingPass->OnResize(targetWidth, targetHeight);
       }
       if (g_heightShadowPass && s_hdrSceneBuffer.IsValid()) {
-        g_heightShadowPass->OnResize(screenWidth, screenHeight);
+        g_heightShadowPass->OnResize(targetWidth, targetHeight);
       }
       if (g_occluderExtractPass && g_jfaPass && g_radianceCascadesPass &&
           g_giCompositePass && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled) {
-        g_occluderExtractPass->OnResize(screenWidth, screenHeight);
-        g_jfaPass->OnResize(screenWidth, screenHeight);
-        g_radianceCascadesPass->OnResize(screenWidth, screenHeight);
-        g_giCompositePass->OnResize(screenWidth, screenHeight);
+        g_occluderExtractPass->OnResize(targetWidth, targetHeight);
+        g_jfaPass->OnResize(targetWidth, targetHeight);
+        g_radianceCascadesPass->OnResize(targetWidth, targetHeight);
+        g_giCompositePass->OnResize(targetWidth, targetHeight);
       }
       if (g_fluidSimulationPass && s_hdrSceneBuffer.IsValid() &&
           renderConfig.fluidEnabled) {
-        g_fluidSimulationPass->OnResize(screenWidth, screenHeight);
+        g_fluidSimulationPass->OnResize(targetWidth, targetHeight);
       }
       if (g_shadowBuildPass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowBuildPass->OnResize(screenWidth, screenHeight);
+        g_shadowBuildPass->OnResize(targetWidth, targetHeight);
       }
       if (g_shadowResolvePass && s_hdrSceneBuffer.IsValid()) {
-        g_shadowResolvePass->OnResize(screenWidth, screenHeight);
+        g_shadowResolvePass->OnResize(targetWidth, targetHeight);
       }
       if (g_volumetricPass && s_hdrSceneBuffer.IsValid() && useVolumetricPass) {
-        g_volumetricPass->OnResize(screenWidth, screenHeight);
+        g_volumetricPass->OnResize(targetWidth, targetHeight);
       }
       NoMoreDay::render::TextureArrayManager::Get().RebuildForResize(
-          screenWidth, screenHeight);
+          targetWidth, targetHeight);
     }
   }
 
@@ -2027,15 +2111,33 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.hdrSceneBuffer =
       useHdrSceneBuffer ? s_hdrSceneBuffer
                         : NoMoreDay::render::resources::FramebufferHandle{};
-  graphContext.giDistanceFieldTexture = 0u;
-  graphContext.giDistanceFieldWidth = 0;
-  graphContext.giDistanceFieldHeight = 0;
-  graphContext.giEmissiveTexture = 0u;
-  graphContext.giEmissiveWidth = 0;
-  graphContext.giEmissiveHeight = 0;
-  graphContext.giRadianceTexture = 0u;
-  graphContext.giRadianceWidth = 0;
-  graphContext.giRadianceHeight = 0;
+  if (g_jfaPass != nullptr && g_jfaPass->HasDistanceField()) {
+    graphContext.giDistanceFieldTexture = g_jfaPass->GetDistanceFieldTexture();
+    graphContext.giDistanceFieldWidth = g_jfaPass->GetDistanceFieldWidth();
+    graphContext.giDistanceFieldHeight = g_jfaPass->GetDistanceFieldHeight();
+  } else {
+    graphContext.giDistanceFieldTexture = 0u;
+    graphContext.giDistanceFieldWidth = 0;
+    graphContext.giDistanceFieldHeight = 0;
+  }
+  if (g_radianceCascadesPass != nullptr && g_radianceCascadesPass->GetEmissiveTexture() != 0u) {
+    graphContext.giEmissiveTexture = g_radianceCascadesPass->GetEmissiveTexture();
+    graphContext.giEmissiveWidth = g_radianceCascadesPass->GetEmissiveWidth();
+    graphContext.giEmissiveHeight = g_radianceCascadesPass->GetEmissiveHeight();
+  } else {
+    graphContext.giEmissiveTexture = 0u;
+    graphContext.giEmissiveWidth = 0;
+    graphContext.giEmissiveHeight = 0;
+  }
+  if (g_radianceCascadesPass != nullptr && g_radianceCascadesPass->HasRadianceMap()) {
+    graphContext.giRadianceTexture = g_radianceCascadesPass->GetRadianceTexture();
+    graphContext.giRadianceWidth = g_radianceCascadesPass->GetRadianceWidth();
+    graphContext.giRadianceHeight = g_radianceCascadesPass->GetRadianceHeight();
+  } else {
+    graphContext.giRadianceTexture = 0u;
+    graphContext.giRadianceWidth = 0;
+    graphContext.giRadianceHeight = 0;
+  }
 
   if (graphContext.renderProfiler != nullptr) {
     graphContext.renderProfiler->BeginFrame();

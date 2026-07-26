@@ -1403,8 +1403,8 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
     m_baseConfig.giSdfUpdateInterval = 1;
     m_baseConfig.giIntensity = 1.0f;
     m_baseConfig.giHolographicEnabled = false;
-    m_baseConfig.fluidEnabled = true;
-    m_baseConfig.fluidMaxParticles = 10000;
+    m_baseConfig.fluidEnabled = false;
+    m_baseConfig.fluidMaxParticles = 0;
     m_baseConfig.clusteredLightingEnabled = true;
     m_baseConfig.clusteredLightingV4Enabled = true;
     m_baseConfig.heightShadowEnabled = true;
@@ -1441,15 +1441,20 @@ void QualityTierManager::UpdateConfigForTier(QualityTier tier) {
       }
     }
   }
+#if defined(NDEBUG)
+  // Shipped Release builds strictly enforce fluidEnabled=false
+  m_baseConfig.fluidEnabled = false;
+  m_baseConfig.fluidMaxParticles = 0;
+#else
   if (m_fluidEnabledOverride.has_value()) {
     m_baseConfig.fluidEnabled = m_fluidEnabledOverride.value();
     if (!m_baseConfig.fluidEnabled) {
       m_baseConfig.fluidMaxParticles = 0;
     } else if (m_baseConfig.fluidMaxParticles == 0) {
-      m_baseConfig.fluidMaxParticles =
-          (tier == QualityTier::Ultra) ? 10000u : 5000u;
+      m_baseConfig.fluidMaxParticles = (tier == QualityTier::Ultra) ? 10000u : 5000u;
     }
   }
+#endif
 
   ApplyV3ConfigOverrides(m_baseConfig);
   ApplyTierShadowPolicy(m_baseConfig, tier);

@@ -50,6 +50,12 @@ public:
   [[nodiscard]] uint64_t GetStaticRebuildCount() const noexcept {
     return m_staticRebuildCount;
   }
+  [[nodiscard]] uint64_t GetCameraInvalidateCount() const noexcept {
+    return m_cameraInvalidateCount;
+  }
+  [[nodiscard]] uint64_t GetMaskVersion() const noexcept {
+    return m_maskVersion;
+  }
   [[nodiscard]] const std::string &GetLastFailureReason() const noexcept {
     return m_lastFailureReason;
   }
@@ -100,6 +106,12 @@ private:
   uint64_t m_lastStaticSignature = 0;
   uint64_t m_lastDynamicSignature = 0;
   uint64_t m_staticRebuildCount = 0;
+  Vector2 m_lastCameraTarget = {0.0f, 0.0f};
+  float m_lastCameraZoom = 0.0f;
+  int m_lastViewportWidth = 0;
+  int m_lastViewportHeight = 0;
+  uint64_t m_cameraInvalidateCount = 0;
+  uint64_t m_maskVersion = 1;
 
   bool m_maskChangedThisFrame = false;
   bool m_staticRebuiltThisFrame = false;

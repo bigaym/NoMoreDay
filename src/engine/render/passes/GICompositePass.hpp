@@ -10,6 +10,8 @@ class ResourceManager;
 
 namespace NoMoreDay::render::passes {
 
+class OccluderExtractPass;
+
 class GICompositePass final : public graph::RenderPass {
 public:
   GICompositePass();
@@ -23,6 +25,9 @@ public:
   void Shutdown();
   void OnResize(int width, int height);
   void InvalidateHistory() noexcept { m_historyValid = false; }
+  void SetOccluderExtractPass(const OccluderExtractPass *pass) noexcept {
+    m_occluderExtractPass = pass;
+  }
 
 private:
   bool EnsureResources(int width, int height);
@@ -35,6 +40,8 @@ private:
   int m_temporalWeightLoc = -1;
   int m_giIntensityLoc = -1;
   int m_resetHistoryLoc = -1;
+  int m_cameraDeltaUvLoc = -1;
+  int m_zoomRatioLoc = -1;
 
   resources::FramebufferHandle m_outputScene = {};
   resources::FramebufferHandle m_historyA = {};
@@ -47,7 +54,10 @@ private:
   bool m_readHistoryA = true;
   bool m_prevCameraValid = false;
   Vector2 m_prevCameraTarget = {0.0f, 0.0f};
+  float m_prevCameraZoom = 0.0f;
   uint64_t m_prevLightSignature = 0u;
+  const OccluderExtractPass *m_occluderExtractPass = nullptr;
+  uint64_t m_prevOccluderMaskVersion = 0u;
 };
 
 } // namespace NoMoreDay::render::passes

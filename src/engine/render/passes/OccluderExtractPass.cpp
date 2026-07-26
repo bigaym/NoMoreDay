@@ -400,8 +400,18 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
   }
   m_occluderCount = stats.totalCount;
 
-  const bool staticChanged = stats.staticSignature != m_lastStaticSignature;
-  const bool dynamicChanged = stats.dynamicSignature != m_lastDynamicSignature;
+  const bool cameraChanged = (context.camera == nullptr) ||
+                             (context.camera->target.x != m_lastCameraTarget.x ||
+                              context.camera->target.y != m_lastCameraTarget.y ||
+                              context.camera->zoom != m_lastCameraZoom ||
+                              width != m_lastViewportWidth ||
+                              height != m_lastViewportHeight);
+  if (cameraChanged) {
+    ++m_cameraInvalidateCount;
+  }
+
+  const bool staticChanged = (stats.staticSignature != m_lastStaticSignature) || cameraChanged;
+  const bool dynamicChanged = (stats.dynamicSignature != m_lastDynamicSignature) || cameraChanged;
   const bool firstFrame = (m_frameIndex <= 1u);
 
   if (firstFrame || staticChanged) {
@@ -429,10 +439,17 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
       return;
     }
     m_maskChangedThisFrame = true;
+    ++m_maskVersion;
   }
 
   m_lastStaticSignature = stats.staticSignature;
   m_lastDynamicSignature = stats.dynamicSignature;
+  if (context.camera != nullptr) {
+    m_lastCameraTarget = context.camera->target;
+    m_lastCameraZoom = context.camera->zoom;
+  }
+  m_lastViewportWidth = width;
+  m_lastViewportHeight = height;
 
   if (m_debugVisualizationEnabled && (m_frameIndex % 120u) == 0u) {
     LOG_INFO(

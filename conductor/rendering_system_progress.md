@@ -145,12 +145,24 @@
 
 | # | Phase | 名称 | 周期 | 状态 | 对应 Track | Tasks | 关键产出 |
 |---|---|---|---|---|---|---:|---|
-| 6 | V5-A | JFA Distance Field | Week 0-3 | ✅ Completed | `v5_jfa_distance_field_20260219` | 22/22 | JFA 距离场、OccluderExtract、增量更新（performance 非阻塞项挂接 BUG-20260219-004） |
-| 7 | V5-A/B | Radiance Cascades GI | Week 3-8 | ✅ Completed | `v5_radiance_cascades_gi_20260219` | 35/35 | Emissive Buffer、6 级联 GI、时域稳定 |
+| 6 | V5-A | JFA Distance Field | Week 0-3 | ✅ Historical Complete | `v5_jfa_distance_field_20260219` | 22/22 | JFA 距离场、OccluderExtract；实际 dirty-region 增量更新转入 `gpu_jfa_incremental_update_20260726` |
+| 7 | V5-A/B | Radiance Cascades GI | Week 3-8 | ✅ Historical Complete | `v5_radiance_cascades_gi_20260219` | 35/35 | Emissive Buffer、6 级联 GI、时域稳定；Gameplay 生产路径整改转入 2026-07 M0 |
 | 8 | V5-B | SPH Fluid (⚠️探索) | Week 5-8 | ✅ Completed (NO-GO) | `v5_sph_fluid_exploration_20260219` | 18/18 | SPH 探索闭环，保留非阻塞 NO-GO 结论 |
-| 9 | Gate | Validation & Release | Week 8-10 | ✅ Completed (GO) | `v5_validation_release_gate_20260219` | 31/31 | 核心门禁通过，V5 core released |
+| 9 | Gate | Validation & Release | Week 8-10 | ✅ Historical Complete (Core GO) | `v5_validation_release_gate_20260219` | 31/31 | 历史核心门禁通过；2026-07 审查确认不等同 Gameplay production GO |
 
 **V5 总任务数**: 106（完成 106，剩余 0）
+
+### GPU 生产整改路线（2026-07-26）
+
+> 来源：[GPU 渲染引擎架构审查](../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)。在 `gpu_hardware_validation_gate_20260726` 取得当前硬件 GO 证据前，V5 只保留“历史 Core GO”表述，不得标为 Gameplay 生产就绪。
+
+| 阶段 | Track | 优先级 | 状态 | 目标 |
+| --- | --- | :---: | --- | --- |
+| M0-A | `gpu_production_hdr_gi_closure_20260726` | P0 | ✅ Complete | 离屏 HDR/GI 完整链、GI 正确性、SPH NO-GO 默认路由 |
+| M0-B | `gpu_rendergraph_resource_foundation_20260726` | P0 | 📋 Planned | typed resource/compiled plan、同步、资源台账、计时、ABI/能力治理 |
+| M0-C | `gpu_hardware_validation_gate_20260726` | P0 | 📋 Planned | Gameplay 完整链硬件 nightly/release gate |
+| M1-D | `gpu_jfa_incremental_update_20260726` | P1 | 📋 Planned | 正确的 dirty-region JFA 增量更新 |
+| M2-E | `gpu_adaptive_quality_control_20260726` | P2 | 📋 Planned | DRS、原生 UI 合成、可配置曝光 |
 
 ---
 

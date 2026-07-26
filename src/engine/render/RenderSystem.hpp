@@ -16,15 +16,37 @@ namespace NoMoreDay::systems {
     class SIMDSpatialGrid;
 }
 
+struct OffscreenTargetDescriptor {
+    uint32_t framebuffer = 0;
+    int viewportX = 0;
+    int viewportY = 0;
+    int viewportWidth = 0;
+    int viewportHeight = 0;
+    bool scissorEnabled = false;
+    int scissorX = 0;
+    int scissorY = 0;
+    int scissorWidth = 0;
+    int scissorHeight = 0;
+    int renderExtentWidth = 0;
+    int renderExtentHeight = 0;
+    bool flipY = false;
+    uint32_t internalFormat = 0;
+    bool ownsFramebuffer = false; // RenderSystem does not own/free external target
+};
+
 class RenderSystem {
 public:
+    struct ScopedTargetStateGuard {
+        OffscreenTargetDescriptor target;
+        ScopedTargetStateGuard();
+        ~ScopedTargetStateGuard();
+    };
+
     // --- Phase 1 Optimization: Shared Visibility Cache ---
     struct VisibleItemCache {
         struct ItemData {
             entt::entity entity;
             Rectangle worldRect; // World Space Bounds for Label
-            // Vector2 screenPos; // Removed: Use World Space check
-            // float radius;      // Removed: Use Rect check
         };
         static std::vector<ItemData> visibleItems;
         static void Clear() { visibleItems.clear(); }
