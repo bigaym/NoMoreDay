@@ -12,9 +12,23 @@ CompositePass::CompositePass(graph::RenderResourceTag inputResourceTag,
       m_callback(std::move(callback)) {}
 
 void CompositePass::Setup(graph::RenderGraphBuilder &builder) {
-  builder.Read(m_inputResourceTag, m_inputOwnerTag);
+  graph::TypedResourceDescriptor finalDesc{};
+  finalDesc.tag = graph::RenderResourceTag::FinalOutputColor;
+  finalDesc.name = "FinalOutputColor";
+  finalDesc.kind = graph::ResourceKind::Framebuffer;
+  finalDesc.format = graph::ResourceFormat::R8;
+  finalDesc.extentPolicy = graph::ExtentPolicy{graph::ExtentMode::MatchScreen};
+  finalDesc.usageFlags = graph::ResourceUsage::ColorAttachment;
+  finalDesc.lifetime = graph::ResourceLifetime::External;
+  builder.DeclareResource(finalDesc);
+
+  builder.Read(m_inputResourceTag, m_inputOwnerTag,
+               graph::PipelineStage::Fragment,
+               graph::ResourceUsage::ShaderRead);
   builder.Write(graph::RenderResourceTag::FinalOutputColor,
-                graph::RenderOwnerTag::Composite);
+                graph::RenderOwnerTag::Composite,
+                graph::PipelineStage::FramebufferAttachment,
+                graph::ResourceUsage::ColorAttachment);
 }
 
 void CompositePass::Execute(graph::RenderContext &context) {

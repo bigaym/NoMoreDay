@@ -10,7 +10,7 @@
 
 namespace NoMoreDay::render::graph {
 
-constexpr uint32_t RENDERGRAPH_CONTRACT_VERSION = 3;
+constexpr uint32_t RENDERGRAPH_CONTRACT_VERSION = 4;
 
 enum class RenderResourceTag : uint8_t {
   Custom = 0,
@@ -23,6 +23,13 @@ enum class RenderResourceTag : uint8_t {
   DistanceField,
   EmissiveBuffer,
   RadianceMap,
+  GIHistoryColor,
+  LightBufferSSBO,
+  TileLightIndexSSBO,
+  VFXParticleSSBO,
+  FluidParticleSSBO,
+  GPUTextBufferSSBO,
+  GPULootBufferSSBO,
 };
 
 enum class RenderOwnerTag : uint8_t {
@@ -37,6 +44,8 @@ enum class RenderOwnerTag : uint8_t {
   FluidSimulation,
   Volumetric,
   VFX,
+  GPUText,
+  GPULoot,
   UIWorld,
   PostProcess,
   Distortion,
@@ -63,6 +72,20 @@ constexpr const char *ToResourceName(RenderResourceTag resourceTag) {
     return "EmissiveBuffer";
   case RenderResourceTag::RadianceMap:
     return "RadianceMap";
+  case RenderResourceTag::GIHistoryColor:
+    return "GIHistoryColor";
+  case RenderResourceTag::LightBufferSSBO:
+    return "LightBufferSSBO";
+  case RenderResourceTag::TileLightIndexSSBO:
+    return "TileLightIndexSSBO";
+  case RenderResourceTag::VFXParticleSSBO:
+    return "VFXParticleSSBO";
+  case RenderResourceTag::FluidParticleSSBO:
+    return "FluidParticleSSBO";
+  case RenderResourceTag::GPUTextBufferSSBO:
+    return "GPUTextBufferSSBO";
+  case RenderResourceTag::GPULootBufferSSBO:
+    return "GPULootBufferSSBO";
   case RenderResourceTag::Custom:
   default:
     return "";
@@ -97,6 +120,27 @@ constexpr RenderResourceTag ToResourceTag(std::string_view resourceName) {
   if (resourceName == "RadianceMap") {
     return RenderResourceTag::RadianceMap;
   }
+  if (resourceName == "GIHistoryColor") {
+    return RenderResourceTag::GIHistoryColor;
+  }
+  if (resourceName == "LightBufferSSBO") {
+    return RenderResourceTag::LightBufferSSBO;
+  }
+  if (resourceName == "TileLightIndexSSBO") {
+    return RenderResourceTag::TileLightIndexSSBO;
+  }
+  if (resourceName == "VFXParticleSSBO") {
+    return RenderResourceTag::VFXParticleSSBO;
+  }
+  if (resourceName == "FluidParticleSSBO") {
+    return RenderResourceTag::FluidParticleSSBO;
+  }
+  if (resourceName == "GPUTextBufferSSBO") {
+    return RenderResourceTag::GPUTextBufferSSBO;
+  }
+  if (resourceName == "GPULootBufferSSBO") {
+    return RenderResourceTag::GPULootBufferSSBO;
+  }
   return RenderResourceTag::Custom;
 }
 
@@ -122,6 +166,10 @@ constexpr const char *ToOwnerName(RenderOwnerTag ownerTag) {
     return "Volumetric";
   case RenderOwnerTag::VFX:
     return "VFX";
+  case RenderOwnerTag::GPUText:
+    return "GPUText";
+  case RenderOwnerTag::GPULoot:
+    return "GPULoot";
   case RenderOwnerTag::UIWorld:
     return "UIWorld";
   case RenderOwnerTag::PostProcess:
@@ -148,20 +196,59 @@ struct ResourceAccess {
   RenderOwnerTag ownerTag = RenderOwnerTag::Unknown;
 };
 
+} // namespace NoMoreDay::render::graph
+
+#include "engine/render/graph/RenderResourceDescriptor.hpp"
+
+namespace NoMoreDay::render::graph {
+
 class RenderGraphBuilder {
 public:
   void Read(const std::string &resourceName);
   void Write(const std::string &resourceName);
   void Read(RenderResourceTag resourceTag, RenderOwnerTag ownerTag);
   void Write(RenderResourceTag resourceTag, RenderOwnerTag ownerTag);
+  void Read(RenderResourceTag resourceTag, RenderOwnerTag ownerTag, PipelineStage stage, uint32_t usageFlags = ResourceUsage::ShaderRead);
+  void Write(RenderResourceTag resourceTag, RenderOwnerTag ownerTag, PipelineStage stage, uint32_t usageFlags = ResourceUsage::ColorAttachment);
+  void Read(const TypedPassAccess &access);
+  void Write(const TypedPassAccess &access);
+  void DeclareResource(const TypedResourceDescriptor &descriptor);
+  void AddPassLocalBarrier(uint32_t barrierBits);
 
   const std::vector<ResourceAccess> &GetAccesses() const { return m_accesses; }
+  const std::vector<TypedPassAccess> &GetTypedAccesses() const { return m_typedAccesses; }
+  const std::vector<TypedResourceDescriptor> &GetDeclaredDescriptors() const { return m_declaredDescriptors; }
+  const std::vector<uint32_t> &GetPassLocalBarriers() const { return m_passLocalBarriers; }
 
 private:
   std::vector<ResourceAccess> m_accesses;
+  std::vector<TypedPassAccess> m_typedAccesses;
+  std::vector<TypedResourceDescriptor> m_declaredDescriptors;
+  std::vector<uint32_t> m_passLocalBarriers;
 };
 
 struct RenderContext;
+
+struct ProducerConsumerEdge {
+  size_t producerPassIndex = 0;
+  std::string producerPassName;
+  size_t consumerPassIndex = 0;
+  std::string consumerPassName;
+  std::string resourceName;
+  RenderResourceTag resourceTag = RenderResourceTag::Custom;
+};
+
+struct CompiledResourceState {
+  std::string resourceName;
+  RenderResourceTag tag = RenderResourceTag::Custom;
+  size_t firstProducerPassIndex = 0;
+  size_t lastConsumerPassIndex = 0;
+  bool hasProducer = false;
+  bool isExternal = false;
+  std::vector<size_t> writerPassIndices;
+  std::vector<size_t> readerPassIndices;
+  TypedResourceDescriptor descriptor;
+};
 
 class RenderGraph {
 public:
@@ -178,12 +265,25 @@ public:
     std::string message;
   };
 
+  struct CompiledRenderPlan {
+    bool isValid = false;
+    std::vector<std::string> passOrder;
+    std::vector<ProducerConsumerEdge> edges;
+    std::vector<CompiledResourceState> resources;
+    std::vector<ValidationDiagnostic> diagnostics;
+
+    std::string DumpPlan() const;
+  };
+
   void AddPass(std::shared_ptr<RenderPass> pass);
   void Clear();
   void Build();
   void Execute(RenderContext &context);
+  void OnResize(int width, int height);
   static void SetValidationEnabled(bool enabled);
   static bool IsValidationEnabled();
+  static void SetTransientAliasingEnabled(bool enabled);
+  static bool IsTransientAliasingEnabled();
 
   size_t GetPassCount() const { return m_nodes.size(); }
   const std::vector<ValidationDiagnostic> &GetValidationDiagnostics() const {
@@ -191,15 +291,22 @@ public:
   }
   bool HasValidationErrors() const { return m_hasValidationErrors; }
 
+  const CompiledRenderPlan &GetCompiledPlan() const { return m_compiledPlan; }
+  std::string DumpCompiledPlan() const { return m_compiledPlan.DumpPlan(); }
+
 private:
   struct Node {
     std::shared_ptr<RenderPass> pass;
     std::string passName;
     size_t passIndex = 0;
     std::vector<ResourceAccess> accesses;
+    std::vector<TypedPassAccess> typedAccesses;
+    std::vector<TypedResourceDescriptor> declaredDescriptors;
+    std::vector<uint32_t> passLocalBarriers;
   };
 
   void ValidateBuildContracts();
+  void BuildCompiledPlan();
   void AddValidationDiagnostic(ValidationDiagnostic::Severity severity,
                                size_t passIndex,
                                const std::string &passName,
@@ -208,9 +315,11 @@ private:
 
   std::vector<Node> m_nodes;
   std::vector<ValidationDiagnostic> m_validationDiagnostics;
+  CompiledRenderPlan m_compiledPlan;
   bool m_hasValidationErrors = false;
   bool m_isBuilt = false;
   static bool s_validationEnabled;
+  static bool s_transientAliasingEnabled;
 };
 
 } // namespace NoMoreDay::render::graph

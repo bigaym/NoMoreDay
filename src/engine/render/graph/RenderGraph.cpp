@@ -3,12 +3,15 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/core/ScopedGLState.hpp"
+#include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/debug/RenderProfiler.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "rlgl.h"
 
 #include <algorithm>
+#include <map>
 #include <optional>
+#include <queue>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
@@ -16,6 +19,7 @@
 #include <unordered_set>
 
 namespace NoMoreDay::render::graph {
+
 bool RenderGraph::s_validationEnabled = true;
 
 namespace {
@@ -48,6 +52,19 @@ bool IsWriterAllowedForResource(RenderResourceTag resourceTag,
     return ownerTag == RenderOwnerTag::RadianceCascades;
   case RenderResourceTag::RadianceMap:
     return ownerTag == RenderOwnerTag::RadianceCascades;
+  case RenderResourceTag::GIHistoryColor:
+    return ownerTag == RenderOwnerTag::GIComposite;
+  case RenderResourceTag::LightBufferSSBO:
+  case RenderResourceTag::TileLightIndexSSBO:
+    return ownerTag == RenderOwnerTag::Lighting;
+  case RenderResourceTag::VFXParticleSSBO:
+    return ownerTag == RenderOwnerTag::VFX;
+  case RenderResourceTag::FluidParticleSSBO:
+    return ownerTag == RenderOwnerTag::FluidSimulation;
+  case RenderResourceTag::GPUTextBufferSSBO:
+    return ownerTag == RenderOwnerTag::GPUText;
+  case RenderResourceTag::GPULootBufferSSBO:
+    return ownerTag == RenderOwnerTag::GPULoot;
   case RenderResourceTag::Custom:
   default:
     return true;
@@ -74,6 +91,19 @@ bool IsFirstWriterValid(RenderResourceTag resourceTag, RenderOwnerTag ownerTag) 
     return ownerTag == RenderOwnerTag::RadianceCascades;
   case RenderResourceTag::RadianceMap:
     return ownerTag == RenderOwnerTag::RadianceCascades;
+  case RenderResourceTag::GIHistoryColor:
+    return ownerTag == RenderOwnerTag::GIComposite;
+  case RenderResourceTag::LightBufferSSBO:
+  case RenderResourceTag::TileLightIndexSSBO:
+    return ownerTag == RenderOwnerTag::Lighting;
+  case RenderResourceTag::VFXParticleSSBO:
+    return ownerTag == RenderOwnerTag::VFX;
+  case RenderResourceTag::FluidParticleSSBO:
+    return ownerTag == RenderOwnerTag::FluidSimulation;
+  case RenderResourceTag::GPUTextBufferSSBO:
+    return ownerTag == RenderOwnerTag::GPUText;
+  case RenderResourceTag::GPULootBufferSSBO:
+    return ownerTag == RenderOwnerTag::GPULoot;
   case RenderResourceTag::Custom:
   default:
     return true;
@@ -101,6 +131,13 @@ bool IsAdditionalWriterValid(RenderResourceTag resourceTag,
   case RenderResourceTag::DistanceField:
   case RenderResourceTag::EmissiveBuffer:
   case RenderResourceTag::RadianceMap:
+  case RenderResourceTag::GIHistoryColor:
+  case RenderResourceTag::LightBufferSSBO:
+  case RenderResourceTag::TileLightIndexSSBO:
+  case RenderResourceTag::VFXParticleSSBO:
+  case RenderResourceTag::FluidParticleSSBO:
+  case RenderResourceTag::GPUTextBufferSSBO:
+  case RenderResourceTag::GPULootBufferSSBO:
   default:
     return false;
   }
@@ -125,6 +162,19 @@ RenderOwnerTag ExpectedFirstWriter(RenderResourceTag resourceTag) {
     return RenderOwnerTag::RadianceCascades;
   case RenderResourceTag::RadianceMap:
     return RenderOwnerTag::RadianceCascades;
+  case RenderResourceTag::GIHistoryColor:
+    return RenderOwnerTag::GIComposite;
+  case RenderResourceTag::LightBufferSSBO:
+  case RenderResourceTag::TileLightIndexSSBO:
+    return RenderOwnerTag::Lighting;
+  case RenderResourceTag::VFXParticleSSBO:
+    return RenderOwnerTag::VFX;
+  case RenderResourceTag::FluidParticleSSBO:
+    return RenderOwnerTag::FluidSimulation;
+  case RenderResourceTag::GPUTextBufferSSBO:
+    return RenderOwnerTag::GPUText;
+  case RenderResourceTag::GPULootBufferSSBO:
+    return RenderOwnerTag::GPULoot;
   case RenderResourceTag::Custom:
   default:
     return RenderOwnerTag::Unknown;
@@ -221,24 +271,69 @@ void RenderGraphBuilder::Read(const std::string &resourceName) {
   const RenderResourceTag inferredTag = ToResourceTag(resourceName);
   m_accesses.push_back({resourceName, ResourceAccess::Type::Read,
                         inferredTag, RenderOwnerTag::Unknown});
+  m_typedAccesses.push_back({resourceName, inferredTag, PassAccessMode::Read,
+                             PipelineStage::Fragment, ResourceUsage::ShaderRead,
+                             0, RenderOwnerTag::Unknown});
 }
 
 void RenderGraphBuilder::Write(const std::string &resourceName) {
   const RenderResourceTag inferredTag = ToResourceTag(resourceName);
   m_accesses.push_back({resourceName, ResourceAccess::Type::Write,
                         inferredTag, RenderOwnerTag::Unknown});
+  m_typedAccesses.push_back({resourceName, inferredTag, PassAccessMode::Write,
+                             PipelineStage::FramebufferAttachment,
+                             ResourceUsage::ColorAttachment, 0,
+                             RenderOwnerTag::Unknown});
 }
 
 void RenderGraphBuilder::Read(RenderResourceTag resourceTag,
                               RenderOwnerTag ownerTag) {
-  m_accesses.push_back(
-      {ToResourceName(resourceTag), ResourceAccess::Type::Read, resourceTag, ownerTag});
+  const std::string name = ToResourceName(resourceTag);
+  m_accesses.push_back({name, ResourceAccess::Type::Read, resourceTag, ownerTag});
+  m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Read,
+                             PipelineStage::Fragment, ResourceUsage::ShaderRead,
+                             0, ownerTag});
 }
 
 void RenderGraphBuilder::Write(RenderResourceTag resourceTag,
                                RenderOwnerTag ownerTag) {
-  m_accesses.push_back({ToResourceName(resourceTag), ResourceAccess::Type::Write,
-                        resourceTag, ownerTag});
+  const std::string name = ToResourceName(resourceTag);
+  m_accesses.push_back({name, ResourceAccess::Type::Write, resourceTag, ownerTag});
+  m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Write,
+                             PipelineStage::FramebufferAttachment,
+                             ResourceUsage::ColorAttachment, 0, ownerTag});
+}
+
+void RenderGraphBuilder::Read(RenderResourceTag resourceTag, RenderOwnerTag ownerTag,
+                              PipelineStage stage, uint32_t usageFlags) {
+  const std::string name = ToResourceName(resourceTag);
+  m_accesses.push_back({name, ResourceAccess::Type::Read, resourceTag, ownerTag});
+  m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Read, stage,
+                             usageFlags, 0, ownerTag});
+}
+
+void RenderGraphBuilder::Write(RenderResourceTag resourceTag, RenderOwnerTag ownerTag,
+                               PipelineStage stage, uint32_t usageFlags) {
+  const std::string name = ToResourceName(resourceTag);
+  m_accesses.push_back({name, ResourceAccess::Type::Write, resourceTag, ownerTag});
+  m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Write, stage,
+                             usageFlags, 0, ownerTag});
+}
+
+void RenderGraphBuilder::Read(const TypedPassAccess &access) {
+  m_typedAccesses.push_back(access);
+  m_accesses.push_back({access.resourceName, ResourceAccess::Type::Read,
+                        access.resourceTag, access.ownerTag});
+}
+
+void RenderGraphBuilder::Write(const TypedPassAccess &access) {
+  m_typedAccesses.push_back(access);
+  m_accesses.push_back({access.resourceName, ResourceAccess::Type::Write,
+                        access.resourceTag, access.ownerTag});
+}
+
+void RenderGraphBuilder::DeclareResource(const TypedResourceDescriptor &descriptor) {
+  m_declaredDescriptors.push_back(descriptor);
 }
 
 void RenderGraph::AddPass(std::shared_ptr<RenderPass> pass) {
@@ -254,8 +349,31 @@ void RenderGraph::AddPass(std::shared_ptr<RenderPass> pass) {
 void RenderGraph::Clear() {
   m_nodes.clear();
   m_validationDiagnostics.clear();
+  m_compiledPlan = {};
   m_hasValidationErrors = false;
   m_isBuilt = false;
+}
+
+void RenderGraphBuilder::AddPassLocalBarrier(uint32_t barrierBits) {
+  m_passLocalBarriers.push_back(barrierBits);
+}
+
+bool RenderGraph::s_transientAliasingEnabled = false;
+
+void RenderGraph::SetTransientAliasingEnabled(bool enabled) {
+  s_transientAliasingEnabled = enabled;
+}
+
+bool RenderGraph::IsTransientAliasingEnabled() {
+  return s_transientAliasingEnabled;
+}
+
+void RenderGraph::OnResize(int width, int height) {
+  for (Node &node : m_nodes) {
+    if (node.pass) {
+      node.pass->OnResize(width, height);
+    }
+  }
 }
 
 void RenderGraph::Build() {
@@ -267,6 +385,9 @@ void RenderGraph::Build() {
     RenderGraphBuilder builder;
     node.pass->Setup(builder);
     node.accesses = builder.GetAccesses();
+    node.typedAccesses = builder.GetTypedAccesses();
+    node.declaredDescriptors = builder.GetDeclaredDescriptors();
+    node.passLocalBarriers = builder.GetPassLocalBarriers();
     node.passName = (node.pass != nullptr && node.pass->GetName() != nullptr)
                         ? node.pass->GetName()
                         : "UnnamedPass";
@@ -276,6 +397,8 @@ void RenderGraph::Build() {
   if (s_validationEnabled) {
     ValidateBuildContracts();
   }
+
+  BuildCompiledPlan();
 
   if (m_hasValidationErrors) {
     for (const ValidationDiagnostic &diagnostic : m_validationDiagnostics) {
@@ -314,11 +437,28 @@ void RenderGraph::Execute(RenderContext &context) {
   if (!m_isBuilt) {
     Build();
   }
+
+  debug::GPUTimerQueryRing::Get().BeginFrame();
+
   for (Node &node : m_nodes) {
-    // Standardized pass boundary: flush previous batched draws and restore GL
-    // state after each pass to reduce cross-pass state leakage.
+    for (uint32_t barrierBits : node.passLocalBarriers) {
+      if (barrierBits > 0) {
+        NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
+      }
+    }
+
+    for (const auto &typedAccess : node.typedAccesses) {
+      uint32_t bits = MapGlBarrierBits(typedAccess.stage, typedAccess.mode);
+      if (bits > 0 && bits != kInvalidBarrierBits) {
+        NoMoreDay::utils::GPUUtils::MemoryBarrier(bits);
+      }
+    }
+
     NoMoreDay::render::core::ApplyRlglFlushTemplate();
     const NoMoreDay::render::core::ScopedGLState scopedState;
+    const uint32_t numericPassId = static_cast<uint32_t>(node.passIndex);
+    debug::GPUTimerQueryRing::Get().BeginPass(numericPassId);
+
     const auto passId = (context.renderProfiler != nullptr)
                             ? debug::RenderProfiler::FromPassName(
                                   node.pass->GetName())
@@ -333,16 +473,13 @@ void RenderGraph::Execute(RenderContext &context) {
     if (context.renderProfiler != nullptr && passId.has_value()) {
       context.renderProfiler->EndPass(*passId);
     }
+    debug::GPUTimerQueryRing::Get().EndPass(numericPassId);
   }
+
+  debug::GPUTimerQueryRing::Get().EndFrame();
 }
 
 void RenderGraph::ValidateBuildContracts() {
-  // Pass order contract:
-  // Scene -> Shadow -> LightCulling -> Lighting -> HeightShadow
-  // -> OccluderExtract -> JFA -> RadianceCascades -> GIComposite
-  // -> FluidSimulation
-  // -> Volumetric -> VFX -> GPUText -> GPULoot -> UIWorld
-  // -> PostProcess -> Distortion -> Composite
   int lastStage = -1;
   bool seenComposite = false;
   std::unordered_set<int> seenSingularStages;
@@ -475,6 +612,115 @@ void RenderGraph::ValidateBuildContracts() {
   }
 }
 
+void RenderGraph::BuildCompiledPlan() {
+  m_compiledPlan = {};
+  m_compiledPlan.isValid = !m_hasValidationErrors;
+
+  for (const Node &node : m_nodes) {
+    m_compiledPlan.passOrder.push_back(node.passName);
+  }
+
+  std::map<std::string, CompiledResourceState> resourceMap;
+
+  for (const Node &node : m_nodes) {
+    for (const auto &desc : node.declaredDescriptors) {
+      auto &res = resourceMap[desc.name];
+      res.resourceName = desc.name;
+      res.tag = desc.tag;
+      res.descriptor = desc;
+    }
+  }
+
+  for (const Node &node : m_nodes) {
+    for (const auto &access : node.accesses) {
+      if (access.resourceName.empty()) continue;
+      auto &res = resourceMap[access.resourceName];
+      res.resourceName = access.resourceName;
+      if (res.tag == RenderResourceTag::Custom) {
+        res.tag = access.resourceTag;
+      }
+      if (access.resourceTag == RenderResourceTag::FinalOutputColor) {
+        res.isExternal = true;
+      }
+
+      if (access.type == ResourceAccess::Type::Write) {
+        if (res.writerPassIndices.empty()) {
+          res.firstProducerPassIndex = node.passIndex;
+          res.hasProducer = true;
+        }
+        res.writerPassIndices.push_back(node.passIndex);
+      } else {
+        res.readerPassIndices.push_back(node.passIndex);
+        res.lastConsumerPassIndex = node.passIndex;
+      }
+    }
+  }
+
+  for (const Node &node : m_nodes) {
+    for (const auto &access : node.accesses) {
+      if (access.type == ResourceAccess::Type::Read && !access.resourceName.empty()) {
+        const auto &res = resourceMap[access.resourceName];
+        for (const size_t writerIndex : res.writerPassIndices) {
+          if (writerIndex < node.passIndex) {
+            ProducerConsumerEdge edge = {};
+            edge.producerPassIndex = writerIndex;
+            edge.producerPassName = m_nodes[writerIndex].passName;
+            edge.consumerPassIndex = node.passIndex;
+            edge.consumerPassName = node.passName;
+            edge.resourceName = access.resourceName;
+            edge.resourceTag = access.resourceTag;
+            m_compiledPlan.edges.push_back(edge);
+          }
+        }
+      }
+    }
+  }
+
+  const size_t passCount = m_nodes.size();
+  std::vector<std::vector<size_t>> adj(passCount);
+  std::vector<size_t> inDegree(passCount, 0);
+
+  for (const auto &edge : m_compiledPlan.edges) {
+    if (edge.producerPassIndex < passCount && edge.consumerPassIndex < passCount) {
+      adj[edge.producerPassIndex].push_back(edge.consumerPassIndex);
+      inDegree[edge.consumerPassIndex]++;
+    }
+  }
+
+  std::queue<size_t> q;
+  for (size_t i = 0; i < passCount; ++i) {
+    if (inDegree[i] == 0) {
+      q.push(i);
+    }
+  }
+
+  size_t visitedCount = 0;
+  while (!q.empty()) {
+    const size_t u = q.front();
+    q.pop();
+    visitedCount++;
+    for (const size_t v : adj[u]) {
+      inDegree[v]--;
+      if (inDegree[v] == 0) {
+        q.push(v);
+      }
+    }
+  }
+
+  if (visitedCount < passCount) {
+    m_compiledPlan.isValid = false;
+    AddValidationDiagnostic(
+        ValidationDiagnostic::Severity::Error, 0, "RenderGraph", "(DAG)",
+        "cycle detected in render graph dependency edges");
+  }
+
+  for (const auto &[name, state] : resourceMap) {
+    m_compiledPlan.resources.push_back(state);
+  }
+
+  m_compiledPlan.diagnostics = m_validationDiagnostics;
+}
+
 void RenderGraph::AddValidationDiagnostic(
     ValidationDiagnostic::Severity severity, size_t passIndex,
     const std::string &passName, const std::string &resourceName,
@@ -489,6 +735,48 @@ void RenderGraph::AddValidationDiagnostic(
   if (severity == ValidationDiagnostic::Severity::Error) {
     m_hasValidationErrors = true;
   }
+}
+
+std::string RenderGraph::CompiledRenderPlan::DumpPlan() const {
+  std::ostringstream ss;
+  ss << "=== CompiledRenderPlan Dump ===\n";
+  ss << "Status: " << (isValid ? "VALID" : "INVALID") << "\n";
+  ss << "Pass Count: " << passOrder.size() << "\n";
+  ss << "Pass Order:\n";
+  for (size_t i = 0; i < passOrder.size(); ++i) {
+    ss << "  [" << i << "] " << passOrder[i] << "\n";
+  }
+
+  ss << "Resource States (" << resources.size() << "):\n";
+  for (const auto &res : resources) {
+    ss << "  - Resource: " << res.resourceName
+       << " (Tag=" << static_cast<int>(res.tag) << ")\n";
+    ss << "    Producer Pass Index: " << (res.hasProducer ? std::to_string(res.firstProducerPassIndex) : "None") << "\n";
+    ss << "    Writers: ";
+    for (size_t w : res.writerPassIndices) ss << w << " ";
+    ss << "\n    Readers: ";
+    for (size_t r : res.readerPassIndices) ss << r << " ";
+    ss << "\n";
+  }
+
+  ss << "Dependency Edges (" << edges.size() << "):\n";
+  for (const auto &edge : edges) {
+    ss << "  Pass #" << edge.producerPassIndex << " (" << edge.producerPassName << ")"
+       << " -> Pass #" << edge.consumerPassIndex << " (" << edge.consumerPassName << ")"
+       << " via " << edge.resourceName << "\n";
+  }
+
+  if (!diagnostics.empty()) {
+    ss << "Diagnostics (" << diagnostics.size() << "):\n";
+    for (const auto &diag : diagnostics) {
+      ss << "  [" << (diag.severity == ValidationDiagnostic::Severity::Error ? "ERROR" : "WARN")
+         << "] Pass #" << diag.passIndex << " " << diag.passName
+         << " (Resource: " << diag.resourceName << "): " << diag.message << "\n";
+    }
+  }
+
+  ss << "===============================\n";
+  return ss.str();
 }
 
 } // namespace NoMoreDay::render::graph

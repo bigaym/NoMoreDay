@@ -3,6 +3,7 @@
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "engine/render/debug/ShaderReloadGovernance.hpp"
 #include "rlgl.h"
 #include <filesystem>
 #include <fstream>
@@ -359,6 +360,12 @@ Shader ResourceManager::loadComputeShader(entt::id_type id,
   if (shaderId != 0) {
     programId = rlLoadComputeShaderProgram(shaderId);
   }
+
+  std::vector<std::string> includeChain;
+  uint64_t hash = NoMoreDay::render::debug::ShaderReloadGovernance::Get().ComputeIncludeHash(path, includeChain);
+  NoMoreDay::render::debug::ShaderReloadGovernance::Get().RecordReloadAttempt(
+      path, (programId != 0), hash, includeChain, "ComputeShader", path,
+      (programId != 0) ? "" : "rlLoadComputeShaderProgram failed");
 
   if (programId == 0) {
     LOG_ERROR(

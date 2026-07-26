@@ -1,6 +1,10 @@
 #include "doctest.h"
 
 #include "engine/render/graph/RenderGraph.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
+#include "engine/render/debug/GPUTimerQueryRing.hpp"
+#include "engine/render/core/DeviceCapabilityMatrix.hpp"
+#include "engine/render/debug/ShaderReloadGovernance.hpp"
 #include "engine/render/passes/CompositePass.hpp"
 #include "engine/render/passes/FluidSimulationPass.hpp"
 #include "engine/render/passes/GICompositePass.hpp"
@@ -184,4 +188,51 @@ TEST_CASE("[Integration] Gameplay Offscreen Target Descriptor & State Guard") {
   CHECK(state.renderExtentWidth == 1920);
   CHECK(state.flipY);
 }
+
+TEST_CASE("[Integration] RenderGraph Phase 5 Compiled Plan & Observability Gate Integration") {
+  using namespace NoMoreDay::render;
+  using namespace NoMoreDay::render::resources;
+  using namespace NoMoreDay::render::debug;
+  using namespace NoMoreDay::render::core;
+
+  graph::RenderGraph graph;
+  graph.AddPass(std::make_shared<passes::ScenePass>());
+  graph.AddPass(std::make_shared<passes::LightingPass>());
+  graph.AddPass(std::make_shared<passes::HeightShadowPass>());
+  graph.AddPass(std::make_shared<passes::OccluderExtractPass>());
+  graph.AddPass(std::make_shared<passes::JFAPass>());
+  graph.AddPass(std::make_shared<passes::RadianceCascadesPass>());
+  graph.AddPass(std::make_shared<passes::GICompositePass>());
+  graph.AddPass(std::make_shared<passes::VFXPass>());
+  graph.AddPass(std::make_shared<passes::UIWorldPass>());
+  graph.AddPass(std::make_shared<passes::PostProcessPass>());
+  graph.AddPass(std::make_shared<passes::CompositePass>(
+      graph::RenderResourceTag::PostProcessLdrColor, graph::RenderOwnerTag::PostProcess));
+
+  CHECK_NOTHROW(graph.Build());
+  const auto &plan = graph.GetCompiledPlan();
+  CHECK(plan.isValid);
+  CHECK_EQ(plan.passOrder.size(), 11);
+
+  std::string planDump = graph.DumpCompiledPlan();
+  CHECK(planDump.find("=== CompiledRenderPlan Dump ===") != std::string::npos);
+
+  // Test full subsystem integration
+  auto &registry = GPUResourceRegistry::Get();
+  auto stats = registry.GetStats();
+  CHECK(stats.peakTotalBytes >= stats.currentTotalBytes);
+
+  auto &timerRing = GPUTimerQueryRing::Get();
+  timerRing.BeginFrame();
+  timerRing.EndFrame();
+
+  auto &caps = DeviceCapabilityMatrix::Get();
+  auto report = caps.ProbeCapabilities();
+  CHECK(report.maxSSBOBindings > 0);
+
+  auto &reloadGov = ShaderReloadGovernance::Get();
+  auto failedRecords = reloadGov.GetFailedReloadRecords();
+  CHECK(failedRecords.empty()); // No failed reloads initially
+}
+
 

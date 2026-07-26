@@ -1,4 +1,5 @@
 #include "engine/render/resources/FramebufferManager.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
@@ -152,6 +153,17 @@ FramebufferHandle FramebufferManager::Create(int width, int height,
   handle.trackedBytes = colorBytes + depthBytes;
   s_trackedBytes.fetch_add(handle.trackedBytes, std::memory_order_relaxed);
 
+  if (handle.fbo > 0) {
+    GPUResourceRegistry::Get().RegisterResource(
+        handle.fbo, graph::ResourceKind::Framebuffer, graph::RenderOwnerTag::Scene,
+        handle.trackedBytes, "Framebuffer");
+  }
+  if (handle.colorTexture > 0) {
+    GPUResourceRegistry::Get().RegisterResource(
+        handle.colorTexture, graph::ResourceKind::Texture2D, graph::RenderOwnerTag::Scene,
+        colorBytes, "FBOColorTexture");
+  }
+
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
   NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, 0);
   if (withDepth) {
@@ -162,6 +174,15 @@ FramebufferHandle FramebufferManager::Create(int width, int height,
 }
 
 void FramebufferManager::Destroy(FramebufferHandle &handle) {
+  if (handle.colorTexture != 0) {
+    GPUResourceRegistry::Get().UnregisterResource(
+        handle.colorTexture, graph::ResourceKind::Texture2D);
+  }
+  if (handle.fbo != 0) {
+    GPUResourceRegistry::Get().UnregisterResource(
+        handle.fbo, graph::ResourceKind::Framebuffer);
+  }
+
   if (handle.trackedBytes > 0u) {
     const uint64_t tracked = s_trackedBytes.load(std::memory_order_relaxed);
     if (tracked >= handle.trackedBytes) {

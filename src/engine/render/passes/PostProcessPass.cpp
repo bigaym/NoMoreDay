@@ -53,10 +53,24 @@ PostProcessPass::PostProcessPass() = default;
 PostProcessPass::~PostProcessPass() { Shutdown(); }
 
 void PostProcessPass::Setup(graph::RenderGraphBuilder &builder) {
+  graph::TypedResourceDescriptor ldrDesc{};
+  ldrDesc.tag = graph::RenderResourceTag::PostProcessLdrColor;
+  ldrDesc.name = "PostProcessLdrColor";
+  ldrDesc.kind = graph::ResourceKind::Texture2D;
+  ldrDesc.format = graph::ResourceFormat::R8;
+  ldrDesc.extentPolicy = graph::ExtentPolicy{graph::ExtentMode::MatchScreen};
+  ldrDesc.usageFlags = graph::ResourceUsage::ColorAttachment;
+  ldrDesc.lifetime = graph::ResourceLifetime::Transient;
+  builder.DeclareResource(ldrDesc);
+
   builder.Read(graph::RenderResourceTag::SceneHdrColor,
-               graph::RenderOwnerTag::PostProcess);
+               graph::RenderOwnerTag::PostProcess,
+               graph::PipelineStage::Fragment,
+               graph::ResourceUsage::ShaderRead);
   builder.Write(graph::RenderResourceTag::PostProcessLdrColor,
-                graph::RenderOwnerTag::PostProcess);
+                graph::RenderOwnerTag::PostProcess,
+                graph::PipelineStage::FramebufferAttachment,
+                graph::ResourceUsage::ColorAttachment);
 }
 
 bool PostProcessPass::Initialize() {

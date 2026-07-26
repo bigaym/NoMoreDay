@@ -824,14 +824,14 @@ M0-A: gpu_production_hdr_gi_closure_20260726 (P0)
 > **Tasks**: 20/20
 > **Location**: [`conductor/tracks/gpu_production_hdr_gi_closure_20260726/`](./tracks/gpu_production_hdr_gi_closure_20260726/index.md)
 
-## [ ] Track M0-B: GPU RenderGraph and Resource Foundation (gpu_rendergraph_resource_foundation_20260726)
+## [x] Track M0-B: GPU RenderGraph and Resource Foundation (gpu_rendergraph_resource_foundation_20260726)
 
-> **Status**: 📋 Planned
+> **Status**: ✅ Completed
 > **Priority**: P0
 > **Type**: refactor/foundation
 > **Depends On**: `gpu_production_hdr_gi_closure_20260726`
 > **Focus**: typed resource、compiled plan、transition/barrier、资源台账、有效 GPU 计时、ABI/binding/reload/capability 治理。
-> **Tasks**: 0/25
+> **Tasks**: 25/25
 > **Location**: [`conductor/tracks/gpu_rendergraph_resource_foundation_20260726/`](./tracks/gpu_rendergraph_resource_foundation_20260726/index.md)
 
 ## [ ] Track M0-C: GPU Hardware Validation Gate (gpu_hardware_validation_gate_20260726)

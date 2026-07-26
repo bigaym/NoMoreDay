@@ -50,9 +50,13 @@ LightingPass::~LightingPass() { Shutdown(); }
 
 void LightingPass::Setup(graph::RenderGraphBuilder &builder) {
   builder.Read(graph::RenderResourceTag::SceneHdrColor,
-               graph::RenderOwnerTag::Lighting);
+               graph::RenderOwnerTag::Lighting,
+               graph::PipelineStage::Fragment,
+               graph::ResourceUsage::ShaderRead);
   builder.Write(graph::RenderResourceTag::SceneHdrColor,
-                graph::RenderOwnerTag::Lighting);
+                graph::RenderOwnerTag::Lighting,
+                graph::PipelineStage::FramebufferAttachment,
+                graph::ResourceUsage::ColorAttachment);
 }
 
 bool LightingPass::Initialize() {
