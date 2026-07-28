@@ -14,6 +14,9 @@
 
 #include <entt/entt.hpp>
 #include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <vector>
 
 namespace NoMoreDay::render::passes {
 namespace {
@@ -48,11 +51,68 @@ int HighestPowerOfTwoLessEqual(const int value) noexcept {
   return result;
 }
 
+float HalfToFloat(const uint16_t bits) noexcept {
+  const uint32_t sign = (static_cast<uint32_t>(bits & 0x8000u)) << 16u;
+  const uint32_t exponent = (bits >> 10u) & 0x1Fu;
+  const uint32_t mantissa = bits & 0x03FFu;
+  uint32_t result = sign;
+  if (exponent == 0u) {
+    if (mantissa != 0u) {
+      float value = std::ldexp(static_cast<float>(mantissa), -24);
+      return (bits & 0x8000u) != 0u ? -value : value;
+    }
+  } else if (exponent == 0x1Fu) {
+    result |= 0x7F800000u | (mantissa << 13u);
+  } else {
+    result |= ((exponent + 112u) << 23u) | (mantissa << 13u);
+  }
+  float value = 0.0f;
+  std::memcpy(&value, &result, sizeof(value));
+  return value;
+}
+
+std::vector<uint8_t> ReadMask(uint32_t texture, int width, int height) {
+  void *pixels = rlReadTexturePixels(texture, width, height,
+                                     RL_PIXELFORMAT_UNCOMPRESSED_GRAYSCALE);
+  if (pixels == nullptr) {
+    return {};
+  }
+  std::vector<uint8_t> result(static_cast<size_t>(width) * static_cast<size_t>(height));
+  std::memcpy(result.data(), pixels, result.size());
+  RL_FREE(pixels);
+  return result;
+}
+
+std::vector<float> ReadDistance(uint32_t texture, int width, int height) {
+  void *pixels = rlReadTexturePixels(texture, width, height,
+                                     RL_PIXELFORMAT_UNCOMPRESSED_R16);
+  if (pixels == nullptr) {
+    return {};
+  }
+  const size_t count = static_cast<size_t>(width) * static_cast<size_t>(height);
+  const auto *halfPixels = static_cast<const uint16_t *>(pixels);
+  std::vector<float> result(count);
+  for (size_t i = 0; i < count; ++i) {
+    result[i] = HalfToFloat(halfPixels[i]);
+  }
+  RL_FREE(pixels);
+  return result;
+}
+
 } // namespace
 
 JFAPass::JFAPass() = default;
 
 JFAPass::~JFAPass() { Shutdown(); }
+
+gi::JFAUpdateDecision JFAPass::ApplyProductionUpdatePolicy(
+    gi::JFAUpdateDecision decision, const bool incrementalEnabled) noexcept {
+  if (decision.mode == gi::JFAUpdateMode::Incremental && !incrementalEnabled) {
+    decision.mode = gi::JFAUpdateMode::Full;
+    decision.fullReason = gi::JFAFullReasons::kProductionDefaultFull;
+  }
+  return decision;
+}
 
 void JFAPass::Setup(graph::RenderGraphBuilder &builder) {
   builder.Read(graph::RenderResourceTag::OccluderMask,
@@ -619,6 +679,8 @@ void JFAPass::Execute(graph::RenderContext &context) {
     decision.mode = gi::JFAUpdateMode::Skip;
   }
 
+  decision = ApplyProductionUpdatePolicy(decision, m_incrementalExperimentEnabled);
+
   if (decision.mode == gi::JFAUpdateMode::Skip && m_distanceFieldFull.IsValid()) {
     context.giDistanceFieldTexture = m_distanceFieldFull.colorTexture;
     context.giDistanceFieldWidth = m_distanceFieldFull.width;
@@ -642,70 +704,104 @@ void JFAPass::Execute(graph::RenderContext &context) {
   }
 
   const uint32_t occluderMaskTexture = m_occluderExtractPass->GetOccluderMaskTexture();
-  if (!RunSeedInit(occluderMaskTexture, fullWidth, fullHeight, dispatchRect)) {
-    ReportFailure("seed initialization failed");
-    return;
-  }
-
-  uint32_t seedInput = m_seedPing.colorTexture;
-  uint32_t seedOutput = m_seedPong.colorTexture;
-  int stepSize = HighestPowerOfTwoLessEqual(std::max(m_workWidth, m_workHeight));
-  stepSize = std::max(1, stepSize / 2);
-  while (stepSize >= 1) {
-    if (!RunJumpFloodStep(stepSize, fullWidth, fullHeight, seedInput, seedOutput, dispatchRect)) {
-      ReportFailure("jump flood iteration failed");
-      return;
+  const auto runJfa = [&](const gi::JFARect *rect) {
+    if (!RunSeedInit(occluderMaskTexture, fullWidth, fullHeight, rect)) {
+      return false;
     }
-    std::swap(seedInput, seedOutput);
-    stepSize /= 2;
-  }
-
-  if (std::max(m_workWidth, m_workHeight) >= 2) {
-    if (!RunJumpFloodStep(2, fullWidth, fullHeight, seedInput, seedOutput, dispatchRect)) {
-      ReportFailure("JFA+1 step=2 failed");
-      return;
-    }
-    std::swap(seedInput, seedOutput);
-  }
-  if (!RunJumpFloodStep(1, fullWidth, fullHeight, seedInput, seedOutput, dispatchRect)) {
-    ReportFailure("JFA+1 step=1 failed");
-    return;
-  }
-  std::swap(seedInput, seedOutput);
-
-  m_lastOverflowCount = ReadOverflowCounter();
-
-  const bool shouldUseFallbackPlus2 =
-      m_forceFallbackPlus2ForTesting ||
-      (m_occluderExtractPass->GetOccluderCount() > 0u && m_lastOverflowCount > 0u);
-  if (shouldUseFallbackPlus2) {
-    m_usedFallbackPlus2ThisFrame = true;
-    constexpr int fallbackSteps[] = {4, 2, 1};
-    for (const int fallbackStep : fallbackSteps) {
-      if (fallbackStep > std::max(m_workWidth, m_workHeight)) {
-        continue;
+    uint32_t seedInput = m_seedPing.colorTexture;
+    uint32_t seedOutput = m_seedPong.colorTexture;
+    int stepSize = HighestPowerOfTwoLessEqual(std::max(m_workWidth, m_workHeight));
+    stepSize = std::max(1, stepSize / 2);
+    while (stepSize >= 1) {
+      if (!RunJumpFloodStep(stepSize, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
+        return false;
       }
-      if (!RunJumpFloodStep(fallbackStep, fullWidth, fullHeight, seedInput,
-                            seedOutput, dispatchRect)) {
-        ReportFailure("JFA+2 fallback failed");
-        return;
+      std::swap(seedInput, seedOutput);
+      stepSize /= 2;
+    }
+    if (std::max(m_workWidth, m_workHeight) >= 2) {
+      if (!RunJumpFloodStep(2, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
+        return false;
       }
       std::swap(seedInput, seedOutput);
     }
+    if (!RunJumpFloodStep(1, fullWidth, fullHeight, seedInput, seedOutput, rect)) {
+      return false;
+    }
+    std::swap(seedInput, seedOutput);
     m_lastOverflowCount = ReadOverflowCounter();
-  }
+    const bool useFallbackPlus2 =
+        m_forceFallbackPlus2ForTesting ||
+        (m_occluderExtractPass->GetOccluderCount() > 0u && m_lastOverflowCount > 0u);
+    if (useFallbackPlus2) {
+      m_usedFallbackPlus2ThisFrame = true;
+      constexpr int fallbackSteps[] = {4, 2, 1};
+      for (const int fallbackStep : fallbackSteps) {
+        if (fallbackStep > std::max(m_workWidth, m_workHeight)) {
+          continue;
+        }
+        if (!RunJumpFloodStep(fallbackStep, fullWidth, fullHeight, seedInput,
+                              seedOutput, rect)) {
+          return false;
+        }
+        std::swap(seedInput, seedOutput);
+      }
+      m_lastOverflowCount = ReadOverflowCounter();
+    }
+    const uint32_t distanceOutput =
+        halfResolution ? m_distanceFieldWork.colorTexture : m_distanceFieldFull.colorTexture;
+    if (!RunDistanceResolve(occluderMaskTexture, fullWidth, fullHeight, seedInput,
+                            distanceOutput, rect)) {
+      return false;
+    }
+    return !halfResolution || RunUpsample(fullWidth, fullHeight, rect);
+  };
 
-  const uint32_t distanceOutput =
-      halfResolution ? m_distanceFieldWork.colorTexture : m_distanceFieldFull.colorTexture;
-  if (!RunDistanceResolve(occluderMaskTexture, fullWidth, fullHeight, seedInput,
-                          distanceOutput, dispatchRect)) {
-    ReportFailure("distance resolve failed");
+  if (!runJfa(dispatchRect)) {
+    ReportFailure("JFA execution failed");
     return;
   }
 
-  if (halfResolution && !RunUpsample(fullWidth, fullHeight, dispatchRect)) {
-    ReportFailure("half-res upsample failed");
-    return;
+  JFAFrameReport verificationReport{};
+  if (decision.mode == gi::JFAUpdateMode::Incremental) {
+    verificationReport.verificationAttempted = true;
+    verificationReport.verificationArtifact = "gpu-r16f-vs-cpu-full-jfa-and-edt";
+    bool verificationRejected = false;
+    if (halfResolution) {
+      verificationReport.verificationResult = "unsupported-half-resolution-reference";
+      verificationRejected = true;
+    } else {
+      const auto mask = ReadMask(occluderMaskTexture, fullWidth, fullHeight);
+      const auto candidate = ReadDistance(m_distanceFieldFull.colorTexture, fullWidth, fullHeight);
+      if (mask.empty() || candidate.empty()) {
+        verificationReport.verificationResult = "readback-unavailable";
+        verificationRejected = true;
+      } else {
+        const auto fullReference = gi::JFADistanceFieldEvaluator::BuildApproximateJfaDistanceField(
+            mask, fullWidth, fullHeight, true, false);
+        const auto edtReference = gi::JFADistanceFieldEvaluator::BuildExactSignedDistanceField(
+            mask, fullWidth, fullHeight);
+        const auto fullStats = gi::JFADistanceFieldEvaluator::ComputeErrorStats(
+            fullReference, candidate);
+        const auto edtStats = gi::JFADistanceFieldEvaluator::ComputeErrorStats(
+            edtReference, candidate);
+        verificationRejected =
+            gi::JFADistanceFieldEvaluator::NeedsJfaPlus2Fallback(fullStats, 0.5f, 2.0f) ||
+            gi::JFADistanceFieldEvaluator::NeedsJfaPlus2Fallback(edtStats, 2.0f, 4.0f);
+        verificationReport.verificationPassed = !verificationRejected;
+        verificationReport.verificationResult = verificationRejected ? "mismatch" : "match";
+      }
+    }
+    if (verificationRejected) {
+      decision.mode = gi::JFAUpdateMode::Revert;
+      decision.fullReason = gi::JFAFullReasons::kVerificationFull;
+      verificationReport.verificationFallback = true;
+      m_usedFallbackPlus2ThisFrame = false;
+      if (!runJfa(nullptr)) {
+        ReportFailure("verification full fallback failed");
+        return;
+      }
+    }
   }
 
   m_previousViewKey = currentViewKey;
@@ -718,13 +814,18 @@ void JFAPass::Execute(graph::RenderContext &context) {
       .mode = decision.mode,
       .dirtyRect = decision.dirtyRect,
       .expandedRect = decision.expandedRect,
-      .dispatchTexelCount = (decision.mode == gi::JFAUpdateMode::Incremental)
-                                ? static_cast<uint32_t>(decision.expandedRect.Area())
-                                : static_cast<uint32_t>(m_workWidth * m_workHeight),
-      .occluderVersion = static_cast<uint32_t>(m_occluderExtractPass->GetMaskVersion()),
-      .sdfVersion = m_sdfVersion,
-      .fullReason = decision.fullReason
-  };
+       .dispatchTexelCount = (decision.mode == gi::JFAUpdateMode::Incremental)
+                                 ? static_cast<uint32_t>(decision.expandedRect.Area())
+                                 : static_cast<uint32_t>(m_workWidth * m_workHeight),
+       .occluderVersion = static_cast<uint32_t>(m_occluderExtractPass->GetMaskVersion()),
+       .sdfVersion = m_sdfVersion,
+       .fullReason = decision.fullReason,
+       .verificationAttempted = verificationReport.verificationAttempted,
+       .verificationPassed = verificationReport.verificationPassed,
+       .verificationFallback = verificationReport.verificationFallback,
+       .verificationResult = verificationReport.verificationResult,
+       .verificationArtifact = verificationReport.verificationArtifact
+   };
 
   context.giDistanceFieldTexture = m_distanceFieldFull.colorTexture;
   context.giDistanceFieldWidth = m_distanceFieldFull.width;

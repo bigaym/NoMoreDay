@@ -2,7 +2,7 @@
 
 > **Track ID**: `gpu_hardware_validation_gate_20260726`
 > **依赖 Spec**: [spec.md](./spec.md)
-> **状态**: [x] Completed
+> **状态**: [~] In Progress — production NO-GO
 
 ---
 
@@ -97,3 +97,39 @@ RunStability():
 - [x] 性能只来自充足 Valid GPU 样本，资源结论覆盖全 registry。
 - [x] 1 分钟/100 次切换通过，或明确 NO-GO/waiver。
 - [x] release posture 与 progress/实际 artifact 一致。
+
+## 集成审查整改
+
+下方早期 `[x]` 仅保留为历史实施记录，不代表规格验收。门禁必须 fail-closed，并消费 M0-B 的 stable timer records 与 resource snapshots。
+
+```text
+RunFixture(gameplayFixture, override):
+  Drive(GameplayState.BeginTextureMode -> RenderSystem -> Composite)
+  ApplyGiOverrideEveryFrame(override)
+  Capture(resourceReadbacks, pairedGiFrames, planTrace, diagnostics)
+  CollectDistinctValidTimers(stablePassId, frameSequence)
+
+DecideGate(report):
+  return Go only if EveryFixture && EveryTiming && Readbacks && Diagnostics && Stability
+```
+
+- [x] R0: runner 只解析 C++ `GateReport.status`；`NO_GO`、`NOT_RUN`、不可解析结果和 runner 失败均返回失败。
+- [~] R1: 用含遮挡、emissive、相机轨迹和 owned offscreen target 的三个固定 `GameplayState` fixture 替换空 registry/context 与独立 graph。
+  - [x] R1.1: 硬件门禁测试显式初始化真实 `RenderSystem`，未安装 pass graph 时 gate 返回 `NOT_RUN`；artifact 写入驱动 vendor/renderer/version。
+  - [~] R1.2: 构建三个固定 `GameplayState` fixture 并替换现有空 registry/context。
+    - [x] R1.2.1: 为 `MapSystem`/`LevelManager` 提供显式 map seed 合同并保留实际 seed，作为 artifact 与可重复场景的输入。
+    - [x] R1.2.2: 在测试代码建立复用 production 初始化顺序的 `GameplayState` runtime harness，并按逆序清理。
+    - [x] R1.2.3: 以固定 biome/map seed/camera 建立 cave 色彩溢出、动态战斗遮挡/VFX emissive、室外高光源压力三个 recipe；gate 通过 test-owned driver 驱动真实 `OnEnter -> OnRender -> Composite` 到 owned HDR FBO，拒绝缺失 composite target。
+- [~] R2: 每帧应用受支持的 `RenderConfig.giEnabled` override，并以 paired captures/trace/资源状态验证 GI on/off；直接读取 SDF/occupancy 内外 probes 与 ray-stop。
+  - [x] R2.1: `QualityTierManager` 提供可恢复的 runtime GI override；gate 在每个 matrix/toggle frame 设置并确认有效 `RenderConfig.giEnabled`。
+  - [~] R2.2: 从同一 Gameplay fixture 捕获 paired GI on/off 输出与 pass trace/资源状态，直接读取 SDF/occupancy 内外 probes 和 ray-stop。
+    - [x] 已接入真实 fixture 的 paired output、已执行 plan/resource snapshot、SDF signed boundary 与 ray-stop 探针；Cave paired delta 仍未达到阈值，故不得完成。
+- [x] R3: 在整个 gate 生命周期安装 GL debug callback；缺失 callback 为 `NOT_RUN`，高严重度消息计入 artifact 且使 gate `NO-GO`。
+  - [~] R4: 移除 gate 外层 timer frame；按 compiled-plan stable pass ID 与 frame sequence 收集不同的 Valid query，禁止重复 retained latest query。
+    - [x] compiled plan 保存 name-derived stable pass IDs，RenderGraph 使用 stable ID，timer ring 提供按 pass/frame 的 Valid history，gate 解析实际执行 plan 并 drain ring；RenderGraph 与 RenderProfiler 的 GPU query 已收敛为单一 owner，剩余 compiled transitions 与完整 governance 仍属于 M0-B。
+- [~] R5: 以五秒边界 registry snapshots 判定任一单调净增长；使用 `roiX/roiY/roiW/roiH` 的显式 FBO readback helper，并增加 ROI origin 回归测试。
+  - [x] R5.1: 实现保留 GL read-state 的显式 RGBA8 FBO 区域读回，并以 GPU 四象限 target 验证 x/y origin。
+  - [x] R5.2: 以五秒边界 `GPUResourceRegistry` snapshots 判定任一单调净增长，替换每帧 2 MiB 容差比较；临时 stress target 在基线前分配，快照随 JSON artifact 输出。
+- [ ] R6: 将 JSON、fixture seed/camera/ROI、GI mode、SDF probes、trace、distinct timing、diagnostics、snapshots 和硬件信息归档到版本化或可复现位置；补齐共享 CI failure 的 baseline/waiver 或修复。
+
+**退出标准**：R0-R6、`./build.bat`、相关 CTest、gate runner 和目标 GPU nightly 全部通过。任一 MUST PASS 失败或 artifact 缺失即为 `NO-GO`。

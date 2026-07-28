@@ -172,6 +172,11 @@ NoMoreDay::tests::BenchmarkStats MeasureRadianceTier(
     camera.target.x = std::sin(static_cast<float>(frame) * 0.07f) * 180.0f;
     camera.target.y = std::cos(static_cast<float>(frame) * 0.05f) * 120.0f;
 
+    const uint64_t previousSnapshotVersion =
+        pass.GetVfxEmissionSnapshotVersion();
+    REQUIRE(pass.PrepareVfxEmissionSnapshot(context));
+    CHECK(pass.GetVfxEmissionSnapshotVersion() == previousSnapshotVersion + 1u);
+
     const bool measure = frame >= kWarmupFrames;
     uint32_t query = 0u;
     if (measure) {

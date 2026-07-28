@@ -1,7 +1,7 @@
 # Track: GPU Hardware Validation Gate
 
 **ID:** gpu_hardware_validation_gate_20260726
-**Status:** Completed (🟢 GO)
+**Status:** In Progress (production NO-GO)
 **Type:** quality/release-gate
 **Priority:** P0
 **Milestone:** GPU Production Closure M0
@@ -16,8 +16,10 @@
 
 ## 进度概览
 
-- **Phases**: 5/5 complete
-- **Tasks**: 18/18 complete
+- **Phases**: 0/5 accepted
+- **Tasks**: 0/18 accepted
+
+> [生产整改 Track 集成审查](../../../docs/reviews/2026-07-26-gpu-production-remediation-tracks-review.md) 确认现有 artifact、fixture、计时和 runner 不能支撑 `GO`。目标 GPU 上重新取得可复现证据前，本 Track 保持 `NO-GO`。
 
 ## 快速链接
 

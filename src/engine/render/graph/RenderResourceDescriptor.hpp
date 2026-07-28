@@ -103,6 +103,7 @@ struct TypedResourceDescriptor {
   HistoryRelation historyRelation = HistoryRelation::None;
   RenderOwnerTag ownerTag = RenderOwnerTag::Unknown;
   size_t estimatedSizeBytes = 0;
+  uint64_t stableResourceId = 0;
 };
 
 struct TypedPassAccess {
@@ -113,6 +114,7 @@ struct TypedPassAccess {
   uint32_t usageFlags = ResourceUsage::ShaderRead;
   uint32_t bindingOrAttachmentIndex = 0;
   RenderOwnerTag ownerTag = RenderOwnerTag::Unknown;
+  uint64_t stableResourceId = 0;
 };
 
 constexpr const char *ToResourceKindName(ResourceKind kind) {
@@ -180,10 +182,28 @@ constexpr const char *ToResourceLifetimeName(ResourceLifetime lifetime) {
 
 constexpr uint32_t kInvalidBarrierBits = 0xFFFFFFFFu;
 
+constexpr uint64_t StableResourceId(std::string_view name) {
+  uint64_t hash = 1469598103934665603ull;
+  for (const char character : name) {
+    hash ^= static_cast<uint8_t>(character);
+    hash *= 1099511628211ull;
+  }
+  return hash == 0 ? 1 : hash;
+}
+
+constexpr uint64_t ResolveStableResourceId(uint64_t explicitId,
+                                           std::string_view name) {
+  return explicitId != 0 ? explicitId : StableResourceId(name);
+}
+
 inline uint32_t MapGlBarrierBits(PipelineStage prevStage, PassAccessMode prevMode,
                                   PipelineStage nextStage, PassAccessMode nextMode,
                                   ResourceKind kind) {
-  if (prevMode == PassAccessMode::Read && nextMode == PassAccessMode::Read) {
+  const bool previousWrites = prevMode == PassAccessMode::Write ||
+                              prevMode == PassAccessMode::ReadWrite;
+  const bool nextReads = nextMode == PassAccessMode::Read ||
+                         nextMode == PassAccessMode::ReadWrite;
+  if (!previousWrites) {
     return 0u;
   }
 
@@ -195,8 +215,11 @@ inline uint32_t MapGlBarrierBits(PipelineStage prevStage, PassAccessMode prevMod
     } else if (kind == ResourceKind::Texture2D || kind == ResourceKind::Texture2DArray ||
                kind == ResourceKind::Framebuffer) {
       barrierBits |= 0x00000020u; // GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
-      if (nextStage == PipelineStage::Fragment || nextStage == PipelineStage::FramebufferAttachment) {
+      if (nextReads && (nextStage == PipelineStage::Fragment ||
+                        nextStage == PipelineStage::FramebufferAttachment)) {
         barrierBits |= 0x00000008u; // GL_TEXTURE_FETCH_BARRIER_BIT
+      } else if (nextStage == PipelineStage::Compute && !nextReads) {
+        barrierBits |= 0x00000020u; // subsequent image access
       }
     } else if (kind == ResourceKind::UniformBuffer) {
       barrierBits |= 0x00000004u; // GL_UNIFORM_BARRIER_BIT
@@ -206,9 +229,13 @@ inline uint32_t MapGlBarrierBits(PipelineStage prevStage, PassAccessMode prevMod
   }
 
   if (prevStage == PipelineStage::FramebufferAttachment || prevStage == PipelineStage::Fragment) {
-    if (nextStage == PipelineStage::Compute || nextStage == PipelineStage::Fragment) {
+    if (nextReads && (nextStage == PipelineStage::Compute ||
+                      nextStage == PipelineStage::Fragment)) {
       if (kind == ResourceKind::Framebuffer || kind == ResourceKind::Texture2D || kind == ResourceKind::Texture2DArray) {
         barrierBits |= 0x00000400u | 0x00000008u; // GL_FRAMEBUFFER_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT
+        if (nextStage == PipelineStage::Compute && !nextReads) {
+          barrierBits |= 0x00000020u; // GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
+        }
       }
     }
   }

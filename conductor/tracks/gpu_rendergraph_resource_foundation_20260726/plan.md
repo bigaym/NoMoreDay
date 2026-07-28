@@ -2,7 +2,7 @@
 
 > **Track ID**: `gpu_rendergraph_resource_foundation_20260726`
 > **依赖 Spec**: [spec.md](./spec.md)
-> **状态**: [ ] Planned
+> **状态**: [~] In Progress — 2026-07-26 集成整改
 
 ---
 
@@ -104,3 +104,45 @@ OnGpuDestroy(handle): registry.UnregisterObserver(handle)
 - [ ] profiler/auto-degrade 只消费有效 GPU 数据。
 - [ ] ABI/binding/reload/capability 失败路径可重复且 fail-closed。
 - [ ] 完整构建、相关 CTest 和硬件 smoke 通过，性能变化有 Valid GPU query 证据。
+
+## 集成审查整改
+
+下方早期 `[x]` 仅保留为历史实施记录，不代表规格验收。本阶段先完成这条 P0 基础链，再允许 M0-A、M0-C、M1-D 使用其输出。
+
+```text
+Compile(nodes):
+  previous[stableResourceId] = last declared access/stage
+  transitions += Map(previous[id], nextAccess, nextStage, resourceKind)
+  return ImmutablePlan(nodesInInsertionOrder, transitions)
+
+Execute(plan):
+  for node in plan.nodes:
+    Apply(plan.transitionsBefore(node))
+    Flush(); ScopedGLState(); node.Execute(); Flush()
+```
+
+- [~] R1: 用 typed stable resource ID 跟踪前序 access/stage，在 immutable `CompiledRenderPlan` 生成并保存 transition records；执行器只执行计划声明的 consumer-before barrier。当前已生成并由执行器消费 compiled transition；未声明 access 与剩余 legacy access 收敛仍待完成。
+- [~] R2: 拒绝 descriptor/access 的名称漂移，修复 `SceneHdrColor`/`SceneColor` 等资源身份不一致；每个 access 必须解析到一个 descriptor。当前已拒绝 typed identity drift/tag mismatch，未声明 legacy access 仍需收敛。
+- [~] R3: 使 registry observer 覆盖 buffer、VAO、query 与 persistent mapping，并在每 rendered frame 调用 `AdvanceFrame`；实际 owner 继续负责 RAII destroy。当前已接入 FBO、公共 `FullscreenQuad` VAO、Distortion/JFA SSBO、PersistentBuffer、timer query，且 RenderGraph 每帧推进；专用 VAO、其余 buffer owner 仍待覆盖。
+- [~] R4: 合并 production hot reload、capability matrix 和 GL diagnostics 到单一 governance 路径；登记旧 executor sync 依赖与 ABI/pass migration debt（见 `debt_register.md`）。当前 graph pass 边界已统一 flush 契约，且 RenderGraph 是唯一 GPU timer owner（RenderProfiler 在 graph 内仅采 CPU）；reload/capability 合并与 executor 迁移仍待完成。
+- [~] R5: 添加同资源 read/write、write/read、跨 stage、条件 pass 顺序、registry lifecycle、reload retry 与 capability fallback 合同测试。当前已有 transition、typed drift、registry accounting 和 RenderGraph 合同测试，硬件生命周期/reload fallback 覆盖未闭合。
+
+**退出标准**：R1-R5 的 build、unit、integration、CI 和硬件 smoke 通过；任何不可映射 transition 或 capability 缺失必须 fail-closed，不能由手工 barrier 或名称回退旁路。
+
+## 本轮实现与证据（2026-07-28）
+
+- `GPUResourceRegistry` 对重复登记改为更新既有 observer 记录，避免 active/created/owner bytes 重复计数；新增可查询的 current frame。
+- `RenderGraph::Execute` 在唯一 graph frame 边界调用 `GPUResourceRegistry::AdvanceFrame()`；pass 边界改用 `BeginPassExecution`/`EndPassExecution` 统一 flush 契约。
+- `PersistentBuffer`、`DistortionPass`、`JFAPass` 的 buffer，以及 `GPUTimerQueryRing` 的 query handle 均在创建/销毁处登记或注销；registry 不拥有这些 GL 对象。
+- `build.bat`：`%TEMP%\\NoMoreDay_m0b_registry_buffers_build.log`，`ALL_BUILD`、`Build completed successfully`、`All steps completed successfully`。
+- `bin\\NoMoreDayTests.exe --test-case=*RenderGraph*`：23 cases、173 assertions passed；日志中的 ShaderReloadGovernance 失败文本是故意注入的重载失败场景，doctest 最终 `Status: SUCCESS!`。
+- 本轮只完成 M0-B 的部分资源生命周期/同步观测闭环，生产 NO-GO 不变；未将上述证据解释为完整 Track 验收或硬件 GO。
+
+## 单一 GPU timer owner 与 GL 状态回归（2026-07-28）
+
+- 根因：RenderGraph 的 `GPUTimerQueryRing` 与 `RenderProfiler` 同时开启 `GL_TIME_ELAPSED` query，第二个 `glBeginQuery` 产生 `GL_INVALID_OPERATION (0x502)`。
+- 修复：RenderGraph 改用 `RenderProfiler::BeginCpuPass/EndCpuPass`，保留 `GPUTimerQueryRing` 作为唯一 GPU query owner；RenderProfiler 独立调用方的 GPU API 保持兼容。
+- 构建：`build.bat` 通过，证据日志 `%TEMP%\\NoMoreDay_single_timer_owner_final_build.log`。
+- 合同测试：`bin\\NoMoreDayTests.exe --test-case=*RenderGraph*` 通过 23 cases/173 assertions；真实 Target Capture 通过 1 case/3 assertions，未再出现 `0x502` 或未初始化 `GPUEntitySystem` 警告。
+- 完整 RTX 4070 门禁：`%TEMP%\\NoMoreDay_single_timer_owner_full_gate.log`，C++ verdict 仍为 `GPU_HARDWARE_GATE_RESULT status=NO_GO`，doctest 114/119 assertions；timer 样本不足已消失，剩余失败为 Cave paired GI delta `0.000193621 < 0.001` 及 Ultra 对该 paired 结果的依赖。
+- 结论：单一 timer owner 与 GL 错误来源已修复，但 M0-B transitions/typed governance、M0-C Cave differential、R6 artifact/CI 仍未闭合，生产继续 NO-GO。

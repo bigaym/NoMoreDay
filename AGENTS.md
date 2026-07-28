@@ -42,11 +42,9 @@
 - New features follow design -> planning -> implementation -> testing. Bugs follow debugging -> implementation -> testing. Documentation changes use the design or planning workflow as appropriate and check links and indexes.
 - See `conductor/code_standard.md` and `conductor/code_styleguides/` for detailed code standards.
 
-## Agent Operations
+## Tools
 
-### Tools
-
-- Prefer `codebase-memory-mcp` graph tools for code definitions, call chains, data flow, and impact analysis; use `glob` or `grep` for configuration, scripts, text, or graph gaps.
+- **Primary: `codebase-memory-mcp` graph tools** for ALL code retrieval — definitions, search, call chains, data flow, impact analysis, and architecture understanding. Start every code investigation with `search_graph`, `trace_path`, `search_code`, or `get_architecture`. Only fall back to `grep`, `glob`, or `Read` when graph tools produce empty or insufficient results (configuration files, generated code, unindexed scripts, or confirmed graph gaps).
 - Use the terminal only when no specialized tool fits. For compilation, testing, or other high-output commands, do not emit full output to context; filter it or redirect it to a text file.
 
 ### Memory, Context, And Evidence

@@ -93,6 +93,7 @@ constexpr const char *kVerificationFull = "verification-full";
 constexpr const char *kResizeOrScaleChanged = "resize-or-scale-changed";
 constexpr const char *kOccluderDeletedOrUnbounded = "occluder-deleted-or-unbounded";
 constexpr const char *kAreaExceedsThreshold = "area-exceeds-threshold";
+constexpr const char *kProductionDefaultFull = "production-default-full";
 } // namespace JFAFullReasons
 
 struct JFAUpdateDecision {
@@ -168,4 +169,3 @@ public:
 };
 
 } // namespace NoMoreDay::render::gi
-

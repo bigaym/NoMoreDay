@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -32,6 +33,38 @@ class HardwareGateConfig:
     sample_frames: int = 120
     toggle_loops: int = 100
     stress_test_1min: bool = True
+
+
+def parse_cpp_gate_status(output: str) -> str | None:
+    """Parse the exact structured GateReport status from C++ output.
+
+    Args:
+        output: Combined or captured C++ runner output.
+
+    Returns:
+        The unique C++ gate status, or ``None`` if it is missing or invalid.
+    """
+    matches = re.findall(
+        r"^GPU_HARDWARE_GATE_RESULT\s+status=(GO|NO_GO|NOT_RUN)\s*$",
+        output,
+        flags=re.MULTILINE,
+    )
+    if len(matches) != 1:
+        return None
+    return matches[0]
+
+
+def gate_succeeded(return_code: int, gate_status: str | None) -> bool:
+    """Return whether the C++ process and GateReport both passed.
+
+    Args:
+        return_code: C++ runner process return code.
+        gate_status: Parsed C++ GateReport status.
+
+    Returns:
+        ``True`` only for a zero return code and an exact ``GO`` status.
+    """
+    return return_code == 0 and gate_status == "GO"
 
 
 def run_hardware_gate_cpp(
@@ -141,8 +174,9 @@ def main() -> int:
 
     return_code, stdout, stderr = run_hardware_gate_cpp(config)
 
-    meets_preflight = return_code == 0 and "Status: SUCCESS!" in stdout
-    gate_status = "GO" if meets_preflight else "NOT_RUN"
+    parsed_status = parse_cpp_gate_status(stdout)
+    gate_status = parsed_status or "NOT_RUN"
+    meets_preflight = gate_succeeded(return_code, parsed_status)
 
     artifact = {
         "revision": config.revision,
@@ -160,7 +194,7 @@ def main() -> int:
     print(f"Gate Status: {gate_status}")
     print(f"Artifact written to: {out_path}")
 
-    return 0 if gate_status in ("GO", "NOT_RUN") else 1
+    return 0 if meets_preflight else 1
 
 
 if __name__ == "__main__":

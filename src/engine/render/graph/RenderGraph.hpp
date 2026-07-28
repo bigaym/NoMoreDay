@@ -194,6 +194,7 @@ struct ResourceAccess {
   Type type = Type::Read;
   RenderResourceTag resourceTag = RenderResourceTag::Custom;
   RenderOwnerTag ownerTag = RenderOwnerTag::Unknown;
+  uint64_t stableResourceId = 0;
 };
 
 } // namespace NoMoreDay::render::graph
@@ -239,6 +240,7 @@ struct ProducerConsumerEdge {
 };
 
 struct CompiledResourceState {
+  uint64_t stableResourceId = 0;
   std::string resourceName;
   RenderResourceTag tag = RenderResourceTag::Custom;
   size_t firstProducerPassIndex = 0;
@@ -248,6 +250,19 @@ struct CompiledResourceState {
   std::vector<size_t> writerPassIndices;
   std::vector<size_t> readerPassIndices;
   TypedResourceDescriptor descriptor;
+};
+
+struct RenderTransition {
+  uint64_t stableResourceId = 0;
+  std::string resourceName;
+  size_t previousPassIndex = 0;
+  size_t consumerPassIndex = 0;
+  PipelineStage previousStage = PipelineStage::Fragment;
+  PipelineStage nextStage = PipelineStage::Fragment;
+  PassAccessMode previousMode = PassAccessMode::Read;
+  PassAccessMode nextMode = PassAccessMode::Read;
+  ResourceKind resourceKind = ResourceKind::Texture2D;
+  uint32_t barrierBits = 0;
 };
 
 class RenderGraph {
@@ -270,6 +285,7 @@ public:
     std::vector<std::string> passOrder;
     std::vector<ProducerConsumerEdge> edges;
     std::vector<CompiledResourceState> resources;
+    std::vector<RenderTransition> transitions;
     std::vector<ValidationDiagnostic> diagnostics;
 
     std::string DumpPlan() const;

@@ -185,6 +185,9 @@ void GPUParticleSystem::Shutdown() {
   if (m_renderShader.id != 0) {
     UnloadShader(m_renderShader);
   }
+  if (m_emissionSnapshotShader.id != 0) {
+    UnloadShader(m_emissionSnapshotShader);
+  }
   if (m_emitShader.id != 0) {
     rlUnloadShaderProgram(m_emitShader.id);
     m_emitShader.id = 0;
@@ -304,6 +307,16 @@ void GPUParticleSystem::LoadShaders() {
     m_renderShadowFactorLoc = GetShaderLocation(m_renderShader, "uShadowFactor");
   } else {
     LOG_ERROR("GPUParticleSystem: Render shader loading failed!");
+  }
+
+  m_emissionSnapshotShader =
+      LoadShaderWithIncludes("assets/shaders/vfx/emission_snapshot.vert",
+                             "assets/shaders/vfx/emission_snapshot.frag");
+  if (m_emissionSnapshotShader.id != 0) {
+    m_emissionSnapshotMvpLoc =
+        GetShaderLocation(m_emissionSnapshotShader, "mvp");
+  } else {
+    LOG_ERROR("GPUParticleSystem: Emission snapshot shader loading failed!");
   }
 
   // 3. Load Emission Shader
@@ -901,6 +914,49 @@ void GPUParticleSystem::Render(const Camera2D &camera) {
         static_cast<uint32_t>(TextureUnit::TEX_MATERIAL_DETAIL_ARRAY));
   }
   rlDisableVertexArray();
+}
+
+bool GPUParticleSystem::RenderEmissionSnapshot(const Camera2D &camera,
+                                               const unsigned int outputFramebuffer,
+                                               const unsigned int restoreFramebuffer,
+                                               const int width, const int height) {
+  if (outputFramebuffer == 0 || width <= 0 || height <= 0) {
+    return false;
+  }
+
+  rlDrawRenderBatchActive();
+  constexpr uint32_t kGLFramebuffer = 0x8D40;
+  utils::GPUUtils::BindFramebuffer(kGLFramebuffer, outputFramebuffer);
+  utils::GPUUtils::Viewport(0, 0, width, height);
+  rlClearColor(0, 0, 0, 0);
+  rlClearScreenBuffers();
+
+  if (!m_initialized || m_emissionSnapshotShader.id == 0) {
+    utils::GPUUtils::BindFramebuffer(kGLFramebuffer, restoreFramebuffer);
+    return true;
+  }
+
+  const Matrix mvp = BuildMVP(camera);
+  SetShaderValueMatrix(m_emissionSnapshotShader, m_emissionSnapshotMvpLoc, mvp);
+  using namespace NoMoreDay::RenderConstants;
+  core::ComputeBuffer &bufferToRender =
+      m_pingPong ? m_compactBuffer : m_particleBuffer;
+  bufferToRender.BindBase(ParticleCS::PARTICLES_IN);
+  m_indirectBuffer.Bind(GL_DRAW_INDIRECT_BUFFER, 0);
+
+  rlEnableVertexArray(m_quadVAO);
+  rlDisableDepthTest();
+  rlDisableBackfaceCulling();
+  BeginBlendMode(BLEND_ADDITIVE);
+  BeginShaderMode(m_emissionSnapshotShader);
+  utils::GPUUtils::DrawArraysIndirect(GL_TRIANGLES,
+                                      m_indirectBuffer.GetPreviousSlotOffset());
+  EndShaderMode();
+  EndBlendMode();
+  rlDisableVertexArray();
+  utils::GPUUtils::BindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+  utils::GPUUtils::BindFramebuffer(kGLFramebuffer, restoreFramebuffer);
+  return true;
 }
 
 // ==================== InkEffectHelper Implementation ====================

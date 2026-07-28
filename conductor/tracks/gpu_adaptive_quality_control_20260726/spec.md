@@ -4,7 +4,7 @@
 > **类型**: P2 feature/quality
 > **依赖**: `gpu_hardware_validation_gate_20260726`
 > **设计输入**: [GPU 渲染引擎架构审查](../../../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)
-> **状态**: 📋 Planned
+> **状态**: 🚧 In Progress — 2026-07-26 集成整改
 
 ---
 

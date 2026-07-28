@@ -2,7 +2,7 @@
   "id": "gpu_hardware_validation_gate_20260726",
   "title": "GPU Hardware Validation Gate",
   "type": "quality/release-gate",
-  "status": "completed",
+  "status": "in_progress",
   "created": "2026-07-26T00:00:00+08:00",
   "updated": "2026-07-26T18:57:00+08:00",
   "priority": "P0",
@@ -12,6 +12,6 @@
     "gpu_production_hdr_gi_closure_20260726",
     "gpu_rendergraph_resource_foundation_20260726"
   ],
-  "phases": { "total": 5, "completed": 5 },
-  "tasks": { "total": 18, "completed": 18 }
+  "phases": { "total": 5, "completed": 0 },
+  "tasks": { "total": 18, "completed": 0 }
 }

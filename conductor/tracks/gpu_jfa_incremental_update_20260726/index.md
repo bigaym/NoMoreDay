@@ -1,7 +1,7 @@
 # Track: GPU JFA Incremental Update Closure
 
 **ID:** gpu_jfa_incremental_update_20260726
-**Status:** Completed
+**Status:** In Progress (remediation; default full JFA)
 **Type:** feature/performance-correctness
 **Priority:** P1
 **Milestone:** GPU Production Closure M1
@@ -13,8 +13,10 @@
 
 ## 进度概览
 
-- **Phases**: 4/4 complete
-- **Tasks**: 16/16 complete
+- **Phases**: 0/4 accepted
+- **Tasks**: 0/17 accepted
+
+> [生产整改 Track 集成审查](../../../docs/reviews/2026-07-26-gpu-production-remediation-tracks-review.md) 要求同帧正确性回退和真实 1080p Valid GPU P95 证据；满足前默认保持 full JFA。
 
 
 ## 快速链接

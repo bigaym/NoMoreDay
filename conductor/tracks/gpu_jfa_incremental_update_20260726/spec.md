@@ -5,7 +5,7 @@
 > **依赖**: `gpu_rendergraph_resource_foundation_20260726`、`gpu_hardware_validation_gate_20260726`
 > **前序规格**: [V5 JFA Distance Field](../../archive/v5_jfa_distance_field_20260219/spec.md)
 > **设计输入**: [GPU 渲染引擎架构审查](../../../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)
-> **状态**: ✅ Completed
+> **状态**: 🚧 In Progress — 2026-07-26 集成整改
 
 ---
 
@@ -41,4 +41,3 @@
 - 最近 seed 影响可跨大范围，简单 chunk 裁剪会污染远处 GI；扩张/边界 context/full fallback 是强制条件。
 - 删除遮挡比新增更难局部证明，优先保守 fallback。
 - 复制/barrier 成本可能抵消收益；达不到门槛时不标记完成。
-

@@ -27,6 +27,8 @@ public:
     // Per-frame operations
     void Update(float dt);
     void Render(const Camera2D& camera);
+    bool RenderEmissionSnapshot(const Camera2D& camera, unsigned int outputFramebuffer,
+                               unsigned int restoreFramebuffer, int width, int height);
     
     // Particle emission
     void Emit(const components::GPUParticle& particle);
@@ -84,6 +86,7 @@ private:
     // Shaders
     Shader m_computeShader = { 0 };
     Shader m_renderShader = { 0 };
+    Shader m_emissionSnapshotShader = { 0 };
     
     // Shader uniform locations
     int m_computeDtLoc = -1;
@@ -102,6 +105,7 @@ private:
     int m_renderNormalLightingEnabledLoc = -1;
     int m_renderSpecularEnabledLoc = -1;
     int m_renderShadowFactorLoc = -1;
+    int m_emissionSnapshotMvpLoc = -1;
     
     // VAO for quad rendering
     unsigned int m_quadVAO = 0;

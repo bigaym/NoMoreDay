@@ -203,6 +203,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       execResult.giEnabled = giOn;
       execResult.width = fixture.width;
       execResult.height = fixture.height;
+      bool executionChecksPassed = true;
 
       // Medium 2: Set scene seed
       std::srand(fixture.sceneSeed);
@@ -217,7 +218,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
 
       // R5 Fix: Enforce SPH NO-GO Policy for shipped tiers (High / Ultra)
       if (tierMgr.GetConfig().fluidEnabled) {
-        execResult.overallPassed = false;
+        executionChecksPassed = false;
         execResult.failureReasons.push_back(
             "Fluid SPH enabled in shipped tier (SPH NO-GO policy violation)");
         allMatrixPassed = false;
@@ -397,6 +398,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
                                               " exceeded GPU budget or insufficient valid samples");
         }
         execResult.passTimings.push_back(tReport);
+        executionChecksPassed = executionChecksPassed && tReport.passed;
       }
 
       // Tracked resource bytes
@@ -413,8 +415,9 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       NoMoreDay::render::resources::FramebufferManager::Destroy(offscreenHandle);
 
       execResult.overallPassed =
-          execResult.passTraceValid && execResult.nonBlackRoiPassed &&
-          execResult.giIndirectPassed && execResult.sdfReadbackPassed;
+          executionChecksPassed && execResult.passTraceValid &&
+          execResult.nonBlackRoiPassed && execResult.giIndirectPassed &&
+          execResult.sdfReadbackPassed;
 
       if (!execResult.overallPassed) {
         allMatrixPassed = false;

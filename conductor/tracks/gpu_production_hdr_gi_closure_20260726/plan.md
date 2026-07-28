@@ -2,7 +2,7 @@
 
 > **Track ID**: `gpu_production_hdr_gi_closure_20260726`
 > **依赖 Spec**: [spec.md](./spec.md)
-> **状态**: [ ] Planned
+> **状态**: [~] In Progress — 2026-07-26 集成整改
 
 ---
 
@@ -106,3 +106,26 @@ CompositeGi(current, metadata):
 - [ ] SDF 和 history fixtures 满足严格符号与 rejection 合同。
 - [ ] Release/所有 Tier 默认关闭 SPH，且它不写生产 GI。
 - [ ] 构建、相关 CTest 和实机 artifact 完整，可交给硬件 Gate 复查。
+
+## 集成审查整改
+
+下方早期 `[x]` 仅保留为历史实施记录，不代表规格验收。以下整改任务是当前唯一的完成依据，依赖 M0-B 的 transition/resource 合同先可用。
+
+```text
+PrepareGiInputs(frame):
+  vfxSnapshot = CaptureFrozenVfxEmissionBeforeRadiance(frame)
+  Version(vfxSnapshot)
+  Merge(lights, materials, vfxSnapshot)
+
+ResolveGiHistory(current):
+  invalidate if extent, zoom, camera, or any GI input version changed
+  valid = ReprojectedUvInBounds && OccupancyMatches(previousUv)
+  Blend(history, valid ? weight : 0)
+```
+
+- [ ] R1: 在 `Radiance` 前加入冻结、版本化的 `EmissiveVfx` snapshot producer；禁止从 HDR brightness 推导 VFX emission。
+- [ ] R2: 保留 previous extent、zoom、camera 和全部 GI-input version；任何变化在资源重建前使 history 无效。
+- [ ] R3: 持久化 occupancy/depth history，在 shader 与 CPU metadata 中按重投影 UV 拒绝 disocclusion。
+- [ ] R4: 增加遮挡、VFX emission、resize、zoom、emissive、occupancy 与相机移动的 paired fixture/readback。
+
+**退出标准**：R1-R4 的 unit/integration 通过，且 M0-C 在真实 Gameplay fixture 上归档对应 trace、readback 和截图；完整 depth reprojection 继续作为已接受残余风险，不在本整改范围扩大实现。

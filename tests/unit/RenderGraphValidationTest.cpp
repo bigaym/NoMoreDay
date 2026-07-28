@@ -236,6 +236,78 @@ TEST_CASE("[Unit] RenderGraph - Phase 2 Barriers, Lifecycle, and Aliasing Toggle
   CHECK(resized);
 }
 
+TEST_CASE("[Unit] RenderGraph - Compiled transitions retain identity and prior access") {
+  using namespace NoMoreDay::render::graph;
+
+  constexpr uint64_t resourceId = 0x12345678u;
+  constexpr bool includeConditionalPass = true;
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "WritePass", [resourceId](RenderGraphBuilder &builder) {
+        TypedResourceDescriptor descriptor;
+        descriptor.name = "BarrierResource";
+        descriptor.kind = ResourceKind::StorageBuffer;
+        descriptor.stableResourceId = resourceId;
+        builder.DeclareResource(descriptor);
+
+        TypedPassAccess access;
+        access.resourceName = "BarrierResource";
+        access.mode = PassAccessMode::Write;
+        access.stage = PipelineStage::Compute;
+        access.usageFlags = ResourceUsage::StorageWrite;
+        access.stableResourceId = resourceId;
+        builder.Write(access);
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ConditionalReadPass", [includeConditionalPass, resourceId](RenderGraphBuilder &builder) {
+        if (includeConditionalPass) {
+          TypedPassAccess access;
+          access.resourceName = "BarrierResource";
+          access.mode = PassAccessMode::Read;
+          access.stage = PipelineStage::Fragment;
+          access.usageFlags = ResourceUsage::StorageRead;
+          access.stableResourceId = resourceId;
+          builder.Read(access);
+        }
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ReadWritePass", [resourceId](RenderGraphBuilder &builder) {
+        TypedPassAccess read;
+        read.resourceName = "BarrierResource";
+        read.mode = PassAccessMode::Read;
+        read.stage = PipelineStage::Fragment;
+        read.usageFlags = ResourceUsage::StorageRead;
+        read.stableResourceId = resourceId;
+        builder.Read(read);
+
+        TypedPassAccess write = read;
+        write.mode = PassAccessMode::Write;
+        write.stage = PipelineStage::Compute;
+        write.usageFlags = ResourceUsage::StorageWrite;
+        builder.Write(write);
+      }));
+
+  CHECK_NOTHROW(graph.Build());
+  const auto &plan = graph.GetCompiledPlan();
+  REQUIRE(plan.isValid);
+  REQUIRE_EQ(plan.resources.size(), 1);
+  CHECK_EQ(plan.resources[0].stableResourceId, resourceId);
+  REQUIRE_EQ(plan.transitions.size(), 2);
+
+  CHECK_EQ(plan.transitions[0].stableResourceId, resourceId);
+  CHECK_EQ(plan.transitions[0].previousMode, PassAccessMode::Write);
+  CHECK_EQ(plan.transitions[0].nextMode, PassAccessMode::Read);
+  CHECK_EQ(plan.transitions[0].previousStage, PipelineStage::Compute);
+  CHECK_EQ(plan.transitions[0].nextStage, PipelineStage::Fragment);
+  CHECK_NE(plan.transitions[0].barrierBits, 0u);
+
+  CHECK_EQ(plan.transitions[1].previousMode, PassAccessMode::Read);
+  CHECK_EQ(plan.transitions[1].nextMode, PassAccessMode::Write);
+  CHECK_EQ(plan.transitions[1].consumerPassIndex, 2);
+  CHECK_EQ(plan.transitions[1].barrierBits, 0u);
+  CHECK_EQ(plan.passOrder[1], "ConditionalReadPass");
+}
+
 TEST_CASE("[Unit] RenderGraph - Phase 3 Resource Registry & Timer Query Ring") {
   using namespace NoMoreDay::render::resources;
   using namespace NoMoreDay::render::debug;

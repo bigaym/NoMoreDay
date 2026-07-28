@@ -22,6 +22,11 @@ struct JFAFrameReport {
   uint32_t occluderVersion = 0;
   uint32_t sdfVersion = 0;
   std::string fullReason;
+  bool verificationAttempted = false;
+  bool verificationPassed = false;
+  bool verificationFallback = false;
+  std::string verificationResult;
+  std::string verificationArtifact;
 };
 
 class JFAPass final : public graph::RenderPass {
@@ -82,6 +87,8 @@ public:
   void SetVerificationReadbackEnabledForTesting(bool enabled) noexcept {
     m_verificationReadbackEnabled = enabled;
   }
+  [[nodiscard]] static gi::JFAUpdateDecision ApplyProductionUpdatePolicy(
+      gi::JFAUpdateDecision decision, bool incrementalEnabled) noexcept;
 
 
 private:

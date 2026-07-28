@@ -2,7 +2,7 @@
 
 > **Track ID**: `gpu_jfa_incremental_update_20260726`
 > **依赖 Spec**: [spec.md](./spec.md)
-> **状态**: [x] Completed
+> **状态**: [~] In Progress — default full JFA
 
 ---
 
@@ -82,3 +82,21 @@ ExecuteUpdate(decision):
 - [x] 性能收益由 Valid GPU query 证明，未达到 20% 不得完成。
 - [x] 文档/telemetry 明确区分 full、incremental、fallback、skip。
 
+## 集成审查整改
+
+下方早期 `[x]` 仅保留为历史实施记录，不代表规格验收。M0-C 重新取得可信硬件基线前，production execution mode 必须强制为 full JFA。
+
+```text
+ExecuteJfa(decision):
+  if !incrementalOptInOrQualified: return RunFull()
+  RunIncremental(decision.rect)
+  error = CompareCurrentOutput(DeterministicReference())
+  if error > contract: return RunFullSameFrame("verification-fallback")
+```
+
+- [ ] R1: 以 production configuration gate 控制 execution mode，默认强制 full JFA；仅显式 opt-in 且正确性、稳定性、性能门槛均通过后允许 incremental。
+- [ ] R2: 在 production frame 接入确定性 GPU/CPU reference comparison；任何误差超限当帧 full fallback，并将 mode、reason 和结果写入 artifact。
+- [ ] R3: 为移动遮挡物、添加/删除、视图、resize、zoom、tier/render scale 场景增加集成回归，验证 fallback 与 GI version/history 失效。
+- [ ] R4: 在同一 1920x1080 目标 GPU fixture 上提交 full/incremental GPU work，采集不重复 Valid timestamp P95，并断言 incremental `<= 80%` full；否则保持 full。
+
+**退出标准**：R1-R4 的 unit/integration/performance 与 M0-C artifact 均通过。不能用面积比、空 timer frame 或 CPU 时间声明 20% 改善。

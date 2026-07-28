@@ -10,6 +10,7 @@
 #include "engine/render/core/RenderSyncContracts.hpp"
 #include "engine/render/graph/RenderContext.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
+#include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/lighting/LightManager.hpp"
 #include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
@@ -209,6 +210,8 @@ void RadianceCascadesPass::Shutdown() {
   m_cachedCascadeLevels = 0u;
   m_cachedHalfResolution = false;
   m_frameIndex = 0u;
+  m_vfxEmissionSnapshotValid = false;
+  m_vfxEmissionSnapshotVersion = 0u;
   m_lastMaterialStampCount = 0u;
   m_lastParticleWriteCount = 0u;
   m_initialized = false;
@@ -224,6 +227,40 @@ void RadianceCascadesPass::OnResize(const int width, const int height) {
   }
   m_cachedFullWidth = width;
   m_cachedFullHeight = height;
+}
+
+bool RadianceCascadesPass::PrepareVfxEmissionSnapshot(
+    const graph::RenderContext &context) {
+  m_vfxEmissionSnapshotValid = false;
+  if (context.qualityManager == nullptr || context.shared == nullptr ||
+      context.shared->resources == nullptr || !context.hdrSceneBuffer.IsValid() ||
+      context.camera == nullptr) {
+    return false;
+  }
+
+  const auto &config = context.qualityManager->GetConfig();
+  if (!config.giEnabled || config.giCascadeLevels == 0u) {
+    return false;
+  }
+  if (!m_initialized && !Initialize(*context.shared->resources)) {
+    return false;
+  }
+
+  const uint32_t cascadeLevels =
+      std::clamp<uint32_t>(config.giCascadeLevels, 1u, kMaxCascadeLevels);
+  if (!EnsureResources(context.hdrSceneBuffer.width, context.hdrSceneBuffer.height,
+                       cascadeLevels, config.giHalfResolution)) {
+    return false;
+  }
+
+  if (!NoMoreDay::systems::GPUParticleSystem::Get().RenderEmissionSnapshot(
+          *context.camera, m_particleEmissive.fbo, context.hdrSceneBuffer.fbo,
+          m_particleEmissive.width, m_particleEmissive.height)) {
+    return false;
+  }
+  ++m_vfxEmissionSnapshotVersion;
+  m_vfxEmissionSnapshotValid = true;
+  return true;
 }
 
 bool RadianceCascadesPass::EnsureResources(const int fullWidth, const int fullHeight,
@@ -493,43 +530,10 @@ bool RadianceCascadesPass::RunMaterialEmissive(
 
 bool RadianceCascadesPass::RunParticleEmissive(const graph::RenderContext &context,
                                                const int width, const int height) {
-  if (m_particleEmissiveShader.id == 0 || !m_particleEmissive.IsValid() ||
-      !context.hdrSceneBuffer.IsValid() || !ClearParticleCounter()) {
-    return false;
-  }
-
-  rlEnableShader(m_particleEmissiveShader.id);
-  const int resolution[2] = {width, height};
-  if (m_particleResolutionLoc >= 0) {
-    rlSetUniform(m_particleResolutionLoc, resolution, RL_SHADER_UNIFORM_IVEC2, 1);
-  }
-  const int sceneTexUnit = 0;
-  if (m_particleSceneTextureLoc >= 0) {
-    rlSetUniform(m_particleSceneTextureLoc, &sceneTexUnit, RL_SHADER_UNIFORM_INT, 1);
-  }
-  const float threshold = 1.15f;
-  if (m_particleThresholdLoc >= 0) {
-    rlSetUniform(m_particleThresholdLoc, &threshold, RL_SHADER_UNIFORM_FLOAT, 1);
-  }
-
-  m_particleCounterBuffer.BindBase(kParticleCounterBinding);
-  NoMoreDay::utils::GPUUtils::ActiveTexture(kGLTexture0);
-  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D,
-                                          context.hdrSceneBuffer.colorTexture);
-  NoMoreDay::utils::GPUUtils::BindImageTexture(
-      RenderConstants::V5GI::kEmissiveImageBinding, m_particleEmissive.colorTexture, 0,
-      false, 0, kGLWriteOnly, kGLRgba16f);
-  NoMoreDay::utils::GPUUtils::DispatchComputeNoBarrier(
-      DivUp(static_cast<uint32_t>(width), kGLComputeGroupSize),
-      DivUp(static_cast<uint32_t>(height), kGLComputeGroupSize), 1u);
-  rlDisableShader();
-
-  const uint32_t barrierBits = static_cast<uint32_t>(RenderConstants::Barrier::Image) |
-                               static_cast<uint32_t>(RenderConstants::Barrier::Buffer) |
-                               kTextureFetchBarrierBit;
-  NoMoreDay::utils::GPUUtils::MemoryBarrier(barrierBits);
-  m_lastParticleWriteCount = ReadParticleCounter();
-  return true;
+  (void)context;
+  (void)width;
+  (void)height;
+  return m_particleEmissive.IsValid() && m_vfxEmissionSnapshotValid;
 }
 
 bool RadianceCascadesPass::RunEmissiveMerge(const int width, const int height) {

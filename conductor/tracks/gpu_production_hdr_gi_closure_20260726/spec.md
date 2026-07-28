@@ -4,7 +4,7 @@
 > **类型**: P0 bugfix/integration
 > **依赖**: `v5_jfa_distance_field_20260219`、`v5_radiance_cascades_gi_20260219`、`v5_validation_release_gate_20260219`
 > **设计输入**: [GPU 渲染引擎架构审查](../../../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)
-> **状态**: ✅ Complete
+> **状态**: 🚧 In Progress — 2026-07-26 集成整改
 
 ---
 

@@ -2,15 +2,15 @@
   "id": "gpu_rendergraph_resource_foundation_20260726",
   "title": "GPU RenderGraph and Resource Foundation",
   "type": "refactor/foundation",
-  "status": "completed",
+  "status": "in_progress",
   "created": "2026-07-26T00:00:00+08:00",
-  "updated": "2026-07-26T17:54:00+08:00",
+  "updated": "2026-07-28T08:42:00+08:00",
   "priority": "P0",
-  "phase": "Phase 5: 迁移与门禁",
-  "current_phase": 5,
-  "current_task": "5.5",
+  "phase": "Remediation",
+  "current_phase": 3,
+  "current_task": "R3",
   "master_spec": "conductor/specs/rendering_engine_v5_master_spec.md",
   "depends_on": ["gpu_production_hdr_gi_closure_20260726"],
-  "phases": { "total": 5, "completed": 5 },
-  "tasks": { "total": 25, "completed": 25 }
+  "phases": { "total": 5, "completed": 0 },
+  "tasks": { "total": 25, "completed": 0 }
 }

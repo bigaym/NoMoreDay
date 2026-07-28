@@ -154,16 +154,16 @@
 
 ### GPU 生产整改路线（2026-07-26）
 
-> 来源：[GPU 渲染引擎架构审查](../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)。在 `gpu_hardware_validation_gate_20260726` 取得当前硬件 GO 证据前，V5 只保留“历史 Core GO”表述，不得标为 Gameplay 生产就绪。
+> 来源：[GPU 生产整改 Track 集成审查](../docs/reviews/2026-07-26-gpu-production-remediation-tracks-review.md)。五条整改 Track 的先前完成/GO 声明已经撤销；在 `gpu_hardware_validation_gate_20260726` 取得当前 revision 的可复现目标硬件 artifact 前，V5 只保留“历史 Core GO”表述，不得标为 Gameplay 生产就绪。
 
 | 阶段 | Track | 优先级 | 状态 | 目标 |
 | --- | --- | :---: | --- | --- |
-| M0-A | `gpu_production_hdr_gi_closure_20260726` | P0 | ✅ Complete | 离屏 HDR/GI 完整链、GI 正确性、SPH NO-GO 默认路由 |
-| M0-B | `gpu_rendergraph_resource_foundation_20260726` | P0 | 📋 Planned | typed resource/compiled plan、同步、资源台账、计时、ABI/能力治理 |
-| M0-C | `gpu_hardware_validation_gate_20260726` | P0 | ✅ Completed (🟢 GO) | Gameplay 完整链硬件 nightly/release gate (含真实离屏驱动/Valid Timing/1分钟长稳/100次Toggle) |
-| M1-D | `gpu_jfa_incremental_update_20260726` | P1 | ✅ Completed | 正确的 dirty-region JFA 增量更新 |
+| M0-A | `gpu_production_hdr_gi_closure_20260726` | P0 | 🚧 In Progress | 离屏 HDR/GI 完整链、VFX emission snapshot、GI history/occupancy 正确性、SPH NO-GO |
+| M0-B | `gpu_rendergraph_resource_foundation_20260726` | P0 | 🚧 In Progress | stable-ID transition、资源身份/台账、计时所有权、ABI/能力治理 |
+| M0-C | `gpu_hardware_validation_gate_20260726` | P0 | 🔴 NO-GO / In Progress | 真实 Gameplay hardware nightly/release gate 与可归档 evidence |
+| M1-D | `gpu_jfa_incremental_update_20260726` | P1 | 🚧 In Progress | 默认 full JFA、同帧验证 fallback、真实 1080p Valid GPU P95 |
 
-| M2-E | `gpu_adaptive_quality_control_20260726` | P2 | 🚧 In Progress | DRS 控制器 + 配置 + GPU 计时聚合 / Auto Exposure HDR pass 待实现 |
+| M2-E | `gpu_adaptive_quality_control_20260726` | P2 | 🚧 In Progress | DRS camera/coordinate 合同、决策 HUD、Auto Exposure HDR pass 与 Phase 4 验证 |
 
 ---
 

@@ -5,6 +5,7 @@ layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
 layout(r16f, binding = 0) uniform readonly image2D uHalfDistance;
 layout(r16f, binding = 1) uniform writeonly image2D uFullDistance;
 
+uniform sampler2D uMaskTexture;
 uniform ivec2 uHalfResolution;
 uniform ivec2 uFullResolution;
 uniform ivec2 uRectMin;
@@ -36,6 +37,11 @@ void main() {
     float dx0 = mix(d00, d10, frac.x);
     float dx1 = mix(d01, d11, frac.x);
     float upsampled = mix(dx0, dx1, frac.y);
+
+    // Preserve the full-resolution occupancy sign after half-resolution filtering.
+    if (texelFetch(uMaskTexture, pixel, 0).r > 0.5) {
+        upsampled = -max(abs(upsampled), 0.001);
+    }
 
     imageStore(uFullDistance, pixel, vec4(upsampled, 0.0, 0.0, 1.0));
 }

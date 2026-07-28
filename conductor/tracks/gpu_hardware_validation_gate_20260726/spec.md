@@ -4,7 +4,7 @@
 > **类型**: P0 quality/release-gate
 > **依赖**: `gpu_production_hdr_gi_closure_20260726`、`gpu_rendergraph_resource_foundation_20260726`
 > **设计输入**: [GPU 渲染引擎架构审查](../../../docs/reviews/2026-07-26-gpu-rendering-engine-audit-review.md)
-> **状态**: 📋 Planned
+> **状态**: 🚧 In Progress — 2026-07-26 集成整改
 
 ---
 

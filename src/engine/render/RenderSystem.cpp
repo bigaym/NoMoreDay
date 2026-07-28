@@ -32,6 +32,7 @@
 #include "engine/render/passes/OccluderExtractPass.hpp"
 #include "engine/render/passes/PostProcessPass.hpp"
 #include "engine/render/passes/RadianceCascadesPass.hpp"
+#include "engine/render/passes/VFXEmissionSnapshotPass.hpp"
 #include "engine/render/passes/ShadowBuildPass.hpp"
 #include "engine/render/passes/ShadowPreparePass.hpp"
 #include "engine/render/passes/ShadowResolvePass.hpp"
@@ -2113,6 +2114,12 @@ void RenderSystem::render(entt::registry &registry,
       g_radianceCascadesPass != nullptr && g_giCompositePass != nullptr) {
     graph.AddPass(g_occluderExtractPass);
     graph.AddPass(g_jfaPass);
+    graph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXEmissionSnapshotPass>(
+        [](NoMoreDay::render::graph::RenderContext &context) {
+          if (g_radianceCascadesPass != nullptr) {
+            g_radianceCascadesPass->PrepareVfxEmissionSnapshot(context);
+          }
+        }));
     graph.AddPass(g_radianceCascadesPass);
     graph.AddPass(g_giCompositePass);
     sceneHdrOwner = RenderOwnerTag::GIComposite;

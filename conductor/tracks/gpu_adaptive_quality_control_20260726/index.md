@@ -1,7 +1,7 @@
 # Track: GPU Adaptive Quality Control
 
 **ID:** gpu_adaptive_quality_control_20260726
-**Status:** In Progress
+**Status:** In Progress (remediation; defaults disabled/locked)
 **Type:** feature/quality
 **Priority:** P2
 **Milestone:** GPU Production Closure M2
@@ -13,8 +13,10 @@
 
 ## 进度概览
 
-- **Phases**: 2/4 complete
-- **Tasks**: 11/18 complete
+- **Phases**: 0/4 accepted
+- **Tasks**: 0/18 accepted
+
+> [生产整改 Track 集成审查](../../../docs/reviews/2026-07-26-gpu-production-remediation-tracks-review.md) 发现缩放坐标合同、HUD 决策上下文、自动曝光和 Phase 4 验证尚未闭环；不得默认启用 DRS 或自动曝光。
 
 ## 快速链接
 

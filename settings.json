@@ -1,0 +1,92 @@
+{
+    "render": {
+        "adaptiveQuality": {
+            "autoExposureEnabled": false,
+            "brightenRate": 1.5,
+            "cooldownSeconds": 30.0,
+            "darkenRate": 3.0,
+            "downThresholdMs": 0.0,
+            "dynamicResolutionEnabled": false,
+            "exposure": 1.0,
+            "maxExposure": 4.0,
+            "maxRenderScale": 1.0,
+            "minExposure": 0.25,
+            "minRenderScale": 0.699999988079071,
+            "renderScale": 1.0,
+            "renderScaleLocked": true,
+            "renderScaleStep": 0.05000000074505806,
+            "sustainSeconds": 0.75,
+            "upThresholdMs": 0.0
+        },
+        "fluid": {
+            "enabled": false,
+            "maxParticles": 0
+        },
+        "gi": {
+            "cascadeLevels": 0,
+            "enabled": false,
+            "halfResolution": false,
+            "holographicEnabled": false,
+            "intensity": 1.0,
+            "sdfUpdateInterval": 1,
+            "temporalWeight": 0.8999999761581421
+        },
+        "gpuLoot": {
+            "enabled": false
+        },
+        "gpuText": {
+            "enabled": false
+        },
+        "v3": {
+            "clusterTileSize": 32,
+            "clusterZSliceCount": 8,
+            "clusteredLightingEnabled": false,
+            "clusteredLightingV4Enabled": false,
+            "enabled": false,
+            "heightShadowEnabled": false,
+            "heightShadowSteps": 0,
+            "materialQualityLevel": 0,
+            "maxShadowedLights": 4,
+            "normalLightingEnabled": false,
+            "pomEnabled": false,
+            "pomLayers": 0,
+            "selfShadowEnabled": false,
+            "selfShadowSteps": 0,
+            "shadowAtlasSize": 2048,
+            "shadowEnabled": false,
+            "shadowMode": "off",
+            "shadowSoftness": 1.0,
+            "specularEnabled": false
+        }
+    },
+    "render.fluid.enabled": false,
+    "render.gi.enabled": false,
+    "render.gpuLoot.enabled": false,
+    "render.gpuText.enabled": false,
+    "render.v3.enabled": false,
+    "renderQualityAutoDetect": {
+        "benchmarkScore": 124.28199768066406,
+        "benchmarkTier": "Ultra",
+        "capability": {
+            "maxArrayTextureLayers": 2048,
+            "maxComputeWorkGroupInvocations": 1024,
+            "maxComputeWorkGroupSize": [
+                1024,
+                1024,
+                64
+            ],
+            "maxImageUnits": 8,
+            "maxShaderStorageBufferBindings": 96,
+            "maxTextureSize": 32768,
+            "valid": true
+        },
+        "capabilityTier": "Ultra",
+        "degradeLevel": 0,
+        "reason": "capability_and_benchmark",
+        "renderer": "NVIDIA GeForce RTX 4070 SUPER/PCIe/SSE2",
+        "selectedTier": "Ultra",
+        "source": "capability+benchmark",
+        "updatedAtUtc": "2026-07-28T12:14:53Z",
+        "version": 1
+    }
+}

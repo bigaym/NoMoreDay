@@ -270,7 +270,8 @@ std::optional<PassContractStage> ResolvePassContractStage(std::string_view passN
 void RenderGraphBuilder::Read(const std::string &resourceName) {
   const RenderResourceTag inferredTag = ToResourceTag(resourceName);
   m_accesses.push_back({resourceName, ResourceAccess::Type::Read,
-                        inferredTag, RenderOwnerTag::Unknown});
+                         inferredTag, RenderOwnerTag::Unknown,
+                         StableResourceId(resourceName)});
   m_typedAccesses.push_back({resourceName, inferredTag, PassAccessMode::Read,
                              PipelineStage::Fragment, ResourceUsage::ShaderRead,
                              0, RenderOwnerTag::Unknown});
@@ -279,7 +280,8 @@ void RenderGraphBuilder::Read(const std::string &resourceName) {
 void RenderGraphBuilder::Write(const std::string &resourceName) {
   const RenderResourceTag inferredTag = ToResourceTag(resourceName);
   m_accesses.push_back({resourceName, ResourceAccess::Type::Write,
-                        inferredTag, RenderOwnerTag::Unknown});
+                         inferredTag, RenderOwnerTag::Unknown,
+                         StableResourceId(resourceName)});
   m_typedAccesses.push_back({resourceName, inferredTag, PassAccessMode::Write,
                              PipelineStage::FramebufferAttachment,
                              ResourceUsage::ColorAttachment, 0,
@@ -289,7 +291,8 @@ void RenderGraphBuilder::Write(const std::string &resourceName) {
 void RenderGraphBuilder::Read(RenderResourceTag resourceTag,
                               RenderOwnerTag ownerTag) {
   const std::string name = ToResourceName(resourceTag);
-  m_accesses.push_back({name, ResourceAccess::Type::Read, resourceTag, ownerTag});
+  m_accesses.push_back({name, ResourceAccess::Type::Read, resourceTag, ownerTag,
+                        StableResourceId(name)});
   m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Read,
                              PipelineStage::Fragment, ResourceUsage::ShaderRead,
                              0, ownerTag});
@@ -298,7 +301,8 @@ void RenderGraphBuilder::Read(RenderResourceTag resourceTag,
 void RenderGraphBuilder::Write(RenderResourceTag resourceTag,
                                RenderOwnerTag ownerTag) {
   const std::string name = ToResourceName(resourceTag);
-  m_accesses.push_back({name, ResourceAccess::Type::Write, resourceTag, ownerTag});
+  m_accesses.push_back({name, ResourceAccess::Type::Write, resourceTag, ownerTag,
+                        StableResourceId(name)});
   m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Write,
                              PipelineStage::FramebufferAttachment,
                              ResourceUsage::ColorAttachment, 0, ownerTag});
@@ -307,7 +311,8 @@ void RenderGraphBuilder::Write(RenderResourceTag resourceTag,
 void RenderGraphBuilder::Read(RenderResourceTag resourceTag, RenderOwnerTag ownerTag,
                               PipelineStage stage, uint32_t usageFlags) {
   const std::string name = ToResourceName(resourceTag);
-  m_accesses.push_back({name, ResourceAccess::Type::Read, resourceTag, ownerTag});
+  m_accesses.push_back({name, ResourceAccess::Type::Read, resourceTag, ownerTag,
+                        StableResourceId(name)});
   m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Read, stage,
                              usageFlags, 0, ownerTag});
 }
@@ -315,7 +320,8 @@ void RenderGraphBuilder::Read(RenderResourceTag resourceTag, RenderOwnerTag owne
 void RenderGraphBuilder::Write(RenderResourceTag resourceTag, RenderOwnerTag ownerTag,
                                PipelineStage stage, uint32_t usageFlags) {
   const std::string name = ToResourceName(resourceTag);
-  m_accesses.push_back({name, ResourceAccess::Type::Write, resourceTag, ownerTag});
+  m_accesses.push_back({name, ResourceAccess::Type::Write, resourceTag, ownerTag,
+                        StableResourceId(name)});
   m_typedAccesses.push_back({name, resourceTag, PassAccessMode::Write, stage,
                              usageFlags, 0, ownerTag});
 }
@@ -323,13 +329,15 @@ void RenderGraphBuilder::Write(RenderResourceTag resourceTag, RenderOwnerTag own
 void RenderGraphBuilder::Read(const TypedPassAccess &access) {
   m_typedAccesses.push_back(access);
   m_accesses.push_back({access.resourceName, ResourceAccess::Type::Read,
-                        access.resourceTag, access.ownerTag});
+                        access.resourceTag, access.ownerTag,
+                        access.stableResourceId});
 }
 
 void RenderGraphBuilder::Write(const TypedPassAccess &access) {
   m_typedAccesses.push_back(access);
   m_accesses.push_back({access.resourceName, ResourceAccess::Type::Write,
-                        access.resourceTag, access.ownerTag});
+                        access.resourceTag, access.ownerTag,
+                        access.stableResourceId});
 }
 
 void RenderGraphBuilder::DeclareResource(const TypedResourceDescriptor &descriptor) {
@@ -447,10 +455,11 @@ void RenderGraph::Execute(RenderContext &context) {
       }
     }
 
-    for (const auto &typedAccess : node.typedAccesses) {
-      uint32_t bits = MapGlBarrierBits(typedAccess.stage, typedAccess.mode);
-      if (bits > 0 && bits != kInvalidBarrierBits) {
-        NoMoreDay::utils::GPUUtils::MemoryBarrier(bits);
+    for (const auto &transition : m_compiledPlan.transitions) {
+      if (transition.consumerPassIndex == node.passIndex &&
+          transition.barrierBits != 0 &&
+          transition.barrierBits != kInvalidBarrierBits) {
+        NoMoreDay::utils::GPUUtils::MemoryBarrier(transition.barrierBits);
       }
     }
 
@@ -620,11 +629,16 @@ void RenderGraph::BuildCompiledPlan() {
     m_compiledPlan.passOrder.push_back(node.passName);
   }
 
-  std::map<std::string, CompiledResourceState> resourceMap;
+  std::map<uint64_t, CompiledResourceState> resourceMap;
+  std::unordered_map<std::string, uint64_t> descriptorIdsByName;
 
   for (const Node &node : m_nodes) {
     for (const auto &desc : node.declaredDescriptors) {
-      auto &res = resourceMap[desc.name];
+      const uint64_t resourceId =
+          ResolveStableResourceId(desc.stableResourceId, desc.name);
+      descriptorIdsByName[desc.name] = resourceId;
+      auto &res = resourceMap[resourceId];
+      res.stableResourceId = resourceId;
       res.resourceName = desc.name;
       res.tag = desc.tag;
       res.descriptor = desc;
@@ -634,8 +648,17 @@ void RenderGraph::BuildCompiledPlan() {
   for (const Node &node : m_nodes) {
     for (const auto &access : node.accesses) {
       if (access.resourceName.empty()) continue;
-      auto &res = resourceMap[access.resourceName];
-      res.resourceName = access.resourceName;
+      const auto descriptorIt = descriptorIdsByName.find(access.resourceName);
+      const uint64_t resourceId = access.stableResourceId != 0
+                                      ? access.stableResourceId
+                                      : (descriptorIt != descriptorIdsByName.end()
+                                             ? descriptorIt->second
+                                             : StableResourceId(access.resourceName));
+      auto &res = resourceMap[resourceId];
+      res.stableResourceId = resourceId;
+      if (res.resourceName.empty()) {
+        res.resourceName = access.resourceName;
+      }
       if (res.tag == RenderResourceTag::Custom) {
         res.tag = access.resourceTag;
       }
@@ -656,10 +679,65 @@ void RenderGraph::BuildCompiledPlan() {
     }
   }
 
+  struct PreviousAccess {
+    size_t passIndex = 0;
+    PipelineStage stage = PipelineStage::Fragment;
+    PassAccessMode mode = PassAccessMode::Read;
+    ResourceKind kind = ResourceKind::Texture2D;
+  };
+  std::map<uint64_t, PreviousAccess> previousAccesses;
+  for (const Node &node : m_nodes) {
+    for (const TypedPassAccess &access : node.typedAccesses) {
+      if (access.resourceName.empty()) continue;
+      const auto descriptorIt = descriptorIdsByName.find(access.resourceName);
+      const uint64_t resourceId = access.stableResourceId != 0
+                                      ? access.stableResourceId
+                                      : (descriptorIt != descriptorIdsByName.end()
+                                             ? descriptorIt->second
+                                             : StableResourceId(access.resourceName));
+      const auto resourceIt = resourceMap.find(resourceId);
+      if (resourceIt == resourceMap.end()) continue;
+
+      const auto previousIt = previousAccesses.find(resourceId);
+      if (previousIt != previousAccesses.end() &&
+          (previousIt->second.stage != access.stage ||
+           previousIt->second.mode != access.mode)) {
+        const PreviousAccess &previous = previousIt->second;
+        RenderTransition transition = {};
+        transition.stableResourceId = resourceId;
+        transition.resourceName = access.resourceName;
+        transition.previousPassIndex = previous.passIndex;
+        transition.consumerPassIndex = node.passIndex;
+        transition.previousStage = previous.stage;
+        transition.nextStage = access.stage;
+        transition.previousMode = previous.mode;
+        transition.nextMode = access.mode;
+        transition.resourceKind = previous.kind;
+        transition.barrierBits = MapGlBarrierBits(
+            previous.stage, previous.mode, access.stage, access.mode,
+            previous.kind);
+        m_compiledPlan.transitions.push_back(std::move(transition));
+      }
+
+      previousAccesses[resourceId] = {
+          node.passIndex, access.stage, access.mode, resourceIt->second.descriptor.kind};
+    }
+  }
+
   for (const Node &node : m_nodes) {
     for (const auto &access : node.accesses) {
       if (access.type == ResourceAccess::Type::Read && !access.resourceName.empty()) {
-        const auto &res = resourceMap[access.resourceName];
+        const auto descriptorIt = descriptorIdsByName.find(access.resourceName);
+        const uint64_t resourceId = access.stableResourceId != 0
+                                        ? access.stableResourceId
+                                        : (descriptorIt != descriptorIdsByName.end()
+                                               ? descriptorIt->second
+                                               : StableResourceId(access.resourceName));
+        const auto resourceIt = resourceMap.find(resourceId);
+        if (resourceIt == resourceMap.end()) {
+          continue;
+        }
+        const auto &res = resourceIt->second;
         for (const size_t writerIndex : res.writerPassIndices) {
           if (writerIndex < node.passIndex) {
             ProducerConsumerEdge edge = {};
@@ -714,7 +792,7 @@ void RenderGraph::BuildCompiledPlan() {
         "cycle detected in render graph dependency edges");
   }
 
-  for (const auto &[name, state] : resourceMap) {
+  for (const auto &[resourceId, state] : resourceMap) {
     m_compiledPlan.resources.push_back(state);
   }
 
@@ -764,6 +842,14 @@ std::string RenderGraph::CompiledRenderPlan::DumpPlan() const {
     ss << "  Pass #" << edge.producerPassIndex << " (" << edge.producerPassName << ")"
        << " -> Pass #" << edge.consumerPassIndex << " (" << edge.consumerPassName << ")"
        << " via " << edge.resourceName << "\n";
+  }
+
+  ss << "Transitions (" << transitions.size() << "):\n";
+  for (const auto &transition : transitions) {
+    ss << "  - Resource " << transition.resourceName
+       << " (id=" << transition.stableResourceId << ")"
+       << " before pass #" << transition.consumerPassIndex
+       << " bits=0x" << std::hex << transition.barrierBits << std::dec << "\n";
   }
 
   if (!diagnostics.empty()) {

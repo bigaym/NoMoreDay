@@ -2,7 +2,7 @@
 
 > **Track ID**: `gpu_adaptive_quality_control_20260726`
 > **依赖 Spec**: [spec.md](./spec.md)
-> **状态**: [ ] Planned
+> **状态**: [~] In Progress — defaults disabled/locked
 
 ---
 
@@ -82,3 +82,23 @@ UpdateExposure(hdr):
 - [ ] scale/exposure 切换维持 native UI、离屏输出、资源稳定。
 - [ ] auto exposure 有 HDR-only 行为、clamp、fallback 证据。
 - [ ] artifact 支持默认启用或明确维持关闭结论。
+
+## 集成审查整改
+
+先前 index/metadata 的完成计数已撤销；本计划以下任务才是规格验收来源。M0-C 未恢复 `GO` 前，DRS 和自动曝光均保持 disabled/locked。
+
+```text
+ApplyScaledGameplayTarget(scale):
+  extent = Scale(nativeExtent, scale)
+  SetSceneTargetExtent(extent)
+  SetGameplayCameraViewport(extent)
+  MapMouseToWorld(input, camera, extent, nativeExtent)
+  Persist(decision, extent)
+```
+
+- [ ] R1: 缩放 scene target 时同步 Gameplay camera/viewport、world-to-screen 和 mouse-to-world conversion；添加输入坐标回归测试。
+- [ ] R2: 持久化 last `AdaptiveQualityDecision` 和 active `RenderTargetExtent`，HUD 显示 scale、sample frame/state、reason 与 target extent。
+- [ ] R3: 实现或拆分 auto exposure 的 HDR histogram/adaptation、tonemap 集成、capability fallback 与默认固定曝光；不得把未实现内容标为完成。
+- [ ] R4: 完成 Phase 4 的 1.0/fixed、scale/resize/tier/GI、native UI、HDR exposure、Valid GPU、资源/黑帧和硬件 artifact 验证；解决或合规 waiver 共享 CI failure。
+
+**退出标准**：R1-R4 通过后才可依据目标硬件 artifact 决定默认值；否则保留 `renderScale=1.0`、fixed exposure、DRS disabled/locked。

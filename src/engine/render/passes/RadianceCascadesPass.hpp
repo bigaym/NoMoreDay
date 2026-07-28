@@ -25,6 +25,10 @@ public:
   bool Initialize(ResourceManager &resources);
   void Shutdown();
   void OnResize(int width, int height);
+  bool PrepareVfxEmissionSnapshot(const graph::RenderContext &context);
+  [[nodiscard]] uint64_t GetVfxEmissionSnapshotVersion() const noexcept {
+    return m_vfxEmissionSnapshotVersion;
+  }
 
   [[nodiscard]] bool HasEmissiveBuffer() const noexcept {
     return m_emissiveCombined.IsValid();
@@ -129,6 +133,8 @@ private:
   uint32_t m_lastMaterialStampCount = 0u;
   uint32_t m_lastParticleWriteCount = 0u;
   bool m_initialized = false;
+  bool m_vfxEmissionSnapshotValid = false;
+  uint64_t m_vfxEmissionSnapshotVersion = 0u;
   bool m_barrierAuditLogged = false;
   bool m_lastExecuteFailure = false;
   bool m_lastExecuteSuccess = false;
