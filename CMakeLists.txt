@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 4.2)
 project(NoMoreDay VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -24,6 +24,13 @@ set_property(CACHE NMD_COMPILER_CACHE_TOOL PROPERTY STRINGS AUTO SCCACHE CCACHE 
 set(NMD_CCACHE_DEFAULT_PATH "" CACHE FILEPATH "Fallback path to ccache executable when PATH lookup fails")
 
 add_library(NoMoreDayAnalyzeFlags INTERFACE)
+
+# MS-1 establishes the shared-type ownership boundary only. It deliberately
+# has no sources, PCH, or linked targets until a type passes the admission audit.
+add_library(NoMoreDayTypes INTERFACE)
+target_include_directories(NoMoreDayTypes INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 
 if(NMD_ENABLE_COMPILER_CACHE)
     set(_nmd_cache_program "")
@@ -348,6 +355,74 @@ add_custom_command(TARGET NoMoreDay POST_BUILD
 )
 
 # --- Tests ---
+function(_nmd_ms1_types_boundary_final_guard_7f3c9a)
+    cmake_language(
+        DEFER DIRECTORY "${CMAKE_SOURCE_DIR}"
+        GET_CALL_IDS _nmd_types_pending_deferred_calls
+    )
+    get_target_property(_nmd_types_kind NoMoreDayTypes TYPE)
+    get_target_property(_nmd_types_sources NoMoreDayTypes SOURCES)
+    get_target_property(_nmd_types_interface_sources NoMoreDayTypes INTERFACE_SOURCES)
+    get_target_property(_nmd_types_direct_links NoMoreDayTypes LINK_LIBRARIES)
+    get_target_property(_nmd_types_links NoMoreDayTypes INTERFACE_LINK_LIBRARIES)
+    get_target_property(_nmd_types_direct_pch NoMoreDayTypes PRECOMPILE_HEADERS)
+    get_target_property(_nmd_types_pch NoMoreDayTypes INTERFACE_PRECOMPILE_HEADERS)
+    get_target_property(_nmd_types_includes NoMoreDayTypes INTERFACE_INCLUDE_DIRECTORIES)
+    get_target_property(
+        _nmd_types_system_includes
+        NoMoreDayTypes
+        INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
+    )
+    get_filename_component(
+        _nmd_types_expected_include_root
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+        REALPATH
+    )
+
+    if(NOT _nmd_types_kind STREQUAL "INTERFACE_LIBRARY")
+        message(FATAL_ERROR "[Modules] NoMoreDayTypes must remain an INTERFACE library")
+    endif()
+    if(_nmd_types_sources)
+        message(FATAL_ERROR "[Modules] NoMoreDayTypes must remain source-free during MS-1")
+    endif()
+    if(_nmd_types_interface_sources)
+        message(FATAL_ERROR "[Modules] NoMoreDayTypes must not export interface sources")
+    endif()
+    if(_nmd_types_direct_links OR _nmd_types_links)
+        message(FATAL_ERROR "[Modules] NoMoreDayTypes must not link Engine, Game, App, or other targets")
+    endif()
+    if(_nmd_types_direct_pch OR _nmd_types_pch)
+        message(FATAL_ERROR "[Modules] NoMoreDayTypes must not use a precompiled header")
+    endif()
+    set(_nmd_types_include_count 0)
+    if(_nmd_types_includes)
+        list(LENGTH _nmd_types_includes _nmd_types_include_count)
+    endif()
+    if(NOT _nmd_types_include_count EQUAL 1 OR
+       NOT "${_nmd_types_includes}" STREQUAL
+           "${_nmd_types_expected_include_root}")
+        message(FATAL_ERROR
+            "[Modules] NoMoreDayTypes public include root must be exactly src"
+        )
+    endif()
+    if(_nmd_types_system_includes)
+        message(FATAL_ERROR
+            "[Modules] NoMoreDayTypes must not export system include directories"
+        )
+    endif()
+    if(_nmd_types_pending_deferred_calls)
+        message(FATAL_ERROR
+            "[Modules] NoMoreDayTypes final guard found root deferred calls after itself"
+        )
+    endif()
+endfunction()
+
+# DEFER attaches this root-scope final check after every child directory and
+# included CMake file have configured. The pre-CMake contract checker reserves
+# this command and this as the only first-party DEFER call, preventing a later
+# guard redefinition or a child-scheduled root-scope mutation.
+cmake_language(DEFER CALL _nmd_ms1_types_boundary_final_guard_7f3c9a)
+
 option(BUILD_TESTING "Build tests" ON)
 if(BUILD_TESTING)
     enable_testing()

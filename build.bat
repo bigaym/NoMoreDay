@@ -275,6 +275,9 @@ if /i "!ENABLE_PRECHECKS!"=="ON" (
     call :run_quiet_step "Checking candidate module boundaries" "Module boundary check failed! Aborting." "python scripts\check_module_boundaries.py"
     if errorlevel 1 exit /b 1
 
+    call :run_quiet_step "Checking MS-1 Core candidate contract" "MS-1 Core candidate contract check failed! Aborting." "python scripts\check_core_candidate_contract.py"
+    if errorlevel 1 exit /b 1
+
     call :run_quiet_step "Generating render ABI includes" "Render ABI generation failed! Aborting." "python tools\render_abi\generate_gpu_abi.py"
     if errorlevel 1 exit /b 1
     call :run_quiet_step "Checking render ABI struct governance" "Render ABI governance check failed! Aborting." "python tools\render_abi\check_no_manual_abi_structs.py"

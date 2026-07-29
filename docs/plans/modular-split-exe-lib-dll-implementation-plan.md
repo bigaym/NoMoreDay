@@ -1,7 +1,7 @@
 # Modular Static Target Split Implementation Plan
 
 **Design reference:** `docs/designs/modular-split-exe-lib-dll-design.md`
-**Status:** MS-0 [x]; MS-1 through MS-8 [ ] (MS-6 remains P0-blocked)
+**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 through MS-8 [ ] (MS-6 remains P0-blocked)
 **Execution model:** Each milestone is implemented by an `implementer` subagent, reviewed by an independent `reviewer`, then committed only after a `提交` conclusion. The design document is user-owned worktree state and is never edited, staged, or committed by this initiative.
 
 ## Goal
@@ -110,15 +110,90 @@ git diff --check
 
 **Review state (2026-07-29):** Two corrective review rounds concluded `修改`; the final independent review concluded `提交`. Evidence: the checker passed `129/129` entries across 37 files, six focused Python tests and `py_compile` passed, and `build.bat check` ran the precheck before CMake. Accepted residual risks are limited to direct quoted includes in the candidate scope; transitive, generated, and angle-bracket dependencies remain future audit work. The 66 P0 rendering/GPU edges remain fixed-policy tracked and MS-6 remains blocked.
 
-### MS-1 [ ]: Minimal Types and Core Candidate Contract
+### MS-1 [x]: Minimal Types and Core Candidate Contract
 
 **Objective:** Add an empty `NoMoreDayTypes` INTERFACE target and an audited Core candidate manifest/PCH inventory without moving Game-owned types.
 
 **Atomic tasks:**
 
-- [ ] MS-1.1 Add the empty Types target and verify it has no Game/App/Engine dependency.
-- [ ] MS-1.2 Define Core candidate source and PCH manifests without enabling the final split.
-- [ ] MS-1.3 Build RelWithDebInfo and run `ci` tests; review and commit the milestone.
+- [x] MS-1.1 Add the empty Types target and verify it has no Game/App/Engine dependency.
+- [x] MS-1.2 Define Core candidate source and PCH manifests without enabling the final split.
+- [x] MS-1.3 Add a standalone Core-candidate contract verifier, focused
+  fixture coverage, and the `build.bat` precheck before CMake.
+- [x] MS-1.4 Build RelWithDebInfo and record the MS-1 acceptance evidence:
+  Types target contract, configure guard, checker, focused tests, and build.
+  Per the project owner's explicit decision, do not run full `ci` for this
+   node; existing GI stability, SkillUI stale source guard, and Heavenly Sword
+   prior instability signals are accepted as out-of-scope, non-MS-1
+    compile-boundary-contract regressions. This is an MS-1-only acceptance
+    waiver, not a fix, a clean CI baseline, or a global CI waiver. Each later
+    milestone must independently disposition these signals when relevant. The
+    latest aggregate build is blocked by the unchanged, out-of-scope
+    `BloodSea.cpp` skill-module compile failure; MS-1 records rather than fixes
+    it and must not claim an aggregate build pass.
+
+**Follow-up corrective state (2026-07-29):** A uniquely named root-scope
+`cmake_language(DEFER CALL ...)` final guard runs after all root children and
+included CMake code, with `BUILD_TESTING` on or off. It rejects source, link,
+PCH, public include-root, system public-include mutation, and any root deferred
+call still queued after it. The pre-CMake static verifier conservatively scans
+first-party `CMakeLists.txt` and `.cmake` files: the guard has exactly one root
+`function` definition, with CMake command and declaration names normalized
+case-insensitively. No `macro()` or case variant may redeclare that final guard.
+Its only allowed `cmake_language` operations are the
+root final `DEFER CALL` and the guard's fixed read-only root `GET_CALL_IDS`
+   query; it rejects every other operation, including `EVAL`, `CANCEL_CALL`, and
+   variable or dynamic bracket-argument forms. Static bracket literals are
+   normalized as literal syntax where the contract permits a literal. Temporary
+   configure fixtures prove
+`EVAL CODE` cannot redefine the guard or cancel/mutate it. First-party
+`function()` or `macro()` declarations must use a statically verifiable literal
+identifier. Bracket literals are normalized before case-insensitive comparison;
+variable/dynamic names are rejected. It rejects redefinitions of the final
+guard's required commands: `cmake_language`, `get_target_property`,
+`get_filename_component`, `set`, `list`, and `message`, including normalized
+bracket names. Temporary configure fixtures combine spoofed
+`get_target_property` definitions using both a bracket name and a variable name
+with variable-target source mutation, and also prove exact macro plus
+case-variant function/macro final-guard redefinitions are rejected before
+configure. This is static policy, not a claim that arbitrary CMake expressions
+are evaluated or that CMake is sandboxed. The project owner's explicit decision
+sets the minimum CMake version to 4.2; CMake 4.2.3 is the actual local
+verification version. This node makes no CMake 3.20 support claim. The verifier
+also enforces a mutually
+exclusive, complete manifest of direct `src/core` C++ source/header files. This
+closes the follow-up contract gaps only; it does not establish a clean CI
+baseline.
+
+### MS-1.5 [x]: Acceptance and Review Gate
+
+**Objective:** Retain auditable acceptance and review evidence without changing
+unrelated GI, UI, or gameplay behavior.
+
+**Current state:** The MS-1 contract verifier, focused Python tests, and
+`build.bat check` pass. The latest RelWithDebInfo aggregate build stops at an
+unchanged, out-of-scope `BloodSea.cpp` skill-module compile failure; this node
+records rather than repairs it. The known CI risk set contains three existing,
+non-MS-1 compile-boundary-contract signals: GI long-run
+stability has no established clean baseline; the SkillUI source-text guard
+predates its registry refactor and is a separate test/implementation mismatch;
+and the Heavenly Sword freeze guard was first observed without a clean baseline.
+The latest rerun saw the first two failures and passed Heavenly Sword,
+confirming that the third signal remains unstable rather than disposed. Per the
+project owner's explicit decision, these signals are accepted as out of scope
+   for this MS-1 node only. They are retained as residual risk, not hidden,
+   fixed, treated as a clean CI baseline, or waived for global CI or later
+   milestones; later milestones must independently disposition them when
+   relevant.
+
+**Remaining tasks:**
+
+- [x] MS-1.5.1 Preserve the three CI signals and their node-specific acceptance
+  waiver in evidence without altering GI/UI/gameplay code in this package.
+- [x] MS-1.5.2 Obtain an independent `提交`/`修改` review from the recorded
+  evidence; no commit is eligible while the conclusion is `修改`.
+- [x] MS-1.5.3 Stage and commit only an accepted package after the review gate
+  passes.
 
 ### MS-2 [ ]: PhysicsUtils Ownership Correction
 

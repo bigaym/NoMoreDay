@@ -1,0 +1,94 @@
+{
+  "schema_version": "1.0",
+  "milestone": "MS-1",
+  "status": "implementation_complete_review_pending",
+  "current_aggregate_target": {
+    "name": "NoMoreDayCore",
+    "role": "legacy aggregate",
+    "contract": "Compiles current src/*.cpp except app/main.cpp and SkillBehaviors; it is not the future Core layer."
+  },
+  "types_target": {
+    "name": "NoMoreDayTypes",
+    "kind": "INTERFACE",
+    "public_include_root": "src",
+    "sources": [],
+    "precompiled_headers": [],
+    "link_dependencies": [],
+    "admission_requirements": [
+      "At least two intended architectural targets genuinely need the value type.",
+      "The owner is not Game-specific, App-specific, or render-resource-specific.",
+      "The type has stable value semantics without service, task, registry, graphics, or serialization lifetime.",
+      "The type changes rarely and is semantically cross-cutting.",
+      "Its public dependencies obey the same lower-layer boundary."
+    ],
+    "explicit_exclusions": [
+      "game/components/Common.hpp and its gameplay components/constants",
+      "ECS registries and adapters",
+      "save schemas, rendering resources, and SharedContext"
+    ]
+  },
+  "future_core_candidate": {
+    "name": "NoMoreDayCore",
+    "role": "future target contract only; not enabled by this milestone",
+    "eligible_implementation_sources": [
+      "src/core/logging/Logger.cpp"
+    ],
+    "eligible_headers": [
+      "src/core/logging/Logger.hpp",
+      "src/core/math/ThreadSafeRandom.hpp",
+      "src/core/math/Tilemask.hpp",
+      "src/core/math/UUID.hpp",
+      "src/core/threading/Parallel.hpp",
+      "src/core/utils/Branchless.hpp",
+      "src/core/utils/FmtBuffer.hpp",
+      "src/core/utils/FrameRateUtils.hpp",
+      "src/core/utils/HashUtils.hpp",
+      "src/core/utils/ScopedTimer.hpp",
+      "src/core/utils/Time.hpp"
+    ],
+    "deferred_items": [
+      {
+        "path": "src/core/math/PhysicsUtils.hpp",
+        "reason": "Directly includes game/components/Common.hpp and operates on Game ECS Position/Velocity.",
+        "owner_resolution": "MS-2 moves the gameplay helper; no type extraction is authorized by MS-1."
+      },
+      {
+        "path": "src/core/logging/CrashHandler.cpp",
+        "reason": "Uses Windows and DbgHelp process-crash APIs, so it is not platform-independent Core.",
+        "owner_resolution": "Keep in the aggregate until a later ownership audit assigns its platform boundary."
+      },
+      {
+        "path": "src/core/logging/CrashHandler.hpp",
+        "reason": "Public declaration for the deferred Windows crash-handler implementation.",
+        "owner_resolution": "Keep with CrashHandler.cpp."
+      }
+    ],
+    "dependency_rule": "Eligible Core sources and headers may not include engine/, game/, or app/."
+  },
+  "pch_inventory": {
+    "NoMoreDayTypes": {
+      "approved_pch": null,
+      "rule": "No PCH."
+    },
+    "future_NoMoreDayCore": {
+      "approved_pch": null,
+      "rule": "No PCH initially; any later Core-only PCH may not include graphics, Engine, Game, or App headers."
+    },
+    "current_aggregate_NoMoreDayCore": {
+      "path": "src/pch.hpp",
+      "status": "aggregate-only; prohibited for future Core",
+      "direct_game_includes": [
+        "game/data/TagRegistry.hpp",
+        "game/components/Common.hpp",
+        "game/components/Stats.hpp",
+        "game/components/Combat.hpp",
+        "game/components/SkillDefs.hpp"
+      ],
+      "direct_engine_includes": [
+        "engine/resource/EquipmentAssetRegistry.hpp",
+        "engine/resource/RuneAssetRegistry.hpp"
+      ]
+    }
+  },
+  "audit_scope": "Direct includes and current CMake ownership only; MS-0 remains the authoritative reverse-edge ledger."
+}
