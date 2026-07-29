@@ -1,6 +1,6 @@
 #pragma once
 #include "TestCommon.hpp"
-#include "core/math/PhysicsUtils.hpp"
+#include "game/systems/physics/PhysicsUtils.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"

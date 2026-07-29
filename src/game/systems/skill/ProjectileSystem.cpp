@@ -1,6 +1,6 @@
 #include "game/systems/skill/ProjectileSystem.hpp"
 #include "core/logging/Logger.hpp"
-#include "core/math/PhysicsUtils.hpp"
+#include "game/systems/physics/PhysicsUtils.hpp"
 #include "engine/physics/SIMDSpatialGrid.hpp" // Phase 4 Integration
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUParticleSystem.hpp"

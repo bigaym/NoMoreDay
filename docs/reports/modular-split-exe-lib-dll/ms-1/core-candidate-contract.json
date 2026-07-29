@@ -48,11 +48,6 @@
     ],
     "deferred_items": [
       {
-        "path": "src/core/math/PhysicsUtils.hpp",
-        "reason": "Directly includes game/components/Common.hpp and operates on Game ECS Position/Velocity.",
-        "owner_resolution": "MS-2 moves the gameplay helper; no type extraction is authorized by MS-1."
-      },
-      {
         "path": "src/core/logging/CrashHandler.cpp",
         "reason": "Uses Windows and DbgHelp process-crash APIs, so it is not platform-independent Core.",
         "owner_resolution": "Keep in the aggregate until a later ownership audit assigns its platform boundary."

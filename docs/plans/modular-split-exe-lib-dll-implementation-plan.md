@@ -1,7 +1,7 @@
 # Modular Static Target Split Implementation Plan
 
 **Design reference:** `docs/designs/modular-split-exe-lib-dll-design.md`
-**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 through MS-8 [ ] (MS-6 remains P0-blocked)
+**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 through MS-8 [ ] (MS-6 remains P0-blocked)
 **Execution model:** Each milestone is implemented by an `implementer` subagent, reviewed by an independent `reviewer`, then committed only after a `提交` conclusion. The design document is user-owned worktree state and is never edited, staged, or committed by this initiative.
 
 ## Goal
@@ -195,15 +195,15 @@ project owner's explicit decision, these signals are accepted as out of scope
 - [x] MS-1.5.3 Stage and commit only an accepted package after the review gate
   passes.
 
-### MS-2 [ ]: PhysicsUtils Ownership Correction
+### MS-2 [x]: PhysicsUtils Ownership Correction
 
 **Objective:** Move the Game-ECS-specific `PhysicsUtils` helper to Game ownership rather than promoting `Common.hpp`, `Position`, or `Velocity` to Types.
 
 **Atomic tasks:**
 
-- [ ] MS-2.1 Move only the gameplay helper and repair direct include consumers.
-- [ ] MS-2.2 Add/adjust focused knockback regression coverage.
-- [ ] MS-2.3 Verify build plus relevant physics tests; review and commit.
+- [x] MS-2.1 Move only the gameplay helper and repair direct include consumers.
+- [x] MS-2.2 Preserve the focused knockback regression coverage under its Game-owned include.
+- [x] MS-2.3 Verify build plus relevant physics tests; review and commit.
 
 ### MS-3 [ ]: Input and ECS Physics Ownership
 
