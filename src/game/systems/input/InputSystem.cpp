@@ -1,4 +1,5 @@
-#include "engine/input/InputSystem.hpp"
+#include "game/systems/input/InputSystem.hpp"
+#include <cmath>
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"

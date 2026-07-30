@@ -1,7 +1,7 @@
 # Modular Static Target Split Implementation Plan
 
 **Design reference:** `docs/designs/modular-split-exe-lib-dll-design.md`
-**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 through MS-8 [ ] (MS-6 remains P0-blocked)
+**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [~]; MS-4 through MS-8 [ ] (MS-6 remains P0-blocked)
 **Execution model:** Each milestone is implemented by an `implementer` subagent, reviewed by an independent `reviewer`, then committed only after a `提交` conclusion. The design document is user-owned worktree state and is never edited, staged, or committed by this initiative.
 
 ## Goal
@@ -205,15 +205,18 @@ project owner's explicit decision, these signals are accepted as out of scope
 - [x] MS-2.2 Preserve the focused knockback regression coverage under its Game-owned include.
 - [x] MS-2.3 Verify build plus relevant physics tests; review and commit.
 
-### MS-3 [ ]: Input and ECS Physics Ownership
+### MS-3 [~]: Input and ECS Physics Ownership
 
 **Objective:** Move Input action mapping and ECS physics/spatial grid policy to Game. Retain only future-proof, dependency-free Engine primitives when they have a real consumer.
 
 **Atomic tasks:**
 
-- [ ] MS-3.1 Move Game input mapping and add focused regression coverage.
-- [ ] MS-3.2 Move ECS physics/spatial-grid adapters without changing collision semantics.
-- [ ] MS-3.3 Run build, unit/integration and relevant performance coverage; review and commit.
+- [x] MS-3.1 Move Game input mapping and add focused regression coverage. Implemented in this package.
+- [x] MS-3.2 Move ECS physics adapters without changing collision semantics. Implemented in this package.
+- [x] MS-3.3 Verify build, unit/integration, and relevant performance coverage; review and commit the Input/ECS Physics package.
+- [ ] MS-3.4 Resolve the remaining SpatialGrid and SIMDSpatialGrid reverse edges in separately reviewed packages.
+
+**Deferred scope:** `SpatialGrid` remains deferred because it is blocked by the stale `RenderSystem` include. `SIMDSpatialGrid` remains deferred because it requires separate primitive decoupling.
 
 ### MS-4 [ ]: Persistence, Scene, and State Ownership
 

@@ -1,4 +1,4 @@
-#include "engine/physics/PhysicsSystem.hpp"
+#include "game/systems/physics/PhysicsSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"
@@ -10,6 +10,7 @@
 #include "raymath.h"
 #include <algorithm>
 #include <cmath>
+#include <vector>
 #include <taskflow/algorithm/for_each.hpp>
 #include <taskflow/taskflow.hpp>
 

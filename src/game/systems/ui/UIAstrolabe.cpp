@@ -453,4 +453,13 @@ void UIAstrolabe::DrawVowDialog(entt::registry& registry, entt::entity player, c
 void UIAstrolabe::Show() { s_visible = true; }
 void UIAstrolabe::Hide() { s_visible = false; }
 
+UIAstrolabe::VisibilityState UIAstrolabe::CaptureVisibilityState() {
+    return {s_visible, s_alpha};
+}
+
+void UIAstrolabe::RestoreVisibilityState(VisibilityState state) {
+    s_visible = state.visible;
+    s_alpha = state.alpha;
+}
+
 } // namespace NoMoreDay

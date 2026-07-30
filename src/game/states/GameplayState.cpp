@@ -31,8 +31,8 @@
 #include "game/components/EnemyComponent.hpp"
 
 // Systems
-#include "engine/input/InputSystem.hpp"
-#include "engine/physics/PhysicsSystem.hpp"
+#include "game/systems/input/InputSystem.hpp"
+#include "game/systems/physics/PhysicsSystem.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"

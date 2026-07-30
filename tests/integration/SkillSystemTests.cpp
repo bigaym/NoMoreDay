@@ -1,7 +1,7 @@
 #pragma once
 #include "TestCommon.hpp"
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
-#include "engine/physics/PhysicsSystem.hpp"
+#include "game/systems/physics/PhysicsSystem.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/AIComponent.hpp"

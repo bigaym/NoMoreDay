@@ -2,7 +2,7 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "engine/physics/PhysicsSystem.hpp"
+#include "game/systems/physics/PhysicsSystem.hpp"
 #include "engine/physics/SpatialGrid.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"
