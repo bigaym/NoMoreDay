@@ -3,6 +3,7 @@
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "engine/physics/SpatialGrid.hpp"
 #include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"

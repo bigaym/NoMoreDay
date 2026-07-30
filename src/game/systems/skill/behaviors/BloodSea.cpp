@@ -9,6 +9,7 @@
 #include "game/components/EffectComponent.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"
+#include "game/systems/combat/CombatEventDispatcher.hpp"
 #include "game/systems/combat/CombatEvents.hpp"
 #include "game/systems/combat/DamagePipeline.hpp"
 #include "game/systems/skill/BladeResourceService.hpp"

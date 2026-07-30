@@ -13,7 +13,6 @@
 #include <thread>
 
 using namespace NoMoreDay;
-using namespace NoMoreDay::components;
 using namespace NoMoreDay::data;
 using namespace NoMoreDay::systems;
 

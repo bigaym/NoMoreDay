@@ -2,6 +2,8 @@
 
 #include "TestCommon.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"
+#include "game/components/AIComponent.hpp"
+#include "game/components/Buff.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Progression.hpp"
 #include "game/components/Projectile.hpp"

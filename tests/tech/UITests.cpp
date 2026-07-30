@@ -5,6 +5,7 @@
 #include "game/systems/ui/UISkillSpecRenderer.hpp"
 #include "game/components/UIAnimationComponent.hpp"
 #include "game/components/PlayerState.hpp"
+#include "game/components/Progression.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "engine/resource/ResourceManager.hpp"
