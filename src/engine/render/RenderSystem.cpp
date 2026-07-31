@@ -2273,12 +2273,17 @@ void RenderSystem::render(entt::registry &registry,
   }
   graph.Build();
   graph.Execute(graphContext);
+  if (graphContext.renderProfiler != nullptr) {
+    // S1b: single Poll point of the render path. Must precede every
+    // DRS/adaptive-policy read so HUD/summary/DRS consume backfilled stats.
+    graphContext.renderProfiler->FlushRingToProfiler();
+    graphContext.renderProfiler->UpdateStats();
+  }
   const double policyNow = GetTime();
   UpdateAdaptiveQualityPolicy(policyNow);
   UpdateAutoDegradePolicy(policyNow);
   if (graphContext.renderProfiler != nullptr) {
     graphContext.renderProfiler->EndFrame();
-    graphContext.renderProfiler->UpdateStats();
 
     const auto &passStats = graphContext.renderProfiler->GetAllStats();
 

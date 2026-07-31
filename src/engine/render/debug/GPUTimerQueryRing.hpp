@@ -57,9 +57,18 @@ public:
 
   void PollReadyQueries();
 
+  // True when all GL timer query entry points were resolved at Initialize().
+  // Drives the CpuFallback path in the four-state model (no GPU timers).
+  bool IsGpuTimerSupported() const;
+
   // Test hooks: allow tests to drive/observe the internal frame counter.
   void DebugSetFrameIndex(uint64_t frameIndex);
   uint64_t DebugGetFrameIndex() const { return m_frameIndex; }
+  // Test hooks (S1b): inject a per-pass ready result as if PollReadyQueries had
+  // observed a ready GL query, and force the timer-capability flag. Shutdown()
+  // clears both overrides.
+  void DebugInjectPassResult(uint32_t passId, const GPUTimerResult &result);
+  void DebugSetGpuTimerSupported(bool supported);
 
 private:
   GPUTimerQueryRing() = default;
@@ -94,6 +103,8 @@ private:
   std::array<GPUTimerResult, 120> m_frameHistory = {};
   size_t m_frameHistoryCount = 0;
   size_t m_frameHistoryWriteIndex = 0;
+  bool m_gpuTimerOverrideActive = false;
+  bool m_gpuTimerOverrideValue = false;
   bool m_initialized = false;
 };
 

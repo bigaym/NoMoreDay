@@ -56,9 +56,10 @@ std::vector<GLenum> S1aDrainGlErrors() {
 
 // Regression: RenderProfiler must not open a second GL_TIME_ELAPSED query while
 // GPUTimerQueryRing::BeginPass owns the timer. The old code issued glBeginQuery
-// from both ring and profiler -> GL_INVALID_OPERATION (0x0502). After S1a the
-// profiler is CPU-only and reports GPU stats as Unavailable.
-TEST_CASE("[Integration] S1a - RenderProfiler CPU-only: no second GL_TIME_ELAPSED owner") {
+// from both ring and profiler -> GL_INVALID_OPERATION (0x0502). After S1a/S1b the
+// profiler never touches GL queries: it records CPU timing via BeginCpuPass and
+// backfills the ring's GPU results through FlushRingToProfiler (four-state model).
+TEST_CASE("[Integration] S1b - RenderProfiler single timer owner + four-state backfill") {
   using namespace NoMoreDay;
   using namespace NoMoreDay::render;
   using namespace NoMoreDay::render::graph;
@@ -66,10 +67,16 @@ TEST_CASE("[Integration] S1a - RenderProfiler CPU-only: no second GL_TIME_ELAPSE
   using namespace NoMoreDay::render::debug;
 
   if (!S1aEnsureGpuContext()) {
-    FAIL("Cannot create GPU context; skipping S1a CPU-only profiler test");
+    FAIL("Cannot create GPU context; skipping S1b single-owner backfill test");
   }
 
   (void)S1aDrainGlErrors();
+
+  // Reset the shared ring singleton so the frame counter starts fresh and no
+  // leftover per-pass results from earlier tests leak into the backfill.
+  auto &ring = debug::GPUTimerQueryRing::Get();
+  ring.Shutdown();
+  ring.Initialize();
 
   RenderGraph graph;
   graph.AddPass(std::make_shared<passes::ScenePass>());
@@ -111,6 +118,28 @@ TEST_CASE("[Integration] S1a - RenderProfiler CPU-only: no second GL_TIME_ELAPSE
   profiler.EndFrame();
   utils::GPUUtils::BindFramebuffer(kS1aGlFramebuffer, 0);
 
+  // Backfill path: poll + accept ready results (delayed ready). Loop until the
+  // four executed passes surface as Valid (results arrive a few frames later).
+  const std::array<RenderPassId, 4> kExecutedPasses = {
+      RenderPassId::Scene, RenderPassId::VFX, RenderPassId::UIWorld,
+      RenderPassId::Composite};
+  bool allValid = false;
+  for (int attempt = 0; attempt < 60; ++attempt) {
+    profiler.FlushRingToProfiler();
+    profiler.UpdateStats();
+    const auto &stats = profiler.GetAllStats();
+    allValid = true;
+    for (RenderPassId passId : kExecutedPasses) {
+      allValid = allValid &&
+                 stats[static_cast<size_t>(passId)].gpuState == QueryState::Valid;
+    }
+    if (allValid) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+  }
+  CHECK(allValid);
+
   const std::vector<GLenum> errors = S1aDrainGlErrors();
   for (GLenum err : errors) {
     CAPTURE(err);
@@ -119,19 +148,32 @@ TEST_CASE("[Integration] S1a - RenderProfiler CPU-only: no second GL_TIME_ELAPSE
       std::find(errors.begin(), errors.end(), kS1aGlInvalidOperation) != errors.end();
   CHECK_FALSE(hasInvalidOperation);
 
-  CHECK_FALSE(profiler.IsGpuTimingAvailable());
+  // Real GL context present -> capability is available; four-state backfill
+  // must have transitioned executed passes to Valid with a source frame.
+  CHECK(profiler.IsGpuTimingAvailable());
   profiler.UpdateStats();
   const auto &allStats = profiler.GetAllStats();
-  const std::array<RenderPassId, 4> kExecutedPasses = {
-      RenderPassId::Scene, RenderPassId::VFX, RenderPassId::UIWorld,
-      RenderPassId::Composite};
   for (RenderPassId passId : kExecutedPasses) {
     const auto &stats = allStats[static_cast<size_t>(passId)];
     CAPTURE(static_cast<uint32_t>(passId));
+    CHECK(stats.gpuState == QueryState::Valid);
+    CHECK(stats.frameIndex > 0);
+    // A ready result is legitimate even if the driver measures 0.0ms (software
+    // GL/WARP can report zero-duration queries); state+frame prove backfill.
+    CHECK(stats.gpuMeanMs >= 0.0f);
+    CHECK(stats.gpuP95Ms >= 0.0f);
+    CHECK(stats.cpuMeanMs > 0.0f);
+  }
+  // Passes never executed by the graph produce no GPU samples -> Unavailable.
+  for (size_t i = 0; i < allStats.size(); ++i) {
+    const auto passId = static_cast<RenderPassId>(i);
+    if (std::find(kExecutedPasses.begin(), kExecutedPasses.end(), passId) !=
+        kExecutedPasses.end()) {
+      continue;
+    }
+    const auto &stats = allStats[i];
     CHECK(stats.gpuState == QueryState::Unavailable);
     CHECK(stats.gpuMeanMs == 0.0f);
-    CHECK(stats.gpuP95Ms == 0.0f);
-    CHECK(stats.cpuMeanMs > 0.0f);
   }
 
   FramebufferManager::Destroy(hdr);

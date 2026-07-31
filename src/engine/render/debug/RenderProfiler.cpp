@@ -1,9 +1,9 @@
 #include "engine/render/debug/RenderProfiler.hpp"
 
 #include "core/logging/Logger.hpp"
+#include "engine/render/graph/RenderGraph.hpp"
 
 #include <algorithm>
-#include <vector>
 
 namespace NoMoreDay::render::debug {
 namespace {
@@ -12,33 +12,73 @@ constexpr size_t ToIndex(RenderPassId passId) {
   return static_cast<size_t>(passId);
 }
 
-float ComputeMean(const std::vector<float> &values) {
-  if (values.empty()) {
+float ComputeMean(const float *values, size_t count) {
+  if (count == 0) {
     return 0.0f;
   }
   float sum = 0.0f;
-  for (float value : values) {
-    sum += value;
+  for (size_t i = 0; i < count; ++i) {
+    sum += values[i];
   }
-  return sum / static_cast<float>(values.size());
+  return sum / static_cast<float>(count);
 }
 
-float ComputeP95(std::vector<float> values) {
-  if (values.empty()) {
+float ComputeP95(float *values, size_t count) {
+  if (count == 0) {
     return 0.0f;
   }
-  std::sort(values.begin(), values.end());
-  const size_t idx = static_cast<size_t>(
-      std::clamp(static_cast<int>(values.size() * 95 / 100), 0,
-                 static_cast<int>(values.size() - 1)));
+  std::sort(values, values + count);
+  const size_t idx = std::clamp(static_cast<size_t>(count) * 95u / 100u,
+                                static_cast<size_t>(0), count - 1);
   return values[idx];
+}
+
+// Fill `out` with the first `count` samples in window order.
+void CopySampleWindow(const std::array<float, RenderProfiler::kWindowSize> &samples,
+                      int count, float *out) {
+  for (int i = 0; i < count; ++i) {
+    out[i] = samples[static_cast<size_t>(i)];
+  }
+}
+
+// Fill `out` with the CPU timings of the first `count` samples.
+void CopyCpuSampleWindow(
+    const std::array<PassTimingSample, RenderProfiler::kWindowSize> &samples,
+    int count, float *out) {
+  for (int i = 0; i < count; ++i) {
+    out[i] = samples[static_cast<size_t>(i)].cpuMs;
+  }
 }
 
 } // namespace
 
 RenderProfiler::RenderProfiler() {
-  LOG_WARN("RenderProfiler: GPU timer query path disabled (S1a CPU-only mode; "
-           "GPU timings reported as Unavailable until S1b)");
+  std::map<uint32_t, RenderPassId> idToPass;
+  for (size_t i = 0; i < static_cast<size_t>(RenderPassId::Count); ++i) {
+    const auto passId = static_cast<RenderPassId>(i);
+    const uint32_t stableId = graph::StablePassId(
+        graph::CanonicalizePassName(FullPassName(passId)));
+    m_stablePassIdByIndex[i] = stableId;
+    auto [it, inserted] = idToPass.emplace(stableId, passId);
+    if (!inserted) {
+      // Alias risk (gate-side absent pass / derived-ID collision): record it
+      // and disable backfill for the colliding pass.
+      LOG_ERROR("RenderProfiler: stablePassId collision between {} and {} "
+                "(id={:#010x}); GPU backfill disabled for {}",
+                ToString(it->second), ToString(passId), stableId,
+                ToString(passId));
+      m_stablePassIdByIndex[i] = 0;
+    }
+  }
+  m_passByStableId = std::move(idToPass);
+
+  if (GPUTimerQueryRing::Get().IsGpuTimerSupported()) {
+    LOG_INFO("RenderProfiler: GPU timer ring present; four-state GPU telemetry "
+             "(Pending/Valid/Unavailable/CpuFallback) with delayed backfill active");
+  } else {
+    LOG_WARN("RenderProfiler: no GL timer queries available; GPU timings reported "
+             "as CpuFallback and CPU-focused aggregation is used");
+  }
 }
 
 RenderProfiler::~RenderProfiler() = default;
@@ -102,29 +142,110 @@ void RenderProfiler::EndCpuPass() {
 }
 
 PassTimingStats RenderProfiler::GetStats(RenderPassId passId) const {
-  const PassState &state = m_passStates[ToIndex(passId)];
+  const size_t index = ToIndex(passId);
+  const PassState &state = m_passStates[index];
   PassTimingStats stats = {};
   stats.budgetMs = GetBudgetMs(passId);
-  stats.gpuState = QueryState::Unavailable;
-  if (state.sampleCount <= 0) {
-    return stats;
+
+  if (state.sampleCount > 0) {
+    std::array<float, kWindowSize> cpuScratch = {};
+    CopyCpuSampleWindow(state.samples, state.sampleCount, cpuScratch.data());
+    stats.cpuMeanMs = ComputeMean(cpuScratch.data(),
+                                  static_cast<size_t>(state.sampleCount));
+    stats.cpuP95Ms = ComputeP95(cpuScratch.data(),
+                                static_cast<size_t>(state.sampleCount));
   }
 
-  std::vector<float> cpuValues;
-  cpuValues.reserve(static_cast<size_t>(state.sampleCount));
-  for (int i = 0; i < state.sampleCount; ++i) {
-    cpuValues.push_back(state.samples[static_cast<size_t>(i)].cpuMs);
+  const GpuTrack &gpu = m_gpuTracks[index];
+  stats.gpuState = gpu.state;
+  if (gpu.sampleCount > 0 &&
+      (gpu.state == QueryState::Valid || gpu.state == QueryState::Pending)) {
+    // Valid participates in GPU mean/P95; Pending carries the last-frame value.
+    std::array<float, kWindowSize> gpuScratch = {};
+    CopySampleWindow(gpu.samples, gpu.sampleCount, gpuScratch.data());
+    stats.gpuMeanMs = ComputeMean(gpuScratch.data(),
+                                  static_cast<size_t>(gpu.sampleCount));
+    stats.gpuP95Ms = ComputeP95(gpuScratch.data(),
+                                static_cast<size_t>(gpu.sampleCount));
+    stats.frameIndex = gpu.lastAcceptedFrameIndex;
+  } else {
+    // Unavailable/CpuFallback do not participate in GPU aggregation.
+    stats.gpuMeanMs = 0.0f;
+    stats.gpuP95Ms = 0.0f;
+    stats.frameIndex = 0;
   }
-
-  stats.cpuMeanMs = ComputeMean(cpuValues);
-  stats.cpuP95Ms = ComputeP95(cpuValues);
   return stats;
+}
+
+void RenderProfiler::FlushRingToProfiler() {
+  auto &ring = GPUTimerQueryRing::Get();
+  ring.PollReadyQueries();
+
+  if (!ring.IsGpuTimerSupported()) {
+    for (GpuTrack &track : m_gpuTracks) {
+      track.state = QueryState::CpuFallback;
+    }
+    return;
+  }
+
+  const uint64_t currentFrameIndex = ring.DebugGetFrameIndex();
+  for (size_t i = 0; i < static_cast<size_t>(RenderPassId::Count); ++i) {
+    const uint32_t stableId = m_stablePassIdByIndex[i];
+    if (stableId == 0) {
+      continue; // alias-collision marked pass: backfill disabled
+    }
+    GpuTrack &track = m_gpuTracks[i];
+    const GPUTimerResult res = ring.GetPassResult(stableId);
+
+    if (res.state == QueryState::Valid &&
+        res.frameIndex > track.lastAcceptedFrameIndex) {
+      // Frame-acceptance rule: strictly increasing frameIndex. New-frame ready
+      // results overwrite/carry forward; each source result is backfilled only
+      // once (a repeated same-frame result is never re-accepted).
+      float &sample = track.samples[static_cast<size_t>(track.writeIndex)];
+      sample = static_cast<float>(res.gpuTimeMs);
+      track.writeIndex = (track.writeIndex + 1) % kWindowSize;
+      if (track.sampleCount < kWindowSize) {
+        ++track.sampleCount;
+      }
+      track.lastAcceptedFrameIndex = res.frameIndex;
+      track.state = QueryState::Valid;
+      continue;
+    }
+
+    // No newly accepted result this flush: the query is not ready yet
+    // (Pending), or a duplicate/stale ready result was rejected. Transition
+    // Pending -> Unavailable on overage; otherwise carry the last-frame value
+    // as Pending while a newer frame's query is in flight.
+    const uint64_t age = currentFrameIndex >= track.lastAcceptedFrameIndex
+                             ? currentFrameIndex - track.lastAcceptedFrameIndex
+                             : 0;
+    if (age >= kPendingOverageFrames) {
+      track.state = QueryState::Unavailable;
+    } else if (currentFrameIndex > track.lastAcceptedFrameIndex) {
+      track.state = QueryState::Pending;
+    }
+    // else: same frame, no newer query in flight -> keep current state.
+  }
 }
 
 void RenderProfiler::UpdateStats() {
   for (size_t i = 0; i < static_cast<size_t>(RenderPassId::Count); ++i) {
     m_cachedStats[i] = GetStats(static_cast<RenderPassId>(i));
   }
+}
+
+PassTimingStats RenderProfiler::GetPassResult(uint32_t stablePassId) const {
+  const auto it = m_passByStableId.find(stablePassId);
+  if (it == m_passByStableId.end()) {
+    // Mapping failure -> Unavailable (no tracked pass for this stable ID).
+    return {};
+  }
+  return m_cachedStats[ToIndex(it->second)];
+}
+
+bool RenderProfiler::IsGpuTimingAvailable() const {
+  return GPUTimerQueryRing::Get().IsGpuTimerSupported();
 }
 
 const char *RenderProfiler::ToString(RenderPassId passId) {
@@ -165,6 +286,46 @@ const char *RenderProfiler::ToString(RenderPassId passId) {
     break;
   }
   return "Unknown";
+}
+
+const char *RenderProfiler::FullPassName(RenderPassId passId) {
+  switch (passId) {
+  case RenderPassId::Scene:
+    return "ScenePass";
+  case RenderPassId::Lighting:
+    return "LightingPass";
+  case RenderPassId::HeightShadow:
+    return "HeightShadowPass";
+  case RenderPassId::OccluderExtract:
+    return "OccluderExtractPass";
+  case RenderPassId::JFA:
+    return "JFAPass";
+  case RenderPassId::RadianceCascades:
+    return "RadianceCascadesPass";
+  case RenderPassId::GIComposite:
+    return "GICompositePass";
+  case RenderPassId::FluidSimulation:
+    return "FluidSimulationPass";
+  case RenderPassId::Volumetric:
+    return "VolumetricLightPass";
+  case RenderPassId::VFX:
+    return "VFXPass";
+  case RenderPassId::GPUText:
+    return "GPUTextPass";
+  case RenderPassId::GPULoot:
+    return "GPULootPass";
+  case RenderPassId::UIWorld:
+    return "UIWorldPass";
+  case RenderPassId::PostProcess:
+    return "PostProcessPass";
+  case RenderPassId::Distortion:
+    return "DistortionPass";
+  case RenderPassId::Composite:
+    return "CompositePass";
+  case RenderPassId::Count:
+    break;
+  }
+  return "UnknownPass";
 }
 
 std::optional<RenderPassId> RenderProfiler::FromPassName(std::string_view passName) {

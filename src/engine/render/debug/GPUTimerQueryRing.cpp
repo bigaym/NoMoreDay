@@ -58,6 +58,8 @@ void GPUTimerQueryRing::Initialize() {
 }
 
 void GPUTimerQueryRing::Shutdown() {
+  m_gpuTimerOverrideActive = false;
+  m_gpuTimerOverrideValue = false;
   if (!m_initialized) return;
 
   if (s_glDeleteQueries) {
@@ -119,6 +121,16 @@ void GPUTimerQueryRing::EndFrame() {
 
 void GPUTimerQueryRing::DebugSetFrameIndex(uint64_t frameIndex) {
   m_frameIndex = frameIndex;
+}
+
+void GPUTimerQueryRing::DebugInjectPassResult(uint32_t passId,
+                                              const GPUTimerResult &result) {
+  m_latestValidResults[passId] = result;
+}
+
+void GPUTimerQueryRing::DebugSetGpuTimerSupported(bool supported) {
+  m_gpuTimerOverrideActive = true;
+  m_gpuTimerOverrideValue = supported;
 }
 
 void GPUTimerQueryRing::BeginPass(uint32_t passId) {
@@ -251,6 +263,15 @@ GPUTimerResult GPUTimerQueryRing::GetPassResult(uint32_t passId) const {
   GPUTimerResult res = {};
   res.state = QueryState::Pending;
   return res;
+}
+
+bool GPUTimerQueryRing::IsGpuTimerSupported() const {
+  if (m_gpuTimerOverrideActive) {
+    return m_gpuTimerOverrideValue;
+  }
+  return s_glGenQueries != nullptr && s_glDeleteQueries != nullptr &&
+         s_glBeginQuery != nullptr && s_glEndQuery != nullptr &&
+         s_glGetQueryObjectiv != nullptr && s_glGetQueryObjectui64v != nullptr;
 }
 
 bool GPUTimerQueryRing::IsGpuTimeValid(uint32_t passId) const {
