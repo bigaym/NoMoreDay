@@ -96,7 +96,7 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 
 #### S1b：四态数据模型与延迟回填（依赖 S0）
 
-- **状态**：`[ ]`（依赖 S0）
+- **状态**：`[x]`（2026-08-01 实施完成并验证，待独立审查 `提交`）
 - **内容**：
   1. **四态模型**：`PassTimingStats` 扩展为 `{ Pending, Valid, Unavailable, CpuFallback }` + 来源 `frameIndex`。状态转换表：
      | 状态 | 进入条件 | 退出条件 |
@@ -120,6 +120,15 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 - **验收**：delayed-ready 单次回填；旧帧拒绝；无 GPU → CpuFallback；映射失败 → Unavailable；HUD/summary/DRS 四态正确决策；每状态独立测试。
 - **验证命令**：`./build.bat`；`ctest -L "unit|integration"`；新增四态与时序测试（delayed-ready、无 GPU、映射失败/重复、旧帧拒绝、HUD、DRS）。
 - **风险**：高。
+
+- **实施记录（2026-08-01）**：
+  - `PassTimingStats` 新增 `frameIndex`；`RenderProfiler` 新增 `FlushRingToProfiler()`（Poll 唯一调用点）、`GetPassResult(stablePassId)`（映射失败返回 Unavailable）、真实 `IsGpuTimingAvailable()`（由 ring 能力决定）。
+  - `FlushRingToProfiler` 每 pass 仅接受 frameIndex 严格递增的 ready 结果（旧帧/重复源拒绝，单次回填）；Pending 超龄（6 帧）→ Unavailable；Unavailable 后续 ready 可恢复；无 GPU → 全 pass CpuFallback。
+  - `GetStats` 改为固定栈数组聚合（无热路径堆分配）：Valid 参与 GPU 均值/P95，Pending 沿用上帧值并标记来源 frame，Unavailable/CpuFallback 不参与 GPU 聚合。
+  - `RenderSystem::render` 在 graph 执行后、DRS/adaptive 策略读取前调用 `FlushRingToProfiler()`。
+  - `GPUTimerQueryRing` 新增只读 `IsGpuTimerSupported()` 与测试钩子 `DebugInjectPassResult`/`DebugSetGpuTimerSupported`（Shutdown 时清除）。
+  - 测试：新增 `tests/unit/RenderProfilerFourStateTest.cpp`（7 用例：四态转换/延迟 ready 单次回填/旧帧拒绝/超龄与恢复/无 GPU/映射失败/DRS-HUD 决策输入）；更新 `tests/integration/SingleGpuTimerOwnerRegressionTest.cpp`（S1a 断言改为 S1b 四态回填语义）。
+  - 验证：边界 71/71；build.bat 双成功标记；新增 focused 测试全绿；ctest 仅剩既有 GIStability 与 HeavenlySword flaky 失败；`git diff --check` exit 0。详见 `docs/reports/gpu-s1b-timer-backfill/evidence.md`。
 
 ### S2：文档-代码脱节修正
 
@@ -184,15 +193,26 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 
 ### S6：M0-C R1.2 真实 Gameplay fixture（硬件 GO 前提）
 
-- **状态**：`[ ]`（**依赖 §8 决策 3：fixture 数据来源确定**；决策后按下列原子任务拆分执行，每项带独立状态/文件/验收/命令）
-  - T6.1 `GameplayRuntimeHarness`：真实 ECS/SharedContext/资源构造（owner 与生命周期合同）；
-  - T6.2 `FixtureRenderDriver`：固定 fixture 驱动 `RenderSystem::render`；
-  - T6.3 三个 fixture 配方（cave_color_bleed、dynamic_combat_emissive、outdoor_light_pressure）：场景数据来源（现有测试 fixture 复用或新建关卡快照）、版本与 provenance 合同；
-  - T6.4 render target 所有权（离屏 target 生命周期与 gate 交互）；
-  - T6.5 artifact/version 合同（fixture 输入哈希、输出与证据对应）。
+- **状态**：`[x]`（2026-08-01 实施完成并验证）
+  - T6.1 `GameplayRuntimeHarness`：真实 ECS/SharedContext/资源构造（owner 与生命周期合同）；`[x]`
+  - T6.2 `FixtureRenderDriver`：固定 fixture 驱动 `RenderSystem::render`；`[x]`
+  - T6.3 三个 fixture 配方（cave_color_bleed、dynamic_combat_emissive、outdoor_light_pressure）：场景数据来源（现有测试 fixture 复用或新建关卡快照）、版本与 provenance 合同；`[x]`
+  - T6.4 render target 所有权（离屏 target 生命周期与 gate 交互）；`[x]`
+  - T6.5 artifact/version 合同（fixture 输入哈希、输出与证据对应）。`[x]`
 - **验收**：gate 在真实 ECS/场景数据上运行；fixture 输入哈希可复现；数据版本有来源记录。
 - **验证命令**：`./build.bat`；gate 测试；实机运行。
 - **风险**：高。
+
+**S6 实施记录（2026-08-01）**：
+- 审计结论：`tests/` 无可直接复用的完整关卡快照；LightingStabilityTest.cpp 的 `Position+LightComponent` 批量构造模式与 GameplaySystems.cpp 的真实 emplace 模式可借鉴，但 recipe 实体需按三个 fixture 语义重新构造 → 按 §8 决策 3 新建最小真实场景配方（真实组件类型，不要求完整关卡）。
+- T6.1：`GameplayRuntimeHarness`（`tests/integration/GameplayRuntimeHarness.hpp`，header-only，测试侧持有）：构造真实 `entt::registry`（PlayerTag/EnemyTag/Position/PrevPosition/Velocity/Radius/ColliderComponent/VisionComponent/ShadowCasterComponent/LightComponent/MapTileComponent/ColorComponent/VisualEffect/AttackEffect）+ 最小 `SharedContext`（registry/settings/renderAlpha 接线，其余字段 nullptr，RenderSystem 全部 nullptr 安全）+ RAII 生命周期（析构先 Destroy composite FBO 再释放 registry/context，copy 删除）。
+- T6.2：`FixtureRenderDriver` 抽象接口（`src/engine/render/validation/FixtureRenderDriver.hpp`，仅依赖引擎类型，避免 engine→game 反向依赖破坏模块边界 71/71）：`PrepareFixture/Registry/Context/CompositeFramebuffer/CompositeWidth/CompositeHeight/SceneInputHash/FixtureVersion/SceneSource`。`GPUHardwareValidationGate::RunGate` 新增 `FixtureRenderDriver* driver` 参数；driver==nullptr 时 fail-closed 返回 `NOT_RUN`（轨道契约 validation.md L121：不再构造空 registry/SharedContext 或独立 synthetic graph）；driver 存在时用其 registry/context 替换空构造点，矩阵/采样/压力/toggle 循环用 driver 的真实场景驱动 `RenderSystem::render`。
+- T6.3：三个配方（确定性 xorshift32 RNG，**不使用 std::srand/rand**；本平台确定性——cave 环形遮挡坐标用 std::cos/sin，末位 ULP 因 libm 而异，不承诺跨编译器位级复现）：cave_color_bleed（16 box shadow + 40 emissive crystals + 13 暖/彩光源 + floor tiles）、dynamic_combat_emissive（player + 10 enemies + 8 moving occluders + 24 VisualEffect + 6 AttackEffect + 10 combat lights）、outdoor_light_pressure（按循环放置的 treeline occluders，中心 r<160 留空过滤、实际数量视布局而定 + wide floor + 60 ground patches + 220 光源压力网格）。版本 `s6-v1.1`（v1.0 冻结后经 9×9→15×15 网格修正，版本提升 v1.0 → v1.1），来源记录 `tests/integration/GameplayRuntimeHarness.hpp`。
+- T6.4：离屏 RGBA16F composite FBO 由 harness 持有（`FramebufferManager::Create`，`PrepareFixture` 时按 fixture 尺寸重建，`ReleaseCompositeTarget` 销毁）；gate 不再创建/销毁 fixture target，仅经 `driver->CompositeFramebuffer()` 引用；gate 的 stress/toggle 临时压力 FBO 仍归 gate 自有，与 harness target 无冲突。
+- T6.5：`FixtureExecutionResult` 增加 `sceneInputHash/fixtureVersion/sceneSource`，写入 GateReport JSON（`scene_input_hash/fixture_version/scene_source`）；输入哈希为 FNV-1a 64，对 recipe 名 + seed + 每个实体的标识数据（tag/坐标）确定性累计。
+- 新增 `[Unit] S6 GameplayRuntimeHarness - ...` 5 个用例（各配方组件计数、输入哈希确定性/差异性、未知 recipe 拒绝）；gate 集成测试新增 "Missing driver fails closed NOT_RUN" 用例，并在 RunGate 用例断言 matrix 单元格含 fixture 信息。
+- 验证：`check_module_boundaries.py` 71/71；`build.bat check` 通过；`build.bat` 双成功标记（日志 `%TEMP%\opencode\s6-build.log`）；gate 集成测试 4 cases/299 assertions 通过；harness 单元测试 5 cases/24 assertions 通过；ctest unit|integration 13/15（唯一失败为既有 GIStabilityIntegrationTest 硬件读回与 HeavenlySwordClosureTests 概率断言）；`git diff --check` 干净。
+- 备注：WARP/无头环境下 gate 结论 `NO_GO` 属预期（无独立 GPU，GI/Lighting pass 无有效采样）；JSON 报告已含 fixture 信息证明 harness 真实驱动（cave/dynamic/outdoor 输入哈希分别为 9635526039250172466 / 1224310844868084887 / 12786560374606737554）。
 
 ### S7：M0-C R2.2 paired GI delta
 

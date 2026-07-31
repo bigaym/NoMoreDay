@@ -11,6 +11,8 @@
 
 namespace NoMoreDay::render::validation {
 
+class FixtureRenderDriver;
+
 enum class GateStatus {
   Go,
   NoGo,
@@ -90,6 +92,11 @@ struct FixtureExecutionResult {
   uint64_t trackedBytes{0};
   uint64_t peakTrackedBytes{0};
   bool overallPassed{false};
+  // S6 (T6.5): artifact/version contract - fixture input hash, recipe version
+  // and provenance are recorded alongside the gate output for reproducibility.
+  uint64_t sceneInputHash{0};
+  std::string fixtureVersion;
+  std::string sceneSource;
   std::vector<std::string> failureReasons;
 };
 
@@ -155,7 +162,8 @@ public:
   [[nodiscard]] static GateReport RunGate(const std::string &revision = "HEAD",
                                           int sampleFramesPerFixture = 120,
                                           bool stressTest1Min = false,
-                                          int toggleLoops = 100);
+                                          int toggleLoops = 100,
+                                          FixtureRenderDriver *driver = nullptr);
 };
 
 } // namespace NoMoreDay::render::validation

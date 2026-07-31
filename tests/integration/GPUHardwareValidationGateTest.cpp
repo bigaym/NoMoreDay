@@ -2,6 +2,7 @@
 
 #include "engine/render/validation/GPUHardwareValidationGate.hpp"
 #include "engine/render/GPUUtils.hpp"
+#include "GameplayRuntimeHarness.hpp"
 
 #include "raylib.h"
 
@@ -62,7 +63,11 @@ TEST_CASE("[Integration] GPU Hardware Validation Gate - RunGate Offscreen Matrix
     FAIL("Cannot create GPU context; skipping RunGate test");
   }
 
-  const auto report = GPUHardwareValidationGate::RunGate("TEST_REV_123", 120, true, 100);
+  // S6 (M0-C R1.2): the gate must be driven by a real gameplay fixture harness
+  // (registry + minimal SharedContext + owned RGBA16F composite target).
+  NoMoreDay::render::validation::GameplayRuntimeHarness harness;
+  const auto report = GPUHardwareValidationGate::RunGate("TEST_REV_123", 120, true, 100,
+                                                         &harness);
 
   const std::string jsonStr = report.ToJsonString();
   CHECK_FALSE(jsonStr.empty());
@@ -127,6 +132,19 @@ TEST_CASE("[Integration] GPU Hardware Validation Gate - RunGate Offscreen Matrix
     CHECK(parsed["stress_test"]["stress_1min_passed"].get<bool>());
     CHECK(parsed["stress_test"]["toggle_100_loops_passed"].get<bool>());
     CHECK(parsed["resources"]["leak_candidate_count"].get<size_t>() == 0);
+  }
+
+  // S6 (T6.5): the harness drove the matrix - every matrix cell records the
+  // deterministic scene input hash, recipe version and provenance.
+  if (!parsed["matrix_results"].empty()) {
+    for (const auto &fix : parsed["matrix_results"]) {
+      CHECK(fix.contains("scene_input_hash"));
+      CHECK(fix.contains("fixture_version"));
+      CHECK(fix.contains("scene_source"));
+      CHECK_FALSE(fix["scene_input_hash"].get<std::string>().empty());
+      CHECK_FALSE(fix["fixture_version"].get<std::string>().empty());
+      CHECK_FALSE(fix["scene_source"].get<std::string>().empty());
+    }
   }
 
   std::cout << "GPU_HARDWARE_GATE_RESULT status=" << statusStr << "\n";
@@ -200,4 +218,28 @@ TEST_CASE("[Integration] GPU Hardware Validation Gate - GL diagnostics JSON sche
   CHECK_FALSE(notRunJson["capabilities"]["debug_output_installed"].get<bool>());
   CHECK(notRunJson["gl_diagnostics"]["messages"].is_array());
   CHECK(notRunJson["gl_diagnostics"]["messages"].empty());
+}
+
+TEST_CASE("[Integration] GPU Hardware Validation Gate - Missing driver fails closed NOT_RUN") {
+  using namespace NoMoreDay::render::validation;
+
+  if (!CreateMinimalGpuContext()) {
+    FAIL("Cannot create GPU context; skipping missing-driver test");
+  }
+
+  // S6 (T6.1/T6.2): without a FixtureRenderDriver the gate must NOT run on an
+  // empty registry/SharedContext - it fails closed with NOT_RUN.
+  const auto report = GPUHardwareValidationGate::RunGate("TEST_REV_NODRIVER", 120, false, 0);
+
+  CHECK(report.status == GateStatus::NotRun);
+  CHECK(report.matrixResults.empty());
+  CHECK_FALSE(report.globalFailures.empty());
+  // S6 (T6.2): the single fail-closed failure must reference the required
+  // FixtureRenderDriver (matches GPUHardwareValidationGate.cpp message).
+  CHECK(report.globalFailures.size() == 1);
+  CHECK(report.globalFailures.front().find("FixtureRenderDriver") != std::string::npos);
+
+  const nlohmann::json parsed = nlohmann::json::parse(report.ToJsonString());
+  CHECK(parsed["gate_status"] == "NOT_RUN");
+  CHECK(parsed["matrix_results"].empty());
 }

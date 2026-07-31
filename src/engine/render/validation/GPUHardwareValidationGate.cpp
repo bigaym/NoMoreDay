@@ -1,4 +1,5 @@
 #include "engine/render/validation/GPUHardwareValidationGate.hpp"
+#include "engine/render/validation/FixtureRenderDriver.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
@@ -333,7 +334,8 @@ std::vector<FixtureConfig> GPUHardwareValidationGate::GetStandardFixtures() {
 GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
                                               int sampleFramesPerFixture,
                                               bool stressTest1Min,
-                                              int toggleLoops) {
+                                              int toggleLoops,
+                                              FixtureRenderDriver *driver) {
   GateReport report;
   report.revision = revision;
 
@@ -387,9 +389,22 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   report.debugOutputInstalled = true;
   report.debugOutputEnabled = true;
 
-  // Set up ECS registry & SharedContext for actual Gameplay offscreen frame rendering
-  entt::registry registry;
-  NoMoreDay::SharedContext context;
+  // S6 (M0-C R1.2): the gate requires a real gameplay fixture driver. Without
+  // one the gate fails closed (NOT_RUN) - it must not run on an empty registry
+  // and empty SharedContext anymore.
+  if (driver == nullptr) {
+    report.status = GateStatus::NotRun;
+    report.globalFailures.push_back(
+        "FixtureRenderDriver is required; empty-registry synthetic path is "
+        "disallowed (S6 R1.2)");
+    LOG_WARN("GPUHardwareValidationGate: GATE NOT RUN - missing FixtureRenderDriver");
+    return report;
+  }
+
+  // The driver owns the real ECS registry and minimal SharedContext for actual
+  // Gameplay offscreen frame rendering (T6.1/T6.2).
+  entt::registry &registry = driver->Registry();
+  NoMoreDay::SharedContext &context = driver->Context();
 
   // 2. Fixture Execution Matrix
   const auto fixtures = GetStandardFixtures();
@@ -401,6 +416,27 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   bool allMatrixPassed = true;
 
   for (const auto &fixture : fixtures) {
+    // S6 (T6.1/T6.3): prepare the deterministic real gameplay scene once per
+    // fixture. All three tier modes share the same registry content (real game
+    // components constructed by the harness). Seed-driven std::srand is
+    // removed: the harness owns deterministic scene construction.
+    if (!driver->PrepareFixture(fixture)) {
+      for (const auto &[tierName, giOn] : tierModes) {
+        FixtureExecutionResult execResult;
+        execResult.fixtureName = fixture.name;
+        execResult.qualityTier = tierName;
+        execResult.giEnabled = giOn;
+        execResult.width = fixture.width;
+        execResult.height = fixture.height;
+        execResult.overallPassed = false;
+        execResult.failureReasons.push_back(
+            "Fixture scene preparation failed (harness)");
+        allMatrixPassed = false;
+        report.matrixResults.push_back(execResult);
+      }
+      continue;
+    }
+
     for (const auto &[tierName, giOn] : tierModes) {
       FixtureExecutionResult execResult;
       execResult.fixtureName = fixture.name;
@@ -408,10 +444,11 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       execResult.giEnabled = giOn;
       execResult.width = fixture.width;
       execResult.height = fixture.height;
+      // S6 (T6.5): fixture provenance recorded per matrix cell.
+      execResult.sceneInputHash = driver->SceneInputHash();
+      execResult.fixtureVersion = driver->FixtureVersion();
+      execResult.sceneSource = driver->SceneSource();
       bool executionChecksPassed = true;
-
-      // Medium 2: Set scene seed
-      std::srand(fixture.sceneSeed);
 
       // Configure Quality Tier & Features
       auto &tierMgr = NoMoreDay::render::core::QualityTierManager::Get();
@@ -466,14 +503,15 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         execResult.failureReasons.push_back("RenderGraph compiled plan trace validation failed");
       }
 
-      // Allocate Offscreen Render Target in RGBA16F (Blocker 5)
-      auto offscreenHandle =
-          NoMoreDay::render::resources::FramebufferManager::Create(
-              fixture.width, fixture.height, kRgba16f, true);
-
-      if (!offscreenHandle.IsValid()) {
+      // S6 (T6.4): the RGBA16F offscreen composite target is owned by the
+      // harness (driver), not the gate. The gate binds and reads it back but
+      // never creates or destroys it, so target lifetime never conflicts with
+      // the harness (no double-create, no use-after-free).
+      const uint32_t offscreenFbo = driver->CompositeFramebuffer();
+      if (offscreenFbo == 0) {
         execResult.overallPassed = false;
-        execResult.failureReasons.push_back("Failed to allocate RGBA16F offscreen framebuffer");
+        execResult.failureReasons.push_back(
+            "Fixture harness reported invalid RGBA16F composite target");
         allMatrixPassed = false;
         report.matrixResults.push_back(execResult);
         continue;
@@ -482,7 +520,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       // Blocker 1: Real Offscreen Gameplay Frame Rendering
       // Warmup Frames
       for (int f = 0; f < fixture.warmupFrames; ++f) {
-        NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenHandle.fbo);
+        NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
         ::RenderSystem::render(registry, context, camera);
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
       }
@@ -497,7 +535,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
 
       for (int f = 0; f < actualSampleFrames; ++f) {
         // RenderGraph::Execute is the single frame owner for the timer ring.
-        NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenHandle.fbo);
+        NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
         ::RenderSystem::render(registry, context, camera);
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
@@ -513,7 +551,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       }
 
       // Blocker 2: ROI Readback & Non-black Threshold Calculation
-      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenHandle.fbo);
+      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
       const int roiW = std::min(fixture.roiWidth, fixture.width - fixture.roiX);
       const int roiH = std::min(fixture.roiHeight, fixture.height - fixture.roiY);
       std::vector<uint8_t> roiPixels(static_cast<size_t>(roiW * roiH * 4), 0);
@@ -607,8 +645,8 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
               .GetStats()
               .peakTotalBytes;
 
-      // Clean up offscreen target
-      NoMoreDay::render::resources::FramebufferManager::Destroy(offscreenHandle);
+      // S6 (T6.4): composite target ownership stays with the harness; the gate
+      // must not destroy it here (destroyed when the harness goes out of scope).
 
       execResult.overallPassed =
           executionChecksPassed && execResult.passTraceValid &&
@@ -1017,6 +1055,11 @@ std::string GateReport::ToJsonString() const {
     mj["gi_indirect_passed"] = m.giIndirectPassed;
     mj["sdf_readback_passed"] = m.sdfReadbackPassed;
     mj["overall_passed"] = m.overallPassed;
+    // S6 (T6.5): fixture input hash (deterministic), recipe version and
+    // provenance recorded alongside the gate output.
+    mj["scene_input_hash"] = std::to_string(m.sceneInputHash);
+    mj["fixture_version"] = m.fixtureVersion;
+    mj["scene_source"] = m.sceneSource;
 
     nlohmann::json timingsArr = nlohmann::json::array();
     for (const auto &t : m.passTimings) {
