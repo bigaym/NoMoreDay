@@ -57,6 +57,10 @@ public:
 
   void PollReadyQueries();
 
+  // Test hooks: allow tests to drive/observe the internal frame counter.
+  void DebugSetFrameIndex(uint64_t frameIndex);
+  uint64_t DebugGetFrameIndex() const { return m_frameIndex; }
+
 private:
   GPUTimerQueryRing() = default;
   ~GPUTimerQueryRing() = default;

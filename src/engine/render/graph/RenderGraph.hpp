@@ -1,6 +1,7 @@
 #pragma once
 
 #include "engine/render/graph/RenderPass.hpp"
+#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -203,6 +204,60 @@ struct ResourceAccess {
 
 namespace NoMoreDay::render::graph {
 
+// ---------------------------------------------------------------------------
+// Stable pass identity (S0)
+//
+// Deterministic stable pass IDs are derived from a canonicalized pass name
+// plus a versioned FNV-1a 64 hash. The canonicalization rules, hash algorithm,
+// and version salt below are FIXED contracts: changing any of them migrates
+// every existing pass to a new ID (rename/migration rule), and tests plus any
+// recorded baselines must be updated in the same change.
+//
+//   canonicalization  : strip all whitespace, then lowercase
+//                       (see CanonicalizePassName)
+//   hash algorithm    : FNV-1a 64
+//     offset basis    : 1469598103934665603
+//     prime           : 1099511628211
+//   seed bytes        : ASCII(kStablePassVersionSalt) ++ ASCII(canonicalName)
+//   stablePassId      : uint32(FNV-1a 64(salt ++ canonicalName))  (low 32 bits)
+//
+// Reserved IDs (any collision fails closed at RenderGraph::Build):
+//   0                : unassigned/invalid
+//   0xFFFFFFFF       : frame-level aggregation slot; MUST equal
+//                      GPUTimerQueryRing::kFramePassId
+// ---------------------------------------------------------------------------
+constexpr std::string_view kStablePassVersionSalt = "NMD-STABLEPASS-V1";
+constexpr uint64_t kStablePassHashOffsetBasis = 1469598103934665603ull;
+constexpr uint64_t kStablePassHashPrime = 1099511628211ull;
+constexpr uint32_t kInvalidStablePassId = 0u;
+constexpr uint32_t kFrameLevelStablePassId = 0xFFFFFFFFu;
+
+constexpr uint32_t StablePassId(std::string_view canonicalName) {
+  uint64_t hash = kStablePassHashOffsetBasis;
+  for (const char character : kStablePassVersionSalt) {
+    hash ^= static_cast<uint8_t>(character);
+    hash *= kStablePassHashPrime;
+  }
+  for (const char character : canonicalName) {
+    hash ^= static_cast<uint8_t>(character);
+    hash *= kStablePassHashPrime;
+  }
+  return static_cast<uint32_t>(hash);
+}
+
+inline std::string CanonicalizePassName(std::string_view passName) {
+  std::string canonical;
+  canonical.reserve(passName.size());
+  for (const char character : passName) {
+    const unsigned char c = static_cast<unsigned char>(character);
+    if (std::isspace(c) != 0) {
+      continue;
+    }
+    canonical.push_back(static_cast<char>(std::tolower(c)));
+  }
+  return canonical;
+}
+
 class RenderGraphBuilder {
 public:
   void Read(const std::string &resourceName);
@@ -280,9 +335,16 @@ public:
     std::string message;
   };
 
+  struct CompiledPassState {
+    uint32_t stablePassId = 0;
+    std::string passName;
+    size_t passIndex = 0;
+  };
+
   struct CompiledRenderPlan {
     bool isValid = false;
     std::vector<std::string> passOrder;
+    std::vector<CompiledPassState> passes;
     std::vector<ProducerConsumerEdge> edges;
     std::vector<CompiledResourceState> resources;
     std::vector<RenderTransition> transitions;
@@ -314,13 +376,16 @@ private:
   struct Node {
     std::shared_ptr<RenderPass> pass;
     std::string passName;
+    std::string canonicalPassName;
     size_t passIndex = 0;
+    uint32_t stablePassId = 0;
     std::vector<ResourceAccess> accesses;
     std::vector<TypedPassAccess> typedAccesses;
     std::vector<TypedResourceDescriptor> declaredDescriptors;
     std::vector<uint32_t> passLocalBarriers;
   };
 
+  bool ValidatePassIdentityContract();
   void ValidateBuildContracts();
   void BuildCompiledPlan();
   void AddValidationDiagnostic(ValidationDiagnostic::Severity severity,

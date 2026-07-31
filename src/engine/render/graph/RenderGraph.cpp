@@ -402,6 +402,8 @@ void RenderGraph::Build() {
     node.passIndex = index;
   }
 
+  const bool identityContractFailed = ValidatePassIdentityContract();
+
   if (s_validationEnabled) {
     ValidateBuildContracts();
   }
@@ -421,6 +423,15 @@ void RenderGraph::Build() {
                  diagnostic.passIndex, diagnostic.passName,
                  diagnostic.resourceName, diagnostic.message);
       }
+    }
+
+    if (identityContractFailed) {
+      std::ostringstream message;
+      message << "RenderGraph[v" << RENDERGRAPH_CONTRACT_VERSION
+              << "] stable pass identity contract failed with "
+              << m_validationDiagnostics.size()
+              << " diagnostics; execution is forbidden";
+      throw std::logic_error(message.str());
     }
 
 #ifndef NDEBUG
@@ -465,8 +476,8 @@ void RenderGraph::Execute(RenderContext &context) {
 
     NoMoreDay::render::core::ApplyRlglFlushTemplate();
     const NoMoreDay::render::core::ScopedGLState scopedState;
-    const uint32_t numericPassId = static_cast<uint32_t>(node.passIndex);
-    debug::GPUTimerQueryRing::Get().BeginPass(numericPassId);
+    const uint32_t stablePassId = node.stablePassId;
+    debug::GPUTimerQueryRing::Get().BeginPass(stablePassId);
 
     if (context.renderProfiler != nullptr) {
       context.renderProfiler->BeginCpuPass(node.pass->GetName());
@@ -478,10 +489,72 @@ void RenderGraph::Execute(RenderContext &context) {
     if (context.renderProfiler != nullptr) {
       context.renderProfiler->EndCpuPass();
     }
-    debug::GPUTimerQueryRing::Get().EndPass(numericPassId);
+    debug::GPUTimerQueryRing::Get().EndPass(stablePassId);
   }
 
   debug::GPUTimerQueryRing::Get().EndFrame();
+}
+
+bool RenderGraph::ValidatePassIdentityContract() {
+  bool failed = false;
+  std::unordered_map<std::string, size_t> canonicalToPassIndex;
+  std::unordered_map<uint32_t, std::string> idToCanonicalName;
+
+  for (Node &node : m_nodes) {
+    node.canonicalPassName = CanonicalizePassName(node.passName);
+    if (node.canonicalPassName.empty()) {
+      AddValidationDiagnostic(
+          ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+          "(identity)",
+          "pass canonical name is empty after canonicalization");
+      failed = true;
+      continue;
+    }
+
+    const auto canonicalIt =
+        canonicalToPassIndex.find(node.canonicalPassName);
+    if (canonicalIt != canonicalToPassIndex.end()) {
+      AddValidationDiagnostic(
+          ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+          "(identity)",
+          "duplicate canonical pass name (also declared by pass #" +
+              std::to_string(canonicalIt->second) + ")");
+      failed = true;
+    } else {
+      canonicalToPassIndex.emplace(node.canonicalPassName, node.passIndex);
+    }
+
+    node.stablePassId = StablePassId(node.canonicalPassName);
+
+    if (node.stablePassId == kInvalidStablePassId) {
+      AddValidationDiagnostic(
+          ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+          "(identity)",
+          "stable pass id collides with reserved id 0 (invalid/unassigned)");
+      failed = true;
+    } else if (node.stablePassId == kFrameLevelStablePassId) {
+      AddValidationDiagnostic(
+          ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+          "(identity)",
+          "stable pass id collides with reserved frame-level id 0xFFFFFFFF");
+      failed = true;
+    }
+
+    const auto idIt = idToCanonicalName.find(node.stablePassId);
+    if (idIt != idToCanonicalName.end() &&
+        idIt->second != node.canonicalPassName) {
+      AddValidationDiagnostic(
+          ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+          "(identity)",
+          "stable pass id hash collision with canonical name '" +
+              idIt->second + "'");
+      failed = true;
+    } else if (idIt == idToCanonicalName.end()) {
+      idToCanonicalName.emplace(node.stablePassId, node.canonicalPassName);
+    }
+  }
+
+  return failed;
 }
 
 void RenderGraph::ValidateBuildContracts() {
@@ -623,6 +696,11 @@ void RenderGraph::BuildCompiledPlan() {
 
   for (const Node &node : m_nodes) {
     m_compiledPlan.passOrder.push_back(node.passName);
+    CompiledPassState passState = {};
+    passState.stablePassId = node.stablePassId;
+    passState.passName = node.passName;
+    passState.passIndex = node.passIndex;
+    m_compiledPlan.passes.push_back(std::move(passState));
   }
 
   std::map<uint64_t, CompiledResourceState> resourceMap;
@@ -819,6 +897,12 @@ std::string RenderGraph::CompiledRenderPlan::DumpPlan() const {
   ss << "Pass Order:\n";
   for (size_t i = 0; i < passOrder.size(); ++i) {
     ss << "  [" << i << "] " << passOrder[i] << "\n";
+  }
+
+  ss << "Stable Pass IDs:\n";
+  for (const auto &pass : passes) {
+    ss << "  [" << pass.passIndex << "] " << pass.passName << " id=0x"
+       << std::hex << pass.stablePassId << std::dec << "\n";
   }
 
   ss << "Resource States (" << resources.size() << "):\n";

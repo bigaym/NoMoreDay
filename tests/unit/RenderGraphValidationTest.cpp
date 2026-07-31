@@ -7,6 +7,8 @@
 #include "engine/render/debug/ShaderReloadGovernance.hpp"
 
 #include <functional>
+#include <limits>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -383,6 +385,225 @@ TEST_CASE("[Unit] RenderGraph - Phase 4 Capability Matrix & Shader Reload Govern
   std::string diag = reloadGov.GenerateDiagnosticReport("assets/shaders/lighting/v5_gi_composite.comp");
   CHECK(diag.find("Syntax Error") != std::string::npos);
   reloadGov.Reset();
+}
+
+TEST_CASE("[Unit] RenderGraph - S0 stable pass id is deterministic across reordering") {
+  using namespace NoMoreDay::render::graph;
+
+  auto buildIds = [](const std::vector<std::string> &order) {
+    RenderGraph graph;
+    for (const std::string &name : order) {
+      graph.AddPass(std::make_shared<TestRenderPass>(
+          name, [name](RenderGraphBuilder &builder) {
+            builder.Write(name + "Color");
+          }));
+    }
+    CHECK_NOTHROW(graph.Build());
+    const auto &plan = graph.GetCompiledPlan();
+    std::map<std::string, uint32_t> ids;
+    for (const auto &pass : plan.passes) {
+      ids[pass.passName] = pass.stablePassId;
+    }
+    return ids;
+  };
+
+  const std::vector<std::string> orderA = {"AlphaPass", "BetaPass", "GammaPass"};
+  const std::vector<std::string> orderB = {"GammaPass", "BetaPass", "AlphaPass"};
+
+  const auto idsA = buildIds(orderA);
+  const auto idsB = buildIds(orderB);
+
+  REQUIRE_EQ(idsA.size(), 3);
+  CHECK_EQ(idsA.at("AlphaPass"), idsB.at("AlphaPass"));
+  CHECK_EQ(idsA.at("BetaPass"), idsB.at("BetaPass"));
+  CHECK_EQ(idsA.at("GammaPass"), idsB.at("GammaPass"));
+  for (const auto &[name, id] : idsA) {
+    CHECK_NE(id, kInvalidStablePassId);
+    CHECK_NE(id, kFrameLevelStablePassId);
+  }
+}
+
+TEST_CASE("[Unit] RenderGraph - S0 conditional pass retains stable id without samples") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::debug;
+
+  constexpr uint64_t resourceId = 0x12345678u;
+
+  auto buildGraph = [resourceId](bool includeConditional) {
+    RenderGraph graph;
+    graph.AddPass(std::make_shared<TestRenderPass>(
+        "WritePass", [resourceId](RenderGraphBuilder &builder) {
+          TypedResourceDescriptor descriptor;
+          descriptor.name = "BarrierResource";
+          descriptor.kind = ResourceKind::StorageBuffer;
+          descriptor.stableResourceId = resourceId;
+          builder.DeclareResource(descriptor);
+
+          TypedPassAccess access;
+          access.resourceName = "BarrierResource";
+          access.mode = PassAccessMode::Write;
+          access.stage = PipelineStage::Compute;
+          access.usageFlags = ResourceUsage::StorageWrite;
+          access.stableResourceId = resourceId;
+          builder.Write(access);
+        }));
+    graph.AddPass(std::make_shared<TestRenderPass>(
+        "ConditionalReadPass",
+        [includeConditional, resourceId](RenderGraphBuilder &builder) {
+          if (includeConditional) {
+            TypedPassAccess access;
+            access.resourceName = "BarrierResource";
+            access.mode = PassAccessMode::Read;
+            access.stage = PipelineStage::Fragment;
+            access.usageFlags = ResourceUsage::StorageRead;
+            access.stableResourceId = resourceId;
+            builder.Read(access);
+          }
+        }));
+    graph.AddPass(std::make_shared<TestRenderPass>(
+        "ReadWritePass", [resourceId](RenderGraphBuilder &builder) {
+          TypedPassAccess read;
+          read.resourceName = "BarrierResource";
+          read.mode = PassAccessMode::Read;
+          read.stage = PipelineStage::Fragment;
+          read.usageFlags = ResourceUsage::StorageRead;
+          read.stableResourceId = resourceId;
+          builder.Read(read);
+
+          TypedPassAccess write = read;
+          write.mode = PassAccessMode::Write;
+          write.stage = PipelineStage::Compute;
+          write.usageFlags = ResourceUsage::StorageWrite;
+          builder.Write(write);
+        }));
+    return graph;
+  };
+
+  RenderGraph included = buildGraph(true);
+  CHECK_NOTHROW(included.Build());
+  const auto &planIncluded = included.GetCompiledPlan();
+  REQUIRE(planIncluded.isValid);
+
+  uint32_t conditionalId = 0;
+  uint32_t writePassId = 0;
+  for (const auto &pass : planIncluded.passes) {
+    if (pass.passName == "ConditionalReadPass") {
+      conditionalId = pass.stablePassId;
+    } else if (pass.passName == "WritePass") {
+      writePassId = pass.stablePassId;
+    }
+  }
+  CHECK_NE(conditionalId, 0u);
+  CHECK_NE(conditionalId, kFrameLevelStablePassId);
+  CHECK_NE(writePassId, conditionalId);
+
+  RenderGraph excluded = buildGraph(false);
+  CHECK_NOTHROW(excluded.Build());
+  const auto &planExcluded = excluded.GetCompiledPlan();
+  REQUIRE(planExcluded.isValid);
+  uint32_t conditionalIdExcluded = 0;
+  for (const auto &pass : planExcluded.passes) {
+    if (pass.passName == "ConditionalReadPass") {
+      conditionalIdExcluded = pass.stablePassId;
+    }
+  }
+  CHECK_EQ(conditionalIdExcluded, conditionalId);
+
+  auto &ring = GPUTimerQueryRing::Get();
+  ring.Initialize();
+  ring.BeginFrame();
+  ring.BeginPass(writePassId);
+  ring.EndPass(writePassId);
+  ring.EndFrame();
+  ring.PollReadyQueries();
+  GPUTimerResult unexecuted = ring.GetPassResult(conditionalId);
+  CHECK_EQ(unexecuted.state, QueryState::Pending);
+  ring.Shutdown();
+}
+
+TEST_CASE("[Unit] RenderGraph - S0 duplicate canonical pass name fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>("Scene Pass", nullptr));
+  graph.AddPass(std::make_shared<TestRenderPass>("ScenePass", nullptr));
+
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "ScenePass",
+                           "(identity)", "duplicate canonical pass name"));
+}
+
+TEST_CASE("[Unit] RenderGraph - S0 stable pass id hash collision fails closed") {
+  using namespace NoMoreDay::render::graph;
+
+  // "7cwukcfqenxf" and "2c0zx1a45" canonicalize to themselves and both hash
+  // (FNV-1a 64 over salt "NMD-STABLEPASS-V1" ++ name) to 0x5541C207.
+  CHECK_EQ(StablePassId("7cwukcfqenxf"), StablePassId("2c0zx1a45"));
+  CHECK_EQ(StablePassId("7cwukcfqenxf"), 0x5541C207u);
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>("7cwukcfqenxf", nullptr));
+  graph.AddPass(std::make_shared<TestRenderPass>("2c0zx1a45", nullptr));
+
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "2c0zx1a45",
+                           "(identity)", "hash collision"));
+}
+
+TEST_CASE("[Unit] RenderGraph - S0 reserved stable pass id fails closed") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::debug;
+
+  // "cw4db1u" canonicalizes to itself and hashes to 0xFFFFFFFF, the reserved
+  // frame-level id which MUST equal GPUTimerQueryRing::kFramePassId.
+  CHECK_EQ(StablePassId("cw4db1u"), kFrameLevelStablePassId);
+  CHECK_EQ(kFrameLevelStablePassId, GPUTimerQueryRing::kFramePassId);
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>("cw4db1u", nullptr));
+
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "cw4db1u",
+                           "(identity)", "reserved frame-level id"));
+}
+
+TEST_CASE("[Unit] RenderGraph - S0 timer ring frame index overflow guard") {
+  using namespace NoMoreDay::render::debug;
+
+  auto &ring = GPUTimerQueryRing::Get();
+  ring.Initialize();
+  ring.DebugSetFrameIndex(std::numeric_limits<uint64_t>::max());
+  ring.BeginFrame();
+  CHECK_EQ(ring.DebugGetFrameIndex(), std::numeric_limits<uint64_t>::max());
+  ring.DebugSetFrameIndex(0);
+  ring.BeginFrame();
+  CHECK_EQ(ring.DebugGetFrameIndex(), 1u);
+  ring.Shutdown();
+}
+
+TEST_CASE("[Unit] RenderGraph - S0 stable pass id timer plumbing round trip") {
+  using namespace NoMoreDay::render::graph;
+  using namespace NoMoreDay::render::debug;
+
+  const uint32_t stablePassId = StablePassId(CanonicalizePassName("ScenePass"));
+  CHECK_NE(stablePassId, 0u);
+  CHECK_NE(stablePassId, kFrameLevelStablePassId);
+  CHECK_EQ(CanonicalizePassName("  Scene Pass "), "scenepass");
+
+  auto &ring = GPUTimerQueryRing::Get();
+  ring.Initialize();
+  ring.BeginFrame();
+  ring.BeginPass(stablePassId);
+  ring.EndPass(stablePassId);
+  ring.EndFrame();
+  ring.PollReadyQueries();
+  GPUTimerResult res = ring.GetPassResult(stablePassId);
+  CHECK((res.state == QueryState::Valid || res.state == QueryState::CpuFallback ||
+         res.state == QueryState::Pending));
+  ring.Shutdown();
 }
 
 

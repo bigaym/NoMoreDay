@@ -462,9 +462,24 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
       }
 
-      // Sample Frames: Collect real GPU timer query ring statistics per frame
+      // Blocker 3 / R4 Fix: Pass Timing Statistics & AND Condition Check (>= 120 samples AND P95 <= Budget)
+      const std::vector<std::pair<std::string, double>> passBudgets = {
+          {"ScenePass", 1.0},
+          {"LightingPass", 0.8},
+          {"HeightShadowPass", 0.5},
+          {"OccluderExtractPass", 0.3},
+          {"JFAPass", 0.8},
+          {"RadianceCascadesPass", 1.5},
+          {"GICompositePass", 0.5},
+          {"VFXPass", 0.8},
+          {"PostProcessPass", 0.6},
+          {"UIWorldPass", 0.4},
+          {"CompositePass", 0.5}};
+
+      // Sample Frames: Collect real GPU timer query ring statistics per frame.
+      // S0: RenderGraph keys the ring by stable pass id; derive ids from names.
       const int actualSampleFrames = std::max(sampleFramesPerFixture, 120);
-      std::vector<std::vector<double>> passTimingSamples(11); // 11 passes
+      std::vector<std::vector<double>> passTimingSamples(passBudgets.size());
 
       for (int f = 0; f < actualSampleFrames; ++f) {
         // RenderGraph::Execute is the single frame owner for the timer ring.
@@ -473,10 +488,12 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
         debug::GPUTimerQueryRing::Get().PollReadyQueries();
-        for (uint32_t passId = 0; passId < 11; ++passId) {
-          if (debug::GPUTimerQueryRing::Get().IsGpuTimeValid(passId)) {
-            passTimingSamples[passId].push_back(
-                debug::GPUTimerQueryRing::Get().GetValidGpuTimeMs(passId));
+        for (size_t i = 0; i < passBudgets.size(); ++i) {
+          const uint32_t stableId = NoMoreDay::render::graph::StablePassId(
+              NoMoreDay::render::graph::CanonicalizePassName(passBudgets[i].first));
+          if (debug::GPUTimerQueryRing::Get().IsGpuTimeValid(stableId)) {
+            passTimingSamples[i].push_back(
+                debug::GPUTimerQueryRing::Get().GetValidGpuTimeMs(stableId));
           }
         }
       }
@@ -532,20 +549,6 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       if (!execResult.sdfReadbackPassed) {
         execResult.failureReasons.push_back("SDF sign discrete readback sampling failed");
       }
-
-      // Blocker 3 / R4 Fix: Pass Timing Statistics & AND Condition Check (>= 120 samples AND P95 <= Budget)
-      const std::vector<std::pair<std::string, double>> passBudgets = {
-          {"ScenePass", 1.0},
-          {"LightingPass", 0.8},
-          {"HeightShadowPass", 0.5},
-          {"OccluderExtractPass", 0.3},
-          {"JFAPass", 0.8},
-          {"RadianceCascadesPass", 1.5},
-          {"GICompositePass", 0.5},
-          {"VFXPass", 0.8},
-          {"PostProcessPass", 0.6},
-          {"UIWorldPass", 0.4},
-          {"CompositePass", 0.5}};
 
       for (size_t passId = 0; passId < passBudgets.size(); ++passId) {
         PassTimingReport tReport;

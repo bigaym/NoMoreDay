@@ -1,4 +1,6 @@
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
+
+#include "core/logging/Logger.hpp"
 #include "rlgl.h"
 #include <GLFW/glfw3.h>
 
@@ -87,6 +89,11 @@ void GPUTimerQueryRing::BeginFrame() {
 
   PollReadyQueries();
 
+  if (m_frameIndex == UINT64_MAX) {
+    LOG_ERROR("GPUTimerQueryRing: frameIndex overflow at UINT64_MAX; frame skipped (fail-closed)");
+    return;
+  }
+
   m_frameIndex++;
   m_currentRingIndex = m_frameIndex % kRingDepth;
   auto &frameSlot = m_ring[m_currentRingIndex];
@@ -108,6 +115,10 @@ void GPUTimerQueryRing::EndFrame() {
 
   auto &frameSlot = m_ring[m_currentRingIndex];
   frameSlot.isComplete = true;
+}
+
+void GPUTimerQueryRing::DebugSetFrameIndex(uint64_t frameIndex) {
+  m_frameIndex = frameIndex;
 }
 
 void GPUTimerQueryRing::BeginPass(uint32_t passId) {
