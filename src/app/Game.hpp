@@ -4,8 +4,8 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/RenderContext.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "engine/scene/SceneManager.hpp"
-#include "engine/scene/StateManager.hpp"
+#include "game/scene/SceneManager.hpp"
+#include "game/scene/StateManager.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>

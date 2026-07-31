@@ -2,7 +2,7 @@
 // 传家宝宝库界面 - 展示和选择跨轮回继承的装备
 #pragma once
 
-#include "engine/scene/State.hpp"
+#include "game/scene/State.hpp"
 #include "game/systems/item/HeirloomVault.hpp"
 #include <optional>
 

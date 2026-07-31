@@ -2,7 +2,7 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "engine/persistence/SaveManager.hpp"
+#include "game/persistence/SaveManager.hpp"
 #include "game/components/EquipmentComponent.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/ItemComponent.hpp"

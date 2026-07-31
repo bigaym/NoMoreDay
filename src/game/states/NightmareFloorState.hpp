@@ -2,7 +2,7 @@
 // 无尽梦魇模式 - 层间过渡界面
 #pragma once
 
-#include "engine/scene/State.hpp"
+#include "game/scene/State.hpp"
 #include "game/systems/progression/LeaderboardSystem.hpp"
 #include "game/systems/world/CorruptionSystem.hpp"
 

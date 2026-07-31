@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/scene/State.hpp"
+#include "game/scene/State.hpp"
 #include "game/data/MosaicData.hpp"
 #include "game/data/MapAffix.hpp"
 #include "game/systems/world/MapAffixCalculator.hpp"

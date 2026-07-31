@@ -1,6 +1,6 @@
 #include "game/states/MainMenuState.hpp"
-#include "engine/persistence/SaveManager.hpp"
-#include "engine/scene/StateManager.hpp"
+#include "game/persistence/SaveManager.hpp"
+#include "game/scene/StateManager.hpp"
 #include "game/states/GameplayState.hpp"
 #include "game/states/LoadingState.hpp"
 #include "game/systems/ui/UISystem.hpp"

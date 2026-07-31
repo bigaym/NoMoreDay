@@ -1,5 +1,5 @@
 #include "game/states/SettingsState.hpp"
-#include "engine/scene/StateManager.hpp"
+#include "game/scene/StateManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "engine/render/UIRenderer.hpp"

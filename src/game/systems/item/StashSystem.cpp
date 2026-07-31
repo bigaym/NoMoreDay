@@ -1,5 +1,5 @@
 #include "StashSystem.hpp"
-#include "engine/persistence/SharedStash.hpp"
+#include "game/persistence/SharedStash.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/ItemComponent.hpp"
 #include "game/components/InventoryComponent.hpp"

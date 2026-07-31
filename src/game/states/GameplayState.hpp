@@ -1,7 +1,7 @@
 #pragma once
 
 #include "game/systems/physics/SpatialGrid.hpp"
-#include "engine/scene/State.hpp"
+#include "game/scene/State.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
 #include <memory>

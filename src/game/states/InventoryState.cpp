@@ -1,7 +1,7 @@
 #include "game/states/InventoryState.hpp"
 #include "game/systems/ui/UISystem.hpp" // For State access and Facade
 #include "game/systems/ui/UIInventory.hpp"
-#include "engine/scene/StateManager.hpp"
+#include "game/scene/StateManager.hpp"
 #include "engine/render/UIRenderer.hpp" // Direct renderer access
 
 namespace NoMoreDay {

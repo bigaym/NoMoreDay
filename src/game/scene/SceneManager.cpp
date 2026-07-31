@@ -1,4 +1,4 @@
-#include "engine/scene/SceneManager.hpp"
+#include "game/scene/SceneManager.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/systems/world/TilemapCollisionSystem.hpp"

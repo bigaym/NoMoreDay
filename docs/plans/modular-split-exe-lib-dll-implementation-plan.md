@@ -1,7 +1,7 @@
 # Modular Static Target Split Implementation Plan
 
 **Design reference:** `docs/designs/modular-split-exe-lib-dll-design.md`
-**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [~]; MS-4 through MS-8 [ ] (MS-6 remains P0-blocked)
+**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [x]; MS-4 [x]; MS-5 through MS-8 [ ] (MS-6 remains P0-blocked)
 **Execution model:** Each milestone is implemented by an `implementer` subagent, reviewed by an independent `reviewer`, then committed only after a `提交` conclusion. The design document is user-owned worktree state and is never edited, staged, or committed by this initiative.
 
 ## Goal
@@ -205,7 +205,7 @@ project owner's explicit decision, these signals are accepted as out of scope
 - [x] MS-2.2 Preserve the focused knockback regression coverage under its Game-owned include.
 - [x] MS-2.3 Verify build plus relevant physics tests; review and commit.
 
-### MS-3 [~]: Input and ECS Physics Ownership
+### MS-3 [x]: Input and ECS Physics Ownership
 
 **Objective:** Move Input action mapping and ECS physics/spatial grid policy to Game. Retain only future-proof, dependency-free Engine primitives when they have a real consumer.
 
@@ -221,20 +221,27 @@ project owner's explicit decision, these signals are accepted as out of scope
   update all consumers, and remove the stale `RenderSystem` include
   (user-authorized single-line deletion, verified unused). Implemented in this
   package.
-  MS-3 is complete once this package is reviewed and committed; it remains `[~]`
-  until then.
+- [x] MS-3.6 Review and commit the spatial-grid packages (MS-3.4 committed as
+  `108010e`, MS-3.5 committed as `3ddec2b`); MS-3 complete.
 
 **Deferred scope:** none remaining for MS-3. `SIMDSpatialGrid`'s reverse edge was removed by MS-3.4 primitive decoupling; `SpatialHashGrid`'s reverse edge was removed by MS-3.5.
 
-### MS-4 [ ]: Persistence, Scene, and State Ownership
+### MS-4 [x]: Persistence, Scene, and State Ownership
 
 **Objective:** Place save schema, stash, scene orchestration, and state orchestration in Game while keeping App as composition only.
 
 **Atomic tasks:**
 
-- [ ] MS-4.1 Move persistence ownership without changing serialization format.
-- [ ] MS-4.2 Move scene/state orchestration without inventing a premature `ILevelManager` Types abstraction.
-- [ ] MS-4.3 Verify save and scene-transition behavior, review, and commit.
+- [x] MS-4.1 Move persistence ownership without changing serialization format. Implemented in this package; awaiting review and commit.
+- [x] MS-4.2 Move scene/state orchestration without inventing a premature `ILevelManager` Types abstraction. Implemented in this package; awaiting review and commit.
+- [x] MS-4.3 Verify save and scene-transition behavior, review, and commit. Reviewed `提交` (2026-07-30-modular-split-ms-4-review.md); committed.
+
+**Deferred scope and follow-up precondition:** The Game-owned scene/state code
+(`src/game/scene/State.hpp`, `StateManager.hpp`) still includes
+`app/SharedContext.hpp`. The MS-0 ledger intent was `move_to_app`, but after this
+migration the edge is a Game -> App include; it is not tracked by the
+reverse-dependency ledger (that ledger scans Engine/Core candidates only) and
+must be resolved before MS-7 builds the explicit target graph.
 
 ### MS-5 [ ]: UI Presentation Ownership
 
@@ -253,7 +260,7 @@ project owner's explicit decision, these signals are accepted as out of scope
 
 ### MS-7 [ ]: Explicit Static Targets and Target PCHs
 
-**Precondition:** The MS-0 guard has no remaining Engine/Core reverse edges except explicitly P0-blocked work that has subsequently been released and removed.
+**Precondition:** The MS-0 guard has no remaining Engine/Core reverse edges except explicitly P0-blocked work that has subsequently been released and removed. The MS-4 SharedContext follow-up also applies: Game-owned scene/state code includes `app/SharedContext.hpp` (MS-0 ledger intent was App), which must be resolved before the explicit target graph is created.
 
 **Objective:** Replace aggregate globbing with explicit manifests and create the static dependency graph with target-specific PCHs and correctly scoped transitive dependencies.
 

@@ -3,7 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "game/systems/physics/PhysicsUtils.hpp"
 #include "core/utils/Branchless.hpp"
-#include "engine/scene/SceneManager.hpp"
+#include "game/scene/SceneManager.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/RenderSystem.hpp"
 #include "game/components/AIComponent.hpp"

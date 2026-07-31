@@ -5,7 +5,7 @@
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/StashComponent.hpp"
 #include "game/components/Common.hpp"
-#include "engine/persistence/SharedStash.hpp"
+#include "game/persistence/SharedStash.hpp"
 
 using namespace NoMoreDay;
 

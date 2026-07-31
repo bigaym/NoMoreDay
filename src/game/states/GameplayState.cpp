@@ -3,7 +3,7 @@
 #include "engine/render/RenderContext.hpp"
 #include "engine/resource/AssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "engine/scene/StateManager.hpp"
+#include "game/scene/StateManager.hpp"
 #include "game/components/InventoryComponent.hpp"
 #include "game/components/LightComponent.hpp"
 #include "game/components/MaterialBankComponent.hpp" // Added

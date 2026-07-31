@@ -6,7 +6,7 @@
 #include "game/systems/item/StashSystem.hpp"
 #include "engine/render/UIRenderer.hpp"
 #include "game/systems/item/InventorySystem.hpp"
-#include "engine/persistence/SharedStash.hpp" // ADDED
+#include "game/persistence/SharedStash.hpp" // ADDED
 #include "raylib.h"
 #include <algorithm>
 #include <cstring>

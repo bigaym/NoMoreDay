@@ -1,7 +1,7 @@
 #include "game/states/PauseState.hpp"
 #include "game/states/MainMenuState.hpp"
 #include "game/states/SettingsState.hpp"
-#include "engine/scene/StateManager.hpp"
+#include "game/scene/StateManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include "game/systems/world/LevelManager.hpp"

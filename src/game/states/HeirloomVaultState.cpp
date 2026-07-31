@@ -3,7 +3,7 @@
 #include "game/states/HeirloomVaultState.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/UIRenderer.hpp"
-#include "engine/scene/StateManager.hpp"
+#include "game/scene/StateManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include <cmath>
 #include <raylib.h>
