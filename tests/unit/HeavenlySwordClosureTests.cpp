@@ -1,6 +1,6 @@
 #include "TestCommon.hpp"
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/components/Buff.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/EnemyComponent.hpp"

@@ -3,7 +3,7 @@
 #include "game/systems/combat/CombatSystem.hpp"
 #include "game/components/HazardComponents.hpp"
 #include "game/components/Stats.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 
 using namespace NoMoreDay;
 

@@ -2,7 +2,7 @@
 #include "app/Game.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/RenderSystem.hpp" // ADDED
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/Buff.hpp"

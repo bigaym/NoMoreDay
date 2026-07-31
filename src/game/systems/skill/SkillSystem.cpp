@@ -1,7 +1,7 @@
 #include "game/systems/skill/SkillSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/utils/FrameRateUtils.hpp" // Frame-rate independent utilities
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "engine/render/GPUSkillEffectSystem.hpp"

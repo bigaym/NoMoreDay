@@ -1,5 +1,5 @@
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorRegistry.hpp"
 #include <array>
 

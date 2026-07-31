@@ -1,5 +1,5 @@
 #include "SkillKeyNodeMatrixTestHelpers.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/PlayerState.hpp"
 #include "game/components/Progression.hpp"

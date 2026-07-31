@@ -1,7 +1,7 @@
 #pragma once
 #include <entt/entt.hpp>
 #include "game/components/Common.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 
 // Fwd decl
 namespace tf { class Executor; }

@@ -3,7 +3,7 @@
 #include "TestCommon.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/systems/physics/PhysicsSystem.hpp"
 #include <cmath>
 

@@ -2,7 +2,7 @@
 #include <entt/entt.hpp>
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include <cmath>
 #include <vector>

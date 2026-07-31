@@ -9,7 +9,7 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/world/FogOfWarSystem.hpp"
 #include "game/systems/world/LevelManager.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "raylib.h"
 #include <vector>
 #include <algorithm>

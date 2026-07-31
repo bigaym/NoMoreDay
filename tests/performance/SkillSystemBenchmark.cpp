@@ -2,7 +2,7 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/components/Stats.hpp"
 #include "game/data/SkillRegistry.hpp"

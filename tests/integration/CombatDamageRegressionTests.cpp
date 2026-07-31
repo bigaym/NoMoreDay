@@ -1,7 +1,7 @@
 #pragma once
 
 #include "TestCommon.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Combat.hpp"
 #include "game/components/Projectile.hpp"

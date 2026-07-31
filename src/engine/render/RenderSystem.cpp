@@ -1,7 +1,6 @@
 #include "engine/render/RenderSystem.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
 #include "engine/physics/SIMDSpatialGrid.hpp"
-#include "engine/physics/SpatialGrid.hpp"
 #include "engine/render/ComputeBuffer.hpp" 
 #include "engine/render/GPUEntitySystem.hpp"
 #include "engine/render/GPUFlowFieldSystem.hpp"

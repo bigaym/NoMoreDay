@@ -217,10 +217,14 @@ project owner's explicit decision, these signals are accepted as out of scope
 - [x] MS-3.4 Decouple `SIMDSpatialGrid` from Game components by templating its
   `Position`/`Center` types; remove its reverse ledger edge. Implemented in this
   package.
-- [ ] MS-3.5 Resolve the remaining `SpatialHashGrid` reverse edge. Deferred: it
-  is blocked by the stale `RenderSystem` include.
+- [x] MS-3.5 Move `SpatialHashGrid` (`SpatialGrid.hpp`) to Game ownership,
+  update all consumers, and remove the stale `RenderSystem` include
+  (user-authorized single-line deletion, verified unused). Implemented in this
+  package.
+  MS-3 is complete once this package is reviewed and committed; it remains `[~]`
+  until then.
 
-**Deferred scope:** `SpatialHashGrid` (MS-3.5) remains deferred because it is blocked by the stale `RenderSystem` include. `SIMDSpatialGrid`'s reverse edge was removed by MS-3.4 primitive decoupling.
+**Deferred scope:** none remaining for MS-3. `SIMDSpatialGrid`'s reverse edge was removed by MS-3.4 primitive decoupling; `SpatialHashGrid`'s reverse edge was removed by MS-3.5.
 
 ### MS-4 [ ]: Persistence, Scene, and State Ownership
 

@@ -2,7 +2,7 @@
 
 #include "SkillBehaviorBase.hpp"
 
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 
 namespace NoMoreDay {
 struct CombatEvent;

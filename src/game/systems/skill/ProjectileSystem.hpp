@@ -1,5 +1,5 @@
 #pragma once
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/physics/SIMDSpatialGrid.hpp"
 #include <entt/entt.hpp>
 #include "game/components/Projectile.hpp"

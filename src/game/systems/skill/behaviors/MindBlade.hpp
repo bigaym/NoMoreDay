@@ -1,5 +1,5 @@
 #pragma once
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/components/SkillDefs.hpp"
 #include "game/systems/skill/behaviors/SkillBehaviorBase.hpp"
 

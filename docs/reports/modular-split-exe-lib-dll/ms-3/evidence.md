@@ -66,3 +66,43 @@
 - `SpatialHashGrid` (`SpatialGrid.hpp`) still carries a `game/components/Common.hpp` edge, deferred to MS-3.5, blocked by the stale `RenderSystem` include.
 - No P0 rendering, GPU, RenderGraph, or ResourceManager files were changed; `SIMDSpatialGrid.cpp` was not modified.
 - The protected design document `docs/designs/modular-split-exe-lib-dll-design.md` was already modified in the working tree before this package; it was not read, edited, or staged.
+
+## MS-3.5: SpatialHashGrid Ownership Migration
+
+## Changes
+
+- `git mv src/engine/physics/SpatialGrid.hpp src/game/systems/physics/SpatialGrid.hpp`; file content byte-identical (rename detected by git as `R`).
+- Updated `#include "engine/physics/SpatialGrid.hpp"` -> `#include "game/systems/physics/SpatialGrid.hpp"` in all 38 consumer files under `src/game/` and `tests/` (19 Game, 19 test files; verified each had exactly one occurrence; trailing comments preserved).
+- `src/engine/render/RenderSystem.cpp`: deleted line 4 `#include "engine/physics/SpatialGrid.hpp"` — the single user-authorized change to this P0-owned file. Evidence it was unused: `git grep -n "SpatialHashGrid\|GridEntry" -- src/engine/render/RenderSystem.cpp` returned no matches. Line 3 (`SIMDSpatialGrid.hpp`) untouched. No other render/GPU file changed.
+- MS-0 ledger: removed the single `src/engine/physics/SpatialGrid.hpp:3:game/components/Common.hpp` edge (MS-3, `move_to_game`). Because the authorized RenderSystem.cpp line deletion shifted that file's include lines by one, the 20 existing MS-6 RenderSystem.cpp ledger rows had their `line` and `id` values decremented by 1 (55..73,87 -> 54..72,86) to stay truthful; no rows were added or removed beyond the SpatialGrid edge.
+- `docs/plans/modular-split-exe-lib-dll-implementation-plan.md`: MS-3.5 marked `[x]`; MS-3 remains `[~]` until review/commit; deferred-scope note updated (none remaining for MS-3).
+
+## Boundary Ledger (after MS-3.5)
+
+- `python scripts/check_module_boundaries.py`: PASS, `111/111` observed/ledger direct quoted edges (was `112/112`).
+- The checker reports 31 source files: the prior 32-file inventory lost `SpatialGrid.hpp`; the MS-3 `move_to_game` group is now empty (last row removed).
+
+## Verification (MS-3.5)
+
+- `git grep -n "engine/physics/SpatialGrid.hpp" -- src tests`: no matches.
+- `git grep -n "game/systems/physics/SpatialGrid.hpp" -- src tests`: 38 matches (all consumers; RenderSystem.cpp no longer includes the grid).
+- `python scripts/check_module_boundaries.py`: PASS `111/111` (was `112/112`).
+- `python scripts/check_core_candidate_contract.py`: PASS.
+- `python -m unittest tests/python/ModuleBoundaryCheckerTest.py tests/python/CoreCandidateContractCheckerTest.py`: PASS, 25 tests.
+- `cmd.exe /c build.bat check`: PASS.
+- `cmd.exe /c build.bat` log: `C:\Users\yuminao\AppData\Local\Temp\opencode\ms-3-5-build.log`; contains both `[Build] Build completed successfully.` and `[Build] All steps completed successfully`; no error/failed lines.
+- Focused tests (`.\bin\NoMoreDayTests.exe`):
+  - `--test-case="*Dash*"` (covers `tests/integration/CollisionReproTest.cpp`; no registered case matches `*CollisionRepro*` — the file's only case is `[Bugfix] Dash - Dash Tunneling Reproduction`): PASS, 1 case and 2 assertions.
+  - `--test-case="*Physics*"` (unit `[Tech] PhysicsSystem - Interaction Logic` + 3 performance benchmarks): PASS, 4 cases and 4 assertions.
+  - `--test-case="*Hazard*"` (3 unit + 3 performance): PASS, 8 cases and 12 assertions.
+  - `--test-case="*Skill*Matrix*"` (SkillKeyNodeMatrix unit + integration + SkillContract): PASS, 10 cases and 821 assertions.
+  - `--test-case="*SIMDSpatialGrid*"` (RenderSystem-adjacent grid regression): PASS, 4 cases and 10 assertions.
+- `git diff --check`: PASS (CRLF warnings only).
+- `git status --short`: only the MS-3.5 file set (rename `R` for SpatialGrid.hpp + modified consumers/docs) plus the protected design document that was already modified before this package.
+
+## Residual Risk Notes (MS-3.5)
+
+- The checker matches ledger rows on exact `(source, line, include_path)` keys; any future single-line edit inside RenderSystem.cpp requires a matching ledger line-number fix (this package applied the -1 shift for the 20 MS-6 rows). MS-6 review will re-verify.
+- `SpatialGrid.hpp` still includes `game/components/Common.hpp`; with the file now Game-owned the include is a same-layer Game -> Game edge, so the reverse-dependency ledger no longer tracks it. No further Engine references remain (`src/engine`/`src/app` contain only the `SIMDSpatialGrid` path and forward declarations).
+- The RenderSystem.cpp stale include was removed per user authorization; no render behavior changed (include was unused).
+- The protected design document `docs/designs/modular-split-exe-lib-dll-design.md` was already modified in the working tree before this package; it was not read, edited, or staged.

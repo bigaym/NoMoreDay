@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include <entt/entt.hpp>
 
 namespace NoMoreDay::systems {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/DestructibleTileComponent.hpp"
 #include "game/components/MapComponent.hpp"

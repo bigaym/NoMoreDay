@@ -1,7 +1,7 @@
 #include "game/systems/combat/HazardSystem.hpp"
 #include "app/SharedContext.hpp"
 #include "core/math/ThreadSafeRandom.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"

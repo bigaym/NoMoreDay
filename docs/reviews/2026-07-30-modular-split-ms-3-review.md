@@ -105,3 +105,44 @@
 ### Next Step
 
 - Commit this reviewed MS-3.4 package; keep MS-3 open for MS-3.5 spatial-grid migration under separate coordination.
+
+## Follow-up Review: MS-3.5 SpatialHashGrid Migration
+
+**Conclusion:** 修改 (Round One) -> 提交 (Re-verification)
+
+### Round One Finding (High, process)
+
+- `git diff --cached` was non-empty: the `git mv` used for the SpatialHashGrid move left the rename staged. This was a process violation, not a code defect.
+
+### Resolved
+
+- Parent ran `git reset -q`; re-verification confirms `git diff --cached --quiet` exits 0, `--cached --name-status` is empty, and the worktree boundary matches the MS-3.5 package exactly.
+
+### Scope Alignment (Round One verified)
+
+- `src/engine/physics/SpatialGrid.hpp` -> `src/game/systems/physics/SpatialGrid.hpp`, byte-identical (HEAD blob vs new file SHA-256 equal).
+- Exactly one line deleted from `src/engine/render/RenderSystem.cpp` (stale `#include "engine/physics/SpatialGrid.hpp"`), user-authorized; no `SpatialHashGrid`/`GridEntry` usage existed in that file.
+- 38 consumer includes updated (19 in `src/game`, 19 in `tests`); no old path references and no engine forwarding header remain.
+- Ledger removes only the SpatialGrid edge; the 20 RenderSystem rows were renumbered with valid `source:line:include` ids.
+- No CMake, PCH, Types, `build.bat`, GPU, or other render changes.
+
+### Verification
+
+- `python scripts/check_module_boundaries.py`: PASS, `111/111` across 31 files.
+- `python -m unittest tests/python/ModuleBoundaryCheckerTest.py tests/python/CoreCandidateContractCheckerTest.py`: PASS, 25 tests.
+- `cmd.exe /c build.bat`: PASS; `C:\Users\yuminao\AppData\Local\Temp\opencode\ms-3-5-build.log` contains both success markers; zero error lines.
+- Focused tests: `*Dash*` 1/2, `*Physics*` 4/4, `*Hazard*` 8/12, `*Skill*Matrix*` 10/821, `*SIMDSpatialGrid*` 4/10 — all pass.
+- `git diff --check` excluding the protected design document: PASS.
+
+### Findings
+
+- None.
+
+### Accepted Risks
+
+- Ledger line numbers for RenderSystem.cpp are position-sensitive; any future single-line edit there requires a matching ledger fix (re-verified at MS-6).
+- `SpatialGrid.hpp` now includes `game/components/Common.hpp` as an intra-Game edge, untracked by the reverse-dependency ledger; confirmed no Engine references remain.
+
+### Next Step
+
+- Commit this reviewed MS-3.5 package and close MS-3.

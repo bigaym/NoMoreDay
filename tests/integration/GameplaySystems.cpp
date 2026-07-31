@@ -28,7 +28,7 @@
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/systems/item/SalvageSystem.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include <array>
 #include <filesystem>
 #include <fstream>

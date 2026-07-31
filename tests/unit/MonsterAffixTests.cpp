@@ -1,5 +1,5 @@
 #include "TestCommon.hpp"
-#include "engine/physics/SpatialGrid.hpp" // For SpatialHashGrid
+#include "game/systems/physics/SpatialGrid.hpp" // For SpatialHashGrid
 #include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/EliteModifierComponents.hpp"
 #include "game/components/EnemyComponent.hpp"

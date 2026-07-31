@@ -3,7 +3,7 @@
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
 #include "core/utils/FrameRateUtils.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Buff.hpp"

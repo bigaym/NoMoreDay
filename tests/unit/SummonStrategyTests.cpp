@@ -1,5 +1,5 @@
 #include "TestCommon.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/SkillDefs.hpp"

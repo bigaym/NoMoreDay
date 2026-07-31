@@ -10,7 +10,7 @@
 #include "SkillBehaviorRegistry.hpp"
 #include "core/logging/Logger.hpp"
 #include <cfloat>
-#include "engine/physics/SpatialGrid.hpp"      // Added
+#include "game/systems/physics/SpatialGrid.hpp"      // Added
 #include "engine/render/GPUParticleSystem.hpp" // Added
 #include "engine/render/GPUSkillEffectSystem.hpp"
 #include "engine/render/GPUData.hpp"

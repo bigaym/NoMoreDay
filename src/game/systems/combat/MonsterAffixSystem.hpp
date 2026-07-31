@@ -23,7 +23,7 @@
 #include "game/systems/modifier/MonsterModifierAdapter.hpp"
 #include "game/systems/world/MapSystem.hpp"
 #include "game/utils/EntityUtils.hpp"
-#include "engine/physics/SpatialGrid.hpp"
+#include "game/systems/physics/SpatialGrid.hpp"
 #include <algorithm>
 #include <cmath>
 #include <entt/entt.hpp>
