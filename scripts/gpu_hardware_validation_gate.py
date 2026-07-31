@@ -18,6 +18,60 @@ from pathlib import Path
 from typing import Any
 
 
+GATE_REPORT_BEGIN_MARKER = "GPU_HARDWARE_GATE_REPORT_BEGIN"
+GATE_REPORT_END_MARKER = "GPU_HARDWARE_GATE_REPORT_END"
+GATE_STATUS_VALUES = frozenset({"GO", "NO_GO", "NOT_RUN"})
+
+REQUIRED_TOP_LEVEL_KEYS = frozenset({
+    "revision",
+    "timestamp",
+    "gate_status",
+    "capabilities",
+    "resources",
+    "stress_test",
+    "gl_diagnostics",
+    "matrix_results",
+    "global_failures",
+})
+
+REQUIRED_CAPABILITY_KEYS = frozenset({
+    "vendor",
+    "renderer",
+    "driver_version",
+    "gl_version",
+    "compute_shader",
+    "ssbo",
+    "persistent_mapping",
+    "indirect_draw",
+    "timer_query",
+    "texture_array",
+    "rgba16f",
+    "debug_callback",
+    "debug_output_installed",
+    "debug_output_enabled",
+    "meets_preflight",
+    "preflight_reason",
+})
+
+REQUIRED_GL_DIAGNOSTIC_KEYS = frozenset({
+    "debug_message_count",
+    "severe_error_count",
+    "dropped_count",
+    "callback_installed",
+    "callback_enabled",
+    "messages",
+})
+
+REQUIRED_DIAGNOSTIC_MESSAGE_KEYS = frozenset({
+    "severity",
+    "type",
+    "source",
+    "message",
+    "id",
+    "time",
+})
+
+
 def utc_now_iso() -> str:
     """Return current UTC timestamp in ISO-8601 format."""
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -52,6 +106,113 @@ def parse_cpp_gate_status(output: str) -> str | None:
     if len(matches) != 1:
         return None
     return matches[0]
+
+
+def extract_cpp_gate_report(output: str) -> dict[str, Any] | None:
+    """Extract the full C++ GateReport JSON from runner output.
+
+    The C++ gate runner emits the complete GateReport between
+    ``GPU_HARDWARE_GATE_REPORT_BEGIN`` and ``GPU_HARDWARE_GATE_REPORT_END``
+    markers. Parsing this source (rather than only the status line) is the S3
+    contract: the archived artifact must contain matrix/timer/resource/GL
+    diagnostics, not just a verdict.
+
+    Args:
+        output: Combined C++ runner stdout.
+
+    Returns:
+        The parsed report object, or ``None`` when the markers are absent or
+        the payload is not a single JSON object.
+    """
+    start = output.find(GATE_REPORT_BEGIN_MARKER)
+    end = output.find(GATE_REPORT_END_MARKER)
+    if start == -1 or end == -1 or end <= start:
+        return None
+    payload = output[start + len(GATE_REPORT_BEGIN_MARKER):end].strip()
+    try:
+        parsed = json.loads(payload)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return parsed
+
+
+def validate_gate_report_schema(report: dict[str, Any]) -> list[str]:
+    """Return schema violations for a parsed C++ GateReport.
+
+    Args:
+        report: Parsed GateReport JSON object.
+
+    Returns:
+        A list of violation strings; an empty list means the report is valid.
+        ``NOT_RUN`` reports (e.g. missing debug callback) are still schema
+        valid -- they carry the fail-closed verdict and never count as GO.
+    """
+    errors: list[str] = []
+    if not isinstance(report, dict):
+        return ["gate report must be a JSON object"]
+
+    for key in sorted(REQUIRED_TOP_LEVEL_KEYS):
+        if key not in report:
+            errors.append(f"missing required top-level key: {key}")
+
+    status = report.get("gate_status")
+    if status not in GATE_STATUS_VALUES:
+        errors.append(
+            f"gate_status must be one of {sorted(GATE_STATUS_VALUES)}, "
+            f"got {status!r}"
+        )
+
+    capabilities = report.get("capabilities")
+    if not isinstance(capabilities, dict):
+        errors.append("capabilities must be an object")
+    else:
+        for key in sorted(REQUIRED_CAPABILITY_KEYS):
+            if key not in capabilities:
+                errors.append(f"capabilities missing required key: {key}")
+
+    gl_diagnostics = report.get("gl_diagnostics")
+    if not isinstance(gl_diagnostics, dict):
+        errors.append("gl_diagnostics must be an object")
+    else:
+        for key in sorted(REQUIRED_GL_DIAGNOSTIC_KEYS):
+            if key not in gl_diagnostics:
+                errors.append(f"gl_diagnostics missing required key: {key}")
+        messages = gl_diagnostics.get("messages")
+        if not isinstance(messages, list):
+            errors.append("gl_diagnostics.messages must be an array")
+        else:
+            for index, message in enumerate(messages):
+                if not isinstance(message, dict):
+                    errors.append(
+                        f"gl_diagnostics.messages[{index}] must be an object"
+                    )
+                    continue
+                for key in sorted(REQUIRED_DIAGNOSTIC_MESSAGE_KEYS):
+                    if key not in message:
+                        errors.append(
+                            "gl_diagnostics.messages["
+                            f"{index}] missing required key: {key}"
+                        )
+
+    resources = report.get("resources")
+    if not isinstance(resources, dict):
+        errors.append("resources must be an object")
+
+    stress_test = report.get("stress_test")
+    if not isinstance(stress_test, dict):
+        errors.append("stress_test must be an object")
+
+    matrix_results = report.get("matrix_results")
+    if not isinstance(matrix_results, list):
+        errors.append("matrix_results must be an array")
+
+    global_failures = report.get("global_failures")
+    if not isinstance(global_failures, list):
+        errors.append("global_failures must be an array")
+
+    return errors
 
 
 def gate_succeeded(return_code: int, gate_status: str | None) -> bool:
@@ -175,8 +336,24 @@ def main() -> int:
     return_code, stdout, stderr = run_hardware_gate_cpp(config)
 
     parsed_status = parse_cpp_gate_status(stdout)
-    gate_status = parsed_status or "NOT_RUN"
-    meets_preflight = gate_succeeded(return_code, parsed_status)
+    gate_report = extract_cpp_gate_report(stdout)
+    schema_errors = (
+        validate_gate_report_schema(gate_report)
+        if gate_report is not None
+        else ["full gate report JSON not found in C++ output"]
+    )
+
+    if gate_report is not None:
+        report_status = gate_report.get("gate_status", "NOT_RUN")
+        if report_status not in GATE_STATUS_VALUES:
+            report_status = parsed_status or "NOT_RUN"
+    else:
+        report_status = parsed_status or "NOT_RUN"
+
+    gate_status = report_status
+    meets_preflight = (
+        gate_succeeded(return_code, gate_status) and not schema_errors
+    )
 
     artifact = {
         "revision": config.revision,
@@ -185,6 +362,8 @@ def main() -> int:
         "gate_status": gate_status,
         "meets_preflight": meets_preflight,
         "return_code": return_code,
+        "gate_report": gate_report,
+        "gate_report_schema_errors": schema_errors,
         "stdout_summary": stdout.strip(),
         "stderr_summary": stderr.strip(),
     }
@@ -193,6 +372,10 @@ def main() -> int:
 
     print(f"Gate Status: {gate_status}")
     print(f"Artifact written to: {out_path}")
+    if schema_errors:
+        print("Gate report schema violations:")
+        for error in schema_errors:
+            print(f"  - {error}")
 
     return 0 if meets_preflight else 1
 

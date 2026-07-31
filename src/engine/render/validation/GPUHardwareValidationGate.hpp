@@ -16,6 +16,16 @@ enum class GateStatus {
   NotRun
 };
 
+struct GlDiagnosticRecord {
+  uint32_t id{0};
+  uint32_t source{0};
+  uint32_t type{0};
+  uint32_t severity{0};
+  uint64_t elapsedMs{0};
+  std::string timeUtc;
+  std::string message;
+};
+
 struct HardwareCapabilityReport {
   std::string vendor;
   std::string renderer;
@@ -28,6 +38,9 @@ struct HardwareCapabilityReport {
   bool timerQuerySupported{false};
   bool textureArraySupported{false};
   bool rgba16fSupported{false};
+  bool debugCallbackSupported{false};
+  bool debugOutputInstalled{false};
+  bool debugOutputEnabled{false};
   bool meetsPreflightPrerequisites{false};
   std::string preflightFailureReason;
 };
@@ -102,6 +115,10 @@ struct GateReport {
   size_t leakCandidateCount{0};
   int debugMessageCount{0};
   int severeGlErrorCount{0};
+  size_t glDiagnosticsDroppedCount{0};
+  bool debugOutputInstalled{false};
+  bool debugOutputEnabled{false};
+  std::vector<GlDiagnosticRecord> glDiagnostics;
   GateStatus status{GateStatus::NotRun};
   std::vector<std::string> globalFailures;
 

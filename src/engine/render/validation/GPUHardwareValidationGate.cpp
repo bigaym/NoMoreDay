@@ -3,6 +3,7 @@
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderSystem.hpp"
+#include "engine/render/core/DeviceCapabilityMatrix.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
@@ -25,6 +26,8 @@
 #include "rlgl.h"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
 #include <chrono>
 #include <cmath>
 #include <cstring>
@@ -36,6 +39,150 @@
 #include <thread>
 
 namespace NoMoreDay::render::validation {
+
+namespace {
+
+constexpr uint32_t kGlDebugOutput = 0x92E0;
+constexpr uint32_t kGlDebugTypeError = 0x824C;
+constexpr uint32_t kGlDebugSeverityHigh = 0x9146;
+constexpr uint32_t kGlDebugCallbackFunction = 0x8244;
+constexpr uint32_t kGlDebugCallbackUserParam = 0x8245;
+constexpr size_t kMaxGlDiagnostics = 256;
+
+using GlDebugCallbackFn = void(APIENTRY *)(uint32_t source, uint32_t type, uint32_t id,
+                                           uint32_t severity, int length,
+                                           const char *message, const void *userParam);
+using GlSetDebugMessageCallbackFn =
+    void(APIENTRY *)(GlDebugCallbackFn callback, const void *userParam);
+using GlGetPointervFn = void(APIENTRY *)(uint32_t pname, void **params);
+using GlIsEnabledFn = uint8_t(APIENTRY *)(uint32_t cap);
+
+// Single-threaded, lock-free diagnostic collector. The GL debug callback is
+// invoked synchronously on the GL thread only, so no synchronization is needed;
+// the installing thread id is asserted on every capture.
+class GlDebugCollector {
+public:
+  void Record(uint32_t source, uint32_t type, uint32_t id, uint32_t severity,
+              const std::string &message) {
+    assert(std::this_thread::get_id() == m_installThreadId);
+    if (m_count >= kMaxGlDiagnostics) {
+      ++m_droppedCount;
+      return;
+    }
+    GlDiagnosticRecord record;
+    record.id = id;
+    record.source = source;
+    record.type = type;
+    record.severity = severity;
+    record.message = message;
+    const auto now = std::chrono::steady_clock::now();
+    record.elapsedMs = static_cast<uint64_t>(
+        std::chrono::duration_cast<std::chrono::milliseconds>(now - m_start).count());
+    m_records[m_count] = std::move(record);
+    ++m_count;
+  }
+
+  std::array<GlDiagnosticRecord, kMaxGlDiagnostics> m_records{};
+  size_t m_count{0};
+  size_t m_droppedCount{0};
+  std::thread::id m_installThreadId{};
+  std::chrono::steady_clock::time_point m_start{std::chrono::steady_clock::now()};
+};
+
+void APIENTRY GlDebugMessageCallbackHandler(uint32_t source, uint32_t type, uint32_t id,
+                                            uint32_t severity, int length,
+                                            const char *message, const void *userParam) {
+  // Runtime filter: only ERROR-type or HIGH-severity messages are collected to
+  // prevent MEDIUM/LOW/NOTIFICATION flooding of the queue.
+  if (type != kGlDebugTypeError && severity != kGlDebugSeverityHigh) {
+    return;
+  }
+  auto *collector =
+      static_cast<GlDebugCollector *>(const_cast<void *>(userParam));
+  if (collector == nullptr) {
+    return;
+  }
+  std::string messageText;
+  if (message != nullptr) {
+    if (length >= 0) {
+      messageText.assign(message, static_cast<size_t>(length));
+    } else {
+      messageText = message;
+    }
+  }
+  collector->Record(source, type, id, severity, messageText);
+}
+
+// RAII guard: installs the GL debug callback for the full gate lifecycle and
+// restores the previous callback / GL_DEBUG_OUTPUT enable state on exit.
+class GlDebugOutputGuard {
+public:
+  bool Install() {
+    m_setCallback = reinterpret_cast<GlSetDebugMessageCallbackFn>(
+        glfwGetProcAddress("glDebugMessageCallback"));
+    m_getPointerv =
+        reinterpret_cast<GlGetPointervFn>(glfwGetProcAddress("glGetPointerv"));
+    m_isEnabled =
+        reinterpret_cast<GlIsEnabledFn>(glfwGetProcAddress("glIsEnabled"));
+    if (m_setCallback == nullptr || m_getPointerv == nullptr || m_isEnabled == nullptr) {
+      return false;
+    }
+
+    void *prevCallback = nullptr;
+    void *prevUserParam = nullptr;
+    m_getPointerv(kGlDebugCallbackFunction, &prevCallback);
+    m_getPointerv(kGlDebugCallbackUserParam, &prevUserParam);
+    m_prevCallback = reinterpret_cast<GlDebugCallbackFn>(prevCallback);
+    m_prevUserParam = prevUserParam;
+    m_wasEnabled = (m_isEnabled(kGlDebugOutput) != 0);
+
+    m_collector.m_installThreadId = std::this_thread::get_id();
+    m_setCallback(&GlDebugMessageCallbackHandler, &m_collector);
+    NoMoreDay::utils::GPUUtils::Enable(kGlDebugOutput);
+    m_installed = (m_isEnabled(kGlDebugOutput) != 0);
+    return m_installed;
+  }
+
+  ~GlDebugOutputGuard() {
+    if (m_setCallback != nullptr) {
+      m_setCallback(m_prevCallback, m_prevUserParam);
+    }
+    if (m_isEnabled != nullptr) {
+      if (m_wasEnabled) {
+        NoMoreDay::utils::GPUUtils::Enable(kGlDebugOutput);
+      } else {
+        NoMoreDay::utils::GPUUtils::Disable(kGlDebugOutput);
+      }
+    }
+  }
+
+  const GlDebugCollector &Collector() const { return m_collector; }
+
+private:
+  GlSetDebugMessageCallbackFn m_setCallback{nullptr};
+  GlGetPointervFn m_getPointerv{nullptr};
+  GlIsEnabledFn m_isEnabled{nullptr};
+  GlDebugCallbackFn m_prevCallback{nullptr};
+  const void *m_prevUserParam{nullptr};
+  bool m_wasEnabled{false};
+  bool m_installed{false};
+  GlDebugCollector m_collector;
+};
+
+std::string FormatUtcIsoTime(const std::chrono::system_clock::time_point &timePoint) {
+  const std::time_t nowTime = std::chrono::system_clock::to_time_t(timePoint);
+  struct tm tmBuf {};
+#if defined(_WIN32)
+  gmtime_s(&tmBuf, &nowTime);
+#else
+  gmtime_r(&nowTime, &tmBuf);
+#endif
+  char timeBuf[64] = {0};
+  std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%dT%H:%M:%SZ", &tmBuf);
+  return std::string(timeBuf);
+}
+
+} // namespace
 
 HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
   HardwareCapabilityReport report;
@@ -62,6 +209,12 @@ HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
   report.timerQuerySupported = (supportInfo.majorVersion >= 4);
   report.textureArraySupported = (supportInfo.majorVersion >= 4 && supportInfo.minorVersion >= 3);
   report.rgba16fSupported = (supportInfo.majorVersion >= 4 && supportInfo.minorVersion >= 3);
+
+  // S3 (M0-C R3): Propagate GL debug callback support from the capability matrix.
+  report.debugCallbackSupported =
+      NoMoreDay::render::core::DeviceCapabilityMatrix::Get()
+          .GetCachedReport()
+          .isDebugCallbackSupported;
 
   if (supportInfo.majorVersion < 4 ||
       (supportInfo.majorVersion == 4 && supportInfo.minorVersion < 3)) {
@@ -181,6 +334,33 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
              report.capabilities.preflightFailureReason);
     return report;
   }
+
+  // S3 (M0-C R3): GL debug callback is mandatory; missing support is
+  // fail-closed NOT_RUN (must not degrade to a pass).
+  if (!report.capabilities.debugCallbackSupported) {
+    report.status = GateStatus::NotRun;
+    report.globalFailures.push_back(
+        "GL debug callback unsupported (glDebugMessageCallback missing); fail-closed NOT_RUN");
+    LOG_WARN("GPUHardwareValidationGate: GATE NOT RUN - GL debug callback unsupported");
+    return report;
+  }
+
+  // Install the GL debug callback for the full gate lifecycle. The guard
+  // restores the previous callback and GL_DEBUG_OUTPUT enable state on exit.
+  GlDebugOutputGuard debugOutputGuard;
+  if (!debugOutputGuard.Install()) {
+    report.status = GateStatus::NotRun;
+    report.globalFailures.push_back(
+        "GL_DEBUG_OUTPUT could not be enabled; fail-closed NOT_RUN");
+    report.capabilities.debugOutputInstalled = false;
+    report.capabilities.debugOutputEnabled = false;
+    LOG_WARN("GPUHardwareValidationGate: GATE NOT RUN - GL_DEBUG_OUTPUT enable failed");
+    return report;
+  }
+  report.capabilities.debugOutputInstalled = true;
+  report.capabilities.debugOutputEnabled = true;
+  report.debugOutputInstalled = true;
+  report.debugOutputEnabled = true;
 
   // Set up ECS registry & SharedContext for actual Gameplay offscreen frame rendering
   entt::registry registry;
@@ -539,6 +719,31 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         "100-loop GI/Tier/Resize toggle stress test failed");
   }
 
+  // S3 (M0-C R3): Snapshot GL debug diagnostics collected during the gate run
+  // while the callback is still installed. Severe messages (ERROR/HIGH) are a
+  // hard NO-GO.
+  const auto &diagnosticsCollector = debugOutputGuard.Collector();
+  report.glDiagnostics.assign(
+      diagnosticsCollector.m_records.begin(),
+      diagnosticsCollector.m_records.begin() +
+          static_cast<std::ptrdiff_t>(diagnosticsCollector.m_count));
+  report.glDiagnosticsDroppedCount = diagnosticsCollector.m_droppedCount;
+  report.debugMessageCount = static_cast<int>(report.glDiagnostics.size());
+  report.severeGlErrorCount = static_cast<int>(std::count_if(
+      report.glDiagnostics.begin(), report.glDiagnostics.end(),
+      [](const GlDiagnosticRecord &record) {
+        return record.severity == kGlDebugSeverityHigh ||
+               record.type == kGlDebugTypeError;
+      }));
+  for (auto &record : report.glDiagnostics) {
+    record.timeUtc = FormatUtcIsoTime(now + std::chrono::milliseconds(record.elapsedMs));
+  }
+  if (report.severeGlErrorCount > 0) {
+    allMatrixPassed = false;
+    report.globalFailures.push_back(
+        "GL debug callback reported severe messages (ERROR/HIGH)");
+  }
+
   // Final Gate Decision
   if (allMatrixPassed && report.stressReport.stress1MinPassed && toggleStressPassed) {
     report.status = GateStatus::Go;
@@ -566,6 +771,9 @@ std::string GateReport::ToJsonString() const {
       {"timer_query", capabilities.timerQuerySupported},
       {"texture_array", capabilities.textureArraySupported},
       {"rgba16f", capabilities.rgba16fSupported},
+      {"debug_callback", capabilities.debugCallbackSupported},
+      {"debug_output_installed", capabilities.debugOutputInstalled},
+      {"debug_output_enabled", capabilities.debugOutputEnabled},
       {"meets_preflight", capabilities.meetsPreflightPrerequisites},
       {"preflight_reason", capabilities.preflightFailureReason}};
 
@@ -587,8 +795,21 @@ std::string GateReport::ToJsonString() const {
                     {"active_resource_count", activeResourceCount},
                     {"leak_candidate_count", leakCandidateCount}};
 
+  nlohmann::json glMessages = nlohmann::json::array();
+  for (const auto &record : glDiagnostics) {
+    glMessages.push_back({{"id", record.id},
+                          {"source", record.source},
+                          {"type", record.type},
+                          {"severity", record.severity},
+                          {"message", record.message},
+                          {"time", record.timeUtc}});
+  }
   j["gl_diagnostics"] = {{"debug_message_count", debugMessageCount},
-                        {"severe_error_count", severeGlErrorCount}};
+                         {"severe_error_count", severeGlErrorCount},
+                         {"dropped_count", glDiagnosticsDroppedCount},
+                         {"callback_installed", debugOutputInstalled},
+                         {"callback_enabled", debugOutputEnabled},
+                         {"messages", glMessages}};
 
   nlohmann::json matrixArr = nlohmann::json::array();
   for (const auto &m : matrixResults) {
