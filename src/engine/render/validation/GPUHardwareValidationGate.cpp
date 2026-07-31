@@ -287,11 +287,10 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       std::vector<std::vector<double>> passTimingSamples(11); // 11 passes
 
       for (int f = 0; f < actualSampleFrames; ++f) {
-        debug::GPUTimerQueryRing::Get().BeginFrame();
+        // RenderGraph::Execute is the single frame owner for the timer ring.
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenHandle.fbo);
         ::RenderSystem::render(registry, context, camera);
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
-        debug::GPUTimerQueryRing::Get().EndFrame();
 
         debug::GPUTimerQueryRing::Get().PollReadyQueries();
         for (uint32_t passId = 0; passId < 11; ++passId) {

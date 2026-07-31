@@ -368,7 +368,11 @@ void ConfigureAdaptiveQualityController(
 }
 
 float PickPassCostMs(const NoMoreDay::render::debug::PassTimingStats &stats) {
-  return (stats.gpuMeanMs > 0.0f) ? stats.gpuMeanMs : stats.cpuMeanMs;
+  if (stats.gpuState == NoMoreDay::render::debug::QueryState::Valid &&
+      stats.gpuMeanMs > 0.0f) {
+    return stats.gpuMeanMs;
+  }
+  return stats.cpuMeanMs;
 }
 
 float ComputeAggregateFrameCostMs(
@@ -2285,13 +2289,17 @@ void RenderSystem::render(entt::registry &registry,
         for (size_t i = 0; i < passStats.size(); ++i) {
           const auto passId = static_cast<NoMoreDay::render::debug::RenderPassId>(i);
           const auto &stats = passStats[i];
-          const float overPct = (stats.budgetMs > 0.0f)
-                                    ? std::max(0.0f, (stats.gpuMeanMs - stats.budgetMs) /
-                                                         stats.budgetMs * 100.0f)
-                                    : 0.0f;
-          LOG_INFO("RenderProfiler[{}]: CPU(mean={:.3f},p95={:.3f}) GPU(mean={:.3f},p95={:.3f}) budget={:.3f} over={:.1f}%",
+          const bool gpuValid =
+              (stats.gpuState == NoMoreDay::render::debug::QueryState::Valid);
+          const float overPct =
+              (gpuValid && stats.budgetMs > 0.0f)
+                  ? std::max(0.0f, (stats.gpuMeanMs - stats.budgetMs) /
+                                       stats.budgetMs * 100.0f)
+                  : 0.0f;
+          LOG_INFO("RenderProfiler[{}]: CPU(mean={:.3f},p95={:.3f}) GPU(mean={:.3f},p95={:.3f},state={}) budget={:.3f} over={:.1f}%",
                    NoMoreDay::render::debug::RenderProfiler::ToString(passId),
                    stats.cpuMeanMs, stats.cpuP95Ms, stats.gpuMeanMs, stats.gpuP95Ms,
+                   NoMoreDay::render::debug::ToQueryStateName(stats.gpuState),
                    stats.budgetMs, overPct);
         }
         s_lastProfilerLog = now;

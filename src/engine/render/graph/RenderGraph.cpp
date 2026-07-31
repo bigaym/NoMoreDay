@@ -468,19 +468,15 @@ void RenderGraph::Execute(RenderContext &context) {
     const uint32_t numericPassId = static_cast<uint32_t>(node.passIndex);
     debug::GPUTimerQueryRing::Get().BeginPass(numericPassId);
 
-    const auto passId = (context.renderProfiler != nullptr)
-                            ? debug::RenderProfiler::FromPassName(
-                                  node.pass->GetName())
-                            : std::optional<debug::RenderPassId>{};
-    if (context.renderProfiler != nullptr && passId.has_value()) {
-      context.renderProfiler->BeginPass(*passId);
+    if (context.renderProfiler != nullptr) {
+      context.renderProfiler->BeginCpuPass(node.pass->GetName());
     }
 
     node.pass->Execute(context);
     NoMoreDay::render::core::ApplyRlglFlushTemplate();
 
-    if (context.renderProfiler != nullptr && passId.has_value()) {
-      context.renderProfiler->EndPass(*passId);
+    if (context.renderProfiler != nullptr) {
+      context.renderProfiler->EndCpuPass();
     }
     debug::GPUTimerQueryRing::Get().EndPass(numericPassId);
   }

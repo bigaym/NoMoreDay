@@ -40,9 +40,11 @@ void DrawProfilerHud(const RenderProfiler &profiler, float x, float y) {
     const auto &entry = stats[static_cast<size_t>(row)];
     const float rowY = baseY + kLineHeight * static_cast<float>(row + 1);
 
-    const float overMs = std::max(0.0f, entry.gpuMeanMs - entry.budgetMs);
+    const bool gpuValid = (entry.gpuState == QueryState::Valid);
+    const float overMs =
+        gpuValid ? std::max(0.0f, entry.gpuMeanMs - entry.budgetMs) : 0.0f;
     const float overPct =
-        (entry.budgetMs > 0.0f) ? (overMs / entry.budgetMs * 100.0f) : 0.0f;
+        (gpuValid && entry.budgetMs > 0.0f) ? (overMs / entry.budgetMs * 100.0f) : 0.0f;
     const Color overColor = overMs > 0.0f ? Color{255, 120, 120, 255} : Color{150, 220, 140, 255};
 
     DrawText(RenderProfiler::ToString(passId), static_cast<int>(x + 10.0f),
@@ -50,13 +52,19 @@ void DrawProfilerHud(const RenderProfiler &profiler, float x, float y) {
     DrawText(TextFormat("%5.3f / %5.3f", entry.cpuMeanMs, entry.cpuP95Ms),
              static_cast<int>(x + 170.0f), static_cast<int>(rowY), kFontSize,
              Color{200, 216, 255, 255});
-    DrawText(TextFormat("%5.3f / %5.3f", entry.gpuMeanMs, entry.gpuP95Ms),
-             static_cast<int>(x + 360.0f), static_cast<int>(rowY), kFontSize,
-             Color{200, 255, 220, 255});
+    if (gpuValid) {
+      DrawText(TextFormat("%5.3f / %5.3f", entry.gpuMeanMs, entry.gpuP95Ms),
+               static_cast<int>(x + 360.0f), static_cast<int>(rowY), kFontSize,
+               Color{200, 255, 220, 255});
+    } else {
+      DrawText(ToQueryStateName(entry.gpuState), static_cast<int>(x + 360.0f),
+               static_cast<int>(rowY), kFontSize, Color{200, 255, 220, 255});
+    }
     DrawText(TextFormat("%4.2f", entry.budgetMs), static_cast<int>(x + 540.0f),
              static_cast<int>(rowY), kFontSize, Color{230, 230, 180, 255});
-    DrawText(TextFormat("%5.1f%%", overPct), static_cast<int>(x + 615.0f),
-             static_cast<int>(rowY), kFontSize, overColor);
+    DrawText(gpuValid ? TextFormat("%5.1f%%", overPct) : "--",
+             static_cast<int>(x + 615.0f), static_cast<int>(rowY), kFontSize,
+             overColor);
   }
 
   if (!profiler.IsGpuTimingAvailable()) {
