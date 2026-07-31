@@ -111,6 +111,27 @@ TEST_CASE("[Unit] RenderGraph - Detect Read Before Write") {
                            "SceneColor", "read-before-write"));
 }
 
+TEST_CASE("[Unit] RenderGraph - legacy string-based access is denied by default") {
+  using namespace NoMoreDay::render::graph;
+
+  RenderGraph graph;
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "ScenePass", [](RenderGraphBuilder &builder) {
+        builder.Write("CustomColor");
+      }));
+  graph.AddPass(std::make_shared<TestRenderPass>(
+      "CompositePass", [](RenderGraphBuilder &builder) {
+        builder.Read("CustomColor");
+      }));
+
+  CHECK_THROWS_AS(graph.Build(), std::logic_error);
+  CHECK(graph.HasValidationErrors());
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "ScenePass",
+                           "CustomColor", "string-based access is denied"));
+  CHECK(HasErrorContaining(graph.GetValidationDiagnostics(), "CompositePass",
+                           "CustomColor", "string-based access is denied"));
+}
+
 TEST_CASE("[Unit] RenderGraph - Reject Invalid First Writer Owner") {
   using namespace NoMoreDay::render::graph;
 
@@ -395,7 +416,13 @@ TEST_CASE("[Unit] RenderGraph - S0 stable pass id is deterministic across reorde
     for (const std::string &name : order) {
       graph.AddPass(std::make_shared<TestRenderPass>(
           name, [name](RenderGraphBuilder &builder) {
-            builder.Write(name + "Color");
+            TypedPassAccess access;
+            access.resourceName = name + "Color";
+            access.mode = PassAccessMode::Write;
+            access.stage = PipelineStage::FramebufferAttachment;
+            access.usageFlags = ResourceUsage::ColorAttachment;
+            access.stableResourceId = StableResourceId(name + "Color");
+            builder.Write(access);
           }));
     }
     CHECK_NOTHROW(graph.Build());

@@ -144,7 +144,7 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 
 ### S4：M0-C R5.2 五秒 registry 快照
 
-- **状态**：`[ ]`（无依赖）
+- **状态**：`[x]`（2026-08-01 实施完成并验证）
 - **内容**：
   1. `GPUResourceRegistry` 增加快照 API（字段：资源对象数、字节数、timer 生命周期计数、引用状态、时间戳）。
   2. **基线窗口**：前 5s 为 warmup/baseline（含合法资源 churn 学习，滑动窗口平均）；之后每 5s 快照，**净增长判定**（窗口内对象数/字节数净增超过容差阈值即失败；考虑合法延迟释放，用滑动窗口均值而非瞬时单调比较）。
@@ -154,14 +154,33 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 - **验证命令**：`./build.bat`；gate focused 测试；实机压力循环。
 - **风险**：中（churn 与泄漏区分）。
 
+**S4 实施记录（2026-08-01）**：
+- `GPUResourceRegistry` 新增 `GPUResourceSnapshot` 结构（`frameIndex` + `wallClockMs` 时间戳、`activeResourceCount` 对象数、`currentTotalBytes`/`peakTotalBytes` 字节数、`totalCreatedCount`/`totalDestroyedCount` 生命周期计数、`liveReferenceCount`/`pendingReferenceCount` 引用状态）与 `TakeSnapshot()`；`Reset()` 重置快照 epoch。
+- 压力循环（`GPUHardwareValidationGate.cpp`）重写：临时 stress target 在基线前分配；前 5s 为 baseline（滑动窗口均值学习合法 churn）；之后每 5s 在 frame 边界（render + `AdvanceFrame` 后）快照，以**滑动窗口均值与基线均值的净差**（字节 > 2 MiB 或对象数 > 8）判定净增长，替换原逐帧 `> prevWindowBytes + 2MiB` 单调比较；query Pending 超龄（> 3×ring 深度 = 9 帧）纳入 fail-closed 判定。
+- 最终泄漏计数改为 baseline-diff（压力窗口期间新建且未释放的资源），排除长期存活的 pass 持久目标误报。
+- 快照序列输出到 `GateReport` JSON `stress_test.resource_snapshots`；schema 记录于 evidence 文档。
+- 验证：`check_module_boundaries.py` 71/71；`build.bat check` 通过；`build.bat` 双成功标记；gate focused 测试通过；ctest unit|integration 除已知既有失败（GIStabilityIntegrationTest、HeavenlySwordClosureTests）外通过；`git diff --check` 干净。
+
 ### S5：M0-B R1/R2 legacy access 收敛审计
 
-- **状态**：`[ ]`（无依赖）
+- **状态**：`[x]`（2026-07-31 实施完成并验证）
 - **内容**：产出可审计 inventory（`conductor/tracks/gpu_rendergraph_resource_foundation_20260726/legacy-access-inventory.md`）：每个 string-based `Read`/`Write` 使用点的**处置结论**（收敛到 typed access / 已批准例外），例外须由 M0-B spec 批准并记录 owner、原因、到期版本、测试与 fail-closed 行为；**默认拒绝**生产 legacy access，不得以名称回退或手工 barrier 旁路。
 - **涉及文件**：`RenderGraph.hpp/.cpp` 及相关 pass（按 inventory 逐点收敛）；inventory 文档。
 - **验收**：inventory 全量覆盖（0 个未处置使用点）；未收敛且未批准项为失败项。
 - **验证命令**：`git grep` 审计对照 inventory；`./build.bat`；RenderGraph 契约测试。
 - **风险**：中。
+
+**S5 实施记录（2026-07-31）**：
+- 生产 pass 38 访问点 + 6 typed descriptor 经审计全部 typed；需收敛的 string-based 调用点 1 处（`tests/unit/RenderGraphValidationTest.cpp` S0 stable-id 测试）已收敛为 `TypedPassAccess`（同名/同 stableResourceId/同 stage/usage，barrier 语义等价）。
+- 默认拒绝落地：`ResourceAccess::isStringBasedAccess` + `ValidateBuildContracts` fail-closed Error；新增 `[Unit] RenderGraph - string-based access is denied by default` 测试。
+- 验证：`check_module_boundaries.py` 71/71；`build.bat check` 通过；`build.bat` 双成功标记；`*RenderGraph*` 31 cases/217 assertions；ctest unit|integration 14/15（唯一失败为既有 GI Long-run Stability Proxy 硬件读回，接受）；`git diff --check` 干净；`check_legacy_reintroduction.py` PASS。
+- 例外：0 已批准、0 待批准；未处置使用点 0。
+
+**S5 审查整改（2026-08-01，结论 `修改`，M1）**：
+- **M1（fail-closed 不抵抗 NDEBUG/validation 开关）修复**：string-deny 由新增 `RenderGraph::RejectLegacyStringAccess` 在 `Build` 无条件执行（不受 NDEBUG、`s_validationEnabled` 影响），发现 string-based access 即抛 `std::logic_error` 拒绝执行，与 S0 `identityContractFailed` 无条件 throw 同构；RelWithDebInfo/NDEBUG 发布构建同样无法执行 string access（`m_isBuilt` 不会被置位，`Execute` 亦不可能运行）。
+- deny 测试改为无条件断言 `Build` 抛 `std::logic_error`（不再区分 NDEBUG 分支）。
+- 修正 inventory：§8 措辞改为无条件 fail-closed/拒绝执行；§5 收敛后调用点改为「生产 0，测试 2 处为 deny 负例夹具」（`RenderGraphValidationTest.cpp:120/124`）；§1 集成测试路径笔误改为平铺 `RenderGraphV3ContractsIntegrationTest.cpp`/`RenderGraphV5ContractsIntegrationTest.cpp`。
+- 验证：`check_module_boundaries.py` 71/71；`build.bat check` 通过；`build.bat` 双成功标记（日志 `%TEMP%\opencode\s5fix-build.log`）；`*RenderGraph*` focused 测试通过；ctest unit|integration 除既有 GIStability/HeavenlySword 失败外通过；`git diff --check` 干净。
 
 ### S6：M0-C R1.2 真实 Gameplay fixture（硬件 GO 前提）
 

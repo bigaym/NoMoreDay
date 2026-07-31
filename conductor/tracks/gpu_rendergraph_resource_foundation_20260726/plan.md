@@ -121,8 +121,8 @@ Execute(plan):
     Flush(); ScopedGLState(); node.Execute(); Flush()
 ```
 
-- [~] R1: 用 typed stable resource ID 跟踪前序 access/stage，在 immutable `CompiledRenderPlan` 生成并保存 transition records；执行器只执行计划声明的 consumer-before barrier。当前已生成并由执行器消费 compiled transition；未声明 access 与剩余 legacy access 收敛仍待完成。
-- [~] R2: 拒绝 descriptor/access 的名称漂移，修复 `SceneHdrColor`/`SceneColor` 等资源身份不一致；每个 access 必须解析到一个 descriptor。当前已拒绝 typed identity drift/tag mismatch，未声明 legacy access 仍需收敛。
+- [x] R1: 用 typed stable resource ID 跟踪前序 access/stage，在 immutable `CompiledRenderPlan` 生成并保存 transition records；执行器只执行计划声明的 consumer-before barrier。当前已生成并由执行器消费 compiled transition；string-based access 已默认拒绝并全部收敛（见 `legacy-access-inventory.md`，2026-07-31 S5）。
+- [x] R2: 拒绝 descriptor/access 的名称漂移，修复 `SceneHdrColor`/`SceneColor` 等资源身份不一致；每个 access 必须解析到一个 descriptor。当前已拒绝 typed identity drift/tag mismatch，且 string-based access 由 `Build` 无条件拒绝（`isStringBasedAccess` fail-closed，不受 NDEBUG/validation 开关影响），生产 0 个 string-based 调用点、测试 2 处为 deny 负例夹具（见 `legacy-access-inventory.md`）。
 - [~] R3: 使 registry observer 覆盖 buffer、VAO、query 与 persistent mapping，并在每 rendered frame 调用 `AdvanceFrame`；实际 owner 继续负责 RAII destroy。当前已接入 FBO、公共 `FullscreenQuad` VAO、Distortion/JFA SSBO、PersistentBuffer、timer query，且 RenderGraph 每帧推进；专用 VAO、其余 buffer owner 仍待覆盖。
 - [~] R4: 合并 production hot reload、capability matrix 和 GL diagnostics 到单一 governance 路径；登记旧 executor sync 依赖与 ABI/pass migration debt（见 `debt_register.md`）。当前 graph pass 边界已统一 flush 契约，且 RenderGraph 是唯一 GPU timer owner（RenderProfiler 在 graph 内仅采 CPU）；reload/capability 合并与 executor 迁移仍待完成。
 - [~] R5: 添加同资源 read/write、write/read、跨 stage、条件 pass 顺序、registry lifecycle、reload retry 与 capability fallback 合同测试。当前已有 transition、typed drift、registry accounting 和 RenderGraph 合同测试，硬件生命周期/reload fallback 覆盖未闭合。
@@ -139,10 +139,24 @@ Execute(plan):
 - 本轮只完成 M0-B 的部分资源生命周期/同步观测闭环，生产 NO-GO 不变；未将上述证据解释为完整 Track 验收或硬件 GO。
 
 ## 单一 GPU timer owner 与 GL 状态回归（2026-07-28）
-
 - 根因：RenderGraph 的 `GPUTimerQueryRing` 与 `RenderProfiler` 同时开启 `GL_TIME_ELAPSED` query，第二个 `glBeginQuery` 产生 `GL_INVALID_OPERATION (0x502)`。
 - 修复：RenderGraph 改用 `RenderProfiler::BeginCpuPass/EndCpuPass`，保留 `GPUTimerQueryRing` 作为唯一 GPU query owner；RenderProfiler 独立调用方的 GPU API 保持兼容。
 - 构建：`build.bat` 通过，证据日志 `%TEMP%\\NoMoreDay_single_timer_owner_final_build.log`。
 - 合同测试：`bin\\NoMoreDayTests.exe --test-case=*RenderGraph*` 通过 23 cases/173 assertions；真实 Target Capture 通过 1 case/3 assertions，未再出现 `0x502` 或未初始化 `GPUEntitySystem` 警告。
 - 完整 RTX 4070 门禁：`%TEMP%\\NoMoreDay_single_timer_owner_full_gate.log`，C++ verdict 仍为 `GPU_HARDWARE_GATE_RESULT status=NO_GO`，doctest 114/119 assertions；timer 样本不足已消失，剩余失败为 Cave paired GI delta `0.000193621 < 0.001` 及 Ultra 对该 paired 结果的依赖。
 - 结论：单一 timer owner 与 GL 错误来源已修复，但 M0-B transitions/typed governance、M0-C Cave differential、R6 artifact/CI 仍未闭合，生产继续 NO-GO。
+
+## S5 legacy access 收敛（2026-07-31）
+
+- 审计：全量枚举 `RenderGraph.hpp/.cpp` 与全部 pass 的 `Read`/`Write`/`DeclareResource` 调用点（见 `legacy-access-inventory.md`）。生产 pass 38 个访问点 + 6 个 typed descriptor 已全部 typed；全仓库需收敛的 string-based 调用点（`tests/unit/RenderGraphValidationTest.cpp` S0 stable-id 测试）已收敛为 `TypedPassAccess`（barrier/transition 语义逐位等价）。
+- 默认拒绝：`ResourceAccess::isStringBasedAccess` 标记 string overload 调用；`RenderGraph::Build` 经 `RejectLegacyStringAccess` 对任何 string-based access 无条件（不受 NDEBUG、`s_validationEnabled` 影响）追加 Error 并抛 `std::logic_error` 拒绝执行（与 S0 identity contract 同构），杜绝名称回退/漂移。
+- 新增测试：`[Unit] RenderGraph - string-based access is denied by default`。
+- 构建：`build.bat` 通过，双成功标记存在（日志 `%TEMP%\\opencode\\s5-build.log`）；`python scripts/check_module_boundaries.py` 71/71；`python scripts/check_legacy_reintroduction.py` PASS。
+- 合同测试：`bin\\NoMoreDayTests.exe --test-case=*RenderGraph*` 31 cases/217 assertions 通过；ctest unit|integration 15 项中 14 项通过，唯一失败为既有 `GI - Long-run Stability Proxy` 硬件读回失败（接受）。
+- 结论：S5 string-based access 收敛与审计完成，生产路径 0 个 string-based 调用点；M0-B 其余债务（RG-3/RG-5，未声明访问的 shadow/lightculling pass）仍待后续阶段。
+
+## S5 审查整改（2026-08-01，结论 `修改`，M1）
+
+- **M1 修复**：string-deny 从「仅 `s_validationEnabled` 时校验 + 非 NDEBUG throw」改为「`Build` 无条件抛」（`RejectLegacyStringAccess` 不受 NDEBUG、`s_validationEnabled` 影响），发布构建（RelWithDebInfo/NDEBUG）也无法执行 string access；deny 测试改为无条件断言 `Build` 抛 `std::logic_error`。
+- 文档修正：inventory §8 改为无条件 fail-closed/拒绝执行；§5「收敛后调用点」改为生产 0、测试 2 处 deny 负例夹具（`RenderGraphValidationTest.cpp:120/124`）；§1 集成测试路径笔误改平铺。
+- 验证（`s5fix`）：`check_module_boundaries.py` 71/71；`build.bat check` 通过；`build.bat` 双成功标记（日志 `%TEMP%\opencode\s5fix-build.log`）；`*RenderGraph*` focused 测试通过；ctest unit|integration 除既有 GIStability/HeavenlySword 失败外通过；`git diff --check` 干净。

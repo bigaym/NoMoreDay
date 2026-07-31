@@ -196,6 +196,10 @@ struct ResourceAccess {
   RenderResourceTag resourceTag = RenderResourceTag::Custom;
   RenderOwnerTag ownerTag = RenderOwnerTag::Unknown;
   uint64_t stableResourceId = 0;
+  // Set only by the string-based Read/Write(const std::string&) overloads.
+  // Such accesses carry no typed Tag/Owner/Stage/Usage and are denied by
+  // default at Build validation (see ValidateBuildContracts).
+  bool isStringBasedAccess = false;
 };
 
 } // namespace NoMoreDay::render::graph
@@ -386,6 +390,7 @@ private:
   };
 
   bool ValidatePassIdentityContract();
+  bool RejectLegacyStringAccess();
   void ValidateBuildContracts();
   void BuildCompiledPlan();
   void AddValidationDiagnostic(ValidationDiagnostic::Severity severity,

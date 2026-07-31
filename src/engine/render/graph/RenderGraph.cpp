@@ -271,7 +271,8 @@ void RenderGraphBuilder::Read(const std::string &resourceName) {
   const RenderResourceTag inferredTag = ToResourceTag(resourceName);
   m_accesses.push_back({resourceName, ResourceAccess::Type::Read,
                          inferredTag, RenderOwnerTag::Unknown,
-                         StableResourceId(resourceName)});
+                         StableResourceId(resourceName),
+                         true});
   m_typedAccesses.push_back({resourceName, inferredTag, PassAccessMode::Read,
                              PipelineStage::Fragment, ResourceUsage::ShaderRead,
                              0, RenderOwnerTag::Unknown});
@@ -281,7 +282,8 @@ void RenderGraphBuilder::Write(const std::string &resourceName) {
   const RenderResourceTag inferredTag = ToResourceTag(resourceName);
   m_accesses.push_back({resourceName, ResourceAccess::Type::Write,
                          inferredTag, RenderOwnerTag::Unknown,
-                         StableResourceId(resourceName)});
+                         StableResourceId(resourceName),
+                         true});
   m_typedAccesses.push_back({resourceName, inferredTag, PassAccessMode::Write,
                              PipelineStage::FramebufferAttachment,
                              ResourceUsage::ColorAttachment, 0,
@@ -403,6 +405,7 @@ void RenderGraph::Build() {
   }
 
   const bool identityContractFailed = ValidatePassIdentityContract();
+  const bool legacyAccessRejected = RejectLegacyStringAccess();
 
   if (s_validationEnabled) {
     ValidateBuildContracts();
@@ -431,6 +434,15 @@ void RenderGraph::Build() {
               << "] stable pass identity contract failed with "
               << m_validationDiagnostics.size()
               << " diagnostics; execution is forbidden";
+      throw std::logic_error(message.str());
+    }
+
+    if (legacyAccessRejected) {
+      std::ostringstream message;
+      message << "RenderGraph[v" << RENDERGRAPH_CONTRACT_VERSION
+              << "] string-based access is denied by default; "
+                 "declare typed access via Read/Write(Tag, Owner, Stage, "
+                 "Usage); execution is forbidden";
       throw std::logic_error(message.str());
     }
 
@@ -555,6 +567,24 @@ bool RenderGraph::ValidatePassIdentityContract() {
   }
 
   return failed;
+}
+
+bool RenderGraph::RejectLegacyStringAccess() {
+  bool rejected = false;
+  for (const Node &node : m_nodes) {
+    for (const ResourceAccess &access : node.accesses) {
+      if (!access.isStringBasedAccess) {
+        continue;
+      }
+      AddValidationDiagnostic(
+          ValidationDiagnostic::Severity::Error, node.passIndex, node.passName,
+          access.resourceName,
+          "string-based access is denied by default; declare typed "
+          "access via Read/Write(Tag, Owner, Stage, Usage)");
+      rejected = true;
+    }
+  }
+  return rejected;
 }
 
 void RenderGraph::ValidateBuildContracts() {
