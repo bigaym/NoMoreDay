@@ -7,7 +7,39 @@
 #include "raylib.h"
 
 #include <nlohmann/json.hpp>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
+
+namespace {
+
+// S8 (M0-C R6): the Python runner forwards --samples/--toggle-loops/
+// --stress-test-1min to the C++ side by injecting NMD_GATE_* environment
+// variables. Read them here (falling back to the previous hardcoded defaults)
+// so the runner CLI is actually wired into RunGate instead of being dead.
+int GateEnvIntOr(const char* name, int fallback) {
+  const char* raw = std::getenv(name);
+  if (raw == nullptr || *raw == '\0') {
+    return fallback;
+  }
+  char* end = nullptr;
+  const long value = std::strtol(raw, &end, 10);
+  if (end == raw || *end != '\0') {
+    return fallback;
+  }
+  return static_cast<int>(value);
+}
+
+bool GateEnvBoolOr(const char* name, bool fallback) {
+  const char* raw = std::getenv(name);
+  if (raw == nullptr || *raw == '\0') {
+    return fallback;
+  }
+  return std::strcmp(raw, "1") == 0 || std::strcmp(raw, "true") == 0 ||
+         std::strcmp(raw, "TRUE") == 0;
+}
+
+}  // namespace
 
 static bool CreateMinimalGpuContext() {
   if (NoMoreDay::utils::GPUUtils::IsInitialized()) {
@@ -66,8 +98,15 @@ TEST_CASE("[Integration] GPU Hardware Validation Gate - RunGate Offscreen Matrix
   // S6 (M0-C R1.2): the gate must be driven by a real gameplay fixture harness
   // (registry + minimal SharedContext + owned RGBA16F composite target).
   NoMoreDay::render::validation::GameplayRuntimeHarness harness;
-  const auto report = GPUHardwareValidationGate::RunGate("TEST_REV_123", 120, true, 100,
-                                                         &harness);
+  // S8 (M0-C R6): sample count, stress loop and toggle loops are wired from the
+  // runner CLI through NMD_GATE_* env vars (defaults match previous hardcoded
+  // values), so the C++ gate honors the runner parameters.
+  const int sampleFrames = GateEnvIntOr("NMD_GATE_SAMPLES", 120);
+  const int toggleLoops = GateEnvIntOr("NMD_GATE_TOGGLE_LOOPS", 100);
+  const bool stressTest1Min = GateEnvBoolOr("NMD_GATE_STRESS", true);
+  const auto report =
+      GPUHardwareValidationGate::RunGate("TEST_REV_123", sampleFrames,
+                                         stressTest1Min, toggleLoops, &harness);
 
   const std::string jsonStr = report.ToJsonString();
   CHECK_FALSE(jsonStr.empty());
@@ -154,7 +193,11 @@ TEST_CASE("[Integration] GPU Hardware Validation Gate - RunGate Offscreen Matrix
 
   std::cout << "GPU_HARDWARE_GATE_REPORT_BEGIN\n";
   std::cout << jsonStr << "\n";
-  std::cout << "GPU_HARDWARE_GATE_REPORT_END\n";
+  // S8 (M0-C R6): flush after the END marker so the full report reaches the
+  // pipe atomically. Without this, log output from test cases that run after
+  // this one can interleave into the still-buffered tail of the JSON and
+  // corrupt the payload the runner extracts.
+  std::cout << "GPU_HARDWARE_GATE_REPORT_END\n" << std::flush;
 }
 
 TEST_CASE("[Integration] GPU Hardware Validation Gate - GL diagnostics JSON schema") {

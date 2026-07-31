@@ -96,7 +96,7 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 
 #### S1b：四态数据模型与延迟回填（依赖 S0）
 
-- **状态**：`[x]`（2026-08-01 实施完成并验证，待独立审查 `提交`）
+- **状态**：`[x]`（2026-08-01 实施完成并验证，独立审查 `提交`，已提交 `5c70fca`）
 - **内容**：
   1. **四态模型**：`PassTimingStats` 扩展为 `{ Pending, Valid, Unavailable, CpuFallback }` + 来源 `frameIndex`。状态转换表：
      | 状态 | 进入条件 | 退出条件 |
@@ -216,7 +216,7 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 
 ### S7：M0-C R2.2 paired GI delta
 
-- **状态**：`[ ]`（依赖 S6；前置子任务 S7a）
+- **状态**：`[x]`（2026-08-01 实施完成并验证，独立审查 `提交`；M1/L1/L2 已修复；S7b 数值判定留 RTX 4070S 实机 DOD-2）
 - **S7a（前置）：真实 GI runtime override**——`QualityTierManager.hpp/.cpp` 增加 `SetGiEnabledOverride`（owner/调用线程/apply-restore 生命周期与异常退出恢复保证）；**优先级合同**：运行时 setter 覆盖 `settings.json` override（`render.gi.enabled`），paired capture 前置确定性配置（禁用 settings override 注入，防两腿均 off 致 delta≈0 误判）；**生效链验证**：override 必须改变 `RenderSystem` 有效配置 → GI pass 加入/移除 → GI 资源尺寸化（GI passes 定义 `EnsureSized`/显式 `OnResize` 契约，**同分辨率 false→true 时也校验资源尺寸**）→ `GICompositePass` temporal history 失效 → warmup；测试 true→false→true、false→true、异常退出恢复、history 隔离与两组不同 pass/resource trace（证明 graph 实际变化，而非仅管理器状态）。
 - **S7b（主体）：paired capture 差分**——同 seed/camera/frame/FBO/色彩空间/ROI，仅 giEnabled 翻转；delta 算法与阈值（0.001）记录于证据；复现并判定 Cave `0.000193621 < 0.001`（阈值缺陷 or 真实 bug）；阈值调整须记录依据并经用户批准（§8 决策 1）。
 - **涉及文件**：`GPUHardwareValidationGate.cpp`、`QualityTierManager.hpp/.cpp`、`RenderSystem.cpp`（配置读取合同）、`GICompositePass`（history 失效）、捕获工具。
@@ -226,7 +226,7 @@ P0 渲染轨道（M0-A/B/C）此前被判定为"In Progress / production NO-GO"�
 
 ### S8：M0-C R6 artifact 归档 + CI baseline
 
-- **状态**：`[ ]`（依赖 S3 起的 artifact schema）
+- **状态**：`[x]`（2026-08-01 实施完成并验证，独立审查 `提交`；spec.md 契约已补，M1/L1 已修复）
 - **内容**：
   1. **归档**：固定路径 `artifacts/gpu-gate/<revision>/`；归档完整 C++ GateReport JSON（matrix/timer/resource/GL diagnostics/快照序列，不止 status）+ 截图 + 日志；schema/version 与保留策略（如最近 20 次或 90 天）记录于轨道文档。
   2. **runner 接线**：`scripts/gpu_hardware_validation_gate.py` 从 C++ 侧完整 GateReport JSON（S3 定义）解析并归档（matrix/timer/resource/GL diagnostics/快照序列，不止 status）；schema validator（JSON 校验）作为 CI 步骤；`GpuHardwareValidationGateRunnerTest.py` 增加 runner JSON 解析回归测试。

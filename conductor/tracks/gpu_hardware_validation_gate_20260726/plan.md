@@ -130,6 +130,10 @@ DecideGate(report):
 - [~] R5: 以五秒边界 registry snapshots 判定任一单调净增长；使用 `roiX/roiY/roiW/roiH` 的显式 FBO readback helper，并增加 ROI origin 回归测试。
   - [x] R5.1: 实现保留 GL read-state 的显式 RGBA8 FBO 区域读回，并以 GPU 四象限 target 验证 x/y origin。
   - [x] R5.2: 以五秒边界 `GPUResourceRegistry` snapshots 判定任一单调净增长，替换每帧 2 MiB 容差比较；临时 stress target 在基线前分配，快照随 JSON artifact 输出。
-- [ ] R6: 将 JSON、fixture seed/camera/ROI、GI mode、SDF probes、trace、distinct timing、diagnostics、snapshots 和硬件信息归档到版本化或可复现位置；补齐共享 CI failure 的 baseline/waiver 或修复。
+- [x] R6: 将 JSON、fixture seed/camera/ROI、GI mode、SDF probes、trace、distinct timing、diagnostics、snapshots 和硬件信息归档到版本化或可复现位置；补齐共享 CI failure 的 baseline/waiver 或修复。
+  - [x] R6.1: 归档路径固定 `artifacts/gpu-gate/<revision>/`（`artifacts/` 已入 `.gitignore`），runner 默认归档到该路径并写入完整 C++ GateReport JSON（matrix/timer/resource/GL diagnostics/快照序列）。
+  - [x] R6.2: `--samples/--toggle-loops/--stress-test-1min` 经 `NMD_GATE_*` 环境变量接线到 C++ `RunGate`（不再死参数）；超时预算与 stress 时长联动。
+  - [x] R6.3: waiver 元数据（authorizer/reason/scope/expiry）写入归档；`NOT_RUN/waived/NO_GO` 永不被当作 GO（`gate_succeeded` 保持 `return_code==0 AND status=="GO"`）。
+  - [x] R6.4: schema validator 可作 CI 后置校验：`python scripts/gpu_hardware_validation_gate.py --validate-schema artifacts/gpu-gate/<revision>/gpu_hardware_validation_artifact.json`；runner 归档时自动校验并写入 `gate_report_schema_errors`。
 
 **退出标准**：R0-R6、`./build.bat`、相关 CTest、gate runner 和目标 GPU nightly 全部通过。任一 MUST PASS 失败或 artifact 缺失即为 `NO-GO`。

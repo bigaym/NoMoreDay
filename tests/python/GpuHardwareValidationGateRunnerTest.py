@@ -1,6 +1,9 @@
 import json
+import os
 import sys
+import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 from typing import Any
 
@@ -223,6 +226,280 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
             gpu_hardware_validation_gate.validate_gate_report_schema(report),
             [],
         )
+
+    # --- S8: env-var injection (dead CLI params are wired to the C++ gate) ---
+
+    def test_build_gate_env_forwards_all_cli_knobs(self) -> None:
+        config = gpu_hardware_validation_gate.HardwareGateConfig(
+            sample_frames=60,
+            toggle_loops=50,
+            stress_test_1min=False,
+        )
+        env = gpu_hardware_validation_gate.build_gate_env(config)
+        self.assertEqual(env["NMD_GATE_SAMPLES"], "60")
+        self.assertEqual(env["NMD_GATE_TOGGLE_LOOPS"], "50")
+        self.assertEqual(env["NMD_GATE_STRESS"], "0")
+
+        config_stress = gpu_hardware_validation_gate.HardwareGateConfig(
+            sample_frames=120,
+            toggle_loops=100,
+            stress_test_1min=True,
+        )
+        env_stress = gpu_hardware_validation_gate.build_gate_env(config_stress)
+        self.assertEqual(env_stress["NMD_GATE_SAMPLES"], "120")
+        self.assertEqual(env_stress["NMD_GATE_TOGGLE_LOOPS"], "100")
+        self.assertEqual(env_stress["NMD_GATE_STRESS"], "1")
+
+    def test_timeout_linked_to_stress_duration(self) -> None:
+        base = gpu_hardware_validation_gate.GATE_BASE_TIMEOUT_SECONDS
+        added = gpu_hardware_validation_gate.GATE_STRESS_ADDED_SECONDS
+        config = gpu_hardware_validation_gate.HardwareGateConfig(
+            stress_test_1min=True
+        )
+        self.assertEqual(
+            gpu_hardware_validation_gate.gate_timeout_seconds(config),
+            base + added,
+        )
+        config_short = gpu_hardware_validation_gate.HardwareGateConfig(
+            stress_test_1min=False
+        )
+        self.assertEqual(
+            gpu_hardware_validation_gate.gate_timeout_seconds(config_short),
+            base,
+        )
+
+    def test_run_hardware_gate_cpp_injects_env_and_timeout(self) -> None:
+        config = gpu_hardware_validation_gate.HardwareGateConfig(
+            revision="TEST_REV",
+            sample_frames=60,
+            toggle_loops=50,
+            stress_test_1min=False,
+        )
+        sent: dict[str, Any] = {}
+
+        def fake_run(cmd, capture_output, text, env, timeout, check):
+            sent["env"] = env
+            sent["timeout"] = timeout
+
+            class FakeProc:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+
+            return FakeProc()
+
+        with unittest.mock.patch(
+            "gpu_hardware_validation_gate.subprocess.run",
+            side_effect=fake_run,
+        ), tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "NoMoreDayTests.exe"
+            exe.write_text("fake", encoding="utf-8")
+            config.test_exe = exe
+            rc, _, _ = gpu_hardware_validation_gate.run_hardware_gate_cpp(config)
+
+        self.assertEqual(rc, 0)
+        self.assertIn("NMD_GATE_SAMPLES", sent["env"])
+        self.assertEqual(sent["env"]["NMD_GATE_SAMPLES"], "60")
+        self.assertEqual(sent["env"]["NMD_GATE_TOGGLE_LOOPS"], "50")
+        self.assertEqual(sent["env"]["NMD_GATE_STRESS"], "0")
+        self.assertEqual(
+            sent["timeout"],
+            gpu_hardware_validation_gate.GATE_BASE_TIMEOUT_SECONDS,
+        )
+
+    # --- S8: waiver metadata ---
+
+    def test_build_waiver_returns_none_without_fields(self) -> None:
+        self.assertIsNone(gpu_hardware_validation_gate.build_waiver())
+        self.assertIsNone(
+            gpu_hardware_validation_gate.build_waiver(
+                authorizer="",
+                reason="",
+                scope="",
+                expiry="",
+            )
+        )
+
+    def test_build_waiver_writes_metadata_fields(self) -> None:
+        waiver = gpu_hardware_validation_gate.build_waiver(
+            authorizer="render-lead",
+            reason="WARP-only CI runner, no discrete GPU",
+            scope="nmd.tests.integration GPU Hardware Validation Gate",
+            expiry="2026-09-01",
+        )
+        self.assertEqual(waiver["authorizer"], "render-lead")
+        self.assertEqual(waiver["reason"], "WARP-only CI runner, no discrete GPU")
+        self.assertEqual(
+            waiver["scope"], "nmd.tests.integration GPU Hardware Validation Gate"
+        )
+        self.assertEqual(waiver["expiry"], "2026-09-01")
+
+    def test_waiver_does_not_change_go_determination(self) -> None:
+        waiver = gpu_hardware_validation_gate.build_waiver(
+            authorizer="render-lead",
+            reason="temporary",
+            scope="gate",
+            expiry="2026-09-01",
+        )
+        self.assertIsNotNone(waiver)
+        # NOT_RUN / NO_GO with a waiver present must still NOT pass as GO.
+        self.assertFalse(gpu_hardware_validation_gate.gate_succeeded(0, "NOT_RUN"))
+        self.assertFalse(gpu_hardware_validation_gate.gate_succeeded(0, "NO_GO"))
+        # Even with waiver metadata, GO semantics stay return_code==0 AND "GO".
+        self.assertTrue(gpu_hardware_validation_gate.gate_succeeded(0, "GO"))
+
+    def test_waiver_written_into_artifact_but_verdict_unchanged(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        output = (
+            gpu_hardware_validation_gate.GATE_REPORT_BEGIN_MARKER
+            + "\n"
+            + json.dumps(report)
+            + "\n"
+            + gpu_hardware_validation_gate.GATE_REPORT_END_MARKER
+            + "\n"
+        )
+
+        def fake_run(cmd, capture_output, text, env, timeout, check):
+            class FakeProc:
+                returncode = 0
+                stdout = output
+                stderr = ""
+
+            return FakeProc()
+
+        with unittest.mock.patch(
+            "gpu_hardware_validation_gate.subprocess.run",
+            side_effect=fake_run,
+        ), tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "NoMoreDayTests.exe"
+            exe.write_text("fake", encoding="utf-8")
+            out_dir = Path(tmp) / "out"
+            argv = [
+                "gpu_hardware_validation_gate.py",
+                "--test-exe",
+                str(exe),
+                "--revision",
+                "TEST_REV_WAIVER",
+                "--output-dir",
+                str(out_dir),
+                "--waiver-authorizer",
+                "render-lead",
+                "--waiver-reason",
+                "WARP-only",
+                "--waiver-scope",
+                "gate",
+                "--waiver-expiry",
+                "2026-09-01",
+            ]
+            with unittest.mock.patch.object(sys, "argv", argv):
+                exit_code = gpu_hardware_validation_gate.main()
+            artifact_path = out_dir / "gpu_hardware_validation_artifact.json"
+            self.assertTrue(artifact_path.exists())
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+            self.assertEqual(artifact["gate_status"], "NO_GO")
+            self.assertFalse(artifact["gate_succeeded"])
+            self.assertFalse(artifact["meets_preflight"])
+            self.assertEqual(artifact["waiver"]["authorizer"], "render-lead")
+            self.assertEqual(artifact["waiver"]["reason"], "WARP-only")
+
+        self.assertEqual(exit_code, 1)
+
+    # --- S8: archive path ---
+
+    def test_default_output_dir_is_artifacts_gpu_gate_revision(self) -> None:
+        report = _build_minimal_report("GO")
+        output = (
+            gpu_hardware_validation_gate.GATE_REPORT_BEGIN_MARKER
+            + "\n"
+            + json.dumps(report)
+            + "\n"
+            + gpu_hardware_validation_gate.GATE_REPORT_END_MARKER
+            + "\n"
+        )
+
+        def fake_run(cmd, capture_output, text, env, timeout, check):
+            class FakeProc:
+                returncode = 0
+                stdout = output
+                stderr = ""
+
+            return FakeProc()
+
+        with unittest.mock.patch(
+            "gpu_hardware_validation_gate.subprocess.run",
+            side_effect=fake_run,
+        ), tempfile.TemporaryDirectory() as tmp:
+            original_cwd = Path.cwd()
+            try:
+                os.chdir(tmp)
+                fake_exe = Path(tmp) / "NoMoreDayTests.exe"
+                fake_exe.write_text("fake", encoding="utf-8")
+                argv = [
+                    "gpu_hardware_validation_gate.py",
+                    "--revision",
+                    "abcdef1234",
+                    "--test-exe",
+                    str(fake_exe),
+                ]
+                with unittest.mock.patch.object(sys, "argv", argv):
+                    exit_code = gpu_hardware_validation_gate.main()
+            finally:
+                os.chdir(original_cwd)
+
+            artifact_path = (
+                Path(tmp)
+                / "artifacts"
+                / "gpu-gate"
+                / "abcdef1234"
+                / "gpu_hardware_validation_artifact.json"
+            )
+            self.assertTrue(artifact_path.exists())
+
+        self.assertEqual(exit_code, 0)
+
+    def test_validate_archived_artifact_accepts_valid_archive(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        artifact = {
+            "gate_status": "NO_GO",
+            "gate_succeeded": False,
+            "gate_report": report,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            path.write_text(json.dumps(artifact), encoding="utf-8")
+            exit_code = gpu_hardware_validation_gate.validate_archived_artifact(
+                path
+            )
+
+        self.assertEqual(exit_code, 0)
+
+    def test_validate_archived_artifact_rejects_missing_report(self) -> None:
+        artifact = {"gate_status": "GO", "gate_succeeded": True}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            path.write_text(json.dumps(artifact), encoding="utf-8")
+            exit_code = gpu_hardware_validation_gate.validate_archived_artifact(
+                path
+            )
+
+        self.assertEqual(exit_code, 1)
+
+    def test_validate_archived_artifact_rejects_broken_report(self) -> None:
+        report = _build_minimal_report("GO")
+        del report["capabilities"]
+        artifact = {
+            "gate_status": "GO",
+            "gate_succeeded": True,
+            "gate_report": report,
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "artifact.json"
+            path.write_text(json.dumps(artifact), encoding="utf-8")
+            exit_code = gpu_hardware_validation_gate.validate_archived_artifact(
+                path
+            )
+
+        self.assertEqual(exit_code, 1)
 
 
 if __name__ == "__main__":

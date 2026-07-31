@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -21,6 +22,23 @@ from typing import Any
 GATE_REPORT_BEGIN_MARKER = "GPU_HARDWARE_GATE_REPORT_BEGIN"
 GATE_REPORT_END_MARKER = "GPU_HARDWARE_GATE_REPORT_END"
 GATE_STATUS_VALUES = frozenset({"GO", "NO_GO", "NOT_RUN"})
+
+# S8 (M0-C R6): the runner forwards its CLI knobs to the C++ gate through these
+# environment variables. `tests/integration/GPUHardwareValidationGateTest.cpp`
+# reads them (with the same defaults) and passes them to `RunGate`.
+GATE_ENV_SAMPLES = "NMD_GATE_SAMPLES"
+GATE_ENV_TOGGLE_LOOPS = "NMD_GATE_TOGGLE_LOOPS"
+GATE_ENV_STRESS = "NMD_GATE_STRESS"
+
+# S8: timeout budget is linked to the stress duration. A 60s stress loop adds
+# its full duration to the base budget so the subprocess never times out just
+# because stress is enabled.
+GATE_BASE_TIMEOUT_SECONDS = 120
+GATE_STRESS_ADDED_SECONDS = 60
+
+# S8: a waiver records who accepted a deviation, for what scope, and until when.
+# It is archival metadata only and can never turn NOT_RUN/NO_GO into GO.
+WAIVER_FIELD_NAMES = ("authorizer", "reason", "scope", "expiry")
 
 REQUIRED_TOP_LEVEL_KEYS = frozenset({
     "revision",
@@ -83,10 +101,58 @@ class HardwareGateConfig:
 
     revision: str = "HEAD"
     test_exe: Path = Path("bin/NoMoreDayTests.exe")
-    output_dir: Path = Path("bin/gpu_hardware_gate")
+    output_dir: Path = Path("artifacts/gpu-gate/HEAD")
     sample_frames: int = 120
     toggle_loops: int = 100
     stress_test_1min: bool = True
+    waiver: dict[str, str] | None = None
+
+
+def gate_timeout_seconds(config: HardwareGateConfig) -> int:
+    """Return the subprocess timeout budget for a gate config.
+
+    The timeout is linked to the stress duration: a 1-minute stress run adds
+    60s to the base budget, so a stress-enabled run always gets at least
+    `GATE_BASE_TIMEOUT_SECONDS + GATE_STRESS_ADDED_SECONDS`.
+    """
+    extra = GATE_STRESS_ADDED_SECONDS if config.stress_test_1min else 0
+    return GATE_BASE_TIMEOUT_SECONDS + extra
+
+
+def build_gate_env(config: HardwareGateConfig) -> dict[str, str]:
+    """Assemble the environment variables forwarded to the C++ gate.
+
+    The C++ integration test reads these (with matching defaults) and feeds
+    them into ``RunGate``, wiring the otherwise-dead CLI parameters.
+    """
+    return {
+        GATE_ENV_SAMPLES: str(config.sample_frames),
+        GATE_ENV_TOGGLE_LOOPS: str(config.toggle_loops),
+        GATE_ENV_STRESS: "1" if config.stress_test_1min else "0",
+    }
+
+
+def build_waiver(
+    authorizer: str = "",
+    reason: str = "",
+    scope: str = "",
+    expiry: str = "",
+) -> dict[str, str] | None:
+    """Build waiver metadata, or ``None`` when no waiver fields are provided.
+
+    A waiver is archival metadata describing who accepted a deviation, its
+    scope and expiry. It never changes the gate verdict: ``gate_succeeded``
+    still requires ``return_code == 0`` and ``status == "GO"``.
+    """
+    values = {
+        "authorizer": authorizer,
+        "reason": reason,
+        "scope": scope,
+        "expiry": expiry,
+    }
+    if not any(values.values()):
+        return None
+    return {key: value for key, value in values.items() if value}
 
 
 def parse_cpp_gate_status(output: str) -> str | None:
@@ -251,15 +317,33 @@ def run_hardware_gate_cpp(
         "--test-case=*GPU Hardware Validation Gate*",
     ]
 
+    # S8: forward the CLI knobs to the C++ side. The integration test reads
+    # NMD_GATE_* and passes them into RunGate, so --samples/--toggle-loops/
+    # --stress-test-1min are no longer dead parameters.
+    gate_env = os.environ.copy()
+    gate_env.update(build_gate_env(config))
+
+    # S8: timeout is derived from the stress duration so a 1-minute stress run
+    # always fits inside the subprocess budget.
+    timeout = gate_timeout_seconds(config)
+
     try:
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
-            timeout=180,
+            env=gate_env,
+            timeout=timeout,
             check=False,
         )
         return (proc.returncode, proc.stdout, proc.stderr)
+    except subprocess.TimeoutExpired:
+        return (
+            1,
+            "",
+            f"Execution timed out after {timeout}s; increase --samples or "
+            "disable --stress-test-1min if the gate needs more budget",
+        )
     except Exception as exc:
         return (1, "", f"Execution exception: {exc}")
 
@@ -283,6 +367,39 @@ def write_artifact(output_dir: Path, artifact: dict[str, Any]) -> Path:
     return out_file
 
 
+def validate_archived_artifact(path: Path) -> int:
+    """Validate an archived artifact JSON against the gate report schema.
+
+    CI entry point for post-archive schema checks: loads the artifact, runs the
+    same schema validator the runner uses, and returns a process exit code.
+    """
+    try:
+        artifact = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        print(f"cannot read artifact {path}: {exc}")
+        return 1
+
+    report = artifact.get("gate_report")
+    errors = (
+        validate_gate_report_schema(report)
+        if isinstance(report, dict)
+        else ["artifact is missing a gate_report object"]
+    )
+    if errors:
+        print(f"schema violations in {path}:")
+        for error in errors:
+            print(f"  - {error}")
+        return 1
+
+    status = artifact.get("gate_status")
+    succeeded = artifact.get("gate_succeeded", False)
+    print(
+        f"[Schema] {path}: gate_status={status} gate_succeeded={succeeded} "
+        "schema OK"
+    )
+    return 0
+
+
 def main() -> int:
     """Main CLI entry point for hardware validation gate runner."""
     parser = argparse.ArgumentParser(
@@ -297,8 +414,9 @@ def main() -> int:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("bin/gpu_hardware_gate"),
-        help="Output directory for gate artifacts",
+        default=None,
+        help="Output directory for gate artifacts (default: "
+        "artifacts/gpu-gate/<revision>/ on the archive path)",
     )
     parser.add_argument(
         "--revision",
@@ -310,28 +428,85 @@ def main() -> int:
         "--samples",
         type=int,
         default=120,
-        help="Sample frames per fixture",
+        help="Sample frames per fixture (forwarded via NMD_GATE_SAMPLES)",
     )
     parser.add_argument(
         "--toggle-loops",
         type=int,
         default=100,
-        help="Number of GI/tier/resize toggle loops to execute",
+        help="Number of GI/tier/resize toggle loops to execute "
+        "(forwarded via NMD_GATE_TOGGLE_LOOPS)",
+    )
+    parser.add_argument(
+        "--stress-test-1min",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Run the 60-second stress loop (forwarded via NMD_GATE_STRESS)",
+    )
+    parser.add_argument(
+        "--waiver-authorizer",
+        type=str,
+        default="",
+        help="Waiver authorizer (who approved the deviation)",
+    )
+    parser.add_argument(
+        "--waiver-reason",
+        type=str,
+        default="",
+        help="Waiver reason (why the deviation is accepted)",
+    )
+    parser.add_argument(
+        "--waiver-scope",
+        type=str,
+        default="",
+        help="Waiver scope (which config/hardware the waiver applies to)",
+    )
+    parser.add_argument(
+        "--waiver-expiry",
+        type=str,
+        default="",
+        help="Waiver expiry (date or 'N/A'); a waiver never turns "
+        "NOT_RUN/NO_GO into GO",
+    )
+    parser.add_argument(
+        "--validate-schema",
+        type=Path,
+        default=None,
+        metavar="ARTIFACT_JSON",
+        help="Validate an archived artifact JSON against the gate report "
+        "schema and exit (CI post-archive check); no C++ run",
     )
 
     args = parser.parse_args()
 
+    if args.validate_schema is not None:
+        return validate_archived_artifact(args.validate_schema)
+
+    output_dir = args.output_dir or Path("artifacts") / "gpu-gate" / args.revision
+
     config = HardwareGateConfig(
         revision=args.revision,
         test_exe=args.test_exe,
-        output_dir=args.output_dir,
+        output_dir=output_dir,
         sample_frames=args.samples,
         toggle_loops=args.toggle_loops,
+        stress_test_1min=args.stress_test_1min,
+        waiver=build_waiver(
+            authorizer=args.waiver_authorizer,
+            reason=args.waiver_reason,
+            scope=args.waiver_scope,
+            expiry=args.waiver_expiry,
+        ),
     )
 
     print(f"=== GPU Hardware Validation Gate Runner ({config.revision}) ===")
     print(f"Test Exe: {config.test_exe}")
     print(f"Output Dir: {config.output_dir}")
+    print(
+        f"Params: samples={config.sample_frames} "
+        f"toggle_loops={config.toggle_loops} "
+        f"stress_1min={config.stress_test_1min}"
+    )
 
     return_code, stdout, stderr = run_hardware_gate_cpp(config)
 
@@ -351,16 +526,17 @@ def main() -> int:
         report_status = parsed_status or "NOT_RUN"
 
     gate_status = report_status
-    meets_preflight = (
-        gate_succeeded(return_code, gate_status) and not schema_errors
-    )
+    succeeded = gate_succeeded(return_code, gate_status)
+    meets_preflight = succeeded and not schema_errors
 
     artifact = {
         "revision": config.revision,
         "timestamp": utc_now_iso(),
         "runner": "C++ NoMoreDayTests GPUHardwareValidationGate",
         "gate_status": gate_status,
+        "gate_succeeded": succeeded,
         "meets_preflight": meets_preflight,
+        "waiver": config.waiver,
         "return_code": return_code,
         "gate_report": gate_report,
         "gate_report_schema_errors": schema_errors,
@@ -372,6 +548,11 @@ def main() -> int:
 
     print(f"Gate Status: {gate_status}")
     print(f"Artifact written to: {out_path}")
+    if config.waiver:
+        print(
+            f"Waiver recorded (metadata only; does not change verdict): "
+            f"{config.waiver}"
+        )
     if schema_errors:
         print("Gate report schema violations:")
         for error in schema_errors:

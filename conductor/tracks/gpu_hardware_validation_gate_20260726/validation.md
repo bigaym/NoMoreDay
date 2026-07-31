@@ -142,3 +142,20 @@ R3 只覆盖诊断采集和 fail-closed 判定；它不替代真实 Gameplay fix
 - 合同测试：`bin\\NoMoreDayTests.exe --test-case=*RenderGraph*` 通过 23 cases/173 assertions；`bin\\NoMoreDayTests.exe --test-case=*Gameplay Fixture Target Capture*` 通过 1 case/3 assertions，未出现 `0x502` 或 `GPUEntitySystem::Get()`。
 - 真实 RTX 4070 门禁：`bin\\NoMoreDayTests.exe --test-case=*RunGate Offscreen Matrix*`，日志 `%TEMP%\\NoMoreDay_single_timer_owner_full_gate.log`，C++ verdict `GPU_HARDWARE_GATE_RESULT status=NO_GO`；doctest 114/119 assertions，5 项失败。timer valid sample shortage 已消失；剩余失败为 Cave paired GI delta `0.000193621 < 0.001` 及 Ultra 对同 fixture paired 结果的依赖。
 - 该结果修复了 GL query ownership 污染，但没有满足 Cave GI differential、M0-B 全部 governance 或 R6 artifact/CI 退出标准，生产继续 NO-GO。
+
+## 15. R6 Artifact 归档 + runner 接线（S8）
+
+- 归档路径固定 `artifacts/gpu-gate/<revision>/`；`.gitignore` 新增 `artifacts/`（生成产物不入库）。runner 默认归档到该路径，artifact 含完整 C++ GateReport JSON（capabilities/matrix_results/resources/stress_test+resource_snapshots/gl_diagnostics）、waiver、`gate_succeeded`、schema 错误列表。
+- runner 死参数接线：`--samples/--toggle-loops/--stress-test-1min` 经 `NMD_GATE_SAMPLES/NMD_GATE_TOGGLE_LOOPS/NMD_GATE_STRESS` 注入 `bin\NoMoreDayTests.exe --test-case="*GPU Hardware Validation Gate*"`；`tests/integration/GPUHardwareValidationGateTest.cpp` 读取这些环境变量（缺省 120/100/true）传入 `RunGate`。超时预算 = 120s 基 + (stress ? 60s : 0)，与 60s 压力循环联动，stress 下为 180s。
+- waiver 机制：CLI `--waiver-authorizer/--waiver-reason/--waiver-scope/--waiver-expiry` 写入归档元数据；`gate_succeeded` 保持 `return_code==0 AND status=="GO"`，`NOT_RUN/waived/NO_GO` 永不通过为 GO（负例测试覆盖）。
+- schema validator CI 说明：归档时自动执行 `validate_gate_report_schema` 写入 `gate_report_schema_errors`；后置 CI 校验命令 `python scripts/gpu_hardware_validation_gate.py --validate-schema <artifact.json>`（exit 0/1）。
+- 验证（2026-08-01）：
+  - `python -m unittest tests/python/GpuHardwareValidationGateRunnerTest.py`：24 tests OK（13 既有 + 11 新增；其中 8 个 S8 用例：env 注入、超时联动、waiver 元数据、waiver 不改变 GO 判定负例、归档路径；另 **3 个 validate-schema 用例为后补**，见 §6 CI 契约）。
+  - 全量 `tests/python/*Test.py`：63 tests OK（既有 60 + 3 个后补 validate-schema 用例）。
+  - `python scripts/check_module_boundaries.py`：71/71 PASS。
+  - `bin\NoMoreDayTests.exe --test-case="*GPU Hardware Validation Gate*"`（注入 `NMD_GATE_SAMPLES=125/NMD_GATE_TOGGLE_LOOPS=110/NMD_GATE_STRESS=0`）：4 cases / 133 assertions 通过；JSON payload 合法；`duration_seconds==5.0`（stress 关闭生效）、`valid_samples==125`（samples 生效）——证明环境变量实际接线到 C++。
+  - runner 端到端：`--revision s8-e2e2-20260801-035706 --samples 125 --toggle-loops 110 --no-stress-test-1min --waiver-* ...` → exit 1，归档 `artifacts/gpu-gate/s8-e2e2-20260801-035706/gpu_hardware_validation_artifact.json`，schema_errors `[]`，waiver 字段写入，`gate_succeeded=false`（失败路径不通过为 GO，正确）。
+  - `git diff --check`：exit 0（仅 CRLF 警告）。
+  - 修复：C++ 测试在报告 `GPU_HARDWARE_GATE_REPORT_END` 后 `std::flush`，消除后续用例日志与 JSON 尾部交错损坏（全量 suite 运行下 payload 曾含交错日志行导致 `json.loads` 失败）。
+- evidence：`docs/reports/gpu-s8-artifact-archive/evidence.md`。
+- 该验证闭环 R6 归档/接线/waiver/schema-validator 合同；实机 RTX 4070 `GO` 采集仍属 DOD-2，生产姿态不变。

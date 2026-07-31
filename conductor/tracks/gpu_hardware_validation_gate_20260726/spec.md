@@ -34,12 +34,30 @@
 
 resource registry 的字节数是引擎台账；只有驱动扩展可用才附加 driver VRAM telemetry，两者必须分开命名。未登记资源、无效 timer 性能结论、无法解释黑帧均为门禁失败。
 
+### 运行参数与环境变量契约（S8）
+
+runner（`scripts/gpu_hardware_validation_gate.py`）把 CLI 参数经环境变量注入 C++ gate（`RunGate`），跨系统契约如下，任何一侧变更须在本节同步：
+
+| 环境变量 | 类型 | 默认 | C++ 生效参数 |
+|---|---|---|---|
+| `NMD_GATE_SAMPLES` | int | `120` | `sampleFramesPerFixture` |
+| `NMD_GATE_TOGGLE_LOOPS` | int | `100` | `toggleLoops` |
+| `NMD_GATE_STRESS` | `"1"`/`"true"`/`"TRUE"` 为真 | `true` | `stressTest1Min` |
+
+- **超时联动**：`gate_timeout_seconds = GATE_BASE_TIMEOUT_SECONDS(120) + (stress ? GATE_STRESS_ADDED_SECONDS(60) : 0)`，即 stress 1min 时子进程预算 180s、禁 stress 时 120s，保证 60s 压力循环不撞超时。
+- **归档路径**：默认 `artifacts/gpu-gate/<revision>/gpu_hardware_validation_artifact.json`（`--output-dir` 可覆盖）；`.gitignore` 排除 `artifacts/`。保留最近 20 次或 90 天。
+
 ## 3. 发布规则
 
 - `GO` 要求所有 MUST PASS 项通过，artifact、硬件环境和残余风险写入 validation/release posture。
 - `NO-GO` 在关键正确性、黑帧、泄漏、严重 GL 信息、无有效 GPU 性能数据或场景缺失时触发。
 - 性能不达标不得用 CPU 时间或 2026-02 历史结果替代；只能 `NO-GO` 或由用户明确批准带范围/到期日的 waiver。
 - SPH 始终 NO-GO，不属于生产功能；发现 shipped Tier 启用即为回退失败。
+
+### Waiver 与 gate_succeeded 语义（S8）
+
+- **waiver 字段 schema**：CLI `--waiver-authorizer/--waiver-reason/--waiver-scope/--waiver-expiry` 四字段任意非空即生成 artifact 的 `waiver` 对象（authorizer / reason / scope / expiry）。waiver 是**纯元数据**，只作可追溯记录，**不参与判定**。
+- **`gate_succeeded` 语义**：`gate_succeeded = (return_code == 0) AND (status == "GO")`。`NOT_RUN`/`waived`/`NO_GO` 永不通过为 GO；waiver 不改变该判定。`meets_preflight`（含 schema 校验）另列，同样不受 waiver 影响。
 
 ## 4. 验收标准
 
@@ -48,6 +66,7 @@ resource registry 的字节数是引擎台账；只有驱动扩展可用才附�
 - [ ] 每个性能结论至少 120 个 Valid GPU 样本，Pending/Unavailable/CPU fallback 分离报告。
 - [ ] 1 分钟和 100 次切换无黑帧、泄漏、崩溃或严重 GL debug 信息。
 - [ ] release posture、progress、Track 状态仅在当前 artifact 支持时标记 production GO。
+- [ ] 归档经过 schema validator：`python scripts/gpu_hardware_validation_gate.py --validate-schema artifacts/gpu-gate/<revision>/gpu_hardware_validation_artifact.json`（exit 0/1）；归档时自动执行 `validate_gate_report_schema` 并写入 `gate_report_schema_errors`，CI 在实机 runner 归档后检查该字段为空且 `gate_succeeded == true`。
 
 ## 5. 风险
 

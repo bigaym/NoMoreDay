@@ -2,6 +2,9 @@
 build/
 bin/
 lib/
+
+# Gate artifact archives (generated, never committed)
+artifacts/
 memory/
 third_party/
 *.exe
