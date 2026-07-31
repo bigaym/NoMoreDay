@@ -7,7 +7,7 @@
 #include "game/systems/world/LevelManager.hpp"
 #include "game/systems/world/PortalSystem.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include <filesystem>

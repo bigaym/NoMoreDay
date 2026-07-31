@@ -1,7 +1,7 @@
 # Modular Static Target Split Implementation Plan
 
 **Design reference:** `docs/designs/modular-split-exe-lib-dll-design.md`
-**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [x]; MS-4 [x]; MS-5 through MS-8 [ ] (MS-6 remains P0-blocked)
+**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [x]; MS-4 [x]; MS-5 [x]; MS-6 through MS-8 [ ] (MS-6 remains P0-blocked)
 **Execution model:** Each milestone is implemented by an `implementer` subagent, reviewed by an independent `reviewer`, then committed only after a `提交` conclusion. The design document is user-owned worktree state and is never edited, staged, or committed by this initiative.
 
 ## Goal
@@ -243,14 +243,14 @@ migration the edge is a Game -> App include; it is not tracked by the
 reverse-dependency ledger (that ledger scans Engine/Core candidates only) and
 must be resolved before MS-7 builds the explicit target graph.
 
-### MS-5 [ ]: UI Presentation Ownership
+### MS-5 [x]: UI Presentation Ownership
 
 **Objective:** Move the current Game-policy `UIRenderer` ownership to Game; only extract pure Engine drawing primitives if a concrete consumer requires them.
 
 **Atomic tasks:**
 
-- [ ] MS-5.1 Move presentation-policy code and update path-sensitive UI tests.
-- [ ] MS-5.2 Verify UI tests and normal build; review and commit.
+- [x] MS-5.1 Move presentation-policy code and update path-sensitive UI tests. Implemented in this package.
+- [x] MS-5.2 Verify UI tests and normal build; review and commit. Reviewed `提交` (2026-07-30-modular-split-ms-5-review.md); committed.
 
 ### MS-6 [ ]: Render Boundary Adapter (Blocked)
 

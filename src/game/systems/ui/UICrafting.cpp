@@ -1,7 +1,7 @@
 #include "game/systems/ui/UICrafting.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/ItemComponent.hpp"

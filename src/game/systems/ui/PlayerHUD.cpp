@@ -5,7 +5,7 @@
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"
 #include "game/systems/skill/SkillSystem.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include <string>
 #include <cmath>

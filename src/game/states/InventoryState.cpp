@@ -2,7 +2,7 @@
 #include "game/systems/ui/UISystem.hpp" // For State access and Facade
 #include "game/systems/ui/UIInventory.hpp"
 #include "game/scene/StateManager.hpp"
-#include "engine/render/UIRenderer.hpp" // Direct renderer access
+#include "game/systems/ui/UIRenderer.hpp" // Direct renderer access
 
 namespace NoMoreDay {
 

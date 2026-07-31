@@ -6,7 +6,7 @@
 #include "game/systems/world/MapSystem.hpp"
 #include "game/systems/world/LevelManager.hpp"
 #include "game/components/Common.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/systems/ui/UICommon.hpp"

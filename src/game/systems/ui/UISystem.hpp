@@ -4,7 +4,7 @@
 #include "game/components/ItemComponent.hpp"
 #include "engine/resource/ResourceManager.hpp"
 #include "game/systems/ui/UICommon.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 
 class LevelManager; 
 namespace NoMoreDay { namespace systems { class SpatialHashGrid; } }

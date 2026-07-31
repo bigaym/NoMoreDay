@@ -4,7 +4,7 @@
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/components/Common.hpp"
 #include "game/systems/item/StashSystem.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "game/systems/item/InventorySystem.hpp"
 #include "game/persistence/SharedStash.hpp" // ADDED
 #include "raylib.h"

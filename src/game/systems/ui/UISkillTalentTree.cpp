@@ -8,7 +8,7 @@
 #include "game/systems/combat/CombatAntiMeta.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "core/logging/Logger.hpp"
 #include "raymath.h"
 #include <array>

@@ -1,6 +1,6 @@
 #include "game/systems/ui/UIMinimap.hpp"
 #include "core/logging/Logger.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/PlayerState.hpp"

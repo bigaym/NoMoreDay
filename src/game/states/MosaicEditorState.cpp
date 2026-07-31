@@ -7,7 +7,7 @@
 #include "game/systems/world/LevelManager.hpp"
 #include "game/scene/SceneManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
 #include "game/data/AffixMapping.hpp"

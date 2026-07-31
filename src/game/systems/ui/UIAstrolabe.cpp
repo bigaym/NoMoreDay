@@ -4,7 +4,7 @@
 #include "game/data/AstrolabeRegistry.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "engine/render/GPUParticleSystem.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/components/Progression.hpp"

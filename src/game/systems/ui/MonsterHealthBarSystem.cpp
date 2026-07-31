@@ -6,7 +6,7 @@
 #include "game/components/EliteModifierComponents.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/data/MonsterAffixRegistry.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "game/components/Buff.hpp"
 #include <cfloat>
 

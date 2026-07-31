@@ -242,9 +242,9 @@ TEST_CASE("[Tech] SkillUI - quantitative tooltip percent formatting uses whole-p
 TEST_CASE("[Tech] InventoryUI - button text uses shared emoji fallback path") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/engine/render/UIRenderer.cpp"),
-        fs::path("../src/engine/render/UIRenderer.cpp"),
-        fs::path("../../src/engine/render/UIRenderer.cpp")
+        fs::path("src/game/systems/ui/UIRenderer.cpp"),
+        fs::path("../src/game/systems/ui/UIRenderer.cpp"),
+        fs::path("../../src/game/systems/ui/UIRenderer.cpp")
     };
 
     std::string source;
@@ -761,9 +761,9 @@ TEST_CASE("[Tech] BuffUI - Blood Sea uses buff lane icon and runtime tooltip ove
         fs::path("../../src/game/systems/skill/behaviors/BloodSea.cpp")
     };
     const std::array<fs::path, 3> tooltipCandidates = {
-        fs::path("src/engine/render/UIRenderer.cpp"),
-        fs::path("../src/engine/render/UIRenderer.cpp"),
-        fs::path("../../src/engine/render/UIRenderer.cpp")
+        fs::path("src/game/systems/ui/UIRenderer.cpp"),
+        fs::path("../src/game/systems/ui/UIRenderer.cpp"),
+        fs::path("../../src/game/systems/ui/UIRenderer.cpp")
     };
 
     const auto readSource = [](const auto& candidates) {
@@ -932,9 +932,9 @@ TEST_CASE("[Tech] UIRenderer - Tooltip Logic Smoke Test") {
 TEST_CASE("[Tech] SkillUI - tooltip uses static preview payload") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/engine/render/UIRenderer.cpp"),
-        fs::path("../src/engine/render/UIRenderer.cpp"),
-        fs::path("../../src/engine/render/UIRenderer.cpp")
+        fs::path("src/game/systems/ui/UIRenderer.cpp"),
+        fs::path("../src/game/systems/ui/UIRenderer.cpp"),
+        fs::path("../../src/game/systems/ui/UIRenderer.cpp")
     };
 
     std::string source;

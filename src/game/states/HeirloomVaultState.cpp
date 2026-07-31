@@ -2,7 +2,7 @@
 // 传家宝宝库界面实现
 #include "game/states/HeirloomVaultState.hpp"
 #include "core/logging/Logger.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "game/scene/StateManager.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include <cmath>

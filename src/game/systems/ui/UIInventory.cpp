@@ -10,7 +10,7 @@
 #include "game/components/MaterialBankComponent.hpp"
 #include "game/systems/item/MaterialRegistry.hpp"
 #include "game/systems/item/InventorySystem.hpp"
-#include "engine/render/UIRenderer.hpp"
+#include "game/systems/ui/UIRenderer.hpp"
 #include "game/systems/item/CraftingSystem.hpp"
 #include "game/systems/item/RunewordSystem.hpp"
 #include "game/systems/item/ItemFactory.hpp"
