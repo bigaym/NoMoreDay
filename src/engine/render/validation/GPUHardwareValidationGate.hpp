@@ -4,6 +4,7 @@
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -92,6 +93,26 @@ struct FixtureExecutionResult {
   std::vector<std::string> failureReasons;
 };
 
+// S4 (M0-C R5.2): one quiescence snapshot taken at a frame boundary during the
+// pressure loop. `bytesNetGrowth` / `countNetGrowth` are the sliding-window-mean
+// deltas versus the baseline mean; violations fail the stress test fail-closed.
+struct StressResourceSnapshot {
+  uint64_t frameIndex{0};
+  uint64_t timestampMs{0};
+  size_t activeResourceCount{0};
+  size_t currentTotalBytes{0};
+  size_t peakTotalBytes{0};
+  size_t totalCreatedCount{0};
+  size_t totalDestroyedCount{0};
+  size_t liveReferenceCount{0};
+  size_t pendingReferenceCount{0};
+  uint32_t pendingQueryOverageCount{0};
+  int64_t bytesNetGrowth{0};
+  int64_t countNetGrowth{0};
+  bool netGrowthViolation{false};
+  bool pendingOverageViolation{false};
+};
+
 struct StressTestReport {
   bool stress1MinPassed{false};
   double durationSeconds{0.0};
@@ -101,6 +122,7 @@ struct StressTestReport {
   size_t leakCandidateCount{0};
   bool toggleStress100LoopsPassed{false};
   int severeGlErrorCount{0};
+  std::vector<StressResourceSnapshot> resourceSnapshots;
 };
 
 struct GateReport {

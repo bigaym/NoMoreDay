@@ -89,6 +89,30 @@ TEST_CASE("[Integration] GPU Hardware Validation Gate - RunGate Offscreen Matrix
   const std::string statusStr = parsed["gate_status"];
   CHECK((statusStr == "GO" || statusStr == "NO_GO" || statusStr == "NOT_RUN"));
 
+  // S4 (M0-C R5.2): the stress report carries the five-second snapshot schema.
+  CHECK(parsed["stress_test"].contains("resource_snapshots"));
+  CHECK(parsed["stress_test"]["resource_snapshots"].is_array());
+  const auto &snapshots = parsed["stress_test"]["resource_snapshots"];
+  if (statusStr != "NOT_RUN") {
+    CHECK(snapshots.size() >= 1);
+    for (const auto &snap : snapshots) {
+      CHECK(snap.contains("frame_index"));
+      CHECK(snap.contains("timestamp_ms"));
+      CHECK(snap.contains("active_resource_count"));
+      CHECK(snap.contains("current_total_bytes"));
+      CHECK(snap.contains("peak_total_bytes"));
+      CHECK(snap.contains("total_created_count"));
+      CHECK(snap.contains("total_destroyed_count"));
+      CHECK(snap.contains("live_reference_count"));
+      CHECK(snap.contains("pending_reference_count"));
+      CHECK(snap.contains("pending_query_overage_count"));
+      CHECK(snap.contains("bytes_net_growth"));
+      CHECK(snap.contains("count_net_growth"));
+      CHECK(snap.contains("net_growth_violation"));
+      CHECK(snap.contains("pending_overage_violation"));
+    }
+  }
+
   if (statusStr == "GO") {
     CHECK(parsed["matrix_results"].size() >= 3);
     const auto &firstFixture = parsed["matrix_results"][0];
@@ -154,6 +178,11 @@ TEST_CASE("[Integration] GPU Hardware Validation Gate - GL diagnostics JSON sche
   CHECK(message.contains("type"));
   CHECK(message.contains("source"));
   CHECK(message.contains("time"));
+
+  // S4 (M0-C R5.2): synthetic reports still serialize the snapshot schema as an
+  // array (empty when the stress loop did not run).
+  CHECK(parsed["stress_test"]["resource_snapshots"].is_array());
+  CHECK(parsed["stress_test"]["resource_snapshots"].empty());
 
   GateReport missingCapabilityReport;
   missingCapabilityReport.revision = "TEST_REV_NOCAP";

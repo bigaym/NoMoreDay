@@ -5,6 +5,13 @@
 
 namespace NoMoreDay::render::resources {
 
+namespace {
+// References created within this many frames are still considered pending
+// (not yet quiesced). Matches the timer-query pending-overage window
+// (3 x GPUTimerQueryRing::kRingDepth = 9 frames).
+constexpr uint64_t kPendingReferenceFrames = 9;
+} // namespace
+
 GPUResourceRegistry &GPUResourceRegistry::Get() {
   static GPUResourceRegistry instance;
   return instance;
@@ -98,6 +105,8 @@ void GPUResourceRegistry::Reset() {
   m_records.clear();
   m_stats = {};
   m_currentFrame = 0;
+  m_snapshotEpoch = {};
+  m_snapshotEpochSet = false;
 }
 
 GPUResourceStats GPUResourceRegistry::GetStats() const {
@@ -113,6 +122,42 @@ std::vector<GPUResourceRecord> GPUResourceRegistry::GetActiveResources() const {
     result.push_back(rec);
   }
   return result;
+}
+
+GPUResourceSnapshot GPUResourceRegistry::TakeSnapshot() {
+  std::lock_guard<std::mutex> lock(m_mutex);
+  if (!m_snapshotEpochSet) {
+    m_snapshotEpoch = std::chrono::steady_clock::now();
+    m_snapshotEpochSet = true;
+  }
+  const auto now = std::chrono::steady_clock::now();
+  const auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - m_snapshotEpoch);
+
+  GPUResourceSnapshot snapshot;
+  snapshot.frameIndex = m_currentFrame;
+  snapshot.wallClockMs = static_cast<uint64_t>(std::max<int64_t>(elapsedMs.count(), 0));
+  snapshot.activeResourceCount = m_stats.activeCount;
+  snapshot.currentTotalBytes = m_stats.currentTotalBytes;
+  snapshot.peakTotalBytes = m_stats.peakTotalBytes;
+  snapshot.totalCreatedCount = m_stats.totalCreatedCount;
+  snapshot.totalDestroyedCount = m_stats.totalDestroyedCount;
+  snapshot.liveReferenceCount = m_stats.activeCount;
+
+  size_t pendingCount = 0;
+  for (const auto &[key, rec] : m_records) {
+    const uint64_t age =
+        (m_currentFrame >= rec.creationFrame) ? (m_currentFrame - rec.creationFrame) : 0;
+    if (age <= kPendingReferenceFrames) {
+      ++pendingCount;
+    }
+  }
+  snapshot.pendingReferenceCount = pendingCount;
+  return snapshot;
+}
+
+uint64_t GPUResourceRegistry::GetFrameIndex() const {
+  std::lock_guard<std::mutex> lock(m_mutex);
+  return m_currentFrame;
 }
 
 std::vector<GPUResourceRecord> GPUResourceRegistry::DetectLeakCandidates(uint64_t ageInFramesThreshold) const {

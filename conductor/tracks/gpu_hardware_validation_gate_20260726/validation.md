@@ -94,12 +94,17 @@ R5.2 的五秒资源快照合同见第 10 节；R5 仍依赖 gate 的真实 Game
 
 ## 10. R5.2 五秒资源快照
 
-- 60 秒压力循环在临时 stress framebuffer 分配完成后记录稳定态基线，随后每五秒读取 `GPUResourceRegistry` 的 tracked bytes、active count、created/destroyed count；任意相邻边界的 tracked bytes 净增长都会 fail-closed。
-- `GateReport` JSON 的 `stress_test.resource_snapshots` 保留每个边界的值，避免以逐帧 2 MiB 容差掩盖短时间增长。
-- `./build.bat`：R5.2 修改后的 RelWithDebInfo `ALL_BUILD` 成功，且未发现编译错误。
-- `bin/NoMoreDayTests.exe --test-case="*RunGate Offscreen Matrix*"`：1 个测试通过、12 项断言通过；包含至少两个 `resource_snapshots` 的报告合同。C++ verdict 为 `NO_GO`，符合尚未完成的 MUST PASS 项。
+- `GPUResourceRegistry` 新增 `GPUResourceSnapshot` 快照 API（`TakeSnapshot()`/`GetFrameIndex()`）：字段含资源对象数（`activeResourceCount`）、字节数（`currentTotalBytes`/`peakTotalBytes`）、生命周期计数（`totalCreatedCount`/`totalDestroyedCount`）、引用状态（`liveReferenceCount`/`pendingReferenceCount`）、时间戳（registry `frameIndex` + 单调墙钟 `wallClockMs`）。
+- 60 秒压力循环：临时 stress target 在**基线前**分配；前 5s 为 baseline（滑动窗口均值学习合法 churn）；之后每 5s 在 frame 边界（render 完成 + `AdvanceFrame()` 后）采样快照，以**滑动窗口均值与基线均值的净差**（字节 > 2 MiB 或对象数 > 8）判定净增长，替换原逐帧 2 MiB 容差比较，容忍合法延迟释放。
+- **quiescence 采样点**：快照处 drain `GPUTimerQueryRing` 后统计压力窗口内曾产出 Valid 结果的 pass 是否在 `3 × kRingDepth = 9` 帧内未刷新（Pending 超龄，fail-closed）；压力开始前重置 ring 防 matrix 遗留结果污染。
+- 最终泄漏计数改为 baseline-diff（基线后新建且未释放的资源），排除长期存活的 pass 持久目标误报。
+- `GateReport` JSON 的 `stress_test.resource_snapshots` 保留每个边界值；快照 schema 记录于 `docs/reports/gpu-gate-s4-snapshot/evidence.md`。
+- `./build.bat`：S4 修改后的 RelWithDebInfo `ALL_BUILD` 成功（日志 `%TEMP%\opencode\s4-build.log`、`s4-build2.log`），双成功标记齐全。
+- `bin/NoMoreDayTests.exe --test-case="*GPU Hardware Validation Gate*"`：3 cases / 240 assertions 通过；`stress_test.resource_snapshots` 输出 13 个五秒边界快照（timestamp_ms 0..54999），全部 `net_growth_violation=false`、`pending_query_overage_count=0`、`active_resource_count=4` 恒定；`stress_1min_passed=true`、`toggle_100_loops_passed=true`、`leak_candidate_count=0`。C++ verdict 仍为 `NO_GO`（matrix 项在软件 GL/WARP 环境因 ROI 黑帧、GI delta、pass 预算不足失败，属既有环境限制）。
+- `bin/NoMoreDayTests.exe --test-case="*GPUResourceRegistry*"`：3 cases / 15 assertions 通过（快照字段、pending 窗口、epoch 时间戳）。
+- `ctest --test-dir build -C RelWithDebInfo -L "unit|integration"`：除既有 `GIStabilityIntegrationTest` 与 `HeavenlySwordClosureTests` 外全部通过。
 
-该验证只确认快照语义与 artifact 字段；门禁仍使用旧的空 fixture/stress render 输入，R1.2、R2.2-R4、R6 未完成，production `NO-GO` 不变。
+该验证确认快照语义、净增长合同与 artifact 字段；R1.2、R2.2、R4/R6 未完成，production `NO-GO` 不变。
 
 ## 11. R3 OpenGL Diagnostics
 

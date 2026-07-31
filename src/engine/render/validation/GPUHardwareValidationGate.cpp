@@ -32,9 +32,12 @@
 #include <cmath>
 #include <cstring>
 #include <ctime>
+#include <deque>
 #include <iomanip>
+#include <map>
 #include <nlohmann/json.hpp>
 #include <numeric>
+#include <set>
 #include <sstream>
 #include <thread>
 
@@ -167,6 +170,28 @@ private:
   bool m_wasEnabled{false};
   bool m_installed{false};
   GlDebugCollector m_collector;
+};
+
+std::vector<std::pair<std::string, double>> GetPassBudgets() {
+  return {{"ScenePass", 1.0},
+          {"LightingPass", 0.8},
+          {"HeightShadowPass", 0.5},
+          {"OccluderExtractPass", 0.3},
+          {"JFAPass", 0.8},
+          {"RadianceCascadesPass", 1.5},
+          {"GICompositePass", 0.5},
+          {"VFXPass", 0.8},
+          {"PostProcessPass", 0.6},
+          {"UIWorldPass", 0.4},
+          {"CompositePass", 0.5}};
+}
+
+// S4 (M0-C R5.2): one per-frame sample feeding the pressure-loop sliding
+// window (bytes/objects over the last kBaselineWindowSeconds).
+struct StressWindowSample {
+  double elapsedSeconds = 0.0;
+  size_t bytes = 0;
+  size_t count = 0;
 };
 
 std::string FormatUtcIsoTime(const std::chrono::system_clock::time_point &timePoint) {
@@ -463,18 +488,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       }
 
       // Blocker 3 / R4 Fix: Pass Timing Statistics & AND Condition Check (>= 120 samples AND P95 <= Budget)
-      const std::vector<std::pair<std::string, double>> passBudgets = {
-          {"ScenePass", 1.0},
-          {"LightingPass", 0.8},
-          {"HeightShadowPass", 0.5},
-          {"OccluderExtractPass", 0.3},
-          {"JFAPass", 0.8},
-          {"RadianceCascadesPass", 1.5},
-          {"GICompositePass", 0.5},
-          {"VFXPass", 0.8},
-          {"PostProcessPass", 0.6},
-          {"UIWorldPass", 0.4},
-          {"CompositePass", 0.5}};
+      const auto passBudgets = GetPassBudgets();
 
       // Sample Frames: Collect real GPU timer query ring statistics per frame.
       // S0: RenderGraph keys the ring by stable pass id; derive ids from names.
@@ -608,19 +622,119 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
     }
   }
 
-  // R3 Fix: 1-Minute Continuous Stress Loop (60 Seconds + 5-second sliding window)
+  // S4 (M0-C R5.2): 1-minute continuous pressure loop with a 5-second baseline
+  // window, then five-second GPUResourceRegistry snapshots taken at frame
+  // boundaries (graph execution complete, AdvanceFrame done). Net growth is
+  // judged from sliding-window means (legal delayed release tolerated), not
+  // from instantaneous monotonic per-frame comparison.
   report.stressReport.durationSeconds = stressTest1Min ? 60.0 : 5.0;
   report.stressReport.startTrackedBytes =
       NoMoreDay::render::resources::GPUResourceRegistry::Get()
           .GetStats()
           .currentTotalBytes;
 
+  // Baseline live-resource set: resources alive here are long-lived by design
+  // (persistent pass targets). The final leak count only flags resources that
+  // were created during the pressure window and never released.
+  std::set<std::pair<uint32_t, uint8_t>> baselineLiveKeys;
+  for (const auto &rec : NoMoreDay::render::resources::GPUResourceRegistry::Get()
+                             .GetActiveResources()) {
+    baselineLiveKeys.insert(std::make_pair(rec.handle, static_cast<uint8_t>(rec.kind)));
+  }
+
+  constexpr double kBaselineWindowSeconds = 5.0;
+  constexpr double kSnapshotIntervalSeconds = 5.0;
+  constexpr size_t kBytesNetGrowthTolerance = 2 * 1024 * 1024; // 2 MiB, window-mean delta
+  constexpr size_t kCountNetGrowthTolerance = 8;
+  const uint64_t kPendingOverageFrames =
+      3 * static_cast<uint64_t>(debug::GPUTimerQueryRing::kRingDepth); // 3 x 3 = 9
+
+  const auto stressPassBudgets = GetPassBudgets();
+  std::deque<StressWindowSample> slidingWindow;
+  size_t baselineMeanBytes = 0;
+  size_t baselineMeanCount = 0;
+  bool baselineEstablished = false;
+  bool netGrowthViolation = false;
+  bool pendingOverageViolation = false;
+  std::set<uint32_t> stressValidPassIds;
+  std::map<uint32_t, uint64_t> lastValidFrame;
+
+  auto takeStressSnapshot = [&](bool evaluate, bool measureQuiescence) {
+    auto &registry = NoMoreDay::render::resources::GPUResourceRegistry::Get();
+    const auto snap = registry.TakeSnapshot();
+
+    StressResourceSnapshot entry;
+    entry.frameIndex = snap.frameIndex;
+    entry.timestampMs = snap.wallClockMs;
+    entry.activeResourceCount = snap.activeResourceCount;
+    entry.currentTotalBytes = snap.currentTotalBytes;
+    entry.peakTotalBytes = snap.peakTotalBytes;
+    entry.totalCreatedCount = snap.totalCreatedCount;
+    entry.totalDestroyedCount = snap.totalDestroyedCount;
+    entry.liveReferenceCount = snap.liveReferenceCount;
+    entry.pendingReferenceCount = snap.pendingReferenceCount;
+
+    if (evaluate && baselineEstablished && !slidingWindow.empty()) {
+      size_t bytesSum = 0;
+      size_t countSum = 0;
+      for (const auto &sample : slidingWindow) {
+        bytesSum += sample.bytes;
+        countSum += sample.count;
+      }
+      const size_t windowMeanBytes = bytesSum / slidingWindow.size();
+      const size_t windowMeanCount = countSum / slidingWindow.size();
+      entry.bytesNetGrowth =
+          static_cast<int64_t>(windowMeanBytes) - static_cast<int64_t>(baselineMeanBytes);
+      entry.countNetGrowth =
+          static_cast<int64_t>(windowMeanCount) - static_cast<int64_t>(baselineMeanCount);
+      if (entry.bytesNetGrowth > static_cast<int64_t>(kBytesNetGrowthTolerance) ||
+          entry.countNetGrowth > static_cast<int64_t>(kCountNetGrowthTolerance)) {
+        entry.netGrowthViolation = true;
+        netGrowthViolation = true;
+      }
+    }
+
+    // Quiescence sampling point: drain the timer ring at the frame boundary;
+    // any pass that produced Valid results during the pressure window but has
+    // not refreshed them within kPendingOverageFrames is a pending-query
+    // overage and fails the stress test fail-closed.
+    if (measureQuiescence) {
+      auto &ring = debug::GPUTimerQueryRing::Get();
+      ring.PollReadyQueries();
+      const uint64_t currentRingFrame = ring.DebugGetFrameIndex();
+      for (const auto &[passName, budgetMs] : stressPassBudgets) {
+        (void)budgetMs;
+        const uint32_t stableId = NoMoreDay::render::graph::StablePassId(
+            NoMoreDay::render::graph::CanonicalizePassName(passName));
+        const auto result = ring.GetPassResult(stableId);
+        if (result.state == debug::QueryState::Valid) {
+          stressValidPassIds.insert(stableId);
+          lastValidFrame[stableId] = result.frameIndex;
+        }
+      }
+      for (const uint32_t stableId : stressValidPassIds) {
+        const auto it = lastValidFrame.find(stableId);
+        if (it == lastValidFrame.end()) {
+          continue;
+        }
+        if (currentRingFrame >= it->second &&
+            (currentRingFrame - it->second) > kPendingOverageFrames) {
+          ++entry.pendingQueryOverageCount;
+          entry.pendingOverageViolation = true;
+          pendingOverageViolation = true;
+        }
+      }
+    }
+
+    report.stressReport.resourceSnapshots.push_back(entry);
+  };
+
   if (stressTest1Min) {
     const auto stressStart = std::chrono::steady_clock::now();
-    uint64_t prevWindowBytes = report.stressReport.startTrackedBytes;
-    bool monotonicGrowth = false;
 
-    // Allocate temporary stress framebuffer
+    // The temporary stress target is allocated BEFORE the baseline window so
+    // the baseline reflects the steady-state footprint including the pressure
+    // framebuffer.
     auto stressTarget =
         NoMoreDay::render::resources::FramebufferManager::Create(1280, 720, kRgba16f, true);
     Camera2D stressCam{};
@@ -628,29 +742,76 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
     stressCam.offset = Vector2{640.0f, 360.0f};
     stressCam.zoom = 1.0f;
 
-    // Run continuous 60-second rendering loop with 5-second window monitoring
-    while (std::chrono::duration_cast<std::chrono::seconds>(
-               std::chrono::steady_clock::now() - stressStart)
-               .count() < 60) {
+    // Reset the timer ring so quiescence sampling measures only the pressure
+    // window (stale matrix-era results must not contaminate pending-overage
+    // detection).
+    debug::GPUTimerQueryRing::Get().Shutdown();
+    debug::GPUTimerQueryRing::Get().Initialize();
+
+    double nextSnapshotElapsed = kBaselineWindowSeconds;
+    while (std::chrono::duration<double>(std::chrono::steady_clock::now() - stressStart)
+               .count() < report.stressReport.durationSeconds) {
       if (stressTarget.IsValid()) {
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, stressTarget.fbo);
         ::RenderSystem::render(registry, context, stressCam);
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
+        // Frame boundary: advance the registry frame counter so snapshot frame
+        // indices and creation-frame aging are meaningful at quiescence points.
+        NoMoreDay::render::resources::GPUResourceRegistry::Get().AdvanceFrame();
       }
 
+      const double elapsedSeconds =
+          std::chrono::duration<double>(std::chrono::steady_clock::now() - stressStart)
+              .count();
       const auto curStats =
           NoMoreDay::render::resources::GPUResourceRegistry::Get().GetStats();
-      if (curStats.currentTotalBytes > prevWindowBytes + 2 * 1024 * 1024) { // >2MB growth
-        monotonicGrowth = true;
+      slidingWindow.push_back(
+          {elapsedSeconds, curStats.currentTotalBytes, curStats.activeCount});
+      while (!slidingWindow.empty() &&
+             slidingWindow.front().elapsedSeconds <
+                 elapsedSeconds - kBaselineWindowSeconds) {
+        slidingWindow.pop_front();
       }
-      prevWindowBytes = curStats.currentTotalBytes;
+
+      if (!baselineEstablished && elapsedSeconds >= kBaselineWindowSeconds) {
+        size_t bytesSum = 0;
+        size_t countSum = 0;
+        for (const auto &sample : slidingWindow) {
+          bytesSum += sample.bytes;
+          countSum += sample.count;
+        }
+        baselineMeanBytes =
+            slidingWindow.empty() ? curStats.currentTotalBytes : bytesSum / slidingWindow.size();
+        baselineMeanCount =
+            slidingWindow.empty() ? curStats.activeCount : countSum / slidingWindow.size();
+        baselineEstablished = true;
+        takeStressSnapshot(false, true);
+      } else if (baselineEstablished && elapsedSeconds >= nextSnapshotElapsed) {
+        takeStressSnapshot(true, true);
+        nextSnapshotElapsed += kSnapshotIntervalSeconds;
+      }
+    }
+
+    // Always record the terminal quiescence state in the artifact, unless the
+    // last boundary snapshot already captured this exact frame.
+    const bool lastSnapshotMatches =
+        !report.stressReport.resourceSnapshots.empty() &&
+        report.stressReport.resourceSnapshots.back().frameIndex ==
+            NoMoreDay::render::resources::GPUResourceRegistry::Get().GetFrameIndex();
+    if (!lastSnapshotMatches) {
+      takeStressSnapshot(baselineEstablished, true);
     }
 
     if (stressTarget.IsValid()) {
       NoMoreDay::render::resources::FramebufferManager::Destroy(stressTarget);
     }
-    report.stressReport.stress1MinPassed = !monotonicGrowth;
+
+    // S4 (M0-C R5.2): the pressure loop passes only if no net growth
+    // (sliding-window mean vs baseline) and no timer-query pending overage.
+    report.stressReport.stress1MinPassed = !netGrowthViolation && !pendingOverageViolation;
   } else {
+    // Short path (5 s): record a single snapshot, no growth evaluation.
+    takeStressSnapshot(false, false);
     report.stressReport.stress1MinPassed = true;
   }
 
@@ -705,10 +866,19 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   report.peakTrackedBytes = resStats.peakTotalBytes;
   report.activeResourceCount = resStats.activeCount;
 
-  const auto leakCandidates =
-      NoMoreDay::render::resources::GPUResourceRegistry::Get().DetectLeakCandidates(
-          3600);
-  report.leakCandidateCount = leakCandidates.size();
+  // S4 (M0-C R5.2): leak candidates are resources created after the pressure
+  // baseline that are still live at gate end (never released during the whole
+  // window). The pre-pressure baseline set excludes legitimately long-lived
+  // persistent pass targets.
+  size_t leakCandidateCount = 0;
+  for (const auto &rec : NoMoreDay::render::resources::GPUResourceRegistry::Get()
+                             .GetActiveResources()) {
+    if (!baselineLiveKeys.count(
+            std::make_pair(rec.handle, static_cast<uint8_t>(rec.kind)))) {
+      ++leakCandidateCount;
+    }
+  }
+  report.leakCandidateCount = leakCandidateCount;
 
   if (report.leakCandidateCount > 0) {
     allMatrixPassed = false;
@@ -784,6 +954,25 @@ std::string GateReport::ToJsonString() const {
                      : (status == GateStatus::NoGo) ? "NO_GO"
                                                     : "NOT_RUN";
 
+  nlohmann::json snapshotArr = nlohmann::json::array();
+  for (const auto &s : stressReport.resourceSnapshots) {
+    snapshotArr.push_back(
+        {{"frame_index", s.frameIndex},
+         {"timestamp_ms", s.timestampMs},
+         {"active_resource_count", s.activeResourceCount},
+         {"current_total_bytes", s.currentTotalBytes},
+         {"peak_total_bytes", s.peakTotalBytes},
+         {"total_created_count", s.totalCreatedCount},
+         {"total_destroyed_count", s.totalDestroyedCount},
+         {"live_reference_count", s.liveReferenceCount},
+         {"pending_reference_count", s.pendingReferenceCount},
+         {"pending_query_overage_count", s.pendingQueryOverageCount},
+         {"bytes_net_growth", s.bytesNetGrowth},
+         {"count_net_growth", s.countNetGrowth},
+         {"net_growth_violation", s.netGrowthViolation},
+         {"pending_overage_violation", s.pendingOverageViolation}});
+  }
+
   j["stress_test"] = {
       {"duration_seconds", stressReport.durationSeconds},
       {"stress_1min_passed", stressReport.stress1MinPassed},
@@ -791,7 +980,8 @@ std::string GateReport::ToJsonString() const {
       {"start_tracked_bytes", stressReport.startTrackedBytes},
       {"end_tracked_bytes", stressReport.endTrackedBytes},
       {"peak_tracked_bytes", stressReport.peakTrackedBytes},
-      {"leak_candidate_count", stressReport.leakCandidateCount}};
+      {"leak_candidate_count", stressReport.leakCandidateCount},
+      {"resource_snapshots", snapshotArr}};
 
   j["resources"] = {{"total_tracked_bytes", totalTrackedBytes},
                     {"peak_tracked_bytes", peakTrackedBytes},
