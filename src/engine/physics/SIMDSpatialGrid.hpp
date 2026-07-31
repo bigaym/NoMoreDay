@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
-#include "game/components/Common.hpp"
 #include <numeric>
+#include <utility>
 
 namespace NoMoreDay::systems {
 
@@ -20,14 +20,23 @@ public:
     SIMDSpatialGrid(int width, int height, float cellSize);
     ~SIMDSpatialGrid() = default;
 
-    // Rebuild the grid from an entity view
-    template<typename View>
+    // Rebuild the grid from an entity view.
+    // PositionT is duck-typed: it must expose float .x and .y members
+    // (e.g. the game's Position component or any equivalent ECS component).
+    template<typename PositionT, typename View>
     void rebuild(const View& view, const entt::registry& reg);
 
-    // Query the grid for entities within radius
-    // Callback: bool(entt::entity, const Vector2& pos) - return false to stop query
+    // Query the grid for entities within radius.
+    // CenterT is duck-typed: it must expose float .x and .y members
+    // (e.g. Position or Vector2). The callback is invoked as
+    // callback(entity, {x, y}) and returns false to stop the query.
+    template<typename CenterT, typename Func>
+    void query(const CenterT& center, float radius, Func&& callback) const;
+
+    // Brace-init overload so existing query({x, y}, radius, cb) call sites
+    // keep working without naming a concrete center type.
     template<typename Func>
-    void query(const Position& center, float radius, Func&& callback) const;
+    void query(const float (&center)[2], float radius, Func&& callback) const;
 
 private:
     float m_cellSize;
@@ -47,11 +56,15 @@ private:
     uint32_t getHash(float x, float y) const;
     uint32_t getHashFromGrid(int gx, int gy) const;
     void buildBuckets();
+
+    // Shared SIMD query kernel; cx/cy is the circle center.
+    template<typename Func>
+    void queryImpl(float cx, float cy, float radius, Func&& callback) const;
 };
 
 // --- Template Implementations ---
 
-template<typename View>
+template<typename PositionT, typename View>
 void SIMDSpatialGrid::rebuild(const View& view, const entt::registry& reg) {
     // 1. Collect Data into local buffers
     size_t size_hint = 0;
@@ -67,7 +80,7 @@ void SIMDSpatialGrid::rebuild(const View& view, const entt::registry& reg) {
     std::vector<entt::entity> tempEntities; tempEntities.reserve(size_hint);
 
     for (auto entity : view) {
-        const auto& pos = view.template get<Position>(entity);
+        const auto& pos = view.template get<PositionT>(entity);
         tempX.push_back(pos.x);
         tempY.push_back(pos.y);
         tempHash.push_back(getHash(pos.x, pos.y));
@@ -127,22 +140,32 @@ void SIMDSpatialGrid::rebuild(const View& view, const entt::registry& reg) {
     buildBuckets();
 }
 
+template<typename CenterT, typename Func>
+void SIMDSpatialGrid::query(const CenterT& center, float radius, Func&& callback) const {
+    queryImpl(center.x, center.y, radius, std::forward<Func>(callback));
+}
+
 template<typename Func>
-void SIMDSpatialGrid::query(const Position& center, float radius, Func&& callback) const {
+void SIMDSpatialGrid::query(const float (&center)[2], float radius, Func&& callback) const {
+    queryImpl(center[0], center[1], radius, std::forward<Func>(callback));
+}
+
+template<typename Func>
+void SIMDSpatialGrid::queryImpl(float cx, float cy, float radius, Func&& callback) const {
     if (m_entities.empty()) return;
 
     using batch = xsimd::batch<float>;
     constexpr size_t W = batch::size;
 
     float radiusSq = radius * radius;
-    batch cx(center.x);
-    batch cy(center.y);
+    batch cx_b(cx);
+    batch cy_b(cy);
     batch rsq(radiusSq);
 
-    int minGx = static_cast<int>(std::floor((center.x - radius) / m_cellSize));
-    int maxGx = static_cast<int>(std::floor((center.x + radius) / m_cellSize));
-    int minGy = static_cast<int>(std::floor((center.y - radius) / m_cellSize));
-    int maxGy = static_cast<int>(std::floor((center.y + radius) / m_cellSize));
+    int minGx = static_cast<int>(std::floor((cx - radius) / m_cellSize));
+    int maxGx = static_cast<int>(std::floor((cx + radius) / m_cellSize));
+    int minGy = static_cast<int>(std::floor((cy - radius) / m_cellSize));
+    int maxGy = static_cast<int>(std::floor((cy + radius) / m_cellSize));
 
     // Clamp to grid bounds to prevent duplicate cell checks due to hash clamping
     minGx = std::max(0, minGx);
@@ -169,8 +192,8 @@ void SIMDSpatialGrid::query(const Position& center, float radius, Func&& callbac
                 batch ex = batch::load_unaligned(&m_x[i]);
                 batch ey = batch::load_unaligned(&m_y[i]);
                 
-                batch dx = ex - cx;
-                batch dy = ey - cy;
+                batch dx = ex - cx_b;
+                batch dy = ey - cy_b;
                 batch distSq = dx * dx + dy * dy;
                 
                 auto mask = distSq <= rsq;

@@ -1,6 +1,7 @@
 #pragma once
 #include "doctest.h"
 #include "engine/physics/SIMDSpatialGrid.hpp"
+#include "game/components/Common.hpp"
 #include <vector>
 #include <chrono>
 #include <random>
@@ -31,7 +32,7 @@ using namespace NoMoreDay::systems;
         // Measure Rebuild
         auto startRebuild = std::chrono::high_resolution_clock::now();
         auto view = reg.view<Position>();
-        grid.rebuild(view, reg);
+        grid.rebuild<Position>(view, reg);
         auto endRebuild = std::chrono::high_resolution_clock::now();
         
         auto rebuildTime = std::chrono::duration_cast<std::chrono::microseconds>(endRebuild - startRebuild).count();

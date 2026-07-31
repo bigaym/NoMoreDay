@@ -214,9 +214,13 @@ project owner's explicit decision, these signals are accepted as out of scope
 - [x] MS-3.1 Move Game input mapping and add focused regression coverage. Implemented in this package.
 - [x] MS-3.2 Move ECS physics adapters without changing collision semantics. Implemented in this package.
 - [x] MS-3.3 Verify build, unit/integration, and relevant performance coverage; review and commit the Input/ECS Physics package.
-- [ ] MS-3.4 Resolve the remaining SpatialGrid and SIMDSpatialGrid reverse edges in separately reviewed packages.
+- [x] MS-3.4 Decouple `SIMDSpatialGrid` from Game components by templating its
+  `Position`/`Center` types; remove its reverse ledger edge. Implemented in this
+  package.
+- [ ] MS-3.5 Resolve the remaining `SpatialHashGrid` reverse edge. Deferred: it
+  is blocked by the stale `RenderSystem` include.
 
-**Deferred scope:** `SpatialGrid` remains deferred because it is blocked by the stale `RenderSystem` include. `SIMDSpatialGrid` remains deferred because it requires separate primitive decoupling.
+**Deferred scope:** `SpatialHashGrid` (MS-3.5) remains deferred because it is blocked by the stale `RenderSystem` include. `SIMDSpatialGrid`'s reverse edge was removed by MS-3.4 primitive decoupling.
 
 ### MS-4 [ ]: Persistence, Scene, and State Ownership
 

@@ -69,3 +69,39 @@
 ### Next Step
 
 - Commit this reviewed Input/ECS Physics ownership package. Keep MS-3 open for the separately reviewed spatial-grid packages.
+
+## Follow-up Review: MS-3.4 SIMDSpatialGrid Decoupling
+
+**Conclusion:** 提交
+
+### Scope Alignment
+
+- `src/engine/physics/SIMDSpatialGrid.hpp` no longer includes `game/components/Common.hpp`; `rebuild<PositionT, View>` and `query<CenterT, Func>` now duck-type the `x/y` coordinate access, with the unused `registry` parameter retained.
+- Call sites updated with explicit template arguments: `ProjectileSystem.cpp:43`, `LootGridSystem.cpp:13`, `SIMDSpatialGridTest.cpp` (3 rebuild calls), `SpatialGridBenchmark.cpp:34`; the tests now include `game/components/Common.hpp` explicitly.
+- A `query(const float (&)[2], ...)` overload plus private `queryImpl` kernel was required so that untouchable `RenderSystem.cpp:1141` and `ProjectileSystem.cpp:54` call sites keep compiling; center semantics and the SIMD kernel are unchanged.
+- The ledger removes exactly one edge (`SIMDSpatialGrid.hpp` -> `game/components/Common.hpp`), reducing `113` to `112` across `32` scanned source files.
+- No CMake, PCH, Types, `RenderSystem.cpp`, `SpatialGrid.hpp`, `build.bat`, GPU, or P0 rendering work was modified.
+
+### Verification
+
+- `python scripts/check_module_boundaries.py`: PASS, `112/112` across 32 files (re-run by reviewer).
+- `python scripts/check_core_candidate_contract.py`: PASS.
+- `python -m unittest tests/python/ModuleBoundaryCheckerTest.py tests/python/CoreCandidateContractCheckerTest.py`: PASS, 25 tests (re-run by reviewer).
+- `cmd.exe /c build.bat`: PASS; `C:\Users\yuminao\AppData\Local\Temp\opencode\ms-3-4-build.log` contains `[Build] Build completed successfully.` and `[Build] All steps completed successfully`.
+- SIMDSpatialGrid focused tests: PASS, 4 cases / 10 assertions; SpatialGrid benchmark: PASS, 1 case.
+- No `game/` include matches in `src/engine/physics/SIMDSpatialGrid.{hpp,cpp}`.
+- `git diff --check` excluding the protected design document: PASS.
+
+### Findings
+
+- None.
+
+### Accepted Risks
+
+- `PositionT`/`CenterT` duck typing is documented and enforced at instantiation.
+- The `const float (&)[2]` overload is a narrow compatibility surface for existing call sites.
+- `SpatialHashGrid` (MS-3.5) remains deferred, blocked by the stale `RenderSystem` include.
+
+### Next Step
+
+- Commit this reviewed MS-3.4 package; keep MS-3 open for MS-3.5 spatial-grid migration under separate coordination.

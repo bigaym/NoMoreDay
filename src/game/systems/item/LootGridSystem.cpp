@@ -10,7 +10,7 @@ void LootGridSystem::update(entt::registry& registry) {
         NoMoreDay::utils::ScopedTimer timer("Loot Grid Rebuild", 100);
         // Use the newly added LootTag for efficient spatial grid rebuilds
         auto lootView = registry.view<LootTag, Position>();
-        RenderSystem::s_itemGrid->rebuild(lootView, registry);
+        RenderSystem::s_itemGrid->rebuild<Position>(lootView, registry);
         
         RenderSystem::s_itemGridDirty = false;
     }

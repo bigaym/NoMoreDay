@@ -1,6 +1,7 @@
 #pragma once
 #include "doctest.h"
 #include "engine/physics/SIMDSpatialGrid.hpp"
+#include "game/components/Common.hpp"
 #include <vector>
 #include <entt/entt.hpp>
 
@@ -28,7 +29,7 @@ TEST_SUITE("SIMDSpatialGrid") {
         reg.emplace<Position>(e3, 5.0f, 15.0f);
 
         auto view = reg.view<Position>();
-        grid.rebuild(view, reg);
+        grid.rebuild<Position>(view, reg);
 
         // Query near (5, 5) with radius 2.0 -> Should find e1 only
         int count = 0;
@@ -75,7 +76,7 @@ TEST_SUITE("SIMDSpatialGrid") {
         }
         
         auto view = reg.view<Position>();
-        grid.rebuild(view, reg);
+        grid.rebuild<Position>(view, reg);
         
         int count = 0;
         grid.query({5.0f, 5.0f}, 1.0f, [&](entt::entity e, const Position& p) -> bool {
@@ -89,7 +90,7 @@ TEST_SUITE("SIMDSpatialGrid") {
         SIMDSpatialGrid grid(10, 10, 10.0f);
         entt::registry reg;
         auto view = reg.view<Position>();
-        grid.rebuild(view, reg); // Empty view
+        grid.rebuild<Position>(view, reg); // Empty view
         
         int count = 0;
         grid.query({0.0f, 0.0f}, 100.0f, [&](entt::entity e, const Position& p) -> bool {

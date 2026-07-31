@@ -40,7 +40,7 @@ void ProjectileSystem::Update(entt::registry &registry,
 
   // Phase 4: Rebuild SIMD Grid with Enemies Only
   // This drastically reduces grid pollution from projectiles/items
-  s_enemyGrid.rebuild(registry.view<EnemyTag, Position>(), registry);
+  s_enemyGrid.rebuild<Position>(registry.view<EnemyTag, Position>(), registry);
 
   // Cache Player for scalar check (Player is not in Enemy Grid)
   entt::entity playerEnt = entt::null;
