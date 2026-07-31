@@ -320,6 +320,24 @@ bool IsHdrScenePipelineRequested(
          IsHdrPostProcessRequested(config);
 }
 
+// S7a: GI pass sizing contract. Each GI pass exposes a public OnResize entry;
+// the Execute-time Ensure* calls remain the authoritative sizer. This helper
+// explicitly re-drives the chain when GI is (re)enabled at a resolution where
+// the HDR buffer already exists (same-resolution false->true), so the pass
+// resources are guaranteed to match the current HDR scene buffer dimensions.
+void EnsureGiPassesSized(int width, int height) {
+  if (g_occluderExtractPass == nullptr || g_jfaPass == nullptr ||
+      g_radianceCascadesPass == nullptr || g_giCompositePass == nullptr) {
+    return;
+  }
+  g_occluderExtractPass->OnResize(width, height);
+  g_jfaPass->OnResize(width, height);
+  g_radianceCascadesPass->OnResize(width, height);
+  g_giCompositePass->OnResize(width, height);
+  LOG_INFO("RenderSystem: GI passes sized to {}x{} (same-resolution enable)", width,
+           height);
+}
+
 struct AutoDegradeRuntimeState {
   bool initialized = false;
   NoMoreDay::render::core::QualityTier trackedTier =
@@ -1839,8 +1857,12 @@ void RenderSystem::render(entt::registry &registry,
   }
   HandleV3RuntimeToggle(renderConfig.v3Enabled);
   static bool s_prevGiEnabled = false;
-  if (!renderConfig.giEnabled && s_prevGiEnabled && g_giCompositePass != nullptr) {
+  if (renderConfig.giEnabled != s_prevGiEnabled && g_giCompositePass != nullptr) {
+    // S7a: temporal history must be invalidated on BOTH transitions so no stale
+    // history from the other leg is reused after a GI toggle.
     g_giCompositePass->InvalidateHistory();
+    LOG_INFO("RenderSystem: GI enabled {} -> {}, GICompositePass history invalidated",
+             s_prevGiEnabled ? 1 : 0, renderConfig.giEnabled ? 1 : 0);
   }
   s_prevGiEnabled = renderConfig.giEnabled;
 #if defined(NDEBUG)
@@ -2007,6 +2029,19 @@ void RenderSystem::render(entt::registry &registry,
       NoMoreDay::render::TextureArrayManager::Get().RebuildForResize(
           targetWidth, targetHeight);
     }
+  }
+
+  // S7a: same-resolution GI re-enable. When the HDR buffer already exists at the
+  // current resolution the create/resize chain above is not hit, so explicitly
+  // re-size the GI passes to the current HDR scene buffer dimensions.
+  static bool s_giPassesSized = false;
+  if (useHdrSceneBuffer && s_hdrSceneBuffer.IsValid() && renderConfig.giEnabled &&
+      !s_giPassesSized) {
+    EnsureGiPassesSized(s_hdrSceneBuffer.width, s_hdrSceneBuffer.height);
+    s_giPassesSized = true;
+  }
+  if (!renderConfig.giEnabled) {
+    s_giPassesSized = false;
   }
 
   // Gameplay offscreen path renders level/tilemap before RenderSystem::render().

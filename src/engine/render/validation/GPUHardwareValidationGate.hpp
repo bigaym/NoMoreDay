@@ -32,6 +32,7 @@ struct GlDiagnosticRecord {
 struct HardwareCapabilityReport {
   std::string vendor;
   std::string renderer;
+  bool rendererIsHardware{false};
   std::string driverVersion;
   std::string glVersion;
   bool computeShaderSupported{false};
@@ -132,11 +133,42 @@ struct StressTestReport {
   std::vector<StressResourceSnapshot> resourceSnapshots;
 };
 
+// S7b: paired GI delta capture. One deterministic scene fixture is captured
+// twice - GI runtime override ON vs OFF - under identical seed/camera/frame/
+// FBO/color-space/ROI, each leg with its own temporal warmup and independent
+// sampling window. The delta is the mean over the sampling window of the
+// absolute per-frame ROI mean-brightness difference between the two legs.
+struct PairedGiDeltaResult {
+  std::string fixtureName;
+  uint32_t sceneSeed{0};
+  int width{1280};
+  int height{720};
+  std::string colorSpace;
+  int roiX{0};
+  int roiY{0};
+  int roiWidth{0};
+  int roiHeight{0};
+  std::string renderer;
+  bool rendererIsHardware{false};
+  int warmupFrames{0};
+  int sampleFrames{0};
+  float roiMeanOn{0.0f};
+  float roiMeanOff{0.0f};
+  float pairedDelta{0.0f};
+  float threshold{0.001f};
+  bool passed{false};
+  uint64_t trackedBytesOn{0};
+  uint64_t trackedBytesOff{0};
+  std::vector<std::string> legPassTraces;
+  std::vector<std::string> failureReasons;
+};
+
 struct GateReport {
   std::string revision;
   std::string timestamp;
   HardwareCapabilityReport capabilities;
   std::vector<FixtureExecutionResult> matrixResults;
+  std::vector<PairedGiDeltaResult> pairedGiDeltas;
   StressTestReport stressReport;
   uint64_t totalTrackedBytes{0};
   uint64_t peakTrackedBytes{0};
@@ -159,9 +191,15 @@ public:
   [[nodiscard]] static HardwareCapabilityReport QueryCapabilities();
   [[nodiscard]] static std::vector<FixtureConfig> GetStandardFixtures();
 
+  // S7b: performs one paired GI delta capture for the given fixture on the
+  // driver's real gameplay scene (GI runtime override ON vs OFF legs, each with
+  // its own temporal warmup and independent sampling window).
+  [[nodiscard]] static PairedGiDeltaResult RunPairedGiDeltaCapture(
+      FixtureRenderDriver &driver, const FixtureConfig &fixture);
+
   [[nodiscard]] static GateReport RunGate(const std::string &revision = "HEAD",
                                           int sampleFramesPerFixture = 120,
-                                          bool stressTest1Min = false,
+                                          bool stressTest1Min = true,
                                           int toggleLoops = 100,
                                           FixtureRenderDriver *driver = nullptr);
 };

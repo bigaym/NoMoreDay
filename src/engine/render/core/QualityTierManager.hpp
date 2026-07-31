@@ -6,12 +6,32 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <thread>
 
 namespace NoMoreDay::render::core {
 
 class QualityTierManager {
 public:
   using V3ToggleCallback = std::function<void(bool enabled)>;
+
+  /// RAII guard that applies a runtime GI override and restores the prior
+  /// override state on destruction (covers normal exit and exception unwind).
+  /// The runtime setter has the highest priority in the GI priority contract:
+  /// runtime override > settings.json override > tier/degrade default.
+  class GiEnabledOverrideGuard {
+  public:
+    explicit GiEnabledOverrideGuard(bool enabled);
+    ~GiEnabledOverrideGuard();
+    GiEnabledOverrideGuard(const GiEnabledOverrideGuard &) = delete;
+    GiEnabledOverrideGuard &operator=(const GiEnabledOverrideGuard &) = delete;
+    bool IsOwned() const { return m_owned; }
+
+  private:
+    QualityTierManager &m_manager;
+    bool m_wasActive = false;
+    bool m_priorValue = false;
+    bool m_owned = false;
+  };
 
   struct AutoDegradeBudgetThresholds {
     float degradeTriggerMs = 0.0f;
@@ -97,6 +117,21 @@ public:
   int GetAutoDegradeLevel() const { return m_autoDegradeLevel; }
 
   void ForceTier(QualityTier tier);
+  /// Applies a runtime GI enabled override. This beats the settings.json
+  /// override (render.gi.enabled) and the tier/degrade default. While an
+  /// override is active, only the owning thread may modify or clear it.
+  /// Returns false when rejected (active override owned by another thread).
+  bool SetGiEnabledOverride(bool enabled);
+  /// Clears the runtime GI override, restoring the settings/tier chain.
+  /// Returns false when rejected (active override owned by another thread).
+  bool ClearGiEnabledOverride();
+  bool IsGiOverrideActive() const { return m_giOverrideActive; }
+  std::optional<bool> GetGiRuntimeOverride() const {
+    return m_giRuntimeOverride;
+  }
+  /// Effective GI override after the priority contract:
+  /// runtime override > settings.json override > none.
+  std::optional<bool> EffectiveGiEnabled() const;
   bool SetV3Enabled(bool enabled,
                     const std::string &settingsPath = "settings.json");
   bool SetClusteredLightingEnabled(
@@ -142,6 +177,9 @@ private:
   std::optional<bool>
   TryLoadFluidEnabledOverride(const std::string &settingsPath) const;
   void ApplyV3ConfigOverrides(RenderConfig &config) const;
+  void ApplyGiRuntimeOverrideToConfig(RenderConfig &config) const;
+  void SetGiOverrideInternal(std::optional<bool> value);
+  void ReapplyConfigAfterGiOverride();
   std::string QueryRendererString() const;
 
   bool m_initialized = false;
@@ -156,6 +194,9 @@ private:
   std::optional<bool> m_gpuLootEnabledOverride = std::nullopt;
   std::optional<bool> m_giEnabledOverride = std::nullopt;
   std::optional<bool> m_fluidEnabledOverride = std::nullopt;
+  std::optional<bool> m_giRuntimeOverride = std::nullopt;
+  bool m_giOverrideActive = false;
+  std::thread::id m_giOverrideThread = {};
   V3ToggleCallback m_v3ToggleCallback = {};
   std::string m_rendererString;
   CapabilitySnapshot m_capabilitySnapshot = {};

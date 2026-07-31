@@ -208,6 +208,75 @@ std::string FormatUtcIsoTime(const std::chrono::system_clock::time_point &timePo
   return std::string(timeBuf);
 }
 
+// S7b: heuristic classification of the GL_RENDERER string. Known software
+// rasterizers (WARP, llvmpipe, "Microsoft Basic Render Driver", generic
+// "Software" renderers) are treated as non-hardware; anything else non-empty
+// (NVIDIA/AMD/Intel/Apple/Mesa-with-radeon drivers) is treated as a real GPU.
+bool IsHardwareRenderer(std::string_view renderer) {
+  if (renderer.empty() || renderer == "Unknown") {
+    return false;
+  }
+  if (renderer.find("WARP") != std::string_view::npos ||
+      renderer.find("llvmpipe") != std::string_view::npos ||
+      renderer.find("Basic Render Driver") != std::string_view::npos ||
+      renderer.find("Software") != std::string_view::npos) {
+    return false;
+  }
+  return true;
+}
+
+// S7b: builds the synthetic GI pass trace exactly like the matrix cell does,
+// so the paired legs carry two different pass traces when GI is flipped.
+std::string BuildGiPassTrace(bool giEnabled) {
+  std::string trace;
+  auto append = [&trace](const char *name) {
+    if (!trace.empty()) {
+      trace += ",";
+    }
+    trace += name;
+  };
+  append("ScenePass");
+  append("LightingPass");
+  append("HeightShadowPass");
+  append("OccluderExtractPass");
+  if (giEnabled) {
+    append("JFAPass");
+    append("RadianceCascadesPass");
+    append("GICompositePass");
+  }
+  append("VFXPass");
+  append("UIWorldPass");
+  append("PostProcessPass");
+  append("CompositePass");
+  return trace;
+}
+
+// S7b: reads back the ROI from the given framebuffer and returns its mean
+// normalized brightness over RGB ([0, 1]). Mirrors the matrix readback pattern:
+// bind the target FBO, read, then unbind.
+float ReadRoiMeanLuma(uint32_t offscreenFbo, int roiW, int roiH) {
+  constexpr uint32_t kGLFramebuffer = 0x8D40;
+  if (roiW <= 0 || roiH <= 0) {
+    return 0.0f;
+  }
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+  unsigned char *pixels = rlReadScreenPixels(roiW, roiH);
+  NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
+  if (pixels == nullptr) {
+    return 0.0f;
+  }
+  const size_t pixelCount = static_cast<size_t>(roiW) * static_cast<size_t>(roiH);
+  uint64_t totalLuma = 0;
+  for (size_t i = 0; i < pixelCount; ++i) {
+    totalLuma += static_cast<uint64_t>(pixels[i * 4]) +
+                 static_cast<uint64_t>(pixels[i * 4 + 1]) +
+                 static_cast<uint64_t>(pixels[i * 4 + 2]);
+  }
+  RL_FREE(pixels);
+  return static_cast<float>(totalLuma) /
+         (static_cast<float>(roiW) * static_cast<float>(roiH) * 3.0f * 255.0f);
+}
+
 } // namespace
 
 HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
@@ -224,7 +293,18 @@ HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
   report.glVersion = "OpenGL " + std::to_string(supportInfo.majorVersion) + "." +
                      std::to_string(supportInfo.minorVersion);
   report.vendor = "OpenGL Driver";
-  report.renderer = "Raylib/OpenGL 4.3+ Hardware Backend";
+  // S7b: report the real GL_RENDERER string (e.g. "NVIDIA GeForce RTX 4070
+  // SUPER/PCIe/SSE2") instead of a hardcoded label, and classify it so the
+  // evidence can distinguish a real GPU from WARP/software rasterization.
+  std::string rendererName = "Unknown";
+#if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_43)
+  const unsigned char *rendererStr = glGetString(GL_RENDERER);
+  if (rendererStr != nullptr) {
+    rendererName = reinterpret_cast<const char *>(rendererStr);
+  }
+#endif
+  report.renderer = rendererName;
+  report.rendererIsHardware = IsHardwareRenderer(rendererName);
 
   report.computeShaderSupported = supportInfo.computeShaderSupported;
   report.ssboSupported = supportInfo.computeShaderSupported; // Require OpenGL 4.3 SSBO
@@ -329,6 +409,147 @@ std::vector<FixtureConfig> GPUHardwareValidationGate::GetStandardFixtures() {
   }
 
   return fixtures;
+}
+
+PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
+    FixtureRenderDriver &driver, const FixtureConfig &fixture) {
+  PairedGiDeltaResult result;
+  result.fixtureName = fixture.name;
+  result.sceneSeed = fixture.sceneSeed;
+  result.width = fixture.width;
+  result.height = fixture.height;
+  result.colorSpace = "sRGB";
+  result.roiX = fixture.roiX;
+  result.roiY = fixture.roiY;
+  result.roiWidth = fixture.roiWidth;
+  result.roiHeight = fixture.roiHeight;
+  result.warmupFrames = fixture.warmupFrames;
+  result.sampleFrames = fixture.sampleFrames;
+  result.threshold = 0.001f;
+  result.passed = false;
+
+  // S7b real-machine-first: record the GL environment so the evidence can
+  // distinguish a real GPU from WARP/software rasterization.
+  std::string rendererName = "Unknown";
+#if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_43)
+  const unsigned char *rendererStr = glGetString(GL_RENDERER);
+  if (rendererStr != nullptr) {
+    rendererName = reinterpret_cast<const char *>(rendererStr);
+  }
+#endif
+  result.renderer = rendererName;
+  result.rendererIsHardware = IsHardwareRenderer(rendererName);
+
+  auto &tierMgr = NoMoreDay::render::core::QualityTierManager::Get();
+  tierMgr.ForceTier(NoMoreDay::render::core::QualityTier::High);
+
+  entt::registry &registry = driver.Registry();
+  NoMoreDay::SharedContext &context = driver.Context();
+
+  if (!driver.PrepareFixture(fixture)) {
+    result.failureReasons.push_back("Fixture scene preparation failed (harness)");
+    return result;
+  }
+
+  const uint32_t offscreenFbo = driver.CompositeFramebuffer();
+  if (offscreenFbo == 0) {
+    result.failureReasons.push_back(
+        "Fixture harness reported invalid RGBA16F composite target");
+    return result;
+  }
+
+  const int roiW = std::min(fixture.roiWidth, fixture.width - fixture.roiX);
+  const int roiH = std::min(fixture.roiHeight, fixture.height - fixture.roiY);
+  if (roiW <= 0 || roiH <= 0) {
+    result.failureReasons.push_back("ROI out of bounds for fixture resolution");
+    return result;
+  }
+
+  Camera2D camera{};
+  camera.target = Vector2{fixture.cameraX, fixture.cameraY};
+  camera.offset = Vector2{static_cast<float>(fixture.width) / 2.0f,
+                          static_cast<float>(fixture.height) / 2.0f};
+  camera.rotation = 0.0f;
+  camera.zoom = fixture.cameraZoom;
+
+  constexpr uint32_t kGLFramebuffer = 0x8D40;
+
+  auto runLeg = [&](bool giEnabled, float &outMeanLuma,
+                    std::vector<float> &outPerFrameLuma) -> bool {
+    // S7a/S7b: runtime override drives the effective config for the whole leg
+    // and is restored on scope exit (exception-safe). Paired capture never
+    // mutates settings.json, so no settings override is injected.
+    NoMoreDay::render::core::QualityTierManager::GiEnabledOverrideGuard guard(
+        giEnabled);
+    if (!guard.IsOwned()) {
+      return false;
+    }
+    // Each leg runs its own temporal history warmup (GICompositePass history is
+    // invalidated on the GI transition inside RenderSystem).
+    for (int f = 0; f < fixture.warmupFrames; ++f) {
+      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+      ::RenderSystem::render(registry, context, camera);
+      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
+    }
+    // Independent sampling window: one ROI readback per sampled frame.
+    double lumaSum = 0.0;
+    for (int f = 0; f < fixture.sampleFrames; ++f) {
+      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+      ::RenderSystem::render(registry, context, camera);
+      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
+      const float frameLuma = ReadRoiMeanLuma(offscreenFbo, roiW, roiH);
+      outPerFrameLuma.push_back(frameLuma);
+      lumaSum += static_cast<double>(frameLuma);
+    }
+    outMeanLuma =
+        static_cast<float>(lumaSum / static_cast<double>(fixture.sampleFrames));
+    return true;
+  };
+
+  std::vector<float> legOnLuma;
+  std::vector<float> legOffLuma;
+  const bool legOnOk =
+      runLeg(true, result.roiMeanOn, legOnLuma);
+  result.legPassTraces.push_back(BuildGiPassTrace(true));
+  result.trackedBytesOn =
+      NoMoreDay::render::resources::GPUResourceRegistry::Get()
+          .GetStats()
+          .currentTotalBytes;
+  const bool legOffOk =
+      runLeg(false, result.roiMeanOff, legOffLuma);
+  result.legPassTraces.push_back(BuildGiPassTrace(false));
+  result.trackedBytesOff =
+      NoMoreDay::render::resources::GPUResourceRegistry::Get()
+          .GetStats()
+          .currentTotalBytes;
+
+  if (!legOnOk || !legOffOk) {
+    result.failureReasons.push_back(
+        "Runtime GI override rejected during paired capture (thread ownership)");
+    return result;
+  }
+
+  // S7b: paired delta = mean over the sampling window of the absolute per-frame
+  // ROI mean-brightness difference between the GI-ON and GI-OFF legs.
+  const size_t pairedFrames = std::min(legOnLuma.size(), legOffLuma.size());
+  double deltaSum = 0.0;
+  for (size_t f = 0; f < pairedFrames; ++f) {
+    deltaSum += std::fabs(static_cast<double>(legOnLuma[f] - legOffLuma[f]));
+  }
+  if (pairedFrames == 0) {
+    result.failureReasons.push_back("Paired capture produced no sampled frames");
+    return result;
+  }
+  result.pairedDelta =
+      static_cast<float>(deltaSum / static_cast<double>(pairedFrames));
+  result.passed = (result.pairedDelta >= result.threshold);
+  if (!result.passed) {
+    result.failureReasons.push_back(
+        "Paired GI delta " + std::to_string(result.pairedDelta) +
+        " below threshold " + std::to_string(result.threshold));
+  }
+
+  return result;
 }
 
 GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
@@ -660,6 +881,16 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
     }
   }
 
+  // S7b: paired GI delta capture for every standard fixture. Each fixture is
+  // captured twice (GI runtime override ON vs OFF) under identical
+  // seed/camera/frame/FBO/color-space/ROI; each leg warms up its own temporal
+  // history and samples an independent window. The result is evidence only and
+  // does not (yet) influence gate status - threshold calibration is pending a
+  // real-machine (DOD-2) capture.
+  for (const auto &fixture : fixtures) {
+    report.pairedGiDeltas.push_back(RunPairedGiDeltaCapture(*driver, fixture));
+  }
+
   // S4 (M0-C R5.2): 1-minute continuous pressure loop with a 5-second baseline
   // window, then five-second GPUResourceRegistry snapshots taken at frame
   // boundaries (graph execution complete, AdvanceFrame done). Net growth is
@@ -973,6 +1204,7 @@ std::string GateReport::ToJsonString() const {
   j["capabilities"] = {
       {"vendor", capabilities.vendor},
       {"renderer", capabilities.renderer},
+      {"renderer_is_hardware", capabilities.rendererIsHardware},
       {"driver_version", capabilities.driverVersion},
       {"gl_version", capabilities.glVersion},
       {"compute_shader", capabilities.computeShaderSupported},
@@ -1080,6 +1312,31 @@ std::string GateReport::ToJsonString() const {
     matrixArr.push_back(mj);
   }
   j["matrix_results"] = matrixArr;
+
+  nlohmann::json pairedArr = nlohmann::json::array();
+  for (const auto &p : pairedGiDeltas) {
+    pairedArr.push_back(
+        {{"fixture", p.fixtureName},
+         {"scene_seed", p.sceneSeed},
+         {"resolution", std::to_string(p.width) + "x" + std::to_string(p.height)},
+         {"color_space", p.colorSpace},
+         {"roi", std::to_string(p.roiX) + "," + std::to_string(p.roiY) + " " +
+                     std::to_string(p.roiWidth) + "x" + std::to_string(p.roiHeight)},
+         {"renderer", p.renderer},
+         {"renderer_is_hardware", p.rendererIsHardware},
+         {"warmup_frames", p.warmupFrames},
+         {"sample_frames", p.sampleFrames},
+         {"roi_mean_on", p.roiMeanOn},
+         {"roi_mean_off", p.roiMeanOff},
+         {"paired_delta", p.pairedDelta},
+         {"threshold", p.threshold},
+         {"passed", p.passed},
+         {"tracked_bytes_on", p.trackedBytesOn},
+         {"tracked_bytes_off", p.trackedBytesOff},
+         {"leg_pass_traces", p.legPassTraces},
+         {"failures", p.failureReasons}});
+  }
+  j["paired_gi_deltas"] = pairedArr;
   j["global_failures"] = globalFailures;
 
   return j.dump(2);

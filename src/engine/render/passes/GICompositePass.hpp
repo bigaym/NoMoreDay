@@ -25,6 +25,7 @@ public:
   void Shutdown();
   void OnResize(int width, int height);
   void InvalidateHistory() noexcept { m_historyValid = false; }
+  bool IsHistoryValid() const noexcept { return m_historyValid; }
   void SetOccluderExtractPass(const OccluderExtractPass *pass) noexcept {
     m_occluderExtractPass = pass;
   }

@@ -20,6 +20,7 @@
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 
 namespace NoMoreDay::render::core {
@@ -344,6 +345,9 @@ void QualityTierManager::Initialize(const std::string &settingsPath,
   m_gpuLootEnabledOverride = std::nullopt;
   m_giEnabledOverride = std::nullopt;
   m_fluidEnabledOverride = std::nullopt;
+  m_giRuntimeOverride = std::nullopt;
+  m_giOverrideActive = false;
+  m_giOverrideThread = std::thread::id{};
 
   m_capabilitySnapshot = ProbeCapabilities();
   const QualityTier capabilityTier = DetectTierFromCapabilities(m_capabilitySnapshot);
@@ -419,6 +423,70 @@ void QualityTierManager::ForceTier(QualityTier tier) {
   UpdateConfigForTier(tier);
   LOG_INFO("QualityTierManager: ForceTier {} -> {} (degradeLevel={})",
            ToString(previous), ToString(m_tier), m_autoDegradeLevel);
+}
+
+bool QualityTierManager::SetGiEnabledOverride(bool enabled) {
+  if (m_giOverrideActive &&
+      std::this_thread::get_id() != m_giOverrideThread) {
+    LOG_WARN(
+        "QualityTierManager: SetGiEnabledOverride({}) rejected: active runtime "
+        "override owned by a different thread",
+        enabled ? 1 : 0);
+    return false;
+  }
+  const bool changed =
+      !m_giOverrideActive || m_giRuntimeOverride.value_or(!enabled) != enabled;
+  SetGiOverrideInternal(std::optional<bool>(enabled));
+  ReapplyConfigAfterGiOverride();
+  if (changed) {
+    LOG_INFO("QualityTierManager: runtime GI override -> {}",
+             enabled ? 1 : 0);
+  }
+  return true;
+}
+
+bool QualityTierManager::ClearGiEnabledOverride() {
+  if (!m_giOverrideActive) {
+    return true;
+  }
+  if (std::this_thread::get_id() != m_giOverrideThread) {
+    LOG_WARN(
+        "QualityTierManager: ClearGiEnabledOverride rejected: active runtime "
+        "override owned by a different thread");
+    return false;
+  }
+  SetGiOverrideInternal(std::nullopt);
+  ReapplyConfigAfterGiOverride();
+  LOG_INFO("QualityTierManager: runtime GI override cleared");
+  return true;
+}
+
+std::optional<bool> QualityTierManager::EffectiveGiEnabled() const {
+  if (m_giOverrideActive && m_giRuntimeOverride.has_value()) {
+    return m_giRuntimeOverride;
+  }
+  if (m_giEnabledOverride.has_value()) {
+    return m_giEnabledOverride;
+  }
+  return std::nullopt;
+}
+
+QualityTierManager::GiEnabledOverrideGuard::GiEnabledOverrideGuard(bool enabled)
+    : m_manager(QualityTierManager::Get()), m_owned(false) {
+  m_wasActive = m_manager.m_giOverrideActive;
+  m_priorValue = m_manager.m_giRuntimeOverride.value_or(false);
+  m_owned = m_manager.SetGiEnabledOverride(enabled);
+}
+
+QualityTierManager::GiEnabledOverrideGuard::~GiEnabledOverrideGuard() {
+  if (!m_owned) {
+    return;
+  }
+  m_manager.SetGiOverrideInternal(m_wasActive
+                                      ? std::optional<bool>(m_priorValue)
+                                      : std::nullopt);
+  m_manager.ReapplyConfigAfterGiOverride();
+  m_owned = false;
 }
 
 bool QualityTierManager::SetV3Enabled(bool enabled,
@@ -1694,6 +1762,42 @@ void QualityTierManager::ApplyAutoDegradeLevel() {
   if (level >= static_cast<int>(AutoDegradeStep::DisableHighMaterialBranch)) {
     m_config.fluidEnabled = false;
     m_config.fluidMaxParticles = 0;
+  }
+
+  // Runtime override is the top of the GI priority contract and is layered
+  // last so it beats the settings.json override and the tier/degrade default.
+  ApplyGiRuntimeOverrideToConfig(m_config);
+}
+
+void QualityTierManager::ApplyGiRuntimeOverrideToConfig(
+    RenderConfig &config) const {
+  if (!m_giOverrideActive || !m_giRuntimeOverride.has_value()) {
+    return;
+  }
+  config.giEnabled = m_giRuntimeOverride.value();
+  if (!config.giEnabled) {
+    config.giCascadeLevels = 0;
+    config.giIntensity = 0.0f;
+  } else {
+    if (config.giCascadeLevels == 0) {
+      config.giCascadeLevels = (m_tier == QualityTier::Ultra) ? 6u : 4u;
+    }
+    if (config.giIntensity <= 0.0f) {
+      config.giIntensity = 1.0f;
+    }
+  }
+}
+
+void QualityTierManager::SetGiOverrideInternal(std::optional<bool> value) {
+  m_giRuntimeOverride = value;
+  m_giOverrideActive = value.has_value();
+  m_giOverrideThread =
+      value.has_value() ? std::this_thread::get_id() : std::thread::id{};
+}
+
+void QualityTierManager::ReapplyConfigAfterGiOverride() {
+  if (m_initialized) {
+    ApplyAutoDegradeLevel();
   }
 }
 
