@@ -12,6 +12,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
+#include "game/render/LightAdapter.hpp"
 
 #include "GLFW/glfw3.h"
 
@@ -116,7 +117,10 @@ NoMoreDay::tests::BenchmarkStats MeasureLightingPath(
   const int warmupFrames = std::max(8, frames / 6);
 
   for (int i = 0; i < warmupFrames + frames; ++i) {
-    lightManager.Update(registry, camera, cfg.maxLights, static_cast<float>(i) * 0.016f);
+    const auto projection = NoMoreDay::LightAdapter::BuildLightCandidates(
+        registry, static_cast<float>(i) * 0.016f);
+    lightManager.UpdateCandidates(projection.lights, camera, cfg.maxLights,
+                                  projection.ecsLights);
     if (firstActiveLightCount != nullptr && i == warmupFrames) {
       *firstActiveLightCount = lightManager.GetActiveLightCount();
     }

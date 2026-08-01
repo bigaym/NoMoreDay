@@ -38,6 +38,10 @@ struct GameplayRenderFrame {
   // graph::RenderContext).
   std::vector<NoMoreDay::components::GPUShadowCaster> *occluderBuffer = nullptr;
 
+  // Engine-owned light candidate staging buffer (filled by the adapter via the
+  // shared LightAdapter projection, consumed by LightManager::UpdateCandidates).
+  std::vector<NoMoreDay::components::GPULight> *lightBuffer = nullptr;
+
   // Engine-computed render flags (quality config + runtime readiness).
   bool gpuTextEnabled = false;
   bool gpuLootEnabled = false;
@@ -52,6 +56,10 @@ struct GameplayRenderFrame {
   uint32_t occluderDynamicCount = 0u;
   uint64_t occluderStaticSignature = 0u;
   uint64_t occluderDynamicSignature = 0u;
+
+  // Out-field: number of registered ECS lights seen by the adapter (lighting
+  // diagnostic stat consumed by LightManager::UpdateCandidates).
+  int ecsLights = 0;
 };
 
 /**
@@ -70,6 +78,7 @@ public:
   virtual void onVFX(GameplayRenderFrame &frame) = 0;
   virtual void onUIWorld(GameplayRenderFrame &frame) = 0;
   virtual void onOccluders(GameplayRenderFrame &frame) = 0;
+  virtual void onLights(GameplayRenderFrame &frame) = 0;
 };
 
 } // namespace NoMoreDay::render

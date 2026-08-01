@@ -8,6 +8,7 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
+#include "game/render/LightAdapter.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -127,8 +128,9 @@ TEST_CASE("[Integration] Lighting - Stability (Resize + Tier Switch Stress)") {
     camera.target.y = std::cos(timeSeconds * 0.42f) * 220.0f;
 
     const auto &cfg = qm.GetConfig();
-    render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights,
-                                                 timeSeconds);
+    const auto projection = LightAdapter::BuildLightCandidates(registry, timeSeconds);
+    render::lighting::LightManager::Get().UpdateCandidates(
+        projection.lights, camera, cfg.maxLights, projection.ecsLights);
     pass.Execute(context);
   }
 

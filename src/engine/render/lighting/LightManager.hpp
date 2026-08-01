@@ -3,7 +3,6 @@
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
 
-#include <entt/entt.hpp>
 #include <memory>
 #include <span>
 #include <vector>
@@ -37,8 +36,8 @@ public:
   void Initialize();
   void Shutdown();
 
-  void Update(entt::registry &registry, const Camera2D &camera, int maxLights,
-              float gameTime);
+  void UpdateCandidates(std::span<const components::GPULight> candidates,
+                        const Camera2D &camera, int maxLights, int ecsLights);
 
   void Bind() const;
 

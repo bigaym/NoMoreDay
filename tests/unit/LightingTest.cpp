@@ -8,6 +8,7 @@
 #include "engine/render/graph/RenderContext.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
+#include "game/render/LightAdapter.hpp"
 
 #include <cstddef>
 #include <span>
@@ -69,7 +70,8 @@ TEST_CASE("[Unit] Lighting - LightManager Low Tier Skip") {
 
   auto &manager = render::lighting::LightManager::Get();
   manager.Shutdown();
-  manager.Update(registry, camera, 0, 0.0f);
+  const auto projection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  manager.UpdateCandidates(projection.lights, camera, 0, projection.ecsLights);
 
   CHECK(manager.GetActiveLightCount() == 0);
   CHECK(manager.GetActiveLightsCpu().empty());
@@ -113,7 +115,8 @@ TEST_CASE("[Unit] Lighting - LightManager Collect Cull Sort") {
 
   auto &manager = render::lighting::LightManager::Get();
   manager.Shutdown();
-  manager.Update(registry, camera, 2, 0.0f);
+  const auto projection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  manager.UpdateCandidates(projection.lights, camera, 2, projection.ecsLights);
 
   REQUIRE(manager.GetActiveLightCount() == 2);
   const auto &lights = manager.GetActiveLightsCpu();
@@ -145,10 +148,11 @@ TEST_CASE("[Unit] Lighting - Transient Light One Frame") {
   auto &manager = render::lighting::LightManager::Get();
   manager.Shutdown();
   manager.AddTransientLight(flash);
-  manager.Update(registry, camera, 4, 0.0f);
+  const auto projection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  manager.UpdateCandidates(projection.lights, camera, 4, projection.ecsLights);
   CHECK(manager.GetActiveLightCount() == 1);
 
-  manager.Update(registry, camera, 4, 0.0f);
+  manager.UpdateCandidates(projection.lights, camera, 4, projection.ecsLights);
   CHECK(manager.GetActiveLightCount() == 0);
 }
 
@@ -168,7 +172,8 @@ TEST_CASE("[Unit] Lighting - Shadow map assignment syncs active light data") {
 
   auto &manager = render::lighting::LightManager::Get();
   manager.Shutdown();
-  manager.Update(registry, camera, 4, 0.0f);
+  const auto projection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  manager.UpdateCandidates(projection.lights, camera, 4, projection.ecsLights);
   REQUIRE(manager.GetActiveLightCount() == 1);
   CHECK(manager.GetActiveLightsCpu()[0].shadowMapIndex == 0u);
 
@@ -247,7 +252,8 @@ TEST_CASE("[Unit] Lighting - LightType Mapping Spot Ambient Point") {
 
   auto &manager = render::lighting::LightManager::Get();
   manager.Shutdown();
-  manager.Update(registry, camera, 8, 0.0f);
+  const auto projection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  manager.UpdateCandidates(projection.lights, camera, 8, projection.ecsLights);
 
   const auto &lights = manager.GetActiveLightsCpu();
   REQUIRE(lights.size() == 3);

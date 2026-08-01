@@ -9,6 +9,7 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
+#include "game/render/LightAdapter.hpp"
 
 #include "GLFW/glfw3.h"
 
@@ -84,7 +85,10 @@ MeasureLightingGpuMs(NoMoreDay::render::passes::LightingPass &pass,
   auto &lightManager = NoMoreDay::render::lighting::LightManager::Get();
 
   for (int i = 0; i < frames; ++i) {
-    lightManager.Update(registry, camera, maxLights, static_cast<float>(i) * 0.016f);
+    const auto projection = NoMoreDay::LightAdapter::BuildLightCandidates(
+        registry, static_cast<float>(i) * 0.016f);
+    lightManager.UpdateCandidates(projection.lights, camera, maxLights,
+                                  projection.ecsLights);
 
     uint32_t query = 0;
     api.genQueries(1, &query);

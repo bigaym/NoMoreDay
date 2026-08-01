@@ -17,6 +17,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
+#include "game/render/LightAdapter.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -139,7 +140,9 @@ TEST_CASE("[Integration] Clustered Lighting - Deterministic overflow and index o
   camera.offset = {0.0f, 0.0f};
 
   render::lighting::LightManager::Get().Initialize();
-  render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+  const auto lightProjection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  render::lighting::LightManager::Get().UpdateCandidates(
+      lightProjection.lights, camera, cfg.maxLights, lightProjection.ecsLights);
 
   auto hdr = render::resources::FramebufferManager::Create(1024, 768, kHdrRgba16f);
   REQUIRE(hdr.IsValid());
@@ -224,7 +227,9 @@ TEST_CASE("[Integration] Clustered Lighting - Legacy V4 gate removed for light c
   camera.offset = {0.0f, 0.0f};
 
   render::lighting::LightManager::Get().Initialize();
-  render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+  const auto lightProjection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  render::lighting::LightManager::Get().UpdateCandidates(
+      lightProjection.lights, camera, cfg.maxLights, lightProjection.ecsLights);
   const uint32_t activeLightCount =
       static_cast<uint32_t>(render::lighting::LightManager::Get().GetActiveLightRecordsCpu().size());
   REQUIRE(activeLightCount > 256u);
@@ -317,7 +322,9 @@ TEST_CASE("[Integration] Clustered Lighting - Culling to lighting consumption pa
   camera.offset = {0.0f, 0.0f};
 
   render::lighting::LightManager::Get().Initialize();
-  render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+  const auto lightProjection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  render::lighting::LightManager::Get().UpdateCandidates(
+      lightProjection.lights, camera, cfg.maxLights, lightProjection.ecsLights);
 
   auto hdr = render::resources::FramebufferManager::Create(1280, 720, kHdrRgba16f);
   REQUIRE(hdr.IsValid());
@@ -386,7 +393,9 @@ TEST_CASE("[Integration] Clustered Lighting - Resize/context restore and offscre
         kWidths[idx], kHeights[idx], kHdrRgba16f);
     REQUIRE(hdr.IsValid());
 
-    render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+    const auto lightProjection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+    render::lighting::LightManager::Get().UpdateCandidates(
+        lightProjection.lights, camera, cfg.maxLights, lightProjection.ecsLights);
 
     render::graph::RenderContext context = {};
     context.registry = &registry;
@@ -459,14 +468,18 @@ TEST_CASE("[Integration] Clustered Lighting - Boundary conditions") {
   context.hdrSceneBuffer = hdr;
 
   // 0 lights
-  render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+  const auto lightProjection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  render::lighting::LightManager::Get().UpdateCandidates(
+      lightProjection.lights, camera, cfg.maxLights, lightProjection.ecsLights);
   cullingPass.Execute(context);
   CHECK(cullingPass.SucceededThisFrame());
   CHECK(cullingPass.GetLastOverflowCount() == 0u);
 
   // 1 light
   PopulateDenseLights(registry, 1, 10.0f, 10.0f);
-  render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+  const auto singleProjection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  render::lighting::LightManager::Get().UpdateCandidates(
+      singleProjection.lights, camera, cfg.maxLights, singleProjection.ecsLights);
   cullingPass.Execute(context);
   CHECK(cullingPass.SucceededThisFrame());
   CHECK(cullingPass.GetLastOverflowCount() == 0u);
@@ -475,7 +488,9 @@ TEST_CASE("[Integration] Clustered Lighting - Boundary conditions") {
   registry.clear();
   PopulateDenseLights(registry, 220, 0.0f, 0.0f);
   PopulateDenseLights(registry, 8, 1200.0f, 1200.0f);
-  render::lighting::LightManager::Get().Update(registry, camera, cfg.maxLights, 0.0f);
+  const auto overfullProjection = LightAdapter::BuildLightCandidates(registry, 0.0f);
+  render::lighting::LightManager::Get().UpdateCandidates(
+      overfullProjection.lights, camera, cfg.maxLights, overfullProjection.ecsLights);
   cullingPass.Execute(context);
   CHECK(cullingPass.SucceededThisFrame());
   CHECK(cullingPass.GetLastOverflowCount() > 0u);

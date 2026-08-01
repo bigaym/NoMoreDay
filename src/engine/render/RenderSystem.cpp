@@ -120,6 +120,7 @@ static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_beamInstanceBuffer =
     nullptr;
 static std::vector<NoMoreDay::render::GPUBeamInstance> s_beamBuffer;
 static std::vector<NoMoreDay::components::GPUShadowCaster> s_occluderBuffer;
+static std::vector<NoMoreDay::components::GPULight> s_lightCandidateBuffer;
 
 namespace {
 
@@ -144,12 +145,13 @@ struct RenderFrameData {
   uint32_t occluderDynamicCount = 0u;
   uint64_t occluderStaticSignature = 0u;
   uint64_t occluderDynamicSignature = 0u;
+  int ecsLights = 0;
 
   // Build the engine-safe DTO handed to the gameplay render adapter.
   NoMoreDay::render::GameplayRenderFrame ToHooksFrame() const {
     return NoMoreDay::render::GameplayRenderFrame{
         registry,        camera,  labelBuffer, glyphBuffer, &s_beamBuffer,
-        &s_occluderBuffer,
+        &s_occluderBuffer, &s_lightCandidateBuffer,
         gpuTextEnabled, gpuLootEnabled, gpuLootGlowEnabled, font};
   }
 };
@@ -1403,8 +1405,22 @@ void RenderSystem::render(entt::registry &registry,
 
   if (useHdrSceneBuffer && !offscreenV3SafeMode &&
       renderConfig.dynamicLightingEnabled && g_lightingPass) {
-    NoMoreDay::render::lighting::LightManager::Get().Update(
-        registry, camera, renderConfig.maxLights, static_cast<float>(GetTime()));
+    // Light projection: the Game adapter projects the ECS lights into the
+    // Engine-owned staging buffer via the shared LightAdapter; the Engine only
+    // consumes the DTO span (view cull / sort / transient / budget / upload).
+    if (gameplayHooks != nullptr) {
+      NoMoreDay::render::GameplayRenderFrame hooksFrame = frame.ToHooksFrame();
+      gameplayHooks->onLights(hooksFrame);
+      frame.ecsLights = hooksFrame.ecsLights;
+    } else {
+      // No gameplay adapter (gate/harness): never feed stale light candidates
+      // from a previous game frame into the LightManager.
+      s_lightCandidateBuffer.clear();
+      frame.ecsLights = 0;
+    }
+    NoMoreDay::render::lighting::LightManager::Get().UpdateCandidates(
+        s_lightCandidateBuffer, camera, renderConfig.maxLights,
+        frame.ecsLights);
 
     static double s_lastLightingDiagLogTime = 0.0;
     const double now = GetTime();

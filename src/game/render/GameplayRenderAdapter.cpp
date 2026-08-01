@@ -1,4 +1,5 @@
 #include "game/render/GameplayRenderAdapter.hpp"
+#include "game/render/LightAdapter.hpp"
 #include "game/render/OccluderProjector.hpp"
 
 #include "core/logging/Logger.hpp"
@@ -99,6 +100,17 @@ void GameplayRenderAdapter::onOccluders(render::GameplayRenderFrame &frame) {
   frame.occluderDynamicCount = projection.dynamicCount;
   frame.occluderStaticSignature = projection.staticSignature;
   frame.occluderDynamicSignature = projection.dynamicSignature;
+}
+
+void GameplayRenderAdapter::onLights(render::GameplayRenderFrame &frame) {
+  if (frame.lightBuffer == nullptr) {
+    return;
+  }
+  NoMoreDay::LightProjection projection =
+      NoMoreDay::LightAdapter::BuildLightCandidates(
+          frame.registry, static_cast<float>(GetTime()));
+  *frame.lightBuffer = std::move(projection.lights);
+  frame.ecsLights = projection.ecsLights;
 }
 
 void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame) {

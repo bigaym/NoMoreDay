@@ -200,3 +200,37 @@ Date: 2026-08-02. Scope: deduplicate the byte-identical occluder projection betw
 - Remaining MS-6 edges (Batch 5): GPULoot 2 + GPUSkillEffect 1 + GlobalHeightField 3 + LightManager 2 + HeightShadowPass 1 + RadianceCascadesPass 1 + VFX 2 = 12; plus 5 pch (MS-7). OccluderExtractPass/ShadowBuildPass are fully Game-edge-free.
 - RG-3 resource lifecycle untouched; graph construction (AddPass order/conditions/owner tags) zero-modification verified.
 - Nothing was staged or committed (per project rule; main agent commits).
+
+---
+
+## Batch 5 — LightAdapter (LightManager Game edges cleared)
+
+Date: 2026-08-02. Scope: split the ECS -> GPULight projection out of `src/engine/render/lighting/LightManager.cpp` into a Game-side adapter, and delete both Engine->Game ledger edges (`LightManager.cpp:5:game/components/Common.hpp` + `LightManager.cpp:6:game/components/LightComponent.hpp`). 2 ledger edges removed (17 -> 15). Uncommitted working tree at HEAD `a5cc909`.
+
+### Changes
+
+- **NEW `src/game/render/LightAdapter.hpp` + `.cpp`** (namespace `NoMoreDay`, modeled on the GPUEntityAdapter/OccluderProjector split-adapter precedents): `LightAdapter::BuildLightCandidates(entt::registry&, float gameTime) -> LightProjection {std::vector<components::GPULight> lights; int ecsLights;}`. Projects `Position + LightComponent` into the pure Engine DTO array. Projection logic moved **verbatim** from `LightManager.cpp` `Update`'s ECS loop: `BuildGpuLight` (position/radius/flicker intensity via `ComputeFlickerIntensity` incl. entity-phase hash/color/`ToRawLightType`/spot dir + `spotCosHalfAngle`/priority), the `enabled` filter, and the `radius<=0 || intensity<=0` filter; `ecsLights` mirrors the old `view.size_hint()`. Uncapped (Engine truncates to budget).
+- `src/engine/render/lighting/LightManager.hpp`: `Update(entt::registry&, const Camera2D&, int, float)` -> `UpdateCandidates(std::span<const components::GPULight>, const Camera2D&, int maxLights, int ecsLights)`; dropped `#include <entt/entt.hpp>` (no longer needs the registry).
+- `src/engine/render/lighting/LightManager.cpp`: deleted `game/components/Common.hpp` + `LightComponent.hpp` includes and the moved projection helpers; `Update` rewritten as `UpdateCandidates` — keeps view culling (`IntersectsView`), transient handling (`SanitizeRuntimeLight` + priority 255 + clear), sort (priority desc / distance asc), budget truncation, `m_stagingBuffer`/`m_activeLightRecords` fill and `OrphanAndUpload` GPU upload. ECS candidate sort priority now read from the DTO field `gpuLight.priority` (the adapter sets it == `light.priority`, so the `static_cast<uint8_t>` is lossless); transient stays hard-coded 255 — behavior identical.
+- `src/engine/render/GameplayRenderHooks.hpp`: `GameplayRenderFrame` gains Engine-owned `std::vector<components::GPULight>* lightBuffer` (after `occluderBuffer`) + out-field `int ecsLights`; new pure-virtual `onLights(GameplayRenderFrame&)` (only implementer is `GameplayRenderAdapter`).
+- `src/game/render/GameplayRenderAdapter.hpp/.cpp`: implements `onLights` — calls `LightAdapter::BuildLightCandidates(frame.registry, (float)GetTime())`, moves lights into `*frame.lightBuffer`, copies `ecsLights`.
+- `src/engine/render/RenderSystem.cpp`: static `s_lightCandidateBuffer`; `RenderFrameData.ecsLights`; `ToHooksFrame()` passes `&s_lightCandidateBuffer`; the lighting block (`useHdrSceneBuffer && !offscreenV3SafeMode && dynamicLightingEnabled && g_lightingPass`) now calls `gameplayHooks->onLights(hooksFrame)` (or clears `s_lightCandidateBuffer` + ecsLights=0 for gate/harness null-hooks) then `LightManager::Get().UpdateCandidates(s_lightCandidateBuffer, camera, renderConfig.maxLights, frame.ecsLights)`. **Graph build structure (AddPass order/conditions/owner tags/composite selection) zero modification.**
+- Ledger: deleted exactly 2 entries -> **15 entries** = LegacyLowerPch -> Game (MS-7) 5 + NoMoreDayEngine -> Game (MS-6) 10. Checker: removed `src/engine/render/lighting/LightManager.cpp` from `REQUIRED_P0_SOURCES` (0 residual edges).
+- Tests synchronized to the new engine signature via the shared adapter: `tests/unit/LightingTest.cpp` (5 call sites), `tests/integration/ClusteredLightingIntegrationTest.cpp` (7 call sites; the "Boundary conditions" case uses distinct `singleProjection`/`overfullProjection` locals in one scope), `tests/integration/LightingStabilityTest.cpp` (1 call in the 2400-frame loop, `timeSeconds` forwarded), `tests/performance/ClusteredLightingBenchmark.cpp` (1 call in `MeasureLightingPath` loop), `tests/performance/LightingBenchmark.cpp` (1 call in `MeasureLightingGpuMs` loop — an extra build-breaking caller beyond the audited list). Each builds `LightAdapter::BuildLightCandidates(registry, time)` then `UpdateCandidates(projection.lights, camera, N, projection.ecsLights)` — no per-test projection rewrite, per the ledger's reuse-the-adapter requirement.
+- No CMake edits needed (`GLOB_RECURSE CONFIGURE_DEPENDS` auto-picks the new `.cpp`).
+
+### Verification (real output)
+
+1. `python scripts/check_module_boundaries.py` -> `[Module Boundary] Observed/ledger edges: 15/15; files: 7` and `PASS` (exit 0). Breakdown: LegacyLowerPch -> Game (MS-7) 5, NoMoreDayEngine -> Game (MS-6) 10.
+2. `python -m unittest tests/python/ModuleBoundaryCheckerTest.py` -> 6 tests OK (exit 0).
+3. Full build redirected to `C:\Users\yuminao\AppData\Local\Temp\opencode\ms6-b4c-build.log` -> EXIT=0, both success markers (`[Build] Build completed successfully.` / `[Build] All steps completed successfully`), 0 error C/LNK/FAILED. First attempt failed with `error C2374/C2086/C2371: "lightProjection" redefinition` in `tests/integration/ClusteredLightingIntegrationTest.cpp` (Boundary-conditions case declares 3 same-scope projections) -> fixed by renaming the 2nd/3rd to `singleProjection`/`overfullProjection`; second build clean.
+4. Targeted `bin\NoMoreDayTests.exe --test-case="*[Unit] Lighting*,*Clustered Lighting*,*Lighting - Stability*"` -> `test cases: 19 | 19 passed | 0 failed | 692 skipped`, `assertions: 28762 | 28762 passed | 0 failed`, `Status: SUCCESS!` (unit lighting + 7 clustered integration + stability + 2 clustered benchmarks).
+5. `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` -> 78% pass; the only failures are the **pre-existing flaky** `HeavenlySwordClosureTests.cpp:97` `hasFreeze` (chance-based ~15%; `nmd.tests.skill.unit`/`nmd.tests.ai.unit` fail on different runs and each pass in isolation — confirmed non-regression).
+6. `git grep -n "game/" -- src/engine/render/lighting/LightManager.cpp` -> 0 hits (exit 1).
+7. `git diff --check` -> exit 0 (CRLF warnings only).
+
+### Deferred
+
+- Remaining MS-6 edges (Batch 6): GPULoot 2 + GPUSkillEffect 1 + GlobalHeightField 3 + HeightShadowPass 1 + RadianceCascadesPass 1 + VFX 2 = 10; plus 5 pch (MS-7). LightManager is fully Game-edge-free.
+- RG-3 resource lifecycle untouched; graph construction (AddPass order/conditions/owner tags) zero-modification verified.
+- Nothing was staged or committed (per project rule; main agent commits).

@@ -126,3 +126,23 @@ render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.sh
 **剩余风险**：ShadowBuildPass buffer 大小从恒 kMax 改 max(1,uploadCount)（功能等价、更省内存、无消费方依赖固定大小）；context occluders 字段唯一生产者是 RenderSystem（契约已注释声明）。均低。
 
 **提交**：`refactor(render): deduplicate occluder projection via game adapter`（待提交）。
+
+---
+
+## Batch 4-C（LightManager 拆分：LightAdapter）— `提交`
+
+**审查目标**：核验 LightManager 的 Engine→Game 边清除与 ECS 光投影迁移（ledger 17→15）。
+
+**变更边界**：2 新增（`src/game/render/LightAdapter.{hpp,cpp}`）+ 15 修改（ledger/evidence/checker/LightManager×2/GameplayRenderHooks/RenderSystem/GameplayRenderAdapter×2/5 测试文件）；settings.json 为用户指示既有残留；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium。3 项 Low 非阻塞：LightManager.cpp:114 `m_debugStats.ecsLights` 移至 `allowedLights==0` 提前返回前（maxLights=0 退化配置下日志更真实）；RenderSystem.cpp:1415-1419 null-hooks 路径不再投影 ECS 光（仅影响 gate/harness，本就不渲染玩法光照，evidence 已记录）；evidence "files 8" vs checker 实际 7（evidence 记载 7 正确）。
+
+**已复核通过**：投影 4 函数（NormalizeDirection/ComputeFlickerIntensity/ToRawLightType/BuildGpuLight）程序化比对与 HEAD 逐字节 IDENTICAL；UpdateCandidates 对照 HEAD 逐行等价（view cull/幂等过滤/transient SanitizeRuntimeLight+priority 255/排序 priority 降序→distance 升序/预算截断/m_stagingBuffer+OrphanAndUpload）；priority DTO 回读无损（uint8_t→uint32→uint8_t，值域 [0,255]）；onLights 接线（ToHooksFrame 聚合第 7 项与 GameplayRenderFrame 字段序对齐、null 守卫 + clear 防陈旧复用）；AddTransientLight/Bind/getter 头文件签名未动（VFXSequencerSystem.cpp:425、ProjectileSystem.cpp:686 仍用 AddTransientLight）；5 测试全部"adapter 投影 + UpdateCandidates 消费"（Boundary 用例 3 投影独立局部名；benchmark 逐帧 BuildLightCandidates(registry,i*0.016f)；GPU 计时仅包 pass.Execute 不含投影，指标语义不变）；ledger 精确删 2 边、checker REQUIRED_P0_SOURCES 移除 LightManager.cpp；硬约束零命中（pch/CMake/build.bat/ResourceManager/GPUResourceRegistry/RenderGraph/passes/AddPass 链全零 diff）。
+
+**独立重跑（审查员）**：checker 15/15 PASS（files 7 = MS-6 10 + pch 5）、ModuleBoundaryCheckerTest 6/6、git diff --check exit 0、ms6-b4c-build.log 存在含双标记。
+
+**验证（主代理）**：完整构建双标记 0 error、定向 `*[Unit] Lighting*,*Clustered Lighting*,*Lighting - Stability*` 19/19 28762 断言 SUCCESS、ctest -L unit 78%（仅既有 HeavenlySword flaky）、git grep game/ LightManager.cpp 0 命中。
+
+**剩余风险**：低。null-hooks 路径不再投影 ECS 光属 hooks 契约设计（evidence 已记录）；benchmark 指标不受投影迁移影响。
+
+**提交**：`refactor(render): split light manager candidate projection`（待提交）。
