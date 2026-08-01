@@ -264,6 +264,17 @@ constexpr int MAX_POPUPS = 2048;
 constexpr int MAX_GLYPHS = 4096; // 批量文字渲染上限
 } // namespace GPU
 
+namespace ParticleConfig {
+// GPU 粒子系统参数 (自 game/components/Common.hpp Constants::Render 下沉)
+constexpr int PARTICLE_STAGING_RESERVE = 10000; // 每帧允许申请的粒子缓冲保留量
+constexpr int WORKGROUP_SIZE_PARTICLES = 256;   // GPU计算粒子时的线程工作组大小
+constexpr float MAX_DELTA_TIME_PARTICLES =
+    0.1f; // 粒子模拟的最大允许时间步长（防止卡顿后飞天）
+constexpr float DEFAULT_DELTA_TIME_PARTICLES =
+    0.016f; // 默认每帧粒子物理模拟步长
+            // (60fps)---此值不可信，实际帧率由全局设置决定，目前是180fps
+} // namespace ParticleConfig
+
 namespace Shadow {
 // Baseline constants for V3 shadow pipeline.
 constexpr uint32_t kMaxShadowCasters = 8192;

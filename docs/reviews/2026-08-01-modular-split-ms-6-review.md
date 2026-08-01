@@ -90,3 +90,21 @@ render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.sh
 **提交**：`refactor(render): dto render input and rewire pass resources`（待提交）。
 
 **剩余 18 条 MS-6 Game 边**：GPULoot 2 + GPUParticle 1 + GPUSkillEffect 1 + lighting 6（GlobalHeightField 4/LightManager 2）+ passes 6（OccluderExtract 2/ShadowBuild 2/RadianceCascades 1/HeightShadow 1）+ VFX 2，属 Batch 4。
+
+---
+
+## Batch 4-A（琐项：粒子常量下沉 + 高度场死 include）— `提交`
+
+**审查目标**：核验 GPUParticleSystem 常量下沉 RenderConstants 与 GlobalHeightField 死 include 删除（ledger 23→21）。
+
+**变更边界**：7 文件（ledger JSON、checker、GPUParticleSystem.cpp、RenderConstants.hpp、GlobalHeightField.cpp、Common.hpp、ModuleBoundaryCheckerTest.py）；settings.json 为用户指示既有残留（不 stage）；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium。唯一观察：GlobalHeightField ledger 行号 5/6/7→4/5/6 正确重编号（删一行 include 的自然位移），checker 21/21 证明一致。
+
+**已复核通过**：4 常量值（10000/256/0.1f/0.016f）与 Common.hpp HEAD 逐字一致；命名空间 `NoMoreDay::RenderConstants::ParticleConfig`（RenderConstants.hpp:267-276 内嵌于 :5-6），引用点 :393/:568/:600-601 由两处 using（:392/:566）覆盖；`components::GPUParticle` 来自 GPUData.hpp 非 Common.hpp；全仓 grep 4 常量仅 GPUParticleSystem+RenderConstants；GlobalHeightField 删 AdvancedAffixComponents.hpp 无 Affix 使用残留；ledger 精确删 2 边；REQUIRED_P0_SOURCES 仅移除 GPUParticleSystem.cpp（GlobalHeightField.cpp 保留，仍 3 边）；ModuleBoundaryCheckerTest.py 仅换源 GPUParticleSystem→GPULootSystem（仍 P0 source）；越权零触碰（RG-3/pch/CMake/pass 逻辑/graph 结构）。
+
+**独立重跑（审查员）**：checker 21/21 PASS（files 10 = MS-6 16 + pch 5）、git diff --check 干净、pytest ModuleBoundaryCheckerTest 6 passed 5 subtests。
+
+**验证（主代理）**：完整构建双标记 0 error（ms6-b4a-build.log）、25 python tests OK。
+
+**提交**：`refactor(render): sink particle constants and drop dead affix include`（待提交）。

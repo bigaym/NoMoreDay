@@ -6,7 +6,6 @@
 #include "engine/render/particle/ForceFieldManager.hpp"
 #include "engine/render/particle/ParticleTextureManager.hpp"
 #include "engine/render/resource/TextureArrayManager.hpp"
-#include "game/components/Common.hpp"
 
 // RenderConstants::ParticleCS defines binding point semantics
 #include "engine/render/RenderConstants.hpp"
@@ -390,7 +389,7 @@ void GPUParticleSystem::CreateBuffers() {
   LOG_DEBUG("GPUParticleSystem: Created persistent atomic counter");
 
   // Emission Buffer (Triple Buffered)
-  using namespace NoMoreDay::Constants::Render;
+  using namespace NoMoreDay::RenderConstants::ParticleConfig;
   m_emissionCap = PARTICLE_STAGING_RESERVE;
   m_emissionBuffer.Create(m_emissionCap * sizeof(components::GPUParticle));
   m_mappedPtr = (components::GPUParticle*)m_emissionBuffer.BeginWrite();
@@ -564,7 +563,7 @@ void GPUParticleSystem::Update(float dt) {
     if (m_targetDispatchCount > 0) {
         rlEnableShader(m_computeShader.id);
 
-        using namespace NoMoreDay::Constants::Render;
+        using namespace NoMoreDay::RenderConstants::ParticleConfig;
         float clampedDt =
             (dt > MAX_DELTA_TIME_PARTICLES) ? DEFAULT_DELTA_TIME_PARTICLES : dt;
         rlSetUniform(m_computeDtLoc, &clampedDt, RL_SHADER_UNIFORM_FLOAT, 1);

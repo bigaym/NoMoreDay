@@ -1,7 +1,6 @@
 #include "engine/render/lighting/GlobalHeightField.hpp"
 
 #include "engine/render/GPUUtils.hpp"
-#include "game/components/AdvancedAffixComponents.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/MapComponent.hpp"
 #include "game/components/ShadowCasterComponent.hpp"

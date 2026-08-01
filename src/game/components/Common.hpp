@@ -483,14 +483,7 @@ constexpr int TOWN_EXIT_Y_OFFSET = -8;      // 城镇出口 Y 偏移 (稍微向�
   namespace Render
   {
     constexpr int MAX_PARTICLES_DEFAULT =
-        100000;                                     // 同时显示的最大粒子总数 (GPU Buffer)
-    constexpr int PARTICLE_STAGING_RESERVE = 10000; // 每帧允许申请的粒子缓冲保留量
-    constexpr int WORKGROUP_SIZE_PARTICLES = 256;   // GPU计算粒子时的线程工作组大小
-    constexpr float MAX_DELTA_TIME_PARTICLES =
-        0.1f; // 粒子模拟的最大允许时间步长（防止卡顿后飞天）
-    constexpr float DEFAULT_DELTA_TIME_PARTICLES =
-        0.016f; // 默认每帧粒子物理模拟步长
-                // (60fps)---此值不可信，实际帧率由全局设置决定，目前是180fps
+        100000; // 同时显示的最大粒子总数 (GPU Buffer)
     constexpr int MAX_SKILL_EFFECTS =
         10000; // 同时存在的最大技能特效数量 (GPU Buffer)
   } // namespace Render

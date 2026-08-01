@@ -143,7 +143,7 @@ class ModuleBoundaryCheckerTest(unittest.TestCase):
             (root / "src" / "pch.hpp").write_text(
                 "#pragma once\n", encoding="utf-8"
             )
-            source = "src/engine/render/GPUParticleSystem.cpp"
+            source = "src/engine/render/GPULootSystem.cpp"
             (root / source).write_text(
                 '#include "game/components/Common.hpp"\n', encoding="utf-8"
             )
