@@ -1,42 +1,14 @@
 #include "engine/render/GPUEntitySystem.hpp"
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
-#include "engine/render/GPUFlowFieldSystem.hpp"
-#include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
-#include "engine/render/RenderContext.hpp"
-#include "game/components/AIComponent.hpp"
-#include "game/components/Buff.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/EnemyComponent.hpp"
-#include "game/components/Projectile.hpp"
-#include "game/components/Stats.hpp"
-#include "game/data/BiomeRegistry.hpp"
-#include "game/registry/GroupRegistry.hpp"
-#include "game/systems/world/LevelManager.hpp"
-#include "game/systems/stats/AttributePipeline.hpp"
 #include "raylib.h" // Added for GetFrameTime()
 #include "rlgl.h"
 
 namespace NoMoreDay::systems {
 
-GPUEntitySystem *GPUEntitySystem::s_instance = nullptr;
-
-GPUEntitySystem &GPUEntitySystem::Get() {
-  if (!s_instance) {
-    LOG_WARN("GPUEntitySystem::Get() called without initialization. "
-             "Consider using RenderContext injection.");
-    static GPUEntitySystem fallback;
-    return fallback;
-  }
-  return *s_instance;
-}
-
 using namespace components;
 
-void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities,
-                           entt::registry *registry) {
-  s_instance = this;
+void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities) {
   m_maxEntities = maxEntities;
   LOG_INFO("Initializing GPUEntitySystem (Compute-based Physics) with {} "
            "entities...",
@@ -57,7 +29,7 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities,
                                   3);
   m_physicsOutputBuffer.Create(m_maxEntities * sizeof(components::GPUEntity),
                                3);
-  m_mapBoundary = NoMoreDay::Constants::World::MAP_BOUNDARY;
+  m_mapBoundary = 5000.0f; // NoMoreDay::Constants::World::MAP_BOUNDARY
 
   int gridCols = 5000 / 32 + 1;
   int gridRows = 5000 / 32 + 1;
@@ -79,17 +51,8 @@ void GPUEntitySystem::Init(ResourceManager &resources, int maxEntities,
   m_gridOffsets.resize(numCells);
   m_blockDirty.resize((m_maxEntities / BLOCK_SIZE) + 1, true);
 
-  // Initialize new SlotManager
-  m_slotManager.Init(m_maxEntities, registry, [this](int slot) {
-    if (slot >= 0 && slot < (int)m_shadowBuffer.size()) {
-      m_shadowBuffer[slot].radius = 0.0f;
-      m_shadowBuffer[slot].position = {0, 0};
-      m_visualStatsShadowBuffer[slot] = {};
-    }
-  });
-
-  // Legacy slot management removed in favor of GPUSlotManager
-  // m_freeSlots/m_slotToEntity are now managed by m_slotManager
+  // Slot Manager initialization moved to NoMoreDay::GPUEntityAdapter (Game
+  // layer). Engine no longer owns ECS slot/physics/visual projection.
 
   InitRender(resources);
 }
@@ -111,7 +74,7 @@ void GPUEntitySystem::InitRender(ResourceManager &rm) {
   rlDisableVertexArray();
 }
 
-void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context,
+void GPUEntitySystem::Render(const render::EntityRenderFrame &frame,
                              const Camera2D &camera) {
   if (m_maxEntities > 0) {
     // Calculate View Bounds for Culling
@@ -127,21 +90,21 @@ void GPUEntitySystem::Render(const NoMoreDay::SharedContext &context,
     m_persistentEntityBuffer.BindPreviousNoSync(static_cast<uint32_t>(
         NoMoreDay::RenderConstants::Binding::SSBO_ENTITY_DATA));
 
-    if (context.renderContext) {
-      auto &mdi = context.renderContext->MDI();
+    if (frame.mdi != nullptr) {
+      auto &mdi = *frame.mdi;
       mdi.ResetCommand(); // Reset before culling
-      mdi.Cull(*context.resources, m_persistentEntityBuffer, viewBounds);
-      mdi.Render(*context.resources, m_persistentEntityBuffer,
-                 context.renderAlpha);
+      mdi.Cull(*frame.resources, m_persistentEntityBuffer, viewBounds);
+      mdi.Render(*frame.resources, m_persistentEntityBuffer,
+                 frame.renderAlpha);
     } else {
       auto &mdi = NoMoreDay::render::MDIRenderer::Get();
       mdi.ResetCommand(); // Reset before culling
-      mdi.Cull(*context.resources, m_persistentEntityBuffer, viewBounds);
-      mdi.Render(*context.resources, m_persistentEntityBuffer,
-                 context.renderAlpha);
+      mdi.Cull(*frame.resources, m_persistentEntityBuffer, viewBounds);
+      mdi.Render(*frame.resources, m_persistentEntityBuffer,
+                 frame.renderAlpha);
     }
   } else {
-    RenderLegacy(context.renderAlpha);
+    RenderLegacy(frame.renderAlpha);
   }
 }
 
@@ -164,68 +127,7 @@ void GPUEntitySystem::RenderLegacy(float alpha) {
   rlDisableShader();
 }
 
-// OnGPUIndexDestroyed removed - Managed by GPUSlotManager internal callback
-
-void GPUEntitySystem::Update(const NoMoreDay::SharedContext &context,
-                             float dt) {
-  UpdateLogic(context, dt);
-  UploadGPU(context);
-}
-
-void GPUEntitySystem::UpdateLogic(const NoMoreDay::SharedContext &context, float dt) {
-  NoMoreDay::utils::ScopedTimer timer("Logic Update", 100);
-  using namespace NoMoreDay::utils;
-  auto &registry = *context.registry;
-  m_frameCounter++;
-  float currentTime = (float)GetTime();
-
-  if (m_shadowBuffer.size() != m_maxEntities) {
-    m_shadowBuffer.assign(m_maxEntities, {});
-    m_visualStatsShadowBuffer.assign(m_maxEntities, {});
-  }
-
-  // --- Step 1: CPU Logic (Perform all heavy lifting first without GPU locks) ---
-  {
-    // Phase 1: Slot Reclamation & Assignment via GPUSlotManager
-    m_slotManager.Process(registry);
-
-    // Phase 2: Physics Sync
-    m_highWaterMark =
-        m_physicsSync.Execute(registry, m_shadowBuffer, m_frameCounter);
-
-    // Phase 3: Visual Sync
-    m_updatedStatsIndices = m_visualSync.Execute(registry, m_visualStatsShadowBuffer, m_frameCounter,
-                         currentTime);
-  }
-
-  if (context.levelManager) {
-    const auto biomeId = context.levelManager->getCurrentBiomeID();
-    const auto &biome = NoMoreDay::BiomeRegistry::Get().GetBiome(biomeId);
-    if (biome.hasFeature(NoMoreDay::BiomeFeature::LimitedVision) &&
-        biome.visionRadius > 0.0f) {
-      auto enemyView = registry.view<EnemyTag, Position, GPUIndex>();
-      for (auto entity : enemyView) {
-        const auto &pos = enemyView.get<Position>(entity);
-        const auto &gpuIdx = enemyView.get<GPUIndex>(entity);
-        const int slot = gpuIdx.index;
-        if (slot < 0 || slot >= (int)m_shadowBuffer.size()) {
-          continue;
-        }
-        using namespace NoMoreDay::Constants::World;
-        const int gx = static_cast<int>(pos.x / GRID_TILE_SIZE);
-        const int gy = static_cast<int>(pos.y / GRID_TILE_SIZE);
-        const bool visible = context.levelManager->getFogSystem().isVisible(gx, gy);
-        if (visible) {
-          m_shadowBuffer[slot].flags &= ~GPU_ENTITY_FLAG_NO_RENDER;
-        } else {
-          m_shadowBuffer[slot].flags |= GPU_ENTITY_FLAG_NO_RENDER;
-        }
-      }
-    }
-  }
-}
-
-void GPUEntitySystem::UploadGPU(const NoMoreDay::SharedContext &context) {
+void GPUEntitySystem::UploadGPU(const render::EntityRenderFrame &frame) {
   NoMoreDay::utils::ScopedTimer timer("Upload GPU", 50); // Keep sensitive to track improvements
   using namespace NoMoreDay::utils;
   
@@ -244,20 +146,15 @@ void GPUEntitySystem::UploadGPU(const NoMoreDay::SharedContext &context) {
 
   // 2. Visual Stats Upload (Sparse update via Scatter Compute)
   if (!m_updatedStatsIndices.empty()) {
-      auto& mdi = NoMoreDay::render::MDIRenderer::Get();
-      mdi.FlushStatsUpdates(*context.resources); // This handles m_updatedStatsIndices internally
+      auto& mdi = (frame.mdi != nullptr) ? *frame.mdi : NoMoreDay::render::MDIRenderer::Get();
+      mdi.FlushStatsUpdates(*frame.resources); // This handles m_updatedStatsIndices internally
   }
   
   // Update MDI active count even if no stats changed
-  auto& mdi = NoMoreDay::render::MDIRenderer::Get();
+  auto& mdi = (frame.mdi != nullptr) ? *frame.mdi : NoMoreDay::render::MDIRenderer::Get();
   mdi.SetMaxActiveEntities((uint32_t)activeCount);
 
   m_persistentEntityBuffer.Lock();
-}
-void GPUEntitySystem::SyncBack(entt::registry &registry) {
-  // CPU Authority: SyncBack is disabled to prevent stale/extrapolated GPU data
-  // from overwriting the CPU source of truth.
-  // Implementation of Task 1.1 of the enemy-rendering-refactor track.
 }
 
 void GPUEntitySystem::Shutdown() {
@@ -267,10 +164,40 @@ void GPUEntitySystem::Shutdown() {
   m_cellOffsetBuffer.Release();
   m_entityIndicesBuffer.Release();
   m_tempCountBuffer.Release();
+}
 
-  if (s_instance == this) {
-    s_instance = nullptr;
+components::GPUEntity *GPUEntitySystem::BeginShadowWrite() {
+  if ((int)m_shadowBuffer.size() != m_maxEntities) {
+    m_shadowBuffer.assign(m_maxEntities, {});
+    m_visualStatsShadowBuffer.assign(m_maxEntities, {});
   }
+  return m_shadowBuffer.data();
+}
+
+void GPUEntitySystem::SetHighWaterMark(int highWaterMark) {
+  m_highWaterMark = highWaterMark;
+}
+
+void GPUEntitySystem::ApplyShadowFlags(int slot, uint32_t flags) {
+  if (slot < 0 || slot >= (int)m_shadowBuffer.size()) {
+    return;
+  }
+  const uint32_t noRenderMask = components::GPU_ENTITY_FLAG_NO_RENDER;
+  m_shadowBuffer[slot].flags =
+      (m_shadowBuffer[slot].flags & ~noRenderMask) | (flags & noRenderMask);
+}
+
+void GPUEntitySystem::SetUpdatedStatsIndices(
+    const std::vector<uint32_t> &indices) {
+  m_updatedStatsIndices = indices;
+}
+
+std::vector<components::GPUEntity> &GPUEntitySystem::ShadowBuffer() {
+  return m_shadowBuffer;
+}
+
+std::vector<components::GPUVisualStats> &GPUEntitySystem::VisualStatsBuffer() {
+  return m_visualStatsShadowBuffer;
 }
 
 } // namespace NoMoreDay::systems

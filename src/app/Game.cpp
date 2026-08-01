@@ -297,7 +297,9 @@ void Game::init() {
     NoMoreDay::systems::GPUParticleSystem::Get().Init(
         NoMoreDay::Constants::Render::MAX_PARTICLES_DEFAULT);
 
-    m_gpuEntitySystem.Init(m_resourceManager, 30000, &m_registry);
+    m_gpuEntitySystem.Init(m_resourceManager, 30000);
+    m_gpuEntityAdapter.Init(30000, &m_registry, m_gpuEntitySystem);
+    m_gpuEntityAdapter.SetLevelManager(m_context.levelManager);
     m_mdiRenderer.Init(m_resourceManager, 30000);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
@@ -358,7 +360,8 @@ void Game::run() {
             while (accumulator >= fixedDt) {
               if (m_gpuInfo.computeShaderSupported) {
                 // 1. CPU -> Shadow Sync (Logic update only, no GPU mapping here)
-                m_gpuEntitySystem.UpdateLogic(m_context, fixedDt);
+                m_gpuEntityAdapter.Update(m_registry, m_gpuEntitySystem,
+                                          fixedDt, (float)GetTime());
               }
         
               accumulator -= fixedDt;
@@ -367,7 +370,9 @@ void Game::run() {
         
             if (logicRan && m_gpuInfo.computeShaderSupported) {
               // Submit new pulse to GPU
-              m_gpuEntitySystem.UploadGPU(m_context);
+              m_gpuEntitySystem.UploadGPU(
+                  {m_context.resources, &m_context.renderContext->MDI(),
+                   m_context.renderAlpha});
             }  
 
             // Update particle system (Always run to process menu particles and emissions)

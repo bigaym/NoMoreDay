@@ -711,7 +711,12 @@ void ExecuteScenePass(RenderFrameData &frame) {
     DrawTexturePro(sprite.texture, source, dest, origin, 0.0f, WHITE);
   }
 
-  NoMoreDay::systems::GPUEntitySystem::Get().Render(frame.context, frame.camera);
+  if (frame.context.renderContext != nullptr) {
+    frame.context.renderContext->GPU().Render(
+        {frame.context.resources, &frame.context.renderContext->MDI(),
+         frame.context.renderAlpha},
+        frame.camera);
+  }
 
   auto pixelView = frame.registry.view<const Position, const ColorComponent>(
       entt::exclude<SpriteComponent>);

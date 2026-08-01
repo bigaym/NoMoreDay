@@ -1,4 +1,4 @@
-#include "engine/render/GPUEntitySync.hpp"
+#include "game/render/GPUEntitySync.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/vfx/VFXTypes.hpp"
 #include "game/components/AIComponent.hpp"

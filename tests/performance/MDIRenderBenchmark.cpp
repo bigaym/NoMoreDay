@@ -10,6 +10,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include "game/render/GPUEntityAdapter.hpp"
 
 #include <algorithm>
 #include <iostream>
@@ -50,7 +51,11 @@ BenchmarkStats MeasureMdiRender(systems::GPUEntitySystem &gpuEntitySystem,
                                 const NoMoreDay::SharedContext &context,
                                 const Camera2D &camera) {
   for (int i = 0; i < kWarmupFrames; ++i) {
-    gpuEntitySystem.Render(context, camera);
+    gpuEntitySystem.Render(
+        {context.resources,
+         context.renderContext ? &context.renderContext->MDI() : nullptr,
+         context.renderAlpha},
+        camera);
     glFinish();
   }
 
@@ -58,7 +63,11 @@ BenchmarkStats MeasureMdiRender(systems::GPUEntitySystem &gpuEntitySystem,
   samples.reserve(kBenchFrames);
   for (int i = 0; i < kBenchFrames; ++i) {
     ScopedTimer timer(samples);
-    gpuEntitySystem.Render(context, camera);
+    gpuEntitySystem.Render(
+        {context.resources,
+         context.renderContext ? &context.renderContext->MDI() : nullptr,
+         context.renderAlpha},
+        camera);
     glFinish();
   }
   return CalculateStats(samples);
@@ -111,6 +120,9 @@ TEST_CASE("[Performance] MDIRenderer - Scenario Gate (50k)") {
   mdiRenderer.Init(resources, mdi_render_benchmark_detail::kEntityCount);
 
   entt::registry registry;
+  NoMoreDay::GPUEntityAdapter gpuEntityAdapter;
+  gpuEntityAdapter.Init(mdi_render_benchmark_detail::kEntityCount, &registry,
+                        gpuEntitySystem);
   mdi_render_benchmark_detail::PopulateEntities(
       registry, mdi_render_benchmark_detail::kEntityCount, 4000.0f);
 
@@ -119,7 +131,9 @@ TEST_CASE("[Performance] MDIRenderer - Scenario Gate (50k)") {
   context.registry = &registry;
   context.renderAlpha = 0.0f;
   context.renderContext = &renderContext;
-  gpuEntitySystem.Update(context, 1.0f / 60.0f);
+  gpuEntityAdapter.Update(registry, gpuEntitySystem, 1.0f / 60.0f, 0.0f);
+  gpuEntitySystem.UploadGPU(
+      {context.resources, &context.renderContext->MDI(), context.renderAlpha});
 
   const Camera2D allVisibleCamera =
       mdi_render_benchmark_detail::MakeCamera(2000.0f, 2000.0f, 1.0f);

@@ -14,6 +14,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include "game/render/GPUEntityAdapter.hpp"
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -139,6 +140,8 @@ TEST_CASE("[Performance] GPUEntitySystem - Scenario C Entity Horde Test") {
 
   entt::registry registry;
   context.registry = &registry;
+  NoMoreDay::GPUEntityAdapter gpuEntityAdapter;
+  gpuEntityAdapter.Init(TEST_ENTITIES, &registry, gpuEntitySystem);
   for (int i = 0; i < TEST_ENTITIES; ++i) {
     auto e = registry.create();
     registry.emplace<::Position>(e, (float)(rand() % 4000),
@@ -166,7 +169,8 @@ TEST_CASE("[Performance] GPUEntitySystem - Scenario C Entity Horde Test") {
 
     // Measure Update (Sync + Upload)
     auto start = std::chrono::high_resolution_clock::now();
-    gpuEntitySystem.Update(context, DT);
+    gpuEntityAdapter.Update(registry, gpuEntitySystem, DT, (float)frame);
+    gpuEntitySystem.UploadGPU({&resources, &mdiRenderer, context.renderAlpha});
     auto end = std::chrono::high_resolution_clock::now();
 
     updateTimes.push_back(

@@ -9,6 +9,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
+#include "game/render/GPUEntityAdapter.hpp"
 
 namespace NoMoreDay {
 
@@ -38,7 +39,6 @@ TEST_CASE("[Integration] MDIRender - MDI Rendering Integration") {
 
   LOG_INFO("TEST: Create Entities");
   entt::registry registry;
-  // ... (rest of loop)
   int entityCount = 50;
   for (int i = 0; i < entityCount; ++i) {
     auto e = registry.create();
@@ -51,16 +51,20 @@ TEST_CASE("[Integration] MDIRender - MDI Rendering Integration") {
     }
   }
   context.registry = &registry;
+  GPUEntityAdapter gpuEntityAdapter;
+  gpuEntityAdapter.Init(100, &registry, gpuEntitySystem);
 
   LOG_INFO("TEST: Update");
-  gpuEntitySystem.Update(context, 0.016f);
+  gpuEntityAdapter.Update(registry, gpuEntitySystem, 0.016f, 0.0f);
+  gpuEntitySystem.UploadGPU({&resources, &mdiRenderer, context.renderAlpha});
 
   LOG_INFO("TEST: Render Frame");
   Camera2D camera = {0};
   camera.zoom = 1.0f;
   BeginDrawing();
   ClearBackground(BLACK);
-  gpuEntitySystem.Render(context, camera);
+  gpuEntitySystem.Render({&resources, &mdiRenderer, context.renderAlpha},
+                         camera);
   EndDrawing();
 
   LOG_INFO("TEST: Render Done");

@@ -1,5 +1,5 @@
 #include "doctest.h"
-#include "engine/render/GPUEntitySync.hpp"
+#include "game/render/GPUEntitySync.hpp"
 #include "game/components/Common.hpp"
 #include <entt/entt.hpp>
 

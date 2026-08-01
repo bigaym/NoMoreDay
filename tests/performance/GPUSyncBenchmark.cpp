@@ -2,7 +2,7 @@
 
 #include "BenchmarkUtils.hpp"
 #include "TestCommon.hpp"
-#include "engine/render/GPUEntitySync.hpp"
+#include "game/render/GPUEntitySync.hpp"
 #include "game/components/AIComponent.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/Stats.hpp"

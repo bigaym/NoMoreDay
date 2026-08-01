@@ -1,7 +1,7 @@
 # Modular Static Target Split Implementation Plan
 
 **Design reference:** `docs/designs/modular-split-exe-lib-dll-design.md`
-**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [x]; MS-4 [x]; MS-5 [x]; MS-6 through MS-8 [ ] (MS-6 remains P0-blocked)
+**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [x]; MS-4 [x]; MS-5 [x]; MS-6 [~] (core GPU entity batch shipped, 46 MS-6 edges remain); MS-7 through MS-8 [ ]
 **Execution model:** Each milestone is implemented by an `implementer` subagent, reviewed by an independent `reviewer`, then committed only after a `提交` conclusion. The design document is user-owned worktree state and is never edited, staged, or committed by this initiative.
 
 ## Goal
@@ -252,11 +252,11 @@ must be resolved before MS-7 builds the explicit target graph.
 - [x] MS-5.1 Move presentation-policy code and update path-sensitive UI tests. Implemented in this package.
 - [x] MS-5.2 Verify UI tests and normal build; review and commit. Reviewed `提交` (2026-07-30-modular-split-ms-5-review.md); committed.
 
-### MS-6 [ ]: Render Boundary Adapter (Blocked)
+### MS-6 [~]: Render Boundary Adapter (In Progress)
 
 **Objective:** Replace Game ECS/`SharedContext` exposure in GPU entity rendering with a Game adapter and narrow Engine DTO/upload contract.
 
-**Status:** Blocked until the P0 rendering track accepts the relevant RG-3 resource-lifetime coordination. No implementation begins merely because prior milestones complete.
+**Status:** First batch shipped: GPU entity rendering core (GPUEntitySystem + GPUEntitySync). Engine narrowed to DTO/upload contract (`render::EntityRenderFrame`, `BeginShadowWrite`/`SetHighWaterMark`/`ApplyShadowFlags`); ECS -> shadow-buffer projection moved to Game adapter (`src/game/render/GPUEntityAdapter.hpp`) with zero-copy writes into the Engine-owned shadow buffer. 20 ledger edges removed (71 -> 51). Remaining 51 edges break down as 5 MS-7 pch edges plus 46 MS-6 edges left for later sub-batches, with RenderSystem (`RenderSystem.cpp` 20 + `RenderSystem.hpp` 1) highest priority. Evidence: `docs/reports/modular-split-exe-lib-dll/ms-6/evidence.md`.
 
 ### MS-7 [ ]: Explicit Static Targets and Target PCHs
 
