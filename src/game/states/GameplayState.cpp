@@ -982,7 +982,8 @@ void GameplayState::OnRender() {
   // Entities
   {
     NoMoreDay::utils::ScopedTimer timer("RenderSystem Total", 50);
-    RenderSystem::render(*m_context->registry, *m_context, m_camera);
+    RenderSystem::render(*m_context->registry, *m_context, m_camera,
+                       m_context->gameplayRenderHooks);
   }
 
   // Monster Health Bars

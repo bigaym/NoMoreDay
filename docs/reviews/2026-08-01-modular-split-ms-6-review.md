@@ -41,3 +41,31 @@ Date: 2026-08-01
 ## 下一步
 
 按用户授权分批次提交；提交后处理剩余 46 条 MS-6 边（RenderSystem 优先子批次），再 MS-7/8，最后 DOD-2 实机 gate。
+
+---
+
+## Batch 1 — 死 include 清理（363b196）
+
+**审查结论**：`提交`。删除 RenderSystem.cpp 3 个死 include（DamagePopupManager/SkillSystem/PlayerHUD）；MonsterAffixSystem 保留（EnemyTag 传递源，待 Batch 2）。ledger 删 3 边 + 校正 8 边行号，51 -> 48。独立验证：checker 48/48、ModuleBoundaryCheckerTest 6/6、build 双标记（ms6-b1-build.log）、git grep 0 匹配、diff --check exit 0。无发现。
+
+## Batch 2 — GameplayRenderAdapter（主体迁移）
+
+**审查结论**：`提交`（只读 reviewer；主代理修复 2 项后验证）。
+
+**发现**：
+- **[M1]** ExecuteScenePass 绘制顺序改变（旧序 trail→sword→stash→sprite→GPU().Render→pixel→blood→molten→holo；新序 GPU().Render 首→adapter 全部）。代码注释声明有意（player 盖过敌人属修正方向）；需实机目视确认。**接受风险**（已记录于 evidence）。
+- **[M2]** VFX pass 内 resist-overlay 移到 `GPUSkillEffectSystem::Render` 之前（旧序 Submit→Render→distortion→resist overlay），抗性描边环由 skill mesh 之上变之下，未注释。**接受风险**（已记录于 evidence）。
+- **[M3]** null-hooks 早返回先于引擎原语 `GPU().Render()`（hooks null 但 renderContext 非空时 GPU 实体不渲染）。当前调用方全为 renderContext==nullptr 无实害。**已修复**：`GPU().Render()` 提前到 null 检查之前（RenderSystem.cpp:569-585，注释说明引擎原语独立于 hooks，null renderContext 守卫保留）。
+- **[L1]** onFrameData 的 DTO flags 在 flag 计算前构造恒 false（adapter 当前不用，隐式脆弱点；Batch 3 前移）。
+- **[L2]** reviewer 误判 `MonsterAffixSystem.hpp` 无引用——实际 `MoltenTrailTag` 定义于 `game/systems/combat/MonsterAffixSystem.hpp:37`（adapter.cpp:243 使用）。include 恢复有效。
+- **[OBS]** adapter.hpp include `app/SharedContext.hpp`（Game→App 依赖，checker 不扫 src/game；SharedContext 归属待后续里程碑）。
+
+**已复核通过**：变更边界 17 文件；hooks 零 game/app 依赖；SharedContext 前向声明无边；render() hooks 参数 null 安全；4 hook 迁移逐段对照（唯一差异 M1/M2）；buffer 填充契约（Engine 持静态 buffer、adapter 填 DTO 指针、Engine 绘）；7 game 文件引用 adapter::s_itemGrid/VisibleItemCache 一致（无 RenderSystem 残留）；ledger 精确删 17（48->31）；checker REQUIRED_P0_SOURCES 移除 RenderSystem.cpp 保留 RenderSystem.hpp；UITests BloodSea 锁定改 GameplayRenderAdapter.cpp 断言精确匹配；graph 构建仅 3 处 lambda 加 hooks 参数；RG-3 零触碰；adapter 生命周期（Game.hpp:60、Game.cpp:303-307 先于 RenderSystem::Initialize、cleanup 反向安全）。
+
+**修复后验证**：checker 31/31（files 16）、build 双标记（ms6-b2-fix2-build.log）、定向 6/6 26 断言、ctest unit 单独重跑全过（全量并行偶发失败为既有 HeavenlySword hasFreeze flaky，二进制每次不同，非回归）、git grep game/ RenderSystem.cpp 0 命中、diff --check exit 0。
+
+**接受的剩余风险**：M1/M2 叠层顺序未经实机目视验证；L1 flag 时序脆弱点；OBS SharedContext 归属（Game→App 依赖留待后续里程碑，checker 不扫 src/game）。
+
+## 下一步（Batch 3）
+
+render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.shared 替换评估（需 RG-3 授权）→ Batch 4（剩余 25 边 GPULoot 2/GPUParticle 1/GPUSkillEffect 1/lighting 6/passes 13/VFX 2）→ MS-7/8 → DOD-2。

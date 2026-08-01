@@ -46,3 +46,46 @@ Date: 2026-08-01. Batch scope: GPU entity rendering core (GPUEntitySystem + GPUE
 - **Remaining ledger work**: 51 edges stay (RenderSystem.cpp 20 + RenderSystem.hpp 1 + GPULoot 2 + GPUParticle 1 + GPUSkillEffect 1 + lighting 6 + passes 13 + VFX 2 = 46 MS-6 edges; pch.hpp 5 = MS-7). RenderSystem is the next-priority sub-batch.
 - **Guard**: `GPUEntitySystem::Get()` removed; no remaining call sites (build confirms). GameplayState.cpp:522 accessors intact.
 - Nothing was staged or committed (per project rule; main agent commits).
+
+---
+
+## Batch 2 — GameplayRenderAdapter (RenderSystem.cpp Game draw migration)
+
+Date: 2026-08-01. Scope: move Game-specific rendering out of `RenderSystem.cpp` into a Game-layer adapter. 17 more ledger edges removed (48 -> 31). Committed as `363b196` (Batch 1) then this batch.
+
+### Changes
+
+- New Engine-side pure-DTO interface `src/engine/render/GameplayRenderHooks.hpp` (namespace `render`): virtual `onFrameData/onScene/onVFX/onUIWorld` + `render::GameplayRenderFrame` DTO (registry/camera refs; Engine-owned labelBuffer/glyphBuffer/beamBuffer instance buffers that the adapter fills; font out-field; gpuTextEnabled/gpuLootEnabled/gpuLootGlowEnabled flags; GPUBeamInstance struct). Zero game/app deps (only entt/raylib/GPUData.hpp/vector).
+- New Game-layer `src/game/render/GameplayRenderAdapter.{hpp,cpp}` (namespace `NoMoreDay`) implementing the hooks: onFrameData (biome/fog segment), onScene (stash + sprite loop + enemy fog cull + pixel dot + BloodSea + MoltenTrail + Trail/SwordIntent/HoloBlade calls), onVFX (AttackEffect/VisualEffect switch + Projectile->GPUSkillEffect submit + ResistOverlay), onUIWorld (DamagePopup + loot label collect/sort/overlap + itemGrid query + beam buffer + label/glyph buffer fill).
+- `RenderSystem::render` gained `const render::GameplayRenderHooks* gameplayHooks = nullptr`; null hooks -> gameplay segments skipped (gate/empty-harness safe). Graph construction (AddPass order/owner/composite selection) untouched; only 3 lambdas forward the hooks param.
+- Public statics `RenderSystem::s_itemGrid`/`s_itemGridDirty`/`VisibleItemCache::visibleItems` migrated to `GameplayRenderAdapter`; 7 Game files retargeted (InventorySystem x6, DropSystem x7, FragmentDropSystem x1, LootGridSystem x3, UISystem.cpp:587).
+- `src/app/SharedContext.hpp` gained a forward-declared `render::GameplayRenderHooks* gameplayRenderHooks` field (no include, no edge).
+- RenderSystem.cpp includes: 17 Game edges removed (Common/EffectComponent/EnemyComponent/ItemComponent/Projectile/SkillDefs/StashComponent/HoloBladeComponent/BiomeRegistry/MonsterAffixSystem/LootFilter/UISystem/HoloBladeRenderSystem/SwordIntentVisualSystem/TrailSystem/FogOfWarSystem/LevelManager). `MonsterAffixSystem.hpp` is RESTORED (see L2 clarification) — `MoltenTrailTag` is defined at `game/systems/combat/MonsterAffixSystem.hpp:37`, used by adapter.cpp:243.
+- Ledger: 48 -> 31 (removed exactly 17 RenderSystem.cpp edges). `REQUIRED_P0_SOURCES`: RenderSystem.cpp removed (0 residual edges); RenderSystem.hpp retained (1 App edge, Batch 3).
+- `tests/tech/UITests.cpp:836-839` Blood Sea content lock retargeted to `GameplayRenderAdapter.cpp` (assertion patterns match adapter L204-242).
+
+### Accepted layering-order deviations (review M1/M2)
+
+- **M1 Scene order**: `GPU().Render()` (Engine primitive) now runs first, before all adapter game draws (old order: trail->sword->stash->sprite->GPU().Render->pixel->blood->molten->holo). Comment in code declares this intentional (player above enemies is the correction direction); non-GPU sprites/trails/stash moved from below to above GPU entities. Needs visual confirmation on real hardware (accepted risk).
+- **M2 VFX resist-overlay order**: resist overlay now draws inside onVFX before the Engine `GPUSkillEffectSystem::Render` (old order: Submit->Render->distortion->resist overlay), moving the debuff ring from above to below the skill mesh. Documented, accepted risk; needs visual confirmation.
+
+### Fixes after review
+
+- **M3 fixed**: `GPU().Render()` (Engine primitive, independent of hooks) moved BEFORE the `if (gameplayHooks==nullptr) return;` early-out in ExecuteScenePass (RenderSystem.cpp:569-585) with a comment; null renderContext guard retained. Prevents hooks-null + renderContext-nonnull future harness from silently skipping GPU entity rendering.
+- **L2 clarified**: reviewer claimed `MonsterAffixSystem.hpp` was unused; actually `MoltenTrailTag` is defined there (adapter.cpp:243). Include restored after a build C2039 (`MoltenTrailTag is not a member of NoMoreDay`). The include is valid.
+
+### Verification (real output)
+
+1. `python scripts/check_module_boundaries.py` -> PASS `31/31; files: 16` (5 pch + 8 App [RenderSystem.hpp 1 + passes 7] + 18 Game).
+2. Full build `cmd.exe /c build.bat > ms6-b2-fix2-build.log 2>&1` -> both success markers, 0 error lines.
+3. Targeted `--test-case="*GPULootSystem*,*S1a*,[Tech] Blood Sea*,*GPUSkillEffect*,*InventoryUI*"` -> 6/6, 26 assertions, SUCCESS.
+4. `git grep -n "game/" -- src/engine/render/RenderSystem.cpp` -> 0 matches.
+5. `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` -> intermittent failures with DIFFERENT binaries each run (unit/ai.unit/skill.unit), all pass in isolation — confirmed as pre-existing `HeavenlySwordClosureTests.cpp:97` hasFreeze flaky, not a Batch 2 regression.
+6. `git diff --check` -> exit 0 (CRLF warnings only).
+
+### Deferred
+
+- RenderSystem.hpp App edge (1) -> Batch 3 (render() DTO + graphContext.shared evaluation).
+- Remaining MS-6 edges: GPULoot 2 + GPUParticle 1 + GPUSkillEffect 1 + lighting 6 + passes 13 + VFX 2 = 25; plus 5 pch (MS-7).
+- RG-3 resource lifecycle untouched; graph construction zero-modification verified.
+- Nothing was staged or committed (per project rule; main agent commits).

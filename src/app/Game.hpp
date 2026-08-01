@@ -4,6 +4,7 @@
 #include "engine/render/MDIRenderer.hpp"
 #include "engine/render/RenderContext.hpp"
 #include "engine/resource/ResourceManager.hpp"
+#include "game/render/GameplayRenderAdapter.hpp"
 #include "game/render/GPUEntityAdapter.hpp"
 #include "game/scene/SceneManager.hpp"
 #include "game/scene/StateManager.hpp"
@@ -54,6 +55,9 @@ private:
 
   // Game 层 GPU 实体渲染适配器（ECS -> shadow buffer 投影）
   NoMoreDay::GPUEntityAdapter m_gpuEntityAdapter;
+
+  // Game 层 Gameplay 绘制适配器（承接 RenderSystem 的 Game 专属绘制）
+  NoMoreDay::GameplayRenderAdapter m_gameplayRenderAdapter;
 
   // 2. 共享上下文 (依赖资源)
   NoMoreDay::SharedContext m_context;

@@ -1,6 +1,6 @@
 #include "game/systems/item/DropSystem.hpp"
 #include "core/logging/Logger.hpp"
-#include "engine/render/RenderSystem.hpp"
+#include "game/render/GameplayRenderAdapter.hpp"
 #include "game/components/Common.hpp"
 #include "game/components/LightComponent.hpp"
 #include "game/components/WorldState.hpp"
@@ -126,7 +126,7 @@ void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pendin
         registry.emplace<LootTag>(fragment);
         registry.emplace_or_replace<LabelCacheComponent>(fragment);
         TryAttachDropLight(registry, fragment);
-        RenderSystem::s_itemGridDirty = true;
+        GameplayRenderAdapter::s_itemGridDirty = true;
       }
       continue;
     }
@@ -142,7 +142,7 @@ void SpawnBiomeMaterialBonus(entt::registry &registry, const PendingDrop &pendin
     registry.emplace<LocalLevelTag>(material);
     registry.emplace<LootTag>(material);
     registry.emplace<LabelCacheComponent>(material);
-    RenderSystem::s_itemGridDirty = true;
+    GameplayRenderAdapter::s_itemGridDirty = true;
   }
 }
 
@@ -325,7 +325,7 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
                 }
               }
               registry.emplace<VisualEffect>(effect, vEffect);
-              RenderSystem::s_itemGridDirty = true;
+              GameplayRenderAdapter::s_itemGridDirty = true;
             } else if (entry.type == LootEntryType::Gold) {
               std::uniform_int_distribution<uint32_t> amountDist(
                   entry.minAmount, std::max(entry.minAmount, entry.maxAmount));
@@ -342,7 +342,7 @@ void DropSystem::update(entt::registry &registry, int areaLevel) {
                 registry.emplace<LocalLevelTag>(
                     gold); // Ensure gold is cleaned up on scene change
                 registry.emplace<LootTag>(gold); // Optimization for spatial grid
-                RenderSystem::s_itemGridDirty = true;
+                GameplayRenderAdapter::s_itemGridDirty = true;
               }
             }
             break;
@@ -488,7 +488,7 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
           }
           registry.emplace<VisualEffect>(effect, vEffect);
           registry.emplace<LabelCacheComponent>(item); // Pre-attach for rendering
-          RenderSystem::s_itemGridDirty = true;
+          GameplayRenderAdapter::s_itemGridDirty = true;
 
           // Apply Loot Filter
           if (registry.all_of<ItemComponent>(item)) {
@@ -533,7 +533,7 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
                 gold); // Ensure gold is cleaned up on scene change
             registry.emplace<LootTag>(gold); // Optimization for spatial grid
             registry.emplace<LabelCacheComponent>(gold); // Pre-attach for rendering
-            RenderSystem::s_itemGridDirty = true;
+            GameplayRenderAdapter::s_itemGridDirty = true;
 
             // Spawn Gold Effect
             auto effect = registry.create();
@@ -563,7 +563,7 @@ void DropSystem::GenerateDrops(entt::registry &registry, entt::entity killer,
         registry.emplace<LocalLevelTag>(gold);
         registry.emplace<LootTag>(gold); // Optimization for spatial grid
         registry.emplace<LabelCacheComponent>(gold); // Pre-attach for rendering
-        RenderSystem::s_itemGridDirty = true;
+        GameplayRenderAdapter::s_itemGridDirty = true;
 
         // Spawn Gold Effect
         auto effect = registry.create();

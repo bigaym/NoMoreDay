@@ -13,6 +13,9 @@ class SceneManager;
 
 namespace NoMoreDay {
 struct RenderContext;
+namespace render {
+class GameplayRenderHooks;
+}
 namespace systems {
 class SpatialHashGrid;
 }
@@ -28,6 +31,9 @@ struct SharedContext {
   float renderAlpha = 0.0f; // Interpolation factor [0, 1) for smooth rendering
                             // between physics frames
   RenderContext *renderContext = nullptr;
+  // Gameplay render adapter (Game layer) driven by the Engine render hooks.
+  // nullptr/empty hooks skip the gameplay draw segment (gate/harness paths).
+  render::GameplayRenderHooks *gameplayRenderHooks = nullptr;
   // Window* window; // Raylib uses global state mostly, add if wrapper exists
 };
 

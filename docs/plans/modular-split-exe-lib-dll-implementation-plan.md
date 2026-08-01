@@ -1,7 +1,7 @@
 # Modular Static Target Split Implementation Plan
 
 **Design reference:** `docs/designs/modular-split-exe-lib-dll-design.md`
-**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [x]; MS-4 [x]; MS-5 [x]; MS-6 [~] (core GPU entity batch shipped, 46 MS-6 edges remain); MS-7 through MS-8 [ ]
+**Status:** MS-0 [x]; MS-1 [x]; MS-1.5 [x]; MS-2 [x]; MS-3 [x]; MS-4 [x]; MS-5 [x]; MS-6 [~] (core + Batch 1/2 shipped, 26 MS-6 edges remain); MS-7 through MS-8 [ ]
 **Execution model:** Each milestone is implemented by an `implementer` subagent, reviewed by an independent `reviewer`, then committed only after a `提交` conclusion. The design document is user-owned worktree state and is never edited, staged, or committed by this initiative.
 
 ## Goal
@@ -256,7 +256,7 @@ must be resolved before MS-7 builds the explicit target graph.
 
 **Objective:** Replace Game ECS/`SharedContext` exposure in GPU entity rendering with a Game adapter and narrow Engine DTO/upload contract.
 
-**Status:** First batch shipped: GPU entity rendering core (GPUEntitySystem + GPUEntitySync). Engine narrowed to DTO/upload contract (`render::EntityRenderFrame`, `BeginShadowWrite`/`SetHighWaterMark`/`ApplyShadowFlags`); ECS -> shadow-buffer projection moved to Game adapter (`src/game/render/GPUEntityAdapter.hpp`) with zero-copy writes into the Engine-owned shadow buffer. 20 ledger edges removed (71 -> 51). Remaining 51 edges break down as 5 MS-7 pch edges plus 46 MS-6 edges left for later sub-batches, with RenderSystem (`RenderSystem.cpp` 20 + `RenderSystem.hpp` 1) highest priority. Evidence: `docs/reports/modular-split-exe-lib-dll/ms-6/evidence.md`.
+**Status:** Two batches shipped. Batch 1 (dead includes) + Batch 2 (GameplayRenderAdapter): Game-specific drawing (stash/sprite+fog cull/BloodSea/Molten/Trail/SwordIntent/HoloBlade + VFX effects/Projectile skillfx/ResistOverlay + DamagePopup/loot label/itemGrid/beam/label+glyph fill + biome/fog) moved out of `RenderSystem.cpp` into `src/game/render/GameplayRenderAdapter.{hpp,cpp}` behind the Engine-side pure-DTO `render::GameplayRenderHooks` interface (`render()` gains a null-safe hooks param). `s_itemGrid`/`VisibleItemCache` migrated to the adapter (7 Game files retargeted). 20 + 3 + 17 = 40 ledger edges removed total (71 -> 31). Remaining 31 edges break down as 5 MS-7 pch edges plus 26 MS-6 edges: RenderSystem.hpp 1 (App edge, Batch 3: render() DTO + graphContext.shared evaluation), GPULoot 2, GPUParticle 1, GPUSkillEffect 1, lighting 6, passes 13, VFX 2. Evidence: `docs/reports/modular-split-exe-lib-dll/ms-6/evidence.md` (Batch 1/2 sections). Accepted risks: M1/M2 draw-order deviations need visual confirmation on real hardware.
 
 ### MS-7 [ ]: Explicit Static Targets and Target PCHs
 

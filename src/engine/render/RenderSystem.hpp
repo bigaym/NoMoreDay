@@ -12,8 +12,8 @@ namespace NoMoreDay::core {
     class ComputeBuffer;
 }
 
-namespace NoMoreDay::systems {
-    class SIMDSpatialGrid;
+namespace NoMoreDay::render {
+    class GameplayRenderHooks;
 }
 
 struct OffscreenTargetDescriptor {
@@ -49,18 +49,12 @@ public:
     };
 
     // --- Phase 1 Optimization: Shared Visibility Cache ---
-    struct VisibleItemCache {
-        struct ItemData {
-            entt::entity entity;
-            Rectangle worldRect; // World Space Bounds for Label
-        };
-        static std::vector<ItemData> visibleItems;
-        static void Clear() { visibleItems.clear(); }
-    };
+    // (moved to Game-side GameplayRenderAdapter)
 
     static void render(entt::registry &registry,
                        const NoMoreDay::SharedContext &context,
-                       const Camera2D &camera);
+                       const Camera2D &camera,
+                       NoMoreDay::render::GameplayRenderHooks *gameplayHooks = nullptr);
     
     static void Initialize();
     static void Shutdown();
@@ -96,8 +90,7 @@ private:
     
 public:
     // Phase 4: Loot Label Spatial Optimization
-    static std::unique_ptr<NoMoreDay::systems::SIMDSpatialGrid> s_itemGrid;
-    static bool s_itemGridDirty;
+    // (moved to Game-side GameplayRenderAdapter: s_itemGrid / s_itemGridDirty)
 
 private:
     // Rendering Queues

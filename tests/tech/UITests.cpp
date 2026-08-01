@@ -834,9 +834,9 @@ TEST_CASE("[Tech] SkillUI - SwordIntentWidget status text uses UI font rendering
 TEST_CASE("[Tech] Blood Sea - field render path is specialized") {
     namespace fs = std::filesystem;
     const std::array<fs::path, 3> candidates = {
-        fs::path("src/engine/render/RenderSystem.cpp"),
-        fs::path("../src/engine/render/RenderSystem.cpp"),
-        fs::path("../../src/engine/render/RenderSystem.cpp")
+        fs::path("src/game/render/GameplayRenderAdapter.cpp"),
+        fs::path("../src/game/render/GameplayRenderAdapter.cpp"),
+        fs::path("../../src/game/render/GameplayRenderAdapter.cpp")
     };
 
     std::string source;

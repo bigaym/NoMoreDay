@@ -1,7 +1,7 @@
 #include "game/systems/ui/UISystem.hpp"
 #include "app/Game.hpp"
 #include "core/logging/Logger.hpp"
-#include "engine/render/RenderSystem.hpp" // ADDED
+#include "game/render/GameplayRenderAdapter.hpp"
 #include "game/systems/physics/SpatialGrid.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "engine/resource/UIAssetRegistry.hpp"
@@ -584,7 +584,7 @@ void UISystem::Draw(entt::registry &registry, const LevelManager &levelManager,
     }
 
     // Iterate ONLY visible items (Already culled by RenderSystem)
-    for (const auto& itemData : RenderSystem::VisibleItemCache::visibleItems) {
+    for (const auto& itemData : GameplayRenderAdapter::VisibleItemCache::visibleItems) {
         // Simple AABB Check in World Space
         if (CheckCollisionPointRec(mouseWorldPos, itemData.worldRect)) {
             State.hoveredItem = itemData.entity;

@@ -300,6 +300,13 @@ void Game::init() {
     m_gpuEntitySystem.Init(m_resourceManager, 30000);
     m_gpuEntityAdapter.Init(30000, &m_registry, m_gpuEntitySystem);
     m_gpuEntityAdapter.SetLevelManager(m_context.levelManager);
+
+    // Gameplay render adapter: receives RenderSystem gameplay hooks. The
+    // context pointer is latched here so the hooks can reach Game state.
+    m_gameplayRenderAdapter.SetContext(&m_context);
+    m_gameplayRenderAdapter.Init();
+    m_context.gameplayRenderHooks = &m_gameplayRenderAdapter;
+
     m_mdiRenderer.Init(m_resourceManager, 30000);
     NoMoreDay::systems::GPUFlowFieldSystem::Get().Init(m_resourceManager, 256,
                                                        256);
@@ -466,6 +473,8 @@ void Game::cleanup() {
   m_registry.clear();
 
   RenderSystem::Shutdown(); // ADDED
+  m_gameplayRenderAdapter.Shutdown();
+  m_context.gameplayRenderHooks = nullptr;
   UISystem::Shutdown();
   NoMoreDay::render::GPUTextSystem::Get().Shutdown();
   NoMoreDay::render::PopupRenderer::Get().Shutdown();
