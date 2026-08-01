@@ -41,7 +41,6 @@
 #include "engine/render/RenderSystem.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
-#include "engine/vfx/VFXSequencerSystem.hpp"
 #include "game/components/WorldState.hpp"
 #include "game/components/vfx/MotionTrailComponent.hpp"
 #include "game/systems/ai/AISystem.hpp"
@@ -79,6 +78,7 @@
 #include "game/systems/world/MapAffixCalculator.hpp"
 #include "game/systems/world/MapAffixRegistry.hpp"
 #include "game/systems/world/MovementStanceSystem.hpp"
+#include "game/vfx/VFXSequencerSystem.hpp"
 #include "systems/SerializationSystem.hpp"
 
 #include <filesystem>

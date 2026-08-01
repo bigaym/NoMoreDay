@@ -24,12 +24,7 @@ P0_BLOCKER = "gpu_rendergraph_resource_foundation_20260726"
 P0_DISPOSITION = "split_engine_primitive_and_game_adapter"
 P0_MILESTONE = "MS-6"
 REQUIRED_P0_SOURCES = frozenset({
-    "src/engine/render/GPUEntitySystem.cpp",
-    "src/engine/render/GPUEntitySystem.hpp",
-    "src/engine/render/GPULootSystem.cpp",
-    "src/engine/render/GPUSkillEffectSystem.hpp",
-    "src/engine/render/passes/RadianceCascadesPass.cpp",
-    "src/engine/vfx/VFXSequencerSystem.cpp",
+"src/engine/render/passes/RadianceCascadesPass.cpp",
 })
 ENTRY_FIELDS = {
     "id",

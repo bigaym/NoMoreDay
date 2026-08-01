@@ -49,6 +49,11 @@ struct GameplayRenderFrame {
   std::vector<lighting::GlobalHeightField::HeightStamp> *heightFieldBuffer =
       nullptr;
 
+  // Engine-owned loot instance staging buffer (filled by the adapter via the
+  // shared GPULootAdapter projection, consumed by
+  // GPULootSystem::UploadInstances).
+  std::vector<NoMoreDay::components::GPULootInstance> *lootBuffer = nullptr;
+
   // Engine-computed render flags (quality config + runtime readiness).
   bool gpuTextEnabled = false;
   bool gpuLootEnabled = false;
@@ -93,6 +98,7 @@ public:
   virtual void onOccluders(GameplayRenderFrame &frame) = 0;
   virtual void onLights(GameplayRenderFrame &frame) = 0;
   virtual void onHeightField(GameplayRenderFrame &frame) = 0;
+  virtual void onLoot(GameplayRenderFrame &frame) = 0;
 };
 
 } // namespace NoMoreDay::render

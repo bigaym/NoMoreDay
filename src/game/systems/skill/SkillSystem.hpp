@@ -5,7 +5,7 @@
 #include "raylib.h"
 #include "game/data/TagRegistry.hpp"
 #include "game/components/SkillDefs.hpp"
-#include "game/components/SkillVfxEvent.hpp"
+#include "engine/render/SkillVfxEvent.hpp"
 
 namespace NoMoreDay {
 namespace systems { class SpatialHashGrid; }

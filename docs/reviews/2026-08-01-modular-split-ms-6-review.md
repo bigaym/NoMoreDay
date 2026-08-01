@@ -166,3 +166,31 @@ render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.sh
 **剩余风险**：低。`thread_local` 缓存为唯一轻微语义偏移（行为等价）。
 
 **提交**：`refactor(render): move heightfield projection to game adapter`（待提交）。
+
+---
+
+## Batch 4-F/G/H（GPULoot adapter / SkillVfxEvent DTO / VFXSequencer 迁移）— `提交`
+
+**审查目标**：核验三个并行批次的 Engine→Game 边清除、投影/迁移等价、并发覆盖自洽（ledger 11→6）。
+
+**变更边界**：22 modified + 3 deleted + 5 untracked（三批文件域无重叠；settings.json 为用户指示既有残留；受保护设计文档排除）。
+
+**发现**：无 Blocker/High/Medium。1 项 Low + 2 项 NOTE：
+- **LOW-1**：`REQUIRED_P0_SOURCES` 未收敛（GPUEntitySystem.cpp/hpp、GPULootSystem.cpp 三项在 F 批边清零后仍残留）。**已处置**：主代理收敛为仅剩 `passes/RadianceCascadesPass.cpp`（这三文件现均无 ledger 条目，符合"全部边删完从 REQUIRED 移除"规则）。
+- **NOTE-1**：简报数量 24M+4D+5U vs 实际 22M+3D+5U（逐文件核对无异常混入）；`SkillVfxNodeRoleMask` 实为 6 常量（含 Any）。
+- **NOTE-2**：settings.json 属既有残留，不纳入提交。
+
+**已复核通过**：
+- **并发覆盖自洽**：ledger 恰 6 条（5 MS-7 pch + 1 RadianceCascadesPass.cpp:18→Common）；diff 移除恰 5 边（F=2 GPULootSystem:6/7、G=1 GPUSkillEffectSystem.hpp:7、H=2 VFXSequencerSystem:13/14）；ModuleBoundaryCheckerTest `test_required_p0_source_without_blocker_returns_input_error` 指向 `passes/RadianceCascadesPass.cpp`、fixture 建 `passes/` 目录、断言 returncode 2；invalid-ownership 反向用例覆盖双向约束；checker 6/6 PASS 与测试一致。
+- **F（GPULoot）**：实例字段（itemId/rarityColor/glowIntensity/flags/labelOffsetY）与旧 SyncDroppedItems 1:1；kLootFlagGold=1<<0/kLootFlagItem=1<<1、labelOffsetY(-24/-20)、PackRarityColor 9 分支 switch+WHITE 兜底、ComputeGlowIntensity 表逐字搬移；BuildLoot 两趟扫描（count→reserve→填充）；requiredCount 语义与旧同步一致；UploadInstances 按实际 count 增长；lootBuffer 字段插入位置与 ToHooksFrame 聚合逐位对齐。
+- **G（SkillVfxEvent）**：新 engine DTO 3 枚举 + NodeRoleMask + 11 字段与旧头逐项一致；effectiveTagMask 双向无损（Tag 元素位 0-6 与新 SkillVfxElementTagMask 位布局相同，uint32 截断无损）；判定顺序 Void→Lightning→Cold→Fire 逐位保持（GPUSkillEffectSystem.cpp:334-343）；旧头删除后 0 残留消费者。
+- **H（VFXSequencer）**：cpp 仅第 1 行自包含变更、hpp 字节级一致；namespace NoMoreDay::vfx 保持；恰 6 文件 include 更新单行路径改动；engine 侧 0 反向 include（7 处消费全在 game/tests）；VFXPlayerComponent/VFXSequenceManager/VFXBudgetEstimator 留 engine 未动。
+- **硬约束**：RG-3/pch/CMake/build.bat/RenderGraph/passes（RadianceCascadesPass 未动）/AddPass 结构零改动。
+
+**独立重跑（审查员）**：checker 6/6 PASS（files 2 = pch 5 + MS-6 1）、ModuleBoundaryCheckerTest 6 OK、git diff --check 干净。
+
+**验证（主代理）**：完整构建双标记 0 error（合并产物编译通过）、定向 `*GPULoot*,*SkillVfx*,*GPUSkillEffect*,*VFX*` 39/39 610 断言 SUCCESS。
+
+**剩余风险**：uint32 截断耦合（engine DTO 与 Tag 低 7 位布局耦合，未来 Tag 重排将静默错映射——建议后续显式提取元素位）；REQUIRED 收敛后需 CI 全量验证兜底。均低。
+
+**提交**：`refactor(render): move loot projection, dto skill vfx event, migrate vfx sequencer`（合并提交，待提交）。

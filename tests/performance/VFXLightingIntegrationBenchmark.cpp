@@ -3,7 +3,7 @@
 
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
-#include "engine/vfx/VFXSequencerSystem.hpp"
+#include "game/vfx/VFXSequencerSystem.hpp"
 #include "game/components/Common.hpp"
 
 #include <algorithm>

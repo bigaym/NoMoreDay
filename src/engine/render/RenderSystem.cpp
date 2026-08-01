@@ -123,6 +123,7 @@ static std::vector<NoMoreDay::components::GPUShadowCaster> s_occluderBuffer;
 static std::vector<NoMoreDay::components::GPULight> s_lightCandidateBuffer;
 static std::vector<NoMoreDay::render::lighting::GlobalHeightField::HeightStamp>
     s_heightFieldBuffer;
+static std::vector<NoMoreDay::components::GPULootInstance> s_lootInstanceBuffer;
 
 namespace {
 
@@ -157,6 +158,7 @@ struct RenderFrameData {
     return NoMoreDay::render::GameplayRenderFrame{
         registry,        camera,  labelBuffer, glyphBuffer, &s_beamBuffer,
         &s_occluderBuffer, &s_lightCandidateBuffer, &s_heightFieldBuffer,
+        &s_lootInstanceBuffer,
         gpuTextEnabled, gpuLootEnabled, gpuLootGlowEnabled, font,
         occluderStaticCount, occluderDynamicCount, occluderStaticSignature,
         occluderDynamicSignature, ecsLights, worldWidth, worldHeight,
@@ -1176,6 +1178,10 @@ void RenderSystem::render(entt::registry &registry,
     frame.worldWidth = hooksFrame.worldWidth;
     frame.worldHeight = hooksFrame.worldHeight;
     frame.tileWorldSize = hooksFrame.tileWorldSize;
+    // Loot projection: the Game adapter projects the ECS dropped loot into the
+    // Engine-owned staging buffer via the shared GPULootAdapter; the Engine
+    // only uploads the DTO span to the instance SSBO below.
+    gameplayHooks->onLoot(hooksFrame);
   } else {
     // No gameplay adapter (gate/harness): never feed stale occluders from a
     // previous game frame into the graph context.
@@ -1188,12 +1194,13 @@ void RenderSystem::render(entt::registry &registry,
     frame.worldWidth = 0.0f;
     frame.worldHeight = 0.0f;
     frame.tileWorldSize = 0.0f;
+    s_lootInstanceBuffer.clear();
   }
 
   g_transientPool.BeginFrame();
   const auto &renderConfig =
       NoMoreDay::render::core::QualityTierManager::Get().GetConfig();
-  NoMoreDay::render::GPULootSystem::Get().SyncDroppedItems(registry);
+  NoMoreDay::render::GPULootSystem::Get().UploadInstances(s_lootInstanceBuffer);
   const bool gpuTextRuntimeReady =
       NoMoreDay::render::GPUTextSystem::Get().IsInitialized();
   const bool gpuLootRuntimeReady =

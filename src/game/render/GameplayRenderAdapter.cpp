@@ -1,4 +1,5 @@
 #include "game/render/GameplayRenderAdapter.hpp"
+#include "game/render/GPULootAdapter.hpp"
 #include "game/render/HeightFieldAdapter.hpp"
 #include "game/render/LightAdapter.hpp"
 #include "game/render/OccluderProjector.hpp"
@@ -124,6 +125,15 @@ void GameplayRenderAdapter::onHeightField(render::GameplayRenderFrame &frame) {
   frame.worldWidth = projection.worldWidth;
   frame.worldHeight = projection.worldHeight;
   frame.tileWorldSize = projection.tileWorldSize;
+}
+
+void GameplayRenderAdapter::onLoot(render::GameplayRenderFrame &frame) {
+  if (frame.lootBuffer == nullptr) {
+    return;
+  }
+  NoMoreDay::LootProjection projection =
+      NoMoreDay::GPULootAdapter::BuildLoot(frame.registry);
+  *frame.lootBuffer = std::move(projection.instances);
 }
 
 void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame) {

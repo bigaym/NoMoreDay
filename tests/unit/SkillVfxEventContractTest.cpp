@@ -1,6 +1,6 @@
 #include "doctest.h"
 
-#include "game/components/SkillVfxEvent.hpp"
+#include "engine/render/SkillVfxEvent.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -40,6 +40,7 @@ TEST_CASE("[Unit] SkillVfxEvent - Default Compatibility Values") {
   CHECK(event.skillId == 0u);
   CHECK(event.castId == 0u);
   CHECK(event.type == NoMoreDay::SkillVfxEventType::CastStart);
+  CHECK(event.effectiveTagMask == NoMoreDay::SkillVfxElementTagMask::None);
   CHECK(event.nodeRoleMask == NoMoreDay::SkillVfxNodeRoleMask::None);
   CHECK(event.qualityTier == 1u);
   CHECK(event.intensity == doctest::Approx(1.0f));

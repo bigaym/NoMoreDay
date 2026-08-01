@@ -50,6 +50,7 @@ public:
   void onOccluders(render::GameplayRenderFrame &frame) override;
   void onLights(render::GameplayRenderFrame &frame) override;
   void onHeightField(render::GameplayRenderFrame &frame) override;
+  void onLoot(render::GameplayRenderFrame &frame) override;
 
 private:
   void BuildFrameData(render::GameplayRenderFrame &frame);

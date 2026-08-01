@@ -2,9 +2,9 @@
 
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
-#include <entt/entt.hpp>
 #include <cstdint>
 #include <raylib.h>
+#include <span>
 #include <vector>
 
 namespace NoMoreDay::render {
@@ -21,7 +21,7 @@ public:
   void Init(uint32_t maxInstances = 8192);
   void Shutdown();
 
-  void SyncDroppedItems(const entt::registry &registry);
+  void UploadInstances(std::span<const components::GPULootInstance> instances);
   void Dispatch(const Camera2D &camera, int screenWidth, int screenHeight,
                 bool enableForceDirected);
   void Render(const Matrix &viewProj, bool enableGlow) const;

@@ -12,7 +12,7 @@
 #include "game/components/Common.hpp" // For Position
 #include "game/components/EffectComponent.hpp"
 #include "game/components/SkillDefs.hpp"
-#include "game/components/SkillVfxEvent.hpp"
+#include "engine/render/SkillVfxEvent.hpp"
 #include "game/components/PlayerState.hpp" // For DashComponent
 #include "game/components/Projectile.hpp"
 #include "game/components/Stats.hpp"
@@ -307,7 +307,7 @@ void EmitSkillVfxEvent(const SkillExecutionContext &context,
   event.type = type;
   event.origin = context.origin;
   event.target = context.target;
-  event.effectiveTags = context.effective_tags;
+  event.effectiveTagMask = static_cast<uint32_t>(context.effective_tags);
   event.nodeRoleMask = context.node_role_mask | nodeRoleMask;
   event.qualityTier = ResolveCurrentQualityTier();
   event.intensity = std::clamp(intensity, 0.25f, 3.0f);

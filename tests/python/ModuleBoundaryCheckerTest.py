@@ -138,12 +138,12 @@ class ModuleBoundaryCheckerTest(unittest.TestCase):
     def test_required_p0_source_without_blocker_returns_input_error(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
-            (root / "src" / "engine" / "render").mkdir(parents=True)
+            (root / "src" / "engine" / "render" / "passes").mkdir(parents=True)
             (root / "src" / "core").mkdir(parents=True)
             (root / "src" / "pch.hpp").write_text(
                 "#pragma once\n", encoding="utf-8"
             )
-            source = "src/engine/render/GPULootSystem.cpp"
+            source = "src/engine/render/passes/RadianceCascadesPass.cpp"
             (root / source).write_text(
                 '#include "game/components/Common.hpp"\n', encoding="utf-8"
             )

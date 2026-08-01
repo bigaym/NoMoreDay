@@ -331,16 +331,16 @@ uint8_t ResolveLegacyElementType(const SkillVfxEvent &event) {
   if (event.elementType != static_cast<uint8_t>(SkillVfxElementType::Physical)) {
     return event.elementType;
   }
-  if (HasTag(event.effectiveTags, Tag::Void)) {
+  if ((event.effectiveTagMask & SkillVfxElementTagMask::Void) != 0u) {
     return static_cast<uint8_t>(SkillVfxElementType::Void);
   }
-  if (HasTag(event.effectiveTags, Tag::Lightning)) {
+  if ((event.effectiveTagMask & SkillVfxElementTagMask::Lightning) != 0u) {
     return static_cast<uint8_t>(SkillVfxElementType::Lightning);
   }
-  if (HasTag(event.effectiveTags, Tag::Cold)) {
+  if ((event.effectiveTagMask & SkillVfxElementTagMask::Cold) != 0u) {
     return static_cast<uint8_t>(SkillVfxElementType::Cold);
   }
-  if (HasTag(event.effectiveTags, Tag::Fire)) {
+  if ((event.effectiveTagMask & SkillVfxElementTagMask::Fire) != 0u) {
     return static_cast<uint8_t>(SkillVfxElementType::Fire);
   }
   return static_cast<uint8_t>(SkillVfxElementType::Physical);

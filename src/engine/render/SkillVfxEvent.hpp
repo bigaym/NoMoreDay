@@ -1,6 +1,5 @@
 #pragma once
 
-#include "game/data/TagRegistry.hpp"
 #include "raylib.h"
 
 #include <cstdint>
@@ -45,10 +44,19 @@ inline constexpr uint32_t Any =
     Keystone | Trigger | Synergy | Transmuter;
 } // namespace SkillVfxNodeRoleMask
 
+namespace SkillVfxElementTagMask {
+inline constexpr uint32_t None = 0u;
+inline constexpr uint32_t Physical = 1u << 0;
+inline constexpr uint32_t Fire = 1u << 1;
+inline constexpr uint32_t Cold = 1u << 2;
+inline constexpr uint32_t Lightning = 1u << 3;
+inline constexpr uint32_t Void = 1u << 6;
+} // namespace SkillVfxElementTagMask
+
 inline constexpr bool HasSkillVfxNodeRole(const uint32_t mask,
                                           const uint32_t roleBit) {
   return (mask & roleBit) == roleBit;
-};
+}
 
 struct SkillVfxEvent {
   uint32_t skillId = 0;
@@ -56,7 +64,7 @@ struct SkillVfxEvent {
   SkillVfxEventType type = SkillVfxEventType::CastStart;
   Vector2 origin = {0.0f, 0.0f};
   Vector2 target = {0.0f, 0.0f};
-  Tag effectiveTags = Tag::None;
+  uint32_t effectiveTagMask = SkillVfxElementTagMask::None;
   uint32_t nodeRoleMask = SkillVfxNodeRoleMask::None;
   uint8_t qualityTier = 1;
   float intensity = 1.0f;

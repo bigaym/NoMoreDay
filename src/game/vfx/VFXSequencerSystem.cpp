@@ -1,4 +1,4 @@
-#include "engine/vfx/VFXSequencerSystem.hpp"
+#include "game/vfx/VFXSequencerSystem.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "engine/audio/AudioSystem.hpp"

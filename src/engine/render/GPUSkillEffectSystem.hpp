@@ -4,7 +4,7 @@
 #include "engine/render/ComputeBuffer.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "game/components/SkillVfxEvent.hpp"
+#include "engine/render/SkillVfxEvent.hpp"
 
 #include <array>
 #include <cstdint>

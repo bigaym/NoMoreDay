@@ -10,7 +10,7 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/vfx/VFXPlayerComponent.hpp"
 #include "engine/vfx/VFXSequenceManager.hpp"
-#include "engine/vfx/VFXSequencerSystem.hpp"
+#include "game/vfx/VFXSequencerSystem.hpp"
 #include "game/components/Common.hpp"
 
 #include "GLFW/glfw3.h"
