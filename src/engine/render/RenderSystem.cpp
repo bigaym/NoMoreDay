@@ -60,10 +60,8 @@
 #include "game/components/StashComponent.hpp" 
 #include "game/components/vfx/HoloBladeComponent.hpp"
 #include "game/data/BiomeRegistry.hpp"
-#include "game/systems/combat/DamagePopupManager.hpp"
 #include "game/systems/combat/MonsterAffixSystem.hpp" 
 #include "game/systems/item/LootFilter.hpp"
-#include "game/systems/skill/SkillSystem.hpp"
 #include "game/systems/ui/UISystem.hpp"
 #include "game/systems/vfx/HoloBladeRenderSystem.hpp"
 #include "game/systems/vfx/SwordIntentVisualSystem.hpp"
@@ -83,7 +81,6 @@
 #include <string>
 
 #include "engine/render/LootTextBatcher.hpp"
-#include "game/systems/ui/PlayerHUD.hpp"
 #include "rlgl.h"
 
 // Static Buffers
