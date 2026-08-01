@@ -81,7 +81,8 @@ private:
     uint64_t dynamicSignature = 0;
   };
 
-  bool UploadOccluders(entt::registry &registry, UploadStats &stats);
+  bool UploadOccluders(const NoMoreDay::components::GPUShadowCaster *occluders,
+                       uint32_t occluderCount);
   bool EnsureMaskBuffers(int width, int height);
   bool RunExtractPass(const Camera2D &camera, bool dynamicOnly, uint32_t outputTexture,
                       uint32_t occluderCount);
@@ -97,7 +98,6 @@ private:
   resources::FramebufferHandle m_occluderMask = {};
 
   NoMoreDay::core::ComputeBuffer m_occluderBuffer;
-  std::vector<NoMoreDay::components::GPUShadowCaster> m_occluderStaging;
 
   int m_resolutionLoc = -1;
   int m_occluderCountLoc = -1;

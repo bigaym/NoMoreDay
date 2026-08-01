@@ -119,6 +119,7 @@ static int s_beamMvpLoc = -1;
 static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_beamInstanceBuffer =
     nullptr;
 static std::vector<NoMoreDay::render::GPUBeamInstance> s_beamBuffer;
+static std::vector<NoMoreDay::components::GPUShadowCaster> s_occluderBuffer;
 
 namespace {
 
@@ -139,11 +140,16 @@ struct RenderFrameData {
   bool gpuTextEnabled = false;
   bool gpuLootEnabled = false;
   bool gpuLootGlowEnabled = false;
+  uint32_t occluderStaticCount = 0u;
+  uint32_t occluderDynamicCount = 0u;
+  uint64_t occluderStaticSignature = 0u;
+  uint64_t occluderDynamicSignature = 0u;
 
   // Build the engine-safe DTO handed to the gameplay render adapter.
   NoMoreDay::render::GameplayRenderFrame ToHooksFrame() const {
     return NoMoreDay::render::GameplayRenderFrame{
         registry,        camera,  labelBuffer, glyphBuffer, &s_beamBuffer,
+        &s_occluderBuffer,
         gpuTextEnabled, gpuLootEnabled, gpuLootGlowEnabled, font};
   }
 };
@@ -1145,6 +1151,22 @@ void RenderSystem::render(entt::registry &registry,
     NoMoreDay::render::GameplayRenderFrame hooksFrame = frame.ToHooksFrame();
     gameplayHooks->onFrameData(hooksFrame);
     frame.font = hooksFrame.font;
+    // Occluder projection: the Game adapter projects the ECS occluders into the
+    // Engine-owned staging buffer + FNV signature stats consumed by
+    // OccluderExtractPass/ShadowBuildPass through graph::RenderContext.
+    gameplayHooks->onOccluders(hooksFrame);
+    frame.occluderStaticCount = hooksFrame.occluderStaticCount;
+    frame.occluderDynamicCount = hooksFrame.occluderDynamicCount;
+    frame.occluderStaticSignature = hooksFrame.occluderStaticSignature;
+    frame.occluderDynamicSignature = hooksFrame.occluderDynamicSignature;
+  } else {
+    // No gameplay adapter (gate/harness): never feed stale occluders from a
+    // previous game frame into the graph context.
+    s_occluderBuffer.clear();
+    frame.occluderStaticCount = 0u;
+    frame.occluderDynamicCount = 0u;
+    frame.occluderStaticSignature = 0u;
+    frame.occluderDynamicSignature = 0u;
   }
 
   g_transientPool.BeginFrame();
@@ -1591,6 +1613,13 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.hdrSceneBuffer =
       useHdrSceneBuffer ? s_hdrSceneBuffer
                         : NoMoreDay::render::resources::FramebufferHandle{};
+  graphContext.occluders =
+      s_occluderBuffer.empty() ? nullptr : s_occluderBuffer.data();
+  graphContext.occluderCount = static_cast<uint32_t>(s_occluderBuffer.size());
+  graphContext.occluderStaticCount = frame.occluderStaticCount;
+  graphContext.occluderDynamicCount = frame.occluderDynamicCount;
+  graphContext.occluderStaticSignature = frame.occluderStaticSignature;
+  graphContext.occluderDynamicSignature = frame.occluderDynamicSignature;
   if (g_jfaPass != nullptr && g_jfaPass->HasDistanceField()) {
     graphContext.giDistanceFieldTexture = g_jfaPass->GetDistanceFieldTexture();
     graphContext.giDistanceFieldWidth = g_jfaPass->GetDistanceFieldWidth();

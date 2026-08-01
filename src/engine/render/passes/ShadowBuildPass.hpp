@@ -52,7 +52,8 @@ public:
 private:
   void ReportFailure(const char *reason);
   void MarkSuccess();
-  bool UploadOccluders(entt::registry &registry, uint32_t maxShadowCasters);
+  bool UploadOccluders(const NoMoreDay::components::GPUShadowCaster *occluders,
+                       uint32_t occluderCount);
   bool InitializeAtlasPath(ResourceManager &resources);
   void EnsureAtlasSize(int atlasSize);
   void RenderAtlasTiles(const graph::RenderContext &context);
@@ -63,7 +64,6 @@ private:
   resources::FramebufferHandle m_sdfField = {};
   resources::FramebufferHandle m_shadowAtlas = {};
   NoMoreDay::core::ComputeBuffer m_occluderBuffer;
-  std::vector<NoMoreDay::components::GPUShadowCaster> m_occluderStaging;
 
   int m_resolutionLoc = -1;
   int m_occluderCountLoc = -1;

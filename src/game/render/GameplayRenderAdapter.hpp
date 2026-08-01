@@ -47,6 +47,7 @@ public:
   void onScene(render::GameplayRenderFrame &frame) override;
   void onVFX(render::GameplayRenderFrame &frame) override;
   void onUIWorld(render::GameplayRenderFrame &frame) override;
+  void onOccluders(render::GameplayRenderFrame &frame) override;
 
 private:
   void BuildFrameData(render::GameplayRenderFrame &frame);

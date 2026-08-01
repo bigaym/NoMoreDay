@@ -166,3 +166,37 @@ Date: 2026-08-01. Scope: rewire the 7 render passes from `context.shared->resour
 5. Targeted `bin\NoMoreDayTests.exe --test-case="*S1a*,*S1b*,*GPU ABI*,*RenderGraph V5*"` -> 13 passed / 178 assertions / SUCCESS.
 6. `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` -> the only failures are the pre-existing `HeavenlySwordClosureTests.cpp:97` `hasFreeze` chance-based flaky (~15%), confirmed non-regression by isolation reruns (unit/ai.unit/skill.unit each pass alone).
 7. `git diff --check` -> exit 0 (CRLF warnings only).
+
+---
+
+## Batch 4 — shared occluder projection (Engine->Game edges cleared)
+
+Date: 2026-08-02. Scope: deduplicate the byte-identical occluder projection between `OccluderExtractPass` and `ShadowBuildPass` by moving it to a single Game-side projector (`src/game/render/OccluderProjector`), and delete all 4 Engine->Game ledger edges on the two passes (`OccluderExtractPass.cpp:12,13` + `ShadowBuildPass.cpp:13,14`). 4 ledger edges removed (21 -> 17); both passes now have **zero** Game edges and were removed from `REQUIRED_P0_SOURCES`. Uncommitted working tree at HEAD `1874266`.
+
+### Changes
+
+- **NEW `src/game/render/OccluderProjector.hpp` + `.cpp`** (namespace `NoMoreDay`, modeled on the `GPUEntityAdapter` split-adapter precedent): `OccluderProjector::Project(entt::registry&) -> OccluderProjection {casters, staticCount, dynamicCount, staticSignature, dynamicSignature}`. Projects `Position + ShadowCasterComponent` (+ optional `VisionComponent` radius override, default 24.0f) into the pure DTO array `std::vector<NoMoreDay::components::GPUShadowCaster>` and the FNV signatures. Projection + FNV logic moved **verbatim** from `OccluderExtractPass.cpp` `UploadOccluders` (incl. `kFnvOffset`/`kFnvPrime`/`HashAppend`/`BuildOccluderWord` quantize *16 + pack + `word ^= shapeIndex<<8; word ^= dynamicFlag<<1`/`FinalizeSignature` sort + FNV + size append). Single shared copy; both passes consume the same projection.
+- `src/engine/render/GameplayRenderHooks.hpp`: `GameplayRenderFrame` gains engine-owned `std::vector<NoMoreDay::components::GPUShadowCaster>* occluderBuffer` (after `beamBuffer`) + out-fields `occluderStaticCount`/`occluderDynamicCount`/`occluderStaticSignature`/`occluderDynamicSignature`; new pure-virtual `onOccluders(GameplayRenderFrame&)` (only implementer is `GameplayRenderAdapter`).
+- `src/game/render/GameplayRenderAdapter.hpp/.cpp`: implements `onOccluders` — calls `OccluderProjector::Project(frame.registry)`, moves casters into `*frame.occluderBuffer`, copies the 4 stat out-fields.
+- `src/engine/render/graph/RenderContext.hpp`: forward-declared `NoMoreDay::components::GPUShadowCaster`; added fields `const components::GPUShadowCaster *occluders = nullptr; uint32_t occluderCount/occluderStaticCount/occluderDynamicCount; uint64_t occluderStaticSignature/occluderDynamicSignature;` (pointer+count+scalar DTO style, matching existing raw-pointer fields). `registry` field **kept** (still used by `HeightShadowPass`/`RadianceCascadesPass`).
+- `src/engine/render/passes/OccluderExtractPass.hpp/.cpp`: `UploadOccluders` re-signatured to `bool UploadOccluders(const NoMoreDay::components::GPUShadowCaster*, uint32_t)` — now GPU upload only (buffer Create/Update sizing for the injected span, stays in pass); deleted `#include "game/components/Common.hpp"` + `ShadowCasterComponent.hpp`, the anon-namespace FNV helpers, and `m_occluderStaging`; `Execute` reads stats from `context.occluder*` fields instead of `registry` projection, dropped the `context.registry == nullptr` guard clause, and the screen-bounds loop iterates the injected `context.occluders` span (same dynamic-flag filter + `GetWorldToScreen2D` math). FNV signature algorithm + usage unchanged (bitwise-equivalent signature verification).
+- `src/engine/render/passes/ShadowBuildPass.hpp/.cpp`: `UploadOccluders` re-signatured to the same `(const GPUShadowCaster*, uint32_t)` span input, capped at `kMaxShadowCasters` (`min(occluderCount, 8192)`), GPU buffer Create/Update stays in pass; deleted both game includes + `using namespace entt::literals;` + `m_occluderStaging`; `Execute` consumes `context.occluders`/`context.occluderCount`, dropped `context.registry == nullptr` guard clause. Projection is uncapped game-side; ShadowBuild truncates at consumption -> first `min(count,8192)` casters in identical view order, bitwise equivalent to the old capped loop.
+- `src/engine/render/RenderSystem.cpp`: added static `s_occluderBuffer` (engine-owned, mirrors `s_beamBuffer`); `RenderFrameData` gains the 4 occluder stat fields; `ToHooksFrame()` passes `&s_occluderBuffer`; the hooks block calls `gameplayHooks->onOccluders(hooksFrame)` after `onFrameData` and stashes the stats on `frame`; graphContext assembly (between `hdrSceneBuffer` and GI texture fields) fills `occluders`/`occluderCount`/stats from `s_occluderBuffer` + `frame`. **Graph build structure (AddPass order/conditions/owner tags/composite input selection) zero modification.**
+- Ledger: deleted exactly 4 entries -> **17 entries** = LegacyLowerPch -> Game (MS-7) 5 + NoMoreDayEngine -> Game (MS-6) 12. Checker: removed both fully-resolved passes from `REQUIRED_P0_SOURCES` (0 residual edges each, per precedent).
+- No CMake edits needed (`GLOB_RECURSE CONFIGURE_DEPENDS` auto-picks the new `.cpp`).
+
+### Verification (real output)
+
+1. `python scripts/check_module_boundaries.py` -> `[Module Boundary] Observed/ledger edges: 17/17; files: 8` and `PASS` (exit 0). Breakdown: LegacyLowerPch -> Game (MS-7) 5, NoMoreDayEngine -> Game (MS-6) 12.
+2. `python -m unittest tests/python/ModuleBoundaryCheckerTest.py` -> 6 tests OK (test_repository_baseline_passes runs the real-repo checker).
+3. Full build redirected to `C:\Users\yuminao\AppData\Local\Temp\opencode\ms6_batchb_build.log` -> EXIT=0, both success markers (`[Build] Build completed successfully.` / `[Build] All steps completed successfully`), 0 error C/LNK; `NoMoreDayCore.lib` rebuilt, `bin\NoMoreDay.exe` + `bin\NoMoreDayTests.exe` refreshed (0:48).
+4. Targeted `bin\NoMoreDayTests.exe --test-case="*RenderGraphV3*,*RenderGraphTier*,*ShadowPipeline*,*Occluder*,*S7*"` -> 17 passed / 180 assertions / SUCCESS (0 failed). Broader `--test-case="*RenderGraph*,*ShadowPipeline*,*Occluder*,*S7*"` -> 48 passed / 397 assertions / SUCCESS.
+5. `git grep "game/" -- src/engine/render/passes/OccluderExtractPass.cpp src/engine/render/passes/ShadowBuildPass.cpp` -> 0 hits (exit 1).
+6. `ctest --test-dir build -C RelWithDebInfo -L "unit|integration" --output-on-failure` -> 73% pass; the only failures are the **pre-existing flaky** `HeavenlySwordClosureTests.cpp:97` (`hasFreeze`, chance-based, exempted) and `GIStabilityIntegrationTest.cpp:156-157` (`giEmissiveTexture/giRadianceTexture != 0`, GPU-env shader-load dependent, exempted) — neither touches the occluder passes (GIStability bypasses RenderSystem and drives `RadianceCascadesPass` directly; `LightCullingPass failed to load compute shader` log confirms env cause).
+7. `git diff --check` -> exit 0 (CRLF warnings only).
+
+### Deferred
+
+- Remaining MS-6 edges (Batch 5): GPULoot 2 + GPUSkillEffect 1 + GlobalHeightField 3 + LightManager 2 + HeightShadowPass 1 + RadianceCascadesPass 1 + VFX 2 = 12; plus 5 pch (MS-7). OccluderExtractPass/ShadowBuildPass are fully Game-edge-free.
+- RG-3 resource lifecycle untouched; graph construction (AddPass order/conditions/owner tags) zero-modification verified.
+- Nothing was staged or committed (per project rule; main agent commits).

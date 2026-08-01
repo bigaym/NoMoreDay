@@ -33,6 +33,11 @@ struct GameplayRenderFrame {
   std::vector<NoMoreDay::components::GPUGlyphInstance> *glyphBuffer = nullptr;
   std::vector<GPUBeamInstance> *beamBuffer = nullptr;
 
+  // Engine-owned occluder staging buffer (filled by the adapter via the shared
+  // OccluderProjector, consumed by OccluderExtractPass/ShadowBuildPass through
+  // graph::RenderContext).
+  std::vector<NoMoreDay::components::GPUShadowCaster> *occluderBuffer = nullptr;
+
   // Engine-computed render flags (quality config + runtime readiness).
   bool gpuTextEnabled = false;
   bool gpuLootEnabled = false;
@@ -40,6 +45,13 @@ struct GameplayRenderFrame {
 
   // Out-field: glyph atlas font the Engine binds for the glyph instanced draw.
   Font font = {};
+
+  // Out-fields: occluder projection stats filled by the adapter (shared FNV
+  // signature contract consumed by OccluderExtractPass).
+  uint32_t occluderStaticCount = 0u;
+  uint32_t occluderDynamicCount = 0u;
+  uint64_t occluderStaticSignature = 0u;
+  uint64_t occluderDynamicSignature = 0u;
 };
 
 /**
@@ -57,6 +69,7 @@ public:
   virtual void onScene(GameplayRenderFrame &frame) = 0;
   virtual void onVFX(GameplayRenderFrame &frame) = 0;
   virtual void onUIWorld(GameplayRenderFrame &frame) = 0;
+  virtual void onOccluders(GameplayRenderFrame &frame) = 0;
 };
 
 } // namespace NoMoreDay::render

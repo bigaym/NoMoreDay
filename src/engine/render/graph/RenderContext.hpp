@@ -7,6 +7,10 @@
 
 class ResourceManager;
 
+namespace NoMoreDay::components {
+struct GPUShadowCaster;
+}
+
 namespace NoMoreDay::render::core {
 class QualityTierManager;
 }
@@ -38,6 +42,17 @@ struct RenderContext {
   uint32_t giRadianceTexture = 0u;
   int giRadianceWidth = 0;
   int giRadianceHeight = 0;
+
+  // Game-side occluder projection injected before graph execution (filled by the
+  // gameplay adapter via the shared OccluderProjector). Points into an
+  // Engine-owned staging buffer; count == casters.size(). Consumed by
+  // OccluderExtractPass/ShadowBuildPass instead of reading game components.
+  const components::GPUShadowCaster *occluders = nullptr;
+  uint32_t occluderCount = 0u;
+  uint32_t occluderStaticCount = 0u;
+  uint32_t occluderDynamicCount = 0u;
+  uint64_t occluderStaticSignature = 0u;
+  uint64_t occluderDynamicSignature = 0u;
 
   bool IsValid() const {
     return registry != nullptr && resources != nullptr && camera != nullptr;

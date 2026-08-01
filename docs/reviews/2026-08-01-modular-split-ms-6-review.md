@@ -108,3 +108,21 @@ render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.sh
 **验证（主代理）**：完整构建双标记 0 error（ms6-b4a-build.log）、25 python tests OK。
 
 **提交**：`refactor(render): sink particle constants and drop dead affix include`（待提交）。
+
+---
+
+## Batch 4-B（共享 occluder 投影去重）— `提交`
+
+**审查目标**：核验 OccluderExtractPass/ShadowBuildPass 的 Engine→Game 边清除与逐字节重复投影去重（ledger 21→17）。
+
+**变更边界**：2 新增（OccluderProjector.cpp/.hpp）+ 12 修改（ledger/evidence/checker/GameplayRenderHooks/GameplayRenderAdapter×2/RenderSystem/RenderContext/OccluderExtractPass×2/ShadowBuildPass×2）；settings.json 为用户指示既有残留；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium。仅 2 项 Low 纯文档：evidence.md Batch 4 节基准号误写（HEAD 应为 1874266 非 c3f97e7，**已修正**）；实施报告文件数笔误（实 2 新增+12 修改）。
+
+**已复核通过**：FNV 签名（kFnvOffset/kFnvPrime/HashAppend/BuildOccluderWord/FinalizeSignature）程序化比对逐字等价；投影 view 语义（Position+ShadowCasterComponent、radius 默认 24.0f、VisionComponent::radius>0 覆盖）与旧循环逐位一致；GPU 上传/绑定留各 pass；RenderContext 消费（ExtractPass 读 6 字段含签名驱动 staticChanged/dynamicChanged 缓存去重保留；ShadowBuildPass min(count,kMax)=8192 等价旧 capped）；onOccluders 钩子在 graph 组装前调用、null hooks 时字段 null/0 且两 pass 带 guard 安全；ledger 精确删 4 边、HeightShadowPass/RadianceCascadesPass 正确保留（仍消费 context.registry 属 D 批）、行号机械校验无 off-by-one；checker REQUIRED_P0_SOURCES 移除逻辑与先例一致；硬约束零改动（RenderGraph/ResourceManager/GPUResourceRegistry/pch/CMake/build.bat/AddPass 链 L1414-1581）；测试无直连两 pass Execute（全 AddPass+Build），新字段默认 null/0 安全。
+
+**独立重跑（审查员）**：checker 17/17 PASS（files 8）、git diff --check exit 0、定向 `*RenderGraphV3*,*RenderGraphTier*,*ShadowPipeline*,*Occluder*,*S7*` 17/180 SUCCESS、ModuleBoundaryCheckerTest 6/6。
+
+**剩余风险**：ShadowBuildPass buffer 大小从恒 kMax 改 max(1,uploadCount)（功能等价、更省内存、无消费方依赖固定大小）；context occluders 字段唯一生产者是 RenderSystem（契约已注释声明）。均低。
+
+**提交**：`refactor(render): deduplicate occluder projection via game adapter`（待提交）。

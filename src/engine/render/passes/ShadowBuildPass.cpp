@@ -10,17 +10,14 @@
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/ShadowCasterComponent.hpp"
 
 #include "rlgl.h"
 
 #include <algorithm>
+#include <cstddef>
 
 namespace NoMoreDay::render::passes {
 namespace {
-
-using namespace entt::literals;
 
 constexpr uint32_t kGLFramebuffer = 0x8D40;
 constexpr uint32_t kGLRg16f = 0x822F;
@@ -116,7 +113,6 @@ void ShadowBuildPass::Shutdown() {
   m_occluderBuffer.Release();
   resources::FramebufferManager::Destroy(m_sdfField);
   resources::FramebufferManager::Destroy(m_shadowAtlas);
-  m_occluderStaging.clear();
   m_cachedWidth = 0;
   m_cachedHeight = 0;
   m_shadowAtlasSize = 0;
@@ -169,42 +165,14 @@ void ShadowBuildPass::EnsureAtlasSize(const int atlasSize) {
   }
 }
 
-bool ShadowBuildPass::UploadOccluders(entt::registry &registry,
-                                      const uint32_t maxShadowCasters) {
-  const uint32_t maxCount = std::max(
-      1u, std::min(maxShadowCasters, RenderConstants::Shadow::kMaxShadowCasters));
-  m_occluderStaging.clear();
-  m_occluderStaging.reserve(maxCount);
-
-  auto view = registry.view<Position, NoMoreDay::ShadowCasterComponent>();
-  for (const entt::entity entity : view) {
-    if (m_occluderStaging.size() >= maxCount) {
-      break;
-    }
-
-    const auto &[position, shadowCaster] =
-        view.get<Position, NoMoreDay::ShadowCasterComponent>(entity);
-
-    float radius = 24.0f;
-    if (const auto *vision = registry.try_get<VisionComponent>(entity);
-        vision != nullptr && vision->radius > 0.0f) {
-      radius = vision->radius;
-    }
-
-    m_occluderStaging.push_back({
-        .posX = position.x,
-        .posY = position.y,
-        .radius = radius,
-        .occluderHeight = shadowCaster.occluderHeight,
-        .shapeIndex = static_cast<uint32_t>(shadowCaster.shape),
-        .dynamicFlag = shadowCaster.dynamicFlag,
-        .reserved0 = 0u,
-        .reserved1 = 0u,
-    });
-  }
+bool ShadowBuildPass::UploadOccluders(
+    const NoMoreDay::components::GPUShadowCaster *occluders,
+    const uint32_t occluderCount) {
+  const uint32_t uploadCount =
+      std::min(occluderCount, RenderConstants::Shadow::kMaxShadowCasters);
 
   const size_t requiredBytes =
-      static_cast<size_t>(maxCount) * sizeof(NoMoreDay::components::GPUShadowCaster);
+      std::max<size_t>(1u, uploadCount) * sizeof(NoMoreDay::components::GPUShadowCaster);
   if (m_occluderBuffer.GetId() == 0 || m_occluderBuffer.GetSize() < requiredBytes) {
     m_occluderBuffer.Create(requiredBytes, nullptr, RL_DYNAMIC_DRAW);
   }
@@ -213,12 +181,14 @@ bool ShadowBuildPass::UploadOccluders(entt::registry &registry,
     return false;
   }
 
-  if (!m_occluderStaging.empty()) {
+  if (occluders != nullptr && uploadCount > 0u) {
     m_occluderBuffer.Update(
-        m_occluderStaging.data(),
-        m_occluderStaging.size() * sizeof(NoMoreDay::components::GPUShadowCaster), 0);
+        occluders,
+        static_cast<size_t>(uploadCount) *
+            sizeof(NoMoreDay::components::GPUShadowCaster),
+        0);
   }
-  m_occluderCount = static_cast<uint32_t>(m_occluderStaging.size());
+  m_occluderCount = uploadCount;
   return true;
 }
 
@@ -312,8 +282,8 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
   m_lastExecuteSuccess = false;
   m_lastFailureReason.clear();
 
-  if (context.registry == nullptr || context.qualityManager == nullptr ||
-      context.camera == nullptr || context.resources == nullptr) {
+  if (context.qualityManager == nullptr || context.camera == nullptr ||
+      context.resources == nullptr) {
     ReportFailure("missing render context prerequisites");
     return;
   }
@@ -354,7 +324,7 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
     return;
   }
 
-  if (!UploadOccluders(*context.registry, RenderConstants::Shadow::kMaxShadowCasters)) {
+  if (!UploadOccluders(context.occluders, context.occluderCount)) {
     m_occluderCount = 0;
     ReportFailure("failed to upload shadow occluders");
     return;

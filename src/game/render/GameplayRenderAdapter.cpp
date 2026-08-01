@@ -1,4 +1,5 @@
 #include "game/render/GameplayRenderAdapter.hpp"
+#include "game/render/OccluderProjector.hpp"
 
 #include "core/logging/Logger.hpp"
 #include "core/utils/FmtBuffer.hpp"
@@ -85,6 +86,19 @@ void GameplayRenderAdapter::onVFX(render::GameplayRenderFrame &frame) {
 void GameplayRenderAdapter::onUIWorld(render::GameplayRenderFrame &frame) {
   ExecuteUIWorldPass(frame);
   frame.font = m_font;
+}
+
+void GameplayRenderAdapter::onOccluders(render::GameplayRenderFrame &frame) {
+  if (frame.occluderBuffer == nullptr) {
+    return;
+  }
+  NoMoreDay::OccluderProjection projection =
+      NoMoreDay::OccluderProjector::Project(frame.registry);
+  *frame.occluderBuffer = std::move(projection.casters);
+  frame.occluderStaticCount = projection.staticCount;
+  frame.occluderDynamicCount = projection.dynamicCount;
+  frame.occluderStaticSignature = projection.staticSignature;
+  frame.occluderDynamicSignature = projection.dynamicSignature;
 }
 
 void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame) {

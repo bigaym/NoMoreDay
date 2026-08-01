@@ -31,9 +31,7 @@ REQUIRED_P0_SOURCES = frozenset({
     "src/engine/render/lighting/GlobalHeightField.cpp",
     "src/engine/render/lighting/LightManager.cpp",
     "src/engine/render/passes/HeightShadowPass.cpp",
-    "src/engine/render/passes/OccluderExtractPass.cpp",
     "src/engine/render/passes/RadianceCascadesPass.cpp",
-    "src/engine/render/passes/ShadowBuildPass.cpp",
     "src/engine/vfx/VFXSequencerSystem.cpp",
 })
 ENTRY_FIELDS = {

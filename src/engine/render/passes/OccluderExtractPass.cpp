@@ -9,12 +9,11 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/ShadowCasterComponent.hpp"
 
 #include <entt/entt.hpp>
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <vector>
 
 namespace NoMoreDay::render::passes {
@@ -28,42 +27,9 @@ constexpr uint32_t kGLWriteOnly = 0x88B9;
 constexpr uint32_t kGLR8 = 0x8229;
 constexpr uint32_t kComputeGroupSize = 8u;
 constexpr uint32_t kTextureFetchBarrierBit = 0x00000008;
-constexpr uint64_t kFnvOffset = 1469598103934665603ull;
-constexpr uint64_t kFnvPrime = 1099511628211ull;
 
 uint32_t DivUp(const uint32_t value, const uint32_t divisor) {
   return (value + divisor - 1u) / divisor;
-}
-
-void HashAppend(uint64_t &hash, const uint64_t value) noexcept {
-  hash ^= value;
-  hash *= kFnvPrime;
-}
-
-uint64_t BuildOccluderWord(const components::GPUShadowCaster &caster) noexcept {
-  const uint32_t qx = static_cast<uint32_t>(std::lround(caster.posX * 16.0f));
-  const uint32_t qy = static_cast<uint32_t>(std::lround(caster.posY * 16.0f));
-  const uint32_t qr = static_cast<uint32_t>(std::lround(caster.radius * 16.0f));
-  const uint32_t qh =
-      static_cast<uint32_t>(std::lround(caster.occluderHeight * 16.0f));
-
-  uint64_t word = static_cast<uint64_t>(qx);
-  word = (word << 16) ^ static_cast<uint64_t>(qy & 0xFFFFu);
-  word = (word << 16) ^ static_cast<uint64_t>(qr & 0xFFFFu);
-  word = (word << 16) ^ static_cast<uint64_t>(qh & 0xFFFFu);
-  word ^= static_cast<uint64_t>(caster.shapeIndex) << 8;
-  word ^= static_cast<uint64_t>(caster.dynamicFlag) << 1;
-  return word;
-}
-
-uint64_t FinalizeSignature(std::vector<uint64_t> words) {
-  std::sort(words.begin(), words.end());
-  uint64_t hash = kFnvOffset;
-  for (const uint64_t word : words) {
-    HashAppend(hash, word);
-  }
-  HashAppend(hash, static_cast<uint64_t>(words.size()));
-  return hash;
 }
 
 } // namespace
@@ -115,7 +81,6 @@ void OccluderExtractPass::Shutdown() {
   resources::FramebufferManager::Destroy(m_dynamicMask);
   resources::FramebufferManager::Destroy(m_occluderMask);
 
-  m_occluderStaging.clear();
   m_resolutionLoc = -1;
   m_occluderCountLoc = -1;
   m_cameraOffsetLoc = -1;
@@ -178,56 +143,12 @@ bool OccluderExtractPass::EnsureMaskBuffers(const int width, const int height) {
          m_occluderMask.IsValid();
 }
 
-bool OccluderExtractPass::UploadOccluders(entt::registry &registry,
-                                          UploadStats &stats) {
-  m_occluderStaging.clear();
-
-  std::vector<uint64_t> staticWords;
-  std::vector<uint64_t> dynamicWords;
-  staticWords.reserve(256);
-  dynamicWords.reserve(256);
-
-  auto view = registry.view<const Position, const NoMoreDay::ShadowCasterComponent>();
-  m_occluderStaging.reserve(static_cast<size_t>(view.size_hint()));
-  for (const entt::entity entity : view) {
-    const auto &[position, casterComponent] =
-        view.get<const Position, const NoMoreDay::ShadowCasterComponent>(entity);
-
-    float radius = 24.0f;
-    if (const auto *vision = registry.try_get<VisionComponent>(entity);
-        vision != nullptr && vision->radius > 0.0f) {
-      radius = vision->radius;
-    }
-
-    components::GPUShadowCaster caster = {
-        .posX = position.x,
-        .posY = position.y,
-        .radius = radius,
-        .occluderHeight = casterComponent.occluderHeight,
-        .shapeIndex = static_cast<uint32_t>(casterComponent.shape),
-        .dynamicFlag = casterComponent.dynamicFlag,
-        .reserved0 = 0u,
-        .reserved1 = 0u,
-    };
-    m_occluderStaging.push_back(caster);
-
-    const uint64_t word = BuildOccluderWord(caster);
-    if (caster.dynamicFlag != 0u) {
-      dynamicWords.push_back(word);
-      ++stats.dynamicCount;
-    } else {
-      staticWords.push_back(word);
-      ++stats.staticCount;
-    }
-  }
-
-  stats.totalCount = static_cast<uint32_t>(m_occluderStaging.size());
-  stats.staticSignature = FinalizeSignature(std::move(staticWords));
-  stats.dynamicSignature = FinalizeSignature(std::move(dynamicWords));
-
+bool OccluderExtractPass::UploadOccluders(
+    const NoMoreDay::components::GPUShadowCaster *occluders,
+    const uint32_t occluderCount) {
   const size_t requiredBytes =
-      std::max<size_t>(1u, m_occluderStaging.size()) *
-      sizeof(components::GPUShadowCaster);
+      std::max<size_t>(1u, static_cast<size_t>(occluderCount)) *
+      sizeof(NoMoreDay::components::GPUShadowCaster);
   if (m_occluderBuffer.GetId() == 0 || m_occluderBuffer.GetSize() < requiredBytes) {
     m_occluderBuffer.Create(requiredBytes, nullptr, RL_DYNAMIC_DRAW);
   }
@@ -235,10 +156,12 @@ bool OccluderExtractPass::UploadOccluders(entt::registry &registry,
     return false;
   }
 
-  if (!m_occluderStaging.empty()) {
+  if (occluders != nullptr && occluderCount > 0u) {
     m_occluderBuffer.Update(
-        m_occluderStaging.data(),
-        m_occluderStaging.size() * sizeof(components::GPUShadowCaster), 0);
+        occluders,
+        static_cast<size_t>(occluderCount) *
+            sizeof(NoMoreDay::components::GPUShadowCaster),
+        0);
   }
   return true;
 }
@@ -356,8 +279,8 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
   m_lastFailureReason.clear();
   m_occluderCount = 0u;
 
-  if (context.registry == nullptr || context.resources == nullptr ||
-      context.qualityManager == nullptr || context.camera == nullptr) {
+  if (context.resources == nullptr || context.qualityManager == nullptr ||
+      context.camera == nullptr) {
     ReportFailure("missing render context prerequisites");
     return;
   }
@@ -392,7 +315,12 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
   }
 
   UploadStats stats = {};
-  if (!UploadOccluders(*context.registry, stats)) {
+  stats.totalCount = context.occluderCount;
+  stats.staticCount = context.occluderStaticCount;
+  stats.dynamicCount = context.occluderDynamicCount;
+  stats.staticSignature = context.occluderStaticSignature;
+  stats.dynamicSignature = context.occluderDynamicSignature;
+  if (!UploadOccluders(context.occluders, context.occluderCount)) {
     ReportFailure("failed to upload occluder buffer");
     return;
   }
@@ -445,8 +373,9 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
 
   m_previousOccluderBounds = m_currentOccluderBounds;
   render::gi::JFARect currentBounds{};
-  if (context.camera != nullptr) {
-    for (const auto &caster : m_occluderStaging) {
+  if (context.camera != nullptr && context.occluders != nullptr) {
+    for (uint32_t index = 0u; index < context.occluderCount; ++index) {
+      const auto &caster = context.occluders[index];
       if (caster.dynamicFlag != 0u) {
         Vector2 screenPos = GetWorldToScreen2D(Vector2{caster.posX, caster.posY}, *context.camera);
         float r = caster.radius;
