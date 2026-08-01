@@ -194,3 +194,27 @@ render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.sh
 **剩余风险**：uint32 截断耦合（engine DTO 与 Tag 低 7 位布局耦合，未来 Tag 重排将静默错映射——建议后续显式提取元素位）；REQUIRED 收敛后需 CI 全量验证兜底。均低。
 
 **提交**：`refactor(render): move loot projection, dto skill vfx event, migrate vfx sequencer`（合并提交，待提交）。
+
+---
+
+## Batch 4-E（EmissiveStampAdapter，最后一条 MS-6 边）— `提交`
+
+**审查目标**：核验 RadianceCascadesPass 的 Engine→Game 边清除（ledger 6→5，MS-6 清零）与 `REQUIRED_P0_SOURCES` 空集化。
+
+**变更边界**：GPUData.hpp（新增 `components::EmissiveStampInput`）+ 新增 EmissiveStampAdapter×2 + GameplayRenderHooks/GameplayRenderAdapter×2/RenderSystem/RenderContext/RadianceCascadesPass + ledger/checker/ModuleBoundaryCheckerTest/GIStabilityIntegrationTest/RadianceCascadesBenchmark/evidence；settings.json 为用户指示既有残留（排除）；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium。P2 观察项 3 条：GIStability 补 `PrepareVfxEmissionSnapshot` 调用为 test-only 同步修复（HEAD 即失败属实：RunParticleEmissive 在 HEAD:534 返回 `IsValid()&&vfxEmissionSnapshotValid`，Execute HEAD:795 中止，Benchmark 早已 REQUIRE 该调用）——略超严格投影范围但正确、透明记录，不构成修改理由；`RunMaterialEmissive` 去 registry null 守卫（函数体已不读 registry，安全）；空集容忍测试使 "source requires P0_BLOCKER" 分支结构性不可达，但反方向（p0_blocking 条目被拒）仍由 invalid-ownership 用例覆盖，无空洞。
+
+**已复核通过**：投影逐项等价（同 view `Position+ActiveMaterialSwap` exclude<KilledTag>、materialId<=0 skip、GetGpuMaterialForTesting(textureSlots.z→maskLayer,<0 skip)、emissive clamp+0.0001 阈值、worldHalfExtent=max(24,Radius,sprite 半 extent)）；pass 保留 world→px/offscreen skip/uniform/dispatch/++stampCount；**ledger :18 本就正确**（`git show HEAD` 实测 Common.hpp include 在第 18 行，审计 off-by-one 判断有误，条目直接删除无需改行）；REQUIRED=frozenset() 下 checker:241 `in` 恒 False、:245 `not in` 恒 True → 任何仍带 p0_blocking 条目被拒，不会错误放行；MaterialLightingIntegrationTest:56 从未引用 RadianceCascadesPass（git log -S 零命中）不改合理；硬约束零改动（pch/CMake/build.bat/RenderGraph 类/AddPass/其他 pass）；ToHooksFrame 22 成员聚合序对齐；C2653 已修（adapter.cpp:29 `NoMoreDay::render::MaterialManager`）。
+
+**独立重跑（审查员）**：checker 5/5 PASS（仅 pch MS-7）、ModuleBoundaryCheckerTest 6 OK、git diff --check 干净。
+
+**验证（主代理）**：完整构建双标记 0 error、定向 GI 1718/1718 + Benchmark 3869/3869 + Material Lighting 2+1 PASS、ctest -L integration 6/6、git grep game/ RadianceCascadesPass.cpp 0 命中。
+
+**剩余风险**：低。GIStability 修复属既有问题（根因 5c5ca0c），已透明记录。
+
+**提交**：`refactor(render): move emissive stamp projection to game adapter`（待提交）。
+
+## MS-6 里程碑总结
+
+MS-6 全部 66 条 P0-blocked 边清零：ef39129（GPU 实体核心）+ 363b196（死 include）+ c3f97e7（gameplay adapter）+ 5c5ca0c（DTO render input + pass rewire）+ 1874266（粒子常量）+ a5cc909（occluder 去重）+ bf5ff63（light adapter）+ a4fd6c2（heightfield adapter）+ 9aece25（loot/skill-vfx/vfx-sequencer）+ Batch E（emissive stamp）。ledger 现 5 条（全 MS-7 pch）。`REQUIRED_P0_SOURCES` 空集。剩余 MS-7（显式 target 图/PCH）/MS-8（目录收敛）/DOD-2（实机 gate）。

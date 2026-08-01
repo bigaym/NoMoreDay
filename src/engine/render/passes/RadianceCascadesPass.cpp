@@ -2,7 +2,6 @@
 
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUData.hpp"
-#include "engine/render/MaterialManager.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
@@ -14,8 +13,6 @@
 #include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/resource/ResourceManager.hpp"
-#include "engine/vfx/VFXTypes.hpp"
-#include "game/components/Common.hpp"
 
 #include <entt/entt.hpp>
 #include <algorithm>
@@ -403,7 +400,7 @@ bool RadianceCascadesPass::RunMaterialEmissive(
     const graph::RenderContext &context, const int width, const int height) {
   m_lastMaterialStampCount = 0u;
   if (m_materialEmissiveShader.id == 0 || !m_emissiveBase.IsValid() ||
-      context.registry == nullptr || context.camera == nullptr) {
+      context.camera == nullptr) {
     return false;
   }
 
@@ -439,52 +436,16 @@ bool RadianceCascadesPass::RunMaterialEmissive(
       RenderConstants::V5GI::kEmissiveImageBinding, m_emissiveBase.colorTexture, 0,
       false, 0, kGLReadWrite, kGLRgba16f);
 
-  auto view = context.registry->view<const Position,
-                                     const NoMoreDay::vfx::ActiveMaterialSwap>(
-      entt::exclude<KilledTag>);
   uint32_t stampCount = 0u;
-  for (const auto entity : view) {
-    const auto &swap = view.get<NoMoreDay::vfx::ActiveMaterialSwap>(entity);
-    if (swap.materialId <= 0) {
-      continue;
-    }
-
-    const auto &gpuMaterial =
-        MaterialManager::Get().GetGpuMaterialForTesting(swap.materialId);
-    const int maskLayer = static_cast<int>(std::lround(gpuMaterial.textureSlots.z));
-    if (maskLayer < 0) {
-      continue;
-    }
-
-    const float emissiveIntensity = std::max(0.0f, gpuMaterial.emissiveAndIntensity.w);
-    const float emissiveR = std::max(0.0f, gpuMaterial.emissiveAndIntensity.x);
-    const float emissiveG = std::max(0.0f, gpuMaterial.emissiveAndIntensity.y);
-    const float emissiveB = std::max(0.0f, gpuMaterial.emissiveAndIntensity.z);
-    if (emissiveIntensity <= 0.0001f ||
-        (emissiveR + emissiveG + emissiveB) <= 0.0001f) {
-      continue;
-    }
-
-    const auto &position = view.get<Position>(entity);
-    float worldHalfExtent = 24.0f;
-    if (const auto *radius = context.registry->try_get<Radius>(entity)) {
-      worldHalfExtent = std::max(worldHalfExtent, radius->value);
-    }
-    if (const auto *sprite = context.registry->try_get<SpriteComponent>(entity);
-        sprite != nullptr && sprite->texture.id != 0) {
-      const float spriteHalfExtent = 0.5f *
-                                     std::max(static_cast<float>(sprite->texture.width),
-                                              static_cast<float>(sprite->texture.height)) *
-                                     std::max(0.05f, sprite->scale);
-      worldHalfExtent = std::max(worldHalfExtent, spriteHalfExtent);
-    }
-
+  for (uint32_t stampIndex = 0u; stampIndex < context.emissiveStampCount;
+       ++stampIndex) {
+    const auto &stamp = context.emissiveStamps[stampIndex];
     const int halfExtentPixels =
-        std::max(2, static_cast<int>(std::ceil(worldHalfExtent * zoom)));
+        std::max(2, static_cast<int>(std::ceil(stamp.worldHalfExtent * zoom)));
     const int dispatchSize[2] = {halfExtentPixels * 2, halfExtentPixels * 2};
     const int centerPx[2] = {
-        static_cast<int>(std::floor((position.x - cameraOffset[0]) * zoom)),
-        static_cast<int>(std::floor((position.y - cameraOffset[1]) * zoom)),
+        static_cast<int>(std::floor((stamp.worldPos.x - cameraOffset[0]) * zoom)),
+        static_cast<int>(std::floor((stamp.worldPos.y - cameraOffset[1]) * zoom)),
     };
     const int dispatchOrigin[2] = {centerPx[0] - halfExtentPixels,
                                    centerPx[1] - halfExtentPixels};
@@ -495,7 +456,8 @@ bool RadianceCascadesPass::RunMaterialEmissive(
     }
 
     if (m_materialMaskLayerLoc >= 0) {
-      rlSetUniform(m_materialMaskLayerLoc, &maskLayer, RL_SHADER_UNIFORM_INT, 1);
+      rlSetUniform(m_materialMaskLayerLoc, &stamp.maskLayer, RL_SHADER_UNIFORM_INT,
+                   1);
     }
     if (m_materialDispatchOriginLoc >= 0) {
       rlSetUniform(m_materialDispatchOriginLoc, dispatchOrigin, RL_SHADER_UNIFORM_IVEC2,
@@ -504,7 +466,8 @@ bool RadianceCascadesPass::RunMaterialEmissive(
     if (m_materialDispatchSizeLoc >= 0) {
       rlSetUniform(m_materialDispatchSizeLoc, dispatchSize, RL_SHADER_UNIFORM_IVEC2, 1);
     }
-    const float emission[4] = {emissiveR, emissiveG, emissiveB, emissiveIntensity};
+    const float emission[4] = {stamp.emissionRGBA.x, stamp.emissionRGBA.y,
+                               stamp.emissionRGBA.z, stamp.emissionRGBA.w};
     if (m_materialEmissionLoc >= 0) {
       rlSetUniform(m_materialEmissionLoc, emission, RL_SHADER_UNIFORM_VEC4, 1);
     }

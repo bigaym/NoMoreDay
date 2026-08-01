@@ -1,4 +1,5 @@
 #include "game/render/GameplayRenderAdapter.hpp"
+#include "game/render/EmissiveStampAdapter.hpp"
 #include "game/render/GPULootAdapter.hpp"
 #include "game/render/HeightFieldAdapter.hpp"
 #include "game/render/LightAdapter.hpp"
@@ -134,6 +135,15 @@ void GameplayRenderAdapter::onLoot(render::GameplayRenderFrame &frame) {
   NoMoreDay::LootProjection projection =
       NoMoreDay::GPULootAdapter::BuildLoot(frame.registry);
   *frame.lootBuffer = std::move(projection.instances);
+}
+
+void GameplayRenderAdapter::onEmissive(render::GameplayRenderFrame &frame) {
+  if (frame.emissiveStampBuffer == nullptr) {
+    return;
+  }
+  NoMoreDay::EmissiveProjection projection =
+      NoMoreDay::EmissiveStampAdapter::BuildEmissiveStamps(frame.registry);
+  *frame.emissiveStampBuffer = std::move(projection.stamps);
 }
 
 void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame) {

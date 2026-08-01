@@ -124,6 +124,8 @@ static std::vector<NoMoreDay::components::GPULight> s_lightCandidateBuffer;
 static std::vector<NoMoreDay::render::lighting::GlobalHeightField::HeightStamp>
     s_heightFieldBuffer;
 static std::vector<NoMoreDay::components::GPULootInstance> s_lootInstanceBuffer;
+static std::vector<NoMoreDay::components::EmissiveStampInput>
+    s_emissiveStampBuffer;
 
 namespace {
 
@@ -158,7 +160,7 @@ struct RenderFrameData {
     return NoMoreDay::render::GameplayRenderFrame{
         registry,        camera,  labelBuffer, glyphBuffer, &s_beamBuffer,
         &s_occluderBuffer, &s_lightCandidateBuffer, &s_heightFieldBuffer,
-        &s_lootInstanceBuffer,
+        &s_lootInstanceBuffer, &s_emissiveStampBuffer,
         gpuTextEnabled, gpuLootEnabled, gpuLootGlowEnabled, font,
         occluderStaticCount, occluderDynamicCount, occluderStaticSignature,
         occluderDynamicSignature, ecsLights, worldWidth, worldHeight,
@@ -1182,6 +1184,11 @@ void RenderSystem::render(entt::registry &registry,
     // Engine-owned staging buffer via the shared GPULootAdapter; the Engine
     // only uploads the DTO span to the instance SSBO below.
     gameplayHooks->onLoot(hooksFrame);
+    // Emissive projection: the Game adapter projects the ECS emissive
+    // materials into the Engine-owned stamp buffer via the shared
+    // EmissiveStampAdapter; RadianceCascadesPass consumes the DTO span for its
+    // per-stamp compute dispatch through graph::RenderContext.
+    gameplayHooks->onEmissive(hooksFrame);
   } else {
     // No gameplay adapter (gate/harness): never feed stale occluders from a
     // previous game frame into the graph context.
@@ -1195,6 +1202,7 @@ void RenderSystem::render(entt::registry &registry,
     frame.worldHeight = 0.0f;
     frame.tileWorldSize = 0.0f;
     s_lootInstanceBuffer.clear();
+    s_emissiveStampBuffer.clear();
   }
 
   g_transientPool.BeginFrame();
@@ -1666,6 +1674,10 @@ void RenderSystem::render(entt::registry &registry,
       s_heightFieldBuffer.empty() ? nullptr : s_heightFieldBuffer.data();
   graphContext.heightFieldStampCount =
       static_cast<uint32_t>(s_heightFieldBuffer.size());
+  graphContext.emissiveStamps =
+      s_emissiveStampBuffer.empty() ? nullptr : s_emissiveStampBuffer.data();
+  graphContext.emissiveStampCount =
+      static_cast<uint32_t>(s_emissiveStampBuffer.size());
   graphContext.worldWidth = frame.worldWidth;
   graphContext.worldHeight = frame.worldHeight;
   graphContext.tileWorldSize = frame.tileWorldSize;

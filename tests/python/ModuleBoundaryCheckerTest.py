@@ -135,7 +135,13 @@ class ModuleBoundaryCheckerTest(unittest.TestCase):
             self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
             self.assertIn("ERROR", result.stdout)
 
-    def test_required_p0_source_without_blocker_returns_input_error(self) -> None:
+    def test_empty_required_p0_sources_tolerated_after_ms6(self) -> None:
+        # REQUIRED_P0_SOURCES is empty once every MS-6 P0 source has been
+        # migrated (Batch E removed the last one). A tracked entry on the
+        # former P0 source without p0_blocking must be accepted: with an empty
+        # frozenset `source in REQUIRED_P0_SOURCES` is always False, so the
+        # "source requires P0_BLOCKER" assertion never fires and the ledger
+        # entry passes validation.
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             (root / "src" / "engine" / "render" / "passes").mkdir(parents=True)
@@ -156,8 +162,8 @@ class ModuleBoundaryCheckerTest(unittest.TestCase):
             ledger_path.parent.mkdir(parents=True)
             ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
             result = self.run_checker(root)
-            self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-            self.assertIn("source requires", result.stdout)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("PASS", result.stdout)
 
     def test_invalid_ownership_and_p0_metadata_return_input_error(self) -> None:
         cases = (

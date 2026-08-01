@@ -553,6 +553,21 @@ static_assert(sizeof(GPULootInstance) == 32,
               "GPULootInstance struct must be exactly 32 bytes");
 
 /**
+ * @brief Emissive material stamp projection payload (CPU-side span DTO).
+ *
+ * Produced by the Game-side EmissiveStampAdapter from the ECS
+ * (Position + ActiveMaterialSwap, KilledTag-excluded, resolved via
+ * MaterialManager) and consumed by RadianceCascadesPass::RunMaterialEmissive,
+ * which keeps the world->pixel conversion and per-stamp compute dispatch.
+ */
+struct EmissiveStampInput {
+  Vector2 worldPos = {0.0f, 0.0f};    // world-space center
+  float worldHalfExtent = 0.0f;       // max(Radius, sprite half-extent, 24)
+  int maskLayer = 0;                  // material mask texture-array layer
+  Vector4 emissionRGBA = {0.0f, 0.0f, 0.0f, 0.0f}; // RGB + intensity
+};
+
+/**
  * @brief V5 radiance cascade runtime configuration payload.
  * 32 bytes.
  */

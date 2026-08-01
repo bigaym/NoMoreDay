@@ -23,9 +23,11 @@ FUTURE_OWNER_LAYERS = {"Game", "App"}
 P0_BLOCKER = "gpu_rendergraph_resource_foundation_20260726"
 P0_DISPOSITION = "split_engine_primitive_and_game_adapter"
 P0_MILESTONE = "MS-6"
-REQUIRED_P0_SOURCES = frozenset({
-"src/engine/render/passes/RadianceCascadesPass.cpp",
-})
+# All MS-6 P0-blocked sources have been migrated (last resolved in Batch E);
+# an empty set is valid: `source in frozenset()` is always False, so no
+# required-source assertion fires, and `source not in frozenset()` is always
+# True, so any entry still carrying p0_blocking is rejected as outside policy.
+REQUIRED_P0_SOURCES = frozenset()
 ENTRY_FIELDS = {
     "id",
     "source",

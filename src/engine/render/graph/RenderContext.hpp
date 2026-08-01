@@ -10,6 +10,7 @@ class ResourceManager;
 
 namespace NoMoreDay::components {
 struct GPUShadowCaster;
+struct EmissiveStampInput;
 }
 
 namespace NoMoreDay::render::core {
@@ -61,6 +62,15 @@ struct RenderContext {
   // HeightShadowPass instead of reading game components.
   const lighting::GlobalHeightField::HeightStamp *heightFieldStamps = nullptr;
   uint32_t heightFieldStampCount = 0u;
+
+  // Game-side emissive material stamp projection injected before graph
+  // execution (filled by the gameplay adapter via the shared
+  // EmissiveStampAdapter). Points into an Engine-owned staging buffer;
+  // count == stamps.size(). Consumed by
+  // RadianceCascadesPass::RunMaterialEmissive instead of reading game
+  // components.
+  const components::EmissiveStampInput *emissiveStamps = nullptr;
+  uint32_t emissiveStampCount = 0u;
 
   // Game-side world semantics injected by the gameplay adapter (previously the
   // game Constants::World values read by HeightShadowPass).

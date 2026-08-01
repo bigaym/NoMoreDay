@@ -10,6 +10,7 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/vfx/VFXTypes.hpp"
 #include "game/components/Common.hpp"
+#include "game/render/EmissiveStampAdapter.hpp"
 
 #include "GLFW/glfw3.h"
 
@@ -270,6 +271,8 @@ TEST_CASE("[Performance] RadianceCascades - Tier and Holographic Matrix") {
 
   render::passes::RadianceCascadesPass pass;
 
+  std::vector<NoMoreDay::components::EmissiveStampInput> emissiveStamps;
+
   std::vector<double> highStandardMeans;
   std::vector<double> ultraStandardMeans;
   std::vector<double> highHolographicMeans;
@@ -285,6 +288,13 @@ TEST_CASE("[Performance] RadianceCascades - Tier and Holographic Matrix") {
       GiScenario::Cave, GiScenario::Town, GiScenario::Forest};
   for (const auto scenario : kScenarios) {
     PopulateScenario(registry, scenario, materialId);
+
+    NoMoreDay::EmissiveProjection emissiveProjection =
+        NoMoreDay::EmissiveStampAdapter::BuildEmissiveStamps(registry);
+    emissiveStamps = std::move(emissiveProjection.stamps);
+    context.emissiveStamps =
+        emissiveStamps.empty() ? nullptr : emissiveStamps.data();
+    context.emissiveStampCount = static_cast<uint32_t>(emissiveStamps.size());
 
     const auto highStandard =
         MeasureRadianceTier(pass, context, camera, cfg, 4u, true, false, queryApi);

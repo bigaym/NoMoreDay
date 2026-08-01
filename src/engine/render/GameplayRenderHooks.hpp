@@ -54,6 +54,12 @@ struct GameplayRenderFrame {
   // GPULootSystem::UploadInstances).
   std::vector<NoMoreDay::components::GPULootInstance> *lootBuffer = nullptr;
 
+  // Engine-owned emissive stamp staging buffer (filled by the adapter via the
+  // shared EmissiveStampAdapter projection, consumed by
+  // RadianceCascadesPass::RunMaterialEmissive through graph::RenderContext).
+  std::vector<NoMoreDay::components::EmissiveStampInput> *emissiveStampBuffer =
+      nullptr;
+
   // Engine-computed render flags (quality config + runtime readiness).
   bool gpuTextEnabled = false;
   bool gpuLootEnabled = false;
@@ -99,6 +105,7 @@ public:
   virtual void onLights(GameplayRenderFrame &frame) = 0;
   virtual void onHeightField(GameplayRenderFrame &frame) = 0;
   virtual void onLoot(GameplayRenderFrame &frame) = 0;
+  virtual void onEmissive(GameplayRenderFrame &frame) = 0;
 };
 
 } // namespace NoMoreDay::render

@@ -9,11 +9,13 @@
 #include "engine/resource/ResourceManager.hpp"
 #include "engine/vfx/VFXTypes.hpp"
 #include "game/components/Common.hpp"
+#include "game/render/EmissiveStampAdapter.hpp"
 
 #include <array>
 #include <cmath>
 #include <cstdint>
 #include <unordered_set>
+#include <vector>
 
 namespace {
 
@@ -93,6 +95,8 @@ TEST_CASE("[Integration] GI - Long-run Stability Proxy (Resize + Tier Switch)") 
 
   render::passes::RadianceCascadesPass pass;
 
+  std::vector<NoMoreDay::components::EmissiveStampInput> emissiveStamps;
+
   constexpr std::array<int, 4> kWidths = {1920, 1600, 1280, 1024};
   constexpr std::array<int, 4> kHeights = {1080, 900, 720, 768};
   constexpr std::array<render::core::QualityTier, 4> kTiers = {
@@ -149,6 +153,13 @@ TEST_CASE("[Integration] GI - Long-run Stability Proxy (Resize + Tier Switch)") 
 
     context.giEmissiveTexture = 0u;
     context.giRadianceTexture = 0u;
+    pass.PrepareVfxEmissionSnapshot(context);
+    NoMoreDay::EmissiveProjection emissiveProjection =
+        NoMoreDay::EmissiveStampAdapter::BuildEmissiveStamps(registry);
+    emissiveStamps = std::move(emissiveProjection.stamps);
+    context.emissiveStamps =
+        emissiveStamps.empty() ? nullptr : emissiveStamps.data();
+    context.emissiveStampCount = static_cast<uint32_t>(emissiveStamps.size());
     pass.Execute(context);
 
     if (cfg.giEnabled) {
