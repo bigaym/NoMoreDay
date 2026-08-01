@@ -62,58 +62,6 @@
       "p0_blocking": "gpu_rendergraph_resource_foundation_20260726"
     },
     {
-      "id": "src/engine/render/lighting/GlobalHeightField.cpp:4:game/components/Common.hpp",
-      "source": "src/engine/render/lighting/GlobalHeightField.cpp",
-      "line": 4,
-      "include_path": "game/components/Common.hpp",
-      "candidate_target": "NoMoreDayEngine",
-      "candidate_layer": "Engine",
-      "current_owner": "legacy_monolithic_NoMoreDayEngine",
-      "future_owner_layer": "Game",
-      "disposition": "split_engine_primitive_and_game_adapter",
-      "milestone": "MS-6",
-      "p0_blocking": "gpu_rendergraph_resource_foundation_20260726"
-    },
-    {
-      "id": "src/engine/render/lighting/GlobalHeightField.cpp:5:game/components/MapComponent.hpp",
-      "source": "src/engine/render/lighting/GlobalHeightField.cpp",
-      "line": 5,
-      "include_path": "game/components/MapComponent.hpp",
-      "candidate_target": "NoMoreDayEngine",
-      "candidate_layer": "Engine",
-      "current_owner": "legacy_monolithic_NoMoreDayEngine",
-      "future_owner_layer": "Game",
-      "disposition": "split_engine_primitive_and_game_adapter",
-      "milestone": "MS-6",
-      "p0_blocking": "gpu_rendergraph_resource_foundation_20260726"
-    },
-    {
-      "id": "src/engine/render/lighting/GlobalHeightField.cpp:6:game/components/ShadowCasterComponent.hpp",
-      "source": "src/engine/render/lighting/GlobalHeightField.cpp",
-      "line": 6,
-      "include_path": "game/components/ShadowCasterComponent.hpp",
-      "candidate_target": "NoMoreDayEngine",
-      "candidate_layer": "Engine",
-      "current_owner": "legacy_monolithic_NoMoreDayEngine",
-      "future_owner_layer": "Game",
-      "disposition": "split_engine_primitive_and_game_adapter",
-      "milestone": "MS-6",
-      "p0_blocking": "gpu_rendergraph_resource_foundation_20260726"
-    },
-    {
-      "id": "src/engine/render/passes/HeightShadowPass.cpp:11:game/components/Common.hpp",
-      "source": "src/engine/render/passes/HeightShadowPass.cpp",
-      "line": 11,
-      "include_path": "game/components/Common.hpp",
-      "candidate_target": "NoMoreDayEngine",
-      "candidate_layer": "Engine",
-      "current_owner": "legacy_monolithic_NoMoreDayEngine",
-      "future_owner_layer": "Game",
-      "disposition": "split_engine_primitive_and_game_adapter",
-      "milestone": "MS-6",
-      "p0_blocking": "gpu_rendergraph_resource_foundation_20260726"
-    },
-    {
       "id": "src/engine/render/passes/RadianceCascadesPass.cpp:18:game/components/Common.hpp",
       "source": "src/engine/render/passes/RadianceCascadesPass.cpp",
       "line": 18,

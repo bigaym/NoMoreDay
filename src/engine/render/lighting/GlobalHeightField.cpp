@@ -1,9 +1,6 @@
 #include "engine/render/lighting/GlobalHeightField.hpp"
 
 #include "engine/render/GPUUtils.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/MapComponent.hpp"
-#include "game/components/ShadowCasterComponent.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -20,34 +17,6 @@ constexpr uint32_t kMaxChunkUploadsPerFrame = 64u;
 
 [[nodiscard]] inline float ToHeightNorm(const uint16_t value) {
   return static_cast<float>(value) / 65535.0f;
-}
-
-[[nodiscard]] float EstimateMaskBlue(SpriteComponent &sprite,
-                                     std::unordered_map<uint32_t, float> &cache) {
-  if (sprite.texture.id == 0u) {
-    return 0.0f;
-  }
-
-  const uint32_t id = sprite.texture.id;
-  const auto cached = cache.find(id);
-  if (cached != cache.end()) {
-    return cached->second;
-  }
-
-  Image image = LoadImageFromTexture(sprite.texture);
-  if (image.data == nullptr || image.width <= 0 || image.height <= 0) {
-    cache[id] = 0.0f;
-    return 0.0f;
-  }
-
-  const int centerX = std::clamp(image.width / 2, 0, image.width - 1);
-  const int centerY = std::clamp(image.height / 2, 0, image.height - 1);
-  const Color center = GetImageColor(image, centerX, centerY);
-  UnloadImage(image);
-
-  const float blue = static_cast<float>(center.b) / 255.0f;
-  cache[id] = blue;
-  return blue;
 }
 
 } // namespace
@@ -68,6 +37,7 @@ bool GlobalHeightField::Initialize(const Config &config) {
   m_config.chunkSize = std::max(1, m_config.chunkSize);
   m_config.worldWidth = std::max(1.0f, m_config.worldWidth);
   m_config.worldHeight = std::max(1.0f, m_config.worldHeight);
+  m_config.tileWorldSize = std::max(1.0f, m_config.tileWorldSize);
 
   const size_t texelCount = static_cast<size_t>(m_config.textureWidth) *
                             static_cast<size_t>(m_config.textureHeight);
@@ -83,7 +53,6 @@ bool GlobalHeightField::Initialize(const Config &config) {
   m_dynamicChunkMarks.assign(m_dirtyChunks.size(), 0u);
   m_prevDynamicChunks.clear();
   m_currDynamicChunks.clear();
-  m_maskBlueCache.clear();
   m_lastStats = {};
 
   m_initialized = EnsureTexture();
@@ -104,27 +73,26 @@ void GlobalHeightField::Shutdown() {
   m_prevDynamicChunks.clear();
   m_currDynamicChunks.clear();
   std::fill(m_dynamicChunkMarks.begin(), m_dynamicChunkMarks.end(), 0u);
-  m_maskBlueCache.clear();
   m_uploadScratch.clear();
   m_lastStats = {};
   m_initialized = false;
   m_pendingFullRebuild = true;
 }
 
-void GlobalHeightField::Update(entt::registry &registry) {
+void GlobalHeightField::Update(std::span<const HeightStamp> stamps) {
   if (!m_initialized && !EnsureTexture()) {
     return;
   }
 
   m_lastStats = {};
   if (m_pendingFullRebuild) {
-    BuildTerrainAndStatic(registry);
+    BuildTerrainAndStatic(stamps);
     m_pendingFullRebuild = false;
     m_lastStats.didFullRebuild = true;
   }
 
   ClearDynamicLayerForPreviousChunks();
-  BuildDynamicLayer(registry);
+  BuildDynamicLayer(stamps);
   ComposeDirtyChunks();
   UploadDirtyChunks();
 }
@@ -146,39 +114,20 @@ bool GlobalHeightField::EnsureTexture() {
   return m_texture.id != 0u;
 }
 
-void GlobalHeightField::BuildTerrainAndStatic(entt::registry &registry) {
+void GlobalHeightField::BuildTerrainAndStatic(std::span<const HeightStamp> stamps) {
   std::fill(m_baseLayer.begin(), m_baseLayer.end(), 0u);
   std::fill(m_dynamicLayer.begin(), m_dynamicLayer.end(), 0u);
 
-  auto tileView = registry.view<MapTileComponent>();
-  for (const entt::entity entity : tileView) {
-    const auto &tile = tileView.get<MapTileComponent>(entity);
-    const float height = (tile.tileType == Tile::Type::WALL)
-                             ? m_config.terrainWallHeight
-                             : m_config.terrainFloorHeight;
-    StampTileRectMax(m_baseLayer, tile.gridX, tile.gridY, height);
-  }
-
-  auto staticShadowView = registry.view<Position, NoMoreDay::ShadowCasterComponent>();
-  for (const entt::entity entity : staticShadowView) {
-    const auto [pos, caster] =
-        staticShadowView.get<Position, NoMoreDay::ShadowCasterComponent>(entity);
-    if (caster.dynamicFlag != 0u) {
+  for (const HeightStamp &stamp : stamps) {
+    if (stamp.dynamic) {
       continue;
     }
-    const float radius = 20.0f;
-    StampDiscMax(m_baseLayer, pos.x, pos.y, radius,
-                 std::clamp(caster.occluderHeight, 0.0f, 1.0f), false);
-  }
-
-  auto staticColliderView = registry.view<Position, ColliderComponent>();
-  for (const entt::entity entity : staticColliderView) {
-    const auto [pos, collider] = staticColliderView.get<Position, ColliderComponent>(entity);
-    if (collider.type != ColliderType::Static) {
-      continue;
+    if (stamp.kind == HeightStamp::Kind::Tile) {
+      StampTileRectMax(m_baseLayer, stamp.tileX, stamp.tileY, stamp.height);
+    } else {
+      StampDiscMax(m_baseLayer, stamp.worldX, stamp.worldY,
+                   std::max(0.0f, stamp.worldRadius), stamp.height, false);
     }
-    const float radius = std::max(collider.width, collider.height) * 0.5f;
-    StampDiscMax(m_baseLayer, pos.x, pos.y, std::max(2.0f, radius), 0.75f, false);
   }
 
   std::fill(m_dirtyChunks.begin(), m_dirtyChunks.end(), 1u);
@@ -209,27 +158,17 @@ void GlobalHeightField::ClearDynamicLayerForPreviousChunks() {
   m_currDynamicChunks.clear();
 }
 
-void GlobalHeightField::BuildDynamicLayer(entt::registry &registry) {
-  auto dynamicShadowView = registry.view<Position, NoMoreDay::ShadowCasterComponent>();
-  for (const entt::entity entity : dynamicShadowView) {
-    const auto [pos, caster] =
-        dynamicShadowView.get<Position, NoMoreDay::ShadowCasterComponent>(entity);
-    if (caster.dynamicFlag == 0u) {
+void GlobalHeightField::BuildDynamicLayer(std::span<const HeightStamp> stamps) {
+  for (const HeightStamp &stamp : stamps) {
+    if (!stamp.dynamic) {
       continue;
     }
-    StampDiscMax(m_dynamicLayer, pos.x, pos.y, 18.0f,
-                 std::clamp(caster.occluderHeight, 0.0f, 1.0f), true);
-  }
-
-  auto spriteView = registry.view<Position, SpriteComponent>();
-  for (const entt::entity entity : spriteView) {
-    auto [pos, sprite] = spriteView.get<Position, SpriteComponent>(entity);
-    const float blue = EstimateMaskBlue(sprite, m_maskBlueCache);
-    if (blue <= 0.02f) {
-      continue;
+    if (stamp.kind == HeightStamp::Kind::Tile) {
+      StampTileRectMax(m_dynamicLayer, stamp.tileX, stamp.tileY, stamp.height);
+    } else {
+      StampDiscMax(m_dynamicLayer, stamp.worldX, stamp.worldY,
+                   std::max(0.0f, stamp.worldRadius), stamp.height, true);
     }
-    const float radius = std::max(6.0f, 8.0f * std::max(0.25f, sprite.scale));
-    StampDiscMax(m_dynamicLayer, pos.x, pos.y, radius, blue, true);
   }
 
   m_prevDynamicChunks = m_currDynamicChunks;
@@ -388,7 +327,7 @@ void GlobalHeightField::StampDiscMax(std::vector<uint16_t> &layer, const float w
 
 void GlobalHeightField::StampTileRectMax(std::vector<uint16_t> &layer, const int tileX,
                                          const int tileY, const float normalizedHeight) {
-  const float tileSize = std::max(1.0f, Constants::World::GRID_TILE_SIZE);
+  const float tileSize = std::max(1.0f, m_config.tileWorldSize);
   const float worldX0 = static_cast<float>(tileX) * tileSize;
   const float worldY0 = static_cast<float>(tileY) * tileSize;
   const float worldX1 = worldX0 + tileSize;

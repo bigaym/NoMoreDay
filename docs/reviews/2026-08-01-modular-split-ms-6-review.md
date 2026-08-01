@@ -146,3 +146,23 @@ render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.sh
 **剩余风险**：低。null-hooks 路径不再投影 ECS 光属 hooks 契约设计（evidence 已记录）；benchmark 指标不受投影迁移影响。
 
 **提交**：`refactor(render): split light manager candidate projection`（待提交）。
+
+---
+
+## Batch 4-D（HeightFieldAdapter 高度场投影迁移）— `提交`
+
+**审查目标**：核验 GlobalHeightField/HeightShadowPass 的 Engine→Game 边清除与 ECS→HeightStamp 投影迁移（ledger 15→11）。
+
+**变更边界**：2 新增（`src/game/render/HeightFieldAdapter.{hpp,cpp}`）+ 12 修改（ledger/evidence/checker/GlobalHeightField×2/HeightShadowPass/RenderContext/GameplayRenderHooks/RenderSystem/GameplayRenderAdapter×2/GlobalHeightFieldTest）；settings.json 为用户指示既有残留；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium。2 项 Low 非阻塞：`s_maskBlueCache` thread_local 蓝色缓存不随 Initialize/Shutdown 清空（raylib 纹理 ID 进程内单调不复用，实际可忽略，建议补注释）；HeightShadowPass 移除 registry 守卫后空数据时无条件 `Update(empty_span)` 清高度纹理（与 Batch 4-B 先例一致，"无游戏数据→无高度场"更合理）。
+
+**已复核通过**：投影逐段等价（Tile WALL→0.85/else→0.10、static caster r=20 clamp(occluderHeight,0,1)、static collider r=max(2,max(w,h)*0.5) h=0.75、dynamic caster r=18、sprite r=max(6,8*max(0.25,scale)) blue>0.02，与旧 texel 写入 1:1 对应；EstimateMaskBlue 逐字迁移仅加 const；全 max-blend 顺序无关）；`tileWorldSize=10.0f`==`GRID_TILE_SIZE`；WORLD 5000 int→float 与 fallback 5000/5000/10 一致；base(track=false)/dynamic(track=true) 双层分流保留；`SampleNormalizedHeight`/chunk 逻辑零改动；RenderContext 指针+count 消费链（nullptr 恰当 count=0）；ToHooksFrame 20 字段聚合与 GameplayRenderFrame 成员序逐一匹配；onHeightField 唯一实现者+null 守卫、gate/harness 清 buffer 置零 world 字段；AddPass 结构零改动（RenderSystem 仅 5 hunk）；ledger 精确删 4 边、checker REQUIRED_P0_SOURCES 移除 2 文件；GlobalHeightFieldTest 锚点断言（wallH>floorH/didFullRebuild/firstSpot>0.1/newSpot>oldSpot/dirtyChunkCount>0）与 HEAD 逐条一致；硬约束零改动。
+
+**独立重跑（审查员）**：checker 11/11 PASS（files 5 = pch 5 + MS-6 6）、git diff --check exit 0。
+
+**验证（主代理）**：完整构建双标记 0 error（ms6-b4d-build.log）、定向 `*GlobalHeightField*,*HeightShadow*,*Clustered Lighting*` 11/11 28680/28680 断言 SUCCESS、ModuleBoundaryCheckerTest 6/6、git grep game/ 两文件 0 命中。
+
+**剩余风险**：低。`thread_local` 缓存为唯一轻微语义偏移（行为等价）。
+
+**提交**：`refactor(render): move heightfield projection to game adapter`（待提交）。

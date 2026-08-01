@@ -28,8 +28,6 @@ REQUIRED_P0_SOURCES = frozenset({
     "src/engine/render/GPUEntitySystem.hpp",
     "src/engine/render/GPULootSystem.cpp",
     "src/engine/render/GPUSkillEffectSystem.hpp",
-    "src/engine/render/lighting/GlobalHeightField.cpp",
-    "src/engine/render/passes/HeightShadowPass.cpp",
     "src/engine/render/passes/RadianceCascadesPass.cpp",
     "src/engine/vfx/VFXSequencerSystem.cpp",
 })

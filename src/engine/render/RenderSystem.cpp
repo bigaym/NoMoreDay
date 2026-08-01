@@ -121,6 +121,8 @@ static std::unique_ptr<NoMoreDay::core::ComputeBuffer> s_beamInstanceBuffer =
 static std::vector<NoMoreDay::render::GPUBeamInstance> s_beamBuffer;
 static std::vector<NoMoreDay::components::GPUShadowCaster> s_occluderBuffer;
 static std::vector<NoMoreDay::components::GPULight> s_lightCandidateBuffer;
+static std::vector<NoMoreDay::render::lighting::GlobalHeightField::HeightStamp>
+    s_heightFieldBuffer;
 
 namespace {
 
@@ -146,13 +148,19 @@ struct RenderFrameData {
   uint64_t occluderStaticSignature = 0u;
   uint64_t occluderDynamicSignature = 0u;
   int ecsLights = 0;
+  float worldWidth = 0.0f;
+  float worldHeight = 0.0f;
+  float tileWorldSize = 0.0f;
 
   // Build the engine-safe DTO handed to the gameplay render adapter.
   NoMoreDay::render::GameplayRenderFrame ToHooksFrame() const {
     return NoMoreDay::render::GameplayRenderFrame{
         registry,        camera,  labelBuffer, glyphBuffer, &s_beamBuffer,
-        &s_occluderBuffer, &s_lightCandidateBuffer,
-        gpuTextEnabled, gpuLootEnabled, gpuLootGlowEnabled, font};
+        &s_occluderBuffer, &s_lightCandidateBuffer, &s_heightFieldBuffer,
+        gpuTextEnabled, gpuLootEnabled, gpuLootGlowEnabled, font,
+        occluderStaticCount, occluderDynamicCount, occluderStaticSignature,
+        occluderDynamicSignature, ecsLights, worldWidth, worldHeight,
+        tileWorldSize};
   }
 };
 
@@ -1161,6 +1169,13 @@ void RenderSystem::render(entt::registry &registry,
     frame.occluderDynamicCount = hooksFrame.occluderDynamicCount;
     frame.occluderStaticSignature = hooksFrame.occluderStaticSignature;
     frame.occluderDynamicSignature = hooksFrame.occluderDynamicSignature;
+    // Height-field projection: the Game adapter projects the ECS terrain/casters/
+    // sprites into the Engine-owned stamp buffer + world semantics consumed by
+    // HeightShadowPass through graph::RenderContext.
+    gameplayHooks->onHeightField(hooksFrame);
+    frame.worldWidth = hooksFrame.worldWidth;
+    frame.worldHeight = hooksFrame.worldHeight;
+    frame.tileWorldSize = hooksFrame.tileWorldSize;
   } else {
     // No gameplay adapter (gate/harness): never feed stale occluders from a
     // previous game frame into the graph context.
@@ -1169,6 +1184,10 @@ void RenderSystem::render(entt::registry &registry,
     frame.occluderDynamicCount = 0u;
     frame.occluderStaticSignature = 0u;
     frame.occluderDynamicSignature = 0u;
+    s_heightFieldBuffer.clear();
+    frame.worldWidth = 0.0f;
+    frame.worldHeight = 0.0f;
+    frame.tileWorldSize = 0.0f;
   }
 
   g_transientPool.BeginFrame();
@@ -1636,6 +1655,13 @@ void RenderSystem::render(entt::registry &registry,
   graphContext.occluderDynamicCount = frame.occluderDynamicCount;
   graphContext.occluderStaticSignature = frame.occluderStaticSignature;
   graphContext.occluderDynamicSignature = frame.occluderDynamicSignature;
+  graphContext.heightFieldStamps =
+      s_heightFieldBuffer.empty() ? nullptr : s_heightFieldBuffer.data();
+  graphContext.heightFieldStampCount =
+      static_cast<uint32_t>(s_heightFieldBuffer.size());
+  graphContext.worldWidth = frame.worldWidth;
+  graphContext.worldHeight = frame.worldHeight;
+  graphContext.tileWorldSize = frame.tileWorldSize;
   if (g_jfaPass != nullptr && g_jfaPass->HasDistanceField()) {
     graphContext.giDistanceFieldTexture = g_jfaPass->GetDistanceFieldTexture();
     graphContext.giDistanceFieldWidth = g_jfaPass->GetDistanceFieldWidth();

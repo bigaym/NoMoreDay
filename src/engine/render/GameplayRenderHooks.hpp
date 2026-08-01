@@ -2,6 +2,7 @@
 #include <entt/entt.hpp>
 #include "raylib.h"
 #include "engine/render/GPUData.hpp"
+#include "engine/render/lighting/GlobalHeightField.hpp"
 #include <vector>
 
 namespace NoMoreDay::render {
@@ -42,6 +43,12 @@ struct GameplayRenderFrame {
   // shared LightAdapter projection, consumed by LightManager::UpdateCandidates).
   std::vector<NoMoreDay::components::GPULight> *lightBuffer = nullptr;
 
+  // Engine-owned height-field stamp staging buffer (filled by the adapter via
+  // the shared HeightFieldAdapter projection, consumed by HeightShadowPass
+  // through graph::RenderContext).
+  std::vector<lighting::GlobalHeightField::HeightStamp> *heightFieldBuffer =
+      nullptr;
+
   // Engine-computed render flags (quality config + runtime readiness).
   bool gpuTextEnabled = false;
   bool gpuLootEnabled = false;
@@ -60,6 +67,12 @@ struct GameplayRenderFrame {
   // Out-field: number of registered ECS lights seen by the adapter (lighting
   // diagnostic stat consumed by LightManager::UpdateCandidates).
   int ecsLights = 0;
+
+  // Out-fields: game world semantics injected by the adapter (previously read
+  // from game Constants::World by HeightShadowPass).
+  float worldWidth = 0.0f;
+  float worldHeight = 0.0f;
+  float tileWorldSize = 0.0f;
 };
 
 /**
@@ -79,6 +92,7 @@ public:
   virtual void onUIWorld(GameplayRenderFrame &frame) = 0;
   virtual void onOccluders(GameplayRenderFrame &frame) = 0;
   virtual void onLights(GameplayRenderFrame &frame) = 0;
+  virtual void onHeightField(GameplayRenderFrame &frame) = 0;
 };
 
 } // namespace NoMoreDay::render

@@ -1,4 +1,5 @@
 #include "game/render/GameplayRenderAdapter.hpp"
+#include "game/render/HeightFieldAdapter.hpp"
 #include "game/render/LightAdapter.hpp"
 #include "game/render/OccluderProjector.hpp"
 
@@ -111,6 +112,18 @@ void GameplayRenderAdapter::onLights(render::GameplayRenderFrame &frame) {
           frame.registry, static_cast<float>(GetTime()));
   *frame.lightBuffer = std::move(projection.lights);
   frame.ecsLights = projection.ecsLights;
+}
+
+void GameplayRenderAdapter::onHeightField(render::GameplayRenderFrame &frame) {
+  if (frame.heightFieldBuffer == nullptr) {
+    return;
+  }
+  NoMoreDay::HeightFieldProjection projection =
+      NoMoreDay::HeightFieldAdapter::BuildStamps(frame.registry);
+  *frame.heightFieldBuffer = std::move(projection.stamps);
+  frame.worldWidth = projection.worldWidth;
+  frame.worldHeight = projection.worldHeight;
+  frame.tileWorldSize = projection.tileWorldSize;
 }
 
 void GameplayRenderAdapter::ExecuteScenePass(render::GameplayRenderFrame &frame) {

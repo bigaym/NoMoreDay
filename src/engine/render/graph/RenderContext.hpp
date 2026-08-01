@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/lighting/GlobalHeightField.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
 #include "raylib.h"
 #include <entt/entt.hpp>
@@ -53,6 +54,19 @@ struct RenderContext {
   uint32_t occluderDynamicCount = 0u;
   uint64_t occluderStaticSignature = 0u;
   uint64_t occluderDynamicSignature = 0u;
+
+  // Game-side height-field projection injected before graph execution (filled by
+  // the gameplay adapter via the shared HeightFieldAdapter). Points into an
+  // Engine-owned staging buffer; count == stamps.size(). Consumed by
+  // HeightShadowPass instead of reading game components.
+  const lighting::GlobalHeightField::HeightStamp *heightFieldStamps = nullptr;
+  uint32_t heightFieldStampCount = 0u;
+
+  // Game-side world semantics injected by the gameplay adapter (previously the
+  // game Constants::World values read by HeightShadowPass).
+  float worldWidth = 0.0f;
+  float worldHeight = 0.0f;
+  float tileWorldSize = 0.0f;
 
   bool IsValid() const {
     return registry != nullptr && resources != nullptr && camera != nullptr;

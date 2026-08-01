@@ -1,18 +1,44 @@
 #include "doctest.h"
 
 #include "engine/render/lighting/GlobalHeightField.hpp"
-#include "game/components/Common.hpp"
-#include "game/components/MapComponent.hpp"
-#include "game/components/ShadowCasterComponent.hpp"
+
+#include <span>
+#include <vector>
 
 using namespace NoMoreDay;
 
+namespace {
+using HeightStamp = render::lighting::GlobalHeightField::HeightStamp;
+
+HeightStamp MakeTile(const int tileX, const int tileY, const float height) {
+  HeightStamp stamp = {};
+  stamp.kind = HeightStamp::Kind::Tile;
+  stamp.tileX = tileX;
+  stamp.tileY = tileY;
+  stamp.height = height;
+  stamp.dynamic = false;
+  return stamp;
+}
+
+HeightStamp MakeDisc(const float worldX, const float worldY, const float radius,
+                     const float height, const bool dynamic) {
+  HeightStamp stamp = {};
+  stamp.kind = HeightStamp::Kind::Disc;
+  stamp.worldX = worldX;
+  stamp.worldY = worldY;
+  stamp.worldRadius = radius;
+  stamp.height = height;
+  stamp.dynamic = dynamic;
+  return stamp;
+}
+} // namespace
+
 TEST_CASE("[Unit] GlobalHeightField - terrain/static compose") {
-  entt::registry registry;
-  const entt::entity floorTile = registry.create();
-  registry.emplace<MapTileComponent>(floorTile, 1, 1, Tile::Type::FLOOR);
-  const entt::entity wallTile = registry.create();
-  registry.emplace<MapTileComponent>(wallTile, 5, 5, Tile::Type::WALL);
+  // Projection-equivalent of two ECS MapTileComponent tiles: floor(1,1) +
+  // wall(5,5). The adapter turns WALL into 0.85 and everything else into 0.10.
+  std::vector<HeightStamp> stamps;
+  stamps.push_back(MakeTile(1, 1, 0.10f));
+  stamps.push_back(MakeTile(5, 5, 0.85f));
 
   render::lighting::GlobalHeightField field;
   render::lighting::GlobalHeightField::Config cfg = {};
@@ -23,7 +49,7 @@ TEST_CASE("[Unit] GlobalHeightField - terrain/static compose") {
   cfg.worldHeight = 1280.0f;
   REQUIRE(field.Initialize(cfg));
 
-  field.Update(registry);
+  field.Update(stamps);
 
   const float floorH = field.SampleNormalizedHeight(15.0f, 15.0f);
   const float wallH = field.SampleNormalizedHeight(55.0f, 55.0f);
@@ -32,14 +58,10 @@ TEST_CASE("[Unit] GlobalHeightField - terrain/static compose") {
 }
 
 TEST_CASE("[Unit] GlobalHeightField - dynamic chunk incremental update") {
-  entt::registry registry;
-  const entt::entity dynamicCaster = registry.create();
-  registry.emplace<Position>(dynamicCaster, 200.0f, 200.0f);
-  registry.emplace<NoMoreDay::ShadowCasterComponent>(
-      dynamicCaster, NoMoreDay::ShadowCasterComponent{
-                         .shape = NoMoreDay::ShadowOccluderShape::Circle,
-                         .occluderHeight = 0.95f,
-                         .dynamicFlag = 1u});
+  // Projection-equivalent of one ECS dynamic ShadowCasterComponent at (200,200)
+  // with occluderHeight 0.95. The adapter turns it into a radius-18 dynamic disc.
+  std::vector<HeightStamp> stamps;
+  stamps.push_back(MakeDisc(200.0f, 200.0f, 18.0f, 0.95f, true));
 
   render::lighting::GlobalHeightField field;
   render::lighting::GlobalHeightField::Config cfg = {};
@@ -50,19 +72,18 @@ TEST_CASE("[Unit] GlobalHeightField - dynamic chunk incremental update") {
   cfg.worldHeight = 512.0f;
   REQUIRE(field.Initialize(cfg));
 
-  field.Update(registry);
+  field.Update(stamps);
   const float firstSpot = field.SampleNormalizedHeight(200.0f, 200.0f);
   REQUIRE(firstSpot > 0.1f);
 
-  registry.patch<Position>(dynamicCaster, [](Position &p) {
-    p.x = 340.0f;
-    p.y = 330.0f;
-  });
-  field.Update(registry);
+  // Projection-equivalent of the ECS caster moved to (340,330): fresh stamp set
+  // with only the new disc, exactly as the adapter rebuilds it each frame.
+  std::vector<HeightStamp> movedStamps;
+  movedStamps.push_back(MakeDisc(340.0f, 330.0f, 18.0f, 0.95f, true));
+  field.Update(movedStamps);
   const float oldSpot = field.SampleNormalizedHeight(200.0f, 200.0f);
   const float newSpot = field.SampleNormalizedHeight(340.0f, 330.0f);
 
   CHECK(newSpot > oldSpot);
   CHECK(field.GetLastStats().dirtyChunkCount > 0u);
 }
-

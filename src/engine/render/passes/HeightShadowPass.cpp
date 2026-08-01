@@ -8,11 +8,11 @@
 #include "engine/render/graph/RenderGraph.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
-#include "game/components/Common.hpp"
 
 #include "rlgl.h"
 
 #include <algorithm>
+#include <span>
 
 namespace NoMoreDay::render::passes {
 namespace {
@@ -160,9 +160,6 @@ void HeightShadowPass::Execute(graph::RenderContext &context) {
   if (!context.hdrSceneBuffer.IsValid()) {
     return;
   }
-  if (context.registry == nullptr) {
-    return;
-  }
   if (!m_initialized && !Initialize()) {
     return;
   }
@@ -173,12 +170,18 @@ void HeightShadowPass::Execute(graph::RenderContext &context) {
     cfg.chunkSize = 64;
     cfg.worldOriginX = 0.0f;
     cfg.worldOriginY = 0.0f;
-    cfg.worldWidth = static_cast<float>(Constants::World::WORLD_WIDTH);
-    cfg.worldHeight = static_cast<float>(Constants::World::WORLD_HEIGHT);
+    // World size + tile size are game semantics, injected by the game layer via
+    // graph::RenderContext (HeightFieldAdapter). Fall back to the historical
+    // defaults when no game adapter provided them.
+    cfg.worldWidth = (context.worldWidth > 0.0f) ? context.worldWidth : 5000.0f;
+    cfg.worldHeight = (context.worldHeight > 0.0f) ? context.worldHeight : 5000.0f;
+    cfg.tileWorldSize =
+        (context.tileWorldSize > 0.0f) ? context.tileWorldSize : 10.0f;
     m_heightFieldInitialized = m_heightField.Initialize(cfg);
   }
   if (m_heightFieldInitialized) {
-    m_heightField.Update(*context.registry);
+    m_heightField.Update(std::span<const lighting::GlobalHeightField::HeightStamp>(
+        context.heightFieldStamps, context.heightFieldStampCount));
   }
 
   NoMoreDay::render::core::ScopedGLState scopedState;

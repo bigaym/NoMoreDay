@@ -1,16 +1,36 @@
 #pragma once
 
-#include <entt/entt.hpp>
 #include "raylib.h"
 
 #include <cstdint>
-#include <unordered_map>
+#include <span>
 #include <vector>
 
 namespace NoMoreDay::render::lighting {
 
 class GlobalHeightField final {
 public:
+  /**
+   * @brief Pure projection DTO for one height-field rasterization stamp.
+   *
+   * Produced by the Game adapter (HeightFieldAdapter) from ECS components and
+   * consumed by the Engine's texel rasterization. `Kind::Tile` stamps the full
+   * tile rect [tileX,tileY]-[tileX+1,tileY+1] in tile space; `Kind::Disc`
+   * stamps an ellipse around (worldX, worldY) with worldRadius.
+   */
+  struct HeightStamp {
+    enum class Kind : uint8_t { Tile = 0, Disc = 1 };
+
+    Kind kind = Kind::Disc;
+    int tileX = 0;
+    int tileY = 0;
+    float worldX = 0.0f;
+    float worldY = 0.0f;
+    float worldRadius = 0.0f;
+    float height = 0.0f;
+    bool dynamic = false;
+  };
+
   struct Config {
     int textureWidth = 1024;
     int textureHeight = 1024;
@@ -19,8 +39,8 @@ public:
     float worldOriginY = 0.0f;
     float worldWidth = 5000.0f;
     float worldHeight = 5000.0f;
-    float terrainFloorHeight = 0.10f;
-    float terrainWallHeight = 0.85f;
+    // World-space size of one terrain tile (previously the game GRID_TILE_SIZE).
+    float tileWorldSize = 10.0f;
   };
 
   struct Stats {
@@ -34,7 +54,7 @@ public:
   void Shutdown();
 
   void RequestFullRebuild() { m_pendingFullRebuild = true; }
-  void Update(entt::registry &registry);
+  void Update(std::span<const HeightStamp> stamps);
 
   [[nodiscard]] uint32_t GetTextureId() const { return m_texture.id; }
   [[nodiscard]] const Config &GetConfig() const { return m_config; }
@@ -58,9 +78,9 @@ private:
   };
 
   [[nodiscard]] bool EnsureTexture();
-  void BuildTerrainAndStatic(entt::registry &registry);
+  void BuildTerrainAndStatic(std::span<const HeightStamp> stamps);
   void ClearDynamicLayerForPreviousChunks();
-  void BuildDynamicLayer(entt::registry &registry);
+  void BuildDynamicLayer(std::span<const HeightStamp> stamps);
   void ComposeDirtyChunks();
   void UploadDirtyChunks();
 
@@ -90,7 +110,6 @@ private:
   std::vector<uint32_t> m_prevDynamicChunks;
   std::vector<uint32_t> m_currDynamicChunks;
 
-  std::unordered_map<uint32_t, float> m_maskBlueCache;
   std::vector<Color> m_uploadScratch;
 };
 
