@@ -5,9 +5,7 @@
 #include <entt/entt.hpp>
 #include <cstdint>
 
-namespace NoMoreDay {
-struct SharedContext;
-}
+class ResourceManager;
 
 namespace NoMoreDay::render::core {
 class QualityTierManager;
@@ -25,7 +23,7 @@ namespace NoMoreDay::render::graph {
 
 struct RenderContext {
   entt::registry *registry = nullptr;
-  const NoMoreDay::SharedContext *shared = nullptr;
+  ResourceManager *resources = nullptr;
   const Camera2D *camera = nullptr;
   resources::TransientResourcePool *transientPool = nullptr;
   core::QualityTierManager *qualityManager = nullptr;
@@ -42,7 +40,7 @@ struct RenderContext {
   int giRadianceHeight = 0;
 
   bool IsValid() const {
-    return registry != nullptr && shared != nullptr && camera != nullptr;
+    return registry != nullptr && resources != nullptr && camera != nullptr;
   }
 };
 

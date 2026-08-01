@@ -1,6 +1,5 @@
 #include "engine/render/passes/JFAPass.hpp"
 
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
@@ -597,7 +596,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
   m_lastExecuteSuccess = false;
   m_lastFailureReason.clear();
 
-  if (context.shared == nullptr || context.shared->resources == nullptr ||
+  if (context.resources == nullptr ||
       context.qualityManager == nullptr || m_occluderExtractPass == nullptr) {
     ReportFailure("missing JFA prerequisites");
     return;
@@ -617,7 +616,7 @@ void JFAPass::Execute(graph::RenderContext &context) {
     ReportFailure("occluder mask unavailable");
     return;
   }
-  if (!m_initialized && !Initialize(*context.shared->resources)) {
+  if (!m_initialized && !Initialize(*context.resources)) {
     ReportFailure("failed to initialize JFA shaders");
     return;
   }

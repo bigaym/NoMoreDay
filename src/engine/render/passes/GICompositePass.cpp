@@ -1,7 +1,6 @@
 #include "engine/render/passes/GICompositePass.hpp"
 #include "engine/render/passes/OccluderExtractPass.hpp"
 
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
@@ -175,8 +174,8 @@ uint64_t GICompositePass::BuildLightSignature() const {
 }
 
 void GICompositePass::Execute(graph::RenderContext &context) {
-  if (context.qualityManager == nullptr || context.shared == nullptr ||
-      context.shared->resources == nullptr || context.camera == nullptr) {
+  if (context.qualityManager == nullptr || context.resources == nullptr ||
+      context.camera == nullptr) {
     return;
   }
   const auto &config = context.qualityManager->GetConfig();
@@ -184,7 +183,7 @@ void GICompositePass::Execute(graph::RenderContext &context) {
       context.giRadianceTexture == 0u) {
     return;
   }
-  if (!m_initialized && !Initialize(*context.shared->resources)) {
+  if (!m_initialized && !Initialize(*context.resources)) {
     return;
   }
 

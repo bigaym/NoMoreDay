@@ -150,6 +150,17 @@ public:
   entt::registry &Registry() override { return *m_registry; }
   NoMoreDay::SharedContext &Context() override { return *m_context; }
 
+  NoMoreDay::render::RenderFrameInput RenderInput() const override {
+    NoMoreDay::render::RenderFrameInput input;
+    input.resources = nullptr;
+    input.renderAlpha = m_context->renderAlpha;
+    input.renderContext = nullptr;
+    input.cameraZoom = (m_context->settings != nullptr)
+                           ? m_context->settings->cameraZoom
+                           : 1.0f;
+    return input;
+  }
+
   uint32_t CompositeFramebuffer() const override { return m_composite.fbo; }
   int CompositeWidth() const override { return m_composite.width; }
   int CompositeHeight() const override { return m_composite.height; }

@@ -1,6 +1,5 @@
 #include "engine/render/passes/FluidSimulationPass.hpp"
 
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
@@ -581,7 +580,7 @@ bool FluidSimulationPass::ShouldEnableGiInteraction() const {
 
 bool FluidSimulationPass::LoadShaders() {
   // Shader creation is delayed until Execute() where ResourceManager is always
-  // available through SharedContext.
+  // available through graph::RenderContext::resources.
   return true;
 }
 
@@ -678,8 +677,8 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
   ++m_frameIndex;
   m_lastFailureReason.clear();
 
-  if (context.qualityManager == nullptr || context.shared == nullptr ||
-      context.shared->resources == nullptr || context.camera == nullptr) {
+  if (context.qualityManager == nullptr || context.resources == nullptr ||
+      context.camera == nullptr) {
     m_lastFailureReason = "missing fluid render prerequisites";
     return;
   }
@@ -694,28 +693,28 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
   }
 
   if (!m_initialized) {
-    m_gridHashShader = context.shared->resources->loadComputeShader(
+    m_gridHashShader = context.resources->loadComputeShader(
         "v5_fluid_gridhash_compute"_hs,
         "assets/shaders/lighting/v5_fluid_gridhash.comp");
-    m_neighborSearchShader = context.shared->resources->loadComputeShader(
+    m_neighborSearchShader = context.resources->loadComputeShader(
         "v5_fluid_neighbor_search_compute"_hs,
         "assets/shaders/lighting/v5_fluid_neighbor_search.comp");
-    m_densityShader = context.shared->resources->loadComputeShader(
+    m_densityShader = context.resources->loadComputeShader(
         "v5_fluid_density_compute"_hs,
         "assets/shaders/lighting/v5_fluid_density.comp");
-    m_forceShader = context.shared->resources->loadComputeShader(
+    m_forceShader = context.resources->loadComputeShader(
         "v5_fluid_force_compute"_hs,
         "assets/shaders/lighting/v5_fluid_force.comp");
-    m_integrateShader = context.shared->resources->loadComputeShader(
+    m_integrateShader = context.resources->loadComputeShader(
         "v5_fluid_integrate_compute"_hs,
         "assets/shaders/lighting/v5_fluid_integrate.comp");
-    m_emissiveInjectShader = context.shared->resources->loadComputeShader(
+    m_emissiveInjectShader = context.resources->loadComputeShader(
         "v5_fluid_emissive_inject_compute"_hs,
         "assets/shaders/lighting/v5_fluid_emissive_inject.comp");
-    m_occluderInjectShader = context.shared->resources->loadComputeShader(
+    m_occluderInjectShader = context.resources->loadComputeShader(
         "v5_fluid_occluder_inject_compute"_hs,
         "assets/shaders/lighting/v5_fluid_occluder_inject.comp");
-    m_renderShader = context.shared->resources->loadShader(
+    m_renderShader = context.resources->loadShader(
         "v5_fluid_render_shader"_hs, "assets/shaders/lighting/v5_fluid_render.vert",
         "assets/shaders/lighting/v5_fluid_render.frag");
 
@@ -792,7 +791,7 @@ void FluidSimulationPass::Execute(graph::RenderContext &context) {
     m_renderScreenSizeLoc = rlGetLocationUniform(m_renderShader.id, "uScreenSize");
     m_renderRestDensityLoc = rlGetLocationUniform(m_renderShader.id, "uRestDensity");
 
-    if (!Initialize(*context.shared->resources)) {
+    if (!Initialize(*context.resources)) {
       if (m_lastFailureReason.empty()) {
         m_lastFailureReason = "fluid initialization failed";
       }

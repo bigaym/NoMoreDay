@@ -13,8 +13,8 @@
 #include "engine/render/passes/VFXPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
+#include "engine/resource/ResourceManager.hpp"
 
-#include "app/SharedContext.hpp"
 #include "raylib.h"
 #include "rlgl.h"
 
@@ -94,12 +94,12 @@ TEST_CASE("[Integration] S1b - RenderProfiler single timer owner + four-state ba
   TransientResourcePool transientPool;
   render::graph::RenderContext context = {};
   entt::registry registry;
-  SharedContext shared;
+  ResourceManager resources;
   Camera2D camera{};
   camera.zoom = 1.0f;
 
   context.registry = &registry;
-  context.shared = &shared;
+  context.resources = &resources;
   context.camera = &camera;
   context.transientPool = &transientPool;
   context.qualityManager = &render::core::QualityTierManager::Get();
@@ -196,7 +196,7 @@ TEST_CASE("[Integration] S1a - Gate loop single ring frame owner (no slot overwr
   REQUIRE(hdr.IsValid());
 
   entt::registry registry;
-  SharedContext shared;
+  render::RenderFrameInput input;
   Camera2D camera{};
   camera.zoom = 1.0f;
 
@@ -210,7 +210,7 @@ TEST_CASE("[Integration] S1a - Gate loop single ring frame owner (no slot overwr
   constexpr int kFrames = 40;
   for (int f = 0; f < kFrames; ++f) {
     utils::GPUUtils::BindFramebuffer(kS1aGlFramebuffer, hdr.fbo);
-    RenderSystem::render(registry, shared, camera);
+    RenderSystem::render(registry, input, camera);
     utils::GPUUtils::BindFramebuffer(kS1aGlFramebuffer, 0);
     ring.PollReadyQueries();
   }

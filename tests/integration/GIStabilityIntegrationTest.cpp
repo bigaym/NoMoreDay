@@ -1,6 +1,5 @@
 #include "doctest.h"
 
-#include "app/SharedContext.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
@@ -70,8 +69,6 @@ TEST_CASE("[Integration] GI - Long-run Stability Proxy (Resize + Tier Switch)") 
   PopulateGiEntities(registry, materialId);
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   Camera2D camera = {};
   camera.zoom = 1.0f;
@@ -86,7 +83,7 @@ TEST_CASE("[Integration] GI - Long-run Stability Proxy (Resize + Tier Switch)") 
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
-  context.shared = &shared;
+  context.resources = &resources;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;

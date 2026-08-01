@@ -69,3 +69,24 @@ Date: 2026-08-01
 ## 下一步（Batch 3）
 
 render() 参数 DTO 化（删 RenderSystem.hpp App 边 1 条）+ graphContext.shared 替换评估（需 RG-3 授权）→ Batch 4（剩余 25 边 GPULoot 2/GPUParticle 1/GPUSkillEffect 1/lighting 6/passes 13/VFX 2）→ MS-7/8 → DOD-2。
+
+---
+
+## Batch 3 + Batch 3b —— render() DTO 化 + pass rewire
+
+**审查结论**：`修改`（M1 必须修正 + L2/L3/I4 建议 + I5 信息），修复后复验通过，**最终 `提交`**。
+
+**发现与处置**：
+- **[M1]** evidence.md 只记录 Batch 3（30 条）且声称 "7 passes read shared->resources"、"Batch 4 deferred pass rewire"——与已落地的 Batch 3b 矛盾。**已修复**：追加 Batch 3b 章节（7 pass rewire、ledger 30→23、checker 移除 RenderSystem.hpp+4 pass、守卫语法修复与缩进统一、定向 13/13 178 断言）、改写 Deferred 段为剩余 18 条 Game 边。
+- **[L2]** OccluderExtractPass.cpp:359 守卫从 5 子句削弱为 3 子句（丢 qualityManager null 检查）。**已修复**：恢复 `context.qualityManager == nullptr`（4 子句 registry/resources/qualityManager/camera）。
+- **[L3]** RadianceCascadesPass.cpp:234 守卫删 `!context.hdrSceneBuffer.IsValid()`。**已修复**：恢复（4 子句 qualityManager/resources/camera/hdrSceneBuffer）。
+- **[I4]** FluidSimulationPass.cpp:582-583 过时注释 "through SharedContext"。**已修复**：改 `graph::RenderContext::resources`。
+- **[I5]** settings.json 被验证运行自动改写（benchmarkScore/updatedAtUtc）。用户指示（m0549）："settings 不用管，测试时不加载该配置"，故不还原、不纳入提交。
+
+**已复核通过**：RenderFrameInput 4 字段纯指针零 app 依赖；render() DTO 签名与全部调用方（gate 实 6 处 L491/498/745/760/1025/1115 + GameplayState:985 + SingleGpuTimerOwnerRegressionTest）；graphContext.resources 赋值（RenderSystem.cpp:1585）；7 pass rewire（FluidSimulation/GIComposite 守卫已闭合，`git grep shared` 0 残留）；4 测试/基准文件等价替换；ledger 23 = 5 pch + 18 Game（App 边清零）；checker REQUIRED_P0_SOURCES 移除 RenderSystem.hpp + 4 pass；硬约束全零改动（RenderGraph 类/graph 构建结构/RG-3/ResourceManager/GPUResourceRegistry/pch/CMake/build.bat）；无新反向边；diff --check exit 0。
+
+**修复后复验（主代理）**：checker 23/23（files 11）、ModuleBoundaryCheckerTest 6/6、完整构建双标记 0 error、定向 `*S1a*,*S1b*,*GPU ABI*,*RenderGraph V5*` 13/13 178 断言、ctest unit 失败均确认既有 HeavenlySword hasFreeze flaky、diff --check exit 0。
+
+**提交**：`refactor(render): dto render input and rewire pass resources`（待提交）。
+
+**剩余 18 条 MS-6 Game 边**：GPULoot 2 + GPUParticle 1 + GPUSkillEffect 1 + lighting 6（GlobalHeightField 4/LightManager 2）+ passes 6（OccluderExtract 2/ShadowBuild 2/RadianceCascades 1/HeightShadow 1）+ VFX 2，属 Batch 4。

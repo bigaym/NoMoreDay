@@ -1,8 +1,8 @@
 #pragma once
 #include <entt/entt.hpp>
 #include "raylib.h"
-#include "app/SharedContext.hpp"
 #include "engine/render/ComputeBuffer.hpp"
+#include "engine/render/RenderFrameInput.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
 #include <vector>
@@ -52,7 +52,7 @@ public:
     // (moved to Game-side GameplayRenderAdapter)
 
     static void render(entt::registry &registry,
-                       const NoMoreDay::SharedContext &context,
+                       const NoMoreDay::render::RenderFrameInput &context,
                        const Camera2D &camera,
                        NoMoreDay::render::GameplayRenderHooks *gameplayHooks = nullptr);
     

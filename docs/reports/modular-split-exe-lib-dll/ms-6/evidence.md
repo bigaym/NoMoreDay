@@ -89,3 +89,80 @@ Date: 2026-08-01. Scope: move Game-specific rendering out of `RenderSystem.cpp` 
 - Remaining MS-6 edges: GPULoot 2 + GPUParticle 1 + GPUSkillEffect 1 + lighting 6 + passes 13 + VFX 2 = 25; plus 5 pch (MS-7).
 - RG-3 resource lifecycle untouched; graph construction zero-modification verified.
 - Nothing was staged or committed (per project rule; main agent commits).
+
+---
+
+## Batch 3 — render() DTO (delete RenderSystem.hpp App edge)
+
+Date: 2026-08-01. Scope: DTO-ize `RenderSystem::render` with an Engine-side `render::RenderFrameInput` and delete the last App edge on `RenderSystem.hpp`. 1 ledger edge removed (31 -> 30). Uncommitted working tree at HEAD `c3f97e7`.
+
+### Changes
+
+- New Engine-side pure-DTO header `src/engine/render/RenderFrameInput.hpp` (namespace `NoMoreDay::render`, mirrors the `EntityRenderFrame` precedent): `struct RenderFrameInput { ResourceManager* resources = nullptr; float renderAlpha = 0.0f; NoMoreDay::RenderContext* renderContext = nullptr; float cameraZoom = 1.0f; };` with global `class ResourceManager;` and `namespace NoMoreDay { struct RenderContext; }` forward declarations. Pointer-only fields, zero app deps. `levelManager` deliberately excluded (its consumption already lives in the Game-layer `GameplayRenderAdapter` since Batch 2).
+- `src/engine/render/RenderSystem.hpp`: deleted `#include "app/SharedContext.hpp"` (ledger edge `RenderSystem.hpp:4:app/SharedContext.hpp`); added `#include "engine/render/RenderFrameInput.hpp"`; `render()` signature changed to `static void render(entt::registry&, const NoMoreDay::render::RenderFrameInput&, const Camera2D&, NoMoreDay::render::GameplayRenderHooks* gameplayHooks = nullptr);`.
+- `src/engine/render/RenderSystem.cpp`: `RenderFrameData::context` member re-typed `const NoMoreDay::render::RenderFrameInput&`; `render()` parameter re-typed identically (`RenderFrameData frame{registry, context, camera};` unchanged); internal member access `frame.context.resources / renderAlpha / renderContext` unchanged (only the type changed). No `settings->cameraZoom` / fontScale code existed in the cpp (fontScale already moved to Game-side in Batch 2), so **no fontScale change was needed** — the only fontScale input, `frame.context.cameraZoom`, now comes from the DTO field, keeping the computation equivalent by construction. Graph-build line `graphContext.shared = &context;` -> `graphContext.resources = frame.context.resources;`.
+- `src/engine/render/graph/RenderContext.hpp`: added `class ResourceManager;` forward decl + `ResourceManager *resources = nullptr;` member. The `shared` field and its forward decl are **kept this batch** (7 passes still read `context.shared->resources`; pass rewiring is Batch 4).
+- `src/engine/render/validation/FixtureRenderDriver.hpp`: added `#include "engine/render/RenderFrameInput.hpp"` and a new pure virtual `virtual NoMoreDay::render::RenderFrameInput RenderInput() const = 0;` (after `Context()`). `Context()` kept intact for interface compatibility. This lets the gate build a DTO without an engine->app include.
+- `src/engine/render/validation/GPUHardwareValidationGate.cpp`: both `SharedContext` locals removed (former L447 `driver.Context()`, L628 `driver->Context()`) in favor of `const NoMoreDay::render::RenderFrameInput renderInput = driver.RenderInput();`; all 5 render call sites (L491/498/745/760/1025/1115) now pass the DTO. No `SharedContext` references remain.
+- `src/game/states/GameplayState.cpp:985`: `RenderSystem::render(*m_context->registry, render::RenderFrameInput{m_context->resources, m_context->renderAlpha, m_context->renderContext, (m_context->settings != nullptr) ? m_context->settings->cameraZoom : 1.5f}, m_camera, m_context->gameplayRenderHooks);` — cameraZoom is **null-safe** with the same ternary + `1.5f` default as the existing `m_camera.zoom` fallback at GameplayState.cpp:172.
+- `tests/integration/GameplayRuntimeHarness.hpp`: added `RenderInput() const override` returning `{resources=nullptr, renderAlpha=m_context->renderAlpha (=1.0f), renderContext=nullptr, cameraZoom=(m_context->settings != nullptr) ? settings->cameraZoom : 1.0f}`.
+- `tests/integration/SingleGpuTimerOwnerRegressionTest.cpp:199-213`: `SharedContext shared;` -> `render::RenderFrameInput input;` (all-null defaults) and `RenderSystem::render(registry, input, camera);`.
+- Ledger: deleted exactly 1 entry (id `src/engine/render/RenderSystem.hpp:4:app/SharedContext.hpp`) -> **30 entries**. Checker: removed `"src/engine/render/RenderSystem.hpp"` from `REQUIRED_P0_SOURCES`.
+
+### graphContext.shared replacement evaluation (record only; pass files untouched this batch)
+
+- After this batch `graphContext.shared` is **never assigned** (always nullptr) in RenderSystem.cpp; `graphContext.resources` carries `frame.context.resources`. The full removal of `shared` is **NOT feasible in this batch** because the 7 passes still dereference `context.shared->resources`.
+- 7 passes and their `shared->resources` use points (all guarded by `context.shared == nullptr || context.shared->resources == nullptr -> ReportFailure/return`): `FluidSimulationPass.cpp:681,697-718,795`; `GICompositePass.cpp:178,187`; `JFAPass.cpp:600,620`; `LightCullingPass.cpp:123,141`; `OccluderExtractPass.cpp:360,376`; `RadianceCascadesPass.cpp:235,245,755-756,774`; `ShadowBuildPass.cpp:317,337`.
+- **Replacement plan (Batch 4)**: rewire those 7 passes from `context.shared->resources` to `context.resources`; drop the `shared` field + its `NoMoreDay { struct SharedContext; }` forward decl from `graph/RenderContext.hpp`; adjust `IsValid()` accordingly. `graph::RenderContext::IsValid()` has no callers, so no call-site impact.
+- **Graph contract impact**: with `shared==nullptr` (current state), the 7 passes early-return, so in the real game the HDR/GI/lighting/fluid/shadow passes are temporarily degraded (skipped) until Batch 4 rewires them to `context.resources`. Gate/harness tests are unaffected (harness `resources` is already nullptr, so those passes already early-returned before this batch).
+- Files touched in Batch 4 (deferred): the 7 pass `.cpp` files + `graph/RenderContext.hpp`. NOT touched this batch (hard constraint honored): RenderGraph class, 7 pass classes, graph build structure (AddPass order/conditions/owner tags), ResourceManager/GPUResourceRegistry, `src/pch.hpp`, CMake targets, build.bat, RG-3.
+  - *Note: this Batch-4 plan was subsequently executed in-place as Batch 3b below (7-pass rewire + `shared` field removal + ledger 30->23); the interim HDR/GI/lighting/fluid/shadow degradation no longer exists.*
+
+### Verification (real output)
+
+1. `python scripts/check_module_boundaries.py` -> `[Module Boundary] Observed/ledger edges: 30/30; files: 15` and `PASS: ledger and observed reverse edges match.` (exit 0). Breakdown: LegacyLowerPch -> Game (MS-7) 5; NoMoreDayEngine -> App (MS-6) 7; NoMoreDayEngine -> Game (MS-6) 18.
+2. `python -m unittest tests/python/ModuleBoundaryCheckerTest.py` -> `Ran 6 tests ... OK` (exit 0).
+3. `cmd.exe /c build.bat check` -> `OK: Checking candidate module boundaries.` (exit 0).
+4. Full build redirected to `C:\Users\yuminao\AppData\Local\Temp\opencode\ms6-b3-build.log` -> both `[Build] Build completed successfully.` and `[Build] All steps completed successfully` markers, **0 `error C`** occurrences.
+5. `git grep -n "SharedContext" -- src/engine/render/RenderSystem.hpp src/engine/render/RenderSystem.cpp` -> 0 hits (exit 1).
+6. Targeted `bin\NoMoreDayTests.exe --test-case="*S1a*,*GPUABI*,*RenderGraphV5*,*GPU Hardware Validation Gate*"` -> `test cases: 5 | 5 passed | 0 failed | 706 skipped`, `assertions: 307 | 307 passed`, `Status: SUCCESS!` — the gate's 5 DTO-ized call sites still pass 4/4 with no crash (gate report: stress_1min_passed:true, toggle_100_loops_passed:true).
+7. `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` -> intermittent failures in **non-render** tests, proven pre-existing by stash/rebase testing (see below).
+8. `git diff --check` -> exit 0 (CRLF warnings only).
+
+### Pre-existing test failures (NOT Batch 3 regressions; proven via stash)
+
+Both were verified by stashing Batch 3 (`git stash push -u -m ms6-b3-wip`), rebuilding the base commit, re-running the tests (still failing/flaky), then `git stash pop` (clean restore of all 11 files):
+
+- **`tests/unit/HeavenlySwordClosureTests.cpp:97 CHECK(hasFreeze)`**: chance-based; `FrozenDominion` rolls `ThreadSafeRandom::GetFloat01() < 0.15f` (15%) in `HeavenlySwordDescent.cpp:247` over 30 ticks — inherently flaky (~1/6-1/2 failure rate depending on RNG state), passes 10/10 in isolation, last touched in commit 3ddec2b (predates Batch 3).
+- **`tests/integration/GIStabilityIntegrationTest.cpp:159-160`** (`CHECK(context.giEmissiveTexture != 0u)` / `CHECK(context.giRadianceTexture != 0u)`): fails 3/3 at base commit and 4/4 with Batch 3. The test bypasses RenderSystem entirely — it builds its own `graph::RenderContext` (`context.shared = &shared`, L87-89) and calls `pass.Execute(context)` directly (L155); `RadianceCascadesPass` only writes those fields when all 6 pipeline steps succeed, so an earlier GPU-env step (emissive/material/particle/trace) fails here. A purely additive graph change cannot affect it.
+
+### Deferred
+
+- Remaining MS-6 edges (Batch 4): GPULoot 2 + GPUParticle 1 + GPUSkillEffect 1 + lighting 6 + passes Game edges 6 (OccluderExtract 2 / ShadowBuild 2 / RadianceCascades 1 / HeightShadow 1) + VFX 2 = 18; plus 5 pch (MS-7).
+- RG-3 resource lifecycle untouched; graph construction (AddPass order/conditions/owner tags) zero-modification verified.
+- Nothing was staged or committed (per project rule; main agent commits).
+
+---
+
+## Batch 3b — pass resource rewire (App edges cleared)
+
+Date: 2026-08-01. Scope: rewire the 7 render passes from `context.shared->resources` to `context.resources` (removing the interim `graphContext.shared == nullptr` pass degradation introduced by Batch 3) and delete all 7 pass App edges on `app/SharedContext.hpp`. 7 ledger edges removed (30 -> 23); App edges now **zero**. Uncommitted working tree at HEAD `c3f97e7`.
+
+### Changes
+
+- 7 passes (`FluidSimulationPass`, `GICompositePass`, `JFAPass`, `LightCullingPass`, `OccluderExtractPass`, `RadianceCascadesPass`, `ShadowBuildPass`): `context.shared->resources` -> `context.resources`; null guards `context.shared == nullptr || context.shared->resources == nullptr` -> `context.resources == nullptr`; deleted `#include "app/SharedContext.hpp"`.
+- `src/engine/render/graph/RenderContext.hpp`: removed the `shared` member + `NoMoreDay { struct SharedContext; }` forward declaration; `IsValid()` now checks `resources` only.
+- 4 direct-`pass.Execute` test/benchmark files synchronized (`ClusteredLightingIntegrationTest.cpp`, `GIStabilityIntegrationTest.cpp`, `ClusteredLightingBenchmark.cpp`, `RadianceCascadesBenchmark.cpp`): `context.shared = &shared` -> `context.resources = &resources`; dropped `SharedContext` construction + `app/SharedContext.hpp` include.
+- Guard hygiene fixes (main agent): two passes (`FluidSimulationPass.cpp:680-684`, `GICompositePass.cpp:177-180`) had an unclosed `if` introduced during rewire (missing `context.camera == nullptr` clause + `{`), fixed to `if (context.qualityManager == nullptr || context.resources == nullptr || context.camera == nullptr) { ... }`; all rewire guards re-indented to 2-space project style.
+- Guard consistency (post-review): restored `context.qualityManager == nullptr` in `OccluderExtractPass.cpp:359` guard and `!context.hdrSceneBuffer.IsValid()` in `RadianceCascadesPass.cpp:234` guard (review L2/L3), keeping all pass guards uniform; `FluidSimulationPass.cpp:582-583` stale "through SharedContext" comment updated to `graph::RenderContext::resources` (review I4).
+- Ledger: deleted exactly 7 entries (the pass `app/SharedContext.hpp` edges) -> **23 entries** = LegacyLowerPch -> Game (MS-7) 5 + NoMoreDayEngine -> Game (MS-6) 18. Checker: removed the 4 fully-resolved passes from `REQUIRED_P0_SOURCES` (RenderSystem.hpp removed in Batch 3); the 3 passes with remaining Game edges stay listed.
+
+### Verification (real output)
+
+1. `python scripts/check_module_boundaries.py` -> `[Module Boundary] Observed/ledger edges: 23/23; files: 11` and `PASS` (exit 0).
+2. `python -m unittest tests/python/ModuleBoundaryCheckerTest.py` -> 6 tests OK.
+3. Full build redirected to `C:\Users\yuminao\AppData\Local\Temp\opencode\ms6-b3b-build2.log` -> EXIT=0, both success markers, 0 error C/LNK/FAILED (also rebuilt after the guard-restoration edits).
+4. `git grep -n "context.shared\|shared->resources"` -> 0 hits; `git grep -n "app/SharedContext" -- src/engine/render/passes` -> 0 hits.
+5. Targeted `bin\NoMoreDayTests.exe --test-case="*S1a*,*S1b*,*GPU ABI*,*RenderGraph V5*"` -> 13 passed / 178 assertions / SUCCESS.
+6. `ctest --test-dir build -C RelWithDebInfo -L unit --output-on-failure` -> the only failures are the pre-existing `HeavenlySwordClosureTests.cpp:97` `hasFreeze` chance-based flaky (~15%), confirmed non-regression by isolation reruns (unit/ai.unit/skill.unit each pass alone).
+7. `git diff --check` -> exit 0 (CRLF warnings only).

@@ -1,7 +1,6 @@
 #include "BenchmarkUtils.hpp"
 #include "doctest.h"
 
-#include "app/SharedContext.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/graph/RenderContext.hpp"
@@ -178,8 +177,6 @@ TEST_CASE("[Performance] Clustered Lighting - 128 lights A/B no regression") {
                  kClusteredScenarioStartY, true);
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   Camera2D camera = {};
   camera.target = {0.0f, 0.0f};
@@ -192,7 +189,7 @@ TEST_CASE("[Performance] Clustered Lighting - 128 lights A/B no regression") {
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
-  context.shared = &shared;
+  context.resources = &resources;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;
@@ -308,8 +305,6 @@ TEST_CASE("[Performance] Clustered Lighting - Low-light no regression") {
   PopulateLights(registry, 8);
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   Camera2D camera = {};
   camera.target = {0.0f, 0.0f};
@@ -322,7 +317,7 @@ TEST_CASE("[Performance] Clustered Lighting - Low-light no regression") {
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
-  context.shared = &shared;
+  context.resources = &resources;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;

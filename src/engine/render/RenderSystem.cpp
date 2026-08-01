@@ -124,7 +124,7 @@ namespace {
 
 struct RenderFrameData {
   entt::registry &registry;
-  const NoMoreDay::SharedContext &context;
+  const NoMoreDay::render::RenderFrameInput &context;
   const Camera2D &camera;
   Font font = {}; // glyph atlas out-field filled by the GameplayRenderAdapter
   std::vector<NoMoreDay::components::GPULabelInstance> *labelBuffer = nullptr;
@@ -1123,7 +1123,7 @@ void RenderSystem::Shutdown() {
 }
 
 void RenderSystem::render(entt::registry &registry,
-                          const NoMoreDay::SharedContext &context,
+                          const NoMoreDay::render::RenderFrameInput &context,
                           const Camera2D &camera,
                           NoMoreDay::render::GameplayRenderHooks *gameplayHooks) {
   RenderSystem::ScopedTargetStateGuard targetGuard;
@@ -1582,7 +1582,7 @@ void RenderSystem::render(entt::registry &registry,
 
   NoMoreDay::render::graph::RenderContext graphContext = {};
   graphContext.registry = &registry;
-  graphContext.shared = &context;
+  graphContext.resources = frame.context.resources;
   graphContext.camera = &camera;
   graphContext.transientPool = &g_transientPool;
   graphContext.qualityManager = &NoMoreDay::render::core::QualityTierManager::Get();

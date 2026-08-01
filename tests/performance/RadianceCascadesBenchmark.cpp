@@ -1,7 +1,6 @@
 #include "BenchmarkUtils.hpp"
 #include "doctest.h"
 
-#include "app/SharedContext.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/MaterialManager.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
@@ -244,8 +243,6 @@ TEST_CASE("[Performance] RadianceCascades - Tier and Holographic Matrix") {
 
   entt::registry registry;
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   Camera2D camera = {};
   camera.zoom = 1.0f;
@@ -263,7 +260,7 @@ TEST_CASE("[Performance] RadianceCascades - Tier and Holographic Matrix") {
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
-  context.shared = &shared;
+  context.resources = &resources;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;

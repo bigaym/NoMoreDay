@@ -444,7 +444,7 @@ PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
   tierMgr.ForceTier(NoMoreDay::render::core::QualityTier::High);
 
   entt::registry &registry = driver.Registry();
-  NoMoreDay::SharedContext &context = driver.Context();
+  const NoMoreDay::render::RenderFrameInput renderInput = driver.RenderInput();
 
   if (!driver.PrepareFixture(fixture)) {
     result.failureReasons.push_back("Fixture scene preparation failed (harness)");
@@ -488,14 +488,14 @@ PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
     // invalidated on the GI transition inside RenderSystem).
     for (int f = 0; f < fixture.warmupFrames; ++f) {
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-      ::RenderSystem::render(registry, context, camera);
+      ::RenderSystem::render(registry, renderInput, camera);
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
     }
     // Independent sampling window: one ROI readback per sampled frame.
     double lumaSum = 0.0;
     for (int f = 0; f < fixture.sampleFrames; ++f) {
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-      ::RenderSystem::render(registry, context, camera);
+      ::RenderSystem::render(registry, renderInput, camera);
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
       const float frameLuma = ReadRoiMeanLuma(offscreenFbo, roiW, roiH);
       outPerFrameLuma.push_back(frameLuma);
@@ -625,7 +625,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   // The driver owns the real ECS registry and minimal SharedContext for actual
   // Gameplay offscreen frame rendering (T6.1/T6.2).
   entt::registry &registry = driver->Registry();
-  NoMoreDay::SharedContext &context = driver->Context();
+  const NoMoreDay::render::RenderFrameInput renderInput = driver->RenderInput();
 
   // 2. Fixture Execution Matrix
   const auto fixtures = GetStandardFixtures();
@@ -742,7 +742,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       // Warmup Frames
       for (int f = 0; f < fixture.warmupFrames; ++f) {
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-        ::RenderSystem::render(registry, context, camera);
+        ::RenderSystem::render(registry, renderInput, camera);
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
       }
 
@@ -757,7 +757,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       for (int f = 0; f < actualSampleFrames; ++f) {
         // RenderGraph::Execute is the single frame owner for the timer ring.
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-        ::RenderSystem::render(registry, context, camera);
+        ::RenderSystem::render(registry, renderInput, camera);
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
         debug::GPUTimerQueryRing::Get().PollReadyQueries();
@@ -1022,7 +1022,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
                .count() < report.stressReport.durationSeconds) {
       if (stressTarget.IsValid()) {
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, stressTarget.fbo);
-        ::RenderSystem::render(registry, context, stressCam);
+        ::RenderSystem::render(registry, renderInput, stressCam);
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
         // Frame boundary: advance the registry frame counter so snapshot frame
         // indices and creation-frame aging are meaningful at quiescence points.
@@ -1112,7 +1112,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
     cam.zoom = 1.0f;
 
     NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, fboHandle.fbo);
-    ::RenderSystem::render(registry, context, cam);
+    ::RenderSystem::render(registry, renderInput, cam);
     NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
     NoMoreDay::render::resources::FramebufferManager::Destroy(fboHandle);

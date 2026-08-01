@@ -1,6 +1,5 @@
 #include "engine/render/passes/RadianceCascadesPass.hpp"
 
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/MaterialManager.hpp"
@@ -232,9 +231,8 @@ void RadianceCascadesPass::OnResize(const int width, const int height) {
 bool RadianceCascadesPass::PrepareVfxEmissionSnapshot(
     const graph::RenderContext &context) {
   m_vfxEmissionSnapshotValid = false;
-  if (context.qualityManager == nullptr || context.shared == nullptr ||
-      context.shared->resources == nullptr || !context.hdrSceneBuffer.IsValid() ||
-      context.camera == nullptr) {
+  if (context.qualityManager == nullptr || context.resources == nullptr ||
+      context.camera == nullptr || !context.hdrSceneBuffer.IsValid()) {
     return false;
   }
 
@@ -242,7 +240,7 @@ bool RadianceCascadesPass::PrepareVfxEmissionSnapshot(
   if (!config.giEnabled || config.giCascadeLevels == 0u) {
     return false;
   }
-  if (!m_initialized && !Initialize(*context.shared->resources)) {
+  if (!m_initialized && !Initialize(*context.resources)) {
     return false;
   }
 
@@ -752,8 +750,7 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
   m_lastMaterialStampCount = 0u;
   m_lastParticleWriteCount = 0u;
 
-  if (context.qualityManager == nullptr || context.shared == nullptr ||
-      context.shared->resources == nullptr) {
+  if (context.qualityManager == nullptr || context.resources == nullptr) {
     ReportFailure("missing radiance prerequisites");
     return;
   }
@@ -771,7 +768,7 @@ void RadianceCascadesPass::Execute(graph::RenderContext &context) {
     ReportFailure("distance field texture unavailable");
     return;
   }
-  if (!m_initialized && !Initialize(*context.shared->resources)) {
+  if (!m_initialized && !Initialize(*context.resources)) {
     ReportFailure("failed to initialize radiance shaders");
     return;
   }

@@ -1,6 +1,5 @@
 #include "engine/render/passes/OccluderExtractPass.hpp"
 
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
@@ -357,9 +356,8 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
   m_lastFailureReason.clear();
   m_occluderCount = 0u;
 
-  if (context.registry == nullptr || context.shared == nullptr ||
-      context.shared->resources == nullptr || context.qualityManager == nullptr ||
-      context.camera == nullptr) {
+  if (context.registry == nullptr || context.resources == nullptr ||
+      context.qualityManager == nullptr || context.camera == nullptr) {
     ReportFailure("missing render context prerequisites");
     return;
   }
@@ -373,7 +371,7 @@ void OccluderExtractPass::Execute(graph::RenderContext &context) {
     ReportFailure("hdr scene buffer unavailable");
     return;
   }
-  if (!m_initialized && !Initialize(*context.shared->resources)) {
+  if (!m_initialized && !Initialize(*context.resources)) {
     ReportFailure("failed to initialize occluder extract shaders");
     return;
   }

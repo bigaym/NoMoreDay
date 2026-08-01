@@ -1,5 +1,6 @@
 #pragma once
 
+#include "engine/render/RenderFrameInput.hpp"
 #include "engine/render/validation/GPUHardwareValidationGate.hpp"
 
 #include <entt/entt.hpp>
@@ -29,6 +30,11 @@ public:
   // Access to the live ECS registry and SharedContext used for rendering.
   virtual entt::registry &Registry() = 0;
   virtual NoMoreDay::SharedContext &Context() = 0;
+
+  // Engine-side render frame inputs (null-safe projection of the harness
+  // SharedContext). Lets the gate call RenderSystem without touching game/app
+  // headers.
+  virtual NoMoreDay::render::RenderFrameInput RenderInput() const = 0;
 
   // Owned RGBA16F composite target backing the gate's offscreen rendering.
   // fbo == 0 means "no valid composite target" -> fixture failure.

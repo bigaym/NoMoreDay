@@ -1,6 +1,5 @@
 #include "engine/render/passes/ShadowBuildPass.hpp"
 
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/RenderConstants.hpp"
@@ -314,8 +313,7 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
   m_lastFailureReason.clear();
 
   if (context.registry == nullptr || context.qualityManager == nullptr ||
-      context.camera == nullptr || context.shared == nullptr ||
-      context.shared->resources == nullptr) {
+      context.camera == nullptr || context.resources == nullptr) {
     ReportFailure("missing render context prerequisites");
     return;
   }
@@ -334,7 +332,7 @@ void ShadowBuildPass::Execute(graph::RenderContext &context) {
     return;
   }
 
-  if (!m_initialized && !Initialize(*context.shared->resources)) {
+  if (!m_initialized && !Initialize(*context.resources)) {
     m_occluderCount = 0;
     ReportFailure("failed to initialize shadow build shaders");
     return;

@@ -1,6 +1,5 @@
 #include "engine/render/passes/LightCullingPass.hpp"
 
-#include "app/SharedContext.hpp"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/BindingRegistry.hpp"
@@ -121,7 +120,7 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
   m_lastOverflowCount = 0;
 
   if (context.qualityManager == nullptr || context.camera == nullptr ||
-      context.shared == nullptr || context.shared->resources == nullptr) {
+      context.resources == nullptr) {
     ReportFailure("missing render context prerequisites");
     return;
   }
@@ -138,7 +137,7 @@ void LightCullingPass::Execute(graph::RenderContext &context) {
     return;
   }
 
-  if (!m_initialized && !Initialize(*context.shared->resources)) {
+  if (!m_initialized && !Initialize(*context.resources)) {
     ReportFailure("failed to initialize light culling shader");
     return;
   }

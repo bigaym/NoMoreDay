@@ -1,6 +1,5 @@
 #include "doctest.h"
 
-#include "app/SharedContext.hpp"
 #include "engine/render/GPUUtils.hpp"
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/core/BindingRegistry.hpp"
@@ -146,15 +145,13 @@ TEST_CASE("[Integration] Clustered Lighting - Deterministic overflow and index o
   REQUIRE(hdr.IsValid());
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;
-  context.shared = &shared;
+  context.resources = &resources;
 
   render::passes::LightCullingPass cullingPass;
   cullingPass.Execute(context);
@@ -236,15 +233,13 @@ TEST_CASE("[Integration] Clustered Lighting - Legacy V4 gate removed for light c
   REQUIRE(hdr.IsValid());
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;
-  context.shared = &shared;
+  context.resources = &resources;
 
   render::passes::LightCullingPass cullingPass;
   cullingPass.Execute(context);
@@ -279,15 +274,13 @@ TEST_CASE("[Integration] Clustered Lighting - Forced shader load failure keeps d
   REQUIRE(hdr.IsValid());
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   entt::registry registry;
   render::graph::RenderContext context = {};
   context.registry = &registry;
   context.qualityManager = &qm;
   context.camera = &camera;
-  context.shared = &shared;
+  context.resources = &resources;
   context.hdrSceneBuffer = hdr;
 
   render::passes::LightCullingPass cullingPass;
@@ -330,12 +323,10 @@ TEST_CASE("[Integration] Clustered Lighting - Culling to lighting consumption pa
   REQUIRE(hdr.IsValid());
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
-  context.shared = &shared;
+  context.resources = &resources;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;
@@ -380,8 +371,6 @@ TEST_CASE("[Integration] Clustered Lighting - Resize/context restore and offscre
   camera.offset = {0.0f, 0.0f};
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   render::lighting::LightManager::Get().Initialize();
   render::passes::LightCullingPass cullingPass;
@@ -401,7 +390,7 @@ TEST_CASE("[Integration] Clustered Lighting - Resize/context restore and offscre
 
     render::graph::RenderContext context = {};
     context.registry = &registry;
-    context.shared = &shared;
+    context.resources = &resources;
     context.qualityManager = &qm;
     context.camera = &camera;
     context.hdrSceneBuffer = hdr;
@@ -454,8 +443,6 @@ TEST_CASE("[Integration] Clustered Lighting - Boundary conditions") {
   camera.offset = {0.0f, 0.0f};
 
   ResourceManager resources;
-  SharedContext shared = {};
-  shared.resources = &resources;
 
   auto hdr = render::resources::FramebufferManager::Create(1024, 768, kHdrRgba16f);
   REQUIRE(hdr.IsValid());
@@ -466,7 +453,7 @@ TEST_CASE("[Integration] Clustered Lighting - Boundary conditions") {
 
   render::graph::RenderContext context = {};
   context.registry = &registry;
-  context.shared = &shared;
+  context.resources = &resources;
   context.qualityManager = &qm;
   context.camera = &camera;
   context.hdrSceneBuffer = hdr;
