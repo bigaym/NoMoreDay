@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
+#include <sstream>
 #include <string>
 
 using namespace NoMoreDay;
@@ -30,6 +31,16 @@ nlohmann::json ReadJson(const std::filesystem::path &path) {
   nlohmann::json parsed = nlohmann::json::object();
   in >> parsed;
   return parsed;
+}
+
+// Reads the file as raw bytes so a test can prove a save was skipped entirely
+// (byte-identical output) instead of merely re-serialized to equal JSON.
+std::string ReadRaw(const std::filesystem::path &path) {
+  std::ifstream in(path, std::ios::binary);
+  REQUIRE(in.is_open());
+  std::ostringstream contents;
+  contents << in.rdbuf();
+  return contents.str();
 }
 
 float HysteresisRatio(
@@ -85,8 +96,11 @@ TEST_CASE("[Unit] QualityTierManager - Render V3 Config Roundtrip") {
   REQUIRE(saved["render"]["v3"].contains("enabled"));
   CHECK(saved["render"]["v3"]["enabled"].get<bool>() == true);
   CHECK(saved["render"]["v3"]["shadowMode"].get<std::string>() == "hybrid");
-  REQUIRE(saved.contains("render.v3.enabled"));
-  CHECK(saved["render.v3.enabled"].get<bool>() == true);
+  // S1b repair: Initialize's metadata refresh no longer writes the V3 domain
+  // back into the settings file, so it must not synthesize the flat
+  // render.v3.enabled key either. The user's nested v3 object is preserved.
+  CHECK_FALSE(saved.contains("render.v3.enabled"));
+  CHECK(saved.contains("renderQualityAutoDetect"));
 
   manager.Initialize(settingsPath.string(), true);
   const auto &reloaded = manager.GetConfig();
@@ -588,4 +602,165 @@ TEST_CASE("[Unit] QualityTierManager - Adaptive Quality Config Roundtrip") {
         doctest::Approx(0.85f));
   CHECK(saved["render"]["adaptiveQuality"]["exposure"].get<float>() ==
         doctest::Approx(1.25f));
+}
+
+TEST_CASE("[Unit] QualityTierManager - metadata refresh preserves unrelated preference domains") {
+  const auto settingsPath = MakeTempSettingsPath("metadata_preserves_domains.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"unknownRootKey", "keep-me"},
+             {"render",
+              {{"v3", {{"enabled", true}, {"futureV3Key", 7}}},
+               {"gi", {{"enabled", true}, {"intensity", 2.5f}}},
+               {"gpuText", {{"enabled", true}}},
+               {"gpuLoot", {{"enabled", true}}},
+               {"fluid", {{"enabled", true}}},
+               {"adaptiveQuality", {{"renderScale", 0.85f}}},
+               {"unknownRenderSubtree", {{"keep", 1}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+
+  CHECK(manager.GetConfig().giEnabled == true);
+  CHECK(manager.EffectiveGiEnabled().has_value());
+  CHECK(manager.EffectiveGiEnabled().value() == true);
+
+  // The metadata refresh wrote its own subtree; every unrelated domain and
+  // unknown key survived.
+  const nlohmann::json saved = ReadJson(settingsPath);
+  REQUIRE(saved.contains("renderQualityAutoDetect"));
+  CHECK(saved["unknownRootKey"].get<std::string>() == "keep-me");
+  CHECK(saved["render"]["v3"]["enabled"].get<bool>() == true);
+  CHECK(saved["render"]["v3"]["futureV3Key"].get<int>() == 7);
+  CHECK(saved["render"]["gi"]["enabled"].get<bool>() == true);
+  CHECK(saved["render"]["gi"]["intensity"].get<float>() == doctest::Approx(2.5f));
+  CHECK(saved["render"]["gpuText"]["enabled"].get<bool>() == true);
+  CHECK(saved["render"]["gpuLoot"]["enabled"].get<bool>() == true);
+  CHECK(saved["render"]["fluid"]["enabled"].get<bool>() == true);
+  CHECK(saved["render"]["adaptiveQuality"]["renderScale"].get<float>() ==
+        doctest::Approx(0.85f));
+  CHECK(saved["render"]["unknownRenderSubtree"]["keep"].get<int>() == 1);
+
+  // Reinitialize from the persisted file: the GI preference still drives the
+  // effective config under the documented precedence.
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().giEnabled == true);
+}
+
+TEST_CASE("[Unit] QualityTierManager - runtime override and auto-degrade never persist") {
+  const auto settingsPath = MakeTempSettingsPath("runtime_not_persisted.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"render", {{"v3", {{"enabled", false}}}, {"gi", {{"enabled", true}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().giEnabled == true);
+
+  // A transient runtime override flips the effective config only; the
+  // serialized user preference is untouched.
+  CHECK(manager.SetGiEnabledOverride(false));
+  CHECK(manager.GetConfig().giEnabled == false);
+  {
+    const nlohmann::json saved = ReadJson(settingsPath);
+    CHECK(saved["render"]["gi"]["enabled"].get<bool>() == true);
+  }
+  CHECK(manager.ClearGiEnabledOverride());
+  CHECK(manager.GetConfig().giEnabled == true);
+  {
+    const nlohmann::json saved = ReadJson(settingsPath);
+    CHECK(saved["render"]["gi"]["enabled"].get<bool>() == true);
+  }
+
+  // Auto-degrade to the level that disables GI in the effective config; the
+  // serialized preference stays true (m_config is never a persistence source).
+  for (int i = 0; i < 6; ++i) {
+    manager.IncreaseAutoDegradeLevel("unit_test", 30.0f, 16.0f);
+  }
+  CHECK(manager.GetConfig().giEnabled == false);
+  {
+    const nlohmann::json saved = ReadJson(settingsPath);
+    CHECK(saved["render"]["gi"]["enabled"].get<bool>() == true);
+  }
+
+  // Reinitialize restores the persisted preference and resets degrade state.
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().giEnabled == true);
+}
+
+TEST_CASE("[Unit] QualityTierManager - V3 save updates V3 domain only") {
+  const auto settingsPath = MakeTempSettingsPath("v3_save_v3_only.json");
+  WriteJson(settingsPath,
+            {{"renderQualityTier", "High"},
+             {"unknownRootKey", "keep-me"},
+             {"render",
+              {{"v3", {{"enabled", true}, {"futureV3Key", 7}}},
+               {"gi", {{"enabled", true}}},
+               {"gpuText", {{"enabled", true}}}}}});
+
+  auto &manager = render::core::QualityTierManager::Get();
+  manager.Initialize(settingsPath.string(), true);
+  CHECK(manager.GetConfig().v3Enabled == true);
+
+  CHECK(manager.SetV3Enabled(false, settingsPath.string()));
+  const nlohmann::json saved = ReadJson(settingsPath);
+  CHECK(saved["render"]["v3"]["enabled"].get<bool>() == false);
+  // Unknown V3 child key survives the in-place merge.
+  CHECK(saved["render"]["v3"]["futureV3Key"].get<int>() == 7);
+  // Unrelated domains are untouched by the V3-only save.
+  CHECK(saved["render"]["gi"]["enabled"].get<bool>() == true);
+  CHECK(saved["render"]["gpuText"]["enabled"].get<bool>() == true);
+  CHECK(saved["unknownRootKey"].get<std::string>() == "keep-me");
+  // The explicit V3 save path writes the compatibility flat key.
+  CHECK(saved.contains("render.v3.enabled"));
+  CHECK(saved["render.v3.enabled"].get<bool>() == false);
+}
+
+TEST_CASE("[Unit] QualityTierManager - non-object settings structures fail closed") {
+  auto &manager = render::core::QualityTierManager::Get();
+
+  SUBCASE("root is a JSON array") {
+    const auto settingsPath = MakeTempSettingsPath("fail_closed_array.json");
+    WriteJson(settingsPath, nlohmann::json::array({1, 2, 3}));
+    const std::string before = ReadRaw(settingsPath);
+    // Metadata refresh and the V3 save must both leave the file untouched.
+    manager.Initialize(settingsPath.string(), true);
+    CHECK(ReadRaw(settingsPath) == before);
+    manager.SetV3Enabled(true, settingsPath.string());
+    CHECK(ReadRaw(settingsPath) == before);
+  }
+
+  SUBCASE("render is not an object") {
+    const auto settingsPath = MakeTempSettingsPath("fail_closed_render.json");
+    WriteJson(settingsPath,
+              {{"render", "not-an-object"}, {"renderQualityTier", "High"}});
+    manager.Initialize(settingsPath.string(), true);
+    const std::string afterInit = ReadRaw(settingsPath);
+    manager.SetV3Enabled(true, settingsPath.string());
+    CHECK(ReadRaw(settingsPath) == afterInit);
+  }
+
+  SUBCASE("render.v3 is not an object") {
+    const auto settingsPath = MakeTempSettingsPath("fail_closed_v3.json");
+    WriteJson(settingsPath,
+              {{"render", {{"v3", "not-an-object"}}}, {"renderQualityTier", "High"}});
+    manager.Initialize(settingsPath.string(), true);
+    const std::string afterInit = ReadRaw(settingsPath);
+    manager.SetV3Enabled(true, settingsPath.string());
+    CHECK(ReadRaw(settingsPath) == afterInit);
+  }
+
+  SUBCASE("existing unparseable file is preserved byte-for-byte") {
+    const auto settingsPath = MakeTempSettingsPath("fail_closed_badjson.json");
+    {
+      std::ofstream out(settingsPath, std::ios::binary | std::ios::trunc);
+      REQUIRE(out.is_open());
+      out << "{ this is not json ";
+    }
+    const std::string before = ReadRaw(settingsPath);
+    manager.Initialize(settingsPath.string(), true);
+    CHECK(ReadRaw(settingsPath) == before);
+    manager.SetV3Enabled(true, settingsPath.string());
+    CHECK(ReadRaw(settingsPath) == before);
+  }
 }

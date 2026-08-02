@@ -63,6 +63,14 @@ void S7WriteJson(const std::filesystem::path &path, const nlohmann::json &json) 
   out << json.dump(2);
 }
 
+nlohmann::json S7ReadJson(const std::filesystem::path &path) {
+  std::ifstream in(path, std::ios::binary);
+  REQUIRE(in.is_open());
+  nlohmann::json parsed = nlohmann::json::object();
+  in >> parsed;
+  return parsed;
+}
+
 // S7b: reuses the same hidden-window GL context convention as the existing gate
 // integration tests. The context is created once and left alive for the whole
 // test binary (other gate tests rely on it too).
@@ -309,16 +317,23 @@ TEST_CASE("[Unit] S7a QualityTierManager - Initialize resets runtime override st
   CHECK(manager.IsGiOverrideActive());
 
   // Re-initialization (forceRedetect) must clear the runtime override; the
-  // config then follows the (re-read) settings override again. NOTE: the S1b
-  // four-state backfill persists m_v3Config (V3-only; gi is not a V3 field, so
-  // giEnabled is always false there) back into the settings file on every
-  // Initialize, so the re-read settings override is deterministically off.
+  // config then follows the (re-read) settings override again. The metadata
+  // refresh no longer writes the V3 or GI domains back into the settings file,
+  // so the persisted render.gi.enabled=true preference survives and the
+  // re-read settings override stays on after re-initialization.
   manager.Initialize(settingsPath.string(), true);
   CHECK_FALSE(manager.IsGiOverrideActive());
   CHECK_FALSE(manager.GetGiRuntimeOverride().has_value());
-  CHECK_FALSE(manager.GetConfig().giEnabled);
+  CHECK(manager.GetConfig().giEnabled);
   CHECK(manager.EffectiveGiEnabled().has_value());
-  CHECK_FALSE(manager.EffectiveGiEnabled().value());
+  CHECK(manager.EffectiveGiEnabled().value());
+
+  // The file still carries the user's true GI preference after the
+  // metadata-only refresh; the effective config followed it.
+  const nlohmann::json persisted = S7ReadJson(settingsPath);
+  REQUIRE(persisted.contains("render"));
+  REQUIRE(persisted["render"].contains("gi"));
+  CHECK(persisted["render"]["gi"]["enabled"].get<bool>() == true);
 }
 
 // ---------------------------------------------------------------------------
@@ -397,7 +412,13 @@ TEST_CASE("[Integration] S7a - GICompositePass history invalidation accessor con
 // numeric threshold verdict is deferred to the RTX 4070 Super DOD-2 capture.
 // ---------------------------------------------------------------------------
 
-TEST_CASE("[Integration] S7b - paired GI delta capture emits renderer, leg traces and delta") {
+// W6 (M0-C): S7b is contract/diagnostic only - paired GI delta capture against
+// a 1x1 hidden context + GameplayRuntimeHarness (no real Game/App
+// initialization). Production GI evidence comes from NoMoreDay.exe --gpu-gate.
+// Excluded from broad ci;nonperf and generic integration via the
+// [GPU-Diagnostic] prefix; runs under nmd.tests.gpu.diagnostic (minimal
+// non-exhaustive budget). doctest success here never means the gate passed.
+TEST_CASE("[GPU-Diagnostic] S7b - paired GI delta capture emits renderer, leg traces and delta") {
   using NoMoreDay::render::validation::GameplayRuntimeHarness;
   using NoMoreDay::render::validation::GPUHardwareValidationGate;
 

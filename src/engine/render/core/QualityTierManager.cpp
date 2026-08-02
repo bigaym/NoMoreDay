@@ -1,5 +1,8 @@
 #include "engine/render/core/QualityTierManager.hpp"
 
+#define NOMINMAX
+#include <windows.h>
+
 #include "GLFW/glfw3.h"
 #include "core/logging/Logger.hpp"
 #include "engine/render/GPUUtils.hpp"
@@ -95,8 +98,34 @@ bool ParseShadowMode(std::string value, ShadowMode &outMode) {
   return false;
 }
 
+// Writes only the versioned render domain (nested object plus the compatibility
+// flat enabled key). Known fields are merged into the existing object so unknown
+// child keys survive. This serializer must never touch the GI, GPU text, GPU
+// loot, fluid, or adaptive-quality domains; each of
+// those domains owns its own subtree and is loaded through its own override
+// loader. The caller validates the destination structure; this function also
+// fails closed on a non-object root instead of throwing.
 void WriteV3ConfigToJson(nlohmann::json &jsonSettings, const RenderConfig &config) {
-  nlohmann::json v3 = nlohmann::json::object();
+  if (!jsonSettings.is_object()) {
+    return;
+  }
+  // Fail closed rather than overwriting a non-object render subtree.
+  if (jsonSettings.contains(kRenderKey) &&
+      !jsonSettings[kRenderKey].is_object()) {
+    return;
+  }
+  nlohmann::json &render = jsonSettings[kRenderKey];
+  if (!render.is_object()) {
+    render = nlohmann::json::object();
+  }
+  // Fail closed rather than overwriting a non-object versioned subtree.
+  if (render.contains(kRenderV3Key) && !render[kRenderV3Key].is_object()) {
+    return;
+  }
+  nlohmann::json &v3 = render[kRenderV3Key];
+  if (!v3.is_object()) {
+    v3 = nlohmann::json::object();
+  }
   v3["enabled"] = config.v3Enabled;
   v3["shadowEnabled"] = config.shadowEnabled;
   v3["shadowMode"] = ToString(config.shadowMode);
@@ -118,54 +147,121 @@ void WriteV3ConfigToJson(nlohmann::json &jsonSettings, const RenderConfig &confi
   v3["pomLayers"] = config.pomLayers;
 
   jsonSettings[kRenderV3FlatEnabledKey] = config.v3Enabled;
-  jsonSettings[kRenderKey][kRenderV3Key] = std::move(v3);
+}
 
-  nlohmann::json gpuText = nlohmann::json::object();
-  gpuText["enabled"] = config.gpuTextEnabled;
-  jsonSettings[kRenderGpuTextFlatEnabledKey] = config.gpuTextEnabled;
-  jsonSettings[kRenderKey][kRenderGpuTextKey] = std::move(gpuText);
+// Explicit versioned user-save entry point: read-modify-write of the render domain
+// only. Every unrelated subtree and unknown key is preserved. A missing file is
+// created with the safe default policy, but an existing file that cannot be
+// opened or parsed, or whose root/render/versioned section is not an object, is left
+// byte-for-byte untouched (fail closed, no exception, no truncation).
+bool ReplaceFileAtomically(const std::filesystem::path &temporaryPath,
+                           const std::filesystem::path &targetPath) {
+#ifdef _WIN32
+  return MoveFileExW(temporaryPath.wstring().c_str(), targetPath.wstring().c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != 0;
+#else
+  std::error_code error;
+  std::filesystem::rename(temporaryPath, targetPath, error);
+  return !error;
+#endif
+}
 
-  nlohmann::json gpuLoot = nlohmann::json::object();
-  gpuLoot["enabled"] = config.gpuLootEnabled;
-  jsonSettings[kRenderGpuLootFlatEnabledKey] = config.gpuLootEnabled;
-  jsonSettings[kRenderKey][kRenderGpuLootKey] = std::move(gpuLoot);
+bool WriteJsonAtomically(const std::string &settingsPath,
+                         const nlohmann::json &jsonSettings,
+                         const char *domain) {
+  const std::filesystem::path targetPath(settingsPath);
+  const auto stamp = std::chrono::high_resolution_clock::now()
+                         .time_since_epoch()
+                         .count();
+  std::filesystem::path temporaryPath = targetPath;
+  temporaryPath += ".tmp." + std::to_string(stamp);
 
-  nlohmann::json gi = nlohmann::json::object();
-  gi["enabled"] = config.giEnabled;
-  gi["cascadeLevels"] = config.giCascadeLevels;
-  gi["halfResolution"] = config.giHalfResolution;
-  gi["temporalWeight"] = config.giTemporalWeight;
-  gi["sdfUpdateInterval"] = config.giSdfUpdateInterval;
-  gi["intensity"] = config.giIntensity;
-  gi["holographicEnabled"] = config.giHolographicEnabled;
-  jsonSettings[kRenderGiFlatEnabledKey] = config.giEnabled;
-  jsonSettings[kRenderKey][kRenderGiKey] = std::move(gi);
+  try {
+    {
+      std::ofstream out(temporaryPath, std::ios::binary | std::ios::trunc);
+      if (!out.is_open()) {
+        LOG_WARN("QualityTierManager: failed to create temporary {} file for {}",
+                 domain, settingsPath);
+        return false;
+      }
+      out << jsonSettings.dump(4);
+      out.flush();
+      if (!out.good()) {
+        LOG_WARN("QualityTierManager: temporary {} write to {} incomplete", domain,
+                 settingsPath);
+        return false;
+      }
+      out.close();
+      if (out.fail()) {
+        LOG_WARN("QualityTierManager: failed to close temporary {} file for {}",
+                 domain, settingsPath);
+        return false;
+      }
+    }
 
-  nlohmann::json fluid = nlohmann::json::object();
-  fluid["enabled"] = config.fluidEnabled;
-  fluid["maxParticles"] = config.fluidMaxParticles;
-  jsonSettings[kRenderFluidFlatEnabledKey] = config.fluidEnabled;
-  jsonSettings[kRenderKey][kRenderFluidKey] = std::move(fluid);
+    if (!ReplaceFileAtomically(temporaryPath, targetPath)) {
+      LOG_WARN("QualityTierManager: failed to atomically replace {} with {} data",
+               settingsPath, domain);
+      std::error_code removeError;
+      std::filesystem::remove(temporaryPath, removeError);
+      return false;
+    }
+    return true;
+  } catch (...) {
+    LOG_WARN("QualityTierManager: failed to persist {} into {}", domain,
+             settingsPath);
+    std::error_code removeError;
+    std::filesystem::remove(temporaryPath, removeError);
+    return false;
+  }
+}
 
-  const auto &adaptive = config.adaptiveQuality;
-  nlohmann::json adaptiveQuality = nlohmann::json::object();
-  adaptiveQuality["dynamicResolutionEnabled"] = adaptive.dynamicResolutionEnabled;
-  adaptiveQuality["renderScaleLocked"] = adaptive.renderScaleLocked;
-  adaptiveQuality["renderScale"] = adaptive.renderScale;
-  adaptiveQuality["minRenderScale"] = adaptive.minRenderScale;
-  adaptiveQuality["maxRenderScale"] = adaptive.maxRenderScale;
-  adaptiveQuality["renderScaleStep"] = adaptive.renderScaleStep;
-  adaptiveQuality["downThresholdMs"] = adaptive.downThresholdMs;
-  adaptiveQuality["upThresholdMs"] = adaptive.upThresholdMs;
-  adaptiveQuality["sustainSeconds"] = adaptive.sustainSeconds;
-  adaptiveQuality["cooldownSeconds"] = adaptive.cooldownSeconds;
-  adaptiveQuality["autoExposureEnabled"] = adaptive.autoExposureEnabled;
-  adaptiveQuality["exposure"] = adaptive.exposure;
-  adaptiveQuality["minExposure"] = adaptive.minExposure;
-  adaptiveQuality["maxExposure"] = adaptive.maxExposure;
-  adaptiveQuality["brightenRate"] = adaptive.brightenRate;
-  adaptiveQuality["darkenRate"] = adaptive.darkenRate;
-  jsonSettings[kRenderKey][kRenderAdaptiveQualityKey] = std::move(adaptiveQuality);
+bool WriteV3ConfigToFile(const std::string &settingsPath,
+                         const RenderConfig &config) {
+  if (settingsPath.empty()) {
+    return true;
+  }
+
+  nlohmann::json jsonSettings = nlohmann::json::object();
+  if (std::filesystem::exists(settingsPath)) {
+    try {
+      std::ifstream file(settingsPath);
+      if (!file.is_open()) {
+        LOG_WARN("QualityTierManager: failed to open {}, versioned save skipped",
+                 settingsPath);
+        return false;
+      }
+      file >> jsonSettings;
+    } catch (...) {
+      LOG_WARN("QualityTierManager: failed to parse {}, versioned save skipped",
+               settingsPath);
+      return false;
+    }
+
+    if (!jsonSettings.is_object()) {
+       LOG_WARN("QualityTierManager: {} has non-object root, versioned save skipped",
+               settingsPath);
+      return false;
+    }
+    if (jsonSettings.contains(kRenderKey) &&
+        !jsonSettings[kRenderKey].is_object()) {
+       LOG_WARN("QualityTierManager: {} has non-object render, versioned save skipped",
+               settingsPath);
+      return false;
+    }
+    if (jsonSettings.contains(kRenderKey) &&
+        jsonSettings[kRenderKey].contains(kRenderV3Key) &&
+        !jsonSettings[kRenderKey][kRenderV3Key].is_object()) {
+      LOG_WARN(
+           "QualityTierManager: {} has non-object versioned section, save skipped",
+           settingsPath);
+      return false;
+    }
+  }
+
+  WriteV3ConfigToJson(jsonSettings, config);
+
+  return WriteJsonAtomically(settingsPath, jsonSettings, "versioned render");
 }
 
 bool ParseTierString(std::string value, QualityTier &outTier) {
@@ -187,28 +283,6 @@ bool ParseTierString(std::string value, QualityTier &outTier) {
     return true;
   }
   return false;
-}
-
-void WriteAdaptiveQualityToJson(nlohmann::json &jsonSettings,
-                                 const AdaptiveQualitySettings &settings) {
-  nlohmann::json adaptive = nlohmann::json::object();
-  adaptive["dynamicResolutionEnabled"] = settings.dynamicResolutionEnabled;
-  adaptive["renderScaleLocked"] = settings.renderScaleLocked;
-  adaptive["renderScale"] = settings.renderScale;
-  adaptive["minRenderScale"] = settings.minRenderScale;
-  adaptive["maxRenderScale"] = settings.maxRenderScale;
-  adaptive["renderScaleStep"] = settings.renderScaleStep;
-  adaptive["downThresholdMs"] = settings.downThresholdMs;
-  adaptive["upThresholdMs"] = settings.upThresholdMs;
-  adaptive["sustainSeconds"] = settings.sustainSeconds;
-  adaptive["cooldownSeconds"] = settings.cooldownSeconds;
-  adaptive["autoExposureEnabled"] = settings.autoExposureEnabled;
-  adaptive["exposure"] = settings.exposure;
-  adaptive["minExposure"] = settings.minExposure;
-  adaptive["maxExposure"] = settings.maxExposure;
-  adaptive["brightenRate"] = settings.brightenRate;
-  adaptive["darkenRate"] = settings.darkenRate;
-  jsonSettings["render"]["adaptiveQuality"] = std::move(adaptive);
 }
 
 QualityTier MinTier(QualityTier lhs, QualityTier rhs) {
@@ -505,8 +579,8 @@ bool QualityTierManager::SetV3Enabled(bool enabled,
     }
   }
 
-  PersistSelectionMetadata(settingsPath);
-  return changed;
+  const bool persisted = WriteV3ConfigToFile(settingsPath, m_v3Config);
+  return changed && persisted;
 }
 
 bool QualityTierManager::SetClusteredLightingEnabled(
@@ -522,8 +596,8 @@ bool QualityTierManager::SetClusteredLightingEnabled(
              previous ? 1 : 0, enabled ? 1 : 0);
   }
 
-  PersistSelectionMetadata(settingsPath);
-  return changed;
+  const bool persisted = WriteV3ConfigToFile(settingsPath, m_v3Config);
+  return changed && persisted;
 }
 
 bool QualityTierManager::SetNormalLightingEnabled(
@@ -539,8 +613,8 @@ bool QualityTierManager::SetNormalLightingEnabled(
              previous ? 1 : 0, enabled ? 1 : 0);
   }
 
-  PersistSelectionMetadata(settingsPath);
-  return changed;
+  const bool persisted = WriteV3ConfigToFile(settingsPath, m_v3Config);
+  return changed && persisted;
 }
 
 bool QualityTierManager::SetSpecularEnabled(
@@ -556,8 +630,8 @@ bool QualityTierManager::SetSpecularEnabled(
              enabled ? 1 : 0);
   }
 
-  PersistSelectionMetadata(settingsPath);
-  return changed;
+  const bool persisted = WriteV3ConfigToFile(settingsPath, m_v3Config);
+  return changed && persisted;
 }
 
 void QualityTierManager::SetV3ToggleCallback(V3ToggleCallback callback) {
@@ -1175,12 +1249,28 @@ void QualityTierManager::PersistSelectionMetadata(
   if (std::filesystem::exists(settingsPath)) {
     try {
       std::ifstream file(settingsPath);
-      if (file.is_open()) {
-        file >> jsonSettings;
+      if (!file.is_open()) {
+        // An existing file that cannot be opened is preserved as-is; it must
+        // not be mistaken for an empty document and overwritten.
+        LOG_WARN("QualityTierManager: failed to open {}, metadata persistence skipped",
+                 settingsPath);
+        return;
       }
+      file >> jsonSettings;
     } catch (...) {
-      LOG_WARN("QualityTierManager: failed to parse {}, metadata overwrite", settingsPath);
-      jsonSettings = nlohmann::json::object();
+      // A malformed document is preserved as-is rather than being replaced by
+      // a metadata-only object, so no unrelated user content is destroyed.
+      LOG_WARN("QualityTierManager: failed to parse {}, metadata persistence skipped",
+               settingsPath);
+      return;
+    }
+
+    // Fail closed on a legal but non-object root (e.g. a top-level array or
+    // scalar): writing into it would throw or silently replace user content.
+    if (!jsonSettings.is_object()) {
+      LOG_WARN("QualityTierManager: {} has non-object root, metadata persistence skipped",
+               settingsPath);
+      return;
     }
   }
 
@@ -1225,19 +1315,8 @@ void QualityTierManager::PersistSelectionMetadata(
                            {"maxImageUnits", caps.maxImageUnits},
                            {"valid", caps.valid}};
   jsonSettings["renderQualityAutoDetect"] = std::move(detail);
-  WriteV3ConfigToJson(jsonSettings, m_v3Config);
-  WriteAdaptiveQualityToJson(jsonSettings, m_adaptiveQualitySettings);
 
-  try {
-    std::ofstream out(settingsPath, std::ios::trunc);
-    if (!out.is_open()) {
-      LOG_WARN("QualityTierManager: failed to write {}", settingsPath);
-      return;
-    }
-    out << jsonSettings.dump(4);
-  } catch (...) {
-    LOG_WARN("QualityTierManager: failed to persist metadata into {}", settingsPath);
-  }
+  (void)WriteJsonAtomically(settingsPath, jsonSettings, "selection metadata");
 }
 
 QualityTierManager::CapabilitySnapshot
