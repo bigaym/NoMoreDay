@@ -306,3 +306,29 @@ MS-6 全部 66 条 P0-blocked 边清零：ef39129（GPU 实体核心）+ 363b196
 # MS-7 里程碑总结
 
 MS-7 全部完成：96ce289（SharedContext 下移 game）+ 8648a58（四层 target 图 + checker 分层升级）+ 761d9f9（per-target PCH，ledger 5→0）+ B4（测试显式四层链接）。显式 target 图 `NoMoreDay(exe)→App STATIC→Game STATIC→Engine STATIC→Core STATIC→Types INTERFACE` 落地；ledger 0 条（module boundary 全清零）。剩余：MS-8（目录收敛）→ DOD-2 实机 gate（RTX 4070S）。
+
+---
+
+# MS-8（目录收敛 / 删除临时例外）— `提交`
+
+**审查目标**：核验模块拆分收尾——目录布局一致性、转发 include/临时例外清理、技术债清单化（ledger 0 条终态）。
+
+**变更边界**：`M scripts/check_module_boundaries.py`（4 行纯字符串替换：`LegacyLowerPch`→`EngineOwnedPch`、`lower-layer PCH`→`engine-owned PCH`、`legacy_global_pch`→`engine_owned_pch`、`legacy_monolithic_{target}`→`{layer.lower()}_layer`）+ `M tests/python/ModuleBoundaryCheckerTest.py:48`（fixture current_owner `legacy_monolithic_NoMoreDayEngine`→`engine_layer`，强制同步否则 returncode 2）+ 新增 `docs/reports/modular-split-exe-lib-dll/ms-8/evidence.md`（manifest 精确匹配 engine 67/game 136+13/core 2/app 1+main 0 遗漏 0 多余、0 转发 include、src/systems/ 空目录删除、7 项技术债清单）；settings.json 为用户指示既有残留（排除）；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium/Low。唯一强制同步点：fixture current_owner 必须改（load_ledger 逐条精确比对，不同步 returncode 2）——已同步。
+
+**已复核通过**：A2 命名收敛零逻辑改动（diff 恰 2 处字符串替换，checker 全文 0 legacy 命中，其余 legacy 均在无关工具/历史）；A1 `src/systems/` 空目录删除无误删（git ls-files 空）；A3 evidence 计数独立复算全对（与 MS-7 审查记录逐字一致）、7 项技术债逐条溯源（RG-3/S1b PersistSelectionMetadata/Game→App checker 盲区/effectiveTagMask 位布局/settings.json/Release+LTO/P0 死分支）；checker 0/0 PASS、25 tests OK、check_legacy_reintroduction 215/69 vs 基线 222/71 PASS。
+
+**剩余风险**：低。MS-1 DEFER guard 为契约强制安全机制必须保留；REQUIRED_P0_SOURCES 空集为终态语义（保留）；7 项技术债已清单化归后续专项。
+
+**提交**：`refactor(build): converge legacy module boundary naming`（待提交）。
+
+---
+
+# DOD-2 实机 gate（RTX 4070S）— 首轮 NO_GO：GL_INVALID_ENUM 根因定位
+
+**运行**：`python scripts/gpu_hardware_validation_gate.py --revision dod2-20260801` → NO_GO。artifact `artifacts/gpu-gate/dod2-20260801/`。
+
+**根因（explore 定位，证据闭合）**：`RenderSystem.cpp:251-253` `CaptureCompositeTargetState()` 三个手写 pname 常量全部非法——`0x8D24`/`0x8D25`（声称 attachment width/height）在核心 GL 不存在（glad.h 668-687 无 OBJECT_WIDTH/HEIGHT）；`0x825D`（声称 COMPONENT_TYPE）真值应为 `0x8211`。全仓唯一 `glGetFramebufferAttachmentParameteriv` 调用点（:263-268）。每 render() 3 条 GL_INVALID_ENUM（type=0x824C、severity=0x9146 HIGH）；gate 全流程数百万 → 256 捕获 + 3,593,483 dropped。S3 fail-closed 下 severeGlErrorCount>0 → allMatrixPassed=false + globalFailure → **DOD-2 必 NoGo**。附带：3 次查询自引入以来从未取得有效数据（width/height 恒 0 走 viewport 回退、internalFormat=0），纯错误产生器；2026-07-26 review 声称的"✅ glGetFramebufferAttachmentParameteriv 查询"与代码不符。
+
+**修复方案 A（推荐）**：`RenderSystem.cpp:248-283` 删除 3 次无效查询，直接用 viewport 回退值、internalFormat 保持 0（行为与现状等价，消灭全部错误）。若确需真实尺寸/格式：OBJECT_TYPE(0x8CD0) 分支 + glGetTexLevelParameteriv(GL_TEXTURE_WIDTH=0x1000/HEIGHT=0x1001) 或 glGetRenderbufferParameteriv(RENDERBUFFER_WIDTH=0x8D42/HEIGHT=0x8D43) + GL_TEXTURE_INTERNAL_FORMAT(0x1003)/RENDERBUFFER_INTERNAL_FORMAT(0x8D81)。核心 GL 无"attachment 尺寸"直接 pname。修复后重跑 DOD-2。

@@ -45,7 +45,7 @@ def make_fixture_entry(
         "include_path": include_path,
         "candidate_target": "NoMoreDayEngine",
         "candidate_layer": "Engine",
-        "current_owner": "legacy_monolithic_NoMoreDayEngine",
+        "current_owner": "engine_layer",
         "future_owner_layer": "Game",
         "disposition": "move_to_game",
         "milestone": "MS-3",

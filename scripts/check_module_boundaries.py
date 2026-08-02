@@ -258,11 +258,11 @@ def load_ledger(ledger_path: Path) -> dict[str, Any]:
 
 def _candidate_for_source(source: str) -> tuple[str, str, str] | None:
     if source in EXPECTED_PCH_FILES:
-        return "LegacyLowerPch", "lower-layer PCH", "legacy_global_pch"
+        return "EngineOwnedPch", "engine-owned PCH", "engine_owned_pch"
     for root_path, target, layer in EXPECTED_CANDIDATE_ROOTS:
         if source == root_path or source.startswith(f"{root_path}/"):
             return (
-                target, layer, f"legacy_monolithic_{target}",
+                target, layer, f"{layer.lower()}_layer",
             )
     return None
 
