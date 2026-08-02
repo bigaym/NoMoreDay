@@ -145,6 +145,7 @@ R3 只覆盖诊断采集和 fail-closed 判定；它不替代真实 Gameplay fix
 
 ## 15. R6 Artifact 归档 + runner 接线（S8）
 
+> **历史记录（2026-08-01，S8 阶段）**：本节描述 runner 面向 `NoMoreDayTests.exe`（doctest filter `*GPU Hardware Validation Gate*`）与 24 个 Python 测试的旧接线合同。W6（2026-08-02）起生产门禁改为 `NoMoreDay.exe --gpu-gate`，runner 不再使用 doctest filter，Python 测试已扩展至 38 个；本节仅作历史参考，**不作为当前验收依据**，当前契约见 §17。
 - 归档路径固定 `artifacts/gpu-gate/<revision>/`；`.gitignore` 新增 `artifacts/`（生成产物不入库）。runner 默认归档到该路径，artifact 含完整 C++ GateReport JSON（capabilities/matrix_results/resources/stress_test+resource_snapshots/gl_diagnostics）、waiver、`gate_succeeded`、schema 错误列表。
 - runner 死参数接线：`--samples/--toggle-loops/--stress-test-1min` 经 `NMD_GATE_SAMPLES/NMD_GATE_TOGGLE_LOOPS/NMD_GATE_STRESS` 注入 `bin\NoMoreDayTests.exe --test-case="*GPU Hardware Validation Gate*"`；`tests/integration/GPUHardwareValidationGateTest.cpp` 读取这些环境变量（缺省 120/100/true）传入 `RunGate`。超时预算 = 120s 基 + (stress ? 60s : 0)，与 60s 压力循环联动，stress 下为 180s。
 - waiver 机制：CLI `--waiver-authorizer/--waiver-reason/--waiver-scope/--waiver-expiry` 写入归档元数据；`gate_succeeded` 保持 `return_code==0 AND status=="GO"`，`NOT_RUN/waived/NO_GO` 永不通过为 GO（负例测试覆盖）。
@@ -167,3 +168,40 @@ R3 只覆盖诊断采集和 fail-closed 判定；它不替代真实 Gameplay fix
 - **判定边界（用户批准 A：接受局限如实记录）**：矩阵 ROI/SDF/GI readback 三项因测试二进制管线上下文不完整无效（`RenderSystem::Initialize()` 未调用→g_* null→7 pass 不入 graph；harness 无 hooks/renderContext→零绘制；viewport 1×1→HDR buffer 1×1→ROI 全黑），不计入硬件判定。有效项：GL 诊断清零、capability/preflight、压力/泄漏、lambda passes 预算、toggle stress 均通过。
 - **gate_status = NO_GO（environment_limited）**：fail-closed 保持；真实 readback 判定需移至游戏二进制上下文（`--gate` 模式），属 S6 契约范围外，另行立项。
 - **evidence**：`docs/reports/gpu-gate-dod2/evidence.md`。
+## 17. W6 生产门禁机制 + 测试分层（游戏二进制 --gpu-gate，2026-08-02）
+
+- **机制落地（W6.1-W6.5）**：生产门禁 = `NoMoreDay.exe --gpu-gate`，在正常 Game/App 启动初始化完成后执行（真实 GL context/registry/render hooks/标准 render 路径）。具体驱动为组合根 `src/app/GpuGateDriver`（真实 FixtureRenderDriver，borrow 真实 registry/SharedContext/hooks，owned 1280x720 RGBA16F offscreen target）。Engine 的 `FixtureRenderDriver` 接口保持 dependency-neutral（新增 `RenderHooks()` 带默认 nullptr 实现，测试 harness 不变）。
+- **测试分层（W6.2）**：standalone 测试二进制只作 contract/diagnostic，不产生生产 GO。RunGate 离屏矩阵与 S7b paired capture 重分类为 `[GPU-Diagnostic]`（`nmd.tests.gpu.diagnostic`，最小样本 env 注入 NMD_GATE_SAMPLES=3/TOGGLE=1/STRESS=0）；契约用例（QueryCapabilities / GL schema / Missing driver fails closed / S7a）保留 `[Integration]`/`[Unit]`（`nmd.tests.gpu.contract`）。`nmd.tests.ci.nonperf` exclude 追加 `*GPU-Diagnostic*`。新增 opt-in `nmd.tests.gpu.hardware` job（labels `gpu-hardware`，RUN_SERIAL + RESOURCE_LOCK，不入默认 ci/integration）。
+- **runner 改造（W6.5）**：`scripts/gpu_hardware_validation_gate.py` 启动 `NoMoreDay.exe --gpu-gate --revision <rev>`（不再用 doctest filter），仅 rc==0 + schema valid + 精确 `GO` 通过；NO_GO/NOT_RUN 均失败。解码固定 UTF-8 + errors=replace，杜绝 GBK 解码崩溃导致 stdout 丢失。
+- **artifact 增强（W6.4）**：matrix 单元新增必填 `camera`（target_x/target_y/zoom）与 `roi`（x/y/width/height），schema validator 强制校验；缺字段 -> 校验失败 -> 不通过（绝不默认值填充）。
+- **修复游戏二进制退出路径崩溃（W6.3 附带的真实 bug）**：`GPUParticleSystem::Shutdown()` 未释放 `m_indirectBuffer`/`m_atomicBuffer`（PersistentBuffer）与 `m_particleBuffer`/`m_compactBuffer`（ComputeBuffer），CRT 退出时静态析构对已析构的 `GPUResourceRegistry` 调 `UnregisterResource` -> Access Violation（0xC0000005）。现于 Shutdown 显式释放全部 owned buffer（RG-3 契约不变，Destroy/Release 均为幂等），游戏二进制 gate 退出码恢复 0。
+- **本地机制验证（non-exhaustive，2026-08-02）**：
+  - `bin\NoMoreDay.exe --gpu-gate --revision local-min-20260802c --samples 3 --no-stress-test-1min --toggle-loops 1`：输出 `GPU_HARDWARE_GATE_RESULT status=NO_GO`，exit 0（机制 + 干净退出验证通过）。
+  - runner e2e：`python scripts/gpu_hardware_validation_gate.py --test-exe bin/NoMoreDay.exe --revision local-min-20260802c --samples 3 --toggle-loops 1 --no-stress-test-1min` -> exit 1（NO_GO 失败关闭，正确），归档 `artifacts/gpu-gate/local-min-20260802c/gpu_hardware_validation_artifact.json`，schema_errors `[]`。
+  - 全量默认矩阵（samples=120/toggle=100/stress=true）亦在本地执行过：`artifacts/gpu-gate/local-gpu-hardware/`，gate NO_GO，runner 判定失败（预期）。
+- **发现（未修复，属生产修复/M0-C 实机流程，W6 只负责暴露）**：本地实机矩阵 ROI readback 全黑 + 256 次 `GL_INVALID_OPERATION "Array object is not active"`（raylib 绘制帧上下文与 gate 离屏 FBO 目标的集成问题，测试二进制 harness 亦同源）；gate 因此正确判定 NO_GO。本地 GPU 身份：NVIDIA GeForce RTX 4070 SUPER / OpenGL 4.3。
+- **不声称生产 GO**：本地仅验证机制与分层；120 样本/100 切换/60s 压力/零 high-severity GL/可复现 artifact 等硬件验收由后续 M0-C `gpu-hardware` 实机 job 判定。
+- **evidence**：`artifacts/gpu-gate/local-min-20260802c/gpu_hardware_validation_artifact.json`、`artifacts/gpu-gate/local-gpu-hardware/gpu_hardware_validation_artifact.json`。
+
+## 18. W6 评审修正复测（2026-08-02，reviewer "修改" 后第二轮）
+
+- **Blocker 1 — pass trace 真实性 + GI/SDF 进 verdict**：
+  - matrix cell `executed_pass_order` 取自真实 `RenderSystem::render` 最后帧 `RenderGraph::CompiledRenderPlan.passOrder`（`pass_trace_source="RenderGraph::CompiledRenderPlan.passOrder via RenderSystem::render (real execution)"`），删除模拟 testGraph；空列表 → cell fail。
+  - GI paired delta 逐 cell 纳入 verdict：每 cell 独立执行 `RunPairedGiDeltaCapture(*driver, fixture, tierName)`，`gi_paired_delta/gi_paired_passed` 进入 cell `overall_passed`；`paired_gi_deltas` 现为 9 条（3 fixture × 3 tier）。
+  - SDF readback 必填：GI-on cell 对真实 JFA 距离场（GL_R16F）`glGetTexImage` + 5 点 sign probe（`ProbeGiDistanceField`），`passed` 才过；GI-off cell 记录 `not_applicable`。本地最小样本 9 cells 中 7 个 GI-on cell `sdf_readback_status=passed`（min=-2.12 max=1839 符号有效），cave/High/gi=True 一格 `missing`（fail-closed 拒绝）。
+  - occupancy fail-closed：M0-A R3 未实现 → `occupancy.status="missing_pending_m0a"`、`blocks_go=true`，**当前任何 revision 禁 GO**（不实现功能）。
+- **High 2 — ROI readback 坐标**：`ReadRoiMeanLuma` 读全 FBO（`rlReadScreenPixels(fboW,fboH)`）+ `ComputeRoiMeanLuma` CPU 裁剪（按真实 x/y 原点，越界返回 0）；新增 `[Unit] GPU Hardware Validation Gate - ROI origin crop correctness` 测试（4x4 RGBA8 亮块验证裁剪正确）。
+- **High 3 — GPU 身份 + hooks 缺失**：`vendor/driver_version/renderer` 取真实 `glGetString(GL_VENDOR/GL_VERSION/GL_RENDERER)`（本地实测：`NVIDIA Corporation` / `4.3.0 NVIDIA 591.86`），空 → preflight fail → NOT_RUN；`GpuGateDriver::IsProductionDriver()==true` 且 `RenderHooks()==nullptr` → NOT_RUN（渲染空壳 fail-closed）；runner schema 拒绝空 `vendor`/`driver_version`。
+- **High 4 — 异常路径报告**：`main.cpp --gpu-gate` catch 输出完整 NOT_RUN JSON report（含失败原因、provenance、occupancy、run_config）到 stdout，保持"单 marker + 单报告"。
+- **Medium 5 — 钳制语义**：显式 < 生产下限（`--samples<120`/`--toggle-loops<100`）按 requested 执行，`run_config` 记录 `requested_*`/`actual_*`（相等）+ `non_exhaustive=true`（禁 GO）；仅默认走 120/100。诊断 env（NMD_GATE_SAMPLES=3/TOGGLE=1/STRESS=0）语义正确。
+- **Medium 6 — §15 历史标注**：§15（S8 时代 runner 面向 `NoMoreDayTests.exe` / 24 个 Python 测试）已加"历史记录"注记并链接 §17，不作为当前验收依据。
+- **复测（2026-08-02）**：
+  - `./build.bat`（后台）：RelWithDebInfo 构建成功，全部 precheck PASS（含 legacy marker gate 217/70 < 222/71）。
+  - `ctest -L gpu`：`nmd.tests.gpu.contract` 通过（0.91s）+ `nmd.tests.gpu.diagnostic` 通过（22.08s，2 cases/328 assertions，artifact 新键齐全：run_config actual==requested=3/1、occupancy blocks_go=true、pass_trace_source、sdf_readback_status）；`nmd.tests.gpu.hardware` 本地按设计失败（NO_GO fail-closed）。
+  - `ctest -L integration`：6/6 通过。`ctest -L ci`：仅既有 2 失败（UITests.cpp:438 SkillUI 过期断言、HeavenlySwordClosureTests flake），隔离复跑确认与首轮一致；**ci 中无任何 GPU-Diagnostic/RunGate 用例**（分层生效）。
+  - `python -m unittest tests/python/GpuHardwareValidationGateRunnerTest.py`：38 tests OK（新增 6 个：空 vendor/driver_version 拒绝、GO+occupancy blocks 拒绝、GO+non_exhaustive 拒绝、NO_GO+missing occupancy 接受、非法 sdf 状态/来源拒绝、executed_pass_order 非数组拒绝）。
+  - `python scripts/check_module_boundaries.py`：PASS。
+  - 最小样本机制验证（non-exhaustive）：`bin\NoMoreDay.exe --gpu-gate --revision local-min-20260802d --samples 3 --no-stress-test-1min --toggle-loops 1` → `GPU_HARDWARE_GATE_RESULT status=NO_GO`，exit 0；9 cells + 9 paired deltas；真实 pass trace（pass_trace_valid=true）；SDF 7/9 passed；occupancy blocks_go=true；run_config actual==requested。
+  - runner e2e：`python scripts/gpu_hardware_validation_gate.py --test-exe bin/NoMoreDay.exe --revision local-min-20260802d --samples 3 --toggle-loops 1 --no-stress-test-1min` → exit 1（NO_GO fail-closed），归档 `artifacts/gpu-gate/local-min-20260802d/gpu_hardware_validation_artifact.json`，schema_errors `[]`，`--validate-schema` exit 0。
+- **结论**：评审修正全部落地并复测通过；本地结果为 non-exhaustive（non_exhaustive=true 禁 GO），**不作为生产 GO**。实机 `gpu-hardware` job（120 样本/100 切换/60s 压力/零 high-severity GL/occupancy 落地后）由 M0-C 流程判定。
+- **evidence**：`artifacts/gpu-gate/local-min-20260802d/gpu_hardware_validation_artifact.json`、`artifacts/gpu-gate/local-gpu-hardware/gpu_hardware_validation_artifact.json`。

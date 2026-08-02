@@ -1,7 +1,7 @@
 # Track: GPU Hardware Validation Gate
 
 **ID:** gpu_hardware_validation_gate_20260726
-**Status:** In Progress (production NO-GO)
+**Status:** In Progress (production NO-GO; W6 game-binary gate mechanism landed 2026-08-02)
 **Type:** quality/release-gate
 **Priority:** P0
 **Milestone:** GPU Production Closure M0
@@ -19,7 +19,7 @@
 - **Phases**: 0/5 accepted
 - **Tasks**: 0/18 accepted
 
-> [生产整改 Track 集成审查](../../../docs/reviews/2026-07-26-gpu-production-remediation-tracks-review.md) 确认现有 artifact、fixture、计时和 runner 不能支撑 `GO`。目标 GPU 上重新取得可复现证据前，本 Track 保持 `NO-GO`。
+> [生产整改 Track 集成审查](../../../docs/reviews/2026-07-26-gpu-production-remediation-tracks-review.md) 确认现有 artifact、fixture、计时和 runner 不能支撑 `GO`。W6（2026-08-02）已落地生产门禁机制 `NoMoreDay.exe --gpu-gate`（正常 Game/App 初始化后）+ 测试分层（standalone 二进制硬件矩阵/S7b 重分类为 contract/diagnostic）+ `gpu-hardware` opt-in job 注册；目标 GPU 上取得可复现证据前，本 Track 保持 `NO-GO`。
 
 ## 快速链接
 

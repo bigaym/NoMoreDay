@@ -8,18 +8,6 @@
 #include "engine/render/core/QualityTierManager.hpp"
 #include "engine/render/debug/GPUTimerQueryRing.hpp"
 #include "engine/render/graph/RenderGraph.hpp"
-#include "engine/render/passes/CompositePass.hpp"
-#include "engine/render/passes/FluidSimulationPass.hpp"
-#include "engine/render/passes/GICompositePass.hpp"
-#include "engine/render/passes/HeightShadowPass.hpp"
-#include "engine/render/passes/JFAPass.hpp"
-#include "engine/render/passes/LightingPass.hpp"
-#include "engine/render/passes/OccluderExtractPass.hpp"
-#include "engine/render/passes/PostProcessPass.hpp"
-#include "engine/render/passes/RadianceCascadesPass.hpp"
-#include "engine/render/passes/ScenePass.hpp"
-#include "engine/render/passes/UIWorldPass.hpp"
-#include "engine/render/passes/VFXPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/GPUResourceRegistry.hpp"
 
@@ -35,6 +23,7 @@
 #include <ctime>
 #include <deque>
 #include <iomanip>
+#include <limits>
 #include <map>
 #include <nlohmann/json.hpp>
 #include <numeric>
@@ -251,33 +240,160 @@ std::string BuildGiPassTrace(bool giEnabled) {
   return trace;
 }
 
-// S7b: reads back the ROI from the given framebuffer and returns its mean
-// normalized brightness over RGB ([0, 1]). Mirrors the matrix readback pattern:
-// bind the target FBO, read, then unbind.
-float ReadRoiMeanLuma(uint32_t offscreenFbo, int roiW, int roiH) {
+// W6 (M0-C) High-2: reads back the full offscreen FBO and CPU-crops the ROI at
+// its true origin (x,y). rlReadScreenPixels cannot sample an offset region, so
+// reading the whole target and cropping here is the only correct way to make
+// the sampled region match the declared ROI. GL state is bound/restored.
+float ReadRoiMeanLuma(uint32_t offscreenFbo, int fboW, int fboH, int roiX,
+                      int roiY, int roiW, int roiH) {
   constexpr uint32_t kGLFramebuffer = 0x8D40;
-  if (roiW <= 0 || roiH <= 0) {
+  if (roiW <= 0 || roiH <= 0 || fboW <= 0 || fboH <= 0) {
+    return 0.0f;
+  }
+  if (roiX < 0 || roiY < 0 || roiX + roiW > fboW || roiY + roiH > fboH) {
     return 0.0f;
   }
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-  unsigned char *pixels = rlReadScreenPixels(roiW, roiH);
+  unsigned char *pixels = rlReadScreenPixels(fboW, fboH);
   NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
   if (pixels == nullptr) {
     return 0.0f;
   }
-  const size_t pixelCount = static_cast<size_t>(roiW) * static_cast<size_t>(roiH);
-  uint64_t totalLuma = 0;
-  for (size_t i = 0; i < pixelCount; ++i) {
-    totalLuma += static_cast<uint64_t>(pixels[i * 4]) +
-                 static_cast<uint64_t>(pixels[i * 4 + 1]) +
-                 static_cast<uint64_t>(pixels[i * 4 + 2]);
-  }
+  const float luma = GPUHardwareValidationGate::ComputeRoiMeanLuma(
+      pixels, static_cast<size_t>(fboW) * static_cast<size_t>(fboH) * 4, fboW,
+      fboH, roiX, roiY, roiW, roiH);
   RL_FREE(pixels);
-  return static_cast<float>(totalLuma) /
-         (static_cast<float>(roiW) * static_cast<float>(roiH) * 3.0f * 255.0f);
+  return luma;
+}
+
+// W6 (M0-C) Blocker-1: reads back the REAL GI distance field texture (JFAPass)
+// with glGetTexImage and probes its spatial structure. A genuine signed
+// distance field is non-degenerate: the texel at the probe points differ by
+// more than a tiny epsilon (interior vs exterior of occluders). The evidence
+// (min/max/mean + 5 sign-probe samples: 4 corners + center of the distance
+// channel) is recorded in the artifact; no synthetic proxy is ever used.
+struct SdfProbeResult {
+  bool texturePresent = false; // real distance field resource existed
+  bool signValid = false;      // spatial-variation sign probe passed
+  float minValue = 0.0f;
+  float maxValue = 0.0f;
+  float meanValue = 0.0f;
+  std::vector<float> probeSamples; // 5: corners + center, distance channel
+  std::string reason;
+};
+
+SdfProbeResult ProbeGiDistanceField(uint32_t texture, int width, int height) {
+  constexpr uint32_t kGLTexture2D = 0x0DE1;
+  constexpr uint32_t kGLRed = 0x1903;   // JFA distance field is GL_R16F (R only)
+  constexpr uint32_t kGLFloat = 0x1406;
+  constexpr uint32_t kGLTextureBinding2D = 0x8069;
+
+  SdfProbeResult out;
+  if (texture == 0u || width <= 0 || height <= 0) {
+    out.reason = "no distance field texture";
+    return out;
+  }
+  using GlGetTexImageFn = void(APIENTRY *)(uint32_t, int, uint32_t, uint32_t,
+                                           void *);
+  using GlGetIntegervFn = void(APIENTRY *)(uint32_t, int *);
+  auto glGetTexImage =
+      reinterpret_cast<GlGetTexImageFn>(glfwGetProcAddress("glGetTexImage"));
+  auto glGetIntegerv =
+      reinterpret_cast<GlGetIntegervFn>(glfwGetProcAddress("glGetIntegerv"));
+  if (glGetTexImage == nullptr || glGetIntegerv == nullptr) {
+    out.reason = "glGetTexImage/glGetIntegerv unavailable";
+    return out;
+  }
+
+  int previousTexture = 0;
+  glGetIntegerv(kGLTextureBinding2D, &previousTexture);
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D, texture);
+
+  const size_t texelCount = static_cast<size_t>(width) * height;
+  std::vector<float> texels(texelCount, 0.0f);
+  glGetTexImage(kGLTexture2D, 0, kGLRed, kGLFloat, texels.data());
+
+  NoMoreDay::utils::GPUUtils::BindTexture(kGLTexture2D,
+                                          static_cast<uint32_t>(previousTexture));
+
+  // Distance field channel = the single R channel (GL_R16F). Any non-finite
+  // texel means the resource is not a valid SDF and fails closed.
+  double meanSum = 0.0;
+  float minV = std::numeric_limits<float>::max();
+  float maxV = std::numeric_limits<float>::lowest();
+  for (const float v : texels) {
+    if (!std::isfinite(v)) {
+      out.reason = "non-finite texel in distance field";
+      return out;
+    }
+    minV = std::min(minV, v);
+    maxV = std::max(maxV, v);
+    meanSum += static_cast<double>(v);
+  }
+  out.minValue = minV;
+  out.maxValue = maxV;
+  out.meanValue = static_cast<float>(meanSum / static_cast<double>(texelCount));
+  out.texturePresent = true;
+
+  // Sign probe: 4 corners + center of the distance field.
+  auto texelAt = [&](int x, int y) {
+    return texels[static_cast<size_t>(y) * width + static_cast<size_t>(x)];
+  };
+  out.probeSamples.push_back(texelAt(0, 0));
+  out.probeSamples.push_back(texelAt(width - 1, 0));
+  out.probeSamples.push_back(texelAt(0, height - 1));
+  out.probeSamples.push_back(texelAt(width - 1, height - 1));
+  out.probeSamples.push_back(texelAt(width / 2, height / 2));
+
+  constexpr float kSignProbeEpsilon = 1e-4f;
+  const float center = out.probeSamples[4];
+  float farthest = 0.0f;
+  for (size_t i = 0; i < 4; ++i) {
+    farthest = std::max(farthest, std::fabs(out.probeSamples[i] - center));
+  }
+  out.signValid = ((maxV - minV) > kSignProbeEpsilon) &&
+                  (farthest > kSignProbeEpsilon);
+  if (!out.signValid) {
+    out.reason = "distance field is spatially degenerate (sign probe failed)";
+  }
+  return out;
 }
 
 } // namespace
+
+// W6 (M0-C) High-2: pure CPU ROI crop/mean over a full RGBA8 frame. The GPU
+// readback path (ReadRoiMeanLuma) reads the full target and delegates here so
+// the sampled region always matches the declared ROI origin - the non-zero
+// ROI-origin contract is covered by a GPU-free unit test.
+float GPUHardwareValidationGate::ComputeRoiMeanLuma(const uint8_t *fullRgba,
+                                                    size_t fullSizeBytes,
+                                                    int fullW, int fullH,
+                                                    int roiX, int roiY,
+                                                    int roiW, int roiH) {
+  if (fullRgba == nullptr || fullW <= 0 || fullH <= 0 || roiW <= 0 ||
+      roiH <= 0) {
+    return 0.0f;
+  }
+  if (roiX < 0 || roiY < 0 || roiX + roiW > fullW || roiY + roiH > fullH) {
+    return 0.0f;
+  }
+  const size_t bytesPerRow = static_cast<size_t>(fullW) * 4;
+  if (fullSizeBytes < bytesPerRow * static_cast<size_t>(fullH)) {
+    return 0.0f;
+  }
+  uint64_t totalLuma = 0;
+  for (int y = 0; y < roiH; ++y) {
+    const uint8_t *row = fullRgba + static_cast<size_t>(roiY + y) * bytesPerRow +
+                         static_cast<size_t>(roiX) * 4;
+    for (int x = 0; x < roiW; ++x) {
+      totalLuma += static_cast<uint64_t>(row[x * 4]) +
+                   static_cast<uint64_t>(row[x * 4 + 1]) +
+                   static_cast<uint64_t>(row[x * 4 + 2]);
+    }
+  }
+  return static_cast<float>(totalLuma) /
+         (static_cast<float>(roiW) * static_cast<float>(roiH) * 3.0f * 255.0f);
+}
 
 HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
   HardwareCapabilityReport report;
@@ -292,7 +408,20 @@ HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
   const auto supportInfo = NoMoreDay::utils::GPUUtils::CheckSupport();
   report.glVersion = "OpenGL " + std::to_string(supportInfo.majorVersion) + "." +
                      std::to_string(supportInfo.minorVersion);
-  report.vendor = "OpenGL Driver";
+  // W6 (M0-C) High-3: report the REAL GPU identity from glGetString - vendor
+  // (GL_VENDOR), driver build (GL_VERSION) and renderer (GL_RENDERER). No
+  // hardcoded labels; missing identity fails the preflight closed so the
+  // artifact can never claim a GPU it did not observe.
+#if defined(GRAPHICS_API_OPENGL_33) || defined(GRAPHICS_API_OPENGL_43)
+  const unsigned char *vendorStr = glGetString(GL_VENDOR);
+  if (vendorStr != nullptr) {
+    report.vendor = reinterpret_cast<const char *>(vendorStr);
+  }
+  const unsigned char *versionStr = glGetString(GL_VERSION);
+  if (versionStr != nullptr) {
+    report.driverVersion = reinterpret_cast<const char *>(versionStr);
+  }
+#endif
   // S7b: report the real GL_RENDERER string (e.g. "NVIDIA GeForce RTX 4070
   // SUPER/PCIe/SSE2") instead of a hardcoded label, and classify it so the
   // evidence can distinguish a real GPU from WARP/software rasterization.
@@ -334,6 +463,16 @@ HardwareCapabilityReport GPUHardwareValidationGate::QueryCapabilities() {
     report.meetsPreflightPrerequisites = false;
     report.preflightFailureReason =
         "Hardware does not support Compute Shaders (GL_ARB_compute_shader)";
+    return report;
+  }
+
+  // W6 (M0-C) High-3: GPU identity is mandatory evidence. An empty vendor or
+  // driver version means the context did not expose its identity; the gate
+  // fails closed (NOT_RUN) instead of default-filling a label.
+  if (report.vendor.empty() || report.driverVersion.empty()) {
+    report.meetsPreflightPrerequisites = false;
+    report.preflightFailureReason =
+        "GL_VENDOR/GL_VERSION unavailable; GPU identity incomplete (fail-closed)";
     return report;
   }
 
@@ -412,13 +551,15 @@ std::vector<FixtureConfig> GPUHardwareValidationGate::GetStandardFixtures() {
 }
 
 PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
-    FixtureRenderDriver &driver, const FixtureConfig &fixture) {
+    FixtureRenderDriver &driver, const FixtureConfig &fixture,
+    const std::string &qualityTier) {
   PairedGiDeltaResult result;
   result.fixtureName = fixture.name;
   result.sceneSeed = fixture.sceneSeed;
   result.width = fixture.width;
   result.height = fixture.height;
   result.colorSpace = "sRGB";
+  result.qualityTier = qualityTier;
   result.roiX = fixture.roiX;
   result.roiY = fixture.roiY;
   result.roiWidth = fixture.roiWidth;
@@ -441,7 +582,13 @@ PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
   result.rendererIsHardware = IsHardwareRenderer(rendererName);
 
   auto &tierMgr = NoMoreDay::render::core::QualityTierManager::Get();
-  tierMgr.ForceTier(NoMoreDay::render::core::QualityTier::High);
+  // W6 (M0-C): the paired capture runs under the caller's tier (matrix cells
+  // pass their own tier so the paired evidence is per-cell).
+  if (qualityTier == "Ultra") {
+    tierMgr.ForceTier(NoMoreDay::render::core::QualityTier::Ultra);
+  } else {
+    tierMgr.ForceTier(NoMoreDay::render::core::QualityTier::High);
+  }
 
   entt::registry &registry = driver.Registry();
   const NoMoreDay::render::RenderFrameInput renderInput = driver.RenderInput();
@@ -488,16 +635,20 @@ PairedGiDeltaResult GPUHardwareValidationGate::RunPairedGiDeltaCapture(
     // invalidated on the GI transition inside RenderSystem).
     for (int f = 0; f < fixture.warmupFrames; ++f) {
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-      ::RenderSystem::render(registry, renderInput, camera);
+      // W6 (M0-C): the driver may supply real gameplay render hooks (production
+      // game-binary gate); test harnesses keep the default nullptr.
+      ::RenderSystem::render(registry, renderInput, camera, driver.RenderHooks());
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
     }
     // Independent sampling window: one ROI readback per sampled frame.
     double lumaSum = 0.0;
     for (int f = 0; f < fixture.sampleFrames; ++f) {
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-      ::RenderSystem::render(registry, renderInput, camera);
+      ::RenderSystem::render(registry, renderInput, camera, driver.RenderHooks());
       NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
-      const float frameLuma = ReadRoiMeanLuma(offscreenFbo, roiW, roiH);
+      const float frameLuma = ReadRoiMeanLuma(
+          offscreenFbo, fixture.width, fixture.height, fixture.roiX,
+          fixture.roiY, roiW, roiH);
       outPerFrameLuma.push_back(frameLuma);
       lumaSum += static_cast<double>(frameLuma);
     }
@@ -627,6 +778,40 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   entt::registry &registry = driver->Registry();
   const NoMoreDay::render::RenderFrameInput renderInput = driver->RenderInput();
 
+  // W6 (M0-C) High-3: a production driver (game-binary composition root) MUST
+  // supply real gameplay render hooks. Without them RenderSystem would run the
+  // diagnostic zero-draw path and the evidence would be hollow; fail closed
+  // with a full NOT_RUN report. Contract/diagnostic harnesses are exempt (their
+  // documented environment renders with nullptr hooks and is never production
+  // evidence).
+  report.hooksSupplied = (driver->RenderHooks() != nullptr);
+  if (driver->IsProductionDriver() && !report.hooksSupplied) {
+    report.status = GateStatus::NotRun;
+    report.globalFailures.push_back(
+        "Production FixtureRenderDriver did not supply gameplay render hooks; "
+        "fail-closed NOT_RUN (render would be hollow)");
+    LOG_WARN("GPUHardwareValidationGate: GATE NOT RUN - production driver has no render hooks");
+    return report;
+  }
+
+  // W6 (M0-C) Medium-5: explicit below-floor parameters are honored verbatim
+  // (diagnostic runs) and recorded as requested/actual; only the production
+  // defaults sit at the 120/100 floor. A non-exhaustive run can never yield GO.
+  report.requestedSampleFrames = sampleFramesPerFixture;
+  report.requestedToggleLoops = toggleLoops;
+  report.actualSampleFrames = sampleFramesPerFixture;
+  report.actualToggleLoops = toggleLoops;
+  report.nonExhaustive = (report.actualSampleFrames < 120) ||
+                         (report.actualToggleLoops < 100);
+
+  // W6 (M0-C) Blocker-1: occupancy/disocclusion probes (M0-A R3) are not
+  // implemented. The gate records status "missing_pending_m0a" and is
+  // fail-closed: GO is impossible until the evidence exists.
+  report.occupancyStatus = "missing_pending_m0a";
+  report.occupancyReason =
+      "M0-A R3 occupancy/disocclusion probes not implemented; gate is "
+      "fail-closed (cannot GO) until implemented";
+
   // 2. Fixture Execution Matrix
   const auto fixtures = GetStandardFixtures();
   const std::vector<std::pair<std::string, bool>> tierModes = {
@@ -635,6 +820,9 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   constexpr uint32_t kGLFramebuffer = 0x8D40;
   constexpr uint32_t kRgba16f = 0x881A; // Blocker 5: Must use RGBA16F HDR format
   bool allMatrixPassed = true;
+  // W6 (M0-C) Blocker-1: every GI-enabled matrix cell must deliver a real SDF
+  // sign probe ("passed"); GI-off cells record "not_applicable".
+  bool allGiSdfProbesPassed = true;
 
   for (const auto &fixture : fixtures) {
     // S6 (T6.1/T6.3): prepare the deterministic real gameplay scene once per
@@ -649,6 +837,13 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         execResult.giEnabled = giOn;
         execResult.width = fixture.width;
         execResult.height = fixture.height;
+        execResult.cameraX = fixture.cameraX;
+        execResult.cameraY = fixture.cameraY;
+        execResult.cameraZoom = fixture.cameraZoom;
+        execResult.roiX = fixture.roiX;
+        execResult.roiY = fixture.roiY;
+        execResult.roiWidth = fixture.roiWidth;
+        execResult.roiHeight = fixture.roiHeight;
         execResult.overallPassed = false;
         execResult.failureReasons.push_back(
             "Fixture scene preparation failed (harness)");
@@ -665,6 +860,14 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       execResult.giEnabled = giOn;
       execResult.width = fixture.width;
       execResult.height = fixture.height;
+      // W6 (M0-C): camera and ROI recorded per matrix cell for reproducibility.
+      execResult.cameraX = fixture.cameraX;
+      execResult.cameraY = fixture.cameraY;
+      execResult.cameraZoom = fixture.cameraZoom;
+      execResult.roiX = fixture.roiX;
+      execResult.roiY = fixture.roiY;
+      execResult.roiWidth = fixture.roiWidth;
+      execResult.roiHeight = fixture.roiHeight;
       // S6 (T6.5): fixture provenance recorded per matrix cell.
       execResult.sceneInputHash = driver->SceneInputHash();
       execResult.fixtureVersion = driver->FixtureVersion();
@@ -695,35 +898,6 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       camera.rotation = 0.0f;
       camera.zoom = fixture.cameraZoom;
 
-      // Task 2.1: RenderGraph Compiled Pass Trace Contract Check
-      NoMoreDay::render::graph::RenderGraph testGraph;
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::ScenePass>());
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::LightingPass>());
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::HeightShadowPass>());
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::OccluderExtractPass>());
-      if (giOn) {
-        testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::JFAPass>());
-        testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::RadianceCascadesPass>());
-        testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::GICompositePass>());
-      }
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::VFXPass>());
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::UIWorldPass>());
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::PostProcessPass>());
-      testGraph.AddPass(std::make_shared<NoMoreDay::render::passes::CompositePass>(
-          NoMoreDay::render::graph::RenderResourceTag::SceneHdrColor,
-          NoMoreDay::render::graph::RenderOwnerTag::UIWorld));
-
-      try {
-        testGraph.Build();
-        execResult.passTraceValid = !testGraph.HasValidationErrors();
-      } catch (...) {
-        execResult.passTraceValid = false;
-      }
-
-      if (!execResult.passTraceValid) {
-        execResult.failureReasons.push_back("RenderGraph compiled plan trace validation failed");
-      }
-
       // S6 (T6.4): the RGBA16F offscreen composite target is owned by the
       // harness (driver), not the gate. The gate binds and reads it back but
       // never creates or destroys it, so target lifetime never conflicts with
@@ -742,7 +916,9 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       // Warmup Frames
       for (int f = 0; f < fixture.warmupFrames; ++f) {
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-        ::RenderSystem::render(registry, renderInput, camera);
+        // W6 (M0-C): production game-binary gate supplies real hooks so the full
+        // gameplay draw path (occluders/height-field/loot/emissive) is exercised.
+        ::RenderSystem::render(registry, renderInput, camera, driver->RenderHooks());
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
       }
 
@@ -751,13 +927,16 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
 
       // Sample Frames: Collect real GPU timer query ring statistics per frame.
       // S0: RenderGraph keys the ring by stable pass id; derive ids from names.
-      const int actualSampleFrames = std::max(sampleFramesPerFixture, 120);
+      // W6 (M0-C) Medium-5: explicit below-floor parameters are honored verbatim
+      // (no clamping); requested/actual + non_exhaustive are recorded in the
+      // artifact and a non-exhaustive run can never yield GO.
+      const int actualSampleFrames = sampleFramesPerFixture;
       std::vector<std::vector<double>> passTimingSamples(passBudgets.size());
 
       for (int f = 0; f < actualSampleFrames; ++f) {
         // RenderGraph::Execute is the single frame owner for the timer ring.
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
-        ::RenderSystem::render(registry, renderInput, camera);
+        ::RenderSystem::render(registry, renderInput, camera, driver->RenderHooks());
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
         debug::GPUTimerQueryRing::Get().PollReadyQueries();
@@ -771,25 +950,31 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         }
       }
 
-      // Blocker 2: ROI Readback & Non-black Threshold Calculation
-      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, offscreenFbo);
+      // W6 (M0-C) Blocker-1: pass trace from the REAL execution path. The last
+      // RenderSystem::render frame compiled and executed the actual graph; its
+      // pass order (RenderGraph::CompiledRenderPlan.passOrder) is captured
+      // inside render() and exposed here. No synthetic test graph is ever used.
+      const auto &realPassOrder = RenderSystem::GetLastExecutedPassOrder();
+      execResult.executedPassOrder = realPassOrder;
+      execResult.passTraceSource =
+          "RenderGraph::CompiledRenderPlan.passOrder via RenderSystem::render "
+          "(real execution)";
+      execResult.passTraceValid = !realPassOrder.empty();
+      if (!execResult.passTraceValid) {
+        executionChecksPassed = false;
+        execResult.failureReasons.push_back(
+            "RenderSystem::render produced no executed pass order; real pass "
+            "trace missing (fail-closed)");
+      }
+
+      // W6 (M0-C) High-2: ROI readback at its TRUE origin. rlReadScreenPixels
+      // cannot sample an offset region, so the full FBO is read and CPU-cropped
+      // to [roiX,roiY,w,h]; the sampled region always matches the declared ROI.
       const int roiW = std::min(fixture.roiWidth, fixture.width - fixture.roiX);
       const int roiH = std::min(fixture.roiHeight, fixture.height - fixture.roiY);
-      std::vector<uint8_t> roiPixels(static_cast<size_t>(roiW * roiH * 4), 0);
-
-      unsigned char *screenPixels = rlReadScreenPixels(roiW, roiH);
-      if (screenPixels) {
-        std::memcpy(roiPixels.data(), screenPixels, static_cast<size_t>(roiW * roiH * 4));
-        RL_FREE(screenPixels);
-      }
-      NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
-
-      uint64_t totalLuma = 0;
-      for (size_t i = 0; i < roiPixels.size(); i += 4) {
-        totalLuma += (roiPixels[i] + roiPixels[i + 1] + roiPixels[i + 2]);
-      }
-      const float meanLuma = static_cast<float>(totalLuma) /
-                             (static_cast<float>(roiW * roiH * 3) * 255.0f);
+      const float meanLuma = ReadRoiMeanLuma(
+          offscreenFbo, fixture.width, fixture.height, fixture.roiX,
+          fixture.roiY, roiW, roiH);
       execResult.roiMeanBrightness = meanLuma;
 
       // Threshold evaluation: Non-black ROI check (meanLuma >= 0.02f)
@@ -806,21 +991,60 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
             "GI indirect contribution readback failed");
       }
 
-      // R1 Fix: SDF Sign Discrete Sampling Readback Verification
-      // Perform discrete pixel sampling on occlusion/SDF texture ROI bounds
-      bool sdfSignValid = true;
-      if (!roiPixels.empty()) {
-        // Interior pixel sample (center of ROI) vs Exterior pixel sample (corner)
-        const size_t centerIdx = (static_cast<size_t>(roiH / 2) * roiW + static_cast<size_t>(roiW / 2)) * 4;
-        const size_t cornerIdx = 0;
-        const uint8_t centerVal = roiPixels[std::min(centerIdx, roiPixels.size() - 4)];
-        const uint8_t cornerVal = roiPixels[cornerIdx];
-        // Assert distance sign behavior (valid discrete readback sample)
-        sdfSignValid = (centerVal != cornerVal || meanLuma > 0.0f);
+      // W6 (M0-C) Blocker-1: REAL SDF sign probe. The GI distance field
+      // (JFAPass) is the genuine SDF resource produced by the real render path;
+      // it is read back with glGetTexImage and its spatial structure is probed
+      // (4 corners + center of the distance channel). GI-off cells run no JFA
+      // pass, so their SDF evidence is recorded as "not_applicable" (not
+      // counted against the cell). GI-on cells must be "passed".
+      execResult.sdfEvidenceSource =
+          "JFAPass distance field texture readback (glGetTexImage)";
+      if (giOn) {
+        const auto giSdf = RenderSystem::GetGiDistanceField();
+        if (giSdf.texture == 0u || giSdf.width <= 0 || giSdf.height <= 0) {
+          execResult.sdfReadbackStatus = "missing";
+          execResult.sdfReadbackPassed = false;
+          execResult.failureReasons.push_back(
+              "Real SDF resource (JFAPass distance field) not present; sign "
+              "probe impossible (fail-closed)");
+          allGiSdfProbesPassed = false;
+        } else {
+          const SdfProbeResult probe =
+              ProbeGiDistanceField(giSdf.texture, giSdf.width, giSdf.height);
+          execResult.sdfMinValue = probe.minValue;
+          execResult.sdfMaxValue = probe.maxValue;
+          execResult.sdfMeanValue = probe.meanValue;
+          execResult.sdfProbeSamples = probe.probeSamples;
+          if (probe.texturePresent && probe.signValid) {
+            execResult.sdfReadbackStatus = "passed";
+            execResult.sdfReadbackPassed = true;
+          } else {
+            execResult.sdfReadbackStatus = "failed";
+            execResult.sdfReadbackPassed = false;
+            execResult.failureReasons.push_back(
+                "Real SDF sign probe failed: " + probe.reason);
+            allGiSdfProbesPassed = false;
+          }
+        }
+      } else {
+        execResult.sdfReadbackStatus = "not_applicable";
+        execResult.sdfReadbackPassed = false;
       }
-      execResult.sdfReadbackPassed = sdfSignValid;
-      if (!execResult.sdfReadbackPassed) {
-        execResult.failureReasons.push_back("SDF sign discrete readback sampling failed");
+
+      // W6 (M0-C) Blocker-1: per-cell paired GI delta capture (GI runtime
+      // override ON vs OFF legs on the real fixture scene at this cell's tier).
+      // The paired evidence is part of this cell's verdict, not evidence-only.
+      {
+        const PairedGiDeltaResult paired =
+            RunPairedGiDeltaCapture(*driver, fixture, tierName);
+        execResult.giPairedDelta = paired.pairedDelta;
+        execResult.giPairedPassed = paired.passed;
+        report.pairedGiDeltas.push_back(paired);
+        if (!paired.passed) {
+          execResult.failureReasons.push_back(
+              "Per-cell paired GI delta " + std::to_string(paired.pairedDelta) +
+              " below threshold " + std::to_string(paired.threshold));
+        }
       }
 
       for (size_t passId = 0; passId < passBudgets.size(); ++passId) {
@@ -869,26 +1093,21 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
       // S6 (T6.4): composite target ownership stays with the harness; the gate
       // must not destroy it here (destroyed when the harness goes out of scope).
 
+      // W6 (M0-C) Blocker-1: the cell verdict includes the real pass trace, the
+      // per-cell paired GI delta and (for GI-on cells) the real SDF sign probe.
+      // GI-off cells do not produce an SDF (no JFA pass), so SDF is excluded
+      // from their verdict but recorded as not_applicable.
+      const bool sdfOk = giOn ? execResult.sdfReadbackPassed : true;
       execResult.overallPassed =
           executionChecksPassed && execResult.passTraceValid &&
-          execResult.nonBlackRoiPassed && execResult.giIndirectPassed &&
-          execResult.sdfReadbackPassed;
+          execResult.nonBlackRoiPassed && execResult.giIndirectPassed && sdfOk &&
+          execResult.giPairedPassed;
 
       if (!execResult.overallPassed) {
         allMatrixPassed = false;
       }
       report.matrixResults.push_back(execResult);
     }
-  }
-
-  // S7b: paired GI delta capture for every standard fixture. Each fixture is
-  // captured twice (GI runtime override ON vs OFF) under identical
-  // seed/camera/frame/FBO/color-space/ROI; each leg warms up its own temporal
-  // history and samples an independent window. The result is evidence only and
-  // does not (yet) influence gate status - threshold calibration is pending a
-  // real-machine (DOD-2) capture.
-  for (const auto &fixture : fixtures) {
-    report.pairedGiDeltas.push_back(RunPairedGiDeltaCapture(*driver, fixture));
   }
 
   // S4 (M0-C R5.2): 1-minute continuous pressure loop with a 5-second baseline
@@ -1022,11 +1241,12 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
                .count() < report.stressReport.durationSeconds) {
       if (stressTarget.IsValid()) {
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, stressTarget.fbo);
-        ::RenderSystem::render(registry, renderInput, stressCam);
+        ::RenderSystem::render(registry, renderInput, stressCam, driver->RenderHooks());
         NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
-        // Frame boundary: advance the registry frame counter so snapshot frame
-        // indices and creation-frame aging are meaningful at quiescence points.
-        NoMoreDay::render::resources::GPUResourceRegistry::Get().AdvanceFrame();
+        // Frame boundary: RenderSystem::render advances the registry frame
+        // counter exactly once after a successful graph execute (W5.6). The
+        // gate must not advance again here, otherwise pending records would be
+        // double-aged.
       }
 
       const double elapsedSeconds =
@@ -1085,8 +1305,11 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
   }
 
   // Execute 100-loop GI/Tier/Resize toggle stress
+  // W6 (M0-C) Medium-5: explicit below-floor toggle counts are honored verbatim
+  // (no clamping); requested/actual + non_exhaustive are recorded and a
+  // non-exhaustive run can never yield GO.
   bool toggleStressPassed = true;
-  const int actualToggleLoops = std::max(toggleLoops, 100);
+  const int actualToggleLoops = toggleLoops;
 
   for (int loop = 0; loop < actualToggleLoops; ++loop) {
     const bool giToggle = (loop % 2 == 0);
@@ -1112,7 +1335,7 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
     cam.zoom = 1.0f;
 
     NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, fboHandle.fbo);
-    ::RenderSystem::render(registry, renderInput, cam);
+    ::RenderSystem::render(registry, renderInput, cam, driver->RenderHooks());
     NoMoreDay::utils::GPUUtils::BindFramebuffer(kGLFramebuffer, 0);
 
     NoMoreDay::render::resources::FramebufferManager::Destroy(fboHandle);
@@ -1161,6 +1384,32 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         "100-loop GI/Tier/Resize toggle stress test failed");
   }
 
+  // W6 (M0-C) Blocker-1: occupancy evidence (M0-A R3) is missing - the gate is
+  // fail-closed and cannot GO until it exists. Also fail closed on a failed
+  // real SDF sign probe for any GI cell, and on non-exhaustive diagnostic runs.
+  const bool evidenceComplete = (report.occupancyStatus == "present");
+  if (!evidenceComplete) {
+    allMatrixPassed = false;
+    report.globalFailures.push_back(
+        "Occupancy/disocclusion evidence status=" + report.occupancyStatus +
+        " (" + report.occupancyReason +
+        "); fail-closed, gate cannot GO until implemented");
+  }
+  if (!allGiSdfProbesPassed) {
+    allMatrixPassed = false;
+    report.globalFailures.push_back(
+        "Real SDF sign probe missing/failed for a GI-enabled matrix cell");
+  }
+  if (report.nonExhaustive) {
+    allMatrixPassed = false;
+    report.globalFailures.push_back(
+        "Non-exhaustive diagnostic sampling below production floor "
+        "(samples=" +
+        std::to_string(report.actualSampleFrames) +
+        ", toggles=" + std::to_string(report.actualToggleLoops) +
+        "); recorded as requested/actual, cannot yield GO");
+  }
+
   // S3 (M0-C R3): Snapshot GL debug diagnostics collected during the gate run
   // while the callback is still installed. Severe messages (ERROR/HIGH) are a
   // hard NO-GO.
@@ -1186,8 +1435,11 @@ GateReport GPUHardwareValidationGate::RunGate(const std::string &revision,
         "GL debug callback reported severe messages (ERROR/HIGH)");
   }
 
-  // Final Gate Decision
-  if (allMatrixPassed && report.stressReport.stress1MinPassed && toggleStressPassed) {
+  // Final Gate Decision. GO additionally requires complete occupancy evidence,
+  // a passed real SDF probe on every GI cell, and a production-grade
+  // (non-exhaustive) sample budget.
+  if (allMatrixPassed && report.stressReport.stress1MinPassed &&
+      toggleStressPassed && evidenceComplete && !report.nonExhaustive) {
     report.status = GateStatus::Go;
   } else {
     report.status = GateStatus::NoGo;
@@ -1218,11 +1470,30 @@ std::string GateReport::ToJsonString() const {
       {"debug_output_installed", capabilities.debugOutputInstalled},
       {"debug_output_enabled", capabilities.debugOutputEnabled},
       {"meets_preflight", capabilities.meetsPreflightPrerequisites},
-      {"preflight_reason", capabilities.preflightFailureReason}};
+      {"preflight_reason", capabilities.preflightFailureReason},
+      // W6 (M0-C) High-3: whether the driver supplied real gameplay render
+      // hooks (production binary gate must; diagnostic harnesses may not).
+      {"render_hooks_supplied", hooksSupplied}};
 
   j["gate_status"] = (status == GateStatus::Go)     ? "GO"
                      : (status == GateStatus::NoGo) ? "NO_GO"
                                                     : "NOT_RUN";
+
+  // W6 (M0-C) Medium-5: requested vs actual sampling budget and the
+  // non-exhaustive (diagnostic) flag. A non-exhaustive run can never be GO.
+  j["run_config"] = {
+      {"requested_sample_frames", requestedSampleFrames},
+      {"actual_sample_frames", actualSampleFrames},
+      {"requested_toggle_loops", requestedToggleLoops},
+      {"actual_toggle_loops", actualToggleLoops},
+      {"non_exhaustive", nonExhaustive}};
+
+  // W6 (M0-C) Blocker-1: occupancy/disocclusion evidence (M0-A R3). Status
+  // "missing_pending_m0a" blocks GO (fail-closed); no default-fill.
+  j["occupancy"] = {{"status", occupancyStatus.empty() ? "missing_pending_m0a"
+                                                       : occupancyStatus},
+                    {"reason", occupancyReason},
+                    {"blocks_go", occupancyStatus != "present"}};
 
   nlohmann::json snapshotArr = nlohmann::json::array();
   for (const auto &s : stressReport.resourceSnapshots) {
@@ -1281,10 +1552,31 @@ std::string GateReport::ToJsonString() const {
     mj["tier"] = m.qualityTier;
     mj["gi_enabled"] = m.giEnabled;
     mj["resolution"] = std::to_string(m.width) + "x" + std::to_string(m.height);
+    // W6 (M0-C): camera and ROI per matrix cell pin the reproducible input.
+    mj["camera"] = {{"target_x", m.cameraX},
+                    {"target_y", m.cameraY},
+                    {"zoom", m.cameraZoom}};
+    mj["roi"] = {{"x", m.roiX},
+                 {"y", m.roiY},
+                 {"width", m.roiWidth},
+                 {"height", m.roiHeight}};
     mj["pass_trace_valid"] = m.passTraceValid;
+    // W6 (M0-C) Blocker-1: real executed pass order + its provenance.
+    mj["pass_trace_source"] = m.passTraceSource;
+    mj["executed_pass_order"] = m.executedPassOrder;
     mj["non_black_roi_passed"] = m.nonBlackRoiPassed;
     mj["roi_mean_brightness"] = m.roiMeanBrightness;
     mj["gi_indirect_passed"] = m.giIndirectPassed;
+    // W6 (M0-C) Blocker-1: per-cell paired GI delta + real SDF evidence.
+    mj["gi_paired_delta"] = m.giPairedDelta;
+    mj["gi_paired_passed"] = m.giPairedPassed;
+    mj["sdf_readback_status"] =
+        m.sdfReadbackStatus.empty() ? "missing" : m.sdfReadbackStatus;
+    mj["sdf_evidence_source"] = m.sdfEvidenceSource;
+    mj["sdf_min_value"] = m.sdfMinValue;
+    mj["sdf_max_value"] = m.sdfMaxValue;
+    mj["sdf_mean_value"] = m.sdfMeanValue;
+    mj["sdf_probe_samples"] = m.sdfProbeSamples;
     mj["sdf_readback_passed"] = m.sdfReadbackPassed;
     mj["overall_passed"] = m.overallPassed;
     // S6 (T6.5): fixture input hash (deterministic), recipe version and
@@ -1324,6 +1616,8 @@ std::string GateReport::ToJsonString() const {
                      std::to_string(p.roiWidth) + "x" + std::to_string(p.roiHeight)},
          {"renderer", p.renderer},
          {"renderer_is_hardware", p.rendererIsHardware},
+         // W6 (M0-C): the tier the paired capture ran under (per-cell evidence).
+         {"quality_tier", p.qualityTier},
          {"warmup_frames", p.warmupFrames},
          {"sample_frames", p.sampleFrames},
          {"roi_mean_on", p.roiMeanOn},

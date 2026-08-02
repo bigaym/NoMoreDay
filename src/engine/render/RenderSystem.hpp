@@ -5,6 +5,7 @@
 #include "engine/render/RenderFrameInput.hpp"
 #include "engine/render/GPUData.hpp"
 #include "engine/render/resources/FramebufferHandle.hpp"
+#include <string>
 #include <vector>
 
 // Forward declaration for GPU buffer
@@ -64,6 +65,19 @@ public:
                                                                   int nativeHeight);
     [[nodiscard]] static float GetRenderScale();
     static void NotifyRenderTargetResize();
+
+    // W6 (M0-C): hardware-gate evidence accessors. The gate must derive its
+    // pass trace and SDF sign probe from the REAL execution path, never from a
+    // synthetic graph/proxy. These expose the pass order of the actual graph
+    // compiled inside the last render() call and the real GI distance field
+    // (JFAPass) produced by the real render.
+    struct GiDistanceFieldInfo {
+        uint32_t texture = 0;
+        int width = 0;
+        int height = 0;
+    };
+    [[nodiscard]] static const std::vector<std::string> &GetLastExecutedPassOrder();
+    [[nodiscard]] static GiDistanceFieldInfo GetGiDistanceField();
 
     // Screen Shake API
     static void AddScreenShake(float intensity);

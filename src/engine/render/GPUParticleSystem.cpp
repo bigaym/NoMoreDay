@@ -210,6 +210,17 @@ void GPUParticleSystem::Shutdown() {
     m_quadVAO = 0;
   }
 
+  // W6 (M0-C): release every owned GPU buffer while the GPU resource registry
+  // singleton is still alive. m_indirectBuffer/m_atomicBuffer (PersistentBuffer)
+  // and m_particleBuffer/m_compactBuffer (ComputeBuffer) were previously only
+  // destroyed by their member destructors at CRT exit, after the registry had
+  // already been destroyed - an access violation on the game-binary exit path
+  // that blocked the production gate's clean-exit contract (runner requires
+  // return code 0).
+  m_indirectBuffer.Destroy();
+  m_atomicBuffer.Destroy();
+  m_particleBuffer.Release();
+  m_compactBuffer.Release();
   m_emissionBuffer.Destroy();
   m_subEmissionBuffer.Release();
   m_subEmitCountBuffer.Destroy();

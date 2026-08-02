@@ -19,6 +19,10 @@ import gpu_hardware_validation_gate  # noqa: E402
 
 def _build_minimal_report(gate_status: str = "GO") -> dict[str, Any]:
     """Return a schema-valid GateReport JSON payload for tests."""
+    # W6 (M0-C): occupancy evidence blocks GO when missing (fail-closed), so a
+    # GO payload carries "present"/blocks_go=false while NO_GO/NOT_RUN payloads
+    # carry the missing_pending_m0a fail-closed state.
+    occupancy_blocked = gate_status != "GO"
     return {
         "revision": "TEST_REV",
         "timestamp": "2026-08-01T00:00:00Z",
@@ -40,6 +44,20 @@ def _build_minimal_report(gate_status: str = "GO") -> dict[str, Any]:
             "debug_output_enabled": True,
             "meets_preflight": True,
             "preflight_reason": "ok",
+            "render_hooks_supplied": True,
+        },
+        "run_config": {
+            "requested_sample_frames": 120,
+            "actual_sample_frames": 120,
+            "requested_toggle_loops": 100,
+            "actual_toggle_loops": 100,
+            "non_exhaustive": False,
+        },
+        "occupancy": {
+            "status": "missing_pending_m0a" if occupancy_blocked else "present",
+            "reason": "M0-A R3 occupancy/disocclusion probes not implemented; "
+            "fail-closed",
+            "blocks_go": occupancy_blocked,
         },
         "resources": {
             "total_tracked_bytes": 0,
@@ -227,6 +245,77 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
             [],
         )
 
+    def _build_matrix_cell(self) -> dict[str, Any]:
+        return {
+            "fixture": "cave_color_bleed",
+            "tier": "High",
+            "gi_enabled": True,
+            "resolution": "1280x720",
+            "camera": {"target_x": 0.0, "target_y": 0.0, "zoom": 1.0},
+            "roi": {"x": 400, "y": 200, "width": 480, "height": 320},
+            "pass_trace_valid": True,
+            "pass_trace_source": (
+                "RenderGraph::CompiledRenderPlan.passOrder via "
+                "RenderSystem::render (real execution)"
+            ),
+            "executed_pass_order": ["ScenePass", "LightingPass", "CompositePass"],
+            "non_black_roi_passed": True,
+            "roi_mean_brightness": 0.5,
+            "gi_indirect_passed": True,
+            "gi_paired_delta": 0.01,
+            "gi_paired_passed": True,
+            "sdf_readback_status": "passed",
+            "sdf_evidence_source": (
+                "JFAPass distance field texture readback (glGetTexImage)"
+            ),
+            "sdf_readback_passed": True,
+            "overall_passed": True,
+            "scene_input_hash": "123456789",
+            "fixture_version": "g6-v1.0",
+            "scene_source": "src/app/GpuGateDriver.cpp",
+            "timings": [],
+            "failures": [],
+        }
+
+    def test_validate_accepts_matrix_cell_with_camera_and_roi(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        report["matrix_results"] = [self._build_matrix_cell()]
+
+        self.assertEqual(
+            gpu_hardware_validation_gate.validate_gate_report_schema(report),
+            [],
+        )
+
+    def test_validate_rejects_matrix_cell_missing_camera_and_roi(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        cell = self._build_matrix_cell()
+        del cell["camera"]
+        del cell["roi"]
+        report["matrix_results"] = [cell]
+
+        errors = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report
+        )
+        self.assertTrue(
+            any("matrix_results[0].camera" in error for error in errors)
+        )
+        self.assertTrue(
+            any("matrix_results[0].roi" in error for error in errors)
+        )
+
+    def test_validate_rejects_matrix_cell_missing_roi_keys(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        cell = self._build_matrix_cell()
+        del cell["roi"]["height"]
+        report["matrix_results"] = [cell]
+
+        errors = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report
+        )
+        self.assertTrue(
+            any("matrix_results[0].roi missing required key: height" in error for error in errors)
+        )
+
     # --- S8: env-var injection (dead CLI params are wired to the C++ gate) ---
 
     def test_build_gate_env_forwards_all_cli_knobs(self) -> None:
@@ -277,7 +366,9 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
         )
         sent: dict[str, Any] = {}
 
-        def fake_run(cmd, capture_output, text, env, timeout, check):
+        def fake_run(cmd, capture_output, text, env, timeout, check,
+                     encoding=None, errors=None):
+            sent["cmd"] = cmd
             sent["env"] = env
             sent["timeout"] = timeout
 
@@ -292,7 +383,7 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
             "gpu_hardware_validation_gate.subprocess.run",
             side_effect=fake_run,
         ), tempfile.TemporaryDirectory() as tmp:
-            exe = Path(tmp) / "NoMoreDayTests.exe"
+            exe = Path(tmp) / "NoMoreDay.exe"
             exe.write_text("fake", encoding="utf-8")
             config.test_exe = exe
             rc, _, _ = gpu_hardware_validation_gate.run_hardware_gate_cpp(config)
@@ -306,6 +397,158 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
             sent["timeout"],
             gpu_hardware_validation_gate.GATE_BASE_TIMEOUT_SECONDS,
         )
+
+    # --- W6 (M0-C): production gate launches the game binary, not doctest ---
+
+    def test_run_gate_launches_game_binary_gpu_gate_flag(self) -> None:
+        config = gpu_hardware_validation_gate.HardwareGateConfig(
+            revision="w6-abc123",
+        )
+        sent: dict[str, Any] = {}
+
+        def fake_run(cmd, capture_output, text, env, timeout, check,
+                        encoding=None, errors=None):
+            sent["cmd"] = cmd
+            sent["env"] = env
+
+            class FakeProc:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+
+            return FakeProc()
+
+        with unittest.mock.patch(
+            "gpu_hardware_validation_gate.subprocess.run",
+            side_effect=fake_run,
+        ), tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "NoMoreDay.exe"
+            exe.write_text("fake", encoding="utf-8")
+            config.test_exe = exe
+            gpu_hardware_validation_gate.run_hardware_gate_cpp(config)
+
+        self.assertEqual(
+            sent["cmd"],
+            [str(exe), "--gpu-gate", "--revision", "w6-abc123"],
+        )
+        # The production gate no longer uses the doctest test-case filter.
+        self.assertNotIn("--test-case", sent["cmd"])
+        self.assertEqual(sent["env"]["NMD_GATE_SAMPLES"], "120")
+        self.assertEqual(sent["env"]["NMD_GATE_TOGGLE_LOOPS"], "100")
+        self.assertEqual(sent["env"]["NMD_GATE_STRESS"], "1")
+
+    def test_missing_game_binary_fails_closed(self) -> None:
+        config = gpu_hardware_validation_gate.HardwareGateConfig(
+            revision="w6-missing",
+            test_exe=Path("does-not-exist/NoMoreDay.exe"),
+        )
+        rc, stdout, stderr = gpu_hardware_validation_gate.run_hardware_gate_cpp(
+            config
+        )
+        self.assertEqual(rc, 1)
+        self.assertEqual(stdout, "")
+        self.assertIn("Executable not found", stderr)
+
+    def test_parse_rejects_malformed_marker_line(self) -> None:
+        self.assertIsNone(
+            gpu_hardware_validation_gate.parse_cpp_gate_status(
+                "GPU_HARDWARE_GATE_RESULT status=GO trailing-garbage\n"
+            )
+        )
+        self.assertIsNone(
+            gpu_hardware_validation_gate.parse_cpp_gate_status(
+                "GPU_HARDWARE_GATE_RESULT status=go\n"
+            )
+        )
+        self.assertIsNone(
+            gpu_hardware_validation_gate.parse_cpp_gate_status(
+                "prefix GPU_HARDWARE_GATE_RESULT status=GO\n"
+            )
+        )
+
+    def test_absent_report_never_passes(self) -> None:
+        def fake_run(cmd, capture_output, text, env, timeout, check,
+                        encoding=None, errors=None):
+            class FakeProc:
+                returncode = 0
+                stdout = "NoDoctestNorGameOutput\n"
+                stderr = ""
+
+            return FakeProc()
+
+        with unittest.mock.patch(
+            "gpu_hardware_validation_gate.subprocess.run",
+            side_effect=fake_run,
+        ), tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "NoMoreDay.exe"
+            exe.write_text("fake", encoding="utf-8")
+            out_dir = Path(tmp) / "out"
+            argv = [
+                "gpu_hardware_validation_gate.py",
+                "--test-exe",
+                str(exe),
+                "--revision",
+                "w6-no-report",
+                "--output-dir",
+                str(out_dir),
+            ]
+            with unittest.mock.patch.object(sys, "argv", argv):
+                exit_code = gpu_hardware_validation_gate.main()
+            artifact_path = out_dir / "gpu_hardware_validation_artifact.json"
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(artifact["gate_status"], "NOT_RUN")
+        self.assertFalse(artifact["gate_succeeded"])
+        self.assertFalse(artifact["meets_preflight"])
+        self.assertTrue(artifact["gate_report_schema_errors"])
+
+    def test_artifact_runner_names_game_binary_gate(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        output = (
+            gpu_hardware_validation_gate.GATE_REPORT_BEGIN_MARKER
+            + "\n"
+            + json.dumps(report)
+            + "\n"
+            + gpu_hardware_validation_gate.GATE_REPORT_END_MARKER
+            + "\n"
+        )
+
+        def fake_run(cmd, capture_output, text, env, timeout, check,
+                        encoding=None, errors=None):
+            class FakeProc:
+                returncode = 0
+                stdout = output
+                stderr = ""
+
+            return FakeProc()
+
+        with unittest.mock.patch(
+            "gpu_hardware_validation_gate.subprocess.run",
+            side_effect=fake_run,
+        ), tempfile.TemporaryDirectory() as tmp:
+            exe = Path(tmp) / "NoMoreDay.exe"
+            exe.write_text("fake", encoding="utf-8")
+            out_dir = Path(tmp) / "out"
+            argv = [
+                "gpu_hardware_validation_gate.py",
+                "--test-exe",
+                str(exe),
+                "--revision",
+                "w6-runner-tag",
+                "--output-dir",
+                str(out_dir),
+            ]
+            with unittest.mock.patch.object(sys, "argv", argv):
+                exit_code = gpu_hardware_validation_gate.main()
+            artifact = json.loads(
+                (out_dir / "gpu_hardware_validation_artifact.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+
+        self.assertEqual(exit_code, 1)  # NO_GO is a failure
+        self.assertIn("NoMoreDay.exe --gpu-gate", artifact["runner"])
 
     # --- S8: waiver metadata ---
 
@@ -359,7 +602,8 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
             + "\n"
         )
 
-        def fake_run(cmd, capture_output, text, env, timeout, check):
+        def fake_run(cmd, capture_output, text, env, timeout, check,
+                        encoding=None, errors=None):
             class FakeProc:
                 returncode = 0
                 stdout = output
@@ -417,7 +661,8 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
             + "\n"
         )
 
-        def fake_run(cmd, capture_output, text, env, timeout, check):
+        def fake_run(cmd, capture_output, text, env, timeout, check,
+                        encoding=None, errors=None):
             class FakeProc:
                 returncode = 0
                 stdout = output
@@ -500,6 +745,111 @@ class GpuHardwareValidationGateRunnerTest(unittest.TestCase):
             )
 
         self.assertEqual(exit_code, 1)
+
+    # --- W6 (M0-C) reviewer round: fail-closed identity/occupancy/run-config ---
+
+    def test_validate_rejects_empty_vendor_or_driver_version(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        report["capabilities"]["vendor"] = ""
+        errors = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report
+        )
+        self.assertTrue(
+            any("capabilities.vendor must be a non-empty string" in error for error in errors)
+        )
+
+        report2 = _build_minimal_report("NO_GO")
+        report2["capabilities"]["driver_version"] = "   "
+        errors2 = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report2
+        )
+        self.assertTrue(
+            any(
+                "capabilities.driver_version must be a non-empty string" in error
+                for error in errors2
+            )
+        )
+
+    def test_validate_rejects_go_while_occupancy_blocks(self) -> None:
+        # A GO verdict must never be accepted while occupancy evidence is
+        # missing/blocked (fail-closed until M0-A R3 lands).
+        report = _build_minimal_report("GO")
+        report["occupancy"]["status"] = "missing_pending_m0a"
+        report["occupancy"]["blocks_go"] = True
+
+        errors = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report
+        )
+        self.assertTrue(
+            any("GO is impossible while occupancy" in error for error in errors)
+        )
+
+    def test_validate_rejects_go_while_non_exhaustive(self) -> None:
+        report = _build_minimal_report("GO")
+        report["run_config"]["actual_sample_frames"] = 3
+        report["run_config"]["non_exhaustive"] = True
+
+        errors = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report
+        )
+        self.assertTrue(
+            any(
+                "GO is impossible while run_config.non_exhaustive" in error
+                for error in errors
+            )
+        )
+
+    def test_validate_accepts_no_go_with_missing_occupancy(self) -> None:
+        # NO_GO with occupancy missing_pending_m0a is a valid fail-closed report.
+        report = _build_minimal_report("NO_GO")
+        self.assertEqual(
+            gpu_hardware_validation_gate.validate_gate_report_schema(report),
+            [],
+        )
+
+    def test_validate_rejects_invalid_sdf_status_and_source(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        cell = self._build_matrix_cell()
+        cell["sdf_readback_status"] = "maybe"
+        report["matrix_results"] = [cell]
+
+        errors = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report
+        )
+        self.assertTrue(
+            any("sdf_readback_status must be one of" in error for error in errors)
+        )
+
+        report2 = _build_minimal_report("NO_GO")
+        cell2 = self._build_matrix_cell()
+        del cell2["sdf_evidence_source"]
+        report2["matrix_results"] = [cell2]
+        errors2 = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report2
+        )
+        self.assertTrue(
+            any(
+                "matrix_results[0].sdf_evidence_source must be a non-empty string"
+                in error
+                for error in errors2
+            )
+        )
+
+    def test_validate_rejects_executed_pass_order_not_array(self) -> None:
+        report = _build_minimal_report("NO_GO")
+        cell = self._build_matrix_cell()
+        cell["executed_pass_order"] = "ScenePass,CompositePass"
+        report["matrix_results"] = [cell]
+
+        errors = gpu_hardware_validation_gate.validate_gate_report_schema(
+            report
+        )
+        self.assertTrue(
+            any(
+                "matrix_results[0].executed_pass_order must be an array" in error
+                for error in errors
+            )
+        )
 
 
 if __name__ == "__main__":

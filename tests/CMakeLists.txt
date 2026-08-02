@@ -71,7 +71,7 @@ endif()
 option(NMD_ENABLE_CTEST_INTEGRATION "Register doctest groups into CTest" ON)
 if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
     add_test(NAME nmd.tests.ci.nonperf
-        COMMAND NoMoreDayTests --test-case-exclude=*Performance*
+        COMMAND NoMoreDayTests --test-case-exclude=*Performance*,*GPU-Diagnostic*
     )
     set_tests_properties(nmd.tests.ci.nonperf PROPERTIES
         LABELS "ci;nonperf"
@@ -104,6 +104,53 @@ if(BUILD_TESTING AND NMD_ENABLE_CTEST_INTEGRATION)
         LABELS "integration"
         WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
         TIMEOUT 900
+    )
+
+    # --- W6 (M0-C): GPU gate test stratification ---
+    # The RunGate offscreen matrix and S7b paired capture are contract/diagnostic
+    # only: they run against a 1x1 hidden context + GameplayRuntimeHarness and
+    # are NOT production evidence (production gate = NoMoreDay.exe --gpu-gate,
+    # see nmd.tests.gpu.hardware below). They are removed from broad
+    # ci;nonperf and generic integration via the [GPU-Diagnostic] prefix.
+
+    add_test(NAME nmd.tests.gpu.contract
+        COMMAND NoMoreDayTests --test-case=*GPU Hardware Validation Gate*,*S7a* --test-case-exclude=*GPU-Diagnostic*
+    )
+    set_tests_properties(nmd.tests.gpu.contract PROPERTIES
+        LABELS "gpu;contract"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 600
+    )
+
+    # Diagnostic matrix/S7b with a minimal non-exhaustive sample budget.
+    add_test(NAME nmd.tests.gpu.diagnostic
+        COMMAND NoMoreDayTests --test-case=*GPU-Diagnostic*
+    )
+    set_tests_properties(nmd.tests.gpu.diagnostic PROPERTIES
+        LABELS "gpu;diagnostic"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 300
+        ENVIRONMENT "NMD_GATE_SAMPLES=3;NMD_GATE_TOGGLE_LOOPS=1;NMD_GATE_STRESS=0"
+    )
+
+    # W6.6 (M0-C): opt-in production hardware gate job. Runs the real game
+    # binary (NoMoreDay.exe --gpu-gate) through the Python runner; the runner
+    # only passes on return_code==0 AND schema valid AND exact status=="GO".
+    # Serial + resource-locked; NOT part of the default ci/integration/unit
+    # label sets. Requires a real GPU - registered here so the job exists even
+    # when no machine with hardware gate conditions is attached; it must not be
+    # faked as a local run.
+    add_test(NAME nmd.tests.gpu.hardware
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/scripts/gpu_hardware_validation_gate.py
+                --test-exe $<TARGET_FILE:NoMoreDay>
+                --revision local-gpu-hardware
+    )
+    set_tests_properties(nmd.tests.gpu.hardware PROPERTIES
+        LABELS "gpu-hardware"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        TIMEOUT 900
+        RUN_SERIAL ON
+        RESOURCE_LOCK gpu-hardware
     )
 
     add_test(NAME nmd.tests.progression.unit

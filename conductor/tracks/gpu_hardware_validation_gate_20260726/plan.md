@@ -2,7 +2,7 @@
 
 > **Track ID**: `gpu_hardware_validation_gate_20260726`
 > **依赖 Spec**: [spec.md](./spec.md)
-> **状态**: [~] In Progress — production NO-GO
+> **状态**: [~] In Progress — production NO-GO（W6 机制落地，实机 GO 待 M0-C `gpu-hardware` job）
 
 ---
 
@@ -145,3 +145,58 @@ DecideGate(report):
 - 无效项（环境局限，不计入）：矩阵 ROI/SDF/GI readback 三项——测试二进制未调用 `RenderSystem::Initialize()`（g_* null → 7 pass 不入 graph）+ harness 无 hooks/renderContext（零绘制）+ viewport 1×1（ROI 全黑）。判定逻辑无 bug。
 - **后续**：真实 readback 判定需移至游戏二进制上下文（`--gate` 模式：`RenderSystem::Initialize()` + 真实 hooks + 正确 viewport + 游戏侧 FixtureRenderDriver），属 S6 契约范围外，另行立项。
 - evidence：`docs/reports/gpu-gate-dod2/evidence.md`；validation.md §16。
+
+## W6 生产门禁与测试分层（MS-8 W6，2026-08-02）
+
+设计输入：MS-8 plan §9 W6、MS-8 design §10、[gpu-production-remediation-follow-up](../../../docs/designs/gpu-production-remediation-follow-up.md)（artifact 字段缺失 -> NOT_RUN；真实 Gameplay harness 唯一有效）。
+
+### W6.1 契约先行（文档）
+
+- [x] M0-C Track 文档（spec/plan/validation/release_posture/index）明确：standalone 测试二进制只能作 contract/diagnostic，不能产生生产 GO；生产门禁 = `NoMoreDay.exe --gpu-gate`（正常 Game/App 初始化后）；CLI 文法、artifact schema 版本化、exit 语义（process 可 0 退出但 verdict 决定成败）。
+
+### W6.2 测试分层
+
+- [x] 保留为真实契约测试：GateReport JSON schema、Python runner fail-closed 解析、missing-driver -> NOT_RUN、deterministic fixture hash、RenderGraph/registry/lifecycle/QualityTier 契约。
+- [x] `RunGate` 离屏矩阵（1x1 hidden context + `GameplayRuntimeHarness`）与 `S7b` paired GI delta capture 重新分类为 contract/diagnostic：测试名改为 `[GPU-Diagnostic]` 前缀（非 `[Integration]`），从 `nmd.tests.ci.nonperf`（exclude 追加 `*GPU-Diagnostic*`）与 generic `nmd.tests.integration`（`--test-case=[Integration]*`）移除实际硬件矩阵执行；诊断用例以最小样本（3 帧/无 stress）标注 non-exhaustive。
+- [x] 新增窄标签 CTest 条目 `nmd.tests.gpu.contract`（contract 用例）与 `nmd.tests.gpu.diagnostic`（诊断用例）；doctest 成功 ≠ gate GO。
+
+### W6.3-W6.4 Game/App 组合与输出
+
+- [x] `FixtureRenderDriver` 增加带默认实现（nullptr）的 `RenderHooks()`（forward declare `NoMoreDay::render::GameplayRenderHooks`，保持 dependency-neutral，测试 harness 零改动）；`RunGate`/`RunPairedGiDeltaCapture` 内 `RenderSystem::render(..., driver->RenderHooks())`。
+- [x] 新建 `src/app/GpuGateDriver.hpp/.cpp`（具体 `FixtureRenderDriver`，构造传 Game 真实成员指针；PrepareFixture 在真实 m_registry 构建三类确定性 fixture：cave/combat/outdoor；RenderInput 镜像 GameplayState::OnRender；CompositeFramebuffer = 自建 1280x720 RGBA16F FBO；SceneInputHash FNV-1a；RenderHooks 返回真实 gameplayRenderHooks）。
+- [x] `Game::runGpuGate(...)`（Game.cpp）：构造 driver、调 `RunGate`、输出**恰好一个** `GPU_HARDWARE_GATE_RESULT status=` marker + `GPU_HARDWARE_GATE_REPORT_BEGIN/END` versioned JSON artifact；缺字段 -> NOT_RUN，绝不默认值填充。
+- [x] `main.cpp` 加 `--gpu-gate` 分支（不破坏 `--smoke-test`）；`src/app/CMakeLists.txt` 增加 `GpuGateDriver.cpp`。
+
+### W6 评审修正（2026-08-02 第二轮，reviewer "修改" 后）
+
+- [x] **pass trace 真实性**：matrix cell `executed_pass_order` 取自真实 `RenderSystem::render` 最后帧 `RenderGraph::CompiledRenderPlan.passOrder`（`pass_trace_source` 注明来源），删除模拟 testGraph；空列表 → cell fail。
+- [x] **GI paired delta 逐 cell 进 verdict**：每 cell 执行 `RunPairedGiDeltaCapture`，`gi_paired_delta/gi_paired_passed` 入 `overall_passed` 与全局 verdict（pairedGiDeltas 每 fixture×tier 一条）。
+- [x] **真实 SDF readback**：GI-on cell 对真实 JFA 距离场（GL_R16F）`glGetTexImage` + 5 点 sign probe；`missing/failed` → cell fail；GI-off cell 为 `not_applicable`。
+- [x] **occupancy fail-closed**：M0-A R3 未实现 → `occupancy.status=missing_pending_m0a`、`blocks_go=true`，当前任何 revision 禁 GO。
+- [x] **ROI readback 坐标**：读全 FBO + CPU 裁剪（`ComputeRoiMeanLuma` 按真实原点），越界返回 0；新增 `[Unit] ROI origin crop correctness` 测试。
+- [x] **GPU 身份真实**：`vendor/driver_version/renderer` 取真实 `glGetString`，空 → preflight fail → NOT_RUN；runner 校验非空并拒绝。
+- [x] **production driver hooks 必填**：`IsProductionDriver()==true` 且 `RenderHooks()==nullptr` → NOT_RUN（渲染空壳 fail-closed）。
+- [x] **钳制语义**：显式 < 生产下限按 requested 执行并记录 `requested_*`/`actual_*` + `non_exhaustive=true`（禁 GO）；仅默认走 120/100。
+- [x] **异常路径报告**：`main.cpp` catch 输出完整 NOT_RUN JSON report 到 stdout（单 marker + 单报告）。
+
+### W6.5 Runner 改造
+
+- [x] `scripts/gpu_hardware_validation_gate.py`：启动 `NoMoreDay.exe --gpu-gate --revision <rev>`（`--test-exe` 默认改 `bin/NoMoreDay.exe`，不再用 doctest filter）；`NMD_GATE_*` env 继续注入；判定仅 `rc==0 + schema valid + 精确 GO`；NO_GO/NOT_RUN 均为失败；新增 parser 负例测试。
+
+### W6.6 执行注册
+
+- [x] `tests/CMakeLists.txt` 新增 `nmd.tests.gpu.hardware` CTest 条目（`Python3::Interpreter` 调 runner 启动游戏二进制，labels 仅 `gpu-hardware`，RUN_SERIAL + RESOURCE_LOCK，不入默认 `ci`/`integration`）。本机无真实硬件门禁执行条件时以注册/文档形式落地，不得假装运行实机矩阵。
+
+### W6.7 硬件验收要求（实机 `gpu-hardware` job 注册）
+
+- 真实 GPU identity（vendor/renderer/driver/gl version）。
+- High/Ultra/GI-off/resize/tier/capability 矩阵。
+- 每个 declared pass >=120 个不同帧有效样本。
+- 无 high-severity GL diagnostics。
+- 60s 压力下 5s 窗口无净资源增长；100 次 GI/tier/resize 切换。
+- 可复现 artifact（固定 seed/ROI/camera）。
+- 本地最小样本（3 帧/1 次切换）只验证机制，标注 non-exhaustive，不构成生产 GO。
+
+### W6.8 证据审查
+
+- [ ] 实机 `gpu-hardware` job 归档 artifact 经 schema validator 且 `gate_succeeded==true` 前，本 Track 保持 production NO-GO。

@@ -1,6 +1,7 @@
 # App layer: application bootstrap and top-level composition.
 add_library(NoMoreDayApp STATIC
     Game.cpp
+    GpuGateDriver.cpp
 )
 
 add_dependencies(NoMoreDayApp GenerateTags)

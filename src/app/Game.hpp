@@ -12,6 +12,7 @@
 #include "raylib.h"
 #include <entt/entt.hpp>
 #include <memory>
+#include <string>
 #include <taskflow/taskflow.hpp>
 
 
@@ -21,6 +22,15 @@ public:
   ~Game();
 
   void run();
+
+  // MS-8 W6 (M0-C): production game-binary hardware gate entry. Runs after
+  // normal Game/App initialization; drives GPUHardwareValidationGate through
+  // the real registry/SharedContext/render hooks and emits exactly one
+  // GPU_HARDWARE_GATE_RESULT marker plus a versioned JSON report to stdout.
+  // Returns the process exit code; the verdict (GO/NO_GO/NOT_RUN) is decoupled
+  // from it - the Python runner decides pass/fail from the artifact.
+  int runGpuGate(const std::string &revision, int sampleFramesPerFixture,
+                 bool stressTest1Min, int toggleLoops);
 
 private:
   void init();

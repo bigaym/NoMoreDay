@@ -42,6 +42,7 @@
 #include "engine/render/passes/VFXPass.hpp"
 #include "engine/render/resources/FramebufferManager.hpp"
 #include "engine/render/resources/FullscreenQuad.hpp"
+#include "engine/render/resources/GPUResourceRegistry.hpp"
 #include "engine/render/resources/TransientResourcePool.hpp"
 #include "engine/render/resource/TextureArrayManager.hpp"
 #include "engine/render/core/AdaptiveQualityController.hpp"
@@ -186,6 +187,11 @@ std::shared_ptr<NoMoreDay::render::passes::ShadowBuildPass> g_shadowBuildPass;
 std::shared_ptr<NoMoreDay::render::passes::ShadowResolvePass> g_shadowResolvePass;
 std::unique_ptr<NoMoreDay::render::debug::RenderProfiler> g_renderProfiler;
 std::unique_ptr<NoMoreDay::render::dev::ShaderHotReloadManager> g_shaderHotReloadManager;
+
+// W6 (M0-C): the pass order of the graph actually compiled inside the last
+// render() call. The hardware gate reads this (via GetLastExecutedPassOrder)
+// so its pass trace is the real execution path, not a synthetic test graph.
+std::vector<std::string> s_lastExecutedPassOrder;
 
 void ReleaseV3RuntimeResourcesSkeleton() {
   if (g_distortionPass != nullptr) {
@@ -1686,7 +1692,15 @@ void RenderSystem::render(entt::registry &registry,
     graphContext.renderProfiler->BeginFrame();
   }
   graph.Build();
+  // W6 (M0-C): capture the real executed pass order for the hardware gate's
+  // pass-trace evidence (actual graph, actual passes, actual order).
+  s_lastExecutedPassOrder = graph.GetCompiledPlan().passOrder;
   graph.Execute(graphContext);
+  // W5.6 (RG-3 contract): exact-one frame advancement. Advance the registry
+  // immediately after a successful graph execute - never per pass and never
+  // before a failed/aborted execute. Downstream snapshot consumers (profiler
+  // HUD, adaptive policy, gate quiescence) read the just-advanced epoch.
+  NoMoreDay::render::resources::GPUResourceRegistry::Get().AdvanceFrame();
   if (graphContext.renderProfiler != nullptr) {
     // S1b: single Poll point of the render path. Must precede every
     // DRS/adaptive-policy read so HUD/summary/DRS consume backfilled stats.
@@ -1743,4 +1757,19 @@ void RenderSystem::render(entt::registry &registry,
   }
 
   g_transientPool.EndFrame();
+}
+
+// W6 (M0-C): hardware-gate evidence accessors (see RenderSystem.hpp).
+const std::vector<std::string> &RenderSystem::GetLastExecutedPassOrder() {
+  return s_lastExecutedPassOrder;
+}
+
+RenderSystem::GiDistanceFieldInfo RenderSystem::GetGiDistanceField() {
+  GiDistanceFieldInfo info;
+  if (g_jfaPass != nullptr && g_jfaPass->HasDistanceField()) {
+    info.texture = g_jfaPass->GetDistanceFieldTexture();
+    info.width = g_jfaPass->GetDistanceFieldWidth();
+    info.height = g_jfaPass->GetDistanceFieldHeight();
+  }
+  return info;
 }

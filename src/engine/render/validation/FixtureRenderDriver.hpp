@@ -12,6 +12,10 @@ namespace NoMoreDay {
 struct SharedContext;
 }
 
+namespace NoMoreDay::render {
+class GameplayRenderHooks;
+}
+
 namespace NoMoreDay::render::validation {
 
 // S6 (M0-C R1.2): abstract contract between the hardware gate and a concrete
@@ -47,6 +51,26 @@ public:
   virtual uint64_t SceneInputHash() const = 0;
   virtual std::string FixtureVersion() const = 0;
   virtual std::string SceneSource() const = 0;
+
+  // W6 (M0-C): real gameplay render hooks for the production game-binary gate.
+  // The concrete driver at the Game/App composition root returns the real
+  // GameplayRenderHooks so RenderSystem runs the full gameplay draw path
+  // (occluders/height-field/loot/emissive staging populated). Test harnesses
+  // keep the default nullptr (documented diagnostic-only environment). The
+  // engine stays dependency-neutral via a forward declaration only.
+  virtual NoMoreDay::render::GameplayRenderHooks *RenderHooks() {
+    return nullptr;
+  }
+
+  // W6 (M0-C): production drivers (game-binary composition root) MUST supply
+  // real gameplay render hooks; a production driver with nullptr hooks fails
+  // closed as NOT_RUN so a broken integration can never silently degrade to a
+  // hollow render. Contract/diagnostic test harnesses leave this false and are
+  // allowed to run the matrix with nullptr hooks (documented diagnostic
+  // environment, never production evidence).
+  virtual bool IsProductionDriver() const {
+    return false;
+  }
 };
 
 } // namespace NoMoreDay::render::validation

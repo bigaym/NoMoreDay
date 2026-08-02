@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 """GPU Hardware Validation Gate runner and artifact exporter.
 
-Executes the C++ GPU Hardware Validation Gate matrix, verifies preflight,
-timing budgets, resource registries, and outputs structured artifact reports.
+W6 (M0-C): executes the production game-binary gate ``NoMoreDay.exe --gpu-gate``
+(normal Game/App initialization, real GL context/registry/hooks/render path),
+verifies the emitted versioned JSON report against the fail-closed schema, and
+outputs a structured artifact. Pass only when the process returns 0, the report
+is schema-valid and the status is exactly ``GO``; ``NO_GO``/``NOT_RUN`` are
+failures. The standalone doctest binary is contract/diagnostic only and is not
+invoked here.
 """
 
 from __future__ import annotations
@@ -50,7 +55,23 @@ REQUIRED_TOP_LEVEL_KEYS = frozenset({
     "gl_diagnostics",
     "matrix_results",
     "global_failures",
+    # W6 (M0-C): requested/actual sampling budget + non-exhaustive flag, and
+    # occupancy/disocclusion evidence (fail-closed when missing).
+    "run_config",
+    "occupancy",
 })
+
+REQUIRED_RUN_CONFIG_KEYS = frozenset({
+    "requested_sample_frames",
+    "actual_sample_frames",
+    "requested_toggle_loops",
+    "actual_toggle_loops",
+    "non_exhaustive",
+})
+
+REQUIRED_OCCUPANCY_KEYS = frozenset({"status", "reason", "blocks_go"})
+
+SDF_READBACK_STATUSES = frozenset({"passed", "not_applicable", "missing", "failed"})
 
 REQUIRED_CAPABILITY_KEYS = frozenset({
     "vendor",
@@ -69,6 +90,8 @@ REQUIRED_CAPABILITY_KEYS = frozenset({
     "debug_output_enabled",
     "meets_preflight",
     "preflight_reason",
+    # W6 (M0-C): whether the driver supplied real gameplay render hooks.
+    "render_hooks_supplied",
 })
 
 REQUIRED_GL_DIAGNOSTIC_KEYS = frozenset({
@@ -89,6 +112,41 @@ REQUIRED_DIAGNOSTIC_MESSAGE_KEYS = frozenset({
     "time",
 })
 
+# W6 (M0-C): each matrix cell must pin the reproducible input (fixture, tier,
+# GI mode, extent, camera and ROI) plus the pass/readback verdicts and timings;
+# a cell missing any of these is a schema violation (fail-closed, never
+# default-filled).
+REQUIRED_MATRIX_CELL_KEYS = frozenset({
+    "fixture",
+    "tier",
+    "gi_enabled",
+    "resolution",
+    "camera",
+    "roi",
+    "pass_trace_valid",
+    # W6 (M0-C) Blocker-1: real executed pass order + provenance, per-cell
+    # paired GI delta, and the real SDF evidence (status + probe stats).
+    "pass_trace_source",
+    "executed_pass_order",
+    "non_black_roi_passed",
+    "roi_mean_brightness",
+    "gi_indirect_passed",
+    "gi_paired_delta",
+    "gi_paired_passed",
+    "sdf_readback_status",
+    "sdf_evidence_source",
+    "sdf_readback_passed",
+    "overall_passed",
+    "scene_input_hash",
+    "fixture_version",
+    "scene_source",
+    "timings",
+    "failures",
+})
+
+REQUIRED_CAMERA_KEYS = frozenset({"target_x", "target_y", "zoom"})
+REQUIRED_ROI_KEYS = frozenset({"x", "y", "width", "height"})
+
 
 def utc_now_iso() -> str:
     """Return current UTC timestamp in ISO-8601 format."""
@@ -100,7 +158,7 @@ class HardwareGateConfig:
     """Configuration options for GPU hardware gate execution."""
 
     revision: str = "HEAD"
-    test_exe: Path = Path("bin/NoMoreDayTests.exe")
+    test_exe: Path = Path("bin/NoMoreDay.exe")
     output_dir: Path = Path("artifacts/gpu-gate/HEAD")
     sample_frames: int = 120
     toggle_loops: int = 100
@@ -122,8 +180,10 @@ def gate_timeout_seconds(config: HardwareGateConfig) -> int:
 def build_gate_env(config: HardwareGateConfig) -> dict[str, str]:
     """Assemble the environment variables forwarded to the C++ gate.
 
-    The C++ integration test reads these (with matching defaults) and feeds
-    them into ``RunGate``, wiring the otherwise-dead CLI parameters.
+    ``NoMoreDay.exe --gpu-gate`` reads these (with matching defaults) and feeds
+    them into ``RunGate``; argv (``--revision``) is passed on the command line
+    while the sample/toggle/stress knobs travel through the environment, wiring
+    the runner CLI parameters into the game-binary gate.
     """
     return {
         GATE_ENV_SAMPLES: str(config.sample_frames),
@@ -237,6 +297,52 @@ def validate_gate_report_schema(report: dict[str, Any]) -> list[str]:
         for key in sorted(REQUIRED_CAPABILITY_KEYS):
             if key not in capabilities:
                 errors.append(f"capabilities missing required key: {key}")
+        # W6 (M0-C) High-3: GPU identity is mandatory evidence - an empty
+        # vendor/driver_version means the context did not expose its identity
+        # and must be rejected (never default-filled).
+        vendor = capabilities.get("vendor")
+        if not isinstance(vendor, str) or not vendor.strip():
+            errors.append("capabilities.vendor must be a non-empty string")
+        driver_version = capabilities.get("driver_version")
+        if not isinstance(driver_version, str) or not driver_version.strip():
+            errors.append(
+                "capabilities.driver_version must be a non-empty string"
+            )
+
+    run_config = report.get("run_config")
+    if not isinstance(run_config, dict):
+        errors.append("run_config must be an object")
+    else:
+        for key in sorted(REQUIRED_RUN_CONFIG_KEYS):
+            if key not in run_config:
+                errors.append(f"run_config missing required key: {key}")
+        non_exhaustive = run_config.get("non_exhaustive")
+        # W6 (M0-C) Medium-5: a GO verdict is impossible on a non-exhaustive
+        # (below-production-floor) run; reject it at the schema level too.
+        if status == "GO" and non_exhaustive is True:
+            errors.append(
+                "GO is impossible while run_config.non_exhaustive is true "
+                "(diagnostic sampling below production floor)"
+            )
+
+    occupancy = report.get("occupancy")
+    if not isinstance(occupancy, dict):
+        errors.append("occupancy must be an object")
+    else:
+        for key in sorted(REQUIRED_OCCUPANCY_KEYS):
+            if key not in occupancy:
+                errors.append(f"occupancy missing required key: {key}")
+        # W6 (M0-C) Blocker-1: occupancy evidence missing_pending_m0a (M0-A R3
+        # not implemented) blocks GO; a GO verdict must never be accepted while
+        # occupancy evidence is missing or flagged as blocking.
+        occ_status = occupancy.get("status")
+        if not isinstance(occ_status, str) or not occ_status.strip():
+            errors.append("occupancy.status must be a non-empty string")
+        if status == "GO" and occupancy.get("blocks_go") is not False:
+            errors.append(
+                "GO is impossible while occupancy evidence is missing/blocked "
+                f"(occupancy.status={occ_status!r})"
+            )
 
     gl_diagnostics = report.get("gl_diagnostics")
     if not isinstance(gl_diagnostics, dict):
@@ -273,6 +379,59 @@ def validate_gate_report_schema(report: dict[str, Any]) -> list[str]:
     matrix_results = report.get("matrix_results")
     if not isinstance(matrix_results, list):
         errors.append("matrix_results must be an array")
+    else:
+        for index, cell in enumerate(matrix_results):
+            if not isinstance(cell, dict):
+                errors.append(f"matrix_results[{index}] must be an object")
+                continue
+            for key in sorted(REQUIRED_MATRIX_CELL_KEYS):
+                if key not in cell:
+                    errors.append(
+                        f"matrix_results[{index}] missing required key: {key}"
+                    )
+            camera = cell.get("camera")
+            if not isinstance(camera, dict):
+                errors.append(f"matrix_results[{index}].camera must be an object")
+            else:
+                for key in sorted(REQUIRED_CAMERA_KEYS):
+                    if key not in camera:
+                        errors.append(
+                            f"matrix_results[{index}].camera missing required key: {key}"
+                        )
+            roi = cell.get("roi")
+            if not isinstance(roi, dict):
+                errors.append(f"matrix_results[{index}].roi must be an object")
+            else:
+                for key in sorted(REQUIRED_ROI_KEYS):
+                    if key not in roi:
+                        errors.append(
+                            f"matrix_results[{index}].roi missing required key: {key}"
+                        )
+            # W6 (M0-C) Blocker-1: real pass trace must be an array, and the
+            # SDF evidence status must be one of the declared values.
+            executed_order = cell.get("executed_pass_order")
+            if not isinstance(executed_order, list):
+                errors.append(
+                    f"matrix_results[{index}].executed_pass_order must be an array"
+                )
+            sdf_status = cell.get("sdf_readback_status")
+            if sdf_status not in SDF_READBACK_STATUSES:
+                errors.append(
+                    f"matrix_results[{index}].sdf_readback_status must be one of "
+                    f"{sorted(SDF_READBACK_STATUSES)}, got {sdf_status!r}"
+                )
+            pass_trace_source = cell.get("pass_trace_source")
+            if not isinstance(pass_trace_source, str) or not pass_trace_source.strip():
+                errors.append(
+                    f"matrix_results[{index}].pass_trace_source must be a "
+                    "non-empty string"
+                )
+            sdf_evidence_source = cell.get("sdf_evidence_source")
+            if not isinstance(sdf_evidence_source, str) or not sdf_evidence_source.strip():
+                errors.append(
+                    f"matrix_results[{index}].sdf_evidence_source must be a "
+                    "non-empty string"
+                )
 
     global_failures = report.get("global_failures")
     if not isinstance(global_failures, list):
@@ -297,7 +456,14 @@ def gate_succeeded(return_code: int, gate_status: str | None) -> bool:
 def run_hardware_gate_cpp(
     config: HardwareGateConfig,
 ) -> tuple[int, str, str]:
-    """Execute C++ GPU Hardware Validation Gate runner.
+    """Execute the production game-binary GPU Hardware Validation Gate.
+
+    W6 (M0-C): the production gate is ``NoMoreDay.exe --gpu-gate`` (normal
+    Game/App initialization, real GL context/registry/hooks/render path). The
+    standalone test binary is contract/diagnostic only and is no longer invoked
+    here. The doctest filter is gone; the game binary emits exactly one
+    ``GPU_HARDWARE_GATE_RESULT status=...`` marker and one versioned JSON
+    report between BEGIN/END markers.
 
     Args:
         config: Configuration parameters for execution.
@@ -314,12 +480,14 @@ def run_hardware_gate_cpp(
 
     cmd = [
         str(config.test_exe),
-        "--test-case=*GPU Hardware Validation Gate*",
+        "--gpu-gate",
+        "--revision",
+        config.revision,
     ]
 
-    # S8: forward the CLI knobs to the C++ side. The integration test reads
-    # NMD_GATE_* and passes them into RunGate, so --samples/--toggle-loops/
-    # --stress-test-1min are no longer dead parameters.
+    # W6 (M0-C): forward the CLI knobs to the game binary. The binary reads
+    # NMD_GATE_* (argv wins over env, env wins over defaults) and passes them
+    # into RunGate, so --samples/--toggle-loops/--stress-test-1min stay wired.
     gate_env = os.environ.copy()
     gate_env.update(build_gate_env(config))
 
@@ -328,10 +496,16 @@ def run_hardware_gate_cpp(
     timeout = gate_timeout_seconds(config)
 
     try:
+        # W6 (M0-C): decode the game binary output as UTF-8 with replacement so
+        # a locale-codepage mismatch (Windows default is GBK) can never crash
+        # the reader threads and silently null out stdout/stderr. The ASCII
+        # status marker and the UTF-8 JSON report survive intact.
         proc = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             env=gate_env,
             timeout=timeout,
             check=False,
@@ -408,8 +582,10 @@ def main() -> int:
     parser.add_argument(
         "--test-exe",
         type=Path,
-        default=Path("bin/NoMoreDayTests.exe"),
-        help="Path to NoMoreDayTests executable",
+        default=Path("bin/NoMoreDay.exe"),
+        help="Path to the game binary (default: bin/NoMoreDay.exe; the "
+        "production gate runs NoMoreDay.exe --gpu-gate, not the doctest "
+        "binary)",
     )
     parser.add_argument(
         "--output-dir",
@@ -532,7 +708,7 @@ def main() -> int:
     artifact = {
         "revision": config.revision,
         "timestamp": utc_now_iso(),
-        "runner": "C++ NoMoreDayTests GPUHardwareValidationGate",
+        "runner": "NoMoreDay.exe --gpu-gate (production game-binary gate)",
         "gate_status": gate_status,
         "gate_succeeded": succeeded,
         "meets_preflight": meets_preflight,

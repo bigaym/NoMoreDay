@@ -1,4 +1,5 @@
 #include "app/Game.hpp"
+#include "app/GpuGateDriver.hpp"
 #include "core/logging/Logger.hpp"
 #include "game/persistence/SaveManager.hpp"
 #include "engine/render/GPUEntitySystem.hpp"
@@ -8,6 +9,7 @@
 #include "engine/render/PopupRenderer.hpp"
 #include "engine/render/GPUTextSystem.hpp"
 #include "engine/render/RenderSystem.hpp" // ADDED
+#include "engine/render/validation/GPUHardwareValidationGate.hpp"
 #include "engine/render/resource/MSDFAtlasLoader.hpp"
 #include "engine/resource/AssetLoadingSystem.hpp"
 #include "game/components/AstrolabeUIComponent.hpp"
@@ -35,6 +37,7 @@
 #include "engine/render/GPUUtils.hpp"
 #include "core/utils/Time.hpp"
 #include <algorithm>
+#include <iostream>
 #include <stdexcept>
 #include <string_view>
 #include <unordered_map>
@@ -410,6 +413,41 @@ void Game::run() {
                 toggleFullScreen();
             }
       }}
+
+int Game::runGpuGate(const std::string &revision, int sampleFramesPerFixture,
+                     bool stressTest1Min, int toggleLoops) {
+  using namespace NoMoreDay::render::validation;
+  LOG_INFO("Running GPU hardware validation gate (revision={}, samples={}, "
+           "stress={}, toggle_loops={})",
+           revision, sampleFramesPerFixture, stressTest1Min, toggleLoops);
+
+  // W6 (M0-C): the driver borrows the real game members - real registry,
+  // real SharedContext/render context and the real gameplay render hooks
+  // installed by Game::init() - and owns the RGBA16F composite target.
+  GpuGateDriver driver(&m_registry, &m_context);
+  const GateReport report =
+      GPUHardwareValidationGate::RunGate(revision, sampleFramesPerFixture,
+                                         stressTest1Min, toggleLoops, &driver);
+
+  const std::string statusStr =
+      (report.status == GateStatus::Go)
+          ? "GO"
+          : (report.status == GateStatus::NoGo) ? "NO_GO" : "NOT_RUN";
+
+  // W6.4 (M0-C): exactly one status marker and exactly one versioned JSON
+  // artifact between the BEGIN/END markers. Missing required fields are
+  // NOT_RUN at the runner (never filled with defaults - fail-closed).
+  std::cout << "GPU_HARDWARE_GATE_RESULT status=" << statusStr << "\n";
+  std::cout << "GPU_HARDWARE_GATE_REPORT_BEGIN\n";
+  std::cout << report.ToJsonString() << "\n";
+  std::cout << "GPU_HARDWARE_GATE_REPORT_END\n" << std::flush;
+
+  LOG_INFO("GPU hardware validation gate completed: status={}", statusStr);
+  // Process exit code is decoupled from the verdict: the runner decides
+  // pass/fail from the artifact (return_code==0 AND schema valid AND
+  // status=="GO"); NO_GO/NOT_RUN are failures regardless of exit code.
+  return 0;
+}
 
 void Game::toggleFullScreen() {
     int monitor = GetCurrentMonitor();
