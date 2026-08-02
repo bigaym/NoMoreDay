@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check the MS-1 Core candidate manifest and Types CMake boundary."""
+"""Check the MS-7 layered Core manifest and Types CMake boundary."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 CONTRACT_RELATIVE_PATH = Path(
     "docs/reports/modular-split-exe-lib-dll/ms-1/core-candidate-contract.json"
 )
@@ -37,6 +37,21 @@ INCLUDE_PATTERN = re.compile(
 )
 CMK_IDENTIFIER_PATTERN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 
+# The four STATIC layers must each be defined exactly once in their own
+# directory CMakeLists, in the order Core -> Engine -> Game -> App.
+LAYER_TARGETS = {
+    "NoMoreDayApp": ("src/app/CMakeLists.txt", "STATIC"),
+    "NoMoreDayGame": ("src/game/CMakeLists.txt", "STATIC"),
+    "NoMoreDayEngine": ("src/engine/CMakeLists.txt", "STATIC"),
+    "NoMoreDayCore": ("src/core/CMakeLists.txt", "STATIC"),
+}
+LAYER_LINK_EDGES = (
+    ("src/app/CMakeLists.txt", "NoMoreDayApp", "NoMoreDayGame", "PUBLIC"),
+    ("src/game/CMakeLists.txt", "NoMoreDayGame", "NoMoreDayEngine", "PUBLIC"),
+    ("src/engine/CMakeLists.txt", "NoMoreDayEngine", "NoMoreDayCore", "PUBLIC"),
+    ("src/core/CMakeLists.txt", "NoMoreDayCore", "NoMoreDayTypes", "PUBLIC"),
+)
+
 
 class ContractInputError(ValueError):
     """Raised when the contract or its checked inputs are malformed."""
@@ -52,7 +67,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         Parsed command-line arguments.
     """
     parser = argparse.ArgumentParser(
-        description="Check the MS-1 Core candidate contract"
+        description="Check the MS-7 layered Core manifest contract"
     )
     parser.add_argument(
         "--repo-root",
@@ -141,28 +156,50 @@ def load_contract(contract_path: Path) -> dict[str, Any]:
     contract = _require_keys(
         loaded,
         {
-            "schema_version", "milestone", "status", "current_aggregate_target",
+            "schema_version", "milestone", "status", "layered_targets",
             "types_target", "future_core_candidate", "pch_inventory", "audit_scope",
         },
         "contract",
     )
     if contract["schema_version"] != SCHEMA_VERSION:
         raise ContractInputError("unsupported schema_version")
-    if contract["milestone"] != "MS-1":
-        raise ContractInputError("milestone must be MS-1")
+    if contract["milestone"] != "MS-7":
+        raise ContractInputError("milestone must be MS-7")
     _require_string(contract["status"], "status")
     _require_string(contract["audit_scope"], "audit_scope")
-    _require_keys(
-        contract["current_aggregate_target"], {"name", "role", "contract"},
-        "current_aggregate_target",
+    layered = _require_keys(
+        contract["layered_targets"], {"targets", "link_chain"}, "layered_targets",
     )
-    aggregate = contract["current_aggregate_target"]
-    if (
-        aggregate["name"] != "NoMoreDayCore"
-        or aggregate["role"] != "legacy aggregate"
-    ):
-        raise ContractInputError("current aggregate must remain legacy NoMoreDayCore")
-    _require_string(aggregate["contract"], "current_aggregate_target.contract")
+    if not isinstance(layered["targets"], list) or not layered["targets"]:
+        raise ContractInputError("layered_targets.targets must be a non-empty list")
+    for index, entry in enumerate(layered["targets"]):
+        target = _require_keys(
+            entry, {"name", "kind", "file"},
+            f"layered_targets.targets[{index}]",
+        )
+        for field in ("name", "kind", "file"):
+            _require_string(target[field], f"layered_targets.targets[{index}].{field}")
+    expected_names = {
+        "NoMoreDayTypes", "NoMoreDayCore", "NoMoreDayEngine",
+        "NoMoreDayGame", "NoMoreDayApp",
+    }
+    if {target["name"] for target in layered["targets"]} != expected_names:
+        raise ContractInputError(
+            "layered_targets.targets must name the five layered targets"
+        )
+    if not isinstance(layered["link_chain"], list) or not layered["link_chain"]:
+        raise ContractInputError("layered_targets.link_chain must be a non-empty list")
+    for index, entry in enumerate(layered["link_chain"]):
+        edge = _require_keys(
+            entry, {"from", "to", "scope", "file"},
+            f"layered_targets.link_chain[{index}]",
+        )
+        for field in ("from", "to", "scope", "file"):
+            _require_string(edge[field], f"layered_targets.link_chain[{index}].{field}")
+        if edge["scope"] not in {"PUBLIC", "PRIVATE"}:
+            raise ContractInputError(
+                f"layered_targets.link_chain[{index}].scope must be PUBLIC or PRIVATE"
+            )
     types = _require_keys(
         contract["types_target"],
         {
@@ -357,6 +394,21 @@ def _is_sanctioned_types_include(
     )
 
 
+def _is_sanctioned_core_types_link(
+    path: Path, repo_root: Path, command: str, body: str
+) -> bool:
+    """Return whether Core's PUBLIC link to NoMoreDayTypes is permitted."""
+    tokens = _cmake_tokens(body)
+    return (
+        path == repo_root / "src" / "core" / "CMakeLists.txt"
+        and command == "target_link_libraries"
+        and len(tokens) >= 3
+        and tokens[0] == "NoMoreDayCore"
+        and tokens[1] == "PUBLIC"
+        and "NoMoreDayTypes" in tokens[2:]
+    )
+
+
 def _is_types_guard_declaration(command: str, body: str) -> bool:
     """Return whether a function or macro declares the final guard name."""
     tokens = _cmake_tokens(body)
@@ -515,6 +567,9 @@ def validate_cmake_types_contract(repo_root: Path) -> list[str]:
                 and not _is_sanctioned_types_include(
                     listed_path, repo_root, command, body
                 )
+                and not _is_sanctioned_core_types_link(
+                    listed_path, repo_root, command, body
+                )
             ):
                 errors.append(
                     "NoMoreDayTypes property mutation is forbidden: "
@@ -550,6 +605,66 @@ def validate_cmake_types_contract(repo_root: Path) -> list[str]:
         errors.append(
             "NoMoreDayTypes configure-time guard must use one root-scope DEFER call"
         )
+    return errors
+
+
+def validate_layered_target_graph(repo_root: Path) -> list[str]:
+    """Return layered-target definition and link-chain violations.
+
+    Args:
+        repo_root: Repository root containing the layer CMakeLists files.
+
+    Returns:
+        Human-readable layered-target policy violations.
+    """
+    cmake_files = _first_party_cmake_files(repo_root)
+    parsed_files: dict[str, list[tuple[str, str]]] = {}
+    for listed_path in cmake_files:
+        relative = listed_path.relative_to(repo_root).as_posix()
+        try:
+            parsed_files[relative] = list(
+                _iter_cmake_commands(listed_path.read_text(encoding="utf-8"))
+            )
+        except (OSError, UnicodeError) as exc:
+            raise ContractInputError(
+                f"cannot read {listed_path}: {exc}"
+            ) from exc
+    errors: list[str] = []
+    for name, (relative, kind) in LAYER_TARGETS.items():
+        commands = parsed_files.get(relative, [])
+        definitions = [
+            body for command, body in commands
+            if command == "add_library" and _cmake_tokens(body)[:2] == [name, kind]
+        ]
+        if len(definitions) != 1:
+            errors.append(
+                f"layered target {name} must be defined exactly once as {kind} "
+                f"in {relative}"
+            )
+        for other, other_commands in parsed_files.items():
+            if other == relative:
+                continue
+            if any(
+                command == "add_library" and _cmake_tokens(body)[:1] == [name]
+                for command, body in other_commands
+            ):
+                errors.append(
+                    f"layered target {name} must not be defined outside {relative}"
+                )
+    for relative, from_target, to_target, scope in LAYER_LINK_EDGES:
+        commands = parsed_files.get(relative, [])
+        matches = [
+            body for command, body in commands
+            if command == "target_link_libraries"
+            and _cmake_tokens(body)[:1] == [from_target]
+            and scope in _cmake_tokens(body)[1:]
+            and to_target in _cmake_tokens(body)[1:]
+        ]
+        if len(matches) != 1:
+            errors.append(
+                f"layered link {from_target} {scope} {to_target} must appear "
+                f"exactly once in {relative}"
+            )
     return errors
 
 
@@ -619,7 +734,7 @@ def validate_contract_paths(repo_root: Path, contract: dict[str, Any]) -> list[s
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Run the MS-1 contract check and return its process status."""
+    """Run the MS-7 layered contract check and return its process status."""
     args = parse_args(argv)
     repo_root = args.repo_root.resolve()
     contract_path = args.contract
@@ -629,15 +744,16 @@ def main(argv: list[str] | None = None) -> int:
         contract = load_contract(contract_path.resolve())
         errors = validate_contract_paths(repo_root, contract)
         errors.extend(validate_cmake_types_contract(repo_root))
+        errors.extend(validate_layered_target_graph(repo_root))
     except (ContractInputError, OSError) as exc:
-        print(f"[MS-1 Contract] ERROR: {exc}")
+        print(f"[MS-7 Contract] ERROR: {exc}")
         return 2
     if errors:
-        print(f"[MS-1 Contract] FAILED: {len(errors)} violation(s).")
+        print(f"[MS-7 Contract] FAILED: {len(errors)} violation(s).")
         for error in errors:
-            print(f"[MS-1 Contract] - {error}")
+            print(f"[MS-7 Contract] - {error}")
         return 1
-    print("[MS-1 Contract] PASS: Core manifest and Types CMake boundary match.")
+    print("[MS-7 Contract] PASS: layered targets, Core manifest, and Types CMake boundary match.")
     return 0
 
 

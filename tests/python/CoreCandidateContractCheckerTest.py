@@ -15,13 +15,63 @@ CONTRACT_PATH = (
 
 def make_contract() -> dict[str, object]:
     return {
-        "schema_version": "1.0",
-        "milestone": "MS-1",
+        "schema_version": "1.1",
+        "milestone": "MS-7",
         "status": "implementation_complete_review_pending",
-        "current_aggregate_target": {
-            "name": "NoMoreDayCore",
-            "role": "legacy aggregate",
-            "contract": "Legacy aggregate remains enabled.",
+        "layered_targets": {
+            "targets": [
+                {
+                    "name": "NoMoreDayTypes",
+                    "kind": "INTERFACE",
+                    "file": "CMakeLists.txt",
+                },
+                {
+                    "name": "NoMoreDayCore",
+                    "kind": "STATIC",
+                    "file": "src/core/CMakeLists.txt",
+                },
+                {
+                    "name": "NoMoreDayEngine",
+                    "kind": "STATIC",
+                    "file": "src/engine/CMakeLists.txt",
+                },
+                {
+                    "name": "NoMoreDayGame",
+                    "kind": "STATIC",
+                    "file": "src/game/CMakeLists.txt",
+                },
+                {
+                    "name": "NoMoreDayApp",
+                    "kind": "STATIC",
+                    "file": "src/app/CMakeLists.txt",
+                },
+            ],
+            "link_chain": [
+                {
+                    "from": "NoMoreDayApp",
+                    "to": "NoMoreDayGame",
+                    "scope": "PUBLIC",
+                    "file": "src/app/CMakeLists.txt",
+                },
+                {
+                    "from": "NoMoreDayGame",
+                    "to": "NoMoreDayEngine",
+                    "scope": "PUBLIC",
+                    "file": "src/game/CMakeLists.txt",
+                },
+                {
+                    "from": "NoMoreDayEngine",
+                    "to": "NoMoreDayCore",
+                    "scope": "PUBLIC",
+                    "file": "src/engine/CMakeLists.txt",
+                },
+                {
+                    "from": "NoMoreDayCore",
+                    "to": "NoMoreDayTypes",
+                    "scope": "PUBLIC",
+                    "file": "src/core/CMakeLists.txt",
+                },
+            ],
         },
         "types_target": {
             "name": "NoMoreDayTypes",
@@ -121,6 +171,38 @@ class CoreCandidateContractCheckerTest(unittest.TestCase):
         (root / "src" / "core" / "Deferred.hpp").write_text(
             "#pragma once\n", encoding="utf-8"
         )
+        (root / "src" / "core" / "CMakeLists.txt").write_text(
+            "add_library(NoMoreDayCore STATIC Logger.cpp)\n"
+            "target_link_libraries(NoMoreDayCore PUBLIC NoMoreDayTypes)\n",
+            encoding="utf-8",
+        )
+        for layer_dir, layer_target, layer_source in (
+            ("engine", "NoMoreDayEngine", "Engine.cpp"),
+            ("game", "NoMoreDayGame", "GameSystem.cpp"),
+            ("app", "NoMoreDayApp", "Game.cpp"),
+        ):
+            layer_path = root / "src" / layer_dir
+            layer_path.mkdir(parents=True)
+            (layer_path / layer_source).write_text("// fixture source\n", encoding="utf-8")
+            (layer_path / "CMakeLists.txt").write_text(
+                f"add_library({layer_target} STATIC {layer_source})\n",
+                encoding="utf-8",
+            )
+        (root / "src" / "app" / "CMakeLists.txt").write_text(
+            "add_library(NoMoreDayApp STATIC Game.cpp)\n"
+            "target_link_libraries(NoMoreDayApp PUBLIC NoMoreDayGame)\n",
+            encoding="utf-8",
+        )
+        (root / "src" / "game" / "CMakeLists.txt").write_text(
+            "add_library(NoMoreDayGame STATIC GameSystem.cpp)\n"
+            "target_link_libraries(NoMoreDayGame PUBLIC NoMoreDayEngine)\n",
+            encoding="utf-8",
+        )
+        (root / "src" / "engine" / "CMakeLists.txt").write_text(
+            "add_library(NoMoreDayEngine STATIC Engine.cpp)\n"
+            "target_link_libraries(NoMoreDayEngine PUBLIC NoMoreDayCore)\n",
+            encoding="utf-8",
+        )
         (root / "src" / "pch.hpp").write_text(
             '#include "game/Common.hpp"\n#include "engine/Resource.hpp"\n',
             encoding="utf-8",
@@ -131,7 +213,7 @@ class CoreCandidateContractCheckerTest(unittest.TestCase):
         )
         (root / "CMakeLists.txt").write_text(
             "cmake_minimum_required(VERSION 3.20)\n"
-            "project(TypesGuardFixture NONE)\n"
+            "project(TypesGuardFixture CXX)\n"
             "add_library(NoMoreDayTypes INTERFACE)\n"
             "target_include_directories(NoMoreDayTypes INTERFACE\n"
             "    ${CMAKE_CURRENT_SOURCE_DIR}/src\n)\n"
@@ -159,6 +241,10 @@ class CoreCandidateContractCheckerTest(unittest.TestCase):
             "  endif()\n"
             "endfunction()\n"
             "cmake_language(DEFER CALL _nmd_ms1_types_boundary_final_guard_7f3c9a)\n"
+            "add_subdirectory(src/core)\n"
+            "add_subdirectory(src/engine)\n"
+            "add_subdirectory(src/game)\n"
+            "add_subdirectory(src/app)\n"
             "add_subdirectory(tests)\n",
             encoding="utf-8",
         )
@@ -497,11 +583,11 @@ class CoreCandidateContractCheckerTest(unittest.TestCase):
         temporary_directory, root, contract_path = self.make_fixture()
         with temporary_directory:
             contract = make_contract()
-            contract["current_aggregate_target"]["contract"] = 1
+            contract["layered_targets"]["targets"] = 1
             contract_path.write_text(json.dumps(contract), encoding="utf-8")
             result = self.run_checker(root)
         self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
-        self.assertIn("current_aggregate_target.contract", result.stdout)
+        self.assertIn("layered_targets.targets", result.stdout)
 
 
 if __name__ == "__main__":

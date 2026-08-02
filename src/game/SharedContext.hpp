@@ -1,6 +1,6 @@
 #pragma once
 
-#include "app/Settings.hpp"
+#include "game/Settings.hpp"
 #include <entt/entt.hpp>
 #include <taskflow/taskflow.hpp>
 

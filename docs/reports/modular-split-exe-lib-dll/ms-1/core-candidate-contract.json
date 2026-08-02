@@ -1,11 +1,61 @@
 {
-  "schema_version": "1.0",
-  "milestone": "MS-1",
-  "status": "implementation_complete_review_pending",
-  "current_aggregate_target": {
-    "name": "NoMoreDayCore",
-    "role": "legacy aggregate",
-    "contract": "Compiles current src/*.cpp except app/main.cpp and SkillBehaviors; it is not the future Core layer."
+  "schema_version": "1.1",
+  "milestone": "MS-7",
+  "status": "layered_targets_enabled_ms7_b2",
+  "layered_targets": {
+    "targets": [
+      {
+        "name": "NoMoreDayTypes",
+        "kind": "INTERFACE",
+        "file": "CMakeLists.txt"
+      },
+      {
+        "name": "NoMoreDayCore",
+        "kind": "STATIC",
+        "file": "src/core/CMakeLists.txt"
+      },
+      {
+        "name": "NoMoreDayEngine",
+        "kind": "STATIC",
+        "file": "src/engine/CMakeLists.txt"
+      },
+      {
+        "name": "NoMoreDayGame",
+        "kind": "STATIC",
+        "file": "src/game/CMakeLists.txt"
+      },
+      {
+        "name": "NoMoreDayApp",
+        "kind": "STATIC",
+        "file": "src/app/CMakeLists.txt"
+      }
+    ],
+    "link_chain": [
+      {
+        "from": "NoMoreDayApp",
+        "to": "NoMoreDayGame",
+        "scope": "PUBLIC",
+        "file": "src/app/CMakeLists.txt"
+      },
+      {
+        "from": "NoMoreDayGame",
+        "to": "NoMoreDayEngine",
+        "scope": "PUBLIC",
+        "file": "src/game/CMakeLists.txt"
+      },
+      {
+        "from": "NoMoreDayEngine",
+        "to": "NoMoreDayCore",
+        "scope": "PUBLIC",
+        "file": "src/engine/CMakeLists.txt"
+      },
+      {
+        "from": "NoMoreDayCore",
+        "to": "NoMoreDayTypes",
+        "scope": "PUBLIC",
+        "file": "src/core/CMakeLists.txt"
+      }
+    ]
   },
   "types_target": {
     "name": "NoMoreDayTypes",
@@ -29,7 +79,7 @@
   },
   "future_core_candidate": {
     "name": "NoMoreDayCore",
-    "role": "future target contract only; not enabled by this milestone",
+    "role": "enabled MS-7 layer target compiling Logger.cpp and CrashHandler.cpp",
     "eligible_implementation_sources": [
       "src/core/logging/Logger.cpp"
     ],
@@ -50,12 +100,12 @@
       {
         "path": "src/core/logging/CrashHandler.cpp",
         "reason": "Uses Windows and DbgHelp process-crash APIs, so it is not platform-independent Core.",
-        "owner_resolution": "Keep in the aggregate until a later ownership audit assigns its platform boundary."
+        "owner_resolution": "Compiled by the enabled NoMoreDayCore target for the executable's crash handler; ownership of the platform boundary remains under a later audit."
       },
       {
         "path": "src/core/logging/CrashHandler.hpp",
         "reason": "Public declaration for the deferred Windows crash-handler implementation.",
-        "owner_resolution": "Keep with CrashHandler.cpp."
+        "owner_resolution": "Kept with CrashHandler.cpp in the enabled NoMoreDayCore target."
       }
     ],
     "dependency_rule": "Eligible Core sources and headers may not include engine/, game/, or app/."

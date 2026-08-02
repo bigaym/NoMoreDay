@@ -119,6 +119,13 @@ if(ENABLE_LTO)
     endif()
 endif()
 
+# --- MSVC Performance Optimizations ---
+# Note: RelWithDebInfo defaults to /Ob1. We upgrade it to /Ob2 to avoid D9025 warnings.
+if(MSVC)
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
+endif()
+
 # --- External Dependencies ---
 
 # 1. Spdlog
@@ -199,106 +206,21 @@ target_precompile_headers(SkillBehaviors PRIVATE src/pch.hpp)
 # Enable Unity Build for Skills
 set_target_properties(SkillBehaviors PROPERTIES UNITY_BUILD ON)
 
-# --- Core Library (Static) ---
-# 递归获取所有源文件，排除 app/main.cpp 和已在 SkillBehaviors 中的文件
-file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS 
-    "src/*.cpp"
-)
-
-# 移除 main.cpp (由主程序目标使用)
-list(REMOVE_ITEM CORE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/app/main.cpp")
-
-# 移除 SkillBehaviors 的源文件，避免重复编译
-foreach(SKILL_SRC ${SKILL_BEHAVIORS_SOURCES})
-    list(REMOVE_ITEM CORE_SOURCES ${SKILL_SRC})
-endforeach()
-
-# 将核心逻辑打包为静态库
-add_library(NoMoreDayCore STATIC ${CORE_SOURCES})
-
-set_source_files_properties(src/engine/resource/ResourceManager.cpp PROPERTIES 
-    SKIP_PRECOMPILE_HEADERS ON
-    SKIP_UNITY_BUILD_INCLUSION ON
-)
-
-add_dependencies(NoMoreDayCore GenerateTags)
-
-# Enable Precompiled Headers
-target_precompile_headers(NoMoreDayCore PRIVATE src/pch.hpp)
-
-# Link dependencies
-target_link_libraries(NoMoreDayCore 
-    PUBLIC 
-    raylib 
-    glfw
-    spdlog::spdlog 
-    EnTT::EnTT 
-    Taskflow
-    xsimd
-    SkillBehaviors
-)
-target_link_libraries(NoMoreDayCore PRIVATE NoMoreDayAnalyzeFlags)
-
-# Enable Unity Build for Core
-set_target_properties(NoMoreDayCore PROPERTIES UNITY_BUILD OFF)
-
-# Header-only libraries include paths
-target_include_directories(NoMoreDayCore PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
-target_include_directories(NoMoreDayCore SYSTEM PUBLIC
-    third_party/json/include
-    third_party/raylib/src
-    third_party/raylib/src/external
-    third_party/raylib/src/external/glfw/include
-)
-
-if(WIN32)
-    # Add windows specific libs
-    target_link_libraries(NoMoreDayCore PUBLIC winmm kernel32 opengl32 gdi32 user32 shell32 dbghelp)
-    
-    target_compile_definitions(NoMoreDayCore PUBLIC GRAPHICS_API_OPENGL_43)
-
-    if(MSVC)
-        # --- MSVC Performance Optimizations ---
-        # Note: RelWithDebInfo defaults to /Ob1. We upgrade it to /Ob2 to avoid D9025 warnings.
-        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
-        set(CMAKE_C_FLAGS_RELWITHDEBINFO "/MD /Zi /O2 /Ob2 /DNDEBUG" CACHE STRING "" FORCE)
-
-        # /arch:AVX2  : Enable Advanced Vector Extensions 2 (Critical for xsimd/particles)
-        # /Oi         : Generate intrinsic functions
-        # /Ot         : Favor fast code
-        # /Ob2        : Aggressive inlining
-        # /GF         : Eliminate duplicate strings
-        target_compile_options(NoMoreDayCore PUBLIC
-            $<$<CONFIG:Release>:/arch:AVX2 /Oi /Ot /Ob2 /GF>
-            $<$<CONFIG:RelWithDebInfo>:/arch:AVX2 /Oi /Ot /Ob2 /GF>
-        )
-
-        if(ENABLE_RUNTIME_OPT)
-            # Improve linker-level dead code/data elimination opportunities.
-            target_compile_options(NoMoreDayCore PUBLIC
-                $<$<CONFIG:Release>:/Gw /Gy>
-            )
-        endif()
-    endif()
-    
-    target_compile_definitions(NoMoreDayCore PUBLIC WIN32_LEAN_AND_MEAN NOGDI NOUSER NOMINMAX)
-endif()
-
-if(COMBAT_DEFENSE_DEBUG)
-    target_compile_definitions(NoMoreDayCore PUBLIC COMBAT_DEFENSE_DEBUG=1)
-else()
-    target_compile_definitions(NoMoreDayCore PUBLIC COMBAT_DEFENSE_DEBUG=0)
-endif()
-
-if(COMBAT_TELEMETRY_ENABLED)
-    target_compile_definitions(NoMoreDayCore PUBLIC COMBAT_TELEMETRY_ENABLED=1)
-else()
-    target_compile_definitions(NoMoreDayCore PUBLIC COMBAT_TELEMETRY_ENABLED=0)
-endif()
+# --- Layered Static Libraries ---
+# Each layer owns an explicit source manifest (no GLOB_RECURSE). The PUBLIC
+# dependency chain propagates include paths, compile definitions, and link
+# libraries upward so the executable and the test binary receive the full
+# transitive closure:
+#   NoMoreDay -> NoMoreDayApp -> NoMoreDayGame -> NoMoreDayEngine
+#             -> NoMoreDayCore -> NoMoreDayTypes
+add_subdirectory(src/core)
+add_subdirectory(src/engine)
+add_subdirectory(src/game)
+add_subdirectory(src/app)
 
 # --- Main Executable ---
 add_executable(NoMoreDay src/app/main.cpp)
-target_link_libraries(NoMoreDay PRIVATE NoMoreDayCore)
+target_link_libraries(NoMoreDay PRIVATE NoMoreDayApp)
 target_link_libraries(NoMoreDay PRIVATE NoMoreDayAnalyzeFlags)
 
 if(MSVC AND ENABLE_RUNTIME_OPT)

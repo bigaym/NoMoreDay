@@ -238,3 +238,25 @@ MS-6 全部 66 条 P0-blocked 边清零：ef39129（GPU 实体核心）+ 363b196
 **剩余风险**：低。Game→App 依赖已清零；SharedContext 现属 game 层，B2 target 图无阻塞边。
 
 **提交**：`refactor(game): move shared context below game layer`（待提交）。
+
+---
+
+# MS-7 Batch 2（显式 manifest + 四层 target 图 + checker 升级）— `提交`
+
+**审查目标**：核验 monolith 拆分 NoMoreDay(exe)→App STATIC→Game STATIC→Engine STATIC→Core STATIC→Types INTERFACE、显式 source manifest、checker 分层升级。
+
+**变更边界**：新增 4 个分层 CMakeLists（`src/{app,game,engine,core}/CMakeLists.txt`，显式 manifest 无 GLOB_RECURSE）+ 重写根 CMakeLists（删 monolith、add_subdirectory 四层、RelWithDebInfo flags 上移根作用域、exe 链 NoMoreDayApp）+ checker 升级（core-candidate-contract.json schema 1.0→1.1、`current_aggregate_target`→`layered_targets` 五 target + link_chain 四边、`validate_layered_target_graph`、`_is_sanctioned_core_types_link` 放行 Core PUBLIC Types）+ tests/CMakeLists.txt L45 改链 NoMoreDayApp + `src/game/SharedContext.hpp` 修复（B1 遗留 broken include `app/Settings.hpp`→`game/Settings.hpp`，必须随本批提交否则构建碎）；settings.json 为用户指示既有残留（排除）；受保护设计文档排除。
+
+**发现**：无 Blocker/High/Medium。4 Low 非阻塞：①`validate_layered_target_graph` 无负面测试（缺层/重复/link 缺失 FAIL 用例建议后续补）；②SharedContext.hpp 附加改动超 B2 名义范围但必须包含（提交信息注明）；③engine PUBLIC dbghelp 冗余无害（core 已有 PRIVATE dbghelp + pragma 兜底）；④link 边校验宽松（只查 scope/dep 在 tokens[1:]，当前文件严格书写无影响）。
+
+**关键决策**：从显式 PUBLIC link 移除 `kernel32/gdi32/user32/shell32`（MSVC 默认库集链接行末尾自动追加排 raylib 后，解决 LNK2005 `user32.CloseWindow`）；保留 `winmm/opengl32`（raylib 接口）+ `dbghelp`（Core PRIVATE + pragma）。vcxproj 确认 raylib.lib 现先于 user32.lib，exe/tests 均链接成功。
+
+**已复核通过**：文件清单精确（game 149=136+13 behaviors、engine 67/67、core 2/2、app 1+main；EnemyAIBehaviors.cpp 属 systems/ai 非 behaviors GLOB 编入 Game 正确）；五 target 依赖/作用域正确；SkillBehaviors OBJECT 经 Game PUBLIC 完整进入 exe 与 tests（`Blade Ascendant key branches` 46/46 静态注册实证）；GenerateTags 落点 Game/Engine/App；系统库移除安全性（MSVC 默认库覆盖 + src 无直接引用，仅 MSVC 工具链）；checker 升级正确（pch_inventory 5+2 与 src/core manifest 校验保留、DEFER guard 原样保留无 cmake_language 违规）；tests 链接过渡态与 B4 无冲突；GLOB/UNITY/CTest/bin 零破坏（脚本依赖 bin/NoMoreDayTests.exe 不变）。
+
+**独立重跑（审查员）**：checker 5/5 PASS、25 python tests OK（ModuleBoundary 6 + Contract 19）、git diff --check exit 0。
+
+**验证（主代理）**：build.bat check OK、完整构建双标记 0 error、ctest -L "unit|integration" 13/15（2 失败均为既有 HeavenlySword flaky 隔离 4/4 过）、SkillBehaviors 静态注册 46/46。
+
+**剩余风险**：**Release+LTO 未实证**（RelWithDebInfo + ENABLE_LTO=OFF，/LTCG 下系统库解析理论安全未构建验证，B4/后续需补验）；glfw/raylib 升级可能改变系统库 PRIVATE 传递；B4 落地时需回归链接。
+
+**提交**：`build(cmake): split monolith into layered target graph`（待提交）。
